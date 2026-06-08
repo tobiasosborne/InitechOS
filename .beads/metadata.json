@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "initech",
+  "project_id": "de4b5381-1668-4251-8564-86b31e222aa1"
+}
