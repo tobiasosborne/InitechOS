@@ -148,6 +148,9 @@ KERNEL_INT21_C   := $(KERNEL_DIR)/int21.c
 # PSP construction (beads initech-509.4) + flat program loader (initech-509.5).
 KERNEL_PSP_C     := $(KERNEL_DIR)/psp.c
 KERNEL_LOADER_C  := $(KERNEL_DIR)/loader.c
+# System File Table / Job File Table handle layer (beads initech-509.3): the
+# JFT->SFT indirection + predefined handles 0-4 + DUP/DUP2 redirection.
+KERNEL_SFT_C     := $(KERNEL_DIR)/sft.c
 # FAT12 mount over ATA (beads initech-saw / initech-adf): the real-hardware
 # sector backend (ata.c) + the FAT12 reader (fat12.c == FAT12_SRC) linked into
 # the kernel so kmain.c can mount the data disk and render a proto-DIR.
@@ -170,6 +173,7 @@ KERNEL_PIC_OBJ   := $(BUILD)/pic.o
 KERNEL_PANIC_OBJ := $(BUILD)/panic.o
 KERNEL_INT21_OBJ := $(BUILD)/int21.o
 KERNEL_PSP_OBJ   := $(BUILD)/psp.o
+KERNEL_SFT_OBJ   := $(BUILD)/sft.o
 KERNEL_LOADER_OBJ := $(BUILD)/loader.o
 KERNEL_ATA_OBJ   := $(BUILD)/ata.o
 KERNEL_FAT12_OBJ := $(BUILD)/fat12.o
@@ -425,17 +429,24 @@ TEST_INT21_SRC  := $(MILTON_DIR)/test_int21.c
 TEST_INT21_MUT_DOLLAR := $(BUILD)/test_int21_mutant_dollar
 TEST_INT21_MUT_NOOP   := $(BUILD)/test_int21_mutant_noop
 
-$(TEST_INT21): $(TEST_INT21_SRC) $(KERNEL_INT21_C) $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
-		-o $@ $(TEST_INT21_SRC) $(KERNEL_INT21_C)
+# int21.c now routes handle functions through the SFT (initech-509.3), so the
+# host oracle links sft.c + psp.c too and needs -Ispec (sft.h -> psp.h ->
+# dos_structs.h). The standard JFT/SFT is bound in test_int21.c's main().
+TEST_INT21_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C)
+TEST_INT21_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+                   $(MILTON_DIR)/psp.h spec/dos_structs.h
 
-$(TEST_INT21_MUT_DOLLAR): $(TEST_INT21_SRC) $(KERNEL_INT21_C) $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_PUTS_EMIT_DOLLAR -I$(MILTON_DIR) -Iseed \
-		-o $@ $(TEST_INT21_SRC) $(KERNEL_INT21_C)
+$(TEST_INT21): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
 
-$(TEST_INT21_MUT_NOOP): $(TEST_INT21_SRC) $(KERNEL_INT21_C) $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_UNLISTED_NOOP -I$(MILTON_DIR) -Iseed \
-		-o $@ $(TEST_INT21_SRC) $(KERNEL_INT21_C)
+$(TEST_INT21_MUT_DOLLAR): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_PUTS_EMIT_DOLLAR -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_NOOP): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_UNLISTED_NOOP -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
 
 .PHONY: test-int21 test-int21-mutant
 test-int21: $(TEST_INT21)
@@ -512,6 +523,60 @@ test-psp-mutant: $(TEST_PSP_MUT_INT20) $(TEST_PSP_MUT_TAIL)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-sft (beads initech-509.3 -- SFT/JFT handle layer + DUP/DUP2)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the JFT->SFT indirection (os/milton/sft.c): predefined
+# handles 0-4 resolve to the right device SFT slots; jft_alloc/sft_alloc find +
+# saturate; DUP (45h) duplicates with ref_count++; DUP2 (46h) redirects (incl.
+# stdout->a FILE slot), releasing the old target + freeing on last reference.
+# sft.c is pure table manipulation (no I/O), so it is fully host-testable; it
+# ALSO compiles freestanding into the kernel. Links psp.c for psp_build (the
+# standard JFT). -Ispec for sft.h -> psp.h -> dos_structs.h. Mirrors test-psp.
+TEST_SFT      := $(BUILD)/test_sft
+TEST_SFT_SRC  := $(MILTON_DIR)/test_sft.c
+TEST_SFT_DEPS := $(KERNEL_SFT_C) $(KERNEL_PSP_C)
+TEST_SFT_HDRS := $(MILTON_DIR)/sft.h $(MILTON_DIR)/psp.h spec/dos_structs.h
+# Mutation builds (CLAUDE.md Rule 6): sft.c compiled with a single ref-count
+# operation removed so `make test-sft-mutant` can prove the oracle BITES.
+# (a) DUP omits the ref_count++ ; (b) DUP2 omits the old-target release.
+TEST_SFT_MUT_DUP   := $(BUILD)/test_sft_mutant_dup
+TEST_SFT_MUT_DUP2  := $(BUILD)/test_sft_mutant_dup2
+
+$(TEST_SFT): $(TEST_SFT_SRC) $(TEST_SFT_DEPS) $(TEST_SFT_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_SFT_SRC) $(TEST_SFT_DEPS)
+
+$(TEST_SFT_MUT_DUP): $(TEST_SFT_SRC) $(TEST_SFT_DEPS) $(TEST_SFT_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSFT_MUTATE_DUP_NO_REFCOUNT -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_SFT_SRC) $(TEST_SFT_DEPS)
+
+$(TEST_SFT_MUT_DUP2): $(TEST_SFT_SRC) $(TEST_SFT_DEPS) $(TEST_SFT_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSFT_MUTATE_DUP2_NO_RELEASE -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_SFT_SRC) $(TEST_SFT_DEPS)
+
+.PHONY: test-sft test-sft-mutant
+test-sft: $(TEST_SFT)
+	@printf ">>> test-sft: JFT->SFT handle layer + predefined handles 0-4 + DUP/DUP2 (initech-509.3)\n"
+	@$(TEST_SFT)
+	@printf ">>> test-sft: green\n"
+
+# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
+test-sft-mutant: $(TEST_SFT_MUT_DUP) $(TEST_SFT_MUT_DUP2)
+	@printf ">>> test-sft-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_SFT_MUT_DUP) >/dev/null 2>&1; then \
+		printf '!!! test-sft-mutant FAIL: DUP-no-refcount mutant PASSED -- the ref_count test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-sft-mutant: green (DUP-no-refcount mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_SFT_MUT_DUP2) >/dev/null 2>&1; then \
+		printf '!!! test-sft-mutant FAIL: DUP2-no-release mutant PASSED -- the release test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-sft-mutant: green (DUP2-no-release mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-loader (beads initech-509.5 -- flat program loader PREP)
 # ---------------------------------------------------------------------------
 # Host unit oracle for loader_prepare() (os/milton/loader.c): input validation
@@ -578,6 +643,7 @@ endef
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-psp test-psp-mutant \
+        test-sft test-sft-mutant \
         test-loader test-loader-mutant test-program test-fs test-panic \
         test-assets test-spec selfhost ddc clean
 
@@ -613,6 +679,7 @@ help:
 	@printf '  test-assets    Asset v0: re-sample palette.json anchors vs the frame fixture + validate the Chicago strike header. REAL.\n'
 	@printf '  test-spec      InitechDOS spec-data (ADR-0003 Appendices A-D): JSON parse + 16 messages + struct size asserts + banner double-space. REAL.\n'
 	@printf '  test-psp       PSP 256-byte construction oracle (initech-509.4 / App B.2): int20/seg-fields/jft/int21-entry/cmd-tail + clamp + no-overflow. REAL.\n'
+	@printf '  test-sft       SFT/JFT handle layer (initech-509.3 / DEC-06): predefined handles 0-4 + jft/sft alloc + DUP/DUP2 redirection + ref-counting. REAL.\n'
 	@printf '  test           Run the whole gate vector (PRD Sec 8).\n'
 	@printf '\n'
 	@printf 'Self-host certificate (M8 finale):\n'
@@ -675,7 +742,7 @@ $(TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) | $(BUILD)
 $(KERNEL_START_OBJ): $(KERNEL_START_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
-$(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # Text console (beads initech-yqb): the SAME console.c the host blit oracle
@@ -694,15 +761,23 @@ $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PANIC_C) -o $@
 
 # INT 21h dispatcher (beads initech-509.5): the SAME int21.c the host oracle
-# (os/milton/test_int21.c) exercises; freestanding here, hosted there.
-$(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_INT21_C) -o $@
+# (os/milton/test_int21.c) exercises; freestanding here, hosted there. Now
+# includes sft.h -> psp.h -> dos_structs.h, so -Ispec (initech-509.3).
+$(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
+                     $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_INT21_C) -o $@
 
 # PSP construction (beads initech-509.4): the SAME psp.c the host oracle
 # (test_psp.c) exercises; freestanding here, hosted there. -Ispec for psp.h ->
 # dos_structs.h (the LOCKED psp_t).
 $(KERNEL_PSP_OBJ): $(KERNEL_PSP_C) $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_PSP_C) -o $@
+
+# System File Table / Job File Table (beads initech-509.3): the SAME sft.c the
+# host oracle (test_sft.c) exercises; freestanding here, hosted there. -Ispec
+# for sft.h -> psp.h -> dos_structs.h (psp_t.jft, dir_entry_t).
+$(KERNEL_SFT_OBJ): $(KERNEL_SFT_C) $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SFT_C) -o $@
 
 # Flat program loader (beads initech-509.5): the SAME loader.c the host oracle
 # (test_loader.c) exercises; freestanding here (asm control-transfer path),
@@ -746,7 +821,7 @@ $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 
 KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-               $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_LOADER_OBJ) \
+               $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) \
                $(KERNEL_TEST_PROG_OBJ) $(KERNEL_ISR_OBJ)
 
@@ -757,12 +832,12 @@ $(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
 # Same sources, but kmain.c compiled with -DBOOT_SELFTEST_FAULT so the boot
 # raises a deliberate #DE after the banner. Linked into a SEPARATE image so the
 # normal kernel/image (test-boot) never faults.
-$(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SELFTEST_FAULT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_LOADER_OBJ) \
+                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_ISR_OBJ)
 

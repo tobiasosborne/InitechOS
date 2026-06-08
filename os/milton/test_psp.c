@@ -83,17 +83,21 @@ static void check_static_fields(const psp_t *p)
     CHECK(p->parent_psp == EXP_PARENT,
           "parent_psp must be parent_psp_linear>>4 (Sec 2.5)");
 
-    /* 18h jft: 0x00,0x01,0x01 then 0xFF x17 (Sec 2.6, aligned to int21.h). */
+    /* 18h jft: the FIVE predefined handles 0-4 (DEC-06) then 0xFF x15.
+     * 0x00,0x01,0x01,0x02,0x03 (stdin/stdout/stderr/aux/prn -> SFT slots
+     * 0/1/1/2/3) then 0xFF for the unused slots (Sec 2.6; ADR-0003 DEC-06). */
     CHECK(p->jft[0] == 0x00, "jft[0] (stdin) must be 0x00 (Sec 2.6)");
     CHECK(p->jft[1] == 0x01, "jft[1] (stdout) must be 0x01 (Sec 2.6)");
     CHECK(p->jft[2] == 0x01, "jft[2] (stderr) must be 0x01 (Sec 2.6)");
+    CHECK(p->jft[3] == 0x02, "jft[3] (aux) must be 0x02 -> SFT slot 2 (DEC-06)");
+    CHECK(p->jft[4] == 0x03, "jft[4] (prn) must be 0x03 -> SFT slot 3 (DEC-06)");
     int jft_unused_ok = 1;
-    for (int i = 3; i < 20; i++) {
+    for (int i = 5; i < 20; i++) {
         if (p->jft[i] != 0xFF) {
             jft_unused_ok = 0;
         }
     }
-    CHECK(jft_unused_ok, "jft[3..19] must all be 0xFF (unused; Sec 2.6)");
+    CHECK(jft_unused_ok, "jft[5..19] must all be 0xFF (unused; Sec 2.6)");
 
     /* 2Ch env_seg = env linear >> 4 (Option B). */
     CHECK(p->env_seg == EXP_ENV_SEG,

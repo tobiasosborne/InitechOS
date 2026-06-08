@@ -27,6 +27,8 @@
 #include "idt.h"
 #include "pic.h"
 #include "int21.h"
+#include "psp.h"         /* psp_build -> the kernel-context PSP (initech-509.3) */
+#include "sft.h"         /* sft_init -> the system file table (initech-509.3) */
 #include "loader.h"      /* load_program (beads initech-509.5) */
 #include "test_prog.h"   /* the baked flat test program bytes */
 #include "ata.h"         /* ATA PIO backend (FAT-mount over the emulator) */
@@ -162,6 +164,13 @@ void selftest_report_c(void)
  * The console pointer is held at file scope so the sink (a plain function) can
  * reach the live console kernel_main set up -- mirrors panic_set_console. */
 static console_t *g_int21_con = 0;
+
+/* Kernel-context PSP (beads initech-509.3). Holds the standard Job File Table
+ * for INT 21h handle functions issued from kernel context (before/after a
+ * program runs). File scope (BSS) so it outlives kernel_main and stays bound
+ * across the program load/return. The loader binds the loaded program's own PSP
+ * during a run; the kernel re-binds this one when load_program returns. */
+static psp_t g_kernel_psp;
 
 static void int21_con_sink(char c)
 {
@@ -332,6 +341,25 @@ void kernel_main(void)
      * console is up); until then the sink fans to serial only. */
     int21_set_sink(int21_con_sink);
     int21_set_exit(int21_exit_hook);
+
+    /* System File Table + kernel-context PSP (beads initech-509.3). sft_init
+     * lays the predefined device entries (slots 0-3: CON-in, CON-out, AUX, PRN);
+     * the kernel PSP carries the matching standard JFT (jft[0..4]) so kernel-
+     * context INT 21h (AH=40h WRITE etc.) has valid standard handles BEFORE any
+     * program loads. The loader rebinds to the program's PSP on load and the
+     * kernel restores g_kernel_psp on return (below). Ref: DEC-06; sft.h. */
+    sft_init();
+    {
+        psp_params_t kp;
+        kp.alloc_end_linear  = 0u;  /* kernel context: no program ceiling */
+        kp.env_linear        = 0u;
+        kp.parent_psp_linear = 0u;
+        kp.cmd_tail          = (const char *)0;
+        kp.cmd_tail_len      = 0u;
+        (void)psp_build(&g_kernel_psp, &kp);
+    }
+    int21_set_psp(&g_kernel_psp);
+
     idt_install_trap(0x21u, (void *)int21_entry);
     /* INT 20h legacy-terminate trap gate (beads initech-509.5). Vector 0x20 is
      * free (PIC master at 0x28, DEC-04a); a loaded program can terminate via
@@ -453,6 +481,7 @@ void kernel_main(void)
                                           g_test_prog_image_len,
                                           (const char *)0, 0u, &rc);
         int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
+        int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT (509.3) */
         if (st == LOADER_OK) {
             serial_puts("PROGRAM-EXIT rc=");
             serial_putu((uint32_t)rc);

@@ -120,18 +120,26 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
     psp->parent_psp = flat_to_fake_paragraph(params->parent_psp_linear);
 
     /* --- 18h jft[20]: the Job File Table (20 one-byte handle entries). ------
-     * Entries 0,1,2 = inherited standard handles as sentinel SFT indices,
-     * aligned to int21.h INT21_HANDLE_STDOUT(=1)/STDERR(=2):
+     * Entries 0-4 = the FIVE predefined standard handles (DEC-06: "Handles 0
+     * through 4 shall be predefined -- standard input, output, error, auxiliary,
+     * printer"), each a sentinel SFT slot index (see sft.h SFT_SLOT_*), aligned
+     * to int21.h INT21_HANDLE_STDOUT(=1)/STDERR(=2):
      *   jft[0]=0x00 stdin  -> SFT slot 0 (CON read)
      *   jft[1]=0x01 stdout -> SFT slot 1 (CON write)
      *   jft[2]=0x01 stderr -> SFT slot 1 (CON write; shared with stdout)
-     * Entries 3..19 = 0xFF (unused/closed -- the real-DOS sentinel; AUX/PRN
-     * are deferred per 509.7, so NOT given SFT slots). The real SFT backing is
-     * initech-509.3. Ref: Sec 2.6; dos_structs.h:97. */
+     *   jft[3]=0x02 aux    -> SFT slot 2 (AUX / COM1)
+     *   jft[4]=0x03 prn    -> SFT slot 3 (PRN / LPT1)
+     * AUX/PRN are vestigial this milestone (no device driver) but are predefined
+     * IN FULL per DEC-06 + the design stance (ADR-0003 Sec 5.5). Entries 5..19 =
+     * 0xFF (unused/closed -- the real-DOS sentinel). The SFT backing for these
+     * slots is established by sft_init (sft.c, initech-509.3).
+     * Ref: Sec 2.6; dos_structs.h:97; ADR-0003 DEC-06; sft.h SFT_SLOT_*. */
     psp->jft[0] = 0x00;
     psp->jft[1] = 0x01;
     psp->jft[2] = 0x01;
-    for (uint32_t i = 3; i < 20; i++) {
+    psp->jft[3] = 0x02;
+    psp->jft[4] = 0x03;
+    for (uint32_t i = 5; i < 20; i++) {
         psp->jft[i] = 0xFF;
     }
 

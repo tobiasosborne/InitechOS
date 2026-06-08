@@ -32,7 +32,8 @@
 
 /* DOS error codes used by this subset (DOS 3.3 INT 21h error returns). */
 #define INT21_ERR_INVALID_FUNCTION  0x0001u  /* unlisted/not-yet-impl AH      */
-#define INT21_ERR_INVALID_HANDLE    0x0006u  /* WRITE to a non-CON handle     */
+#define INT21_ERR_ACCESS_DENIED     0x0005u  /* write to AUX/PRN/file (no backing yet) */
+#define INT21_ERR_INVALID_HANDLE    0x0006u  /* out-of-range / closed handle  */
 
 /* Predefined device handles (no SFT yet -- the only handles this subset honors;
  * real JFT/SFT file handles arrive with beads initech-509.3). */
@@ -62,6 +63,17 @@ void int21_set_sink(int21_sink_fn sink);
 
 /* Bind the terminate hook (NULL clears it). Called once by the kernel at boot. */
 void int21_set_exit(int21_exit_fn fn);
+
+/* Bind the CURRENT process's PSP (beads initech-509.3). The handle-based
+ * functions (40h WRITE, 45h DUP, 46h DUP2, and the file functions to come)
+ * resolve a handle through this PSP's Job File Table into the system SFT
+ * (sft.h). The kernel binds a kernel PSP at SYSINIT (so kernel-context INT 21h
+ * has valid standard handles); the loader rebinds to the loaded program's PSP
+ * and the kernel restores its own on return. NULL clears it -> handle functions
+ * then return invalid-handle. `struct psp` is forward-declared to keep int21.h
+ * free of the spec header; int21.c includes sft.h (-> psp.h) for the full type. */
+struct psp;
+void int21_set_psp(struct psp *psp);
 
 /* The C dispatch routine the asm trap stub (int21_entry, isr.asm) invokes with a
  * pointer to the on-stack int_frame_t. Reads AH = (frame->eax >> 8) & 0xFF and

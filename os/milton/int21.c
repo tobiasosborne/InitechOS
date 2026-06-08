@@ -19,6 +19,7 @@
  */
 
 #include "int21.h"
+#include "sft.h"   /* JFT->SFT handle layer (beads initech-509.3); pulls psp.h */
 
 /* The carry flag is bit 0 of EFLAGS (Intel SDM Vol 1 Sec 3.4.3). The whole
  * error-return contract rides on this single bit (ground-truth Sec 5.4). */
@@ -27,8 +28,14 @@
 static int21_sink_fn g_sink = 0;
 static int21_exit_fn g_exit = 0;
 
+/* The current process's PSP (beads initech-509.3). Handle functions resolve a
+ * handle through g_cur_psp->jft into the system SFT. NULL until the kernel binds
+ * one at SYSINIT; a handle function with no bound PSP returns invalid-handle. */
+static psp_t *g_cur_psp = 0;
+
 void int21_set_sink(int21_sink_fn sink) { g_sink = sink; }
 void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
+void int21_set_psp(struct psp *psp)     { g_cur_psp = (psp_t *)psp; }
 
 /* ---- CF helpers: write ONLY bit 0 of the saved EFLAGS image. ---- */
 static void cf_clear(int_frame_t *f) { f->eflags &= ~CF_BIT; }
@@ -158,27 +165,79 @@ static void do_puts(int_frame_t *f)
     cf_clear(f);
 }
 
-/* AH=40h WRITE TO FILE/DEVICE: EBX=handle, ECX=count, EDX=flat ptr. Subset:
- * only handles 1 (stdout) and 2 (stderr) -> CON. Any other handle -> CF=1,
- * AX=0x0006 (invalid handle); real file handles arrive with initech-509.3.
- * Success: EAX = bytes written, CF clear. */
+/* AH=40h WRITE TO FILE/DEVICE: EBX=handle, ECX=count, EDX=flat ptr. The handle
+ * is resolved through the current process's JFT into the system SFT (beads
+ * initech-509.3): a CON device entry writes to the console (so handles 1/2 --
+ * and anything DUP2'd onto the CON-write slot -- still go to CON). Writing to
+ * AUX/PRN (no driver yet) or to a FILE (FAT write deferred to 509.11) returns
+ * CF=1, AX=0x0005 (access denied). An out-of-range/closed handle -> CF=1,
+ * AX=0x0006 (invalid handle). Success: EAX = bytes written, CF clear. */
 static void do_write(int_frame_t *f)
 {
     uint32_t handle = f->ebx;
     uint32_t count  = f->ecx;
     const char *buf = (const char *)(uintptr_t)f->edx;
 
-    if (handle != INT21_HANDLE_STDOUT && handle != INT21_HANDLE_STDERR) {
-        /* No SFT yet -- only the predefined CON handles are valid (Rule 2). */
+    sft_entry_t *e = (handle <= 0xFFu)
+                       ? sft_from_handle(g_cur_psp, (uint8_t)handle)
+                       : 0;
+    if (e == 0) {
+        /* No such open handle (out of range / closed / no process). Rule 2. */
         set_ax(f, INT21_ERR_INVALID_HANDLE);
         cf_set(f);
         return;
     }
 
-    for (uint32_t i = 0; i < count; i++) {
-        con_putc(buf[i]);
+    /* CON device write: fan the bytes to the console sink. CON is the screen
+     * regardless of the slot's nominal mode (DOS treats CON as writable). */
+    if (e->kind == SFT_KIND_DEVICE && e->dev_id == SFT_DEV_CON) {
+        for (uint32_t i = 0; i < count; i++) {
+            con_putc(buf[i]);
+        }
+        f->eax = count;   /* full EAX = bytes written */
+        cf_clear(f);
+        return;
     }
-    f->eax = count;   /* full EAX = bytes written */
+
+    /* AUX/PRN devices have no driver yet; FILE writes need FAT write (deferred
+     * to initech-509.11). Both are recognized handles with no write backing ->
+     * AX=0x0005 (access denied), CF=1 (Rule 2: never silently drop the bytes). */
+    set_ax(f, INT21_ERR_ACCESS_DENIED);
+    cf_set(f);
+}
+
+/* AH=45h DUP: duplicate handle EBX into the lowest free JFT slot; the new
+ * handle aliases the same SFT entry. Returns EAX = new handle, CF clear; or
+ * CF=1, AX=error (0x0006 invalid src, 0x0004 too many open). Ref: DOS 3.3
+ * Programmer's Reference Manual AH=45h; fs-mount-sft-ground-truth.md Sec 3.4. */
+static void do_dup(int_frame_t *f)
+{
+    uint8_t src = (uint8_t)(f->ebx & 0xFFu);
+    uint8_t newh = 0;
+    uint16_t rc = sft_dup(g_cur_psp, src, &newh);
+    if (rc != SFT_OK) {
+        set_ax(f, rc);
+        cf_set(f);
+        return;
+    }
+    f->eax = (f->eax & 0xFFFFFF00u) | (uint32_t)newh; /* EAX (AL) = new handle */
+    cf_clear(f);
+}
+
+/* AH=46h DUP2: force handle ECX to alias handle EBX (the I/O-redirection
+ * primitive: DUP2(EBX=file, ECX=1) repoints stdout at the file). Returns CF
+ * clear on success; CF=1, AX=0x0006 on a bad src/dst. Ref: DOS 3.3 Programmer's
+ * Reference Manual AH=46h; fs-mount-sft-ground-truth.md Sec 3.4. */
+static void do_dup2(int_frame_t *f)
+{
+    uint8_t src = (uint8_t)(f->ebx & 0xFFu);
+    uint8_t dst = (uint8_t)(f->ecx & 0xFFu);
+    uint16_t rc = sft_dup2(g_cur_psp, src, dst);
+    if (rc != SFT_OK) {
+        set_ax(f, rc);
+        cf_set(f);
+        return;
+    }
     cf_clear(f);
 }
 
@@ -237,6 +296,12 @@ void int21_dispatch(int_frame_t *frame)
             return;
         case 0x40:                       /* WRITE TO FILE/DEVICE */
             do_write(frame);
+            return;
+        case 0x45:                       /* DUP (duplicate handle) */
+            do_dup(frame);
+            return;
+        case 0x46:                       /* DUP2 (force-duplicate handle) */
+            do_dup2(frame);
             return;
         case 0x4C:                       /* TERMINATE WITH RETURN CODE */
             do_terminate(frame, frame_al(frame));

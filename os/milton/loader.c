@@ -215,6 +215,13 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * overflowed. We ignore the count here (the baked program has no tail). */
     (void)psp_build((psp_t *)(uintptr_t)plan.psp_addr, &plan.params);
 
+    /* Bind the loaded program's PSP as the current process (beads initech-509.3)
+     * so its INT 21h handle functions (40h WRITE, 45h DUP, 46h DUP2, file ops)
+     * resolve through ITS Job File Table. The kernel re-binds its own PSP after
+     * we return (kmain, alongside the exit-hook restore). The program's JFT is
+     * the standard predefined set psp_build just laid down. */
+    int21_set_psp((struct psp *)(uintptr_t)plan.psp_addr);
+
     /* --- The control transfer + return-to-loader (Sec 4; Risk 1). --- */
     loader_context_t ctx;
     ctx.exit_code  = 0;
