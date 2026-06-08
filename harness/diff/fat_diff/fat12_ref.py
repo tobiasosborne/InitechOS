@@ -1,0 +1,236 @@
+#!/usr/bin/env python3
+# harness/diff/fat_diff/fat12_ref.py -- independent FAT12 reference reader.
+#
+# FACTORY tooling (CLAUDE.md Law 3): the artifact stays C; this python reader is
+# the SECOND independent reference for the FAT12 differential oracle (beads
+# initech-5cu). It is intentionally a THIRD implementation -- NOT mtools, NOT
+# our C reader (os/milton/fat12.c). It parses the BPB, decodes the 12-bit FAT,
+# walks cluster chains, and reads files, all from first principles per
+# docs/research/fat12-ground-truth.md Sec 1-4. Its purpose is to catch a bug
+# SHARED between our C reader and mtools' interpretation -- agreement among
+# three independent implementations is a far stronger signal than two.
+#
+# Two modes (matching fat_dump.c):
+#   --list           : one "NAME.EXT <size>" line per REGULAR file, sorted
+#                      ascending by name. Timestamps / volume serial normalized
+#                      away (never emitted).
+#   --cat NAME.EXT   : write the named file's EXACT bytes to stdout (binary).
+#
+# Fail loud (CLAUDE.md Rule 2): any structural error raises and exits non-zero;
+# a missing file in --cat exits non-zero. No silent partial output.
+#
+# ASCII-clean (Rule 12). Deterministic output (Rule 11): sorted list, no
+# timestamps. Pure stdlib (struct/sys) -- no extra runtimes (Law 3).
+
+import struct
+import sys
+
+# FAT12 special values (docs/research/fat12-ground-truth.md Sec 3).
+EOC_MIN = 0xFF8     # >= this is end-of-chain
+BAD     = 0xFF7
+FREE    = 0x000
+
+# Directory sentinels / attributes (Sec 4).
+NAME_FREE    = 0x00   # end of directory: stop scanning
+NAME_DELETED = 0xE5   # deleted entry: skip
+NAME_E5_ALIAS = 0x05  # real first char is 0xE5 (RISK-3)
+ATTR_VOLLABEL = 0x08
+ATTR_DIRECTORY = 0x10
+ATTR_LFN      = 0x0F  # RO|Hidden|System|VolLabel -> VFAT long-name slot
+
+
+class Fat12:
+    """Independent FAT12 reader over a raw image byte buffer."""
+
+    def __init__(self, data):
+        self.data = data
+        # ---- Parse the BPB (little-endian; Sec 1). ----
+        bps = struct.unpack_from("<H", data, 0x0B)[0]
+        if bps != 512:
+            raise ValueError("bytes_per_sector != 512 (got %d)" % bps)
+        sig = struct.unpack_from("<H", data, 510)[0]
+        if sig != 0xAA55:
+            raise ValueError("bad boot signature 0x%04X" % sig)
+        self.bps  = bps
+        self.spc  = data[0x0D]                              # sectors_per_cluster
+        self.res  = struct.unpack_from("<H", data, 0x0E)[0]  # reserved_sectors
+        self.nfat = data[0x10]                              # num_fats
+        self.nrde = struct.unpack_from("<H", data, 0x11)[0]  # root_entry_count
+        self.spf  = struct.unpack_from("<H", data, 0x16)[0]  # sectors_per_fat
+        if self.spc == 0 or self.nfat == 0 or self.spf == 0 or self.nrde == 0:
+            raise ValueError("nonsense BPB geometry")
+
+        # ---- Derived geometry (Sec 2). ----
+        self.fat_off  = self.res * self.bps
+        self.rdir_off = (self.res + self.nfat * self.spf) * self.bps
+        self.rdir_sectors = (self.nrde * 32 + self.bps - 1) // self.bps
+        self.first_data_sector = (self.res + self.nfat * self.spf
+                                  + self.rdir_sectors)
+        # Whole FAT in memory (RISK-1: avoids the odd-cluster boundary case).
+        fat_bytes = self.nfat and self.spf * self.bps
+        self.fat = data[self.fat_off:self.fat_off + fat_bytes]
+
+    def fat12_entry(self, n):
+        """Decode the 12-bit FAT entry for cluster n (Sec 3)."""
+        if n < 2:
+            raise ValueError("cluster %d is reserved" % n)
+        bo = (n * 3) // 2
+        if bo + 1 >= len(self.fat):
+            raise ValueError("cluster %d out of FAT range" % n)
+        v = self.fat[bo] | (self.fat[bo + 1] << 8)
+        return (v & 0x0FFF) if (n % 2 == 0) else ((v >> 4) & 0x0FFF)
+
+    def walk_chain(self, start):
+        """Return the list of clusters from start..EOC (Sec 3)."""
+        chain = []
+        cl = start
+        # A valid chain visits at most total cluster count; bound the loop so a
+        # cyclic chain raises instead of hanging (Rule 2 anti-hang).
+        limit = len(self.fat) * 2 // 3 + 4
+        while cl < EOC_MIN:
+            if cl == FREE or cl == BAD:
+                raise ValueError("free/bad cluster 0x%03X mid-chain" % cl)
+            chain.append(cl)
+            if len(chain) > limit:
+                raise ValueError("cluster chain too long (cyclic?)")
+            cl = self.fat12_entry(cl)
+        return chain
+
+    def format_83(self, ent):
+        """Render the 8.3 name (Sec 4). Applies the 0x05 -> 0xE5 fix."""
+        name = bytearray(ent[0:8])
+        if name[0] == NAME_E5_ALIAS:
+            name[0] = NAME_DELETED  # 0x05 -> 0xE5 real first char (RISK-3)
+        nm = name.rstrip(b"\x20")
+        ext = bytes(ent[8:11]).rstrip(b"\x20")
+        # Latin-1 keeps the 0xE5 byte intact; names are otherwise ASCII.
+        s = nm.decode("latin-1")
+        if ext:
+            s += "." + ext.decode("latin-1")
+        return s
+
+    def list_files(self):
+        """Yield (name, size) for each REGULAR file, in directory order.
+
+        Skips deleted (0xE5), LFN (attr 0x0F), volume-label (0x08) and
+        directory (0x10) entries; STOPS at the 0x00 sentinel.
+        """
+        out = []
+        for i in range(self.nrde):
+            off = self.rdir_off + i * 32
+            ent = self.data[off:off + 32]
+            if len(ent) < 32:
+                break
+            first = ent[0]
+            if first == NAME_FREE:
+                break          # end of directory
+            if first == NAME_DELETED:
+                continue       # deleted
+            attr = ent[11]
+            if attr == ATTR_LFN:
+                continue       # VFAT long-name slot
+            if attr & ATTR_VOLLABEL:
+                continue       # volume label -- not a file
+            if attr & ATTR_DIRECTORY:
+                continue       # subdirectory -- not a regular file
+            size = struct.unpack_from("<I", ent, 28)[0]
+            out.append((self.format_83(ent), size))
+        return out
+
+    def find(self, target):
+        """Return the 32-byte dir entry whose 8.3 name == target (case-insens.),
+        or None. Stops at the 0x00 sentinel."""
+        want = target.upper()
+        for i in range(self.nrde):
+            off = self.rdir_off + i * 32
+            ent = self.data[off:off + 32]
+            if len(ent) < 32:
+                break
+            first = ent[0]
+            if first == NAME_FREE:
+                break
+            if first == NAME_DELETED:
+                continue
+            if ent[11] == ATTR_LFN:
+                continue
+            if self.format_83(ent).upper() == want:
+                return ent
+        return None
+
+    def read_file(self, ent):
+        """Read exactly file_size bytes of the file described by dir entry."""
+        start = struct.unpack_from("<H", ent, 26)[0]
+        size  = struct.unpack_from("<I", ent, 28)[0]
+        if size == 0:
+            return b""  # zero-length: no chain walk (start may be 0)
+        bytes_per_cluster = self.spc * self.bps
+        out = bytearray()
+        for cl in self.walk_chain(start):
+            lba = self.first_data_sector + (cl - 2) * self.spc
+            o = lba * self.bps
+            out += self.data[o:o + bytes_per_cluster]
+            if len(out) >= size:
+                break
+        # file_size is authoritative for the last cluster (RISK-5).
+        return bytes(out[:size])
+
+
+def main(argv):
+    if len(argv) < 3:
+        sys.stderr.write(
+            "usage: %s <image> --list\n"
+            "       %s <image> --cat NAME.EXT\n" % (argv[0], argv[0]))
+        return 2
+
+    img  = argv[1]
+    mode = argv[2]
+
+    try:
+        with open(img, "rb") as fp:
+            data = fp.read()
+    except OSError as exc:
+        sys.stderr.write("fat12_ref: cannot open '%s': %s\n" % (img, exc))
+        return 1
+
+    try:
+        fs = Fat12(data)
+    except ValueError as exc:
+        sys.stderr.write("fat12_ref: bad volume '%s': %s\n" % (img, exc))
+        return 1
+
+    if mode == "--list":
+        if len(argv) != 3:
+            sys.stderr.write("fat12_ref: --list takes no extra args\n")
+            return 2
+        try:
+            files = fs.list_files()
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: list failed: %s\n" % exc)
+            return 1
+        # Deterministic: sort ascending by name (Rule 11).
+        for name, size in sorted(files, key=lambda r: r[0]):
+            sys.stdout.write("%s %d\n" % (name, size))
+        return 0
+
+    if mode == "--cat":
+        if len(argv) != 4:
+            sys.stderr.write("fat12_ref: --cat needs a NAME.EXT\n")
+            return 2
+        ent = fs.find(argv[3])
+        if ent is None:
+            sys.stderr.write("fat12_ref: file not found: %s\n" % argv[3])
+            return 1
+        try:
+            content = fs.read_file(ent)
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: read failed: %s\n" % exc)
+            return 1
+        sys.stdout.buffer.write(content)
+        return 0
+
+    sys.stderr.write("fat12_ref: unknown mode '%s'\n" % mode)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

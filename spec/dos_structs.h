@@ -131,4 +131,74 @@ typedef struct mcb {
 
 _Static_assert(sizeof(mcb_t) == 16, "mcb_t must be 16 bytes (ADR-0003 B.3)");
 
+/* ------------------------------------------------------------------------ *
+ * Boot Sector / BIOS Parameter Block (FAT12/16)
+ *
+ *   Source: Microsoft FAT File System Specification (1.03 / 2000-11-06),
+ *           Sections 3 (BPB) and 4 (Extended BPB); empirically confirmed
+ *           against mformat 4.0.43 output on a 1.44 MB image (Law 1:
+ *           docs/research/fat12-ground-truth.md Section 1 + Section 6).
+ *   ADR-0003 DEC-07 (Sec 5.7): "The on-volume layout shall be: boot sector;
+ *           first File Allocation Table; second (redundant) File Allocation
+ *           Table; fixed-size root directory; data area." The BPB is the
+ *           structure named in ADR-0003 Sec 1.4 (glossary) -- locked here as
+ *           data per CLAUDE.md Rule 8 (beads initech-8e7).
+ *   Note: the jump instruction and OEM name at offsets 0x00-0x0A are NOT
+ *         part of the BPB proper; they precede it and are included here
+ *         for struct completeness. The BPB proper begins at 0x0B.
+ *   Extended BPB (offset 0x24+) is present when boot_sig == 0x29.
+ *   All multi-byte fields are little-endian (Intel byte order).
+ *
+ *   Offset arithmetic (proven; sums to 62 = 0x3E):
+ *     0x00 jmp[3] 0x03 oem_name[8] 0x0B bytes_per_sector(2)
+ *     0x0D sectors_per_cluster(1) 0x0E reserved_sectors(2) 0x10 num_fats(1)
+ *     0x11 root_entry_count(2) 0x13 total_sectors_16(2) 0x15 media_desc(1)
+ *     0x16 sectors_per_fat(2) 0x18 sectors_per_track(2) 0x1A num_heads(2)
+ *     0x1C hidden_sectors(4) 0x20 total_sectors_32(4) 0x24 drive_number(1)
+ *     0x25 reserved1(1) 0x26 boot_sig(1) 0x27 volume_id(4)
+ *     0x2B volume_label[11] 0x36 fs_type[8] -> ends 0x3E = 62.
+ * ------------------------------------------------------------------------ */
+
+#pragma pack(push, 1)
+typedef struct bpb {
+	/* Boot sector prefix (not BPB proper) */
+	uint8_t  jmp[3];              /* 0x00: Jump instruction (EB xx 90 or E9 xx xx) */
+	uint8_t  oem_name[8];         /* 0x03: OEM name string (e.g. "MTOO4043")       */
+
+	/* BPB proper -- offset 0x0B */
+	uint16_t bytes_per_sector;    /* 0x0B: Bytes per sector (512 for floppy)        */
+	uint8_t  sectors_per_cluster; /* 0x0D: Sectors per cluster (1 for 1.44 MB)      */
+	uint16_t reserved_sectors;    /* 0x0E: Reserved sector count (1 = boot sector)  */
+	uint8_t  num_fats;            /* 0x10: Number of FATs (2 = redundant copy)      */
+	uint16_t root_entry_count;    /* 0x11: Root directory entry count (224)         */
+	uint16_t total_sectors_16;    /* 0x13: Total sectors (2880 for 1.44 MB; 0=FAT32)*/
+	uint8_t  media_descriptor;    /* 0x15: Media type (0xF0 = 1.44 MB floppy)       */
+	uint16_t sectors_per_fat;     /* 0x16: Sectors per FAT (9 for 1.44 MB)          */
+	uint16_t sectors_per_track;   /* 0x18: Sectors per track (18 for 1.44 MB)       */
+	uint16_t num_heads;           /* 0x1A: Number of heads (2 for 1.44 MB)          */
+	uint32_t hidden_sectors;      /* 0x1C: Hidden sectors (0 for non-partitioned)   */
+	uint32_t total_sectors_32;    /* 0x20: Total sectors if total_sectors_16==0     */
+
+	/* Extended BPB (FAT12/FAT16 only) -- offset 0x24 */
+	uint8_t  drive_number;        /* 0x24: BIOS drive number (0x00=floppy)          */
+	uint8_t  reserved1;           /* 0x25: Reserved (0x00)                          */
+	uint8_t  boot_sig;            /* 0x26: Extended boot signature (0x29 = present) */
+	uint32_t volume_id;           /* 0x27: Volume serial number (random)            */
+	uint8_t  volume_label[11];    /* 0x2B: Volume label (space-padded)              */
+	uint8_t  fs_type[8];          /* 0x36: FS type string ("FAT12   " / "FAT16   ") */
+} bpb_t;
+#pragma pack(pop)
+
+_Static_assert(sizeof(bpb_t) == 62, "bpb_t must be 62 bytes (BPB prefix + BPB + extended BPB; "
+               "see docs/research/fat12-ground-truth.md)");
+
+/* Derived geometry macros (ADR-0003 DEC-07; formula verified empirically
+ * against the 1.44 MB image in docs/research/fat12-ground-truth.md Sec 2). */
+#define BPB_FAT1_SECTOR(b)       ((b)->reserved_sectors)
+#define BPB_ROOT_DIR_SECTOR(b)   ((b)->reserved_sectors + (b)->num_fats * (b)->sectors_per_fat)
+#define BPB_ROOT_DIR_SECTORS(b)  (((b)->root_entry_count * 32u + (b)->bytes_per_sector - 1u) \
+                                   / (b)->bytes_per_sector)
+#define BPB_FIRST_DATA_SECTOR(b) (BPB_ROOT_DIR_SECTOR(b) + BPB_ROOT_DIR_SECTORS(b))
+#define BPB_CLUSTER_LBA(b, n)    (BPB_FIRST_DATA_SECTOR(b) + ((n) - 2u) * (b)->sectors_per_cluster)
+
 #endif /* INITECH_SPEC_DOS_STRUCTS_H */

@@ -1,0 +1,98 @@
+{
+  "_comment": [
+    "InitechDOS INT 21h Flat 32-bit Calling Convention -- LOCKED spec-data",
+    "(CLAUDE.md Rule 8). NEW locked file; companion to spec/int21h_register.json",
+    "(the COARSE function set) -- this file pins the per-register ABI + the",
+    "per-function input/output/error contract for the functions implemented so",
+    "far (the CONSOLE-output subset; file-handle/SFT functions arrive with",
+    "beads initech-509.3).",
+    "Source: docs/research/internals-int21h-ground-truth.md Sec 5+7.",
+    "Ratification: beads initech-1f9 (literal `int 0x21` via a 32-bit TRAP gate,",
+    "type 0x8F, DPL=0, selector CODE_SEL=0x08, at vector 0x21; PIC at 0x28/0x30",
+    "so 0x21 is free). ADR-0003 DEC-04 (INT 21h surface, AH selects function);",
+    "ADR-0003 DEC-13 (controlled vocabulary -- no unlisted function).",
+    "AH-dispatch: function selector in bits 15:8 of EAX (the AH byte).",
+    "All pointer arguments are FLAT 32-bit LINEAR addresses -- no segment:offset.",
+    "Every `ah` documented here MUST exist in spec/int21h_register.json",
+    "(test-spec asserts this consistency)."
+  ],
+  "source": "docs/research/internals-int21h-ground-truth.md",
+  "status": "ratified -- ADR-0003 amendment DEC-04a (OEA-ADR-0003-A1), ARB sign-off 2026-06-08 (beads initech-1f9)",
+  "gate": {
+    "vector": "0x21",
+    "gate_type": "0x8F (32-bit TRAP gate; leaves IF as-is)",
+    "dpl": 0,
+    "selector": "0x08 (CODE_SEL)",
+    "note": "PIC remapped to 0x28/0x30 (spec/int21h_register companion; pic.h), so vector 0x21 is free; ground-truth Sec 5.1 / Sec 8 Risk 3."
+  },
+  "abi": {
+    "function_selector": "AH (bits 15:8 of EAX)",
+    "primary_pointer":   "EDX (flat 32-bit linear address)",
+    "byte_count":        "ECX",
+    "handle":            "EBX",
+    "return_value":      "EAX (AL for single-byte; AX for 16-bit legacy; EAX for 32-bit)",
+    "error_flag":        "CF in saved EFLAGS (CF=1 -> error; AX=error_code)",
+    "cf_mechanism":      "dispatcher writes bit 0 of int_frame_t.eflags before iretd"
+  },
+  "functions": [
+    {
+      "ah": "00h", "mnemonic": "TERMINATE",
+      "in": {},
+      "out": {"AL": "0 (return code)"},
+      "cf": "never set",
+      "notes": "Alias for 4Ch AL=00h in the single-task model: serial INT21-EXIT rc=00 + console line, then cli;hlt. No process model yet (beads initech-509.5)."
+    },
+    {
+      "ah": "02h", "mnemonic": "PUTCHAR",
+      "in": {"DL": "character to output"},
+      "out": {"AL": "DL (character written)"},
+      "cf": "never set",
+      "notes": "Output DL to the CON device (console + serial); DOS stdout handle 1."
+    },
+    {
+      "ah": "09h", "mnemonic": "PUTS",
+      "in": {"EDX": "flat ptr to a '$'-terminated string"},
+      "out": {"AL": "0x24 ('$')"},
+      "cf": "never set",
+      "notes": "Walk bytes at EDX until '$' (0x24); emit each via the PUTCHAR path. The '$' is NOT emitted (DOS convention)."
+    },
+    {
+      "ah": "30h", "mnemonic": "GETVER",
+      "in": {},
+      "out": {"AL": "3", "AH": "30 (0x1E)", "BH": "0 (OEM)"},
+      "cf": "never set",
+      "notes": "Version 3.30 per ADR-0003 DEC-12 / spec/dos_banner.txt. EAX low word = 0x1E03."
+    },
+    {
+      "ah": "40h", "mnemonic": "WRITE",
+      "in": {"EBX": "handle", "ECX": "byte count", "EDX": "flat ptr to buffer"},
+      "out": {"EAX": "bytes written on success"},
+      "cf": "set on error (AX=error code; 0x0006=invalid handle for any handle other than 1/2 in the pre-filesystem phase)",
+      "notes": "Pre-filesystem subset: accept handles 1 (stdout) and 2 (stderr) -> CON only. Real file handles arrive with beads initech-509.3 (JFT/SFT)."
+    },
+    {
+      "ah": "4Ch", "mnemonic": "EXIT",
+      "in": {"AL": "return code"},
+      "out": {},
+      "cf": "never set (handler does not return to the caller)",
+      "notes": "Emit serial INT21-EXIT rc=NN + console line, then cli;hlt (terminate == stop; no process model yet). In future: restore parent context."
+    }
+  ],
+  "listed_but_unimplemented_behavior": {
+    "applies_to": "an AH that IS in spec/int21h_register.json but is not yet implemented in this subset (e.g. CON INPUT 01h/06h/0Ah which need the keyboard; file/SFT functions 3Dh-3Fh which need beads initech-509.3)",
+    "action": "return CF=1, AX=0x0001 (invalid function) for now",
+    "serial_diagnostic": "INT21 not-yet-impl AH=NN",
+    "rationale": "Distinct, recognized diagnostic -- NOT 'unknown function'. The AH is sanctioned by the locked register; the implementation is deferred."
+  },
+  "unlisted_ah_behavior": {
+    "action": "return CF=1, AX=0x0001 (invalid function)",
+    "serial_diagnostic": "INT21 unknown AH=NN",
+    "controlled_message": "MSG-DOS-0002 (Bad command or file name) -- the closest controlled diagnostic; rendered to console if bound",
+    "rationale": "CLAUDE.md Rule 2 (fail loud); ADR-0003 DEC-13 (controlled vocabulary). NEVER a silent no-op, NEVER a hang."
+  },
+  "frame_struct": {
+    "name": "int_frame_t (reused from os/milton/idt.h)",
+    "note": "The INT 21h trap stub builds the SAME int_frame_t layout as the exception path. For a trap gate the CPU pushes no error code; the stub pushes a dummy 0 err_code + a vector=0x21 sentinel to keep the layout uniform.",
+    "cf_bit": "bit 0 of the eflags field"
+  }
+}

@@ -52,6 +52,11 @@
 typedef struct {
     const char *kernel_path;   /* multiboot1 ELF for `-kernel` (or NULL).   */
     const char *disk_path;     /* raw disk image for `-drive` (or NULL).    */
+    const char *data_disk_path;/* FAT12 data volume: a SECOND -drive on the
+                                  IDE primary SLAVE (if=ide,index=1). NULL if
+                                  not attached. The boot disk_path stays the
+                                  primary master (index=0). Used so the kernel
+                                  can mount a real filesystem over ATA.       */
 
     const char *output_dir;    /* dir for serial/log/qmp/ppm files; if NULL
                                   defaults to "build". Must already exist.  */

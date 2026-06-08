@@ -51,8 +51,27 @@ WANT_H          equ 480
 VBE_CTRL_BUF    equ 0x7000      ; 512-byte VbeInfoBlock
 VBE_MODE_BUF    equ 0x7200      ; 256-byte ModeInfoBlock
 
+; -- Handoff contract (boot_info.h / docs/research/boot-to-text-ground-truth.md
+;    Sec 2-3). All physical low-memory addresses; flat == physical.
+BOOT_INFO_ADDR  equ 0x0500      ; 24-byte boot_info struct (above the BDA)
+FONT_STASH      equ 0x1000      ; 4096-byte VGA ROM 8x16 font copy
+
+; -- Kernel load (INT 13h CHS). Image layout: MBR s0, stage2 s1..16, kernel
+;    s17.. (Makefile). KERNEL_SECTORS is generous + deterministic (the Makefile
+;    pads the kernel binary to exactly this many sectors). CHS geometry matches
+;    what SeaBIOS presents for the raw image (the MBR already reads track 0).
+KERNEL_SECTORS    equ 64        ; 64 * 512 = 32 KiB kernel window
+KERNEL_LBA        equ 17        ; first kernel sector (1+16)
+; SPT / heads are QUERIED at runtime via INT 13h AH=08h (geometry varies by
+; emulator + image size); see the kernel-load block below.
+
 start:
     cli
+    ; Save the BIOS boot drive. The MBR far-jumps here with DL still holding
+    ; [boot_drive] (it loaded DL for its own INT 13h read just before the jump,
+    ; mbr.asm:77,84) -- BIOS convention: DL = boot drive at each boot stage.
+    ; We need it for the kernel-load INT 13h below (Sec 3.3 of the brief).
+    mov [boot_drive_s2], dl
     xor ax, ax
     mov ds, ax
     mov es, ax
@@ -69,6 +88,169 @@ start:
     ; (vbe_setup fails loud + halts on error, never returns on failure)
 
     mov si, msg_vbe
+    call serial_puts
+
+    ; -- VGA ROM 8x16 font capture (real mode; MUST precede CR0.PE=1) -------
+    ; Ref: IBM VGA Tech Ref / RBIL INT 10h AX=1130h BH=06h -> ES:BP points at
+    ;      the 256*16-byte 8x16 ROM font (1 byte/row, MSB=leftmost pixel);
+    ;      docs/research/boot-to-text-ground-truth.md Sec 1.1-1.3. INT 10h is a
+    ;      BIOS service, unavailable after the PM switch, so it goes here.
+    ;      Copy 4096 bytes to FONT_STASH (0x1000). Fail loud if ES:BP==0:0
+    ;      (Rule 2; ground-truth Sec 1.4).
+    mov ax, 0x1130
+    mov bh, 0x06                ; 8x16 ROM BIOS font selector
+    int 0x10
+    ; ES:BP now = first byte of the 8x16 font table. Guard a null pointer.
+    mov ax, es
+    or ax, bp
+    jz .err_font                ; ES:BP == 0:0 => font not available, fail loud
+    ; Copy 4096 bytes. rep movsb copies [DS:SI] -> [ES:DI], so:
+    ;   source = font ROM at fontseg:BP -> DS = ES(font), SI = BP
+    ;   dest   = 0:FONT_STASH          -> ES = 0,         DI = FONT_STASH
+    mov ax, es
+    mov ds, ax                  ; DS = font segment returned by INT 10h
+    mov si, bp                  ; SI = font offset
+    xor ax, ax
+    mov es, ax                  ; ES = 0 (flat low-memory destination)
+    mov di, FONT_STASH
+    mov cx, 4096
+    cld
+    rep movsb
+    ; Restore DS=0 and ES=0 for the subsequent boot_info writes + BIOS calls.
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
+    mov si, msg_font
+    call serial_puts
+    jmp .font_done
+
+.err_font:
+    xor ax, ax
+    mov ds, ax
+    mov si, msg_err_font
+    call serial_puts
+.font_halt:
+    hlt
+    jmp .font_halt
+
+.font_done:
+
+    ; -- Build boot_info at BOOT_INFO_ADDR (0x500), real mode, DS=0 ---------
+    ; 24-byte struct, uint32 fields IN ORDER (boot_info.h / ground-truth Sec 2):
+    ;   lfb_addr, lfb_pitch, lfb_bpp, lfb_width, lfb_height, font_addr.
+    ; lfb_addr/pitch/bpp were captured by vbe_setup. width/height use the
+    ; WANT_W/WANT_H constants -- valid because vbe_setup matched the mode to
+    ; them before proceeding (stage2.asm XResolution/YResolution checks).
+    xor ax, ax
+    mov ds, ax
+    mov eax, [lfb_addr]
+    mov [BOOT_INFO_ADDR + 0],  eax     ; lfb_addr
+    mov eax, [lfb_pitch]
+    mov [BOOT_INFO_ADDR + 4],  eax     ; lfb_pitch
+    mov eax, [lfb_bpp]
+    mov [BOOT_INFO_ADDR + 8],  eax     ; lfb_bpp
+    mov dword [BOOT_INFO_ADDR + 12], WANT_W       ; lfb_width
+    mov dword [BOOT_INFO_ADDR + 16], WANT_H       ; lfb_height
+    mov dword [BOOT_INFO_ADDR + 20], FONT_STASH   ; font_addr
+
+    ; -- Load the flat C kernel into 0x10000 (real mode, INT 13h CHS) -------
+    ; Image layout: MBR s0, stage2 s1..16, kernel s17.. (Makefile). We read
+    ; KERNEL_SECTORS sectors starting at LBA 17 into 0x1000:0x0000 (physical
+    ; 0x10000). Ref: ground-truth Sec 3.1-3.3 (link/load at 0x10000; INT 13h is
+    ; real-mode-only so it precedes the PM switch).
+    ;
+    ; The disk geometry that SeaBIOS/Bochs/86Box assign to a raw image is NOT
+    ; fixed (a tiny image gets a tiny geometry; a 1.44M-shaped one gets 18/2).
+    ; Hardcoding SPT=18/heads=2 fails when the BIOS picks something else, so we
+    ; QUERY it with INT 13h AH=08h (Get Drive Parameters): on return CL[5:0] =
+    ; max sector (== sectors/track), and DH = max head (heads = DH+1). This is
+    ; portable across the tri-emulator set (Rule 5). KERNEL_SECTORS may cross a
+    ; track boundary, so we read one track-chunk at a time, advancing CHS.
+    push es                 ; AH=08h clobbers ES:DI (returns a DPT pointer)
+    mov ah, 0x08
+    mov dl, [boot_drive_s2]
+    xor di, di
+    mov es, di              ; ES:DI = 0:0 per the call's quirk guidance
+    int 0x13
+    pop es
+    jc .err_kernel          ; cannot read geometry -> fail loud (Rule 2)
+    ; SPT = CL & 0x3F (low 6 bits). heads = DH + 1.
+    mov al, cl
+    and al, 0x3F
+    xor ah, ah
+    mov [spt], ax
+    movzx ax, dh
+    inc ax
+    mov [num_heads], ax
+    ; Guard against a degenerate geometry (SPT==0) that would div-by-zero.
+    cmp word [spt], 0
+    je .err_kernel
+
+    mov word [kload_remaining], KERNEL_SECTORS
+    mov word [kload_lba], 17           ; first kernel LBA
+    mov word [kload_seg], 0x1000       ; ES base for physical 0x10000
+
+.kload_loop:
+    mov ax, [kload_remaining]
+    test ax, ax
+    jz .kload_done
+    ; Convert kload_lba -> CHS using the QUERIED geometry:
+    ;   sector   = (LBA mod SPT) + 1
+    ;   head     = (LBA / SPT) mod HEADS
+    ;   cylinder = (LBA / SPT) / HEADS
+    mov ax, [kload_lba]
+    xor dx, dx
+    div word [spt]          ; ax = LBA/SPT, dx = LBA mod SPT
+    mov cl, dl
+    inc cl                  ; CL = sector (1-based)
+    ; ax = LBA / SPT ; split into head and cylinder
+    xor dx, dx
+    div word [num_heads]    ; ax = cylinder, dx = head
+    mov ch, al              ; CH = cylinder low 8 bits (image is tiny: <256 cyl)
+    mov dh, dl              ; DH = head
+    ; How many sectors can we read in this track without crossing its end?
+    ;   per_track_left = SPT - (sector-1) = SPT - (CL-1)
+    mov ax, [spt]
+    movzx bx, cl
+    dec bx
+    sub ax, bx              ; AX = sectors left in this track
+    mov bx, ax              ; BX = per_track_left
+    ; clamp to remaining
+    mov ax, [kload_remaining]
+    cmp ax, bx
+    jbe .kload_count_ok
+    mov ax, bx             ; ax = min(remaining, per_track_left)
+.kload_count_ok:
+    mov [kload_chunk], ax  ; chunk sector count for this read
+    ; Set up ES:BX destination, then INT 13h read.
+    push ax                ; preserve chunk count across reg loads
+    mov bx, [kload_seg]
+    mov es, bx
+    xor bx, bx             ; ES:BX = seg:0
+    pop ax                 ; AL = chunk count (count <= 18, fits in AL)
+    mov ah, 0x02           ; BIOS read sectors
+    ; CH/CL/DH already set (cylinder/sector/head); set drive.
+    mov dl, [boot_drive_s2]
+    int 0x13
+    jc .err_kernel         ; CF set => read failed: fail loud (Rule 2)
+    ; Advance: LBA += chunk, remaining -= chunk, seg += chunk*512/16 = chunk*32.
+    mov ax, [kload_chunk]
+    add [kload_lba], ax
+    sub [kload_remaining], ax
+    mov bx, ax
+    shl bx, 5              ; bx = chunk * 32 (paragraphs per sector = 512/16)
+    add [kload_seg], bx
+    jmp .kload_loop
+
+.err_kernel:
+    mov si, msg_err_kernel
+    call serial_puts
+.kernel_halt:
+    hlt
+    jmp .kernel_halt
+
+.kload_done:
+    mov si, msg_kload
     call serial_puts
 
     ; -- A20 enable (fast A20 via port 0x92) -------------------------------
@@ -255,56 +437,24 @@ pm_entry:
     mov esi, msg_pm32
     call serial_puts32
 
-    ; Marker "LFB\n" before the fill.
+    ; Marker "LFB\n" -- LFB params are captured + handed off; the C kernel now
+    ; owns the framebuffer fill (initech-d00 CONSTRAINT: the kernel re-paints
+    ; seafoam so the screendump oracle stays green).
     mov esi, msg_lfb32
     call serial_puts32
 
-    ; -- Fill the entire LFB with seafoam ----------------------------------
-    ; Total bytes = pitch * height. We fill pitch*HEIGHT bytes so trailing
-    ; padding in each scanline is covered too (harmless, all seafoam).
-    mov eax, [lfb_pitch]
-    mov ebx, WANT_H
-    mul ebx                    ; edx:eax = pitch * height (fits in 32 bits)
-    mov ecx, eax               ; ecx = total byte count
-
-    mov edi, [lfb_addr]        ; destination = physical LFB (flat == phys)
-
-    ; Branch on bpp: 32 -> dword stores; 24 -> 3-byte stores.
-    mov eax, [lfb_bpp]
-    cmp eax, 32
-    je .fill32
-    ; -- 24bpp fill: write B,G,R bytes per pixel ---------------------------
-    ; pixel count = total / 3
-    mov eax, ecx
-    xor edx, edx
-    mov ebx, 3
-    div ebx                    ; eax = pixel count
-    mov ecx, eax
-.fill24:
-    mov byte [edi + 0], SEAFOAM_B
-    mov byte [edi + 1], SEAFOAM_G
-    mov byte [edi + 2], SEAFOAM_R
-    add edi, 3
-    dec ecx
-    jnz .fill24
-    jmp .filled
-
-.fill32:
-    ; 32bpp pixel = 0x00RRGGBB (XRGB8888; X/alpha byte = 0).
-    mov eax, (SEAFOAM_R << 16) | (SEAFOAM_G << 8) | SEAFOAM_B
-    shr ecx, 2                 ; dword count = bytes / 4
-    rep stosd
-
-.filled:
-    ; Final marker "OK\n".
+    ; Marker "OK\n" -- stage2 done: boot_info built, font stashed, kernel loaded,
+    ; protected/flat mode entered. Hand control to the flat C kernel.
     mov esi, msg_ok32
     call serial_puts32
 
-    ; Stay alive so the harness QMP screendump captures the LIVE framebuffer.
-    ; Do NOT isa-debug-exit here (that would kill the guest before/at capture).
-.hang:
-    hlt
-    jmp .hang
+    ; -- Far-jump into the flat C kernel at physical 0x00010000 ------------
+    ; Ref: ground-truth Sec 3 (kernel linked + loaded at 0x10000). CS is
+    ; already CODE_SEL (0x08) from the PM far jump; an intra-segment jump to a
+    ; far address is fine, but we use a far jump to be explicit about the
+    ; selector. The kernel's kstart.asm _start sets its own ESP + calls
+    ; kernel_main; it never returns.
+    jmp dword CODE_SEL:0x00010000
 
 ; ---------------------------------------------------------------------------
 ; 32-bit serial helpers. The UART is already programmed (real-mode init); we
@@ -381,6 +531,17 @@ mode_ptr_off: dw 0
 mode_ptr_seg: dw 0
 cur_mode:     dw 0
 
+; Boot drive (DL at stage2 entry; used by the kernel-load INT 13h).
+boot_drive_s2: db 0
+
+; Kernel-load (multi-track INT 13h CHS) state.
+kload_remaining: dw 0    ; sectors still to read
+kload_lba:       dw 0    ; current LBA
+kload_seg:       dw 0    ; current ES destination segment
+kload_chunk:     dw 0    ; sectors read in the current track-chunk
+spt:             dw 0    ; sectors/track (queried via INT 13h AH=08h)
+num_heads:       dw 0    ; number of heads (queried via INT 13h AH=08h)
+
 ; LFB parameters captured from the VBE mode-info block.
 lfb_addr:  dd 0
 lfb_pitch: dd 0
@@ -395,3 +556,7 @@ msg_err_vbe: db "ERR-VBE", 0x0A, 0
 msg_pm32:    db "PM", 0x0A, 0
 msg_lfb32:   db "LFB", 0x0A, 0
 msg_ok32:    db "OK", 0x0A, 0
+msg_font:        db "FONT", 0x0A, 0
+msg_err_font:    db "ERR-FONT", 0x0A, 0
+msg_kload:       db "KLOAD", 0x0A, 0
+msg_err_kernel:  db "ERR-KERNEL", 0x0A, 0

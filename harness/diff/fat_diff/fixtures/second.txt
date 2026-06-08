@@ -1,0 +1,2 @@
+Second fixture file for the FAT12 read-path oracle.
+It fits in a single 512-byte cluster on the floppy.

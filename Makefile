@@ -79,6 +79,7 @@ FIXTURE_DIR  := harness/emu/fixtures
 FIXTURE_LD   := $(FIXTURE_DIR)/multiboot.ld
 NASM         ?= nasm
 LD           ?= ld
+OBJCOPY      ?= objcopy
 SERIAL_HELLO_ELF := $(BUILD)/serial_hello.elf
 TRIPLE_FAULT_ELF := $(BUILD)/triple_fault.elf
 HANG_ELF         := $(BUILD)/hang.elf
@@ -105,12 +106,84 @@ TRACER_IMG      := $(BUILD)/tracer_boot.img
 # stage2 is loaded by the MBR as STAGE2_SECTORS (16) sectors = 8 KiB; we pad
 # stage2.bin to that size so the CHS read count in the MBR is deterministic.
 STAGE2_SECTORS  := 16
-# Total raw image: keep small + deterministic. 64 sectors (32 KiB) is ample.
-IMG_SECTORS     := 64
+# Kernel occupies sectors 17.. ; padded to KERNEL_SECTORS (must equal the
+# stage2.asm KERNEL_SECTORS equate so the INT 13h read count is deterministic).
+KERNEL_SECTORS  := 64
+# Total raw image: MBR(1) + stage2(16) + kernel(64) = 81 sectors; round up to
+# 128 (64 KiB) for headroom + a clean power-of-two. Deterministic (Rule 11).
+IMG_SECTORS     := 128
 
 # PPM seafoam checker (factory C tool, tools/).
 PPM_CHECK_SRC   := tools/ppm_seafoam_check.c
 PPM_CHECK_BIN   := $(BUILD)/ppm_seafoam_check
+
+# PPM banner-text checker (factory C tool, tools/, beads initech-bea). The
+# STRONGER companion to ppm_seafoam_check: asserts the InitechDOS banner was
+# blitted at its known origin AND the desktop is still seafoam below it.
+PPM_TEXT_CHECK_SRC := tools/ppm_text_check.c
+PPM_TEXT_CHECK_BIN := $(BUILD)/ppm_text_check
+
+# ---------------------------------------------------------------------------
+# Flat C kernel (os/milton, beads initech-d00; ADR-0003 DEC-08)
+# ---------------------------------------------------------------------------
+# The InitechDOS kernel: a FLAT binary linked at 0x00010000, loaded by stage2
+# (INT 13h) and entered by a far jump. ARTIFACT code: freestanding C
+# (CDR-0001 interim toolchain: host gcc -m32 -ffreestanding -nostdlib) + a
+# 32-bit nasm entry stub. Reproducible: deterministic codegen, no timestamps,
+# raw binary via objcopy (CLAUDE.md Rule 11).
+KERNEL_DIR    := os/milton
+KERNEL_CC     ?= gcc
+KERNEL_CFLAGS := -m32 -ffreestanding -nostdlib -fno-stack-protector -fno-pic \
+                 -fno-pie -std=c11 -Wall -Wextra -Werror
+KERNEL_LD     := $(KERNEL_DIR)/kernel.ld
+KERNEL_START_ASM := $(KERNEL_DIR)/kstart.asm
+KERNEL_MAIN_C    := $(KERNEL_DIR)/kmain.c
+KERNEL_CONSOLE_C := $(KERNEL_DIR)/console.c
+# Interrupt foundation (beads initech-a5a): IDT + PIC + panic + exception stubs.
+KERNEL_IDT_C     := $(KERNEL_DIR)/idt.c
+KERNEL_PIC_C     := $(KERNEL_DIR)/pic.c
+KERNEL_PANIC_C   := $(KERNEL_DIR)/panic.c
+# INT 21h dispatcher (beads initech-509.5): the `int 0x21` syscall spine.
+KERNEL_INT21_C   := $(KERNEL_DIR)/int21.c
+# PSP construction (beads initech-509.4) + flat program loader (initech-509.5).
+KERNEL_PSP_C     := $(KERNEL_DIR)/psp.c
+KERNEL_LOADER_C  := $(KERNEL_DIR)/loader.c
+# FAT12 mount over ATA (beads initech-saw / initech-adf): the real-hardware
+# sector backend (ata.c) + the FAT12 reader (fat12.c == FAT12_SRC) linked into
+# the kernel so kmain.c can mount the data disk and render a proto-DIR.
+KERNEL_ATA_C     := $(KERNEL_DIR)/ata.c
+KERNEL_FAT12_C   := $(KERNEL_DIR)/fat12.c
+# Baked flat test program: nasm -f bin -> bin2c -> a .rodata C array. The loader
+# copies it to PROGRAM_IMAGE (0x20100) and JMPs in (initech-509.5).
+TEST_PROG_ASM    := $(KERNEL_DIR)/test_program.asm
+TEST_PROG_BIN    := $(BUILD)/test_program.bin
+BIN2C_SRC        := tools/bin2c.c
+BIN2C_BIN        := $(BUILD)/bin2c
+TEST_PROG_BLOB_H := $(BUILD)/test_prog_blob.h
+TEST_PROG_BLOB_C := $(BUILD)/test_prog_blob.c
+KERNEL_ISR_ASM   := $(KERNEL_DIR)/isr.asm
+KERNEL_START_OBJ := $(BUILD)/kstart.o
+KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
+KERNEL_CONSOLE_OBJ := $(BUILD)/console.o
+KERNEL_IDT_OBJ   := $(BUILD)/idt.o
+KERNEL_PIC_OBJ   := $(BUILD)/pic.o
+KERNEL_PANIC_OBJ := $(BUILD)/panic.o
+KERNEL_INT21_OBJ := $(BUILD)/int21.o
+KERNEL_PSP_OBJ   := $(BUILD)/psp.o
+KERNEL_LOADER_OBJ := $(BUILD)/loader.o
+KERNEL_ATA_OBJ   := $(BUILD)/ata.o
+KERNEL_FAT12_OBJ := $(BUILD)/fat12.o
+KERNEL_TEST_PROG_OBJ := $(BUILD)/test_prog_blob.o
+KERNEL_ISR_OBJ   := $(BUILD)/isr.o
+KERNEL_ELF       := $(BUILD)/kernel.elf
+KERNEL_BIN       := $(BUILD)/kernel.bin
+# Self-test fault kernel/image (beads initech-a5a; make test-panic): the SAME
+# kernel sources but with -DBOOT_SELFTEST_FAULT so the boot deliberately raises
+# a #DE after the banner to prove the panic path catches it (no triple-fault).
+KERNEL_FAULT_MAIN_OBJ := $(BUILD)/kmain_fault.o
+KERNEL_FAULT_ELF      := $(BUILD)/kernel_fault.elf
+KERNEL_FAULT_BIN      := $(BUILD)/kernel_fault.bin
+PANIC_IMG             := $(BUILD)/panic_boot.img
 
 # ---------------------------------------------------------------------------
 # Asset extraction v0 (spec/assets, beads initech-vcq)
@@ -139,6 +212,348 @@ ASSET_CHECK_BIN  := $(BUILD)/asset_check
 CONVERT          ?= convert
 
 # ---------------------------------------------------------------------------
+# FAT12 read path (os/milton, beads initech-adf; bpb_t locked: initech-8e7)
+# ---------------------------------------------------------------------------
+# The FAT12 reader is ARTIFACT code (os/milton/, C, freestanding-safe) but is
+# exercised on the HOST by the factory oracle via a file-backed blockdev
+# (harness/diff/fat_diff/blockdev_file.c). The BPB-parse test mints a 1.44 MB
+# FAT12 image with mformat at TEST TIME (build intermediate, NOT committed --
+# like PREVIEW_PPM, Rule 11) and asserts every BPB field + derived-geometry
+# value matches the verified constants in docs/research/fat12-ground-truth.md.
+MILTON_DIR        := os/milton
+FAT12_SRC         := $(MILTON_DIR)/fat12.c
+FAT_DIFF_DIR      := harness/diff/fat_diff
+BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
+FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
+FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
+                     $(FAT12_FIXTURE_DIR)/second.txt \
+                     $(FAT12_FIXTURE_DIR)/chain.txt \
+                     $(FAT12_FIXTURE_DIR)/empty.txt \
+                     $(FAT12_FIXTURE_DIR)/block.bin
+
+# The differential dumper (factory host tool, beads initech-5cu): mounts the
+# image with the REAL artifact fat12.c and emits the normalized manifest /
+# raw file bytes that `test-fat` diffs against mtools + the python reference.
+FAT_DUMP_SRC      := $(FAT_DIFF_DIR)/fat_dump.c
+FAT_DUMP_BIN      := $(BUILD)/fat_dump
+# The independent python3 FAT12 reference (reference #2; NOT mtools, NOT our C).
+FAT12_REF_PY      := $(FAT_DIFF_DIR)/fat12_ref.py
+# The list of 8.3 names the gate extracts + diffs content for (per fixture).
+FAT12_GATE_NAMES  := HELLO.TXT SECOND.TXT CHAIN.TXT EMPTY.TXT BLOCK.BIN
+
+# Minted 1.44 MB FAT12 image (build intermediate, NOT committed).
+FAT12_IMG         := $(BUILD)/fat12_fixture.img
+
+# FAT12 DATA disk for the in-emulator mount oracle (beads initech-saw). A second
+# minted 1.44 MB FAT12 volume attached to QEMU on the IDE primary SLAVE
+# (--disk2); the kernel reads it via ata.c and mounts it with fat12.c. Same
+# deterministic recipe + fixtures as FAT12_IMG (build intermediate, NOT
+# committed). The known 8.3 filenames are what make test-fs asserts on serial.
+FAT_DATA_IMG      := $(BUILD)/fat_data.img
+
+# The BPB-parse oracle binary (factory host test; libc + POSIX for the test).
+TEST_FAT12_BPB    := $(BUILD)/test_fat12_bpb
+
+# The FAT12 decode + cluster-chain-walk oracle binary (factory host test).
+TEST_FAT12_CHAIN  := $(BUILD)/test_fat12_chain
+
+# The FAT12 root-dir enumerate + find + file-read oracle binary (host test).
+TEST_FAT12_DIR    := $(BUILD)/test_fat12_dir
+
+# Mint the FAT12 image deterministically: zero a 1474560-byte (2880*512)
+# file, mformat -f 1440, mcopy the fixtures in. Reproducible enough for the
+# BPB/geometry oracle (the BPB bytes are fixed by mformat -f 1440; only the
+# volume serial + dir mtime vary, neither of which this oracle asserts).
+$(FAT12_IMG): $(FAT12_FIXTURES) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/second.txt ::SECOND.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/chain.txt ::CHAIN.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/empty.txt ::EMPTY.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
+	@printf ">>> fat12: minted %s (1.44MB FAT12, fixtures copied; build intermediate)\n" "$@"
+
+# Mint the FAT12 DATA disk (beads initech-saw): identical recipe to FAT12_IMG;
+# this is the volume the kernel mounts over ATA in make test-fs. Deterministic
+# (mformat -f 1440 fixes the BPB; the fixtures are committed). Build
+# intermediate, NOT committed (Rule 11).
+$(FAT_DATA_IMG): $(FAT12_FIXTURES) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/second.txt ::SECOND.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/chain.txt ::CHAIN.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/empty.txt ::EMPTY.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
+	@printf ">>> fat_data: minted %s (1.44MB FAT12 data disk for test-fs; build intermediate)\n" "$@"
+
+# Build the BPB oracle: the test + the REAL artifact fat12.c + the host
+# blockdev backend. -Ispec for bpb_t, -Ios/milton for fat12.h/blockdev.h,
+# -Iseed for test_assert.h, -I$(FAT_DIFF_DIR) for blockdev_file.h.
+$(TEST_FAT12_BPB): $(FAT_DIFF_DIR)/test_fat12_bpb.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_bpb.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# Helper gate: build the oracle, mint the image, run the test. NOT yet wired
+# into `test-fat` (that stays stub_fail until dir-enumerate + file-read land
+# and the differential-vs-mtools oracle is in -- beads initech-5cu).
+.PHONY: test-fat12-bpb
+test-fat12-bpb: $(TEST_FAT12_BPB) $(FAT12_IMG)
+	@printf ">>> test-fat12-bpb: mount + BPB parse + geometry vs verified constants\n"
+	@$(TEST_FAT12_BPB) "$(FAT12_IMG)"
+	@printf ">>> test-fat12-bpb: green\n"
+
+# Build the FAT12 decode + chain-walk oracle: the test + the REAL artifact
+# fat12.c + the host blockdev backend (same include set as the BPB oracle).
+$(TEST_FAT12_CHAIN): $(FAT_DIFF_DIR)/test_fat12_chain.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_chain.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# Helper gate: build the oracle, mint the image, run the test. Like
+# test-fat12-bpb this is NOT yet wired into `test-fat` (that stays stub_fail
+# until dir-enumerate + file-read + the differential-vs-mtools oracle land --
+# beads initech-5cu).
+.PHONY: test-fat12-chain
+test-fat12-chain: $(TEST_FAT12_CHAIN) $(FAT12_IMG)
+	@printf ">>> test-fat12-chain: FAT12 12-bit decode + cluster-chain walk + anti-hang guard\n"
+	@$(TEST_FAT12_CHAIN) "$(FAT12_IMG)"
+	@printf ">>> test-fat12-chain: green\n"
+
+# Build the FAT12 root-dir enumerate + find + file-read oracle: the test + the
+# REAL artifact fat12.c + the host blockdev backend (same include set as the
+# BPB/chain oracles).
+$(TEST_FAT12_DIR): $(FAT_DIFF_DIR)/test_fat12_dir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_dir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# Helper gate: build the oracle, mint the image, run the test (passing the
+# fixture dir so the test reads the committed files as the byte-for-byte
+# golden). Like the bpb/chain helpers this is NOT yet wired into `test-fat`
+# (the differential-vs-mtools gate is the NEXT step -- beads initech-5cu).
+.PHONY: test-fat12-dir
+test-fat12-dir: $(TEST_FAT12_DIR) $(FAT12_IMG)
+	@printf ">>> test-fat12-dir: root-dir enumerate + find + file-read (byte-for-byte golden)\n"
+	@$(TEST_FAT12_DIR) "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)"
+	@printf ">>> test-fat12-dir: green\n"
+
+# Build the differential dumper: the factory tool + the REAL artifact fat12.c +
+# the host blockdev backend (same include set as the FAT12 oracles).
+$(FAT_DUMP_BIN): $(FAT_DUMP_SRC) $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DUMP_SRC) $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# ---------------------------------------------------------------------------
+# Text console blit oracle (os/milton, beads initech-yqb)
+# ---------------------------------------------------------------------------
+# Host blit-math oracle for the LFB text console. The REAL artifact console.c
+# (freestanding in the kernel) is compiled HOSTED here against a fake
+# framebuffer + boot_info + synthetic font, and the 8x16 glyph blit / cursor /
+# wrap / scroll properties are asserted (CLAUDE.md Law 2 -- the load-bearing
+# pixel math has a mechanical oracle). The fake fb/font are mmap'd in the low
+# 4 GiB (MAP_32BIT) so boot_info's uint32_t addresses round-trip on a 64-bit
+# host. Mirrors the $(TEST_FAT12_*) idiom (libc host test, seed/test_assert.h).
+TEST_CONSOLE     := $(BUILD)/test_console
+TEST_CONSOLE_SRC := $(MILTON_DIR)/test_console.c
+
+$(TEST_CONSOLE): $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c $(MILTON_DIR)/console.h $(MILTON_DIR)/boot_info.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c
+
+.PHONY: test-console
+test-console: $(TEST_CONSOLE)
+	@printf ">>> test-console: 8x16 glyph blit (MSB-left, bpp 32/24) + cursor/wrap/scroll\n"
+	@$(TEST_CONSOLE)
+	@printf ">>> test-console: green\n"
+
+# ---------------------------------------------------------------------------
+# IDT encode + interrupt-frame layout oracle (os/milton, beads initech-a5a)
+# ---------------------------------------------------------------------------
+# Host unit oracle (factory; libc + seed/test_assert.h) for the load-bearing
+# byte layout: the IDT gate offset-split encode (idt_set_gate) + every
+# int_frame_t field offset (must match the asm pushad order). Compiles the REAL
+# artifact idt.c HOSTED and asserts idt_set_gate's bytes against a hand-computed
+# expectation + offsetof checks. Mirrors the $(TEST_FAT12_*) idiom.
+TEST_IDT      := $(BUILD)/test_idt
+TEST_IDT_SRC  := $(MILTON_DIR)/test_idt.c
+# Mutation build (CLAUDE.md Rule 6): idt.c compiled with the offset-hi shift
+# broken so `make test-idt-mutant` can prove the encode oracle BITES.
+TEST_IDT_MUT  := $(BUILD)/test_idt_mutant
+
+$(TEST_IDT): $(TEST_IDT_SRC) $(KERNEL_IDT_C) $(MILTON_DIR)/idt.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_IDT_SRC) $(KERNEL_IDT_C)
+
+$(TEST_IDT_MUT): $(TEST_IDT_SRC) $(KERNEL_IDT_C) $(MILTON_DIR)/idt.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DIDT_MUTATE_OFFSET_HI -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_IDT_SRC) $(KERNEL_IDT_C)
+
+.PHONY: test-idt test-idt-mutant
+test-idt: $(TEST_IDT)
+	@printf ">>> test-idt: IDT gate encode (offset-split) + int_frame_t field offsets\n"
+	@$(TEST_IDT)
+	@printf ">>> test-idt: green\n"
+
+# Mutation-proof: the mutant build (wrong offset-hi shift) MUST fail the oracle.
+# A mutant that PASSES means the oracle is decoration (CLAUDE.md Rule 6).
+test-idt-mutant: $(TEST_IDT_MUT)
+	@printf ">>> test-idt-mutant: confirming the offset-hi mutant goes RED (Rule 6)\n"
+	@if $(TEST_IDT_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-idt-mutant FAIL: mutant PASSED the oracle -- the encode test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-idt-mutant: green (mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# INT 21h dispatch oracle (os/milton, beads initech-509.5)
+# ---------------------------------------------------------------------------
+# Host unit oracle (factory; libc + seed/test_assert.h) for the INT 21h dispatch
+# logic: AH-dispatch, the console-output subset (02h/09h/40h), GETVER (30h),
+# TERMINATE (00h/4Ch), the bad-handle error path, and the controlled-scope
+# behavior (unlisted AH -> diagnostic + CF; listed-but-deferred AH -> distinct
+# not-yet-impl diagnostic). Compiles the REAL artifact int21.c HOSTED; the CON
+# sink + terminate action are abstracted so the test captures them. Mirrors the
+# $(TEST_IDT) idiom. The dispatcher also compiles freestanding into the kernel.
+TEST_INT21      := $(BUILD)/test_int21
+TEST_INT21_SRC  := $(MILTON_DIR)/test_int21.c
+# KERNEL_INT21_C is defined in the kernel-build section above.
+# Mutation builds (CLAUDE.md Rule 6): the dispatcher compiled with a single
+# branch/constant perturbed so `make test-int21-mutant` can prove the oracle
+# BITES. (a) 09h emits the '$' terminator; (b) the unlisted-AH path is a silent
+# no-op. A mutant that PASSES means the oracle is decoration.
+TEST_INT21_MUT_DOLLAR := $(BUILD)/test_int21_mutant_dollar
+TEST_INT21_MUT_NOOP   := $(BUILD)/test_int21_mutant_noop
+
+$(TEST_INT21): $(TEST_INT21_SRC) $(KERNEL_INT21_C) $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_INT21_SRC) $(KERNEL_INT21_C)
+
+$(TEST_INT21_MUT_DOLLAR): $(TEST_INT21_SRC) $(KERNEL_INT21_C) $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_PUTS_EMIT_DOLLAR -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_INT21_SRC) $(KERNEL_INT21_C)
+
+$(TEST_INT21_MUT_NOOP): $(TEST_INT21_SRC) $(KERNEL_INT21_C) $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_UNLISTED_NOOP -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_INT21_SRC) $(KERNEL_INT21_C)
+
+.PHONY: test-int21 test-int21-mutant
+test-int21: $(TEST_INT21)
+	@printf ">>> test-int21: AH-dispatch + console subset (02h/09h/40h/30h/4Ch) + controlled scope\n"
+	@$(TEST_INT21)
+	@printf ">>> test-int21: green\n"
+
+# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
+test-int21-mutant: $(TEST_INT21_MUT_DOLLAR) $(TEST_INT21_MUT_NOOP)
+	@printf ">>> test-int21-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_INT21_MUT_DOLLAR) >/dev/null 2>&1; then \
+		printf '!!! test-int21-mutant FAIL: 09h-emit-dollar mutant PASSED -- the PUTS test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-int21-mutant: green (09h-emit-dollar mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_NOOP) >/dev/null 2>&1; then \
+		printf '!!! test-int21-mutant FAIL: unlisted-AH-noop mutant PASSED -- the controlled-scope test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-int21-mutant: green (unlisted-AH-noop mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-psp (beads initech-509.4 -- PSP full 256-byte construction)
+# ---------------------------------------------------------------------------
+# Host unit oracle for psp_build() (os/milton/psp.c): zero-init + every field
+# per ADR-0003 App B.2 / docs/research/psp-loader-ground-truth.md Sec 2. PSP
+# construction is a pure, I/O-free function, so it is perfectly host-testable.
+# psp.c ALSO compiles freestanding into the kernel (same TU). Mirrors the
+# $(TEST_INT21) idiom (libc host test, seed/test_assert.h).
+TEST_PSP      := $(BUILD)/test_psp
+TEST_PSP_SRC  := $(MILTON_DIR)/test_psp.c
+KERNEL_PSP_C  := $(MILTON_DIR)/psp.c
+# Mutation builds (CLAUDE.md Rule 6): psp.c compiled with a single field write
+# perturbed so `make test-psp-mutant` can prove the oracle BITES. (a) int20 byte
+# 1 = 0x21 not 0x20; (b) the cmd_tail count byte is off-by-one. A mutant that
+# PASSES means the oracle is decoration.
+TEST_PSP_MUT_INT20 := $(BUILD)/test_psp_mutant_int20
+TEST_PSP_MUT_TAIL  := $(BUILD)/test_psp_mutant_tail
+
+$(TEST_PSP): $(TEST_PSP_SRC) $(KERNEL_PSP_C) $(MILTON_DIR)/psp.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_PSP_SRC) $(KERNEL_PSP_C)
+
+$(TEST_PSP_MUT_INT20): $(TEST_PSP_SRC) $(KERNEL_PSP_C) $(MILTON_DIR)/psp.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPSP_MUTATE_INT20 -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_PSP_SRC) $(KERNEL_PSP_C)
+
+$(TEST_PSP_MUT_TAIL): $(TEST_PSP_SRC) $(KERNEL_PSP_C) $(MILTON_DIR)/psp.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPSP_MUTATE_CMDTAIL_LEN -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_PSP_SRC) $(KERNEL_PSP_C)
+
+.PHONY: test-psp test-psp-mutant
+test-psp: $(TEST_PSP)
+	@printf ">>> test-psp: PSP 256-byte construction (int20/segs/jft/int21-entry/cmd-tail) + clamp + no-overflow\n"
+	@$(TEST_PSP)
+	@printf ">>> test-psp: green\n"
+
+# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
+test-psp-mutant: $(TEST_PSP_MUT_INT20) $(TEST_PSP_MUT_TAIL)
+	@printf ">>> test-psp-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_PSP_MUT_INT20) >/dev/null 2>&1; then \
+		printf '!!! test-psp-mutant FAIL: int20 mutant PASSED -- the int20 test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-psp-mutant: green (int20 mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_PSP_MUT_TAIL) >/dev/null 2>&1; then \
+		printf '!!! test-psp-mutant FAIL: cmd-tail-len mutant PASSED -- the tail test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-psp-mutant: green (cmd-tail-len mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-loader (beads initech-509.5 -- flat program loader PREP)
+# ---------------------------------------------------------------------------
+# Host unit oracle for loader_prepare() (os/milton/loader.c): input validation
+# (NULL / zero-length / oversized image -> fail loud) + the LOCKED load layout
+# (psp @ PROGRAM_BASE, image @ PROGRAM_BASE+0x100, entry == image_dst, stack @
+# PROGRAM_STACK_TOP) + the psp_params the loader feeds psp_build. loader.c also
+# compiles freestanding into the kernel (the asm control-transfer path is elided
+# in the hosted build). Mirrors the $(TEST_PSP) idiom.
+TEST_LOADER      := $(BUILD)/test_loader
+TEST_LOADER_SRC  := $(MILTON_DIR)/test_loader.c
+# Mutation build (CLAUDE.md Rule 6): loader.c compiled with the .COM 0x100 image
+# offset removed so `make test-loader-mutant` can prove the layout oracle BITES.
+TEST_LOADER_MUT  := $(BUILD)/test_loader_mutant_nooffset
+
+$(TEST_LOADER): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
+                $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+
+$(TEST_LOADER_MUT): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
+                    $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUTATE_NO_OFFSET -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+
+.PHONY: test-loader test-loader-mutant
+test-loader: $(TEST_LOADER)
+	@printf ">>> test-loader: loader_prepare layout (psp/image+0x100/entry/stack) + params + fail-loud validation\n"
+	@$(TEST_LOADER)
+	@printf ">>> test-loader: green\n"
+
+# Mutation-proof: the no-offset mutant build MUST fail the oracle (Rule 6). A
+# mutant that PASSES means the layout test is decoration.
+test-loader-mutant: $(TEST_LOADER_MUT)
+	@printf ">>> test-loader-mutant: confirming the no-0x100-offset mutant goes RED (Rule 6)\n"
+	@if $(TEST_LOADER_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-loader-mutant FAIL: no-offset mutant PASSED the oracle -- the layout test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-loader-mutant: green (no-offset mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # Stub macro
 # ---------------------------------------------------------------------------
 # $(call stub,<target>,<milestone hint>) -- print an honest placeholder
@@ -161,7 +576,10 @@ endef
 # make here except the smoke binary, which depends on its source).
 .PHONY: help factory image run run-bochs smoke ssim test test-region \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
-        test-harness test-tracer-boot test-assets test-spec selfhost ddc clean
+        test-harness test-tracer-boot test-boot test-console test-idt \
+        test-idt-mutant test-int21 test-int21-mutant test-psp test-psp-mutant \
+        test-loader test-loader-mutant test-program test-fs test-panic \
+        test-assets test-spec selfhost ddc clean
 
 # ---------------------------------------------------------------------------
 # Default + self-documenting help
@@ -189,9 +607,12 @@ help:
 	@printf '  test-seed      Seed front-end unit tests (lexer + parser). REAL: fails non-zero on any check.\n'
 	@printf '  test-seed-codegen  Seed codegen end-to-end: compile .pas, boot ELF in QEMU, assert exact serial. REAL.\n'
 	@printf '  test-harness   QEMU oracle harness self-test: serial marker caught on good fixture, triple-fault caught on bad. REAL.\n'
-	@printf '  test-tracer-boot   Real MBR->stage2->32-bit/flat->VESA LFB boot: assert serial stage markers + seafoam screendump + no triple-fault. REAL.\n'
+	@printf '  test-tracer-boot   Real MBR->stage2->32-bit/flat->VESA LFB boot: assert serial stage markers + no triple-fault + banner rendered on the seafoam desktop (ppm_text_check). REAL.\n'
+	@printf '  test-boot      InitechDOS banner boot gate: serial markers + banner literal vs spec/dos_banner.txt (byte-exact) + screendump banner-text check + no triple-fault. REAL. (QEMU only; tri-emulator pending initech-x0i.)\n'
+	@printf '  test-console   Host blit oracle for the LFB 8x16 text console: MSB-left glyph blit (bpp 32/24) + cursor/wrap/scroll. REAL.\n'
 	@printf '  test-assets    Asset v0: re-sample palette.json anchors vs the frame fixture + validate the Chicago strike header. REAL.\n'
 	@printf '  test-spec      InitechDOS spec-data (ADR-0003 Appendices A-D): JSON parse + 16 messages + struct size asserts + banner double-space. REAL.\n'
+	@printf '  test-psp       PSP 256-byte construction oracle (initech-509.4 / App B.2): int20/seg-fields/jft/int21-entry/cmd-tail + clamp + no-overflow. REAL.\n'
 	@printf '  test           Run the whole gate vector (PRD Sec 8).\n'
 	@printf '\n'
 	@printf 'Self-host certificate (M8 finale):\n'
@@ -238,14 +659,150 @@ $(STAGE2_BIN): $(STAGE2_ASM) | $(BUILD)
 #   image padded   : to IMG_SECTORS total sectors
 # We build a zero-filled image then dd the parts in at fixed offsets. No
 # timestamps/host paths -> reproducible (CLAUDE.md Rule 11).
-$(TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) | $(BUILD)
+$(TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
 	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@printf ">>> tracer image: %s (MBR@s0, stage2@s1..%d, %d sectors total)\n" \
-		"$@" "$(STAGE2_SECTORS)" "$(IMG_SECTORS)"
+	@dd if=$(KERNEL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> tracer image: %s (MBR@s0, stage2@s1..%d, kernel@s17..%d, %d sectors total)\n" \
+		"$@" "$(STAGE2_SECTORS)" "$$((17 + $(KERNEL_SECTORS) - 1))" "$(IMG_SECTORS)"
+
+# --- Flat C kernel build (beads initech-d00) -------------------------------
+# Entry stub (nasm elf32) + freestanding C, linked to a FLAT binary at
+# 0x00010000 via kernel.ld, then objcopy'd to a raw image and padded to exactly
+# KERNEL_SECTORS sectors so stage2's INT 13h read count is deterministic.
+# kstart.o is linked FIRST so _start lands at the link base (0x10000).
+$(KERNEL_START_OBJ): $(KERNEL_START_ASM) | $(BUILD)
+	$(NASM) -f elf32 $< -o $@
+
+$(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+# Text console (beads initech-yqb): the SAME console.c the host blit oracle
+# (os/milton/test_console.c) exercises; freestanding here, hosted there.
+$(KERNEL_CONSOLE_OBJ): $(KERNEL_CONSOLE_C) $(KERNEL_DIR)/console.h $(KERNEL_DIR)/boot_info.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_CONSOLE_C) -o $@
+
+# Interrupt foundation objects (beads initech-a5a).
+$(KERNEL_IDT_OBJ): $(KERNEL_IDT_C) $(KERNEL_DIR)/idt.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_IDT_C) -o $@
+
+$(KERNEL_PIC_OBJ): $(KERNEL_PIC_C) $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIC_C) -o $@
+
+$(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PANIC_C) -o $@
+
+# INT 21h dispatcher (beads initech-509.5): the SAME int21.c the host oracle
+# (os/milton/test_int21.c) exercises; freestanding here, hosted there.
+$(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_INT21_C) -o $@
+
+# PSP construction (beads initech-509.4): the SAME psp.c the host oracle
+# (test_psp.c) exercises; freestanding here, hosted there. -Ispec for psp.h ->
+# dos_structs.h (the LOCKED psp_t).
+$(KERNEL_PSP_OBJ): $(KERNEL_PSP_C) $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_PSP_C) -o $@
+
+# Flat program loader (beads initech-509.5): the SAME loader.c the host oracle
+# (test_loader.c) exercises; freestanding here (asm control-transfer path),
+# hosted there (loader_prepare only). -Ispec for memory_map.h (LOCKED addrs).
+$(KERNEL_LOADER_OBJ): $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/psp.h \
+                      spec/memory_map.h $(KERNEL_DIR)/int21.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
+
+# ATA PIO sector backend (beads initech-adf/initech-saw): the SAME ata.c that
+# is freestanding-only (no host oracle -- it touches I/O ports); compiled into
+# the kernel here. Its first functional exercise is make test-fs.
+$(KERNEL_ATA_OBJ): $(KERNEL_ATA_C) $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/blockdev.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_ATA_C) -o $@
+
+# FAT12 reader (beads initech-adf): the SAME fat12.c the host oracles
+# (test-fat12-*) exercise; freestanding here, hosted there. -Ispec for the
+# LOCKED bpb_t / dir_entry_t (dos_structs.h).
+$(KERNEL_FAT12_OBJ): $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_FAT12_C) -o $@
+
+# --- Baked test program pipeline (beads initech-509.5; Sec 5.4) ------------
+# bin2c is a host factory tool (libc), built with the factory CC, not KERNEL_CC.
+$(BIN2C_BIN): $(BIN2C_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+
+# Assemble the flat (.COM-equivalent) test program (org 0x20100). nasm -f bin is
+# deterministic for a fixed source (Rule 11).
+$(TEST_PROG_BIN): $(TEST_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+# Embed the flat binary as a C .rodata array via bin2c (deterministic; no
+# timestamps/paths). The generated .c is compiled with KERNEL_CC into the kernel.
+$(TEST_PROG_BLOB_C): $(TEST_PROG_BIN) $(BIN2C_BIN)
+	$(BIN2C_BIN) $(TEST_PROG_BIN) g_test_prog_image > $@
+
+$(KERNEL_TEST_PROG_OBJ): $(TEST_PROG_BLOB_C) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(TEST_PROG_BLOB_C) -o $@
+
+$(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
+	$(NASM) -f elf32 $< -o $@
+
+KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+               $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+               $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_LOADER_OBJ) \
+               $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) \
+               $(KERNEL_TEST_PROG_OBJ) $(KERNEL_ISR_OBJ)
+
+$(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_OBJS)
+
+# --- Self-test fault kernel (beads initech-a5a; make test-panic) -----------
+# Same sources, but kmain.c compiled with -DBOOT_SELFTEST_FAULT so the boot
+# raises a deliberate #DE after the banner. Linked into a SEPARATE image so the
+# normal kernel/image (test-boot) never faults.
+$(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SELFTEST_FAULT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_LOADER_OBJ) \
+                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) \
+                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_ISR_OBJ)
+
+$(KERNEL_FAULT_ELF): $(KERNEL_FAULT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FAULT_OBJS)
+
+$(KERNEL_FAULT_BIN): $(KERNEL_FAULT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_fault.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(fault): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+# The self-test fault disk image: identical layout to TRACER_IMG but with the
+# fault kernel at sector 17.
+$(PANIC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FAULT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FAULT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> panic image: %s (self-test #DE fault kernel @s17)\n" "$@"
+
+# Raw flat binary, then zero-pad to KERNEL_SECTORS * 512 bytes (deterministic).
+$(KERNEL_BIN): $(KERNEL_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes) -- bump KERNEL_SECTORS in BOTH the Makefile and stage2.asm\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel: %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 
 $(PPM_CHECK_BIN): $(PPM_CHECK_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+
+$(PPM_TEXT_CHECK_BIN): $(PPM_TEXT_CHECK_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 # --- Asset tools + derived artifacts (beads initech-vcq) -------------------
@@ -413,8 +970,98 @@ ssim:
 test-region:
 	$(call stub_fail,test-region,M3)
 
-test-fat:
-	$(call stub_fail,test-fat,M2)
+# ---------------------------------------------------------------------------
+# REAL gate: test-fat (beads initech-5cu; FAT12 read path beads initech-adf)
+# ---------------------------------------------------------------------------
+# The FAT12 DIFFERENTIAL ORACLE. Our C reader (os/milton/fat12.c, driven on the
+# host via the file-backed blockdev) must AGREE with TWO independent references
+# on the SAME freshly-minted image (CLAUDE.md Law 2, Rule 5 differential-from-
+# day-one):
+#   ref #1: mtools (period-authentic)         -- mdir (names+sizes), mcopy (bytes)
+#   ref #2: an independent python3 reader      -- fat12_ref.py (NOT mtools, NOT
+#                                                 our C; a third implementation)
+# Agreement is required on the SET of file names, each file's SIZE, and each
+# file's CONTENT bytes. Timestamps and the volume serial are normalized away
+# (mdir's date/time columns dropped; we never print them) per
+# docs/research/fat12-ground-truth.md Sec 5.
+#
+# Four assertions, every one fail-loud and exit-non-zero on miss (Rule 2):
+#   A. NAMES+SIZES, triple agreement: fat_dump --list == fat12_ref.py --list ==
+#      normalized `mdir`. Any pairwise mismatch => RED (prints the diff).
+#   B. CONTENT, per file: fat_dump --cat NAME == mcopy ::NAME == fat12_ref.py
+#      --cat NAME, byte-for-byte. Any mismatch => RED.
+#   C. The three FAT12 unit oracles (bpb, chain, dir) all pass.
+#   D. Tool presence: mtools (mdir/mcopy) and python3 MUST exist, else the gate
+#      FAILS LOUD -- a silently-skipped oracle is the worst outcome (Law 2).
+# Ref: PRD Sec 6.1; ADR-0003 DEC-07; beads initech-5cu / initech-adf.
+FAT12_OUR_LIST  := $(BUILD)/fat12_our.list
+FAT12_PY_LIST   := $(BUILD)/fat12_py.list
+FAT12_MTOOLS_LIST := $(BUILD)/fat12_mtools.list
+
+test-fat: $(FAT_DUMP_BIN) $(FAT12_IMG) $(FAT12_REF_PY) \
+          $(TEST_FAT12_BPB) $(TEST_FAT12_CHAIN) $(TEST_FAT12_DIR)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fat : FAT12 differential oracle\n'
+	@printf '  Ref: PRD Sec 6.1 / ADR-0003 DEC-07. beads initech-5cu / initech-adf.\n'
+	@printf '  Our C reader vs TWO independent refs (mtools + python3) on one image.\n'
+	@printf '======================================================================\n'
+	@# ---- (D) Tool presence: fail loud, NEVER silently skip (Law 2). ----
+	@command -v mdir   >/dev/null 2>&1 || { printf '!!! test-fat FAIL: mtools `mdir` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mcopy  >/dev/null 2>&1 || { printf '!!! test-fat FAIL: mtools `mcopy` not found (apt install mtools).\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-fat FAIL: python3 not found (needed for the independent reference reader).\n'; exit 1; }
+	@printf '>>> test-fat [D]: reference tools present (mtools mdir/mcopy + python3)\n'
+	@# ---- (C) The three FAT12 unit oracles must pass first. ----
+	@printf '>>> test-fat [C]: FAT12 unit oracles (bpb / chain / dir)\n'
+	@$(TEST_FAT12_BPB)   "$(FAT12_IMG)" \
+		|| { printf '!!! test-fat FAIL: test_fat12_bpb red\n'; exit 1; }
+	@$(TEST_FAT12_CHAIN) "$(FAT12_IMG)" \
+		|| { printf '!!! test-fat FAIL: test_fat12_chain red\n'; exit 1; }
+	@$(TEST_FAT12_DIR)   "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)" \
+		|| { printf '!!! test-fat FAIL: test_fat12_dir red\n'; exit 1; }
+	@# ---- (A) NAMES + SIZES: triple agreement (our == python == mdir). ----
+	@printf '>>> test-fat [A]: names+sizes -- our fat_dump == python ref == normalized mdir\n'
+	@$(FAT_DUMP_BIN) "$(FAT12_IMG)" --list > "$(FAT12_OUR_LIST)" \
+		|| { printf '!!! test-fat FAIL: fat_dump --list errored\n'; exit 1; }
+	@python3 "$(FAT12_REF_PY)" "$(FAT12_IMG)" --list > "$(FAT12_PY_LIST)" \
+		|| { printf '!!! test-fat FAIL: fat12_ref.py --list errored\n'; exit 1; }
+	@# Normalize mdir: keep only rows carrying a YYYY-MM-DD date (real entries),
+	@# reassemble the space-grouped thousands in the size, drop date/time/serial,
+	@# emit "NAME.EXT <size>" and sort -- timestamps/serial normalized away.
+	@mdir -i "$(FAT12_IMG)" :: | awk '{ \
+		hd=0; di=0; \
+		for(i=1;i<=NF;i++){ if($$i ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}$$/){hd=1;di=i;break} } \
+		if(!hd) next; \
+		name=$$1; ext=$$2; sz=""; \
+		for(i=3;i<di;i++){ sz=sz $$i } \
+		if(sz !~ /^[0-9]+$$/) next; \
+		fn=(ext!="")?name"."ext:name; \
+		print fn, sz \
+	}' | sort > "$(FAT12_MTOOLS_LIST)"
+	@diff -u "$(FAT12_OUR_LIST)" "$(FAT12_PY_LIST)" \
+		|| { printf '!!! test-fat FAIL [A]: our listing != python reference listing\n'; exit 1; }
+	@diff -u "$(FAT12_OUR_LIST)" "$(FAT12_MTOOLS_LIST)" \
+		|| { printf '!!! test-fat FAIL [A]: our listing != normalized mdir listing\n'; exit 1; }
+	@printf '    triple agreement on names+sizes (%s files):\n' "$$(wc -l < "$(FAT12_OUR_LIST)" | tr -d ' ')"
+	@sed 's/^/      /' "$(FAT12_OUR_LIST)"
+	@# ---- (B) CONTENT per file: our == mcopy == python, byte-for-byte. ----
+	@printf '>>> test-fat [B]: content -- our fat_dump --cat == mcopy == python ref, per file\n'
+	@for f in $(FAT12_GATE_NAMES); do \
+		$(FAT_DUMP_BIN) "$(FAT12_IMG)" --cat "$$f" > "$(BUILD)/fat12_our_$$f.bin" \
+			|| { printf '!!! test-fat FAIL [B]: fat_dump --cat %s errored\n' "$$f"; exit 1; }; \
+		mcopy -i "$(FAT12_IMG)" "::$$f" - > "$(BUILD)/fat12_mtools_$$f.bin" 2>/dev/null \
+			|| { printf '!!! test-fat FAIL [B]: mcopy ::%s errored\n' "$$f"; exit 1; }; \
+		python3 "$(FAT12_REF_PY)" "$(FAT12_IMG)" --cat "$$f" > "$(BUILD)/fat12_py_$$f.bin" \
+			|| { printf '!!! test-fat FAIL [B]: fat12_ref.py --cat %s errored\n' "$$f"; exit 1; }; \
+		cmp -s "$(BUILD)/fat12_our_$$f.bin" "$(BUILD)/fat12_mtools_$$f.bin" \
+			|| { printf '!!! test-fat FAIL [B]: %s -- our bytes != mcopy bytes\n' "$$f"; cmp "$(BUILD)/fat12_our_$$f.bin" "$(BUILD)/fat12_mtools_$$f.bin"; exit 1; }; \
+		cmp -s "$(BUILD)/fat12_our_$$f.bin" "$(BUILD)/fat12_py_$$f.bin" \
+			|| { printf '!!! test-fat FAIL [B]: %s -- our bytes != python ref bytes\n' "$$f"; cmp "$(BUILD)/fat12_our_$$f.bin" "$(BUILD)/fat12_py_$$f.bin"; exit 1; }; \
+		printf '    %-12s %6s bytes : our == mcopy == python\n' "$$f" "$$(wc -c < "$(BUILD)/fat12_our_$$f.bin" | tr -d ' ')"; \
+	done
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- our FAT12 reader agrees with mtools AND an independent\n'
+	@printf '            python3 reader on names, sizes, and content (triple oracle).\n'
+	@printf '======================================================================\n'
 
 test-dbase:
 	$(call stub_fail,test-dbase,M6)
@@ -533,23 +1180,36 @@ test-harness: $(HARNESS_BIN) $(SERIAL_HELLO_ELF) $(TRIPLE_FAULT_ELF)
 #      through MBR -> protected mode -> framebuffer fill.
 #   2. NO triple-fault in the QEMU -d cpu_reset log (the real->protected
 #      transition did not silently reboot -- the minefield callout).
-#   3. the QMP screendump of the LIVE guest is seafoam (the framebuffer was
-#      actually written with the right color/pitch/bpp).
+#   3. the QMP screendump of the LIVE guest shows the InitechDOS banner blitted
+#      on the seafoam desktop (ppm_text_check).
 # The guest hlt-loops to stay live for the screendump, so it is reaped by the
 # wall-clock timeout -- a timeout here is EXPECTED and is NOT a failure by
 # itself; we assert on markers + screendump + triple_fault, not on exit code.
+#
+# SUPERSESSION (beads initech-bea): the kernel now blits the InitechDOS banner
+# (initech-bea) into the top rows, which inks fg pixels exactly where the old
+# 81-point pure-seafoam grid (ppm_seafoam_check) sampled -- so a uniform-seafoam
+# assertion would FALSE-FAIL on a CORRECT boot. Per the STOP CONDITION we do NOT
+# weaken the oracle; we STRENGTHEN it. The screendump check is now ppm_text_check,
+# which asserts a STRICTLY STRONGER property: the banner was rendered at its known
+# origin AND the desktop is still seafoam below the banner (not a solid fill, not
+# blank). The pure-seafoam grid lives on, still mutation-proven, as the inner
+# assertion (C) of ppm_text_check and via tools/ppm_seafoam_check.c which the
+# `make test` vector may still use elsewhere.
 TRACER_NAME   := tracer_boot
 TRACER_SERIAL := $(BUILD)/$(TRACER_NAME).serial
 TRACER_PPM    := $(BUILD)/$(TRACER_NAME).ppm
 TRACER_REPORT := $(BUILD)/$(TRACER_NAME).report
 
-test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_CHECK_BIN)
+test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-tracer-boot : real MBR->LFB boot oracle\n'
 	@printf '  Ref: PRD Sec 5 (hardware contract) / Sec 11 (M1). beads initech-f8v.2\n'
+	@printf '  NOTE: pure-seafoam grid SUPERSEDED by ppm_text_check (banner blitted);\n'
+	@printf '        this gate is now STRICTLY STRONGER (banner + seafoam desktop). initech-bea\n'
 	@printf '======================================================================\n'
 	@printf 'Booting   : %s (raw disk, custom MBR -> stage2 -> 32-bit flat -> VESA LFB)\n' "$(TRACER_IMG)"
-	@printf 'Expecting : serial markers S1/S2/VBE/A20/GDT/PM/LFB/OK + seafoam screendump\n'
+	@printf 'Expecting : serial markers S1/S2/VBE/A20/GDT/PM/LFB/OK/KERNEL/BANNER + banner screendump\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# Boot via the disk path with a live-guest screendump. The guest hlt-loops,
 	@# so it will time out -- that is expected; we do not gate on the exit code.
@@ -570,26 +1230,337 @@ test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_CHECK_BIN)
 		printf '!!! test-tracer-boot FAIL: no serial captured at %s\n' "$(TRACER_SERIAL)"; \
 		exit 1; \
 	fi
-	@for m in S1 S2 VBE A20 GDT PM LFB OK; do \
+	@for m in S1 S2 VBE FONT A20 GDT PM LFB OK KLOAD KERNEL INT21 BI-OK CONSOLE BANNER; do \
 		if grep -q "^$$m$$" "$(TRACER_SERIAL)"; then \
-			printf '  %-4s : present\n' "$$m"; \
+			printf '  %-6s : present\n' "$$m"; \
 		else \
-			printf '  %-4s : MISSING\n' "$$m"; \
+			printf '  %-6s : MISSING\n' "$$m"; \
 		fi; \
 	done
-	@for m in S1 PM OK; do \
+	@# Required subset: the full handoff chain. KERNEL proves the far jump into
+	@# the C kernel; BI-OK proves boot_info is readable in C (beads initech-d00);
+	@# CONSOLE proves the LFB text console initialized (initech-yqb); BANNER
+	@# proves the InitechDOS banner was rendered (initech-bea).
+	@for m in S1 PM OK FONT KERNEL INT21 BI-OK CONSOLE BANNER; do \
 		grep -q "^$$m$$" "$(TRACER_SERIAL)" \
 			|| { printf '!!! test-tracer-boot FAIL: required serial marker %s missing\n' "$$m"; exit 1; }; \
 	done
-	@# 3. Seafoam screendump check.
+	@# 3. Screendump check: banner blitted at its known origin AND the desktop is
+	@#    still seafoam below it (ppm_text_check -- STRICTLY STRONGER than the old
+	@#    pure-seafoam grid, which the banner now legitimately perturbs).
 	@if [ ! -s "$(TRACER_PPM)" ]; then \
 		printf '!!! test-tracer-boot FAIL: no screendump captured at %s (live guest required)\n' "$(TRACER_PPM)"; \
 		exit 1; \
 	fi
-	@$(PPM_CHECK_BIN) "$(TRACER_PPM)" \
-		|| { printf '!!! test-tracer-boot FAIL: framebuffer is not seafoam\n'; exit 1; }
+	@$(PPM_TEXT_CHECK_BIN) "$(TRACER_PPM)" \
+		|| { printf '!!! test-tracer-boot FAIL: banner not rendered on the seafoam desktop\n'; exit 1; }
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- real boot chain reached protected mode, filled the LFB seafoam, no triple-fault\n'
+	@printf 'VERDICT   : PASS -- real boot chain reached protected mode, blitted the InitechDOS banner on the seafoam desktop, no triple-fault\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-boot (beads initech-bea -- the InitechDOS banner milestone)
+# ---------------------------------------------------------------------------
+# The demonstrable M1 banner gate: boot the REAL image and prove the InitechDOS
+# operator banner (spec/dos_banner.txt; ADR-0003 DEC-12 / Appendix D.1) was
+# printed -- on the wire AND on the framebuffer -- and ties the running artifact
+# back to the LOCKED spec byte-for-byte (CLAUDE.md Law 1 cite-source, Law 2
+# oracle-is-truth, Law 4 look-and-feel, Rule 2 fail-loud, Rule 8 locked spec).
+#
+# Four independent assertions, every one fail-loud + exit-non-zero on miss:
+#   1. NO triple-fault in the QEMU -d cpu_reset log (the boot did not reboot).
+#   2. SERIAL milestone markers (S1 PM OK FONT KERNEL BI-OK CONSOLE) AND the
+#      banner markers (BANNER-BEGIN / BANNER-END / BANNER) are present, AND the
+#      two banner literals appear on the wire: "InitechDOS  Version 3.30" (the
+#      controlled DOUBLE space) and the 1991 copyright line. A missing line => RED.
+#   3. SPEC BYTE-EXACTNESS: extract the two lines BETWEEN BANNER-BEGIN/BANNER-END
+#      from the captured serial and `diff` them against spec/dos_banner.txt. Any
+#      drift (a single character) => RED. This pins the artifact to the locked
+#      spec (Law 1 / Rule 8); the same literal is what test-spec verifies in the
+#      spec file, so banner == spec == kernel.
+#   4. SCREENDUMP: ppm_text_check asserts the banner was actually blitted at its
+#      known glyph origin (fg pixels in cell (0,0) + the line-1 band) AND the
+#      desktop is still seafoam below the banner (not a solid fill / blank).
+#
+# The guest hlt-loops to stay live for the screendump, so it is reaped by the
+# wall-clock timeout -- a timeout is EXPECTED and is NOT a failure by itself; we
+# assert on markers + banner + spec-diff + screendump, not on the exit code.
+#
+# TRI-EMULATOR: this gate runs QEMU ONLY. The M1 acceptance criterion is
+# identical boot across QEMU/Bochs/86Box (PRD Sec 8 differential emulation), but
+# the Bochs + 86Box harness drivers are UNBUILT (beads initech-x0i). The gate
+# prints this deferral so the coverage gap is honest and visible -- it does NOT
+# silently imply tri-emulator agreement (CLAUDE.md Rule 5 / Law 2).
+BOOT_NAME     := boottext
+BOOT_SERIAL   := $(BUILD)/$(BOOT_NAME).serial
+BOOT_PPM      := $(BUILD)/$(BOOT_NAME).ppm
+BOOT_REPORT   := $(BUILD)/$(BOOT_NAME).report
+BOOT_LINES    := $(BUILD)/$(BOOT_NAME).banner_lines
+
+test-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_BANNER)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-boot : InitechDOS banner boot gate\n'
+	@printf '  Ref: ADR-0003 DEC-12 / Appendix D.1; spec/dos_banner.txt (LOCKED).\n'
+	@printf '  beads initech-bea. CLAUDE.md Law 1/2/4, Rule 2/8/11.\n'
+	@printf '  TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (raw disk, real boot chain -> C kernel -> banner)\n' "$(TRACER_IMG)"
+	@printf 'Expecting : serial S1/PM/OK/FONT/KERNEL/BI-OK/CONSOLE + banner literal + screendump text\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# Boot the live guest with serial + screendump capture (same path as
+	@# test-tracer-boot). The guest hlt-loops, so it times out -- expected.
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --screendump \
+		--name "$(BOOT_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(BOOT_REPORT)" || true
+	@cat "$(BOOT_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- 1. Triple-fault check. ----
+	@if grep -q 'triple_fault=1' "$(BOOT_REPORT)"; then \
+		printf '!!! test-boot FAIL: TRIPLE FAULT detected in the boot transition\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-boot [1/4]: no triple-fault\n'
+	@# ---- 2. Serial milestone + banner markers + banner literals. ----
+	@if [ ! -s "$(BOOT_SERIAL)" ]; then \
+		printf '!!! test-boot FAIL: no serial captured at %s\n' "$(BOOT_SERIAL)"; \
+		exit 1; \
+	fi
+	@for m in S1 PM OK FONT KERNEL INT21 BI-OK CONSOLE BANNER-BEGIN BANNER-END BANNER; do \
+		grep -q "^$$m$$" "$(BOOT_SERIAL)" \
+			|| { printf '!!! test-boot FAIL: required serial marker %s missing\n' "$$m"; exit 1; }; \
+	done
+	@grep -q '^InitechDOS  Version 3.30$$' "$(BOOT_SERIAL)" \
+		|| { printf '!!! test-boot FAIL: banner line 1 "InitechDOS  Version 3.30" (double space) missing on serial\n'; exit 1; }
+	@grep -q '^Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.$$' "$(BOOT_SERIAL)" \
+		|| { printf '!!! test-boot FAIL: banner copyright line missing on serial\n'; exit 1; }
+	@printf '>>> test-boot [2/4]: serial markers + banner literals present\n'
+	@# ---- 3. Byte-exactness vs spec/dos_banner.txt: extract the lines between
+	@#         BANNER-BEGIN and BANNER-END and diff against the LOCKED spec. ----
+	@awk '/^BANNER-BEGIN$$/{f=1;next} /^BANNER-END$$/{f=0} f{print}' \
+		"$(BOOT_SERIAL)" > "$(BOOT_LINES)"
+	@diff -u "$(SPEC_BANNER)" "$(BOOT_LINES)" \
+		|| { printf '!!! test-boot FAIL: kernel banner DRIFTED from spec/dos_banner.txt (Law 1 / Rule 8)\n'; exit 1; }
+	@printf '>>> test-boot [3/4]: serial banner == spec/dos_banner.txt byte-for-byte\n'
+	@# ---- 4. Screendump: banner blitted at its known origin on seafoam desktop. ----
+	@if [ ! -s "$(BOOT_PPM)" ]; then \
+		printf '!!! test-boot FAIL: no screendump captured at %s (live guest required)\n' "$(BOOT_PPM)"; \
+		exit 1; \
+	fi
+	@$(PPM_TEXT_CHECK_BIN) "$(BOOT_PPM)" \
+		|| { printf '!!! test-boot FAIL: screendump does not show the banner on the seafoam desktop\n'; exit 1; }
+	@printf '>>> test-boot [4/4]: screendump banner-text check\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- InitechDOS banner printed (serial == spec, rendered on screen), no triple-fault\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-program (beads initech-509.5 -- InitechDOS RUNS A PROGRAM)
+# ---------------------------------------------------------------------------
+# The in-emulator end-to-end loader oracle: boot the REAL image and prove the
+# kernel LOADED, RAN, and got control BACK from a flat program. The program
+# prints via INT 21h AH=09h then exits via AH=4Ch; the loader's return-to-loader
+# mechanism (ground-truth Sec 4) hands control back to the kernel, which emits
+# PROGRAM-EXIT rc=0. Three independent assertions, every one fail-loud + exit-
+# non-zero on miss (CLAUDE.md Law 2 / Rule 2):
+#   1. NO triple-fault (a bad stack/jump in the control transfer silently reboots
+#      in QEMU -- the minefield; the harness -d cpu_reset catches it).
+#   2. SERIAL: PROGRAM-BEGIN present, the program's own output line
+#      "Hello from InitechOS program." present (printed THROUGH the OS syscall,
+#      proving the loaded program ran AND called INT 21h), and PROGRAM-EXIT rc=0
+#      present (proving the return-to-loader mechanism brought control back with
+#      the right exit code). A missing PROGRAM-EXIT => the program ran but never
+#      returned (Risk 1) => RED.
+#   3. The program output appears AFTER PROGRAM-BEGIN and the rc line is rc=0.
+# The guest hlt-loops to stay live, so it times out -- expected; we assert on the
+# markers, not the exit code.
+PROG_NAME    := program_boot
+PROG_SERIAL  := $(BUILD)/$(PROG_NAME).serial
+PROG_REPORT  := $(BUILD)/$(PROG_NAME).report
+PROG_OUTPUT  := Hello from InitechOS program.
+
+.PHONY: test-program
+test-program: $(HARNESS_BIN) $(TRACER_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-program : InitechDOS RUNS A PROGRAM\n'
+	@printf '  Ref: docs/research/psp-loader-ground-truth.md Sec 4/5. beads initech-509.5.\n'
+	@printf '  Prove load -> run -> INT 21h -> return-to-loader end-to-end on real boot.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (real boot chain -> C kernel -> load_program)\n' "$(TRACER_IMG)"
+	@printf 'Expecting : PROGRAM-BEGIN + "%s" + PROGRAM-EXIT rc=0 + no triple-fault\n' "$(PROG_OUTPUT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" \
+		--name "$(PROG_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(PROG_REPORT)" || true
+	@cat "$(PROG_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- 1. Triple-fault check (the control transfer did not silently reboot). ----
+	@if grep -q 'triple_fault=1' "$(PROG_REPORT)"; then \
+		printf '!!! test-program FAIL: TRIPLE FAULT -- the control transfer or return crashed\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-program [1/3]: no triple-fault\n'
+	@# ---- 2. Serial: begin marker + program output + clean exit. ----
+	@if [ ! -s "$(PROG_SERIAL)" ]; then \
+		printf '!!! test-program FAIL: no serial captured at %s\n' "$(PROG_SERIAL)"; \
+		exit 1; \
+	fi
+	@grep -q '^PROGRAM-BEGIN$$' "$(PROG_SERIAL)" \
+		|| { printf '!!! test-program FAIL: PROGRAM-BEGIN marker missing (loader never invoked)\n'; exit 1; }
+	@grep -qF '$(PROG_OUTPUT)' "$(PROG_SERIAL)" \
+		|| { printf '!!! test-program FAIL: program output "%s" missing -- the loaded program did not run/print via INT 21h\n' "$(PROG_OUTPUT)"; exit 1; }
+	@printf '>>> test-program [2/3]: program ran and printed "%s" through INT 21h\n' "$(PROG_OUTPUT)"
+	@# ---- 3. Return-to-loader: PROGRAM-EXIT rc=0 came back to the kernel. ----
+	@grep -q '^PROGRAM-EXIT rc=0$$' "$(PROG_SERIAL)" \
+		|| { printf '!!! test-program FAIL: PROGRAM-EXIT rc=0 missing -- the program ran but never returned to the loader (Risk 1)\n'; exit 1; }
+	@printf '>>> test-program [3/3]: return-to-loader brought control back (PROGRAM-EXIT rc=0)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- InitechOS loaded a flat program, it ran + called the OS, and the loader regained control with rc=0\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-fs (beads initech-saw -- InitechDOS MOUNTS A REAL FILESYSTEM)
+# ---------------------------------------------------------------------------
+# The FIRST functional exercise of ata.c on the emulator (beads initech-adf:
+# "hardware validation defers to boot"). Boot the REAL image WITH a FAT12 data
+# disk attached to the IDE primary SLAVE (--disk2), and prove the kernel read
+# sector 0 over ATA PIO, mounted the volume, and rendered a proto-DIR of the
+# root directory. Fail-loud + exit-non-zero on every miss (Law 2 / Rule 2):
+#   1. NO triple-fault (a bad PIO sequence could crash the transition).
+#   2. SERIAL: FAT-MOUNT-OK present (ata.c + fat12.c worked end-to-end), the
+#      known fixture filenames present (the proto-DIR actually enumerated the
+#      root directory), and DIR-OK present (the walk completed).
+#   3. BONUS: a screendump shows text rendered on the seafoam desktop (the
+#      banner band + intact background -- ppm_text_check), proving the listing
+#      reached the LFB console, not only serial.
+# Ref: docs/research/fs-mount-sft-ground-truth.md Sec 1, Sec 2, Sec 5.1.
+# TRI-EMULATOR: QEMU only here -- Bochs/86Box deferred to beads initech-x0i.
+FS_NAME    := fs_boot
+FS_SERIAL  := $(BUILD)/$(FS_NAME).serial
+FS_REPORT  := $(BUILD)/$(FS_NAME).report
+FS_PPM     := $(BUILD)/$(FS_NAME).ppm
+# The 8.3 names baked into the FAT12 data disk (HELLO.TXT is the load-bearing
+# assertion the brief calls out; the rest pin the full proto-DIR enumeration).
+FS_NAMES   := HELLO.TXT SECOND.TXT CHAIN.TXT EMPTY.TXT BLOCK.BIN
+
+.PHONY: test-fs
+test-fs: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fs : MOUNT A REAL FILESYSTEM over ATA\n'
+	@printf '  Ref: docs/research/fs-mount-sft-ground-truth.md Sec 1/2/5.1.\n'
+	@printf '  beads initech-saw (+ validates initech-adf ATA on the emulator).\n'
+	@printf '  FIRST functional run of os/milton/ata.c on the emulator.\n'
+	@printf '  TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (boot disk, primary master)\n' "$(TRACER_IMG)"
+	@printf 'Data disk : %s (primary SLAVE, if=ide,index=1)\n' "$(FAT_DATA_IMG)"
+	@printf 'Expecting : FAT-MOUNT-OK + proto-DIR filenames (HELLO.TXT ...) + DIR-OK + no triple-fault\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" --screendump \
+		--name "$(FS_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(FS_REPORT)" || true
+	@cat "$(FS_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- 1. Triple-fault check. ----
+	@if grep -q 'triple_fault=1' "$(FS_REPORT)"; then \
+		printf '!!! test-fs FAIL: TRIPLE FAULT detected booting with the data disk\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-fs [1/4]: no triple-fault\n'
+	@# ---- 2. Mount succeeded (ata.c + fat12.c worked end-to-end). ----
+	@if [ ! -s "$(FS_SERIAL)" ]; then \
+		printf '!!! test-fs FAIL: no serial captured at %s\n' "$(FS_SERIAL)"; \
+		exit 1; \
+	fi
+	@if grep -q '^FAT-MOUNT-FAIL' "$(FS_SERIAL)"; then \
+		printf '!!! test-fs FAIL: kernel reported FAT-MOUNT-FAIL (ATA read or BPB check failed) -- root-cause the ATA protocol, do NOT paper over (Rule 3):\n'; \
+		grep '^FAT-MOUNT-FAIL' "$(FS_SERIAL)"; \
+		exit 1; \
+	fi
+	@grep -q '^FAT-MOUNT-OK$$' "$(FS_SERIAL)" \
+		|| { printf '!!! test-fs FAIL: FAT-MOUNT-OK missing -- ata.c never delivered sector 0 to fat12_mount (the FIRST emulator ATA run failed)\n'; exit 1; }
+	@printf '>>> test-fs [2/4]: FAT-MOUNT-OK (ata.c READ SECTORS + fat12_mount green on the emulator)\n'
+	@# ---- 3. Proto-DIR enumerated the root directory + completed. ----
+	@for n in $(FS_NAMES); do \
+		grep -q "$$n" "$(FS_SERIAL)" \
+			|| { printf '!!! test-fs FAIL: proto-DIR filename %s missing -- root-dir enumeration did not list the fixtures\n' "$$n"; exit 1; }; \
+	done
+	@grep -q '^DIR-OK$$' "$(FS_SERIAL)" \
+		|| { printf '!!! test-fs FAIL: DIR-OK missing -- fat12_read_root_dir did not complete the scan\n'; exit 1; }
+	@printf '>>> test-fs [3/4]: proto-DIR listed %s + DIR-OK\n' "$(FS_NAMES)"
+	@# ---- 4. BONUS screendump: text rendered on the seafoam desktop. ----
+	@if [ ! -s "$(FS_PPM)" ]; then \
+		printf '!!! test-fs FAIL: no screendump captured at %s (live guest required)\n' "$(FS_PPM)"; \
+		exit 1; \
+	fi
+	@# Assert text in the proto-DIR band (rows 3..8 => y in [48,144)), NOT just
+	@# the banner -- the banner alone would false-pass [A]/[B] even if the DIR
+	@# never rendered (the dangling-console bug fixed in this step). Band fg must
+	@# be healthy (the listing is ~6 lines of text). Rule 6: the gate now BITES.
+	@$(PPM_TEXT_CHECK_BIN) "$(FS_PPM)" 48 144 100 \
+		|| { printf '!!! test-fs FAIL: proto-DIR listing did not render on screen (band [48,144))\n'; exit 1; }
+	@printf '>>> test-fs [4/4]: screendump shows the proto-DIR listing rendered on the seafoam desktop\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- InitechDOS mounted a FAT12 volume over ATA and listed its root directory (proto-DIR)\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-panic (beads initech-a5a -- the exception is CAUGHT)
+# ---------------------------------------------------------------------------
+# Prove the panic path fires on a REAL CPU fault instead of triple-faulting (the
+# minefield: a triple-fault silently reboots in QEMU -- CLAUDE.md callout). Boot
+# the SELF-TEST FAULT image (kmain.c -DBOOT_SELFTEST_FAULT raises a deliberate
+# #DE after the banner) under the QEMU oracle (with -d int,guest_errors,cpu_reset
+# already passed by the harness) and assert, fail-loud (Rule 2 / Law 2):
+#   1. serial shows the grep-able panic marker "PANIC vec=00" (the #DE handler
+#      ran and dumped) AND "SELFTEST-FAULT-ARMED" (we actually reached the
+#      deliberate fault, so a missing PANIC is a real miss, not a skipped fault).
+#   2. triple_fault=0 in the -d cpu_reset log -- the panic HALTED cleanly; the
+#      fault did NOT cascade to a silent reboot.
+# The guest cli;hlt-loops in the panic handler, so it is reaped by the wall-clock
+# timeout -- a timeout is EXPECTED and is NOT a failure; we assert on the marker
+# + no-triple-fault, not the exit code. The NORMAL image (test-boot) never
+# defines BOOT_SELFTEST_FAULT, so it stays green.
+PANIC_NAME   := panic_boot
+PANIC_SERIAL := $(BUILD)/$(PANIC_NAME).serial
+PANIC_REPORT := $(BUILD)/$(PANIC_NAME).report
+
+.PHONY: test-panic
+test-panic: $(HARNESS_BIN) $(PANIC_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-panic : CPU exception caught (no triple-fault)\n'
+	@printf '  Ref: ground-truth Sec 3.3 (fail-loud panic) / Sec 8 Risk 1 (the\n'
+	@printf '       minefield: a triple-fault silently reboots). beads initech-a5a.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (self-test #DE fault kernel)\n' "$(PANIC_IMG)"
+	@printf 'Expecting : serial SELFTEST-FAULT-ARMED + "PANIC vec=00" + triple_fault=0\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(PANIC_IMG)" \
+		--name "$(PANIC_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(PANIC_REPORT)" || true
+	@cat "$(PANIC_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# 1. We actually reached the deliberate fault.
+	@if [ ! -s "$(PANIC_SERIAL)" ]; then \
+		printf '!!! test-panic FAIL: no serial captured at %s\n' "$(PANIC_SERIAL)"; \
+		exit 1; \
+	fi
+	@grep -q '^SELFTEST-FAULT-ARMED$$' "$(PANIC_SERIAL)" \
+		|| { printf '!!! test-panic FAIL: never reached the deliberate fault (SELFTEST-FAULT-ARMED missing)\n'; exit 1; }
+	@printf '>>> test-panic [1/3]: reached the deliberate #DE\n'
+	@# 2. The panic handler ran and dumped the grep-able marker for vector 0 (#DE).
+	@grep -q 'PANIC vec=00' "$(PANIC_SERIAL)" \
+		|| { printf '!!! test-panic FAIL: no "PANIC vec=00" -- the #DE was not caught by the panic handler\n'; exit 1; }
+	@printf '>>> test-panic [2/3]: #DE caught -- "PANIC vec=00" on serial\n'
+	@# 3. No triple-fault: the panic halted cleanly (no silent reboot).
+	@if grep -q 'triple_fault=1' "$(PANIC_REPORT)"; then \
+		printf '!!! test-panic FAIL: TRIPLE FAULT -- the exception cascaded to a silent reboot\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-panic [3/3]: no triple-fault -- panic halted cleanly\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- deliberate #DE caught by the fail-loud panic, no triple-fault\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -639,19 +1610,20 @@ test-assets: $(ASSET_CHECK_BIN) $(PREVIEW_PPM) $(PALETTE_H) $(PALETTE_JSON)
 #      'InitechDOS  Version 3.30' (with the controlled DOUBLE space).
 SPEC_DIR        := spec
 SPEC_INT21H     := $(SPEC_DIR)/int21h_register.json
+SPEC_INT21H_CC  := $(SPEC_DIR)/int21h_calling_convention.json
 SPEC_MESSAGES   := $(SPEC_DIR)/dos_messages.json
-SPEC_STRUCTS_H  := $(SPEC_DIR)/dos_structs.h
+SPEC_STRUCTS_H  := spec/dos_structs.h
 SPEC_BANNER     := $(SPEC_DIR)/dos_banner.txt
 SPEC_STRUCT_TU  := $(BUILD)/spec_dos_structs_check.c
 SPEC_STRUCT_BIN := $(BUILD)/spec_dos_structs_check
 
-test-spec: $(SPEC_INT21H) $(SPEC_MESSAGES) $(SPEC_STRUCTS_H) $(SPEC_BANNER) | $(BUILD)
+test-spec: $(SPEC_INT21H) $(SPEC_INT21H_CC) $(SPEC_MESSAGES) $(SPEC_STRUCTS_H) $(SPEC_BANNER) | $(BUILD)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-spec : ADR-0003 spec-data oracle\n'
 	@printf '  Ref: ADR-0003 Appendices A-D / DEC-13 (controlled vocabulary).\n'
 	@printf '  CLAUDE.md Rule 8 (specs-as-data) / Law 2 (oracle is the truth).\n'
 	@printf '======================================================================\n'
-	@printf '>>> test-spec [1/4]: INT 21h register JSON (Appendix A)\n'
+	@printf '>>> test-spec [1/5]: INT 21h register JSON (Appendix A)\n'
 	@python3 -c "import json,sys; \
 d=json.load(open('$(SPEC_INT21H)')); \
 fns=d['functions'] if isinstance(d,dict) and 'functions' in d else d; \
@@ -662,7 +1634,22 @@ ok={'Core','Legacy','Resident'}; \
   if not (all(r.get(k) for k in ('ah','mnemonic','description')) and r.get('class') in ok) ]; \
 print('    parsed %d functions; all have ah/mnemonic/description and valid class'%len(fns))" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/shape/class)\n' "$(SPEC_INT21H)"; exit 1; }
-	@printf '>>> test-spec [2/4]: diagnostic message catalogue JSON (Appendix C)\n'
+	@printf '>>> test-spec [2/5]: INT 21h calling-convention JSON (beads initech-509.5 / initech-1f9)\n'
+	@python3 -c "import json,re; \
+cc=json.load(open('$(SPEC_INT21H_CC)')); \
+reg=json.load(open('$(SPEC_INT21H)')); \
+assert isinstance(cc.get('abi'),dict) and cc['abi'].get('function_selector'), 'cc missing abi.function_selector'; \
+ccf=cc['functions']; \
+assert isinstance(ccf,list) and len(ccf)>0, 'cc function table empty'; \
+hx=lambda t: int(t.strip().lower().rstrip('h'),16); \
+toks=[t for r in reg['functions'] for t in re.split(r'[\s/]+', r['ah'].strip()) if t.strip()]; \
+rs=set(); \
+[ rs.update(range(hx(t.split('-')[0]), hx(t.split('-')[1])+1)) if '-' in t else rs.add(hx(t)) for t in toks ]; \
+missing=[f['ah'] for f in ccf if hx(f['ah']) not in rs]; \
+assert not missing, 'cc AH(s) NOT in int21h_register.json (controlled scope!): %r'%missing; \
+print('    parsed %d cc functions; every AH exists in int21h_register.json (%d sanctioned AHs)'%(len(ccf),len(rs)))" \
+		|| { printf '!!! test-spec FAIL: %s invalid or documents an AH NOT in the locked register (Rule 8 / DEC-13)\n' "$(SPEC_INT21H_CC)"; exit 1; }
+	@printf '>>> test-spec [3/5]: diagnostic message catalogue JSON (Appendix C)\n'
 	@python3 -c "import json,sys; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
@@ -673,14 +1660,14 @@ assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0016: %r'%(sorted(
 [ (_ for _ in ()).throw(AssertionError('empty text for %s'%k)) for k,v in m.items() if not (isinstance(v,str) and v.strip()) ]; \
 print('    parsed 16 messages MSG-DOS-0001..0016; all non-empty')" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/count/IDs/empty)\n' "$(SPEC_MESSAGES)"; exit 1; }
-	@printf '>>> test-spec [3/4]: struct size asserts compile (Appendix B)\n'
+	@printf '>>> test-spec [4/5]: struct size asserts compile (Appendix B)\n'
 	@printf '#include "dos_structs.h"\nint main(void){return 0;}\n' > "$(SPEC_STRUCT_TU)"
 	@$(CC) $(CFLAGS) -I$(SPEC_DIR) -o "$(SPEC_STRUCT_BIN)" "$(SPEC_STRUCT_TU)" \
 		|| { printf '!!! test-spec FAIL: %s failed _Static_assert (dir=32 / psp=256 / mcb=16)\n' "$(SPEC_STRUCTS_H)"; exit 1; }
 	@"$(SPEC_STRUCT_BIN)" \
 		|| { printf '!!! test-spec FAIL: spec struct check binary returned non-zero\n'; exit 1; }
 	@printf '    dos_structs.h compiled clean: dir_entry_t=32, psp_t=256, mcb_t=16\n'
-	@printf '>>> test-spec [4/4]: operator banner exact bytes (Appendix D.1)\n'
+	@printf '>>> test-spec [5/5]: operator banner exact bytes (Appendix D.1)\n'
 	@python3 -c "import sys; \
 b=open('$(SPEC_BANNER)','rb').read(); \
 lines=b.split(b'\n'); \

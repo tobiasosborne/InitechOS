@@ -376,6 +376,21 @@ static int build_argv(const QemuConfig *cfg, char **argv,
         PUSH(drvbuf);
     }
 
+    /* Optional FAT12 data volume on the IDE primary SLAVE (if=ide,index=1).
+     * The boot drive above defaults to if=ide,index=0 (primary master), so
+     * index=1 reuses the same channel port base (0x1F0) with the slave
+     * drive-select bit -- exactly what os/milton/ata.c addresses. The boot
+     * disk is unaffected; the kernel mounts this second disk over ATA.
+     * (brief Sec 1.2: index 1 = primary slave.) Pushed for both -kernel and
+     * -drive boot modes, but only meaningful for the raw-disk OS boot. */
+    if (cfg->data_disk_path) {
+        static char drvbuf2[QEMU_PATH_MAX + 48];
+        snprintf(drvbuf2, sizeof(drvbuf2),
+                 "file=%s,format=raw,if=ide,index=1", cfg->data_disk_path);
+        PUSH("-drive");
+        PUSH(drvbuf2);
+    }
+
     /* gdb stub: stub on tcp::1234, CPU stopped at reset. We only wire the
      * flags; driving gdb is out of scope (PRD Sec 8). Usage:
      *   gdb -ex 'target remote :1234' build/<guest>.elf */
