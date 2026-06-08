@@ -15,21 +15,32 @@ Toolbox (`FLAIR`), the exact chimera in the *Office Space* "Saving tables
 to disk…" frame. It really boots, the windows really work, it ships a
 dBASE-compatible database that really runs, and the north star is a
 self-hosting Borland-style Pascal compiler (`Turbo Initech`, `TPS`) that
-can recompile the whole OS from inside the OS.
+can recompile itself — and the Pascal programs it compiles — from inside
+the OS.
 
 The full product spec is **`InitechOS-PRD.md`** — read it. This file is
-*how we build it*; the PRD is *what we build*.
+*how we build it*; the PRD is *what we build*. The ratified architecture
+is in `docs/adr/` — ADR-0001 (386+, 32-bit flat), ADR-0002 (toolchain,
+implementation language, executable format), ADR-0003 (InitechDOS base
+OS), and CDR-0001 (interim toolchain deviation).
 
-**Two systems coexist in this repo, and the artifact is both:**
+**Two systems coexist in this repo:**
 
-1. **The artifact** — the OS itself, written in **Pascal** (kernel,
-   Toolbox, apps, the resident compiler), targeting freestanding x86. It
-   stays period-authentic; nothing 2026 leaks into it.
+1. **The artifact** — the OS itself. The bootloader, the InitechDOS
+   kernel (`IO.SYS` / `INITDOS.SYS` / `COMMAND.COM`), the Toolbox
+   (`FLAIR`), and the bundled apps for the current release are written
+   in **C** (ADR-0002), targeting freestanding x86. **Pascal** is the
+   language of **Turbo Initech** — the resident, self-hosting compiler
+   and in-universe North Star (ADR-0007, pending) — and of the user
+   programs Turbo Initech compiles. The whole OS stays period-authentic;
+   nothing 2026 leaks into it.
 2. **The factory** — everything that builds and *judges* the artifact,
-   written in **C only**: the seed cross-compiler, the emulator/oracle
+   written in **C only**: the seed cross-compiler (now re-cast as the
+   genesis of Turbo Initech, not the OS bootstrap), the emulator/oracle
    harness (QEMU/Bochs/86Box drivers, SSIM, differential suites), the
    asset-extraction tools, the specs-as-data. The factory is what makes
-   the artifact trustworthy.
+   the artifact trustworthy, and it is the factory cross-toolchain that
+   rebuilds the C kernel/Toolbox.
 
 The governing idea (PRD §8–§9): **every subsystem has a mechanical oracle,
 and nothing ships on "looks right."** The emulator is the fitness signal.
@@ -79,11 +90,15 @@ Pascal, the self-host fixpoint converges (`K₂ == K₃` bit-for-bit). An
 agent that *claims* it works but never ran the oracle — or ran it against
 a stub golden — has produced nothing. Reviewer prose is not a signal.
 
-**Law 3 — The artifact is Pascal; the factory is C. Never blur them.**
-No C in the shipped OS. No Pascal in the harness. No 2026-isms (no
-timestamps, no host paths, no nondeterminism) baked into the artifact —
-reproducible builds are a hard requirement because the self-host fixpoint
-depends on them (PRD §7).
+**Law 3 — Know which language each piece speaks; never blur artifact and
+factory.** The shipped OS — kernel/InitechDOS/Toolbox and the bundled
+apps for the current release — is **C** (ADR-0002). **Pascal** is the
+language of **Turbo Initech** (the resident self-hosting compiler,
+ADR-0007) and the user programs it compiles. No Pascal in the harness,
+and no factory-only C leaking into shipped sources as a 2026-ism. No
+2026-isms (no timestamps, no host paths, no nondeterminism) baked into
+the artifact — reproducible builds are a hard requirement because the
+Turbo Initech self-host fixpoint depends on them (PRD §7).
 
 **Law 4 — It must look and feel like the frame.** Fidelity is the product
 (PRD §1, §3). The judge is a person who used early-90s Mac+DOS software
@@ -225,15 +240,20 @@ you catch yourself about to do one, stop and re-check the cited reference.
   it was authored (Law 1 honesty).
 
 - **Two compilers, never conflated (PRD §4).** The *seed* cross-compiler
-  is C, runs on the host, targets InitechOS — it exists only to bootstrap.
-  The *resident* compiler (`Turbo Initech`) is Pascal, runs on InitechOS,
-  self-hosts. "Compile the compiler" means the resident one. Bugs in the
-  seed are not bugs in the artifact.
+  is C, runs on the host, targets InitechOS — it is the **genesis of
+  Turbo Initech**, not the OS bootstrap. (The C kernel/Toolbox is built
+  by the factory cross-toolchain, not by the seed.) The *resident*
+  compiler (`Turbo Initech`) is Pascal, runs on InitechOS, self-hosts.
+  "Compile the compiler" means the resident one. Bugs in the seed are not
+  bugs in the artifact.
 
-- **Self-host certificate is `K₂ == K₃`, not `K₁ == K₂`.** `K₁` is emitted
-  by the *seed* (a different compiler) and may differ byte-wise. The
-  fixed-point proof is that the resident compiler reproduces itself:
-  `K₂ == K₃` bit-for-bit (PRD §7). Requires reproducible builds (Rule 11).
+- **Self-host certificate is `K₂ == K₃`, not `K₁ == K₂` — and it scopes to
+  Turbo Initech.** `K₁` is emitted by the *seed* (a different compiler)
+  and may differ byte-wise. The fixed-point proof is that the resident
+  Pascal compiler reproduces itself: `K₂ == K₃` bit-for-bit (PRD §7); it
+  is *Turbo Initech and the Pascal programs it compiles* that recompile
+  from inside the OS, not the C kernel/Toolbox. Requires reproducible
+  builds (Rule 11).
 
 - **`.dbf` round-trips are on *meaningful* bytes.** The dBASE header stores
   a last-update date and reserved/language-driver bytes. Byte-exact
@@ -251,10 +271,12 @@ you catch yourself about to do one, stop and re-check the cited reference.
   checking), not just QEMU. A triple-fault in QEMU silently reboots; turn
   on `-d int,guest_errors,cpu_reset` and watch for it.
 
-- **MZ `.EXE` for apps, flat binary for the kernel.** Don't load apps as
-  flat blobs; the MZ format is locked precisely so real DOS `.EXE`s also
-  load (free differential oracles). The kernel itself is a flat binary
-  handed off by stage2.
+- **Flat `.COM`-equivalent apps for the current release; MZ `.EXE`
+  deferred; flat binary for the kernel (ADR-0003 DEC-08).** Application
+  executables ship as flat (`.COM`-equivalent) images for the current
+  release; the relocatable MZ `.EXE` loader is **deferred** until apps
+  are realized as independently loadable files. The kernel itself is a
+  flat binary handed off by stage2. Do not assume an MZ loader exists yet.
 
 - **Cooperative, not preemptive.** Scheduling is a `WaitNextEvent`-style
   cooperative loop on the PIT tick. No preemption, no protected
@@ -275,16 +297,25 @@ you catch yourself about to do one, stop and re-check the cited reference.
 > create targets as the milestones land (PRD §11). Keep it C + `make` +
 > thin shell — no extra runtimes (Law 3).
 
+> **Toolchain note (ADR-0002 + CDR-0001).** The *target* toolchain for OS
+> (C) targets is `i686-elf` cross-compilation (ADR-0002). The *interim*
+> toolchain — accepted, time-limited, per CDR-0001 — is the host compiler
+> in freestanding mode: `CC = gcc -m32 -ffreestanding -nostdlib` (+ `nasm`
+> + `ld`). Repoint `CC_KERNEL` to the `i686-elf` cross-toolchain once the
+> dev environment moves to a more capable device; CDR-0001 closes then.
+
 ```bash
 # Toolchain / emulators (one-time, Ubuntu):
 sudo apt install qemu-system-i386 bochs make nasm mtools
+# Target OS toolchain is i686-elf (ADR-0002); interim is host gcc -m32
+# -ffreestanding -nostdlib per CDR-0001 until the dev device is upgraded.
 # 86Box + a period VGA BIOS for authenticity/golden minting — see docs.
 
-# Build the seed cross-compiler (C) and the factory tools:
-make factory
+# Build the factory tools and the seed cross-compiler (C):
+make factory          # seed = genesis of Turbo Initech (Pascal), not the OS bootstrap
 
-# Build a bootable image with the seed compiler (cross, on host):
-make image            # -> build/initech.img
+# Build a bootable image — C OS via the factory cross-toolchain (on host):
+make image            # -> build/initech.img  (CC = i686-elf target / interim host gcc, CDR-0001)
 
 # Dev-loop boot in QEMU with serial + gdb stub + screendump wired:
 make run              # QEMU -s -S -serial stdio -d int,guest_errors,cpu_reset
@@ -348,20 +379,21 @@ initech-os/
 │   ├── xbase_coercion.json  the §6.6 coercion table
 │   ├── chrome_metrics.json  title-bar height, pinstripe period, ...
 │   └── assets/              palette, glyph strikes, icon sprites
-├── seed/                    C seed cross-compiler (Pascal -> x86)
+├── seed/                    C seed cross-compiler (Pascal -> x86); genesis of Turbo Initech, not the OS bootstrap
 ├── harness/                 C oracle + emulator drivers
 │   ├── emu/                 qemu.c, bochs.c, box86.c
 │   ├── ssim.c               per-window fidelity guide
 │   ├── diff/                fat_diff, dbf_diff, compiler_diff
 │   └── proptest/            region property suite + shrinker
-├── os/                      THE ARTIFACT — Pascal
-│   ├── boot/                MBR -> stage2 -> 32-bit protected/flat
-│   ├── milton/              InitechDOS kernel (FAT, INT-21h, loader, shell)
-│   ├── flair/               Toolbox (Window/Menu/Control/Event/Dialog)
-│   │   └── atkinson/        region engine — the load-bearing math (§6.2)
-│   ├── apps/                InitechCalc, FileManager, InitechPaint, FILE COPY
-│   ├── samir/               InitechBase (dBASE-alike)
-│   └── tps/                 Turbo Initech (resident compiler + blue IDE)
+├── os/                      THE ARTIFACT — C (ADR-0002); kernel/DOS/Toolbox/apps
+│   ├── boot/                MBR -> stage2 -> 32-bit protected/flat   (C + asm)
+│   ├── milton/              InitechDOS kernel (FAT, INT-21h, loader, shell)  (C)
+│   ├── flair/               Toolbox (Window/Menu/Control/Event/Dialog)  (C)
+│   │   └── atkinson/        region engine — the load-bearing math (§6.2)  (C)
+│   ├── apps/                InitechCalc, FileManager, InitechPaint, FILE COPY  (C, current release)
+│   ├── samir/               InitechBase (dBASE-alike)  (C)
+│   └── tps/                 Turbo Initech (resident compiler + blue IDE) — PASCAL lives here;
+│                            it is Turbo Initech's source language + user programs it compiles
 ├── fixtures/                the frame still(s), golden files
 ├── build/                   images, intermediates (gitignored)
 └── docs/

@@ -1,0 +1,45 @@
+{
+  "_comment": [
+    "InitechOS chrome metrics v0 -- LOCKED spec-data (CLAUDE.md Rule 8).",
+    "Ref: PRD Sec 6.3 (Toolbox chrome), PRD Sec 10 (chrome metrics measured",
+    "from stills), PRD Appendix A (Mac pinstripe title bars -> chrome",
+    "metrics, M4). PRD Sec 12 (frame is REFERENCE ONLY: we measure it).",
+    "",
+    "This is the v0 BASICS only -- title-bar height, menu-bar height, and",
+    "the window border/pinstripe thickness. The full chrome-metrics sheet",
+    "(scrollbar widths, close-box geometry, control insets, ...) is a later",
+    "task (m4-7). Every value below is a pixel measurement read off the",
+    "reference frame spec/assets/preview.webp (1456x819) by vertical/",
+    "horizontal luminance scans; the scan that yielded each is recorded.",
+    "",
+    "CAVEAT: the frame is a photo of a CRT at ~1456 px wide; the underlying",
+    "OS resolution (likely 640x480 / 800x600) is upscaled in the photo, so",
+    "these are FRAME pixels, not native OS pixels. They fix proportions and",
+    "give M4 a starting point to back-check, not final native constants."
+  ],
+  "schema_version": 1,
+  "source_fixture": "spec/assets/preview.webp",
+  "source_dims": { "w": 1456, "h": 819 },
+  "metrics": {
+    "menubar_height_px": {
+      "value": 19,
+      "measured_from": "col x=905 vertical scan: black border ends y72, menu-bar fill y73..y91, dark DESKTOP-window top frame line y92..y94. Fill band = 73..91 -> 19 px.",
+      "role": "height of the top Photoshop-style menu bar"
+    },
+    "titlebar_height_px": {
+      "value": 24,
+      "measured_from": "FILE COPY dialog, col x=620 vertical scan: top frame line y305..y306, pinstripe band y307..y329, dark bottom frame line y328..y329, body white from y331. Title bar (frame-to-frame) = 306..329 -> ~24 px. The DESKTOP window agreed at ~26 px (col x=420, y93..y119); 24 taken as the standard-dialog value.",
+      "role": "height of an active window/dialog title bar (pinstripe band incl. frame lines)"
+    },
+    "window_border_px": {
+      "value": 2,
+      "measured_from": "FILE COPY left edge, row y=380 horizontal scan: dark frame line ~x501, light groove x503..x504, inner dark line x506..x507, body white from x510. The window frame is a ~2 px dark line plus a 1 px groove (classic Mac double-line frame).",
+      "role": "thickness of the window outline / frame line"
+    },
+    "pinstripe_thickness_px": {
+      "value": 1,
+      "measured_from": "Title-bar pinstripe is alternating 1 px light/dark scanlines: e.g. FILE COPY col x=620 shows the ~1 px luminance ripple across y307..y327 (period ~2 px). v0 records the stripe thickness; full period is an m4-7 metric.",
+      "role": "thickness of a single title-bar pinstripe scanline"
+    }
+  }
+}

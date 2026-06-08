@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "InitechDOS Approved Diagnostic Message Catalogue -- LOCKED spec-data",
+    "(CLAUDE.md Rule 8). Transcribed VERBATIM from ADR-0003 Appendix C.",
+    "Source: docs/adr/ADR-0003-InitechDOS-Base-OS-Personality.md, Appendix C.",
+    "DEC-13 (Sec 5.13): controlled vocabulary -- no entry shall be added,",
+    "removed, reworded, capitalized, punctuated, or otherwise modified except",
+    "by an approved change to the Record. '%c' denotes a drive letter",
+    "substitution. Spacing and punctuation are part of the controlled",
+    "vocabulary (e.g. the spaces in 'continue . . .')."
+  ],
+  "source": "ADR-0003 Appendix C",
+  "messages": {
+    "MSG-DOS-0001": "Abort, Retry, Fail?",
+    "MSG-DOS-0002": "Bad command or file name",
+    "MSG-DOS-0003": "File not found",
+    "MSG-DOS-0004": "Invalid drive specification",
+    "MSG-DOS-0005": "Insufficient disk space",
+    "MSG-DOS-0006": "Not ready reading drive %c:",
+    "MSG-DOS-0007": "General failure reading drive %c:",
+    "MSG-DOS-0008": "Write protect error writing drive %c:",
+    "MSG-DOS-0009": "Access denied",
+    "MSG-DOS-0010": "Too many parameters",
+    "MSG-DOS-0011": "Required parameter missing",
+    "MSG-DOS-0012": "Are you sure (Y/N)?",
+    "MSG-DOS-0013": "Insert disk with COMMAND.COM in drive %c:",
+    "MSG-DOS-0014": "Bad or missing Command Interpreter",
+    "MSG-DOS-0015": "Non-System disk or disk error",
+    "MSG-DOS-0016": "Press any key to continue . . ."
+  }
+}

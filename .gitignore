@@ -1,5 +1,53 @@
+# InitechOS .gitignore
+# Factory artifacts and emulator output. Specs, sources, fixtures, and the
+# per-dir READMEs stay tracked.
 
-# Beads / Dolt files (added by bd init)
+# --- Build tree (everything except its tracked README) ---
+build/*
+!build/README.md
+
+# --- Compiled C / object artifacts (factory) ---
+*.o
+*.a
+*.obj
+*.lib
+
+# --- Bootable images and binary artifacts ---
+# Kept tight: these live under build/ in practice, but ignore strays too.
+*.img
+*.iso
+build/*.bin
+
+# --- Emulator / oracle output ---
+*.qcow2
+bochsout.txt
+*.bxrc.lock
+serial*.log
+qemu*.log
+*.screendump
+screendump*.ppm
+
+# --- Cloned upstream references (acquired locally, never vendored) ---
+# e.g. real DOS 3.3 / dBASE / Free Pascal trees minted into goldens.
+upstream/
+vendor/
+third_party/
+
+# --- Reference film stills (local-only fixtures; PRD §12: reference only) ---
+# The Office Space frame capture is measured/derived from, never vendored.
+spec/assets/preview.webp
+spec/assets/*.webp
+spec/assets/*.ppm
+fixtures/*.webp
+fixtures/*.png
+fixtures/*.jpg
+fixtures/*.jpeg
+
+# --- Editor / OS noise ---
+*~
+.DS_Store
+
+# --- Beads / Dolt files (added by bd init) ---
 .dolt/
 *.db
 .beads-credential-key
