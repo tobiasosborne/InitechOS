@@ -299,6 +299,51 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
                     const dir_entry_t *e, void *out_buf, uint32_t out_buf_len,
                     void *cluster_buf, uint32_t *out_bytes);
 
+/*
+ * fat12_read_partial: POSITIONED read of up to `len` bytes starting at byte
+ * `offset` within the file described by dir entry `e`, walking ONLY the cluster
+ * chain it needs -- never loading the whole file (beads initech-lq2). This is
+ * the foundational random-access primitive for the per-handle positioned
+ * cluster-chain I/O epic (beads initech-6qy): >64 KiB files, simultaneous open
+ * handles, and seek all rest on reading a slice without materializing the rest.
+ *
+ * Semantics:
+ *   - Copies min(len, e->file_size - offset) bytes from byte position `offset`
+ *     into `out_buf` and sets *out_read to that count.
+ *   - offset >= file_size  -> *out_read = 0, return FAT12_OK (clean EOF, NOT an
+ *     error: a positioned read at/after end-of-file yields zero bytes).
+ *   - len == 0             -> *out_read = 0, return FAT12_OK.
+ *   - Otherwise: skip (offset / bytes_per_cluster) clusters down the chain,
+ *     then copy from the byte offset WITHIN the first needed cluster, spanning
+ *     as many further clusters as `len` requires. file_size is authoritative:
+ *     the partial last cluster never contributes padding (RISK-5).
+ *
+ * Unlike fat12_read_file, the chain is walked INCREMENTALLY (one
+ * fat12_next_cluster step at a time) -- no on-stack chain[] array -- so an
+ * arbitrarily large file is served from the caller's single-cluster `cluster_buf`
+ * (>= sectors_per_cluster * 512) without a whole-file or whole-chain buffer.
+ *
+ * `out_buf` must hold at least the bytes actually returned (<= len); the caller
+ * sizes it to `len`. `fat` / `fat_len` is the whole-FAT buffer from
+ * fat12_read_fat.
+ *
+ * Fail loud (Rule 2):
+ *   - any required NULL arg                          -> FAT12_ERR_NULL
+ *     (out_buf/cluster_buf/fat are required only when bytes are actually read;
+ *      a clean-EOF or zero-len call needs only vol/e/out_read.)
+ *   - a free/bad cluster, or the chain ending BEFORE the requested range is
+ *     covered, is corruption                         -> FAT12_ERR_CHAIN
+ *   - a failing device read                          -> FAT12_ERR_READ
+ *   - an out-of-range cluster decode (propagated)    -> FAT12_ERR_CLUSTER
+ * Anti-hang (Rule 2): the incremental walk is bounded by the volume's cluster
+ * count; a cyclic/corrupt chain errors rather than looping forever.
+ * Returns FAT12_OK with *out_read set on success.
+ */
+int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
+                       uint32_t fat_len, const dir_entry_t *e,
+                       uint32_t offset, uint32_t len, void *out_buf,
+                       void *cluster_buf, uint32_t *out_read);
+
 /* ======================================================================== *
  * FAT12 WRITE path (beads initech-509.11)
  *

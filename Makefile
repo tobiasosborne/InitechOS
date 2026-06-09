@@ -354,6 +354,12 @@ TEST_FAT12_CHAIN  := $(BUILD)/test_fat12_chain
 # The FAT12 root-dir enumerate + find + file-read oracle binary (host test).
 TEST_FAT12_DIR    := $(BUILD)/test_fat12_dir
 
+# The FAT12 POSITIONED-read oracle binary (host test; beads initech-lq2) + its
+# two mutation builds (Rule 6: one perturbed constant each -> the diff must bite).
+TEST_FAT12_PARTIAL          := $(BUILD)/test_fat12_partial
+TEST_FAT12_PARTIAL_MUT_SKIP := $(BUILD)/test_fat12_partial_mut_skip
+TEST_FAT12_PARTIAL_MUT_POS  := $(BUILD)/test_fat12_partial_mut_pos
+
 # Mint the FAT12 image deterministically: zero a 1474560-byte (2880*512)
 # file, mformat -f 1440, mcopy the fixtures in. Reproducible enough for the
 # BPB/geometry oracle (the BPB bytes are fixed by mformat -f 1440; only the
@@ -465,6 +471,83 @@ test-fat12-dir: $(TEST_FAT12_DIR) $(FAT12_IMG)
 	@printf ">>> test-fat12-dir: root-dir enumerate + find + file-read (byte-for-byte golden)\n"
 	@$(TEST_FAT12_DIR) "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)"
 	@printf ">>> test-fat12-dir: green\n"
+
+# Build the FAT12 positioned-read oracle + its two mutants (beads initech-lq2):
+# the test + the REAL artifact fat12.c + the host blockdev backend (same include
+# set as the bpb/chain/dir oracles). The mutants define one perturbed constant.
+$(TEST_FAT12_PARTIAL): $(FAT_DIFF_DIR)/test_fat12_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_PARTIAL_MUT_SKIP): $(FAT_DIFF_DIR)/test_fat12_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_PARTIAL_SKIP -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_PARTIAL_MUT_POS): $(FAT_DIFF_DIR)/test_fat12_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_PARTIAL_POS -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# REAL gate: test-fat-partial (beads initech-lq2 -- FAT12 positioned read).
+#   [A] the host matrix oracle: fat12_read_partial vs the committed fixture
+#       sliced in-process (offset 0 / mid-cluster / cluster-boundary-spanning /
+#       at-EOF / past-EOF / over-long len / cross-many-clusters).
+#   [B] a THIRD independent reference: the python3 reader's --cat-range mode.
+#       For a vector of (file, off, len) the python slice == our writer's slice
+#       (fat_dump has no range mode, so we compare python ref vs a tiny C dumper
+#       built into test_fat12_partial? -- no: we drive our C primitive through
+#       the host oracle in [A]; here [B] cross-checks the python ref against
+#       mcopy+dd of the SAME range so the reference itself is proven on real
+#       FAT12, closing the loop python<->mtools independent of our C).
+.PHONY: test-fat-partial
+test-fat-partial: $(TEST_FAT12_PARTIAL) $(FAT12_IMG) $(FAT12_REF_PY)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fat-partial : FAT12 positioned-read oracle\n'
+	@printf '======================================================================\n'
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-fat-partial FAIL: python3 not found (needed for the independent --cat-range reference).\n'; exit 1; }
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-fat-partial FAIL: mtools `mcopy` not found (apt install mtools).\n'; exit 1; }
+	@printf '>>> test-fat-partial [A]: host matrix -- fat12_read_partial == fixture slice (byte-for-byte)\n'
+	@$(TEST_FAT12_PARTIAL) "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)" \
+		|| { printf '!!! test-fat-partial FAIL [A]: host matrix oracle red\n'; exit 1; }
+	@printf '>>> test-fat-partial [A]: green\n'
+	@printf '>>> test-fat-partial [B]: python3 --cat-range == mcopy+dd of the SAME range (reference proven on real FAT12)\n'
+	@set -e; \
+	for spec in "CHAIN.TXT 0 64" "CHAIN.TXT 500 100" "CHAIN.TXT 600 500" \
+	            "CHAIN.TXT 1024 512" "CHAIN.TXT 1550 200" "CHAIN.TXT 1 1599" \
+	            "HELLO.TXT 4 10" "BLOCK.BIN 512 512" "BLOCK.BIN 1000 4096" \
+	            "SECOND.TXT 50 200"; do \
+		set -- $$spec; nm="$$1"; off="$$2"; ln="$$3"; \
+		python3 "$(FAT12_REF_PY)" "$(FAT12_IMG)" --cat-range "$$nm" "$$off" "$$ln" \
+			> "$(BUILD)/fatp_py_$${nm}_$${off}_$${ln}.bin" \
+			|| { printf '!!! test-fat-partial FAIL [B]: python --cat-range %s %s %s errored\n' "$$nm" "$$off" "$$ln"; exit 1; }; \
+		mcopy -n -i "$(FAT12_IMG)" "::$$nm" "$(BUILD)/fatp_whole_$$nm.bin" \
+			|| { printf '!!! test-fat-partial FAIL [B]: mcopy ::%s errored\n' "$$nm"; exit 1; }; \
+		dd if="$(BUILD)/fatp_whole_$$nm.bin" of="$(BUILD)/fatp_dd_$${nm}_$${off}_$${ln}.bin" \
+			bs=1 skip="$$off" count="$$ln" status=none 2>/dev/null || true; \
+		cmp -s "$(BUILD)/fatp_py_$${nm}_$${off}_$${ln}.bin" "$(BUILD)/fatp_dd_$${nm}_$${off}_$${ln}.bin" \
+			|| { printf '!!! test-fat-partial FAIL [B]: %s [%s,+%s) -- python ref bytes != dd-of-mcopy bytes\n' "$$nm" "$$off" "$$ln"; \
+			     cmp "$(BUILD)/fatp_py_$${nm}_$${off}_$${ln}.bin" "$(BUILD)/fatp_dd_$${nm}_$${off}_$${ln}.bin"; exit 1; }; \
+	done
+	@printf '>>> test-fat-partial [B]: green (python --cat-range agrees with mcopy+dd on every range)\n'
+	@printf '>>> test-fat-partial: green\n'
+
+# Mutation gate (Rule 6): two fat12_read_partial mutants -- (skip) off-by-one in
+# the skip-cluster count; (pos) drops the within-cluster byte offset. Each MUST
+# turn the host matrix oracle RED, else the oracle is decoration.
+.PHONY: test-fat-partial-mutant
+test-fat-partial-mutant: $(TEST_FAT12_PARTIAL_MUT_SKIP) $(TEST_FAT12_PARTIAL_MUT_POS) $(FAT12_IMG)
+	@printf '>>> test-fat-partial-mutant: confirming both positioned-read mutants go RED (Rule 6)\n'
+	@if $(TEST_FAT12_PARTIAL_MUT_SKIP) "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)" >/dev/null 2>&1; then \
+		printf '!!! test-fat-partial-mutant FAIL: skip-count mutant PASSED -- the matrix is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-partial-mutant: green (skip-count mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_FAT12_PARTIAL_MUT_POS) "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)" >/dev/null 2>&1; then \
+		printf '!!! test-fat-partial-mutant FAIL: within-cluster-offset mutant PASSED -- the matrix is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-partial-mutant: green (within-cluster-offset mutant correctly RED -- the oracle bites)\n'; \
+	fi
 
 # Build the differential dumper: the factory tool + the REAL artifact fat12.c +
 # the host blockdev backend (same include set as the FAT12 oracles).
@@ -3200,12 +3283,14 @@ print('    banner is two lines and contains \"InitechDOS  Version 3.30\" (double
 # Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
+	test-fat-partial \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 \
 	test-fileio test-exec-unit test-command test-psp test-sft test-loader \
 	test-fat test-seed test-seed-codegen test-assets test-spec \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-fileio-mutant test-exec-mutant test-command-mutant test-psp-mutant \
-	test-sft-mutant test-loader-mutant test-fat-write-mutant
+	test-sft-mutant test-loader-mutant test-fat-write-mutant \
+	test-fat-partial-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \

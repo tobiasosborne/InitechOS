@@ -10,11 +10,20 @@
 # SHARED between our C reader and mtools' interpretation -- agreement among
 # three independent implementations is a far stronger signal than two.
 #
-# Two modes (matching fat_dump.c):
-#   --list           : one "NAME.EXT <size>" line per REGULAR file, sorted
-#                      ascending by name. Timestamps / volume serial normalized
-#                      away (never emitted).
-#   --cat NAME.EXT   : write the named file's EXACT bytes to stdout (binary).
+# Modes (matching fat_dump.c, plus the positioned-read mode):
+#   --list                    : one "NAME.EXT <size>" line per REGULAR file,
+#                               sorted ascending by name. Timestamps / volume
+#                               serial normalized away (never emitted).
+#   --cat NAME.EXT            : write the named file's EXACT bytes to stdout.
+#   --cat-range NAME OFF LEN  : write EXACTLY the byte slice [OFF, OFF+LEN) of
+#                               the named file to stdout (binary). Past-EOF /
+#                               over-long LEN are clamped to file_size, exactly
+#                               like fat12_read_partial: a slice at/after EOF
+#                               writes zero bytes (clean EOF, exit 0). This is
+#                               the INDEPENDENT reference for the positioned-read
+#                               primitive (beads initech-lq2): it slices the
+#                               WHOLE file it already reads from first principles,
+#                               so it shares no code with the C walk.
 #
 # Fail loud (CLAUDE.md Rule 2): any structural error raises and exits non-zero;
 # a missing file in --cat exits non-zero. No silent partial output.
@@ -226,6 +235,39 @@ def main(argv):
             sys.stderr.write("fat12_ref: read failed: %s\n" % exc)
             return 1
         sys.stdout.buffer.write(content)
+        return 0
+
+    if mode == "--cat-range":
+        # --cat-range NAME OFFSET LEN : write the slice [OFFSET, OFFSET+LEN) of
+        # the named file. Computed INDEPENDENTLY of the C primitive: read the
+        # whole file with this module's own first-principles reader, then slice
+        # in pure python. Past-EOF / over-long LEN clamp to file_size exactly as
+        # fat12_read_partial does (a slice at/after EOF -> zero bytes, exit 0).
+        if len(argv) != 6:
+            sys.stderr.write("fat12_ref: --cat-range needs NAME OFFSET LEN\n")
+            return 2
+        try:
+            off = int(argv[4], 0)
+            ln  = int(argv[5], 0)
+        except ValueError:
+            sys.stderr.write("fat12_ref: --cat-range OFFSET/LEN must be integers\n")
+            return 2
+        if off < 0 or ln < 0:
+            sys.stderr.write("fat12_ref: --cat-range OFFSET/LEN must be >= 0\n")
+            return 2
+        ent = fs.find(argv[3])
+        if ent is None:
+            sys.stderr.write("fat12_ref: file not found: %s\n" % argv[3])
+            return 1
+        try:
+            content = fs.read_file(ent)
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: read failed: %s\n" % exc)
+            return 1
+        # Clamp the slice to the file -- a positioned read past EOF yields the
+        # bytes that exist (possibly none), never an error.
+        sl = content[off:off + ln] if off < len(content) else b""
+        sys.stdout.buffer.write(sl)
         return 0
 
     sys.stderr.write("fat12_ref: unknown mode '%s'\n" % mode)

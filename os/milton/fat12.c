@@ -604,6 +604,201 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 	return FAT12_OK;
 }
 
+/*
+ * fat12_read_partial -- POSITIONED read of [offset, offset+len) via the cluster
+ * chain, walked INCREMENTALLY so a large file never needs a whole-file or
+ * whole-chain buffer (beads initech-lq2; foundation of the per-handle I/O epic
+ * initech-6qy).
+ *
+ * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (chain link decode:
+ *   next = fat12_next_cluster; EOC >= 0xFF8) + Sec 4 / RISK-5 (file_size is
+ *   authoritative; no trailing padding). The offset->cluster math mirrors the
+ *   cluster sizing in fat12_read_file (this file): bytes_per_cluster =
+ *   sectors_per_cluster * bytes_per_sector; the first needed cluster is
+ *   offset / bytes_per_cluster steps down the chain, the byte position inside
+ *   it is offset % bytes_per_cluster. The cluster->LBA map is BPB_CLUSTER_LBA
+ *   (spec/dos_structs.h). The anti-hang guard mirrors fat12_walk_chain (Rule 2):
+ *   never step more than the volume's cluster count.
+ */
+int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
+                       uint32_t fat_len, const dir_entry_t *e,
+                       uint32_t offset, uint32_t len, void *out_buf,
+                       void *cluster_buf, uint32_t *out_read)
+{
+	uint32_t  file_size;
+	uint32_t  bytes_per_cluster;
+	uint32_t  avail;
+	uint32_t  to_read;
+	uint32_t  skip;
+	uint32_t  cluster_pos;   /* byte offset within the first needed cluster   */
+	uint16_t  cur;
+	uint32_t  steps;
+	uint32_t  max_steps;
+	uint32_t  copied;
+	uint8_t  *out;
+	int       rc;
+
+	/* vol/e/out_read are always required (even for clean-EOF / zero-len). */
+	if (vol == NULL || e == NULL || out_read == NULL) {
+		return FAT12_ERR_NULL;
+	}
+
+	file_size = e->file_size;
+
+	/* Clean EOF: a positioned read at or past end-of-file returns zero bytes
+	 * and is NOT an error (this is how a seek-then-read past the end behaves).
+	 * Also covers a zero-length file (offset 0 >= size 0). Done before touching
+	 * fat / out_buf / cluster_buf so the clean-EOF case needs none of them. */
+	if (offset >= file_size) {
+		*out_read = 0u;
+		return FAT12_OK;
+	}
+
+	/* Clamp the request to what actually remains from `offset` (RISK-5: never
+	 * read past file_size, no padding). */
+	avail   = file_size - offset;
+	to_read = (len < avail) ? len : avail;
+
+	/* A zero-length request (caller asked for 0 bytes, or none remain after the
+	 * clamp -- the latter cannot happen here since avail > 0) copies nothing. */
+	if (to_read == 0u) {
+		*out_read = 0u;
+		return FAT12_OK;
+	}
+
+	/* Real bytes to move from here on: fat + out_buf + cluster_buf required. */
+	if (fat == NULL || out_buf == NULL || cluster_buf == NULL) {
+		return FAT12_ERR_NULL;
+	}
+
+	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
+	                    (uint32_t)vol->bpb.bytes_per_sector;
+
+	/* offset > 0 with a non-empty read implies a real chain. start_cluster must
+	 * be a data cluster (>= 2); a free/short start is corruption (Rule 2). The
+	 * incremental walk below also rejects free/bad clusters it lands on. */
+#ifdef FAT12_MUTATE_PARTIAL_SKIP
+	/* MUTANT (Rule 6; make test-fat-partial-mutant only): off-by-one in the
+	 * skip-cluster count -- skip ONE TOO FEW clusters, so a mid/late-cluster
+	 * positioned read returns data from the wrong cluster. The differential
+	 * oracle vs the python ref must go RED. NEVER define in a real build. */
+	skip        = (offset / bytes_per_cluster) > 0u
+	                ? (offset / bytes_per_cluster) - 1u
+	                : 0u;
+	cluster_pos = offset % bytes_per_cluster;
+#elif defined(FAT12_MUTATE_PARTIAL_POS)
+	/* MUTANT (Rule 6; make test-fat-partial-mutant only): drop the within-cluster
+	 * byte offset -- always start the first cluster at byte 0. A mid-cluster
+	 * positioned read returns cluster-aligned bytes instead of the requested
+	 * slice; the oracle must go RED. NEVER define in a real build. */
+	skip        = offset / bytes_per_cluster;
+	cluster_pos = 0u;
+#else
+	skip        = offset / bytes_per_cluster; /* whole clusters to skip past   */
+	cluster_pos = offset % bytes_per_cluster; /* byte offset in first cluster  */
+#endif
+
+	cur       = e->start_cluster;
+	steps     = 0u;
+	/* Anti-hang bound (Rule 2): a valid chain visits at most total_clusters
+	 * distinct data clusters; +2 covers the reserved 0/1 slack. We step at most
+	 * this many times (skip + span); a cyclic/corrupt chain trips it and errors
+	 * instead of looping forever. */
+	max_steps = vol->total_clusters + 2u;
+
+	/* Walk down to the first NEEDED cluster, rejecting an early end-of-chain or
+	 * a free/bad link (the chain is too short for `offset` => corruption). */
+	{
+		uint32_t k;
+		for (k = 0u; k < skip; k++) {
+			uint16_t next;
+
+			if (cur < FAT12_FIRST_DATA_CLUSTER || fat12_is_free(cur) ||
+			    fat12_is_bad(cur)) {
+				return FAT12_ERR_CHAIN;
+			}
+			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+			if (rc != FAT12_OK) {
+				return rc;
+			}
+			/* Hitting EOC while still skipping means the chain is shorter than
+			 * `offset` demands -- the requested range is past the real data. */
+			if (fat12_is_eoc(next)) {
+				return FAT12_ERR_CHAIN;
+			}
+			cur = next;
+			if (++steps > max_steps) {
+				return FAT12_ERR_CHAIN; /* cyclic / corrupt */
+			}
+		}
+	}
+
+	out    = (uint8_t *)out_buf;
+	copied = 0u;
+
+	/* Copy `to_read` bytes, cluster by cluster. The FIRST cluster starts at
+	 * cluster_pos (the within-cluster byte offset); every later cluster starts
+	 * at byte 0. The last cluster contributes only the remaining tail. */
+	while (copied < to_read) {
+		uint32_t       lba;
+		uint32_t       in_off;
+		uint32_t       remaining;
+		uint32_t       take;
+		const uint8_t *cbuf;
+		uint32_t       i;
+
+		if (cur < FAT12_FIRST_DATA_CLUSTER || fat12_is_free(cur) ||
+		    fat12_is_bad(cur)) {
+			return FAT12_ERR_CHAIN; /* chain ended/corrupt before the range */
+		}
+
+		/* Within-cluster start: cluster_pos on the first cluster, else 0. */
+		in_off    = (copied == 0u) ? cluster_pos : 0u;
+		remaining = to_read - copied;
+		take      = bytes_per_cluster - in_off;     /* room left in this cluster */
+		if (take > remaining) {
+			take = remaining;
+		}
+
+		/* Read the whole cluster into scratch, then copy the [in_off, in_off+take)
+		 * slice out. Reading the whole cluster keeps the LBA math identical to
+		 * fat12_read_file; only `take` bytes ever reach out_buf. */
+		lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
+		if (vol->dev->read_sectors(vol->dev->ctx, lba,
+		                           vol->bpb.sectors_per_cluster,
+		                           cluster_buf) != 0) {
+			return FAT12_ERR_READ;
+		}
+		cbuf = (const uint8_t *)cluster_buf;
+		for (i = 0u; i < take; i++) {
+			out[copied + i] = cbuf[in_off + i];
+		}
+		copied += take;
+
+		/* Advance to the next cluster only if more bytes are still wanted. */
+		if (copied < to_read) {
+			uint16_t next;
+			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+			if (rc != FAT12_OK) {
+				return rc;
+			}
+			if (fat12_is_eoc(next)) {
+				/* Chain ended before `to_read` bytes were satisfied -- and the
+				 * clamp guarantees to_read <= file_size-offset, so a chain that
+				 * cannot cover it is corruption (fail loud, Rule 2). */
+				return FAT12_ERR_CHAIN;
+			}
+			cur = next;
+			if (++steps > max_steps) {
+				return FAT12_ERR_CHAIN; /* cyclic / corrupt */
+			}
+		}
+	}
+
+	*out_read = copied;
+	return FAT12_OK;
+}
+
 /* ======================================================================== *
  * FAT12 WRITE path (beads initech-509.11)
  *
