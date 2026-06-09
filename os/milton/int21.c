@@ -512,9 +512,32 @@ static void do_write(int_frame_t *f)
         return;
     }
 
-    /* AUX/PRN devices have no driver yet; FILE writes need FAT write (deferred
-     * to initech-509.11). Both are recognized handles with no write backing ->
-     * AX=0x0005 (access denied), CF=1 (Rule 2: never silently drop the bytes). */
+    /* FILE write (beads initech-509.11): append the bytes to the backend's
+     * single write buffer (committed to disk on CLOSE -- the whole-file-buffer
+     * model). The handle must have been opened for write (CREAT). A read-mode
+     * FILE handle or a missing write backend -> access denied (Rule 2). */
+    if (e->kind == SFT_KIND_FILE) {
+        if (e->open_mode != SFT_MODE_WRITE || g_file == 0 || g_file->write == 0) {
+            set_ax(f, INT21_ERR_ACCESS_DENIED);
+            cf_set(f);
+            return;
+        }
+        uint32_t written = 0u;
+        uint16_t err = g_file->write((const uint8_t *)buf, count, &written);
+        if (err != 0) {
+            set_ax(f, err);
+            cf_set(f);
+            return;
+        }
+        e->file_offset    += written;
+        e->dir_entry.file_size = e->file_offset;  /* track the running size */
+        f->eax = written;                          /* EAX = bytes written */
+        cf_clear(f);
+        return;
+    }
+
+    /* AUX/PRN devices have no driver yet -> AX=0x0005 (access denied), CF=1
+     * (Rule 2: never silently drop the bytes). */
     set_ax(f, INT21_ERR_ACCESS_DENIED);
     cf_set(f);
 }
@@ -648,6 +671,107 @@ static void do_open(int_frame_t *f)
     cf_clear(f);
 }
 
+/* AH=3Ch CREAT: EDX = flat ptr to ASCIIZ 8.3 path, CX = attribute. Create or
+ * TRUNCATE the file, claim an SFT FILE slot + a JFT slot in WRITE mode, and
+ * return EAX = handle, CF clear. The actual cluster allocation + data write are
+ * deferred to CLOSE (AH=3Eh) which flushes the backend's write buffer
+ * (whole-file-buffer-then-flush-at-close, documented milestone model -- mirrors
+ * the single-open-file read buffer). Root-dir 8.3 names only; '\' / ':' ->
+ * CF=1, AX=0x0003. No write backend / read-only volume -> CF=1, AX=0x0005
+ * (access denied). Dir/buffer full -> CF=1, AX=0x0004.
+ * Ref: DOS 3.3 PRM AH=3Ch; beads initech-509.11. */
+static void do_creat(int_frame_t *f)
+{
+    const char *path = (const char *)(uintptr_t)f->edx;
+
+    if (path == 0 || *path == '\0') {
+        set_ax(f, INT21_ERR_FILE_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    if (path_has_subdir_or_drive(path)) {
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    if (g_file == 0 || g_file->create == 0) {
+        /* No write backing (read-only volume / no volume) -> access denied
+         * (Rule 2: never a silent success that drops the file). */
+        set_ax(f, INT21_ERR_ACCESS_DENIED);
+        cf_set(f);
+        return;
+    }
+
+    /* Secure the table slots BEFORE creating so a slot-exhaustion failure does
+     * not strand the backend's write buffer (mirrors do_open). */
+    uint8_t sft_idx = sft_alloc();
+    if (sft_idx >= (uint8_t)SFT_MAX_ENTRIES) {
+        set_ax(f, INT21_ERR_TOO_MANY_OPEN);
+        cf_set(f);
+        return;
+    }
+    uint8_t handle = jft_alloc(g_cur_psp);
+    if (handle == JFT_CLOSED) {
+        set_ax(f, INT21_ERR_TOO_MANY_OPEN);
+        cf_set(f);
+        return;
+    }
+
+    dir_entry_t de;
+    uint16_t err = g_file->create(path, &de);
+    if (err != 0) {
+        set_ax(f, err);
+        cf_set(f);
+        return;
+    }
+
+    sft_entry_t *e = &g_sft[sft_idx];
+    e->kind        = SFT_KIND_FILE;
+    e->open_mode   = SFT_MODE_WRITE;   /* a write handle -> CLOSE flushes */
+    e->dev_id      = 0;
+    e->ref_count   = 1u;
+    e->dir_entry   = de;
+    e->file_offset = 0u;
+    e->file_data   = 0;                /* write handle: no read buffer */
+    g_cur_psp->jft[handle] = sft_idx;
+
+    f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)handle;
+    cf_clear(f);
+}
+
+/* AH=41h UNLINK (DELETE FILE): EDX = flat ptr to ASCIIZ 8.3 path. Delete the
+ * file (mark deleted + free its chain) via the backend. CF clear on success;
+ * CF=1, AX=0x0002 (not found) / 0x0003 (path) / 0x0005 (error / no backend).
+ * Ref: DOS 3.3 PRM AH=41h; beads initech-509.11. */
+static void do_unlink(int_frame_t *f)
+{
+    const char *path = (const char *)(uintptr_t)f->edx;
+
+    if (path == 0 || *path == '\0') {
+        set_ax(f, INT21_ERR_FILE_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    if (path_has_subdir_or_drive(path)) {
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    if (g_file == 0 || g_file->unlink == 0) {
+        set_ax(f, INT21_ERR_ACCESS_DENIED);
+        cf_set(f);
+        return;
+    }
+
+    uint16_t err = g_file->unlink(path);
+    if (err != 0) {
+        set_ax(f, err);
+        cf_set(f);
+        return;
+    }
+    cf_clear(f);
+}
+
 /* AH=3Fh READ: EBX=handle, ECX=count, EDX=flat ptr to buffer. Copy
  * min(count, filesize - file_offset) bytes from file_data+file_offset; advance
  * file_offset; EAX = bytes read, CF clear. A CON device read (keyboard input)
@@ -731,14 +855,29 @@ static void do_close(int_frame_t *f)
 
     uint8_t sft_idx  = g_cur_psp->jft[handle];
     int     was_file = (e->kind == SFT_KIND_FILE);
+    int     was_write = was_file && (e->open_mode == SFT_MODE_WRITE);
+
+    /* A WRITE handle must FLUSH to disk on the LAST close (beads initech-509.11):
+     * commit the buffered bytes (cluster chain + FAT + dir entry). A disk-full /
+     * write error here is a real failure -> CF=1, AX=0x0005 (Rule 2: never
+     * silently lose the buffered data). We flush BEFORE freeing the slot. */
+    if (was_write && e->ref_count <= 1u && g_file != 0 && g_file->flush != 0) {
+        uint16_t err = g_file->flush();
+        if (err != 0) {
+            set_ax(f, err);
+            cf_set(f);
+            return;   /* leave the handle open so the caller can retry/diagnose */
+        }
+    }
 
     if (e->ref_count > 0u) {
         e->ref_count--;
     }
     if (e->ref_count == 0u) {
-        /* Free the SFT slot. For a FILE, release the backend's single buffer so
-         * a later OPEN may reuse it (brief Sec 4.3). */
-        if (was_file && g_file != 0 && g_file->close != 0) {
+        /* Free the SFT slot. For a READ FILE, release the backend's single read
+         * buffer so a later OPEN may reuse it (brief Sec 4.3). A WRITE file's
+         * buffer was released by flush() above. */
+        if (was_file && !was_write && g_file != 0 && g_file->close != 0) {
             g_file->close();
         }
         for (uint32_t i = 0; i < (uint32_t)sizeof(g_sft[sft_idx]); i++) {
@@ -1190,6 +1329,9 @@ void int21_dispatch(int_frame_t *frame)
         case 0x30:                       /* GET VERSION */
             do_getver(frame);
             return;
+        case 0x3C:                       /* CREAT (create/truncate file) */
+            do_creat(frame);
+            return;
         case 0x3D:                       /* OPEN (handle) */
             do_open(frame);
             return;
@@ -1201,6 +1343,9 @@ void int21_dispatch(int_frame_t *frame)
             return;
         case 0x40:                       /* WRITE TO FILE/DEVICE */
             do_write(frame);
+            return;
+        case 0x41:                       /* UNLINK (delete file) */
+            do_unlink(frame);
             return;
         case 0x42:                       /* LSEEK (move file pointer) */
             do_lseek(frame);

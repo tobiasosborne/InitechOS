@@ -66,6 +66,13 @@ typedef struct ata_ctx {
  * Signature matches blockdev_t::read_sectors. */
 int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf);
 
+/* Write `count` sectors at `lba` (LBA28) from `buf` (>= count*512 bytes) via PIO
+ * (WRITE SECTORS 0x30 + CACHE FLUSH 0xE7). `ctx` MUST point at a valid ata_ctx_t.
+ * Returns 0 on success, a negative ATA_ERR_* on error (fail loud, never an
+ * infinite spin). Signature matches blockdev_t::write_sectors (beads
+ * initech-509.11). Ref: ATA/ATAPI-6 WRITE SECTORS + FLUSH CACHE. */
+int ata_write_sectors(void *ctx, uint32_t lba, uint32_t count, const void *buf);
+
 /*
  * Initialise `dev` as a blockdev_t wrapping the ATA PIO read on the channel +
  * drive described by `ctx`. Both `dev` and `ctx` are caller-owned (kernel BSS);

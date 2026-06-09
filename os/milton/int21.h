@@ -117,6 +117,32 @@ typedef struct int21_file_backend {
      * the backend so consecutive indices map to surviving 8.3 entries. */
     uint16_t (*dir_entry)(uint32_t index, struct dir_entry *out_entry,
                           int *out_found);
+
+    /* ---- WRITE path (beads initech-509.11) -------------------------------- *
+     * CREAT (AH=3Ch): create or TRUNCATE the 8.3 file `name83` in the (root)
+     * directory, claim the single open WRITE buffer, and return a copy of its
+     * (zeroed-size) dir entry. The backend tracks the slot internally so a later
+     * flush() can patch size/start_cluster. Returns 0 on success or a DOS error
+     * (0x0004 buffer busy / dir full, 0x0003 path). May be NULL on a read-only
+     * backend (the host read oracle binds NULL -> CREAT returns access-denied). */
+    uint16_t (*create)(const char *name83, struct dir_entry *out_entry);
+
+    /* WRITE (AH=40h to a FILE): APPEND `len` bytes of `data` to the single open
+     * write buffer at the current write length. Returns 0 on success (sets
+     * *out_written = len) or a DOS error (0x0004 buffer overflow -- the single
+     * buffer cap). The bytes are NOT committed to disk until flush(). */
+    uint16_t (*write)(const uint8_t *data, uint32_t len, uint32_t *out_written);
+
+    /* FLUSH (AH=3Eh CLOSE of a write handle): commit the buffered bytes to disk
+     * (allocate the cluster chain, write data + FAT, patch the dir entry) and
+     * release the write buffer. Returns 0 on success or a DOS error (0x0005
+     * disk full / write error). Idempotent-safe: a flush with nothing open is a
+     * no-op success. */
+    uint16_t (*flush)(void);
+
+    /* UNLINK (AH=41h DELETE): delete the 8.3 file `name83` (mark deleted + free
+     * its chain). Returns 0 on success or 0x0002 (not found) / 0x0005 (error). */
+    uint16_t (*unlink)(const char *name83);
 } int21_file_backend_t;
 
 /* Bind the file backend (NULL clears it -> the file functions return

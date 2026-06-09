@@ -19,8 +19,11 @@
  *     least count * 512 bytes. Returns 0 on success, a negative value on
  *     error (fail loud, CLAUDE.md Rule 2 -- never report a short/garbage read
  *     as success). `ctx` is the backend's opaque handle.
- *   - write_sectors is reserved for a LATER issue (beads initech-509.11, FAT
- *     write). It is NULL for now and MUST NOT be called by this slice.
+ *   - write_sectors(ctx, lba, count, buf): write `count` consecutive sectors
+ *     starting at `lba` FROM `buf` (>= count*512 bytes). Returns 0 on success,
+ *     negative on error (fail loud, Rule 2 -- never report a short/failed write
+ *     as success). Implemented by ata.c (ata_write_sectors) and the host
+ *     file-backed backend (beads initech-509.11, FAT write).
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  */
@@ -41,8 +44,9 @@ typedef struct blockdev {
 	 * Returns 0 on success, negative on error. Never NULL for a usable dev. */
 	int (*read_sectors)(void *ctx, uint32_t lba, uint32_t count, void *buf);
 
-	/* Reserved for FAT write (beads initech-509.11). NULL for this slice;
-	 * DO NOT implement or call write in the read path. */
+	/* Write `count` sectors at `lba` from `buf` (>= count*512 bytes). Returns 0
+	 * on success, negative on error (beads initech-509.11, FAT write). NULL for a
+	 * read-only device (e.g. the read-only host oracle backend). */
 	int (*write_sectors)(void *ctx, uint32_t lba, uint32_t count, const void *buf);
 } blockdev_t;
 

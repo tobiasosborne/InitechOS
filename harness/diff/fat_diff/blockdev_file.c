@@ -45,6 +45,36 @@ static int blockdev_file_read(void *ctx, uint32_t lba, uint32_t count, void *buf
 	return 0;
 }
 
+/* write_sectors implementation: seek to lba*512 and write count*512 bytes from
+ * buf. Returns 0 on a full write, negative on any seek/short-write error (Rule
+ * 2 -- never report a partial write as success). Mirrors the read path. */
+static int blockdev_file_write(void *ctx, uint32_t lba, uint32_t count,
+                               const void *buf)
+{
+	blockdev_file_t *bf = (blockdev_file_t *)ctx;
+	long             off;
+	size_t           want;
+	size_t           put;
+
+	if (bf == NULL || bf->fp == NULL || buf == NULL || count == 0u) {
+		return -1;
+	}
+	off  = (long)lba * (long)BLOCKDEV_SECTOR_SIZE;
+	want = (size_t)count * (size_t)BLOCKDEV_SECTOR_SIZE;
+
+	if (fseek(bf->fp, off, SEEK_SET) != 0) {
+		return -1;
+	}
+	put = fwrite(buf, 1u, want, bf->fp);
+	if (put != want) {
+		return -1;
+	}
+	if (fflush(bf->fp) != 0) {
+		return -1;   /* commit to the file so a later read sees it */
+	}
+	return 0;
+}
+
 int blockdev_file_open(blockdev_file_t *bf, const char *path)
 {
 	if (bf == NULL || path == NULL) {
@@ -56,7 +86,22 @@ int blockdev_file_open(blockdev_file_t *bf, const char *path)
 	}
 	bf->dev.ctx           = bf;
 	bf->dev.read_sectors  = blockdev_file_read;
-	bf->dev.write_sectors = NULL; /* read path only (beads initech-509.11) */
+	bf->dev.write_sectors = NULL; /* read-only open */
+	return 0;
+}
+
+int blockdev_file_open_rw(blockdev_file_t *bf, const char *path)
+{
+	if (bf == NULL || path == NULL) {
+		return -1;
+	}
+	bf->fp = fopen(path, "r+b");   /* read-write; file must already exist */
+	if (bf->fp == NULL) {
+		return -1;
+	}
+	bf->dev.ctx           = bf;
+	bf->dev.read_sectors  = blockdev_file_read;
+	bf->dev.write_sectors = blockdev_file_write;  /* WRITE oracle backend */
 	return 0;
 }
 

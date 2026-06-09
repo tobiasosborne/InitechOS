@@ -60,7 +60,8 @@ FONT_STASH      equ 0x1000      ; 4096-byte VGA ROM 8x16 font copy
 ;    s17.. (Makefile). KERNEL_SECTORS is generous + deterministic (the Makefile
 ;    pads the kernel binary to exactly this many sectors). CHS geometry matches
 ;    what SeaBIOS presents for the raw image (the MBR already reads track 0).
-KERNEL_SECTORS    equ 64        ; 64 * 512 = 32 KiB kernel window
+KERNEL_SECTORS    equ 80        ; 80 * 512 = 40 KiB kernel window (bumped from 64
+                                ; for beads initech-509.11; MUST equal Makefile)
 KERNEL_LBA        equ 17        ; first kernel sector (1+16)
 ; SPT / heads are QUERIED at runtime via INT 13h AH=08h (geometry varies by
 ; emulator + image size); see the kernel-load block below.

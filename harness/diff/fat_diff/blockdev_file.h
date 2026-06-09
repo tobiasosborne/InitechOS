@@ -30,6 +30,12 @@ typedef struct blockdev_file {
  * bf->dev.write_sectors is NULL. */
 int blockdev_file_open(blockdev_file_t *bf, const char *path);
 
+/* Open `path` read-WRITE ("r+b") and wire `bf->dev` with BOTH read_sectors and
+ * write_sectors live -- the host backend for the FAT12 WRITE oracle (beads
+ * initech-509.11). Returns 0 on success, negative on error. The file must
+ * already exist (a freshly minted blank FAT12 image). */
+int blockdev_file_open_rw(blockdev_file_t *bf, const char *path);
+
 /* Close the backing file. Safe to call once after a successful open. */
 void blockdev_file_close(blockdev_file_t *bf);
 

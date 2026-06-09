@@ -35,4 +35,11 @@ extern const uint32_t g_dir_prog_image_len;
 extern const uint8_t  g_conin_prog_image[];
 extern const uint32_t g_conin_prog_image_len;
 
+/* The baked WRITE round-trip program (CREAT+WRITE+CLOSE then OPEN+READ+echo;
+ * beads initech-509.11). Generated from os/milton/write_program.asm. Run only in
+ * the -DBOOT_WRITE self-test image (make test-fatwrite), which attaches a
+ * WRITABLE FAT12 data disk. */
+extern const uint8_t  g_write_prog_image[];
+extern const uint32_t g_write_prog_image_len;
+
 #endif /* INITECH_TEST_PROG_H */

@@ -737,6 +737,19 @@ void kernel_main(void)
     serial_puts("EXEC-4B-END\n");
 #endif
 
+#ifdef BOOT_WRITE
+    /* FAT WRITE round-trip self-test (beads initech-509.11; make test-fatwrite).
+     * Only in the -DBOOT_WRITE image so the normal boot is unchanged. Requires a
+     * WRITABLE FAT12 data disk on --disk2. Run the baked WRITE program: it
+     * CREATs OUT.TXT, WRITEs "hello\r\n", CLOSEs (flush to disk), then re-OPENs +
+     * READs OUT.TXT and echoes it to stdout -- proving write+read round-trips
+     * THROUGH the OS on real ATA in one boot. The harness asserts the echoed
+     * "hello" between WRITE-OUTPUT-BEGIN/END + WRITE-EXIT rc=0 + triple_fault=0. */
+    serial_puts("WRITE-OUTPUT-BEGIN\n");
+    run_baked("WRITE", g_write_prog_image, g_write_prog_image_len);
+    serial_puts("WRITE-OUTPUT-END\n");
+#endif
+
     /* ---- ENABLE HARDWARE INTERRUPTS (beads initech-3rs) -------------------
      * The FIRST `sti` of the whole project. Up to here the kernel ran with
      * IF=0 and every IRQ masked; software ints (0x20/0x21/0x80) dispatched

@@ -35,8 +35,27 @@ enum {
 	FAT12_ERR_BUFFER      = -6, /* caller buffer too small for the whole FAT  */
 	FAT12_ERR_CLUSTER     = -7, /* cluster index < 2 (reserved) or out of FAT */
 	FAT12_ERR_CHAIN       = -8, /* corrupt/cyclic chain or out-of-room walk   */
-	FAT12_ERR_NOT_FOUND   = -9  /* fat12_find: no dir entry matches the name  */
+	FAT12_ERR_NOT_FOUND   = -9, /* fat12_find: no dir entry matches the name  */
+	FAT12_ERR_WRITE       = -10,/* underlying blockdev write failed / NULL    */
+	FAT12_ERR_NO_SPACE    = -11,/* no free cluster (full volume)              */
+	FAT12_ERR_DIR_FULL    = -12,/* no free root-directory slot                */
+	FAT12_ERR_EXISTS      = -13 /* (reserved) name already present            */
 };
+
+/* Deterministic dir-entry timestamp (CLAUDE.md Rule 11): the artifact has NO
+ * clock and reproducible builds forbid a host timestamp. The FAT date/time
+ * fields are implementation-specific on write (docs/research/fat12-ground-truth.md
+ * Sec 4: "normalize to zero before diffing"), so the WRITE path stamps a FIXED
+ * constant -- zero -- which is also the normalization target. The round-trip
+ * oracle normalizes mtime/mdate/serial away before diffing (they are NOT
+ * meaningful bytes; the meaningful bytes are name/attr/size/start_cluster +
+ * content). */
+#define FAT12_FIXED_MTIME 0x0000u
+#define FAT12_FIXED_MDATE 0x0000u
+
+/* Canonical FAT12 end-of-chain value mformat writes (brief Sec 3): we emit the
+ * same so a written chain is byte-identical to mtools' for the EOC link. */
+#define FAT12_EOC_VALUE   0x0FFFu
 
 /* FAT type classification by cluster count (Microsoft FAT spec; brief Sec 2).
  * < 4085 => FAT12; 4085..65524 => FAT16. FAT32 is out of scope here. */
@@ -279,6 +298,109 @@ int fat12_find(const fat12_volume_t *vol, void *sector_buf,
 int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
                     const dir_entry_t *e, void *out_buf, uint32_t out_buf_len,
                     void *cluster_buf, uint32_t *out_bytes);
+
+/* ======================================================================== *
+ * FAT12 WRITE path (beads initech-509.11)
+ *
+ * The WRITE half: create/truncate a root-directory 8.3 entry, allocate a
+ * cluster chain from the FAT free list, write the data clusters, and keep BOTH
+ * FAT copies in sync. Proven by the differential round-trip oracle against
+ * mtools (the gold reference) + an independent python3 reader (test-fat-write)
+ * and the in-emulator round-trip (test-fatwrite).
+ *
+ * Ref (Law 1): Microsoft FAT spec (12-bit packed entries, free=0x000,
+ *   EOC 0xFF8..0xFFF, allocate the lowest free cluster); docs/research/
+ *   fat12-ground-truth.md Sec 3 (FAT encode -- the EXACT inverse of the read
+ *   decode) + Sec 4 (dir entry) + Sec 4 normalization note (date/time stamped
+ *   to a fixed constant, Rule 11); ADR-0003 DEC-07 (both FATs kept in sync).
+ *
+ * All buffers caller-provided (no malloc). Every write goes through
+ * vol->dev->write_sectors, which MUST be non-NULL for these to succeed (a
+ * read-only device fails loud with FAT12_ERR_WRITE). The whole-FAT buffer
+ * `fat`/`fat_len` is the SAME buffer fat12_read_fat fills; the write functions
+ * MUTATE it in place and flush BOTH on-disk FAT copies from it.
+ * ======================================================================== */
+
+/*
+ * fat12_set_entry: write the 12-bit FAT12 entry for `cluster` into the flat
+ * whole-FAT buffer `fat` (the EXACT inverse of fat12_next_cluster's decode,
+ * brief Sec 3). Only the 12 bits for this cluster are modified; the straddled
+ * neighbour nibble is preserved (read-modify-write of the two bytes).
+ *
+ *   byte_offset = (cluster*3)/2;
+ *   even cluster: b[off] = value low 8 bits;
+ *                 b[off+1] = (b[off+1] & 0xF0) | (value>>8 & 0x0F);
+ *   odd cluster:  b[off] = (b[off] & 0x0F) | ((value<<4) & 0xF0);
+ *                 b[off+1] = (value>>4) & 0xFF;
+ *
+ * Fail loud (Rule 2): NULL/cluster<2/out-of-range -> FAT12_ERR_NULL/_CLUSTER.
+ * `value` is masked to 12 bits. Returns FAT12_OK on success. This mutates the
+ * in-memory FAT only; fat12_flush_fats commits it to disk. */
+int fat12_set_entry(void *fat, uint32_t fat_len, uint16_t cluster,
+                    uint16_t value);
+
+/*
+ * fat12_flush_fats: write the whole in-memory FAT buffer `fat` (fat_len bytes,
+ * = sectors_per_fat*bytes_per_sector) to ALL on-disk FAT copies (num_fats of
+ * them, ADR-0003 DEC-07 "second (redundant) FAT"). Keeping the copies in sync
+ * is mandatory: a real DOS / chkdsk reads either copy. Fail loud (Rule 2):
+ * NULL/short buffer/no write_sectors -> error; a failing write -> FAT12_ERR_WRITE.
+ */
+int fat12_flush_fats(const fat12_volume_t *vol, const void *fat,
+                     uint32_t fat_len);
+
+/*
+ * fat12_create: create (or TRUNCATE an existing) regular 8.3 file in the root
+ * directory and copy its (zeroed-size, zero-start-cluster) directory entry to
+ * *out_entry, along with the root-dir SLOT INDEX (0-based 32-byte entry index)
+ * to *out_slot so a later fat12_write_file can patch size/start_cluster in place.
+ *
+ *   - `name83` is "NAME.EXT" / "NAME" (case-insensitive; upper-cased + space-
+ *     padded into the 11-byte 8.3 fields). Names with '\\' or ':' are rejected.
+ *   - If a regular file of that name already exists, it is TRUNCATED: its old
+ *     cluster chain is freed (FAT updated, both copies flushed) and the entry
+ *     reset to size 0 / start_cluster 0 (DOS CREAT semantics).
+ *   - Otherwise the lowest free / deleted root slot is claimed; if the root dir
+ *     is full -> FAT12_ERR_DIR_FULL (fail loud, Rule 2).
+ *   - attr is stored (caller passes DIR_ATTR_ARCHIVE for a normal file).
+ *   - mtime/mdate stamped to the fixed deterministic constant (Rule 11).
+ *
+ * `fat`/`fat_len` is the whole-FAT buffer (mutated when truncating frees a
+ * chain). `sector_buf` (>=512) is scratch. Returns FAT12_OK; the dir entry is
+ * already written to disk (size 0). */
+int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                 const char *name83, uint8_t attr, void *sector_buf,
+                 dir_entry_t *out_entry, uint32_t *out_slot);
+
+/*
+ * fat12_write_file: write `len` bytes of `data` as the contents of the file at
+ * root-dir slot `slot` (as returned by fat12_create). Allocates a fresh cluster
+ * chain from the FAT free list (lowest-free-first), writes the data clusters
+ * (the last cluster zero-padded to a full cluster on disk; file_size is
+ * authoritative on read), links the FAT entries (EOC on the last), flushes BOTH
+ * FAT copies, and patches the dir entry's size + start_cluster on disk.
+ *
+ * A zero-length write leaves start_cluster 0 (no chain) and size 0.
+ * If the file already had a chain (re-write without truncate), the caller must
+ * have truncated first (fat12_create truncates); this function assumes the slot
+ * currently has start_cluster 0 / size 0.
+ *
+ * Fail loud (Rule 2): no free cluster -> FAT12_ERR_NO_SPACE (and the partial
+ * allocation is rolled back so the volume is not corrupted); write error ->
+ * FAT12_ERR_WRITE. `cluster_buf` (>= sectors_per_cluster*512) is scratch.
+ * Returns FAT12_OK on success. */
+int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                     uint32_t slot, const void *data, uint32_t len,
+                     void *sector_buf, void *cluster_buf);
+
+/*
+ * fat12_unlink: delete the regular 8.3 file `name83` from the root directory:
+ * mark its dir entry deleted (filename[0] = 0xE5, DIR_NAME_DELETED) and free its
+ * whole cluster chain (set each FAT entry to 0x000, flush both copies). A
+ * non-existent name -> FAT12_ERR_NOT_FOUND. `fat`/`fat_len` is the whole-FAT
+ * buffer (mutated); `sector_buf` (>=512) is scratch. Returns FAT12_OK. */
+int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                 const char *name83, void *sector_buf);
 
 /* ---- NEXT tasks (beads initech-adf continuation); NOT implemented here ---- *
  *   With root-dir enumeration + find + file-read landed, the FAT12 READ path

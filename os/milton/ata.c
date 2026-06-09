@@ -51,7 +51,9 @@
 #define ATA_SR_DF   0x20u /* device fault*/
 #define ATA_SR_ERR  0x01u /* error       */
 
-#define ATA_CMD_READ_SECTORS 0x20u /* READ SECTORS (PIO, LBA28) */
+#define ATA_CMD_READ_SECTORS  0x20u /* READ SECTORS  (PIO, LBA28)            */
+#define ATA_CMD_WRITE_SECTORS 0x30u /* WRITE SECTORS (PIO, LBA28)            */
+#define ATA_CMD_CACHE_FLUSH   0xE7u /* FLUSH CACHE (commit the write buffer) */
 
 /* Floating-bus value on the status register when no drive is attached to the
  * selected slot (brief Sec 2.3). Reading 0xFF means BSY appears set forever; we
@@ -83,6 +85,11 @@ static inline uint16_t inw(uint16_t port)
 	uint16_t v;
 	__asm__ __volatile__("inw %1, %0" : "=a"(v) : "Nd"(port));
 	return v;
+}
+
+static inline void outw(uint16_t port, uint16_t v)
+{
+	__asm__ __volatile__("outw %0, %1" : : "a"(v), "Nd"(port));
 }
 
 /* 400 ns settle delay: read the alternate-status register four times and
@@ -144,6 +151,44 @@ static int ata_wait_drq(uint16_t io_base, uint16_t ctrl_base)
 	return 0;
 }
 
+/*
+ * Wait until the drive is NOT busy (BSY clear) with NO error -- used after the
+ * CACHE FLUSH command (0xE7), which transfers no data (no DRQ to wait on), and
+ * after the final WRITE sector to let the write buffer drain before FLUSH. Same
+ * fail-loud discipline as ata_wait_drq (floating-bus guard, bounded poll,
+ * ERR/DF check), but it does NOT require DRQ. Returns 0 only when BSY is clear
+ * with no error (Rule 2).
+ */
+static int ata_wait_ready(uint16_t io_base, uint16_t ctrl_base)
+{
+	uint8_t  st;
+	uint32_t spins;
+
+	st = inb((uint16_t)(io_base + ATA_REG_STATUS));
+	if (st == ATA_FLOATING_BUS) {
+		return ATA_ERR_NO_DRIVE;
+	}
+
+	for (spins = 0; spins < ATA_POLL_LIMIT; spins++) {
+		st = inb((uint16_t)(io_base + ATA_REG_STATUS));
+		if (st == ATA_FLOATING_BUS) {
+			return ATA_ERR_NO_DRIVE;
+		}
+		if (!(st & ATA_SR_BSY)) {
+			break;
+		}
+	}
+	if (st & ATA_SR_BSY) {
+		return ATA_ERR_TIMEOUT;
+	}
+	if (st & (ATA_SR_ERR | ATA_SR_DF)) {
+		return ATA_ERR_DEVICE;
+	}
+
+	(void)ctrl_base;
+	return 0;
+}
+
 int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf)
 {
 	const ata_ctx_t *c = (const ata_ctx_t *)ctx;
@@ -197,6 +242,93 @@ int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf)
 	return 0;
 }
 
+/*
+ * ata_write_sectors -- ATA PIO LBA28 WRITE SECTORS (0x30) + CACHE FLUSH (0xE7).
+ *
+ * THE WRITE HALF of the disk path (beads initech-509.11). Mirrors
+ * ata_read_sectors' register-programming order and fail-loud guards exactly,
+ * but the data direction is REVERSED: after the WRITE SECTORS command the drive
+ * raises DRQ when it is ready to ACCEPT a sector, and we push 256 16-bit words
+ * (512 bytes) PER sector OUT to the data port. After the last sector we issue
+ * CACHE FLUSH so the controller commits its write buffer to the medium (without
+ * it, a power loss -- or in our case, a subsequent read -- could see stale
+ * data). CANNOT be host-unit-tested (port I/O); proven by the in-emulator
+ * round-trip (make test-fatwrite).
+ *
+ * Ref (Law 1): ATA/ATAPI-6, WRITE SECTORS (0x30) PIO protocol + FLUSH CACHE
+ *   (0xE7); the DRQ-per-sector handshake (host writes data when DRQ is set);
+ *   docs/research/fs-mount-sft-ground-truth.md Sec 1.3, Sec 2.2, Sec 2.3 (the
+ *   same channel/drive-select + 400 ns settle + floating-bus convention as the
+ *   read path). Returns 0 on success, a negative ATA_ERR_* on error (never an
+ *   infinite spin -- bounded polls throughout, Rule 2).
+ *
+ * NOTE: a const-correct write buffer (the blockdev_t::write_sectors signature
+ * takes `const void *`) -- we never modify it; we only read words OUT of it.
+ */
+int ata_write_sectors(void *ctx, uint32_t lba, uint32_t count, const void *buf)
+{
+	const ata_ctx_t *c   = (const ata_ctx_t *)ctx;
+	const uint8_t   *in  = (const uint8_t *)buf;
+	uint16_t io_base;
+	uint16_t ctrl_base;
+	uint32_t s;
+	int      rc;
+
+	if (c == NULL || buf == NULL || count == 0u) {
+		return ATA_ERR_ARG;
+	}
+	if (count > 256u || lba > 0x0FFFFFFFu) {
+		return ATA_ERR_ARG;
+	}
+
+	io_base   = c->io_base;
+	ctrl_base = c->ctrl_base;
+
+	/* Same LBA28 register-programming order as the read path, but the command
+	 * is WRITE SECTORS (0x30). (brief Sec 2.2 -- the ATA-conformant sequence
+	 * Bochs/86Box enforce.) */
+	outb((uint16_t)(io_base + ATA_REG_DRIVE),
+	     (uint8_t)(c->drive_select | ((lba >> 24) & 0x0Fu)));
+
+	ata_delay_400ns(ctrl_base);
+
+	outb((uint16_t)(io_base + ATA_REG_SECCOUNT), (uint8_t)(count & 0xFFu));
+	outb((uint16_t)(io_base + ATA_REG_LBA_LO),   (uint8_t)(lba & 0xFFu));
+	outb((uint16_t)(io_base + ATA_REG_LBA_MID),  (uint8_t)((lba >> 8) & 0xFFu));
+	outb((uint16_t)(io_base + ATA_REG_LBA_HI),   (uint8_t)((lba >> 16) & 0xFFu));
+	outb((uint16_t)(io_base + ATA_REG_COMMAND),  ATA_CMD_WRITE_SECTORS);
+
+	/* One DRQ/transfer cycle per sector -- the host PUSHES the data this time
+	 * (256 words = 512 bytes each). DRQ means "ready to accept a sector". */
+	for (s = 0; s < count; s++) {
+		int i;
+		rc = ata_wait_drq(io_base, ctrl_base);
+		if (rc != 0) {
+			return rc;   /* propagate the exact fail-loud code */
+		}
+		for (i = 0; i < 256; i++) {
+			uint16_t w = (uint16_t)((uint16_t)in[0] | ((uint16_t)in[1] << 8));
+			outw((uint16_t)(io_base + ATA_REG_DATA), w);
+			in += 2;
+		}
+		/* Per the PIO protocol, allow the drive a moment to deassert DRQ /
+		 * raise BSY for the next sector or completion (the 400 ns altstatus
+		 * settle covers this without side effects). */
+		ata_delay_400ns(ctrl_base);
+	}
+
+	/* CACHE FLUSH so the write buffer is committed before any read sees it
+	 * (Rule 2 / Rule 11: a subsequent read of what we wrote must be authoritative,
+	 * not a stale-cache artifact). FLUSH transfers no data -> wait BSY-clear. */
+	outb((uint16_t)(io_base + ATA_REG_COMMAND), ATA_CMD_CACHE_FLUSH);
+	rc = ata_wait_ready(io_base, ctrl_base);
+	if (rc != 0) {
+		return rc;
+	}
+
+	return 0;
+}
+
 void ata_blockdev_init(blockdev_t *dev, ata_ctx_t *ctx)
 {
 	if (dev == NULL) {
@@ -204,7 +336,7 @@ void ata_blockdev_init(blockdev_t *dev, ata_ctx_t *ctx)
 	}
 	dev->ctx           = ctx;            /* channel + drive descriptor       */
 	dev->read_sectors  = ata_read_sectors;
-	dev->write_sectors = NULL;           /* FAT write: beads initech-509.11  */
+	dev->write_sectors = ata_write_sectors;  /* FAT write (beads initech-509.11) */
 }
 
 void ata_ctx_init_primary_master(ata_ctx_t *ctx)

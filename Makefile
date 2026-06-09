@@ -108,8 +108,13 @@ TRACER_IMG      := $(BUILD)/tracer_boot.img
 STAGE2_SECTORS  := 16
 # Kernel occupies sectors 17.. ; padded to KERNEL_SECTORS (must equal the
 # stage2.asm KERNEL_SECTORS equate so the INT 13h read count is deterministic).
-KERNEL_SECTORS  := 64
-# Total raw image: MBR(1) + stage2(16) + kernel(64) = 81 sectors; round up to
+# Bumped 64 -> 80 (40 KiB) for beads initech-509.11: the FAT WRITE path
+# (fat12.c create/write/flush/unlink + int21 CREAT/WRITE/UNLINK) grew the
+# kernel; the BOOT_SHELL image (which also links command.o) crossed the old
+# 32 KiB window. 80 keeps a clean margin and stays below PROGRAM_BASE (0x20000:
+# 0x10000 + 80*512 = 0x19C00). MUST equal the stage2.asm KERNEL_SECTORS equate.
+KERNEL_SECTORS  := 80
+# Total raw image: MBR(1) + stage2(16) + kernel(80) = 97 sectors; round up to
 # 128 (64 KiB) for headroom + a clean power-of-two. Deterministic (Rule 11).
 IMG_SECTORS     := 128
 
@@ -187,6 +192,9 @@ DIR_PROG_BLOB_C  := $(BUILD)/dir_prog_blob.c
 CONIN_PROG_ASM   := $(KERNEL_DIR)/conin_program.asm
 CONIN_PROG_BIN   := $(BUILD)/conin_program.bin
 CONIN_PROG_BLOB_C := $(BUILD)/conin_prog_blob.c
+WRITE_PROG_ASM   := $(KERNEL_DIR)/write_program.asm
+WRITE_PROG_BIN   := $(BUILD)/write_program.bin
+WRITE_PROG_BLOB_C := $(BUILD)/write_prog_blob.c
 # GREET program (beads initech-saw): a flat .COM that is NOT baked into the
 # kernel -- it is mcopy'd onto the FAT12 data disk as GREET.COM and loaded BY
 # NAME from the mounted volume (load_program_from_fat / INT 21h AH=4Bh EXEC).
@@ -215,6 +223,7 @@ KERNEL_TEST_PROG_OBJ := $(BUILD)/test_prog_blob.o
 KERNEL_TYPE_PROG_OBJ := $(BUILD)/type_prog_blob.o
 KERNEL_DIR_PROG_OBJ  := $(BUILD)/dir_prog_blob.o
 KERNEL_CONIN_PROG_OBJ := $(BUILD)/conin_prog_blob.o
+KERNEL_WRITE_PROG_OBJ := $(BUILD)/write_prog_blob.o
 KERNEL_ISR_OBJ   := $(BUILD)/isr.o
 KERNEL_ELF       := $(BUILD)/kernel.elf
 KERNEL_BIN       := $(BUILD)/kernel.bin
@@ -250,6 +259,14 @@ KERNEL_EXEC_MAIN_OBJ  := $(BUILD)/kmain_exec.o
 KERNEL_EXEC_ELF       := $(BUILD)/kernel_exec.elf
 KERNEL_EXEC_BIN       := $(BUILD)/kernel_exec.bin
 EXEC_IMG              := $(BUILD)/exec_boot.img
+# FAT WRITE round-trip self-test kernel/image (beads initech-509.11; make
+# test-fatwrite): the SAME kernel sources with -DBOOT_WRITE so the boot runs the
+# baked WRITE program (CREAT+WRITE+CLOSE then OPEN+READ+echo OUT.TXT) over a
+# WRITABLE FAT12 data disk. Separate image so the normal boot is unchanged.
+KERNEL_WRITE_MAIN_OBJ := $(BUILD)/kmain_write.o
+KERNEL_WRITE_ELF      := $(BUILD)/kernel_write.elf
+KERNEL_WRITE_BIN      := $(BUILD)/kernel_write.bin
+WRITE_IMG             := $(BUILD)/write_boot.img
 # COMMAND.COM shell kernel/image (beads initech-7pc; make test-shell): the SAME
 # kernel sources but with -DBOOT_SHELL so the boot, after CONIN-LIVE, prints
 # SHELL-READY and enters the COMMAND.COM REPL (instead of the demo+halt). Separate
@@ -385,6 +402,21 @@ $(FAT_EXEC_IMG): $(FAT12_FIXTURES) $(GREET_PROG_BIN) | $(BUILD)
 	@mcopy -i $@ $(GREET_PROG_BIN) ::GREET.COM
 	@printf ">>> fat_exec: minted %s (1.44MB FAT12 disk for test-exec; GREET.COM + HELLO.TXT; build intermediate)\n" "$@"
 
+# FAT12 WRITABLE data disk for the in-emulator WRITE round-trip (beads
+# initech-509.11; make test-fatwrite). A FRESH, formatted-but-near-empty 1.44 MB
+# FAT12 volume the kernel WRITES to over ATA (the WRITE program CREATs OUT.TXT on
+# it). Minted per run (the kernel mutates it, so it must NOT be a committed
+# fixture, Rule 11). It carries one seed file so the proto-DIR still renders, but
+# OUT.TXT must NOT pre-exist. Distinct from FAT_DATA_IMG (which test-fs/type/dir
+# assert is read-only) so a write never disturbs those gates.
+FAT_WRITE_IMG     := $(BUILD)/fat_write.img
+
+$(FAT_WRITE_IMG): $(FAT12_FIXTURE_DIR)/hello.txt | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@printf ">>> fat_write: minted %s (1.44MB FAT12 WRITABLE disk for test-fatwrite; HELLO.TXT seed; build intermediate)\n" "$@"
+
 # Build the BPB oracle: the test + the REAL artifact fat12.c + the host
 # blockdev backend. -Ispec for bpb_t, -Ios/milton for fat12.h/blockdev.h,
 # -Iseed for test_assert.h, -I$(FAT_DIFF_DIR) for blockdev_file.h.
@@ -439,6 +471,61 @@ test-fat12-dir: $(TEST_FAT12_DIR) $(FAT12_IMG)
 $(FAT_DUMP_BIN): $(FAT_DUMP_SRC) $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
 		-o $@ $(FAT_DUMP_SRC) $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# --- FAT12 WRITE oracle (beads initech-509.11) ------------------------------
+# The FAT12 WRITE half: a host test (test_fat12_write.c) drives the REAL
+# artifact fat12.c WRITE functions over a read-WRITE file-backed blockdev,
+# mutating a freshly-minted BLANK image. Two binaries:
+#   $(TEST_FAT12_WRITE)      : the unit + in-memory round-trip oracle.
+#   $(TEST_FAT12_WRITE_MUT_*): mutation builds (Rule 6) -- a single fat12.c
+#     constant perturbed so `make test-fat-write-mutant` proves the diff BITES.
+TEST_FAT12_WRITE  := $(BUILD)/test_fat12_write
+# Blank (no fixtures) 1.44 MB FAT12 image the WRITE oracle mutates in place. A
+# SEPARATE freshly-minted blank per run (build intermediate, NOT committed).
+FAT12_BLANK_IMG   := $(BUILD)/fat12_blank.img
+# A second blank used by the unit suite (it fills/unlinks; keep it off the diff).
+FAT12_BLANK_UNIT_IMG := $(BUILD)/fat12_blank_unit.img
+# The four files the WRITE round-trip diffs three ways (our reader vs mtools vs
+# python3). Names + deterministic content are pinned by test_fat12_write.c.
+FAT12_WRITE_NAMES := SHORT.TXT MULTI.DAT EXACT.BIN EMPTY.NEW
+
+# Mint a BLANK 1.44 MB FAT12 image (mformat only -- NO files). Deterministic
+# (mformat -f 1440 fixes the BPB; the volume serial + label vary but are
+# normalized away in the diff). Build intermediate, NOT committed (Rule 11).
+$(FAT12_BLANK_IMG): | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@printf ">>> fat12: minted BLANK %s (1.44MB FAT12, no files; WRITE oracle target)\n" "$@"
+
+$(FAT12_BLANK_UNIT_IMG): | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@printf ">>> fat12: minted BLANK %s (1.44MB FAT12, no files; WRITE unit target)\n" "$@"
+
+$(TEST_FAT12_WRITE): $(FAT_DIFF_DIR)/test_fat12_write.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_write.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# Mutation builds (Rule 6): fat12.c WRITE perturbed one constant at a time so the
+# round-trip oracle MUST go RED. (a) write only ONE FAT copy (DEC-07 sync broken);
+# (b) the wrong EOC marker on the last cluster (chain runs off the end).
+TEST_FAT12_WRITE_MUT_ONEFAT := $(BUILD)/test_fat12_write_mut_onefat
+TEST_FAT12_WRITE_MUT_EOC    := $(BUILD)/test_fat12_write_mut_eoc
+
+$(TEST_FAT12_WRITE_MUT_ONEFAT): $(FAT_DIFF_DIR)/test_fat12_write.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_ONE_FAT_COPY -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_write.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_WRITE_MUT_EOC): $(FAT_DIFF_DIR)/test_fat12_write.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_WRONG_EOC -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_write.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+.PHONY: test-fat12-write
+test-fat12-write: $(TEST_FAT12_WRITE) $(FAT12_BLANK_UNIT_IMG)
+	@printf ">>> test-fat12-write: FAT12 WRITE unit (12-bit encode + alloc + both-FAT sync + round-trip + full-volume fail-loud + unlink)\n"
+	@cp -f "$(FAT12_BLANK_UNIT_IMG)" "$(BUILD)/fat12_write_unit_run.img"
+	@$(TEST_FAT12_WRITE) "$(BUILD)/fat12_write_unit_run.img"
+	@printf ">>> test-fat12-write: green\n"
 
 # ---------------------------------------------------------------------------
 # Text console blit oracle (os/milton, beads initech-yqb)
@@ -1014,6 +1101,7 @@ endef
         test-sft test-sft-mutant test-fileio test-fileio-mutant \
         test-loader test-loader-mutant test-program test-fs test-type test-dir \
         test-exec test-exec-unit test-exec-mutant \
+        test-fat12-write test-fat-write test-fat-write-mutant test-fatwrite \
         test-command test-command-mutant test-shell \
         test-panic test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-conin-unit test-conin-mutant test-conin \
@@ -1040,6 +1128,9 @@ help:
 	@printf 'Oracles (per-subsystem differential / property suites):\n'
 	@printf '  test-region    Region property suite: homomorphism + normal-form + identities.\n'
 	@printf '  test-fat       FAT12/16 differential vs mtools/python on identical images.\n'
+	@printf '  test-fat-write FAT12 WRITE round-trip: OUR writer mints+writes a volume; mtools+python3 read it back (names/sizes/content). REAL. beads initech-509.11.\n'
+	@printf '  test-fat12-write  FAT12 WRITE unit: 12-bit encode + cluster alloc + both-FAT sync + in-memory round-trip + full-volume fail-loud + unlink. REAL.\n'
+	@printf '  test-fatwrite  In-emulator WRITE round-trip: CREAT+WRITE+CLOSE then OPEN+READ OUT.TXT over real ATA in one boot; mtools confirms on-disk. REAL (QEMU).\n'
 	@printf '  test-dbase     InitechBase differential + round-trip vs real dBASE.\n'
 	@printf '  test-compiler  Turbo Initech vs Free Pascal on the shared corpus.\n'
 	@printf '  test-seed      Seed front-end unit tests (lexer + parser). REAL: fails non-zero on any check.\n'
@@ -1250,6 +1341,17 @@ $(CONIN_PROG_BLOB_C): $(CONIN_PROG_BIN) $(BIN2C_BIN)
 $(KERNEL_CONIN_PROG_OBJ): $(CONIN_PROG_BLOB_C) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(CONIN_PROG_BLOB_C) -o $@
 
+# WRITE round-trip baked program (beads initech-509.11): same nasm -f bin ->
+# bin2c -> KERNEL_CC pipeline. Linked only into the -DBOOT_WRITE kernel.
+$(WRITE_PROG_BIN): $(WRITE_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+$(WRITE_PROG_BLOB_C): $(WRITE_PROG_BIN) $(BIN2C_BIN)
+	$(BIN2C_BIN) $(WRITE_PROG_BIN) g_write_prog_image > $@
+
+$(KERNEL_WRITE_PROG_OBJ): $(WRITE_PROG_BLOB_C) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(WRITE_PROG_BLOB_C) -o $@
+
 $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
@@ -1412,6 +1514,42 @@ $(EXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXEC_BIN) | $(BUILD)
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_EXEC_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> exec image: %s (FAT-sourced load + EXEC self-test kernel @s17)\n" "$@"
+
+# --- FAT WRITE round-trip self-test kernel (beads initech-509.11; test-fatwrite)
+# Same sources, kmain.c compiled with -DBOOT_WRITE so the boot runs the baked
+# WRITE program over a WRITABLE FAT12 data disk. The write_prog blob is linked
+# ONLY into this image. Mirrors the EXEC image structure.
+$(KERNEL_WRITE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_WRITE -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_WRITE_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_WRITE_ELF): $(KERNEL_WRITE_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_WRITE_OBJS)
+
+$(KERNEL_WRITE_BIN): $(KERNEL_WRITE_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_write.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(write): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(WRITE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_WRITE_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_WRITE_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> write image: %s (FAT WRITE round-trip self-test kernel @s17)\n" "$@"
 
 # --- COMMAND.COM shell kernel (beads initech-7pc; make test-shell) ----------
 # Same sources, but kmain.c compiled with -DBOOT_SHELL so the boot, after
@@ -1728,6 +1866,117 @@ test-fat: $(FAT_DUMP_BIN) $(FAT12_IMG) $(FAT12_REF_PY) \
 	@printf 'VERDICT   : PASS -- our FAT12 reader agrees with mtools AND an independent\n'
 	@printf '            python3 reader on names, sizes, and content (triple oracle).\n'
 	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-fat-write (beads initech-509.11 -- FAT12 WRITE round-trip)
+# ---------------------------------------------------------------------------
+# The FAT12 WRITE DIFFERENTIAL ORACLE (the heart of initech-509.11). The REAL
+# artifact fat12.c WRITE path (fat12_create + fat12_write_file, driven on the
+# host via the read-WRITE file-backed blockdev) mints a BLANK image and writes
+# four files into it; that image -- written ENTIRELY by our code -- must read
+# back correctly in THREE independent ways (Law 2, Rule 5):
+#   ref #1: mtools  -- mdir (names+sizes) + mcopy (content bytes)
+#   ref #2: python3 -- fat12_ref.py (independent reader)
+#   ref #3: our OWN reader -- the in-memory round-trip in test_fat12_write.c
+# Agreement on names, sizes, and CONTENT bytes. Timestamps/serial normalized
+# away (NOT meaningful bytes: the dir mtime/mdate are stamped to the fixed
+# deterministic constant 0 (Rule 11) and dropped from the diff; the meaningful
+# bytes are name/attr/size/start_cluster + content).
+#
+# Assertions (every one fail-loud + exit-non-zero, Rule 2):
+#   A. The WRITE unit + in-memory round-trip oracle passes (our read of our
+#      write, 12-bit encode, both-FAT sync, full-volume fail-loud, unlink).
+#   B. Tool presence: mtools (mdir/mcopy) + python3 MUST exist, else fail loud.
+#   C. Mint BLANK image, write the 4 fixtures with OUR writer (--diff).
+#   D. NAMES+SIZES: normalized mdir == python3 --list (mtools and python both
+#      read OUR written image and agree on the 4 files + sizes).
+#   E. CONTENT per file: mcopy ::NAME == python3 --cat NAME == the deterministic
+#      bytes our writer emitted (regenerated host-side), byte-for-byte.
+# Ref: PRD Sec 6.1; ADR-0003 DEC-07; beads initech-509.11.
+FATW_OUR_REF   := $(BUILD)/fatw_ref
+FATW_PY_LIST   := $(BUILD)/fatw_py.list
+FATW_MTOOLS_LIST := $(BUILD)/fatw_mtools.list
+
+.PHONY: test-fat-write
+test-fat-write: $(TEST_FAT12_WRITE) $(FAT12_REF_PY)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fat-write : FAT12 WRITE round-trip oracle\n'
+	@printf '  Ref: PRD Sec 6.1 / ADR-0003 DEC-07. beads initech-509.11.\n'
+	@printf '  OUR writer mints a blank image + writes files; mtools + python3 read it back.\n'
+	@printf '======================================================================\n'
+	@# ---- (B) Tool presence: fail loud, NEVER silently skip (Law 2). ----
+	@command -v mdir   >/dev/null 2>&1 || { printf '!!! test-fat-write FAIL: mtools `mdir` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mcopy  >/dev/null 2>&1 || { printf '!!! test-fat-write FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-fat-write FAIL: python3 not found.\n'; exit 1; }
+	@printf '>>> test-fat-write [B]: reference tools present (mtools + python3)\n'
+	@# ---- (A) The WRITE unit + in-memory round-trip oracle. ----
+	@dd if=/dev/zero of="$(BUILD)/fatw_unit.img" bs=512 count=2880 status=none
+	@mformat -i "$(BUILD)/fatw_unit.img" -f 1440 ::
+	@$(TEST_FAT12_WRITE) "$(BUILD)/fatw_unit.img" \
+		|| { printf '!!! test-fat-write FAIL [A]: test_fat12_write unit/round-trip red\n'; exit 1; }
+	@printf '>>> test-fat-write [A]: WRITE unit + in-memory round-trip green\n'
+	@# ---- (C) Mint a clean BLANK image and write the 4 fixtures with OUR writer. ----
+	@dd if=/dev/zero of="$(BUILD)/fatw_diff.img" bs=512 count=2880 status=none
+	@mformat -i "$(BUILD)/fatw_diff.img" -f 1440 ::
+	@$(TEST_FAT12_WRITE) "$(BUILD)/fatw_diff.img" --diff \
+		|| { printf '!!! test-fat-write FAIL [C]: writing the diff fixtures failed\n'; exit 1; }
+	@printf '>>> test-fat-write [C]: OUR writer wrote 4 files into a blank image\n'
+	@# ---- (D) NAMES+SIZES: normalized mdir == python3 --list. ----
+	@printf '>>> test-fat-write [D]: names+sizes -- python3 reader == normalized mdir on OUR image\n'
+	@python3 "$(FAT12_REF_PY)" "$(BUILD)/fatw_diff.img" --list > "$(FATW_PY_LIST)" \
+		|| { printf '!!! test-fat-write FAIL [D]: fat12_ref.py --list errored on our written image\n'; exit 1; }
+	@mdir -i "$(BUILD)/fatw_diff.img" :: | awk '{ \
+		hd=0; di=0; \
+		for(i=1;i<=NF;i++){ if($$i ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}$$/){hd=1;di=i;break} } \
+		if(!hd) next; \
+		name=$$1; ext=$$2; sz=""; \
+		for(i=3;i<di;i++){ sz=sz $$i } \
+		if(sz !~ /^[0-9]+$$/) next; \
+		fn=(ext!="")?name"."ext:name; \
+		print fn, sz \
+	}' | sort > "$(FATW_MTOOLS_LIST)"
+	@diff -u "$(FATW_PY_LIST)" "$(FATW_MTOOLS_LIST)" \
+		|| { printf '!!! test-fat-write FAIL [D]: python listing != normalized mdir listing of OUR written image\n'; exit 1; }
+	@printf '    agreement on names+sizes (%s files):\n' "$$(wc -l < "$(FATW_PY_LIST)" | tr -d ' ')"
+	@sed 's/^/      /' "$(FATW_PY_LIST)"
+	@# ---- (E) CONTENT per file: mcopy == python3 --cat == our deterministic bytes. ----
+	@printf '>>> test-fat-write [E]: content -- mcopy == python ref == our written bytes, per file\n'
+	@for f in $(FAT12_WRITE_NAMES); do \
+		mcopy -i "$(BUILD)/fatw_diff.img" "::$$f" - > "$(BUILD)/fatw_mtools_$$f.bin" 2>/dev/null \
+			|| { printf '!!! test-fat-write FAIL [E]: mcopy ::%s errored (mtools could not read our written file)\n' "$$f"; exit 1; }; \
+		python3 "$(FAT12_REF_PY)" "$(BUILD)/fatw_diff.img" --cat "$$f" > "$(BUILD)/fatw_py_$$f.bin" \
+			|| { printf '!!! test-fat-write FAIL [E]: fat12_ref.py --cat %s errored\n' "$$f"; exit 1; }; \
+		cmp -s "$(BUILD)/fatw_mtools_$$f.bin" "$(BUILD)/fatw_py_$$f.bin" \
+			|| { printf '!!! test-fat-write FAIL [E]: %s -- mcopy bytes != python ref bytes (root-cause the writer, Rule 3)\n' "$$f"; cmp "$(BUILD)/fatw_mtools_$$f.bin" "$(BUILD)/fatw_py_$$f.bin"; exit 1; }; \
+		printf '    %-12s %6s bytes : mcopy == python\n' "$$f" "$$(wc -c < "$(BUILD)/fatw_mtools_$$f.bin" | tr -d ' ')"; \
+	done
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- a volume written ENTIRELY by InitechDOS reads back correctly\n'
+	@printf '            in mtools AND an independent python3 reader (names, sizes, content)\n'
+	@printf '            AND in our own reader (in-memory round-trip).\n'
+	@printf '======================================================================\n'
+
+# Mutation-proof (Rule 6): BOTH WRITE mutants MUST fail the unit/round-trip
+# oracle. A mutant that PASSES means the WRITE oracle is decoration.
+.PHONY: test-fat-write-mutant
+test-fat-write-mutant: $(TEST_FAT12_WRITE_MUT_ONEFAT) $(TEST_FAT12_WRITE_MUT_EOC)
+	@printf '>>> test-fat-write-mutant: confirming both WRITE mutants go RED (Rule 6)\n'
+	@dd if=/dev/zero of="$(BUILD)/fatw_mut1.img" bs=512 count=2880 status=none
+	@mformat -i "$(BUILD)/fatw_mut1.img" -f 1440 ::
+	@if $(TEST_FAT12_WRITE_MUT_ONEFAT) "$(BUILD)/fatw_mut1.img" >/dev/null 2>&1; then \
+		printf '!!! test-fat-write-mutant FAIL: one-FAT-copy mutant PASSED -- the both-FAT-sync check is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-write-mutant: green (one-FAT-copy mutant correctly RED)\n'; \
+	fi
+	@dd if=/dev/zero of="$(BUILD)/fatw_mut2.img" bs=512 count=2880 status=none
+	@mformat -i "$(BUILD)/fatw_mut2.img" -f 1440 ::
+	@if $(TEST_FAT12_WRITE_MUT_EOC) "$(BUILD)/fatw_mut2.img" >/dev/null 2>&1; then \
+		printf '!!! test-fat-write-mutant FAIL: wrong-EOC mutant PASSED -- the round-trip check is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-write-mutant: green (wrong-EOC mutant correctly RED -- the oracle bites)\n'; \
+	fi
 
 test-dbase:
 	$(call stub_fail,test-dbase,M6)
@@ -2360,6 +2609,84 @@ test-exec: $(HARNESS_BIN) $(EXEC_IMG) $(FAT_EXEC_IMG)
 	@printf '>>> test-exec [4/4]: INT 21h AH=4Bh EXEC ran GREET.COM; AH=4Dh returned rc=7\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- InitechDOS loaded a flat .COM BY NAME from a FAT12 volume and ran it (saw + AH=4Bh EXEC)\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-fatwrite (beads initech-509.11 -- WRITE+READ round-trip on ATA)
+# ---------------------------------------------------------------------------
+# THE in-emulator binding oracle for the WRITE half: boot the -DBOOT_WRITE image
+# WITH a WRITABLE FAT12 data disk (--disk2 = FAT_WRITE_IMG). The baked WRITE
+# program CREATs "OUT.TXT", WRITEs "hello\r\n", CLOSEs (flushing the cluster
+# chain + FAT + dir entry to disk over ATA WRITE SECTORS), then re-OPENs + READs
+# OUT.TXT and echoes its bytes to stdout -- proving write+read round-trips
+# THROUGH the OS on real ATA in ONE boot. Assertions (fail-loud, Rule 2):
+#   1. NO triple-fault (the ATA WRITE protocol + CACHE FLUSH did not crash).
+#   2. SERIAL: FILEIO-BIND-OK; NO WRITE-*-FAIL markers; "hello" appears between
+#      WRITE-OUTPUT-BEGIN/END (the file READ BACK what we wrote); WRITE-EXIT rc=0.
+#   3. BONUS: mtools reads OUT.TXT off the (post-run) disk image and its content
+#      is exactly "hello\r\n" -- an INDEPENDENT confirmation the bytes hit disk.
+# Ref: ATA/ATAPI-6 WRITE SECTORS + FLUSH CACHE; FAT12 spec; ADR-0003 DEC-07.
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.
+WRITE_NAME    := write_boot
+WRITE_SERIAL  := $(BUILD)/$(WRITE_NAME).serial
+WRITE_REPORT  := $(BUILD)/$(WRITE_NAME).report
+WRITE_EXPECT  := hello
+
+.PHONY: test-fatwrite
+test-fatwrite: $(HARNESS_BIN) $(WRITE_IMG) $(FAT_WRITE_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fatwrite : WRITE+READ round-trip on ATA\n'
+	@printf '  Ref: ATA/ATAPI-6 WRITE SECTORS + FLUSH CACHE; FAT12 spec; ADR-0003 DEC-07.\n'
+	@printf '  beads initech-509.11. CREAT+WRITE+CLOSE then OPEN+READ OUT.TXT, in one boot.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + WRITABLE data disk %s (primary slave)\n' "$(WRITE_IMG)" "$(FAT_WRITE_IMG)"
+	@printf 'Expecting : FILEIO-BIND-OK + "%s" between WRITE-OUTPUT-BEGIN/END + WRITE-EXIT rc=0 + no triple-fault\n' "$(WRITE_EXPECT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(WRITE_IMG)" --disk2 "$(FAT_WRITE_IMG)" \
+		--name "$(WRITE_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(WRITE_REPORT)" || true
+	@cat "$(WRITE_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(WRITE_REPORT)"; then \
+		printf '!!! test-fatwrite FAIL: TRIPLE FAULT -- root-cause the ATA WRITE protocol order (Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-fatwrite [1/4]: no triple-fault\n'
+	@if [ ! -s "$(WRITE_SERIAL)" ]; then \
+		printf '!!! test-fatwrite FAIL: no serial captured at %s\n' "$(WRITE_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^FILEIO-BIND-OK$$' "$(WRITE_SERIAL)" \
+		|| { printf '!!! test-fatwrite FAIL: FILEIO-BIND-OK missing -- the FAT file backend never bound\n'; exit 1; }
+	@if grep -q 'WRITE-CREAT-FAIL\|WRITE-WRITE-FAIL\|WRITE-CLOSE-FAIL\|WRITE-REOPEN-FAIL' "$(WRITE_SERIAL)"; then \
+		printf '!!! test-fatwrite FAIL: a WRITE-*-FAIL marker -- the CREAT/WRITE/CLOSE/REOPEN path failed (root-cause, Rule 3):\n'; \
+		grep 'WRITE-.*-FAIL' "$(WRITE_SERIAL)"; exit 1; \
+	fi
+	@printf '>>> test-fatwrite [2/4]: FILEIO-BIND-OK + no WRITE-*-FAIL\n'
+	@sed -n '/^WRITE-OUTPUT-BEGIN$$/,/^WRITE-OUTPUT-END$$/p' "$(WRITE_SERIAL)" > "$(BUILD)/$(WRITE_NAME).out"
+	@grep -qF '$(WRITE_EXPECT)' "$(BUILD)/$(WRITE_NAME).out" \
+		|| { printf '!!! test-fatwrite FAIL: "%s" not READ BACK from OUT.TXT -- the write did not commit to disk (root-cause ATA WRITE / FAT flush, Rule 3)\n' "$(WRITE_EXPECT)"; exit 1; }
+	@grep -q '^WRITE-EXIT rc=0$$' "$(WRITE_SERIAL)" \
+		|| { printf '!!! test-fatwrite FAIL: WRITE-EXIT rc=0 missing -- the WRITE program did not finish cleanly\n'; exit 1; }
+	@printf '>>> test-fatwrite [3/4]: OUT.TXT written, READ BACK through the OS, WRITE-EXIT rc=0\n'
+	@# ---- 4. BONUS: mtools reads OUT.TXT off the post-run disk, content exact. ----
+	@if command -v mcopy >/dev/null 2>&1; then \
+		mcopy -i "$(FAT_WRITE_IMG)" ::OUT.TXT - 2>/dev/null > "$(BUILD)/$(WRITE_NAME).outtxt" || true; \
+		if [ -s "$(BUILD)/$(WRITE_NAME).outtxt" ]; then \
+			printf 'hello\r\n' > "$(BUILD)/$(WRITE_NAME).expect"; \
+			if cmp -s "$(BUILD)/$(WRITE_NAME).outtxt" "$(BUILD)/$(WRITE_NAME).expect"; then \
+				printf '>>> test-fatwrite [4/4]: mtools read OUT.TXT off the disk -- content == "hello\\r\\n" (independent confirmation)\n'; \
+			else \
+				printf '!!! test-fatwrite FAIL [4/4]: mtools read OUT.TXT but content != "hello\\r\\n" (the on-disk bytes are wrong)\n'; \
+				cmp "$(BUILD)/$(WRITE_NAME).outtxt" "$(BUILD)/$(WRITE_NAME).expect" || true; exit 1; \
+			fi; \
+		else \
+			printf '!!! test-fatwrite FAIL [4/4]: mtools could not read OUT.TXT off the post-run disk -- the directory entry / chain never reached the medium\n'; exit 1; \
+		fi; \
+	else \
+		printf '>>> test-fatwrite [4/4]: mtools absent -- skipping the post-run disk extraction (in-OS read-back [3/4] already proves the round-trip)\n'; \
+	fi
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- InitechDOS WROTE a file to a FAT12 volume over ATA and read it back\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
 

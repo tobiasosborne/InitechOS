@@ -58,6 +58,18 @@ static uint8_t  g_cluster[BLOCKDEV_SECTOR_SIZE];
  * Risk 2: off the kernel stack). g_buf_in_use enforces the single-file limit. */
 static uint8_t  g_buf_in_use = 0;
 
+/* ---- WRITE state (beads initech-509.11) ----------------------------------- *
+ * CREAT claims the SAME single buffer (FILE_BUFFER_BASE) as the WRITE staging
+ * area: AH=40h WRITE appends bytes here; CLOSE (flush) allocates the cluster
+ * chain and writes them out. Mirrors the read single-buffer limit (Rule 2): one
+ * file open for write at a time; > FILE_BUFFER_MAX bytes -> fail loud. */
+static uint8_t  g_write_in_use   = 0;     /* a CREAT'd write file is open      */
+static uint32_t g_write_len      = 0;     /* bytes appended so far             */
+static uint32_t g_write_slot     = 0;     /* root-dir slot of the created file */
+
+/* DOS error codes returned to int21.c for the write path. */
+#define FILEIO_ERR_ACCESS_DENIED   0x0005u
+
 /* ------------------------------------------------------------------------ *
  * Backend vtable implementations.
  * ------------------------------------------------------------------------ */
@@ -160,10 +172,108 @@ static uint16_t fat_dir_entry(uint32_t index, dir_entry_t *out_entry,
     return 0u;
 }
 
+/* ---- WRITE backend (beads initech-509.11) --------------------------------- *
+ * CREAT: create/truncate the file on disk (size 0) and claim the write buffer.
+ * WRITE: append bytes to the buffer (capped at FILE_BUFFER_MAX). FLUSH (CLOSE):
+ * allocate the chain + write the data + FAT + patch the dir entry. UNLINK:
+ * delete the file + free its chain. All go through the oracle-green fat12.c
+ * write functions over the mounted volume. */
+
+static uint16_t fat_create(const char *name83, dir_entry_t *out_entry)
+{
+    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+        return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
+    }
+    if (g_buf_in_use || g_write_in_use) {
+        /* Single-buffer limit (Rule 2): the one buffer is busy. */
+        return FILEIO_ERR_TOO_MANY_OPEN;
+    }
+
+    dir_entry_t de;
+    uint32_t    slot = 0;
+    int rc = fat12_create(g_vol, g_fat, g_fat_len, name83, DIR_ATTR_ARCHIVE,
+                          g_sector, &de, &slot);
+    if (rc == FAT12_ERR_DIR_FULL) {
+        return FILEIO_ERR_TOO_MANY_OPEN;   /* root dir full */
+    }
+    if (rc != FAT12_OK) {
+        return FILEIO_ERR_ACCESS_DENIED;   /* bad name / write error */
+    }
+
+    g_write_in_use = 1;
+    g_write_len    = 0;
+    g_write_slot   = slot;
+    *out_entry     = de;
+    return 0u;
+}
+
+static uint16_t fat_write(const uint8_t *data, uint32_t len, uint32_t *out_written)
+{
+    if (!g_write_in_use) {
+        return FILEIO_ERR_ACCESS_DENIED;
+    }
+    /* Append into the single write buffer (FILE_BUFFER_BASE), capped (Rule 2:
+     * never overrun the 64 KiB buffer). */
+    if (g_write_len + len > FILE_BUFFER_MAX) {
+        return FILEIO_ERR_ACCESS_DENIED;   /* file too large for the buffer */
+    }
+    {
+        uint8_t *buf = (uint8_t *)(uintptr_t)FILE_BUFFER_BASE;
+        uint32_t i;
+        for (i = 0; i < len; i++) {
+            buf[g_write_len + i] = data[i];
+        }
+    }
+    g_write_len += len;
+    *out_written = len;
+    return 0u;
+}
+
+static uint16_t fat_flush(void)
+{
+    if (!g_write_in_use) {
+        return 0u;   /* nothing open -> no-op success */
+    }
+    {
+        const uint8_t *buf = (const uint8_t *)(uintptr_t)FILE_BUFFER_BASE;
+        int rc = fat12_write_file(g_vol, g_fat, g_fat_len, g_write_slot,
+                                  buf, g_write_len, g_sector, g_cluster);
+        /* Release the buffer regardless of outcome so a failed write does not
+         * wedge the single buffer (the caller surfaces the error to the app). */
+        g_write_in_use = 0;
+        g_write_len    = 0;
+        if (rc != FAT12_OK) {
+            return FILEIO_ERR_ACCESS_DENIED;   /* disk full / write error */
+        }
+    }
+    return 0u;
+}
+
+static uint16_t fat_unlink(const char *name83)
+{
+    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+        return FILEIO_ERR_ACCESS_DENIED;
+    }
+    {
+        int rc = fat12_unlink(g_vol, g_fat, g_fat_len, name83, g_sector);
+        if (rc == FAT12_ERR_NOT_FOUND) {
+            return FILEIO_ERR_FILE_NOT_FOUND;
+        }
+        if (rc != FAT12_OK) {
+            return FILEIO_ERR_ACCESS_DENIED;
+        }
+    }
+    return 0u;
+}
+
 static const int21_file_backend_t g_fat_backend = {
     fat_open,
     fat_close,
-    fat_dir_entry
+    fat_dir_entry,
+    fat_create,
+    fat_write,
+    fat_flush,
+    fat_unlink
 };
 
 /* ------------------------------------------------------------------------ *
@@ -184,8 +294,10 @@ int fileio_fat_bind(const fat12_volume_t *vol)
     }
     g_fat_len    = (uint32_t)vol->bpb.sectors_per_fat *
                    (uint32_t)vol->bpb.bytes_per_sector;
-    g_vol        = vol;
-    g_buf_in_use = 0;
+    g_vol          = vol;
+    g_buf_in_use   = 0;
+    g_write_in_use = 0;
+    g_write_len    = 0;
 
     int21_set_file_backend(&g_fat_backend);
     return 0;

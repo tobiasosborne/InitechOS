@@ -178,6 +178,70 @@ static uint16_t mock_open(const char *name83, dir_entry_t *out_entry,
 
 static void mock_close(void) { g_mock_buf_in_use = 0; }
 
+/* ---- mock WRITE backend (beads initech-509.11): an in-memory "created" file
+ * with a single write buffer. CREAT claims it, WRITE appends, FLUSH "commits"
+ * (records the final bytes so the test can inspect them), UNLINK forgets a
+ * named file. Mirrors the FAT12 backend's single-buffer model without a disk. */
+static int      g_mock_write_in_use = 0;
+static char     g_mock_created_name[16];
+static uint8_t  g_mock_write_buf[4096];
+static uint32_t g_mock_write_len = 0;
+static int      g_mock_flushed   = 0;     /* set by FLUSH; the test asserts it  */
+static uint8_t  g_mock_committed[4096];
+static uint32_t g_mock_committed_len = 0;
+static int      g_mock_unlinked  = 0;
+static char     g_mock_unlinked_name[16];
+
+static uint16_t mock_create(const char *name83, dir_entry_t *out_entry)
+{
+    if (g_mock_buf_in_use || g_mock_write_in_use) return 0x0004u; /* buffer busy */
+    /* Stash the name (best-effort 8.3) and reset the write buffer. */
+    int i = 0;
+    for (; name83[i] && i < (int)sizeof(g_mock_created_name) - 1; i++)
+        g_mock_created_name[i] = name83[i];
+    g_mock_created_name[i] = '\0';
+    g_mock_write_in_use = 1;
+    g_mock_write_len    = 0;
+    g_mock_flushed      = 0;
+    /* Return a zeroed dir entry with the parsed name (size 0). */
+    memset(out_entry, 0, sizeof(*out_entry));
+    out_entry->attribute = DIR_ATTR_ARCHIVE;
+    out_entry->file_size = 0;
+    return 0u;
+}
+
+static uint16_t mock_write_fn(const uint8_t *data, uint32_t len, uint32_t *out_written)
+{
+    if (!g_mock_write_in_use) return 0x0005u;
+    if (g_mock_write_len + len > sizeof(g_mock_write_buf)) return 0x0005u;
+    memcpy(g_mock_write_buf + g_mock_write_len, data, len);
+    g_mock_write_len += len;
+    *out_written = len;
+    return 0u;
+}
+
+static uint16_t mock_flush(void)
+{
+    if (!g_mock_write_in_use) return 0u;
+    memcpy(g_mock_committed, g_mock_write_buf, g_mock_write_len);
+    g_mock_committed_len = g_mock_write_len;
+    g_mock_flushed       = 1;
+    g_mock_write_in_use  = 0;
+    return 0u;
+}
+
+static uint16_t mock_unlink(const char *name83)
+{
+    /* "DELETE.ME" exists; anything else not found (mirrors a small dir). */
+    if (strcmp(name83, "DELETE.ME") != 0) return 0x0002u;
+    g_mock_unlinked = 1;
+    int i = 0;
+    for (; name83[i] && i < (int)sizeof(g_mock_unlinked_name) - 1; i++)
+        g_mock_unlinked_name[i] = name83[i];
+    g_mock_unlinked_name[i] = '\0';
+    return 0u;
+}
+
 static uint16_t mock_dir_entry(uint32_t index, dir_entry_t *out_entry, int *out_found)
 {
     *out_found = 0;
@@ -188,7 +252,8 @@ static uint16_t mock_dir_entry(uint32_t index, dir_entry_t *out_entry, int *out_
 }
 
 static const int21_file_backend_t g_mock_backend = {
-    mock_open, mock_close, mock_dir_entry
+    mock_open, mock_close, mock_dir_entry,
+    mock_create, mock_write_fn, mock_flush, mock_unlink
 };
 
 int main(void)
@@ -459,6 +524,106 @@ int main(void)
         CHECK(frame_cf(&fn) == 1, "FINDNEXT with no FINDFIRST sets CF");
         CHECK((uint16_t)(fn.eax & 0xFFFFu) == INT21_ERR_NO_MORE_FILES,
               "FINDNEXT with no active search AX=0x0012");
+    }
+
+    /* --- WRITE path (beads initech-509.11): CREAT + WRITE + CLOSE(flush) ---- *
+     * Rebind a clean process so the SFT/JFT are fresh, then drive the full
+     * create->write->close cycle through the REAL dispatcher + the mock write
+     * backend, asserting the flushed bytes equal what we wrote. */
+    {
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+
+        /* CREAT "OUT.TXT", CX=0 (normal attr) -> handle, CF clear. */
+        uint32_t edx = low_dup("OUT.TXT");
+        int_frame_t c = fresh_frame();
+        c.eax = 0x3C00u; c.ecx = 0u; c.edx = edx;
+        c.eflags |= CF_BIT;
+        int21_dispatch(&c);
+        CHECK(frame_cf(&c) == 0, "CREAT OUT.TXT clears CF");
+        uint32_t wh = (uint16_t)(c.eax & 0xFFFFu);
+        CHECK(wh == 5u, "CREAT returns the lowest free handle (5)");
+
+        /* WRITE "hello\r\n" to the handle -> EAX = bytes written, CF clear. */
+        const char *payload = "hello\r\n";
+        uint32_t plen = (uint32_t)strlen(payload);
+        uint32_t wbuf = low_dup(payload);
+        int_frame_t w = fresh_frame();
+        w.eax = 0x4000u; w.ebx = wh; w.ecx = plen; w.edx = wbuf;
+        int21_dispatch(&w);
+        CHECK(frame_cf(&w) == 0, "WRITE to file handle clears CF");
+        CHECK(w.eax == plen, "WRITE returns the byte count written");
+
+        /* a SECOND WRITE appends. */
+        const char *more = "world";
+        uint32_t mlen = (uint32_t)strlen(more);
+        uint32_t mbuf = low_dup(more);
+        int_frame_t w2 = fresh_frame();
+        w2.eax = 0x4000u; w2.ebx = wh; w2.ecx = mlen; w2.edx = mbuf;
+        int21_dispatch(&w2);
+        CHECK(frame_cf(&w2) == 0 && w2.eax == mlen, "second WRITE appends, returns count");
+
+        /* CLOSE -> flushes the buffer; the committed bytes equal what we wrote. */
+        int_frame_t cl = fresh_frame();
+        cl.eax = 0x3E00u; cl.ebx = wh;
+        cl.eflags |= CF_BIT;
+        int21_dispatch(&cl);
+        CHECK(frame_cf(&cl) == 0, "CLOSE write handle clears CF (flush ok)");
+        CHECK(g_mock_flushed == 1, "CLOSE flushed the write buffer to the backend");
+        CHECK(g_mock_committed_len == plen + mlen, "flushed length == total bytes written");
+        CHECK(memcmp(g_mock_committed, "hello\r\nworld", plen + mlen) == 0,
+              "flushed bytes == the exact concatenation written");
+    }
+
+    /* --- CREAT with NO write backend -> access denied --------------------- */
+    {
+        /* Bind a read-only backend (create=NULL) by reusing g_mock but clearing
+         * the write hooks via a local read-only vtable. */
+        static const int21_file_backend_t ro = { mock_open, mock_close, mock_dir_entry,
+                                                  NULL, NULL, NULL, NULL };
+        bind_standard_process();
+        int21_set_file_backend(&ro);
+        uint32_t edx = low_dup("NOWRITE.TXT");
+        int_frame_t c = fresh_frame();
+        c.eax = 0x3C00u; c.ecx = 0u; c.edx = edx;
+        int21_dispatch(&c);
+        CHECK(frame_cf(&c) == 1, "CREAT with no write backend sets CF");
+        CHECK((uint16_t)(c.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "CREAT with no write backend AX=0x0005 (access denied)");
+        int21_set_file_backend(&g_mock_backend);
+    }
+
+    /* --- AH=41h UNLINK: delete an existing file + a missing one ----------- */
+    {
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+        g_mock_unlinked = 0;
+
+        uint32_t edx = low_dup("DELETE.ME");
+        int_frame_t u = fresh_frame();
+        u.eax = 0x4100u; u.edx = edx;
+        u.eflags |= CF_BIT;
+        int21_dispatch(&u);
+        CHECK(frame_cf(&u) == 0, "UNLINK existing file clears CF");
+        CHECK(g_mock_unlinked == 1 && strcmp(g_mock_unlinked_name, "DELETE.ME") == 0,
+              "UNLINK forwarded the name to the backend");
+
+        uint32_t edx2 = low_dup("GONE.XYZ");
+        int_frame_t u2 = fresh_frame();
+        u2.eax = 0x4100u; u2.edx = edx2;
+        int21_dispatch(&u2);
+        CHECK(frame_cf(&u2) == 1, "UNLINK missing file sets CF");
+        CHECK((uint16_t)(u2.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
+              "UNLINK missing file AX=0x0002");
+
+        /* UNLINK a subdir path -> path not found. */
+        uint32_t edx3 = low_dup("SUB\\X.TXT");
+        int_frame_t u3 = fresh_frame();
+        u3.eax = 0x4100u; u3.edx = edx3;
+        int21_dispatch(&u3);
+        CHECK(frame_cf(&u3) == 1 &&
+              (uint16_t)(u3.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
+              "UNLINK subdir path AX=0x0003");
     }
 
     return TEST_SUMMARY("test_fileio");
