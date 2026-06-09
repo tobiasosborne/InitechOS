@@ -1105,7 +1105,8 @@ endef
         test-command test-command-mutant test-shell \
         test-panic test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-conin-unit test-conin-mutant test-conin \
-        test-assets test-spec selfhost ddc clean
+        test-assets test-spec selfhost ddc clean \
+        test-unit test-emu
 
 # ---------------------------------------------------------------------------
 # Default + self-documenting help
@@ -2128,7 +2129,13 @@ test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# Boot via the disk path with a live-guest screendump. The guest hlt-loops,
 	@# so it will time out -- that is expected; we do not gate on the exit code.
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --screendump \
+	@# --screendump-after BANNER (beads initech-3pe): WAIT for the guest's
+	@# paint-complete serial marker before grabbing the framebuffer, removing the
+	@# wall-clock race that blanked the screendump under a loaded host. BANNER is
+	@# emitted (kmain.c) AFTER both banner lines are blitted to the LFB console
+	@# (dos_puts -> con sink -> console_putc -> console_draw_glyph). The 6000 ms
+	@# timeout stays the HARD backstop: a guest that never paints still RED.
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --screendump --screendump-after BANNER \
 		--name "$(TRACER_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(TRACER_REPORT)" || true
 	@cat "$(TRACER_REPORT)"
@@ -2224,7 +2231,11 @@ test-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_BANNER)
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# Boot the live guest with serial + screendump capture (same path as
 	@# test-tracer-boot). The guest hlt-loops, so it times out -- expected.
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --screendump \
+	@# --screendump-after BANNER (beads initech-3pe): wait for the paint-complete
+	@# marker before the framebuffer grab (same rationale as test-tracer-boot);
+	@# BANNER is serial-emitted only after both banner lines are blitted to the
+	@# LFB. The 6000 ms timeout remains the hard backstop for a never-painting guest.
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --screendump --screendump-after BANNER \
 		--name "$(BOOT_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(BOOT_REPORT)" || true
 	@cat "$(BOOT_REPORT)"
@@ -2371,7 +2382,14 @@ test-fs: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf 'Data disk : %s (primary SLAVE, if=ide,index=1)\n' "$(FAT_DATA_IMG)"
 	@printf 'Expecting : FAT-MOUNT-OK + proto-DIR filenames (HELLO.TXT ...) + DIR-OK + no triple-fault\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@# --screendump-after DIR-OK (beads initech-3pe): the ppm gate asserts text in
+	@# the proto-DIR band (rows 3..8); DIR-OK is serial-emitted only AFTER
+	@# fat12_read_root_dir returns, i.e. after every filename has been blitted to
+	@# the LFB console (dir_visit -> dir_puts -> console_putc). Waiting for it
+	@# guarantees the asserted band is painted before the grab, killing the race.
+	@# The 6000 ms timeout stays the hard backstop.
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" --screendump \
+		--screendump-after DIR-OK \
 		--name "$(FS_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(FS_REPORT)" || true
 	@cat "$(FS_REPORT)"
@@ -3168,8 +3186,70 @@ print('    banner is two lines and contains \"InitechDOS  Version 3.30\" (double
 	@printf 'VERDICT   : PASS -- ADR-0003 spec-data parses, sizes hold, banner verbatim\n'
 	@printf '======================================================================\n'
 
+# ---------------------------------------------------------------------------
+# Aggregate green gate vector (beads initech-4mc)
+# ---------------------------------------------------------------------------
+# The single command that asserts "InitechDOS is rock solid". Runs the entire
+# currently-green oracle vector in one invocation, host gates BEFORE emulator
+# gates (Rule 7 / fail fast on cheap checks). EXCLUDES milestone stubs
+# (test-region M3, test-dbase M6, test-compiler M7, selfhost/ddc M8) and the
+# Bochs/86Box targets (InitechDOS cannot boot Bochs yet -- beads initech-x0i).
+# Each member is a fail-loud `make` of an individual gate; the FIRST red gate
+# aborts the run (no `-` prefix, no `|| true`) so nothing green is masked.
+#
+# Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
+TEST_UNIT_GATES := \
+	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
+	test-console test-idt test-kbd-unit test-conin-unit test-int21 \
+	test-fileio test-exec-unit test-command test-psp test-sft test-loader \
+	test-fat test-seed test-seed-codegen test-assets test-spec \
+	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
+	test-fileio-mutant test-exec-mutant test-command-mutant test-psp-mutant \
+	test-sft-mutant test-loader-mutant test-fat-write-mutant
+
+# Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
+TEST_EMU_GATES := \
+	test-harness test-tracer-boot test-boot test-program test-fs test-type \
+	test-dir test-exec test-fatwrite test-shell test-panic test-kbd test-conin
+
+test-unit:
+	@printf '======================================================================\n'
+	@printf '>>> test-unit: host oracle vector (%s gates) -- unit + mutant\n' "$(words $(TEST_UNIT_GATES))"
+	@printf '======================================================================\n'
+	@for g in $(TEST_UNIT_GATES); do \
+		printf '>>> test-unit: running %s\n' "$$g"; \
+		$(MAKE) --no-print-directory $$g || { \
+			printf '!!! test-unit FAIL: gate %s went RED\n' "$$g"; exit 1; }; \
+	done
+	@printf '======================================================================\n'
+	@printf 'test-unit: ALL GREEN (%s host gates)\n' "$(words $(TEST_UNIT_GATES))"
+	@printf '======================================================================\n'
+
+test-emu:
+	@printf '======================================================================\n'
+	@printf '>>> test-emu: QEMU keystone vector (%s gates) -- in-emulator boot\n' "$(words $(TEST_EMU_GATES))"
+	@printf '======================================================================\n'
+	@for g in $(TEST_EMU_GATES); do \
+		printf '>>> test-emu: running %s\n' "$$g"; \
+		$(MAKE) --no-print-directory $$g || { \
+			printf '!!! test-emu FAIL: gate %s went RED\n' "$$g"; exit 1; }; \
+	done
+	@printf '======================================================================\n'
+	@printf 'test-emu: ALL GREEN (%s QEMU gates)\n' "$(words $(TEST_EMU_GATES))"
+	@printf '======================================================================\n'
+
+# Whole gate vector (PRD SS8): host gates first (fail fast), then emulator.
+# Fails loud on the first red gate; prints ALL GREEN only if everything passed.
 test:
-	$(call stub_fail,test,M0)
+	@printf '######################################################################\n'
+	@printf '### make test -- InitechDOS aggregate green gate vector (initech-4mc)\n'
+	@printf '###   host gates: %s   emu gates: %s\n' "$(words $(TEST_UNIT_GATES))" "$(words $(TEST_EMU_GATES))"
+	@printf '######################################################################\n'
+	@$(MAKE) --no-print-directory test-unit
+	@$(MAKE) --no-print-directory test-emu
+	@printf '######################################################################\n'
+	@printf '### ALL GREEN -- %s host + %s emu gates passed; InitechDOS is rock solid\n' "$(words $(TEST_UNIT_GATES))" "$(words $(TEST_EMU_GATES))"
+	@printf '######################################################################\n'
 
 selfhost:
 	$(call stub_fail,selfhost,M8)

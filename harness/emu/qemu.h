@@ -90,6 +90,20 @@ typedef struct {
      * captured serial BEFORE injecting keys (the robust trigger: the guest
      * tells us it is ready). If NULL, a fixed startup delay is used instead.  */
     const char *keys_after;    /* serial marker to wait for, or NULL.        */
+
+    /* Pure-screendump synchronisation (beads initech-3pe). When a screendump is
+     * requested (enable_qmp_screendump) with NO keys, the harness otherwise
+     * dumps the framebuffer the instant QMP connects -- a wall-clock race: under
+     * a loaded host the guest may not have PAINTED yet, so the screendump is
+     * blank and the ppm gate goes RED non-deterministically. If this marker is
+     * non-NULL, the harness WAITS for the substring on the serial capture
+     * (the guest signals paint-complete) BEFORE screendumping, removing the race
+     * for guests that DO paint, just slower under load. The wall-clock timeout
+     * remains the hard backstop: if the marker never appears within budget the
+     * harness screendumps anyway (best-effort), so a guest that truly never
+     * painted still fails HONESTLY (Law 2 -- fail loud, never false-green nor
+     * hang). NULL => legacy immediate-dump behaviour. */
+    const char *screendump_after; /* serial marker to wait for, or NULL.     */
 } QemuConfig;
 
 /* Default wall-clock timeout if config->timeout_ms <= 0. */

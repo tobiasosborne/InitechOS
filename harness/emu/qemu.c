@@ -385,6 +385,7 @@ static int wait_for_serial_marker(const char *serial_path, const char *marker,
  */
 static int qmp_session(const char *sock_path, const char *ppm_path,
                        const char *keys_spec, const char *keys_after,
+                       const char *screendump_after, int screendump_budget_ms,
                        const char *serial_path, int *keys_sent)
 {
     if (keys_sent) {
@@ -461,6 +462,31 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
      * paths are plain ASCII under build/ with no quotes/backslashes, so a
      * direct embed is safe and reproducible. */
     if (ppm_path) {
+        /* Synchronise the framebuffer grab to the guest's paint (beads
+         * initech-3pe). If a screendump_after marker is configured, WAIT for it
+         * on the growing serial capture BEFORE dumping -- the guest signals that
+         * the pixels the ppm gate asserts on are already blitted. The budget is
+         * tied to the wall-clock timeout, so a loaded host simply waits longer.
+         *
+         * CRITICAL (Law 2 -- fail loud, never hang, never false-green): this is
+         * a BEST-EFFORT wait. If the marker never appears within budget we fall
+         * THROUGH and screendump anyway, so a guest that truly never painted
+         * produces a blank framebuffer and the ppm check fails HONESTLY (a real
+         * RED). The wait only removes the race for guests that DO paint, just
+         * slower under load. After the marker is seen, a brief qmp_drain lets the
+         * final blit settle before the grab. */
+        if (screendump_after && screendump_after[0] != '\0') {
+            int budget = screendump_budget_ms > 0 ? screendump_budget_ms : 4000;
+            if (!wait_for_serial_marker(serial_path, screendump_after, budget)) {
+                fprintf(stderr,
+                        "[harness] --screendump-after marker '%s' not seen "
+                        "before deadline; screendumping anyway (best-effort)\n",
+                        screendump_after);
+            } else {
+                /* Marker seen: let the blit fully settle before grabbing. */
+                qmp_drain(fd, 150);
+            }
+        }
         char cmd[QEMU_PATH_MAX + 64];
         int n = snprintf(cmd, sizeof(cmd),
                          "{\"execute\":\"screendump\",\"arguments\":"
@@ -700,10 +726,21 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
     if (cfg->enable_qmp_screendump || want_keys) {
         const char *ppm = cfg->enable_qmp_screendump ? out->screendump_path
                                                       : NULL;
+        /* The screendump-after wait runs in this parent WHILE qemu runs, so its
+         * budget must fit inside the wall-clock timeout with room to spare for
+         * the dump + quit + reap. Reserve a 1000 ms margin; the wall-clock loop
+         * below remains the hard backstop regardless (beads initech-3pe). */
+        int sd_budget = timeout_ms - 1000;
+        if (sd_budget < 500) {
+            sd_budget = 500;
+        }
         int sent = 0;
         if (qmp_session(sock_path, ppm,
                         want_keys ? cfg->keys_spec : NULL,
                         want_keys ? cfg->keys_after : NULL,
+                        cfg->enable_qmp_screendump ? cfg->screendump_after
+                                                   : NULL,
+                        sd_budget,
                         out->serial_path, &sent) == 0) {
             out->keys_sent = sent;
             if (cfg->enable_qmp_screendump) {
