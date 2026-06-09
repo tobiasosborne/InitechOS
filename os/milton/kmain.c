@@ -750,6 +750,22 @@ void kernel_main(void)
     serial_puts("WRITE-OUTPUT-END\n");
 #endif
 
+#ifdef BOOT_MULTIOPEN
+    /* MULTI-OPEN capability self-test (beads initech-0qh; epic initech-6qy; make
+     * test-multiopen). Only in the -DBOOT_MULTIOPEN image so the normal boot is
+     * unchanged. Requires a FAT12 data disk on --disk2 carrying HELLO.TXT +
+     * SECOND.TXT + a >64 KiB BIG.DAT. Run the baked MULTI-OPEN program: it OPENs
+     * HELLO.TXT and SECOND.TXT (and BIG.DAT) CONCURRENTLY, does interleaved
+     * positioned reads with LSEEK on both (proving independent per-handle
+     * positions, no cross-talk), and LSEEKs PAST 64 KiB into BIG.DAT to read a
+     * signature back (the old whole-file 64 KiB buffer could never hold it). The
+     * harness asserts MO-A1=Hel / MO-B1=Sec / MO-A2=Hello / MO-BIG=BEYOND-64KiB!
+     * between the markers + MULTIOPEN-EXIT rc=0 + triple_fault=0. */
+    serial_puts("MULTIOPEN-OUTPUT-BEGIN\n");
+    run_baked("MULTIOPEN", g_multiopen_prog_image, g_multiopen_prog_image_len);
+    serial_puts("MULTIOPEN-OUTPUT-END\n");
+#endif
+
     /* ---- ENABLE HARDWARE INTERRUPTS (beads initech-3rs) -------------------
      * The FIRST `sti` of the whole project. Up to here the kernel ran with
      * IF=0 and every IRQ masked; software ints (0x20/0x21/0x80) dispatched

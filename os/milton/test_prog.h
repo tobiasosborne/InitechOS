@@ -42,4 +42,12 @@ extern const uint32_t g_conin_prog_image_len;
 extern const uint8_t  g_write_prog_image[];
 extern const uint32_t g_write_prog_image_len;
 
+/* The baked MULTI-OPEN program (two concurrent OPENs + interleaved positioned
+ * reads/LSEEK + a >64 KiB read; beads initech-0qh; epic initech-6qy). Generated
+ * from os/milton/multiopen_program.asm. Run only in the -DBOOT_MULTIOPEN
+ * self-test image (make test-multiopen), which attaches a FAT12 data disk with
+ * HELLO.TXT + SECOND.TXT + a >64 KiB BIG.DAT. */
+extern const uint8_t  g_multiopen_prog_image[];
+extern const uint32_t g_multiopen_prog_image_len;
+
 #endif /* INITECH_TEST_PROG_H */

@@ -275,6 +275,29 @@ int fat12_find(const fat12_volume_t *vol, void *sector_buf,
                const char *name83, dir_entry_t *out_entry);
 
 /*
+ * fat12_find_slot: like fat12_find, but ALSO returns the matching entry's
+ * 0-based root-directory SLOT index in *out_slot (beads initech-0qh; epic
+ * initech-6qy). The multi-tenant positioned file backend (fileio_fat.c) needs
+ * the slot so a later fat12_write_partial / fat12_read_dir_entry can patch or
+ * refresh the entry in place. Slot semantics match fat12_create's *out_slot.
+ * Returns FAT12_OK with *out_entry + *out_slot set; FAT12_ERR_NOT_FOUND if no
+ * match; FAT12_ERR_NULL / a parse or read error otherwise.
+ */
+int fat12_find_slot(const fat12_volume_t *vol, void *sector_buf,
+                    const char *name83, dir_entry_t *out_entry,
+                    uint32_t *out_slot);
+
+/*
+ * fat12_read_dir_entry: re-read the 32-byte directory entry at root-dir slot
+ * `slot` into *out_entry (beads initech-0qh). Used after a positioned write to
+ * refresh the cached dir entry (size + start_cluster). `sector_buf` (>=512) is
+ * scratch. Returns FAT12_OK, or a read error / FAT12_ERR_DIR_FULL (slot out of
+ * range) / FAT12_ERR_NULL.
+ */
+int fat12_read_dir_entry(const fat12_volume_t *vol, void *sector_buf,
+                         uint32_t slot, dir_entry_t *out_entry);
+
+/*
  * fat12_read_file: read the file described by dir entry `e` into `out_buf`,
  * exposing EXACTLY e->file_size bytes (brief Sec 4 / RISK-5: the last cluster
  * is partially filled; file_size is authoritative -- no trailing padding).

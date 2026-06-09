@@ -195,6 +195,13 @@ CONIN_PROG_BLOB_C := $(BUILD)/conin_prog_blob.c
 WRITE_PROG_ASM   := $(KERNEL_DIR)/write_program.asm
 WRITE_PROG_BIN   := $(BUILD)/write_program.bin
 WRITE_PROG_BLOB_C := $(BUILD)/write_prog_blob.c
+# Baked MULTI-OPEN program (beads initech-0qh; epic initech-6qy): OPENs two files
+# concurrently, does interleaved positioned reads with LSEEK on both, and reads a
+# signature past 64 KiB of a >64 KiB file. Linked into the -DBOOT_MULTIOPEN
+# kernel only (make test-multiopen).
+MULTIOPEN_PROG_ASM   := $(KERNEL_DIR)/multiopen_program.asm
+MULTIOPEN_PROG_BIN   := $(BUILD)/multiopen_program.bin
+MULTIOPEN_PROG_BLOB_C := $(BUILD)/multiopen_prog_blob.c
 # GREET program (beads initech-saw): a flat .COM that is NOT baked into the
 # kernel -- it is mcopy'd onto the FAT12 data disk as GREET.COM and loaded BY
 # NAME from the mounted volume (load_program_from_fat / INT 21h AH=4Bh EXEC).
@@ -224,6 +231,7 @@ KERNEL_TYPE_PROG_OBJ := $(BUILD)/type_prog_blob.o
 KERNEL_DIR_PROG_OBJ  := $(BUILD)/dir_prog_blob.o
 KERNEL_CONIN_PROG_OBJ := $(BUILD)/conin_prog_blob.o
 KERNEL_WRITE_PROG_OBJ := $(BUILD)/write_prog_blob.o
+KERNEL_MULTIOPEN_PROG_OBJ := $(BUILD)/multiopen_prog_blob.o
 KERNEL_ISR_OBJ   := $(BUILD)/isr.o
 KERNEL_ELF       := $(BUILD)/kernel.elf
 KERNEL_BIN       := $(BUILD)/kernel.bin
@@ -267,6 +275,14 @@ KERNEL_WRITE_MAIN_OBJ := $(BUILD)/kmain_write.o
 KERNEL_WRITE_ELF      := $(BUILD)/kernel_write.elf
 KERNEL_WRITE_BIN      := $(BUILD)/kernel_write.bin
 WRITE_IMG             := $(BUILD)/write_boot.img
+# MULTI-OPEN self-test kernel/image (beads initech-0qh; make test-multiopen): the
+# SAME kernel sources with -DBOOT_MULTIOPEN so the boot runs the baked MULTI-OPEN
+# program over a FAT12 data disk carrying HELLO.TXT + SECOND.TXT + a >64 KiB
+# BIG.DAT. Separate image so the normal boot is unchanged. Requires --disk2.
+KERNEL_MULTIOPEN_MAIN_OBJ := $(BUILD)/kmain_multiopen.o
+KERNEL_MULTIOPEN_ELF      := $(BUILD)/kernel_multiopen.elf
+KERNEL_MULTIOPEN_BIN      := $(BUILD)/kernel_multiopen.bin
+MULTIOPEN_IMG             := $(BUILD)/multiopen_boot.img
 # COMMAND.COM shell kernel/image (beads initech-7pc; make test-shell): the SAME
 # kernel sources but with -DBOOT_SHELL so the boot, after CONIN-LIVE, prints
 # SHELL-READY and enters the COMMAND.COM REPL (instead of the demo+halt). Separate
@@ -422,6 +438,40 @@ $(FAT_WRITE_IMG): $(FAT12_FIXTURE_DIR)/hello.txt | $(BUILD)
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@printf ">>> fat_write: minted %s (1.44MB FAT12 WRITABLE disk for test-fatwrite; HELLO.TXT seed; build intermediate)\n" "$@"
+
+# FAT12 data disk for the in-emulator MULTI-OPEN capability oracle (beads
+# initech-0qh; make test-multiopen). A 1.44 MB FAT12 volume carrying:
+#   HELLO.TXT  (starts "Hello...")  -- concurrent handle A
+#   SECOND.TXT (starts "Second...") -- concurrent handle B (distinct content)
+#   BIG.DAT    (96 KiB, > the old 64 KiB whole-file cap) -- handle C; a 13-byte
+#              signature "BEYOND-64KiB!" sits at byte offset 80000 (> 65536) so
+#              the program can LSEEK past 64 KiB and READ it back. BIG.DAT is
+#              built deterministically (Rule 11): '.' filler + the signature
+#              written in place at the fixed offset (keep in sync with
+#              multiopen_program.asm BIG_SIG_OFF/BIG_SIG_LEN).
+# Distinct from the other FAT images so its extra files never disturb their
+# screendump/DIR assumptions. Build intermediate, NOT committed (Rule 11).
+FAT_MULTIOPEN_IMG := $(BUILD)/fat_multiopen.img
+MO_BIG_DAT        := $(BUILD)/big.dat
+MO_BIG_SIZE       := 98304
+MO_BIG_SIG_OFF    := 80000
+MO_BIG_SIG        := BEYOND-64KiB!
+
+$(MO_BIG_DAT): | $(BUILD)
+	@# 96 KiB of '.' (0x2E) filler, deterministic.
+	@tr '\0' '.' < /dev/zero | dd of=$@ bs=1 count=$(MO_BIG_SIZE) status=none
+	@# Overwrite the 13-byte signature in place at the fixed offset (no trailing
+	@# newline; printf %s). conv=notrunc so the file stays 96 KiB.
+	@printf '%s' '$(MO_BIG_SIG)' | dd of=$@ bs=1 seek=$(MO_BIG_SIG_OFF) conv=notrunc status=none
+	@printf ">>> big.dat: minted %s (%s bytes; signature '%s' at offset %s; build intermediate)\n" "$@" "$(MO_BIG_SIZE)" "$(MO_BIG_SIG)" "$(MO_BIG_SIG_OFF)"
+
+$(FAT_MULTIOPEN_IMG): $(FAT12_FIXTURE_DIR)/hello.txt $(FAT12_FIXTURE_DIR)/second.txt $(MO_BIG_DAT) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/second.txt ::SECOND.TXT
+	@mcopy -i $@ $(MO_BIG_DAT) ::BIG.DAT
+	@printf ">>> fat_multiopen: minted %s (1.44MB FAT12 disk for test-multiopen; HELLO.TXT + SECOND.TXT + 96KiB BIG.DAT; build intermediate)\n" "$@"
 
 # Build the BPB oracle: the test + the REAL artifact fat12.c + the host
 # blockdev backend. -Ispec for bpb_t, -Ios/milton for fat12.h/blockdev.h,
@@ -1281,6 +1331,7 @@ endef
         test-loader test-loader-mutant test-program test-fs test-type test-dir \
         test-exec test-exec-unit test-exec-mutant \
         test-fat12-write test-fat-write test-fat-write-mutant test-fatwrite \
+        test-multiopen \
         test-fat-write-partial test-fat-write-partial-mutant \
         test-command test-command-mutant test-shell \
         test-panic test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
@@ -1312,6 +1363,7 @@ help:
 	@printf '  test-fat-write FAT12 WRITE round-trip: OUR writer mints+writes a volume; mtools+python3 read it back (names/sizes/content). REAL. beads initech-509.11.\n'
 	@printf '  test-fat12-write  FAT12 WRITE unit: 12-bit encode + cluster alloc + both-FAT sync + in-memory round-trip + full-volume fail-loud + unlink. REAL.\n'
 	@printf '  test-fatwrite  In-emulator WRITE round-trip: CREAT+WRITE+CLOSE then OPEN+READ OUT.TXT over real ATA in one boot; mtools confirms on-disk. REAL (QEMU).\n'
+	@printf '  test-multiopen Multi-tenant proof: 2+ files open concurrently with independent positions (LSEEK) + a >64 KiB round-trip via positioned READ. REAL (QEMU). beads initech-0qh.\n'
 	@printf '  test-dbase     InitechBase differential + round-trip vs real dBASE.\n'
 	@printf '  test-compiler  Turbo Initech vs Free Pascal on the shared corpus.\n'
 	@printf '  test-seed      Seed front-end unit tests (lexer + parser). REAL: fails non-zero on any check.\n'
@@ -1533,6 +1585,17 @@ $(WRITE_PROG_BLOB_C): $(WRITE_PROG_BIN) $(BIN2C_BIN)
 $(KERNEL_WRITE_PROG_OBJ): $(WRITE_PROG_BLOB_C) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(WRITE_PROG_BLOB_C) -o $@
 
+# MULTI-OPEN baked program (beads initech-0qh): same nasm -f bin -> bin2c ->
+# KERNEL_CC pipeline. Linked only into the -DBOOT_MULTIOPEN kernel.
+$(MULTIOPEN_PROG_BIN): $(MULTIOPEN_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+$(MULTIOPEN_PROG_BLOB_C): $(MULTIOPEN_PROG_BIN) $(BIN2C_BIN)
+	$(BIN2C_BIN) $(MULTIOPEN_PROG_BIN) g_multiopen_prog_image > $@
+
+$(KERNEL_MULTIOPEN_PROG_OBJ): $(MULTIOPEN_PROG_BLOB_C) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(MULTIOPEN_PROG_BLOB_C) -o $@
+
 $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
@@ -1731,6 +1794,43 @@ $(WRITE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_WRITE_BIN) | $(BUILD)
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_WRITE_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> write image: %s (FAT WRITE round-trip self-test kernel @s17)\n" "$@"
+
+# --- MULTI-OPEN self-test kernel (beads initech-0qh; make test-multiopen) -----
+# Same sources, kmain.c compiled with -DBOOT_MULTIOPEN so the boot runs the baked
+# MULTI-OPEN program over a FAT12 data disk (HELLO.TXT + SECOND.TXT + >64 KiB
+# BIG.DAT). The multiopen_prog blob is linked ONLY into this image. Mirrors the
+# WRITE image structure.
+$(KERNEL_MULTIOPEN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_MULTIOPEN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_MULTIOPEN_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_MULTIOPEN_ELF): $(KERNEL_MULTIOPEN_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MULTIOPEN_OBJS)
+
+$(KERNEL_MULTIOPEN_BIN): $(KERNEL_MULTIOPEN_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_multiopen.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(multiopen): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_MULTIOPEN_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> multiopen image: %s (MULTI-OPEN self-test kernel @s17)\n" "$@"
 
 # --- COMMAND.COM shell kernel (beads initech-7pc; make test-shell) ----------
 # Same sources, but kmain.c compiled with -DBOOT_SHELL so the boot, after
@@ -2889,6 +2989,79 @@ test-fatwrite: $(HARNESS_BIN) $(WRITE_IMG) $(FAT_WRITE_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-multiopen (beads initech-0qh; epic initech-6qy -- multi-tenant)
+# ---------------------------------------------------------------------------
+# THE in-emulator capability oracle for the WHOLE multi-tenant file-I/O step:
+# boot the -DBOOT_MULTIOPEN image WITH a FAT12 data disk (--disk2 =
+# FAT_MULTIOPEN_IMG: HELLO.TXT + SECOND.TXT + a 96 KiB BIG.DAT). The baked
+# MULTI-OPEN program OPENs HELLO.TXT and SECOND.TXT (and BIG.DAT) CONCURRENTLY,
+# does interleaved positioned reads with LSEEK on both (independent per-handle
+# positions, no cross-talk), and LSEEKs PAST 64 KiB into BIG.DAT to read a
+# signature back -- the capability that was IMPOSSIBLE under the old single
+# 64 KiB whole-file buffer. Assertions (fail-loud, Rule 2):
+#   1. NO triple-fault.
+#   2. SERIAL: FILEIO-BIND-OK; NO MO-*-FAIL markers.
+#   3. Between MULTIOPEN-OUTPUT-BEGIN/END: MO-A1=Hel (handle A @0), MO-B1=Sec
+#      (handle B @0 -- a 2nd file open at the same time), MO-A2=Hello (A seeked
+#      back to 0, unaffected by B's reads -> independent positions), and
+#      MO-BIG=BEYOND-64KiB! (read from offset 80000 of the >64 KiB file).
+#   4. MULTIOPEN-EXIT rc=0.
+# Ref: beads initech-0qh / epic initech-6qy; fat12_read_partial (positioned read).
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.
+MULTIOPEN_NAME    := multiopen_boot
+MULTIOPEN_SERIAL  := $(BUILD)/$(MULTIOPEN_NAME).serial
+MULTIOPEN_REPORT  := $(BUILD)/$(MULTIOPEN_NAME).report
+
+.PHONY: test-multiopen
+test-multiopen: $(HARNESS_BIN) $(MULTIOPEN_IMG) $(FAT_MULTIOPEN_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-multiopen : N concurrent opens + >64 KiB + LSEEK\n'
+	@printf '  Ref: beads initech-0qh / epic initech-6qy; positioned cluster-chain I/O.\n'
+	@printf '  Two files open at once, interleaved positioned reads, a >64 KiB round-trip.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + data disk %s (primary slave)\n' "$(MULTIOPEN_IMG)" "$(FAT_MULTIOPEN_IMG)"
+	@printf 'Expecting : FILEIO-BIND-OK + MO-A1=Hel / MO-B1=Sec / MO-A2=Hello / MO-BIG=%s + MULTIOPEN-EXIT rc=0 + no triple-fault\n' "$(MO_BIG_SIG)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(MULTIOPEN_IMG)" --disk2 "$(FAT_MULTIOPEN_IMG)" \
+		--name "$(MULTIOPEN_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(MULTIOPEN_REPORT)" || true
+	@cat "$(MULTIOPEN_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(MULTIOPEN_REPORT)"; then \
+		printf '!!! test-multiopen FAIL: TRIPLE FAULT (root-cause the positioned read/LSEEK path, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-multiopen [1/5]: no triple-fault\n'
+	@if [ ! -s "$(MULTIOPEN_SERIAL)" ]; then \
+		printf '!!! test-multiopen FAIL: no serial captured at %s\n' "$(MULTIOPEN_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^FILEIO-BIND-OK$$' "$(MULTIOPEN_SERIAL)" \
+		|| { printf '!!! test-multiopen FAIL: FILEIO-BIND-OK missing -- the FAT file backend never bound\n'; exit 1; }
+	@if grep -q 'MO-OPENA-FAIL\|MO-OPENB-FAIL\|MO-OPENC-FAIL\|MO-BIG-FAIL' "$(MULTIOPEN_SERIAL)"; then \
+		printf '!!! test-multiopen FAIL: a MO-*-FAIL marker -- a concurrent OPEN or the >64 KiB seek failed (root-cause, Rule 3):\n'; \
+		grep 'MO-.*-FAIL' "$(MULTIOPEN_SERIAL)"; exit 1; \
+	fi
+	@printf '>>> test-multiopen [2/5]: FILEIO-BIND-OK + no MO-*-FAIL (all OPENs succeeded)\n'
+	@sed -n '/^MULTIOPEN-OUTPUT-BEGIN$$/,/^MULTIOPEN-OUTPUT-END$$/p' "$(MULTIOPEN_SERIAL)" > "$(BUILD)/$(MULTIOPEN_NAME).out"
+	@grep -qF 'MO-A1=Hel' "$(BUILD)/$(MULTIOPEN_NAME).out" \
+		|| { printf '!!! test-multiopen FAIL: MO-A1=Hel missing -- handle A did not read HELLO.TXT at offset 0\n'; cat "$(BUILD)/$(MULTIOPEN_NAME).out"; exit 1; }
+	@grep -qF 'MO-B1=Sec' "$(BUILD)/$(MULTIOPEN_NAME).out" \
+		|| { printf '!!! test-multiopen FAIL: MO-B1=Sec missing -- a SECOND file was not open concurrently (the multi-tenant capability)\n'; cat "$(BUILD)/$(MULTIOPEN_NAME).out"; exit 1; }
+	@printf '>>> test-multiopen [3/5]: TWO files open concurrently (MO-A1=Hel + MO-B1=Sec, distinct content)\n'
+	@grep -qF 'MO-A2=Hello' "$(BUILD)/$(MULTIOPEN_NAME).out" \
+		|| { printf '!!! test-multiopen FAIL: MO-A2=Hello missing -- handle A position was corrupted by handle B (cross-talk)\n'; cat "$(BUILD)/$(MULTIOPEN_NAME).out"; exit 1; }
+	@printf '>>> test-multiopen [4/5]: independent per-handle positions (A seeked back to 0 reads "Hello" despite B reads)\n'
+	@grep -qF 'MO-BIG=$(MO_BIG_SIG)' "$(BUILD)/$(MULTIOPEN_NAME).out" \
+		|| { printf '!!! test-multiopen FAIL: MO-BIG=%s missing -- the >64 KiB LSEEK+READ did not return the signature at offset %s (the old 64 KiB buffer limit)\n' "$(MO_BIG_SIG)" "$(MO_BIG_SIG_OFF)"; cat "$(BUILD)/$(MULTIOPEN_NAME).out"; exit 1; }
+	@grep -q '^MULTIOPEN-EXIT rc=0$$' "$(MULTIOPEN_SERIAL)" \
+		|| { printf '!!! test-multiopen FAIL: MULTIOPEN-EXIT rc=0 missing -- the program did not finish cleanly\n'; exit 1; }
+	@printf '>>> test-multiopen [5/5]: >64 KiB round-trip (MO-BIG=%s read from offset %s) + MULTIOPEN-EXIT rc=0\n' "$(MO_BIG_SIG)" "$(MO_BIG_SIG_OFF)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- InitechDOS held 2+ files open concurrently with independent\n'
+	@printf '            positions and round-tripped a >64 KiB file via positioned LSEEK+READ\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-shell (beads initech-7pc -- BOOT -> COMMAND.COM -> DIR/TYPE/run)
 # ---------------------------------------------------------------------------
 # THE M2 capstone keystone: boot the -DBOOT_SHELL image WITH a FAT12 disk
@@ -3392,7 +3565,8 @@ TEST_UNIT_GATES := \
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
-	test-dir test-exec test-fatwrite test-shell test-panic test-kbd test-conin
+	test-dir test-exec test-fatwrite test-multiopen test-shell test-panic \
+	test-kbd test-conin
 
 test-unit:
 	@printf '======================================================================\n'

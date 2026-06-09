@@ -512,26 +512,32 @@ static void do_write(int_frame_t *f)
         return;
     }
 
-    /* FILE write (beads initech-509.11): append the bytes to the backend's
-     * single write buffer (committed to disk on CLOSE -- the whole-file-buffer
-     * model). The handle must have been opened for write (CREAT). A read-mode
-     * FILE handle or a missing write backend -> access denied (Rule 2). */
+    /* FILE write (beads initech-0qh): POSITIONED write of the bytes at the
+     * per-handle file_offset over the cluster chain (backend write_at via
+     * fat12_write_partial -- overwrite/extend/zero-fill-hole, committed to disk
+     * per call). The handle must have been opened for write (CREAT). A read-mode
+     * FILE handle or a missing write backend -> access denied (Rule 2). The
+     * backend returns the UPDATED dir entry so we refresh the SFT copy's size +
+     * start_cluster, then advance the position. */
     if (e->kind == SFT_KIND_FILE) {
-        if (e->open_mode != SFT_MODE_WRITE || g_file == 0 || g_file->write == 0) {
+        if (e->open_mode != SFT_MODE_WRITE || g_file == 0 || g_file->write_at == 0) {
             set_ax(f, INT21_ERR_ACCESS_DENIED);
             cf_set(f);
             return;
         }
         uint32_t written = 0u;
-        uint16_t err = g_file->write((const uint8_t *)buf, count, &written);
+        dir_entry_t updated = e->dir_entry;
+        uint16_t err = g_file->write_at(e->root_slot, e->file_offset,
+                                        (const uint8_t *)buf, count,
+                                        &written, &updated);
         if (err != 0) {
             set_ax(f, err);
             cf_set(f);
             return;
         }
-        e->file_offset    += written;
-        e->dir_entry.file_size = e->file_offset;  /* track the running size */
-        f->eax = written;                          /* EAX = bytes written */
+        e->dir_entry    = updated;        /* refresh size + start_cluster */
+        e->file_offset += written;        /* advance the per-handle position */
+        f->eax = written;                 /* EAX = bytes written */
         cf_clear(f);
         return;
     }
@@ -599,11 +605,12 @@ static int path_has_subdir_or_drive(const char *p)
 
 /* AH=3Dh OPEN: EDX = flat ptr to ASCIIZ 8.3 path, AL = mode (0=r,1=w,2=rdwr).
  * Root-directory 8.3 names only this milestone; '\' or ':' -> CF=1, AX=0x0003.
- * On success: allocate an SFT FILE slot + a JFT slot, read the WHOLE file into
- * the backend's static buffer, store file_data+size+dir_entry+mode in the SFT,
- * return EAX = handle (JFT index), CF clear. Errors: AX=0x0002 (not found),
- * 0x0003 (path), 0x0004 (no free slot / buffer busy / file too big).
- * Ref: brief Sec 4.1; DOS 3.3 PRM AH=3Dh. */
+ * On success: allocate an SFT FILE slot + a JFT slot, LOCATE the file (no
+ * whole-file read -- positioned per-handle I/O, beads initech-0qh), store its
+ * dir_entry + root_slot + mode in the SFT with file_offset=0, return EAX =
+ * handle (JFT index), CF clear. Any number of files may be open concurrently
+ * (each its own SFT slot). Errors: AX=0x0002 (not found), 0x0003 (path), 0x0004
+ * (no free SFT/JFT slot). Ref: brief Sec 4.1; DOS 3.3 PRM AH=3Dh. */
 static void do_open(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
@@ -627,9 +634,8 @@ static void do_open(int_frame_t *f)
         return;
     }
 
-    /* Allocate the table slots BEFORE the read so a slot-exhaustion failure does
-     * not strand the backend's buffer. The backend's open() is the one that
-     * consumes the single file buffer; we only call it once slots are secured. */
+    /* Allocate the table slots BEFORE locating so a slot-exhaustion failure does
+     * not commit anything; the backend's open() merely locates (no buffer). */
     uint8_t sft_idx = sft_alloc();
     if (sft_idx >= (uint8_t)SFT_MAX_ENTRIES) {
         set_ax(f, INT21_ERR_TOO_MANY_OPEN);
@@ -643,20 +649,19 @@ static void do_open(int_frame_t *f)
         return;
     }
 
-    dir_entry_t       de;
-    const uint8_t    *data = 0;
-    uint32_t          size = 0;
-    uint16_t err = g_file->open(path, &de, &data, &size);
+    dir_entry_t  de;
+    uint32_t     root_slot = 0u;
+    uint16_t err = g_file->open(path, &de, &root_slot);
     if (err != 0) {
-        /* Backend rejected (not found / buffer busy / too big). No slot was
-         * committed (we only read sft_alloc/jft_alloc, never wrote them), so
-         * nothing to roll back. */
+        /* Backend rejected (not found). No slot was committed (we only read
+         * sft_alloc/jft_alloc, never wrote them), so nothing to roll back. */
         set_ax(f, err);
         cf_set(f);
         return;
     }
 
-    /* Commit the SFT FILE entry + the JFT mapping. */
+    /* Commit the SFT FILE entry + the JFT mapping. The SFT slot is the complete
+     * per-handle state: its own position + dir_entry copy + root_slot. */
     sft_entry_t *e = &g_sft[sft_idx];
     e->kind        = SFT_KIND_FILE;
     e->open_mode   = mode;
@@ -664,7 +669,7 @@ static void do_open(int_frame_t *f)
     e->ref_count   = 1u;
     e->dir_entry   = de;          /* struct copy of the 32-byte FAT dir entry */
     e->file_offset = 0u;
-    e->file_data   = data;
+    e->root_slot   = root_slot;
     g_cur_psp->jft[handle] = sft_idx;
 
     f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)handle;  /* EAX (AX) = handle */
@@ -672,14 +677,13 @@ static void do_open(int_frame_t *f)
 }
 
 /* AH=3Ch CREAT: EDX = flat ptr to ASCIIZ 8.3 path, CX = attribute. Create or
- * TRUNCATE the file, claim an SFT FILE slot + a JFT slot in WRITE mode, and
- * return EAX = handle, CF clear. The actual cluster allocation + data write are
- * deferred to CLOSE (AH=3Eh) which flushes the backend's write buffer
- * (whole-file-buffer-then-flush-at-close, documented milestone model -- mirrors
- * the single-open-file read buffer). Root-dir 8.3 names only; '\' / ':' ->
+ * TRUNCATE the file (size 0 on disk), claim an SFT FILE slot + a JFT slot in
+ * WRITE mode, store its dir_entry + root_slot + file_offset=0, and return EAX =
+ * handle, CF clear. Subsequent AH=40h WRITEs commit positioned to disk per call
+ * (no deferred flush; beads initech-0qh). Root-dir 8.3 names only; '\' / ':' ->
  * CF=1, AX=0x0003. No write backend / read-only volume -> CF=1, AX=0x0005
- * (access denied). Dir/buffer full -> CF=1, AX=0x0004.
- * Ref: DOS 3.3 PRM AH=3Ch; beads initech-509.11. */
+ * (access denied). Dir full -> CF=1, AX=0x0004.
+ * Ref: DOS 3.3 PRM AH=3Ch; beads initech-0qh. */
 static void do_creat(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
@@ -703,7 +707,7 @@ static void do_creat(int_frame_t *f)
     }
 
     /* Secure the table slots BEFORE creating so a slot-exhaustion failure does
-     * not strand the backend's write buffer (mirrors do_open). */
+     * not commit anything (mirrors do_open). */
     uint8_t sft_idx = sft_alloc();
     if (sft_idx >= (uint8_t)SFT_MAX_ENTRIES) {
         set_ax(f, INT21_ERR_TOO_MANY_OPEN);
@@ -718,7 +722,8 @@ static void do_creat(int_frame_t *f)
     }
 
     dir_entry_t de;
-    uint16_t err = g_file->create(path, &de);
+    uint32_t    root_slot = 0u;
+    uint16_t err = g_file->create(path, &de, &root_slot);
     if (err != 0) {
         set_ax(f, err);
         cf_set(f);
@@ -727,12 +732,12 @@ static void do_creat(int_frame_t *f)
 
     sft_entry_t *e = &g_sft[sft_idx];
     e->kind        = SFT_KIND_FILE;
-    e->open_mode   = SFT_MODE_WRITE;   /* a write handle -> CLOSE flushes */
+    e->open_mode   = SFT_MODE_WRITE;   /* a write handle (positioned writes) */
     e->dev_id      = 0;
     e->ref_count   = 1u;
     e->dir_entry   = de;
     e->file_offset = 0u;
-    e->file_data   = 0;                /* write handle: no read buffer */
+    e->root_slot   = root_slot;        /* root-dir slot for positioned write-back */
     g_cur_psp->jft[handle] = sft_idx;
 
     f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)handle;
@@ -772,11 +777,13 @@ static void do_unlink(int_frame_t *f)
     cf_clear(f);
 }
 
-/* AH=3Fh READ: EBX=handle, ECX=count, EDX=flat ptr to buffer. Copy
- * min(count, filesize - file_offset) bytes from file_data+file_offset; advance
- * file_offset; EAX = bytes read, CF clear. A CON device read (keyboard input)
- * is deferred (beads initech-n62) -> 0 bytes (EOF), NEVER a hang. AUX/PRN read
- * has no driver -> 0 bytes. Bad handle -> CF=1, AX=0x0006.
+/* AH=3Fh READ: EBX=handle, ECX=count, EDX=flat ptr to buffer. POSITIONED read
+ * of up to `count` bytes from the per-handle file_offset over the cluster chain
+ * (backend read_at via fat12_read_partial -- no whole-file buffer; beads
+ * initech-0qh); advance file_offset by the bytes read; EAX = bytes read, CF
+ * clear. A read at/after EOF returns 0 bytes cleanly. A CON device read
+ * (keyboard input) is deferred (beads initech-n62) -> 0 bytes (EOF), NEVER a
+ * hang. AUX/PRN read has no driver -> 0 bytes. Bad handle -> CF=1, AX=0x0006.
  * Ref: brief Sec 4.2; DOS 3.3 PRM AH=3Fh. */
 static void do_read(int_frame_t *f)
 {
@@ -802,15 +809,16 @@ static void do_read(int_frame_t *f)
         return;
     }
 
-    /* FILE: positioned read from the whole-file buffer. */
-    uint32_t fsize = e->dir_entry.file_size;
-    uint32_t avail = (e->file_offset < fsize) ? (fsize - e->file_offset) : 0u;
-    uint32_t take  = (count < avail) ? count : avail;
-
-    if (e->file_data != 0) {
-        const uint8_t *src = e->file_data + e->file_offset;
-        for (uint32_t i = 0; i < take; i++) {
-            buf[i] = src[i];
+    /* FILE: positioned read over the cluster chain (no whole-file buffer). The
+     * backend serves min(count, file_size - file_offset) bytes from the chain. */
+    uint32_t take = 0u;
+    if (g_file != 0 && g_file->read_at != 0) {
+        uint16_t err = g_file->read_at(&e->dir_entry, e->file_offset,
+                                       buf, count, &take);
+        if (err != 0) {
+            set_ax(f, err);
+            cf_set(f);
+            return;
         }
     }
 #ifdef INT21_MUTATE_READ_IGNORE_OFFSET
@@ -826,9 +834,12 @@ static void do_read(int_frame_t *f)
 }
 
 /* AH=3Eh CLOSE: EBX=handle. Decrement the SFT ref; on the last reference free
- * the slot (and the backend's file buffer for a FILE); JFT[EBX] = 0xFF. Closing
- * a predefined handle 0-4 is a no-op success (as real DOS). CF clear; bad handle
- * -> CF=1, AX=0x0006. Ref: brief Sec 4.3; DOS 3.3 PRM AH=3Eh. */
+ * the slot; JFT[EBX] = 0xFF. With positioned per-call writes (beads initech-0qh)
+ * the bytes are already on disk, so close holds no flush -- it calls the
+ * backend's close(slot) hook (a no-op kept for symmetry / a future deferred
+ * write model) and frees the slot. Closing a predefined handle 0-4 is a no-op
+ * success (as real DOS). CF clear; bad handle -> CF=1, AX=0x0006.
+ * Ref: brief Sec 4.3; DOS 3.3 PRM AH=3Eh. */
 static void do_close(int_frame_t *f)
 {
     uint32_t handle = f->ebx;
@@ -853,32 +864,19 @@ static void do_close(int_frame_t *f)
         return;
     }
 
-    uint8_t sft_idx  = g_cur_psp->jft[handle];
-    int     was_file = (e->kind == SFT_KIND_FILE);
-    int     was_write = was_file && (e->open_mode == SFT_MODE_WRITE);
-
-    /* A WRITE handle must FLUSH to disk on the LAST close (beads initech-509.11):
-     * commit the buffered bytes (cluster chain + FAT + dir entry). A disk-full /
-     * write error here is a real failure -> CF=1, AX=0x0005 (Rule 2: never
-     * silently lose the buffered data). We flush BEFORE freeing the slot. */
-    if (was_write && e->ref_count <= 1u && g_file != 0 && g_file->flush != 0) {
-        uint16_t err = g_file->flush();
-        if (err != 0) {
-            set_ax(f, err);
-            cf_set(f);
-            return;   /* leave the handle open so the caller can retry/diagnose */
-        }
-    }
+    uint8_t  sft_idx   = g_cur_psp->jft[handle];
+    int      was_file  = (e->kind == SFT_KIND_FILE);
+    uint32_t root_slot = e->root_slot;
 
     if (e->ref_count > 0u) {
         e->ref_count--;
     }
     if (e->ref_count == 0u) {
-        /* Free the SFT slot. For a READ FILE, release the backend's single read
-         * buffer so a later OPEN may reuse it (brief Sec 4.3). A WRITE file's
-         * buffer was released by flush() above. */
-        if (was_file && !was_write && g_file != 0 && g_file->close != 0) {
-            g_file->close();
+        /* Last reference: finalize the handle via the backend (no-op with
+         * per-call positioned writes; the hook is for symmetry / future
+         * deferred buffering), then free the SFT slot. */
+        if (was_file && g_file != 0 && g_file->close != 0) {
+            g_file->close(root_slot);
         }
         for (uint32_t i = 0; i < (uint32_t)sizeof(g_sft[sft_idx]); i++) {
             ((uint8_t *)&g_sft[sft_idx])[i] = 0;  /* -> SFT_KIND_FREE */

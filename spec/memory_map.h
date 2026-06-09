@@ -70,31 +70,8 @@
 #define PROGRAM_IMAGE_MAX   (PROGRAM_STACK_BOT - PROGRAM_IMAGE)
 
 /* ------------------------------------------------------------------------ *
- * Open-file read buffer (beads initech-509.5 read-side; OPEN whole-file read).
- *
- * AH=3Dh OPEN reads the ENTIRE file into a STATIC kernel buffer at OPEN time
- * (the whole-file-buffering milestone simplification: positioned partial-read
- * over the cluster chain is post-milestone). fat12_read_file already uses a
- * ~5.6 KB on-stack chain[2880]; a SECOND large array on the stack at OPEN would
- * pressure the kernel stack (fs-mount-sft-ground-truth.md Risk 2), so the file
- * data lands here instead -- a fixed region the kernel owns, NOT the stack.
- *
- * Placement: the 64 KiB gap between PROGRAM_ALLOC_END (0x70000, the program's
- * memory ceiling) and the kernel stack (0x80000+; os/milton/kstart.asm:25 ESP =
- * 0x0008FFFC). This region is unused by the program model (it is above the
- * program's alloc ceiling) and below the kernel stack -- a clean home for a
- * single open-file buffer with a 64 KiB hard cap.
- *
- * SINGLE-BUFFER LIMIT (milestone scope, documented): exactly ONE file may be
- * open at a time. OPEN fails loud (Rule 2) if a second concurrent file open
- * would need the buffer while it is still in use, and if a file is larger than
- * FILE_BUFFER_MAX. Multi-file-open + positioned partial-read are deferred (a
- * follow-up bead). Ref: fs-mount-sft-ground-truth.md Sec 4.2 / Risk 2. */
-#define FILE_BUFFER_BASE    0x00070000u
-#define FILE_BUFFER_MAX     0x00010000u   /* 64 KiB cap (0x70000..0x80000)       */
-
-/* ------------------------------------------------------------------------ *
- * FAT-sourced program load staging (beads initech-saw).
+ * FAT-sourced program load staging (beads initech-saw; multi-tenant file I/O
+ * decouple, beads initech-0qh).
  *
  * AH=4Bh EXEC / load_program_from_fat (os/milton/loader.c) reads the named .COM
  * off the mounted FAT12 volume into a STAGING buffer, then load_program() copies
@@ -102,15 +79,25 @@
  * collide with the program region (0x20100..PROGRAM_STACK_BOT) -- the copy reads
  * staging and writes the program region, so they must be disjoint.
  *
- * We reuse the open-file buffer region (0x70000..0x80000): it is ABOVE the
- * program allocation ceiling (PROGRAM_ALLOC_END = 0x70000) and below the kernel
- * stack (0x80000+), so it is disjoint from PROGRAM_IMAGE -- a clean, already-owned
- * staging home. SINGLE-USE LIMIT (milestone scope, like the OPEN buffer): EXEC
- * runs from kernel/shell context and does not overlap an open file's lifetime,
- * so reusing this region is safe; a future concurrent-EXEC-while-file-open would
- * need its own region (a follow-up bead). The image-size cap is the smaller of
- * FILE_BUFFER_MAX and PROGRAM_IMAGE_MAX (load_program rejects anything bigger). */
-#define LOAD_STAGING_BASE   FILE_BUFFER_BASE
-#define LOAD_STAGING_MAX    FILE_BUFFER_MAX
+ * Placement: the 64 KiB gap between PROGRAM_ALLOC_END (0x70000, the program's
+ * memory ceiling) and the kernel stack (0x80000+; os/milton/kstart.asm:25 ESP =
+ * 0x0008FFFC). This region is unused by the program model (it is ABOVE the
+ * program's alloc ceiling) and below the kernel stack, so it is disjoint from
+ * PROGRAM_IMAGE -- a clean, kernel-owned staging home (NOT the kernel stack;
+ * Risk 2 / fs-mount-sft-ground-truth.md). The old single open-file buffer that
+ * used to share this region is GONE: file OPEN/READ/WRITE are now positioned
+ * per-handle over the cluster chain (no whole-file buffer; beads initech-0qh),
+ * so this region is staging-only.
+ *
+ * Disjoint-from-PROGRAM_IMAGE proof: LOAD_STAGING_BASE (0x70000) >=
+ * PROGRAM_ALLOC_END (0x70000) > PROGRAM_STACK_BOT (0x60000) > PROGRAM_IMAGE
+ * (0x20100); the staging window [0x70000,0x80000) never overlaps the program
+ * region [0x20100,0x60000). SINGLE-USE LIMIT (documented): EXEC runs from
+ * kernel/shell context and is single-level (loader g_load_active guard), so one
+ * staging region suffices; concurrent EXEC is a follow-up bead. The image-size
+ * cap is the smaller of LOAD_STAGING_MAX and PROGRAM_IMAGE_MAX (load_program
+ * rejects anything bigger). */
+#define LOAD_STAGING_BASE   0x00070000u
+#define LOAD_STAGING_MAX    0x00010000u   /* 64 KiB staging (0x70000..0x80000)   */
 
 #endif /* INITECH_SPEC_MEMORY_MAP_H */

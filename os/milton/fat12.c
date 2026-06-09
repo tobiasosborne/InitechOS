@@ -1132,6 +1132,71 @@ static int fat12_scan_root(const fat12_volume_t *vol, void *sector_buf,
 	return FAT12_OK;
 }
 
+/*
+ * fat12_find_slot -- locate an entry by 8.3 name AND return its root-dir SLOT
+ * index (beads initech-0qh; epic initech-6qy). fat12_find returns only the dir
+ * entry; the multi-tenant file backend (os/milton/fileio_fat.c) needs the slot
+ * too so a later positioned write_at() / fat12_read_dir_entry can patch/refresh
+ * the entry in place. Implemented over fat12_scan_root (the same exact-11-byte
+ * matcher fat12_create uses), so the slot semantics match fat12_create's
+ * *out_slot.
+ *
+ * Returns FAT12_OK with *out_entry + *out_slot set on a match; FAT12_ERR_NOT_FOUND
+ * if no entry matches; a parse error (bad name) or read error propagated. Note:
+ * fat12_scan_root stops at the 0x00 end-of-directory sentinel, so a name only
+ * matches if its entry precedes the sentinel (the normal case).
+ */
+int fat12_find_slot(const fat12_volume_t *vol, void *sector_buf,
+                    const char *name83, dir_entry_t *out_entry,
+                    uint32_t *out_slot)
+{
+	uint8_t     want11[11];
+	uint32_t    free_slot = 0u;
+	int         have_free = 0;
+	uint32_t    match_slot = 0u;
+	dir_entry_t match;
+	int         found = 0;
+	int         rc;
+
+	if (vol == NULL || sector_buf == NULL || name83 == NULL ||
+	    out_entry == NULL || out_slot == NULL) {
+		return FAT12_ERR_NULL;
+	}
+
+	rc = parse_name83(name83, want11);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	rc = fat12_scan_root(vol, sector_buf, want11, &free_slot, &have_free,
+	                     &match_slot, &match, &found);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (!found) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	*out_entry = match;
+	*out_slot  = match_slot;
+	return FAT12_OK;
+}
+
+/*
+ * fat12_read_dir_entry -- re-read the 32-byte directory entry at root-dir slot
+ * `slot` into *out_entry (beads initech-0qh). Public wrapper over the internal
+ * single-slot read; the file backend uses it after a positioned write_at() to
+ * refresh the SFT's dir_entry copy (size + start_cluster patched on disk by
+ * fat12_write_partial). `sector_buf` (>=512) is scratch. Returns FAT12_OK, or a
+ * read error / FAT12_ERR_DIR_FULL if the slot is out of range / FAT12_ERR_NULL.
+ */
+int fat12_read_dir_entry(const fat12_volume_t *vol, void *sector_buf,
+                         uint32_t slot, dir_entry_t *out_entry)
+{
+	if (vol == NULL || sector_buf == NULL || out_entry == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	return fat12_read_dirent_local(vol, slot, out_entry, sector_buf);
+}
+
 int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, uint8_t attr, void *sector_buf,
                  dir_entry_t *out_entry, uint32_t *out_slot)

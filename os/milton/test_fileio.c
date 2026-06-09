@@ -17,6 +17,16 @@
  * build a fake int_frame_t, call int21_dispatch, and assert outputs + the CF
  * bit + the DTA find-data bytes.
  *
+ * MULTI-TENANT (beads initech-0qh; epic initech-6qy): the backend is now
+ * POSITIONED + STATELESS -- open() merely LOCATES a file (returns its dir entry
+ * + a root-dir slot), read_at()/write_at() are positioned over a per-file byte
+ * array indexed by slot, and each SFT slot carries its own position. The mock
+ * mirrors that: a fixed table of mock files, each its own byte buffer; open
+ * returns the table index as the "slot"; read_at copies from offset; write_at
+ * overwrites/extends at offset. So this oracle now PROVES two files open
+ * concurrently with independent positions (the old single-buffer-busy case is
+ * replaced by a true-concurrency assertion).
+ *
  * MUTATION (Rule 6), driven by make:
  *   -DINT21_MUTATE_READ_IGNORE_OFFSET : READ does not advance file_offset, so a
  *       chunked read re-reads the start -> the two-chunk READ test goes RED.
@@ -100,43 +110,62 @@ static int_frame_t fresh_frame(void)
     return f;
 }
 
-/* --- the MOCK file backend (an in-memory root directory) ---------------- */
+/* --- the MOCK file backend (an in-memory root directory, positioned) ------- *
+ * Each mock file owns a mutable byte buffer (so write_at can overwrite/extend)
+ * and a live size. open()/create() return the table index as the "root slot";
+ * read_at()/write_at() index back into the table by slot. This makes the mock
+ * behave exactly like the positioned FAT backend: STATELESS w.r.t. position
+ * (the SFT slot holds it) and capable of N concurrent open files. */
+#define MOCK_CAP 1024u
 typedef struct mock_file {
     const char *name8;     /* 8-char field (space-padded conceptual; we pad)  */
     const char *ext3;      /* 3-char ext                                       */
     uint8_t     attr;      /* DIR_ATTR_* */
-    const char *data;
+    uint8_t     data[MOCK_CAP];
     uint32_t    size;
+    int         present;   /* 0 once unlinked / before create                 */
 } mock_file_t;
 
-/* HELLO.TXT mirrors the FAT fixture intent; ZZ.DAT is a second file; VOL is a
- * volume label that the *.* enumeration must SKIP unless requested. */
+/* HELLO.TXT mirrors the FAT fixture intent; README is a second file; DISK is a
+ * volume label that the *.* enumeration must SKIP unless requested. Slots 0..2
+ * are the seed directory; slot 3 is a spare for CREAT (OUT.TXT). */
 static const char *HELLO_DATA = "Hello from InitechOS test file.\n";
-static mock_file_t g_mock[] = {
-    { "HELLO   ", "TXT", DIR_ATTR_ARCHIVE,  NULL, 0 }, /* data/size set in main */
-    { "README  ", "   ", DIR_ATTR_ARCHIVE,  "read me", 7 },
-    { "DISK    ", "   ", DIR_ATTR_VOLLABEL, "", 0 },   /* volume label */
-};
-#define MOCK_N ((uint32_t)(sizeof(g_mock) / sizeof(g_mock[0])))
+static mock_file_t g_mock[4];
 
-static int      g_mock_buf_in_use = 0;
-static uint8_t  g_mock_filebuf[4096];
+static void mock_reset_dir(void)
+{
+    memset(g_mock, 0, sizeof(g_mock));
+    g_mock[0].name8 = "HELLO   "; g_mock[0].ext3 = "TXT"; g_mock[0].attr = DIR_ATTR_ARCHIVE;
+    memcpy(g_mock[0].data, HELLO_DATA, strlen(HELLO_DATA));
+    g_mock[0].size = (uint32_t)strlen(HELLO_DATA); g_mock[0].present = 1;
+
+    g_mock[1].name8 = "README  "; g_mock[1].ext3 = "   "; g_mock[1].attr = DIR_ATTR_ARCHIVE;
+    memcpy(g_mock[1].data, "read me", 7);
+    g_mock[1].size = 7; g_mock[1].present = 1;
+
+    g_mock[2].name8 = "DISK    "; g_mock[2].ext3 = "   "; g_mock[2].attr = DIR_ATTR_VOLLABEL;
+    g_mock[2].size = 0; g_mock[2].present = 1;
+
+    g_mock[3].present = 0;   /* spare slot for CREAT */
+}
+#define MOCK_N 4u
 
 static void fill_dir_entry(const mock_file_t *m, dir_entry_t *de)
 {
     memset(de, 0, sizeof(*de));
-    for (int i = 0; i < 8; i++) de->filename[i]  = (uint8_t)m->name8[i];
-    for (int i = 0; i < 3; i++) de->extension[i] = (uint8_t)m->ext3[i];
+    for (int i = 0; i < 8; i++) de->filename[i]  = (uint8_t)(m->name8 ? m->name8[i] : ' ');
+    for (int i = 0; i < 3; i++) de->extension[i] = (uint8_t)(m->ext3 ? m->ext3[i] : ' ');
     de->attribute  = m->attr;
     de->mtime      = 0x1234u;
     de->mdate      = 0x5678u;
     de->file_size  = m->size;
 }
 
+/* Map a "HELLO.TXT" name to a comparable formatted name and find the slot. */
 static int mock_find_by_name(const char *name83)
 {
-    /* name83 is "HELLO.TXT" style. Build a comparable formatted name per entry. */
     for (uint32_t i = 0; i < MOCK_N; i++) {
+        if (!g_mock[i].present || g_mock[i].name8 == NULL) continue;
         char fmt[13];
         int n = 0;
         for (int k = 0; k < 8 && g_mock[i].name8[k] != ' '; k++) fmt[n++] = g_mock[i].name8[k];
@@ -145,7 +174,6 @@ static int mock_find_by_name(const char *name83)
             for (int k = 0; k < 3 && g_mock[i].ext3[k] != ' '; k++) fmt[n++] = g_mock[i].ext3[k];
         }
         fmt[n] = '\0';
-        /* case-insensitive compare */
         const char *a = fmt, *b = name83;
         int eq = 1;
         while (*a && *b) {
@@ -160,75 +188,103 @@ static int mock_find_by_name(const char *name83)
     return -1;
 }
 
+/* OPEN: LOCATE only -- return the dir entry + the table index as the slot. No
+ * whole-file read; no single-buffer limit (N files open concurrently). */
 static uint16_t mock_open(const char *name83, dir_entry_t *out_entry,
-                          const uint8_t **out_data, uint32_t *out_size)
+                          uint32_t *out_slot)
 {
-    if (g_mock_buf_in_use) return 0x0004u;        /* single-buffer limit */
     int idx = mock_find_by_name(name83);
     if (idx < 0) return 0x0002u;                  /* not found */
-    const mock_file_t *m = &g_mock[idx];
-    if (m->size > sizeof(g_mock_filebuf)) return 0x0004u;
-    memcpy(g_mock_filebuf, m->data, m->size);
-    g_mock_buf_in_use = 1;
-    fill_dir_entry(m, out_entry);
-    *out_data = g_mock_filebuf;
-    *out_size = m->size;
+    fill_dir_entry(&g_mock[idx], out_entry);
+    *out_slot = (uint32_t)idx;
     return 0u;
 }
 
-static void mock_close(void) { g_mock_buf_in_use = 0; }
+/* READ_AT: positioned read from the per-file buffer at `offset`. EOF -> 0. */
+static uint16_t mock_read_at(const dir_entry_t *e, uint32_t offset,
+                             uint8_t *buf, uint32_t len, uint32_t *out_read)
+{
+    /* Resolve the file by start_cluster? The mock keys on the dir entry's name
+     * fields (the dispatcher passes the SFT's dir_entry copy). Build the name
+     * and find the slot so reads are served from the live buffer. */
+    char name[13];
+    int n = 0;
+    for (int k = 0; k < 8 && e->filename[k] != ' '; k++) name[n++] = (char)e->filename[k];
+    if (e->extension[0] != ' ') {
+        name[n++] = '.';
+        for (int k = 0; k < 3 && e->extension[k] != ' '; k++) name[n++] = (char)e->extension[k];
+    }
+    name[n] = '\0';
+    int idx = mock_find_by_name(name);
+    uint32_t fsize = (idx >= 0) ? g_mock[idx].size : e->file_size;
+    const uint8_t *data = (idx >= 0) ? g_mock[idx].data : NULL;
 
-/* ---- mock WRITE backend (beads initech-509.11): an in-memory "created" file
- * with a single write buffer. CREAT claims it, WRITE appends, FLUSH "commits"
- * (records the final bytes so the test can inspect them), UNLINK forgets a
- * named file. Mirrors the FAT12 backend's single-buffer model without a disk. */
-static int      g_mock_write_in_use = 0;
-static char     g_mock_created_name[16];
-static uint8_t  g_mock_write_buf[4096];
-static uint32_t g_mock_write_len = 0;
-static int      g_mock_flushed   = 0;     /* set by FLUSH; the test asserts it  */
-static uint8_t  g_mock_committed[4096];
-static uint32_t g_mock_committed_len = 0;
+    uint32_t avail = (offset < fsize) ? (fsize - offset) : 0u;
+    uint32_t take  = (len < avail) ? len : avail;
+    if (take && data) memcpy(buf, data + offset, take);
+    *out_read = take;
+    return 0u;
+}
+
+/* ---- mock WRITE backend (beads initech-0qh, positioned) ------------------- *
+ * create() claims the spare slot (index 3) and records the name; write_at()
+ * overwrites/extends the slot's buffer at `offset` and returns the updated dir
+ * entry; close() is a no-op; unlink() forgets a named file. The committed bytes
+ * are simply the slot's buffer (no separate flush -- per-call commit). */
 static int      g_mock_unlinked  = 0;
 static char     g_mock_unlinked_name[16];
 
-static uint16_t mock_create(const char *name83, dir_entry_t *out_entry)
+static uint16_t mock_create(const char *name83, dir_entry_t *out_entry,
+                            uint32_t *out_slot)
 {
-    if (g_mock_buf_in_use || g_mock_write_in_use) return 0x0004u; /* buffer busy */
-    /* Stash the name (best-effort 8.3) and reset the write buffer. */
-    int i = 0;
-    for (; name83[i] && i < (int)sizeof(g_mock_created_name) - 1; i++)
-        g_mock_created_name[i] = name83[i];
-    g_mock_created_name[i] = '\0';
-    g_mock_write_in_use = 1;
-    g_mock_write_len    = 0;
-    g_mock_flushed      = 0;
-    /* Return a zeroed dir entry with the parsed name (size 0). */
-    memset(out_entry, 0, sizeof(*out_entry));
-    out_entry->attribute = DIR_ATTR_ARCHIVE;
-    out_entry->file_size = 0;
+    /* Use the spare slot (index 3) for the created file; truncate to size 0. */
+    int idx = 3;
+    /* Parse name83 into 8.3 fields for the slot's name. */
+    static char nm8[9], ex3[4];
+    memset(nm8, ' ', 8); nm8[8] = '\0';
+    memset(ex3, ' ', 3); ex3[3] = '\0';
+    int i = 0, j = 0;
+    for (; name83[i] && name83[i] != '.' && j < 8; i++, j++) {
+        char c = name83[i]; if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        nm8[j] = c;
+    }
+    while (name83[i] && name83[i] != '.') i++;
+    if (name83[i] == '.') {
+        i++; j = 0;
+        for (; name83[i] && j < 3; i++, j++) {
+            char c = name83[i]; if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+            ex3[j] = c;
+        }
+    }
+    g_mock[idx].name8   = nm8;
+    g_mock[idx].ext3    = ex3;
+    g_mock[idx].attr    = DIR_ATTR_ARCHIVE;
+    g_mock[idx].size    = 0;
+    g_mock[idx].present = 1;
+    memset(g_mock[idx].data, 0, MOCK_CAP);
+    fill_dir_entry(&g_mock[idx], out_entry);
+    *out_slot = (uint32_t)idx;
     return 0u;
 }
 
-static uint16_t mock_write_fn(const uint8_t *data, uint32_t len, uint32_t *out_written)
+static uint16_t mock_write_at(uint32_t slot, uint32_t offset, const uint8_t *data,
+                              uint32_t len, uint32_t *out_written,
+                              dir_entry_t *out_entry)
 {
-    if (!g_mock_write_in_use) return 0x0005u;
-    if (g_mock_write_len + len > sizeof(g_mock_write_buf)) return 0x0005u;
-    memcpy(g_mock_write_buf + g_mock_write_len, data, len);
-    g_mock_write_len += len;
+    if (slot >= MOCK_N || !g_mock[slot].present) { *out_written = 0; return 0x0005u; }
+    if (offset + len > MOCK_CAP) { *out_written = 0; return 0x0005u; }
+    /* Zero-fill any hole between current size and offset (positioned semantics). */
+    if (offset > g_mock[slot].size) {
+        memset(g_mock[slot].data + g_mock[slot].size, 0, offset - g_mock[slot].size);
+    }
+    memcpy(g_mock[slot].data + offset, data, len);
+    if (offset + len > g_mock[slot].size) g_mock[slot].size = offset + len;
     *out_written = len;
+    fill_dir_entry(&g_mock[slot], out_entry);   /* updated size */
     return 0u;
 }
 
-static uint16_t mock_flush(void)
-{
-    if (!g_mock_write_in_use) return 0u;
-    memcpy(g_mock_committed, g_mock_write_buf, g_mock_write_len);
-    g_mock_committed_len = g_mock_write_len;
-    g_mock_flushed       = 1;
-    g_mock_write_in_use  = 0;
-    return 0u;
-}
+static void mock_close(uint32_t slot) { (void)slot; }
 
 static uint16_t mock_unlink(const char *name83)
 {
@@ -245,21 +301,29 @@ static uint16_t mock_unlink(const char *name83)
 static uint16_t mock_dir_entry(uint32_t index, dir_entry_t *out_entry, int *out_found)
 {
     *out_found = 0;
-    if (index >= MOCK_N) return 0u;
-    fill_dir_entry(&g_mock[index], out_entry);
-    *out_found = 1;
+    /* Enumerate only the PRESENT seed files (slots 0..2) so FINDFIRST/NEXT see a
+     * stable directory regardless of CREAT having touched slot 3. */
+    uint32_t seen = 0;
+    for (uint32_t i = 0; i < 3u; i++) {
+        if (!g_mock[i].present) continue;
+        if (seen == index) {
+            fill_dir_entry(&g_mock[i], out_entry);
+            *out_found = 1;
+            return 0u;
+        }
+        seen++;
+    }
     return 0u;
 }
 
 static const int21_file_backend_t g_mock_backend = {
-    mock_open, mock_close, mock_dir_entry,
-    mock_create, mock_write_fn, mock_flush, mock_unlink
+    mock_open, mock_read_at, mock_dir_entry,
+    mock_create, mock_write_at, mock_close, mock_unlink
 };
 
 int main(void)
 {
-    g_mock[0].data = HELLO_DATA;
-    g_mock[0].size = (uint32_t)strlen(HELLO_DATA);
+    mock_reset_dir();
 
     int21_set_sink(sink_capture);
     bind_standard_process();
@@ -300,15 +364,47 @@ int main(void)
         CHECK(hello_handle == 5u, "OPEN returns lowest free handle (5)");
     }
 
-    /* --- a SECOND concurrent OPEN -> single-buffer limit AX=0x0004 ------- */
+    /* --- a SECOND concurrent OPEN now SUCCEEDS (multi-tenant, beads
+     *     initech-0qh): two files open at once, each its own handle + position.
+     *     Prove independence by reading from EACH and confirming no cross-talk,
+     *     then close the second so the rest of the HELLO tests are unaffected. */
     {
         uint32_t edx = low_dup("README");
         int_frame_t f = fresh_frame();
         f.eax = 0x3D00u; f.edx = edx;
+        f.eflags |= CF_BIT;
         int21_dispatch(&f);
-        CHECK(frame_cf(&f) == 1, "second concurrent OPEN fails loud (single buffer)");
-        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_TOO_MANY_OPEN,
-              "second OPEN AX=0x0004 (buffer busy)");
+        CHECK(frame_cf(&f) == 0, "second concurrent OPEN succeeds (multi-tenant, no single-buffer limit)");
+        uint32_t readme_handle = (uint16_t)(f.eax & 0xFFFFu);
+        CHECK(readme_handle == 6u, "second concurrent OPEN gets the next handle (6)");
+
+        /* Read 3 bytes from README (handle 6) -- "rea". */
+        uint8_t *rb = (uint8_t *)(uintptr_t)alloc_low(16); memset(rb, 0, 16);
+        int_frame_t r = fresh_frame();
+        r.eax = 0x3F00u; r.ebx = readme_handle; r.ecx = 3u; r.edx = (uint32_t)(uintptr_t)rb;
+        int21_dispatch(&r);
+        CHECK(r.eax == 3u && memcmp(rb, "rea", 3) == 0,
+              "READ on the 2nd handle reads README from ITS own offset (no cross-talk)");
+
+        /* HELLO (handle 5) position is still 0 -- read 5 bytes -> "Hello". */
+        uint8_t *hb = (uint8_t *)(uintptr_t)alloc_low(16); memset(hb, 0, 16);
+        int_frame_t r2 = fresh_frame();
+        r2.eax = 0x3F00u; r2.ebx = hello_handle; r2.ecx = 5u; r2.edx = (uint32_t)(uintptr_t)hb;
+        int21_dispatch(&r2);
+        CHECK(r2.eax == 5u && memcmp(hb, "Hello", 5) == 0,
+              "the 1st handle's position is INDEPENDENT of the 2nd handle's read");
+
+        /* Rewind HELLO so the two-chunk READ test below sees offset 0. */
+        int_frame_t s = fresh_frame();
+        s.eax = 0x4200u; s.ebx = hello_handle; s.ecx = 0u; s.edx = 0u;
+        int21_dispatch(&s);
+        CHECK(s.eax == 0u, "rewind HELLO to offset 0 for the following tests");
+
+        /* Close the README handle (concurrency proven). */
+        int_frame_t c = fresh_frame();
+        c.eax = 0x3E00u; c.ebx = readme_handle;
+        int21_dispatch(&c);
+        CHECK(frame_cf(&c) == 0, "CLOSE the 2nd concurrent handle clears CF");
     }
 
     uint32_t hsize = (uint32_t)strlen(HELLO_DATA);
@@ -526,11 +622,12 @@ int main(void)
               "FINDNEXT with no active search AX=0x0012");
     }
 
-    /* --- WRITE path (beads initech-509.11): CREAT + WRITE + CLOSE(flush) ---- *
-     * Rebind a clean process so the SFT/JFT are fresh, then drive the full
-     * create->write->close cycle through the REAL dispatcher + the mock write
-     * backend, asserting the flushed bytes equal what we wrote. */
+    /* --- WRITE path (beads initech-0qh, positioned): CREAT + WRITE(s) + CLOSE,
+     *     then re-OPEN + READ BACK through the dispatcher (proves the positioned
+     *     write committed). Plus a positioned OVERWRITE via LSEEK to prove
+     *     write_at honours the per-handle offset. */
     {
+        mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&g_mock_backend);
 
@@ -544,7 +641,7 @@ int main(void)
         uint32_t wh = (uint16_t)(c.eax & 0xFFFFu);
         CHECK(wh == 5u, "CREAT returns the lowest free handle (5)");
 
-        /* WRITE "hello\r\n" to the handle -> EAX = bytes written, CF clear. */
+        /* WRITE "hello\r\n" at offset 0 -> EAX = bytes written, CF clear. */
         const char *payload = "hello\r\n";
         uint32_t plen = (uint32_t)strlen(payload);
         uint32_t wbuf = low_dup(payload);
@@ -554,33 +651,76 @@ int main(void)
         CHECK(frame_cf(&w) == 0, "WRITE to file handle clears CF");
         CHECK(w.eax == plen, "WRITE returns the byte count written");
 
-        /* a SECOND WRITE appends. */
+        /* a SECOND WRITE appends at the advanced position. */
         const char *more = "world";
         uint32_t mlen = (uint32_t)strlen(more);
         uint32_t mbuf = low_dup(more);
         int_frame_t w2 = fresh_frame();
         w2.eax = 0x4000u; w2.ebx = wh; w2.ecx = mlen; w2.edx = mbuf;
         int21_dispatch(&w2);
-        CHECK(frame_cf(&w2) == 0 && w2.eax == mlen, "second WRITE appends, returns count");
+        CHECK(frame_cf(&w2) == 0 && w2.eax == mlen, "second WRITE appends at the advanced offset");
 
-        /* CLOSE -> flushes the buffer; the committed bytes equal what we wrote. */
+        /* CLOSE the write handle. */
         int_frame_t cl = fresh_frame();
         cl.eax = 0x3E00u; cl.ebx = wh;
         cl.eflags |= CF_BIT;
         int21_dispatch(&cl);
-        CHECK(frame_cf(&cl) == 0, "CLOSE write handle clears CF (flush ok)");
-        CHECK(g_mock_flushed == 1, "CLOSE flushed the write buffer to the backend");
-        CHECK(g_mock_committed_len == plen + mlen, "flushed length == total bytes written");
-        CHECK(memcmp(g_mock_committed, "hello\r\nworld", plen + mlen) == 0,
-              "flushed bytes == the exact concatenation written");
+        CHECK(frame_cf(&cl) == 0, "CLOSE write handle clears CF");
+
+        /* Re-OPEN + READ BACK through the dispatcher: the committed file is the
+         * exact concatenation we wrote (proves positioned write reached the
+         * backing store, no flush hack). */
+        uint32_t oedx = low_dup("OUT.TXT");
+        int_frame_t o = fresh_frame();
+        o.eax = 0x3D00u; o.edx = oedx;
+        int21_dispatch(&o);
+        CHECK(frame_cf(&o) == 0, "re-OPEN OUT.TXT after write clears CF");
+        uint32_t rh = (uint16_t)(o.eax & 0xFFFFu);
+        uint8_t *rb = (uint8_t *)(uintptr_t)alloc_low(64); memset(rb, 0, 64);
+        int_frame_t rd = fresh_frame();
+        rd.eax = 0x3F00u; rd.ebx = rh; rd.ecx = 64u; rd.edx = (uint32_t)(uintptr_t)rb;
+        int21_dispatch(&rd);
+        CHECK(rd.eax == plen + mlen, "READ BACK returns the total bytes written");
+        CHECK(memcmp(rb, "hello\r\nworld", plen + mlen) == 0,
+              "READ BACK == the exact concatenation written (positioned write committed)");
+
+        /* POSITIONED OVERWRITE: LSEEK rh to offset 0, WRITE "HELLO" over the
+         * first 5 bytes, then re-read offset 0..4 and confirm the overwrite. */
+        int_frame_t sk = fresh_frame();
+        sk.eax = 0x4200u; sk.ebx = rh; sk.ecx = 0u; sk.edx = 0u;
+        int21_dispatch(&sk);
+        CHECK(sk.eax == 0u, "LSEEK read handle back to 0 for overwrite-via-write handle setup");
+        /* Open a fresh WRITE handle, seek to 0, overwrite 5 bytes. */
+        uint32_t oedx2 = low_dup("OUT.TXT");
+        int_frame_t o2 = fresh_frame();
+        o2.eax = 0x3D01u; o2.edx = oedx2;          /* AL=1 (write mode) */
+        int21_dispatch(&o2);
+        CHECK(frame_cf(&o2) == 0, "OPEN OUT.TXT in write mode clears CF");
+        uint32_t wh2 = (uint16_t)(o2.eax & 0xFFFFu);
+        uint32_t obuf = low_dup("HELLO");
+        int_frame_t ow = fresh_frame();
+        ow.eax = 0x4000u; ow.ebx = wh2; ow.ecx = 5u; ow.edx = obuf;
+        int21_dispatch(&ow);
+        CHECK(ow.eax == 5u && frame_cf(&ow) == 0, "positioned WRITE overwrites 5 bytes at offset 0");
+        /* re-read offset 0..11 via rh (seek to 0 first). */
+        int_frame_t sk2 = fresh_frame();
+        sk2.eax = 0x4200u; sk2.ebx = rh; sk2.ecx = 0u; sk2.edx = 0u;
+        int21_dispatch(&sk2);
+        memset(rb, 0, 64);
+        int_frame_t rd2 = fresh_frame();
+        rd2.eax = 0x3F00u; rd2.ebx = rh; rd2.ecx = 64u; rd2.edx = (uint32_t)(uintptr_t)rb;
+        int21_dispatch(&rd2);
+        CHECK(memcmp(rb, "HELLO\r\nworld", plen + mlen) == 0,
+              "positioned overwrite-in-place: first 5 bytes are now HELLO, tail intact");
     }
 
     /* --- CREAT with NO write backend -> access denied --------------------- */
     {
-        /* Bind a read-only backend (create=NULL) by reusing g_mock but clearing
-         * the write hooks via a local read-only vtable. */
-        static const int21_file_backend_t ro = { mock_open, mock_close, mock_dir_entry,
+        /* Bind a read-only backend (create/write_at=NULL) by reusing g_mock but
+         * clearing the write hooks via a local read-only vtable. */
+        static const int21_file_backend_t ro = { mock_open, mock_read_at, mock_dir_entry,
                                                   NULL, NULL, NULL, NULL };
+        mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&ro);
         uint32_t edx = low_dup("NOWRITE.TXT");

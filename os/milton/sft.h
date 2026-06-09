@@ -79,18 +79,27 @@ typedef enum sft_dev_id {
  * (across DUP/DUP2) pointing here; when it falls to zero the slot is freed.
  *
  * Ref: fs-mount-sft-ground-truth.md Sec 3.2 (the recommended struct). The FILE
- * fields (dir_entry/file_offset/file_data) are populated by AH=3Dh OPEN in the
- * NEXT step (initech-509.5 read-side); this milestone establishes the table +
- * the device entries + DUP/DUP2, so file_data stays NULL here. */
+ * fields (dir_entry/file_offset/root_slot) are populated by AH=3Dh OPEN /
+ * AH=3Ch CREAT.
+ *
+ * MULTI-TENANT (beads initech-0qh; epic initech-6qy): the SFT slot is now the
+ * COMPLETE per-handle state -- it carries its OWN position (file_offset) AND its
+ * own dir_entry copy (start_cluster + size), so each independent slot is its own
+ * file handle and N files open concurrently. The whole-file buffer pointer
+ * (file_data) is GONE: READ/WRITE go positioned through the backend over the
+ * cluster chain (fat12_read_partial / fat12_write_partial), never a 64 KiB
+ * whole-file buffer. `root_slot` is the file's root-directory entry index, used
+ * by the backend's positioned write_at()/close() to patch size/start_cluster in
+ * place (valid for a write handle; carried for read handles too). */
 typedef struct sft_entry {
     uint8_t      kind;          /* sft_kind_t                                  */
     uint8_t      open_mode;     /* SFT_MODE_*                                  */
     uint8_t      dev_id;        /* sft_dev_id_t (valid when kind == DEVICE)    */
     uint16_t     ref_count;     /* JFT references to this slot (DUP semantics) */
-    /* --- FILE state (valid when kind == SFT_KIND_FILE; set by OPEN, 509.5) - */
+    /* --- FILE state (valid when kind == SFT_KIND_FILE; set by OPEN/CREAT) --- */
     dir_entry_t  dir_entry;     /* copy of the 32-byte FAT dir entry at open   */
     uint32_t     file_offset;   /* current byte offset (READ/WRITE/LSEEK move) */
-    const uint8_t *file_data;   /* whole-file buffer pointer (milestone, 509.5)*/
+    uint32_t     root_slot;     /* root-dir entry index (backend write-back)   */
 } sft_entry_t;
 
 /* The kernel-global System File Table. Zero-initialised by the C runtime
