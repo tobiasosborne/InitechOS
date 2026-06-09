@@ -59,9 +59,35 @@ void pit_init(void)
     outb(PIT_CH0_DATA, (uint8_t)((div >> 8) & 0xFFu));
 }
 
+#ifdef PIT_MUTATE_SCRIBBLE_DOS
+/* MUTANT A (CLAUDE.md Rule 6; defined ONLY by the mutant-A irqstorm image): the
+ * PIT ISR reaches into a DOS dispatcher global (the FINDFIRST search index) via
+ * the test seam, simulating a forbidden ISR<->DOS sharing. Under the key storm
+ * this scribbles g_find.next_index WHILE a FINDNEXT enumeration is in flight, so
+ * an entry is SKIPPED and the directory listing comes back WRONG ->
+ * test-int21-irqstorm goes RED. This PROVES the storm oracle bites on async
+ * shared-state corruption. NEVER define in a real build. */
+extern void int21_irqtest_bump_find(void);
+#endif
+
 void pit_irq_handler(void)
 {
     g_ticks++;
+
+#ifdef PIT_MUTATE_SCRIBBLE_DOS
+    int21_irqtest_bump_find();   /* scribble a DOS global from IRQ context */
+#endif
+#ifdef PIT_MUTATE_ISSUE_INT21
+    /* MUTANT B (CLAUDE.md Rule 6; defined ONLY by the mutant-B irqstorm image):
+     * the PIT ISR issues `int 0x21` from IRQ context -- the FORBIDDEN reentry the
+     * guard exists to catch. The dispatcher sees irq_depth() != 0 at entry and
+     * PANICS (dos_reentry_panic -> "INT21-REENTRY-PANIC" + PANIC vec=03 + halt) ->
+     * test-int21-irqstorm goes RED on the panic marker. This PROVES the guard
+     * fires on the forbidden case. AH=30h GETVER is a harmless, side-effect-free
+     * call -- the point is purely to ENTER the dispatcher from IRQ context.
+     * NEVER define in a real build. */
+    __asm__ __volatile__("int $0x21" : : "a"(0x3000u) : "cc", "memory");
+#endif
 
     /* End-of-interrupt to the master 8259A (OCW2 non-specific EOI). */
     outb(PIC1_CMD, PIC_EOI);

@@ -166,6 +166,9 @@ KERNEL_FAT12_C   := $(KERNEL_DIR)/fat12.c
 # math) ALSO compile hosted in the test-kbd-unit oracle.
 KERNEL_KBD_C     := $(KERNEL_DIR)/kbd.c
 KERNEL_PIT_C     := $(KERNEL_DIR)/pit.c
+# IRQ reentrancy guard (beads initech-xk2): in-IRQ depth counter + the INT 21h
+# reentrancy fail-loud panic. Host-compilable (links into the int21 unit oracle).
+KERNEL_IRQ_C     := $(KERNEL_DIR)/irq.c
 # COMMAND.COM interactive shell (beads initech-7pc): the kernel-resident A:\> REPL.
 # The pure logic (parser/upcaser/classifier/.COM-appender/DIR formatter) ALSO
 # compiles HOSTED in the test-command oracle; the REPL + its int 0x21 wrappers are
@@ -224,6 +227,7 @@ KERNEL_FAT12_OBJ := $(BUILD)/fat12.o
 KERNEL_FILEIO_OBJ := $(BUILD)/fileio_fat.o
 KERNEL_KBD_OBJ   := $(BUILD)/kbd.o
 KERNEL_PIT_OBJ   := $(BUILD)/pit.o
+KERNEL_IRQ_OBJ   := $(BUILD)/irq.o
 # COMMAND.COM shell object (beads initech-7pc), compiled with the REPL enabled.
 KERNEL_COMMAND_OBJ := $(BUILD)/command.o
 KERNEL_TEST_PROG_OBJ := $(BUILD)/test_prog_blob.o
@@ -283,6 +287,43 @@ KERNEL_MULTIOPEN_MAIN_OBJ := $(BUILD)/kmain_multiopen.o
 KERNEL_MULTIOPEN_ELF      := $(BUILD)/kernel_multiopen.elf
 KERNEL_MULTIOPEN_BIN      := $(BUILD)/kernel_multiopen.bin
 MULTIOPEN_IMG             := $(BUILD)/multiopen_boot.img
+# IRQ-STORM reentrancy self-test kernel/image (beads initech-xk2; make
+# test-int21-irqstorm): the SAME kernel sources with -DBOOT_IRQSTORM so the boot,
+# AFTER enabling IRQs (sti) so the PIT/keyboard fire LIVE, runs the baked
+# IRQ-STORM program (FINDFIRST/NEXT enumeration + a multi-cluster READ + a second
+# concurrent handle) WHILE the harness storms keystrokes (IRQ1) and the 100 Hz
+# PIT (IRQ0) ticks. Proves INT 21h is reentrancy-safe with IRQs live (no frame /
+# result corruption). The baked program (irqstorm_prog) is linked ONLY into this
+# image. Requires --disk2 (the storm FAT disk). Separate image so the normal boot
+# is unchanged. Two Rule-6 MUTANTS prove the oracle bites:
+#   A: pit.c built with -DPIT_MUTATE_SCRIBBLE_DOS (the PIT ISR scribbles a DOS
+#      dispatcher global via a test hook) -> the storm corrupts the enum/read ->
+#      RED on the wrong result.
+#   B: pit.c built with -DPIT_MUTATE_ISSUE_INT21 (the PIT ISR issues `int 0x21`
+#      from IRQ context) -> the reentrancy guard PANICS -> RED on the marker.
+IRQSTORM_PROG_ASM        := $(KERNEL_DIR)/irqstorm_program.asm
+IRQSTORM_PROG_BIN        := $(BUILD)/irqstorm_program.bin
+IRQSTORM_PROG_BLOB_C     := $(BUILD)/irqstorm_prog_blob.c
+KERNEL_IRQSTORM_PROG_OBJ := $(BUILD)/irqstorm_prog_blob.o
+KERNEL_IRQSTORM_MAIN_OBJ := $(BUILD)/kmain_irqstorm.o
+KERNEL_IRQSTORM_ELF      := $(BUILD)/kernel_irqstorm.elf
+KERNEL_IRQSTORM_BIN      := $(BUILD)/kernel_irqstorm.bin
+IRQSTORM_IMG             := $(BUILD)/irqstorm_boot.img
+# Rule-6 MUTANT A (scribble): pit.c built with -DPIT_MUTATE_SCRIBBLE_DOS -> its
+# own pit.o + irqstorm main obj + elf + bin + image so the mutant cannot
+# contaminate the real build.
+KERNEL_PIT_MUT_SCRIBBLE_OBJ  := $(BUILD)/pit_mut_scribble.o
+KERNEL_IRQSTORM_MUTA_MAIN_OBJ := $(BUILD)/kmain_irqstorm_muta.o
+KERNEL_IRQSTORM_MUTA_ELF     := $(BUILD)/kernel_irqstorm_muta.elf
+KERNEL_IRQSTORM_MUTA_BIN     := $(BUILD)/kernel_irqstorm_muta.bin
+IRQSTORM_MUTA_IMG            := $(BUILD)/irqstorm_muta_boot.img
+# Rule-6 MUTANT B (issue int 0x21 from IRQ): pit.c built with
+# -DPIT_MUTATE_ISSUE_INT21 -> its own pit.o + image. The guard must PANIC.
+KERNEL_PIT_MUT_INT21_OBJ     := $(BUILD)/pit_mut_int21.o
+KERNEL_IRQSTORM_MUTB_MAIN_OBJ := $(BUILD)/kmain_irqstorm_mutb.o
+KERNEL_IRQSTORM_MUTB_ELF     := $(BUILD)/kernel_irqstorm_mutb.elf
+KERNEL_IRQSTORM_MUTB_BIN     := $(BUILD)/kernel_irqstorm_mutb.bin
+IRQSTORM_MUTB_IMG            := $(BUILD)/irqstorm_mutb_boot.img
 # COMMAND.COM shell kernel/image (beads initech-7pc; make test-shell): the SAME
 # kernel sources but with -DBOOT_SHELL so the boot, after CONIN-LIVE, prints
 # SHELL-READY and enters the COMMAND.COM REPL (instead of the demo+halt). Separate
@@ -519,6 +560,43 @@ $(FAT_MULTIOPEN_IMG): $(FAT12_FIXTURE_DIR)/hello.txt $(FAT12_FIXTURE_DIR)/second
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/second.txt ::SECOND.TXT
 	@mcopy -i $@ $(MO_BIG_DAT) ::BIG.DAT
 	@printf ">>> fat_multiopen: minted %s (1.44MB FAT12 disk for test-multiopen; HELLO.TXT + SECOND.TXT + 96KiB BIG.DAT; build intermediate)\n" "$@"
+
+# FAT12 storm disk for the INT 21h reentrancy oracle (beads initech-xk2; make
+# test-int21-irqstorm). A 1.44 MB FAT12 volume carrying, in a KNOWN insertion
+# order (root-dir slot order == enumeration order for FINDFIRST/NEXT):
+#   ALPHA.TXT, BRAVO.TXT, CHARLIE.TXT, DELTA.TXT  -- four small distinct files
+#       that exercise the FINDFIRST/NEXT search state (g_dta + g_find) across the
+#       100 Hz PIT ticking + the keystroke storm. The harness asserts the exact
+#       enumerated set (order-independent on the FAT side, but every name must
+#       appear EXACTLY -- a skipped/duplicated entry from async g_find corruption
+#       goes RED).
+#   STORM.DAT  -- a deterministic multi-cluster file ('.' filler + a 13-byte
+#       signature "STORM-SIGNAL!" at byte offset 1500, PAST the first 512-byte
+#       cluster). Reading the signature forces a multi-cluster chain walk over the
+#       FAT cache + cluster scratch (the slow ATA-PIO path a PIT IRQ lands inside);
+#       a corrupted scratch/cache would return the WRONG bytes -> RED. Keep
+#       SIG_OFF/SIG (1500 / "STORM-SIGNAL!") in sync with irqstorm_program.asm.
+# Deterministic (Rule 11); build intermediate, NOT committed.
+FAT_IRQSTORM_IMG  := $(BUILD)/fat_irqstorm.img
+STORM_DAT         := $(BUILD)/storm.dat
+STORM_DAT_SIZE    := 2048
+STORM_SIG_OFF     := 1500
+STORM_SIG         := STORM-SIGNAL!
+
+$(STORM_DAT): | $(BUILD)
+	@tr '\0' '.' < /dev/zero | dd of=$@ bs=1 count=$(STORM_DAT_SIZE) status=none
+	@printf '%s' '$(STORM_SIG)' | dd of=$@ bs=1 seek=$(STORM_SIG_OFF) conv=notrunc status=none
+	@printf ">>> storm.dat: minted %s (%s bytes; signature '%s' at offset %s)\n" "$@" "$(STORM_DAT_SIZE)" "$(STORM_SIG)" "$(STORM_SIG_OFF)"
+
+$(FAT_IRQSTORM_IMG): $(STORM_DAT) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@printf 'alpha\r\n'   | mcopy -i $@ - ::ALPHA.TXT
+	@printf 'bravo\r\n'   | mcopy -i $@ - ::BRAVO.TXT
+	@printf 'charlie\r\n' | mcopy -i $@ - ::CHARLIE.TXT
+	@printf 'delta\r\n'   | mcopy -i $@ - ::DELTA.TXT
+	@mcopy -i $@ $(STORM_DAT) ::STORM.DAT
+	@printf ">>> fat_irqstorm: minted %s (1.44MB FAT12 disk for test-int21-irqstorm; ALPHA/BRAVO/CHARLIE/DELTA.TXT + multi-cluster STORM.DAT; build intermediate)\n" "$@"
 
 # Build the BPB oracle: the test + the REAL artifact fat12.c + the host
 # blockdev backend. -Ispec for bpb_t, -Ios/milton for fat12.h/blockdev.h,
@@ -942,7 +1020,7 @@ TEST_INT21_MUT_NOOP   := $(BUILD)/test_int21_mutant_noop
 # int21.c now routes handle functions through the SFT (initech-509.3), so the
 # host oracle links sft.c + psp.c too and needs -Ispec (sft.h -> psp.h ->
 # dos_structs.h). The standard JFT/SFT is bound in test_int21.c's main().
-TEST_INT21_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C)
+TEST_INT21_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_INT21_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                    $(MILTON_DIR)/psp.h spec/dos_structs.h
 
@@ -972,7 +1050,7 @@ TEST_CONIN_MUT_COUNT  := $(BUILD)/test_conin_mutant_count
 # test_conin.c drives only the CON-input path, but int21.c (one TU) references
 # the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
-TEST_CONIN_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C)
+TEST_CONIN_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_CONIN_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                    $(MILTON_DIR)/psp.h spec/dos_structs.h
 
@@ -1042,7 +1120,7 @@ test-int21-mutant: $(TEST_INT21_MUT_DOLLAR) $(TEST_INT21_MUT_NOOP)
 # spec/find_data.h. Mirrors the $(TEST_INT21) idiom.
 TEST_FILEIO      := $(BUILD)/test_fileio
 TEST_FILEIO_SRC  := $(MILTON_DIR)/test_fileio.c
-TEST_FILEIO_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C)
+TEST_FILEIO_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_FILEIO_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                     $(MILTON_DIR)/psp.h spec/dos_structs.h spec/find_data.h
 # Mutation builds (CLAUDE.md Rule 6): int21.c compiled with a single file-op
@@ -1100,7 +1178,7 @@ TEST_EXEC_SRC    := $(MILTON_DIR)/test_exec.c
 # int21.c pulls in the SFT/JFT handle layer (sft.c) + psp.c (as test_int21 does),
 # even though the EXEC path itself does not touch them -- link them so int21.c
 # resolves.
-TEST_EXEC_DEPS   := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C)
+TEST_EXEC_DEPS   := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_EXEC_HDRS   := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                     $(MILTON_DIR)/psp.h spec/dos_structs.h
 # Mutation build (CLAUDE.md Rule 6): int21.c compiled with AH=4Dh always
@@ -1379,6 +1457,7 @@ endef
         test-exec test-exec-unit test-exec-mutant \
         test-fat12-write test-fat-write test-fat-write-mutant test-fatwrite \
         test-multiopen \
+        test-int21-irqstorm test-int21-irqstorm-mutant \
         test-fat-write-partial test-fat-write-partial-mutant \
         test-command test-command-mutant test-shell \
         test-panic test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
@@ -1411,6 +1490,8 @@ help:
 	@printf '  test-fat12-write  FAT12 WRITE unit: 12-bit encode + cluster alloc + both-FAT sync + in-memory round-trip + full-volume fail-loud + unlink. REAL.\n'
 	@printf '  test-fatwrite  In-emulator WRITE round-trip: CREAT+WRITE+CLOSE then OPEN+READ OUT.TXT over real ATA in one boot; mtools confirms on-disk. REAL (QEMU).\n'
 	@printf '  test-multiopen Multi-tenant proof: 2+ files open concurrently with independent positions (LSEEK) + a >64 KiB round-trip via positioned READ. REAL (QEMU). beads initech-0qh.\n'
+	@printf '  test-int21-irqstorm  INT 21h reentrancy under an IRQ storm (initech-xk2): FINDFIRST/NEXT + multi-cluster READ + 2nd handle WHILE keys storm (IRQ1) + PIT (IRQ0); exact enum/bytes + guard quiescent. REAL (QEMU).\n'
+	@printf '  test-int21-irqstorm-mutant  Rule-6 proof the storm oracle BITES: A (PIT scribbles a DOS global -> wrong enum) + B (PIT issues int 0x21 -> guard PANICS) both go RED. REAL (QEMU).\n'
 	@printf '  test-dbase     InitechBase differential + round-trip vs real dBASE.\n'
 	@printf '  test-compiler  Turbo Initech vs Free Pascal on the shared corpus.\n'
 	@printf '  test-seed      Seed front-end unit tests (lexer + parser). REAL: fails non-zero on any check.\n'
@@ -1564,6 +1645,12 @@ $(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h | $(BU
 $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
 
+# IRQ reentrancy guard (beads initech-xk2): the in-IRQ depth counter the asm IRQ
+# stubs bracket their C handler with, plus the INT 21h reentrancy fail-loud panic
+# the dispatcher invokes when irq_depth() != 0 at entry. ASCII-clean, no malloc.
+$(KERNEL_IRQ_OBJ): $(KERNEL_IRQ_C) $(KERNEL_DIR)/irq.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_IRQ_C) -o $@
+
 # COMMAND.COM shell (beads initech-7pc): the SAME command.c the host oracle
 # (test_command.c) exercises for the pure parser/classifier/formatter logic;
 # freestanding here with -DCOMMAND_KERNEL_REPL so the int 0x21 REPL is compiled
@@ -1643,6 +1730,17 @@ $(MULTIOPEN_PROG_BLOB_C): $(MULTIOPEN_PROG_BIN) $(BIN2C_BIN)
 $(KERNEL_MULTIOPEN_PROG_OBJ): $(MULTIOPEN_PROG_BLOB_C) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(MULTIOPEN_PROG_BLOB_C) -o $@
 
+# IRQ-STORM baked program (beads initech-xk2): same nasm -f bin -> bin2c ->
+# KERNEL_CC pipeline. Linked only into the -DBOOT_IRQSTORM kernel(s).
+$(IRQSTORM_PROG_BIN): $(IRQSTORM_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+$(IRQSTORM_PROG_BLOB_C): $(IRQSTORM_PROG_BIN) $(BIN2C_BIN)
+	$(BIN2C_BIN) $(IRQSTORM_PROG_BIN) g_irqstorm_prog_image > $@
+
+$(KERNEL_IRQSTORM_PROG_OBJ): $(IRQSTORM_PROG_BLOB_C) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(IRQSTORM_PROG_BLOB_C) -o $@
+
 $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
@@ -1650,7 +1748,7 @@ KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-               $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+               $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                $(KERNEL_ISR_OBJ)
 
@@ -1668,7 +1766,7 @@ KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
 
@@ -1704,7 +1802,7 @@ KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
 
@@ -1741,7 +1839,7 @@ KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_CONIN_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
@@ -1780,7 +1878,7 @@ KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
 
@@ -1817,7 +1915,7 @@ KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSO
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_WRITE_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -1854,7 +1952,7 @@ KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERN
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_MULTIOPEN_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -1879,6 +1977,113 @@ $(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) | $(BUILD)
 	@dd if=$(KERNEL_MULTIOPEN_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> multiopen image: %s (MULTI-OPEN self-test kernel @s17)\n" "$@"
 
+# --- IRQ-STORM reentrancy self-test kernel (beads initech-xk2; make
+# test-int21-irqstorm) --------------------------------------------------------
+# Same sources, kmain.c compiled with -DBOOT_IRQSTORM so the boot, AFTER sti (IRQs
+# live), runs the baked IRQ-STORM program over a FAT12 storm disk while the
+# harness storms keystrokes. The irqstorm_prog blob is linked ONLY into these
+# images. Mirrors the MULTI-OPEN image structure. THREE images: the REAL one and
+# two Rule-6 mutants (A: pit scribbles a DOS global; B: pit issues int 0x21).
+$(KERNEL_IRQSTORM_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/irq.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+# Object list shared by all three irqstorm images (the per-image differences are
+# the main obj, the pit obj, and -- for mutant A -- the int21 obj; defined below).
+KERNEL_IRQSTORM_OBJS_COMMON := $(KERNEL_START_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_IRQSTORM_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+# REAL irqstorm image: the real pit.o + the real int21.o (no mutate/seam flags).
+KERNEL_IRQSTORM_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MAIN_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PIT_OBJ)
+
+$(KERNEL_IRQSTORM_ELF): $(KERNEL_IRQSTORM_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_OBJS)
+
+$(KERNEL_IRQSTORM_BIN): $(KERNEL_IRQSTORM_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_irqstorm.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(irqstorm): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(IRQSTORM_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_IRQSTORM_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> irqstorm image: %s (IRQ-STORM reentrancy self-test kernel @s17)\n" "$@"
+
+# --- Rule-6 MUTANT A: pit.c -DPIT_MUTATE_SCRIBBLE_DOS + int21.c
+# -DINT21_IRQTEST_SEAM (the mutant ISR scribbles g_find.next_index from IRQ
+# context -> the enumeration goes WRONG under the storm -> the oracle goes RED).
+# Own pit.o + int21.o + main obj + elf + bin + image so the mutant cannot
+# contaminate the real build.
+$(KERNEL_PIT_MUT_SCRIBBLE_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DPIT_MUTATE_SCRIBBLE_DOS -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
+
+KERNEL_INT21_SEAM_OBJ := $(BUILD)/int21_seam.o
+$(KERNEL_INT21_SEAM_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/irq.h spec/find_data.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DINT21_IRQTEST_SEAM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_INT21_C) -o $@
+
+$(KERNEL_IRQSTORM_MUTA_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_IRQSTORM_MUTA_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MUTA_MAIN_OBJ) \
+                    $(KERNEL_INT21_SEAM_OBJ) $(KERNEL_PIT_MUT_SCRIBBLE_OBJ)
+
+$(KERNEL_IRQSTORM_MUTA_ELF): $(KERNEL_IRQSTORM_MUTA_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_MUTA_OBJS)
+
+$(KERNEL_IRQSTORM_MUTA_BIN): $(KERNEL_IRQSTORM_MUTA_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(irqstorm mutant A): %s\n" "$@"
+
+$(IRQSTORM_MUTA_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTA_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_IRQSTORM_MUTA_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> irqstorm mutant-A image: %s\n" "$@"
+
+# --- Rule-6 MUTANT B: pit.c -DPIT_MUTATE_ISSUE_INT21 (the mutant ISR issues
+# int 0x21 from IRQ context -> the reentrancy guard PANICS -> the oracle goes
+# RED on the panic marker). Own pit.o + main obj + elf + bin + image.
+$(KERNEL_PIT_MUT_INT21_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DPIT_MUTATE_ISSUE_INT21 -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
+
+$(KERNEL_IRQSTORM_MUTB_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_IRQSTORM_MUTB_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MUTB_MAIN_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PIT_MUT_INT21_OBJ)
+
+$(KERNEL_IRQSTORM_MUTB_ELF): $(KERNEL_IRQSTORM_MUTB_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_MUTB_OBJS)
+
+$(KERNEL_IRQSTORM_MUTB_BIN): $(KERNEL_IRQSTORM_MUTB_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(irqstorm mutant B): %s\n" "$@"
+
+$(IRQSTORM_MUTB_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTB_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_IRQSTORM_MUTB_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> irqstorm mutant-B image: %s\n" "$@"
+
 # --- EXIT-handle teardown self-test kernel (beads initech-6hk; epic initech-6qy;
 # make test-exit-handles) -----------------------------------------------------
 # Same sources, kmain.c compiled with -DBOOT_EXITH so the boot EXECs the
@@ -1892,7 +2097,7 @@ KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSO
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
 
@@ -1932,7 +2137,7 @@ KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERN
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_MUT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
 
@@ -1971,7 +2176,7 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_COMMAND_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
 
@@ -3186,6 +3391,153 @@ test-multiopen: $(HARNESS_BIN) $(MULTIOPEN_IMG) $(FAT_MULTIOPEN_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-int21-irqstorm (beads initech-xk2 -- INT 21h reentrancy-safe
+# with IRQs LIVE under an IRQ storm during a syscall)
+# ---------------------------------------------------------------------------
+# THE binding oracle for the reentrancy guard. Boot the -DBOOT_IRQSTORM image WITH
+# the storm FAT disk (--disk2) and, gated on IRQSTORM-READY (so the keys arrive
+# while the program is mid-run), inject a STORM of keystrokes via QMP --keys
+# (IRQ1) while the free-running 100 Hz PIT (IRQ0) ticks. The baked program drives
+# the INT 21h dispatcher functions that USE its GLOBAL state -- FINDFIRST/NEXT
+# enumeration (g_dta + g_find), a multi-cluster positioned READ (the FAT cache +
+# cluster scratch over slow ATA PIO, so a PIT IRQ WILL land mid-read), AND a
+# second concurrent open handle. Because INT 21h is a 0x8F TRAP gate (IF stays
+# set), an IRQ CAN land mid-syscall. Assertions (each fail-loud, Rule 2 / Law 2):
+#   1. NO triple-fault.
+#   2. The reentrancy guard did NOT fire (no INT21-REENTRY-PANIC / PANIC vec= --
+#      in NORMAL operation no ISR calls DOS, so the guard stays quiescent).
+#   3. The keystroke storm ACTUALLY happened (keys_sent > 0) -- otherwise the test
+#      proves nothing (it would be decoration without the IRQ1 storm).
+#   4. The FINDFIRST/NEXT enumeration returned EXACTLY the right filenames (a
+#      skipped/duplicated entry from async g_find corruption -> RED).
+#   5. The multi-cluster READ returned the EXACT signature (STORM-SIG=STORM-SIGNAL!)
+#      and the 2nd handle read the EXACT bytes (STORM-B=alpha) -- a corrupted FAT
+#      cache / cluster scratch / per-handle position -> RED.
+#   6. IRQSTORM-EXIT rc=0 (the program finished cleanly).
+# Ref: beads initech-xk2; Intel SDM Vol 3A Sec 6.12.1.2 (TRAP gate leaves IF set);
+#      DOS 3.3 InDOS flag; os/milton/irq.c + int21.c (the guard + InDOS counter).
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.
+IRQSTORM_NAME    := irqstorm_boot
+IRQSTORM_SERIAL  := $(BUILD)/$(IRQSTORM_NAME).serial
+IRQSTORM_REPORT  := $(BUILD)/$(IRQSTORM_NAME).report
+# A long keystroke storm (each token = one IRQ1). Letters only (printable keys).
+IRQSTORM_KEYS    := d,i,r,spc,a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,d,i,r,a,b,c,d,e,f,g,h,i,j,k,l
+IRQSTORM_NAMES   := ALPHA.TXT BRAVO.TXT CHARLIE.TXT DELTA.TXT STORM.DAT
+
+.PHONY: test-int21-irqstorm
+test-int21-irqstorm: $(HARNESS_BIN) $(IRQSTORM_IMG) $(FAT_IRQSTORM_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-int21-irqstorm : INT 21h reentrancy under an IRQ storm\n'
+	@printf '  Ref: beads initech-xk2; TRAP gate leaves IF set; irq.c/int21.c guard + InDOS.\n'
+	@printf '  FINDFIRST/NEXT + a multi-cluster READ + a 2nd handle, WHILE keys storm (IRQ1) + PIT (IRQ0).\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + storm disk %s (primary slave)\n' "$(IRQSTORM_IMG)" "$(FAT_IRQSTORM_IMG)"
+	@printf 'Expecting : exact dir enum + STORM-SIG=%s + STORM-B=alpha + IRQSTORM-EXIT rc=0 + NO reentry panic + keys_sent>0\n' "$(STORM_SIG)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(IRQSTORM_IMG)" --disk2 "$(FAT_IRQSTORM_IMG)" \
+		--name "$(IRQSTORM_NAME)" --out "$(BUILD)" --timeout-ms 10000 \
+		--keys "$(IRQSTORM_KEYS)" --keys-after "IRQSTORM-READY" \
+		2> "$(IRQSTORM_REPORT)" || true
+	@cat "$(IRQSTORM_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(IRQSTORM_REPORT)"; then \
+		printf '!!! test-int21-irqstorm FAIL: TRIPLE FAULT (root-cause the reentrancy path, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-int21-irqstorm [1/6]: no triple-fault\n'
+	@if [ ! -s "$(IRQSTORM_SERIAL)" ]; then \
+		printf '!!! test-int21-irqstorm FAIL: no serial captured at %s\n' "$(IRQSTORM_SERIAL)"; exit 1; \
+	fi
+	@# 2. The guard did NOT fire in normal operation (no ISR calls DOS).
+	@if grep -q 'INT21-REENTRY-PANIC\|PANIC vec=' "$(IRQSTORM_SERIAL)"; then \
+		printf '!!! test-int21-irqstorm FAIL: the reentrancy guard FIRED in normal operation -- an ISR entered the dispatcher (root-cause, Rule 3):\n'; \
+		grep 'INT21-REENTRY-PANIC\|PANIC vec=' "$(IRQSTORM_SERIAL)"; exit 1; \
+	fi
+	@printf '>>> test-int21-irqstorm [2/6]: reentrancy guard stayed quiescent (no ISR called DOS)\n'
+	@# 3. The keystroke storm actually happened (else the IRQ1 pressure is absent).
+	@if grep -q 'keys_sent=0' "$(IRQSTORM_REPORT)"; then \
+		printf '!!! test-int21-irqstorm FAIL: keys_sent=0 -- the IRQ1 storm never fired, the test proves nothing (Law 2)\n'; exit 1; \
+	fi
+	@printf '>>> test-int21-irqstorm [3/6]: the keystroke storm fired (keys_sent>0, IRQ1 pressure present)\n'
+	@grep -q '^FILEIO-BIND-OK$$' "$(IRQSTORM_SERIAL)" \
+		|| { printf '!!! test-int21-irqstorm FAIL: FILEIO-BIND-OK missing -- the FAT file backend never bound\n'; exit 1; }
+	@if grep -q 'STORM-OPENA-FAIL\|STORM-OPENB-FAIL\|STORM-READ-FAIL' "$(IRQSTORM_SERIAL)"; then \
+		printf '!!! test-int21-irqstorm FAIL: a STORM-*-FAIL marker -- an OPEN/READ failed under the storm (root-cause, Rule 3):\n'; \
+		grep 'STORM-.*-FAIL' "$(IRQSTORM_SERIAL)"; exit 1; \
+	fi
+	@# 4. The FINDFIRST/NEXT enumeration returned EXACTLY the right filenames. The
+	@# program emits CRLF lines, so strip CR before the anchored sed slice.
+	@tr -d '\r' < "$(IRQSTORM_SERIAL)" | sed -n '/^STORM-DIR-BEGIN$$/,/^STORM-DIR-END$$/p' > "$(BUILD)/$(IRQSTORM_NAME).dir"
+	@for n in $(IRQSTORM_NAMES); do \
+		grep -qF "$$n" "$(BUILD)/$(IRQSTORM_NAME).dir" \
+			|| { printf '!!! test-int21-irqstorm FAIL: FINDFIRST/NEXT enumeration missing %s -- async g_find/g_dta corruption under the storm (Rule 3):\n' "$$n"; cat "$(BUILD)/$(IRQSTORM_NAME).dir"; exit 1; }; \
+	done
+	@# Exactly 5 surviving names (no skip, no duplicate). Count non-marker lines.
+	@cnt=$$(grep -cE 'ALPHA\.TXT|BRAVO\.TXT|CHARLIE\.TXT|DELTA\.TXT|STORM\.DAT' "$(BUILD)/$(IRQSTORM_NAME).dir"); \
+	if [ "$$cnt" -ne 5 ]; then \
+		printf '!!! test-int21-irqstorm FAIL: expected exactly 5 enumerated names, got %s -- async corruption skipped/duplicated an entry (Rule 3):\n' "$$cnt"; \
+		cat "$(BUILD)/$(IRQSTORM_NAME).dir"; exit 1; \
+	fi
+	@printf '>>> test-int21-irqstorm [4/6]: FINDFIRST/NEXT enumerated EXACTLY the 5 files under the storm\n'
+	@# 5. The multi-cluster READ + the 2nd handle returned the EXACT bytes.
+	@grep -qF 'STORM-SIG=$(STORM_SIG)' "$(IRQSTORM_SERIAL)" \
+		|| { printf '!!! test-int21-irqstorm FAIL: STORM-SIG=%s missing -- the multi-cluster READ returned wrong bytes (FAT cache/cluster scratch corrupted by an IRQ mid-read, Rule 3)\n' "$(STORM_SIG)"; grep 'STORM-SIG' "$(IRQSTORM_SERIAL)" || true; exit 1; }
+	@grep -qF 'STORM-B=alpha' "$(IRQSTORM_SERIAL)" \
+		|| { printf '!!! test-int21-irqstorm FAIL: STORM-B=alpha missing -- the 2nd handle read wrong bytes (per-handle position/SFT corrupted, Rule 3)\n'; grep 'STORM-B' "$(IRQSTORM_SERIAL)" || true; exit 1; }
+	@printf '>>> test-int21-irqstorm [5/6]: multi-cluster READ (STORM-SIG=%s) + 2nd handle (STORM-B=alpha) EXACT under the storm\n' "$(STORM_SIG)"
+	@# 6. The program finished cleanly (the run_baked -EXIT marker; substring match
+	@# because the program's preceding stdout line carries no trailing newline).
+	@grep -qF 'IRQSTORM-EXIT rc=0' "$(IRQSTORM_SERIAL)" \
+		|| { printf '!!! test-int21-irqstorm FAIL: IRQSTORM-EXIT rc=0 missing -- the program did not finish cleanly under the storm\n'; exit 1; }
+	@printf '>>> test-int21-irqstorm [6/6]: IRQSTORM-EXIT rc=0 (clean finish under the storm)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- INT 21h stayed reentrancy-safe with IRQs LIVE under a keystroke storm:\n'
+	@printf '            no frame/result corruption, guard quiescent (QEMU only; tri-emulator pending initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# Rule-6 MUTATION proofs for test-int21-irqstorm (beads initech-xk2): two mutant
+# images, each must go RED, proving the storm oracle BITES.
+#   A: pit.c -DPIT_MUTATE_SCRIBBLE_DOS -- the PIT ISR scribbles g_find.next_index
+#      from IRQ context -> the enumeration SKIPS an entry under the storm -> the
+#      "exactly 5 names" check (or a missing name) goes RED. Proves the oracle
+#      detects async SHARED-STATE corruption.
+#   B: pit.c -DPIT_MUTATE_ISSUE_INT21 -- the PIT ISR issues int 0x21 from IRQ
+#      context -> the reentrancy guard PANICS (INT21-REENTRY-PANIC + PANIC vec=03)
+#      -> RED on the panic marker. Proves the guard FIRES on the forbidden case.
+# We run each mutant image through the SAME harness invocation and assert the
+# EXPECTED failure marker is present (so a mutant that DIDN'T bite is itself a
+# failure -- the oracle would be decoration).
+.PHONY: test-int21-irqstorm-mutant
+test-int21-irqstorm-mutant: $(HARNESS_BIN) $(IRQSTORM_MUTA_IMG) $(IRQSTORM_MUTB_IMG) $(FAT_IRQSTORM_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-int21-irqstorm-mutant : prove the storm oracle BITES (Rule 6)\n'
+	@printf '======================================================================\n'
+	@# ---- MUTANT A: scribble a DOS global from the PIT ISR -> enum goes WRONG. ----
+	@$(HARNESS_BIN) --disk "$(IRQSTORM_MUTA_IMG)" --disk2 "$(FAT_IRQSTORM_IMG)" \
+		--name "irqstorm_muta" --out "$(BUILD)" --timeout-ms 10000 \
+		--keys "$(IRQSTORM_KEYS)" --keys-after "IRQSTORM-READY" \
+		2> "$(BUILD)/irqstorm_muta.report" || true
+	@tr -d '\r' < "$(BUILD)/irqstorm_muta.serial" 2>/dev/null | sed -n '/^STORM-DIR-BEGIN$$/,/^STORM-DIR-END$$/p' > "$(BUILD)/irqstorm_muta.dir" 2>/dev/null || true
+	@cnt=$$(grep -cE 'ALPHA\.TXT|BRAVO\.TXT|CHARLIE\.TXT|DELTA\.TXT|STORM\.DAT' "$(BUILD)/irqstorm_muta.dir" 2>/dev/null || echo 0); \
+	if [ "$$cnt" -eq 5 ]; then \
+		printf '!!! test-int21-irqstorm-mutant FAIL: MUTANT A enumerated all 5 names -- the storm oracle did NOT detect the async g_find corruption (it is decoration):\n'; \
+		cat "$(BUILD)/irqstorm_muta.dir" 2>/dev/null; exit 1; \
+	fi
+	@printf '>>> test-int21-irqstorm-mutant: MUTANT A correctly RED (PIT scribble corrupted the enumeration: %s/5 names)\n' "$$(grep -cE 'ALPHA\.TXT|BRAVO\.TXT|CHARLIE\.TXT|DELTA\.TXT|STORM\.DAT' "$(BUILD)/irqstorm_muta.dir" 2>/dev/null || echo 0)"
+	@# ---- MUTANT B: issue int 0x21 from the PIT ISR -> the guard PANICS. ----
+	@$(HARNESS_BIN) --disk "$(IRQSTORM_MUTB_IMG)" --disk2 "$(FAT_IRQSTORM_IMG)" \
+		--name "irqstorm_mutb" --out "$(BUILD)" --timeout-ms 10000 \
+		--keys "$(IRQSTORM_KEYS)" --keys-after "IRQSTORM-READY" \
+		2> "$(BUILD)/irqstorm_mutb.report" || true
+	@grep -q 'INT21-REENTRY-PANIC' "$(BUILD)/irqstorm_mutb.serial" 2>/dev/null \
+		|| { printf '!!! test-int21-irqstorm-mutant FAIL: MUTANT B did NOT trip the reentrancy guard -- the int-0x21-from-IRQ went undetected (the guard is decoration). Serial tail:\n'; tail -20 "$(BUILD)/irqstorm_mutb.serial" 2>/dev/null; exit 1; }
+	@printf '>>> test-int21-irqstorm-mutant: MUTANT B correctly RED (guard PANICKED: INT21-REENTRY-PANIC on int-0x21-from-IRQ)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- both mutants went RED; the storm oracle BITES on async\n'
+	@printf '            shared-state corruption (A) AND on a forbidden IRQ-issued reentry (B)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-exit-handles (beads initech-6hk; epic initech-6qy -- the FINAL
 # multi-tenant file-I/O step: SFT teardown on process EXIT)
 # ---------------------------------------------------------------------------
@@ -3807,7 +4159,7 @@ TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-fatwrite test-multiopen test-exit-handles \
 	test-shell test-panic \
-	test-kbd test-conin
+	test-kbd test-conin test-int21-irqstorm
 
 test-unit:
 	@printf '======================================================================\n'

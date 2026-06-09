@@ -235,9 +235,20 @@ int20_entry:
 ; REENTRANCY (beads initech-xk2): the C handlers (pit_irq_handler /
 ; kbd_irq_handler) touch ONLY their own tick/ring state -- never int21 globals
 ; -- so an IRQ landing inside an INT 21h trap (which keeps IF set) is safe.
+; This is now MECHANICALLY ENFORCED: each stub brackets its C handler call with
+; irq_enter/irq_leave (irq.c) so g_irq_depth is non-zero for the whole time the
+; handler is on the stack. If a handler (or a future driver it calls) ever issues
+; `int 0x21`, the dispatcher sees irq_depth() != 0 at entry and FAILS LOUD
+; (dos_reentry_panic) instead of silently corrupting the interrupted syscall's
+; frame/globals -- Rule 2. The IRQ gates clear IF (0x8E), so irq_enter/irq_leave
+; are not themselves reentrant. Order: enter BEFORE the C call, leave AFTER the
+; segment restore but BEFORE iretd, so the depth is correct across the whole
+; handler body.
 
 extern pit_irq_handler         ; void pit_irq_handler(void)  -- increments ticks + EOI
 extern kbd_irq_handler         ; void kbd_irq_handler(void)  -- reads 0x60 + EOI
+extern irq_enter               ; void irq_enter(void)  -- g_irq_depth++ (irq.c)
+extern irq_leave               ; void irq_leave(void)  -- g_irq_depth-- (irq.c)
 
 global irq0_entry
 irq0_entry:
@@ -247,7 +258,9 @@ irq0_entry:
     mov ax, 0x10               ; DATA_SEL -- known-good segments for the C call
     mov ds, ax
     mov es, ax
+    call irq_enter             ; g_irq_depth++ (xk2 reentrancy guard arm)
     call pit_irq_handler       ; bumps g_ticks, sends EOI to the 8259A master
+    call irq_leave             ; g_irq_depth-- (disarm before iretd)
     pop es
     pop ds
     popad
@@ -261,7 +274,9 @@ irq1_entry:
     mov ax, 0x10               ; DATA_SEL
     mov ds, ax
     mov es, ax
+    call irq_enter             ; g_irq_depth++ (xk2 reentrancy guard arm)
     call kbd_irq_handler       ; reads scancode @0x60, enqueues ASCII, sends EOI
+    call irq_leave             ; g_irq_depth-- (disarm before iretd)
     pop es
     pop ds
     popad

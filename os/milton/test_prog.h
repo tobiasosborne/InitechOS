@@ -50,4 +50,12 @@ extern const uint32_t g_write_prog_image_len;
 extern const uint8_t  g_multiopen_prog_image[];
 extern const uint32_t g_multiopen_prog_image_len;
 
+/* The baked IRQ-STORM program (FINDFIRST/NEXT enumeration + a multi-cluster READ
+ * + a second concurrent handle, run WHILE the harness storms keystrokes and the
+ * PIT ticks; beads initech-xk2). Generated from os/milton/irqstorm_program.asm.
+ * Run only in the -DBOOT_IRQSTORM self-test image (make test-int21-irqstorm),
+ * which attaches a FAT12 storm disk (ALPHA/BRAVO/.../STORM.DAT). */
+extern const uint8_t  g_irqstorm_prog_image[];
+extern const uint32_t g_irqstorm_prog_image_len;
+
 #endif /* INITECH_TEST_PROG_H */

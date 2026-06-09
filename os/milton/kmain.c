@@ -903,6 +903,30 @@ void kernel_main(void)
     for (;;) {
         __asm__ __volatile__("hlt");
     }
+#elif defined(BOOT_IRQSTORM)
+    /* IRQ-STORM REENTRANCY SELF-TEST BUILD ONLY (beads initech-xk2; make
+     * test-int21-irqstorm). THE binding oracle for the INT 21h reentrancy guard:
+     * IRQs are LIVE here (sti above), so the free-running 100 Hz PIT (IRQ0) and
+     * injected keystrokes (IRQ1) fire WHILE the baked IRQ-STORM program drives the
+     * INT 21h dispatcher functions that USE its global state -- FINDFIRST/NEXT
+     * (g_dta + g_find), a multi-cluster positioned READ (the FAT cache + cluster
+     * scratch over slow ATA PIO, so a PIT IRQ WILL land mid-read), and a SECOND
+     * concurrent open handle. Because INT 21h is a 0x8F TRAP gate (IF stays set),
+     * an IRQ CAN land mid-syscall; the guard (irq.c / int21.c) makes a forbidden
+     * ISR-issued reentry FAIL LOUD, and the harness asserts the enumeration order
+     * + the read signature come back EXACTLY right (no async corruption).
+     *
+     * Emit IRQSTORM-READY so the harness injects the keystroke storm (--keys-after
+     * IRQSTORM-READY), then run the program. The blocking-free program makes
+     * progress on its own (it reads files, not the keyboard); the storm overlaps
+     * its ATA reads. The NORMAL image never defines BOOT_IRQSTORM. */
+    serial_puts("IRQSTORM-READY\n");
+    serial_puts("IRQSTORM-OUTPUT-BEGIN\n");
+    run_baked("IRQSTORM", g_irqstorm_prog_image, g_irqstorm_prog_image_len);
+    serial_puts("IRQSTORM-OUTPUT-END\n");
+    for (;;) {
+        __asm__ __volatile__("hlt");
+    }
 #elif defined(BOOT_CONIN)
     /* CON-INPUT SELF-TEST BUILD ONLY (beads initech-n62; make test-conin). Run
      * the baked CON-input program: it prints a prompt, reads a LINE via INT 21h

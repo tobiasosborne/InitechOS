@@ -21,6 +21,7 @@
 #include "int21.h"
 #include "sft.h"        /* JFT->SFT handle layer (beads initech-509.3); pulls psp.h */
 #include "find_data.h"  /* find_data_t (43-byte DTA block, LOCKED; spec/) */
+#include "irq.h"        /* in-IRQ depth + reentrancy guard (beads initech-xk2) */
 
 /* The carry flag is bit 0 of EFLAGS (Intel SDM Vol 1 Sec 3.4.3). The whole
  * error-return contract rides on this single bit (ground-truth Sec 5.4). */
@@ -82,6 +83,43 @@ typedef struct find_state {
     uint8_t  active;        /* 1 once FINDFIRST has run                          */
 } find_state_t;
 static find_state_t g_find;
+
+/* InDOS depth (beads initech-xk2; period-authentic DOS InDOS flag). Incremented
+ * at int21_dispatch / int20_dispatch entry, decremented at exit, so it counts
+ * the NESTING level of INT 21h calls in flight. Real DOS exposes the InDOS flag
+ * (a byte) so a TSR/driver/ISR can poll it and DEFER its OWN INT 21h call while
+ * InDOS != 0 (DOS INT 21h is not reentrant; DOS 3.3 internals). InitechDOS
+ * mirrors that contract via dos_in_dos(): a future ISR/TSR/driver MUST check
+ * dos_in_dos() before issuing an INT 21h call and defer if set. NOTHING checks
+ * it yet (the IRQ handlers issue no syscalls -- the irq.c depth guard ENFORCES
+ * that); this is the documented hook + the counter, nothing more. EXEC's
+ * synchronous child syscalls legitimately nest, so this is a DEPTH counter, not
+ * a 0/1 flag. Ref: irq.h; DOS 3.3 InDOS flag. */
+static volatile uint32_t g_indos = 0u;
+
+/* The InDOS depth (0 == no INT 21h call in flight). A future ISR/TSR/driver
+ * polls this before issuing INT 21h and defers while it is non-zero (the real
+ * DOS InDOS-flag contract). volatile read; not the IRQ guard (that is irq.h's
+ * irq_depth() -- a different, stricter check that fails loud). */
+int dos_in_dos(void)
+{
+    return g_indos != 0u ? 1 : 0;
+}
+
+#ifdef INT21_IRQTEST_SEAM
+/* MUTANT-ONLY test seam (CLAUDE.md Rule 6; compiled ONLY into the mutant-A
+ * irqstorm image via -DINT21_IRQTEST_SEAM). It lets the mutant PIT ISR
+ * (pit.c -DPIT_MUTATE_SCRIBBLE_DOS) reach a DOS dispatcher global so we can PROVE
+ * the storm oracle detects async shared-state corruption: bumping g_find.next_index
+ * mid-enumeration makes FINDNEXT skip an entry, so the directory listing comes
+ * back WRONG and test-int21-irqstorm goes RED. NEVER compiled into a real build
+ * (the flag is set only by the mutant image rule). Touches a dispatcher global
+ * EXACTLY as a forbidden ISR<->DOS sharing would. */
+void int21_irqtest_bump_find(void)
+{
+    g_find.next_index++;
+}
+#endif
 
 void int21_set_sink(int21_sink_fn sink) { g_sink = sink; }
 void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
@@ -1212,8 +1250,21 @@ static void do_exec(int_frame_t *f)
         return;
     }
 
+    /* InDOS balance across a SYNCHRONOUS child run (beads initech-xk2). The child
+     * runs INSIDE g_exec and itself issues INT 21h calls (legitimate nesting,
+     * irq_depth()==0 throughout -- NOT the IRQ reentry the guard catches). When
+     * the child terminates (4Ch / INT 20h) the loader's exit hook does a
+     * NON-returning longjmp back into load_program (loader.c loader_exit_hook),
+     * DISCARDING the child's syscall stack -- so that terminating syscall's
+     * int21_dispatch wrapper never runs its matching g_indos-- (its `++` is
+     * stranded). Snapshot g_indos here and restore it after the child returns so
+     * the InDOS depth is exactly the caller's level again, never drifting upward
+     * across an EXEC chain (Rule 11). In the host oracle the mock g_exec simply
+     * returns, so this snapshot/restore is a harmless no-op. */
+    uint32_t indos_snapshot = g_indos;
     uint8_t rc = 0;
     uint16_t err = g_exec(path, &rc);
+    g_indos = indos_snapshot;
     if (err != 0) {
         /* Load/run failed (not found / nested / too big). Fail loud (Rule 2). */
         set_ax(f, err);
@@ -1292,13 +1343,13 @@ static void do_terminate(int_frame_t *f, uint8_t code)
  * here. With the loader's exit hook bound this does not return (the hook unwinds
  * to load_program); with no hook bound (kernel default before a load) it returns
  * and the stub irets. */
-void int20_dispatch(int_frame_t *frame)
+static void int20_dispatch_body(int_frame_t *frame)
 {
     do_terminate(frame, 0u);
 }
 
 /* ---- the dispatch spine ---- */
-void int21_dispatch(int_frame_t *frame)
+static void int21_dispatch_body(int_frame_t *frame)
 {
     uint8_t ah = (uint8_t)((frame->eax >> 8) & 0xFFu);
 
@@ -1418,4 +1469,43 @@ void int21_dispatch(int_frame_t *frame)
     /* Both controlled-scope paths: CF=1, AX=0x0001 (invalid function). */
     set_ax(frame, INT21_ERR_INVALID_FUNCTION);
     cf_set(frame);
+}
+
+/* ---- reentrancy guard + InDOS bracket (beads initech-xk2) ------------------
+ * The trap stubs (int21_entry / int20_entry, isr.asm) call these wrappers, NOT
+ * the bodies directly. INT 21h is a 0x8F TRAP gate (IF stays set), so an IRQ
+ * (PIT IRQ0 / keyboard IRQ1) can be delivered WHILE a syscall is in flight. That
+ * is safe today only because the IRQ handlers touch ZERO dispatcher state and
+ * never call DOS. The guard ENFORCES that invariant (Rule 2 / Law 2):
+ *
+ *   - irq_depth() != 0 at entry  =>  an ISR (or a driver it called) issued this
+ *     INT 21h -- the FORBIDDEN reentry. Fail loud (dos_reentry_panic) rather than
+ *     let it corrupt the interrupted syscall's frame or shared globals (g_dta,
+ *     the FINDFIRST search state, g_cur_psp, the FAT cluster scratch). This does
+ *     NOT false-fire on EXEC's synchronous child syscalls: a child runs in TASK
+ *     context (irq_depth() == 0), only g_indos nests -- which is allowed.
+ *
+ *   - g_indos brackets the call so dos_in_dos() reports a syscall in flight (the
+ *     period-authentic InDOS flag; the documented defer hook for a future driver).
+ *
+ * The guard is the FIRST thing each wrapper does (before any state is touched),
+ * so a reentry is caught before it can corrupt anything. */
+void int21_dispatch(int_frame_t *frame)
+{
+    if (irq_depth() != 0u) {
+        dos_reentry_panic();   /* never returns (routes to the panic path) */
+    }
+    g_indos++;
+    int21_dispatch_body(frame);
+    g_indos--;
+}
+
+void int20_dispatch(int_frame_t *frame)
+{
+    if (irq_depth() != 0u) {
+        dos_reentry_panic();   /* never returns */
+    }
+    g_indos++;
+    int20_dispatch_body(frame);
+    g_indos--;
 }

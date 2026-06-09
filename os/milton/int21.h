@@ -227,6 +227,16 @@ typedef int (*int21_coninpoll_fn)(void);  /* NON-blocking: char 0..255, or -1   
  * keyboard-backed callbacks near the sti; the host oracle binds a queued mock. */
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll);
 
+/* The InDOS depth predicate (beads initech-xk2). Returns 1 while one or more
+ * INT 21h calls are in flight (g_indos != 0), else 0. This is the period-
+ * authentic DOS InDOS-flag contract: a future ISR/TSR/driver MUST poll
+ * dos_in_dos() before issuing its OWN INT 21h call and DEFER while it is set,
+ * because DOS INT 21h is not reentrant. (Distinct from the stricter in-IRQ guard
+ * in irq.h, which FAILS LOUD if an ISR enters the dispatcher at all.) Nothing
+ * checks this yet -- it is the documented hook + the counter. Ref: irq.h; DOS
+ * 3.3 internals (InDOS flag). */
+int dos_in_dos(void);
+
 /* The C dispatch routine the asm trap stub (int21_entry, isr.asm) invokes with a
  * pointer to the on-stack int_frame_t. Reads AH = (frame->eax >> 8) & 0xFF and
  * switches per spec/int21h_register.json. Writes the return value into
