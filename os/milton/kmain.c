@@ -268,6 +268,24 @@ static int int21_clock_set_rtc(uint16_t year, uint8_t month, uint8_t day,
     return rtc_set(&t, rmask);
 }
 
+/* ---- INT 21h VECTOR-TABLE source wiring (beads initech-509.8) -------------
+ * AH=25h SETVECT / AH=35h GETVECT reach the live IDT through a seam int21.c
+ * binds via int21_set_vectortable, so int21.c does not link idt.c and stays
+ * hosted (Law 3). SETVECT installs a flat handler as a 0x8F TRAP gate on the
+ * kernel CS (idt_install_trap -- the SAME gate type the DOS handlers use);
+ * GETVECT reassembles the flat offset from the gate's split lo/hi fields
+ * (idt.h idt_gate_t). */
+static void int21_setvect_idt(uint8_t vec, uint32_t handler)
+{
+    idt_install_trap(vec, (void *)(uintptr_t)handler);
+}
+
+static uint32_t int21_getvect_idt(uint8_t vec)
+{
+    idt_gate_t g = idt_get_gate(vec);
+    return (uint32_t)g.offset_lo | ((uint32_t)g.offset_hi << 16);
+}
+
 /* Issue AH=09h DISPLAY STRING via a literal `int 0x21`: EDX = flat ptr to a
  * '$'-terminated string. This is the LIVE end-to-end self-test of the syscall
  * path on the real boot -- the banner is printed THROUGH int 0x21, not via a
@@ -662,6 +680,13 @@ void kernel_main(void)
     int21_set_clock(int21_clock_get_rtc, int21_clock_set_rtc);
     serial_puts("CLOCK-LIVE\n");
 
+    /* Bind the INT 21h vector-table seam to the live IDT (beads initech-509.8)
+     * so AH=25h SETVECT / AH=35h GETVECT read+write real IDT gates. The DOS
+     * handler gates (0x20-0x24) are already installed by sysinit_early; this just
+     * lets a program query/replace any vector via INT 21h. */
+    int21_set_vectortable(int21_setvect_idt, int21_getvect_idt);
+    serial_puts("VECT-LIVE\n");
+
     /* SYSINIT PHASE 2 -- CONFIG.SYS apply (beads initech-509.2). THE hook point:
      * after the FAT volume is mounted + bound (so CONFIG.SYS can be read off it)
      * and BEFORE any program loads (so the FILES= cap is in force for the demos +
@@ -1024,6 +1049,47 @@ void kernel_main(void)
     serial_puts("CONIN-PROG-OUTPUT-BEGIN\n");
     run_baked("CONIN-PROG", g_conin_prog_image, g_conin_prog_image_len);
     serial_puts("CONIN-PROG-OUTPUT-END\n");
+    for (;;) {
+        __asm__ __volatile__("hlt");
+    }
+#elif defined(BOOT_VECT)
+    /* SETVECT/GETVECT + INT 24h CRITICAL-ERROR SELF-TEST BUILD ONLY (beads
+     * initech-509.8; make test-vect). THE in-emulator keystone for the acceptance
+     * criteria: "A critical error presents MSG-DOS-0001 and processes Abort/Retry/
+     * Fail; vectors saved/restored across EXEC/EXIT."
+     *
+     * The baked vect program (via run_baked -> load_program): GETVECTs 0x24 and
+     * emits "V24PRE=<dec>"; announces "VECT-PROG-READY" so the harness injects the
+     * operator key ('a'); does `int $0x24` -- the KERNEL int24 handler (NOT
+     * overridden) prints MSG-DOS-0001 to CON (-> serial) and reads the injected
+     * 'a' (Abort -> AL=1), which the program emits as "CRIT-AL=1"; then SETVECTs
+     * 0x24 to a BOGUS handler and EXITs WITHOUT restoring.
+     *
+     * load_program's EXEC path saved the parent's 0x24 vector into the child PSP;
+     * its EXIT path restored it into the live IDT -- despite the child's SETVECT.
+     * After run_baked returns we GETVECT 0x24 (the SAME idt-backed seam) and emit
+     * "V24POST=<dec>". The harness asserts MSG-DOS-0001 present + CRIT-AL=1 +
+     * V24POST == V24PRE (the save/restore acceptance). The blocking int24 read can
+     * only progress because --keys injects 'a' (gated on VECT-PROG-READY).
+     *
+     * MUTATION-PROOF NOTE (Rule 6): a clean in-emulator mutant for the restore is
+     * impractical (the loader save/restore is inseparable from the boot image), so
+     * this gate's restore acceptance leans on the HOST mutation-proof: the
+     * PSP_MUTATE_VEC_OFFSET mutant in make test-int24-mutant perturbs exactly the
+     * psp_save_vectors offset this restore depends on and is proven to bite. The
+     * NORMAL image never defines BOOT_VECT. */
+    serial_puts("VECT-PROG-OUTPUT-BEGIN\n");
+    run_baked("VECT-PROG", g_vect_prog_image, g_vect_prog_image_len);
+    /* The loader restored the parent's 0x24 vector on the child's EXIT. Read it
+     * back through the SAME idt-backed GETVECT seam the program used and report it
+     * so the harness can compare V24POST to V24PRE. */
+    {
+        uint32_t v24_post = int21_getvect_idt(0x24u);
+        serial_puts("V24POST=");
+        serial_putu(v24_post);
+        serial_putc('\n');
+    }
+    serial_puts("VECT-PROG-OUTPUT-END\n");
     for (;;) {
         __asm__ __volatile__("hlt");
     }

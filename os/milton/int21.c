@@ -22,6 +22,7 @@
 #include "sft.h"        /* JFT->SFT handle layer (beads initech-509.3); pulls psp.h */
 #include "find_data.h"  /* find_data_t (43-byte DTA block, LOCKED; spec/) */
 #include "irq.h"        /* in-IRQ depth + reentrancy guard (beads initech-xk2) */
+#include "dos_messages.h" /* MSG_DOS_0001 controlled diagnostic (DEC-13; -Ibuild) */
 
 /* The carry flag is bit 0 of EFLAGS (Intel SDM Vol 1 Sec 3.4.3). The whole
  * error-return contract rides on this single bit (ground-truth Sec 5.4). */
@@ -53,6 +54,14 @@ static psp_t *g_cur_psp = 0;
  * fixed mock). With no clock bound, GET returns the DOS epoch and SET fails. */
 static int21_clock_get_fn g_clock_get = 0;
 static int21_clock_set_fn g_clock_set = 0;
+
+/* The interrupt-vector table seam (beads initech-509.8). AH=25h SETVECT / AH=35h
+ * GETVECT reach the live IDT through these so int21.c does not link idt.c and
+ * stays host-testable. NULL until the kernel binds idt-backed callbacks at
+ * SYSINIT (or the host oracle binds a mock vector table). With none bound,
+ * SETVECT is a graceful no-op and GETVECT returns 0 -- never a fault (Rule 2). */
+static int21_setvect_fn g_setvect = 0;
+static int21_getvect_fn g_getvect = 0;
 
 /* The file backend (beads initech-509.5 read-side). NULL until the kernel binds
  * a FAT12-backed impl (or the host oracle binds a mock). The file functions
@@ -141,6 +150,11 @@ void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set)
 {
     g_clock_get = get;
     g_clock_set = set;
+}
+void int21_set_vectortable(int21_setvect_fn set, int21_getvect_fn get)
+{
+    g_setvect = set;
+    g_getvect = get;
 }
 
 /* ---- CF helpers: write ONLY bit 0 of the saved EFLAGS image. ---- */
@@ -1576,6 +1590,54 @@ static void do_getpsp(int_frame_t *f)
     cf_clear(f);
 }
 
+/* ===========================================================================
+ * SETVECT / GETVECT (AH=25h / AH=35h; beads initech-509.8, DEC-10).
+ * The flat ABI (spec/int21h_calling_convention.json): "All pointer arguments
+ * are FLAT 32-bit LINEAR addresses -- no segment:offset"; the function selector
+ * is AH and the primary pointer rides EDX. Both functions are in the locked
+ * register (spec/int21h_register.json: "25h / 35h SETVECT / GETVECT", Core).
+ * On this protected-flat kernel the "interrupt vector" is the IDT gate offset,
+ * reached through the vector-table seam (g_setvect / g_getvect) so int21.c stays
+ * host-testable. Ref (Law 1): DOS 3.3 PRM AH=25h/35h; the two locked specs.
+ * ===========================================================================*/
+
+/* AH=25h SET INTERRUPT VECTOR: AL = vector number, EDX = flat handler address
+ * (the DOS DS:DX handler pointer, here a flat 32-bit linear address per the flat
+ * ABI). Installs the handler via the seam, which writes the IDT gate offset for
+ * vector AL keeping the kernel code selector + 0x8F TRAP type (idt_set_gate ->
+ * idt_install_trap). DOS 25h has no error path; CF clear. */
+static void do_setvect(int_frame_t *f)
+{
+    uint8_t  vec     = frame_al(f);
+    uint32_t handler = f->edx;          /* flat 32-bit linear handler address */
+    if (g_setvect) {
+        g_setvect(vec, handler);
+    }
+    cf_clear(f);                        /* DOS 25h never sets CF */
+}
+
+/* AH=35h GET INTERRUPT VECTOR: AL = vector number; returns the handler pointer
+ * in ES:BX. On the flat model ES=0 and EBX = the flat handler offset (matching
+ * how other functions return a pointer with a zero selector). DOS 35h has no
+ * error path; CF clear. */
+static void do_getvect(int_frame_t *f)
+{
+    uint8_t  vec     = frame_al(f);
+    uint32_t handler = g_getvect ? g_getvect(vec) : 0u;
+#ifdef GETVECT_MUTATE_AX
+    /* MUTANT (Rule 6; make test-int24-mutant only): return the handler in EAX
+     * instead of EBX -- the WRONG register. DOS 35h returns the vector in ES:BX
+     * (EBX in the flat model); a caller reading EBX gets nothing. The [4b] GETVECT
+     * oracle (which asserts EBX == the handler) goes RED. NEVER in a real build. */
+    f->eax = handler;
+    f->ebx = 0u;
+#else
+    f->ebx = handler;                   /* EBX = flat handler offset (BX low 16) */
+#endif
+    f->es  = 0u;                        /* ES = 0 in the flat model */
+    cf_clear(f);                        /* DOS 35h never sets CF */
+}
+
 /* INT 20h legacy terminate (vector 0x20; beads initech-509.5). Routes to the
  * SAME terminate path as 4Ch with exit code 0 (ground-truth Sec 2.1 / Sec 4.4).
  * A program doing `int 0x20` (or a near RET to PSP:0 = the CD 20 there) lands
@@ -1585,6 +1647,95 @@ static void do_getpsp(int_frame_t *f)
 static void int20_dispatch_body(int_frame_t *frame)
 {
     do_terminate(frame, 0u);
+}
+
+/* ===========================================================================
+ * INT 22h / 23h / 24h DOS handlers (beads initech-509.8, ADR-0003 DEC-10).
+ * Ref (Law 1): docs/adr/ADR-0003-InitechDOS-Base-OS-Personality.md Sec 5.10
+ *   (DEC-10 -- handlers for 24h/23h/22h; 24h presents MSG-DOS-0001 + processes
+ *   the operator A/R/F response); App C (MSG-DOS-0001 = "Abort, Retry, Fail?").
+ *   The PSP vector save/restore (PSP 0Ah-15h) is a SEPARATE step (loader.c) --
+ *   these handlers + their installed IDT gates are what that step reads.
+ * ===========================================================================*/
+
+/* PURE A/R/F decision (host-testable seam; no asm/IO). Upcases `ch` then maps to
+ * the DOS INT 24h AL action: 'R'->0 Retry, 'A'->1 Abort, 'F'->2 Fail. Any other
+ * key returns -1, meaning "re-prompt" -- int24_dispatch loops, re-presenting
+ * MSG-DOS-0001 and re-reading until a valid key arrives (deterministic, never a
+ * silent default). Ignore=3 is deferred (header note). Ref: DOS 3.3 PRM INT 24h;
+ * spec/dos_messages.json MSG-DOS-0001. */
+int crit_error_action(int ch)
+{
+    int c = ch;
+    if (c >= 'a' && c <= 'z') {
+        c = c - 'a' + 'A';          /* upcase (ASCII; Rule 12) */
+    }
+    switch (c) {
+#ifdef CRIT_MUTATE_AF_SWAP
+        /* MUTANT (Rule 6; make test-int24-mutant only): SWAP Abort<->Fail so the
+         * A/R/F mapping is wrong. The crit_error_action mapping test + the int24
+         * AL=1-for-'A' test go RED. NEVER define in a real build. */
+        case 'R': return 0;         /* Retry */
+        case 'A': return 2;         /* (mutant) Fail instead of Abort */
+        case 'F': return 1;         /* (mutant) Abort instead of Fail */
+#else
+        case 'R': return 0;         /* Retry */
+        case 'A': return 1;         /* Abort */
+        case 'F': return 2;         /* Fail  */
+#endif
+        default:  return -1;        /* invalid -> re-prompt */
+    }
+}
+
+/* INT 22h TERMINATE (vector 0x22). The DOS terminate-return address; in the
+ * single-level model the default handler terminates the current program with
+ * code 0 -- the SAME path as INT 20h / 4Ch AL=0. Normally non-returning. */
+static void int22_dispatch_body(int_frame_t *frame)
+{
+    do_terminate(frame, 0u);
+}
+
+/* INT 23h CONTROL-BREAK (vector 0x23). The DOS default control-break action
+ * ABORTS the program, so route to the SAME terminate path as 22h (the break-
+ * abort). No keyboard ^C wiring here (beads initech-4tw); this is the default
+ * handler the loader points the PSP 0Eh-0Fh vector at. A grep-able marker rides
+ * the CON sink (the kernel routes the sink to console + serial; mirrors the
+ * controlled-scope diagnostics) so a break-abort is visible in a serial log. */
+static void int23_dispatch_body(int_frame_t *frame)
+{
+    con_puts("INT23-BREAK\n");
+    do_terminate(frame, 0u);
+}
+
+/* INT 24h CRITICAL ERROR (vector 0x24). Present MSG-DOS-0001 to CON, read ONE
+ * operator key (blocking, honoring the 0Bh pushback), and decide the action via
+ * crit_error_action. On an invalid key, re-present + re-read (the -1 re-prompt
+ * loop). Write the action code into AL and clear CF; do NOT terminate -- 24h
+ * RETURNS the action to the failed caller (DOS contract). Nothing calls 24h yet
+ * (no driver raises a critical error this milestone), so it just returns. */
+static void int24_dispatch_body(int_frame_t *frame)
+{
+    int action;
+    for (;;) {
+        int ch;
+        con_puts(MSG_DOS_0001);     /* "Abort, Retry, Fail?" (controlled; DEC-13) */
+        ch = conin_get_pb();        /* blocking single-char read (respects 0Bh) */
+        action = crit_error_action(ch);
+#ifdef INT24_MUTATE_NO_REPROMPT
+        /* MUTANT (Rule 6; make test-int24-mutant only): accept the FIRST key
+         * unconditionally -- no re-prompt loop. An invalid key yields the -1
+         * "re-prompt" sentinel straight into AL (and MSG-DOS-0001 prints only
+         * once), so the re-prompt oracle [2b] goes RED. NEVER in a real build. */
+        break;
+#else
+        if (action >= 0) {
+            break;                  /* valid A/R/F -> done */
+        }
+        con_putc('\n');             /* invalid key -> newline + re-prompt */
+#endif
+    }
+    set_al(frame, (uint8_t)action); /* AL = 0 Retry / 1 Abort / 2 Fail */
+    cf_clear(frame);                /* 24h returns the action, not an error */
 }
 
 /* ---- the dispatch spine ---- */
@@ -1625,6 +1776,12 @@ static void int21_dispatch_body(int_frame_t *frame)
             return;
         case 0x1A:                       /* SET DTA */
             do_setdta(frame);
+            return;
+        case 0x25:                       /* SET INTERRUPT VECTOR */
+            do_setvect(frame);
+            return;
+        case 0x35:                       /* GET INTERRUPT VECTOR */
+            do_getvect(frame);
             return;
         case 0x2F:                       /* GET DTA */
             do_getdta(frame);
@@ -1776,5 +1933,40 @@ void int20_dispatch(int_frame_t *frame)
     }
     g_indos++;
     int20_dispatch_body(frame);
+    g_indos--;
+}
+
+/* INT 22h/23h/24h share the SAME reentrancy guard + InDOS bracket as INT 21h/20h
+ * (beads initech-509.8 / initech-xk2). An ISR must never raise these (it would
+ * corrupt an interrupted syscall's frame/globals); the guard fails loud if one
+ * does. 22h/23h normally do not return (terminate); 24h returns the A/R/F action
+ * -- its g_indos-- runs because do_terminate is not on its path. */
+void int22_dispatch(int_frame_t *frame)
+{
+    if (irq_depth() != 0u) {
+        dos_reentry_panic();   /* never returns */
+    }
+    g_indos++;
+    int22_dispatch_body(frame);
+    g_indos--;
+}
+
+void int23_dispatch(int_frame_t *frame)
+{
+    if (irq_depth() != 0u) {
+        dos_reentry_panic();   /* never returns */
+    }
+    g_indos++;
+    int23_dispatch_body(frame);
+    g_indos--;
+}
+
+void int24_dispatch(int_frame_t *frame)
+{
+    if (irq_depth() != 0u) {
+        dos_reentry_panic();   /* never returns */
+    }
+    g_indos++;
+    int24_dispatch_body(frame);
     g_indos--;
 }

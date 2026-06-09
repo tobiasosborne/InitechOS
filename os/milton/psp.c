@@ -108,9 +108,13 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
      * left implicit and documented. Ref: Sec 2.3; dos_structs.h:94. */
 
     /* --- 0Ah saved_vectors[12]: saved INT 22h/23h/24h vectors. -------------
-     * DEFERRED to initech-509.8 (INT 22/23/24 handlers + PSP vector save,
-     * DEC-10). No kernel handlers for those vectors exist yet, so there is
-     * nothing to save; zero-filled. Ref: Sec 2.4; dos_structs.h:95. */
+     * Zero-filled HERE BY DESIGN (initech-509.8). psp_build leaves the slot
+     * zero; the LOADER fills it explicitly via psp_save_vectors() right after
+     * this build, reading the live IDT vectors 0x22/0x23/0x24 (the parent's
+     * handlers) so they can be restored into the IDT on the child's EXIT. This
+     * keeps psp_build a pure layout function with no dependency on the IDT, and
+     * keeps the host PSP oracle (which asserts a freshly-BUILT PSP has zero
+     * saved_vectors) green. Ref: Sec 2.4; dos_structs.h:95; psp_save_vectors. */
 
     /* --- 16h parent_psp: parent process's PSP. -----------------------------
      * Option B fake paragraph of the parent PSP linear address, or 0x0000 for
@@ -195,4 +199,86 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
     psp->cmd_tail[1 + copy] = 0x0D; /* CR terminator; offset <= 127 */
 
     return dropped;
+}
+
+/* ------------------------------------------------------------------------ *
+ * Saved INT 22h/23h/24h vectors (PSP 0x0A-0x15) -- save/restore helpers.
+ *
+ * beads: initech-509.8 (INT 22/23/24 handlers + PSP vector save, ADR-0003
+ *        DEC-10: "The vectors for these handlers shall be preserved in the
+ *        Program Segment Prefix of the invoking process (Appendix B.2).").
+ *
+ * The 12-byte saved_vectors field holds THREE 4-byte FLAT-LINEAR handler
+ * addresses, little-endian, low byte first (Sec 2.4): INT 22h @ +0 (PSP 0x0A),
+ * INT 23h @ +4 (PSP 0x0E), INT 24h @ +8 (PSP 0x12). In flat 32-bit mode there
+ * are no far seg:off pointers, so each "vector" is the 32-bit linear address of
+ * the kernel handler the IDT gate points at. PURE: no I/O, no globals -- the
+ * loader supplies the live IDT vectors and consumes them; the host oracle can
+ * drive these directly. Endianness-explicit byte writes (Rule 11): the result
+ * is identical no matter what host the factory oracle compiles on.
+ * ------------------------------------------------------------------------ */
+
+/* Pin the in-field offsets the byte-write helpers assume, so a future struct
+ * edit that resizes saved_vectors cannot silently mis-place a vector (Rule 2:
+ * fail loud, here at COMPILE time). The field is the three 4-byte entries. */
+_Static_assert(sizeof(((psp_t *)0)->saved_vectors) == 12,
+               "saved_vectors must be 12 bytes = three 4-byte flat vectors (B.2)");
+_Static_assert(PSP_SAVED_VEC22_OFF == 0 && PSP_SAVED_VEC23_OFF == 4
+               && PSP_SAVED_VEC24_OFF == 8,
+               "saved-vector slot offsets must be 0/4/8 within saved_vectors");
+
+/* Write a 32-bit value little-endian (low byte first) into dst[0..3]. Mirrors
+ * the deterministic, endianness-explicit style of the rest of psp.c (no
+ * type-punned stores). */
+static void psp_put_u32_le(uint8_t *dst, uint32_t v)
+{
+    dst[0] = (uint8_t)(v & 0xFFu);
+    dst[1] = (uint8_t)((v >> 8) & 0xFFu);
+    dst[2] = (uint8_t)((v >> 16) & 0xFFu);
+    dst[3] = (uint8_t)((v >> 24) & 0xFFu);
+}
+
+/* Read a 32-bit little-endian value out of src[0..3]. */
+static uint32_t psp_get_u32_le(const uint8_t *src)
+{
+    return (uint32_t)src[0]
+         | ((uint32_t)src[1] << 8)
+         | ((uint32_t)src[2] << 16)
+         | ((uint32_t)src[3] << 24);
+}
+
+void psp_save_vectors(psp_t *psp, uint32_t v22, uint32_t v23, uint32_t v24)
+{
+    /* Rule 2: never write through a NULL PSP. */
+    if (psp == 0) {
+        PSP_FAIL_LOUD();
+        return; /* not reached */
+    }
+    psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC22_OFF], v22);
+    psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC23_OFF], v23);
+#ifdef PSP_MUTATE_VEC_OFFSET
+    /* MUTANT (Rule 6; make test-int24-mutant only): write the 24h vector at the
+     * 23h slot (offset 4) instead of its own slot (offset 8) -- a mis-placed
+     * save. The EXIT restore would then reinstall the wrong handler for 0x24, so
+     * the round-trip oracle [3] (v24 stored at saved_vectors[8..11]; load recovers
+     * v24) goes RED. This is the mutation that PROVES the emu gate's reliance on
+     * the save/restore offsets is real. NEVER define in a real build. */
+    psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC23_OFF], v24);
+#else
+    psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC24_OFF], v24);
+#endif
+}
+
+void psp_load_vectors(const psp_t *psp, uint32_t *v22, uint32_t *v23,
+                      uint32_t *v24)
+{
+    /* Rule 2: fail loud on any NULL -- a half-read restore would reinstall a
+     * garbage handler into the live IDT, which is far worse than a loud stop. */
+    if (psp == 0 || v22 == 0 || v23 == 0 || v24 == 0) {
+        PSP_FAIL_LOUD();
+        return; /* not reached */
+    }
+    *v22 = psp_get_u32_le(&psp->saved_vectors[PSP_SAVED_VEC22_OFF]);
+    *v23 = psp_get_u32_le(&psp->saved_vectors[PSP_SAVED_VEC23_OFF]);
+    *v24 = psp_get_u32_le(&psp->saved_vectors[PSP_SAVED_VEC24_OFF]);
 }

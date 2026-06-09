@@ -267,6 +267,12 @@ MULTIOPEN_PROG_BLOB_C := $(BUILD)/multiopen_prog_blob.c
 DATETIME_PROG_ASM   := $(KERNEL_DIR)/datetime_program.asm
 DATETIME_PROG_BIN   := $(BUILD)/datetime_program.bin
 DATETIME_PROG_BLOB_C := $(BUILD)/datetime_prog_blob.c
+# Baked SETVECT/GETVECT + INT 24h program (beads initech-509.8): GETVECT 0x24 ->
+# "V24PRE=", int $0x24 -> MSG-DOS-0001 + injected key -> "CRIT-AL=", SETVECT 0x24
+# bogus then EXIT. Linked into the -DBOOT_VECT kernel only (make test-vect).
+VECT_PROG_ASM    := $(KERNEL_DIR)/vect_program.asm
+VECT_PROG_BIN    := $(BUILD)/vect_program.bin
+VECT_PROG_BLOB_C := $(BUILD)/vect_prog_blob.c
 # GREET program (beads initech-saw): a flat .COM that is NOT baked into the
 # kernel -- it is mcopy'd onto the FAT12 data disk as GREET.COM and loaded BY
 # NAME from the mounted volume (load_program_from_fat / INT 21h AH=4Bh EXEC).
@@ -302,6 +308,7 @@ KERNEL_CONIN_PROG_OBJ := $(BUILD)/conin_prog_blob.o
 KERNEL_WRITE_PROG_OBJ := $(BUILD)/write_prog_blob.o
 KERNEL_MULTIOPEN_PROG_OBJ := $(BUILD)/multiopen_prog_blob.o
 KERNEL_DATETIME_PROG_OBJ := $(BUILD)/datetime_prog_blob.o
+KERNEL_VECT_PROG_OBJ := $(BUILD)/vect_prog_blob.o
 KERNEL_ISR_OBJ   := $(BUILD)/isr.o
 KERNEL_ELF       := $(BUILD)/kernel.elf
 KERNEL_BIN       := $(BUILD)/kernel.bin
@@ -328,6 +335,15 @@ KERNEL_CONIN_MAIN_OBJ := $(BUILD)/kmain_conin.o
 KERNEL_CONIN_ELF      := $(BUILD)/kernel_conin.elf
 KERNEL_CONIN_BIN      := $(BUILD)/kernel_conin.bin
 CONIN_IMG             := $(BUILD)/conin_boot.img
+# SETVECT/GETVECT + INT 24h self-test kernel/image (beads initech-509.8; make
+# test-vect): the SAME kernel sources but with -DBOOT_VECT so the boot runs the
+# baked vect program (GETVECT/int24/SETVECT), then GETVECTs 0x24 post-EXIT and
+# emits "V24POST=" to prove the loader restored the parent's vector. Separate
+# image so the normal boot never raises a critical error / blocks on the key.
+KERNEL_VECT_MAIN_OBJ  := $(BUILD)/kmain_vect.o
+KERNEL_VECT_ELF       := $(BUILD)/kernel_vect.elf
+KERNEL_VECT_BIN       := $(BUILD)/kernel_vect.bin
+VECT_IMG              := $(BUILD)/vect_boot.img
 # FAT-sourced load + EXEC self-test kernel/image (beads initech-saw; make
 # test-exec): the SAME kernel sources but with -DBOOT_EXEC so the boot, after
 # mounting the FAT12 data disk, loads GREET.COM BY NAME (load_program_from_fat)
@@ -1215,18 +1231,18 @@ TEST_INT21_MUT_NOOP   := $(BUILD)/test_int21_mutant_noop
 # dos_structs.h). The standard JFT/SFT is bound in test_int21.c's main().
 TEST_INT21_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_INT21_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
-                   $(MILTON_DIR)/psp.h spec/dos_structs.h
+                   $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
 
 $(TEST_INT21): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
 
 $(TEST_INT21_MUT_DOLLAR): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_PUTS_EMIT_DOLLAR -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_PUTS_EMIT_DOLLAR -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
 
 $(TEST_INT21_MUT_NOOP): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_UNLISTED_NOOP -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_UNLISTED_NOOP -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
 
 # --- CON INPUT oracle (beads initech-n62) ----------------------------------
@@ -1245,18 +1261,18 @@ TEST_CONIN_MUT_COUNT  := $(BUILD)/test_conin_mutant_count
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
 TEST_CONIN_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_CONIN_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
-                   $(MILTON_DIR)/psp.h spec/dos_structs.h
+                   $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
 
 $(TEST_CONIN): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
 
 $(TEST_CONIN_MUT_NOECHO): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CONIN_NO_ECHO -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CONIN_NO_ECHO -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
 
 $(TEST_CONIN_MUT_COUNT): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BUFINPUT_COUNT_CR -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BUFINPUT_COUNT_CR -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
 
 .PHONY: test-conin-unit test-conin-mutant
@@ -1303,6 +1319,89 @@ test-int21-mutant: $(TEST_INT21_MUT_DOLLAR) $(TEST_INT21_MUT_NOOP)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-int24 (beads initech-509.8 -- INT 22/23/24 + SETVECT/GETVECT
+#            + PSP-vector save/restore -- the Law-2 centerpiece)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the DEC-10 handlers + the vector save/restore primitives,
+# driven through the REAL artifact int21.c + psp.c (the same TUs the kernel runs)
+# with a CAPTURING CON sink, a QUEUED MOCK conin source, a recording EXIT hook,
+# and a MOCK vector table. Pins: crit_error_action mapping; int24 MSG-DOS-0001 +
+# A/R/F + re-prompt; psp_save/load_vectors round-trip (the EXEC/EXIT restore
+# primitive the emu gate test-vect relies on); AH=25h/35h SETVECT/GETVECT; int22/
+# int23 terminate. Links int21.c + sft.c + psp.c + irq.c; -Ispec for sft.h ->
+# psp.h -> dos_structs.h; -Ibuild for dos_messages.h. Mirrors the $(TEST_INT21)
+# idiom.
+TEST_INT24      := $(BUILD)/test_int24
+TEST_INT24_SRC  := $(MILTON_DIR)/test_int24.c
+TEST_INT24_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_INT24_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+                   $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
+# Mutation builds (CLAUDE.md Rule 6): int21.c / psp.c compiled with a single
+# branch/offset perturbed so `make test-int24-mutant` can prove the oracle BITES.
+#   (a) CRIT_MUTATE_AF_SWAP      : crit_error_action swaps Abort<->Fail.
+#   (b) INT24_MUTATE_NO_REPROMPT : int24 accepts the first key, no re-prompt loop.
+#   (c) PSP_MUTATE_VEC_OFFSET    : psp_save_vectors writes the 24h slot at offset 4.
+#   (d) GETVECT_MUTATE_AX        : do_getvect returns the handler in EAX not EBX.
+TEST_INT24_MUT_AFSWAP   := $(BUILD)/test_int24_mutant_afswap
+TEST_INT24_MUT_NOREPROM := $(BUILD)/test_int24_mutant_noreprompt
+TEST_INT24_MUT_VECOFF   := $(BUILD)/test_int24_mutant_vecoff
+TEST_INT24_MUT_GETVECT  := $(BUILD)/test_int24_mutant_getvect
+
+$(TEST_INT24): $(TEST_INT24_SRC) $(TEST_INT24_DEPS) $(TEST_INT24_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT24_SRC) $(TEST_INT24_DEPS)
+
+$(TEST_INT24_MUT_AFSWAP): $(TEST_INT24_SRC) $(TEST_INT24_DEPS) $(TEST_INT24_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCRIT_MUTATE_AF_SWAP -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT24_SRC) $(TEST_INT24_DEPS)
+
+$(TEST_INT24_MUT_NOREPROM): $(TEST_INT24_SRC) $(TEST_INT24_DEPS) $(TEST_INT24_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT24_MUTATE_NO_REPROMPT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT24_SRC) $(TEST_INT24_DEPS)
+
+$(TEST_INT24_MUT_VECOFF): $(TEST_INT24_SRC) $(TEST_INT24_DEPS) $(TEST_INT24_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPSP_MUTATE_VEC_OFFSET -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT24_SRC) $(TEST_INT24_DEPS)
+
+$(TEST_INT24_MUT_GETVECT): $(TEST_INT24_SRC) $(TEST_INT24_DEPS) $(TEST_INT24_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DGETVECT_MUTATE_AX -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT24_SRC) $(TEST_INT24_DEPS)
+
+.PHONY: test-int24 test-int24-mutant
+test-int24: $(TEST_INT24)
+	@printf ">>> test-int24: INT 22/23/24 + SETVECT/GETVECT (25h/35h) + PSP-vector save/restore (DEC-10)\n"
+	@$(TEST_INT24)
+	@printf ">>> test-int24: green\n"
+
+# Mutation-proof: ALL FOUR mutant builds MUST fail the oracle (Rule 6).
+test-int24-mutant: $(TEST_INT24_MUT_AFSWAP) $(TEST_INT24_MUT_NOREPROM) $(TEST_INT24_MUT_VECOFF) $(TEST_INT24_MUT_GETVECT)
+	@printf ">>> test-int24-mutant: confirming all four mutants go RED (Rule 6)\n"
+	@if $(TEST_INT24_MUT_AFSWAP) >/dev/null 2>&1; then \
+		printf '!!! test-int24-mutant FAIL: A/F-swap mutant PASSED -- the crit-action mapping test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-int24-mutant: green (crit-action A/F-swap mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_INT24_MUT_NOREPROM) >/dev/null 2>&1; then \
+		printf '!!! test-int24-mutant FAIL: no-re-prompt mutant PASSED -- the int24 re-prompt test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-int24-mutant: green (int24 no-re-prompt mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_INT24_MUT_VECOFF) >/dev/null 2>&1; then \
+		printf '!!! test-int24-mutant FAIL: vec-offset mutant PASSED -- the PSP save/restore offset test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-int24-mutant: green (psp save vec-offset mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_INT24_MUT_GETVECT) >/dev/null 2>&1; then \
+		printf '!!! test-int24-mutant FAIL: getvect-EAX mutant PASSED -- the GETVECT register test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-int24-mutant: green (do_getvect wrong-register mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-fileio (beads initech-509.5 read-side -- file-handle funcs)
 # ---------------------------------------------------------------------------
 # Host unit oracle for the INT 21h file-handle functions (3Dh OPEN / 3Fh READ /
@@ -1315,7 +1414,7 @@ TEST_FILEIO      := $(BUILD)/test_fileio
 TEST_FILEIO_SRC  := $(MILTON_DIR)/test_fileio.c
 TEST_FILEIO_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_FILEIO_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
-                    $(MILTON_DIR)/psp.h spec/dos_structs.h spec/find_data.h
+                    $(MILTON_DIR)/psp.h spec/dos_structs.h spec/find_data.h $(DOS_MESSAGES_H)
 # Mutation builds (CLAUDE.md Rule 6): int21.c compiled with a single file-op
 # branch perturbed so `make test-fileio-mutant` can prove the oracle BITES.
 # (a) READ ignores file_offset (no advance); (b) LSEEK SEEK_END base is wrong.
@@ -1323,15 +1422,15 @@ TEST_FILEIO_MUT_READ  := $(BUILD)/test_fileio_mutant_read
 TEST_FILEIO_MUT_LSEEK := $(BUILD)/test_fileio_mutant_lseek
 
 $(TEST_FILEIO): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
 
 $(TEST_FILEIO_MUT_READ): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_READ_IGNORE_OFFSET -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_READ_IGNORE_OFFSET -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
 
 $(TEST_FILEIO_MUT_LSEEK): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_LSEEK_WHENCE -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_LSEEK_WHENCE -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
 
 .PHONY: test-fileio test-fileio-mutant
@@ -1373,18 +1472,18 @@ TEST_EXEC_SRC    := $(MILTON_DIR)/test_exec.c
 # resolves.
 TEST_EXEC_DEPS   := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_EXEC_HDRS   := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
-                    $(MILTON_DIR)/psp.h spec/dos_structs.h
+                    $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
 # Mutation build (CLAUDE.md Rule 6): int21.c compiled with AH=4Dh always
 # reporting rc=0 so `make test-exec-mutant` can prove the GET-RETURN-CODE oracle
 # BITES (it EXECs a program exiting rc=7 and asserts AL==7).
 TEST_EXEC_MUT_RC := $(BUILD)/test_exec_mutant_rc
 
 $(TEST_EXEC): $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS) $(TEST_EXEC_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS)
 
 $(TEST_EXEC_MUT_RC): $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS) $(TEST_EXEC_HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_RETCODE_ZERO -Ispec -I$(MILTON_DIR) -Iseed \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_RETCODE_ZERO -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS)
 
 .PHONY: test-exec-unit test-exec-mutant
@@ -1752,7 +1851,8 @@ endef
 .PHONY: help factory image run run-bochs smoke ssim test test-region \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
-        test-idt-mutant test-int21 test-int21-mutant test-psp test-psp-mutant \
+        test-idt-mutant test-int21 test-int21-mutant test-int24 test-int24-mutant \
+        test-vect test-psp test-psp-mutant \
         test-sft test-sft-mutant test-fileio test-fileio-mutant \
         test-loader test-loader-mutant test-program test-fs test-type test-dir \
         test-exec test-exec-unit test-exec-mutant \
@@ -1805,6 +1905,9 @@ help:
 	@printf '  test-spec      InitechDOS spec-data (ADR-0003 Appendices A-D): JSON parse + 16 messages + struct size asserts + banner double-space. REAL.\n'
 	@printf '  test-dosmsg    DEC-13 controlled vocabulary (initech-509.1): header==spec verbatim + referenced msgs present in shell image + no inline literals. REAL.\n'
 	@printf '  test-psp       PSP 256-byte construction oracle (initech-509.4 / App B.2): int20/seg-fields/jft/int21-entry/cmd-tail + clamp + no-overflow. REAL.\n'
+	@printf '  test-int24     INT 22/23/24 + SETVECT/GETVECT (25h/35h) + PSP-vector save/restore (initech-509.8 / DEC-10): crit_error_action A/R/F + int24 MSG-DOS-0001 + re-prompt + psp save/load round-trip + int22/23 terminate. REAL.\n'
+	@printf '  test-int24-mutant  Rule-6 proof the int24 oracle BITES: A/F-swap + no-re-prompt + psp vec-offset + getvect-EAX all go RED. REAL.\n'
+	@printf '  test-vect      In-emulator INT 24h crit-error + vector save/restore (initech-509.8): MSG-DOS-0001 presented + injected '\''a'\'' -> CRIT-AL=1 + V24POST==V24PRE (loader restored 0x24 across EXEC/EXIT). REAL (QEMU).\n'
 	@printf '  test-sft       SFT/JFT handle layer (initech-509.3 / DEC-06): predefined handles 0-4 + jft/sft alloc + DUP/DUP2 redirection + ref-counting. REAL.\n'
 	@printf '  test-kbd-unit  PS/2 keyboard + PIT pure logic (initech-3rs): ring (full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math. REAL.\n'
 	@printf '  test-kbd       Keyboard IRQ1 end-to-end (initech-3rs/43b): first sti, QMP --keys "d,i,r" injected, echoed back via IRQ1; triple_fault=0. REAL (QEMU).\n'
@@ -1893,8 +1996,9 @@ $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(
 # (os/milton/test_int21.c) exercises; freestanding here, hosted there. Now
 # includes sft.h -> psp.h -> dos_structs.h, so -Ispec (initech-509.3).
 $(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
-                     $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_INT21_C) -o $@
+                     $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h \
+                     $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
 # PSP construction (beads initech-509.4): the SAME psp.c the host oracle
 # (test_psp.c) exercises; freestanding here, hosted there. -Ispec for psp.h ->
@@ -2067,6 +2171,17 @@ $(DATETIME_PROG_BLOB_C): $(DATETIME_PROG_BIN) $(BIN2C_BIN)
 $(KERNEL_DATETIME_PROG_OBJ): $(DATETIME_PROG_BLOB_C) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(DATETIME_PROG_BLOB_C) -o $@
 
+# SETVECT/GETVECT + INT 24h program blob (beads initech-509.8): asm -> flat bin
+# -> C blob -> obj. Linked only into the -DBOOT_VECT kernel.
+$(VECT_PROG_BIN): $(VECT_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+$(VECT_PROG_BLOB_C): $(VECT_PROG_BIN) $(BIN2C_BIN)
+	$(BIN2C_BIN) $(VECT_PROG_BIN) g_vect_prog_image > $@
+
+$(KERNEL_VECT_PROG_OBJ): $(VECT_PROG_BLOB_C) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(VECT_PROG_BLOB_C) -o $@
+
 # IRQ-STORM baked program (beads initech-xk2): same nasm -f bin -> bin2c ->
 # KERNEL_CC pipeline. Linked only into the -DBOOT_IRQSTORM kernel(s).
 $(IRQSTORM_PROG_BIN): $(IRQSTORM_PROG_ASM) | $(BUILD)
@@ -2205,6 +2320,45 @@ $(CONIN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_CONIN_BIN) | $(BUILD)
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_CONIN_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> conin image: %s (CON-input self-test kernel @s17)\n" "$@"
+
+# --- SETVECT/GETVECT + INT 24h self-test kernel (beads initech-509.8; make
+# test-vect). Same sources, but kmain.c compiled with -DBOOT_VECT so the boot
+# runs the baked vect program then reports V24POST. The vect program blob is
+# linked in (referenced only under -DBOOT_VECT). Separate image.
+$(KERNEL_VECT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_VECT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_VECT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_VECT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_VECT_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_VECT_ELF): $(KERNEL_VECT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_VECT_OBJS)
+
+$(KERNEL_VECT_BIN): $(KERNEL_VECT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_vect.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(vect): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,vect)
+
+# The vect self-test disk image: identical layout to CONIN_IMG but with the vect
+# kernel at sector 17.
+$(VECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_VECT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_VECT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> vect image: %s (SETVECT/GETVECT + INT 24h self-test kernel @s17)\n" "$@"
 
 # --- FAT-sourced load + EXEC self-test kernel (beads initech-saw; test-exec) -
 # Same sources, but kmain.c compiled with -DBOOT_EXEC so the boot, after the FAT
@@ -2412,8 +2566,8 @@ $(KERNEL_PIT_MUT_SCRIBBLE_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DPIT_MUTATE_SCRIBBLE_DOS -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
 
 KERNEL_INT21_SEAM_OBJ := $(BUILD)/int21_seam.o
-$(KERNEL_INT21_SEAM_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/irq.h spec/find_data.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DINT21_IRQTEST_SEAM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_INT21_C) -o $@
+$(KERNEL_INT21_SEAM_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/irq.h spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DINT21_IRQTEST_SEAM -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
 $(KERNEL_IRQSTORM_MUTA_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
@@ -4491,6 +4645,82 @@ test-conin: $(HARNESS_BIN) $(CONIN_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# EMU KEYSTONE: test-vect (beads initech-509.8 -- INT 24h critical error +
+#               SETVECT/GETVECT + PSP-vector save/restore across EXEC/EXIT)
+# ---------------------------------------------------------------------------
+# Boots the -DBOOT_VECT kernel and proves the acceptance criteria end-to-end in
+# QEMU: the baked vect program GETVECTs 0x24 ("V24PRE="), raises `int $0x24` (the
+# kernel handler prints MSG-DOS-0001 to serial + reads the injected 'a' -> Abort
+# -> "CRIT-AL=1"), SETVECTs 0x24 to a bogus handler and EXITs WITHOUT restoring.
+# The loader's EXEC-save / EXIT-restore reinstates the parent's 0x24 vector; kmain
+# then GETVECTs 0x24 post-EXIT and emits "V24POST=". The gate asserts MSG-DOS-0001
+# present + CRIT-AL=1 + V24POST == V24PRE (the save/restore acceptance). The key
+# is injected gated on VECT-PROG-READY (the int24 read blocks until then).
+#
+# MUTATION-PROOF (Rule 6): a clean in-emulator mutant for the restore is
+# impractical (the loader save/restore is baked into the boot image), so this
+# gate's restore acceptance leans on the HOST mutation-proof -- PSP_MUTATE_VEC_OFFSET
+# in `make test-int24-mutant` perturbs exactly the psp_save_vectors offset this
+# restore depends on and is proven to bite.
+VECT_NAME     := vect_boot
+VECT_SERIAL   := $(BUILD)/$(VECT_NAME).serial
+VECT_REPORT   := $(BUILD)/$(VECT_NAME).report
+
+.PHONY: test-vect
+test-vect: $(HARNESS_BIN) $(VECT_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-vect : INT 24h crit-error + vector save/restore\n'
+	@printf '  Ref: ADR-0003 DEC-10; App C MSG-DOS-0001. beads initech-509.8. Law 2 / Rule 5.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (vect self-test kernel), injecting --keys "a" after VECT-PROG-READY\n' "$(VECT_IMG)"
+	@printf 'Expecting : V24PRE=N + MSG-DOS-0001 + CRIT-AL=1 + V24POST==V24PRE + triple_fault=0\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(VECT_IMG)" \
+		--name "$(VECT_NAME)" --out "$(BUILD)" --timeout-ms 9000 \
+		--keys "a" --keys-after "VECT-PROG-READY" \
+		2> "$(VECT_REPORT)" || true
+	@cat "$(VECT_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if [ ! -s "$(VECT_SERIAL)" ]; then \
+		printf '!!! test-vect FAIL: no serial captured at %s\n' "$(VECT_SERIAL)"; \
+		exit 1; \
+	fi
+	@# [1] MSG-DOS-0001 must appear (the critical error was presented A/R/F).
+	@grep -q 'Abort, Retry, Fail?' "$(VECT_SERIAL)" \
+		|| { printf '!!! test-vect FAIL: MSG-DOS-0001 ("Abort, Retry, Fail?") missing -- INT 24h did not present the critical error\n'; exit 1; }
+	@printf '>>> test-vect [1/4]: MSG-DOS-0001 presented (critical error -> A/R/F prompt)\n'
+	@# [2] CRIT-AL=1: the injected 'a' was processed as Abort (the A/R/F action).
+	@tr -d '\r' < "$(VECT_SERIAL)" | grep -q '^CRIT-AL=1$$' \
+		|| { printf '!!! test-vect FAIL: CRIT-AL=1 missing -- INT 24h did not process the injected key as Abort (root-cause the crit-error path, Rule 3)\n'; exit 1; }
+	@printf '>>> test-vect [2/4]: CRIT-AL=1 (injected '\''a'\'' processed -> Abort)\n'
+	@# [3] V24POST == V24PRE: the loader RESTORED the parent's 0x24 vector on EXIT,
+	@# despite the child's SETVECT to a bogus handler. Extract both decimals and
+	@# compare; they MUST be equal AND non-empty.
+	@PRE=$$(tr -d '\r' < "$(VECT_SERIAL)" | sed -n 's/^V24PRE=//p' | head -1); \
+	 POST=$$(tr -d '\r' < "$(VECT_SERIAL)" | sed -n 's/^V24POST=//p' | head -1); \
+	 if [ -z "$$PRE" ] || [ -z "$$POST" ]; then \
+		printf '!!! test-vect FAIL: V24PRE (%s) or V24POST (%s) missing from serial\n' "$$PRE" "$$POST"; \
+		exit 1; \
+	 fi; \
+	 if [ "$$PRE" != "$$POST" ]; then \
+		printf '!!! test-vect FAIL: V24POST=%s != V24PRE=%s -- the loader did NOT restore the parent 0x24 vector on EXIT (the child SETVECT leaked)\n' "$$POST" "$$PRE"; \
+		exit 1; \
+	 fi; \
+	 printf '>>> test-vect [3/4]: V24POST=%s == V24PRE=%s (loader restored 0x24 across EXEC/EXIT)\n' "$$POST" "$$PRE"
+	@# [4] clean run: no triple fault + the key was injected.
+	@if grep -q 'triple_fault=1' "$(VECT_REPORT)"; then \
+		printf '!!! test-vect FAIL: TRIPLE FAULT during the vect run\n'; \
+		exit 1; \
+	fi
+	@grep -q 'keys_sent=1' "$(VECT_REPORT)" \
+		|| { printf '!!! test-vect FAIL: harness did not report keys_sent=1 (a)\n'; exit 1; }
+	@printf '>>> test-vect [4/4]: triple_fault=0 + keys_sent=1 (clean run, key injected)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- INT 24h presented MSG-DOS-0001 + processed Abort; the loader\n'
+	@printf '            saved/restored the 0x24 vector across EXEC/EXIT (V24POST==V24PRE)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # Bochs leg of test-kbd (beads initech-3rs / Rule 5: the sti/PIC/IRQ path is
 # exactly what differs across emulators -- it MUST be checked on Bochs too).
 # ---------------------------------------------------------------------------
@@ -4903,12 +5133,13 @@ sys.exit(1 if absent else 0)"; \
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
 	test-fat-partial test-fat-write-partial test-fat-fuzz \
-	test-console test-idt test-kbd-unit test-conin-unit test-int21 \
+	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-exec-unit test-command test-psp test-sft test-loader \
 	test-config-sys test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
+	test-int24-mutant \
 	test-fileio-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
@@ -4919,7 +5150,7 @@ TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-fatwrite test-multiopen test-exit-handles \
 	test-sysinit test-shell test-panic test-datetime \
-	test-kbd test-conin test-int21-irqstorm
+	test-kbd test-conin test-vect test-int21-irqstorm
 
 test-unit:
 	@printf '======================================================================\n'

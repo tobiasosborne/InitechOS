@@ -65,4 +65,13 @@ extern const uint32_t g_irqstorm_prog_image_len;
 extern const uint8_t  g_datetime_prog_image[];
 extern const uint32_t g_datetime_prog_image_len;
 
+/* The baked SETVECT/GETVECT + INT 24h critical-error program (AH=35h GETVECT 0x24
+ * -> "V24PRE=" / int $0x24 -> MSG-DOS-0001 + injected 'a' -> "CRIT-AL=" / AH=25h
+ * SETVECT 0x24 to a bogus handler then EXIT; beads initech-509.8). Generated from
+ * os/milton/vect_program.asm. Run only in the -DBOOT_VECT self-test image (make
+ * test-vect), where the harness injects the operator key and kmain reports the
+ * post-EXIT 0x24 vector ("V24POST=") to prove the loader restored it. */
+extern const uint8_t  g_vect_prog_image[];
+extern const uint32_t g_vect_prog_image_len;
+
 #endif /* INITECH_TEST_PROG_H */

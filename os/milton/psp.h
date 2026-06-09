@@ -81,6 +81,37 @@ typedef struct psp_params {
     uint32_t    cmd_tail_len;
 } psp_params_t;
 
+/* Offsets of the three saved-vector slots WITHIN psp_t.saved_vectors[12]
+ * (the field begins at PSP offset 0x0A). Each is a 4-byte little-endian flat-
+ * linear handler address: INT 22h @ 0x0A, INT 23h @ 0x0E, INT 24h @ 0x12 (so
+ * 0, 4, 8 relative to the start of saved_vectors). The field is 12 bytes = the
+ * three 4-byte entries; the static asserts in psp.c pin this.
+ * Ref: docs/research/psp-loader-ground-truth.md Sec 2.4; spec/dos_structs.h:95;
+ *      ADR-0003 DEC-10 (Appendix B.2). */
+#define PSP_SAVED_VEC22_OFF 0u   /* INT 22h terminate    handler (PSP 0x0A) */
+#define PSP_SAVED_VEC23_OFF 4u   /* INT 23h control-break handler (PSP 0x0E) */
+#define PSP_SAVED_VEC24_OFF 8u   /* INT 24h critical-err  handler (PSP 0x12) */
+
+/* psp_save_vectors -- write the parent's three live INT 22h/23h/24h handler
+ * addresses into psp->saved_vectors as little-endian 4-byte flat-linear values
+ * (v22 @ 0x0A, v23 @ 0x0E, v24 @ 0x12). PURE: no I/O, no globals -- the loader
+ * reads the LIVE IDT vectors on EXEC and hands them here; the host PSP oracle
+ * (test_psp.c, the NEXT step) drives this directly. Endianness-explicit byte
+ * writes (low byte first) so the encoding is deterministic and matches the
+ * x86 little-endian kernel regardless of the host the oracle compiles on
+ * (Rule 11). Fails LOUD on a NULL psp (Rule 2).
+ * Ref: docs/research/psp-loader-ground-truth.md Sec 2.4; ADR-0003 DEC-10. */
+void psp_save_vectors(psp_t *psp, uint32_t v22, uint32_t v23, uint32_t v24);
+
+/* psp_load_vectors -- the inverse read: reassemble the three little-endian
+ * 4-byte flat-linear handler addresses out of psp->saved_vectors into *v22 /
+ * *v23 / *v24. PURE (no I/O). The loader calls this on EXIT to recover the
+ * parent's handlers from the child PSP, then reinstalls them into the live IDT
+ * (DOS-authentic restore). Fails LOUD on a NULL psp or any NULL out pointer
+ * (Rule 2). Ref: docs/research/psp-loader-ground-truth.md Sec 2.4. */
+void psp_load_vectors(const psp_t *psp, uint32_t *v22, uint32_t *v23,
+                      uint32_t *v24);
+
 /* psp_build -- zero-init the 256-byte PSP then populate every field per the
  * App B.2 value map (docs/research/psp-loader-ground-truth.md Sec 2).
  *

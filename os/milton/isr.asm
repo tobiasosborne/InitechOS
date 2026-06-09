@@ -217,6 +217,116 @@ int20_entry:
     add esp, 8                 ; discard the pushed vector + err_code dwords
     iretd                      ; resume caller (no-hook host-style fallback)
 
+; --- INT 22h/23h/24h DOS handler trap stubs (vectors 0x22/0x23/0x24) --------
+; beads: initech-509.8 (termination 22h, control-break 23h, critical-error 24h).
+; Ref: docs/adr/ADR-0003-InitechDOS-Base-OS-Personality.md Sec 5.10 (DEC-10 --
+;      handlers for 24h/23h/22h; 24h presents MSG-DOS-0001 + processes the
+;      operator A/R/F response). DEC-04a: the PIC master is remapped to 0x28
+;      (not 0x20), so software `int 0x22/0x23/0x24` land on these free vectors
+;      and not on IRQs -- the SAME reasoning that frees 0x20/0x21.
+;
+; Each stub is byte-identical in shape to int21_entry / int20_entry: dummy 0
+; err_code + the vector sentinel, then segs + pushad, so the C dispatcher reads
+; the SAME uniform int_frame_t and writes the return value + CF into the saved
+; image. 22h/23h normally TERMINATE (the dispatcher routes to the bound exit
+; hook, non-returning); 24h RETURNS an A/R/F action in AL and irets -- the
+; teardown + iretd tail serves exactly that case (and the no-hook fallback for
+; 22h/23h). All three pushad-build the frame so the loader's PSP vector save
+; (the SEPARATE next step, loader.c) can read the installed IDT gates.
+
+extern int22_dispatch          ; void int22_dispatch(int_frame_t *)
+global int22_entry
+int22_entry:
+    push dword 0               ; dummy error code (uniform frame; no CPU err)
+    push dword 0x22            ; vector sentinel (a dump shows the 0x22 path)
+    push gs                    ; -> int_frame_t.gs (+44)
+    push fs                    ; -> .fs (+40)
+    push es                    ; -> .es (+36)
+    push ds                    ; -> .ds (+32)
+    pushad                     ; -> eax(+28)..edi(+0)
+
+    mov ax, 0x10               ; known-good kernel data selector (DATA_SEL)
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    mov eax, esp               ; frame pointer = &int_frame_t (top of stack)
+    push eax                   ; arg 1 (cdecl): int_frame_t *frame
+    call int22_dispatch        ; terminate(0) via the exit hook; normally no return
+    add esp, 4                 ; pop the arg (only reached if no hook is bound)
+
+    popad                      ; restore eax..edi
+    pop ds
+    pop es
+    pop fs
+    pop gs
+    add esp, 8                 ; discard the pushed vector + err_code dwords
+    iretd                      ; resume caller (no-hook host-style fallback)
+
+extern int23_dispatch          ; void int23_dispatch(int_frame_t *)
+global int23_entry
+int23_entry:
+    push dword 0               ; dummy error code (uniform frame; no CPU err)
+    push dword 0x23            ; vector sentinel (a dump shows the 0x23 path)
+    push gs                    ; -> int_frame_t.gs (+44)
+    push fs                    ; -> .fs (+40)
+    push es                    ; -> .es (+36)
+    push ds                    ; -> .ds (+32)
+    pushad                     ; -> eax(+28)..edi(+0)
+
+    mov ax, 0x10               ; known-good kernel data selector (DATA_SEL)
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    mov eax, esp               ; frame pointer = &int_frame_t (top of stack)
+    push eax                   ; arg 1 (cdecl): int_frame_t *frame
+    call int23_dispatch        ; control-break default ABORTS (terminate); no return
+    add esp, 4                 ; pop the arg (only reached if no hook is bound)
+
+    popad                      ; restore eax..edi
+    pop ds
+    pop es
+    pop fs
+    pop gs
+    add esp, 8                 ; discard the pushed vector + err_code dwords
+    iretd                      ; resume caller (no-hook host-style fallback)
+
+extern int24_dispatch          ; void int24_dispatch(int_frame_t *)
+global int24_entry
+int24_entry:
+    push dword 0               ; dummy error code (uniform frame; no CPU err)
+    push dword 0x24            ; vector sentinel (a dump shows the 0x24 path)
+    push gs                    ; -> int_frame_t.gs (+44)
+    push fs                    ; -> .fs (+40)
+    push es                    ; -> .es (+36)
+    push ds                    ; -> .ds (+32)
+    pushad                     ; -> eax(+28)..edi(+0)
+
+    mov ax, 0x10               ; known-good kernel data selector (DATA_SEL)
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    mov eax, esp               ; frame pointer = &int_frame_t (top of stack)
+    push eax                   ; arg 1 (cdecl): int_frame_t *frame
+    call int24_dispatch        ; presents MSG-DOS-0001, returns the A/R/F action in AL
+    add esp, 4                 ; pop the arg
+
+    ; 24h RETURNS the operator's action to the caller (DOS critical-error
+    ; contract): the dispatcher wrote AL into the saved frame->eax and cleared
+    ; CF, so popad restores AL and the iretd resumes the (would-be) caller.
+    popad                      ; restore eax..edi (incl. the A/R/F action in AL)
+    pop ds
+    pop es
+    pop fs
+    pop gs
+    add esp, 8                 ; discard the pushed vector + err_code dwords
+    iretd                      ; resume caller with AL = action, CF clear
+
 ; --- hardware IRQ stubs: PIT IRQ0 (vector 0x28) + keyboard IRQ1 (0x29) ------
 ; beads: initech-3rs ("PS/2 keyboard (IRQ1) + PIT (IRQ0) tick").
 ; Ref: Intel SDM Vol 2A PUSHAD/IRET; Intel 8259A datasheet (the C handler issues

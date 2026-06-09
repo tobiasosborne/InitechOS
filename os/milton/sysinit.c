@@ -25,6 +25,9 @@
  * Naming them here keeps the gate-install order self-contained in the phase. */
 extern void int21_entry(void);
 extern void int20_entry(void);
+extern void int22_entry(void);   /* DOS termination handler   (beads initech-509.8) */
+extern void int23_entry(void);   /* DOS control-break handler (beads initech-509.8) */
+extern void int24_entry(void);   /* DOS critical-error handler(beads initech-509.8) */
 extern void irq0_entry(void);
 extern void irq1_entry(void);
 
@@ -102,6 +105,14 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
 
     idt_install_trap(0x21u, (void *)int21_entry);
     idt_install_trap(0x20u, (void *)int20_entry);
+    /* DOS termination / control-break / critical-error handlers (DEC-10, beads
+     * initech-509.8). Vectors 0x22-0x24 are free (PIC remapped to 0x28/0x30,
+     * DEC-04a), so they are real 0x8F TRAP gates exactly like INT 21h. The gates
+     * stay installed so the loader's PSP vector save (PSP 0Ah-15h; a SEPARATE
+     * step) can read their current offsets. */
+    idt_install_trap(0x22u, (void *)int22_entry);
+    idt_install_trap(0x23u, (void *)int23_entry);
+    idt_install_trap(0x24u, (void *)int24_entry);
     serial("INT21\n");
 }
 

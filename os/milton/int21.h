@@ -266,6 +266,56 @@ typedef int (*int21_clock_set_fn)(uint16_t year, uint8_t month, uint8_t day,
  * backed callbacks at boot; the host oracle binds a fixed mock. */
 void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set);
 
+/* ---- INTERRUPT-VECTOR TABLE SEAM (beads initech-509.8) --------------------
+ * AH=25h SETVECT / AH=35h GETVECT read and write the live interrupt vector for
+ * a given vector number. On this 32-bit protected-flat kernel that means the
+ * IDT gate offset (idt_set_gate / idt_get_gate, idt.c). int21.c reaches the IDT
+ * through a seam -- the SAME pattern as the sink/conin/clock seams -- so it does
+ * NOT link idt.c and stays HOSTED-clean (Law 3): the host oracle binds a mock
+ * vector table; the kernel binds idt-backed callbacks at SYSINIT.
+ *   set : install `handler` (a flat linear address) as the vector for `vec`,
+ *         keeping the kernel code selector + 0x8F TRAP type (real DOS rewrites
+ *         the whole IVT entry; here we rewrite the gate offset).
+ *   get : return the current flat handler offset for `vec` (0 if none/unbound).
+ * A NULL table (unbound default) makes SETVECT a graceful no-op and GETVECT
+ * return 0 -- never a fault (Rule 2). Ref: spec/int21h_register.json (25h/35h
+ * SETVECT/GETVECT, Core class); spec/int21h_calling_convention.json (flat ABI:
+ * pointer args are flat 32-bit linear addresses). */
+typedef void     (*int21_setvect_fn)(uint8_t vec, uint32_t handler);
+typedef uint32_t (*int21_getvect_fn)(uint8_t vec);
+void int21_set_vectortable(int21_setvect_fn set, int21_getvect_fn get);
+
+/* ---- DOS termination / control-break / critical-error handlers (DEC-10) ----
+ * beads initech-509.8. The asm trap stubs (int22_entry / int23_entry /
+ * int24_entry, isr.asm) call these with a pointer to the on-stack int_frame_t,
+ * exactly like int21_dispatch / int20_dispatch.
+ *
+ *   int22_dispatch : INT 22h = the DOS program-TERMINATE return address (DOS
+ *     PRM). In the single-level process model the default handler terminates the
+ *     current program through the bound exit hook with code 0 (the SAME path as
+ *     INT 20h / 4Ch AL=0). Normally non-returning.
+ *   int23_dispatch : INT 23h = the control-BREAK handler. The DOS default action
+ *     ABORTS the program, so this routes to the SAME terminate path as 22h (the
+ *     break-abort). (No keyboard ^C wiring yet -- beads initech-4tw.)
+ *   int24_dispatch : INT 24h = the CRITICAL-ERROR handler. Presents MSG-DOS-0001
+ *     ("Abort, Retry, Fail?") to CON, reads ONE operator key, decides the action
+ *     via crit_error_action (below), writes the action into AL, clears CF, and
+ *     RETURNS to the failed caller (DOS contract -- 24h does NOT terminate).
+ * Ref: docs/adr/ADR-0003 Sec 5.10 (DEC-10); App C (MSG-DOS-0001). */
+void int22_dispatch(int_frame_t *frame);
+void int23_dispatch(int_frame_t *frame);
+void int24_dispatch(int_frame_t *frame);
+
+/* PURE, host-testable INT 24h Abort/Retry/Fail decision. Maps an operator key to
+ * the DOS AL action code: 'R'->0 (Retry), 'A'->1 (Abort), 'F'->2 (Fail), case-
+ * insensitive. Any other key -> -1 ("re-prompt": int24_dispatch loops, re-reads,
+ * and re-presents MSG-DOS-0001 until a valid A/R/F key arrives). Ignore=3 is the
+ * fourth DOS action and is DEFERRED (no Ignore prompt this milestone). No asm/IO
+ * -- a SEAM the host oracle drives directly. Ref: DOS 3.3 PRM INT 24h (AL return
+ * 0=Ignore/1=Retry/2=Abort historically varies by DOS revision; we use the
+ * documented modern A/R/F mapping pinned here). */
+int crit_error_action(int ch);
+
 /* Record the most recent DOS error code so AH=59h GET EXTENDED ERROR can report
  * it (beads initech-yv9). The error-returning functions (OPEN/UNLINK/etc.) call
  * this with the DOS error they return; AH=59h derives the class/action/locus.

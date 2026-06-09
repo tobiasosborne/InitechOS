@@ -24,6 +24,7 @@
 #include "memory_map.h"   /* PROGRAM_BASE / PROGRAM_IMAGE / ENV_BLOCK / ... */
 #include "int21.h"        /* int21_set_exit / int21_exit_fn (the repointed hook) */
 #include "fat12.h"        /* FAT-sourced load (beads initech-saw): find + read file */
+#include "psp.h"          /* psp_save_vectors / psp_load_vectors (beads 509.8)    */
 
 /* ------------------------------------------------------------------------ *
  * Pure prep: validate + lay out + compute psp_params (HOST-TESTABLE).
@@ -114,6 +115,34 @@ loader_status_t load_program_from_fat(const char *name83, const char *cmd_tail,
 }
 
 #else /* freestanding kernel build */
+
+#include "idt.h"          /* idt_get_gate / idt_install_trap -- live IDT vectors */
+
+/* ------------------------------------------------------------------------ *
+ * Live IDT vector read/write for INT 22h/23h/24h (beads initech-509.8).
+ *
+ * The kernel installs trap gates at 0x22/0x23/0x24 in sysinit (int22/23/24_entry)
+ * -- the PARENT's (kernel's) termination / control-break / critical-error
+ * handlers. On EXEC the loader snapshots these three live vectors into the child
+ * PSP (psp_save_vectors); on EXIT it restores them into the IDT (the DOS-
+ * authentic behavior: if the child SETVECT'd its own 23h/24h via INT 21h AH=25h,
+ * the parent's handlers are reinstated when the child terminates).
+ *
+ * read_live_vector reassembles the flat handler offset from the gate's split
+ * lo/hi fields -- the SAME reassembly the AH=35h GETVECT seam uses (kmain.c
+ * int21_getvect_idt). install_live_vector writes a 0x8F TRAP gate (the gate type
+ * the DOS handlers use), mirroring AH=25h SETVECT (kmain.c int21_setvect_idt).
+ * Ref: idt.h (idt_get_gate / idt_install_trap); Sec 2.4. */
+static uint32_t read_live_vector(uint8_t vec)
+{
+    idt_gate_t g = idt_get_gate(vec);
+    return (uint32_t)g.offset_lo | ((uint32_t)g.offset_hi << 16);
+}
+
+static void install_live_vector(uint8_t vec, uint32_t handler)
+{
+    idt_install_trap(vec, (void *)(uintptr_t)handler);
+}
 
 /* loader_context_t -- the saved kernel state for the non-returning return jump
  * (Sec 4.2). saved_esp + return_eip are captured at the point of program entry;
@@ -238,6 +267,18 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * overflowed. We ignore the count here (the baked program has no tail). */
     (void)psp_build((psp_t *)(uintptr_t)plan.psp_addr, &plan.params);
 
+    /* Save the PARENT's (kernel's) live INT 22h/23h/24h vectors into the child
+     * PSP (beads initech-509.8; ADR-0003 DEC-10; ground-truth Sec 2.4). psp_build
+     * left saved_vectors zero by design; we fill it HERE from the live IDT so the
+     * parent's handlers can be restored on the child's EXIT below. Read all three
+     * BEFORE binding/JMP so we capture exactly the state the child inherits. */
+    {
+        uint32_t v22 = read_live_vector(0x22u);
+        uint32_t v23 = read_live_vector(0x23u);
+        uint32_t v24 = read_live_vector(0x24u);
+        psp_save_vectors((psp_t *)(uintptr_t)plan.psp_addr, v22, v23, v24);
+    }
+
     /* Bind the loaded program's PSP as the current process (beads initech-509.3)
      * so its INT 21h handle functions (40h WRITE, 45h DUP, 46h DUP2, file ops)
      * resolve through ITS Job File Table. The kernel re-binds its own PSP after
@@ -298,6 +339,24 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * stray 4Ch from kernel context does not jump through a stale context
      * (Sec 4.5). The caller (kmain) re-binds its own int21_exit_hook. */
     g_loader_ctx = 0;
+
+    /* Restore the parent's INT 22h/23h/24h vectors into the live IDT (beads
+     * initech-509.8; ADR-0003 DEC-10). If the child SETVECT'd its own 23h/24h
+     * (INT 21h AH=25h) while running, the parent's handlers must be reinstated
+     * now that the child has terminated (DOS-authentic). We restore from the
+     * SAME PSP we saved into (plan.psp_addr == PROGRAM_BASE), which is still
+     * intact: the child can no longer run (we resumed past its terminating
+     * syscall), and do_terminate frees handles only -- it never scribbles the
+     * PSP bytes. Runs on EVERY exit path (4Ch and INT 20h both route through
+     * do_terminate -> loader_exit_hook -> the jmp that landed us here). */
+    {
+        uint32_t v22 = 0, v23 = 0, v24 = 0;
+        psp_load_vectors((const psp_t *)(uintptr_t)plan.psp_addr,
+                         &v22, &v23, &v24);
+        install_live_vector(0x22u, v22);
+        install_live_vector(0x23u, v23);
+        install_live_vector(0x24u, v24);
+    }
 
     if (out_exit_code) {
         *out_exit_code = ctx.exit_code;
