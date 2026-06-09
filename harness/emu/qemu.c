@@ -261,6 +261,12 @@ static const char *token_to_qcode(const char *tok)
     if (strcmp(tok, "spc") == 0 || strcmp(tok, "space") == 0) {
         return "spc";
     }
+    /* Punctuation needed by the COMMAND.COM shell oracle (beads initech-7pc):
+     * '.' for a filename like "hello.txt". The QMP QKeyCode name is "dot".
+     * Ref: QMP send-key + qapi/ui.json (QKeyCode includes "dot"). */
+    if (strcmp(tok, "dot") == 0 || strcmp(tok, ".") == 0) {
+        return "dot";
+    }
     return NULL;
 }
 

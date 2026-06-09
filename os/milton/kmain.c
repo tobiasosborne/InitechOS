@@ -36,6 +36,7 @@
 #include "fileio_fat.h"  /* bind the FAT12 file backend into int21 (509.5) */
 #include "kbd.h"         /* PS/2 keyboard IRQ1 driver (initech-3rs) */
 #include "pit.h"         /* 8254 PIT IRQ0 tick (initech-3rs) */
+#include "command.h"     /* COMMAND.COM REPL (initech-7pc); BOOT_SHELL only */
 
 /* Seafoam: ported VERBATIM from stage2.asm:42-44 (SEAFOAM_R/G/B). The pie
  * chart and the wristwatch are canon; so is this fill color. The screendump
@@ -797,6 +798,26 @@ void kernel_main(void)
         }
     }
     serial_puts("\nKBD-ECHO-END\n");
+    for (;;) {
+        __asm__ __volatile__("hlt");
+    }
+#elif defined(BOOT_SHELL)
+    /* COMMAND.COM INTERACTIVE SHELL BUILD ONLY (beads initech-7pc; make
+     * test-shell). The M2 capstone: instead of the demo+halt, enter the resident
+     * COMMAND.COM REPL. It prints the $P$G prompt (A:\>), reads a line via INT 21h
+     * AH=0Ah, and dispatches DIR / TYPE / CD / CLS / VER / ECHO / EXIT + external
+     * .COM EXEC -- all by issuing REAL `int 0x21` calls (command.c dogfoods the
+     * OS API, the authentic COMMAND.COM design). The blocking AH=0Ah can only make
+     * progress because the oracle injects keys via QMP --keys (gated on
+     * SHELL-READY); with no injection the prompt appears but no command runs (the
+     * test goes RED). The NORMAL image never defines BOOT_SHELL, so test-boot et
+     * al. (which run WITHOUT key injection) are unaffected and never block.
+     *
+     * Making the shell the DEFAULT boot + migrating the demo gates is a SEPARATE
+     * downstream task (see the follow-up bead). Ref: ADR-0003 DEC-11/DEC-12. */
+    serial_puts("SHELL-READY\n");
+    command_repl();
+    serial_puts("SHELL-DONE\n");   /* the REPL returned via EXIT (clean) */
     for (;;) {
         __asm__ __volatile__("hlt");
     }

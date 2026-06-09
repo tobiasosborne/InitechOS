@@ -161,6 +161,11 @@ KERNEL_FAT12_C   := $(KERNEL_DIR)/fat12.c
 # math) ALSO compile hosted in the test-kbd-unit oracle.
 KERNEL_KBD_C     := $(KERNEL_DIR)/kbd.c
 KERNEL_PIT_C     := $(KERNEL_DIR)/pit.c
+# COMMAND.COM interactive shell (beads initech-7pc): the kernel-resident A:\> REPL.
+# The pure logic (parser/upcaser/classifier/.COM-appender/DIR formatter) ALSO
+# compiles HOSTED in the test-command oracle; the REPL + its int 0x21 wrappers are
+# kernel-only behind -DCOMMAND_KERNEL_REPL.
+KERNEL_COMMAND_C := $(KERNEL_DIR)/command.c
 # Baked flat test program: nasm -f bin -> bin2c -> a .rodata C array. The loader
 # copies it to PROGRAM_IMAGE (0x20100) and JMPs in (initech-509.5).
 TEST_PROG_ASM    := $(KERNEL_DIR)/test_program.asm
@@ -204,6 +209,8 @@ KERNEL_FAT12_OBJ := $(BUILD)/fat12.o
 KERNEL_FILEIO_OBJ := $(BUILD)/fileio_fat.o
 KERNEL_KBD_OBJ   := $(BUILD)/kbd.o
 KERNEL_PIT_OBJ   := $(BUILD)/pit.o
+# COMMAND.COM shell object (beads initech-7pc), compiled with the REPL enabled.
+KERNEL_COMMAND_OBJ := $(BUILD)/command.o
 KERNEL_TEST_PROG_OBJ := $(BUILD)/test_prog_blob.o
 KERNEL_TYPE_PROG_OBJ := $(BUILD)/type_prog_blob.o
 KERNEL_DIR_PROG_OBJ  := $(BUILD)/dir_prog_blob.o
@@ -243,6 +250,17 @@ KERNEL_EXEC_MAIN_OBJ  := $(BUILD)/kmain_exec.o
 KERNEL_EXEC_ELF       := $(BUILD)/kernel_exec.elf
 KERNEL_EXEC_BIN       := $(BUILD)/kernel_exec.bin
 EXEC_IMG              := $(BUILD)/exec_boot.img
+# COMMAND.COM shell kernel/image (beads initech-7pc; make test-shell): the SAME
+# kernel sources but with -DBOOT_SHELL so the boot, after CONIN-LIVE, prints
+# SHELL-READY and enters the COMMAND.COM REPL (instead of the demo+halt). Separate
+# image so the NORMAL kernel/image is byte-for-byte unchanged (the demo gates run
+# WITHOUT key injection and would HANG on a blocking prompt). The shell command.o
+# (REPL enabled) is linked ONLY into this image. Requires --disk2 (HELLO.TXT +
+# GREET.COM) so DIR/TYPE/run-program have real files. Mirrors the EXEC image.
+KERNEL_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell.o
+KERNEL_SHELL_ELF      := $(BUILD)/kernel_shell.elf
+KERNEL_SHELL_BIN      := $(BUILD)/kernel_shell.bin
+SHELL_IMG             := $(BUILD)/shell_boot.img
 
 # ---------------------------------------------------------------------------
 # Asset extraction v0 (spec/assets, beads initech-vcq)
@@ -752,6 +770,73 @@ test-exec-mutant: $(TEST_EXEC_MUT_RC)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-command (beads initech-7pc -- the PURE COMMAND.COM logic)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the pure COMMAND.COM shell logic: the command tokenizer +
+# upcaser, the built-in dispatch classifier, the ".COM appender", and the DIR-
+# record line formatter. Compiles the REAL artifact command.c HOSTED WITHOUT
+# -DCOMMAND_KERNEL_REPL, so only the asm-free pure logic is linked (the kernel
+# REPL + its int 0x21 wrappers are compiled out) -- the host-testability seam
+# command.h documents (mirrors how int21.c keeps its dispatch host-testable).
+# -Ispec for dos_structs.h (DIR_ATTR_DIRECTORY). Mirrors the $(TEST_INT21) idiom.
+TEST_COMMAND      := $(BUILD)/test_command
+TEST_COMMAND_SRC  := $(MILTON_DIR)/test_command.c
+TEST_COMMAND_DEPS := $(KERNEL_COMMAND_C)
+TEST_COMMAND_HDRS := $(MILTON_DIR)/command.h spec/dos_structs.h spec/find_data.h
+# Mutation builds (CLAUDE.md Rule 6): command.c compiled with a single perturbation
+# so `make test-command-mutant` can prove the oracle BITES. (a) the parser stops
+# upper-casing -> lowercase "dir" no longer dispatches; (b) the .COM appender
+# always appends -> GREET.COM becomes GREET.COM.COM; (c) an unknown word is
+# classified as a built-in instead of EXTERNAL -> "badcmd" never reaches EXEC.
+TEST_COMMAND_MUT_NOUP   := $(BUILD)/test_command_mutant_noupcase
+TEST_COMMAND_MUT_COM    := $(BUILD)/test_command_mutant_com
+TEST_COMMAND_MUT_BADCMD := $(BUILD)/test_command_mutant_badcmd
+
+$(TEST_COMMAND): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
+$(TEST_COMMAND_MUT_NOUP): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_UPCASE -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
+$(TEST_COMMAND_MUT_COM): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_COM_ALWAYS -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
+$(TEST_COMMAND_MUT_BADCMD): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_BADCMD_BUILTIN -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
+.PHONY: test-command test-command-mutant
+test-command: $(TEST_COMMAND)
+	@printf ">>> test-command: parse/upcase + built-in classify + .COM-append + DIR-line format\n"
+	@$(TEST_COMMAND)
+	@printf ">>> test-command: green\n"
+
+# Mutation-proof: ALL three mutant builds MUST fail the oracle (Rule 6).
+test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD)
+	@printf ">>> test-command-mutant: confirming all three mutants go RED (Rule 6)\n"
+	@if $(TEST_COMMAND_MUT_NOUP) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-upcase mutant PASSED -- the parse/upcase test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-upcase mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_COM) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: com-always mutant PASSED -- the .COM-append test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (com-always mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_BADCMD) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: badcmd-builtin mutant PASSED -- the classify test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (badcmd-builtin mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-psp (beads initech-509.4 -- PSP full 256-byte construction)
 # ---------------------------------------------------------------------------
 # Host unit oracle for psp_build() (os/milton/psp.c): zero-init + every field
@@ -929,6 +1014,7 @@ endef
         test-sft test-sft-mutant test-fileio test-fileio-mutant \
         test-loader test-loader-mutant test-program test-fs test-type test-dir \
         test-exec test-exec-unit test-exec-mutant \
+        test-command test-command-mutant test-shell \
         test-panic test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-conin-unit test-conin-mutant test-conin \
         test-assets test-spec selfhost ddc clean
@@ -1106,6 +1192,14 @@ $(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h | $(BU
 
 $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
+
+# COMMAND.COM shell (beads initech-7pc): the SAME command.c the host oracle
+# (test_command.c) exercises for the pure parser/classifier/formatter logic;
+# freestanding here with -DCOMMAND_KERNEL_REPL so the int 0x21 REPL is compiled
+# IN (the host build leaves it out). -Ispec for find_data.h + dos_structs.h.
+$(KERNEL_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
+                       spec/find_data.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -Ispec -I$(KERNEL_DIR) -c $(KERNEL_COMMAND_C) -o $@
 
 # --- Baked test program pipeline (beads initech-509.5; Sec 5.4) ------------
 # bin2c is a host factory tool (libc), built with the factory CC, not KERNEL_CC.
@@ -1318,6 +1412,47 @@ $(EXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXEC_BIN) | $(BUILD)
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_EXEC_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> exec image: %s (FAT-sourced load + EXEC self-test kernel @s17)\n" "$@"
+
+# --- COMMAND.COM shell kernel (beads initech-7pc; make test-shell) ----------
+# Same sources, but kmain.c compiled with -DBOOT_SHELL so the boot, after
+# CONIN-LIVE, prints SHELL-READY and enters the COMMAND.COM REPL instead of the
+# demo+halt. The shell command.o (REPL enabled) is linked IN. Separate image so
+# the NORMAL boot never enters the (blocking) prompt -- the demo gates run with
+# NO key injection. Requires --disk2 (HELLO.TXT + GREET.COM). Mirrors the EXEC
+# image; -DBOOT_SHELL on kmain.c only (command.o is built with COMMAND_KERNEL_REPL
+# above and is BOOT_SHELL-agnostic).
+$(KERNEL_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SHELL -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_COMMAND_OBJ) \
+                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                     $(KERNEL_ISR_OBJ)
+
+$(KERNEL_SHELL_ELF): $(KERNEL_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SHELL_OBJS)
+
+$(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+# The shell self-test disk image: identical layout to TRACER_IMG but with the
+# shell kernel at sector 17.
+$(SHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SHELL_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_SHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> shell image: %s (COMMAND.COM REPL self-test kernel @s17)\n" "$@"
 
 # Raw flat binary, then zero-pad to KERNEL_SECTORS * 512 bytes (deterministic).
 $(KERNEL_BIN): $(KERNEL_ELF) | $(BUILD)
@@ -2225,6 +2360,96 @@ test-exec: $(HARNESS_BIN) $(EXEC_IMG) $(FAT_EXEC_IMG)
 	@printf '>>> test-exec [4/4]: INT 21h AH=4Bh EXEC ran GREET.COM; AH=4Dh returned rc=7\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- InitechDOS loaded a flat .COM BY NAME from a FAT12 volume and ran it (saw + AH=4Bh EXEC)\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-shell (beads initech-7pc -- BOOT -> COMMAND.COM -> DIR/TYPE/run)
+# ---------------------------------------------------------------------------
+# THE M2 capstone keystone: boot the -DBOOT_SHELL image WITH a FAT12 disk
+# (--disk2 = FAT_EXEC_IMG, carrying HELLO.TXT + GREET.COM) and inject a command
+# script via QMP --keys, gated on SHELL-READY so the keys arrive while the shell's
+# AH=0Ah is blocking on the prompt. The injected script (each token a key; "ret"
+# = Enter, "dot" = '.'):
+#     dir<ret> type hello.txt<ret> greet<ret> badcmd<ret> exit<ret>
+# Assert on serial (every miss fail-loud + exit-non-zero, Law 2 / Rule 2):
+#   1. NO triple-fault.
+#   2. SHELL-READY (the REPL was entered after CONIN-LIVE).
+#   3. DIR listed HELLO.TXT and GREET.COM (FINDFIRST/FINDNEXT into the DTA).
+#   4. TYPE printed HELLO.TXT's contents ("Hello from InitechOS test file").
+#   5. `greet` ran GREET.COM ("GREETINGS FROM A:GREET.COM" via AH=4Bh EXEC).
+#   6. `badcmd` printed the controlled "Bad command or file name" (MSG-DOS-0002).
+#   7. EXIT halted cleanly (SHELL-EXIT + SHELL-DONE markers).
+# It BITES: with no --keys the prompt (A:\>) appears but NONE of the command
+# outputs do, so the assertions on DIR/TYPE/greet/badcmd would go RED.
+# Ref: ADR-0003 DEC-11/DEC-12; DOS 3.3 COMMAND.COM; spec/dos_messages.json.
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.
+SHELL_NAME    := shell_boot
+SHELL_SERIAL  := $(BUILD)/$(SHELL_NAME).serial
+SHELL_REPORT  := $(BUILD)/$(SHELL_NAME).report
+SHELL_TYPE_CONTENT := Hello from InitechOS test file
+SHELL_EXEC_OUTPUT  := GREETINGS FROM A:GREET.COM
+SHELL_BADCMD       := Bad command or file name
+
+.PHONY: test-shell
+test-shell: $(HARNESS_BIN) $(SHELL_IMG) $(FAT_EXEC_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-shell : BOOT -> COMMAND.COM -> DIR/TYPE/run\n'
+	@printf '  Ref: ADR-0003 DEC-11/DEC-12; DOS 3.3 COMMAND.COM; spec/dos_messages.json.\n'
+	@printf '  beads initech-7pc (M2 capstone). Inject: dir / type hello.txt / greet / badcmd / exit.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + disk %s (HELLO.TXT + GREET.COM, primary slave)\n' "$(SHELL_IMG)" "$(FAT_EXEC_IMG)"
+	@printf 'Expecting : SHELL-READY + DIR{HELLO.TXT,GREET.COM} + "%s" + "%s" + "%s" + SHELL-EXIT\n' "$(SHELL_TYPE_CONTENT)" "$(SHELL_EXEC_OUTPUT)" "$(SHELL_BADCMD)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(SHELL_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+		--name "$(SHELL_NAME)" --out "$(BUILD)" --timeout-ms 12000 \
+		--keys "d,i,r,ret,t,y,p,e,spc,h,e,l,l,o,dot,t,x,t,ret,g,r,e,e,t,ret,b,a,d,c,m,d,ret,e,x,i,t,ret" \
+		--keys-after "SHELL-READY" \
+		2> "$(SHELL_REPORT)" || true
+	@cat "$(SHELL_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(SHELL_REPORT)"; then \
+		printf '!!! test-shell FAIL: TRIPLE FAULT -- the shell boot or a command crashed\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-shell [1/6]: no triple-fault\n'
+	@if [ ! -s "$(SHELL_SERIAL)" ]; then \
+		printf '!!! test-shell FAIL: no serial captured at %s\n' "$(SHELL_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(SHELL_SERIAL)" \
+		|| { printf '!!! test-shell FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
+	@printf '>>> test-shell [2/6]: SHELL-READY (COMMAND.COM REPL entered after CONIN-LIVE)\n'
+	@# Extract ONLY the post-SHELL-READY region (the REPL's own output) into a
+	@# separate file. The boot's earlier baked demos (proto-DIR + the baked
+	@# TYPE/DIR programs) also print these filenames + HELLO.TXT contents BEFORE
+	@# the prompt; asserting on the whole serial would let the gate pass on the
+	@# demo output instead of the shell's. Scoping to after SHELL-READY makes the
+	@# DIR/TYPE/greet assertions bite the REPL specifically (Law 2 / Rule 6).
+	@sed -n '/^SHELL-READY$$/,$$p' "$(SHELL_SERIAL)" > "$(BUILD)/$(SHELL_NAME).repl"
+	@# ---- DIR listed the two files (FINDFIRST/FINDNEXT into the DTA). ----
+	@grep -qF 'HELLO.TXT' "$(BUILD)/$(SHELL_NAME).repl" \
+		|| { printf '!!! test-shell FAIL: DIR did not list HELLO.TXT (root-cause the DIR built-in / FINDFIRST, Rule 3)\n'; exit 1; }
+	@grep -qF 'GREET.COM' "$(BUILD)/$(SHELL_NAME).repl" \
+		|| { printf '!!! test-shell FAIL: DIR did not list GREET.COM\n'; exit 1; }
+	@printf '>>> test-shell [3/6]: DIR listed HELLO.TXT + GREET.COM (FINDFIRST/FINDNEXT)\n'
+	@# ---- TYPE printed HELLO.TXT's contents (in the REPL region). ----
+	@grep -qF '$(SHELL_TYPE_CONTENT)' "$(BUILD)/$(SHELL_NAME).repl" \
+		|| { printf '!!! test-shell FAIL: TYPE did not print HELLO.TXT contents "%s"\n' "$(SHELL_TYPE_CONTENT)"; exit 1; }
+	@printf '>>> test-shell [4/6]: TYPE printed HELLO.TXT contents (OPEN/READ/WRITE/CLOSE)\n'
+	@# ---- `greet` ran GREET.COM via AH=4Bh EXEC (in the REPL region). ----
+	@grep -qF '$(SHELL_EXEC_OUTPUT)' "$(BUILD)/$(SHELL_NAME).repl" \
+		|| { printf '!!! test-shell FAIL: `greet` did not run GREET.COM ("%s" missing -- root-cause external EXEC, Rule 3)\n' "$(SHELL_EXEC_OUTPUT)"; exit 1; }
+	@printf '>>> test-shell [5/6]: external command `greet` ran GREET.COM via AH=4Bh EXEC\n'
+	@# ---- `badcmd` printed the controlled diagnostic + EXIT halted cleanly. ----
+	@grep -qF '$(SHELL_BADCMD)' "$(BUILD)/$(SHELL_NAME).repl" \
+		|| { printf '!!! test-shell FAIL: `badcmd` did not print "%s" (the controlled MSG-DOS-0002)\n' "$(SHELL_BADCMD)"; exit 1; }
+	@grep -q '^SHELL-EXIT$$' "$(SHELL_SERIAL)" \
+		|| { printf '!!! test-shell FAIL: SHELL-EXIT missing -- EXIT did not leave the REPL cleanly\n'; exit 1; }
+	@grep -q '^SHELL-DONE$$' "$(SHELL_SERIAL)" \
+		|| { printf '!!! test-shell FAIL: SHELL-DONE missing -- the REPL did not return to the halt loop\n'; exit 1; }
+	@printf '>>> test-shell [6/6]: `badcmd` -> "%s"; EXIT halted cleanly (SHELL-EXIT + SHELL-DONE)\n' "$(SHELL_BADCMD)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- booted InitechDOS, got an A:\\> prompt, ran DIR/TYPE/a program/EXIT via COMMAND.COM\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
 
