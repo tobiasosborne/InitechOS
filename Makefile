@@ -86,6 +86,7 @@ FIXTURE_LD   := $(FIXTURE_DIR)/multiboot.ld
 NASM         ?= nasm
 LD           ?= ld
 OBJCOPY      ?= objcopy
+NM           ?= nm
 SERIAL_HELLO_ELF := $(BUILD)/serial_hello.elf
 TRIPLE_FAULT_ELF := $(BUILD)/triple_fault.elf
 HANG_ELF         := $(BUILD)/hang.elf
@@ -125,6 +126,42 @@ KERNEL_SECTORS  := 96
 # Total raw image: MBR(1) + stage2(16) + kernel(96) = 113 sectors; round up to
 # 128 (64 KiB) for headroom + a clean power-of-two. Deterministic (Rule 11).
 IMG_SECTORS     := 128
+
+# --- _kernel_end guard (beads initech-u0a) ----------------------------------
+# The KERNEL_SECTORS / .bin-size guards above only check the LOADED .bin (.text
+# + .data) against the disk window. They are BLIND to .bss: _kernel_end (end of
+# .bss) is NOT in the .bin, so a .bss growth can silently push _kernel_end up to
+# and past PROGRAM_BASE (0x20000) -- the flat address where loaded programs land
+# -- corrupting the program-load region at RUNTIME with no build-time warning.
+# (During 509.2 the shell kernel's _kernel_end reached 0x1FF60: 160 bytes from
+# collision, invisibly.) This guard extracts _kernel_end from each kernel ELF
+# via nm and FAILS THE BUILD (Rule 2: fail loud) if it is not safely below
+# PROGRAM_BASE - KERNEL_END_MARGIN.
+#
+# PROGRAM_BASE is parsed from spec/memory_map.h (the locked spec, Rule 8) so it
+# stays in sync; cite: spec/memory_map.h `#define PROGRAM_BASE 0x00020000u`.
+PROGRAM_BASE := $(shell grep -E '^\#define[[:space:]]+PROGRAM_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
+# Safety margin below PROGRAM_BASE (bytes). Small, deterministic; a kernel whose
+# .bss ends within this of PROGRAM_BASE is too close for comfort and fails.
+KERNEL_END_MARGIN := 256
+#
+# $(call kernel-end-guard,<ELF>,<variant-label>) -- run inside a .bin recipe,
+# after the .bin-size guard, so `make <image>` triggers it. Mirrors the
+# .bin-size guard's "!!!" failure / ">>>" confirmation style.
+define kernel-end-guard
+	@end=$$($(NM) $(1) | awk '$$3=="_kernel_end"{print "0x"$$1}'); \
+	if [ -z "$$end" ]; then \
+		printf '!!! kernel-end guard ($(2)): _kernel_end symbol not found in %s\n' "$(1)"; \
+		exit 1; \
+	fi; \
+	endv=$$(( end )); pb=$$(( $(PROGRAM_BASE) )); margin=$(KERNEL_END_MARGIN); \
+	limit=$$(( pb - margin )); \
+	if [ "$$endv" -ge "$$limit" ]; then \
+		printf '!!! kernel-end guard ($(2)): _kernel_end=0x%x reaches PROGRAM_BASE=0x%x (margin=%d, limit=0x%x) -- .bss overruns the program-load region; shrink kernel .bss or raise PROGRAM_BASE in spec/memory_map.h\n' "$$endv" "$$pb" "$$margin" "$$limit"; \
+		exit 1; \
+	fi; \
+	printf '>>> kernel-end guard ($(2)): _kernel_end=0x%x < PROGRAM_BASE=0x%x (margin %d, limit 0x%x OK)\n' "$$endv" "$$pb" "$$margin" "$$limit"
+endef
 
 # PPM seafoam checker (factory C tool, tools/).
 PPM_CHECK_SRC   := tools/ppm_seafoam_check.c
@@ -2080,6 +2117,7 @@ $(KERNEL_FAULT_BIN): $(KERNEL_FAULT_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(fault): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,fault)
 
 # The self-test fault disk image: identical layout to TRACER_IMG but with the
 # fault kernel at sector 17.
@@ -2116,6 +2154,7 @@ $(KERNEL_ECHO_BIN): $(KERNEL_ECHO_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(echo): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,echo)
 
 # The keyboard-echo disk image: identical layout to TRACER_IMG but with the echo
 # kernel at sector 17.
@@ -2154,6 +2193,7 @@ $(KERNEL_CONIN_BIN): $(KERNEL_CONIN_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(conin): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,conin)
 
 # The CON-input self-test disk image: identical layout to TRACER_IMG but with
 # the conin kernel at sector 17.
@@ -2192,6 +2232,7 @@ $(KERNEL_EXEC_BIN): $(KERNEL_EXEC_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(exec): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,exec)
 
 # The EXEC self-test disk image: identical layout to TRACER_IMG but with the
 # exec kernel at sector 17.
@@ -2230,6 +2271,7 @@ $(KERNEL_WRITE_BIN): $(KERNEL_WRITE_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(write): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,write)
 
 $(WRITE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_WRITE_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -2267,6 +2309,7 @@ $(KERNEL_MULTIOPEN_BIN): $(KERNEL_MULTIOPEN_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(multiopen): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,multiopen)
 
 $(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -2303,6 +2346,7 @@ $(KERNEL_DATETIME_BIN): $(KERNEL_DATETIME_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(datetime): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,datetime)
 
 $(DATETIME_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_DATETIME_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -2348,6 +2392,7 @@ $(KERNEL_IRQSTORM_BIN): $(KERNEL_IRQSTORM_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(irqstorm): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,irqstorm)
 
 $(IRQSTORM_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -2382,6 +2427,7 @@ $(KERNEL_IRQSTORM_MUTA_BIN): $(KERNEL_IRQSTORM_MUTA_ELF) | $(BUILD)
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(irqstorm mutant A): %s\n" "$@"
+	$(call kernel-end-guard,$<,irqstorm-mutant-A)
 
 $(IRQSTORM_MUTA_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTA_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -2410,6 +2456,7 @@ $(KERNEL_IRQSTORM_MUTB_BIN): $(KERNEL_IRQSTORM_MUTB_ELF) | $(BUILD)
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(irqstorm mutant B): %s\n" "$@"
+	$(call kernel-end-guard,$<,irqstorm-mutant-B)
 
 $(IRQSTORM_MUTB_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTB_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -2447,6 +2494,7 @@ $(KERNEL_EXITH_BIN): $(KERNEL_EXITH_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(exith): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,exith)
 
 $(EXITH_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -2487,6 +2535,7 @@ $(KERNEL_EXITH_MUT_BIN): $(KERNEL_EXITH_MUT_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(exith-mutant): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,exith-mutant)
 
 $(EXITH_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_MUT_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -2524,6 +2573,7 @@ $(KERNEL_SYSI_BIN): $(KERNEL_SYSI_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(sysi): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,sysi)
 
 $(SYSI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SYSI_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -2563,6 +2613,7 @@ $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(shell): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,shell)
 
 # The shell self-test disk image: identical layout to TRACER_IMG but with the
 # shell kernel at sector 17.
@@ -2583,6 +2634,7 @@ $(KERNEL_BIN): $(KERNEL_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel: %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,main)
 
 $(PPM_CHECK_BIN): $(PPM_CHECK_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
