@@ -16,6 +16,7 @@
 
 #include "command.h"
 #include "dos_structs.h"   /* DIR_ATTR_DIRECTORY -- the DIR formatter's attr bit */
+#include "dos_messages.h"  /* MSG_DOS_* controlled diagnostics (DEC-13; -Ibuild) */
 
 /* ---- PURE shell logic (host-testable; the test_command.c oracle drives these) */
 
@@ -433,9 +434,9 @@ static find_data_t g_shell_dta;
 static char g_out[64];
 
 /* ---- the controlled diagnostics (spec/dos_messages.json, ADR-0003 App C) ----
- * Transcribed VERBATIM; the controlled vocabulary (DEC-13) -- no rewording. */
-#define MSG_BAD_COMMAND   "Bad command or file name"   /* MSG-DOS-0002 */
-#define MSG_FILE_NOT_FND  "File not found"              /* MSG-DOS-0003 */
+ * The controlled vocabulary (DEC-13) has a SINGLE source of truth: the generated
+ * build/dos_messages.h catalogue (MSG_DOS_*). No inline literal text lives here;
+ * the use-sites reference the catalogue macros directly. */
 
 /* ---- the built-in command handlers ---------------------------------------- */
 
@@ -454,7 +455,7 @@ static void builtin_dir(void)
     /* Search attribute 0x10 (DIRECTORY) so subdir entries are listed too; the
      * dispatcher already includes plain files. */
     if (!dos_findfirst("*.*", DIR_ATTR_DIRECTORY)) {
-        dos_print(MSG_FILE_NOT_FND "\r\n$");
+        dos_print(MSG_DOS_0003 "\r\n$");
         return;
     }
     do {
@@ -488,14 +489,14 @@ static void builtin_type(const char *arg)
 
     if (cmd_first_token(arg, name) == 0) {
         /* No filename given -- MSG-DOS-0011 "Required parameter missing". */
-        dos_print("Required parameter missing\r\n$");
+        dos_print(MSG_DOS_0011 "\r\n$");
         return;
     }
     cmd_upcase_str(name);   /* DOS upcases 8.3 names */
 
     handle = dos_open(name);
     if (handle < 0) {
-        dos_print(MSG_FILE_NOT_FND "\r\n$");
+        dos_print(MSG_DOS_0003 "\r\n$");
         return;
     }
     for (;;) {
@@ -589,7 +590,7 @@ static void run_external(const char *command, const char *arg)
 
     /* `command` is already upper-cased by cmd_parse. Append .COM if needed. */
     if (!cmd_append_com(command, prog)) {
-        dos_print(MSG_BAD_COMMAND "\r\n$");
+        dos_print(MSG_DOS_0002 "\r\n$");
         return;
     }
     /* Defensive: upcase again (cmd_append_com preserves what it was given). */
@@ -599,7 +600,7 @@ static void run_external(const char *command, const char *arg)
     err = dos_exec(prog);
     if (err != 0u) {
         /* Not found / bad format / nested -> the canonical DOS diagnostic. */
-        dos_print(MSG_BAD_COMMAND "\r\n$");
+        dos_print(MSG_DOS_0002 "\r\n$");
         return;
     }
     /* Clean run: control is back; the next prompt follows. */
