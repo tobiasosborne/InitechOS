@@ -27,4 +27,12 @@
  * shell phase. EOI (outb(cmd,0x20)) is documented for that later work. */
 void pic_remap_and_mask(void);
 
+/* Unmask ONLY IRQ0 (PIT) and IRQ1 (keyboard) on the master 8259A: read the
+ * current master IMR (OCW1, port 0x21), clear bits 0 and 1, write it back.
+ * Every other line stays at whatever pic_remap_and_mask left it (all masked),
+ * and the slave PIC is untouched (still fully masked). After this the caller
+ * may `sti`. Ref: Intel 8259A datasheet (OCW1 interrupt mask register; a 1 bit
+ * MASKS the line). beads: initech-3rs. */
+void pic_unmask_irq0_irq1(void);
+
 #endif /* INITECH_PIC_H */

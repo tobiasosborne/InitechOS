@@ -67,6 +67,13 @@ void idt_install_trap(uint8_t vec, void *handler)
     idt_set_gate(vec, handler, IDT_KERNEL_CS, IDT_GATE_TRAP32);
 }
 
+void idt_install_irq(uint8_t vec, void *handler)
+{
+    /* DPL=0 INTERRUPT gate (0x8E) on the kernel code selector: IF is cleared on
+     * entry so the hardware IRQ handler does not nest (beads initech-3rs). */
+    idt_set_gate(vec, handler, IDT_KERNEL_CS, IDT_GATE_INT32);
+}
+
 /* Table of the 32 exception stub entrypoints, indexed by vector. */
 static void (*const g_exc_stubs[32])(void) = {
     isr0,  isr1,  isr2,  isr3,  isr4,  isr5,  isr6,  isr7,

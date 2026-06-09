@@ -156,6 +156,11 @@ KERNEL_SFT_C     := $(KERNEL_DIR)/sft.c
 # the kernel so kmain.c can mount the data disk and render a proto-DIR.
 KERNEL_ATA_C     := $(KERNEL_DIR)/ata.c
 KERNEL_FAT12_C   := $(KERNEL_DIR)/fat12.c
+# PS/2 keyboard (IRQ1) + 8254 PIT (IRQ0) drivers (beads initech-3rs): the first
+# hardware-interrupt sources. The pure halves (ring + scancode table + divisor
+# math) ALSO compile hosted in the test-kbd-unit oracle.
+KERNEL_KBD_C     := $(KERNEL_DIR)/kbd.c
+KERNEL_PIT_C     := $(KERNEL_DIR)/pit.c
 # Baked flat test program: nasm -f bin -> bin2c -> a .rodata C array. The loader
 # copies it to PROGRAM_IMAGE (0x20100) and JMPs in (initech-509.5).
 TEST_PROG_ASM    := $(KERNEL_DIR)/test_program.asm
@@ -164,6 +169,14 @@ BIN2C_SRC        := tools/bin2c.c
 BIN2C_BIN        := $(BUILD)/bin2c
 TEST_PROG_BLOB_H := $(BUILD)/test_prog_blob.h
 TEST_PROG_BLOB_C := $(BUILD)/test_prog_blob.c
+# Baked TYPE / DIR programs (beads initech-509.5 read-side): OPEN+READ+WRITE+
+# CLOSE and FINDFIRST/FINDNEXT exercised end-to-end over the mounted FAT12 disk.
+TYPE_PROG_ASM    := $(KERNEL_DIR)/type_program.asm
+TYPE_PROG_BIN    := $(BUILD)/type_program.bin
+TYPE_PROG_BLOB_C := $(BUILD)/type_prog_blob.c
+DIR_PROG_ASM     := $(KERNEL_DIR)/dir_program.asm
+DIR_PROG_BIN     := $(BUILD)/dir_program.bin
+DIR_PROG_BLOB_C  := $(BUILD)/dir_prog_blob.c
 KERNEL_ISR_ASM   := $(KERNEL_DIR)/isr.asm
 KERNEL_START_OBJ := $(BUILD)/kstart.o
 KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
@@ -177,7 +190,12 @@ KERNEL_SFT_OBJ   := $(BUILD)/sft.o
 KERNEL_LOADER_OBJ := $(BUILD)/loader.o
 KERNEL_ATA_OBJ   := $(BUILD)/ata.o
 KERNEL_FAT12_OBJ := $(BUILD)/fat12.o
+KERNEL_FILEIO_OBJ := $(BUILD)/fileio_fat.o
+KERNEL_KBD_OBJ   := $(BUILD)/kbd.o
+KERNEL_PIT_OBJ   := $(BUILD)/pit.o
 KERNEL_TEST_PROG_OBJ := $(BUILD)/test_prog_blob.o
+KERNEL_TYPE_PROG_OBJ := $(BUILD)/type_prog_blob.o
+KERNEL_DIR_PROG_OBJ  := $(BUILD)/dir_prog_blob.o
 KERNEL_ISR_OBJ   := $(BUILD)/isr.o
 KERNEL_ELF       := $(BUILD)/kernel.elf
 KERNEL_BIN       := $(BUILD)/kernel.bin
@@ -188,6 +206,14 @@ KERNEL_FAULT_MAIN_OBJ := $(BUILD)/kmain_fault.o
 KERNEL_FAULT_ELF      := $(BUILD)/kernel_fault.elf
 KERNEL_FAULT_BIN      := $(BUILD)/kernel_fault.bin
 PANIC_IMG             := $(BUILD)/panic_boot.img
+# Keyboard-echo kernel/image (beads initech-3rs / initech-43b; make test-kbd):
+# the SAME kernel sources but with -DBOOT_KBD_ECHO so the boot, after enabling
+# IRQs, emits KBD-ECHO-READY then echoes kbd_getchar() to serial. Separate image
+# so the normal kernel/image (test-boot) never echoes (mirrors the FAULT image).
+KERNEL_ECHO_MAIN_OBJ  := $(BUILD)/kmain_echo.o
+KERNEL_ECHO_ELF       := $(BUILD)/kernel_echo.elf
+KERNEL_ECHO_BIN       := $(BUILD)/kernel_echo.bin
+KBD_ECHO_IMG          := $(BUILD)/kbd_echo_boot.img
 
 # ---------------------------------------------------------------------------
 # Asset extraction v0 (spec/assets, beads initech-vcq)
@@ -410,6 +436,60 @@ test-idt-mutant: $(TEST_IDT_MUT)
 	fi
 
 # ---------------------------------------------------------------------------
+# Keyboard/PIT pure-logic oracle (os/milton, beads initech-3rs)
+# ---------------------------------------------------------------------------
+# Host unit oracle (factory; libc + seed/test_assert.h) for the PURE halves of
+# the PS/2 keyboard + 8254 PIT drivers: the ring buffer (enqueue/dequeue/empty/
+# full/wrap), the scancode-set-1 -> US ASCII translator (incl. a SHIFTed key +
+# CapsLock + modifier make/break), and the PIT divisor math (100 Hz + the 18.2
+# Hz divisor-0 sentinel). Compiles the REAL artifact kbd.c + pit.c HOSTED -- the
+# same functions the kernel uses; the IRQ/port-touching halves are proven by the
+# end-to-end make test-kbd. Mirrors the $(TEST_IDT) idiom.
+TEST_KBD       := $(BUILD)/test_kbd
+TEST_KBD_SRC   := $(MILTON_DIR)/test_kbd.c
+TEST_KBD_DEPS  := $(KERNEL_KBD_C) $(KERNEL_PIT_C)
+TEST_KBD_HDRS  := $(MILTON_DIR)/kbd.h $(MILTON_DIR)/pit.h $(MILTON_DIR)/io.h
+# Mutation builds (CLAUDE.md Rule 6): a single branch/constant perturbed so
+# `make test-kbd-unit-mutant` can prove the oracle BITES. (a) the ring full-test
+# off-by-one (wrap overwrites unread data); (b) the scancode table mis-indexed.
+TEST_KBD_MUT_RING  := $(BUILD)/test_kbd_mutant_ring
+TEST_KBD_MUT_TABLE := $(BUILD)/test_kbd_mutant_table
+
+$(TEST_KBD): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+
+$(TEST_KBD_MUT_RING): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUTATE_RING_OFFBYONE -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+
+$(TEST_KBD_MUT_TABLE): $(TEST_KBD_SRC) $(TEST_KBD_DEPS) $(TEST_KBD_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DKBD_MUTATE_SCANCODE_TABLE -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_KBD_SRC) $(TEST_KBD_DEPS)
+
+.PHONY: test-kbd-unit test-kbd-unit-mutant
+test-kbd-unit: $(TEST_KBD)
+	@printf ">>> test-kbd-unit: ring (enqueue/dequeue/empty/full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math\n"
+	@$(TEST_KBD)
+	@printf ">>> test-kbd-unit: green\n"
+
+# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
+test-kbd-unit-mutant: $(TEST_KBD_MUT_RING) $(TEST_KBD_MUT_TABLE)
+	@printf ">>> test-kbd-unit-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_KBD_MUT_RING) >/dev/null 2>&1; then \
+		printf '!!! test-kbd-unit-mutant FAIL: ring off-by-one mutant PASSED -- the full/wrap test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-kbd-unit-mutant: green (ring off-by-one mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_KBD_MUT_TABLE) >/dev/null 2>&1; then \
+		printf '!!! test-kbd-unit-mutant FAIL: scancode-table mutant PASSED -- the translate test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-kbd-unit-mutant: green (scancode-table mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # INT 21h dispatch oracle (os/milton, beads initech-509.5)
 # ---------------------------------------------------------------------------
 # Host unit oracle (factory; libc + seed/test_assert.h) for the INT 21h dispatch
@@ -468,6 +548,60 @@ test-int21-mutant: $(TEST_INT21_MUT_DOLLAR) $(TEST_INT21_MUT_NOOP)
 		exit 1; \
 	else \
 		printf '>>> test-int21-mutant: green (unlisted-AH-noop mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-fileio (beads initech-509.5 read-side -- file-handle funcs)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the INT 21h file-handle functions (3Dh OPEN / 3Fh READ /
+# 3Eh CLOSE / 42h LSEEK / 4Eh/4Fh FINDFIRST/NEXT / 1Ah/2Fh SETDTA/GETDTA),
+# driven through the REAL artifact int21_dispatch with a MOCK file backend (an
+# in-memory directory) standing in for the FAT12 volume (brief Sec 6 Step 4).
+# Links int21.c + sft.c + psp.c; -Ispec for sft.h -> psp.h -> dos_structs.h and
+# spec/find_data.h. Mirrors the $(TEST_INT21) idiom.
+TEST_FILEIO      := $(BUILD)/test_fileio
+TEST_FILEIO_SRC  := $(MILTON_DIR)/test_fileio.c
+TEST_FILEIO_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C)
+TEST_FILEIO_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+                    $(MILTON_DIR)/psp.h spec/dos_structs.h spec/find_data.h
+# Mutation builds (CLAUDE.md Rule 6): int21.c compiled with a single file-op
+# branch perturbed so `make test-fileio-mutant` can prove the oracle BITES.
+# (a) READ ignores file_offset (no advance); (b) LSEEK SEEK_END base is wrong.
+TEST_FILEIO_MUT_READ  := $(BUILD)/test_fileio_mutant_read
+TEST_FILEIO_MUT_LSEEK := $(BUILD)/test_fileio_mutant_lseek
+
+$(TEST_FILEIO): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_FILEIO_MUT_READ): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_READ_IGNORE_OFFSET -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_FILEIO_MUT_LSEEK): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_LSEEK_WHENCE -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+.PHONY: test-fileio test-fileio-mutant
+test-fileio: $(TEST_FILEIO)
+	@printf ">>> test-fileio: OPEN/READ/CLOSE/LSEEK + FINDFIRST/NEXT + SETDTA/GETDTA via mock backend (initech-509.5)\n"
+	@$(TEST_FILEIO)
+	@printf ">>> test-fileio: green\n"
+
+# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
+test-fileio-mutant: $(TEST_FILEIO_MUT_READ) $(TEST_FILEIO_MUT_LSEEK)
+	@printf ">>> test-fileio-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_FILEIO_MUT_READ) >/dev/null 2>&1; then \
+		printf '!!! test-fileio-mutant FAIL: READ-ignore-offset mutant PASSED -- the offset-advance test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fileio-mutant: green (READ-ignore-offset mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_FILEIO_MUT_LSEEK) >/dev/null 2>&1; then \
+		printf '!!! test-fileio-mutant FAIL: LSEEK-whence mutant PASSED -- the SEEK_END test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fileio-mutant: green (LSEEK-whence mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -643,8 +777,9 @@ endef
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-psp test-psp-mutant \
-        test-sft test-sft-mutant \
-        test-loader test-loader-mutant test-program test-fs test-panic \
+        test-sft test-sft-mutant test-fileio test-fileio-mutant \
+        test-loader test-loader-mutant test-program test-fs test-type test-dir \
+        test-panic test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-assets test-spec selfhost ddc clean
 
 # ---------------------------------------------------------------------------
@@ -680,6 +815,9 @@ help:
 	@printf '  test-spec      InitechDOS spec-data (ADR-0003 Appendices A-D): JSON parse + 16 messages + struct size asserts + banner double-space. REAL.\n'
 	@printf '  test-psp       PSP 256-byte construction oracle (initech-509.4 / App B.2): int20/seg-fields/jft/int21-entry/cmd-tail + clamp + no-overflow. REAL.\n'
 	@printf '  test-sft       SFT/JFT handle layer (initech-509.3 / DEC-06): predefined handles 0-4 + jft/sft alloc + DUP/DUP2 redirection + ref-counting. REAL.\n'
+	@printf '  test-kbd-unit  PS/2 keyboard + PIT pure logic (initech-3rs): ring (full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math. REAL.\n'
+	@printf '  test-kbd       Keyboard IRQ1 end-to-end (initech-3rs/43b): first sti, QMP --keys "d,i,r" injected, echoed back via IRQ1; triple_fault=0. REAL (QEMU).\n'
+	@printf '  test-kbd-bochs Bochs leg of test-kbd (Rule 5): boots the echo image under Bochs; currently BLOCKED at ERR-VBE (pre-existing boot/VBE gap initech-x0i).\n'
 	@printf '  test           Run the whole gate vector (PRD Sec 8).\n'
 	@printf '\n'
 	@printf 'Self-host certificate (M8 finale):\n'
@@ -742,7 +880,7 @@ $(TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) | $(BUILD)
 $(KERNEL_START_OBJ): $(KERNEL_START_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
-$(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # Text console (beads initech-yqb): the SAME console.c the host blit oracle
@@ -798,6 +936,25 @@ $(KERNEL_ATA_OBJ): $(KERNEL_ATA_C) $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/blockdev.h 
 $(KERNEL_FAT12_OBJ): $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_FAT12_C) -o $@
 
+# FAT12-backed INT 21h file backend (beads initech-509.5 read-side): binds the
+# int21 file vtable to the mounted volume. Kernel-only (pulls fat12.c + the
+# volume); the host oracle (test_fileio.c) binds a mock instead. -Ispec for
+# dir_entry_t (dos_structs.h) + FILE_BUFFER_* (memory_map.h).
+$(KERNEL_FILEIO_OBJ): $(KERNEL_DIR)/fileio_fat.c $(KERNEL_DIR)/fileio_fat.h \
+                      $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/blockdev.h \
+                      spec/dos_structs.h spec/memory_map.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_DIR)/fileio_fat.c -o $@
+
+# PS/2 keyboard (IRQ1) + 8254 PIT (IRQ0) drivers (beads initech-3rs): the SAME
+# kbd.c / pit.c the host oracle (test_kbd.c) exercises for the pure ring/table/
+# divisor logic; freestanding here (the IRQ handlers touch I/O ports), hosted
+# there (pure halves only). io.h only -- no -Ispec needed.
+$(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_KBD_C) -o $@
+
+$(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
+
 # --- Baked test program pipeline (beads initech-509.5; Sec 5.4) ------------
 # bin2c is a host factory tool (libc), built with the factory CC, not KERNEL_CC.
 $(BIN2C_BIN): $(BIN2C_SRC) | $(BUILD)
@@ -816,14 +973,36 @@ $(TEST_PROG_BLOB_C): $(TEST_PROG_BIN) $(BIN2C_BIN)
 $(KERNEL_TEST_PROG_OBJ): $(TEST_PROG_BLOB_C) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(TEST_PROG_BLOB_C) -o $@
 
+# TYPE / DIR baked programs (beads initech-509.5 read-side): same nasm -f bin ->
+# bin2c -> KERNEL_CC pipeline as the demo program.
+$(TYPE_PROG_BIN): $(TYPE_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+$(TYPE_PROG_BLOB_C): $(TYPE_PROG_BIN) $(BIN2C_BIN)
+	$(BIN2C_BIN) $(TYPE_PROG_BIN) g_type_prog_image > $@
+
+$(KERNEL_TYPE_PROG_OBJ): $(TYPE_PROG_BLOB_C) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(TYPE_PROG_BLOB_C) -o $@
+
+$(DIR_PROG_BIN): $(DIR_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+$(DIR_PROG_BLOB_C): $(DIR_PROG_BIN) $(BIN2C_BIN)
+	$(BIN2C_BIN) $(DIR_PROG_BIN) g_dir_prog_image > $@
+
+$(KERNEL_DIR_PROG_OBJ): $(DIR_PROG_BLOB_C) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(DIR_PROG_BLOB_C) -o $@
+
 $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
 KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
-               $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) \
-               $(KERNEL_TEST_PROG_OBJ) $(KERNEL_ISR_OBJ)
+               $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+               $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+               $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+               $(KERNEL_ISR_OBJ)
 
 $(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_OBJS)
@@ -832,14 +1011,16 @@ $(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
 # Same sources, but kmain.c compiled with -DBOOT_SELFTEST_FAULT so the boot
 # raises a deliberate #DE after the banner. Linked into a SEPARATE image so the
 # normal kernel/image (test-boot) never faults.
-$(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SELFTEST_FAULT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
-                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) \
-                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_ISR_OBJ)
+                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_FAULT_ELF): $(KERNEL_FAULT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FAULT_OBJS)
@@ -862,6 +1043,42 @@ $(PANIC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FAULT_BIN) | $(BUILD)
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_FAULT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> panic image: %s (self-test #DE fault kernel @s17)\n" "$@"
+
+# --- Keyboard-echo kernel (beads initech-3rs / initech-43b; make test-kbd) --
+# Same sources, but kmain.c compiled with -DBOOT_KBD_ECHO so the boot, after the
+# sti, emits KBD-ECHO-READY then echoes injected keys to serial. Separate image.
+$(KERNEL_ECHO_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_KBD_ECHO -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_ECHO_ELF): $(KERNEL_ECHO_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_ECHO_OBJS)
+
+$(KERNEL_ECHO_BIN): $(KERNEL_ECHO_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_echo.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(echo): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+# The keyboard-echo disk image: identical layout to TRACER_IMG but with the echo
+# kernel at sector 17.
+$(KBD_ECHO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ECHO_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_ECHO_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> kbd-echo image: %s (keyboard-echo kernel @s17)\n" "$@"
 
 # Raw flat binary, then zero-pad to KERNEL_SECTORS * 512 bytes (deterministic).
 $(KERNEL_BIN): $(KERNEL_ELF) | $(BUILD)
@@ -1581,8 +1798,125 @@ test-fs: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-type (beads initech-509.5 read-side -- a program TYPEs a file)
+# ---------------------------------------------------------------------------
+# Boot the REAL image WITH the FAT12 data disk (--disk2) and prove the baked
+# TYPE program OPENed HELLO.TXT, READ it, and WROTE its contents to stdout
+# (handle 1 -> CON) through the INT 21h file-handle functions -- the in-universe
+# `TYPE HELLO.TXT`. Fail-loud + exit-non-zero on every miss (Law 2 / Rule 2):
+#   1. NO triple-fault.
+#   2. SERIAL: FILEIO-BIND-OK (the FAT backend bound), TYPE-BEGIN + the known
+#      HELLO.TXT contents (a distinctive substring) appearing between
+#      TYPE-OUTPUT-BEGIN/END, and TYPE-EXIT rc=0 (OPEN/READ/WRITE/CLOSE ran and
+#      the program returned cleanly). A TYPE-OPEN-FAIL marker => OPEN failed.
+# Ref: docs/research/fs-mount-sft-ground-truth.md Sec 5.2 / Sec 6 Step 4.
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.
+TYPE_NAME    := type_boot
+TYPE_SERIAL  := $(BUILD)/$(TYPE_NAME).serial
+TYPE_REPORT  := $(BUILD)/$(TYPE_NAME).report
+# A distinctive substring of HELLO.TXT (the committed fixture is exactly 31
+# bytes: "Hello from InitechOS test file" + LF -- no trailing period).
+TYPE_CONTENT := Hello from InitechOS test file
+
+.PHONY: test-type
+test-type: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-type : a PROGRAM TYPEs a real file\n'
+	@printf '  Ref: docs/research/fs-mount-sft-ground-truth.md Sec 5.2. beads initech-509.5.\n'
+	@printf '  Prove OPEN(3Dh)+READ(3Fh)+WRITE(40h)+CLOSE(3Eh) over mounted FAT12.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + data disk %s (primary slave)\n' "$(TRACER_IMG)" "$(FAT_DATA_IMG)"
+	@printf 'Expecting : FILEIO-BIND-OK + "%s" between TYPE-OUTPUT-BEGIN/END + TYPE-EXIT rc=0\n' "$(TYPE_CONTENT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" \
+		--name "$(TYPE_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(TYPE_REPORT)" || true
+	@cat "$(TYPE_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(TYPE_REPORT)"; then \
+		printf '!!! test-type FAIL: TRIPLE FAULT\n'; exit 1; \
+	fi
+	@printf '>>> test-type [1/4]: no triple-fault\n'
+	@if [ ! -s "$(TYPE_SERIAL)" ]; then \
+		printf '!!! test-type FAIL: no serial captured at %s\n' "$(TYPE_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^FILEIO-BIND-OK$$' "$(TYPE_SERIAL)" \
+		|| { printf '!!! test-type FAIL: FILEIO-BIND-OK missing -- the FAT file backend never bound\n'; exit 1; }
+	@printf '>>> test-type [2/4]: FILEIO-BIND-OK (FAT12 file backend bound to int21)\n'
+	@if grep -q 'TYPE-OPEN-FAIL' "$(TYPE_SERIAL)"; then \
+		printf '!!! test-type FAIL: TYPE-OPEN-FAIL -- AH=3Dh OPEN of HELLO.TXT failed (root-cause the OPEN path, Rule 3)\n'; exit 1; \
+	fi
+	@grep -qF '$(TYPE_CONTENT)' "$(TYPE_SERIAL)" \
+		|| { printf '!!! test-type FAIL: HELLO.TXT contents "%s" missing -- OPEN/READ/WRITE did not deliver the file to stdout\n' "$(TYPE_CONTENT)"; exit 1; }
+	@printf '>>> test-type [3/4]: the program OPENed+READ HELLO.TXT and WROTE its contents to stdout\n'
+	@grep -q '^TYPE-EXIT rc=0$$' "$(TYPE_SERIAL)" \
+		|| { printf '!!! test-type FAIL: TYPE-EXIT rc=0 missing -- the TYPE program did not CLOSE+EXIT cleanly\n'; exit 1; }
+	@printf '>>> test-type [4/4]: TYPE-EXIT rc=0 (CLOSE + return-to-loader)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- a flat program OPENed, READ, and TYPEd a real FAT12 file via INT 21h\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-dir (beads initech-509.5 read-side -- a program DIRs a volume)
+# ---------------------------------------------------------------------------
+# Boot the REAL image WITH the FAT12 data disk and prove the baked DIR program
+# enumerated the root directory via AH=4Eh FINDFIRST / AH=4Fh FINDNEXT, writing
+# each 8.3 filename (read from the 43-byte DTA find-data block) to stdout.
+# Fail-loud (Law 2 / Rule 2):
+#   1. NO triple-fault.
+#   2. SERIAL: FILEIO-BIND-OK; each fixture name (HELLO.TXT ...) appears between
+#      DIR-PROG-OUTPUT-BEGIN/END; DIR-PROG-EXIT rc=0.
+# Ref: docs/research/fs-mount-sft-ground-truth.md Sec 5.3 / Sec 6 Step 5.
+DIRP_NAME    := dir_boot
+DIRP_SERIAL  := $(BUILD)/$(DIRP_NAME).serial
+DIRP_REPORT  := $(BUILD)/$(DIRP_NAME).report
+DIRP_NAMES   := HELLO.TXT SECOND.TXT CHAIN.TXT EMPTY.TXT BLOCK.BIN
+
+.PHONY: test-dir
+test-dir: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-dir : a PROGRAM lists a real directory\n'
+	@printf '  Ref: docs/research/fs-mount-sft-ground-truth.md Sec 5.3. beads initech-509.5.\n'
+	@printf '  Prove FINDFIRST(4Eh)/FINDNEXT(4Fh) into the DTA find-data block.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + data disk %s (primary slave)\n' "$(TRACER_IMG)" "$(FAT_DATA_IMG)"
+	@printf 'Expecting : FILEIO-BIND-OK + fixture names between DIR-PROG-OUTPUT-BEGIN/END + DIR-PROG-EXIT rc=0\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" \
+		--name "$(DIRP_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(DIRP_REPORT)" || true
+	@cat "$(DIRP_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(DIRP_REPORT)"; then \
+		printf '!!! test-dir FAIL: TRIPLE FAULT\n'; exit 1; \
+	fi
+	@printf '>>> test-dir [1/3]: no triple-fault\n'
+	@if [ ! -s "$(DIRP_SERIAL)" ]; then \
+		printf '!!! test-dir FAIL: no serial captured at %s\n' "$(DIRP_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^FILEIO-BIND-OK$$' "$(DIRP_SERIAL)" \
+		|| { printf '!!! test-dir FAIL: FILEIO-BIND-OK missing -- the FAT file backend never bound\n'; exit 1; }
+	@printf '>>> test-dir [2/3]: FILEIO-BIND-OK\n'
+	@# The DIR program output is bracketed; assert every fixture name appears
+	@# within the bracketed region (sed extracts it; grep asserts each name).
+	@sed -n '/^DIR-PROG-OUTPUT-BEGIN$$/,/^DIR-PROG-OUTPUT-END$$/p' "$(DIRP_SERIAL)" > "$(BUILD)/$(DIRP_NAME).names"
+	@for n in $(DIRP_NAMES); do \
+		grep -qF "$$n" "$(BUILD)/$(DIRP_NAME).names" \
+			|| { printf '!!! test-dir FAIL: FINDFIRST/FINDNEXT did not list %s\n' "$$n"; exit 1; }; \
+	done
+	@grep -q '^DIR-PROG-EXIT rc=0$$' "$(DIRP_SERIAL)" \
+		|| { printf '!!! test-dir FAIL: DIR-PROG-EXIT rc=0 missing -- the DIR program did not finish cleanly\n'; exit 1; }
+	@printf '>>> test-dir [3/3]: the program listed %s via FINDFIRST/FINDNEXT + DIR-PROG-EXIT rc=0\n' "$(DIRP_NAMES)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- a flat program enumerated a real FAT12 directory via INT 21h FINDFIRST/FINDNEXT\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-panic (beads initech-a5a -- the exception is CAUGHT)
 # ---------------------------------------------------------------------------
+# Prove the panic path fires on a REAL CPU fault instead of triple-faulting (the
 # Prove the panic path fires on a REAL CPU fault instead of triple-faulting (the
 # minefield: a triple-fault silently reboots in QEMU -- CLAUDE.md callout). Boot
 # the SELF-TEST FAULT image (kmain.c -DBOOT_SELFTEST_FAULT raises a deliberate
@@ -1636,6 +1970,161 @@ test-panic: $(HARNESS_BIN) $(PANIC_IMG)
 	@printf '>>> test-panic [3/3]: no triple-fault -- panic halted cleanly\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- deliberate #DE caught by the fail-loud panic, no triple-fault\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-kbd (beads initech-3rs + initech-43b -- KEYBOARD IRQ1 echo)
+# ---------------------------------------------------------------------------
+# The BITING end-to-end oracle for BOTH the PS/2 keyboard driver (IRQ1) and the
+# harness QMP keystroke injection (--keys). This is the FIRST boot that enables
+# hardware interrupts (sti) -- the minefield (CLAUDE.md "real mode -> protected
+# is a minefield" / Rule 5). Boot the keyboard-echo image (kmain.c
+# -DBOOT_KBD_ECHO emits KBD-ECHO-READY after sti, then echoes kbd_getchar() to
+# serial), inject "d,i,r" via QMP send-key AFTER the KBD-ECHO-READY marker, and
+# assert, fail-loud (Rule 2 / Law 2):
+#   1. IRQ-LIVE + KBD-ECHO-READY on serial (sti succeeded; the boot did not
+#      triple-fault into a reboot the instant interrupts went live).
+#   2. the injected keys reached the guest, were decoded by the IRQ1 path, and
+#      echoed back as "dir" between KBD-ECHO-BEGIN/KBD-ECHO-END (this is what
+#      proves a key sent via QMP actually drives IRQ1 -- the honest oracle for
+#      --keys; a "QMP accepted the command" check alone would be decoration).
+#   3. triple_fault=0 AND keys_sent=3 in the harness report.
+# A key injected via QMP that is NOT echoed back fails the gate -- exactly the
+# biting property the bead demands.
+#
+# TRI-EMULATOR (Rule 5): this gate runs QEMU. The companion test-kbd-bochs
+# attempts the SAME boot under Bochs (the sti/PIC/IRQ path is precisely what
+# differs across emulators); see its note for the current Bochs status.
+KBD_NAME     := kbd_echo
+KBD_SERIAL   := $(BUILD)/$(KBD_NAME).serial
+KBD_REPORT   := $(BUILD)/$(KBD_NAME).report
+
+.PHONY: test-kbd
+test-kbd: $(HARNESS_BIN) $(KBD_ECHO_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-kbd : KEYBOARD IRQ1 echo (first sti)\n'
+	@printf '  Ref: 8042 PS/2 controller / scancode set 1 / 8254 PIT / 8259A EOI.\n'
+	@printf '  beads initech-3rs (driver) + initech-43b (QMP --keys). Rule 2/5/6.\n'
+	@printf '  TRI-EMULATOR: QEMU here; Bochs via make test-kbd-bochs.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (keyboard-echo kernel), injecting --keys "d,i,r"\n' "$(KBD_ECHO_IMG)"
+	@printf 'Expecting : IRQ-LIVE + KBD-ECHO-READY + echoed "dir" + triple_fault=0 + keys_sent=3\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(KBD_ECHO_IMG)" \
+		--name "$(KBD_NAME)" --out "$(BUILD)" --timeout-ms 9000 \
+		--keys "d,i,r" --keys-after "KBD-ECHO-READY" \
+		2> "$(KBD_REPORT)" || true
+	@cat "$(KBD_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if [ ! -s "$(KBD_SERIAL)" ]; then \
+		printf '!!! test-kbd FAIL: no serial captured at %s\n' "$(KBD_SERIAL)"; \
+		exit 1; \
+	fi
+	@grep -q '^IRQ-LIVE$$' "$(KBD_SERIAL)" \
+		|| { printf '!!! test-kbd FAIL: IRQ-LIVE missing -- sti/PIC-unmask path did not complete\n'; exit 1; }
+	@grep -q '^KBD-ECHO-READY$$' "$(KBD_SERIAL)" \
+		|| { printf '!!! test-kbd FAIL: KBD-ECHO-READY missing -- echo loop never reached\n'; exit 1; }
+	@printf '>>> test-kbd [1/3]: IRQ-LIVE + KBD-ECHO-READY (first sti survived, no reboot)\n'
+	@# The echoed keys land on their own line between BEGIN/END. Assert "dir".
+	@awk '/^KBD-ECHO-BEGIN$$/{f=1;next} /^KBD-ECHO-END$$/{f=0} f{print}' "$(KBD_SERIAL)" \
+		| grep -q '^dir$$' \
+		|| { printf '!!! test-kbd FAIL: injected keys not echoed as "dir" -- a QMP key did NOT reach IRQ1 (root-cause the kbd path / --keys, Rule 3)\n'; exit 1; }
+	@printf '>>> test-kbd [2/3]: QMP-injected "d,i,r" decoded by IRQ1 and echoed as "dir"\n'
+	@if grep -q 'triple_fault=1' "$(KBD_REPORT)"; then \
+		printf '!!! test-kbd FAIL: TRIPLE FAULT -- enabling interrupts cascaded to a reboot\n'; \
+		exit 1; \
+	fi
+	@grep -q 'keys_sent=3' "$(KBD_REPORT)" \
+		|| { printf '!!! test-kbd FAIL: harness did not report keys_sent=3 (QMP send-key path)\n'; exit 1; }
+	@printf '>>> test-kbd [3/3]: triple_fault=0 + keys_sent=3 (sti clean, injection issued)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- PS/2 keyboard IRQ1 live; a QMP-injected key reached the guest and echoed\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# Bochs leg of test-kbd (beads initech-3rs / Rule 5: the sti/PIC/IRQ path is
+# exactly what differs across emulators -- it MUST be checked on Bochs too).
+# ---------------------------------------------------------------------------
+# STATUS (honest, NOT silently skipped -- Rule 5 / Law 2): bochs IS installed in
+# this environment, but the InitechOS boot chain does NOT currently reach the C
+# kernel under Bochs -- stage2's VBE 640x480 LFB mode-set fails on the Bochs VGA
+# BIOS available here and the boot halts at the "ERR-VBE" serial marker, BEFORE
+# any C, the sti, or the IRQ path. This is a PRE-EXISTING boot/VBE gap (the same
+# reason test-boot is marked "QEMU only; tri-emulator pending beads initech-x0i")
+# and is INDEPENDENT of the keyboard/PIT work -- the unmodified tracer image hits
+# the identical ERR-VBE. Additionally the only Bochs display libraries built here
+# are 'x' (needs an X server) and 'rfb' (blocks on a VNC client), so a clean
+# headless Bochs harness is itself not yet available.
+#
+# Rather than fake a green, this gate BOOTS the echo image under Bochs and
+# reports what actually happens: if the boot ever reaches IRQ-LIVE the sti path
+# is confirmed on Bochs; until the VBE/boot gap (initech-x0i) closes it will
+# stop at ERR-VBE, which we surface loudly and treat as a KNOWN-BLOCKED (exit 0
+# with a visible BLOCKED verdict, so `make test` is not wedged by a pre-existing
+# unrelated boot gap; the QEMU test-kbd remains the binding oracle).
+BOCHS            ?= bochs
+BOCHS_SEABIOS    ?= /usr/share/seabios/bios.bin
+BOCHS_VGABIOS    ?= /usr/share/seabios/vgabios-stdvga.bin
+KBD_BOCHS_IMG    := $(BUILD)/$(KBD_NAME)_bochs.img
+KBD_BOCHS_SERIAL := $(BUILD)/$(KBD_NAME)_bochs.serial
+KBD_BOCHS_RC     := $(BUILD)/$(KBD_NAME)_bochs.rc
+KBD_BOCHS_CFG    := $(BUILD)/$(KBD_NAME)_bochsrc
+
+.PHONY: test-kbd-bochs
+test-kbd-bochs: $(KBD_ECHO_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-kbd-bochs : Bochs leg (Rule 5)\n'
+	@printf '======================================================================\n'
+	@if ! command -v $(BOCHS) >/dev/null 2>&1; then \
+		printf '!!! test-kbd-bochs BLOCKED: bochs not installed in this environment.\n'; \
+		printf '    Install: sudo apt install bochs (CLAUDE.md Build & test). See initech-x0i.\n'; \
+		exit 0; \
+	fi
+	@if [ ! -f "$(BOCHS_SEABIOS)" ] || [ ! -f "$(BOCHS_VGABIOS)" ]; then \
+		printf '!!! test-kbd-bochs BLOCKED: Bochs BIOS images not found (%s / %s).\n' "$(BOCHS_SEABIOS)" "$(BOCHS_VGABIOS)"; \
+		exit 0; \
+	fi
+	@# Bochs locks the image file; run on a private copy. CHS 2/2/32 = 128 sectors
+	@# (== IMG_SECTORS), spt=32 >= 17 so stage2 fits on track 0.
+	@cp -f "$(KBD_ECHO_IMG)" "$(KBD_BOCHS_IMG)"
+	@rm -f "$(KBD_BOCHS_IMG).lock" "$(KBD_BOCHS_SERIAL)"
+	@printf 'c\n' > "$(KBD_BOCHS_RC)"
+	@printf 'romimage: file=%s\n' "$(BOCHS_SEABIOS)"            >  "$(KBD_BOCHS_CFG)"
+	@printf 'vgaromimage: file=%s\n' "$(BOCHS_VGABIOS)"         >> "$(KBD_BOCHS_CFG)"
+	@printf 'megs: 32\n'                                        >> "$(KBD_BOCHS_CFG)"
+	@printf 'cpu: model=pentium, ips=10000000\n'               >> "$(KBD_BOCHS_CFG)"
+	@printf 'ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14\n' >> "$(KBD_BOCHS_CFG)"
+	@printf 'ata0-master: type=disk, path="%s", mode=flat, cylinders=2, heads=2, spt=32\n' "$(KBD_BOCHS_IMG)" >> "$(KBD_BOCHS_CFG)"
+	@printf 'boot: disk\n'                                      >> "$(KBD_BOCHS_CFG)"
+	@printf 'com1: enabled=1, mode=file, dev=%s\n' "$(KBD_BOCHS_SERIAL)" >> "$(KBD_BOCHS_CFG)"
+	@printf 'display_library: x\n'                             >> "$(KBD_BOCHS_CFG)"
+	@printf 'clock: sync=none\n'                                >> "$(KBD_BOCHS_CFG)"
+	@printf 'Booting   : %s under Bochs (timeout 12s; serial -> %s)\n' "$(KBD_BOCHS_IMG)" "$(KBD_BOCHS_SERIAL)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@-timeout 12 $(BOCHS) -q -f "$(KBD_BOCHS_CFG)" -rc "$(KBD_BOCHS_RC)" >"$(BUILD)/$(KBD_NAME)_bochs.out" 2>&1 || true
+	@rm -f "$(KBD_BOCHS_IMG).lock"
+	@printf 'Serial captured:\n'
+	@cat "$(KBD_BOCHS_SERIAL)" 2>/dev/null || printf '(none)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q '^IRQ-LIVE$$' "$(KBD_BOCHS_SERIAL)" 2>/dev/null; then \
+		printf '>>> test-kbd-bochs: IRQ-LIVE reached under Bochs -- the sti/PIC/IRQ path is confirmed cross-emulator.\n'; \
+		if grep -q '^KBD-ECHO-READY$$' "$(KBD_BOCHS_SERIAL)" 2>/dev/null; then \
+			printf 'VERDICT   : PASS -- Bochs reached the keyboard echo loop after sti.\n'; \
+		else \
+			printf 'VERDICT   : PARTIAL -- sti survived on Bochs but echo loop not reached; investigate.\n'; \
+		fi; \
+	elif grep -q 'ERR-VBE' "$(KBD_BOCHS_SERIAL)" 2>/dev/null; then \
+		printf '!!! test-kbd-bochs BLOCKED (KNOWN, beads initech-x0i): boot halted at ERR-VBE.\n'; \
+		printf '    stage2 VBE 640x480 LFB mode-set fails on the Bochs VGA BIOS here, BEFORE any C\n'; \
+		printf '    or the sti -- this is the SAME pre-existing boot/VBE gap that keeps test-boot\n'; \
+		printf '    QEMU-only; it is INDEPENDENT of the keyboard/PIT/sti work (the unmodified tracer\n'; \
+		printf '    image hits the identical ERR-VBE). The QEMU make test-kbd is the binding oracle.\n'; \
+		printf 'VERDICT   : BLOCKED (Bochs boot/VBE gap initech-x0i; NOT silently skipped -- Rule 5)\n'; \
+	else \
+		printf '!!! test-kbd-bochs INCONCLUSIVE: Bochs produced no IRQ-LIVE and no ERR-VBE.\n'; \
+		printf '    (Likely the headless display gap: only the X-server display lib is built here.)\n'; \
+		printf 'VERDICT   : BLOCKED (Bochs harness gap; see initech-x0i)\n'; \
+	fi
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------

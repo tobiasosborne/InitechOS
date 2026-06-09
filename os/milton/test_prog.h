@@ -18,4 +18,14 @@
 extern const uint8_t  g_test_prog_image[];
 extern const uint32_t g_test_prog_image_len;
 
+/* The baked TYPE program (OPEN+READ+WRITE+CLOSE HELLO.TXT; beads initech-509.5
+ * read-side). Generated from os/milton/type_program.asm. */
+extern const uint8_t  g_type_prog_image[];
+extern const uint32_t g_type_prog_image_len;
+
+/* The baked DIR program (FINDFIRST/FINDNEXT *.*; beads initech-509.5 read-side).
+ * Generated from os/milton/dir_program.asm. */
+extern const uint8_t  g_dir_prog_image[];
+extern const uint32_t g_dir_prog_image_len;
+
 #endif /* INITECH_TEST_PROG_H */

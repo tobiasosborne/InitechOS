@@ -30,9 +30,12 @@
 #include "psp.h"         /* psp_build -> the kernel-context PSP (initech-509.3) */
 #include "sft.h"         /* sft_init -> the system file table (initech-509.3) */
 #include "loader.h"      /* load_program (beads initech-509.5) */
-#include "test_prog.h"   /* the baked flat test program bytes */
+#include "test_prog.h"   /* the baked flat test/type/dir program bytes */
 #include "ata.h"         /* ATA PIO backend (FAT-mount over the emulator) */
 #include "fat12.h"       /* FAT12 mount + root-dir enumerate (proto-DIR)  */
+#include "fileio_fat.h"  /* bind the FAT12 file backend into int21 (509.5) */
+#include "kbd.h"         /* PS/2 keyboard IRQ1 driver (initech-3rs) */
+#include "pit.h"         /* 8254 PIT IRQ0 tick (initech-3rs) */
 
 /* Seafoam: ported VERBATIM from stage2.asm:42-44 (SEAFOAM_R/G/B). The pie
  * chart and the wristwatch are canon; so is this fill color. The screendump
@@ -147,6 +150,11 @@ extern void int21_entry(void);
 /* extern entrypoint of the INT 20h legacy-terminate stub (isr.asm, vector 0x20;
  * beads initech-509.5). Free vector because the PIC master is at 0x28 (DEC-04a). */
 extern void int20_entry(void);
+
+/* extern entrypoints of the hardware IRQ stubs (isr.asm, beads initech-3rs):
+ * PIT IRQ0 -> vector 0x28, keyboard IRQ1 -> vector 0x29 (post PIC remap). */
+extern void irq0_entry(void);
+extern void irq1_entry(void);
 
 /* Called by isr_selftest (isr.asm) on `int 0x80`. Emits the self-test marker
  * to serial proving dispatch reached C; the handler then irets and the boot
@@ -278,6 +286,35 @@ static int dir_visit(const dir_entry_t *e, void *user)
     dir_putu_field(e->file_size, 13);
     dir_putc('\n');
     return 0;
+}
+
+/* Run a baked flat program through the loader, framed with serial markers
+ * `<tag>-BEGIN` / `<tag>-EXIT rc=NN` / `<tag>-LOAD-FAIL st=NN` so a boot oracle
+ * can assert load->run->return. Restores the kernel-context exit hook + PSP
+ * after the run (the loader rebinds both during a program; ground-truth Sec
+ * 4.5 / beads initech-509.3). Shared by the demo / TYPE / DIR programs. */
+static void run_baked(const char *tag, const uint8_t *image, uint32_t image_len)
+{
+    serial_puts(tag);
+    serial_puts("-BEGIN\n");
+
+    uint8_t rc = 0;
+    loader_status_t st = load_program(image, image_len, (const char *)0, 0u, &rc);
+    int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
+    int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT (509.3) */
+
+    if (st == LOADER_OK) {
+        serial_puts(tag);
+        serial_puts("-EXIT rc=");
+        serial_putu((uint32_t)rc);
+        serial_putc('\n');
+    } else {
+        /* Fail loud (Rule 2): the program was rejected before it ran. */
+        serial_puts(tag);
+        serial_puts("-LOAD-FAIL st=");
+        serial_putu((uint32_t)st);
+        serial_putc('\n');
+    }
 }
 
 void kernel_main(void)
@@ -463,59 +500,36 @@ void kernel_main(void)
     }
 #endif
 
-    /* RUN A PROGRAM (beads initech-509.5). The milestone: lay out a PSP + the
-     * baked flat test program at PROGRAM_BASE/PROGRAM_IMAGE, JMP to it, let it
-     * print via INT 21h AH=09h, and regain control when it issues AH=4Ch -- the
-     * return-to-loader mechanism (ground-truth Sec 4). The program's own output
-     * ("Hello from InitechOS program.") fans to the LFB console + serial through
-     * the SAME int21 CON sink the banner used. We frame it with PROGRAM-BEGIN /
-     * PROGRAM-EXIT markers so the boot oracle can assert load->run->return.
+    /* MOUNT A REAL FILESYSTEM (beads initech-saw) FIRST, so the file-handle
+     * INT 21h functions (3Dh OPEN / 3Fh READ / 4Eh/4Fh FINDFIRST/NEXT) have a
+     * bound volume BEFORE the TYPE/DIR programs run. Attach the FAT12 data disk
+     * on the IDE primary SLAVE, read sector 0 via the ATA PIO backend (its FIRST
+     * live run on the emulator -- beads initech-adf), mount it, render a proto-
+     * DIR, and bind the FAT12 file backend into int21 (beads initech-509.5).
      *
-     * After load_program returns, the loader unbound its exit hook; re-bind the
-     * kernel's cli;hlt hook so any later stray 4Ch from kernel context halts
-     * cleanly (ground-truth Sec 4.5 / Risk 3). */
-    serial_puts("PROGRAM-BEGIN\n");
-    {
-        uint8_t rc = 0;
-        loader_status_t st = load_program(g_test_prog_image,
-                                          g_test_prog_image_len,
-                                          (const char *)0, 0u, &rc);
-        int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
-        int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT (509.3) */
-        if (st == LOADER_OK) {
-            serial_puts("PROGRAM-EXIT rc=");
-            serial_putu((uint32_t)rc);
-            serial_putc('\n');
-        } else {
-            /* Fail loud (Rule 2): the program was rejected before it ran. */
-            serial_puts("PROGRAM-LOAD-FAIL st=");
-            serial_putu((uint32_t)st);
-            serial_putc('\n');
-        }
-    }
-
-    /* MOUNT A REAL FILESYSTEM (beads initech-saw). Attach the FAT12 data disk
-     * on the IDE primary SLAVE, read sector 0 via the ATA PIO backend (its
-     * FIRST live run on the emulator -- beads initech-adf), mount it, and (on
-     * success) render a proto-DIR of the root directory to console + serial.
+     * The volume + its ATA ctx/blockdev live at FUNCTION scope (not a nested
+     * block) because fileio_fat caches a pointer to `vol` that the TYPE/DIR
+     * programs dereference through int21's OPEN/FINDFIRST -- a block-local would
+     * dangle once the block ended (the same dangling-state lesson as `con`).
      *
      * Fail loud (Rule 2): on any failure -- no drive (floating bus), bad boot
-     * signature, ATA error -- emit "FAT-MOUNT-FAIL rc=NN" and CONTINUE to the
-     * halt loop. The ATA floating-bus guard guarantees mount returns an error
-     * (never hangs) when no data disk is attached, so a boot WITHOUT --disk2
-     * still reaches this point and halts cleanly (test-boot/test-program stay
-     * green with no second disk). Ref: fs-mount-sft-ground-truth.md Sec 5.1. */
+     * signature, ATA error -- emit "FAT-MOUNT-FAIL rc=NN" and CONTINUE (do NOT
+     * hang). The ATA floating-bus guard guarantees mount returns an error when
+     * no data disk is attached, so a boot WITHOUT --disk2 still reaches the
+     * programs (TYPE then reports TYPE-OPEN-FAIL; DIR finds nothing) and the
+     * halt loop. Ref: fs-mount-sft-ground-truth.md Sec 5.1. */
+    static uint8_t sector_buf[BLOCKDEV_SECTOR_SIZE]; /* caller scratch (BSS) */
+    ata_ctx_t      ata_slave;
+    blockdev_t     fatdev;
+    fat12_volume_t vol;
+    int            mounted = 0;
+
     serial_puts("FAT-MOUNT-BEGIN\n");
     {
-        static uint8_t sector_buf[BLOCKDEV_SECTOR_SIZE]; /* caller scratch (BSS) */
-        ata_ctx_t      ata_slave;
-        blockdev_t     fatdev;
-        fat12_volume_t vol;
         int rc;
 
         /* Fan the proto-DIR to the live console too (the SAME console the
-         * banner used, already bound via g_int21_con). NULL is fine -- dir_putc
-         * then fans to serial only. */
+         * banner used, already bound via g_int21_con). */
         g_dir_con = g_int21_con;
 
         ata_ctx_init_primary_slave(&ata_slave);
@@ -524,6 +538,7 @@ void kernel_main(void)
         rc = fat12_mount(&vol, &fatdev, sector_buf);
         if (rc == FAT12_OK) {
             serial_puts("FAT-MOUNT-OK\n");
+            mounted = 1;
 
             /* Proto-DIR: a header line, then one NAME.EXT + size per file. */
             dir_puts("Directory of A:\\\n");
@@ -532,6 +547,18 @@ void kernel_main(void)
                 serial_puts("DIR-OK\n");
             } else {
                 serial_puts("DIR-FAIL rc=");
+                serial_puti((int32_t)rc);
+                serial_putc('\n');
+            }
+
+            /* Bind the FAT12 file backend (beads initech-509.5): cache the FAT
+             * and hand int21 the OPEN/CLOSE/dir-entry vtable, so the TYPE/DIR
+             * programs below resolve real files through this volume. */
+            rc = fileio_fat_bind(&vol);
+            if (rc == 0) {
+                serial_puts("FILEIO-BIND-OK\n");
+            } else {
+                serial_puts("FILEIO-BIND-FAIL rc=");
                 serial_puti((int32_t)rc);
                 serial_putc('\n');
             }
@@ -544,11 +571,94 @@ void kernel_main(void)
         }
     }
     serial_puts("FAT-MOUNT-END\n");
+    (void)mounted;
 
-    /* Stay live (hlt-loop) so the QMP screendump captures the framebuffer. Do
-     * NOT isa-debug-exit (that kills the guest before capture). The kstart.asm
-     * hang guard also catches an unexpected return. */
+    /* RUN A PROGRAM (beads initech-509.5). Lay out a PSP + a baked flat program
+     * at PROGRAM_BASE/PROGRAM_IMAGE, JMP to it, let it call INT 21h, and regain
+     * control on AH=4Ch -- the return-to-loader mechanism (ground-truth Sec 4).
+     * Output fans to the LFB console + serial through the int21 CON sink.
+     *
+     * Three programs, in sequence (each framed by run_baked markers):
+     *   1. the original demo (PROGRAM-*) -- AH=09h DISPLAY STRING + AH=4Ch;
+     *      asserted by make test-program (no data disk required).
+     *   2. TYPE (TYPE-*) -- OPEN HELLO.TXT, READ, WRITE to stdout, CLOSE; the
+     *      file's contents reach serial+console; asserted by make test-type
+     *      (requires --disk2; without it the program prints TYPE-OPEN-FAIL).
+     *   3. DIR (DIR-PROG-*) -- FINDFIRST/FINDNEXT *.*, write each name; asserted
+     *      by make test-dir (requires --disk2). */
+    run_baked("PROGRAM", g_test_prog_image, g_test_prog_image_len);
+    serial_puts("TYPE-OUTPUT-BEGIN\n");
+    run_baked("TYPE", g_type_prog_image, g_type_prog_image_len);
+    serial_puts("TYPE-OUTPUT-END\n");
+    serial_puts("DIR-PROG-OUTPUT-BEGIN\n");
+    run_baked("DIR-PROG", g_dir_prog_image, g_dir_prog_image_len);
+    serial_puts("DIR-PROG-OUTPUT-END\n");
+
+    /* ---- ENABLE HARDWARE INTERRUPTS (beads initech-3rs) -------------------
+     * The FIRST `sti` of the whole project. Up to here the kernel ran with
+     * IF=0 and every IRQ masked; software ints (0x20/0x21/0x80) dispatched
+     * through the IDT with IF=0. We now: (1) program the 8254 PIT channel 0 to
+     * 100 Hz and init the PS/2 keyboard ring; (2) install the two IRQ stubs as
+     * 0x8E INTERRUPT gates (IF cleared during the handler -> no nesting) at the
+     * post-remap vectors 0x28 (IRQ0/PIT) and 0x29 (IRQ1/keyboard); (3) unmask
+     * ONLY IRQ0+IRQ1 on the master PIC; (4) `sti`.
+     *
+     * Order matters (the minefield -- CLAUDE.md "real mode -> protected is a
+     * minefield" / Rule 5): program the devices and install the gates BEFORE
+     * unmasking, and unmask BEFORE sti, so a line can never fire into an
+     * uninstalled gate (which would hit the spurious stub and panic).
+     *
+     * Placed AFTER the boot demos so the existing gates (banner / program /
+     * mount / proto-DIR / TYPE / DIR) run with the SAME IF=0 flow as before --
+     * enabling interrupts here changes none of their behavior (the keyboard
+     * ring simply stays empty in those gates). Ref: 8254/8042/8259A datasheets.
+     *
+     * REENTRANCY (beads initech-xk2): the IRQ handlers touch ONLY pit/kbd state,
+     * never the INT 21h dispatcher globals, so an IRQ landing inside an INT 21h
+     * trap (0x8F keeps IF set) is safe with no lock. */
+    pit_init();
+    kbd_init();
+    idt_install_irq(0x28u, (void *)irq0_entry);   /* PIT  IRQ0 -> vector 0x28 */
+    idt_install_irq(0x29u, (void *)irq1_entry);   /* kbd  IRQ1 -> vector 0x29 */
+    pic_unmask_irq0_irq1();
+    __asm__ __volatile__("sti");
+    serial_puts("IRQ-LIVE\n");
+
+#ifdef BOOT_KBD_ECHO
+    /* ECHO SELF-TEST BUILD ONLY (beads initech-3rs / initech-43b; make
+     * test-kbd). This is the BITING end-to-end oracle for BOTH the keyboard
+     * driver and the harness --keys injection: emit a serial marker the harness
+     * waits for, then echo every ASCII byte the IRQ1 path enqueues back to
+     * serial framed by BEGIN/END markers, until N chars have been echoed, then
+     * halt. The NORMAL image never defines this macro, so test-boot et al. are
+     * unaffected. We `hlt` between polls so the CPU sleeps until the next IRQ
+     * (PIT tick or a keystroke) -- proves IF is actually set and IRQ1 fires. */
+    serial_puts("KBD-ECHO-READY\n");
+    serial_puts("KBD-ECHO-BEGIN\n");
+    {
+        int echoed = 0;
+        const int want = 3;          /* the test injects "d,i,r" -> 3 chars */
+        while (echoed < want) {
+            int ch = kbd_getchar();
+            if (ch < 0) {
+                __asm__ __volatile__("hlt");  /* sleep until an IRQ wakes us */
+                continue;
+            }
+            serial_putc((char)ch);   /* echo the decoded ASCII to serial */
+            echoed++;
+        }
+    }
+    serial_puts("\nKBD-ECHO-END\n");
     for (;;) {
         __asm__ __volatile__("hlt");
     }
+#else
+    /* Stay live (hlt-loop) so the QMP screendump captures the framebuffer. Do
+     * NOT isa-debug-exit (that kills the guest before capture). The kstart.asm
+     * hang guard also catches an unexpected return. With IRQs live the PIT tick
+     * (IRQ0) wakes the CPU 100x/s; the halt loop just goes back to sleep. */
+    for (;;) {
+        __asm__ __volatile__("hlt");
+    }
+#endif
 }

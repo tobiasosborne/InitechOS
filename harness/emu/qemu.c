@@ -222,15 +222,168 @@ static void qmp_drain(int fd, int budget_ms)
     }
 }
 
+/* ------------------------------------------------------------------ */
+/* QMP keystroke injection (beads initech-43b)                         */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Map ONE key token to its QMP qcode name (the QMP "key value qcode"
+ * vocabulary). Returns the qcode string for a recognized token, or NULL.
+ * Supported (sufficient to type letters + digits + Return + Space, per the
+ * bead): single chars a-z (lowercased A-Z too) and 0-9 -> the same character;
+ * the words "ret"/"enter"/"return" -> "ret"; "spc"/"space" -> "spc". This is
+ * the small qcode set the bead asks for; extend here as gates need more keys.
+ * Ref: QMP `send-key` command + the QKeyCode enum (qapi/ui.json: a..z, 0..9,
+ * ret, spc are all valid qcode names).
+ */
+static const char *token_to_qcode(const char *tok)
+{
+    /* Single-character tokens: a-z, A-Z (folded to lower), 0-9. The qcode name
+     * for a letter/digit IS that character, so we return a per-call static
+     * 2-byte buffer. Not re-entrant, but the caller uses it immediately. */
+    if (tok[0] != '\0' && tok[1] == '\0') {
+        char c = tok[0];
+        if (c >= 'A' && c <= 'Z') {
+            c = (char)(c - 'A' + 'a');
+        }
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+            static char one[2];
+            one[0] = c;
+            one[1] = '\0';
+            return one;
+        }
+        return NULL;
+    }
+    if (strcmp(tok, "ret") == 0 || strcmp(tok, "enter") == 0 ||
+        strcmp(tok, "return") == 0) {
+        return "ret";
+    }
+    if (strcmp(tok, "spc") == 0 || strcmp(tok, "space") == 0) {
+        return "spc";
+    }
+    return NULL;
+}
+
+/*
+ * Send one QMP `send-key` event for a single qcode (press+release of one key).
+ * Format: {"execute":"send-key","arguments":{"keys":[{"type":"qcode",
+ * "data":"<qcode>"}]}}. Returns 0 on a successful write.
+ */
+static int qmp_send_key(int fd, const char *qcode)
+{
+    char cmd[160];
+    int n = snprintf(cmd, sizeof(cmd),
+                     "{\"execute\":\"send-key\",\"arguments\":{\"keys\":"
+                     "[{\"type\":\"qcode\",\"data\":\"%s\"}]}}\n", qcode);
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        return -1;
+    }
+    return qmp_send(fd, cmd);
+}
+
+/*
+ * Inject every key in keys_spec (comma-separated tokens) over an already-
+ * handshaked QMP fd. Unknown tokens are skipped with a stderr note (Law 2: be
+ * loud about a silently-ignored key). Returns the number of keys sent; *bad is
+ * set to the count of unrecognized tokens.
+ */
+static int qmp_inject_keys(int fd, const char *keys_spec, int *bad)
+{
+    int sent = 0;
+    int unknown = 0;
+    char buf[256];
+    /* Copy so we can tokenize in place. Oversized specs are truncated loudly. */
+    size_t L = strlen(keys_spec);
+    if (L >= sizeof(buf)) {
+        fprintf(stderr, "[harness] --keys spec too long (max %zu); truncating\n",
+                sizeof(buf) - 1);
+        L = sizeof(buf) - 1;
+    }
+    memcpy(buf, keys_spec, L);
+    buf[L] = '\0';
+
+    char *save = NULL;
+    for (char *tok = strtok_r(buf, ",", &save); tok != NULL;
+         tok = strtok_r(NULL, ",", &save)) {
+        /* trim surrounding spaces */
+        while (*tok == ' ') {
+            tok++;
+        }
+        size_t tl = strlen(tok);
+        while (tl > 0 && tok[tl - 1] == ' ') {
+            tok[--tl] = '\0';
+        }
+        if (tok[0] == '\0') {
+            continue;
+        }
+        const char *qc = token_to_qcode(tok);
+        if (!qc) {
+            fprintf(stderr, "[harness] --keys: unknown token '%s' (skipped)\n",
+                    tok);
+            unknown++;
+            continue;
+        }
+        if (qmp_send_key(fd, qc) == 0) {
+            sent++;
+            /* Drain any QMP reply + give the guest a beat to take the IRQ1
+             * before the next key (keeps the injection deterministic). */
+            qmp_drain(fd, 30);
+        }
+    }
+    if (bad) {
+        *bad = unknown;
+    }
+    return sent;
+}
+
+/*
+ * Wait until `marker` appears in the file at serial_path, or budget_ms
+ * elapses. Re-reads the (growing) serial capture file in a short poll loop.
+ * Returns 1 if the marker was seen, 0 on timeout. Used as the robust "guest is
+ * ready" trigger for key injection (beads initech-43b: --keys-after).
+ */
+static int wait_for_serial_marker(const char *serial_path, const char *marker,
+                                  int budget_ms)
+{
+    long long deadline = mono_ms() + budget_ms;
+    for (;;) {
+        size_t len = 0;
+        char *txt = read_file(serial_path, &len);
+        if (txt) {
+            int hit = strstr(txt, marker) != NULL;
+            free(txt);
+            if (hit) {
+                return 1;
+            }
+        }
+        if (mono_ms() >= deadline) {
+            return 0;
+        }
+        sleep_ms(25);
+    }
+}
+
 /*
  * Connect to the QMP unix socket, do the capabilities handshake, request a
  * screendump to ppm_path, then quit. Retries the connect briefly because
  * qemu may not have created the socket the instant we return from fork.
- * Returns 0 if the screendump command was issued (file existence is
- * checked by the caller).
+ * Returns 0 if the session completed (screendump-file existence + the
+ * keys-sent count are checked by / reported through the caller).
+ *
+ * Generalized for beads initech-43b: it now also injects keystrokes. After the
+ * capabilities handshake it optionally (1) waits for keys_after on the serial
+ * capture (else a fixed delay), (2) injects keys_spec via QMP send-key, then
+ * (3) screendumps if ppm_path != NULL, then quits. ppm_path may be NULL (keys
+ * only); keys_spec may be NULL (screendump only) -- at least one is set by the
+ * caller. *keys_sent (if non-NULL) receives the count of keys injected.
  */
-static int qmp_screendump(const char *sock_path, const char *ppm_path)
+static int qmp_session(const char *sock_path, const char *ppm_path,
+                       const char *keys_spec, const char *keys_after,
+                       const char *serial_path, int *keys_sent)
 {
+    if (keys_sent) {
+        *keys_sent = 0;
+    }
     int fd = -1;
     long long deadline = mono_ms() + 3000;
     while (mono_ms() < deadline) {
@@ -273,23 +426,51 @@ static int qmp_screendump(const char *sock_path, const char *ppm_path)
         return -1;
     }
     qmp_drain(fd, 300);
-    /* 3. screendump (PPM). filename must be JSON-escaped; our paths are
-     * plain ASCII under build/ with no quotes/backslashes, so a direct
-     * embed is safe and reproducible. */
-    char cmd[QEMU_PATH_MAX + 64];
-    int n = snprintf(cmd, sizeof(cmd),
-                     "{\"execute\":\"screendump\",\"arguments\":"
-                     "{\"filename\":\"%s\"}}\n", ppm_path);
-    if (n < 0 || (size_t)n >= sizeof(cmd)) {
-        close(fd);
-        return -1;
+
+    /* 3. keystroke injection (beads initech-43b). Trigger timing: if keys_after
+     * is set, WAIT for that substring on the serial capture (the guest tells us
+     * it is ready -- the robust, deterministic choice); else fall back to a
+     * fixed 500 ms startup delay. Then inject keys_spec via QMP send-key. */
+    if (keys_spec && keys_spec[0] != '\0') {
+        if (keys_after && keys_after[0] != '\0') {
+            if (!wait_for_serial_marker(serial_path, keys_after, 4000)) {
+                fprintf(stderr,
+                        "[harness] --keys-after marker '%s' not seen before "
+                        "inject deadline; injecting anyway\n", keys_after);
+            }
+        } else {
+            sleep_ms(500);
+        }
+        int bad = 0;
+        int sent = qmp_inject_keys(fd, keys_spec, &bad);
+        if (keys_sent) {
+            *keys_sent = sent;
+        }
+        /* Let the last keystroke's IRQ1 + the guest's echo flush to serial
+         * before we (optionally) screendump and quit. */
+        qmp_drain(fd, 100);
     }
-    if (qmp_send(fd, cmd) != 0) {
-        close(fd);
-        return -1;
+
+    /* 4. screendump (PPM), if requested. filename must be JSON-escaped; our
+     * paths are plain ASCII under build/ with no quotes/backslashes, so a
+     * direct embed is safe and reproducible. */
+    if (ppm_path) {
+        char cmd[QEMU_PATH_MAX + 64];
+        int n = snprintf(cmd, sizeof(cmd),
+                         "{\"execute\":\"screendump\",\"arguments\":"
+                         "{\"filename\":\"%s\"}}\n", ppm_path);
+        if (n < 0 || (size_t)n >= sizeof(cmd)) {
+            close(fd);
+            return -1;
+        }
+        if (qmp_send(fd, cmd) != 0) {
+            close(fd);
+            return -1;
+        }
+        qmp_drain(fd, 500);
     }
-    qmp_drain(fd, 500);
-    /* 4. quit cleanly so the guest does not have to be killed. */
+
+    /* 5. quit cleanly so the guest does not have to be killed. */
     qmp_send(fd, "{\"execute\":\"quit\"}\n");
     qmp_drain(fd, 300);
     close(fd);
@@ -399,8 +580,11 @@ static int build_argv(const QemuConfig *cfg, char **argv,
         PUSH("-S");
     }
 
-    /* QMP for screendump. server=on,wait=off => qemu does not block on us. */
-    if (cfg->enable_qmp_screendump) {
+    /* QMP for screendump AND/OR keystroke injection (beads initech-43b: --keys
+     * needs the same QMP socket). server=on,wait=off => qemu does not block on
+     * us. */
+    if (cfg->enable_qmp_screendump ||
+        (cfg->keys_spec && cfg->keys_spec[0] != '\0')) {
         static char qmpbuf[QEMU_PATH_MAX + 32];
         snprintf(qmpbuf, sizeof(qmpbuf), "unix:%s,server=on,wait=off",
                  sock_path);
@@ -502,13 +686,25 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
 
     out->launched = true;
 
-    /* If we are doing a screendump, drive QMP from the parent while qemu
-     * runs. qmp_screendump retries the connect, issues screendump + quit. */
-    if (cfg->enable_qmp_screendump) {
-        if (qmp_screendump(sock_path, out->screendump_path) == 0) {
-            struct stat st;
-            if (stat(out->screendump_path, &st) == 0 && st.st_size > 0) {
-                out->screendump_taken = true;
+    /* If we are doing a screendump and/or keystroke injection, drive QMP from
+     * the parent while qemu runs: qmp_session retries the connect, optionally
+     * waits for the keys-after marker + injects keys, optionally screendumps,
+     * then quits (beads initech-f2s + initech-43b). */
+    bool want_keys = cfg->keys_spec && cfg->keys_spec[0] != '\0';
+    if (cfg->enable_qmp_screendump || want_keys) {
+        const char *ppm = cfg->enable_qmp_screendump ? out->screendump_path
+                                                      : NULL;
+        int sent = 0;
+        if (qmp_session(sock_path, ppm,
+                        want_keys ? cfg->keys_spec : NULL,
+                        want_keys ? cfg->keys_after : NULL,
+                        out->serial_path, &sent) == 0) {
+            out->keys_sent = sent;
+            if (cfg->enable_qmp_screendump) {
+                struct stat st;
+                if (stat(out->screendump_path, &st) == 0 && st.st_size > 0) {
+                    out->screendump_taken = true;
+                }
             }
         }
     }

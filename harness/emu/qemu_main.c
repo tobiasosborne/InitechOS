@@ -32,6 +32,11 @@ static void usage(const char *argv0)
         "  --disk2 IMG        attach a 2nd raw disk on the IDE primary SLAVE\n"
         "                     (if=ide,index=1); the kernel mounts it over ATA\n"
         "  --expect MARKER    assert MARKER substring present on serial\n"
+        "  --keys SPEC        inject keystrokes via QMP send-key after boot;\n"
+        "                     SPEC is comma-separated qcode tokens, e.g.\n"
+        "                     \"d,i,r,ret\" (letters/digits, ret, spc)\n"
+        "  --keys-after MARK  wait for MARK on serial before injecting --keys\n"
+        "                     (else a fixed startup delay is used)\n"
         "  --screendump       QMP screendump to <out>/<name>.ppm\n"
         "  --gdb              add -s -S (gdb stub on :1234, halted)\n"
         "  --timeout-ms N     wall-clock kill deadline (default %d)\n"
@@ -69,6 +74,12 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--expect") == 0) {
             NEED_ARG();
             cfg.expect_marker = argv[++i];
+        } else if (strcmp(a, "--keys") == 0) {
+            NEED_ARG();
+            cfg.keys_spec = argv[++i];
+        } else if (strcmp(a, "--keys-after") == 0) {
+            NEED_ARG();
+            cfg.keys_after = argv[++i];
         } else if (strcmp(a, "--screendump") == 0) {
             cfg.enable_qmp_screendump = true;
         } else if (strcmp(a, "--gdb") == 0) {
@@ -120,13 +131,13 @@ int main(int argc, char **argv)
         "[harness] launched=%d timed_out=%d exit=%d signal=%d\n"
         "[harness] serial_len=%zu marker_found=%d (expect=%s)\n"
         "[harness] triple_fault=%d cpu_reset=%d guest_errors=%d\n"
-        "[harness] screendump_taken=%d path=%s\n"
+        "[harness] keys_sent=%d screendump_taken=%d path=%s\n"
         "[harness] OK=%d\n",
         res.launched, res.timed_out, res.exit_code, res.term_signal,
         res.serial_len, res.marker_found,
         cfg.expect_marker ? cfg.expect_marker : "(none)",
         res.triple_fault, res.cpu_reset_count, res.guest_errors,
-        res.screendump_taken,
+        res.keys_sent, res.screendump_taken,
         res.screendump_taken ? res.screendump_path : "(none)",
         res.ok);
 

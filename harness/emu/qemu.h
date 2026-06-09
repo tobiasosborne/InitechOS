@@ -75,6 +75,21 @@ typedef struct {
     const char *expect_marker; /* if non-NULL, a substring asserted present
                                   in the captured serial text (sets
                                   result->marker_found).                    */
+
+    /* QMP keystroke injection (beads initech-43b). When keys_spec is non-NULL,
+     * the harness -- after the guest boots -- sends QMP `send-key` events over
+     * the QMP socket so a key typed on the host reaches the guest keyboard
+     * (IRQ1). The spec is a comma-separated list of qcode tokens: single
+     * letters a-z / digits 0-9 map to their qcode; the words "ret"/"spc" map to
+     * Return/Space (see keys_to_qcode in qemu.c for the full set). Requires the
+     * QMP socket, so it implies enable_qmp_screendump's QMP plumbing -- if
+     * keys_spec is set the harness opens the QMP socket even without a
+     * screendump. */
+    const char *keys_spec;     /* comma-separated qcode tokens, or NULL.     */
+    /* If non-NULL, the harness waits until this substring appears on the
+     * captured serial BEFORE injecting keys (the robust trigger: the guest
+     * tells us it is ready). If NULL, a fixed startup delay is used instead.  */
+    const char *keys_after;    /* serial marker to wait for, or NULL.        */
 } QemuConfig;
 
 /* Default wall-clock timeout if config->timeout_ms <= 0. */
@@ -111,6 +126,9 @@ typedef struct {
 
     bool marker_found;         /* expect_marker present in serial_text
                                   (false if expect_marker was NULL).        */
+
+    int  keys_sent;            /* count of QMP send-key events issued (beads
+                                  initech-43b); 0 if keys_spec was NULL.     */
 
     bool ok;                   /* overall verdict (see above).              */
 } QemuResult;

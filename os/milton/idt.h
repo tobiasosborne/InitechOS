@@ -121,6 +121,12 @@ idt_gate_t idt_get_gate(uint8_t vec);
  * via this. */
 void idt_install_trap(uint8_t vec, void *handler);
 
+/* Install a 32-bit INTERRUPT gate (0x8E, DPL=0, kernel CS) at `vec` -- IF is
+ * CLEARED on entry, so the handler runs with hardware interrupts disabled (no
+ * IRQ nesting). Used for the hardware IRQ stubs (PIT IRQ0 -> vector 0x28,
+ * keyboard IRQ1 -> vector 0x29 after the PIC remap; beads initech-3rs). */
+void idt_install_irq(uint8_t vec, void *handler);
+
 /* Zero the table, install the 32 CPU-exception stubs (isr0..isr31) as 0x8E
  * interrupt gates, point all other vectors at the spurious-interrupt stub, then
  * lidt. Does NOT enable interrupts (the kernel keeps IF=0 this milestone). */

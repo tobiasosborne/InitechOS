@@ -69,4 +69,28 @@
  * larger than this. = PROGRAM_STACK_BOT - PROGRAM_IMAGE. */
 #define PROGRAM_IMAGE_MAX   (PROGRAM_STACK_BOT - PROGRAM_IMAGE)
 
+/* ------------------------------------------------------------------------ *
+ * Open-file read buffer (beads initech-509.5 read-side; OPEN whole-file read).
+ *
+ * AH=3Dh OPEN reads the ENTIRE file into a STATIC kernel buffer at OPEN time
+ * (the whole-file-buffering milestone simplification: positioned partial-read
+ * over the cluster chain is post-milestone). fat12_read_file already uses a
+ * ~5.6 KB on-stack chain[2880]; a SECOND large array on the stack at OPEN would
+ * pressure the kernel stack (fs-mount-sft-ground-truth.md Risk 2), so the file
+ * data lands here instead -- a fixed region the kernel owns, NOT the stack.
+ *
+ * Placement: the 64 KiB gap between PROGRAM_ALLOC_END (0x70000, the program's
+ * memory ceiling) and the kernel stack (0x80000+; os/milton/kstart.asm:25 ESP =
+ * 0x0008FFFC). This region is unused by the program model (it is above the
+ * program's alloc ceiling) and below the kernel stack -- a clean home for a
+ * single open-file buffer with a 64 KiB hard cap.
+ *
+ * SINGLE-BUFFER LIMIT (milestone scope, documented): exactly ONE file may be
+ * open at a time. OPEN fails loud (Rule 2) if a second concurrent file open
+ * would need the buffer while it is still in use, and if a file is larger than
+ * FILE_BUFFER_MAX. Multi-file-open + positioned partial-read are deferred (a
+ * follow-up bead). Ref: fs-mount-sft-ground-truth.md Sec 4.2 / Risk 2. */
+#define FILE_BUFFER_BASE    0x00070000u
+#define FILE_BUFFER_MAX     0x00010000u   /* 64 KiB cap (0x70000..0x80000)       */
+
 #endif /* INITECH_SPEC_MEMORY_MAP_H */

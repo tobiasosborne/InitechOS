@@ -32,8 +32,12 @@
 
 /* DOS error codes used by this subset (DOS 3.3 INT 21h error returns). */
 #define INT21_ERR_INVALID_FUNCTION  0x0001u  /* unlisted/not-yet-impl AH      */
+#define INT21_ERR_FILE_NOT_FOUND    0x0002u  /* OPEN: no such file            */
+#define INT21_ERR_PATH_NOT_FOUND    0x0003u  /* OPEN: subdir/path (deferred)  */
+#define INT21_ERR_TOO_MANY_OPEN     0x0004u  /* no free SFT/JFT slot / buffer busy */
 #define INT21_ERR_ACCESS_DENIED     0x0005u  /* write to AUX/PRN/file (no backing yet) */
 #define INT21_ERR_INVALID_HANDLE    0x0006u  /* out-of-range / closed handle  */
+#define INT21_ERR_NO_MORE_FILES     0x0012u  /* FINDFIRST/NEXT: no (more) match */
 
 /* Predefined device handles (no SFT yet -- the only handles this subset honors;
  * real JFT/SFT file handles arrive with beads initech-509.3). */
@@ -74,6 +78,49 @@ void int21_set_exit(int21_exit_fn fn);
  * free of the spec header; int21.c includes sft.h (-> psp.h) for the full type. */
 struct psp;
 void int21_set_psp(struct psp *psp);
+
+/* ---- File backend (beads initech-509.5 read-side) -------------------------
+ * The file-handle functions (3Dh OPEN, 3Fh READ on a FILE, 4Eh/4Fh
+ * FINDFIRST/FINDNEXT) need the mounted FAT12 volume -- which lives in the
+ * kernel (ata.c + fat12.c), is NOT host-testable, and must NOT be linked into
+ * the int21 unit oracle. So the FAT-specific work is reached through a backend
+ * vtable the kernel binds (a FAT12-backed impl in os/milton/fileio_fat.c) and
+ * the host oracle binds to an in-memory mock. int21.c owns the SFT/JFT slot
+ * management, the file offset, and the DTA/find-data write; the backend owns
+ * the volume, the whole-file read into the static buffer, and dir enumeration.
+ * This mirrors the sink/exit-hook seam that keeps int21.c host-testable.
+ *
+ * `struct dir_entry` is forward-declared (the full type is spec/dos_structs.h,
+ * which int21.c pulls in via sft.h -> psp.h). */
+struct dir_entry;
+
+typedef struct int21_file_backend {
+    /* OPEN: locate the 8.3 file `name83` in the (root) directory, read its
+     * WHOLE contents into the backend's static buffer, and return a pointer +
+     * byte count + a copy of its 32-byte directory entry. Returns 0 on success
+     * or a DOS error code (0x0002 not found, 0x0004 buffer busy / file too
+     * large for the single buffer). `*out_data`/`*out_size`/`*out_entry` are
+     * written only on success. */
+    uint16_t (*open)(const char *name83, struct dir_entry *out_entry,
+                     const uint8_t **out_data, uint32_t *out_size);
+
+    /* CLOSE: release the single open-file buffer so a later OPEN may reuse it.
+     * Called by 3Eh CLOSE when the last reference to a FILE slot drops. */
+    void (*close)(void);
+
+    /* Directory enumeration for FINDFIRST/FINDNEXT: copy the directory entry at
+     * 0-based `index` into `*out_entry` and set `*out_found` = 1; at/after the
+     * end of the directory set `*out_found` = 0. Returns 0 on success, non-zero
+     * (a DOS error) on a backend read failure. Deleted/LFN slots are skipped by
+     * the backend so consecutive indices map to surviving 8.3 entries. */
+    uint16_t (*dir_entry)(uint32_t index, struct dir_entry *out_entry,
+                          int *out_found);
+} int21_file_backend_t;
+
+/* Bind the file backend (NULL clears it -> the file functions return
+ * file-not-found / no-more-files as if the volume were empty). The kernel binds
+ * the FAT12 backend after a successful mount; the host oracle binds a mock. */
+void int21_set_file_backend(const int21_file_backend_t *backend);
 
 /* The C dispatch routine the asm trap stub (int21_entry, isr.asm) invokes with a
  * pointer to the on-stack int_frame_t. Reads AH = (frame->eax >> 8) & 0xFF and

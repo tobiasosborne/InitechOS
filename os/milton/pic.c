@@ -53,3 +53,14 @@ void pic_remap_and_mask(void)
     outb(PIC1_DATA, PIC_MASK_ALL);
     outb(PIC2_DATA, PIC_MASK_ALL);
 }
+
+void pic_unmask_irq0_irq1(void)
+{
+    /* OCW1 is the Interrupt Mask Register: a 1 bit MASKS, a 0 bit ENABLES the
+     * line (8259A datasheet). Read-modify-write so we clear ONLY bit 0 (IRQ0,
+     * PIT) and bit 1 (IRQ1, keyboard) and leave every other master line, and
+     * the entire slave, masked exactly as pic_remap_and_mask left them. */
+    uint8_t mask = inb(PIC1_DATA);
+    mask &= (uint8_t)~((1u << 0) | (1u << 1));  /* enable IRQ0 + IRQ1 only */
+    outb(PIC1_DATA, mask);
+}

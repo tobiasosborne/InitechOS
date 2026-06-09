@@ -217,6 +217,56 @@ int20_entry:
     add esp, 8                 ; discard the pushed vector + err_code dwords
     iretd                      ; resume caller (no-hook host-style fallback)
 
+; --- hardware IRQ stubs: PIT IRQ0 (vector 0x28) + keyboard IRQ1 (0x29) ------
+; beads: initech-3rs ("PS/2 keyboard (IRQ1) + PIT (IRQ0) tick").
+; Ref: Intel SDM Vol 2A PUSHAD/IRET; Intel 8259A datasheet (the C handler issues
+;      the EOI, OCW2 0x20 -> master cmd port 0x20); Intel 8254 / 8042 datasheets
+;      (the C handlers read/program the device). CLAUDE.md Rule 2, Rule 12.
+;
+; These are installed as 0x8E INTERRUPT gates (idt_install_irq), so the CPU
+; CLEARS IF on entry -> no IRQ nesting inside the handler (the cooperative
+; model wants exactly one IRQ in flight at a time). Unlike the exception path
+; these handlers take NO frame argument and ALWAYS iret cleanly, so the stub is
+; the minimal "save volatiles + known-good DS/ES + call C + restore + iretd".
+; We pushad (not just the C-clobbered set) so the interrupted context is fully
+; preserved regardless of what the C handler touches; segs are reloaded to the
+; kernel data selector (DATA_SEL=0x10) so the C call runs with known segments.
+;
+; REENTRANCY (beads initech-xk2): the C handlers (pit_irq_handler /
+; kbd_irq_handler) touch ONLY their own tick/ring state -- never int21 globals
+; -- so an IRQ landing inside an INT 21h trap (which keeps IF set) is safe.
+
+extern pit_irq_handler         ; void pit_irq_handler(void)  -- increments ticks + EOI
+extern kbd_irq_handler         ; void kbd_irq_handler(void)  -- reads 0x60 + EOI
+
+global irq0_entry
+irq0_entry:
+    pushad                     ; save all GPRs (interrupted context)
+    push ds
+    push es
+    mov ax, 0x10               ; DATA_SEL -- known-good segments for the C call
+    mov ds, ax
+    mov es, ax
+    call pit_irq_handler       ; bumps g_ticks, sends EOI to the 8259A master
+    pop es
+    pop ds
+    popad
+    iretd                      ; IF restored from the saved EFLAGS (was set)
+
+global irq1_entry
+irq1_entry:
+    pushad
+    push ds
+    push es
+    mov ax, 0x10               ; DATA_SEL
+    mov ds, ax
+    mov es, ax
+    call kbd_irq_handler       ; reads scancode @0x60, enqueues ASCII, sends EOI
+    pop es
+    pop ds
+    popad
+    iretd
+
 ; --- live IDT self-test handler (vector 0x80) ------------------------------
 ; Proves on the REAL boot that a gate installs, dispatches, and IRETs cleanly so
 ; control RESUMES at the instruction after `int 0x80`. kmain.c installs this as

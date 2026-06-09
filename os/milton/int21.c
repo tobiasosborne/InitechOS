@@ -19,7 +19,8 @@
  */
 
 #include "int21.h"
-#include "sft.h"   /* JFT->SFT handle layer (beads initech-509.3); pulls psp.h */
+#include "sft.h"        /* JFT->SFT handle layer (beads initech-509.3); pulls psp.h */
+#include "find_data.h"  /* find_data_t (43-byte DTA block, LOCKED; spec/) */
 
 /* The carry flag is bit 0 of EFLAGS (Intel SDM Vol 1 Sec 3.4.3). The whole
  * error-return contract rides on this single bit (ground-truth Sec 5.4). */
@@ -33,9 +34,34 @@ static int21_exit_fn g_exit = 0;
  * one at SYSINIT; a handle function with no bound PSP returns invalid-handle. */
 static psp_t *g_cur_psp = 0;
 
+/* The file backend (beads initech-509.5 read-side). NULL until the kernel binds
+ * a FAT12-backed impl (or the host oracle binds a mock). The file functions
+ * resolve FAT-specific work through it so int21.c stays host-testable. */
+static const int21_file_backend_t *g_file = 0;
+
+/* The current Disk Transfer Area (flat ptr). FINDFIRST/FINDNEXT write the
+ * 43-byte find_data_t here. Defaults to the current PSP's command-tail field
+ * (PSP:0x80, DTA_DEFAULT_PSP_OFFSET) when zero -- the real-DOS default. AH=1Ah
+ * SETDTA sets it; AH=2Fh GETDTA returns it (beads initech-509.5). */
+static uint32_t g_dta = 0;
+
+/* The single active FINDFIRST/FINDNEXT search state (one search at a time this
+ * milestone -- no reentrant concurrent searches; fs-mount-sft-ground-truth.md
+ * Sec 4.5). pattern is the 11-byte 8.3 search template ('?' = wildcard byte);
+ * next_index is the backend dir-entry index to examine next; active gates
+ * FINDNEXT (a FINDNEXT with no prior FINDFIRST returns no-more-files). */
+typedef struct find_state {
+    uint8_t  pattern[11];   /* 8.3 search template; '?' (0x3F) matches any byte */
+    uint8_t  search_attr;   /* attribute mask from FINDFIRST ECX                */
+    uint32_t next_index;    /* next backend dir-entry index to check            */
+    uint8_t  active;        /* 1 once FINDFIRST has run                          */
+} find_state_t;
+static find_state_t g_find;
+
 void int21_set_sink(int21_sink_fn sink) { g_sink = sink; }
 void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
 void int21_set_psp(struct psp *psp)     { g_cur_psp = (psp_t *)psp; }
+void int21_set_file_backend(const int21_file_backend_t *backend) { g_file = backend; }
 
 /* ---- CF helpers: write ONLY bit 0 of the saved EFLAGS image. ---- */
 static void cf_clear(int_frame_t *f) { f->eflags &= ~CF_BIT; }
@@ -241,6 +267,481 @@ static void do_dup2(int_frame_t *f)
     cf_clear(f);
 }
 
+/* ---- file-handle functions (beads initech-509.5 read-side) ---------------- *
+ * All resolve a process handle through g_cur_psp->jft into g_sft (the SFT), and
+ * reach the mounted volume through g_file (the backend vtable). DEC-04a ABI:
+ * AH=func, EBX=handle, ECX=count, EDX=flat ptr, EAX=return, CF=error.
+ * Ref: docs/research/fs-mount-sft-ground-truth.md Sec 4; DOS 3.3 PRM AH=3Dh/3Eh/
+ * 3Fh/42h/4Eh/4Fh/1Ah/2Fh. */
+
+/* Reject an OPEN path the milestone does not support: a subdirectory separator
+ * '\' or a drive-letter ':' (root-dir 8.3 names only this milestone, brief
+ * Sec 4.1). Returns 1 if the path is rejectable (caller sets CF=1, AX=0x0003). */
+static int path_has_subdir_or_drive(const char *p)
+{
+    for (; *p; p++) {
+        if (*p == '\\' || *p == ':') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* AH=3Dh OPEN: EDX = flat ptr to ASCIIZ 8.3 path, AL = mode (0=r,1=w,2=rdwr).
+ * Root-directory 8.3 names only this milestone; '\' or ':' -> CF=1, AX=0x0003.
+ * On success: allocate an SFT FILE slot + a JFT slot, read the WHOLE file into
+ * the backend's static buffer, store file_data+size+dir_entry+mode in the SFT,
+ * return EAX = handle (JFT index), CF clear. Errors: AX=0x0002 (not found),
+ * 0x0003 (path), 0x0004 (no free slot / buffer busy / file too big).
+ * Ref: brief Sec 4.1; DOS 3.3 PRM AH=3Dh. */
+static void do_open(int_frame_t *f)
+{
+    const char *path = (const char *)(uintptr_t)f->edx;
+    uint8_t mode = frame_al(f);
+
+    if (path == 0 || *path == '\0') {
+        set_ax(f, INT21_ERR_FILE_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    if (path_has_subdir_or_drive(path)) {
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    if (g_file == 0 || g_file->open == 0) {
+        /* No mounted volume bound -> behave as file-not-found (Rule 2: never a
+         * silent success). */
+        set_ax(f, INT21_ERR_FILE_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+
+    /* Allocate the table slots BEFORE the read so a slot-exhaustion failure does
+     * not strand the backend's buffer. The backend's open() is the one that
+     * consumes the single file buffer; we only call it once slots are secured. */
+    uint8_t sft_idx = sft_alloc();
+    if (sft_idx >= (uint8_t)SFT_MAX_ENTRIES) {
+        set_ax(f, INT21_ERR_TOO_MANY_OPEN);
+        cf_set(f);
+        return;
+    }
+    uint8_t handle = jft_alloc(g_cur_psp);
+    if (handle == JFT_CLOSED) {
+        set_ax(f, INT21_ERR_TOO_MANY_OPEN);
+        cf_set(f);
+        return;
+    }
+
+    dir_entry_t       de;
+    const uint8_t    *data = 0;
+    uint32_t          size = 0;
+    uint16_t err = g_file->open(path, &de, &data, &size);
+    if (err != 0) {
+        /* Backend rejected (not found / buffer busy / too big). No slot was
+         * committed (we only read sft_alloc/jft_alloc, never wrote them), so
+         * nothing to roll back. */
+        set_ax(f, err);
+        cf_set(f);
+        return;
+    }
+
+    /* Commit the SFT FILE entry + the JFT mapping. */
+    sft_entry_t *e = &g_sft[sft_idx];
+    e->kind        = SFT_KIND_FILE;
+    e->open_mode   = mode;
+    e->dev_id      = 0;
+    e->ref_count   = 1u;
+    e->dir_entry   = de;          /* struct copy of the 32-byte FAT dir entry */
+    e->file_offset = 0u;
+    e->file_data   = data;
+    g_cur_psp->jft[handle] = sft_idx;
+
+    f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)handle;  /* EAX (AX) = handle */
+    cf_clear(f);
+}
+
+/* AH=3Fh READ: EBX=handle, ECX=count, EDX=flat ptr to buffer. Copy
+ * min(count, filesize - file_offset) bytes from file_data+file_offset; advance
+ * file_offset; EAX = bytes read, CF clear. A CON device read (keyboard input)
+ * is deferred (beads initech-n62) -> 0 bytes (EOF), NEVER a hang. AUX/PRN read
+ * has no driver -> 0 bytes. Bad handle -> CF=1, AX=0x0006.
+ * Ref: brief Sec 4.2; DOS 3.3 PRM AH=3Fh. */
+static void do_read(int_frame_t *f)
+{
+    uint32_t handle = f->ebx;
+    uint32_t count  = f->ecx;
+    uint8_t *buf    = (uint8_t *)(uintptr_t)f->edx;
+
+    sft_entry_t *e = (handle <= 0xFFu)
+                       ? sft_from_handle(g_cur_psp, (uint8_t)handle)
+                       : 0;
+    if (e == 0) {
+        set_ax(f, INT21_ERR_INVALID_HANDLE);
+        cf_set(f);
+        return;
+    }
+
+    if (e->kind == SFT_KIND_DEVICE) {
+        /* CON keyboard input is deferred (beads initech-n62); AUX/PRN have no
+         * driver. Return 0 bytes read (EOF) WITHOUT hanging -- a clear deferred
+         * path, success with EAX=0 (brief Sec 4.2). */
+        f->eax = 0u;
+        cf_clear(f);
+        return;
+    }
+
+    /* FILE: positioned read from the whole-file buffer. */
+    uint32_t fsize = e->dir_entry.file_size;
+    uint32_t avail = (e->file_offset < fsize) ? (fsize - e->file_offset) : 0u;
+    uint32_t take  = (count < avail) ? count : avail;
+
+    if (e->file_data != 0) {
+        const uint8_t *src = e->file_data + e->file_offset;
+        for (uint32_t i = 0; i < take; i++) {
+            buf[i] = src[i];
+        }
+    }
+#ifdef INT21_MUTATE_READ_IGNORE_OFFSET
+    /* MUTANT (Rule 6; make test-fileio-mutant only): advance the offset by ZERO
+     * so a second READ re-reads from the start instead of continuing. The READ
+     * oracle (which reads in two chunks and concatenates) goes RED. NEVER define
+     * in a real build. */
+#else
+    e->file_offset += take;
+#endif
+    f->eax = take;
+    cf_clear(f);
+}
+
+/* AH=3Eh CLOSE: EBX=handle. Decrement the SFT ref; on the last reference free
+ * the slot (and the backend's file buffer for a FILE); JFT[EBX] = 0xFF. Closing
+ * a predefined handle 0-4 is a no-op success (as real DOS). CF clear; bad handle
+ * -> CF=1, AX=0x0006. Ref: brief Sec 4.3; DOS 3.3 PRM AH=3Eh. */
+static void do_close(int_frame_t *f)
+{
+    uint32_t handle = f->ebx;
+
+    if (handle > 0xFFu) {
+        set_ax(f, INT21_ERR_INVALID_HANDLE);
+        cf_set(f);
+        return;
+    }
+
+    /* Predefined standard handles 0-4: no-op success (real DOS does not actually
+     * close stdin/stdout/stderr/aux/prn on a 3Eh -- the device stays live). */
+    if (handle <= 4u) {
+        cf_clear(f);
+        return;
+    }
+
+    sft_entry_t *e = sft_from_handle(g_cur_psp, (uint8_t)handle);
+    if (e == 0) {
+        set_ax(f, INT21_ERR_INVALID_HANDLE);
+        cf_set(f);
+        return;
+    }
+
+    uint8_t sft_idx  = g_cur_psp->jft[handle];
+    int     was_file = (e->kind == SFT_KIND_FILE);
+
+    if (e->ref_count > 0u) {
+        e->ref_count--;
+    }
+    if (e->ref_count == 0u) {
+        /* Free the SFT slot. For a FILE, release the backend's single buffer so
+         * a later OPEN may reuse it (brief Sec 4.3). */
+        if (was_file && g_file != 0 && g_file->close != 0) {
+            g_file->close();
+        }
+        for (uint32_t i = 0; i < (uint32_t)sizeof(g_sft[sft_idx]); i++) {
+            ((uint8_t *)&g_sft[sft_idx])[i] = 0;  /* -> SFT_KIND_FREE */
+        }
+    }
+    g_cur_psp->jft[handle] = JFT_CLOSED;
+    cf_clear(f);
+}
+
+/* AH=42h LSEEK: EBX=handle, AL=whence (0=start,1=cur,2=end), ECX:EDX offset
+ * (ECX high 16 bits = 0 this milestone). New absolute offset -> EAX. Seeking
+ * past EOF is allowed (a subsequent READ then returns 0). CF clear; bad handle
+ * -> CF=1, AX=0x0006; bad whence -> CF=1, AX=0x0001.
+ * Ref: brief Sec 4.4; DOS 3.3 PRM AH=42h. */
+static void do_lseek(int_frame_t *f)
+{
+    uint32_t handle = f->ebx;
+    uint8_t  whence = frame_al(f);
+    uint32_t off    = f->edx;   /* low 32 bits; ECX high half is 0 this milestone */
+
+    sft_entry_t *e = (handle <= 0xFFu)
+                       ? sft_from_handle(g_cur_psp, (uint8_t)handle)
+                       : 0;
+    if (e == 0) {
+        set_ax(f, INT21_ERR_INVALID_HANDLE);
+        cf_set(f);
+        return;
+    }
+
+    uint32_t base;
+    switch (whence) {
+        case 0: base = 0u; break;                       /* from start            */
+        case 1: base = e->file_offset; break;           /* from current position */
+        case 2: base = e->dir_entry.file_size; break;   /* from end              */
+        default:
+            set_ax(f, INT21_ERR_INVALID_FUNCTION);
+            cf_set(f);
+            return;
+    }
+#ifdef INT21_MUTATE_LSEEK_WHENCE
+    /* MUTANT (Rule 6; make test-fileio-mutant only): whence 2 (from end) uses 0
+     * as the base instead of file_size, so SEEK_END lands at the wrong offset.
+     * The LSEEK oracle goes RED. NEVER define in a real build. */
+    base = 0u;
+#endif
+    e->file_offset = base + off;   /* past-EOF allowed (DOS); READ then returns 0 */
+    f->eax = e->file_offset;
+    cf_clear(f);
+}
+
+/* AH=1Ah SETDTA: EDX = flat ptr to the new Disk Transfer Area. CF clear (DOS
+ * 1Ah has no error path). Ref: DOS 3.3 PRM AH=1Ah. */
+static void do_setdta(int_frame_t *f)
+{
+    g_dta = f->edx;
+    cf_clear(f);
+}
+
+/* AH=2Fh GETDTA: returns the current DTA flat ptr. Real DOS returns it in
+ * ES:BX; in the flat ABI we return it in EBX (DEC-04a flat-ptr convention). If
+ * no DTA was set, the default is the current PSP:0x80 (the command-tail field).
+ * CF clear. Ref: DOS 3.3 PRM AH=2Fh; spec/find_data.h DTA_DEFAULT_PSP_OFFSET. */
+static void do_getdta(int_frame_t *f)
+{
+    uint32_t dta = g_dta;
+    if (dta == 0 && g_cur_psp != 0) {
+        dta = (uint32_t)(uintptr_t)&g_cur_psp->cmd_tail[0];
+    }
+    f->ebx = dta;
+    cf_clear(f);
+}
+
+/* The current DTA flat ptr, resolving the PSP:0x80 default. Returns 0 only when
+ * neither a DTA nor a PSP is bound (a FINDFIRST then fails loud, Rule 2). */
+static uint32_t current_dta(void)
+{
+    if (g_dta != 0) {
+        return g_dta;
+    }
+    if (g_cur_psp != 0) {
+        return (uint32_t)(uintptr_t)&g_cur_psp->cmd_tail[0];
+    }
+    return 0;
+}
+
+/* Build the 11-byte 8.3 search template from an ASCIIZ file spec. '*' expands to
+ * the remaining '?' wildcards in its field (name 0..7, ext 0..2); a bare "*.*"
+ * thus becomes all-'?' (match all). Other chars are upper-cased and copied;
+ * short fields are space-padded. This is the milestone subset (brief Sec 4.5):
+ * "*.*" (match all) and exact 8.3 match -- NOT the full DOS wildcard engine. */
+static void build_pattern(const char *spec, uint8_t out[11])
+{
+    for (int i = 0; i < 11; i++) {
+        out[i] = ' ';
+    }
+
+    int field = 0;                 /* 0 = name (0..7), 1 = ext (8..10) */
+    int pos   = 0;
+    const char *p = spec;
+
+    while (*p) {
+        char c = *p++;
+        if (c == '.') {
+            field = 1;
+            pos   = 0;
+            continue;
+        }
+        int base = (field == 0) ? 0 : 8;
+        int cap  = (field == 0) ? 8 : 3;
+        if (c == '*') {
+            /* Fill the rest of THIS field with '?' (match any). */
+            for (; pos < cap; pos++) {
+                out[base + pos] = '?';
+            }
+            continue;
+        }
+        if (pos < cap) {
+            /* Upper-case ASCII a-z. */
+            if (c >= 'a' && c <= 'z') {
+                c = (char)(c - 'a' + 'A');
+            }
+            out[base + pos] = (uint8_t)c;
+            pos++;
+        }
+    }
+}
+
+/* Render a dir entry's raw 8.3 name fields into an 11-byte (no-dot) template for
+ * comparison against the search pattern. The on-disk filename[8]/extension[3]
+ * are already space-padded upper-case (spec/dos_structs.h). */
+static void entry_template(const dir_entry_t *e, uint8_t out[11])
+{
+    for (int i = 0; i < 8; i++) {
+        out[i] = e->filename[i];
+    }
+    for (int i = 0; i < 3; i++) {
+        out[8 + i] = e->extension[i];
+    }
+}
+
+/* Match an 11-byte name template against a search pattern: a '?' in the pattern
+ * matches any byte; otherwise the bytes must be equal. */
+static int pattern_match(const uint8_t pat[11], const uint8_t name[11])
+{
+    for (int i = 0; i < 11; i++) {
+        if (pat[i] == '?') {
+            continue;
+        }
+        if (pat[i] != name[i]) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* Format a dir entry's 8.3 name as "NAME.EXT\0" (or "NAME\0" when the extension
+ * is all spaces) into out[13]. Mirrors fat12_format_83 but kept local so int21.c
+ * does not link fat12.c into the host oracle (Law 3 / host-testability). */
+static void format_83(const dir_entry_t *e, char out[13])
+{
+    int n = 0;
+    for (int i = 0; i < 8 && e->filename[i] != ' '; i++) {
+        out[n++] = (char)e->filename[i];
+    }
+    if (e->extension[0] != ' ') {
+        out[n++] = '.';
+        for (int i = 0; i < 3 && e->extension[i] != ' '; i++) {
+            out[n++] = (char)e->extension[i];
+        }
+    }
+    out[n] = '\0';
+}
+
+/* Write the 43-byte find_data_t for a matched entry into the current DTA, then
+ * record the search position for FINDNEXT. */
+static void emit_find_data(const dir_entry_t *e)
+{
+    uint32_t dta = current_dta();
+    if (dta == 0) {
+        /* No DTA and no PSP -> we cannot honor the find contract. Fail loud
+         * rather than write through a NULL (Rule 2). */
+        __builtin_trap();
+        return;
+    }
+    find_data_t *fd = (find_data_t *)(uintptr_t)dta;
+
+    fd->drive_attr = 0u;
+    for (int i = 0; i < 11; i++) {
+        fd->pattern[i] = g_find.pattern[i];
+    }
+    fd->attr  = e->attribute;
+    fd->ftime = e->mtime;
+    fd->fdate = e->mdate;
+    fd->fsize = e->file_size;
+    format_83(e, fd->fname);
+}
+
+/* Scan from g_find.next_index for the next surviving entry matching the search
+ * pattern + attribute mask, write it to the DTA, advance next_index past it, and
+ * return 0 (CF clear). When none remain return AX=0x0012 (no more files). The
+ * attribute filter: volume-label (bit 3) and directory (bit 4) entries are
+ * skipped UNLESS the search mask requests that class (brief Sec 4.5). */
+static uint16_t find_scan(int_frame_t *f)
+{
+    if (g_file == 0 || g_file->dir_entry == 0) {
+        return INT21_ERR_NO_MORE_FILES;   /* no volume -> empty directory */
+    }
+
+    for (;;) {
+        dir_entry_t de;
+        int found = 0;
+        uint16_t rc = g_file->dir_entry(g_find.next_index, &de, &found);
+        if (rc != 0) {
+            return rc;                     /* backend read error */
+        }
+        if (!found) {
+            return INT21_ERR_NO_MORE_FILES;  /* end of directory */
+        }
+        g_find.next_index++;
+
+        /* Attribute filter: skip vollabel/dir entries unless requested. */
+        uint8_t special = (uint8_t)(de.attribute &
+                                    (DIR_ATTR_VOLLABEL | DIR_ATTR_DIRECTORY));
+        if (special != 0 && (special & g_find.search_attr) == 0) {
+            continue;
+        }
+
+        uint8_t name[11];
+        entry_template(&de, name);
+        if (!pattern_match(g_find.pattern, name)) {
+            continue;
+        }
+
+        emit_find_data(&de);
+        cf_clear(f);
+        return 0u;
+    }
+}
+
+/* AH=4Eh FINDFIRST: EDX = flat ptr to ASCIIZ file spec, ECX = attribute mask.
+ * Build the search template, reset the search position, and emit the first
+ * match into the current DTA. CF clear on a hit; CF=1, AX=0x0012 (no more files)
+ * / 0x0002 when nothing matches. Ref: brief Sec 4.5; DOS 3.3 PRM AH=4Eh. */
+static void do_findfirst(int_frame_t *f)
+{
+    const char *spec = (const char *)(uintptr_t)f->edx;
+    if (spec == 0 || *spec == '\0') {
+        set_ax(f, INT21_ERR_NO_MORE_FILES);
+        cf_set(f);
+        return;
+    }
+    if (path_has_subdir_or_drive(spec)) {
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+
+    build_pattern(spec, g_find.pattern);
+    g_find.search_attr = (uint8_t)(f->ecx & 0xFFu);
+    g_find.next_index  = 0u;
+    g_find.active      = 1u;
+
+    uint16_t rc = find_scan(f);
+    if (rc != 0) {
+        /* FINDFIRST with no match returns file-not-found in real DOS (0x0002),
+         * but DOS programs accept 0x0012 too; we use no-more-files for an empty
+         * result and the backend's error otherwise. */
+        set_ax(f, rc);
+        cf_set(f);
+    }
+}
+
+/* AH=4Fh FINDNEXT: no args; continue the active search from FINDFIRST. CF clear
+ * on a hit; CF=1, AX=0x0012 when exhausted, or 0x0012 if no FINDFIRST ran.
+ * Ref: brief Sec 4.5; DOS 3.3 PRM AH=4Fh. */
+static void do_findnext(int_frame_t *f)
+{
+    if (!g_find.active) {
+        set_ax(f, INT21_ERR_NO_MORE_FILES);
+        cf_set(f);
+        return;
+    }
+    uint16_t rc = find_scan(f);
+    if (rc != 0) {
+        set_ax(f, rc);
+        cf_set(f);
+    }
+}
+
 /* AH=30h GET VERSION: AL=major(3), AH=minor(30=0x1E), BH=0 (OEM). CF clear.
  * Version 3.30 (ADR-0003 DEC-12 / spec/dos_banner.txt). */
 static void do_getver(int_frame_t *f)
@@ -291,17 +792,41 @@ void int21_dispatch(int_frame_t *frame)
         case 0x09:                       /* DISPLAY STRING */
             do_puts(frame);
             return;
+        case 0x1A:                       /* SET DTA */
+            do_setdta(frame);
+            return;
+        case 0x2F:                       /* GET DTA */
+            do_getdta(frame);
+            return;
         case 0x30:                       /* GET VERSION */
             do_getver(frame);
             return;
+        case 0x3D:                       /* OPEN (handle) */
+            do_open(frame);
+            return;
+        case 0x3E:                       /* CLOSE (handle) */
+            do_close(frame);
+            return;
+        case 0x3F:                       /* READ (handle) */
+            do_read(frame);
+            return;
         case 0x40:                       /* WRITE TO FILE/DEVICE */
             do_write(frame);
+            return;
+        case 0x42:                       /* LSEEK (move file pointer) */
+            do_lseek(frame);
             return;
         case 0x45:                       /* DUP (duplicate handle) */
             do_dup(frame);
             return;
         case 0x46:                       /* DUP2 (force-duplicate handle) */
             do_dup2(frame);
+            return;
+        case 0x4E:                       /* FINDFIRST */
+            do_findfirst(frame);
+            return;
+        case 0x4F:                       /* FINDNEXT */
+            do_findnext(frame);
             return;
         case 0x4C:                       /* TERMINATE WITH RETURN CODE */
             do_terminate(frame, frame_al(frame));
