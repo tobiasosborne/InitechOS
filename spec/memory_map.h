@@ -14,15 +14,22 @@
  *     fake-paragraph values), Sec 8 (Open Items 1-2: PROGRAM_BASE +
  *     PROGRAM_STACK_TOP belong in a spec header).
  *   os/milton/kernel.ld:18 (kernel linked at 0x00010000; _kernel_end);
- *   Makefile KERNEL_SECTORS=64 -> kernel end <= ~0x18000;
+ *   Makefile KERNEL_SECTORS=96 -> kernel end ~0x1fd20 (kernel .bss grew:
+ *     cfg_fat_buf et al. filled the old 64 KiB window);
  *   os/milton/kstart.asm:25 (kernel ESP = 0x0008FFFC -- the kernel stack lives
  *     at 0x80000+, well above the program region).
  *
- * Gap proof (psp-loader-ground-truth.md Sec 3.2, re-verified here):
- *   kernel end (max)   = 0x18000   (kernel.ld + 64 sectors)
- *   PROGRAM_BASE       = 0x20000   -> 32 KiB headroom above the kernel .bss
- *   PROGRAM_IMAGE      = 0x20100   -> PSP + 0x100 (the authentic .COM offset)
- *   PROGRAM_IMAGE_MAX end = ENV_BLOCK -> image arena 0x20100..0x5F000
+ * Gap proof (psp-loader-ground-truth.md Sec 3.2; re-verified, raised per
+ * beads initech-5pe):
+ *   kernel window     = 0x10000..0x30000 = 128 KiB (kernel.ld + 96 sectors;
+ *                       _kernel_end ~0x1fd20, so ~0x102E0 headroom under
+ *                       PROGRAM_BASE -- was a 64 KiB window 0x10000..0x20000
+ *                       with the kernel reaching 0x1fd20, ~480 B short of the
+ *                       u0a guard; initech-5pe raised PROGRAM_BASE 0x20000 ->
+ *                       0x30000 to restore room for further kernel growth)
+ *   PROGRAM_BASE       = 0x30000   -> top of the 128 KiB kernel window
+ *   PROGRAM_IMAGE      = 0x30100   -> PSP + 0x100 (the authentic .COM offset)
+ *   PROGRAM_IMAGE_MAX end = ENV_BLOCK -> image arena 0x30100..0x5F000 (~188 KiB)
  *   ENV_BLOCK          = 0x5F000   -> 2-byte empty env, OUTSIDE the image arena
  *                                     (was 0x20200 = image+0x100 -> corrupted any
  *                                      .COM > 256 B; beads initech-2og, Rule 8)
@@ -37,14 +44,19 @@
 #define INITECH_SPEC_MEMORY_MAP_H
 
 /* Flat linear address of the PSP (256 bytes). The program's "segment" base in
- * the .COM model. Ref Sec 1 / Sec 3.2. */
-#define PROGRAM_BASE        0x00020000u
+ * the .COM model. Ref Sec 1 / Sec 3.2. RAISED 0x20000 -> 0x30000 (beads
+ * initech-5pe; LOCKED-spec change, Rule 8): the kernel outgrew its 64 KiB
+ * window (_kernel_end ~0x1fd20), so the program window was lifted to give the
+ * kernel a 128 KiB window (0x10000..0x30000). */
+#define PROGRAM_BASE        0x00030000u
 
 /* Flat linear entry point of the loaded program image = PROGRAM_BASE + 0x100.
  * The 0x100 offset preserves the authentic DOS .COM layout (PSP then image);
- * test_program.asm is assembled with `org 0x00020100` so its absolute
- * references resolve at the load address. Ref Sec 3.1 / Sec 3.2 / Sec 5.3. */
-#define PROGRAM_IMAGE       0x00020100u
+ * the baked .asm programs are assembled with `org 0x00030100` so their absolute
+ * references resolve at the load address. NASM cannot read this C header, so
+ * each os/milton program .asm duplicates this constant -- they MUST move
+ * together with this define (initech-5pe). Ref Sec 3.1 / Sec 3.2 / Sec 5.3. */
+#define PROGRAM_IMAGE       0x00030100u
 
 /* Flat linear address of the minimal environment block (two bytes: 00 00 = the
  * empty-but-valid environment). env_seg in the PSP stores (this >> 4) = 0x5F00.
@@ -93,8 +105,8 @@
  *
  * AH=4Bh EXEC / load_program_from_fat (os/milton/loader.c) reads the named .COM
  * off the mounted FAT12 volume into a STAGING buffer, then load_program() copies
- * it DOWN to PROGRAM_IMAGE (0x20100) and JMPs in. The staging buffer must NOT
- * collide with the program region (0x20100..PROGRAM_STACK_BOT) -- the copy reads
+ * it DOWN to PROGRAM_IMAGE (0x30100) and JMPs in. The staging buffer must NOT
+ * collide with the program region (0x30100..PROGRAM_STACK_BOT) -- the copy reads
  * staging and writes the program region, so they must be disjoint.
  *
  * Placement: the 64 KiB gap between PROGRAM_ALLOC_END (0x70000, the program's
@@ -109,8 +121,8 @@
  *
  * Disjoint-from-PROGRAM_IMAGE proof: LOAD_STAGING_BASE (0x70000) >=
  * PROGRAM_ALLOC_END (0x70000) > PROGRAM_STACK_BOT (0x60000) > PROGRAM_IMAGE
- * (0x20100); the staging window [0x70000,0x80000) never overlaps the program
- * region [0x20100,0x60000). SINGLE-USE LIMIT (documented): EXEC runs from
+ * (0x30100); the staging window [0x70000,0x80000) never overlaps the program
+ * region [0x30100,0x60000). SINGLE-USE LIMIT (documented): EXEC runs from
  * kernel/shell context and is single-level (loader g_load_active guard), so one
  * staging region suffices; concurrent EXEC is a follow-up bead. The image-size
  * cap is the smaller of LOAD_STAGING_MAX and PROGRAM_IMAGE_MAX (load_program

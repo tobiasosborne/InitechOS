@@ -24,7 +24,7 @@
 ;            load_program_from_fat). org PROGRAM_IMAGE so abs refs resolve.
 
 bits 32
-org 0x00020100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00030100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
 start:
     xor ebx, ebx               ; ebx = successful-open count

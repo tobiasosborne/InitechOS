@@ -15,14 +15,14 @@
 ; Ref:   DOS 3.3 Programmer's Reference Manual AH=09h / AH=0Ah / AH=40h / AH=4Ch;
 ;        os/milton/int21.c do_buffered_input (AH=0Ah), do_puts (AH=09h),
 ;        do_write (AH=40h: EBX=1 -> CON), do_terminate (AH=4Ch).
-;        spec/memory_map.h (PROGRAM_IMAGE = 0x00020100). CLAUDE.md Law 1 (cite),
+;        spec/memory_map.h (PROGRAM_IMAGE = 0x00030100). CLAUDE.md Law 1 (cite),
 ;        Rule 2 (no overflow), Rule 11 (deterministic nasm -f bin), Rule 12 (ASCII).
 ;
 ; Assembled: nasm -f bin os/milton/conin_program.asm -o build/conin_program.bin
-; ADDRESSING (Solution A): org 0x00020100 == PROGRAM_IMAGE.
+; ADDRESSING (Solution A): org 0x00030100 == PROGRAM_IMAGE.
 
 bits 32
-org 0x00020100
+org 0x00030100
 
 BUF_MAX equ 32                 ; max line length incl. the CR (caller-set byte0)
 

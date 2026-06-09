@@ -675,9 +675,11 @@ void kernel_main(void)
     {
         /* Reuse the file backend's already-cached FAT (fileio_fat_bind above)
          * rather than a SECOND ~4.6 KiB .bss buffer: the kernel .bss was butting
-         * against PROGRAM_BASE (_kernel_end within ~160 bytes of 0x20000), so a
-         * dedicated cfg_fat_buf risked a kernel/program collision (beads
-         * initech-509.2 fix). The FAT is already resident from the bind. */
+         * against PROGRAM_BASE (_kernel_end within ~160 bytes of the old 0x20000
+         * window), so a dedicated cfg_fat_buf risked a kernel/program collision
+         * (beads initech-509.2 fix). The window has since been raised to 0x30000
+         * (beads initech-5pe), but reusing the resident FAT is still the right
+         * call. The FAT is already resident from the bind. */
         uint32_t cfg_fat_len = 0u;
         void    *cfg_fat = fileio_fat_fat_buffer(&cfg_fat_len);
         (void)sysinit_apply_config(mounted ? &vol : (const fat12_volume_t *)0,

@@ -120,8 +120,10 @@ STAGE2_SECTORS  := 16
 # kernel; the BOOT_SHELL image (which also links command.o) crossed the old
 # 32 KiB window. Bumped 80 -> 96 for beads initech-509.2 (SYSINIT + config_sys.o
 # pushed the BOOT_SHELL loaded .text past the 80-sector window -- WL-0009 Sec 4
-# recurrence). 96*512 = 48 KiB: 0x10000 + 96*512 = 0x1C000, still below
-# PROGRAM_BASE (0x20000). MUST equal the stage2.asm KERNEL_SECTORS equate.
+# recurrence). 96*512 = 48 KiB: 0x10000 + 96*512 = 0x1C000, below PROGRAM_BASE
+# (raised 0x20000 -> 0x30000 for beads initech-5pe -- the kernel .bss
+# (_kernel_end ~0x1fd20) had filled the old 64 KiB window; the window is now
+# 128 KiB, 0x10000..0x30000). MUST equal the stage2.asm KERNEL_SECTORS equate.
 KERNEL_SECTORS  := 96
 # Total raw image: MBR(1) + stage2(16) + kernel(96) = 113 sectors; round up to
 # 128 (64 KiB) for headroom + a clean power-of-two. Deterministic (Rule 11).
@@ -131,7 +133,7 @@ IMG_SECTORS     := 128
 # The KERNEL_SECTORS / .bin-size guards above only check the LOADED .bin (.text
 # + .data) against the disk window. They are BLIND to .bss: _kernel_end (end of
 # .bss) is NOT in the .bin, so a .bss growth can silently push _kernel_end up to
-# and past PROGRAM_BASE (0x20000) -- the flat address where loaded programs land
+# and past PROGRAM_BASE (0x30000) -- the flat address where loaded programs land
 # -- corrupting the program-load region at RUNTIME with no build-time warning.
 # (During 509.2 the shell kernel's _kernel_end reached 0x1FF60: 160 bytes from
 # collision, invisibly.) This guard extracts _kernel_end from each kernel ELF
@@ -139,7 +141,7 @@ IMG_SECTORS     := 128
 # PROGRAM_BASE - KERNEL_END_MARGIN.
 #
 # PROGRAM_BASE is parsed from spec/memory_map.h (the locked spec, Rule 8) so it
-# stays in sync; cite: spec/memory_map.h `#define PROGRAM_BASE 0x00020000u`.
+# stays in sync; cite: spec/memory_map.h `#define PROGRAM_BASE 0x00030000u`.
 PROGRAM_BASE := $(shell grep -E '^\#define[[:space:]]+PROGRAM_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
 # Safety margin below PROGRAM_BASE (bytes). Small, deterministic; a kernel whose
 # .bss ends within this of PROGRAM_BASE is too close for comfort and fails.
@@ -228,7 +230,7 @@ KERNEL_IRQ_C     := $(KERNEL_DIR)/irq.c
 # kernel-only behind -DCOMMAND_KERNEL_REPL.
 KERNEL_COMMAND_C := $(KERNEL_DIR)/command.c
 # Baked flat test program: nasm -f bin -> bin2c -> a .rodata C array. The loader
-# copies it to PROGRAM_IMAGE (0x20100) and JMPs in (initech-509.5).
+# copies it to PROGRAM_IMAGE (0x30100) and JMPs in (initech-509.5).
 TEST_PROG_ASM    := $(KERNEL_DIR)/test_program.asm
 TEST_PROG_BIN    := $(BUILD)/test_program.bin
 BIN2C_SRC        := tools/bin2c.c
@@ -559,7 +561,7 @@ $(FAT_DATA_IMG): $(FAT12_FIXTURES) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
 	@printf ">>> fat_data: minted %s (1.44MB FAT12 data disk for test-fs; build intermediate)\n" "$@"
 
-# Assemble the GREET .COM (org 0x20100; nasm -f bin is deterministic, Rule 11).
+# Assemble the GREET .COM (org 0x30100; nasm -f bin is deterministic, Rule 11).
 $(GREET_PROG_BIN): $(GREET_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
 
@@ -579,7 +581,7 @@ $(FAT_EXEC_IMG): $(FAT12_FIXTURES) $(GREET_PROG_BIN) | $(BUILD)
 	@mcopy -i $@ $(GREET_PROG_BIN) ::GREET.COM
 	@printf ">>> fat_exec: minted %s (1.44MB FAT12 disk for test-exec; GREET.COM + HELLO.TXT; build intermediate)\n" "$@"
 
-# Assemble the leaky-child EXITH .COM (org 0x20100; nasm -f bin is deterministic,
+# Assemble the leaky-child EXITH .COM (org 0x30100; nasm -f bin is deterministic,
 # Rule 11). It OPENs four files and TERMINATEs WITHOUT closing them.
 $(EXITH_PROG_BIN): $(EXITH_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
@@ -601,7 +603,7 @@ $(FAT_EXITH_IMG): $(FAT12_FIXTURES) $(EXITH_PROG_BIN) | $(BUILD)
 	@printf ">>> fat_exith: minted %s (1.44MB FAT12 disk for test-exit-handles; EXITH.COM + 4 target files; build intermediate)\n" "$@"
 
 # SYSINIT / CONFIG.SYS FILES= cap oracle (beads initech-509.2; make test-sysinit).
-# Assemble SYSI.COM (org 0x20100; nasm -f bin is deterministic, Rule 11) -- it OPENs
+# Assemble SYSI.COM (org 0x30100; nasm -f bin is deterministic, Rule 11) -- it OPENs
 # HELLO.TXT repeatedly and reports the success count when the cap bites.
 $(SYSI_PROG_BIN): $(SYSI_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
@@ -1963,7 +1965,7 @@ $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BU
 # I/O paths; the pure conversion is shared with the test-rtc host oracle.
 # Built with -Os (size): the BCD/binary/century/DOW math is branchy and the rest
 # of the kernel is -O0, so -O0 here would cost ~1.3 KiB and push the kernel .bss
-# past PROGRAM_BASE (0x20000). -Os is deterministic/reproducible (Rule 11) and
+# past PROGRAM_BASE (0x30000). -Os is deterministic/reproducible (Rule 11) and
 # the codegen is covered byte-for-behaviour by the test-rtc host oracle. The
 # host oracle compiles rtc.c with its OWN flags, so this does not affect it.
 $(KERNEL_RTC_OBJ): $(KERNEL_RTC_C) $(KERNEL_DIR)/rtc.h $(KERNEL_DIR)/io.h | $(BUILD)
@@ -1989,7 +1991,7 @@ $(KERNEL_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
 $(BIN2C_BIN): $(BIN2C_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
-# Assemble the flat (.COM-equivalent) test program (org 0x20100). nasm -f bin is
+# Assemble the flat (.COM-equivalent) test program (org 0x30100). nasm -f bin is
 # deterministic for a fixed source (Rule 11).
 $(TEST_PROG_BIN): $(TEST_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@

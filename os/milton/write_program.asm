@@ -15,7 +15,7 @@
 ; Ref:   os/milton/int21.c do_creat (AH=3Ch: EDX -> ASCIIZ path, CX=attr,
 ;        EAX=handle), do_write (AH=40h FILE: EBX=handle, ECX=count, EDX=buf),
 ;        do_close (AH=3Eh: flush write handle), do_open/do_read (3Dh/3Fh);
-;        spec/memory_map.h (PROGRAM_IMAGE = 0x00020100). CLAUDE.md Law 1, Rule 2
+;        spec/memory_map.h (PROGRAM_IMAGE = 0x00030100). CLAUDE.md Law 1, Rule 2
 ;        (fail loud), Rule 11 (deterministic: nasm -f bin), Rule 12 (ASCII).
 ;
 ; Assembled: nasm -f bin os/milton/write_program.asm -o build/write_program.bin
@@ -23,7 +23,7 @@
 ; load address (Solution A, mirrors type_program.asm).
 
 bits 32
-org 0x00020100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00030100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
 start:
     ; AH=3Ch CREAT: EDX = "OUT.TXT", CX = 0 (normal attribute). EAX = handle.

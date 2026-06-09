@@ -11,8 +11,8 @@
 ;          DT-SPC=1  DT-BPS=512  DT-FREE=N  DT-TOTAL=N  (free > 0)
 ;          DT-PSP=NNNN                                  (nonzero)
 ;
-; DESIGN: each query stashes its results to a scratch block (0x22000) disjoint
-; from both the code page (0x20000) and the report buffer (0x21000). The WHOLE
+; DESIGN: each query stashes its results to a scratch block (0x32000) disjoint
+; from both the code page (0x30000) and the report buffer (0x31000). The WHOLE
 ; report is assembled into one buffer (one field per line: "<tag>=<decimal>") and
 ; written with a SINGLE AH=40h syscall. Every field is emitted TWICE: in the
 ; guest run exactly one build is dropped deterministically (reproducible even on
@@ -25,32 +25,32 @@
 ;        do_gettime (2Ch: CH=hour, CL=min, DH=sec), do_getspace (36h: DL=drive;
 ;        AX=spc, BX=free, CX=bps, DX=total), do_getpsp (62h: BX=psp para),
 ;        do_write (40h: EBX=1 -> CON), do_terminate (4Ch). spec/memory_map.h
-;        PROGRAM_IMAGE 0x00020100. CLAUDE.md Law 1, Rule 2, Rule 11, Rule 12.
+;        PROGRAM_IMAGE 0x00030100. CLAUDE.md Law 1, Rule 2, Rule 11, Rule 12.
 ;
 ; Assembled: nasm -f bin os/milton/datetime_program.asm -o build/datetime_program.bin
 
 bits 32
-org 0x00020100
+org 0x00030100
 
 ; LBUF holds the WHOLE report (~150 bytes); give it a generous 0x200 window so
 ; the growing buffer never reaches the register stash. The stash lives a full
-; page higher (0x22000) -- disjoint from both the code page (0x20000) and the
-; report buffer (0x21000..0x211FF). (A prior layout put R_* at 0x21080, which the
+; page higher (0x32000) -- disjoint from both the code page (0x30000) and the
+; report buffer (0x31000..0x311FF). (A prior layout put R_* at 0x31080, which the
 ; growing report buffer overran -- clobbering not-yet-read values; that is the
 ; real bug behind the "one field comes out wrong/missing" symptom.)
-LBUF    equ 0x21000            ; report buffer (off the code page)
-R_YEAR  equ 0x22000
-R_MON   equ 0x22004
-R_DAY   equ 0x22008
-R_DOW   equ 0x2200C
-R_HOUR  equ 0x22010
-R_MIN   equ 0x22014
-R_SEC   equ 0x22018
-R_SPC   equ 0x2201C
-R_BPS   equ 0x22020
-R_FREE  equ 0x22024
-R_TOTAL equ 0x22028
-R_PSP   equ 0x2202C
+LBUF    equ 0x31000            ; report buffer (off the code page)
+R_YEAR  equ 0x32000
+R_MON   equ 0x32004
+R_DAY   equ 0x32008
+R_DOW   equ 0x3200C
+R_HOUR  equ 0x32010
+R_MIN   equ 0x32014
+R_SEC   equ 0x32018
+R_SPC   equ 0x3201C
+R_BPS   equ 0x32020
+R_FREE  equ 0x32024
+R_TOTAL equ 0x32028
+R_PSP   equ 0x3202C
 
 start:
     ; ===== QUERY PHASE: run all four, stash each result as a full dword =====

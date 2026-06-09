@@ -21,14 +21,14 @@
 ;        do_read (AH=3Fh: EBX=handle, ECX=count, EDX=buf, EAX=bytes), do_lseek
 ;        (AH=42h: EBX=handle, AL=whence, ECX:EDX offset), do_write (AH=40h:
 ;        EBX=1 -> CON), do_close (AH=3Eh), do_terminate (AH=4Ch);
-;        spec/memory_map.h (PROGRAM_IMAGE = 0x00020100). CLAUDE.md Law 1, Rule 2
+;        spec/memory_map.h (PROGRAM_IMAGE = 0x00030100). CLAUDE.md Law 1, Rule 2
 ;        (fail loud), Rule 11 (deterministic: nasm -f bin), Rule 12 (ASCII).
 ;
 ; Assembled: nasm -f bin os/milton/multiopen_program.asm -o build/multiopen_program.bin
 ; org PROGRAM_IMAGE so absolute references resolve at the load address.
 
 bits 32
-org 0x00020100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00030100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
 ; Handle storage (this is a single-shot program; globals at fixed addrs are fine).
 %define HA  dword [ha]

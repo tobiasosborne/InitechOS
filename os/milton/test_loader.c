@@ -48,7 +48,7 @@ int main(void)
 
         /* Layout (Sec 3.2): psp at PROGRAM_BASE, image at PSP+0x100. */
         CHECK(plan.psp_addr == PROGRAM_BASE,
-              "psp_addr must be PROGRAM_BASE (0x20000)");
+              "psp_addr must be PROGRAM_BASE (0x30000)");
         CHECK(plan.image_dst == PROGRAM_BASE + 0x100u,
               "image_dst must be PROGRAM_BASE + 0x100 (the .COM offset)");
         CHECK(plan.image_dst == PROGRAM_IMAGE,

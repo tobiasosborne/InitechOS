@@ -16,7 +16,7 @@
 ; Ref:   os/milton/int21.c do_open (AH=3Dh: EDX->ASCIIZ path, AL=mode, EAX=handle,
 ;        CF=error), do_puts (AH=09h), do_terminate (AH=4Ch: AL=exit code ->
 ;        sft_close_process(g_cur_psp) then the loader exit hook); os/milton/sft.c
-;        sft_close_process; spec/memory_map.h (PROGRAM_IMAGE = 0x00020100).
+;        sft_close_process; spec/memory_map.h (PROGRAM_IMAGE = 0x00030100).
 ;        CLAUDE.md Law 1 (cite), Rule 2 (fail loud), Rule 11 (nasm -f bin is
 ;        deterministic), Rule 12 (ASCII).
 ;
@@ -26,7 +26,7 @@
 ; org PROGRAM_IMAGE so absolute data references resolve at the load address.
 
 bits 32
-org 0x00020100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00030100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
 start:
     ; ---- OPEN HELLO.TXT (read) -- leak handle 1 ----

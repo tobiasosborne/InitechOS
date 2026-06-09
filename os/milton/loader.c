@@ -219,7 +219,7 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
         return st;   /* fail loud: the program is NOT run (Rule 2) */
     }
 
-    /* Copy the program image to PROGRAM_IMAGE (0x20100). Volatile-correct: the
+    /* Copy the program image to PROGRAM_IMAGE (0x30100). Volatile-correct: the
      * destination is a fixed physical region the loader owns. */
     loader_memcpy((uint8_t *)(uintptr_t)plan.image_dst, plan.image_src,
                   plan.image_len);

@@ -31,14 +31,14 @@
 ;        g_dta + g_find), do_open (AH=3Dh), do_lseek (AH=42h), do_read (AH=3Fh:
 ;        FAT cache + cluster scratch), do_write (AH=40h: EBX=1 -> CON), do_close
 ;        (AH=3Eh), do_terminate (AH=4Ch); spec/find_data.h (fname at 0x15);
-;        spec/memory_map.h (PROGRAM_IMAGE = 0x00020100). CLAUDE.md Law 1, Law 2,
+;        spec/memory_map.h (PROGRAM_IMAGE = 0x00030100). CLAUDE.md Law 1, Law 2,
 ;        Rule 2 (fail loud), Rule 11 (deterministic: nasm -f bin), Rule 12 (ASCII).
 ;
 ; Assembled: nasm -f bin os/milton/irqstorm_program.asm -o build/irqstorm_program.bin
 ; org PROGRAM_IMAGE so absolute references resolve at the load address.
 
 bits 32
-org 0x00020100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00030100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
 FIND_FNAME_OFF equ 0x15        ; spec/find_data.h: fname at offset 0x15
 
