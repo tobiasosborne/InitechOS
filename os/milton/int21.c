@@ -26,8 +26,21 @@
  * error-return contract rides on this single bit (ground-truth Sec 5.4). */
 #define CF_BIT 0x1u
 
+/* The zero flag is bit 6 of EFLAGS (Intel SDM Vol 1 Sec 3.4.3.1). AH=06h DL=FF
+ * and AH=0Bh report "no character available" via ZF=1 (DOS 3.3 PRM AH=06h);
+ * we touch ONLY this bit, mirroring the CF helpers' single-bit discipline. */
+#define ZF_BIT 0x40u
+
 static int21_sink_fn g_sink = 0;
 static int21_exit_fn g_exit = 0;
+
+/* CON input source (beads initech-n62). g_conin_get is the BLOCKING read (never
+ * -1; the kernel impl spins on hlt); g_conin_poll is the NON-blocking poll
+ * (char 0..255, or -1 if none). NULL until the kernel binds the keyboard (or the
+ * host oracle binds a mock) -- input functions then return EOF/no-char, NEVER
+ * hang or fault (Rule 2). */
+static int21_conin_fn     g_conin_get  = 0;
+static int21_coninpoll_fn g_conin_poll = 0;
 
 /* The current process's PSP (beads initech-509.3). Handle functions resolve a
  * handle through g_cur_psp->jft into the system SFT. NULL until the kernel binds
@@ -38,6 +51,18 @@ static psp_t *g_cur_psp = 0;
  * a FAT12-backed impl (or the host oracle binds a mock). The file functions
  * resolve FAT-specific work through it so int21.c stays host-testable. */
 static const int21_file_backend_t *g_file = 0;
+
+/* The EXEC backend (beads initech-saw / AH=4Bh). NULL until the kernel binds the
+ * FAT-sourced loader (load_program_from_fat) or the host oracle binds a mock.
+ * AH=4Bh reaches the actual load+run through this seam so int21.c does not link
+ * loader.c (keeping it host-testable). */
+static int21_exec_fn g_exec = 0;
+
+/* The most recent child exit code, retrievable via AH=4Dh GET-RETURN-CODE
+ * (DOS 3.3 PRM AH=4Dh). Set by a successful AH=4Bh EXEC; reset is the caller's
+ * concern (DOS clears it once read, but we keep the simpler "last value" model
+ * this milestone -- the shell reads it once right after EXEC). */
+static uint8_t g_last_child_rc = 0;
 
 /* The current Disk Transfer Area (flat ptr). FINDFIRST/FINDNEXT write the
  * 43-byte find_data_t here. Defaults to the current PSP's command-tail field
@@ -62,10 +87,40 @@ void int21_set_sink(int21_sink_fn sink) { g_sink = sink; }
 void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
 void int21_set_psp(struct psp *psp)     { g_cur_psp = (psp_t *)psp; }
 void int21_set_file_backend(const int21_file_backend_t *backend) { g_file = backend; }
+void int21_set_exec_backend(int21_exec_fn fn) { g_exec = fn; }
+void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
+{
+    g_conin_get  = get;
+    g_conin_poll = poll;
+}
 
 /* ---- CF helpers: write ONLY bit 0 of the saved EFLAGS image. ---- */
 static void cf_clear(int_frame_t *f) { f->eflags &= ~CF_BIT; }
 static void cf_set(int_frame_t *f)   { f->eflags |=  CF_BIT; }
+
+/* ---- ZF helpers: write ONLY bit 6 of the saved EFLAGS image (06h/0Bh). ---- */
+static void zf_clear(int_frame_t *f) { f->eflags &= ~ZF_BIT; }
+static void zf_set(int_frame_t *f)   { f->eflags |=  ZF_BIT; }
+
+/* ---- CON input source access (NULL-safe) ----
+ * conin_get: BLOCKING read of one char (0..255). With no source bound it
+ * returns 0 -- a graceful no-input result, NEVER a hang (Rule 2). conin_poll: a
+ * non-blocking read; returns the char (0..255) or -1 when none / no source. */
+static int conin_get(void)
+{
+    if (g_conin_get) {
+        return g_conin_get() & 0xFF;
+    }
+    return 0;   /* no source bound -> no input (host-safe default) */
+}
+
+static int conin_poll(void)
+{
+    if (g_conin_poll) {
+        return g_conin_poll();
+    }
+    return -1;  /* no source bound -> no char */
+}
 
 /* ---- the CON sink fan-out (NULL-safe) ---- */
 static void con_putc(char c)
@@ -189,6 +244,238 @@ static void do_puts(int_frame_t *f)
     }
     set_al(f, 0x24u);
     cf_clear(f);
+}
+
+/* ---- the CON-input subset (beads initech-n62) -----------------------------
+ * All read through the CON input source (conin_get blocking / conin_poll non-
+ * blocking) and echo through the CON sink, mirroring DOS 3.3 semantics. Ctrl-C
+ * (^C, 0x03) handling -- the SET BREAK / INT 23h check that 01h/08h/0Ah perform
+ * in real DOS -- is DEFERRED (beads to file): there is no break handler or
+ * process model yet, so ^C is delivered as an ordinary character this subset.
+ * Ref: DOS 3.3 Programmer's Reference Manual AH=01h/06h/07h/08h/0Ah/0Bh/0Ch.
+ *
+ * THE 0Bh PUSHBACK: AH=0Bh GET INPUT STATUS must report whether a char is ready
+ * WITHOUT consuming it -- but the only non-blocking primitive (conin_poll)
+ * consumes. So a peeked char is held in g_conin_pushback (a single-slot lookahead)
+ * and the read paths (conin_get_pb / conin_poll_pb) drain it FIRST, so a 0Bh
+ * status check followed by 01h/07h/08h/0Ah still sees that keystroke. */
+static int g_conin_pushback = -1;   /* a single peeked-but-unconsumed char */
+
+/* Blocking get honoring the 0Bh pushback. */
+static int conin_get_pb(void)
+{
+    if (g_conin_pushback >= 0) {
+        int c = g_conin_pushback;
+        g_conin_pushback = -1;
+        return c & 0xFF;
+    }
+    return conin_get();
+}
+
+/* Non-blocking poll honoring the 0Bh pushback (06h-input / 0Bh / 0Ch drain). */
+static int conin_poll_pb(void)
+{
+    if (g_conin_pushback >= 0) {
+        int c = g_conin_pushback;
+        g_conin_pushback = -1;
+        return c & 0xFF;
+    }
+    return conin_poll();
+}
+
+/* AH=01h CHARACTER INPUT WITH ECHO: block for one char, echo it to CON, AL=char.
+ * (Ctrl-C check deferred -- see header note.) CF is not part of this function's
+ * contract; success leaves it clear. Ref: DOS 3.3 PRM AH=01h. */
+static void do_conin_echo(int_frame_t *f)
+{
+    int c = conin_get_pb();
+#ifndef INT21_MUTATE_CONIN_NO_ECHO
+    con_putc((char)c);          /* echo */
+#else
+    /* MUTANT (Rule 6; make test-conin-mutant only): drop the echo, so the 01h
+     * oracle -- which asserts the char appears on the CON sink -- goes RED.
+     * NEVER define in a real build. */
+#endif
+    set_al(f, (uint8_t)c);
+    cf_clear(f);
+}
+
+/* AH=07h DIRECT CHARACTER INPUT, NO ECHO, NO Ctrl-C: block for one char, AL=char,
+ * no echo. Ref: DOS 3.3 PRM AH=07h. */
+static void do_conin_raw(int_frame_t *f)
+{
+    int c = conin_get_pb();
+    set_al(f, (uint8_t)c);
+    cf_clear(f);
+}
+
+/* AH=08h CHARACTER INPUT, NO ECHO (with Ctrl-C check): block for one char,
+ * AL=char, no echo. The ^C check is deferred (header note); functionally
+ * identical to 07h this subset. Ref: DOS 3.3 PRM AH=08h. */
+static void do_conin_noecho(int_frame_t *f)
+{
+    int c = conin_get_pb();
+    set_al(f, (uint8_t)c);
+    cf_clear(f);
+}
+
+/* AH=06h DIRECT CONSOLE I/O (dual): DL=0xFF -> INPUT (non-blocking, no echo);
+ * DL!=0xFF -> OUTPUT DL to CON. On input: if a char is ready, ZF=0 (clear) and
+ * AL=char; if none, ZF=1 (set) and AL=0, with NO wait and NO echo. On output,
+ * the char goes to CON and AL=DL (DOS leaves ZF undefined on the output leg; we
+ * clear it for determinism). Ref: DOS 3.3 PRM AH=06h. */
+static void do_direct_conio(int_frame_t *f)
+{
+    uint8_t dl = frame_dl(f);
+    if (dl == 0xFFu) {
+        /* INPUT direction: non-blocking poll (honor any 0Bh pushback). */
+        int c = conin_poll_pb();
+        if (c < 0) {
+            set_al(f, 0u);
+            zf_set(f);          /* no character available */
+        } else {
+            set_al(f, (uint8_t)c);
+            zf_clear(f);        /* a character was returned in AL */
+        }
+        cf_clear(f);
+    } else {
+        /* OUTPUT direction: emit DL to CON (this is the 06h output leg; the
+         * dual of the input above). */
+        con_putc((char)dl);
+        set_al(f, dl);
+        zf_clear(f);
+        cf_clear(f);
+    }
+}
+
+/* AH=0Bh GET INPUT STATUS: AL=0xFF if a character is available, AL=0x00 if not.
+ * No wait, no consume -- a peeked char is parked in the pushback so a following
+ * read still sees it. Ref: DOS 3.3 PRM AH=0Bh. */
+static void do_input_status(int_frame_t *f)
+{
+    int avail;
+    if (g_conin_pushback >= 0) {
+        avail = 1;                 /* already have one queued */
+    } else {
+        int c = conin_poll();
+        if (c >= 0) {
+            g_conin_pushback = c & 0xFF;  /* park it -- do NOT consume */
+            avail = 1;
+        } else {
+            avail = 0;
+        }
+    }
+    set_al(f, avail ? 0xFFu : 0x00u);
+    cf_clear(f);
+}
+
+/* AH=0Ah BUFFERED INPUT: EDX -> a buffer where byte0 (caller-set) is the maximum
+ * length INCLUDING the terminating CR, byte1 is the count WE write (chars read,
+ * NOT counting the CR), and byte2.. are the chars, terminated by a CR (0x0D)
+ * which IS stored but NOT counted. We loop blocking-reads, echoing each char;
+ * BACKSPACE (0x08) erases the last buffered char (emit "\b \b") or is ignored
+ * when empty; CR (0x0D) stops the loop (stored + echoed, then a LF). When the
+ * buffer is full (count == max-1, leaving room only for the CR) further non-CR
+ * chars are ignored (we emit a BEL, do NOT overflow -- Rule 2).
+ * Ref: DOS 3.3 PRM AH=0Ah. */
+static void do_buffered_input(int_frame_t *f)
+{
+    uint8_t *buf = (uint8_t *)(uintptr_t)f->edx;
+    if (buf == 0) {
+        cf_clear(f);            /* nothing we can do; fail safe (no fault) */
+        return;
+    }
+
+    uint8_t max = buf[0];       /* max length incl. the CR (caller-set) */
+    uint8_t count = 0;          /* chars stored so far (excl. CR) */
+
+    /* A max of 0 is degenerate (no room even for the CR); store nothing. Real
+     * DOS still reads until CR but cannot store; we mirror "no room" by reading
+     * to the CR and storing none. max==1 leaves room only for the CR. */
+    for (;;) {
+        int ci = conin_get_pb();
+        uint8_t c = (uint8_t)ci;
+
+        /* Line terminator: the DOS Enter key is CR (0x0D). InitechOS's PS/2
+         * driver (kbd.c, beads initech-3rs) decodes the Enter scancode (0x1C) to
+         * LF (0x0A, '\n'), so accept EITHER as the terminator and NORMALIZE the
+         * stored byte to CR (0x0D) -- the DOS 3.3 AH=0Ah contract (the caller
+         * scans for 0x0D in the buffer). Without this, a line read from the live
+         * keyboard would never terminate (root cause, Rule 3 -- not a per-test
+         * bandaid). Ref: DOS 3.3 PRM AH=0Ah; os/milton/kbd.c SC1_NORMAL[0x1C]. */
+        if (c == 0x0Du || c == 0x0Au) {         /* CR (or the kbd's LF): terminate */
+            /* Store the CR if there is room (real DOS always stores it at
+             * buf[2+count]); the CR is NOT counted in buf[1]. */
+            if ((uint8_t)(2u + count) < (uint8_t)(2u + max)) {
+                buf[2u + count] = 0x0Du;
+            }
+#ifdef INT21_MUTATE_BUFINPUT_COUNT_CR
+            /* MUTANT (Rule 6; make test-conin-mutant only): count the CR in the
+             * length byte (count+1 instead of count), so the 0Ah oracle -- which
+             * asserts buf[1] == chars read NOT counting the CR -- goes RED.
+             * NEVER define in a real build. */
+            buf[1] = (uint8_t)(count + 1u);
+#else
+            buf[1] = count;
+#endif
+            con_putc('\r');                     /* echo CR + LF (DOS convention) */
+            con_putc('\n');
+            cf_clear(f);
+            return;
+        }
+
+        if (c == 0x08u) {                       /* BACKSPACE: erase one */
+            if (count > 0u) {
+                count--;
+                con_putc('\b');                 /* erase visually: back, space, back */
+                con_putc(' ');
+                con_putc('\b');
+            }
+            /* empty -> ignore (DOS does not back past the prompt) */
+            continue;
+        }
+
+        /* Ordinary char. Room for it only if count < max-1 (reserve 1 for CR). */
+        if (max >= 1u && count < (uint8_t)(max - 1u)) {
+            buf[2u + count] = c;
+            count++;
+            con_putc((char)c);                  /* echo */
+        } else {
+            /* Buffer full: ignore further non-CR chars, beep (BEL). Rule 2: do
+             * NOT overflow the caller's buffer. */
+            con_putc('\a');
+        }
+    }
+}
+
+/* AH=0Ch FLUSH KEYBOARD BUFFER then invoke an input function: AL on entry names
+ * the input function to chain (01h/06h/07h/08h/0Ah). Drain any pending input
+ * (so a stale keystroke cannot satisfy the chained read), then dispatch. If AL
+ * is not one of the chainable functions, just flush and return (CF clear).
+ * Ref: DOS 3.3 PRM AH=0Ch. */
+static void do_flush_then_input(int_frame_t *f)
+{
+    /* Flush: drain the pushback + every char the poll can yield right now. */
+    g_conin_pushback = -1;
+    while (conin_poll() >= 0) {
+        /* discard */
+    }
+
+    uint8_t sub = frame_al(f);
+    /* Re-dispatch by replacing AH with the chained function and clearing AL's
+     * role (the sub-functions read AH only, plus 06h reads DL / 0Ah reads EDX,
+     * which the caller already set up). We call the implementations directly. */
+    switch (sub) {
+        case 0x01: do_conin_echo(f);      return;
+        case 0x06: do_direct_conio(f);    return;
+        case 0x07: do_conin_raw(f);       return;
+        case 0x08: do_conin_noecho(f);    return;
+        case 0x0A: do_buffered_input(f);  return;
+        default:
+            /* Not a chainable input function: flush-only, success. */
+            cf_clear(f);
+            return;
+    }
 }
 
 /* AH=40h WRITE TO FILE/DEVICE: EBX=handle, ECX=count, EDX=flat ptr. The handle
@@ -742,6 +1029,87 @@ static void do_findnext(int_frame_t *f)
     }
 }
 
+/* AH=4Bh EXEC (LOAD AND EXECUTE): AL = subfunction, EDX = flat ptr to the ASCIIZ
+ * program path (root-dir 8.3 only this milestone). AL=00h is load-and-execute (a
+ * child program); AL=03h (load overlay) + other subfunctions are out of scope ->
+ * invalid function (CF=1, AX=0x0001). The child runs to completion via the saw
+ * path (load_program_from_fat); when it terminates (4Ch / INT 20h) the loader
+ * regains control and EXEC returns to the caller with CF clear. The child's exit
+ * code is stashed for AH=4Dh GET-RETURN-CODE.
+ *
+ * Path rules mirror AH=3Dh OPEN: a '\' or ':' -> CF=1, AX=0x0003 (path not
+ * found); an empty/NULL path -> file-not-found.
+ *
+ * REENTRANCY (Rule 2 / stop condition): the loader's return-to-loader context
+ * (loader.c g_loader_ctx) is single-level -- a nested EXEC (EXEC issued from
+ * inside an already-running loaded program) would clobber it. load_program_from_fat
+ * guards this and returns INSUFFICIENT_MEM; we surface that as CF=1, AX=0x0008.
+ * EXEC from KERNEL/shell context (the common case) is fully supported.
+ * Ref: DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-08 (flat .COM); beads initech-saw. */
+static void do_exec(int_frame_t *f)
+{
+    uint8_t sub = frame_al(f);
+    if (sub != 0x00u) {
+        /* AL=03h load-overlay + any other subfunction: out of scope (Rule 2). */
+        set_ax(f, INT21_ERR_INVALID_FUNCTION);
+        cf_set(f);
+        return;
+    }
+
+    const char *path = (const char *)(uintptr_t)f->edx;
+    if (path == 0 || *path == '\0') {
+        set_ax(f, INT21_ERR_FILE_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    if (path_has_subdir_or_drive(path)) {
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    if (g_exec == 0) {
+        /* No loader bound -> behave as file-not-found (Rule 2: never a silent
+         * success; an EXEC with no backing cannot have run a program). */
+        set_ax(f, INT21_ERR_FILE_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+
+    uint8_t rc = 0;
+    uint16_t err = g_exec(path, &rc);
+    if (err != 0) {
+        /* Load/run failed (not found / nested / too big). Fail loud (Rule 2). */
+        set_ax(f, err);
+        cf_set(f);
+        return;
+    }
+
+    /* The child ran and returned. Stash its exit code for AH=4Dh; CF clear. DOS
+     * leaves the child's rc retrievable via 4Dh, not in AX of the 4Bh return. */
+    g_last_child_rc = rc;
+    cf_clear(f);
+}
+
+/* AH=4Dh GET RETURN CODE (WAIT): return the exit code of the last child run via
+ * AH=4Bh EXEC. AL = the exit code; AH = the termination type (0 = normal exit,
+ * the only kind this milestone -- no Ctrl-C/critical-error/TSR termination). DOS
+ * "consumes" the value (a second 4Dh reads 0), which we model by clearing the
+ * stash after read. CF clear. Ref: DOS 3.3 PRM AH=4Dh. */
+static void do_get_return_code(int_frame_t *f)
+{
+#ifdef INT21_MUTATE_RETCODE_ZERO
+    /* MUTANT (Rule 6; make test-exec-mutant only): always report rc=0 regardless
+     * of the child's actual exit code, so the 4Dh oracle (which EXECs a program
+     * that exits rc=7 and asserts AL==7) goes RED. NEVER define in a real build. */
+    f->eax = (f->eax & 0xFFFF0000u);          /* AL=0, AH=0 */
+#else
+    f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)g_last_child_rc; /* AL = exit code */
+    /* AH = 0 (normal termination); high byte of AX is the termination type. */
+#endif
+    g_last_child_rc = 0u;   /* consumed (DOS clears after the read) */
+    cf_clear(f);
+}
+
 /* AH=30h GET VERSION: AL=major(3), AH=minor(30=0x1E), BH=0 (OEM). CF clear.
  * Version 3.30 (ADR-0003 DEC-12 / spec/dos_banner.txt). */
 static void do_getver(int_frame_t *f)
@@ -786,8 +1154,29 @@ void int21_dispatch(int_frame_t *frame)
         case 0x00:                       /* TERMINATE (alias for 4Ch AL=0) */
             do_terminate(frame, 0u);
             return;
+        case 0x01:                       /* CHARACTER INPUT WITH ECHO */
+            do_conin_echo(frame);
+            return;
         case 0x02:                       /* DISPLAY OUTPUT */
             do_putchar(frame);
+            return;
+        case 0x06:                       /* DIRECT CONSOLE I/O (in if DL=FF) */
+            do_direct_conio(frame);
+            return;
+        case 0x07:                       /* DIRECT CHAR INPUT, no echo, no ^C */
+            do_conin_raw(frame);
+            return;
+        case 0x08:                       /* CHAR INPUT, no echo (^C deferred) */
+            do_conin_noecho(frame);
+            return;
+        case 0x0A:                       /* BUFFERED INPUT */
+            do_buffered_input(frame);
+            return;
+        case 0x0B:                       /* GET INPUT STATUS */
+            do_input_status(frame);
+            return;
+        case 0x0C:                       /* FLUSH KB BUFFER + invoke input */
+            do_flush_then_input(frame);
             return;
         case 0x09:                       /* DISPLAY STRING */
             do_puts(frame);
@@ -828,8 +1217,14 @@ void int21_dispatch(int_frame_t *frame)
         case 0x4F:                       /* FINDNEXT */
             do_findnext(frame);
             return;
+        case 0x4B:                       /* EXEC (load and execute) */
+            do_exec(frame);
+            return;
         case 0x4C:                       /* TERMINATE WITH RETURN CODE */
             do_terminate(frame, frame_al(frame));
+            return;
+        case 0x4D:                       /* GET RETURN CODE (of last EXEC child) */
+            do_get_return_code(frame);
             return;
         default:
             break;
@@ -839,8 +1234,9 @@ void int21_dispatch(int_frame_t *frame)
      * implemented functions. Two distinct, fail-loud diagnostics: */
     if (ah_is_listed(ah)) {
         /* RECOGNIZED by the locked register but not yet implemented in this
-         * subset (e.g. CON input 01h/06h/0Ah need the keyboard; file/SFT
-         * functions need initech-509.3). A distinct diagnostic, NOT 'unknown'. */
+         * subset (e.g. FCB ops 0Fh-24h, DATE/TIME 2Ah-2Dh). CON input
+         * 01h/06h/07h/08h/0Ah/0Bh/0Ch are now real (beads initech-n62). A
+         * distinct diagnostic, NOT 'unknown'. */
         con_puts("INT21 not-yet-impl AH=");
         con_hex2(ah);
         con_putc('\n');

@@ -350,13 +350,15 @@ int main(void)
               "unlisted AH diagnostic should mention the unknown AH");
     }
 
-    /* --- LISTED-but-unimplemented AH (06h CON DIRECT I/O needs the keyboard)
-     *     -> recognized as a distinct 'not yet implemented' diagnostic, CF
-     *     set, AX=1; NOT 'unknown function'. ------------------------------ */
+    /* --- LISTED-but-unimplemented AH (0Fh FCB OPEN -- the FCB range 0Fh-24h is
+     *     in the register but deferred) -> recognized as a distinct 'not yet
+     *     implemented' diagnostic, CF set, AX=1; NOT 'unknown function'.
+     *     (CON input 01h/06h/0Ah are NOW real -- beads initech-n62 -- so this
+     *     test moved to a still-deferred listed AH.) -------------------------- */
     {
         sink_reset();
         int_frame_t f = fresh_frame();
-        f.eax = 0x0600u;        /* AH=06h -- listed (CON I/O) but input deferred */
+        f.eax = 0x0F00u;        /* AH=0Fh -- listed (FCB ops) but deferred */
         int21_dispatch(&f);
         CHECK(frame_cf(&f) == 1, "listed-but-deferred AH sets CF");
         CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,

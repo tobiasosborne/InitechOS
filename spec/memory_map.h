@@ -93,4 +93,24 @@
 #define FILE_BUFFER_BASE    0x00070000u
 #define FILE_BUFFER_MAX     0x00010000u   /* 64 KiB cap (0x70000..0x80000)       */
 
+/* ------------------------------------------------------------------------ *
+ * FAT-sourced program load staging (beads initech-saw).
+ *
+ * AH=4Bh EXEC / load_program_from_fat (os/milton/loader.c) reads the named .COM
+ * off the mounted FAT12 volume into a STAGING buffer, then load_program() copies
+ * it DOWN to PROGRAM_IMAGE (0x20100) and JMPs in. The staging buffer must NOT
+ * collide with the program region (0x20100..PROGRAM_STACK_BOT) -- the copy reads
+ * staging and writes the program region, so they must be disjoint.
+ *
+ * We reuse the open-file buffer region (0x70000..0x80000): it is ABOVE the
+ * program allocation ceiling (PROGRAM_ALLOC_END = 0x70000) and below the kernel
+ * stack (0x80000+), so it is disjoint from PROGRAM_IMAGE -- a clean, already-owned
+ * staging home. SINGLE-USE LIMIT (milestone scope, like the OPEN buffer): EXEC
+ * runs from kernel/shell context and does not overlap an open file's lifetime,
+ * so reusing this region is safe; a future concurrent-EXEC-while-file-open would
+ * need its own region (a follow-up bead). The image-size cap is the smaller of
+ * FILE_BUFFER_MAX and PROGRAM_IMAGE_MAX (load_program rejects anything bigger). */
+#define LOAD_STAGING_BASE   FILE_BUFFER_BASE
+#define LOAD_STAGING_MAX    FILE_BUFFER_MAX
+
 #endif /* INITECH_SPEC_MEMORY_MAP_H */

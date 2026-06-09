@@ -23,6 +23,7 @@
 #include "loader.h"
 #include "memory_map.h"   /* PROGRAM_BASE / PROGRAM_IMAGE / ENV_BLOCK / ... */
 #include "int21.h"        /* int21_set_exit / int21_exit_fn (the repointed hook) */
+#include "fat12.h"        /* FAT-sourced load (beads initech-saw): find + read file */
 
 /* ------------------------------------------------------------------------ *
  * Pure prep: validate + lay out + compute psp_params (HOST-TESTABLE).
@@ -100,6 +101,18 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
     return st;
 }
 
+/* Hosted stub: the FAT-sourced load is kernel-only (it pulls the volume + the
+ * asm transfer). The host oracle exercises the AH=4Bh register/validation logic
+ * through int21's MOCK EXEC backend (test_exec.c), never this path. */
+void loader_bind_fat_volume(const struct fat12_volume *vol) { (void)vol; }
+
+loader_status_t load_program_from_fat(const char *name83, const char *cmd_tail,
+                                      uint32_t cmd_tail_len, uint8_t *out_rc)
+{
+    (void)name83; (void)cmd_tail; (void)cmd_tail_len; (void)out_rc;
+    return LOADER_ERR_NO_VOLUME;
+}
+
 #else /* freestanding kernel build */
 
 /* loader_context_t -- the saved kernel state for the non-returning return jump
@@ -131,6 +144,16 @@ _Static_assert(__builtin_offsetof(loader_context_t, saved_ebp)  == 12,
  * (Sec 6.2 -- no process table). The exit hook reaches it through this global
  * because the int21 hook signature is void(uint8_t) and cannot carry &ctx. */
 static loader_context_t *g_loader_ctx = 0;
+
+/* Single-level guard (Rule 2): set while a program is running through
+ * load_program(). A re-entrant load (nested EXEC from inside a running program)
+ * would clobber g_loader_ctx + the program region, so load_program_from_fat
+ * REJECTS it (LOADER_ERR_BUSY) rather than corrupt the machine. KERNEL/shell
+ * EXEC (the common case, g_load_active == 0) proceeds. Nested EXEC is deferred
+ * (a follow-up bead). Note: load_program() itself does not set this -- the saw
+ * entry point owns the guard, because the baked run_baked() path (kmain) calls
+ * load_program directly and must keep working unchanged. */
+static uint8_t g_load_active = 0;
 
 /* Tiny freestanding memcpy (loader.c pulls in no libc; Rule 11 deterministic). */
 static void loader_memcpy(uint8_t *dst, const uint8_t *src, uint32_t n)
@@ -278,6 +301,112 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
 
     if (out_exit_code) {
         *out_exit_code = ctx.exit_code;
+    }
+    return LOADER_OK;
+}
+
+/* ------------------------------------------------------------------------ *
+ * FAT-sourced load (beads initech-saw): read a .COM BY NAME, then load_program.
+ *
+ * loader.c reads the named file off the mounted volume into the off-stack
+ * staging buffer (LOAD_STAGING_BASE) and runs it. It caches the volume + the
+ * whole FAT at bind time (fat12_read_file needs the FAT for the cluster-chain
+ * walk). All scratch is kernel BSS -- NEVER a multi-KB buffer on the kernel
+ * stack (spec/memory_map.h Risk 2). Ref: fat12.h (fat12_find / fat12_read_file).
+ * ------------------------------------------------------------------------ */
+
+/* The mounted volume the loader reads .COMs from (caller-owned; bound by
+ * loader_bind_fat_volume). NULL -> load_program_from_fat returns NO_VOLUME. */
+static const fat12_volume_t *g_load_vol = 0;
+
+/* The whole-FAT cache (1.44 MB FAT12: 9 sectors * 512 = 4608 bytes; round up so
+ * a slightly larger FAT still fits). Filled once at bind by fat12_read_fat. */
+static uint8_t  g_load_fat[12u * 512u];
+static uint32_t g_load_fat_len = 0;
+
+/* Sector scratch for fat12_find; cluster scratch for fat12_read_file (one
+ * sector each on the 1.44 MB geometry). Kernel BSS. */
+static uint8_t  g_load_sector[BLOCKDEV_SECTOR_SIZE];
+static uint8_t  g_load_cluster[BLOCKDEV_SECTOR_SIZE];
+
+void loader_bind_fat_volume(const struct fat12_volume *vol)
+{
+    if (vol == 0) {
+        g_load_vol     = 0;
+        g_load_fat_len = 0;
+        return;
+    }
+    /* Cache the whole FAT (read-only this milestone). A read error leaves the
+     * loader UNBOUND (fail loud, Rule 2 -- never half-initialised). */
+    int rc = fat12_read_fat(vol, g_load_fat, (uint32_t)sizeof(g_load_fat));
+    if (rc != FAT12_OK) {
+        g_load_vol     = 0;
+        g_load_fat_len = 0;
+        return;
+    }
+    g_load_fat_len = (uint32_t)vol->bpb.sectors_per_fat *
+                     (uint32_t)vol->bpb.bytes_per_sector;
+    g_load_vol     = vol;
+}
+
+loader_status_t load_program_from_fat(const char *name83, const char *cmd_tail,
+                                      uint32_t cmd_tail_len, uint8_t *out_rc)
+{
+    if (g_load_vol == 0) {
+        return LOADER_ERR_NO_VOLUME;
+    }
+    /* Single-level guard (Rule 2 / stop condition): refuse a nested load rather
+     * than clobber g_loader_ctx + the program region. */
+    if (g_load_active) {
+        return LOADER_ERR_BUSY;
+    }
+
+    /* Locate the .COM in the (root) directory. */
+    dir_entry_t de;
+    int rc = fat12_find(g_load_vol, g_load_sector, name83, &de);
+    if (rc == FAT12_ERR_NOT_FOUND) {
+        return LOADER_ERR_NOT_FOUND;
+    }
+    if (rc != FAT12_OK) {
+        return LOADER_ERR_READ;
+    }
+
+    /* Reject before reading anything that cannot fit the program region (the
+     * staging cap is >= PROGRAM_IMAGE_MAX, so PROGRAM_IMAGE_MAX is the binding
+     * limit; load_program re-checks). */
+    if (de.file_size > PROGRAM_IMAGE_MAX || de.file_size > LOAD_STAGING_MAX) {
+        return LOADER_ERR_TOO_BIG;
+    }
+    if (de.file_size == 0u) {
+        /* An empty file is not a runnable program (load_program rejects zero
+         * length too, but fail loud here with the FAT-specific bad-format-ish
+         * code rather than read 0 bytes and run garbage). */
+        return LOADER_ERR_TOO_BIG;   /* reuse: nothing runnable (size 0) */
+    }
+
+    /* Read the whole .COM into the off-stack staging buffer. */
+    uint8_t *staging = (uint8_t *)(uintptr_t)LOAD_STAGING_BASE;
+    uint32_t got = 0;
+    rc = fat12_read_file(g_load_vol, g_load_fat, g_load_fat_len, &de,
+                         staging, LOAD_STAGING_MAX, g_load_cluster, &got);
+    if (rc != FAT12_OK) {
+        return LOADER_ERR_READ;
+    }
+
+    /* Run it. Mark the load active across the run so a nested EXEC issued by the
+     * child is rejected (the guard above). load_program copies staging DOWN to
+     * PROGRAM_IMAGE (disjoint regions), so the staging buffer is free to be
+     * clobbered only AFTER the copy -- which load_program does before the JMP. */
+    g_load_active = 1;
+    uint8_t rcv = 0;
+    loader_status_t st = load_program(staging, got, cmd_tail, cmd_tail_len, &rcv);
+    g_load_active = 0;
+
+    if (st != LOADER_OK) {
+        return st;   /* propagate load_program's fail-loud status (e.g. TOO_BIG) */
+    }
+    if (out_rc) {
+        *out_rc = rcv;
     }
     return LOADER_OK;
 }

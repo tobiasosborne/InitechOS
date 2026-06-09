@@ -177,6 +177,17 @@ TYPE_PROG_BLOB_C := $(BUILD)/type_prog_blob.c
 DIR_PROG_ASM     := $(KERNEL_DIR)/dir_program.asm
 DIR_PROG_BIN     := $(BUILD)/dir_program.bin
 DIR_PROG_BLOB_C  := $(BUILD)/dir_prog_blob.c
+# Baked CON-INPUT program (beads initech-n62): AH=0Ah buffered input -> echo the
+# line back via AH=40h. Linked into the -DBOOT_CONIN self-test kernel only.
+CONIN_PROG_ASM   := $(KERNEL_DIR)/conin_program.asm
+CONIN_PROG_BIN   := $(BUILD)/conin_program.bin
+CONIN_PROG_BLOB_C := $(BUILD)/conin_prog_blob.c
+# GREET program (beads initech-saw): a flat .COM that is NOT baked into the
+# kernel -- it is mcopy'd onto the FAT12 data disk as GREET.COM and loaded BY
+# NAME from the mounted volume (load_program_from_fat / INT 21h AH=4Bh EXEC).
+# It prints "GREETINGS FROM A:GREET.COM" via AH=09h and exits rc=7.
+GREET_PROG_ASM   := $(KERNEL_DIR)/greet_program.asm
+GREET_PROG_BIN   := $(BUILD)/greet_program.bin
 KERNEL_ISR_ASM   := $(KERNEL_DIR)/isr.asm
 KERNEL_START_OBJ := $(BUILD)/kstart.o
 KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
@@ -196,6 +207,7 @@ KERNEL_PIT_OBJ   := $(BUILD)/pit.o
 KERNEL_TEST_PROG_OBJ := $(BUILD)/test_prog_blob.o
 KERNEL_TYPE_PROG_OBJ := $(BUILD)/type_prog_blob.o
 KERNEL_DIR_PROG_OBJ  := $(BUILD)/dir_prog_blob.o
+KERNEL_CONIN_PROG_OBJ := $(BUILD)/conin_prog_blob.o
 KERNEL_ISR_OBJ   := $(BUILD)/isr.o
 KERNEL_ELF       := $(BUILD)/kernel.elf
 KERNEL_BIN       := $(BUILD)/kernel.bin
@@ -214,6 +226,23 @@ KERNEL_ECHO_MAIN_OBJ  := $(BUILD)/kmain_echo.o
 KERNEL_ECHO_ELF       := $(BUILD)/kernel_echo.elf
 KERNEL_ECHO_BIN       := $(BUILD)/kernel_echo.bin
 KBD_ECHO_IMG          := $(BUILD)/kbd_echo_boot.img
+# CON-INPUT self-test kernel/image (beads initech-n62; make test-conin): the
+# SAME kernel sources but with -DBOOT_CONIN so the boot, after CONIN-LIVE, runs
+# the baked CON-input program which reads a line via AH=0Ah and echoes it back.
+# Separate image so the normal kernel never blocks on the keyboard.
+KERNEL_CONIN_MAIN_OBJ := $(BUILD)/kmain_conin.o
+KERNEL_CONIN_ELF      := $(BUILD)/kernel_conin.elf
+KERNEL_CONIN_BIN      := $(BUILD)/kernel_conin.bin
+CONIN_IMG             := $(BUILD)/conin_boot.img
+# FAT-sourced load + EXEC self-test kernel/image (beads initech-saw; make
+# test-exec): the SAME kernel sources but with -DBOOT_EXEC so the boot, after
+# mounting the FAT12 data disk, loads GREET.COM BY NAME (load_program_from_fat)
+# and EXECs it via INT 21h AH=4Bh, then reads its rc via AH=4Dh. Separate image
+# so the normal boot is unchanged. Requires --disk2 (the data disk).
+KERNEL_EXEC_MAIN_OBJ  := $(BUILD)/kmain_exec.o
+KERNEL_EXEC_ELF       := $(BUILD)/kernel_exec.elf
+KERNEL_EXEC_BIN       := $(BUILD)/kernel_exec.bin
+EXEC_IMG              := $(BUILD)/exec_boot.img
 
 # ---------------------------------------------------------------------------
 # Asset extraction v0 (spec/assets, beads initech-vcq)
@@ -317,6 +346,26 @@ $(FAT_DATA_IMG): $(FAT12_FIXTURES) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/empty.txt ::EMPTY.TXT
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
 	@printf ">>> fat_data: minted %s (1.44MB FAT12 data disk for test-fs; build intermediate)\n" "$@"
+
+# Assemble the GREET .COM (org 0x20100; nasm -f bin is deterministic, Rule 11).
+$(GREET_PROG_BIN): $(GREET_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+# FAT12 EXEC disk for the in-emulator FAT-sourced-load oracle (beads initech-saw).
+# A SEPARATE 1.44 MB volume carrying GREET.COM (the .COM loaded BY NAME). Kept
+# distinct from FAT_DATA_IMG so test-fs/test-type/test-dir's shared disk -- and
+# their screendump layout assumptions (tools/ppm_text_check BG_Y0=240) -- are
+# untouched: an extra file there would scroll console output below y=240 and trip
+# the background-purity check. The fixtures pin the proto-DIR; this disk pins the
+# EXEC load. Build intermediate, NOT committed (Rule 11).
+FAT_EXEC_IMG      := $(BUILD)/fat_exec.img
+
+$(FAT_EXEC_IMG): $(FAT12_FIXTURES) $(GREET_PROG_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(GREET_PROG_BIN) ::GREET.COM
+	@printf ">>> fat_exec: minted %s (1.44MB FAT12 disk for test-exec; GREET.COM + HELLO.TXT; build intermediate)\n" "$@"
 
 # Build the BPB oracle: the test + the REAL artifact fat12.c + the host
 # blockdev backend. -Ispec for bpb_t, -Ios/milton for fat12.h/blockdev.h,
@@ -528,7 +577,58 @@ $(TEST_INT21_MUT_NOOP): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) 
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_UNLISTED_NOOP -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
 
-.PHONY: test-int21 test-int21-mutant
+# --- CON INPUT oracle (beads initech-n62) ----------------------------------
+# Host unit oracle for the INT 21h CON-INPUT functions (01h/06h/07h/08h/0Ah/
+# 0Bh/0Ch), driven through the REAL artifact int21_dispatch with a MOCK input
+# source (a queued string) bound via int21_set_conin -- mirroring the sink seam
+# that keeps int21.c host-testable. int21.c is the SAME TU the kernel runs.
+# Mutation builds (Rule 6): (a) 01h drops the echo; (b) 0Ah counts the CR in the
+# length byte. A mutant that PASSES means the oracle is decoration.
+TEST_CONIN      := $(BUILD)/test_conin
+TEST_CONIN_SRC  := $(MILTON_DIR)/test_conin.c
+TEST_CONIN_MUT_NOECHO := $(BUILD)/test_conin_mutant_noecho
+TEST_CONIN_MUT_COUNT  := $(BUILD)/test_conin_mutant_count
+# test_conin.c drives only the CON-input path, but int21.c (one TU) references
+# the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
+# psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
+TEST_CONIN_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C)
+TEST_CONIN_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+                   $(MILTON_DIR)/psp.h spec/dos_structs.h
+
+$(TEST_CONIN): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
+
+$(TEST_CONIN_MUT_NOECHO): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CONIN_NO_ECHO -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
+
+$(TEST_CONIN_MUT_COUNT): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BUFINPUT_COUNT_CR -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
+
+.PHONY: test-conin-unit test-conin-mutant
+test-conin-unit: $(TEST_CONIN)
+	@printf ">>> test-conin-unit: CON input 01h/06h/07h/08h/0Ah(+BS,+clamp)/0Bh/0Ch via mock source\n"
+	@$(TEST_CONIN)
+	@printf ">>> test-conin-unit: green\n"
+
+test-conin-mutant: $(TEST_CONIN_MUT_NOECHO) $(TEST_CONIN_MUT_COUNT)
+	@printf ">>> test-conin-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_CONIN_MUT_NOECHO) >/dev/null 2>&1; then \
+		printf '!!! test-conin-mutant FAIL: 01h-no-echo mutant PASSED -- the echo test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-conin-mutant: green (01h-no-echo mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_CONIN_MUT_COUNT) >/dev/null 2>&1; then \
+		printf '!!! test-conin-mutant FAIL: 0Ah-count-CR mutant PASSED -- the buffered-input count test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-conin-mutant: green (0Ah-count-CR mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+.PHONY: test-int21 test-int21-mutant test-conin-unit
 test-int21: $(TEST_INT21)
 	@printf ">>> test-int21: AH-dispatch + console subset (02h/09h/40h/30h/4Ch) + controlled scope\n"
 	@$(TEST_INT21)
@@ -602,6 +702,53 @@ test-fileio-mutant: $(TEST_FILEIO_MUT_READ) $(TEST_FILEIO_MUT_LSEEK)
 		exit 1; \
 	else \
 		printf '>>> test-fileio-mutant: green (LSEEK-whence mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-exec-unit (beads initech-saw + 509.5 -- AH=4Bh/4Dh dispatch)
+# ---------------------------------------------------------------------------
+# Host unit oracle for INT 21h AH=4Bh EXEC + AH=4Dh GET-RETURN-CODE, driven
+# through the REAL artifact int21_dispatch with a MOCK EXEC backend (an
+# int21_exec_fn standing in for the kernel-only FAT-sourced loader). Proves the
+# register decode + path validation ('\'/':') + not-found/nested mapping + the
+# 4Dh child-rc retrieval -- WITHOUT linking loader.c (which is kernel-only). The
+# in-emulator make test-exec proves the real load FROM the FAT volume. Links
+# int21.c only; -Ispec for int21.h -> idt.h. Mirrors the $(TEST_INT21) idiom.
+TEST_EXEC        := $(BUILD)/test_exec
+TEST_EXEC_SRC    := $(MILTON_DIR)/test_exec.c
+# int21.c pulls in the SFT/JFT handle layer (sft.c) + psp.c (as test_int21 does),
+# even though the EXEC path itself does not touch them -- link them so int21.c
+# resolves.
+TEST_EXEC_DEPS   := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C)
+TEST_EXEC_HDRS   := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+                    $(MILTON_DIR)/psp.h spec/dos_structs.h
+# Mutation build (CLAUDE.md Rule 6): int21.c compiled with AH=4Dh always
+# reporting rc=0 so `make test-exec-mutant` can prove the GET-RETURN-CODE oracle
+# BITES (it EXECs a program exiting rc=7 and asserts AL==7).
+TEST_EXEC_MUT_RC := $(BUILD)/test_exec_mutant_rc
+
+$(TEST_EXEC): $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS) $(TEST_EXEC_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS)
+
+$(TEST_EXEC_MUT_RC): $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS) $(TEST_EXEC_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_RETCODE_ZERO -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS)
+
+.PHONY: test-exec-unit test-exec-mutant
+test-exec-unit: $(TEST_EXEC)
+	@printf ">>> test-exec-unit: AH=4Bh EXEC (path validation + not-found/nested mapping) + AH=4Dh GET-RETURN-CODE via mock backend\n"
+	@$(TEST_EXEC)
+	@printf ">>> test-exec-unit: green\n"
+
+# Mutation-proof: the rc-always-zero mutant MUST fail the oracle (Rule 6).
+test-exec-mutant: $(TEST_EXEC_MUT_RC)
+	@printf ">>> test-exec-mutant: confirming the 4Dh-rc-zero mutant goes RED (Rule 6)\n"
+	@if $(TEST_EXEC_MUT_RC) >/dev/null 2>&1; then \
+		printf '!!! test-exec-mutant FAIL: 4Dh-rc-zero mutant PASSED -- the GET-RETURN-CODE test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-exec-mutant: green (4Dh-rc-zero mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -726,12 +873,14 @@ TEST_LOADER_SRC  := $(MILTON_DIR)/test_loader.c
 TEST_LOADER_MUT  := $(BUILD)/test_loader_mutant_nooffset
 
 $(TEST_LOADER): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
-                $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+                $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h $(MILTON_DIR)/fat12.h \
+                $(MILTON_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
 
 $(TEST_LOADER_MUT): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
-                    $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+                    $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h $(MILTON_DIR)/fat12.h \
+                    $(MILTON_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUTATE_NO_OFFSET -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
 
@@ -779,7 +928,9 @@ endef
         test-idt-mutant test-int21 test-int21-mutant test-psp test-psp-mutant \
         test-sft test-sft-mutant test-fileio test-fileio-mutant \
         test-loader test-loader-mutant test-program test-fs test-type test-dir \
+        test-exec test-exec-unit test-exec-mutant \
         test-panic test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
+        test-conin-unit test-conin-mutant test-conin \
         test-assets test-spec selfhost ddc clean
 
 # ---------------------------------------------------------------------------
@@ -921,7 +1072,8 @@ $(KERNEL_SFT_OBJ): $(KERNEL_SFT_C) $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/
 # (test_loader.c) exercises; freestanding here (asm control-transfer path),
 # hosted there (loader_prepare only). -Ispec for memory_map.h (LOCKED addrs).
 $(KERNEL_LOADER_OBJ): $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/psp.h \
-                      spec/memory_map.h $(KERNEL_DIR)/int21.h | $(BUILD)
+                      spec/memory_map.h $(KERNEL_DIR)/int21.h \
+                      $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
 
 # ATA PIO sector backend (beads initech-adf/initech-saw): the SAME ata.c that
@@ -992,6 +1144,17 @@ $(DIR_PROG_BLOB_C): $(DIR_PROG_BIN) $(BIN2C_BIN)
 
 $(KERNEL_DIR_PROG_OBJ): $(DIR_PROG_BLOB_C) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(DIR_PROG_BLOB_C) -o $@
+
+# CON-INPUT baked program (beads initech-n62): same nasm -f bin -> bin2c ->
+# KERNEL_CC pipeline. Linked only into the -DBOOT_CONIN kernel.
+$(CONIN_PROG_BIN): $(CONIN_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+$(CONIN_PROG_BLOB_C): $(CONIN_PROG_BIN) $(BIN2C_BIN)
+	$(BIN2C_BIN) $(CONIN_PROG_BIN) g_conin_prog_image > $@
+
+$(KERNEL_CONIN_PROG_OBJ): $(CONIN_PROG_BLOB_C) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(CONIN_PROG_BLOB_C) -o $@
 
 $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
@@ -1079,6 +1242,82 @@ $(KBD_ECHO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ECHO_BIN) | $(BUILD)
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_ECHO_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> kbd-echo image: %s (keyboard-echo kernel @s17)\n" "$@"
+
+# --- CON-INPUT self-test kernel (beads initech-n62; make test-conin) --------
+# Same sources, but kmain.c compiled with -DBOOT_CONIN so the boot, after
+# CONIN-LIVE, runs the baked CON-input program. The conin program blob is linked
+# in (it is referenced only under -DBOOT_CONIN). Separate image.
+$(KERNEL_CONIN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_CONIN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                     $(KERNEL_CONIN_PROG_OBJ) \
+                     $(KERNEL_ISR_OBJ)
+
+$(KERNEL_CONIN_ELF): $(KERNEL_CONIN_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_CONIN_OBJS)
+
+$(KERNEL_CONIN_BIN): $(KERNEL_CONIN_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_conin.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(conin): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+# The CON-input self-test disk image: identical layout to TRACER_IMG but with
+# the conin kernel at sector 17.
+$(CONIN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_CONIN_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_CONIN_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> conin image: %s (CON-input self-test kernel @s17)\n" "$@"
+
+# --- FAT-sourced load + EXEC self-test kernel (beads initech-saw; test-exec) -
+# Same sources, but kmain.c compiled with -DBOOT_EXEC so the boot, after the FAT
+# mount + loader-FAT bind, loads GREET.COM BY NAME and EXECs it via AH=4Bh.
+# Separate image so the normal boot never runs the EXEC demo. GREET.COM is NOT
+# baked -- it lives on the data disk (--disk2), so this proves a FROM-FAT load.
+$(KERNEL_EXEC_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_EXEC -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_EXEC_ELF): $(KERNEL_EXEC_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXEC_OBJS)
+
+$(KERNEL_EXEC_BIN): $(KERNEL_EXEC_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_exec.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(exec): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+# The EXEC self-test disk image: identical layout to TRACER_IMG but with the
+# exec kernel at sector 17.
+$(EXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXEC_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_EXEC_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> exec image: %s (FAT-sourced load + EXEC self-test kernel @s17)\n" "$@"
 
 # Raw flat binary, then zero-pad to KERNEL_SECTORS * 512 bytes (deterministic).
 $(KERNEL_BIN): $(KERNEL_ELF) | $(BUILD)
@@ -1914,6 +2153,82 @@ test-dir: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-exec (beads initech-saw -- LOAD A .COM FROM THE FAT VOLUME)
+# ---------------------------------------------------------------------------
+# THE binding oracle for initech-saw: boot the -DBOOT_EXEC image WITH the FAT12
+# data disk (--disk2, carrying GREET.COM which is NOT baked into the kernel) and
+# prove a flat .COM was loaded BY NAME from the volume and ran. Two proofs (every
+# assertion fail-loud + exit-non-zero, Law 2 / Rule 2):
+#   1. NO triple-fault (the FAT read + control transfer did not crash).
+#   2a. THE SAW CORE: load_program_from_fat("GREET.COM") -- EXEC-SAW-EXIT rc=7
+#       (the program GREET.COM, read FROM THE FAT VOLUME, printed its line via
+#       INT 21h AH=09h and exited rc=7). GREETINGS FROM A:GREET.COM on serial
+#       proves it RAN (not just loaded). A baked program could not produce this.
+#   2b. INT 21h AH=4Bh EXEC of "GREET.COM" from kernel/shell context, then AH=4Dh
+#       GET-RETURN-CODE -- EXEC-4B-RC=7 proves the EXEC dispatch path + child rc.
+#       (Nested EXEC -- 4Bh from inside a running program -- is NOT supported this
+#       milestone; EXEC-from-kernel is the binding oracle, per the brief.)
+# Ref: beads initech-saw; docs/research/psp-loader-ground-truth.md Sec 4/5; DOS
+#      3.3 PRM AH=4Bh/4Dh; ADR-0003 DEC-08 (flat .COM).
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.
+EXEC_NAME    := exec_boot
+EXEC_SERIAL  := $(BUILD)/$(EXEC_NAME).serial
+EXEC_REPORT  := $(BUILD)/$(EXEC_NAME).report
+EXEC_OUTPUT  := GREETINGS FROM A:GREET.COM
+
+.PHONY: test-exec
+test-exec: $(HARNESS_BIN) $(EXEC_IMG) $(FAT_EXEC_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-exec : LOAD A .COM FROM THE FAT VOLUME\n'
+	@printf '  Ref: beads initech-saw; psp-loader-ground-truth.md Sec 4/5; DOS 3.3 PRM 4Bh/4Dh.\n'
+	@printf '  Prove a flat .COM (GREET.COM, NOT baked) is loaded BY NAME from FAT and runs,\n'
+	@printf '  via load_program_from_fat (saw core) AND INT 21h AH=4Bh EXEC + AH=4Dh.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + data disk %s (primary slave; carries GREET.COM)\n' "$(EXEC_IMG)" "$(FAT_EXEC_IMG)"
+	@printf 'Expecting : "%s" + EXEC-SAW-EXIT rc=7 + EXEC-4B-RC=7 + no triple-fault\n' "$(EXEC_OUTPUT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(EXEC_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+		--name "$(EXEC_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(EXEC_REPORT)" || true
+	@cat "$(EXEC_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(EXEC_REPORT)"; then \
+		printf '!!! test-exec FAIL: TRIPLE FAULT -- the FAT load or control transfer crashed\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-exec [1/4]: no triple-fault\n'
+	@if [ ! -s "$(EXEC_SERIAL)" ]; then \
+		printf '!!! test-exec FAIL: no serial captured at %s\n' "$(EXEC_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^LOADER-FAT-BIND-OK$$' "$(EXEC_SERIAL)" \
+		|| { printf '!!! test-exec FAIL: LOADER-FAT-BIND-OK missing -- the loader FAT volume never bound\n'; exit 1; }
+	@printf '>>> test-exec [2/4]: LOADER-FAT-BIND-OK (the loader can read .COMs off the volume)\n'
+	@# ---- 2a. THE SAW CORE: GREET.COM loaded FROM FAT, ran, exited rc=7. ----
+	@if grep -q '^EXEC-SAW-FAIL' "$(EXEC_SERIAL)"; then \
+		printf '!!! test-exec FAIL: EXEC-SAW-FAIL -- load_program_from_fat("GREET.COM") failed (root-cause the saw path, Rule 3):\n'; \
+		grep '^EXEC-SAW-FAIL' "$(EXEC_SERIAL)"; \
+		exit 1; \
+	fi
+	@grep -qF '$(EXEC_OUTPUT)' "$(EXEC_SERIAL)" \
+		|| { printf '!!! test-exec FAIL: "%s" missing -- the .COM loaded from FAT did not run/print via INT 21h\n' "$(EXEC_OUTPUT)"; exit 1; }
+	@grep -q '^EXEC-SAW-EXIT rc=7$$' "$(EXEC_SERIAL)" \
+		|| { printf '!!! test-exec FAIL: EXEC-SAW-EXIT rc=7 missing -- the FROM-FAT program did not return rc=7 to the loader\n'; exit 1; }
+	@printf '>>> test-exec [3/4]: GREET.COM loaded FROM FAT, ran (printed via INT 21h), and returned rc=7\n'
+	@# ---- 2b. INT 21h AH=4Bh EXEC + AH=4Dh GET-RETURN-CODE from kernel ctx. ----
+	@if grep -q '^EXEC-4B-FAIL' "$(EXEC_SERIAL)"; then \
+		printf '!!! test-exec FAIL: EXEC-4B-FAIL -- INT 21h AH=4Bh EXEC of GREET.COM failed (root-cause do_exec / the seam, Rule 3):\n'; \
+		grep '^EXEC-4B-FAIL' "$(EXEC_SERIAL)"; \
+		exit 1; \
+	fi
+	@grep -q '^EXEC-4B-RC=7$$' "$(EXEC_SERIAL)" \
+		|| { printf '!!! test-exec FAIL: EXEC-4B-RC=7 missing -- AH=4Bh EXEC + AH=4Dh did not return the child rc=7\n'; exit 1; }
+	@printf '>>> test-exec [4/4]: INT 21h AH=4Bh EXEC ran GREET.COM; AH=4Dh returned rc=7\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- InitechDOS loaded a flat .COM BY NAME from a FAT12 volume and ran it (saw + AH=4Bh EXEC)\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-panic (beads initech-a5a -- the exception is CAUGHT)
 # ---------------------------------------------------------------------------
 # Prove the panic path fires on a REAL CPU fault instead of triple-faulting (the
@@ -2039,6 +2354,62 @@ test-kbd: $(HARNESS_BIN) $(KBD_ECHO_IMG)
 	@printf '>>> test-kbd [3/3]: triple_fault=0 + keys_sent=3 (sti clean, injection issued)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- PS/2 keyboard IRQ1 live; a QMP-injected key reached the guest and echoed\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-conin (beads initech-n62 -- INT 21h CON INPUT end-to-end)
+# ---------------------------------------------------------------------------
+# A baked .COM program reads a LINE from the keyboard via INT 21h AH=0Ah BUFFERED
+# INPUT and writes it back through AH=40h. The harness injects "d,i,r,ret" via
+# QMP --keys (the SAME injection path as test-kbd), gated on the CONIN-PROG-READY
+# marker so the keys arrive while AH=0Ah is blocking. We assert "CONIN-LINE=dir"
+# comes back on serial + triple_fault=0 -- proof a real program reads a line from
+# the keyboard through the INT 21h CON input path end-to-end (Law 2 / Rule 5).
+# The blocking AH=0Ah can ONLY progress because the keys are injected; the
+# -DBOOT_CONIN image is separate so the normal boot never blocks on the keyboard.
+CONIN_NAME     := conin_boot
+CONIN_SERIAL   := $(BUILD)/$(CONIN_NAME).serial
+CONIN_REPORT   := $(BUILD)/$(CONIN_NAME).report
+
+.PHONY: test-conin
+test-conin: $(HARNESS_BIN) $(CONIN_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-conin : INT 21h CON INPUT end-to-end\n'
+	@printf '  Ref: DOS 3.3 PRM AH=0Ah buffered input. beads initech-n62. Rule 2/5.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (CON-input self-test kernel), injecting --keys "d,i,r,ret"\n' "$(CONIN_IMG)"
+	@printf 'Expecting : CONIN-LIVE + CONIN-PROG-READY + "CONIN-LINE=dir" + triple_fault=0\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(CONIN_IMG)" \
+		--name "$(CONIN_NAME)" --out "$(BUILD)" --timeout-ms 9000 \
+		--keys "d,i,r,ret" --keys-after "CONIN-PROG-READY" \
+		2> "$(CONIN_REPORT)" || true
+	@cat "$(CONIN_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if [ ! -s "$(CONIN_SERIAL)" ]; then \
+		printf '!!! test-conin FAIL: no serial captured at %s\n' "$(CONIN_SERIAL)"; \
+		exit 1; \
+	fi
+	@grep -q '^CONIN-LIVE$$' "$(CONIN_SERIAL)" \
+		|| { printf '!!! test-conin FAIL: CONIN-LIVE missing -- the keyboard input source never bound\n'; exit 1; }
+	@grep -q '^CONIN-PROG-READY$$' "$(CONIN_SERIAL)" \
+		|| { printf '!!! test-conin FAIL: CONIN-PROG-READY missing -- the CON-input program never started\n'; exit 1; }
+	@printf '>>> test-conin [1/3]: CONIN-LIVE + CONIN-PROG-READY (input source bound, program running)\n'
+	@# The program writes "CONIN-LINE=dir" back through INT 21h AH=40h after the
+	@# AH=0Ah buffered read of the injected "dir" + Enter. The line ends in CRLF
+	@# (the program's trailing CRLF), so strip CR before matching the whole line.
+	@tr -d '\r' < "$(CONIN_SERIAL)" | grep -q '^CONIN-LINE=dir$$' \
+		|| { printf '!!! test-conin FAIL: "CONIN-LINE=dir" missing -- AH=0Ah did not read the injected line back via INT 21h (root-cause the CON-input path, Rule 3)\n'; exit 1; }
+	@printf '>>> test-conin [2/3]: AH=0Ah read the injected line; "CONIN-LINE=dir" echoed back through INT 21h\n'
+	@if grep -q 'triple_fault=1' "$(CONIN_REPORT)"; then \
+		printf '!!! test-conin FAIL: TRIPLE FAULT during the CON-input run\n'; \
+		exit 1; \
+	fi
+	@grep -q 'keys_sent=4' "$(CONIN_REPORT)" \
+		|| { printf '!!! test-conin FAIL: harness did not report keys_sent=4 (d,i,r,ret)\n'; exit 1; }
+	@printf '>>> test-conin [3/3]: triple_fault=0 + keys_sent=4 (clean run, line injected)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- a real program read a line from the keyboard via INT 21h AH=0Ah\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------

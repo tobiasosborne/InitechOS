@@ -41,7 +41,12 @@ typedef enum loader_status {
     LOADER_ERR_NULL_IMAGE,   /* image == NULL                                   */
     LOADER_ERR_ZERO_LEN,     /* image_len == 0 (nothing to run)                 */
     LOADER_ERR_TOO_BIG,      /* image_len > PROGRAM_IMAGE_MAX (would overrun)   */
-    LOADER_ERR_NULL_OUT      /* out plan pointer == NULL                        */
+    LOADER_ERR_NULL_OUT,     /* out plan pointer == NULL                        */
+    /* FAT-sourced load (load_program_from_fat; beads initech-saw): */
+    LOADER_ERR_NO_VOLUME,    /* no FAT volume bound                             */
+    LOADER_ERR_NOT_FOUND,    /* named .COM not in the (root) directory          */
+    LOADER_ERR_READ,         /* FAT read error pulling the .COM bytes           */
+    LOADER_ERR_BUSY          /* a load is already active (nested EXEC; deferred) */
 } loader_status_t;
 
 /* loader_plan_t -- the fully-computed, deterministic load layout. loader_prepare
@@ -93,5 +98,40 @@ loader_status_t loader_prepare(const uint8_t *image, uint32_t image_len,
 loader_status_t load_program(const uint8_t *image, uint32_t image_len,
                              const char *cmd_tail, uint32_t cmd_tail_len,
                              uint8_t *out_exit_code);
+
+/* ---- FAT-sourced load (beads initech-saw) --------------------------------
+ * load_program_from_fat -- the "saw" core: load a flat .COM BY NAME from the
+ * mounted FAT12 volume and run it through load_program(). Reads the named file
+ * (root-dir 8.3, e.g. "GREET.COM") off the volume bound via
+ * loader_bind_fat_volume() into the off-stack staging buffer (LOAD_STAGING_BASE,
+ * spec/memory_map.h Risk 2 -- never a multi-KB buffer on the kernel stack), then
+ * hands the bytes to load_program() (copy to PROGRAM_IMAGE + PSP + JMP + return).
+ *
+ * Fail loud (Rule 2) with a DISTINCT status on each failure:
+ *   - no volume bound                       -> LOADER_ERR_NO_VOLUME
+ *   - file not in the directory             -> LOADER_ERR_NOT_FOUND
+ *   - a FAT/ATA read error                  -> LOADER_ERR_READ
+ *   - image too large for staging/program   -> LOADER_ERR_TOO_BIG
+ *   - a load is already active (nested)      -> LOADER_ERR_BUSY (deferred; guarded)
+ * On LOADER_OK *out_rc receives the child's exit code.
+ *
+ * REENTRANCY: load_program's return-to-loader context (g_loader_ctx) is
+ * single-level (Sec 6.2 -- no process table). A nested call (EXEC from inside a
+ * running program) is REJECTED with LOADER_ERR_BUSY rather than corrupting the
+ * context; nested EXEC is a follow-up bead. KERNEL/shell-context EXEC is fine.
+ *
+ * KERNEL ONLY (pulls fat12.c + the volume + the asm transfer). In a HOSTED build
+ * it is a no-op stub returning LOADER_ERR_NO_VOLUME (the host oracle drives the
+ * AH=4Bh register/validation logic through int21's mock EXEC backend instead).
+ * Ref: beads initech-saw; fs-mount-sft-ground-truth.md; spec/memory_map.h. */
+struct fat12_volume;   /* full type in os/milton/fat12.h (kernel-only) */
+
+/* Bind the mounted FAT12 volume the loader reads .COMs from (caller-owned,
+ * outlives the binding). NULL clears it -> load_program_from_fat returns
+ * LOADER_ERR_NO_VOLUME. Mirrors int21_set_file_backend's bind discipline. */
+void loader_bind_fat_volume(const struct fat12_volume *vol);
+
+loader_status_t load_program_from_fat(const char *name83, const char *cmd_tail,
+                                      uint32_t cmd_tail_len, uint8_t *out_rc);
 
 #endif /* INITECH_LOADER_H */

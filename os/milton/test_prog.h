@@ -28,4 +28,11 @@ extern const uint32_t g_type_prog_image_len;
 extern const uint8_t  g_dir_prog_image[];
 extern const uint32_t g_dir_prog_image_len;
 
+/* The baked CON-INPUT program (AH=0Ah buffered input -> echo the line back;
+ * beads initech-n62). Generated from os/milton/conin_program.asm. Run only in
+ * the -DBOOT_CONIN self-test image (make test-conin), where the harness injects
+ * keystrokes via QMP --keys. */
+extern const uint8_t  g_conin_prog_image[];
+extern const uint32_t g_conin_prog_image_len;
+
 #endif /* INITECH_TEST_PROG_H */

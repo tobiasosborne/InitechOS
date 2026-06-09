@@ -37,6 +37,8 @@
 #define INT21_ERR_TOO_MANY_OPEN     0x0004u  /* no free SFT/JFT slot / buffer busy */
 #define INT21_ERR_ACCESS_DENIED     0x0005u  /* write to AUX/PRN/file (no backing yet) */
 #define INT21_ERR_INVALID_HANDLE    0x0006u  /* out-of-range / closed handle  */
+#define INT21_ERR_INSUFFICIENT_MEM  0x0008u  /* EXEC: no memory / load active (nested) */
+#define INT21_ERR_BAD_FORMAT        0x000Bu  /* EXEC: bad/oversized program image */
 #define INT21_ERR_NO_MORE_FILES     0x0012u  /* FINDFIRST/NEXT: no (more) match */
 
 /* Predefined device handles (no SFT yet -- the only handles this subset honors;
@@ -121,6 +123,57 @@ typedef struct int21_file_backend {
  * file-not-found / no-more-files as if the volume were empty). The kernel binds
  * the FAT12 backend after a successful mount; the host oracle binds a mock. */
 void int21_set_file_backend(const int21_file_backend_t *backend);
+
+/* ---- EXEC backend (beads initech-saw + initech-509.5 AH=4Bh) --------------
+ * AH=4Bh EXEC (load-and-execute a child program by name) needs the FAT-sourced
+ * loader (os/milton/loader.c load_program_from_fat), which lives in the kernel
+ * (it pulls fat12.c + the volume + the asm control transfer) and is NOT
+ * host-testable. So the dispatcher reaches the actual load+run through THIS seam
+ * -- a function pointer the kernel binds to the saw path and the host oracle
+ * binds to a mock -- exactly mirroring the file-backend / sink / conin seams so
+ * int21.c stays free of loader.c and compiles HOSTED.
+ *
+ * The callback loads the flat .COM `name83` (root-dir 8.3 only this milestone)
+ * from the mounted volume and RUNS it to completion (the child terminates via
+ * 4Ch / INT 20h and the loader regains control). On a clean run it returns 0 and
+ * writes the child's exit code to *out_rc; on a failure it returns a DOS error
+ * code (0x0002 file not found, 0x0008 insufficient memory / load already active
+ * -- nested EXEC, 0x000B bad format / too large) and leaves *out_rc unchanged.
+ * `name83` is already validated (no '\'/':'); the callback need not re-check. */
+typedef uint16_t (*int21_exec_fn)(const char *name83, uint8_t *out_rc);
+
+/* Bind the EXEC backend (NULL clears it -> AH=4Bh returns file-not-found, as if
+ * no program could be loaded). The kernel binds the saw-path loader; the host
+ * oracle binds a mock. */
+void int21_set_exec_backend(int21_exec_fn fn);
+
+/* ---- CON INPUT SOURCE (beads initech-n62) ---------------------------------
+ * The CON-input functions (AH=01h/06h/07h/08h/0Ah/0Bh/0Ch) read keystrokes
+ * through an INPUT SOURCE abstraction that mirrors the sink/exit/file-backend
+ * seams: the kernel binds it to the live PS/2 keyboard (kbd.c), and the host
+ * oracle binds it to a queued mock string -- so int21.c stays free of any I/O,
+ * hlt, or hardware dependency and compiles HOSTED in the unit oracle.
+ *
+ * Two callbacks (both report a char as 0..255):
+ *   get  -- BLOCKING: return the next character; it MUST NOT return -1 (the
+ *           kernel impl loops on `hlt` until a key arrives; the host mock
+ *           dequeues from the test string and aborts the test on underflow so a
+ *           test can never hang). Used by 01h/07h/08h and 0Ah's read loop.
+ *   poll -- NON-blocking: return the next character (0..255) WITHOUT removing it
+ *           from the producer's notion of "blocking" -- i.e. it consumes one
+ *           char if present, else returns -1 (no char). Used by 06h (DL=FF),
+ *           0Bh status, and 0Ch's flush drain.
+ *
+ * A NULL source (the unbound default) makes every input function return
+ * gracefully: blocking get yields 0 (treated as no input / EOF, never a hang),
+ * poll yields -1 (no char). Ref: DOS 3.3 Programmer's Reference Manual
+ * AH=01h/06h/07h/08h/0Ah/0Bh/0Ch. */
+typedef int (*int21_conin_fn)(void);      /* BLOCKING: next char 0..255         */
+typedef int (*int21_coninpoll_fn)(void);  /* NON-blocking: char 0..255, or -1   */
+
+/* Bind the CON input source (either may be NULL to clear). The kernel binds
+ * keyboard-backed callbacks near the sti; the host oracle binds a queued mock. */
+void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll);
 
 /* The C dispatch routine the asm trap stub (int21_entry, isr.asm) invokes with a
  * pointer to the on-stack int_frame_t. Reads AH = (frame->eax >> 8) & 0xFF and

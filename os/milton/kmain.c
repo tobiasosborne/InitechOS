@@ -203,6 +203,29 @@ static void int21_exit_hook(uint8_t code)
     }
 }
 
+/* ---- INT 21h CON INPUT source wiring (beads initech-n62) ------------------
+ * The dispatcher (int21.c) reads keystrokes through an input source it binds
+ * via int21_set_conin: a BLOCKING get + a NON-blocking poll. The kernel binds
+ * the source to the live PS/2 keyboard (kbd.c). The blocking get spins on `hlt`
+ * until a key arrives -- the keyboard IRQ1 (vector 0x29) wakes the hlt, and the
+ * 0x8F trap gate on INT 21h leaves IF set so the IRQ can fire WHILE an INT 21h
+ * call is in flight (kbd.h REENTRANCY INVARIANT: IRQ1 touches only kbd state).
+ * This glue MUST live here, not in int21.c, so int21.c stays free of hlt/I/O and
+ * compiles hosted (Law 3). Bound near the sti, after kbd_init. */
+static int int21_conin_get_kbd(void)
+{
+    int c;
+    while ((c = kbd_getchar()) < 0) {
+        __asm__ __volatile__("hlt");   /* sleep until IRQ1 (a keystroke) wakes us */
+    }
+    return c;
+}
+
+static int int21_conin_poll_kbd(void)
+{
+    return kbd_getchar();   /* non-blocking: char 0..255 or -1 if the ring is empty */
+}
+
 /* Issue AH=09h DISPLAY STRING via a literal `int 0x21`: EDX = flat ptr to a
  * '$'-terminated string. This is the LIVE end-to-end self-test of the syscall
  * path on the real boot -- the banner is printed THROUGH int 0x21, not via a
@@ -286,6 +309,44 @@ static int dir_visit(const dir_entry_t *e, void *user)
     dir_putu_field(e->file_size, 13);
     dir_putc('\n');
     return 0;
+}
+
+/* ---- EXEC backend glue (beads initech-saw / INT 21h AH=4Bh) ---------------
+ * int21's AH=4Bh reaches the FAT-sourced loader through the int21_exec_fn seam
+ * (a DOS-error-returning callback). This adapter bridges that to loader.c's
+ * load_program_from_fat (which returns a loader_status_t): it runs the named
+ * .COM to completion and maps the loader status onto the DOS EXEC error codes.
+ * It lives here, not in int21.c, so int21.c stays free of loader.c (Law 3).
+ *
+ * After the child returns, restore the kernel-context exit hook + PSP (the
+ * loader rebinds both during the run; ground-truth Sec 4.5 / beads initech-509.3)
+ * exactly as run_baked does -- otherwise a later kernel-context INT 21h would
+ * dispatch through the child's stale hook/PSP. */
+static uint16_t loader_exec_by_name(const char *name83, uint8_t *out_rc)
+{
+    uint8_t rc = 0;
+    loader_status_t st = load_program_from_fat(name83, (const char *)0, 0u, &rc);
+    int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
+    int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
+
+    switch (st) {
+        case LOADER_OK:
+            if (out_rc) {
+                *out_rc = rc;
+            }
+            return 0u;                          /* success */
+        case LOADER_ERR_NO_VOLUME:
+        case LOADER_ERR_NOT_FOUND:
+            return INT21_ERR_FILE_NOT_FOUND;    /* 0x0002 */
+        case LOADER_ERR_BUSY:
+            return INT21_ERR_INSUFFICIENT_MEM;  /* 0x0008 -- nested EXEC (deferred) */
+        case LOADER_ERR_TOO_BIG:
+        case LOADER_ERR_ZERO_LEN:
+            return INT21_ERR_BAD_FORMAT;        /* 0x000B -- bad/oversized image */
+        case LOADER_ERR_READ:
+        default:
+            return INT21_ERR_FILE_NOT_FOUND;    /* read error reads as absent */
+    }
 }
 
 /* Run a baked flat program through the loader, framed with serial markers
@@ -562,6 +623,15 @@ void kernel_main(void)
                 serial_puti((int32_t)rc);
                 serial_putc('\n');
             }
+
+            /* Bind the SAME volume to the loader so AH=4Bh EXEC / the saw path
+             * (load_program_from_fat) can load a .COM BY NAME off this disk, and
+             * bind the EXEC backend seam so int21's AH=4Bh reaches the loader
+             * (beads initech-saw). load_program_from_fat caches the FAT here; a
+             * read error leaves it unbound (fail loud). */
+            loader_bind_fat_volume(&vol);
+            int21_set_exec_backend(loader_exec_by_name);
+            serial_puts("LOADER-FAT-BIND-OK\n");
         } else {
             /* Fail loud + continue (do NOT hang). A missing disk yields
              * ATA_ERR_NO_DRIVE propagated as FAT12_ERR_READ. */
@@ -594,6 +664,78 @@ void kernel_main(void)
     run_baked("DIR-PROG", g_dir_prog_image, g_dir_prog_image_len);
     serial_puts("DIR-PROG-OUTPUT-END\n");
 
+#ifdef BOOT_EXEC
+    /* FAT-SOURCED LOAD + EXEC self-test (beads initech-saw; make test-exec).
+     * Only in the -DBOOT_EXEC image so the normal boot is unchanged. Requires
+     * --disk2 (the FAT12 data disk carrying GREET.COM). Two proofs:
+     *
+     *   1. THE SAW CORE: call load_program_from_fat("GREET.COM", ...) DIRECTLY.
+     *      This proves a program was loaded FROM THE FAT VOLUME (not baked) and
+     *      ran -- GREET.COM prints "GREETINGS FROM A:GREET.COM" via AH=09h and
+     *      exits rc=7. Markers EXEC-SAW-BEGIN / EXEC-SAW-EXIT rc=NN frame it.
+     *      Restore the kernel-context hook+PSP after (the loader rebinds them).
+     *
+     *   2. INT 21h AH=4Bh EXEC of "GREET.COM" from KERNEL/shell context, then
+     *      AH=4Dh GET-RETURN-CODE -- proving the EXEC dispatch path + the child
+     *      rc retrieval. (Nested EXEC -- 4Bh from inside a running program -- is
+     *      NOT supported this milestone: g_loader_ctx is single-level; the guard
+     *      returns LOADER_ERR_BUSY -> AX=0x0008. So EXEC-from-kernel is the
+     *      binding oracle, per the brief.) */
+    serial_puts("EXEC-SAW-BEGIN\n");
+    {
+        uint8_t saw_rc = 0;
+        loader_status_t st = load_program_from_fat("GREET.COM",
+                                                   (const char *)0, 0u, &saw_rc);
+        int21_set_exit(int21_exit_hook);   /* restore kernel-context terminate */
+        int21_set_psp(&g_kernel_psp);      /* restore kernel-context JFT */
+        if (st == LOADER_OK) {
+            serial_puts("EXEC-SAW-EXIT rc=");
+            serial_putu((uint32_t)saw_rc);
+            serial_putc('\n');
+        } else {
+            serial_puts("EXEC-SAW-FAIL st=");
+            serial_putu((uint32_t)st);
+            serial_putc('\n');
+        }
+    }
+
+    /* AH=4Bh EXEC + AH=4Dh GET-RETURN-CODE via literal `int 0x21` from kernel
+     * context (EDX -> "GREET.COM"). The dispatcher routes 4Bh through the EXEC
+     * backend (loader_exec_by_name) which restores hook/PSP internally. */
+    serial_puts("EXEC-4B-BEGIN\n");
+    {
+        static const char greet_path[] = "GREET.COM";
+        uint32_t ret_ax = 0x4B00u;        /* AH=4Bh, AL=00h (load+execute) in/out */
+        uint32_t carry  = 0;
+        /* EDX = flat ptr to the path. Capture CF with `sbb` (carry -> -1/0) so the
+         * asm needs only EAX + ECX (the path goes in EDX); keep the operand list
+         * lean to avoid over-constraining the i386 register file. */
+        __asm__ __volatile__(
+            "int $0x21\n\t"
+            "sbb %1, %1\n\t"              /* carry = (CF) ? 0xFFFFFFFF : 0 */
+            : "+a"(ret_ax), "=c"(carry)
+            : "d"((uint32_t)(uintptr_t)greet_path)
+            : "cc", "memory");
+        if (carry != 0u) {
+            serial_puts("EXEC-4B-FAIL ax=");
+            serial_putu(ret_ax & 0xFFFFu);
+            serial_putc('\n');
+        } else {
+            /* AH=4Dh GET-RETURN-CODE: AL = the child's exit code (expect 7). */
+            uint32_t rc_ax = 0;
+            __asm__ __volatile__(
+                "int $0x21\n\t"
+                : "=a"(rc_ax)
+                : "a"(0x4D00u)
+                : "cc", "memory");
+            serial_puts("EXEC-4B-RC=");
+            serial_putu(rc_ax & 0xFFu);
+            serial_putc('\n');
+        }
+    }
+    serial_puts("EXEC-4B-END\n");
+#endif
+
     /* ---- ENABLE HARDWARE INTERRUPTS (beads initech-3rs) -------------------
      * The FIRST `sti` of the whole project. Up to here the kernel ran with
      * IF=0 and every IRQ masked; software ints (0x20/0x21/0x80) dispatched
@@ -624,6 +766,12 @@ void kernel_main(void)
     __asm__ __volatile__("sti");
     serial_puts("IRQ-LIVE\n");
 
+    /* Bind the INT 21h CON input source to the now-live keyboard (beads
+     * initech-n62). AFTER sti so the blocking get's `hlt` is actually woken by
+     * IRQ1. From here, AH=01h/06h/07h/08h/0Ah/0Bh/0Ch read real keystrokes. */
+    int21_set_conin(int21_conin_get_kbd, int21_conin_poll_kbd);
+    serial_puts("CONIN-LIVE\n");
+
 #ifdef BOOT_KBD_ECHO
     /* ECHO SELF-TEST BUILD ONLY (beads initech-3rs / initech-43b; make
      * test-kbd). This is the BITING end-to-end oracle for BOTH the keyboard
@@ -649,6 +797,23 @@ void kernel_main(void)
         }
     }
     serial_puts("\nKBD-ECHO-END\n");
+    for (;;) {
+        __asm__ __volatile__("hlt");
+    }
+#elif defined(BOOT_CONIN)
+    /* CON-INPUT SELF-TEST BUILD ONLY (beads initech-n62; make test-conin). Run
+     * the baked CON-input program: it prints a prompt, reads a LINE via INT 21h
+     * AH=0Ah BUFFERED INPUT (which blocks on the keyboard -- the harness injects
+     * the keys), then writes "CONIN-LINE=<line>" back through AH=40h. This is the
+     * BITING end-to-end oracle that a real program reads a line from the keyboard
+     * via the INT 21h CON input path. The blocking AH=0Ah can ONLY make progress
+     * because --keys injects "d,i,r,ret"; with no injection it would wait
+     * forever, which is why the in-emulator test MUST inject (Rule 2 / stop
+     * condition). The NORMAL image never defines this macro. */
+    serial_puts("CONIN-PROG-READY\n");
+    serial_puts("CONIN-PROG-OUTPUT-BEGIN\n");
+    run_baked("CONIN-PROG", g_conin_prog_image, g_conin_prog_image_len);
+    serial_puts("CONIN-PROG-OUTPUT-END\n");
     for (;;) {
         __asm__ __volatile__("hlt");
     }
