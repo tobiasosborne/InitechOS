@@ -106,6 +106,29 @@ typedef struct sft_entry {
  * (BSS) -> every slot starts SFT_KIND_FREE. sft_init() populates 0..3. */
 extern sft_entry_t g_sft[SFT_MAX_ENTRIES];
 
+/* Runtime FILES= cap (beads initech-509.2; ADR-0003 DEC-06 / Appendix D.2).
+ * The CONFIG.SYS FILES=N directive governs the SFT capacity (sft.h DEC-06
+ * comment): the highest SFT slot index a FILE open may occupy is g_files_limit-1
+ * (slots SFT_FIRST_FILE..g_files_limit-1 are file-eligible). SYSINIT clamps it to
+ * min(N, SFT_MAX_ENTRIES) after parsing CONFIG.SYS; sft_alloc REFUSES a slot at or
+ * above it, so an OPEN/CREAT beyond the limit returns the DOS too-many-open error
+ * (int21 do_open/do_creat already map sft_alloc()>=cap onto INT21_ERR_TOO_MANY_OPEN).
+ *
+ * Default == SFT_MAX_ENTRIES so a kernel that never runs SYSINIT (the host unit
+ * oracle calling sft_alloc directly) keeps the historical 16-file-slot behavior --
+ * no existing gate regresses. sft_init() does NOT reset it (the limit is a system
+ * policy set once at SYSINIT, not per-process). */
+extern uint8_t g_files_limit;
+
+/* Set the FILES= cap (beads initech-509.2). Clamps `files` to
+ * [SFT_FIRST_FILE, SFT_MAX_ENTRIES] so the device slots 0..3 are always available
+ * and the cap never exceeds the physical table. Returns the effective limit. A
+ * FILES= below SFT_FIRST_FILE would leave zero file slots (DOS would refuse to
+ * boot); we clamp UP to SFT_FIRST_FILE (zero file slots) so the system stays
+ * coherent -- the parser already clamps the numeric range, this is the table-side
+ * floor/ceiling. Pure (no I/O); host-testable. */
+uint8_t sft_set_files_limit(uint8_t files);
+
 /* Establish the predefined device entries (slots 0..3): CON-read, CON-write
  * (shared by stdout+stderr), AUX, PRN. Idempotent (re-zeroes the whole table
  * first). Called once at SYSINIT before the first process loads. The matching

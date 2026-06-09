@@ -46,6 +46,14 @@
  * until sft_init() runs. */
 sft_entry_t g_sft[SFT_MAX_ENTRIES];
 
+/* Runtime FILES= cap (beads initech-509.2). Default == SFT_MAX_ENTRIES so a
+ * kernel/oracle that never runs SYSINIT keeps the full 16-file-slot table (no
+ * existing gate regresses); SYSINIT lowers it from CONFIG.SYS via
+ * sft_set_files_limit. NOT a BSS zero: a non-trivial initializer so a build that
+ * forgets SYSINIT still has the permissive default rather than a 0 (which would
+ * make every OPEN fail). */
+uint8_t g_files_limit = (uint8_t)SFT_MAX_ENTRIES;
+
 /* Deterministic local zero-fill (sft.c is freestanding; no <string.h> memset
  * assumed). */
 static void sft_zero(uint8_t *p, uint32_t n)
@@ -134,13 +142,38 @@ uint8_t jft_alloc(const psp_t *psp)
 
 uint8_t sft_alloc(void)
 {
-    /* Files never reuse the predefined device slots 0..3. */
-    for (uint8_t i = (uint8_t)SFT_FIRST_FILE; i < (uint8_t)SFT_MAX_ENTRIES; i++) {
+    /* Files never reuse the predefined device slots 0..3, AND never occupy a slot
+     * at or above the FILES= cap (g_files_limit; beads initech-509.2). The cap is
+     * clamped to [SFT_FIRST_FILE, SFT_MAX_ENTRIES] by sft_set_files_limit, so this
+     * loop bound is always within the physical table. A request that finds no free
+     * slot below the cap returns SFT_MAX_ENTRIES -- int21 do_open/do_creat map that
+     * onto INT21_ERR_TOO_MANY_OPEN (DOS code 4), which is precisely "FILES=
+     * exhausted". */
+    uint8_t cap = g_files_limit;
+    if (cap > (uint8_t)SFT_MAX_ENTRIES) {
+        cap = (uint8_t)SFT_MAX_ENTRIES; /* defensive: never index past the table */
+    }
+    for (uint8_t i = (uint8_t)SFT_FIRST_FILE; i < cap; i++) {
         if (g_sft[i].kind == SFT_KIND_FREE) {
             return i;
         }
     }
-    return (uint8_t)SFT_MAX_ENTRIES; /* full */
+    return (uint8_t)SFT_MAX_ENTRIES; /* full / FILES= cap reached */
+}
+
+uint8_t sft_set_files_limit(uint8_t files)
+{
+    /* Clamp to [SFT_FIRST_FILE, SFT_MAX_ENTRIES]: the device slots 0..3 are always
+     * present; the cap never exceeds the physical table. A FILES= of 0 (or below
+     * SFT_FIRST_FILE) leaves zero FILE slots but keeps the devices coherent. */
+    if (files > (uint8_t)SFT_MAX_ENTRIES) {
+        files = (uint8_t)SFT_MAX_ENTRIES;
+    }
+    if (files < (uint8_t)SFT_FIRST_FILE) {
+        files = (uint8_t)SFT_FIRST_FILE;
+    }
+    g_files_limit = files;
+    return g_files_limit;
 }
 
 /* Drop one JFT reference to SFT slot `idx`; free the slot (back to FREE) when

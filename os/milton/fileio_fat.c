@@ -291,3 +291,23 @@ int fileio_fat_bind(const fat12_volume_t *vol)
     int21_set_file_backend(&g_fat_backend);
     return 0;
 }
+
+/* Expose the backend's already-cached FAT so SYSINIT (CONFIG.SYS read) can walk
+ * the cluster chain WITHOUT allocating a SECOND ~4.6 KiB FAT buffer -- the kernel
+ * .bss was butting against PROGRAM_BASE (beads initech-509.2; _kernel_end margin).
+ * Valid only after a successful fileio_fat_bind; returns 0 (and *out_len = 0) if
+ * unbound. The buffer is the live backend cache; a caller that re-reads the same
+ * on-disk FAT into it is idempotent in the single-threaded SYSINIT context. */
+void *fileio_fat_fat_buffer(uint32_t *out_len)
+{
+    if (g_fat_len == 0u) {
+        if (out_len != 0) {
+            *out_len = 0u;
+        }
+        return 0;
+    }
+    if (out_len != 0) {
+        *out_len = g_fat_len;
+    }
+    return g_fat;
+}

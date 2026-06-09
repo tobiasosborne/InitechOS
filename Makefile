@@ -111,10 +111,12 @@ STAGE2_SECTORS  := 16
 # Bumped 64 -> 80 (40 KiB) for beads initech-509.11: the FAT WRITE path
 # (fat12.c create/write/flush/unlink + int21 CREAT/WRITE/UNLINK) grew the
 # kernel; the BOOT_SHELL image (which also links command.o) crossed the old
-# 32 KiB window. 80 keeps a clean margin and stays below PROGRAM_BASE (0x20000:
-# 0x10000 + 80*512 = 0x19C00). MUST equal the stage2.asm KERNEL_SECTORS equate.
-KERNEL_SECTORS  := 80
-# Total raw image: MBR(1) + stage2(16) + kernel(80) = 97 sectors; round up to
+# 32 KiB window. Bumped 80 -> 96 for beads initech-509.2 (SYSINIT + config_sys.o
+# pushed the BOOT_SHELL loaded .text past the 80-sector window -- WL-0009 Sec 4
+# recurrence). 96*512 = 48 KiB: 0x10000 + 96*512 = 0x1C000, still below
+# PROGRAM_BASE (0x20000). MUST equal the stage2.asm KERNEL_SECTORS equate.
+KERNEL_SECTORS  := 96
+# Total raw image: MBR(1) + stage2(16) + kernel(96) = 113 sectors; round up to
 # 128 (64 KiB) for headroom + a clean power-of-two. Deterministic (Rule 11).
 IMG_SECTORS     := 128
 
@@ -156,6 +158,11 @@ KERNEL_LOADER_C  := $(KERNEL_DIR)/loader.c
 # System File Table / Job File Table handle layer (beads initech-509.3): the
 # JFT->SFT indirection + predefined handles 0-4 + DUP/DUP2 redirection.
 KERNEL_SFT_C     := $(KERNEL_DIR)/sft.c
+# CONFIG.SYS parser + SYSINIT named bring-up phases (beads initech-509.2). The
+# parser is PURE (host-testable); sysinit.c is the ordered init contract + the
+# CONFIG.SYS apply (FILES= cap with teeth). Both ship in the kernel.
+KERNEL_CONFIG_SYS_C := $(KERNEL_DIR)/config_sys.c
+KERNEL_SYSINIT_C    := $(KERNEL_DIR)/sysinit.c
 # FAT12 mount over ATA (beads initech-saw / initech-adf): the real-hardware
 # sector backend (ata.c) + the FAT12 reader (fat12.c == FAT12_SRC) linked into
 # the kernel so kmain.c can mount the data disk and render a proto-DIR.
@@ -221,6 +228,8 @@ KERNEL_PANIC_OBJ := $(BUILD)/panic.o
 KERNEL_INT21_OBJ := $(BUILD)/int21.o
 KERNEL_PSP_OBJ   := $(BUILD)/psp.o
 KERNEL_SFT_OBJ   := $(BUILD)/sft.o
+KERNEL_CONFIG_SYS_OBJ := $(BUILD)/config_sys.o
+KERNEL_SYSINIT_OBJ    := $(BUILD)/sysinit.o
 KERNEL_LOADER_OBJ := $(BUILD)/loader.o
 KERNEL_ATA_OBJ   := $(BUILD)/ata.o
 KERNEL_FAT12_OBJ := $(BUILD)/fat12.o
@@ -361,6 +370,22 @@ KERNEL_EXITH_MUT_ELF      := $(BUILD)/kernel_exith_mut.elf
 KERNEL_EXITH_MUT_BIN      := $(BUILD)/kernel_exith_mut.bin
 EXITH_MUT_IMG             := $(BUILD)/exith_mut_boot.img
 FAT_EXITH_IMG             := $(BUILD)/fat_exith.img
+
+# SYSINIT / CONFIG.SYS FILES= cap self-test kernel/image (beads initech-509.2;
+# make test-sysinit): the SAME kernel sources but with -DBOOT_SYSINIT so the boot,
+# after SYSINIT Phase 2 reads CONFIG.SYS off --disk2 (minted with FILES=8 -> a
+# 4-slot file SFT), EXECs SYSI.COM. SYSI.COM OPENs HELLO.TXT repeatedly without
+# closing and reports how many OPENs succeeded before the cap bit. Mirrors the
+# EXITH image (loads BY NAME from FAT). The FAT disk carries CONFIG.SYS (FILES=8) +
+# SYSI.COM + HELLO.TXT. Separate image so the normal boot is unchanged.
+SYSI_PROG_ASM         := $(KERNEL_DIR)/sysinit_program.asm
+SYSI_PROG_BIN         := $(BUILD)/sysinit_program.bin
+KERNEL_SYSI_MAIN_OBJ  := $(BUILD)/kmain_sysi.o
+KERNEL_SYSI_ELF       := $(BUILD)/kernel_sysi.elf
+KERNEL_SYSI_BIN       := $(BUILD)/kernel_sysi.bin
+SYSI_IMG              := $(BUILD)/sysi_boot.img
+FAT_SYSI_IMG          := $(BUILD)/fat_sysi.img
+CONFIG_SYS_FIXTURE    := $(BUILD)/config_sys_files8.txt
 
 # ---------------------------------------------------------------------------
 # Asset extraction v0 (spec/assets, beads initech-vcq)
@@ -511,6 +536,32 @@ $(FAT_EXITH_IMG): $(FAT12_FIXTURES) $(EXITH_PROG_BIN) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
 	@mcopy -i $@ $(EXITH_PROG_BIN) ::EXITH.COM
 	@printf ">>> fat_exith: minted %s (1.44MB FAT12 disk for test-exit-handles; EXITH.COM + 4 target files; build intermediate)\n" "$@"
+
+# SYSINIT / CONFIG.SYS FILES= cap oracle (beads initech-509.2; make test-sysinit).
+# Assemble SYSI.COM (org 0x20100; nasm -f bin is deterministic, Rule 11) -- it OPENs
+# HELLO.TXT repeatedly and reports the success count when the cap bites.
+$(SYSI_PROG_BIN): $(SYSI_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+# A NON-baseline CONFIG.SYS with FILES=8 (a 4-slot file SFT) so the cap is provably
+# TIGHTER than the 16-slot default -- the test proves SYSINIT honored the file's
+# directive, not a hardcoded number. Deterministic (printf; LF line ends, Rule 11).
+# Distinct from the LOCKED baseline (spec/dos_config_sys_baseline.txt, FILES=20):
+# this is a TEST fixture, not the contract.
+$(CONFIG_SYS_FIXTURE): | $(BUILD)
+	@printf 'FILES=8\nBUFFERS=20\nLASTDRIVE=Z\nDEVICE=ANSI.SYS\nSHELL=COMMAND.COM /P /E:512\n' > $@
+	@printf ">>> config_sys_files8: minted %s (CONFIG.SYS test fixture FILES=8; build intermediate)\n" "$@"
+
+# FAT12 disk for the SYSINIT oracle: CONFIG.SYS (FILES=8) + SYSI.COM + HELLO.TXT.
+# Distinct from the other FAT images so its extra files never disturb their DIR /
+# screendump assumptions. Build intermediate, NOT committed (Rule 11).
+$(FAT_SYSI_IMG): $(FAT12_FIXTURE_DIR)/hello.txt $(SYSI_PROG_BIN) $(CONFIG_SYS_FIXTURE) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(CONFIG_SYS_FIXTURE) ::CONFIG.SYS
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(SYSI_PROG_BIN) ::SYSI.COM
+	@printf ">>> fat_sysi: minted %s (1.44MB FAT12 disk for test-sysinit; CONFIG.SYS FILES=8 + SYSI.COM + HELLO.TXT; build intermediate)\n" "$@"
 
 # FAT12 WRITABLE data disk for the in-emulator WRITE round-trip (beads
 # initech-509.11; make test-fatwrite). A FRESH, formatted-but-near-empty 1.44 MB
@@ -1461,6 +1512,60 @@ test-sft-mutant: $(TEST_SFT_MUT_DUP) $(TEST_SFT_MUT_DUP2)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-config-sys (beads initech-509.2 -- CONFIG.SYS parser)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the PURE CONFIG.SYS parser (os/milton/config_sys.c): parse
+# the LOCKED baseline (spec/dos_config_sys_baseline.txt -- passed in via
+# -DCONFIG_SYS_BASELINE_PATH so the SPEC FILE is the contract, Rule 8) and assert
+# EVERY field; plus edge cases (blank/comment/unknown lines skipped not fatal,
+# lowercase keywords, FILES out-of-range clamped, CRLF, missing input -> absent).
+# config_sys.c is pure text->struct (no I/O), so it is fully host-testable; it ALSO
+# compiles freestanding into the kernel (SYSINIT). Mirrors test-sft.
+TEST_CONFIG_SYS      := $(BUILD)/test_config_sys
+TEST_CONFIG_SYS_SRC  := $(MILTON_DIR)/test_config_sys.c
+TEST_CONFIG_SYS_DEPS := $(KERNEL_CONFIG_SYS_C)
+TEST_CONFIG_SYS_HDRS := $(MILTON_DIR)/config_sys.h spec/dos_config_sys_baseline.txt
+TEST_CONFIG_SYS_DEF  := -DCONFIG_SYS_BASELINE_PATH='"spec/dos_config_sys_baseline.txt"'
+# Mutation builds (Rule 6): (a) FILES off-by-one -> files==20 RED; (b) fail-on-
+# unknown -> the "unknown ignored" assertions RED. A mutant that PASSES = decoration.
+TEST_CONFIG_SYS_MUT_OFF := $(BUILD)/test_config_sys_mutant_off
+TEST_CONFIG_SYS_MUT_UNK := $(BUILD)/test_config_sys_mutant_unk
+
+$(TEST_CONFIG_SYS): $(TEST_CONFIG_SYS_SRC) $(TEST_CONFIG_SYS_DEPS) $(TEST_CONFIG_SYS_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEST_CONFIG_SYS_DEF) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_CONFIG_SYS_SRC) $(TEST_CONFIG_SYS_DEPS)
+
+$(TEST_CONFIG_SYS_MUT_OFF): $(TEST_CONFIG_SYS_SRC) $(TEST_CONFIG_SYS_DEPS) $(TEST_CONFIG_SYS_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEST_CONFIG_SYS_DEF) -DCONFIG_MUTATE_FILES_OFFBYONE -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_CONFIG_SYS_SRC) $(TEST_CONFIG_SYS_DEPS)
+
+$(TEST_CONFIG_SYS_MUT_UNK): $(TEST_CONFIG_SYS_SRC) $(TEST_CONFIG_SYS_DEPS) $(TEST_CONFIG_SYS_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEST_CONFIG_SYS_DEF) -DCONFIG_MUTATE_FAIL_ON_UNKNOWN -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_CONFIG_SYS_SRC) $(TEST_CONFIG_SYS_DEPS)
+
+.PHONY: test-config-sys test-config-sys-mutant
+test-config-sys: $(TEST_CONFIG_SYS)
+	@printf ">>> test-config-sys: CONFIG.SYS parser vs the LOCKED baseline + edge cases (initech-509.2)\n"
+	@$(TEST_CONFIG_SYS)
+	@printf ">>> test-config-sys: green\n"
+
+# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
+test-config-sys-mutant: $(TEST_CONFIG_SYS_MUT_OFF) $(TEST_CONFIG_SYS_MUT_UNK)
+	@printf ">>> test-config-sys-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_CONFIG_SYS_MUT_OFF) >/dev/null 2>&1; then \
+		printf '!!! test-config-sys-mutant FAIL: FILES off-by-one mutant PASSED -- the FILES assertion is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-config-sys-mutant: green (FILES off-by-one mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_CONFIG_SYS_MUT_UNK) >/dev/null 2>&1; then \
+		printf '!!! test-config-sys-mutant FAIL: fail-on-unknown mutant PASSED -- the leniency assertions are decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-config-sys-mutant: green (fail-on-unknown mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-loader (beads initech-509.5 -- flat program loader PREP)
 # ---------------------------------------------------------------------------
 # Host unit oracle for loader_prepare() (os/milton/loader.c): input validation
@@ -1683,6 +1788,20 @@ $(KERNEL_PSP_OBJ): $(KERNEL_PSP_C) $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BU
 $(KERNEL_SFT_OBJ): $(KERNEL_SFT_C) $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SFT_C) -o $@
 
+# CONFIG.SYS parser (beads initech-509.2): the SAME config_sys.c the host oracle
+# (test_config_sys.c) exercises; freestanding here, hosted there. Pure, no I/O.
+$(KERNEL_CONFIG_SYS_OBJ): $(KERNEL_CONFIG_SYS_C) $(KERNEL_DIR)/config_sys.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_CONFIG_SYS_C) -o $@
+
+# SYSINIT named bring-up phases (beads initech-509.2): the ordered init contract +
+# the CONFIG.SYS apply (FILES= cap). Kernel-only (it touches pic/idt/pit/kbd + the
+# FAT volume); no host oracle (the parser half is tested via config_sys.c).
+$(KERNEL_SYSINIT_OBJ): $(KERNEL_SYSINIT_C) $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/config_sys.h \
+                       $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/int21.h \
+                       $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pit.h \
+                       $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
+
 # Flat program loader (beads initech-509.5): the SAME loader.c the host oracle
 # (test_loader.c) exercises; freestanding here (asm control-transfer path),
 # hosted there (loader_prepare only). -Ispec for memory_map.h (LOCKED addrs).
@@ -1823,7 +1942,7 @@ $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 
 KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-               $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+               $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -1841,7 +1960,7 @@ $(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 
 KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -1877,7 +1996,7 @@ $(KERNEL_ECHO_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR
 
 KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -1914,7 +2033,7 @@ $(KERNEL_CONIN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 
 KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -1953,7 +2072,7 @@ $(KERNEL_EXEC_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR
 
 KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -1990,7 +2109,7 @@ $(KERNEL_WRITE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 
 KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2027,7 +2146,7 @@ $(KERNEL_MULTIOPEN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNE
 
 KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2068,7 +2187,7 @@ $(KERNEL_IRQSTORM_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL
 # the main obj, the pit obj, and -- for mutant A -- the int21 obj; defined below).
 KERNEL_IRQSTORM_OBJS_COMMON := $(KERNEL_START_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2172,7 +2291,7 @@ $(KERNEL_EXITH_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 
 KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2212,7 +2331,7 @@ $(KERNEL_EXITH_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNE
 
 KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_MUT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_MUT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2238,6 +2357,43 @@ $(EXITH_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_MUT_BIN) | $(BUILD)
 	@dd if=$(KERNEL_EXITH_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> exith MUTANT image: %s (sft_close_process elided -- expected RED)\n" "$@"
 
+# --- SYSINIT / CONFIG.SYS FILES= cap kernel (beads initech-509.2; make
+# test-sysinit) -----------------------------------------------------------------
+# Same sources, kmain.c compiled with -DBOOT_SYSINIT so SYSINIT Phase 2 reads
+# CONFIG.SYS (FILES=8) off --disk2 and then the boot EXECs SYSI.COM to prove the
+# cap bites. The child is loaded BY NAME (load_program_from_fat), so the object set
+# is the EXEC object set (no baked prog blob).
+$(KERNEL_SYSI_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/config_sys.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SYSINIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_SYSI_ELF): $(KERNEL_SYSI_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SYSI_OBJS)
+
+$(KERNEL_SYSI_BIN): $(KERNEL_SYSI_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_sysi.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(sysi): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(SYSI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SYSI_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_SYSI_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> sysi image: %s (SYSINIT / CONFIG.SYS FILES= cap self-test kernel @s17)\n" "$@"
+
 # --- COMMAND.COM shell kernel (beads initech-7pc; make test-shell) ----------
 # Same sources, but kmain.c compiled with -DBOOT_SHELL so the boot, after
 # CONIN-LIVE, prints SHELL-READY and enters the COMMAND.COM REPL instead of the
@@ -2251,7 +2407,7 @@ $(KERNEL_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 
 KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -3731,6 +3887,68 @@ test-exit-handles-mutant: $(HARNESS_BIN) $(EXITH_MUT_IMG) $(FAT_EXITH_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-sysinit (beads initech-509.2 -- SYSINIT + CONFIG.SYS FILES= cap)
+# ---------------------------------------------------------------------------
+# Boot the SYSI_IMG with --disk2 = FAT_SYSI_IMG (CONFIG.SYS FILES=8 + SYSI.COM +
+# HELLO.TXT). SYSINIT Phase 2 reads CONFIG.SYS off the volume, parses it, applies
+# FILES=8 -> a 4-slot file SFT (slots 4..7), and emits the "SYSINIT: source=
+# CONFIG.SYS FILES=8 cap=8 ..." summary. Then the boot EXECs SYSI.COM, which OPENs
+# HELLO.TXT over and over without closing and reports SYSINIT-PROG-OPENS=<n> when
+# the cap bites. With FILES=8 EXACTLY 4 OPENs succeed (the cap bites at the limit,
+# not before/after) -> n == 4. Assertions (fail-loud, Rule 2):
+#   1. NO triple-fault.
+#   2. SERIAL: SYSINIT ran + read+parsed CONFIG.SYS (the "SYSINIT: source=CONFIG.SYS
+#      FILES=8 cap=8" summary marker).
+#   3. SERIAL: the DEVICE=ANSI.SYS accepted(deferred) line (non-honored directive
+#      recorded, NOT silently dropped).
+#   4. SERIAL: SYSINIT-PROG-OPENS=4 (the FILES= cap is ENFORCED at exactly the limit).
+# Ref: sysinit.c sysinit_apply_config; sft.c sft_alloc/g_files_limit; config_sys.c;
+# spec/dos_config_sys_baseline.txt. TRI-EMULATOR: QEMU only (Bochs/86Box deferred).
+SYSI_NAME    := sysi_boot
+SYSI_SERIAL  := $(BUILD)/$(SYSI_NAME).serial
+SYSI_REPORT  := $(BUILD)/$(SYSI_NAME).report
+SYSI_EXPECT_OPENS := 4
+
+.PHONY: test-sysinit
+test-sysinit: $(HARNESS_BIN) $(SYSI_IMG) $(FAT_SYSI_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-sysinit : SYSINIT reads CONFIG.SYS, FILES= has teeth\n'
+	@printf '  Ref: beads initech-509.2; sysinit_apply_config -> sft_set_files_limit; CONFIG.SYS FILES=8.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + CONFIG.SYS disk %s (primary slave)\n' "$(SYSI_IMG)" "$(FAT_SYSI_IMG)"
+	@printf 'Expecting : SYSINIT: source=CONFIG.SYS FILES=8 ... + SYSINIT-PROG-OPENS=%s + no triple-fault\n' "$(SYSI_EXPECT_OPENS)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(SYSI_IMG)" --disk2 "$(FAT_SYSI_IMG)" \
+		--name "$(SYSI_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(SYSI_REPORT)" || true
+	@cat "$(SYSI_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(SYSI_REPORT)"; then \
+		printf '!!! test-sysinit FAIL: TRIPLE FAULT (root-cause the SYSINIT path, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-sysinit [1/4]: no triple-fault\n'
+	@if [ ! -s "$(SYSI_SERIAL)" ]; then \
+		printf '!!! test-sysinit FAIL: no serial captured at %s\n' "$(SYSI_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SYSINIT: source=CONFIG.SYS FILES=8 cap=8 ' "$(SYSI_SERIAL)" \
+		|| { printf '!!! test-sysinit FAIL: SYSINIT summary (source=CONFIG.SYS FILES=8 cap=8) missing -- CONFIG.SYS not read+parsed+applied\n'; \
+		     grep -n 'SYSINIT' "$(SYSI_SERIAL)" || true; exit 1; }
+	@printf '>>> test-sysinit [2/4]: SYSINIT read+parsed CONFIG.SYS (FILES=8 cap=8 summary present)\n'
+	@grep -q '^SYSINIT: DEVICE=ANSI.SYS accepted(deferred)$$' "$(SYSI_SERIAL)" \
+		|| { printf '!!! test-sysinit FAIL: DEVICE=ANSI.SYS accepted(deferred) line missing -- a non-honored directive was dropped, not recorded\n'; \
+		     grep -n 'SYSINIT' "$(SYSI_SERIAL)" || true; exit 1; }
+	@printf '>>> test-sysinit [3/4]: DEVICE=ANSI.SYS recorded accepted(deferred)\n'
+	@tr -d '\r' < "$(SYSI_SERIAL)" | grep -q '^SYSINIT-PROG-OPENS=$(SYSI_EXPECT_OPENS)$$' \
+		|| { printf '!!! test-sysinit FAIL: SYSINIT-PROG-OPENS=%s missing -- the FILES= cap did NOT bite at exactly the limit:\n' "$(SYSI_EXPECT_OPENS)"; \
+		     grep -n 'SYSINIT-PROG-OPENS' "$(SYSI_SERIAL)" || true; exit 1; }
+	@printf '>>> test-sysinit [4/4]: SYSINIT-PROG-OPENS=%s -- FILES=8 cap ENFORCED at exactly the limit (4 file slots)\n' "$(SYSI_EXPECT_OPENS)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- SYSINIT reads CONFIG.SYS off the volume, the FILES= directive\n'
+	@printf '            has REAL teeth (the SFT file-slot cap), and it bites at exactly the limit\n'
+	@printf '            (QEMU only; tri-emulator pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-shell (beads initech-7pc -- BOOT -> COMMAND.COM -> DIR/TYPE/run)
 # ---------------------------------------------------------------------------
 # THE M2 capstone keystone: boot the -DBOOT_SHELL image WITH a FAT12 disk
@@ -4225,17 +4443,18 @@ TEST_UNIT_GATES := \
 	test-fat-partial test-fat-write-partial test-fat-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 \
 	test-fileio test-exec-unit test-command test-psp test-sft test-loader \
+	test-config-sys \
 	test-fat test-seed test-seed-codegen test-assets test-spec \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-fileio-mutant test-exec-mutant test-command-mutant test-psp-mutant \
-	test-sft-mutant test-loader-mutant test-fat-write-mutant \
+	test-sft-mutant test-loader-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-fatwrite test-multiopen test-exit-handles \
-	test-shell test-panic \
+	test-sysinit test-shell test-panic \
 	test-kbd test-conin test-int21-irqstorm
 
 test-unit:

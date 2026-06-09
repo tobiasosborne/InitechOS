@@ -37,6 +37,7 @@
 #include "kbd.h"         /* PS/2 keyboard IRQ1 driver (initech-3rs) */
 #include "pit.h"         /* 8254 PIT IRQ0 tick (initech-3rs) */
 #include "command.h"     /* COMMAND.COM REPL (initech-7pc); BOOT_SHELL only */
+#include "sysinit.h"     /* SYSINIT named bring-up phases (beads initech-509.2) */
 
 /* Seafoam: ported VERBATIM from stage2.asm:42-44 (SEAFOAM_R/G/B). The pie
  * chart and the wristwatch are canon; so is this fill color. The screendump
@@ -423,48 +424,17 @@ void kernel_main(void)
         serial_puts("BI-OK\n");
     }
 
-    /* Interrupt foundation (beads initech-a5a). Order matters (ground-truth
-     * Sec 8 Risk 1): remap+MASK the 8259 PIC away from CPU exception vectors
-     * FIRST, then install the IDT (256 gates; exceptions 0-31 as 0x8E interrupt
-     * gates -> fail-loud panic). We keep IF=0 all milestone (no sti); software
-     * interrupts still dispatch through the IDT with IF masked. */
-    pic_remap_and_mask();
-    serial_puts("PIC\n");
-    idt_init();
-    serial_puts("IDT\n");
-
-    /* INT 21h syscall spine (beads initech-509.5). Install the literal `int
-     * 0x21` dispatcher as a 32-bit TRAP gate (0x8F, DPL=0, CODE_SEL) at the now-
-     * free vector 0x21 (PIC is at 0x28/0x30). Bind the CON sink + terminate hook
-     * BEFORE any int 0x21 fires. The console sink is bound later (once the
-     * console is up); until then the sink fans to serial only. */
-    int21_set_sink(int21_con_sink);
-    int21_set_exit(int21_exit_hook);
-
-    /* System File Table + kernel-context PSP (beads initech-509.3). sft_init
-     * lays the predefined device entries (slots 0-3: CON-in, CON-out, AUX, PRN);
-     * the kernel PSP carries the matching standard JFT (jft[0..4]) so kernel-
-     * context INT 21h (AH=40h WRITE etc.) has valid standard handles BEFORE any
-     * program loads. The loader rebinds to the program's PSP on load and the
-     * kernel restores g_kernel_psp on return (below). Ref: DEC-06; sft.h. */
-    sft_init();
-    {
-        psp_params_t kp;
-        kp.alloc_end_linear  = 0u;  /* kernel context: no program ceiling */
-        kp.env_linear        = 0u;
-        kp.parent_psp_linear = 0u;
-        kp.cmd_tail          = (const char *)0;
-        kp.cmd_tail_len      = 0u;
-        (void)psp_build(&g_kernel_psp, &kp);
-    }
-    int21_set_psp(&g_kernel_psp);
-
-    idt_install_trap(0x21u, (void *)int21_entry);
-    /* INT 20h legacy-terminate trap gate (beads initech-509.5). Vector 0x20 is
-     * free (PIC master at 0x28, DEC-04a); a loaded program can terminate via
-     * `int 0x20` as well as INT 21h AH=4Ch (ground-truth Sec 2.1 / Sec 4.4). */
-    idt_install_trap(0x20u, (void *)int20_entry);
-    serial_puts("INT21\n");
+    /* SYSINIT PHASE 1 -- interrupt + syscall foundation (beads initech-509.2;
+     * beads initech-a5a / initech-509.5 / initech-509.3). This was a long ad-hoc
+     * sequence inline in kernel_main; it is now the NAMED sysinit_early() phase,
+     * which runs the EXACT same steps IN THE EXACT same order (sysinit.h documents
+     * the ordering minefield): remap+MASK the 8259 -> "PIC" -> install the IDT ->
+     * "IDT" -> bind the int21 CON sink + terminate hook -> sft_init + build the
+     * kernel-context PSP + int21_set_psp -> install the 0x21 + 0x20 trap gates ->
+     * "INT21". IF stays 0 here (no sti); the HW-IRQ tail is sysinit_enable_irqs()
+     * far below, in its original position. The serial markers are emitted from the
+     * phase so the capture is byte-for-byte identical. */
+    sysinit_early(int21_con_sink, int21_exit_hook, &g_kernel_psp, serial_puts);
 
     /* LIVE self-test: install a trap gate on an UNUSED vector (0x80 -- not an
      * IRQ vector after the 0x28/0x30 remap), fire `int 0x80`, and confirm
@@ -644,6 +614,28 @@ void kernel_main(void)
     serial_puts("FAT-MOUNT-END\n");
     (void)mounted;
 
+    /* SYSINIT PHASE 2 -- CONFIG.SYS apply (beads initech-509.2). THE hook point:
+     * after the FAT volume is mounted + bound (so CONFIG.SYS can be read off it)
+     * and BEFORE any program loads (so the FILES= cap is in force for the demos +
+     * the shell). Read CONFIG.SYS from the volume if present; else fall back to
+     * the LOCKED baseline (spec/dos_config_sys_baseline.txt, embedded in
+     * sysinit.c). Apply the honorable directives -- FILES=N -> the runtime SFT cap
+     * (the one with teeth; sft_set_files_limit) -- and emit the "SYSINIT: ..."
+     * serial summary the in-emulator oracle asserts. A FAT-sized scratch (>= one
+     * 1.44 MB FAT == 9*512) caches the FAT for the file read; sector_buf is the
+     * 512-byte dir-scan scratch (reused from the mount above). */
+    {
+        /* Reuse the file backend's already-cached FAT (fileio_fat_bind above)
+         * rather than a SECOND ~4.6 KiB .bss buffer: the kernel .bss was butting
+         * against PROGRAM_BASE (_kernel_end within ~160 bytes of 0x20000), so a
+         * dedicated cfg_fat_buf risked a kernel/program collision (beads
+         * initech-509.2 fix). The FAT is already resident from the bind. */
+        uint32_t cfg_fat_len = 0u;
+        void    *cfg_fat = fileio_fat_fat_buffer(&cfg_fat_len);
+        (void)sysinit_apply_config(mounted ? &vol : (const fat12_volume_t *)0,
+                                   sector_buf, cfg_fat, cfg_fat_len, serial_puts);
+    }
+
     /* RUN A PROGRAM (beads initech-509.5). Lay out a PSP + a baked flat program
      * at PROGRAM_BASE/PROGRAM_IMAGE, JMP to it, let it call INT 21h, and regain
      * control on AH=4Ch -- the return-to-loader mechanism (ground-truth Sec 4).
@@ -819,35 +811,59 @@ void kernel_main(void)
     serial_puts("EXITH-OUTPUT-END\n");
 #endif
 
+#ifdef BOOT_SYSINIT
+    /* CONFIG.SYS FILES= CAP self-test (beads initech-509.2; make test-sysinit).
+     * Only in the -DBOOT_SYSINIT image so the normal boot is unchanged. SYSINIT
+     * Phase 2 (above) read CONFIG.SYS off --disk2 (minted with FILES=8 -> a 4-slot
+     * file SFT) and emitted the "SYSINIT: source=CONFIG.SYS FILES=8 ..." summary.
+     * Here we EXEC SYSI.COM, which OPENs HELLO.TXT over and over WITHOUT closing,
+     * counting how many OPENs succeed before the SFT exhausts at the cap. It
+     * reports SYSINIT-PROG-OPENS=<n>; the oracle asserts n == 4 (the cap bites at
+     * exactly the limit -- FILES=8 -> slots 4..7). Loaded BY NAME from FAT (the
+     * saw core), restoring the kernel hook + PSP after (the loader rebinds both). */
+    serial_puts("SYSINIT-OUTPUT-BEGIN\n");
+    {
+        uint8_t rc = 0;
+        loader_status_t st = load_program_from_fat("SYSI.COM",
+                                                   (const char *)0, 0u, &rc);
+        int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
+        int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
+        if (st == LOADER_OK) {
+            serial_puts("SYSINIT-PROG-EXIT rc=");
+            serial_putu((uint32_t)rc);
+            serial_putc('\n');
+        } else {
+            serial_puts("SYSINIT-PROG-FAIL st=");
+            serial_putu((uint32_t)st);
+            serial_putc('\n');
+        }
+    }
+    serial_puts("SYSINIT-OUTPUT-END\n");
+#endif
+
     /* ---- ENABLE HARDWARE INTERRUPTS (beads initech-3rs) -------------------
-     * The FIRST `sti` of the whole project. Up to here the kernel ran with
-     * IF=0 and every IRQ masked; software ints (0x20/0x21/0x80) dispatched
-     * through the IDT with IF=0. We now: (1) program the 8254 PIT channel 0 to
-     * 100 Hz and init the PS/2 keyboard ring; (2) install the two IRQ stubs as
-     * 0x8E INTERRUPT gates (IF cleared during the handler -> no nesting) at the
-     * post-remap vectors 0x28 (IRQ0/PIT) and 0x29 (IRQ1/keyboard); (3) unmask
-     * ONLY IRQ0+IRQ1 on the master PIC; (4) `sti`.
+     * SYSINIT PHASE 3 -- the FIRST `sti` of the whole project, now the NAMED
+     * sysinit_enable_irqs() phase. Up to here the kernel ran with IF=0 and every
+     * IRQ masked; software ints (0x20/0x21/0x80) dispatched through the IDT with
+     * IF=0. The phase runs the EXACT same steps IN THE EXACT same order: program
+     * the 8254 PIT (100 Hz) -> init the PS/2 keyboard ring -> install the IRQ0
+     * (0x28) + IRQ1 (0x29) interrupt gates -> unmask ONLY IRQ0+IRQ1 -> `sti` ->
+     * "IRQ-LIVE".
      *
      * Order matters (the minefield -- CLAUDE.md "real mode -> protected is a
-     * minefield" / Rule 5): program the devices and install the gates BEFORE
-     * unmasking, and unmask BEFORE sti, so a line can never fire into an
+     * minefield" / Rule 5; sysinit.h): program the devices and install the gates
+     * BEFORE unmasking, and unmask BEFORE sti, so a line can never fire into an
      * uninstalled gate (which would hit the spurious stub and panic).
      *
-     * Placed AFTER the boot demos so the existing gates (banner / program /
-     * mount / proto-DIR / TYPE / DIR) run with the SAME IF=0 flow as before --
-     * enabling interrupts here changes none of their behavior (the keyboard
-     * ring simply stays empty in those gates). Ref: 8254/8042/8259A datasheets.
+     * Placed AFTER the boot demos (its ORIGINAL position) so the existing gates
+     * (banner / program / mount / proto-DIR / TYPE / DIR) run with the SAME IF=0
+     * flow as before -- enabling interrupts here changes none of their behavior
+     * (the keyboard ring simply stays empty in those gates). Ref: 8254/8042/8259A.
      *
      * REENTRANCY (beads initech-xk2): the IRQ handlers touch ONLY pit/kbd state,
      * never the INT 21h dispatcher globals, so an IRQ landing inside an INT 21h
      * trap (0x8F keeps IF set) is safe with no lock. */
-    pit_init();
-    kbd_init();
-    idt_install_irq(0x28u, (void *)irq0_entry);   /* PIT  IRQ0 -> vector 0x28 */
-    idt_install_irq(0x29u, (void *)irq1_entry);   /* kbd  IRQ1 -> vector 0x29 */
-    pic_unmask_irq0_irq1();
-    __asm__ __volatile__("sti");
-    serial_puts("IRQ-LIVE\n");
+    sysinit_enable_irqs(serial_puts);
 
     /* Bind the INT 21h CON input source to the now-live keyboard (beads
      * initech-n62). AFTER sti so the blocking get's `hlt` is actually woken by

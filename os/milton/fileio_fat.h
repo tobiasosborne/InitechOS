@@ -22,4 +22,10 @@
  * caller does NOT bind a half-initialised backend. */
 int fileio_fat_bind(const fat12_volume_t *vol);
 
+/* Return the backend's cached FAT buffer (+ its byte length via *out_len) so
+ * SYSINIT can read CONFIG.SYS off the volume WITHOUT a second ~4.6 KiB FAT
+ * buffer (beads initech-509.2 -- keeps the kernel .bss clear of PROGRAM_BASE).
+ * Returns 0 / *out_len = 0 before a successful fileio_fat_bind. */
+void *fileio_fat_fat_buffer(uint32_t *out_len);
+
 #endif /* INITECH_MILTON_FILEIO_FAT_H */
