@@ -610,6 +610,102 @@ test-fat12-write: $(TEST_FAT12_WRITE) $(FAT12_BLANK_UNIT_IMG)
 	@$(TEST_FAT12_WRITE) "$(BUILD)/fat12_write_unit_run.img"
 	@printf ">>> test-fat12-write: green\n"
 
+# --- FAT12 POSITIONED-WRITE oracle (beads initech-snk) ----------------------
+# The symmetric counterpart of fat12_read_partial: fat12_write_partial does a
+# positioned read-modify-write (overwrite in place, extend past EOF growing the
+# chain, zero-fill the hole when offset > size). A host test drives the REAL
+# artifact over a read-WRITE file-backed blockdev on a freshly-minted BLANK
+# image; the Makefile then reads the written files back via mtools + python3.
+TEST_FAT12_WRITE_PARTIAL          := $(BUILD)/test_fat12_write_partial
+TEST_FAT12_WRITE_PARTIAL_MUT_RMW  := $(BUILD)/test_fat12_write_partial_mut_rmw
+TEST_FAT12_WRITE_PARTIAL_MUT_EXT  := $(BUILD)/test_fat12_write_partial_mut_ext
+# A blank used by the positioned-write unit (keep it off the other diffs).
+FAT12_BLANK_WP_IMG := $(BUILD)/fat12_blank_wp.img
+# The five files the positioned-write round-trip diffs three ways (our reader vs
+# mtools vs python3). Names are pinned by test_fat12_write_partial.c.
+FAT12_WRITE_PARTIAL_NAMES := OVR.BIN APP.BIN HOLE.BIN FRESH.BIN BIG.BIN
+
+$(FAT12_BLANK_WP_IMG): | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@printf ">>> fat12: minted BLANK %s (1.44MB FAT12, no files; positioned-WRITE oracle target)\n" "$@"
+
+$(TEST_FAT12_WRITE_PARTIAL): $(FAT_DIFF_DIR)/test_fat12_write_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_write_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# Mutation builds (Rule 6): fat12_write_partial perturbed one thing at a time so
+# the differential oracle MUST go RED. (rmw) skip the read-modify-write read on a
+# partial cluster -> a partial overwrite zeroes its neighbours; (ext) allocate
+# one too few extend clusters -> a multi-cluster grow leaves the chain short.
+$(TEST_FAT12_WRITE_PARTIAL_MUT_RMW): $(FAT_DIFF_DIR)/test_fat12_write_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_PARTIAL_NO_RMW -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_write_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_WRITE_PARTIAL_MUT_EXT): $(FAT_DIFF_DIR)/test_fat12_write_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_PARTIAL_EXTEND_SHORT -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_write_partial.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# REAL gate: test-fat-write-partial (beads initech-snk).
+#   [A] the in-process oracle: every positioned write is mirrored into a byte
+#       model; fat12_read_file AND fat12_read_partial read it back == model
+#       (overwrite-in-place, cluster-boundary span, append @EOF, multi-cluster
+#       extend, zero hole, write-to-empty, many-cluster file) + disk-full rollback.
+#   [B] our writer writes the files into a blank image; mtools `mcopy` AND the
+#       python3 reference (fat12_ref.py --cat) read each back == the python ref's
+#       bytes (THIRD independent reader), proving a real DOS tool agrees with the
+#       bytes we wrote (file CONTENT exact; Law 1).
+.PHONY: test-fat-write-partial
+test-fat-write-partial: $(TEST_FAT12_WRITE_PARTIAL) $(FAT12_BLANK_WP_IMG) $(FAT12_REF_PY)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fat-write-partial : FAT12 positioned-WRITE oracle\n'
+	@printf '======================================================================\n'
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-fat-write-partial FAIL: mtools `mcopy` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-fat-write-partial FAIL: python3 not found (needed for the independent reference).\n'; exit 1; }
+	@printf '>>> test-fat-write-partial [A]: in-process matrix -- read_file/read_partial == byte model (+ disk-full rollback)\n'
+	@cp -f "$(FAT12_BLANK_WP_IMG)" "$(BUILD)/fatwp_unit.img"
+	@$(TEST_FAT12_WRITE_PARTIAL) "$(BUILD)/fatwp_unit.img" \
+		|| { printf '!!! test-fat-write-partial FAIL [A]: in-process matrix red\n'; exit 1; }
+	@printf '>>> test-fat-write-partial [A]: green\n'
+	@printf '>>> test-fat-write-partial [B]: OUR writer writes the files into a fresh blank image\n'
+	@cp -f "$(FAT12_BLANK_WP_IMG)" "$(BUILD)/fatwp_diff.img"
+	@$(TEST_FAT12_WRITE_PARTIAL) "$(BUILD)/fatwp_diff.img" --diff \
+		|| { printf '!!! test-fat-write-partial FAIL [B]: writing the diff fixtures failed\n'; exit 1; }
+	@printf '>>> test-fat-write-partial [C]: content -- mcopy == python3 ref, per positioned-written file\n'
+	@set -e; \
+	for f in $(FAT12_WRITE_PARTIAL_NAMES); do \
+		mcopy -n -i "$(BUILD)/fatwp_diff.img" "::$$f" "$(BUILD)/fatwp_mtools_$$f.bin" \
+			|| { printf '!!! test-fat-write-partial FAIL [C]: mcopy ::%s errored (mtools could not read our written file)\n' "$$f"; exit 1; }; \
+		python3 "$(FAT12_REF_PY)" "$(BUILD)/fatwp_diff.img" --cat "$$f" > "$(BUILD)/fatwp_py_$$f.bin" \
+			|| { printf '!!! test-fat-write-partial FAIL [C]: fat12_ref.py --cat %s errored\n' "$$f"; exit 1; }; \
+		cmp -s "$(BUILD)/fatwp_mtools_$$f.bin" "$(BUILD)/fatwp_py_$$f.bin" \
+			|| { printf '!!! test-fat-write-partial FAIL [C]: %s -- mcopy bytes != python ref bytes (root-cause the writer, Rule 3)\n' "$$f"; \
+			     cmp "$(BUILD)/fatwp_mtools_$$f.bin" "$(BUILD)/fatwp_py_$$f.bin"; exit 1; }; \
+	done
+	@printf '>>> test-fat-write-partial [C]: green (mcopy + python3 agree on every positioned-written file)\n'
+	@printf '>>> test-fat-write-partial: green\n'
+
+# Mutation gate (Rule 6): two fat12_write_partial mutants -- (rmw) skip the
+# read-modify-write so a partial overwrite clobbers neighbours; (ext) allocate
+# one too few extend clusters. Each MUST turn the in-process matrix RED.
+.PHONY: test-fat-write-partial-mutant
+test-fat-write-partial-mutant: $(TEST_FAT12_WRITE_PARTIAL_MUT_RMW) $(TEST_FAT12_WRITE_PARTIAL_MUT_EXT) $(FAT12_BLANK_WP_IMG)
+	@printf '>>> test-fat-write-partial-mutant: confirming both positioned-write mutants go RED (Rule 6)\n'
+	@cp -f "$(FAT12_BLANK_WP_IMG)" "$(BUILD)/fatwp_mut_rmw.img"
+	@if $(TEST_FAT12_WRITE_PARTIAL_MUT_RMW) "$(BUILD)/fatwp_mut_rmw.img" >/dev/null 2>&1; then \
+		printf '!!! test-fat-write-partial-mutant FAIL: no-RMW mutant PASSED -- the matrix is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-write-partial-mutant: green (no-RMW mutant correctly RED)\n'; \
+	fi
+	@cp -f "$(FAT12_BLANK_WP_IMG)" "$(BUILD)/fatwp_mut_ext.img"
+	@if $(TEST_FAT12_WRITE_PARTIAL_MUT_EXT) "$(BUILD)/fatwp_mut_ext.img" >/dev/null 2>&1; then \
+		printf '!!! test-fat-write-partial-mutant FAIL: short-extend mutant PASSED -- the matrix is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-write-partial-mutant: green (short-extend mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
 # ---------------------------------------------------------------------------
 # Text console blit oracle (os/milton, beads initech-yqb)
 # ---------------------------------------------------------------------------
@@ -1185,6 +1281,7 @@ endef
         test-loader test-loader-mutant test-program test-fs test-type test-dir \
         test-exec test-exec-unit test-exec-mutant \
         test-fat12-write test-fat-write test-fat-write-mutant test-fatwrite \
+        test-fat-write-partial test-fat-write-partial-mutant \
         test-command test-command-mutant test-shell \
         test-panic test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-conin-unit test-conin-mutant test-conin \
@@ -3283,14 +3380,14 @@ print('    banner is two lines and contains \"InitechDOS  Version 3.30\" (double
 # Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
-	test-fat-partial \
+	test-fat-partial test-fat-write-partial \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 \
 	test-fileio test-exec-unit test-command test-psp test-sft test-loader \
 	test-fat test-seed test-seed-codegen test-assets test-spec \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-fileio-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-fat-write-mutant \
-	test-fat-partial-mutant
+	test-fat-partial-mutant test-fat-write-partial-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \

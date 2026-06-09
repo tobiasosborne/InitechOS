@@ -439,6 +439,42 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                      void *sector_buf, void *cluster_buf);
 
 /*
+ * fat12_write_partial: POSITIONED write of `len` bytes of `data` starting at
+ * byte `offset` within the file at root-dir slot `slot` -- the symmetric
+ * counterpart of fat12_read_partial for the per-handle file-I/O epic (beads
+ * initech-snk; epic initech-6qy). OVERWRITES bytes in place where the file
+ * already extends, EXTENDS the file (allocating + chaining new clusters from the
+ * free list, growing the dir-entry size) where offset+len runs past the current
+ * size, and ZERO-FILLS the gap when offset > current_size (the hole
+ * current_size..offset reads back as zeroes).
+ *
+ * Semantics:
+ *   - len == 0 -> no-op: *out_written = 0, size unchanged, FAT12_OK.
+ *   - Otherwise writes EXACTLY len bytes; the file's size becomes
+ *     max(old_size, offset+len). *out_written is the bytes committed (== len on
+ *     success; 0 on a disk-full rollback).
+ *   - Partial-cluster writes are read-modify-write at cluster granularity, so a
+ *     shared cluster's neighbouring bytes are preserved. Newly allocated
+ *     clusters (hole + extend) are zero-filled on disk.
+ *
+ * Allocate-then-commit (Rule 2): a disk-full extend frees every cluster THIS
+ * call claimed and re-terminates the original chain (no half-corrupt chain that
+ * diffs wrong) -> FAT12_ERR_NO_SPACE, *out_written 0.
+ *
+ * `fat`/`fat_len` is the whole-FAT buffer (mutated; both on-disk copies flushed).
+ * `sector_buf` (>=512) is scratch for the dir-entry RMW; `cluster_buf`
+ * (>= sectors_per_cluster*512) is scratch for the cluster RMW + zero-fill.
+ *
+ * Fail loud (Rule 2): required NULL -> FAT12_ERR_NULL; no write backend ->
+ * FAT12_ERR_WRITE; offset+len overflow -> FAT12_ERR_BUFFER; full volume ->
+ * FAT12_ERR_NO_SPACE (rolled back); corrupt/cyclic chain -> FAT12_ERR_CHAIN; a
+ * device error -> FAT12_ERR_READ/_WRITE. Returns FAT12_OK on success. */
+int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                        uint32_t slot, uint32_t offset, const uint8_t *data,
+                        uint32_t len, void *sector_buf, void *cluster_buf,
+                        uint32_t *out_written);
+
+/*
  * fat12_unlink: delete the regular 8.3 file `name83` from the root directory:
  * mark its dir entry deleted (filename[0] = 0xE5, DIR_NAME_DELETED) and free its
  * whole cluster chain (set each FAT entry to 0x000, flush both copies). A

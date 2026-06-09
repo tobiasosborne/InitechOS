@@ -1341,6 +1341,361 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	return fat12_write_dirent(vol, slot, &de, sector_buf);
 }
 
+/*
+ * fat12_write_partial -- POSITIONED write of `len` bytes of `data` starting at
+ * byte `offset` within the file at root-dir slot `slot`: OVERWRITE bytes in
+ * place where the file already extends, EXTEND (allocate + chain new clusters)
+ * where offset+len runs past the current size, and ZERO-FILL the gap when
+ * offset > current_size (standard positioned-write semantics: the hole
+ * current_size..offset reads back as zeroes). The symmetric counterpart of
+ * fat12_read_partial (this file) for the per-handle file-I/O epic (beads
+ * initech-snk; epic initech-6qy).
+ *
+ * Ref (Law 1): Microsoft FAT spec (12-bit packed entries, free=0x000, EOC
+ *   0xFF8..0xFFF, allocate the lowest free cluster) -- the SAME write/allocation
+ *   source fat12_write_file cites; docs/research/fat12-ground-truth.md Sec 3
+ *   (FAT encode = inverse of the read decode) + Sec 4 (dir entry); ADR-0003
+ *   DEC-07 (both FATs in sync). The cluster sizing + offset->cluster math mirror
+ *   fat12_read_partial: bytes_per_cluster = sectors_per_cluster*bytes_per_sector;
+ *   the first touched cluster is offset/bpc steps down the chain, the byte inside
+ *   it is offset%bpc. The cluster->LBA map is BPB_CLUSTER_LBA (spec/dos_structs.h).
+ *
+ * Strategy (Rule 2 fail-loud, allocate-then-commit so a disk-full extend never
+ * leaves a half-corrupt chain that diffs wrong):
+ *   1. Determine the chain length the file needs to cover new_size =
+ *      max(old_size, offset+len): need = ceil(new_size / bpc) clusters.
+ *   2. EXTEND the in-memory chain to `need` clusters: walk to the tail, then
+ *      allocate/link new clusters (lowest-free-first), marking the last EOC; if
+ *      the file was empty (start_cluster 0) the first allocated cluster becomes
+ *      start_cluster. Every NEWLY allocated cluster is zero-filled on disk
+ *      immediately (so the hole + the last cluster's slack read back as zeroes,
+ *      and a partial overwrite into a fresh cluster never exposes garbage). On a
+ *      no-free-cluster failure mid-extend, roll back EVERY cluster claimed by
+ *      THIS call (free + flush) and return FAT12_ERR_NO_SPACE -- *out_written 0.
+ *   3. Flush BOTH FAT copies (the chain is fully laid down).
+ *   4. Read-modify-write the `data` bytes over [offset, offset+len): for each
+ *      cluster the range touches, if the write covers the WHOLE cluster, write
+ *      it straight; otherwise READ the existing cluster into cluster_buf, splice
+ *      the new bytes in, write it back -- so neighbouring bytes in a shared
+ *      cluster are preserved (the load-bearing read-modify-write).
+ *   5. Patch the dir entry: start_cluster (if it changed) + file_size = new_size.
+ *
+ * *out_written is the bytes actually committed (== len on success; 0 on a
+ * disk-full rollback). All buffers caller-provided (no malloc): `sector_buf`
+ * (>=512) for the dir-entry RMW, `cluster_buf` (>= sectors_per_cluster*512) for
+ * the cluster RMW. `fat`/`fat_len` is the whole-FAT buffer (mutated in place).
+ *
+ * Fail loud (Rule 2): any required NULL -> FAT12_ERR_NULL; no write backend ->
+ * FAT12_ERR_WRITE; full volume mid-extend -> FAT12_ERR_NO_SPACE (rolled back);
+ * a corrupt/cyclic existing chain -> FAT12_ERR_CHAIN; a device error ->
+ * FAT12_ERR_READ/_WRITE. Anti-hang (Rule 2): the chain walk is bounded by the
+ * volume's cluster count.
+ */
+int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                        uint32_t slot, uint32_t offset, const uint8_t *data,
+                        uint32_t len, void *sector_buf, void *cluster_buf,
+                        uint32_t *out_written)
+{
+	uint32_t    bytes_per_cluster;
+	uint32_t    old_size;
+	uint32_t    new_size;
+	uint32_t    have_clusters;   /* clusters the existing chain covers     */
+	uint32_t    need_clusters;   /* clusters new_size needs                */
+	uint16_t    orig_start;      /* start_cluster before any extend        */
+	uint16_t    new_start;       /* start_cluster after extend (may differ)*/
+	uint16_t    tail;            /* current last cluster of the chain      */
+	uint16_t    ext_first;       /* first cluster THIS call allocated (0=none) */
+	uint16_t    end_cluster;     /* first touched cluster index (offset/bpc)*/
+	uint32_t    end;             /* offset + len (exclusive)               */
+	uint32_t    steps;
+	uint32_t    max_steps;
+	uint16_t    cur;
+	dir_entry_t de;
+	int         rc;
+
+	if (out_written != NULL) {
+		*out_written = 0u;
+	}
+	if (vol == NULL || sector_buf == NULL || out_written == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	if (vol->dev == NULL || vol->dev->write_sectors == NULL ||
+	    vol->dev->read_sectors == NULL) {
+		return FAT12_ERR_WRITE;
+	}
+
+	/* len == 0 is a no-op: nothing written, size unchanged (a zero-length
+	 * positioned write neither extends nor zero-fills). */
+	if (len == 0u) {
+		return FAT12_OK;
+	}
+
+	/* Real bytes to move from here on: fat + data + cluster_buf required. */
+	if (fat == NULL || data == NULL || cluster_buf == NULL) {
+		return FAT12_ERR_NULL;
+	}
+
+	/* Guard against offset+len overflowing uint32 (Rule 2: a wrapped end would
+	 * compute a bogus, too-small size). */
+	end = offset + len;
+	if (end < offset) {
+		return FAT12_ERR_BUFFER;
+	}
+
+	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
+	                    (uint32_t)vol->bpb.bytes_per_sector;
+
+	rc = fat12_read_dirent_local(vol, slot, &de, sector_buf);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	old_size   = de.file_size;
+	orig_start = de.start_cluster;
+	new_start  = orig_start;
+	new_size   = (end > old_size) ? end : old_size;
+
+	have_clusters = (old_size + bytes_per_cluster - 1u) / bytes_per_cluster;
+	need_clusters = (new_size + bytes_per_cluster - 1u) / bytes_per_cluster;
+
+	max_steps = vol->total_clusters + 2u;
+	ext_first = 0u;
+
+	/* ---- Walk to the current tail of the existing chain (if any). ----
+	 * have_clusters counts the clusters the OLD size occupies; walk that many
+	 * minus one to land on the last existing cluster. A chain shorter than
+	 * old_size demands is corruption (fail loud). */
+	tail = 0u;
+	if (orig_start >= FAT12_FIRST_DATA_CLUSTER && have_clusters > 0u) {
+		uint32_t k;
+		cur   = orig_start;
+		steps = 0u;
+		for (k = 1u; k < have_clusters; k++) {
+			uint16_t next;
+			if (cur < FAT12_FIRST_DATA_CLUSTER || fat12_is_free(cur) ||
+			    fat12_is_bad(cur)) {
+				return FAT12_ERR_CHAIN;
+			}
+			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+			if (rc != FAT12_OK) {
+				return rc;
+			}
+			if (fat12_is_eoc(next)) {
+				return FAT12_ERR_CHAIN;   /* chain shorter than old_size */
+			}
+			cur = next;
+			if (++steps > max_steps) {
+				return FAT12_ERR_CHAIN;
+			}
+		}
+		tail = cur;
+	}
+
+	/* ---- EXTEND: allocate (need_clusters - have_clusters) new clusters,
+	 * chain them onto `tail` (or set start_cluster if the file was empty), mark
+	 * the new tail EOC, and ZERO-FILL each freshly allocated cluster on disk.
+	 * Allocate-then-commit: on disk-full, roll back THIS call's clusters. */
+	if (need_clusters > have_clusters) {
+		uint32_t to_add = need_clusters - have_clusters;
+		uint32_t i;
+		uint16_t prev = tail;
+		uint8_t *cb   = (uint8_t *)cluster_buf;
+		uint32_t b;
+
+		for (b = 0u; b < bytes_per_cluster; b++) {
+			cb[b] = 0u;   /* zero pattern reused for every new cluster */
+		}
+
+		for (i = 0u; i < to_add; i++) {
+			uint16_t cl;
+			uint32_t lba;
+#ifdef FAT12_MUTATE_PARTIAL_EXTEND_SHORT
+			/* MUTANT (Rule 6; test-fat-write-partial-mutant only): allocate ONE
+			 * TOO FEW extend clusters, so a write that grows the file by several
+			 * clusters leaves the chain short -- the read-back / diff goes RED.
+			 * NEVER define in a real build. */
+			if (i + 1u >= to_add) {
+				break;
+			}
+#endif
+			cl = fat12_find_free(vol, fat, fat_len,
+			                     (uint16_t)(prev ? (prev + 1u)
+			                                     : FAT12_FIRST_DATA_CLUSTER));
+			if (cl == 0u) {
+				/* Full volume: roll back ONLY the clusters THIS call claimed
+				 * (free + flush) so the prior chain is untouched. */
+				if (ext_first != 0u) {
+					(void)fat12_free_chain(vol, fat, fat_len, ext_first);
+				}
+				/* Re-terminate the original tail as EOC (free_chain set it free
+				 * only if it was part of ext_first; the original tail never was,
+				 * but its link still points at the now-freed extension -- restore
+				 * its EOC marker so the original chain is valid). */
+				if (tail != 0u) {
+					(void)fat12_set_entry(fat, fat_len, tail, FAT12_EOC_VALUE);
+				}
+				(void)fat12_flush_fats(vol, fat, fat_len);
+				return FAT12_ERR_NO_SPACE;
+			}
+
+			/* Reserve immediately (mark EOC) so the next find_free skips it. */
+			rc = fat12_set_entry(fat, fat_len, cl, FAT12_EOC_VALUE);
+			if (rc != FAT12_OK) {
+				return rc;
+			}
+			if (prev != 0u) {
+				rc = fat12_set_entry(fat, fat_len, prev, cl);  /* link prev->cl */
+				if (rc != FAT12_OK) {
+					return rc;
+				}
+			} else {
+				new_start = cl;   /* file was empty: this is start_cluster */
+			}
+			if (ext_first == 0u) {
+				ext_first = cl;   /* first cluster THIS call allocated */
+			}
+
+			/* Zero-fill the fresh cluster on disk (hole + slack read as zero). */
+			lba = BPB_CLUSTER_LBA(&vol->bpb, cl);
+			if (vol->dev->write_sectors(vol->dev->ctx, lba,
+			                            vol->bpb.sectors_per_cluster, cb) != 0) {
+				if (ext_first != 0u) {
+					(void)fat12_free_chain(vol, fat, fat_len, ext_first);
+				}
+				if (tail != 0u) {
+					(void)fat12_set_entry(fat, fat_len, tail, FAT12_EOC_VALUE);
+				}
+				(void)fat12_flush_fats(vol, fat, fat_len);
+				return FAT12_ERR_WRITE;
+			}
+			prev = cl;
+		}
+
+		/* Commit the FAT (both copies) now the whole extension is laid down. */
+		rc = fat12_flush_fats(vol, fat, fat_len);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+	}
+
+	/* ---- Splice `data` into [offset, offset+len) via read-modify-write. ----
+	 * Walk to the first touched cluster (offset/bpc steps down the chain), then
+	 * for each cluster overwrite [in_off, in_off+take): a whole-cluster write
+	 * goes straight; a partial one reads the cluster, splices, writes back so a
+	 * shared cluster's neighbouring bytes are preserved. The chain is guaranteed
+	 * long enough now (we extended to cover new_size >= offset+len). */
+	end_cluster = (uint16_t)(offset / bytes_per_cluster);  /* clusters to skip */
+	cur         = new_start;
+	steps       = 0u;
+	{
+		uint16_t k;
+		for (k = 0u; k < end_cluster; k++) {
+			uint16_t next;
+			if (cur < FAT12_FIRST_DATA_CLUSTER || fat12_is_free(cur) ||
+			    fat12_is_bad(cur)) {
+				return FAT12_ERR_CHAIN;
+			}
+			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+			if (rc != FAT12_OK) {
+				return rc;
+			}
+			if (fat12_is_eoc(next)) {
+				return FAT12_ERR_CHAIN;   /* extend should have prevented this */
+			}
+			cur = next;
+			if (++steps > max_steps) {
+				return FAT12_ERR_CHAIN;
+			}
+		}
+	}
+
+	{
+		uint32_t  written = 0u;
+		uint8_t  *cb      = (uint8_t *)cluster_buf;
+
+		while (written < len) {
+			uint32_t in_off;
+			uint32_t remaining;
+			uint32_t take;
+			uint32_t lba;
+			uint32_t i;
+
+			if (cur < FAT12_FIRST_DATA_CLUSTER || fat12_is_free(cur) ||
+			    fat12_is_bad(cur)) {
+				return FAT12_ERR_CHAIN;
+			}
+
+			in_off    = (written == 0u) ? (offset % bytes_per_cluster) : 0u;
+			remaining = len - written;
+			take      = bytes_per_cluster - in_off;
+			if (take > remaining) {
+				take = remaining;
+			}
+
+			lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
+
+#ifdef FAT12_MUTATE_PARTIAL_NO_RMW
+			/* MUTANT (Rule 6; test-fat-write-partial-mutant only): SKIP the
+			 * read-modify-write read for a partial cluster -- write a cluster
+			 * that is zero outside [in_off,in_off+take), clobbering the
+			 * neighbouring bytes that should have been preserved. The differential
+			 * oracle goes RED. NEVER define in a real build. */
+			{
+				uint32_t z;
+				for (z = 0u; z < bytes_per_cluster; z++) {
+					cb[z] = 0u;
+				}
+			}
+#else
+			/* Read-modify-write: when the write does NOT cover the whole cluster,
+			 * read the existing contents first so the splice preserves the rest. */
+			if (in_off != 0u || take != bytes_per_cluster) {
+				if (vol->dev->read_sectors(vol->dev->ctx, lba,
+				                           vol->bpb.sectors_per_cluster,
+				                           cb) != 0) {
+					return FAT12_ERR_READ;
+				}
+			}
+#endif
+			for (i = 0u; i < take; i++) {
+				cb[in_off + i] = data[written + i];
+			}
+
+			if (vol->dev->write_sectors(vol->dev->ctx, lba,
+			                            vol->bpb.sectors_per_cluster, cb) != 0) {
+				return FAT12_ERR_WRITE;
+			}
+			written += take;
+
+			/* Advance only if more bytes remain. */
+			if (written < len) {
+				uint16_t next;
+				rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+				if (rc != FAT12_OK) {
+					return rc;
+				}
+				if (fat12_is_eoc(next)) {
+					return FAT12_ERR_CHAIN;   /* extend should have prevented */
+				}
+				cur = next;
+				if (++steps > max_steps) {
+					return FAT12_ERR_CHAIN;
+				}
+			}
+		}
+
+		*out_written = written;
+	}
+
+	/* ---- Patch the dir entry: start_cluster (if changed) + size. ---- */
+	rc = fat12_read_dirent_local(vol, slot, &de, sector_buf);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	de.start_cluster = new_start;
+	de.file_size     = new_size;
+	return fat12_write_dirent(vol, slot, &de, sector_buf);
+}
+
 int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, void *sector_buf)
 {
