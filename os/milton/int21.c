@@ -1264,6 +1264,21 @@ static void do_getver(int_frame_t *f)
 static void do_terminate(int_frame_t *f, uint8_t code)
 {
     (void)f;
+
+    /* Reclaim the exiting process's open FILE handles BEFORE control leaves
+     * (beads initech-6hk; epic initech-6qy). Real DOS closes all a process's
+     * handles on terminate; without this a child that OPENs files and exits
+     * (4Ch / 00h / INT 20h) WITHOUT closing them leaks SFT slots, and an EXEC
+     * chain exhausts the 16 file slots so a later OPEN fails. g_cur_psp is the
+     * CURRENT process: at child-exit time the loader has bound the child's PSP
+     * (loader.c: int21_set_psp(plan.psp_addr) before the JMP) and only restores
+     * the kernel PSP AFTER g_exit unwinds -- so g_cur_psp is exactly the child
+     * whose handles must be freed. The resident device slots 0..3 are preserved
+     * (sft_close_process touches only FILE-kind entries). Idempotent + fail-loud
+     * on a corrupt JFT (Rule 2). MUST run BEFORE g_exit (which does not return in
+     * the kernel build -- it long-jumps back to the loader). */
+    sft_close_process(g_cur_psp);
+
     if (g_exit) {
         g_exit(code);
     }

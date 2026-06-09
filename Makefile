@@ -294,6 +294,32 @@ KERNEL_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell.o
 KERNEL_SHELL_ELF      := $(BUILD)/kernel_shell.elf
 KERNEL_SHELL_BIN      := $(BUILD)/kernel_shell.bin
 SHELL_IMG             := $(BUILD)/shell_boot.img
+# EXIT-handle teardown self-test kernel/image (beads initech-6hk; epic
+# initech-6qy; make test-exit-handles): the SAME kernel sources but with
+# -DBOOT_EXITH so the boot EXECs the FAT-sourced leaky child EXITH.COM RUNS
+# times. EXITH.COM OPENs four files and TERMINATEs (4Ch) WITHOUT closing them; if
+# EXIT did not reclaim a process's handles the 16-slot file SFT exhausts and a
+# later run's OPEN fails. WITH sft_close_process every run starts clean. Mirrors
+# the EXEC image (loads BY NAME from FAT). The MUTANT image adds
+# -DSFT_MUTATE_NO_CLOSE_PROCESS (its own sft.o) to PROVE the oracle bites (Rule
+# 6). Requires --disk2 (the leaky-child FAT disk). Separate images so the normal
+# boot is unchanged. The leaky-child .COM (EXITH.COM) is NOT baked: it is mcopy'd
+# onto the FAT disk and loaded by name (load_program_from_fat / AH=4Bh EXEC).
+EXITH_PROG_ASM        := $(KERNEL_DIR)/exith_program.asm
+EXITH_PROG_BIN        := $(BUILD)/exith_program.bin
+KERNEL_EXITH_MAIN_OBJ := $(BUILD)/kmain_exith.o
+KERNEL_EXITH_ELF      := $(BUILD)/kernel_exith.elf
+KERNEL_EXITH_BIN      := $(BUILD)/kernel_exith.bin
+EXITH_IMG             := $(BUILD)/exith_boot.img
+# Rule-6 MUTANT: same EXITH boot, but sft.c built with -DSFT_MUTATE_NO_CLOSE_PROCESS
+# (elides the per-handle release in sft_close_process). Its own sft.o + main obj +
+# elf + bin + image, so the mutant cannot contaminate the real build.
+KERNEL_SFT_MUT_OBJ        := $(BUILD)/sft_mut_noclose.o
+KERNEL_EXITH_MUT_MAIN_OBJ := $(BUILD)/kmain_exith_mut.o
+KERNEL_EXITH_MUT_ELF      := $(BUILD)/kernel_exith_mut.elf
+KERNEL_EXITH_MUT_BIN      := $(BUILD)/kernel_exith_mut.bin
+EXITH_MUT_IMG             := $(BUILD)/exith_mut_boot.img
+FAT_EXITH_IMG             := $(BUILD)/fat_exith.img
 
 # ---------------------------------------------------------------------------
 # Asset extraction v0 (spec/assets, beads initech-vcq)
@@ -423,6 +449,27 @@ $(FAT_EXEC_IMG): $(FAT12_FIXTURES) $(GREET_PROG_BIN) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@mcopy -i $@ $(GREET_PROG_BIN) ::GREET.COM
 	@printf ">>> fat_exec: minted %s (1.44MB FAT12 disk for test-exec; GREET.COM + HELLO.TXT; build intermediate)\n" "$@"
+
+# Assemble the leaky-child EXITH .COM (org 0x20100; nasm -f bin is deterministic,
+# Rule 11). It OPENs four files and TERMINATEs WITHOUT closing them.
+$(EXITH_PROG_BIN): $(EXITH_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+# FAT12 disk for the EXIT-handle teardown oracle (beads initech-6hk; epic
+# initech-6qy; make test-exit-handles). A SEPARATE 1.44 MB volume carrying the
+# four files EXITH.COM OPENs (HELLO.TXT/SECOND.TXT/CHAIN.TXT/BLOCK.BIN) plus
+# EXITH.COM itself (the leaky child, loaded BY NAME). Kept distinct from the
+# other FAT images so the leaky child + its four target files never disturb their
+# DIR/screendump assumptions. Build intermediate, NOT committed (Rule 11).
+$(FAT_EXITH_IMG): $(FAT12_FIXTURES) $(EXITH_PROG_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/second.txt ::SECOND.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/chain.txt ::CHAIN.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
+	@mcopy -i $@ $(EXITH_PROG_BIN) ::EXITH.COM
+	@printf ">>> fat_exith: minted %s (1.44MB FAT12 disk for test-exit-handles; EXITH.COM + 4 target files; build intermediate)\n" "$@"
 
 # FAT12 WRITABLE data disk for the in-emulator WRITE round-trip (beads
 # initech-509.11; make test-fatwrite). A FRESH, formatted-but-near-empty 1.44 MB
@@ -1832,6 +1879,83 @@ $(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) | $(BUILD)
 	@dd if=$(KERNEL_MULTIOPEN_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> multiopen image: %s (MULTI-OPEN self-test kernel @s17)\n" "$@"
 
+# --- EXIT-handle teardown self-test kernel (beads initech-6hk; epic initech-6qy;
+# make test-exit-handles) -----------------------------------------------------
+# Same sources, kmain.c compiled with -DBOOT_EXITH so the boot EXECs the
+# FAT-sourced leaky child EXITH.COM RUNS times. The leaky child is NOT baked --
+# it is loaded BY NAME off --disk2 (FAT_EXITH_IMG), exactly like the EXEC image
+# loads GREET.COM. So the object set is the EXEC object set (no baked prog blob).
+$(KERNEL_EXITH_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_EXITH -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_EXITH_ELF): $(KERNEL_EXITH_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXITH_OBJS)
+
+$(KERNEL_EXITH_BIN): $(KERNEL_EXITH_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_exith.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(exith): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(EXITH_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_EXITH_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> exith image: %s (EXIT-handle teardown self-test kernel @s17)\n" "$@"
+
+# --- Rule-6 MUTANT image: elide the per-handle release in sft_close_process ----
+# sft.c built with -DSFT_MUTATE_NO_CLOSE_PROCESS (its OWN object, never the real
+# one), linked into an otherwise-identical -DBOOT_EXITH kernel. With the teardown
+# elided the leaky child's FILE slots leak across EXEC runs, the 16-slot file SFT
+# exhausts, and a later run's OPEN fails -> make test-exit-handles-mutant asserts
+# the oracle goes RED (proves the gate bites; CLAUDE.md Rule 6).
+$(KERNEL_SFT_MUT_OBJ): $(KERNEL_SFT_C) $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DSFT_MUTATE_NO_CLOSE_PROCESS -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SFT_C) -o $@
+
+$(KERNEL_EXITH_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_EXITH -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_MUT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_EXITH_MUT_ELF): $(KERNEL_EXITH_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXITH_MUT_OBJS)
+
+$(KERNEL_EXITH_MUT_BIN): $(KERNEL_EXITH_MUT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_exith_mut.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(exith-mutant): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(EXITH_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_MUT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_EXITH_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> exith MUTANT image: %s (sft_close_process elided -- expected RED)\n" "$@"
+
 # --- COMMAND.COM shell kernel (beads initech-7pc; make test-shell) ----------
 # Same sources, but kmain.c compiled with -DBOOT_SHELL so the boot, after
 # CONIN-LIVE, prints SHELL-READY and enters the COMMAND.COM REPL instead of the
@@ -3062,6 +3186,122 @@ test-multiopen: $(HARNESS_BIN) $(MULTIOPEN_IMG) $(FAT_MULTIOPEN_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-exit-handles (beads initech-6hk; epic initech-6qy -- the FINAL
+# multi-tenant file-I/O step: SFT teardown on process EXIT)
+# ---------------------------------------------------------------------------
+# THE in-emulator binding oracle for "real DOS closes all a process's handles on
+# terminate": boot the -DBOOT_EXITH image WITH the leaky-child FAT disk (--disk2 =
+# FAT_EXITH_IMG: EXITH.COM + the four files it OPENs). The boot EXECs EXITH.COM
+# SIX times. EXITH.COM OPENs FOUR files (HELLO/SECOND/CHAIN/BLOCK) and TERMINATEs
+# via 4Ch WITHOUT closing ANY -- 4 SFT file slots consumed per run.
+#
+# CAPACITY MATH: the file SFT is 16 slots (SFT_FIRST_FILE=4 .. SFT_MAX_ENTRIES=20).
+# 4 opens/run x 6 runs = 24 opens > 16. WITHOUT sft_close_process the leaked slots
+# accumulate and by run 5 the table is exhausted: EXITH.COM's 5th-run OPEN returns
+# CF=1 -> it prints EXITH-CHILD-OPENFAIL + exits rc=1 -> the run loop emits
+# EXITH-RUN5-FAIL. WITH the teardown every run starts with a clean file table, so
+# all 6 runs' OPENs succeed (EXITH-CHILD-OK) and each exits rc=0.
+# Assertions (fail-loud, Rule 2):
+#   1. NO triple-fault.
+#   2. SERIAL: EXITH-RUN<n>-OK for every n in 1..6 (each EXEC ran a clean child).
+#   3. SERIAL: NO EXITH-RUN*-FAIL and NO EXITH-CHILD-OPENFAIL (no run exhausted).
+#   4. SERIAL: EXITH-DONE rc=0 (a clean sweep of all six runs).
+# Ref: sft.c sft_close_process; int21.c do_terminate; beads initech-6hk.
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.
+EXITH_NAME    := exith_boot
+EXITH_SERIAL  := $(BUILD)/$(EXITH_NAME).serial
+EXITH_REPORT  := $(BUILD)/$(EXITH_NAME).report
+EXITH_RUNS    := 6
+
+.PHONY: test-exit-handles
+test-exit-handles: $(HARNESS_BIN) $(EXITH_IMG) $(FAT_EXITH_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-exit-handles : EXIT reclaims a process handles\n'
+	@printf '  Ref: beads initech-6hk / epic initech-6qy; sft_close_process on 4Ch/00h/INT20h.\n'
+	@printf '  EXEC a leaky child (4 opens, no close) %s times; 4*%s=%s > 16 file slots.\n' "$(EXITH_RUNS)" "$(EXITH_RUNS)" "$$(( 4 * $(EXITH_RUNS) ))"
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + leaky-child disk %s (primary slave)\n' "$(EXITH_IMG)" "$(FAT_EXITH_IMG)"
+	@printf 'Expecting : EXITH-RUN1..%s-OK + EXITH-DONE rc=0 + no triple-fault\n' "$(EXITH_RUNS)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(EXITH_IMG)" --disk2 "$(FAT_EXITH_IMG)" \
+		--name "$(EXITH_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(EXITH_REPORT)" || true
+	@cat "$(EXITH_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(EXITH_REPORT)"; then \
+		printf '!!! test-exit-handles FAIL: TRIPLE FAULT (root-cause the EXIT teardown path, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-exit-handles [1/4]: no triple-fault\n'
+	@if [ ! -s "$(EXITH_SERIAL)" ]; then \
+		printf '!!! test-exit-handles FAIL: no serial captured at %s\n' "$(EXITH_SERIAL)"; exit 1; \
+	fi
+	@if grep -q 'EXITH-CHILD-OPENFAIL' "$(EXITH_SERIAL)"; then \
+		printf '!!! test-exit-handles FAIL: EXITH-CHILD-OPENFAIL -- a child OPEN failed (the SFT exhausted -> handles leaked on EXIT, Rule 3):\n'; \
+		grep -n 'EXITH-RUN\|EXITH-CHILD' "$(EXITH_SERIAL)"; exit 1; \
+	fi
+	@if grep -q 'EXITH-RUN[0-9]*-FAIL' "$(EXITH_SERIAL)"; then \
+		printf '!!! test-exit-handles FAIL: an EXITH-RUN*-FAIL marker -- a run did not complete clean (the leak resurfaced, Rule 3):\n'; \
+		grep -n 'EXITH-RUN.*-FAIL' "$(EXITH_SERIAL)"; exit 1; \
+	fi
+	@printf '>>> test-exit-handles [2/4]: no EXITH-CHILD-OPENFAIL and no EXITH-RUN*-FAIL\n'
+	@n=1; while [ "$$n" -le "$(EXITH_RUNS)" ]; do \
+		grep -q "^EXITH-RUN$$n-OK$$" "$(EXITH_SERIAL)" \
+			|| { printf '!!! test-exit-handles FAIL: EXITH-RUN%s-OK missing -- run %s did not EXEC a clean leaky child\n' "$$n" "$$n"; \
+			     grep -n 'EXITH-RUN' "$(EXITH_SERIAL)"; exit 1; }; \
+		n=$$(( n + 1 )); \
+	done
+	@printf '>>> test-exit-handles [3/4]: all %s runs OK (EXITH-RUN1..%s-OK) -- EXIT reclaimed every run handles\n' "$(EXITH_RUNS)" "$(EXITH_RUNS)"
+	@grep -q '^EXITH-DONE rc=0$$' "$(EXITH_SERIAL)" \
+		|| { printf '!!! test-exit-handles FAIL: EXITH-DONE rc=0 missing -- the sweep did not finish clean\n'; \
+		     grep -n 'EXITH-DONE' "$(EXITH_SERIAL)"; exit 1; }
+	@printf '>>> test-exit-handles [4/4]: EXITH-DONE rc=0 (clean sweep of all %s runs)\n' "$(EXITH_RUNS)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- InitechDOS reclaims an exiting process file handles on 4Ch,\n'
+	@printf '            so a %s-deep EXEC chain of a leaky child (24 opens) never exhausts the\n' "$(EXITH_RUNS)"
+	@printf '            16-slot file SFT (QEMU only; tri-emulator pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# MUTANT gate: test-exit-handles-mutant (CLAUDE.md Rule 6 -- prove the oracle bites)
+# ---------------------------------------------------------------------------
+# Boot the EXITH_MUT_IMG (sft.c -DSFT_MUTATE_NO_CLOSE_PROCESS: sft_close_process
+# releases NOTHING). The leaky child's FILE slots now leak across EXEC runs; by
+# run 5 the 16-slot file SFT is exhausted and that run's OPEN fails. The mutant
+# MUST go RED -- i.e. the GREEN assertions of test-exit-handles MUST NOT all hold.
+# Concretely we require the failure signature (EXITH-CHILD-OPENFAIL, an
+# EXITH-RUN*-FAIL, OR a missing EXITH-DONE rc=0). If the mutant somehow looked
+# clean, the gate is decoration -> this target fails loud.
+EXITH_MUT_NAME   := exith_mut_boot
+EXITH_MUT_SERIAL := $(BUILD)/$(EXITH_MUT_NAME).serial
+EXITH_MUT_REPORT := $(BUILD)/$(EXITH_MUT_NAME).report
+
+.PHONY: test-exit-handles-mutant
+test-exit-handles-mutant: $(HARNESS_BIN) $(EXITH_MUT_IMG) $(FAT_EXITH_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-exit-handles-mutant : prove the oracle bites (Rule 6)\n'
+	@printf '  sft_close_process elided -> handles leak across EXEC runs -> SFT exhausts.\n'
+	@printf '======================================================================\n'
+	@$(HARNESS_BIN) --disk "$(EXITH_MUT_IMG)" --disk2 "$(FAT_EXITH_IMG)" \
+		--name "$(EXITH_MUT_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(EXITH_MUT_REPORT)" || true
+	@cat "$(EXITH_MUT_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if [ ! -s "$(EXITH_MUT_SERIAL)" ]; then \
+		printf '!!! test-exit-handles-mutant FAIL: no serial captured (cannot judge the mutant)\n'; exit 1; \
+	fi
+	@if grep -q 'EXITH-CHILD-OPENFAIL' "$(EXITH_MUT_SERIAL)" \
+	   || grep -q 'EXITH-RUN[0-9]*-FAIL' "$(EXITH_MUT_SERIAL)" \
+	   || ! grep -q '^EXITH-DONE rc=0$$' "$(EXITH_MUT_SERIAL)"; then \
+		printf '>>> test-exit-handles-mutant: green (mutant correctly RED -- a run OPEN failed / no clean DONE; the oracle bites):\n'; \
+		grep -n 'EXITH-RUN\|EXITH-CHILD\|EXITH-DONE' "$(EXITH_MUT_SERIAL)" || true; \
+	else \
+		printf '!!! test-exit-handles-mutant FAIL: the NO-CLOSE mutant PASSED clean -- test-exit-handles is DECORATION\n'; \
+		grep -n 'EXITH-RUN\|EXITH-CHILD\|EXITH-DONE' "$(EXITH_MUT_SERIAL)" || true; \
+		exit 1; \
+	fi
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-shell (beads initech-7pc -- BOOT -> COMMAND.COM -> DIR/TYPE/run)
 # ---------------------------------------------------------------------------
 # THE M2 capstone keystone: boot the -DBOOT_SHELL image WITH a FAT12 disk
@@ -3565,7 +3805,8 @@ TEST_UNIT_GATES := \
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
-	test-dir test-exec test-fatwrite test-multiopen test-shell test-panic \
+	test-dir test-exec test-fatwrite test-multiopen test-exit-handles \
+	test-shell test-panic \
 	test-kbd test-conin
 
 test-unit:

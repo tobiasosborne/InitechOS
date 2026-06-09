@@ -149,10 +149,10 @@ uint8_t sft_alloc(void)
  * has zero references and is freed (process load re-establishes the table).
  * Fails loud on a release of an already-free slot (Rule 2).
  *
- * __attribute__((unused)): the SFT_MUTATE_DUP2_NO_RELEASE mutant (Rule 6) elides
- * the sole call site; the attribute lets that mutant still COMPILE so the oracle
- * fails on the ASSERTION (released-slot ref drops), not on -Werror=unused. */
-__attribute__((unused))
+ * Called by sft_dup2 (DUP2 redirect) AND sft_close_process (process EXIT
+ * teardown, beads initech-6hk). The latter is an UNCONDITIONAL call site, so
+ * sft_release is always reachable even when the SFT_MUTATE_DUP2_NO_RELEASE
+ * mutant (Rule 6) elides the DUP2 call -- no __attribute__((unused)) needed. */
 static void sft_release(uint8_t idx)
 {
     if (idx >= SFT_MAX_ENTRIES || g_sft[idx].kind == SFT_KIND_FREE) {
@@ -223,4 +223,63 @@ uint16_t sft_dup2(psp_t *psp, uint8_t src, uint8_t dst)
     psp->jft[dst] = sft_idx;
     g_sft[sft_idx].ref_count++;
     return SFT_OK;
+}
+
+/* Release ALL of an exiting process's open FILE handles (beads initech-6hk; epic
+ * initech-6qy). "Real DOS closes all a process's handles on terminate": without
+ * this, a child that OPENs files and exits (4Ch / 00h / INT 20h) WITHOUT closing
+ * them leaks SFT slots, and an EXEC chain (shell -> program -> ...) exhausts the
+ * 16 file slots (SFT_FIRST_FILE..SFT_MAX_ENTRIES) so a later OPEN fails.
+ *
+ * Walk the process's JFT; for every entry that is OPEN (!= JFT_CLOSED) AND points
+ * at a FILE-kind SFT slot, drop its SFT reference via sft_release (freeing the
+ * slot at zero) and mark the JFT entry JFT_CLOSED.
+ *
+ * The predefined DEVICE slots 0..3 (CON/AUX/PRN) are RESIDENT -- established once
+ * by sft_init at SYSINIT, shared across every process -- and are skipped here
+ * (kind != SFT_KIND_FILE): releasing them would zero a device slot and leave the
+ * next program with no stdin/stdout. We gate on kind == SFT_KIND_FILE (slots are
+ * >= SFT_FIRST_FILE by construction; sft_alloc never hands out 0..3), so a
+ * device-backed handle -- including one DUP2'd onto a device slot -- is left
+ * untouched.
+ *
+ * Idempotent: a second call finds every FILE handle already JFT_CLOSED -> no-op.
+ * Fails LOUD on a corrupt JFT entry (neither the 0xFF sentinel nor an in-range
+ * index of a live slot), consistent with sft_from_handle (Rule 2). psp == NULL
+ * is a no-op. Ref: DOS 3.3 process terminate; beads initech-6hk; sft.h. */
+void sft_close_process(psp_t *psp)
+{
+    if (psp == 0) {
+        return; /* no process -> nothing to reclaim */
+    }
+
+    for (uint8_t h = 0; h < (uint8_t)JFT_MAX_ENTRIES; h++) {
+        uint8_t idx = psp->jft[h];
+        if (idx == JFT_CLOSED) {
+            continue; /* closed/unused handle */
+        }
+
+        /* A JFT entry that is neither 0xFF nor an in-range index of a LIVE slot
+         * is corruption -- fail loud, never zero a plausible-but-wrong slot
+         * (Rule 2; mirrors sft_from_handle). */
+        if (idx >= SFT_MAX_ENTRIES || g_sft[idx].kind == SFT_KIND_FREE) {
+            SFT_FAIL_LOUD();
+            return; /* not reached */
+        }
+
+        /* Only the process's FILE handles are reclaimed; the resident device
+         * slots 0..3 (CON/AUX/PRN) stay live for the next program. */
+        if (g_sft[idx].kind != SFT_KIND_FILE) {
+            continue;
+        }
+
+#ifndef SFT_MUTATE_NO_CLOSE_PROCESS
+        /* Rule-6 mutant target (make test-exit-handles-mutant): WITHOUT this
+         * release the exiting process's FILE slots leak -- an EXEC chain of a
+         * leaky child exhausts the 16 file slots and a later OPEN fails. The
+         * in-emulator oracle goes RED. NEVER define in a real build. */
+        sft_release(idx);
+        psp->jft[h] = JFT_CLOSED;
+#endif
+    }
 }

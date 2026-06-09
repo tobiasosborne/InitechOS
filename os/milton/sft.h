@@ -143,4 +143,24 @@ uint16_t sft_dup(psp_t *psp, uint8_t src, uint8_t *out_handle);
  * Ref: fs-mount-sft-ground-truth.md Sec 3.4. */
 uint16_t sft_dup2(psp_t *psp, uint8_t src, uint8_t dst);
 
+/* Release ALL of an exiting process's open FILE handles (beads initech-6hk; epic
+ * initech-6qy). Walk the process's JFT; for every entry that is open AND points
+ * at a FILE-kind SFT slot (kind == SFT_KIND_FILE, i.e. slot >= SFT_FIRST_FILE),
+ * drop its SFT reference (freeing the slot at zero) and mark the JFT entry
+ * JFT_CLOSED. This is "real DOS closes all a process's handles on terminate":
+ * without it a child that OPENs files and exits WITHOUT closing them leaks SFT
+ * slots, and an EXEC chain (shell -> program -> ...) exhausts the 16 file slots.
+ *
+ * The predefined DEVICE slots 0..3 (CON/AUX/PRN) are RESIDENT -- established once
+ * by sft_init at SYSINIT and shared across every process -- so they are NEVER
+ * touched here: releasing them would leave the next program with no stdin/stdout.
+ * Only FILE-kind entries (which a process owns) are reclaimed.
+ *
+ * Idempotent: a second call is a no-op (every FILE handle is already JFT_CLOSED).
+ * Fails LOUD (panic/abort) on a CORRUPT JFT entry -- one that is neither the
+ * 0xFF closed sentinel nor a valid in-range index of a live SFT slot --
+ * consistent with sft_from_handle (Rule 2). psp == NULL is a no-op (no process).
+ * Ref: DOS 3.3 process terminate (handle table closed); beads initech-6hk. */
+void sft_close_process(psp_t *psp);
+
 #endif /* INITECH_SFT_H */

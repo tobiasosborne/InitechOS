@@ -766,6 +766,59 @@ void kernel_main(void)
     serial_puts("MULTIOPEN-OUTPUT-END\n");
 #endif
 
+#ifdef BOOT_EXITH
+    /* EXIT-HANDLE TEARDOWN self-test (beads initech-6hk; epic initech-6qy; make
+     * test-exit-handles). Only in the -DBOOT_EXITH image so the normal boot is
+     * unchanged. Requires --disk2 carrying EXITH.COM + HELLO.TXT/SECOND.TXT/
+     * CHAIN.TXT/BLOCK.BIN.
+     *
+     * THE LEAK PROOF: EXITH.COM OPENs FOUR files and TERMINATES (4Ch) WITHOUT
+     * closing them -- 4 SFT file slots consumed per run. We EXEC it RUNS times
+     * (RUNS * 4 > the 16 file slots, SFT_FIRST_FILE..SFT_MAX_ENTRIES). If EXIT
+     * did NOT reclaim a process's handles, the leaked slots accumulate across
+     * runs and by run 5 the table is exhausted -- the child's 5th-run OPEN
+     * returns CF=1 and it prints EXITH-CHILD-OPENFAIL + exits rc=1. WITH the
+     * teardown (sft_close_process on do_terminate) every run starts with a clean
+     * file table, so all 6 runs' OPENs succeed (EXITH-CHILD-OK) and exit rc=0.
+     *
+     * We drive the EXEC loop from KERNEL context via load_program_from_fat (the
+     * saw core), restoring the kernel hook + PSP after each child (the loader
+     * rebinds both during a run), exactly as the BOOT_EXEC saw block does. Each
+     * run emits EXITH-RUN<n>-OK on a clean rc=0 child, or EXITH-RUN<n>-FAIL with
+     * the loader status / child rc on any failure (fail loud, Rule 2). A final
+     * EXITH-DONE rc=0 marks a clean sweep; the harness asserts every run is OK. */
+    serial_puts("EXITH-OUTPUT-BEGIN\n");
+    {
+        const int RUNS = 6;   /* 6 * 4 opens = 24 > 16 file slots */
+        int run;
+        int all_ok = 1;
+        for (run = 1; run <= RUNS; run++) {
+            uint8_t rc = 0;
+            loader_status_t st = load_program_from_fat("EXITH.COM",
+                                                       (const char *)0, 0u, &rc);
+            int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
+            int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
+
+            serial_puts("EXITH-RUN");
+            serial_putu((uint32_t)run);
+            if (st == LOADER_OK && rc == 0u) {
+                serial_puts("-OK\n");
+            } else {
+                serial_puts("-FAIL st=");
+                serial_putu((uint32_t)st);
+                serial_puts(" rc=");
+                serial_putu((uint32_t)rc);
+                serial_putc('\n');
+                all_ok = 0;
+            }
+        }
+        serial_puts("EXITH-DONE rc=");
+        serial_putu(all_ok ? 0u : 1u);
+        serial_putc('\n');
+    }
+    serial_puts("EXITH-OUTPUT-END\n");
+#endif
+
     /* ---- ENABLE HARDWARE INTERRUPTS (beads initech-3rs) -------------------
      * The FIRST `sti` of the whole project. Up to here the kernel ran with
      * IF=0 and every IRQ masked; software ints (0x20/0x21/0x80) dispatched
