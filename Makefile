@@ -881,6 +881,83 @@ test-fat-write-partial-mutant: $(TEST_FAT12_WRITE_PARTIAL_MUT_RMW) $(TEST_FAT12_
 		printf '>>> test-fat-write-partial-mutant: green (short-extend mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
+# --- FAT12 generative FUZZER (beads initech-0dq) ----------------------------
+# The standing deterministic, seeded, SHRINKING generative fuzzer for the FAT12 +
+# multi-tenant positioned-file-I/O layer (os/milton/fat12.c). Where the matrices
+# (test-fat[-write][-partial], test-multiopen) enumerate FIXED cases, this
+# explores the DEEP state space (Rule 3): a splitmix64-seeded PRNG drives random
+# positioned CREATE/WRITE/READ/UNLINK sequences across a small file pool (the
+# multi-tenant interleave), maintains an INDEPENDENT byte model, and asserts
+# THREE-way agreement every mutating op (Rule 5): (a) in-process read_partial/
+# read_file == model; (b) a fresh REMOUNT reads the same; (c) at run-end mtools
+# mcopy AND python3 fat12_ref.py == model for every live file -- plus a
+# structural both-FAT-sync check (DEC-07). On a divergence it SHRINKS to a
+# minimal seed+recipe (replayable; determinism is Rule 11). The SUBJECT is the
+# UNMODIFIED artifact fat12.c (harness-only code).
+TEST_FAT12_FUZZ          := $(BUILD)/fat12_fuzz
+# Mutation build (Rule 6): the no-RMW positioned-write mutant -- a partial-cluster
+# overwrite skips the read-modify-write read, clobbering the neighbouring bytes
+# that should have survived. The fuzzer MUST find + shrink this (proves it bites).
+TEST_FAT12_FUZZ_MUT_RMW  := $(BUILD)/fat12_fuzz_mut_rmw
+# A blank 1.44 MB FAT12 template; each fuzz run COPIES it to a fresh scratch image.
+FAT12_FUZZ_BLANK_IMG     := $(BUILD)/fat12_fuzz_blank.img
+# Deterministic seed sweep + per-seed op budget. The in-process+remount+FAT-sync
+# legs run on the WHOLE sweep (fast, no shell-out); the mtools/python external
+# leg runs on a smaller subset to bound the gate time (still a real cross-check).
+FAT12_FUZZ_SEEDS_LO      := 1
+FAT12_FUZZ_SEEDS_HI      := 200
+FAT12_FUZZ_EXT_HI        := 40
+FAT12_FUZZ_OPS           := 40
+
+$(FAT12_FUZZ_BLANK_IMG): | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@printf ">>> fat12: minted BLANK %s (1.44MB FAT12, no files; generative fuzzer template)\n" "$@"
+
+$(TEST_FAT12_FUZZ): $(FAT_DIFF_DIR)/fat12_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/fat12_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_FUZZ_MUT_RMW): $(FAT_DIFF_DIR)/fat12_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_PARTIAL_NO_RMW -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/fat12_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# REAL gate: test-fat-fuzz (beads initech-0dq). Two legs, both on the UNMODIFIED
+# fat12.c: a fast WHOLE-sweep (model + remount + FAT-sync) over every seed, then a
+# bounded subset with the mtools/python external cross-check. Green only if every
+# seed's every op agrees three ways. The fuzzer prints the seed count + ops.
+.PHONY: test-fat-fuzz
+test-fat-fuzz: $(TEST_FAT12_FUZZ) $(FAT12_FUZZ_BLANK_IMG) $(FAT12_REF_PY)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fat-fuzz : FAT12 generative fuzzer (deterministic seed sweep)\n'
+	@printf '======================================================================\n'
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-fat-fuzz FAIL: mtools `mcopy` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-fat-fuzz FAIL: python3 not found (needed for the independent reference).\n'; exit 1; }
+	@printf '>>> test-fat-fuzz [A]: model + remount + FAT-sync over seeds %s..%s (fast, every op)\n' "$(FAT12_FUZZ_SEEDS_LO)" "$(FAT12_FUZZ_SEEDS_HI)"
+	@$(TEST_FAT12_FUZZ) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FAT12_FUZZ_BLANK_IMG)" \
+		|| { printf '!!! test-fat-fuzz FAIL [A]: a seed diverged (shrunk reproducer above) -- root-cause it (Rule 3)\n'; exit 1; }
+	@printf '>>> test-fat-fuzz [B]: + mtools/python external cross-check over seeds %s..%s\n' "$(FAT12_FUZZ_SEEDS_LO)" "$(FAT12_FUZZ_EXT_HI)"
+	@$(TEST_FAT12_FUZZ) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_EXT_HI) --ops $(FAT12_FUZZ_OPS) "$(FAT12_FUZZ_BLANK_IMG)" \
+		|| { printf '!!! test-fat-fuzz FAIL [B]: mtools/python disagree with the model (shrunk reproducer above)\n'; exit 1; }
+	@rm -f "$(FAT12_FUZZ_BLANK_IMG)".seed*.scratch "$(FAT12_FUZZ_BLANK_IMG)".*.bin
+	@printf '>>> test-fat-fuzz: green (deterministic seed sweep -- model + remount + FAT-sync + mtools/python all agree)\n'
+
+# Mutation gate (Rule 6): build the fuzzer against the no-RMW positioned-write
+# mutant and assert it FINDS the divergence (exits non-zero + prints a shrunk
+# reproducer). A fuzzer that never catches a bug is decoration.
+.PHONY: test-fat-fuzz-mutant
+test-fat-fuzz-mutant: $(TEST_FAT12_FUZZ_MUT_RMW) $(FAT12_FUZZ_BLANK_IMG)
+	@printf '>>> test-fat-fuzz-mutant: confirming the fuzzer FINDS + SHRINKS the no-RMW mutant (Rule 6)\n'
+	@if $(TEST_FAT12_FUZZ_MUT_RMW) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FAT12_FUZZ_BLANK_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-fat-fuzz-mutant FAIL: no-RMW mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
+		rm -f "$(FAT12_FUZZ_BLANK_IMG)".seed*.scratch; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-fuzz-mutant: green (fuzzer correctly RED on the no-RMW mutant; shrunk reproducer:)\n'; \
+		$(TEST_FAT12_FUZZ_MUT_RMW) --sweep $(FAT12_FUZZ_SEEDS_LO) $(FAT12_FUZZ_SEEDS_HI) --ops $(FAT12_FUZZ_OPS) --no-external "$(FAT12_FUZZ_BLANK_IMG)" 2>&1 | sed -n '/SHRUNK/,/----/p' || true; \
+		rm -f "$(FAT12_FUZZ_BLANK_IMG)".seed*.scratch; \
+	fi
+
 # ---------------------------------------------------------------------------
 # Text console blit oracle (os/milton, beads initech-yqb)
 # ---------------------------------------------------------------------------
@@ -4145,14 +4222,14 @@ print('    banner is two lines and contains \"InitechDOS  Version 3.30\" (double
 # Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
-	test-fat-partial test-fat-write-partial \
+	test-fat-partial test-fat-write-partial test-fat-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 \
 	test-fileio test-exec-unit test-command test-psp test-sft test-loader \
 	test-fat test-seed test-seed-codegen test-assets test-spec \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-fileio-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-fat-write-mutant \
-	test-fat-partial-mutant test-fat-write-partial-mutant
+	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
