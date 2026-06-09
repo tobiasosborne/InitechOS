@@ -70,7 +70,7 @@ loader_status_t loader_prepare(const uint8_t *image, uint32_t image_len,
      * segment fields are passed as flat LINEAR addresses; psp_build stores each
      * as a fake paragraph (linear >> 4). */
     out->params.alloc_end_linear  = PROGRAM_ALLOC_END;  /* 0x70000 -> seg 0x7000 */
-    out->params.env_linear        = ENV_BLOCK;          /* 0x20200 -> seg 0x2020 */
+    out->params.env_linear        = ENV_BLOCK;          /* 0x5F000 -> seg 0x5F00 (2og) */
     out->params.parent_psp_linear = 0u;                 /* no parent PSP yet (Sec 2.5) */
     out->params.cmd_tail          = cmd_tail;           /* may be NULL (no args) */
     out->params.cmd_tail_len      = cmd_tail_len;

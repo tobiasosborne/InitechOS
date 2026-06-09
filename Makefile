@@ -173,6 +173,9 @@ KERNEL_FAT12_C   := $(KERNEL_DIR)/fat12.c
 # math) ALSO compile hosted in the test-kbd-unit oracle.
 KERNEL_KBD_C     := $(KERNEL_DIR)/kbd.c
 KERNEL_PIT_C     := $(KERNEL_DIR)/pit.c
+# MC146818 RTC clock source (beads initech-yv9): CMOS ports 0x70/0x71 reader +
+# the PURE BCD/binary/century/DOW conversion (host-testable, -DRTC_HOST_TEST).
+KERNEL_RTC_C     := $(KERNEL_DIR)/rtc.c
 # IRQ reentrancy guard (beads initech-xk2): in-IRQ depth counter + the INT 21h
 # reentrancy fail-loud panic. Host-compilable (links into the int21 unit oracle).
 KERNEL_IRQ_C     := $(KERNEL_DIR)/irq.c
@@ -212,6 +215,13 @@ WRITE_PROG_BLOB_C := $(BUILD)/write_prog_blob.c
 MULTIOPEN_PROG_ASM   := $(KERNEL_DIR)/multiopen_program.asm
 MULTIOPEN_PROG_BIN   := $(BUILD)/multiopen_program.bin
 MULTIOPEN_PROG_BLOB_C := $(BUILD)/multiopen_prog_blob.c
+# Baked DATE/TIME program (beads initech-yv9): issues AH=2Ah GET DATE, AH=2Ch GET
+# TIME, AH=36h GET DISK FREE SPACE, AH=62h GET PSP and writes the results to
+# stdout (serial) framed by grep-able markers. Linked into the -DBOOT_DATETIME
+# kernel only (make test-datetime), which pins the RTC via -rtc base.
+DATETIME_PROG_ASM   := $(KERNEL_DIR)/datetime_program.asm
+DATETIME_PROG_BIN   := $(BUILD)/datetime_program.bin
+DATETIME_PROG_BLOB_C := $(BUILD)/datetime_prog_blob.c
 # GREET program (beads initech-saw): a flat .COM that is NOT baked into the
 # kernel -- it is mcopy'd onto the FAT12 data disk as GREET.COM and loaded BY
 # NAME from the mounted volume (load_program_from_fat / INT 21h AH=4Bh EXEC).
@@ -236,6 +246,7 @@ KERNEL_FAT12_OBJ := $(BUILD)/fat12.o
 KERNEL_FILEIO_OBJ := $(BUILD)/fileio_fat.o
 KERNEL_KBD_OBJ   := $(BUILD)/kbd.o
 KERNEL_PIT_OBJ   := $(BUILD)/pit.o
+KERNEL_RTC_OBJ   := $(BUILD)/rtc.o
 KERNEL_IRQ_OBJ   := $(BUILD)/irq.o
 # COMMAND.COM shell object (beads initech-7pc), compiled with the REPL enabled.
 KERNEL_COMMAND_OBJ := $(BUILD)/command.o
@@ -245,6 +256,7 @@ KERNEL_DIR_PROG_OBJ  := $(BUILD)/dir_prog_blob.o
 KERNEL_CONIN_PROG_OBJ := $(BUILD)/conin_prog_blob.o
 KERNEL_WRITE_PROG_OBJ := $(BUILD)/write_prog_blob.o
 KERNEL_MULTIOPEN_PROG_OBJ := $(BUILD)/multiopen_prog_blob.o
+KERNEL_DATETIME_PROG_OBJ := $(BUILD)/datetime_prog_blob.o
 KERNEL_ISR_OBJ   := $(BUILD)/isr.o
 KERNEL_ELF       := $(BUILD)/kernel.elf
 KERNEL_BIN       := $(BUILD)/kernel.bin
@@ -296,6 +308,14 @@ KERNEL_MULTIOPEN_MAIN_OBJ := $(BUILD)/kmain_multiopen.o
 KERNEL_MULTIOPEN_ELF      := $(BUILD)/kernel_multiopen.elf
 KERNEL_MULTIOPEN_BIN      := $(BUILD)/kernel_multiopen.bin
 MULTIOPEN_IMG             := $(BUILD)/multiopen_boot.img
+# DATE/TIME self-test kernel/image (beads initech-yv9; make test-datetime): the
+# SAME kernel sources with -DBOOT_DATETIME so the boot runs the baked DATE/TIME
+# program. Booted with a PINNED RTC (-rtc base) + a FAT12 data disk (--disk2) so
+# AH=36h free space is computable. Separate image so the normal boot is unchanged.
+KERNEL_DATETIME_MAIN_OBJ := $(BUILD)/kmain_datetime.o
+KERNEL_DATETIME_ELF      := $(BUILD)/kernel_datetime.elf
+KERNEL_DATETIME_BIN      := $(BUILD)/kernel_datetime.bin
+DATETIME_IMG             := $(BUILD)/datetime_boot.img
 # IRQ-STORM reentrancy self-test kernel/image (beads initech-xk2; make
 # test-int21-irqstorm): the SAME kernel sources with -DBOOT_IRQSTORM so the boot,
 # AFTER enabling IRQs (sti) so the PIT/keyboard fire LIVE, runs the baked
@@ -1512,6 +1532,59 @@ test-sft-mutant: $(TEST_SFT_MUT_DUP) $(TEST_SFT_MUT_DUP2)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-rtc (beads initech-yv9 -- MC146818 RTC conversion logic)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the PURE RTC conversion (os/milton/rtc.c, compiled with
+# -DRTC_HOST_TEST so the kernel-only port-I/O paths are excluded): BCD<->binary
+# per SRB DM bit, 12<->24h per SRB bit 1 + the hour PM flag, the century reg /
+# pivot rule, day-of-week (Sakamoto), range validation, and the SET DATE/TIME
+# encode round-trip. rtc.c ALSO compiles freestanding into the kernel (the
+# CMOS reader). Mirrors test-config-sys.
+TEST_RTC      := $(BUILD)/test_rtc
+TEST_RTC_SRC  := $(MILTON_DIR)/test_rtc.c
+TEST_RTC_DEPS := $(KERNEL_RTC_C)
+TEST_RTC_HDRS := $(MILTON_DIR)/rtc.h
+# Mutation builds (Rule 6): (a) decode skips the BCD->binary step -> the BCD
+# fixtures decode to garbage; (b) the month decodes off-by-one. A mutant that
+# PASSES means the oracle is decoration.
+TEST_RTC_MUT_BCD   := $(BUILD)/test_rtc_mutant_bcd
+TEST_RTC_MUT_MONTH := $(BUILD)/test_rtc_mutant_month
+
+$(TEST_RTC): $(TEST_RTC_SRC) $(TEST_RTC_DEPS) $(TEST_RTC_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRTC_HOST_TEST -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_RTC_SRC) $(TEST_RTC_DEPS)
+
+$(TEST_RTC_MUT_BCD): $(TEST_RTC_SRC) $(TEST_RTC_DEPS) $(TEST_RTC_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRTC_HOST_TEST -DRTC_MUTATE_SKIP_BCD -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_RTC_SRC) $(TEST_RTC_DEPS)
+
+$(TEST_RTC_MUT_MONTH): $(TEST_RTC_SRC) $(TEST_RTC_DEPS) $(TEST_RTC_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRTC_HOST_TEST -DRTC_MUTATE_MONTH_OFFBYONE -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_RTC_SRC) $(TEST_RTC_DEPS)
+
+.PHONY: test-rtc test-rtc-mutant
+test-rtc: $(TEST_RTC)
+	@printf ">>> test-rtc: MC146818 BCD/binary/12-24h/century/DOW + SET encode round-trip (initech-yv9)\n"
+	@$(TEST_RTC)
+	@printf ">>> test-rtc: green\n"
+
+# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
+test-rtc-mutant: $(TEST_RTC_MUT_BCD) $(TEST_RTC_MUT_MONTH)
+	@printf ">>> test-rtc-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_RTC_MUT_BCD) >/dev/null 2>&1; then \
+		printf '!!! test-rtc-mutant FAIL: skip-BCD mutant PASSED -- the BCD-decode assertions are decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-rtc-mutant: green (skip-BCD mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_RTC_MUT_MONTH) >/dev/null 2>&1; then \
+		printf '!!! test-rtc-mutant FAIL: month off-by-one mutant PASSED -- the month assertions are decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-rtc-mutant: green (month off-by-one mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-config-sys (beads initech-509.2 -- CONFIG.SYS parser)
 # ---------------------------------------------------------------------------
 # Host unit oracle for the PURE CONFIG.SYS parser (os/milton/config_sys.c): parse
@@ -1841,6 +1914,16 @@ $(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h | $(BU
 $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
 
+# MC146818 RTC clock source (beads initech-yv9). Kernel build includes the port
+# I/O paths; the pure conversion is shared with the test-rtc host oracle.
+# Built with -Os (size): the BCD/binary/century/DOW math is branchy and the rest
+# of the kernel is -O0, so -O0 here would cost ~1.3 KiB and push the kernel .bss
+# past PROGRAM_BASE (0x20000). -Os is deterministic/reproducible (Rule 11) and
+# the codegen is covered byte-for-behaviour by the test-rtc host oracle. The
+# host oracle compiles rtc.c with its OWN flags, so this does not affect it.
+$(KERNEL_RTC_OBJ): $(KERNEL_RTC_C) $(KERNEL_DIR)/rtc.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -I$(KERNEL_DIR) -c $(KERNEL_RTC_C) -o $@
+
 # IRQ reentrancy guard (beads initech-xk2): the in-IRQ depth counter the asm IRQ
 # stubs bracket their C handler with, plus the INT 21h reentrancy fail-loud panic
 # the dispatcher invokes when irq_depth() != 0 at entry. ASCII-clean, no malloc.
@@ -1926,6 +2009,16 @@ $(MULTIOPEN_PROG_BLOB_C): $(MULTIOPEN_PROG_BIN) $(BIN2C_BIN)
 $(KERNEL_MULTIOPEN_PROG_OBJ): $(MULTIOPEN_PROG_BLOB_C) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(MULTIOPEN_PROG_BLOB_C) -o $@
 
+# DATE/TIME program blob (beads initech-yv9): asm -> flat bin -> C blob -> obj.
+$(DATETIME_PROG_BIN): $(DATETIME_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+$(DATETIME_PROG_BLOB_C): $(DATETIME_PROG_BIN) $(BIN2C_BIN)
+	$(BIN2C_BIN) $(DATETIME_PROG_BIN) g_datetime_prog_image > $@
+
+$(KERNEL_DATETIME_PROG_OBJ): $(DATETIME_PROG_BLOB_C) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(DATETIME_PROG_BLOB_C) -o $@
+
 # IRQ-STORM baked program (beads initech-xk2): same nasm -f bin -> bin2c ->
 # KERNEL_CC pipeline. Linked only into the -DBOOT_IRQSTORM kernel(s).
 $(IRQSTORM_PROG_BIN): $(IRQSTORM_PROG_ASM) | $(BUILD)
@@ -1944,7 +2037,7 @@ KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-               $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+               $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                $(KERNEL_ISR_OBJ)
 
@@ -1962,7 +2055,7 @@ KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
 
@@ -1998,7 +2091,7 @@ KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
 
@@ -2035,7 +2128,7 @@ KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_CONIN_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
@@ -2074,7 +2167,7 @@ KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
 
@@ -2111,7 +2204,7 @@ KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSO
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_WRITE_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -2148,7 +2241,7 @@ KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERN
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_MULTIOPEN_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -2173,6 +2266,42 @@ $(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) | $(BUILD)
 	@dd if=$(KERNEL_MULTIOPEN_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> multiopen image: %s (MULTI-OPEN self-test kernel @s17)\n" "$@"
 
+# --- DATE/TIME self-test kernel (beads initech-yv9; make test-datetime) -------
+# Same sources, kmain.c compiled with -DBOOT_DATETIME so the boot runs the baked
+# DATE/TIME program (AH=2Ah/2Ch/36h/62h -> serial). The datetime_prog blob is
+# linked ONLY into this image. Mirrors the MULTI-OPEN image structure.
+$(KERNEL_DATETIME_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/rtc.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_DATETIME -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_DATETIME_OBJS := $(KERNEL_START_OBJ) $(KERNEL_DATETIME_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_DATETIME_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_DATETIME_ELF): $(KERNEL_DATETIME_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_DATETIME_OBJS)
+
+$(KERNEL_DATETIME_BIN): $(KERNEL_DATETIME_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_datetime.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(datetime): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(DATETIME_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_DATETIME_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_DATETIME_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> datetime image: %s (DATE/TIME self-test kernel @s17)\n" "$@"
+
 # --- IRQ-STORM reentrancy self-test kernel (beads initech-xk2; make
 # test-int21-irqstorm) --------------------------------------------------------
 # Same sources, kmain.c compiled with -DBOOT_IRQSTORM so the boot, AFTER sti (IRQs
@@ -2189,7 +2318,7 @@ KERNEL_IRQSTORM_OBJS_COMMON := $(KERNEL_START_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_IRQSTORM_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -2293,7 +2422,7 @@ KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSO
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
 
@@ -2333,7 +2462,7 @@ KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERN
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_MUT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
 
@@ -2370,7 +2499,7 @@ KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
 
@@ -2409,7 +2538,7 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
 
@@ -3624,6 +3753,82 @@ test-multiopen: $(HARNESS_BIN) $(MULTIOPEN_IMG) $(FAT_MULTIOPEN_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-datetime (beads initech-yv9 -- resident clock + free-space +
+# PSP query functions, end-to-end on the emulator with a PINNED RTC)
+# ---------------------------------------------------------------------------
+# The -DBOOT_DATETIME kernel runs the baked DATE/TIME program over a FAT12 data
+# disk (reuse FAT_MULTIOPEN_IMG) booted with a PINNED RTC (-rtc base) so the
+# reading is DETERMINISTIC (Rule 11). The program issues AH=2Ah GET DATE, AH=2Ch
+# GET TIME, AH=36h GET DISK FREE SPACE, AH=62h GET PSP and writes the decoded
+# results to serial. Assertions (fail-loud, Rule 2):
+#   1. NO triple-fault.
+#   2. DATE=2026-06-09 DOW=2 (the EXACT pinned date; 2026-06-09 is a TUESDAY).
+#   3. TIME=12:34:56 (the EXACT pinned time).
+#   4. SPACE ... free=N with N > 0 (a mounted volume with room; NOT 0xFFFF).
+#   5. PSP=NNNN nonzero (a valid current PSP paragraph).
+#   6. DATETIME-EXIT rc=0.
+# The pinned instant 2026-06-09T12:34:56 matches the host test_rtc + test_int21
+# clock mock, so the same date threads through both oracles. TRI-EMULATOR: QEMU
+# only -- Bochs/86Box deferred (beads initech-x0i).
+DATETIME_NAME    := datetime_boot
+DATETIME_SERIAL  := $(BUILD)/$(DATETIME_NAME).serial
+DATETIME_REPORT  := $(BUILD)/$(DATETIME_NAME).report
+DATETIME_RTC_BASE := 2026-06-09T12:34:56
+
+.PHONY: test-datetime
+test-datetime: $(HARNESS_BIN) $(DATETIME_IMG) $(FAT_MULTIOPEN_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-datetime : resident clock + free-space + PSP\n'
+	@printf '  Ref: beads initech-yv9; MC146818 RTC (0x70/0x71); INT 21h 2Ah/2Ch/36h/62h.\n'
+	@printf '  PINNED RTC base=%s (deterministic, Rule 11).\n' "$(DATETIME_RTC_BASE)"
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + data disk %s (primary slave), -rtc base=%s\n' "$(DATETIME_IMG)" "$(FAT_MULTIOPEN_IMG)" "$(DATETIME_RTC_BASE)"
+	@printf 'Expecting : DT-YEAR=2026 MON=6 DAY=9 DOW=2(Tue) HOUR=12 MIN=34 SEC=56 + FREE>0 + PSP>0 + rc=0\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(DATETIME_IMG)" --disk2 "$(FAT_MULTIOPEN_IMG)" \
+		--rtc-base "$(DATETIME_RTC_BASE)" \
+		--name "$(DATETIME_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(DATETIME_REPORT)" || true
+	@cat "$(DATETIME_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(DATETIME_REPORT)"; then \
+		printf '!!! test-datetime FAIL: TRIPLE FAULT (root-cause the clock/query path, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-datetime [1/5]: no triple-fault\n'
+	@if [ ! -s "$(DATETIME_SERIAL)" ]; then \
+		printf '!!! test-datetime FAIL: no serial captured at %s\n' "$(DATETIME_SERIAL)"; exit 1; \
+	fi
+	@sed -n '/^DATETIME-OUTPUT-BEGIN$$/,/^DATETIME-OUTPUT-END$$/p' "$(DATETIME_SERIAL)" | tr -d '\r' > "$(BUILD)/$(DATETIME_NAME).out"
+	@for kv in DT-YEAR=2026 DT-MON=6 DT-DAY=9 DT-DOW=2; do \
+		grep -qxF "$$kv" "$(BUILD)/$(DATETIME_NAME).out" \
+		|| { printf '!!! test-datetime FAIL: %s missing -- AH=2Ah GET DATE did not return the PINNED date (2026-06-09) / Tuesday (DOW=2)\n' "$$kv"; cat "$(BUILD)/$(DATETIME_NAME).out"; exit 1; }; \
+	done
+	@printf '>>> test-datetime [2/5]: AH=2Ah GET DATE == 2026-06-09, DOW=2 (Tuesday)\n'
+	@for kv in DT-HOUR=12 DT-MIN=34 DT-SEC=56; do \
+		grep -qxF "$$kv" "$(BUILD)/$(DATETIME_NAME).out" \
+		|| { printf '!!! test-datetime FAIL: %s missing -- AH=2Ch GET TIME did not return the PINNED time (12:34:56)\n' "$$kv"; cat "$(BUILD)/$(DATETIME_NAME).out"; exit 1; }; \
+	done
+	@printf '>>> test-datetime [3/5]: AH=2Ch GET TIME == 12:34:56\n'
+	@grep -qxF 'DT-BPS=512' "$(BUILD)/$(DATETIME_NAME).out" \
+		|| { printf '!!! test-datetime FAIL: DT-BPS=512 missing -- AH=36h did not report 512 bytes/sector\n'; cat "$(BUILD)/$(DATETIME_NAME).out"; exit 1; }
+	@free=$$(grep -m1 -oE '^DT-FREE=[0-9]+$$' "$(BUILD)/$(DATETIME_NAME).out" | cut -d= -f2); \
+	if [ -z "$$free" ] || [ "$$free" -le 0 ]; then \
+		printf '!!! test-datetime FAIL: AH=36h DT-FREE not > 0 (got "%s") -- no mounted volume / no room\n' "$$free"; cat "$(BUILD)/$(DATETIME_NAME).out"; exit 1; \
+	fi
+	@printf '>>> test-datetime [4/5]: AH=36h GET DISK FREE SPACE (bps=512, free clusters > 0)\n'
+	@psp=$$(grep -m1 -oE '^DT-PSP=[0-9]+$$' "$(BUILD)/$(DATETIME_NAME).out" | cut -d= -f2); \
+	if [ -z "$$psp" ] || [ "$$psp" -le 0 ]; then \
+		printf '!!! test-datetime FAIL: AH=62h DT-PSP not nonzero (got "%s")\n' "$$psp"; cat "$(BUILD)/$(DATETIME_NAME).out"; exit 1; \
+	fi; \
+	grep -q '^DATETIME-EXIT rc=0$$' "$(DATETIME_SERIAL)" \
+		|| { printf '!!! test-datetime FAIL: DATETIME-EXIT rc=0 missing -- the program did not finish cleanly\n'; cat "$(DATETIME_SERIAL)"; exit 1; }
+	@printf '>>> test-datetime [5/5]: AH=62h GET PSP nonzero + DATETIME-EXIT rc=0\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- InitechDOS read the PINNED RTC (2026-06-09 12:34:56, Tuesday),\n'
+	@printf '            reported real free space (bps=512, free>0) + the current PSP (QEMU)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-int21-irqstorm (beads initech-xk2 -- INT 21h reentrancy-safe
 # with IRQs LIVE under an IRQ storm during a syscall)
 # ---------------------------------------------------------------------------
@@ -4443,18 +4648,19 @@ TEST_UNIT_GATES := \
 	test-fat-partial test-fat-write-partial test-fat-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 \
 	test-fileio test-exec-unit test-command test-psp test-sft test-loader \
-	test-config-sys \
+	test-config-sys test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-fileio-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-config-sys-mutant test-fat-write-mutant \
-	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant
+	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
+	test-rtc-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-fatwrite test-multiopen test-exit-handles \
-	test-sysinit test-shell test-panic \
+	test-sysinit test-shell test-panic test-datetime \
 	test-kbd test-conin test-int21-irqstorm
 
 test-unit:

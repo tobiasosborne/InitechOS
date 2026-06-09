@@ -48,6 +48,12 @@ static int21_coninpoll_fn g_conin_poll = 0;
  * one at SYSINIT; a handle function with no bound PSP returns invalid-handle. */
 static psp_t *g_cur_psp = 0;
 
+/* The CLOCK source (beads initech-yv9). GET/SET DATE+TIME reach the wall clock
+ * through these; NULL until the kernel binds the RTC (or the host oracle binds a
+ * fixed mock). With no clock bound, GET returns the DOS epoch and SET fails. */
+static int21_clock_get_fn g_clock_get = 0;
+static int21_clock_set_fn g_clock_set = 0;
+
 /* The file backend (beads initech-509.5 read-side). NULL until the kernel binds
  * a FAT12-backed impl (or the host oracle binds a mock). The file functions
  * resolve FAT-specific work through it so int21.c stays host-testable. */
@@ -131,6 +137,11 @@ void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
     g_conin_get  = get;
     g_conin_poll = poll;
 }
+void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set)
+{
+    g_clock_get = get;
+    g_clock_set = set;
+}
 
 /* ---- CF helpers: write ONLY bit 0 of the saved EFLAGS image. ---- */
 static void cf_clear(int_frame_t *f) { f->eflags &= ~CF_BIT; }
@@ -199,6 +210,27 @@ static void set_ax(int_frame_t *f, uint16_t ax)
 {
     f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)ax;
 }
+
+/* 16-bit (CX/DX/BX) writers + the high/low byte readers the date/time/space/PSP
+ * functions need (AH=2Ah-2Dh/36h/62h). Each writes ONLY the low 16 bits of the
+ * register so the rest of the dword (and the upper EAX) is left intact, matching
+ * the real-DOS 16-bit register contract on a 32-bit flat frame. */
+static void set_cx(int_frame_t *f, uint16_t cx)
+{
+    f->ecx = (f->ecx & 0xFFFF0000u) | (uint32_t)cx;
+}
+static void set_dx(int_frame_t *f, uint16_t dx)
+{
+    f->edx = (f->edx & 0xFFFF0000u) | (uint32_t)dx;
+}
+static void set_bx(int_frame_t *f, uint16_t bx)
+{
+    f->ebx = (f->ebx & 0xFFFF0000u) | (uint32_t)bx;
+}
+static uint16_t frame_cx(const int_frame_t *f) { return (uint16_t)(f->ecx & 0xFFFFu); }
+static uint8_t  frame_dh(const int_frame_t *f) { return (uint8_t)((f->edx >> 8) & 0xFFu); }
+static uint8_t  frame_ch(const int_frame_t *f) { return (uint8_t)((f->ecx >> 8) & 0xFFu); }
+static uint8_t  frame_cl(const int_frame_t *f) { return (uint8_t)(f->ecx & 0xFFu); }
 
 /* ---- controlled scope: is this AH sanctioned by spec/int21h_register.json? --
  * The locked register groups several functions into ranges (e.g. "01h-0Ch CON
@@ -694,6 +726,7 @@ static void do_open(int_frame_t *f)
         /* Backend rejected (not found). No slot was committed (we only read
          * sft_alloc/jft_alloc, never wrote them), so nothing to roll back. */
         set_ax(f, err);
+        int21_note_error(err);   /* AH=59h GET EXTENDED ERROR can report it */
         cf_set(f);
         return;
     }
@@ -1337,6 +1370,212 @@ static void do_terminate(int_frame_t *f, uint8_t code)
      * returns. We deliberately do NOT touch CF -- 4Ch has no error path. */
 }
 
+/* ===========================================================================
+ * Cheap resident query functions (beads initech-yv9): SELDISK/GETDISK,
+ * DATE/TIME, GET DISK FREE SPACE, GET CWD, GET EXTENDED ERROR, GET PSP. All are
+ * single-drive (A: only) / root-only this milestone (no subdirs -- ti8).
+ * Ref (Law 1): DOS 3.3 Programmer's Reference Manual, the named function pages;
+ *   spec/int21h_register.json (all are in the locked register). The DATE/TIME
+ *   functions reach the wall clock through the CLOCK seam (g_clock_get/set ->
+ *   the MC146818 RTC, os/milton/rtc.c).
+ * ===========================================================================*/
+
+/* ---- the last DOS error (AH=59h GET EXTENDED ERROR; beads initech-yv9) ----
+ * Real DOS keeps the most recent INT 21h error so a program can query its
+ * CLASS / suggested ACTION / LOCUS after a failed call. This milestone tracks
+ * the raw error CODE (AX) set by the failing functions; the class/action/locus
+ * are derived from a small table for the codes we actually return. */
+static uint16_t g_last_error = 0u;   /* 0 = no error */
+
+void int21_note_error(uint16_t code) { g_last_error = code; }
+
+/* AH=0Eh SELECT DISK: DL = drive (0=A:). Returns AL = number of logical drives.
+ * Only A: exists this milestone -> AL=1. DOS has no error path here (an invalid
+ * DL is ignored; the default drive is unchanged since only A: exists). Ref: DOS
+ * 3.3 PRM AH=0Eh. */
+static void do_seldisk(int_frame_t *f)
+{
+    (void)frame_dl(f);          /* requested drive: ignored (only A: exists) */
+    set_al(f, 1u);              /* number of logical drives = 1 (A:)         */
+    cf_clear(f);
+}
+
+/* AH=19h GET CURRENT DISK: returns AL = current drive (0=A:). Always A: this
+ * milestone. No error path. Ref: DOS 3.3 PRM AH=19h. */
+static void do_getdisk(int_frame_t *f)
+{
+    set_al(f, 0u);              /* current drive = A: (0)                    */
+    cf_clear(f);
+}
+
+/* AH=2Ah GET DATE: CX=year(full), DH=month(1-12), DL=day(1-31), AL=day-of-week
+ * (0=Sun). Sourced from the clock seam (RTC). With no clock bound, returns the
+ * DOS file-time epoch (1980-01-01, a Tuesday). No error path (DOS 2Ah always
+ * succeeds). Ref: DOS 3.3 PRM AH=2Ah. */
+static void do_getdate(int_frame_t *f)
+{
+    uint16_t year = 1980u;
+    uint8_t  mon = 1u, day = 1u, hh = 0u, mi = 0u, ss = 0u, dow = 2u;
+    if (g_clock_get) {
+        (void)g_clock_get(&year, &mon, &day, &hh, &mi, &ss, &dow);
+    }
+    set_cx(f, year);
+    set_dx(f, (uint16_t)(((uint16_t)mon << 8) | (uint16_t)day));
+    set_al(f, dow);
+    cf_clear(f);
+}
+
+/* AH=2Bh SET DATE: CX=year(full), DH=month, DL=day. AL=0 success / 0xFF invalid.
+ * Sets ONLY the date portion of the RTC (the time is preserved). Validates
+ * ranges via the clock seam's set (rtc_encode range-checks). Ref: DOS 3.3 PRM
+ * AH=2Bh. */
+static void do_setdate(int_frame_t *f)
+{
+    uint16_t year = frame_cx(f);
+    uint8_t  mon  = frame_dh(f);
+    uint8_t  day  = frame_dl(f);
+    int ok = 0;
+    if (g_clock_set) {
+        ok = g_clock_set(year, mon, day, 0u, 0u, 0u, INT21_CLOCK_SET_DATE);
+    }
+    set_al(f, ok ? 0x00u : 0xFFu);
+    cf_clear(f);                /* AL carries the status, not CF (DOS 2Bh)   */
+}
+
+/* AH=2Ch GET TIME: CH=hour(0-23), CL=min, DH=sec, DL=centiseconds. The RTC has
+ * 1-second resolution, so DL (centiseconds) is always 0 (documented). Sourced
+ * from the clock seam. No error path. Ref: DOS 3.3 PRM AH=2Ch. */
+static void do_gettime(int_frame_t *f)
+{
+    uint16_t year = 1980u;
+    uint8_t  mon = 1u, day = 1u, hh = 0u, mi = 0u, ss = 0u, dow = 0u;
+    if (g_clock_get) {
+        (void)g_clock_get(&year, &mon, &day, &hh, &mi, &ss, &dow);
+    }
+    set_cx(f, (uint16_t)(((uint16_t)hh << 8) | (uint16_t)mi));
+    set_dx(f, (uint16_t)(((uint16_t)ss << 8) | 0u));   /* DL=0: 1s resolution */
+    cf_clear(f);
+}
+
+/* AH=2Dh SET TIME: CH=hour, CL=min, DH=sec, DL=centiseconds(ignored). AL=0/0xFF.
+ * Sets ONLY the time portion of the RTC (the date is preserved). Ref: DOS 3.3
+ * PRM AH=2Dh. */
+static void do_settime(int_frame_t *f)
+{
+    uint8_t hh = frame_ch(f);
+    uint8_t mi = frame_cl(f);
+    uint8_t ss = frame_dh(f);
+    /* DL (centiseconds) is below our 1s resolution; ignored. */
+    int ok = 0;
+    if (g_clock_set) {
+        /* Year/month/day are required by the seam's validity check but the SET
+         * TIME mask ignores them; pass a known-valid placeholder date so the
+         * encode's range check passes (it validates the whole struct). */
+        ok = g_clock_set(1980u, 1u, 1u, hh, mi, ss, INT21_CLOCK_SET_TIME);
+    }
+    set_al(f, ok ? 0x00u : 0xFFu);
+    cf_clear(f);
+}
+
+/* AH=36h GET DISK FREE SPACE: DL=drive (0=default, 1=A:). On success:
+ *   AX = sectors per cluster, BX = free clusters, CX = bytes per sector,
+ *   DX = total clusters. Invalid drive (not 0/1, or no volume) => AX=0xFFFF.
+ * Computed from the mounted FAT12 volume via the file backend's freespace hook
+ * (which counts free clusters in the cached FAT). Ref: DOS 3.3 PRM AH=36h. */
+static void do_getspace(int_frame_t *f)
+{
+    uint8_t drive = frame_dl(f);
+    if (drive > 1u || g_file == 0 || g_file->freespace == 0) {
+        set_ax(f, 0xFFFFu);     /* invalid drive / no volume                 */
+        cf_clear(f);            /* 36h has no CF error path; AX=FFFF signals  */
+        return;
+    }
+    uint16_t spc = 0, bps = 0, total = 0, freec = 0;
+    if (g_file->freespace(&spc, &bps, &total, &freec) != 0) {
+        set_ax(f, 0xFFFFu);
+        cf_clear(f);
+        return;
+    }
+    set_ax(f, spc);
+    set_bx(f, freec);
+    set_cx(f, bps);
+    set_dx(f, total);
+    cf_clear(f);
+}
+
+/* AH=47h GET CURRENT DIR: DL=drive (0=default,1=A:); DS:SI -> 64-byte buffer.
+ * Fills the buffer with the CWD path RELATIVE to the root (NO leading '\', NO
+ * drive). We have no subdirectories yet (ti8), so the CWD is always the root ->
+ * an empty string (a single NUL). CF clear on success; AX=0x000F (invalid drive)
+ * for a bad drive. Ref: DOS 3.3 PRM AH=47h. */
+static void do_getcwd(int_frame_t *f)
+{
+    uint8_t drive = frame_dl(f);
+    if (drive > 1u) {
+        set_ax(f, 0x000Fu);     /* invalid drive */
+        int21_note_error(0x000Fu);
+        cf_set(f);
+        return;
+    }
+    /* ESI = flat ptr to the caller's 64-byte buffer (DS:SI in real DOS). */
+    char *buf = (char *)(uintptr_t)f->esi;
+    if (buf != 0) {
+        buf[0] = '\0';          /* root: empty path (no subdirs yet)         */
+    }
+    cf_clear(f);
+}
+
+/* AH=59h GET EXTENDED ERROR: returns the most recent error as a (class, action,
+ * locus) triple. AX = the error code (0 if none); BH = class, BL = suggested
+ * action, CH = locus. We map the small set of codes we actually return; an
+ * unknown/zero code reports "no error". DOS clears CL/the high CX byte. Ref: DOS
+ * 3.3 PRM AH=59h (the extended-error tables). */
+static void do_geterr(int_frame_t *f)
+{
+    uint16_t code = g_last_error;
+    uint8_t cls, act, locus;
+    if (code == 0u) {
+        cls = 0u; act = 0u; locus = 0u;                 /* no error          */
+    } else if (code == INT21_ERR_FILE_NOT_FOUND ||
+               code == INT21_ERR_PATH_NOT_FOUND) {
+        cls = 0x08u;   /* NOT FOUND        */
+        act = 0x03u;   /* USER (prompt/retry) */
+        locus = 0x02u; /* BLOCK DEVICE (disk) */
+    } else if (code == INT21_ERR_ACCESS_DENIED) {
+        cls = 0x0Bu;   /* MEDIA / access   */
+        act = 0x04u;   /* ABORT            */
+        locus = 0x02u;
+    } else if (code == INT21_ERR_INVALID_HANDLE ||
+               code == INT21_ERR_TOO_MANY_OPEN) {
+        cls = 0x09u;   /* BAD FORMAT / resource */
+        act = 0x04u;   /* ABORT            */
+        locus = 0x01u; /* UNKNOWN          */
+    } else {
+        cls = 0x0Du;   /* UNKNOWN error class */
+        act = 0x05u;   /* IGNORE           */
+        locus = 0x01u;
+    }
+    set_ax(f, code);
+    /* BH = class, BL = action (keep the rest of EBX intact). */
+    f->ebx = (f->ebx & 0xFFFF0000u) | ((uint32_t)cls << 8) | (uint32_t)act;
+    /* CH = locus; CL = 0 (DOS zeroes it). */
+    set_cx(f, (uint16_t)((uint16_t)locus << 8));
+    cf_clear(f);                /* 59h itself never fails                    */
+}
+
+/* AH=62h GET PSP: returns BX = the current PSP "segment" (paragraph). The flat
+ * model stores segments as (linear >> 4) fake paragraphs (psp.h Option B), so BX
+ * = (flat PSP address >> 4). No error path. Ref: DOS 3.3 PRM AH=62h. */
+static void do_getpsp(int_frame_t *f)
+{
+    uint16_t psp_seg = 0u;
+    if (g_cur_psp != 0) {
+        psp_seg = (uint16_t)(((uintptr_t)g_cur_psp >> 4) & 0xFFFFu);
+    }
+    set_bx(f, psp_seg);
+    cf_clear(f);
+}
+
 /* INT 20h legacy terminate (vector 0x20; beads initech-509.5). Routes to the
  * SAME terminate path as 4Ch with exit code 0 (ground-truth Sec 2.1 / Sec 4.4).
  * A program doing `int 0x20` (or a near RET to PSP:0 = the CD 20 there) lands
@@ -1434,6 +1673,36 @@ static void int21_dispatch_body(int_frame_t *frame)
             return;
         case 0x4D:                       /* GET RETURN CODE (of last EXEC child) */
             do_get_return_code(frame);
+            return;
+        case 0x0E:                       /* SELECT DISK */
+            do_seldisk(frame);
+            return;
+        case 0x19:                       /* GET CURRENT DISK */
+            do_getdisk(frame);
+            return;
+        case 0x2A:                       /* GET DATE */
+            do_getdate(frame);
+            return;
+        case 0x2B:                       /* SET DATE */
+            do_setdate(frame);
+            return;
+        case 0x2C:                       /* GET TIME */
+            do_gettime(frame);
+            return;
+        case 0x2D:                       /* SET TIME */
+            do_settime(frame);
+            return;
+        case 0x36:                       /* GET DISK FREE SPACE */
+            do_getspace(frame);
+            return;
+        case 0x47:                       /* GET CURRENT DIR */
+            do_getcwd(frame);
+            return;
+        case 0x59:                       /* GET EXTENDED ERROR */
+            do_geterr(frame);
+            return;
+        case 0x62:                       /* GET PSP */
+            do_getpsp(frame);
             return;
         default:
             break;

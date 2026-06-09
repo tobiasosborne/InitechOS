@@ -169,6 +169,17 @@ typedef struct int21_file_backend {
     /* UNLINK (AH=41h DELETE): delete the 8.3 file `name83` (mark deleted + free
      * its chain). Returns 0 on success or 0x0002 (not found) / 0x0005 (error). */
     uint16_t (*unlink)(const char *name83);
+
+    /* FREESPACE (AH=36h GET DISK FREE SPACE): report the mounted volume's
+     * geometry + free-cluster count. On success returns 0 and fills:
+     *   *out_spc        = sectors per cluster
+     *   *out_bps        = bytes per sector
+     *   *out_total_clus = total data-area clusters
+     *   *out_free_clus  = free clusters (counted from the cached FAT)
+     * Returns non-zero (or is NULL) when no volume is mounted -> AH=36h reports
+     * AX=0xFFFF (invalid drive). May be NULL on a backend with no volume. */
+    uint16_t (*freespace)(uint16_t *out_spc, uint16_t *out_bps,
+                          uint16_t *out_total_clus, uint16_t *out_free_clus);
 } int21_file_backend_t;
 
 /* Bind the file backend (NULL clears it -> the file functions return
@@ -226,6 +237,40 @@ typedef int (*int21_coninpoll_fn)(void);  /* NON-blocking: char 0..255, or -1   
 /* Bind the CON input source (either may be NULL to clear). The kernel binds
  * keyboard-backed callbacks near the sti; the host oracle binds a queued mock. */
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll);
+
+/* ---- CLOCK SOURCE (beads initech-yv9) -------------------------------------
+ * GET/SET DATE+TIME (AH=2Ah/2Bh/2Ch/2Dh) read and write the wall clock through
+ * a CLOCK seam -- the same pattern as the sink/conin/file seams -- so int21.c
+ * never touches CMOS ports (0x70/0x71) directly and compiles HOSTED. The kernel
+ * binds the live MC146818 RTC (os/milton/rtc.c rtc_now/rtc_set); the host oracle
+ * binds a fixed mock. The seam exchanges a flat 7-field date/time so int21.c
+ * does not need rtc.h's struct layout.
+ *
+ *   get : write the current y/mo/d/h/mi/s + dow (0=Sun) into the OUT params;
+ *         return 1 on success, 0 if no clock is bound / read failed.
+ *   set : set the clock from the IN params (full 4-digit year). `which` is a
+ *         bitmask: bit0 = set date, bit1 = set time (so SET DATE does not clobber
+ *         the time and vice versa). Return 1 on success, 0 on invalid/no clock.
+ * A NULL clock (unbound default) makes AH=2Ah/2Ch return a fixed epoch sentinel
+ * (1980-01-01 00:00:00, the DOS file-time epoch) and AH=2Bh/2Dh report failure. */
+typedef int (*int21_clock_get_fn)(uint16_t *year, uint8_t *month, uint8_t *day,
+                                  uint8_t *hour, uint8_t *minute, uint8_t *second,
+                                  uint8_t *dow);
+typedef int (*int21_clock_set_fn)(uint16_t year, uint8_t month, uint8_t day,
+                                  uint8_t hour, uint8_t minute, uint8_t second,
+                                  uint8_t which);
+#define INT21_CLOCK_SET_DATE 0x01u
+#define INT21_CLOCK_SET_TIME 0x02u
+
+/* Bind the clock source (either may be NULL to clear). The kernel binds RTC-
+ * backed callbacks at boot; the host oracle binds a fixed mock. */
+void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set);
+
+/* Record the most recent DOS error code so AH=59h GET EXTENDED ERROR can report
+ * it (beads initech-yv9). The error-returning functions (OPEN/UNLINK/etc.) call
+ * this with the DOS error they return; AH=59h derives the class/action/locus.
+ * Exposed (non-static) only so the host oracle can seed/inspect it. */
+void int21_note_error(uint16_t code);
 
 /* The InDOS depth predicate (beads initech-xk2). Returns 1 while one or more
  * INT 21h calls are in flight (g_indos != 0), else 0. This is the period-

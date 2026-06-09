@@ -67,7 +67,7 @@ int main(void)
         CHECK(plan.params.alloc_end_linear == PROGRAM_ALLOC_END,
               "params.alloc_end_linear must be PROGRAM_ALLOC_END (0x70000)");
         CHECK(plan.params.env_linear == ENV_BLOCK,
-              "params.env_linear must be ENV_BLOCK (0x20200)");
+              "params.env_linear must be ENV_BLOCK (0x5F000, beads 2og)");
         CHECK(plan.params.parent_psp_linear == 0u,
               "params.parent_psp_linear must be 0 (no parent PSP yet, Sec 2.5)");
         CHECK(plan.params.cmd_tail == (const char *)0,

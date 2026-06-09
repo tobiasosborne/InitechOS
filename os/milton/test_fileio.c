@@ -318,7 +318,9 @@ static uint16_t mock_dir_entry(uint32_t index, dir_entry_t *out_entry, int *out_
 
 static const int21_file_backend_t g_mock_backend = {
     mock_open, mock_read_at, mock_dir_entry,
-    mock_create, mock_write_at, mock_close, mock_unlink
+    mock_create, mock_write_at, mock_close, mock_unlink,
+    NULL   /* freespace: not exercised by the read/write file oracle (AH=36h is
+              covered end-to-end on the emulator, make test-datetime) */
 };
 
 int main(void)
@@ -719,7 +721,7 @@ int main(void)
         /* Bind a read-only backend (create/write_at=NULL) by reusing g_mock but
          * clearing the write hooks via a local read-only vtable. */
         static const int21_file_backend_t ro = { mock_open, mock_read_at, mock_dir_entry,
-                                                  NULL, NULL, NULL, NULL };
+                                                  NULL, NULL, NULL, NULL, NULL };
         mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&ro);

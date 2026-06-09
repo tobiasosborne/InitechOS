@@ -556,6 +556,20 @@ static int build_argv(const QemuConfig *cfg, char **argv,
      * hangs (see the `hang` fixture). */
     PUSH("-no-reboot");
 
+    /* Pinned RTC base (beads initech-yv9): `-rtc base=<ISO>` starts the guest's
+     * emulated MC146818 RTC at a FIXED instant so the clock oracle is
+     * deterministic (Rule 11). Omitted => QEMU uses host time. */
+    if (cfg->rtc_base && cfg->rtc_base[0] != '\0') {
+        /* clock=vm: drive the emulated RTC from the VM clock (guest execution
+         * time) rather than host wall-clock, so the reading is REPRODUCIBLE
+         * across runs (Rule 11) -- with clock=host the RTC advances with real
+         * time and the same image reads a different second each run. */
+        static char rtcbuf[80];
+        snprintf(rtcbuf, sizeof(rtcbuf), "base=%s,clock=vm", cfg->rtc_base);
+        PUSH("-rtc");
+        PUSH(rtcbuf);
+    }
+
     /* isa-debug-exit: lets a guest request a clean QEMU exit by writing to
      * I/O port 0xF4 (exit status = (value<<1)|1). Fixtures use this so the
      * GOOD path stops promptly instead of relying on the wall-clock timeout

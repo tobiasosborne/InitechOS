@@ -22,7 +22,11 @@
  *   kernel end (max)   = 0x18000   (kernel.ld + 64 sectors)
  *   PROGRAM_BASE       = 0x20000   -> 32 KiB headroom above the kernel .bss
  *   PROGRAM_IMAGE      = 0x20100   -> PSP + 0x100 (the authentic .COM offset)
- *   ENV_BLOCK          = 0x20200   -> 2-byte empty environment (00 00)
+ *   PROGRAM_IMAGE_MAX end = ENV_BLOCK -> image arena 0x20100..0x5F000
+ *   ENV_BLOCK          = 0x5F000   -> 2-byte empty env, OUTSIDE the image arena
+ *                                     (was 0x20200 = image+0x100 -> corrupted any
+ *                                      .COM > 256 B; beads initech-2og, Rule 8)
+ *   PROGRAM_STACK_BOT  = 0x60000   -> env region 0x5F000..0x60000 below the stack
  *   PROGRAM_ALLOC_END  = 0x70000   -> ceiling of the program's allocation
  *   PROGRAM_STACK_TOP  = 0x6FFFC   -> initial program ESP (4-aligned, < ceiling)
  *   kernel stack       = 0x80000+  -> 64 KiB gap below it; no collision
@@ -43,9 +47,19 @@
 #define PROGRAM_IMAGE       0x00020100u
 
 /* Flat linear address of the minimal environment block (two bytes: 00 00 = the
- * empty-but-valid environment). env_seg in the PSP stores (this >> 4) = 0x2020.
- * Ref Sec 2.7 / Sec 3.2. */
-#define ENV_BLOCK           0x00020200u
+ * empty-but-valid environment). env_seg in the PSP stores (this >> 4) = 0x5F00.
+ *
+ * RELOCATED 0x20200 -> 0x5F000 (beads initech-2og; LOCKED-spec change, Rule 8 --
+ * deliberate, with that issue + worklog note). The OLD value 0x20200 = PROGRAM_
+ * IMAGE (0x20100) + 0x100 sat INSIDE the program image: load_program() copies the
+ * whole .COM to 0x20100 and THEN wrote the 2-byte env at 0x20200, silently zeroing
+ * the program's own bytes at file offset 0x100 for ANY image > 256 bytes (a
+ * deterministic 2-byte corruption -- reads as NUL). The env now lives in a
+ * dedicated region (0x5F000..0x60000) just BELOW the program stack (PROGRAM_STACK_
+ * BOT = 0x60000) and ABOVE the largest image (PROGRAM_IMAGE_MAX now ends at
+ * ENV_BLOCK), so it can never overlap the image or the stack. Room (~4 KiB) for a
+ * real PATH/COMSPEC environment later (beads atf). Ref Sec 2.7 / Sec 3.2. */
+#define ENV_BLOCK           0x0005F000u
 
 /* Two bytes: a double-NUL = an empty (but valid) DOS environment block. A
  * program walking env_seg:0 immediately finds the terminator. Ref Sec 2.7. */
@@ -64,10 +78,14 @@
  * to touch it -- the stack descends from PROGRAM_STACK_TOP). Ref Sec 3.2. */
 #define PROGRAM_STACK_BOT   0x00060000u
 
-/* The largest program image that fits between PROGRAM_IMAGE and the bottom of
- * the program stack region. The loader rejects (fail loud, Rule 2) any image
- * larger than this. = PROGRAM_STACK_BOT - PROGRAM_IMAGE. */
-#define PROGRAM_IMAGE_MAX   (PROGRAM_STACK_BOT - PROGRAM_IMAGE)
+/* The largest program image that fits between PROGRAM_IMAGE and the dedicated
+ * environment region (ENV_BLOCK, just below the program stack). The loader
+ * rejects (fail loud, Rule 2) any image larger than this, so the image can never
+ * reach the env block or the stack. = ENV_BLOCK - PROGRAM_IMAGE (beads
+ * initech-2og: was PROGRAM_STACK_BOT - PROGRAM_IMAGE, before the env moved out of
+ * the image arena). The env region 0x5F000..0x60000 sits between the max image
+ * and PROGRAM_STACK_BOT (0x60000). */
+#define PROGRAM_IMAGE_MAX   (ENV_BLOCK - PROGRAM_IMAGE)
 
 /* ------------------------------------------------------------------------ *
  * FAT-sourced program load staging (beads initech-saw; multi-tenant file I/O

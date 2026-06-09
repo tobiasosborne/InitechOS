@@ -53,6 +53,57 @@ static void bind_standard_process(void)
     int21_set_psp(&g_test_psp);
 }
 
+/* ---- CLOCK mock (beads initech-yv9) ---------------------------------------
+ * A fixed wall-clock the GET DATE/TIME functions read, and a settable sink the
+ * SET DATE/TIME functions write -- so the dispatch + register-packing logic is
+ * tested HOSTED with no RTC. Pinned to 2026-06-09 12:34:56 (a Tuesday, DOW=2),
+ * the SAME instant the in-emulator test-datetime pins via qemu -rtc base. */
+static uint16_t g_mock_year   = 2026u;
+static uint8_t  g_mock_month  = 6u, g_mock_day = 9u;
+static uint8_t  g_mock_hour   = 12u, g_mock_min = 34u, g_mock_sec = 56u;
+static uint8_t  g_mock_dow    = 2u;  /* Tuesday */
+static int      g_mock_set_calls = 0;
+static uint8_t  g_mock_last_which = 0u;
+
+static int mock_clock_get(uint16_t *y, uint8_t *mo, uint8_t *d,
+                          uint8_t *h, uint8_t *mi, uint8_t *s, uint8_t *dow)
+{
+    *y = g_mock_year; *mo = g_mock_month; *d = g_mock_day;
+    *h = g_mock_hour; *mi = g_mock_min;   *s = g_mock_sec; *dow = g_mock_dow;
+    return 1;
+}
+static int mock_clock_set(uint16_t y, uint8_t mo, uint8_t d,
+                          uint8_t h, uint8_t mi, uint8_t s, uint8_t which)
+{
+    /* Range-check exactly as the real RTC encode would (so SET DATE with an
+     * invalid month returns AL=0xFF). */
+    if (mo < 1u || mo > 12u || d < 1u || d > 31u ||
+        h > 23u || mi > 59u || s > 59u) {
+        return 0;
+    }
+    g_mock_set_calls++;
+    g_mock_last_which = which;
+    if (which & INT21_CLOCK_SET_DATE) {
+        g_mock_year = y; g_mock_month = mo; g_mock_day = d;
+        g_mock_dow = 0u;   /* the real path re-derives DOW on read */
+    }
+    if (which & INT21_CLOCK_SET_TIME) {
+        g_mock_hour = h; g_mock_min = mi; g_mock_sec = s;
+    }
+    return 1;
+}
+
+/* ---- FREESPACE mock (AH=36h) ---------------------------------------------- */
+static uint16_t mock_freespace(uint16_t *spc, uint16_t *bps,
+                               uint16_t *total, uint16_t *freec)
+{
+    *spc = 1u; *bps = 512u; *total = 2847u; *freec = 2840u;
+    return 0u;
+}
+static const int21_file_backend_t g_space_backend = {
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, mock_freespace
+};
+
 /* The dispatcher reads EDX as a FLAT 32-bit linear address (uint32_t). On a
  * 64-bit host a stack/heap pointer does NOT fit in uint32_t, so any buffer the
  * test hands via EDX must live in the low 4 GiB. Mirror test_console.c's
@@ -366,6 +417,185 @@ int main(void)
         CHECK(g_sink_len > 0, "listed-but-deferred AH must emit a diagnostic");
         CHECK(strstr(sink_str(), "not-yet-impl") != NULL,
               "listed-but-deferred AH says not-yet-impl, distinct from unknown");
+    }
+
+    /* ======================================================================
+     * Resident query functions (beads initech-yv9): SELDISK/GETDISK, DATE/TIME
+     * (via the clock mock), GET DISK FREE SPACE, GET CWD, GET EXTENDED ERROR,
+     * GET PSP. These exercise the dispatch + the 16-bit register packing.
+     * ==================================================================== */
+    int21_set_clock(mock_clock_get, mock_clock_set);
+
+    /* AH=0Eh SELECT DISK: AL = number of logical drives = 1 (A: only). */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0E00u;
+        f.edx = 0u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=0Eh SELDISK clears CF");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 1u, "AH=0Eh returns AL=1 (drive count)");
+    }
+
+    /* AH=19h GET CURRENT DISK: AL = 0 (A:). */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x1900u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=19h GETDISK clears CF");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0u, "AH=19h returns AL=0 (A:)");
+    }
+
+    /* AH=2Ah GET DATE: CX=year, DH=month, DL=day, AL=DOW (from the clock mock). */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x2A00u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=2Ah GET DATE clears CF");
+        CHECK((uint16_t)(f.ecx & 0xFFFFu) == 2026u, "AH=2Ah CX=year 2026");
+        CHECK((uint8_t)((f.edx >> 8) & 0xFFu) == 6u, "AH=2Ah DH=month 6");
+        CHECK((uint8_t)(f.edx & 0xFFu) == 9u, "AH=2Ah DL=day 9");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 2u, "AH=2Ah AL=DOW 2 (Tuesday)");
+    }
+
+    /* AH=2Ch GET TIME: CH=hour, CL=min, DH=sec, DL=0 (1s resolution). */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x2C00u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=2Ch GET TIME clears CF");
+        CHECK((uint8_t)((f.ecx >> 8) & 0xFFu) == 12u, "AH=2Ch CH=hour 12");
+        CHECK((uint8_t)(f.ecx & 0xFFu) == 34u, "AH=2Ch CL=min 34");
+        CHECK((uint8_t)((f.edx >> 8) & 0xFFu) == 56u, "AH=2Ch DH=sec 56");
+        CHECK((uint8_t)(f.edx & 0xFFu) == 0u, "AH=2Ch DL=centisec 0 (1s resolution)");
+    }
+
+    /* AH=2Bh SET DATE: valid date -> AL=0; the mock records SET_DATE only. */
+    {
+        g_mock_set_calls = 0;
+        int_frame_t f = fresh_frame();
+        f.eax = 0x2B00u;
+        f.ecx = 1999u;                          /* year */
+        f.edx = ((uint32_t)12u << 8) | 25u;     /* DH=Dec, DL=25 */
+        int21_dispatch(&f);
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0u, "AH=2Bh valid SET DATE -> AL=0");
+        CHECK(g_mock_set_calls == 1, "AH=2Bh calls the clock set once");
+        CHECK(g_mock_last_which == INT21_CLOCK_SET_DATE,
+              "AH=2Bh sets ONLY the date (time preserved)");
+        CHECK(g_mock_year == 1999u && g_mock_month == 12u && g_mock_day == 25u,
+              "AH=2Bh wrote the date through to the clock");
+        CHECK(g_mock_hour == 12u && g_mock_min == 34u && g_mock_sec == 56u,
+              "AH=2Bh did NOT disturb the time");
+    }
+
+    /* AH=2Bh SET DATE: invalid month -> AL=0xFF. */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x2B00u;
+        f.ecx = 2026u;
+        f.edx = ((uint32_t)13u << 8) | 1u;      /* month 13 = invalid */
+        int21_dispatch(&f);
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0xFFu, "AH=2Bh invalid month -> AL=0xFF");
+    }
+
+    /* AH=2Dh SET TIME: valid -> AL=0; SET_TIME only (date preserved). */
+    {
+        g_mock_set_calls = 0;
+        int_frame_t f = fresh_frame();
+        f.eax = 0x2D00u;
+        f.ecx = ((uint32_t)8u << 8) | 15u;      /* CH=8, CL=15 */
+        f.edx = ((uint32_t)30u << 8) | 0u;      /* DH=30 sec */
+        int21_dispatch(&f);
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0u, "AH=2Dh valid SET TIME -> AL=0");
+        CHECK(g_mock_last_which == INT21_CLOCK_SET_TIME,
+              "AH=2Dh sets ONLY the time (date preserved)");
+        CHECK(g_mock_hour == 8u && g_mock_min == 15u && g_mock_sec == 30u,
+              "AH=2Dh wrote the time through to the clock");
+        CHECK(g_mock_year == 1999u && g_mock_month == 12u && g_mock_day == 25u,
+              "AH=2Dh did NOT disturb the date");
+    }
+
+    /* AH=36h GET DISK FREE SPACE: AX=spc, BX=free, CX=bps, DX=total. */
+    {
+        int21_set_file_backend(&g_space_backend);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3600u;
+        f.edx = 1u;                             /* DL=1 -> A: */
+        int21_dispatch(&f);
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == 1u, "AH=36h AX=sectors/cluster 1");
+        CHECK((uint16_t)(f.ebx & 0xFFFFu) == 2840u, "AH=36h BX=free clusters 2840");
+        CHECK((uint16_t)(f.ecx & 0xFFFFu) == 512u, "AH=36h CX=bytes/sector 512");
+        CHECK((uint16_t)(f.edx & 0xFFFFu) == 2847u, "AH=36h DX=total clusters 2847");
+    }
+
+    /* AH=36h invalid drive -> AX=0xFFFF. */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3600u;
+        f.edx = 9u;                             /* DL=9 -> no such drive */
+        int21_dispatch(&f);
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == 0xFFFFu,
+              "AH=36h bad drive -> AX=0xFFFF");
+    }
+
+    /* AH=47h GET CWD: fills the DS:SI (ESI) buffer with the root path (empty). */
+    {
+        char *buf = (char *)alloc_low(64);
+        CHECK(buf != NULL, "AH=47h CWD buffer in low 4 GiB");
+        if (buf) {
+            buf[0] = 'X';   /* poison so we can prove it was written */
+            int_frame_t f = fresh_frame();
+            f.eax = 0x4700u;
+            f.edx = 1u;                         /* DL=1 -> A: */
+            f.esi = (uint32_t)(uintptr_t)buf;
+            int21_dispatch(&f);
+            CHECK(frame_cf(&f) == 0, "AH=47h GET CWD clears CF");
+            CHECK(buf[0] == '\0', "AH=47h root CWD is an empty string");
+        }
+    }
+
+    /* AH=47h invalid drive -> CF set, AX=0x000F. */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4700u;
+        f.edx = 7u;
+        f.esi = 0u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=47h bad drive sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == 0x000Fu, "AH=47h bad drive AX=0x000F");
+    }
+
+    /* AH=59h GET EXTENDED ERROR: seed a known error, query the triple. */
+    {
+        int21_note_error(INT21_ERR_FILE_NOT_FOUND);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x5900u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=59h clears CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
+              "AH=59h AX=last error (file-not-found)");
+        CHECK((uint8_t)((f.ebx >> 8) & 0xFFu) == 0x08u, "AH=59h BH=class NOT_FOUND");
+        CHECK((uint8_t)(f.ebx & 0xFFu) != 0u, "AH=59h BL=action nonzero");
+        CHECK((uint8_t)((f.ecx >> 8) & 0xFFu) != 0u, "AH=59h CH=locus nonzero");
+    }
+    {
+        /* No-error path: clear it and confirm AX=0, class=0. */
+        int21_note_error(0u);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x5900u;
+        int21_dispatch(&f);
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == 0u, "AH=59h AX=0 when no error");
+        CHECK((uint8_t)((f.ebx >> 8) & 0xFFu) == 0u, "AH=59h BH=0 when no error");
+    }
+
+    /* AH=62h GET PSP: BX = (PSP flat addr >> 4), nonzero with a bound PSP. */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x6200u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=62h clears CF");
+        uint16_t want = (uint16_t)(((uintptr_t)&g_test_psp >> 4) & 0xFFFFu);
+        CHECK((uint16_t)(f.ebx & 0xFFFFu) == want,
+              "AH=62h BX = current PSP paragraph");
     }
 
     /* --- CF propagation, explicit: success path must CLEAR a preset CF and

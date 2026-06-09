@@ -42,6 +42,9 @@ static void usage(const char *argv0)
         "                     wait for MARK on serial before the --screendump\n"
         "                     grab (the guest signals paint-complete); the\n"
         "                     wall-clock timeout stays the hard backstop\n"
+        "  --rtc-base ISO     pin the guest RTC to a fixed instant via\n"
+        "                     `-rtc base=ISO` (e.g. 2026-06-09T12:34:56) so the\n"
+        "                     clock oracle is deterministic\n"
         "  --gdb              add -s -S (gdb stub on :1234, halted)\n"
         "  --timeout-ms N     wall-clock kill deadline (default %d)\n"
         "  --name LABEL       output filename label (default \"qemu\")\n"
@@ -89,6 +92,9 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--screendump-after") == 0) {
             NEED_ARG();
             cfg.screendump_after = argv[++i];
+        } else if (strcmp(a, "--rtc-base") == 0) {
+            NEED_ARG();
+            cfg.rtc_base = argv[++i];
         } else if (strcmp(a, "--gdb") == 0) {
             cfg.enable_gdb = true;
         } else if (strcmp(a, "--timeout-ms") == 0) {

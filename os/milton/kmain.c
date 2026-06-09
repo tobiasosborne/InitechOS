@@ -36,6 +36,7 @@
 #include "fileio_fat.h"  /* bind the FAT12 file backend into int21 (509.5) */
 #include "kbd.h"         /* PS/2 keyboard IRQ1 driver (initech-3rs) */
 #include "pit.h"         /* 8254 PIT IRQ0 tick (initech-3rs) */
+#include "rtc.h"         /* MC146818 RTC clock source (initech-yv9) */
 #include "command.h"     /* COMMAND.COM REPL (initech-7pc); BOOT_SHELL only */
 #include "sysinit.h"     /* SYSINIT named bring-up phases (beads initech-509.2) */
 
@@ -226,6 +227,45 @@ static int int21_conin_get_kbd(void)
 static int int21_conin_poll_kbd(void)
 {
     return kbd_getchar();   /* non-blocking: char 0..255 or -1 if the ring is empty */
+}
+
+/* ---- INT 21h CLOCK source wiring (beads initech-yv9) ----------------------
+ * The dispatcher (int21.c) reads/writes the wall clock through a CLOCK seam it
+ * binds via int21_set_clock. The kernel binds the live MC146818 RTC (rtc.c,
+ * ports 0x70/0x71). This glue lives here so int21.c stays free of port I/O and
+ * compiles hosted (Law 3). The seam exchanges flat fields (not rtc_time_t) so
+ * int21.c need not include rtc.h. */
+static int int21_clock_get_rtc(uint16_t *year, uint8_t *month, uint8_t *day,
+                               uint8_t *hour, uint8_t *minute, uint8_t *second,
+                               uint8_t *dow)
+{
+    rtc_time_t t;
+    if (!rtc_now(&t)) {
+        return 0;   /* RTC unreadable -> int21 falls back to the DOS epoch */
+    }
+    *year   = t.year;
+    *month  = t.month;
+    *day    = t.day;
+    *hour   = t.hour;
+    *minute = t.minute;
+    *second = t.second;
+    *dow    = t.day_of_week;
+    return 1;
+}
+
+static int int21_clock_set_rtc(uint16_t year, uint8_t month, uint8_t day,
+                               uint8_t hour, uint8_t minute, uint8_t second,
+                               uint8_t which)
+{
+    rtc_time_t t;
+    t.year = year; t.month = month; t.day = day;
+    t.hour = hour; t.minute = minute; t.second = second; t.day_of_week = 0u;
+    /* Translate the int21 SET mask to the rtc mask (same bit layout, but keep
+     * them decoupled). */
+    uint8_t rmask = 0u;
+    if (which & INT21_CLOCK_SET_DATE) rmask |= RTC_SET_DATE;
+    if (which & INT21_CLOCK_SET_TIME) rmask |= RTC_SET_TIME;
+    return rtc_set(&t, rmask);
 }
 
 /* Issue AH=09h DISPLAY STRING via a literal `int 0x21`: EDX = flat ptr to a
@@ -614,6 +654,14 @@ void kernel_main(void)
     serial_puts("FAT-MOUNT-END\n");
     (void)mounted;
 
+    /* Bind the INT 21h CLOCK source to the live MC146818 RTC (beads
+     * initech-yv9). Polled CMOS reads (ports 0x70/0x71) -- NO IRQ dependency, so
+     * we bind it HERE (before any baked program runs) rather than near the late
+     * conin bind. From here AH=2Ah/2Bh/2Ch/2Dh read + set the real RTC; under the
+     * harness's pinned `-rtc base` the readings are deterministic. */
+    int21_set_clock(int21_clock_get_rtc, int21_clock_set_rtc);
+    serial_puts("CLOCK-LIVE\n");
+
     /* SYSINIT PHASE 2 -- CONFIG.SYS apply (beads initech-509.2). THE hook point:
      * after the FAT volume is mounted + bound (so CONFIG.SYS can be read off it)
      * and BEFORE any program loads (so the FILES= cap is in force for the demos +
@@ -758,6 +806,21 @@ void kernel_main(void)
     serial_puts("MULTIOPEN-OUTPUT-END\n");
 #endif
 
+#ifdef BOOT_DATETIME
+    /* DATE/TIME + FREE-SPACE + PSP capability self-test (beads initech-yv9; make
+     * test-datetime). Only in the -DBOOT_DATETIME image so the normal boot is
+     * unchanged. The harness boots this with a PINNED RTC (-rtc base=
+     * 2026-06-09T12:34:56) and a FAT12 data disk on --disk2. The baked program
+     * issues AH=2Ah GET DATE, AH=2Ch GET TIME, AH=36h GET DISK FREE SPACE, and
+     * AH=62h GET PSP and writes the decoded results to serial. The harness
+     * asserts the EXACT pinned date (2026-06-09, Tuesday) + time (12:34:56) +
+     * free space > 0 + PSP nonzero. The CLOCK seam is already bound (CLOCK-LIVE)
+     * above, so AH=2Ah/2Ch read the real (pinned) MC146818 RTC. */
+    serial_puts("DATETIME-OUTPUT-BEGIN\n");
+    run_baked("DATETIME", g_datetime_prog_image, g_datetime_prog_image_len);
+    serial_puts("DATETIME-OUTPUT-END\n");
+#endif
+
 #ifdef BOOT_EXITH
     /* EXIT-HANDLE TEARDOWN self-test (beads initech-6hk; epic initech-6qy; make
      * test-exit-handles). Only in the -DBOOT_EXITH image so the normal boot is
@@ -870,6 +933,8 @@ void kernel_main(void)
      * IRQ1. From here, AH=01h/06h/07h/08h/0Ah/0Bh/0Ch read real keystrokes. */
     int21_set_conin(int21_conin_get_kbd, int21_conin_poll_kbd);
     serial_puts("CONIN-LIVE\n");
+    /* (The CLOCK source was bound earlier, right after FAT-MOUNT-END -- it has no
+     * IRQ dependency, beads initech-yv9.) */
 
 #ifdef BOOT_KBD_ECHO
     /* ECHO SELF-TEST BUILD ONLY (beads initech-3rs / initech-43b; make

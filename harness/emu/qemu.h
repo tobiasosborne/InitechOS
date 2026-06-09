@@ -104,6 +104,15 @@ typedef struct {
      * painted still fails HONESTLY (Law 2 -- fail loud, never false-green nor
      * hang). NULL => legacy immediate-dump behaviour. */
     const char *screendump_after; /* serial marker to wait for, or NULL.     */
+
+    /* Pinned RTC base (beads initech-yv9). When non-NULL, the harness passes
+     * `-rtc base=<rtc_base>` to QEMU so the guest's emulated MC146818 RTC starts
+     * at a FIXED, KNOWN wall-clock instant instead of host time. REQUIRED for the
+     * clock oracle (test-datetime): without it the guest reads nondeterministic
+     * host time and the date/time assertions cannot be deterministic (Rule 11).
+     * Format is QEMU's: an ISO timestamp like "2026-06-09T12:34:56" (UTC; QEMU's
+     * default clock=host means the base is taken as the guest's wall clock). */
+    const char *rtc_base;      /* "-rtc base=<this>", or NULL for host time.  */
 } QemuConfig;
 
 /* Default wall-clock timeout if config->timeout_ms <= 0. */

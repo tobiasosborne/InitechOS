@@ -258,6 +258,46 @@ static uint16_t fat_unlink(const char *name83)
     return 0u;
 }
 
+/* FREESPACE (AH=36h GET DISK FREE SPACE): report the volume geometry + free
+ * clusters. Walk the cached whole-FAT (g_fat) once, decoding each data cluster's
+ * 12-bit entry and counting the free (0x000) ones. The geometry comes from the
+ * mounted BPB / derived volume fields. All four out-values are clamped to 16 bits
+ * (the AH=36h registers are 16-bit); a 1.44 MB FAT12 has 2847 data clusters and
+ * 512-byte sectors so nothing overflows. Returns 0 on success, non-zero with no
+ * volume mounted. Ref (Law 1): Microsoft FAT spec (free=0x000); DOS 3.3 PRM
+ * AH=36h; os/milton/fat12.h (fat12_next_cluster / fat12_is_free). */
+static uint16_t fat_freespace(uint16_t *out_spc, uint16_t *out_bps,
+                              uint16_t *out_total_clus, uint16_t *out_free_clus)
+{
+    if (g_vol == 0 || g_fat_len == 0u) {
+        return 1u;   /* no volume mounted -> invalid drive (AX=0xFFFF) */
+    }
+
+    uint32_t total = g_vol->total_clusters;
+    uint32_t freec = 0u;
+
+    /* Data clusters are numbered 2 .. (total_clusters + 1). Decode each FAT
+     * entry; count the free ones. fat12_next_cluster returns the raw 12-bit
+     * value; fat12_is_free tests == 0x000. */
+    for (uint32_t c = FAT12_FIRST_DATA_CLUSTER;
+         c < FAT12_FIRST_DATA_CLUSTER + total; c++) {
+        uint16_t v = 0u;
+        int rc = fat12_next_cluster(g_vol, g_fat, g_fat_len, (uint16_t)c, &v);
+        if (rc != FAT12_OK) {
+            return 1u;   /* a decode error -> fail loud (Rule 2) */
+        }
+        if (fat12_is_free(v)) {
+            freec++;
+        }
+    }
+
+    *out_spc        = (uint16_t)g_vol->bpb.sectors_per_cluster;
+    *out_bps        = (uint16_t)g_vol->bpb.bytes_per_sector;
+    *out_total_clus = (uint16_t)(total & 0xFFFFu);
+    *out_free_clus  = (uint16_t)(freec & 0xFFFFu);
+    return 0u;
+}
+
 static const int21_file_backend_t g_fat_backend = {
     fat_open,
     fat_read_at,
@@ -265,7 +305,8 @@ static const int21_file_backend_t g_fat_backend = {
     fat_create,
     fat_write_at,
     fat_close,
-    fat_unlink
+    fat_unlink,
+    fat_freespace
 };
 
 /* ------------------------------------------------------------------------ *

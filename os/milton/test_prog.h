@@ -58,4 +58,11 @@ extern const uint32_t g_multiopen_prog_image_len;
 extern const uint8_t  g_irqstorm_prog_image[];
 extern const uint32_t g_irqstorm_prog_image_len;
 
+/* The baked DATE/TIME program (AH=2Ah GET DATE + AH=2Ch GET TIME + AH=36h GET
+ * DISK FREE SPACE + AH=62h GET PSP, results to serial; beads initech-yv9).
+ * Generated from os/milton/datetime_program.asm. Run only in the -DBOOT_DATETIME
+ * self-test image (make test-datetime), booted with a PINNED RTC (-rtc base). */
+extern const uint8_t  g_datetime_prog_image[];
+extern const uint32_t g_datetime_prog_image_len;
+
 #endif /* INITECH_TEST_PROG_H */
