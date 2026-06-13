@@ -118,7 +118,18 @@ static void fb_clear(const boot_info_t *bi, uint8_t r, uint8_t g, uint8_t b)
 {
     uint32_t total = bi->lfb_pitch * bi->lfb_height; /* bytes, incl. padding */
 
-    if (bi->lfb_bpp == 32) {
+    if (bi->lfb_bpp == 8) {
+        /* Mode 0x13 fallback (initech-6pj): 1 byte/pixel = a palette INDEX. The
+         * paletted framebuffer cannot encode an arbitrary (r,g,b); we fill with
+         * the console background index, which the kernel maps to seafoam in the
+         * VGA DAC (vga_set_dac). The (r,g,b) request is honored only on the
+         * direct-color VBE paths below. */
+        volatile uint8_t *fb = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
+        (void)r; (void)g; (void)b;
+        for (uint32_t i = 0; i < total; i++) {
+            fb[i] = (uint8_t)CONSOLE_BG_IDX;
+        }
+    } else if (bi->lfb_bpp == 32) {
         /* 32bpp pixel = 0x00RRGGBB (XRGB8888; X/alpha byte = 0). */
         uint32_t px = ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
         volatile uint32_t *fb = (volatile uint32_t *)(uintptr_t)bi->lfb_addr;
@@ -136,6 +147,20 @@ static void fb_clear(const boot_info_t *bi, uint8_t r, uint8_t g, uint8_t b)
             fb[i * 3u + 2u] = r;
         }
     }
+}
+
+/* vga_set_dac -- program one VGA DAC palette register (mode 0x13 fallback,
+ * initech-6pj). In the paletted standard-VGA mode the console writes palette
+ * INDICES, so the kernel maps CONSOLE_BG_IDX -> seafoam and CONSOLE_FG_IDX ->
+ * light-gray ink here. The DAC is 6 bits/channel (0..63), so 8-bit RGB is
+ * >> 2. Ports: 0x3C8 = write-index, 0x3C9 = R,G,B data in succession. The
+ * direct-color VBE 24/32bpp paths need no palette and never call this. */
+static void vga_set_dac(uint8_t index, uint8_t r, uint8_t g, uint8_t b)
+{
+    outb(0x3C8, index);
+    outb(0x3C9, (uint8_t)(r >> 2));
+    outb(0x3C9, (uint8_t)(g >> 2));
+    outb(0x3C9, (uint8_t)(b >> 2));
 }
 
 /* Emit a signed decimal (for FAT-MOUNT-FAIL rc=NN, which carries a negative
@@ -469,7 +494,7 @@ void kernel_main(void)
      * the screendump still captures). Emit BI-OK on success, or BI-BAD + the
      * offending value so a wrong field is diagnosable on serial. */
     int ok = 1;
-    if (!(b.lfb_bpp == 24 || b.lfb_bpp == 32)) {
+    if (!(b.lfb_bpp == 8 || b.lfb_bpp == 24 || b.lfb_bpp == 32)) {
         serial_puts("BI-BAD bpp=");   serial_putu(b.lfb_bpp);    serial_putc('\n');
         ok = 0;
     }
@@ -477,12 +502,12 @@ void kernel_main(void)
         serial_puts("BI-BAD addr=0\n");
         ok = 0;
     }
-    if (b.lfb_width != 640) {
-        serial_puts("BI-BAD width="); serial_putu(b.lfb_width);  serial_putc('\n');
-        ok = 0;
-    }
-    if (b.lfb_height != 480) {
-        serial_puts("BI-BAD height=");serial_putu(b.lfb_height); serial_putc('\n');
+    /* Two valid geometries: the 640x480 VBE LFB (QEMU / real VESA) or the
+     * 320x200 standard-VGA mode-0x13 fallback (initech-6pj; e.g. Bochs). */
+    if (!((b.lfb_width == 640 && b.lfb_height == 480) ||
+          (b.lfb_width == 320 && b.lfb_height == 200))) {
+        serial_puts("BI-BAD geom w="); serial_putu(b.lfb_width);
+        serial_puts(" h=");            serial_putu(b.lfb_height); serial_putc('\n');
         ok = 0;
     }
     if (ok) {
@@ -510,6 +535,16 @@ void kernel_main(void)
     idt_install_trap(0x80u, (void *)isr_selftest);
     __asm__ __volatile__("int $0x80");
     serial_puts("IDT-RESUMED\n");
+
+    /* Mode 0x13 fallback (initech-6pj): the framebuffer is paletted, so map the
+     * console's two indices -- CONSOLE_BG_IDX -> seafoam, CONSOLE_FG_IDX ->
+     * light gray (0xC0, matching console.c CONSOLE_FG_*) -- in the VGA DAC
+     * BEFORE any fill or glyph blit. The direct-color VBE 24/32bpp paths skip
+     * this. */
+    if (b.lfb_bpp == 8) {
+        vga_set_dac((uint8_t)CONSOLE_BG_IDX, SEAFOAM_R, SEAFOAM_G, SEAFOAM_B);
+        vga_set_dac((uint8_t)CONSOLE_FG_IDX, 0xC0, 0xC0, 0xC0);
+    }
 
     /* CONSTRAINT (initech-d00): the C kernel's first drawing act re-paints the
      * LFB seafoam so test-tracer-boot's screendump assertion still passes --
