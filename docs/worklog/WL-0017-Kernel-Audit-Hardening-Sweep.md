@@ -1,8 +1,8 @@
-# WL-0017 -- Kernel audit + hardening sweep (initech-bcg.1..9, .11)
+# WL-0017 -- Kernel audit + hardening sweep (initech-bcg.1..11)
 
 Epic: **initech-bcg** ("Kernel hardening: robustness, fuzzing, edge-cases,
 dual/tri-emulator"). This shard covers a grounded audit of the whole InitechDOS
-kernel and the first 10 fixes it produced. Branch: `command-com-default`.
+kernel and the first 11 fixes it produced. Branch: `command-com-default`.
 
 ## Context
 
@@ -23,7 +23,7 @@ an adversarial refute pass on every finding (Law 2).
 - The 40 confirmed defects were filed as `initech-bcg.1`..`bcg.14` (+ `bcg.15`
   split out), bugs-first by severity.
 
-## What changed (10 fixes, each its own commit)
+## What changed (11 fixes, each its own commit)
 
 Each fix: RED -> GREEN -> mutation-proven -> full `make test` -> committed.
 
@@ -54,6 +54,14 @@ Each fix: RED -> GREEN -> mutation-proven -> full `make test` -> committed.
 - **bcg.11 (P2)** `console.c`: degenerate geometry accepted (pitch==0 aliased
   scanlines, pitch<width*bpp overran). `CONSOLE_ERR_GEOMETRY` guard + padded-
   pitch coverage test.
+- **bcg.10 (P2)** `loader.c`: the entry asm did `jmp *entry_eip` (memory operand)
+  AFTER switching ESP -- correct only at -O0 with a frame pointer; at -O2 /
+  -fomit-frame-pointer the local goes ESP-relative and the jump would read the
+  switched PROGRAM stack. Load the target into EAX BEFORE the switch and jmp via
+  register. Demonstrated RED->GREEN by building loader.c at -O2 -fomit-frame-
+  pointer (pre-fix: GREET.COM never runs; fixed: passes); no -O0 change. When the
+  build moves to -O2/i686-elf (initech-6pm, CDR-0001) test-exec becomes the
+  standing -O2 gate and now stays green.
 
 ## Why this shape
 
@@ -76,11 +84,8 @@ oracle-gated. Parallelism lived in the audit, not the edits.
 - New gates mutation-proven; new error codes `FAT12_ERR_UNSUPPORTED`,
   `CONSOLE_ERR_GEOMETRY`.
 
-## Pointers / remaining (initech-bcg children still open)
+## Pointers / remaining (initech-bcg children still open: 12, 13, 14, 15)
 
-- **bcg.10** loader entry-asm reads the jump target via a memory operand after
-  the ESP switch (latent; only bites at -O2/-fomit-frame-pointer). Fix: load
-  entry_eip into a register before the switch; oracle needs an -O2 EXEC build.
 - **bcg.12** ata.c fail-loud/error/write branches have no oracle; +BSY/DRDY
   before command; error codes collapsed. Needs boot-without-disk + corrupt-image
   emu infra.
