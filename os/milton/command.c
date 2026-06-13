@@ -87,6 +87,7 @@ void cmd_parse(const char *line, cmd_line_t *out)
     /* Defensive init (Rule 2): never leave the output uninitialized. */
     out->command[0] = '\0';
     out->arg[0]     = '\0';
+    out->tail[0]    = '\0';
     out->kind       = CMD_EMPTY;
 
     if (line == 0) {
@@ -118,6 +119,19 @@ void cmd_parse(const char *line, cmd_line_t *out)
      * not bleed into arg (it is already a non-recognized command anyway). */
     while (*p && !is_space(*p)) {
         p++;
+    }
+
+    /* DOS command tail (initech-456): capture the verbatim remainder -- INCLUDING
+     * the leading separator space(s) -- BEFORE arg's leading-space trim below.
+     * This is exactly what real DOS copies to the child PSP:80h. `arg` stays the
+     * trimmed form the builtins want; `tail` is what an EXEC'd child reads. */
+    {
+        int t = 0;
+        const char *q = p;
+        while (*q && t < CMD_LINE_MAX - 1) {
+            out->tail[t++] = *q++;
+        }
+        out->tail[t] = '\0';
     }
 
     while (is_space(*p)) {           /* skip the spaces after the command */
@@ -395,17 +409,39 @@ static void dos_close(int handle)
         : "cc", "memory");
 }
 
-/* AH=4Bh EXEC (AL=00 load+execute): EDX -> ASCIIZ program path. Returns 0 on a
- * clean run (CF clear), or the DOS error code (CF set; e.g. 0x0002 not found). */
-static uint16_t dos_exec(const char *path)
+/* AH=4Bh EXEC (AL=00 load+execute): EDX -> ASCIIZ program path, EBX -> the EXEC
+ * parameter block (exec_param_block_t). `tail` is the verbatim DOS command tail
+ * (leading separator + args, or "" / NULL for none); we frame it as the DOS
+ * {count, text, CR} block the child reads at PSP:80h (initech-456). Returns 0 on
+ * a clean run (CF clear), or the DOS error code (CF set; e.g. 0x0002 not found). */
+static uint16_t dos_exec(const char *path, const char *tail)
 {
+    /* DOS-format command tail: byte0 = count, bytes1..count = text, then CR.
+     * Clamp the text to the PSP cmd_tail capacity (psp_build clamps again). */
+    uint8_t tailblk[1u + CMD_LINE_MAX + 1u];
+    uint32_t n = 0;
+    if (tail != 0) {
+        while (tail[n] != '\0' && n < CMD_LINE_MAX) {
+            tailblk[1u + n] = (uint8_t)tail[n];
+            n++;
+        }
+    }
+    tailblk[0]      = (uint8_t)n;     /* count of text chars (n <= 128)           */
+    tailblk[1u + n] = 0x0Du;          /* CR terminator (real-DOS PSP:80h)         */
+
+    exec_param_block_t blk;
+    blk.env_block = 0u;               /* inherit (no env block yet)               */
+    blk.cmd_tail  = (uint32_t)(uintptr_t)tailblk;
+    blk.fcb1      = 0u;
+    blk.fcb2      = 0u;
+
     uint32_t ax = 0x4B00u;
     uint32_t carry = 0;
     __asm__ __volatile__(
         "int $0x21\n\t"
         "sbb %1, %1"
         : "+a"(ax), "=r"(carry)
-        : "d"((uint32_t)(uintptr_t)path)
+        : "d"((uint32_t)(uintptr_t)path), "b"((uint32_t)(uintptr_t)&blk)
         : "cc", "memory");
     if (carry != 0u) {
         return (uint16_t)(ax & 0xFFFFu);
@@ -581,12 +617,10 @@ static void builtin_echo(const char *arg)
 /* External command: append .COM (if no extension), upcase, AH=4Bh EXEC. On a
  * not-found / load failure => the controlled "Bad command or file name". On a
  * clean run control simply returns to the prompt. */
-static void run_external(const char *command, const char *arg)
+static void run_external(const char *command, const char *tail)
 {
-    char name[CMD_TOKEN_MAX];
     char prog[CMD_TOKEN_MAX];
     uint16_t err;
-    (void)arg;   /* command-tail args to the child are deferred (no PSP tail yet) */
 
     /* `command` is already upper-cased by cmd_parse. Append .COM if needed. */
     if (!cmd_append_com(command, prog)) {
@@ -594,10 +628,10 @@ static void run_external(const char *command, const char *arg)
         return;
     }
     /* Defensive: upcase again (cmd_append_com preserves what it was given). */
-    (void)name;
     cmd_upcase_str(prog);
 
-    err = dos_exec(prog);
+    /* `tail` is the verbatim DOS command tail -> the child's PSP:80h (initech-456). */
+    err = dos_exec(prog, tail);
     if (err != 0u) {
         /* Not found / bad format / nested -> the canonical DOS diagnostic. */
         dos_print(MSG_DOS_0002 "\r\n$");
@@ -674,7 +708,7 @@ void command_repl(void)
                 return;
             case CMD_EXTERNAL:
             default:
-                run_external(parsed.command, parsed.arg);
+                run_external(parsed.command, parsed.tail);
                 break;
         }
     }

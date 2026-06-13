@@ -20,6 +20,7 @@
 
 #include "int21.h"
 #include "sft.h"        /* JFT->SFT handle layer (beads initech-509.3); pulls psp.h */
+#include "dos_structs.h" /* exec_param_block_t (AH=4Bh EBX block; initech-456)      */
 #include "find_data.h"  /* find_data_t (43-byte DTA block, LOCKED; spec/) */
 #include "irq.h"        /* in-IRQ depth + reentrancy guard (beads initech-xk2) */
 #include "dos_messages.h" /* MSG_DOS_0001 controlled diagnostic (DEC-13; -Ibuild) */
@@ -1433,9 +1434,35 @@ static void do_exec(int_frame_t *f)
      * the InDOS depth is exactly the caller's level again, never drifting upward
      * across an EXEC chain (Rule 11). In the host oracle the mock g_exec simply
      * returns, so this snapshot/restore is a harmless no-op. */
+    /* Command tail (initech-456): AH=4Bh takes an EXEC parameter block in EBX
+     * (exec_param_block_t, the flat-32 analog of real DOS ES:BX). Extract the
+     * command-tail TEXT+len for the child PSP:80h; the env/FCB fields are
+     * reserved. Every level is DEC-14 user-pointer validated; an absent (EBX=0)
+     * or unreadable block degrades to a no-argument launch (count=0) rather than
+     * faulting on a legacy caller's stale EBX (Rule 2). The tail at cmd_tail is a
+     * DOS-format {count, text, CR}; we hand the loader the TEXT (cmd_tail+1) and
+     * its length, and psp_build re-frames it (count byte + CR) at PSP:80h. */
+    const char *tail_text = 0;
+    uint32_t    tail_len  = 0;
+    {
+        uint32_t pb = f->ebx;
+        if (pb != 0 && user_buf_ok(pb, (uint32_t)sizeof(exec_param_block_t))) {
+            const exec_param_block_t *blk = (const exec_param_block_t *)(uintptr_t)pb;
+            uint32_t tp = blk->cmd_tail;
+            if (tp != 0 && user_buf_ok(tp, 1u)) {
+                uint8_t count = ((const uint8_t *)(uintptr_t)tp)[0];
+                /* count text bytes + the leading count byte + the trailing CR */
+                if (user_buf_ok(tp, (uint32_t)count + 2u)) {
+                    tail_text = (const char *)(uintptr_t)(tp + 1u);
+                    tail_len  = count;
+                }
+            }
+        }
+    }
+
     uint32_t indos_snapshot = g_indos;
     uint8_t rc = 0;
-    uint16_t err = g_exec(path, &rc);
+    uint16_t err = g_exec(path, tail_text, tail_len, &rc);
     g_indos = indos_snapshot;
     if (err != 0) {
         /* Load/run failed (not found / nested / too big). Fail loud (Rule 2). */

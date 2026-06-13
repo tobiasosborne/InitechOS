@@ -55,10 +55,13 @@ typedef enum cmd_kind {
 
 /* A parsed command line: the command word (upper-cased) + the raw argument tail
  * (everything after the command word and its separating spaces, NOT upper-cased
- * -- ECHO must preserve case; TYPE/EXEC upcase the filename themselves). */
+ * -- ECHO must preserve case; TYPE/EXEC upcase the filename themselves) + the
+ * DOS command tail (the verbatim remainder INCLUDING the leading separator, what
+ * real DOS copies to the child PSP:80h for an EXEC'd program -- initech-456). */
 typedef struct cmd_line {
     char     command[CMD_TOKEN_MAX];  /* the upper-cased command word ("" if none) */
     char     arg[CMD_LINE_MAX];       /* the argument tail, verbatim (may be "")    */
+    char     tail[CMD_LINE_MAX];      /* DOS PSP:80h tail: leading sep + rest, raw  */
     cmd_kind_t kind;                  /* the classified built-in / external / empty */
 } cmd_line_t;
 

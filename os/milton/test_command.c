@@ -45,12 +45,23 @@ static void test_parse_basic(void)
     CHECK_STR_EQ(p.command, "DIR", "cmd_parse: 'dir' upper-cases to DIR");
     CHECK(p.kind == CMD_DIR, "cmd_parse: 'dir' classifies CMD_DIR");
     CHECK_STR_EQ(p.arg, "", "cmd_parse: 'dir' has no arg");
+    CHECK_STR_EQ(p.tail, "", "cmd_parse: 'dir' has an empty DOS tail (initech-456)");
 
-    /* "type hello.txt" -> command TYPE (upper), arg "hello.txt" (verbatim). */
+    /* "type hello.txt" -> command TYPE (upper), arg "hello.txt" (verbatim). The
+     * DOS tail keeps the leading separator (what a child reads at PSP:80h). */
     cmd_parse("type hello.txt", &p);
     CHECK_STR_EQ(p.command, "TYPE", "cmd_parse: 'type' upper-cases to TYPE");
     CHECK(p.kind == CMD_TYPE, "cmd_parse: 'type' classifies CMD_TYPE");
     CHECK_STR_EQ(p.arg, "hello.txt", "cmd_parse: arg preserved verbatim");
+    CHECK_STR_EQ(p.tail, " hello.txt",
+                 "cmd_parse: DOS tail keeps the leading separator (PSP:80h)");
+
+    /* The DOS tail is VERBATIM (interior spacing preserved), unlike arg which is
+     * the trimmed builtins form. "prog   a  b" -> arg "a  b", tail "   a  b". */
+    cmd_parse("prog   a  b", &p);
+    CHECK_STR_EQ(p.arg, "a  b", "cmd_parse: arg trims the leading separator");
+    CHECK_STR_EQ(p.tail, "   a  b",
+                 "cmd_parse: DOS tail preserves the original spacing verbatim");
 
     /* Leading + interior spaces are trimmed around the command word. */
     cmd_parse("   dir   ", &p);

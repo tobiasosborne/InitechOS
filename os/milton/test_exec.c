@@ -31,6 +31,7 @@
 #include <sys/mman.h>
 
 #include "int21.h"
+#include "dos_structs.h"   /* exec_param_block_t (AH=4Bh EBX block; initech-456) */
 #include "test_assert.h"
 
 TEST_HARNESS();
@@ -71,8 +72,11 @@ static int      g_exec_called;
 static char     g_exec_name[64];
 static uint16_t g_exec_result;   /* the DOS error the mock returns (0 = success) */
 static uint8_t  g_exec_child_rc; /* the child rc the mock reports on success     */
+static char     g_exec_tail[160];/* the command tail TEXT the backend received   */
+static uint32_t g_exec_tail_len; /* its length (initech-456)                     */
 
-static uint16_t exec_mock(const char *name83, uint8_t *out_rc)
+static uint16_t exec_mock(const char *name83, const char *cmd_tail,
+                          uint32_t cmd_tail_len, uint8_t *out_rc)
 {
     g_exec_called = 1;
     g_exec_name[0] = '\0';
@@ -82,6 +86,18 @@ static uint16_t exec_mock(const char *name83, uint8_t *out_rc)
             g_exec_name[i] = name83[i];
         }
         g_exec_name[i] = '\0';
+    }
+    /* Capture the command tail the dispatcher extracted from the EBX param block
+     * (initech-456). cmd_tail is the TEXT (no count byte / CR), length cmd_tail_len. */
+    g_exec_tail_len = cmd_tail_len;
+    {
+        uint32_t i = 0;
+        if (cmd_tail) {
+            for (; i < cmd_tail_len && i < sizeof(g_exec_tail) - 1; i++) {
+                g_exec_tail[i] = cmd_tail[i];
+            }
+        }
+        g_exec_tail[i] = '\0';
     }
     if (g_exec_result == 0u && out_rc) {
         *out_rc = g_exec_child_rc;
@@ -95,6 +111,8 @@ static void exec_reset(uint16_t result, uint8_t child_rc)
     g_exec_name[0]  = '\0';
     g_exec_result   = result;
     g_exec_child_rc = child_rc;
+    g_exec_tail[0]  = '\0';
+    g_exec_tail_len = 0;
 }
 
 #define CF_BIT 0x1u
@@ -287,6 +305,55 @@ int main(void)
         CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
               "AH=4Bh with no backend returns AX=0x0002 (not a silent success)");
         int21_set_exec_backend(exec_mock);   /* restore for any later cases */
+    }
+
+    /* --- AH=4Bh command-tail args (initech-456): EBX -> exec_param_block_t whose
+     *     cmd_tail points at a DOS-format {count, text, CR}; the dispatcher must
+     *     extract the TEXT + len and hand them to the backend (-> child PSP:80h).
+     *     Also assert the no-EBX path degrades to a no-argument launch. ------- */
+    {
+        const char *tailtext = " /S FILE.TXT";   /* leading separator + args */
+        uint8_t n = (uint8_t)strlen(tailtext);
+
+        /* The DOS-format tail {count, text, CR} in low memory. */
+        uint8_t *tailblk = (uint8_t *)alloc_low((size_t)n + 2u);
+        CHECK(tailblk != NULL, "alloc_low tail block in low 4 GiB");
+        tailblk[0] = n;
+        memcpy(tailblk + 1, tailtext, n);
+        tailblk[1 + n] = 0x0Du;
+
+        /* The EXEC parameter block in low memory; EBX -> it. */
+        exec_param_block_t *pb = (exec_param_block_t *)alloc_low(sizeof(*pb));
+        CHECK(pb != NULL, "alloc_low param block in low 4 GiB");
+        pb->env_block = 0u;
+        pb->cmd_tail  = (uint32_t)(uintptr_t)tailblk;
+        pb->fcb1 = 0u; pb->fcb2 = 0u;
+
+        exec_reset(0u, 0u);
+        uint32_t edx = low_dup("GREET.COM");
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4B00u;
+        f.edx = edx;
+        f.ebx = (uint32_t)(uintptr_t)pb;
+        int21_dispatch(&f);
+        CHECK(g_exec_called == 1, "AH=4Bh with args reaches the backend");
+        CHECK(frame_cf(&f) == 0, "AH=4Bh with args clears CF on a clean run");
+        CHECK(g_exec_tail_len == (uint32_t)n,
+              "AH=4Bh passes the command-tail length to the backend");
+        CHECK_STR_EQ(g_exec_tail, " /S FILE.TXT",
+                     "AH=4Bh passes the command-tail TEXT (-> PSP:80h) to the backend");
+
+        /* No EBX param block (fresh_frame zeroes EBX) -> a no-argument launch
+         * (count=0), never a fault on a legacy caller's stale EBX (Rule 2). */
+        exec_reset(0u, 0u);
+        uint32_t edx2 = low_dup("GREET.COM");
+        int_frame_t g = fresh_frame();
+        g.eax = 0x4B00u;
+        g.edx = edx2;
+        int21_dispatch(&g);
+        CHECK(g_exec_called == 1, "AH=4Bh with no param block still runs");
+        CHECK(g_exec_tail_len == 0u,
+              "AH=4Bh with no EBX block -> empty tail (no-argument launch)");
     }
 
     return TEST_SUMMARY("test_exec");

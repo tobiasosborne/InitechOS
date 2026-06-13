@@ -414,10 +414,11 @@ static int dir_visit(const dir_entry_t *e, void *user)
  * loader rebinds both during the run; ground-truth Sec 4.5 / beads initech-509.3)
  * exactly as run_baked does -- otherwise a later kernel-context INT 21h would
  * dispatch through the child's stale hook/PSP. */
-static uint16_t loader_exec_by_name(const char *name83, uint8_t *out_rc)
+static uint16_t loader_exec_by_name(const char *name83, const char *cmd_tail,
+                                    uint32_t cmd_tail_len, uint8_t *out_rc)
 {
     uint8_t rc = 0;
-    loader_status_t st = load_program_from_fat(name83, (const char *)0, 0u, &rc);
+    loader_status_t st = load_program_from_fat(name83, cmd_tail, cmd_tail_len, &rc);
     int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
     int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
 

@@ -203,8 +203,14 @@ void int21_set_file_backend(const int21_file_backend_t *backend);
  * writes the child's exit code to *out_rc; on a failure it returns a DOS error
  * code (0x0002 file not found, 0x0008 insufficient memory / load already active
  * -- nested EXEC, 0x000B bad format / too large) and leaves *out_rc unchanged.
- * `name83` is already validated (no '\'/':'); the callback need not re-check. */
-typedef uint16_t (*int21_exec_fn)(const char *name83, uint8_t *out_rc);
+ * `name83` is already validated (no '\'/':'); the callback need not re-check.
+ *
+ * `cmd_tail`/`cmd_tail_len` carry the command-tail TEXT (no count byte, no CR)
+ * the loader writes to the child PSP:80h (beads initech-456); cmd_tail may be
+ * NULL with cmd_tail_len 0 for a no-argument launch. The signature matches
+ * loader.c load_program_from_fat so the kernel can bind it through one adapter. */
+typedef uint16_t (*int21_exec_fn)(const char *name83, const char *cmd_tail,
+                                  uint32_t cmd_tail_len, uint8_t *out_rc);
 
 /* Bind the EXEC backend (NULL clears it -> AH=4Bh returns file-not-found, as if
  * no program could be loaded). The kernel binds the saw-path loader; the host

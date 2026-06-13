@@ -132,6 +132,37 @@ typedef struct mcb {
 _Static_assert(sizeof(mcb_t) == 16, "mcb_t must be 16 bytes (ADR-0003 B.3)");
 
 /* ------------------------------------------------------------------------ *
+ * AH=4Bh EXEC parameter block (the flat-32 analog of the real-DOS ES:BX block)
+ *
+ * Real DOS passes ES:BX -> {WORD env_seg; DWORD-far cmd_tail; DWORD-far fcb1;
+ * DWORD-far fcb2}. On the 32-bit flat substrate (ADR-0003 DEC-04a) the segment/
+ * far-pointer fields become flat linear addresses, so the block is four 32-bit
+ * words. AH=4Bh receives EBX -> this block.
+ *
+ *   Offset Size Field
+ *   00h    4    Environment block (flat ptr; 0 = inherit the parent's)
+ *   04h    4    Command tail (flat ptr to {count, text.., 0x0D}; 0 = no args)
+ *   08h    4    Default FCB #1 (flat ptr; reserved)
+ *   0Ch    4    Default FCB #2 (flat ptr; reserved)
+ *
+ * For the current milestone only cmd_tail is consumed (command-tail args ->
+ * child PSP:80h, beads initech-456). env_block is reserved for the environment
+ * block (the env-store work) and the FCB pointers for the FCB API.
+ * ------------------------------------------------------------------------ */
+
+#pragma pack(push, 1)
+typedef struct exec_param_block {
+	uint32_t env_block;   /* 00h: environment block (0 = inherit parent's)      */
+	uint32_t cmd_tail;    /* 04h: flat ptr to {count, text, 0x0D}; 0 = no args  */
+	uint32_t fcb1;        /* 08h: flat ptr to default FCB #1 (reserved)         */
+	uint32_t fcb2;        /* 0Ch: flat ptr to default FCB #2 (reserved)         */
+} exec_param_block_t;
+#pragma pack(pop)
+
+_Static_assert(sizeof(exec_param_block_t) == 16,
+               "exec_param_block_t must be 16 bytes (flat-32 DOS AH=4Bh block)");
+
+/* ------------------------------------------------------------------------ *
  * Boot Sector / BIOS Parameter Block (FAT12/16)
  *
  *   Source: Microsoft FAT File System Specification (1.03 / 2000-11-06),
