@@ -72,21 +72,27 @@ static uint32_t cfg_parse_uint(const char *s, uint32_t len, int *out_any)
             break;
         }
         any = 1;
-#ifndef CONFIG_MUTATE_NO_OVERFLOW_GUARD
-        if (v > 429496729u) { /* would overflow on *10 */
-            v = 0xFFFFFFFFu;
-            continue;
-        }
+        uint32_t digit = (uint32_t)(c - '0');
+#if defined(CONFIG_MUTATE_NO_OVERFLOW_GUARD)
+        /* Rule-6 mutant (make test-config-fuzz-mutant): REMOVE the overflow guard
+         * entirely, so a 10+ digit FILES=/BUFFERS= value silently wraps the uint32
+         * accumulator (modular *10+d) instead of saturating -> the fuzzer's
+         * saturate-and-clamp-to-MAX invariant goes RED. NEVER in a real build. */
+#elif defined(CONFIG_MUTATE_OVERFLOW_OFFBYONE)
+        /* Rule-6 mutant (make test-config-fuzz-mutant): the ORIGINAL off-by-one
+         * guard (initech-zfo). `v > 429496729` lets v==429496729 with a trailing
+         * digit >=6 fall through and wrap past UINT32_MAX (e.g. "4294967296" -> 0
+         * -> clamps to FILES_MIN instead of saturating to MAX). Proves the
+         * corrected guard below actually bites the 2^32-family. NEVER in a real build. */
+        if (v > 429496729u) { v = 0xFFFFFFFFu; continue; }
 #else
-        /* Rule-6 mutant target (make test-config-fuzz-mutant): REMOVE the decimal
-         * overflow guard, so a 10+ digit FILES=/BUFFERS= value silently wraps the
-         * uint32 accumulator (modular *10+d) instead of saturating at 0xFFFFFFFF.
-         * A wrapped value can land BELOW the clamp-from-above ceiling, so an
-         * absurd "FILES=4294967296" (== 0 mod 2^32) would be clamped UP to MIN
-         * rather than DOWN to MAX -> the fuzzer's "an oversized decimal saturates
-         * and clamps to FILES_MAX" invariant goes RED. NEVER in a real build. */
+        /* Saturate at 0xFFFFFFFF (the documented contract). Guard the EXACT
+         * overflow of v*10+digit: the previous `v > 429496729` form let
+         * v==429496729 with digit>=6 wrap past UINT32_MAX (bug initech-zfo --
+         * "4294967296" wrapped to 0 and clamped to FILES_MIN, not MAX). */
+        if (v > (0xFFFFFFFFu - digit) / 10u) { v = 0xFFFFFFFFu; continue; }
 #endif
-        v = v * 10u + (uint32_t)(c - '0');
+        v = v * 10u + digit;
     }
     if (out_any) {
         *out_any = any;

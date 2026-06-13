@@ -1964,6 +1964,7 @@ CONFIG_FUZZ_OPS       := 24
 # -- an oversized FILES= value then WRAPS modulo 2^32 instead of saturating, so
 # the live clamp diverges from the faithful reference. The fuzzer MUST find it.
 TEST_CONFIG_FUZZ_MUT  := $(BUILD)/test_config_sys_fuzz_mutant_noguard
+TEST_CONFIG_FUZZ_MUT_OFF := $(BUILD)/test_config_sys_fuzz_mutant_offbyone
 
 $(TEST_CONFIG_FUZZ): $(TEST_CONFIG_FUZZ_SRC) $(TEST_CONFIG_FUZZ_DEPS) $(TEST_CONFIG_FUZZ_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
@@ -1973,6 +1974,10 @@ $(TEST_CONFIG_FUZZ_MUT): $(TEST_CONFIG_FUZZ_SRC) $(TEST_CONFIG_FUZZ_DEPS) $(TEST
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONFIG_MUTATE_NO_OVERFLOW_GUARD -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_CONFIG_FUZZ_SRC) $(TEST_CONFIG_FUZZ_DEPS)
 
+$(TEST_CONFIG_FUZZ_MUT_OFF): $(TEST_CONFIG_FUZZ_SRC) $(TEST_CONFIG_FUZZ_DEPS) $(TEST_CONFIG_FUZZ_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONFIG_MUTATE_OVERFLOW_OFFBYONE -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_CONFIG_FUZZ_SRC) $(TEST_CONFIG_FUZZ_DEPS)
+
 .PHONY: test-config-fuzz test-config-fuzz-mutant
 test-config-fuzz: $(TEST_CONFIG_FUZZ)
 	@printf ">>> test-config-fuzz: CONFIG.SYS parser generative fuzzer over seeds %s..%s (no overflow / no crash / clamp / lenient)\n" "$(CONFIG_FUZZ_SEEDS_LO)" "$(CONFIG_FUZZ_SEEDS_HI)"
@@ -1980,14 +1985,22 @@ test-config-fuzz: $(TEST_CONFIG_FUZZ)
 		|| { printf '!!! test-config-fuzz FAIL: a seed broke an invariant (replay above) -- root-cause it (Rule 3)\n'; exit 1; }
 	@printf ">>> test-config-fuzz: green\n"
 
-# Mutation-proof: the no-guard mutant MUST be FOUND by the fuzzer (Rule 6).
-test-config-fuzz-mutant: $(TEST_CONFIG_FUZZ_MUT)
-	@printf ">>> test-config-fuzz-mutant: confirming the fuzzer FINDS the no-overflow-guard mutant (Rule 6)\n"
+# Mutation-proof: BOTH overflow-guard mutants MUST be FOUND by the fuzzer (Rule 6).
+# no-guard wraps everywhere; off-by-one (the original initech-zfo bug) wraps the
+# 2^32-family to 0 -> clamps to FILES_MIN where the corrected guard saturates to MAX.
+test-config-fuzz-mutant: $(TEST_CONFIG_FUZZ_MUT) $(TEST_CONFIG_FUZZ_MUT_OFF)
+	@printf ">>> test-config-fuzz-mutant: confirming the fuzzer FINDS both overflow-guard mutants (Rule 6)\n"
 	@if $(TEST_CONFIG_FUZZ_MUT) --sweep $(CONFIG_FUZZ_SEEDS_LO) $(CONFIG_FUZZ_SEEDS_HI) --ops $(CONFIG_FUZZ_OPS) >/dev/null 2>&1; then \
 		printf '!!! test-config-fuzz-mutant FAIL: no-guard mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
 		exit 1; \
 	else \
-		printf '>>> test-config-fuzz-mutant: green (fuzzer correctly RED on the no-overflow-guard mutant -- the fuzzer bites)\n'; \
+		printf '>>> test-config-fuzz-mutant: green (fuzzer correctly RED on the no-overflow-guard mutant)\n'; \
+	fi
+	@if $(TEST_CONFIG_FUZZ_MUT_OFF) --sweep $(CONFIG_FUZZ_SEEDS_LO) $(CONFIG_FUZZ_SEEDS_HI) --ops $(CONFIG_FUZZ_OPS) >/dev/null 2>&1; then \
+		printf '!!! test-config-fuzz-mutant FAIL: off-by-one mutant PASSED the fuzzer -- the 2^32-family saturation test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-config-fuzz-mutant: green (fuzzer correctly RED on the off-by-one mutant -- the corrected saturation bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------

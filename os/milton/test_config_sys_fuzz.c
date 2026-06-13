@@ -253,22 +253,23 @@ static int emit_value_token(char *t, uint32_t *len, prng_t *p, char *digits_out,
 }
 
 /* INDEPENDENT REFERENCE re-implementation of the artifact's cfg_parse_uint
- * (config_sys.c:65-85), faithful BIT-FOR-BIT to the shipped code: a saturating
- * decimal accumulator with the EXACT ">429496729 -> pin 0xFFFFFFFF + skip the
- * digit" overflow guard. This is the differential oracle (TDD shape 2): the
- * fuzzer asserts the live parser's clamped FILES value EQUALS what this reference
- * computes. Because it mirrors the guard EXACTLY, it tracks the live parser on
- * every input (including the saturate-to-0 corner the guard happens to produce
- * for an exact multiple of 2^32) -- so the CLEAN fuzzer is GREEN. When the guard
- * is REMOVED (-DCONFIG_MUTATE_NO_OVERFLOW_GUARD), the live parser WRAPS where
- * this reference SATURATES, the clamped results diverge on the discriminating
- * family (e.g. 8589934592: ref->255 / wrap->8), and the fuzzer goes RED. */
+ * (config_sys.c), faithful to the shipped code: a TRULY saturating decimal
+ * accumulator that pins 0xFFFFFFFF on the EXACT overflow of v*10+digit. This is
+ * the differential oracle (TDD shape 2): the fuzzer asserts the live parser's
+ * clamped FILES value EQUALS what this reference computes. It mirrors the
+ * corrected guard exactly, so the CLEAN fuzzer is GREEN on every input --
+ * including the 2^32-family ("4294967296", 2^64, ...) which now correctly
+ * SATURATE to 0xFFFFFFFF and clamp to FILES_MAX. The mutants diverge from it:
+ * -DCONFIG_MUTATE_NO_OVERFLOW_GUARD wraps everywhere; -DCONFIG_MUTATE_OVERFLOW_OFFBYONE
+ * restores the old `v>429496729` off-by-one so the 2^32-family wraps to 0 and
+ * clamps to FILES_MIN -- both make the differential go RED (bug initech-zfo). */
 static uint32_t ref_parse_uint(const char *d)
 {
     uint32_t v = 0;
     for (; *d >= '0' && *d <= '9'; d++) {
-        if (v > 429496729u) { v = 0xFFFFFFFFu; continue; }
-        v = v * 10u + (uint32_t)(*d - '0');
+        uint32_t digit = (uint32_t)(*d - '0');
+        if (v > (0xFFFFFFFFu - digit) / 10u) { v = 0xFFFFFFFFu; continue; }
+        v = v * 10u + digit;
     }
     return v;
 }
