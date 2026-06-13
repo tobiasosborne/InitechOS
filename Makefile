@@ -5141,6 +5141,57 @@ sys.exit(1 if absent else 0)"; \
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# Reproducible-build gate (beads initech-1zk -- Rule 11 / PRD section 7)
+# ---------------------------------------------------------------------------
+# kernel.bin MUST be byte-identical across a clean rebuild: the two-stage
+# self-host certificate (K2 == K3) and DDC are meaningless if the C kernel
+# image itself is nondeterministic. Reproducibility was asserted in WL-0004 by
+# manual observation; this turns it into a continuous, fail-loud gate. Builds
+# kernel.bin, hashes it, removes the kernel objects/elf/bin, rebuilds from
+# scratch, and diffs the sha256. Any drift (embedded timestamp, host path,
+# symbol-order nondeterminism) goes RED here instead of silently poisoning the
+# fixpoint downstream.
+.PHONY: test-kernel-repro
+test-kernel-repro: | $(BUILD)
+	@printf ">>> test-kernel-repro: kernel.bin byte-identical across a clean rebuild (Rule 11)\n"
+	@$(MAKE) --no-print-directory $(KERNEL_BIN) >/dev/null
+	@cp $(KERNEL_BIN) $(BUILD)/kernel.repro.1
+	@a=$$(sha256sum < $(BUILD)/kernel.repro.1 | cut -d' ' -f1); \
+	 rm -f $(KERNEL_OBJS) $(KERNEL_ELF) $(KERNEL_BIN); \
+	 $(MAKE) --no-print-directory $(KERNEL_BIN) >/dev/null; \
+	 cp $(KERNEL_BIN) $(BUILD)/kernel.repro.2; \
+	 b=$$(sha256sum < $(BUILD)/kernel.repro.2 | cut -d' ' -f1); \
+	 if [ "$$a" != "$$b" ]; then \
+		printf '!!! test-kernel-repro FAIL: kernel.bin is NOT reproducible\n'; \
+		printf '    build1 sha256 = %s\n    build2 sha256 = %s\n' "$$a" "$$b"; \
+		printf '    nondeterminism breaks the self-host certificate (Rule 11 / PRD section 7).\n'; \
+		cmp $(BUILD)/kernel.repro.1 $(BUILD)/kernel.repro.2 || true; \
+		exit 1; \
+	 fi; \
+	 printf '>>> test-kernel-repro: green -- kernel.bin reproducible (sha256 %s)\n' "$$a"
+
+# Mutation-proof (Rule 6): the gate's discriminating mechanism is a sha256
+# byte-comparison of two kernel images. Prove it BITES on a difference -- take
+# the real kernel.bin, append one byte to a copy, and assert the two hashes
+# differ. (A faithful kernel-nondeterminism mutant cannot be injected without
+# polluting the shipped artifact source with a test-only #ifdef; this proves the
+# comparison is not blind, which is the property test-kernel-repro relies on.)
+.PHONY: test-kernel-repro-mutant
+test-kernel-repro-mutant: | $(BUILD)
+	@printf ">>> test-kernel-repro-mutant: confirming the sha256 comparison bites on a byte change (Rule 6)\n"
+	@$(MAKE) --no-print-directory $(KERNEL_BIN) >/dev/null
+	@cp $(KERNEL_BIN) $(BUILD)/kernel.mut.a
+	@cp $(KERNEL_BIN) $(BUILD)/kernel.mut.b
+	@printf 'X' >> $(BUILD)/kernel.mut.b
+	@a=$$(sha256sum < $(BUILD)/kernel.mut.a | cut -d' ' -f1); \
+	 b=$$(sha256sum < $(BUILD)/kernel.mut.b | cut -d' ' -f1); \
+	 if [ "$$a" = "$$b" ]; then \
+		printf '!!! test-kernel-repro-mutant FAIL: sha256 comparison did NOT detect a byte change -- the repro gate is decoration\n'; \
+		exit 1; \
+	 fi; \
+	 printf '>>> test-kernel-repro-mutant: green (byte change detected -- the repro comparison bites)\n'
+
+# ---------------------------------------------------------------------------
 # Aggregate green gate vector (beads initech-4mc)
 # ---------------------------------------------------------------------------
 # The single command that asserts "InitechDOS is rock solid". Runs the entire
@@ -5165,7 +5216,8 @@ TEST_UNIT_GATES := \
 	test-fileio-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
-	test-rtc-mutant
+	test-rtc-mutant \
+	test-kernel-repro test-kernel-repro-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
