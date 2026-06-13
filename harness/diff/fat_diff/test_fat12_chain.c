@@ -50,6 +50,21 @@
 
 TEST_HARNESS();
 
+/* Poke a 12-bit FAT entry for `cluster` to `val` in a flat FAT buffer, using the
+ * same even/odd packing the decoder reads (test helper for the out-of-range
+ * guard, bcg.3). */
+static void poke_fat12(uint8_t *fat, uint16_t cluster, uint16_t val)
+{
+	uint32_t off = ((uint32_t)cluster * 3u) / 2u;
+	if ((cluster & 1u) == 0u) {            /* even cluster: low 12 bits   */
+		fat[off]     = (uint8_t)(val & 0xFFu);
+		fat[off + 1] = (uint8_t)((fat[off + 1] & 0xF0u) | ((val >> 8) & 0x0Fu));
+	} else {                               /* odd cluster: high 12 bits   */
+		fat[off]     = (uint8_t)((fat[off] & 0x0Fu) | ((val << 4) & 0xF0u));
+		fat[off + 1] = (uint8_t)((val >> 4) & 0xFFu);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	const char     *img;
@@ -199,6 +214,43 @@ int main(int argc, char **argv)
 		                      &count);
 		CHECK(rc == FAT12_ERR_CHAIN,
 		      "corruption: a free cluster mid-chain returns FAT12_ERR_CHAIN");
+	}
+
+	/* (e) bcg.3: an in-chain link to an OUT-OF-RANGE cluster -- above the last
+	 * valid data cluster but below the bad/EOC range (0xFF7), so it looks like a
+	 * normal pointer 0x002..0xFEF -- must be REJECTED, not followed into an
+	 * out-of-volume sector. Without an explicit upper-bound check, walk_chain
+	 * accepts it (its byte offset still sits inside the 4608-byte FAT buffer on
+	 * the 1.44 MB geometry) and read_file would map it to a wrong LBA. Build
+	 * chain 4 -> (last+1) -> EOC on a synthetic FAT. */
+	{
+		uint8_t  oor[9 * 512];
+		/* last valid data cluster = FIRST_DATA + total_clusters - 1; the planted
+		 * link is one past that -- still decodable from the buffer. */
+		uint16_t bad_cluster =
+		    (uint16_t)(FAT12_FIRST_DATA_CLUSTER + vol.total_clusters);
+
+		memset(oor, 0, sizeof(oor));
+		poke_fat12(oor, 4u, bad_cluster);                /* 4 -> out-of-range   */
+		poke_fat12(oor, bad_cluster, FAT12_EOC_VALUE);   /* terminate the chain */
+
+		/* Sanity: the pure decoder returns the planted link, and it really is
+		 * above the last valid data cluster. */
+		rc = fat12_next_cluster(&vol, oor, sizeof(oor), 4u, &next);
+		CHECK(rc == FAT12_OK && next == bad_cluster,
+		      "bcg.3: next(4) decodes the planted out-of-range link");
+		CHECK(!fat12_is_eoc(bad_cluster) && !fat12_is_bad(bad_cluster) &&
+		      bad_cluster > (uint16_t)(FAT12_FIRST_DATA_CLUSTER +
+		                               vol.total_clusters - 1u),
+		      "bcg.3: planted link is a normal pointer above the last data cluster");
+
+		/* The load-bearing assertion: walk_chain must reject the out-of-range
+		 * cluster (FAT12_ERR_CLUSTER), NOT accept it and map it to an LBA. */
+		rc = fat12_walk_chain(&vol, oor, sizeof(oor), 4u, chain,
+		                      (uint32_t)(sizeof(chain) / sizeof(chain[0])),
+		                      &count);
+		CHECK(rc == FAT12_ERR_CLUSTER,
+		      "bcg.3: walk_chain rejects an out-of-range in-chain cluster");
 	}
 
 	blockdev_file_close(&bf);

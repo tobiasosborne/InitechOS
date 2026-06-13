@@ -175,6 +175,23 @@ int fat12_read_fat(const fat12_volume_t *vol, void *fat_buf, uint32_t fat_buf_le
 	return FAT12_OK;
 }
 
+/* fat12_last_cluster (defined below) -- forward decl so the in-range predicate
+ * can be used by the chain walkers above its definition. */
+static uint16_t fat12_last_cluster(const fat12_volume_t *vol);
+
+/* fat12_cluster_in_range -- true iff `c` is a valid DATA cluster, i.e. in
+ * [FAT12_FIRST_DATA_CLUSTER, last_data_cluster]. A link value above the last
+ * data cluster but below the bad/EOC range (0xFF7) decodes as a normal pointer
+ * and, on the 1.44 MB geometry, its FAT byte offset still sits inside the
+ * whole-FAT buffer -- so the buffer-bounds check in fat12_next_cluster does NOT
+ * catch it. Used as an LBA it would silently map to a wrong (or out-of-volume)
+ * sector. This explicit upper bound is the only thing that catches it (bcg.3).
+ * Ref: docs/research/fat12-ground-truth.md Sec 2-3; CLAUDE.md Rule 2. */
+static int fat12_cluster_in_range(const fat12_volume_t *vol, uint16_t c)
+{
+	return c >= FAT12_FIRST_DATA_CLUSTER && c <= fat12_last_cluster(vol);
+}
+
 /*
  * fat12_next_cluster -- decode the 12-bit entry for `cluster` (brief Sec 3).
  *
@@ -262,6 +279,12 @@ int fat12_walk_chain(const fat12_volume_t *vol, const void *fat,
 		}
 		if (fat12_is_bad(cur)) {
 			return FAT12_ERR_CHAIN;
+		}
+		/* An in-chain link above the last valid data cluster is corruption that
+		 * the buffer-bounds check cannot catch; reject it before it is stored or
+		 * mapped to an LBA (bcg.3). */
+		if (!fat12_cluster_in_range(vol, cur)) {
+			return FAT12_ERR_CLUSTER;
 		}
 
 		/* Anti-hang / overflow guard (Rule 2): never write past the caller's
@@ -726,7 +749,7 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 		for (k = 0u; k < skip; k++) {
 			uint16_t next;
 
-			if (cur < FAT12_FIRST_DATA_CLUSTER || fat12_is_free(cur) ||
+			if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
 			    fat12_is_bad(cur)) {
 				return FAT12_ERR_CHAIN;
 			}
@@ -770,7 +793,7 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 		const uint8_t *cbuf;
 		uint32_t       i;
 
-		if (cur < FAT12_FIRST_DATA_CLUSTER || fat12_is_free(cur) ||
+		if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
 		    fat12_is_bad(cur)) {
 			return FAT12_ERR_CHAIN; /* chain ended/corrupt before the range */
 		}
@@ -1567,7 +1590,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		steps = 0u;
 		for (k = 1u; k < have_clusters; k++) {
 			uint16_t next;
-			if (cur < FAT12_FIRST_DATA_CLUSTER || fat12_is_free(cur) ||
+			if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
 			    fat12_is_bad(cur)) {
 				return FAT12_ERR_CHAIN;
 			}
@@ -1686,7 +1709,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		uint16_t k;
 		for (k = 0u; k < end_cluster; k++) {
 			uint16_t next;
-			if (cur < FAT12_FIRST_DATA_CLUSTER || fat12_is_free(cur) ||
+			if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
 			    fat12_is_bad(cur)) {
 				return FAT12_ERR_CHAIN;
 			}
@@ -1715,7 +1738,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			uint32_t lba;
 			uint32_t i;
 
-			if (cur < FAT12_FIRST_DATA_CLUSTER || fat12_is_free(cur) ||
+			if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
 			    fat12_is_bad(cur)) {
 				return FAT12_ERR_CHAIN;
 			}
