@@ -101,6 +101,9 @@ static uint32_t fb_get(const uint8_t *fb, uint32_t pitch, uint32_t bpp,
 {
     uint32_t bpp_bytes = bpp / 8u;
     uint32_t off = y * pitch + x * bpp_bytes;
+    if (bpp == 8) {
+        return fb[off];          /* mode 0x13: one byte = a palette index */
+    }
     if (bpp == 32) {
         uint32_t d;
         memcpy(&d, fb + off, 4);
@@ -275,6 +278,75 @@ int main(void)
             CHECK(fb_get(fb, con.pitch, con.bpp, x0 + 1, y0) == bg,
                   "24bpp 0x80 row leaves col 1 bg");
         }
+
+        munmap(fb, fb_bytes);
+    }
+
+    /* ============ 8bpp mode-0x13 fallback path (320x200) ============ */
+    /* The standard-VGA fallback (initech-6pj): a 320x200x256 LINEAR framebuffer
+     * where each byte is a palette index. Verifies bpp=8 acceptance, the
+     * resolution-derived 40x12 cell grid (vs 80x25 for the 640x480 LFB), index
+     * rendering, MSB-left correctness, and scroll -- all on the real fallback
+     * geometry so a wrong cols/rows would overrun this exact-size buffer. */
+    {
+        const uint32_t W8 = 320, H8 = 200;
+        size_t fb_bytes = (size_t)W8 * H8 * 1u;
+        uint8_t *fb = alloc_low(fb_bytes);
+        CHECK(fb != NULL, "alloc 8bpp 320x200 fake framebuffer in low 4 GiB");
+        if (!fb) return TEST_SUMMARY("test_console");
+
+        boot_info_t bi;
+        bi.lfb_addr   = (uint32_t)(uintptr_t)fb;
+        bi.lfb_bpp    = 8;
+        bi.lfb_pitch  = W8;            /* 1 byte/pixel */
+        bi.lfb_width  = W8;
+        bi.lfb_height = H8;
+        bi.font_addr  = (uint32_t)(uintptr_t)font;
+
+        console_t con;
+        int rc = console_init(&con, &bi);
+        CHECK(rc == CONSOLE_OK, "console_init OK on a valid 8bpp boot_info");
+        CHECK(con.bytes_per_pixel == 1, "8bpp -> 1 byte per pixel");
+        CHECK(con.cols == 40, "320px wide -> 40 cell columns (320/8)");
+        CHECK(con.rows == 12, "200px tall -> 12 cell rows (200/16)");
+        CHECK(con.fg == CONSOLE_FG_IDX, "8bpp fg bound to CONSOLE_FG_IDX (palette index)");
+        CHECK(con.bg == CONSOLE_BG_IDX, "8bpp bg bound to CONSOLE_BG_IDX (palette index)");
+
+        uint32_t fg = con.fg, bg = con.bg;
+
+        /* init clears to the bg index everywhere. */
+        CHECK(fb_get(fb, con.pitch, con.bpp, 0, 0) == bg,
+              "8bpp init clears (0,0) to bg index");
+        CHECK(fb_get(fb, con.pitch, con.bpp, W8 - 1, H8 - 1) == bg,
+              "8bpp init clears the last pixel to bg index");
+
+        /* solid glyph at an interior cell inks fg index, no overdraw. */
+        console_draw_glyph(&con, 3, 2, GLYPH_SOLID, fg, bg);
+        check_solid_cell(&con, fb, 3, 2, fg, bg);
+
+        /* MSB-left: 0x80 row inks only the leftmost pixel. */
+        console_draw_glyph(&con, 5, 4, GLYPH_LEFT, fg, bg);
+        {
+            uint32_t x0 = 5 * CONSOLE_CELL_W, y0 = 4 * CONSOLE_CELL_H;
+            CHECK(fb_get(fb, con.pitch, con.bpp, x0, y0) == fg,
+                  "8bpp 0x80 row inks leftmost pixel (index)");
+            CHECK(fb_get(fb, con.pitch, con.bpp, x0 + 1, y0) == bg,
+                  "8bpp 0x80 row leaves col 1 bg (MSB-left)");
+        }
+
+        /* scroll: sentinel on the last row moves up one cell row. */
+        con.cur_col = 0; con.cur_row = con.rows - 1;
+        console_putc(&con, (char)GLYPH_SOLID);
+        CHECK(fb_get(fb, con.pitch, con.bpp, 0, (con.rows-1)*CONSOLE_CELL_H) == fg,
+              "8bpp sentinel inked at last row before scroll");
+        con.cur_col = 0;
+        console_putc(&con, '\n');
+        CHECK(con.cur_row == con.rows - 1 && con.cur_col == 0,
+              "8bpp '\\n' on last row scrolls and stays on the last row");
+        CHECK(fb_get(fb, con.pitch, con.bpp, 0, (con.rows-2)*CONSOLE_CELL_H) == fg,
+              "8bpp after scroll, last-row sentinel moved up one row");
+        CHECK(fb_get(fb, con.pitch, con.bpp, 0, (con.rows-1)*CONSOLE_CELL_H) == bg,
+              "8bpp after scroll, last text row cleared to bg index");
 
         munmap(fb, fb_bytes);
     }

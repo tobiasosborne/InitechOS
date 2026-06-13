@@ -61,7 +61,11 @@ console_color_t console_pack_rgb(uint32_t bpp, uint8_t r, uint8_t g, uint8_t b)
  * B,G,R byte triple. */
 static inline void put_pixel(console_t *con, uint32_t off, console_color_t px)
 {
-    if (con->bpp == 32) {
+    if (con->bpp == 8) {
+        /* Mode 0x13 fallback: one byte per pixel = a VGA palette INDEX (the low
+         * 8 bits of the color; fg/bg are bound to CONSOLE_FG_IDX/BG_IDX). */
+        con->lfb[off] = (uint8_t)(px & 0xFFu);
+    } else if (con->bpp == 32) {
         /* The dword is XRGB8888 (little-endian 0x00RRGGBB => bytes B,G,R,X). */
         *(volatile uint32_t *)(con->lfb + off) = px;
     } else {
@@ -146,7 +150,9 @@ void console_scroll(console_t *con)
         for (uint32_t x = 0; x < con->width; x++) {
             console_color_t px;
             uint32_t so = src_off + x * con->bytes_per_pixel;
-            if (con->bpp == 32) {
+            if (con->bpp == 8) {
+                px = con->lfb[so];                       /* palette index */
+            } else if (con->bpp == 32) {
                 px = *(volatile uint32_t *)(con->lfb + so);
             } else {
                 px = ((console_color_t)con->lfb[so + 2u] << 16) |
@@ -257,7 +263,7 @@ int console_init(console_t *con, const boot_info_t *bi)
     if (bi->lfb_addr == 0) {
         return CONSOLE_ERR_ADDR;
     }
-    if (!(bi->lfb_bpp == 24 || bi->lfb_bpp == 32)) {
+    if (!(bi->lfb_bpp == 8 || bi->lfb_bpp == 24 || bi->lfb_bpp == 32)) {
         return CONSOLE_ERR_BPP;
     }
     if (bi->font_addr == 0) {
@@ -269,16 +275,31 @@ int console_init(console_t *con, const boot_info_t *bi)
     con->bpp             = bi->lfb_bpp;
     con->width           = bi->lfb_width;
     con->height          = bi->lfb_height;
-    con->bytes_per_pixel = bi->lfb_bpp / 8u;
+    con->bytes_per_pixel = bi->lfb_bpp / 8u;   /* 8->1, 24->3, 32->4 */
     con->font            = (const uint8_t *)(uintptr_t)bi->font_addr;
 
-    con->cols    = CONSOLE_COLS;
-    con->rows    = CONSOLE_ROWS;
+    /* Cell grid sized to the framebuffer, capped at the canonical 80x25. The
+     * 640x480 LFB yields exactly 80x25 (480/16=30 capped to 25, the 400px text
+     * band) -- unchanged from before. The 320x200 mode-0x13 fallback yields
+     * 40x12, which the cap leaves untouched. Deriving (instead of hardcoding
+     * 80x25) keeps the blit from ever addressing past a smaller framebuffer
+     * (Rule 2 -- no overdraw). */
+    con->cols = bi->lfb_width  / CONSOLE_CELL_W;
+    con->rows = bi->lfb_height / CONSOLE_CELL_H;
+    if (con->cols > CONSOLE_COLS) con->cols = CONSOLE_COLS;
+    if (con->rows > CONSOLE_ROWS) con->rows = CONSOLE_ROWS;
     con->cur_col = 0;
     con->cur_row = 0;
 
-    con->fg = console_pack_rgb(con->bpp, CONSOLE_FG_R, CONSOLE_FG_G, CONSOLE_FG_B);
-    con->bg = console_pack_rgb(con->bpp, CONSOLE_BG_R, CONSOLE_BG_G, CONSOLE_BG_B);
+    if (con->bpp == 8) {
+        /* Mode 0x13: fg/bg are palette indices; the kernel programs the DAC so
+         * CONSOLE_BG_IDX renders seafoam and CONSOLE_FG_IDX renders light gray. */
+        con->fg = CONSOLE_FG_IDX;
+        con->bg = CONSOLE_BG_IDX;
+    } else {
+        con->fg = console_pack_rgb(con->bpp, CONSOLE_FG_R, CONSOLE_FG_G, CONSOLE_FG_B);
+        con->bg = console_pack_rgb(con->bpp, CONSOLE_BG_R, CONSOLE_BG_G, CONSOLE_BG_B);
+    }
 
     console_clear(con);
     return CONSOLE_OK;

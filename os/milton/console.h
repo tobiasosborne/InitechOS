@@ -34,8 +34,19 @@
 #define CONSOLE_OK         0
 #define CONSOLE_ERR_NULL   1  /* NULL console or boot_info                 */
 #define CONSOLE_ERR_ADDR   2  /* lfb_addr == 0 (no framebuffer)            */
-#define CONSOLE_ERR_BPP    3  /* lfb_bpp not in {24, 32}                   */
+#define CONSOLE_ERR_BPP    3  /* lfb_bpp not in {8, 24, 32}                */
 #define CONSOLE_ERR_FONT   4  /* font_addr == 0 (no font stash)            */
+
+/* 8bpp standard-VGA fallback (initech-6pj): when no VBE LFB is available (e.g.
+ * on Bochs, where the BIOS offers no 640x480 linear mode), stage2 falls back to
+ * standard VGA mode 0x13 (320x200x256, linear @ 0xA0000). In that mode each
+ * framebuffer byte is a PALETTE INDEX, not packed RGB. The console writes these
+ * two indices; the kernel programs the VGA DAC so index BG renders as seafoam
+ * and index FG as the light-gray ink (the 24/32bpp paths pack RGB directly and
+ * ignore these). Ref: docs/research + the Bochs ground-truth (bd memory
+ * bochs-boot-solved-initech-6pj). */
+#define CONSOLE_BG_IDX     1u   /* seafoam    (kernel programs DAC reg 1)   */
+#define CONSOLE_FG_IDX     15u  /* light gray (kernel programs DAC reg 15)  */
 
 /* A packed framebuffer pixel value. For 32bpp it is the XRGB8888 dword
  * (0x00RRGGBB); for 24bpp the low 24 bits hold 0xRRGGBB (stored B,G,R). The
@@ -47,10 +58,10 @@ typedef struct {
     /* Framebuffer params, copied from boot_info at init (stable thereafter). */
     volatile uint8_t *lfb;      /* linear framebuffer base (lfb_addr)        */
     uint32_t  pitch;            /* bytes per scanline                        */
-    uint32_t  bpp;              /* 24 or 32 (validated at init)              */
-    uint32_t  width;            /* pixels (640)                              */
-    uint32_t  height;           /* pixels (480)                              */
-    uint32_t  bytes_per_pixel;  /* bpp / 8 (3 or 4)                          */
+    uint32_t  bpp;              /* 8, 24 or 32 (validated at init)           */
+    uint32_t  width;            /* pixels (640 LFB / 320 mode-0x13 fallback) */
+    uint32_t  height;           /* pixels (480 LFB / 200 mode-0x13 fallback) */
+    uint32_t  bytes_per_pixel;  /* bpp / 8 (1, 3 or 4)                        */
 
     const uint8_t *font;        /* 4096-byte ROM font (font_addr)            */
 
