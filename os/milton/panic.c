@@ -100,6 +100,22 @@ static const char *exc_name(uint32_t vec)
 /* The common-stub C entry. For ANY exception this is terminal: dump + halt. */
 void isr_dispatch_c(int_frame_t *frame)
 {
+    /* Spurious / unhandled vector (bcg.6): a stray software int or an
+     * unexpected hardware vector arrives via isr_spurious with the sentinel
+     * vector 0xFF -- NOT a CPU exception (those are 0..31 with their real
+     * vector). The fail-loud-but-NON-fatal contract is to emit a grep-able
+     * diagnostic and RETURN cleanly (isr_common's iret tail resumes the
+     * interruptee), so one stray vector does not wedge the desktop forever.
+     * The permanent halt below is reserved for genuine CPU exceptions. */
+    if (frame->vector > 31u) {
+        pserial_puts("SPURIOUS vec=");
+        pserial_hex(frame->vector, 2);
+        pserial_puts(" eip=");
+        pserial_hex(frame->eip, 8);
+        pserial_puts(" -- resuming\n");
+        return;                 /* clean iret via isr_common; do NOT halt */
+    }
+
     /* Grep-able one-liner first (the oracle keys on "PANIC vec=NN err=MM"). */
     pserial_puts("PANIC vec=");
     pserial_hex(frame->vector, 2);

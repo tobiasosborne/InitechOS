@@ -636,6 +636,21 @@ void kernel_main(void)
     }
 #endif
 
+#ifdef BOOT_SPURIOUS
+    /* SELF-TEST BUILD ONLY (bcg.6; make test-spurious). Fire a stray, unhandled
+     * software interrupt AFTER the banner to prove the spurious/unhandled-vector
+     * path RESUMES (clean iret) instead of wedging the machine forever. Vector
+     * 0x70 is not a CPU exception, not an IRQ (the PIC is remapped to 0x28/0x30),
+     * and not an INT 21h trap gate -- it routes to isr_spurious (sentinel 0xFF).
+     * The handler must emit "SPURIOUS vec=FF ... resuming" and RETURN; we then
+     * print SPURIOUS-RESUMED, proving execution continued past the stray int and
+     * the machine was NOT wedged. The NORMAL image never defines this macro, so
+     * test-boot stays unchanged. */
+    serial_puts("SPURIOUS-ARMED\n");
+    __asm__ __volatile__("int $0x70");
+    serial_puts("SPURIOUS-RESUMED\n");
+#endif
+
     /* MOUNT A REAL FILESYSTEM (beads initech-saw) FIRST, so the file-handle
      * INT 21h functions (3Dh OPEN / 3Fh READ / 4Eh/4Fh FINDFIRST/NEXT) have a
      * bound volume BEFORE the TYPE/DIR programs run. Attach the FAT12 data disk

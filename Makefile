@@ -325,6 +325,13 @@ KERNEL_FAULT_MAIN_OBJ := $(BUILD)/kmain_fault.o
 KERNEL_FAULT_ELF      := $(BUILD)/kernel_fault.elf
 KERNEL_FAULT_BIN      := $(BUILD)/kernel_fault.bin
 PANIC_IMG             := $(BUILD)/panic_boot.img
+# Spurious/unhandled-vector kernel/image (bcg.6; make test-spurious): the SAME
+# kernel sources but with -DBOOT_SPURIOUS so the boot fires a stray int $0x70
+# after the banner to prove the spurious-vector path RESUMES (no wedge).
+KERNEL_SPURIOUS_MAIN_OBJ := $(BUILD)/kmain_spurious.o
+KERNEL_SPURIOUS_ELF      := $(BUILD)/kernel_spurious.elf
+KERNEL_SPURIOUS_BIN      := $(BUILD)/kernel_spurious.bin
+SPURIOUS_IMG             := $(BUILD)/spurious_boot.img
 # Keyboard-echo kernel/image (beads initech-3rs / initech-43b; make test-kbd):
 # the SAME kernel sources but with -DBOOT_KBD_ECHO so the boot, after enabling
 # IRQs, emits KBD-ECHO-READY then echoes kbd_getchar() to serial. Separate image
@@ -2154,7 +2161,7 @@ endef
         test-int21-irqstorm test-int21-irqstorm-mutant \
         test-fat-write-partial test-fat-write-partial-mutant \
         test-command test-command-mutant test-shell \
-        test-panic test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
+        test-panic test-spurious test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-conin-unit test-conin-mutant test-conin \
         test-assets test-spec test-dosmsg test-dosmsg-mutant selfhost ddc clean \
         test-unit test-emu test-boot-bochs
@@ -2556,6 +2563,43 @@ $(PANIC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FAULT_BIN) | $(BUILD)
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_FAULT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> panic image: %s (self-test #DE fault kernel @s17)\n" "$@"
+
+# --- Spurious-vector kernel (bcg.6; make test-spurious) --------------------
+# Same sources, but kmain.c compiled with -DBOOT_SPURIOUS so the boot fires a
+# stray int $0x70 after the banner; the spurious handler must resume (no wedge).
+$(KERNEL_SPURIOUS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SPURIOUS -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_SPURIOUS_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SPURIOUS_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                        $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                        $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                        $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                        $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
+                        $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                        $(KERNEL_ISR_OBJ)
+
+$(KERNEL_SPURIOUS_ELF): $(KERNEL_SPURIOUS_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SPURIOUS_OBJS)
+
+$(KERNEL_SPURIOUS_BIN): $(KERNEL_SPURIOUS_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_spurious.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(spurious): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,spurious)
+
+# The spurious-vector disk image: identical layout to TRACER_IMG but with the
+# spurious-test kernel at sector 17.
+$(SPURIOUS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SPURIOUS_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_SPURIOUS_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> spurious image: %s (self-test stray-int kernel @s17)\n" "$@"
 
 # --- Keyboard-echo kernel (beads initech-3rs / initech-43b; make test-kbd) --
 # Same sources, but kmain.c compiled with -DBOOT_KBD_ECHO so the boot, after the
@@ -4906,6 +4950,63 @@ test-panic: $(HARNESS_BIN) $(PANIC_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-spurious (bcg.6 -- a stray/unhandled vector RESUMES, no wedge)
+# ---------------------------------------------------------------------------
+# The dual of test-panic: a CPU exception must HALT (test-panic), but a spurious/
+# unhandled vector must NOT wedge the machine -- it emits a diagnostic and resumes
+# (clean iret via isr_common). Boot the SPURIOUS image (kmain.c -DBOOT_SPURIOUS
+# fires a stray int $0x70 after the banner) and assert, fail-loud:
+#   1. serial shows SPURIOUS-ARMED (we reached the deliberate stray int).
+#   2. serial shows the handler's grep-able "SPURIOUS vec=FF" diagnostic.
+#   3. serial shows SPURIOUS-RESUMED (execution CONTINUED past the stray int --
+#      the machine was NOT wedged) AND no "PANIC" marker appeared.
+#   4. triple_fault=0 (the stray int did not cascade to a reboot).
+# The guest hlt-loops after the markers, so a wall-clock timeout is EXPECTED.
+SPURIOUS_NAME   := spurious_boot
+SPURIOUS_SERIAL := $(BUILD)/$(SPURIOUS_NAME).serial
+SPURIOUS_REPORT := $(BUILD)/$(SPURIOUS_NAME).report
+
+.PHONY: test-spurious
+test-spurious: $(HARNESS_BIN) $(SPURIOUS_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-spurious : stray vector resumes (no wedge)\n'
+	@printf '  Ref: bcg.6 (audit 2026-06-13); isr_dispatch_c resumes for vector>31.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (self-test stray-int kernel)\n' "$(SPURIOUS_IMG)"
+	@printf 'Expecting : SPURIOUS-ARMED + "SPURIOUS vec=FF" + SPURIOUS-RESUMED + no PANIC + triple_fault=0\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(SPURIOUS_IMG)" \
+		--name "$(SPURIOUS_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(SPURIOUS_REPORT)" || true
+	@cat "$(SPURIOUS_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if [ ! -s "$(SPURIOUS_SERIAL)" ]; then \
+		printf '!!! test-spurious FAIL: no serial captured at %s\n' "$(SPURIOUS_SERIAL)"; \
+		exit 1; \
+	fi
+	@grep -q '^SPURIOUS-ARMED$$' "$(SPURIOUS_SERIAL)" \
+		|| { printf '!!! test-spurious FAIL: never reached the stray int (SPURIOUS-ARMED missing)\n'; exit 1; }
+	@printf '>>> test-spurious [1/4]: reached the deliberate stray int $$0x70\n'
+	@grep -q 'SPURIOUS vec=FF' "$(SPURIOUS_SERIAL)" \
+		|| { printf '!!! test-spurious FAIL: no "SPURIOUS vec=FF" -- spurious handler did not run\n'; exit 1; }
+	@printf '>>> test-spurious [2/4]: spurious handler ran -- "SPURIOUS vec=FF" on serial\n'
+	@grep -q '^SPURIOUS-RESUMED$$' "$(SPURIOUS_SERIAL)" \
+		|| { printf '!!! test-spurious FAIL: SPURIOUS-RESUMED missing -- the stray vector WEDGED the machine\n'; exit 1; }
+	@if grep -q 'PANIC' "$(SPURIOUS_SERIAL)"; then \
+		printf '!!! test-spurious FAIL: a PANIC fired -- the stray vector was treated as a fatal exception\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-spurious [3/4]: execution RESUMED past the stray int (no wedge, no PANIC)\n'
+	@if grep -q 'triple_fault=1' "$(SPURIOUS_REPORT)"; then \
+		printf '!!! test-spurious FAIL: TRIPLE FAULT -- the stray int cascaded to a silent reboot\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-spurious [4/4]: no triple-fault\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- stray/unhandled vector resumed cleanly, machine not wedged\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-kbd (beads initech-3rs + initech-43b -- KEYBOARD IRQ1 echo)
 # ---------------------------------------------------------------------------
 # The BITING end-to-end oracle for BOTH the PS/2 keyboard driver (IRQ1) and the
@@ -5588,7 +5689,7 @@ TEST_UNIT_GATES := \
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-fatwrite test-multiopen test-exit-handles \
-	test-sysinit test-shell test-panic test-datetime \
+	test-sysinit test-shell test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-int21-irqstorm
 
 test-unit:
