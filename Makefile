@@ -480,6 +480,10 @@ KERNEL_SYSI_BIN       := $(BUILD)/kernel_sysi.bin
 SYSI_IMG              := $(BUILD)/sysi_boot.img
 FAT_SYSI_IMG          := $(BUILD)/fat_sysi.img
 CONFIG_SYS_FIXTURE    := $(BUILD)/config_sys_files8.txt
+# Oversize CONFIG.SYS (>1024B scratch) with FILES=8 in the first lines, for the
+# bcg.9 honor-first-1KB oracle (make test-sysinit-oversize).
+CONFIG_SYS_BIG_FIXTURE := $(BUILD)/config_sys_big.txt
+FAT_SYSI_BIG_IMG       := $(BUILD)/fat_sysi_big.img
 
 # ---------------------------------------------------------------------------
 # Asset extraction v0 (spec/assets, beads initech-vcq)
@@ -656,6 +660,25 @@ $(FAT_SYSI_IMG): $(FAT12_FIXTURE_DIR)/hello.txt $(SYSI_PROG_BIN) $(CONFIG_SYS_FI
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@mcopy -i $@ $(SYSI_PROG_BIN) ::SYSI.COM
 	@printf ">>> fat_sysi: minted %s (1.44MB FAT12 disk for test-sysinit; CONFIG.SYS FILES=8 + SYSI.COM + HELLO.TXT; build intermediate)\n" "$@"
+
+# Oversize CONFIG.SYS fixture (bcg.9): FILES=8 in the first lines, then padding
+# REM lines so the file exceeds the 1024-byte SYSINIT scratch. The honor-first-1KB
+# path must still apply FILES=8 (not the baseline 20) and flag the truncation.
+$(CONFIG_SYS_BIG_FIXTURE): | $(BUILD)
+	@printf 'FILES=8\nBUFFERS=20\nLASTDRIVE=Z\nSHELL=COMMAND.COM /P /E:512\n' > $@
+	@i=0; while [ $$i -lt 60 ]; do printf 'REM padding line %02d -- push CONFIG.SYS past the 1024-byte scratch\n' $$i >> $@; i=$$((i+1)); done
+	@sz=$$(wc -c < $@); printf ">>> config_sys_big: minted %s (%s bytes >1024; FILES=8 in first lines; build intermediate)\n" "$@" "$$sz"
+
+# FAT disk carrying the OVERSIZE CONFIG.SYS (+ same SYSI.COM + HELLO.TXT as the
+# normal sysinit disk, so SYSI.COM behaves identically -- only the truncation
+# marker distinguishes honor-vs-discard).
+$(FAT_SYSI_BIG_IMG): $(FAT12_FIXTURE_DIR)/hello.txt $(SYSI_PROG_BIN) $(CONFIG_SYS_BIG_FIXTURE) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(CONFIG_SYS_BIG_FIXTURE) ::CONFIG.SYS
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(SYSI_PROG_BIN) ::SYSI.COM
+	@printf ">>> fat_sysi_big: minted %s (oversize CONFIG.SYS + SYSI.COM + HELLO.TXT; build intermediate)\n" "$@"
 
 # FAT12 WRITABLE data disk for the in-emulator WRITE round-trip (beads
 # initech-509.11; make test-fatwrite). A FRESH, formatted-but-near-empty 1.44 MB
@@ -4801,6 +4824,55 @@ test-sysinit: $(HARNESS_BIN) $(SYSI_IMG) $(FAT_SYSI_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-sysinit-oversize (bcg.9 -- CONFIG.SYS > 1024B is HONORED, not discarded)
+# ---------------------------------------------------------------------------
+# Boot the SAME SYSI kernel with --disk2 = FAT_SYSI_BIG_IMG, whose CONFIG.SYS
+# exceeds the 1024-byte SYSINIT scratch but carries FILES=8 in its first lines.
+# fat12_read_file fails loud (FAT12_ERR_BUFFER) on the short buffer; the bcg.9
+# path then honors the first 1KB via a positioned read and flags the truncation.
+# Assert (fail-loud, Rule 2):
+#   1. NO triple-fault.
+#   2. SERIAL shows "source=CONFIG.SYS(truncated@1024) FILES=8" -- the user's
+#      directive was APPLIED from the prefix (NOT the baseline FILES=20).
+#   3. SERIAL does NOT show "source=baseline" (the file was not discarded).
+# Pre-fix this would read "source=baseline FILES=20" (whole file discarded) -> RED.
+SYSIBIG_NAME   := sysi_big_boot
+SYSIBIG_SERIAL := $(BUILD)/$(SYSIBIG_NAME).serial
+SYSIBIG_REPORT := $(BUILD)/$(SYSIBIG_NAME).report
+
+.PHONY: test-sysinit-oversize
+test-sysinit-oversize: $(HARNESS_BIN) $(SYSI_IMG) $(FAT_SYSI_BIG_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-sysinit-oversize : >1KB CONFIG.SYS honored (bcg.9)\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + oversize CONFIG.SYS disk %s\n' "$(SYSI_IMG)" "$(FAT_SYSI_BIG_IMG)"
+	@printf 'Expecting : SYSINIT: source=CONFIG.SYS(truncated@1024) FILES=8 ... (NOT baseline)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(SYSI_IMG)" --disk2 "$(FAT_SYSI_BIG_IMG)" \
+		--name "$(SYSIBIG_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(SYSIBIG_REPORT)" || true
+	@cat "$(SYSIBIG_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(SYSIBIG_REPORT)"; then \
+		printf '!!! test-sysinit-oversize FAIL: TRIPLE FAULT\n'; exit 1; \
+	fi
+	@printf '>>> test-sysinit-oversize [1/3]: no triple-fault\n'
+	@if [ ! -s "$(SYSIBIG_SERIAL)" ]; then \
+		printf '!!! test-sysinit-oversize FAIL: no serial captured\n'; exit 1; \
+	fi
+	@grep -q '^SYSINIT: source=CONFIG.SYS(truncated@1024) FILES=8 cap=8 ' "$(SYSIBIG_SERIAL)" \
+		|| { printf '!!! test-sysinit-oversize FAIL: oversize CONFIG.SYS not honored (no truncated@1024 FILES=8 marker)\n'; \
+		     grep -n 'SYSINIT: source=' "$(SYSIBIG_SERIAL)" || true; exit 1; }
+	@printf '>>> test-sysinit-oversize [2/3]: first 1KB honored -- FILES=8 applied + truncation flagged\n'
+	@if grep -q '^SYSINIT: source=baseline' "$(SYSIBIG_SERIAL)"; then \
+		printf '!!! test-sysinit-oversize FAIL: fell back to baseline -- the oversize file was discarded\n'; exit 1; \
+	fi
+	@printf '>>> test-sysinit-oversize [3/3]: did NOT discard to baseline\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- a CONFIG.SYS larger than the scratch is honored (first 1KB) and flagged\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-shell (beads initech-7pc -- BOOT -> COMMAND.COM -> DIR/TYPE/run)
 # ---------------------------------------------------------------------------
 # THE M2 capstone keystone: boot the -DBOOT_SHELL image WITH a FAT12 disk
@@ -5702,7 +5774,7 @@ TEST_UNIT_GATES := \
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-fatwrite test-multiopen test-exit-handles \
-	test-sysinit test-shell test-panic test-spurious test-datetime \
+	test-sysinit test-sysinit-oversize test-shell test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-int21-irqstorm
 
 test-unit:

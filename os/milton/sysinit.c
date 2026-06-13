@@ -127,12 +127,15 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
     const char *src = SYSINIT_CONFIG_BASELINE;
     uint32_t    src_len = (uint32_t)(sizeof(SYSINIT_CONFIG_BASELINE) - 1u);
     int         from_disk = 0;
+    int         truncated = 0;
 
     /* Read CONFIG.SYS from the mounted volume if present; otherwise embed the
      * LOCKED baseline. `fat_buf` caches the FAT for the cluster walk; the file
      * bytes land in a small static scratch sized for a realistic CONFIG.SYS (no
-     * malloc, Law 3). A file larger than the scratch is truncated to it -- the
-     * directives we honor all sit in the first lines. */
+     * malloc, Law 3). A file LARGER than the scratch is not discarded: we honor
+     * its first sizeof(cfg_buf) bytes (the directives we apply -- FILES=, SHELL=
+     * -- sit in the early lines) and flag the truncation in the SYSINIT summary
+     * (bcg.9; operator choice 2026-06-13). */
     static char cfg_buf[1024];
     if (vol != 0 && sector_buf != 0 && fat_buf != 0) {
         dir_entry_t de;
@@ -152,6 +155,28 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
                     src = cfg_buf;
                     src_len = got;
                     from_disk = 1;
+                } else if (rrc == FAT12_ERR_BUFFER) {
+                    /* CONFIG.SYS exceeds cfg_buf: honor the first sizeof(cfg_buf)
+                     * bytes via a positioned read instead of silently discarding
+                     * the whole file (bcg.9). fat12_read_file fails loud on a
+                     * short buffer; fat12_read_partial clamps to the prefix. Trim
+                     * to the last complete line so a cut final line is not mis-
+                     * parsed. Truncation is surfaced in the summary (loud). */
+                    uint32_t got2 = 0;
+                    int prc = fat12_read_partial(vol, fat_buf, fat_buf_len, &de,
+                                                 0u, (uint32_t)sizeof(cfg_buf),
+                                                 cfg_buf, sector_buf, &got2);
+                    if (prc == FAT12_OK && got2 > 0u) {
+                        while (got2 > 0u && cfg_buf[got2 - 1u] != '\n') {
+                            got2--;          /* drop the partial final line */
+                        }
+                        if (got2 > 0u) {
+                            src = cfg_buf;
+                            src_len = got2;
+                            from_disk = 1;
+                            truncated = 1;
+                        }
+                    }
                 }
             }
         }
@@ -168,7 +193,11 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
 
     /* ---- the SYSINIT summary line the in-emulator oracle asserts ---- */
     serial("SYSINIT: source=");
-    serial(from_disk ? "CONFIG.SYS" : "baseline");
+    if (from_disk) {
+        serial(truncated ? "CONFIG.SYS(truncated@1024)" : "CONFIG.SYS");
+    } else {
+        serial("baseline");
+    }
     serial(" FILES=");
     sysinit_put_uint(serial, (uint32_t)files);
     serial(" cap=");
