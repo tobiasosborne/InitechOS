@@ -299,11 +299,11 @@ vbe_setup:
     mov ax, 0x4F00
     int 0x10
     cmp ax, 0x004F
-    jne .err
+    jne .err00
     ; Check "VESA" signature at buffer+0.
     mov eax, [es:VBE_CTRL_BUF]
     cmp eax, 0x41534556          ; "VESA"
-    jne .err
+    jne .errsig
 
     ; 2. VbeInfoBlock.VideoModePtr is a far pointer at offset 0x0E (off:seg).
     mov ax, [es:VBE_CTRL_BUF + 0x0E]   ; offset
@@ -318,7 +318,7 @@ vbe_setup:
     mov si, [mode_ptr_off]
     mov cx, [fs:si]              ; mode number
     cmp cx, 0xFFFF
-    je .err                      ; end of list, no suitable mode -> fail loud
+    je .errnomode                ; end of list, no suitable mode -> fail loud
     add word [mode_ptr_off], 2
     mov [cur_mode], cx
 
@@ -377,9 +377,25 @@ vbe_setup:
     or bx, 0x4000                ; request linear framebuffer
     int 0x10
     cmp ax, 0x004F
-    jne .err
+    jne .err02
     ret
 
+.err00:
+    mov si, msg_vbe_e00
+    call serial_puts
+    jmp .err
+.errsig:
+    mov si, msg_vbe_esig
+    call serial_puts
+    jmp .err
+.errnomode:
+    mov si, msg_vbe_enomode
+    call serial_puts
+    jmp .err
+.err02:
+    mov si, msg_vbe_e02
+    call serial_puts
+    jmp .err
 .err:
     mov si, msg_err_vbe
     call serial_puts
@@ -555,6 +571,10 @@ msg_vbe:     db "VBE", 0x0A, 0
 msg_a20:     db "A20", 0x0A, 0
 msg_gdt:     db "GDT", 0x0A, 0
 msg_err_vbe: db "ERR-VBE", 0x0A, 0
+msg_vbe_e00:     db "VBE-E00", 0x0A, 0
+msg_vbe_esig:    db "VBE-ESIG", 0x0A, 0
+msg_vbe_enomode: db "VBE-ENOMODE", 0x0A, 0
+msg_vbe_e02:     db "VBE-E02", 0x0A, 0
 msg_pm32:    db "PM", 0x0A, 0
 msg_lfb32:   db "LFB", 0x0A, 0
 msg_ok32:    db "OK", 0x0A, 0
