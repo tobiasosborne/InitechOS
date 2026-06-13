@@ -38,6 +38,14 @@ status, and spec ground-truth. Baseline at start: 45 host + 19 QEMU gates green.
   guard the exact overflow `v > (UINT32_MAX-digit)/10`; fuzzer reference updated
   in lockstep; off-by-one mutant added and caught.
 
+- **e5357b1 — INT 21h user-pointer guards (ADR-0003 DEC-14, initech-tzq).**
+  Acting on the edge-suite finding: `do_read`/`do_write` (and the FINDFIRST DTA
+  write) now validate `[EDX,EDX+CX)` via `user_buf_ok` -- NULL or a 32-bit-
+  wrapping range -> CF=1, AX=0x0009 (new "invalid memory block" code) instead of
+  faulting/scribbling. Documented divergence from DOS authenticity (ADR DEC-14).
+  Mutation-proven (test-int21-edge 82->94 checks; the no-guard mutant SIGSEGVs on
+  a NULL read = RED).
+
 Gate now: **55 host + 19 emu, all green.**
 
 ## Why
@@ -73,13 +81,27 @@ redundant "fixes."
 with a mutation proof. kernel.bin reproducible-gated. No emu regression (the
 artifact changes are inert `#ifdef` mutant hooks).
 
-## Open follow-ups (decisions needed)
+## Open follow-ups
 
-- **initech-tzq** — `do_read`/`do_write`/`do_setdta` accept unvalidated `EDX`
-  (the edge suite confirmed the sites). Adding fail-loud guards is a behavioral
-  change vs DOS authenticity → needs an ADR + a guard-vs-authentic decision.
-- **initech-6pj / 564 / 44m** — the Bochs/86Box tri-emulator path; blocked on the
-  VBE-on-Bochs decision above. The headless harness mechanism is proven.
+- **initech-tzq — DONE** (e5357b1): user chose fail-loud error return; ADR-0003
+  DEC-14 ratified + implemented + mutation-proven.
+- **initech-6pj / 564 / 44m — Bochs tri-emulator, OPEN (dedicated effort).** User
+  approved investigating a Bochs-native BIOS; `bochsbios` + `bochs-term` were
+  installed. Result: `BIOS-bochs-latest` does NOT boot clean either -- the guest
+  faults very early (interrupt with `IDT.limit=0x0`, never reaching stage2),
+  likely the i440FX/ACPI/USB environment or the tiny 2/2/32 disk geometry vs what
+  the native BIOS expects. So **both** paths now have a known failure (SeaBIOS:
+  reaches stage2, no VBE; native BIOS: crashes pre-stage2). Next options, all
+  non-trivial: standard disk geometry + `bochs-term` headless for the native BIOS;
+  or a stage2 non-LFB VGA fallback + a console renderer (the most robust, biggest
+  effort). QEMU remains the binding boot/visual gate; the headless Bochs mechanism
+  (RFB-unblock client) is proven and reusable.
+
+## Epic status (initech-bcg)
+
+Robustness, edge-case, fuzzing, reproducibility, and user-pointer-guard work is
+**complete and green**. The only remaining leg is the Bochs/86Box tri-emulator
+gate, which is a dedicated effort blocked as above.
 
 ## Pointers
 
