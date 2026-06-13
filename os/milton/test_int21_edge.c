@@ -612,5 +612,65 @@ int main(void)
         CHECK((uint8_t)((f.ebx >> 8) & 0xFFu) == 0u, "GETVER zeroes BH (OEM byte)");
     }
 
+    /* --- ADR-0003 DEC-14 / initech-tzq: INT 21h user-pointer guards. -------- *
+     * do_read / do_write / the FINDFIRST DTA write validate [EDX,EDX+CX) before
+     * dereferencing: NULL or a 32-bit-wrapping range -> CF=1, AX=0x0009 instead
+     * of faulting/scribbling; a zero count always succeeds. The
+     * INT21_MUTATE_NO_PTR_GUARD mutant disables the guard, so case (a) -- a NULL
+     * read of the non-empty HELLO.TXT -- SIGSEGVs (the exact fault the guard
+     * prevents), which the mutant oracle reads as RED. */
+    {
+        /* (a) READ into a NULL buffer on a VALID handle, count>0 -> 0x0009. */
+        uint32_t h = open_hello();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3F00u; f.ebx = h; f.ecx = 8u; f.edx = 0u;   /* NULL dst */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "READ NULL buffer (valid handle) sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_MEMORY,
+              "READ NULL buffer -> AX=0x0009 (invalid memory, DEC-14)");
+    }
+    {
+        /* (b) WRITE from a NULL buffer to CON (handle 1), count>0 -> 0x0009. */
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4000u; f.ebx = 1u; f.ecx = 4u; f.edx = 0u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "WRITE NULL buffer to CON sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_MEMORY,
+              "WRITE NULL buffer -> AX=0x0009 (DEC-14)");
+    }
+    {
+        /* (c) WRITE with a count that WRAPS the 32-bit space -> 0x0009. */
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4000u; f.ebx = 1u; f.ecx = 0x20u; f.edx = 0xFFFFFFF0u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "WRITE wrapping [EDX,EDX+CX) sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_MEMORY,
+              "WRITE 32-bit-wrap buffer -> AX=0x0009 (DEC-14)");
+    }
+    {
+        /* (d) CX=0 with a NULL buffer is a no-op success (no memory access). */
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4000u; f.ebx = 1u; f.ecx = 0u; f.edx = 0u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "WRITE CX=0 NULL buffer clears CF (no access)");
+        CHECK((f.eax & 0xFFFFFFFFu) == 0u, "WRITE CX=0 returns 0 bytes");
+    }
+    {
+        /* (e) A VALID low buffer is NOT rejected (the guard's negative space). */
+        uint32_t h = open_hello();
+        uint8_t *dst = (uint8_t *)(uintptr_t)alloc_low(16); memset(dst, 0, 16);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3F00u; f.ebx = h; f.ecx = 8u; f.edx = (uint32_t)(uintptr_t)dst;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "READ into a valid low buffer clears CF (guard allows)");
+        CHECK((f.eax & 0xFFFFFFFFu) == 8u, "READ valid buffer returns 8 bytes");
+    }
+    /* NOTE: the FINDFIRST DTA-write guard (emit_find_data validates the DTA
+     * against sizeof(find_data_t) before writing) is implemented and uses the
+     * same user_buf_ok helper proven above; it is not exercised here because
+     * this suite's mock backend has no dir_entry hook (FINDFIRST returns
+     * no-more-files before the write). The guard is defensive + ADR-documented
+     * (DEC-14); a dedicated FINDFIRST-DTA test belongs in test_fileio. */
+
     return TEST_SUMMARY("test_int21_edge");
 }

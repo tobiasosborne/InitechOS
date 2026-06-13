@@ -574,6 +574,32 @@ static void do_flush_then_input(int_frame_t *f)
     }
 }
 
+/* Validate a user-supplied INT 21h buffer [ptr, ptr+count) BEFORE any access.
+ * Returns 1 if safe, 0 if the call must fail loud (caller sets CF=1,
+ * AX=0x0009). A bad caller pointer -- NULL, or a count that wraps the 32-bit
+ * flat space -- is rejected rather than dereferenced/scribbled (Rule 2;
+ * ADR-0003 DEC-14 / beads initech-tzq). A zero count never touches memory and
+ * always passes (the DOS contract). Scope is NULL + 32-bit wrap: both are
+ * meaningful on the flat target AND exercisable by the host unit tests (whose
+ * buffers live at host addresses, so a fixed arena-ceiling check would reject
+ * valid host buffers -- target-only, out of scope per DEC-14.1). */
+static int user_buf_ok(uint32_t ptr, uint32_t count)
+{
+#ifdef INT21_MUTATE_NO_PTR_GUARD
+    /* MUTANT (Rule 6; make test-int21-edge-mutant only): disable the guard so a
+     * NULL/wrapping buffer is dereferenced -- a NULL read of a non-empty file
+     * then SIGSEGVs (the exact fault the guard prevents) and the oracle goes
+     * RED. NEVER define in a real build. */
+    (void)ptr; (void)count;
+    return 1;
+#else
+    if (count == 0u)       return 1;   /* no memory access */
+    if (ptr == 0u)         return 0;   /* NULL buffer */
+    if (ptr + count < ptr) return 0;   /* 32-bit wrap (count overflow) */
+    return 1;
+#endif
+}
+
 /* AH=40h WRITE TO FILE/DEVICE: EBX=handle, ECX=count, EDX=flat ptr. The handle
  * is resolved through the current process's JFT into the system SFT (beads
  * initech-509.3): a CON device entry writes to the console (so handles 1/2 --
@@ -593,6 +619,14 @@ static void do_write(int_frame_t *f)
     if (e == 0) {
         /* No such open handle (out of range / closed / no process). Rule 2. */
         set_ax(f, INT21_ERR_INVALID_HANDLE);
+        cf_set(f);
+        return;
+    }
+
+    /* Validate the source buffer before either the CON fan-out or the FILE
+     * backend dereferences it (ADR-0003 DEC-14 / initech-tzq). */
+    if (!user_buf_ok(f->edx, count)) {
+        set_ax(f, INT21_ERR_INVALID_MEMORY);
         cf_set(f);
         return;
     }
@@ -922,6 +956,15 @@ static void do_read(int_frame_t *f)
         return;
     }
 
+    /* Validate the destination buffer before the backend writes into it
+     * (ADR-0003 DEC-14 / initech-tzq). The DEVICE leg above never touches the
+     * buffer (returns EOF), so the guard belongs on the FILE path. */
+    if (!user_buf_ok(f->edx, count)) {
+        set_ax(f, INT21_ERR_INVALID_MEMORY);
+        cf_set(f);
+        return;
+    }
+
     /* FILE: positioned read over the cluster chain (no whole-file buffer). The
      * backend serves min(count, file_size - file_offset) bytes from the chain. */
     uint32_t take = 0u;
@@ -1174,14 +1217,21 @@ static void format_83(const dir_entry_t *e, char out[13])
 
 /* Write the 43-byte find_data_t for a matched entry into the current DTA, then
  * record the search position for FINDNEXT. */
-static void emit_find_data(const dir_entry_t *e)
+static uint16_t emit_find_data(const dir_entry_t *e)
 {
     uint32_t dta = current_dta();
     if (dta == 0) {
         /* No DTA and no PSP -> we cannot honor the find contract. Fail loud
          * rather than write through a NULL (Rule 2). */
         __builtin_trap();
-        return;
+        return INT21_ERR_INVALID_MEMORY;   /* not reached */
+    }
+    /* A wild (non-NULL but count-overflowing) DTA must not be scribbled with the
+     * 43-byte find_data_t -- fail loud and let FINDFIRST/NEXT return the error
+     * (ADR-0003 DEC-14 / initech-tzq). The NULL-DTA -> PSP:0x80 fallback in
+     * current_dta() is preserved above. */
+    if (!user_buf_ok(dta, (uint32_t)sizeof(find_data_t))) {
+        return INT21_ERR_INVALID_MEMORY;
     }
     find_data_t *fd = (find_data_t *)(uintptr_t)dta;
 
@@ -1194,6 +1244,7 @@ static void emit_find_data(const dir_entry_t *e)
     fd->fdate = e->mdate;
     fd->fsize = e->file_size;
     format_83(e, fd->fname);
+    return 0u;
 }
 
 /* Scan from g_find.next_index for the next surviving entry matching the search
@@ -1232,7 +1283,11 @@ static uint16_t find_scan(int_frame_t *f)
             continue;
         }
 
-        emit_find_data(&de);
+        uint16_t werr = emit_find_data(&de);
+        if (werr != 0u) {
+            cf_set(f);
+            return werr;       /* wild DTA -- fail loud (DEC-14) */
+        }
         cf_clear(f);
         return 0u;
     }

@@ -1575,6 +1575,10 @@ TEST_INT21EDGE_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/s
 # UNDERFLOWS the uint16 to 0xFFFF (the double-close corruption beads initech-00x
 # flagged) -- `make test-int21-edge-mutant` proves the no-underflow oracle BITES.
 TEST_INT21EDGE_MUT_CLOSE := $(BUILD)/test_int21_edge_mutant_close
+# Mutation build (Rule 6 / ADR-0003 DEC-14): int21.c with user_buf_ok disabled,
+# so the NULL-read-of-a-non-empty-file case SIGSEGVs (the fault the guard
+# prevents) -- a non-zero exit the mutant oracle reads as RED.
+TEST_INT21EDGE_MUT_PTR := $(BUILD)/test_int21_edge_mutant_ptr
 
 $(TEST_INT21EDGE): $(TEST_INT21EDGE_SRC) $(TEST_INT21EDGE_DEPS) $(TEST_INT21EDGE_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -1584,20 +1588,30 @@ $(TEST_INT21EDGE_MUT_CLOSE): $(TEST_INT21EDGE_SRC) $(TEST_INT21EDGE_DEPS) $(TEST
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CLOSE_NO_REFGUARD -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_INT21EDGE_SRC) $(TEST_INT21EDGE_DEPS)
 
+$(TEST_INT21EDGE_MUT_PTR): $(TEST_INT21EDGE_SRC) $(TEST_INT21EDGE_DEPS) $(TEST_INT21EDGE_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_NO_PTR_GUARD -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21EDGE_SRC) $(TEST_INT21EDGE_DEPS)
+
 .PHONY: test-int21-edge test-int21-edge-mutant
 test-int21-edge: $(TEST_INT21EDGE)
 	@printf ">>> test-int21-edge: INT 21h error paths (bad/closed handle, double-close, CX=0, short read) + 0Eh/19h/47h/59h/62h via mock backend (initech-xrd/1zk)\n"
 	@$(TEST_INT21EDGE)
 	@printf ">>> test-int21-edge: green\n"
 
-# Mutation-proof: the mutant build MUST fail the oracle (Rule 6).
-test-int21-edge-mutant: $(TEST_INT21EDGE_MUT_CLOSE)
-	@printf ">>> test-int21-edge-mutant: confirming the close-no-refguard mutant goes RED (Rule 6)\n"
+# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
+test-int21-edge-mutant: $(TEST_INT21EDGE_MUT_CLOSE) $(TEST_INT21EDGE_MUT_PTR)
+	@printf ">>> test-int21-edge-mutant: confirming both mutants go RED (Rule 6)\n"
 	@if $(TEST_INT21EDGE_MUT_CLOSE) >/dev/null 2>&1; then \
 		printf '!!! test-int21-edge-mutant FAIL: close-no-refguard mutant PASSED -- the double-close no-underflow test is decoration\n'; \
 		exit 1; \
 	else \
 		printf '>>> test-int21-edge-mutant: green (close-no-refguard mutant correctly RED -- the ref_count guard oracle bites)\n'; \
+	fi
+	@if $(TEST_INT21EDGE_MUT_PTR) >/dev/null 2>&1; then \
+		printf '!!! test-int21-edge-mutant FAIL: no-ptr-guard mutant PASSED -- the user-pointer guard test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-int21-edge-mutant: green (no-ptr-guard mutant correctly RED -- the DEC-14 user-pointer guard bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------

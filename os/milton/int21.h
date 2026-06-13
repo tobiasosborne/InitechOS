@@ -38,6 +38,7 @@
 #define INT21_ERR_ACCESS_DENIED     0x0005u  /* write to AUX/PRN/file (no backing yet) */
 #define INT21_ERR_INVALID_HANDLE    0x0006u  /* out-of-range / closed handle  */
 #define INT21_ERR_INSUFFICIENT_MEM  0x0008u  /* EXEC: no memory / load active (nested) */
+#define INT21_ERR_INVALID_MEMORY    0x0009u  /* bad user buffer ptr: NULL / 32-bit wrap (ADR-0003 DEC-14) */
 #define INT21_ERR_BAD_FORMAT        0x000Bu  /* EXEC: bad/oversized program image */
 #define INT21_ERR_NO_MORE_FILES     0x0012u  /* FINDFIRST/NEXT: no (more) match */
 
