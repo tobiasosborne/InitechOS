@@ -650,7 +650,12 @@ static void do_write(int_frame_t *f)
      * backend returns the UPDATED dir entry so we refresh the SFT copy's size +
      * start_cluster, then advance the position. */
     if (e->kind == SFT_KIND_FILE) {
-        if (e->open_mode != SFT_MODE_WRITE || g_file == 0 || g_file->write_at == 0) {
+        /* AH=3Dh AL=2 (RDWR) must permit writing, not only AL=1 (WRITE) per the
+         * DOS 3.3 PRM (bcg.1). A read-only (AL=0) handle or a missing write
+         * backend -> access denied (Rule 2). */
+        int writable = (e->open_mode == SFT_MODE_WRITE ||
+                        e->open_mode == SFT_MODE_RDWR);
+        if (!writable || g_file == 0 || g_file->write_at == 0) {
             set_ax(f, INT21_ERR_ACCESS_DENIED);
             cf_set(f);
             return;

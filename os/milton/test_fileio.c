@@ -716,6 +716,71 @@ int main(void)
               "positioned overwrite-in-place: first 5 bytes are now HELLO, tail intact");
     }
 
+    /* --- RDWR (AL=2) round-trip (bcg.1): AH=3Dh AL=2 is read/write per DOS 3.3
+     *     PRM; a mode-2 handle MUST permit WRITE. The bug: do_write gated on
+     *     open_mode==SFT_MODE_WRITE only, so a mode-2 handle was denied --
+     *     breaking in-place record updates (InitechBase .dbf). */
+    {
+        mock_reset_dir();
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+
+        /* Make the file exist (CREAT + CLOSE), then OPEN it AL=2. */
+        uint32_t cedx = low_dup("RW.TXT");
+        int_frame_t cc = fresh_frame();
+        cc.eax = 0x3C00u; cc.ecx = 0u; cc.edx = cedx;
+        int21_dispatch(&cc);
+        CHECK(frame_cf(&cc) == 0, "CREAT RW.TXT clears CF");
+        int_frame_t cc_cl = fresh_frame();
+        cc_cl.eax = 0x3E00u; cc_cl.ebx = (uint16_t)(cc.eax & 0xFFFFu);
+        int21_dispatch(&cc_cl);
+
+        uint32_t oedx = low_dup("RW.TXT");
+        int_frame_t o = fresh_frame();
+        o.eax = 0x3D02u; o.edx = oedx;             /* AL=2 (read/write mode) */
+        int21_dispatch(&o);
+        CHECK(frame_cf(&o) == 0, "OPEN RW.TXT in read/write mode clears CF");
+        uint32_t h = (uint16_t)(o.eax & 0xFFFFu);
+
+        /* WRITE through the RDWR handle MUST succeed (the bcg.1 regression). */
+        uint32_t wbuf = low_dup("DATA!");
+        int_frame_t w = fresh_frame();
+        w.eax = 0x4000u; w.ebx = h; w.ecx = 5u; w.edx = wbuf;
+        w.eflags |= CF_BIT;
+        int21_dispatch(&w);
+        CHECK(frame_cf(&w) == 0, "WRITE through AL=2 RDWR handle clears CF (bcg.1)");
+        CHECK(w.eax == 5u, "WRITE through RDWR handle returns 5 bytes");
+
+        /* READ BACK through the same handle (LSEEK 0 then READ): mode 2 reads too. */
+        int_frame_t sk = fresh_frame();
+        sk.eax = 0x4200u; sk.ebx = h; sk.ecx = 0u; sk.edx = 0u;
+        int21_dispatch(&sk);
+        CHECK(sk.eax == 0u, "LSEEK RDWR handle back to 0");
+        uint8_t *rb2 = (uint8_t *)(uintptr_t)alloc_low(16); memset(rb2, 0, 16);
+        int_frame_t rd = fresh_frame();
+        rd.eax = 0x3F00u; rd.ebx = h; rd.ecx = 16u; rd.edx = (uint32_t)(uintptr_t)rb2;
+        int21_dispatch(&rd);
+        CHECK(rd.eax == 5u, "READ BACK through RDWR handle returns 5 bytes");
+        CHECK(memcmp(rb2, "DATA!", 5) == 0, "RDWR round-trip: read back == written (bcg.1)");
+
+        /* NEGATIVE (bcg.1): a READ-mode (AL=0) handle must still be DENIED a
+         * WRITE -- this is what keeps the gate from being loosened to
+         * "always writable". */
+        uint32_t roedx = low_dup("RW.TXT");
+        int_frame_t ro_o = fresh_frame();
+        ro_o.eax = 0x3D00u; ro_o.edx = roedx;      /* AL=0 (read mode) */
+        int21_dispatch(&ro_o);
+        CHECK(frame_cf(&ro_o) == 0, "OPEN RW.TXT read-only clears CF");
+        uint32_t roh = (uint16_t)(ro_o.eax & 0xFFFFu);
+        uint32_t rowbuf = low_dup("NOPE!");
+        int_frame_t row = fresh_frame();
+        row.eax = 0x4000u; row.ebx = roh; row.ecx = 5u; row.edx = rowbuf;
+        int21_dispatch(&row);
+        CHECK(frame_cf(&row) == 1, "WRITE through AL=0 read handle is DENIED (bcg.1 negative)");
+        CHECK((uint16_t)(row.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "AL=0 read handle WRITE -> access denied 0x0005");
+    }
+
     /* --- CREAT with NO write backend -> access denied --------------------- */
     {
         /* Bind a read-only backend (create/write_at=NULL) by reusing g_mock but
