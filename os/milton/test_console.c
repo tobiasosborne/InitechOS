@@ -370,6 +370,64 @@ int main(void)
 
         bad = bi; bad.font_addr = 0;
         CHECK(console_init(&con, &bad) == CONSOLE_ERR_FONT, "font_addr 0 -> ERR_FONT");
+
+        /* bcg.11: degenerate geometry must be rejected, not silently accepted.
+         * (Each returns before any framebuffer write, so fb=font is safe here.) */
+        bad = bi; bad.lfb_width = 0;
+        CHECK(console_init(&con, &bad) == CONSOLE_ERR_GEOMETRY, "width 0 -> ERR_GEOMETRY");
+        bad = bi; bad.lfb_height = 0;
+        CHECK(console_init(&con, &bad) == CONSOLE_ERR_GEOMETRY, "height 0 -> ERR_GEOMETRY");
+        bad = bi; bad.lfb_pitch = 0;
+        CHECK(console_init(&con, &bad) == CONSOLE_ERR_GEOMETRY, "pitch 0 -> ERR_GEOMETRY");
+        bad = bi; bad.lfb_pitch = bi.lfb_width * (bi.lfb_bpp / 8u) - 1u;
+        CHECK(console_init(&con, &bad) == CONSOLE_ERR_GEOMETRY,
+              "pitch < width*bpp -> ERR_GEOMETRY");
+    }
+
+    /* ===================== padded-pitch path (bcg.11) ===================== *
+     * Bochs/86Box modes can give a pitch LARGER than width*bpp (scanline
+     * padding). The blit must use `pitch`, not width*bpp, for the row stride.
+     * Build a 32bpp fb with 64 padding bytes per scanline; assert a glyph lands
+     * on the correct scanline and the padding gap stays untouched. */
+    {
+        uint32_t bpp = 32u, bpx = bpp / 8u;
+        uint32_t pad = 64u;
+        uint32_t pitch = (uint32_t)FB_W * bpx + pad;
+        size_t fb_bytes = (size_t)pitch * FB_H;
+        uint8_t *fb = alloc_low(fb_bytes);
+        CHECK(fb != NULL, "alloc padded-pitch framebuffer");
+        if (fb) {
+            boot_info_t bi;
+            bi.lfb_addr   = (uint32_t)(uintptr_t)fb;
+            bi.lfb_bpp    = bpp;
+            bi.lfb_pitch  = pitch;
+            bi.lfb_width  = FB_W;
+            bi.lfb_height = FB_H;
+            bi.font_addr  = (uint32_t)(uintptr_t)font;
+
+            console_t con;
+            int rc = console_init(&con, &bi);
+            CHECK(rc == CONSOLE_OK, "console_init OK on a padded-pitch boot_info");
+            CHECK(con.pitch == pitch, "console honors the padded pitch (not width*bpp)");
+
+            uint32_t fg = con.fg, bg = con.bg;
+            /* fb_get inside check_solid_cell uses con.pitch -- a width*bpp stride
+             * in console.c would put the glyph on the wrong scanline and fail. */
+            console_draw_glyph(&con, 3, 2, GLYPH_SOLID, fg, bg);
+            check_solid_cell(&con, fb, 3, 2, fg, bg);
+
+            /* The padding past `width` on a glyph scanline must be untouched
+             * (still zero): a stride bug would scribble bg/ink into it. */
+            {
+                uint32_t row = 2u * CONSOLE_CELL_H;          /* a glyph scanline */
+                size_t   pad_off = (size_t)row * pitch + (size_t)FB_W * bpx;
+                int      pad_clean = 1;
+                for (uint32_t i = 0; i < pad; i++)
+                    if (fb[pad_off + i] != 0) pad_clean = 0;
+                CHECK(pad_clean, "scanline padding past width is left untouched");
+            }
+            munmap(fb, fb_bytes);
+        }
     }
 
     munmap(font, CONSOLE_FONT_BYTES);

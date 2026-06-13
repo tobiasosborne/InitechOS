@@ -269,6 +269,17 @@ int console_init(console_t *con, const boot_info_t *bi)
     if (bi->font_addr == 0) {
         return CONSOLE_ERR_FONT;
     }
+    /* Reject degenerate geometry (bcg.11; console.h promise "refuse bad input,
+     * do not scribble"). A zero width/height yields a console that reports OK
+     * but draws nothing; a pitch shorter than one row of pixels
+     * (width * bytes_per_pixel) makes every per-row write overrun into the next
+     * scanline, and pitch==0 aliases every scanline to row 0 -> silent
+     * framebuffer corruption. bpp is already validated to {8,24,32}, so bpp/8
+     * is 1/3/4. The struct was zeroed, so a rejected init stays unusable. */
+    if (bi->lfb_width == 0 || bi->lfb_height == 0 ||
+        bi->lfb_pitch < bi->lfb_width * (bi->lfb_bpp / 8u)) {
+        return CONSOLE_ERR_GEOMETRY;
+    }
 
     con->lfb             = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
     con->pitch           = bi->lfb_pitch;

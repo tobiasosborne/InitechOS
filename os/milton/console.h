@@ -36,6 +36,8 @@
 #define CONSOLE_ERR_ADDR   2  /* lfb_addr == 0 (no framebuffer)            */
 #define CONSOLE_ERR_BPP    3  /* lfb_bpp not in {8, 24, 32}                */
 #define CONSOLE_ERR_FONT   4  /* font_addr == 0 (no font stash)            */
+#define CONSOLE_ERR_GEOMETRY 5 /* degenerate dims: width/height 0, or       */
+                               /* pitch < width*(bpp/8) (bcg.11)            */
 
 /* 8bpp standard-VGA fallback (initech-6pj): when no VBE LFB is available (e.g.
  * on Bochs, where the BIOS offers no 640x480 linear mode), stage2 falls back to
