@@ -117,8 +117,8 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **55 host + 21 emu gates** (re-verified green this push; was 55+19
-before WL-0017). Plus the
+`make test` = **57 host + 21 emu gates** (re-verified green; was 55+21 before
+WL-0018 added `test-mcb` + `test-mcb-mutant`). Plus the
 separate `make test-boot-bochs` (the Bochs boot leg; env-specific Bochs +
 ~45 s, NOT in the default `make test`). `make factory` builds; `make` prints
 help. The default boot image (`build/tracer_boot.img`) is now the **shell**
@@ -146,7 +146,23 @@ fallback, asserted on serial.)
 plan that lived here is superseded — see §4's WL-0008–WL-0016 lines). The DOS
 personality boots to an interactive `A:\>` on QEMU and Bochs.
 
-**Ready next work** (`bd ready`; each a distinct direction — pick per operator
+**ACTIVE WORKSTREAM — DOS 3.3 feature-parity push (epic `initech-bsy`, WL-0018).**
+The operator directed a sustained push to DOS 3.3-5.0 parity (spirit, not literal,
+where it conflicts with the north star), oriented around the existing beads. A
+grounded gap-map established that within ADR-0003 Appendix A the real INT 21h gap
+is `39h/3Ah/3Bh` MKDIR/RMDIR/CHDIR, `43h` CHMOD, `44h` IOCTL, `48h/49h/4Ah`
+ALLOC/FREE/SETBLOCK, `56h` RENAME, `57h` FILETIME, `5Bh` CREATNEW (all recognized
+by `ah_is_listed()` but NOT dispatched), plus the shell built-ins + batch + env.
+`bd show initech-bsy` carries the full sequenced build order (Tranches A-I).
+**Landed (WL-0018):** Tranche A complete — `dww` (FINDFIRST DTA real-DOS offsets),
+`62m` (kbd emits CR), `456` (EXEC command tail -> PSP:80h) — and the MCB arena
+allocator (`os/milton/mcb.{c,h}` + `test-mcb`, the pure half of `509.6`).
+**Resume at `initech-509.6`:** wire AH=48/49/4A in int21.c to an `mcb_arena_t`
+and decide the arena region (the program window 0x30000..0x70000 is fully tiled —
+see WL-0018 "remaining" for the two options). Then `dao`->`z01`->`ti8`->... per
+the epic.
+
+**Other ready work** (`bd ready`; distinct directions — pick per operator
 steer):
 - `26d` — **PS/2 mouse (IRQ12) + the canonical hourglass cursor** (Law 4 canon)
   → toward the interactive desktop / Toolbox (M3/M4 GUI).

@@ -2151,6 +2151,53 @@ test-loader-mutant: $(TEST_LOADER_MUT)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-mcb (beads initech-509.6 -- the MCB memory arena 48h/49h/4Ah)
+# ---------------------------------------------------------------------------
+# The pure arena allocator (mcb.c) + its property suite: chain invariants,
+# first-fit, split-on-alloc/coalesce-on-free, setblock grow/shrink, the
+# insufficient+largest-free failure path, the bad-block/owner guards, and a
+# randomized data-integrity fuzz (20k ops, no allocation ever stomped). Two
+# mutants (no-coalesce, no-owner-check) prove the oracle BITES.
+TEST_MCB      := $(BUILD)/test_mcb
+TEST_MCB_SRC  := $(MILTON_DIR)/test_mcb.c
+TEST_MCB_DEPS := $(MILTON_DIR)/mcb.c $(MILTON_DIR)/mcb.h spec/dos_structs.h
+TEST_MCB_MUT_COALESCE := $(BUILD)/test_mcb_mutant_coalesce
+TEST_MCB_MUT_OWNER    := $(BUILD)/test_mcb_mutant_owner
+
+$(TEST_MCB): $(TEST_MCB_SRC) $(TEST_MCB_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_MCB_SRC) $(MILTON_DIR)/mcb.c
+
+$(TEST_MCB_MUT_COALESCE): $(TEST_MCB_SRC) $(TEST_MCB_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMCB_MUTATE_NO_COALESCE -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_MCB_SRC) $(MILTON_DIR)/mcb.c
+
+$(TEST_MCB_MUT_OWNER): $(TEST_MCB_SRC) $(TEST_MCB_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMCB_MUTATE_NO_OWNER_CHECK -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_MCB_SRC) $(MILTON_DIR)/mcb.c
+
+.PHONY: test-mcb test-mcb-mutant
+test-mcb: $(TEST_MCB)
+	@printf ">>> test-mcb: MCB arena 48h/49h/4Ah -- chain invariants + first-fit + split/coalesce + setblock + data-integrity fuzz\n"
+	@$(TEST_MCB)
+	@printf ">>> test-mcb: green\n"
+
+test-mcb-mutant: $(TEST_MCB_MUT_COALESCE) $(TEST_MCB_MUT_OWNER)
+	@printf ">>> test-mcb-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_MCB_MUT_COALESCE) >/dev/null 2>&1; then \
+		printf '!!! test-mcb-mutant FAIL: no-coalesce mutant PASSED -- the coalesce oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-mcb-mutant: green (no-coalesce mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_MCB_MUT_OWNER) >/dev/null 2>&1; then \
+		printf '!!! test-mcb-mutant FAIL: no-owner-check mutant PASSED -- the owner-guard oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-mcb-mutant: green (no-owner-check mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # Stub macro
 # ---------------------------------------------------------------------------
 # $(call stub,<target>,<milestone hint>) -- print an honest placeholder
@@ -2177,7 +2224,7 @@ endef
         test-idt-mutant test-int21 test-int21-mutant test-int24 test-int24-mutant \
         test-vect test-psp test-psp-mutant \
         test-sft test-sft-mutant test-fileio test-fileio-mutant \
-        test-loader test-loader-mutant test-program test-fs test-type test-dir \
+        test-loader test-loader-mutant test-mcb test-mcb-mutant test-program test-fs test-type test-dir \
         test-exec test-exec-unit test-exec-mutant \
         test-fat12-write test-fat-write test-fat-write-mutant test-fatwrite \
         test-multiopen \
@@ -5758,13 +5805,14 @@ TEST_UNIT_GATES := \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
+	test-mcb \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-int24-mutant \
 	test-fileio-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
-	test-sft-mutant test-loader-mutant test-config-sys-mutant test-fat-write-mutant \
+	test-sft-mutant test-loader-mutant test-mcb-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
