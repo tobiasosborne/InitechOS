@@ -98,8 +98,10 @@ static void test_translate(void)
     CHECK(kbd_translate(&st, 0x17) == 'i', "0x17 -> 'i'");
     CHECK(kbd_translate(&st, 0x13) == 'r', "0x13 -> 'r'");
 
-    /* Enter (0x1C), Space (0x39). */
-    CHECK(kbd_translate(&st, 0x1C) == '\n', "0x1C -> Return");
+    /* Enter (0x1C) -> CR (0x0D), the DOS/BIOS convention so the whole CON path
+     * uses one terminator and AH=0Ah needs no LF->CR bandaid (initech-62m).
+     * Space (0x39). */
+    CHECK(kbd_translate(&st, 0x1C) == '\r', "0x1C -> Return (CR 0x0D)");
     CHECK(kbd_translate(&st, 0x39) == ' ',  "0x39 -> Space");
 
     /* Break code: bit 0x80 set -> no character (release of 'd'). */

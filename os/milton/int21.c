@@ -499,14 +499,14 @@ static void do_buffered_input(int_frame_t *f)
         int ci = conin_get_pb();
         uint8_t c = (uint8_t)ci;
 
-        /* Line terminator: the DOS Enter key is CR (0x0D). InitechOS's PS/2
-         * driver (kbd.c, beads initech-3rs) decodes the Enter scancode (0x1C) to
-         * LF (0x0A, '\n'), so accept EITHER as the terminator and NORMALIZE the
-         * stored byte to CR (0x0D) -- the DOS 3.3 AH=0Ah contract (the caller
-         * scans for 0x0D in the buffer). Without this, a line read from the live
-         * keyboard would never terminate (root cause, Rule 3 -- not a per-test
-         * bandaid). Ref: DOS 3.3 PRM AH=0Ah; os/milton/kbd.c SC1_NORMAL[0x1C]. */
-        if (c == 0x0Du || c == 0x0Au) {         /* CR (or the kbd's LF): terminate */
+        /* Line terminator: the DOS Enter key is CR (0x0D). The PS/2 driver
+         * (kbd.c) decodes the Enter scancode (0x1C) to CR (0x0D) directly -- the
+         * DOS/BIOS INT 16h convention -- so the ONLY terminator here is CR. The
+         * former "also accept LF and normalize to CR" path was a bandaid for the
+         * kbd emitting LF; it is retired now that the root cause is fixed
+         * (initech-62m, Rule 3). A stray LF is just an ordinary stored char.
+         * Ref: DOS 3.3 PRM AH=0Ah; os/milton/kbd.c SC1_NORMAL[0x1C] == '\r'. */
+        if (c == 0x0Du) {                       /* CR: terminate the line */
             /* Store the CR if there is room (real DOS always stores it at
              * buf[2+count]); the CR is NOT counted in buf[1]. */
             /* Room for the CR? `count` is already capped at max-1 by the

@@ -256,24 +256,27 @@ int main(void)
         CHECK(frame_cf(&f) == 0, "AH=0Ah clears CF");
     }
 
-    /* --- AH=0Ah BUFFERED INPUT terminated by LF (0x0A). ----------------- *
-     * InitechOS's PS/2 driver decodes Enter to LF, so AH=0Ah must accept LF as
-     * the line terminator and NORMALIZE the stored byte to CR (0x0D). Queue
-     * "ok\n" -> buf[1]=2, buf[2..3]="ok", buf[4]=0x0D (normalized, NOT 0x0A). */
+    /* --- AH=0Ah BUFFERED INPUT: only CR terminates; a stray LF is ordinary. -- *
+     * The kbd now decodes Enter to CR (initech-62m), so the old "accept LF as a
+     * terminator and normalize to CR" bandaid is retired. This locks the retired
+     * behaviour: a lone LF (0x0A) is stored as an ORDINARY char and does NOT end
+     * the line -- only CR does. Queue "a\nb\r" -> buf[1]=3, buf[2..4]='a',0x0A,
+     * 'b', buf[5]=0x0D. (Re-introducing `|| c == 0x0Au` would flip buf[1] to 1
+     * and drop the LF/'b', so this CHECK bites the bandaid's return.) */
     {
         sink_reset();
         uint8_t *buf = alloc_low_buf(16);
         memset(buf, 0xCC, 16);
         buf[0] = 8u;
-        queue_set("ok\n", 3);
+        queue_set("a\nb\r", 4);
         int_frame_t f = fresh_frame();
         f.eax = 0x0A00u;
         f.edx = (uint32_t)(uintptr_t)buf;
         int21_dispatch(&f);
-        CHECK(buf[1] == 2u, "AH=0Ah LF-terminated: count = 2 (LF not counted)");
-        CHECK(buf[2] == 'o' && buf[3] == 'k', "AH=0Ah LF-terminated: buffer = 'ok'");
-        CHECK(buf[4] == 0x0Du,
-              "AH=0Ah normalizes the LF terminator to CR (0x0D) in the buffer");
+        CHECK(buf[1] == 3u, "AH=0Ah: LF is not a terminator -> count = 3 ('a',LF,'b')");
+        CHECK(buf[2] == 'a' && buf[3] == 0x0Au && buf[4] == 'b',
+              "AH=0Ah: a stray LF is stored as an ordinary char");
+        CHECK(buf[5] == 0x0Du, "AH=0Ah: only CR terminates and is stored at the end");
     }
 
     /* --- AH=0Ah BUFFERED INPUT with a BACKSPACE edit. ------------------- *
