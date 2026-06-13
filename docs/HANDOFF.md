@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-08
+**Last Reconciled:** 2026-06-13
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -41,8 +41,9 @@ A bootable, period-plausible OS for emulated 386+ PCs — a DOS-3.3 personality 
 ## 4. What is built and green (do not redo)
 
 The Programme is well past foundations: **InitechDOS boots from disk, prints its
-banner, runs a program through `int 0x21`, and mounts a real FAT12 filesystem.**
-Everything below is verified by a mechanical gate (re-run any time; see §4.1).
+banner, mounts a real FAT12 filesystem, and drops to an interactive COMMAND.COM
+`A:\>` prompt** — on QEMU *and* Bochs. Everything below is verified by a
+mechanical gate (re-run any time; see §4.1).
 
 **Foundations / boot (M0–M1):**
 - `tse`/`uba`/`znb` — repo + Makefile, toolchain, seed Pascal→x86 compiler.
@@ -72,44 +73,75 @@ Everything below is verified by a mechanical gate (re-run any time; see §4.1).
   committee; `spec/int21h_calling_convention.json`).
 - `509.4` — **PSP** 256-byte construction (`psp.c`). Program **loader** (`loader.c`):
   lays out PSP + image, runs a flat `.COM`, returns to the loader on 4Ch/INT 20h.
-- `saw` (partial) — **FAT12 mount over ATA + proto-DIR** (a directory listing on
-  screen). See WL-0007.
+- `saw` — **FAT12 mount over ATA + proto-DIR** + FAT-sourced `.COM` load/EXEC.
+  See WL-0007.
+
+**M2-finale, file handles, shell, devices (WL-0008–WL-0013):**
+- `509.3`/`509.5` — **SFT/JFT + file-handle INT 21h** (OPEN/READ/WRITE/CLOSE/
+  LSEEK/FINDFIRST/NEXT, DUP/DUP2); `fileio_fat.c` binds the FAT backend; FAT12
+  **write** path + multi-open. `509.8` — INT 22/23/24 + SETVECT/GETVECT.
+- `3rs`/`n62` — **PS/2 keyboard (IRQ1) + CON input**; `yv9` — MC146818 RTC;
+  `509.2` — **SYSINIT + CONFIG.SYS** (FILES= cap). `xk2` — INT 21h reentrancy
+  under an IRQ storm. `509.1` — diagnostic-message catalogue.
+- `7pc` — **COMMAND.COM REPL** (`command.c`): `$P$G` prompt, DIR/TYPE/CD/CLS/
+  VER/ECHO/EXIT + external `.COM` EXEC, all via real `int 0x21`.
+
+**Kernel hardening + tri-emulator boot (WL-0014–WL-0016, this push):**
+- `bcg` — **kernel hardening**: wave-A/B robustness fixes, edge/error-path
+  suite, FAT-corruption + CONFIG.SYS + cmdline fuzzers, reproducible-build gate,
+  INT 21h user-pointer guards (ADR-0003 DEC-14). See WL-0014.
+- `6pj` — **standard-VGA mode-0x13 fallback** (`stage2.asm` `.vga_fallback` +
+  `console.c` 8bpp renderer + `kmain.c` DAC palette): Bochs has no VBE LFB, so
+  stage2 falls back to mode 0x13 and the OS boots there. See WL-0015.
+- `564` — **C Bochs oracle** (`harness/emu/bochs.{c,h}`) + `test-boot-bochs`:
+  the dual-emulator boot differential (RFB unblock in C, serial assertion, no
+  triple-fault), mutation-proven. See WL-0015.
+- `k6x` — **COMMAND.COM is the DEFAULT boot**: the real boot drops to `A:\>`
+  after the banner; baked PROGRAM/TYPE/DIR demos moved to `DEMO_IMG`. See
+  WL-0016.
 
 ### 4.1 Gates that must stay green
-`make test-spec test-fat test-idt test-int21 test-psp test-loader test-console
-test-fs test-boot test-program test-panic test-tracer-boot test-harness test-seed
-test-seed-codegen` (plus the `*-mutant` checks). `make factory` builds; `make`
-prints help. `test-fs`/`test-program`/`test-boot` boot the kernel image via the
-harness; `test-fs` adds `--disk2 build/fat_data.img`.
+`make test` = **55 host + 19 emu gates** (re-verified green this push). Plus the
+separate `make test-boot-bochs` (the Bochs boot leg; env-specific Bochs +
+~45 s, NOT in the default `make test`). `make factory` builds; `make` prints
+help. The default boot image (`build/tracer_boot.img`) is now the **shell**
+kernel; the baked-demo gates (`test-program`/`test-type`/`test-dir`) boot
+`build/demo_boot.img`; `test-fs` adds `--disk2 build/fat_data.img`.
 
 ### 4.2 See it
 `qemu-system-i386 -drive format=raw,file=build/tracer_boot.img -drive
 file=build/fat_data.img,format=raw,if=ide,index=1 -serial stdio` → banner + a
-loaded-program line + a `Directory of A:\` listing on the seafoam desktop.
+`Directory of A:\` listing + the **`A:\>` COMMAND.COM prompt** on the seafoam
+desktop. (Under Bochs: `make test-boot-bochs` — same boot via the mode-0x13
+fallback, asserted on serial.)
 
-## 5. Next work — Milestone 3 is IN PROGRESS (resume here)
+## 5. Branch state + next work (resume here)
 
-The internals roadmap (operator order: internals → shell → rest). Milestone 3 =
-the file-system handle layer, 5 steps; **Steps 1–2 done, resume at Step 3** (full
-detail + the plan in `WL-0007` §5 and `docs/research/fs-mount-sft-ground-truth.md`):
+**Branches (local-only repo — NO git remote, do NOT try to push):**
+- `kernel-hardening` — WL-0014 (hardening/fuzzing) + WL-0015 (`6pj` mode-0x13
+  fallback + `564` C Bochs gate). Unmerged.
+- `command-com-default` — WL-0016 (`k6x` COMMAND.COM default boot), **stacked on
+  `kernel-hardening`**. The current tip. Unmerged.
+- Default branch is `master`. Merging these to `master` is a clean next step
+  (the operator chose to keep building rather than merge so far).
 
-1. **`509.3` — SFT + JFT + standard handles + DUP/DUP2 (NEXT).** System File Table
-   + the per-process Job File Table indirection (DEC-06); pre-open handles 0–4 to
-   CON/AUX/PRN; DUP (45h)/DUP2 (46h); route 40h WRITE through JFT→SFT.
-2. **`509.5` read-side — file-handle INT 21h functions.** 3Dh OPEN / 3Fh READ /
-   3Eh CLOSE / 42h LSEEK over the mounted FAT12 via the SFT; 4Eh/4Fh FINDFIRST/
-   FINDNEXT into the DTA. A baked program OPENs + READs + WRITEs a file (a `TYPE`)
-   through `int 0x21`. *Read the file into a static buffer at OPEN — not the stack
-   (`dao`).*
-3. Verify + reconcile + WL-0008.
+**M2/M3 internals + the shell are DONE and green** (the stale "M3 in progress"
+plan that lived here is superseded — see §4's WL-0008–WL-0016 lines). The DOS
+personality boots to an interactive `A:\>` on QEMU and Bochs.
 
-After M3: `7pc` COMMAND.COM (gated on CON input `n62` / keyboard `3rs`); `saw`
-(load a `.COM` from the FAT volume vs the baked blob); then the `f8v.4` keystone
-(boot → banner → COMMAND.COM → DIR → TYPE). The deferred two-file kernel partition
-`509.2` (IO.SYS/INITDOS.SYS + SYSINIT) and `509.1` (message catalogue) remain M2 work.
+**Ready next work** (`bd ready`; each a distinct direction — pick per operator
+steer):
+- `26d` — **PS/2 mouse (IRQ12) + the canonical hourglass cursor** (Law 4 canon)
+  → toward the interactive desktop / Toolbox (M3/M4 GUI).
+- `kg5` — **Chicago + Geneva 9 bitmap strikes + text rendering** (frame fidelity).
+- `44m`/`x0i` — **86Box leg** of the tri-emulator gate (lowest priority; its
+  Qt-offscreen headless automation is unbuilt — a deep environment task).
+- `h58` — cleanup: retire the now-redundant `SHELL_IMG`; add a shell-prompt
+  screendump gate.
+- `75r` — specs-as-data scaffold (foundational).
 
 The controlled spec-data in `spec/` is the contract; the harness
-(`build/qemu_harness`) is the oracle.
+(`build/qemu_harness`, `build/bochs_harness`) is the oracle.
 
 ## 6. Where things live
 
@@ -117,13 +149,17 @@ The controlled spec-data in `spec/` is the contract; the harness
 CLAUDE.md            how to work (Laws/Rules)
 InitechOS-PRD.md     what to build
 docs/adr/            ADR-0003 (DOS, authoritative), CDR-0001 (toolchain deviation)
-docs/worklog/        WL-0001 foundations, WL-0002 ADR-0003 reconciliation,
-                     WL-0003 FAT12 read+oracle, WL-0004 boot-to-text banner,
-                     WL-0005 interrupt foundation+INT21h, WL-0006 PSP+loader+DEC-04a,
-                     WL-0007 FAT mount over ATA+proto-DIR (M3 in progress)
+docs/worklog/        WL-0001..0007 (foundations -> FAT mount); WL-0008+ file
+                     handles/SFT, WL-0009 SYSINIT, WL-0010 multi-tenant IO,
+                     WL-0011 reentrancy fuzzer, WL-0012 message catalogue,
+                     WL-0013 vector cluster, WL-0014 kernel hardening + Bochs
+                     diagnosis, WL-0015 Bochs standard-VGA fallback + C Bochs
+                     gate, WL-0016 COMMAND.COM default boot (latest)
 docs/research/       ground-truth briefs (fat12, boot-to-text, internals/int21h,
                      psp-loader, fs-mount-sft) -- the per-milestone evidence base
 docs/HANDOFF.md      this briefing
+harness/emu/         qemu.{c,h}+qemu_main.c (QEMU), bochs.{c,h}+bochs_main.c
+                     (Bochs, initech-564), rfb_unblock.py (diagnosis only)
 spec/                LOCKED spec-as-data: int21h_register.json, dos_structs.h,
                      dos_messages.json, dos_{banner,config_sys,autoexec_bat}.txt,
                      chrome_metrics.json, assets/ (palette/glyph work, deferred)
