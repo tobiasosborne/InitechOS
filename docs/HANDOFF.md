@@ -100,8 +100,22 @@ mechanical gate (re-run any time; see §4.1).
   after the banner; baked PROGRAM/TYPE/DIR demos moved to `DEMO_IMG`. See
   WL-0016.
 
+**Kernel hardening sweep (WL-0017, `initech-bcg.1..9,.11`):** a grounded read-only
+audit of all nine kernel subsystems (0 P0/P1 escaped; 20 P2 + 20 P3 confirmed,
+26 rejected) drove **10 fixes**, each RED->GREEN, mutation-proven, committed:
+all four P1 correctness bugs (RDWR-write denied `bcg.1`; AH=59h stale error
+`bcg.2`; FAT12 out-of-range cluster `bcg.3`; FAT16 mis-decode `bcg.4`) plus the
+fail-loud/wedge P2s (do_puts guard `bcg.5`; spurious-vector resume `bcg.6`;
+8259A spurious-IRQ EOI `bcg.7`; bounded fail-loud serial `bcg.8`; CONFIG.SYS
+honor-first-1KB `bcg.9`; console geometry `bcg.11`). Two new emu gates
+(`test-spurious`, `test-sysinit-oversize`); new error codes
+`FAT12_ERR_UNSUPPORTED`, `CONSOLE_ERR_GEOMETRY`. Remaining bcg children:
+`bcg.10` (loader entry-asm), `bcg.12` (ata oracles), `bcg.13` (shell msg
+catalogue), `bcg.14` (P3 sweep), `bcg.15` (8bpp DAC oracle).
+
 ### 4.1 Gates that must stay green
-`make test` = **55 host + 19 emu gates** (re-verified green this push). Plus the
+`make test` = **55 host + 21 emu gates** (re-verified green this push; was 55+19
+before WL-0017). Plus the
 separate `make test-boot-bochs` (the Bochs boot leg; env-specific Bochs +
 ~45 s, NOT in the default `make test`). `make factory` builds; `make` prints
 help. The default boot image (`build/tracer_boot.img`) is now the **shell**
