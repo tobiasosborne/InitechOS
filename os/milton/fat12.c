@@ -129,7 +129,13 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 	if (vol->total_clusters < FAT12_MAX_CLUSTERS) {
 		vol->fat_type = FAT_TYPE_FAT12;
 	} else if (vol->total_clusters < FAT16_MAX_CLUSTERS) {
+		/* A real FAT16 volume, but every decode/encode routine in this file is
+		 * 12-bit-only (the entry packing AND the EOC/bad thresholds differ for
+		 * 16-bit FATs). Walking a FAT16 with the 12-bit decoder yields garbage
+		 * chains, so REJECT it at mount rather than silently mis-decode (bcg.4;
+		 * Rule 2). fat_type is recorded for the diagnostic before failing. */
 		vol->fat_type = FAT_TYPE_FAT16;
+		return FAT12_ERR_UNSUPPORTED;
 	} else {
 		/* FAT32 is out of scope for this slice; do not silently mis-handle. */
 		return FAT12_ERR_GEOMETRY;

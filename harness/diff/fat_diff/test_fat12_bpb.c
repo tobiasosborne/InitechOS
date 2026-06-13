@@ -35,6 +35,20 @@ static int bytes_eq(const uint8_t *got, const char *want, size_t n)
 	return memcmp(got, want, n) == 0;
 }
 
+/* Minimal memory-backed blockdev that serves a single crafted boot sector at
+ * LBA 0 (for the FAT16-rejection oracle, bcg.4). fat12_mount reads only LBA 0,
+ * count 1; any other read returns zeros. */
+static const uint8_t *g_memdev_boot;   /* 512-byte crafted boot sector */
+static int memdev_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
+{
+	(void)ctx;
+	memset(buf, 0, (size_t)count * 512u);
+	if (lba == 0u && count >= 1u) {
+		memcpy(buf, g_memdev_boot, 512u);
+	}
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	const char     *img;
@@ -91,6 +105,39 @@ int main(int argc, char **argv)
 	/* Spot-check the cluster->LBA mapping macro: cluster 2 -> LBA 33. */
 	CHECK(BPB_CLUSTER_LBA(&vol.bpb, 2u) == 33u, "BPB_CLUSTER_LBA(2) == 33");
 	CHECK(BPB_CLUSTER_LBA(&vol.bpb, 3u) == 34u, "BPB_CLUSTER_LBA(3) == 34");
+
+	/* ---- bcg.4: a FAT16 volume must be REJECTED at mount, not silently
+	 * accepted. fat12.c's 12-bit decode/encode is FAT12-only; classifying a
+	 * volume as FAT16 and then walking it with the 12-bit decoder returns
+	 * garbage chains. Take the real boot sector and bump total_sectors_16 so
+	 * total_clusters crosses the 4085 FAT12/FAT16 threshold; serve it through a
+	 * memory blockdev and assert mount fails loud with FAT12_ERR_UNSUPPORTED. */
+	{
+		uint8_t        boot[512];
+		blockdev_t     memdev;
+		fat12_volume_t vol16;
+		uint8_t        sbuf[512];
+		bpb_t         *bpb;
+
+		/* Start from the known-good 1.44MB boot sector (LBA 0). */
+		rc = bf.dev.read_sectors(bf.dev.ctx, 0u, 1u, boot);
+		CHECK(rc == 0, "bcg.4: re-read the real boot sector for patching");
+
+		/* bpb_t overlays the boot sector from byte 0 (fat12_mount copies it
+		 * byte-wise). first_data_sector stays 33; total_sectors_16=5000 gives
+		 * total_clusters = 5000-33 = 4967, which is >= 4085 => FAT16. */
+		bpb = (bpb_t *)boot;
+		bpb->total_sectors_16 = 5000u;
+
+		g_memdev_boot      = boot;
+		memdev.ctx         = NULL;
+		memdev.read_sectors = memdev_read;
+		memdev.write_sectors = NULL;
+
+		rc = fat12_mount(&vol16, &memdev, sbuf);
+		CHECK(rc == FAT12_ERR_UNSUPPORTED,
+		      "bcg.4: mounting a FAT16 volume returns FAT12_ERR_UNSUPPORTED");
+	}
 
 	blockdev_file_close(&bf);
 	return TEST_SUMMARY("test_fat12_bpb");

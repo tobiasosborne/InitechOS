@@ -39,7 +39,9 @@ enum {
 	FAT12_ERR_WRITE       = -10,/* underlying blockdev write failed / NULL    */
 	FAT12_ERR_NO_SPACE    = -11,/* no free cluster (full volume)              */
 	FAT12_ERR_DIR_FULL    = -12,/* no free root-directory slot                */
-	FAT12_ERR_EXISTS      = -13 /* (reserved) name already present            */
+	FAT12_ERR_EXISTS      = -13,/* (reserved) name already present            */
+	FAT12_ERR_UNSUPPORTED = -14 /* valid but unsupported FS (e.g. FAT16); the  */
+	                            /* 12-bit decode/encode is FAT12-only (bcg.4)  */
 };
 
 /* Deterministic dir-entry timestamp (CLAUDE.md Rule 11): the artifact has NO
