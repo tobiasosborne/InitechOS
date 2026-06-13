@@ -78,6 +78,12 @@ HARNESS_LIB_SRC := harness/emu/qemu.c
 HARNESS_DRV_SRC := harness/emu/qemu_main.c
 HARNESS_BIN     := $(BUILD)/qemu_harness
 
+# Bochs oracle harness (beads initech-564): the Bochs leg of the tri-emulator
+# gate. C-only (Law 3) -- the RFB unblock is in C, not the Python helper.
+BOCHS_LIB_SRC   := harness/emu/bochs.c
+BOCHS_DRV_SRC   := harness/emu/bochs_main.c
+BOCHS_BIN       := $(BUILD)/bochs_harness
+
 # Self-test fixtures: multiboot1 guests assembled with nasm + linked with a
 # tiny script (no real MBR/A20/GDT boot -- QEMU's -kernel loader lands us in
 # 32-bit protected mode with A20 on and flat segments per the multiboot spec).
@@ -2151,7 +2157,7 @@ endef
         test-panic test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-conin-unit test-conin-mutant test-conin \
         test-assets test-spec test-dosmsg test-dosmsg-mutant selfhost ddc clean \
-        test-unit test-emu
+        test-unit test-emu test-boot-bochs
 
 # ---------------------------------------------------------------------------
 # Default + self-documenting help
@@ -2199,6 +2205,7 @@ help:
 	@printf '  test-kbd-unit  PS/2 keyboard + PIT pure logic (initech-3rs): ring (full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math. REAL.\n'
 	@printf '  test-kbd       Keyboard IRQ1 end-to-end (initech-3rs/43b): first sti, QMP --keys "d,i,r" injected, echoed back via IRQ1; triple_fault=0. REAL (QEMU).\n'
 	@printf '  test-kbd-bochs Bochs leg of test-kbd (Rule 5): boots the echo image under Bochs; currently BLOCKED at ERR-VBE (pre-existing boot/VBE gap initech-x0i).\n'
+	@printf '  test-boot-bochs  BOCHS leg of the boot gate (initech-564): boots the tracer under Bochs (legacy BIOS + LGPL vgabios), asserts the stage2 mode-0x13 fallback fired + the SAME kernel markers as QEMU + no triple-fault. SERIAL-only (Bochs RFB cannot display mode 0x13). REAL. ~45s; env-specific, not in default `make test`.\n'
 	@printf '  test           Run the whole gate vector (PRD Sec 8).\n'
 	@printf '\n'
 	@printf 'Self-host certificate (M8 finale):\n'
@@ -2216,7 +2223,7 @@ help:
 # Build the C factory. Today that is just the smoke stub, which proves the
 # C11 toolchain compiles clean under -Wall -Wextra -Werror and runs. As the
 # seed compiler (seed/) and harness (harness/) land, add them here.
-factory: $(SMOKE_BIN) $(SEED_BIN) $(HARNESS_BIN) $(HARNESS_FIXTURES) $(SEED_SMOKE_ELF) $(TRACER_IMG) $(PPM_CHECK_BIN) $(PALETTE_TOOL_BIN) $(ASSET_CHECK_BIN)
+factory: $(SMOKE_BIN) $(SEED_BIN) $(HARNESS_BIN) $(BOCHS_BIN) $(HARNESS_FIXTURES) $(SEED_SMOKE_ELF) $(TRACER_IMG) $(PPM_CHECK_BIN) $(PALETTE_TOOL_BIN) $(ASSET_CHECK_BIN)
 	@printf ">>> factory: C toolchain OK. Running smoke binary:\n"
 	@$(SMOKE_BIN)
 	@printf ">>> factory: seed front-end driver built -> %s\n" "$(SEED_BIN)"
@@ -3117,6 +3124,10 @@ $(SEED_BIN): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
 $(HARNESS_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
 
+# Bochs oracle harness CLI (beads initech-564): library + main.
+$(BOCHS_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC)
+
 # Self-test fixtures: nasm -> ELF object -> linked multiboot1 ELF. The
 # linker script forces the multiboot header into the first 8 KiB.
 $(BUILD)/%.elf: $(FIXTURE_DIR)/%.asm $(FIXTURE_LD) | $(BUILD)
@@ -3653,6 +3664,76 @@ test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 		|| { printf '!!! test-tracer-boot FAIL: banner not rendered on the seafoam desktop\n'; exit 1; }
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- real boot chain reached protected mode, blitted the InitechDOS banner on the seafoam desktop, no triple-fault\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-boot-bochs -- the BOCHS leg of the tri-emulator boot gate
+# (beads initech-564 / initech-x0i; CLAUDE.md Rule 5 "tri-emulator from day
+# one"). Boots the SAME tracer image under Bochs and asserts the kernel reached
+# the same milestones as under QEMU -- catching emulator-isms in the boot chain
+# + kernel that a single emulator would hide.
+# ---------------------------------------------------------------------------
+# WHY this differs from the QEMU leg (Law 1, bd memories
+# bochs-boot-solved-initech-6pj + bochs-rfb-display-does-not-render-vga-mode):
+#   * Bochs has no 640x480 VBE LFB, so stage2 falls back to standard VGA mode
+#     0x13 (serial: VBE-ENOMODE then VGA13) instead of the QEMU VBE path (VBE).
+#     The video-setup markers therefore legitimately DIFFER; the KERNEL markers
+#     (BI-OK, PM, KERNEL, CONSOLE, BANNER, ...) must MATCH -- that is the
+#     differential (same kernel behaviour on both emulators).
+#   * Bochs RFB cannot DISPLAY mode 0x13, so this gate asserts on SERIAL +
+#     no-triple-fault ONLY (no screendump). The OS render is proven elsewhere
+#     (test-console host oracle + the QEMU screendump).
+#   * Needs the env's Bochs (legacy BIOS + LGPL vgabios); NOT in the default
+#     `make test` yet (env-specific + ~45s). Run explicitly or via test-tri.
+BOCHS_BOOT_NAME   := bochsboot
+BOCHS_BOOT_REPORT := $(BUILD)/$(BOCHS_BOOT_NAME).report.txt
+BOCHS_BOOT_SERIAL := $(BUILD)/$(BOCHS_BOOT_NAME).serial
+test-boot-bochs: $(BOCHS_BIN) $(TRACER_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-boot-bochs : BOCHS leg of the boot gate\n'
+	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). beads initech-564 / initech-x0i\n'
+	@printf '  Bochs: legacy BIOS + LGPL vgabios + pentium; stage2 mode-0x13 fallback.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(TRACER_IMG)"
+	@printf 'Expecting : VBE-ENOMODE + VGA13 (fallback) then the SAME kernel markers as QEMU\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# The guest hlt-loops, so the harness times out by design; OK is driven by
+	@# the RFB unblock + no-triple-fault + the --expect marker, not the exit code.
+	@$(BOCHS_BIN) --disk "$(TRACER_IMG)" --expect VGA13 \
+		--name "$(BOCHS_BOOT_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
+		2> "$(BOCHS_BOOT_REPORT)" || true
+	@cat "$(BOCHS_BOOT_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# 1. The RFB unblock must have succeeded (else Bochs never ran the guest).
+	@grep -q 'rfb_unblocked=1' "$(BOCHS_BOOT_REPORT)" \
+		|| { printf '!!! test-boot-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
+	@# 2. No triple-fault (3rd-13 / IDT.limit=0) in the Bochs log.
+	@if grep -q 'triple_fault=1' "$(BOCHS_BOOT_REPORT)"; then \
+		printf '!!! test-boot-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
+	fi
+	@if [ ! -s "$(BOCHS_BOOT_SERIAL)" ]; then \
+		printf '!!! test-boot-bochs FAIL: no serial captured at %s\n' "$(BOCHS_BOOT_SERIAL)"; exit 1; \
+	fi
+	@printf 'Serial markers captured:\n'
+	@for m in S1 S2 VBE-ENOMODE VGA13 FONT A20 GDT PM LFB OK KLOAD KERNEL INT21 BI-OK CONSOLE BANNER; do \
+		if grep -q "^$$m$$" "$(BOCHS_BOOT_SERIAL)"; then printf '  %-12s : present\n' "$$m"; \
+		else printf '  %-12s : MISSING\n' "$$m"; fi; \
+	done
+	@# 3a. The fallback fired (the Bochs-specific path): VBE-ENOMODE + VGA13.
+	@for m in VBE-ENOMODE VGA13; do \
+		grep -q "^$$m$$" "$(BOCHS_BOOT_SERIAL)" \
+			|| { printf '!!! test-boot-bochs FAIL: fallback marker %s missing (stage2 did not take the mode-0x13 path)\n' "$$m"; exit 1; }; \
+	done
+	@# 3b. The SHARED kernel milestone set -- the differential vs QEMU: the kernel
+	@#     reached the same state on Bochs as on QEMU (test-tracer-boot asserts
+	@#     these on the QEMU leg).
+	@for m in S1 PM OK FONT KERNEL INT21 BI-OK CONSOLE BANNER; do \
+		grep -q "^$$m$$" "$(BOCHS_BOOT_SERIAL)" \
+			|| { printf '!!! test-boot-bochs FAIL: required kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
+	done
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- tracer booted under Bochs via the mode-0x13 fallback,\n'
+	@printf '            reached the same kernel milestones as QEMU, no triple-fault\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,101 @@
+/*
+ * bochs_main.c -- CLI wrapper around the Bochs oracle harness (initech-564).
+ *
+ * Exit status mirrors the oracle verdict (usable directly as a make gate):
+ *   0  -> result.ok (launched, RFB unblocked, no triple fault, and the
+ *         expected marker -- if any -- was found on serial)
+ *   1  -> the guest run failed an expectation (a real RED signal)
+ *   2  -> harness-level / usage error
+ *
+ * Ref: CLAUDE.md Law 2 (oracle is truth), Rule 2, Rule 12. Parallel to
+ * qemu_main.c.
+ *
+ * Usage:
+ *   bochs_harness --disk IMG [--expect MARKER] [--bios ROM] [--vgabios ROM]
+ *                 [--timeout-ms N] [--name LABEL] [--out DIR] [--serial-stdout]
+ */
+#include "bochs.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static void usage(const char *argv0)
+{
+    fprintf(stderr,
+        "usage: %s --disk IMG [options]\n"
+        "  --expect MARKER    assert MARKER present (line-exact) on serial\n"
+        "  --bios ROM         system BIOS (default %s)\n"
+        "  --vgabios ROM      VGA BIOS  (default %s)\n"
+        "  --timeout-ms N     wall-clock kill deadline (default %d)\n"
+        "  --rfb-port N       Bochs RFB port (default %d)\n"
+        "  --name LABEL       output filename label (default \"bochs\")\n"
+        "  --out DIR          output dir (default \"build\")\n"
+        "  --serial-stdout    echo captured serial to stdout\n",
+        argv0, BOCHS_DEFAULT_BIOS, BOCHS_DEFAULT_VGABIOS,
+        BOCHS_DEFAULT_TIMEOUT_MS, BOCHS_DEFAULT_RFB_PORT);
+}
+
+int main(int argc, char **argv)
+{
+    BochsConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    int serial_stdout = 0;
+
+    for (int i = 1; i < argc; i++) {
+        const char *a = argv[i];
+#define NEED_ARG()                                            \
+    do {                                                      \
+        if (i + 1 >= argc) {                                  \
+            fprintf(stderr, "%s: %s needs an argument\n", argv[0], a); \
+            return 2;                                         \
+        }                                                     \
+    } while (0)
+        if (strcmp(a, "--disk") == 0)            { NEED_ARG(); cfg.disk_path = argv[++i]; }
+        else if (strcmp(a, "--expect") == 0)     { NEED_ARG(); cfg.expect_marker = argv[++i]; }
+        else if (strcmp(a, "--bios") == 0)       { NEED_ARG(); cfg.bios_path = argv[++i]; }
+        else if (strcmp(a, "--vgabios") == 0)    { NEED_ARG(); cfg.vgabios_path = argv[++i]; }
+        else if (strcmp(a, "--timeout-ms") == 0) { NEED_ARG(); cfg.timeout_ms = atoi(argv[++i]); }
+        else if (strcmp(a, "--rfb-port") == 0)   { NEED_ARG(); cfg.rfb_port = atoi(argv[++i]); }
+        else if (strcmp(a, "--name") == 0)       { NEED_ARG(); cfg.name = argv[++i]; }
+        else if (strcmp(a, "--out") == 0)        { NEED_ARG(); cfg.output_dir = argv[++i]; }
+        else if (strcmp(a, "--serial-stdout") == 0) { serial_stdout = 1; }
+        else if (strcmp(a, "-h") == 0 || strcmp(a, "--help") == 0) { usage(argv[0]); return 2; }
+        else { fprintf(stderr, "%s: unknown argument: %s\n", argv[0], a); usage(argv[0]); return 2; }
+#undef NEED_ARG
+    }
+
+    if (!cfg.disk_path) {
+        fprintf(stderr, "%s: need --disk\n", argv[0]);
+        usage(argv[0]);
+        return 2;
+    }
+
+    BochsResult res;
+    if (bochs_run(&cfg, &res) != 0) {
+        fprintf(stderr, "%s: harness failure\n", argv[0]);
+        bochs_result_free(&res);
+        return 2;
+    }
+
+    if (serial_stdout) {
+        fputs(res.serial_text, stdout);
+        if (res.serial_len > 0 && res.serial_text[res.serial_len - 1] != '\n')
+            fputc('\n', stdout);
+    }
+
+    fprintf(stderr,
+        "[bochs] launched=%d rfb_unblocked=%d timed_out=%d exit=%d signal=%d\n"
+        "[bochs] serial_len=%zu marker_found=%d (expect=%s)\n"
+        "[bochs] triple_fault=%d\n"
+        "[bochs] serial=%s\n"
+        "[bochs] OK=%d\n",
+        res.launched, res.rfb_unblocked, res.timed_out, res.exit_code, res.term_signal,
+        res.serial_len, res.marker_found,
+        cfg.expect_marker ? cfg.expect_marker : "(none)",
+        res.triple_fault, res.serial_path, res.ok);
+
+    int rc = res.ok ? 0 : 1;
+    bochs_result_free(&res);
+    return rc;
+}
