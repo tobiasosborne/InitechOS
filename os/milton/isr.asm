@@ -84,6 +84,23 @@ isr_spurious:
     push dword 0xFF            ; sentinel "vector" so the dump shows 255
     jmp isr_common
 
+; 8259A spurious-IRQ stubs (bcg.7). Unlike isr_spurious these push their REAL
+; vector so isr_dispatch_c can apply the correct EOI discipline: a MASTER
+; spurious (IRQ7 -> 0x2F) gets NO EOI; a SLAVE spurious (IRQ15 -> 0x37) gets a
+; master-only EOI (the master latched the cascade). Both then resume via the
+; isr_common iret tail. Ref: Intel 8259A datasheet (spurious interrupt).
+global isr_irq7_spurious
+isr_irq7_spurious:
+    push dword 0               ; dummy error code
+    push dword 0x2F            ; master spurious vector (PIC_MASTER_BASE + 7)
+    jmp isr_common
+
+global isr_irq15_spurious
+isr_irq15_spurious:
+    push dword 0               ; dummy error code
+    push dword 0x37            ; slave spurious vector (PIC_SLAVE_BASE + 7)
+    jmp isr_common
+
 ; --- common trampoline -----------------------------------------------------
 ; On entry the stack (high -> low address) holds, from the CPU + the per-vector
 ; stub: EFLAGS, CS, EIP, err_code, vector. We push the segment selectors then

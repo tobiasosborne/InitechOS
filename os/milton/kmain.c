@@ -647,8 +647,17 @@ void kernel_main(void)
      * the machine was NOT wedged. The NORMAL image never defines this macro, so
      * test-boot stays unchanged. */
     serial_puts("SPURIOUS-ARMED\n");
-    __asm__ __volatile__("int $0x70");
+    __asm__ __volatile__("int $0x70");      /* generic unhandled -> isr_spurious (0xFF) */
     serial_puts("SPURIOUS-RESUMED\n");
+    /* The two 8259A spurious-IRQ vectors (bcg.7): IRQ7 (0x2F, master, no EOI)
+     * and IRQ15 (0x37, slave, master-only EOI). Both must resume. (A real
+     * spurious IRQ is non-deterministic to provoke; a software int exercises
+     * the dedicated stub + EOI-discipline + resume path. The EOI is a harmless
+     * no-op here since nothing is in service.) */
+    __asm__ __volatile__("int $0x2F");
+    serial_puts("SPURIOUS-IRQ7-RESUMED\n");
+    __asm__ __volatile__("int $0x37");
+    serial_puts("SPURIOUS-IRQ15-RESUMED\n");
 #endif
 
     /* MOUNT A REAL FILESYSTEM (beads initech-saw) FIRST, so the file-handle

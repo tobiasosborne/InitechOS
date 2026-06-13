@@ -38,6 +38,8 @@ STUB(8)  STUB(9)  STUB(10) STUB(11) STUB(12) STUB(13) STUB(14) STUB(15)
 STUB(16) STUB(17) STUB(18) STUB(19) STUB(20) STUB(21) STUB(22) STUB(23)
 STUB(24) STUB(25) STUB(26) STUB(27) STUB(28) STUB(29) STUB(30) STUB(31)
 void isr_spurious(void) {}
+void isr_irq7_spurious(void) {}    /* 8259A master spurious stub (bcg.7) */
+void isr_irq15_spurious(void) {}   /* 8259A slave  spurious stub (bcg.7) */
 
 /* Hand-compute the 8 descriptor bytes for a sample handler (the independent
  * expected value -- NOT derived from idt_set_gate's code). */

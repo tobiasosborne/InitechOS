@@ -4989,14 +4989,27 @@ test-spurious: $(HARNESS_BIN) $(SPURIOUS_IMG)
 	@printf '>>> test-spurious [1/4]: reached the deliberate stray int $$0x70\n'
 	@grep -q 'SPURIOUS vec=FF' "$(SPURIOUS_SERIAL)" \
 		|| { printf '!!! test-spurious FAIL: no "SPURIOUS vec=FF" -- spurious handler did not run\n'; exit 1; }
-	@printf '>>> test-spurious [2/4]: spurious handler ran -- "SPURIOUS vec=FF" on serial\n'
+	@# bcg.7: the dedicated 8259A stubs push their REAL vector (0x2F/0x37), not
+	@# the 0xFF sentinel -- proving idt routes IRQ7/IRQ15 spurious to the
+	@# EOI-aware handlers rather than the generic isr_spurious.
+	@grep -q 'SPURIOUS vec=2F' "$(SPURIOUS_SERIAL)" \
+		|| { printf '!!! test-spurious FAIL: no "SPURIOUS vec=2F" -- master spurious not on its dedicated stub (bcg.7)\n'; exit 1; }
+	@grep -q 'SPURIOUS vec=37' "$(SPURIOUS_SERIAL)" \
+		|| { printf '!!! test-spurious FAIL: no "SPURIOUS vec=37" -- slave spurious not on its dedicated stub (bcg.7)\n'; exit 1; }
+	@printf '>>> test-spurious [2/4]: spurious handlers ran -- vec=FF (generic) + vec=2F/37 (dedicated 8259A stubs)\n'
 	@grep -q '^SPURIOUS-RESUMED$$' "$(SPURIOUS_SERIAL)" \
 		|| { printf '!!! test-spurious FAIL: SPURIOUS-RESUMED missing -- the stray vector WEDGED the machine\n'; exit 1; }
+	@# bcg.7: the two 8259A spurious-IRQ vectors (master IRQ7 0x2F, slave IRQ15
+	@# 0x37) must also resume (the slave path runs a master-only EOI first).
+	@grep -q '^SPURIOUS-IRQ7-RESUMED$$' "$(SPURIOUS_SERIAL)" \
+		|| { printf '!!! test-spurious FAIL: SPURIOUS-IRQ7-RESUMED missing -- master spurious (0x2F) wedged\n'; exit 1; }
+	@grep -q '^SPURIOUS-IRQ15-RESUMED$$' "$(SPURIOUS_SERIAL)" \
+		|| { printf '!!! test-spurious FAIL: SPURIOUS-IRQ15-RESUMED missing -- slave spurious (0x37) wedged\n'; exit 1; }
 	@if grep -q 'PANIC' "$(SPURIOUS_SERIAL)"; then \
-		printf '!!! test-spurious FAIL: a PANIC fired -- the stray vector was treated as a fatal exception\n'; \
+		printf '!!! test-spurious FAIL: a PANIC fired -- a stray vector was treated as a fatal exception\n'; \
 		exit 1; \
 	fi
-	@printf '>>> test-spurious [3/4]: execution RESUMED past the stray int (no wedge, no PANIC)\n'
+	@printf '>>> test-spurious [3/4]: execution RESUMED past the stray ints incl. 8259A IRQ7/IRQ15 (no wedge, no PANIC)\n'
 	@if grep -q 'triple_fault=1' "$(SPURIOUS_REPORT)"; then \
 		printf '!!! test-spurious FAIL: TRIPLE FAULT -- the stray int cascaded to a silent reboot\n'; \
 		exit 1; \

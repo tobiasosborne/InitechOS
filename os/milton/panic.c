@@ -19,6 +19,12 @@
 #include "idt.h"
 #include "io.h"
 #include "console.h"
+#include "pic.h"   /* PIC_SLAVE_BASE for the spurious-IRQ EOI discipline (bcg.7) */
+
+/* 8259A master command port + non-specific EOI (OCW2). Ref: 8259A datasheet
+ * (the same constants kbd.c/pit.c use to ack their IRQs). bcg.7. */
+#define PIC_MASTER_CMD       0x20u
+#define PIC_EOI_NONSPECIFIC  0x20u
 
 /* COM1 16550 UART -- same protocol as kmain.c's serial_putc (poll LSR THRE,
  * write THR). Duplicated locally so panic has NO dependency on kmain internals
@@ -108,6 +114,15 @@ void isr_dispatch_c(int_frame_t *frame)
      * interruptee), so one stray vector does not wedge the desktop forever.
      * The permanent halt below is reserved for genuine CPU exceptions. */
     if (frame->vector > 31u) {
+        /* 8259A spurious-IRQ EOI discipline (bcg.7): a SLAVE spurious (IRQ15,
+         * PIC_SLAVE_BASE+7) requires a MASTER-only EOI -- the master latched the
+         * cascade (IRQ2), so without it the cascade stays in-service and blocks
+         * every later slave IRQ. A MASTER spurious (IRQ7, PIC_MASTER_BASE+7)
+         * gets NO EOI. Any other unhandled vector (sentinel 0xFF) gets none
+         * either. Ref: Intel 8259A datasheet (spurious interrupt). */
+        if (frame->vector == (uint32_t)(PIC_SLAVE_BASE + 7u)) {
+            outb(PIC_MASTER_CMD, PIC_EOI_NONSPECIFIC);   /* master EOI only */
+        }
         pserial_puts("SPURIOUS vec=");
         pserial_hex(frame->vector, 2);
         pserial_puts(" eip=");

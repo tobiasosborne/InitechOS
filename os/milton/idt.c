@@ -9,6 +9,7 @@
  */
 
 #include "idt.h"
+#include "pic.h"   /* PIC_MASTER_BASE / PIC_SLAVE_BASE for the spurious-IRQ vectors (bcg.7) */
 
 /* The 256-entry IDT and its LIDT pseudo-descriptor. .bss => zero-initialized;
  * no fixed physical address needed (flat binary, link addr == phys addr). */
@@ -33,6 +34,8 @@ extern void isr30(void);  extern void isr31(void);
  * vectors not given a dedicated handler so an unexpected vector fails loud via
  * the same panic path rather than triple-faulting (Rule 2). */
 extern void isr_spurious(void);
+extern void isr_irq7_spurious(void);    /* 8259A master spurious (0x2F), bcg.7 */
+extern void isr_irq15_spurious(void);   /* 8259A slave  spurious (0x37), bcg.7 */
 
 void idt_set_gate(uint8_t vec, void *handler, uint16_t sel, uint8_t type_attr)
 {
@@ -97,6 +100,16 @@ void idt_init(void)
         idt_set_gate((uint8_t)v, (void *)g_exc_stubs[v],
                      IDT_KERNEL_CS, IDT_GATE_INT32);
     }
+
+    /* 8259A spurious-IRQ vectors get dedicated handlers (bcg.7) so the EOI
+     * discipline is correct: IRQ7 -> PIC_MASTER_BASE+7 (master spurious, NO
+     * EOI), IRQ15 -> PIC_SLAVE_BASE+7 (slave spurious, master-only EOI). Without
+     * these they would land on isr_spurious (sentinel 0xFF) and the slave-
+     * spurious case would never send the cascade EOI. */
+    idt_set_gate((uint8_t)(PIC_MASTER_BASE + 7u), (void *)isr_irq7_spurious,
+                 IDT_KERNEL_CS, IDT_GATE_INT32);
+    idt_set_gate((uint8_t)(PIC_SLAVE_BASE + 7u), (void *)isr_irq15_spurious,
+                 IDT_KERNEL_CS, IDT_GATE_INT32);
 
     /* Vector 0x21 stays on the spurious stub here; the NEXT task installs the
      * INT 21h trap gate via idt_install_trap (initech-1f9). */
