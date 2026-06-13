@@ -307,12 +307,28 @@ static void do_putchar(int_frame_t *f)
     cf_clear(f);
 }
 
+/* Upper bound on the AH=09h '$'-scan (bcg.5). A near pointer cannot span more
+ * than one 64 KiB segment in period DOS, so a string with no '$' within this
+ * many bytes is malformed; stop rather than walk off into memory (Rule 2). */
+#define INT21_PUTS_SCAN_MAX 65536u
+
 /* AH=09h DISPLAY STRING: EDX -> flat ptr to a '$'-terminated string -> CON.
  * The '$' (0x24) is the terminator and is NOT emitted (DOS 3.3 convention,
  * ground-truth Sec 6.2). Returns AL='$'. CF clear. */
 static void do_puts(int_frame_t *f)
 {
     const char *p = (const char *)(uintptr_t)f->edx;
+    uint32_t scanned = 0u;
+
+    /* Guard the EDX walk (bcg.5; the DEC-14 fail-loud class for buffer-taking
+     * calls): a NULL pointer must not dereference address 0, and an unterminated
+     * string must not run away. NULL -> emit nothing and return AL='$'. */
+    if (p == 0) {
+        set_al(f, 0x24u);
+        cf_clear(f);
+        return;
+    }
+
     for (;;) {
         char c = *p++;
         if (c == '$') {
@@ -325,6 +341,9 @@ static void do_puts(int_frame_t *f)
             break;
         }
         con_putc(c);
+        if (++scanned >= INT21_PUTS_SCAN_MAX) {
+            break;   /* unterminated string -> stop before walking off memory */
+        }
     }
     set_al(f, 0x24u);
     cf_clear(f);

@@ -223,6 +223,23 @@ int main(void)
         CHECK((uint8_t)(f.eax & 0xFFu) == 0x24u, "AH=09h returns AL='$'");
     }
 
+    /* --- AH=09h with a NULL pointer (EDX=0) must NOT dereference address 0
+     *     (bcg.5). do_puts walked EDX unconditionally to the '$' terminator;
+     *     a NULL or unterminated string let the kernel walk arbitrary memory
+     *     (the DEC-14 fail-loud class for buffer-taking calls). Guard: NULL ->
+     *     emit nothing, AL='$', CF clear. Pre-fix this dereferences NULL. */
+    {
+        sink_reset();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0900u;                       /* AH=09h */
+        f.edx = 0u;                            /* NULL display string */
+        f.eflags |= CF_BIT;
+        int21_dispatch(&f);
+        CHECK_STR_EQ(sink_str(), "", "AH=09h NULL pointer emits nothing (bcg.5)");
+        CHECK(frame_cf(&f) == 0, "AH=09h NULL pointer clears CF");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0x24u, "AH=09h NULL pointer returns AL='$'");
+    }
+
     /* --- AH=40h WRITE handle=1 count=5 "WORLD" -> "WORLD", EAX=5, CF clear. */
     {
         sink_reset();

@@ -24,6 +24,11 @@
 #define COM1_LSR 0x3FDu
 #define LSR_THRE 0x20u
 
+/* Bound the THR-empty spin so the fail-loud serial path cannot itself wedge on
+ * an absent/stuck UART (common 86Box configs) -- mirrors panic.c PSERIAL_SPIN_MAX
+ * (bcg.8). Rule 2: the loud path must never become the thing that hangs. */
+#define RSERIAL_SPIN_MAX 100000u
+
 volatile uint32_t g_irq_depth = 0u;
 
 void irq_enter(void)
@@ -54,8 +59,11 @@ int kbd_in_irq(void)
 
 static void rserial_putc(char c)
 {
+    uint32_t spins = 0u;
     while ((inb(COM1_LSR) & LSR_THRE) == 0) {
-        /* spin until THR empty */
+        if (++spins >= RSERIAL_SPIN_MAX) {
+            return;   /* UART not draining -> drop the byte, never hang (bcg.8) */
+        }
     }
     outb(COM1_THR, (uint8_t)c);
 }
