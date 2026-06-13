@@ -442,8 +442,8 @@ static char g_out[64];
 
 /* DIR: FINDFIRST "*.*" then loop FINDNEXT, formatting each find-record into a
  * DOS-like line. A header ("Directory of A:\") + a file-count footer frame it
- * (Law 4 -- plausibly period DOS). The find-record fields are read at the
- * spec/find_data.h offsets (fname@0x15, fsize@0x11, attr@0x0C). */
+ * (Law 4 -- plausibly period DOS). The find-record fields are read via the
+ * spec/find_data.h struct (real-DOS offsets fname@0x1E, fsize@0x1A, attr@0x15). */
 static void builtin_dir(void)
 {
     int n;

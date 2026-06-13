@@ -481,17 +481,25 @@ The 43-byte find-data block:
 
 | Offset | Size | Field |
 |--------|------|-------|
-| 0x00   | 1    | Drive/search attribute (internal use) |
+| 0x00   | 1    | Drive letter (bits 0-6) + remote bit (internal use) |
 | 0x01   | 11   | Pattern (internal use: stored 8.3 search template) |
-| 0x0C   | 1    | Attribute of found entry |
-| 0x0D   | 2    | File time (DOS packed format) |
-| 0x0F   | 2    | File date (DOS packed format) |
-| 0x11   | 4    | File size (bytes) |
-| 0x15   | 13   | ASCII filename+extension (formatted 8.3, NUL-terminated, max 12 chars + NUL) |
+| 0x0C   | 1    | Search attribute mask (internal use) |
+| 0x0D   | 2    | Directory entry index (internal resume use) |
+| 0x0F   | 2    | Start cluster of parent directory (internal use) |
+| 0x11   | 4    | Reserved (internal use) |
+| 0x15   | 1    | Attribute of found entry |
+| 0x16   | 2    | File time (DOS packed format) |
+| 0x18   | 2    | File date (DOS packed format) |
+| 0x1A   | 4    | File size (bytes) |
+| 0x1E   | 13   | ASCII filename+extension (formatted 8.3, NUL-terminated, max 12 chars + NUL) |
 
-Total: 0x15 + 13 = 0x22 = 34 bytes minimum, padded to 43. The DIR program reads fields at
-these fixed offsets. Lock this layout as spec-data in `spec/dos_structs.h` or a new
-`spec/find_data.h`.
+Total: 0x1E + 13 = 0x2B = 43 bytes (the found-entry fields sit AFTER the 21-byte
+0x00..0x14 region DOS reserves for FINDNEXT's internal resume state -- this is the
+REAL DOS 3.3 layout, corrected by bead `initech-dww`; the earlier compressed table
+that put attr@0x0C / name@0x15 was byte-incompatible with real DOS). The DIR program
+reads fields at these fixed offsets. This layout is locked as spec-data in
+`spec/find_data.h` (with per-field `offsetof` _Static_asserts as the compile-time
+byte-offset oracle).
 
 **FINDNEXT state:** The kernel must remember the root-directory enumeration position
 between calls. For the root directory (fixed, not a cluster chain), the position is a
@@ -751,18 +759,26 @@ uint8_t sft_alloc(void);
 
 #pragma pack(push,1)
 typedef struct find_data {
-    uint8_t  drive_attr;    /* 0x00: internal (drive + search attribute)        */
-    uint8_t  pattern[11];   /* 0x01: 11-byte 8.3 search template (no dot)       */
-    uint8_t  attr;          /* 0x0C: attribute of found entry                   */
-    uint16_t ftime;         /* 0x0D: time of last modification (DOS packed)     */
-    uint16_t fdate;         /* 0x0F: date of last modification (DOS packed)     */
-    uint32_t fsize;         /* 0x11: file size in bytes                         */
-    char     fname[13];     /* 0x15: formatted 8.3 name, NUL-terminated         */
+    /* 0x00..0x14: 21 bytes DOS reserves for FINDNEXT's internal resume state. */
+    uint8_t  drive_attr;     /* 0x00: drive letter (bits 0-6) + remote bit       */
+    uint8_t  pattern[11];    /* 0x01: 11-byte 8.3 search template (no dot)       */
+    uint8_t  search_attr;    /* 0x0C: search attribute mask from FINDFIRST ECX   */
+    uint16_t dir_entry;      /* 0x0D: directory entry index (internal resume)    */
+    uint16_t parent_cluster; /* 0x0F: start cluster of the parent directory      */
+    uint8_t  reserved1[4];   /* 0x11: reserved (internal)                        */
+    /* 0x15..0x2A: the found-entry fields a DIR-style program reads. */
+    uint8_t  attr;           /* 0x15: attribute of found entry                   */
+    uint16_t ftime;          /* 0x16: time of last modification (DOS packed)     */
+    uint16_t fdate;          /* 0x18: date of last modification (DOS packed)     */
+    uint32_t fsize;          /* 0x1A: file size in bytes                         */
+    char     fname[13];      /* 0x1E: formatted 8.3 name, NUL-terminated         */
 } find_data_t;
 #pragma pack(pop)
 
 _Static_assert(sizeof(find_data_t) == FIND_DATA_SIZE,
                "find_data_t must be 43 bytes (DOS 3.3 Programmer's Reference Manual AH=4Eh)");
+/* Real-DOS byte-offset anchor (dww): found fields at attr@0x15, time@0x16,
+ * date@0x18, size@0x1A, name@0x1E -- enforced in spec/find_data.h via offsetof. */
 ```
 
 ---

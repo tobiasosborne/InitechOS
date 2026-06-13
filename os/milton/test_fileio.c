@@ -575,6 +575,22 @@ int main(void)
         CHECK(fd->ftime == 0x1234u, "FINDFIRST find_data ftime copied through");
         CHECK(fd->fdate == 0x5678u, "FINDFIRST find_data fdate copied through");
 
+        /* dww byte-golden: the found-entry fields must land at the REAL-DOS DTA
+         * offsets (attr@0x15, time@0x16, date@0x18, size@0x1A, name@0x1E). A
+         * real-DOS program / differential test reads these FIXED bytes, not the
+         * struct -- so inspect raw bytes. This guards the writer (emit_find_data);
+         * the per-field offsetof _Static_asserts in spec/find_data.h guard the
+         * struct. Mutation-proof: drop a writer field or move a struct field and
+         * one of these goes RED. */
+        {
+            const uint8_t *raw = (const uint8_t *)fd;
+            CHECK(raw[0x15] == fd->attr,                       "DTA byte 0x15 = found attribute (real DOS)");
+            CHECK(*(const uint16_t *)(raw + 0x16) == 0x1234u,  "DTA byte 0x16 = file time (real DOS)");
+            CHECK(*(const uint16_t *)(raw + 0x18) == 0x5678u,  "DTA byte 0x18 = file date (real DOS)");
+            CHECK(*(const uint32_t *)(raw + 0x1A) == hsize,    "DTA byte 0x1A = file size (real DOS)");
+            CHECK(memcmp(raw + 0x1E, "HELLO.TXT", 10) == 0,    "DTA byte 0x1E = file name (real DOS)");
+        }
+
         int_frame_t fn = fresh_frame();
         fn.eax = 0x4F00u;
         int21_dispatch(&fn);

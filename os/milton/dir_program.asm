@@ -3,11 +3,11 @@
 ; beads: initech-509.5 (read-side file-handle functions). The end-to-end
 ;        integration program for FINDFIRST/FINDNEXT: it sets a DTA, calls AH=4Eh
 ;        FINDFIRST "*.*", then loops AH=4Fh FINDNEXT, writing each matched 8.3
-;        filename (read from the 43-byte DTA find-data block at offset 0x15) +
+;        filename (read from the 43-byte DTA find-data block at offset 0x1E) +
 ;        CRLF to stdout, until no more files -- the in-universe `DIR`.
 ;
 ; Ref:   docs/research/fs-mount-sft-ground-truth.md Sec 5.3 (the DIR program);
-;        spec/find_data.h (the 43-byte find_data_t: fname at 0x15); os/milton/
+;        spec/find_data.h (the 43-byte find_data_t: fname at 0x1E, real DOS); os/milton/
 ;        int21.c do_setdta (AH=1Ah), do_findfirst (AH=4Eh: EDX -> spec, ECX=attr),
 ;        do_findnext (AH=4Fh), do_write (AH=40h: EBX=1 -> CON), do_terminate.
 ;        CLAUDE.md Law 1 (cite), Rule 11 (deterministic), Rule 12 (ASCII).
@@ -18,7 +18,7 @@
 bits 32
 org 0x00030100
 
-FIND_FNAME_OFF equ 0x15        ; spec/find_data.h: fname at offset 0x15
+FIND_FNAME_OFF equ 0x1E        ; spec/find_data.h: fname at offset 0x1E (real DOS, dww)
 
 start:
     ; AH=1Ah SETDTA: EDX = flat ptr to our 43-byte find-data block.
@@ -34,7 +34,7 @@ start:
     jc  done                   ; CF=1 -> no files at all
 
 .print:
-    ; Write the NUL-terminated filename at dta+0x15, then CRLF, to stdout.
+    ; Write the NUL-terminated filename at dta+0x1E, then CRLF, to stdout.
     mov esi, dta + FIND_FNAME_OFF
     ; compute length into ECX
     xor ecx, ecx

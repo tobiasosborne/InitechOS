@@ -1259,9 +1259,18 @@ static uint16_t emit_find_data(const dir_entry_t *e)
     }
     find_data_t *fd = (find_data_t *)(uintptr_t)dta;
 
+    /* Write all 43 bytes deterministically (Rule 11): the 0x00..0x14 internal
+     * region first (drive/template/search-attr + reserved resume state), then
+     * the found-entry fields at their real-DOS offsets 0x15.. (dww). */
     fd->drive_attr = 0u;
     for (int i = 0; i < 11; i++) {
         fd->pattern[i] = g_find.pattern[i];
+    }
+    fd->search_attr    = g_find.search_attr;
+    fd->dir_entry      = 0u;
+    fd->parent_cluster = 0u;
+    for (int i = 0; i < 4; i++) {
+        fd->reserved1[i] = 0u;
     }
     fd->attr  = e->attribute;
     fd->ftime = e->mtime;

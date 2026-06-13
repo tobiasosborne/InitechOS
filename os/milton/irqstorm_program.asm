@@ -30,7 +30,7 @@
 ; Ref:   os/milton/int21.c do_setdta (AH=1Ah), do_findfirst/next (AH=4Eh/4Fh:
 ;        g_dta + g_find), do_open (AH=3Dh), do_lseek (AH=42h), do_read (AH=3Fh:
 ;        FAT cache + cluster scratch), do_write (AH=40h: EBX=1 -> CON), do_close
-;        (AH=3Eh), do_terminate (AH=4Ch); spec/find_data.h (fname at 0x15);
+;        (AH=3Eh), do_terminate (AH=4Ch); spec/find_data.h (fname at 0x1E, real DOS);
 ;        spec/memory_map.h (PROGRAM_IMAGE = 0x00030100). CLAUDE.md Law 1, Law 2,
 ;        Rule 2 (fail loud), Rule 11 (deterministic: nasm -f bin), Rule 12 (ASCII).
 ;
@@ -40,7 +40,7 @@
 bits 32
 org 0x00030100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
-FIND_FNAME_OFF equ 0x15        ; spec/find_data.h: fname at offset 0x15
+FIND_FNAME_OFF equ 0x1E        ; spec/find_data.h: fname at offset 0x1E (real DOS, dww)
 
 ; STORM.DAT signature: 13 ASCII bytes placed at SIG_OFF (past the first 512-byte
 ; cluster, so reading it forces a multi-cluster chain walk). Keep in sync with the
