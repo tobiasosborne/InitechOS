@@ -339,6 +339,30 @@ int main(void)
                      "AH=0Ah clamp echoes 'abc', a BEL per dropped char, then CRLF");
     }
 
+    /* --- AH=0Ah BUFFERED INPUT: FULL-SIZE buffer buf[0]=255. ------------- *
+     * Regression for the CR-store guard. The old form
+     *   (uint8_t)(2u+count) < (uint8_t)(2u+max)
+     * WRAPPED for max>=254 (2u+max overflows uint8_t -> 0/1) and silently
+     * dropped the terminating CR on a legal max-size request. With the fix
+     * (count < max) the CR is stored. Queue "hi\r": count=2, CR at buf[4]. The
+     * INT21_MUTATE_BUFINPUT_CR_WRAP mutant restores the bug -> this goes RED. */
+    {
+        sink_reset();
+        uint8_t *buf = alloc_low_buf(260);
+        memset(buf, 0xCC, 260);
+        buf[0] = 255u;            /* max incl. CR -- the uint8_t-wrap trigger */
+        queue_set("hi\r", 3);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0A00u;
+        f.edx = (uint32_t)(uintptr_t)buf;
+        int21_dispatch(&f);
+        CHECK(buf[1] == 2u, "AH=0Ah max=255: count = 2 (CR not counted)");
+        CHECK(buf[2] == 'h' && buf[3] == 'i', "AH=0Ah max=255: buffer = 'hi'");
+        CHECK(buf[4] == 0x0Du,
+              "AH=0Ah max=255: CR stored at buf[2+count] (no uint8_t wrap)");
+        CHECK_STR_EQ(sink_str(), "hi\r\n", "AH=0Ah max=255: echoes 'hi' + CRLF");
+    }
+
     /* --- AH=0Ch FLUSH + INVOKE. The mock is a single synchronous queue, so we
      * test the two observable halves of 0Ch without needing "input that arrives
      * after the flush" (which a flat queue cannot model). ----------------- */

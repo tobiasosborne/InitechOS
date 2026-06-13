@@ -38,6 +38,12 @@
  * oldest-unread input). Power of two so the wrap is a mask. 32 is ample for the
  * cooperative event loop, which drains every WaitNextEvent tick. */
 #define KBD_RING_CAP 32u
+/* The ring index wrap uses `& (KBD_RING_CAP - 1u)` (kbd.c kbd_ring_put/get),
+ * which is a correct modulo ONLY when the capacity is a power of two. Enforce
+ * it at compile time so a future resize that breaks the invariant fails the
+ * build rather than silently corrupting the wrap at runtime (Rule 2). */
+_Static_assert((KBD_RING_CAP & (KBD_RING_CAP - 1u)) == 0u,
+               "KBD_RING_CAP must be a power of two for the index-mask wrap");
 
 /* A single-producer (IRQ1) / single-consumer (event loop) byte ring. The
  * producer only advances head; the consumer only advances tail; head==tail is

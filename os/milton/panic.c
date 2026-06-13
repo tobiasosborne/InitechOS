@@ -26,6 +26,11 @@
 #define COM1_THR 0x3F8u
 #define COM1_LSR 0x3FDu
 #define LSR_THRE 0x20u
+/* Bounded spin: a stuck/absent UART (THRE never asserts) must NEVER hang the
+ * panic path itself (Rule 2 -- the fail-loud path cannot be the thing that
+ * wedges). Far above the worst-case poll count for a working 16550 at 115200
+ * baud, small enough to bail in a fraction of a second on dead hardware. */
+#define PSERIAL_SPIN_MAX 100000u
 
 /* Optional live console for the one-line panic banner. kmain.c sets this once
  * the console is up (panic_set_console); NULL before that -> serial-only. */
@@ -38,8 +43,11 @@ void panic_set_console(void *con)
 
 static void pserial_putc(char c)
 {
+    uint32_t spins = 0u;
     while ((inb(COM1_LSR) & LSR_THRE) == 0) {
-        /* spin until THR empty */
+        if (++spins >= PSERIAL_SPIN_MAX) {
+            return;             /* UART not draining -> drop the byte, never hang */
+        }
     }
     outb(COM1_THR, (uint8_t)c);
 }

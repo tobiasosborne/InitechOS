@@ -1256,6 +1256,7 @@ TEST_CONIN      := $(BUILD)/test_conin
 TEST_CONIN_SRC  := $(MILTON_DIR)/test_conin.c
 TEST_CONIN_MUT_NOECHO := $(BUILD)/test_conin_mutant_noecho
 TEST_CONIN_MUT_COUNT  := $(BUILD)/test_conin_mutant_count
+TEST_CONIN_MUT_WRAP   := $(BUILD)/test_conin_mutant_crwrap
 # test_conin.c drives only the CON-input path, but int21.c (one TU) references
 # the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
@@ -1275,14 +1276,18 @@ $(TEST_CONIN_MUT_COUNT): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BUFINPUT_COUNT_CR -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
 
+$(TEST_CONIN_MUT_WRAP): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BUFINPUT_CR_WRAP -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
+
 .PHONY: test-conin-unit test-conin-mutant
 test-conin-unit: $(TEST_CONIN)
 	@printf ">>> test-conin-unit: CON input 01h/06h/07h/08h/0Ah(+BS,+clamp)/0Bh/0Ch via mock source\n"
 	@$(TEST_CONIN)
 	@printf ">>> test-conin-unit: green\n"
 
-test-conin-mutant: $(TEST_CONIN_MUT_NOECHO) $(TEST_CONIN_MUT_COUNT)
-	@printf ">>> test-conin-mutant: confirming both mutants go RED (Rule 6)\n"
+test-conin-mutant: $(TEST_CONIN_MUT_NOECHO) $(TEST_CONIN_MUT_COUNT) $(TEST_CONIN_MUT_WRAP)
+	@printf ">>> test-conin-mutant: confirming all three mutants go RED (Rule 6)\n"
 	@if $(TEST_CONIN_MUT_NOECHO) >/dev/null 2>&1; then \
 		printf '!!! test-conin-mutant FAIL: 01h-no-echo mutant PASSED -- the echo test is decoration\n'; \
 		exit 1; \
@@ -1294,6 +1299,12 @@ test-conin-mutant: $(TEST_CONIN_MUT_NOECHO) $(TEST_CONIN_MUT_COUNT)
 		exit 1; \
 	else \
 		printf '>>> test-conin-mutant: green (0Ah-count-CR mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_CONIN_MUT_WRAP) >/dev/null 2>&1; then \
+		printf '!!! test-conin-mutant FAIL: 0Ah-CR-wrap mutant PASSED -- the max=255 CR-store test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-conin-mutant: green (0Ah-CR-wrap mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 .PHONY: test-int21 test-int21-mutant test-conin-unit
@@ -1477,6 +1488,7 @@ TEST_EXEC_HDRS   := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.
 # reporting rc=0 so `make test-exec-mutant` can prove the GET-RETURN-CODE oracle
 # BITES (it EXECs a program exiting rc=7 and asserts AL==7).
 TEST_EXEC_MUT_RC := $(BUILD)/test_exec_mutant_rc
+TEST_EXEC_MUT_PATHSCAN := $(BUILD)/test_exec_mutant_pathscan
 
 $(TEST_EXEC): $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS) $(TEST_EXEC_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -1486,6 +1498,10 @@ $(TEST_EXEC_MUT_RC): $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS) $(TEST_EXEC_HDRS) | $(BU
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_RETCODE_ZERO -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS)
 
+$(TEST_EXEC_MUT_PATHSCAN): $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS) $(TEST_EXEC_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_PATHSCAN_NOBOUND -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_EXEC_SRC) $(TEST_EXEC_DEPS)
+
 .PHONY: test-exec-unit test-exec-mutant
 test-exec-unit: $(TEST_EXEC)
 	@printf ">>> test-exec-unit: AH=4Bh EXEC (path validation + not-found/nested mapping) + AH=4Dh GET-RETURN-CODE via mock backend\n"
@@ -1493,13 +1509,19 @@ test-exec-unit: $(TEST_EXEC)
 	@printf ">>> test-exec-unit: green\n"
 
 # Mutation-proof: the rc-always-zero mutant MUST fail the oracle (Rule 6).
-test-exec-mutant: $(TEST_EXEC_MUT_RC)
-	@printf ">>> test-exec-mutant: confirming the 4Dh-rc-zero mutant goes RED (Rule 6)\n"
+test-exec-mutant: $(TEST_EXEC_MUT_RC) $(TEST_EXEC_MUT_PATHSCAN)
+	@printf ">>> test-exec-mutant: confirming both mutants go RED (Rule 6)\n"
 	@if $(TEST_EXEC_MUT_RC) >/dev/null 2>&1; then \
 		printf '!!! test-exec-mutant FAIL: 4Dh-rc-zero mutant PASSED -- the GET-RETURN-CODE test is decoration\n'; \
 		exit 1; \
 	else \
 		printf '>>> test-exec-mutant: green (4Dh-rc-zero mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_EXEC_MUT_PATHSCAN) >/dev/null 2>&1; then \
+		printf '!!! test-exec-mutant FAIL: pathscan-nobound mutant PASSED -- the overlength-path guard test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-exec-mutant: green (pathscan-nobound mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------

@@ -53,6 +53,10 @@
 #define COM1_THR 0x3F8u   /* transmit holding register (DLAB=0) */
 #define COM1_LSR 0x3FDu   /* line status register               */
 #define LSR_THRE 0x20u    /* transmit holding register empty     */
+/* Bounded spin so a stuck/absent UART never hangs the boot path (Rule 2); a
+ * working 16550 asserts THRE far below this poll count, so the bound is inert
+ * on every emulator while still bailing on dead hardware. */
+#define SERIAL_SPIN_MAX 100000u
 
 /* The InitechDOS operator banner -- the FIRST text the OS prints at boot.
  * Ref: ADR-0003 DEC-12 + Appendix D.1; the LOCKED bytes are spec/dos_banner.txt
@@ -66,8 +70,11 @@
 
 static void serial_putc(char c)
 {
+    uint32_t spins = 0u;
     while ((inb(COM1_LSR) & LSR_THRE) == 0) {
-        /* spin until the holding register is empty */
+        if (++spins >= SERIAL_SPIN_MAX) {
+            return;             /* UART not draining -> drop the byte, never hang */
+        }
     }
     outb(COM1_THR, (uint8_t)c);
 }

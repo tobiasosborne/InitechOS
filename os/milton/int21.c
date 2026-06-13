@@ -490,7 +490,19 @@ static void do_buffered_input(int_frame_t *f)
         if (c == 0x0Du || c == 0x0Au) {         /* CR (or the kbd's LF): terminate */
             /* Store the CR if there is room (real DOS always stores it at
              * buf[2+count]); the CR is NOT counted in buf[1]. */
+            /* Room for the CR? `count` is already capped at max-1 by the
+             * ordinary-char path, so this holds for any max>=1. The previous
+             * (uint8_t)(2u+count) < (uint8_t)(2u+max) form WRAPPED when max>=254
+             * (2u+max overflows uint8_t) and wrongly dropped the terminator on a
+             * full-size buffer -- buf[0]=255 is a legal caller request. */
+#ifdef INT21_MUTATE_BUFINPUT_CR_WRAP
+            /* MUTANT (Rule 6; make test-conin-mutant only): restore the old
+             * uint8_t-wrapping guard so a max=255 buffer drops its CR -- the
+             * full-size-buffer oracle must go RED. NEVER define in a real build. */
             if ((uint8_t)(2u + count) < (uint8_t)(2u + max)) {
+#else
+            if (count < max) {
+#endif
                 buf[2u + count] = 0x0Du;
             }
 #ifdef INT21_MUTATE_BUFINPUT_COUNT_CR
@@ -677,12 +689,28 @@ static void do_dup2(int_frame_t *f)
 /* Reject an OPEN path the milestone does not support: a subdirectory separator
  * '\' or a drive-letter ':' (root-dir 8.3 names only this milestone, brief
  * Sec 4.1). Returns 1 if the path is rejectable (caller sets CF=1, AX=0x0003). */
+/* A runaway guard, NOT a DOS path-length policy: bounds the scan of a possibly
+ * malformed / unterminated ASCIIZ pointer so it can never walk the kernel off
+ * into memory (Rule 2 -- fail loud, do not hang). Well above DOS's 64-byte path
+ * maximum, so it never rejects a legal path; an overlength scan (no NUL within
+ * the bound) is treated as rejectable, same as an illegal path character. */
+#define INT21_PATH_SCAN_MAX 128u
 static int path_has_subdir_or_drive(const char *p)
 {
+    uint32_t n = 0u;
+    (void)n;
     for (; *p; p++) {
         if (*p == '\\' || *p == ':') {
             return 1;
         }
+#ifndef INT21_MUTATE_PATHSCAN_NOBOUND
+        /* MUTANT (Rule 6; make test-exec-mutant only) removes this bound so an
+         * overlength path is NOT rejected and reaches the backend -- the
+         * overlength oracle must go RED. NEVER define in a real build. */
+        if (++n >= INT21_PATH_SCAN_MAX) {
+            return 1;           /* no terminator within bound -> reject */
+        }
+#endif
     }
     return 0;
 }

@@ -184,6 +184,31 @@ int main(void)
         CHECK(g_exec_called == 0, "AH=4Bh rejects a drive path before the backend");
     }
 
+    /* --- AH=4Bh with an OVERLENGTH path -> CF=1, AX=0x0003; runaway-guarded. *
+     * A possibly-unterminated/oversized ASCIIZ pointer must not be scanned off
+     * into memory (Rule 2). path_has_subdir_or_drive bounds the scan at
+     * INT21_PATH_SCAN_MAX (128) and rejects anything longer BEFORE the backend.
+     * 199 'A's (no '\' or ':') exceeds the bound -> rejected. The
+     * INT21_MUTATE_PATHSCAN_NOBOUND mutant removes the bound -> the path passes
+     * validation, the backend is called, and this goes RED. */
+    {
+        exec_reset(0u, 0u);
+        char longname[200];
+        memset(longname, 'A', sizeof(longname) - 1u);
+        longname[sizeof(longname) - 1u] = '\0';   /* 199 'A's, NUL-terminated */
+        uint32_t edx = low_dup(longname);
+        CHECK(edx != 0u, "low_dup overlength-path buffer");
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4B00u;
+        f.edx = edx;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=4Bh overlength path sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
+              "AH=4Bh overlength path -> AX=0x0003 (runaway-guarded reject)");
+        CHECK(g_exec_called == 0,
+              "AH=4Bh rejects an overlength path BEFORE the backend (bounded scan)");
+    }
+
     /* --- AH=4Bh empty path -> CF=1, AX=0x0002 (file not found). ------------- */
     {
         exec_reset(0u, 0u);
