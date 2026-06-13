@@ -316,19 +316,26 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * program terminates, loader_exit_hook restores ESP/EBP/EBX and jumps to the
      * 1: label, landing us right after this block with ctx.exit_code set.
      *
-     * Order matters: read everything we need into EAX/ESP/EBX from MEMORY
-     * operands; the final two writes (ESP, EBX) happen LAST, immediately before
-     * the jmp, so nothing the compiler emits depends on the now-switched stack.
-     * "memory" tells GCC the asm reads/writes memory across the non-local flow. */
+     * Order matters (bcg.10): every MEMORY operand must be read while ESP still
+     * points at the KERNEL stack, because at higher optimization (or
+     * -fomit-frame-pointer) the compiler addresses these locals ESP-relative.
+     * So the jump target (entry_eip) is loaded into EAX BEFORE the ESP switch;
+     * the jmp then goes through the REGISTER, never a memory operand resolved
+     * against the just-switched program stack. EAX is free to clobber at entry
+     * (the program does not rely on it; it previously held &1f anyway). The very
+     * last instruction before the jmp is the ESP switch, whose source (stack_top)
+     * is read with the kernel ESP still live. "memory" tells GCC the asm
+     * reads/writes memory across the non-local flow. */
     __asm__ __volatile__(
         "mov %%esp, %0\n\t"          /* ctx.saved_esp = current kernel ESP        */
         "mov %%ebp, %1\n\t"          /* ctx.saved_ebp = current frame base        */
         "mov %%ebx, %2\n\t"          /* ctx.saved_ebx = current EBX               */
         "lea 1f, %%eax\n\t"          /* EAX = address of the return label (1:)    */
         "mov %%eax, %3\n\t"          /* ctx.return_eip = &1f                      */
+        "mov %4, %%eax\n\t"          /* EAX = entry_eip, read BEFORE the switch    */
         "mov %5, %%ebx\n\t"          /* EBX = PSP_ADDR (program's PSP pointer)    */
         "mov %6, %%esp\n\t"          /* switch to the program stack top (LAST)    */
-        "jmp *%4\n\t"                /* JMP to the program entry (no return addr) */
+        "jmp *%%eax\n\t"             /* JMP via REGISTER (no post-switch mem read) */
         "1:\n\t"                     /* <- loader_exit_hook jumps back here       */
         : "=m"(ctx.saved_esp), "=m"(ctx.saved_ebp), "=m"(ctx.saved_ebx),
           "=m"(ctx.return_eip)
