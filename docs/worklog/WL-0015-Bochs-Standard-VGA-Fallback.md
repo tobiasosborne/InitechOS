@@ -83,9 +83,30 @@ BANNER-BEGIN / InitechDOS  Version 3.30 / BANNER-END`.
 - `os/milton/console.{c,h}` (8bpp), `os/milton/test_console.c` (8bpp oracle),
   `os/boot/stage2.asm` (`.vga_fallback`), `os/milton/kmain.c` (`vga_set_dac`,
   `fb_clear` 8bpp, BI validator).
-- **NEXT: initech-564** -- the committed Bochs differential gate. Fully
-  de-risked (see `bd show initech-564`): working bochsrc captured, the RFB
-  unblock is a trivial C handshake (model `bochs.c` on `qemu.c`, 866 lines),
-  assert on serial, wire `test-boot` to a QEMU==Bochs serial differential. Open
-  question for a *visual* Bochs leg: mode 0x12 (640x480x16 planar) might render
-  on RFB (untested) but needs a planar renderer -- deferred.
+- `os/milton/console.{c,h}` (8bpp), `os/milton/test_console.c` (8bpp oracle),
+  `os/boot/stage2.asm` (`.vga_fallback`), `os/milton/kmain.c` (`vga_set_dac`).
+
+## Addendum -- initech-564: the committed Bochs gate (same session)
+
+Built `harness/emu/bochs.{c,h}` + `bochs_main.c` -- the Bochs leg of the
+tri-emulator boot gate, parallel to the QEMU harness and **C-only** (Law 3):
+the RFB 3.3 unblock that `rfb_unblock.py` prototyped is now implemented in C.
+`bochs_run` generates the working bochsrc (legacy BIOS + LGPL vgabios +
+pentium), computes the 2x32 disk geometry, fork/execs the debugger-build Bochs
+with `-rc 'c'`, connects + handshakes + drains the RFB socket so Bochs runs
+headless, captures serial via `com1=file`, and scans the log for a triple
+fault. The guest hlt-loops -> the run times out by design; the verdict is
+RFB-unblock + no-fault + the `--expect` marker.
+
+`make test-boot-bochs` boots the SAME tracer image under Bochs and asserts the
+mode-0x13 fallback fired (`VBE-ENOMODE` + `VGA13`) and the SAME kernel
+milestones as QEMU (`S1 PM OK FONT KERNEL INT21 BI-OK CONSOLE BANNER` -- the
+differential) with no triple-fault. SERIAL-only (Bochs RFB can't display mode
+0x13). **Mutation-proven:** latest BIOS -> `triple_fault=1` -> RED; bogus
+`--expect` -> `marker_found=0` -> RED. Not in the default `make test`
+(env-specific Bochs + ~45s); run explicitly. Commit `4a0c38c`.
+
+**Open question for a *visual* Bochs leg:** mode 0x12 (640x480x16 planar) might
+render on RFB (untested) but needs a planar renderer -- deferred. **86Box
+(initech-44m)** remains the only unbuilt tri-emulator leg (lowest priority;
+Qt-offscreen headless automation unbuilt).
