@@ -77,12 +77,25 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 	/* Geometry sanity: divisors must be nonzero before we use them. A zero
 	 * sectors_per_cluster / num_fats / sectors_per_fat / total sectors is
 	 * nonsense geometry, not a usable volume (Rule 2 -- panic-grade). */
+#ifdef FAT12_MUTATE_ACCEPT_BAD_BPB
+	/* MUTANT (Rule 6; test-fat-corrupt-fuzz-mutant only): REMOVE the
+	 * sectors_per_cluster==0 nonsense-geometry guard, so a malformed BPB
+	 * (sectors_per_cluster 0) is ACCEPTED at mount instead of failing loud
+	 * with FAT12_ERR_GEOMETRY. The corruption fuzzer's bad-BPB leg asserts
+	 * FAT12_ERR_GEOMETRY and must go RED. NEVER define in a real build. */
+	if (vol->bpb.num_fats == 0u ||
+	    vol->bpb.sectors_per_fat == 0u ||
+	    vol->bpb.root_entry_count == 0u) {
+		return FAT12_ERR_GEOMETRY;
+	}
+#else
 	if (vol->bpb.sectors_per_cluster == 0u ||
 	    vol->bpb.num_fats == 0u ||
 	    vol->bpb.sectors_per_fat == 0u ||
 	    vol->bpb.root_entry_count == 0u) {
 		return FAT12_ERR_GEOMETRY;
 	}
+#endif
 
 	/* total_sectors: 16-bit field, or the 32-bit field when it is zero
 	 * (brief Sec 1 note on total_sectors_32). */
@@ -727,9 +740,19 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 				return FAT12_ERR_CHAIN;
 			}
 			cur = next;
+#ifndef FAT12_MUTATE_NO_STEP_GUARD
 			if (++steps > max_steps) {
 				return FAT12_ERR_CHAIN; /* cyclic / corrupt */
 			}
+#else
+			/* MUTANT (Rule 6; test-fat-corrupt-fuzz-mutant only): REMOVE the
+			 * anti-hang max_steps guard on the skip walk, so a cyclic/self-loop
+			 * chain spins FOREVER instead of failing loud. The corruption
+			 * fuzzer's loop-chain leg never returns; the Makefile `timeout`
+			 * trips -> gate RED. NEVER define in a real build. */
+			(void)max_steps;
+			steps++;
+#endif
 		}
 	}
 
@@ -789,9 +812,17 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 				return FAT12_ERR_CHAIN;
 			}
 			cur = next;
+#ifndef FAT12_MUTATE_NO_STEP_GUARD
 			if (++steps > max_steps) {
 				return FAT12_ERR_CHAIN; /* cyclic / corrupt */
 			}
+#else
+			/* MUTANT (Rule 6; test-fat-corrupt-fuzz-mutant only): REMOVE the
+			 * anti-hang max_steps guard on the copy walk too -- a cyclic chain
+			 * entered during the copy phase spins forever. NEVER in a real build. */
+			(void)max_steps;
+			steps++;
+#endif
 		}
 	}
 

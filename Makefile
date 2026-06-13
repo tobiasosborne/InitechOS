@@ -1090,6 +1090,92 @@ test-fat-fuzz-mutant: $(TEST_FAT12_FUZZ_MUT_RMW) $(FAT12_FUZZ_BLANK_IMG)
 		rm -f "$(FAT12_FUZZ_BLANK_IMG)".seed*.scratch; \
 	fi
 
+# --- FAT12 CORRUPTION fuzzer (beads initech-dnn; malformed-BPB part of initech-9xl)
+# The adversarial twin of the generative fuzzer (test-fat-fuzz): where that one
+# explores the HAPPY-path state space against a model, this one DELIBERATELY
+# builds MALFORMED FAT12 inputs and asserts the kernel's fat12 read/walk layer
+# fails loud + stays bounded (Rule 2): cluster LOOP-CHAINS terminate via the
+# max_steps/max_clusters anti-hang bound (never hang); RESERVED/BAD markers
+# (0xFF0..0xFF7) mid-chain error; TRUNCATED chains (start/link >= total_clusters,
+# or a chain shorter than file_size) error; RESERVED start_cluster 0/1 (size>0)
+# is rejected; and a MALFORMED BPB (sectors_per_cluster=0, total_sectors=0,
+# first_data_sector>=total_sectors, ...) makes fat12_mount return the documented
+# FAT12_ERR_GEOMETRY (the initech-9xl mount-guard coverage). Deterministic
+# splitmix64/xorshift seed sweep (Rule 11). SUBJECT = the UNMODIFIED artifact
+# fat12.c (harness-only code). The blockdev backend bounds-checks every read, so
+# no OOB ever escapes (a short fread -> FAT12_ERR_READ, never garbage).
+TEST_FAT12_CORRUPT_FUZZ          := $(BUILD)/fat12_corrupt_fuzz
+# Mutation build #1 (Rule 6): remove the read_partial max_steps anti-hang guard
+# -- a positioned read of a range exceeding a cyclic chain reads endless
+# duplicate-cluster data and returns OK where the gate demands a fail-loud error.
+# The fuzzer's loop-chain leg MUST find + report it (gate goes RED).
+TEST_FAT12_CORRUPT_FUZZ_MUT_STEP := $(BUILD)/fat12_corrupt_fuzz_mut_step
+# Mutation build #2 (Rule 6): remove the mount sectors_per_cluster==0 geometry
+# guard -- a malformed BPB is no longer rejected, and the kernel divides by the
+# zero sectors_per_cluster downstream (a load-bearing guard). The fuzzer's
+# bad-BPB leg MUST detect the divergence (gate goes RED).
+TEST_FAT12_CORRUPT_FUZZ_MUT_BPB  := $(BUILD)/fat12_corrupt_fuzz_mut_bpb
+# Deterministic seed sweep + per-seed corruption budget. Reuses the blank 1.44 MB
+# FAT12 template the generative fuzzer mints ($(FAT12_FUZZ_BLANK_IMG)).
+FAT12_CORRUPT_SEEDS_LO   := 1
+FAT12_CORRUPT_SEEDS_HI   := 200
+FAT12_CORRUPT_OPS        := 40
+
+$(TEST_FAT12_CORRUPT_FUZZ): $(FAT_DIFF_DIR)/fat12_corrupt_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/fat12_corrupt_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_CORRUPT_FUZZ_MUT_STEP): $(FAT_DIFF_DIR)/fat12_corrupt_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_NO_STEP_GUARD -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/fat12_corrupt_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB): $(FAT_DIFF_DIR)/fat12_corrupt_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_ACCEPT_BAD_BPB -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/fat12_corrupt_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# REAL gate: test-fat-corrupt-fuzz (beads initech-dnn). One leg on the UNMODIFIED
+# fat12.c: a deterministic seed sweep of malformed inputs; green only if every
+# corruption is handled fail-loud + bounded (no hang, no OOB). The whole gate is
+# wrapped in a wall-clock `timeout` as the hard anti-hang backstop -- a fuzzer
+# that ever HUNG would otherwise stall the gate forever; a timeout is RED.
+.PHONY: test-fat-corrupt-fuzz
+test-fat-corrupt-fuzz: $(TEST_FAT12_CORRUPT_FUZZ) $(FAT12_FUZZ_BLANK_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fat-corrupt-fuzz : FAT12 corruption fuzzer (deterministic seed sweep)\n'
+	@printf '======================================================================\n'
+	@printf '>>> test-fat-corrupt-fuzz: malformed FAT12 inputs over seeds %s..%s (fail-loud + bounded)\n' "$(FAT12_CORRUPT_SEEDS_LO)" "$(FAT12_CORRUPT_SEEDS_HI)"
+	@timeout 120 $(TEST_FAT12_CORRUPT_FUZZ) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FAT12_FUZZ_BLANK_IMG)" \
+		|| { printf '!!! test-fat-corrupt-fuzz FAIL: a malformed input hung, went OOB, or was NOT rejected fail-loud -- root-cause it (Rule 3)\n'; rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch; exit 1; }
+	@rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch
+	@printf '>>> test-fat-corrupt-fuzz: green (every malformed FAT12 input failed loud + bounded -- no hang, no OOB)\n'
+
+# Mutation gate (Rule 6): build the corruption fuzzer against fat12.c's
+# no-step-guard AND accept-bad-BPB mutants and assert the fuzzer DETECTS each
+# divergence (exits non-zero). A fuzzer that never catches a bug is decoration.
+# The no-step-guard mutant is caught by the loop-chain assertion; the accept-bad-
+# BPB mutant is caught when the un-guarded malformed BPB faults downstream (a
+# div-by-zero on the zero sectors_per_cluster the guard exists to reject) -- both
+# are RED (non-zero exit). The `timeout` is the hard backstop.
+.PHONY: test-fat-corrupt-fuzz-mutant
+test-fat-corrupt-fuzz-mutant: $(TEST_FAT12_CORRUPT_FUZZ_MUT_STEP) $(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB) $(FAT12_FUZZ_BLANK_IMG)
+	@printf '>>> test-fat-corrupt-fuzz-mutant: confirming the fuzzer DETECTS the no-step-guard + accept-bad-BPB mutants (Rule 6)\n'
+	@if timeout 120 $(TEST_FAT12_CORRUPT_FUZZ_MUT_STEP) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FAT12_FUZZ_BLANK_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-fat-corrupt-fuzz-mutant FAIL: no-step-guard mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
+		rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-corrupt-fuzz-mutant: green leg 1/2 (fuzzer RED on the no-step-guard mutant)\n'; \
+	fi
+	@if timeout 120 $(TEST_FAT12_CORRUPT_FUZZ_MUT_BPB) --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FAT12_FUZZ_BLANK_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-fat-corrupt-fuzz-mutant FAIL: accept-bad-BPB mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
+		rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-corrupt-fuzz-mutant: green leg 2/2 (fuzzer RED on the accept-bad-BPB mutant)\n'; \
+	fi
+	@rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch
+	@printf '>>> test-fat-corrupt-fuzz-mutant: green (fuzzer correctly RED on both corruption mutants)\n'
+
 # ---------------------------------------------------------------------------
 # Text console blit oracle (os/milton, beads initech-yqb)
 # ---------------------------------------------------------------------------
@@ -1467,6 +1553,54 @@ test-fileio-mutant: $(TEST_FILEIO_MUT_READ) $(TEST_FILEIO_MUT_LSEEK)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-int21-edge (beads initech-xrd / initech-1zk; double-close part
+# of initech-00x -- INT 21h error paths + implemented-but-untested resident fns)
+# ---------------------------------------------------------------------------
+# Host unit oracle HARDENING the INT 21h error legs (read/write on a bad/closed
+# handle -> 0x0006; double-close with NO ref_count underflow; CX=0 read/write;
+# large-CX short read past EOF; guarded NULL EDX) and the implemented-but-
+# untested resident functions (0Eh SELDISK / 19h GETDISK / 47h GETCWD / 59h
+# GETERR / 62h GETPSP), driven through the REAL artifact int21_dispatch with a
+# MOCK file backend. CONTRACT/characterization tests: assert the real current
+# behavior. Links int21.c + sft.c + psp.c + irq.c; -Ispec for sft.h -> psp.h ->
+# dos_structs.h and spec/find_data.h; -Ibuild for dos_messages.h. Mirrors the
+# $(TEST_FILEIO) idiom.
+TEST_INT21EDGE      := $(BUILD)/test_int21_edge
+TEST_INT21EDGE_SRC  := $(MILTON_DIR)/test_int21_edge.c
+TEST_INT21EDGE_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_INT21EDGE_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+                       $(MILTON_DIR)/psp.h spec/dos_structs.h spec/find_data.h $(DOS_MESSAGES_H)
+# Mutation build (CLAUDE.md Rule 6): int21.c compiled with do_close's int21.c:984
+# ref_count>0 guard removed, so a CLOSE of a slot whose ref_count is already 0
+# UNDERFLOWS the uint16 to 0xFFFF (the double-close corruption beads initech-00x
+# flagged) -- `make test-int21-edge-mutant` proves the no-underflow oracle BITES.
+TEST_INT21EDGE_MUT_CLOSE := $(BUILD)/test_int21_edge_mutant_close
+
+$(TEST_INT21EDGE): $(TEST_INT21EDGE_SRC) $(TEST_INT21EDGE_DEPS) $(TEST_INT21EDGE_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21EDGE_SRC) $(TEST_INT21EDGE_DEPS)
+
+$(TEST_INT21EDGE_MUT_CLOSE): $(TEST_INT21EDGE_SRC) $(TEST_INT21EDGE_DEPS) $(TEST_INT21EDGE_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CLOSE_NO_REFGUARD -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21EDGE_SRC) $(TEST_INT21EDGE_DEPS)
+
+.PHONY: test-int21-edge test-int21-edge-mutant
+test-int21-edge: $(TEST_INT21EDGE)
+	@printf ">>> test-int21-edge: INT 21h error paths (bad/closed handle, double-close, CX=0, short read) + 0Eh/19h/47h/59h/62h via mock backend (initech-xrd/1zk)\n"
+	@$(TEST_INT21EDGE)
+	@printf ">>> test-int21-edge: green\n"
+
+# Mutation-proof: the mutant build MUST fail the oracle (Rule 6).
+test-int21-edge-mutant: $(TEST_INT21EDGE_MUT_CLOSE)
+	@printf ">>> test-int21-edge-mutant: confirming the close-no-refguard mutant goes RED (Rule 6)\n"
+	@if $(TEST_INT21EDGE_MUT_CLOSE) >/dev/null 2>&1; then \
+		printf '!!! test-int21-edge-mutant FAIL: close-no-refguard mutant PASSED -- the double-close no-underflow test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-int21-edge-mutant: green (close-no-refguard mutant correctly RED -- the ref_count guard oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-exec-unit (beads initech-saw + 509.5 -- AH=4Bh/4Dh dispatch)
 # ---------------------------------------------------------------------------
 # Host unit oracle for INT 21h AH=4Bh EXEC + AH=4Dh GET-RETURN-CODE, driven
@@ -1803,6 +1937,110 @@ test-config-sys-mutant: $(TEST_CONFIG_SYS_MUT_OFF) $(TEST_CONFIG_SYS_MUT_UNK)
 		exit 1; \
 	else \
 		printf '>>> test-config-sys-mutant: green (fail-on-unknown mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-config-fuzz (beads initech-hjv -- CONFIG.SYS parser FUZZER)
+# ---------------------------------------------------------------------------
+# Deterministic, seeded GENERATIVE fuzzer for the PURE CONFIG.SYS parser
+# (os/milton/config_sys.c, UNMODIFIED). Where test-config-sys is a fixed matrix
+# vs the LOCKED baseline, this explores the DEEP space of HOSTILE input (Rule 3):
+# a splitmix64-seeded PRNG synthesizes adversarial files -- no '=', non-numeric
+# FILES=/BUFFERS=, OVERSIZED decimals that overflow the decimal parse, >255-char
+# lines, unknown keywords, blanks, comments, CR/LF/CRLF/bare-CR -- runs the REAL
+# config_sys_parse() and asserts it (1) NEVER overflows (guard bytes bracket the
+# dos_config_t + input), (2) NEVER crashes, (3) clamps FILES/BUFFERS into range
+# AND matches an INDEPENDENT faithful reference of the saturating overflow guard,
+# (4) is lenient on unknown/no-'='/blank/comment lines. Determinism = Rule 11.
+TEST_CONFIG_FUZZ      := $(BUILD)/test_config_sys_fuzz
+TEST_CONFIG_FUZZ_SRC  := $(MILTON_DIR)/test_config_sys_fuzz.c
+TEST_CONFIG_FUZZ_DEPS := $(KERNEL_CONFIG_SYS_C)
+TEST_CONFIG_FUZZ_HDRS := $(MILTON_DIR)/config_sys.h
+# Deterministic seed sweep + per-file line budget (replayable by --seed).
+CONFIG_FUZZ_SEEDS_LO  := 1
+CONFIG_FUZZ_SEEDS_HI  := 4000
+CONFIG_FUZZ_OPS       := 24
+# Mutation build (Rule 6): config_sys.c with the decimal overflow guard REMOVED
+# -- an oversized FILES= value then WRAPS modulo 2^32 instead of saturating, so
+# the live clamp diverges from the faithful reference. The fuzzer MUST find it.
+TEST_CONFIG_FUZZ_MUT  := $(BUILD)/test_config_sys_fuzz_mutant_noguard
+
+$(TEST_CONFIG_FUZZ): $(TEST_CONFIG_FUZZ_SRC) $(TEST_CONFIG_FUZZ_DEPS) $(TEST_CONFIG_FUZZ_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_CONFIG_FUZZ_SRC) $(TEST_CONFIG_FUZZ_DEPS)
+
+$(TEST_CONFIG_FUZZ_MUT): $(TEST_CONFIG_FUZZ_SRC) $(TEST_CONFIG_FUZZ_DEPS) $(TEST_CONFIG_FUZZ_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONFIG_MUTATE_NO_OVERFLOW_GUARD -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_CONFIG_FUZZ_SRC) $(TEST_CONFIG_FUZZ_DEPS)
+
+.PHONY: test-config-fuzz test-config-fuzz-mutant
+test-config-fuzz: $(TEST_CONFIG_FUZZ)
+	@printf ">>> test-config-fuzz: CONFIG.SYS parser generative fuzzer over seeds %s..%s (no overflow / no crash / clamp / lenient)\n" "$(CONFIG_FUZZ_SEEDS_LO)" "$(CONFIG_FUZZ_SEEDS_HI)"
+	@$(TEST_CONFIG_FUZZ) --sweep $(CONFIG_FUZZ_SEEDS_LO) $(CONFIG_FUZZ_SEEDS_HI) --ops $(CONFIG_FUZZ_OPS) \
+		|| { printf '!!! test-config-fuzz FAIL: a seed broke an invariant (replay above) -- root-cause it (Rule 3)\n'; exit 1; }
+	@printf ">>> test-config-fuzz: green\n"
+
+# Mutation-proof: the no-guard mutant MUST be FOUND by the fuzzer (Rule 6).
+test-config-fuzz-mutant: $(TEST_CONFIG_FUZZ_MUT)
+	@printf ">>> test-config-fuzz-mutant: confirming the fuzzer FINDS the no-overflow-guard mutant (Rule 6)\n"
+	@if $(TEST_CONFIG_FUZZ_MUT) --sweep $(CONFIG_FUZZ_SEEDS_LO) $(CONFIG_FUZZ_SEEDS_HI) --ops $(CONFIG_FUZZ_OPS) >/dev/null 2>&1; then \
+		printf '!!! test-config-fuzz-mutant FAIL: no-guard mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-config-fuzz-mutant: green (fuzzer correctly RED on the no-overflow-guard mutant -- the fuzzer bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-cmdline-fuzz (beads initech-hjv -- cmd-line + PSP cmd_tail FUZZER)
+# ---------------------------------------------------------------------------
+# Deterministic, seeded GENERATIVE fuzzer for the command-line tokenizer
+# (os/milton/command.c cmd_parse, UNMODIFIED, built WITHOUT COMMAND_KERNEL_REPL)
+# and the PSP command-tail builder (os/milton/psp.c psp_build, UNMODIFIED). A
+# splitmix64-seeded PRNG synthesizes hostile command lines -- leading/trailing/
+# multiple spaces, tabs, quotes, control bytes, and lines FAR longer than the
+# 127-char PSP tail -- then asserts (A) cmd_parse NEVER overflows cmd_line_t
+# (guard byte after the struct survives; tokens stay NUL-terminated within
+# CMD_TOKEN_MAX / CMD_LINE_MAX) and (B) psp_build CLAMPS the 128-byte cmd_tail
+# (count == min(len,126), CR at offset count+1 <= 127, NOTHING past cmd_tail[127]
+# -- a guard byte immediately after the 256-byte psp_t survives -- dropped count
+# == max(0,len-126)). -Ibuild for command.c's generated dos_messages.h.
+# Determinism = Rule 11. Mirrors the test-config-fuzz idiom.
+TEST_CMDLINE_FUZZ      := $(BUILD)/test_cmdline_fuzz
+TEST_CMDLINE_FUZZ_SRC  := $(MILTON_DIR)/test_cmdline_fuzz.c
+TEST_CMDLINE_FUZZ_DEPS := $(KERNEL_COMMAND_C) $(KERNEL_PSP_C)
+TEST_CMDLINE_FUZZ_HDRS := $(MILTON_DIR)/command.h $(MILTON_DIR)/psp.h \
+                          spec/dos_structs.h $(DOS_MESSAGES_H)
+CMDLINE_FUZZ_SEEDS_LO  := 1
+CMDLINE_FUZZ_SEEDS_HI  := 4000
+CMDLINE_FUZZ_OPS       := 320
+# Mutation build (Rule 6): psp.c with the cmd_tail clamp REMOVED -- an over-long
+# tail then copies all `len` bytes + CR PAST cmd_tail[127], stomping the guard
+# byte. The fuzzer MUST find it (the central no-overflow proof).
+TEST_CMDLINE_FUZZ_MUT  := $(BUILD)/test_cmdline_fuzz_mutant_noclamp
+
+$(TEST_CMDLINE_FUZZ): $(TEST_CMDLINE_FUZZ_SRC) $(TEST_CMDLINE_FUZZ_DEPS) $(TEST_CMDLINE_FUZZ_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_CMDLINE_FUZZ_SRC) $(TEST_CMDLINE_FUZZ_DEPS)
+
+$(TEST_CMDLINE_FUZZ_MUT): $(TEST_CMDLINE_FUZZ_SRC) $(TEST_CMDLINE_FUZZ_DEPS) $(TEST_CMDLINE_FUZZ_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPSP_MUTATE_NO_TAIL_CLAMP -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_CMDLINE_FUZZ_SRC) $(TEST_CMDLINE_FUZZ_DEPS)
+
+.PHONY: test-cmdline-fuzz test-cmdline-fuzz-mutant
+test-cmdline-fuzz: $(TEST_CMDLINE_FUZZ)
+	@printf ">>> test-cmdline-fuzz: cmd-line tokenizer + PSP cmd_tail generative fuzzer over seeds %s..%s (no overflow / clamp to 126/127)\n" "$(CMDLINE_FUZZ_SEEDS_LO)" "$(CMDLINE_FUZZ_SEEDS_HI)"
+	@$(TEST_CMDLINE_FUZZ) --sweep $(CMDLINE_FUZZ_SEEDS_LO) $(CMDLINE_FUZZ_SEEDS_HI) --ops $(CMDLINE_FUZZ_OPS) \
+		|| { printf '!!! test-cmdline-fuzz FAIL: a seed broke an invariant (replay above) -- root-cause it (Rule 3)\n'; exit 1; }
+	@printf ">>> test-cmdline-fuzz: green\n"
+
+# Mutation-proof: the no-clamp mutant MUST be FOUND by the fuzzer (Rule 6).
+test-cmdline-fuzz-mutant: $(TEST_CMDLINE_FUZZ_MUT)
+	@printf ">>> test-cmdline-fuzz-mutant: confirming the fuzzer FINDS the no-cmd_tail-clamp mutant (Rule 6)\n"
+	@if $(TEST_CMDLINE_FUZZ_MUT) --sweep $(CMDLINE_FUZZ_SEEDS_LO) $(CMDLINE_FUZZ_SEEDS_HI) --ops $(CMDLINE_FUZZ_OPS) >/dev/null 2>&1; then \
+		printf '!!! test-cmdline-fuzz-mutant FAIL: no-clamp mutant PASSED the fuzzer -- the fuzzer is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-cmdline-fuzz-mutant: green (fuzzer correctly RED on the no-cmd_tail-clamp mutant -- the fuzzer bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -5205,17 +5443,18 @@ test-kernel-repro-mutant: | $(BUILD)
 # Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
-	test-fat-partial test-fat-write-partial test-fat-fuzz \
+	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
-	test-fileio test-exec-unit test-command test-psp test-sft test-loader \
-	test-config-sys test-rtc \
+	test-fileio test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
+	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-exec-mutant test-command-mutant test-psp-mutant \
+	test-fileio-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
+	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-kernel-repro test-kernel-repro-mutant
 

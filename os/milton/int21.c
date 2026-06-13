@@ -981,9 +981,18 @@ static void do_close(int_frame_t *f)
     int      was_file  = (e->kind == SFT_KIND_FILE);
     uint32_t root_slot = e->root_slot;
 
+#ifdef INT21_MUTATE_CLOSE_NO_REFGUARD
+    /* MUTANT (Rule 6; make test-int21-edge-mutant only): drop the ref_count>0
+     * guard so a CLOSE of a slot whose ref_count is already 0 UNDERFLOWS the
+     * uint16 ref_count to 0xFFFF -- the exact double-close corruption flagged by
+     * beads initech-00x. The double-close-underflow oracle (which asserts the
+     * ref_count never wraps) goes RED. NEVER define in a real build. */
+    e->ref_count--;
+#else
     if (e->ref_count > 0u) {
         e->ref_count--;
     }
+#endif
     if (e->ref_count == 0u) {
         /* Last reference: finalize the handle via the backend (no-op with
          * per-call positioned writes; the hook is for symmetry / future

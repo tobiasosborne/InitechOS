@@ -182,10 +182,19 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
     uint32_t want = params->cmd_tail_len;
     uint32_t copy = want;
     uint32_t dropped = 0;
+#ifndef PSP_MUTATE_NO_TAIL_CLAMP
     if (copy > PSP_CMD_TAIL_MAX_TEXT) {
         dropped = copy - PSP_CMD_TAIL_MAX_TEXT;
         copy = PSP_CMD_TAIL_MAX_TEXT;
     }
+#else
+    /* Rule-6 mutant target (make test-cmdline-fuzz-mutant): REMOVE the cmd_tail
+     * clamp, so an over-long command tail (cmd_tail_len > 126) copies all `want`
+     * bytes plus the CR straight past offset 0x7F of the 128-byte cmd_tail region
+     * -- writing beyond psp->cmd_tail[127], stomping the guard byte the fuzzer
+     * placed immediately after the PSP. The fuzzer's "no write past cmd_tail[127]"
+     * guard-byte invariant goes RED. NEVER in a real build. */
+#endif
 #ifdef PSP_MUTATE_CMDTAIL_LEN
     /* Rule-6 mutant: off-by-one count byte. The tail-length oracle MUST go RED.
      * (The text + CR are still written correctly, so this isolates the count.) */

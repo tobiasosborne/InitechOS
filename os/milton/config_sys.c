@@ -72,10 +72,20 @@ static uint32_t cfg_parse_uint(const char *s, uint32_t len, int *out_any)
             break;
         }
         any = 1;
+#ifndef CONFIG_MUTATE_NO_OVERFLOW_GUARD
         if (v > 429496729u) { /* would overflow on *10 */
             v = 0xFFFFFFFFu;
             continue;
         }
+#else
+        /* Rule-6 mutant target (make test-config-fuzz-mutant): REMOVE the decimal
+         * overflow guard, so a 10+ digit FILES=/BUFFERS= value silently wraps the
+         * uint32 accumulator (modular *10+d) instead of saturating at 0xFFFFFFFF.
+         * A wrapped value can land BELOW the clamp-from-above ceiling, so an
+         * absurd "FILES=4294967296" (== 0 mod 2^32) would be clamped UP to MIN
+         * rather than DOWN to MAX -> the fuzzer's "an oversized decimal saturates
+         * and clamps to FILES_MAX" invariant goes RED. NEVER in a real build. */
+#endif
         v = v * 10u + (uint32_t)(c - '0');
     }
     if (out_any) {
