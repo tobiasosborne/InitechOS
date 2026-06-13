@@ -151,8 +151,10 @@ start:
     mov [BOOT_INFO_ADDR + 4],  eax     ; lfb_pitch
     mov eax, [lfb_bpp]
     mov [BOOT_INFO_ADDR + 8],  eax     ; lfb_bpp
-    mov dword [BOOT_INFO_ADDR + 12], WANT_W       ; lfb_width
-    mov dword [BOOT_INFO_ADDR + 16], WANT_H       ; lfb_height
+    mov eax, [lfb_width]
+    mov [BOOT_INFO_ADDR + 12], eax     ; lfb_width  (640 VBE / 320 mode-0x13)
+    mov eax, [lfb_height]
+    mov [BOOT_INFO_ADDR + 16], eax     ; lfb_height (480 VBE / 200 mode-0x13)
     mov dword [BOOT_INFO_ADDR + 20], FONT_STASH   ; font_addr
 
     ; -- Load the flat C kernel into 0x10000 (real mode, INT 13h CHS) -------
@@ -378,30 +380,67 @@ vbe_setup:
     int 0x10
     cmp ax, 0x004F
     jne .err02
+    ; VBE 640x480 LFB is live: record the resolution (the kernel reads
+    ; width/height from boot_info, not from WANT_W/WANT_H constants, so the
+    ; mode-0x13 fallback below can report a different geometry).
+    mov dword [lfb_width],  WANT_W
+    mov dword [lfb_height], WANT_H
     ret
 
+    ; -- VBE error paths: print the specific marker, then fall back to a
+    ; standard VGA mode (Rule 2 -- a loud, recorded path change, not a halt).
 .err00:
     mov si, msg_vbe_e00
     call serial_puts
-    jmp .err
+    jmp .vga_fallback
 .errsig:
     mov si, msg_vbe_esig
     call serial_puts
-    jmp .err
+    jmp .vga_fallback
 .errnomode:
     mov si, msg_vbe_enomode
     call serial_puts
-    jmp .err
+    jmp .vga_fallback
 .err02:
     mov si, msg_vbe_e02
     call serial_puts
-    jmp .err
-.err:
-    mov si, msg_err_vbe
+    jmp .vga_fallback
+
+; ---------------------------------------------------------------------------
+; .vga_fallback -- no VBE LFB on this BIOS (e.g. Bochs). Set the universally
+; available standard VGA mode 0x13 (320x200x256, linear @ 0xA0000) via INT 10h
+; and record an 8bpp boot_info. Fail loud (Rule 2) if even mode 0x13's
+; framebuffer is not live. Ref: bd memory bochs-boot-solved-initech-6pj;
+; os/milton/console.c 8bpp path (initech-6pj).
+; ---------------------------------------------------------------------------
+.vga_fallback:
+    mov ax, 0x0013               ; AH=00 set video mode -> 320x200x256
+    int 0x10
+    ; Probe: the linear framebuffer at 0xA0000 must accept a write (Rule 2).
+    push es
+    mov ax, 0xA000
+    mov es, ax
+    mov byte [es:0x0000], 0xA5
+    mov al, [es:0x0000]
+    mov byte [es:0x0000], 0x00   ; leave it clean (the kernel clears it anyway)
+    pop es
+    cmp al, 0xA5
+    jne .err_vga
+    mov dword [lfb_addr],   0x000A0000
+    mov dword [lfb_pitch],  320
+    mov dword [lfb_bpp],    8
+    mov dword [lfb_width],  320
+    mov dword [lfb_height], 200
+    mov si, msg_vga13
     call serial_puts
-.halt:
+    ret
+
+.err_vga:
+    mov si, msg_err_vga
+    call serial_puts
+.vga_halt:
     hlt
-    jmp .halt
+    jmp .vga_halt
 
 ; ---------------------------------------------------------------------------
 ; 16-bit serial helpers (real UART; COM1 already inited by the MBR).
@@ -560,10 +599,13 @@ kload_chunk:     dw 0    ; sectors read in the current track-chunk
 spt:             dw 0    ; sectors/track (queried via INT 13h AH=08h)
 num_heads:       dw 0    ; number of heads (queried via INT 13h AH=08h)
 
-; LFB parameters captured from the VBE mode-info block.
-lfb_addr:  dd 0
-lfb_pitch: dd 0
-lfb_bpp:   dd 0
+; LFB parameters captured from the VBE mode-info block, OR set by the standard
+; VGA mode-0x13 fallback (.vga_fallback) when no VBE LFB is available.
+lfb_addr:   dd 0
+lfb_pitch:  dd 0
+lfb_bpp:    dd 0
+lfb_width:  dd 0
+lfb_height: dd 0
 
 ; Serial marker strings.
 msg_s2:      db "S2", 0x0A, 0
@@ -575,6 +617,8 @@ msg_vbe_e00:     db "VBE-E00", 0x0A, 0
 msg_vbe_esig:    db "VBE-ESIG", 0x0A, 0
 msg_vbe_enomode: db "VBE-ENOMODE", 0x0A, 0
 msg_vbe_e02:     db "VBE-E02", 0x0A, 0
+msg_vga13:       db "VGA13", 0x0A, 0
+msg_err_vga:     db "ERR-VGA", 0x0A, 0
 msg_pm32:    db "PM", 0x0A, 0
 msg_lfb32:   db "LFB", 0x0A, 0
 msg_ok32:    db "OK", 0x0A, 0
