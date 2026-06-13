@@ -2252,13 +2252,31 @@ $(STAGE2_BIN): $(STAGE2_ASM) | $(BUILD)
 #   image padded   : to IMG_SECTORS total sectors
 # We build a zero-filled image then dd the parts in at fixed offsets. No
 # timestamps/host paths -> reproducible (CLAUDE.md Rule 11).
-$(TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) | $(BUILD)
+#
+# THE DEFAULT BOOT IS NOW COMMAND.COM (beads initech-k6x): TRACER_IMG carries
+# the SHELL kernel (KERNEL_SHELL_BIN), so the real boot drops to the A:\> prompt
+# after the banner -- authentic DOS, not a parade of baked demos. The baked
+# PROGRAM/TYPE/DIR demos moved to DEMO_IMG below (test-program/type/dir).
+$(TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SHELL_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_SHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> tracer image: %s (MBR@s0, stage2@s1..%d, COMMAND.COM kernel@s17..%d, %d sectors)\n" \
+		"$@" "$(STAGE2_SECTORS)" "$$((17 + $(KERNEL_SECTORS) - 1))" "$(IMG_SECTORS)"
+
+# DEMO_IMG (beads initech-k6x): the M2 baked-demo scaffolding kernel (KERNEL_BIN,
+# which runs PROGRAM/TYPE/DIR then halts) wrapped as a boot image. Booted by
+# test-program / test-type / test-dir -- the demos that the default shell boot no
+# longer runs. Same MBR/stage2 layout as TRACER_IMG.
+DEMO_IMG := $(BUILD)/demo_boot.img
+$(DEMO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
 	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
-	@printf ">>> tracer image: %s (MBR@s0, stage2@s1..%d, kernel@s17..%d, %d sectors total)\n" \
-		"$@" "$(STAGE2_SECTORS)" "$$((17 + $(KERNEL_SECTORS) - 1))" "$(IMG_SECTORS)"
+	@printf ">>> demo image: %s (MBR@s0, stage2@s1, baked-demo kernel@s17, %d sectors)\n" \
+		"$@" "$(IMG_SECTORS)"
 
 # --- Flat C kernel build (beads initech-d00) -------------------------------
 # Entry stub (nasm elf32) + freestanding C, linked to a FLAT binary at
@@ -3862,16 +3880,16 @@ PROG_REPORT  := $(BUILD)/$(PROG_NAME).report
 PROG_OUTPUT  := Hello from InitechOS program.
 
 .PHONY: test-program
-test-program: $(HARNESS_BIN) $(TRACER_IMG)
+test-program: $(HARNESS_BIN) $(DEMO_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-program : InitechDOS RUNS A PROGRAM\n'
 	@printf '  Ref: docs/research/psp-loader-ground-truth.md Sec 4/5. beads initech-509.5.\n'
 	@printf '  Prove load -> run -> INT 21h -> return-to-loader end-to-end on real boot.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s (real boot chain -> C kernel -> load_program)\n' "$(TRACER_IMG)"
+	@printf 'Booting   : %s (real boot chain -> C kernel -> load_program)\n' "$(DEMO_IMG)"
 	@printf 'Expecting : PROGRAM-BEGIN + "%s" + PROGRAM-EXIT rc=0 + no triple-fault\n' "$(PROG_OUTPUT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" \
+	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" \
 		--name "$(PROG_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(PROG_REPORT)" || true
 	@cat "$(PROG_REPORT)"
@@ -4016,16 +4034,16 @@ TYPE_REPORT  := $(BUILD)/$(TYPE_NAME).report
 TYPE_CONTENT := Hello from InitechOS test file
 
 .PHONY: test-type
-test-type: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG)
+test-type: $(HARNESS_BIN) $(DEMO_IMG) $(FAT_DATA_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-type : a PROGRAM TYPEs a real file\n'
 	@printf '  Ref: docs/research/fs-mount-sft-ground-truth.md Sec 5.2. beads initech-509.5.\n'
 	@printf '  Prove OPEN(3Dh)+READ(3Fh)+WRITE(40h)+CLOSE(3Eh) over mounted FAT12.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + data disk %s (primary slave)\n' "$(TRACER_IMG)" "$(FAT_DATA_IMG)"
+	@printf 'Booting   : %s + data disk %s (primary slave)\n' "$(DEMO_IMG)" "$(FAT_DATA_IMG)"
 	@printf 'Expecting : FILEIO-BIND-OK + "%s" between TYPE-OUTPUT-BEGIN/END + TYPE-EXIT rc=0\n' "$(TYPE_CONTENT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" \
+	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FAT_DATA_IMG)" \
 		--name "$(TYPE_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(TYPE_REPORT)" || true
 	@cat "$(TYPE_REPORT)"
@@ -4071,16 +4089,16 @@ DIRP_REPORT  := $(BUILD)/$(DIRP_NAME).report
 DIRP_NAMES   := HELLO.TXT SECOND.TXT CHAIN.TXT EMPTY.TXT BLOCK.BIN
 
 .PHONY: test-dir
-test-dir: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG)
+test-dir: $(HARNESS_BIN) $(DEMO_IMG) $(FAT_DATA_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-dir : a PROGRAM lists a real directory\n'
 	@printf '  Ref: docs/research/fs-mount-sft-ground-truth.md Sec 5.3. beads initech-509.5.\n'
 	@printf '  Prove FINDFIRST(4Eh)/FINDNEXT(4Fh) into the DTA find-data block.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + data disk %s (primary slave)\n' "$(TRACER_IMG)" "$(FAT_DATA_IMG)"
+	@printf 'Booting   : %s + data disk %s (primary slave)\n' "$(DEMO_IMG)" "$(FAT_DATA_IMG)"
 	@printf 'Expecting : FILEIO-BIND-OK + fixture names between DIR-PROG-OUTPUT-BEGIN/END + DIR-PROG-EXIT rc=0\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" \
+	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FAT_DATA_IMG)" \
 		--name "$(DIRP_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(DIRP_REPORT)" || true
 	@cat "$(DIRP_REPORT)"

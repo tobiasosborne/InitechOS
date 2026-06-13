@@ -446,6 +446,10 @@ static uint16_t loader_exec_by_name(const char *name83, uint8_t *out_rc)
  * can assert load->run->return. Restores the kernel-context exit hook + PSP
  * after the run (the loader rebinds both during a program; ground-truth Sec
  * 4.5 / beads initech-509.3). Shared by the demo / TYPE / DIR programs. */
+/* __attribute__((unused)): the SHELL build (initech-k6x) compiles none of the
+ * baked-program call sites (demos gated #ifndef BOOT_SHELL; the EXEC/WRITE/...
+ * self-tests #ifdef'd out), so run_baked is legitimately unused there. */
+__attribute__((unused))
 static void run_baked(const char *tag, const uint8_t *image, uint32_t image_len)
 {
     serial_puts(tag);
@@ -766,6 +770,13 @@ void kernel_main(void)
      *      (requires --disk2; without it the program prints TYPE-OPEN-FAIL).
      *   3. DIR (DIR-PROG-*) -- FINDFIRST/FINDNEXT *.*, write each name; asserted
      *      by make test-dir (requires --disk2). */
+    /* The baked PROGRAM/TYPE/DIR demos are M2 SCAFFOLDING, asserted by
+     * test-program/test-type/test-dir on the DEMO image. They are gated OUT of
+     * the SHELL build (initech-k6x): the real default boot drops to the
+     * COMMAND.COM A:\> prompt right after the banner + proto-DIR (authentic
+     * DOS), not after a parade of demos. The other self-test variants (EXEC /
+     * WRITE / ... -- not BOOT_SHELL) still run these so their flow is unchanged. */
+#ifndef BOOT_SHELL
     run_baked("PROGRAM", g_test_prog_image, g_test_prog_image_len);
     serial_puts("TYPE-OUTPUT-BEGIN\n");
     run_baked("TYPE", g_type_prog_image, g_type_prog_image_len);
@@ -773,6 +784,7 @@ void kernel_main(void)
     serial_puts("DIR-PROG-OUTPUT-BEGIN\n");
     run_baked("DIR-PROG", g_dir_prog_image, g_dir_prog_image_len);
     serial_puts("DIR-PROG-OUTPUT-END\n");
+#endif
 
 #ifdef BOOT_EXEC
     /* FAT-SOURCED LOAD + EXEC self-test (beads initech-saw; make test-exec).
