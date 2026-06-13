@@ -2020,6 +2020,17 @@ void int21_dispatch(int_frame_t *frame)
     }
     g_indos++;
     int21_dispatch_body(frame);
+    /* AH=59h GET EXTENDED ERROR reports the most-recent INT 21h error. Capture
+     * it at this single dispatch choke point: every handler that fails returns
+     * CF=1 with its INT21_ERR_* code in AX (the universal DOS error convention),
+     * so one capture here covers every current and future handler -- closing the
+     * bcg.2 gap where read/write/close/lseek/dup/creat/unlink/exec/findfirst/
+     * findnext set CF+AX but never called int21_note_error. do_geterr (AH=59h)
+     * returns CF=0, so it never clobbers the value it just reported; a
+     * successful call (CF=0) leaves the last error intact, as DOS does. */
+    if (frame->eflags & CF_BIT) {
+        int21_note_error((uint16_t)(frame->eax & 0xFFFFu));
+    }
     g_indos--;
 }
 

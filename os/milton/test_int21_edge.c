@@ -559,6 +559,53 @@ int main(void)
         CHECK((uint8_t)((f.ecx >> 8) & 0xFFu) == 0x01u, "GETERR CH=locus 0x01 (unknown)");
         CHECK((uint8_t)(f.ecx & 0xFFu) == 0u, "GETERR CL=0 (DOS zeroes it)");
     }
+
+    /* --- bcg.2: a failing INT 21h call that does NOT explicitly note the error
+     *     must STILL be reportable via AH=59h. Previously only do_open/do_getcwd
+     *     called int21_note_error, so after a failed READ/WRITE/CLOSE/LSEEK the
+     *     59h result was stale. Drive the failure THROUGH the dispatcher (not
+     *     hand-seeded) and assert 59h reports the just-returned code. */
+    {
+        int21_note_error(0u);              /* clear any prior error first */
+
+        /* WRITE to a bad handle -> CF=1, AX=0x0006 (invalid handle), no explicit
+         * note in do_write. 59h must report 0x0006, not the cleared 0. */
+        int_frame_t w = fresh_frame();
+        w.eax = 0x4000u; w.ebx = 0x00FFu; w.ecx = 1u; w.edx = 0u;
+        int21_dispatch(&w);
+        CHECK(frame_cf(&w) == 1, "WRITE bad handle sets CF");
+        CHECK((uint16_t)(w.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "WRITE bad handle AX=0x0006");
+        int_frame_t e1 = fresh_frame();
+        e1.eax = 0x5900u;
+        int21_dispatch(&e1);
+        CHECK((uint16_t)(e1.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "GETERR reports 0x0006 after a failed WRITE through the dispatcher (bcg.2)");
+
+        /* READ from a bad handle -> 0x0006 too; prove 59h tracks the LATEST. */
+        int21_note_error(0u);
+        int_frame_t r = fresh_frame();
+        r.eax = 0x3F00u; r.ebx = 0x00FEu; r.ecx = 1u; r.edx = 0u;
+        int21_dispatch(&r);
+        CHECK(frame_cf(&r) == 1, "READ bad handle sets CF");
+        int_frame_t e2 = fresh_frame();
+        e2.eax = 0x5900u;
+        int21_dispatch(&e2);
+        CHECK((uint16_t)(e2.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "GETERR reports 0x0006 after a failed READ through the dispatcher (bcg.2)");
+
+        /* A SUCCESSFUL call must NOT clobber the recorded error (DOS keeps the
+         * last error until the next failure). AH=62h GET PSP always succeeds. */
+        int_frame_t ok = fresh_frame();
+        ok.eax = 0x6200u;
+        int21_dispatch(&ok);
+        CHECK(frame_cf(&ok) == 0, "GET PSP succeeds (CF clear)");
+        int_frame_t e3 = fresh_frame();
+        e3.eax = 0x5900u;
+        int21_dispatch(&e3);
+        CHECK((uint16_t)(e3.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "GETERR still 0x0006 after a successful call (no clobber on success, bcg.2)");
+    }
     {
         /* Seed a KNOWN, mapped code (file-not-found) and characterize its
          * triple; then clear and confirm the no-error report. */
