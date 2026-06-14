@@ -133,11 +133,24 @@ STAGE2_SECTORS  := 16
 # 112*512 = 0x1E000, still well below PROGRAM_BASE (0x30000; beads initech-5pe).
 # MUST equal the stage2.asm KERNEL_SECTORS equate.
 KERNEL_SECTORS  := 112
-# Total raw image: MBR(1) + stage2(16) + kernel(112) = 129 sectors; round up to
-# 160 (80 KiB) for headroom + a clean multiple of 32 (was 128 when KERNEL_SECTORS
-# was 96; 1+16+112=129 > 128, so it had to grow -- beads initech-509.6).
-# Deterministic (Rule 11).
-IMG_SECTORS     := 160
+# Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=112) = 129 sectors.
+# IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
+# harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
+# of 2-head x 32-sector cylinders. 128 (2 cyl) sufficed at KERNEL_SECTORS=96; at 112
+# the image must grow past 129, and the next WHOLE cylinder count is 192 (3 cyl,
+# 96 KiB). (160 -- a multiple of 32 but NOT 64 = 2.5 cyl -- booted on QEMU but broke
+# `make test-boot-bochs`; the guard below now fails that class loud at build time,
+# Rule 2 / Rule 5.) Deterministic (Rule 11).
+IMG_SECTORS     := 192
+# Build-time geometry + capacity guard (Rule 2 fail-loud): prevents the QEMU-green /
+# Bochs-broken IMG_SECTORS regression from recurring.
+IMG_MIN_SECTORS := $(shell expr 1 + $(STAGE2_SECTORS) + $(KERNEL_SECTORS))
+ifneq ($(shell expr $(IMG_SECTORS) % 64),0)
+$(error IMG_SECTORS=$(IMG_SECTORS) is not a whole 2x32 (64-sector) cylinder geometry; the Bochs boot gate (harness/emu/bochs.c) requires it -- use the next multiple of 64)
+endif
+ifneq ($(shell test $(IMG_SECTORS) -ge $(IMG_MIN_SECTORS) && echo ok),ok)
+$(error IMG_SECTORS=$(IMG_SECTORS) sectors < required $(IMG_MIN_SECTORS) (MBR+stage2+KERNEL_SECTORS) -- raise to the next multiple of 64)
+endif
 
 # --- _kernel_end guard (beads initech-u0a) ----------------------------------
 # The KERNEL_SECTORS / .bin-size guards above only check the LOADED .bin (.text
