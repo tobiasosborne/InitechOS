@@ -46,6 +46,8 @@ typedef enum cmd_kind {
     CMD_DIR,         /* DIR        -- list the root directory                    */
     CMD_TYPE,        /* TYPE <file>-- print a file's contents                    */
     CMD_CD,          /* CD/CHDIR   -- print/change the current directory         */
+    CMD_MD,          /* MD/MKDIR   -- create a subdirectory (AH=39h)             */
+    CMD_RD,          /* RD/RMDIR   -- remove an empty subdirectory (AH=3Ah)      */
     CMD_CLS,         /* CLS        -- clear the screen                           */
     CMD_VER,         /* VER        -- print the InitechDOS version line          */
     CMD_ECHO,        /* ECHO <text>-- print the text                            */

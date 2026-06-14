@@ -2070,6 +2070,10 @@ TEST_COMMAND_HDRS := $(MILTON_DIR)/command.h spec/dos_structs.h spec/find_data.h
 TEST_COMMAND_MUT_NOUP   := $(BUILD)/test_command_mutant_noupcase
 TEST_COMMAND_MUT_COM    := $(BUILD)/test_command_mutant_com
 TEST_COMMAND_MUT_BADCMD := $(BUILD)/test_command_mutant_badcmd
+# (d) the classifier drops the MD/MKDIR/RD/RMDIR rows -> "MD"/"RD" classify as
+# CMD_EXTERNAL instead of CMD_MD/CMD_RD; the new classify checks go RED (Rule 6;
+# beads initech-ut6d).
+TEST_COMMAND_MUT_NOMDRD := $(BUILD)/test_command_mutant_nomdrd
 
 $(TEST_COMMAND): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -2087,6 +2091,10 @@ $(TEST_COMMAND_MUT_BADCMD): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMM
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_BADCMD_BUILTIN -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
 
+$(TEST_COMMAND_MUT_NOMDRD): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_MDRD -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
 .PHONY: test-command test-command-mutant
 test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: parse/upcase + built-in classify + .COM-append + DIR-line format\n"
@@ -2094,8 +2102,8 @@ test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: green\n"
 
 # Mutation-proof: ALL three mutant builds MUST fail the oracle (Rule 6).
-test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD)
-	@printf ">>> test-command-mutant: confirming all three mutants go RED (Rule 6)\n"
+test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD)
+	@printf ">>> test-command-mutant: confirming all four mutants go RED (Rule 6)\n"
 	@if $(TEST_COMMAND_MUT_NOUP) >/dev/null 2>&1; then \
 		printf '!!! test-command-mutant FAIL: no-upcase mutant PASSED -- the parse/upcase test is decoration\n'; \
 		exit 1; \
@@ -2112,7 +2120,13 @@ test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COM
 		printf '!!! test-command-mutant FAIL: badcmd-builtin mutant PASSED -- the classify test is decoration\n'; \
 		exit 1; \
 	else \
-		printf '>>> test-command-mutant: green (badcmd-builtin mutant correctly RED -- the oracle bites)\n'; \
+		printf '>>> test-command-mutant: green (badcmd-builtin mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_NOMDRD) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-mdrd mutant PASSED -- the MD/RD classify test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-mdrd mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -2611,6 +2625,7 @@ endef
         test-int21-irqstorm test-int21-irqstorm-mutant \
         test-fat-write-partial test-fat-write-partial-mutant \
         test-command test-command-mutant test-shell \
+        test-ut6d test-ut6d-mutant \
         test-panic test-spurious test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-conin-unit test-conin-mutant test-conin \
         test-assets test-spec test-dosmsg test-dosmsg-mutant selfhost ddc clean \
@@ -5735,6 +5750,267 @@ test-shell: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-ut6d (beads initech-ut6d -- COMMAND.COM MD/RD/CD subdir cycle)
+# ---------------------------------------------------------------------------
+# Wire the REPL to the landed AH=39h/3Ah/3Bh/47h directory handlers (u6wa/mzxa):
+# boot the -DBOOT_SHELL kernel WITH a FRESH WRITABLE FAT12 disk (--disk2) and
+# inject MD/CD/DIR/CD ../RD/CD/EXIT, gated on SHELL-READY. The CENTERPIECE assertion
+# is that after `CD SUB` the GETCWD-composed $P$G prompt shows "A:\SUB>" -- i.e.
+# the prompt reflects the live CWD, not a hardcoded root. The MD actually creates
+# a directory on the running volume (u6wa root MKDIR over the validated FAT write
+# path); DIR inside it lists '.'/'..' (asserted); CD .. + RD complete the
+# round-trip; a SECOND `CD SUB` after RD must FAIL "Invalid directory" -- proving
+# RD genuinely removed SUB (a silent RD failure would let it succeed); EXIT halts
+# cleanly (SHELL-EXIT/SHELL-DONE). The image is re-minted FRESH per run (the kernel
+# mutates it -- a stale SUB would make MD fail "exists"); NOT committed (Rule 11).
+# It BITES (test-ut6d-mutant, two legs): a shell with the prompt pinned to root
+# never prints "A:\SUB>" (centerpiece RED); a shell with RD a silent no-op leaves
+# SUB so the post-RD CD succeeds and "Invalid directory" never prints (RD-removal
+# RED) -- each leg first confirming the mutant actually booted and ran the cycle.
+# Ref: ADR-0003 DEC-11/DEC-12; spec/int21h_calling_convention.json (AH=39h/3Ah/
+# 3Bh/47h flat ABI); spec/dos_messages.json (MSG-DOS-0017/0018/0019/0011).
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred (beads initech-x0i, like test-shell).
+
+# Mutant command.o: command.c with the prompt pinned to root ("A:\>") regardless
+# of the CWD, so `CD SUB` cannot change what the prompt shows -> "A:\SUB>" never
+# appears. Built into a parallel shell ELF/bin/image that reuses all the OTHER
+# shell objects (only command.o differs).
+UT6D_COMMAND_MUT_OBJ := $(BUILD)/command_mut_ut6d.o
+UT6D_SHELL_MUT_ELF   := $(BUILD)/kernel_shell_mut_ut6d.elf
+UT6D_SHELL_MUT_BIN   := $(BUILD)/kernel_shell_mut_ut6d.bin
+UT6D_TRACER_MUT_IMG  := $(BUILD)/tracer_boot_mut_ut6d.img
+# A fresh writable FAT12 data disk carrying one seed file (so the boot proto-DIR
+# still renders) and NO SUB -- the kernel creates SUB at MD time. Re-minted per
+# run by the recipe below (NOT a committed fixture, Rule 11).
+UT6D_IMG     := $(BUILD)/ut6d_data.img
+UT6D_MUT_IMG := $(BUILD)/ut6d_data_mut.img
+
+$(UT6D_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
+                         spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_CWD_PROMPT \
+		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
+
+# The mutant shell ELF: the SHELL object set with command.o swapped for the mutant.
+UT6D_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(UT6D_COMMAND_MUT_OBJ)
+
+$(UT6D_SHELL_MUT_ELF): $(UT6D_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(UT6D_SHELL_MUT_OBJS)
+
+$(UT6D_SHELL_MUT_BIN): $(UT6D_SHELL_MUT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_mut_ut6d.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-mut-ut6d): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,shell-mut-ut6d)
+
+$(UT6D_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(UT6D_SHELL_MUT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(UT6D_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> ut6d mutant image: %s (prompt pinned to root -- the subdir-prompt mutant)\n" "$@"
+
+# Second mutant (Rule 6): command.c with RD turned into a SILENT no-op
+# (-DCMD_MUTATE_RD_NOOP -- builtin_rd skips dos_rmdir but prints nothing), so SUB
+# persists past `rd sub`. This is the failure the old gate could not catch: under
+# it the post-RD `cd sub` SUCCEEDS, "A:\SUB>" reappears, and "Invalid directory"
+# is ABSENT -> the new RD-removal assertion in test-ut6d goes RED. Built into a
+# parallel shell ELF/bin/image reusing all the OTHER shell objects (only command.o
+# differs, exactly like the NO_CWD_PROMPT mutant above).
+UT6D_COMMAND_RDNOOP_OBJ := $(BUILD)/command_rdnoop_ut6d.o
+UT6D_SHELL_RDNOOP_ELF   := $(BUILD)/kernel_shell_rdnoop_ut6d.elf
+UT6D_SHELL_RDNOOP_BIN   := $(BUILD)/kernel_shell_rdnoop_ut6d.bin
+UT6D_TRACER_RDNOOP_IMG  := $(BUILD)/tracer_boot_rdnoop_ut6d.img
+UT6D_RDNOOP_IMG         := $(BUILD)/ut6d_data_rdnoop.img
+
+$(UT6D_COMMAND_RDNOOP_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
+                            spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_RD_NOOP \
+		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
+
+UT6D_SHELL_RDNOOP_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(UT6D_COMMAND_RDNOOP_OBJ)
+
+$(UT6D_SHELL_RDNOOP_ELF): $(UT6D_SHELL_RDNOOP_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(UT6D_SHELL_RDNOOP_OBJS)
+
+$(UT6D_SHELL_RDNOOP_BIN): $(UT6D_SHELL_RDNOOP_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_rdnoop_ut6d.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-rdnoop-ut6d): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,shell-rdnoop-ut6d)
+
+$(UT6D_TRACER_RDNOOP_IMG): $(MBR_BIN) $(STAGE2_BIN) $(UT6D_SHELL_RDNOOP_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(UT6D_SHELL_RDNOOP_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> ut6d rdnoop mutant image: %s (RD is a silent no-op -- the RD-removal mutant)\n" "$@"
+
+UT6D_RDNOOP_NAME   := ut6d_rdnoop
+UT6D_RDNOOP_SERIAL := $(BUILD)/$(UT6D_RDNOOP_NAME).serial
+UT6D_RDNOOP_REPORT := $(BUILD)/$(UT6D_RDNOOP_NAME).report
+
+UT6D_NAME       := ut6d
+UT6D_SERIAL     := $(BUILD)/$(UT6D_NAME).serial
+UT6D_REPORT     := $(BUILD)/$(UT6D_NAME).report
+UT6D_MUT_NAME   := ut6d_mut
+UT6D_MUT_SERIAL := $(BUILD)/$(UT6D_MUT_NAME).serial
+UT6D_MUT_REPORT := $(BUILD)/$(UT6D_MUT_NAME).report
+# The injected command sequence (each token a key; "ret"=Enter, "spc"=space,
+# "dot"='.'): md sub / cd sub / dir / cd .. / rd sub / cd sub / exit.
+# The SECOND `cd sub` (AFTER rd sub) is the RD-removal probe: once RD removed SUB
+# the re-CD must FAIL -> builtin_cd prints "Invalid directory" (MSG-DOS-0018) and
+# the prompt stays "A:\>". If RD had silently no-op'd, this re-CD would SUCCEED,
+# "A:\SUB>" would reappear, and "Invalid directory" would be ABSENT (mutation-
+# proven by the CMD_MUTATE_RD_NOOP leg of test-ut6d-mutant).
+UT6D_KEYS := m,d,spc,s,u,b,ret,c,d,spc,s,u,b,ret,d,i,r,ret,c,d,spc,dot,dot,ret,r,d,spc,s,u,b,ret,c,d,spc,s,u,b,ret,e,x,i,t,ret
+
+.PHONY: test-ut6d test-ut6d-mutant
+test-ut6d: $(HARNESS_BIN) $(TRACER_IMG) $(FAT12_FIXTURE_DIR)/hello.txt
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-ut6d : COMMAND.COM MD/RD/CD subdir cycle\n'
+	@printf '  Ref: ADR-0003 DEC-11/DEC-12; spec/int21h_calling_convention.json (AH=39h/3Ah/3Bh/47h).\n'
+	@printf '  beads initech-ut6d. Inject: md sub / cd sub / dir / cd .. / rd sub / cd sub / exit.\n'
+	@printf '======================================================================\n'
+	@# Re-mint a FRESH writable FAT12 disk so MD SUB never collides with a stale SUB.
+	@dd if=/dev/zero of=$(UT6D_IMG) bs=512 count=2880 status=none
+	@mformat -i $(UT6D_IMG) -f 1440 ::
+	@mcopy -i $(UT6D_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@printf 'Booting   : %s + FRESH WRITABLE disk %s (primary slave)\n' "$(TRACER_IMG)" "$(UT6D_IMG)"
+	@printf 'Expecting : SHELL-READY + prompt "A:\\SUB>" after CD SUB + clean SHELL-EXIT/SHELL-DONE\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(UT6D_IMG)" \
+		--name "$(UT6D_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
+		--keys "$(UT6D_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(UT6D_REPORT)" || true
+	@cat "$(UT6D_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(UT6D_REPORT)"; then \
+		printf '!!! test-ut6d FAIL: TRIPLE FAULT -- the shell boot or a directory command crashed\n'; exit 1; \
+	fi
+	@printf '>>> test-ut6d [1/6]: no triple-fault\n'
+	@if [ ! -s "$(UT6D_SERIAL)" ]; then \
+		printf '!!! test-ut6d FAIL: no serial captured at %s\n' "$(UT6D_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(UT6D_SERIAL)" \
+		|| { printf '!!! test-ut6d FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
+	@printf '>>> test-ut6d [2/6]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@# Scope to the post-SHELL-READY REPL transcript (the boot demos print earlier).
+	@sed -n '/^SHELL-READY$$/,$$p' "$(UT6D_SERIAL)" > "$(BUILD)/$(UT6D_NAME).repl"
+	@# ---- CENTERPIECE: after `CD SUB` the GETCWD-composed prompt shows "A:\SUB>". ----
+	@grep -qF 'A:\SUB>' "$(BUILD)/$(UT6D_NAME).repl" \
+		|| { printf '!!! test-ut6d FAIL: the prompt never showed "A:\\SUB>" after CD SUB -- the GETCWD-composed $$P$$G prompt did not reflect the CWD (root-cause the prompt compose / do_chdir wiring, Rule 3)\n'; exit 1; }
+	@printf '>>> test-ut6d [3/6]: prompt showed "A:\\SUB>" after CD SUB (GETCWD-composed $$P$$G reflects the live CWD)\n'
+	@# ---- DIR inside SUB lists the subdir dot-dirs '.' and '..' (Fix 3). The DIR
+	@# formatter (cmd_format_dir_line) left-justifies the 8.3 name in a 13-col field
+	@# then a "      <DIR>" marker, so a dot-dir line begins "<name>" and contains
+	@# "<DIR>". Anchor each entry name at line start AND require the <DIR> marker so
+	@# we match a real directory row, not an incidental '.' elsewhere. ----
+	@grep -Eq '^\.[[:space:]]+<DIR>' "$(BUILD)/$(UT6D_NAME).repl" \
+		|| { printf '!!! test-ut6d FAIL: DIR inside SUB did not list the "." dot-dir (subdir . entry missing -- MD did not create a real directory with dot-dirs)\n'; exit 1; }
+	@grep -Eq '^\.\.[[:space:]]+<DIR>' "$(BUILD)/$(UT6D_NAME).repl" \
+		|| { printf '!!! test-ut6d FAIL: DIR inside SUB did not list the ".." parent dot-dir (subdir .. entry missing)\n'; exit 1; }
+	@printf '>>> test-ut6d [4/6]: DIR inside SUB listed the "." and ".." dot-dirs (MD created a real subdirectory)\n'
+	@# ---- RD-REMOVAL PROOF (Fix 1): the SECOND `cd sub` is injected AFTER `rd sub`.
+	@# If RD truly removed SUB, the re-CD FAILS -> builtin_cd prints the controlled
+	@# "Invalid directory" (MSG-DOS-0018) and the prompt stays "A:\>". A silent RD
+	@# failure would instead let the re-CD SUCCEED, re-show "A:\SUB>", and SUPPRESS
+	@# this diagnostic. Asserting the diagnostic is present is what proves removal.
+	@# (Mutation-proven by the CMD_MUTATE_RD_NOOP leg of test-ut6d-mutant.) ----
+	@grep -qF 'Invalid directory' "$(BUILD)/$(UT6D_NAME).repl" \
+		|| { printf '!!! test-ut6d FAIL: the post-RD `cd sub` did NOT print "Invalid directory" -- SUB still resolves, so RD did not actually remove it (a SILENT RD failure; root-cause builtin_rd / dos_rmdir, Rule 3)\n'; exit 1; }
+	@printf '>>> test-ut6d [5/6]: post-RD `cd sub` failed with "Invalid directory" (RD genuinely removed SUB)\n'
+	@# ---- The cycle completes cleanly (MD created SUB; CD/RD round-tripped; EXIT). ----
+	@grep -q '^SHELL-EXIT$$' "$(UT6D_SERIAL)" \
+		|| { printf '!!! test-ut6d FAIL: SHELL-EXIT missing -- the MD/CD/RD cycle did not reach EXIT cleanly\n'; exit 1; }
+	@grep -q '^SHELL-DONE$$' "$(UT6D_SERIAL)" \
+		|| { printf '!!! test-ut6d FAIL: SHELL-DONE missing -- the REPL did not return to the halt loop\n'; exit 1; }
+	@printf '>>> test-ut6d [6/6]: MD/CD/DIR/CD../RD/CD cycle completed; EXIT halted cleanly (SHELL-EXIT + SHELL-DONE)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- MD created a real dir (DIR shows ./..), CD entered it (prompt "A:\\SUB>"),\n'
+	@printf '            and RD removed it -- proven because the post-RD `cd sub` failed "Invalid directory"\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# Mutation-proof (Rule 6): TWO legs, each isolating exactly one test-ut6d
+# assertion. EACH leg first CONFIRMS the mutant genuinely booted and ran the cycle
+# (^SHELL-READY$ AND ^SHELL-EXIT$/^SHELL-DONE$) before concluding any RED is
+# meaningful -- otherwise a RED could be a dead boot (broken binary / triple-fault
+# / never reached the REPL), not the assertion biting (Fix 2). A missing/empty
+# serial is a HARD FAIL (no silent 2>/dev/null swallow).
+#
+#   Leg A (NO_CWD_PROMPT): prompt pinned to root never shows "A:\SUB>" after
+#          CD SUB -> the centerpiece subdir-prompt assertion goes RED. (The CD
+#          itself still succeeds, so the cycle still reaches EXIT.)
+#   Leg B (RD_NOOP): RD is a silent no-op, so SUB persists -> the post-RD
+#          `cd sub` SUCCEEDS and "Invalid directory" is ABSENT -> the new
+#          RD-removal assertion goes RED. ("A:\SUB>" also reappears.)
+test-ut6d-mutant: $(HARNESS_BIN) $(UT6D_TRACER_MUT_IMG) $(UT6D_TRACER_RDNOOP_IMG) $(FAT12_FIXTURE_DIR)/hello.txt
+	@printf ">>> test-ut6d-mutant: confirming BOTH ut6d mutants go RED for the RIGHT reason (Rule 6; beads initech-ut6d)\n"
+	@# ---------------- Leg A: NO_CWD_PROMPT (subdir-prompt assertion) ----------------
+	@printf '%s\n' '---- leg A: root-pinned-prompt mutant (-DCMD_MUTATE_NO_CWD_PROMPT) ----'
+	@dd if=/dev/zero of=$(UT6D_MUT_IMG) bs=512 count=2880 status=none
+	@mformat -i $(UT6D_MUT_IMG) -f 1440 ::
+	@mcopy -i $(UT6D_MUT_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@$(HARNESS_BIN) --disk "$(UT6D_TRACER_MUT_IMG)" --disk2 "$(UT6D_MUT_IMG)" \
+		--name "$(UT6D_MUT_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
+		--keys "$(UT6D_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(UT6D_MUT_REPORT)" || true
+	@# Hard-FAIL on a missing/empty serial -- a dead boot must not pass for absence.
+	@if [ ! -s "$(UT6D_MUT_SERIAL)" ]; then \
+		printf '!!! test-ut6d-mutant FAIL (leg A): no serial captured at %s -- mutant boot is dead, RED is meaningless\n' "$(UT6D_MUT_SERIAL)"; exit 1; \
+	fi
+	@# CONFIRM the mutant genuinely booted and ran the cycle before trusting the RED.
+	@grep -q '^SHELL-READY$$' "$(UT6D_MUT_SERIAL)" \
+		|| { printf '!!! test-ut6d-mutant FAIL (leg A): SHELL-READY missing -- mutant never reached the REPL, RED is meaningless\n'; exit 1; }
+	@grep -Eq '^SHELL-EXIT$$|^SHELL-DONE$$' "$(UT6D_MUT_SERIAL)" \
+		|| { printf '!!! test-ut6d-mutant FAIL (leg A): neither SHELL-EXIT nor SHELL-DONE -- mutant did not run the cycle, RED is meaningless\n'; exit 1; }
+	@sed -n '/^SHELL-READY$$/,$$p' "$(UT6D_MUT_SERIAL)" > "$(BUILD)/$(UT6D_MUT_NAME).repl"
+	@if grep -qF 'A:\SUB>' "$(BUILD)/$(UT6D_MUT_NAME).repl"; then \
+		printf '!!! test-ut6d-mutant FAIL (leg A): the root-pinned-prompt mutant STILL showed "A:\\SUB>" -- the subdir-prompt assertion is decoration\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-ut6d-mutant leg A: green (mutant booted + ran the cycle; "A:\\SUB>" correctly ABSENT -- the subdir-prompt assertion bites)\n'
+	@# ---------------- Leg B: RD_NOOP (RD-removal assertion) ----------------
+	@printf '%s\n' '---- leg B: silent-RD-no-op mutant (-DCMD_MUTATE_RD_NOOP) ----'
+	@dd if=/dev/zero of=$(UT6D_RDNOOP_IMG) bs=512 count=2880 status=none
+	@mformat -i $(UT6D_RDNOOP_IMG) -f 1440 ::
+	@mcopy -i $(UT6D_RDNOOP_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@$(HARNESS_BIN) --disk "$(UT6D_TRACER_RDNOOP_IMG)" --disk2 "$(UT6D_RDNOOP_IMG)" \
+		--name "$(UT6D_RDNOOP_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
+		--keys "$(UT6D_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(UT6D_RDNOOP_REPORT)" || true
+	@if [ ! -s "$(UT6D_RDNOOP_SERIAL)" ]; then \
+		printf '!!! test-ut6d-mutant FAIL (leg B): no serial captured at %s -- mutant boot is dead, RED is meaningless\n' "$(UT6D_RDNOOP_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(UT6D_RDNOOP_SERIAL)" \
+		|| { printf '!!! test-ut6d-mutant FAIL (leg B): SHELL-READY missing -- mutant never reached the REPL, RED is meaningless\n'; exit 1; }
+	@grep -Eq '^SHELL-EXIT$$|^SHELL-DONE$$' "$(UT6D_RDNOOP_SERIAL)" \
+		|| { printf '!!! test-ut6d-mutant FAIL (leg B): neither SHELL-EXIT nor SHELL-DONE -- mutant did not run the cycle, RED is meaningless\n'; exit 1; }
+	@sed -n '/^SHELL-READY$$/,$$p' "$(UT6D_RDNOOP_SERIAL)" > "$(BUILD)/$(UT6D_RDNOOP_NAME).repl"
+	@# Under RD_NOOP, SUB persists -> the post-RD `cd sub` SUCCEEDS, so the controlled
+	@# "Invalid directory" diagnostic is ABSENT and the RD-removal assertion goes RED.
+	@if grep -qF 'Invalid directory' "$(BUILD)/$(UT6D_RDNOOP_NAME).repl"; then \
+		printf '!!! test-ut6d-mutant FAIL (leg B): the silent-RD-no-op mutant STILL printed "Invalid directory" -- the RD-removal assertion is not isolating RD (it fired for another reason)\n'; \
+		exit 1; \
+	fi
+	@# And the persisted SUB means the post-RD re-CD re-showed "A:\SUB>" (sanity: the
+	@# re-CD really did succeed, confirming SUB was never removed).
+	@grep -qF 'A:\SUB>' "$(BUILD)/$(UT6D_RDNOOP_NAME).repl" \
+		|| { printf '!!! test-ut6d-mutant FAIL (leg B): SUB did not persist (no "A:\\SUB>") -- the RD_NOOP mutant did not behave as a silent RD no-op; the RED is for the wrong reason\n'; exit 1; }
+	@printf '>>> test-ut6d-mutant leg B: green (mutant booted + ran the cycle; "Invalid directory" correctly ABSENT, SUB persisted -- the RD-removal assertion bites)\n'
+	@printf '>>> test-ut6d-mutant: green (BOTH legs RED for the right reason; the oracle bites on subdir-prompt AND RD-removal)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-panic (beads initech-a5a -- the exception is CAUGHT)
 # ---------------------------------------------------------------------------
 # Prove the panic path fires on a REAL CPU fault instead of triple-faulting (the
@@ -6569,7 +6845,7 @@ TEST_UNIT_GATES := \
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
-	test-sysinit test-sysinit-oversize test-shell test-panic test-spurious test-datetime \
+	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-int21-irqstorm
 
 test-unit:

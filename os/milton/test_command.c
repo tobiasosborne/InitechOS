@@ -87,6 +87,13 @@ static void test_classify(void)
     CHECK(cmd_classify("TYPE")  == CMD_TYPE,     "classify TYPE");
     CHECK(cmd_classify("CD")    == CMD_CD,       "classify CD");
     CHECK(cmd_classify("CHDIR") == CMD_CD,       "classify CHDIR -> CD");
+    /* MD/MKDIR + RD/RMDIR (beads initech-ut6d): the long + short forms both map
+     * to the directory built-ins -- the biting case the CMD_MUTATE_NO_MDRD mutant
+     * drops (so "MD" would fall through to CMD_EXTERNAL and never call do_mkdir). */
+    CHECK(cmd_classify("MD")    == CMD_MD,       "classify MD");
+    CHECK(cmd_classify("MKDIR") == CMD_MD,       "classify MKDIR -> MD");
+    CHECK(cmd_classify("RD")    == CMD_RD,       "classify RD");
+    CHECK(cmd_classify("RMDIR") == CMD_RD,       "classify RMDIR -> RD");
     CHECK(cmd_classify("CLS")   == CMD_CLS,      "classify CLS");
     CHECK(cmd_classify("VER")   == CMD_VER,      "classify VER");
     CHECK(cmd_classify("ECHO")  == CMD_ECHO,     "classify ECHO");

@@ -54,6 +54,16 @@ cmd_kind_t cmd_classify(const char *upper_command)
         { "TYPE",  CMD_TYPE },
         { "CD",    CMD_CD   },
         { "CHDIR", CMD_CD   },   /* CHDIR is the long form of CD (DOS) */
+#ifndef CMD_MUTATE_NO_MDRD
+        /* MD/RD + their long forms map to the directory built-ins (beads
+         * initech-ut6d). The CMD_MUTATE_NO_MDRD mutant DROPS these four rows so
+         * "MD"/"RD" fall through to CMD_EXTERNAL -> the classify oracle goes RED
+         * (Rule 6). NEVER dropped in a real build. */
+        { "MD",    CMD_MD   },
+        { "MKDIR", CMD_MD   },   /* MKDIR is the long form of MD (DOS) */
+        { "RD",    CMD_RD   },
+        { "RMDIR", CMD_RD   },   /* RMDIR is the long form of RD (DOS) */
+#endif
         { "CLS",   CMD_CLS  },
         { "VER",   CMD_VER  },
         { "ECHO",  CMD_ECHO },
@@ -276,6 +286,7 @@ int cmd_format_dir_line(const char *fname, uint32_t fsize, uint8_t attr,
 #ifdef COMMAND_KERNEL_REPL
 
 #include "find_data.h"   /* find_data_t (43-byte DTA record; offsets DIR reads) */
+#include "int21.h"       /* INT21_CWD_MAX -- the AH=47h root-relative CWD bound */
 
 /* DEC-04a flat ABI (spec/int21h_calling_convention.json): AH=function in EAX,
  * EBX=handle, ECX=count, EDX=flat ptr, EAX=return, CF=error in EFLAGS. The
@@ -462,6 +473,81 @@ static void dos_getver(uint8_t *major, uint8_t *minor)
     *minor = (uint8_t)((ax >> 8) & 0xFFu);
 }
 
+/* AH=39h MKDIR (CREATE DIRECTORY): EDX -> ASCIIZ path. Returns 0 on success, or
+ * the DOS error code (CF set) -- e.g. 0x0005 ACCESS_DENIED (name exists /
+ * non-root parent / no write backend), 0x0003 PATH_NOT_FOUND. The dispatcher's
+ * do_mkdir owns the FAT12 write path (beads initech-u6wa); we only call it. */
+static uint16_t dos_mkdir(const char *path)
+{
+    uint32_t ax = 0x3900u;
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "d"((uint32_t)(uintptr_t)path)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return (uint16_t)(ax & 0xFFFFu);
+    }
+    return 0u;
+}
+
+/* AH=3Ah RMDIR (REMOVE DIRECTORY): EDX -> ASCIIZ path. Returns 0 on success, or
+ * the DOS error code (CF set) -- 0x0003 PATH_NOT_FOUND (missing / not a dir),
+ * 0x0005 ACCESS_DENIED (non-empty), 0x0010 CURRENT_DIR (root / the CWD). The
+ * dispatcher's do_rmdir owns the checks (beads initech-u6wa); we only call it. */
+static uint16_t dos_rmdir(const char *path)
+{
+    uint32_t ax = 0x3A00u;
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "d"((uint32_t)(uintptr_t)path)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return (uint16_t)(ax & 0xFFFFu);
+    }
+    return 0u;
+}
+
+/* AH=3Bh CHDIR (CHANGE CURRENT DIRECTORY): EDX -> ASCIIZ path. Returns 0 on
+ * success, or the DOS error code (CF set) -- 0x0003 PATH_NOT_FOUND (missing dir
+ * / CHDIR into a file). The dispatcher's do_chdir resolves "" / "\\" / "." to a
+ * no-op-at-root success and walks ".."/relative/absolute (beads initech-u6wa). */
+static uint16_t dos_chdir(const char *path)
+{
+    uint32_t ax = 0x3B00u;
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "d"((uint32_t)(uintptr_t)path)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return (uint16_t)(ax & 0xFFFFu);
+    }
+    return 0u;
+}
+
+/* AH=47h GET CURRENT DIRECTORY: DL=drive (0=default, 1=A:), ESI -> a 64-byte
+ * buffer the dispatcher fills with the canonical ROOT-RELATIVE CWD path (NO
+ * leading '\', NO drive; the root is the empty string). `buf` must hold >=
+ * INT21_CWD_MAX (64) bytes. The buffer is left a valid ASCIIZ string on entry so
+ * a failing call (invalid drive) leaves it empty rather than uninitialized. */
+static void dos_getcwd(uint8_t drive, char *buf)
+{
+    buf[0] = '\0';
+    __asm__ __volatile__(
+        "int $0x21"
+        :
+        : "a"(0x4700u), "d"((uint32_t)drive), "S"((uint32_t)(uintptr_t)buf)
+        : "cc", "memory");
+}
+
 /* The shell's DTA: a dedicated 43-byte find-record buffer FINDFIRST/NEXT write
  * into (bound via AH=1Ah). File scope so it outlives each DIR invocation. */
 static find_data_t g_shell_dta;
@@ -546,25 +632,106 @@ static void builtin_type(const char *arg)
     dos_print("\r\n$");     /* ensure a trailing newline after the file body */
 }
 
-/* CD/CHDIR: no arg => print the current directory (A:\). "CD \" => root (the
- * only directory this milestone). A subdirectory arg => an honest "not yet
- * supported" message (real traversal is initech-ti8) -- present + loud (Rule 2),
- * never silently wrong. */
+/* Compose the displayable CWD ("A:\" + the root-relative path AH=47h reports)
+ * into `out`. The root is the empty root-relative string -> "A:\"; a subdir
+ * "SUB" -> "A:\SUB". `out` must hold >= 3 (drive+root '\') + INT21_CWD_MAX-1 + 1
+ * (NUL) bytes. The result is ASCIIZ; no trailing CRLF (callers add framing). Used
+ * by BOTH the $P$G prompt and CD-with-no-arg so the two never drift. */
+static void cwd_display(char *out)
+{
+    char rel[INT21_CWD_MAX];   /* root-relative CWD text (no drive, no leading \) */
+    int n = 0;
+    int i = 0;
+
+    dos_getcwd(0u, rel);              /* DL=0 -> the default drive (A:) */
+
+    out[n++] = 'A';
+    out[n++] = ':';
+    out[n++] = '\\';                  /* the drive + root separator -> "A:\" */
+    while (rel[i] != '\0' && i < (int)(INT21_CWD_MAX - 1)) {
+        out[n++] = rel[i++];          /* append the root-relative subpath */
+    }
+    out[n] = '\0';
+}
+
+/* CD/CHDIR: no arg => print the current directory ("A:\" or "A:\SUB"). A path arg
+ * => AH=3Bh CHDIR; on success DOS is SILENT (the change shows at the next prompt),
+ * on failure print the controlled "Invalid directory" (MSG-DOS-0018). The
+ * dispatcher's do_chdir resolves ""/"\\"/"." to a no-op-at-root success and walks
+ * ".."/relative/absolute subpaths (beads initech-u6wa / initech-ut6d). */
 static void builtin_cd(const char *arg)
 {
     char tok[CMD_TOKEN_MAX];
     int len = cmd_first_token(arg, tok);
 
     if (len == 0) {
-        dos_print("A:\\\r\n$");           /* print the current directory */
+        /* No arg -> print the current directory (DOS 'CD' alone reports it).
+         * Worst-case index math: cwd_display writes "A:\" (3) + up to
+         * (INT21_CWD_MAX-1) relative-path bytes + NUL = 3 + INT21_CWD_MAX bytes,
+         * so a bare [3 + INT21_CWD_MAX] buffer is exactly full. The +4 slack
+         * leaves headroom (defensive, Rule 2; behavior unchanged). */
+        char disp[3 + INT21_CWD_MAX + 4];
+        cwd_display(disp);
+        dos_puts_raw(disp);
+        dos_print("\r\n$");
         return;
     }
-    if (tok[0] == '\\' && tok[1] == '\0') {
-        dos_print("A:\\\r\n$");           /* CD \ -> already at the root */
+    cmd_upcase_str(tok);              /* DOS upcases 8.3 path components */
+    if (dos_chdir(tok) != 0u) {
+        dos_print(MSG_DOS_0018 "\r\n$");   /* "Invalid directory" */
+    }
+    /* Success is SILENT -- the new path shows at the next prompt (real DOS 3.3). */
+}
+
+/* MD/MKDIR <path>: AH=39h CREATE DIRECTORY. No arg => "Required parameter
+ * missing" (MSG-DOS-0011). On success DOS prints NOTHING; any failure (name
+ * exists / no write backend / disk full / bad parent) => the single controlled
+ * "Unable to create directory" (MSG-DOS-0017) -- real DOS uses ONE message per
+ * command, not per error code (DEC-13). */
+static void builtin_md(const char *arg)
+{
+    char path[CMD_TOKEN_MAX];
+
+    if (cmd_first_token(arg, path) == 0) {
+        dos_print(MSG_DOS_0011 "\r\n$");   /* "Required parameter missing" */
         return;
     }
-    /* Any other path: subdirectory traversal is deferred (initech-ti8). */
-    dos_print("Subdirectory traversal not yet supported\r\n$");
+    cmd_upcase_str(path);            /* DOS upcases 8.3 path components */
+    if (dos_mkdir(path) != 0u) {
+        dos_print(MSG_DOS_0017 "\r\n$");   /* "Unable to create directory" */
+    }
+    /* Success is SILENT (DOS MD prints nothing on success). */
+}
+
+/* RD/RMDIR <path>: AH=3Ah REMOVE DIRECTORY. No arg => "Required parameter
+ * missing" (MSG-DOS-0011). On success DOS prints NOTHING; any failure (missing /
+ * not a directory / not empty / the root or current dir) => the single controlled
+ * "Invalid path, not directory, or directory not empty" (MSG-DOS-0019). */
+static void builtin_rd(const char *arg)
+{
+    char path[CMD_TOKEN_MAX];
+
+    if (cmd_first_token(arg, path) == 0) {
+        dos_print(MSG_DOS_0011 "\r\n$");   /* "Required parameter missing" */
+        return;
+    }
+    cmd_upcase_str(path);            /* DOS upcases 8.3 path components */
+#ifdef CMD_MUTATE_RD_NOOP
+    /* MUTANT (Rule 6; make test-ut6d-mutant only): SKIP the AH=3Ah RMDIR entirely
+     * but stay silent-as-if-success, so RD becomes a no-op that LOOKS like it
+     * worked -- SUB persists on the volume. The re-`cd sub` after RD then SUCCEEDS
+     * (the prompt returns to "A:\SUB>") and the controlled "Invalid directory"
+     * diagnostic is ABSENT -> the test-ut6d RD-removal assertion goes RED. This is
+     * exactly the "silent RD failure" the old gate could not catch. NEVER in a
+     * real build. */
+    (void)path;
+    (void)&dos_rmdir;   /* keep dos_rmdir "used" without calling it (-Werror) */
+#else
+    if (dos_rmdir(path) != 0u) {
+        dos_print(MSG_DOS_0019 "\r\n$");   /* "Invalid path, ... not empty" */
+    }
+#endif
+    /* Success is SILENT (DOS RD prints nothing on success). */
 }
 
 /* CLS: clear the screen. The console exposes no clear hook this milestone, so we
@@ -671,9 +838,37 @@ void command_repl(void)
      * the AH=09h banner, but a distinct grep-able marker keeps the gate robust;
      * kmain prints SHELL-READY before calling us, so we don't duplicate it. */
     for (;;) {
-        /* $P$G prompt = current drive + path + '>' (ADR-0003 DEC-11). Root only
-         * this milestone => "A:\>". */
+        /* $P$G prompt = current drive + path + '>' (ADR-0003 DEC-11). Compose it
+         * from AH=47h GET CURRENT DIRECTORY so a subdir CWD shows ("A:\SUB>");
+         * at the root cwd_display yields exactly "A:\", so the prompt renders the
+         * byte-identical "A:\>" the test-shell prompt-band assertion depends on. */
+#ifdef CMD_MUTATE_NO_CWD_PROMPT
+        /* MUTANT (Rule 6; make test-ut6d-mutant only): pin the prompt to the
+         * root "A:\>" regardless of the CWD, so after `CD SUB` the prompt never
+         * shows "A:\SUB>" -> the test-ut6d subdir-prompt assertion goes RED.
+         * NEVER in a real build. */
         dos_print("A:\\>$");
+#else
+        {
+            /* Worst-case index math: cwd_display writes "A:\" (3) + up to
+             * (INT21_CWD_MAX-1) relative-path bytes + NUL = 3 + INT21_CWD_MAX
+             * bytes used; we then append '>' and '$' and a final NUL, so the live
+             * high-water mark is 3 + (INT21_CWD_MAX-1) + '>' + '$' + NUL =
+             * 3 + INT21_CWD_MAX + 2. The +4 of slack below leaves headroom over
+             * that bound (defensive, Rule 2; behavior unchanged). */
+            char prompt[3 + INT21_CWD_MAX + 2 + 4];   /* "A:\" + path + '>' + '$' (+slack) */
+            int len;
+            cwd_display(prompt);
+            len = 0;
+            while (prompt[len] != '\0') {
+                len++;
+            }
+            prompt[len++] = '>';
+            prompt[len++] = '$';                  /* AH=09h '$' terminator */
+            prompt[len]   = '\0';
+            dos_print(prompt);
+        }
+#endif
 
         read_line(line);
         cmd_parse(line, &parsed);
@@ -689,6 +884,12 @@ void command_repl(void)
                 break;
             case CMD_CD:
                 builtin_cd(parsed.arg);
+                break;
+            case CMD_MD:
+                builtin_md(parsed.arg);
+                break;
+            case CMD_RD:
+                builtin_rd(parsed.arg);
                 break;
             case CMD_CLS:
                 builtin_cls();
