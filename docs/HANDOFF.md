@@ -25,6 +25,19 @@ A bootable, period-plausible OS for emulated 386+ PCs — a DOS-3.3 personality 
 
 **Design stance (governs every naming/structure decision):** the blandness is deliberate and rigorous. Keep every canonical name and every vestigial structure, in full, with a straight face. InitechDOS is not a parody of DOS — it is DOS with the soul extracted and the legacy lovingly preserved. Corporate software accretes and never deletes.
 
+**The recursive joke (operator, 2026-06-14; see `bd memories`):** at first glance
+InitechOS must be indistinguishable from a real early-90s corporate OS — the
+presentation layer (README, manuals, box, the UI) NEVER admits the joke. The
+reveal is layered: it looks like a vibe-coded AI toy, then it REALLY boots on
+386-era hardware, then the software REALLY works — with deadpan absurdities played
+straight (the 116% pie chart, the Y2K accounting system, Michael Bolton's
+rounding-error virus, the TPS Report Generator that needs the vestigial FCB API).
+Only the FINAL build (physical 5.25" floppies + period manuals/box,
+`packaging-epic`) must be completely straight; the DEV JOURNEY is intentionally
+transparent (the public repo + AI history are part of the reveal) and should
+increasingly read as a found-footage CLEAN-ROOM reconstruction. ADR-by-committee
+(subagent role-play) is for BIG features only.
+
 ## 3. Binding decisions in force
 
 | Decision | Ruling | Source |
@@ -117,8 +130,10 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **57 host + 21 emu gates** (re-verified green; was 55+21 before
-WL-0018 added `test-mcb` + `test-mcb-mutant`). Plus the
+`make test` = **59 host + 22 emu gates** (re-verified green; WL-0019 added
+`test-mcb-int21` + `test-mcb-emu` for the AH=48/49/4Ah wiring; was 57+21 after
+WL-0018). The boot image is padded to a whole 2x32 cylinder geometry
+(`IMG_SECTORS=192`, build-guarded) so the **Bochs boot leg passes**. Plus the
 separate `make test-boot-bochs` (the Bochs boot leg; env-specific Bochs +
 ~45 s, NOT in the default `make test`). `make factory` builds; `make` prints
 help. The default boot image (`build/tracer_boot.img`) is now the **shell**
@@ -134,13 +149,15 @@ fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
 
-**Branches (local-only repo — NO git remote, do NOT try to push):**
-- `kernel-hardening` — WL-0014 (hardening/fuzzing) + WL-0015 (`6pj` mode-0x13
-  fallback + `564` C Bochs gate). Unmerged.
-- `command-com-default` — WL-0016 (`k6x` COMMAND.COM default boot), **stacked on
-  `kernel-hardening`**. The current tip. Unmerged.
-- Default branch is `master`. Merging these to `master` is a clean next step
-  (the operator chose to keep building rather than merge so far).
+**Branches + remote (a remote now exists — this supersedes the old "local-only,
+do not push" note):**
+- **`origin` = github.com/tobiasosborne/InitechOS** — PUBLIC, AGPL-3.0. The
+  default/showcase branch on GitHub is **`main`**; `command-com-default` is the
+  active working branch. BOTH are pushed. Session-close now pushes to `origin`.
+- `command-com-default` — the active tip: WL-0016 + WL-0018 + WL-0019 (509.6
+  wiring + Bochs geometry fix + the kernel-completeness plan). `main` == HEAD.
+- `kernel-hardening`, `master` — older local branches, linear ancestors of the
+  tip; left as-is.
 
 **M2/M3 internals + the shell are DONE and green** (the stale "M3 in progress"
 plan that lived here is superseded — see §4's WL-0008–WL-0016 lines). The DOS
@@ -154,13 +171,21 @@ is `39h/3Ah/3Bh` MKDIR/RMDIR/CHDIR, `43h` CHMOD, `44h` IOCTL, `48h/49h/4Ah`
 ALLOC/FREE/SETBLOCK, `56h` RENAME, `57h` FILETIME, `5Bh` CREATNEW (all recognized
 by `ah_is_listed()` but NOT dispatched), plus the shell built-ins + batch + env.
 `bd show initech-bsy` carries the full sequenced build order (Tranches A-I).
-**Landed (WL-0018):** Tranche A complete — `dww` (FINDFIRST DTA real-DOS offsets),
-`62m` (kbd emits CR), `456` (EXEC command tail -> PSP:80h) — and the MCB arena
-allocator (`os/milton/mcb.{c,h}` + `test-mcb`, the pure half of `509.6`).
-**Resume at `initech-509.6`:** wire AH=48/49/4A in int21.c to an `mcb_arena_t`
-and decide the arena region (the program window 0x30000..0x70000 is fully tiled —
-see WL-0018 "remaining" for the two options). Then `dao`->`z01`->`ti8`->... per
-the epic.
+**Landed (WL-0019):** `initech-509.6` is DONE — AH=48/49/4Ah wired to the MCB
+arena (authentic single-big-block over the locked [0x30000,0x70000) window, NO
+spec edit) + the Bochs `IMG_SECTORS` geometry fix. The kernel-completeness gap is
+now a **40-bead plan**: Phase 1 (kernel feature-complete, children of
+`initech-bsy`, capstoned by **`initech-40oq`** the coverage certificate), Phase 2
+(shell built-ins + the new `util-epic`), Phase 4 (the parked `dos5-epic`,
+ADR-amendment-gated). FCB (`509.9`) backburnered (P4) but REQUIRED; its flagship
+consumer is the **TPS Report Generator** (`8479.1`). Canon beads: Y2K accounting
+(`586.1`), Michael Bolton's rounding-error virus (`586.2`), the `packaging-epic`
+(the final straight build).
+**Resume at `initech-ti8`** — subdirectory traversal, READ-side: the keystone of
+`ti8 → u6wa` (MKDIR/RMDIR/CHDIR) `→ ut6d` (MD/RD/CD). A full build brief +
+RED-first step is in the `initech-ti8` bead notes; the DOS-3.3-PRM open questions
+are in `initech-u6wa`. Drive it SERIALLY, oracle-gated — do NOT parallelize the
+shared-file kernel edits.
 
 **Other ready work** (`bd ready`; distinct directions — pick per operator
 steer):
