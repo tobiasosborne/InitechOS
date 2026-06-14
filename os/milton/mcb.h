@@ -49,6 +49,13 @@ typedef struct mcb_arena {
  * be >= 1 (room for the header). The lone block's data size is total_paras-1. */
 void mcb_init(mcb_arena_t *a, void *base, uint32_t total_paras);
 
+/* Assign the lone block's owner. Valid ONLY when the arena is a single terminal
+ * block (one 'Z' header spanning the whole arena, as just after mcb_init): the
+ * authentic "a freshly-loaded program owns its whole window" assignment. Returns
+ * 1 on success; 0 (no-op) if the arena is not a single terminal block (so it
+ * cannot mis-claim a fragmented chain). owner==MCB_OWNER_FREE marks it free. */
+int mcb_set_arena_owner(mcb_arena_t *a, uint16_t owner);
+
 /* AH=48h ALLOC: first-fit `want` DATA paragraphs to `owner` (must be != 0). On
  * success returns MCB_OK and writes the DATA paragraph index to *out_data_para
  * (the header is at out_data_para-1). On failure returns MCB_ERR_INSUFFICIENT
@@ -70,6 +77,14 @@ uint16_t mcb_free(mcb_arena_t *a, uint32_t data_para, uint16_t owner);
  * reach. MCB_ERR_BAD_BLOCK / _DESTROYED as for free. out_largest may be NULL. */
 uint16_t mcb_setblock(mcb_arena_t *a, uint32_t data_para, uint32_t want,
                       uint16_t owner, uint32_t *out_largest);
+
+/* Free EVERY block owned by `owner` (the authentic "DOS frees a terminating
+ * process's memory on exit"). Coalesces afterward. owner must be != FREE.
+ * Returns the number of blocks freed (0 if the owner held none). Used by INT 21h
+ * AH=4Ch/00h/INT 20h terminate to reclaim a process's arena, mirroring the JFT
+ * handle close. Returns 0 on a corrupt chain (no-op; the caller is mid-teardown
+ * and a panic on the way out is worse than leaving the chain). */
+uint32_t mcb_free_owner(mcb_arena_t *a, uint16_t owner);
 
 /* Walk the chain and assert the structural invariants: every header signature is
  * 'M' or 'Z'; no block runs past the arena; exactly one 'Z' and it is last; the

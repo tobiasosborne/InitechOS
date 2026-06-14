@@ -126,14 +126,18 @@ STAGE2_SECTORS  := 16
 # kernel; the BOOT_SHELL image (which also links command.o) crossed the old
 # 32 KiB window. Bumped 80 -> 96 for beads initech-509.2 (SYSINIT + config_sys.o
 # pushed the BOOT_SHELL loaded .text past the 80-sector window -- WL-0009 Sec 4
-# recurrence). 96*512 = 48 KiB: 0x10000 + 96*512 = 0x1C000, below PROGRAM_BASE
-# (raised 0x20000 -> 0x30000 for beads initech-5pe -- the kernel .bss
-# (_kernel_end ~0x1fd20) had filled the old 64 KiB window; the window is now
-# 128 KiB, 0x10000..0x30000). MUST equal the stage2.asm KERNEL_SECTORS equate.
-KERNEL_SECTORS  := 96
-# Total raw image: MBR(1) + stage2(16) + kernel(96) = 113 sectors; round up to
-# 128 (64 KiB) for headroom + a clean power-of-two. Deterministic (Rule 11).
-IMG_SECTORS     := 128
+# recurrence). Bumped 96 -> 112 for beads initech-509.6: wiring AH=48h/49h/4Ah
+# links mcb.o into EVERY kernel (it was test-only before) + the int21 handlers
+# / arena reset+reclaim grew int21.o, pushing the BOOT_SHELL loaded .text past
+# the 96-sector (48 KiB) window (51525 > 49152). 112*512 = 56 KiB: 0x10000 +
+# 112*512 = 0x1E000, still well below PROGRAM_BASE (0x30000; beads initech-5pe).
+# MUST equal the stage2.asm KERNEL_SECTORS equate.
+KERNEL_SECTORS  := 112
+# Total raw image: MBR(1) + stage2(16) + kernel(112) = 129 sectors; round up to
+# 160 (80 KiB) for headroom + a clean multiple of 32 (was 128 when KERNEL_SECTORS
+# was 96; 1+16+112=129 > 128, so it had to grow -- beads initech-509.6).
+# Deterministic (Rule 11).
+IMG_SECTORS     := 160
 
 # --- _kernel_end guard (beads initech-u0a) ----------------------------------
 # The KERNEL_SECTORS / .bin-size guards above only check the LOADED .bin (.text
@@ -203,6 +207,8 @@ KERNEL_PIC_C     := $(KERNEL_DIR)/pic.c
 KERNEL_PANIC_C   := $(KERNEL_DIR)/panic.c
 # INT 21h dispatcher (beads initech-509.5): the `int 0x21` syscall spine.
 KERNEL_INT21_C   := $(KERNEL_DIR)/int21.c
+# MCB memory arena behind AH=48h/49h/4Ah (beads initech-509.6). int21.c links it.
+KERNEL_MCB_C     := $(KERNEL_DIR)/mcb.c
 # PSP construction (beads initech-509.4) + flat program loader (initech-509.5).
 KERNEL_PSP_C     := $(KERNEL_DIR)/psp.c
 KERNEL_LOADER_C  := $(KERNEL_DIR)/loader.c
@@ -293,6 +299,7 @@ KERNEL_IDT_OBJ   := $(BUILD)/idt.o
 KERNEL_PIC_OBJ   := $(BUILD)/pic.o
 KERNEL_PANIC_OBJ := $(BUILD)/panic.o
 KERNEL_INT21_OBJ := $(BUILD)/int21.o
+KERNEL_MCB_OBJ   := $(BUILD)/mcb.o
 KERNEL_PSP_OBJ   := $(BUILD)/psp.o
 KERNEL_SFT_OBJ   := $(BUILD)/sft.o
 KERNEL_CONFIG_SYS_OBJ := $(BUILD)/config_sys.o
@@ -357,6 +364,23 @@ KERNEL_VECT_MAIN_OBJ  := $(BUILD)/kmain_vect.o
 KERNEL_VECT_ELF       := $(BUILD)/kernel_vect.elf
 KERNEL_VECT_BIN       := $(BUILD)/kernel_vect.bin
 VECT_IMG              := $(BUILD)/vect_boot.img
+# MEMORY ARENA self-test kernel/image (beads initech-509.6; make test-mcb-emu):
+# the SAME kernel sources but with -DBOOT_MEMTEST so the boot drives AH=48h/4Ah/
+# 49h over the kernel-bound MCB arena via the REAL `int 0x21` trap path and emits
+# MEM-* markers. No baked .COM, no --disk2 (kernel-context arena). Separate image
+# so the normal boot is unchanged.
+KERNEL_MEMTEST_MAIN_OBJ := $(BUILD)/kmain_memtest.o
+KERNEL_MEMTEST_ELF      := $(BUILD)/kernel_memtest.elf
+KERNEL_MEMTEST_BIN      := $(BUILD)/kernel_memtest.bin
+MEMTEST_IMG             := $(BUILD)/memtest_boot.img
+# Mutant image (Rule 6): int21.c with -DINT21_MUTATE_ALLOC_NO_SEGBASE so a
+# returned segment is a bare data-paragraph index -> the sentinel write lands at
+# the wrong linear address / the realloc segment mismatches -> MEM-OK never
+# prints -> RED. Proves the emu gate BITES.
+KERNEL_MEMTEST_MUT_INT21_OBJ := $(BUILD)/int21_mut_memtest.o
+KERNEL_MEMTEST_MUT_ELF       := $(BUILD)/kernel_memtest_mut.elf
+KERNEL_MEMTEST_MUT_BIN       := $(BUILD)/kernel_memtest_mut.bin
+MEMTEST_MUT_IMG              := $(BUILD)/memtest_mut_boot.img
 # FAT-sourced load + EXEC self-test kernel/image (beads initech-saw; make
 # test-exec): the SAME kernel sources but with -DBOOT_EXEC so the boot, after
 # mounting the FAT12 data disk, loads GREET.COM BY NAME (load_program_from_fat)
@@ -1351,7 +1375,7 @@ TEST_INT21_MUT_NOOP   := $(BUILD)/test_int21_mutant_noop
 # int21.c now routes handle functions through the SFT (initech-509.3), so the
 # host oracle links sft.c + psp.c too and needs -Ispec (sft.h -> psp.h ->
 # dos_structs.h). The standard JFT/SFT is bound in test_int21.c's main().
-TEST_INT21_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_INT21_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_INT21_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                    $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
 
@@ -1382,7 +1406,7 @@ TEST_CONIN_MUT_WRAP   := $(BUILD)/test_conin_mutant_crwrap
 # test_conin.c drives only the CON-input path, but int21.c (one TU) references
 # the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
-TEST_CONIN_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_CONIN_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_CONIN_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                    $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
 
@@ -1466,7 +1490,7 @@ test-int21-mutant: $(TEST_INT21_MUT_DOLLAR) $(TEST_INT21_MUT_NOOP)
 # idiom.
 TEST_INT24      := $(BUILD)/test_int24
 TEST_INT24_SRC  := $(MILTON_DIR)/test_int24.c
-TEST_INT24_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_INT24_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_INT24_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                    $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
 # Mutation builds (CLAUDE.md Rule 6): int21.c / psp.c compiled with a single
@@ -1545,7 +1569,7 @@ test-int24-mutant: $(TEST_INT24_MUT_AFSWAP) $(TEST_INT24_MUT_NOREPROM) $(TEST_IN
 # spec/find_data.h. Mirrors the $(TEST_INT21) idiom.
 TEST_FILEIO      := $(BUILD)/test_fileio
 TEST_FILEIO_SRC  := $(MILTON_DIR)/test_fileio.c
-TEST_FILEIO_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_FILEIO_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_FILEIO_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                     $(MILTON_DIR)/psp.h spec/dos_structs.h spec/find_data.h $(DOS_MESSAGES_H)
 # Mutation builds (CLAUDE.md Rule 6): int21.c compiled with a single file-op
@@ -1603,7 +1627,7 @@ test-fileio-mutant: $(TEST_FILEIO_MUT_READ) $(TEST_FILEIO_MUT_LSEEK)
 # $(TEST_FILEIO) idiom.
 TEST_INT21EDGE      := $(BUILD)/test_int21_edge
 TEST_INT21EDGE_SRC  := $(MILTON_DIR)/test_int21_edge.c
-TEST_INT21EDGE_DEPS := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_INT21EDGE_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_INT21EDGE_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                        $(MILTON_DIR)/psp.h spec/dos_structs.h spec/find_data.h $(DOS_MESSAGES_H)
 # Mutation build (CLAUDE.md Rule 6): int21.c compiled with do_close's int21.c:984
@@ -1665,7 +1689,7 @@ TEST_EXEC_SRC    := $(MILTON_DIR)/test_exec.c
 # int21.c pulls in the SFT/JFT handle layer (sft.c) + psp.c (as test_int21 does),
 # even though the EXEC path itself does not touch them -- link them so int21.c
 # resolves.
-TEST_EXEC_DEPS   := $(KERNEL_INT21_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_EXEC_DEPS   := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
 TEST_EXEC_HDRS   := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                     $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
 # Mutation build (CLAUDE.md Rule 6): int21.c compiled with AH=4Dh always
@@ -2197,6 +2221,45 @@ test-mcb-mutant: $(TEST_MCB_MUT_COALESCE) $(TEST_MCB_MUT_OWNER)
 		printf '>>> test-mcb-mutant: green (no-owner-check mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
+# REAL gate: test-mcb-int21 (beads initech-509.6 part 2 -- AH=48h/49h/4Ah wired
+# into int21_dispatch over a bound mcb_arena_t). Drives the REAL artifact
+# int21.c + mcb.c HOSTED: arena-binding seam, segment<->data-paragraph
+# conversion, owner == current PSP, CF/register contract, the authentic
+# shrink-then-alloc, cross-owner-free rejection, grow-too-big largest report,
+# and the alloc/free/alloc round-trip. The mutant (alloc drops the segment
+# base) proves the segment-conversion assertions BITE (Rule 6). int21.c is one
+# TU that references the SFT/PSP handle layer, so the link needs sft.c + psp.c +
+# irq.c (as test_int21 does) plus mcb.c.
+TEST_MCBI21      := $(BUILD)/test_mcb_int21
+TEST_MCBI21_SRC  := $(MILTON_DIR)/test_mcb_int21.c
+TEST_MCBI21_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_MCBI21_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/mcb.h \
+                    $(MILTON_DIR)/sft.h $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
+TEST_MCBI21_MUT_SEGBASE := $(BUILD)/test_mcb_int21_mutant_segbase
+
+$(TEST_MCBI21): $(TEST_MCBI21_SRC) $(TEST_MCBI21_DEPS) $(TEST_MCBI21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_MCBI21_SRC) $(TEST_MCBI21_DEPS)
+
+$(TEST_MCBI21_MUT_SEGBASE): $(TEST_MCBI21_SRC) $(TEST_MCBI21_DEPS) $(TEST_MCBI21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_ALLOC_NO_SEGBASE -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_MCBI21_SRC) $(TEST_MCBI21_DEPS)
+
+.PHONY: test-mcb-int21 test-mcb-int21-mutant
+test-mcb-int21: $(TEST_MCBI21)
+	@printf ">>> test-mcb-int21: AH=48h/49h/4Ah dispatch -- seam binding + segment conversion + owner == PSP + shrink-then-alloc + round-trip\n"
+	@$(TEST_MCBI21)
+	@printf ">>> test-mcb-int21: green\n"
+
+test-mcb-int21-mutant: $(TEST_MCBI21_MUT_SEGBASE)
+	@printf ">>> test-mcb-int21-mutant: confirming the no-segbase mutant goes RED (Rule 6)\n"
+	@if $(TEST_MCBI21_MUT_SEGBASE) >/dev/null 2>&1; then \
+		printf '!!! test-mcb-int21-mutant FAIL: no-segbase mutant PASSED -- the segment-conversion oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-mcb-int21-mutant: green (no-segbase mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
 # ---------------------------------------------------------------------------
 # Stub macro
 # ---------------------------------------------------------------------------
@@ -2224,7 +2287,8 @@ endef
         test-idt-mutant test-int21 test-int21-mutant test-int24 test-int24-mutant \
         test-vect test-psp test-psp-mutant \
         test-sft test-sft-mutant test-fileio test-fileio-mutant \
-        test-loader test-loader-mutant test-mcb test-mcb-mutant test-program test-fs test-type test-dir \
+        test-loader test-loader-mutant test-mcb test-mcb-mutant \
+        test-mcb-int21 test-mcb-int21-mutant test-mcb-emu test-mcb-emu-mutant test-program test-fs test-type test-dir \
         test-exec test-exec-unit test-exec-mutant \
         test-fat12-write test-fat-write test-fat-write-mutant test-fatwrite \
         test-multiopen \
@@ -2385,9 +2449,15 @@ $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(
 # (os/milton/test_int21.c) exercises; freestanding here, hosted there. Now
 # includes sft.h -> psp.h -> dos_structs.h, so -Ispec (initech-509.3).
 $(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
-                     $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h \
+                     $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h \
                      $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+
+# MCB memory arena (beads initech-509.6): the SAME mcb.c the host property suite
+# (test_mcb.c) exercises; freestanding here, hosted there. int21.o links it for
+# AH=48h/49h/4Ah. -Ispec for mcb.h -> dos_structs.h (the LOCKED mcb_t).
+$(KERNEL_MCB_OBJ): $(KERNEL_MCB_C) $(KERNEL_DIR)/mcb.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MCB_C) -o $@
 
 # PSP construction (beads initech-509.4): the SAME psp.c the host oracle
 # (test_psp.c) exercises; freestanding here, hosted there. -Ispec for psp.h ->
@@ -2587,7 +2657,7 @@ $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 
 KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-               $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+               $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2605,7 +2675,7 @@ $(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 
 KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2642,7 +2712,7 @@ $(KERNEL_SPURIOUS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL
 
 KERNEL_SPURIOUS_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SPURIOUS_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                         $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                        $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                        $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                         $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                         $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                         $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2679,7 +2749,7 @@ $(KERNEL_ECHO_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR
 
 KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2717,7 +2787,7 @@ $(KERNEL_CONIN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 
 KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2756,7 +2826,7 @@ $(KERNEL_VECT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR
 
 KERNEL_VECT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_VECT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2786,6 +2856,72 @@ $(VECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_VECT_BIN) | $(BUILD)
 	@dd if=$(KERNEL_VECT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> vect image: %s (SETVECT/GETVECT + INT 24h self-test kernel @s17)\n" "$@"
 
+# --- MEMORY ARENA self-test kernel (beads initech-509.6; test-mcb-emu) -------
+# Same sources, but kmain.c compiled with -DBOOT_MEMTEST so the boot drives
+# AH=48h/4Ah/49h over the kernel-bound MCB arena via `int 0x21` and emits MEM-*.
+$(KERNEL_MEMTEST_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_MEMTEST -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+# The REAL int21.o + mcb.o (the standard kernel objects) link into this image --
+# BOOT_MEMTEST only changes kmain.c. The mutant image swaps in the perturbed
+# int21.o below.
+KERNEL_MEMTEST_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_MEMTEST_ELF): $(KERNEL_MEMTEST_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MEMTEST_OBJS)
+
+$(KERNEL_MEMTEST_BIN): $(KERNEL_MEMTEST_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_memtest.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(memtest): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,memtest)
+
+$(MEMTEST_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_MEMTEST_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> memtest image: %s (AH=48h/49h/4Ah arena self-test kernel @s17)\n" "$@"
+
+# Mutant kernel: int21.o built with -DINT21_MUTATE_ALLOC_NO_SEGBASE (Rule 6).
+$(KERNEL_MEMTEST_MUT_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DINT21_MUTATE_ALLOC_NO_SEGBASE -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+
+KERNEL_MEMTEST_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_MEMTEST_MUT_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_MEMTEST_MUT_ELF): $(KERNEL_MEMTEST_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MEMTEST_MUT_OBJS)
+
+$(KERNEL_MEMTEST_MUT_BIN): $(KERNEL_MEMTEST_MUT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(memtest-mutant): %s\n" "$@"
+
+$(MEMTEST_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_MUT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_MEMTEST_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> memtest mutant image: %s (no-segbase int21.o)\n" "$@"
+
 # --- FAT-sourced load + EXEC self-test kernel (beads initech-saw; test-exec) -
 # Same sources, but kmain.c compiled with -DBOOT_EXEC so the boot, after the FAT
 # mount + loader-FAT bind, loads GREET.COM BY NAME and EXECs it via AH=4Bh.
@@ -2796,7 +2932,7 @@ $(KERNEL_EXEC_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR
 
 KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2834,7 +2970,7 @@ $(KERNEL_WRITE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 
 KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2872,7 +3008,7 @@ $(KERNEL_MULTIOPEN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNE
 
 KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2909,7 +3045,7 @@ $(KERNEL_DATETIME_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL
 
 KERNEL_DATETIME_OBJS := $(KERNEL_START_OBJ) $(KERNEL_DATETIME_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -2960,7 +3096,7 @@ KERNEL_IRQSTORM_OBJS_COMMON := $(KERNEL_START_OBJ) $(KERNEL_CONSOLE_OBJ) \
 
 # REAL irqstorm image: the real pit.o + the real int21.o (no mutate/seam flags).
 KERNEL_IRQSTORM_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MAIN_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PIT_OBJ)
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PIT_OBJ)
 
 $(KERNEL_IRQSTORM_ELF): $(KERNEL_IRQSTORM_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_OBJS)
@@ -3028,7 +3164,7 @@ $(KERNEL_IRQSTORM_MUTB_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/test_prog.h $(K
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_IRQSTORM_MUTB_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MUTB_MAIN_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PIT_MUT_INT21_OBJ)
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PIT_MUT_INT21_OBJ)
 
 $(KERNEL_IRQSTORM_MUTB_ELF): $(KERNEL_IRQSTORM_MUTB_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_MUTB_OBJS)
@@ -3058,7 +3194,7 @@ $(KERNEL_EXITH_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 
 KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -3099,7 +3235,7 @@ $(KERNEL_EXITH_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNE
 
 KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_MUT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_MUT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -3137,7 +3273,7 @@ $(KERNEL_SYSI_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR
 
 KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -3177,7 +3313,7 @@ $(KERNEL_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 
 KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                     $(KERNEL_INT21_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -4317,6 +4453,79 @@ test-exec: $(HARNESS_BIN) $(EXEC_IMG) $(FAT_EXEC_IMG)
 	@printf 'VERDICT   : PASS -- InitechDOS loaded a flat .COM BY NAME from a FAT12 volume and ran it (saw + AH=4Bh EXEC)\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-mcb-emu (beads initech-509.6 -- AH=48h/49h/4Ah in-emulator)
+# ---------------------------------------------------------------------------
+# Boots the -DBOOT_MEMTEST kernel and proves the memory arena end-to-end via the
+# REAL `int 0x21` trap path: AH=48h ALLOC returns a usable DOS segment (a sentinel
+# written there reads back), AH=4Ah SETBLOCK grows it, AH=49h FREE + re-ALLOC of
+# the same size returns the SAME segment. No --disk2 (kernel-context arena). The
+# mutant image (no-segbase int21.o) makes the sentinel/realloc checks fail ->
+# MEM-OK never prints -> RED (Rule 6).
+MEMTEST_NAME    := memtest_boot
+MEMTEST_SERIAL  := $(BUILD)/$(MEMTEST_NAME).serial
+MEMTEST_REPORT  := $(BUILD)/$(MEMTEST_NAME).report
+MEMTEST_MUT_NAME   := memtest_mut_boot
+MEMTEST_MUT_SERIAL := $(BUILD)/$(MEMTEST_MUT_NAME).serial
+MEMTEST_MUT_REPORT := $(BUILD)/$(MEMTEST_MUT_NAME).report
+
+.PHONY: test-mcb-emu test-mcb-emu-mutant
+test-mcb-emu: $(HARNESS_BIN) $(MEMTEST_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-mcb-emu : AH=48h/49h/4Ah over the MCB arena\n'
+	@printf '  Ref: beads initech-509.6; spec/memory_map.h; mcb.c; DOS 3.3 PRM 48h/49h/4Ah.\n'
+	@printf '  Prove the arena seam end-to-end via the REAL int 0x21 trap path.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (memtest self-test kernel)\n' "$(MEMTEST_IMG)"
+	@printf 'Expecting : MEM-A=<seg> + MEM-WROTE + MEM-GROW-OK + MEM-FREED + MEM-OK + no triple-fault\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(MEMTEST_IMG)" \
+		--name "$(MEMTEST_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(MEMTEST_REPORT)" || true
+	@cat "$(MEMTEST_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(MEMTEST_REPORT)"; then \
+		printf '!!! test-mcb-emu FAIL: TRIPLE FAULT during the arena self-test\n'; exit 1; \
+	fi
+	@printf '>>> test-mcb-emu [1/5]: no triple-fault\n'
+	@if [ ! -s "$(MEMTEST_SERIAL)" ]; then \
+		printf '!!! test-mcb-emu FAIL: no serial captured at %s\n' "$(MEMTEST_SERIAL)"; exit 1; \
+	fi
+	@if grep -q '^MEM-BAD' "$(MEMTEST_SERIAL)"; then \
+		printf '!!! test-mcb-emu FAIL: a MEM-BAD marker appeared (root-cause the arena seam, Rule 3):\n'; \
+		grep '^MEM-BAD' "$(MEMTEST_SERIAL)"; exit 1; \
+	fi
+	@tr -d '\r' < "$(MEMTEST_SERIAL)" | grep -q '^MEM-A=' \
+		|| { printf '!!! test-mcb-emu FAIL: MEM-A=<seg> missing -- AH=48h ALLOC did not return a segment\n'; exit 1; }
+	@printf '>>> test-mcb-emu [2/5]: AH=48h ALLOC returned a DOS segment\n'
+	@tr -d '\r' < "$(MEMTEST_SERIAL)" | grep -q '^MEM-WROTE$$' \
+		|| { printf '!!! test-mcb-emu FAIL: MEM-WROTE missing -- the allocated segment was not usable memory\n'; exit 1; }
+	@printf '>>> test-mcb-emu [3/5]: the allocated block is real memory (sentinel read back)\n'
+	@tr -d '\r' < "$(MEMTEST_SERIAL)" | grep -q '^MEM-GROW-OK$$' \
+		|| { printf '!!! test-mcb-emu FAIL: MEM-GROW-OK missing -- AH=4Ah SETBLOCK grow failed\n'; exit 1; }
+	@tr -d '\r' < "$(MEMTEST_SERIAL)" | grep -q '^MEM-FREED$$' \
+		|| { printf '!!! test-mcb-emu FAIL: MEM-FREED missing -- AH=49h FREE failed\n'; exit 1; }
+	@printf '>>> test-mcb-emu [4/5]: AH=4Ah SETBLOCK grew + AH=49h FREE succeeded\n'
+	@tr -d '\r' < "$(MEMTEST_SERIAL)" | grep -q '^MEM-OK$$' \
+		|| { printf '!!! test-mcb-emu FAIL: MEM-OK missing -- free+re-alloc did NOT return the same segment (the seam mis-threads the conversion)\n'; exit 1; }
+	@printf '>>> test-mcb-emu [5/5]: free + re-ALLOC of the same size returned the SAME segment\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- InitechDOS AH=48h/49h/4Ah operate on a real MCB arena via int 0x21\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+test-mcb-emu-mutant: $(HARNESS_BIN) $(MEMTEST_MUT_IMG)
+	@printf '>>> test-mcb-emu-mutant: confirming the no-segbase kernel goes RED (Rule 6)\n'
+	@$(HARNESS_BIN) --disk "$(MEMTEST_MUT_IMG)" \
+		--name "$(MEMTEST_MUT_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
+		2> "$(MEMTEST_MUT_REPORT)" || true
+	@if tr -d '\r' < "$(MEMTEST_MUT_SERIAL)" 2>/dev/null | grep -q '^MEM-OK$$'; then \
+		printf '!!! test-mcb-emu-mutant FAIL: MEM-OK present under the no-segbase mutant -- the emu gate is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-mcb-emu-mutant: green (no-segbase kernel correctly did NOT reach MEM-OK -- the gate bites)\n'; \
+	fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-fatwrite (beads initech-509.11 -- WRITE+READ round-trip on ATA)
@@ -5805,14 +6014,14 @@ TEST_UNIT_GATES := \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
-	test-mcb \
+	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-int24-mutant \
 	test-fileio-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
-	test-sft-mutant test-loader-mutant test-mcb-mutant test-config-sys-mutant test-fat-write-mutant \
+	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
@@ -5821,7 +6030,7 @@ TEST_UNIT_GATES := \
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
-	test-dir test-exec test-fatwrite test-multiopen test-exit-handles \
+	test-dir test-exec test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
 	test-sysinit test-sysinit-oversize test-shell test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-int21-irqstorm
 

@@ -883,6 +883,93 @@ void kernel_main(void)
     serial_puts("EXEC-4B-END\n");
 #endif
 
+#ifdef BOOT_MEMTEST
+    /* MEMORY ARENA self-test (beads initech-509.6; make test-mcb-emu). Only in
+     * the -DBOOT_MEMTEST image so the normal boot is unchanged. Drives the REAL
+     * `int 0x21` trap path for AH=48h ALLOC / 4Ah SETBLOCK / 49h FREE over the
+     * kernel-bound MCB arena ([PROGRAM_BASE, PROGRAM_ALLOC_END), sysinit_early),
+     * from KERNEL context (the kernel PSP owns what it allocs). Proves the seam
+     * end to end on real hardware emulation: a returned DOS segment is usable
+     * memory (write a sentinel, read it back), SETBLOCK grows it, FREE +
+     * re-ALLOC of the same size returns the SAME segment. The harness asserts
+     * MEM-A=<seg> / MEM-WROTE / MEM-GROW-OK / MEM-FREED / MEM-OK + triple_fault=0.
+     * The no-segbase mutant (test-mcb-emu-mutant) makes the read-back sentinel
+     * mismatch -> MEM-BAD -> RED, proving the gate bites. */
+    serial_puts("MEM-BEGIN\n");
+    {
+        /* AH=48h ALLOCATE 0x40 paragraphs. BX = paragraphs; AX = segment, CF=0. */
+        uint32_t ax_a = 0x4800u;   /* AH=48h */
+        uint32_t bx_a = 0x40u;     /* BX = 64 paragraphs (1 KiB) */
+        uint32_t carry_a = 0;
+        __asm__ __volatile__(
+            "int $0x21\n\t"
+            "sbb %2, %2\n\t"
+            : "+a"(ax_a), "+b"(bx_a), "=r"(carry_a)
+            : : "cc", "memory");
+        uint16_t seg_a = (uint16_t)(ax_a & 0xFFFFu);
+        if (carry_a != 0u) {
+            serial_puts("MEM-BAD alloc1 ax="); serial_putu(ax_a & 0xFFFFu);
+            serial_putc('\n');
+        } else {
+            serial_puts("MEM-A="); serial_putu(seg_a); serial_putc('\n');
+
+            /* The segment is a paragraph address: linear = seg << 4. Write a
+             * sentinel byte and read it back to prove the block is real memory. */
+            volatile uint8_t *blk = (volatile uint8_t *)((uintptr_t)seg_a << 4);
+            blk[0] = 0xA5u;
+            blk[1] = 0x5Au;
+            if (blk[0] == 0xA5u && blk[1] == 0x5Au) {
+                serial_puts("MEM-WROTE\n");
+            } else {
+                serial_puts("MEM-BAD readback\n");
+            }
+
+            /* AH=4Ah SETBLOCK grow to 0x80 paragraphs. BX = segment, CX = new
+             * size; CF=0 on success. */
+            uint32_t ax_g = 0x4A00u;
+            uint32_t bx_g = (uint32_t)seg_a;
+            uint32_t cx_g = 0x80u;
+            uint32_t carry_g = 0;
+            __asm__ __volatile__(
+                "int $0x21\n\t"
+                "sbb %3, %3\n\t"
+                : "+a"(ax_g), "+b"(bx_g), "+c"(cx_g), "=r"(carry_g)
+                : : "cc", "memory");
+            serial_puts(carry_g ? "MEM-BAD grow\n" : "MEM-GROW-OK\n");
+
+            /* AH=49h FREE the block. BX = segment; CF=0 on success. */
+            uint32_t ax_f = 0x4900u;
+            uint32_t bx_f = (uint32_t)seg_a;
+            uint32_t carry_f = 0;
+            __asm__ __volatile__(
+                "int $0x21\n\t"
+                "sbb %2, %2\n\t"
+                : "+a"(ax_f), "+b"(bx_f), "=r"(carry_f)
+                : : "cc", "memory");
+            serial_puts(carry_f ? "MEM-BAD free\n" : "MEM-FREED\n");
+
+            /* AH=48h re-ALLOCATE the SAME 0x40 paragraphs -- coalesce restored the
+             * tail, so the SAME segment must come back. */
+            uint32_t ax_b = 0x4800u;
+            uint32_t bx_b = 0x40u;
+            uint32_t carry_b = 0;
+            __asm__ __volatile__(
+                "int $0x21\n\t"
+                "sbb %2, %2\n\t"
+                : "+a"(ax_b), "+b"(bx_b), "=r"(carry_b)
+                : : "cc", "memory");
+            uint16_t seg_b = (uint16_t)(ax_b & 0xFFFFu);
+            if (carry_b == 0u && seg_b == seg_a) {
+                serial_puts("MEM-OK\n");
+            } else {
+                serial_puts("MEM-BAD realloc seg="); serial_putu(seg_b);
+                serial_putc('\n');
+            }
+        }
+    }
+    serial_puts("MEM-END\n");
+#endif
+
 #ifdef BOOT_WRITE
     /* FAT WRITE round-trip self-test (beads initech-509.11; make test-fatwrite).
      * Only in the -DBOOT_WRITE image so the normal boot is unchanged. Requires a

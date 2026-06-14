@@ -82,6 +82,42 @@ void int21_set_exit(int21_exit_fn fn);
 struct psp;
 void int21_set_psp(struct psp *psp);
 
+/* ---- MEMORY ARENA SEAM (beads initech-509.6; AH=48h/49h/4Ah) --------------
+ * The DOS memory functions (48h ALLOC / 49h FREE / 4Ah SETBLOCK) operate on an
+ * MCB chain (os/milton/mcb.c) laid over a real program-memory region. The arena
+ * itself (the buffer + its base LINEAR address, needed to convert a data
+ * paragraph index to a DOS segment) lives in the KERNEL's flat memory map
+ * (spec/memory_map.h: PROGRAM_BASE..PROGRAM_ALLOC_END), so the kernel binds it
+ * through THIS seam -- the SAME pattern as the sink/file/exec seams -- and the
+ * host oracle binds an in-memory arena. int21.c owns only the AH=48/49/4A
+ * dispatch + the data-paragraph<->DOS-segment conversion at the syscall edge.
+ *
+ * AUTHENTIC MODEL (Law 1; spec/memory_map.h; DOS 3.3 PRM AH=48h/49h/4Ah): a
+ * freshly-loaded .COM owns ONE big block -- its PSP+image+stack window, from
+ * PROGRAM_BASE up to the allocation ceiling PROGRAM_ALLOC_END (the PSP's
+ * alloc_end_seg). The loader rebinds the arena to one terminal block of the
+ * program's whole window, owned by the program's PSP, on each load
+ * (int21_mcb_reset). To get a heap a program SHRINKS its own block (4Ah
+ * SETBLOCK) to what it needs, then 48h ALLOC carves from the freed tail. This
+ * needs NO locked-spec change: the region is exactly [PROGRAM_BASE,
+ * PROGRAM_ALLOC_END), already in spec/memory_map.h.
+ *
+ *   base        : pointer to the arena buffer (paragraph-aligned)
+ *   total_paras : number of 16-byte paragraphs the arena spans
+ *   base_linear : the arena base as a flat LINEAR address; the DOS segment a
+ *                 program sees is (base_linear >> 4) + data_para.
+ *
+ * A NULL/zero-total arena (the unbound default) makes 48h/49h/4Ah return CF=1,
+ * AX=0008h (insufficient memory) -- never a fault (Rule 2). */
+void int21_set_mcb_arena(void *base, uint32_t total_paras, uint32_t base_linear);
+
+/* Lay a single terminal FREE-or-owned block over the bound arena and (re)assign
+ * its owner to the CURRENT PSP's DOS segment. The loader calls this on each
+ * program load so every program starts owning its whole window (the authentic
+ * single-big-block). With no arena bound this is a no-op. Returns 1 if an arena
+ * was (re)initialized, 0 if none is bound. */
+int int21_mcb_reset(void);
+
 /* ---- File backend (beads initech-0qh; epic initech-6qy) --------------------
  * The file-handle functions (3Dh OPEN, 3Fh READ/40h WRITE on a FILE, 4Eh/4Fh
  * FINDFIRST/FINDNEXT) need the mounted FAT12 volume -- which lives in the

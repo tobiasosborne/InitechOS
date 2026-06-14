@@ -286,6 +286,15 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * the standard predefined set psp_build just laid down. */
     int21_set_psp((struct psp *)(uintptr_t)plan.psp_addr);
 
+    /* Re-initialize the MCB memory arena (beads initech-509.6) so the freshly
+     * loaded program owns its WHOLE window [PROGRAM_BASE, PROGRAM_ALLOC_END) as
+     * one block (the authentic single-big-block a .COM owns at load). MUST run
+     * AFTER int21_set_psp above so the arena's lone block is stamped with THIS
+     * program's PSP as owner (a later child EXEC re-binds + re-resets for itself;
+     * kmain restores the kernel PSP on return). int21_mcb_reset reads the now-
+     * current PSP. With no arena bound (host loader oracle) this is a no-op. */
+    (void)int21_mcb_reset();
+
     /* --- The control transfer + return-to-loader (Sec 4; Risk 1). --- */
     loader_context_t ctx;
     ctx.exit_code  = 0;

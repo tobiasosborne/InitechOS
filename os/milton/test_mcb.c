@@ -262,5 +262,62 @@ int main(void)
         free(a.base);
     }
 
+    /* ---- mcb_set_arena_owner: claim the whole window for a PSP (the authentic
+     *      "a freshly-loaded program owns its window"); the INT 21h loader uses
+     *      this. Only valid on a pristine single terminal block. ------------- */
+    {
+        mcb_arena_t a; arena_make(&a, 64);
+        CHECK(mcb_set_arena_owner(&a, 0x3000u) == 1,
+              "set_arena_owner claims a pristine single 'Z' block");
+        CHECK(H(&a, 0)->owner == 0x3000u, "the lone block now belongs to 0x3000");
+        CHECK(H(&a, 0)->signature == MCB_SIG_TERMINAL,
+              "claiming does not disturb the 'Z' signature");
+        /* SETBLOCK-shrinking the owned block to data para 1 frees a tail, so the
+         * arena is no longer a single 'Z' block; a second wholesale claim must be
+         * REFUSED (so it can never mis-own a fragmented chain). data_para for the
+         * lone block is 1 (header at paragraph 0). */
+        CHECK(mcb_setblock(&a, 1u, 8u, 0x3000u, 0) == MCB_OK,
+              "shrink the owned block, freeing a tail");
+        CHECK(mcb_set_arena_owner(&a, 0x9999u) == 0,
+              "set_arena_owner refuses a fragmented (non-single-block) arena");
+        free(a.base);
+    }
+
+    /* ---- mcb_free_owner: terminate-time reclaim of every block a PSP owns
+     *      (real DOS frees a process's memory on exit). ---------------------- */
+    {
+        mcb_arena_t a; arena_make(&a, 256);
+        uint32_t p1, p2, p3;
+        /* Two owners interleaved so the freed blocks are NOT all adjacent. */
+        CHECK(mcb_alloc(&a, 0xAAAAu, 10, &p1, 0) == MCB_OK, "owner A block 1");
+        CHECK(mcb_alloc(&a, 0xBBBBu, 10, &p2, 0) == MCB_OK, "owner B block");
+        CHECK(mcb_alloc(&a, 0xAAAAu, 10, &p3, 0) == MCB_OK, "owner A block 2");
+        CHECK(mcb_chain_intact(&a), "chain intact after three allocs");
+
+        uint32_t freed = mcb_free_owner(&a, 0xAAAAu);
+        CHECK(freed == 2u, "free_owner frees exactly owner A's two blocks");
+        CHECK(mcb_chain_intact(&a), "chain intact after free_owner");
+        /* Owner B's block must SURVIVE untouched. */
+        {
+            int found_b = 0;
+            uint32_t para = 0u;
+            for (;;) {
+                mcb_t *h = H(&a, para);
+                if (h->owner == 0xBBBBu) found_b = 1;
+                if (h->owner == 0xAAAAu) { CHECK(0, "no owner-A block survives free_owner"); }
+                if (h->signature == MCB_SIG_TERMINAL) break;
+                para += 1u + h->size_paras;
+            }
+            CHECK(found_b == 1, "owner B's block is untouched by free_owner(A)");
+        }
+        /* Freeing a non-existent owner reports zero and changes nothing. */
+        CHECK(mcb_free_owner(&a, 0xCCCCu) == 0u, "free_owner of an absent owner -> 0");
+        /* Now free B too: the arena must coalesce back to one terminal block. */
+        CHECK(mcb_free_owner(&a, 0xBBBBu) == 1u, "free_owner frees owner B's block");
+        int nb, nt; uint32_t fd, ud; survey(&a, &nb, &fd, &ud, &nt);
+        CHECK(nb == 1 && nt == 1, "free_owner-all coalesces to one terminal block");
+        free(a.base);
+    }
+
     return TEST_SUMMARY("test_mcb");
 }

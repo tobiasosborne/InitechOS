@@ -20,6 +20,8 @@
 #include "sft.h"
 #include "config_sys.h"
 #include "fat12.h"
+#include "int21.h"        /* int21_set_mcb_arena (the AH=48/49/4A seam; 509.6) */
+#include "memory_map.h"   /* PROGRAM_BASE / PROGRAM_ALLOC_END (the arena region) */
 
 /* The interrupt/IRQ stub entrypoints (isr.asm) -- the SAME externs kmain.c uses.
  * Naming them here keeps the gate-install order self-contained in the phase. */
@@ -102,6 +104,18 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
         (void)psp_build(kernel_psp, &kp);
     }
     int21_set_psp(kernel_psp);
+
+    /* Bind the MCB memory arena behind AH=48h/49h/4Ah (beads initech-509.6) over
+     * the LOCKED program-memory region [PROGRAM_BASE, PROGRAM_ALLOC_END)
+     * (spec/memory_map.h). The arena's flat base IS PROGRAM_BASE, so the DOS
+     * segment a program sees == (PROGRAM_BASE >> 4) + data_para -- exactly the
+     * paragraph addressing real DOS uses. total_paras = the whole 256 KiB window
+     * / 16. The loader re-initializes this per program load (int21_mcb_reset) so
+     * each program owns its whole window (the authentic single-big-block). NO
+     * locked-spec change: the region is already PROGRAM_BASE..PROGRAM_ALLOC_END. */
+    int21_set_mcb_arena((void *)(uintptr_t)PROGRAM_BASE,
+                        (PROGRAM_ALLOC_END - PROGRAM_BASE) / 16u,
+                        PROGRAM_BASE);
 
     idt_install_trap(0x21u, (void *)int21_entry);
     idt_install_trap(0x20u, (void *)int20_entry);

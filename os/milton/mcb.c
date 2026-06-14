@@ -11,6 +11,10 @@
 
 #define MCB_PARA 16u   /* bytes per paragraph */
 
+/* Forward declaration: mcb_set_arena_owner / mcb_free_owner (defined below the
+ * header helpers) coalesce on completion; the coalescer is defined further down. */
+static void mcb_coalesce(mcb_arena_t *a);
+
 static mcb_t *mcb_hdr(const mcb_arena_t *a, uint32_t para)
 {
     return (mcb_t *)(a->base + (uintptr_t)para * MCB_PARA);
@@ -39,6 +43,54 @@ void mcb_init(mcb_arena_t *a, void *base, uint32_t total_paras)
     h->owner      = MCB_OWNER_FREE;
     h->size_paras = (uint16_t)(total_paras - 1u);
     mcb_zero_reserved(h);
+}
+
+int mcb_set_arena_owner(mcb_arena_t *a, uint16_t owner)
+{
+    if (a->total_paras == 0u) {
+        return 0;
+    }
+    mcb_t *h = mcb_hdr(a, 0u);
+    /* Only a pristine single terminal block (one 'Z' spanning the whole arena)
+     * may be wholesale-claimed: signature 'Z' AND span == total. This is exactly
+     * the post-mcb_init state. Refuse on any other shape so a fragmented or
+     * mid-chain arena can never be silently re-owned. */
+    if (h->signature != MCB_SIG_TERMINAL) {
+        return 0;
+    }
+    if (1u + (uint32_t)h->size_paras != a->total_paras) {
+        return 0;
+    }
+    h->owner = owner;
+    return 1;
+}
+
+uint32_t mcb_free_owner(mcb_arena_t *a, uint16_t owner)
+{
+    if (owner == MCB_OWNER_FREE) {
+        return 0u;                                      /* nonsensical request   */
+    }
+    if (!mcb_chain_intact(a)) {
+        return 0u;                                      /* corrupt -> no-op       */
+    }
+    uint32_t freed = 0u;
+    uint32_t para = 0u;
+    for (;;) {
+        mcb_t *h = mcb_hdr(a, para);
+        uint8_t term = (h->signature == MCB_SIG_TERMINAL);
+        if (h->owner == owner) {
+            h->owner = MCB_OWNER_FREE;
+            freed++;
+        }
+        if (term) {
+            break;
+        }
+        para += 1u + h->size_paras;
+    }
+    if (freed != 0u) {
+        mcb_coalesce(a);
+    }
+    return freed;
 }
 
 int mcb_chain_intact(const mcb_arena_t *a)

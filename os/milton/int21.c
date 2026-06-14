@@ -20,6 +20,7 @@
 
 #include "int21.h"
 #include "sft.h"        /* JFT->SFT handle layer (beads initech-509.3); pulls psp.h */
+#include "mcb.h"        /* MCB arena allocator behind AH=48h/49h/4Ah (initech-509.6) */
 #include "dos_structs.h" /* exec_param_block_t (AH=4Bh EBX block; initech-456)      */
 #include "find_data.h"  /* find_data_t (43-byte DTA block, LOCKED; spec/) */
 #include "irq.h"        /* in-IRQ depth + reentrancy guard (beads initech-xk2) */
@@ -80,6 +81,19 @@ static int21_exec_fn g_exec = 0;
  * concern (DOS clears it once read, but we keep the simpler "last value" model
  * this milestone -- the shell reads it once right after EXEC). */
 static uint8_t g_last_child_rc = 0;
+
+/* The MCB memory arena behind AH=48h/49h/4Ah (beads initech-509.6). g_arena
+ * walks the kernel's program-memory region (PROGRAM_BASE..PROGRAM_ALLOC_END,
+ * spec/memory_map.h); g_arena_base_linear is that region's flat base so a
+ * returned data-paragraph index converts to a DOS segment as
+ * (g_arena_base_linear >> 4) + data_para. g_arena_bound gates the seam: until
+ * the kernel (or host oracle) binds an arena, 48h/49h/4Ah report insufficient
+ * memory rather than fault (Rule 2). The arena is bound once at SYSINIT and
+ * RE-INITIALIZED per program load (int21_mcb_reset) so each program starts
+ * owning its whole window -- the authentic single-big-block. */
+static mcb_arena_t g_arena;
+static uint32_t    g_arena_base_linear = 0u;
+static int         g_arena_bound       = 0;
 
 /* The current Disk Transfer Area (flat ptr). FINDFIRST/FINDNEXT write the
  * 43-byte find_data_t here. Defaults to the current PSP's command-tail field
@@ -142,6 +156,55 @@ void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
 void int21_set_psp(struct psp *psp)     { g_cur_psp = (psp_t *)psp; }
 void int21_set_file_backend(const int21_file_backend_t *backend) { g_file = backend; }
 void int21_set_exec_backend(int21_exec_fn fn) { g_exec = fn; }
+
+/* ---- MCB arena seam (beads initech-509.6; AH=48h/49h/4Ah) ----
+ * Bind the arena buffer + its flat base address. base==NULL or total_paras<2
+ * (no room for a header + at least one data paragraph) leaves the arena UNBOUND
+ * so the memory functions report insufficient-memory rather than fault (Rule 2).
+ * Lays the initial single terminal FREE block (mcb_init); int21_mcb_reset then
+ * (re)assigns the owner to the current PSP on each program load. */
+void int21_set_mcb_arena(void *base, uint32_t total_paras, uint32_t base_linear)
+{
+    if (base == 0 || total_paras < 2u) {
+        g_arena.base        = 0;
+        g_arena.total_paras = 0u;
+        g_arena_base_linear = 0u;
+        g_arena_bound       = 0;
+        return;
+    }
+    mcb_init(&g_arena, base, total_paras);
+    g_arena_base_linear = base_linear;
+    g_arena_bound       = 1;
+}
+
+/* The current PSP as a DOS owner id = its fake-paragraph segment (linear >> 4),
+ * the SAME value AH=62h GET PSP returns in BX. Never MCB_OWNER_FREE(0) for a
+ * live PSP (PROGRAM_BASE >> 4 != 0); with no PSP bound, 0 -- but the handlers
+ * gate on g_cur_psp before allocating, so a 0 owner never reaches the arena. */
+static uint16_t cur_psp_owner(void)
+{
+    if (g_cur_psp == 0) {
+        return 0u;
+    }
+    return (uint16_t)(((uintptr_t)g_cur_psp >> 4) & 0xFFFFu);
+}
+
+int int21_mcb_reset(void)
+{
+    if (!g_arena_bound) {
+        return 0;
+    }
+    /* Re-lay one terminal block over the whole arena, then hand the whole window
+     * to the current program (the authentic single-big-block a .COM owns at
+     * load). A program that wants a heap shrinks this block (4Ah) then allocs
+     * from the freed tail (48h). If no PSP is bound yet, leave it FREE. */
+    mcb_init(&g_arena, g_arena.base, g_arena.total_paras);
+    uint16_t owner = cur_psp_owner();
+    if (owner != MCB_OWNER_FREE) {
+        (void)mcb_set_arena_owner(&g_arena, owner);
+    }
+    return 1;
+}
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
 {
     g_conin_get  = get;
@@ -1497,6 +1560,150 @@ static void do_get_return_code(int_frame_t *f)
     cf_clear(f);
 }
 
+/* ===========================================================================
+ * MEMORY ARENA: AH=48h ALLOC / AH=49h FREE / AH=4Ah SETBLOCK (initech-509.6).
+ *
+ * The handlers convert at the syscall edge between a DOS SEGMENT (paragraph
+ * address, the value GET PSP/alloc_end_seg use) and the arena-relative DATA
+ * PARAGRAPH index the pure allocator (mcb.c) speaks, then call into g_arena.
+ *
+ *   segment(data_para) = (g_arena_base_linear >> 4) + data_para
+ *   data_para(segment) = segment - (g_arena_base_linear >> 4)
+ *
+ * FLAT-MODE REGISTER ABI (Law 1; DOS 3.3 PRM AH=48h/49h/4Ah, adapted): real DOS
+ * passes the block SEGMENT in ES. In this 32-bit PROTECTED-flat kernel ES is a
+ * GDT SELECTOR (the trap stub captured the caller's ES, which for a flat program
+ * is DATA_SEL=0x10 -- loading a DOS fake-paragraph into ES would #GP), so a DOS
+ * segment cannot ride ES. We carry it in a GP register, mirroring AH=62h GET PSP
+ * (segment -> BX) and the loader (PSP pointer -> EBX):
+ *   48h ALLOC   : BX = paragraphs wanted      -> AX = segment (CF=0);
+ *                 on fail AX=0008h, BX = largest free paras (CF=1).
+ *   49h FREE    : BX = segment to free        -> CF=0; on fail AX=err (CF=1).
+ *   4Ah SETBLOCK: BX = segment, CX = new paras-> CF=0; on fail AX=0008h,
+ *                 BX = max paras this block could reach (CF=1).
+ * (4Ah uses CX for the new size because BX already carries the segment; real DOS
+ * has ES free for the segment, we do not.) This is NOT a change to a locked spec
+ * (spec/int21h_calling_convention.json does not yet list 48/49/4A); it is the
+ * flat adaptation documented here + in the bead.
+ *
+ * The MCB error codes (mcb.h) map 1:1 onto DOS INT 21h errors:
+ *   MCB_ERR_INSUFFICIENT 0x0008  -> AX=0x0008  (insufficient memory)
+ *   MCB_ERR_DESTROYED    0x0007  -> AX=0x0007  (MCB chain destroyed)
+ *   MCB_ERR_BAD_BLOCK    0x0009  -> AX=0x0009  (invalid memory block address)
+ * so the handler returns the raw mcb status as AX on failure.
+ * Ref: spec/memory_map.h (the arena region), mcb.h/mcb.c (the allocator),
+ *      DOS 3.3 PRM. ===========================================================*/
+
+/* DOS-segment base of the arena (paragraphs). data_para 0's segment + 1 == the
+ * first data paragraph's segment, etc. */
+static uint32_t arena_seg_base(void)
+{
+    return (g_arena_base_linear >> 4) & 0xFFFFu;
+}
+
+/* AH=48h ALLOCATE MEMORY: BX = paragraphs requested. On success AX = the DOS
+ * segment of the allocated block, CF=0. On failure CF=1, AX=0x0008, BX = the
+ * largest free block (paragraphs) so the caller can retry smaller (DOS contract).
+ * Owner = the current PSP (a process must exist to own memory). */
+static void do_alloc(int_frame_t *f)
+{
+    uint16_t want = (uint16_t)(f->ebx & 0xFFFFu);
+
+    /* No arena bound, or no owning process -> nothing can be allocated. Report
+     * insufficient memory with largest=0 (Rule 2: never fault, never silent). */
+    if (!g_arena_bound || g_cur_psp == 0) {
+        set_ax(f, INT21_ERR_INSUFFICIENT_MEM);
+        set_bx(f, 0u);
+        cf_set(f);
+        return;
+    }
+
+    uint32_t data_para = 0u, largest = 0u;
+    uint16_t rc = mcb_alloc(&g_arena, cur_psp_owner(), (uint32_t)want,
+                            &data_para, &largest);
+    if (rc != MCB_OK) {
+        set_ax(f, rc);                  /* 0x0008 insufficient / 0x0007 destroyed */
+        set_bx(f, (uint16_t)(largest & 0xFFFFu));
+        cf_set(f);
+        return;
+    }
+#ifdef INT21_MUTATE_ALLOC_NO_SEGBASE
+    /* MUTANT (Rule 6; make test-mcb-int21-mutant only): drop the arena segment
+     * base from the conversion, returning a bare data-paragraph index as the
+     * "segment". A subsequent 49h FREE of that wrong segment then maps to a
+     * different data_para and is rejected (or, with FREE using the same broken
+     * map, the alloc/free round-trip oracle's exact-segment assertion goes RED).
+     * NEVER define in a real build. */
+    set_ax(f, (uint16_t)(data_para & 0xFFFFu));
+#else
+    set_ax(f, (uint16_t)((arena_seg_base() + data_para) & 0xFFFFu));
+#endif
+    cf_clear(f);
+}
+
+/* AH=49h FREE ALLOCATED MEMORY: BX = the DOS segment of the block to free. CF=0
+ * on success; CF=1, AX=err on a bad block / owner mismatch / corrupt chain. Only
+ * the owning PSP may free its block (MCB owner check). */
+static void do_free(int_frame_t *f)
+{
+    uint16_t seg = (uint16_t)(f->ebx & 0xFFFFu);
+
+    if (!g_arena_bound || g_cur_psp == 0) {
+        set_ax(f, INT21_ERR_INVALID_MEMORY);   /* 0x0009 invalid block address */
+        cf_set(f);
+        return;
+    }
+    uint32_t base = arena_seg_base();
+    if ((uint32_t)seg < base) {
+        set_ax(f, INT21_ERR_INVALID_MEMORY);   /* segment below the arena */
+        cf_set(f);
+        return;
+    }
+    uint32_t data_para = (uint32_t)seg - base;
+    uint16_t rc = mcb_free(&g_arena, data_para, cur_psp_owner());
+    if (rc != MCB_OK) {
+        set_ax(f, rc);                          /* 0x0009 bad block / 0x0007 */
+        cf_set(f);
+        return;
+    }
+    cf_clear(f);
+}
+
+/* AH=4Ah SETBLOCK (resize): BX = the DOS segment, CX = new paragraph count. CF=0
+ * on success; on failure CF=1, AX=0x0008, BX = the largest size this block could
+ * grow to (DOS contract). Only the owning PSP may resize its block. */
+static void do_setblock(int_frame_t *f)
+{
+    uint16_t seg  = (uint16_t)(f->ebx & 0xFFFFu);
+    uint16_t want = frame_cx(f);
+
+    if (!g_arena_bound || g_cur_psp == 0) {
+        set_ax(f, INT21_ERR_INSUFFICIENT_MEM);
+        set_bx(f, 0u);
+        cf_set(f);
+        return;
+    }
+    uint32_t base = arena_seg_base();
+    if ((uint32_t)seg < base) {
+        set_ax(f, INT21_ERR_INVALID_MEMORY);
+        cf_set(f);
+        return;
+    }
+    uint32_t data_para = (uint32_t)seg - base;
+    uint32_t largest   = 0u;
+    uint16_t rc = mcb_setblock(&g_arena, data_para, (uint32_t)want,
+                               cur_psp_owner(), &largest);
+    if (rc != MCB_OK) {
+        set_ax(f, rc);                          /* 0x0008 / 0x0009 / 0x0007 */
+        if (rc == MCB_ERR_INSUFFICIENT) {
+            set_bx(f, (uint16_t)(largest & 0xFFFFu));
+        }
+        cf_set(f);
+        return;
+    }
+    cf_clear(f);
+}
+
 /* AH=30h GET VERSION: AL=major(3), AH=minor(30=0x1E), BH=0 (OEM). CF clear.
  * Version 3.30 (ADR-0003 DEC-12 / spec/dos_banner.txt). */
 static void do_getver(int_frame_t *f)
@@ -1528,6 +1735,17 @@ static void do_terminate(int_frame_t *f, uint8_t code)
      * on a corrupt JFT (Rule 2). MUST run BEFORE g_exit (which does not return in
      * the kernel build -- it long-jumps back to the loader). */
     sft_close_process(g_cur_psp);
+
+    /* Reclaim the exiting process's MEMORY (beads initech-509.6), symmetric with
+     * the JFT handle close above: real DOS frees ALL arena blocks owned by a
+     * terminating PSP on exit. Without this, a child that ALLOCs and exits
+     * without FREEing leaks its blocks -- and the next program (or kernel-context
+     * code) cannot reclaim the window. Only the terminating PSP's blocks are
+     * freed (owner-scoped); the kernel restores its own PSP + may re-init the
+     * arena afterward. Skipped if no PSP/arena is bound (host default). */
+    if (g_arena_bound && g_cur_psp != 0) {
+        (void)mcb_free_owner(&g_arena, cur_psp_owner());
+    }
 
     if (g_exit) {
         g_exit(code);
@@ -1967,6 +2185,15 @@ static void int21_dispatch_body(int_frame_t *frame)
             return;
         case 0x46:                       /* DUP2 (force-duplicate handle) */
             do_dup2(frame);
+            return;
+        case 0x48:                       /* ALLOCATE MEMORY (MCB arena) */
+            do_alloc(frame);
+            return;
+        case 0x49:                       /* FREE ALLOCATED MEMORY */
+            do_free(frame);
+            return;
+        case 0x4A:                       /* SETBLOCK (resize allocation) */
+            do_setblock(frame);
             return;
         case 0x4E:                       /* FINDFIRST */
             do_findfirst(frame);
