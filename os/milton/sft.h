@@ -99,7 +99,9 @@ typedef struct sft_entry {
     /* --- FILE state (valid when kind == SFT_KIND_FILE; set by OPEN/CREAT) --- */
     dir_entry_t  dir_entry;     /* copy of the 32-byte FAT dir entry at open   */
     uint32_t     file_offset;   /* current byte offset (READ/WRITE/LSEEK move) */
-    uint32_t     root_slot;     /* root-dir entry index (backend write-back)   */
+    uint32_t     root_slot;     /* dir-entry slot index (backend write-back)   */
+    uint16_t     dir_start;     /* containing dir's first cluster (0 == root;  */
+                                /* beads initech-zs24 subdir WRITE write-back) */
 } sft_entry_t;
 
 /* The kernel-global System File Table. Zero-initialised by the C runtime

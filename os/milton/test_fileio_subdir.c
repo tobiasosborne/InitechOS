@@ -99,6 +99,103 @@ static long read_whole_file(const char *path, uint8_t *buf, long cap)
     return n;
 }
 
+/* ---- subdir WRITE-side driver (beads initech-zs24) ------------------------
+ * Drive INT 21h CREATE / WRITE / LSEEK+WRITE / UNLINK of a file INSIDE a
+ * SUBDIRECTORY through the REAL FAT12 backend over a READ-WRITE image, so the
+ * Makefile can diff the on-disk result with mtools (mcopy/mdir) + the python3
+ * reference (fat12_ref.py --cat-path). This is the load-bearing zs24 oracle:
+ * the file must land in \SUB (not the root), with the EXACT bytes, addressable
+ * via the subdir cluster chain. */
+
+/* AH=3Ch CREAT `path`; AH=40h WRITE `data`; AH=3Eh CLOSE. Returns the handle's
+ * write count (or -1 on any failure). */
+static long creat_write_close(const char *path, const uint8_t *data, uint32_t n)
+{
+    uint32_t edx = low_dup(path);
+    if (edx == 0u) {
+        return -1;
+    }
+    int_frame_t c = fresh_frame();
+    c.eax = 0x3C00u; c.ecx = 0u; c.edx = edx; c.eflags |= CF_BIT;
+    int21_dispatch(&c);
+    if (frame_cf(&c) != 0) {
+        return -1;   /* CREAT failed (e.g. a kept root-only guard mutant) */
+    }
+    uint16_t handle = (uint16_t)(c.eax & 0xFFFFu);
+
+    uint8_t *wb = (uint8_t *)(uintptr_t)alloc_low(n ? n : 1u);
+    if (wb == NULL) {
+        return -1;
+    }
+    memcpy(wb, data, n);
+    int_frame_t w = fresh_frame();
+    w.eax = 0x4000u; w.ebx = handle; w.ecx = n;
+    w.edx = (uint32_t)(uintptr_t)wb;
+    int21_dispatch(&w);
+    long wrote = (frame_cf(&w) == 0) ? (long)(w.eax & 0xFFFFFFFFu) : -1;
+
+    int_frame_t cl = fresh_frame();
+    cl.eax = 0x3E00u; cl.ebx = handle;
+    int21_dispatch(&cl);
+    return wrote;
+}
+
+/* AH=3Dh OPEN `path` RDWR; AH=42h LSEEK to `pos`; AH=40h WRITE `data`; CLOSE.
+ * Returns the write count (or -1 on failure). The positioned write into an
+ * existing subdir file. */
+static long open_seek_write_close(const char *path, uint32_t pos,
+                                  const uint8_t *data, uint32_t n)
+{
+    uint32_t edx = low_dup(path);
+    if (edx == 0u) {
+        return -1;
+    }
+    int_frame_t o = fresh_frame();
+    o.eax = 0x3D02u; o.edx = edx; o.eflags |= CF_BIT;   /* AL=2 RDWR */
+    int21_dispatch(&o);
+    if (frame_cf(&o) != 0) {
+        return -1;
+    }
+    uint16_t handle = (uint16_t)(o.eax & 0xFFFFu);
+
+    int_frame_t s = fresh_frame();
+    s.eax = 0x4200u; s.ebx = handle;              /* AL=0 from start */
+    s.ecx = 0u; s.edx = pos;
+    int21_dispatch(&s);
+    if (frame_cf(&s) != 0) {
+        return -1;
+    }
+
+    uint8_t *wb = (uint8_t *)(uintptr_t)alloc_low(n ? n : 1u);
+    if (wb == NULL) {
+        return -1;
+    }
+    memcpy(wb, data, n);
+    int_frame_t w = fresh_frame();
+    w.eax = 0x4000u; w.ebx = handle; w.ecx = n;
+    w.edx = (uint32_t)(uintptr_t)wb;
+    int21_dispatch(&w);
+    long wrote = (frame_cf(&w) == 0) ? (long)(w.eax & 0xFFFFFFFFu) : -1;
+
+    int_frame_t cl = fresh_frame();
+    cl.eax = 0x3E00u; cl.ebx = handle;
+    int21_dispatch(&cl);
+    return wrote;
+}
+
+/* AH=41h UNLINK `path`. Returns 0 on success, -1 on CF. */
+static int unlink_path(const char *path)
+{
+    uint32_t edx = low_dup(path);
+    if (edx == 0u) {
+        return -1;
+    }
+    int_frame_t u = fresh_frame();
+    u.eax = 0x4100u; u.edx = edx; u.eflags |= CF_BIT;
+    int21_dispatch(&u);
+    return (frame_cf(&u) == 0) ? 0 : -1;
+}
+
 /* Bind a standard process so the handle functions have a valid JFT/SFT. */
 static psp_t g_test_psp;
 static void bind_standard_process(void)
@@ -176,7 +273,10 @@ int main(int argc, char **argv)
     int             rc;
 
     if (argc < 3) {
-        fprintf(stderr, "usage: %s <fat12-nested-image> <fixture-dir>\n", argv[0]);
+        fprintf(stderr,
+                "usage: %s <fat12-nested-image> <fixture-dir>\n"
+                "       %s <rw-image> <fixture-dir> --write <op>\n",
+                argv[0], argv[0]);
         return 2;
     }
     img    = argv[1];
@@ -184,6 +284,117 @@ int main(int argc, char **argv)
     snprintf(nested_path, sizeof(nested_path), "%s/nested.txt", fixdir);
     snprintf(deep_path,   sizeof(deep_path),   "%s/deep.txt",   fixdir);
     snprintf(hello_path,  sizeof(hello_path),  "%s/hello.txt",  fixdir);
+
+    /* ---- WRITE mode (beads initech-zs24): drive a subdir CREATE/WRITE/UNLINK
+     * over a READ-WRITE image, then exit so the Makefile diffs the on-disk
+     * result with mtools + python3. The op selects which side-effect to apply;
+     * the harness here only PERFORMS the INT 21h calls + sanity-checks the
+     * register returns (the byte-exact ground truth is the external diff). */
+    if (argc >= 5 && strcmp(argv[3], "--write") == 0) {
+        const char *op = argv[4];
+        static blockdev_file_t   wbf;
+        static fat12_volume_t    wvol;
+        uint8_t                  wsec[512];
+
+        int21_set_sink(sink_capture);
+        bind_standard_process();
+
+        rc = blockdev_file_open_rw(&wbf, img);
+        CHECK(rc == 0, "blockdev_file_open_rw should succeed on the rw image");
+        if (rc != 0) {
+            return TEST_SUMMARY("test_fileio_subdir");
+        }
+        rc = fat12_mount(&wvol, &wbf.dev, wsec);
+        CHECK(rc == FAT12_OK, "fat12_mount (rw) should succeed");
+        if (rc != FAT12_OK) {
+            blockdev_file_close(&wbf);
+            return TEST_SUMMARY("test_fileio_subdir");
+        }
+        rc = fileio_fat_bind(&wvol);
+        CHECK(rc == 0, "fileio_fat_bind (rw) should bind");
+        if (rc != 0) {
+            blockdev_file_close(&wbf);
+            return TEST_SUMMARY("test_fileio_subdir");
+        }
+
+        if (strcmp(op, "create-write") == 0) {
+            /* CREATE+WRITE '\SUB\NEW.TXT' with a content that spans into a 2nd
+             * cluster (> 512 bytes) so the subdir-file CHAIN is exercised, not
+             * just a single cluster. */
+            static uint8_t payload[700];
+            for (uint32_t i = 0u; i < sizeof(payload); i++) {
+                payload[i] = (uint8_t)('A' + (i % 26u));
+            }
+            long w = creat_write_close("\\SUB\\NEW.TXT", payload,
+                                       (uint32_t)sizeof(payload));
+            CHECK(w == (long)sizeof(payload),
+                  "zs24: CREATE+WRITE '\\SUB\\NEW.TXT' writes all bytes");
+        } else if (strcmp(op, "seek-write") == 0) {
+            /* POSITIONED write: OPEN the just-created '\SUB\NEW.TXT', LSEEK to
+             * byte 600, overwrite 50 bytes (spanning the cluster the seek lands
+             * in), CLOSE. The Makefile diffs the whole file content after. */
+            static uint8_t patch[50];
+            for (uint32_t i = 0u; i < sizeof(patch); i++) {
+                patch[i] = (uint8_t)('0' + (i % 10u));
+            }
+            long w = open_seek_write_close("\\SUB\\NEW.TXT", 600u, patch,
+                                           (uint32_t)sizeof(patch));
+            CHECK(w == (long)sizeof(patch),
+                  "zs24: LSEEK+WRITE into '\\SUB\\NEW.TXT' writes all bytes");
+        } else if (strcmp(op, "grow") == 0) {
+            /* DIRECTORY GROW (beads initech-zs24; Fix 1): \SUB starts with
+             * '.'/'..'/NESTED.TXT/DEEP = 4 entries (slots 0..3). On the floppy
+             * geometry (spc==1 => 16 entries/cluster) slots 4..15 fill the FIRST
+             * cluster, so creating GROW00..GROW11 (12 files) lands in slots 4..15
+             * and GROW12 (the 13th) crosses into slot 16 -- the FIRST slot of a
+             * SECOND cluster, which does not exist yet, so fat12_create must call
+             * fat12_grow_dir to APPEND a cluster. Each file gets a DISTINCT,
+             * deterministic payload so the Makefile can read GROW12 back byte-exact
+             * from the GROWN cluster (proving the FAT relink + slot mapping +
+             * zero-fill). 13 files, GROW12 is the boundary-crossing file. */
+            int i;
+            int ok = 1;
+            char path[32];
+            uint8_t payload[40];
+            for (i = 0; i <= 12; i++) {
+                uint32_t j;
+                snprintf(path, sizeof(path), "\\SUB\\GROW%02d.TXT", i);
+                /* Distinct content: every byte is ('A' + i) so file i is a
+                 * constant run unique to its index; GROW12 reads back as 40 'M's
+                 * ('A'+12). */
+                for (j = 0u; j < sizeof(payload); j++) {
+                    payload[j] = (uint8_t)('A' + i);
+                }
+                long w = creat_write_close(path, payload, (uint32_t)sizeof(payload));
+                if (w != (long)sizeof(payload)) {
+                    ok = 0;
+                }
+            }
+            CHECK(ok == 1,
+                  "zs24 GROW: CREATE+WRITE GROW00..GROW12 in '\\SUB' all write "
+                  "their bytes (GROW12 forces a directory grow into a 2nd cluster)");
+        } else if (strcmp(op, "unlink") == 0) {
+            int u = unlink_path("\\SUB\\NEW.TXT");
+            CHECK(u == 0, "zs24: UNLINK '\\SUB\\NEW.TXT' clears CF");
+        } else if (strcmp(op, "root-regress") == 0) {
+            /* A ROOT CREATE+WRITE+UNLINK still works (dir_start==0 path stays
+             * functional under the generalized primitives). */
+            static uint8_t rp[300];
+            for (uint32_t i = 0u; i < sizeof(rp); i++) {
+                rp[i] = (uint8_t)('a' + (i % 26u));
+            }
+            long w = creat_write_close("\\ROOTNEW.TXT", rp, (uint32_t)sizeof(rp));
+            CHECK(w == (long)sizeof(rp),
+                  "zs24: ROOT CREATE+WRITE '\\ROOTNEW.TXT' still works");
+        } else {
+            fprintf(stderr, "test_fileio_subdir --write: unknown op '%s'\n", op);
+            blockdev_file_close(&wbf);
+            return 2;
+        }
+
+        blockdev_file_close(&wbf);
+        return TEST_SUMMARY("test_fileio_subdir");
+    }
 
     int21_set_sink(sink_capture);
     bind_standard_process();

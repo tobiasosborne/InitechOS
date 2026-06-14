@@ -79,82 +79,32 @@ static uint8_t  g_sector[BLOCKDEV_SECTOR_SIZE];
 static uint8_t  g_cluster[BLOCKDEV_SECTOR_SIZE];
 
 /* ------------------------------------------------------------------------ *
- * Subdirectory leaf lookup (beads initech-mzxa; ti8 Layer 2).
- * fat12_find_slot is root-only (it returns the root-dir slot for write-back).
- * For a file inside a SUBDIRECTORY (dir_start != 0) we enumerate the subdir
- * cluster chain via fat12_read_dir (Layer 1) and match the bare 8.3 `name83`
- * case-insensitively. A subdir-located file has no root-dir slot, so out_slot
- * is set to 0 (write-back into a subdir is a write-side concern, out of this
- * READ-side scope; write_at is root-slot based -- a follow-up bead).
+ * Directory leaf lookup (beads initech-mzxa READ side; initech-zs24 WRITE side).
+ * fat12_find_slot_in locates the bare 8.3 `name83` in the directory whose first
+ * data cluster is `dir_start` (0 == the fixed root) and returns BOTH the matched
+ * entry AND its dir-entry slot WITHIN that directory -- the root-dir-region index
+ * for the root, the linear cluster-chain index for a subdir. The slot is what a
+ * later positioned write_at() / refresh uses to write-back the entry in place, so
+ * a subdir file is now fully WRITE-addressable (initech-zs24 lifted the READ-only
+ * out_slot==0 restriction). dir_start==0 keeps the root path byte-identical.
  * ------------------------------------------------------------------------ */
-typedef struct {
-    const char *want;       /* the bare 8.3 leaf, e.g. "NESTED.TXT"        */
-    dir_entry_t out;        /* the matched entry (valid when found==1)     */
-    int         found;      /* 1 once the name matches                     */
-} subdir_find_cookie_t;
-
-/* Case-insensitive ASCII 8.3 compare of a formatted name against `want`. */
-static int name83_ieq(const char *a, const char *b)
-{
-    while (*a && *b) {
-        char ca = *a, cb = *b;
-        if (ca >= 'a' && ca <= 'z') ca = (char)(ca - 32);
-        if (cb >= 'a' && cb <= 'z') cb = (char)(cb - 32);
-        if (ca != cb) return 0;
-        a++; b++;
-    }
-    return *a == '\0' && *b == '\0';
-}
-
-static int subdir_find_cb(const dir_entry_t *e, void *user)
-{
-    subdir_find_cookie_t *c = (subdir_find_cookie_t *)user;
-    char name[FAT12_NAME83_MAX];
-    fat12_format_83(e, name);
-    if (name83_ieq(name, c->want)) {
-        c->out   = *e;       /* struct copy (the entry lives in g_sector) */
-        c->found = 1;
-        return 1;            /* stop enumeration early */
-    }
-    return 0;
-}
 
 /* Locate the bare 8.3 `name83` inside the directory whose first data cluster is
- * `dir_start` (0 == the fixed root). For the root, fat12_find_slot also yields
- * the root-dir slot (for write-back); for a subdir, fat12_read_dir enumerates
- * the chain and out_slot is 0. Returns 0 on success (out_entry/out_slot set), or
+ * `dir_start` (0 == the fixed root) and return its entry + its slot WITHIN that
+ * directory. Returns 0 on success (out_entry/out_slot set), or
  * FILEIO_ERR_FILE_NOT_FOUND. */
 static uint16_t locate_in_dir(const char *name83, uint16_t dir_start,
                               dir_entry_t *out_entry, uint32_t *out_slot)
 {
-    if (dir_start == 0u) {
-        dir_entry_t de;
-        uint32_t    slot = 0;
-        int rc = fat12_find_slot(g_vol, g_sector, name83, &de, &slot);
-        if (rc != FAT12_OK) {
-            return FILEIO_ERR_FILE_NOT_FOUND;
-        }
-        *out_entry = de;
-        *out_slot  = slot;
-        return 0u;
-    }
-
-    fat12_dir_t          dir;
-    subdir_find_cookie_t c;
-    dir.is_root       = 0;
-    dir.start_cluster = dir_start;
-    c.want  = name83;
-    c.found = 0;
-    int rc = fat12_read_dir(g_vol, &dir, g_sector, g_fat, g_fat_len,
-                            subdir_find_cb, &c);
-    if (rc < 0) {
-        return FILEIO_ERR_FILE_NOT_FOUND;   /* a read/chain error reads as absent */
-    }
-    if (!c.found) {
+    dir_entry_t de;
+    uint32_t    slot = 0;
+    int rc = fat12_find_slot_in(g_vol, g_fat, g_fat_len, dir_start, g_sector,
+                                name83, &de, &slot);
+    if (rc != FAT12_OK) {
         return FILEIO_ERR_FILE_NOT_FOUND;
     }
-    *out_entry = c.out;
-    *out_slot  = 0u;          /* no root-dir slot for a subdir file (READ-side) */
+    *out_entry = de;
+    *out_slot  = slot;
     return 0u;
 }
 
@@ -276,22 +226,30 @@ static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
     if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
     }
-    /* CREATE inside a SUBDIRECTORY is a WRITE-side concern (fat12_create writes
-     * to the ROOT directory + a root-dir slot for write-back). The ti8 Layer 1
-     * landed the READ side only, so subdir creation is out of scope here: a
-     * non-root dir_start fails cleanly rather than wrongly creating the file in
-     * the root (Rule 2 -- fail loud). dir_start==0 keeps the root path
-     * byte-identical. Subdir write is a follow-up bead (initech-zs24). */
+    /* CREATE inside a SUBDIRECTORY (dir_start_cluster != 0) is now supported
+     * (beads initech-zs24): fat12_create scans + write-backs down the parent's
+     * cluster chain, growing the subdir by a cluster if it is full. dir_start==0
+     * keeps the root path byte-identical. The g_cluster scratch doubles as the
+     * directory-grow zero-fill buffer (only touched on a subdir-full grow, never
+     * on a root create or a non-full subdir). */
+#ifndef FILEIO_MUTATE_SUBDIR_CREATE_ROOTONLY
+    uint16_t parent = dir_start_cluster;
+#else
+    /* MUTANT (Rule 6; make test-zs24-mutant only): keep the OLD root-only guard
+     * so a subdir CREATE fails 0x0003 -- the subdir CREATE+WRITE round-trip then
+     * never lands the file and the oracle goes RED. NEVER in a real build. */
     if (dir_start_cluster != 0u) {
         return FILEIO_ERR_PATH_NOT_FOUND;
     }
+    uint16_t parent = 0u;
+#endif
 
     dir_entry_t de;
     uint32_t    slot = 0;
     int rc = fat12_create(g_vol, g_fat, g_fat_len, name83, DIR_ATTR_ARCHIVE,
-                          g_sector, &de, &slot);
+                          parent, g_sector, g_cluster, &de, &slot);
     if (rc == FAT12_ERR_DIR_FULL) {
-        return FILEIO_ERR_TOO_MANY_OPEN;   /* root dir full */
+        return FILEIO_ERR_TOO_MANY_OPEN;   /* dir full (root cannot grow) */
     }
     if (rc != FAT12_OK) {
         return FILEIO_ERR_ACCESS_DENIED;   /* bad name / write error */
@@ -302,9 +260,9 @@ static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
     return 0u;
 }
 
-static uint16_t fat_write_at(uint32_t slot, uint32_t offset, const uint8_t *data,
-                             uint32_t len, uint32_t *out_written,
-                             dir_entry_t *out_entry)
+static uint16_t fat_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
+                             const uint8_t *data, uint32_t len,
+                             uint32_t *out_written, dir_entry_t *out_entry)
 {
     if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         *out_written = 0u;
@@ -312,20 +270,22 @@ static uint16_t fat_write_at(uint32_t slot, uint32_t offset, const uint8_t *data
     }
 
     uint32_t wrote = 0u;
-    int rc = fat12_write_partial(g_vol, g_fat, g_fat_len, slot, offset, data,
-                                 len, g_sector, g_cluster, &wrote);
+    int rc = fat12_write_partial(g_vol, g_fat, g_fat_len, dir_start, slot,
+                                 offset, data, len, g_sector, g_cluster, &wrote);
     if (rc != FAT12_OK) {
         *out_written = 0u;
         return FILEIO_ERR_ACCESS_DENIED;   /* disk full (rolled back) / write err */
     }
     *out_written = wrote;
 
-    /* Re-read the (now-patched) dir entry at the same root-dir slot so the caller
-     * refreshes the SFT copy's size + start_cluster (fat12_write_partial patched
-     * them on disk). */
+    /* Re-read the (now-patched) dir entry at the same slot OF THE SAME DIRECTORY
+     * so the caller refreshes the SFT copy's size + start_cluster
+     * (fat12_write_partial patched them on disk). For a subdir the slot is
+     * cluster-chain-addressed (dir_start != 0); dir_start==0 is the root path. */
     {
         dir_entry_t de;
-        int rc2 = fat12_read_dir_entry(g_vol, g_sector, slot, &de);
+        int rc2 = fat12_read_dir_entry_in(g_vol, g_fat, g_fat_len, dir_start,
+                                          g_sector, slot, &de);
         if (rc2 == FAT12_OK) {
             *out_entry = de;
         }
@@ -345,15 +305,13 @@ static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
     if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;
     }
-    /* UNLINK inside a SUBDIRECTORY is a WRITE-side concern (fat12_unlink works
-     * over the ROOT directory), out of the READ-side ti8 Layer 1 scope: a
-     * non-root dir_start fails cleanly (Rule 2) rather than touching the root.
-     * dir_start==0 keeps the root path byte-identical. Follow-up: initech-zs24. */
-    if (dir_start_cluster != 0u) {
-        return FILEIO_ERR_PATH_NOT_FOUND;
-    }
+    /* UNLINK inside a SUBDIRECTORY (dir_start_cluster != 0) is now supported
+     * (beads initech-zs24): fat12_unlink scans + marks the entry deleted down the
+     * parent's cluster chain. dir_start==0 keeps the root path byte-identical. */
+#ifndef FILEIO_MUTATE_SUBDIR_UNLINK_NOOP
     {
-        int rc = fat12_unlink(g_vol, g_fat, g_fat_len, name83, g_sector);
+        int rc = fat12_unlink(g_vol, g_fat, g_fat_len, name83,
+                              dir_start_cluster, g_sector);
         if (rc == FAT12_ERR_NOT_FOUND) {
             return FILEIO_ERR_FILE_NOT_FOUND;
         }
@@ -361,6 +319,25 @@ static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
             return FILEIO_ERR_ACCESS_DENIED;
         }
     }
+#else
+    /* MUTANT (Rule 6; make test-zs24-mutant only): make a SUBDIR unlink a NO-OP
+     * (report success without deleting), so `mdir ::SUB` still lists the file and
+     * the UNLINK oracle goes RED. The root path is unchanged. NEVER in a real
+     * build. */
+    if (dir_start_cluster != 0u) {
+        return 0u;   /* lie: pretend it was deleted */
+    }
+    {
+        int rc = fat12_unlink(g_vol, g_fat, g_fat_len, name83,
+                              dir_start_cluster, g_sector);
+        if (rc == FAT12_ERR_NOT_FOUND) {
+            return FILEIO_ERR_FILE_NOT_FOUND;
+        }
+        if (rc != FAT12_OK) {
+            return FILEIO_ERR_ACCESS_DENIED;
+        }
+    }
+#endif
     return 0u;
 }
 

@@ -158,9 +158,12 @@ int int21_mcb_reset(void);
  * POSITIONED + STATELESS (the multi-tenant redesign, beads initech-0qh):
  * the backend no longer owns a single whole-file buffer. Each SFT slot carries
  * its OWN position (sft_entry.file_offset) and dir_entry copy (start_cluster +
- * size) + the root-dir slot for write-back (sft_entry.root_slot). open() merely
- * LOCATES the file (no whole-file read); read_at()/write_at() are positioned
- * over the cluster chain via fat12_read_partial / fat12_write_partial. So N
+ * size) + the dir-entry slot AND its containing directory's start cluster for
+ * write-back (sft_entry.root_slot + sft_entry.dir_start; the latter is 0 for a
+ * root file and the subdir's first cluster for a subdir file -- beads
+ * initech-zs24). open() merely LOCATES the file (no whole-file read);
+ * read_at()/write_at() are positioned over the cluster chain via
+ * fat12_read_partial / fat12_write_partial. So N
  * files open at once -- each its own SFT slot -- works for free; a >64 KiB file
  * is served slice-by-slice with no whole-file buffer. The dispatch is
  * cooperative + single-threaded (sequential INT 21h calls), so ONE shared
@@ -224,17 +227,20 @@ typedef struct int21_file_backend {
                         struct dir_entry *out_entry, uint32_t *out_slot);
 
     /* WRITE_AT (AH=40h to a FILE): POSITIONED write of `len` bytes of `data`
-     * starting at byte `offset` within the file at root-dir slot `slot`, via
-     * fat12_write_partial -- overwrite-in-place / extend / zero-fill-hole, with
-     * both-FAT sync and allocate-then-commit disk-full rollback. Returns the
-     * UPDATED dir entry (new size / start_cluster) in *out_entry so the caller
-     * refreshes its SFT copy. Sets *out_written (== len on success; 0 on a
-     * disk-full rollback). Returns 0 on success or a DOS error (0x0005 disk full
-     * / write error). The bytes are committed to disk by THIS call (no deferred
-     * flush). May be NULL on a read-only backend. */
-    uint16_t (*write_at)(uint32_t slot, uint32_t offset, const uint8_t *data,
-                         uint32_t len, uint32_t *out_written,
-                         struct dir_entry *out_entry);
+     * starting at byte `offset` within the file whose dir entry is at slot `slot`
+     * of the directory whose first data cluster is `dir_start` (0 == the fixed
+     * root; beads initech-zs24 -- `slot` is the root-dir-region index for the
+     * root, the linear cluster-chain index for a subdir), via fat12_write_partial
+     * -- overwrite-in-place / extend / zero-fill-hole, with both-FAT sync and
+     * allocate-then-commit disk-full rollback. Returns the UPDATED dir entry (new
+     * size / start_cluster) in *out_entry so the caller refreshes its SFT copy.
+     * Sets *out_written (== len on success; 0 on a disk-full rollback). Returns 0
+     * on success or a DOS error (0x0005 disk full / write error). The bytes are
+     * committed to disk by THIS call (no deferred flush). May be NULL on a
+     * read-only backend. dir_start==0 keeps the root write-back byte-identical. */
+    uint16_t (*write_at)(uint16_t dir_start, uint32_t slot, uint32_t offset,
+                         const uint8_t *data, uint32_t len,
+                         uint32_t *out_written, struct dir_entry *out_entry);
 
     /* CLOSE: finalize a handle at root-dir slot `slot`. With per-call flushing
      * in write_at() this is a no-op; the hook is kept for symmetry (and a future

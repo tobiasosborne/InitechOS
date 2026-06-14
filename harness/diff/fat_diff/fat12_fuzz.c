@@ -480,7 +480,7 @@ static void apply_op(run_t *r, const op_t *op, int op_index, fail_t *f)
 		dir_entry_t de;
 		uint32_t    slot = 0u;
 		int rc = fat12_create(&r->vol, r->fat, r->fat_len, NAME_POOL[fi],
-		                      DIR_ATTR_ARCHIVE, r->sector, &de, &slot);
+		                      DIR_ATTR_ARCHIVE, 0u, r->sector, r->cluster, &de, &slot);
 		if (rc != FAT12_OK) {
 			/* The only honestly-expected non-OK is DIR_FULL; our pool is tiny
 			 * (<= MAX_FILES live), so this should not happen -- treat as a bug. */
@@ -513,7 +513,7 @@ static void apply_op(run_t *r, const op_t *op, int op_index, fail_t *f)
 		for (i = 0u; i < op->len; i++) {
 			data[i] = pat_byte(i, op->pat);
 		}
-		rc = fat12_write_partial(&r->vol, r->fat, r->fat_len, r->slot[fi],
+		rc = fat12_write_partial(&r->vol, r->fat, r->fat_len, 0u, r->slot[fi],
 		                         op->offset, data, op->len, r->sector,
 		                         r->cluster, &out_written);
 		if (rc == FAT12_ERR_NO_SPACE) {
@@ -614,7 +614,7 @@ static void apply_op(run_t *r, const op_t *op, int op_index, fail_t *f)
 		if (!r->live[fi]) {
 			return;
 		}
-		rc = fat12_unlink(&r->vol, r->fat, r->fat_len, NAME_POOL[fi], r->sector);
+		rc = fat12_unlink(&r->vol, r->fat, r->fat_len, NAME_POOL[fi], 0u, r->sector);
 		if (rc != FAT12_OK) {
 			fail_set(f, op_index, fi, 0u, "unlink unexpected error");
 			return;

@@ -645,6 +645,28 @@ TEST_FAT12_MKDIR_MUT_NOEMPTY := $(BUILD)/test_fat12_mkdir_mut_noempty
 FAT12_MKDIR_BLANK_IMG  := $(BUILD)/fat12_mkdir_blank.img
 FAT12_MKDIR_GOLDEN_IMG := $(BUILD)/fat12_mkdir_golden.img
 
+# SUBDIR file WRITE oracle (beads initech-zs24): the test_fileio_subdir harness
+# (real int21+fileio_fat+fat12 backend) in --write mode drives CREATE/WRITE/
+# LSEEK-WRITE/UNLINK of '\SUB\NEW.TXT' over a READ-WRITE per-run COPY of the
+# nested image; the recipe diffs the on-disk result with mtools (mcopy/mdir) +
+# python3 (fat12_ref.py --cat-path / --list-path). The scratch image is a build
+# intermediate, NOT committed (Rule 11). The three mutant builds (Rule 6) each
+# define ONE perturbed branch so a separate primitive's oracle bites:
+#   ROOTSLOT  -- a subdir dir-entry write-back goes to a ROOT slot (WRITE bites);
+#   CREATEROOT-- the old root-only CREATE guard is kept (CREATE bites);
+#   UNLINKNOOP-- a subdir UNLINK is a no-op (UNLINK bites);
+#   GROWNOEOC -- fat12_grow_dir skips the new-cluster EOC mark, so the appended
+#                2nd cluster is unreachable / the chain is broken (GROW bites --
+#                the boundary file is unreadable from the grown cluster);
+#   GROWNOOP  -- fat12_grow_dir refuses to grow (returns DIR_FULL), so the
+#                boundary-crossing CREATE fails and the file never lands (GROW bites).
+FAT12_ZS24_IMG               := $(BUILD)/fat12_zs24_scratch.img
+TEST_ZS24_MUT_ROOTSLOT       := $(BUILD)/test_fileio_subdir_mut_rootslot
+TEST_ZS24_MUT_CREATEROOT     := $(BUILD)/test_fileio_subdir_mut_createroot
+TEST_ZS24_MUT_UNLINKNOOP     := $(BUILD)/test_fileio_subdir_mut_unlinknoop
+TEST_ZS24_MUT_GROWNOEOC      := $(BUILD)/test_fileio_subdir_mut_grownoeoc
+TEST_ZS24_MUT_GROWNOOP       := $(BUILD)/test_fileio_subdir_mut_grownoop
+
 # The FAT12 POSITIONED-read oracle binary (host test; beads initech-lq2) + its
 # two mutation builds (Rule 6: one perturbed constant each -> the diff must bite).
 TEST_FAT12_PARTIAL          := $(BUILD)/test_fat12_partial
@@ -1926,6 +1948,209 @@ test-u6wa-mutant: $(TEST_FILEIO_MUT_CHDIR_NOATTR) $(TEST_FILEIO_SUBDIR_MUT_NOROO
 	else \
 		printf '>>> test-u6wa-mutant: green (CWD-NOROOT mutant correctly RED -- the oracle bites)\n'; \
 	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-zs24 (beads initech-zs24 -- subdir file CREATE/WRITE/UNLINK)
+# ---------------------------------------------------------------------------
+# The DECISIVE zs24 oracle (CLAUDE.md Law 2): drive INT 21h CREATE / WRITE /
+# LSEEK+WRITE / UNLINK of a file INSIDE a SUBDIRECTORY ('\SUB\NEW.TXT') through
+# the REAL int21+fileio_fat+fat12 backend over a READ-WRITE per-run COPY of the
+# nested image, then diff the on-disk result with TWO independent references --
+# mtools (mcopy/mdir) AND python3 (fat12_ref.py --cat-path / --list-path), the
+# SAME dual reference test-fat-write uses. Proves the bytes land in \SUB (not the
+# root), exact, addressable via the subdir cluster chain, and that the file
+# vanishes from \SUB on UNLINK. The scratch image is re-copied each step so the
+# committed nested image stays clean.
+.PHONY: test-zs24
+test-zs24: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-zs24 FAIL: mtools `mcopy` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-zs24 FAIL: mtools `mdir` not found.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-zs24 FAIL: python3 not found (independent reference).\n'; exit 1; }
+	@printf ">>> test-zs24: subdir file CREATE/WRITE/LSEEK-WRITE/UNLINK vs mtools + python3 (beads initech-zs24)\n"
+	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@# (1) CREATE+WRITE '\SUB\NEW.TXT' (700 bytes, spans 2 clusters).
+	@$(TEST_FILEIO_SUBDIR) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write create-write
+	@mcopy -n -i $(FAT12_ZS24_IMG) ::SUB/NEW.TXT $(BUILD)/zs24_mcopy.bin
+	@python3 $(FAT12_REF_PY) $(FAT12_ZS24_IMG) --cat-path 'SUB\NEW.TXT' > $(BUILD)/zs24_py.bin
+	@python3 -c 'import sys; exp=bytes(65+(i%26) for i in range(700)); m=open("$(BUILD)/zs24_mcopy.bin","rb").read(); p=open("$(BUILD)/zs24_py.bin","rb").read(); sys.exit(0 if (m==exp and p==exp and m==p) else 1)' \
+		|| { printf '!!! test-zs24 FAIL [CREATE+WRITE]: mcopy/python read-back != written bytes\n'; exit 1; }
+	@mdir -i $(FAT12_ZS24_IMG) ::SUB 2>/dev/null | grep -q 'NEW *TXT' \
+		|| { printf '!!! test-zs24 FAIL [CREATE+WRITE]: mdir ::SUB does not list NEW.TXT\n'; exit 1; }
+	@printf '>>> test-zs24 [CREATE+WRITE]: NEW.TXT (700B, 2 clusters) lands in \\SUB; mcopy==python==written\n'
+	@# (2) Positioned LSEEK+WRITE: splice 50 bytes at offset 600.
+	@$(TEST_FILEIO_SUBDIR) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write seek-write
+	@mcopy -n -i $(FAT12_ZS24_IMG) ::SUB/NEW.TXT $(BUILD)/zs24_mcopy2.bin
+	@python3 $(FAT12_REF_PY) $(FAT12_ZS24_IMG) --cat-path 'SUB\NEW.TXT' > $(BUILD)/zs24_py2.bin
+	@python3 -c 'import sys; e=bytearray(65+(i%26) for i in range(700)); e[600:650]=bytes(48+(i%10) for i in range(50)); e=bytes(e); m=open("$(BUILD)/zs24_mcopy2.bin","rb").read(); p=open("$(BUILD)/zs24_py2.bin","rb").read(); sys.exit(0 if (m==e and p==e and m==p) else 1)' \
+		|| { printf '!!! test-zs24 FAIL [LSEEK+WRITE]: spliced read-back != expected\n'; exit 1; }
+	@printf '>>> test-zs24 [LSEEK+WRITE]: positioned splice at offset 600 byte-exact (mcopy==python)\n'
+	@# (3) UNLINK '\SUB\NEW.TXT' -> mdir ::SUB no longer lists it; python list == only NESTED.TXT.
+	@$(TEST_FILEIO_SUBDIR) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write unlink
+	@if mdir -i $(FAT12_ZS24_IMG) ::SUB 2>/dev/null | grep -q 'NEW *TXT'; then \
+		printf '!!! test-zs24 FAIL [UNLINK]: mdir ::SUB STILL lists NEW.TXT after UNLINK\n'; exit 1; fi
+	@python3 $(FAT12_REF_PY) $(FAT12_ZS24_IMG) --list-path 'SUB' | grep -q '^NESTED.TXT ' \
+		|| { printf '!!! test-zs24 FAIL [UNLINK]: python --list-path SUB lost the original NESTED.TXT\n'; exit 1; }
+	@if python3 $(FAT12_REF_PY) $(FAT12_ZS24_IMG) --list-path 'SUB' | grep -q '^NEW.TXT '; then \
+		printf '!!! test-zs24 FAIL [UNLINK]: python --list-path SUB STILL lists NEW.TXT\n'; exit 1; fi
+	@printf '>>> test-zs24 [UNLINK]: NEW.TXT removed from \\SUB; NESTED.TXT intact (mtools + python agree)\n'
+	@# (4) ROOT regression: a root CREATE+WRITE still works under the generalized primitives.
+	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(TEST_FILEIO_SUBDIR) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write root-regress
+	@mcopy -n -i $(FAT12_ZS24_IMG) ::ROOTNEW.TXT $(BUILD)/zs24_root.bin
+	@python3 -c 'import sys; e=bytes(97+(i%26) for i in range(300)); m=open("$(BUILD)/zs24_root.bin","rb").read(); sys.exit(0 if m==e else 1)' \
+		|| { printf '!!! test-zs24 FAIL [ROOT-REGRESS]: root CREATE+WRITE read-back != written\n'; exit 1; }
+	@printf '>>> test-zs24 [ROOT-REGRESS]: a ROOT file write still works (dir_start==0 path intact)\n'
+	@# (5) DIRECTORY GROW (Fix 1): the riskiest new function fat12_grow_dir. \SUB
+	@# holds '.'/'..'/NESTED.TXT/DEEP = 4 entries; spc==1 => 16 entries/cluster, so
+	@# GROW00..GROW11 fill slots 4..15 (the first cluster) and GROW12 (slot 16)
+	@# FORCES fat12_grow_dir to append a 2nd cluster. Diff with BOTH independent
+	@# references: EVERY GROW file is listed AND the boundary file (GROW12) reads
+	@# back byte-exact from the GROWN cluster (proving FAT relink + slot map +
+	@# zero-fill). The boundary file content is 40 bytes of 'A'+12 == 'M'.
+	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(TEST_FILEIO_SUBDIR) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write grow
+	@# mtools: ALL 13 GROW files are listed in ::SUB (rendered 8.3 "GROWnn   TXT").
+	@for n in 00 01 02 03 04 05 06 07 08 09 10 11 12; do \
+		mdir -i $(FAT12_ZS24_IMG) ::SUB 2>/dev/null | grep -q "GROW$$n  *TXT" \
+			|| { printf '!!! test-zs24 FAIL [GROW]: mdir ::SUB does not list GROW%s.TXT\n' "$$n"; exit 1; }; \
+	done
+	@# python: ALL 13 GROW files listed (anchored, rendered 8.3 form).
+	@for n in 00 01 02 03 04 05 06 07 08 09 10 11 12; do \
+		python3 $(FAT12_REF_PY) $(FAT12_ZS24_IMG) --list-path 'SUB' | grep -q "^GROW$$n.TXT " \
+			|| { printf '!!! test-zs24 FAIL [GROW]: python --list-path SUB does not list GROW%s.TXT\n' "$$n"; exit 1; }; \
+	done
+	@# Boundary file (GROW12, slot 16 -- the FIRST slot of the appended 2nd cluster)
+	@# reads back byte-exact via BOTH references (mtools AND python agree == written).
+	@mcopy -n -i $(FAT12_ZS24_IMG) ::SUB/GROW12.TXT $(BUILD)/zs24_grow_mcopy.bin
+	@python3 $(FAT12_REF_PY) $(FAT12_ZS24_IMG) --cat-path 'SUB\GROW12.TXT' > $(BUILD)/zs24_grow_py.bin
+	@python3 -c 'import sys; e=bytes([ord("A")+12]*40); m=open("$(BUILD)/zs24_grow_mcopy.bin","rb").read(); p=open("$(BUILD)/zs24_grow_py.bin","rb").read(); sys.exit(0 if (m==e and p==e and m==p) else 1)' \
+		|| { printf '!!! test-zs24 FAIL [GROW]: boundary file GROW12 read-back from the grown cluster != written (mcopy/python disagree)\n'; exit 1; }
+	@# Confirm the directory ACTUALLY grew to 2 clusters (the boundary file lives in
+	@# the appended cluster, not an incidental free slot of the first).
+	@python3 -c 'import importlib.util,sys; s=importlib.util.spec_from_file_location("r","$(FAT12_REF_PY)"); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); fs=m.Fat12(open("$(FAT12_ZS24_IMG)","rb").read()); _,st=fs.resolve_dir("SUB"); ch=fs.walk_chain(st); sys.exit(0 if len(ch)==2 else 1)' \
+		|| { printf '!!! test-zs24 FAIL [GROW]: \\SUB did not grow to 2 clusters -- fat12_grow_dir was not exercised\n'; exit 1; }
+	@printf '>>> test-zs24 [GROW]: GROW12 (slot 16) landed in the appended 2nd cluster; all 13 files listed; mcopy==python==written\n'
+	@printf ">>> test-zs24: green\n"
+
+# Mutation gate (Rule 6): three zs24 mutants, each perturbing ONE branch so a
+# DIFFERENT primitive's oracle bites. Built from the SAME test_fileio_subdir
+# harness + the real backend sources, with one -D each. Each MUST drive its
+# differential RED (a mutant that PASSES means the oracle is decoration).
+$(TEST_ZS24_MUT_ROOTSLOT): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_SUBDIR_WRITE_ROOTSLOT -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+$(TEST_ZS24_MUT_CREATEROOT): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFILEIO_MUTATE_SUBDIR_CREATE_ROOTONLY -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+$(TEST_ZS24_MUT_UNLINKNOOP): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFILEIO_MUTATE_SUBDIR_UNLINK_NOOP -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+# GROW mutants (beads initech-zs24, Fix 1): the riskiest new function
+# (fat12_grow_dir) gets its OWN mutation proof. Each perturbs ONE step of the
+# directory-grow so the GROW differential (boundary file readable from the 2nd
+# cluster) bites.
+$(TEST_ZS24_MUT_GROWNOEOC): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_GROW_NO_EOC -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+$(TEST_ZS24_MUT_GROWNOOP): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_GROW_NOOP -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+.PHONY: test-zs24-mutant
+test-zs24-mutant: $(TEST_ZS24_MUT_ROOTSLOT) $(TEST_ZS24_MUT_CREATEROOT) $(TEST_ZS24_MUT_UNLINKNOOP) $(TEST_ZS24_MUT_GROWNOEOC) $(TEST_ZS24_MUT_GROWNOOP) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
+	@printf ">>> test-zs24-mutant: confirming all FIVE subdir-WRITE mutants go RED for the RIGHT reason (Rule 6; beads initech-zs24)\n"
+	@# Each mutant leg first CONFIRMS the harness actually BOOTED/RAN (it emits a
+	@# "test_fileio_subdir: N checks, M failures" summary line) before trusting the
+	@# RED -- a crash before the side-effect would otherwise false-green (Fix 3,
+	@# mirroring the test-ut6d-mutant boot-confirmation discipline). The harness
+	@# stdout is captured to a report; a missing/empty report is a HARD FAIL.
+	@# ROOTSLOT: a subdir CREATE+WRITE write-backs to a ROOT slot -> mcopy read-back is wrong/absent.
+	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(TEST_ZS24_MUT_ROOTSLOT) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write create-write > $(BUILD)/zs24_mut_rootslot.report 2>&1 || true
+	@if [ ! -s $(BUILD)/zs24_mut_rootslot.report ]; then \
+		printf '!!! test-zs24-mutant FAIL: ROOTSLOT mutant produced no output -- harness is dead, RED is meaningless\n'; exit 1; fi
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/zs24_mut_rootslot.report \
+		|| { printf '!!! test-zs24-mutant FAIL: ROOTSLOT mutant never reached the TEST_SUMMARY -- it crashed before the create, RED is meaningless\n'; exit 1; }
+	@if mcopy -n -i $(FAT12_ZS24_IMG) ::SUB/NEW.TXT $(BUILD)/zs24_mut.bin >/dev/null 2>&1 && \
+		python3 -c 'import sys; exp=bytes(65+(i%26) for i in range(700)); sys.exit(0 if open("$(BUILD)/zs24_mut.bin","rb").read()==exp else 1)' >/dev/null 2>&1; then \
+		printf '!!! test-zs24-mutant FAIL: ROOTSLOT mutant PASSED -- the subdir-WRITE write-back diff is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-zs24-mutant: green (ROOTSLOT mutant ran + correctly RED -- subdir write-back bites)\n'; \
+	fi
+	@# CREATEROOT: the kept root-only CREATE guard rejects the subdir CREATE (the
+	@# backend maps it to 0x0003 PATH_NOT_FOUND -> CF set -> creat_write_close
+	@# returns -1 -> the harness records a FAILURE on the create CHECK). We assert
+	@# BOTH the rejection was SURFACED (the harness reported >=1 failure -- it RAN
+	@# the create and the guard rejected it, not merely that the file is absent)
+	@# AND the file did not land in \SUB (no exit-code swallow that could mask a crash).
+	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(TEST_ZS24_MUT_CREATEROOT) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write create-write > $(BUILD)/zs24_mut_createroot.report 2>&1; rc=$$?; \
+		if [ ! -s $(BUILD)/zs24_mut_createroot.report ]; then \
+			printf '!!! test-zs24-mutant FAIL: CREATEROOT mutant produced no output -- harness is dead, RED is meaningless\n'; exit 1; fi
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/zs24_mut_createroot.report \
+		|| { printf '!!! test-zs24-mutant FAIL: CREATEROOT mutant never reached the TEST_SUMMARY -- it crashed before the create, RED is meaningless\n'; exit 1; }
+	@# The CREATE was REJECTED by the kept root-only guard: the harness recorded a
+	@# non-zero failure count (the create CHECK bit), proving the subdir CREATE was
+	@# surfaced as a CF/0x0003 rejection rather than silently skipped.
+	@grep -Eq 'test_fileio_subdir: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/zs24_mut_createroot.report \
+		|| { printf '!!! test-zs24-mutant FAIL: CREATEROOT mutant did NOT surface a CREATE rejection -- the harness reported 0 failures, so the root-only guard did not bite (RED for the wrong reason)\n'; exit 1; }
+	@if mdir -i $(FAT12_ZS24_IMG) ::SUB 2>/dev/null | grep -q 'NEW *TXT'; then \
+		printf '!!! test-zs24-mutant FAIL: CREATEROOT mutant PASSED -- the subdir CREATE gate is decoration (file landed despite the guard)\n'; exit 1; \
+	else \
+		printf '>>> test-zs24-mutant: green (CREATEROOT mutant ran, the CREATE was rejected + the file is absent -- subdir CREATE bites)\n'; \
+	fi
+	@# UNLINKNOOP: a subdir UNLINK is a no-op -> mdir ::SUB still lists the file.
+	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(TEST_ZS24_MUT_UNLINKNOOP) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write create-write > $(BUILD)/zs24_mut_unlinknoop.report 2>&1 || true
+	@$(TEST_ZS24_MUT_UNLINKNOOP) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write unlink >> $(BUILD)/zs24_mut_unlinknoop.report 2>&1 || true
+	@if [ ! -s $(BUILD)/zs24_mut_unlinknoop.report ]; then \
+		printf '!!! test-zs24-mutant FAIL: UNLINKNOOP mutant produced no output -- harness is dead, RED is meaningless\n'; exit 1; fi
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/zs24_mut_unlinknoop.report \
+		|| { printf '!!! test-zs24-mutant FAIL: UNLINKNOOP mutant never reached the TEST_SUMMARY -- it crashed, RED is meaningless\n'; exit 1; }
+	@if mdir -i $(FAT12_ZS24_IMG) ::SUB 2>/dev/null | grep -q 'NEW *TXT'; then \
+		printf '>>> test-zs24-mutant: green (UNLINKNOOP mutant ran + correctly RED -- subdir UNLINK bites)\n'; \
+	else \
+		printf '!!! test-zs24-mutant FAIL: UNLINKNOOP mutant PASSED -- the subdir UNLINK oracle is decoration\n'; exit 1; \
+	fi
+	@# GROW_NO_EOC: fat12_grow_dir skips the new-cluster EOC mark, so the appended
+	@# 2nd cluster is unreachable / the chain is broken at the join -> the boundary
+	@# file (GROW12, slot 16) is UNREADABLE via mtools/python. The harness still
+	@# RUNS (the create succeeds at the artifact level; the corruption is on disk),
+	@# so we confirm it reached TEST_SUMMARY, then assert GROW12 is unreadable. This
+	@# proves the chain RELINK + EOC-terminate is what makes the grown slots reachable.
+	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(TEST_ZS24_MUT_GROWNOEOC) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write grow > $(BUILD)/zs24_mut_grownoeoc.report 2>&1 || true
+	@if [ ! -s $(BUILD)/zs24_mut_grownoeoc.report ]; then \
+		printf '!!! test-zs24-mutant FAIL: GROW_NO_EOC mutant produced no output -- harness is dead, RED is meaningless\n'; exit 1; fi
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/zs24_mut_grownoeoc.report \
+		|| { printf '!!! test-zs24-mutant FAIL: GROW_NO_EOC mutant never reached the TEST_SUMMARY -- it crashed before the grow, RED is meaningless\n'; exit 1; }
+	@if python3 $(FAT12_REF_PY) $(FAT12_ZS24_IMG) --cat-path 'SUB\GROW12.TXT' > $(BUILD)/zs24_mut_grow.bin 2>/dev/null && \
+		python3 -c 'import sys; e=bytes([ord("A")+12]*40); sys.exit(0 if open("$(BUILD)/zs24_mut_grow.bin","rb").read()==e else 1)' >/dev/null 2>&1; then \
+		printf '!!! test-zs24-mutant FAIL: GROW_NO_EOC mutant PASSED -- GROW12 read back correct despite the skipped EOC; the grow chain-relink/EOC oracle is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-zs24-mutant: green (GROW_NO_EOC mutant ran + correctly RED -- the boundary file is unreachable; grow chain-relink/EOC bites)\n'; \
+	fi
+	@# GROW_NOOP: fat12_grow_dir refuses to grow (DIR_FULL), so the boundary CREATE
+	@# fails outright -> the harness records a failure AND GROW12 never lands.
+	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(TEST_ZS24_MUT_GROWNOOP) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write grow > $(BUILD)/zs24_mut_grownoop.report 2>&1 || true
+	@if [ ! -s $(BUILD)/zs24_mut_grownoop.report ]; then \
+		printf '!!! test-zs24-mutant FAIL: GROW_NOOP mutant produced no output -- harness is dead, RED is meaningless\n'; exit 1; fi
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/zs24_mut_grownoop.report \
+		|| { printf '!!! test-zs24-mutant FAIL: GROW_NOOP mutant never reached the TEST_SUMMARY -- it crashed before the grow, RED is meaningless\n'; exit 1; }
+	@# The boundary CREATE was rejected (grow refused) -> the harness recorded a failure.
+	@grep -Eq 'test_fileio_subdir: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/zs24_mut_grownoop.report \
+		|| { printf '!!! test-zs24-mutant FAIL: GROW_NOOP mutant did NOT surface a CREATE failure -- the boundary create was not rejected (RED for the wrong reason)\n'; exit 1; }
+	@if mdir -i $(FAT12_ZS24_IMG) ::SUB 2>/dev/null | grep -q 'GROW12  *TXT'; then \
+		printf '!!! test-zs24-mutant FAIL: GROW_NOOP mutant PASSED -- GROW12 landed despite the refused grow; the grow oracle is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-zs24-mutant: green (GROW_NOOP mutant ran, the boundary CREATE was rejected + GROW12 is absent -- grow bites)\n'; \
+	fi
+	@printf '>>> test-zs24-mutant: green (ALL FIVE mutants ran + RED for the right reason -- write-back, CREATE gate, UNLINK, grow relink/EOC, grow-refuse all bite)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-int21-edge (beads initech-xrd / initech-1zk; double-close part
@@ -6822,7 +7047,7 @@ test-kernel-repro-mutant: | $(BUILD)
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
 	test-fat12-mkdir \
-	test-fat-subdir \
+	test-fat-subdir test-zs24 \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
@@ -6836,7 +7061,7 @@ TEST_UNIT_GATES := \
 	test-fileio-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
-	test-fat-subdir-mutant test-fat12-mkdir-mutant \
+	test-fat-subdir-mutant test-fat12-mkdir-mutant test-zs24-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-kernel-repro test-kernel-repro-mutant

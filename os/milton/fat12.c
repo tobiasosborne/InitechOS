@@ -120,6 +120,23 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 		return FAT12_ERR_GEOMETRY;
 	}
 
+	/* sectors_per_cluster MUST be 1 (Rule 2 -- fail loud over silent corruption).
+	 * The WRITE path (fat12_grow_dir, fat12_write_partial, fat12_write_file,
+	 * fat12_mkdir) zero-fills / read-modify-writes bytes_per_cluster =
+	 * sectors_per_cluster*512 bytes into the caller's cluster_buf and writes
+	 * sectors_per_cluster sectors per cluster; but the kernel caller
+	 * (os/milton/fileio_fat.c) sizes g_cluster at ONE BLOCKDEV_SECTOR_SIZE (512).
+	 * On a spc>1 volume those writes overrun the buffer -> heap/stack corruption.
+	 * Every period image this artifact targets is a 1.44 MB floppy (mformat
+	 * -f 1440 => spc==1), so this is a never-hit-yet invariant; a loud refusal at
+	 * mount beats a silent overrun if a future image violates it (the spc>1
+	 * cluster-buf-sizing contract is the bead-zs24 caveat). Gated BEFORE the
+	 * total_clusters division below so a spc==0 BPB (caught above by the geometry
+	 * guard in a real build) never even reaches a divide-by-zero. */
+	if (vol->bpb.sectors_per_cluster != 1u) {
+		return FAT12_ERR_UNSUPPORTED;
+	}
+
 	/* total_clusters = data_sectors / sectors_per_cluster (brief Sec 2). */
 	data_sectors        = total_sectors - vol->first_data_sector;
 	vol->total_clusters = data_sectors / vol->bpb.sectors_per_cluster;
@@ -1060,54 +1077,284 @@ static int fat12_free_chain(const fat12_volume_t *vol, void *fat,
 	return FAT12_OK;
 }
 
-/* Read a single dir entry (32 bytes) from its root-dir slot into *e. */
-static int fat12_read_dirent_local(const fat12_volume_t *vol, uint32_t slot,
-                                   dir_entry_t *e, void *sector_buf)
+/* Grow a SUBDIRECTORY by ONE cluster (beads initech-zs24; subdir WRITE side).
+ * Walk start_cluster's chain to its EOC tail, claim a free cluster, zero-fill
+ * its data sectors on disk (so the freshly exposed dir slots read as 0x00 =
+ * end-of-directory, exactly as mtools/DOS leaves a grown directory), link the
+ * old tail -> new cluster, mark the new cluster EOC, and flush BOTH FAT copies.
+ * This is the same allocate-then-commit discipline the file-extend path uses
+ * (Rule 2): the new cluster is reserved EOC, zero-filled BEFORE the link is
+ * committed, and on a zero-fill write failure the allocation is rolled back so
+ * no orphan cluster is left. `cluster_buf` (>= sectors_per_cluster*512) is the
+ * zero-fill scratch. The new tail cluster is returned in *out_new_cluster (so
+ * the caller knows where the new slots live). Anti-hang bounded (Rule 2).
+ * Ref (Law 1): Microsoft FAT spec (a directory is a cluster chain that grows
+ *   like a file; a new dir cluster is zero-filled so the 0x00 sentinel still
+ *   terminates it); DOS 3.3 directory-full behavior. */
+static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                          uint16_t start_cluster, void *cluster_buf,
+                          uint16_t *out_new_cluster)
+{
+	uint32_t bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
+	                             (uint32_t)vol->bpb.bytes_per_sector;
+	uint16_t cur   = start_cluster;
+	uint32_t steps = 0u;
+	uint32_t max   = vol->total_clusters + 2u;
+	uint16_t newc;
+	uint32_t lba;
+	uint8_t *cb = (uint8_t *)cluster_buf;
+	uint32_t b;
+	int      rc;
+
+	if (fat == NULL || cluster_buf == NULL || out_new_cluster == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	if (vol->dev->write_sectors == NULL) {
+		return FAT12_ERR_WRITE;
+	}
+
+#ifdef FAT12_MUTATE_GROW_NOOP
+	/* MUTANT (Rule 6; make test-zs24-mutant only): REFUSE to grow the directory
+	 * -- return DIR_FULL as if the subdir could not be extended. The boundary-
+	 * crossing CREATE then fails and the file never lands, so the GROW
+	 * differential (mtools/python list the boundary file) goes RED. This proves
+	 * the grow path is actually REACHED + relied upon. NEVER in a real build. */
+	(void)fat_len; (void)start_cluster;
+	(void)bytes_per_cluster; (void)cur; (void)steps; (void)max; (void)newc;
+	(void)lba; (void)cb; (void)b; (void)rc;
+	return FAT12_ERR_DIR_FULL;
+#else
+
+	/* Walk to the EOC tail of the existing chain. */
+	for (;;) {
+		uint16_t next;
+		if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
+		    fat12_is_bad(cur)) {
+			return FAT12_ERR_CHAIN;
+		}
+		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		if (fat12_is_eoc(next)) {
+			break;
+		}
+		cur = next;
+		if (++steps > max) {
+			return FAT12_ERR_CHAIN;
+		}
+	}
+
+	/* Claim + reserve a free cluster (mark EOC immediately so find_free skips). */
+	newc = fat12_find_free(vol, fat, fat_len, (uint16_t)(cur + 1u));
+	if (newc == 0u) {
+		return FAT12_ERR_NO_SPACE;
+	}
+#ifndef FAT12_MUTATE_GROW_NO_EOC
+	rc = fat12_set_entry(fat, fat_len, newc, FAT12_EOC_VALUE);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+#else
+	/* MUTANT (Rule 6; make test-zs24-mutant only): SKIP marking the freshly
+	 * claimed cluster end-of-chain. The new cluster's FAT entry stays 0x000
+	 * (free); the old-tail->newc link below then points at a "free" cluster, so
+	 * the directory chain is BROKEN at the join -- a reader (mtools/python)
+	 * walking the chain stops at (or rejects) the unterminated/free 2nd cluster
+	 * and the boundary-crossing dir entry is unreachable -> the GROW differential
+	 * goes RED. This proves the chain RELINK (old-tail -> new EOC cluster) is
+	 * what makes the grown slots reachable. NEVER in a real build. */
+#endif
+
+	/* Zero-fill the new cluster on disk BEFORE committing the link (so the new
+	 * slots read as 0x00 end-of-directory; a failure rolls back the alloc). */
+	for (b = 0u; b < bytes_per_cluster; b++) {
+		cb[b] = 0u;
+	}
+	lba = BPB_CLUSTER_LBA(&vol->bpb, newc);
+	if (vol->dev->write_sectors(vol->dev->ctx, lba,
+	                            vol->bpb.sectors_per_cluster, cb) != 0) {
+		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+		(void)fat12_flush_fats(vol, fat, fat_len);
+		return FAT12_ERR_WRITE;
+	}
+
+	/* Link the old tail -> new cluster, flush both FAT copies. */
+	rc = fat12_set_entry(fat, fat_len, cur, newc);
+	if (rc != FAT12_OK) {
+		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+		(void)fat12_flush_fats(vol, fat, fat_len);
+		return rc;
+	}
+	rc = fat12_flush_fats(vol, fat, fat_len);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	*out_new_cluster = newc;
+	return FAT12_OK;
+#endif /* FAT12_MUTATE_GROW_NOOP */
+}
+
+/* ------------------------------------------------------------------------ *
+ * Subdir-aware dir-slot addressing (beads initech-zs24; subdir WRITE side).
+ *
+ * A directory SLOT is a 0-based 32-byte-entry index WITHIN a directory. For the
+ * fixed ROOT directory it is the linear index into the root-dir region (slot
+ * i lives at root_dir_sector + i/per_sector, byte (i%per_sector)*32) -- exactly
+ * the historical root-slot semantics, so the root path stays byte-identical.
+ * For a SUBDIRECTORY (is_root==0, start_cluster != 0) it is the linear index
+ * down the subdir's CLUSTER CHAIN: slot i lives in the (i / ents_per_cluster)-th
+ * cluster of the chain at byte (i % ents_per_cluster)*32. The cluster walk
+ * mirrors fat12_read_dir's incremental fat12_next_cluster step with the same
+ * anti-hang guards (Rule 2). The DATA SECTOR holding the slot is read-modified-
+ * written back in place (the root path read-modify-writes a root-dir sector).
+ * ------------------------------------------------------------------------ */
+
+/* Resolve a SUBDIR slot index to the data-sector LBA that holds it + the byte
+ * offset of the 32-byte entry within that sector. Walks `start_cluster`'s chain
+ * (slot / ents_per_cluster) clusters down, then within that cluster picks the
+ * sector + in-sector offset. Anti-hang bounded by total_clusters+2 (Rule 2). On
+ * a chain too short for the slot, returns FAT12_ERR_DIR_FULL (the slot is past
+ * the allocated directory -- the caller grows the chain). `fat`/`fat_len` decode
+ * the links. Returns FAT12_OK with *out_lba + *out_in_sec set. */
+static int fat12_subdir_slot_lba(const fat12_volume_t *vol, const void *fat,
+                                  uint32_t fat_len, uint16_t start_cluster,
+                                  uint32_t slot, uint32_t *out_lba,
+                                  uint32_t *out_in_sec)
 {
 	uint32_t per_sector = BLOCKDEV_SECTOR_SIZE / 32u;
-	uint32_t sec_index  = slot / per_sector;
-	uint32_t in_sec     = slot % per_sector;
-	uint32_t lba        = vol->root_dir_sector + sec_index;
-	const uint8_t *sb   = (const uint8_t *)sector_buf;
-	uint8_t *dst        = (uint8_t *)e;
+	uint32_t ents_per_cluster = per_sector * (uint32_t)vol->bpb.sectors_per_cluster;
+	uint32_t want_cluster = slot / ents_per_cluster;
+	uint32_t in_cluster   = slot % ents_per_cluster;
+	uint32_t sec_in_clus  = in_cluster / per_sector;
+	uint16_t cur          = start_cluster;
+	uint32_t steps        = 0u;
+	uint32_t max_steps    = vol->total_clusters + 2u;
 	uint32_t k;
 
-	if (sec_index >= vol->root_dir_sectors) {
-		return FAT12_ERR_DIR_FULL;
+	for (k = 0u; k < want_cluster; k++) {
+		uint16_t next;
+		int      rc;
+		if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
+		    fat12_is_bad(cur)) {
+			return FAT12_ERR_CHAIN;
+		}
+		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		if (fat12_is_eoc(next)) {
+			return FAT12_ERR_DIR_FULL;   /* slot past the allocated chain */
+		}
+		cur = next;
+		if (++steps > max_steps) {
+			return FAT12_ERR_CHAIN;      /* cyclic / corrupt */
+		}
+	}
+	if (!fat12_cluster_in_range(vol, cur)) {
+		return FAT12_ERR_CHAIN;
+	}
+	*out_lba    = BPB_CLUSTER_LBA(&vol->bpb, cur) + sec_in_clus;
+	*out_in_sec = (in_cluster % per_sector) * 32u;
+	return FAT12_OK;
+}
+
+/* Read a single dir entry (32 bytes) at slot `slot` of the directory
+ * (is_root / start_cluster) into *e. Root: the root-dir region; subdir: the
+ * cluster chain (beads initech-zs24). The root path is byte-identical to the
+ * historical fat12_read_dirent_local. */
+static int fat12_read_dirent_in_dir(const fat12_volume_t *vol, const void *fat,
+                                    uint32_t fat_len, int is_root,
+                                    uint16_t start_cluster, uint32_t slot,
+                                    dir_entry_t *e, void *sector_buf)
+{
+	uint32_t per_sector = BLOCKDEV_SECTOR_SIZE / 32u;
+	uint32_t lba;
+	uint32_t in_sec;
+	const uint8_t *sb = (const uint8_t *)sector_buf;
+	uint8_t *dst      = (uint8_t *)e;
+	uint32_t k;
+
+	if (is_root) {
+		uint32_t sec_index = slot / per_sector;
+		if (sec_index >= vol->root_dir_sectors) {
+			return FAT12_ERR_DIR_FULL;
+		}
+		lba    = vol->root_dir_sector + sec_index;
+		in_sec = (slot % per_sector) * 32u;
+	} else {
+		int rc = fat12_subdir_slot_lba(vol, fat, fat_len, start_cluster, slot,
+		                               &lba, &in_sec);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
 	}
 	if (vol->dev->read_sectors(vol->dev->ctx, lba, 1u, sector_buf) != 0) {
 		return FAT12_ERR_READ;
 	}
 	for (k = 0u; k < 32u; k++) {
-		dst[k] = sb[in_sec * 32u + k];
+		dst[k] = sb[in_sec + k];
 	}
 	return FAT12_OK;
 }
 
-/* Write a single dir entry (32 bytes) to its root-dir slot on disk: read the
- * containing sector, overwrite the 32-byte entry, write the sector back. */
-static int fat12_write_dirent(const fat12_volume_t *vol, uint32_t slot,
-                              const dir_entry_t *e, void *sector_buf)
+/* Read a single dir entry (32 bytes) from its root-dir slot into *e (the root-
+ * only thin wrapper; byte-identical historical behavior). */
+static int fat12_read_dirent_local(const fat12_volume_t *vol, uint32_t slot,
+                                   dir_entry_t *e, void *sector_buf)
+{
+	return fat12_read_dirent_in_dir(vol, NULL, 0u, 1, 0u, slot, e, sector_buf);
+}
+
+/* Write a single dir entry (32 bytes) to slot `slot` of the directory
+ * (is_root / start_cluster) on disk: read the containing data sector, overwrite
+ * the 32-byte entry in place, write the sector back (beads initech-zs24). Root:
+ * the root-dir region (byte-identical to the historical fat12_write_dirent);
+ * subdir: the cluster chain via fat12_subdir_slot_lba. `fat`/`fat_len` decode
+ * the subdir links (unused for the root). */
+static int fat12_write_dirent_in_dir(const fat12_volume_t *vol, const void *fat,
+                                     uint32_t fat_len, int is_root,
+                                     uint16_t start_cluster, uint32_t slot,
+                                     const dir_entry_t *e, void *sector_buf)
 {
 	uint32_t per_sector = BLOCKDEV_SECTOR_SIZE / 32u;
-	uint32_t sec_index  = slot / per_sector;
-	uint32_t in_sec     = slot % per_sector;
-	uint32_t lba        = vol->root_dir_sector + sec_index;
-	uint8_t *sb         = (uint8_t *)sector_buf;
-	const uint8_t *src  = (const uint8_t *)e;
+	uint32_t lba;
+	uint32_t in_sec;
+	uint8_t *sb        = (uint8_t *)sector_buf;
+	const uint8_t *src = (const uint8_t *)e;
 	uint32_t k;
 
 	if (vol->dev->write_sectors == NULL) {
 		return FAT12_ERR_WRITE;
 	}
-	if (sec_index >= vol->root_dir_sectors) {
-		return FAT12_ERR_DIR_FULL;
+#ifdef FAT12_MUTATE_SUBDIR_WRITE_ROOTSLOT
+	/* MUTANT (Rule 6; make test-zs24-mutant only): write a SUBDIR entry back to a
+	 * ROOT-dir slot of the same index instead of the subdir cluster-chain slot.
+	 * The subdir dir entry never lands (its size/start_cluster are never patched
+	 * on disk), so the read-back via mcopy/python sees the wrong/zero entry and
+	 * the differential goes RED. The root path (is_root already 1) is unchanged.
+	 * NEVER define in a real build. */
+	is_root = 1;
+#endif
+	if (is_root) {
+		uint32_t sec_index = slot / per_sector;
+		if (sec_index >= vol->root_dir_sectors) {
+			return FAT12_ERR_DIR_FULL;
+		}
+		lba    = vol->root_dir_sector + sec_index;
+		in_sec = (slot % per_sector) * 32u;
+	} else {
+		int rc = fat12_subdir_slot_lba(vol, fat, fat_len, start_cluster, slot,
+		                               &lba, &in_sec);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
 	}
 	if (vol->dev->read_sectors(vol->dev->ctx, lba, 1u, sb) != 0) {
 		return FAT12_ERR_READ;
 	}
 	for (k = 0u; k < 32u; k++) {
-		sb[in_sec * 32u + k] = src[k];
+		sb[in_sec + k] = src[k];
 	}
 	if (vol->dev->write_sectors(vol->dev->ctx, lba, 1u, sb) != 0) {
 		return FAT12_ERR_WRITE;
@@ -1115,81 +1362,194 @@ static int fat12_write_dirent(const fat12_volume_t *vol, uint32_t slot,
 	return FAT12_OK;
 }
 
-/* Locate a root-dir slot: if a non-deleted entry's 8.3 fields == want11, set
- * *match_slot and copy it to *match (found=1); else record the FIRST reusable
- * slot (deleted 0xE5 or free 0x00) in *free_slot. Stops at the 0x00 sentinel
- * for the match search but a free slot found earlier is still usable. Returns
- * FAT12_OK (found flagged via *found) or a read error. */
+/* Write a single dir entry (32 bytes) to its root-dir slot on disk (the root-
+ * only thin wrapper; byte-identical historical behavior). */
+static int fat12_write_dirent(const fat12_volume_t *vol, uint32_t slot,
+                              const dir_entry_t *e, void *sector_buf)
+{
+	return fat12_write_dirent_in_dir(vol, NULL, 0u, 1, 0u, slot, e, sector_buf);
+}
+
+/* Scan ONE 512-byte directory sector already in `sb` (its first slot index is
+ * `base_slot`): on an exact 11-byte 8.3 match set match_slot/match/found and
+ * return 1 (matched -- stop); on the 0x00 end-of-directory sentinel record the
+ * first free slot (if none seen) and return 2 (end -- stop); record the first
+ * deleted (reusable) slot otherwise. Returns 0 to continue to the next sector.
+ * Shared by the root + subdir scan so the per-entry logic is identical. */
+static int fat12_scan_sector(const uint8_t *sb, uint32_t base_slot,
+                             const uint8_t want11[11], uint32_t *free_slot,
+                             int *have_free, uint32_t *match_slot,
+                             dir_entry_t *match, int *found)
+{
+	uint32_t per_sector = BLOCKDEV_SECTOR_SIZE / 32u;
+	uint32_t i;
+	uint32_t slot = base_slot;
+
+	for (i = 0u; i < per_sector; i++, slot++) {
+		const uint8_t *e = sb + i * 32u;
+		uint8_t first = e[0];
+
+		if (first == DIR_NAME_FREE) {
+			/* End-of-directory: this slot (and all after) are free. The first
+			 * free slot for placement is here if none seen earlier. */
+			if (!*have_free) {
+				*free_slot = slot;
+				*have_free = 1;
+			}
+			return 2;   /* no match exists beyond the sentinel */
+		}
+		if (first == DIR_NAME_DELETED) {
+			if (!*have_free) {
+				*free_slot = slot;
+				*have_free = 1;
+			}
+			continue;
+		}
+		/* LFN slots are not a name match; skip for matching, never reuse. */
+		if (e[11] == FAT12_ATTR_LFN) {
+			continue;
+		}
+		/* Compare the 11 raw 8.3 bytes for an exact match. */
+		{
+			int eq = 1;
+			uint32_t k;
+			for (k = 0u; k < 11u; k++) {
+				if (e[k] != want11[k]) {
+					eq = 0;
+					break;
+				}
+			}
+			if (eq) {
+				uint32_t m;
+				uint8_t *dst = (uint8_t *)match;
+				for (m = 0u; m < 32u; m++) {
+					dst[m] = e[m];
+				}
+				*match_slot = slot;
+				*found      = 1;
+				return 1;
+			}
+		}
+	}
+	return 0;   /* continue to the next sector */
+}
+
+/* Scan the directory (is_root / start_cluster) for an 8.3 entry (beads
+ * initech-zs24, generalizing fat12_scan_root). If a non-deleted entry's 8.3
+ * fields == want11, set *match_slot and copy it to *match (found=1); else record
+ * the FIRST reusable slot (deleted 0xE5 or free 0x00) in free_slot/have_free.
+ *
+ * ROOT (is_root): the fixed root region -- byte-identical to the historical
+ * fat12_scan_root (the per-entry logic is fat12_scan_sector, shared).
+ * SUBDIR: walk start_cluster's CLUSTER CHAIN (mirroring fat12_read_dir's
+ * incremental fat12_next_cluster step + anti-hang guards), tracking the LINEAR
+ * 32-byte slot index across clusters. If the chain ends at EOC with NO 0x00
+ * sentinel and NO reusable slot recorded, the directory is FULL: *have_free
+ * stays 0 and *free_slot is the slot index JUST PAST the last cluster (so the
+ * caller can grow the chain by one cluster to place the new entry there).
+ * Returns FAT12_OK (found flagged via *found) or a read/chain error. */
+static int fat12_scan_dir(const fat12_volume_t *vol, const void *fat,
+                          uint32_t fat_len, int is_root, uint16_t start_cluster,
+                          void *sector_buf, const uint8_t want11[11],
+                          uint32_t *free_slot, int *have_free,
+                          uint32_t *match_slot, dir_entry_t *match, int *found)
+{
+	uint32_t per_sector = BLOCKDEV_SECTOR_SIZE / 32u;
+
+	*have_free = 0;
+	*found     = 0;
+
+	if (is_root) {
+		uint32_t slot = 0u;
+		uint32_t s;
+		for (s = 0u; s < vol->root_dir_sectors; s++) {
+			const uint8_t *sb;
+			int r;
+			if (vol->dev->read_sectors(vol->dev->ctx, vol->root_dir_sector + s,
+			                           1u, sector_buf) != 0) {
+				return FAT12_ERR_READ;
+			}
+			sb = (const uint8_t *)sector_buf;
+			r = fat12_scan_sector(sb, slot, want11, free_slot, have_free,
+			                      match_slot, match, found);
+			if (r != 0) {
+				return FAT12_OK;   /* matched or hit the 0x00 sentinel */
+			}
+			slot += per_sector;
+		}
+		/* Scanned the whole fixed root dir with no 0x00 sentinel and no match:
+		 * the directory is full unless a deleted slot was recorded. */
+		return FAT12_OK;
+	}
+
+	/* ---- Subdirectory: walk the cluster chain. ---- */
+	{
+		uint16_t cur          = start_cluster;
+		uint32_t slot         = 0u;
+		uint32_t steps        = 0u;
+		uint32_t max_steps    = vol->total_clusters + 2u;
+		uint32_t spc          = (uint32_t)vol->bpb.sectors_per_cluster;
+
+		if (fat == NULL) {
+			return FAT12_ERR_NULL;
+		}
+		for (;;) {
+			uint32_t lba;
+			uint32_t s;
+			uint16_t next;
+			int      rc;
+
+			if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
+			    fat12_is_bad(cur)) {
+				return FAT12_ERR_CHAIN;
+			}
+			lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
+			for (s = 0u; s < spc; s++) {
+				const uint8_t *sb;
+				int r;
+				if (vol->dev->read_sectors(vol->dev->ctx, lba + s, 1u,
+				                           sector_buf) != 0) {
+					return FAT12_ERR_READ;
+				}
+				sb = (const uint8_t *)sector_buf;
+				r = fat12_scan_sector(sb, slot, want11, free_slot, have_free,
+				                      match_slot, match, found);
+				if (r != 0) {
+					return FAT12_OK;   /* matched or hit the 0x00 sentinel */
+				}
+				slot += per_sector;
+			}
+			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+			if (rc != FAT12_OK) {
+				return rc;
+			}
+			if (fat12_is_eoc(next)) {
+				/* Chain ended with no 0x00 sentinel and (if no deleted slot was
+				 * found) no free slot: the directory is full at exactly `slot`,
+				 * the index just past the last cluster. Leaving *have_free 0
+				 * signals the caller to grow the chain to place a new entry. */
+				if (!*have_free) {
+					*free_slot = slot;
+				}
+				return FAT12_OK;
+			}
+			cur = next;
+			if (++steps > max_steps) {
+				return FAT12_ERR_CHAIN;   /* cyclic / corrupt */
+			}
+		}
+	}
+}
+
+/* fat12_scan_root -- the root-only thin wrapper (byte-identical historical
+ * behavior; routes through fat12_scan_dir with is_root=1). */
 static int fat12_scan_root(const fat12_volume_t *vol, void *sector_buf,
                            const uint8_t want11[11], uint32_t *free_slot,
                            int *have_free, uint32_t *match_slot,
                            dir_entry_t *match, int *found)
 {
-	uint32_t per_sector = BLOCKDEV_SECTOR_SIZE / 32u;
-	uint32_t slot = 0u;
-	uint32_t s;
-
-	*have_free = 0;
-	*found     = 0;
-
-	for (s = 0u; s < vol->root_dir_sectors; s++) {
-		const uint8_t *sb;
-		uint32_t i;
-		if (vol->dev->read_sectors(vol->dev->ctx, vol->root_dir_sector + s,
-		                           1u, sector_buf) != 0) {
-			return FAT12_ERR_READ;
-		}
-		sb = (const uint8_t *)sector_buf;
-		for (i = 0u; i < per_sector; i++, slot++) {
-			const uint8_t *e = sb + i * 32u;
-			uint8_t first = e[0];
-
-			if (first == DIR_NAME_FREE) {
-				/* End-of-directory: this slot (and all after) are free. The
-				 * first free slot for placement is here if none seen earlier. */
-				if (!*have_free) {
-					*free_slot = slot;
-					*have_free = 1;
-				}
-				return FAT12_OK;   /* no match exists beyond the sentinel */
-			}
-			if (first == DIR_NAME_DELETED) {
-				if (!*have_free) {
-					*free_slot = slot;
-					*have_free = 1;
-				}
-				continue;
-			}
-			/* LFN slots are not a name match; skip for matching, never reuse. */
-			if (e[11] == FAT12_ATTR_LFN) {
-				continue;
-			}
-			/* Compare the 11 raw 8.3 bytes for an exact match. */
-			{
-				int eq = 1;
-				uint32_t k;
-				for (k = 0u; k < 11u; k++) {
-					if (e[k] != want11[k]) {
-						eq = 0;
-						break;
-					}
-				}
-				if (eq) {
-					uint32_t m;
-					uint8_t *dst = (uint8_t *)match;
-					for (m = 0u; m < 32u; m++) {
-						dst[m] = e[m];
-					}
-					*match_slot = slot;
-					*found      = 1;
-					return FAT12_OK;
-				}
-			}
-		}
-	}
-	/* Scanned the whole fixed root dir with no 0x00 sentinel and no match: the
-	 * directory is full unless a deleted slot was recorded. */
-	return FAT12_OK;
+	return fat12_scan_dir(vol, NULL, 0u, 1, 0u, sector_buf, want11,
+	                      free_slot, have_free, match_slot, match, found);
 }
 
 /*
@@ -1241,6 +1601,52 @@ int fat12_find_slot(const fat12_volume_t *vol, void *sector_buf,
 }
 
 /*
+ * fat12_find_slot_in -- like fat12_find_slot, but locate the 8.3 `name83` in the
+ * directory whose first data cluster is `parent_dir_start` (0 == the fixed root,
+ * byte-identical to fat12_find_slot) and return the entry's slot WITHIN that
+ * directory (beads initech-zs24). For a subdir the slot is the linear cluster-
+ * chain index a later fat12_write_partial / fat12_read_dir_entry_in uses to
+ * write-back the entry. `fat`/`fat_len` decode the subdir links. Returns
+ * FAT12_OK with *out_entry + *out_slot set; FAT12_ERR_NOT_FOUND if no match; a
+ * parse / read / chain error propagated.
+ */
+int fat12_find_slot_in(const fat12_volume_t *vol, const void *fat,
+                       uint32_t fat_len, uint16_t parent_dir_start,
+                       void *sector_buf, const char *name83,
+                       dir_entry_t *out_entry, uint32_t *out_slot)
+{
+	uint8_t     want11[11];
+	uint32_t    free_slot = 0u;
+	int         have_free = 0;
+	uint32_t    match_slot = 0u;
+	dir_entry_t match;
+	int         found = 0;
+	int         rc;
+
+	if (vol == NULL || sector_buf == NULL || name83 == NULL ||
+	    out_entry == NULL || out_slot == NULL) {
+		return FAT12_ERR_NULL;
+	}
+
+	rc = parse_name83(name83, want11);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	rc = fat12_scan_dir(vol, fat, fat_len, parent_dir_start == 0u,
+	                    parent_dir_start, sector_buf, want11, &free_slot,
+	                    &have_free, &match_slot, &match, &found);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (!found) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	*out_entry = match;
+	*out_slot  = match_slot;
+	return FAT12_OK;
+}
+
+/*
  * fat12_read_dir_entry -- re-read the 32-byte directory entry at root-dir slot
  * `slot` into *out_entry (beads initech-0qh). Public wrapper over the internal
  * single-slot read; the file backend uses it after a positioned write_at() to
@@ -1257,9 +1663,33 @@ int fat12_read_dir_entry(const fat12_volume_t *vol, void *sector_buf,
 	return fat12_read_dirent_local(vol, slot, out_entry, sector_buf);
 }
 
+/*
+ * fat12_read_dir_entry_in -- re-read the 32-byte directory entry at slot `slot`
+ * of the directory whose first data cluster is `parent_dir_start` (0 == the
+ * fixed root) into *out_entry (beads initech-zs24). The subdir-aware counterpart
+ * of fat12_read_dir_entry: the file backend's positioned write_at() refresh uses
+ * it so a subdir file's SFT copy is refreshed from the SUBDIR slot, not a root
+ * slot. `fat`/`fat_len` decode the subdir links (unused for the root, which is
+ * byte-identical to fat12_read_dir_entry). Returns FAT12_OK, or a read/chain
+ * error / FAT12_ERR_DIR_FULL (slot out of range) / FAT12_ERR_NULL.
+ */
+int fat12_read_dir_entry_in(const fat12_volume_t *vol, const void *fat,
+                            uint32_t fat_len, uint16_t parent_dir_start,
+                            void *sector_buf, uint32_t slot,
+                            dir_entry_t *out_entry)
+{
+	if (vol == NULL || sector_buf == NULL || out_entry == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	return fat12_read_dirent_in_dir(vol, fat, fat_len, parent_dir_start == 0u,
+	                                parent_dir_start, slot, out_entry,
+	                                sector_buf);
+}
+
 int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
-                 const char *name83, uint8_t attr, void *sector_buf,
-                 dir_entry_t *out_entry, uint32_t *out_slot)
+                 const char *name83, uint8_t attr, uint16_t parent_dir_start,
+                 void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,
+                 uint32_t *out_slot)
 {
 	uint8_t     want11[11];
 	uint32_t    free_slot = 0u;
@@ -1271,6 +1701,7 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	uint32_t    slot;
 	dir_entry_t de;
 	uint32_t    k;
+	int         is_root = (parent_dir_start == 0u);
 
 	if (vol == NULL || name83 == NULL || sector_buf == NULL ||
 	    out_entry == NULL || out_slot == NULL) {
@@ -1286,8 +1717,9 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		return rc;
 	}
 
-	rc = fat12_scan_root(vol, sector_buf, want11, &free_slot, &have_free,
-	                     &match_slot, &match, &found);
+	rc = fat12_scan_dir(vol, fat, fat_len, is_root, parent_dir_start, sector_buf,
+	                    want11, &free_slot, &have_free, &match_slot, &match,
+	                    &found);
 	if (rc != FAT12_OK) {
 		return rc;
 	}
@@ -1309,7 +1741,23 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	} else {
 		/* CREATE: claim the first reusable slot. */
 		if (!have_free) {
-			return FAT12_ERR_DIR_FULL;
+			/* The directory is FULL at *free_slot. The fixed ROOT cannot grow ->
+			 * dir-full. A SUBDIR grows by one cluster so the free_slot index (the
+			 * first slot of the new cluster) becomes valid (beads initech-zs24). */
+			if (is_root) {
+				return FAT12_ERR_DIR_FULL;
+			}
+			{
+				uint16_t newc = 0u;
+				if (cluster_buf == NULL || fat == NULL) {
+					return FAT12_ERR_NULL;
+				}
+				rc = fat12_grow_dir(vol, fat, fat_len, parent_dir_start,
+				                    cluster_buf, &newc);
+				if (rc != FAT12_OK) {
+					return rc;   /* NO_SPACE / write error -- already rolled back */
+				}
+			}
 		}
 		slot = free_slot;
 		for (k = 0u; k < sizeof(de); k++) {
@@ -1329,7 +1777,8 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	de.start_cluster = 0u;
 	de.file_size     = 0u;
 
-	rc = fat12_write_dirent(vol, slot, &de, sector_buf);
+	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+	                               slot, &de, sector_buf);
 	if (rc != FAT12_OK) {
 		return rc;
 	}
@@ -1517,10 +1966,12 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * volume's cluster count.
  */
 int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
-                        uint32_t slot, uint32_t offset, const uint8_t *data,
+                        uint16_t parent_dir_start, uint32_t slot,
+                        uint32_t offset, const uint8_t *data,
                         uint32_t len, void *sector_buf, void *cluster_buf,
                         uint32_t *out_written)
 {
+	int         is_root = (parent_dir_start == 0u);
 	uint32_t    bytes_per_cluster;
 	uint32_t    old_size;
 	uint32_t    new_size;
@@ -1570,7 +2021,8 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
 	                    (uint32_t)vol->bpb.bytes_per_sector;
 
-	rc = fat12_read_dirent_local(vol, slot, &de, sector_buf);
+	rc = fat12_read_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+	                              slot, &de, sector_buf);
 	if (rc != FAT12_OK) {
 		return rc;
 	}
@@ -1812,17 +2264,19 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	}
 
 	/* ---- Patch the dir entry: start_cluster (if changed) + size. ---- */
-	rc = fat12_read_dirent_local(vol, slot, &de, sector_buf);
+	rc = fat12_read_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+	                              slot, &de, sector_buf);
 	if (rc != FAT12_OK) {
 		return rc;
 	}
 	de.start_cluster = new_start;
 	de.file_size     = new_size;
-	return fat12_write_dirent(vol, slot, &de, sector_buf);
+	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+	                                 slot, &de, sector_buf);
 }
 
 int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
-                 const char *name83, void *sector_buf)
+                 const char *name83, uint16_t parent_dir_start, void *sector_buf)
 {
 	uint8_t     want11[11];
 	uint32_t    free_slot = 0u;
@@ -1831,6 +2285,7 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	dir_entry_t match;
 	int         found = 0;
 	int         rc;
+	int         is_root = (parent_dir_start == 0u);
 
 	if (vol == NULL || name83 == NULL || sector_buf == NULL) {
 		return FAT12_ERR_NULL;
@@ -1844,8 +2299,9 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (rc != FAT12_OK) {
 		return FAT12_ERR_NOT_FOUND;
 	}
-	rc = fat12_scan_root(vol, sector_buf, want11, &free_slot, &have_free,
-	                     &match_slot, &match, &found);
+	rc = fat12_scan_dir(vol, fat, fat_len, is_root, parent_dir_start, sector_buf,
+	                    want11, &free_slot, &have_free, &match_slot, &match,
+	                    &found);
 	if (rc != FAT12_OK) {
 		return rc;
 	}
@@ -1867,7 +2323,8 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 
 	/* Mark the dir entry deleted (filename[0] = 0xE5). */
 	match.filename[0] = DIR_NAME_DELETED;
-	return fat12_write_dirent(vol, match_slot, &match, sector_buf);
+	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+	                                 match_slot, &match, sector_buf);
 }
 
 /* ======================================================================== *

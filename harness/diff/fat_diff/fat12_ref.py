@@ -257,6 +257,26 @@ class Fat12:
                     return ent
         return None
 
+    def find_path(self, path):
+        """Resolve a backslash-separated path to a FILE entry (independent
+        reference for a subdir file lookup, beads initech-zs24). Split the bare
+        8.3 leaf off the PARENT directory path, resolve the parent to its chain,
+        then find the leaf there. Returns the 32-byte dir entry or None (missing
+        parent component raises ValueError, mirroring resolve_dir)."""
+        # Strip a leading drive prefix (letter + ':').
+        if len(path) >= 2 and path[1] == ":" and path[0].isalpha():
+            path = path[2:]
+        # The leaf is everything after the last '\'; the parent is before it.
+        sep = path.rfind("\\")
+        if sep < 0:
+            parent = ""           # bare name -> the root
+            leaf = path
+        else:
+            parent = path[:sep]
+            leaf = path[sep + 1:]
+        is_root, start_cluster = self.resolve_dir(parent)
+        return self._find_in_dir(is_root, start_cluster, leaf.upper())
+
     def resolve_dir(self, path):
         """Resolve a backslash-separated path to a DIRECTORY, returning
         (is_root, start_cluster). Fails loud (raises ValueError) on a missing or
@@ -373,6 +393,32 @@ def main(argv):
         # bytes that exist (possibly none), never an error.
         sl = content[off:off + ln] if off < len(content) else b""
         sys.stdout.buffer.write(sl)
+        return 0
+
+    if mode == "--cat-path":
+        # --cat-path PATH : write the EXACT bytes of the file at a backslash-
+        # separated PATH (e.g. "SUB\\NEW.TXT" or "\\SUB\\NEW.TXT"). The
+        # INDEPENDENT reference for a SUBDIRECTORY file write-back (beads
+        # initech-zs24): resolve the parent dir from first principles, find the
+        # leaf, read file_size bytes. Missing file -> exit 1.
+        if len(argv) != 4:
+            sys.stderr.write("fat12_ref: --cat-path needs a PATH\n")
+            return 2
+        try:
+            ent = fs.find_path(argv[3])
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: --cat-path bad path '%s': %s\n"
+                             % (argv[3], exc))
+            return 1
+        if ent is None:
+            sys.stderr.write("fat12_ref: file not found: %s\n" % argv[3])
+            return 1
+        try:
+            content = fs.read_file(ent)
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: read failed: %s\n" % exc)
+            return 1
+        sys.stdout.buffer.write(content)
         return 0
 
     if mode == "--list-path":

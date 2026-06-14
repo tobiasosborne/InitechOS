@@ -799,7 +799,8 @@ static void do_write(int_frame_t *f)
         }
         uint32_t written = 0u;
         dir_entry_t updated = e->dir_entry;
-        uint16_t err = g_file->write_at(e->root_slot, e->file_offset,
+        uint16_t err = g_file->write_at(e->dir_start, e->root_slot,
+                                        e->file_offset,
                                         (const uint8_t *)buf, count,
                                         &written, &updated);
         if (err != 0) {
@@ -1052,6 +1053,7 @@ static void do_open(int_frame_t *f)
     e->dir_entry   = de;          /* struct copy of the 32-byte FAT dir entry */
     e->file_offset = 0u;
     e->root_slot   = root_slot;
+    e->dir_start   = dir_start;   /* containing dir for subdir write-back (zs24) */
     g_cur_psp->jft[handle] = sft_idx;
 
     f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)handle;  /* EAX (AX) = handle */
@@ -1126,7 +1128,8 @@ static void do_creat(int_frame_t *f)
     e->ref_count   = 1u;
     e->dir_entry   = de;
     e->file_offset = 0u;
-    e->root_slot   = root_slot;        /* root-dir slot for positioned write-back */
+    e->root_slot   = root_slot;        /* dir-entry slot for positioned write-back */
+    e->dir_start   = dir_start;        /* containing dir (0==root; subdir zs24) */
     g_cur_psp->jft[handle] = sft_idx;
 
     f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)handle;

@@ -116,7 +116,7 @@ static int do_diff_fixtures(const char *img)
 	fat_len = (uint32_t)vol.bpb.sectors_per_fat * (uint32_t)vol.bpb.bytes_per_sector;
 
 #define DIFF_DO(name, attr) \
-	if (fat12_create(&vol, g_fat, fat_len, (name), (attr), g_sector, &de, &slot) != FAT12_OK) { \
+	if (fat12_create(&vol, g_fat, fat_len, (name), (attr), 0u, g_sector, g_cluster, &de, &slot) != FAT12_OK) { \
 		fprintf(stderr, "test_fat12_write --diff: create %s failed\n", (name)); \
 		blockdev_file_close(&bf); return 1; }
 
@@ -226,7 +226,7 @@ int main(int argc, char **argv)
 
 		/* SHORT.TXT: a small single-cluster file. */
 		rc = fat12_create(&vol, g_fat, fat_len, "SHORT.TXT", DIR_ATTR_ARCHIVE,
-		                  g_sector, &de, &slot);
+		                  0u, g_sector, g_cluster, &de, &slot);
 		CHECK(rc == FAT12_OK, "fat12_create(SHORT.TXT) ok");
 		rc = fat12_write_file(&vol, g_fat, fat_len, slot, short_data,
 		                      (uint32_t)(sizeof(short_data) - 1u), g_sector, g_cluster);
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
 
 		/* MULTI.DAT: a 3-cluster file (the chain-linking case). */
 		rc = fat12_create(&vol, g_fat, fat_len, "MULTI.DAT", DIR_ATTR_ARCHIVE,
-		                  g_sector, &de, &slot);
+		                  0u, g_sector, g_cluster, &de, &slot);
 		CHECK(rc == FAT12_OK, "fat12_create(MULTI.DAT) ok");
 		rc = fat12_write_file(&vol, g_fat, fat_len, slot, multi, WRITE_MULTI_LEN,
 		                      g_sector, g_cluster);
@@ -242,7 +242,7 @@ int main(int argc, char **argv)
 
 		/* EXACT.BIN: an exact 2-cluster multiple (full last cluster). */
 		rc = fat12_create(&vol, g_fat, fat_len, "EXACT.BIN", DIR_ATTR_ARCHIVE,
-		                  g_sector, &de, &slot);
+		                  0u, g_sector, g_cluster, &de, &slot);
 		CHECK(rc == FAT12_OK, "fat12_create(EXACT.BIN) ok");
 		rc = fat12_write_file(&vol, g_fat, fat_len, slot, exact, WRITE_EXACT_LEN,
 		                      g_sector, g_cluster);
@@ -250,7 +250,7 @@ int main(int argc, char **argv)
 
 		/* EMPTY.NEW: a zero-length file (no chain). */
 		rc = fat12_create(&vol, g_fat, fat_len, "EMPTY.NEW", DIR_ATTR_ARCHIVE,
-		                  g_sector, &de, &slot);
+		                  0u, g_sector, g_cluster, &de, &slot);
 		CHECK(rc == FAT12_OK, "fat12_create(EMPTY.NEW) ok");
 		rc = fat12_write_file(&vol, g_fat, fat_len, slot, "", 0u, g_sector, g_cluster);
 		CHECK(rc == FAT12_OK, "fat12_write_file(EMPTY.NEW, 0 bytes) ok");
@@ -333,19 +333,19 @@ int main(int argc, char **argv)
 	{
 		dir_entry_t e;
 		CHECK(fat12_read_fat(&vol, g_fat, sizeof(g_fat)) == FAT12_OK, "re-read FAT before unlink");
-		rc = fat12_unlink(&vol, g_fat, fat_len, "EXACT.BIN", g_sector);
+		rc = fat12_unlink(&vol, g_fat, fat_len, "EXACT.BIN", 0u, g_sector);
 		CHECK(rc == FAT12_OK, "fat12_unlink(EXACT.BIN) ok");
 		rc = fat12_find(&vol, g_sector, "EXACT.BIN", &e);
 		CHECK(rc == FAT12_ERR_NOT_FOUND, "EXACT.BIN gone from the directory after unlink");
 		/* unlink of a non-existent file fails loud. */
-		rc = fat12_unlink(&vol, g_fat, fat_len, "NOPE.XYZ", g_sector);
+		rc = fat12_unlink(&vol, g_fat, fat_len, "NOPE.XYZ", 0u, g_sector);
 		CHECK(rc == FAT12_ERR_NOT_FOUND, "unlink of a missing file -> NOT_FOUND");
 
 		/* The freed clusters must now be re-allocatable: create + write a file
 		 * that reuses them and round-trips. */
 		uint32_t slot;
 		rc = fat12_create(&vol, g_fat, fat_len, "REUSE.BIN", DIR_ATTR_ARCHIVE,
-		                  g_sector, &e, &slot);
+		                  0u, g_sector, g_cluster, &e, &slot);
 		CHECK(rc == FAT12_OK, "fat12_create(REUSE.BIN) after unlink ok");
 		rc = fat12_write_file(&vol, g_fat, fat_len, slot, exact, WRITE_EXACT_LEN,
 		                      g_sector, g_cluster);
@@ -375,7 +375,7 @@ int main(int argc, char **argv)
 
 		CHECK(fat12_read_fat(&vol, g_fat, sizeof(g_fat)) == FAT12_OK, "re-read FAT");
 		rc = fat12_create(&vol, g_fat, fat_len, "TOOBIG.DAT", DIR_ATTR_ARCHIVE,
-		                  g_sector, &e, &slot);
+		                  0u, g_sector, g_cluster, &e, &slot);
 		CHECK(rc == FAT12_OK, "fat12_create(TOOBIG.DAT) ok");
 
 		/* Request more than the WHOLE volume of clusters. We cannot supply that
@@ -402,7 +402,7 @@ int main(int argc, char **argv)
 				uint32_t sl2;
 				snprintf(nm, sizeof(nm), "FILL%02d.DAT", i);
 				rc = fat12_create(&vol, g_fat, fat_len, nm, DIR_ATTR_ARCHIVE,
-				                  g_sector, &de2, &sl2);
+				                  0u, g_sector, g_cluster, &de2, &sl2);
 				if (rc == FAT12_ERR_DIR_FULL) { got_no_space = 1; break; }
 				CHECK(rc == FAT12_OK, "fill create ok (until dir/space full)");
 				rc = fat12_write_file(&vol, g_fat, fat_len, sl2, big, sizeof(big),

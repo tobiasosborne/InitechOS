@@ -126,7 +126,7 @@ static void do_write(subject_t *s, uint32_t offset, uint32_t seed, uint32_t len,
 		data[i] = pat(i, seed);
 	}
 
-	rc = fat12_write_partial(&g_vol, g_fat, g_fat_len, s->slot, offset, data,
+	rc = fat12_write_partial(&g_vol, g_fat, g_fat_len, 0u, s->slot, offset, data,
 	                         len, g_sector, g_cluster, &out_written);
 	snprintf(msg, sizeof(msg), "%s: write_partial(off=%u,len=%u) -> FAT12_OK",
 	         s->name, offset, len);
@@ -228,7 +228,7 @@ static int run_sequence(int verify)
 #define CREATE(s, nm) do { \
 		strcpy((s).name, (nm)); \
 		rc = fat12_create(&g_vol, g_fat, g_fat_len, (nm), DIR_ATTR_ARCHIVE, \
-		                  g_sector, &de, &(s).slot); \
+		                  0u, g_sector, g_cluster, &de, &(s).slot); \
 		if (rc != FAT12_OK) { \
 			fprintf(stderr, "create %s failed (%d)\n", (nm), rc); return 1; } \
 	} while (0)
@@ -339,11 +339,11 @@ int main(int argc, char **argv)
 			uint32_t out_written = 0;
 			snprintf(nm, sizeof(nm), "PFILL%02d.DAT", i);
 			rc = fat12_create(&g_vol, g_fat, g_fat_len, nm, DIR_ATTR_ARCHIVE,
-			                  g_sector, &de2, &sl2);
+			                  0u, g_sector, g_cluster, &de2, &sl2);
 			if (rc == FAT12_ERR_DIR_FULL) { got_no_space = 1; break; }
 			CHECK(rc == FAT12_OK, "fill create ok (until dir/space full)");
 			/* Grow each file from empty with a positioned write at offset 0. */
-			rc = fat12_write_partial(&g_vol, g_fat, g_fat_len, sl2, 0u, big,
+			rc = fat12_write_partial(&g_vol, g_fat, g_fat_len, 0u, sl2, 0u, big,
 			                         sizeof(big), g_sector, g_cluster,
 			                         &out_written);
 			if (rc == FAT12_ERR_NO_SPACE) {

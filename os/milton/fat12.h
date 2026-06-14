@@ -305,6 +305,21 @@ int fat12_find_slot(const fat12_volume_t *vol, void *sector_buf,
                     uint32_t *out_slot);
 
 /*
+ * fat12_find_slot_in: like fat12_find_slot, but locate `name83` in the directory
+ * whose first data cluster is `parent_dir_start` (0 == the fixed root, byte-
+ * identical to fat12_find_slot) and return the entry's slot WITHIN that directory
+ * (beads initech-zs24) -- the root-dir-region index for the root, the linear
+ * cluster-chain index for a subdir (so a later positioned write_at /
+ * fat12_read_dir_entry_in patches the entry in the right place). `fat`/`fat_len`
+ * decode the subdir links. Returns FAT12_OK with *out_entry + *out_slot set;
+ * FAT12_ERR_NOT_FOUND if no match; a parse / read / chain error propagated.
+ */
+int fat12_find_slot_in(const fat12_volume_t *vol, const void *fat,
+                       uint32_t fat_len, uint16_t parent_dir_start,
+                       void *sector_buf, const char *name83,
+                       dir_entry_t *out_entry, uint32_t *out_slot);
+
+/*
  * fat12_read_dir_entry: re-read the 32-byte directory entry at root-dir slot
  * `slot` into *out_entry (beads initech-0qh). Used after a positioned write to
  * refresh the cached dir entry (size + start_cluster). `sector_buf` (>=512) is
@@ -313,6 +328,21 @@ int fat12_find_slot(const fat12_volume_t *vol, void *sector_buf,
  */
 int fat12_read_dir_entry(const fat12_volume_t *vol, void *sector_buf,
                          uint32_t slot, dir_entry_t *out_entry);
+
+/*
+ * fat12_read_dir_entry_in: re-read the 32-byte directory entry at slot `slot` of
+ * the directory whose first data cluster is `parent_dir_start` (0 == the fixed
+ * root) into *out_entry (beads initech-zs24). The subdir-aware counterpart of
+ * fat12_read_dir_entry, used by the file backend's positioned write_at() to
+ * refresh a SUBDIR file's cached dir entry from the right slot. `fat`/`fat_len`
+ * decode the subdir cluster chain (unused for the root). `sector_buf` (>=512) is
+ * scratch. Returns FAT12_OK, or a read/chain error / FAT12_ERR_DIR_FULL (slot
+ * out of range) / FAT12_ERR_NULL.
+ */
+int fat12_read_dir_entry_in(const fat12_volume_t *vol, const void *fat,
+                            uint32_t fat_len, uint16_t parent_dir_start,
+                            void *sector_buf, uint32_t slot,
+                            dir_entry_t *out_entry);
 
 /*
  * fat12_read_file: read the file described by dir entry `e` into `out_buf`,
@@ -450,12 +480,24 @@ int fat12_flush_fats(const fat12_volume_t *vol, const void *fat,
  *   - attr is stored (caller passes DIR_ATTR_ARCHIVE for a normal file).
  *   - mtime/mdate stamped to the fixed deterministic constant (Rule 11).
  *
- * `fat`/`fat_len` is the whole-FAT buffer (mutated when truncating frees a
- * chain). `sector_buf` (>=512) is scratch. Returns FAT12_OK; the dir entry is
- * already written to disk (size 0). */
+ * SUBDIRECTORY PARENT (beads initech-zs24): `parent_dir_start` is the first data
+ * cluster of the directory the file is created in (0 == the fixed root, byte-
+ * identical to the historical root-only behavior). For a subdir the scan / slot
+ * placement / dir-entry write-back walk the parent's CLUSTER CHAIN; when the
+ * subdir is FULL it is GROWN by one cluster (fat12_grow_dir) so the new entry
+ * lands in the fresh cluster -- exactly as real FAT12 / mtools grow a directory
+ * (the fixed root cannot grow -> FAT12_ERR_DIR_FULL). `cluster_buf`
+ * (>= sectors_per_cluster*512) is the directory-grow zero-fill scratch (it is
+ * used ONLY on a subdir-full grow; a root create / a non-full subdir never
+ * touches it, so it may be the same scratch the caller passes write_at).
+ *
+ * `fat`/`fat_len` is the whole-FAT buffer (mutated when truncating frees a chain
+ * or a subdir grows). `sector_buf` (>=512) is scratch. Returns FAT12_OK; the dir
+ * entry is already written to disk (size 0). */
 int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
-                 const char *name83, uint8_t attr, void *sector_buf,
-                 dir_entry_t *out_entry, uint32_t *out_slot);
+                 const char *name83, uint8_t attr, uint16_t parent_dir_start,
+                 void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,
+                 uint32_t *out_slot);
 
 /*
  * fat12_write_file: write `len` bytes of `data` as the contents of the file at
@@ -505,23 +547,36 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * `sector_buf` (>=512) is scratch for the dir-entry RMW; `cluster_buf`
  * (>= sectors_per_cluster*512) is scratch for the cluster RMW + zero-fill.
  *
+ * SUBDIRECTORY PARENT (beads initech-zs24): `parent_dir_start` is the first data
+ * cluster of the directory that CONTAINS the file (0 == the fixed root, byte-
+ * identical to the historical root-only behavior). `slot` is the file's dir-
+ * entry index WITHIN that directory -- for the root the root-dir-region slot, for
+ * a subdir the linear index down the parent's cluster chain. Only WHERE the dir
+ * entry's size/start_cluster are read+written changes; the file's OWN cluster
+ * chain (the data) is independent of the parent directory.
+ *
  * Fail loud (Rule 2): required NULL -> FAT12_ERR_NULL; no write backend ->
  * FAT12_ERR_WRITE; offset+len overflow -> FAT12_ERR_BUFFER; full volume ->
  * FAT12_ERR_NO_SPACE (rolled back); corrupt/cyclic chain -> FAT12_ERR_CHAIN; a
  * device error -> FAT12_ERR_READ/_WRITE. Returns FAT12_OK on success. */
 int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
-                        uint32_t slot, uint32_t offset, const uint8_t *data,
+                        uint16_t parent_dir_start, uint32_t slot,
+                        uint32_t offset, const uint8_t *data,
                         uint32_t len, void *sector_buf, void *cluster_buf,
                         uint32_t *out_written);
 
 /*
- * fat12_unlink: delete the regular 8.3 file `name83` from the root directory:
- * mark its dir entry deleted (filename[0] = 0xE5, DIR_NAME_DELETED) and free its
- * whole cluster chain (set each FAT entry to 0x000, flush both copies). A
- * non-existent name -> FAT12_ERR_NOT_FOUND. `fat`/`fat_len` is the whole-FAT
- * buffer (mutated); `sector_buf` (>=512) is scratch. Returns FAT12_OK. */
+ * fat12_unlink: delete the regular 8.3 file `name83` from the directory whose
+ * first data cluster is `parent_dir_start` (0 == the fixed root, byte-identical
+ * to the historical root-only behavior; a non-root value scans + write-backs the
+ * deleted entry down the parent's CLUSTER CHAIN -- beads initech-zs24): mark its
+ * dir entry deleted (filename[0] = 0xE5, DIR_NAME_DELETED) and free its whole
+ * cluster chain (set each FAT entry to 0x000, flush both copies). A non-existent
+ * name -> FAT12_ERR_NOT_FOUND. `fat`/`fat_len` is the whole-FAT buffer (mutated);
+ * `sector_buf` (>=512) is scratch. Returns FAT12_OK. */
 int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
-                 const char *name83, void *sector_buf);
+                 const char *name83, uint16_t parent_dir_start,
+                 void *sector_buf);
 
 /* ======================================================================== *
  * FAT12 subdirectory CREATE / REMOVE -- WRITE side (beads initech-u6wa)

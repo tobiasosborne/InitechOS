@@ -325,10 +325,11 @@ static uint16_t mock_create(const char *name83, uint16_t dir_start_cluster,
     return 0u;
 }
 
-static uint16_t mock_write_at(uint32_t slot, uint32_t offset, const uint8_t *data,
-                              uint32_t len, uint32_t *out_written,
-                              dir_entry_t *out_entry)
+static uint16_t mock_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
+                              const uint8_t *data, uint32_t len,
+                              uint32_t *out_written, dir_entry_t *out_entry)
 {
+    (void)dir_start;   /* mock files key off the table slot, not the directory */
     if (slot >= MOCK_N || !g_mock[slot].present) { *out_written = 0; return 0x0005u; }
     if (offset + len > MOCK_CAP) { *out_written = 0; return 0x0005u; }
     /* Zero-fill any hole between current size and offset (positioned semantics). */
