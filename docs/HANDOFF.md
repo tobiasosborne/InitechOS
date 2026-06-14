@@ -130,9 +130,10 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **63 host + 22 emu gates** (re-verified green; WL-0021 added
-`test-fat-subdir` + `test-fat-subdir-mutant` for ti8 Layer 1 and `test-region` +
-`test-region-mutant` for the ATKINSON engine; was 59+22 after WL-0019). The boot image is padded to a whole 2x32 cylinder geometry
+`make test` = **65 host + 22 emu gates** (re-verified green; WL-0022 added
+`test-mzxa-integration` (real fileio_fat backend over the nested image) +
+`test-mzxa-mutant` for ti8 Layer 2; WL-0021 added `test-fat-subdir`(+mutant) for
+ti8 L1 and `test-region`(+mutant) for the ATKINSON engine; was 59+22 after WL-0019). The boot image is padded to a whole 2x32 cylinder geometry
 (`IMG_SECTORS=192`, build-guarded) so the **Bochs boot leg passes**. Plus the
 separate `make test-boot-bochs` (the Bochs boot leg; env-specific Bochs +
 ~45 s, NOT in the default `make test`). `make factory` builds; `make` prints
@@ -188,8 +189,23 @@ Grounding split ti8 into L1 (fat12, done) and **`initech-mzxa`** = Layer 2, the
 Core-tier INT 21h `int21_file_backend_t` vtable cross-cut (root-only today;
 threading a resolved dir touches int21.h + fileio_fat.c + 3 host mocks + g_cwd +
 5 rejection sites: do_open@858 / do_creat@931 / do_unlink@995 / do_findfirst@1405
-/ do_exec@1476). **Resume the kernel chain at `initech-mzxa`** (grounded map in
-its notes) `→ u6wa` (MKDIR/RMDIR/CHDIR, now depends on mzxa) `→ ut6d` (MD/RD/CD).
+/ do_exec@1476). **`initech-mzxa` (Layer 2) is now DONE + green (WL-0022)** —
+the vtable threads a `uint16 dir_start_cluster` (0==root, root path byte-identical)
+through `int21_file_backend_t`; `do_open`/`creat`/`unlink`/`findfirst` resolve
+`\SUB\FILE`; `g_cwd` plumbing established (reset on launch/terminate, save/restore
+around the kernel PSP rebinds, `do_getcwd` wired); the strongest oracle binds the
+REAL `fileio_fat` backend over `fat12_nested.img` (45 checks). DOS-correct codes
+(0x0002 missing leaf vs 0x0003 missing/non-dir component).
+
+**Resume the kernel chain at `initech-u6wa`** (MKDIR/RMDIR/CHDIR) `→ ut6d`
+(MD/RD/CD). CAVEAT — u6wa is NOT a clean dispatch: **CHDIR (3Bh) is ready now**
+(mzxa gave it read-side resolve + g_cwd), but **MKDIR/RMDIR need WRITE-side FAT
+directory-creation** (allocate cluster + ATTR_DIRECTORY entry + `.`/`..`),
+entangled with the `initech-zs24` follow-up (subdir EXEC + subdir CREATE/UNLINK/
+WRITE; the current fat12 write primitives are root-only). u6wa's own notes list
+DOS-3.3-PRM open questions to GROUND FIRST (Law 1): RMDIR-non-empty error code,
+the `..` start-cluster when the parent is root (EMPIRICALLY mint from `mmd`).
+GROUND u6wa before implementing; consider sequencing zs24's write-side first.
 Drive it SERIALLY, oracle-gated — do NOT parallelize the shared-file kernel edits.
 
 **FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
