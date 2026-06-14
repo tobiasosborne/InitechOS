@@ -2368,7 +2368,7 @@ endef
 
 # Real targets vs. phony stubs are all .PHONY (no file products tracked by
 # make here except the smoke binary, which depends on its source).
-.PHONY: help factory image run run-bochs smoke ssim test test-region \
+.PHONY: help factory image run run-bochs smoke ssim test test-region test-region-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-int24 test-int24-mutant \
@@ -3612,8 +3612,70 @@ smoke: $(HARNESS_BIN) $(SMOKE_ELF)
 ssim:
 	$(call stub_fail,ssim,M0)
 
-test-region:
-	$(call stub_fail,test-region,M3)
+# ---------------------------------------------------------------------------
+# REAL gate: test-region (beads initech-jmo/-b5g/-6dy -- the ATKINSON region
+# engine, PRD Sec 6.2 "the load-bearing math")
+# ---------------------------------------------------------------------------
+# The region property suite (harness/proptest/test_region.c) drives the REAL
+# engine (os/flair/atkinson/region.c) HOSTED, the dual-compile pattern: the SAME
+# region.c the kernel links freestanding. The PRIMARY oracle is the HOMOMORPHISM
+# property -- rasterize(A OP B) == rasterize(A) OP_set rasterize(B), bit-exact,
+# over thousands of random regions (rect-unions AND raw scanline spans) for all
+# 4 ops + complement -- plus normalize-idempotence, the algebra identities,
+# rect-fast-path == general-path, and the 5 normal-form invariants. A shrinker
+# bisects any counterexample. Three mutants (NO_VRLE / PARITY_OFF1 /
+# EMIT_NOCHANGE) prove the oracle BITES (Rule 6).
+REGION_ENGINE_C  := os/flair/atkinson/region.c
+REGION_ENGINE_H  := os/flair/atkinson/region.h
+TEST_REGION      := $(BUILD)/test_region
+TEST_REGION_SRC  := harness/proptest/test_region.c
+TEST_REGION_DEPS := $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h
+TEST_REGION_MUT_VRLE   := $(BUILD)/test_region_mutant_vrle
+TEST_REGION_MUT_PARITY := $(BUILD)/test_region_mutant_parity
+TEST_REGION_MUT_EMIT   := $(BUILD)/test_region_mutant_emit
+REGION_INC := -Ispec -Ios/flair/atkinson -Iseed
+
+$(TEST_REGION): $(TEST_REGION_SRC) $(TEST_REGION_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(REGION_INC) \
+		-o $@ $(TEST_REGION_SRC) $(REGION_ENGINE_C)
+
+$(TEST_REGION_MUT_VRLE): $(TEST_REGION_SRC) $(TEST_REGION_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRGN_MUTATE_NO_VRLE $(REGION_INC) \
+		-o $@ $(TEST_REGION_SRC) $(REGION_ENGINE_C)
+
+$(TEST_REGION_MUT_PARITY): $(TEST_REGION_SRC) $(TEST_REGION_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRGN_MUTATE_PARITY_OFF1 $(REGION_INC) \
+		-o $@ $(TEST_REGION_SRC) $(REGION_ENGINE_C)
+
+$(TEST_REGION_MUT_EMIT): $(TEST_REGION_SRC) $(TEST_REGION_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRGN_MUTATE_EMIT_NOCHANGE $(REGION_INC) \
+		-o $@ $(TEST_REGION_SRC) $(REGION_ENGINE_C)
+
+test-region: $(TEST_REGION)
+	@printf ">>> test-region: ATKINSON region engine -- homomorphism (4 ops + complement) + normal-form + idempotence + algebra identities + rect-fast-path\n"
+	@$(TEST_REGION)
+	@printf ">>> test-region: green\n"
+
+test-region-mutant: $(TEST_REGION_MUT_VRLE) $(TEST_REGION_MUT_PARITY) $(TEST_REGION_MUT_EMIT)
+	@printf ">>> test-region-mutant: confirming all three mutants go RED (Rule 6)\n"
+	@if $(TEST_REGION_MUT_VRLE) >/dev/null 2>&1; then \
+		printf '!!! test-region-mutant FAIL: NO_VRLE mutant PASSED -- the vertical-RLE oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-region-mutant: green (NO_VRLE mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_REGION_MUT_PARITY) >/dev/null 2>&1; then \
+		printf '!!! test-region-mutant FAIL: PARITY_OFF1 mutant PASSED -- the parity oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-region-mutant: green (PARITY_OFF1 mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_REGION_MUT_EMIT) >/dev/null 2>&1; then \
+		printf '!!! test-region-mutant FAIL: EMIT_NOCHANGE mutant PASSED -- the merge oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-region-mutant: green (EMIT_NOCHANGE mutant correctly RED -- the oracle bites)\n'; \
+	fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-fat (beads initech-5cu; FAT12 read path beads initech-adf)
@@ -6263,6 +6325,7 @@ TEST_UNIT_GATES := \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
+	test-region test-region-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-int24-mutant \
 	test-fileio-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
