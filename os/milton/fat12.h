@@ -91,6 +91,21 @@ typedef struct fat12_volume {
 	fat_type_t  fat_type;         /* FAT12 / FAT16 classification               */
 } fat12_volume_t;
 
+/* A directory cursor (beads initech-ti8): the FIXED root directory OR a
+ * subdirectory rooted at a starting data cluster. The root directory is a
+ * fixed region (NOT a cluster chain) so it carries no cluster; a subdirectory
+ * is a cluster chain like a regular file, ending at the 0x00 sentinel or EOC
+ * (NOT bounded by root_entry_count). start_cluster==0 ALWAYS means "the root"
+ * (a subdir whose ".." points at the root stores start_cluster 0), so
+ * fat12_resolve_path normalizes start_cluster==0 => is_root=1 BEFORE any
+ * cluster-LBA math (BPB_CLUSTER_LBA underflows on cluster 0).
+ * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 4 (root dir region) +
+ *   Sec 3 (chain); spec/dos_structs.h (dir_entry_t.start_cluster). */
+typedef struct fat12_dir {
+	int      is_root;        /* 1 => the fixed root directory; 0 => a subdir */
+	uint16_t start_cluster;  /* subdir's first data cluster (unused if root) */
+} fat12_dir_t;
+
 /*
  * fat12_mount: read sector 0 from `dev`, validate it, copy the BPB into `vol`,
  * compute derived geometry, and classify FAT12 vs FAT16.
@@ -508,11 +523,81 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, void *sector_buf);
 
+/* ======================================================================== *
+ * FAT12 subdirectory / path traversal -- READ side (beads initech-ti8)
+ *
+ * Layer 1 of subdirectory support: enumerate ANY directory (root OR a subdir
+ * cluster chain) and resolve a backslash-separated 8.3 path to its containing
+ * directory + dir entry. The DOS-API (int21) wiring is the SEPARATE Layer 2
+ * bead (initech-mzxa); this layer is additive at the fat12 layer only.
+ *
+ * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (cluster chain) +
+ *   Sec 4 (dir entry / sentinels); ADR-0003 DEC-07 (root dir is a FIXED region,
+ *   subdirs are cluster chains); spec/dos_structs.h (DIR_ATTR_DIRECTORY,
+ *   BPB_CLUSTER_LBA). A subdirectory is NOT bounded by root_entry_count: it
+ *   ends only at the 0x00 sentinel or EOC (reusing root_entry_count would
+ *   silently truncate a large directory).
+ * ======================================================================== */
+
+/*
+ * fat12_read_dir: enumerate a directory `dir` -- the fixed root OR a subdir
+ * cluster chain -- invoking `cb` for each surviving (non-free, non-deleted,
+ * non-LFN) 32-byte entry, with the SAME sentinels/filtering as
+ * fat12_read_root_dir (0x00 STOP, 0xE5 SKIP, attr 0x0F LFN SKIP).
+ *
+ *   - dir->is_root: delegates to fat12_read_root_dir VERBATIM (the root path
+ *     stays byte-identical so existing callers/oracles remain green).
+ *   - else: walks dir->start_cluster's cluster chain. Each cluster is gated
+ *     through fat12_cluster_in_range BEFORE the LBA math, its sectors are read
+ *     at BPB_CLUSTER_LBA, the chain advances one fat12_next_cluster step at a
+ *     time (mirroring fat12_read_partial's incremental walk), the step count is
+ *     anti-hang bounded by vol->total_clusters+2 (Rule 2), and the walk stops
+ *     at EOC. Within each cluster the per-32-byte-entry inner loop applies the
+ *     same sentinels as the root reader; a non-zero cb return is propagated
+ *     verbatim (early stop). A subdir is NOT bounded by root_entry_count.
+ *
+ * `sector_buf` (>= sectors_per_cluster*512 for the subdir path; >=512 for root)
+ * is caller scratch; `fat`/`fat_len` is the whole-FAT buffer (only the subdir
+ * path needs it). Fail loud (Rule 2): NULL arg -> FAT12_ERR_NULL; a read error
+ * -> FAT12_ERR_READ; a corrupt/cyclic chain -> FAT12_ERR_CHAIN. Returns FAT12_OK
+ * after the full scan, or the callback's non-zero value on an early stop.
+ */
+int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
+                   void *sector_buf, const void *fat, uint32_t fat_len,
+                   fat12_dirent_cb cb, void *user);
+
+/*
+ * fat12_resolve_path: resolve a backslash-separated 8.3 path (e.g.
+ * "A:\\SUB\\DEEP\\DEEP.TXT") to its FINAL dir entry (*out_entry) and the
+ * directory that contains it (*out_dir), starting from the root.
+ *
+ *   - A leading drive prefix (any letter + ':') is stripped.
+ *   - The path is split on '\\'. Each NON-FINAL component is found in the
+ *     current directory (fat12_read_dir + an exact 11-byte 8.3 compare) and
+ *     MUST be a directory (DIR_ATTR_DIRECTORY) else FAT12_ERR_NOT_FOUND; the
+ *     cursor descends into it. '.' is a no-op; '..' pops to the parent's
+ *     start_cluster (start_cluster==0 normalizes to the root, is_root=1, BEFORE
+ *     any cluster-LBA math so BPB_CLUSTER_LBA never underflows).
+ *   - The FINAL component is resolved into *out_entry with *out_dir set to its
+ *     containing directory. An empty path or a trailing '\\' resolves to the
+ *     directory itself: *out_dir is that directory and *out_entry is a
+ *     synthesized DIR_ATTR_DIRECTORY marker (start_cluster = the dir's).
+ *
+ * Component-internal '\\' / ':' stay rejected by parse_name83 (after the
+ * top-level split). `sector_buf` (>= sectors_per_cluster*512) + `fat`/`fat_len`
+ * (whole-FAT buffer) are scratch/decode inputs. Fail loud (Rule 2): NULL ->
+ * FAT12_ERR_NULL; a missing/typed-wrong component -> FAT12_ERR_NOT_FOUND; read
+ * errors propagated. Returns FAT12_OK with *out_dir + *out_entry set.
+ */
+int fat12_resolve_path(const fat12_volume_t *vol, void *sector_buf,
+                       const void *fat, uint32_t fat_len, const char *path,
+                       fat12_dir_t *out_dir, dir_entry_t *out_entry);
+
 /* ---- NEXT tasks (beads initech-adf continuation); NOT implemented here ---- *
  *   With root-dir enumeration + find + file-read landed, the FAT12 READ path
  *   is essentially complete. Remaining, as SEPARATE issues:
- *     - subdirectory traversal (walk a DIR_ATTR_DIRECTORY entry's chain as a
- *       directory, recursively) -- this slice is root-dir only.
+ *     - the DOS-API (int21) wiring of subdir traversal -- beads initech-mzxa
+ *       (Layer 2; consumes fat12_read_dir / fat12_resolve_path from Layer 1).
  *     - the FAT WRITE path (allocate clusters, update both FATs, write dir
  *       entries) -- beads initech-509.11; blockdev write_sectors is still NULL.
  *     - the differential-vs-mtools `test-fat` gate wiring (beads initech-5cu).

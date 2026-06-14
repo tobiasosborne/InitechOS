@@ -1869,3 +1869,358 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	match.filename[0] = DIR_NAME_DELETED;
 	return fat12_write_dirent(vol, match_slot, &match, sector_buf);
 }
+
+/* ======================================================================== *
+ * FAT12 subdirectory / path traversal -- READ side (beads initech-ti8)
+ *
+ * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (cluster chain decode,
+ *   EOC >= 0xFF8) + Sec 4 (dir entry / sentinels: 0x00 STOP, 0xE5 SKIP, attr
+ *   0x0F LFN SKIP); ADR-0003 DEC-07 (root dir is a FIXED region, subdirs are
+ *   cluster chains). The subdir walk MIRRORS fat12_read_partial's incremental
+ *   chain step (one fat12_next_cluster at a time, gated through
+ *   fat12_cluster_in_range, anti-hang bounded by total_clusters+2). A subdir is
+ *   NOT bounded by root_entry_count -- it ends only at the 0x00 sentinel or EOC.
+ * ======================================================================== */
+
+int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
+                   void *sector_buf, const void *fat, uint32_t fat_len,
+                   fat12_dirent_cb cb, void *user)
+{
+	uint16_t cur;
+	uint32_t steps;
+	uint32_t max_steps;
+
+	if (vol == NULL || dir == NULL || sector_buf == NULL || cb == NULL ||
+	    vol->dev == NULL || vol->dev->read_sectors == NULL) {
+		return FAT12_ERR_NULL;
+	}
+
+	/* The fixed root directory: delegate VERBATIM so the root path stays
+	 * byte-identical to the existing reader (callers/oracles stay green). */
+	if (dir->is_root) {
+		return fat12_read_root_dir(vol, sector_buf, cb, user);
+	}
+
+	/* A subdirectory: the cluster-chain walk needs the FAT buffer to decode
+	 * links (fail loud, Rule 2). */
+	if (fat == NULL) {
+		return FAT12_ERR_NULL;
+	}
+
+	cur       = dir->start_cluster;
+	steps     = 0u;
+	/* Anti-hang bound (Rule 2): a valid chain visits at most total_clusters
+	 * distinct data clusters; +2 covers the reserved 0/1 slack. A cyclic/corrupt
+	 * chain trips this and errors instead of looping forever. */
+	max_steps = vol->total_clusters + 2u;
+
+	for (;;) {
+		uint32_t       lba;
+		uint32_t       s;
+		const uint8_t *secbase;
+		uint16_t       next;
+		int            rc;
+
+		/* Gate EVERY cluster through the range check BEFORE the LBA math: a
+		 * free/bad/out-of-range link is corruption (Rule 2 / bcg.3). This also
+		 * guards BPB_CLUSTER_LBA against an underflowing cluster < 2. */
+		if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
+		    fat12_is_bad(cur)) {
+			return FAT12_ERR_CHAIN;
+		}
+
+		/* Read this cluster's sectors at BPB_CLUSTER_LBA. sectors_per_cluster
+		 * is 1 on the floppy geometry, but read each sector into sector_buf and
+		 * process it so the caller's scratch need only be one sector wide for
+		 * spc==1 (the existing callers pass a 512-byte buffer). */
+		lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
+		for (s = 0u; s < vol->bpb.sectors_per_cluster; s++) {
+			uint32_t i;
+
+			if (vol->dev->read_sectors(vol->dev->ctx, lba + s, 1u,
+			                           sector_buf) != 0) {
+				return FAT12_ERR_READ;
+			}
+			secbase = (const uint8_t *)sector_buf;
+
+			/* Same per-32-byte-entry inner loop + sentinels as the root reader:
+			 * 0x00 => STOP (end of directory), 0xE5 => skip (deleted), attr 0x0F
+			 * => skip (LFN); else visit. A non-zero cb return stops early and is
+			 * propagated verbatim. A subdir is NOT bounded by root_entry_count. */
+			for (i = 0u; i < FAT12_DIRENTS_PER_SECTOR; i++) {
+				const dir_entry_t *e = (const dir_entry_t *)(secbase + i * 32u);
+				uint8_t            first = e->filename[0];
+
+				if (first == DIR_NAME_FREE) {
+					return FAT12_OK; /* end of directory: no entries follow */
+				}
+				if (first == DIR_NAME_DELETED) {
+					continue;
+				}
+				if (e->attribute == FAT12_ATTR_LFN) {
+					continue;
+				}
+				{
+					int r = cb(e, user);
+					if (r != 0) {
+						return r;
+					}
+				}
+			}
+		}
+
+		/* Advance one step down the chain. */
+		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		if (fat12_is_eoc(next)) {
+			return FAT12_OK; /* chain ended at EOC with no 0x00 sentinel */
+		}
+		cur = next;
+#ifndef FAT12_MUTATE_SUBDIR_SINGLESECTOR
+		if (++steps > max_steps) {
+			return FAT12_ERR_CHAIN; /* cyclic / corrupt */
+		}
+#else
+		/* MUTANT (Rule 6; test-fat-subdir-mutant only): read ONLY the FIRST
+		 * cluster of a subdirectory -- stop the chain walk after one cluster.
+		 * BIGDIR enumeration then loses FILE17..FILE40 (entries in cluster 2+),
+		 * so the >16-files multi-cluster assertion goes RED. NEVER in a real
+		 * build. */
+		(void)steps; (void)max_steps;
+		return FAT12_OK;
+#endif
+	}
+}
+
+/* Exact 11-byte 8.3 compare of a dir entry against a parsed want11 (the same
+ * raw-byte match scan_root uses -- byte-exact with the stored on-disk name). */
+static int dirent_name_eq(const dir_entry_t *e, const uint8_t want11[11])
+{
+	const uint8_t *raw = (const uint8_t *)e;
+	uint32_t       k;
+	for (k = 0u; k < 11u; k++) {
+		if (raw[k] != want11[k]) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+/* fat12_resolve_path component-finder context: the parsed 11-byte target name,
+ * the slot the match is copied into, and a found flag. */
+typedef struct fat12_comp_ctx {
+	const uint8_t *want11;     /* parsed 8.3 name to match (raw 11 bytes) */
+	dir_entry_t   *out_entry;  /* destination for the matched entry       */
+	int            found;      /* 0 until a match is copied               */
+} fat12_comp_ctx_t;
+
+/* fat12_read_dir visitor: on an exact 11-byte 8.3 match, copy the entry and
+ * request an early stop (return 1). */
+static int fat12_comp_cb(const dir_entry_t *e, void *user)
+{
+	fat12_comp_ctx_t *ctx = (fat12_comp_ctx_t *)user;
+	if (dirent_name_eq(e, ctx->want11)) {
+		uint32_t       k;
+		const uint8_t *src = (const uint8_t *)e;
+		uint8_t       *dst = (uint8_t *)ctx->out_entry;
+		for (k = 0u; k < sizeof(dir_entry_t); k++) {
+			dst[k] = src[k];
+		}
+		ctx->found = 1;
+		return 1; /* stop enumeration */
+	}
+	return 0;
+}
+
+/* Find a single component (parsed want11) in directory `dir`; copy the matched
+ * entry to *out_entry. Returns FAT12_OK on a match, FAT12_ERR_NOT_FOUND if no
+ * entry matches, or a read/chain error propagated. */
+static int fat12_find_in_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
+                             void *sector_buf, const void *fat, uint32_t fat_len,
+                             const uint8_t want11[11], dir_entry_t *out_entry)
+{
+	fat12_comp_ctx_t ctx;
+	int              rc;
+
+	ctx.want11    = want11;
+	ctx.out_entry = out_entry;
+	ctx.found     = 0;
+
+	rc = fat12_read_dir(vol, dir, sector_buf, fat, fat_len, fat12_comp_cb, &ctx);
+	if (rc < 0) {
+		return rc; /* propagate FAT12_ERR_READ / _CHAIN / _NULL */
+	}
+	if (!ctx.found) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	return FAT12_OK;
+}
+
+/* Copy one '\\'-delimited component starting at *p into `comp` (NUL-terminated,
+ * capacity cap). Advances *p past the component and any single trailing '\\'.
+ * Returns the component length (0 for an empty component, e.g. a leading or
+ * doubled backslash). */
+static uint32_t path_next_component(const char **p, char *comp, uint32_t cap)
+{
+	const char *s = *p;
+	uint32_t    n = 0u;
+
+	while (*s != '\0' && *s != '\\') {
+		if (n + 1u < cap) {
+			comp[n] = *s;
+		}
+		n++;
+		s++;
+	}
+	if (*s == '\\') {
+		s++; /* consume the separator */
+	}
+	*p = s;
+	comp[(n < cap) ? n : (cap - 1u)] = '\0';
+	return n;
+}
+
+/* Synthesize a directory marker dir_entry_t for a directory cursor: used when a
+ * path resolves to a directory itself (empty path / trailing '\\'). Carries the
+ * DIR_ATTR_DIRECTORY attribute + the cursor's start_cluster (0 for the root). */
+static void synth_dir_entry(const fat12_dir_t *dir, dir_entry_t *out)
+{
+	uint32_t k;
+	uint8_t *raw = (uint8_t *)out;
+	for (k = 0u; k < sizeof(dir_entry_t); k++) {
+		raw[k] = 0u;
+	}
+	out->attribute     = DIR_ATTR_DIRECTORY;
+	out->start_cluster = dir->is_root ? 0u : dir->start_cluster;
+}
+
+int fat12_resolve_path(const fat12_volume_t *vol, void *sector_buf,
+                       const void *fat, uint32_t fat_len, const char *path,
+                       fat12_dir_t *out_dir, dir_entry_t *out_entry)
+{
+	fat12_dir_t cur;
+	const char *p;
+	char        comp[64];
+	uint32_t    comp_len;
+
+	if (vol == NULL || sector_buf == NULL || path == NULL ||
+	    out_dir == NULL || out_entry == NULL) {
+		return FAT12_ERR_NULL;
+	}
+
+	p = path;
+
+	/* Strip a leading drive prefix: any single letter followed by ':'. */
+	if (p[0] != '\0' && p[1] == ':' &&
+	    ((p[0] >= 'A' && p[0] <= 'Z') || (p[0] >= 'a' && p[0] <= 'z'))) {
+		p += 2;
+	}
+
+	/* Start at the root. start_cluster==0 means "the root" everywhere. */
+	cur.is_root       = 1;
+	cur.start_cluster = 0u;
+
+	/* Walk components. The cursor `cur` is the directory we are currently IN;
+	 * the LAST non-empty component resolves into *out_entry with *out_dir = the
+	 * directory that contains it. */
+	for (;;) {
+		dir_entry_t ent;
+		int         rc;
+		uint8_t     want11[11];
+		const char *probe;
+
+		comp_len = path_next_component(&p, comp, (uint32_t)sizeof(comp));
+
+		/* An empty component (leading/doubled/trailing '\\', or end-of-path):
+		 * if nothing remains, the path resolved to the directory `cur` itself
+		 * (empty path or trailing '\\'); otherwise skip the empty component. */
+		if (comp_len == 0u) {
+			if (*p == '\0') {
+				/* Resolve to the directory itself: synthesize a dir marker. */
+				*out_dir = cur;
+				synth_dir_entry(&cur, out_entry);
+				return FAT12_OK;
+			}
+			continue; /* doubled backslash -- skip the empty component */
+		}
+
+		/* '.' is a no-op (stay in `cur`); '..' pops to the parent. We cannot
+		 * read a true parent pointer without descending into `cur`, so resolve
+		 * '..' by reading the '..' entry of `cur` (which stores the parent's
+		 * start_cluster; 0 => the root). The root's '..' stays the root. */
+		if (comp[0] == '.' && comp[1] == '\0') {
+			/* identity: leave `cur` unchanged */
+		} else if (comp[0] == '.' && comp[1] == '.' && comp[2] == '\0') {
+			if (cur.is_root) {
+				/* '..' from the root is the root (DOS clamps at the root). */
+			} else {
+				static const uint8_t dotdot11[11] =
+					{ '.', '.', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
+				rc = fat12_find_in_dir(vol, &cur, sector_buf, fat, fat_len,
+				                       dotdot11, &ent);
+				if (rc != FAT12_OK) {
+					return rc;
+				}
+				cur.start_cluster = ent.start_cluster;
+				/* NORMALIZE start_cluster==0 => the root BEFORE any cluster
+				 * math (BPB_CLUSTER_LBA underflows on cluster 0). */
+				cur.is_root = (ent.start_cluster == 0u) ? 1 : 0;
+			}
+		} else {
+			/* A real component. Parse + match it (raw 11-byte compare). */
+			rc = parse_name83(comp, want11);
+			if (rc != FAT12_OK) {
+				return FAT12_ERR_NOT_FOUND; /* malformed (embedded ':' etc.) */
+			}
+			rc = fat12_find_in_dir(vol, &cur, sector_buf, fat, fat_len,
+			                       want11, &ent);
+			if (rc != FAT12_OK) {
+				return rc;
+			}
+
+			/* Is this the FINAL component? Peek: if nothing meaningful remains,
+			 * this is the final one and resolves into *out_entry. */
+			probe = p;
+			while (*probe == '\\') {
+				probe++; /* tolerate a trailing '\\' after the final component */
+			}
+			if (*probe == '\0') {
+				*out_dir   = cur; /* the directory that CONTAINS the entry */
+				*out_entry = ent;
+				return FAT12_OK;
+			}
+
+			/* NON-final: it MUST be a directory to descend into it. */
+			if ((ent.attribute & DIR_ATTR_DIRECTORY) == 0) {
+#ifndef FAT12_MUTATE_SUBDIR_NOATTR
+				return FAT12_ERR_NOT_FOUND;
+#else
+				/* MUTANT (Rule 6; test-fat-subdir-mutant only): SKIP the
+				 * DIR_ATTR_DIRECTORY gate on a non-final component, so a path
+				 * like '\SUB\NESTED.TXT\X' wrongly tries to descend into a
+				 * regular file. The negative-test assertion goes RED. NEVER in
+				 * a real build. */
+#endif
+			}
+			cur.start_cluster = ent.start_cluster;
+			/* NORMALIZE start_cluster==0 => the root BEFORE any cluster math. */
+			cur.is_root = (ent.start_cluster == 0u) ? 1 : 0;
+		}
+
+		/* If the path ends here (only trailing '\\' or nothing left), the cursor
+		 * IS the resolved directory. */
+		{
+			const char *probe2 = p;
+			while (*probe2 == '\\') {
+				probe2++;
+			}
+			if (*probe2 == '\0') {
+				*out_dir = cur;
+				synth_dir_entry(&cur, out_entry);
+				return FAT12_OK;
+			}
+		}
+	}
+}

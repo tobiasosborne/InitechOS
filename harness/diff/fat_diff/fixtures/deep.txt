@@ -1,0 +1,4 @@
+InitechOS FAT12 subdirectory fixture: SUB/DEEP/DEEP.TXT
+This file lives two levels deep, in SUB/DEEP.
+It proves multi-component path descent through nested subdirectories.
+beads initech-ti8.

@@ -183,6 +183,111 @@ class Fat12:
         # file_size is authoritative for the last cluster (RISK-5).
         return bytes(out[:size])
 
+    def list_dir(self, start_cluster):
+        """Yield (name, size) for each REGULAR file in a SUBDIRECTORY whose
+        cluster chain starts at start_cluster (independent reference for
+        fat12_read_dir, beads initech-ti8). Walks the chain cluster-by-cluster
+        reading 32-byte entries (reuse walk_chain + read_file's data-area LBA
+        math: first_data_sector + (cl-2)*spc); a subdir is NOT bounded by
+        root_entry_count -- it ends at the 0x00 sentinel or EOC. Skips
+        deleted/LFN/volume-label/directory entries (incl. '.' and '..', which
+        carry the directory attribute)."""
+        out = []
+        bytes_per_cluster = self.spc * self.bps
+        for cl in self.walk_chain(start_cluster):
+            lba = self.first_data_sector + (cl - 2) * self.spc
+            base = lba * self.bps
+            for i in range(bytes_per_cluster // 32):
+                off = base + i * 32
+                ent = self.data[off:off + 32]
+                if len(ent) < 32:
+                    return out
+                first = ent[0]
+                if first == NAME_FREE:
+                    return out          # end of directory: stop the whole walk
+                if first == NAME_DELETED:
+                    continue
+                attr = ent[11]
+                if attr == ATTR_LFN:
+                    continue
+                if attr & ATTR_VOLLABEL:
+                    continue
+                if attr & ATTR_DIRECTORY:
+                    continue            # subdir / '.' / '..' -- not a file
+                size = struct.unpack_from("<I", ent, 28)[0]
+                out.append((self.format_83(ent), size))
+        return out
+
+    def _find_in_dir(self, is_root, start_cluster, want):
+        """Find the 32-byte dir entry whose 8.3 name == want (upper-cased) in a
+        directory (root region OR a subdir chain). Returns the entry or None."""
+        if is_root:
+            for i in range(self.nrde):
+                off = self.rdir_off + i * 32
+                ent = self.data[off:off + 32]
+                if len(ent) < 32:
+                    return None
+                first = ent[0]
+                if first == NAME_FREE:
+                    return None
+                if first == NAME_DELETED:
+                    continue
+                if ent[11] == ATTR_LFN:
+                    continue
+                if self.format_83(ent).upper() == want:
+                    return ent
+            return None
+        bytes_per_cluster = self.spc * self.bps
+        for cl in self.walk_chain(start_cluster):
+            lba = self.first_data_sector + (cl - 2) * self.spc
+            base = lba * self.bps
+            for i in range(bytes_per_cluster // 32):
+                off = base + i * 32
+                ent = self.data[off:off + 32]
+                if len(ent) < 32:
+                    return None
+                first = ent[0]
+                if first == NAME_FREE:
+                    return None
+                if first == NAME_DELETED:
+                    continue
+                if ent[11] == ATTR_LFN:
+                    continue
+                if self.format_83(ent).upper() == want:
+                    return ent
+        return None
+
+    def resolve_dir(self, path):
+        """Resolve a backslash-separated path to a DIRECTORY, returning
+        (is_root, start_cluster). Fails loud (raises ValueError) on a missing or
+        non-directory mid-path component (independent reference for
+        fat12_resolve_path's directory leg, beads initech-ti8)."""
+        # Strip a leading drive prefix (letter + ':').
+        if len(path) >= 2 and path[1] == ":" and path[0].isalpha():
+            path = path[2:]
+        is_root = True
+        start_cluster = 0
+        for comp in path.split("\\"):
+            if comp == "" or comp == ".":
+                continue
+            if comp == "..":
+                if is_root:
+                    continue
+                ent = self._find_in_dir(is_root, start_cluster, "..")
+                if ent is None:
+                    raise ValueError("no '..' in directory")
+                start_cluster = struct.unpack_from("<H", ent, 26)[0]
+                is_root = (start_cluster == 0)
+                continue
+            ent = self._find_in_dir(is_root, start_cluster, comp.upper())
+            if ent is None:
+                raise ValueError("path component not found: %s" % comp)
+            if not (ent[11] & ATTR_DIRECTORY):
+                raise ValueError("path component is not a directory: %s" % comp)
+            start_cluster = struct.unpack_from("<H", ent, 26)[0]
+            is_root = (start_cluster == 0)
+        return (is_root, start_cluster)
+
 
 def main(argv):
     if len(argv) < 3:
@@ -268,6 +373,32 @@ def main(argv):
         # bytes that exist (possibly none), never an error.
         sl = content[off:off + ln] if off < len(content) else b""
         sys.stdout.buffer.write(sl)
+        return 0
+
+    if mode == "--list-path":
+        # --list-path PATH : list the REGULAR files of the directory at PATH
+        # (a backslash-separated subdirectory path; "\\" or "" is the root),
+        # one "NAME.EXT <size>" line each, sorted. The INDEPENDENT reference for
+        # fat12_read_dir / fat12_resolve_path (beads initech-ti8): resolves the
+        # path from first principles, then walks the subdir cluster chain. Fail
+        # loud (exit 1) on a missing / non-directory mid-path component.
+        if len(argv) != 4:
+            sys.stderr.write("fat12_ref: --list-path needs a PATH\n")
+            return 2
+        path = argv[3]
+        try:
+            is_root, start_cluster = fs.resolve_dir(path)
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: --list-path bad path '%s': %s\n"
+                             % (path, exc))
+            return 1
+        try:
+            files = fs.list_files() if is_root else fs.list_dir(start_cluster)
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: --list-path list failed: %s\n" % exc)
+            return 1
+        for name, size in sorted(files, key=lambda r: r[0]):
+            sys.stdout.write("%s %d\n" % (name, size))
         return 0
 
     sys.stderr.write("fat12_ref: unknown mode '%s'\n" % mode)

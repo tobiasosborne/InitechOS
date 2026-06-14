@@ -19,6 +19,11 @@
  *                      per docs/research/fat12-ground-truth.md Sec 5).
  *   --cat NAME.EXT   : write the named file's EXACT content bytes to stdout
  *                      (binary-safe). file_size is authoritative (RISK-5).
+ *   --list-path PATH : like --list, but for the directory at a backslash-
+ *                      separated PATH (a subdirectory; "\\" / "" is the root).
+ *                      Resolves the path with the artifact fat12_resolve_path
+ *                      and walks the subdir chain with fat12_read_dir (beads
+ *                      initech-ti8). Fail loud on a missing / non-dir component.
  *
  * Fail loud (CLAUDE.md Rule 2): any mount/read/find error prints a diagnostic
  * to stderr and exits NON-ZERO. A silently-empty or partial dump is the worst
@@ -89,8 +94,9 @@ static void usage(const char *argv0)
 {
 	fprintf(stderr,
 	        "usage: %s <image> --list\n"
-	        "       %s <image> --cat NAME.EXT\n",
-	        argv0, argv0);
+	        "       %s <image> --cat NAME.EXT\n"
+	        "       %s <image> --list-path PATH\n",
+	        argv0, argv0, argv0);
 }
 
 /* Mount `img` into *vol via *bf. Returns 0 on success; prints a loud
@@ -209,6 +215,77 @@ static int do_cat(const char *img, const char *name)
 	return 0;
 }
 
+/* List the REGULAR files of the directory at `path` (a backslash-separated
+ * subdirectory path; "\\" / "" is the root), using the REAL artifact
+ * fat12_resolve_path + fat12_read_dir (beads initech-ti8). Same normalized
+ * "NAME.EXT <size>" sorted output as do_list; '.'/'..'/subdir entries are
+ * skipped by collect_cb. Fail loud on a missing/non-dir component (Rule 2). */
+static int do_list_path(const char *img, const char *path)
+{
+	blockdev_file_t bf;
+	fat12_volume_t  vol;
+	uint8_t         sector_buf[512];
+	uint8_t         fat_buf[9 * 512];   /* whole FAT for 1.44 MB (9 sectors) */
+	fat12_dir_t     dir;
+	dir_entry_t     e;
+	collector_t     c;
+	int             i;
+	int             rc;
+
+	if (mount_image(img, &bf, &vol, sector_buf) != 0) {
+		return 1;
+	}
+
+	rc = fat12_read_fat(&vol, fat_buf, (uint32_t)sizeof(fat_buf));
+	if (rc != FAT12_OK) {
+		fprintf(stderr, "fat_dump: fat12_read_fat failed: rc=%d\n", rc);
+		blockdev_file_close(&bf);
+		return 1;
+	}
+
+	rc = fat12_resolve_path(&vol, sector_buf, fat_buf,
+	                        (uint32_t)sizeof(fat_buf), path, &dir, &e);
+	if (rc != FAT12_OK) {
+		fprintf(stderr, "fat_dump: fat12_resolve_path('%s') failed: rc=%d\n",
+		        path, rc);
+		blockdev_file_close(&bf);
+		return 1;
+	}
+	/* The resolved entry must be a directory (the path must name a dir). */
+	if ((e.attribute & DIR_ATTR_DIRECTORY) == 0u) {
+		fprintf(stderr, "fat_dump: '%s' is not a directory\n", path);
+		blockdev_file_close(&bf);
+		return 1;
+	}
+	/* Descend into it: out_dir is the CONTAINING dir; build the cursor for the
+	 * resolved directory itself from the entry's start_cluster (0 => root). */
+	dir.start_cluster = e.start_cluster;
+	dir.is_root       = (e.start_cluster == 0u) ? 1 : 0;
+
+	memset(&c, 0, sizeof(c));
+	rc = fat12_read_dir(&vol, &dir, sector_buf, fat_buf,
+	                    (uint32_t)sizeof(fat_buf), collect_cb, &c);
+	if (rc < 0) {
+		fprintf(stderr, "fat_dump: fat12_read_dir('%s') failed: rc=%d\n",
+		        path, rc);
+		blockdev_file_close(&bf);
+		return 1;
+	}
+	if (c.overflow) {
+		fprintf(stderr, "fat_dump: too many entries (> %d)\n", MAX_FILES);
+		blockdev_file_close(&bf);
+		return 1;
+	}
+
+	qsort(c.files, (size_t)c.count, sizeof(c.files[0]), rec_cmp);
+	for (i = 0; i < c.count; i++) {
+		printf("%s %u\n", c.files[i].name, c.files[i].size);
+	}
+
+	blockdev_file_close(&bf);
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	const char *img;
@@ -234,6 +311,13 @@ int main(int argc, char **argv)
 			return 2;
 		}
 		return do_cat(img, argv[3]);
+	}
+	if (strcmp(mode, "--list-path") == 0) {
+		if (argc != 4) {
+			usage(argv[0]);
+			return 2;
+		}
+		return do_list_path(img, argv[3]);
 	}
 
 	usage(argv[0]);

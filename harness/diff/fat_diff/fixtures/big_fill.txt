@@ -1,0 +1,5 @@
+InitechOS FAT12 BIGDIR fill file (beads initech-ti8).
+Copied to FILE01.TXT .. FILE40.TXT so BIGDIR spans 3 clusters
+(. + .. + 40 entries = 42 * 32 bytes = 1344 bytes > 1 sector),
+forcing a multi-cluster subdirectory chain walk. A single-sector
+reader stops after the first 16 entries and loses FILE17+.

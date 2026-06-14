@@ -568,6 +568,13 @@ FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
                      $(FAT12_FIXTURE_DIR)/empty.txt \
                      $(FAT12_FIXTURE_DIR)/block.bin
 
+# Nested-directory fixtures (beads initech-ti8): committed deterministic ASCII
+# files for the subdirectory/path-traversal oracle's golden compares.
+FAT12_NESTED_FIXTURES := $(FAT12_FIXTURE_DIR)/hello.txt \
+                         $(FAT12_FIXTURE_DIR)/nested.txt \
+                         $(FAT12_FIXTURE_DIR)/deep.txt \
+                         $(FAT12_FIXTURE_DIR)/big_fill.txt
+
 # The differential dumper (factory host tool, beads initech-5cu): mounts the
 # image with the REAL artifact fat12.c and emits the normalized manifest /
 # raw file bytes that `test-fat` diffs against mtools + the python reference.
@@ -580,6 +587,13 @@ FAT12_GATE_NAMES  := HELLO.TXT SECOND.TXT CHAIN.TXT EMPTY.TXT BLOCK.BIN
 
 # Minted 1.44 MB FAT12 image (build intermediate, NOT committed).
 FAT12_IMG         := $(BUILD)/fat12_fixture.img
+
+# Minted 1.44 MB FAT12 image with a NESTED directory tree (beads initech-ti8):
+# SUB/, SUB/DEEP/, BIGDIR/ + files; the subdirectory/path-traversal oracle
+# mounts it. Build intermediate, NOT committed (compared by LISTING+CONTENT via
+# fat12_ref.py/mdir/fat_dump, not raw bytes -- mtools' nondeterministic dir
+# mtime/serial never reaches the diff).
+FAT12_NESTED_IMG  := $(BUILD)/fat12_nested.img
 
 # FAT12 DATA disk for the in-emulator mount oracle (beads initech-saw). A second
 # minted 1.44 MB FAT12 volume attached to QEMU on the IDE primary SLAVE
@@ -596,6 +610,13 @@ TEST_FAT12_CHAIN  := $(BUILD)/test_fat12_chain
 
 # The FAT12 root-dir enumerate + find + file-read oracle binary (host test).
 TEST_FAT12_DIR    := $(BUILD)/test_fat12_dir
+
+# The FAT12 SUBDIRECTORY / path-traversal oracle binary (host test; beads
+# initech-ti8) + its two mutation builds (Rule 6: one perturbed constant each
+# -> the multi-cluster / attr-gate assertion must bite).
+TEST_FAT12_SUBDIR              := $(BUILD)/test_fat12_subdir
+TEST_FAT12_SUBDIR_MUT_SINGLE   := $(BUILD)/test_fat12_subdir_mut_single
+TEST_FAT12_SUBDIR_MUT_NOATTR   := $(BUILD)/test_fat12_subdir_mut_noattr
 
 # The FAT12 POSITIONED-read oracle binary (host test; beads initech-lq2) + its
 # two mutation builds (Rule 6: one perturbed constant each -> the diff must bite).
@@ -616,6 +637,33 @@ $(FAT12_IMG): $(FAT12_FIXTURES) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/empty.txt ::EMPTY.TXT
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
 	@printf ">>> fat12: minted %s (1.44MB FAT12, fixtures copied; build intermediate)\n" "$@"
+
+# Mint the NESTED FAT12 image (beads initech-ti8): same mformat -f 1440 flags as
+# FAT12_IMG (consistency); then create the subdirectory tree and populate it.
+#   ::SUB ::SUB/DEEP ::BIGDIR   -- three subdirectories
+#   ::HELLO.TXT                 -- a root file (root-path stays exercised)
+#   ::SUB/NESTED.TXT            -- one level deep
+#   ::SUB/DEEP/DEEP.TXT         -- two levels deep
+#   ::BIGDIR/FILE01.TXT .. FILE40.TXT -- 40 files so BIGDIR (. + .. + 40 = 42
+#     entries) spans 3 clusters on the 1-sector-per-cluster / 16-entries-per-
+#     cluster geometry, FORCING a multi-cluster subdir chain walk. Build
+#     intermediate, NOT committed (Rule 11; compared by listing+content).
+$(FAT12_NESTED_IMG): $(FAT12_NESTED_FIXTURES) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mmd -i $@ ::SUB
+	@mmd -i $@ ::SUB/DEEP
+	@mmd -i $@ ::BIGDIR
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/nested.txt ::SUB/NESTED.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/deep.txt ::SUB/DEEP/DEEP.TXT
+	@n=1; while [ $$n -le 40 ]; do \
+		nn=$$(printf '%02d' $$n); \
+		mcopy -i $@ $(FAT12_FIXTURE_DIR)/big_fill.txt "::BIGDIR/FILE$$nn.TXT" \
+			|| exit 1; \
+		n=$$((n+1)); \
+	done
+	@printf ">>> fat12: minted %s (nested SUB/DEEP/BIGDIR tree; build intermediate)\n" "$@"
 
 # Mint the FAT12 DATA disk (beads initech-saw): identical recipe to FAT12_IMG;
 # this is the volume the kernel mounts over ATA in make test-fs. Deterministic
@@ -851,6 +899,30 @@ test-fat12-dir: $(TEST_FAT12_DIR) $(FAT12_IMG)
 	@printf ">>> test-fat12-dir: root-dir enumerate + find + file-read (byte-for-byte golden)\n"
 	@$(TEST_FAT12_DIR) "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)"
 	@printf ">>> test-fat12-dir: green\n"
+
+# Build the FAT12 SUBDIRECTORY / path-traversal oracle + its two mutants (beads
+# initech-ti8): the test + the REAL artifact fat12.c + the host blockdev backend
+# (EXACTLY the test_fat12_dir.c include pattern). The two mutants perturb fat12.c
+# by ONE branch each (Rule 6) so the multi-cluster / attr-gate assertion bites.
+$(TEST_FAT12_SUBDIR): $(FAT_DIFF_DIR)/test_fat12_subdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_subdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_SUBDIR_MUT_SINGLE): $(FAT_DIFF_DIR)/test_fat12_subdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_SUBDIR_SINGLESECTOR -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_subdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_SUBDIR_MUT_NOATTR): $(FAT_DIFF_DIR)/test_fat12_subdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_SUBDIR_NOATTR -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_subdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# Helper gate (unit-only; the full 3-way differential is `test-fat-subdir`):
+# build the oracle, mint the nested image, run the unit test.
+.PHONY: test-fat12-subdir
+test-fat12-subdir: $(TEST_FAT12_SUBDIR) $(FAT12_NESTED_IMG)
+	@printf ">>> test-fat12-subdir: subdir enumerate + path resolve (byte-for-byte golden)\n"
+	@$(TEST_FAT12_SUBDIR) "$(FAT12_NESTED_IMG)" "$(FAT12_FIXTURE_DIR)"
+	@printf ">>> test-fat12-subdir: green\n"
 
 # Build the FAT12 positioned-read oracle + its two mutants (beads initech-lq2):
 # the test + the REAL artifact fat12.c + the host blockdev backend (same include
@@ -2304,6 +2376,7 @@ endef
         test-mcb-int21 test-mcb-int21-mutant test-mcb-emu test-mcb-emu-mutant test-program test-fs test-type test-dir \
         test-exec test-exec-unit test-exec-mutant \
         test-fat12-write test-fat-write test-fat-write-mutant test-fatwrite \
+        test-fat12-subdir test-fat-subdir test-fat-subdir-mutant \
         test-multiopen \
         test-int21-irqstorm test-int21-irqstorm-mutant \
         test-fat-write-partial test-fat-write-partial-mutant \
@@ -2334,6 +2407,7 @@ help:
 	@printf 'Oracles (per-subsystem differential / property suites):\n'
 	@printf '  test-region    Region property suite: homomorphism + normal-form + identities.\n'
 	@printf '  test-fat       FAT12/16 differential vs mtools/python on identical images.\n'
+	@printf '  test-fat-subdir FAT12 subdirectory/path traversal: resolve_path + read_dir on a nested tree (SUB/DEEP/BIGDIR); our reader == mtools mdir == python3, incl. a multi-cluster BIGDIR. REAL. beads initech-ti8.\n'
 	@printf '  test-fat-write FAT12 WRITE round-trip: OUR writer mints+writes a volume; mtools+python3 read it back (names/sizes/content). REAL. beads initech-509.11.\n'
 	@printf '  test-fat12-write  FAT12 WRITE unit: 12-bit encode + cluster alloc + both-FAT sync + in-memory round-trip + full-volume fail-loud + unlink. REAL.\n'
 	@printf '  test-fatwrite  In-emulator WRITE round-trip: CREAT+WRITE+CLOSE then OPEN+READ OUT.TXT over real ATA in one boot; mtools confirms on-disk. REAL (QEMU).\n'
@@ -3634,6 +3708,101 @@ test-fat: $(FAT_DUMP_BIN) $(FAT12_IMG) $(FAT12_REF_PY) \
 	@printf 'VERDICT   : PASS -- our FAT12 reader agrees with mtools AND an independent\n'
 	@printf '            python3 reader on names, sizes, and content (triple oracle).\n'
 	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-fat-subdir (beads initech-ti8 -- FAT12 subdir/path traversal)
+# ---------------------------------------------------------------------------
+# The FAT12 SUBDIRECTORY READ DIFFERENTIAL ORACLE. The REAL artifact fat12.c
+# subdir path (fat12_resolve_path + fat12_read_dir) is cross-checked THREE ways
+# on the nested image (Law 2, Rule 5):
+#   ref #1: mtools  -- normalized `mdir ::PATH` (names+sizes; date/serial/'.'/
+#                      '..'/<DIR> rows dropped, same normalizer as test-fat)
+#   ref #2: python3 -- fat12_ref.py --list-path (independent reader)
+#   ref #3: our OWN reader -- fat_dump --list-path (the artifact under test)
+# Plus the unit oracle (subdir enumerate + path resolve + byte-for-byte read of
+# the multi-cluster FILE20.TXT). The MULTI-CLUSTER BIGDIR (3 clusters) is the
+# load-bearing leg: a single-sector subdir reader loses FILE17..FILE40 and the
+# >16 / 40-file agreement breaks. Timestamps/serial normalized away (Sec 5).
+# Ref: PRD Sec 6.1; ADR-0003 DEC-07; beads initech-ti8.
+FAT12_SUB_OUR_LIST    := $(BUILD)/fat12_sub_our.list
+FAT12_SUB_PY_LIST     := $(BUILD)/fat12_sub_py.list
+FAT12_SUB_MTOOLS_LIST := $(BUILD)/fat12_sub_mtools.list
+# The subdirectory paths the gate cross-checks (root + each subdir).
+FAT12_SUB_PATHS       := \\ \\SUB \\SUB\\DEEP \\BIGDIR
+
+.PHONY: test-fat-subdir
+test-fat-subdir: $(FAT_DUMP_BIN) $(TEST_FAT12_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fat-subdir : FAT12 subdir/path oracle\n'
+	@printf '  Ref: PRD Sec 6.1 / ADR-0003 DEC-07. beads initech-ti8.\n'
+	@printf '  Our C reader vs TWO independent refs (mtools + python3) on a nested tree.\n'
+	@printf '======================================================================\n'
+	@# ---- (D) Tool presence: fail loud, NEVER silently skip (Law 2). ----
+	@command -v mdir   >/dev/null 2>&1 || { printf '!!! test-fat-subdir FAIL: mtools `mdir` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-fat-subdir FAIL: python3 not found (needed for the independent reference reader).\n'; exit 1; }
+	@printf '>>> test-fat-subdir [D]: reference tools present (mtools mdir + python3)\n'
+	@# ---- (C) The subdir unit oracle (enumerate + resolve + multi-cluster read). ----
+	@printf '>>> test-fat-subdir [C]: unit oracle (subdir enumerate + path resolve + FILE20 multi-cluster read)\n'
+	@$(TEST_FAT12_SUBDIR) "$(FAT12_NESTED_IMG)" "$(FAT12_FIXTURE_DIR)" \
+		|| { printf '!!! test-fat-subdir FAIL: test_fat12_subdir red\n'; exit 1; }
+	@# ---- (A) NAMES+SIZES per directory: triple agreement (our == python == mdir). ----
+	@printf '>>> test-fat-subdir [A]: names+sizes per dir -- fat_dump == python ref == normalized mdir\n'
+	@for d in $(FAT12_SUB_PATHS); do \
+		$(FAT_DUMP_BIN) "$(FAT12_NESTED_IMG)" --list-path "$$d" | sort > "$(FAT12_SUB_OUR_LIST)" \
+			|| { printf '!!! test-fat-subdir FAIL [A]: fat_dump --list-path %s errored\n' "$$d"; exit 1; }; \
+		python3 "$(FAT12_REF_PY)" "$(FAT12_NESTED_IMG)" --list-path "$$d" | sort > "$(FAT12_SUB_PY_LIST)" \
+			|| { printf '!!! test-fat-subdir FAIL [A]: fat12_ref.py --list-path %s errored\n' "$$d"; exit 1; }; \
+		mp=$$(printf '%s' "$$d" | sed -e 's#^\\##' -e 's#\\#/#g'); \
+		mdir -i "$(FAT12_NESTED_IMG)" "::$$mp" | awk '{ \
+			hd=0; di=0; \
+			for(i=1;i<=NF;i++){ if($$i ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}$$/){hd=1;di=i;break} } \
+			if(!hd) next; \
+			name=$$1; ext=$$2; sz=""; \
+			for(i=3;i<di;i++){ sz=sz $$i } \
+			if(sz !~ /^[0-9]+$$/) next; \
+			fn=(ext!="")?name"."ext:name; \
+			print fn, sz \
+		}' | sort > "$(FAT12_SUB_MTOOLS_LIST)"; \
+		diff -u "$(FAT12_SUB_OUR_LIST)" "$(FAT12_SUB_PY_LIST)" \
+			|| { printf '!!! test-fat-subdir FAIL [A]: %s -- our listing != python reference listing\n' "$$d"; exit 1; }; \
+		diff -u "$(FAT12_SUB_OUR_LIST)" "$(FAT12_SUB_MTOOLS_LIST)" \
+			|| { printf '!!! test-fat-subdir FAIL [A]: %s -- our listing != normalized mdir listing\n' "$$d"; exit 1; }; \
+		printf '    %-14s %s files : our == python == mdir\n' "$$d" "$$(wc -l < "$(FAT12_SUB_OUR_LIST)" | tr -d ' ')"; \
+	done
+	@# ---- (B) MULTI-CLUSTER proof: BIGDIR has > 16 files (3-cluster chain walked). ----
+	@printf '>>> test-fat-subdir [B]: BIGDIR multi-cluster -- > 16 files (single-sector reader would lose FILE17+)\n'
+	@bign=$$($(FAT_DUMP_BIN) "$(FAT12_NESTED_IMG)" --list-path '\BIGDIR' | wc -l | tr -d ' '); \
+		if [ "$$bign" -le 16 ]; then \
+			printf '!!! test-fat-subdir FAIL [B]: BIGDIR listed only %s files (<=16) -- multi-cluster walk broken\n' "$$bign"; exit 1; \
+		fi; \
+		printf '    BIGDIR: %s files across a 3-cluster chain (multi-cluster walk confirmed)\n' "$$bign"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- our subdir reader agrees with mtools AND an independent\n'
+	@printf '            python3 reader on the nested tree (incl. the multi-cluster BIGDIR).\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# Mutation gate (Rule 6): two fat12 subdir mutants -- (single-sector) read only
+# the FIRST cluster of a subdir (BIGDIR loses FILE17+ -> >16 assertion RED), and
+# (no-attr) skip the DIR_ATTR_DIRECTORY gate on a non-final component (the
+# '\SUB\NESTED.TXT\X' negative test wrongly resolves -> RED). Each mutant build
+# must make the unit oracle go RED; a mutant that PASSES means the oracle is
+# decoration (Law 2). Restored to GREEN by the un-mutated `test-fat-subdir`.
+.PHONY: test-fat-subdir-mutant
+test-fat-subdir-mutant: $(TEST_FAT12_SUBDIR_MUT_SINGLE) $(TEST_FAT12_SUBDIR_MUT_NOATTR) $(FAT12_NESTED_IMG)
+	@printf '>>> test-fat-subdir-mutant: confirming both subdir mutants go RED (Rule 6)\n'
+	@if $(TEST_FAT12_SUBDIR_MUT_SINGLE) "$(FAT12_NESTED_IMG)" "$(FAT12_FIXTURE_DIR)" >/dev/null 2>&1; then \
+		printf '!!! test-fat-subdir-mutant FAIL: single-sector mutant PASSED -- the multi-cluster oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-subdir-mutant: green (single-sector subdir mutant correctly RED -- BIGDIR loses FILE17+)\n'; \
+	fi
+	@if $(TEST_FAT12_SUBDIR_MUT_NOATTR) "$(FAT12_NESTED_IMG)" "$(FAT12_FIXTURE_DIR)" >/dev/null 2>&1; then \
+		printf '!!! test-fat-subdir-mutant FAIL: no-attr mutant PASSED -- the directory-gate oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-subdir-mutant: green (no-attr mutant correctly RED -- a file wrongly traversed)\n'; \
+	fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-fat-write (beads initech-509.11 -- FAT12 WRITE round-trip)
@@ -6024,6 +6193,7 @@ test-kernel-repro-mutant: | $(BUILD)
 # Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
+	test-fat-subdir \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
@@ -6036,6 +6206,7 @@ TEST_UNIT_GATES := \
 	test-fileio-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
+	test-fat-subdir-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-kernel-repro test-kernel-repro-mutant
