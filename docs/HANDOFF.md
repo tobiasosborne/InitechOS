@@ -130,10 +130,13 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **65 host + 22 emu gates** (re-verified green; WL-0022 added
-`test-mzxa-integration` (real fileio_fat backend over the nested image) +
-`test-mzxa-mutant` for ti8 Layer 2; WL-0021 added `test-fat-subdir`(+mutant) for
-ti8 L1 and `test-region`(+mutant) for the ATKINSON engine; was 59+22 after WL-0019). The boot image is padded to a whole 2x32 cylinder geometry
+`make test` = **68 host + 22 emu gates** (re-verified green; WL-0023 added
+`test-u6wa-mutant` + `test-fat12-mkdir`(+mutant) for CHDIR/MKDIR/RMDIR; WL-0022
+added `test-mzxa-integration` + `test-mzxa-mutant` for ti8 L2; WL-0021 added
+`test-fat-subdir`(+mutant) + `test-region`(+mutant); was 59+22 after WL-0019).
+**`make test-boot-bochs` PASS** with `KERNEL_SECTORS=128` (u6wa grew it 112->128;
+`IMG_SECTORS=192` = 3 whole cylinders; a boot-geometry change is a tri-emulator
+obligation, Rule 5 / WL-0019). The boot image is padded to a whole 2x32 cylinder geometry
 (`IMG_SECTORS=192`, build-guarded) so the **Bochs boot leg passes**. Plus the
 separate `make test-boot-bochs` (the Bochs boot leg; env-specific Bochs +
 ~45 s, NOT in the default `make test`). `make factory` builds; `make` prints
@@ -197,15 +200,19 @@ around the kernel PSP rebinds, `do_getcwd` wired); the strongest oracle binds th
 REAL `fileio_fat` backend over `fat12_nested.img` (45 checks). DOS-correct codes
 (0x0002 missing leaf vs 0x0003 missing/non-dir component).
 
-**Resume the kernel chain at `initech-u6wa`** (MKDIR/RMDIR/CHDIR) `→ ut6d`
-(MD/RD/CD). CAVEAT — u6wa is NOT a clean dispatch: **CHDIR (3Bh) is ready now**
-(mzxa gave it read-side resolve + g_cwd), but **MKDIR/RMDIR need WRITE-side FAT
-directory-creation** (allocate cluster + ATTR_DIRECTORY entry + `.`/`..`),
-entangled with the `initech-zs24` follow-up (subdir EXEC + subdir CREATE/UNLINK/
-WRITE; the current fat12 write primitives are root-only). u6wa's own notes list
-DOS-3.3-PRM open questions to GROUND FIRST (Law 1): RMDIR-non-empty error code,
-the `..` start-cluster when the parent is root (EMPIRICALLY mint from `mmd`).
-GROUND u6wa before implementing; consider sequencing zs24's write-side first.
+**`initech-u6wa` is DONE + green (WL-0023)** — CHDIR (3Bh) + root-level MKDIR
+(39h)/RMDIR (3Ah). CHDIR added a `resolve_dir` backend member + fixed a latent
+bug (`fat_resolve` ignored `cwd_start`, so relative resolution was root-anchored);
+MKDIR/RMDIR added `fat12_mkdir`/`fat12_rmdir` + a dot-dir writer, the `..`=parent/0
+convention pinned EMPIRICALLY from `mmd` and gated by an `mmd` differential. DOS
+codes: MKDIR-exists/RMDIR-non-empty 0x0005, RMDIR-of-CWD 0x0010 (new
+`INT21_ERR_CURRENT_DIR`).
+
+**Resume the kernel chain at `initech-ut6d`** — shell built-ins MD/RD/CD: wire the
+COMMAND.COM REPL to the new AH=39h/3Ah/3Bh handlers + a subdir-aware CD/prompt.
+Then **`initech-zs24`** lifts the deferrals: subdir EXEC (AH=4Bh from a subdir) +
+subdir WRITE (CREATE/UNLINK/WRITE and MKDIR/RMDIR with a NON-ROOT parent — the
+fat12 write primitives are still root-only; `u6wa` fail-louds those with 0x0003).
 Drive it SERIALLY, oracle-gated — do NOT parallelize the shared-file kernel edits.
 
 **FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
