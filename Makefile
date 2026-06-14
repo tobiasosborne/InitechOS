@@ -464,17 +464,19 @@ KERNEL_IRQSTORM_MUTB_MAIN_OBJ := $(BUILD)/kmain_irqstorm_mutb.o
 KERNEL_IRQSTORM_MUTB_ELF     := $(BUILD)/kernel_irqstorm_mutb.elf
 KERNEL_IRQSTORM_MUTB_BIN     := $(BUILD)/kernel_irqstorm_mutb.bin
 IRQSTORM_MUTB_IMG            := $(BUILD)/irqstorm_mutb_boot.img
-# COMMAND.COM shell kernel/image (beads initech-7pc; make test-shell): the SAME
-# kernel sources but with -DBOOT_SHELL so the boot, after CONIN-LIVE, prints
-# SHELL-READY and enters the COMMAND.COM REPL (instead of the demo+halt). Separate
-# image so the NORMAL kernel/image is byte-for-byte unchanged (the demo gates run
-# WITHOUT key injection and would HANG on a blocking prompt). The shell command.o
-# (REPL enabled) is linked ONLY into this image. Requires --disk2 (HELLO.TXT +
+# COMMAND.COM shell kernel (beads initech-7pc; make test-shell): the SAME kernel
+# sources but with -DBOOT_SHELL so the boot, after CONIN-LIVE, prints SHELL-READY
+# and enters the COMMAND.COM REPL (instead of the demo+halt). The shell command.o
+# (REPL enabled) is linked into this kernel. Since beads initech-k6x made
+# COMMAND.COM the DEFAULT boot, THIS kernel (KERNEL_SHELL_BIN) is the one
+# TRACER_IMG carries (~2414) -- so test-shell boots TRACER_IMG directly. The old
+# separate SHELL_IMG (build/shell_boot.img) had a recipe byte-identical to
+# TRACER_IMG's (same MBR/STAGE2/KERNEL_SHELL_BIN prereqs + dd offsets) and was
+# retired as redundant (beads initech-h58). Requires --disk2 (HELLO.TXT +
 # GREET.COM) so DIR/TYPE/run-program have real files. Mirrors the EXEC image.
 KERNEL_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell.o
 KERNEL_SHELL_ELF      := $(BUILD)/kernel_shell.elf
 KERNEL_SHELL_BIN      := $(BUILD)/kernel_shell.bin
-SHELL_IMG             := $(BUILD)/shell_boot.img
 # EXIT-handle teardown self-test kernel/image (beads initech-6hk; epic
 # initech-6qy; make test-exit-handles): the SAME kernel sources but with
 # -DBOOT_EXITH so the boot EXECs the FAT-sourced leaky child EXITH.COM RUNS
@@ -3420,14 +3422,11 @@ $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 	printf ">>> kernel(shell): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell)
 
-# The shell self-test disk image: identical layout to TRACER_IMG but with the
-# shell kernel at sector 17.
-$(SHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SHELL_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_SHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
-	@printf ">>> shell image: %s (COMMAND.COM REPL self-test kernel @s17)\n" "$@"
+# (The old $(SHELL_IMG) / build/shell_boot.img recipe lived here. It was
+# byte-identical to the $(TRACER_IMG) recipe (~2414) -- same MBR/STAGE2/
+# KERNEL_SHELL_BIN prereqs, same dd seek offsets -- once beads initech-k6x made
+# COMMAND.COM the default boot. Retired as redundant; test-shell now boots
+# TRACER_IMG directly (beads initech-h58).)
 
 # Raw flat binary, then zero-pad to KERNEL_SECTORS * 512 bytes (deterministic).
 $(KERNEL_BIN): $(KERNEL_ELF) | $(BUILD)
@@ -5334,21 +5333,35 @@ test-sysinit-oversize: $(HARNESS_BIN) $(SYSI_IMG) $(FAT_SYSI_BIG_IMG)
 SHELL_NAME    := shell_boot
 SHELL_SERIAL  := $(BUILD)/$(SHELL_NAME).serial
 SHELL_REPORT  := $(BUILD)/$(SHELL_NAME).report
+# Run 2 (visual): a SEPARATE, distinctly-named boot for the "A:\>" screendump
+# (beads initech-h58). Its own name so its serial/report do NOT clobber the
+# Run-1 capture the serial assertions read. The KEY naming the post-run grep
+# assertions resolve on -- shell_boot.serial/.report/.repl -- stays SHELL_NAME.
+SHELL_SCRN_NAME := shell_prompt
+SHELL_SCRN_REPORT := $(BUILD)/$(SHELL_SCRN_NAME).report
+SHELL_PPM     := $(BUILD)/$(SHELL_SCRN_NAME).ppm
 SHELL_TYPE_CONTENT := Hello from InitechOS test file
 SHELL_EXEC_OUTPUT  := GREETINGS FROM A:GREET.COM
 SHELL_BADCMD       := Bad command or file name
 
 .PHONY: test-shell
-test-shell: $(HARNESS_BIN) $(SHELL_IMG) $(FAT_EXEC_IMG)
+test-shell: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-shell : BOOT -> COMMAND.COM -> DIR/TYPE/run\n'
 	@printf '  Ref: ADR-0003 DEC-11/DEC-12; DOS 3.3 COMMAND.COM; spec/dos_messages.json.\n'
 	@printf '  beads initech-7pc (M2 capstone). Inject: dir / type hello.txt / greet / badcmd / exit.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + disk %s (HELLO.TXT + GREET.COM, primary slave)\n' "$(SHELL_IMG)" "$(FAT_EXEC_IMG)"
+	@printf 'Booting   : %s + disk %s (HELLO.TXT + GREET.COM, primary slave)\n' "$(TRACER_IMG)" "$(FAT_EXEC_IMG)"
 	@printf 'Expecting : SHELL-READY + DIR{HELLO.TXT,GREET.COM} + "%s" + "%s" + "%s" + SHELL-EXIT\n' "$(SHELL_TYPE_CONTENT)" "$(SHELL_EXEC_OUTPUT)" "$(SHELL_BADCMD)"
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(SHELL_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@# Run 1 (serial): inject the command sequence so the DIR/TYPE/greet/badcmd/EXIT
+	@# assertions below bite the REPL transcript on serial. No screendump here: in a
+	@# single QMP session the harness injects --keys FIRST and only then screendumps
+	@# (harness/emu/qemu.c qmp_session steps 3->4), so a grab after key injection
+	@# would catch the FULL transcript scrolled down past y=240 -- which trips
+	@# ppm_text_check's [C] "seafoam below the banner" guard. The visual half gets
+	@# its OWN clean boot (Run 2, below).
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--name "$(SHELL_NAME)" --out "$(BUILD)" --timeout-ms 12000 \
 		--keys "d,i,r,ret,t,y,p,e,spc,h,e,l,l,o,dot,t,x,t,ret,g,r,e,e,t,ret,b,a,d,c,m,d,ret,e,x,i,t,ret" \
 		--keys-after "SHELL-READY" \
@@ -5359,13 +5372,13 @@ test-shell: $(HARNESS_BIN) $(SHELL_IMG) $(FAT_EXEC_IMG)
 		printf '!!! test-shell FAIL: TRIPLE FAULT -- the shell boot or a command crashed\n'; \
 		exit 1; \
 	fi
-	@printf '>>> test-shell [1/6]: no triple-fault\n'
+	@printf '>>> test-shell [1/7]: no triple-fault\n'
 	@if [ ! -s "$(SHELL_SERIAL)" ]; then \
 		printf '!!! test-shell FAIL: no serial captured at %s\n' "$(SHELL_SERIAL)"; exit 1; \
 	fi
 	@grep -q '^SHELL-READY$$' "$(SHELL_SERIAL)" \
 		|| { printf '!!! test-shell FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
-	@printf '>>> test-shell [2/6]: SHELL-READY (COMMAND.COM REPL entered after CONIN-LIVE)\n'
+	@printf '>>> test-shell [2/7]: SHELL-READY (COMMAND.COM REPL entered after CONIN-LIVE)\n'
 	@# Extract ONLY the post-SHELL-READY region (the REPL's own output) into a
 	@# separate file. The boot's earlier baked demos (proto-DIR + the baked
 	@# TYPE/DIR programs) also print these filenames + HELLO.TXT contents BEFORE
@@ -5378,15 +5391,15 @@ test-shell: $(HARNESS_BIN) $(SHELL_IMG) $(FAT_EXEC_IMG)
 		|| { printf '!!! test-shell FAIL: DIR did not list HELLO.TXT (root-cause the DIR built-in / FINDFIRST, Rule 3)\n'; exit 1; }
 	@grep -qF 'GREET.COM' "$(BUILD)/$(SHELL_NAME).repl" \
 		|| { printf '!!! test-shell FAIL: DIR did not list GREET.COM\n'; exit 1; }
-	@printf '>>> test-shell [3/6]: DIR listed HELLO.TXT + GREET.COM (FINDFIRST/FINDNEXT)\n'
+	@printf '>>> test-shell [3/7]: DIR listed HELLO.TXT + GREET.COM (FINDFIRST/FINDNEXT)\n'
 	@# ---- TYPE printed HELLO.TXT's contents (in the REPL region). ----
 	@grep -qF '$(SHELL_TYPE_CONTENT)' "$(BUILD)/$(SHELL_NAME).repl" \
 		|| { printf '!!! test-shell FAIL: TYPE did not print HELLO.TXT contents "%s"\n' "$(SHELL_TYPE_CONTENT)"; exit 1; }
-	@printf '>>> test-shell [4/6]: TYPE printed HELLO.TXT contents (OPEN/READ/WRITE/CLOSE)\n'
+	@printf '>>> test-shell [4/7]: TYPE printed HELLO.TXT contents (OPEN/READ/WRITE/CLOSE)\n'
 	@# ---- `greet` ran GREET.COM via AH=4Bh EXEC (in the REPL region). ----
 	@grep -qF '$(SHELL_EXEC_OUTPUT)' "$(BUILD)/$(SHELL_NAME).repl" \
 		|| { printf '!!! test-shell FAIL: `greet` did not run GREET.COM ("%s" missing -- root-cause external EXEC, Rule 3)\n' "$(SHELL_EXEC_OUTPUT)"; exit 1; }
-	@printf '>>> test-shell [5/6]: external command `greet` ran GREET.COM via AH=4Bh EXEC\n'
+	@printf '>>> test-shell [5/7]: external command `greet` ran GREET.COM via AH=4Bh EXEC\n'
 	@# ---- `badcmd` printed the controlled diagnostic + EXIT halted cleanly. ----
 	@grep -qF '$(SHELL_BADCMD)' "$(BUILD)/$(SHELL_NAME).repl" \
 		|| { printf '!!! test-shell FAIL: `badcmd` did not print "%s" (the controlled MSG-DOS-0002)\n' "$(SHELL_BADCMD)"; exit 1; }
@@ -5394,7 +5407,38 @@ test-shell: $(HARNESS_BIN) $(SHELL_IMG) $(FAT_EXEC_IMG)
 		|| { printf '!!! test-shell FAIL: SHELL-EXIT missing -- EXIT did not leave the REPL cleanly\n'; exit 1; }
 	@grep -q '^SHELL-DONE$$' "$(SHELL_SERIAL)" \
 		|| { printf '!!! test-shell FAIL: SHELL-DONE missing -- the REPL did not return to the halt loop\n'; exit 1; }
-	@printf '>>> test-shell [6/6]: `badcmd` -> "%s"; EXIT halted cleanly (SHELL-EXIT + SHELL-DONE)\n' "$(SHELL_BADCMD)"
+	@printf '>>> test-shell [6/7]: `badcmd` -> "%s"; EXIT halted cleanly (SHELL-EXIT + SHELL-DONE)\n' "$(SHELL_BADCMD)"
+	@# ---- 7. SCREENDUMP (Run 2): the "A:\>" prompt actually RENDERED on the
+	@# framebuffer -- the visual half of the shell (Law 4). This is a SEPARATE,
+	@# clean boot with NO --keys: the REPL prints its first "A:\>" prompt and then
+	@# BLOCKS on read_line, so the screen holds only the boot console (banner rows
+	@# 0..1; the boot proto-DIR header + HELLO.TXT/GREET.COM in rows 2..4) and that
+	@# one prompt at cell ROW 5 (y in [80,96)), staying pure seafoam below y=240 --
+	@# which lets ppm_text_check's [C] "seafoam below the banner" guard pass. (A
+	@# keys-run grab would instead inject the whole DIR/TYPE/greet/EXIT transcript,
+	@# scrolling text past y=240 and tripping [C]; hence the dedicated clean boot.)
+	@# --screendump-after SHELL-READY syncs the grab to the prompt's blit. Same
+	@# ppm_text_check pattern as test-boot (~4112) / test-fs (~4270): the 1-arg
+	@# checks (banner [A]/[B] + intact seafoam bg [C]) always run; the 4-arg form
+	@# adds the prompt-band assertion. CRITICAL (Rule 6): the band MUST be row 5
+	@# (y in [80,96)) -- the row the "A:\>" prompt lands on -- NOT rows 2..4, which
+	@# hold the boot-time proto-DIR and would false-pass even with the prompt
+	@# suppressed. The "A:\>" glyphs ink ~86 fg pixels there (A=39, :=8, \=21,
+	@# >=18); require >=40 so a non-rendering prompt (an empty row 5) goes RED while
+	@# leaving margin for sub-pixel rounding (Rule 6 -- the gate BITES).
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+		--screendump --screendump-after SHELL-READY \
+		--name "$(SHELL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(SHELL_SCRN_REPORT)" || true
+	@if grep -q 'triple_fault=1' "$(SHELL_SCRN_REPORT)"; then \
+		printf '!!! test-shell FAIL: TRIPLE FAULT on the screendump boot\n'; exit 1; \
+	fi
+	@if [ ! -s "$(SHELL_PPM)" ]; then \
+		printf '!!! test-shell FAIL: no screendump captured at %s (live guest required)\n' "$(SHELL_PPM)"; exit 1; \
+	fi
+	@$(PPM_TEXT_CHECK_BIN) "$(SHELL_PPM)" 80 96 40 \
+		|| { printf '!!! test-shell FAIL: the COMMAND.COM "A:\\>" prompt did not render on the framebuffer (band [80,96))\n'; exit 1; }
+	@printf '>>> test-shell [7/7]: screendump shows the "A:\\>" COMMAND.COM prompt rendered on the seafoam desktop\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- booted InitechDOS, got an A:\\> prompt, ran DIR/TYPE/a program/EXIT via COMMAND.COM\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
