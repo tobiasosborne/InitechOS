@@ -419,9 +419,15 @@ static uint16_t loader_exec_by_name(const char *name83, const char *cmd_tail,
                                     uint32_t cmd_tail_len, uint8_t *out_rc)
 {
     uint8_t rc = 0;
+    /* Save the kernel/shell CWD before the child run (the loader resets the CWD
+     * to root for the child; beads initech-mzxa) and restore it after, in
+     * lockstep with the PSP/exit-hook restore, so the child's CWD never leaks
+     * into kernel-context INT 21h. */
+    int21_cwd_snapshot_t cwd_snap = int21_cwd_save();
     loader_status_t st = load_program_from_fat(name83, cmd_tail, cmd_tail_len, &rc);
     int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
     int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
+    int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
 
     switch (st) {
         case LOADER_OK:
@@ -458,9 +464,11 @@ static void run_baked(const char *tag, const uint8_t *image, uint32_t image_len)
     serial_puts("-BEGIN\n");
 
     uint8_t rc = 0;
+    int21_cwd_snapshot_t cwd_snap = int21_cwd_save();   /* save kernel CWD (mzxa) */
     loader_status_t st = load_program(image, image_len, (const char *)0, 0u, &rc);
     int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
     int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT (509.3) */
+    int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
 
     if (st == LOADER_OK) {
         serial_puts(tag);
@@ -832,10 +840,12 @@ void kernel_main(void)
     serial_puts("EXEC-SAW-BEGIN\n");
     {
         uint8_t saw_rc = 0;
+        int21_cwd_snapshot_t cwd_snap = int21_cwd_save();   /* save kernel CWD (mzxa) */
         loader_status_t st = load_program_from_fat("GREET.COM",
                                                    (const char *)0, 0u, &saw_rc);
         int21_set_exit(int21_exit_hook);   /* restore kernel-context terminate */
         int21_set_psp(&g_kernel_psp);      /* restore kernel-context JFT */
+        int21_cwd_restore(&cwd_snap);      /* restore kernel-context CWD */
         if (st == LOADER_OK) {
             serial_puts("EXEC-SAW-EXIT rc=");
             serial_putu((uint32_t)saw_rc);
@@ -1043,10 +1053,12 @@ void kernel_main(void)
         int all_ok = 1;
         for (run = 1; run <= RUNS; run++) {
             uint8_t rc = 0;
+            int21_cwd_snapshot_t cwd_snap = int21_cwd_save();  /* save kernel CWD (mzxa) */
             loader_status_t st = load_program_from_fat("EXITH.COM",
                                                        (const char *)0, 0u, &rc);
             int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
             int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
+            int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
 
             serial_puts("EXITH-RUN");
             serial_putu((uint32_t)run);
@@ -1081,10 +1093,12 @@ void kernel_main(void)
     serial_puts("SYSINIT-OUTPUT-BEGIN\n");
     {
         uint8_t rc = 0;
+        int21_cwd_snapshot_t cwd_snap = int21_cwd_save();   /* save kernel CWD (mzxa) */
         loader_status_t st = load_program_from_fat("SYSI.COM",
                                                    (const char *)0, 0u, &rc);
         int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
         int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
+        int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
         if (st == LOADER_OK) {
             serial_puts("SYSINIT-PROG-EXIT rc=");
             serial_putu((uint32_t)rc);

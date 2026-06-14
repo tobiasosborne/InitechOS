@@ -179,9 +179,10 @@ static int mock_find_by_name(const char *name83)
     return -1;
 }
 
-static uint16_t mock_open(const char *name83, dir_entry_t *out_entry,
-                          uint32_t *out_slot)
+static uint16_t mock_open(const char *name83, uint16_t dir_start_cluster,
+                          dir_entry_t *out_entry, uint32_t *out_slot)
 {
+    (void)dir_start_cluster;   /* edge oracle drives root-only opens (beads mzxa) */
     int idx = mock_find_by_name(name83);
     if (idx < 0) return 0x0002u;                  /* not found */
     fill_dir_entry(&g_mock[idx], out_entry);
@@ -214,7 +215,8 @@ static uint16_t mock_read_at(const dir_entry_t *e, uint32_t offset,
 static const int21_file_backend_t g_mock_backend = {
     mock_open, mock_read_at, NULL,
     NULL, NULL, NULL, NULL,
-    NULL
+    NULL,
+    NULL   /* resolve: edge oracle drives root-only paths (beads initech-mzxa) */
 };
 
 /* Open HELLO.TXT through the dispatcher and return its handle (lowest free = 5

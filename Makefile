@@ -1700,6 +1700,80 @@ test-fileio-mutant: $(TEST_FILEIO_MUT_READ) $(TEST_FILEIO_MUT_LSEEK)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-mzxa (beads initech-mzxa -- ti8 Layer 2: subdir resolution
+# threaded through the INT 21h file backend). The unit oracle lives in
+# test_fileio.c (the nested SUB/NESTED.TXT mock namespace + the resolve seam),
+# so test-fileio above IS the mzxa unit gate. THIS pair is the mutation proof:
+# int21.c compiled with one resolve-wiring branch perturbed must drive the new
+# subdir assertions RED (Rule 6). A mutant that PASSES means the resolve oracle
+# is decoration.
+#   (a) NODRIVE : do NOT strip a leading 'A:' drive -> 'A:\SUB\NESTED.TXT' reaches
+#                 the backend resolve with 'A:' intact, fails to resolve -> the
+#                 "drive stripped + succeeds" assertion goes RED.
+#   (b) NOTROOT : never forward the resolved start_cluster (always 0/root) ->
+#                 '\SUB\...' wrongly looks in the root -> the SUB enumerate /
+#                 subdir-unlink assertions go RED.
+TEST_FILEIO_MUT_NODRIVE := $(BUILD)/test_fileio_mutant_nodrive
+TEST_FILEIO_MUT_NOTROOT := $(BUILD)/test_fileio_mutant_notroot
+
+$(TEST_FILEIO_MUT_NODRIVE): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_RESOLVE_NODRIVE -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_FILEIO_MUT_NOTROOT): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_RESOLVE_NOTROOT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+.PHONY: test-mzxa-mutant
+# Mutation-proof: BOTH resolve mutants MUST fail the subdir oracle (Rule 6).
+test-mzxa-mutant: $(TEST_FILEIO_MUT_NODRIVE) $(TEST_FILEIO_MUT_NOTROOT)
+	@printf ">>> test-mzxa-mutant: confirming both resolve mutants go RED (Rule 6; beads initech-mzxa)\n"
+	@if $(TEST_FILEIO_MUT_NODRIVE) >/dev/null 2>&1; then \
+		printf '!!! test-mzxa-mutant FAIL: RESOLVE-NODRIVE mutant PASSED -- the drive-strip test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-mzxa-mutant: green (RESOLVE-NODRIVE mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_FILEIO_MUT_NOTROOT) >/dev/null 2>&1; then \
+		printf '!!! test-mzxa-mutant FAIL: RESOLVE-NOTROOT mutant PASSED -- the subdir-resolution test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-mzxa-mutant: green (RESOLVE-NOTROOT mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-mzxa-integration (beads initech-mzxa -- ti8 Layer 2 INTEGRATION)
+# ---------------------------------------------------------------------------
+# The DECISIVE mzxa oracle (CLAUDE.md Law 2): bind the REAL kernel FAT12 backend
+# (os/milton/fileio_fat.c) over the minted nested image (build/fat12_nested.img)
+# via the host file-backed blockdev, and drive int21_dispatch AH=3Dh OPEN /
+# AH=3Fh READ of '\SUB\NESTED.TXT' + '\SUB\DEEP\DEEP.TXT' through the WHOLE
+# DOS-API -> resolve_dir_path -> fat_resolve -> fat12_resolve_path / fat12_read_dir
+# stack, asserting the bytes byte-for-byte vs the committed fixtures. Same
+# artifact sources the kernel compiles (int21.c + fileio_fat.c + fat12.c), host
+# CC. Image + fixture-dir are argv (Rule 11). Requires mtools only to MINT the
+# image (the nested-img recipe); the test itself reads it via blockdev_file.
+TEST_FILEIO_SUBDIR     := $(BUILD)/test_fileio_subdir
+TEST_FILEIO_SUBDIR_SRC := $(MILTON_DIR)/test_fileio_subdir.c
+TEST_FILEIO_SUBDIR_DEPS := $(KERNEL_INT21_C) $(MILTON_DIR)/fileio_fat.c $(FAT12_SRC) \
+                           $(BLOCKDEV_FILE_SRC) $(KERNEL_SFT_C) $(KERNEL_PSP_C) \
+                           $(KERNEL_MCB_C) $(KERNEL_IRQ_C)
+TEST_FILEIO_SUBDIR_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/fileio_fat.h \
+                           $(MILTON_DIR)/fat12.h $(MILTON_DIR)/sft.h $(MILTON_DIR)/psp.h \
+                           spec/dos_structs.h spec/find_data.h \
+                           $(FAT_DIFF_DIR)/blockdev_file.h $(DOS_MESSAGES_H)
+
+$(TEST_FILEIO_SUBDIR): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+.PHONY: test-mzxa-integration
+test-mzxa-integration: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG)
+	@printf ">>> test-mzxa-integration: INT 21h OPEN/READ of '\\SUB\\NESTED.TXT' + '\\SUB\\DEEP\\DEEP.TXT' through the REAL fat12 backend (beads initech-mzxa)\n"
+	@$(TEST_FILEIO_SUBDIR) "$(FAT12_NESTED_IMG)" "$(FAT12_FIXTURE_DIR)"
+	@printf ">>> test-mzxa-integration: green\n"
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-int21-edge (beads initech-xrd / initech-1zk; double-close part
 # of initech-00x -- INT 21h error paths + implemented-but-untested resident fns)
 # ---------------------------------------------------------------------------
@@ -6320,7 +6394,7 @@ TEST_UNIT_GATES := \
 	test-fat-subdir \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
-	test-fileio test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
@@ -6328,7 +6402,7 @@ TEST_UNIT_GATES := \
 	test-region test-region-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
+	test-fileio-mutant test-mzxa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant \

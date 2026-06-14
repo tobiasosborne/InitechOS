@@ -295,6 +295,14 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * current PSP. With no arena bound (host loader oracle) this is a no-op. */
     (void)int21_mcb_reset();
 
+    /* Reset the current working directory to the root for the freshly loaded
+     * program (beads initech-mzxa; ti8 Layer 2). Mirrors int21_mcb_reset above:
+     * a launched program starts at the root (the simplest authentic ti8 model --
+     * a child does not inherit the parent's CWD; with no CHDIR writer yet every
+     * CWD is the root regardless). The kernel restores its own (saved) CWD after
+     * the child returns, alongside the PSP/exit-hook restore (kmain). */
+    int21_cwd_reset();
+
     /* --- The control transfer + return-to-loader (Sec 4; Risk 1). --- */
     loader_context_t ctx;
     ctx.exit_code  = 0;

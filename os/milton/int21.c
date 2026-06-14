@@ -51,6 +51,20 @@ static int21_coninpoll_fn g_conin_poll = 0;
  * one at SYSINIT; a handle function with no bound PSP returns invalid-handle. */
 static psp_t *g_cur_psp = 0;
 
+/* The current working directory (beads initech-mzxa; ti8 Layer 2, READ side).
+ * A RELATIVE path (no leading '\', no 'X:' prefix) resolves from here; an
+ * ABSOLUTE or drive-prefixed path resolves from the root. `cwd_start_cluster`
+ * is the CWD's first data cluster (0 == the fixed root). `cwd_path` is the
+ * canonical root-relative path text AH=47h GET CURRENT DIR reports (NO leading
+ * '\', NO drive). Until the CHDIR writer (AH=3Bh, the NEXT bead initech-u6wa)
+ * lands, the CWD never leaves the root -- but ALL the read-side plumbing is here
+ * now so u6wa only adds the 0x3Bh writer. Reset to root on each program launch
+ * (loader.c int21_cwd_reset) and on do_terminate, and saved/restored around the
+ * kernel-context PSP rebinds (kmain) so a child's CWD never leaks to the kernel.
+ * The 64-byte cap (INT21_CWD_MAX, int21.h) mirrors the DOS AH=47h buffer. */
+static char     g_cwd_path[INT21_CWD_MAX] = { 0 };  /* root-relative, no '\' / drive */
+static uint16_t g_cwd_start_cluster       = 0u;     /* 0 == the fixed root            */
+
 /* The CLOCK source (beads initech-yv9). GET/SET DATE+TIME reach the wall clock
  * through these; NULL until the kernel binds the RTC (or the host oracle binds a
  * fixed mock). With no clock bound, GET returns the DOS epoch and SET fails. */
@@ -110,6 +124,7 @@ typedef struct find_state {
     uint8_t  pattern[11];   /* 8.3 search template; '?' (0x3F) matches any byte */
     uint8_t  search_attr;   /* attribute mask from FINDFIRST ECX                */
     uint32_t next_index;    /* next backend dir-entry index to check            */
+    uint16_t dir_start;     /* directory enumerated (0 == root; beads mzxa)     */
     uint8_t  active;        /* 1 once FINDFIRST has run                          */
 } find_state_t;
 static find_state_t g_find;
@@ -155,6 +170,45 @@ void int21_set_sink(int21_sink_fn sink) { g_sink = sink; }
 void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
 void int21_set_psp(struct psp *psp)     { g_cur_psp = (psp_t *)psp; }
 void int21_set_file_backend(const int21_file_backend_t *backend) { g_file = backend; }
+
+/* ---- CWD seam (beads initech-mzxa; ti8 Layer 2, READ side) ----
+ * Reset the current working directory to the root. The loader calls this on
+ * each program launch (mirroring int21_mcb_reset) so a freshly loaded program
+ * always starts at the root (the simplest authentic ti8 model: a child does not
+ * inherit the parent's CWD -- real DOS gives a child its own COPY, but with no
+ * CHDIR writer yet every CWD is the root regardless). do_terminate calls it too
+ * so a child's CWD never lingers into kernel context. */
+void int21_cwd_reset(void)
+{
+    g_cwd_start_cluster = 0u;
+    g_cwd_path[0]       = '\0';
+}
+
+/* Snapshot / restore the CWD around a kernel-context PSP rebind (kmain restores
+ * its own PSP after a child run; without saving the CWD a child's directory
+ * would leak into kernel-context INT 21h). The opaque snapshot carries both the
+ * start cluster and the path text. Mirrors the save/restore the kernel already
+ * does for the exit hook + PSP. */
+int21_cwd_snapshot_t int21_cwd_save(void)
+{
+    int21_cwd_snapshot_t s;
+    s.start_cluster = g_cwd_start_cluster;
+    for (uint32_t i = 0u; i < INT21_CWD_MAX; i++) {
+        s.path[i] = g_cwd_path[i];
+    }
+    return s;
+}
+
+void int21_cwd_restore(const int21_cwd_snapshot_t *s)
+{
+    if (s == 0) {
+        return;
+    }
+    g_cwd_start_cluster = s->start_cluster;
+    for (uint32_t i = 0u; i < INT21_CWD_MAX; i++) {
+        g_cwd_path[i] = s->path[i];
+    }
+}
 void int21_set_exec_backend(int21_exec_fn fn) { g_exec = fn; }
 
 /* ---- MCB arena seam (beads initech-509.6; AH=48h/49h/4Ah) ----
@@ -808,9 +862,14 @@ static void do_dup2(int_frame_t *f)
  * Ref: docs/research/fs-mount-sft-ground-truth.md Sec 4; DOS 3.3 PRM AH=3Dh/3Eh/
  * 3Fh/42h/4Eh/4Fh/1Ah/2Fh. */
 
-/* Reject an OPEN path the milestone does not support: a subdirectory separator
- * '\' or a drive-letter ':' (root-dir 8.3 names only this milestone, brief
- * Sec 4.1). Returns 1 if the path is rejectable (caller sets CF=1, AX=0x0003). */
+/* Reject a path the milestone cannot support at a ROOT-ONLY site: a subdirectory
+ * separator '\' or a drive-letter ':' (do_exec is still root-only -- the loader
+ * load path reads the located program's own start_cluster but cannot yet locate
+ * a program inside a subdir; beads initech-mzxa decision 3, follow-up initech-zs24).
+ * The file/find sites (OPEN/CREAT/UNLINK/FINDFIRST) NO LONGER call this -- they
+ * resolve subdir paths via resolve_dir_path() below -- but the helper stays as
+ * do_exec's root-only gate AND as the overlength-path runaway guard.
+ * Returns 1 if the path is rejectable (caller sets CF=1, AX=0x0003). */
 /* A runaway guard, NOT a DOS path-length policy: bounds the scan of a possibly
  * malformed / unterminated ASCIIZ pointer so it can never walk the kernel off
  * into memory (Rule 2 -- fail loud, do not hang). Well above DOS's 64-byte path
@@ -837,14 +896,98 @@ static int path_has_subdir_or_drive(const char *p)
     return 0;
 }
 
-/* AH=3Dh OPEN: EDX = flat ptr to ASCIIZ 8.3 path, AL = mode (0=r,1=w,2=rdwr).
- * Root-directory 8.3 names only this milestone; '\' or ':' -> CF=1, AX=0x0003.
- * On success: allocate an SFT FILE slot + a JFT slot, LOCATE the file (no
- * whole-file read -- positioned per-handle I/O, beads initech-0qh), store its
- * dir_entry + root_slot + mode in the SFT with file_offset=0, return EAX =
- * handle (JFT index), CF clear. Any number of files may be open concurrently
- * (each its own SFT slot). Errors: AX=0x0002 (not found), 0x0003 (path), 0x0004
- * (no free SFT/JFT slot). Ref: brief Sec 4.1; DOS 3.3 PRM AH=3Dh. */
+/* Bound-check an ASCIIZ path for the runaway guard ONLY (no '\' / ':' rejection):
+ * a malformed / unterminated pointer with no NUL within INT21_PATH_SCAN_MAX is
+ * rejectable so a resolve never walks the kernel off into memory (Rule 2 -- the
+ * SAME fail-loud bound path_has_subdir_or_drive enforces, preserved for the
+ * resolving file/find sites). Returns 1 if overlength (caller -> CF=1, AX=0x0003).
+ * The INT21_MUTATE_PATHSCAN_NOBOUND seam removes the bound so the overlength
+ * oracle goes RED (shared with the do_exec gate above). */
+static int path_overlength(const char *p)
+{
+    uint32_t n = 0u;
+    (void)n;
+    for (; *p; p++) {
+#ifndef INT21_MUTATE_PATHSCAN_NOBOUND
+        if (++n >= INT21_PATH_SCAN_MAX) {
+            return 1;           /* no terminator within bound -> reject */
+        }
+#endif
+    }
+    return 0;
+}
+
+/* ---- the path -> containing-directory resolve seam (beads initech-mzxa) ---- *
+ * Resolve `path` (a possibly '\SUB\FILE'-qualified 8.3 path) to its CONTAINING
+ * directory's first data cluster (*out_dir_start, 0 == root) and the bare final
+ * 8.3 component (*out_leaf, a pointer INTO `path`). Returns 0 on success, or
+ * INT21_ERR_PATH_NOT_FOUND (0x0003) when a non-final component is missing/not a
+ * directory, or the path is overlength, or no backend resolve is bound and the
+ * path is not a bare root-relative name. int21.c never includes fat12.h: the
+ * backend resolve member (fileio_fat.c -> fat12_resolve_path / fat12_read_dir)
+ * owns the cluster math; int21.c owns only the leading-drive strip + the wiring.
+ *
+ * A leading 'X:' drive prefix is stripped HERE (the drive selects the volume --
+ * a DOS-API concern; this milestone has one volume so the letter is ignored).
+ * The INT21_MUTATE_RESOLVE_NODRIVE seam skips that strip so an 'A:'-prefixed
+ * path reaches the backend resolve with the 'A:' intact -> it cannot parse ->
+ * 0x0003 (the "leading A: is stripped + succeeds" oracle goes RED). The
+ * INT21_MUTATE_RESOLVE_NOTROOT seam forces *out_dir_start back to 0 (root) after
+ * a successful resolve so a '\SUB\FILE' wrongly looks in the root -> not found
+ * (the subdir oracle goes RED). NEVER define either in a real build (Rule 6). */
+static uint16_t resolve_dir_path(const char *path, const char **out_leaf,
+                                 uint16_t *out_dir_start)
+{
+    if (path_overlength(path)) {
+        return INT21_ERR_PATH_NOT_FOUND;     /* runaway / unterminated pointer */
+    }
+
+    /* Strip a leading drive prefix ('X:') -- one volume this milestone, so the
+     * letter is ignored; only the path after ':' matters. */
+    const char *p = path;
+#ifndef INT21_MUTATE_RESOLVE_NODRIVE
+    if (p[0] != '\0' && p[1] == ':') {
+        p += 2;                              /* skip "X:" */
+    }
+#endif
+
+    if (g_file == 0 || g_file->resolve == 0) {
+        /* No backend resolve bound: root-only fallback (the pre-mzxa behavior).
+         * A bare root-relative name resolves to the root; any remaining '\' or
+         * ':' is unsupported -> path-not-found. */
+        if (path_has_subdir_or_drive(p)) {
+            return INT21_ERR_PATH_NOT_FOUND;
+        }
+        *out_leaf      = p;
+        *out_dir_start = 0u;
+        return 0u;
+    }
+
+    const char *leaf       = p;
+    uint16_t    dir_start  = 0u;
+    uint16_t    err = g_file->resolve(p, g_cwd_start_cluster, &leaf, &dir_start);
+    if (err != 0u) {
+        return INT21_ERR_PATH_NOT_FOUND;     /* missing/non-dir component (0x0003) */
+    }
+#ifdef INT21_MUTATE_RESOLVE_NOTROOT
+    dir_start = 0u;                          /* MUTANT: always look in the root */
+#endif
+    *out_leaf      = leaf;
+    *out_dir_start = dir_start;
+    return 0u;
+}
+
+/* AH=3Dh OPEN: EDX = flat ptr to ASCIIZ path, AL = mode (0=r,1=w,2=rdwr).
+ * A '\SUB\FILE'-qualified path is resolved to its containing directory's start
+ * cluster via the backend resolve seam (beads initech-mzxa); a missing/non-dir
+ * component or an overlength path -> CF=1, AX=0x0003 (path not found). On
+ * success: allocate an SFT FILE slot + a JFT slot, LOCATE the file in the
+ * resolved directory (no whole-file read -- positioned per-handle I/O, beads
+ * initech-0qh), store its dir_entry + root_slot + mode in the SFT with
+ * file_offset=0, return EAX = handle (JFT index), CF clear. Any number of files
+ * may be open concurrently (each its own SFT slot). Errors: AX=0x0002 (not
+ * found), 0x0003 (path), 0x0004 (no free SFT/JFT slot). Ref: brief Sec 4.1;
+ * DOS 3.3 PRM AH=3Dh. */
 static void do_open(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
@@ -855,8 +998,12 @@ static void do_open(int_frame_t *f)
         cf_set(f);
         return;
     }
-    if (path_has_subdir_or_drive(path)) {
-        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+    const char *leaf      = path;
+    uint16_t    dir_start = 0u;
+    uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
+    if (perr != 0u) {
+        set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
+        int21_note_error(perr);          /* AH=59h GET EXTENDED ERROR */
         cf_set(f);
         return;
     }
@@ -885,7 +1032,7 @@ static void do_open(int_frame_t *f)
 
     dir_entry_t  de;
     uint32_t     root_slot = 0u;
-    uint16_t err = g_file->open(path, &de, &root_slot);
+    uint16_t err = g_file->open(leaf, dir_start, &de, &root_slot);
     if (err != 0) {
         /* Backend rejected (not found). No slot was committed (we only read
          * sft_alloc/jft_alloc, never wrote them), so nothing to roll back. */
@@ -928,8 +1075,15 @@ static void do_creat(int_frame_t *f)
         cf_set(f);
         return;
     }
-    if (path_has_subdir_or_drive(path)) {
-        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+    /* Resolve the CONTAINING directory (the file itself does not exist yet, so
+     * the resolve targets the parent chain, not the leaf). A missing/non-dir
+     * parent component or an overlength path -> 0x0003. */
+    const char *leaf      = path;
+    uint16_t    dir_start = 0u;
+    uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
+    if (perr != 0u) {
+        set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
+        int21_note_error(perr);          /* AH=59h GET EXTENDED ERROR */
         cf_set(f);
         return;
     }
@@ -958,7 +1112,7 @@ static void do_creat(int_frame_t *f)
 
     dir_entry_t de;
     uint32_t    root_slot = 0u;
-    uint16_t err = g_file->create(path, &de, &root_slot);
+    uint16_t err = g_file->create(leaf, dir_start, &de, &root_slot);
     if (err != 0) {
         set_ax(f, err);
         cf_set(f);
@@ -979,10 +1133,11 @@ static void do_creat(int_frame_t *f)
     cf_clear(f);
 }
 
-/* AH=41h UNLINK (DELETE FILE): EDX = flat ptr to ASCIIZ 8.3 path. Delete the
- * file (mark deleted + free its chain) via the backend. CF clear on success;
- * CF=1, AX=0x0002 (not found) / 0x0003 (path) / 0x0005 (error / no backend).
- * Ref: DOS 3.3 PRM AH=41h; beads initech-509.11. */
+/* AH=41h UNLINK (DELETE FILE): EDX = flat ptr to ASCIIZ path. Resolve a
+ * '\SUB\FILE'-qualified path to its containing directory (beads initech-mzxa)
+ * and delete the file there (mark deleted + free its chain) via the backend.
+ * CF clear on success; CF=1, AX=0x0002 (not found) / 0x0003 (path) / 0x0005
+ * (error / no backend). Ref: DOS 3.3 PRM AH=41h; beads initech-509.11. */
 static void do_unlink(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
@@ -992,8 +1147,12 @@ static void do_unlink(int_frame_t *f)
         cf_set(f);
         return;
     }
-    if (path_has_subdir_or_drive(path)) {
-        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+    const char *leaf      = path;
+    uint16_t    dir_start = 0u;
+    uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
+    if (perr != 0u) {
+        set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
+        int21_note_error(perr);          /* AH=59h GET EXTENDED ERROR */
         cf_set(f);
         return;
     }
@@ -1003,7 +1162,7 @@ static void do_unlink(int_frame_t *f)
         return;
     }
 
-    uint16_t err = g_file->unlink(path);
+    uint16_t err = g_file->unlink(leaf, dir_start);
     if (err != 0) {
         set_ax(f, err);
         cf_set(f);
@@ -1358,7 +1517,8 @@ static uint16_t find_scan(int_frame_t *f)
     for (;;) {
         dir_entry_t de;
         int found = 0;
-        uint16_t rc = g_file->dir_entry(g_find.next_index, &de, &found);
+        uint16_t rc = g_file->dir_entry(g_find.next_index, g_find.dir_start,
+                                        &de, &found);
         if (rc != 0) {
             return rc;                     /* backend read error */
         }
@@ -1391,9 +1551,13 @@ static uint16_t find_scan(int_frame_t *f)
 }
 
 /* AH=4Eh FINDFIRST: EDX = flat ptr to ASCIIZ file spec, ECX = attribute mask.
- * Build the search template, reset the search position, and emit the first
- * match into the current DTA. CF clear on a hit; CF=1, AX=0x0012 (no more files)
- * / 0x0002 when nothing matches. Ref: brief Sec 4.5; DOS 3.3 PRM AH=4Eh. */
+ * A '\SUB\*.TXT'-qualified spec is resolved to its containing directory (beads
+ * initech-mzxa): the directory portion -> the start cluster FINDNEXT enumerates,
+ * and the final component -> the 8.3 search template. A missing/non-dir
+ * component -> CF=1, AX=0x0003 (path not found). Then build the search template,
+ * reset the search position, and emit the first match into the current DTA. CF
+ * clear on a hit; CF=1, AX=0x0012 (no more files) / 0x0002 when nothing matches.
+ * Ref: brief Sec 4.5; DOS 3.3 PRM AH=4Eh. */
 static void do_findfirst(int_frame_t *f)
 {
     const char *spec = (const char *)(uintptr_t)f->edx;
@@ -1402,15 +1566,20 @@ static void do_findfirst(int_frame_t *f)
         cf_set(f);
         return;
     }
-    if (path_has_subdir_or_drive(spec)) {
-        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+    const char *leaf      = spec;
+    uint16_t    dir_start = 0u;
+    uint16_t    perr = resolve_dir_path(spec, &leaf, &dir_start);
+    if (perr != 0u) {
+        set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
+        int21_note_error(perr);          /* AH=59h GET EXTENDED ERROR */
         cf_set(f);
         return;
     }
 
-    build_pattern(spec, g_find.pattern);
+    build_pattern(leaf, g_find.pattern);
     g_find.search_attr = (uint8_t)(f->ecx & 0xFFu);
     g_find.next_index  = 0u;
+    g_find.dir_start   = dir_start;
     g_find.active      = 1u;
 
     uint16_t rc = find_scan(f);
@@ -1448,8 +1617,15 @@ static void do_findnext(int_frame_t *f)
  * regains control and EXEC returns to the caller with CF clear. The child's exit
  * code is stashed for AH=4Dh GET-RETURN-CODE.
  *
- * Path rules mirror AH=3Dh OPEN: a '\' or ':' -> CF=1, AX=0x0003 (path not
- * found); an empty/NULL path -> file-not-found.
+ * Path rules: a '\' or ':' -> CF=1, AX=0x0003 (path not found); an empty/NULL
+ * path -> file-not-found. EXEC stays ROOT-ONLY this milestone (beads
+ * initech-mzxa decision 3): unlike OPEN/CREAT/UNLINK/FINDFIRST -- which resolve
+ * a subdir path through the read-side resolve seam -- the EXEC source feeds the
+ * loader's program-load path (load_program_from_fat -> load_program), and that
+ * path locates the .COM by a ROOT-dir 8.3 name (loader.c). Threading a resolved
+ * containing-directory cluster into the loader is a RISKIER loader-internal
+ * change than the clean read-side resolve, so per decision 3 do_exec keeps
+ * rejecting subdir paths and a FOLLOW-UP bead (initech-zs24) tracks subdir EXEC.
  *
  * REENTRANCY (Rule 2 / stop condition): the loader's return-to-loader context
  * (loader.c g_loader_ctx) is single-level -- a nested EXEC (EXEC issued from
@@ -1747,6 +1923,13 @@ static void do_terminate(int_frame_t *f, uint8_t code)
         (void)mcb_free_owner(&g_arena, cur_psp_owner());
     }
 
+    /* Reset the CWD to the root on terminate (beads initech-mzxa; ti8 Layer 2):
+     * the exiting process's working directory must not linger into the next
+     * program or kernel-context INT 21h. Symmetric with the handle/memory
+     * reclaim above. With no CHDIR writer yet this is always already root, but
+     * the plumbing is established so initech-u6wa (AH=3Bh) needs no exit change. */
+    int21_cwd_reset();
+
     if (g_exit) {
         g_exit(code);
     }
@@ -1889,9 +2072,11 @@ static void do_getspace(int_frame_t *f)
 
 /* AH=47h GET CURRENT DIR: DL=drive (0=default,1=A:); DS:SI -> 64-byte buffer.
  * Fills the buffer with the CWD path RELATIVE to the root (NO leading '\', NO
- * drive). We have no subdirectories yet (ti8), so the CWD is always the root ->
- * an empty string (a single NUL). CF clear on success; AX=0x000F (invalid drive)
- * for a bad drive. Ref: DOS 3.3 PRM AH=47h. */
+ * drive) -- the canonical g_cwd_path (beads initech-mzxa; ti8 Layer 2). Until
+ * the CHDIR writer (AH=3Bh, initech-u6wa) lands, g_cwd_path is always the root
+ * (an empty string -> a single NUL), but this reads the live g_cwd state so
+ * u6wa needs no change here. CF clear on success; AX=0x000F (invalid drive) for
+ * a bad drive. Ref: DOS 3.3 PRM AH=47h. */
 static void do_getcwd(int_frame_t *f)
 {
     uint8_t drive = frame_dl(f);
@@ -1901,10 +2086,16 @@ static void do_getcwd(int_frame_t *f)
         cf_set(f);
         return;
     }
-    /* ESI = flat ptr to the caller's 64-byte buffer (DS:SI in real DOS). */
+    /* ESI = flat ptr to the caller's 64-byte buffer (DS:SI in real DOS). Copy the
+     * canonical root-relative CWD (no leading '\', no drive), NUL-terminated and
+     * bounded by the 64-byte DOS buffer (Rule 2 -- never overrun). */
     char *buf = (char *)(uintptr_t)f->esi;
     if (buf != 0) {
-        buf[0] = '\0';          /* root: empty path (no subdirs yet)         */
+        uint32_t i = 0u;
+        for (; i < INT21_CWD_MAX - 1u && g_cwd_path[i] != '\0'; i++) {
+            buf[i] = g_cwd_path[i];
+        }
+        buf[i] = '\0';
     }
     cf_clear(f);
 }

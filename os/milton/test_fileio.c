@@ -123,49 +123,72 @@ typedef struct mock_file {
     uint8_t     attr;      /* DIR_ATTR_* */
     uint8_t     data[MOCK_CAP];
     uint32_t    size;
+    uint16_t    dir;       /* containing dir cluster: 0 = root, SUB_CLUSTER = SUB */
+    uint16_t    start;     /* this entry's own start_cluster (SUB's == SUB_CLUSTER) */
     int         present;   /* 0 once unlinked / before create                 */
 } mock_file_t;
 
-/* HELLO.TXT mirrors the FAT fixture intent; README is a second file; DISK is a
- * volume label that the *.* enumeration must SKIP unless requested. Slots 0..2
- * are the seed directory; slot 3 is a spare for CREAT (OUT.TXT). */
-static const char *HELLO_DATA = "Hello from InitechOS test file.\n";
-static mock_file_t g_mock[4];
+/* Tiny NESTED namespace (beads initech-mzxa; ti8 Layer 2 unit oracle). The ROOT
+ * directory (dir==0) holds HELLO.TXT, README, DISK (vollabel), the CREAT spare
+ * (slot 3), and a SUB DIRECTORY entry (slot 4, attr DIR, start_cluster ==
+ * SUB_CLUSTER). The SUB subdirectory (dir==SUB_CLUSTER) holds NESTED.TXT
+ * (slot 5). The mock resolve() walks '\SUB\FILE' to SUB_CLUSTER + leaf; the mock
+ * open/dir_entry honor dir_start_cluster so OPEN/FINDFIRST in '\SUB' see only
+ * SUB's contents. Slots 0..2 remain the stable ROOT enumeration the existing
+ * root FINDFIRST tests assert on (SUB is a directory -> skipped by an attr-0
+ * '*.*' search, so it does not perturb them). */
+#define SUB_CLUSTER 2u
+static const char *HELLO_DATA  = "Hello from InitechOS test file.\n";
+static const char *NESTED_DATA = "Nested file inside SUB.\n";
+static mock_file_t g_mock[6];
 
 static void mock_reset_dir(void)
 {
     memset(g_mock, 0, sizeof(g_mock));
     g_mock[0].name8 = "HELLO   "; g_mock[0].ext3 = "TXT"; g_mock[0].attr = DIR_ATTR_ARCHIVE;
     memcpy(g_mock[0].data, HELLO_DATA, strlen(HELLO_DATA));
-    g_mock[0].size = (uint32_t)strlen(HELLO_DATA); g_mock[0].present = 1;
+    g_mock[0].size = (uint32_t)strlen(HELLO_DATA); g_mock[0].dir = 0u; g_mock[0].present = 1;
 
     g_mock[1].name8 = "README  "; g_mock[1].ext3 = "   "; g_mock[1].attr = DIR_ATTR_ARCHIVE;
     memcpy(g_mock[1].data, "read me", 7);
-    g_mock[1].size = 7; g_mock[1].present = 1;
+    g_mock[1].size = 7; g_mock[1].dir = 0u; g_mock[1].present = 1;
 
     g_mock[2].name8 = "DISK    "; g_mock[2].ext3 = "   "; g_mock[2].attr = DIR_ATTR_VOLLABEL;
-    g_mock[2].size = 0; g_mock[2].present = 1;
+    g_mock[2].size = 0; g_mock[2].dir = 0u; g_mock[2].present = 1;
 
-    g_mock[3].present = 0;   /* spare slot for CREAT */
+    g_mock[3].present = 0;   /* spare slot for CREAT (in the root) */
+
+    /* SUB directory entry in the ROOT (attr DIR, start_cluster == SUB_CLUSTER). */
+    g_mock[4].name8 = "SUB     "; g_mock[4].ext3 = "   "; g_mock[4].attr = DIR_ATTR_DIRECTORY;
+    g_mock[4].size = 0; g_mock[4].dir = 0u; g_mock[4].start = SUB_CLUSTER; g_mock[4].present = 1;
+
+    /* NESTED.TXT INSIDE the SUB subdirectory (dir == SUB_CLUSTER). */
+    g_mock[5].name8 = "NESTED  "; g_mock[5].ext3 = "TXT"; g_mock[5].attr = DIR_ATTR_ARCHIVE;
+    memcpy(g_mock[5].data, NESTED_DATA, strlen(NESTED_DATA));
+    g_mock[5].size = (uint32_t)strlen(NESTED_DATA); g_mock[5].dir = SUB_CLUSTER; g_mock[5].present = 1;
 }
-#define MOCK_N 4u
+#define MOCK_N 6u
 
 static void fill_dir_entry(const mock_file_t *m, dir_entry_t *de)
 {
     memset(de, 0, sizeof(*de));
     for (int i = 0; i < 8; i++) de->filename[i]  = (uint8_t)(m->name8 ? m->name8[i] : ' ');
     for (int i = 0; i < 3; i++) de->extension[i] = (uint8_t)(m->ext3 ? m->ext3[i] : ' ');
-    de->attribute  = m->attr;
-    de->mtime      = 0x1234u;
-    de->mdate      = 0x5678u;
-    de->file_size  = m->size;
+    de->attribute     = m->attr;
+    de->mtime         = 0x1234u;
+    de->mdate         = 0x5678u;
+    de->file_size     = m->size;
+    de->start_cluster = m->start;
 }
 
-/* Map a "HELLO.TXT" name to a comparable formatted name and find the slot. */
-static int mock_find_by_name(const char *name83)
+/* Map a "HELLO.TXT" name to a comparable formatted name and find the slot WITHIN
+ * the directory `dir` (0 = root, SUB_CLUSTER = SUB). Directory scoping makes
+ * OPEN/UNLINK in '\SUB' see only SUB's files (beads initech-mzxa). */
+static int mock_find_in_dir(const char *name83, uint16_t dir)
 {
     for (uint32_t i = 0; i < MOCK_N; i++) {
         if (!g_mock[i].present || g_mock[i].name8 == NULL) continue;
+        if (g_mock[i].dir != dir) continue;
         char fmt[13];
         int n = 0;
         for (int k = 0; k < 8 && g_mock[i].name8[k] != ' '; k++) fmt[n++] = g_mock[i].name8[k];
@@ -188,13 +211,23 @@ static int mock_find_by_name(const char *name83)
     return -1;
 }
 
+/* Root-directory name lookup (the read_at mock keys on the dir-entry name copy,
+ * which has no directory context; files in the root and SUB never share a name
+ * in this fixture, so a root-or-SUB search is unambiguous). */
+static int mock_find_by_name(const char *name83)
+{
+    int idx = mock_find_in_dir(name83, 0u);
+    if (idx < 0) idx = mock_find_in_dir(name83, SUB_CLUSTER);
+    return idx;
+}
+
 /* OPEN: LOCATE only -- return the dir entry + the table index as the slot. No
  * whole-file read; no single-buffer limit (N files open concurrently). */
-static uint16_t mock_open(const char *name83, dir_entry_t *out_entry,
-                          uint32_t *out_slot)
+static uint16_t mock_open(const char *name83, uint16_t dir_start_cluster,
+                          dir_entry_t *out_entry, uint32_t *out_slot)
 {
-    int idx = mock_find_by_name(name83);
-    if (idx < 0) return 0x0002u;                  /* not found */
+    int idx = mock_find_in_dir(name83, dir_start_cluster);
+    if (idx < 0) return 0x0002u;                  /* not found in that directory */
     fill_dir_entry(&g_mock[idx], out_entry);
     *out_slot = (uint32_t)idx;
     return 0u;
@@ -234,9 +267,12 @@ static uint16_t mock_read_at(const dir_entry_t *e, uint32_t offset,
 static int      g_mock_unlinked  = 0;
 static char     g_mock_unlinked_name[16];
 
-static uint16_t mock_create(const char *name83, dir_entry_t *out_entry,
-                            uint32_t *out_slot)
+static uint16_t mock_create(const char *name83, uint16_t dir_start_cluster,
+                            dir_entry_t *out_entry, uint32_t *out_slot)
 {
+    /* This READ-side milestone only creates in the ROOT (subdir write is a
+     * follow-up bead; the real backend returns 0x0003 for a non-root dir). */
+    if (dir_start_cluster != 0u) return 0x0003u;  /* path not found (no subdir write) */
     /* Use the spare slot (index 3) for the created file; truncate to size 0. */
     int idx = 3;
     /* Parse name83 into 8.3 fields for the slot's name. */
@@ -286,9 +322,11 @@ static uint16_t mock_write_at(uint32_t slot, uint32_t offset, const uint8_t *dat
 
 static void mock_close(uint32_t slot) { (void)slot; }
 
-static uint16_t mock_unlink(const char *name83)
+static uint16_t mock_unlink(const char *name83, uint16_t dir_start_cluster)
 {
-    /* "DELETE.ME" exists; anything else not found (mirrors a small dir). */
+    /* Root (dir==0): "DELETE.ME" exists; anything else not found (the existing
+     * unlink oracle). Subdir write is out of READ-side scope -> 0x0003. */
+    if (dir_start_cluster != 0u) return 0x0003u;
     if (strcmp(name83, "DELETE.ME") != 0) return 0x0002u;
     g_mock_unlinked = 1;
     int i = 0;
@@ -298,14 +336,34 @@ static uint16_t mock_unlink(const char *name83)
     return 0u;
 }
 
-static uint16_t mock_dir_entry(uint32_t index, dir_entry_t *out_entry, int *out_found)
+static uint16_t mock_dir_entry(uint32_t index, uint16_t dir_start_cluster,
+                               dir_entry_t *out_entry, int *out_found)
 {
     *out_found = 0;
-    /* Enumerate only the PRESENT seed files (slots 0..2) so FINDFIRST/NEXT see a
-     * stable directory regardless of CREAT having touched slot 3. */
+    if (dir_start_cluster == 0u) {
+        /* ROOT: enumerate only the PRESENT seed files (slots 0..2) so FINDFIRST/
+         * NEXT see a stable directory regardless of CREAT having touched slot 3
+         * (the existing root-enum contract). The SUB directory (slot 4) is a
+         * directory entry -- an attr-0 '*.*' search skips it, so the existing
+         * root tests are byte-identical. */
+        uint32_t seen = 0;
+        for (uint32_t i = 0; i < 3u; i++) {
+            if (!g_mock[i].present) continue;
+            if (seen == index) {
+                fill_dir_entry(&g_mock[i], out_entry);
+                *out_found = 1;
+                return 0u;
+            }
+            seen++;
+        }
+        return 0u;
+    }
+
+    /* SUBDIRECTORY (dir_start_cluster != 0): enumerate the files whose `dir`
+     * matches (beads initech-mzxa). FINDFIRST in '\SUB' sees only SUB's files. */
     uint32_t seen = 0;
-    for (uint32_t i = 0; i < 3u; i++) {
-        if (!g_mock[i].present) continue;
+    for (uint32_t i = 0; i < MOCK_N; i++) {
+        if (!g_mock[i].present || g_mock[i].dir != dir_start_cluster) continue;
         if (seen == index) {
             fill_dir_entry(&g_mock[i], out_entry);
             *out_found = 1;
@@ -316,11 +374,65 @@ static uint16_t mock_dir_entry(uint32_t index, dir_entry_t *out_entry, int *out_
     return 0u;
 }
 
+/* RESOLVE (beads initech-mzxa): walk '\SUB\FILE' to (containing-dir cluster,
+ * leaf). The mock does NOT strip a leading 'X:' drive (int21.c strips it; the
+ * NODRIVE mutant leaves it so an 'A:'-prefixed path reaches here intact and must
+ * FAIL to resolve). Supported parents: the root (a bare name or a leading '\')
+ * and "\SUB" (-> SUB_CLUSTER). A missing/non-directory non-final component ->
+ * 0x0003 (path not found). The leaf points INTO `path`. */
+static uint16_t mock_resolve(const char *path, uint16_t cwd_start,
+                             const char **out_leaf, uint16_t *out_dir_start)
+{
+    (void)cwd_start;   /* CWD is always root this milestone */
+
+    /* A leading 'X:' here is the NODRIVE-mutant failure mode (int21.c did NOT
+     * strip it): it is not a valid component -> path not found. */
+    if (path[0] != '\0' && path[1] == ':') {
+        return 0x0003u;
+    }
+
+    const char *p = path;
+    if (*p == '\\') p++;               /* absolute: skip the leading root '\' */
+
+    /* Find a backslash separating a subdir component from the leaf. */
+    const char *sep = NULL;
+    for (const char *q = p; *q; q++) {
+        if (*q == '\\') { sep = q; break; }
+    }
+
+    if (sep == NULL) {
+        /* Bare name in the root. */
+        *out_leaf      = p;
+        *out_dir_start = 0u;
+        return 0u;
+    }
+
+    /* The first component is a subdirectory; this fixture knows only "SUB". */
+    size_t complen = (size_t)(sep - p);
+    if (complen == 3u && (p[0]=='S'||p[0]=='s') && (p[1]=='U'||p[1]=='u') &&
+        (p[2]=='B'||p[2]=='b')) {
+        const char *rest = sep + 1;    /* after "SUB\" */
+        /* A further '\' means a deeper component -> the next component must be a
+         * directory; SUB holds only the file NESTED.TXT (not traversable), so
+         * any "\SUB\X\..." is path-not-found (the non-dir mid-path case). */
+        for (const char *q = rest; *q; q++) {
+            if (*q == '\\') return 0x0003u;
+        }
+        *out_leaf      = rest;
+        *out_dir_start = SUB_CLUSTER;
+        return 0u;
+    }
+
+    /* An unknown intermediate directory component -> path not found. */
+    return 0x0003u;
+}
+
 static const int21_file_backend_t g_mock_backend = {
     mock_open, mock_read_at, mock_dir_entry,
     mock_create, mock_write_at, mock_close, mock_unlink,
-    NULL   /* freespace: not exercised by the read/write file oracle (AH=36h is
+    NULL,  /* freespace: not exercised by the read/write file oracle (AH=36h is
               covered end-to-end on the emulator, make test-datetime) */
+    mock_resolve   /* the path->directory seam (beads initech-mzxa) */
 };
 
 int main(void)
@@ -342,15 +454,85 @@ int main(void)
               "OPEN missing file AX=0x0002");
     }
 
-    /* --- OPEN a path with a subdir separator -> CF=1, AX=0x0003 ---------- */
+    /* --- OPEN a path through a MISSING directory -> CF=1, AX=0x0003 (path not
+     *     found). NODIR is not a directory in the root, so the non-final
+     *     component cannot be traversed (beads initech-mzxa). --------------- */
     {
-        uint32_t edx = low_dup("SUB\\HELLO.TXT");
+        uint32_t edx = low_dup("\\NODIR\\HELLO.TXT");
         int_frame_t f = fresh_frame();
         f.eax = 0x3D00u; f.edx = edx;
         int21_dispatch(&f);
-        CHECK(frame_cf(&f) == 1, "OPEN subdir path sets CF");
+        CHECK(frame_cf(&f) == 1, "OPEN through a missing directory sets CF");
         CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
-              "OPEN subdir path AX=0x0003");
+              "OPEN through a missing directory AX=0x0003 (path not found)");
+    }
+
+    /* --- SUBDIRECTORY resolution (beads initech-mzxa; ti8 Layer 2) -------- *
+     * The mock root holds a SUB directory containing NESTED.TXT. Drive these
+     * THROUGH the real int21_dispatch (the resolve seam + the dir_start-aware
+     * backend).
+     *   - OPEN '\SUB\NESTED.TXT'      -> resolves + succeeds (the file is read).
+     *   - OPEN '\SUB\MISSING.TXT'     -> 0x0002 (SUB exists; the FILE is absent
+     *                                   -- DOS-correct file-not-found, NOT path).
+     *   - OPEN '\SUB\NESTED.TXT\X'    -> 0x0003 (a file is not traversable: the
+     *                                   non-dir mid-path case).
+     *   - OPEN 'A:\SUB\NESTED.TXT'    -> the leading 'A:' is stripped + succeeds.
+     */
+    {
+        /* '\SUB\NESTED.TXT' resolves and opens; read its bytes back. */
+        uint32_t edx = low_dup("\\SUB\\NESTED.TXT");
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3D00u; f.edx = edx; f.eflags |= CF_BIT;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "OPEN '\\SUB\\NESTED.TXT' resolves + clears CF");
+        uint32_t h = (uint16_t)(f.eax & 0xFFFFu);
+
+        uint8_t *nb = (uint8_t *)(uintptr_t)alloc_low(64); memset(nb, 0, 64);
+        int_frame_t r = fresh_frame();
+        r.eax = 0x3F00u; r.ebx = h; r.ecx = (uint32_t)strlen(NESTED_DATA);
+        r.edx = (uint32_t)(uintptr_t)nb;
+        int21_dispatch(&r);
+        CHECK(r.eax == (uint32_t)strlen(NESTED_DATA) &&
+              memcmp(nb, NESTED_DATA, strlen(NESTED_DATA)) == 0,
+              "READ of '\\SUB\\NESTED.TXT' returns the nested file's bytes");
+
+        int_frame_t cl = fresh_frame();
+        cl.eax = 0x3E00u; cl.ebx = h;
+        int21_dispatch(&cl);
+        CHECK(frame_cf(&cl) == 0, "CLOSE the nested handle");
+    }
+    {
+        /* '\SUB\MISSING.TXT': SUB exists, the file does not -> 0x0002. */
+        uint32_t edx = low_dup("\\SUB\\MISSING.TXT");
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3D00u; f.edx = edx;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "OPEN '\\SUB\\MISSING.TXT' sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
+              "OPEN '\\SUB\\MISSING.TXT' AX=0x0002 (dir exists, file absent)");
+    }
+    {
+        /* '\SUB\NESTED.TXT\X': a file mid-path is not traversable -> 0x0003. */
+        uint32_t edx = low_dup("\\SUB\\NESTED.TXT\\X");
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3D00u; f.edx = edx;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "OPEN '\\SUB\\NESTED.TXT\\X' sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
+              "OPEN '\\SUB\\NESTED.TXT\\X' AX=0x0003 (non-dir mid-path)");
+    }
+    {
+        /* A leading 'A:' is stripped and the rest resolves identically. */
+        uint32_t edx = low_dup("A:\\SUB\\NESTED.TXT");
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3D00u; f.edx = edx; f.eflags |= CF_BIT;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "OPEN 'A:\\SUB\\NESTED.TXT' (drive stripped) succeeds");
+        if (frame_cf(&f) == 0) {
+            int_frame_t cl = fresh_frame();
+            cl.eax = 0x3E00u; cl.ebx = (uint16_t)(f.eax & 0xFFFFu);
+            int21_dispatch(&cl);
+        }
     }
 
     uint32_t hello_handle = 0;
@@ -640,6 +822,70 @@ int main(void)
               "FINDNEXT with no active search AX=0x0012");
     }
 
+    /* --- FINDFIRST in a SUBDIRECTORY (beads initech-mzxa; ti8 Layer 2) ------ *
+     * '\SUB\*.*' resolves the directory portion to SUB and the leaf '*.*' to the
+     * search template, so the enumeration sees ONLY SUB's files (NESTED.TXT) --
+     * NOT the root files. Proves dir_start is threaded into dir_entry(). */
+    {
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+
+        find_data_t *fd = (find_data_t *)(uintptr_t)alloc_low(FIND_DATA_SIZE);
+        CHECK(fd != NULL, "find_data DTA in low 4 GiB (subdir find)");
+        memset(fd, 0, FIND_DATA_SIZE);
+        int_frame_t s = fresh_frame();
+        s.eax = 0x1A00u; s.edx = (uint32_t)(uintptr_t)fd;
+        int21_dispatch(&s);
+
+        uint32_t edx = low_dup("\\SUB\\*.*");
+        int_frame_t ff = fresh_frame();
+        ff.eax = 0x4E00u; ff.ecx = 0u; ff.edx = edx;   /* attr 0 = files only */
+        ff.eflags |= CF_BIT;
+        int21_dispatch(&ff);
+        CHECK(frame_cf(&ff) == 0, "FINDFIRST '\\SUB\\*.*' finds a file in SUB");
+        CHECK(strcmp(fd->fname, "NESTED.TXT") == 0,
+              "FINDFIRST '\\SUB\\*.*' yields NESTED.TXT (SUB's file, not a root file)");
+
+        int_frame_t fn = fresh_frame();
+        fn.eax = 0x4F00u;
+        int21_dispatch(&fn);
+        CHECK(frame_cf(&fn) == 1, "FINDNEXT in SUB past its only file is exhausted");
+        CHECK((uint16_t)(fn.eax & 0xFFFFu) == INT21_ERR_NO_MORE_FILES,
+              "FINDNEXT in SUB AX=0x0012 (SUB holds exactly one file)");
+    }
+
+    /* --- FINDFIRST through a MISSING directory -> 0x0003 (path not found) --- */
+    {
+        find_data_t *fd = (find_data_t *)(uintptr_t)alloc_low(FIND_DATA_SIZE);
+        memset(fd, 0, FIND_DATA_SIZE);
+        int_frame_t s = fresh_frame();
+        s.eax = 0x1A00u; s.edx = (uint32_t)(uintptr_t)fd;
+        int21_dispatch(&s);
+
+        uint32_t edx = low_dup("\\NODIR\\*.*");
+        int_frame_t ff = fresh_frame();
+        ff.eax = 0x4E00u; ff.ecx = 0u; ff.edx = edx;
+        int21_dispatch(&ff);
+        CHECK(frame_cf(&ff) == 1, "FINDFIRST through a missing directory sets CF");
+        CHECK((uint16_t)(ff.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
+              "FINDFIRST '\\NODIR\\*.*' AX=0x0003 (path not found)");
+    }
+
+    /* --- AH=47h GET CURRENT DIR reports the ROOT (buf[0]==0) until u6wa's
+     *     CHDIR writer lands (beads initech-mzxa; ti8 Layer 2 read-side). ---- */
+    {
+        char *cwdbuf = (char *)(uintptr_t)alloc_low(64);
+        CHECK(cwdbuf != NULL, "GETCWD buffer in low 4 GiB");
+        memset(cwdbuf, 'Z', 64);    /* poison so a no-write would be visible */
+        int_frame_t g = fresh_frame();
+        g.eax = 0x4700u; g.edx = 0u;                   /* DL = 0 (default drive) */
+        g.esi = (uint32_t)(uintptr_t)cwdbuf;
+        int21_dispatch(&g);
+        CHECK(frame_cf(&g) == 0, "AH=47h GETCWD clears CF for the default drive");
+        CHECK(cwdbuf[0] == '\0',
+              "AH=47h GETCWD reports the ROOT (empty root-relative path, no leading '\\')");
+    }
+
     /* --- WRITE path (beads initech-0qh, positioned): CREAT + WRITE(s) + CLOSE,
      *     then re-OPEN + READ BACK through the dispatcher (proves the positioned
      *     write committed). Plus a positioned OVERWRITE via LSEEK to prove
@@ -802,7 +1048,8 @@ int main(void)
         /* Bind a read-only backend (create/write_at=NULL) by reusing g_mock but
          * clearing the write hooks via a local read-only vtable. */
         static const int21_file_backend_t ro = { mock_open, mock_read_at, mock_dir_entry,
-                                                  NULL, NULL, NULL, NULL, NULL };
+                                                  NULL, NULL, NULL, NULL, NULL,
+                                                  mock_resolve };
         mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&ro);
@@ -839,8 +1086,12 @@ int main(void)
         CHECK((uint16_t)(u2.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
               "UNLINK missing file AX=0x0002");
 
-        /* UNLINK a subdir path -> path not found. */
-        uint32_t edx3 = low_dup("SUB\\X.TXT");
+        /* UNLINK a subdir path: the path RESOLVES to SUB (dir_start=SUB_CLUSTER,
+         * leaf=X.TXT; beads initech-mzxa), but subdir WRITE (delete) is out of
+         * the READ-side scope so the backend returns 0x0003. The NOTROOT mutant
+         * forces dir_start=0 -> the backend looks in the root -> 0x0002, which
+         * makes THIS assertion bite (proving dir_start is threaded into unlink). */
+        uint32_t edx3 = low_dup("\\SUB\\X.TXT");
         int_frame_t u3 = fresh_frame();
         u3.eax = 0x4100u; u3.edx = edx3;
         int21_dispatch(&u3);

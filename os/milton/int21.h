@@ -82,6 +82,30 @@ void int21_set_exit(int21_exit_fn fn);
 struct psp;
 void int21_set_psp(struct psp *psp);
 
+/* ---- CWD seam (beads initech-mzxa; ti8 Layer 2, READ side) ----------------
+ * The current working directory the file/find functions resolve a RELATIVE path
+ * from (AH=47h GET CURRENT DIR reports it). It is a file-static in int21.c (NOT
+ * a psp_t field -- psp_t is LOCKED spec with sizeof==256). Until the CHDIR writer
+ * (AH=3Bh, beads initech-u6wa) lands the CWD never leaves the root, but the
+ * read-side plumbing is established now:
+ *   int21_cwd_reset   : set the CWD to the root. The loader calls it on each
+ *                       program launch (beside int21_mcb_reset); do_terminate
+ *                       calls it on exit. So a freshly loaded program starts at
+ *                       the root and a child's CWD never leaks on terminate.
+ *   int21_cwd_save / int21_cwd_restore : snapshot + restore the CWD around a
+ *                       kernel-context PSP rebind (kmain restores its own PSP
+ *                       after a child run; the CWD is saved/restored in lockstep
+ *                       so the child's directory never leaks into kernel INT 21h).
+ * The snapshot is opaque (start cluster + the root-relative path text). */
+#define INT21_CWD_MAX 64u
+typedef struct int21_cwd_snapshot {
+    uint16_t start_cluster;        /* 0 == the fixed root                       */
+    char     path[INT21_CWD_MAX];  /* root-relative, no leading '\' / drive     */
+} int21_cwd_snapshot_t;
+void                 int21_cwd_reset(void);
+int21_cwd_snapshot_t int21_cwd_save(void);
+void                 int21_cwd_restore(const int21_cwd_snapshot_t *s);
+
 /* ---- MEMORY ARENA SEAM (beads initech-509.6; AH=48h/49h/4Ah) --------------
  * The DOS memory functions (48h ALLOC / 49h FREE / 4Ah SETBLOCK) operate on an
  * MCB chain (os/milton/mcb.c) laid over a real program-memory region. The arena
@@ -143,19 +167,31 @@ int int21_mcb_reset(void);
  * hardening is beads initech-xk2 (out of scope here).
  *
  * `struct dir_entry` is forward-declared (the full type is spec/dos_structs.h,
- * which int21.c pulls in via sft.h -> psp.h). */
+ * which int21.c pulls in via sft.h -> psp.h).
+ *
+ * SUBDIRECTORY RESOLUTION (beads initech-mzxa; ti8 Layer 2). open()/create()/
+ * dir_entry()/unlink() take a `dir_start_cluster` -- the start cluster of the
+ * directory the bare 8.3 `name83` (or the enumeration `index`) lives in, with
+ * 0 == the fixed root directory. The dispatcher resolves a '\SUB\FILE'-style
+ * path through the resolve() seam BELOW to that containing-directory cluster
+ * BEFORE calling these, and passes the bare leaf name. dir_start_cluster==0
+ * (the only value the root-only milestone ever produced) reproduces the prior
+ * root-relative behavior BYTE-IDENTICALLY, so every existing caller/oracle stays
+ * green. Ref: os/milton/fat12.h (fat12_resolve_path / fat12_read_dir, Layer 1);
+ * brief Sec 4.1/4.5; DOS 3.3 PRM AH=3Dh/3Ch/41h/4Eh. */
 struct dir_entry;
 
 typedef struct int21_file_backend {
-    /* OPEN: LOCATE the 8.3 file `name83` in the (root) directory (fat12_find) --
-     * NO whole-file read. Returns a copy of its 32-byte directory entry (with
-     * start_cluster + size) in *out_entry and its 0-based root-dir slot index in
-     * *out_slot (for a later write-back). Returns 0 on success or a DOS error
-     * (0x0002 not found). out_entry/out_slot are written only on success. The
-     * dispatcher stores these in the SFT slot; the position lives in the slot,
-     * so any number of files may be open concurrently. */
-    uint16_t (*open)(const char *name83, struct dir_entry *out_entry,
-                     uint32_t *out_slot);
+    /* OPEN: LOCATE the 8.3 file `name83` in the directory whose first data
+     * cluster is `dir_start_cluster` (0 == the fixed root; fat12_find_slot over
+     * fat12_read_dir) -- NO whole-file read. Returns a copy of its 32-byte
+     * directory entry (with start_cluster + size) in *out_entry and its 0-based
+     * dir slot index in *out_slot (for a later write-back). Returns 0 on success
+     * or a DOS error (0x0002 not found). out_entry/out_slot are written only on
+     * success. The dispatcher stores these in the SFT slot; the position lives in
+     * the slot, so any number of files may be open concurrently. */
+    uint16_t (*open)(const char *name83, uint16_t dir_start_cluster,
+                     struct dir_entry *out_entry, uint32_t *out_slot);
 
     /* READ_AT: POSITIONED read of up to `len` bytes starting at byte `offset`
      * within the file described by dir entry `e` (a per-handle copy), via
@@ -166,23 +202,25 @@ typedef struct int21_file_backend {
                         uint8_t *buf, uint32_t len, uint32_t *out_read);
 
     /* Directory enumeration for FINDFIRST/FINDNEXT: copy the directory entry at
-     * 0-based `index` into `*out_entry` and set `*out_found` = 1; at/after the
-     * end of the directory set `*out_found` = 0. Returns 0 on success, non-zero
-     * (a DOS error) on a backend read failure. Deleted/LFN slots are skipped by
-     * the backend so consecutive indices map to surviving 8.3 entries. */
-    uint16_t (*dir_entry)(uint32_t index, struct dir_entry *out_entry,
-                          int *out_found);
+     * 0-based `index` WITHIN the directory whose first data cluster is
+     * `dir_start_cluster` (0 == the fixed root) into `*out_entry` and set
+     * `*out_found` = 1; at/after the end of the directory set `*out_found` = 0.
+     * Returns 0 on success, non-zero (a DOS error) on a backend read failure.
+     * Deleted/LFN slots are skipped by the backend so consecutive indices map to
+     * surviving 8.3 entries. */
+    uint16_t (*dir_entry)(uint32_t index, uint16_t dir_start_cluster,
+                          struct dir_entry *out_entry, int *out_found);
 
     /* ---- WRITE path (beads initech-0qh, positioned) ----------------------- *
-     * CREATE (AH=3Ch): create or TRUNCATE the 8.3 file `name83` in the (root)
-     * directory and return a copy of its (zeroed-size) dir entry in *out_entry
-     * and its root-dir slot index in *out_slot (so write_at()/close() can patch
-     * size/start_cluster in place). Returns 0 on success or a DOS error (0x0004
-     * dir full, 0x0003 path, 0x0005 read-only/no volume). May be NULL on a
-     * read-only backend (the host read oracle binds NULL -> CREAT returns
-     * access-denied). */
-    uint16_t (*create)(const char *name83, struct dir_entry *out_entry,
-                        uint32_t *out_slot);
+     * CREATE (AH=3Ch): create or TRUNCATE the 8.3 file `name83` in the directory
+     * whose first data cluster is `dir_start_cluster` (0 == the fixed root) and
+     * return a copy of its (zeroed-size) dir entry in *out_entry and its dir
+     * slot index in *out_slot (so write_at()/close() can patch size/start_cluster
+     * in place). Returns 0 on success or a DOS error (0x0004 dir full, 0x0003
+     * path, 0x0005 read-only/no volume). May be NULL on a read-only backend (the
+     * host read oracle binds NULL -> CREAT returns access-denied). */
+    uint16_t (*create)(const char *name83, uint16_t dir_start_cluster,
+                        struct dir_entry *out_entry, uint32_t *out_slot);
 
     /* WRITE_AT (AH=40h to a FILE): POSITIONED write of `len` bytes of `data`
      * starting at byte `offset` within the file at root-dir slot `slot`, via
@@ -203,9 +241,11 @@ typedef struct int21_file_backend {
      * reference to a FILE slot drops. May be NULL. */
     void (*close)(uint32_t slot);
 
-    /* UNLINK (AH=41h DELETE): delete the 8.3 file `name83` (mark deleted + free
-     * its chain). Returns 0 on success or 0x0002 (not found) / 0x0005 (error). */
-    uint16_t (*unlink)(const char *name83);
+    /* UNLINK (AH=41h DELETE): delete the 8.3 file `name83` in the directory whose
+     * first data cluster is `dir_start_cluster` (0 == the fixed root; mark
+     * deleted + free its chain). Returns 0 on success or 0x0002 (not found) /
+     * 0x0005 (error). */
+    uint16_t (*unlink)(const char *name83, uint16_t dir_start_cluster);
 
     /* FREESPACE (AH=36h GET DISK FREE SPACE): report the mounted volume's
      * geometry + free-cluster count. On success returns 0 and fills:
@@ -217,6 +257,25 @@ typedef struct int21_file_backend {
      * AX=0xFFFF (invalid drive). May be NULL on a backend with no volume. */
     uint16_t (*freespace)(uint16_t *out_spc, uint16_t *out_bps,
                           uint16_t *out_total_clus, uint16_t *out_free_clus);
+
+    /* RESOLVE (beads initech-mzxa; ti8 Layer 2 -- the thin path->directory seam):
+     * resolve the CONTAINING directory of the '\SUB\FILE'-style `path` to its
+     * first data cluster (0 == the fixed root), and point `*out_leaf` at the bare
+     * final 8.3 component WITHIN `path` (the name OPEN/CREAT/UNLINK locate, or the
+     * search template FINDFIRST builds). `cwd_start` is the start cluster of the
+     * current working directory (0 == root) a RELATIVE path (no leading '\', no
+     * 'X:' prefix) is resolved from; an ABSOLUTE or drive-prefixed path resolves
+     * from the root regardless. The backend owns ALL backslash/drive parsing (it
+     * already has fat12_resolve_path's parser) so int21.c never includes fat12.h.
+     *
+     * Returns 0 on success with *out_dir_start + *out_leaf set, or
+     * INT21_ERR_PATH_NOT_FOUND (0x0003) when a non-final component is missing or
+     * is not a directory (the DOS path-not-found contract -- preserved at every
+     * rejection site, and mapped by AH=59h GET EXTENDED ERROR). A NULL resolve
+     * member means "root-only" (the dispatcher treats any subdir/drive path as
+     * 0x0003 and a bare name as dir_start_cluster 0 -- the pre-mzxa behavior). */
+    uint16_t (*resolve)(const char *path, uint16_t cwd_start,
+                        const char **out_leaf, uint16_t *out_dir_start);
 } int21_file_backend_t;
 
 /* Bind the file backend (NULL clears it -> the file functions return

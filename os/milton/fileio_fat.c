@@ -50,8 +50,15 @@
 
 /* DOS error codes returned to int21.c (the same set int21.h uses). */
 #define FILEIO_ERR_FILE_NOT_FOUND  0x0002u
+#define FILEIO_ERR_PATH_NOT_FOUND  0x0003u
 #define FILEIO_ERR_TOO_MANY_OPEN   0x0004u
 #define FILEIO_ERR_ACCESS_DENIED   0x0005u
+
+/* The maximum path the resolve seam copies into a stack buffer (beads
+ * initech-mzxa). The int21.c side already bounds the ASCIIZ path to
+ * INT21_PATH_SCAN_MAX (128) before calling resolve, so a small margin over that
+ * is enough; an overlength path never reaches here. */
+#define FILEIO_PATH_MAX  130u
 
 /* The mounted volume (caller-owned; bound by fileio_fat_bind). */
 static const fat12_volume_t *g_vol = 0;
@@ -72,32 +79,100 @@ static uint8_t  g_sector[BLOCKDEV_SECTOR_SIZE];
 static uint8_t  g_cluster[BLOCKDEV_SECTOR_SIZE];
 
 /* ------------------------------------------------------------------------ *
+ * Subdirectory leaf lookup (beads initech-mzxa; ti8 Layer 2).
+ * fat12_find_slot is root-only (it returns the root-dir slot for write-back).
+ * For a file inside a SUBDIRECTORY (dir_start != 0) we enumerate the subdir
+ * cluster chain via fat12_read_dir (Layer 1) and match the bare 8.3 `name83`
+ * case-insensitively. A subdir-located file has no root-dir slot, so out_slot
+ * is set to 0 (write-back into a subdir is a write-side concern, out of this
+ * READ-side scope; write_at is root-slot based -- a follow-up bead).
+ * ------------------------------------------------------------------------ */
+typedef struct {
+    const char *want;       /* the bare 8.3 leaf, e.g. "NESTED.TXT"        */
+    dir_entry_t out;        /* the matched entry (valid when found==1)     */
+    int         found;      /* 1 once the name matches                     */
+} subdir_find_cookie_t;
+
+/* Case-insensitive ASCII 8.3 compare of a formatted name against `want`. */
+static int name83_ieq(const char *a, const char *b)
+{
+    while (*a && *b) {
+        char ca = *a, cb = *b;
+        if (ca >= 'a' && ca <= 'z') ca = (char)(ca - 32);
+        if (cb >= 'a' && cb <= 'z') cb = (char)(cb - 32);
+        if (ca != cb) return 0;
+        a++; b++;
+    }
+    return *a == '\0' && *b == '\0';
+}
+
+static int subdir_find_cb(const dir_entry_t *e, void *user)
+{
+    subdir_find_cookie_t *c = (subdir_find_cookie_t *)user;
+    char name[FAT12_NAME83_MAX];
+    fat12_format_83(e, name);
+    if (name83_ieq(name, c->want)) {
+        c->out   = *e;       /* struct copy (the entry lives in g_sector) */
+        c->found = 1;
+        return 1;            /* stop enumeration early */
+    }
+    return 0;
+}
+
+/* Locate the bare 8.3 `name83` inside the directory whose first data cluster is
+ * `dir_start` (0 == the fixed root). For the root, fat12_find_slot also yields
+ * the root-dir slot (for write-back); for a subdir, fat12_read_dir enumerates
+ * the chain and out_slot is 0. Returns 0 on success (out_entry/out_slot set), or
+ * FILEIO_ERR_FILE_NOT_FOUND. */
+static uint16_t locate_in_dir(const char *name83, uint16_t dir_start,
+                              dir_entry_t *out_entry, uint32_t *out_slot)
+{
+    if (dir_start == 0u) {
+        dir_entry_t de;
+        uint32_t    slot = 0;
+        int rc = fat12_find_slot(g_vol, g_sector, name83, &de, &slot);
+        if (rc != FAT12_OK) {
+            return FILEIO_ERR_FILE_NOT_FOUND;
+        }
+        *out_entry = de;
+        *out_slot  = slot;
+        return 0u;
+    }
+
+    fat12_dir_t          dir;
+    subdir_find_cookie_t c;
+    dir.is_root       = 0;
+    dir.start_cluster = dir_start;
+    c.want  = name83;
+    c.found = 0;
+    int rc = fat12_read_dir(g_vol, &dir, g_sector, g_fat, g_fat_len,
+                            subdir_find_cb, &c);
+    if (rc < 0) {
+        return FILEIO_ERR_FILE_NOT_FOUND;   /* a read/chain error reads as absent */
+    }
+    if (!c.found) {
+        return FILEIO_ERR_FILE_NOT_FOUND;
+    }
+    *out_entry = c.out;
+    *out_slot  = 0u;          /* no root-dir slot for a subdir file (READ-side) */
+    return 0u;
+}
+
+/* ------------------------------------------------------------------------ *
  * Backend vtable implementations (positioned, stateless).
  * ------------------------------------------------------------------------ */
 
-/* OPEN: LOCATE the named file -- NO whole-file read. Return its dir entry +
- * root-dir slot; the SFT slot (int21.c) carries the position. Any number of
- * files may be open at once (each its own SFT slot). */
-static uint16_t fat_open(const char *name83, dir_entry_t *out_entry,
-                         uint32_t *out_slot)
+/* OPEN: LOCATE the named file in the directory `dir_start_cluster` (0 == root;
+ * beads initech-mzxa) -- NO whole-file read. Return its dir entry + (root) slot;
+ * the SFT slot (int21.c) carries the position. Any number of files may be open
+ * at once (each its own SFT slot). */
+static uint16_t fat_open(const char *name83, uint16_t dir_start_cluster,
+                         dir_entry_t *out_entry, uint32_t *out_slot)
 {
     if (g_vol == 0) {
         return FILEIO_ERR_FILE_NOT_FOUND;   /* no volume -> as if absent */
     }
-
-    dir_entry_t de;
-    uint32_t    slot = 0;
-    int rc = fat12_find_slot(g_vol, g_sector, name83, &de, &slot);
-    if (rc == FAT12_ERR_NOT_FOUND) {
-        return FILEIO_ERR_FILE_NOT_FOUND;
-    }
-    if (rc != FAT12_OK) {
-        return FILEIO_ERR_FILE_NOT_FOUND;   /* a read error reads as absent here */
-    }
-
-    *out_entry = de;          /* struct copy of the 32-byte dir entry */
-    *out_slot  = slot;        /* root-dir slot for a later write-back  */
-    return 0u;
+    return locate_in_dir(name83, dir_start_cluster, out_entry, out_slot);
 }
 
 /* READ_AT: positioned read over the cluster chain (fat12_read_partial). No
@@ -144,8 +219,8 @@ static int dir_index_cb(const dir_entry_t *e, void *user)
     return 0;                /* continue */
 }
 
-static uint16_t fat_dir_entry(uint32_t index, dir_entry_t *out_entry,
-                              int *out_found)
+static uint16_t fat_dir_entry(uint32_t index, uint16_t dir_start_cluster,
+                              dir_entry_t *out_entry, int *out_found)
 {
     *out_found = 0;
     if (g_vol == 0) {
@@ -157,10 +232,25 @@ static uint16_t fat_dir_entry(uint32_t index, dir_entry_t *out_entry,
     c.seen   = 0;
     c.found  = 0;
 
-    int rc = fat12_read_root_dir(g_vol, g_sector, dir_index_cb, &c);
-    /* fat12_read_root_dir returns FAT12_OK after a full scan, or the callback's
-     * non-zero early-stop value (our cb returns 1 on a hit). A negative rc is a
-     * real backend read error. */
+    /* Enumerate the requested directory: the fixed root (dir_start==0) verbatim
+     * via fat12_read_root_dir (byte-identical to the prior behavior), or a
+     * SUBDIRECTORY cluster chain (dir_start!=0) via fat12_read_dir (Layer 1,
+     * beads initech-mzxa). fat12_read_dir delegates the root case to
+     * fat12_read_root_dir, so a single fat12_read_dir(dir) call would also work,
+     * but keeping the explicit root path makes the root==0 contract obvious. */
+    int rc;
+    if (dir_start_cluster == 0u) {
+        rc = fat12_read_root_dir(g_vol, g_sector, dir_index_cb, &c);
+    } else {
+        fat12_dir_t dir;
+        dir.is_root       = 0;
+        dir.start_cluster = dir_start_cluster;
+        rc = fat12_read_dir(g_vol, &dir, g_sector, g_fat, g_fat_len,
+                            dir_index_cb, &c);
+    }
+    /* fat12_read_root_dir / fat12_read_dir return FAT12_OK after a full scan, or
+     * the callback's non-zero early-stop value (our cb returns 1 on a hit). A
+     * negative rc is a real backend read error. */
     if (rc < 0) {
         return FILEIO_ERR_FILE_NOT_FOUND;   /* surfaced as a backend error */
     }
@@ -180,11 +270,20 @@ static uint16_t fat_dir_entry(uint32_t index, dir_entry_t *out_entry,
  * file + free its chain. All go through the oracle-green fat12.c write
  * functions over the mounted volume. */
 
-static uint16_t fat_create(const char *name83, dir_entry_t *out_entry,
-                           uint32_t *out_slot)
+static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
+                           dir_entry_t *out_entry, uint32_t *out_slot)
 {
     if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
+    }
+    /* CREATE inside a SUBDIRECTORY is a WRITE-side concern (fat12_create writes
+     * to the ROOT directory + a root-dir slot for write-back). The ti8 Layer 1
+     * landed the READ side only, so subdir creation is out of scope here: a
+     * non-root dir_start fails cleanly rather than wrongly creating the file in
+     * the root (Rule 2 -- fail loud). dir_start==0 keeps the root path
+     * byte-identical. Subdir write is a follow-up bead (initech-zs24). */
+    if (dir_start_cluster != 0u) {
+        return FILEIO_ERR_PATH_NOT_FOUND;
     }
 
     dir_entry_t de;
@@ -241,10 +340,17 @@ static void fat_close(uint32_t slot)
     (void)slot;
 }
 
-static uint16_t fat_unlink(const char *name83)
+static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
 {
     if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;
+    }
+    /* UNLINK inside a SUBDIRECTORY is a WRITE-side concern (fat12_unlink works
+     * over the ROOT directory), out of the READ-side ti8 Layer 1 scope: a
+     * non-root dir_start fails cleanly (Rule 2) rather than touching the root.
+     * dir_start==0 keeps the root path byte-identical. Follow-up: initech-zs24. */
+    if (dir_start_cluster != 0u) {
+        return FILEIO_ERR_PATH_NOT_FOUND;
     }
     {
         int rc = fat12_unlink(g_vol, g_fat, g_fat_len, name83, g_sector);
@@ -298,6 +404,91 @@ static uint16_t fat_freespace(uint16_t *out_spc, uint16_t *out_bps,
     return 0u;
 }
 
+/* RESOLVE (beads initech-mzxa; ti8 Layer 2 -- the path->containing-directory
+ * seam int21.c calls so it never includes fat12.h). Split off the bare final 8.3
+ * leaf (*out_leaf, a pointer INTO `path`) and resolve the PARENT directory chain
+ * to its first data cluster (*out_dir_start, 0 == root) via fat12_resolve_path
+ * (Layer 1). `cwd_start` is the start cluster a RELATIVE path resolves from; this
+ * milestone the CWD is always the root (no CHDIR writer yet) so cwd_start is 0
+ * and a relative path resolves from the root exactly like an absolute one --
+ * fat12_resolve_path always starts at the root (initech-u6wa adds a non-root CWD
+ * base). int21.c already stripped a leading 'X:' drive; we re-skip defensively.
+ * Returns 0 with *out_leaf + *out_dir_start set, or FILEIO_ERR_PATH_NOT_FOUND
+ * (0x0003) for a missing / non-directory parent component (int21.c maps any
+ * non-zero return to AX=0x0003). */
+static uint16_t fat_resolve(const char *path, uint16_t cwd_start,
+                            const char **out_leaf, uint16_t *out_dir_start)
+{
+    (void)cwd_start;   /* always 0 (root) this milestone; see header note */
+
+    if (g_vol == 0) {
+        return FILEIO_ERR_PATH_NOT_FOUND;   /* no volume -> nothing resolves */
+    }
+
+    /* Skip a leading drive prefix defensively (int21.c already did). */
+    const char *p = path;
+    if (p[0] != '\0' && p[1] == ':') {
+        p += 2;
+    }
+
+    /* Find the last backslash: the leaf is everything after it; the parent path
+     * is everything up to and INCLUDING it (a trailing '\' makes
+     * fat12_resolve_path return the directory itself per Layer 1). */
+    const char *last_sep = 0;
+    uint32_t    plen     = 0u;
+    for (const char *q = p; *q; q++) {
+        if (*q == '\\') {
+            last_sep = q;
+        }
+        plen++;
+    }
+
+    if (last_sep == 0) {
+        /* A bare 8.3 name -> it lives directly in the current directory (root
+         * this milestone). The leaf is the whole (drive-stripped) name. */
+        *out_leaf      = p;
+        *out_dir_start = (uint16_t)cwd_start;   /* 0 == root */
+        return 0u;
+    }
+
+    *out_leaf = last_sep + 1;
+
+    /* Copy the parent path [p .. last_sep] INCLUSIVE (keep the trailing '\') into
+     * a bounded stack buffer and resolve it to the containing directory. The
+     * int21.c side bounds the ASCIIZ path to INT21_PATH_SCAN_MAX (128) before
+     * calling, so it fits FILEIO_PATH_MAX; guard anyway (Rule 2). */
+    uint32_t parent_len = (uint32_t)((last_sep - p) + 1);   /* include the '\' */
+    if (parent_len >= FILEIO_PATH_MAX) {
+        return FILEIO_ERR_PATH_NOT_FOUND;       /* overlength -> fail loud */
+    }
+    char parent[FILEIO_PATH_MAX];
+    for (uint32_t i = 0u; i < parent_len; i++) {
+        parent[i] = p[i];
+    }
+    parent[parent_len] = '\0';
+
+    fat12_dir_t dir;
+    dir_entry_t e;
+    int rc = fat12_resolve_path(g_vol, g_sector, g_fat, g_fat_len, parent,
+                                &dir, &e);
+    if (rc != FAT12_OK) {
+        return FILEIO_ERR_PATH_NOT_FOUND;       /* missing/non-dir component */
+    }
+    /* fat12_resolve_path with a trailing '\' after a FILE component (e.g.
+     * "\SUB\NESTED.TXT\") resolves to the FILE itself (attr 0x20), NOT a
+     * directory -- so a path like '\SUB\NESTED.TXT\X' must be rejected here: the
+     * parent of leaf X is a file, not a traversable directory (the non-dir
+     * mid-path case). A real directory parent carries DIR_ATTR_DIRECTORY (the
+     * root marker too); accept only those. */
+    if ((e.attribute & DIR_ATTR_DIRECTORY) == 0u) {
+        return FILEIO_ERR_PATH_NOT_FOUND;       /* a file is not traversable */
+    }
+    /* The directory parent: *out_entry's start_cluster is that directory's first
+     * data cluster (0 normalizes to the root). */
+    *out_dir_start = e.start_cluster;
+    return 0u;
+}
+
 static const int21_file_backend_t g_fat_backend = {
     fat_open,
     fat_read_at,
@@ -306,7 +497,8 @@ static const int21_file_backend_t g_fat_backend = {
     fat_write_at,
     fat_close,
     fat_unlink,
-    fat_freespace
+    fat_freespace,
+    fat_resolve
 };
 
 /* ------------------------------------------------------------------------ *
