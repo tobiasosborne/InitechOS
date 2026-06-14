@@ -399,6 +399,20 @@ No entry shall be modified except by an approved change to this Record (§5.13).
 | MSG-DOS-0014 | `Bad or missing Command Interpreter` |
 | MSG-DOS-0015 | `Non-System disk or disk error` |
 | MSG-DOS-0016 | `Press any key to continue . . .` |
+| MSG-DOS-0017 | `Unable to create directory` |
+| MSG-DOS-0018 | `Invalid directory` |
+| MSG-DOS-0019 | `Invalid path, not directory, or directory not empty` |
+
+> **Amendment record (initech-mc7r, 2026-06-14).** Entries MSG-DOS-0017
+> through MSG-DOS-0019 were added to the controlled vocabulary by approved
+> change to this Record (§5.13 / DEC-13), to supply the period-correct
+> COMMAND.COM directory-operation diagnostics required by the MD/RD/CD
+> built-ins (initech-ut6d). The texts are authored from MS-DOS 3.3
+> COMMAND.COM canon — `Unable to create directory` (MKDIR/MD failure),
+> `Invalid directory` (CHDIR/CD failure), and `Invalid path, not directory,
+> or directory not empty` (RMDIR/RD failure) — consistent with the authoring
+> method of MSG-DOS-0001..0016. A real-DOS-3.3 86Box golden may later verify
+> them verbatim (follow-up).
 
 ---
 

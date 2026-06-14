@@ -26,6 +26,9 @@
     "MSG-DOS-0013": "Insert disk with COMMAND.COM in drive %c:",
     "MSG-DOS-0014": "Bad or missing Command Interpreter",
     "MSG-DOS-0015": "Non-System disk or disk error",
-    "MSG-DOS-0016": "Press any key to continue . . ."
+    "MSG-DOS-0016": "Press any key to continue . . .",
+    "MSG-DOS-0017": "Unable to create directory",
+    "MSG-DOS-0018": "Invalid directory",
+    "MSG-DOS-0019": "Invalid path, not directory, or directory not empty"
   }
 }

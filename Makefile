@@ -2653,7 +2653,7 @@ help:
 	@printf '  test-boot      InitechDOS banner boot gate: serial markers + banner literal vs spec/dos_banner.txt (byte-exact) + screendump banner-text check + no triple-fault. REAL. (QEMU only; tri-emulator pending initech-x0i.)\n'
 	@printf '  test-console   Host blit oracle for the LFB 8x16 text console: MSB-left glyph blit (bpp 32/24) + cursor/wrap/scroll. REAL.\n'
 	@printf '  test-assets    Asset v0: re-sample palette.json anchors vs the frame fixture + validate the Chicago strike header. REAL.\n'
-	@printf '  test-spec      InitechDOS spec-data (ADR-0003 Appendices A-D): JSON parse + 16 messages + struct size asserts + banner double-space. REAL.\n'
+	@printf '  test-spec      InitechDOS spec-data (ADR-0003 Appendices A-D): JSON parse + 19 messages + struct size asserts + banner double-space. REAL.\n'
 	@printf '  test-dosmsg    DEC-13 controlled vocabulary (initech-509.1): header==spec verbatim + referenced msgs present in shell image + no inline literals. REAL.\n'
 	@printf '  test-psp       PSP 256-byte construction oracle (initech-509.4 / App B.2): int20/seg-fields/jft/int21-entry/cmd-tail + clamp + no-overflow. REAL.\n'
 	@printf '  test-int24     INT 22/23/24 + SETVECT/GETVECT (25h/35h) + PSP-vector save/restore (initech-509.8 / DEC-10): crit_error_action A/R/F + int24 MSG-DOS-0001 + re-prompt + psp save/load round-trip + int22/23 terminate. REAL.\n'
@@ -6225,19 +6225,19 @@ SPEC_STRUCT_BIN := $(BUILD)/spec_dos_structs_check
 # Deterministic codegen: spec/dos_messages.json -> build/dos_messages.h (beads
 # initech-509.1). DEC-13 makes the locked JSON the single source of truth for the
 # Approved Diagnostic Message Catalogue (ADR-0003 Appendix C); this step emits a
-# self-contained C header of MSG_DOS_0001..0016 #defines so command.c never
+# self-contained C header of MSG_DOS_0001..0019 #defines so command.c never
 # hand-copies the controlled vocabulary. Inline python3 is the house pattern
-# (cf. test-spec). The loop iterates i in 1..16 EXPLICITLY (not dict order) so the
+# (cf. test-spec). The loop iterates i in 1..19 EXPLICITLY (not dict order) so the
 # output is byte-deterministic (Rule 11); text is emitted VERBATIM with backslash
 # and double-quote C-escaped; ASCII-only, no timestamps, no host paths.
 $(DOS_MESSAGES_H): $(SPEC_MESSAGES) | $(BUILD)
-	@printf '>>> codegen: %s -> %s (16 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
+	@printf '>>> codegen: %s -> %s (19 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
 	@python3 -c "import json; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
 esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)); \
-ids=['MSG-DOS-%04d'%i for i in range(1,17)]; \
+ids=['MSG-DOS-%04d'%i for i in range(1,20)]; \
 missing=[k for k in ids if k not in m]; \
 assert not missing, 'spec missing message id(s) (DEC-13 controlled scope): %r'%missing; \
 [ (_ for _ in ()).throw(AssertionError('non-string/empty text for %s'%k)) for k in ids if not (isinstance(m[k],str) and m[k]) ]; \
@@ -6299,11 +6299,11 @@ print('    parsed %d cc functions; every AH exists in int21h_register.json (%d s
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
-assert len(m)==16, 'expected 16 messages, found %d'%len(m); \
-exp=set('MSG-DOS-%04d'%i for i in range(1,17)); \
-assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0016: %r'%(sorted(set(m)^exp)); \
+assert len(m)==19, 'expected 19 messages, found %d'%len(m); \
+exp=set('MSG-DOS-%04d'%i for i in range(1,20)); \
+assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0019: %r'%(sorted(set(m)^exp)); \
 [ (_ for _ in ()).throw(AssertionError('empty text for %s'%k)) for k,v in m.items() if not (isinstance(v,str) and v.strip()) ]; \
-print('    parsed 16 messages MSG-DOS-0001..0016; all non-empty')" \
+print('    parsed 19 messages MSG-DOS-0001..0019; all non-empty')" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/count/IDs/empty)\n' "$(SPEC_MESSAGES)"; exit 1; }
 	@printf '>>> test-spec [4/5]: struct size asserts compile (Appendix B)\n'
 	@printf '#include "dos_structs.h"\nint main(void){return 0;}\n' > "$(SPEC_STRUCT_TU)"
@@ -6337,7 +6337,7 @@ print('    banner is two lines and contains \"InitechDOS  Version 3.30\" (double
 # new runtime enters the artifact. Deterministic + ASCII-clean (Rules 11, 12).
 #
 # Three teeth, each fail-loud and exit-non-zero on the first divergence:
-#   TOOTH 1 -- CONSISTENCY: build/dos_messages.h contains, for every i in 1..16,
+#   TOOTH 1 -- CONSISTENCY: build/dos_messages.h contains, for every i in 1..19,
 #     EXACTLY  #define MSG_DOS_%04d "<spec text>"  with the text VERBATIM
 #     (spacing / punctuation / %c included). Catches header drift from the spec.
 #   TOOTH 2 -- IMAGE PRESENCE (the bead's centerpiece): the REFERENCED SET R =
@@ -6373,9 +6373,9 @@ m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 hdr=open('$(DOS_MESSAGES_H)').read(); \
 esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)); \
 miss=[]; \
-[ miss.append('MSG-DOS-%04d'%i) for i in range(1,17) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
+[ miss.append('MSG-DOS-%04d'%i) for i in range(1,20) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
 assert not miss, 'header does NOT encode spec verbatim for: %r'%miss; \
-print('    build/dos_messages.h has all 16 #define MSG_DOS_NNNN verbatim from spec')" \
+print('    build/dos_messages.h has all 19 #define MSG_DOS_NNNN verbatim from spec')" \
 		|| { printf '!!! test-dosmsg FAIL: build/dos_messages.h diverges from spec/dos_messages.json (regen + recheck)\n'; exit 1; }
 	@printf '>>> test-dosmsg [2/3]: IMAGE PRESENCE -- referenced messages live in the shell image\n'
 	@python3 -c "import json,re,subprocess; \
@@ -6400,7 +6400,7 @@ print('    R = {%s} -- every referenced message present VERBATIM in build/kernel
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 srcs='$(DOSMSG_SRCS)'.split(); \
-texts=[m['MSG-DOS-%04d'%i] for i in range(1,17)]; \
+texts=[m['MSG-DOS-%04d'%i] for i in range(1,20)]; \
 strip=lambda s: subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout; \
 lits=lambda code: [l.encode().decode('unicode_escape') for l in re.findall(r'\"((?:[^\"\\\\]|\\\\.)*)\"', code)]; \
 hits=[(s,t) for s in srcs for t in (lambda L:[x for x in texts if x in L])(lits(strip(s)))]; \
@@ -6445,7 +6445,7 @@ open('$(BUILD)/command_mutantA.c','w').write(mut)"; \
 	python3 -c "import json,re,subprocess,sys; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-texts=[m['MSG-DOS-%04d'%i] for i in range(1,17)]; \
+texts=[m['MSG-DOS-%04d'%i] for i in range(1,20)]; \
 code=subprocess.run(['gcc','-fpreprocessed','-E','-P','$(BUILD)/command_mutantA.c'],capture_output=True,text=True).stdout; \
 lits=[l.encode().decode('unicode_escape') for l in re.findall(r'\"((?:[^\"\\\\]|\\\\.)*)\"', code)]; \
 hits=[t for t in texts if t in lits]; \
