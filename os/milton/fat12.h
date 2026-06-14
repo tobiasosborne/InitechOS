@@ -593,6 +593,23 @@ int fat12_resolve_path(const fat12_volume_t *vol, void *sector_buf,
                        const void *fat, uint32_t fat_len, const char *path,
                        fat12_dir_t *out_dir, dir_entry_t *out_entry);
 
+/*
+ * fat12_resolve_path_from: identical to fat12_resolve_path EXCEPT the descent
+ * begins in the directory whose first data cluster is `start_dir_cluster`
+ * (0 == the fixed root, normalized BEFORE any cluster math) instead of always
+ * the root. This is the additive base-seeding primitive a non-root CWD needs
+ * (beads initech-u6wa, AH=3Bh CHDIR): a RELATIVE path (no leading '\', no drive
+ * prefix) descends from the caller's CWD cluster, while the CALLER passes 0 for
+ * an ABSOLUTE or drive-prefixed path so it descends from the root regardless.
+ * fat12_resolve_path is now the thin start_dir_cluster==0 wrapper, so root
+ * behavior is byte-identical. Ref: PRD Sec 6.5 (DOS path resolution); the DOS
+ * 3.3 CHDIR contract (a relative path is taken from the current directory).
+ */
+int fat12_resolve_path_from(const fat12_volume_t *vol, void *sector_buf,
+                            const void *fat, uint32_t fat_len, const char *path,
+                            uint16_t start_dir_cluster,
+                            fat12_dir_t *out_dir, dir_entry_t *out_entry);
+
 /* ---- NEXT tasks (beads initech-adf continuation); NOT implemented here ---- *
  *   With root-dir enumeration + find + file-read landed, the FAT12 READ path
  *   is essentially complete. Remaining, as SEPARATE issues:

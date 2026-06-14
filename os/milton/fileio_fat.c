@@ -416,14 +416,49 @@ static uint16_t fat_freespace(uint16_t *out_spc, uint16_t *out_bps,
  * Returns 0 with *out_leaf + *out_dir_start set, or FILEIO_ERR_PATH_NOT_FOUND
  * (0x0003) for a missing / non-directory parent component (int21.c maps any
  * non-zero return to AX=0x0003). */
+/* ------------------------------------------------------------------------ *
+ * ONE base-seeding rule, shared by resolve() and resolve_dir() (beads
+ * initech-u6wa). DOS resolves a RELATIVE path (no leading '\', no 'X:' drive
+ * prefix) from the CURRENT directory; an ABSOLUTE or drive-prefixed path always
+ * from the root. `path` is the original ASCIIZ (drive prefix still present);
+ * returns the cluster fat12_resolve_path_from should descend from: cwd_start for
+ * a relative path, 0 (root) for absolute/drive-prefixed. (The drive letter is
+ * ignored for the descent -- one volume this milestone -- but its PRESENCE makes
+ * the path absolute.) This is the single seam mutant m5 reverts to always-root
+ * to prove the relative-CWD oracle bites (Rule 6). Ref: PRD Sec 6.5; DOS 3.3
+ * CHDIR/OPEN path resolution. */
+static uint16_t fat_descend_seed(const char *path, uint16_t cwd_start)
+{
+#ifndef FILEIO_MUTATE_CWD_NOROOT
+    int had_drive = (path[0] != '\0' && path[1] == ':');
+    const char *after_drive = had_drive ? path + 2 : path;
+    int absolute = (after_drive[0] == '\\');
+    if (had_drive || absolute) {
+        return 0u;                 /* root: absolute or drive-prefixed */
+    }
+    return cwd_start;              /* relative: descend from the CWD */
+#else
+    /* MUTANT m5 (Rule 6; make test-u6wa-mutant only): IGNORE cwd_start and
+     * always seed from the root, reverting the relative-CWD fix. A relative
+     * multi-component CHDIR (e.g. 'DEEP' from CWD '\SUB') then wrongly resolves
+     * from the root and goes RED. NEVER define in a real build. */
+    (void)cwd_start; (void)path;
+    return 0u;
+#endif
+}
+
 static uint16_t fat_resolve(const char *path, uint16_t cwd_start,
                             const char **out_leaf, uint16_t *out_dir_start)
 {
-    (void)cwd_start;   /* always 0 (root) this milestone; see header note */
-
     if (g_vol == 0) {
         return FILEIO_ERR_PATH_NOT_FOUND;   /* no volume -> nothing resolves */
     }
+
+    /* Seed the parent descent from the CWD for a relative path, the root for an
+     * absolute/drive-prefixed one -- BEFORE the drive strip, so the prefix is
+     * still visible to fat_descend_seed (beads initech-u6wa; this REPLACES the
+     * old '(void)cwd_start' that always resolved from the root). */
+    uint16_t seed = fat_descend_seed(path, cwd_start);
 
     /* Skip a leading drive prefix defensively (int21.c already did). */
     const char *p = path;
@@ -444,10 +479,10 @@ static uint16_t fat_resolve(const char *path, uint16_t cwd_start,
     }
 
     if (last_sep == 0) {
-        /* A bare 8.3 name -> it lives directly in the current directory (root
-         * this milestone). The leaf is the whole (drive-stripped) name. */
+        /* A bare 8.3 name -> it lives directly in the current directory (the
+         * CWD seed; 0 == root). The leaf is the whole (drive-stripped) name. */
         *out_leaf      = p;
-        *out_dir_start = (uint16_t)cwd_start;   /* 0 == root */
+        *out_dir_start = seed;
         return 0u;
     }
 
@@ -469,8 +504,8 @@ static uint16_t fat_resolve(const char *path, uint16_t cwd_start,
 
     fat12_dir_t dir;
     dir_entry_t e;
-    int rc = fat12_resolve_path(g_vol, g_sector, g_fat, g_fat_len, parent,
-                                &dir, &e);
+    int rc = fat12_resolve_path_from(g_vol, g_sector, g_fat, g_fat_len, parent,
+                                     seed, &dir, &e);
     if (rc != FAT12_OK) {
         return FILEIO_ERR_PATH_NOT_FOUND;       /* missing/non-dir component */
     }
@@ -489,6 +524,200 @@ static uint16_t fat_resolve(const char *path, uint16_t cwd_start,
     return 0u;
 }
 
+/* ------------------------------------------------------------------------ *
+ * RESOLVE_DIR (beads initech-u6wa; AH=3Bh CHDIR -- a FULL path -> a DIRECTORY).
+ *
+ * Unlike resolve() (which splits a file leaf off the PARENT), this resolves the
+ * WHOLE path to a directory and validates it IS one. The canonical text is then
+ * derived from the FILESYSTEM STRUCTURE -- a reverse '..' walk from the resolved
+ * cluster up to the root -- NOT from the input text. That makes a RELATIVE, a
+ * '.', or a '..' path canonicalize identically to the equivalent absolute path
+ * (the deep, root-cause solution; Rule 3), and it is the only way to build the
+ * absolute canon from cwd_start alone (the vtable signature carries no cwd text).
+ * ------------------------------------------------------------------------ */
+
+/* Reverse-walk cookie: find the directory entry whose start_cluster matches
+ * `want_cluster` and is a real subdir (DIR_ATTR_DIRECTORY, name not '.'/'..').
+ * Captures that child's 8.3 name so the parent level of the canon is named. */
+typedef struct {
+    uint16_t want_cluster;          /* the child's first data cluster        */
+    char     name[FAT12_NAME83_MAX];/* the matched child's 8.3 name          */
+    int      found;                 /* 1 once the name is captured           */
+} child_name_cookie_t;
+
+/* A '.'/'..' dot-entry has filename[0]=='.', so skip those by name. */
+static int child_name_cb(const dir_entry_t *e, void *user)
+{
+    child_name_cookie_t *c = (child_name_cookie_t *)user;
+    if ((e->attribute & DIR_ATTR_DIRECTORY) == 0u) {
+        return 0;                   /* not a directory */
+    }
+    if (e->filename[0] == (uint8_t)'.') {
+        return 0;                   /* the '.' / '..' dot-entries */
+    }
+    if (e->start_cluster != c->want_cluster) {
+        return 0;
+    }
+    fat12_format_83(e, c->name);
+    c->found = 1;
+    return 1;                       /* stop enumeration */
+}
+
+/* Reverse-walk cookie: read a subdir's own '..' entry to learn its parent's
+ * start_cluster (0 == root after the start_cluster==0 => root normalize). */
+typedef struct {
+    uint16_t parent_cluster;        /* the '..' entry's start_cluster        */
+    int      found;
+} dotdot_cookie_t;
+
+static int dotdot_cb(const dir_entry_t *e, void *user)
+{
+    dotdot_cookie_t *c = (dotdot_cookie_t *)user;
+    if (e->filename[0] == (uint8_t)'.' && e->filename[1] == (uint8_t)'.' &&
+        e->filename[2] == (uint8_t)' ') {
+        c->parent_cluster = e->start_cluster;   /* 0 => root */
+        c->found = 1;
+        return 1;
+    }
+    return 0;
+}
+
+/* Build the canonical ROOT-RELATIVE text of the directory at `dir_cluster`
+ * (0 == root) into `canon` (bounded by `canon_max`, NUL-terminated). Root => the
+ * empty string. Walks UP via each level's '..' entry, naming each level by
+ * matching its start_cluster in its parent, then JOINS the names top-down with
+ * single '\' separators. Returns 0 on success, or 0x0003 on a malformed chain /
+ * an overlength canon (fail loud -- NEVER a truncated path; Rule 2). */
+static uint16_t fat_canon_from_cluster(uint16_t dir_cluster, char *canon,
+                                       uint32_t canon_max)
+{
+    /* Collect names bottom-up (deepest first); FAT12 directory nesting is
+     * bounded well under this on a 1.44 MB volume. */
+    char     names[16][FAT12_NAME83_MAX];
+    uint32_t depth = 0u;
+    uint16_t cur   = dir_cluster;
+
+    if (canon == 0 || canon_max == 0u) {
+        return FILEIO_ERR_PATH_NOT_FOUND;
+    }
+    canon[0] = '\0';
+    if (cur == 0u) {
+        return 0u;                  /* the root: the empty string */
+    }
+
+    while (cur != 0u) {
+        fat12_dir_t cdir;
+        dotdot_cookie_t dd;
+        child_name_cookie_t cn;
+        int rc;
+
+        if (depth >= (uint32_t)(sizeof(names) / sizeof(names[0]))) {
+            return FILEIO_ERR_PATH_NOT_FOUND;   /* pathologically deep */
+        }
+
+        /* Parent cluster = cur's own '..' entry. */
+        cdir.is_root       = 0;
+        cdir.start_cluster = cur;
+        dd.parent_cluster  = 0u;
+        dd.found           = 0;
+        rc = fat12_read_dir(g_vol, &cdir, g_sector, g_fat, g_fat_len,
+                            dotdot_cb, &dd);
+        if (rc < 0 || !dd.found) {
+            return FILEIO_ERR_PATH_NOT_FOUND;   /* no '..' -> corrupt subdir */
+        }
+
+        /* cur's NAME = the entry in the parent whose start_cluster == cur. */
+        {
+            fat12_dir_t pdir;
+            pdir.is_root       = (dd.parent_cluster == 0u) ? 1 : 0;
+            pdir.start_cluster = dd.parent_cluster;
+            cn.want_cluster    = cur;
+            cn.found           = 0;
+            rc = fat12_read_dir(g_vol, &pdir, g_sector, g_fat, g_fat_len,
+                                child_name_cb, &cn);
+            if (rc < 0 || !cn.found) {
+                return FILEIO_ERR_PATH_NOT_FOUND;   /* unreachable from parent */
+            }
+        }
+
+        {
+            uint32_t k = 0u;
+            for (; cn.name[k] != '\0' && k < FAT12_NAME83_MAX - 1u; k++) {
+                names[depth][k] = cn.name[k];
+            }
+            names[depth][k] = '\0';
+        }
+        depth++;
+        cur = dd.parent_cluster;
+    }
+
+    /* Join names top-down (depth-1 .. 0) with single '\' separators. */
+    {
+        uint32_t pos = 0u;
+        uint32_t li  = depth;
+        while (li > 0u) {
+            uint32_t i;
+            li--;
+            if (pos != 0u) {
+                if (pos + 1u >= canon_max) {
+                    return FILEIO_ERR_PATH_NOT_FOUND;   /* overlength */
+                }
+                canon[pos++] = '\\';
+            }
+            for (i = 0u; names[li][i] != '\0'; i++) {
+                if (pos + 1u >= canon_max) {
+                    return FILEIO_ERR_PATH_NOT_FOUND;   /* overlength */
+                }
+                canon[pos++] = names[li][i];
+            }
+        }
+        canon[pos] = '\0';
+    }
+    return 0u;
+}
+
+static uint16_t fat_resolve_dir(const char *path, uint16_t cwd_start,
+                                uint16_t *out_dir_start, char *out_canon,
+                                uint32_t canon_max)
+{
+    if (g_vol == 0) {
+        return FILEIO_ERR_PATH_NOT_FOUND;   /* no volume -> nothing resolves */
+    }
+
+    /* Same base-seeding rule resolve() uses: a relative path descends from the
+     * CWD, an absolute / drive-prefixed one from the root (beads initech-u6wa). */
+    uint16_t seed = fat_descend_seed(path, cwd_start);
+
+    fat12_dir_t dir;
+    dir_entry_t e;
+    int rc = fat12_resolve_path_from(g_vol, g_sector, g_fat, g_fat_len, path,
+                                     seed, &dir, &e);
+    if (rc != FAT12_OK) {
+        return FILEIO_ERR_PATH_NOT_FOUND;   /* missing component (0x0003) */
+    }
+
+    /* The FINAL component MUST be a directory: CHDIR into a file is path-not-
+     * found (the DOS contract). fat12_resolve_path synthesizes a directory
+     * marker for the dir-itself / trailing-'\' case, so a real dir carries
+     * DIR_ATTR_DIRECTORY. (The reverse-'..'-walk canonicalizer below is a second
+     * structural guard -- a file cluster has no '..' entry -- but the attr gate
+     * is the authoritative, cheap rejection; the m1 mutant proof lives in the
+     * MOCK oracle test_fileio.c where the file-rejection has no such redundancy.) */
+    if ((e.attribute & DIR_ATTR_DIRECTORY) == 0u) {
+        return FILEIO_ERR_PATH_NOT_FOUND;   /* a file is not a directory */
+    }
+
+    uint16_t target = e.start_cluster;      /* 0 normalizes to the root */
+    if (out_canon != 0 && canon_max > 0u) {
+        uint16_t cerr = fat_canon_from_cluster(target, out_canon, canon_max);
+        if (cerr != 0u) {
+            return cerr;                    /* malformed chain / overlength */
+        }
+    }
+    *out_dir_start = target;
+    return 0u;
+}
+
 static const int21_file_backend_t g_fat_backend = {
     fat_open,
     fat_read_at,
@@ -498,7 +727,8 @@ static const int21_file_backend_t g_fat_backend = {
     fat_close,
     fat_unlink,
     fat_freespace,
-    fat_resolve
+    fat_resolve,
+    fat_resolve_dir
 };
 
 /* ------------------------------------------------------------------------ *

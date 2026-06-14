@@ -102,7 +102,8 @@ static uint16_t mock_freespace(uint16_t *spc, uint16_t *bps,
 }
 static const int21_file_backend_t g_space_backend = {
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, mock_freespace,
-    NULL   /* resolve: AH=36h does not resolve a path (beads initech-mzxa) */
+    NULL,  /* resolve: AH=36h does not resolve a path (beads initech-mzxa) */
+    NULL   /* resolve_dir: AH=36h does not CHDIR a path (beads initech-u6wa) */
 };
 
 /* The dispatcher reads EDX as a FLAT 32-bit linear address (uint32_t). On a

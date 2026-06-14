@@ -276,6 +276,28 @@ typedef struct int21_file_backend {
      * 0x0003 and a bare name as dir_start_cluster 0 -- the pre-mzxa behavior). */
     uint16_t (*resolve)(const char *path, uint16_t cwd_start,
                         const char **out_leaf, uint16_t *out_dir_start);
+
+    /* RESOLVE_DIR (beads initech-u6wa; AH=3Bh CHDIR -- the path->DIRECTORY seam):
+     * resolve a FULL `path` to a DIRECTORY (not a containing parent like resolve()
+     * above, which splits off a file leaf). On success returns 0 with:
+     *   *out_dir_start = the TARGET directory's own first data cluster (0 == the
+     *                    fixed root, after the start_cluster==0 => root normalize);
+     *   out_canon      = the canonical ROOT-RELATIVE path text of that directory
+     *                    (uppercase 8.3 components, single '\' joins, NO leading
+     *                    '\', NO drive, root == the empty string), NUL-terminated
+     *                    and bounded by canon_max (the backend derives it from the
+     *                    filesystem structure via a reverse '..' walk, so a
+     *                    RELATIVE / '.' / '..' path canonicalizes identically to
+     *                    the equivalent absolute one).
+     * `cwd_start` seeds a RELATIVE path's descent (no leading '\', no 'X:'); an
+     * ABSOLUTE or drive-prefixed path descends from the root regardless. Returns
+     * INT21_ERR_PATH_NOT_FOUND (0x0003) when a component is missing OR the final
+     * component is not a directory (CHDIR into a file -- the DOS path-not-found
+     * contract). A NULL resolve_dir member means "root-only": the dispatcher
+     * treats any non-empty/non-root path as 0x0003 (the pre-u6wa behavior). */
+    uint16_t (*resolve_dir)(const char *path, uint16_t cwd_start,
+                            uint16_t *out_dir_start, char *out_canon,
+                            uint32_t canon_max);
 } int21_file_backend_t;
 
 /* Bind the file backend (NULL clears it -> the file functions return

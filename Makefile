@@ -1774,6 +1774,51 @@ test-mzxa-integration: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG)
 	@printf ">>> test-mzxa-integration: green\n"
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-u6wa-mutant (beads initech-u6wa -- AH=3Bh CHDIR mutation proof)
+# ---------------------------------------------------------------------------
+# The CHDIR oracle lives in test_fileio.c (mock unit) + test_fileio_subdir.c
+# (REAL fat12 backend integration). Two mutants, each perturbing ONE branch, MUST
+# drive a CHDIR assertion RED (Rule 6; a mutant that PASSES means the oracle is
+# decoration):
+#   m1 (CHDIR_NOATTR) : the MOCK mock_resolve_dir SKIPS the DIR-attr file gate
+#                       (test_fileio.c, -DINT21_MUTATE_CHDIR_NOATTR), so
+#                       'CD \SUB\NESTED.TXT' (a regular FILE) wrongly succeeds and
+#                       the "CD into a file -> 0x0003" leg goes RED. (The mock has
+#                       no reverse-'..'-walk redundancy, so the gate is isolated;
+#                       the real backend keeps the attr gate unconditionally.)
+#   m5 (CWD_NOROOT)   : the REAL fat_descend_seed IGNORES cwd_start and always
+#                       seeds from the root (fileio_fat.c, -DFILEIO_MUTATE_CWD_NOROOT),
+#                       reverting the relative-CWD fix, so the relative 'CD DEEP'
+#                       from CWD '\SUB' looks in the root -> RED.
+TEST_FILEIO_MUT_CHDIR_NOATTR  := $(BUILD)/test_fileio_mutant_chdir_noattr
+TEST_FILEIO_SUBDIR_MUT_NOROOT := $(BUILD)/test_fileio_subdir_mut_noroot
+
+$(TEST_FILEIO_MUT_CHDIR_NOATTR): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CHDIR_NOATTR -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_FILEIO_SUBDIR_MUT_NOROOT): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFILEIO_MUTATE_CWD_NOROOT -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+.PHONY: test-u6wa-mutant
+# Mutation-proof: BOTH CHDIR mutants MUST fail their oracle (Rule 6).
+test-u6wa-mutant: $(TEST_FILEIO_MUT_CHDIR_NOATTR) $(TEST_FILEIO_SUBDIR_MUT_NOROOT) $(FAT12_NESTED_IMG)
+	@printf ">>> test-u6wa-mutant: confirming both CHDIR mutants go RED (Rule 6; beads initech-u6wa)\n"
+	@if $(TEST_FILEIO_MUT_CHDIR_NOATTR) >/dev/null 2>&1; then \
+		printf '!!! test-u6wa-mutant FAIL: CHDIR-NOATTR mutant PASSED -- the CD-into-a-file gate is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-u6wa-mutant: green (CHDIR-NOATTR mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_FILEIO_SUBDIR_MUT_NOROOT) "$(FAT12_NESTED_IMG)" "$(FAT12_FIXTURE_DIR)" >/dev/null 2>&1; then \
+		printf '!!! test-u6wa-mutant FAIL: CWD-NOROOT mutant PASSED -- the relative-CWD seed test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-u6wa-mutant: green (CWD-NOROOT mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-int21-edge (beads initech-xrd / initech-1zk; double-close part
 # of initech-00x -- INT 21h error paths + implemented-but-untested resident fns)
 # ---------------------------------------------------------------------------
@@ -6402,7 +6447,7 @@ TEST_UNIT_GATES := \
 	test-region test-region-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-mzxa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
+	test-fileio-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant \

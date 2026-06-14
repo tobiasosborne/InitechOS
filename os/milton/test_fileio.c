@@ -137,10 +137,11 @@ typedef struct mock_file {
  * SUB's contents. Slots 0..2 remain the stable ROOT enumeration the existing
  * root FINDFIRST tests assert on (SUB is a directory -> skipped by an attr-0
  * '*.*' search, so it does not perturb them). */
-#define SUB_CLUSTER 2u
+#define SUB_CLUSTER  2u
+#define DEEP_CLUSTER 3u   /* the DEEP subdirectory inside SUB (beads initech-u6wa) */
 static const char *HELLO_DATA  = "Hello from InitechOS test file.\n";
 static const char *NESTED_DATA = "Nested file inside SUB.\n";
-static mock_file_t g_mock[6];
+static mock_file_t g_mock[7];
 
 static void mock_reset_dir(void)
 {
@@ -166,8 +167,15 @@ static void mock_reset_dir(void)
     g_mock[5].name8 = "NESTED  "; g_mock[5].ext3 = "TXT"; g_mock[5].attr = DIR_ATTR_ARCHIVE;
     memcpy(g_mock[5].data, NESTED_DATA, strlen(NESTED_DATA));
     g_mock[5].size = (uint32_t)strlen(NESTED_DATA); g_mock[5].dir = SUB_CLUSTER; g_mock[5].present = 1;
+
+    /* DEEP directory entry INSIDE SUB (attr DIR, start == DEEP_CLUSTER). It gives
+     * CHDIR a two-level target ('\SUB\DEEP') AND a RELATIVE target ('DEEP' from
+     * CWD '\SUB') so the resolve_dir oracle exercises the non-root-cwd seed
+     * (beads initech-u6wa). */
+    g_mock[6].name8 = "DEEP    "; g_mock[6].ext3 = "   "; g_mock[6].attr = DIR_ATTR_DIRECTORY;
+    g_mock[6].size = 0; g_mock[6].dir = SUB_CLUSTER; g_mock[6].start = DEEP_CLUSTER; g_mock[6].present = 1;
 }
-#define MOCK_N 6u
+#define MOCK_N 7u
 
 static void fill_dir_entry(const mock_file_t *m, dir_entry_t *de)
 {
@@ -427,12 +435,102 @@ static uint16_t mock_resolve(const char *path, uint16_t cwd_start,
     return 0x0003u;
 }
 
+/* RESOLVE_DIR (beads initech-u6wa; AH=3Bh CHDIR): resolve a FULL `path` to a
+ * DIRECTORY's start cluster + its canonical root-relative text. Models the same
+ * tiny tree (root -> SUB -> DEEP) the resolve() seam knows, plus '.'/'..' and a
+ * RELATIVE descent from `cwd_start` so the do_chdir oracle exercises the
+ * non-root CWD seed WITHOUT the real FAT12 backend (the real backend + its m5
+ * cwd_start mutant are proven in test_fileio_subdir.c). A leading 'X:' or '\'
+ * makes the path absolute (descend from the root); otherwise descend from
+ * cwd_start. Returns 0x0003 for a missing dir OR a CHDIR into a FILE (a regular
+ * file has no directory child). The m1 DIR-attr gate lives in the REAL backend
+ * (fileio_fat.c FILEIO_MUTATE_CHDIR_NOATTR); the mock independently rejects a
+ * file by name so the unit oracle's "CD into a FILE -> 0x0003" still bites. */
+static uint16_t mock_resolve_dir(const char *path, uint16_t cwd_start,
+                                 uint16_t *out_dir_start, char *out_canon,
+                                 uint32_t canon_max)
+{
+    /* The NODRIVE-mutant failure mode: int21.c stripped the drive, so a residual
+     * 'X:' here is not a valid component -> path not found. */
+    if (path[0] != '\0' && path[1] == ':') {
+        return 0x0003u;
+    }
+
+    /* Seed: absolute ('\'-prefixed) -> root; else -> the CWD cluster. */
+    const char *p = path;
+    uint16_t    cur;
+    if (*p == '\\') { cur = 0u; p++; }
+    else            { cur = cwd_start; }
+
+    /* Walk '\'-delimited components, updating `cur`. */
+    while (*p != '\0') {
+        char comp[16];
+        int  n = 0;
+        while (*p != '\0' && *p != '\\') {
+            if (n < (int)sizeof(comp) - 1) comp[n++] = *p;
+            p++;
+        }
+        comp[n] = '\0';
+        if (*p == '\\') p++;          /* consume the separator */
+        if (n == 0) continue;          /* doubled/trailing '\' */
+
+        if (comp[0] == '.' && comp[1] == '\0') {
+            /* '.' -> stay */
+        } else if (comp[0] == '.' && comp[1] == '.' && comp[2] == '\0') {
+            if (cur == DEEP_CLUSTER)      cur = SUB_CLUSTER;
+            else if (cur == SUB_CLUSTER)  cur = 0u;
+            else                          cur = 0u;   /* '..' at root stays root */
+        } else {
+            /* A named component: which dir does it select from `cur`? */
+            int up = (comp[0]>='a'&&comp[0]<='z') ? comp[0]-32 : comp[0];
+            (void)up;
+            if (cur == 0u && n == 3 &&
+                (comp[0]=='S'||comp[0]=='s') && (comp[1]=='U'||comp[1]=='u') &&
+                (comp[2]=='B'||comp[2]=='b')) {
+                cur = SUB_CLUSTER;
+            } else if (cur == SUB_CLUSTER && n == 4 &&
+                       (comp[0]=='D'||comp[0]=='d') && (comp[1]=='E'||comp[1]=='e') &&
+                       (comp[2]=='E'||comp[2]=='e') && (comp[3]=='P'||comp[3]=='p')) {
+                cur = DEEP_CLUSTER;
+            } else if (mock_find_in_dir(comp, cur) >= 0) {
+                /* The component IS a real entry in `cur` but NOT a directory (a
+                 * regular file like NESTED.TXT) -> the DIR_ATTR_DIRECTORY gate:
+                 * CHDIR into a file is path-not-found. The m1 mutant skips this
+                 * gate so 'CD \SUB\NESTED.TXT' wrongly SUCCEEDS and the
+                 * "CD into a file -> 0x0003" assertion goes RED (Rule 6). */
+#ifndef INT21_MUTATE_CHDIR_NOATTR
+                return 0x0003u;
+#else
+                /* MUTANT m1: treat the file as a no-op success (stay in `cur`). */
+#endif
+            } else {
+                /* A missing name -> path not found. */
+                return 0x0003u;
+            }
+        }
+    }
+
+    /* Build the canonical root-relative text from the resolved cluster (the same
+     * structure-derived canon the real backend emits). */
+    if (out_canon != 0 && canon_max > 0u) {
+        const char *canon =
+            (cur == DEEP_CLUSTER) ? "SUB\\DEEP" :
+            (cur == SUB_CLUSTER)  ? "SUB"       : "";
+        uint32_t i = 0u;
+        for (; canon[i] != '\0' && i + 1u < canon_max; i++) out_canon[i] = canon[i];
+        out_canon[i] = '\0';
+    }
+    *out_dir_start = cur;
+    return 0u;
+}
+
 static const int21_file_backend_t g_mock_backend = {
     mock_open, mock_read_at, mock_dir_entry,
     mock_create, mock_write_at, mock_close, mock_unlink,
     NULL,  /* freespace: not exercised by the read/write file oracle (AH=36h is
               covered end-to-end on the emulator, make test-datetime) */
-    mock_resolve   /* the path->directory seam (beads initech-mzxa) */
+    mock_resolve,     /* the path->containing-directory seam (beads initech-mzxa) */
+    mock_resolve_dir  /* the path->DIRECTORY seam for CHDIR (beads initech-u6wa) */
 };
 
 int main(void)
@@ -886,6 +984,115 @@ int main(void)
               "AH=47h GETCWD reports the ROOT (empty root-relative path, no leading '\\')");
     }
 
+    /* --- AH=3Bh CHDIR (beads initech-u6wa): change directory through the mock
+     *     namespace (root -> SUB -> DEEP). Each leg drives the REAL int21_dispatch
+     *     -> do_chdir -> g_file->resolve_dir seam and cross-checks the new CWD via
+     *     AH=47h GETCWD. The relative leg (CD DEEP from CWD '\SUB') exercises the
+     *     non-root cwd_start seed (the real-backend m5 mutant proves it bites in
+     *     test_fileio_subdir.c). CWD is reset to the root at the end so later
+     *     tests see a root CWD. ------------------------------------------------ */
+    {
+        char *cwd = (char *)(uintptr_t)alloc_low(64);
+        CHECK(cwd != NULL, "CHDIR: GETCWD buffer in low 4 GiB");
+
+        /* (a) CD '\SUB' (absolute) -> success; GETCWD reports "SUB". */
+        {
+            uint32_t edx = low_dup("\\SUB");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx; cd.eflags |= CF_BIT;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 0, "CD '\\SUB' clears CF (the directory exists)");
+
+            memset(cwd, 'Z', 64);
+            int_frame_t g = fresh_frame();
+            g.eax = 0x4700u; g.edx = 0u; g.esi = (uint32_t)(uintptr_t)cwd;
+            int21_dispatch(&g);
+            CHECK(strcmp(cwd, "SUB") == 0,
+                  "after CD '\\SUB', GETCWD reports 'SUB' (canon, no leading '\\')");
+        }
+
+        /* (b) CD 'DEEP' RELATIVE from CWD '\SUB' -> resolves SUB\DEEP from the
+         *     cwd_start seed; GETCWD reports "SUB\DEEP". */
+        {
+            uint32_t edx = low_dup("DEEP");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx; cd.eflags |= CF_BIT;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 0,
+                  "relative CD 'DEEP' from CWD '\\SUB' clears CF (resolves from the CWD)");
+
+            memset(cwd, 'Z', 64);
+            int_frame_t g = fresh_frame();
+            g.eax = 0x4700u; g.edx = 0u; g.esi = (uint32_t)(uintptr_t)cwd;
+            int21_dispatch(&g);
+            CHECK(strcmp(cwd, "SUB\\DEEP") == 0,
+                  "after relative CD 'DEEP', GETCWD reports 'SUB\\DEEP'");
+        }
+
+        /* (c) CD '..' from SUB\DEEP -> back up to SUB. */
+        {
+            uint32_t edx = low_dup("..");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx; cd.eflags |= CF_BIT;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 0, "CD '..' from SUB\\DEEP clears CF");
+
+            memset(cwd, 'Z', 64);
+            int_frame_t g = fresh_frame();
+            g.eax = 0x4700u; g.edx = 0u; g.esi = (uint32_t)(uintptr_t)cwd;
+            int21_dispatch(&g);
+            CHECK(strcmp(cwd, "SUB") == 0, "after CD '..', GETCWD reports 'SUB' again");
+        }
+
+        /* (d) CD '..' from SUB -> the root (empty canon). */
+        {
+            uint32_t edx = low_dup("..");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx; cd.eflags |= CF_BIT;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 0, "CD '..' from SUB clears CF (clamps at root)");
+
+            memset(cwd, 'Z', 64);
+            int_frame_t g = fresh_frame();
+            g.eax = 0x4700u; g.edx = 0u; g.esi = (uint32_t)(uintptr_t)cwd;
+            int21_dispatch(&g);
+            CHECK(cwd[0] == '\0', "after CD '..' at SUB, GETCWD reports the root (empty)");
+        }
+
+        /* (e) CD to a MISSING directory -> CF=1, AX=0x0003 (path not found). */
+        {
+            uint32_t edx = low_dup("\\NODIR");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 1, "CD to a missing directory sets CF");
+            CHECK((uint16_t)(cd.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
+                  "CD '\\NODIR' -> AX=0x0003 (path not found)");
+        }
+
+        /* (f) CD into a FILE (not a directory) -> CF=1, AX=0x0003. This is the
+         *     m1 case (the DIR-attr gate): the real backend's
+         *     FILEIO_MUTATE_CHDIR_NOATTR mutant makes this leg go RED. */
+        {
+            uint32_t edx = low_dup("\\SUB\\NESTED.TXT");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 1, "CD into a FILE sets CF (a file is not a directory)");
+            CHECK((uint16_t)(cd.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
+                  "CD '\\SUB\\NESTED.TXT' -> AX=0x0003 (CHDIR into a file)");
+        }
+
+        /* (g) A FAILED CD must NOT move the CWD: GETCWD still reports the root. */
+        {
+            int_frame_t g = fresh_frame();
+            memset(cwd, 'Z', 64);
+            g.eax = 0x4700u; g.edx = 0u; g.esi = (uint32_t)(uintptr_t)cwd;
+            int21_dispatch(&g);
+            CHECK(cwd[0] == '\0', "a failed CD leaves the CWD at the root (no partial move)");
+        }
+    }
+
     /* --- WRITE path (beads initech-0qh, positioned): CREAT + WRITE(s) + CLOSE,
      *     then re-OPEN + READ BACK through the dispatcher (proves the positioned
      *     write committed). Plus a positioned OVERWRITE via LSEEK to prove
@@ -1049,7 +1256,7 @@ int main(void)
          * clearing the write hooks via a local read-only vtable. */
         static const int21_file_backend_t ro = { mock_open, mock_read_at, mock_dir_entry,
                                                   NULL, NULL, NULL, NULL, NULL,
-                                                  mock_resolve };
+                                                  mock_resolve, mock_resolve_dir };
         mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&ro);

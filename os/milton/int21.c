@@ -2100,6 +2100,88 @@ static void do_getcwd(int_frame_t *f)
     cf_clear(f);
 }
 
+/* AH=3Bh CHDIR (CHANGE CURRENT DIRECTORY): EDX = flat ptr to an ASCIIZ path.
+ * Resolve the FULL path to a DIRECTORY via the backend resolve_dir seam (beads
+ * initech-u6wa) and, on success, make it the current directory: update
+ * g_cwd_start_cluster (the resolved dir's own first data cluster; 0 == root) and
+ * g_cwd_path (the backend's canonical root-relative text). A RELATIVE path
+ * resolves from the current g_cwd_start_cluster; an ABSOLUTE / drive-prefixed one
+ * from the root. An empty path, '\' (root), and '.' are a no-op success (stay).
+ * Errors -> CF=1, AX=0x0003 (path not found) for a missing dir OR a CHDIR into a
+ * FILE; the AH=59h dispatch wrapper auto-notes CF+AX so no int21_note_error here.
+ * The canon is copied under a HARD INT21_CWD_MAX-1 bound: an overlength canon
+ * fails loud (0x0003) -- it is NEVER truncated into a wrong CWD (Rule 2). Ref:
+ * DOS 3.3 PRM AH=3Bh; PRD Sec 6.5 (DOS path model). */
+static void do_chdir(int_frame_t *f)
+{
+    const char *path = (const char *)(uintptr_t)f->edx;
+
+    if (path == 0) {
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+
+    /* Empty / root '\' / '.' -> stay in the current directory (success). DOS
+     * 'CD' with no movement leaves the CWD unchanged. */
+    if (path[0] == '\0' ||
+        (path[0] == '\\' && path[1] == '\0') ||
+        (path[0] == '.'  && path[1] == '\0')) {
+        cf_clear(f);
+        return;
+    }
+
+    if (path_overlength(path)) {
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);     /* runaway / unterminated ptr */
+        cf_set(f);
+        return;
+    }
+
+    if (g_file == 0 || g_file->resolve_dir == 0) {
+        /* No backend resolve_dir bound -> root-only: any non-empty/non-root path
+         * is unsupported (the pre-u6wa behavior). */
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+
+    uint16_t dir_start = 0u;
+    char     canon[INT21_CWD_MAX];
+    uint16_t err = g_file->resolve_dir(path, g_cwd_start_cluster, &dir_start,
+                                       canon, (uint32_t)sizeof(canon));
+    if (err != 0u) {
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);     /* missing dir / not a dir */
+        cf_set(f);
+        return;
+    }
+
+    /* Enforce the INT21_CWD_MAX-1 bound on the WRITE into g_cwd_path: an
+     * overlength canon fails loud rather than silently truncating into a wrong
+     * CWD (Rule 2). The backend already bounds its write to sizeof(canon) ==
+     * INT21_CWD_MAX, so a NUL within bound is guaranteed; the explicit length
+     * re-check is belt-and-suspenders. */
+    uint32_t clen = 0u;
+    while (canon[clen] != '\0') {
+        if (clen >= INT21_CWD_MAX - 1u) {
+            set_ax(f, INT21_ERR_PATH_NOT_FOUND); /* overlength -> fail loud */
+            cf_set(f);
+            return;
+        }
+        clen++;
+    }
+
+    /* Commit the new CWD. */
+    g_cwd_start_cluster = dir_start;
+    {
+        uint32_t i = 0u;
+        for (; i < clen; i++) {
+            g_cwd_path[i] = canon[i];
+        }
+        g_cwd_path[i] = '\0';
+    }
+    cf_clear(f);
+}
+
 /* AH=59h GET EXTENDED ERROR: returns the most recent error as a (class, action,
  * locus) triple. AX = the error code (0 if none); BH = class, BL = suggested
  * action, CH = locus. We map the small set of codes we actually return; an
@@ -2421,6 +2503,9 @@ static void int21_dispatch_body(int_frame_t *frame)
             return;
         case 0x36:                       /* GET DISK FREE SPACE */
             do_getspace(frame);
+            return;
+        case 0x3B:                       /* CHDIR (change current directory) */
+            do_chdir(frame);
             return;
         case 0x47:                       /* GET CURRENT DIR */
             do_getcwd(frame);

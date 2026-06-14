@@ -2100,6 +2100,17 @@ int fat12_resolve_path(const fat12_volume_t *vol, void *sector_buf,
                        const void *fat, uint32_t fat_len, const char *path,
                        fat12_dir_t *out_dir, dir_entry_t *out_entry)
 {
+	/* The thin start_dir_cluster==0 wrapper: descent from the root, byte-
+	 * identical to the historical behavior (beads initech-u6wa). */
+	return fat12_resolve_path_from(vol, sector_buf, fat, fat_len, path, 0u,
+	                               out_dir, out_entry);
+}
+
+int fat12_resolve_path_from(const fat12_volume_t *vol, void *sector_buf,
+                            const void *fat, uint32_t fat_len, const char *path,
+                            uint16_t start_dir_cluster,
+                            fat12_dir_t *out_dir, dir_entry_t *out_entry)
+{
 	fat12_dir_t cur;
 	const char *p;
 	char        comp[64];
@@ -2118,9 +2129,13 @@ int fat12_resolve_path(const fat12_volume_t *vol, void *sector_buf,
 		p += 2;
 	}
 
-	/* Start at the root. start_cluster==0 means "the root" everywhere. */
-	cur.is_root       = 1;
-	cur.start_cluster = 0u;
+	/* Seed the cursor from `start_dir_cluster`. start_cluster==0 means "the
+	 * root" everywhere, normalized BEFORE any cluster-LBA math so cluster 0
+	 * never reaches BPB_CLUSTER_LBA (Rule 2). For start_dir_cluster==0 this is
+	 * exactly the old root seed (the wrapper's invariant -- root behavior is
+	 * byte-identical). */
+	cur.is_root       = (start_dir_cluster == 0u) ? 1 : 0;
+	cur.start_cluster = start_dir_cluster;
 
 	/* Walk components. The cursor `cur` is the directory we are currently IN;
 	 * the LAST non-empty component resolves into *out_entry with *out_dir = the

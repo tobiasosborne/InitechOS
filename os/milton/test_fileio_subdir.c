@@ -290,6 +290,108 @@ int main(int argc, char **argv)
               "AH=47h GETCWD reports the ROOT (empty path) over the real backend");
     }
 
+    /* (8) AH=3Bh CHDIR over the REAL FAT12 backend (beads initech-u6wa). The
+     * canon text is derived from the filesystem structure (a reverse '..' walk),
+     * so a RELATIVE path canonicalizes identically to its absolute form -- the
+     * relative leg ('CD DEEP' from CWD '\SUB') is the load-bearing assertion for
+     * the cwd_start descend-seed fix (the m5 mutant reverts it). */
+    {
+        char *cwd = (char *)(uintptr_t)alloc_low(64);
+        CHECK(cwd != NULL, "CHDIR: GETCWD buffer in low 4 GiB");
+
+        int21_cwd_reset();   /* start at the root */
+
+        /* (8a) CD '\SUB' (absolute) -> GETCWD reports "SUB". */
+        {
+            uint32_t edx = low_dup("\\SUB");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx; cd.eflags |= CF_BIT;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 0, "real CD '\\SUB' clears CF");
+            memset(cwd, 'Z', 64);
+            int_frame_t g = fresh_frame();
+            g.eax = 0x4700u; g.edx = 0u; g.esi = (uint32_t)(uintptr_t)cwd;
+            int21_dispatch(&g);
+            CHECK(strcmp(cwd, "SUB") == 0,
+                  "real backend: after CD '\\SUB', GETCWD reports 'SUB'");
+        }
+
+        /* (8b) RELATIVE CD 'DEEP' from CWD '\SUB' -> resolves SUB\DEEP from the
+         *      cwd_start seed. THIS is the m5 cwd_start oracle: with the seed
+         *      reverted to root, 'DEEP' is looked up in the root and fails. */
+        {
+            uint32_t edx = low_dup("DEEP");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx; cd.eflags |= CF_BIT;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 0,
+                  "real backend: relative CD 'DEEP' from '\\SUB' clears CF (cwd_start seed)");
+            memset(cwd, 'Z', 64);
+            int_frame_t g = fresh_frame();
+            g.eax = 0x4700u; g.edx = 0u; g.esi = (uint32_t)(uintptr_t)cwd;
+            int21_dispatch(&g);
+            CHECK(strcmp(cwd, "SUB\\DEEP") == 0,
+                  "real backend: after relative CD 'DEEP', GETCWD reports 'SUB\\DEEP'");
+        }
+
+        /* (8c) CD '..' from SUB\DEEP -> SUB (reverse '..' canon). */
+        {
+            uint32_t edx = low_dup("..");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx; cd.eflags |= CF_BIT;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 0, "real backend: CD '..' from SUB\\DEEP clears CF");
+            memset(cwd, 'Z', 64);
+            int_frame_t g = fresh_frame();
+            g.eax = 0x4700u; g.edx = 0u; g.esi = (uint32_t)(uintptr_t)cwd;
+            int21_dispatch(&g);
+            CHECK(strcmp(cwd, "SUB") == 0,
+                  "real backend: after CD '..', GETCWD reports 'SUB'");
+        }
+
+        /* (8d) CD '..' from SUB -> the root (empty canon). */
+        {
+            uint32_t edx = low_dup("..");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx; cd.eflags |= CF_BIT;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 0, "real backend: CD '..' from SUB clears CF");
+            memset(cwd, 'Z', 64);
+            int_frame_t g = fresh_frame();
+            g.eax = 0x4700u; g.edx = 0u; g.esi = (uint32_t)(uintptr_t)cwd;
+            int21_dispatch(&g);
+            CHECK(cwd[0] == '\0',
+                  "real backend: after CD '..' at SUB, GETCWD reports the root (empty)");
+        }
+
+        /* (8e) CD into a FILE (not a directory) -> 0x0003. THIS is the m1 oracle:
+         *      the FILEIO_MUTATE_CHDIR_NOATTR mutant skips the DIR_ATTR gate so
+         *      CHDIR into a file wrongly succeeds and this leg goes RED. */
+        {
+            int21_cwd_reset();
+            uint32_t edx = low_dup("\\SUB\\NESTED.TXT");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 1 &&
+                  (uint16_t)(cd.eax & 0xFFFFu) == 0x0003u,
+                  "real backend: CD '\\SUB\\NESTED.TXT' (a file) -> AX=0x0003");
+        }
+
+        /* (8f) CD to a missing directory -> 0x0003. */
+        {
+            uint32_t edx = low_dup("\\NODIR");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = edx;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 1 &&
+                  (uint16_t)(cd.eax & 0xFFFFu) == 0x0003u,
+                  "real backend: CD '\\NODIR' -> AX=0x0003 (missing directory)");
+        }
+
+        int21_cwd_reset();   /* leave the CWD at the root for any later code */
+    }
+
     blockdev_file_close(&bf);
     return TEST_SUMMARY("test_fileio_subdir");
 }

@@ -216,7 +216,8 @@ static const int21_file_backend_t g_mock_backend = {
     mock_open, mock_read_at, NULL,
     NULL, NULL, NULL, NULL,
     NULL,
-    NULL   /* resolve: edge oracle drives root-only paths (beads initech-mzxa) */
+    NULL,  /* resolve: edge oracle drives root-only paths (beads initech-mzxa) */
+    NULL   /* resolve_dir: edge oracle does not CHDIR (beads initech-u6wa) */
 };
 
 /* Open HELLO.TXT through the dispatcher and return its handle (lowest free = 5
