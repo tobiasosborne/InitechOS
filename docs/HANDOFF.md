@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-14
+**Last Reconciled:** 2026-06-15
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -130,10 +130,17 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **68 host + 22 emu gates** (re-verified green; WL-0023 added
-`test-u6wa-mutant` + `test-fat12-mkdir`(+mutant) for CHDIR/MKDIR/RMDIR; WL-0022
-added `test-mzxa-integration` + `test-mzxa-mutant` for ti8 L2; WL-0021 added
+`make test` = **70 host + 26 emu gates** (re-verified green; WL-0024 added the
+EMU `test-ut6d`(+mutant, 2 legs), `test-zs24-exec`(+mutant) and the host/diff
+`test-zs24`(+mutant, 5 legs) for shell MD/RD/CD + subdir file WRITE + subdir
+EXEC, and amended the DOS catalogue 16->19; WL-0023 added `test-u6wa-mutant` +
+`test-fat12-mkdir`(+mutant) for CHDIR/MKDIR/RMDIR; WL-0022 added
+`test-mzxa-integration` + `test-mzxa-mutant` for ti8 L2; WL-0021 added
 `test-fat-subdir`(+mutant) + `test-region`(+mutant); was 59+22 after WL-0019).
+**Env gotcha (`bd memories`):** if you see "Clock skew detected", `make clean`
+before trusting an incremental oracle -- future-dated build/ artifacts make
+`make` skip rebuilds (false greens). Authoritative re-verify = `make clean &&
+make test`.
 **`make test-boot-bochs` PASS** with `KERNEL_SECTORS=128` (u6wa grew it 112->128;
 `IMG_SECTORS=192` = 3 whole cylinders; a boot-geometry change is a tri-emulator
 obligation, Rule 5 / WL-0019). The boot image is padded to a whole 2x32 cylinder geometry
@@ -208,12 +215,30 @@ convention pinned EMPIRICALLY from `mmd` and gated by an `mmd` differential. DOS
 codes: MKDIR-exists/RMDIR-non-empty 0x0005, RMDIR-of-CWD 0x0010 (new
 `INT21_ERR_CURRENT_DIR`).
 
-**Resume the kernel chain at `initech-ut6d`** — shell built-ins MD/RD/CD: wire the
-COMMAND.COM REPL to the new AH=39h/3Ah/3Bh handlers + a subdir-aware CD/prompt.
-Then **`initech-zs24`** lifts the deferrals: subdir EXEC (AH=4Bh from a subdir) +
-subdir WRITE (CREATE/UNLINK/WRITE and MKDIR/RMDIR with a NON-ROOT parent — the
-fat12 write primitives are still root-only; `u6wa` fail-louds those with 0x0003).
-Drive it SERIALLY, oracle-gated — do NOT parallelize the shared-file kernel edits.
+**`initech-ut6d` + `initech-zs24` are DONE + green (WL-0024)** — the
+subdirectory personality is now usable END-TO-END. `ut6d` (`ea4b47d`) wired the
+COMMAND.COM REPL to AH=39/3A/3B + a GETCWD-composed `$P$G` prompt ("A:\SUB>"),
+behind a new DEC-13 catalogue amendment (`mc7r`/`9e2238b`: MSG-DOS-0017/0018/0019,
+catalogue 16->19). `zs24` lifted the ROOT-only write/EXEC restriction in two
+serial landings: **L1** (`610c656`) subdir file CREATE/WRITE/UNLINK — the
+parent-aware fat12 core (`fat12_scan_dir`/`_write_dirent_in_dir`/
+`_subdir_slot_lba`/`fat12_grow_dir`), root fns now byte-identical is_root=1
+wrappers, SFT carries `dir_start`, fail-loud `spc!=1` mount guard; **L2**
+(`b67028b`) subdir EXEC — `do_exec` reuses the `do_open` resolve seam,
+`load_program_from_fat` branches dir_start==0 (byte-identical `fat12_find`) /
+!=0 (`fat12_find_slot_in`), with a dir-attr guard. Each landing was self-run
+`make test`-gated AND independently adversarially verified before commit; the
+adversarial pass caught `fat12_grow_dir` shipping untested despite a green suite
+(closed with a grow oracle + 2 grow mutants).
+
+**Resume the DOS-3.3 parity push (epic `initech-bsy`): `bd ready`.** The subdir
+chain (`ti8 -> mzxa -> u6wa -> ut6d -> zs24`) is complete. Filed subdir
+follow-ups (none blocking): **`initech-m0bp`** (nested MKDIR/RMDIR with a
+non-root parent — the L1 infra makes it a focused follow-on), the dir-attr-guard
+mutation-proof + EXEC mutant leg-A tightening, the CWD-aware DIR header, the
+AH=39/3A/3B/47 rows in `int21h_calling_convention.json`, and the FAT
+free-cluster-hint fragmentation quirk. The SERIAL, oracle-gated discipline for
+shared-file kernel edits still stands (Rule 3 / WL-0023).
 
 **FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
 ratified the region-first Toolbox plan; operator decided indexed-8 depth,
