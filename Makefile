@@ -2851,6 +2851,7 @@ endef
         test-fat-write-partial test-fat-write-partial-mutant \
         test-command test-command-mutant test-shell \
         test-ut6d test-ut6d-mutant \
+        test-zs24-exec test-zs24-exec-mutant \
         test-panic test-spurious test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-conin-unit test-conin-mutant test-conin \
         test-assets test-spec test-dosmsg test-dosmsg-mutant selfhost ddc clean \
@@ -6236,6 +6237,275 @@ test-ut6d-mutant: $(HARNESS_BIN) $(UT6D_TRACER_MUT_IMG) $(UT6D_TRACER_RDNOOP_IMG
 	@printf '>>> test-ut6d-mutant: green (BOTH legs RED for the right reason; the oracle bites on subdir-prompt AND RD-removal)\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-zs24-exec (beads initech-zs24 Landing 2 -- subdir AH=4Bh EXEC)
+# ---------------------------------------------------------------------------
+# Prove AH=4Bh EXEC can LOAD AND RUN a flat .COM from a SUBDIRECTORY -- the
+# loader-internal half of zs24 (Landing 1 was subdir file WRITE). Boot the
+# -DBOOT_SHELL kernel WITH a FRESH writable FAT12 disk whose GREET.COM lives ONLY
+# in ::SUB (NOT in root -- so a root-only loader/dispatch CANNOT find it, which is
+# exactly what the two mutants below exploit). Inject TWO ways to reach it, gated
+# on SHELL-READY; BOTH must run GREET.COM (its "GREETINGS FROM A:GREET.COM" marker
+# on serial proves it actually RAN, not merely resolved):
+#   (a) ABSOLUTE: `\SUB\GREET` from the root CWD -> do_exec resolves '\SUB\GREET.COM'
+#       through the SAME resolve seam OPEN uses -> the loader finds GREET in ::SUB.
+#   (b) CWD-RELATIVE: `CD SUB` (prompt becomes "A:\SUB>") then a BARE `GREET` ->
+#       with g_cwd=\SUB the bare name resolves to \SUB\GREET.COM (also proves
+#       CWD-relative EXEC + that the subdir EXEC did not corrupt the parent CWD --
+#       the prompt is still "A:\SUB>" when the relative GREET returns).
+# Assert on serial (every miss fail-loud + exit-non-zero, Law 2 / Rule 2):
+#   1. NO triple-fault.    2. SHELL-READY (REPL entered).
+#   3. The GREET marker appears AT LEAST TWICE (once per subdir-EXEC path).
+#   4. "A:\SUB>" rendered (CD SUB worked -> the relative leg's CWD is the subdir).
+#   5. Clean SHELL-EXIT + SHELL-DONE.
+# The image is re-minted FRESH per run (NOT a committed fixture, Rule 11). It
+# BITES (test-zs24-exec-mutant, two legs): a do_exec that restores the pre-zs24
+# subdir reject, and a loader that ignores the threaded dir_start -- each leaving
+# GREET unrunnable so the marker never appears, each FIRST confirming the mutant
+# actually booted + ran the cycle (the test-ut6d-mutant discipline).
+# Ref: DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-08 (flat .COM); psp-loader-ground-truth.md
+#      Sec 4/5; spec/int21h_calling_convention.json (AH=4Bh flat ABI).
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred (beads initech-x0i, like test-shell).
+
+# The injected command sequence (each token a key; "ret"=Enter, "spc"=space,
+# "bsl"='\'): \SUB\GREET / cd sub / greet / exit. The FIRST runs the ABSOLUTE
+# subdir path from root; the SECOND+THIRD run the bare name with the CWD at \SUB.
+ZS24EXEC_KEYS := bsl,s,u,b,bsl,g,r,e,e,t,ret,c,d,spc,s,u,b,ret,g,r,e,e,t,ret,e,x,i,t,ret
+ZS24EXEC_MARKER := GREETINGS FROM A:GREET.COM
+
+ZS24EXEC_NAME   := zs24exec
+ZS24EXEC_SERIAL := $(BUILD)/$(ZS24EXEC_NAME).serial
+ZS24EXEC_REPORT := $(BUILD)/$(ZS24EXEC_NAME).report
+ZS24EXEC_IMG    := $(BUILD)/zs24exec_data.img
+
+# Re-mint a FRESH writable FAT12 disk: HELLO.TXT in root (so the boot proto-DIR
+# still renders), a ::SUB subdirectory, and GREET.COM ONLY inside ::SUB. The
+# kernel does not mutate this disk (EXEC is read-only), but it is built fresh so a
+# stale layout can never mask a regression (Rule 11). A make-level macro because
+# the gate + both mutant legs mint an identical disk.
+define zs24exec-mint-disk
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mmd -i $(1) ::SUB
+	@mcopy -i $(1) $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $(1) $(GREET_PROG_BIN) ::SUB/GREET.COM
+endef
+
+.PHONY: test-zs24-exec test-zs24-exec-mutant
+test-zs24-exec: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(FAT12_FIXTURE_DIR)/hello.txt
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-zs24-exec : AH=4Bh EXEC a .COM FROM A SUBDIR\n'
+	@printf '  Ref: DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-08; psp-loader-ground-truth.md Sec 4/5.\n'
+	@printf '  beads initech-zs24 (Landing 2). Inject: \\SUB\\GREET / cd sub / greet / exit.\n'
+	@printf '  GREET.COM lives ONLY in ::SUB -- a root-only loader/dispatch cannot find it.\n'
+	@printf '======================================================================\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-zs24-exec FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mmd     >/dev/null 2>&1 || { printf '!!! test-zs24-exec FAIL: mtools `mmd` not found.\n'; exit 1; }
+	$(call zs24exec-mint-disk,$(ZS24EXEC_IMG))
+	@printf 'Booting   : %s + FRESH writable disk %s (GREET.COM only in ::SUB)\n' "$(TRACER_IMG)" "$(ZS24EXEC_IMG)"
+	@printf 'Expecting : SHELL-READY + "%s" x2 + prompt "A:\\SUB>" + clean SHELL-EXIT/SHELL-DONE\n' "$(ZS24EXEC_MARKER)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(ZS24EXEC_IMG)" \
+		--name "$(ZS24EXEC_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
+		--keys "$(ZS24EXEC_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(ZS24EXEC_REPORT)" || true
+	@cat "$(ZS24EXEC_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(ZS24EXEC_REPORT)"; then \
+		printf '!!! test-zs24-exec FAIL: TRIPLE FAULT -- the subdir FAT load or control transfer crashed\n'; exit 1; \
+	fi
+	@printf '>>> test-zs24-exec [1/5]: no triple-fault\n'
+	@if [ ! -s "$(ZS24EXEC_SERIAL)" ]; then \
+		printf '!!! test-zs24-exec FAIL: no serial captured at %s\n' "$(ZS24EXEC_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(ZS24EXEC_SERIAL)" \
+		|| { printf '!!! test-zs24-exec FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
+	@printf '>>> test-zs24-exec [2/5]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@# Scope to the post-SHELL-READY REPL transcript (the boot demos print earlier).
+	@sed -n '/^SHELL-READY$$/,$$p' "$(ZS24EXEC_SERIAL)" | tr -d '\r' > "$(BUILD)/$(ZS24EXEC_NAME).repl"
+	@# ---- CENTERPIECE: the GREET marker appears AT LEAST TWICE -- once for the
+	@# ABSOLUTE `\SUB\GREET` (root CWD) and once for the CWD-RELATIVE bare `GREET`
+	@# (CWD=\SUB). GREET.COM is ONLY in ::SUB, so EACH occurrence proves a subdir
+	@# load (a root-only path would find nothing and print "Bad command", not this). ----
+	@n=$$(grep -cF '$(ZS24EXEC_MARKER)' "$(BUILD)/$(ZS24EXEC_NAME).repl"); \
+	if [ "$$n" -lt 2 ]; then \
+		printf '!!! test-zs24-exec FAIL: expected the GREET marker >=2x (absolute + CWD-relative subdir EXEC), saw %s -- a subdir .COM did not load+run (root-cause do_exec resolve / loader subdir find, Rule 3)\n' "$$n"; \
+		exit 1; \
+	fi
+	@printf '>>> test-zs24-exec [3/5]: GREET.COM (in ::SUB) ran TWICE -- absolute "\\SUB\\GREET" AND CWD-relative "greet" after CD SUB\n'
+	@# ---- The CWD-relative leg requires CD SUB to have entered the subdir: the
+	@# GETCWD-composed $P$G prompt must show "A:\SUB>" (proving the bare `greet`
+	@# resolved against g_cwd=\SUB, not the root). ----
+	@grep -qF 'A:\SUB>' "$(BUILD)/$(ZS24EXEC_NAME).repl" \
+		|| { printf '!!! test-zs24-exec FAIL: the prompt never showed "A:\\SUB>" -- CD SUB did not enter the subdir, so the bare `greet` did not run CWD-relative\n'; exit 1; }
+	@printf '>>> test-zs24-exec [4/5]: prompt showed "A:\\SUB>" -- the bare `greet` ran CWD-relative to \\SUB (CWD not corrupted by the absolute EXEC)\n'
+	@# ---- The cycle completes cleanly (both subdir EXECs returned to the REPL). ----
+	@grep -q '^SHELL-EXIT$$' "$(ZS24EXEC_SERIAL)" \
+		|| { printf '!!! test-zs24-exec FAIL: SHELL-EXIT missing -- the subdir EXEC cycle did not reach EXIT cleanly\n'; exit 1; }
+	@grep -q '^SHELL-DONE$$' "$(ZS24EXEC_SERIAL)" \
+		|| { printf '!!! test-zs24-exec FAIL: SHELL-DONE missing -- the REPL did not return to the halt loop\n'; exit 1; }
+	@printf '>>> test-zs24-exec [5/5]: both subdir EXECs returned to the REPL; EXIT halted cleanly (SHELL-EXIT + SHELL-DONE)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- AH=4Bh EXEC loaded + ran a .COM from a SUBDIRECTORY two ways\n'
+	@printf '            (absolute "\\SUB\\GREET" and CWD-relative "greet" after CD SUB); root EXEC unchanged\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ----- Mutant kernels for test-zs24-exec-mutant (Rule 6) -----
+# Leg A (REJECT): int21.c do_exec compiled with -DINT21_MUTATE_EXEC_ROOTREJECT --
+#   restores the pre-zs24 subdir/drive reject, so `\SUB\GREET` returns 0x0003 and
+#   GREET never runs (its marker absent). Swap ONLY int21.o.
+ZS24EXEC_INT21_MUT_OBJ := $(BUILD)/int21_mut_zs24reject.o
+ZS24EXEC_SHELL_REJECT_ELF := $(BUILD)/kernel_shell_mut_zs24reject.elf
+ZS24EXEC_SHELL_REJECT_BIN := $(BUILD)/kernel_shell_mut_zs24reject.bin
+ZS24EXEC_TRACER_REJECT_IMG := $(BUILD)/tracer_boot_mut_zs24reject.img
+
+$(ZS24EXEC_INT21_MUT_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
+                           $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h \
+                           $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DINT21_MUTATE_EXEC_ROOTREJECT \
+		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+
+ZS24EXEC_SHELL_REJECT_OBJS := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SHELL_OBJS)) $(ZS24EXEC_INT21_MUT_OBJ)
+
+$(ZS24EXEC_SHELL_REJECT_ELF): $(ZS24EXEC_SHELL_REJECT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(ZS24EXEC_SHELL_REJECT_OBJS)
+
+$(ZS24EXEC_SHELL_REJECT_BIN): $(ZS24EXEC_SHELL_REJECT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_mut_zs24reject.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-mut-zs24reject): %s (subdir EXEC restored to root-reject)\n" "$@"
+	$(call kernel-end-guard,$<,shell-mut-zs24reject)
+
+$(ZS24EXEC_TRACER_REJECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(ZS24EXEC_SHELL_REJECT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(ZS24EXEC_SHELL_REJECT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> zs24exec reject mutant image: %s (do_exec rejects subdir paths -- the dispatch mutant)\n" "$@"
+
+# Leg B (ROOTONLY): loader.c compiled with -DLOADER_MUTATE_EXEC_ROOTONLY --
+#   load_program_from_fat IGNORES the threaded dir_start and looks in root only,
+#   so the subdir GREET cannot be located. Swap ONLY loader.o.
+ZS24EXEC_LOADER_MUT_OBJ := $(BUILD)/loader_mut_zs24rootonly.o
+ZS24EXEC_SHELL_ROOTONLY_ELF := $(BUILD)/kernel_shell_mut_zs24rootonly.elf
+ZS24EXEC_SHELL_ROOTONLY_BIN := $(BUILD)/kernel_shell_mut_zs24rootonly.bin
+ZS24EXEC_TRACER_ROOTONLY_IMG := $(BUILD)/tracer_boot_mut_zs24rootonly.img
+
+$(ZS24EXEC_LOADER_MUT_OBJ): $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/psp.h \
+                            spec/memory_map.h $(KERNEL_DIR)/int21.h \
+                            $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DLOADER_MUTATE_EXEC_ROOTONLY \
+		-Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
+
+ZS24EXEC_SHELL_ROOTONLY_OBJS := $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_SHELL_OBJS)) $(ZS24EXEC_LOADER_MUT_OBJ)
+
+$(ZS24EXEC_SHELL_ROOTONLY_ELF): $(ZS24EXEC_SHELL_ROOTONLY_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(ZS24EXEC_SHELL_ROOTONLY_OBJS)
+
+$(ZS24EXEC_SHELL_ROOTONLY_BIN): $(ZS24EXEC_SHELL_ROOTONLY_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_mut_zs24rootonly.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-mut-zs24rootonly): %s (loader ignores dir_start -- root-only find)\n" "$@"
+	$(call kernel-end-guard,$<,shell-mut-zs24rootonly)
+
+$(ZS24EXEC_TRACER_ROOTONLY_IMG): $(MBR_BIN) $(STAGE2_BIN) $(ZS24EXEC_SHELL_ROOTONLY_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(ZS24EXEC_SHELL_ROOTONLY_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> zs24exec rootonly mutant image: %s (loader ignores dir_start -- the loader mutant)\n" "$@"
+
+ZS24EXEC_REJECT_NAME    := zs24exec_reject
+ZS24EXEC_REJECT_SERIAL  := $(BUILD)/$(ZS24EXEC_REJECT_NAME).serial
+ZS24EXEC_REJECT_REPORT  := $(BUILD)/$(ZS24EXEC_REJECT_NAME).report
+ZS24EXEC_REJECT_IMG     := $(BUILD)/zs24exec_data_reject.img
+ZS24EXEC_ROOTONLY_NAME   := zs24exec_rootonly
+ZS24EXEC_ROOTONLY_SERIAL := $(BUILD)/$(ZS24EXEC_ROOTONLY_NAME).serial
+ZS24EXEC_ROOTONLY_REPORT := $(BUILD)/$(ZS24EXEC_ROOTONLY_NAME).report
+ZS24EXEC_ROOTONLY_IMG    := $(BUILD)/zs24exec_data_rootonly.img
+
+# Mutation-proof (Rule 6): TWO legs, each isolating the subdir-EXEC path at a
+# DIFFERENT seam (the do_exec dispatch resolve, and the loader subdir find). EACH
+# leg first CONFIRMS the mutant genuinely booted + ran the cycle (^SHELL-READY$
+# AND ^SHELL-EXIT$/^SHELL-DONE$) before trusting that the ABSENT marker is the
+# assertion biting -- not a dead boot (the test-ut6d-mutant discipline). A
+# missing/empty serial is a HARD FAIL.
+test-zs24-exec-mutant: $(HARNESS_BIN) $(ZS24EXEC_TRACER_REJECT_IMG) $(ZS24EXEC_TRACER_ROOTONLY_IMG) $(GREET_PROG_BIN) $(FAT12_FIXTURE_DIR)/hello.txt
+	@printf ">>> test-zs24-exec-mutant: confirming BOTH subdir-EXEC mutants go RED for the RIGHT reason (Rule 6; beads initech-zs24)\n"
+	@# ---------------- Leg A: REJECT (do_exec restores the subdir reject) ----------------
+	@printf '%s\n' '---- leg A: do_exec subdir-reject mutant (-DINT21_MUTATE_EXEC_ROOTREJECT) ----'
+	$(call zs24exec-mint-disk,$(ZS24EXEC_REJECT_IMG))
+	@$(HARNESS_BIN) --disk "$(ZS24EXEC_TRACER_REJECT_IMG)" --disk2 "$(ZS24EXEC_REJECT_IMG)" \
+		--name "$(ZS24EXEC_REJECT_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
+		--keys "$(ZS24EXEC_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(ZS24EXEC_REJECT_REPORT)" || true
+	@if [ ! -s "$(ZS24EXEC_REJECT_SERIAL)" ]; then \
+		printf '!!! test-zs24-exec-mutant FAIL (leg A): no serial captured at %s -- mutant boot is dead, RED is meaningless\n' "$(ZS24EXEC_REJECT_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(ZS24EXEC_REJECT_SERIAL)" \
+		|| { printf '!!! test-zs24-exec-mutant FAIL (leg A): SHELL-READY missing -- mutant never reached the REPL, RED is meaningless\n'; exit 1; }
+	@grep -Eq '^SHELL-EXIT$$|^SHELL-DONE$$' "$(ZS24EXEC_REJECT_SERIAL)" \
+		|| { printf '!!! test-zs24-exec-mutant FAIL (leg A): neither SHELL-EXIT nor SHELL-DONE -- mutant did not run the cycle, RED is meaningless\n'; exit 1; }
+	@sed -n '/^SHELL-READY$$/,$$p' "$(ZS24EXEC_REJECT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(ZS24EXEC_REJECT_NAME).repl"
+	@# Under REJECT, do_exec rejects ONLY a path that LEXICALLY carries '\'/':' --
+	@# so the ABSOLUTE `\SUB\GREET` is blocked ("Bad command"), but the bare `greet`
+	@# (no '\') after CD SUB still resolves CWD-relative and runs. The marker thus
+	@# appears at MOST ONCE, so the real gate's centerpiece (>=2) goes RED. Assert
+	@# exactly that inversion (count < 2). A full-absent assertion would WRONGLY pass
+	@# the gate's later steps; biting the >=2 centerpiece is the precise proof.
+	@n=$$(grep -cF '$(ZS24EXEC_MARKER)' "$(BUILD)/$(ZS24EXEC_REJECT_NAME).repl"); \
+	if [ "$$n" -ge 2 ]; then \
+		printf '!!! test-zs24-exec-mutant FAIL (leg A): the subdir-reject mutant STILL ran GREET.COM %sx (>=2) -- the absolute-subdir-EXEC half of the centerpiece is decoration\n' "$$n"; \
+		exit 1; \
+	fi
+	@# Confirm the absolute leg specifically failed (Bad command), so the RED is the
+	@# absolute subdir reject biting -- not some unrelated early abort.
+	@grep -qF 'Bad command or file name' "$(BUILD)/$(ZS24EXEC_REJECT_NAME).repl" \
+		|| { printf '!!! test-zs24-exec-mutant FAIL (leg A): no "Bad command or file name" -- the absolute `\\SUB\\GREET` did not reach the reject; the RED is for the wrong reason\n'; exit 1; }
+	@printf '>>> test-zs24-exec-mutant leg A: green (mutant booted + ran the cycle; absolute "\\SUB\\GREET" rejected -> marker <2x -- do_exec subdir-resolve bites the centerpiece)\n'
+	@# ---------------- Leg B: ROOTONLY (loader ignores dir_start) ----------------
+	@printf '%s\n' '---- leg B: loader root-only mutant (-DLOADER_MUTATE_EXEC_ROOTONLY) ----'
+	$(call zs24exec-mint-disk,$(ZS24EXEC_ROOTONLY_IMG))
+	@$(HARNESS_BIN) --disk "$(ZS24EXEC_TRACER_ROOTONLY_IMG)" --disk2 "$(ZS24EXEC_ROOTONLY_IMG)" \
+		--name "$(ZS24EXEC_ROOTONLY_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
+		--keys "$(ZS24EXEC_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(ZS24EXEC_ROOTONLY_REPORT)" || true
+	@if [ ! -s "$(ZS24EXEC_ROOTONLY_SERIAL)" ]; then \
+		printf '!!! test-zs24-exec-mutant FAIL (leg B): no serial captured at %s -- mutant boot is dead, RED is meaningless\n' "$(ZS24EXEC_ROOTONLY_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(ZS24EXEC_ROOTONLY_SERIAL)" \
+		|| { printf '!!! test-zs24-exec-mutant FAIL (leg B): SHELL-READY missing -- mutant never reached the REPL, RED is meaningless\n'; exit 1; }
+	@grep -Eq '^SHELL-EXIT$$|^SHELL-DONE$$' "$(ZS24EXEC_ROOTONLY_SERIAL)" \
+		|| { printf '!!! test-zs24-exec-mutant FAIL (leg B): neither SHELL-EXIT nor SHELL-DONE -- mutant did not run the cycle, RED is meaningless\n'; exit 1; }
+	@sed -n '/^SHELL-READY$$/,$$p' "$(ZS24EXEC_ROOTONLY_SERIAL)" | tr -d '\r' > "$(BUILD)/$(ZS24EXEC_ROOTONLY_NAME).repl"
+	@# Under ROOTONLY the loader ignores dir_start for EVERY EXEC, so BOTH the
+	@# absolute AND the CWD-relative subdir loads look in root, find nothing, and
+	@# fail -- the GREET marker is FULLY ABSENT (count 0, well below the gate's >=2).
+	@n=$$(grep -cF '$(ZS24EXEC_MARKER)' "$(BUILD)/$(ZS24EXEC_ROOTONLY_NAME).repl"); \
+	if [ "$$n" -ge 2 ]; then \
+		printf '!!! test-zs24-exec-mutant FAIL (leg B): the root-only loader mutant STILL ran GREET.COM %sx (>=2) -- the loader did NOT honor dir_start yet found GREET; the subdir-find assertion is decoration\n' "$$n"; \
+		exit 1; \
+	fi
+	@# Sanity: under ROOTONLY the path RESOLVE is unchanged (it is the LOADER that is
+	@# mutated), so CD SUB still works and the prompt "A:\SUB>" still appears -- the
+	@# mutant DID enter the subdir and attempt the subdir LOAD, which then failed.
+	@# This isolates the RED to the loader subdir-find, not a resolve/CD failure.
+	@grep -qF 'A:\SUB>' "$(BUILD)/$(ZS24EXEC_ROOTONLY_NAME).repl" \
+		|| { printf '!!! test-zs24-exec-mutant FAIL (leg B): "A:\\SUB>" missing -- CD SUB did not run, so the mutant did not exercise the subdir LOAD path; the RED is for the wrong reason\n'; exit 1; }
+	@printf '>>> test-zs24-exec-mutant leg B: green (mutant booted + entered \\SUB; the GREET marker correctly ABSENT (0x) -- loader subdir-find bites)\n'
+	@printf '>>> test-zs24-exec-mutant: green (BOTH legs RED for the right reason; the oracle bites on do_exec resolve AND loader subdir-find)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-panic (beads initech-a5a -- the exception is CAUGHT)
 # ---------------------------------------------------------------------------
 # Prove the panic path fires on a REAL CPU fault instead of triple-faulting (the
@@ -7070,7 +7340,8 @@ TEST_UNIT_GATES := \
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
-	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant test-panic test-spurious test-datetime \
+	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
+	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-int21-irqstorm
 
 test-unit:

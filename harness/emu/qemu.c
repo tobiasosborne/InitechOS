@@ -267,6 +267,13 @@ static const char *token_to_qcode(const char *tok)
     if (strcmp(tok, "dot") == 0 || strcmp(tok, ".") == 0) {
         return "dot";
     }
+    /* '\' for an ABSOLUTE DOS path like "\SUB\GREET" (beads initech-zs24: the
+     * subdir-EXEC oracle types an absolute program path at the shell). The QMP
+     * QKeyCode name is "backslash". Ref: QMP send-key + qapi/ui.json. */
+    if (strcmp(tok, "bsl") == 0 || strcmp(tok, "backslash") == 0 ||
+        strcmp(tok, "\\") == 0) {
+        return "backslash";
+    }
     return NULL;
 }
 

@@ -415,16 +415,20 @@ static int dir_visit(const dir_entry_t *e, void *user)
  * loader rebinds both during the run; ground-truth Sec 4.5 / beads initech-509.3)
  * exactly as run_baked does -- otherwise a later kernel-context INT 21h would
  * dispatch through the child's stale hook/PSP. */
-static uint16_t loader_exec_by_name(const char *name83, const char *cmd_tail,
+static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
+                                    const char *cmd_tail,
                                     uint32_t cmd_tail_len, uint8_t *out_rc)
 {
     uint8_t rc = 0;
     /* Save the kernel/shell CWD before the child run (the loader resets the CWD
      * to root for the child; beads initech-mzxa) and restore it after, in
      * lockstep with the PSP/exit-hook restore, so the child's CWD never leaks
-     * into kernel-context INT 21h. */
+     * into kernel-context INT 21h. The CWD is saved/restored AROUND the run, so a
+     * subdir EXEC (dir_start!=0, the leaf resolved relative to the parent's CWD)
+     * cannot corrupt the parent's CWD (beads initech-zs24). */
     int21_cwd_snapshot_t cwd_snap = int21_cwd_save();
-    loader_status_t st = load_program_from_fat(name83, cmd_tail, cmd_tail_len, &rc);
+    loader_status_t st = load_program_from_fat(name83, dir_start, cmd_tail,
+                                               cmd_tail_len, &rc);
     int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
     int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
     int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
@@ -841,7 +845,7 @@ void kernel_main(void)
     {
         uint8_t saw_rc = 0;
         int21_cwd_snapshot_t cwd_snap = int21_cwd_save();   /* save kernel CWD (mzxa) */
-        loader_status_t st = load_program_from_fat("GREET.COM",
+        loader_status_t st = load_program_from_fat("GREET.COM", 0u /* root */,
                                                    (const char *)0, 0u, &saw_rc);
         int21_set_exit(int21_exit_hook);   /* restore kernel-context terminate */
         int21_set_psp(&g_kernel_psp);      /* restore kernel-context JFT */
@@ -1054,7 +1058,7 @@ void kernel_main(void)
         for (run = 1; run <= RUNS; run++) {
             uint8_t rc = 0;
             int21_cwd_snapshot_t cwd_snap = int21_cwd_save();  /* save kernel CWD (mzxa) */
-            loader_status_t st = load_program_from_fat("EXITH.COM",
+            loader_status_t st = load_program_from_fat("EXITH.COM", 0u /* root */,
                                                        (const char *)0, 0u, &rc);
             int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
             int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
@@ -1094,7 +1098,7 @@ void kernel_main(void)
     {
         uint8_t rc = 0;
         int21_cwd_snapshot_t cwd_snap = int21_cwd_save();   /* save kernel CWD (mzxa) */
-        loader_status_t st = load_program_from_fat("SYSI.COM",
+        loader_status_t st = load_program_from_fat("SYSI.COM", 0u /* root */,
                                                    (const char *)0, 0u, &rc);
         int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
         int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */

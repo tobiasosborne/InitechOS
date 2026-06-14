@@ -863,13 +863,12 @@ static void do_dup2(int_frame_t *f)
  * Ref: docs/research/fs-mount-sft-ground-truth.md Sec 4; DOS 3.3 PRM AH=3Dh/3Eh/
  * 3Fh/42h/4Eh/4Fh/1Ah/2Fh. */
 
-/* Reject a path the milestone cannot support at a ROOT-ONLY site: a subdirectory
- * separator '\' or a drive-letter ':' (do_exec is still root-only -- the loader
- * load path reads the located program's own start_cluster but cannot yet locate
- * a program inside a subdir; beads initech-mzxa decision 3, follow-up initech-zs24).
- * The file/find sites (OPEN/CREAT/UNLINK/FINDFIRST) NO LONGER call this -- they
- * resolve subdir paths via resolve_dir_path() below -- but the helper stays as
- * do_exec's root-only gate AND as the overlength-path runaway guard.
+/* Reject a path a ROOT-ONLY fallback cannot support: a subdirectory separator
+ * '\' or a drive-letter ':'. Since beads initech-zs24 EVERY path-taking dispatch
+ * site (OPEN/CREAT/UNLINK/FINDFIRST + EXEC) resolves subdir paths through
+ * resolve_dir_path() below; this helper survives ONLY as resolve_dir_path's
+ * root-only fallback (no backend resolve bound -- the host oracle / a read-only
+ * mount) and as the shared overlength-path runaway guard.
  * Returns 1 if the path is rejectable (caller sets CF=1, AX=0x0003). */
 /* A runaway guard, NOT a DOS path-length policy: bounds the scan of a possibly
  * malformed / unterminated ASCIIZ pointer so it can never walk the kernel off
@@ -1756,22 +1755,25 @@ static void do_findnext(int_frame_t *f)
  * regains control and EXEC returns to the caller with CF clear. The child's exit
  * code is stashed for AH=4Dh GET-RETURN-CODE.
  *
- * Path rules: a '\' or ':' -> CF=1, AX=0x0003 (path not found); an empty/NULL
- * path -> file-not-found. EXEC stays ROOT-ONLY this milestone (beads
- * initech-mzxa decision 3): unlike OPEN/CREAT/UNLINK/FINDFIRST -- which resolve
- * a subdir path through the read-side resolve seam -- the EXEC source feeds the
- * loader's program-load path (load_program_from_fat -> load_program), and that
- * path locates the .COM by a ROOT-dir 8.3 name (loader.c). Threading a resolved
- * containing-directory cluster into the loader is a RISKIER loader-internal
- * change than the clean read-side resolve, so per decision 3 do_exec keeps
- * rejecting subdir paths and a FOLLOW-UP bead (initech-zs24) tracks subdir EXEC.
+ * Path rules: an empty/NULL path -> file-not-found. SUBDIR EXEC (beads
+ * initech-zs24, Landing 2): the EDX path is resolved to a (containing-directory
+ * `dir_start`, bare leaf) pair through the SAME resolve seam OPEN/CREAT/UNLINK
+ * use (resolve_dir_path -> the file backend resolve()), so EXEC honors absolute,
+ * CWD-relative, and '\SUB\FILE' paths IDENTICALLY to OPEN -- no second path
+ * grammar (drive-letter handling, the runaway guard, and the missing/non-dir
+ * component -> 0x0003 contract all come from resolve_dir_path). The loader then
+ * locates the leaf in `dir_start` and runs it (the root case, dir_start==0, takes
+ * the byte-identical historical find -- loader.c). Earlier milestones (mzxa
+ * decision 3) kept EXEC root-only because threading the containing-directory
+ * cluster into the loader was deemed riskier than the read-side resolve; this
+ * landing does exactly that threading.
  *
  * REENTRANCY (Rule 2 / stop condition): the loader's return-to-loader context
  * (loader.c g_loader_ctx) is single-level -- a nested EXEC (EXEC issued from
  * inside an already-running loaded program) would clobber it. load_program_from_fat
  * guards this and returns INSUFFICIENT_MEM; we surface that as CF=1, AX=0x0008.
  * EXEC from KERNEL/shell context (the common case) is fully supported.
- * Ref: DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-08 (flat .COM); beads initech-saw. */
+ * Ref: DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-08 (flat .COM); beads initech-saw/zs24. */
 static void do_exec(int_frame_t *f)
 {
     uint8_t sub = frame_al(f);
@@ -1788,8 +1790,30 @@ static void do_exec(int_frame_t *f)
         cf_set(f);
         return;
     }
+#ifdef INT21_MUTATE_EXEC_ROOTREJECT
+    /* MUTANT (CLAUDE.md Rule 6; make test-zs24-exec-mutant only): restore the
+     * pre-zs24 root-only gate -- reject any subdir/drive path BEFORE resolving, so
+     * a subdir EXEC returns 0x0003 and the program never runs (its serial marker
+     * is ABSENT). The subdir-EXEC oracle MUST go RED. NEVER define in a real build. */
     if (path_has_subdir_or_drive(path)) {
         set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+#endif
+    /* Resolve the EDX path to (containing-dir start cluster, bare 8.3 leaf) the
+     * SAME way do_open does (beads initech-zs24): absolute / CWD-relative /
+     * '\SUB\FILE', a leading 'X:' drive prefix stripped, a missing/non-dir
+     * component or an overlength runaway -> 0x0003 PATH_NOT_FOUND. No backend
+     * resolve bound (host EXEC oracle) falls back to root-only inside
+     * resolve_dir_path, byte-identical to the pre-zs24 path_has_subdir_or_drive
+     * gate for a bare name. */
+    const char *leaf      = path;
+    uint16_t    dir_start = 0u;
+    uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
+    if (perr != 0u) {
+        set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
+        int21_note_error(perr);          /* AH=59h GET EXTENDED ERROR */
         cf_set(f);
         return;
     }
@@ -1840,7 +1864,7 @@ static void do_exec(int_frame_t *f)
 
     uint32_t indos_snapshot = g_indos;
     uint8_t rc = 0;
-    uint16_t err = g_exec(path, tail_text, tail_len, &rc);
+    uint16_t err = g_exec(leaf, dir_start, tail_text, tail_len, &rc);
     g_indos = indos_snapshot;
     if (err != 0) {
         /* Load/run failed (not found / nested / too big). Fail loud (Rule 2). */

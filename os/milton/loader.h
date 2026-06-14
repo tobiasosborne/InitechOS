@@ -102,14 +102,23 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
 /* ---- FAT-sourced load (beads initech-saw) --------------------------------
  * load_program_from_fat -- the "saw" core: load a flat .COM BY NAME from the
  * mounted FAT12 volume and run it through load_program(). Reads the named file
- * (root-dir 8.3, e.g. "GREET.COM") off the volume bound via
+ * (the bare 8.3 leaf, e.g. "GREET.COM") from the directory whose first data
+ * cluster is `dir_start` (0 == the fixed root) off the volume bound via
  * loader_bind_fat_volume() into the off-stack staging buffer (LOAD_STAGING_BASE,
  * spec/memory_map.h Risk 2 -- never a multi-KB buffer on the kernel stack), then
  * hands the bytes to load_program() (copy to PROGRAM_IMAGE + PSP + JMP + return).
  *
+ * SUBDIR EXEC (beads initech-zs24, Landing 2): `dir_start` is the containing
+ * directory do_exec resolved the EXEC path to through the file-backend resolve
+ * seam (the SAME resolution OPEN uses). dir_start==0 takes the byte-identical
+ * historical ROOT find (fat12_find); a non-zero cluster locates the leaf in that
+ * subdir via fat12_find_slot_in over the cached FAT, then loads its own cluster
+ * chain exactly as the root case.
+ *
  * Fail loud (Rule 2) with a DISTINCT status on each failure:
  *   - no volume bound                       -> LOADER_ERR_NO_VOLUME
  *   - file not in the directory             -> LOADER_ERR_NOT_FOUND
+ *   - leaf resolves to a DIRECTORY (attr)   -> LOADER_ERR_NOT_FOUND (not runnable)
  *   - a FAT/ATA read error                  -> LOADER_ERR_READ
  *   - image too large for staging/program   -> LOADER_ERR_TOO_BIG
  *   - a load is already active (nested)      -> LOADER_ERR_BUSY (deferred; guarded)
@@ -131,7 +140,8 @@ struct fat12_volume;   /* full type in os/milton/fat12.h (kernel-only) */
  * LOADER_ERR_NO_VOLUME. Mirrors int21_set_file_backend's bind discipline. */
 void loader_bind_fat_volume(const struct fat12_volume *vol);
 
-loader_status_t load_program_from_fat(const char *name83, const char *cmd_tail,
+loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
+                                      const char *cmd_tail,
                                       uint32_t cmd_tail_len, uint8_t *out_rc);
 
 #endif /* INITECH_LOADER_H */

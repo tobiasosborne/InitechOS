@@ -107,10 +107,12 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
  * through int21's MOCK EXEC backend (test_exec.c), never this path. */
 void loader_bind_fat_volume(const struct fat12_volume *vol) { (void)vol; }
 
-loader_status_t load_program_from_fat(const char *name83, const char *cmd_tail,
+loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
+                                      const char *cmd_tail,
                                       uint32_t cmd_tail_len, uint8_t *out_rc)
 {
-    (void)name83; (void)cmd_tail; (void)cmd_tail_len; (void)out_rc;
+    (void)name83; (void)dir_start; (void)cmd_tail; (void)cmd_tail_len;
+    (void)out_rc;
     return LOADER_ERR_NO_VOLUME;
 }
 
@@ -432,7 +434,8 @@ void loader_bind_fat_volume(const struct fat12_volume *vol)
     g_load_vol     = vol;
 }
 
-loader_status_t load_program_from_fat(const char *name83, const char *cmd_tail,
+loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
+                                      const char *cmd_tail,
                                       uint32_t cmd_tail_len, uint8_t *out_rc)
 {
     if (g_load_vol == 0) {
@@ -444,14 +447,49 @@ loader_status_t load_program_from_fat(const char *name83, const char *cmd_tail,
         return LOADER_ERR_BUSY;
     }
 
-    /* Locate the .COM in the (root) directory. */
+#ifdef LOADER_MUTATE_EXEC_ROOTONLY
+    /* MUTANT (CLAUDE.md Rule 6; make test-zs24-exec-mutant only): IGNORE the
+     * threaded containing-directory cluster and look ONLY in the root, the pre-
+     * zs24 root-only behavior. A subdir EXEC of a program that exists ONLY inside
+     * ::SUB then can't be located -> LOADER_ERR_NOT_FOUND, the program never runs,
+     * its serial marker is ABSENT -> the subdir-EXEC oracle goes RED. NEVER define
+     * in a real build. */
+    dir_start = 0u;
+#endif
+
+    /* Locate the .COM in its CONTAINING directory (beads initech-zs24). The ROOT
+     * case (dir_start==0) takes the BYTE-IDENTICAL historical fat12_find so root
+     * EXEC (test-shell / test-exec / the baked demos) is provably unchanged
+     * (Rule 3). A subdir (dir_start!=0) uses the parent-aware fat12_find_slot_in
+     * over the cached whole-FAT to walk the subdir cluster chain; the located
+     * entry's OWN start_cluster then feeds fat12_read_file exactly as the root
+     * case. We discard the returned slot (EXEC is read-only -- no dir write-back). */
     dir_entry_t de;
-    int rc = fat12_find(g_load_vol, g_load_sector, name83, &de);
+    int rc;
+    if (dir_start == 0u) {
+        rc = fat12_find(g_load_vol, g_load_sector, name83, &de);
+    } else {
+        uint32_t slot = 0u;
+        rc = fat12_find_slot_in(g_load_vol, g_load_fat, g_load_fat_len,
+                                dir_start, g_load_sector, name83, &de, &slot);
+    }
     if (rc == FAT12_ERR_NOT_FOUND) {
         return LOADER_ERR_NOT_FOUND;
     }
     if (rc != FAT12_OK) {
         return LOADER_ERR_READ;
+    }
+
+    /* A leaf that resolves to a DIRECTORY is not a runnable program: refuse it
+     * (Rule 2) rather than feed the directory's cluster bytes to load_program as
+     * if they were a .COM. fat12_find / fat12_find_slot_in match by NAME only
+     * (no attribute filter -- they back FINDFIRST too), so EXEC owns this guard.
+     * Maps to 0x0002 (file not found) at the do_exec seam -- the DOS-authentic
+     * "no runnable program here". The root case can only reach this for a root
+     * directory entry, which no prior root-EXEC golden exercises (a .COM carries
+     * attr 0x00/0x20, never DIR_ATTR_DIRECTORY), so root EXEC stays byte-identical. */
+    if ((de.attribute & DIR_ATTR_DIRECTORY) != 0u) {
+        return LOADER_ERR_NOT_FOUND;
     }
 
     /* Reject before reading anything that cannot fit the program region (the

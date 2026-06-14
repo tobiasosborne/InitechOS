@@ -340,19 +340,29 @@ void int21_set_file_backend(const int21_file_backend_t *backend);
  * binds to a mock -- exactly mirroring the file-backend / sink / conin seams so
  * int21.c stays free of loader.c and compiles HOSTED.
  *
- * The callback loads the flat .COM `name83` (root-dir 8.3 only this milestone)
- * from the mounted volume and RUNS it to completion (the child terminates via
- * 4Ch / INT 20h and the loader regains control). On a clean run it returns 0 and
- * writes the child's exit code to *out_rc; on a failure it returns a DOS error
- * code (0x0002 file not found, 0x0008 insufficient memory / load already active
- * -- nested EXEC, 0x000B bad format / too large) and leaves *out_rc unchanged.
- * `name83` is already validated (no '\'/':'); the callback need not re-check.
+ * The callback loads the flat .COM `name83` (the BARE 8.3 leaf) from the
+ * directory whose first data cluster is `dir_start` (0 == the fixed root) and
+ * RUNS it to completion (the child terminates via 4Ch / INT 20h and the loader
+ * regains control). On a clean run it returns 0 and writes the child's exit code
+ * to *out_rc; on a failure it returns a DOS error code (0x0002 file not found,
+ * 0x0008 insufficient memory / load already active -- nested EXEC, 0x000B bad
+ * format / too large) and leaves *out_rc unchanged.
+ *
+ * SUBDIR EXEC (beads initech-zs24, Landing 2): do_exec resolves the EDX path to
+ * a (containing-directory `dir_start`, bare leaf `name83`) pair through the SAME
+ * resolve seam OPEN/CREAT/UNLINK use (resolve_dir_path -> the file backend's
+ * resolve()), so EXEC honors absolute, CWD-relative, and '\SUB\FILE' paths
+ * identically to OPEN -- no second path grammar. The backend then locates the
+ * leaf in `dir_start` (the loader's fat12_find_slot_in; dir_start==0 keeps the
+ * historical root find byte-identical) and feeds the located entry's own cluster
+ * chain to load_program. `name83` is already the validated bare leaf (no '\'/':').
  *
  * `cmd_tail`/`cmd_tail_len` carry the command-tail TEXT (no count byte, no CR)
  * the loader writes to the child PSP:80h (beads initech-456); cmd_tail may be
  * NULL with cmd_tail_len 0 for a no-argument launch. The signature matches
  * loader.c load_program_from_fat so the kernel can bind it through one adapter. */
-typedef uint16_t (*int21_exec_fn)(const char *name83, const char *cmd_tail,
+typedef uint16_t (*int21_exec_fn)(const char *name83, uint16_t dir_start,
+                                  const char *cmd_tail,
                                   uint32_t cmd_tail_len, uint8_t *out_rc);
 
 /* Bind the EXEC backend (NULL clears it -> AH=4Bh returns file-not-found, as if

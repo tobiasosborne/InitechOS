@@ -70,15 +70,18 @@ static uint32_t low_dup(const char *s)
 /* --- The mock EXEC backend ----------------------------------------------- */
 static int      g_exec_called;
 static char     g_exec_name[64];
+static uint16_t g_exec_dir_start;/* the containing-dir cluster do_exec resolved   */
 static uint16_t g_exec_result;   /* the DOS error the mock returns (0 = success) */
 static uint8_t  g_exec_child_rc; /* the child rc the mock reports on success     */
 static char     g_exec_tail[160];/* the command tail TEXT the backend received   */
 static uint32_t g_exec_tail_len; /* its length (initech-456)                     */
 
-static uint16_t exec_mock(const char *name83, const char *cmd_tail,
+static uint16_t exec_mock(const char *name83, uint16_t dir_start,
+                          const char *cmd_tail,
                           uint32_t cmd_tail_len, uint8_t *out_rc)
 {
     g_exec_called = 1;
+    g_exec_dir_start = dir_start;
     g_exec_name[0] = '\0';
     if (name83) {
         size_t i = 0;
@@ -107,13 +110,54 @@ static uint16_t exec_mock(const char *name83, const char *cmd_tail,
 
 static void exec_reset(uint16_t result, uint8_t child_rc)
 {
-    g_exec_called   = 0;
-    g_exec_name[0]  = '\0';
-    g_exec_result   = result;
-    g_exec_child_rc = child_rc;
-    g_exec_tail[0]  = '\0';
-    g_exec_tail_len = 0;
+    g_exec_called    = 0;
+    g_exec_name[0]   = '\0';
+    g_exec_dir_start = 0xFFFFu;   /* sentinel: prove do_exec wrote the real value */
+    g_exec_result    = result;
+    g_exec_child_rc  = child_rc;
+    g_exec_tail[0]   = '\0';
+    g_exec_tail_len  = 0;
 }
+
+/* --- A MOCK resolve backend (beads initech-zs24) -------------------------- *
+ * The dispatch logic for SUBDIR EXEC lives in do_exec -> resolve_dir_path ->
+ * g_file->resolve (the file backend seam). With NO file backend bound (the
+ * default below), resolve_dir_path falls back to root-only (a bare name resolves
+ * to dir_start 0; any '\'/':' -> 0x0003) -- the pre-zs24 behavior the existing
+ * cases assert. To prove do_exec THREADS a resolved subdir cluster to the EXEC
+ * backend the SAME way OPEN does, this mock resolve maps "\SUB\GREET.COM" to
+ * (dir_start=7, leaf="GREET.COM"), a bare name to (dir_start=cwd_start,
+ * leaf=name), and a missing dir to 0x0003 -- a tiny stand-in for fat12_resolve_path
+ * (the REAL backend is exercised end-to-end by the in-emulator test-zs24-exec
+ * gate + the kernel test_fileio_subdir integration test). */
+#define MOCK_SUB_CLUSTER  7u
+static uint16_t resolve_mock(const char *path, uint16_t cwd_start,
+                             const char **out_leaf, uint16_t *out_dir_start)
+{
+    /* "\SUB\GREET.COM" -> dir_start=7, leaf points at "GREET.COM" within path. */
+    if (strncmp(path, "\\SUB\\", 5) == 0) {
+        const char *leaf = path + 5;
+        if (strchr(leaf, '\\') != NULL) {
+            return INT21_ERR_PATH_NOT_FOUND;   /* deeper than one level: unknown */
+        }
+        *out_leaf      = leaf;
+        *out_dir_start = MOCK_SUB_CLUSTER;
+        return 0u;
+    }
+    /* "\BADDIR\..." -> a missing directory component (DOS path-not-found). */
+    if (strncmp(path, "\\BADDIR\\", 8) == 0) {
+        return INT21_ERR_PATH_NOT_FOUND;
+    }
+    /* A bare root-relative name resolves to the CWD (root-relative, cwd_start). */
+    if (strchr(path, '\\') == NULL) {
+        *out_leaf      = path;
+        *out_dir_start = cwd_start;
+        return 0u;
+    }
+    return INT21_ERR_PATH_NOT_FOUND;
+}
+
+static const int21_file_backend_t g_resolve_backend = { .resolve = resolve_mock };
 
 #define CF_BIT 0x1u
 static int frame_cf(const int_frame_t *f) { return (f->eflags & CF_BIT) ? 1 : 0; }
@@ -144,6 +188,8 @@ int main(void)
         CHECK(g_exec_called == 1, "AH=4Bh AL=0 must reach the EXEC backend");
         CHECK_STR_EQ(g_exec_name, "GREET.COM",
                      "AH=4Bh passes the EDX path to the EXEC backend");
+        CHECK(g_exec_dir_start == 0u,
+              "AH=4Bh of a bare root name resolves dir_start=0 (root)");
         CHECK(frame_cf(&f) == 0, "AH=4Bh success (child ran+returned) clears CF");
     }
 
@@ -170,8 +216,11 @@ int main(void)
               "AH=4Dh is consuming: a second read returns 0");
     }
 
-    /* --- AH=4Bh with a subdir '\' in the path -> CF=1, AX=0x0003 (path not
-     *     found); the backend is NOT called (validation rejects first). ------- */
+    /* --- AH=4Bh with a subdir '\' in the path + NO resolve backend bound ->
+     *     CF=1, AX=0x0003 (path not found); the backend is NOT called. With no
+     *     file backend, resolve_dir_path falls back to root-only (the pre-zs24
+     *     behavior): a '\' cannot resolve -> 0x0003. (The subdir-RESOLVE path is
+     *     proven below once a mock resolve backend is bound.) ------------------ */
     {
         exec_reset(0u, 0u);
         uint32_t edx = low_dup("SUB\\GREET.COM");
@@ -180,14 +229,18 @@ int main(void)
         f.eax = 0x4B00u;
         f.edx = edx;
         int21_dispatch(&f);
-        CHECK(frame_cf(&f) == 1, "AH=4Bh with '\\' sets CF");
+        CHECK(frame_cf(&f) == 1, "AH=4Bh with '\\' + no resolve backend sets CF");
         CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
-              "AH=4Bh with '\\' returns AX=0x0003 (path not found)");
+              "AH=4Bh with '\\' + no resolve backend returns AX=0x0003");
         CHECK(g_exec_called == 0,
-              "AH=4Bh rejects a subdir path BEFORE calling the backend");
+              "AH=4Bh root-only fallback rejects a subdir path BEFORE the backend");
     }
 
-    /* --- AH=4Bh with a drive ':' in the path -> CF=1, AX=0x0003. ------------ */
+    /* --- AH=4Bh with a leading drive 'C:' -> the drive prefix is STRIPPED and the
+     *     remaining bare name resolves to the root, IDENTICALLY to do_open (beads
+     *     initech-zs24 -- EXEC path resolution must MATCH OPEN path resolution).
+     *     The backend IS called with leaf="GREET.COM", dir_start=0. Earlier EXEC
+     *     rejected any ':'; now it honors a drive letter the way OPEN does. ----- */
     {
         exec_reset(0u, 0u);
         uint32_t edx = low_dup("C:GREET.COM");
@@ -195,16 +248,20 @@ int main(void)
         int_frame_t f = fresh_frame();
         f.eax = 0x4B00u;
         f.edx = edx;
+        f.eflags |= CF_BIT;       /* preload CF=1 so we prove it is CLEARED */
         int21_dispatch(&f);
-        CHECK(frame_cf(&f) == 1, "AH=4Bh with ':' sets CF");
-        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
-              "AH=4Bh with ':' returns AX=0x0003");
-        CHECK(g_exec_called == 0, "AH=4Bh rejects a drive path before the backend");
+        CHECK(g_exec_called == 1,
+              "AH=4Bh strips the 'C:' drive and reaches the backend (matches OPEN)");
+        CHECK_STR_EQ(g_exec_name, "GREET.COM",
+                     "AH=4Bh passes the post-drive-strip leaf to the backend");
+        CHECK(g_exec_dir_start == 0u,
+              "AH=4Bh of 'C:GREET.COM' resolves dir_start=0 (root)");
+        CHECK(frame_cf(&f) == 0, "AH=4Bh 'C:GREET.COM' clears CF (drive stripped, ran)");
     }
 
     /* --- AH=4Bh with an OVERLENGTH path -> CF=1, AX=0x0003; runaway-guarded. *
      * A possibly-unterminated/oversized ASCIIZ pointer must not be scanned off
-     * into memory (Rule 2). path_has_subdir_or_drive bounds the scan at
+     * into memory (Rule 2). resolve_dir_path's path_overlength bounds the scan at
      * INT21_PATH_SCAN_MAX (128) and rejects anything longer BEFORE the backend.
      * 199 'A's (no '\' or ':') exceeds the bound -> rejected. The
      * INT21_MUTATE_PATHSCAN_NOBOUND mutant removes the bound -> the path passes
@@ -354,6 +411,64 @@ int main(void)
         CHECK(g_exec_called == 1, "AH=4Bh with no param block still runs");
         CHECK(g_exec_tail_len == 0u,
               "AH=4Bh with no EBX block -> empty tail (no-argument launch)");
+    }
+
+    /* --- SUBDIR EXEC dispatch (beads initech-zs24, Landing 2) ---------------- *
+     * Bind a mock resolve backend so do_exec resolves a '\SUB\FILE' path EXACTLY
+     * the way do_open does (resolve_dir_path -> g_file->resolve). The dispatcher
+     * must hand the EXEC backend the BARE LEAF + the resolved containing-directory
+     * cluster (NOT the whole path), so the loader can locate the .COM in that
+     * subdir. The REAL fat12_resolve_path stack + the actual subdir load are
+     * exercised end-to-end by the in-emulator test-zs24-exec gate; this proves the
+     * int21 dispatch WIRING (leaf + dir_start) deterministically and hosted. */
+    {
+        int21_set_file_backend(&g_resolve_backend);
+
+        /* (a) Absolute "\SUB\GREET.COM" -> backend gets leaf="GREET.COM",
+         *     dir_start=7 (the mock's SUB cluster). This is the load-bearing
+         *     assertion: a subdir EXEC threads the resolved cluster, not 0. */
+        exec_reset(0u, 9u);
+        uint32_t edx = low_dup("\\SUB\\GREET.COM");
+        CHECK(edx != 0u, "low_dup '\\SUB\\GREET.COM' buffer");
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4B00u;
+        f.edx = edx;
+        f.eflags |= CF_BIT;
+        int21_dispatch(&f);
+        CHECK(g_exec_called == 1,
+              "AH=4Bh '\\SUB\\GREET.COM' resolves + reaches the EXEC backend");
+        CHECK_STR_EQ(g_exec_name, "GREET.COM",
+                     "AH=4Bh hands the backend the BARE LEAF (not the whole path)");
+        CHECK(g_exec_dir_start == MOCK_SUB_CLUSTER,
+              "AH=4Bh threads the RESOLVED subdir cluster (=7) to the EXEC backend");
+        CHECK(frame_cf(&f) == 0, "AH=4Bh subdir EXEC clears CF on a clean run");
+
+        /* (b) A bare name with the CWD at root resolves dir_start=0 (cwd_start). */
+        exec_reset(0u, 0u);
+        uint32_t edx2 = low_dup("GREET.COM");
+        int_frame_t g = fresh_frame();
+        g.eax = 0x4B00u;
+        g.edx = edx2;
+        int21_dispatch(&g);
+        CHECK(g_exec_called == 1, "AH=4Bh bare name + resolve backend reaches backend");
+        CHECK(g_exec_dir_start == 0u,
+              "AH=4Bh bare name at root CWD resolves dir_start=0 (cwd_start)");
+
+        /* (c) A '\SUB\FILE' whose non-final component is MISSING -> 0x0003
+         *     (path not found), the backend is NOT called (resolve rejects). */
+        exec_reset(0u, 0u);
+        uint32_t edx3 = low_dup("\\BADDIR\\GREET.COM");
+        int_frame_t h = fresh_frame();
+        h.eax = 0x4B00u;
+        h.edx = edx3;
+        int21_dispatch(&h);
+        CHECK(frame_cf(&h) == 1, "AH=4Bh '\\BADDIR\\..' (missing dir) sets CF");
+        CHECK((uint16_t)(h.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
+              "AH=4Bh of a missing-dir subdir path returns AX=0x0003");
+        CHECK(g_exec_called == 0,
+              "AH=4Bh does not call the EXEC backend when the resolve fails");
+
+        int21_set_file_backend(NULL);   /* restore: leave no resolve backend bound */
     }
 
     return TEST_SUMMARY("test_exec");
