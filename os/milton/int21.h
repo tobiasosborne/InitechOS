@@ -40,6 +40,7 @@
 #define INT21_ERR_INSUFFICIENT_MEM  0x0008u  /* EXEC: no memory / load active (nested) */
 #define INT21_ERR_INVALID_MEMORY    0x0009u  /* bad user buffer ptr: NULL / 32-bit wrap (ADR-0003 DEC-14) */
 #define INT21_ERR_BAD_FORMAT        0x000Bu  /* EXEC: bad/oversized program image */
+#define INT21_ERR_CURRENT_DIR       0x0010u  /* RMDIR: target is the current dir (DOS "attempt to remove current directory") */
 #define INT21_ERR_NO_MORE_FILES     0x0012u  /* FINDFIRST/NEXT: no (more) match */
 
 /* Predefined device handles (no SFT yet -- the only handles this subset honors;
@@ -298,6 +299,25 @@ typedef struct int21_file_backend {
     uint16_t (*resolve_dir)(const char *path, uint16_t cwd_start,
                             uint16_t *out_dir_start, char *out_canon,
                             uint32_t canon_max);
+
+    /* MKDIR (beads initech-u6wa; AH=39h CREATE DIRECTORY): create the new
+     * subdirectory `name83` in the directory whose first data cluster is
+     * `dir_start_cluster` (0 == the fixed root; a NON-ROOT value is OUT OF SCOPE
+     * this landing -> 0x0003 PATH_NOT_FOUND, mirroring create()/unlink()). On
+     * success returns 0; an existing name -> 0x0005 (DOS MKDIR-exists); no write
+     * backend / dir full / full volume -> 0x0005. May be NULL on a read-only
+     * backend (the host read oracle binds NULL -> MKDIR returns access-denied). */
+    uint16_t (*mkdir)(const char *name83, uint16_t dir_start_cluster);
+
+    /* RMDIR (beads initech-u6wa; AH=3Ah REMOVE DIRECTORY): remove the EMPTY
+     * subdirectory `name83` from the directory whose first data cluster is
+     * `dir_start_cluster` (0 == the fixed root; a NON-ROOT value is OUT OF SCOPE
+     * -> 0x0003). On success returns 0; a missing dir / not-a-directory ->
+     * 0x0003; a NON-EMPTY directory -> 0x0005 (DOS RMDIR-non-empty). The
+     * current-directory and root-reject checks are the dispatcher's (it owns the
+     * CWD state); this seam only resolves + removes. May be NULL on a read-only
+     * backend. */
+    uint16_t (*rmdir)(const char *name83, uint16_t dir_start_cluster);
 } int21_file_backend_t;
 
 /* Bind the file backend (NULL clears it -> the file functions return

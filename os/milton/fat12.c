@@ -1871,6 +1871,288 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 }
 
 /* ======================================================================== *
+ * FAT12 subdirectory CREATE / REMOVE -- WRITE side (beads initech-u6wa)
+ *
+ * Ref (Law 1): the EMPIRICAL mtools 4.0.43 '.'/'..' layout (mmd-minted, triple-
+ *   confirmed in the differential oracle harness/diff/fat_diff/test_fat12_mkdir.c
+ *   -- NOT inferred): '.' name {0x2E,0x20*10} attr 0x10 start=OWN cluster size 0;
+ *   '..' name {0x2E,0x2E,0x20*9} attr 0x10 start=PARENT (ROOT encoded as 0, NOT
+ *   self, NOT 1) size 0; slot[2]=0x00 end-of-dir; the new dir's FAT entry = 0xFFF
+ *   (EOC). This matches the reader's start_cluster==0 => root normalization
+ *   (fat12_resolve_path / fat12_dir), so reader + writer are consistent.
+ *   docs/research/fat12-ground-truth.md Sec 4 (dir entry / '.'/'..'); ADR-0003
+ *   DEC-07; spec/dos_structs.h (DIR_ATTR_DIRECTORY); DOS 3.3 PRM AH=39h/3Ah.
+ * ======================================================================== */
+
+/* Build one of the canonical dotdir entries in `de`: `dots` == 1 for '.' (one
+ * leading 0x2E) or 2 for '..' (two leading 0x2E); the remainder of the 11-byte
+ * 8.3 field is space-padded; attr DIR; start_cluster = `start`; size 0; the
+ * date/time fields are the FIXED deterministic constant (Rule 11). */
+static void fat12_make_dotdir(dir_entry_t *de, int dots, uint16_t start)
+{
+	uint32_t k;
+	for (k = 0u; k < sizeof(*de); k++) {
+		((uint8_t *)de)[k] = 0u;
+	}
+	de->filename[0] = 0x2Eu;                 /* '.' */
+	if (dots == 2) {
+		de->filename[1] = 0x2Eu;         /* '..' second dot */
+	}
+	for (k = (dots == 2) ? 2u : 1u; k < 8u; k++) {
+		de->filename[k] = 0x20u;         /* space-pad the name field */
+	}
+	for (k = 0u; k < 3u; k++) {
+		de->extension[k] = 0x20u;        /* space-pad the extension field */
+	}
+	de->attribute     = DIR_ATTR_DIRECTORY;
+	de->mtime         = FAT12_FIXED_MTIME;   /* deterministic (Rule 11) */
+	de->mdate         = FAT12_FIXED_MDATE;
+	de->start_cluster = start;
+	de->file_size     = 0u;
+}
+
+int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                const char *name83, uint16_t parent_dir_start, void *sector_buf)
+{
+	uint8_t     want11[11];
+	uint32_t    free_slot = 0u;
+	int         have_free = 0;
+	uint32_t    match_slot = 0u;
+	dir_entry_t match;
+	int         found = 0;
+	int         rc;
+	uint16_t    newc;
+	uint32_t    bytes_per_cluster;
+	uint32_t    lba;
+	uint8_t    *cb;
+	uint32_t    k;
+	dir_entry_t de;
+
+	if (vol == NULL || name83 == NULL || sector_buf == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	if (vol->dev == NULL || vol->dev->write_sectors == NULL ||
+	    vol->dev->read_sectors == NULL) {
+		return FAT12_ERR_WRITE;
+	}
+	/* ROOT-PARENT ONLY this landing (beads initech-u6wa). A non-root parent is
+	 * a nested-MD concern (the dir-entry write would target a subdir cluster +
+	 * grow a subdir chain on overflow) -- deferred to initech-zs24. Fail loud
+	 * (Rule 2) rather than wrongly create in the root. The BACKEND
+	 * (fileio_fat.c fat_mkdir) gates this first and maps it to 0x0003 PATH_NOT
+	 * FOUND, mirroring fat_create/fat_unlink; this is the defense-in-depth at
+	 * the fat12 layer. */
+	if (parent_dir_start != 0u) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+
+	rc = parse_name83(name83, want11);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+
+	/* Reject a duplicate name in the parent (root). DOS MKDIR of an existing
+	 * name is an error (the backend maps FAT12_ERR_EXISTS to 0x0005). */
+	rc = fat12_scan_root(vol, sector_buf, want11, &free_slot, &have_free,
+	                     &match_slot, &match, &found);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (found) {
+		return FAT12_ERR_EXISTS;
+	}
+	if (!have_free) {
+		return FAT12_ERR_DIR_FULL;   /* root dir full */
+	}
+
+	/* Claim a free data cluster for the new directory and mark it EOC. */
+	newc = fat12_find_free(vol, fat, fat_len, FAT12_FIRST_DATA_CLUSTER);
+	if (newc == 0u) {
+		return FAT12_ERR_NO_SPACE;   /* full volume */
+	}
+#ifndef FAT12_MUTATE_MKDIR_NO_EOC
+	rc = fat12_set_entry(fat, fat_len, newc, FAT12_EOC_VALUE);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+#else
+	/* MUTANT m3 (Rule 6; make test-fat12-mkdir-mutant only): skip the EOC
+	 * set_entry so the new directory's FAT entry stays free (0x000). The
+	 * differential FAT-entry / free-count assertion must go RED. NEVER define in
+	 * a real build. */
+	rc = FAT12_OK;
+#endif
+	rc = fat12_flush_fats(vol, fat, fat_len);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+
+	/* Zero-fill the new cluster's data sectors, then lay '.' at offset 0 and
+	 * '..' at offset 32 (slot[2] stays 0x00 = end-of-directory). The '..' start
+	 * cluster is the PARENT: the root is encoded as 0 (the EMPIRICAL mtools rule;
+	 * matches the reader's 0 => root normalization). */
+	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
+	                    (uint32_t)vol->bpb.bytes_per_sector;
+	cb = (uint8_t *)sector_buf;
+	for (k = 0u; k < bytes_per_cluster; k++) {
+		cb[k] = 0u;
+	}
+	fat12_make_dotdir(&de, 1, newc);             /* '.'  -> own cluster */
+	for (k = 0u; k < 32u; k++) {
+		cb[k] = ((const uint8_t *)&de)[k];
+	}
+#ifndef FAT12_MUTATE_MKDIR_DOTDOT_SELF
+	fat12_make_dotdir(&de, 2, parent_dir_start); /* '..' -> parent (root=0) */
+#else
+	/* MUTANT m2 (Rule 6; make test-fat12-mkdir-mutant only) -- THE canonical
+	 * '..'-rule mutant: write '..' start = the dir's OWN cluster instead of the
+	 * parent (root encoded as 0). The mmd '..' diff must go RED. NEVER define in
+	 * a real build. */
+	fat12_make_dotdir(&de, 2, newc);
+#endif
+	for (k = 0u; k < 32u; k++) {
+		cb[32u + k] = ((const uint8_t *)&de)[k];
+	}
+
+	lba = BPB_CLUSTER_LBA(&vol->bpb, newc);
+	if (vol->dev->write_sectors(vol->dev->ctx, lba,
+	                            vol->bpb.sectors_per_cluster, cb) != 0) {
+		/* Roll back the allocation so a write failure leaves no orphan cluster
+		 * (Rule 2). */
+		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+		(void)fat12_flush_fats(vol, fat, fat_len);
+		return FAT12_ERR_WRITE;
+	}
+
+	/* Write the new directory's own entry into the parent (root) free slot. */
+	for (k = 0u; k < sizeof(de); k++) {
+		((uint8_t *)&de)[k] = 0u;
+	}
+	for (k = 0u; k < 8u; k++) {
+		de.filename[k] = want11[k];
+	}
+	for (k = 0u; k < 3u; k++) {
+		de.extension[k] = want11[8u + k];
+	}
+	de.attribute     = DIR_ATTR_DIRECTORY;
+	de.mtime         = FAT12_FIXED_MTIME;        /* deterministic (Rule 11) */
+	de.mdate         = FAT12_FIXED_MDATE;
+	de.start_cluster = newc;
+	de.file_size     = 0u;
+
+	rc = fat12_write_dirent(vol, free_slot, &de, sector_buf);
+	if (rc != FAT12_OK) {
+		/* The parent entry failed to land; roll back the data cluster. */
+		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+		(void)fat12_flush_fats(vol, fat, fat_len);
+		return rc;
+	}
+	return FAT12_OK;
+}
+
+/* Empty-check callback: count any surviving entry that is NOT '.' or '..'. A
+ * non-zero return stops the enumeration early (the dir is provably non-empty).
+ * fat12_read_dir already skips free/deleted/LFN slots, so every entry handed
+ * here is a real 8.3 name. (Compiled out under the m4 mutant, which omits the
+ * empty-check entirely -- so the callback would be unused; Rule 6.) */
+#ifndef FAT12_MUTATE_RMDIR_NO_EMPTYCHECK
+static int fat12_rmdir_empty_cb(const dir_entry_t *e, void *user)
+{
+	int *nonempty = (int *)user;
+	if (e->filename[0] == 0x2Eu &&
+	    (e->filename[1] == 0x20u ||
+	     (e->filename[1] == 0x2Eu && e->filename[2] == 0x20u))) {
+		return 0;   /* '.' or '..' -- expected; keep scanning */
+	}
+	*nonempty = 1;
+	return 1;           /* a real child entry -- stop, the dir is non-empty */
+}
+#endif /* !FAT12_MUTATE_RMDIR_NO_EMPTYCHECK */
+
+int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                const char *name83, uint16_t parent_dir_start, void *sector_buf)
+{
+	uint8_t     want11[11];
+	uint32_t    free_slot = 0u;
+	int         have_free = 0;
+	uint32_t    match_slot = 0u;
+	dir_entry_t match;
+	int         found = 0;
+	int         rc;
+	int         nonempty = 0;
+	fat12_dir_t target;
+
+	if (vol == NULL || name83 == NULL || sector_buf == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	if (vol->dev == NULL || vol->dev->write_sectors == NULL ||
+	    vol->dev->read_sectors == NULL) {
+		return FAT12_ERR_WRITE;
+	}
+	/* ROOT-PARENT ONLY this landing (beads initech-u6wa); a non-root parent ->
+	 * deferred to initech-zs24. The BACKEND gates this first and maps it to
+	 * 0x0003 PATH_NOT_FOUND (mirroring fat_unlink); defense-in-depth here. */
+	if (parent_dir_start != 0u) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+
+	rc = parse_name83(name83, want11);
+	if (rc != FAT12_OK) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	rc = fat12_scan_root(vol, sector_buf, want11, &free_slot, &have_free,
+	                     &match_slot, &match, &found);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (!found) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	/* RMDIR of a non-directory is path-not-found (DOS contract). */
+	if ((match.attribute & DIR_ATTR_DIRECTORY) == 0u) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+
+	/* VERIFY-EMPTY: enumerate the target's own cluster; only '.'/'..' may
+	 * survive. Any other entry -> non-empty (the backend maps to 0x0005). */
+	target.is_root = 0;
+	target.start_cluster = match.start_cluster;
+#ifndef FAT12_MUTATE_RMDIR_NO_EMPTYCHECK
+	rc = fat12_read_dir(vol, &target, sector_buf, fat, fat_len,
+	                    fat12_rmdir_empty_cb, &nonempty);
+	if (rc != FAT12_OK && rc != 1) {
+		/* fat12_read_dir returns the callback's non-zero (1) on an early stop;
+		 * any other non-OK is a real read/chain error (fail loud). */
+		return rc;
+	}
+	if (nonempty) {
+		return FAT12_ERR_NOT_EMPTY;
+	}
+#else
+	/* MUTANT m4 (Rule 6; make test-fat12-mkdir-mutant only): omit the empty-
+	 * check so RMDIR of a NON-EMPTY directory wrongly succeeds. The
+	 * RMDIR-non-empty assertion must go RED. NEVER define in a real build. */
+	(void)target; (void)nonempty;
+#endif
+
+	/* Free the target's cluster chain (the '.'/'..' cluster), flush both FATs. */
+	if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {
+		rc = fat12_free_chain(vol, fat, fat_len, match.start_cluster);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		rc = fat12_flush_fats(vol, fat, fat_len);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+	}
+
+	/* Mark the parent's dir entry deleted (filename[0] = 0xE5). */
+	match.filename[0] = DIR_NAME_DELETED;
+	return fat12_write_dirent(vol, match_slot, &match, sector_buf);
+}
+
+/* ======================================================================== *
  * FAT12 subdirectory / path traversal -- READ side (beads initech-ti8)
  *
  * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (cluster chain decode,

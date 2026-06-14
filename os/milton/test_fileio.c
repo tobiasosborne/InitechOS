@@ -141,7 +141,15 @@ typedef struct mock_file {
 #define DEEP_CLUSTER 3u   /* the DEEP subdirectory inside SUB (beads initech-u6wa) */
 static const char *HELLO_DATA  = "Hello from InitechOS test file.\n";
 static const char *NESTED_DATA = "Nested file inside SUB.\n";
-static mock_file_t g_mock[7];
+/* Slots 0..6 are the stable NESTED namespace below (MOCK_N == 7). Slots 7..8 are
+ * spares the MKDIR mock (beads initech-u6wa) claims for a freshly-created
+ * directory + the new directory's own '.'/'..' cluster placeholder. */
+static mock_file_t g_mock[9];
+
+/* A cluster id the MKDIR mock assigns to a newly-created root directory (any
+ * value distinct from 0/SUB_CLUSTER/DEEP_CLUSTER; the do_rmdir CWD guard
+ * compares the target start_cluster against g_cwd_start_cluster). */
+#define NEWDIR_CLUSTER 7u
 
 static void mock_reset_dir(void)
 {
@@ -176,6 +184,12 @@ static void mock_reset_dir(void)
     g_mock[6].size = 0; g_mock[6].dir = SUB_CLUSTER; g_mock[6].start = DEEP_CLUSTER; g_mock[6].present = 1;
 }
 #define MOCK_N 7u
+/* The full slot count INCLUDING the MKDIR spares (7..8). The stable root/subdir
+ * ENUMERATION (mock_dir_entry) stays bounded by MOCK_N so the FINDFIRST tests are
+ * byte-identical; the NAME LOOKUP (mock_find_in_dir) + the MKDIR/RMDIR mocks scan
+ * all MOCK_SLOTS so a freshly-created directory is visible to the resolve seam
+ * and the rmdir leaf lookup (beads initech-u6wa). */
+#define MOCK_SLOTS 9u
 
 static void fill_dir_entry(const mock_file_t *m, dir_entry_t *de)
 {
@@ -194,7 +208,7 @@ static void fill_dir_entry(const mock_file_t *m, dir_entry_t *de)
  * OPEN/UNLINK in '\SUB' see only SUB's files (beads initech-mzxa). */
 static int mock_find_in_dir(const char *name83, uint16_t dir)
 {
-    for (uint32_t i = 0; i < MOCK_N; i++) {
+    for (uint32_t i = 0; i < MOCK_SLOTS; i++) {
         if (!g_mock[i].present || g_mock[i].name8 == NULL) continue;
         if (g_mock[i].dir != dir) continue;
         char fmt[13];
@@ -493,16 +507,24 @@ static uint16_t mock_resolve_dir(const char *path, uint16_t cwd_start,
                        (comp[2]=='E'||comp[2]=='e') && (comp[3]=='P'||comp[3]=='p')) {
                 cur = DEEP_CLUSTER;
             } else if (mock_find_in_dir(comp, cur) >= 0) {
-                /* The component IS a real entry in `cur` but NOT a directory (a
-                 * regular file like NESTED.TXT) -> the DIR_ATTR_DIRECTORY gate:
-                 * CHDIR into a file is path-not-found. The m1 mutant skips this
-                 * gate so 'CD \SUB\NESTED.TXT' wrongly SUCCEEDS and the
-                 * "CD into a file -> 0x0003" assertion goes RED (Rule 6). */
+                int fi = mock_find_in_dir(comp, cur);
+                if ((g_mock[fi].attr & DIR_ATTR_DIRECTORY) != 0) {
+                    /* A real DIRECTORY entry in `cur` (e.g. a MKDIR-created
+                     * NEWDIR; beads initech-u6wa): descend into its own cluster
+                     * so RMDIR's CWD/root guard can resolve the target. */
+                    cur = g_mock[fi].start;
+                } else {
+                    /* The component IS a real entry in `cur` but NOT a directory (a
+                     * regular file like NESTED.TXT) -> the DIR_ATTR_DIRECTORY gate:
+                     * CHDIR into a file is path-not-found. The m1 mutant skips this
+                     * gate so 'CD \SUB\NESTED.TXT' wrongly SUCCEEDS and the
+                     * "CD into a file -> 0x0003" assertion goes RED (Rule 6). */
 #ifndef INT21_MUTATE_CHDIR_NOATTR
-                return 0x0003u;
+                    return 0x0003u;
 #else
-                /* MUTANT m1: treat the file as a no-op success (stay in `cur`). */
+                    /* MUTANT m1: treat the file as a no-op success (stay). */
 #endif
+                }
             } else {
                 /* A missing name -> path not found. */
                 return 0x0003u;
@@ -524,13 +546,76 @@ static uint16_t mock_resolve_dir(const char *path, uint16_t cwd_start,
     return 0u;
 }
 
+/* ---- mock MKDIR / RMDIR backend (beads initech-u6wa; AH=39h/3Ah) ---------- *
+ * Root-parent only (dir_start_cluster != 0 -> 0x0003, mirroring the real
+ * backend's deferral to initech-zs24). MKDIR claims spare slot 7 for the new
+ * DIRECTORY entry in the root (attr DIR, start_cluster == NEWDIR_CLUSTER);
+ * RMDIR removes a named EMPTY root directory (an empty dir has no g_mock entry
+ * whose dir == its start). The created dir is visible to the resolve seam (for
+ * the do_rmdir CWD/root guard) and to FINDFIRST via mock_find_in_dir. */
+static char g_mkdir_nm8[9];
+static char g_mkdir_ex3[4];
+
+static uint16_t mock_mkdir(const char *name83, uint16_t dir_start_cluster)
+{
+    if (dir_start_cluster != 0u) return 0x0003u;  /* non-root parent (zs24) */
+    /* Duplicate name in the root -> DOS MKDIR-exists (0x0005). */
+    if (mock_find_in_dir(name83, 0u) >= 0) return 0x0005u;
+    /* Parse name83 into the new slot's 8.3 fields. */
+    memset(g_mkdir_nm8, ' ', 8); g_mkdir_nm8[8] = '\0';
+    memset(g_mkdir_ex3, ' ', 3); g_mkdir_ex3[3] = '\0';
+    int i = 0, j = 0;
+    for (; name83[i] && name83[i] != '.' && j < 8; i++, j++) {
+        char c = name83[i]; if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        g_mkdir_nm8[j] = c;
+    }
+    while (name83[i] && name83[i] != '.') i++;
+    if (name83[i] == '.') {
+        i++; j = 0;
+        for (; name83[i] && j < 3; i++, j++) {
+            char c = name83[i]; if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+            g_mkdir_ex3[j] = c;
+        }
+    }
+    int idx = 7;                       /* the MKDIR spare slot */
+    g_mock[idx].name8   = g_mkdir_nm8;
+    g_mock[idx].ext3    = g_mkdir_ex3;
+    g_mock[idx].attr    = DIR_ATTR_DIRECTORY;
+    g_mock[idx].size    = 0;
+    g_mock[idx].dir     = 0u;           /* lives in the root */
+    g_mock[idx].start   = NEWDIR_CLUSTER;
+    g_mock[idx].present = 1;
+    return 0u;
+}
+
+static uint16_t mock_rmdir(const char *name83, uint16_t dir_start_cluster)
+{
+    if (dir_start_cluster != 0u) return 0x0003u;  /* non-root parent (zs24) */
+    int idx = mock_find_in_dir(name83, 0u);
+    if (idx < 0) return 0x0003u;                  /* missing dir -> path not found */
+    if ((g_mock[idx].attr & DIR_ATTR_DIRECTORY) == 0) return 0x0003u; /* not a dir */
+    /* VERIFY-EMPTY: any present entry whose containing dir == this dir's start
+     * cluster makes it non-empty (the real backend enumerates the cluster; the
+     * mock checks the directory-scope field). */
+    for (uint32_t k = 0; k < MOCK_SLOTS; k++) {
+        if (!g_mock[k].present) continue;
+        if (g_mock[k].dir == g_mock[idx].start) {
+            return 0x0005u;            /* non-empty -> DOS RMDIR-non-empty */
+        }
+    }
+    g_mock[idx].present = 0;            /* removed */
+    return 0u;
+}
+
 static const int21_file_backend_t g_mock_backend = {
     mock_open, mock_read_at, mock_dir_entry,
     mock_create, mock_write_at, mock_close, mock_unlink,
     NULL,  /* freespace: not exercised by the read/write file oracle (AH=36h is
               covered end-to-end on the emulator, make test-datetime) */
     mock_resolve,     /* the path->containing-directory seam (beads initech-mzxa) */
-    mock_resolve_dir  /* the path->DIRECTORY seam for CHDIR (beads initech-u6wa) */
+    mock_resolve_dir, /* the path->DIRECTORY seam for CHDIR (beads initech-u6wa) */
+    mock_mkdir,       /* AH=39h MKDIR (beads initech-u6wa) */
+    mock_rmdir        /* AH=3Ah RMDIR (beads initech-u6wa) */
 };
 
 int main(void)
@@ -1093,6 +1178,151 @@ int main(void)
         }
     }
 
+    /* --- AH=39h MKDIR + AH=3Ah RMDIR (beads initech-u6wa): create/remove a
+     *     directory through the REAL int21_dispatch -> do_mkdir/do_rmdir ->
+     *     the backend mkdir/rmdir seam, with the dispatcher-level RMDIR guards
+     *     (root-reject + current-dir). The CWD is at the root from the CHDIR
+     *     block above. Reset the mock namespace so the MKDIR spare (slot 7) is
+     *     clean. -------------------------------------------------------------- */
+    {
+        mock_reset_dir();
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+
+        /* (a) MKDIR '\NEWDIR' in the root -> success, CF clear. */
+        {
+            uint32_t edx = low_dup("\\NEWDIR");
+            int_frame_t m = fresh_frame();
+            m.eax = 0x3900u; m.edx = edx; m.eflags |= CF_BIT;
+            int21_dispatch(&m);
+            CHECK(frame_cf(&m) == 0, "MKDIR '\\NEWDIR' clears CF (created in the root)");
+        }
+
+        /* (b) After MKDIR, the directory is findable in the root namespace. */
+        CHECK(mock_find_in_dir("NEWDIR", 0u) >= 0,
+              "after MKDIR, NEWDIR is present in the root (round-trip create leg)");
+
+        /* (c) MKDIR an EXISTING name -> CF=1, AX=0x0005 (DOS MKDIR-exists, NOT
+         *     0x0003). 'SUB' already exists in the root. */
+        {
+            uint32_t edx = low_dup("\\SUB");
+            int_frame_t m = fresh_frame();
+            m.eax = 0x3900u; m.edx = edx;
+            int21_dispatch(&m);
+            CHECK(frame_cf(&m) == 1, "MKDIR of an existing name sets CF");
+            CHECK((uint16_t)(m.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+                  "MKDIR '\\SUB' (exists) -> AX=0x0005 (access denied, not 0x0003)");
+        }
+
+        /* (d) MKDIR with a NON-ROOT parent ('\SUB\NEW') -> the backend's
+         *     dir_start!=0 guard returns 0x0003 (nested MD deferred to zs24). */
+        {
+            uint32_t edx = low_dup("\\SUB\\NEW");
+            int_frame_t m = fresh_frame();
+            m.eax = 0x3900u; m.edx = edx;
+            int21_dispatch(&m);
+            CHECK(frame_cf(&m) == 1, "MKDIR in a subdir sets CF (out of scope)");
+            CHECK((uint16_t)(m.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
+                  "MKDIR '\\SUB\\NEW' (non-root parent) -> AX=0x0003");
+        }
+
+        /* (e) RMDIR of the ROOT '\' -> CF=1, AX=0x0010 (cannot remove root). */
+        {
+            uint32_t edx = low_dup("\\");
+            int_frame_t r = fresh_frame();
+            r.eax = 0x3A00u; r.edx = edx;
+            int21_dispatch(&r);
+            CHECK(frame_cf(&r) == 1, "RMDIR '\\' (root) sets CF");
+            CHECK((uint16_t)(r.eax & 0xFFFFu) == INT21_ERR_CURRENT_DIR,
+                  "RMDIR '\\' (root) -> AX=0x0010 (cannot remove the root)");
+        }
+
+        /* (f) RMDIR of a NON-EMPTY directory ('\SUB' holds NESTED.TXT) -> CF=1,
+         *     AX=0x0005 (DOS RMDIR-non-empty, NOT 0x0010). */
+        {
+            uint32_t edx = low_dup("\\SUB");
+            int_frame_t r = fresh_frame();
+            r.eax = 0x3A00u; r.edx = edx;
+            int21_dispatch(&r);
+            CHECK(frame_cf(&r) == 1, "RMDIR of a non-empty dir sets CF");
+            CHECK((uint16_t)(r.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+                  "RMDIR '\\SUB' (non-empty) -> AX=0x0005 (access denied, not 0x0010)");
+        }
+
+        /* (g) RMDIR of a MISSING directory -> CF=1, AX=0x0003 (path not found). */
+        {
+            uint32_t edx = low_dup("\\NODIR");
+            int_frame_t r = fresh_frame();
+            r.eax = 0x3A00u; r.edx = edx;
+            int21_dispatch(&r);
+            CHECK(frame_cf(&r) == 1, "RMDIR of a missing dir sets CF");
+            CHECK((uint16_t)(r.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
+                  "RMDIR '\\NODIR' (missing) -> AX=0x0003");
+        }
+
+        /* (h) RMDIR of the CURRENT directory -> CF=1, AX=0x0010. CD into NEWDIR
+         *     first (it is empty), then RMDIR it while it IS the CWD. */
+        {
+            uint32_t cdx = low_dup("\\NEWDIR");
+            int_frame_t cd = fresh_frame();
+            cd.eax = 0x3B00u; cd.edx = cdx; cd.eflags |= CF_BIT;
+            int21_dispatch(&cd);
+            CHECK(frame_cf(&cd) == 0, "CD '\\NEWDIR' clears CF (so it becomes the CWD)");
+
+            uint32_t edx = low_dup("\\NEWDIR");
+            int_frame_t r = fresh_frame();
+            r.eax = 0x3A00u; r.edx = edx;
+            int21_dispatch(&r);
+            CHECK(frame_cf(&r) == 1, "RMDIR of the current directory sets CF");
+            CHECK((uint16_t)(r.eax & 0xFFFFu) == INT21_ERR_CURRENT_DIR,
+                  "RMDIR '\\NEWDIR' while it is the CWD -> AX=0x0010");
+
+            /* CD back to the root so the empty-RMDIR leg is not the CWD. CD '..'
+             * from '\NEWDIR' (whose parent is the root) lands on the root; a bare
+             * CD '\' is a DOS no-op (stay), so '..' is the explicit way up. */
+            uint32_t backx = low_dup("..");
+            int_frame_t back = fresh_frame();
+            back.eax = 0x3B00u; back.edx = backx; back.eflags |= CF_BIT;
+            int21_dispatch(&back);
+            CHECK(frame_cf(&back) == 0, "CD '..' back to the root clears CF");
+        }
+
+        /* (i) RMDIR of the now-EMPTY '\NEWDIR' from the root -> success, CF clear;
+         *     and afterwards it is GONE (round-trip remove leg). */
+        {
+            uint32_t edx = low_dup("\\NEWDIR");
+            int_frame_t r = fresh_frame();
+            r.eax = 0x3A00u; r.edx = edx; r.eflags |= CF_BIT;
+            int21_dispatch(&r);
+            CHECK(frame_cf(&r) == 0, "RMDIR '\\NEWDIR' (empty, not the CWD) clears CF");
+            CHECK(mock_find_in_dir("NEWDIR", 0u) < 0,
+                  "after RMDIR, NEWDIR is GONE from the root (round-trip remove leg)");
+        }
+
+        /* (j) RMDIR with NO write backend -> CF=1, AX=0x0005 (access denied). */
+        {
+            static const int21_file_backend_t ro2 = {
+                mock_open, mock_read_at, mock_dir_entry,
+                NULL, NULL, NULL, NULL, NULL,
+                mock_resolve, mock_resolve_dir, NULL, NULL };
+            mock_reset_dir();
+            bind_standard_process();
+            int21_set_file_backend(&ro2);
+            uint32_t edx = low_dup("\\SUB");
+            int_frame_t r = fresh_frame();
+            r.eax = 0x3A00u; r.edx = edx;
+            int21_dispatch(&r);
+            CHECK(frame_cf(&r) == 1, "RMDIR with no rmdir backend sets CF");
+            CHECK((uint16_t)(r.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+                  "RMDIR with no rmdir backend -> AX=0x0005 (access denied)");
+            int21_set_file_backend(&g_mock_backend);
+        }
+
+        /* Reset the CWD + namespace for the subsequent WRITE-path block. */
+        int21_cwd_reset();
+        mock_reset_dir();
+    }
+
     /* --- WRITE path (beads initech-0qh, positioned): CREAT + WRITE(s) + CLOSE,
      *     then re-OPEN + READ BACK through the dispatcher (proves the positioned
      *     write committed). Plus a positioned OVERWRITE via LSEEK to prove
@@ -1256,7 +1486,8 @@ int main(void)
          * clearing the write hooks via a local read-only vtable. */
         static const int21_file_backend_t ro = { mock_open, mock_read_at, mock_dir_entry,
                                                   NULL, NULL, NULL, NULL, NULL,
-                                                  mock_resolve, mock_resolve_dir };
+                                                  mock_resolve, mock_resolve_dir,
+                                                  NULL, NULL /* mkdir/rmdir: read-only */ };
         mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&ro);

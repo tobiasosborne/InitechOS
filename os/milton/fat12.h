@@ -524,6 +524,82 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, void *sector_buf);
 
 /* ======================================================================== *
+ * FAT12 subdirectory CREATE / REMOVE -- WRITE side (beads initech-u6wa)
+ *
+ * AH=39h MKDIR / AH=3Ah RMDIR over a ROOT-PARENT directory only: the new (or
+ * removed) directory's PARENT is the fixed root. A non-root `parent_dir_start`
+ * is OUT OF SCOPE for this landing (nested MD '\\SUB\\NEW' -> deferred to beads
+ * initech-zs24) and returns FAT12_ERR_NOT_FOUND (which the backend maps to the
+ * DOS 0x0003 PATH_NOT_FOUND), mirroring the existing
+ * fat12_create/fat12_unlink root-only WRITE-side guard. The directory ENTRY
+ * model below is the EMPIRICAL mtools 4.0.43 layout (mmd-minted, triple-
+ * confirmed -- NOT inferred), so the artifact's writer is byte-identical to
+ * mtools' on the meaningful bytes (name/attr/start_cluster/size + the EOC FAT
+ * link); the implementation-specific mtime/mdate are stamped FIXED (Rule 11)
+ * and normalized away before the differential diff.
+ * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 4 (dir entry / '.'/'..');
+ *   ADR-0003 DEC-07 (root dir is a FIXED region, subdirs are cluster chains);
+ *   spec/dos_structs.h (DIR_ATTR_DIRECTORY); DOS 3.3 PRM AH=39h/3Ah.
+ * ======================================================================== */
+
+/* Reserved signal returns (beyond the FAT12_ERR_* set above) the WRITE-side
+ * mkdir/rmdir use so the backend can map them to the right DOS code:
+ *   FAT12_ERR_EXISTS    (reused) -> MKDIR: a name of that 8.3 already exists in
+ *                                  the parent (the backend maps it to 0x0005
+ *                                  ACCESS_DENIED -- DOS MKDIR-exists).
+ *   FAT12_ERR_NOT_EMPTY (new)    -> RMDIR: the target directory still holds an
+ *                                  entry other than '.'/'..' (the backend maps
+ *                                  it to 0x0005 ACCESS_DENIED -- DOS RMDIR of a
+ *                                  non-empty directory). */
+#define FAT12_ERR_NOT_EMPTY (-15)
+
+/*
+ * fat12_mkdir: create a new subdirectory `name83` whose PARENT is the directory
+ * at first data cluster `parent_dir_start` (0 == the fixed root; a NON-ROOT
+ * value is OUT OF SCOPE -> FAT12_ERR_PATH_NOT_FOUND this landing). Steps:
+ *   - reject a duplicate name in the parent (scan_root match) -> FAT12_ERR_EXISTS;
+ *   - claim a free data cluster (find_free), set its FAT entry to EOC (0xFFF)
+ *     and flush both FAT copies;
+ *   - ZERO-FILL the new cluster's data sectors, then write the two canonical
+ *     directory entries at offsets 0 and 32:
+ *       '.'  name {0x2E, 0x20*10}, attr 0x10, start_cluster = the new cluster,
+ *            size 0;
+ *       '..' name {0x2E,0x2E, 0x20*9}, attr 0x10, start_cluster = parent_dir_start
+ *            (0 for the root -- the EMPIRICAL mtools rule: ROOT is encoded as 0,
+ *            NOT self, NOT 1), size 0;
+ *     slot[2] stays 0x00 (end-of-directory); both '.'/'..' carry the FIXED
+ *     mtime/mdate (Rule 11);
+ *   - write the new directory's own 8.3 entry (DIR_ATTR_DIRECTORY,
+ *     start_cluster = the new cluster, size 0) into the PARENT (scan_root free
+ *     slot + write_dirent).
+ *
+ * `fat`/`fat_len` is the whole-FAT buffer (mutated; both copies flushed);
+ * `sector_buf` (>= sectors_per_cluster*512) is scratch for the zero-fill +
+ * dotdir write. Fail loud (Rule 2): no free cluster -> FAT12_ERR_NO_SPACE;
+ * parent dir full -> FAT12_ERR_DIR_FULL; bad name -> FAT12_ERR_NOT_FOUND; no
+ * write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on success. */
+int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                const char *name83, uint16_t parent_dir_start, void *sector_buf);
+
+/*
+ * fat12_rmdir: remove the EMPTY subdirectory `name83` whose PARENT is the
+ * directory at first data cluster `parent_dir_start` (0 == the fixed root; a
+ * NON-ROOT value is OUT OF SCOPE -> FAT12_ERR_PATH_NOT_FOUND). Steps:
+ *   - locate `name83` in the parent (scan_root match); a missing name OR a
+ *     match that is NOT a directory -> FAT12_ERR_NOT_FOUND;
+ *   - VERIFY-EMPTY by enumerating the target's own cluster (fat12_read_dir):
+ *     only '.' and '..' may survive; any other entry -> FAT12_ERR_NOT_EMPTY;
+ *   - free the target's cluster chain (free_chain) + flush both FAT copies;
+ *   - mark the parent's dir slot deleted (filename[0] = 0xE5).
+ *
+ * `fat`/`fat_len` is the whole-FAT buffer (mutated; both copies flushed);
+ * `sector_buf` (>= sectors_per_cluster*512) is scratch for the parent scan +
+ * the empty-check enumeration. Fail loud (Rule 2): NULL -> FAT12_ERR_NULL; no
+ * write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on success. */
+int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                const char *name83, uint16_t parent_dir_start, void *sector_buf);
+
+/* ======================================================================== *
  * FAT12 subdirectory / path traversal -- READ side (beads initech-ti8)
  *
  * Layer 1 of subdirectory support: enumerate ANY directory (root OR a subdir

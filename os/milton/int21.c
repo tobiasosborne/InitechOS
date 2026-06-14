@@ -1171,6 +1171,142 @@ static void do_unlink(int_frame_t *f)
     cf_clear(f);
 }
 
+/* AH=39h MKDIR (CREATE DIRECTORY): EDX = flat ptr to an ASCIIZ path. Resolve the
+ * path to its CONTAINING directory (the new dir does not exist yet) via the
+ * resolve seam and create the bare leaf there through the backend mkdir member.
+ * ROOT-PARENT ONLY this landing (a non-root parent -> the backend's dir_start!=0
+ * guard returns 0x0003; nested MD is beads initech-zs24). CF clear on success;
+ * CF=1, AX=0x0003 (bad path component / no backend) / 0x0005 (name already
+ * exists, dir full, full volume, read-only). The AH=59h dispatch wrapper
+ * auto-notes CF+AX so no int21_note_error here. Ref: DOS 3.3 PRM AH=39h; PRD
+ * Sec 6.5 (DOS path model); beads initech-u6wa. */
+static void do_mkdir(int_frame_t *f)
+{
+    const char *path = (const char *)(uintptr_t)f->edx;
+
+    if (path == 0 || *path == '\0') {
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    /* Resolve the CONTAINING directory + bare leaf (the new dir name). A
+     * missing/non-dir parent component or an overlength path -> 0x0003. */
+    const char *leaf      = path;
+    uint16_t    dir_start = 0u;
+    uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
+    if (perr != 0u) {
+        set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
+        cf_set(f);
+        return;
+    }
+    if (g_file == 0 || g_file->mkdir == 0) {
+        /* No write backing (read-only volume / no volume) -> access denied
+         * (Rule 2: never a silent success that drops the directory). */
+        set_ax(f, INT21_ERR_ACCESS_DENIED);
+        cf_set(f);
+        return;
+    }
+
+    uint16_t err = g_file->mkdir(leaf, dir_start);
+    if (err != 0) {
+        set_ax(f, err);                  /* 0x0005 exists / 0x0003 non-root parent */
+        cf_set(f);
+        return;
+    }
+    cf_clear(f);
+}
+
+/* AH=3Ah RMDIR (REMOVE DIRECTORY): EDX = flat ptr to an ASCIIZ path. Resolve the
+ * FULL path to the TARGET directory (resolve_dir seam) for the two dispatcher-
+ * level guards, then resolve its CONTAINING directory + bare leaf (resolve seam)
+ * and remove it through the backend rmdir member (which verifies the directory
+ * is empty). ROOT-PARENT ONLY this landing (a non-root parent -> the backend's
+ * dir_start!=0 guard returns 0x0003; nested RD is beads initech-zs24).
+ * Dispatcher-level guards (it owns the CWD state):
+ *   - RMDIR of the ROOT ('\' / '' / a path resolving to the root) -> reject with
+ *     0x0010 (DOS forbids removing the root, like the current dir);
+ *   - RMDIR whose TARGET start_cluster == the current g_cwd_start_cluster ->
+ *     0x0010 (DOS "attempt to remove the current directory").
+ * Backend errors: 0x0003 (missing dir / not a directory / non-root parent),
+ * 0x0005 (the directory is not empty). CF clear on success. The AH=59h dispatch
+ * wrapper auto-notes CF+AX. Ref: DOS 3.3 PRM AH=3Ah; beads initech-u6wa. */
+static void do_rmdir(int_frame_t *f)
+{
+    const char *path = (const char *)(uintptr_t)f->edx;
+
+    if (path == 0 || *path == '\0') {
+        /* An empty path names no directory (the root cannot be removed). */
+        set_ax(f, INT21_ERR_CURRENT_DIR);
+        cf_set(f);
+        return;
+    }
+    /* A bare root '\' is the root directory -- never removable. */
+    if (path[0] == '\\' && path[1] == '\0') {
+        set_ax(f, INT21_ERR_CURRENT_DIR);
+        cf_set(f);
+        return;
+    }
+
+    if (path_overlength(path)) {
+        set_ax(f, INT21_ERR_PATH_NOT_FOUND);     /* runaway / unterminated ptr */
+        cf_set(f);
+        return;
+    }
+
+    if (g_file == 0 || g_file->rmdir == 0) {
+        set_ax(f, INT21_ERR_ACCESS_DENIED);
+        cf_set(f);
+        return;
+    }
+
+    /* Resolve the FULL path to the TARGET directory's own start cluster (0 ==
+     * root) for the root-reject + current-dir guards. resolve_dir validates the
+     * final component IS a directory; a missing dir / a path into a file ->
+     * 0x0003. With no resolve_dir bound, fall through to the backend resolve. */
+    if (g_file->resolve_dir != 0) {
+        uint16_t target_start = 0xFFFFu;
+        char     canon[INT21_CWD_MAX];
+        uint16_t rerr = g_file->resolve_dir(path, g_cwd_start_cluster,
+                                            &target_start, canon,
+                                            (uint32_t)sizeof(canon));
+        if (rerr != 0u) {
+            set_ax(f, INT21_ERR_PATH_NOT_FOUND); /* missing dir / not a dir */
+            cf_set(f);
+            return;
+        }
+        if (target_start == 0u) {
+            /* The path resolved to the ROOT (e.g. '\SUB\..') -- not removable. */
+            set_ax(f, INT21_ERR_CURRENT_DIR);
+            cf_set(f);
+            return;
+        }
+        if (target_start == g_cwd_start_cluster) {
+            /* DOS forbids removing the directory you are currently in. */
+            set_ax(f, INT21_ERR_CURRENT_DIR);
+            cf_set(f);
+            return;
+        }
+    }
+
+    /* Resolve the CONTAINING directory + bare leaf for the backend remove. */
+    const char *leaf      = path;
+    uint16_t    dir_start = 0u;
+    uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
+    if (perr != 0u) {
+        set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
+        cf_set(f);
+        return;
+    }
+
+    uint16_t err = g_file->rmdir(leaf, dir_start);
+    if (err != 0) {
+        set_ax(f, err);                  /* 0x0005 non-empty / 0x0003 non-root */
+        cf_set(f);
+        return;
+    }
+    cf_clear(f);
+}
+
 /* AH=3Fh READ: EBX=handle, ECX=count, EDX=flat ptr to buffer. POSITIONED read
  * of up to `count` bytes from the per-handle file_offset over the cluster chain
  * (backend read_at via fat12_read_partial -- no whole-file buffer; beads
@@ -2202,6 +2338,13 @@ static void do_geterr(int_frame_t *f)
         cls = 0x0Bu;   /* MEDIA / access   */
         act = 0x04u;   /* ABORT            */
         locus = 0x02u;
+    } else if (code == INT21_ERR_CURRENT_DIR) {
+        /* RMDIR of the current/root directory (beads initech-u6wa). Same access
+         * family + abort action as access-denied (the operation cannot proceed),
+         * on the block device (the disk directory). */
+        cls = 0x0Bu;   /* MEDIA / access   */
+        act = 0x04u;   /* ABORT            */
+        locus = 0x02u; /* BLOCK DEVICE (disk) */
     } else if (code == INT21_ERR_INVALID_HANDLE ||
                code == INT21_ERR_TOO_MANY_OPEN) {
         cls = 0x09u;   /* BAD FORMAT / resource */
@@ -2446,6 +2589,12 @@ static void int21_dispatch_body(int_frame_t *frame)
             return;
         case 0x40:                       /* WRITE TO FILE/DEVICE */
             do_write(frame);
+            return;
+        case 0x39:                       /* MKDIR (create directory) */
+            do_mkdir(frame);
+            return;
+        case 0x3A:                       /* RMDIR (remove directory) */
+            do_rmdir(frame);
             return;
         case 0x41:                       /* UNLINK (delete file) */
             do_unlink(frame);

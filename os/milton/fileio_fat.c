@@ -364,6 +364,60 @@ static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
     return 0u;
 }
 
+/* MKDIR (AH=39h CREATE DIRECTORY): create the new subdirectory `name83` in the
+ * directory `dir_start_cluster` (0 == root). ROOT-PARENT ONLY this landing: a
+ * non-root parent fails cleanly with 0x0003 (mirroring fat_create -- nested MD
+ * is the WRITE-side follow-up beads initech-zs24). fat12_mkdir maps:
+ *   FAT12_ERR_EXISTS    -> 0x0005 (DOS MKDIR-exists);
+ *   FAT12_ERR_DIR_FULL  -> 0x0005 (parent dir full -- access denied for MKDIR);
+ *   FAT12_OK            -> 0;
+ *   any other error     -> 0x0005 (bad name / no space / write error). */
+static uint16_t fat_mkdir(const char *name83, uint16_t dir_start_cluster)
+{
+    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+        return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
+    }
+    if (dir_start_cluster != 0u) {
+        return FILEIO_ERR_PATH_NOT_FOUND;  /* non-root parent: deferred (zs24) */
+    }
+    int rc = fat12_mkdir(g_vol, g_fat, g_fat_len, name83, 0u, g_sector);
+    if (rc == FAT12_OK) {
+        return 0u;
+    }
+    /* Every failure mode maps to ACCESS_DENIED for DOS MKDIR (name exists, dir
+     * full, full volume, bad name, write error). */
+    return FILEIO_ERR_ACCESS_DENIED;
+}
+
+/* RMDIR (AH=3Ah REMOVE DIRECTORY): remove the EMPTY subdirectory `name83` from
+ * the directory `dir_start_cluster` (0 == root). ROOT-PARENT ONLY: a non-root
+ * parent -> 0x0003. fat12_rmdir maps:
+ *   FAT12_ERR_NOT_FOUND -> 0x0003 (missing dir / not a directory -- DOS RMDIR
+ *                          path-not-found);
+ *   FAT12_ERR_NOT_EMPTY -> 0x0005 (DOS RMDIR of a non-empty directory);
+ *   FAT12_OK            -> 0;
+ *   any other error     -> 0x0005 (write error). */
+static uint16_t fat_rmdir(const char *name83, uint16_t dir_start_cluster)
+{
+    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+        return FILEIO_ERR_ACCESS_DENIED;
+    }
+    if (dir_start_cluster != 0u) {
+        return FILEIO_ERR_PATH_NOT_FOUND;  /* non-root parent: deferred (zs24) */
+    }
+    int rc = fat12_rmdir(g_vol, g_fat, g_fat_len, name83, 0u, g_sector);
+    if (rc == FAT12_OK) {
+        return 0u;
+    }
+    if (rc == FAT12_ERR_NOT_FOUND) {
+        return FILEIO_ERR_PATH_NOT_FOUND;  /* missing dir / not a directory */
+    }
+    if (rc == FAT12_ERR_NOT_EMPTY) {
+        return FILEIO_ERR_ACCESS_DENIED;   /* non-empty -- DOS RMDIR-non-empty */
+    }
+    return FILEIO_ERR_ACCESS_DENIED;       /* write error */
+}
+
 /* FREESPACE (AH=36h GET DISK FREE SPACE): report the volume geometry + free
  * clusters. Walk the cached whole-FAT (g_fat) once, decoding each data cluster's
  * 12-bit entry and counting the free (0x000) ones. The geometry comes from the
@@ -728,7 +782,9 @@ static const int21_file_backend_t g_fat_backend = {
     fat_unlink,
     fat_freespace,
     fat_resolve,
-    fat_resolve_dir
+    fat_resolve_dir,
+    fat_mkdir,          /* AH=39h MKDIR (beads initech-u6wa)  */
+    fat_rmdir           /* AH=3Ah RMDIR (beads initech-u6wa)  */
 };
 
 /* ------------------------------------------------------------------------ *

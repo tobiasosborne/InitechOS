@@ -131,16 +131,23 @@ STAGE2_SECTORS  := 16
 # / arena reset+reclaim grew int21.o, pushing the BOOT_SHELL loaded .text past
 # the 96-sector (48 KiB) window (51525 > 49152). 112*512 = 56 KiB: 0x10000 +
 # 112*512 = 0x1E000, still well below PROGRAM_BASE (0x30000; beads initech-5pe).
+# Bumped 112 -> 128 for beads initech-u6wa (Landing 2): wiring AH=39h/3Ah
+# MKDIR/RMDIR adds fat12_mkdir/fat12_rmdir (fat12.o) + fat_mkdir/fat_rmdir
+# (fileio_fat.o) + do_mkdir/do_rmdir (int21.o); the BOOT_SHELL loaded .bin hit
+# exactly the 112-sector window at Landing 1 (57344 bytes, zero headroom) and the
+# new code crossed it (60069 > 57344). 128*512 = 64 KiB: 0x10000 + 128*512 =
+# 0x20000, still well below PROGRAM_BASE (0x30000).
 # MUST equal the stage2.asm KERNEL_SECTORS equate.
-KERNEL_SECTORS  := 112
-# Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=112) = 129 sectors.
+KERNEL_SECTORS  := 128
+# Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=128) = 145 sectors.
 # IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
 # harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
 # of 2-head x 32-sector cylinders. 128 (2 cyl) sufficed at KERNEL_SECTORS=96; at 112
-# the image must grow past 129, and the next WHOLE cylinder count is 192 (3 cyl,
-# 96 KiB). (160 -- a multiple of 32 but NOT 64 = 2.5 cyl -- booted on QEMU but broke
-# `make test-boot-bochs`; the guard below now fails that class loud at build time,
-# Rule 2 / Rule 5.) Deterministic (Rule 11).
+# the image grew past 129 to 192 (3 cyl, 96 KiB); KERNEL_SECTORS=128 (initech-u6wa)
+# raises the raw image to 145 sectors, still within the 192-sector (3 cyl) window
+# (192 >= 145), so IMG_SECTORS stays 192. (160 -- a multiple of 32 but NOT 64 =
+# 2.5 cyl -- booted on QEMU but broke `make test-boot-bochs`; the guard below now
+# fails that class loud at build time, Rule 2 / Rule 5.) Deterministic (Rule 11).
 IMG_SECTORS     := 192
 # Build-time geometry + capacity guard (Rule 2 fail-loud): prevents the QEMU-green /
 # Bochs-broken IMG_SECTORS regression from recurring.
@@ -620,6 +627,24 @@ TEST_FAT12_SUBDIR              := $(BUILD)/test_fat12_subdir
 TEST_FAT12_SUBDIR_MUT_SINGLE   := $(BUILD)/test_fat12_subdir_mut_single
 TEST_FAT12_SUBDIR_MUT_NOATTR   := $(BUILD)/test_fat12_subdir_mut_noattr
 
+# The FAT12 MKDIR/RMDIR differential oracle binary (host test; beads initech-u6wa
+# Landing 2) + its three mutation builds (Rule 6: one perturbed constant each ->
+# the mmd '..' diff / FAT-EOC diff / empty-check assertion must bite).
+TEST_FAT12_MKDIR             := $(BUILD)/test_fat12_mkdir
+TEST_FAT12_MKDIR_MUT_DOTDOT  := $(BUILD)/test_fat12_mkdir_mut_dotdot
+TEST_FAT12_MKDIR_MUT_NOEOC   := $(BUILD)/test_fat12_mkdir_mut_noeoc
+TEST_FAT12_MKDIR_MUT_NOEMPTY := $(BUILD)/test_fat12_mkdir_mut_noempty
+
+# The MKDIR differential images (build intermediates, NOT committed; Rule 11):
+#   MKDIR_BLANK  -- a fresh mformat -f 1440 floppy the ARTIFACT (fat12_mkdir)
+#                   writes '\NEWDIR' into in place.
+#   MKDIR_GOLDEN -- a fresh mformat -f 1440 floppy with '\NEWDIR' minted by mtools
+#                   `mmd` (the independent golden; the EMPIRICAL '.'/'..' layout).
+# Both use the SAME mformat flags so the BPB / root layout / geometry match; only
+# the dir mtime/serial vary (normalized away in the diff).
+FAT12_MKDIR_BLANK_IMG  := $(BUILD)/fat12_mkdir_blank.img
+FAT12_MKDIR_GOLDEN_IMG := $(BUILD)/fat12_mkdir_golden.img
+
 # The FAT12 POSITIONED-read oracle binary (host test; beads initech-lq2) + its
 # two mutation builds (Rule 6: one perturbed constant each -> the diff must bite).
 TEST_FAT12_PARTIAL          := $(BUILD)/test_fat12_partial
@@ -666,6 +691,27 @@ $(FAT12_NESTED_IMG): $(FAT12_NESTED_FIXTURES) | $(BUILD)
 		n=$$((n+1)); \
 	done
 	@printf ">>> fat12: minted %s (nested SUB/DEEP/BIGDIR tree; build intermediate)\n" "$@"
+
+# Mint the MKDIR GOLDEN image (beads initech-u6wa): a fresh mformat -f 1440
+# floppy with '\NEWDIR' minted by mtools `mmd` -- the INDEPENDENT golden the
+# artifact's fat12_mkdir is diffed against (the EMPIRICAL '.'/'..' layout). Build
+# intermediate, NOT committed (Rule 11; compared by meaningful bytes with the dir
+# mtime/serial normalized away).
+$(FAT12_MKDIR_GOLDEN_IMG): | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mmd -i $@ ::NEWDIR
+	@printf ">>> fat12: minted %s (mmd ::NEWDIR golden; build intermediate)\n" "$@"
+
+# Mint the MKDIR BLANK artifact image (beads initech-u6wa): a fresh mformat -f
+# 1440 floppy the artifact's fat12_mkdir mutates IN PLACE. It is .PHONY-rebuilt
+# by the test recipe each run (the test consumes it), so it is a recipe step
+# below rather than a cached target -- but the rule here lets it be minted on
+# demand for ad-hoc use.
+$(FAT12_MKDIR_BLANK_IMG): | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@printf ">>> fat12: minted %s (blank floppy for the MKDIR artifact write; build intermediate)\n" "$@"
 
 # Mint the FAT12 DATA disk (beads initech-saw): identical recipe to FAT12_IMG;
 # this is the volume the kernel mounts over ATA in make test-fs. Deterministic
@@ -925,6 +971,69 @@ test-fat12-subdir: $(TEST_FAT12_SUBDIR) $(FAT12_NESTED_IMG)
 	@printf ">>> test-fat12-subdir: subdir enumerate + path resolve (byte-for-byte golden)\n"
 	@$(TEST_FAT12_SUBDIR) "$(FAT12_NESTED_IMG)" "$(FAT12_FIXTURE_DIR)"
 	@printf ">>> test-fat12-subdir: green\n"
+
+# Build the FAT12 MKDIR/RMDIR differential oracle + its three mutants (beads
+# initech-u6wa Landing 2): the test + the REAL artifact fat12.c + the host
+# blockdev backend (the test_fat12_subdir.c include pattern). The mutants each
+# define ONE perturbed constant (Rule 6) so the mmd '..' diff / FAT-EOC diff /
+# empty-check assertion bites.
+$(TEST_FAT12_MKDIR): $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_MKDIR_MUT_DOTDOT): $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MKDIR_DOTDOT_SELF -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_MKDIR_MUT_NOEOC): $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MKDIR_NO_EOC -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_MKDIR_MUT_NOEMPTY): $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_RMDIR_NO_EMPTYCHECK -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# REAL gate: test-fat12-mkdir (beads initech-u6wa Landing 2 -- FAT12 MKDIR/RMDIR
+# differential vs mmd). The artifact's fat12_mkdir writes '\NEWDIR' into a fresh
+# blank floppy; mtools `mmd` mints the same on the golden; the on-disk '.'/'..'/
+# attr/start_cluster/EOC are diffed byte-for-byte (mtime/mdate normalized). The
+# blank image is RE-minted each run (the test consumes it), so the recipe mints
+# it fresh rather than depending on a cached target.
+.PHONY: test-fat12-mkdir
+test-fat12-mkdir: $(TEST_FAT12_MKDIR) $(FAT12_MKDIR_GOLDEN_IMG)
+	@printf ">>> test-fat12-mkdir: MKDIR/RMDIR write side vs mmd golden ('.'/'..'/EOC byte-for-byte)\n"
+	@dd if=/dev/zero of=$(FAT12_MKDIR_BLANK_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_MKDIR_BLANK_IMG) -f 1440 ::
+	@$(TEST_FAT12_MKDIR) "$(FAT12_MKDIR_BLANK_IMG)" "$(FAT12_MKDIR_GOLDEN_IMG)"
+	@printf ">>> test-fat12-mkdir: green\n"
+
+# Mutation gate (Rule 6): three fat12_mkdir/rmdir mutants -- (dotdot) '..' points
+# at self not the parent; (noeoc) the new cluster is not EOC-terminated;
+# (noempty) RMDIR skips the empty-check. Each MUST turn the differential RED.
+.PHONY: test-fat12-mkdir-mutant
+test-fat12-mkdir-mutant: $(TEST_FAT12_MKDIR_MUT_DOTDOT) $(TEST_FAT12_MKDIR_MUT_NOEOC) $(TEST_FAT12_MKDIR_MUT_NOEMPTY) $(FAT12_MKDIR_GOLDEN_IMG)
+	@printf ">>> test-fat12-mkdir-mutant: confirming all three MKDIR/RMDIR mutants go RED (Rule 6)\n"
+	@dd if=/dev/zero of=$(FAT12_MKDIR_BLANK_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_MKDIR_BLANK_IMG) -f 1440 ::
+	@if $(TEST_FAT12_MKDIR_MUT_DOTDOT) "$(FAT12_MKDIR_BLANK_IMG)" "$(FAT12_MKDIR_GOLDEN_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-fat12-mkdir-mutant FAIL: dotdot-self mutant PASSED -- the .. diff is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-fat12-mkdir-mutant: green (dotdot-self mutant correctly RED -- the .. rule bites)\n'; \
+	fi
+	@dd if=/dev/zero of=$(FAT12_MKDIR_BLANK_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_MKDIR_BLANK_IMG) -f 1440 ::
+	@if $(TEST_FAT12_MKDIR_MUT_NOEOC) "$(FAT12_MKDIR_BLANK_IMG)" "$(FAT12_MKDIR_GOLDEN_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-fat12-mkdir-mutant FAIL: no-EOC mutant PASSED -- the FAT-entry diff is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-fat12-mkdir-mutant: green (no-EOC mutant correctly RED -- the EOC link bites)\n'; \
+	fi
+	@dd if=/dev/zero of=$(FAT12_MKDIR_BLANK_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_MKDIR_BLANK_IMG) -f 1440 ::
+	@if $(TEST_FAT12_MKDIR_MUT_NOEMPTY) "$(FAT12_MKDIR_BLANK_IMG)" "$(FAT12_MKDIR_GOLDEN_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-fat12-mkdir-mutant FAIL: no-empty-check mutant PASSED -- the RMDIR empty-check is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-fat12-mkdir-mutant: green (no-empty-check mutant correctly RED -- the empty-check bites)\n'; \
+	fi
 
 # Build the FAT12 positioned-read oracle + its two mutants (beads initech-lq2):
 # the test + the REAL artifact fat12.c + the host blockdev backend (same include
@@ -6436,6 +6545,7 @@ test-kernel-repro-mutant: | $(BUILD)
 # Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
+	test-fat12-mkdir \
 	test-fat-subdir \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
@@ -6450,7 +6560,7 @@ TEST_UNIT_GATES := \
 	test-fileio-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
-	test-fat-subdir-mutant \
+	test-fat-subdir-mutant test-fat12-mkdir-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-kernel-repro test-kernel-repro-mutant
