@@ -130,9 +130,9 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **59 host + 22 emu gates** (re-verified green; WL-0019 added
-`test-mcb-int21` + `test-mcb-emu` for the AH=48/49/4Ah wiring; was 57+21 after
-WL-0018). The boot image is padded to a whole 2x32 cylinder geometry
+`make test` = **63 host + 22 emu gates** (re-verified green; WL-0021 added
+`test-fat-subdir` + `test-fat-subdir-mutant` for ti8 Layer 1 and `test-region` +
+`test-region-mutant` for the ATKINSON engine; was 59+22 after WL-0019). The boot image is padded to a whole 2x32 cylinder geometry
 (`IMG_SECTORS=192`, build-guarded) so the **Bochs boot leg passes**. Plus the
 separate `make test-boot-bochs` (the Bochs boot leg; env-specific Bochs +
 ~45 s, NOT in the default `make test`). `make factory` builds; `make` prints
@@ -181,11 +181,29 @@ ADR-amendment-gated). FCB (`509.9`) backburnered (P4) but REQUIRED; its flagship
 consumer is the **TPS Report Generator** (`8479.1`). Canon beads: Y2K accounting
 (`586.1`), Michael Bolton's rounding-error virus (`586.2`), the `packaging-epic`
 (the final straight build).
-**Resume at `initech-ti8`** — subdirectory traversal, READ-side: the keystone of
-`ti8 → u6wa` (MKDIR/RMDIR/CHDIR) `→ ut6d` (MD/RD/CD). A full build brief +
-RED-first step is in the `initech-ti8` bead notes; the DOS-3.3-PRM open questions
-are in `initech-u6wa`. Drive it SERIALLY, oracle-gated — do NOT parallelize the
-shared-file kernel edits.
+**`initech-ti8` Layer 1 is DONE + green (WL-0021)** — the additive fat12 layer
+(`fat12_dir_t` + `fat12_read_dir` + `fat12_resolve_path`, READ-side; 4 root
+primitives byte-unchanged; `test-fat-subdir` 3-way differential + 2 mutants).
+Grounding split ti8 into L1 (fat12, done) and **`initech-mzxa`** = Layer 2, the
+Core-tier INT 21h `int21_file_backend_t` vtable cross-cut (root-only today;
+threading a resolved dir touches int21.h + fileio_fat.c + 3 host mocks + g_cwd +
+5 rejection sites: do_open@858 / do_creat@931 / do_unlink@995 / do_findfirst@1405
+/ do_exec@1476). **Resume the kernel chain at `initech-mzxa`** (grounded map in
+its notes) `→ u6wa` (MKDIR/RMDIR/CHDIR, now depends on mzxa) `→ ut6d` (MD/RD/CD).
+Drive it SERIALLY, oracle-gated — do NOT parallelize the shared-file kernel edits.
+
+**FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
+ratified the region-first Toolbox plan; operator decided indexed-8 depth,
+640x480, keep seafoam desktop_bg, proceed in parallel with f8v.4. **The ATKINSON
+region engine is implemented + green** (`spec/region_algebra.h` locked;
+`os/flair/atkinson/`; `make test-region` homomorphism oracle over 16000 pairs +
+3 mutants; freestanding-legal). Draft `ADR-0004` (FLAIR) + `ADR-0005` (region
+engine) await operator ratification (`initech-k8o5.2`). Epic **`initech-k8o5`**
+carries the 26-bead lattice; next FLAIR steps: `k8o5.6` (extract `console.c`
+into one surface module) + `initech-i50` (blitter with region clipping, now
+unblocked) `→ initech-26d` / `initech-kg5` `→ initech-87a` (M3 window-drag gate).
+STILL-OPEN operator questions (in the ADRs): FLAIR heap home; real-Bochs
+pixel-capture funding.
 
 **Other ready work** (`bd ready`; distinct directions — pick per operator
 steer):
