@@ -41,8 +41,9 @@
 #include "sysinit.h"     /* SYSINIT named bring-up phases (beads initech-509.2) */
 
 /* Seafoam: ported VERBATIM from stage2.asm:42-44 (SEAFOAM_R/G/B). The pie
- * chart and the wristwatch are canon; so is this fill color. The screendump
- * oracle (tools/ppm_seafoam_check.c) asserts this exact RGB. */
+ * chart (116%) and the HOURGLASS cursor are canon (the wristwatch is THE BUG,
+ * PRD Appendix A); so is this fill color. The screendump oracle
+ * (tools/ppm_seafoam_check.c) asserts this exact RGB. */
 #define SEAFOAM_R 0x6F
 #define SEAFOAM_G 0xA0
 #define SEAFOAM_B 0x8E
