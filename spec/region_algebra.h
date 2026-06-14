@@ -131,10 +131,19 @@ typedef struct region {
  *       dropped. This is the vertical run-length minimality that makes the form
  *       canonical (and makes region_equal a structural memcmp).
  *
- *   (4) NO EMPTY INTERIOR ROW: no row has x_count==0 EXCEPT the final closing
- *       row, which carries x_count==0 to bound the last live band from below
- *       (its y_top == bbox.bottom). An empty interior row would be a hole that
- *       invariant (3) should have merged or normalize should have dropped.
+ *   (4) NO REDUNDANT EMPTY ROW: an empty row (x_count==0) is legal ONLY as
+ *       (a) a GAP-CLOSING band terminator -- an empty row between two DIFFERENT
+ *       non-empty bands, which encodes a vertical hole. This row is LOAD-BEARING:
+ *       since a row is valid for [y_top, next.y_top), the ONLY way the model can
+ *       represent a gap (e.g. the union of two vertically-disjoint rects, a basic
+ *       homomorphism-oracle case) is an empty row at the gap's top; or
+ *       (b) the FINAL CLOSING row, which bounds the last live band from below
+ *       (its y_top == bbox.bottom).
+ *       FORBIDDEN: a LEADING empty row (no live span opened yet, dead space above
+ *       the first band) and an EMPTY-UNDER-EMPTY row (already excluded by (3),
+ *       vertical-RLE). normalize() drops exactly those. (Reconciled to the
+ *       engine + the homomorphism oracle this session: the earlier "no empty
+ *       interior row" wording wrongly outlawed the load-bearing gap-closer.)
  *
  *   (5) SORTED, UNIQUE y_top: rows are sorted by y_top ascending with NO
  *       duplicate y_top. (Two rows at the same y_top is a contradiction -- only
