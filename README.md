@@ -1,173 +1,109 @@
-# InitechOS
+# InitechOS&trade;
 
-> *codename **STAPLER***
->
-> A bootable, period-plausible operating system for emulated 386+ PCs — the
-> exact chimera from the *Office Space* "Saving tables to disk…" frame: a
-> DOS-3.3 personality fused with a System-7-style Toolbox. It really boots,
-> the windows really work, the bundled database really runs, and the north
-> star is a Borland-style Pascal compiler that recompiles itself from inside
-> the OS.
+### Operating Environment &mdash; Version 3.30
 
-InitechOS is not a parody of an old operating system. It is an old operating
-system — built from scratch, to period-authentic standards, with a straight
-face. The blandness is deliberate and rigorous: every canonical name and every
-vestigial structure is preserved, in full, because corporate software accretes
-and never deletes.
+**Initech Systems Corporation**
+Part No. 1024-3300-01 &middot; Document Control: STAPLER &middot; Revision G
+
+> *Controlled Document. Printed copies are uncontrolled. Verify revision
+> before use. This product is licensed, not sold.*
 
 ---
 
-## What it is
+InitechOS&trade; is a single-user, single-tasking 32-bit operating environment
+for Intel&reg; 80386&trade; and compatible business workstations. It integrates
+the InitechDOS&trade; operating system, the FLAIR&trade; graphical operating
+environment, and the InitechBase&trade; data management system into one unified,
+fully conformant computing platform suitable for the modern automated office.
 
-The product recreates a single frame of early-90s desktop software — a Macintosh
-System 7 window arrangement floating over a DOS session — and makes it real:
+The product has been engineered in accordance with Initech Corporate Engineering
+Standard PRD-STAPLER and is supplied subject to the Initech Systems Corporation
+Software License Agreement (see [`LICENSE`](LICENSE)).
 
-| Personality | Codename | What it is | Language |
-|---|---|---|---|
-| **InitechDOS** | `MILTON` | A DOS 3.3-personality kernel: FAT filesystem, INT 21h, program loader, `COMMAND.COM` | C |
-| **The Toolbox** | `FLAIR` | A System-7-style GUI: Window/Menu/Control/Event/Dialog managers + a real region engine | C |
-| **InitechBase** | `SAMIR` | A dBASE-compatible database that round-trips real `.dbf`/`.mdx` files | C |
-| **Turbo Initech** | `TPS` | The resident, self-hosting Pascal compiler + blue IDE (the in-universe finale) | Pascal |
+## Product configuration
 
-It targets the 386+ in 32-bit flat mode, boots on real-era-plausible hardware
-(verified across **QEMU**, **Bochs**, and **86Box**), and is built to *run on
-real iron of the era*, not merely to look the part.
+| Module | Designation | Function |
+|---|---|---|
+| **InitechDOS&trade;** | `MILTON` | Operating system services: FAT-compatible file management, program execution, the standard INT 21h application interface, and the `COMMAND.COM` command processor. |
+| **FLAIR&trade;** | `ATKINSON` / `FLAIR` | Graphical operating environment: window, menu, control, event, and dialog management with the standard desktop presentation. |
+| **InitechBase&trade;** | `SAMIR` | Relational data management system. Reads and writes industry-standard `.DBF` data files and `.MDX` index files. |
+| **Turbo Initech&reg;** | `TPS` | Integrated Pascal application development system with resident editor and compiler. |
+| Bundled applications | &mdash; | InitechCalc&trade; spreadsheet, File Manager, InitechPaint&trade;, and the FILE COPY utility. |
 
-## Status
+## System requirements
 
-InitechDOS **boots from disk, prints its banner, mounts a real FAT12 volume,
-and drops to an interactive `A:\>` `COMMAND.COM` prompt** — on QEMU *and*
-Bochs.
+- Intel 80386 or higher microprocessor
+- 4 MB of system memory (2 MB minimum)
+- Fixed-disk controller and one fixed disk
+- One 5.25-inch or 3.5-inch diskette drive
+- VGA-compatible display adapter and monitor
+- Serial pointing device (recommended)
 
-- **Boot:** MBR → stage2 → A20/GDT → 32-bit protected-flat → VESA LFB (with a
-  mode-0x13 fallback for Bochs). 8×16 framebuffer text console.
-- **Kernel:** a fail-loud interrupt foundation (IDT, CPU-exception handlers → a
-  `PC LOAD LETTER` panic), the 8259 PIC remapped so `int 0x21` stays free as the
-  DOS syscall gate, PS/2 keyboard, PIT tick, MC146818 RTC, `CONFIG.SYS` parsing.
-- **INT 21h:** **39 functions** dispatched — console I/O, the file-handle API
-  (OPEN/CREAT/READ/WRITE/CLOSE/LSEEK/DUP/DUP2), FINDFIRST/FINDNEXT, EXEC, date/
-  time, memory-map free-space, interrupt vectors, extended error.
-- **Filesystem:** FAT12 read **and** write over an ATA PIO block layer, a real
-  SFT/JFT handle table, multi-open.
-- **Shell:** `COMMAND.COM` with `DIR`, `TYPE`, `CD`, `CLS`, `VER`, `ECHO`,
-  `EXIT`, and external `.COM` execution.
+## Features
 
-In progress / planned: hierarchical directories, the rest of the DOS-3.3 INT 21h
-surface and core utilities, the FLAIR Toolbox and desktop, InitechBase, and the
-Turbo Initech self-host. See **Roadmap** below.
+- FAT-compatible file system with hierarchical directory organization.
+- Full complement of standard operating-system services per the Initech
+  Application Binary Interface Specification, Appendix A.
+- The `COMMAND.COM` command processor with batch-file and environment support.
+- The FLAIR graphical operating environment with overlapping windows, pull-down
+  menus, and the standard control set.
+- Cooperative application scheduling for responsive multi-application operation.
+- InitechBase relational data management with full-screen and command-line
+  operation.
+- The Turbo Initech integrated development system for in-house application
+  development.
+- Configurable system startup via `CONFIG.SYS` and `AUTOEXEC.BAT`.
+- Installable character-device drivers and the standard resident devices
+  (`CON`, `AUX`, `PRN`, `CLOCK$`, `NUL`).
 
-## The governing idea: the oracle is the truth
+## Installation
 
-Every subsystem has a **mechanical oracle**, and nothing ships on "looks right."
-The emulator is the fitness signal.
+1. Insert Distribution Diskette 1 in drive A.
+2. At the system prompt, type `A:SETUP` and press ENTER.
+3. Follow the on-screen instructions. The Setup program will copy the system
+   files to your fixed disk and configure `CONFIG.SYS` and `AUTOEXEC.BAT`.
+4. Remove the diskette and restart the workstation.
 
-- The FAT driver is diffed against `mtools`/Python on identical images.
-- The region engine is a property test: `rasterize(A ∪ B) == rasterize(A) ∪ rasterize(B)`
-  over thousands of random regions, with shrinking.
-- InitechBase round-trips through real dBASE.
-- Turbo Initech diffs clean against Free Pascal on a shared corpus, and the
-  self-host certificate is a bit-for-bit fixed point (`K₂ == K₃`).
-- Boot milestones run **differentially across three emulators**.
+Upon restart the system displays the InitechDOS banner and the `A:\>` command
+prompt. Type `WIN` to start the FLAIR graphical operating environment.
 
-Golden files are *mutation-proven*: a golden that has never caught a regression
-is decoration.
+## Conformance
 
-And the canon is enforced, not fixed: the InitechCalc pie chart sums to **116 %**
-(`40+35+18+14+9`), the cursor is an hourglass (not a wristwatch), and the ledger
-shows a `570-` trailing-minus. These are the spec, not bugs.
+InitechOS conforms to Initech Corporate Engineering Standard PRD-STAPLER and to
+the ratified Architecture Decision Records governing the platform (see
+[`docs/adr/`](docs/adr/)). The application interface is frozen at the Appendix A
+service set; deterministic, reproducible system builds are a controlled
+requirement of the platform.
 
-## Build & run
+---
 
-Requires a Linux host with the emulators and a freestanding toolchain:
+### Appendix A &mdash; Operation on contemporary host systems
 
-```bash
+The distribution may be operated on a present-day host by means of an
+80386-compatible system emulator. The build and emulation harness targets, in
+order of fidelity, QEMU (development), Bochs (transition accuracy), and 86Box
+(period authenticity).
+
+```sh
+# One-time host preparation (Debian/Ubuntu)
 sudo apt install qemu-system-i386 bochs make nasm mtools
-# Target toolchain is i686-elf; the interim toolchain is the host
-# gcc -m32 -ffreestanding -nostdlib + nasm + ld.
+
+make image        # produce a bootable distribution image
+make run          # start the system under QEMU
+make run-bochs    # start the system under Bochs
+make test         # run the full conformance and verification suite
 ```
 
-```bash
-make image        # build a bootable image -> build/initech.img
-make run          # boot in QEMU with serial + gdb stub + screendump wired
-make run-bochs    # boot in Bochs (real->protected transition checking)
-make test         # the whole gate vector (host oracles + emulator harness)
-```
-
-See `qemu-system-i386 -drive format=raw,file=build/tracer_boot.img …` in
-[`docs/HANDOFF.md`](docs/HANDOFF.md) for the exact incantation that lands you at
-the `A:\>` prompt on the seafoam desktop.
-
-## Repository layout
-
-```
-CLAUDE.md            how to work (the Laws & Rules)
-InitechOS-PRD.md     what to build (the product spec)
-docs/adr/            ratified architecture decisions (ADR-0001..0003, CDR-0001)
-docs/worklog/        sharded session log
-spec/                LOCKED specs-as-data (JSON / C headers): the contracts
-seed/                C seed Pascal->x86 compiler (genesis of Turbo Initech)
-harness/             C factory: emulator oracle drivers, SSIM, differential diffs
-os/                  THE ARTIFACT (C)
-  ├── boot/          MBR -> stage2 -> 32-bit protected/flat
-  ├── milton/        InitechDOS kernel (FAT, INT 21h, loader, shell)
-  ├── flair/         the Toolbox (Window/Menu/Control/Event/Dialog)
-  │   └── atkinson/  the region engine — the load-bearing math
-  ├── samir/         InitechBase (dBASE-alike)
-  ├── apps/          InitechCalc, File Manager, InitechPaint, FILE COPY
-  └── tps/           Turbo Initech (resident compiler + blue IDE) — Pascal
-fixtures/            the reference frame still(s), golden files
-```
-
-**Two systems coexist:** the **artifact** (the OS itself — C, plus Pascal for
-Turbo Initech) and the **factory** (everything that builds and *judges* the
-artifact — C only). The factory is what makes the artifact trustworthy.
-
-## Architecture
-
-The ratified decisions live in [`docs/adr/`](docs/adr/):
-
-- **ADR-0001** — 386+, 32-bit flat memory model.
-- **ADR-0002** — toolchain, implementation language (C), executable format.
-- **ADR-0003** — InitechDOS as the base OS (the active milestone), with its
-  INT 21h scope (Appendix A) as a locked contract.
-- **CDR-0001** — the interim host-toolchain deviation (time-limited).
-
-Reproducible builds are a hard requirement — deterministic codegen, no
-timestamps in artifacts — because the self-host fixed point depends on it.
-
-## Roadmap
-
-| Milestone | What |
-|---|---|
-| M0 / M0.5 / M1 | Foundations, tracer bullet, boot to text ✓ |
-| **M2 — `MILTON`** | **The DOS personality (current): FAT, INT 21h, loader, shell** |
-| M3 / M4 — `ATKINSON` / `FLAIR` | Region engine + the Toolbox & desktop chrome |
-| M5 | Desktop apps + the full reference frame |
-| M6 — `SAMIR` | InitechBase: a dBASE-alike that really works |
-| M7 / M8 — `TPS` | Turbo Initech, then the resident IDE + self-host finale |
-
-Work is tracked in [beads](https://github.com/steveyegge/beads) (`bd ready`,
-`bd show <id>`); design rationale lands in `docs/worklog/`.
-
-## Contributing & house rules
-
-Read [`CLAUDE.md`](CLAUDE.md) top to bottom — it encodes the four Laws
-(ground-truth-before-code; the oracle is truth; never blur artifact and factory;
-it must look and feel like the frame) and the numbered Rules. The short version:
-ground every change in a local source, write the failing oracle first, fix root
-causes, mutation-prove your goldens, and keep shipped source ASCII-clean and
-period-authentic. There is no remote CI by design — the gates run locally.
-
-## License
-
-InitechOS is licensed under the **GNU Affero General Public License v3.0**
-(AGPL-3.0) — see [`LICENSE`](LICENSE). The AGPL's network-use clause means that
-if you run a modified version as a network service, you must offer its users the
-corresponding source. Fitting, for an operating system about saving tables to
-disk.
+The build is freestanding (`gcc -m32 -ffreestanding -nostdlib` + `nasm` + `ld`
+on the interim toolchain; `i686-elf` cross-compilation on the target toolchain).
+See [`CLAUDE.md`](CLAUDE.md) and [`InitechOS-PRD.md`](InitechOS-PRD.md) for the
+engineering standard and the product requirements.
 
 ---
 
-<sub>Built with the help of agentic tooling. *Office Space* and its imagery are
-the property of their respective rights holders; InitechOS is an independent,
-non-commercial homage.</sub>
+<sub>&copy; 1992, 1993 Initech Systems Corporation. All Rights Reserved.
+InitechOS, InitechDOS, FLAIR, InitechBase, InitechCalc, InitechPaint, and the
+Initech logo are trademarks of Initech Systems Corporation. Turbo Initech is a
+registered trademark of Initech Systems Corporation. Intel and 80386 are
+trademarks of Intel Corporation. All other trademarks are the property of their
+respective holders. Technical Support: extension 2504.</sub>
