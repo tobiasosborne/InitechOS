@@ -635,6 +635,27 @@ TEST_FAT12_MKDIR_MUT_DOTDOT  := $(BUILD)/test_fat12_mkdir_mut_dotdot
 TEST_FAT12_MKDIR_MUT_NOEOC   := $(BUILD)/test_fat12_mkdir_mut_noeoc
 TEST_FAT12_MKDIR_MUT_NOEMPTY := $(BUILD)/test_fat12_mkdir_mut_noempty
 
+# The FAT12 NESTED MKDIR/RMDIR differential oracle binary (host test; beads
+# initech-m0bp -- a NON-ROOT parent: MD/RD \SUB\NEWDIR) + its five mutation
+# builds (Rule 6: one perturbed seam each so a separate primitive's nested
+# oracle bites): m-noroot-mkdir, m-rootscan-mkdir, m-rootslot-write,
+# m-nogrow-parent, m-noroot-rmdir.
+TEST_M0BP                 := $(BUILD)/test_fat12_mkdir_nested
+TEST_M0BP_MUT_NOROOTMK    := $(BUILD)/test_fat12_mkdir_nested_mut_norootmk
+TEST_M0BP_MUT_ROOTSCAN    := $(BUILD)/test_fat12_mkdir_nested_mut_rootscan
+TEST_M0BP_MUT_ROOTSLOT    := $(BUILD)/test_fat12_mkdir_nested_mut_rootslot
+TEST_M0BP_MUT_NOGROW      := $(BUILD)/test_fat12_mkdir_nested_mut_nogrow
+TEST_M0BP_MUT_NOROOTRD    := $(BUILD)/test_fat12_mkdir_nested_mut_norootrd
+
+# The NESTED MKDIR differential images (build intermediates, NOT committed):
+#   M0BP_BLANK  -- a fresh mformat -f 1440 floppy with ONLY '\SUB' (mmd ::SUB);
+#                  the ARTIFACT fat12_mkdir('NEWDIR', parent=SUB) writes into it.
+#   M0BP_GOLDEN -- a fresh mformat -f 1440 floppy with '\SUB' AND '\SUB\NEWDIR'
+#                  both mmd-minted (the independent golden; '..' start == the REAL
+#                  SUB cluster, NOT 0 -- the nested-parent rule).
+FAT12_M0BP_BLANK_IMG  := $(BUILD)/fat12_m0bp_blank.img
+FAT12_M0BP_GOLDEN_IMG := $(BUILD)/fat12_m0bp_golden.img
+
 # The MKDIR differential images (build intermediates, NOT committed; Rule 11):
 #   MKDIR_BLANK  -- a fresh mformat -f 1440 floppy the ARTIFACT (fat12_mkdir)
 #                   writes '\NEWDIR' into in place.
@@ -734,6 +755,29 @@ $(FAT12_MKDIR_BLANK_IMG): | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
 	@printf ">>> fat12: minted %s (blank floppy for the MKDIR artifact write; build intermediate)\n" "$@"
+
+# Mint the NESTED MKDIR GOLDEN image (beads initech-m0bp): a fresh mformat -f
+# 1440 floppy with '\SUB' AND '\SUB\NEWDIR' BOTH minted by mtools `mmd` -- the
+# INDEPENDENT golden the artifact's nested fat12_mkdir is diffed against (the
+# EMPIRICAL nested '.'/'..' layout: '..' start == the REAL SUB cluster, NOT 0).
+# Build intermediate, NOT committed (Rule 11; meaningful bytes only, mtime/serial
+# normalized).
+$(FAT12_M0BP_GOLDEN_IMG): | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mmd -i $@ ::SUB
+	@mmd -i $@ ::SUB/NEWDIR
+	@printf ">>> fat12: minted %s (mmd ::SUB + ::SUB/NEWDIR nested golden; build intermediate)\n" "$@"
+
+# Mint the NESTED MKDIR BLANK artifact image (beads initech-m0bp): a fresh
+# mformat -f 1440 floppy with ONLY '\SUB' (mmd ::SUB); the artifact's nested
+# fat12_mkdir('NEWDIR', parent=SUB) mutates it IN PLACE. .PHONY-rebuilt by the
+# test recipe each run (the test consumes it).
+$(FAT12_M0BP_BLANK_IMG): | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mmd -i $@ ::SUB
+	@printf ">>> fat12: minted %s (mmd ::SUB only -- nested MKDIR artifact write; build intermediate)\n" "$@"
 
 # Mint the FAT12 DATA disk (beads initech-saw): identical recipe to FAT12_IMG;
 # this is the volume the kernel mounts over ATA in make test-fs. Deterministic
@@ -1056,6 +1100,95 @@ test-fat12-mkdir-mutant: $(TEST_FAT12_MKDIR_MUT_DOTDOT) $(TEST_FAT12_MKDIR_MUT_N
 	else \
 		printf '>>> test-fat12-mkdir-mutant: green (no-empty-check mutant correctly RED -- the empty-check bites)\n'; \
 	fi
+
+# Build the FAT12 NESTED MKDIR/RMDIR differential oracle + its five mutants
+# (beads initech-m0bp): the test + the REAL artifact fat12.c + the host blockdev
+# backend (the test_fat12_mkdir.c include pattern). Each mutant defines ONE
+# perturbed seam (Rule 6) so a separate nested primitive's oracle bites.
+$(TEST_M0BP): $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_M0BP_MUT_NOROOTMK): $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MKDIR_PARENT_ROOTONLY -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_M0BP_MUT_ROOTSCAN): $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MKDIR_PARENT_SCANROOT -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_M0BP_MUT_ROOTSLOT): $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MKDIR_OWNENTRY_ROOTSLOT -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_M0BP_MUT_NOGROW): $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MKDIR_PARENT_NOGROW -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_M0BP_MUT_NOROOTRD): $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_RMDIR_PARENT_ROOTONLY -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir_nested.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# REAL gate: test-m0bp (beads initech-m0bp -- FAT12 NESTED MKDIR/RMDIR, NON-ROOT
+# parent). The artifact's fat12_mkdir writes '\SUB\NEWDIR' into a floppy that has
+# only '\SUB'; mtools `mmd` mints '\SUB' + '\SUB/NEWDIR' on the golden; the nested
+# parent-entry / '.'/'..' ('..' == SUB cluster, NOT 0) / EOC are diffed, then the
+# in-process RMDIR + PARENT-GROW legs run. The blank (SUB-only) image is RE-minted
+# each run (the test consumes it). After the C test, cross-check the GROWN \SUB on
+# the artifact image with BOTH mtools `mdir ::SUB` AND python3 fat12_ref.py
+# --list-path SUB (two INDEPENDENT readers must see GROWDIR; Rule 5/Law 2).
+.PHONY: test-m0bp
+test-m0bp: $(TEST_M0BP) $(FAT12_M0BP_GOLDEN_IMG) $(FAT12_REF_PY)
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-m0bp FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mmd     >/dev/null 2>&1 || { printf '!!! test-m0bp FAIL: mtools `mmd` not found.\n'; exit 1; }
+	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-m0bp FAIL: mtools `mdir` not found.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-m0bp FAIL: python3 not found (independent reference).\n'; exit 1; }
+	@printf ">>> test-m0bp: NESTED MKDIR/RMDIR (non-root parent) vs mmd golden + grow cross-check (beads initech-m0bp)\n"
+	@dd if=/dev/zero of=$(FAT12_M0BP_BLANK_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_M0BP_BLANK_IMG) -f 1440 ::
+	@mmd -i $(FAT12_M0BP_BLANK_IMG) ::SUB
+	@$(TEST_M0BP) "$(FAT12_M0BP_BLANK_IMG)" "$(FAT12_M0BP_GOLDEN_IMG)"
+	@mdir -i $(FAT12_M0BP_BLANK_IMG) ::SUB 2>/dev/null | grep -qi 'GROWDIR' \
+		|| { printf '!!! test-m0bp FAIL [GROW]: mdir ::SUB does not list GROWDIR <DIR> -- the grown boundary dir is unreachable to mtools\n'; exit 1; }
+	@# The python reference lists only REGULAR files, so resolve the nested PATH
+	@# 'SUB\GROWDIR' instead: descending SUB's GROWN chain to find GROWDIR (a dir
+	@# living in the appended 2nd cluster, slot 16) and listing it succeeds (rc 0)
+	@# ONLY if GROWDIR is reachable; a missing dir resolves rc != 0 (the check has
+	@# teeth -- proven against SUB\NOSUCHDIR). Independent of mtools (Rule 5/Law 2).
+	@python3 $(FAT12_REF_PY) $(FAT12_M0BP_BLANK_IMG) --list-path 'SUB\GROWDIR' >/dev/null 2>&1 \
+		|| { printf '!!! test-m0bp FAIL [GROW]: python cannot resolve SUB\\GROWDIR -- the grown boundary dir is unreachable to the independent reader\n'; exit 1; }
+	@printf '>>> test-m0bp [GROW]: GROWDIR in the appended 2nd cluster of \\SUB; mtools (mdir <DIR>) + python (path-resolve) agree\n'
+	@printf ">>> test-m0bp: green\n"
+
+# Mutation gate (Rule 6): five nested-MKDIR/RMDIR mutants -- m-noroot-mkdir,
+# m-rootscan-mkdir, m-rootslot-write, m-nogrow-parent, m-noroot-rmdir. Each MUST
+# turn the nested differential RED for the right reason. The SUB-only blank is
+# re-minted before each mutant run (each test consumes it in place).
+.PHONY: test-m0bp-mutant
+test-m0bp-mutant: $(TEST_M0BP_MUT_NOROOTMK) $(TEST_M0BP_MUT_ROOTSCAN) $(TEST_M0BP_MUT_ROOTSLOT) $(TEST_M0BP_MUT_NOGROW) $(TEST_M0BP_MUT_NOROOTRD) $(FAT12_M0BP_GOLDEN_IMG)
+	@printf ">>> test-m0bp-mutant: confirming all FIVE nested MKDIR/RMDIR mutants go RED for the RIGHT reason (Rule 6; beads initech-m0bp)\n"
+	@for m in NOROOTMK:m-noroot-mkdir ROOTSCAN:m-rootscan-mkdir ROOTSLOT:m-rootslot-write NOGROW:m-nogrow-parent NOROOTRD:m-noroot-rmdir; do \
+		key=$${m%%:*}; name=$${m##*:}; \
+		case $$key in \
+			NOROOTMK) bin="$(TEST_M0BP_MUT_NOROOTMK)";; \
+			ROOTSCAN) bin="$(TEST_M0BP_MUT_ROOTSCAN)";; \
+			ROOTSLOT) bin="$(TEST_M0BP_MUT_ROOTSLOT)";; \
+			NOGROW)   bin="$(TEST_M0BP_MUT_NOGROW)";; \
+			NOROOTRD) bin="$(TEST_M0BP_MUT_NOROOTRD)";; \
+		esac; \
+		dd if=/dev/zero of=$(FAT12_M0BP_BLANK_IMG) bs=512 count=2880 status=none; \
+		mformat -i $(FAT12_M0BP_BLANK_IMG) -f 1440 ::; \
+		mmd -i $(FAT12_M0BP_BLANK_IMG) ::SUB; \
+		out=$$("$$bin" "$(FAT12_M0BP_BLANK_IMG)" "$(FAT12_M0BP_GOLDEN_IMG)" 2>&1); rc=$$?; \
+		echo "$$out" | grep -q 'checks,' \
+			|| { printf '!!! test-m0bp-mutant FAIL: %s produced no TEST_SUMMARY -- harness dead, RED is meaningless\n' "$$name"; exit 1; }; \
+		if [ $$rc -eq 0 ]; then \
+			printf '!!! test-m0bp-mutant FAIL: %s PASSED -- the nested oracle is decoration\n' "$$name"; exit 1; \
+		else \
+			printf '>>> test-m0bp-mutant: green (%s correctly RED -- the nested primitive bites)\n' "$$name"; \
+		fi; \
+	done
+	@printf '>>> test-m0bp-mutant: green (ALL FIVE nested mutants ran + RED for the right reason)\n'
 
 # Build the FAT12 positioned-read oracle + its two mutants (beads initech-lq2):
 # the test + the REAL artifact fat12.c + the host blockdev backend (same include
@@ -7378,7 +7511,7 @@ test-kernel-repro-mutant: | $(BUILD)
 # Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
-	test-fat12-mkdir \
+	test-fat12-mkdir test-m0bp \
 	test-fat-subdir test-zs24 \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
@@ -7393,7 +7526,7 @@ TEST_UNIT_GATES := \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
-	test-fat-subdir-mutant test-fat12-mkdir-mutant test-zs24-mutant \
+	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-zs24-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-kernel-repro test-kernel-repro-mutant

@@ -579,14 +579,17 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  void *sector_buf);
 
 /* ======================================================================== *
- * FAT12 subdirectory CREATE / REMOVE -- WRITE side (beads initech-u6wa)
+ * FAT12 subdirectory CREATE / REMOVE -- WRITE side (beads initech-u6wa,
+ * extended to a NON-ROOT parent in initech-m0bp)
  *
- * AH=39h MKDIR / AH=3Ah RMDIR over a ROOT-PARENT directory only: the new (or
- * removed) directory's PARENT is the fixed root. A non-root `parent_dir_start`
- * is OUT OF SCOPE for this landing (nested MD '\\SUB\\NEW' -> deferred to beads
- * initech-zs24) and returns FAT12_ERR_NOT_FOUND (which the backend maps to the
- * DOS 0x0003 PATH_NOT_FOUND), mirroring the existing
- * fat12_create/fat12_unlink root-only WRITE-side guard. The directory ENTRY
+ * AH=39h MKDIR / AH=3Ah RMDIR over ANY parent directory: the new (or removed)
+ * directory's PARENT may be the fixed root (parent_dir_start == 0) OR a
+ * subdirectory cluster (a non-zero first data cluster -- the nested MD/RD
+ * '\\SUB\\NEWDIR' path, beads initech-m0bp). The parent-aware Layer-1 infra
+ * (fat12_scan_dir / fat12_write_dirent_in_dir / fat12_grow_dir, landed in
+ * initech-zs24) walks the parent's cluster chain for the duplicate-name scan,
+ * the own-entry write-back, and -- for MKDIR only -- the parent-full GROW; the
+ * root path (is_root) stays byte-identical. The directory ENTRY
  * model below is the EMPIRICAL mtools 4.0.43 layout (mmd-minted, triple-
  * confirmed -- NOT inferred), so the artifact's writer is byte-identical to
  * mtools' on the meaningful bytes (name/attr/start_cluster/size + the EOC FAT
@@ -611,8 +614,14 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 /*
  * fat12_mkdir: create a new subdirectory `name83` whose PARENT is the directory
  * at first data cluster `parent_dir_start` (0 == the fixed root; a NON-ROOT
- * value is OUT OF SCOPE -> FAT12_ERR_PATH_NOT_FOUND this landing). Steps:
- *   - reject a duplicate name in the parent (scan_root match) -> FAT12_ERR_EXISTS;
+ * value is a real subdir cluster -- the nested MD path, beads initech-m0bp).
+ * Steps:
+ *   - reject a duplicate name in the parent (fat12_scan_dir match -- walks the
+ *     parent's cluster chain for a subdir, the fixed region for the root) ->
+ *     FAT12_ERR_EXISTS;
+ *   - if the parent is FULL: the fixed ROOT -> FAT12_ERR_DIR_FULL; a SUBDIR
+ *     parent GROWS by one cluster (fat12_grow_dir) so the just-past-end free
+ *     slot fat12_scan_dir reported becomes valid (REUSED verbatim);
  *   - claim a free data cluster (find_free), set its FAT entry to EOC (0xFFF)
  *     and flush both FAT copies;
  *   - ZERO-FILL the new cluster's data sectors, then write the two canonical
@@ -620,37 +629,54 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *       '.'  name {0x2E, 0x20*10}, attr 0x10, start_cluster = the new cluster,
  *            size 0;
  *       '..' name {0x2E,0x2E, 0x20*9}, attr 0x10, start_cluster = parent_dir_start
- *            (0 for the root -- the EMPIRICAL mtools rule: ROOT is encoded as 0,
- *            NOT self, NOT 1), size 0;
+ *            VERBATIM (0 for the root -- the EMPIRICAL mtools rule: ROOT is
+ *            encoded as 0, NOT self, NOT 1; a SUBDIR parent's real non-zero
+ *            cluster otherwise), size 0;
  *     slot[2] stays 0x00 (end-of-directory); both '.'/'..' carry the FIXED
  *     mtime/mdate (Rule 11);
  *   - write the new directory's own 8.3 entry (DIR_ATTR_DIRECTORY,
- *     start_cluster = the new cluster, size 0) into the PARENT (scan_root free
- *     slot + write_dirent).
+ *     start_cluster = the new cluster, size 0) into the PARENT free slot
+ *     (fat12_write_dirent_in_dir -- the cluster-chain slot for a subdir, the
+ *     fixed-region slot for the root). This is the LAST failable step: on a
+ *     failure the new dir's data cluster AND (if the parent grew) the freshly-
+ *     appended parent cluster are rolled back (Rule 2/Rule 3).
  *
  * `fat`/`fat_len` is the whole-FAT buffer (mutated; both copies flushed);
- * `sector_buf` (>= sectors_per_cluster*512) is scratch for the zero-fill +
- * dotdir write. Fail loud (Rule 2): no free cluster -> FAT12_ERR_NO_SPACE;
- * parent dir full -> FAT12_ERR_DIR_FULL; bad name -> FAT12_ERR_NOT_FOUND; no
- * write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on success. */
+ * `sector_buf` (>= sectors_per_cluster*512) is scratch for the new cluster's
+ * zero-fill + the '.'/'..' write AND the parent dir-entry RMW; `cluster_buf`
+ * (>= sectors_per_cluster*512, DISTINCT from sector_buf) is the parent-grow
+ * zero-fill buffer -- only touched when a SUBDIR parent must grow (NULL is OK
+ * for a root parent or a non-full subdir parent; a full subdir parent with a
+ * NULL cluster_buf -> FAT12_ERR_NULL). Fail loud (Rule 2): no free cluster ->
+ * FAT12_ERR_NO_SPACE; root dir full -> FAT12_ERR_DIR_FULL; bad name ->
+ * FAT12_ERR_NOT_FOUND; no write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on
+ * success. */
 int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
-                const char *name83, uint16_t parent_dir_start, void *sector_buf);
+                const char *name83, uint16_t parent_dir_start, void *sector_buf,
+                void *cluster_buf);
 
 /*
  * fat12_rmdir: remove the EMPTY subdirectory `name83` whose PARENT is the
  * directory at first data cluster `parent_dir_start` (0 == the fixed root; a
- * NON-ROOT value is OUT OF SCOPE -> FAT12_ERR_PATH_NOT_FOUND). Steps:
- *   - locate `name83` in the parent (scan_root match); a missing name OR a
- *     match that is NOT a directory -> FAT12_ERR_NOT_FOUND;
+ * NON-ROOT value is a real subdir cluster -- the nested RD path, beads
+ * initech-m0bp). Steps:
+ *   - locate `name83` in the parent (fat12_scan_dir match -- walks the parent's
+ *     cluster chain for a subdir, the fixed region for the root); a missing
+ *     name OR a match that is NOT a directory -> FAT12_ERR_NOT_FOUND;
  *   - VERIFY-EMPTY by enumerating the target's own cluster (fat12_read_dir):
  *     only '.' and '..' may survive; any other entry -> FAT12_ERR_NOT_EMPTY;
  *   - free the target's cluster chain (free_chain) + flush both FAT copies;
- *   - mark the parent's dir slot deleted (filename[0] = 0xE5).
+ *   - mark the parent's dir slot deleted (filename[0] = 0xE5) via
+ *     fat12_write_dirent_in_dir (the cluster-chain slot for a subdir, the
+ *     fixed-region slot for the root). RMDIR never GROWS the parent (it only
+ *     deletes an entry), so its signature is UNCHANGED (no cluster_buf) -- the
+ *     mkdir/rmdir asymmetry is deliberate.
  *
  * `fat`/`fat_len` is the whole-FAT buffer (mutated; both copies flushed);
  * `sector_buf` (>= sectors_per_cluster*512) is scratch for the parent scan +
- * the empty-check enumeration. Fail loud (Rule 2): NULL -> FAT12_ERR_NULL; no
- * write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on success. */
+ * the empty-check enumeration + the deleted-mark RMW. Fail loud (Rule 2): NULL
+ * -> FAT12_ERR_NULL; no write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on
+ * success. */
 int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                 const char *name83, uint16_t parent_dir_start, void *sector_buf);
 

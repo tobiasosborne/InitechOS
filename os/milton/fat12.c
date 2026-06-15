@@ -1195,6 +1195,54 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 #endif /* FAT12_MUTATE_GROW_NOOP */
 }
 
+/* fat12_shrink_dir_tail -- the EXACT inverse of a single fat12_grow_dir step:
+ * detach `appended` (the last cluster fat12_grow_dir linked onto the chain at
+ * `start_cluster`) by walking to the cluster that points at it, restoring THAT
+ * cluster to EOC, freeing `appended`, and flushing both FAT copies. Used as the
+ * rollback for a MKDIR whose own-entry write into the just-grown parent slot
+ * fails AFTER the parent grew (beads initech-m0bp): without this the freshly-
+ * appended parent cluster would leak (Rule 2/Rule 3 -- the grow path must roll
+ * back on a later write failure, exactly the discipline fat12_write_file uses
+ * for its partial-allocation rollback). Best-effort: a chain-decode error
+ * during rollback is swallowed (we are already on a failure path); the caller's
+ * original error is the one returned. */
+static void fat12_shrink_dir_tail(const fat12_volume_t *vol, void *fat,
+                                  uint32_t fat_len, uint16_t start_cluster,
+                                  uint16_t appended)
+{
+	uint16_t cur   = start_cluster;
+	uint32_t steps = 0u;
+	uint32_t max   = vol->total_clusters + 2u;
+
+	if (fat == NULL || appended == 0u) {
+		return;
+	}
+	/* Walk to the cluster whose link is `appended`; restore it to EOC. */
+	for (;;) {
+		uint16_t next;
+		if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
+		    fat12_is_bad(cur)) {
+			return;   /* corrupt chain -- give up the rollback (best-effort) */
+		}
+		if (fat12_next_cluster(vol, fat, fat_len, cur, &next) != FAT12_OK) {
+			return;
+		}
+		if (next == appended) {
+			(void)fat12_set_entry(fat, fat_len, cur, FAT12_EOC_VALUE);
+			break;
+		}
+		if (fat12_is_eoc(next)) {
+			return;   /* appended not found in the chain -- nothing to undo */
+		}
+		cur = next;
+		if (++steps > max) {
+			return;
+		}
+	}
+	(void)fat12_set_entry(fat, fat_len, appended, FAT12_FREE);
+	(void)fat12_flush_fats(vol, fat, fat_len);
+}
+
 /* ------------------------------------------------------------------------ *
  * Subdir-aware dir-slot addressing (beads initech-zs24; subdir WRITE side).
  *
@@ -2369,7 +2417,8 @@ static void fat12_make_dotdir(dir_entry_t *de, int dots, uint16_t start)
 }
 
 int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
-                const char *name83, uint16_t parent_dir_start, void *sector_buf)
+                const char *name83, uint16_t parent_dir_start, void *sector_buf,
+                void *cluster_buf)
 {
 	uint8_t     want11[11];
 	uint32_t    free_slot = 0u;
@@ -2384,6 +2433,9 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	uint8_t    *cb;
 	uint32_t    k;
 	dir_entry_t de;
+	int         is_root          = (parent_dir_start == 0u);
+	int         parent_grew      = 0;
+	uint16_t    parent_newc      = 0u;
 
 	if (vol == NULL || name83 == NULL || sector_buf == NULL) {
 		return FAT12_ERR_NULL;
@@ -2392,26 +2444,47 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	    vol->dev->read_sectors == NULL) {
 		return FAT12_ERR_WRITE;
 	}
-	/* ROOT-PARENT ONLY this landing (beads initech-u6wa). A non-root parent is
-	 * a nested-MD concern (the dir-entry write would target a subdir cluster +
-	 * grow a subdir chain on overflow) -- deferred to initech-zs24. Fail loud
-	 * (Rule 2) rather than wrongly create in the root. The BACKEND
-	 * (fileio_fat.c fat_mkdir) gates this first and maps it to 0x0003 PATH_NOT
-	 * FOUND, mirroring fat_create/fat_unlink; this is the defense-in-depth at
-	 * the fat12 layer. */
-	if (parent_dir_start != 0u) {
-		return FAT12_ERR_NOT_FOUND;
-	}
+	/* Parent may be the fixed root (parent_dir_start == 0) OR a subdirectory
+	 * cluster (a non-zero first data cluster), beads initech-m0bp -- the nested
+	 * MD '\SUB\NEWDIR' path. The parent-aware Layer-1 infra (fat12_scan_dir /
+	 * fat12_write_dirent_in_dir / fat12_grow_dir, landed in initech-zs24) lets
+	 * the duplicate-name scan, the own-entry write-back, and the parent-full
+	 * GROW all walk the parent's cluster chain instead of the fixed root region;
+	 * the root path (is_root) stays byte-identical. */
 
 	rc = parse_name83(name83, want11);
 	if (rc != FAT12_OK) {
 		return rc;
 	}
 
-	/* Reject a duplicate name in the parent (root). DOS MKDIR of an existing
-	 * name is an error (the backend maps FAT12_ERR_EXISTS to 0x0005). */
-	rc = fat12_scan_root(vol, sector_buf, want11, &free_slot, &have_free,
-	                     &match_slot, &match, &found);
+	/* Reject a duplicate name in the parent. DOS MKDIR of an existing name is an
+	 * error (the backend maps FAT12_ERR_EXISTS to 0x0005). For a SUBDIR parent
+	 * fat12_scan_dir walks the parent's cluster chain; for the root it is the
+	 * fixed-region scan (byte-identical to the historical fat12_scan_root). */
+#ifdef FAT12_MUTATE_MKDIR_PARENT_ROOTONLY
+	/* MUTANT m-noroot-mkdir (Rule 6; make test-m0bp-mutant only): re-impose the
+	 * old root-only guard so a NON-ROOT parent is rejected NOT_FOUND -- nested
+	 * MKDIR never creates the entry/cluster and the nested differential (parent
+	 * entry / '.'/'..' / listing) goes RED. NEVER define in a real build. */
+	if (parent_dir_start != 0u) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+#endif
+	{
+		int scan_is_root = is_root;
+#ifdef FAT12_MUTATE_MKDIR_PARENT_SCANROOT
+		/* MUTANT m-rootscan-mkdir (Rule 6; make test-m0bp-mutant only): force the
+		 * parent scan to treat the parent as the ROOT even for a SUBDIR parent.
+		 * The duplicate-name check + the free_slot then come from the ROOT region,
+		 * not SUB's chain, so the new dir's entry is written to the wrong dir (or
+		 * a false dup is reported) -- the nested differential goes RED. NEVER
+		 * define in a real build. */
+		scan_is_root = 1;
+#endif
+		rc = fat12_scan_dir(vol, fat, fat_len, scan_is_root, parent_dir_start,
+		                    sector_buf, want11, &free_slot, &have_free,
+		                    &match_slot, &match, &found);
+	}
 	if (rc != FAT12_OK) {
 		return rc;
 	}
@@ -2419,7 +2492,35 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		return FAT12_ERR_EXISTS;
 	}
 	if (!have_free) {
-		return FAT12_ERR_DIR_FULL;   /* root dir full */
+		/* The parent is FULL at *free_slot. The fixed ROOT cannot grow ->
+		 * dir-full. A SUBDIR parent GROWS by one cluster so the free_slot index
+		 * (the first slot of the appended cluster, set by fat12_scan_dir as the
+		 * index just past the last cluster) becomes valid (beads initech-m0bp,
+		 * mirroring fat12_create's full-subdir path). REUSE free_slot verbatim --
+		 * do NOT recompute it (a classic off-by-one). */
+#ifndef FAT12_MUTATE_MKDIR_PARENT_NOGROW
+		if (is_root) {
+			return FAT12_ERR_DIR_FULL;   /* root dir full */
+		}
+		if (cluster_buf == NULL || fat == NULL) {
+			return FAT12_ERR_NULL;
+		}
+		rc = fat12_grow_dir(vol, fat, fat_len, parent_dir_start,
+		                    cluster_buf, &parent_newc);
+		if (rc != FAT12_OK) {
+			return rc;   /* NO_SPACE / write error -- grow already rolled back */
+		}
+		parent_grew = 1;
+#else
+		/* MUTANT m-nogrow-parent (Rule 6; make test-m0bp-mutant only): a FULL
+		 * subdir parent returns DIR_FULL instead of growing -- the boundary
+		 * MKDIR fails and the new dir never lands, so the parent-grow leg
+		 * (listed by mdir/python, parent spans 2 clusters) goes RED. NEVER define
+		 * in a real build. (cluster_buf is unused on this dead path; keep the
+		 * -Werror=unused-parameter clean.) */
+		(void)cluster_buf;
+		return FAT12_ERR_DIR_FULL;
+#endif
 	}
 
 	/* Claim a free data cluster for the new directory and mark it EOC. */
@@ -2446,8 +2547,10 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 
 	/* Zero-fill the new cluster's data sectors, then lay '.' at offset 0 and
 	 * '..' at offset 32 (slot[2] stays 0x00 = end-of-directory). The '..' start
-	 * cluster is the PARENT: the root is encoded as 0 (the EMPIRICAL mtools rule;
-	 * matches the reader's 0 => root normalization). */
+	 * cluster is the PARENT verbatim: the fixed root is encoded as 0 (the
+	 * EMPIRICAL mtools rule; matches the reader's 0 => root normalization), and a
+	 * SUBDIR parent is its real non-zero first data cluster (beads initech-m0bp;
+	 * fat12_make_dotdir writes parent_dir_start unchanged either way). */
 	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
 	                    (uint32_t)vol->bpb.bytes_per_sector;
 	cb = (uint8_t *)sector_buf;
@@ -2475,13 +2578,21 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (vol->dev->write_sectors(vol->dev->ctx, lba,
 	                            vol->bpb.sectors_per_cluster, cb) != 0) {
 		/* Roll back the allocation so a write failure leaves no orphan cluster
-		 * (Rule 2). */
+		 * (Rule 2). If the parent GREW for this MKDIR, also detach + free the
+		 * freshly-appended parent cluster so it does not leak (Rule 3). */
 		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
 		(void)fat12_flush_fats(vol, fat, fat_len);
+		if (parent_grew) {
+			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
+			                      parent_newc);
+		}
 		return FAT12_ERR_WRITE;
 	}
 
-	/* Write the new directory's own entry into the parent (root) free slot. */
+	/* Write the new directory's own entry into the PARENT free slot. For a
+	 * SUBDIR parent the slot is cluster-chain-addressed down parent_dir_start
+	 * (fat12_write_dirent_in_dir); for the root it is the fixed-region slot
+	 * (is_root, byte-identical to the historical fat12_write_dirent). */
 	for (k = 0u; k < sizeof(de); k++) {
 		((uint8_t *)&de)[k] = 0u;
 	}
@@ -2497,11 +2608,29 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	de.start_cluster = newc;
 	de.file_size     = 0u;
 
-	rc = fat12_write_dirent(vol, free_slot, &de, sector_buf);
+#ifndef FAT12_MUTATE_MKDIR_OWNENTRY_ROOTSLOT
+	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+	                               free_slot, &de, sector_buf);
+#else
+	/* MUTANT m-rootslot-write (Rule 6; make test-m0bp-mutant only): force the new
+	 * dir's OWN-entry write-back to a ROOT slot (is_root=1) instead of the parent
+	 * subdir cluster-chain slot. NEWDIR then lands in the ROOT, not in SUB:
+	 * `mdir ::SUB` lacks it (and `mdir ::` wrongly gains it), so the nested
+	 * differential goes RED. NEVER define in a real build. */
+	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, 1, 0u,
+	                               free_slot, &de, sector_buf);
+#endif
 	if (rc != FAT12_OK) {
-		/* The parent entry failed to land; roll back the data cluster. */
+		/* The parent entry failed to land (the LAST failable step). Roll back
+		 * the new dir's data cluster AND, if the parent grew for this MKDIR, the
+		 * freshly-appended parent cluster -- otherwise both leak (Rule 2/Rule 3;
+		 * matches fat12_write_file's partial-allocation rollback discipline). */
 		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
 		(void)fat12_flush_fats(vol, fat, fat_len);
+		if (parent_grew) {
+			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
+			                      parent_newc);
+		}
 		return rc;
 	}
 	return FAT12_OK;
@@ -2538,6 +2667,7 @@ int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	int         rc;
 	int         nonempty = 0;
 	fat12_dir_t target;
+	int         is_root  = (parent_dir_start == 0u);
 
 	if (vol == NULL || name83 == NULL || sector_buf == NULL) {
 		return FAT12_ERR_NULL;
@@ -2546,19 +2676,30 @@ int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	    vol->dev->read_sectors == NULL) {
 		return FAT12_ERR_WRITE;
 	}
-	/* ROOT-PARENT ONLY this landing (beads initech-u6wa); a non-root parent ->
-	 * deferred to initech-zs24. The BACKEND gates this first and maps it to
-	 * 0x0003 PATH_NOT_FOUND (mirroring fat_unlink); defense-in-depth here. */
+	/* Parent may be the fixed root (parent_dir_start == 0) OR a subdirectory
+	 * cluster (beads initech-m0bp -- nested RD '\SUB\NEWDIR'). The parent scan +
+	 * the deleted-mark write-back walk the parent's cluster chain via the
+	 * parent-aware Layer-1 infra (fat12_scan_dir / fat12_write_dirent_in_dir);
+	 * the empty-check below already enumerates the TARGET's chain (subdir-
+	 * capable). No GROW here -- removing an entry never extends the parent (keep
+	 * mkdir/rmdir asymmetric). */
+#ifdef FAT12_MUTATE_RMDIR_PARENT_ROOTONLY
+	/* MUTANT m-noroot-rmdir (Rule 6; make test-m0bp-mutant only): re-impose the
+	 * old root-only guard so RD of a NON-ROOT parent is wrongly rejected
+	 * NOT_FOUND -- the nested rmdir-success / parent-slot-deleted assertions go
+	 * RED. NEVER define in a real build. */
 	if (parent_dir_start != 0u) {
 		return FAT12_ERR_NOT_FOUND;
 	}
+#endif
 
 	rc = parse_name83(name83, want11);
 	if (rc != FAT12_OK) {
 		return FAT12_ERR_NOT_FOUND;
 	}
-	rc = fat12_scan_root(vol, sector_buf, want11, &free_slot, &have_free,
-	                     &match_slot, &match, &found);
+	rc = fat12_scan_dir(vol, fat, fat_len, is_root, parent_dir_start, sector_buf,
+	                    want11, &free_slot, &have_free, &match_slot, &match,
+	                    &found);
 	if (rc != FAT12_OK) {
 		return rc;
 	}
@@ -2604,9 +2745,14 @@ int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		}
 	}
 
-	/* Mark the parent's dir entry deleted (filename[0] = 0xE5). */
+	/* Mark the parent's dir entry deleted (filename[0] = 0xE5). For a SUBDIR
+	 * parent the slot is cluster-chain-addressed down parent_dir_start
+	 * (fat12_write_dirent_in_dir); for the root it is the fixed-region slot
+	 * (is_root, byte-identical to the historical fat12_write_dirent). */
 	match.filename[0] = DIR_NAME_DELETED;
-	return fat12_write_dirent(vol, match_slot, &match, sector_buf);
+	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root,
+	                                 parent_dir_start, match_slot, &match,
+	                                 sector_buf);
 }
 
 /* ======================================================================== *

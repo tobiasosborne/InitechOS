@@ -1286,12 +1286,13 @@ static void do_unlink(int_frame_t *f)
 /* AH=39h MKDIR (CREATE DIRECTORY): EDX = flat ptr to an ASCIIZ path. Resolve the
  * path to its CONTAINING directory (the new dir does not exist yet) via the
  * resolve seam and create the bare leaf there through the backend mkdir member.
- * ROOT-PARENT ONLY this landing (a non-root parent -> the backend's dir_start!=0
- * guard returns 0x0003; nested MD is beads initech-zs24). CF clear on success;
- * CF=1, AX=0x0003 (bad path component / no backend) / 0x0005 (name already
- * exists, dir full, full volume, read-only). The AH=59h dispatch wrapper
- * auto-notes CF+AX so no int21_note_error here. Ref: DOS 3.3 PRM AH=39h; PRD
- * Sec 6.5 (DOS path model); beads initech-u6wa. */
+ * The CONTAINING directory may be the root OR a subdirectory (nested MD
+ * '\SUB\NEWDIR'): resolve_dir_path returns the parent's dir_start and the
+ * backend forwards it to the now parent-aware fat12_mkdir (beads initech-m0bp).
+ * CF clear on success; CF=1, AX=0x0003 (bad path component / no backend) /
+ * 0x0005 (name already exists, dir full, full volume, read-only). The AH=59h
+ * dispatch wrapper auto-notes CF+AX so no int21_note_error here. Ref: DOS 3.3
+ * PRM AH=39h; PRD Sec 6.5 (DOS path model); beads initech-u6wa / initech-m0bp. */
 static void do_mkdir(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
@@ -1321,7 +1322,7 @@ static void do_mkdir(int_frame_t *f)
 
     uint16_t err = g_file->mkdir(leaf, dir_start);
     if (err != 0) {
-        set_ax(f, err);                  /* 0x0005 exists / 0x0003 non-root parent */
+        set_ax(f, err);                  /* 0x0005 exists/dir-full / 0x0003 bad path */
         cf_set(f);
         return;
     }
@@ -1332,16 +1333,17 @@ static void do_mkdir(int_frame_t *f)
  * FULL path to the TARGET directory (resolve_dir seam) for the two dispatcher-
  * level guards, then resolve its CONTAINING directory + bare leaf (resolve seam)
  * and remove it through the backend rmdir member (which verifies the directory
- * is empty). ROOT-PARENT ONLY this landing (a non-root parent -> the backend's
- * dir_start!=0 guard returns 0x0003; nested RD is beads initech-zs24).
+ * is empty). The CONTAINING directory may be the root OR a subdirectory (nested
+ * RD '\SUB\NEWDIR'): resolve_dir_path returns the parent's dir_start and the
+ * backend forwards it to the now parent-aware fat12_rmdir (beads initech-m0bp).
  * Dispatcher-level guards (it owns the CWD state):
  *   - RMDIR of the ROOT ('\' / '' / a path resolving to the root) -> reject with
  *     0x0010 (DOS forbids removing the root, like the current dir);
  *   - RMDIR whose TARGET start_cluster == the current g_cwd_start_cluster ->
  *     0x0010 (DOS "attempt to remove the current directory").
- * Backend errors: 0x0003 (missing dir / not a directory / non-root parent),
- * 0x0005 (the directory is not empty). CF clear on success. The AH=59h dispatch
- * wrapper auto-notes CF+AX. Ref: DOS 3.3 PRM AH=3Ah; beads initech-u6wa. */
+ * Backend errors: 0x0003 (missing dir / not a directory), 0x0005 (the directory
+ * is not empty). CF clear on success. The AH=59h dispatch wrapper auto-notes
+ * CF+AX. Ref: DOS 3.3 PRM AH=3Ah; beads initech-u6wa / initech-m0bp. */
 static void do_rmdir(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;

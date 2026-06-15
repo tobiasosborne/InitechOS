@@ -342,9 +342,14 @@ static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
 }
 
 /* MKDIR (AH=39h CREATE DIRECTORY): create the new subdirectory `name83` in the
- * directory `dir_start_cluster` (0 == root). ROOT-PARENT ONLY this landing: a
- * non-root parent fails cleanly with 0x0003 (mirroring fat_create -- nested MD
- * is the WRITE-side follow-up beads initech-zs24). fat12_mkdir maps:
+ * directory `dir_start_cluster` (0 == root). A NON-ROOT parent is now supported
+ * (beads initech-m0bp): fat12_mkdir scans + write-backs down the parent's
+ * cluster chain, GROWING the parent subdir by a cluster if it is full. The INT21
+ * dispatch already resolved the parent path to dir_start_cluster, so the backend
+ * just forwards it. The g_cluster scratch is the parent-grow zero-fill buffer
+ * (DISTINCT from the g_sector scratch fat12_mkdir uses to zero-fill the NEW
+ * dir's cluster + RMW the parent entry -- they MUST be different live buffers).
+ * fat12_mkdir maps:
  *   FAT12_ERR_EXISTS    -> 0x0005 (DOS MKDIR-exists);
  *   FAT12_ERR_DIR_FULL  -> 0x0005 (parent dir full -- access denied for MKDIR);
  *   FAT12_OK            -> 0;
@@ -354,10 +359,8 @@ static uint16_t fat_mkdir(const char *name83, uint16_t dir_start_cluster)
     if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
     }
-    if (dir_start_cluster != 0u) {
-        return FILEIO_ERR_PATH_NOT_FOUND;  /* non-root parent: deferred (zs24) */
-    }
-    int rc = fat12_mkdir(g_vol, g_fat, g_fat_len, name83, 0u, g_sector);
+    int rc = fat12_mkdir(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
+                         g_sector, g_cluster);
     if (rc == FAT12_OK) {
         return 0u;
     }
@@ -367,8 +370,12 @@ static uint16_t fat_mkdir(const char *name83, uint16_t dir_start_cluster)
 }
 
 /* RMDIR (AH=3Ah REMOVE DIRECTORY): remove the EMPTY subdirectory `name83` from
- * the directory `dir_start_cluster` (0 == root). ROOT-PARENT ONLY: a non-root
- * parent -> 0x0003. fat12_rmdir maps:
+ * the directory `dir_start_cluster` (0 == root). A NON-ROOT parent is now
+ * supported (beads initech-m0bp): fat12_rmdir scans + marks the entry deleted
+ * down the parent's cluster chain (the empty-check already enumerates the
+ * TARGET's chain). The INT21 dispatch resolved the parent to dir_start_cluster;
+ * the backend forwards it. RMDIR never grows the parent, so no cluster_buf is
+ * needed. fat12_rmdir maps:
  *   FAT12_ERR_NOT_FOUND -> 0x0003 (missing dir / not a directory -- DOS RMDIR
  *                          path-not-found);
  *   FAT12_ERR_NOT_EMPTY -> 0x0005 (DOS RMDIR of a non-empty directory);
@@ -379,10 +386,8 @@ static uint16_t fat_rmdir(const char *name83, uint16_t dir_start_cluster)
     if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;
     }
-    if (dir_start_cluster != 0u) {
-        return FILEIO_ERR_PATH_NOT_FOUND;  /* non-root parent: deferred (zs24) */
-    }
-    int rc = fat12_rmdir(g_vol, g_fat, g_fat_len, name83, 0u, g_sector);
+    int rc = fat12_rmdir(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
+                         g_sector);
     if (rc == FAT12_OK) {
         return 0u;
     }

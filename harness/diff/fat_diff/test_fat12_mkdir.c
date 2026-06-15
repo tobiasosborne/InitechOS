@@ -57,6 +57,12 @@ TEST_HARNESS();
 
 static uint8_t g_fat[12u * 512u];
 static uint8_t g_sector[512];
+/* DISTINCT from g_sector: fat12_mkdir uses sector_buf for the NEW dir's cluster
+ * zero-fill + the parent-entry RMW, and cluster_buf for the parent-grow zero-
+ * fill -- they must be different live buffers (beads initech-m0bp). The root-
+ * parent legs in this test never grow, so g_cluster is untouched here, but the
+ * call must still pass a distinct buffer. */
+static uint8_t g_cluster[512];
 
 /* The bare 8.3 directory name both the artifact and mmd create. */
 #define NEWDIR_NAME "NEWDIR"
@@ -184,7 +190,7 @@ int main(int argc, char **argv)
 	fat_len = (uint32_t)art_vol.bpb.sectors_per_fat *
 	          (uint32_t)art_vol.bpb.bytes_per_sector;
 
-	rc = fat12_mkdir(&art_vol, g_fat, fat_len, NEWDIR_NAME, 0u, g_sector);
+	rc = fat12_mkdir(&art_vol, g_fat, fat_len, NEWDIR_NAME, 0u, g_sector, g_cluster);
 	CHECK(rc == FAT12_OK, "fat12_mkdir('\\NEWDIR') in the root succeeds");
 
 	/* ---- the GOLDEN (mmd) image -- read-only ----------------------------- */
@@ -282,7 +288,7 @@ int main(int argc, char **argv)
 	 * write sector. fat12_rmdir must then refuse FULLDIR (NOT_EMPTY); the m4
 	 * mutant (no empty-check) wrongly succeeds, turning the assertion RED. */
 	{
-		rc = fat12_mkdir(&art_vol, g_fat, fat_len, "FULLDIR", 0u, g_sector);
+		rc = fat12_mkdir(&art_vol, g_fat, fat_len, "FULLDIR", 0u, g_sector, g_cluster);
 		CHECK(rc == FAT12_OK, "re-MKDIR 'FULLDIR' for the non-empty proof");
 		uint16_t full_start = 0xFFFFu;
 		int fs = find_root_dir_named(&art_vol, "FULLDIR", &full_start);
