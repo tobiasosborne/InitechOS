@@ -1129,6 +1129,58 @@ int main(void)
         CHECK(frame_cf(&fn) == 1, "FINDNEXT after an exact 1-file match is exhausted");
     }
 
+    /* --- FINDFIRST "*.TXT" FILTERS: HELLO.TXT matches, README (blank ext) does
+     *     NOT, the volume label is skipped. Proves the wildcard engine drives a
+     *     real DIR-style filter end-to-end (beads initech-80k). ------------- */
+    {
+        find_data_t *fd = (find_data_t *)(uintptr_t)alloc_low(FIND_DATA_SIZE);
+        memset(fd, 0, FIND_DATA_SIZE);
+        int_frame_t s = fresh_frame();
+        s.eax = 0x1A00u; s.edx = (uint32_t)(uintptr_t)fd;
+        int21_dispatch(&s);
+
+        uint32_t edx = low_dup("*.TXT");
+        int_frame_t ff = fresh_frame();
+        ff.eax = 0x4E00u; ff.ecx = 0u; ff.edx = edx;
+        ff.eflags |= CF_BIT;
+        int21_dispatch(&ff);
+        CHECK(frame_cf(&ff) == 0, "FINDFIRST *.TXT finds the first .TXT file");
+        CHECK(strcmp(fd->fname, "HELLO.TXT") == 0, "FINDFIRST *.TXT yields HELLO.TXT");
+
+        /* README has a blank extension -> *.TXT must NOT match it; the next
+         * FINDNEXT is exhausted (no more .TXT files; the vol label is skipped). */
+        int_frame_t fn = fresh_frame();
+        fn.eax = 0x4F00u;
+        int21_dispatch(&fn);
+        CHECK(frame_cf(&fn) == 1, "FINDNEXT *.TXT exhausted (README filtered out, no more .TXT)");
+        CHECK((uint16_t)(fn.eax & 0xFFFFu) == INT21_ERR_NO_MORE_FILES,
+              "FINDNEXT *.TXT exhausted AX=0x0012");
+    }
+
+    /* --- FINDFIRST with a '?' PARTIAL pattern: "HELL?.TXT" matches HELLO.TXT
+     *     (the '?' matches the 'O'). Proves a single-position '?' wildcard is
+     *     honoured by the engine end-to-end (beads initech-80k). ----------- */
+    {
+        find_data_t *fd = (find_data_t *)(uintptr_t)alloc_low(FIND_DATA_SIZE);
+        memset(fd, 0, FIND_DATA_SIZE);
+        int_frame_t s = fresh_frame();
+        s.eax = 0x1A00u; s.edx = (uint32_t)(uintptr_t)fd;
+        int21_dispatch(&s);
+
+        uint32_t edx = low_dup("HELL?.TXT");
+        int_frame_t ff = fresh_frame();
+        ff.eax = 0x4E00u; ff.ecx = 0u; ff.edx = edx;
+        ff.eflags |= CF_BIT;
+        int21_dispatch(&ff);
+        CHECK(frame_cf(&ff) == 0, "FINDFIRST HELL?.TXT finds the file ('?' matches 'O')");
+        CHECK(strcmp(fd->fname, "HELLO.TXT") == 0, "FINDFIRST HELL?.TXT yields HELLO.TXT");
+
+        int_frame_t fn = fresh_frame();
+        fn.eax = 0x4F00u;
+        int21_dispatch(&fn);
+        CHECK(frame_cf(&fn) == 1, "FINDNEXT after the single HELL?.TXT match is exhausted");
+    }
+
     /* --- FINDNEXT with no active search -> CF=1, AX=0x0012 ---------------- */
     {
         /* re-bind a clean process to clear find state */

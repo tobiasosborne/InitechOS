@@ -2396,6 +2396,51 @@ $(TEST_INT21_MUT_4NBN_OUTSTAT): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT2
 $(TEST_INT21_MUT_4NBN_CHANGE): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_CHANGEABLE_OK -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+# --- DOS 8.3 wildcard engine oracle (beads initech-80k) --------------------
+# Host table-driven oracle for the FCB-style 8.3 matcher (build_pattern +
+# pattern_match) behind AH=4Eh/4Fh FINDFIRST/FINDNEXT. Drives the SAME two
+# static functions the dispatcher uses, via the INT21_WILDCARD_TESTSEAM
+# wrappers (so the test build alone defines that flag -- the real kernel never
+# compiles the seam). Links the same int21.c TU + its SFT/PSP/MCB/IRQ deps.
+# Ground truth: Old New Thing "How did wildcards work in MS-DOS?" (2007) +
+# DOS 3.3 PRM AH=4Eh -- '?' matches the trailing space pad, so a trailing-'?'
+# pattern matches a shorter name (e.g. FOO?.* matches FOO.TXT).
+TEST_WILDCARD     := $(BUILD)/test_int21_wildcard
+TEST_WILDCARD_SRC := $(MILTON_DIR)/test_int21_wildcard.c
+# Mutation builds (Rule 6): four single-branch/constant perturbations of the
+# matcher, each MUST drive a NAMED assertion RED:
+#   (a) QMARK_LITERAL : build stores '?' but match treats template '?' as a
+#                       literal byte (exact compare) -> all wildcard rows RED.
+#   (b) MATCH_EXACT    : pattern_match drops the '?' wildcard arm (exact-only)
+#                       -> every '*'/'?' match row RED.
+#   (c) STAR_BLEED     : a name-field '*' over-fills the EXT field too -> the
+#                       "*.TXT must keep ext == TXT" rows RED.
+#   (d) NO_UPCASE      : build does NOT upper-case the input -> a lower-case
+#                       spec fails to match the upper-cased on-disk name.
+TEST_WILDCARD_MUT_QLIT  := $(BUILD)/test_int21_wildcard_mutant_qlit
+TEST_WILDCARD_MUT_EXACT := $(BUILD)/test_int21_wildcard_mutant_exact
+TEST_WILDCARD_MUT_BLEED := $(BUILD)/test_int21_wildcard_mutant_bleed
+TEST_WILDCARD_MUT_NOUP  := $(BUILD)/test_int21_wildcard_mutant_noup
+
+$(TEST_WILDCARD): $(TEST_WILDCARD_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_WILDCARD_TESTSEAM -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_WILDCARD_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_WILDCARD_MUT_QLIT): $(TEST_WILDCARD_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_WILDCARD_TESTSEAM -DINT21_MUTATE_WILD_QMARK_LITERAL -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_WILDCARD_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_WILDCARD_MUT_EXACT): $(TEST_WILDCARD_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_WILDCARD_TESTSEAM -DINT21_MUTATE_WILD_MATCH_EXACT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_WILDCARD_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_WILDCARD_MUT_BLEED): $(TEST_WILDCARD_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_WILDCARD_TESTSEAM -DINT21_MUTATE_WILD_STAR_BLEED -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_WILDCARD_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_WILDCARD_MUT_NOUP): $(TEST_WILDCARD_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_WILDCARD_TESTSEAM -DINT21_MUTATE_WILD_NO_UPCASE -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_WILDCARD_SRC) $(TEST_INT21_DEPS)
 
 # --- CON INPUT oracle (beads initech-n62) ----------------------------------
 # Host unit oracle for the INT 21h CON-INPUT functions (01h/06h/07h/08h/0Ah/
@@ -2539,6 +2584,44 @@ test-4nbn-mutant: $(TEST_INT21_MUT_4NBN_SETINFO) $(TEST_INT21_MUT_4NBN_INSTAT) \
 		printf '!!! test-4nbn-mutant FAIL: CHANGEABLE_OK mutant PASSED -- the AL=08 block-device-only invalid-function is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-4nbn-mutant: green (CHANGEABLE_OK mutant correctly RED -- the AL=08 0x0001 invalid-function answer bites)\n'; \
+	fi
+
+.PHONY: test-80k test-80k-mutant
+# REAL gate (beads initech-80k): the full DOS 8.3 wildcard engine for
+# FINDFIRST/FINDNEXT. Table-driven over build_pattern + pattern_match (the
+# REAL int21.c matcher) with the canonical ground-truth quirks.
+test-80k: $(TEST_WILDCARD)
+	@printf ">>> test-80k: DOS 8.3 FCB wildcard match (*.*, A*.*, *.TXT, FOO?.*, ?.BAR) + ?-over-pad quirks\n"
+	@$(TEST_WILDCARD)
+	@printf ">>> test-80k: green\n"
+
+# Mutation-proof: ALL FOUR matcher mutants MUST fail the oracle (Rule 6).
+test-80k-mutant: $(TEST_WILDCARD_MUT_QLIT) $(TEST_WILDCARD_MUT_EXACT) \
+                 $(TEST_WILDCARD_MUT_BLEED) $(TEST_WILDCARD_MUT_NOUP)
+	@printf ">>> test-80k-mutant: confirming all four wildcard mutants go RED (Rule 6)\n"
+	@if $(TEST_WILDCARD_MUT_QLIT) >/dev/null 2>&1; then \
+		printf '!!! test-80k-mutant FAIL: qmark-literal mutant PASSED -- the ? wildcard test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-80k-mutant: green (qmark-literal mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_WILDCARD_MUT_EXACT) >/dev/null 2>&1; then \
+		printf '!!! test-80k-mutant FAIL: match-exact mutant PASSED -- the wildcard match arm is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-80k-mutant: green (match-exact mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_WILDCARD_MUT_BLEED) >/dev/null 2>&1; then \
+		printf '!!! test-80k-mutant FAIL: star-bleed mutant PASSED -- the per-field '"'"'*'"'"' fill test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-80k-mutant: green (star-bleed mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_WILDCARD_MUT_NOUP) >/dev/null 2>&1; then \
+		printf '!!! test-80k-mutant FAIL: no-upcase mutant PASSED -- the input upper-case test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-80k-mutant: green (no-upcase mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -9078,6 +9161,7 @@ TEST_UNIT_GATES := \
 	test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
+	test-80k test-80k-mutant \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
 	test-mcb test-mcb-int21 \

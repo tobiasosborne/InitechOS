@@ -2239,17 +2239,34 @@ static void build_pattern(const char *spec, uint8_t out[11])
         int base = (field == 0) ? 0 : 8;
         int cap  = (field == 0) ? 8 : 3;
         if (c == '*') {
+#ifdef INT21_MUTATE_WILD_STAR_BLEED
+            /* MUTANT (Rule 6; make test-80k-mutant only): a '*' fills from the
+             * current cursor to the END OF THE 11-BYTE TEMPLATE, bleeding a
+             * name-field '*' into the ext field. "*.TXT" then becomes all '?',
+             * so the "ext must stay TXT" rows MUST go RED. NEVER in a real build. */
+            for (; base + pos < 11; pos++) {
+                out[base + pos] = '?';
+            }
+#else
             /* Fill the rest of THIS field with '?' (match any). */
             for (; pos < cap; pos++) {
                 out[base + pos] = '?';
             }
+#endif
             continue;
         }
         if (pos < cap) {
+#ifndef INT21_MUTATE_WILD_NO_UPCASE
             /* Upper-case ASCII a-z. */
             if (c >= 'a' && c <= 'z') {
                 c = (char)(c - 'a' + 'A');
             }
+#else
+            /* MUTANT (Rule 6; make test-80k-mutant only): drop the upper-case
+             * fold, so a lower-case spec stores lower-case bytes that never
+             * match the upper-cased on-disk name. The lower-case-spec row MUST
+             * go RED. NEVER define in a real build. */
+#endif
             out[base + pos] = (uint8_t)c;
             pos++;
         }
@@ -2274,9 +2291,18 @@ static void entry_template(const dir_entry_t *e, uint8_t out[11])
 static int pattern_match(const uint8_t pat[11], const uint8_t name[11])
 {
     for (int i = 0; i < 11; i++) {
+#if defined(INT21_MUTATE_WILD_MATCH_EXACT) || defined(INT21_MUTATE_WILD_QMARK_LITERAL)
+        /* MUTANT (Rule 6; make test-80k-mutant only): both perturbations drop
+         * the '?' wildcard arm so the template '?' is compared as a literal
+         * byte (exact-only matching). EXACT and QMARK_LITERAL collapse to the
+         * same defect at the match site -- every '*'/'?' match row MUST go RED.
+         * (QMARK_LITERAL is the build-side framing of "'?' is not special";
+         * the observable effect is identical here.) NEVER in a real build. */
+#else
         if (pat[i] == '?') {
             continue;
         }
+#endif
         if (pat[i] != name[i]) {
             return 0;
         }
@@ -2448,6 +2474,23 @@ static void do_findnext(int_frame_t *f)
         cf_set(f);
     }
 }
+
+#ifdef INT21_WILDCARD_TESTSEAM
+/* TEST-ONLY seam (CLAUDE.md Rule 6 idiom; compiled ONLY into the wildcard host
+ * oracle via -DINT21_WILDCARD_TESTSEAM, beads initech-80k). The 8.3 FCB-style
+ * matcher (build_pattern + pattern_match) is the load-bearing math behind
+ * DIR/FINDFIRST wildcards, so it gets a direct table-driven oracle that drives
+ * the SAME two static functions the dispatcher uses -- no second matcher to
+ * drift. Pure functions, no global state; never compiled into a real kernel. */
+void int21_wildcard_build(const char *spec, uint8_t out[11])
+{
+    build_pattern(spec, out);
+}
+int int21_wildcard_match(const uint8_t pat[11], const uint8_t name[11])
+{
+    return pattern_match(pat, name);
+}
+#endif /* INT21_WILDCARD_TESTSEAM */
 
 /* AH=4Bh EXEC (LOAD AND EXECUTE): AL = subfunction, EDX = flat ptr to the ASCIIZ
  * program path (root-dir 8.3 only this milestone). AL=00h is load-and-execute (a

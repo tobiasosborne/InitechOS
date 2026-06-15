@@ -516,17 +516,54 @@ typedef struct {
 static find_state_t g_find;
 ```
 
-**Wildcard matching:** The full DOS wildcard engine is complex (the `?` and `*` rules in
-8.3 context differ from Unix). For this milestone, implement two cases only:
-- `*.*` (match all regular files): `pattern` is all `?`.
-- Exact 8.3 match.
+**Wildcard matching (FULL ENGINE, beads initech-80k):** The `?`/`*` rules in 8.3 FCB
+context differ from Unix, but they are simple and fully specified. The engine is two pure
+functions in `int21.c` -- `build_pattern()` turns the spec into an 11-byte FCB template;
+`pattern_match()` compares that template against a directory entry's 11-byte name -- driven
+by the host oracle `os/milton/test_int21_wildcard.c` (gate `make test-80k`).
+
+*The CP/M-derived MS-DOS FCB algorithm (ground truth):*
+
+1. **Template build.** Start with ELEVEN SPACES (8 name + 3 ext). Walk the spec
+   left-to-right. A `.` jumps the cursor to the ext field (position 9). A `*` fills the
+   REST OF ITS CURRENT FIELD with `?` (a name `*` fills only positions up to 8; it does
+   NOT bleed into the ext field). Any other character is copied (upper-cased) and the
+   cursor advances. Short fields stay space-padded. So `*.*` -> eleven `?`; `*.TXT` ->
+   eight `?` + `TXT`; `A*` (no dot) -> `A` + seven `?` + three SPACES (blank ext);
+   `FOO?.*` -> `FOO?` + four spaces + three `?`.
+
+2. **Matching.** Position-by-position over all 11 bytes. A `?` in the template matches ANY
+   byte INCLUDING the trailing space pad; a non-`?` byte must compare equal. The on-disk
+   name is itself space-padded to 11.
+
+**The load-bearing, counter-intuitive consequence:** because `?` matches the pad space and
+the on-disk name is space-padded, a pattern with a TRAILING `?` matches a SHORTER name.
+
+| Pattern   | 11-byte template | Matches            | Does NOT match              |
+|-----------|------------------|--------------------|-----------------------------|
+| `*.*`     | `???????????`    | everything         | (nothing)                   |
+| `*.TXT`   | `????????TXT`    | `A.TXT`, `HI.TXT`  | `README` (blank ext), `X.DAT` |
+| `A*.*`    | `A??????????`    | `A.TXT`, `APPLE.C` | `BANANA.TXT`, `README`      |
+| `A*`      | `A???????` + `   ` | `A`, `APPLE`     | `APPLE.TXT` (ext must be blank) |
+| `?.BAR`   | `?       BAR`    | `A.BAR`, `X.BAR`   | `AB.BAR` (2-char name), `A.BAZ` |
+| `FOO?.*`  | `FOO?    ???`    | `FOO`, `FOO.TXT`, `FOOD.C` | `FOOBAR`, `FXO.TXT`  |
+| `?`       | `?` + 10 spaces  | `A` (blank ext)    | `AB`, `A.TXT`               |
+
+Note `FOO?.*` MATCHES `FOO.TXT` and the 3-char `FOO`: template position 3 is `?`, which
+matches the `O` and the pad space respectively. (An earlier grounding guess that
+"`FOO?.*` does NOT match `FOO.TXT`" is WRONG under real DOS semantics; the oracle table
+encodes the correct behavior.)
+
 Skip volume labels and subdirectories unless the search attribute includes them (ECX bit 3
-for VolLabel, bit 4 for Directory). This is sufficient for `DIR`.
+for VolLabel, bit 4 for Directory). This is sufficient for `DIR *.TXT`, `A*.*`, `FOO?.*`.
 
 **Scope this milestone:** Root directory only, no subdirectory traversal, no path prefix
 in the file spec. These are deferred.
 
-**Ref:** DOS 3.3 Programmer's Reference Manual AH=4Eh/4Fh; ADR-0003 Appendix A:4Eh/4Fh.
+**Ref:** Raymond Chen, "How did wildcards work in MS-DOS?", *The Old New Thing*,
+2007-12-17 (the CP/M-derived FCB match algorithm: `?` matches anything including the space
+pad; `*` fills the rest of its field with `?`); DOS 3.3 Programmer's Reference Manual
+AH=4Eh/4Fh; ADR-0003 Appendix A:4Eh/4Fh.
 
 ### 4.6 AH=3Ch CREAT (deferred)
 
