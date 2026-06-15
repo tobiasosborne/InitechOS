@@ -209,6 +209,70 @@ static void check_file(const fat12_volume_t *vol, void *sector_buf,
 	}
 }
 
+/* Large multi-cluster file check (beads initech-dao): read BIGCHAIN.TXT (700060
+ * bytes => 1368 clusters on the 1-sector/cluster floppy, > half the old on-stack
+ * uint16_t chain[2880] array) through the REAL artifact fat12_read_file and
+ * assert byte-for-byte equality with the committed fixture golden, plus the
+ * RISK-5 guard byte just past file_size (no trailing padding from the partial
+ * last cluster: 700060 % 512 == 156). Buffers are `static` so the streaming read
+ * is exercised WITHOUT a large test stack frame -- the very hazard initech-dao
+ * removes from the kernel. */
+static void check_large_file(const fat12_volume_t *vol, void *sector_buf,
+                             const void *fat, uint32_t fat_len,
+                             const char *name83, const char *golden_path,
+                             uint16_t want_start, uint32_t want_size)
+{
+	static uint8_t got[1024 * 1024];
+	static uint8_t golden[1024 * 1024];
+	uint8_t        cluster_buf[512]; /* sectors_per_cluster(1) * 512 for floppy */
+	dir_entry_t    e;
+	uint32_t       out_bytes = 0xFFFFFFFFu;
+	long           glen;
+	int            rc;
+	char           msg[128];
+	const uint8_t  GUARD = 0x7Eu;
+
+	rc = fat12_find(vol, sector_buf, name83, &e);
+	snprintf(msg, sizeof(msg), "fat12_find(%s) should return FAT12_OK", name83);
+	CHECK(rc == FAT12_OK, msg);
+	if (rc != FAT12_OK) {
+		return;
+	}
+	snprintf(msg, sizeof(msg), "%s start_cluster == %u", name83, want_start);
+	CHECK(e.start_cluster == want_start, msg);
+	snprintf(msg, sizeof(msg), "%s file_size == %u", name83, want_size);
+	CHECK(e.file_size == want_size, msg);
+
+	glen = read_whole_file(golden_path, golden, (long)sizeof(golden));
+	snprintf(msg, sizeof(msg), "read golden fixture %s", golden_path);
+	CHECK(glen >= 0, msg);
+	snprintf(msg, sizeof(msg), "%s golden size == file_size %u", name83, want_size);
+	CHECK(glen == (long)want_size, msg);
+
+	/* Poison the guard just past file_size; pass out_buf_len = file_size + 1 so
+	 * a correct streaming read writes only file_size bytes (RISK-5). */
+	memset(got, 0, sizeof(got));
+	if (want_size < sizeof(got)) {
+		got[want_size] = GUARD;
+	}
+	rc = fat12_read_file(vol, fat, fat_len, &e, got, want_size + 1u,
+	                     cluster_buf, &out_bytes);
+	snprintf(msg, sizeof(msg), "fat12_read_file(%s) should return FAT12_OK", name83);
+	CHECK(rc == FAT12_OK, msg);
+	snprintf(msg, sizeof(msg), "%s out_bytes == real file size %u", name83, want_size);
+	CHECK(out_bytes == want_size, msg);
+	snprintf(msg, sizeof(msg),
+	         "%s RISK-5: guard byte past file_size untouched (no padding)", name83);
+	CHECK(want_size >= sizeof(got) || got[want_size] == GUARD, msg);
+
+	if (rc == FAT12_OK && glen == (long)want_size) {
+		snprintf(msg, sizeof(msg),
+		         "%s streaming read matches the fixture (byte-for-byte, 1368 clusters)",
+		         name83);
+		CHECK(memcmp(got, golden, want_size) == 0, msg);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	const char     *img;
@@ -224,6 +288,7 @@ int main(int argc, char **argv)
 	char            chain_path[512];
 	char            empty_path[512];
 	char            block_path[512];
+	char            bigchain_path[512];
 
 	if (argc < 3) {
 		fprintf(stderr, "usage: %s <fat12-image> <fixture-dir>\n", argv[0]);
@@ -237,6 +302,7 @@ int main(int argc, char **argv)
 	snprintf(chain_path,  sizeof(chain_path),  "%s/chain.txt",  fixdir);
 	snprintf(empty_path,  sizeof(empty_path),  "%s/empty.txt",  fixdir);
 	snprintf(block_path,  sizeof(block_path),  "%s/block.bin",  fixdir);
+	snprintf(bigchain_path, sizeof(bigchain_path), "%s/bigchain.txt", fixdir);
 
 	rc = blockdev_file_open(&bf, img);
 	CHECK(rc == 0, "blockdev_file_open should succeed on the minted image");
@@ -282,19 +348,23 @@ int main(int argc, char **argv)
 
 	/* ---- (a) ENUMERATION: the regular-file set == fixture set ---- *
 	 * Matched against `mdir -i <img> ::` (this session): HELLO.TXT, SECOND.TXT,
-	 * CHAIN.TXT, EMPTY.TXT, BLOCK.BIN -- no LFN, no volume-label entries.
-	 * EMPTY.TXT (0 bytes, start_cluster 0) and BLOCK.BIN (1024 bytes = an exact
-	 * 2-cluster multiple, full last cluster) extend coverage to the empty-file
-	 * and the partial-vs-full last-cluster boundary cases (beads initech-5cu). */
+	 * CHAIN.TXT, EMPTY.TXT, BLOCK.BIN, BIGCHAIN.TXT -- no LFN, no volume-label
+	 * entries. EMPTY.TXT (0 bytes, start_cluster 0) and BLOCK.BIN (1024 bytes =
+	 * an exact 2-cluster multiple, full last cluster) extend coverage to the
+	 * empty-file and partial-vs-full last-cluster boundary cases (initech-5cu).
+	 * BIGCHAIN.TXT (700060 bytes => 1368 clusters, partial last) is the large
+	 * multi-cluster stress file that exercises the STREAMING read (initech-dao):
+	 * it would have used > half the old on-stack chain[2880] array. */
 	memset(&nl, 0, sizeof(nl));
 	rc = fat12_read_root_dir(&vol, sector_buf, collect_cb, &nl);
 	CHECK(rc == FAT12_OK, "fat12_read_root_dir should complete the scan (FAT12_OK)");
-	CHECK(nl.count == 5, "root dir holds exactly 5 regular files (0x00 sentinel stopped scan)");
+	CHECK(nl.count == 6, "root dir holds exactly 6 regular files (0x00 sentinel stopped scan)");
 	CHECK(namelist_has(&nl, "HELLO.TXT"),  "enumeration found HELLO.TXT");
 	CHECK(namelist_has(&nl, "SECOND.TXT"), "enumeration found SECOND.TXT");
 	CHECK(namelist_has(&nl, "CHAIN.TXT"),  "enumeration found CHAIN.TXT");
 	CHECK(namelist_has(&nl, "EMPTY.TXT"),  "enumeration found EMPTY.TXT");
 	CHECK(namelist_has(&nl, "BLOCK.BIN"),  "enumeration found BLOCK.BIN");
+	CHECK(namelist_has(&nl, "BIGCHAIN.TXT"), "enumeration found BIGCHAIN.TXT");
 
 	/* ---- (a') SYNTHETIC root dir: prove skip/stop are load-bearing ---- *
 	 * Hand-build a disk: copy the minted boot sector + FAT region for valid
@@ -404,6 +474,12 @@ int main(int argc, char **argv)
 	 * vs CHAIN.TXT (beads initech-5cu). start_cluster re-verified with python3. */
 	check_file(&vol, sector_buf, fat_buf, sizeof(fat_buf),
 	           "BLOCK.BIN", block_path, 8u, 1024u);
+	/* BIGCHAIN.TXT: the load-bearing STREAMING case (beads initech-dao). 700060
+	 * bytes => 1368 clusters (> half the old on-stack chain[2880]); partial last
+	 * cluster (700060 % 512 == 156) is RISK-5. The incremental walk must
+	 * reproduce it byte-for-byte through the artifact's single-cluster scratch. */
+	check_large_file(&vol, sector_buf, fat_buf, sizeof(fat_buf),
+	                 "BIGCHAIN.TXT", bigchain_path, 10u, 700060u);
 
 	/* fat12_find is case-insensitive (lower-case input must match). */
 	{

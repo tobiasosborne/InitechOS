@@ -145,14 +145,28 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 	 * the fs_type string is informational and unreliable). */
 	if (vol->total_clusters < FAT12_MAX_CLUSTERS) {
 		vol->fat_type = FAT_TYPE_FAT12;
+#ifdef FAT16_MUTATE_NO_CLASSIFY
 	} else if (vol->total_clusters < FAT16_MAX_CLUSTERS) {
-		/* A real FAT16 volume, but every decode/encode routine in this file is
-		 * 12-bit-only (the entry packing AND the EOC/bad thresholds differ for
-		 * 16-bit FATs). Walking a FAT16 with the 12-bit decoder yields garbage
-		 * chains, so REJECT it at mount rather than silently mis-decode (bcg.4;
-		 * Rule 2). fat_type is recorded for the diagnostic before failing. */
+		/* MUTANT (Rule 6; test-fat16 mutant M5 only): a FAT16 volume is
+		 * classified FAT12, so fat12_next_cluster runs the 12-bit decode on a
+		 * 16-bit FAT. Every chain decodes to garbage -> the FAT16 read oracle
+		 * goes RED. This proves the cluster-count classification + the fat_type
+		 * dispatch are load-bearing. NEVER define in a real build. */
+		vol->fat_type = FAT_TYPE_FAT12;
+#else
+	} else if (vol->total_clusters < FAT16_MAX_CLUSTERS) {
+		/* A real FAT16 volume (beads initech-z01, READ-ONLY, non-partitioned).
+		 * FAT16 is ACCEPTED now: the link decode + EOC/bad thresholds differ for
+		 * a 16-bit FAT, but the chain WALKERS are parameterized by the decode
+		 * primitive (fat12_next_cluster dispatches to fat16_next_cluster on
+		 * fat_type) + vol-aware classify helpers (chain_is_eoc/_free/_bad), so a
+		 * FAT16 volume reads correctly with no 12-bit mis-decode (the bcg.4
+		 * concern that previously forced a reject) and the FAT12 path stays
+		 * byte-identical. Ref (Law 1): docs/research/fat16-ground-truth.md
+		 * Sec 0/2/3; Microsoft FAT spec Sec 3.2. WRITE is deferred (509.11);
+		 * the FAT12 WRITE primitives are never invoked on a FAT16 volume. */
 		vol->fat_type = FAT_TYPE_FAT16;
-		return FAT12_ERR_UNSUPPORTED;
+#endif /* FAT16_MUTATE_NO_CLASSIFY */
 	} else {
 		/* FAT32 is out of scope for this slice; do not silently mis-handle. */
 		return FAT12_ERR_GEOMETRY;
@@ -216,12 +230,80 @@ static int fat12_cluster_in_range(const fat12_volume_t *vol, uint16_t c)
 }
 
 /*
- * fat12_next_cluster -- decode the 12-bit entry for `cluster` (brief Sec 3).
+ * fat16_next_cluster -- decode the 16-bit FAT16 entry for `cluster` (beads
+ * initech-z01, READ-ONLY). A SEPARATE decoder, NOT the 12-bit fat12 decode with
+ * a mask: FAT16 is a flat little-endian uint16_t array, byte_offset = cluster*2,
+ * no nibble packing, no even/odd case.
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 --
- *   byte_offset = (N*3)/2;  v = b[off] | (b[off+1]<<8);
- *   entry = (N even) ? (v & 0x0FFF) : (v >> 4).
- * Worked example (clusters 4..7) verified there.
+ * Ref (Law 1): docs/research/fat16-ground-truth.md Sec 3 --
+ *   byte_offset = N*2;  entry = fat[off] | (fat[off+1]<<8).
+ * Worked examples (CHAIN16.TXT 3->4->5->6->EOC; cluster 7 entry 0x0008)
+ * verified there against a real mkfs.fat -F 16 image.
+ */
+int fat16_next_cluster(const fat12_volume_t *vol, const void *fat,
+                       uint32_t fat_len, uint16_t cluster, uint16_t *out_next)
+{
+	const uint8_t *b;
+	uint32_t       off;
+
+	(void)vol; /* decode is purely a function of the flat FAT buffer */
+
+	if (fat == NULL || out_next == NULL) {
+		return FAT12_ERR_NULL;
+	}
+
+	/* Clusters 0 and 1 are reserved, not data clusters (brief Sec 3). */
+	if (cluster < FAT12_FIRST_DATA_CLUSTER) {
+		return FAT12_ERR_CLUSTER;
+	}
+
+#ifndef FAT16_MUTATE_ENTRY_OFFSET
+	/* byte_offset = cluster*2 (FAT16 entry stride; brief Sec 3). */
+	off = (uint32_t)cluster * 2u;
+#else
+	/* MUTANT (Rule 6; test-fat16 mutant M1 only): off-by-one entry offset --
+	 * read a MISALIGNED 16-bit word (cluster*2 + 1). Every chain link decodes
+	 * to garbage, so the FAT16 differential (chain walk / file content) goes
+	 * RED. NEVER define in a real build. */
+	off = (uint32_t)cluster * 2u + 1u;
+#endif
+	/* Both b[off] and b[off+1] must be in range -- bounds-check before reading
+	 * (Rule 2). Catches an out-of-volume cluster index. */
+	if (off + 1u >= fat_len) {
+		return FAT12_ERR_CLUSTER;
+	}
+
+	b = (const uint8_t *)fat;
+#ifndef FAT16_MUTATE_ENTRY_MASK12
+	/* Little-endian 16-bit entry, used VERBATIM (no mask): a valid FAT16 cluster
+	 * pointer can exceed 0x0FFF, and the EOC value 0xFFFF must survive intact for
+	 * the >= 0xFFF8 classification (brief Sec 3). */
+	*out_next = (uint16_t)((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8));
+#else
+	/* MUTANT (Rule 6; test-fat16 mutant M2 only): mask the FAT16 entry to 12
+	 * bits as if it were a FAT12 entry. Any cluster pointer >= 0x1000 corrupts,
+	 * and EOC 0xFFFF -> 0x0FFF which is NOT >= 0xFFF8, so chains never terminate
+	 * correctly -> the differential goes RED. NEVER define in a real build. */
+	*out_next = (uint16_t)(((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8))
+	                       & FAT12_ENTRY_MASK);
+#endif
+
+	return FAT12_OK;
+}
+
+/*
+ * fat12_next_cluster -- decode the next-cluster link for `cluster`. DISPATCHES
+ * on vol->fat_type (beads initech-z01): a FAT16 volume decodes via the separate
+ * 16-bit fat16_next_cluster; a FAT12 volume runs the 12-bit decode below,
+ * BYTE-IDENTICAL to its historical behavior (the FAT12 path is unchanged). Every
+ * higher-level chain walker funnels through here, so this single dispatch makes
+ * read_file / read_partial / read_dir / resolve_path / the dir scans correct for
+ * both FAT types with no duplicated walk logic.
+ *
+ * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (12-bit decode) +
+ *   fat16-ground-truth.md Sec 0/3 (the decode is the only per-type difference).
+ *   FAT12: byte_offset = (N*3)/2; v = b[off]|(b[off+1]<<8);
+ *          entry = (N even) ? (v & 0x0FFF) : (v >> 4).
  */
 int fat12_next_cluster(const fat12_volume_t *vol, const void *fat,
                        uint32_t fat_len, uint16_t cluster, uint16_t *out_next)
@@ -230,10 +312,16 @@ int fat12_next_cluster(const fat12_volume_t *vol, const void *fat,
 	uint32_t       off;
 	uint16_t       v;
 
-	(void)vol; /* decode is purely a function of the flat FAT buffer */
-
 	if (fat == NULL || out_next == NULL) {
 		return FAT12_ERR_NULL;
+	}
+
+	/* FAT16 dispatch (beads initech-z01): a FAT16 volume must NOT be decoded by
+	 * the 12-bit path (the M5 mutation -- garbage chains). vol may be NULL for a
+	 * few decode-only unit callers; treat a NULL vol as FAT12 (the historical
+	 * decode-is-a-pure-function-of-the-buffer contract, brief Sec 3). */
+	if (vol != NULL && vol->fat_type == FAT_TYPE_FAT16) {
+		return fat16_next_cluster(vol, fat, fat_len, cluster, out_next);
 	}
 
 	/* Clusters 0 and 1 are reserved, not data clusters (brief Sec 3). */
@@ -261,6 +349,49 @@ int fat12_next_cluster(const fat12_volume_t *vol, const void *fat,
 	}
 
 	return FAT12_OK;
+}
+
+/* ------------------------------------------------------------------------ *
+ * Vol-aware chain CLASSIFICATION (beads initech-z01).
+ *
+ * The raw value fat12_next_cluster returns is a 12-bit value on a FAT12 volume
+ * and a 16-bit value on a FAT16 volume; the EOC/bad/free thresholds differ
+ * (FAT12 0xFF8/0xFF7; FAT16 0xFFF8/0xFFF7). A bare fat12_is_eoc(v) would wrongly
+ * flag a valid FAT16 cluster pointer >= 0xFF8 as EOC (the M3 failure). These
+ * helpers dispatch on vol->fat_type so the chain walkers classify correctly for
+ * both types; for a FAT12 volume they reduce EXACTLY to the FAT12 predicates, so
+ * the FAT12 path stays byte-identical. Ref: docs/research/fat16-ground-truth.md
+ * Sec 3 (special values per type); Microsoft FAT spec Sec 3.2.
+ * ------------------------------------------------------------------------ */
+static int chain_is_eoc(const fat12_volume_t *vol, uint16_t v)
+{
+#ifndef FAT16_MUTATE_EOC_THRESHOLD
+	if (vol != NULL && vol->fat_type == FAT_TYPE_FAT16) {
+		return fat16_is_eoc(v);   /* >= 0xFFF8 */
+	}
+#else
+	/* MUTANT (Rule 6; test-fat16 mutant M3 only): use the FAT12 0xFF8 EOC
+	 * threshold on a FAT16 volume. A normal FAT16 cluster pointer in
+	 * 0x0FF8..0x0FFF (and any cluster index >= 4088) is wrongly seen as EOC, so
+	 * large files truncate mid-chain -> the differential goes RED. NEVER in a
+	 * real build. */
+	(void)vol;
+#endif
+	return fat12_is_eoc(v);       /* >= 0xFF8 (FAT12) */
+}
+static int chain_is_free(const fat12_volume_t *vol, uint16_t v)
+{
+	if (vol != NULL && vol->fat_type == FAT_TYPE_FAT16) {
+		return fat16_is_free(v);  /* == 0x0000 (same numeric as FAT12 0x000) */
+	}
+	return fat12_is_free(v);
+}
+static int chain_is_bad(const fat12_volume_t *vol, uint16_t v)
+{
+	if (vol != NULL && vol->fat_type == FAT_TYPE_FAT16) {
+		return fat16_is_bad(v);   /* == 0xFFF7 */
+	}
+	return fat12_is_bad(v);
 }
 
 /*
@@ -297,10 +428,10 @@ int fat12_walk_chain(const fat12_volume_t *vol, const void *fat,
 		/* A free or bad cluster appearing IN a chain is corruption, not a
 		 * normal terminator -- fail loud (Rule 2). Checked before storing so
 		 * a corrupt start_cluster is also rejected. */
-		if (fat12_is_free(cur)) {
+		if (chain_is_free(vol, cur)) {
 			return FAT12_ERR_CHAIN;
 		}
-		if (fat12_is_bad(cur)) {
+		if (chain_is_bad(vol, cur)) {
 			return FAT12_ERR_CHAIN;
 		}
 		/* An in-chain link above the last valid data cluster is corruption that
@@ -326,7 +457,7 @@ int fat12_walk_chain(const fat12_volume_t *vol, const void *fat,
 		}
 
 		/* EOC terminates the chain normally (brief Sec 3). */
-		if (fat12_is_eoc(next)) {
+		if (chain_is_eoc(vol, next)) {
 			break;
 		}
 
@@ -559,13 +690,24 @@ int fat12_find(const fat12_volume_t *vol, void *sector_buf,
 }
 
 /*
- * fat12_read_file -- read exactly file_size bytes via the cluster chain.
+ * fat12_read_file -- read exactly file_size bytes via the cluster chain,
+ * walked INCREMENTALLY so a large file never materializes a whole-chain
+ * buffer on the kernel stack (beads initech-dao). The historical version held
+ * a uint16_t chain[2880] (~5.6 KB) on the stack, sized to the 1.44 MB floppy
+ * cluster count -- a kernel-stack hazard that the FAT16 HDD geometry (far more
+ * clusters, beads initech-z01) would overflow. The streaming walk below serves
+ * an arbitrarily large file from the caller's single-cluster `cluster_buf`,
+ * stepping one fat12_next_cluster link at a time -- the SAME proven pattern as
+ * fat12_read_partial (this file).
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 4 (file read) + RISK-5
- *   ("file_size is authoritative for the last cluster ... do not return
- *   padding zeros"). Reuses fat12_walk_chain (this file) for the chain +
- *   anti-hang guard, and BPB_CLUSTER_LBA (spec/dos_structs.h) for the
- *   cluster->LBA mapping.
+ * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (chain link decode:
+ *   next = fat12_next_cluster; EOC >= 0xFF8; cyclic detection) + Sec 4 / RISK-5
+ *   ("file_size is authoritative for the last cluster ... do not return padding
+ *   zeros"). The cluster->LBA mapping is BPB_CLUSTER_LBA (spec/dos_structs.h);
+ *   the anti-hang guard mirrors fat12_walk_chain / fat12_read_partial (Rule 2):
+ *   never step more than the volume's cluster count, so a cyclic/corrupt chain
+ *   errors (FAT12_ERR_CHAIN) rather than looping forever or over-reading.
+ *   Microsoft FAT spec: file_size is the authoritative byte count.
  */
 int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
                     const dir_entry_t *e, void *out_buf, uint32_t out_buf_len,
@@ -574,19 +716,11 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 	uint32_t  file_size;
 	uint32_t  bytes_per_cluster;
 	uint32_t  copied;
-	uint32_t  ci;
+	uint16_t  cur;
+	uint32_t  steps;
+	uint32_t  max_steps;
 	uint8_t  *out;
 	int       rc;
-
-	/*
-	 * Chain scratch: a valid chain visits at most total_clusters clusters.
-	 * We cap the on-stack array at the standard 1.44 MB cluster count (2847,
-	 * round up to 2880) -- ample for this slice's geometry and small enough
-	 * for a freestanding stack. fat12_walk_chain's max_clusters bound doubles
-	 * as the anti-hang guard, so a corrupt/cyclic chain errors here too.
-	 */
-	uint16_t  chain[2880];
-	uint32_t  chain_len;
 
 	if (vol == NULL || e == NULL || out_buf == NULL || out_bytes == NULL) {
 		return FAT12_ERR_NULL;
@@ -614,49 +748,155 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
 	                    (uint32_t)vol->bpb.bytes_per_sector;
 
-	/* Walk start_cluster..EOC. The anti-hang / corruption guards live in
-	 * fat12_walk_chain; a too-long or cyclic chain returns FAT12_ERR_CHAIN. */
-	rc = fat12_walk_chain(vol, fat, fat_len, e->start_cluster, chain,
-	                      (uint32_t)(sizeof(chain) / sizeof(chain[0])),
-	                      &chain_len);
-	if (rc != FAT12_OK) {
-		return rc;
-	}
-
-	/* The chain must hold enough clusters to cover file_size. A chain that is
-	 * too short for the declared size is corruption (fail loud, Rule 2). */
-	{
-		uint32_t need = (file_size + bytes_per_cluster - 1u) / bytes_per_cluster;
-		if (chain_len < need) {
-			return FAT12_ERR_CHAIN;
-		}
-	}
-
 	out    = (uint8_t *)out_buf;
 	copied = 0u;
+	cur    = e->start_cluster;
+	steps  = 0u;
+	/* Anti-hang bound (Rule 2): a valid chain visits at most total_clusters
+	 * distinct data clusters; +2 covers the reserved 0/1 slack. We step at
+	 * most this many times; a cyclic/corrupt chain trips it and errors instead
+	 * of spinning forever -- the SAME bound fat12_read_partial uses. */
+#ifndef FAT12_MUTATE_READFILE_STEP_BOUND
+	max_steps = vol->total_clusters + 2u;
+#else
+	/* MUTANT (Rule 6; make test-fat-readfile-mutant only): shrink the anti-hang
+	 * step bound so it no longer covers the longest LEGITIMATE chain. A bound of
+	 * total_clusters/4 (~711 on the 1.44 MB floppy) is below the 1368-cluster
+	 * BIGCHAIN.TXT chain, so that large valid file trips the bound mid-walk and
+	 * errors with FAT12_ERR_CHAIN instead of reading clean -> the read oracle
+	 * (its byte-for-byte BIGCHAIN leg) goes RED. This proves the bound must be at
+	 * least the volume's cluster count -- a too-small bound is the real failure
+	 * mode the +2 form guards against (and is exactly what the FAT16 HDD geometry
+	 * would have hit with the old chain[2880]). NEVER define in a real build. */
+	max_steps = vol->total_clusters / 4u;
+#endif
 
-	/* Copy cluster-by-cluster; the LAST cluster is truncated to whatever is
-	 * left of file_size (RISK-5: no trailing padding). */
-	for (ci = 0u; ci < chain_len && copied < file_size; ci++) {
-		uint32_t lba       = BPB_CLUSTER_LBA(&vol->bpb, chain[ci]);
-		uint32_t remaining = file_size - copied;
-		uint32_t take      = remaining < bytes_per_cluster
-		                       ? remaining : bytes_per_cluster;
-		const uint8_t *cbuf = (const uint8_t *)cluster_buf;
-		uint32_t k;
+	/* Copy cluster-by-cluster, stepping the chain incrementally. The LAST
+	 * cluster is truncated to whatever remains of file_size (RISK-5: no
+	 * trailing padding). The chain MUST cover file_size; an EOC or a
+	 * free/bad/out-of-range link before file_size is satisfied is corruption
+	 * (fail loud, Rule 2). */
+	while (copied < file_size) {
+		uint32_t       lba;
+		uint32_t       remaining;
+		uint32_t       take;
+		uint32_t       copy_n;
+		const uint8_t *cbuf;
+		uint32_t       k;
+
+		/* An in-chain link below cluster 2, above the last data cluster, or a
+		 * free/bad cluster is corruption -- never map it to an LBA (bcg.3). */
+		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+		    chain_is_bad(vol, cur)) {
+			return FAT12_ERR_CHAIN;
+		}
+
+		remaining = file_size - copied;
+		take      = remaining < bytes_per_cluster
+		              ? remaining : bytes_per_cluster;
+#ifndef FAT12_MUTATE_READFILE_TRUNC
+		/* RISK-5: copy only `take` bytes -- the partial last cluster never
+		 * contributes its padding to out_buf. */
+		copy_n = take;
+#else
+		/* MUTANT (Rule 6; make test-fat-readfile-mutant only): drop the RISK-5
+		 * last-cluster truncation -- copy a FULL cluster every iteration instead
+		 * of `take` bytes. On the partial last cluster this writes padding into
+		 * out_buf and copied overshoots file_size, so the bytes read no longer
+		 * match the golden -> the read oracle goes RED. NEVER in a real build. */
+		(void)take;
+		copy_n = bytes_per_cluster;
+#endif
 
 		/* Read the whole cluster (sectors_per_cluster sectors) into scratch,
-		 * then copy only `take` bytes out -- the partial last cluster never
-		 * contributes its padding to out_buf. */
+		 * then copy copy_n bytes out. */
+#ifndef FAT16_MUTATE_NO_CLUSTER2_BIAS
+		lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
+#else
+		/* MUTANT (Rule 6; test-fat16 mutant M4 only): OMIT the cluster-2 LBA bias
+		 * -- map cluster N to first_data_sector + N*spc instead of (N-2)*spc.
+		 * Every cluster reads two sectors too high, so the file content no longer
+		 * matches the golden -> the FAT16 read oracle goes RED. This proves the
+		 * cluster->LBA mapping's -2 bias is load-bearing. NEVER in a real build. */
+		lba = BPB_FIRST_DATA_SECTOR(&vol->bpb) +
+		      (uint32_t)cur * (uint32_t)vol->bpb.sectors_per_cluster;
+#endif
 		if (vol->dev->read_sectors(vol->dev->ctx, lba,
 		                           vol->bpb.sectors_per_cluster,
 		                           cluster_buf) != 0) {
 			return FAT12_ERR_READ;
 		}
-		for (k = 0u; k < take; k++) {
+		cbuf = (const uint8_t *)cluster_buf;
+		for (k = 0u; k < copy_n; k++) {
 			out[copied + k] = cbuf[k];
 		}
-		copied += take;
+		copied += copy_n;
+
+		/* Advance to the next link only if more bytes are still wanted. */
+		if (copied < file_size) {
+			uint16_t next;
+
+			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+			if (rc != FAT12_OK) {
+				return rc;
+			}
+#ifndef FAT12_MUTATE_READFILE_EOC
+			if (chain_is_eoc(vol, next)) {
+				/* Chain ended before file_size bytes were satisfied -- the
+				 * declared size demands more clusters than the chain has, which
+				 * is corruption (fail loud, Rule 2). */
+				return FAT12_ERR_CHAIN;
+			}
+#else
+			/* MUTANT (Rule 6; make test-fat-readfile-mutant only): INVERT the EOC
+			 * test polarity -- treat a NORMAL mid-chain link as end-of-chain and
+			 * a true EOC as a normal link. Every multi-cluster file (CHAIN.TXT,
+			 * BLOCK.BIN, the 1368-cluster BIGCHAIN.TXT) then errors with
+			 * FAT12_ERR_CHAIN on its very first non-EOC link -- it cannot read
+			 * past cluster 1 -- so the read oracle goes RED. This proves the EOC
+			 * predicate (which link STOPS the walk) is load-bearing, not the
+			 * dead-for-valid-files corruption return alone. NEVER in a real build. */
+			if (!chain_is_eoc(vol, next)) {
+				return FAT12_ERR_CHAIN;
+			}
+#endif
+			cur = next;
+			if (++steps > max_steps) {
+				return FAT12_ERR_CHAIN; /* cyclic / corrupt */
+			}
+		}
+	}
+
+	/* All file_size bytes are copied; `cur` is the LAST data cluster. The
+	 * historical read_file (which materialized the whole chain via
+	 * fat12_walk_chain) validated that the chain TERMINATES at EOC -- so a
+	 * cyclic chain whose declared file_size happens to fit in its first cluster
+	 * was still rejected (the corruption fuzzer's loop-chain leg asserts exactly
+	 * this: read_file on a cyclic chain MUST return FAT12_ERR_CHAIN even when
+	 * file_size claims one cluster). The streaming refactor preserves that
+	 * contract WITHOUT an on-stack chain array: keep stepping from `cur` until
+	 * EOC, bounded by the SAME anti-hang step counter, so a cycle/corruption
+	 * past the last data cluster is caught (Rule 2; beads initech-dao).
+	 * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (chain EOC +
+	 *   cyclic detection). */
+	for (;;) {
+		uint16_t next;
+
+		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+		    chain_is_bad(vol, cur)) {
+			return FAT12_ERR_CHAIN;
+		}
+		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		if (chain_is_eoc(vol, next)) {
+			break; /* chain terminates cleanly -- the file is intact */
+		}
+		cur = next;
+		if (++steps > max_steps) {
+			return FAT12_ERR_CHAIN; /* cyclic / corrupt past the data */
+		}
 	}
 
 	*out_bytes = file_size;
@@ -772,8 +1012,8 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 		for (k = 0u; k < skip; k++) {
 			uint16_t next;
 
-			if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
-			    fat12_is_bad(cur)) {
+			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+			    chain_is_bad(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
 			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
@@ -782,7 +1022,7 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 			}
 			/* Hitting EOC while still skipping means the chain is shorter than
 			 * `offset` demands -- the requested range is past the real data. */
-			if (fat12_is_eoc(next)) {
+			if (chain_is_eoc(vol, next)) {
 				return FAT12_ERR_CHAIN;
 			}
 			cur = next;
@@ -816,8 +1056,8 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 		const uint8_t *cbuf;
 		uint32_t       i;
 
-		if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
-		    fat12_is_bad(cur)) {
+		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+		    chain_is_bad(vol, cur)) {
 			return FAT12_ERR_CHAIN; /* chain ended/corrupt before the range */
 		}
 
@@ -851,7 +1091,7 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 			if (rc != FAT12_OK) {
 				return rc;
 			}
-			if (fat12_is_eoc(next)) {
+			if (chain_is_eoc(vol, next)) {
 				/* Chain ended before `to_read` bytes were satisfied -- and the
 				 * clamp guarantees to_read <= file_size-offset, so a chain that
 				 * cannot cover it is corruption (fail loud, Rule 2). */
@@ -1066,7 +1306,7 @@ static int fat12_free_chain(const fat12_volume_t *vol, void *fat,
 		if (rc != FAT12_OK) {
 			return rc;
 		}
-		if (fat12_is_eoc(next) || fat12_is_free(next) || fat12_is_bad(next)) {
+		if (chain_is_eoc(vol, next) || chain_is_free(vol, next) || chain_is_bad(vol, next)) {
 			break;
 		}
 		cur = next;
@@ -1128,15 +1368,15 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 	/* Walk to the EOC tail of the existing chain. */
 	for (;;) {
 		uint16_t next;
-		if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
-		    fat12_is_bad(cur)) {
+		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+		    chain_is_bad(vol, cur)) {
 			return FAT12_ERR_CHAIN;
 		}
 		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
 		if (rc != FAT12_OK) {
 			return rc;
 		}
-		if (fat12_is_eoc(next)) {
+		if (chain_is_eoc(vol, next)) {
 			break;
 		}
 		cur = next;
@@ -1228,8 +1468,8 @@ static void fat12_shrink_dir_tail(const fat12_volume_t *vol, void *fat,
 	/* Walk to the cluster whose link is `appended`; restore it to EOC. */
 	for (;;) {
 		uint16_t next;
-		if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
-		    fat12_is_bad(cur)) {
+		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+		    chain_is_bad(vol, cur)) {
 			return;   /* corrupt chain -- give up the rollback (best-effort) */
 		}
 		if (fat12_next_cluster(vol, fat, fat_len, cur, &next) != FAT12_OK) {
@@ -1239,7 +1479,7 @@ static void fat12_shrink_dir_tail(const fat12_volume_t *vol, void *fat,
 			(void)fat12_set_entry(fat, fat_len, cur, FAT12_EOC_VALUE);
 			break;
 		}
-		if (fat12_is_eoc(next)) {
+		if (chain_is_eoc(vol, next)) {
 			return;   /* appended not found in the chain -- nothing to undo */
 		}
 		cur = next;
@@ -1291,15 +1531,15 @@ static int fat12_subdir_slot_lba(const fat12_volume_t *vol, const void *fat,
 	for (k = 0u; k < want_cluster; k++) {
 		uint16_t next;
 		int      rc;
-		if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
-		    fat12_is_bad(cur)) {
+		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+		    chain_is_bad(vol, cur)) {
 			return FAT12_ERR_CHAIN;
 		}
 		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
 		if (rc != FAT12_OK) {
 			return rc;
 		}
-		if (fat12_is_eoc(next)) {
+		if (chain_is_eoc(vol, next)) {
 			return FAT12_ERR_DIR_FULL;   /* slot past the allocated chain */
 		}
 		cur = next;
@@ -1555,8 +1795,8 @@ static int fat12_scan_dir(const fat12_volume_t *vol, const void *fat,
 			uint16_t next;
 			int      rc;
 
-			if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
-			    fat12_is_bad(cur)) {
+			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+			    chain_is_bad(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
 			lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
@@ -1579,7 +1819,7 @@ static int fat12_scan_dir(const fat12_volume_t *vol, const void *fat,
 			if (rc != FAT12_OK) {
 				return rc;
 			}
-			if (fat12_is_eoc(next)) {
+			if (chain_is_eoc(vol, next)) {
 				/* Chain ended with no 0x00 sentinel and (if no deleted slot was
 				 * found) no free slot: the directory is full at exactly `slot`,
 				 * the index just past the last cluster. Leaving *have_free 0
@@ -2322,15 +2562,15 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		steps = 0u;
 		for (k = 1u; k < have_clusters; k++) {
 			uint16_t next;
-			if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
-			    fat12_is_bad(cur)) {
+			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+			    chain_is_bad(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
 			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
 			if (rc != FAT12_OK) {
 				return rc;
 			}
-			if (fat12_is_eoc(next)) {
+			if (chain_is_eoc(vol, next)) {
 				return FAT12_ERR_CHAIN;   /* chain shorter than old_size */
 			}
 			cur = next;
@@ -2441,15 +2681,15 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		uint16_t k;
 		for (k = 0u; k < end_cluster; k++) {
 			uint16_t next;
-			if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
-			    fat12_is_bad(cur)) {
+			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+			    chain_is_bad(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
 			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
 			if (rc != FAT12_OK) {
 				return rc;
 			}
-			if (fat12_is_eoc(next)) {
+			if (chain_is_eoc(vol, next)) {
 				return FAT12_ERR_CHAIN;   /* extend should have prevented this */
 			}
 			cur = next;
@@ -2470,8 +2710,8 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			uint32_t lba;
 			uint32_t i;
 
-			if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
-			    fat12_is_bad(cur)) {
+			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+			    chain_is_bad(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
 
@@ -2524,7 +2764,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 				if (rc != FAT12_OK) {
 					return rc;
 				}
-				if (fat12_is_eoc(next)) {
+				if (chain_is_eoc(vol, next)) {
 					return FAT12_ERR_CHAIN;   /* extend should have prevented */
 				}
 				cur = next;
@@ -3224,8 +3464,8 @@ int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
 		/* Gate EVERY cluster through the range check BEFORE the LBA math: a
 		 * free/bad/out-of-range link is corruption (Rule 2 / bcg.3). This also
 		 * guards BPB_CLUSTER_LBA against an underflowing cluster < 2. */
-		if (!fat12_cluster_in_range(vol, cur) || fat12_is_free(cur) ||
-		    fat12_is_bad(cur)) {
+		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+		    chain_is_bad(vol, cur)) {
 			return FAT12_ERR_CHAIN;
 		}
 
@@ -3274,7 +3514,7 @@ int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
 		if (rc != FAT12_OK) {
 			return rc;
 		}
-		if (fat12_is_eoc(next)) {
+		if (chain_is_eoc(vol, next)) {
 			return FAT12_OK; /* chain ended at EOC with no 0x00 sentinel */
 		}
 		cur = next;

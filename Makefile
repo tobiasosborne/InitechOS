@@ -598,7 +598,8 @@ FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
                      $(FAT12_FIXTURE_DIR)/second.txt \
                      $(FAT12_FIXTURE_DIR)/chain.txt \
                      $(FAT12_FIXTURE_DIR)/empty.txt \
-                     $(FAT12_FIXTURE_DIR)/block.bin
+                     $(FAT12_FIXTURE_DIR)/block.bin \
+                     $(FAT12_FIXTURE_DIR)/bigchain.txt
 
 # Nested-directory fixtures (beads initech-ti8): committed deterministic ASCII
 # files for the subdirectory/path-traversal oracle's golden compares.
@@ -615,7 +616,11 @@ FAT_DUMP_BIN      := $(BUILD)/fat_dump
 # The independent python3 FAT12 reference (reference #2; NOT mtools, NOT our C).
 FAT12_REF_PY      := $(FAT_DIFF_DIR)/fat12_ref.py
 # The list of 8.3 names the gate extracts + diffs content for (per fixture).
-FAT12_GATE_NAMES  := HELLO.TXT SECOND.TXT CHAIN.TXT EMPTY.TXT BLOCK.BIN
+# BIGCHAIN.TXT is the large multi-cluster stress file (beads initech-dao): 700060
+# bytes => 1368 clusters on the 1-sector/cluster floppy, > half the old on-stack
+# uint16_t chain[2880] array. The streaming read MUST reproduce it byte-for-byte
+# vs mtools + python (partial last cluster: 700060 % 512 == 156 -> RISK-5).
+FAT12_GATE_NAMES  := HELLO.TXT SECOND.TXT CHAIN.TXT EMPTY.TXT BLOCK.BIN BIGCHAIN.TXT
 
 # Minted 1.44 MB FAT12 image (build intermediate, NOT committed).
 FAT12_IMG         := $(BUILD)/fat12_fixture.img
@@ -649,6 +654,32 @@ TEST_FAT12_DIR    := $(BUILD)/test_fat12_dir
 TEST_FAT12_SUBDIR              := $(BUILD)/test_fat12_subdir
 TEST_FAT12_SUBDIR_MUT_SINGLE   := $(BUILD)/test_fat12_subdir_mut_single
 TEST_FAT12_SUBDIR_MUT_NOATTR   := $(BUILD)/test_fat12_subdir_mut_noattr
+
+# ---- FAT16 READ-ONLY read-path oracle (beads initech-z01) ----
+# A real `mkfs.fat -F 16` NON-PARTITIONED FAT16 image (hidden_sectors==0) minted
+# at TEST TIME (build intermediate, NOT committed). The FAT12 fixtures are copied
+# in (HELLO/CHAIN/BLOCK/BIGCHAIN); the differential reads them back our-reader vs
+# mtools vs an INDEPENDENT python3 reader (fat16_ref.py -- NOT the 12-bit reader).
+# Mirrors the FAT12 `test-fat` structure; runs ALONGSIDE it (does NOT replace it).
+FAT16_IMG          := $(BUILD)/fat16_fixture.img
+FAT16_REF_PY       := $(FAT_DIFF_DIR)/fat16_ref.py
+# The 8.3 names the gate extracts + diffs content for (per fixture). BIGCHAIN.TXT
+# (700060 bytes => 1368 clusters) is the long-chain leg whose cluster pointers
+# exceed 0xFF8/0x0FFF -- so the 12-bit-mask (M2), 0xFF8-EOC (M3), and FAT12-decode
+# (M5) mutants all corrupt it.
+FAT16_GATE_NAMES   := HELLO.TXT CHAIN.TXT BLOCK.BIN BIGCHAIN.TXT HIGHCLUS.BIN
+TEST_FAT16         := $(BUILD)/test_fat16
+# The five FAT16 mutation builds (Rule 6): M1 entry-offset, M2 12-bit-mask,
+# M3 0xFF8-EOC, M4 cluster-2 LBA bias omitted, M5 fat_type-not-classified (force
+# FAT12 decode). Each must turn the FAT16 read oracle RED for the right reason.
+TEST_FAT16_MUT_M1  := $(BUILD)/test_fat16_mut_m1
+TEST_FAT16_MUT_M2  := $(BUILD)/test_fat16_mut_m2
+TEST_FAT16_MUT_M3  := $(BUILD)/test_fat16_mut_m3
+TEST_FAT16_MUT_M4  := $(BUILD)/test_fat16_mut_m4
+TEST_FAT16_MUT_M5  := $(BUILD)/test_fat16_mut_m5
+FAT16_OUR_LIST     := $(BUILD)/fat16_our.list
+FAT16_PY_LIST      := $(BUILD)/fat16_py.list
+FAT16_MTOOLS_LIST  := $(BUILD)/fat16_mtools.list
 
 # The FAT12 MKDIR/RMDIR differential oracle binary (host test; beads initech-u6wa
 # Landing 2) + its three mutation builds (Rule 6: one perturbed constant each ->
@@ -789,6 +820,16 @@ TEST_FAT12_PARTIAL          := $(BUILD)/test_fat12_partial
 TEST_FAT12_PARTIAL_MUT_SKIP := $(BUILD)/test_fat12_partial_mut_skip
 TEST_FAT12_PARTIAL_MUT_POS  := $(BUILD)/test_fat12_partial_mut_pos
 
+# Streaming fat12_read_file mutants (beads initech-dao): the same test_fat12_dir
+# oracle built against fat12.c with ONE of the three FAT12_MUTATE_READFILE_*
+# perturbations defined -- each must go RED (Rule 6). M1 = step-bound -1 (a long
+# valid chain over-runs the anti-hang bound); M2 = follow-EOC (the end-of-chain
+# marker is chased instead of stopping); M3 = drop the RISK-5 last-cluster
+# truncation (a full cluster is copied, padding bleeds into out_buf).
+TEST_FAT12_DIR_MUT_STEP  := $(BUILD)/test_fat12_dir_mut_step
+TEST_FAT12_DIR_MUT_EOC   := $(BUILD)/test_fat12_dir_mut_eoc
+TEST_FAT12_DIR_MUT_TRUNC := $(BUILD)/test_fat12_dir_mut_trunc
+
 # Mint the FAT12 image deterministically: zero a 1474560-byte (2880*512)
 # file, mformat -f 1440, mcopy the fixtures in. Reproducible enough for the
 # BPB/geometry oracle (the BPB bytes are fixed by mformat -f 1440; only the
@@ -801,7 +842,39 @@ $(FAT12_IMG): $(FAT12_FIXTURES) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/chain.txt ::CHAIN.TXT
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/empty.txt ::EMPTY.TXT
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/bigchain.txt ::BIGCHAIN.TXT
 	@printf ">>> fat12: minted %s (1.44MB FAT12, fixtures copied; build intermediate)\n" "$@"
+
+# Mint the FAT16 fixture image (beads initech-z01): a real `mkfs.fat -F 16`
+# NON-PARTITIONED volume (hidden_sectors==0; -s 1 => 1 sector/cluster like the
+# floppy so the same buffer-sizing contract holds). 8 MB => ~16223 data clusters
+# => FAT16 by the cluster-count rule (docs/research/fat16-ground-truth.md Sec 2).
+# The FAT12 fixtures are copied in: HELLO (1 cluster), CHAIN (multi-cluster,
+# partial last cluster -- RISK-5), BLOCK (exactly 2 clusters), BIGCHAIN (700060
+# bytes => 1368 clusters; its cluster pointers exceed 0xFF8/0x0FFF so the M2/M3/M5
+# mutants corrupt it). Build intermediate, NOT committed (Rule 11).
+# HIGHCLUS.BIN is the load-bearing M3/M4/M5 leg: a deterministic 2.5 MB file
+# (byte i = i & 0xFF) whose 5120-cluster chain CROSSES cluster 4088 (0xFF8). The
+# FAT12 0xFF8 EOC threshold (M3) would wrongly terminate it at the first cluster
+# >= 4088; the cluster-2-bias omission (M4) and FAT12 12-bit decode (M5) corrupt
+# it too. Generated (NOT committed) into $(BUILD) at mint time; the unit test
+# regenerates the SAME deterministic pattern in memory to compare (no golden file).
+FAT16_HIGHCLUS_BIN := $(BUILD)/highclus.bin
+FAT16_HIGHCLUS_SZ  := 2621440
+
+$(FAT16_HIGHCLUS_BIN): | $(BUILD)
+	@python3 -c 'import sys; n=int(sys.argv[1]); sys.stdout.buffer.write(bytes(i & 0xFF for i in range(n)))' $(FAT16_HIGHCLUS_SZ) > $@
+
+$(FAT16_IMG): $(FAT12_FIXTURES) $(FAT16_HIGHCLUS_BIN) | $(BUILD)
+	@command -v mkfs.fat >/dev/null 2>&1 || { printf '!!! fat16: mkfs.fat not found (apt install dosfstools).\n'; exit 1; }
+	@dd if=/dev/zero of=$@ bs=512 count=16384 status=none
+	@mkfs.fat -F 16 -s 1 -S 512 -r 512 -R 1 $@ >/dev/null
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/chain.txt ::CHAIN.TXT
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/bigchain.txt ::BIGCHAIN.TXT
+	@mcopy -i $@ $(FAT16_HIGHCLUS_BIN) ::HIGHCLUS.BIN
+	@printf ">>> fat16: minted %s (8MB FAT16, non-partitioned, fixtures + HIGHCLUS; build intermediate)\n" "$@"
 
 # Mint the NESTED FAT12 image (beads initech-ti8): same mformat -f 1440 flags as
 # FAT12_IMG (consistency); then create the subdirectory tree and populate it.
@@ -1615,6 +1688,56 @@ test-fat-partial-mutant: $(TEST_FAT12_PARTIAL_MUT_SKIP) $(TEST_FAT12_PARTIAL_MUT
 		exit 1; \
 	else \
 		printf '>>> test-fat-partial-mutant: green (within-cluster-offset mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# --- Streaming fat12_read_file mutants (beads initech-dao, Rule 6) ---
+# Each rebuilds the test_fat12_dir oracle against fat12.c with ONE
+# FAT12_MUTATE_READFILE_* perturbation; the gate below asserts each goes RED.
+$(TEST_FAT12_DIR_MUT_STEP): $(FAT_DIFF_DIR)/test_fat12_dir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_READFILE_STEP_BOUND -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_dir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_DIR_MUT_EOC): $(FAT_DIFF_DIR)/test_fat12_dir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_READFILE_EOC -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_dir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_DIR_MUT_TRUNC): $(FAT_DIFF_DIR)/test_fat12_dir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_READFILE_TRUNC -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_dir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+.PHONY: test-fat-readfile-mutant
+# REAL gate (beads initech-dao, Rule 6): the streaming fat12_read_file refactor
+# replaced an on-stack chain[2880] with an incremental walk. Three mutants prove
+# the new read oracle (test_fat12_dir + the BIGCHAIN.TXT large-file leg) bites:
+#   M1 STEP_BOUND -- anti-hang step bound -1: the 1368-cluster BIGCHAIN trips the
+#                    bound before its last cluster -> FAT12_ERR_CHAIN -> RED.
+#   M2 EOC        -- invert the EOC test polarity (a normal link is treated as
+#                    end-of-chain): every multi-cluster file errors on its first
+#                    non-EOC link -> FAT12_ERR_CHAIN -> RED.
+#   M3 TRUNC      -- drop the RISK-5 last-cluster truncation: the partial last
+#                    cluster's padding bleeds into out_buf -> byte mismatch -> RED.
+# A mutant that PASSES means the oracle is decoration -> the gate fails loud.
+# The mutant binaries are timeout-wrapped: a step-bound mutant that instead spun
+# (it must not -- it errors fast) would otherwise hang the gate (Law 2).
+test-fat-readfile-mutant: $(TEST_FAT12_DIR_MUT_STEP) $(TEST_FAT12_DIR_MUT_EOC) $(TEST_FAT12_DIR_MUT_TRUNC) $(FAT12_IMG)
+	@printf '>>> test-fat-readfile-mutant: confirming all THREE streaming read mutants go RED (Rule 6)\n'
+	@if timeout 60 $(TEST_FAT12_DIR_MUT_STEP) "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)" >/dev/null 2>&1; then \
+		printf '!!! test-fat-readfile-mutant FAIL: step-bound(-1) mutant PASSED -- the anti-hang bound is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-readfile-mutant: green M1/3 (step-bound(-1) mutant correctly RED)\n'; \
+	fi
+	@if timeout 60 $(TEST_FAT12_DIR_MUT_EOC) "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)" >/dev/null 2>&1; then \
+		printf '!!! test-fat-readfile-mutant FAIL: follow-EOC mutant PASSED -- the EOC check is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-readfile-mutant: green M2/3 (follow-EOC mutant correctly RED)\n'; \
+	fi
+	@if timeout 60 $(TEST_FAT12_DIR_MUT_TRUNC) "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)" >/dev/null 2>&1; then \
+		printf '!!! test-fat-readfile-mutant FAIL: drop-truncation mutant PASSED -- RISK-5 is unguarded\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-fat-readfile-mutant: green M3/3 (drop-truncation mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # Build the differential dumper: the factory tool + the REAL artifact fat12.c +
@@ -5582,6 +5705,129 @@ test-fat: $(FAT_DUMP_BIN) $(FAT12_IMG) $(FAT12_REF_PY) \
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-fat16 (beads initech-z01 -- FAT16 READ-ONLY differential)
+# ---------------------------------------------------------------------------
+# The FAT16 READ DIFFERENTIAL ORACLE. Runs ALONGSIDE test-fat (does NOT replace
+# the FAT12 fixture). The REAL artifact fat12.c -- with vol->fat_type dispatching
+# to the SEPARATE 16-bit decode (fat16_next_cluster) + vol-aware classify helpers
+# -- mounts a real `mkfs.fat -F 16` NON-PARTITIONED image and must AGREE with TWO
+# independent references (Law 2, Rule 5):
+#   ref #1: mtools  -- mdir (names+sizes) + mcopy (content bytes)
+#   ref #2: python3 -- fat16_ref.py (an INDEPENDENT 16-bit reader; NOT the 12-bit
+#                      fat12_ref.py, NOT our C)
+# Plus the FAT16 unit oracle (mount+classify, enumerate, byte-for-byte read of
+# HELLO/CHAIN/BLOCK/BIGCHAIN, the 16-bit decode + predicates). BIGCHAIN.TXT (1368
+# clusters; pointers exceed 0xFF8/0x0FFF) is the load-bearing long-chain leg.
+# Ref: PRD Sec 5/6.1; ADR-0003 DEC-07; docs/research/fat16-ground-truth.md.
+$(TEST_FAT16): $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# The five FAT16 mutation builds (Rule 6): one perturbed primitive each, the
+# fat12.c compiled with the matching -D so the FAT16 read oracle goes RED.
+$(TEST_FAT16_MUT_M1): $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT16_MUTATE_ENTRY_OFFSET \
+		-Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+$(TEST_FAT16_MUT_M2): $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT16_MUTATE_ENTRY_MASK12 \
+		-Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+$(TEST_FAT16_MUT_M3): $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT16_MUTATE_EOC_THRESHOLD \
+		-Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+$(TEST_FAT16_MUT_M4): $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT16_MUTATE_NO_CLUSTER2_BIAS \
+		-Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+$(TEST_FAT16_MUT_M5): $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT16_MUTATE_NO_CLASSIFY \
+		-Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat16.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+.PHONY: test-fat16
+test-fat16: $(FAT_DUMP_BIN) $(TEST_FAT16) $(FAT16_IMG) $(FAT16_REF_PY)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fat16 : FAT16 READ-ONLY differential\n'
+	@printf '  Ref: PRD Sec 5/6.1 / ADR-0003 DEC-07. beads initech-z01.\n'
+	@printf '  Our C reader vs TWO independent refs (mtools + python3) on a FAT16 vol.\n'
+	@printf '======================================================================\n'
+	@# ---- (D) Tool presence: fail loud, NEVER silently skip (Law 2). ----
+	@command -v mkfs.fat >/dev/null 2>&1 || { printf '!!! test-fat16 FAIL: mkfs.fat not found (apt install dosfstools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mdir   >/dev/null 2>&1 || { printf '!!! test-fat16 FAIL: mtools `mdir` not found (apt install mtools).\n'; exit 1; }
+	@command -v mcopy  >/dev/null 2>&1 || { printf '!!! test-fat16 FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-fat16 FAIL: python3 not found (independent reference reader).\n'; exit 1; }
+	@printf '>>> test-fat16 [D]: reference tools present (mkfs.fat + mtools mdir/mcopy + python3)\n'
+	@# ---- (C) The FAT16 unit oracle (mount+classify, enumerate, read). ----
+	@printf '>>> test-fat16 [C]: unit oracle (mount+classify FAT16, enumerate, byte-for-byte read)\n'
+	@$(TEST_FAT16) "$(FAT16_IMG)" "$(FAT12_FIXTURE_DIR)" \
+		|| { printf '!!! test-fat16 FAIL: test_fat16 unit oracle red\n'; exit 1; }
+	@# ---- (A) NAMES + SIZES: triple agreement (our == python == mdir). ----
+	@printf '>>> test-fat16 [A]: names+sizes -- our fat_dump == python ref == normalized mdir\n'
+	@$(FAT_DUMP_BIN) "$(FAT16_IMG)" --list > "$(FAT16_OUR_LIST)" \
+		|| { printf '!!! test-fat16 FAIL: fat_dump --list errored\n'; exit 1; }
+	@python3 "$(FAT16_REF_PY)" "$(FAT16_IMG)" --list > "$(FAT16_PY_LIST)" \
+		|| { printf '!!! test-fat16 FAIL: fat16_ref.py --list errored\n'; exit 1; }
+	@mdir -i "$(FAT16_IMG)" :: | awk '{ \
+		hd=0; di=0; \
+		for(i=1;i<=NF;i++){ if($$i ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}$$/){hd=1;di=i;break} } \
+		if(!hd) next; \
+		name=$$1; ext=$$2; sz=""; \
+		for(i=3;i<di;i++){ sz=sz $$i } \
+		if(sz !~ /^[0-9]+$$/) next; \
+		fn=(ext!="")?name"."ext:name; \
+		print fn, sz \
+	}' | sort > "$(FAT16_MTOOLS_LIST)"
+	@diff -u "$(FAT16_OUR_LIST)" "$(FAT16_PY_LIST)" \
+		|| { printf '!!! test-fat16 FAIL [A]: our listing != python reference listing\n'; exit 1; }
+	@diff -u "$(FAT16_OUR_LIST)" "$(FAT16_MTOOLS_LIST)" \
+		|| { printf '!!! test-fat16 FAIL [A]: our listing != normalized mdir listing\n'; exit 1; }
+	@printf '    triple agreement on names+sizes (%s files):\n' "$$(wc -l < "$(FAT16_OUR_LIST)" | tr -d ' ')"
+	@sed 's/^/      /' "$(FAT16_OUR_LIST)"
+	@# ---- (B) CONTENT per file: our == mcopy == python, byte-for-byte. ----
+	@printf '>>> test-fat16 [B]: content -- our fat_dump --cat == mcopy == python ref, per file\n'
+	@for f in $(FAT16_GATE_NAMES); do \
+		$(FAT_DUMP_BIN) "$(FAT16_IMG)" --cat "$$f" > "$(BUILD)/fat16_our_$$f.bin" \
+			|| { printf '!!! test-fat16 FAIL [B]: fat_dump --cat %s errored\n' "$$f"; exit 1; }; \
+		mcopy -i "$(FAT16_IMG)" "::$$f" - > "$(BUILD)/fat16_mtools_$$f.bin" 2>/dev/null \
+			|| { printf '!!! test-fat16 FAIL [B]: mcopy ::%s errored\n' "$$f"; exit 1; }; \
+		python3 "$(FAT16_REF_PY)" "$(FAT16_IMG)" --cat "$$f" > "$(BUILD)/fat16_py_$$f.bin" \
+			|| { printf '!!! test-fat16 FAIL [B]: fat16_ref.py --cat %s errored\n' "$$f"; exit 1; }; \
+		cmp -s "$(BUILD)/fat16_our_$$f.bin" "$(BUILD)/fat16_mtools_$$f.bin" \
+			|| { printf '!!! test-fat16 FAIL [B]: %s -- our bytes != mcopy bytes\n' "$$f"; exit 1; }; \
+		cmp -s "$(BUILD)/fat16_our_$$f.bin" "$(BUILD)/fat16_py_$$f.bin" \
+			|| { printf '!!! test-fat16 FAIL [B]: %s -- our bytes != python ref bytes\n' "$$f"; exit 1; }; \
+		printf '    %-12s %7s bytes : our == mcopy == python\n' "$$f" "$$(wc -c < "$(BUILD)/fat16_our_$$f.bin" | tr -d ' ')"; \
+	done
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- our FAT16 reader agrees with mtools AND an independent\n'
+	@printf '            python3 reader on names, sizes, and content (triple oracle).\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# Mutation gate (Rule 6): the FIVE FAT16 mutants -- M1 entry-offset, M2 12-bit
+# mask, M3 0xFF8 EOC, M4 cluster-2 bias omitted, M5 fat_type not classified.
+# Each fat12.c build with its -D MUST turn the FAT16 unit oracle RED; a mutant
+# that PASSES means the oracle is decoration (Law 2). Restored to GREEN by the
+# un-mutated test-fat16.
+.PHONY: test-fat16-mutant
+test-fat16-mutant: $(TEST_FAT16_MUT_M1) $(TEST_FAT16_MUT_M2) $(TEST_FAT16_MUT_M3) \
+                   $(TEST_FAT16_MUT_M4) $(TEST_FAT16_MUT_M5) $(FAT16_IMG)
+	@printf '>>> test-fat16-mutant: confirming all FIVE FAT16 read mutants go RED (Rule 6; beads initech-z01)\n'
+	@for m in M1:$(TEST_FAT16_MUT_M1) M2:$(TEST_FAT16_MUT_M2) M3:$(TEST_FAT16_MUT_M3) M4:$(TEST_FAT16_MUT_M4) M5:$(TEST_FAT16_MUT_M5); do \
+		name=$${m%%:*}; bin=$${m#*:}; \
+		"$$bin" "$(FAT16_IMG)" "$(FAT12_FIXTURE_DIR)" 2>/dev/null | grep -q 'checks,' \
+			|| { printf '!!! test-fat16-mutant FAIL: %s produced no TEST_SUMMARY -- harness dead, RED is meaningless\n' "$$name"; exit 1; }; \
+		if "$$bin" "$(FAT16_IMG)" "$(FAT12_FIXTURE_DIR)" >/dev/null 2>&1; then \
+			printf '!!! test-fat16-mutant FAIL: %s PASSED -- the FAT16 read oracle is decoration\n' "$$name"; exit 1; \
+		else \
+			printf '>>> test-fat16-mutant: green (%s correctly RED -- its FAT16 read primitive bites)\n' "$$name"; \
+		fi; \
+	done
+	@printf '>>> test-fat16-mutant: green (ALL FIVE FAT16 mutants ran + RED for the right reason)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-fat-subdir (beads initech-ti8 -- FAT12 subdir/path traversal)
 # ---------------------------------------------------------------------------
 # The FAT12 SUBDIRECTORY READ DIFFERENTIAL ORACLE. The REAL artifact fat12.c
@@ -8764,6 +9010,7 @@ TEST_UNIT_GATES := \
 	test-fat12-mkdir test-m0bp test-m0bp-rollback test-fat-fault-rollback \
 	test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
+	test-fat16 test-fat16-mutant \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
 	test-mcb test-mcb-int21 \
@@ -8776,7 +9023,7 @@ TEST_UNIT_GATES := \
 	test-int24-mutant \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
-	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
+	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \

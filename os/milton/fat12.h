@@ -154,6 +154,50 @@ static inline int fat12_is_free(uint16_t v) { return v == FAT12_FREE; }
 static inline int fat12_is_bad(uint16_t v)  { return v == FAT12_BAD; }
 static inline int fat12_is_eoc(uint16_t v)  { return v >= FAT12_EOC_MIN; }
 
+/* ---- FAT16 entry decode + special values (beads initech-z01, READ-ONLY) ---- *
+ *
+ * FAT16 is a flat array of little-endian uint16_t (NO 12-bit nibble packing):
+ *   entry[N] = read_le16(fat + N*2).
+ * The special-value thresholds are the FAT12 values WIDENED to 16 bits.
+ * Ref (Law 1): Microsoft FAT spec Sec 3.2; docs/research/fat16-ground-truth.md
+ *   Sec 0/3 (the only differences from FAT12 are the decode + these thresholds;
+ *   the BPB, geometry, dir entry, and root region are identical). The FAT16
+ *   special values verified against a real `mkfs.fat -F 16` image this session
+ *   (FAT[0]=0xFFF8, FAT[1]=0xFFFF, EOC link 0xFFFF -- brief Sec 1/3). */
+#define FAT16_FREE      0x0000u
+#define FAT16_BAD       0xFFF7u
+#define FAT16_EOC_MIN   0xFFF8u   /* >= this is end-of-chain (NOT 0xFF8!)      */
+#define FAT16_EOC_VALUE 0xFFFFu   /* canonical EOC value mkfs.fat writes        */
+
+/* Classification predicates on a raw 16-bit FAT16 entry value (brief Sec 3).
+ * These are FAT16-SPECIFIC: a 16-bit cluster pointer like 0x1388 (5000) is a
+ * NORMAL chain link, not EOC -- the FAT12 0xFF8 threshold would wrongly flag it
+ * (the M3 mutation). Used by fat16_next_cluster + the vol-aware chain helpers in
+ * fat12.c that dispatch on vol->fat_type so the FAT12 path stays byte-identical. */
+static inline int fat16_is_free(uint16_t v) { return v == FAT16_FREE; }
+static inline int fat16_is_bad(uint16_t v)  { return v == FAT16_BAD; }
+static inline int fat16_is_eoc(uint16_t v)  { return v >= FAT16_EOC_MIN; }
+
+/*
+ * fat16_next_cluster: decode the 16-bit FAT16 entry for `cluster` from the flat
+ * whole-FAT buffer `fat` (fat_len bytes) and write the RAW 16-bit value to
+ * *out_next. This is the SEPARATE FAT16 decoder (NOT the 12-bit fat12_next_cluster
+ * funneled through a mask): byte_offset = cluster*2; v = le16(fat+off). The
+ * caller classifies the result via fat16_is_eoc / fat16_is_bad / fat16_is_free.
+ *
+ * fat12_next_cluster dispatches HERE when vol->fat_type == FAT_TYPE_FAT16, so
+ * every higher-level chain walker (read_file / read_partial / read_dir /
+ * resolve_path / the dir scans) decodes FAT16 links correctly with no duplicated
+ * walk logic; for FAT12 the 12-bit branch runs unchanged (byte-identical).
+ *
+ * Fail loud (Rule 2):
+ *   - any NULL argument                          -> FAT12_ERR_NULL
+ *   - cluster < 2 (reserved 0/1)                 -> FAT12_ERR_CLUSTER
+ *   - byte_offset+1 out of range vs fat_len      -> FAT12_ERR_CLUSTER
+ * Returns FAT12_OK on success. Ref: docs/research/fat16-ground-truth.md Sec 3. */
+int fat16_next_cluster(const fat12_volume_t *vol, const void *fat,
+                       uint32_t fat_len, uint16_t cluster, uint16_t *out_next);
+
 /*
  * fat12_read_fat: read the ENTIRE first FAT (sectors_per_fat sectors, =
  * sectors_per_fat * bytes_per_sector bytes) into the caller-provided flat
@@ -412,10 +456,14 @@ int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * exposing EXACTLY e->file_size bytes (brief Sec 4 / RISK-5: the last cluster
  * is partially filled; file_size is authoritative -- no trailing padding).
  *
- * `fat` / `fat_len` is the whole-FAT buffer from fat12_read_fat. We walk
- * e->start_cluster's chain (fat12_walk_chain) and copy each cluster's data,
- * sector-by-sector, via `cluster_buf` -- a caller scratch buffer of at least
- * sectors_per_cluster * 512 bytes. *out_bytes is set to e->file_size.
+ * `fat` / `fat_len` is the whole-FAT buffer from fat12_read_fat. The
+ * e->start_cluster chain is walked INCREMENTALLY -- one fat12_next_cluster step
+ * at a time, like fat12_read_partial -- and each cluster's data is copied,
+ * sector-by-sector, via `cluster_buf` (a caller scratch buffer of at least
+ * sectors_per_cluster * 512 bytes). There is NO on-stack whole-chain array, so
+ * an arbitrarily large file (FAT16 HDD geometry included) is served from that
+ * single-cluster scratch without a kernel-stack hazard (beads initech-dao).
+ * *out_bytes is set to e->file_size.
  *
  * A zero-length file (file_size == 0; start_cluster may legitimately be 0) is
  * handled WITHOUT a chain walk: *out_bytes = 0, nothing copied.
@@ -425,7 +473,11 @@ int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *   - out_buf_len < e->file_size        -> FAT12_ERR_BUFFER (never overflow)
  *   - a failing device read             -> FAT12_ERR_READ
  *   - a corrupt/over-short chain        -> FAT12_ERR_CHAIN
- *     (chain shorter than file_size needs, or walk errors propagated)
+ *     (chain shorter than file_size needs, EOC/free/bad/out-of-range link hit
+ *      before file_size satisfied, or walk errors propagated)
+ * Anti-hang (Rule 2): the incremental walk is bounded by the volume's cluster
+ * count (vol->total_clusters + 2); a cyclic/corrupt chain errors rather than
+ * looping forever or over-reading.
  * Returns FAT12_OK with *out_bytes == e->file_size on success.
  */
 int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,

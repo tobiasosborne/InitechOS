@@ -166,9 +166,14 @@ static int do_cat(const char *img, const char *name)
 	blockdev_file_t bf;
 	fat12_volume_t  vol;
 	uint8_t         sector_buf[512];
-	uint8_t         fat_buf[9 * 512];     /* whole FAT for 1.44 MB (9 sectors) */
+	/* whole-FAT scratch: a FAT12 floppy needs 9 sectors (4608 B), but a FAT16
+	 * volume's FAT is far larger (the minted -F 16 fixture has sectors_per_fat
+	 * 64 -> 32 KB; this cap covers sectors_per_fat up to 512). fat12_read_fat
+	 * fails loud (FAT12_ERR_BUFFER) if the real FAT exceeds it (Rule 2). Sized to
+	 * accept LARGER FAT16 images (beads initech-z01). */
+	static uint8_t  fat_buf[256 * 1024];
 	uint8_t         cluster_buf[512];     /* sectors_per_cluster(1) * 512       */
-	static uint8_t  out_buf[2 * 1024 * 1024]; /* up to a full floppy of data    */
+	static uint8_t  out_buf[4 * 1024 * 1024]; /* up to a few MB of file data    */
 	dir_entry_t     e;
 	uint32_t        out_bytes = 0u;
 	int             rc;
@@ -225,7 +230,9 @@ static int do_list_path(const char *img, const char *path)
 	blockdev_file_t bf;
 	fat12_volume_t  vol;
 	uint8_t         sector_buf[512];
-	uint8_t         fat_buf[9 * 512];   /* whole FAT for 1.44 MB (9 sectors) */
+	/* whole-FAT scratch (sized for FAT16 too; see do_cat). 256 KB covers
+	 * sectors_per_fat up to 512; fat12_read_fat fails loud if exceeded. */
+	static uint8_t  fat_buf[256 * 1024];
 	fat12_dir_t     dir;
 	dir_entry_t     e;
 	collector_t     c;

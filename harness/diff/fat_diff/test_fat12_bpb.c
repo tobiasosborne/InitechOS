@@ -36,8 +36,8 @@ static int bytes_eq(const uint8_t *got, const char *want, size_t n)
 }
 
 /* Minimal memory-backed blockdev that serves a single crafted boot sector at
- * LBA 0 (for the FAT16-rejection oracle, bcg.4). fat12_mount reads only LBA 0,
- * count 1; any other read returns zeros. */
+ * LBA 0 (for the FAT16-classification oracle, bcg.4). fat12_mount reads only LBA
+ * 0, count 1; any other read returns zeros. */
 static const uint8_t *g_memdev_boot;   /* 512-byte crafted boot sector */
 static int memdev_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
 {
@@ -106,12 +106,17 @@ int main(int argc, char **argv)
 	CHECK(BPB_CLUSTER_LBA(&vol.bpb, 2u) == 33u, "BPB_CLUSTER_LBA(2) == 33");
 	CHECK(BPB_CLUSTER_LBA(&vol.bpb, 3u) == 34u, "BPB_CLUSTER_LBA(3) == 34");
 
-	/* ---- bcg.4: a FAT16 volume must be REJECTED at mount, not silently
-	 * accepted. fat12.c's 12-bit decode/encode is FAT12-only; classifying a
-	 * volume as FAT16 and then walking it with the 12-bit decoder returns
-	 * garbage chains. Take the real boot sector and bump total_sectors_16 so
+	/* ---- bcg.4: a FAT16 volume mounts OK and is CLASSIFIED FAT16 (beads
+	 * initech-z01: the historical FAT12_ERR_UNSUPPORTED rejection is LIFTED now
+	 * that fat12_next_cluster dispatches to the separate 16-bit decode on
+	 * vol->fat_type). Take the real boot sector and bump total_sectors_16 so
 	 * total_clusters crosses the 4085 FAT12/FAT16 threshold; serve it through a
-	 * memory blockdev and assert mount fails loud with FAT12_ERR_UNSUPPORTED. */
+	 * memory blockdev and assert mount returns FAT12_OK with fat_type FAT16 and
+	 * the right cluster count. (fat12_mount reads only LBA 0, so a patched-from-
+	 * floppy boot sector is enough to exercise mount/classify; the full FAT16
+	 * READ path -- enumerate + chain walk + byte-for-byte content vs mtools + an
+	 * independent python reader -- is the separate `make test-fat16` gate.)
+	 * Ref (Law 1): docs/research/fat16-ground-truth.md Sec 2; ADR-0003 DEC-07. */
 	{
 		uint8_t        boot[512];
 		blockdev_t     memdev;
@@ -135,8 +140,12 @@ int main(int argc, char **argv)
 		memdev.write_sectors = NULL;
 
 		rc = fat12_mount(&vol16, &memdev, sbuf);
-		CHECK(rc == FAT12_ERR_UNSUPPORTED,
-		      "bcg.4: mounting a FAT16 volume returns FAT12_ERR_UNSUPPORTED");
+		CHECK(rc == FAT12_OK,
+		      "bcg.4: mounting a FAT16 volume returns FAT12_OK (rejection lifted, z01)");
+		CHECK(vol16.fat_type == FAT_TYPE_FAT16,
+		      "bcg.4: a FAT16 volume is classified FAT_TYPE_FAT16 by cluster count");
+		CHECK(vol16.total_clusters == 4967u,
+		      "bcg.4: FAT16 total_clusters == 4967 (5000 - 33 first_data_sector)");
 	}
 
 	blockdev_file_close(&bf);
