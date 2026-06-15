@@ -1174,8 +1174,16 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 	lba = BPB_CLUSTER_LBA(&vol->bpb, newc);
 	if (vol->dev->write_sectors(vol->dev->ctx, lba,
 	                            vol->bpb.sectors_per_cluster, cb) != 0) {
+#ifndef FAT12_MUTATE_GROWDIR_NO_ZEROFILL_ROLLBACK
 		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
 		(void)fat12_flush_fats(vol, fat, fat_len);
+#else
+		/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
+		 * zero-fill-fail rollback. The cluster the grow CLAIMED (marked EOC in
+		 * memory) is NOT returned to FREE, so it LEAKS while the grow -- and the
+		 * fat12_create that drove it -- still fails. The free-count / chain-len
+		 * assertion in scenario [B] must go RED. NEVER define in a real build. */
+#endif
 		return FAT12_ERR_WRITE;
 	}
 
@@ -2145,10 +2153,19 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		lba = BPB_CLUSTER_LBA(&vol->bpb, cl);
 		if (vol->dev->write_sectors(vol->dev->ctx, lba,
 		                            vol->bpb.sectors_per_cluster, cb) != 0) {
+#ifndef FAT12_MUTATE_WRITEFILE_NO_ROLLBACK
 			if (first_cluster != 0u) {
 				(void)fat12_free_chain(vol, fat, fat_len, first_cluster);
 				(void)fat12_flush_fats(vol, fat, fat_len);
 			}
+#else
+			/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
+			 * partial-allocation rollback on a mid-write device fault. Every
+			 * cluster claimed so far LEAKS (stays allocated) while the call still
+			 * fails -- the exact atomicity defect the fault-injection oracle pins.
+			 * The free-count assertion in scenario [A] must go RED. NEVER define in
+			 * a real build. */
+#endif
 			return FAT12_ERR_WRITE;
 		}
 
@@ -2622,6 +2639,20 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		return FAT12_ERR_WRITE;
 	}
 
+#ifdef FAT12_MUTATE_RENAME_IGNORE_DIRSTART
+	/* MUTANT 4 (Rule 6; make test-gnrc-mutant only): IGNORE the caller's dir_start
+	 * and resolve root-anchored (force the SUBDIR parent to the fixed root). Every
+	 * subsequent fat12_scan_dir + the final fat12_write_dirent_in_dir then operate
+	 * on the ROOT region instead of the requested subdirectory: a non-root
+	 * \SUB\OLD -> \SUB\NEW rename FAILS to find OLD in the (empty-of-OLD) root and
+	 * returns FAT12_ERR_NOT_FOUND, so the NON-ROOT same-dir success leg of
+	 * test_fat12_rename goes RED. This proves the leg actually exercises the
+	 * subdir-aware dir_start path (beads initech-isil) and is not silently passing
+	 * via the root scan. NEVER in a real build. */
+	dir_start = 0u;
+	is_root   = 1;
+#endif
+
 	/* Parse BOTH names up front (rename allocates nothing -- a malformed name on
 	 * either side is the source-not-found contract). */
 	rc = parse_name83(old83, old11);
@@ -2911,12 +2942,21 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		 * appended cluster, and re-flushes both FAT copies (best-effort: if the
 		 * device write is hard-down the rollback flush also fails, but the
 		 * in-memory FAT is left consistent and no cluster is leaked logically).
-		 * (Not reachable without a write-fail seam; beads initech-lpf3.) */
+		 * Reached + pinned by the fault-injection oracle scenario [C], beads
+		 * initech-lpf3 (arm the post-grow EOC flush to fault). */
+#ifndef FAT12_MUTATE_MKDIR_NO_FLUSHFAIL_ROLLBACK
 		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
 		if (parent_grew) {
 			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
 			                      parent_newc);
 		}
+#else
+		/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
+		 * post-grow flush-fail rollback. newc stays claimed AND the appended
+		 * parent cluster stays linked, both leaking while MKDIR fails -- the
+		 * atomicity defect scenario [C] pins. CSUB stays 2 clusters / the free
+		 * count drops -> scenario [C] goes RED. NEVER define in a real build. */
+#endif
 		return rc;
 	}
 

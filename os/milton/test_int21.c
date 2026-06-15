@@ -477,16 +477,239 @@ int main(void)
               "AH=44h/00 out-of-range handle returns AX=0x0006");
     }
 
-    /* AL=01h (a deferred minor) -> CF set, AX=0x0001 (invalid function). The
-     * set-info / status / changeable-media minors are deferred (initech-4nbn). */
+    /* ======================================================================
+     * AH=44h IOCTL minors AL=01/06/07/08 (beads initech-4nbn). All resolve EBX
+     * through the JFT->SFT layer; bad handle -> CF=1, AX=0x0006. Grounded from
+     * RBIL/HelpPC INT 21,44,{1,6,7,8} (cited in int21.c + the spec).
+     * ==================================================================== */
+
+    /* AL=01h SET DEVICE INFO on CON (a char device) with DH=0 -> NO-OP set:
+     * CF clear, DX echoes the locked CON word 0x80D3 (char-device-only). */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4401u;          /* AH=44h, AL=01h */
+        f.ebx = INT21_HANDLE_STDOUT;  /* handle 1 = CON device */
+        f.edx = 0x0000u;          /* DH=0 (required); DL device-data ignored */
+        f.eflags |= CF_BIT;       /* preload CF=1 so we prove it is CLEARED */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=44h/01 SET-INFO on CON (DH=0) clears CF");
+        CHECK((uint16_t)(f.edx & 0xFFFFu) == (uint16_t)INT21_DEVINFO_CON,
+              "AH=44h/01 SET-INFO on CON echoes the CON word 0x80D3 in DX");
+    }
+
+    /* AL=01h with DH != 0 -> invalid function (RBIL: "DH must be zero"). */
     {
         int_frame_t f = fresh_frame();
-        f.eax = 0x4401u;          /* AH=44h, AL=01h (SET DEVICE INFO -- deferred) */
+        f.eax = 0x4401u;
+        f.ebx = INT21_HANDLE_STDOUT;  /* CON device */
+        f.edx = 0x0100u;          /* DH=1 (illegal) */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/01 with DH!=0 sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "AH=44h/01 with DH!=0 returns AX=0x0001 (invalid function)");
+    }
+
+    /* AL=01h on a FILE handle -> invalid function (char-device-only). */
+    {
+        bind_standard_process();
+        uint8_t sidx = sft_alloc();
+        CHECK(sidx < SFT_MAX_ENTRIES, "sft_alloc gives a FILE slot (01h reject)");
+        g_sft[sidx].kind = SFT_KIND_FILE; g_sft[sidx].ref_count = 1u;
+        uint8_t h = jft_alloc(&g_test_psp);
+        CHECK(h != JFT_CLOSED, "jft_alloc gives a handle (01h reject)");
+        g_test_psp.jft[h] = sidx;
+
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4401u;
+        f.ebx = (uint32_t)h;      /* FILE handle */
+        f.edx = 0x0000u;          /* DH=0 -- still rejected: it is not a device */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/01 on a FILE handle sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "AH=44h/01 on a FILE handle returns AX=0x0001 (char-device-only)");
+    }
+
+    /* AL=01h bad handle -> CF=1, AX=0x0006. */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4401u;
+        f.ebx = 7u;               /* closed handle */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/01 bad handle sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "AH=44h/01 bad handle returns AX=0x0006");
+    }
+
+    /* AL=06h GET INPUT STATUS on CON -> AL=0xFF (live keyboard always ready),
+     * CF clear. */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4406u;          /* AH=44h, AL=06h */
+        f.ebx = 0u;               /* handle 0 = stdin = CON */
+        f.eflags |= CF_BIT;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=44h/06 input-status CON clears CF");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0xFFu,
+              "AH=44h/06 input-status CON returns AL=0xFF (ready)");
+    }
+
+    /* AL=06h on a FILE NOT at EOF (offset < size) -> AL=0xFF (not-EOF). */
+    {
+        bind_standard_process();
+        uint8_t sidx = sft_alloc();
+        CHECK(sidx < SFT_MAX_ENTRIES, "sft_alloc gives a FILE slot (06h not-EOF)");
+        g_sft[sidx].kind = SFT_KIND_FILE; g_sft[sidx].ref_count = 1u;
+        g_sft[sidx].dir_entry.file_size = 100u;
+        g_sft[sidx].file_offset = 10u;       /* 10 < 100 -> NOT at EOF */
+        uint8_t h = jft_alloc(&g_test_psp);
+        CHECK(h != JFT_CLOSED, "jft_alloc gives a handle (06h not-EOF)");
+        g_test_psp.jft[h] = sidx;
+
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4406u;
+        f.ebx = (uint32_t)h;
+        f.eflags |= CF_BIT;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=44h/06 input-status FILE not-EOF clears CF");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0xFFu,
+              "AH=44h/06 input-status FILE (offset<size) returns AL=0xFF (not-EOF)");
+    }
+
+    /* AL=06h on a FILE AT EOF (offset >= size) -> AL=0x00 (EOF). */
+    {
+        bind_standard_process();
+        uint8_t sidx = sft_alloc();
+        CHECK(sidx < SFT_MAX_ENTRIES, "sft_alloc gives a FILE slot (06h EOF)");
+        g_sft[sidx].kind = SFT_KIND_FILE; g_sft[sidx].ref_count = 1u;
+        g_sft[sidx].dir_entry.file_size = 100u;
+        g_sft[sidx].file_offset = 100u;      /* 100 >= 100 -> AT EOF */
+        uint8_t h = jft_alloc(&g_test_psp);
+        CHECK(h != JFT_CLOSED, "jft_alloc gives a handle (06h EOF)");
+        g_test_psp.jft[h] = sidx;
+
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4406u;
+        f.ebx = (uint32_t)h;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=44h/06 input-status FILE EOF clears CF");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0x00u,
+              "AH=44h/06 input-status FILE (offset>=size) returns AL=0x00 (EOF)");
+    }
+
+    /* AL=06h bad handle -> CF=1, AX=0x0006. */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4406u;
+        f.ebx = 9u;               /* closed handle */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/06 bad handle sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "AH=44h/06 bad handle returns AX=0x0006");
+    }
+
+    /* AL=07h GET OUTPUT STATUS on CON -> AL=0xFF (screen ready), CF clear. */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4407u;          /* AH=44h, AL=07h */
+        f.ebx = INT21_HANDLE_STDOUT;  /* CON */
+        f.eflags |= CF_BIT;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=44h/07 output-status CON clears CF");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0xFFu,
+              "AH=44h/07 output-status CON returns AL=0xFF (ready)");
+    }
+
+    /* AL=07h on a FILE -> AL=0xFF (a disk file is always ready for output). */
+    {
+        bind_standard_process();
+        uint8_t sidx = sft_alloc();
+        CHECK(sidx < SFT_MAX_ENTRIES, "sft_alloc gives a FILE slot (07h)");
+        g_sft[sidx].kind = SFT_KIND_FILE; g_sft[sidx].ref_count = 1u;
+        uint8_t h = jft_alloc(&g_test_psp);
+        CHECK(h != JFT_CLOSED, "jft_alloc gives a handle (07h)");
+        g_test_psp.jft[h] = sidx;
+
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4407u;
+        f.ebx = (uint32_t)h;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=44h/07 output-status FILE clears CF");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0xFFu,
+              "AH=44h/07 output-status FILE returns AL=0xFF (always ready)");
+    }
+
+    /* AL=07h bad handle -> CF=1, AX=0x0006. */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4407u;
+        f.ebx = 11u;              /* closed handle */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/07 bad handle sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "AH=44h/07 bad handle returns AX=0x0006");
+    }
+
+    /* AL=08h CHANGEABLE MEDIA on CON (char device) -> invalid function: AL=08h
+     * is block-device-only and we expose no block-device handle. CF=1, AX=0x0001. */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4408u;          /* AH=44h, AL=08h */
+        f.ebx = INT21_HANDLE_STDOUT;  /* CON char device */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/08 on a char device sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "AH=44h/08 on a char device returns AX=0x0001 (block-device-only)");
+    }
+
+    /* AL=08h on a FILE handle -> also invalid function (a file is not a block
+     * device in our model). CF=1, AX=0x0001. */
+    {
+        bind_standard_process();
+        uint8_t sidx = sft_alloc();
+        CHECK(sidx < SFT_MAX_ENTRIES, "sft_alloc gives a FILE slot (08h)");
+        g_sft[sidx].kind = SFT_KIND_FILE; g_sft[sidx].ref_count = 1u;
+        uint8_t h = jft_alloc(&g_test_psp);
+        CHECK(h != JFT_CLOSED, "jft_alloc gives a handle (08h)");
+        g_test_psp.jft[h] = sidx;
+
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4408u;
+        f.ebx = (uint32_t)h;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/08 on a FILE handle sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "AH=44h/08 on a FILE handle returns AX=0x0001 (no block-device handle)");
+    }
+
+    /* AL=08h bad handle -> CF=1, AX=0x0006 (handle resolved before applicability). */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4408u;
+        f.ebx = 13u;              /* closed handle */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/08 bad handle sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "AH=44h/08 bad handle returns AX=0x0006");
+    }
+
+    /* An unmodeled minor (AL=05h) -> CF=1, AX=0x0001 (invalid function). */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4405u;          /* AH=44h, AL=05h (write char-device ctl -- unmodeled) */
         f.ebx = INT21_HANDLE_STDOUT;
         int21_dispatch(&f);
-        CHECK(frame_cf(&f) == 1, "AH=44h/01 (deferred minor) sets CF");
+        CHECK(frame_cf(&f) == 1, "AH=44h/05 (unmodeled minor) sets CF");
         CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
-              "AH=44h/01 deferred minor returns AX=0x0001 (initech-4nbn)");
+              "AH=44h/05 unmodeled minor returns AX=0x0001 (invalid function)");
     }
 
     /* --- AH=30h GET VERSION: AL=3, AH=0x1E (30); CF clear. --------------- */

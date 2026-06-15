@@ -37,6 +37,11 @@
       "ah": "0x0C",
       "when": "AL != mounted volume"
     },
+    "bad_buffer": {
+      "al": "0x0F",
+      "ah": "0x0C",
+      "when": "user_buf_ok(EBX, CX*512) fails: NULL / out-of-range / CX*512 ptr+span 32-bit wrap (DEC-14 guard fires BEFORE any I/O; CF=1, no I/O performed). AX surfaced as the DEC-14 path -- the invalid-drive 0x0F/0x0C pair is REUSED for this hardware byte; not a distinct code (DEC-15 amendment line 160)"
+    },
     "sector_not_found": {
       "al": "0x08",
       "ah": "0x0B",

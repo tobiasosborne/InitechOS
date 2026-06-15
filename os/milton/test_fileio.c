@@ -102,6 +102,30 @@ static void sink_capture(char c) { if (g_sink_len < sizeof(g_sink_buf) - 1) g_si
 #define CF_BIT 0x1u
 static int frame_cf(const int_frame_t *f) { return (f->eflags & CF_BIT) ? 1 : 0; }
 
+/* --- SFT/JFT churn counters (beads initech-nmpo) ---------------------------- *
+ * A CREATNEW that REJECTS (file exists / null path / no backend) must commit
+ * NOTHING: no SFT FILE slot claimed, no JFT handle bound. The do_creatnew
+ * contract allocs the table slots AFTER the existence guard, so a rejection
+ * leaves both tables exactly as they were. These helpers snapshot the live
+ * counts so the oracle can assert "no slot churn" -- a refactor that allocated
+ * (or leaked) a slot before rejecting goes RED. */
+static unsigned sft_file_slots_in_use(void)
+{
+    unsigned n = 0u;
+    for (uint8_t i = SFT_FIRST_FILE; i < (uint8_t)SFT_MAX_ENTRIES; i++) {
+        if (g_sft[i].kind == SFT_KIND_FILE) n++;
+    }
+    return n;
+}
+static unsigned jft_handles_in_use(const psp_t *psp)
+{
+    unsigned n = 0u;
+    for (uint8_t h = 0u; h < (uint8_t)JFT_MAX_ENTRIES; h++) {
+        if (psp->jft[h] != JFT_CLOSED) n++;
+    }
+    return n;
+}
+
 static int_frame_t fresh_frame(void)
 {
     int_frame_t f;
@@ -300,8 +324,18 @@ static uint16_t mock_create(const char *name83, uint16_t dir_start_cluster,
     /* This READ-side milestone only creates in the ROOT (subdir write is a
      * follow-up bead; the real backend returns 0x0003 for a non-root dir). */
     if (dir_start_cluster != 0u) return 0x0003u;  /* path not found (no subdir write) */
-    /* Use the spare slot (index 3) for the created file; truncate to size 0. */
-    int idx = 3;
+    /* CREAT truncate semantics (beads initech-nmpo): if a file by this name
+     * ALREADY exists in the root, REUSE its slot and TRUNCATE it to size 0 --
+     * the real fat12_create overwrites/zeroes the existing entry's chain. The
+     * mock formerly hardcoded the spare slot (idx 3), so it could NEVER model
+     * truncating HELLO.TXT (slot 0); a hypothetical "truncate BEFORE the
+     * existence check" refactor of do_creatnew would have stayed GREEN because
+     * the bytes of slot 0 were untouched. Now create("HELLO.TXT") lands on slot
+     * 0 and ZEROES it, so a truncate-before-check would visibly destroy
+     * HELLO.TXT's bytes -- which the nmpo read-back assertion catches (Rule 6).
+     * A fresh (not-yet-present) name still claims the spare slot 3. */
+    int idx = mock_find_in_dir(name83, 0u);
+    if (idx < 0) idx = 3;       /* fresh name -> the spare root slot */
     /* Parse name83 into 8.3 fields for the slot's name. */
     static char nm8[9], ex3[4];
     memset(nm8, ' ', 8); nm8[8] = '\0';
@@ -1531,7 +1565,11 @@ int main(void)
         bind_standard_process();
         int21_set_file_backend(&g_mock_backend);
 
-        /* (a) CREATNEW a FRESH name -> CF clear, EAX = a real handle. */
+        /* (a) CREATNEW a FRESH name -> CF clear, EAX = a real handle, and a file
+         *     ACTUALLY materialized (FS EFFECT, beads initech-nmpo): the returned
+         *     handle is a real WRITE handle we can WRITE+CLOSE+re-OPEN+READ-back.
+         *     A signal-only oracle (just CF/AX) would pass even if create() were a
+         *     no-op that handed back a dangling slot. */
         uint32_t nedx = low_dup("BRAND.NEW");
         int_frame_t cn = fresh_frame();
         cn.eax = 0x5B00u; cn.ecx = 0u; cn.edx = nedx;
@@ -1540,9 +1578,51 @@ int main(void)
         CHECK(frame_cf(&cn) == 0, "CREATNEW fresh name BRAND.NEW clears CF");
         uint32_t nh = (uint16_t)(cn.eax & 0xFFFFu);
         CHECK(nh == 5u, "CREATNEW fresh name returns the lowest free handle (5)");
+        /* FS EFFECT: write 4 bytes through the fresh handle, CLOSE, re-OPEN, READ
+         *     back -> the file exists and holds exactly what we wrote. */
+        {
+            uint32_t wbuf = low_dup("ABCD");
+            int_frame_t w = fresh_frame();
+            w.eax = 0x4000u; w.ebx = nh; w.ecx = 4u; w.edx = wbuf;
+            int21_dispatch(&w);
+            CHECK(frame_cf(&w) == 0 && w.eax == 4u,
+                  "CREATNEW fresh handle is a real WRITE handle (4 bytes written)");
+            int_frame_t cl = fresh_frame();
+            cl.eax = 0x3E00u; cl.ebx = nh;
+            int21_dispatch(&cl);
+            CHECK(frame_cf(&cl) == 0, "CLOSE the CREATNEW-fresh handle");
+            int_frame_t ro = fresh_frame();
+            ro.eax = 0x3D00u; ro.edx = low_dup("BRAND.NEW");
+            int21_dispatch(&ro);
+            CHECK(frame_cf(&ro) == 0,
+                  "CREATNEW materialized BRAND.NEW: a later OPEN finds it (FS effect)");
+            uint16_t rbh = (uint16_t)(ro.eax & 0xFFFFu);
+            uint8_t *rbk = (uint8_t *)(uintptr_t)alloc_low(16); memset(rbk, 0x7E, 16);
+            int_frame_t rdk = fresh_frame();
+            rdk.eax = 0x3F00u; rdk.ebx = rbh; rdk.ecx = 16u; rdk.edx = (uint32_t)(uintptr_t)rbk;
+            int21_dispatch(&rdk);
+            CHECK(rdk.eax == 4u && memcmp(rbk, "ABCD", 4) == 0,
+                  "CREATNEW-fresh file reads back the 4 written bytes (no phantom create)");
+            int_frame_t clr = fresh_frame();
+            clr.eax = 0x3E00u; clr.ebx = rbh;
+            int21_dispatch(&clr);
+        }
 
-        /* (b) CREATNEW an EXISTING name (HELLO.TXT lives in the mock root) ->
-         *     CF=1, AX=0x0050 (ERROR_FILE_EXISTS). Commit nothing. */
+        /* (b) CREATNEW an EXISTING name (HELLO.TXT, slot 0, holds HELLO_DATA) ->
+         *     CF=1, AX=0x0050 (ERROR_FILE_EXISTS) AND COMMIT NOTHING. We assert
+         *     the SIGNAL (CF/AX) PLUS two filesystem EFFECTS (beads initech-nmpo):
+         *       1. NO TRUNCATION -- after the rejection, HELLO.TXT still reads back
+         *          its ORIGINAL bytes. The mock create() now truncates an EXISTING
+         *          name in place (it no longer hardcodes the spare slot 3), so a
+         *          hypothetical "truncate/churn BEFORE the existence check"
+         *          refactor of do_creatnew would ZERO slot 0 and this read-back
+         *          goes RED.
+         *       2. NO SLOT CHURN -- the SFT FILE-slot count and the JFT handle
+         *          count are UNCHANGED across the rejected call (do_creatnew rejects
+         *          BEFORE sft_alloc/jft_alloc; a refactor that allocated then bailed
+         *          would leak a slot and this goes RED). */
+        unsigned sft_before = sft_file_slots_in_use();
+        unsigned jft_before = jft_handles_in_use(&g_test_psp);
         uint32_t eedx = low_dup("HELLO.TXT");
         int_frame_t ce = fresh_frame();
         ce.eax = 0x5B00u; ce.ecx = 0u; ce.edx = eedx;
@@ -1550,6 +1630,31 @@ int main(void)
         CHECK(frame_cf(&ce) == 1, "CREATNEW on existing HELLO.TXT sets CF");
         CHECK((uint16_t)(ce.eax & 0xFFFFu) == INT21_ERR_FILE_EXISTS,
               "CREATNEW on existing file AX=0x0050 (ERROR_FILE_EXISTS)");
+        /* FS EFFECT 1: HELLO.TXT was NOT truncated -- read it back and compare. */
+        {
+            int_frame_t ro = fresh_frame();
+            ro.eax = 0x3D00u; ro.edx = low_dup("HELLO.TXT");
+            int21_dispatch(&ro);
+            CHECK(frame_cf(&ro) == 0, "HELLO.TXT still OPENs after the rejected CREATNEW");
+            uint16_t hh = (uint16_t)(ro.eax & 0xFFFFu);
+            uint32_t hlen = (uint32_t)strlen(HELLO_DATA);
+            uint8_t *hb = (uint8_t *)(uintptr_t)alloc_low(hlen + 16); memset(hb, 0x7E, hlen + 16);
+            int_frame_t rdh = fresh_frame();
+            rdh.eax = 0x3F00u; rdh.ebx = hh; rdh.ecx = hlen + 1u; rdh.edx = (uint32_t)(uintptr_t)hb;
+            int21_dispatch(&rdh);
+            CHECK(rdh.eax == hlen && memcmp(hb, HELLO_DATA, hlen) == 0,
+                  "rejected CREATNEW did NOT truncate HELLO.TXT (bytes + size intact)");
+            int_frame_t clh = fresh_frame();
+            clh.eax = 0x3E00u; clh.ebx = hh;
+            int21_dispatch(&clh);
+        }
+        /* FS EFFECT 2: no SFT FILE slot / JFT handle was churned by the rejection.
+         *     (Snapshot taken BEFORE the rejected CREATNEW; the OPEN read-back above
+         *     fully CLOSEd its handle, so the live counts return to the snapshot.) */
+        CHECK(sft_file_slots_in_use() == sft_before,
+              "rejected CREATNEW churned NO SFT FILE slot (alloc is after the guard)");
+        CHECK(jft_handles_in_use(&g_test_psp) == jft_before,
+              "rejected CREATNEW churned NO JFT handle (alloc is after the guard)");
 
         /* (c) AH=59h GETERR right after the (b) failure must report 0x0050 ->
          *     proves the dispatch-wrapper auto-note carried the CREATNEW error. */
@@ -1585,6 +1690,156 @@ int main(void)
         CHECK(frame_cf(&csf) == 1, "CREATNEW fresh subdir file sets CF (mock create() is root-only)");
         CHECK((uint16_t)(csf.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
               "CREATNEW fresh subdir leaf -> 0x0003 from backend create() (NOT 0x0050; probe passed cleanly)");
+    }
+
+    /* --- AH=5Bh CREATNEW robustness arms (beads initech-glsw): the null-path /
+     *     no-write-backend / SFT-JFT-exhaustion branches of do_creatnew are
+     *     SHAPE-identical to do_creat but were NOT directly asserted for AH=5Bh,
+     *     so a future divergence (a copy that drifts) stayed GREEN. Drive each arm
+     *     DIRECTLY through the dispatcher so it bites. Ref: DOS 3.3 PRM AH=5Bh;
+     *     spec/int21h_calling_convention.json AH=5Bh (the cf error-code table). */
+    {
+        mock_reset_dir();
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+
+        /* (f) NULL EDX (path pointer 0) -> CF=1, AX=0x0002 (FILE_NOT_FOUND), the
+         *     SAME code do_creat/do_open return for a null/empty path
+         *     (spec/int21h_calling_convention.json AH=5Bh: "0x0002 NULL/empty
+         *     path"; RBIL INT 21h/AH=5Bh -- an empty/absent name names no entry to
+         *     create). NOT 0x0003: an empty path is a missing NAME, not a bad
+         *     directory component. */
+        int_frame_t cnull = fresh_frame();
+        cnull.eax = 0x5B00u; cnull.ecx = 0u; cnull.edx = 0u;
+        cnull.eflags |= CF_BIT;
+        int21_dispatch(&cnull);
+        CHECK(frame_cf(&cnull) == 1, "CREATNEW with NULL EDX sets CF");
+        CHECK((uint16_t)(cnull.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
+              "CREATNEW NULL path -> AX=0x0002 (FILE_NOT_FOUND, per spec AH=5Bh)");
+
+        /* (g) EMPTY path ("") -> CF=1, AX=0x0002 (the *content* null path, distinct
+         *     from a NULL pointer; do_creatnew checks `*path == '\0'` too). */
+        int_frame_t cempty = fresh_frame();
+        cempty.eax = 0x5B00u; cempty.ecx = 0u; cempty.edx = low_dup("");
+        cempty.eflags |= CF_BIT;
+        int21_dispatch(&cempty);
+        CHECK(frame_cf(&cempty) == 1, "CREATNEW with an EMPTY path sets CF");
+        CHECK((uint16_t)(cempty.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
+              "CREATNEW empty path -> AX=0x0002 (FILE_NOT_FOUND, per spec AH=5Bh)");
+    }
+
+    /* (h) NO WRITE BACKEND (create()==NULL): a read-only volume cannot CREATNEW ->
+     *     CF=1, AX=0x0005 (ACCESS_DENIED), the SAME arm do_creat hits. We reuse
+     *     the read-only vtable shape (create/write_at/.. = NULL) but KEEP open()
+     *     bound so the path that fails is the create()==NULL guard, NOT the
+     *     open()==NULL guard tested in (i). The name is FRESH so the existence
+     *     probe clears and execution reaches the create()==NULL check. */
+    {
+        static const int21_file_backend_t ro_creatnew = {
+            mock_open, mock_read_at, mock_dir_entry,
+            NULL, NULL, NULL, NULL, NULL,        /* create/write_at/close/unlink/freespace */
+            mock_resolve, mock_resolve_dir,
+            NULL, NULL,                          /* mkdir/rmdir: read-only */
+            NULL,                                /* set_time: read-only */
+            NULL,                                /* chmod: read-only */
+            NULL                                 /* rename: read-only */ };
+        mock_reset_dir();
+        bind_standard_process();
+        int21_set_file_backend(&ro_creatnew);
+        int_frame_t cro = fresh_frame();
+        cro.eax = 0x5B00u; cro.ecx = 0u; cro.edx = low_dup("FRESHRO.TXT");
+        cro.eflags |= CF_BIT;
+        int21_dispatch(&cro);
+        CHECK(frame_cf(&cro) == 1, "CREATNEW on a read-only backend (create==NULL) sets CF");
+        CHECK((uint16_t)(cro.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "CREATNEW no-write-backend -> AX=0x0005 (ACCESS_DENIED)");
+        int21_set_file_backend(&g_mock_backend);
+    }
+
+    /* (i) create() BOUND but open()==NULL (beads initech-glsw, Rule 2 fail-loud):
+     *     a backend that can CREATE but offers no existence-probe CANNOT honor the
+     *     CREATNEW fail-if-exists contract. The old guard was `if (open != 0)`, so
+     *     open()==NULL SKIPPED the existence check and let create() TRUNCATE an
+     *     existing file with CF clear -- the EXACT INVERSE of CREATNEW, and
+     *     asymmetric with do_open (which hard-errors on open()==NULL). The hardened
+     *     do_creatnew now hard-errors 0x0005 BEFORE create() runs. We prove BOTH:
+     *       1. the SIGNAL -- CF=1, AX=0x0005;
+     *       2. the FS EFFECT -- the existing target was NOT truncated (its bytes
+     *          survive). A regression to the silent-skip would CLEAR CF and ZERO
+     *          HELLO.TXT (mock create() now truncates an existing name in place). */
+    {
+        /* A backend that BINDS create() (so the create-NULL guard is NOT the one
+         * that fires) but leaves open()==NULL. mock_creat_truncates is the
+         * standard mock_create (truncates an existing name -> proves no-truncate
+         * if the guard holds). */
+        static const int21_file_backend_t create_no_open = {
+            NULL,                                /* open: ABSENT -- the hardened arm */
+            mock_read_at, mock_dir_entry,
+            mock_create, mock_write_at, mock_close, mock_unlink,
+            NULL,                                /* freespace */
+            mock_resolve, mock_resolve_dir,
+            NULL, NULL,                          /* mkdir/rmdir */
+            NULL,                                /* set_time */
+            NULL,                                /* chmod */
+            NULL                                 /* rename */ };
+        mock_reset_dir();
+        bind_standard_process();
+        int21_set_file_backend(&create_no_open);
+        int_frame_t cno = fresh_frame();
+        cno.eax = 0x5B00u; cno.ecx = 0u; cno.edx = low_dup("HELLO.TXT");
+        cno.eflags |= CF_BIT;
+        int21_dispatch(&cno);
+        CHECK(frame_cf(&cno) == 1,
+              "CREATNEW with create() bound but open()==NULL sets CF (glsw fail-loud)");
+        CHECK((uint16_t)(cno.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "CREATNEW create-bound-open-NULL -> AX=0x0005 (cannot verify non-existence)");
+        /* FS EFFECT: HELLO.TXT (slot 0) was NOT truncated -- read it back via the
+         *     g_mock_backend (which has open()) and compare. If the guard had been
+         *     silently skipped, create() would have zeroed slot 0. */
+        int21_set_file_backend(&g_mock_backend);
+        {
+            int_frame_t ro = fresh_frame();
+            ro.eax = 0x3D00u; ro.edx = low_dup("HELLO.TXT");
+            int21_dispatch(&ro);
+            CHECK(frame_cf(&ro) == 0, "HELLO.TXT still OPENs after the open()==NULL reject");
+            uint16_t hh = (uint16_t)(ro.eax & 0xFFFFu);
+            uint32_t hlen = (uint32_t)strlen(HELLO_DATA);
+            uint8_t *hb = (uint8_t *)(uintptr_t)alloc_low(hlen + 16); memset(hb, 0x7E, hlen + 16);
+            int_frame_t rdh = fresh_frame();
+            rdh.eax = 0x3F00u; rdh.ebx = hh; rdh.ecx = hlen + 1u; rdh.edx = (uint32_t)(uintptr_t)hb;
+            int21_dispatch(&rdh);
+            CHECK(rdh.eax == hlen && memcmp(hb, HELLO_DATA, hlen) == 0,
+                  "open()==NULL reject did NOT truncate HELLO.TXT (fail-loud BEFORE create)");
+            int_frame_t clh = fresh_frame();
+            clh.eax = 0x3E00u; clh.ebx = hh;
+            int21_dispatch(&clh);
+        }
+    }
+
+    /* (j) SFT/JFT EXHAUSTION (0x0004): with EVERY file-eligible SFT slot already
+     *     claimed, a CREATNEW of a FRESH name (existence probe clears, create()
+     *     bound) must fail at sft_alloc -> CF=1, AX=0x0004 (TOO_MANY_OPEN), the
+     *     SAME arm do_creat/do_open hit. We saturate g_sft[SFT_FIRST_FILE..] as
+     *     FILE-kind directly (the public sft API + g_sft extern), then drive one
+     *     CREATNEW. (Proves the exhaustion arm of do_creatnew is wired, not just a
+     *     comment.) */
+    {
+        mock_reset_dir();
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+        /* Saturate every file-eligible SFT slot. */
+        for (uint8_t i = SFT_FIRST_FILE; i < (uint8_t)SFT_MAX_ENTRIES; i++) {
+            g_sft[i].kind = SFT_KIND_FILE;
+        }
+        int_frame_t cex = fresh_frame();
+        cex.eax = 0x5B00u; cex.ecx = 0u; cex.edx = low_dup("EXHAUST.NEW");
+        cex.eflags |= CF_BIT;
+        int21_dispatch(&cex);
+        CHECK(frame_cf(&cex) == 1, "CREATNEW under SFT exhaustion sets CF");
+        CHECK((uint16_t)(cex.eax & 0xFFFFu) == INT21_ERR_TOO_MANY_OPEN,
+              "CREATNEW SFT-exhausted -> AX=0x0004 (TOO_MANY_OPEN)");
+        /* Restore a clean SFT/JFT for any later block. */
+        bind_standard_process();
     }
 
     /* --- RDWR (AL=2) round-trip (bcg.1): AH=3Dh AL=2 is read/write per DOS 3.3
@@ -2038,9 +2293,17 @@ int main(void)
               (uint16_t)(sr.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
               "b53d SET with CX setting the Directory bit -> CF=1, AX=0x0005");
 
-        /* SET HELLO.TXT with a CX that sets the VolLabel bit (0x08) -> 0x0005. */
+        /* SET with a CX that sets the VolLabel bit (0x08) -> 0x0005 (the
+         * dispatch-edge re-typing reject; never re-type via CHMOD). Target README
+         * (a PLAIN file, attr 0x20) -- NOT HELLO.TXT, which the Directory-bit leg
+         * above has by now SET to 0x11 (DIR bit) when the dispatch guard is
+         * removed (mutant INT21_MUTATE_CHMOD_NO_CX_REJECT), so a re-typing SET on
+         * HELLO.TXT would be masked by the backend's TARGET reject. README's
+         * stored attr carries no dir/vol-label bit, so ONLY the dispatch-edge CX
+         * guard can deny this SET -- the VolLabel leg now bites the mutant
+         * INDEPENDENTLY of the Directory leg's ordering (initech-5o6o). */
         int_frame_t sl = fresh_frame();
-        sl.eax = 0x4301u; sl.edx = low_dup("HELLO.TXT");
+        sl.eax = 0x4301u; sl.edx = low_dup("README");
         sl.ecx = (uint16_t)(DIR_ATTR_HIDDEN | DIR_ATTR_VOLLABEL);
         sl.eflags |= CF_BIT;
         int21_dispatch(&sl);

@@ -884,36 +884,196 @@ static void do_dup2(int_frame_t *f)
     cf_clear(f);
 }
 
-/* AH=44h IOCTL. AL selects the minor function. This landing implements ONLY
- * AL=00h (Get Device Information): EBX = an open handle, return DX = the device-
- * information word for that handle (CF clear). It is purely an SFT/device-flag
- * query -- it touches NO FAT, no block layer, no ATA.
+/* Resolve EBX through the current process's JFT into the system SFT exactly the
+ * way do_write/do_dup/do_ioctl(AL=00) do. Returns the SFT entry, or NULL for a
+ * bad / closed / out-of-range handle. Shared by every handle-based IOCTL minor
+ * so the invalid-handle path (Rule 2) is uniform. */
+static sft_entry_t *ioctl_sft_from_ebx(int_frame_t *f)
+{
+    uint32_t handle = f->ebx;
+    return (handle <= 0xFFu) ? sft_from_handle(g_cur_psp, (uint8_t)handle) : 0;
+}
+
+/* AH=44h IOCTL. AL selects the minor function. This landing implements the
+ * handle-based char/file minors that need no FAT/block/ATA access -- purely
+ * SFT/device-flag queries:
  *
- * AL=00h contract (DOS 3.3 PRM INT 21h Fn 44h Subfunction 00h;
- * spec/int21h_calling_convention.json AH=44h):
- *   - Resolve EBX through the current process's JFT into the system SFT exactly
- *     the way do_write/do_dup do (sft_from_handle). A bad / closed / out-of-range
- *     handle -> CF=1, AX=0x0006 (INVALID_HANDLE), DX untouched (Rule 2).
- *   - A CHARACTER device (kind==SFT_KIND_DEVICE) -> DX = INT21_DEVINFO_CON
- *     (0x80D3, the PRM CON word; our only modeled char device is CON). bit15
- *     (ISDEV) is set.
- *   - A disk FILE (kind==SFT_KIND_FILE) -> DX = INT21_DEVINFO_FILE: bit15 clear,
- *     bits 0-5 = drive number (0 == A:, our single mounted volume), bit6 = 1
- *     (PRM "not written" default; no per-handle dirty bit in sft_entry_t yet).
+ *   AL=00h Get Device Information   -> DX = device-information word
+ *   AL=01h Set Device Information   -> char-device-only, DH must be 0 (no-op set)
+ *   AL=06h Get Input Status         -> AL = 0xFF ready/not-EOF, 0x00 not-ready/EOF
+ *   AL=07h Get Output Status        -> AL = 0xFF ready, 0x00 not-ready
+ *   AL=08h Is Block Device Changeable -> block-device-only (we have none) -> 0x0001
  *
- * AL != 00h is DEFERRED this landing per operator decision 2026-06-15
- * (bead initech-4nbn covers AL=01 set-info, AL=06/07 input/output status,
- * AL=08 changeable-media): return CF=1, AX=0x0001 (INVALID_FUNCTION). */
+ * Every minor resolves EBX through ioctl_sft_from_ebx (a bad/closed/out-of-range
+ * handle -> CF=1, AX=0x0006 INVALID_HANDLE, registers otherwise untouched, Rule 2).
+ * Any other AL -> CF=1, AX=0x0001 INVALID_FUNCTION.
+ *
+ * Ground truth: DOS 3.3 Programmer's Reference Manual INT 21h Fn 44h; RBIL
+ * INT 21/AX=4400h..4408h (HelpPC int-21-44-{0,1,6,7,8}). Bit names in int21.h
+ * (INT21_DEVINFO_*); spec/int21h_calling_convention.json AH=44h. */
 static void do_ioctl(int_frame_t *f)
 {
     uint8_t al = frame_al(f);
 
-    if (al != 0x00u) {
-        /* AL minors 01/06/07/08 deferred per operator 2026-06-15; see
-         * initech-4nbn. Recognized AH, unimplemented minor -> invalid function. */
-#ifdef INT21_MUTATE_IOCTL_MINOR_OK
-        /* MUTANT (Rule 6): treat a deferred minor as success (CF=0) instead of
-         * 0x0001 -> the deferred-minor assertion goes RED. */
+    /* --- AL=00h Get Device Information (beads initech-ro6c) ------------------
+     * A CHARACTER device (kind==SFT_KIND_DEVICE) -> DX = INT21_DEVINFO_CON
+     * (0x80D3, the PRM CON word; our only modeled char device is CON; bit15
+     * ISDEV set). A disk FILE (kind==SFT_KIND_FILE) -> DX = INT21_DEVINFO_FILE:
+     * bit15 clear, bits 0-5 = drive number (0 == A:), bit6 = 1 (PRM "not
+     * written" default; no per-handle dirty bit in sft_entry_t yet). */
+    if (al == 0x00u) {
+        sft_entry_t *e = ioctl_sft_from_ebx(f);
+        if (e == 0) {
+#ifdef INT21_MUTATE_IOCTL_BADHANDLE_OK
+            /* MUTANT (Rule 6): clear CF on a bad handle instead of failing ->
+             * the invalid-handle assertion goes RED. */
+            cf_clear(f);
+            return;
+#else
+            set_ax(f, INT21_ERR_INVALID_HANDLE);
+            cf_set(f);
+            return;
+#endif
+        }
+
+        /* Character device (our only one is CON) vs disk file: the bit15
+         * (ISDEV) fork. DX carries the locked device-info word for the kind. */
+#ifdef INT21_MUTATE_IOCTL_CON_WRONG
+        /* MUTANT (Rule 6): emit the wrong CON word (drop a bit) -> the CON
+         * full-word assertion goes RED. */
+        uint16_t con_word = (uint16_t)(INT21_DEVINFO_CON & ~INT21_DEVINFO_STDIN);
+#else
+        uint16_t con_word = (uint16_t)INT21_DEVINFO_CON;
+#endif
+#ifdef INT21_MUTATE_IOCTL_ISDEV_INVERT
+        /* MUTANT (Rule 6): invert the device-vs-file fork (a device gets the
+         * FILE word, a file gets the CON word) -> BOTH word assertions go RED. */
+        if (e->kind == SFT_KIND_DEVICE) {
+            set_dx(f, (uint16_t)INT21_DEVINFO_FILE);
+        } else {
+            set_dx(f, con_word);
+        }
+#else
+        if (e->kind == SFT_KIND_DEVICE) {
+            set_dx(f, con_word);
+        } else {
+            set_dx(f, (uint16_t)INT21_DEVINFO_FILE);
+        }
+#endif
+        cf_clear(f);
+        return;
+    }
+
+    /* --- AL=01h Set Device Information (RBIL/HelpPC INT 21,44,1) -------------
+     * Inputs: BX=handle, DH MUST be 0, DL=device-data low byte. CHARACTER-DEVICE
+     * ONLY (the device-info word's bit15 ISDEV must be set on the handle being
+     * set). On a disk FILE handle, or DH!=0, real DOS rejects with invalid
+     * function. Our SFT carries NO writable per-handle device-info word and CON's
+     * word is LOCKED (0x80D3), so we cannot honor an arbitrary new word: we model
+     * the documented thin answer -- validate (char device + DH==0), accept the
+     * write as a NO-OP (the only settable bits real DOS exposes here are the
+     * cooked/raw + EOF-on-input flags, which our CON does not vary), and report
+     * success with DX = the (unchanged) device-info word so a caller that read
+     * back sees a consistent value. A FILE handle or DH!=0 -> AX=0x0001, CF=1. */
+    if (al == 0x01u) {
+        sft_entry_t *e = ioctl_sft_from_ebx(f);
+        if (e == 0) {
+            set_ax(f, INT21_ERR_INVALID_HANDLE);
+            cf_set(f);
+            return;
+        }
+        /* DH must be zero (RBIL: "DH = must be zero"); a non-char handle has no
+         * device-info word to set -> invalid function (Rule 2: reject loudly). */
+#ifdef INT21_MUTATE_IOCTL_SETINFO_NOGUARD
+        /* MUTANT (Rule 6): drop the (char-device && DH==0) guard so a FILE
+         * handle / nonzero DH wrongly succeeds -> the reject assertions go RED. */
+        if (0) {
+#else
+        if (e->kind != SFT_KIND_DEVICE || frame_dh(f) != 0x00u) {
+#endif
+            set_ax(f, INT21_ERR_INVALID_FUNCTION);
+            cf_set(f);
+            return;
+        }
+        /* No-op set on CON: nothing in our model is mutable. Echo the locked CON
+         * device-info word back in DX and succeed (CF clear). */
+        set_dx(f, (uint16_t)INT21_DEVINFO_CON);
+        cf_clear(f);
+        return;
+    }
+
+    /* --- AL=06h Get Input Status (RBIL/HelpPC INT 21,44,6) ------------------
+     * Inputs: BX=handle. Output AL: char device -> 0xFF ready / 0x00 not-ready;
+     * FILE -> 0xFF if NOT at EOF / 0x00 if at EOF (read position >= size).
+     * Our CON is the live keyboard -> ALWAYS ready (0xFF). For a FILE we have the
+     * exact per-handle position (file_offset) and size (dir_entry.file_size), so
+     * we report the faithful EOF answer. */
+    if (al == 0x06u) {
+        sft_entry_t *e = ioctl_sft_from_ebx(f);
+        if (e == 0) {
+            set_ax(f, INT21_ERR_INVALID_HANDLE);
+            cf_set(f);
+            return;
+        }
+        uint8_t status;
+        if (e->kind == SFT_KIND_DEVICE) {
+            status = 0xFFu;                 /* CON keyboard: always ready */
+        } else {
+#ifdef INT21_MUTATE_IOCTL_INSTATUS_EOF_FLIP
+            /* MUTANT (Rule 6): invert the file EOF test -> the at-EOF and
+             * not-at-EOF input-status assertions go RED. */
+            status = (e->file_offset >= e->dir_entry.file_size) ? 0xFFu : 0x00u;
+#else
+            /* RBIL: AL=0x00 if EOF (files); 0xFF if not at EOF. */
+            status = (e->file_offset >= e->dir_entry.file_size) ? 0x00u : 0xFFu;
+#endif
+        }
+        set_al(f, status);
+        cf_clear(f);
+        return;
+    }
+
+    /* --- AL=07h Get Output Status (RBIL/HelpPC INT 21,44,7) -----------------
+     * Inputs: BX=handle. Output AL: char device -> 0xFF ready / 0x00 not-ready;
+     * FILE -> ALWAYS 0xFF (a disk file is always ready for output, RBIL). Our
+     * CON screen is always ready -> 0xFF for both kinds. */
+    if (al == 0x07u) {
+        sft_entry_t *e = ioctl_sft_from_ebx(f);
+        if (e == 0) {
+            set_ax(f, INT21_ERR_INVALID_HANDLE);
+            cf_set(f);
+            return;
+        }
+#ifdef INT21_MUTATE_IOCTL_OUTSTATUS_NOTREADY
+        /* MUTANT (Rule 6): report not-ready (0x00) -> the output-ready
+         * assertions go RED. */
+        set_al(f, 0x00u);
+#else
+        set_al(f, 0xFFu);               /* CON screen / disk file: always ready */
+#endif
+        cf_clear(f);
+        return;
+    }
+
+    /* --- AL=08h Is Block Device Changeable (RBIL/HelpPC INT 21,44,8) --------
+     * Real DOS: BL=drive number, AX=0 removable / 1 fixed; it is BLOCK-DEVICE
+     * ONLY and returns invalid function for a non-block (character) handle. Our
+     * SFT models exactly two handle kinds -- CHARACTER devices (CON) and open
+     * FILES on the mounted volume -- and exposes NO block-device handle. So AL=08
+     * is never applicable here: every handle kind -> AX=0x0001 (invalid
+     * function), CF=1. (When a block-device handle model lands, this minor gains
+     * a real removable/fixed answer; tracked separately.) */
+    if (al == 0x08u) {
+        sft_entry_t *e = ioctl_sft_from_ebx(f);
+        if (e == 0) {
+            set_ax(f, INT21_ERR_INVALID_HANDLE);
+            cf_set(f);
+            return;
+        }
+#ifdef INT21_MUTATE_IOCTL_CHANGEABLE_OK
+        /* MUTANT (Rule 6): wrongly answer "removable" (AX=0, CF clear) for our
+         * non-block handles -> the invalid-function assertion goes RED. */
+        set_ax(f, 0x0000u);
         cf_clear(f);
         return;
 #else
@@ -923,49 +1083,16 @@ static void do_ioctl(int_frame_t *f)
 #endif
     }
 
-    uint32_t handle = f->ebx;
-    sft_entry_t *e = (handle <= 0xFFu)
-                       ? sft_from_handle(g_cur_psp, (uint8_t)handle)
-                       : 0;
-    if (e == 0) {
-        /* No such open handle (out of range / closed / no process). Rule 2. */
-#ifdef INT21_MUTATE_IOCTL_BADHANDLE_OK
-        /* MUTANT (Rule 6): clear CF on a bad handle instead of failing ->
-         * the invalid-handle assertion goes RED. */
-        cf_clear(f);
-        return;
-#else
-        set_ax(f, INT21_ERR_INVALID_HANDLE);
-        cf_set(f);
-        return;
-#endif
-    }
-
-    /* Character device (our only one is CON) vs disk file: the bit15 (ISDEV)
-     * fork. DX carries the locked device-information word for the kind. */
-#ifdef INT21_MUTATE_IOCTL_CON_WRONG
-    /* MUTANT (Rule 6): emit the wrong CON word (drop a bit) -> the CON full-word
-     * assertion goes RED. */
-    uint16_t con_word = (uint16_t)(INT21_DEVINFO_CON & ~INT21_DEVINFO_STDIN);
-#else
-    uint16_t con_word = (uint16_t)INT21_DEVINFO_CON;
-#endif
-#ifdef INT21_MUTATE_IOCTL_ISDEV_INVERT
-    /* MUTANT (Rule 6): invert the device-vs-file fork (a device gets the FILE
-     * word, a file gets the CON word) -> BOTH word assertions go RED. */
-    if (e->kind == SFT_KIND_DEVICE) {
-        set_dx(f, (uint16_t)INT21_DEVINFO_FILE);
-    } else {
-        set_dx(f, con_word);
-    }
-#else
-    if (e->kind == SFT_KIND_DEVICE) {
-        set_dx(f, con_word);
-    } else {
-        set_dx(f, (uint16_t)INT21_DEVINFO_FILE);
-    }
-#endif
+    /* Any other AL minor (02/03/04/05/09/0A/...) is not modeled -> invalid
+     * function, CF=1 (Rule 2: recognized AH, unimplemented minor fails loud). */
+#ifdef INT21_MUTATE_IOCTL_MINOR_OK
+    /* MUTANT (Rule 6): treat an unmodeled minor as success (CF=0) instead of
+     * 0x0001 -> the unmodeled-minor assertion goes RED. */
     cf_clear(f);
+#else
+    set_ax(f, INT21_ERR_INVALID_FUNCTION);
+    cf_set(f);
+#endif
 }
 
 /* ---- file-handle functions (beads initech-509.5 read-side) ---------------- *
@@ -1259,8 +1386,14 @@ static void do_creat(int_frame_t *f)
  * sft_alloc/jft_alloc so a rejection touches nothing. Shares the resolve_dir_path
  * seam so '\SUB\FILE' subdir targets work for free (beads initech-mzxa/zs24). The
  * AH=59h dispatch wrapper auto-notes CF+AX, so no explicit int21_note_error here.
+ * A NULL/empty path -> 0x0002 (file-not-found), the SAME code do_creat/do_open
+ * return for an empty EDX (spec/int21h_calling_convention.json AH=5Bh: "0x0002
+ * NULL/empty path"; RBIL INT 21h/AH=5Bh -- an empty ASCIIZ name has no entry to
+ * create, so it is a name lookup that finds nothing). A backend binding create()
+ * but NOT open() is rejected 0x0005 (no existence-probe -> cannot honor the
+ * fail-if-exists contract; beads initech-glsw, Rule 2 fail-loud).
  * Ref: DOS 3.3 PRM AH=5Bh (file-exists = error 50h); ADR-0003 Appendix A line
- * "5Bh CREATNEW -- Create file, fail if existing"; beads initech-kji0. */
+ * "5Bh CREATNEW -- Create file, fail if existing"; beads initech-kji0/glsw. */
 static void do_creatnew(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
@@ -1292,13 +1425,31 @@ static void do_creatnew(int_frame_t *f)
 
 #ifndef INT21_MUTATE_CREATNEW_NO_GUARD
     /* CREATNEW precondition: the target must not already exist. Probe via the
-     * pure-locate open() member (if bound). open() returns 0 when the leaf is
-     * found in `dir_start`; that means EXISTS -> fail with 0x0050, commit
-     * nothing. A 0x0002 (not found) or any other non-zero locate result means
-     * "does not exist" -> fall through to the CREAT path. (Rule 6 mutants:
-     * NO_GUARD drops this block so CREATNEW==CREAT; GUARD_INVERT flips the
-     * sense; WRONG_CONST returns the wrong AX.) */
-    if (g_file->open != 0) {
+     * pure-locate open() member. open() returns 0 when the leaf is found in
+     * `dir_start`; that means EXISTS -> fail with 0x0050, commit nothing. A
+     * 0x0002 (not found) or any other non-zero locate result means "does not
+     * exist" -> fall through to the CREAT path. (Rule 6 mutants: NO_GUARD drops
+     * this block so CREATNEW==CREAT; GUARD_INVERT flips the sense; WRONG_CONST
+     * returns the wrong AX.)
+     *
+     * RULE 2 / beads initech-glsw: a backend that binds create() but NOT open()
+     * has NO existence-probe, so the precondition CANNOT be honored -- proceeding
+     * to create() would TRUNCATE an existing file with CF clear, the EXACT
+     * INVERSE of the CREATNEW contract. Refuse loud rather than silently skip the
+     * guard. This is SYMMETRIC with do_open, which treats a NULL open() member as
+     * a hard error (file-not-found there) instead of a silent success. Unreachable
+     * with the shipped fat12 backend (fileio_fat binds both fat_open + fat_create),
+     * so it is a defensive invariant guard: hard-error 0x0005 (access denied --
+     * the same "the volume cannot serve this write safely" code do_creat returns
+     * when create() itself is NULL), commit nothing. NO_GUARD removes BOTH the
+     * existence probe and this guard so CREATNEW degenerates to CREAT (the mutant
+     * the NO_GUARD oracle bites). */
+    if (g_file->open == 0) {
+        set_ax(f, INT21_ERR_ACCESS_DENIED);   /* 0x0005: cannot verify non-existence */
+        cf_set(f);
+        return;
+    }
+    {
         dir_entry_t probe_de;
         uint32_t    probe_slot = 0u;
         uint16_t    found = g_file->open(leaf, dir_start, &probe_de, &probe_slot);
@@ -1561,7 +1712,12 @@ static void do_chmod(int_frame_t *f)
 
     if (al == 0x01u) {
         /* SET: a CX that re-types the entry (Directory/VolLabel) is forbidden ->
-         * access denied (DOS never lets CHMOD set the type bits; Rule 2). */
+         * access denied (Rule 2 fail-loud). NOTE: real DOS 3.3 (RBIL 4301h) MASKS
+         * the Directory/VolLabel CX bits and SUCCEEDS a SET on a directory; we
+         * REJECT with 0x0005 instead. This is an INTENTIONAL, operator-approved
+         * (2026-06-15) Law-4 fidelity deviation, registered in beads initech-5o6o
+         * and ADR-0003 Amendment DEC-14 sub-decision DEC-14.2 (sec.2). Revisit
+         * only if a real DOS consumer needs DOS's mask-and-succeed. */
         uint16_t cx = frame_cx(f);
 #ifndef INT21_MUTATE_CHMOD_NO_CX_REJECT
         if ((cx & (uint16_t)(DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {

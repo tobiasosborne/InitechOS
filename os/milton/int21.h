@@ -58,24 +58,43 @@
  * flag in bit 6. spec/int21h_calling_convention.json AH=44h locks the two words
  * this milestone emits. (CLAUDE.md Law 1: every value cited; Rule 8: locked data.)
  *
- * The character-device bit names (PRM Fig. for Fn 44h/00h): */
-#define INT21_DEVINFO_ISDEV    0x8000u  /* bit15: 1 = handle is a device       */
+ * The CHARACTER-device bit names. Ref: DOS 3.3 Programmer's Reference Manual,
+ * INT 21h Fn 44h/00h, Device Information word (also RBIL INT 21/AX=4400h). The
+ * canonical MS-DOS char-device layout is:
+ *   bit15 ISDEV         1 = handle is a device (vs a disk file)
+ *   bit14 ISCTL         device handles IOCTL control strings (AL=02/03)
+ *   bit7  reserved      set on the standard devices
+ *   bit6  NOTEOF        input: 1 = NOT at end-of-file (the live device)
+ *   bit5  RAW           1 = raw (binary) mode; 0 = cooked (ASCII) mode
+ *   bit4  SPECIAL       device uses INT 29h fast console output (special)
+ *   bit3  CLOCK         1 = this is the CLOCK$ device
+ *   bit2  NUL           1 = this is the NUL device
+ *   bit1  STDOUT        1 = this is the standard-output (console) device
+ *   bit0  STDIN         1 = this is the standard-input  (console) device
+ * NOTE (beads initech-4nbn): the prior labels for bits 1-4 were shifted one
+ * position (ISCIN=1/ISCOT=2/ISNUL=3/ISCLK=4); corrected here to the PRM/RBIL
+ * layout. The macro VALUES are unchanged, so this relabel has NO behavioral
+ * effect -- only STDIN(bit0), ISDEV(bit15) and the composite CON/FILE words
+ * were ever referenced (verified: grep INT21_DEVINFO_* across os/ + spec/). */
+#define INT21_DEVINFO_ISDEV    0x8000u  /* bit15: 1 = handle is a device         */
 #define INT21_DEVINFO_ISCTL    0x4000u  /* bit14: device handles control strings */
-#define INT21_DEVINFO_RAW      0x0020u  /* bit5 : 1 = binary (raw) mode         */
-#define INT21_DEVINFO_ISCLK    0x0010u  /* bit4 : the CLOCK$ device (special)   */
-#define INT21_DEVINFO_ISNUL    0x0008u  /* bit3 : the NUL device                */
-#define INT21_DEVINFO_ISCOT    0x0004u  /* bit2 : 1 = console output (screen)   */
-#define INT21_DEVINFO_ISCIN    0x0002u  /* bit1 : 1 = console input (keyboard)  */
-#define INT21_DEVINFO_STDIN    0x0001u  /* bit0 : 1 = standard-input device     */
+#define INT21_DEVINFO_NOTEOF   0x0040u  /* bit6 : input 1 = NOT at end-of-file    */
+#define INT21_DEVINFO_RAW      0x0020u  /* bit5 : 1 = raw (binary) mode           */
+#define INT21_DEVINFO_SPECIAL  0x0010u  /* bit4 : special device (INT 29h output) */
+#define INT21_DEVINFO_CLOCK    0x0008u  /* bit3 : the CLOCK$ device               */
+#define INT21_DEVINFO_NUL      0x0004u  /* bit2 : the NUL device                  */
+#define INT21_DEVINFO_STDOUT   0x0002u  /* bit1 : the standard-output device      */
+#define INT21_DEVINFO_STDIN    0x0001u  /* bit0 : the standard-input  device      */
 
 /* LOCKED words (spec/int21h_calling_convention.json AH=44h):
  *
  * CON, the console character device. The canonical real-DOS CON device-info word
  * is 0x80D3 = bits {15,7,6,4,1,0}: ISDEV(15) + reserved(7, set on the standard
- * devices) + bit6 (0 == EOF-on-input; 1 here == NOT at EOF, the live keyboard) +
- * special/CLOCK-class(4) + ISCIN(1, console input) + STDIN(0). Our CON SFT models
- * the single bidirectional console (keyboard in / screen out) the way real DOS
- * reports the CON handle, so the faithful value is the PRM CON word verbatim. */
+ * devices) + NOTEOF(6, 1 == NOT at EOF, the live keyboard) + SPECIAL(4, INT 29h
+ * fast console output) + STDOUT(1) + STDIN(0). Both STDIN(0) and STDOUT(1) are
+ * set because our CON SFT models the single BIDIRECTIONAL console (keyboard in /
+ * screen out) the way real DOS reports the CON handle, so the faithful value is
+ * the PRM CON word verbatim. */
 #define INT21_DEVINFO_CON       0x80D3u
 
 /* Disk FILE handle (bit15 clear). Bits 0-5 = drive number (0 == A:, our single

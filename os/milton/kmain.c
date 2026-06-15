@@ -1043,6 +1043,29 @@ void kernel_main(void)
     serial_puts("WRITE-OUTPUT-END\n");
 #endif
 
+#ifdef BOOT_ABSDISK
+    /* INT 25h/26h ABSOLUTE-DISK asm-stub round-trip self-test (beads initech-8403;
+     * make test-absdisk-emu). Only in the -DBOOT_ABSDISK image so the normal boot
+     * is unchanged. Requires a WRITABLE FAT12 data disk on --disk2 so the FAT-MOUNT
+     * block above bound the absolute-disk seam (ABSDISK-BIND-OK).
+     *
+     * THE COVERAGE GAP THIS CLOSES (Law 2): the host oracle (test_absdisk.c, beads
+     * initech-4mq7) drives int25_dispatch / int26_dispatch DIRECTLY as C calls; the
+     * asm  int25_entry/int26_entry -> dispatch -> IRETD  return path (isr.asm) is
+     * invoked by NO host/emu gate. The baked ABSDISK program issues a REAL
+     * `int $0x26` (WRITE a deterministic pattern to the SAFE scratch LBA 2879 ==
+     * total_sectors-1, FREE on the blank scratch disk -- never boot/FAT/root) then
+     * a REAL `int $0x25` (READ it back) through the live IDT trap gates 0x25/0x26,
+     * byte-compares, and emits ABS-W26=OK / ABS-R25=OK / ABS-RT=OK. The harness
+     * asserts all three + triple_fault=0 -- proving the WHOLE asm round-trip
+     * (entry stub -> dispatch -> seam -> IRETD with CF) works end-to-end. Mirrors
+     * BOOT_WRITE (also a pre-sti ATA round-trip) and BOOT_VECT (the int24_entry emu
+     * keystone). The NORMAL image never defines BOOT_ABSDISK. */
+    serial_puts("ABSDISK-OUTPUT-BEGIN\n");
+    run_baked("ABSDISK", g_absdisk_prog_image, g_absdisk_prog_image_len);
+    serial_puts("ABSDISK-OUTPUT-END\n");
+#endif
+
 #ifdef BOOT_MULTIOPEN
     /* MULTI-OPEN capability self-test (beads initech-0qh; epic initech-6qy; make
      * test-multiopen). Only in the -DBOOT_MULTIOPEN image so the normal boot is

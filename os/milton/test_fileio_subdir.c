@@ -140,6 +140,64 @@ static long creat_write_close(const char *path, const uint8_t *data, uint32_t n)
     return wrote;
 }
 
+/* AH=5Bh CREATNEW `path`; AH=40h WRITE `data`; AH=3Eh CLOSE. Returns the write
+ * count (or -1 on any failure: CREATNEW CF=1 -- e.g. the target already exists --
+ * or a short WRITE). Drives the REAL int21->fileio_fat->fat12 CREATNEW path
+ * (existence probe via dir-scoped fat_open, then fat_create) over a RW image so
+ * the Makefile diffs the materialized on-disk file (beads initech-nmpo). */
+static long creatnew_write_close(const char *path, const uint8_t *data, uint32_t n)
+{
+    uint32_t edx = low_dup(path);
+    if (edx == 0u) {
+        return -1;
+    }
+    int_frame_t c = fresh_frame();
+    c.eax = 0x5B00u; c.ecx = 0u; c.edx = edx; c.eflags |= CF_BIT;
+    int21_dispatch(&c);
+    if (frame_cf(&c) != 0) {
+        return -1;   /* CREATNEW failed (target exists / no backend / exhaustion) */
+    }
+    uint16_t handle = (uint16_t)(c.eax & 0xFFFFu);
+
+    uint8_t *wb = (uint8_t *)(uintptr_t)alloc_low(n ? n : 1u);
+    if (wb == NULL) {
+        return -1;
+    }
+    memcpy(wb, data, n);
+    int_frame_t w = fresh_frame();
+    w.eax = 0x4000u; w.ebx = handle; w.ecx = n;
+    w.edx = (uint32_t)(uintptr_t)wb;
+    int21_dispatch(&w);
+    long wrote = (frame_cf(&w) == 0) ? (long)(w.eax & 0xFFFFFFFFu) : -1;
+
+    int_frame_t cl = fresh_frame();
+    cl.eax = 0x3E00u; cl.ebx = handle;
+    int21_dispatch(&cl);
+    return wrote;
+}
+
+/* AH=5Bh CREATNEW `path` only (no write). Returns 0 on CF clear (created), the
+ * positive error AX on CF set. Used to assert the COLLISION reject through the
+ * real backend. */
+static int creatnew_probe(const char *path)
+{
+    uint32_t edx = low_dup(path);
+    if (edx == 0u) {
+        return -2;
+    }
+    int_frame_t c = fresh_frame();
+    c.eax = 0x5B00u; c.ecx = 0u; c.edx = edx; c.eflags |= CF_BIT;
+    int21_dispatch(&c);
+    if (frame_cf(&c) == 0) {
+        /* Unexpectedly created -> close the handle so we do not leak it. */
+        int_frame_t cl = fresh_frame();
+        cl.eax = 0x3E00u; cl.ebx = (uint16_t)(c.eax & 0xFFFFu);
+        int21_dispatch(&cl);
+        return 0;
+    }
+    return (int)(uint16_t)(c.eax & 0xFFFFu);
+}
+
 /* AH=3Dh OPEN `path` RDWR; AH=42h LSEEK to `pos`; AH=40h WRITE `data`; CLOSE.
  * Returns the write count (or -1 on failure). The positioned write into an
  * existing subdir file. */
@@ -589,6 +647,51 @@ int main(int argc, char **argv)
             long w = creat_write_close("\\ROOTNEW.TXT", rp, (uint32_t)sizeof(rp));
             CHECK(w == (long)sizeof(rp),
                   "zs24: ROOT CREATE+WRITE '\\ROOTNEW.TXT' still works");
+        } else if (strcmp(op, "creatnew") == 0) {
+            /* AH=5Bh CREATNEW end-to-end over the REAL FAT12 backend (beads
+             * initech-nmpo): (1) CREATNEW a FRESH '\SUB\NEW5B.TXT' (700 bytes,
+             * 2 clusters) -- the existence probe (dir-scoped fat_open) clears, so
+             * fat_create MATERIALIZES it; the Makefile then diffs the on-disk file
+             * with mtools + python (proves the FRESH create committed the bytes).
+             * (2) A SECOND CREATNEW of the SAME name MUST collide: CF=1, AX=0x0050
+             * (the real fat_open probe now LOCATES it inside SUB). (3) The file's
+             * bytes are UNCHANGED by the rejected second CREATNEW (no truncation):
+             * OPEN+READ back and compare in-process; the Makefile re-diffs too. */
+            static uint8_t payload[700];
+            for (uint32_t i = 0u; i < sizeof(payload); i++) {
+                payload[i] = (uint8_t)('A' + (i % 26u));
+            }
+            long w = creatnew_write_close("\\SUB\\NEW5B.TXT", payload,
+                                          (uint32_t)sizeof(payload));
+            CHECK(w == (long)sizeof(payload),
+                  "nmpo: CREATNEW fresh '\\SUB\\NEW5B.TXT' materializes + writes all bytes");
+            /* (2) collision reject through the real dir-scoped fat_open probe. */
+            int ax = creatnew_probe("\\SUB\\NEW5B.TXT");
+            CHECK(ax == (int)INT21_ERR_FILE_EXISTS,
+                  "nmpo: re-CREATNEW '\\SUB\\NEW5B.TXT' -> AX=0x0050 (real fat_open probe located it)");
+            /* (3) the rejected second CREATNEW did NOT truncate it. Read back the
+             * 700 bytes in-process and compare to the payload. */
+            {
+                uint32_t oedx = low_dup("\\SUB\\NEW5B.TXT");
+                int_frame_t o = fresh_frame();
+                o.eax = 0x3D00u; o.edx = oedx; o.eflags |= CF_BIT;
+                int21_dispatch(&o);
+                CHECK(frame_cf(&o) == 0,
+                      "nmpo: '\\SUB\\NEW5B.TXT' still OPENs after the collision reject");
+                uint16_t h = (uint16_t)(o.eax & 0xFFFFu);
+                uint8_t *rb = (uint8_t *)(uintptr_t)alloc_low(sizeof(payload) + 16);
+                memset(rb, 0x7E, sizeof(payload) + 16);
+                int_frame_t r = fresh_frame();
+                r.eax = 0x3F00u; r.ebx = h; r.ecx = (uint32_t)sizeof(payload) + 1u;
+                r.edx = (uint32_t)(uintptr_t)rb;
+                int21_dispatch(&r);
+                CHECK(r.eax == (uint32_t)sizeof(payload) &&
+                      memcmp(rb, payload, sizeof(payload)) == 0,
+                      "nmpo: rejected re-CREATNEW did NOT truncate '\\SUB\\NEW5B.TXT' (700B intact)");
+                int_frame_t cl = fresh_frame();
+                cl.eax = 0x3E00u; cl.ebx = h;
+                int21_dispatch(&cl);
+            }
         } else {
             fprintf(stderr, "test_fileio_subdir --write: unknown op '%s'\n", op);
             blockdev_file_close(&wbf);
@@ -672,6 +775,32 @@ int main(int argc, char **argv)
         CHECK(frame_cf(&o) == 1 &&
               (uint16_t)(o.eax & 0xFFFFu) == 0x0003u,
               "OPEN '\\SUB\\NESTED.TXT\\X' -> AX=0x0003 (non-dir mid-path)");
+    }
+
+    /* (5b) END-TO-END FAT12 AH=5Bh CREATNEW collision (beads initech-nmpo): drive
+     * CREATNEW of an EXISTING subdir file '\SUB\NESTED.TXT' through the REAL
+     * int21->fileio_fat->fat12 stack. The existence guard probes via the REAL
+     * dir-scoped fat_open (resolve '\SUB' -> SUB's cluster, locate NESTED.TXT in
+     * it) and MUST reject with CF=1, AX=0x0050 (ERROR_FILE_EXISTS) -- NOT 0x0005
+     * (which is what a read-only mount returns if the existence guard were SKIPPED
+     * and execution fell through to fat_create on this read-only image). So 0x0050
+     * here proves the existence probe FIRED and bit BEFORE the create arm. Then we
+     * OPEN+READ '\SUB\NESTED.TXT' back and assert its bytes are byte-identical to
+     * the fixture -- the rejected CREATNEW did NOT truncate it (the FS-EFFECT
+     * assertion over the real backend, mirroring the host nmpo oracle). The 0x0050
+     * vs 0x0005 distinction is the load-bearing one: it can ONLY be 0x0050 if the
+     * dir-scoped fat_open probe located NESTED.TXT inside SUB. */
+    {
+        uint32_t edx = low_dup("\\SUB\\NESTED.TXT");
+        int_frame_t cn = fresh_frame();
+        cn.eax = 0x5B00u; cn.ecx = 0u; cn.edx = edx; cn.eflags |= CF_BIT;
+        int21_dispatch(&cn);
+        CHECK(frame_cf(&cn) == 1,
+              "real FAT12: CREATNEW existing '\\SUB\\NESTED.TXT' sets CF");
+        CHECK((uint16_t)(cn.eax & 0xFFFFu) == INT21_ERR_FILE_EXISTS,
+              "real FAT12: CREATNEW existing subdir file -> AX=0x0050 (dir-scoped fat_open probe fired)");
+        /* FS EFFECT: NESTED.TXT was not touched -- it still reads its fixture bytes. */
+        check_open_read("\\SUB\\NESTED.TXT", nested_path);
     }
 
     /* (6) FINDFIRST in '\SUB' enumerates the subdir (real dir_entry walk). */

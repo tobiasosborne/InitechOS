@@ -40,6 +40,23 @@
  *      the 'start_cluster + size unchanged' assertion vs mren goes RED.
  *   m3 (FAT12_MUTATE_RENAME_NAME_ONLY8): copy only filename[0..7], leave the
  *      extension stale -> the name-field differential goes RED.
+ *   m4 (FAT12_MUTATE_RENAME_IGNORE_DIRSTART): force the rename root-anchored
+ *      (ignore the caller's dir_start) -> the NON-ROOT same-dir success leg below
+ *      can no longer find \SUB\OLD2.TXT in the (empty) root and returns NOT_FOUND
+ *      -> that leg goes RED.
+ *
+ * NON-ROOT same-dir success leg (beads initech-isil; argv[3]/argv[4], mirroring
+ * the m0bp nested pattern): the existing differential above exercises only
+ * dir_start==0 (root). When a 3rd + 4th image path are supplied, this also drives
+ * a SUBDIR rename: the ARTIFACT image carries '\SUB\OLD2.TXT' (mmd ::SUB; mcopy
+ * chain.txt ::SUB/OLD2.TXT); the GOLDEN carries the SAME body then mren'd to
+ * '\SUB\NEW2.BAK'. We resolve SUB's start cluster from the root, call
+ * fat12_rename(..., dir_start=SUB_cluster) to rename \SUB\OLD2.TXT ->
+ * \SUB\NEW2.BAK, and assert: (a) success; (b) the renamed entry's name-field
+ * bytes are byte-identical to mren's NEW2.BAK (located down SUB's chain via
+ * fat12_find_slot_in); (c) start_cluster + file_size are UNCHANGED; (d) OLD2.TXT
+ * no longer resolves in SUB; (e) the FAT is byte-unchanged. The m4 mutant turns
+ * this RED.
  *
  * Ref (Law 1): the EMPIRICAL mtools 4.0.43 name-field layout (mren-minted here as
  *   the golden -- NOT inferred); docs/research/fat12-ground-truth.md Sec 4;
@@ -68,6 +85,12 @@ static uint8_t g_sector[512];
  * bites. A NEW name sharing OLD's extension would hide that mutant. */
 #define OLD_NAME "OLD.TXT"
 #define NEW_NAME "NEW.BAK"
+
+/* NON-ROOT leg (beads initech-isil): the subdir rename uses DISTINCT names from
+ * the root leg so a stray cross-leg name match cannot mask a bug. OLD2 -> NEW2
+ * again differs in BOTH name AND extension (.TXT -> .BAK). */
+#define OLD_NAME2 "OLD2.TXT"
+#define NEW_NAME2 "NEW2.BAK"
 
 /* Read the 32-byte dir entry at 0-based root slot `slot` into `out` (32 bytes). */
 static int read_root_slot(const fat12_volume_t *vol, uint32_t slot, uint8_t *out)
@@ -129,6 +152,142 @@ static void normalize_times(uint8_t *e32)
 	}
 }
 
+/* NON-ROOT leg (beads initech-isil). Locate SUB in the root and return its start
+ * cluster (the subdir parent for the nested rename). Returns 0 on success. */
+static int sub_start_cluster(const fat12_volume_t *vol, void *sector_buf,
+                             uint16_t *out_start)
+{
+	dir_entry_t de;
+	int rc = fat12_find(vol, sector_buf, "SUB", &de);
+	if (rc != FAT12_OK) return -1;
+	*out_start = de.start_cluster;
+	return 0;
+}
+
+/* The NON-ROOT same-directory RENAME success leg: \SUB\OLD2.TXT -> \SUB\NEW2.BAK
+ * on the artifact (dir_start = SUB's cluster), diffed against mren's golden which
+ * minted the same nested rename. Mirrors the m0bp nested-dir test pattern. Runs
+ * only when the Makefile supplies the 3rd + 4th image paths. Drives CHECK()s
+ * against the shared TEST_HARNESS counters (TEST_SUMMARY in main reports them). */
+static void run_nonroot_leg(const char *art_img, const char *gold_img)
+{
+	blockdev_file_t art_bf, gold_bf;
+	fat12_volume_t  art_vol, gold_vol;
+	uint8_t         nfat[12u * 512u];
+	uint8_t         nfat_before[12u * 512u];
+	uint8_t         nsector[512];
+	uint32_t        fat_len;
+	int             rc;
+	uint16_t        art_sub = 0u, gold_sub = 0u;
+	dir_entry_t     old_de;
+	uint32_t        old_slot = 0u;
+	uint16_t        old_start = 0xFFFFu;
+	uint32_t        old_size  = 0xFFFFFFFFu;
+
+	/* ---- the ARTIFACT renames \SUB\OLD2.TXT -> \SUB\NEW2.BAK ------------- */
+	rc = blockdev_file_open_rw(&art_bf, art_img);
+	CHECK(rc == 0, "[non-root] open the subdir artifact image read-write");
+	if (rc != 0) return;
+
+	rc = fat12_mount(&art_vol, &art_bf.dev, nsector);
+	CHECK(rc == FAT12_OK, "[non-root] mount the subdir artifact image");
+	rc = fat12_read_fat(&art_vol, nfat, sizeof(nfat));
+	CHECK(rc == FAT12_OK, "[non-root] read the subdir artifact FAT");
+	fat_len = (uint32_t)art_vol.bpb.sectors_per_fat *
+	          (uint32_t)art_vol.bpb.bytes_per_sector;
+
+	rc = sub_start_cluster(&art_vol, nsector, &art_sub);
+	CHECK(rc == 0 && art_sub >= FAT12_FIRST_DATA_CLUSTER,
+	      "[non-root] SUB present in the artifact root (the non-root parent)");
+
+	/* Snapshot OLD2.TXT (down SUB's chain) start_cluster + size + the whole FAT
+	 * BEFORE the rename so the name-field-only + FAT-untouched assertions bite. */
+	rc = fat12_find_slot_in(&art_vol, nfat, fat_len, art_sub, nsector,
+	                        OLD_NAME2, &old_de, &old_slot);
+	CHECK(rc == FAT12_OK, "[non-root] OLD2.TXT present in SUB before the rename");
+	old_start = old_de.start_cluster;
+	old_size  = old_de.file_size;
+	CHECK(old_start >= FAT12_FIRST_DATA_CLUSTER,
+	      "[non-root] OLD2.TXT has a real data chain (start_cluster >= 2)");
+	CHECK(old_size > 0u, "[non-root] OLD2.TXT is non-empty (the size assertion bites)");
+	memcpy(nfat_before, nfat, sizeof(nfat));
+
+	/* THE non-root rename: dir_start = SUB's cluster (NOT 0). The m4
+	 * IGNORE_DIRSTART mutant forces this root-anchored -> NOT_FOUND -> RED. */
+	rc = fat12_rename(&art_vol, nfat, fat_len, OLD_NAME2, NEW_NAME2, art_sub, nsector);
+	CHECK(rc == FAT12_OK,
+	      "[non-root] fat12_rename(\\SUB\\OLD2.TXT -> \\SUB\\NEW2.BAK) succeeds "
+	      "(dir_start = SUB; m4 IGNORE_DIRSTART bites here)");
+
+	/* (d) OLD2.TXT no longer resolves in SUB; the renamed entry keeps the chain. */
+	{
+		dir_entry_t gone_de; uint32_t gone_slot;
+		CHECK(fat12_find_slot_in(&art_vol, nfat, fat_len, art_sub, nsector,
+		                         OLD_NAME2, &gone_de, &gone_slot) == FAT12_ERR_NOT_FOUND,
+		      "[non-root] after RENAME, OLD2.TXT no longer resolves in SUB");
+	}
+	dir_entry_t new_de; uint32_t new_slot = 0u;
+	int new_found = fat12_find_slot_in(&art_vol, nfat, fat_len, art_sub, nsector,
+	                                   NEW_NAME2, &new_de, &new_slot);
+	CHECK(new_found == FAT12_OK, "[non-root] after RENAME, NEW2.BAK resolves in SUB");
+	CHECK(new_de.start_cluster == old_start,
+	      "[non-root] NEW2.BAK start_cluster == OLD2.TXT's (chain UNCHANGED)");
+	CHECK(new_de.file_size == old_size,
+	      "[non-root] NEW2.BAK file_size == OLD2.TXT's (size UNCHANGED)");
+
+	/* (e) the FAT (in-memory, both copies) is byte-UNCHANGED by the rename. */
+	CHECK(memcmp(nfat, nfat_before, sizeof(nfat)) == 0,
+	      "[non-root] the FAT is byte-unchanged by the rename (allocates/frees nothing)");
+
+	/* ---- the GOLDEN (mren \SUB\OLD2.TXT -> \SUB\NEW2.BAK) -- read-only -- */
+	rc = blockdev_file_open(&gold_bf, gold_img);
+	CHECK(rc == 0, "[non-root] open the subdir mren golden image read-only");
+	if (rc != 0) { blockdev_file_close(&art_bf); return; }
+	rc = fat12_mount(&gold_vol, &gold_bf.dev, nsector);
+	CHECK(rc == FAT12_OK, "[non-root] mount the subdir golden image");
+
+	uint8_t gfat[12u * 512u];
+	rc = fat12_read_fat(&gold_vol, gfat, sizeof(gfat));
+	CHECK(rc == FAT12_OK, "[non-root] read the subdir golden FAT");
+	rc = sub_start_cluster(&gold_vol, nsector, &gold_sub);
+	CHECK(rc == 0 && gold_sub >= FAT12_FIRST_DATA_CLUSTER,
+	      "[non-root] SUB present in the golden root");
+
+	dir_entry_t gnew_de; uint32_t gnew_slot = 0u;
+	int gold_found = fat12_find_slot_in(&gold_vol, gfat, fat_len, gold_sub, nsector,
+	                                    NEW_NAME2, &gnew_de, &gnew_slot);
+	CHECK(gold_found == FAT12_OK, "[non-root] NEW2.BAK present in the mren golden SUB");
+	{
+		dir_entry_t gold_old; uint32_t gold_old_slot;
+		CHECK(fat12_find_slot_in(&gold_vol, gfat, fat_len, gold_sub, nsector,
+		                         OLD_NAME2, &gold_old, &gold_old_slot) == FAT12_ERR_NOT_FOUND,
+		      "[non-root] OLD2.TXT is gone from the mren golden SUB too");
+	}
+
+	/* (b) THE differential: the NEW2.BAK name-field bytes are byte-identical to
+	 * mren's after time-normalize. fat12_find_slot_in returned the parsed entry on
+	 * both sides; spell out the name field then diff name/attr/start/size. The
+	 * start_cluster differs between images (different free-cluster layout), so it is
+	 * checked structurally (== OLD2.TXT's own start above) and normalized away from
+	 * the byte diff -- mirroring the m0bp nested entry diff. */
+	if (new_found == FAT12_OK && gold_found == FAT12_OK) {
+		uint8_t ae[32], ge[32];
+		memcpy(ae, &new_de,  32);
+		memcpy(ge, &gnew_de, 32);
+		CHECK(memcmp(ae + 0x00, "NEW2    ", 8) == 0,
+		      "[non-root] artifact NEW2.BAK filename[0..7] == 'NEW2    '");
+		CHECK(memcmp(ae + 0x08, "BAK", 3) == 0,
+		      "[non-root] artifact NEW2.BAK extension[0..2] == 'BAK'");
+		normalize_times(ae); normalize_times(ge);
+		ae[26] = ae[27] = 0u; ge[26] = ge[27] = 0u;   /* start_cluster low word */
+		CHECK(memcmp(ae, ge, 32) == 0,
+		      "[non-root] NEW2.BAK dir entry name/attr/size byte-identical to mren");
+	}
+
+	blockdev_file_close(&art_bf);
+	blockdev_file_close(&gold_bf);
+}
+
 int main(int argc, char **argv)
 {
 	const char     *art_img;     /* artifact image: OLD.TXT seeded, WRITABLE */
@@ -142,7 +301,8 @@ int main(int argc, char **argv)
 	uint32_t        old_size  = 0xFFFFFFFFu;
 
 	if (argc < 3) {
-		fprintf(stderr, "usage: %s <artifact-image OLD.TXT> <mren-golden-image>\n",
+		fprintf(stderr, "usage: %s <artifact-image OLD.TXT> <mren-golden-image> "
+		        "[<subdir-artifact SUB/OLD2.TXT> <subdir-mren-golden>]\n",
 		        argv[0]);
 		return 2;
 	}
@@ -241,5 +401,13 @@ int main(int argc, char **argv)
 
 	blockdev_file_close(&art_bf);
 	blockdev_file_close(&gold_bf);
+
+	/* NON-ROOT same-dir RENAME success leg (beads initech-isil). Runs only when
+	 * the Makefile supplies the subdir artifact + golden image paths (argv[3] +
+	 * argv[4]), so the existing root-only invocations stay byte-identical. */
+	if (argc >= 5) {
+		run_nonroot_leg(argv[3], argv[4]);
+	}
+
 	return TEST_SUMMARY("test_fat12_rename");
 }

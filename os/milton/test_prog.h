@@ -74,4 +74,15 @@ extern const uint32_t g_datetime_prog_image_len;
 extern const uint8_t  g_vect_prog_image[];
 extern const uint32_t g_vect_prog_image_len;
 
+/* The baked INT 25h/26h ABSOLUTE-DISK round-trip program (int $0x26 WRITE a
+ * deterministic pattern to a SAFE scratch LBA -> int $0x25 READ it back ->
+ * byte-compare -> "ABS-W26=OK"/"ABS-R25=OK"/"ABS-RT=OK" to serial; beads
+ * initech-8403). Generated from os/milton/absdisk_program.asm. Run only in the
+ * -DBOOT_ABSDISK self-test image (make test-absdisk-emu), which closes the
+ * asm-stub coverage gap on int25_entry/int26_entry -> dispatch -> IRETD that the
+ * HOST oracle (test_absdisk.c) cannot reach. Requires a WRITABLE FAT12 data disk
+ * on --disk2 so the absolute-disk seam is bound (kmain ABSDISK-BIND-OK). */
+extern const uint8_t  g_absdisk_prog_image[];
+extern const uint32_t g_absdisk_prog_image_len;
+
 #endif /* INITECH_TEST_PROG_H */

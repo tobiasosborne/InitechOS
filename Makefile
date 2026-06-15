@@ -310,6 +310,14 @@ DATETIME_PROG_BLOB_C := $(BUILD)/datetime_prog_blob.c
 VECT_PROG_ASM    := $(KERNEL_DIR)/vect_program.asm
 VECT_PROG_BIN    := $(BUILD)/vect_program.bin
 VECT_PROG_BLOB_C := $(BUILD)/vect_prog_blob.c
+# Baked ABSOLUTE-DISK program (beads initech-8403): issues int $0x26 (WRITE a
+# deterministic pattern to a SAFE scratch LBA) then int $0x25 (READ it back) and
+# byte-compares, emitting ABS-W26=OK / ABS-R25=OK / ABS-RT=OK to serial. Linked
+# into the -DBOOT_ABSDISK kernel only (make test-absdisk-emu) -- the in-emulator
+# keystone that exercises the int25_entry/int26_entry asm stubs end-to-end.
+ABSDISK_PROG_ASM    := $(KERNEL_DIR)/absdisk_program.asm
+ABSDISK_PROG_BIN    := $(BUILD)/absdisk_program.bin
+ABSDISK_PROG_BLOB_C := $(BUILD)/absdisk_prog_blob.c
 # GREET program (beads initech-saw): a flat .COM that is NOT baked into the
 # kernel -- it is mcopy'd onto the FAT12 data disk as GREET.COM and loaded BY
 # NAME from the mounted volume (load_program_from_fat / INT 21h AH=4Bh EXEC).
@@ -347,6 +355,7 @@ KERNEL_WRITE_PROG_OBJ := $(BUILD)/write_prog_blob.o
 KERNEL_MULTIOPEN_PROG_OBJ := $(BUILD)/multiopen_prog_blob.o
 KERNEL_DATETIME_PROG_OBJ := $(BUILD)/datetime_prog_blob.o
 KERNEL_VECT_PROG_OBJ := $(BUILD)/vect_prog_blob.o
+KERNEL_ABSDISK_PROG_OBJ := $(BUILD)/absdisk_prog_blob.o
 KERNEL_ISR_OBJ   := $(BUILD)/isr.o
 KERNEL_ELF       := $(BUILD)/kernel.elf
 KERNEL_BIN       := $(BUILD)/kernel.bin
@@ -389,6 +398,15 @@ KERNEL_VECT_MAIN_OBJ  := $(BUILD)/kmain_vect.o
 KERNEL_VECT_ELF       := $(BUILD)/kernel_vect.elf
 KERNEL_VECT_BIN       := $(BUILD)/kernel_vect.bin
 VECT_IMG              := $(BUILD)/vect_boot.img
+# INT 25h/26h ABSOLUTE-DISK asm-stub self-test kernel/image (beads initech-8403;
+# make test-absdisk-emu): the SAME kernel sources but with -DBOOT_ABSDISK so the
+# boot runs the baked ABSDISK program (int $0x26 WRITE -> int $0x25 READ -> byte-
+# compare on a SAFE scratch LBA). Requires a WRITABLE FAT12 data disk (--disk2) so
+# the absolute-disk seam is bound. Separate image so the normal boot is unchanged.
+KERNEL_ABSDISK_MAIN_OBJ  := $(BUILD)/kmain_absdisk.o
+KERNEL_ABSDISK_ELF       := $(BUILD)/kernel_absdisk.elf
+KERNEL_ABSDISK_BIN       := $(BUILD)/kernel_absdisk.bin
+ABSDISK_BOOT_IMG         := $(BUILD)/absdisk_boot.img
 # MEMORY ARENA self-test kernel/image (beads initech-509.6; make test-mcb-emu):
 # the SAME kernel sources but with -DBOOT_MEMTEST so the boot drives AH=48h/4Ah/
 # 49h over the kernel-bound MCB arena via the REAL `int 0x21` trap path and emits
@@ -647,6 +665,9 @@ TEST_FAT12_RENAME            := $(BUILD)/test_fat12_rename
 TEST_FAT12_RENAME_MUT_NODEST := $(BUILD)/test_fat12_rename_mut_nodest
 TEST_FAT12_RENAME_MUT_CHAIN  := $(BUILD)/test_fat12_rename_mut_chain
 TEST_FAT12_RENAME_MUT_NAME8  := $(BUILD)/test_fat12_rename_mut_name8
+# m4 (beads initech-isil): ignore the caller's dir_start (resolve root-anchored)
+# so the NON-ROOT same-dir success leg can no longer find \SUB\OLD2.TXT -> RED.
+TEST_FAT12_RENAME_MUT_DIRSTART := $(BUILD)/test_fat12_rename_mut_dirstart
 
 # The FAT12 NESTED MKDIR/RMDIR differential oracle binary (host test; beads
 # initech-m0bp -- a NON-ROOT parent: MD/RD \SUB\NEWDIR) + its five mutation
@@ -668,6 +689,26 @@ TEST_M0BP_MUT_NOROOTRD    := $(BUILD)/test_fat12_mkdir_nested_mut_norootrd
 TEST_M0BP_ROLLBACK        := $(BUILD)/test_fat12_mkdir_rollback
 TEST_M0BP_ROLLBACK_MUT    := $(BUILD)/test_fat12_mkdir_rollback_mut_nospace
 FAT12_M0BP_ROLLBACK_IMG   := $(BUILD)/fat12_m0bp_rollback.img
+
+# The FAT12 WRITE-FAULT rollback atomicity oracle (host test; beads initech-lpf3,
+# the m0bp adversarial follow-up: "the riskiest new function had no fault-
+# injection oracle"). Drives the structurally-present-but-uncovered rollback legs
+# RED via the host blockdev write-fault seam (blockdev_file_arm_write_fault):
+#   [A] fat12_write_file partial-allocation rollback (mid-chain write fault);
+#   [B] fat12_create full-subdir GROW rollback (fat12_grow_dir zero-fill fault);
+#   [C] fat12_mkdir flush-fail POST-GROW rollback (own-EOC FAT flush fault).
+# Three mutation builds (Rule 6), each DISABLING exactly the rollback one scenario
+# pins so the matching atomicity assertion bites:
+#   m-writefile-noroll (FAT12_MUTATE_WRITEFILE_NO_ROLLBACK)        -> [A] RED;
+#   m-growdir-noroll   (FAT12_MUTATE_GROWDIR_NO_ZEROFILL_ROLLBACK) -> [B] RED;
+#   m-mkdir-noroll     (FAT12_MUTATE_MKDIR_NO_FLUSHFAIL_ROLLBACK)  -> [C] RED.
+# The image (a blank mformat -f 1440 floppy) is minted in the gate recipe each
+# run (the test mutates it in place), NOT committed (Rule 11).
+TEST_LPF3_FAULT           := $(BUILD)/test_fat12_fault_rollback
+TEST_LPF3_FAULT_MUT_A     := $(BUILD)/test_fat12_fault_rollback_mut_writefile
+TEST_LPF3_FAULT_MUT_B     := $(BUILD)/test_fat12_fault_rollback_mut_growdir
+TEST_LPF3_FAULT_MUT_C     := $(BUILD)/test_fat12_fault_rollback_mut_mkdir
+FAT12_LPF3_FAULT_IMG      := $(BUILD)/fat12_lpf3_fault.img
 
 # The NESTED MKDIR differential images (build intermediates, NOT committed):
 #   M0BP_BLANK  -- a fresh mformat -f 1440 floppy with ONLY '\SUB' (mmd ::SUB);
@@ -700,6 +741,17 @@ FAT12_MKDIR_GOLDEN_IMG := $(BUILD)/fat12_mkdir_golden.img
 FAT12_RENAME_ART_IMG    := $(BUILD)/fat12_rename_art.img
 FAT12_RENAME_GOLDEN_IMG := $(BUILD)/fat12_rename_golden.img
 
+# The NON-ROOT (subdir) RENAME differential images (build intermediates, NOT
+# committed; Rule 11; beads initech-isil). Mirror the root pair but inside '\SUB':
+#   SUBDIR_ART    -- mformat -f 1440 ; mmd ::SUB ; mcopy chain.txt ::SUB/OLD2.TXT;
+#                    the ARTIFACT (fat12_rename, dir_start=SUB) renames it in place.
+#   SUBDIR_GOLDEN -- the SAME SUB + OLD2.TXT body, then `mren ::SUB/OLD2.TXT
+#                    ::SUB/NEW2.BAK` (the independent golden). Same mformat flags +
+#                    same seed body so name/attr/start/size match; only the dir
+#                    mtime/serial vary (normalized away in the diff).
+FAT12_RENAME_SUBDIR_ART_IMG    := $(BUILD)/fat12_rename_subdir_art.img
+FAT12_RENAME_SUBDIR_GOLDEN_IMG := $(BUILD)/fat12_rename_subdir_golden.img
+
 # SUBDIR file WRITE oracle (beads initech-zs24): the test_fileio_subdir harness
 # (real int21+fileio_fat+fat12 backend) in --write mode drives CREATE/WRITE/
 # LSEEK-WRITE/UNLINK of '\SUB\NEW.TXT' over a READ-WRITE per-run COPY of the
@@ -721,6 +773,15 @@ TEST_ZS24_MUT_CREATEROOT     := $(BUILD)/test_fileio_subdir_mut_createroot
 TEST_ZS24_MUT_UNLINKNOOP     := $(BUILD)/test_fileio_subdir_mut_unlinknoop
 TEST_ZS24_MUT_GROWNOEOC      := $(BUILD)/test_fileio_subdir_mut_grownoeoc
 TEST_ZS24_MUT_GROWNOOP       := $(BUILD)/test_fileio_subdir_mut_grownoop
+# test-nmpo mutant (beads initech-nmpo, Rule 6): the subdir harness built with
+# -DINT21_MUTATE_CREATNEW_NO_GUARD -- CREATNEW degenerates to CREAT (drops the
+# existence guard), so the SECOND CREATNEW of '\SUB\NEW5B.TXT' TRUNCATES the
+# already-materialized file instead of colliding 0x0050. The on-disk bytes then
+# DIVERGE from the 700-byte payload, so the SAME mtools/python read-back
+# differential test-nmpo runs goes RED. Inert in real/emu builds (the -D is only
+# injected by this mutant target). This is the standing mutation-proof test-nmpo
+# lacked (WL-0025 rot risk).
+TEST_NMPO_MUT_NOGUARD        := $(BUILD)/test_fileio_subdir_nmpo_mut_noguard
 
 # The FAT12 POSITIONED-read oracle binary (host test; beads initech-lq2) + its
 # two mutation builds (Rule 6: one perturbed constant each -> the diff must bite).
@@ -802,6 +863,20 @@ $(FAT12_RENAME_GOLDEN_IMG): $(FAT12_FIXTURE_DIR)/chain.txt | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
 	@mren -i $@ ::OLD.TXT ::NEW.BAK
 	@printf ">>> fat12: minted %s (mren ::OLD.TXT ::NEW.BAK golden; build intermediate)\n" "$@"
+
+# Mint the NON-ROOT (subdir) RENAME GOLDEN image (beads initech-isil): a fresh
+# mformat -f 1440 floppy with '\SUB' (mmd) seeded with OLD2.TXT (mcopy chain.txt
+# -- the SAME multi-cluster body) then renamed \SUB\OLD2.TXT -> \SUB\NEW2.BAK by
+# mtools `mren` -- the INDEPENDENT golden the artifact's subdir fat12_rename is
+# diffed against. Build intermediate, NOT committed (Rule 11; meaningful bytes
+# only, mtime/serial normalized away).
+$(FAT12_RENAME_SUBDIR_GOLDEN_IMG): $(FAT12_FIXTURE_DIR)/chain.txt | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mmd -i $@ ::SUB
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/chain.txt ::SUB/OLD2.TXT
+	@mren -i $@ ::SUB/OLD2.TXT ::SUB/NEW2.BAK
+	@printf ">>> fat12: minted %s (mren ::SUB/OLD2.TXT ::SUB/NEW2.BAK subdir golden; build intermediate)\n" "$@"
 
 # Mint the NESTED MKDIR GOLDEN image (beads initech-m0bp): a fresh mformat -f
 # 1440 floppy with '\SUB' AND '\SUB\NEWDIR' BOTH minted by mtools `mmd` -- the
@@ -940,6 +1015,21 @@ $(FAT_WRITE_IMG): $(FAT12_FIXTURE_DIR)/hello.txt | $(BUILD)
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@printf ">>> fat_write: minted %s (1.44MB FAT12 WRITABLE disk for test-fatwrite; HELLO.TXT seed; build intermediate)\n" "$@"
+
+# FAT12 WRITABLE scratch disk for the in-emulator INT 25h/26h ABSOLUTE-DISK asm-
+# stub round-trip (beads initech-8403; make test-absdisk-emu). A FRESH, BLANK
+# (mformat-only, NO files) 1.44 MB FAT12 volume: total_sectors_16 == 2880 so the
+# kernel binds the absolute-disk seam with total=2880 and the program's SAFE
+# scratch LBA 2879 (== total-1) is the LAST data sector -- FREE on a blank volume,
+# never the boot sector (0)/FATs/root. The baked ABSDISK program WRITEs (int 0x26)
+# then READs (int 0x25) sector 2879. Distinct from FAT_WRITE_IMG so neither gate
+# disturbs the other; minted per run (the kernel mutates it; Rule 11).
+FAT_ABSDISK_DATA_IMG := $(BUILD)/fat_absdisk_data.img
+
+$(FAT_ABSDISK_DATA_IMG): | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@printf ">>> fat_absdisk_data: minted BLANK %s (1.44MB FAT12; LBA 2879==total-1 FREE; INT 25h/26h emu scratch)\n" "$@"
 
 # FAT12 data disk for the in-emulator MULTI-OPEN capability oracle (beads
 # initech-0qh; make test-multiopen). A 1.44 MB FAT12 volume carrying:
@@ -1168,6 +1258,12 @@ $(TEST_FAT12_RENAME_MUT_NAME8): $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_RENAME_NAME_ONLY8 -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
 		-o $@ $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
 
+# m4 (beads initech-isil): ignore dir_start (resolve root-anchored) so the NON-ROOT
+# same-dir success leg cannot find \SUB\OLD2.TXT in the root -> the leg goes RED.
+$(TEST_FAT12_RENAME_MUT_DIRSTART): $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_RENAME_IGNORE_DIRSTART -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
 # REAL gate: test-gnrc (beads initech-gnrc -- FAT12 SAME-directory RENAME vs mren).
 # The artifact's fat12_rename renames OLD.TXT -> NEW.TXT on a fresh image seeded
 # with OLD.TXT (a multi-cluster body); mtools `mren` mints the same on the golden;
@@ -1176,22 +1272,30 @@ $(TEST_FAT12_RENAME_MUT_NAME8): $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC)
 # byte-untouched. The artifact image is RE-seeded each run (the test mutates it),
 # so the recipe mints it fresh rather than depending on a cached target.
 .PHONY: test-gnrc
-test-gnrc: $(TEST_FAT12_RENAME) $(FAT12_RENAME_GOLDEN_IMG)
+test-gnrc: $(TEST_FAT12_RENAME) $(FAT12_RENAME_GOLDEN_IMG) $(FAT12_RENAME_SUBDIR_GOLDEN_IMG)
 	@command -v mren >/dev/null 2>&1 || { printf '!!! test-gnrc FAIL: mtools `mren` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
-	@printf ">>> test-gnrc: AH=56h RENAME write side vs mren golden (name-field byte-for-byte; chain/size/FAT untouched)\n"
+	@command -v mmd  >/dev/null 2>&1 || { printf '!!! test-gnrc FAIL: mtools `mmd` not found.\n'; exit 1; }
+	@printf ">>> test-gnrc: AH=56h RENAME write side vs mren golden (name-field byte-for-byte; chain/size/FAT untouched) + NON-ROOT same-dir leg (beads initech-isil)\n"
 	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
 	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
 	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
-	@$(TEST_FAT12_RENAME) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)"
+	@dd if=/dev/zero of=$(FAT12_RENAME_SUBDIR_ART_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_RENAME_SUBDIR_ART_IMG) -f 1440 ::
+	@mmd -i $(FAT12_RENAME_SUBDIR_ART_IMG) ::SUB
+	@mcopy -i $(FAT12_RENAME_SUBDIR_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::SUB/OLD2.TXT
+	@$(TEST_FAT12_RENAME) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)" \
+		"$(FAT12_RENAME_SUBDIR_ART_IMG)" "$(FAT12_RENAME_SUBDIR_GOLDEN_IMG)"
 	@printf ">>> test-gnrc: green\n"
 
-# Mutation gate (Rule 6): three fat12_rename mutants -- (nodest) skip the dest-
+# Mutation gate (Rule 6): four fat12_rename mutants -- (nodest) skip the dest-
 # absent scan so renaming onto an existing dest wrongly succeeds; (chain) zero the
 # start_cluster on the rewrite; (name8) copy only filename[0..7], leave the
-# extension stale. Each MUST turn the differential RED.
+# extension stale; (dirstart, beads initech-isil) ignore the caller's dir_start
+# (resolve root-anchored) so the NON-ROOT same-dir leg cannot find \SUB\OLD2.TXT.
+# Each MUST turn its differential RED.
 .PHONY: test-gnrc-mutant
-test-gnrc-mutant: $(TEST_FAT12_RENAME_MUT_NODEST) $(TEST_FAT12_RENAME_MUT_CHAIN) $(TEST_FAT12_RENAME_MUT_NAME8) $(FAT12_RENAME_GOLDEN_IMG)
-	@printf ">>> test-gnrc-mutant: confirming all three RENAME mutants go RED (Rule 6)\n"
+test-gnrc-mutant: $(TEST_FAT12_RENAME_MUT_NODEST) $(TEST_FAT12_RENAME_MUT_CHAIN) $(TEST_FAT12_RENAME_MUT_NAME8) $(TEST_FAT12_RENAME_MUT_DIRSTART) $(FAT12_RENAME_GOLDEN_IMG) $(FAT12_RENAME_SUBDIR_GOLDEN_IMG)
+	@printf ">>> test-gnrc-mutant: confirming all four RENAME mutants go RED (Rule 6)\n"
 	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
 	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
 	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
@@ -1215,6 +1319,22 @@ test-gnrc-mutant: $(TEST_FAT12_RENAME_MUT_NODEST) $(TEST_FAT12_RENAME_MUT_CHAIN)
 		printf '!!! test-gnrc-mutant FAIL: name-only8 mutant PASSED -- the extension is dropped from the name-field diff\n'; exit 1; \
 	else \
 		printf '>>> test-gnrc-mutant: green (name-only8 mutant correctly RED -- the extension rewrite bites)\n'; \
+	fi
+	@# m4 (beads initech-isil): the ignore-dir_start mutant must turn the NON-ROOT
+	@# same-dir leg RED. Re-seed BOTH images (the root leg + the subdir leg run);
+	@# the subdir leg fails to find \SUB\OLD2.TXT root-anchored -> NOT_FOUND -> RED.
+	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
+	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@dd if=/dev/zero of=$(FAT12_RENAME_SUBDIR_ART_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_RENAME_SUBDIR_ART_IMG) -f 1440 ::
+	@mmd -i $(FAT12_RENAME_SUBDIR_ART_IMG) ::SUB
+	@mcopy -i $(FAT12_RENAME_SUBDIR_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::SUB/OLD2.TXT
+	@if $(TEST_FAT12_RENAME_MUT_DIRSTART) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)" \
+		"$(FAT12_RENAME_SUBDIR_ART_IMG)" "$(FAT12_RENAME_SUBDIR_GOLDEN_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-gnrc-mutant FAIL: ignore-dir_start mutant PASSED -- the NON-ROOT same-dir leg is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-gnrc-mutant: green (ignore-dir_start mutant correctly RED -- the subdir dir_start path bites)\n'; \
 	fi
 
 # Build the FAT12 NESTED MKDIR/RMDIR differential oracle + its five mutants
@@ -1356,6 +1476,69 @@ test-m0bp-rollback-mutant: $(TEST_M0BP_ROLLBACK_MUT)
 	echo "$$out" | grep -qi 'BACK to 1 cluster' \
 		|| { printf '!!! test-m0bp-rollback-mutant FAIL: m-nospace-noroll RED but not on the rollback assertion -- wrong reason\n'; exit 1; }
 	@printf '>>> test-m0bp-rollback-mutant: green (m-nospace-noroll correctly RED -- the grown parent cluster leaks without the rollback)\n'
+
+# Build the FAT12 WRITE-FAULT rollback oracle + its three mutants (beads
+# initech-lpf3): the test + the REAL artifact fat12.c + the host blockdev backend
+# (same include set as the other FAT oracles). Each mutant defines ONE perturbed
+# seam that disables exactly the rollback the matching scenario pins (Rule 6).
+$(TEST_LPF3_FAULT): $(FAT_DIFF_DIR)/test_fat12_fault_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_fault_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_LPF3_FAULT_MUT_A): $(FAT_DIFF_DIR)/test_fat12_fault_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_WRITEFILE_NO_ROLLBACK -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_fault_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_LPF3_FAULT_MUT_B): $(FAT_DIFF_DIR)/test_fat12_fault_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_GROWDIR_NO_ZEROFILL_ROLLBACK -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_fault_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_LPF3_FAULT_MUT_C): $(FAT_DIFF_DIR)/test_fat12_fault_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MKDIR_NO_FLUSHFAIL_ROLLBACK -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_fault_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# REAL gate: test-fat-fault-rollback (beads initech-lpf3). Mints a blank
+# mformat -f 1440 floppy; the C test drives the three write-fault rollback legs
+# (write_file partial alloc / create-grow / mkdir flush-fail post-grow) and
+# asserts each rolls the on-disk + in-memory FAT state back -- nothing leaked.
+.PHONY: test-fat-fault-rollback
+test-fat-fault-rollback: $(TEST_LPF3_FAULT)
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-fat-fault-rollback FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@printf ">>> test-fat-fault-rollback: FAT12 write-fault rollback atomicity -- nothing leaks (beads initech-lpf3)\n"
+	@dd if=/dev/zero of=$(FAT12_LPF3_FAULT_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_LPF3_FAULT_IMG) -f 1440 ::
+	@$(TEST_LPF3_FAULT) "$(FAT12_LPF3_FAULT_IMG)"
+	@printf ">>> test-fat-fault-rollback: green\n"
+
+# Mutation gate (Rule 6): each of the three rollback-disabling mutants MUST turn
+# the oracle RED for the RIGHT reason (a leaked cluster on exactly the scenario
+# whose rollback it disabled). A fresh image is minted before each mutant run
+# (the test consumes it in place). A mutant that PASSES means the oracle is
+# decoration; a mutant that produces no TEST_SUMMARY means the harness is dead.
+.PHONY: test-fat-fault-rollback-mutant
+test-fat-fault-rollback-mutant: $(TEST_LPF3_FAULT_MUT_A) $(TEST_LPF3_FAULT_MUT_B) $(TEST_LPF3_FAULT_MUT_C)
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-fat-fault-rollback-mutant FAIL: mtools `mformat` not found.\n'; exit 1; }
+	@printf ">>> test-fat-fault-rollback-mutant: confirming the THREE rollback mutants go RED for the RIGHT reason (Rule 6; beads initech-lpf3)\n"
+	@for spec in \
+		"$(TEST_LPF3_FAULT_MUT_A)|m-writefile-noroll|A] in-memory free-cluster count restored" \
+		"$(TEST_LPF3_FAULT_MUT_B)|m-growdir-noroll|B] in-memory free-cluster count restored" \
+		"$(TEST_LPF3_FAULT_MUT_C)|m-mkdir-noroll|C] free-cluster count restored"; do \
+		bin=`echo "$$spec" | cut -d'|' -f1`; \
+		name=`echo "$$spec" | cut -d'|' -f2`; \
+		want=`echo "$$spec" | cut -d'|' -f3`; \
+		dd if=/dev/zero of=$(FAT12_LPF3_FAULT_IMG) bs=512 count=2880 status=none || exit 1; \
+		mformat -i $(FAT12_LPF3_FAULT_IMG) -f 1440 :: || exit 1; \
+		out=`"$$bin" "$(FAT12_LPF3_FAULT_IMG)" 2>&1`; rc=$$?; \
+		echo "$$out" | grep -q 'checks,' \
+			|| { printf '!!! test-fat-fault-rollback-mutant FAIL: %s produced no TEST_SUMMARY -- harness dead, RED is meaningless\n' "$$name"; exit 1; }; \
+		if [ $$rc -eq 0 ]; then \
+			printf '!!! test-fat-fault-rollback-mutant FAIL: %s PASSED -- the fault-injection oracle is decoration\n' "$$name"; exit 1; \
+		fi; \
+		echo "$$out" | grep -qF "$$want" \
+			|| { printf '!!! test-fat-fault-rollback-mutant FAIL: %s RED but NOT on its target leak assertion -- wrong reason\n' "$$name"; exit 1; }; \
+		printf '>>> test-fat-fault-rollback-mutant: green (%s correctly RED -- its rollback leak bites)\n' "$$name"; \
+	done
+	@printf '>>> test-fat-fault-rollback-mutant: green (ALL THREE rollback mutants ran + RED for the right reason)\n'
 
 # Build the FAT12 positioned-read oracle + its two mutants (beads initech-lq2):
 # the test + the REAL artifact fat12.c + the host blockdev backend (same include
@@ -2059,6 +2242,38 @@ $(TEST_INT21_MUT_RO6C_NODISPATCH): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_I
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_NO_DISPATCH -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
 
+# --- AH=44h IOCTL MINORS AL=01/06/07/08 mutants (beads initech-4nbn) --------
+# Each build perturbs exactly one minor's branch/constant so the new oracle
+# cases MUST go RED (Rule 6):
+#   (1) SETINFO_NOGUARD : drop the (char-device && DH==0) guard on AL=01 -> the
+#                         FILE-handle / DH!=0 reject assertions RED.
+#   (2) INSTATUS_EOF_FLIP : invert the AL=06 file EOF test -> the at-EOF /
+#                         not-at-EOF input-status assertions RED.
+#   (3) OUTSTATUS_NOTREADY : AL=07 answers not-ready (0x00) -> the output-ready
+#                         assertions RED.
+#   (4) CHANGEABLE_OK   : AL=08 wrongly answers "removable" (AX=0, CF=0) -> the
+#                         block-device-only invalid-function assertions RED.
+TEST_INT21_MUT_4NBN_SETINFO  := $(BUILD)/test_int21_mutant_4nbn_setinfo
+TEST_INT21_MUT_4NBN_INSTAT   := $(BUILD)/test_int21_mutant_4nbn_instatus
+TEST_INT21_MUT_4NBN_OUTSTAT  := $(BUILD)/test_int21_mutant_4nbn_outstatus
+TEST_INT21_MUT_4NBN_CHANGE   := $(BUILD)/test_int21_mutant_4nbn_changeable
+
+$(TEST_INT21_MUT_4NBN_SETINFO): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_SETINFO_NOGUARD -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_4NBN_INSTAT): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_INSTATUS_EOF_FLIP -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_4NBN_OUTSTAT): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_OUTSTATUS_NOTREADY -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_4NBN_CHANGE): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_CHANGEABLE_OK -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
 # --- CON INPUT oracle (beads initech-n62) ----------------------------------
 # Host unit oracle for the INT 21h CON-INPUT functions (01h/06h/07h/08h/0Ah/
 # 0Bh/0Ch), driven through the REAL artifact int21_dispatch with a MOCK input
@@ -2174,6 +2389,33 @@ test-ro6c-mutant: $(TEST_INT21_MUT_RO6C_CONWRONG) $(TEST_INT21_MUT_RO6C_ISDEVINV
 		printf '!!! test-ro6c-mutant FAIL: NO_DISPATCH mutant PASSED -- the 0x44 dispatch wiring is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-ro6c-mutant: green (NO_DISPATCH mutant correctly RED -- the 0x44 case bites)\n'; \
+	fi
+
+.PHONY: test-4nbn-mutant
+# Mutation-proof: ALL FOUR AH=44h IOCTL minor mutants (AL=01/06/07/08) MUST fail
+# the oracle (Rule 6; beads initech-4nbn).
+test-4nbn-mutant: $(TEST_INT21_MUT_4NBN_SETINFO) $(TEST_INT21_MUT_4NBN_INSTAT) \
+                  $(TEST_INT21_MUT_4NBN_OUTSTAT) $(TEST_INT21_MUT_4NBN_CHANGE)
+	@printf ">>> test-4nbn-mutant: confirming all four AH=44h IOCTL minor mutants go RED (Rule 6; beads initech-4nbn)\n"
+	@if $(TEST_INT21_MUT_4NBN_SETINFO) >/dev/null 2>&1; then \
+		printf '!!! test-4nbn-mutant FAIL: SETINFO_NOGUARD mutant PASSED -- the AL=01 char-device/DH==0 guard is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-4nbn-mutant: green (SETINFO_NOGUARD mutant correctly RED -- the AL=01 char-device-only/DH==0 reject bites)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_4NBN_INSTAT) >/dev/null 2>&1; then \
+		printf '!!! test-4nbn-mutant FAIL: INSTATUS_EOF_FLIP mutant PASSED -- the AL=06 file EOF test is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-4nbn-mutant: green (INSTATUS_EOF_FLIP mutant correctly RED -- the AL=06 offset>=size EOF answer bites)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_4NBN_OUTSTAT) >/dev/null 2>&1; then \
+		printf '!!! test-4nbn-mutant FAIL: OUTSTATUS_NOTREADY mutant PASSED -- the AL=07 always-ready answer is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-4nbn-mutant: green (OUTSTATUS_NOTREADY mutant correctly RED -- the AL=07 0xFF ready answer bites)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_4NBN_CHANGE) >/dev/null 2>&1; then \
+		printf '!!! test-4nbn-mutant FAIL: CHANGEABLE_OK mutant PASSED -- the AL=08 block-device-only invalid-function is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-4nbn-mutant: green (CHANGEABLE_OK mutant correctly RED -- the AL=08 0x0001 invalid-function answer bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -2626,6 +2868,70 @@ test-zs24: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
 	@printf '>>> test-zs24 [GROW]: GROW12 (slot 16) landed in the appended 2nd cluster; all 13 files listed; mcopy==python==written\n'
 	@printf ">>> test-zs24: green\n"
 
+# ---------------------------------------------------------------------------
+# REAL gate: test-nmpo (beads initech-nmpo -- AH=5Bh CREATNEW end-to-end FAT12)
+# ---------------------------------------------------------------------------
+# The END-TO-END CREATNEW oracle (CLAUDE.md Law 2; mirrors test-zs24): drive INT
+# 21h AH=5Bh CREATNEW through the REAL int21+fileio_fat+fat12 backend over a
+# READ-WRITE per-run COPY of the nested image, then diff the materialized on-disk
+# file with TWO independent references -- mtools (mcopy/mdir) AND python3
+# (fat12_ref.py --cat-path). The harness leg (--write creatnew) also drives the
+# COLLISION reject (a second CREATNEW of the same name -> 0x0050 via the real
+# dir-scoped fat_open probe) and an in-process no-truncate read-back; this gate
+# adds the external byte-for-byte differential that the materialized FRESH file
+# committed all 700 bytes into \SUB. The read-only collision + no-truncate leg
+# (CREATNEW existing '\SUB\NESTED.TXT' -> 0x0050) is covered by
+# test-mzxa-integration over the read-only nested image (section 5b).
+.PHONY: test-nmpo
+test-nmpo: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-nmpo FAIL: mtools `mcopy` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-nmpo FAIL: mtools `mdir` not found.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-nmpo FAIL: python3 not found (independent reference).\n'; exit 1; }
+	@printf ">>> test-nmpo: AH=5Bh CREATNEW end-to-end (FRESH materialize + COLLISION reject + no-truncate) vs mtools + python3 (beads initech-nmpo)\n"
+	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@# CREATNEW '\SUB\NEW5B.TXT' (700B, 2 clusters); re-CREATNEW collides 0x0050; no truncation.
+	@$(TEST_FILEIO_SUBDIR) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write creatnew
+	@mcopy -n -i $(FAT12_ZS24_IMG) ::SUB/NEW5B.TXT $(BUILD)/nmpo_mcopy.bin
+	@python3 $(FAT12_REF_PY) $(FAT12_ZS24_IMG) --cat-path 'SUB\NEW5B.TXT' > $(BUILD)/nmpo_py.bin
+	@python3 -c 'import sys; exp=bytes(65+(i%26) for i in range(700)); m=open("$(BUILD)/nmpo_mcopy.bin","rb").read(); p=open("$(BUILD)/nmpo_py.bin","rb").read(); sys.exit(0 if (m==exp and p==exp and m==p) else 1)' \
+		|| { printf '!!! test-nmpo FAIL: CREATNEW-materialized NEW5B.TXT read-back != written (mcopy/python disagree -- a phantom or truncated create)\n'; exit 1; }
+	@mdir -i $(FAT12_ZS24_IMG) ::SUB 2>/dev/null | grep -q 'NEW5B *TXT' \
+		|| { printf '!!! test-nmpo FAIL: mdir ::SUB does not list NEW5B.TXT (CREATNEW did not materialize)\n'; exit 1; }
+	@printf '>>> test-nmpo: green (NEW5B.TXT materialized in \\SUB, 700B byte-exact; re-CREATNEW collided 0x0050; no truncation -- mcopy==python==written)\n'
+
+# Mutation gate (Rule 6): the standing mutation-proof for test-nmpo. The subdir
+# harness built with -DINT21_MUTATE_CREATNEW_NO_GUARD drops the CREATNEW
+# existence guard so CREATNEW==CREAT: the SECOND CREATNEW of '\SUB\NEW5B.TXT'
+# TRUNCATES the materialized file (instead of rejecting 0x0050). The on-disk
+# bytes then diverge from the 700-byte payload, so the SAME mtools + python
+# read-back differential test-nmpo asserts goes RED. Proves the test-nmpo
+# differential bites a real CREATNEW regression (no decoration; WL-0025 rot).
+$(TEST_NMPO_MUT_NOGUARD): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CREATNEW_NO_GUARD -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+.PHONY: test-nmpo-mutant
+test-nmpo-mutant: $(TEST_NMPO_MUT_NOGUARD) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-nmpo-mutant FAIL: mtools `mcopy` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-nmpo-mutant FAIL: python3 not found (independent reference).\n'; exit 1; }
+	@printf ">>> test-nmpo-mutant: confirming the test-nmpo CREATNEW materialize differential bites a NO_GUARD truncate mutant (Rule 6; beads initech-nmpo)\n"
+	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@# Run the SAME harness leg the mutant perturbs. The NO_GUARD mutant's second
+	@# CREATNEW truncates NEW5B.TXT on disk; capture the report (it will fail its
+	@# own in-process collision/no-truncate CHECKs -- that is part of the bite).
+	@$(TEST_NMPO_MUT_NOGUARD) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write creatnew > $(BUILD)/nmpo_mut.report 2>&1 || true
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/nmpo_mut.report \
+		|| { printf '!!! test-nmpo-mutant FAIL: NO_GUARD mutant never reached the harness summary -- crashed, RED meaningless\n'; cat $(BUILD)/nmpo_mut.report; exit 1; }
+	@# The LOAD-BEARING assertion: run the SAME external mtools + python read-back
+	@# differential test-nmpo runs and assert it DIVERGES from the 700-byte payload
+	@# (the second CREATNEW truncated the on-disk file). If it still matches, the
+	@# differential is decoration.
+	@mcopy -n -i $(FAT12_ZS24_IMG) ::SUB/NEW5B.TXT $(BUILD)/nmpo_mut_mcopy.bin 2>/dev/null || : > $(BUILD)/nmpo_mut_mcopy.bin
+	@python3 $(FAT12_REF_PY) $(FAT12_ZS24_IMG) --cat-path 'SUB\NEW5B.TXT' > $(BUILD)/nmpo_mut_py.bin 2>/dev/null || : > $(BUILD)/nmpo_mut_py.bin
+	@python3 -c 'import sys; exp=bytes(65+(i%26) for i in range(700)); m=open("$(BUILD)/nmpo_mut_mcopy.bin","rb").read(); p=open("$(BUILD)/nmpo_mut_py.bin","rb").read(); sys.exit(0 if (m==exp and p==exp and m==p) else 1)' \
+		&& { printf '!!! test-nmpo-mutant FAIL: NO_GUARD mutant PASSED -- the materialized bytes still match the payload; the test-nmpo differential is decoration\n'; exit 1; } || true
+	@printf '>>> test-nmpo-mutant: green (NO_GUARD ran + the on-disk NEW5B.TXT diverged from the 700B payload -- the mtools/python materialize differential bites)\n'
+
 # Mutation gate (Rule 6): three zs24 mutants, each perturbing ONE branch so a
 # DIFFERENT primitive's oracle bites. Built from the SAME test_fileio_subdir
 # harness + the real backend sources, with one -D each. Each MUST drive its
@@ -2947,10 +3253,21 @@ TEST_B53D_MUT_NOTFOUND       := $(BUILD)/test_fileio_subdir_b53d_mut_notfound
 # GET-on-dir legs (AH=43h GET '\SUB\DEEP' -> CF=0/CX=0x10 + fat12_get_attr -> 0x10)
 # bite (the reject would deny the dir, returning CF=1/0x0005 instead of 0x10).
 TEST_B53D_MUT_GETDIRREJECT   := $(BUILD)/test_fileio_subdir_b53d_mut_getdirreject
+# Mutant 8 (the b53d dispatch-edge CX re-typing reject, initech-5o6o): int21.c
+# do_chmod perturbed to DROP the SET-time CX guard that denies a CX setting the
+# Directory(0x10)/VolLabel(0x08) bit -> the host oracle's two dispatch-edge legs
+# (SET HELLO.TXT with CX|0x10 AND SET README with CX|0x08, both -> CF=1/0x0005)
+# bite. This is the "defense in depth" guard the ADR-0003 DEC-14.2 amendment
+# claims is mutation-proven; before this target it was only an inert #ifndef.
+TEST_B53D_MUT_NOCXREJECT     := $(BUILD)/test_fileio_b53d_mut_nocxreject
 
 # Host-contract mutant binaries (test_fileio.c host oracle, one int21.c -D each).
 $(TEST_B53D_MUT_NOALREJECT): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CHMOD_NO_AL_REJECT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_B53D_MUT_NOCXREJECT): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CHMOD_NO_CX_REJECT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
 
 $(TEST_B53D_MUT_GETZERO): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
@@ -3036,9 +3353,9 @@ test-b53d: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
 .PHONY: test-b53d-mutant
 test-b53d-mutant: $(TEST_B53D_MUT_NOALREJECT) $(TEST_B53D_MUT_GETZERO) $(TEST_B53D_MUT_NODISPATCH) \
                   $(TEST_B53D_MUT_NOFLUSH) $(TEST_B53D_MUT_NOREJECT) $(TEST_B53D_MUT_NOTFOUND) \
-                  $(TEST_B53D_MUT_GETDIRREJECT) \
+                  $(TEST_B53D_MUT_GETDIRREJECT) $(TEST_B53D_MUT_NOCXREJECT) \
                   $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
-	@printf ">>> test-b53d-mutant: confirming all SEVEN AH=43h mutants go RED for the RIGHT reason (Rule 6; beads initech-b53d)\n"
+	@printf ">>> test-b53d-mutant: confirming all EIGHT AH=43h mutants go RED for the RIGHT reason (Rule 6; beads initech-b53d / initech-5o6o)\n"
 	@# --- MUTANT 1 (NO_AL_REJECT): AL=2 no longer rejected (falls to GET) -> the
 	@# bad-AL host contract (CF=1/0x0001) bites.
 	@$(TEST_B53D_MUT_NOALREJECT) > $(BUILD)/b53d_mut_noalreject.report 2>&1 || true
@@ -3105,7 +3422,26 @@ test-b53d-mutant: $(TEST_B53D_MUT_NOALREJECT) $(TEST_B53D_MUT_GETZERO) $(TEST_B5
 	@grep -Eq 'test_fileio_subdir: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/b53d_mut_getdirreject.report \
 		|| { printf '!!! test-b53d-mutant FAIL: GETATTR_DIR_REJECT mutant PASSED -- the GET-on-dir CF=0/CX=0x10 contract is decoration (the dir reject was wrongly re-allowed)\n'; exit 1; }
 	@printf '>>> test-b53d-mutant: green (GETATTR_DIR_REJECT ran + RED -- the GET-on-dir 0x10 contract bites; the reject must stay OUT of GET)\n'
-	@printf '>>> test-b53d-mutant: green (ALL SEVEN AH=43h mutants ran + RED for the right reason)\n'
+	@# --- MUTANT 8 (NO_CX_REJECT): do_chmod drops the SET-time CX re-typing guard
+	@# (the dispatch-edge "defense in depth" reject, initech-5o6o / ADR DEC-14.2) ->
+	@# a SET whose CX sets the Directory(0x10)/VolLabel(0x08) bit is NO LONGER denied
+	@# at the dispatcher. BOTH host dispatch-edge legs bite INDEPENDENTLY: SET
+	@# HELLO.TXT with CX|0x10 (Directory) AND SET README (a plain file) with CX|0x08
+	@# (VolLabel) must each report CF=1/0x0005 -- the README target dodges the
+	@# backend TARGET reject so only the dropped dispatch guard can deny it.
+	@$(TEST_B53D_MUT_NOCXREJECT) > $(BUILD)/b53d_mut_nocxreject.report 2>&1 || true
+	@grep -q '^test_fileio: ' $(BUILD)/b53d_mut_nocxreject.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_CX_REJECT mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/b53d_mut_nocxreject.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_CX_REJECT mutant PASSED -- the dispatch-edge CX re-typing reject is decoration (ADR DEC-14.2 claim false)\n'; exit 1; }
+	@# Prove BOTH dispatch-edge legs (Directory AND VolLabel) independently bite --
+	@# guard against the test-ordering mask the adversary flagged (initech-5o6o).
+	@grep -q 'CX setting the Directory bit' $(BUILD)/b53d_mut_nocxreject.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_CX_REJECT mutant did not bite the Directory-bit dispatch-edge leg\n'; cat $(BUILD)/b53d_mut_nocxreject.report; exit 1; }
+	@grep -q 'CX setting the VolLabel bit' $(BUILD)/b53d_mut_nocxreject.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_CX_REJECT mutant did not bite the VolLabel-bit dispatch-edge leg (masked by test ordering -- the guard is not independently proven)\n'; cat $(BUILD)/b53d_mut_nocxreject.report; exit 1; }
+	@printf '>>> test-b53d-mutant: green (NO_CX_REJECT ran + RED -- the dispatch-edge CX re-typing reject bites BOTH the Directory AND VolLabel legs independently)\n'
+	@printf '>>> test-b53d-mutant: green (ALL EIGHT AH=43h mutants ran + RED for the right reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-int21-edge (beads initech-xrd / initech-1zk; double-close part
@@ -3794,7 +4130,7 @@ endef
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-int24 test-int24-mutant \
-        test-vect test-psp test-psp-mutant \
+        test-vect test-absdisk-emu test-psp test-psp-mutant \
         test-sft test-sft-mutant test-fileio test-fileio-mutant \
         test-loader test-loader-mutant test-mcb test-mcb-mutant \
         test-mcb-int21 test-mcb-int21-mutant test-mcb-emu test-mcb-emu-mutant test-program test-fs test-type test-dir \
@@ -3855,6 +4191,7 @@ help:
 	@printf '  test-int24     INT 22/23/24 + SETVECT/GETVECT (25h/35h) + PSP-vector save/restore (initech-509.8 / DEC-10): crit_error_action A/R/F + int24 MSG-DOS-0001 + re-prompt + psp save/load round-trip + int22/23 terminate. REAL.\n'
 	@printf '  test-int24-mutant  Rule-6 proof the int24 oracle BITES: A/F-swap + no-re-prompt + psp vec-offset + getvect-EAX all go RED. REAL.\n'
 	@printf '  test-vect      In-emulator INT 24h crit-error + vector save/restore (initech-509.8): MSG-DOS-0001 presented + injected '\''a'\'' -> CRIT-AL=1 + V24POST==V24PRE (loader restored 0x24 across EXEC/EXIT). REAL (QEMU).\n'
+	@printf '  test-absdisk-emu In-emulator INT 25h/26h asm-stub round-trip (initech-8403): a guest issues int $$0x26 WRITE then int $$0x25 READ on a SAFE scratch LBA -> ABS-W26/R25/RT=OK -- closes the int25_entry/int26_entry coverage gap. REAL (QEMU).\n'
 	@printf '  test-sft       SFT/JFT handle layer (initech-509.3 / DEC-06): predefined handles 0-4 + jft/sft alloc + DUP/DUP2 redirection + ref-counting. REAL.\n'
 	@printf '  test-kbd-unit  PS/2 keyboard + PIT pure logic (initech-3rs): ring (full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math. REAL.\n'
 	@printf '  test-kbd       Keyboard IRQ1 end-to-end (initech-3rs/43b): first sti, QMP --keys "d,i,r" injected, echoed back via IRQ1; triple_fault=0. REAL (QEMU).\n'
@@ -4154,6 +4491,17 @@ $(VECT_PROG_BLOB_C): $(VECT_PROG_BIN) $(BIN2C_BIN)
 $(KERNEL_VECT_PROG_OBJ): $(VECT_PROG_BLOB_C) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(VECT_PROG_BLOB_C) -o $@
 
+# INT 25h/26h ABSOLUTE-DISK program blob (beads initech-8403): asm -> flat bin ->
+# C blob -> obj. Linked only into the -DBOOT_ABSDISK kernel.
+$(ABSDISK_PROG_BIN): $(ABSDISK_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+$(ABSDISK_PROG_BLOB_C): $(ABSDISK_PROG_BIN) $(BIN2C_BIN)
+	$(BIN2C_BIN) $(ABSDISK_PROG_BIN) g_absdisk_prog_image > $@
+
+$(KERNEL_ABSDISK_PROG_OBJ): $(ABSDISK_PROG_BLOB_C) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(ABSDISK_PROG_BLOB_C) -o $@
+
 # IRQ-STORM baked program (beads initech-xk2): same nasm -f bin -> bin2c ->
 # KERNEL_CC pipeline. Linked only into the -DBOOT_IRQSTORM kernel(s).
 $(IRQSTORM_PROG_BIN): $(IRQSTORM_PROG_ASM) | $(BUILD)
@@ -4368,6 +4716,45 @@ $(VECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_VECT_BIN) | $(BUILD)
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_VECT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> vect image: %s (SETVECT/GETVECT + INT 24h self-test kernel @s17)\n" "$@"
+
+# --- INT 25h/26h ABSOLUTE-DISK asm-stub self-test kernel (beads initech-8403;
+# test-absdisk-emu). Same sources, but kmain.c compiled with -DBOOT_ABSDISK so the
+# boot runs the baked ABSDISK program. The absdisk program blob is linked in
+# (referenced only under -DBOOT_ABSDISK). Separate image.
+$(KERNEL_ABSDISK_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_ABSDISK -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_ABSDISK_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ABSDISK_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+                    $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                    $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
+                    $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                    $(KERNEL_ABSDISK_PROG_OBJ) \
+                    $(KERNEL_ISR_OBJ)
+
+$(KERNEL_ABSDISK_ELF): $(KERNEL_ABSDISK_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_ABSDISK_OBJS)
+
+$(KERNEL_ABSDISK_BIN): $(KERNEL_ABSDISK_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_absdisk.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(absdisk): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,absdisk)
+
+# The absdisk self-test disk image: identical layout to VECT_IMG but with the
+# absdisk kernel at sector 17.
+$(ABSDISK_BOOT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ABSDISK_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_ABSDISK_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> absdisk-emu image: %s (INT 25h/26h asm-stub self-test kernel @s17)\n" "$@"
 
 # --- MEMORY ARENA self-test kernel (beads initech-509.6; test-mcb-emu) -------
 # Same sources, but kmain.c compiled with -DBOOT_MEMTEST so the boot drives
@@ -6273,6 +6660,85 @@ test-fatwrite: $(HARNESS_BIN) $(WRITE_IMG) $(FAT_WRITE_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# EMU KEYSTONE: test-absdisk-emu (beads initech-8403 -- close the int25_entry/
+#               int26_entry asm-stub coverage gap)
+# ---------------------------------------------------------------------------
+# The HOST oracle (make test-absdisk; harness/diff/fat_diff/test_absdisk.c) drives
+# int25_dispatch / int26_dispatch DIRECTLY as C function calls -- it NEVER goes
+# through the asm  int25_entry/int26_entry -> dispatch -> IRETD  trap-gate path
+# (isr.asm). THIS gate closes that gap end-to-end in QEMU, mirroring test-vect (the
+# int24_entry emu keystone): boot the -DBOOT_ABSDISK image WITH a WRITABLE BLANK
+# FAT12 data disk (--disk2 = FAT_ABSDISK_DATA_IMG) so kmain binds the absolute-disk
+# seam (ABSDISK-BIND-OK), and the baked ABSDISK program issues a REAL `int $0x26`
+# (WRITE a deterministic pattern to the SAFE scratch LBA 2879 == total_sectors-1,
+# FREE on the blank disk -- never boot/FAT/root) then a REAL `int $0x25` (READ it
+# back) through the live IDT trap gates, byte-compares, and emits ABS-W26=OK /
+# ABS-R25=OK / ABS-RT=OK. Assertions (fail-loud, Rule 2):
+#   1. NO triple-fault (the int25/26 entry -> dispatch -> IRETD path did not crash).
+#   2. SERIAL: ABSDISK-BIND-OK (the seam bound); ABS-W26=OK (int $0x26 returned
+#      CF=0 through the asm stub); ABS-R25=OK (int $0x25 returned CF=0); ABS-RT=OK
+#      (the read-back bytes == the written pattern -- the WHOLE asm round-trip);
+#      ABSDISK-EXIT rc=0; NO ABS-*-FAIL marker.
+# BONUS (independent confirmation): mtools reads the post-run disk so a stray
+# corruption of a neighbor file would surface -- but the program's own byte-compare
+# (ABS-RT=OK) is the binding round-trip proof.
+# Ref: spec/absdisk_int2526.json (LOCKED); ADR-0003 DEC-15; isr.asm int25_entry/
+# int26_entry. TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.
+ABSDISK_EMU_NAME    := absdisk_boot
+ABSDISK_EMU_SERIAL  := $(BUILD)/$(ABSDISK_EMU_NAME).serial
+ABSDISK_EMU_REPORT  := $(BUILD)/$(ABSDISK_EMU_NAME).report
+ABSDISK_EMU_RUNDISK := $(BUILD)/$(ABSDISK_EMU_NAME)_data_run.img
+
+.PHONY: test-absdisk-emu
+test-absdisk-emu: $(HARNESS_BIN) $(ABSDISK_BOOT_IMG) $(FAT_ABSDISK_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-absdisk-emu : INT 25h/26h asm-stub round-trip\n'
+	@printf '  Ref: spec/absdisk_int2526.json (LOCKED); ADR-0003 DEC-15; isr.asm.\n'
+	@printf '  beads initech-8403. CLAUDE.md Law 2 (oracle is the truth), Rule 5.\n'
+	@printf '======================================================================\n'
+	@# Idempotent (Rule 11): the kernel WRITEs the scratch disk, so run on a FRESH
+	@# copy of the blank volume each invocation -- re-running is clean.
+	@cp -f "$(FAT_ABSDISK_DATA_IMG)" "$(ABSDISK_EMU_RUNDISK)"
+	@printf 'Booting   : %s + WRITABLE BLANK data disk %s (primary slave)\n' "$(ABSDISK_BOOT_IMG)" "$(ABSDISK_EMU_RUNDISK)"
+	@printf 'Expecting : ABSDISK-BIND-OK + ABS-W26=OK + ABS-R25=OK + ABS-RT=OK + ABSDISK-EXIT rc=0 + no triple-fault\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(ABSDISK_BOOT_IMG)" --disk2 "$(ABSDISK_EMU_RUNDISK)" \
+		--name "$(ABSDISK_EMU_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(ABSDISK_EMU_REPORT)" || true
+	@cat "$(ABSDISK_EMU_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(ABSDISK_EMU_REPORT)"; then \
+		printf '!!! test-absdisk-emu FAIL: TRIPLE FAULT -- root-cause the int25/26 entry->dispatch->IRETD path (Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-absdisk-emu [1/5]: no triple-fault\n'
+	@if [ ! -s "$(ABSDISK_EMU_SERIAL)" ]; then \
+		printf '!!! test-absdisk-emu FAIL: no serial captured at %s\n' "$(ABSDISK_EMU_SERIAL)"; exit 1; \
+	fi
+	@tr -d '\r' < "$(ABSDISK_EMU_SERIAL)" | grep -q '^ABSDISK-BIND-OK$$' \
+		|| { printf '!!! test-absdisk-emu FAIL: ABSDISK-BIND-OK missing -- the absolute-disk seam never bound (no --disk2 / mount failed)\n'; exit 1; }
+	@printf '>>> test-absdisk-emu [2/5]: ABSDISK-BIND-OK (the absolute-disk seam bound from the mounted volume)\n'
+	@if tr -d '\r' < "$(ABSDISK_EMU_SERIAL)" | grep -q 'ABS-W26-FAIL\|ABS-R25-FAIL\|ABS-RT-FAIL'; then \
+		printf '!!! test-absdisk-emu FAIL: an ABS-*-FAIL marker -- the int25/26 asm round-trip failed (root-cause, Rule 3):\n'; \
+		tr -d '\r' < "$(ABSDISK_EMU_SERIAL)" | grep 'ABS-.*-FAIL'; exit 1; \
+	fi
+	@tr -d '\r' < "$(ABSDISK_EMU_SERIAL)" | grep -q '^ABS-W26=OK$$' \
+		|| { printf '!!! test-absdisk-emu FAIL: ABS-W26=OK missing -- int $$0x26 did not return CF=0 through the asm stub\n'; exit 1; }
+	@tr -d '\r' < "$(ABSDISK_EMU_SERIAL)" | grep -q '^ABS-R25=OK$$' \
+		|| { printf '!!! test-absdisk-emu FAIL: ABS-R25=OK missing -- int $$0x25 did not return CF=0 through the asm stub\n'; exit 1; }
+	@printf '>>> test-absdisk-emu [3/5]: ABS-W26=OK + ABS-R25=OK (int $$0x26 / int $$0x25 returned CF=0 via int26_entry/int25_entry)\n'
+	@tr -d '\r' < "$(ABSDISK_EMU_SERIAL)" | grep -q '^ABS-RT=OK$$' \
+		|| { printf '!!! test-absdisk-emu FAIL: ABS-RT=OK missing -- the read-back bytes != the written pattern (the asm round-trip did not preserve the sector)\n'; exit 1; }
+	@printf '>>> test-absdisk-emu [4/5]: ABS-RT=OK (read-back == written pattern -- the WHOLE int26/int25 asm round-trip preserved the sector)\n'
+	@tr -d '\r' < "$(ABSDISK_EMU_SERIAL)" | grep -q '^ABSDISK-EXIT rc=0$$' \
+		|| { printf '!!! test-absdisk-emu FAIL: ABSDISK-EXIT rc=0 missing -- the ABSDISK program did not finish cleanly\n'; exit 1; }
+	@printf '>>> test-absdisk-emu [5/5]: ABSDISK-EXIT rc=0 (clean exit)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- a real guest issued int $$0x26 then int $$0x25 through the live IDT\n'
+	@printf '            trap gates; the int26_entry/int25_entry -> dispatch -> IRETD round-trip\n'
+	@printf '            wrote and read back a sector (QEMU only; tri-emulator pending initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-multiopen (beads initech-0qh; epic initech-6qy -- multi-tenant)
 # ---------------------------------------------------------------------------
 # THE in-emulator capability oracle for the WHOLE multi-tenant file-I/O step:
@@ -8062,9 +8528,11 @@ assert 'EBX' in abi['buffer'], 'abi.buffer must pin the EBX register-role SWAP (
 assert 'AL' in abi['drive'] and '0=A:' in abi['drive'], 'abi.drive must be AL zero-based (0=A:)'; \
 assert 'DX' in abi['start_sector'], 'abi.start_sector must be DX/EDX'; \
 ec=d['error_codes']; \
-exp={'write_protect':('0x00','0x0A'),'invalid_drive':('0x0F','0x0C'),'sector_not_found':('0x08','0x0B'),'general_failure':('0x0C','0x0B')}; \
-[ (_ for _ in ()).throw(AssertionError('error_code %s AL/AH != locked %r (got %r)'%(k,exp[k],(ec[k]['al'],ec[k]['ah'])))) \
-  for k in exp if (ec[k]['al'],ec[k]['ah'])!=exp[k] ]; \
+exp={'write_protect':('0x00','0x0A'),'invalid_drive':('0x0F','0x0C'),'sector_not_found':('0x08','0x0B'),'general_failure':('0x0C','0x0B'),'bad_buffer':('0x0F','0x0C')}; \
+got=set(k for k in ec if not k.startswith('_')); \
+assert got==set(exp), 'error_codes drift -- missing %r / extra %r vs the DEC-15 locked legs (initech-cnvp: bad_buffer 0x0F/0x0C added per DEC-15 line 160)'%(sorted(set(exp)-got),sorted(got-set(exp))); \
+[ (_ for _ in ()).throw(AssertionError('error_code %s AL/AH != locked %r (got %r)'%(k,exp[k],(ec.get(k,{}).get('al'),ec.get(k,{}).get('ah'))))) \
+  for k in exp if (ec.get(k,{}).get('al'),ec.get(k,{}).get('ah'))!=exp[k] ]; \
 assert d['out_of_scope']['packet_form']['sentinel']=='CX=0xFFFF', 'packet sentinel must be CX=0xFFFF'; \
 assert 'reject' in d['out_of_scope']['packet_form']['action'].lower(), 'CX=0xFFFF must be REJECTED, never a literal count'; \
 assert 'fat12_next_cluster==0x000' in d['oracle_rule']['scratch_lba'], 'scratch-LBA-must-be-free rule missing'; \
@@ -8293,8 +8761,8 @@ test-kernel-repro-mutant: | $(BUILD)
 # Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
-	test-fat12-mkdir test-m0bp test-m0bp-rollback \
-	test-fat-subdir test-zs24 test-qekc test-b53d test-gnrc \
+	test-fat12-mkdir test-m0bp test-m0bp-rollback test-fat-fault-rollback \
+	test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
@@ -8304,12 +8772,12 @@ TEST_UNIT_GATES := \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
-	test-ro6c-mutant \
+	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
-	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-zs24-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
+	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-absdisk test-absdisk-mutant \
@@ -8321,7 +8789,7 @@ TEST_EMU_GATES := \
 	test-dir test-exec test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
-	test-kbd test-conin test-vect test-int21-irqstorm
+	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm
 
 test-unit:
 	@printf '======================================================================\n'

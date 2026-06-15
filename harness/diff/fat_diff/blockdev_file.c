@@ -59,6 +59,19 @@ static int blockdev_file_write(void *ctx, uint32_t lba, uint32_t count,
 	if (bf == NULL || bf->fp == NULL || buf == NULL || count == 0u) {
 		return -1;
 	}
+
+	/* FAULT-INJECTION SEAM (beads initech-lpf3): count this write, and if the
+	 * seam is armed for THIS ordinal, fail it BEFORE touching the file -- so the
+	 * on-disk image is left exactly as the prior (successful) writes left it,
+	 * which is what a real mid-operation device I/O failure does and what the
+	 * fat12.c rollback paths must cope with (Rule 2). Disarmed (write_fail_at
+	 * == 0) -> no-op, every existing oracle unchanged. */
+	bf->write_calls++;
+	if (bf->write_fail_at != 0u && bf->write_calls == bf->write_fail_at) {
+		bf->write_faulted = 1;
+		return -1;   /* forced device write error (fail loud, Rule 2) */
+	}
+
 	off  = (long)lba * (long)BLOCKDEV_SECTOR_SIZE;
 	want = (size_t)count * (size_t)BLOCKDEV_SECTOR_SIZE;
 
@@ -87,6 +100,9 @@ int blockdev_file_open(blockdev_file_t *bf, const char *path)
 	bf->dev.ctx           = bf;
 	bf->dev.read_sectors  = blockdev_file_read;
 	bf->dev.write_sectors = NULL; /* read-only open */
+	bf->write_fail_at     = 0u;   /* fault seam DISARMED (beads initech-lpf3) */
+	bf->write_calls       = 0u;
+	bf->write_faulted     = 0;
 	return 0;
 }
 
@@ -102,7 +118,31 @@ int blockdev_file_open_rw(blockdev_file_t *bf, const char *path)
 	bf->dev.ctx           = bf;
 	bf->dev.read_sectors  = blockdev_file_read;
 	bf->dev.write_sectors = blockdev_file_write;  /* WRITE oracle backend */
+	bf->write_fail_at     = 0u;   /* fault seam DISARMED (beads initech-lpf3) */
+	bf->write_calls       = 0u;
+	bf->write_faulted     = 0;
 	return 0;
+}
+
+void blockdev_file_arm_write_fault(blockdev_file_t *bf, uint32_t nth)
+{
+	if (bf == NULL) {
+		return;
+	}
+	bf->write_fail_at = nth;   /* 0 disarms; K fails the K-th subsequent write */
+	bf->write_calls   = 0u;    /* count from this point forward */
+	if (nth != 0u) {
+		/* Arming a FRESH fault clears the fired flag; DISARMING (nth==0)
+		 * PRESERVES it so a caller can disarm then inspect whether the just-
+		 * armed fault actually fired (Law 2 -- a fault that never fired proves
+		 * nothing, and the inspection must survive the disarm). */
+		bf->write_faulted = 0;
+	}
+}
+
+int blockdev_file_write_faulted(const blockdev_file_t *bf)
+{
+	return (bf != NULL) ? bf->write_faulted : 0;
 }
 
 void blockdev_file_close(blockdev_file_t *bf)
