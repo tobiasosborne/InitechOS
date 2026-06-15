@@ -144,7 +144,7 @@ STAGE2_SECTORS  := 16
 # below PROGRAM_BASE (0x30000). IMG_MIN = 1+16+144 = 161 <= IMG_SECTORS=192.
 # MUST equal the stage2.asm KERNEL_SECTORS equate.
 KERNEL_SECTORS  := 144
-# Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=128) = 145 sectors.
+# Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=144) = 161 sectors.
 # IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
 # harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
 # of 2-head x 32-sector cylinders. 128 (2 cyl) sufficed at KERNEL_SECTORS=96; at 112
