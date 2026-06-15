@@ -130,7 +130,10 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **70 host + 26 emu gates** (re-verified green; WL-0024 added the
+`make test` = **85 host + 26 emu gates** (re-verified green; WL-0025 added the
+INT 21h parity tranche gates (`test-kji0/qekc/b53d/gnrc-mutant`,
+`test-m0bp-rollback`(+mutant), `test-absdisk`(+mutant), `test-spec[6/6]`) for
+CREATNEW/FILETIME/CHMOD/RENAME/IOCTL 5Bh/57h/43h/56h/44h + INT 25h/26h; WL-0024 added the
 EMU `test-ut6d`(+mutant, 2 legs), `test-zs24-exec`(+mutant) and the host/diff
 `test-zs24`(+mutant, 5 legs) for shell MD/RD/CD + subdir file WRITE + subdir
 EXEC, and amended the DOS catalogue 16->19; WL-0023 added `test-u6wa-mutant` +
@@ -141,7 +144,7 @@ EXEC, and amended the DOS catalogue 16->19; WL-0023 added `test-u6wa-mutant` +
 before trusting an incremental oracle -- future-dated build/ artifacts make
 `make` skip rebuilds (false greens). Authoritative re-verify = `make clean &&
 make test`.
-**`make test-boot-bochs` PASS** with `KERNEL_SECTORS=128` (u6wa grew it 112->128;
+**`make test-boot-bochs` PASS** with `KERNEL_SECTORS=144` (qekc grew it 128->144 in WL-0025;
 `IMG_SECTORS=192` = 3 whole cylinders; a boot-geometry change is a tri-emulator
 obligation, Rule 5 / WL-0019). The boot image is padded to a whole 2x32 cylinder geometry
 (`IMG_SECTORS=192`, build-guarded) so the **Bochs boot leg passes**. Plus the
@@ -231,14 +234,20 @@ wrappers, SFT carries `dir_start`, fail-loud `spc!=1` mount guard; **L2**
 adversarial pass caught `fat12_grow_dir` shipping untested despite a green suite
 (closed with a grow oracle + 2 grow mutants).
 
-**Resume the DOS-3.3 parity push (epic `initech-bsy`): `bd ready`.** The subdir
-chain (`ti8 -> mzxa -> u6wa -> ut6d -> zs24`) is complete. Filed subdir
-follow-ups (none blocking): **`initech-m0bp`** (nested MKDIR/RMDIR with a
-non-root parent — the L1 infra makes it a focused follow-on), the dir-attr-guard
-mutation-proof + EXEC mutant leg-A tightening, the CWD-aware DIR header, the
-AH=39/3A/3B/47 rows in `int21h_calling_convention.json`, and the FAT
-free-cluster-hint fragmentation quirk. The SERIAL, oracle-gated discipline for
-shared-file kernel edits still stands (Rule 3 / WL-0023).
+**Resume the DOS-3.3 parity push (epic `initech-bsy`, 8/22): `bd ready`.**
+**WL-0025 completed the Appendix-A INT 21h handler tranche** — CREATNEW (5Bh),
+FILETIME (57h), CHMOD (43h), RENAME (56h), IOCTL (44h AL=00), nested MKDIR/RMDIR
+— PLUS **ADR-0003 Amendment DEC-15** ratifying the absolute-disk vectors and
+**INT 25h/26h** (`4mq7`) implemented against it. The Appendix-A INT 21h surface
+is now fully dispatched. Filed follow-ups (none blocking): `4nbn` (IOCTL minors +
+device-info bit-name labels), `5o6o` (CHMOD SET-reject deviation, doc), `isil`
+(gnrc non-root same-dir rename leg), `ycb3` (cross-dir RENAME move), `nmpo`/
+`glsw` (CREATNEW oracle/robustness), `lpf3` (write-fail fault-injection backend
+for the rollback paths), `cnvp` (absdisk spec bad-buffer row), `8403` (in-emu
+int 25h/26h self-test), `t1on` (DEC-07 MBR-partition amendment, blocking the
+deferred `kzfs`). The natural Phase-1 closer is the capstone `initech-40oq`
+(Appendix-A coverage certificate). The SERIAL, oracle-gated discipline for
+shared-file kernel edits still stands (Rule 3 / WL-0023-25).
 
 **FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
 ratified the region-first Toolbox plan; operator decided indexed-8 depth,
@@ -278,7 +287,9 @@ docs/worklog/        WL-0001..0007 (foundations -> FAT mount); WL-0008+ file
                      WL-0011 reentrancy fuzzer, WL-0012 message catalogue,
                      WL-0013 vector cluster, WL-0014 kernel hardening + Bochs
                      diagnosis, WL-0015 Bochs standard-VGA fallback + C Bochs
-                     gate, WL-0016 COMMAND.COM default boot (latest)
+                     gate, WL-0016 COMMAND.COM default boot, WL-0017..0024
+                     hardening + subdir chain, WL-0025 INT 21h/25h/26h parity
+                     tranche (CREATNEW/FILETIME/CHMOD/RENAME/IOCTL + DEC-15) (latest)
 docs/research/       ground-truth briefs (fat12, boot-to-text, internals/int21h,
                      psp-loader, fs-mount-sft) -- the per-milestone evidence base
 docs/HANDOFF.md      this briefing
