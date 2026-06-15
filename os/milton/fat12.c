@@ -2584,6 +2584,125 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	                                 match_slot, &match, sector_buf);
 }
 
+/*
+ * fat12_rename -- SAME-directory dir-entry rename (beads initech-gnrc; the WRITE
+ * side of INT 21h AH=56h). Scan the directory for OLD (subdir-aware via
+ * fat12_scan_dir, exactly as fat12_unlink/fat12_set_attr); REJECT a directory /
+ * volume-label source (FAT12_ERR_ACCESS -- no '..' fixup path yet, Rule 2);
+ * REJECT a NEW name that already exists in the directory (FAT12_ERR_EXISTS -- the
+ * load-bearing dest-exists reject; a rename never clobbers an entry). Then
+ * read-modify-write ONLY the matched entry's 11-byte name field (filename[0..7] +
+ * extension[0..2]) from the parsed NEW name and flush via the SAME primitive
+ * WRITE uses (fat12_write_dirent_in_dir). start_cluster / file_size / attribute /
+ * mtime / mdate AND the FAT are PRESERVED VERBATIM (Rule 11: rename allocates /
+ * frees nothing, so the chain + size + timestamp bytes stay deterministic). A
+ * missing name (or a malformed old/new parse) -> FAT12_ERR_NOT_FOUND; a read-only
+ * volume -> FAT12_ERR_WRITE. Ref (Law 1): DOS 3.3 PRM AH=56h; spec/dos_structs.h
+ * (filename 0x00 / extension 0x08); the EMPIRICAL mtools name-field layout. */
+int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                 const char *old83, const char *new83, uint16_t dir_start,
+                 void *sector_buf)
+{
+	uint8_t     old11[11];
+	uint8_t     new11[11];
+	uint32_t    free_slot  = 0u;
+	int         have_free  = 0;
+	uint32_t    match_slot = 0u;
+	dir_entry_t match;
+	int         found      = 0;
+	int         rc;
+	int         is_root = (dir_start == 0u);
+	uint32_t    k;
+
+	if (vol == NULL || old83 == NULL || new83 == NULL || sector_buf == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	if (vol->dev == NULL || vol->dev->write_sectors == NULL ||
+	    vol->dev->read_sectors == NULL) {
+		return FAT12_ERR_WRITE;
+	}
+
+	/* Parse BOTH names up front (rename allocates nothing -- a malformed name on
+	 * either side is the source-not-found contract). */
+	rc = parse_name83(old83, old11);
+	if (rc != FAT12_OK) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	rc = parse_name83(new83, new11);
+	if (rc != FAT12_OK) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+
+	/* Locate the SOURCE in the directory. */
+	rc = fat12_scan_dir(vol, fat, fat_len, is_root, dir_start, sector_buf,
+	                    old11, &free_slot, &have_free, &match_slot, &match,
+	                    &found);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (!found) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	/* The SOURCE must be a regular file -- never rename a directory or the
+	 * volume-label entry (no '..' fixup path yet; Rule 2 fail loud). */
+	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+		return FAT12_ERR_ACCESS;
+	}
+
+	/* The DEST name must be ABSENT in the directory -- a rename never clobbers an
+	 * existing entry (the load-bearing dest-exists reject). */
+#ifndef FAT12_MUTATE_RENAME_NO_DESTCHECK
+	{
+		uint32_t    dfree_slot  = 0u;
+		int         dhave_free  = 0;
+		uint32_t    dmatch_slot = 0u;
+		dir_entry_t dmatch;
+		int         dfound      = 0;
+		rc = fat12_scan_dir(vol, fat, fat_len, is_root, dir_start, sector_buf,
+		                    new11, &dfree_slot, &dhave_free, &dmatch_slot,
+		                    &dmatch, &dfound);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		if (dfound) {
+			return FAT12_ERR_EXISTS;   /* dest name already present */
+		}
+	}
+#else
+	/* MUTANT 1 (Rule 6; make test-gnrc-mutant only): SKIP the dest-absent scan, so
+	 * a rename ONTO an existing dest wrongly SUCCEEDS (it overwrites the source's
+	 * own name with a name that already lives elsewhere in the dir, producing a
+	 * duplicate). The dest-exists (0x0005) leg + the mren differential go RED.
+	 * NEVER in a real build. */
+#endif
+
+	/* Rewrite ONLY the 11-byte name field; everything else (start_cluster /
+	 * file_size / attribute / mtime / mdate) is preserved VERBATIM in `match` and
+	 * the FAT is never touched (Rule 11: rename allocates/frees nothing). */
+	for (k = 0u; k < 8u; k++) {
+		match.filename[k] = new11[k];
+	}
+#ifndef FAT12_MUTATE_RENAME_NAME_ONLY8
+	for (k = 0u; k < 3u; k++) {
+		match.extension[k] = new11[8u + k];
+	}
+#else
+	/* MUTANT 3 (Rule 6; make test-gnrc-mutant only): copy ONLY filename[0..7] and
+	 * LEAVE the extension[0..2] stale, so X.TXT -> Y.BAK keeps the old .TXT. The
+	 * name-field differential vs mren goes RED. NEVER in a real build. */
+#endif
+#ifdef FAT12_MUTATE_RENAME_TOUCH_CHAIN
+	/* MUTANT 2 (Rule 6; make test-gnrc-mutant only): ZERO the start_cluster on the
+	 * rewrite, so the renamed entry loses its data chain head. The
+	 * 'start_cluster + size unchanged vs mren' assertion goes RED, proving the
+	 * rename is name-FIELD-only and never disturbs the chain. NEVER in a real
+	 * build. */
+	match.start_cluster = 0u;
+#endif
+	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, dir_start,
+	                                 match_slot, &match, sector_buf);
+}
+
 /* ======================================================================== *
  * FAT12 subdirectory CREATE / REMOVE -- WRITE side (beads initech-u6wa)
  *

@@ -1368,6 +1368,100 @@ static void do_unlink(int_frame_t *f)
     cf_clear(f);
 }
 
+/* AH=56h RENAME (SAME-directory dir-entry rename; beads initech-gnrc): the FIRST
+ * INT 21h handler that reads a SECOND flat pointer.
+ *   IN : AH=0x56; EDX = flat ptr to the OLD ASCIIZ 8.3 path; EDI = flat ptr to
+ *        the NEW ASCIIZ 8.3 path. In the locked flat 32-bit ABI EVERY pointer is
+ *        a flat 32-bit LINEAR address (spec/int21h_calling_convention.json: abi.
+ *        primary_pointer = EDX; pointer args are flat linear addresses). Real DOS
+ *        passes the new name in ES:DI; on this 32-bit protected-flat kernel the
+ *        segment is collapsed and EDI carries the flat linear address directly --
+ *        the SAME convention EDX already uses for the primary pointer. int_frame_t
+ *        carries both edx and edi (os/milton/idt.h).
+ *   OUT: success -> CF=0 (AX left untouched, the do_unlink/do_mkdir pattern).
+ * ERRORS (CF=1):
+ *   - NULL/empty EDX or EDI                     -> AX=0x0002 (file not found)
+ *   - bad/overlong path component (either side) -> AX=0x0003 (from resolve_dir_path)
+ *   - source not found                          -> AX=0x0002
+ *   - dest name already exists in the target dir, OR the source is a directory/
+ *     volume-label, OR no write backend         -> AX=0x0005 (access denied)
+ *   - old_dir != new_dir (cross-directory pair) -> AX=0x0011 (NOT_SAME_DEVICE).
+ *     SAME-directory rename ONLY this milestone (operator decision 2026-06-15,
+ *     DOS-faithful); cross-dir MOVE is deferred to beads initech-ycb3.
+ * No int21_note_error() here: the AH=59h auto-note at the dispatch choke point
+ * captures CF + AX. Ref (Law 1): DOS 3.3 PRM AH=56h; spec/int21h_calling_
+ * convention.json (AH=56h: in EDX old / EDI new); ADR-0003 Appendix A. */
+static void do_rename(int_frame_t *f)
+{
+    const char *old_path = (const char *)(uintptr_t)f->edx;
+    const char *new_path = (const char *)(uintptr_t)f->edi;  /* the SECOND flat ptr */
+
+    if (old_path == 0 || *old_path == '\0' ||
+        new_path == 0 || *new_path == '\0') {
+        set_ax(f, INT21_ERR_FILE_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+
+    /* Resolve BOTH paths to their containing directory + bare leaf. A bad/overlong
+     * component on either side -> 0x0003 (path not found, via resolve_dir_path). */
+    const char *old_leaf      = old_path;
+    uint16_t    old_dir_start = 0u;
+    uint16_t    operr = resolve_dir_path(old_path, &old_leaf, &old_dir_start);
+    if (operr != 0u) {
+        set_ax(f, operr);                /* 0x0003 PATH_NOT_FOUND */
+        cf_set(f);
+        return;
+    }
+    const char *new_leaf      = new_path;
+    uint16_t    new_dir_start = 0u;
+    uint16_t    nperr = resolve_dir_path(new_path, &new_leaf, &new_dir_start);
+    if (nperr != 0u) {
+        set_ax(f, nperr);                /* 0x0003 PATH_NOT_FOUND */
+        cf_set(f);
+        return;
+    }
+
+    /* A cross-DIRECTORY pair is a MOVE, not a rename -> NOT_SAME_DEVICE. Same-dir
+     * rename ONLY this milestone (cross-dir MOVE deferred to beads initech-ycb3). */
+#ifndef INT21_MUTATE_RENAME_NO_SAMEDIR_GUARD
+    if (old_dir_start != new_dir_start) {
+        set_ax(f, INT21_ERR_NOT_SAME_DEVICE);
+        cf_set(f);
+        return;
+    }
+#else
+    /* MUTANT 4 (Rule 6; make test-gnrc-mutant only): DROP the old_dir==new_dir
+     * guard, so a cross-directory EDX/EDI pair wrongly proceeds to the backend
+     * rename (acting as if same-dir) instead of returning 0x0011. The
+     * not-same-device leg goes RED. NEVER in a real build. */
+#endif
+
+    if (g_file == 0 || g_file->rename == 0) {
+        /* No write backing (read-only volume / no volume) -> access denied
+         * (Rule 2: never a silent success). */
+        set_ax(f, INT21_ERR_ACCESS_DENIED);
+        cf_set(f);
+        return;
+    }
+
+    uint16_t err = g_file->rename(old_leaf, old_dir_start, new_leaf, new_dir_start);
+    if (err != 0) {
+#ifndef INT21_MUTATE_RENAME_NOTFOUND_PATH
+        set_ax(f, err);                  /* 0x0002 not found / 0x0005 dest/dir/write */
+#else
+        /* MUTANT 5 (Rule 6; make test-gnrc-mutant only): map a backend source-
+         * not-found (0x0002) to 0x0003 (path not found), corrupting the DOS
+         * register contract. The register-contract AX assertion goes RED. NEVER in
+         * a real build. */
+        set_ax(f, (err == INT21_ERR_FILE_NOT_FOUND) ? INT21_ERR_PATH_NOT_FOUND : err);
+#endif
+        cf_set(f);
+        return;
+    }
+    cf_clear(f);
+}
+
 /* AH=43h CHMOD (GET/SET FILE ATTRIBUTES): a PATH-BASED call (not a handle call).
  *   IN : AL=00 GET / AL=01 SET; EDX = flat ptr to an ASCIIZ 8.3 path
  *        ('\SUB\FILE'-qualified OK via resolve_dir_path). SET: CX = the new
@@ -3062,6 +3156,18 @@ static void int21_dispatch_body(int_frame_t *frame)
         case 0x41:                       /* UNLINK (delete file) */
             do_unlink(frame);
             return;
+        case 0x56:                       /* RENAME (same-directory dir-entry rename) */
+#ifdef INT21_MUTATE_RENAME_NO_DISPATCH
+            /* MUTANT (Rule 6): do NOT dispatch 0x56; fall through to the not-yet-
+             * impl path (CF=1, AX=0x0001). The (void) ref keeps -Werror=unused-
+             * function quiet so the mutant still BUILDS + RUNS. NEVER in a real
+             * build. */
+            (void)do_rename;
+            break;
+#else
+            do_rename(frame);
+            return;
+#endif
         case 0x43:                       /* CHMOD (get/set file attributes) */
 #ifdef INT21_MUTATE_CHMOD_NO_DISPATCH
             /* MUTANT 6 (Rule 6; make test-b53d-mutant only): do NOT dispatch

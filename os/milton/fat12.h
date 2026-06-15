@@ -641,6 +641,42 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, uint16_t parent_dir_start,
                  void *sector_buf);
 
+/*
+ * fat12_rename: SAME-directory dir-entry rename (beads initech-gnrc; the WRITE
+ * side of INT 21h AH=56h RENAME). Rename the regular 8.3 file `old83` to `new83`
+ * WITHIN the directory whose first data cluster is `dir_start` (0 == the fixed
+ * root; a non-root value scans + write-backs down the parent's CLUSTER CHAIN via
+ * the parent-aware Layer-1 infra, exactly as fat12_unlink/fat12_set_attr). A
+ * cross-directory MOVE is OUT OF SCOPE -- the dispatcher rejects old_dir !=
+ * new_dir BEFORE the backend (0x0011 NOT_SAME_DEVICE; cross-dir MOVE deferred to
+ * beads initech-ycb3), so this primitive takes a single `dir_start`. Steps:
+ *   - parse_name83(old83) + parse_name83(new83); a malformed name ->
+ *     FAT12_ERR_NOT_FOUND (the source-not-found contract; a bad new name there
+ *     too, since rename allocates nothing);
+ *   - fat12_scan_dir for OLD: no match -> FAT12_ERR_NOT_FOUND; a match that is a
+ *     DIRECTORY or VOLUME-LABEL -> FAT12_ERR_ACCESS (DOS-faithful: our backend has
+ *     no '..' fixup path yet, so a directory/vol-label target is rejected -- Rule
+ *     2 fail loud, never silently re-type or orphan a '..');
+ *   - fat12_scan_dir for NEW: it MUST be ABSENT -> a present name is
+ *     FAT12_ERR_EXISTS (the load-bearing dest-exists reject -- a rename never
+ *     clobbers an existing entry);
+ *   - rewrite ONLY the matched entry's 11-byte name field (filename[0..7] +
+ *     extension[0..2]) from the new parse and write it back with the SAME
+ *     primitive WRITE uses (fat12_write_dirent_in_dir). start_cluster(0x1A) /
+ *     file_size(0x1C) / attribute(0x0B) / mtime(0x16) / mdate(0x18) are PRESERVED
+ *     VERBATIM and the FAT is NEVER touched (rename allocates/frees nothing;
+ *     Rule 11 -- the on-disk bytes outside the name field stay deterministic).
+ *
+ * `fat`/`fat_len` is the whole-FAT buffer (READ for the subdir cluster walk; NOT
+ * mutated -- rename touches no FAT entry); `sector_buf` (>= sectors_per_cluster
+ * *512) is scratch for both scans + the name-field RMW. Fail loud (Rule 2): NULL
+ * -> FAT12_ERR_NULL; no write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on
+ * success. Ref (Law 1): DOS 3.3 PRM AH=56h; spec/dos_structs.h (filename 0x00 /
+ * extension 0x08); the EMPIRICAL mtools name-field layout (mren-minted golden). */
+int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                 const char *old83, const char *new83, uint16_t dir_start,
+                 void *sector_buf);
+
 /* ======================================================================== *
  * FAT12 subdirectory CREATE / REMOVE -- WRITE side (beads initech-u6wa,
  * extended to a NON-ROOT parent in initech-m0bp)

@@ -640,6 +640,14 @@ TEST_FAT12_MKDIR_MUT_DOTDOT  := $(BUILD)/test_fat12_mkdir_mut_dotdot
 TEST_FAT12_MKDIR_MUT_NOEOC   := $(BUILD)/test_fat12_mkdir_mut_noeoc
 TEST_FAT12_MKDIR_MUT_NOEMPTY := $(BUILD)/test_fat12_mkdir_mut_noempty
 
+# The FAT12 RENAME differential oracle binary (host test; beads initech-gnrc --
+# SAME-directory dir-entry rename vs mren) + its three mutation builds (Rule 6:
+# one perturbed seam each): m1 no-dest-check, m2 touch-chain, m3 name-only8.
+TEST_FAT12_RENAME            := $(BUILD)/test_fat12_rename
+TEST_FAT12_RENAME_MUT_NODEST := $(BUILD)/test_fat12_rename_mut_nodest
+TEST_FAT12_RENAME_MUT_CHAIN  := $(BUILD)/test_fat12_rename_mut_chain
+TEST_FAT12_RENAME_MUT_NAME8  := $(BUILD)/test_fat12_rename_mut_name8
+
 # The FAT12 NESTED MKDIR/RMDIR differential oracle binary (host test; beads
 # initech-m0bp -- a NON-ROOT parent: MD/RD \SUB\NEWDIR) + its five mutation
 # builds (Rule 6: one perturbed seam each so a separate primitive's nested
@@ -679,6 +687,18 @@ FAT12_M0BP_GOLDEN_IMG := $(BUILD)/fat12_m0bp_golden.img
 # the dir mtime/serial vary (normalized away in the diff).
 FAT12_MKDIR_BLANK_IMG  := $(BUILD)/fat12_mkdir_blank.img
 FAT12_MKDIR_GOLDEN_IMG := $(BUILD)/fat12_mkdir_golden.img
+
+# The RENAME differential images (build intermediates, NOT committed; Rule 11;
+# beads initech-gnrc):
+#   RENAME_ART    -- a fresh mformat -f 1440 floppy with OLD.TXT (mcopy chain.txt,
+#                    a multi-cluster body); the ARTIFACT (fat12_rename) renames
+#                    OLD.TXT -> NEW.TXT in place.
+#   RENAME_GOLDEN -- a fresh mformat -f 1440 floppy with the SAME OLD.TXT body,
+#                    then `mren ::OLD.TXT ::NEW.TXT` (the independent golden).
+# Both use the SAME mformat flags + the SAME seed body so name/attr/start/size
+# match; only the dir mtime/serial vary (normalized away in the diff).
+FAT12_RENAME_ART_IMG    := $(BUILD)/fat12_rename_art.img
+FAT12_RENAME_GOLDEN_IMG := $(BUILD)/fat12_rename_golden.img
 
 # SUBDIR file WRITE oracle (beads initech-zs24): the test_fileio_subdir harness
 # (real int21+fileio_fat+fat12 backend) in --write mode drives CREATE/WRITE/
@@ -769,6 +789,19 @@ $(FAT12_MKDIR_BLANK_IMG): | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
 	@printf ">>> fat12: minted %s (blank floppy for the MKDIR artifact write; build intermediate)\n" "$@"
+
+# Mint the RENAME GOLDEN image (beads initech-gnrc): a fresh mformat -f 1440
+# floppy seeded with OLD.TXT (mcopy chain.txt -- a multi-cluster body) then
+# renamed OLD.TXT -> NEW.TXT by mtools `mren` -- the INDEPENDENT golden the
+# artifact's fat12_rename is diffed against (the EMPIRICAL name-field layout).
+# Build intermediate, NOT committed (Rule 11; meaningful bytes only, mtime/serial
+# normalized away).
+$(FAT12_RENAME_GOLDEN_IMG): $(FAT12_FIXTURE_DIR)/chain.txt | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@mren -i $@ ::OLD.TXT ::NEW.BAK
+	@printf ">>> fat12: minted %s (mren ::OLD.TXT ::NEW.BAK golden; build intermediate)\n" "$@"
 
 # Mint the NESTED MKDIR GOLDEN image (beads initech-m0bp): a fresh mformat -f
 # 1440 floppy with '\SUB' AND '\SUB\NEWDIR' BOTH minted by mtools `mmd` -- the
@@ -1113,6 +1146,75 @@ test-fat12-mkdir-mutant: $(TEST_FAT12_MKDIR_MUT_DOTDOT) $(TEST_FAT12_MKDIR_MUT_N
 		printf '!!! test-fat12-mkdir-mutant FAIL: no-empty-check mutant PASSED -- the RMDIR empty-check is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-fat12-mkdir-mutant: green (no-empty-check mutant correctly RED -- the empty-check bites)\n'; \
+	fi
+
+# Build the FAT12 RENAME differential oracle + its three mutants (beads
+# initech-gnrc): the test + the REAL artifact fat12.c + the host blockdev backend
+# (the test_fat12_mkdir.c include pattern). Each mutant defines ONE perturbed seam
+# (Rule 6) so a separate rename rule's oracle bites.
+$(TEST_FAT12_RENAME): $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_RENAME_MUT_NODEST): $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_RENAME_NO_DESTCHECK -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_RENAME_MUT_CHAIN): $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_RENAME_TOUCH_CHAIN -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_RENAME_MUT_NAME8): $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_RENAME_NAME_ONLY8 -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_rename.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# REAL gate: test-gnrc (beads initech-gnrc -- FAT12 SAME-directory RENAME vs mren).
+# The artifact's fat12_rename renames OLD.TXT -> NEW.TXT on a fresh image seeded
+# with OLD.TXT (a multi-cluster body); mtools `mren` mints the same on the golden;
+# the on-disk name/attr/start_cluster/size are diffed byte-for-byte (mtime/mdate
+# normalized), the chain/size are proven unchanged, and the FAT is proven
+# byte-untouched. The artifact image is RE-seeded each run (the test mutates it),
+# so the recipe mints it fresh rather than depending on a cached target.
+.PHONY: test-gnrc
+test-gnrc: $(TEST_FAT12_RENAME) $(FAT12_RENAME_GOLDEN_IMG)
+	@command -v mren >/dev/null 2>&1 || { printf '!!! test-gnrc FAIL: mtools `mren` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@printf ">>> test-gnrc: AH=56h RENAME write side vs mren golden (name-field byte-for-byte; chain/size/FAT untouched)\n"
+	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
+	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@$(TEST_FAT12_RENAME) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)"
+	@printf ">>> test-gnrc: green\n"
+
+# Mutation gate (Rule 6): three fat12_rename mutants -- (nodest) skip the dest-
+# absent scan so renaming onto an existing dest wrongly succeeds; (chain) zero the
+# start_cluster on the rewrite; (name8) copy only filename[0..7], leave the
+# extension stale. Each MUST turn the differential RED.
+.PHONY: test-gnrc-mutant
+test-gnrc-mutant: $(TEST_FAT12_RENAME_MUT_NODEST) $(TEST_FAT12_RENAME_MUT_CHAIN) $(TEST_FAT12_RENAME_MUT_NAME8) $(FAT12_RENAME_GOLDEN_IMG)
+	@printf ">>> test-gnrc-mutant: confirming all three RENAME mutants go RED (Rule 6)\n"
+	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
+	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@if $(TEST_FAT12_RENAME_MUT_NODEST) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-gnrc-mutant FAIL: no-dest-check mutant PASSED -- the dest-exists reject is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-gnrc-mutant: green (no-dest-check mutant correctly RED -- the dest-exists reject bites)\n'; \
+	fi
+	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
+	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@if $(TEST_FAT12_RENAME_MUT_CHAIN) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-gnrc-mutant FAIL: touch-chain mutant PASSED -- the start_cluster/size-unchanged assertion is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-gnrc-mutant: green (touch-chain mutant correctly RED -- rename is name-field-only)\n'; \
+	fi
+	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
+	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@if $(TEST_FAT12_RENAME_MUT_NAME8) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-gnrc-mutant FAIL: name-only8 mutant PASSED -- the extension is dropped from the name-field diff\n'; exit 1; \
+	else \
+		printf '>>> test-gnrc-mutant: green (name-only8 mutant correctly RED -- the extension rewrite bites)\n'; \
 	fi
 
 # Build the FAT12 NESTED MKDIR/RMDIR differential oracle + its five mutants
@@ -2156,6 +2258,55 @@ test-kji0-mutant: $(TEST_FILEIO_MUT_KJI0_NOGUARD) $(TEST_FILEIO_MUT_KJI0_INVERT)
 		printf '!!! test-kji0-mutant FAIL: NO_DISPATCH mutant PASSED -- the 0x5B dispatch wiring is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-kji0-mutant: green (NO_DISPATCH mutant correctly RED -- the 0x5B case bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# RENAME dispatch-level (do_rename) mutants (beads initech-gnrc; Rule 6). The
+# unit oracle lives in test_fileio.c (the AH=56h dispatch legs); THIS pair is the
+# do_rename mutation proof: int21.c compiled with one branch perturbed must drive
+# the AH=56h assertions RED.
+#   (a) NO_SAMEDIR_GUARD : drop the old_dir==new_dir guard -> a cross-DIRECTORY
+#                          EDX/EDI pair wrongly proceeds to the backend instead of
+#                          returning 0x0011 -> the not-same-device leg goes RED.
+#   (b) NOTFOUND_PATH    : map a backend source-not-found (0x0002) to 0x0003 ->
+#                          the source-missing register-contract AX assertion RED.
+#   (c) NO_DISPATCH      : do NOT dispatch 0x56 -> AH=56h returns 0x0001 and every
+#                          rename leg goes RED (the case 0x56 wiring bites).
+TEST_FILEIO_MUT_GNRC_NOSAMEDIR  := $(BUILD)/test_fileio_mutant_gnrc_nosamedir
+TEST_FILEIO_MUT_GNRC_NOTFOUND   := $(BUILD)/test_fileio_mutant_gnrc_notfound
+TEST_FILEIO_MUT_GNRC_NODISPATCH := $(BUILD)/test_fileio_mutant_gnrc_nodispatch
+
+$(TEST_FILEIO_MUT_GNRC_NOSAMEDIR): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_RENAME_NO_SAMEDIR_GUARD -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_FILEIO_MUT_GNRC_NOTFOUND): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_RENAME_NOTFOUND_PATH -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_FILEIO_MUT_GNRC_NODISPATCH): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_RENAME_NO_DISPATCH -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+.PHONY: test-gnrc-int21-mutant
+# Mutation-proof: ALL THREE do_rename dispatch mutants MUST fail the oracle (Rule 6).
+test-gnrc-int21-mutant: $(TEST_FILEIO_MUT_GNRC_NOSAMEDIR) $(TEST_FILEIO_MUT_GNRC_NOTFOUND) \
+                        $(TEST_FILEIO_MUT_GNRC_NODISPATCH)
+	@printf ">>> test-gnrc-int21-mutant: confirming all three do_rename mutants go RED (Rule 6; beads initech-gnrc)\n"
+	@if $(TEST_FILEIO_MUT_GNRC_NOSAMEDIR) >/dev/null 2>&1; then \
+		printf '!!! test-gnrc-int21-mutant FAIL: NO_SAMEDIR_GUARD mutant PASSED -- the cross-dir 0x0011 guard is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-gnrc-int21-mutant: green (NO_SAMEDIR_GUARD mutant correctly RED -- the cross-dir 0x0011 guard bites)\n'; \
+	fi
+	@if $(TEST_FILEIO_MUT_GNRC_NOTFOUND) >/dev/null 2>&1; then \
+		printf '!!! test-gnrc-int21-mutant FAIL: NOTFOUND_PATH mutant PASSED -- the source-missing 0x0002 contract is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-gnrc-int21-mutant: green (NOTFOUND_PATH mutant correctly RED -- the source-missing 0x0002 contract bites)\n'; \
+	fi
+	@if $(TEST_FILEIO_MUT_GNRC_NODISPATCH) >/dev/null 2>&1; then \
+		printf '!!! test-gnrc-int21-mutant FAIL: NO_DISPATCH mutant PASSED -- the case 0x56 wiring is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-gnrc-int21-mutant: green (NO_DISPATCH mutant correctly RED -- the case 0x56 dispatch bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -8006,7 +8157,7 @@ test-kernel-repro-mutant: | $(BUILD)
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
 	test-fat12-mkdir test-m0bp test-m0bp-rollback \
-	test-fat-subdir test-zs24 test-qekc test-b53d \
+	test-fat-subdir test-zs24 test-qekc test-b53d test-gnrc \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
@@ -8021,7 +8172,7 @@ TEST_UNIT_GATES := \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
-	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-zs24-mutant test-qekc-mutant test-b53d-mutant \
+	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-zs24-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-kernel-repro test-kernel-repro-mutant

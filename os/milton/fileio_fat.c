@@ -419,6 +419,41 @@ static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
     return 0u;
 }
 
+/* RENAME (AH=56h, SAME-directory dir-entry rename; beads initech-gnrc): rename
+ * the 8.3 file `old83` to `new83` within the directory `old_dir` (0 == root). The
+ * dispatcher already rejected the cross-directory case (old_dir != new_dir ->
+ * 0x0011 NOT_SAME_DEVICE) BEFORE this seam, so old_dir == new_dir holds; both are
+ * passed for symmetry (and a future cross-dir MOVE, beads initech-ycb3). The
+ * backend forwards old_dir to fat12_rename, which scans + name-field-rewrites down
+ * the parent's cluster chain (dir_start==0 keeps the root path byte-identical).
+ * fat12_rename maps:
+ *   FAT12_ERR_NOT_FOUND -> 0x0002 (source missing -- DOS RENAME not-found);
+ *   FAT12_ERR_EXISTS    -> 0x0005 (dest name already present -- access denied);
+ *   FAT12_ERR_ACCESS    -> 0x0005 (a directory/volume-label source);
+ *   FAT12_OK            -> 0;
+ *   any other error     -> 0x0005 (write error). */
+static uint16_t fat_rename(const char *old83, uint16_t old_dir,
+                           const char *new83, uint16_t new_dir)
+{
+    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+        return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
+    }
+    /* old_dir == new_dir is guaranteed by the dispatcher (cross-dir -> 0x0011);
+     * the cross-dir MOVE that would use new_dir is deferred (beads initech-ycb3). */
+    (void)new_dir;
+    int rc = fat12_rename(g_vol, g_fat, g_fat_len, old83, new83, old_dir,
+                          g_sector);
+    if (rc == FAT12_OK) {
+        return 0u;
+    }
+    if (rc == FAT12_ERR_NOT_FOUND) {
+        return FILEIO_ERR_FILE_NOT_FOUND;   /* 0x0002 source missing */
+    }
+    /* EXISTS (dest present), ACCESS (dir/vol-label source), or a write error all
+     * map to DOS access-denied for RENAME (0x0005). */
+    return FILEIO_ERR_ACCESS_DENIED;
+}
+
 /* MKDIR (AH=39h CREATE DIRECTORY): create the new subdirectory `name83` in the
  * directory `dir_start_cluster` (0 == root). A NON-ROOT parent is now supported
  * (beads initech-m0bp): fat12_mkdir scans + write-backs down the parent's
@@ -846,7 +881,8 @@ static const int21_file_backend_t g_fat_backend = {
     fat_mkdir,          /* AH=39h MKDIR (beads initech-u6wa)  */
     fat_rmdir,          /* AH=3Ah RMDIR (beads initech-u6wa)  */
     fat_set_time,       /* AH=57h SET FILE DATE/TIME (beads initech-qekc) */
-    fat_chmod           /* AH=43h CHMOD GET/SET ATTRIBUTES (beads initech-b53d) */
+    fat_chmod,          /* AH=43h CHMOD GET/SET ATTRIBUTES (beads initech-b53d) */
+    fat_rename          /* AH=56h RENAME same-directory dir-entry (beads initech-gnrc) */
 };
 
 /* ------------------------------------------------------------------------ *

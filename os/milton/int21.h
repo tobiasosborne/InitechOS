@@ -41,6 +41,7 @@
 #define INT21_ERR_INVALID_MEMORY    0x0009u  /* bad user buffer ptr: NULL / 32-bit wrap (ADR-0003 DEC-14) */
 #define INT21_ERR_BAD_FORMAT        0x000Bu  /* EXEC: bad/oversized program image */
 #define INT21_ERR_CURRENT_DIR       0x0010u  /* RMDIR: target is the current dir (DOS "attempt to remove current directory") */
+#define INT21_ERR_NOT_SAME_DEVICE   0x0011u  /* RENAME: cross-directory pair (old_dir != new_dir); cross-dir MOVE deferred (beads initech-ycb3) */
 #define INT21_ERR_NO_MORE_FILES     0x0012u  /* FINDFIRST/NEXT: no (more) match */
 #define INT21_ERR_FILE_EXISTS       0x0050u  /* CREATNEW (5Bh): target already exists (DOS ERROR_FILE_EXISTS) */
 
@@ -398,6 +399,28 @@ typedef struct int21_file_backend {
      * no-op). Ref: DOS 3.3 PRM AH=43h; spec/dos_structs.h (attribute 0x0B). */
     uint16_t (*chmod)(const char *name83, uint16_t dir_start_cluster,
                       int set, uint8_t *io_attr);
+
+    /* RENAME (beads initech-gnrc; AH=56h RENAME, SAME-directory dir-entry rename):
+     * rename the 8.3 file `old83` in the directory whose first data cluster is
+     * `old_dir` (0 == the fixed root) to `new83` in the directory `new_dir`. The
+     * dispatcher resolves BOTH paths (EDX old, EDI new) to their containing
+     * directories + bare leaves through the resolve seam and forwards the pair;
+     * the cross-directory case (old_dir != new_dir) is rejected by the DISPATCHER
+     * (0x0011 NOT_SAME_DEVICE) BEFORE this seam is consulted, so a backend MAY
+     * assume old_dir == new_dir, but it is passed both for symmetry + a future
+     * cross-dir MOVE (beads initech-ycb3). The backend scans the source in
+     * `old_dir`; rejects a missing source (0x0002), a directory/volume-label
+     * source (0x0005 -- our backend has no '..' fixup path yet), or a dest name
+     * already present in `new_dir` (0x0005, the load-bearing reject); then
+     * rewrites ONLY the matched entry's 11-byte name field (filename[0..7] +
+     * extension[0..2]) in place -- start_cluster/file_size/attribute/mtime/mdate
+     * and the FAT are left UNTOUCHED (rename allocates/frees nothing; Rule 11).
+     * Returns 0 on success or a DOS error (0x0002 not found / 0x0005 dest-exists,
+     * dir/vol-label source, or write error). May be NULL on a read-only backend
+     * (the host read oracle binds NULL -> RENAME returns access-denied). Ref: DOS
+     * 3.3 PRM AH=56h; spec/dos_structs.h (filename 0x00 / extension 0x08). */
+    uint16_t (*rename)(const char *old83, uint16_t old_dir,
+                       const char *new83, uint16_t new_dir);
 } int21_file_backend_t;
 
 /* Bind the file backend (NULL clears it -> the file functions return

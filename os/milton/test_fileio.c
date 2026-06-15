@@ -420,6 +420,44 @@ static uint16_t mock_unlink(const char *name83, uint16_t dir_start_cluster)
     return 0u;
 }
 
+/* RENAME (beads initech-gnrc; AH=56h SAME-directory dir-entry rename): the
+ * dispatcher rejects the cross-dir pair (0x0011) BEFORE this seam, so old_dir ==
+ * new_dir holds. Find OLD in the directory (0x0002 if missing); reject a
+ * directory/volume-label source (0x0005); reject a NEW name already present in
+ * the directory (0x0005, the load-bearing dest-exists reject); else rewrite the
+ * matched mock entry's name8/ext3 IN PLACE (so a later lookup sees the new name
+ * and the old one is gone) -- start/size/attr/dir UNTOUCHED (Rule 11). The names
+ * are parsed into static 8.3-padded buffers (the model holds `const char *`). */
+static char g_rename_name8[9] = "        ";
+static char g_rename_ext3[4]  = "   ";
+static uint16_t mock_rename(const char *old83, uint16_t old_dir,
+                            const char *new83, uint16_t new_dir)
+{
+    (void)new_dir;   /* dispatcher guarantees old_dir == new_dir (0x0011 else) */
+    int oidx = mock_find_in_dir(old83, old_dir);
+    if (oidx < 0) return 0x0002u;                       /* source not found */
+    if ((g_mock[oidx].attr & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0)
+        return 0x0005u;                                  /* dir/vol-label source */
+    if (mock_find_in_dir(new83, old_dir) >= 0)
+        return 0x0005u;                                  /* dest already present */
+
+    /* Parse new83 ("NAME.EXT") into 8.3-padded fields. */
+    for (int i = 0; i < 8; i++) g_rename_name8[i] = ' ';
+    for (int i = 0; i < 3; i++) g_rename_ext3[i]  = ' ';
+    g_rename_name8[8] = '\0'; g_rename_ext3[3] = '\0';
+    int field = 0, pos = 0;
+    for (const char *p = new83; *p; p++) {
+        char c = *p;
+        if (c == '.') { field = 1; pos = 0; continue; }
+        if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        if (field == 0 && pos < 8) g_rename_name8[pos++] = c;
+        else if (field == 1 && pos < 3) g_rename_ext3[pos++] = c;
+    }
+    g_mock[oidx].name8 = g_rename_name8;
+    g_mock[oidx].ext3  = g_rename_ext3;
+    return 0u;
+}
+
 static uint16_t mock_dir_entry(uint32_t index, uint16_t dir_start_cluster,
                                dir_entry_t *out_entry, int *out_found)
 {
@@ -679,7 +717,8 @@ static const int21_file_backend_t g_mock_backend = {
     mock_mkdir,       /* AH=39h MKDIR (beads initech-u6wa) */
     mock_rmdir,       /* AH=3Ah RMDIR (beads initech-u6wa) */
     mock_set_time,    /* AH=57h SET FILE DATE/TIME (beads initech-qekc) */
-    mock_chmod        /* AH=43h CHMOD GET/SET ATTRIBUTES (beads initech-b53d) */
+    mock_chmod,       /* AH=43h CHMOD GET/SET ATTRIBUTES (beads initech-b53d) */
+    mock_rename       /* AH=56h RENAME same-directory dir-entry (beads initech-gnrc) */
 };
 
 int main(void)
@@ -1370,7 +1409,8 @@ int main(void)
                 NULL, NULL, NULL, NULL, NULL,
                 mock_resolve, mock_resolve_dir, NULL, NULL,
                 NULL, /* set_time: read-only (beads initech-qekc) */
-                NULL /* chmod: read-only (beads initech-b53d) */ };
+                NULL, /* chmod: read-only (beads initech-b53d) */
+                NULL /* rename: read-only (beads initech-gnrc) */ };
             mock_reset_dir();
             bind_standard_process();
             int21_set_file_backend(&ro2);
@@ -1621,7 +1661,8 @@ int main(void)
                                                   mock_resolve, mock_resolve_dir,
                                                   NULL, NULL, /* mkdir/rmdir: read-only */
                                                   NULL, /* set_time: read-only (qekc) */
-                                                  NULL /* chmod: read-only (b53d) */ };
+                                                  NULL, /* chmod: read-only (b53d) */
+                                                  NULL /* rename: read-only (gnrc) */ };
         mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&ro);
@@ -1670,6 +1711,96 @@ int main(void)
         CHECK(frame_cf(&u3) == 1 &&
               (uint16_t)(u3.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
               "UNLINK subdir path AX=0x0003");
+    }
+
+    /* --- AH=56h RENAME: same-directory dir-entry rename (beads initech-gnrc) - *
+     * The host register-contract oracle drives EVERY leg of do_rename through the
+     * dispatcher (EDX = old flat ptr, EDI = NEW flat ptr -- the FIRST handler with
+     * a second flat pointer):
+     *   (a) same-dir success -> CF=0, the new name resolves + the old is gone;
+     *   (b) source missing    -> CF=1, AX=0x0002;
+     *   (c) dest already present -> CF=1, AX=0x0005 (the load-bearing reject);
+     *   (d) a DIRECTORY source -> CF=1, AX=0x0005 (no '..' fixup path);
+     *   (e) cross-DIRECTORY pair (old in root, new in '\SUB') -> CF=1, AX=0x0011
+     *       (NOT_SAME_DEVICE; cross-dir MOVE deferred to beads initech-ycb3);
+     *   (f) NULL/empty EDI -> CF=1, AX=0x0002;
+     *   (g) read-only backend (rename==NULL) -> CF=1, AX=0x0005. */
+    {
+        mock_reset_dir();
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+
+        /* (a) same-dir success: HELLO.TXT -> RENAMED.TXT in the root. */
+        int_frame_t r = fresh_frame();
+        r.eax = 0x5600u; r.edx = low_dup("HELLO.TXT"); r.edi = low_dup("RENAMED.TXT");
+        r.eflags |= CF_BIT;
+        int21_dispatch(&r);
+        CHECK(frame_cf(&r) == 0, "RENAME same-dir clears CF");
+        CHECK(mock_find_in_dir("RENAMED.TXT", 0u) >= 0,
+              "after RENAME, the NEW name resolves in the root");
+        CHECK(mock_find_in_dir("HELLO.TXT", 0u) < 0,
+              "after RENAME, the OLD name is gone from the root");
+
+        /* (b) source missing -> 0x0002. */
+        int_frame_t rb = fresh_frame();
+        rb.eax = 0x5600u; rb.edx = low_dup("GONE.XYZ"); rb.edi = low_dup("NEW.TXT");
+        int21_dispatch(&rb);
+        CHECK(frame_cf(&rb) == 1 &&
+              (uint16_t)(rb.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
+              "RENAME missing source -> CF=1, AX=0x0002");
+
+        /* (c) dest already present (README exists) -> 0x0005. */
+        int_frame_t rc2 = fresh_frame();
+        rc2.eax = 0x5600u; rc2.edx = low_dup("RENAMED.TXT"); rc2.edi = low_dup("README");
+        int21_dispatch(&rc2);
+        CHECK(frame_cf(&rc2) == 1 &&
+              (uint16_t)(rc2.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "RENAME onto an existing dest -> CF=1, AX=0x0005 (dest-exists reject)");
+
+        /* (d) a DIRECTORY source (SUB) -> 0x0005 (no '..' fixup path yet). */
+        int_frame_t rd = fresh_frame();
+        rd.eax = 0x5600u; rd.edx = low_dup("SUB"); rd.edi = low_dup("SUB2");
+        int21_dispatch(&rd);
+        CHECK(frame_cf(&rd) == 1 &&
+              (uint16_t)(rd.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "RENAME of a DIRECTORY source -> CF=1, AX=0x0005");
+
+        /* (e) cross-DIRECTORY pair: old in the root, new in '\SUB' -> 0x0011. The
+         * NO_SAMEDIR_GUARD mutant drops the guard so this wrongly proceeds to the
+         * backend (which then renames or rejects) -> this assertion RED. */
+        int_frame_t re = fresh_frame();
+        re.eax = 0x5600u; re.edx = low_dup("RENAMED.TXT"); re.edi = low_dup("\\SUB\\MOVED.TXT");
+        int21_dispatch(&re);
+        CHECK(frame_cf(&re) == 1 &&
+              (uint16_t)(re.eax & 0xFFFFu) == INT21_ERR_NOT_SAME_DEVICE,
+              "RENAME cross-directory pair -> CF=1, AX=0x0011 (NOT_SAME_DEVICE)");
+
+        /* (f) NULL/empty EDI -> 0x0002. */
+        int_frame_t rf = fresh_frame();
+        rf.eax = 0x5600u; rf.edx = low_dup("RENAMED.TXT"); rf.edi = 0u;
+        int21_dispatch(&rf);
+        CHECK(frame_cf(&rf) == 1 &&
+              (uint16_t)(rf.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
+              "RENAME with NULL EDI (new path) -> CF=1, AX=0x0002");
+
+        /* (g) read-only backend (rename==NULL) -> 0x0005. */
+        {
+            static const int21_file_backend_t roren = {
+                mock_open, mock_read_at, mock_dir_entry,
+                NULL, NULL, NULL, NULL, NULL,
+                mock_resolve, mock_resolve_dir, NULL, NULL, NULL, NULL,
+                NULL /* rename: read-only -> AH=56h access-denied (gnrc) */ };
+            mock_reset_dir();
+            bind_standard_process();
+            int21_set_file_backend(&roren);
+            int_frame_t rg = fresh_frame();
+            rg.eax = 0x5600u; rg.edx = low_dup("HELLO.TXT"); rg.edi = low_dup("X.TXT");
+            int21_dispatch(&rg);
+            CHECK(frame_cf(&rg) == 1 &&
+                  (uint16_t)(rg.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+                  "RENAME with no rename backend -> CF=1, AX=0x0005");
+            int21_set_file_backend(&g_mock_backend);
+        }
     }
 
     /* --- AH=57h GET/SET FILE DATE+TIME by handle (beads initech-qekc) ------ *
@@ -1790,7 +1921,8 @@ int main(void)
                 NULL, NULL, NULL, NULL, NULL,
                 mock_resolve, mock_resolve_dir, NULL, NULL,
                 NULL, /* set_time: read-only -> AH=57h SET access-denied */
-                NULL /* chmod: read-only -> AH=43h SET access-denied (b53d) */ };
+                NULL, /* chmod: read-only -> AH=43h SET access-denied (b53d) */
+                NULL /* rename: read-only -> AH=56h access-denied (gnrc) */ };
             mock_reset_dir();
             bind_standard_process();
             int21_set_file_backend(&roqekc);
@@ -1963,7 +2095,8 @@ int main(void)
                 mock_open, mock_read_at, mock_dir_entry,
                 NULL, NULL, NULL, NULL, NULL,
                 mock_resolve, mock_resolve_dir, NULL, NULL, NULL,
-                NULL /* chmod: read-only -> AH=43h GET/SET access-denied */ };
+                NULL, /* chmod: read-only -> AH=43h GET/SET access-denied */
+                NULL /* rename: read-only -> AH=56h access-denied (gnrc) */ };
             mock_reset_dir();
             bind_standard_process();
             int21_set_file_backend(&roattr);
