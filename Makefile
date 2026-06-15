@@ -2454,6 +2454,9 @@ TEST_CONIN_SRC  := $(MILTON_DIR)/test_conin.c
 TEST_CONIN_MUT_NOECHO := $(BUILD)/test_conin_mutant_noecho
 TEST_CONIN_MUT_COUNT  := $(BUILD)/test_conin_mutant_count
 TEST_CONIN_MUT_WRAP   := $(BUILD)/test_conin_mutant_crwrap
+# x8fs (AH=3Fh on CON, cooked line read) mutant: the handle-0 read reverts to the
+# old EOF return (0 bytes) -> the new cooked-read cases go RED (Rule 6).
+TEST_CONIN_MUT_NOCOOKED := $(BUILD)/test_conin_mutant_nocooked
 # test_conin.c drives only the CON-input path, but int21.c (one TU) references
 # the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
@@ -2475,6 +2478,10 @@ $(TEST_CONIN_MUT_COUNT): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS)
 
 $(TEST_CONIN_MUT_WRAP): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BUFINPUT_CR_WRAP -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
+
+$(TEST_CONIN_MUT_NOCOOKED): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CONHANDLE_NOCOOKED -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
 
 .PHONY: test-conin-unit test-conin-mutant
@@ -2502,6 +2509,28 @@ test-conin-mutant: $(TEST_CONIN_MUT_NOECHO) $(TEST_CONIN_MUT_COUNT) $(TEST_CONIN
 		exit 1; \
 	else \
 		printf '>>> test-conin-mutant: green (0Ah-CR-wrap mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# --- AH=3Fh on CON cooked line-read oracle (beads initech-x8fs) -------------
+# The test_conin oracle now also exercises AH=3Fh on handle 0 (CON read device):
+# a handle-based read must deliver COOKED line input (line + CR + LF, count
+# inclusive) so redirected/handle-driven programs read the keyboard. test-x8fs
+# runs the SAME test_conin binary (the cooked-read cases live there); test-x8fs-
+# mutant proves them by reverting AH=3Fh-on-CON to the old EOF (0-byte) return.
+# Ground truth: Microsoft KB Q113058 (AH=3Fh keyboard read -> "abc\r\n", AX=5).
+.PHONY: test-x8fs test-x8fs-mutant
+test-x8fs: $(TEST_CONIN)
+	@printf ">>> test-x8fs: AH=3Fh on CON (handle 0) cooked line-read (line+CR+LF, inclusive count)\n"
+	@$(TEST_CONIN)
+	@printf ">>> test-x8fs: green\n"
+
+test-x8fs-mutant: $(TEST_CONIN_MUT_NOCOOKED)
+	@printf ">>> test-x8fs-mutant: confirming the no-cooked mutant goes RED (Rule 6)\n"
+	@if $(TEST_CONIN_MUT_NOCOOKED) >/dev/null 2>&1; then \
+		printf '!!! test-x8fs-mutant FAIL: no-cooked mutant PASSED -- the AH=3Fh CON-read oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-x8fs-mutant: green (no-cooked mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 .PHONY: test-int21 test-int21-mutant test-conin-unit
@@ -9161,7 +9190,7 @@ TEST_UNIT_GATES := \
 	test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
-	test-80k test-80k-mutant \
+	test-80k test-80k-mutant test-x8fs test-x8fs-mutant \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
 	test-mcb test-mcb-int21 \

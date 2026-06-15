@@ -22,6 +22,9 @@
  *   -DINT21_MUTATE_CONIN_NO_ECHO     : 01h drops the echo -> the 01h echo test goes RED.
  *   -DINT21_MUTATE_BUFINPUT_COUNT_CR : 0Ah counts the CR in buf[1] -> the 0Ah
  *                                      count test goes RED.
+ *   -DINT21_MUTATE_CONHANDLE_NOCOOKED: AH=3Fh on a CON handle reverts to the old
+ *                                      EOF return (0 bytes) -> the x8fs handle-0
+ *                                      cooked-read cases go RED (beads initech-x8fs).
  */
 
 #include <stdint.h>
@@ -32,9 +35,31 @@
 #include <sys/mman.h>
 
 #include "int21.h"
+#include "sft.h"
+#include "psp.h"
 #include "test_assert.h"
 
 TEST_HARNESS();
+
+/* AH=3Fh on a CON handle resolves EBX through the current process's JFT into the
+ * system SFT (do_read -> sft_from_handle), so the handle-0 cooked-read cases
+ * (beads initech-x8fs) need a bound process: psp_build lays jft[0..4] onto the
+ * device SFT slots (jft[0] -> SFT_SLOT_CON_IN, a CON read device) and sft_init
+ * lays the device entries. Mirrors test_int21.c's bind_standard_process(). */
+static psp_t g_x8fs_psp;
+
+static void bind_standard_process(void)
+{
+    psp_params_t params;
+    params.alloc_end_linear  = 0x00070000u;
+    params.env_linear        = 0u;
+    params.parent_psp_linear = 0u;
+    params.cmd_tail          = (const char *)0;
+    params.cmd_tail_len      = 0u;
+    (void)psp_build(&g_x8fs_psp, &params);
+    sft_init();
+    int21_set_psp(&g_x8fs_psp);
+}
 
 /* AH=0Ah reads EDX as a FLAT 32-bit linear address (uint32_t). On a 64-bit host
  * a stack buffer does NOT fit in uint32_t, so the 0Ah buffer must live in the
@@ -134,6 +159,8 @@ int main(void)
 {
     int21_set_sink(sink_capture);
     int21_set_conin(mock_get, mock_poll);
+    /* Bind a process so AH=3Fh on handle 0 resolves to the CON read device. */
+    bind_standard_process();
 
     /* --- AH=01h CHAR INPUT WITH ECHO: queue 'A' -> AL='A', echo 'A'. ----- */
     {
@@ -393,6 +420,83 @@ int main(void)
         CHECK(frame_zf(&f) == 1,
               "AH=0Ch->06h: flush drained the stale input, chained poll reports ZF=1");
         CHECK((uint8_t)(f.eax & 0xFFu) == 0u, "AH=0Ch->06h: no char -> AL=0");
+    }
+
+    /* === AH=3Fh on CON (handle 0): COOKED line read (beads initech-x8fs) ====
+     * Real DOS reads a character device handle in COOKED mode through the same
+     * line editor as AH=0Ah, but the handle-read CONTRACT differs: the data
+     * returned is the line FOLLOWED BY CR (0x0D) AND LF (0x0A), and the byte
+     * count in EAX INCLUDES both the CR and the LF. (AH=0Ah, by contrast, stores
+     * only the CR and excludes it from buf[1].) Concretely: type "abc"+Enter with
+     * a large count -> buffer "abc\r\n", EAX = 5.
+     * Ground truth: Microsoft KB Q113058 "Using Interrupt 21h, Function 3Fh to
+     * Read the Keyboard" -- buffer receives "abc\r\n" (5 bytes) and AX returns 5;
+     * the line is terminated by CR and the CR/LF are returned to the caller as
+     * data. Echo + BACKSPACE mirror the cooked AH=0Ah editor. */
+
+    /* --- AH=3Fh handle 0: simple line "abc" + CR -> "abc\r\n", EAX=5. ------- */
+    {
+        sink_reset();
+        uint8_t *buf = alloc_low_buf(32);
+        memset(buf, 0xCC, 32);
+        queue_set("abc\r", 4);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3F00u;
+        f.ebx = 0u;                          /* handle 0 = stdin (CON read) */
+        f.ecx = 16u;                         /* plenty of room */
+        f.edx = (uint32_t)(uintptr_t)buf;
+        f.eflags |= CF_BIT;
+        int21_dispatch(&f);
+        CHECK((f.eax & 0xFFFFu) == 5u,
+              "AH=3Fh CON: EAX = 5 (3 chars + CR + LF, inclusive count)");
+        CHECK(buf[0] == 'a' && buf[1] == 'b' && buf[2] == 'c',
+              "AH=3Fh CON: line chars at buf[0..2]");
+        CHECK(buf[3] == 0x0Du, "AH=3Fh CON: CR (0x0D) stored after the chars");
+        CHECK(buf[4] == 0x0Au, "AH=3Fh CON: LF (0x0A) stored after the CR");
+        CHECK(buf[5] == 0xCCu, "AH=3Fh CON: no write past the LF (Rule 2)");
+        CHECK_STR_EQ(sink_str(), "abc\r\n",
+                     "AH=3Fh CON: echoes the line + CRLF (cooked)");
+        CHECK(frame_cf(&f) == 0, "AH=3Fh CON: clears CF on success");
+    }
+
+    /* --- AH=3Fh handle 0: BACKSPACE edit -- "du\bir\r" -> "dir\r\n", EAX=5. -- */
+    {
+        sink_reset();
+        uint8_t *buf = alloc_low_buf(32);
+        memset(buf, 0xCC, 32);
+        queue_set("du\bir\r", 6);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3F00u;
+        f.ebx = 0u;
+        f.ecx = 16u;
+        f.edx = (uint32_t)(uintptr_t)buf;
+        int21_dispatch(&f);
+        CHECK((f.eax & 0xFFFFu) == 5u, "AH=3Fh CON BACKSPACE: EAX = 5 ('dir'+CR+LF)");
+        CHECK(buf[0] == 'd' && buf[1] == 'i' && buf[2] == 'r',
+              "AH=3Fh CON BACKSPACE: buffer = 'dir'");
+        CHECK(buf[3] == 0x0Du && buf[4] == 0x0Au,
+              "AH=3Fh CON BACKSPACE: CR+LF after 'dir'");
+        CHECK_STR_EQ(sink_str(), "du\b \bir\r\n",
+                     "AH=3Fh CON BACKSPACE: echoes the visual erase '\\b \\b'");
+    }
+
+    /* --- AH=3Fh handle 0: empty line (just Enter) -> "\r\n", EAX=2. -------- */
+    {
+        sink_reset();
+        uint8_t *buf = alloc_low_buf(32);
+        memset(buf, 0xCC, 32);
+        queue_set("\r", 1);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3F00u;
+        f.ebx = 0u;
+        f.ecx = 16u;
+        f.edx = (uint32_t)(uintptr_t)buf;
+        int21_dispatch(&f);
+        CHECK((f.eax & 0xFFFFu) == 2u, "AH=3Fh CON empty line: EAX = 2 (CR + LF only)");
+        CHECK(buf[0] == 0x0Du && buf[1] == 0x0Au,
+              "AH=3Fh CON empty line: buffer = CR,LF");
+        CHECK(buf[2] == 0xCCu, "AH=3Fh CON empty line: no write past the LF");
+        CHECK_STR_EQ(sink_str(), "\r\n", "AH=3Fh CON empty line: echoes CRLF");
     }
 
     /* --- NULL source: a blocking read returns 0 (EOF), never hangs/faults. */

@@ -618,71 +618,47 @@ static void do_input_status(int_frame_t *f)
     cf_clear(f);
 }
 
-/* AH=0Ah BUFFERED INPUT: EDX -> a buffer where byte0 (caller-set) is the maximum
- * length INCLUDING the terminating CR, byte1 is the count WE write (chars read,
- * NOT counting the CR), and byte2.. are the chars, terminated by a CR (0x0D)
- * which IS stored but NOT counted. We loop blocking-reads, echoing each char;
- * BACKSPACE (0x08) erases the last buffered char (emit "\b \b") or is ignored
- * when empty; CR (0x0D) stops the loop (stored + echoed, then a LF). When the
- * buffer is full (count == max-1, leaving room only for the CR) further non-CR
- * chars are ignored (we emit a BEL, do NOT overflow -- Rule 2).
- * Ref: DOS 3.3 PRM AH=0Ah. */
-static void do_buffered_input(int_frame_t *f)
+/* SHARED COOKED LINE EDITOR. Reads one line of cooked CON input into `out`
+ * (capacity `cap` CHARS -- the line text only, NOT the terminating CR/LF),
+ * echoing each char as DOS does: ordinary chars echo; BACKSPACE (0x08) erases
+ * the last buffered char visually ("\b \b") or is ignored when empty; CR (0x0D)
+ * terminates the line. On termination the CR+LF pair is echoed (the DOS Enter
+ * convention) and the stored char count is returned. Once `out` is full
+ * (count == cap) a further non-CR char is dropped with a BEL -- the line is NOT
+ * overflowed (Rule 2). A stray LF is an ordinary stored char: the kbd decodes
+ * Enter to CR directly, so CR is the ONLY terminator (initech-62m, Rule 3).
+ *
+ * This is the editor BOTH AH=0Ah (do_buffered_input) and AH=3Fh-on-CON
+ * (do_read's CON device leg) drive -- they differ only in how they LAY OUT the
+ * returned line (the buf[0]/buf[1]/CR format vs. line+CR+LF inclusive), not in
+ * the editing. Factoring it here keeps the two callers in lockstep and shrinks
+ * the later Ctrl-C surface (beads initech-4tw hooks the read inside here).
+ * Ref: DOS 3.3 PRM AH=0Ah; Microsoft KB Q113058 (AH=3Fh CON read);
+ * os/milton/kbd.c SC1_NORMAL[0x1C] == '\r'. */
+static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap)
 {
-    uint8_t *buf = (uint8_t *)(uintptr_t)f->edx;
-    if (buf == 0) {
-        cf_clear(f);            /* nothing we can do; fail safe (no fault) */
-        return;
+    uint8_t count = 0;          /* chars stored so far (excl. CR/LF) */
+
+    /* Rule 2 (host-safe, NEVER hang): with no CON input source bound and no
+     * pending pushback, a cooked read yields an empty line (EOF) instead of
+     * spinning forever on conin_get()'s no-source 0 sentinel (which is neither
+     * CR nor BACKSPACE, so the loop below would store it / BEL endlessly). The
+     * kernel binds the keyboard at SYSINIT before any program runs, so this
+     * guard is never taken on a real boot; it only protects host oracles that
+     * link int21.c without a conin source (e.g. test_fileio reaching a CON read
+     * via a mutated CREATNEW path -- initech-x8fs integration). */
+    if (!g_conin_get && g_conin_pushback < 0) {
+        return 0;
     }
 
-    uint8_t max = buf[0];       /* max length incl. the CR (caller-set) */
-    uint8_t count = 0;          /* chars stored so far (excl. CR) */
-
-    /* A max of 0 is degenerate (no room even for the CR); store nothing. Real
-     * DOS still reads until CR but cannot store; we mirror "no room" by reading
-     * to the CR and storing none. max==1 leaves room only for the CR. */
     for (;;) {
         int ci = conin_get_pb();
         uint8_t c = (uint8_t)ci;
 
-        /* Line terminator: the DOS Enter key is CR (0x0D). The PS/2 driver
-         * (kbd.c) decodes the Enter scancode (0x1C) to CR (0x0D) directly -- the
-         * DOS/BIOS INT 16h convention -- so the ONLY terminator here is CR. The
-         * former "also accept LF and normalize to CR" path was a bandaid for the
-         * kbd emitting LF; it is retired now that the root cause is fixed
-         * (initech-62m, Rule 3). A stray LF is just an ordinary stored char.
-         * Ref: DOS 3.3 PRM AH=0Ah; os/milton/kbd.c SC1_NORMAL[0x1C] == '\r'. */
         if (c == 0x0Du) {                       /* CR: terminate the line */
-            /* Store the CR if there is room (real DOS always stores it at
-             * buf[2+count]); the CR is NOT counted in buf[1]. */
-            /* Room for the CR? `count` is already capped at max-1 by the
-             * ordinary-char path, so this holds for any max>=1. The previous
-             * (uint8_t)(2u+count) < (uint8_t)(2u+max) form WRAPPED when max>=254
-             * (2u+max overflows uint8_t) and wrongly dropped the terminator on a
-             * full-size buffer -- buf[0]=255 is a legal caller request. */
-#ifdef INT21_MUTATE_BUFINPUT_CR_WRAP
-            /* MUTANT (Rule 6; make test-conin-mutant only): restore the old
-             * uint8_t-wrapping guard so a max=255 buffer drops its CR -- the
-             * full-size-buffer oracle must go RED. NEVER define in a real build. */
-            if ((uint8_t)(2u + count) < (uint8_t)(2u + max)) {
-#else
-            if (count < max) {
-#endif
-                buf[2u + count] = 0x0Du;
-            }
-#ifdef INT21_MUTATE_BUFINPUT_COUNT_CR
-            /* MUTANT (Rule 6; make test-conin-mutant only): count the CR in the
-             * length byte (count+1 instead of count), so the 0Ah oracle -- which
-             * asserts buf[1] == chars read NOT counting the CR -- goes RED.
-             * NEVER define in a real build. */
-            buf[1] = (uint8_t)(count + 1u);
-#else
-            buf[1] = count;
-#endif
             con_putc('\r');                     /* echo CR + LF (DOS convention) */
             con_putc('\n');
-            cf_clear(f);
-            return;
+            return count;
         }
 
         if (c == 0x08u) {                       /* BACKSPACE: erase one */
@@ -696,9 +672,9 @@ static void do_buffered_input(int_frame_t *f)
             continue;
         }
 
-        /* Ordinary char. Room for it only if count < max-1 (reserve 1 for CR). */
-        if (max >= 1u && count < (uint8_t)(max - 1u)) {
-            buf[2u + count] = c;
+        /* Ordinary char. Room for it only if count < cap. */
+        if (count < cap) {
+            out[count] = c;
             count++;
             con_putc((char)c);                  /* echo */
         } else {
@@ -707,6 +683,55 @@ static void do_buffered_input(int_frame_t *f)
             con_putc('\a');
         }
     }
+}
+
+/* AH=0Ah BUFFERED INPUT: EDX -> a buffer where byte0 (caller-set) is the maximum
+ * length INCLUDING the terminating CR, byte1 is the count WE write (chars read,
+ * NOT counting the CR), and byte2.. are the chars, terminated by a CR (0x0D)
+ * which IS stored but NOT counted. The cooked editing (echo, BACKSPACE, CR
+ * terminate, BEL-on-full) is the shared conin_cooked_line editor; this routine
+ * only applies the 0Ah LAYOUT: chars at buf[2..], length at buf[1], CR after the
+ * chars. The char capacity is max-1 (reserve one slot for the CR).
+ * Ref: DOS 3.3 PRM AH=0Ah. */
+static void do_buffered_input(int_frame_t *f)
+{
+    uint8_t *buf = (uint8_t *)(uintptr_t)f->edx;
+    if (buf == 0) {
+        cf_clear(f);            /* nothing we can do; fail safe (no fault) */
+        return;
+    }
+
+    uint8_t max = buf[0];       /* max length incl. the CR (caller-set) */
+    /* Char capacity = max-1 (reserve a slot for the CR); a max of 0 or 1 leaves
+     * no room for any char (max==1 -> room only for the CR; max==0 is degenerate
+     * -- the editor still reads to the CR but stores nothing). */
+    uint8_t cap = (max >= 1u) ? (uint8_t)(max - 1u) : 0u;
+    uint8_t count = conin_cooked_line(&buf[2], cap);
+
+    /* Store the CR after the chars if there is room (real DOS always stores it at
+     * buf[2+count]); the CR is NOT counted in buf[1]. `count` is capped at max-1
+     * by the editor's capacity, so `count < max` holds for any max>=1. The old
+     * (uint8_t)(2u+count) < (uint8_t)(2u+max) form WRAPPED when max>=254 and
+     * wrongly dropped the terminator on a full-size (buf[0]=255) buffer. */
+#ifdef INT21_MUTATE_BUFINPUT_CR_WRAP
+    /* MUTANT (Rule 6; make test-conin-mutant only): restore the old
+     * uint8_t-wrapping guard so a max=255 buffer drops its CR -- the full-size-
+     * buffer oracle must go RED. NEVER define in a real build. */
+    if ((uint8_t)(2u + count) < (uint8_t)(2u + max)) {
+#else
+    if (count < max) {
+#endif
+        buf[2u + count] = 0x0Du;
+    }
+#ifdef INT21_MUTATE_BUFINPUT_COUNT_CR
+    /* MUTANT (Rule 6; make test-conin-mutant only): count the CR in the length
+     * byte (count+1 instead of count), so the 0Ah oracle -- which asserts buf[1]
+     * == chars read NOT counting the CR -- goes RED. NEVER define in a real build. */
+    buf[1] = (uint8_t)(count + 1u);
+#else
+    buf[1] = count;
+#endif
+    cf_clear(f);
 }
 
 /* AH=0Ch FLUSH KEYBOARD BUFFER then invoke an input function: AL on entry names
@@ -1899,10 +1924,16 @@ static void do_rmdir(int_frame_t *f)
  * of up to `count` bytes from the per-handle file_offset over the cluster chain
  * (backend read_at via fat12_read_partial -- no whole-file buffer; beads
  * initech-0qh); advance file_offset by the bytes read; EAX = bytes read, CF
- * clear. A read at/after EOF returns 0 bytes cleanly. A CON device read
- * (keyboard input) is deferred (beads initech-n62) -> 0 bytes (EOF), NEVER a
- * hang. AUX/PRN read has no driver -> 0 bytes. Bad handle -> CF=1, AX=0x0006.
- * Ref: brief Sec 4.2; DOS 3.3 PRM AH=3Fh. */
+ * clear. A read at/after EOF returns 0 bytes cleanly. A CON device read delivers
+ * COOKED line input (beads initech-x8fs; see below). AUX/PRN read has no driver
+ * -> 0 bytes. Bad handle -> CF=1, AX=0x0006. Ref: brief Sec 4.2; DOS 3.3 PRM
+ * AH=3Fh; Microsoft KB Q113058 (AH=3Fh CON read). */
+
+/* Internal CON cooked-line staging size. Real DOS reads a console handle through
+ * a 128-byte internal line buffer (the historical command-line template limit);
+ * we stage the line there, then copy it (plus CR+LF) into the caller's buffer. */
+#define INT21_CON_LINE_MAX 128u
+
 static void do_read(int_frame_t *f)
 {
     uint32_t handle = f->ebx;
@@ -1919,9 +1950,57 @@ static void do_read(int_frame_t *f)
     }
 
     if (e->kind == SFT_KIND_DEVICE) {
-        /* CON keyboard input is deferred (beads initech-n62); AUX/PRN have no
-         * driver. Return 0 bytes read (EOF) WITHOUT hanging -- a clear deferred
-         * path, success with EAX=0 (brief Sec 4.2). */
+#if !defined(INT21_MUTATE_CONHANDLE_NOCOOKED)
+        /* CON cooked line-read (beads initech-x8fs). Reading a console handle in
+         * the default (cooked/ASCII) mode delivers a full line of edited keyboard
+         * input through the SAME cooked editor as AH=0Ah, but the HANDLE-read
+         * contract differs: the bytes returned are the line FOLLOWED BY CR (0x0D)
+         * AND LF (0x0A), and the returned count (EAX) INCLUDES the CR and LF.
+         * (AH=0Ah, by contrast, stores only the CR and excludes it from buf[1].)
+         * Ground truth: Microsoft KB Q113058 -- typing "abc"+Enter into a 3Fh read
+         * yields buffer "abc\r\n" and AX=5; the line is terminated by CR and the
+         * CR/LF pair is returned to the caller as data. AUX/PRN have no driver
+         * (handled by the EOF fall-through below). Ctrl-C/INT 23h handling is NOT
+         * here (deferred: beads initech-4tw). */
+        if (e->dev_id == SFT_DEV_CON) {
+            /* A zero-count read returns 0 bytes WITHOUT consuming a line of input
+             * (the DOS zero-count contract) -- do not block the keyboard for a
+             * read that cannot store anything. */
+            if (count == 0u) {
+                f->eax = 0u;
+                cf_clear(f);
+                return;
+            }
+            /* Validate the destination before the editor writes the copied line
+             * into it (ADR-0003 DEC-14 / initech-tzq). */
+            if (!user_buf_ok(f->edx, count)) {
+                set_ax(f, INT21_ERR_INVALID_MEMORY);
+                cf_set(f);
+                return;
+            }
+
+            uint8_t line[INT21_CON_LINE_MAX];
+            uint8_t n = conin_cooked_line(line, (uint8_t)INT21_CON_LINE_MAX);
+
+            /* Emit the cooked line + CR + LF into the caller's buffer, capped at
+             * `count` bytes. The returned EAX is the number actually copied
+             * (line chars + CR + LF when room; clamped to count otherwise). The
+             * remainder-buffering DOS does when count < line length is a separate
+             * follow-up -- the common shell/redirect case has count >= line+2. */
+            uint32_t took = 0u;
+            for (uint8_t i = 0u; i < n && took < count; i++) {
+                buf[took++] = line[i];
+            }
+            if (took < count) { buf[took++] = 0x0Du; }   /* CR */
+            if (took < count) { buf[took++] = 0x0Au; }   /* LF */
+            f->eax = took;
+            cf_clear(f);
+            return;
+        }
+#endif
+        /* AUX/PRN have no driver (and, under the no-cooked mutant, CON too):
+         * return 0 bytes read (EOF) WITHOUT hanging -- success with EAX=0
+         * (brief Sec 4.2). */
         f->eax = 0u;
         cf_clear(f);
         return;
