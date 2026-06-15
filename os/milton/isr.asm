@@ -344,6 +344,91 @@ int24_entry:
     add esp, 8                 ; discard the pushed vector + err_code dwords
     iretd                      ; resume caller with AL = action, CF clear
 
+; --- INT 25h / 26h: ABSOLUTE DISK READ/WRITE (ADR-0003 DEC-15) --------------
+; beads initech-4mq7. Two NEW separate software-interrupt vectors -- NOT INT 21h
+; AH functions (AH=25h is SETVECT, AH=35h is GETVECT, handled in int21.c). Like
+; int24h these vectors compute a result and RETURN it to the caller with CF, so
+; each stub is BYTE-IDENTICAL IN SHAPE to int24_entry (the RETURN template, not
+; the terminating 20/22/23 template): dummy 0 err_code + the vector sentinel,
+; segs + pushad, reload DATA_SEL for the C call, call the dispatcher (which
+; writes AX + CF into the saved frame), then teardown + IRETD. Vectors 0x25/0x26
+; are free (PIC remapped to 0x28/0x30 per DEC-04a, so software `int 0x25/0x26`
+; land here and not on IRQs -- the SAME reasoning that freed 0x20-0x24).
+;
+; FOOT-GUN (DEC-15.3): real DOS 3.x INT 25h/26h return with the original CPU
+; FLAGS still PUSHED on the caller's stack (the CP/M-derived wart -- period
+; callers follow with `add sp,2`/popf). InitechOS DELIBERATELY DOES NOT
+; reproduce that wart: status is via CF in the saved EFLAGS, and the stub
+; returns via the SAME uniform IRETD with NO stack imbalance and NO add sp,2/popf
+; contract on callers. The omitted wart is intentional -- never "fix" the stack
+; to reproduce it (the oracle's M7 mutant proves a stray-word stub goes RED).
+extern int25_dispatch          ; void int25_dispatch(int_frame_t *)
+global int25_entry
+int25_entry:
+    push dword 0               ; dummy error code (uniform frame; no CPU err)
+    push dword 0x25            ; vector sentinel (a dump shows the 0x25 path)
+    push gs                    ; -> int_frame_t.gs (+44)
+    push fs                    ; -> .fs (+40)
+    push es                    ; -> .es (+36)
+    push ds                    ; -> .ds (+32)
+    pushad                     ; -> eax(+28)..edi(+0)
+
+    mov ax, 0x10               ; known-good kernel data selector (DATA_SEL)
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    mov eax, esp               ; frame pointer = &int_frame_t (top of stack)
+    push eax                   ; arg 1 (cdecl): int_frame_t *frame
+    call int25_dispatch        ; reads AL/CX/DX/EBX, writes AX + CF into the frame
+    add esp, 4                 ; pop the arg
+
+    ; 25h RETURNS the result + CF to the caller (DOS absolute-read contract):
+    ; the dispatcher set CF and (on error) AX in the saved frame, so popad
+    ; restores AX and the IRETD resumes the caller with a BALANCED stack (the
+    ; leftover-FLAGS wart is deliberately omitted -- DEC-15.3, the foot-gun above).
+    popad                      ; restore eax..edi (incl. AX)
+    pop ds
+    pop es
+    pop fs
+    pop gs
+    add esp, 8                 ; discard the pushed vector + err_code dwords
+    iretd                      ; resume caller with CF = status (no stack imbalance)
+
+extern int26_dispatch          ; void int26_dispatch(int_frame_t *)
+global int26_entry
+int26_entry:
+    push dword 0               ; dummy error code (uniform frame; no CPU err)
+    push dword 0x26            ; vector sentinel (a dump shows the 0x26 path)
+    push gs                    ; -> int_frame_t.gs (+44)
+    push fs                    ; -> .fs (+40)
+    push es                    ; -> .es (+36)
+    push ds                    ; -> .ds (+32)
+    pushad                     ; -> eax(+28)..edi(+0)
+
+    mov ax, 0x10               ; known-good kernel data selector (DATA_SEL)
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    mov eax, esp               ; frame pointer = &int_frame_t (top of stack)
+    push eax                   ; arg 1 (cdecl): int_frame_t *frame
+    call int26_dispatch        ; reads AL/CX/DX/EBX, writes AX + CF into the frame
+    add esp, 4                 ; pop the arg
+
+    ; 26h RETURNS the result + CF to the caller (DOS absolute-write contract);
+    ; SAME uniform IRETD + balanced stack as 25h. The leftover-FLAGS wart is
+    ; deliberately omitted (DEC-15.3, the foot-gun above) -- never reproduce it.
+    popad                      ; restore eax..edi (incl. AX)
+    pop ds
+    pop es
+    pop fs
+    pop gs
+    add esp, 8                 ; discard the pushed vector + err_code dwords
+    iretd                      ; resume caller with CF = status (no stack imbalance)
+
 ; --- hardware IRQ stubs: PIT IRQ0 (vector 0x28) + keyboard IRQ1 (0x29) ------
 ; beads: initech-3rs ("PS/2 keyboard (IRQ1) + PIT (IRQ0) tick").
 ; Ref: Intel SDM Vol 2A PUSHAD/IRET; Intel 8259A datasheet (the C handler issues

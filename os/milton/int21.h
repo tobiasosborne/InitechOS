@@ -604,4 +604,86 @@ void int21_dispatch(int_frame_t *frame);
  * docs/research/psp-loader-ground-truth.md Sec 2.1 / Sec 4.4. */
 void int20_dispatch(int_frame_t *frame);
 
+/* ==== INT 25h / 26h ABSOLUTE DISK READ/WRITE VECTORS (ADR-0003 DEC-15) =======
+ * beads initech-4mq7. Two NEW separate software-interrupt vectors (NOT INT 21h
+ * AH functions; AH=25h is SETVECT, AH=35h is GETVECT -- entirely distinct and
+ * already implemented above). INT 25h (vector 0x25) = Absolute Disk Read; INT
+ * 26h (vector 0x26) = Absolute Disk Write. Sector-level services beneath the
+ * file abstraction, for the FORMAT/SYS/CHKDSK/DISKCOPY utility layer (epic
+ * initech-8479). Ratified by ADR-0003 Amendment DEC-15 (OEA-ADR-0003-A3);
+ * locked contract in spec/absdisk_int2526.json. The asm entry stubs
+ * (int25_entry/int26_entry, isr.asm) call int25_dispatch/int26_dispatch with a
+ * pointer to the on-stack int_frame_t, exactly like int24_dispatch -- the
+ * RETURN template (a result + CF to the caller, NOT a terminate).
+ *
+ * INPUT (DEC-15.2, the DELIBERATE register-role SWAP vs the DEC-04a INT 21h
+ * default): AL=drive (0=A:, zero-based explicit), CX=ECX sector count (0=no-op
+ * success; 0xFFFF=DOS4+ packet sentinel, REJECTED), DX=EDX starting absolute
+ * logical sector (boot=LBA 0), EBX=flat transfer buffer (DOS DS:BX; the buffer
+ * is in EBX, NOT the DEC-04a handle register; the start sector is in DX/EDX,
+ * NOT the DEC-04a EDX-pointer role).
+ * RETURN: success CF=0; failure CF=1, AX = error (see the SEPARATE AL/AH error
+ * space below). Preserves EBX/ECX/EDX/ESI/EDI/EBP (DEC-04a benign superset);
+ * writes only EAX-low (AX) + CF. */
+void int25_dispatch(int_frame_t *frame);   /* INT 25h Absolute Disk READ  */
+void int26_dispatch(int_frame_t *frame);   /* INT 26h Absolute Disk WRITE */
+
+/* The asm entry stubs (extern; defined in isr.asm), exposed for the sysinit
+ * idt_install_trap site (the SAME way int2{0,1,2,3,4}_entry are declared in
+ * sysinit.c). */
+extern void int25_entry(void);
+extern void int26_entry(void);
+
+/* ---- ABSOLUTE-DISK HARDWARE ERROR CODES (DEC-15.2; spec/absdisk_int2526.json)
+ * A SEPARATE code space from the INT21_ERR_* extended-error enum above (those
+ * are 0x01..0x59 INT 21h DOS extended errors). On a failed INT 25h/26h the AX
+ * return is (AH=error class << 8 | AL=DOS hardware-error low byte). These MUST
+ * NOT be conflated with INT21_ERR_*; the two spaces are kept in clearly-named,
+ * separate blocks per DEC-15.4. CF/AL are the load-bearing, ratified values;
+ * the AH class bytes (0x0A/0x0B/0x0C) are provisional pending an 86Box golden
+ * of the real DOS 3.3 AH class per condition (spec error_codes._comment) --
+ * editorial-erratum correctable, not a re-amendment. The honest single-code-
+ * per-condition table (the blockdev seam returns only success/negative). */
+#define ABSDISK_AL_WRITE_PROTECT     0x00u  /* INT 26h, write_sectors==NULL */
+#define ABSDISK_AH_WRITE_PROTECT     0x0Au  /* ties to MSG-DOS-0008         */
+#define ABSDISK_AL_INVALID_DRIVE     0x0Fu  /* AL != mounted volume         */
+#define ABSDISK_AH_INVALID_DRIVE     0x0Cu
+#define ABSDISK_AL_SECTOR_NOT_FOUND  0x08u  /* DX>=total / DX+CX>total / wrap */
+#define ABSDISK_AH_SECTOR_NOT_FOUND  0x0Bu
+#define ABSDISK_AL_GENERAL_FAILURE   0x0Cu  /* seam returns negative        */
+#define ABSDISK_AH_GENERAL_FAILURE   0x0Bu
+
+/* The DOS4+ >32 MB packet form sentinel: CX=0xFFFF is REJECTED (CF=1 + a serial
+ * diagnostic), NEVER read as a literal 65535-sector count (DEC-15.5). */
+#define ABSDISK_PACKET_SENTINEL      0xFFFFu
+
+/* ---- ABSOLUTE-DISK BLOCK-DEVICE SEAM (DEC-15 Consequence C-4) --------------
+ * INT 25h/26h reach the disk ONLY through this bound seam -- a function-pointer
+ * vtable the kernel binds in kmain.c from the mounted FAT12 volume's blockdev
+ * (vol->dev->read_sectors / write_sectors), at the fileio_fat_bind site, only
+ * on the mounted==1 path. int21.c does NOT include fat12.h/blockdev.h or
+ * reference the volume (Law 3 -- preserves hosted testability; the host oracle
+ * binds a mock file-backed blockdev). With NO seam bound the handlers fail loud
+ * (CF=1), never fault (Rule 2). A NULL write member = a READ-ONLY backend ->
+ * INT 26h returns CF=1, AL=0x00 write-protect.
+ *
+ * read/write take (lba, count, buf) and return 0 on success, negative on any
+ * failure -- the EXACT blockdev_t.read_sectors/write_sectors contract
+ * (os/milton/blockdev.h), so the kernel can bind them through one thin adapter.
+ * `count` is in 512-byte sectors; `lba` is the absolute volume-relative sector
+ * (boot=LBA 0). */
+typedef struct int21_absdisk_backend {
+    int (*read)(uint32_t lba, uint32_t count, void *buf);
+    int (*write)(uint32_t lba, uint32_t count, const void *buf);
+    uint32_t total_sectors;   /* the mounted volume's total logical sectors,
+                               * for the bounds check (DX>=total / DX+CX>total);
+                               * 0 == no volume -> every absolute I/O fails loud */
+} int21_absdisk_backend_t;
+
+/* Bind the absolute-disk block-device seam (NULL clears it -> every INT 25h/26h
+ * fails loud with CF=1). The kernel binds it after a successful FAT12 mount; the
+ * host oracle binds a mock file-backed blockdev. The struct is COPIED, so the
+ * caller need not keep it alive. */
+void int21_set_blockdev(const int21_absdisk_backend_t *backend);
+
 #endif /* INITECH_INT21_H */

@@ -319,6 +319,30 @@ static uint32_t int21_getvect_idt(uint8_t vec)
     return (uint32_t)g.offset_lo | ((uint32_t)g.offset_hi << 16);
 }
 
+/* ---- INT 25h/26h absolute-disk seam adapter (ADR-0003 DEC-15, initech-4mq7) -
+ * The int21 absolute-disk seam (int21_absdisk_backend_t) wants read/write
+ * thunks of shape (lba,count,buf); the blockdev_t members carry a ctx as their
+ * first arg. These thunks bridge the two by capturing the mounted volume's
+ * blockdev pointer (set on the mounted==1 path below). int21.c never sees the
+ * blockdev/FAT types (Law 3); the binding lives here in the kernel. */
+static const blockdev_t *g_absdisk_dev = 0;
+
+static int int21_absdisk_read(uint32_t lba, uint32_t count, void *buf)
+{
+    if (g_absdisk_dev == 0 || g_absdisk_dev->read_sectors == 0) {
+        return -1;   /* fail loud (Rule 2) -- never a silent short read */
+    }
+    return g_absdisk_dev->read_sectors(g_absdisk_dev->ctx, lba, count, buf);
+}
+
+static int int21_absdisk_write(uint32_t lba, uint32_t count, const void *buf)
+{
+    if (g_absdisk_dev == 0 || g_absdisk_dev->write_sectors == 0) {
+        return -1;   /* read-only / unbound -> the seam maps this to fail-loud */
+    }
+    return g_absdisk_dev->write_sectors(g_absdisk_dev->ctx, lba, count, buf);
+}
+
 /* Issue AH=09h DISPLAY STRING via a literal `int 0x21`: EDX = flat ptr to a
  * '$'-terminated string. This is the LIVE end-to-end self-test of the syscall
  * path on the real boot -- the banner is printed THROUGH int 0x21, not via a
@@ -745,6 +769,27 @@ void kernel_main(void)
             loader_bind_fat_volume(&vol);
             int21_set_exec_backend(loader_exec_by_name);
             serial_puts("LOADER-FAT-BIND-OK\n");
+
+            /* Bind the INT 25h/26h ABSOLUTE-DISK seam (ADR-0003 DEC-15, beads
+             * initech-4mq7) from THIS mounted volume's blockdev. ONLY on the
+             * mounted==1 path (never a stale dev on the mount-failure path).
+             * total_sectors = the BPB total-logical-sectors (the 16-bit field,
+             * or the 32-bit field when the 16-bit is 0 -- DOS BPB rule), so the
+             * bounds check (DX>=total / DX+CX>total) self-adjusts to the media.
+             * The seam reaches the disk through the adapter thunks above; int21
+             * never sees the blockdev/FAT types (Law 3). */
+            g_absdisk_dev = &fatdev;
+            {
+                uint32_t total = vol.bpb.total_sectors_16 != 0u
+                                   ? (uint32_t)vol.bpb.total_sectors_16
+                                   : vol.bpb.total_sectors_32;
+                int21_absdisk_backend_t absdisk;
+                absdisk.read          = int21_absdisk_read;
+                absdisk.write         = int21_absdisk_write;
+                absdisk.total_sectors = total;
+                int21_set_blockdev(&absdisk);
+            }
+            serial_puts("ABSDISK-BIND-OK\n");
         } else {
             /* Fail loud + continue (do NOT hang). A missing disk yields
              * ATA_ERR_NO_DRIVE propagated as FAT12_ERR_READ. */

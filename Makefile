@@ -1495,6 +1495,121 @@ test-fat12-write: $(TEST_FAT12_WRITE) $(FAT12_BLANK_UNIT_IMG)
 	@$(TEST_FAT12_WRITE) "$(BUILD)/fat12_write_unit_run.img"
 	@printf ">>> test-fat12-write: green\n"
 
+# --- INT 25h/26h ABSOLUTE DISK READ/WRITE oracle (ADR-0003 DEC-15; 4mq7) -----
+# Host oracle (TEST_UNIT_GATES, no QEMU): drives the REAL artifact int25_dispatch
+# / int26_dispatch (os/milton/int21.c) over a MOCK file-backed blockdev seam,
+# exactly as test_int21 drives int21_dispatch over a mock file backend. It mounts
+# a freshly-minted WRITABLE 1.44 MB FAT12 image, binds the absolute-disk seam,
+# computes a SAFE scratch LBA (total_logical_sectors-1) from mounted geometry,
+# asserts its FAT entry is FREE, then INT 26h WRITE -> INT 25h READ round-trips
+# byte-exact, cross-checks the raw backing store, proves the boot/FATs/root are
+# byte-identical (non-corruption, Stop-Condition), and walks every error leg with
+# the LOCKED AL/AH pair (spec/absdisk_int2526.json). Idempotent (Rule 11): a
+# FRESH image is minted per run AND the scratch sector is restored at teardown.
+# Links int21.c + mcb/sft/psp/irq (the int21 deps) + fat12.c + blockdev_file.c;
+# -Ibuild for dos_messages.h. Mirrors the $(TEST_FAT12_WRITE) idiom.
+TEST_ABSDISK      := $(BUILD)/test_absdisk
+TEST_ABSDISK_SRC  := $(FAT_DIFF_DIR)/test_absdisk.c
+TEST_ABSDISK_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) \
+                     $(KERNEL_IRQ_C) $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+TEST_ABSDISK_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/fat12.h \
+                     $(FAT_DIFF_DIR)/blockdev_file.h spec/dos_structs.h $(DOS_MESSAGES_H)
+# Each mutant build is a SEPARATE blank image so they cannot perturb each other.
+ABSDISK_IMG       := $(BUILD)/absdisk_scratch.img
+
+# Mutation builds (CLAUDE.md Rule 6; DEC-15 M1-M8): int21.c compiled with one
+# branch/constant perturbed so `make test-absdisk-mutant` proves the oracle BITES.
+TEST_ABSDISK_MUT_LBA      := $(BUILD)/test_absdisk_mut_lba        # M1 off-by-one LBA
+TEST_ABSDISK_MUT_NOOP     := $(BUILD)/test_absdisk_mut_noop       # M2 write no-op
+TEST_ABSDISK_MUT_TRANS    := $(BUILD)/test_absdisk_mut_trans      # M3 DX/CX transpose
+TEST_ABSDISK_MUT_NOBND    := $(BUILD)/test_absdisk_mut_nobnd      # M4 drop bounds check
+TEST_ABSDISK_MUT_ERRCLASS := $(BUILD)/test_absdisk_mut_errclass   # M5 wrong error class
+TEST_ABSDISK_MUT_NEIGHBOR := $(BUILD)/test_absdisk_mut_neighbor   # M6 corrupt neighbor
+TEST_ABSDISK_MUT_WART     := $(BUILD)/test_absdisk_mut_wart       # M7 stack-flags wart
+TEST_ABSDISK_MUT_PACKET   := $(BUILD)/test_absdisk_mut_packet     # M8 packet literal
+
+# Mint a BLANK 1.44 MB FAT12 image (mformat only -- NO files), the absolute-disk
+# round-trip scratch target. Build intermediate, NOT committed (Rule 11).
+$(ABSDISK_IMG): | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@printf ">>> absdisk: minted BLANK %s (1.44MB FAT12, no files; INT 25h/26h scratch target)\n" "$@"
+
+$(TEST_ABSDISK): $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS) $(TEST_ABSDISK_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS)
+
+$(TEST_ABSDISK_MUT_LBA): $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS) $(TEST_ABSDISK_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DABSDISK_MUTATE_OFF_BY_ONE_LBA -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS)
+
+$(TEST_ABSDISK_MUT_NOOP): $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS) $(TEST_ABSDISK_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DABSDISK_MUTATE_WRITE_NOOP -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS)
+
+$(TEST_ABSDISK_MUT_TRANS): $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS) $(TEST_ABSDISK_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DABSDISK_MUTATE_REG_TRANSPOSE -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS)
+
+$(TEST_ABSDISK_MUT_NOBND): $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS) $(TEST_ABSDISK_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DABSDISK_MUTATE_NO_BOUNDS -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS)
+
+$(TEST_ABSDISK_MUT_ERRCLASS): $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS) $(TEST_ABSDISK_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DABSDISK_MUTATE_WRONG_ERRCLASS -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS)
+
+$(TEST_ABSDISK_MUT_NEIGHBOR): $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS) $(TEST_ABSDISK_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DABSDISK_MUTATE_WRITE_NEIGHBOR -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS)
+
+$(TEST_ABSDISK_MUT_WART): $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS) $(TEST_ABSDISK_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DABSDISK_MUTATE_STACK_WART -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS)
+
+$(TEST_ABSDISK_MUT_PACKET): $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS) $(TEST_ABSDISK_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DABSDISK_MUTATE_PACKET_LITERAL -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_ABSDISK_SRC) $(TEST_ABSDISK_DEPS)
+
+.PHONY: test-absdisk test-absdisk-mutant
+test-absdisk: $(TEST_ABSDISK) $(ABSDISK_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-absdisk : INT 25h/26h ABSOLUTE DISK (DEC-15)\n'
+	@printf '  Ref: spec/absdisk_int2526.json (LOCKED); ADR-0003 Amendment DEC-15.\n'
+	@printf '  beads initech-4mq7. CLAUDE.md Law 2 (oracle is the truth).\n'
+	@printf '======================================================================\n'
+	@cp -f "$(ABSDISK_IMG)" "$(BUILD)/absdisk_run.img"
+	@$(TEST_ABSDISK) "$(BUILD)/absdisk_run.img"
+	@printf ">>> test-absdisk: green (round-trip + cross-check + non-corruption + error legs)\n"
+
+# Mutation-proof (Rule 6; DEC-15 M1-M8): ALL EIGHT mutant builds MUST fail the
+# oracle. Each gets its OWN fresh image copy so they cannot perturb each other.
+test-absdisk-mutant: $(TEST_ABSDISK_MUT_LBA) $(TEST_ABSDISK_MUT_NOOP) \
+                     $(TEST_ABSDISK_MUT_TRANS) $(TEST_ABSDISK_MUT_NOBND) \
+                     $(TEST_ABSDISK_MUT_ERRCLASS) $(TEST_ABSDISK_MUT_NEIGHBOR) \
+                     $(TEST_ABSDISK_MUT_WART) $(TEST_ABSDISK_MUT_PACKET) $(ABSDISK_IMG)
+	@printf ">>> test-absdisk-mutant: confirming all 8 mutants go RED (Rule 6; DEC-15 M1-M8)\n"
+	@set -e; \
+	for m in \
+		"M1-off-by-one-LBA:$(TEST_ABSDISK_MUT_LBA)" \
+		"M2-write-noop:$(TEST_ABSDISK_MUT_NOOP)" \
+		"M3-reg-transpose:$(TEST_ABSDISK_MUT_TRANS)" \
+		"M4-no-bounds:$(TEST_ABSDISK_MUT_NOBND)" \
+		"M5-wrong-errclass:$(TEST_ABSDISK_MUT_ERRCLASS)" \
+		"M6-corrupt-neighbor:$(TEST_ABSDISK_MUT_NEIGHBOR)" \
+		"M7-stack-wart:$(TEST_ABSDISK_MUT_WART)" \
+		"M8-packet-literal:$(TEST_ABSDISK_MUT_PACKET)" ; do \
+		name=$${m%%:*}; bin=$${m#*:}; \
+		cp -f "$(ABSDISK_IMG)" "$(BUILD)/absdisk_mut_run.img"; \
+		if "$$bin" "$(BUILD)/absdisk_mut_run.img" >/dev/null 2>&1; then \
+			printf '!!! test-absdisk-mutant FAIL: mutant %s PASSED -- the oracle is decoration\n' "$$name"; \
+			exit 1; \
+		else \
+			printf '>>> test-absdisk-mutant: green (%s correctly RED)\n' "$$name"; \
+		fi; \
+	done
+	@printf '>>> test-absdisk-mutant: all 8 DEC-15 mutants correctly RED (the oracle bites)\n'
+
 # --- FAT12 POSITIONED-WRITE oracle (beads initech-snk) ----------------------
 # The symmetric counterpart of fat12_read_partial: fat12_write_partial does a
 # positioned read-modify-write (overwrite in place, extend past EOF growing the
@@ -7830,6 +7945,8 @@ SPEC_INT21H_CC  := $(SPEC_DIR)/int21h_calling_convention.json
 SPEC_MESSAGES   := $(SPEC_DIR)/dos_messages.json
 SPEC_STRUCTS_H  := spec/dos_structs.h
 SPEC_BANNER     := $(SPEC_DIR)/dos_banner.txt
+# INT 25h/26h absolute-disk vectors locked contract (ADR-0003 DEC-15).
+SPEC_ABSDISK    := $(SPEC_DIR)/absdisk_int2526.json
 SPEC_STRUCT_TU  := $(BUILD)/spec_dos_structs_check.c
 SPEC_STRUCT_BIN := $(BUILD)/spec_dos_structs_check
 
@@ -7873,13 +7990,13 @@ L.append('#endif /* INITECH_DOS_MESSAGES_H */'); \
 open('$@','w').write(chr(10).join(L)+chr(10))" \
 		|| { printf '!!! codegen FAIL: %s invalid (missing id / bad shape / non-ASCII)\n' "$(SPEC_MESSAGES)"; exit 1; }
 
-test-spec: $(SPEC_INT21H) $(SPEC_INT21H_CC) $(SPEC_MESSAGES) $(SPEC_STRUCTS_H) $(SPEC_BANNER) | $(BUILD)
+test-spec: $(SPEC_INT21H) $(SPEC_INT21H_CC) $(SPEC_MESSAGES) $(SPEC_STRUCTS_H) $(SPEC_BANNER) $(SPEC_ABSDISK) | $(BUILD)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-spec : ADR-0003 spec-data oracle\n'
 	@printf '  Ref: ADR-0003 Appendices A-D / DEC-13 (controlled vocabulary).\n'
 	@printf '  CLAUDE.md Rule 8 (specs-as-data) / Law 2 (oracle is the truth).\n'
 	@printf '======================================================================\n'
-	@printf '>>> test-spec [1/5]: INT 21h register JSON (Appendix A)\n'
+	@printf '>>> test-spec [1/6]: INT 21h register JSON (Appendix A)\n'
 	@python3 -c "import json,sys; \
 d=json.load(open('$(SPEC_INT21H)')); \
 fns=d['functions'] if isinstance(d,dict) and 'functions' in d else d; \
@@ -7890,7 +8007,7 @@ ok={'Core','Legacy','Resident'}; \
   if not (all(r.get(k) for k in ('ah','mnemonic','description')) and r.get('class') in ok) ]; \
 print('    parsed %d functions; all have ah/mnemonic/description and valid class'%len(fns))" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/shape/class)\n' "$(SPEC_INT21H)"; exit 1; }
-	@printf '>>> test-spec [2/5]: INT 21h calling-convention JSON (beads initech-509.5 / initech-1f9)\n'
+	@printf '>>> test-spec [2/6]: INT 21h calling-convention JSON (beads initech-509.5 / initech-1f9)\n'
 	@python3 -c "import json,re; \
 cc=json.load(open('$(SPEC_INT21H_CC)')); \
 reg=json.load(open('$(SPEC_INT21H)')); \
@@ -7905,7 +8022,7 @@ missing=[f['ah'] for f in ccf if hx(f['ah']) not in rs]; \
 assert not missing, 'cc AH(s) NOT in int21h_register.json (controlled scope!): %r'%missing; \
 print('    parsed %d cc functions; every AH exists in int21h_register.json (%d sanctioned AHs)'%(len(ccf),len(rs)))" \
 		|| { printf '!!! test-spec FAIL: %s invalid or documents an AH NOT in the locked register (Rule 8 / DEC-13)\n' "$(SPEC_INT21H_CC)"; exit 1; }
-	@printf '>>> test-spec [3/5]: diagnostic message catalogue JSON (Appendix C)\n'
+	@printf '>>> test-spec [3/6]: diagnostic message catalogue JSON (Appendix C)\n'
 	@python3 -c "import json,sys; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
@@ -7916,14 +8033,14 @@ assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0019: %r'%(sorted(
 [ (_ for _ in ()).throw(AssertionError('empty text for %s'%k)) for k,v in m.items() if not (isinstance(v,str) and v.strip()) ]; \
 print('    parsed 19 messages MSG-DOS-0001..0019; all non-empty')" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/count/IDs/empty)\n' "$(SPEC_MESSAGES)"; exit 1; }
-	@printf '>>> test-spec [4/5]: struct size asserts compile (Appendix B)\n'
+	@printf '>>> test-spec [4/6]: struct size asserts compile (Appendix B)\n'
 	@printf '#include "dos_structs.h"\nint main(void){return 0;}\n' > "$(SPEC_STRUCT_TU)"
 	@$(CC) $(CFLAGS) -I$(SPEC_DIR) -o "$(SPEC_STRUCT_BIN)" "$(SPEC_STRUCT_TU)" \
 		|| { printf '!!! test-spec FAIL: %s failed _Static_assert (dir=32 / psp=256 / mcb=16)\n' "$(SPEC_STRUCTS_H)"; exit 1; }
 	@"$(SPEC_STRUCT_BIN)" \
 		|| { printf '!!! test-spec FAIL: spec struct check binary returned non-zero\n'; exit 1; }
 	@printf '    dos_structs.h compiled clean: dir_entry_t=32, psp_t=256, mcb_t=16\n'
-	@printf '>>> test-spec [5/5]: operator banner exact bytes (Appendix D.1)\n'
+	@printf '>>> test-spec [5/6]: operator banner exact bytes (Appendix D.1)\n'
 	@python3 -c "import sys; \
 b=open('$(SPEC_BANNER)','rb').read(); \
 lines=b.split(b'\n'); \
@@ -7933,8 +8050,28 @@ assert n==2, 'banner must be exactly two lines, found %d'%n; \
 assert b'InitechDOS  Version 3.30' in b, 'missing literal double-space banner line'; \
 print('    banner is two lines and contains \"InitechDOS  Version 3.30\" (double space)')" \
 		|| { printf '!!! test-spec FAIL: %s banner not two lines or missing double-space literal\n' "$(SPEC_BANNER)"; exit 1; }
+	@printf '>>> test-spec [6/6]: INT 25h/26h absolute-disk vectors JSON (DEC-15; SEPARATE from the AH walk)\n'
+	@python3 -c "import json; \
+d=json.load(open('$(SPEC_ABSDISK)')); \
+v=d['vectors']; \
+assert set(v.keys())=={'0x25','0x26'}, 'expected exactly vectors 0x25/0x26, got %r'%sorted(v); \
+[ (_ for _ in ()).throw(AssertionError('vector %s wrong gate attrs'%k)) for k,g in v.items() \
+  if not (g.get('gate_type','').startswith('0x8F') and g.get('dpl')==0 and g.get('selector','').startswith('0x08')) ]; \
+abi=d['abi']; \
+assert 'EBX' in abi['buffer'], 'abi.buffer must pin the EBX register-role SWAP (DEC-15.2)'; \
+assert 'AL' in abi['drive'] and '0=A:' in abi['drive'], 'abi.drive must be AL zero-based (0=A:)'; \
+assert 'DX' in abi['start_sector'], 'abi.start_sector must be DX/EDX'; \
+ec=d['error_codes']; \
+exp={'write_protect':('0x00','0x0A'),'invalid_drive':('0x0F','0x0C'),'sector_not_found':('0x08','0x0B'),'general_failure':('0x0C','0x0B')}; \
+[ (_ for _ in ()).throw(AssertionError('error_code %s AL/AH != locked %r (got %r)'%(k,exp[k],(ec[k]['al'],ec[k]['ah'])))) \
+  for k in exp if (ec[k]['al'],ec[k]['ah'])!=exp[k] ]; \
+assert d['out_of_scope']['packet_form']['sentinel']=='CX=0xFFFF', 'packet sentinel must be CX=0xFFFF'; \
+assert 'reject' in d['out_of_scope']['packet_form']['action'].lower(), 'CX=0xFFFF must be REJECTED, never a literal count'; \
+assert 'fat12_next_cluster==0x000' in d['oracle_rule']['scratch_lba'], 'scratch-LBA-must-be-free rule missing'; \
+print('    INT 25h/26h: 2 trap vectors (0x8F/DPL0/0x08); EBX-buffer swap pinned; AL/AH pairs locked; CX=0xFFFF rejected; scratch-free rule present; EXCLUDED from the AH walk')" \
+		|| { printf '!!! test-spec FAIL: %s invalid -- vectors/EBX-swap/AL-AH-pairs/packet-reject/scratch-rule drift (DEC-15)\n' "$(SPEC_ABSDISK)"; exit 1; }
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- ADR-0003 spec-data parses, sizes hold, banner verbatim\n'
+	@printf 'VERDICT   : PASS -- ADR-0003 spec-data parses, sizes hold, banner verbatim, INT 25h/26h locked\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -8175,6 +8312,7 @@ TEST_UNIT_GATES := \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-zs24-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
+	test-absdisk test-absdisk-mutant \
 	test-kernel-repro test-kernel-repro-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.

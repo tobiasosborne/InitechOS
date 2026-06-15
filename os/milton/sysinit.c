@@ -30,6 +30,8 @@ extern void int20_entry(void);
 extern void int22_entry(void);   /* DOS termination handler   (beads initech-509.8) */
 extern void int23_entry(void);   /* DOS control-break handler (beads initech-509.8) */
 extern void int24_entry(void);   /* DOS critical-error handler(beads initech-509.8) */
+extern void int25_entry(void);   /* INT 25h absolute disk READ  (DEC-15, initech-4mq7) */
+extern void int26_entry(void);   /* INT 26h absolute disk WRITE (DEC-15, initech-4mq7) */
 extern void irq0_entry(void);
 extern void irq1_entry(void);
 
@@ -127,6 +129,13 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
     idt_install_trap(0x22u, (void *)int22_entry);
     idt_install_trap(0x23u, (void *)int23_entry);
     idt_install_trap(0x24u, (void *)int24_entry);
+    /* INT 25h/26h ABSOLUTE DISK READ/WRITE (ADR-0003 DEC-15, beads initech-4mq7).
+     * Vectors 0x25/0x26 are free in the DEC-04a 0x22-0x27 band (PIC remapped to
+     * 0x28/0x30), so they are real 0x8F TRAP gates exactly like INT 21h/24h. The
+     * disk SEAM is bound separately in kmain.c after a successful FAT12 mount; an
+     * unbound seam makes the handlers fail loud (CF=1), never fault. */
+    idt_install_trap(0x25u, (void *)int25_entry);
+    idt_install_trap(0x26u, (void *)int26_entry);
     serial("INT21\n");
 }
 

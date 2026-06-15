@@ -84,6 +84,15 @@ static int21_getvect_fn g_getvect = 0;
  * resolve FAT-specific work through it so int21.c stays host-testable. */
 static const int21_file_backend_t *g_file = 0;
 
+/* The ABSOLUTE-DISK block-device seam (INT 25h/26h; ADR-0003 DEC-15, beads
+ * initech-4mq7). A COPY of the vtable the kernel binds from the mounted FAT12
+ * volume's blockdev (vol->dev->read_sectors/write_sectors) -- int21.c never
+ * includes fat12.h/blockdev.h or references the volume (Law 3). g_absdisk_bound
+ * gates it: with NO seam bound INT 25h/26h fail loud (CF=1), never fault. The
+ * copy keeps the seam alive independent of the caller's struct lifetime. */
+static int21_absdisk_backend_t g_absdisk = { 0, 0, 0u };
+static int                     g_absdisk_bound = 0;
+
 /* The EXEC backend (beads initech-saw / AH=4Bh). NULL until the kernel binds the
  * FAT-sourced loader (load_program_from_fat) or the host oracle binds a mock.
  * AH=4Bh reaches the actual load+run through this seam so int21.c does not link
@@ -170,6 +179,24 @@ void int21_set_sink(int21_sink_fn sink) { g_sink = sink; }
 void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
 void int21_set_psp(struct psp *psp)     { g_cur_psp = (psp_t *)psp; }
 void int21_set_file_backend(const int21_file_backend_t *backend) { g_file = backend; }
+
+/* Bind the INT 25h/26h absolute-disk block-device seam (ADR-0003 DEC-15, beads
+ * initech-4mq7). COPY the vtable so its lifetime is independent of the caller's
+ * struct; NULL clears it -> every absolute I/O fails loud (CF=1). The kernel
+ * binds it from the mounted volume's blockdev only on the mounted==1 path; the
+ * host oracle binds a mock file-backed blockdev. */
+void int21_set_blockdev(const int21_absdisk_backend_t *backend)
+{
+    if (backend == 0) {
+        g_absdisk.read = 0;
+        g_absdisk.write = 0;
+        g_absdisk.total_sectors = 0u;
+        g_absdisk_bound = 0;
+        return;
+    }
+    g_absdisk = *backend;
+    g_absdisk_bound = 1;
+}
 
 /* ---- CWD seam (beads initech-mzxa; ti8 Layer 2, READ side) ----
  * Reset the current working directory to the root. The loader calls this on
@@ -3387,5 +3414,237 @@ void int24_dispatch(int_frame_t *frame)
     }
     g_indos++;
     int24_dispatch_body(frame);
+    g_indos--;
+}
+
+/* ==== INT 25h / 26h ABSOLUTE DISK READ/WRITE (ADR-0003 DEC-15) ==============
+ * beads initech-4mq7. Ref: spec/absdisk_int2526.json (the LOCKED contract);
+ * docs/adr/ADR-0003-AMENDMENT-DEC-15-INT25h-26h-Absolute-Disk-Vectors.md.
+ * Two NEW separate software-interrupt vectors over the bound g_absdisk block-
+ * device seam -- NOT INT 21h AH functions (AH=25h SETVECT / AH=35h GETVECT are
+ * distinct, above). The error AX uses the SEPARATE absolute-disk hardware-error
+ * space (ABSDISK_AL_x / ABSDISK_AH_x, int21.h), NOT INT21_ERR_x.
+ *
+ * Helper: write AX = (ah<<8 | al) + set CF (the DOS failure return). Writes only
+ * the low 16 bits of EAX (set_ax) + CF -- the rest of the frame (EBX/ECX/EDX/
+ * ESI/EDI/EBP, the DEC-04a benign superset) is preserved by the stub's popad. */
+static void absdisk_fail(int_frame_t *f, uint8_t al, uint8_t ah)
+{
+#if defined(ABSDISK_MUTATE_WRONG_ERRCLASS)
+    /* MUTANT M5 (Rule 6): return an INT 21h INT21_ERR_* extended-error code
+     * (the WRONG code space) instead of the absolute-disk AL/AH hardware pair.
+     * The error-AX assertions [8] check the exact ABSDISK_AL_x / ABSDISK_AH_x
+     * values, so they go RED -- proving the test asserts the locked spec-data
+     * contract (the two code spaces are NOT conflated; DEC-15.2 / DEC-15.4). */
+    (void)al; (void)ah;
+    set_ax(f, INT21_ERR_INVALID_FUNCTION);   /* 0x0001 -- a DIFFERENT space */
+    cf_set(f);
+#else
+    set_ax(f, (uint16_t)(((uint16_t)ah << 8) | (uint16_t)al));
+    cf_set(f);
+#endif
+}
+
+/* The shared decode + validation + I/O route for INT 25h (op_write==0) and INT
+ * 26h (op_write==1). The ORDER is fail-loud, BEFORE any I/O (DEC-15.2):
+ *   1. reject CX=0xFFFF packet sentinel (never a literal 65535-count; DEC-15.5);
+ *   2. validate AL==0 (the single mounted volume; else invalid-drive);
+ *   3. no seam bound -> fail loud (never fault, Rule 2);
+ *   4. CX==0 -> no-op success CF=0 (DOS contract; touch no device);
+ *   5. user_buf_ok(EBX, CX*512), guarding CX*512 against 32-bit wrap (DEC-14);
+ *   6. bounds-check DX>=total OR DX+CX>total OR DX+CX wraps -> sector-not-found
+ *      (BEFORE the seam call -- a raw LBA past EOF fails loud, never a short
+ *      read);
+ *   7. INT 26h with a read-only backend (write==NULL) -> write-protect;
+ *   8. route to the seam; a negative return -> general failure;
+ *   9. success -> CF=0.
+ * AL=drive, CX=ECX count, DX=EDX start LBA, EBX=flat buffer (the DEC-15
+ * register-role SWAP -- EBX is the buffer, DX/EDX the start sector). */
+static void absdisk_body(int_frame_t *frame, int op_write)
+{
+#if defined(ABSDISK_MUTATE_REG_TRANSPOSE)
+    /* MUTANT M3 (Rule 6; make test-absdisk-mutant only): read the start sector
+     * from CX and the count from DX -- the DX/CX register transposition the
+     * DEC-15 register layout forbids. The round-trip writes/reads the WRONG LBA
+     * (and count), so the round-trip + cross-check oracle goes RED. */
+    uint8_t  drive = (uint8_t)(frame->eax & 0xFFu);            /* AL          */
+    uint32_t count = frame->edx & 0xFFFFu;                     /* (DX) wrong  */
+    uint32_t lba   = frame->ecx & 0xFFFFu;                     /* (CX) wrong  */
+#else
+    uint8_t  drive = (uint8_t)(frame->eax & 0xFFu);            /* AL          */
+    uint32_t count = frame->ecx & 0xFFFFu;                     /* CX          */
+    uint32_t lba   = frame->edx & 0xFFFFu;                     /* DX          */
+#endif
+    uint32_t buf   = frame->ebx;                               /* EBX         */
+    uint32_t bytes;
+    int      rc;
+
+#if defined(ABSDISK_MUTATE_OFF_BY_ONE_LBA)
+    /* MUTANT M1 (Rule 6): add a spurious +1 to the LBA -- an absolute call must
+     * NOT offset the LBA. The write lands at scratch+1 and the read at scratch+1
+     * (or the read-back at scratch sees stale), so the round-trip [5] AND the
+     * independent file cross-check [6] go RED. */
+    lba = lba + 1u;
+#endif
+
+    /* [1] DOS4+ packet sentinel: reject CF=1 + a grep-able serial diagnostic
+     * (the controlled-scope not-yet-impl pattern). NEVER a literal 65535 count
+     * read off the end of the volume (DEC-15.5). Surface it as sector-not-found
+     * so a caller sees a coherent CF/AX, and emit the marker.
+     *
+     * MUTANT M8 (Rule 6; ABSDISK_MUTATE_PACKET_LITERAL): suppress this reject so
+     * CX=0xFFFF is treated as a LITERAL 65535-sector count -- it then falls into
+     * the bounds-check [6] (DX+65535 > total) / off-the-end read, so the packet-
+     * rejection oracle leg goes RED (it expected the loud reject). */
+#if !defined(ABSDISK_MUTATE_PACKET_LITERAL)
+    if ((frame->ecx & 0xFFFFu) == ABSDISK_PACKET_SENTINEL) {
+        con_puts("ABSDISK-PACKET-REJECT\n");   /* DOS4+ CX=0xFFFF, out of scope */
+        absdisk_fail(frame, ABSDISK_AL_SECTOR_NOT_FOUND,
+                     ABSDISK_AH_SECTOR_NOT_FOUND);
+        return;
+    }
+#endif
+
+    /* [2] Drive: AL is ZERO-BASED EXPLICIT (0=A:). This single-volume milestone
+     * mounts one volume, so the only valid drive is 0; anything else fails loud
+     * with invalid-drive (never a silent success, never a fault -- DEC-15.2). */
+    if (drive != 0u) {
+        absdisk_fail(frame, ABSDISK_AL_INVALID_DRIVE, ABSDISK_AH_INVALID_DRIVE);
+        return;
+    }
+
+    /* [3] No seam bound -> fail loud, never fault (Rule 2 / DEC-15 C-4). Map to
+     * general failure (the device is unreachable). */
+    if (!g_absdisk_bound) {
+        absdisk_fail(frame, ABSDISK_AL_GENERAL_FAILURE,
+                     ABSDISK_AH_GENERAL_FAILURE);
+        return;
+    }
+
+    /* [4] Zero count: no-op success, touch no device (DOS contract). */
+    if (count == 0u) {
+        cf_clear(frame);
+        return;
+    }
+
+    /* [5] Validate the transfer buffer span [EBX, EBX + CX*512) BEFORE any I/O
+     * (DEC-14). Guard CX*512 against a 32-bit wrap of the byte span: CX is at
+     * most 0xFFFE here (0xFFFF rejected at [1]), so CX*512 fits in 32 bits, but
+     * keep the multiply explicit and let user_buf_ok catch ptr+span wrap. */
+    bytes = count * 512u;
+    if (!user_buf_ok(buf, bytes)) {
+        absdisk_fail(frame, ABSDISK_AL_INVALID_DRIVE, ABSDISK_AH_INVALID_DRIVE);
+        return;
+    }
+
+    /* [6] Bounds-check against the mounted geometry BEFORE the seam call: a raw
+     * LBA at/past EOF must fail loud (never a short/garbage read). DX+CX wrap is
+     * a count overflow. All three -> sector-not-found (DEC-15.2). */
+#if defined(ABSDISK_MUTATE_NO_BOUNDS)
+    /* MUTANT M4 (Rule 6): drop the bounds check entirely -- DX>=total then falls
+     * through to the seam (a real backend short-reads / off-the-end), so the
+     * out-of-range / overflow error-path oracle legs [8] go RED (they expected
+     * CF=1 + sector-not-found, not a CF=0 pass-through). */
+    if (0) {
+#else
+    if (lba >= g_absdisk.total_sectors ||
+        (lba + count) < lba ||                 /* DX+CX 32-bit wrap            */
+        (lba + count) > g_absdisk.total_sectors) {
+#endif
+        absdisk_fail(frame, ABSDISK_AL_SECTOR_NOT_FOUND,
+                     ABSDISK_AH_SECTOR_NOT_FOUND);
+        return;
+    }
+
+    if (op_write) {
+        /* [7] Read-only backend (write member NULL) -> write-protect (DEC-15.2;
+         * ties to MSG-DOS-0008). */
+        if (g_absdisk.write == 0) {
+            absdisk_fail(frame, ABSDISK_AL_WRITE_PROTECT,
+                         ABSDISK_AH_WRITE_PROTECT);
+            return;
+        }
+#if defined(ABSDISK_MUTATE_WRITE_NOOP)
+        /* MUTANT M2 (Rule 6): stub-drop the WRITE -- claim success (rc=0) but do
+         * no I/O. The read-back [5] sees stale bytes and the independent file
+         * cross-check [6] disagrees, so both go RED. */
+        rc = 0;
+#elif defined(ABSDISK_MUTATE_WRITE_NEIGHBOR)
+        /* MUTANT M6 (Rule 6): write count+1 sectors when count was asked -- it
+         * scribbles the ADJACENT sector. The non-corruption snapshot [7] of the
+         * neighbor (and the boot/FAT/root snapshot if scratch-1 is in range) goes
+         * RED. */
+        rc = g_absdisk.write(lba, count + 1u, (const void *)(uintptr_t)buf);
+#else
+        rc = g_absdisk.write(lba, count, (const void *)(uintptr_t)buf);
+#endif
+    } else {
+        if (g_absdisk.read == 0) {
+            absdisk_fail(frame, ABSDISK_AL_GENERAL_FAILURE,
+                         ABSDISK_AH_GENERAL_FAILURE);
+            return;
+        }
+        rc = g_absdisk.read(lba, count, (void *)(uintptr_t)buf);
+    }
+
+    /* [8] A negative seam return -> general failure (the single honest mapping;
+     * the blockdev seam has no finer hardware-error granularity -- DEC-15.2 /
+     * Consequence C-5). */
+    if (rc < 0) {
+        absdisk_fail(frame, ABSDISK_AL_GENERAL_FAILURE,
+                     ABSDISK_AH_GENERAL_FAILURE);
+        return;
+    }
+
+    /* [9] Success: CF=0. */
+    cf_clear(frame);
+
+#if defined(ABSDISK_MUTATE_STACK_WART)
+    /* MUTANT M7 (Rule 6): MODEL the leftover-FLAGS-on-stack wart DEC-15.3
+     * deliberately OMITS. The real wart leaves a stray FLAGS word on the caller
+     * stack so the IRETD frame is DESYNCHRONIZED -- the saved EFLAGS the caller
+     * pops is wrong beyond the documented CF. We model that desync by scribbling
+     * the EFLAGS frame OUTSIDE bit 0 (the dispatcher's only sanctioned EFLAGS
+     * output). The oracle's frame-balance assertion verifies the dispatcher
+     * touched ONLY EFLAGS bit 0 (CF) -- every other bit preserved byte-identical,
+     * the uniform-IRETD/balanced-frame guarantee -- so this mutant goes RED.
+     * NEVER in a real build: the real stub returns a balanced frame. */
+    frame->eflags ^= 0x00000800u;   /* flip a non-CF bit (the desync) */
+#endif
+}
+
+static void int25_dispatch_body(int_frame_t *frame)
+{
+    absdisk_body(frame, 0);   /* INT 25h = absolute READ */
+}
+
+static void int26_dispatch_body(int_frame_t *frame)
+{
+    absdisk_body(frame, 1);   /* INT 26h = absolute WRITE */
+}
+
+/* INT 25h/26h share the SAME reentrancy guard + InDOS bracket as INT 21h/24h
+ * (DEC-15.1, Consequence C-7): they share the FAT/sector scratch with INT 21h,
+ * so an ISR (or a driver it calls) issuing `int 0x25`/`int 0x26` would corrupt
+ * an interrupted syscall -- the guard fails loud first (Rule 2). The bodies
+ * RETURN a result + CF (do_terminate is not on their path), so each g_indos--
+ * runs. MIRRORS int24_dispatch exactly. */
+void int25_dispatch(int_frame_t *frame)
+{
+    if (irq_depth() != 0u) {
+        dos_reentry_panic();   /* never returns */
+    }
+    g_indos++;
+    int25_dispatch_body(frame);
+    g_indos--;
+}
+
+void int26_dispatch(int_frame_t *frame)
+{
+    if (irq_depth() != 0u) {
+        dos_reentry_panic();   /* never returns */
+    }
+    g_indos++;
+    int26_dispatch_body(frame);
     g_indos--;
 }
