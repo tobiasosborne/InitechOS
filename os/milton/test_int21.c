@@ -117,7 +117,8 @@ static const int21_file_backend_t g_space_backend = {
     NULL,  /* resolve_dir: AH=36h does not CHDIR a path (beads initech-u6wa) */
     NULL,  /* mkdir: AH=36h does not create a dir (beads initech-u6wa) */
     NULL,  /* rmdir: AH=36h does not remove a dir (beads initech-u6wa) */
-    NULL   /* set_time: AH=36h does not set file times (beads initech-qekc) */
+    NULL,  /* set_time: AH=36h does not set file times (beads initech-qekc) */
+    NULL   /* chmod: AH=36h does not chmod a file (beads initech-b53d) */
 };
 
 /* The dispatcher reads EDX as a FLAT 32-bit linear address (uint32_t). On a

@@ -214,6 +214,30 @@ static int open_settime_close(const char *path, uint16_t mtime, uint16_t mdate)
     return set_ok;
 }
 
+/* AH=43h CHMOD `path`: GET (set==0) returns the attribute byte via *out_attr;
+ * SET (set==1) writes `attr` as the new attribute byte. Returns 0 on success
+ * (CF clear), -1 on CF. Drives the full int21 -> fileio_fat -> fat12 stack. */
+static int chmod_path(const char *path, int set, uint8_t attr, uint8_t *out_attr)
+{
+    uint32_t edx = low_dup(path);
+    if (edx == 0u) {
+        return -1;
+    }
+    int_frame_t c = fresh_frame();
+    c.eax = set ? 0x4301u : 0x4300u;
+    c.edx = edx;
+    c.ecx = set ? (uint32_t)attr : 0u;
+    c.eflags |= CF_BIT;
+    int21_dispatch(&c);
+    if (frame_cf(&c) != 0) {
+        return -1;
+    }
+    if (!set && out_attr) {
+        *out_attr = (uint8_t)(c.ecx & 0xFFu);
+    }
+    return 0;
+}
+
 /* AH=41h UNLINK `path`. Returns 0 on success, -1 on CF. */
 static int unlink_path(const char *path)
 {
@@ -447,6 +471,85 @@ int main(int argc, char **argv)
                                            (uint32_t)sizeof(patch));
             CHECK(w == (long)sizeof(patch),
                   "qekc: a later WRITE into the stamped '\\SUB\\TSTAMP.TXT' writes all bytes");
+        } else if (strcmp(op, "attr-set") == 0) {
+            /* AH=43h CHMOD (beads initech-b53d): CREATE a fresh subdir file
+             * '\SUB\ATTR.TXT' (which lands with the deterministic DIR_ATTR_ARCHIVE
+             * 0x20 baseline), then AH=43h AL=01 SET its attribute to RO|HIDDEN
+             * (0x03 -- note: deliberately NO Archive bit, so the on-disk byte is
+             * an exact 0x03 the python/mtools references can pin) and FLUSH. Prove
+             * the patch THREE ways: (1) AH=43h GET back through the FULL dispatch
+             * stack returns 0x03; (2) fat12_get_attr DIRECTLY off the cached FAT
+             * returns 0x03 (the on-disk byte, independent of the SFT); the Makefile
+             * then adds (3) python --attr + (4) mtools mattrib. A re-typing reject
+             * is the host oracle's job (test_fileio.c); here we prove persistence.
+             *   attr 0x03 = DIR_ATTR_READONLY | DIR_ATTR_HIDDEN. */
+            static uint8_t ap[48];
+            for (uint32_t i = 0u; i < sizeof(ap); i++) {
+                ap[i] = (uint8_t)('A' + (i % 26u));
+            }
+            long w = creat_write_close("\\SUB\\ATTR.TXT", ap,
+                                       (uint32_t)sizeof(ap));
+            CHECK(w == (long)sizeof(ap),
+                  "b53d: CREATE+WRITE '\\SUB\\ATTR.TXT' (fresh 0x20 baseline)");
+            uint8_t new_attr = (uint8_t)(DIR_ATTR_READONLY | DIR_ATTR_HIDDEN);
+            int rcset = chmod_path("\\SUB\\ATTR.TXT", 1, new_attr, NULL);
+            CHECK(rcset == 0,
+                  "b53d: AH=43h SET RO|HIDDEN on '\\SUB\\ATTR.TXT' clears CF");
+            /* (1) AH=43h GET through the dispatcher reads it back. */
+            uint8_t got = 0xFFu;
+            int rcget = chmod_path("\\SUB\\ATTR.TXT", 0, 0u, &got);
+            CHECK(rcget == 0 && got == new_attr,
+                  "b53d: AH=43h GET '\\SUB\\ATTR.TXT' -> 0x03 (RO|HIDDEN, dispatch)");
+            /* (2) fat12_get_attr DIRECTLY off the cached FAT (the on-disk byte,
+             * independent of the SFT in-memory copy). Resolve '\SUB\ATTR.TXT'
+             * with fat12_resolve_path (an INDEPENDENT decode -- it does NOT call
+             * fat12_get_attr): out_dir.start_cluster is SUB's first cluster, and
+             * out_entry.attribute is the raw on-disk byte. Then re-read the SAME
+             * byte through fat12_get_attr to prove the primitive agrees. */
+            {
+                uint32_t    flen   = 0u;
+                void       *fatbuf = fileio_fat_fat_buffer(&flen);
+                fat12_dir_t containing;
+                dir_entry_t fent;
+                int rr = fat12_resolve_path(&wvol, wsec, fatbuf, flen,
+                                            "\\SUB\\ATTR.TXT", &containing, &fent);
+                CHECK(rr == FAT12_OK,
+                      "b53d: fat12_resolve_path '\\SUB\\ATTR.TXT' for read-back");
+                CHECK(rr == FAT12_OK && fent.attribute == new_attr,
+                      "b53d: resolved on-disk dir entry attribute == 0x03");
+                uint16_t sub_start = containing.is_root ? 0u
+                                                        : containing.start_cluster;
+                uint8_t disk_attr = 0xFFu;
+                int gr = fat12_get_attr(&wvol, fatbuf, flen, "ATTR.TXT",
+                                        sub_start, wsec, &disk_attr);
+                CHECK(gr == FAT12_OK && disk_attr == new_attr,
+                      "b53d: fat12_get_attr off cached FAT -> 0x03 (on-disk byte)");
+            }
+            /* DIRECTORY-TARGET REJECT (the DOS-faithful SET reject set, fail loud):
+             * AH=43h SET on '\SUB\DEEP' (a directory) MUST be access-denied. CX is
+             * a plain file attr (RO) so it clears the dispatch CX-reject; the dir
+             * TARGET reject is the fat12 primitive's guard. A mutant that drops the
+             * fat12 reject makes THIS leg go RED (the SET would succeed/CF=0). */
+            {
+                uint8_t dummy = 0u;
+                int rcd = chmod_path("\\SUB\\DEEP", 1,
+                                     (uint8_t)DIR_ATTR_READONLY, &dummy);
+                CHECK(rcd == -1,
+                      "b53d: AH=43h SET on the DIRECTORY '\\SUB\\DEEP' is rejected (CF=1)");
+            }
+            /* MISSING-FILE error code (through the REAL fileio_fat backend): a GET
+             * of '\SUB\NOPE.TXT' MUST report CF=1, AX=0x0002 (file not found), NOT
+             * 0x0005. A mutant that maps fat12 NOT_FOUND to ACCESS_DENIED makes
+             * THIS leg go RED (the AX is 0x0005, not 0x0002). */
+            {
+                int_frame_t mg = fresh_frame();
+                mg.eax = 0x4300u; mg.edx = low_dup("\\SUB\\NOPE.TXT");
+                mg.eflags |= CF_BIT;
+                int21_dispatch(&mg);
+                CHECK(frame_cf(&mg) == 1 &&
+                      (uint16_t)(mg.eax & 0xFFFFu) == 0x0002u,
+                      "b53d: AH=43h GET missing '\\SUB\\NOPE.TXT' -> CF=1, AX=0x0002");
+            }
         } else if (strcmp(op, "root-regress") == 0) {
             /* A ROOT CREATE+WRITE+UNLINK still works (dir_start==0 path stays
              * functional under the generalized primitives). */

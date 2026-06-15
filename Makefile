@@ -2649,6 +2649,161 @@ test-qekc-mutant: $(TEST_QEKC_MUT_GETSWAP) $(TEST_QEKC_MUT_NOALREJECT) $(TEST_QE
 	@printf '>>> test-qekc-mutant: green (ALL SIX AH=57h mutants ran + RED for the right reason)\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-b53d (beads initech-b53d -- INT 21h AH=43h CHMOD GET/SET ATTR)
+# ---------------------------------------------------------------------------
+# The bead's NAMED oracle is the FAT differential (persistence proof). The
+# test_fileio_subdir harness in --write attr-set mode drives, through the REAL
+# int21 -> fileio_fat -> fat12 stack over a READ-WRITE COPY of the nested image:
+# CREATE '\SUB\ATTR.TXT' (fresh DIR_ATTR_ARCHIVE 0x20 baseline), then AH=43h
+# AL=01 SET its attribute to RO|HIDDEN (0x03) and FLUSH. The harness itself reads
+# the on-disk byte back THREE in-process ways (AH=43h GET via dispatch;
+# fat12_resolve_path's resolved dir entry; fat12_get_attr off the cached FAT) and
+# also proves the DOS-faithful SET reject set (a directory target -> CF=1) and
+# the missing-file 0x0002 contract. This recipe then re-reads the SAME on-disk
+# 0x0B byte TWO MORE independent ways and asserts they EXACTLY equal 0x03:
+#   (1) python fat12_ref.py --attr   (raw ent[11] decimal word == 3);
+#   (2) mtools mattrib  (renders as the flag string "HR" = Hidden+Read-only).
+# It also confirms (Rule 11) the file BODY + mtime/mdate are UNTOUCHED by the
+# CHMOD (the attribute-byte-only RMW). The existing normalizing FAT oracles are
+# LEFT UNTOUCHED (Stop-condition / Rule 11 preserved).
+FAT12_B53D_IMG               := $(BUILD)/fat12_b53d_scratch.img
+# Host-contract mutants (1/2/6): int21.c perturbed -> the HOST register oracle
+# (test_fileio) bites. Differential mutants (3/4/5): fat12.c / fileio_fat.c
+# perturbed -> the on-disk FAT differential / the subdir harness bites.
+TEST_B53D_MUT_NOALREJECT     := $(BUILD)/test_fileio_b53d_mut_noalreject
+TEST_B53D_MUT_GETZERO        := $(BUILD)/test_fileio_b53d_mut_getzero
+TEST_B53D_MUT_NODISPATCH     := $(BUILD)/test_fileio_b53d_mut_nodispatch
+TEST_B53D_MUT_NOFLUSH        := $(BUILD)/test_fileio_subdir_b53d_mut_noflush
+TEST_B53D_MUT_NOREJECT       := $(BUILD)/test_fileio_subdir_b53d_mut_noreject
+TEST_B53D_MUT_NOTFOUND       := $(BUILD)/test_fileio_subdir_b53d_mut_notfound
+
+# Host-contract mutant binaries (test_fileio.c host oracle, one int21.c -D each).
+$(TEST_B53D_MUT_NOALREJECT): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CHMOD_NO_AL_REJECT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_B53D_MUT_GETZERO): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CHMOD_GET_ZERO -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_B53D_MUT_NODISPATCH): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CHMOD_NO_DISPATCH -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+# Differential mutant binaries (test_fileio_subdir harness + REAL backend, one
+# fat12.c / fileio_fat.c -D each).
+$(TEST_B53D_MUT_NOFLUSH): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_SETATTR_NO_FLUSH -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+$(TEST_B53D_MUT_NOREJECT): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_SETATTR_NO_REJECT -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+$(TEST_B53D_MUT_NOTFOUND): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFILEIO_MUTATE_CHMOD_NOTFOUND_ACCESS -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+.PHONY: test-b53d
+test-b53d: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
+	@command -v mattrib >/dev/null 2>&1 || { printf '!!! test-b53d FAIL: mtools `mattrib` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-b53d FAIL: python3 not found (independent reference).\n'; exit 1; }
+	@printf ">>> test-b53d: AH=43h CHMOD GET/SET ATTR persistence vs python --attr + mtools mattrib (beads initech-b53d)\n"
+	@cp $(FAT12_NESTED_IMG) $(FAT12_B53D_IMG)
+	@# (1) CREATE '\SUB\ATTR.TXT' (0x20 baseline) + AH=43h SET RO|HIDDEN (0x03) +
+	@# FLUSH; the harness self-checks the 3 in-process read-backs + the dir/missing
+	@# reject set (10 CHECKs). A non-zero failure count fails the gate.
+	@$(TEST_FILEIO_SUBDIR) "$(FAT12_B53D_IMG)" "$(FAT12_FIXTURE_DIR)" --write attr-set > $(BUILD)/b53d_attrset.report 2>&1; \
+		grep -Eq 'test_fileio_subdir: [0-9]+ checks, 0 failures' $(BUILD)/b53d_attrset.report \
+		|| { printf '!!! test-b53d FAIL [SET]: the attr-set harness reported failures (in-process read-back / reject set):\n'; cat $(BUILD)/b53d_attrset.report; exit 1; }
+	@printf '>>> test-b53d [SET]: \\SUB\\ATTR.TXT on-disk attr set to 0x03 (dispatch GET + fat12_get_attr + resolved entry agree; dir/missing rejects fire)\n'
+	@# (2) python: the raw on-disk attribute byte (ent[11]) EXACTLY == 3 (0x03).
+	@test "$$(python3 $(FAT12_REF_PY) $(FAT12_B53D_IMG) --attr 'SUB\ATTR.TXT')" = "3" \
+		|| { printf '!!! test-b53d FAIL [SET]: python --attr != 3 (the written RO|HIDDEN 0x03)\n'; \
+		     printf '    got: [%s]\n' "$$(python3 $(FAT12_REF_PY) $(FAT12_B53D_IMG) --attr 'SUB\ATTR.TXT')"; exit 1; }
+	@# (3) mtools mattrib: the SAME byte rendered as the flag string "HR"
+	@# (Hidden + Read-only) -- an INDEPENDENT decoder agreeing with python.
+	@mattrib -i $(FAT12_B53D_IMG) ::SUB/ATTR.TXT 2>/dev/null | grep -Eq '^ +HR +' \
+		|| { printf '!!! test-b53d FAIL [SET]: mtools mattrib does not render ATTR.TXT as HR (Hidden+Read-only == 0x03)\n'; \
+		     mattrib -i $(FAT12_B53D_IMG) ::SUB/ATTR.TXT 2>/dev/null; exit 1; }
+	@printf '>>> test-b53d [SET]: \\SUB\\ATTR.TXT on-disk attr == 0x03 (python --attr==3 == mtools mattrib HR == fat12_get_attr)\n'
+	@# (4) Rule 11: the time-set... ahem, the ATTR-set flush touched ONLY the 0x0B
+	@# byte -- the BODY and mtime/mdate are untouched (deterministic 0/0 baseline).
+	@python3 $(FAT12_REF_PY) $(FAT12_B53D_IMG) --cat-path 'SUB\ATTR.TXT' > $(BUILD)/b53d_body.bin
+	@python3 -c 'import sys; e=bytes(65+((i%26)) for i in range(48)); sys.exit(0 if open("$(BUILD)/b53d_body.bin","rb").read()==e else 1)' \
+		|| { printf '!!! test-b53d FAIL [SET]: the file body changed after the attr-set flush (data clobbered)\n'; exit 1; }
+	@test "$$(python3 $(FAT12_REF_PY) $(FAT12_B53D_IMG) --stat-path-time 'SUB\ATTR.TXT')" = "0 0" \
+		|| { printf '!!! test-b53d FAIL [SET]: the attr-set flush DISTURBED mtime/mdate (Rule 11 violated -- the RMW must touch ONLY 0x0B)\n'; exit 1; }
+	@printf '>>> test-b53d [SET]: ATTR.TXT body + mtime/mdate untouched by CHMOD (attribute-byte-only RMW, Rule 11)\n'
+	@printf ">>> test-b53d: green\n"
+
+# Mutation gate (Rule 6): SIX b53d mutants. Host-contract mutants (1/2/6) must
+# drive the HOST register oracle (test_fileio) RED; differential mutants (3/4/5)
+# must drive the subdir harness / on-disk differential RED. Each MUST bite.
+.PHONY: test-b53d-mutant
+test-b53d-mutant: $(TEST_B53D_MUT_NOALREJECT) $(TEST_B53D_MUT_GETZERO) $(TEST_B53D_MUT_NODISPATCH) \
+                  $(TEST_B53D_MUT_NOFLUSH) $(TEST_B53D_MUT_NOREJECT) $(TEST_B53D_MUT_NOTFOUND) \
+                  $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
+	@printf ">>> test-b53d-mutant: confirming all SIX AH=43h mutants go RED for the RIGHT reason (Rule 6; beads initech-b53d)\n"
+	@# --- MUTANT 1 (NO_AL_REJECT): AL=2 no longer rejected (falls to GET) -> the
+	@# bad-AL host contract (CF=1/0x0001) bites.
+	@$(TEST_B53D_MUT_NOALREJECT) > $(BUILD)/b53d_mut_noalreject.report 2>&1 || true
+	@grep -q '^test_fileio: ' $(BUILD)/b53d_mut_noalreject.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_AL_REJECT mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/b53d_mut_noalreject.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_AL_REJECT mutant PASSED -- the AL=2 reject is decoration\n'; exit 1; }
+	@printf '>>> test-b53d-mutant: green (NO_AL_REJECT ran + RED -- the AL=2 reject bites)\n'
+	@# --- MUTANT 2 (GET_ZERO): GET returns CX=0 instead of the real attr -> the
+	@# host GET-returns-CX contract bites.
+	@$(TEST_B53D_MUT_GETZERO) > $(BUILD)/b53d_mut_getzero.report 2>&1 || true
+	@grep -q '^test_fileio: ' $(BUILD)/b53d_mut_getzero.report \
+		|| { printf '!!! test-b53d-mutant FAIL: GET_ZERO mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/b53d_mut_getzero.report \
+		|| { printf '!!! test-b53d-mutant FAIL: GET_ZERO mutant PASSED -- the GET-returns-CX contract is decoration\n'; exit 1; }
+	@printf '>>> test-b53d-mutant: green (GET_ZERO ran + RED -- the GET CX=attr contract bites)\n'
+	@# --- MUTANT 6 (NO_DISPATCH): case 0x43 omitted -> CHMOD falls to the
+	@# not-yet-impl path (CF=1/0x0001); every chmod host assertion bites.
+	@$(TEST_B53D_MUT_NODISPATCH) > $(BUILD)/b53d_mut_nodispatch.report 2>&1 || true
+	@grep -q '^test_fileio: ' $(BUILD)/b53d_mut_nodispatch.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_DISPATCH mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/b53d_mut_nodispatch.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_DISPATCH mutant PASSED -- the AH=43h dispatch is decoration\n'; exit 1; }
+	@printf '>>> test-b53d-mutant: green (NO_DISPATCH ran + RED -- the case 0x43 dispatch bites)\n'
+	@# --- MUTANT 3 (NO_FLUSH): SET patches memory but skips the write-back ->
+	@# the on-disk attr stays the 0x20 baseline; python --attr != 3. The harness
+	@# itself ALSO bites (its fat12_get_attr re-scan reads the unflushed disk).
+	@cp $(FAT12_NESTED_IMG) $(FAT12_B53D_IMG)
+	@$(TEST_B53D_MUT_NOFLUSH) "$(FAT12_B53D_IMG)" "$(FAT12_FIXTURE_DIR)" --write attr-set > $(BUILD)/b53d_mut_noflush.report 2>&1 || true
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/b53d_mut_noflush.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_FLUSH mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@if [ "$$(python3 $(FAT12_REF_PY) $(FAT12_B53D_IMG) --attr 'SUB\ATTR.TXT')" = "3" ]; then \
+		printf '!!! test-b53d-mutant FAIL: NO_FLUSH mutant PASSED -- the attr landed on disk despite the skipped flush; the flush oracle is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-b53d-mutant: green (NO_FLUSH ran + RED -- the on-disk attr is absent; the write-back flush is load-bearing)\n'; \
+	fi
+	@# --- MUTANT 4 (NO_REJECT): the dir/vol-label TARGET reject is dropped -> the
+	@# SET on the DIRECTORY '\SUB\DEEP' succeeds (CF=0) instead of being denied;
+	@# the harness dir-reject CHECK bites.
+	@cp $(FAT12_NESTED_IMG) $(FAT12_B53D_IMG)
+	@$(TEST_B53D_MUT_NOREJECT) "$(FAT12_B53D_IMG)" "$(FAT12_FIXTURE_DIR)" --write attr-set > $(BUILD)/b53d_mut_noreject.report 2>&1 || true
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/b53d_mut_noreject.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_REJECT mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio_subdir: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/b53d_mut_noreject.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NO_REJECT mutant PASSED -- the directory-target reject is decoration (a dir was CHMODed)\n'; exit 1; }
+	@printf '>>> test-b53d-mutant: green (NO_REJECT ran + RED -- the dir/vol-label TARGET reject bites)\n'
+	@# --- MUTANT 5 (NOTFOUND_ACCESS): fileio_fat maps fat12 NOT_FOUND to 0x0005 ->
+	@# a CHMOD of a missing file reports 0x0005 not 0x0002; the harness missing-file
+	@# CHECK bites.
+	@cp $(FAT12_NESTED_IMG) $(FAT12_B53D_IMG)
+	@$(TEST_B53D_MUT_NOTFOUND) "$(FAT12_B53D_IMG)" "$(FAT12_FIXTURE_DIR)" --write attr-set > $(BUILD)/b53d_mut_notfound.report 2>&1 || true
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/b53d_mut_notfound.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NOTFOUND_ACCESS mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio_subdir: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/b53d_mut_notfound.report \
+		|| { printf '!!! test-b53d-mutant FAIL: NOTFOUND_ACCESS mutant PASSED -- the missing-file 0x0002 contract is decoration\n'; exit 1; }
+	@printf '>>> test-b53d-mutant: green (NOTFOUND_ACCESS ran + RED -- the missing-file 0x0002 contract bites)\n'
+	@printf '>>> test-b53d-mutant: green (ALL SIX AH=43h mutants ran + RED for the right reason)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-int21-edge (beads initech-xrd / initech-1zk; double-close part
 # of initech-00x -- INT 21h error paths + implemented-but-untested resident fns)
 # ---------------------------------------------------------------------------
@@ -7813,7 +7968,7 @@ test-kernel-repro-mutant: | $(BUILD)
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
 	test-fat12-mkdir test-m0bp test-m0bp-rollback \
-	test-fat-subdir test-zs24 test-qekc \
+	test-fat-subdir test-zs24 test-qekc test-b53d \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
@@ -7828,7 +7983,7 @@ TEST_UNIT_GATES := \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
-	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-zs24-mutant test-qekc-mutant \
+	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-zs24-mutant test-qekc-mutant test-b53d-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-kernel-repro test-kernel-repro-mutant

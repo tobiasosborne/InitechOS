@@ -1797,6 +1797,138 @@ int fat12_set_dirent_time(const fat12_volume_t *vol, const void *fat,
 #endif
 }
 
+/*
+ * fat12_get_attr -- the AL=00 GET leg of INT 21h AH=43h CHMOD (beads
+ * initech-b53d). Scan the directory for `name83` (subdir-aware via
+ * fat12_scan_dir, exactly as fat12_unlink); on a match, REJECT a directory /
+ * volume-label entry with FAT12_ERR_ACCESS (DOS CHMOD targets regular files only
+ * -- Rule 2: never report a type-bit-laden attr as a plain file attr), else copy
+ * the matched entry's attribute byte (offset 0x0B) into *out_attr. A missing
+ * name -> FAT12_ERR_NOT_FOUND. Read-only: the volume need not be writable.
+ * Ref: DOS 3.3 PRM AH=43h AL=00; spec/dos_structs.h (attribute 0x0B). */
+int fat12_get_attr(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
+                   const char *name83, uint16_t parent_dir_start,
+                   void *sector_buf, uint8_t *out_attr)
+{
+	uint8_t     want11[11];
+	uint32_t    free_slot = 0u;
+	int         have_free = 0;
+	uint32_t    match_slot = 0u;
+	dir_entry_t match;
+	int         found = 0;
+	int         rc;
+	int         is_root = (parent_dir_start == 0u);
+
+	if (vol == NULL || name83 == NULL || sector_buf == NULL || out_attr == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	if (vol->dev == NULL || vol->dev->read_sectors == NULL) {
+		return FAT12_ERR_READ;
+	}
+
+	rc = parse_name83(name83, want11);
+	if (rc != FAT12_OK) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	rc = fat12_scan_dir(vol, fat, fat_len, is_root, parent_dir_start, sector_buf,
+	                    want11, &free_slot, &have_free, &match_slot, &match,
+	                    &found);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (!found) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	/* A directory or volume-label entry is NOT a CHMOD-able regular file (the
+	 * DOS reject set -- Rule 2 fail loud). */
+	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+		return FAT12_ERR_ACCESS;
+	}
+	*out_attr = match.attribute;
+	return FAT12_OK;
+}
+
+/*
+ * fat12_set_attr -- the AL=01 SET leg of INT 21h AH=43h CHMOD (beads
+ * initech-b53d). Scan the directory for `name83` (subdir-aware), REJECT a
+ * directory / volume-label TARGET and REJECT a new `attr` that itself sets the
+ * Directory(0x10) or VolLabel(0x08) bit (DOS forbids re-typing a dirent via
+ * CHMOD), both with FAT12_ERR_ACCESS BEFORE any write -- Rule 2: never silently
+ * corrupt a dirent's type bits. Then read-modify-write ONLY the attribute byte
+ * (offset 0x0B) and flush via the SAME primitive WRITE uses
+ * (fat12_write_dirent_in_dir). Name / start_cluster / size AND mtime(0x16) /
+ * mdate(0x18) are PRESERVED VERBATIM (Rule 11: the timestamp bytes are never
+ * touched, so a CHMOD stays deterministic). A missing name -> FAT12_ERR_NOT_FOUND;
+ * a read-only volume -> FAT12_ERR_WRITE. Ref: DOS 3.3 PRM AH=43h AL=01. */
+int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                   const char *name83, uint16_t parent_dir_start,
+                   uint8_t attr, void *sector_buf)
+{
+	uint8_t     want11[11];
+	uint32_t    free_slot = 0u;
+	int         have_free = 0;
+	uint32_t    match_slot = 0u;
+	dir_entry_t match;
+	int         found = 0;
+	int         rc;
+	int         is_root = (parent_dir_start == 0u);
+
+	if (vol == NULL || name83 == NULL || sector_buf == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	if (vol->dev == NULL || vol->dev->write_sectors == NULL ||
+	    vol->dev->read_sectors == NULL) {
+		return FAT12_ERR_WRITE;
+	}
+
+	/* A new attribute that re-types the entry (sets Directory or VolLabel) is
+	 * forbidden -- reject BEFORE the scan touches disk (Rule 2). */
+#ifndef FAT12_MUTATE_SETATTR_NO_REJECT
+	if ((attr & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+		return FAT12_ERR_ACCESS;
+	}
+#endif
+
+	rc = parse_name83(name83, want11);
+	if (rc != FAT12_OK) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	rc = fat12_scan_dir(vol, fat, fat_len, is_root, parent_dir_start, sector_buf,
+	                    want11, &free_slot, &have_free, &match_slot, &match,
+	                    &found);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (!found) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	/* The TARGET must be a regular file -- never CHMOD a directory or the
+	 * volume-label entry (Rule 2). */
+#ifndef FAT12_MUTATE_SETATTR_NO_REJECT
+	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+		return FAT12_ERR_ACCESS;
+	}
+#endif
+
+	/* Patch ONLY the attribute byte; name / cluster / size / mtime / mdate are
+	 * left exactly as scanned (Rule 11: the timestamp bytes stay deterministic). */
+	match.attribute = attr;
+#ifndef FAT12_MUTATE_SETATTR_NO_FLUSH
+	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+	                                 match_slot, &match, sector_buf);
+#else
+	/* MUTANT 3 (Rule 6; make test-b53d-mutant only): patch `match.attribute` in
+	 * memory but SKIP the write-back flush, so the on-disk 0x0B byte keeps its
+	 * old (0x20 ARCHIVE) baseline. The SET reports success (FAT12_OK) but the
+	 * on-disk DIFFERENTIAL (python --attr / mtools mattrib / a fresh
+	 * fat12_get_attr scan) goes RED -- proving the flush is load-bearing for
+	 * persistence. The in-memory dispatch-GET path the harness drives reads the
+	 * SAME re-scan though, so even the in-harness fat12_get_attr bites. NEVER in a
+	 * real build. */
+	return FAT12_OK;
+#endif
+}
+
 int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, uint8_t attr, uint16_t parent_dir_start,
                  void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,

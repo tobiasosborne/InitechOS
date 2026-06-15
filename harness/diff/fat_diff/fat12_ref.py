@@ -20,6 +20,10 @@
 #                               at a backslash PATH. The INVERSE of every other
 #                               mode (which normalizes timestamps away): the
 #                               independent reference for AH=57h SET (qekc).
+#   --attr PATH               : print the raw ATTRIBUTE byte (offset 0x0B) of the
+#                               on-disk dir entry of the file at a backslash PATH,
+#                               as one decimal word. The independent reference for
+#                               INT 21h AH=43h CHMOD (beads initech-b53d).
 #   --cat-range NAME OFF LEN  : write EXACTLY the byte slice [OFF, OFF+LEN) of
 #                               the named file to stdout (binary). Past-EOF /
 #                               over-long LEN are clamped to file_size, exactly
@@ -450,6 +454,28 @@ def main(argv):
             return 1
         for name, size in sorted(files, key=lambda r: r[0]):
             sys.stdout.write("%s %d\n" % (name, size))
+        return 0
+
+    if mode == "--attr":
+        # --attr PATH : print the raw ATTRIBUTE byte (offset 0x0B of the 32-byte
+        # directory entry) of the file at a backslash-separated PATH, as a single
+        # decimal word "ATTR\n". The INDEPENDENT reference for INT 21h AH=43h
+        # CHMOD (beads initech-b53d): no code shared with the C writer. Missing
+        # file -> exit 1.
+        if len(argv) != 4:
+            sys.stderr.write("fat12_ref: --attr needs a PATH\n")
+            return 2
+        try:
+            ent = fs.find_path(argv[3])
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: --attr bad path '%s': %s\n"
+                             % (argv[3], exc))
+            return 1
+        if ent is None:
+            sys.stderr.write("fat12_ref: file not found: %s\n" % argv[3])
+            return 1
+        attr = ent[11]                                   # 0Bh: attribute byte
+        sys.stdout.write("%d\n" % attr)
         return 0
 
     if mode == "--stat-path-time":

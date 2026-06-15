@@ -379,6 +379,29 @@ static uint16_t mock_set_time(uint16_t dir_start, uint32_t slot,
     return 0u;
 }
 
+/* ---- mock CHMOD backend (beads initech-b53d; AH=43h GET/SET ATTRIBUTES) ----- *
+ * GET (set==0): find the file in `dir_start_cluster`, reject a dir/vol-label
+ * (0x0005), else return its attr byte in *io_attr. SET (set==1): reject a
+ * dir/vol-label target (0x0005), else patch the keyed mock file's attr to
+ * *io_attr (so a later GET observes it). Missing -> 0x0002. The dispatcher
+ * already rejected an out-of-set AL and a re-typing CX, but the backend repeats
+ * the dir/vol-label TARGET reject so the host oracle can drive it directly. */
+static uint16_t mock_chmod(const char *name83, uint16_t dir_start_cluster,
+                           int set, uint8_t *io_attr)
+{
+    if (io_attr == 0) return 0x0005u;
+    int idx = mock_find_in_dir(name83, dir_start_cluster);
+    if (idx < 0) return 0x0002u;                      /* not found */
+    if ((g_mock[idx].attr & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0)
+        return 0x0005u;                               /* dir/vol-label target */
+    if (set == 0) {
+        *io_attr = g_mock[idx].attr;                  /* GET */
+    } else {
+        g_mock[idx].attr = *io_attr;                  /* SET (persist) */
+    }
+    return 0u;
+}
+
 static uint16_t mock_unlink(const char *name83, uint16_t dir_start_cluster)
 {
     /* Root (dir==0): "DELETE.ME" exists; anything else not found (the existing
@@ -651,7 +674,8 @@ static const int21_file_backend_t g_mock_backend = {
     mock_resolve_dir, /* the path->DIRECTORY seam for CHDIR (beads initech-u6wa) */
     mock_mkdir,       /* AH=39h MKDIR (beads initech-u6wa) */
     mock_rmdir,       /* AH=3Ah RMDIR (beads initech-u6wa) */
-    mock_set_time     /* AH=57h SET FILE DATE/TIME (beads initech-qekc) */
+    mock_set_time,    /* AH=57h SET FILE DATE/TIME (beads initech-qekc) */
+    mock_chmod        /* AH=43h CHMOD GET/SET ATTRIBUTES (beads initech-b53d) */
 };
 
 int main(void)
@@ -1341,7 +1365,8 @@ int main(void)
                 mock_open, mock_read_at, mock_dir_entry,
                 NULL, NULL, NULL, NULL, NULL,
                 mock_resolve, mock_resolve_dir, NULL, NULL,
-                NULL /* set_time: read-only (beads initech-qekc) */ };
+                NULL, /* set_time: read-only (beads initech-qekc) */
+                NULL /* chmod: read-only (beads initech-b53d) */ };
             mock_reset_dir();
             bind_standard_process();
             int21_set_file_backend(&ro2);
@@ -1591,7 +1616,8 @@ int main(void)
                                                   NULL, NULL, NULL, NULL, NULL,
                                                   mock_resolve, mock_resolve_dir,
                                                   NULL, NULL, /* mkdir/rmdir: read-only */
-                                                  NULL /* set_time: read-only (qekc) */ };
+                                                  NULL, /* set_time: read-only (qekc) */
+                                                  NULL /* chmod: read-only (b53d) */ };
         mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&ro);
@@ -1759,7 +1785,8 @@ int main(void)
                 mock_open, mock_read_at, mock_dir_entry,
                 NULL, NULL, NULL, NULL, NULL,
                 mock_resolve, mock_resolve_dir, NULL, NULL,
-                NULL /* set_time: read-only -> AH=57h SET access-denied */ };
+                NULL, /* set_time: read-only -> AH=57h SET access-denied */
+                NULL /* chmod: read-only -> AH=43h SET access-denied (b53d) */ };
             mock_reset_dir();
             bind_standard_process();
             int21_set_file_backend(&roqekc);
@@ -1774,6 +1801,162 @@ int main(void)
             CHECK(frame_cf(&ros) == 1 &&
                   (uint16_t)(ros.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
                   "qekc SET with no set_time backend -> CF=1, AX=0x0005");
+            int21_set_file_backend(&g_mock_backend);
+        }
+    }
+
+    /* --- AH=43h GET/SET FILE ATTRIBUTES (CHMOD; beads initech-b53d) --------- *
+     * The host register-contract oracle (path-based, NOT a handle call):
+     *   GET (AL=00) returns CX = the dir entry's attribute byte (CL=attr, CH=0);
+     *   SET (AL=01) writes CX as the new attribute and a re-GET reflects it;
+     *   SET targeting a DIRECTORY or VOLUME-LABEL entry -> 0x0005;
+     *   SET whose CX sets the Directory/VolLabel bit -> 0x0005;
+     *   a missing file -> 0x0002; AL=2 -> 0x0001 (invalid function);
+     *   a read-only backend (chmod==NULL) -> 0x0005 (both GET and SET).
+     * Ref: DOS 3.3 PRM INT 21h Function 43h. */
+    {
+        mock_reset_dir();
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+
+        /* GET HELLO.TXT (root, slot 0; seeded attr = DIR_ATTR_ARCHIVE 0x20). */
+        int_frame_t g = fresh_frame();
+        g.eax = 0x4300u; g.edx = low_dup("HELLO.TXT"); g.ecx = 0xBEEFu;
+        g.eflags |= CF_BIT;
+        int21_dispatch(&g);
+        CHECK(frame_cf(&g) == 0, "b53d GET: HELLO.TXT clears CF");
+        CHECK((uint16_t)(g.ecx & 0xFFFFu) == (uint16_t)DIR_ATTR_ARCHIVE,
+              "b53d GET: CX = the file's attribute byte 0x20 (Archive)");
+
+        /* SET HELLO.TXT to RO|HIDDEN|ARCHIVE (0x23). CF=0; a re-GET reflects it. */
+        int_frame_t s = fresh_frame();
+        s.eax = 0x4301u; s.edx = low_dup("HELLO.TXT");
+        s.ecx = (uint16_t)(DIR_ATTR_READONLY | DIR_ATTR_HIDDEN | DIR_ATTR_ARCHIVE);
+        s.eflags |= CF_BIT;
+        int21_dispatch(&s);
+        CHECK(frame_cf(&s) == 0, "b53d SET: RO|HIDDEN|ARCHIVE clears CF");
+        int_frame_t g2 = fresh_frame();
+        g2.eax = 0x4300u; g2.edx = low_dup("HELLO.TXT"); g2.eflags |= CF_BIT;
+        int21_dispatch(&g2);
+        CHECK(frame_cf(&g2) == 0, "b53d re-GET: clears CF");
+        CHECK((uint16_t)(g2.ecx & 0xFFFFu) ==
+              (uint16_t)(DIR_ATTR_READONLY | DIR_ATTR_HIDDEN | DIR_ATTR_ARCHIVE),
+              "b53d re-GET: CX reflects the SET attribute 0x23 (persisted)");
+
+        /* SET targeting the SUB DIRECTORY entry (root slot 4, attr DIR) -> 0x0005
+         * (CX is a plain file attr so it passes the dispatch CX guard; the
+         * dir TARGET reject is the backend/fat12 guard). */
+        int_frame_t sd = fresh_frame();
+        sd.eax = 0x4301u; sd.edx = low_dup("SUB");
+        sd.ecx = (uint16_t)DIR_ATTR_READONLY; sd.eflags |= CF_BIT;
+        int21_dispatch(&sd);
+        CHECK(frame_cf(&sd) == 1 &&
+              (uint16_t)(sd.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "b53d SET on a DIRECTORY -> CF=1, AX=0x0005 (access denied)");
+
+        /* GET of the DIRECTORY entry also -> 0x0005 (never report a dir's attr as
+         * a file attr; Rule 2). */
+        int_frame_t gd = fresh_frame();
+        gd.eax = 0x4300u; gd.edx = low_dup("SUB"); gd.eflags |= CF_BIT;
+        int21_dispatch(&gd);
+        CHECK(frame_cf(&gd) == 1 &&
+              (uint16_t)(gd.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "b53d GET on a DIRECTORY -> CF=1, AX=0x0005 (access denied)");
+
+        /* SET targeting the DISK VOLUME-LABEL entry (root slot 2) -> 0x0005. */
+        int_frame_t sv = fresh_frame();
+        sv.eax = 0x4301u; sv.edx = low_dup("DISK");
+        sv.ecx = (uint16_t)DIR_ATTR_READONLY; sv.eflags |= CF_BIT;
+        int21_dispatch(&sv);
+        CHECK(frame_cf(&sv) == 1 &&
+              (uint16_t)(sv.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "b53d SET on a VOLUME-LABEL -> CF=1, AX=0x0005 (access denied)");
+
+        /* SET HELLO.TXT with a CX that sets the Directory bit (0x10) -> 0x0005
+         * (the dispatch-edge re-typing reject; never re-type via CHMOD). */
+        int_frame_t sr = fresh_frame();
+        sr.eax = 0x4301u; sr.edx = low_dup("HELLO.TXT");
+        sr.ecx = (uint16_t)(DIR_ATTR_READONLY | DIR_ATTR_DIRECTORY);
+        sr.eflags |= CF_BIT;
+        int21_dispatch(&sr);
+        CHECK(frame_cf(&sr) == 1 &&
+              (uint16_t)(sr.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "b53d SET with CX setting the Directory bit -> CF=1, AX=0x0005");
+
+        /* SET HELLO.TXT with a CX that sets the VolLabel bit (0x08) -> 0x0005. */
+        int_frame_t sl = fresh_frame();
+        sl.eax = 0x4301u; sl.edx = low_dup("HELLO.TXT");
+        sl.ecx = (uint16_t)(DIR_ATTR_HIDDEN | DIR_ATTR_VOLLABEL);
+        sl.eflags |= CF_BIT;
+        int21_dispatch(&sl);
+        CHECK(frame_cf(&sl) == 1 &&
+              (uint16_t)(sl.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+              "b53d SET with CX setting the VolLabel bit -> CF=1, AX=0x0005");
+
+        /* A missing file -> 0x0002 (both GET and SET). */
+        int_frame_t gm = fresh_frame();
+        gm.eax = 0x4300u; gm.edx = low_dup("NOPE.TXT"); gm.eflags |= CF_BIT;
+        int21_dispatch(&gm);
+        CHECK(frame_cf(&gm) == 1 &&
+              (uint16_t)(gm.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
+              "b53d GET missing file -> CF=1, AX=0x0002");
+        int_frame_t smiss = fresh_frame();
+        smiss.eax = 0x4301u; smiss.edx = low_dup("NOPE.TXT");
+        smiss.ecx = (uint16_t)DIR_ATTR_READONLY; smiss.eflags |= CF_BIT;
+        int21_dispatch(&smiss);
+        CHECK(frame_cf(&smiss) == 1 &&
+              (uint16_t)(smiss.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
+              "b53d SET missing file -> CF=1, AX=0x0002");
+
+        /* AL=2 (neither GET nor SET) -> CF=1, AX=0x0001 (invalid function),
+         * rejected BEFORE the path is resolved. */
+        int_frame_t bad_al = fresh_frame();
+        bad_al.eax = 0x4302u; bad_al.edx = low_dup("HELLO.TXT");
+        bad_al.eflags |= CF_BIT;
+        int21_dispatch(&bad_al);
+        CHECK(frame_cf(&bad_al) == 1 &&
+              (uint16_t)(bad_al.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "b53d AL=2 -> CF=1, AX=0x0001 (invalid function)");
+
+        /* NULL/empty path -> 0x0002. */
+        int_frame_t ge = fresh_frame();
+        ge.eax = 0x4300u; ge.edx = low_dup(""); ge.eflags |= CF_BIT;
+        int21_dispatch(&ge);
+        CHECK(frame_cf(&ge) == 1 &&
+              (uint16_t)(ge.eax & 0xFFFFu) == INT21_ERR_FILE_NOT_FOUND,
+              "b53d empty path -> CF=1, AX=0x0002");
+
+        /* A '\SUB\NESTED.TXT'-qualified path GETs through the resolve seam. */
+        int_frame_t gn = fresh_frame();
+        gn.eax = 0x4300u; gn.edx = low_dup("\\SUB\\NESTED.TXT"); gn.eflags |= CF_BIT;
+        int21_dispatch(&gn);
+        CHECK(frame_cf(&gn) == 0 &&
+              (uint16_t)(gn.ecx & 0xFFFFu) == (uint16_t)DIR_ATTR_ARCHIVE,
+              "b53d GET '\\SUB\\NESTED.TXT' -> CF=0, CX = Archive (subdir resolve)");
+
+        /* Read-only backend (chmod==NULL): both GET and SET -> 0x0005. */
+        {
+            static const int21_file_backend_t roattr = {
+                mock_open, mock_read_at, mock_dir_entry,
+                NULL, NULL, NULL, NULL, NULL,
+                mock_resolve, mock_resolve_dir, NULL, NULL, NULL,
+                NULL /* chmod: read-only -> AH=43h GET/SET access-denied */ };
+            mock_reset_dir();
+            bind_standard_process();
+            int21_set_file_backend(&roattr);
+            int_frame_t rg = fresh_frame();
+            rg.eax = 0x4300u; rg.edx = low_dup("HELLO.TXT"); rg.eflags |= CF_BIT;
+            int21_dispatch(&rg);
+            CHECK(frame_cf(&rg) == 1 &&
+                  (uint16_t)(rg.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+                  "b53d RO: GET with no chmod backend -> CF=1, AX=0x0005");
+            int_frame_t rs = fresh_frame();
+            rs.eax = 0x4301u; rs.edx = low_dup("HELLO.TXT");
+            rs.ecx = (uint16_t)DIR_ATTR_READONLY; rs.eflags |= CF_BIT;
+            int21_dispatch(&rs);
+            CHECK(frame_cf(&rs) == 1 &&
+                  (uint16_t)(rs.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+                  "b53d RO: SET with no chmod backend -> CF=1, AX=0x0005");
             int21_set_file_backend(&g_mock_backend);
         }
     }

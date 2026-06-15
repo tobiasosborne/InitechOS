@@ -379,6 +379,25 @@ typedef struct int21_file_backend {
      * dos_structs.h dir_entry_t (mtime 0x16 / mdate 0x18). */
     uint16_t (*set_time)(uint16_t dir_start, uint32_t slot,
                          uint16_t mtime, uint16_t mdate);
+
+    /* CHMOD (beads initech-b53d; AH=43h GET/SET FILE ATTRIBUTES, path-based):
+     * GET (set==0) reads the attribute byte of the 8.3 file `name83` in the
+     * directory whose first data cluster is `dir_start_cluster` (0 == the fixed
+     * root) into *io_attr; SET (set==1) writes *io_attr as the new attribute
+     * byte and FLUSHES (immediate commit -- the per-call write model). On disk
+     * the SET patches ONLY the attribute byte (0x0B); mtime(0x16)/mdate(0x18)/
+     * name/cluster/size are preserved VERBATIM (Rule 11: a CHMOD never disturbs
+     * the timestamp bytes). Returns 0 on success, 0x0002 (not found), or 0x0005
+     * (access denied: a directory/volume-label TARGET, a SET attr that itself
+     * sets the Directory(0x10)/VolLabel(0x08) bit, or a SET with no write
+     * backend). The dispatcher rejects an out-of-set AL and a directory/vol-label
+     * CX BEFORE this seam; the backend ALSO rejects them (defense in depth -- the
+     * fat12 primitive is the canonical guard). A NULL chmod member means a
+     * READ-ONLY backend with NO attribute store: the dispatcher then returns
+     * 0x0005 for a SET and 0x0005 for a GET (Rule 2 fail loud -- never a silent
+     * no-op). Ref: DOS 3.3 PRM AH=43h; spec/dos_structs.h (attribute 0x0B). */
+    uint16_t (*chmod)(const char *name83, uint16_t dir_start_cluster,
+                      int set, uint8_t *io_attr);
 } int21_file_backend_t;
 
 /* Bind the file backend (NULL clears it -> the file functions return

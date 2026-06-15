@@ -327,6 +327,54 @@ static uint16_t fat_set_time(uint16_t dir_start, uint32_t slot,
     return 0u;
 }
 
+/* CHMOD (beads initech-b53d; AH=43h GET/SET FILE ATTRIBUTES): GET (set==0) reads
+ * the attribute byte of `name83` in directory `dir_start_cluster` (0 == root)
+ * into *io_attr; SET (set==1) writes *io_attr as the new attribute byte. Both
+ * delegate to the fat12 primitives, which scan the directory (subdir-aware) and,
+ * for SET, write back ONLY the attribute byte (mtime/mdate preserved -- Rule 11).
+ * A GET works on a read-only volume; a SET requires a writable volume else
+ * access-denied. The fat12 access-denied (a dir/vol-label target, or a SET attr
+ * that re-types the entry) maps to 0x0005; not-found maps to 0x0002. */
+static uint16_t fat_chmod(const char *name83, uint16_t dir_start_cluster,
+                          int set, uint8_t *io_attr)
+{
+	int rc;
+
+	if (io_attr == 0) {
+		return FILEIO_ERR_ACCESS_DENIED;
+	}
+	if (set == 0) {
+		/* GET: read-only -- only needs the volume mounted + readable. */
+		if (g_vol == 0) {
+			return FILEIO_ERR_FILE_NOT_FOUND;   /* no volume -> as if absent */
+		}
+		rc = fat12_get_attr(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
+		                    g_sector, io_attr);
+	} else {
+		/* SET: requires a writable backend (Rule 2: never a silent no-op). */
+		if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+			return FILEIO_ERR_ACCESS_DENIED;
+		}
+		rc = fat12_set_attr(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
+		                    *io_attr, g_sector);
+	}
+	if (rc == FAT12_ERR_NOT_FOUND) {
+#ifndef FILEIO_MUTATE_CHMOD_NOTFOUND_ACCESS
+		return FILEIO_ERR_FILE_NOT_FOUND;       /* 0x0002 */
+#else
+		/* MUTANT 5 (Rule 6; make test-b53d-mutant only): map a fat12 NOT_FOUND to
+		 * ACCESS_DENIED (0x0005) instead of FILE_NOT_FOUND (0x0002), so a CHMOD of
+		 * a missing file reports the wrong DOS error. The missing-file 0x0002
+		 * contract goes RED. NEVER in a real build. */
+		return FILEIO_ERR_ACCESS_DENIED;
+#endif
+	}
+	if (rc != FAT12_OK) {
+		return FILEIO_ERR_ACCESS_DENIED;        /* 0x0005 (dir/vol-label / write) */
+	}
+	return 0u;
+}
+
 static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
 {
     if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
@@ -794,7 +842,8 @@ static const int21_file_backend_t g_fat_backend = {
     fat_resolve_dir,
     fat_mkdir,          /* AH=39h MKDIR (beads initech-u6wa)  */
     fat_rmdir,          /* AH=3Ah RMDIR (beads initech-u6wa)  */
-    fat_set_time        /* AH=57h SET FILE DATE/TIME (beads initech-qekc) */
+    fat_set_time,       /* AH=57h SET FILE DATE/TIME (beads initech-qekc) */
+    fat_chmod           /* AH=43h CHMOD GET/SET ATTRIBUTES (beads initech-b53d) */
 };
 
 /* ------------------------------------------------------------------------ *

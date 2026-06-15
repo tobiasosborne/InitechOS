@@ -1368,6 +1368,112 @@ static void do_unlink(int_frame_t *f)
     cf_clear(f);
 }
 
+/* AH=43h CHMOD (GET/SET FILE ATTRIBUTES): a PATH-BASED call (not a handle call).
+ *   IN : AL=00 GET / AL=01 SET; EDX = flat ptr to an ASCIIZ 8.3 path
+ *        ('\SUB\FILE'-qualified OK via resolve_dir_path). SET: CX = the new
+ *        attribute byte (RO 0x01 / Hidden 0x02 / System 0x04 / Archive 0x20).
+ *   OUT: GET success -> CF=0, CX = the dir entry's attribute byte (CL=attr,
+ *        CH=0). SET success -> CF=0.
+ * ERRORS (CF=1):
+ *   - AL not in {0,1}                          -> AX=0x0001 (invalid function)
+ *   - NULL / empty path                        -> AX=0x0002 (file not found)
+ *   - bad/overlong path component              -> AX=0x0003 (path not found; from
+ *                                                 resolve_dir_path)
+ *   - file not found                           -> AX=0x0002
+ *   - a DIRECTORY or VOLUME-LABEL target, OR a SET CX that sets the
+ *     Directory(0x10)/VolLabel(0x08) bit, OR no write backend -> AX=0x0005
+ *     (access denied -- the DOS-faithful SET reject set; Rule 2 fail loud, never
+ *     silently corrupt a dirent's type bits).
+ * The SET reject for a re-typing CX is enforced HERE at the dispatch edge (before
+ * the backend is even consulted) AND again in the fat12 primitive (defense in
+ * depth). No int21_note_error(): the AH=59h auto-note at the dispatch choke point
+ * captures CF + AX. Ref: DOS 3.3 PRM INT 21h Function 43h (Get/Set File
+ * Attributes); spec/dos_structs.h (attribute 0x0B; DIR_ATTR_*); CLAUDE.md Law 1
+ * (cite), Rule 2 (fail loud), Rule 11 (mtime/mdate untouched on SET). */
+static void do_chmod(int_frame_t *f)
+{
+    const char *path = (const char *)(uintptr_t)f->edx;
+    uint8_t     al   = frame_al(f);
+
+    /* AL must select GET (0) or SET (1); reject anything else BEFORE the path is
+     * touched (DOS validates the subfunction first). */
+#ifndef INT21_MUTATE_CHMOD_NO_AL_REJECT
+    if (al != 0x00u && al != 0x01u) {
+        set_ax(f, INT21_ERR_INVALID_FUNCTION);
+        cf_set(f);
+        return;
+    }
+#else
+    /* MUTANT 1 (Rule 6; make test-b53d-mutant only): SKIP the AL validation, so a
+     * bad AL (e.g. AL=2) is NO LONGER rejected -- it falls through to the GET path
+     * (al==2 != 0x01 takes the GET branch), returning CF=0 + a CX attr instead of
+     * the required CF=1/AX=0x0001. The bad-AL host contract goes RED. NEVER in a
+     * real build. */
+#endif
+
+    if (path == 0 || *path == '\0') {
+        set_ax(f, INT21_ERR_FILE_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    const char *leaf      = path;
+    uint16_t    dir_start = 0u;
+    uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
+    if (perr != 0u) {
+        set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
+        cf_set(f);
+        return;
+    }
+    if (g_file == 0 || g_file->chmod == 0) {
+        /* No attribute backend (read-only volume / no volume) -> access denied
+         * (Rule 2: never a silent success that drops the attribute). */
+        set_ax(f, INT21_ERR_ACCESS_DENIED);
+        cf_set(f);
+        return;
+    }
+
+    if (al == 0x01u) {
+        /* SET: a CX that re-types the entry (Directory/VolLabel) is forbidden ->
+         * access denied (DOS never lets CHMOD set the type bits; Rule 2). */
+        uint16_t cx = frame_cx(f);
+#ifndef INT21_MUTATE_CHMOD_NO_CX_REJECT
+        if ((cx & (uint16_t)(DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+            set_ax(f, INT21_ERR_ACCESS_DENIED);
+            cf_set(f);
+            return;
+        }
+#endif
+        uint8_t  attr = (uint8_t)(cx & 0xFFu);
+        uint16_t err = g_file->chmod(leaf, dir_start, 1, &attr);
+        if (err != 0) {
+            set_ax(f, err);              /* 0x0002 not found / 0x0005 access */
+            cf_set(f);
+            return;
+        }
+        cf_clear(f);
+        return;
+    }
+
+    /* GET (AL=00): return the attribute byte in CX (CL=attr, CH=0). */
+    uint8_t attr = 0u;
+    uint16_t err = g_file->chmod(leaf, dir_start, 0, &attr);
+    if (err != 0) {
+        set_ax(f, err);                  /* 0x0002 not found / 0x0005 dir/vollabel */
+        cf_set(f);
+        return;
+    }
+#ifndef INT21_MUTATE_CHMOD_GET_ZERO
+    set_cx(f, (uint16_t)attr);
+#else
+    /* MUTANT 2 (Rule 6; make test-b53d-mutant only): return a constant 0x00 in CX
+     * instead of the real attribute byte. The GET-returns-CX host assertion goes
+     * RED. The (void) keeps -Werror=unused quiet. NEVER in a real build. */
+    (void)attr;
+    set_cx(f, 0x0000u);
+#endif
+    cf_clear(f);
+}
+
 /* AH=39h MKDIR (CREATE DIRECTORY): EDX = flat ptr to an ASCIIZ path. Resolve the
  * path to its CONTAINING directory (the new dir does not exist yet) via the
  * resolve seam and create the bare leaf there through the backend mkdir member.
@@ -2950,6 +3056,19 @@ static void int21_dispatch_body(int_frame_t *frame)
         case 0x41:                       /* UNLINK (delete file) */
             do_unlink(frame);
             return;
+        case 0x43:                       /* CHMOD (get/set file attributes) */
+#ifdef INT21_MUTATE_CHMOD_NO_DISPATCH
+            /* MUTANT 6 (Rule 6; make test-b53d-mutant only): do NOT dispatch
+             * 0x43; fall through to the not-yet-impl path so CHMOD returns
+             * CF=1/AX=0x0001 and every chmod oracle goes RED. The (void) ref
+             * keeps -Werror=unused-function quiet so the mutant still BUILDS +
+             * RUNS. NEVER in a real build. */
+            (void)do_chmod;
+            break;
+#else
+            do_chmod(frame);
+            return;
+#endif
         case 0x42:                       /* LSEEK (move file pointer) */
             do_lseek(frame);
             return;

@@ -40,8 +40,10 @@ enum {
 	FAT12_ERR_NO_SPACE    = -11,/* no free cluster (full volume)              */
 	FAT12_ERR_DIR_FULL    = -12,/* no free root-directory slot                */
 	FAT12_ERR_EXISTS      = -13,/* (reserved) name already present            */
-	FAT12_ERR_UNSUPPORTED = -14 /* valid but unsupported FS (e.g. FAT16); the  */
+	FAT12_ERR_UNSUPPORTED = -14,/* valid but unsupported FS (e.g. FAT16); the  */
 	                            /* 12-bit decode/encode is FAT12-only (bcg.4)  */
+	FAT12_ERR_ACCESS      = -15 /* CHMOD target is a dir/vol-label, or the new  */
+	                            /* attr re-types it (initech-b53d): access denied */
 };
 
 /* Deterministic dir-entry timestamp (CLAUDE.md Rule 11): the artifact has NO
@@ -366,6 +368,44 @@ int fat12_set_dirent_time(const fat12_volume_t *vol, const void *fat,
                           uint32_t fat_len, uint16_t parent_dir_start,
                           uint32_t slot, uint16_t mtime, uint16_t mdate,
                           void *sector_buf);
+
+/*
+ * fat12_get_attr / fat12_set_attr: read and write the ATTRIBUTE byte (offset
+ * 0x0B) of the regular 8.3 file `name83` in the directory whose first data
+ * cluster is `parent_dir_start` (0 == the fixed root; a non-root value scans
+ * the parent's CLUSTER CHAIN, exactly as fat12_unlink). The two thin primitives
+ * behind INT 21h AH=43h CHMOD (beads initech-b53d).
+ *
+ * fat12_get_attr (AL=00 GET): scan the directory for `name83`; on a match set
+ *   *out_attr = the on-disk attribute byte (offset 0x0B) and return FAT12_OK. A
+ *   matched entry that is itself a DIRECTORY or a VOLUME-LABEL is REJECTED with
+ *   FAT12_ERR_ACCESS (DOS-faithful: CHMOD targets regular files, never a dir or
+ *   volume label -- Rule 2 fail loud, never report a type-bit-laden attr as a
+ *   plain file attr). No write (read-only path); the volume need not be writable.
+ *
+ * fat12_set_attr (AL=01 SET): scan the directory for `name83`; on a match patch
+ *   ONLY the attribute byte (offset 0x0B) to `attr` and write the entry back via
+ *   the SAME primitive WRITE uses (fat12_write_dirent_in_dir) -- a read-modify-
+ *   write that PRESERVES name/start_cluster/size AND mtime(0x16)/mdate(0x18)
+ *   VERBATIM (Rule 11: the timestamp bytes are never touched, so a CHMOD leaves
+ *   the on-disk date/time deterministic). REJECTS with FAT12_ERR_ACCESS, before
+ *   any write, when (a) the matched entry is a DIRECTORY or VOLUME-LABEL, OR
+ *   (b) `attr` itself sets the Directory(0x10) or VolLabel(0x08) bit (DOS forbids
+ *   re-typing a dirent's class via CHMOD -- never silently corrupt the type bits,
+ *   Rule 2). The volume MUST be writable (vol->dev->write_sectors != NULL) else
+ *   FAT12_ERR_WRITE.
+ *
+ * Both: a non-existent name -> FAT12_ERR_NOT_FOUND. `fat`/`fat_len` decode the
+ * subdir chain (NULL/0 valid for the root). `sector_buf` (>=512) is scratch.
+ * Ref: DOS 3.3 Programmer's Reference Manual INT 21h Function 43h (Get/Set File
+ * Attributes); spec/dos_structs.h dir_entry_t (attribute 0x0B; DIR_ATTR_*).
+ */
+int fat12_get_attr(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
+                   const char *name83, uint16_t parent_dir_start,
+                   void *sector_buf, uint8_t *out_attr);
+int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                   const char *name83, uint16_t parent_dir_start,
+                   uint8_t attr, void *sector_buf);
 
 /*
  * fat12_read_file: read the file described by dir entry `e` into `out_buf`,
