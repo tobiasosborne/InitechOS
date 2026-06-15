@@ -130,7 +130,9 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **90 host + 27 emu gates** (re-verified green TWICE from clean;
+`make test` = **93 host + 27 emu gates** (WL-0027 added the FAT16 milestone
+(dao streaming walk + z01 FAT16 decode): +3 host = test-fat-readfile-mutant +
+test-fat16 + test-fat16-mutant, re-verified from clean;
 WL-0026 discharged the WL-0025 follow-up debt -- +5 host (`test-nmpo`,
 `test-fat-fault-rollback`(+mutant), `test-4nbn-mutant`, `test-nmpo-mutant`) +1 emu
 (`test-absdisk-emu`), plus the test-gnrc non-root rename leg, the b53d MUTANT 8
@@ -283,6 +285,23 @@ layer: mount vs blockdev; detection heuristic: BIOS-drive-number vs sector-0
 byte-sniff) before `kzfs` can be implemented. Full grounding briefs (file-touch
 maps, oracle + mutation plans) captured in the WL-0026 orchestration output.
 
+**WL-0027 landed the FAT16 milestone + ratified both ADR gates.** `dao` (streaming
+cluster walk -- killed the on-stack `chain[2880]`) and `z01` (FAT16 read DECODE
+layer + a 3-way host differential `test-fat16`, FAT12 path byte-identical) are
+green (93 host + 27 emu). **z01 is a PARTIAL delivery of its bead** (honest): the
+decode is proven on the host, but the kernel cannot mount a real FAT16 volume yet
+because the whole-FAT `g_fat[12*512]` buffer is too small (fails loud) -- the
+windowed FAT-sector read is filed as **`initech-d27i`** (P1, now a `40oq` dep) and
+is the true completion of FAT16. The operator ratified **DEC-16** (AH=33h -> Appendix
+A; unblocks `4tw`/`er3h`) and **DEC-07a** (MBR partition contract; unblocks `kzfs`)
+as drafted; their locked-spec edits execute atomically with the implementing beads
+(er3h/4tw, kzfs), NOT on ratification. Next NON-gated forward items: `80k` (wildcard),
+`x8fs` (cooked CON read; before 4tw). New follow-ups: `d27i` (P1 in-kernel FAT16),
+`qywt` (P2 initrd discovery), `7mjc` (P3 corrupt-fuzz flake). The shared-tree
+workflow race (verifiers reverting/restoring the uncommitted tree) produced two
+transient false-alarm P0/P1s this tranche -- standing mitigation for the next lane:
+isolated worktrees for mutation-running verifiers, or commit-per-landing.
+
 **FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
 ratified the region-first Toolbox plan; operator decided indexed-8 depth,
 640x480, keep seafoam desktop_bg, proceed in parallel with f8v.4. **The ATKINSON
@@ -326,7 +345,9 @@ docs/worklog/        WL-0001..0007 (foundations -> FAT mount); WL-0008+ file
                      tranche (CREATNEW/FILETIME/CHMOD/RENAME/IOCTL + DEC-15),
                      WL-0026 the WL-0025 follow-up tranche (CREATNEW oracle/
                      robustness, IOCTL minors, absdisk spec/emu, fault-injection
-                     infra, oracle hardening) (latest)
+                     infra, oracle hardening), WL-0027 the FAT16 milestone (dao
+                     streaming walk + z01 FAT16 decode layer) + DEC-16/DEC-07a
+                     ADR ratifications (latest)
 docs/research/       ground-truth briefs (fat12, boot-to-text, internals/int21h,
                      psp-loader, fs-mount-sft) -- the per-milestone evidence base
 docs/HANDOFF.md      this briefing
