@@ -1,0 +1,62 @@
+{
+  "_comment": "INT 25h / 26h ABSOLUTE-DISK VECTOR contract (the CPU software-interrupt vectors int 0x25 = Absolute Disk Read and int 0x26 = Absolute Disk Write). This is NOT INT 21h function AH=25h SETVECT / AH=35h GETVECT -- those are AH-selected INT 21h functions already listed in spec/int21h_register.json and are entirely distinct from these vectors. Ratified by ADR-0003 Amendment DEC-15 (OEA-ADR-0003-A3). This file is a NEW locked sibling spec (CLAUDE.md Rule 8) and is EXPLICITLY EXCLUDED from the test-spec INT-21h AH-consistency walk: these are vectors, not AH functions, so they do NOT appear in int21h_register.json and must NOT be added there or to spec/int21h_calling_convention.json. The INT 21h INT21_ERR_* extended-error enum (os/milton/int21.h) is a SEPARATE code space and must NOT be reused for the AL hardware byte below.",
+  "status": "ratified -- ADR-0003 amendment DEC-15 (OEA-ADR-0003-A3), ARB sign-off 2026-06-15 (beads initech-4mq7)",
+  "vectors": {
+    "0x25": {
+      "name": "INT 25h Absolute Disk Read",
+      "gate_type": "0x8F (32-bit TRAP gate)",
+      "dpl": 0,
+      "selector": "0x08 (CODE_SEL)"
+    },
+    "0x26": {
+      "name": "INT 26h Absolute Disk Write",
+      "gate_type": "0x8F (32-bit TRAP gate)",
+      "dpl": 0,
+      "selector": "0x08 (CODE_SEL)"
+    }
+  },
+  "abi": {
+    "_comment": "DELIBERATE register-role SWAP relative to the DEC-04a INT 21h default (EDX=pointer / EBX=handle). INT 25h/26h are a different vector family: the buffer is in EBX (DOS DS:BX), and the start sector is in DX/EDX -- NOT the DEC-04a handle/pointer roles. Stated here to prevent the field-transposition class of bug DEC-04a Appendix E.3 warns of.",
+    "drive": "AL (0=A:, 1=B:, 2=C:; zero-based explicit -- NOT the AH=0Eh/19h/36h 0=default convention; there is no default-drive sentinel)",
+    "sector_count": "CX/ECX (0=no-op success CF=0; 0xFFFF=DOS4+ packet sentinel, REJECTED -- never a literal count)",
+    "start_sector": "DX/EDX (absolute volume-relative logical sector; boot sector=LBA 0; maps 1:1 onto blockdev_t lba)",
+    "buffer": "EBX (flat 32-bit linear -- DOS DS:BX; the buffer is in EBX, NOT the DEC-04a handle register; the start sector is in DX/EDX, NOT the DEC-04a EDX-pointer role)",
+    "error_flag": "CF in saved EFLAGS (CF=0 success; CF=1 failure with AX=error)",
+    "buffer_guard": "user_buf_ok(EBX, CX*512) per DEC-14 BEFORE any I/O; CX*512 must not 32-bit-wrap the buffer span"
+  },
+  "error_codes": {
+    "_comment": "AL = DOS hardware-error low byte (from the DOS driver / INT 24h low-byte space); AH = error class byte. This is a SEPARATE code space from the INT 21h INT21_ERR_* extended-error enum and MUST NOT be conflated. CF and AL are the load-bearing, ratified values. The AH class bytes (0x0A/0x0B/0x0C) are PROVISIONAL pending an 86Box golden of the real DOS 3.3 INT 25h/26h AH error class per condition; an 86Box-confirmed AH is corrected by editorial erratum without a further full amendment, while CF/AL and the condition-to-code mapping are fixed. Single honest code per condition (adjudicated over the fine-grained 8-code historian table on Law-2 grounds: the blockdev seam returns only success/negative).",
+    "write_protect": {
+      "al": "0x00",
+      "ah": "0x0A",
+      "when": "INT 26h, write_sectors==NULL (read-only backend)",
+      "msg": "MSG-DOS-0008"
+    },
+    "invalid_drive": {
+      "al": "0x0F",
+      "ah": "0x0C",
+      "when": "AL != mounted volume"
+    },
+    "sector_not_found": {
+      "al": "0x08",
+      "ah": "0x0B",
+      "when": "DX>=total or DX+CX>total or DX+CX wraps; bounds-checked BEFORE read/write (never a short/garbage read)"
+    },
+    "general_failure": {
+      "al": "0x0C",
+      "ah": "0x0B",
+      "when": "seam read_sectors/write_sectors returns negative"
+    }
+  },
+  "out_of_scope": {
+    "packet_form": {
+      "sentinel": "CX=0xFFFF",
+      "action": "reject CF=1 + serial diagnostic, never a literal count",
+      "_comment": "DOS 4.0+ >32MB absolute-I/O packet form (DS:BX->parameter block). Deferred (DEC-15.5, Consequence C-6); period-creep risk for a 3.30 personality (DEC-12)."
+    }
+  },
+  "oracle_rule": {
+    "scratch_lba": "total_logical_sectors-1, computed from mounted geometry (BPB_FIRST_DATA_SECTOR; spec/dos_structs.h), FAT entry asserted free (fat12_next_cluster==0x000) before write",
+    "_comment": "Keeps the test-absdisk round-trip entirely inside unallocated data space so no existing FAT oracle's golden region (boot sector / FATs / root dir / allocated files) is perturbed (Stop-Condition: never weaken an existing oracle). The biting test-absdisk oracle lands with beads initech-4mq7."
+  }
+}
