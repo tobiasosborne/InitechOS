@@ -77,6 +77,34 @@ typedef enum {
 #define FAT12_BOOTSIG_OFFSET 510u
 #define FAT12_BOOTSIG_VALUE  0xAA55u
 
+/* fat12_fat_window_t: a WINDOWED FAT-sector cache (beads initech-d27i). The
+ * whole-FAT buffer (fat12_read_fat) is fine for a 1.44 MB FAT12 floppy (9
+ * sectors, ~4.6 KB) but a FAT16 FAT can be ~32 KB+ (8 MB volume => 64
+ * sectors/FAT) -- far too large for the kernel's BSS, so a FAT16 volume cannot
+ * MOUNT in-kernel with the whole-FAT load (it fails loud at fat12_read_fat).
+ * A window holds only the FAT SECTOR(S) covering the CURRENT cluster's entry,
+ * fetched on demand (mirroring the streaming data-region walk, beads
+ * initech-dao). The buffer MUST be >= 2 sectors so a straddling FAT12 12-bit
+ * entry (byte offset k*512+511, spanning sectors k and k+1) fits in one windowed
+ * read; a single-sector window would mis-decode the high nibble
+ * (docs/research/fat12-ground-truth.md RISK-1). `cached_first_sector` /
+ * `cached_count` form a tiny 1-2-sector cache so a sequential chain walk does
+ * NOT re-read the same FAT sector for every cluster (the recommended cache).
+ * `valid` is 0 until the first fill. When a volume's `fat_window` is set, the
+ * decode primitives (fat12_next_cluster / fat16_next_cluster) route through this
+ * window instead of a caller-supplied whole-FAT buffer -- transparently to every
+ * higher-level chain walker. A NULL fat_window == the historical whole-FAT path,
+ * byte-identical. READ-only: no FAT16 write/allocate path (deferred 509.11). Ref
+ * (Law 1): docs/research/fat16-ground-truth.md Sec 2/3;
+ * docs/research/fat12-ground-truth.md RISK-1. */
+typedef struct fat12_fat_window {
+	uint8_t  *buf;                /* caller-owned window buffer (>= 2 sectors)   */
+	uint32_t  buf_len;            /* its size in bytes (>= 2*512)                */
+	uint32_t  cached_first_sector;/* FAT-relative sector index of buf[0]         */
+	uint32_t  cached_count;       /* number of FAT sectors currently in buf      */
+	int       valid;             /* 0 until the first successful fill            */
+} fat12_fat_window_t;
+
 /* A mounted volume: a parsed BPB plus precomputed derived geometry. No heap;
  * the caller embeds/owns this. All sector counts are in the volume's sectors
  * (bytes_per_sector each). */
@@ -91,6 +119,15 @@ typedef struct fat12_volume {
 	uint32_t    first_data_sector;/* LBA of cluster 2 (start of the data area)  */
 	uint32_t    total_clusters;   /* data-area cluster count (drives fat_type)  */
 	fat_type_t  fat_type;         /* FAT12 / FAT16 classification               */
+
+	/* WINDOWED FAT-sector reader (beads initech-d27i). NULL => the decode
+	 * primitives read from the caller's whole-FAT buffer (historical path,
+	 * byte-identical). Non-NULL => they stream the FAT sector(s) for the current
+	 * cluster's entry through this window, so a FAT16 volume (whose whole FAT is
+	 * far too large for kernel BSS) mounts + reads READ-ONLY. Mutated in place by
+	 * the decode (the cache update); the volume's other fields are not modified,
+	 * so a `const fat12_volume_t *` caller stays valid. */
+	fat12_fat_window_t *fat_window;
 } fat12_volume_t;
 
 /* A directory cursor (beads initech-ti8): the FIXED root directory OR a
@@ -213,6 +250,43 @@ int fat16_next_cluster(const fat12_volume_t *vol, const void *fat,
  */
 int fat12_read_fat(const fat12_volume_t *vol, void *fat_buf,
                    uint32_t fat_buf_len);
+
+/* ---- Windowed/streaming FAT-sector read (beads initech-d27i) ---- */
+
+/*
+ * fat12_fat_window_init: bind a caller-owned buffer to a window descriptor and
+ * mark it empty. `buf` (>= 2 * BLOCKDEV_SECTOR_SIZE) holds the FAT sector(s) for
+ * the current cluster's entry; a 2-sector minimum is mandatory so a straddling
+ * FAT12 entry fits (docs/research/fat12-ground-truth.md RISK-1). After init, set
+ * vol->fat_window = the descriptor; the decode primitives then stream the FAT
+ * instead of needing a whole-FAT buffer. No I/O here (a NULL/short buffer is
+ * caught at the first fat12_read_fat_sector, fail loud Rule 2).
+ */
+void fat12_fat_window_init(fat12_fat_window_t *win, void *buf, uint32_t buf_len);
+
+/*
+ * fat12_read_fat_sector: ensure the volume's FAT window holds the FAT sector(s)
+ * covering the FAT entry for `cluster`, fetching only what is needed (1 sector,
+ * or 2 when a FAT12 12-bit entry STRADDLES a sector boundary), and write the
+ * in-WINDOW byte offset of that entry to *out_off. A tiny last-sectors cache
+ * (win->cached_*) skips a redundant device read when the needed sector(s) are
+ * already resident (the common case during a sequential chain walk). The window
+ * thereby exposes the same two bytes the whole-FAT buffer would hold at the
+ * absolute offset, so the decode in fat12_next_cluster / fat16_next_cluster is
+ * byte-identical. vol->fat_window MUST be non-NULL.
+ *
+ * Fail loud (Rule 2):
+ *   - any NULL argument / NULL window / NULL read fn -> FAT12_ERR_NULL
+ *   - cluster < 2 (reserved 0/1)                     -> FAT12_ERR_CLUSTER
+ *   - the entry's absolute byte offset is past the FAT (off+1 >= FAT bytes)
+ *                                                    -> FAT12_ERR_CLUSTER
+ *   - the window buffer is too small to hold the (possibly straddling) entry's
+ *     sector(s)                                      -> FAT12_ERR_BUFFER
+ *   - a failing device read                          -> FAT12_ERR_READ
+ * Returns FAT12_OK with *out_off set on success. READ-only (no FAT16 write).
+ */
+int fat12_read_fat_sector(const fat12_volume_t *vol, uint16_t cluster,
+                          uint32_t *out_off);
 
 /*
  * fat12_next_cluster: decode the 12-bit FAT12 entry for `cluster` from the

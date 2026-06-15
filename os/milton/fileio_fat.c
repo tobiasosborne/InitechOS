@@ -65,10 +65,25 @@ static const fat12_volume_t *g_vol = 0;
 
 /* The whole-FAT buffer (1.44 MB FAT12: 9 sectors * 512 = 4608 bytes; round up
  * to a comfortable cap so a slightly larger FAT still fits). BSS, kernel-owned;
- * filled once at bind by fat12_read_fat. The write functions MUTATE it in place
- * and flush BOTH on-disk FAT copies from it (fat12.h DEC-07). */
+ * filled once at bind by fat12_read_fat FOR A FAT12 VOLUME. The write functions
+ * MUTATE it in place and flush BOTH on-disk FAT copies from it (fat12.h DEC-07).
+ * A FAT16 FAT is far larger than this (8 MB volume => 64 sectors => 32 KB), so a
+ * FAT16 volume does NOT slurp the whole FAT here -- it reads through the WINDOW
+ * below (beads initech-d27i); g_fat_len stays 0 and g_fat is unused. */
 static uint8_t  g_fat[12u * 512u];
 static uint32_t g_fat_len = 0;
+
+/* WINDOWED FAT-sector reader (beads initech-d27i). For a FAT16 volume whose
+ * whole FAT will not fit g_fat, fileio_fat_bind installs this window onto the
+ * volume so the READ path streams only the FAT sector(s) for the current
+ * cluster's entry (mirroring dao's streaming data walk). The buffer is 2 sectors
+ * -- the minimum that lets a straddling FAT12 entry fit; FAT16 entries never
+ * straddle, so one sector is always live, but the 2-sector buffer is the shared
+ * minimum (and keeps the same window usable were a windowed FAT12 path ever
+ * wanted). READ-only: FAT16 WRITE is deferred (509.11), so the write primitives
+ * (which need the whole in-memory FAT) are never invoked on a FAT16 volume. */
+static fat12_fat_window_t g_fat_window;
+static uint8_t            g_fat_window_buf[2u * BLOCKDEV_SECTOR_SIZE];
 
 /* Shared scratch (cooperative, single-threaded -- safe between sequential INT
  * 21h calls; see file header). `g_sector` (>=512) is the fat12_find /
@@ -524,7 +539,11 @@ static uint16_t fat_rmdir(const char *name83, uint16_t dir_start_cluster)
 static uint16_t fat_freespace(uint16_t *out_spc, uint16_t *out_bps,
                               uint16_t *out_total_clus, uint16_t *out_free_clus)
 {
-    if (g_vol == 0 || g_fat_len == 0u) {
+    /* A mount is valid with EITHER a whole-FAT buffer (FAT12, g_fat_len > 0) OR a
+     * windowed FAT reader (FAT16, g_vol->fat_window != 0; beads initech-d27i).
+     * The decode below routes through whichever is installed (fat12_next_cluster
+     * ignores g_fat/g_fat_len when a window is set). */
+    if (g_vol == 0 || (g_fat_len == 0u && g_vol->fat_window == 0)) {
         return 1u;   /* no volume mounted -> invalid drive (AX=0xFFFF) */
     }
 
@@ -889,21 +908,45 @@ static const int21_file_backend_t g_fat_backend = {
  * Bind: cache the FAT, then hand the backend vtable to int21.
  * ------------------------------------------------------------------------ */
 
-int fileio_fat_bind(const fat12_volume_t *vol)
+int fileio_fat_bind(fat12_volume_t *vol)
 {
+    uint32_t fat_bytes;
+
     if (vol == 0) {
         return -1;
     }
 
-    /* Cache the whole FAT once. The positioned read/write functions need it for
-     * the cluster-chain walk; the write functions mutate it + flush both copies. */
-    int rc = fat12_read_fat(vol, g_fat, (uint32_t)sizeof(g_fat));
-    if (rc != FAT12_OK) {
-        return rc;   /* fail loud: a too-large FAT or read error surfaces */
-    }
-    g_fat_len = (uint32_t)vol->bpb.sectors_per_fat *
+    /* The whole FAT in bytes. A 1.44 MB FAT12 floppy is 9*512 = 4608 (fits
+     * g_fat); a FAT16 fixed disk is far larger (8 MB volume => 64*512 = 32 KB). */
+    fat_bytes = (uint32_t)vol->bpb.sectors_per_fat *
                 (uint32_t)vol->bpb.bytes_per_sector;
-    g_vol     = vol;
+
+    if (fat_bytes <= (uint32_t)sizeof(g_fat)) {
+        /* FAT12 (or any volume whose whole FAT fits): slurp it once. The
+         * positioned read AND the WRITE path (mutate + flush both copies) need
+         * the whole in-memory FAT. No window -> the whole-FAT READ path stays
+         * byte-identical. */
+        int rc = fat12_read_fat(vol, g_fat, (uint32_t)sizeof(g_fat));
+        if (rc != FAT12_OK) {
+            return rc;   /* fail loud: a read error surfaces */
+        }
+        g_fat_len        = fat_bytes;
+        vol->fat_window  = 0;   /* whole-FAT path */
+    } else {
+        /* FAT16 (the whole FAT will NOT fit kernel BSS): install the WINDOWED
+         * FAT-sector reader (beads initech-d27i) so the READ path streams only
+         * the FAT sector(s) for the current cluster's entry. g_fat is left
+         * unused (g_fat_len == 0); the WRITE primitives -- which require the
+         * whole in-memory FAT -- are never invoked on a FAT16 volume (FAT16
+         * write is deferred, 509.11). This is what lets a real FAT16 volume
+         * MOUNT + READ in-kernel instead of failing loud at the whole-FAT load. */
+        fat12_fat_window_init(&g_fat_window, g_fat_window_buf,
+                              (uint32_t)sizeof(g_fat_window_buf));
+        vol->fat_window = &g_fat_window;
+        g_fat_len       = 0u;   /* no whole-FAT buffer for a FAT16 volume */
+    }
+
+    g_vol = vol;
 
     int21_set_file_backend(&g_fat_backend);
     return 0;

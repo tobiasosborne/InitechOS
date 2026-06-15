@@ -17,10 +17,16 @@
 
 /* Cache the volume's FAT, then bind the FAT12 file backend into int21 (so the
  * file-handle functions resolve through this volume). `vol` must be a mounted
- * volume that outlives the binding (kernel BSS). Returns 0 on success, negative
- * (a FAT12_ERR_* from fat12_read_fat) on failure -- fail loud (Rule 2), the
- * caller does NOT bind a half-initialised backend. */
-int fileio_fat_bind(const fat12_volume_t *vol);
+ * volume that outlives the binding (kernel BSS). For a FAT12 volume whose whole
+ * FAT fits the cache, the FAT is slurped once (the WRITE path mutates + flushes
+ * it). For a FAT16 volume whose FAT is FAR too large for kernel BSS (beads
+ * initech-d27i), the WINDOWED FAT-sector reader is installed on the volume
+ * (vol->fat_window) -- READ-only, streaming the FAT sector(s) for the current
+ * cluster's entry instead of slurping the whole FAT; `vol` is therefore taken
+ * NON-const so the window can be attached. Returns 0 on success, negative (a
+ * FAT12_ERR_* from fat12_read_fat) on failure -- fail loud (Rule 2), the caller
+ * does NOT bind a half-initialised backend. */
+int fileio_fat_bind(fat12_volume_t *vol);
 
 /* Return the backend's cached FAT buffer (+ its byte length via *out_len) so
  * SYSINIT can read CONFIG.SYS off the volume WITHOUT a second ~4.6 KiB FAT

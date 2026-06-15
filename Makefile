@@ -5828,6 +5828,73 @@ test-fat16-mutant: $(TEST_FAT16_MUT_M1) $(TEST_FAT16_MUT_M2) $(TEST_FAT16_MUT_M3
 	@printf '>>> test-fat16-mutant: green (ALL FIVE FAT16 mutants ran + RED for the right reason)\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-d27i (beads initech-d27i -- WINDOWED/streaming FAT-sector read)
+# ---------------------------------------------------------------------------
+# z01 landed the FAT16 DECODE layer but a real FAT16 volume still cannot MOUNT
+# in-kernel: the whole-FAT buffer is far smaller than a FAT16 FAT. d27i replaces
+# the whole-FAT load with a WINDOWED FAT-sector read (fetch only the FAT
+# sector(s) holding the current cluster's entry, mirroring dao's streaming data
+# walk). This gate mounts BOTH a real FAT16 fixture AND the FAT12 floppy with a
+# TINY 2-sector FAT window (NO whole-FAT buffer) and reads files byte-for-byte:
+#   - FAT16: BIGCHAIN/HIGHCLUS slide the window across many FAT sectors;
+#   - FAT12: BIGCHAIN crosses the straddle clusters 341/682 (off k*512+511), so a
+#     naive single-sector window mis-decodes -- the straddle-fetch is proven.
+# Ref: docs/research/fat16-ground-truth.md Sec 2/3; fat12-ground-truth.md RISK-1.
+TEST_D27I              := $(BUILD)/test_fat16_window
+# Three mutation builds (Rule 6): off-by-one FAT sector index, straddle
+# mishandled (read only the first sector), and windowed-dispatch dropped (a
+# FAT16 windowed read then needs the whole FAT). Each must turn test-d27i RED.
+TEST_D27I_MUT_SECOFF   := $(BUILD)/test_fat16_window_mut_secoff
+TEST_D27I_MUT_STRADDLE := $(BUILD)/test_fat16_window_mut_straddle
+TEST_D27I_MUT_NOWINDOW := $(BUILD)/test_fat16_window_mut_nowindow
+
+$(TEST_D27I): $(FAT_DIFF_DIR)/test_fat16_window.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat16_window.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_D27I_MUT_SECOFF): $(FAT_DIFF_DIR)/test_fat16_window.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUT_D27I_FATSEC_OFFBYONE \
+		-Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat16_window.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+$(TEST_D27I_MUT_STRADDLE): $(FAT_DIFF_DIR)/test_fat16_window.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUT_D27I_NO_STRADDLE \
+		-Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat16_window.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+$(TEST_D27I_MUT_NOWINDOW): $(FAT_DIFF_DIR)/test_fat16_window.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUT_D27I_NO_WINDOW_DISPATCH \
+		-Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat16_window.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+.PHONY: test-d27i
+test-d27i: $(TEST_D27I) $(FAT16_IMG) $(FAT12_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-d27i : WINDOWED FAT-sector read\n'
+	@printf '  Ref: PRD Sec 6.1 / ADR-0003 DEC-07. beads initech-d27i.\n'
+	@printf '  FAT16 + FAT12 read through a 2-sector FAT window (no whole-FAT slurp).\n'
+	@printf '======================================================================\n'
+	@printf '>>> test-d27i: FAT16 windowed read + FAT12 straddle byte-identical\n'
+	@$(TEST_D27I) "$(FAT16_IMG)" "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)" \
+		|| { printf '!!! test-d27i FAIL: windowed FAT-sector read oracle red\n'; exit 1; }
+	@printf '>>> test-d27i: green (FAT16 mounts + reads windowed; FAT12 straddle byte-identical)\n'
+
+# Mutation gate (Rule 6): the three windowed-read mutants must each go RED.
+.PHONY: test-d27i-mutant
+test-d27i-mutant: $(TEST_D27I_MUT_SECOFF) $(TEST_D27I_MUT_STRADDLE) $(TEST_D27I_MUT_NOWINDOW) \
+                  $(FAT16_IMG) $(FAT12_IMG)
+	@printf '>>> test-d27i-mutant: confirming the THREE windowed-read mutants go RED (Rule 6; beads initech-d27i)\n'
+	@for m in SECOFF:$(TEST_D27I_MUT_SECOFF) STRADDLE:$(TEST_D27I_MUT_STRADDLE) NOWINDOW:$(TEST_D27I_MUT_NOWINDOW); do \
+		name=$${m%%:*}; bin=$${m#*:}; \
+		"$$bin" "$(FAT16_IMG)" "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)" 2>/dev/null | grep -q 'checks,' \
+			|| { printf '!!! test-d27i-mutant FAIL: %s produced no TEST_SUMMARY -- harness dead, RED is meaningless\n' "$$name"; exit 1; }; \
+		if "$$bin" "$(FAT16_IMG)" "$(FAT12_IMG)" "$(FAT12_FIXTURE_DIR)" >/dev/null 2>&1; then \
+			printf '!!! test-d27i-mutant FAIL: %s PASSED -- the windowed-read oracle is decoration\n' "$$name"; exit 1; \
+		else \
+			printf '>>> test-d27i-mutant: green (%s correctly RED -- its windowed-read primitive bites)\n' "$$name"; \
+		fi; \
+	done
+	@printf '>>> test-d27i-mutant: green (ALL THREE windowed-read mutants ran + RED for the right reason)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-fat-subdir (beads initech-ti8 -- FAT12 subdir/path traversal)
 # ---------------------------------------------------------------------------
 # The FAT12 SUBDIRECTORY READ DIFFERENTIAL ORACLE. The REAL artifact fat12.c
@@ -9010,7 +9077,7 @@ TEST_UNIT_GATES := \
 	test-fat12-mkdir test-m0bp test-m0bp-rollback test-fat-fault-rollback \
 	test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
-	test-fat16 test-fat16-mutant \
+	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
 	test-mcb test-mcb-int21 \

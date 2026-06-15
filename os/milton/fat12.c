@@ -45,6 +45,15 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 		return FAT12_ERR_NULL;
 	}
 
+	/* No windowed FAT reader by default (beads initech-d27i): the historical
+	 * whole-FAT path stays byte-identical for every caller that does not opt in.
+	 * Set BEFORE any further early return so a partially-validated vol never
+	 * carries a garbage fat_window pointer (Rule 2 -- an uninitialized pointer
+	 * would route the decode through junk and crash). fileio_fat_bind installs a
+	 * window for a FAT16 volume; a unit caller that walks via a whole-FAT buffer
+	 * leaves this NULL. */
+	vol->fat_window = 0;
+
 	/* Read the boot sector (LBA 0, one sector) into the caller's scratch. */
 	if (dev->read_sectors(dev->ctx, 0u, 1u, sector_buf) != 0) {
 		return FAT12_ERR_READ;
@@ -212,6 +221,141 @@ int fat12_read_fat(const fat12_volume_t *vol, void *fat_buf, uint32_t fat_buf_le
 	return FAT12_OK;
 }
 
+/* ------------------------------------------------------------------------ *
+ * Windowed/streaming FAT-sector read (beads initech-d27i).
+ *
+ * The whole-FAT load (fat12_read_fat) cannot serve a FAT16 volume in-kernel:
+ * the FAT can be ~32 KB+ (8 MB volume => 64 sectors), far larger than the
+ * kernel's shrunk g_fat. fat12_read_fat_sector fetches ONLY the FAT sector(s)
+ * holding the current cluster's entry into a small (>= 2 sector) window, with a
+ * tiny cache so a sequential chain walk does not re-read the same sector. The
+ * load-bearing hazard: a FAT12 12-bit entry can STRADDLE a sector boundary
+ * (off (c*3)/2 == k*512+511), so the fetch MUST pull BOTH sectors. FAT16 entries
+ * (off c*2, always even) never straddle (an even offset's high byte is at most
+ * 510 within a sector). Ref (Law 1): docs/research/fat12-ground-truth.md RISK-1
+ * (straddle), Sec 3 (decode); docs/research/fat16-ground-truth.md Sec 2/3.
+ * ------------------------------------------------------------------------ */
+
+void fat12_fat_window_init(fat12_fat_window_t *win, void *buf, uint32_t buf_len)
+{
+	if (win == NULL) {
+		return;
+	}
+	win->buf                 = (uint8_t *)buf;
+	win->buf_len             = buf_len;
+	win->cached_first_sector = 0u;
+	win->cached_count        = 0u;
+	win->valid               = 0;
+}
+
+int fat12_read_fat_sector(const fat12_volume_t *vol, uint16_t cluster,
+                          uint32_t *out_off)
+{
+	fat12_fat_window_t *win;
+	uint32_t abs_off;     /* FAT-relative byte offset of the entry (off, off+1)  */
+	uint32_t fat_bytes;   /* total bytes in one FAT (range bound)                */
+	uint32_t first_sec;   /* FAT-relative sector index holding byte abs_off      */
+	uint32_t need_count;  /* FAT sectors to fetch (2 iff the entry straddles)    */
+	uint32_t sec_bytes;
+	int      straddle;
+
+	if (vol == NULL || out_off == NULL || vol->fat_window == NULL ||
+	    vol->dev == NULL || vol->dev->read_sectors == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	win = vol->fat_window;
+	if (win->buf == NULL) {
+		return FAT12_ERR_NULL;
+	}
+
+	/* Clusters 0 and 1 are reserved, not data clusters (brief Sec 3). */
+	if (cluster < FAT12_FIRST_DATA_CLUSTER) {
+		return FAT12_ERR_CLUSTER;
+	}
+
+	sec_bytes = (uint32_t)vol->bpb.bytes_per_sector;   /* validated == 512 at mount */
+
+	/* The FAT entry's byte offset within the FAT. FAT16: cluster*2 (a clean
+	 * little-endian uint16, ALWAYS even, so it never straddles -- an even offset's
+	 * high byte sits at most at sector byte 510). FAT12: (cluster*3)/2, a 12-bit
+	 * packed entry that STRADDLES a sector boundary when off % 512 == 511
+	 * (docs/research/fat12-ground-truth.md RISK-1). */
+	if (vol->fat_type == FAT_TYPE_FAT16) {
+		abs_off = (uint32_t)cluster * 2u;
+	} else {
+		abs_off = ((uint32_t)cluster * 3u) / 2u;
+	}
+
+	/* The entry spans bytes abs_off..abs_off+1; both must lie inside the FAT
+	 * (Rule 2 -- never read past the FAT / off an out-of-volume cluster). */
+	fat_bytes = (uint32_t)vol->bpb.sectors_per_fat * sec_bytes;
+	if (abs_off + 1u >= fat_bytes) {
+		return FAT12_ERR_CLUSTER;
+	}
+
+	first_sec = abs_off / sec_bytes;
+	/* The entry straddles iff its high byte (abs_off+1) lands in the NEXT sector,
+	 * i.e. abs_off is the last byte of its sector. Only FAT12 can hit this. */
+	straddle  = ((abs_off % sec_bytes) == (sec_bytes - 1u));
+#ifndef FAT12_MUT_D27I_NO_STRADDLE
+	need_count = straddle ? 2u : 1u;
+#else
+	/* MUTANT (Rule 6; test-d27i-mutant only): IGNORE the straddle -- always fetch
+	 * a SINGLE sector. A straddling FAT12 entry's high nibble then reads from
+	 * STALE/uninitialized window bytes (abs_off+1 is past the one sector loaded),
+	 * so cluster 341/682 mis-decode and the byte-for-byte read goes RED. This
+	 * proves the BOTH-sector straddle fetch is load-bearing. NEVER in a real build. */
+	(void)straddle;
+	need_count = 1u;
+#endif
+
+	/* The window must be able to hold need_count sectors (>= 2 for a straddle). */
+	if (win->buf_len < need_count * sec_bytes) {
+		return FAT12_ERR_BUFFER;
+	}
+
+	/* read_first_sec is the sector the LBA read pulls; it equals first_sec in a
+	 * real build. The off-by-one mutant perturbs ONLY the read LBA (not the
+	 * bookkeeping first_sec used for the in-window offset below), so the window
+	 * holds the WRONG sector's bytes while *out_off stays in-bounds -- a clean
+	 * garbage-data RED, not an out-of-bounds crash. */
+#ifndef FAT12_MUT_D27I_FATSEC_OFFBYONE
+	uint32_t read_first_sec = first_sec;
+#else
+	/* MUTANT (Rule 6; test-d27i-mutant only): off-by-one FAT sector index -- fetch
+	 * the sector AFTER the one holding the entry. Every windowed decode then reads
+	 * the wrong FAT sector's bytes, so every chain link is garbage and the read
+	 * goes RED. This proves the FAT sector index is load-bearing. NEVER in a real
+	 * build. */
+	uint32_t read_first_sec = first_sec + 1u;
+#endif
+
+	/* Tiny cache: if the needed sector(s) are already resident, skip the device
+	 * read (the common case in a sequential chain walk -- consecutive clusters
+	 * share a FAT sector). A cache hit requires the window to cover BOTH
+	 * first_sec and first_sec+need_count-1. The cache keys on the BOOKKEEPING
+	 * first_sec (so *out_off and the hit test agree). */
+	if (!(win->valid &&
+	      first_sec >= win->cached_first_sector &&
+	      first_sec + need_count <= win->cached_first_sector + win->cached_count)) {
+		/* Miss: read need_count sector(s) into the window. */
+		uint32_t lba = vol->first_fat_sector + read_first_sec;
+		if (vol->dev->read_sectors(vol->dev->ctx, lba, need_count,
+		                           win->buf) != 0) {
+			win->valid = 0;
+			return FAT12_ERR_READ;
+		}
+		win->cached_first_sector = first_sec;
+		win->cached_count        = need_count;
+		win->valid               = 1;
+	}
+
+	/* In-window byte offset of the entry: absolute offset minus the byte offset
+	 * of the window's first cached sector. */
+	*out_off = abs_off - win->cached_first_sector * sec_bytes;
+	return FAT12_OK;
+}
+
 /* fat12_last_cluster (defined below) -- forward decl so the in-range predicate
  * can be used by the chain walkers above its definition. */
 static uint16_t fat12_last_cluster(const fat12_volume_t *vol);
@@ -246,9 +390,45 @@ int fat16_next_cluster(const fat12_volume_t *vol, const void *fat,
 	const uint8_t *b;
 	uint32_t       off;
 
-	(void)vol; /* decode is purely a function of the flat FAT buffer */
+	if (out_next == NULL) {
+		return FAT12_ERR_NULL;
+	}
 
-	if (fat == NULL || out_next == NULL) {
+	/* WINDOWED dispatch (beads initech-d27i): when the volume carries a FAT
+	 * window, stream the FAT sector holding this cluster's entry instead of
+	 * needing a whole-FAT buffer (a FAT16 FAT is far too large for kernel BSS).
+	 * fat12_read_fat_sector validates cluster>=2 + range, fills the window, and
+	 * returns the in-window offset; the decode below is byte-identical, just over
+	 * the window buffer rather than the caller's `fat`. FAT16 entries (cluster*2)
+	 * never straddle, so a 1-sector fetch always suffices. */
+#ifndef FAT12_MUT_D27I_NO_WINDOW_DISPATCH
+	if (vol != NULL && vol->fat_window != NULL) {
+		uint32_t win_off;
+		int      rc = fat12_read_fat_sector(vol, cluster, &win_off);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		b   = vol->fat_window->buf;
+		off = win_off;
+#ifndef FAT16_MUTATE_ENTRY_MASK12
+		*out_next = (uint16_t)((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8));
+#else
+		*out_next = (uint16_t)(((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8))
+		                       & FAT12_ENTRY_MASK);
+#endif
+		return FAT12_OK;
+	}
+#else
+	/* MUTANT (Rule 6; test-d27i-mutant only): DROP the windowed dispatch -- a
+	 * FAT16 volume then falls through to the whole-FAT path below and, given the
+	 * windowed callers pass fat==NULL, fails FAT12_ERR_NULL. This proves the
+	 * windowed dispatch is what lets a FAT16 volume read without the whole FAT.
+	 * NEVER define in a real build. */
+#endif
+
+	(void)vol; /* whole-FAT path: decode is a pure function of the flat buffer */
+
+	if (fat == NULL) {
 		return FAT12_ERR_NULL;
 	}
 
@@ -312,16 +492,49 @@ int fat12_next_cluster(const fat12_volume_t *vol, const void *fat,
 	uint32_t       off;
 	uint16_t       v;
 
-	if (fat == NULL || out_next == NULL) {
+	if (out_next == NULL) {
 		return FAT12_ERR_NULL;
 	}
 
 	/* FAT16 dispatch (beads initech-z01): a FAT16 volume must NOT be decoded by
 	 * the 12-bit path (the M5 mutation -- garbage chains). vol may be NULL for a
 	 * few decode-only unit callers; treat a NULL vol as FAT12 (the historical
-	 * decode-is-a-pure-function-of-the-buffer contract, brief Sec 3). */
+	 * decode-is-a-pure-function-of-the-buffer contract, brief Sec 3).
+	 * fat16_next_cluster itself handles the windowed dispatch (beads d27i). */
 	if (vol != NULL && vol->fat_type == FAT_TYPE_FAT16) {
 		return fat16_next_cluster(vol, fat, fat_len, cluster, out_next);
+	}
+
+	/* WINDOWED dispatch (beads initech-d27i): a FAT12 volume with a FAT window
+	 * streams the FAT sector(s) holding this cluster's 12-bit entry -- fetching
+	 * BOTH sectors when the entry STRADDLES a boundary -- so the decode below is
+	 * byte-identical to the whole-FAT path over a tiny window. fat12_read_fat_
+	 * sector returns the in-window offset; b/off then point into the window. */
+#ifndef FAT12_MUT_D27I_NO_WINDOW_DISPATCH
+	if (vol != NULL && vol->fat_window != NULL) {
+		uint32_t win_off;
+		int      rc = fat12_read_fat_sector(vol, cluster, &win_off);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		b = vol->fat_window->buf;
+		v = (uint16_t)((uint16_t)b[win_off] | ((uint16_t)b[win_off + 1u] << 8));
+		if ((cluster & 1u) == 0u) {
+			*out_next = (uint16_t)(v & FAT12_ENTRY_MASK);
+		} else {
+			*out_next = (uint16_t)((v >> 4) & FAT12_ENTRY_MASK);
+		}
+		return FAT12_OK;
+	}
+#else
+	/* MUTANT (Rule 6; test-d27i-mutant only): DROP the windowed dispatch -- a
+	 * FAT12 volume with only a window (fat==NULL) falls through to the whole-FAT
+	 * NULL check and fails. Proves the windowed dispatch is load-bearing. NEVER
+	 * in a real build. */
+#endif
+
+	if (fat == NULL) {
+		return FAT12_ERR_NULL;
 	}
 
 	/* Clusters 0 and 1 are reserved, not data clusters (brief Sec 3). */
@@ -740,8 +953,12 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 		return FAT12_OK;
 	}
 
-	/* Non-empty file from here on: fat + cluster_buf are required. */
-	if (fat == NULL || cluster_buf == NULL) {
+	/* Non-empty file from here on: a FAT source + cluster_buf are required. The
+	 * FAT source is EITHER the caller's whole-FAT buffer (`fat`) OR the volume's
+	 * windowed reader (vol->fat_window; beads initech-d27i) -- a windowed read
+	 * legitimately passes fat==NULL, so accept it when a window is installed. */
+	if ((fat == NULL && (vol == NULL || vol->fat_window == NULL)) ||
+	    cluster_buf == NULL) {
 		return FAT12_ERR_NULL;
 	}
 
@@ -965,8 +1182,12 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 		return FAT12_OK;
 	}
 
-	/* Real bytes to move from here on: fat + out_buf + cluster_buf required. */
-	if (fat == NULL || out_buf == NULL || cluster_buf == NULL) {
+	/* Real bytes to move from here on: a FAT source + out_buf + cluster_buf are
+	 * required. The FAT source is the caller's whole-FAT buffer (`fat`) OR the
+	 * volume's windowed reader (vol->fat_window; beads initech-d27i) -- a windowed
+	 * read passes fat==NULL, accepted when a window is installed. */
+	if ((fat == NULL && (vol == NULL || vol->fat_window == NULL)) ||
+	    out_buf == NULL || cluster_buf == NULL) {
 		return FAT12_ERR_NULL;
 	}
 
