@@ -1416,6 +1416,72 @@ int main(void)
               "positioned overwrite-in-place: first 5 bytes are now HELLO, tail intact");
     }
 
+    /* --- AH=5Bh CREATNEW (beads initech-kji0): like CREAT, but FAIL with
+     *     AX=0x0050 (ERROR_FILE_EXISTS) if the target already exists; otherwise
+     *     behave exactly like CREAT (zero-length file, AX=handle, CF clear).
+     *     Drives the REAL int21_dispatch through the mock backend whose open()
+     *     is the existence probe. Ref: DOS 3.3 PRM AH=5Bh; ADR-0003 Appendix A. */
+    {
+        mock_reset_dir();
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+
+        /* (a) CREATNEW a FRESH name -> CF clear, EAX = a real handle. */
+        uint32_t nedx = low_dup("BRAND.NEW");
+        int_frame_t cn = fresh_frame();
+        cn.eax = 0x5B00u; cn.ecx = 0u; cn.edx = nedx;
+        cn.eflags |= CF_BIT;
+        int21_dispatch(&cn);
+        CHECK(frame_cf(&cn) == 0, "CREATNEW fresh name BRAND.NEW clears CF");
+        uint32_t nh = (uint16_t)(cn.eax & 0xFFFFu);
+        CHECK(nh == 5u, "CREATNEW fresh name returns the lowest free handle (5)");
+
+        /* (b) CREATNEW an EXISTING name (HELLO.TXT lives in the mock root) ->
+         *     CF=1, AX=0x0050 (ERROR_FILE_EXISTS). Commit nothing. */
+        uint32_t eedx = low_dup("HELLO.TXT");
+        int_frame_t ce = fresh_frame();
+        ce.eax = 0x5B00u; ce.ecx = 0u; ce.edx = eedx;
+        int21_dispatch(&ce);
+        CHECK(frame_cf(&ce) == 1, "CREATNEW on existing HELLO.TXT sets CF");
+        CHECK((uint16_t)(ce.eax & 0xFFFFu) == INT21_ERR_FILE_EXISTS,
+              "CREATNEW on existing file AX=0x0050 (ERROR_FILE_EXISTS)");
+
+        /* (c) AH=59h GETERR right after the (b) failure must report 0x0050 ->
+         *     proves the dispatch-wrapper auto-note carried the CREATNEW error. */
+        int_frame_t ge = fresh_frame();
+        ge.eax = 0x5900u;
+        int21_dispatch(&ge);
+        CHECK((uint16_t)(ge.eax & 0xFFFFu) == INT21_ERR_FILE_EXISTS,
+              "AH=59h GETERR after CREATNEW-exists reports 0x0050 (auto-note carried it)");
+
+        /* (d) shared resolve seam: CREATNEW an EXISTING subdir file
+         *     '\SUB\NESTED.TXT' -> CF=1, AX=0x0050 (proves the resolve_dir_path
+         *     seam threads the subdir existence probe, beads initech-mzxa/zs24). */
+        uint32_t sedx = low_dup("\\SUB\\NESTED.TXT");
+        int_frame_t cs = fresh_frame();
+        cs.eax = 0x5B00u; cs.ecx = 0u; cs.edx = sedx;
+        int21_dispatch(&cs);
+        CHECK(frame_cf(&cs) == 1, "CREATNEW on existing subdir file \\SUB\\NESTED.TXT sets CF");
+        CHECK((uint16_t)(cs.eax & 0xFFFFu) == INT21_ERR_FILE_EXISTS,
+              "CREATNEW on existing subdir file AX=0x0050 (shared resolve seam)");
+
+        /* (e) CREATNEW a FRESH name in '\SUB' that does NOT exist there: the
+         *     existence probe MUST clear (open()==0x0002), so do_creatnew falls
+         *     THROUGH the guard to the CREATE path. This mock's create() only
+         *     writes the ROOT (subdir CREATE is the FAT12 zs24 harness, not this
+         *     read-side mock), so it returns 0x0003 -- proving the rejection came
+         *     from the backend create(), NOT from the CREATNEW exists-guard
+         *     (which would be 0x0050). This pins that the probe did NOT false-hit
+         *     a non-existent subdir leaf. */
+        uint32_t sfedx = low_dup("\\SUB\\FRESH.TXT");
+        int_frame_t csf = fresh_frame();
+        csf.eax = 0x5B00u; csf.ecx = 0u; csf.edx = sfedx;
+        int21_dispatch(&csf);
+        CHECK(frame_cf(&csf) == 1, "CREATNEW fresh subdir file sets CF (mock create() is root-only)");
+        CHECK((uint16_t)(csf.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
+              "CREATNEW fresh subdir leaf -> 0x0003 from backend create() (NOT 0x0050; probe passed cleanly)");
+    }
+
     /* --- RDWR (AL=2) round-trip (bcg.1): AH=3Dh AL=2 is read/write per DOS 3.3
      *     PRM; a mode-2 handle MUST permit WRITE. The bug: do_write gated on
      *     open_mode==SFT_MODE_WRITE only, so a mode-2 handle was denied --

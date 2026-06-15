@@ -1831,6 +1831,68 @@ test-fileio-mutant: $(TEST_FILEIO_MUT_READ) $(TEST_FILEIO_MUT_LSEEK)
 	fi
 
 # ---------------------------------------------------------------------------
+# MUTATION gate: test-kji0-mutant (beads initech-kji0 -- AH=5Bh CREATNEW)
+# ---------------------------------------------------------------------------
+# The CREATNEW assertions live in test_fileio.c (they ride the existing
+# test-fileio gate). THIS gate is the Rule-6 mutation proof: int21.c compiled
+# with one CREATNEW branch perturbed must drive those assertions RED. A mutant
+# that PASSES means the CREATNEW oracle is decoration.
+#   (1) NO_GUARD     : drop the existence guard (CREATNEW == CREAT) -> the
+#                      "existing file -> 0x0050" assertion (b) goes RED.
+#   (2) GUARD_INVERT : treat open()!=0 (NOT found) as 'exists' -> both the
+#                      fresh-name (a) AND the existing-name (b) assertions RED.
+#   (3) WRONG_CONST  : return 0x0005 instead of 0x0050 -> assertions (b) AND
+#                      the AH=59h GETERR (c) go RED.
+#   (4) NO_DISPATCH  : drop the 0x5B case so it falls to not-yet-impl (AX=0x0001)
+#                      -> the fresh-name (a) assertion goes RED.
+TEST_FILEIO_MUT_KJI0_NOGUARD   := $(BUILD)/test_fileio_mutant_kji0_noguard
+TEST_FILEIO_MUT_KJI0_INVERT    := $(BUILD)/test_fileio_mutant_kji0_invert
+TEST_FILEIO_MUT_KJI0_WRONGCONST:= $(BUILD)/test_fileio_mutant_kji0_wrongconst
+TEST_FILEIO_MUT_KJI0_NODISPATCH:= $(BUILD)/test_fileio_mutant_kji0_nodispatch
+
+$(TEST_FILEIO_MUT_KJI0_NOGUARD): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CREATNEW_NO_GUARD -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_FILEIO_MUT_KJI0_INVERT): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CREATNEW_GUARD_INVERT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_FILEIO_MUT_KJI0_WRONGCONST): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CREATNEW_WRONG_CONST -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_FILEIO_MUT_KJI0_NODISPATCH): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CREATNEW_NO_DISPATCH -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+.PHONY: test-kji0-mutant
+# Mutation-proof: ALL FOUR CREATNEW mutants MUST fail the oracle (Rule 6).
+test-kji0-mutant: $(TEST_FILEIO_MUT_KJI0_NOGUARD) $(TEST_FILEIO_MUT_KJI0_INVERT) \
+                  $(TEST_FILEIO_MUT_KJI0_WRONGCONST) $(TEST_FILEIO_MUT_KJI0_NODISPATCH)
+	@printf ">>> test-kji0-mutant: confirming all four CREATNEW mutants go RED (Rule 6; beads initech-kji0)\n"
+	@if $(TEST_FILEIO_MUT_KJI0_NOGUARD) >/dev/null 2>&1; then \
+		printf '!!! test-kji0-mutant FAIL: NO_GUARD mutant PASSED -- the exists-guard is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-kji0-mutant: green (NO_GUARD mutant correctly RED -- the exists-guard bites)\n'; \
+	fi
+	@if $(TEST_FILEIO_MUT_KJI0_INVERT) >/dev/null 2>&1; then \
+		printf '!!! test-kji0-mutant FAIL: GUARD_INVERT mutant PASSED -- the probe-sense test is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-kji0-mutant: green (GUARD_INVERT mutant correctly RED -- the probe sense bites)\n'; \
+	fi
+	@if $(TEST_FILEIO_MUT_KJI0_WRONGCONST) >/dev/null 2>&1; then \
+		printf '!!! test-kji0-mutant FAIL: WRONG_CONST mutant PASSED -- the 0x0050 constant is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-kji0-mutant: green (WRONG_CONST mutant correctly RED -- the 0x0050 code bites)\n'; \
+	fi
+	@if $(TEST_FILEIO_MUT_KJI0_NODISPATCH) >/dev/null 2>&1; then \
+		printf '!!! test-kji0-mutant FAIL: NO_DISPATCH mutant PASSED -- the 0x5B dispatch wiring is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-kji0-mutant: green (NO_DISPATCH mutant correctly RED -- the 0x5B case bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-mzxa (beads initech-mzxa -- ti8 Layer 2: subdir resolution
 # threaded through the INT 21h file backend). The unit oracle lives in
 # test_fileio.c (the nested SUB/NESTED.TXT mock namespace + the resolve seam),
@@ -7328,7 +7390,7 @@ TEST_UNIT_GATES := \
 	test-region test-region-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-zs24-mutant \

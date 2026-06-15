@@ -1135,6 +1135,116 @@ static void do_creat(int_frame_t *f)
     cf_clear(f);
 }
 
+/* AH=5Bh CREATNEW: identical to AH=3Ch CREAT (create a zero-length file, claim
+ * an SFT FILE slot + JFT slot in WRITE mode, return EAX = handle, CF clear) WITH
+ * ONE added precondition -- the target must NOT already exist. If it does, FAIL
+ * with CF=1, AX=0x0050 (ERROR_FILE_EXISTS) and commit nothing (no truncate, no
+ * slot churn). CX (attribute) is UNUSED here, exactly as in do_creat -- attribute
+ * semantics are a separate, larger bead, NOT this one. The existence check reuses
+ * the backend's pure-locate open() member (NO SFT mutation, NO whole-file read --
+ * int21.h backend contract: out_entry/out_slot written only on success, returns
+ * 0 found / 0x0002 not-found) and runs AFTER resolve_dir_path succeeds and BEFORE
+ * sft_alloc/jft_alloc so a rejection touches nothing. Shares the resolve_dir_path
+ * seam so '\SUB\FILE' subdir targets work for free (beads initech-mzxa/zs24). The
+ * AH=59h dispatch wrapper auto-notes CF+AX, so no explicit int21_note_error here.
+ * Ref: DOS 3.3 PRM AH=5Bh (file-exists = error 50h); ADR-0003 Appendix A line
+ * "5Bh CREATNEW -- Create file, fail if existing"; beads initech-kji0. */
+static void do_creatnew(int_frame_t *f)
+{
+    const char *path = (const char *)(uintptr_t)f->edx;
+
+    if (path == 0 || *path == '\0') {
+        set_ax(f, INT21_ERR_FILE_NOT_FOUND);
+        cf_set(f);
+        return;
+    }
+    /* Resolve the CONTAINING directory (the file may not exist yet, so the
+     * resolve targets the parent chain, not the leaf). A missing/non-dir parent
+     * component or an overlength path -> 0x0003. */
+    const char *leaf      = path;
+    uint16_t    dir_start = 0u;
+    uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
+    if (perr != 0u) {
+        set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
+        int21_note_error(perr);          /* AH=59h GET EXTENDED ERROR */
+        cf_set(f);
+        return;
+    }
+    if (g_file == 0 || g_file->create == 0) {
+        /* No write backing (read-only volume / no volume) -> access denied
+         * (Rule 2: never a silent success that drops the file). */
+        set_ax(f, INT21_ERR_ACCESS_DENIED);
+        cf_set(f);
+        return;
+    }
+
+#ifndef INT21_MUTATE_CREATNEW_NO_GUARD
+    /* CREATNEW precondition: the target must not already exist. Probe via the
+     * pure-locate open() member (if bound). open() returns 0 when the leaf is
+     * found in `dir_start`; that means EXISTS -> fail with 0x0050, commit
+     * nothing. A 0x0002 (not found) or any other non-zero locate result means
+     * "does not exist" -> fall through to the CREAT path. (Rule 6 mutants:
+     * NO_GUARD drops this block so CREATNEW==CREAT; GUARD_INVERT flips the
+     * sense; WRONG_CONST returns the wrong AX.) */
+    if (g_file->open != 0) {
+        dir_entry_t probe_de;
+        uint32_t    probe_slot = 0u;
+        uint16_t    found = g_file->open(leaf, dir_start, &probe_de, &probe_slot);
+#ifdef INT21_MUTATE_CREATNEW_GUARD_INVERT
+        if (found != 0u) {               /* MUTANT: treat NOT-found as exists */
+#else
+        if (found == 0u) {               /* file located -> already exists */
+#endif
+#ifdef INT21_MUTATE_CREATNEW_WRONG_CONST
+            set_ax(f, INT21_ERR_ACCESS_DENIED);   /* MUTANT: wrong 0x0005 */
+#else
+            set_ax(f, INT21_ERR_FILE_EXISTS);     /* 0x0050 ERROR_FILE_EXISTS */
+#endif
+            cf_set(f);
+            return;
+        }
+    }
+#endif /* INT21_MUTATE_CREATNEW_NO_GUARD */
+
+    /* From here on: identical to do_creat. Secure the table slots BEFORE creating
+     * so a slot-exhaustion failure does not commit anything (mirrors do_open). */
+    uint8_t sft_idx = sft_alloc();
+    if (sft_idx >= (uint8_t)SFT_MAX_ENTRIES) {
+        set_ax(f, INT21_ERR_TOO_MANY_OPEN);
+        cf_set(f);
+        return;
+    }
+    uint8_t handle = jft_alloc(g_cur_psp);
+    if (handle == JFT_CLOSED) {
+        set_ax(f, INT21_ERR_TOO_MANY_OPEN);
+        cf_set(f);
+        return;
+    }
+
+    dir_entry_t de;
+    uint32_t    root_slot = 0u;
+    uint16_t err = g_file->create(leaf, dir_start, &de, &root_slot);
+    if (err != 0) {
+        set_ax(f, err);
+        cf_set(f);
+        return;
+    }
+
+    sft_entry_t *e = &g_sft[sft_idx];
+    e->kind        = SFT_KIND_FILE;
+    e->open_mode   = SFT_MODE_WRITE;   /* a write handle (positioned writes) */
+    e->dev_id      = 0;
+    e->ref_count   = 1u;
+    e->dir_entry   = de;
+    e->file_offset = 0u;
+    e->root_slot   = root_slot;        /* dir-entry slot for positioned write-back */
+    e->dir_start   = dir_start;        /* containing dir (0==root; subdir zs24) */
+    g_cur_psp->jft[handle] = sft_idx;
+
+    f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)handle;
+    cf_clear(f);
+}
+
 /* AH=41h UNLINK (DELETE FILE): EDX = flat ptr to ASCIIZ path. Resolve a
  * '\SUB\FILE'-qualified path to its containing directory (beads initech-mzxa)
  * and delete the file there (mark deleted + free its chain) via the backend.
@@ -2605,6 +2715,17 @@ static void int21_dispatch_body(int_frame_t *frame)
         case 0x3C:                       /* CREAT (create/truncate file) */
             do_creat(frame);
             return;
+        case 0x5B:                       /* CREATNEW (create, fail if exists) */
+#ifdef INT21_MUTATE_CREATNEW_NO_DISPATCH
+            /* MUTANT (Rule 6): do NOT dispatch 0x5B; fall through to the
+             * not-yet-impl path (CF=1, AX=0x0001). The (void) ref keeps
+             * -Werror=unused-function quiet so the mutant still BUILDS + RUNS. */
+            (void)do_creatnew;
+            break;
+#else
+            do_creatnew(frame);
+            return;
+#endif
         case 0x3D:                       /* OPEN (handle) */
             do_open(frame);
             return;

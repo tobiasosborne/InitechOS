@@ -42,6 +42,7 @@
 #define INT21_ERR_BAD_FORMAT        0x000Bu  /* EXEC: bad/oversized program image */
 #define INT21_ERR_CURRENT_DIR       0x0010u  /* RMDIR: target is the current dir (DOS "attempt to remove current directory") */
 #define INT21_ERR_NO_MORE_FILES     0x0012u  /* FINDFIRST/NEXT: no (more) match */
+#define INT21_ERR_FILE_EXISTS       0x0050u  /* CREATNEW (5Bh): target already exists (DOS ERROR_FILE_EXISTS) */
 
 /* Predefined device handles (no SFT yet -- the only handles this subset honors;
  * real JFT/SFT file handles arrive with beads initech-509.3). */

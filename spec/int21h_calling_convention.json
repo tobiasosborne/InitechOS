@@ -76,6 +76,13 @@
       "out": {},
       "cf": "never set (handler does not return to the caller)",
       "notes": "Emit serial INT21-EXIT rc=NN + console line, then cli;hlt (terminate == stop; no process model yet). In future: restore parent context."
+    },
+    {
+      "ah": "5Bh", "mnemonic": "CREATNEW",
+      "in": {"EDX": "flat ptr to ASCIIZ 8.3 path", "CX": "attribute (UNUSED, as in 3Ch CREAT; attribute semantics are a separate bead)"},
+      "out": {"EAX": "handle (low word) on success"},
+      "cf": "set on error (AX=error code: 0x0050 file already exists; 0x0003 bad path component / overlength; 0x0002 NULL/empty path; 0x0005 no write backend; 0x0004 SFT/JFT slot exhaustion)",
+      "notes": "Identical to 3Ch CREAT (create a zero-length file, claim an SFT FILE slot + JFT slot in WRITE mode, return EAX=handle, CF clear) WITH one added precondition: the target must NOT already exist. If it does -> CF=1, AX=0x0050 (ERROR_FILE_EXISTS), commit nothing. The existence check reuses the backend pure-locate open() member (no SFT mutation, no whole-file read) and runs AFTER resolve_dir_path succeeds and BEFORE the SFT/JFT alloc, so a rejection touches nothing; shares the resolve_dir_path seam so '\\SUB\\FILE' subdir targets work. The AH=59h dispatch wrapper auto-notes CF+AX. Ref: DOS 3.3 PRM AH=5Bh; ADR-0003 Appendix A; beads initech-kji0."
     }
   ],
   "listed_but_unimplemented_behavior": {
