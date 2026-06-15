@@ -15,6 +15,11 @@
 #                               sorted ascending by name. Timestamps / volume
 #                               serial normalized away (never emitted).
 #   --cat NAME.EXT            : write the named file's EXACT bytes to stdout.
+#   --stat-path-time PATH     : print "MTIME MDATE" (two decimal words) unpacked
+#                               from the on-disk dir entry (0x16/0x18) of the file
+#                               at a backslash PATH. The INVERSE of every other
+#                               mode (which normalizes timestamps away): the
+#                               independent reference for AH=57h SET (qekc).
 #   --cat-range NAME OFF LEN  : write EXACTLY the byte slice [OFF, OFF+LEN) of
 #                               the named file to stdout (binary). Past-EOF /
 #                               over-long LEN are clamped to file_size, exactly
@@ -445,6 +450,33 @@ def main(argv):
             return 1
         for name, size in sorted(files, key=lambda r: r[0]):
             sys.stdout.write("%s %d\n" % (name, size))
+        return 0
+
+    if mode == "--stat-path-time":
+        # --stat-path-time PATH : print the PACKED modification time/date of the
+        # file at a backslash-separated PATH, unpacked DIRECTLY from the on-disk
+        # 32-byte directory entry: "<H at 0x16 (mtime) <H at 0x18 (mdate)>" as two
+        # decimal words "MTIME MDATE\n". The INDEPENDENT reference for AH=57h SET
+        # FILE DATE/TIME (beads initech-qekc): every OTHER fat12_ref mode
+        # NORMALIZES these fields away (they are deterministically 0 on disk via
+        # FAT12_FIXED_MTIME); this mode is the INVERSE -- it asserts the EXACT
+        # caller-written bytes survived to disk. No code is shared with the C
+        # writer. Missing file -> exit 1.
+        if len(argv) != 4:
+            sys.stderr.write("fat12_ref: --stat-path-time needs a PATH\n")
+            return 2
+        try:
+            ent = fs.find_path(argv[3])
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: --stat-path-time bad path '%s': %s\n"
+                             % (argv[3], exc))
+            return 1
+        if ent is None:
+            sys.stderr.write("fat12_ref: file not found: %s\n" % argv[3])
+            return 1
+        mtime = struct.unpack_from("<H", ent, 0x16)[0]   # 16h: mod time
+        mdate = struct.unpack_from("<H", ent, 0x18)[0]   # 18h: mod date
+        sys.stdout.write("%d %d\n" % (mtime, mdate))
         return 0
 
     sys.stderr.write("fat12_ref: unknown mode '%s'\n" % mode)

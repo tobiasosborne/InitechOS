@@ -1734,6 +1734,69 @@ int fat12_read_dir_entry_in(const fat12_volume_t *vol, const void *fat,
 	                                sector_buf);
 }
 
+/*
+ * fat12_set_dirent_time -- patch ONLY mtime/mdate of the dir entry at `slot` of
+ * the directory at `parent_dir_start` (0 == root) and flush it back. The thin
+ * single-primitive behind AH=57h AL=01h SET (beads initech-qekc). Read-modify-
+ * write of the one 32-byte entry: re-read it, overwrite the two packed words
+ * VERBATIM (no encode/decode -- the caller hands on-disk packed CX/DX), write it
+ * back via the SAME primitive WRITE uses (fat12_write_dirent_in_dir). All other
+ * fields are preserved -- the INVERSE of the FAT12_FIXED_MTIME stamping CREATE
+ * does. Ref: DOS 3.3 PRM AH=57h; spec/dos_structs.h dir_entry_t (0x16/0x18).
+ */
+int fat12_set_dirent_time(const fat12_volume_t *vol, const void *fat,
+                          uint32_t fat_len, uint16_t parent_dir_start,
+                          uint32_t slot, uint16_t mtime, uint16_t mdate,
+                          void *sector_buf)
+{
+	int         is_root = (parent_dir_start == 0u);
+	dir_entry_t de;
+	int         rc;
+
+	if (vol == NULL || sector_buf == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	if (vol->dev == NULL || vol->dev->write_sectors == NULL ||
+	    vol->dev->read_sectors == NULL) {
+		return FAT12_ERR_WRITE;
+	}
+
+	/* Re-read the live on-disk entry (subdir-aware: dir_start != 0 walks the
+	 * parent's cluster chain). */
+	rc = fat12_read_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+	                              slot, &de, sector_buf);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+
+	/* Overwrite ONLY the two packed timestamp words, VERBATIM. Everything else
+	 * (name / attr / start_cluster / size) is preserved. */
+	de.mtime = mtime;
+#ifndef FAT12_MUTATE_SETTIME_DROP_MDATE
+	de.mdate = mdate;
+#else
+	/* MUTANT 1 (Rule 6; make test-qekc-mutant only): write ONLY mtime, DROP the
+	 * mdate=DX assignment so the on-disk date keeps its old (0/0 baseline) value.
+	 * The --stat-path-time / mdir DATE differential goes RED (MDATE mismatches).
+	 * The (void) keeps -Werror=unused-parameter quiet. NEVER in a real build. */
+	(void)mdate;
+#endif
+
+#ifndef FAT12_MUTATE_SETTIME_NO_FLUSH
+	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+	                                 slot, &de, sector_buf);
+#else
+	/* MUTANT 3 (Rule 6; make test-qekc-mutant only): SKIP the write-back flush --
+	 * the patched `de` is computed but never written to disk, so the on-disk
+	 * 0x16/0x18 words keep their baseline value. The SET reports success (return
+	 * FAT12_OK) and a SAME-handle GET (which reads the in-memory SFT copy the
+	 * dispatcher refreshed) stays GREEN, but the on-disk DIFFERENTIAL (after
+	 * re-mount) goes RED -- proving the flush is load-bearing for persistence.
+	 * NEVER define in a real build. */
+	return FAT12_OK;
+#endif
+}
+
 int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, uint8_t attr, uint16_t parent_dir_start,
                  void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,

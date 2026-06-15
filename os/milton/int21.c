@@ -360,6 +360,7 @@ static void set_bx(int_frame_t *f, uint16_t bx)
     f->ebx = (f->ebx & 0xFFFF0000u) | (uint32_t)bx;
 }
 static uint16_t frame_cx(const int_frame_t *f) { return (uint16_t)(f->ecx & 0xFFFFu); }
+static uint16_t frame_dx(const int_frame_t *f) { return (uint16_t)(f->edx & 0xFFFFu); }
 static uint8_t  frame_dh(const int_frame_t *f) { return (uint8_t)((f->edx >> 8) & 0xFFu); }
 static uint8_t  frame_ch(const int_frame_t *f) { return (uint8_t)((f->ecx >> 8) & 0xFFu); }
 static uint8_t  frame_cl(const int_frame_t *f) { return (uint8_t)(f->ecx & 0xFFu); }
@@ -1673,6 +1674,122 @@ static void do_lseek(int_frame_t *f)
     cf_clear(f);
 }
 
+/* AH=57h GET/SET FILE DATE AND TIME (by handle; beads initech-qekc).
+ *   AL=00h GET: return the open handle's packed modification time/date.
+ *               CX = dir_entry.mtime, DX = dir_entry.mdate, CF=0.
+ *   AL=01h SET: write the caller-supplied CX/DX stamps to the handle's dir entry
+ *               and FLUSH IMMEDIATELY (parity with the per-call write-commit
+ *               model: each WRITE commits, so AH=57h SET commits here -- NOT
+ *               deferred to CLOSE). CF=0 on success.
+ *
+ * EBX = file handle (a JFT index, resolved through the current process's JFT into
+ * the system SFT exactly the way do_write/do_lseek do -- sft_from_handle). The
+ * packed CX time (h/m/s2) and DX date (y-1980/m/d) are the SAME packed words
+ * dir_entry_t.mtime(0x16)/.mdate(0x18) store on disk, so SET copies CX->mtime,
+ * DX->mdate VERBATIM (no encode/decode) and so does GET in reverse.
+ *
+ * ERRORS (CF=1):
+ *   - bad / closed / out-of-range handle           -> AX=0x0006 (INVALID_HANDLE)
+ *   - AL not in {0,1}                               -> AX=0x0001 (INVALID_FUNCTION)
+ *   - a DEVICE handle (CON/AUX/PRN -- no dir entry) -> AX=0x0001 (a device has no
+ *     filesystem date/time; documented as invalid-function, distinct from a bad
+ *     handle which IS resolvable just not a file)
+ *   - SET with no write backend (set_time == NULL) or a backend write failure
+ *                                                   -> AX=0x0005 (ACCESS_DENIED)
+ * No int21_note_error() call: the AH=59h auto-note at the dispatch choke point
+ * captures CF + AX. Ref: DOS 3.3 PRM AH=57h; spec/dos_structs.h (dir_entry_t
+ * mtime 0x16 / mdate 0x18); CLAUDE.md Law 1 (cite), Rule 2 (fail loud). */
+static void do_filetime(int_frame_t *f)
+{
+    uint32_t handle = f->ebx;
+    uint8_t  al     = frame_al(f);
+
+    /* AL must select GET (0) or SET (1); anything else is invalid-function and is
+     * rejected BEFORE the handle is touched (DOS validates the subfunction). */
+#ifndef INT21_MUTATE_FILETIME_NO_AL_REJECT
+    if (al != 0x00u && al != 0x01u) {
+        set_ax(f, INT21_ERR_INVALID_FUNCTION);
+        cf_set(f);
+        return;
+    }
+#else
+    /* MUTANT 4 (Rule 6; make test-qekc-mutant only): SKIP the AL validation, so a
+     * bad AL (e.g. AL=2) is NO LONGER rejected -- it falls through to the GET/SET
+     * body (AL=2 != 0x00 takes the SET path on a write-capable backend, returning
+     * CF=0 instead of the required CF=1/AX=0x0001). The bad-AL host contract goes
+     * RED (the assertion demands CF=1 + invalid-function). NEVER in a real build. */
+#endif
+
+    sft_entry_t *e = (handle <= 0xFFu)
+                       ? sft_from_handle(g_cur_psp, (uint8_t)handle)
+                       : 0;
+    if (e == 0) {
+        /* No such open handle (out of range / closed / no process). Rule 2. */
+        set_ax(f, INT21_ERR_INVALID_HANDLE);
+        cf_set(f);
+        return;
+    }
+
+    /* Only a disk FILE carries a directory date/time. A character device
+     * (CON/AUX/PRN) is resolvable but has no dir entry -> invalid-function
+     * (documented; distinct from a bad handle, which is not resolvable). */
+    if (e->kind != SFT_KIND_FILE) {
+        set_ax(f, INT21_ERR_INVALID_FUNCTION);
+        cf_set(f);
+        return;
+    }
+
+    if (al == 0x00u) {
+        /* GET: read the SFT's in-memory dir_entry copy (the kernel keeps it in
+         * sync via OPEN/CREAT + the positioned-write refresh). No backend seam.
+         * CX = packed mtime, DX = packed mdate (DOS 3.3 PRM AH=57h AL=00). */
+#ifndef INT21_MUTATE_FILETIME_GET_SWAP
+        set_cx(f, e->dir_entry.mtime);
+        set_dx(f, e->dir_entry.mdate);
+#else
+        /* MUTANT 2 (Rule 6; make test-qekc-mutant only): SWAP the registers --
+         * return mdate in CX and mtime in DX. The host CX/DX GET contract goes
+         * RED (CX != seeded mtime). NEVER define in a real build. */
+        set_cx(f, e->dir_entry.mdate);
+        set_dx(f, e->dir_entry.mtime);
+#endif
+        cf_clear(f);
+        return;
+    }
+
+    /* SET: copy CX->mtime, DX->mdate VERBATIM into the SFT copy, then FLUSH via
+     * the backend (immediate commit -- parity with write_at). A read-only backend
+     * (set_time == NULL) or a write failure -> access denied (Rule 2: never a
+     * silent no-op). */
+    uint16_t new_mtime = frame_cx(f);
+    uint16_t new_mdate = frame_dx(f);
+    if (g_file == 0 || g_file->set_time == 0) {
+#ifndef INT21_MUTATE_FILETIME_RO_OK
+        set_ax(f, INT21_ERR_ACCESS_DENIED);
+        cf_set(f);
+        return;
+#else
+        /* MUTANT 5 (Rule 6; make test-qekc-mutant only): a SET with NO write
+         * backend (set_time == NULL) returns CF=0 (silent success) instead of
+         * CF=1/AX=0x0005. The read-only-SET host assertion goes RED. The (void)
+         * keeps -Werror quiet for the unused new_* below. NEVER in a real build. */
+        (void)new_mtime; (void)new_mdate;
+        cf_clear(f);
+        return;
+#endif
+    }
+    uint16_t err = g_file->set_time(e->dir_start, e->root_slot,
+                                    new_mtime, new_mdate);
+    if (err != 0) {
+        set_ax(f, err);
+        cf_set(f);
+        return;
+    }
+    e->dir_entry.mtime = new_mtime;   /* refresh the in-memory copy (GET parity) */
+    e->dir_entry.mdate = new_mdate;
+    cf_clear(f);
+}
+
 /* AH=1Ah SETDTA: EDX = flat ptr to the new Disk Transfer Area. CF clear (DOS
  * 1Ah has no error path). Ref: DOS 3.3 PRM AH=1Ah. */
 static void do_setdta(int_frame_t *f)
@@ -2836,6 +2953,17 @@ static void int21_dispatch_body(int_frame_t *frame)
         case 0x42:                       /* LSEEK (move file pointer) */
             do_lseek(frame);
             return;
+        case 0x57:                       /* GET/SET FILE DATE+TIME (by handle) */
+#ifdef INT21_MUTATE_FILETIME_NO_DISPATCH
+            /* MUTANT (Rule 6): do NOT dispatch 0x57; fall through to the
+             * not-yet-impl path. The (void) ref keeps -Werror=unused-function
+             * quiet so the mutant still BUILDS + RUNS. NEVER in a real build. */
+            (void)do_filetime;
+            break;
+#else
+            do_filetime(frame);
+            return;
+#endif
         case 0x44:                       /* IOCTL (AL=00 get device info) */
 #ifdef INT21_MUTATE_IOCTL_NO_DISPATCH
             /* MUTANT (Rule 6): do NOT dispatch 0x44; fall through to the

@@ -300,6 +300,33 @@ static void fat_close(uint32_t slot)
     (void)slot;
 }
 
+/* SET_TIME (beads initech-qekc; AH=57h AL=01h SET FILE DATE/TIME): patch the
+ * packed mtime/mdate of the dir entry at slot `slot` of the directory at
+ * `dir_start` (0 == root) and FLUSH IMMEDIATELY (parity with the per-call
+ * write_at commit). Delegates to the single fat12 primitive, which re-reads the
+ * entry, overwrites ONLY the two packed words, and writes it back. A read-only
+ * volume (no write_sectors) -> access denied. */
+static uint16_t fat_set_time(uint16_t dir_start, uint32_t slot,
+                             uint16_t mtime, uint16_t mdate)
+{
+    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+        return FILEIO_ERR_ACCESS_DENIED;
+    }
+#ifdef FILEIO_MUTATE_SETTIME_ROOTDIR
+    /* MUTANT 6 (Rule 6; make test-qekc-mutant only): force dir_start=0 (the root)
+     * so a SUBDIR file's stamp is written to a ROOT slot of the same index instead
+     * of the subdir cluster-chain slot. The subdir --stat-path-time differential
+     * goes RED (the subdir entry never gets the stamp). NEVER in a real build. */
+    dir_start = 0u;
+#endif
+    int rc = fat12_set_dirent_time(g_vol, g_fat, g_fat_len, dir_start, slot,
+                                   mtime, mdate, g_sector);
+    if (rc != FAT12_OK) {
+        return FILEIO_ERR_ACCESS_DENIED;   /* read/chain/write error */
+    }
+    return 0u;
+}
+
 static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
 {
     if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
@@ -766,7 +793,8 @@ static const int21_file_backend_t g_fat_backend = {
     fat_resolve,
     fat_resolve_dir,
     fat_mkdir,          /* AH=39h MKDIR (beads initech-u6wa)  */
-    fat_rmdir           /* AH=3Ah RMDIR (beads initech-u6wa)  */
+    fat_rmdir,          /* AH=3Ah RMDIR (beads initech-u6wa)  */
+    fat_set_time        /* AH=57h SET FILE DATE/TIME (beads initech-qekc) */
 };
 
 /* ------------------------------------------------------------------------ *

@@ -345,6 +345,29 @@ int fat12_read_dir_entry_in(const fat12_volume_t *vol, const void *fat,
                             dir_entry_t *out_entry);
 
 /*
+ * fat12_set_dirent_time: patch ONLY the packed modification time/date of the
+ * directory entry at slot `slot` of the directory whose first data cluster is
+ * `parent_dir_start` (0 == the fixed root) to `mtime`/`mdate`, then write the
+ * entry back to disk (beads initech-qekc; AH=57h AL=01h SET FILE DATE/TIME). A
+ * read-modify-write of the SINGLE 32-byte entry: re-read it (subdir-aware, via
+ * fat12_read_dir_entry_in), overwrite the two 16-bit packed fields VERBATIM
+ * (mtime 0x16 / mdate 0x18; no encode/decode -- the caller hands the on-disk
+ * packed words), and flush via the same write-back primitive WRITE uses
+ * (fat12_write_dirent_in_dir). All other fields (name/attr/start_cluster/size)
+ * are preserved. This is the INVERSE of the FAT12_FIXED_MTIME stamping every
+ * CREATE/MKDIR does: it writes a CALLER-supplied stamp, so the on-disk packed
+ * fields become non-zero and observable. `fat`/`fat_len` decode the subdir
+ * chain (unused for the root). `sector_buf` (>=512) is scratch. Returns FAT12_OK,
+ * or a read/chain/write error / FAT12_ERR_NULL (NULL vol/sector_buf). The volume
+ * MUST be writable (vol->dev->write_sectors != NULL). Ref: DOS 3.3 PRM AH=57h;
+ * spec/dos_structs.h dir_entry_t.
+ */
+int fat12_set_dirent_time(const fat12_volume_t *vol, const void *fat,
+                          uint32_t fat_len, uint16_t parent_dir_start,
+                          uint32_t slot, uint16_t mtime, uint16_t mdate,
+                          void *sector_buf);
+
+/*
  * fat12_read_file: read the file described by dir entry `e` into `out_buf`,
  * exposing EXACTLY e->file_size bytes (brief Sec 4 / RISK-5: the last cluster
  * is partially filled; file_size is authoritative -- no trailing padding).

@@ -183,6 +183,37 @@ static long open_seek_write_close(const char *path, uint32_t pos,
     return wrote;
 }
 
+/* AH=3Dh OPEN `path` RDWR; AH=57h AL=01h SET the packed mtime/mdate (VERBATIM)
+ * via the handle; CLOSE. Drives the REAL int21 -> fileio_fat -> fat12 set-time
+ * stack over a read-write image so the Makefile re-reads the on-disk packed
+ * fields and diffs them (beads initech-qekc). Returns 0 on success, -1 on any CF
+ * (OPEN / SET / the SET intentionally returns CF on a read-only backend). */
+static int open_settime_close(const char *path, uint16_t mtime, uint16_t mdate)
+{
+    uint32_t edx = low_dup(path);
+    if (edx == 0u) {
+        return -1;
+    }
+    int_frame_t o = fresh_frame();
+    o.eax = 0x3D02u; o.edx = edx; o.eflags |= CF_BIT;   /* AL=2 RDWR */
+    int21_dispatch(&o);
+    if (frame_cf(&o) != 0) {
+        return -1;
+    }
+    uint16_t handle = (uint16_t)(o.eax & 0xFFFFu);
+
+    int_frame_t s = fresh_frame();
+    s.eax = 0x5701u; s.ebx = handle; s.ecx = mtime; s.edx = mdate;
+    s.eflags |= CF_BIT;
+    int21_dispatch(&s);
+    int set_ok = (frame_cf(&s) == 0) ? 0 : -1;
+
+    int_frame_t cl = fresh_frame();
+    cl.eax = 0x3E00u; cl.ebx = handle;
+    int21_dispatch(&cl);
+    return set_ok;
+}
+
 /* AH=41h UNLINK `path`. Returns 0 on success, -1 on CF. */
 static int unlink_path(const char *path)
 {
@@ -376,6 +407,46 @@ int main(int argc, char **argv)
         } else if (strcmp(op, "unlink") == 0) {
             int u = unlink_path("\\SUB\\NEW.TXT");
             CHECK(u == 0, "zs24: UNLINK '\\SUB\\NEW.TXT' clears CF");
+        } else if (strcmp(op, "filetime-set") == 0) {
+            /* AH=57h SET FILE DATE/TIME (beads initech-qekc): CREATE a fresh
+             * subdir file '\SUB\TSTAMP.TXT' (which lands with the deterministic
+             * FAT12_FIXED_MTIME==0 baseline, NOT the host-clock stamp mtools bakes
+             * into mcopy'd fixtures), then SET its packed mtime/mdate to a
+             * distinctive value and FLUSH. The Makefile re-reads the on-disk
+             * 0x16/0x18 words (python --stat-path-time + mtools mdir) and asserts
+             * they EXACTLY equal what SET wrote -- the INVERSE of every other FAT
+             * oracle (which normalizes timestamps away). The fresh-create baseline
+             * makes the BEFORE state deterministic (0/0) and proves the SET (a
+             * skipped flush would leave 0/0, biting the diff). The constants are
+             * plausible packed DOS values:
+             *   mtime 0x4A6B = 09:19:22  (hh=9, mm=19, ss/2=11)
+             *   mdate 0x2C8D = 2002-04-13 (yr-1980=22, mon=4, day=13). */
+            static uint8_t tsp[64];
+            for (uint32_t i = 0u; i < sizeof(tsp); i++) {
+                tsp[i] = (uint8_t)('a' + (i % 26u));
+            }
+            long w = creat_write_close("\\SUB\\TSTAMP.TXT", tsp,
+                                       (uint32_t)sizeof(tsp));
+            CHECK(w == (long)sizeof(tsp),
+                  "qekc: CREATE+WRITE '\\SUB\\TSTAMP.TXT' (fresh 0/0 baseline)");
+            int rc57 = open_settime_close("\\SUB\\TSTAMP.TXT", 0x4A6Bu, 0x2C8Du);
+            CHECK(rc57 == 0,
+                  "qekc: AH=57h SET on '\\SUB\\TSTAMP.TXT' clears CF");
+        } else if (strcmp(op, "filetime-persist") == 0) {
+            /* PERSISTENCE leg (beads initech-qekc): after a FILETIME-set, a later
+             * positioned WRITE must NOT clobber the on-disk mtime/mdate
+             * (fat12_write_partial patches only size/start_cluster). OPEN the
+             * already-stamped '\SUB\TSTAMP.TXT' RDWR, LSEEK to 0, overwrite the
+             * first 16 bytes, CLOSE. The Makefile re-reads 0x16/0x18 after and
+             * asserts the stamp survived. */
+            static uint8_t patch[16];
+            for (uint32_t i = 0u; i < sizeof(patch); i++) {
+                patch[i] = (uint8_t)('Z');
+            }
+            long w = open_seek_write_close("\\SUB\\TSTAMP.TXT", 0u, patch,
+                                           (uint32_t)sizeof(patch));
+            CHECK(w == (long)sizeof(patch),
+                  "qekc: a later WRITE into the stamped '\\SUB\\TSTAMP.TXT' writes all bytes");
         } else if (strcmp(op, "root-regress") == 0) {
             /* A ROOT CREATE+WRITE+UNLINK still works (dir_start==0 path stays
              * functional under the generalized primitives). */

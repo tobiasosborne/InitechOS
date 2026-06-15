@@ -137,15 +137,20 @@ STAGE2_SECTORS  := 16
 # exactly the 112-sector window at Landing 1 (57344 bytes, zero headroom) and the
 # new code crossed it (60069 > 57344). 128*512 = 64 KiB: 0x10000 + 128*512 =
 # 0x20000, still well below PROGRAM_BASE (0x30000).
+# Bumped 128 -> 144 for beads initech-qekc: wiring AH=57h GET/SET FILE DATE/TIME
+# adds do_filetime (int21.o) + fat12_set_dirent_time (fat12.o) + fat_set_time
+# (fileio_fat.o); the BOOT_SHELL loaded .bin crossed the 128-sector window
+# (65989 > 65536). 144*512 = 72 KiB: 0x10000 + 144*512 = 0x22000, still well
+# below PROGRAM_BASE (0x30000). IMG_MIN = 1+16+144 = 161 <= IMG_SECTORS=192.
 # MUST equal the stage2.asm KERNEL_SECTORS equate.
-KERNEL_SECTORS  := 128
+KERNEL_SECTORS  := 144
 # Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=128) = 145 sectors.
 # IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
 # harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
 # of 2-head x 32-sector cylinders. 128 (2 cyl) sufficed at KERNEL_SECTORS=96; at 112
-# the image grew past 129 to 192 (3 cyl, 96 KiB); KERNEL_SECTORS=128 (initech-u6wa)
-# raises the raw image to 145 sectors, still within the 192-sector (3 cyl) window
-# (192 >= 145), so IMG_SECTORS stays 192. (160 -- a multiple of 32 but NOT 64 =
+# the image grew past 129 to 192 (3 cyl, 96 KiB); KERNEL_SECTORS=144 (initech-qekc;
+# was 128 at u6wa) raises the raw image to 161 sectors, still within the 192-sector
+# (3 cyl) window (192 >= 161), so IMG_SECTORS stays 192. (160 -- a multiple of 32 but NOT 64 =
 # 2.5 cyl -- booted on QEMU but broke `make test-boot-bochs`; the guard below now
 # fails that class loud at build time, Rule 2 / Rule 5.) Deterministic (Rule 11).
 IMG_SECTORS     := 192
@@ -2474,6 +2479,174 @@ test-zs24-mutant: $(TEST_ZS24_MUT_ROOTSLOT) $(TEST_ZS24_MUT_CREATEROOT) $(TEST_Z
 		printf '>>> test-zs24-mutant: green (GROW_NOOP mutant ran, the boundary CREATE was rejected + GROW12 is absent -- grow bites)\n'; \
 	fi
 	@printf '>>> test-zs24-mutant: green (ALL FIVE mutants ran + RED for the right reason -- write-back, CREATE gate, UNLINK, grow relink/EOC, grow-refuse all bite)\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-qekc (beads initech-qekc -- INT 21h AH=57h SET FILE DATE/TIME)
+# ---------------------------------------------------------------------------
+# The bead's NAMED oracle is the FAT differential (persistence proof). The
+# test_fileio_subdir harness in --write filetime-set mode drives, through the
+# REAL int21 -> fileio_fat -> fat12 stack over a READ-WRITE COPY of the nested
+# image: CREATE '\SUB\TSTAMP.TXT' (a fresh FAT12_FIXED_MTIME==0 baseline -- NOT
+# the host-clock stamp mtools bakes into mcopy'd fixtures), then AH=57h AL=01h
+# SET its packed mtime=0x4A6B/mdate=0x2C8D and FLUSH. The recipe then re-reads
+# the on-disk 0x16/0x18 words TWO independent ways and asserts they EXACTLY
+# equal what SET wrote:
+#   (1) python fat12_ref.py --stat-path-time  (raw packed decimal words);
+#   (2) mtools mdir  (the SAME packed words rendered as 2002-04-13  9:19).
+# This is the INVERSE of every existing FAT oracle (which NORMALIZES mtime/mdate
+# away because everything else writes FAT12_FIXED_MTIME=0). Those normalizing
+# oracles are LEFT UNTOUCHED (Stop-condition / Rule 11 preserved); this gate
+# asserts ONLY the caller-written timestamp bytes. We also confirm the file
+# CONTENT still reads back byte-exact (the time-set flush did not clobber data)
+# and -- the persistence property -- that a subsequent WRITE preserves the
+# FILETIME-set stamp (fat12_write_partial patches only size/start_cluster).
+FAT12_QEKC_IMG               := $(BUILD)/fat12_qekc_scratch.img
+# Host-contract mutants (2/4/5): int21.c perturbed -> the HOST register oracle
+# (test_fileio / test_int21) bites. Differential mutants (1/3/6): fat12.c /
+# fileio_fat.c perturbed -> the on-disk FAT differential bites.
+TEST_QEKC_MUT_GETSWAP        := $(BUILD)/test_fileio_qekc_mut_getswap
+TEST_QEKC_MUT_NOALREJECT     := $(BUILD)/test_fileio_qekc_mut_noalreject
+TEST_QEKC_MUT_ROOK           := $(BUILD)/test_fileio_qekc_mut_rook
+TEST_QEKC_MUT_DROPMDATE      := $(BUILD)/test_fileio_subdir_qekc_mut_dropmdate
+TEST_QEKC_MUT_NOFLUSH        := $(BUILD)/test_fileio_subdir_qekc_mut_noflush
+TEST_QEKC_MUT_ROOTDIR        := $(BUILD)/test_fileio_subdir_qekc_mut_rootdir
+
+# Host-contract mutant binaries (built from the test_fileio.c host oracle, which
+# carries the AH=57h GET/SET round-trip + the read-only-SET assertion, with one
+# int21.c -D each).
+$(TEST_QEKC_MUT_GETSWAP): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_FILETIME_GET_SWAP -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_QEKC_MUT_NOALREJECT): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_FILETIME_NO_AL_REJECT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+$(TEST_QEKC_MUT_ROOK): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_FILETIME_RO_OK -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS)
+
+# Differential mutant binaries (built from the test_fileio_subdir harness + the
+# REAL backend, with one fat12.c / fileio_fat.c -D each).
+$(TEST_QEKC_MUT_DROPMDATE): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_SETTIME_DROP_MDATE -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+$(TEST_QEKC_MUT_NOFLUSH): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_SETTIME_NO_FLUSH -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+$(TEST_QEKC_MUT_ROOTDIR): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFILEIO_MUTATE_SETTIME_ROOTDIR -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+.PHONY: test-qekc
+test-qekc: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
+	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-qekc FAIL: mtools `mdir` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-qekc FAIL: python3 not found (independent reference).\n'; exit 1; }
+	@printf ">>> test-qekc: AH=57h SET FILE DATE/TIME persistence vs python --stat-path-time + mtools mdir (beads initech-qekc)\n"
+	@cp $(FAT12_NESTED_IMG) $(FAT12_QEKC_IMG)
+	@# (1) CREATE '\SUB\TSTAMP.TXT' (0/0 baseline) + AH=57h SET mtime/mdate + FLUSH.
+	@$(TEST_FILEIO_SUBDIR) "$(FAT12_QEKC_IMG)" "$(FAT12_FIXTURE_DIR)" --write filetime-set
+	@# python: the on-disk 0x16/0x18 packed words EXACTLY equal what SET wrote
+	@# (0x4A6B 0x2C8D == 19051 11405). NO normalization -- the INVERSE oracle.
+	@test "$$(python3 $(FAT12_REF_PY) $(FAT12_QEKC_IMG) --stat-path-time 'SUB\TSTAMP.TXT')" = "19051 11405" \
+		|| { printf '!!! test-qekc FAIL [SET]: python --stat-path-time != the written 19051 11405 (0x4A6B 0x2C8D)\n'; \
+		     printf '    got: [%s]\n' "$$(python3 $(FAT12_REF_PY) $(FAT12_QEKC_IMG) --stat-path-time 'SUB\TSTAMP.TXT')"; exit 1; }
+	@# mtools: the SAME packed words rendered as the date 2002-04-13 + time 9:19
+	@# (an INDEPENDENT decoder agreeing with python -- Rule 5 two-reference rule).
+	@mdir -i $(FAT12_QEKC_IMG) ::SUB 2>/dev/null | grep -q 'TSTAMP  *TXT.*2002-04-13  *9:19' \
+		|| { printf '!!! test-qekc FAIL [SET]: mtools mdir does not render TSTAMP.TXT as 2002-04-13 9:19 (the written 0x4A6B/0x2C8D)\n'; \
+		     mdir -i $(FAT12_QEKC_IMG) ::SUB 2>/dev/null | grep -i tstamp; exit 1; }
+	@printf '>>> test-qekc [SET]: \\SUB\\TSTAMP.TXT on-disk mtime/mdate == 0x4A6B/0x2C8D (python==mtools==written)\n'
+	@# (2) CONTENT intact: the time-set flush did NOT clobber the file body.
+	@python3 $(FAT12_REF_PY) $(FAT12_QEKC_IMG) --cat-path 'SUB\TSTAMP.TXT' > $(BUILD)/qekc_body.bin
+	@python3 -c 'import sys; e=bytes(97+(i%26) for i in range(64)); sys.exit(0 if open("$(BUILD)/qekc_body.bin","rb").read()==e else 1)' \
+		|| { printf '!!! test-qekc FAIL [SET]: the file body changed after the time-set flush (data clobbered)\n'; exit 1; }
+	@printf '>>> test-qekc [SET]: TSTAMP.TXT body reads back byte-exact (the time-set flush left data untouched)\n'
+	@# (3) PERSISTENCE: a subsequent WRITE must PRESERVE the FILETIME-set stamp
+	@# (fat12_write_partial patches only size/start_cluster, NOT mtime/mdate).
+	@$(TEST_FILEIO_SUBDIR) "$(FAT12_QEKC_IMG)" "$(FAT12_FIXTURE_DIR)" --write filetime-persist >/dev/null 2>&1 || true
+	@test "$$(python3 $(FAT12_REF_PY) $(FAT12_QEKC_IMG) --stat-path-time 'SUB\TSTAMP.TXT')" = "19051 11405" \
+		|| { printf '!!! test-qekc FAIL [PERSIST]: a later WRITE clobbered the FILETIME-set stamp (fat12_write_partial did not preserve mtime/mdate)\n'; exit 1; }
+	@printf '>>> test-qekc [PERSIST]: a later WRITE preserved the FILETIME-set stamp (write_partial leaves 0x16/0x18 alone)\n'
+	@printf ">>> test-qekc: green\n"
+
+# Mutation gate (Rule 6): SIX qekc mutants. Host-contract mutants (2/4/5) must
+# drive the HOST register oracle RED; differential mutants (1/3/6) must drive the
+# on-disk FAT differential RED. Each MUST bite (a mutant that PASSES means the
+# oracle is decoration).
+.PHONY: test-qekc-mutant
+test-qekc-mutant: $(TEST_QEKC_MUT_GETSWAP) $(TEST_QEKC_MUT_NOALREJECT) $(TEST_QEKC_MUT_ROOK) \
+                  $(TEST_QEKC_MUT_DROPMDATE) $(TEST_QEKC_MUT_NOFLUSH) $(TEST_QEKC_MUT_ROOTDIR) \
+                  $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
+	@printf ">>> test-qekc-mutant: confirming all SIX AH=57h mutants go RED for the RIGHT reason (Rule 6; beads initech-qekc)\n"
+	@# --- MUTANT 2 (GET_SWAP): GET returns mdate in CX / mtime in DX -> the host
+	@# CX/DX GET contract bites. The host oracle must run + report >=1 failure.
+	@$(TEST_QEKC_MUT_GETSWAP) > $(BUILD)/qekc_mut_getswap.report 2>&1 || true
+	@grep -q '^test_fileio: ' $(BUILD)/qekc_mut_getswap.report \
+		|| { printf '!!! test-qekc-mutant FAIL: GET_SWAP mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/qekc_mut_getswap.report \
+		|| { printf '!!! test-qekc-mutant FAIL: GET_SWAP mutant PASSED -- the host CX/DX GET contract is decoration\n'; exit 1; }
+	@printf '>>> test-qekc-mutant: green (GET_SWAP ran + RED -- CX/DX GET contract bites)\n'
+	@# --- MUTANT 4 (NO_AL_REJECT): AL=2 no longer rejected (falls to SET, CF=0)
+	@# -> the bad-AL host contract (CF=1/0x0001) bites.
+	@$(TEST_QEKC_MUT_NOALREJECT) > $(BUILD)/qekc_mut_noalreject.report 2>&1 || true
+	@grep -q '^test_fileio: ' $(BUILD)/qekc_mut_noalreject.report \
+		|| { printf '!!! test-qekc-mutant FAIL: NO_AL_REJECT mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/qekc_mut_noalreject.report \
+		|| { printf '!!! test-qekc-mutant FAIL: NO_AL_REJECT mutant PASSED -- the bad-AL contract is decoration\n'; exit 1; }
+	@printf '>>> test-qekc-mutant: green (NO_AL_REJECT ran + RED -- the AL=2 reject bites)\n'
+	@# --- MUTANT 5 (RO_OK): a SET with no write backend returns CF=0 instead of
+	@# 0x0005 -> the read-only-SET host assertion bites.
+	@$(TEST_QEKC_MUT_ROOK) > $(BUILD)/qekc_mut_rook.report 2>&1 || true
+	@grep -q '^test_fileio: ' $(BUILD)/qekc_mut_rook.report \
+		|| { printf '!!! test-qekc-mutant FAIL: RO_OK mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/qekc_mut_rook.report \
+		|| { printf '!!! test-qekc-mutant FAIL: RO_OK mutant PASSED -- the read-only-SET access-denied contract is decoration\n'; exit 1; }
+	@printf '>>> test-qekc-mutant: green (RO_OK ran + RED -- the read-only-SET 0x0005 contract bites)\n'
+	@# --- MUTANT 1 (DROP_MDATE): SET writes only mtime, drops mdate -> the on-disk
+	@# DATE differs from the written 0x2C8D. The mtime word still matches, so we
+	@# assert the FULL pair != written (the date leg bites).
+	@cp $(FAT12_NESTED_IMG) $(FAT12_QEKC_IMG)
+	@$(TEST_QEKC_MUT_DROPMDATE) "$(FAT12_QEKC_IMG)" "$(FAT12_FIXTURE_DIR)" --write filetime-set > $(BUILD)/qekc_mut_dropmdate.report 2>&1 || true
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/qekc_mut_dropmdate.report \
+		|| { printf '!!! test-qekc-mutant FAIL: DROP_MDATE mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@if [ "$$(python3 $(FAT12_REF_PY) $(FAT12_QEKC_IMG) --stat-path-time 'SUB\TSTAMP.TXT')" = "19051 11405" ]; then \
+		printf '!!! test-qekc-mutant FAIL: DROP_MDATE mutant PASSED -- the on-disk mdate matched the written value; the date leg is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-qekc-mutant: green (DROP_MDATE ran + RED -- the mdate=DX write bites)\n'; \
+	fi
+	@# --- MUTANT 3 (NO_FLUSH): patch the entry but SKIP the write-back -> the SET
+	@# reports success + a SAME-handle GET stays GREEN, but the on-disk differential
+	@# (after re-mount) bites. We assert BOTH: (a) the harness reported 0 failures
+	@# (the same-handle GET the harness does NOT do, but the SET CHECK passes since
+	@# the dispatcher returns CF=0), proving the flush-skip is SILENT at the API;
+	@# and (b) the on-disk stamp did NOT land (still the 0/0 baseline).
+	@cp $(FAT12_NESTED_IMG) $(FAT12_QEKC_IMG)
+	@$(TEST_QEKC_MUT_NOFLUSH) "$(FAT12_QEKC_IMG)" "$(FAT12_FIXTURE_DIR)" --write filetime-set > $(BUILD)/qekc_mut_noflush.report 2>&1 || true
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/qekc_mut_noflush.report \
+		|| { printf '!!! test-qekc-mutant FAIL: NO_FLUSH mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio_subdir: [0-9]+ checks, 0 failures' $(BUILD)/qekc_mut_noflush.report \
+		|| { printf '!!! test-qekc-mutant FAIL: NO_FLUSH mutant surfaced an API failure -- the SET should report SUCCESS (CF=0) even with the flush skipped; RED for the wrong reason\n'; exit 1; }
+	@if [ "$$(python3 $(FAT12_REF_PY) $(FAT12_QEKC_IMG) --stat-path-time 'SUB\TSTAMP.TXT')" = "19051 11405" ]; then \
+		printf '!!! test-qekc-mutant FAIL: NO_FLUSH mutant PASSED -- the stamp landed on disk despite the skipped flush; the persistence/flush oracle is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-qekc-mutant: green (NO_FLUSH ran, SET reported success BUT the on-disk stamp is absent -- the flush is load-bearing)\n'; \
+	fi
+	@# --- MUTANT 6 (ROOTDIR): a subdir file's stamp is forced to a ROOT slot ->
+	@# the SUBDIR --stat-path-time differential bites (the subdir entry never gets
+	@# the stamp). The harness still runs the SET at the API level (CF=0).
+	@cp $(FAT12_NESTED_IMG) $(FAT12_QEKC_IMG)
+	@$(TEST_QEKC_MUT_ROOTDIR) "$(FAT12_QEKC_IMG)" "$(FAT12_FIXTURE_DIR)" --write filetime-set > $(BUILD)/qekc_mut_rootdir.report 2>&1 || true
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/qekc_mut_rootdir.report \
+		|| { printf '!!! test-qekc-mutant FAIL: ROOTDIR mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@if [ "$$(python3 $(FAT12_REF_PY) $(FAT12_QEKC_IMG) --stat-path-time 'SUB\TSTAMP.TXT')" = "19051 11405" ]; then \
+		printf '!!! test-qekc-mutant FAIL: ROOTDIR mutant PASSED -- the subdir file stamp landed despite dir_start being forced to root; the subdir-path leg is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-qekc-mutant: green (ROOTDIR ran + RED -- the subdir TSTAMP.TXT entry never got the stamp; dir_start threading bites)\n'; \
+	fi
+	@printf '>>> test-qekc-mutant: green (ALL SIX AH=57h mutants ran + RED for the right reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-int21-edge (beads initech-xrd / initech-1zk; double-close part
@@ -7640,7 +7813,7 @@ test-kernel-repro-mutant: | $(BUILD)
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
 	test-fat12-mkdir test-m0bp test-m0bp-rollback \
-	test-fat-subdir test-zs24 \
+	test-fat-subdir test-zs24 test-qekc \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
@@ -7655,7 +7828,7 @@ TEST_UNIT_GATES := \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
-	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-zs24-mutant \
+	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-zs24-mutant test-qekc-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-kernel-repro test-kernel-repro-mutant

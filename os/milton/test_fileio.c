@@ -125,6 +125,8 @@ typedef struct mock_file {
     uint32_t    size;
     uint16_t    dir;       /* containing dir cluster: 0 = root, SUB_CLUSTER = SUB */
     uint16_t    start;     /* this entry's own start_cluster (SUB's == SUB_CLUSTER) */
+    uint16_t    mtime;     /* packed mod-time; 0 => the fill_dir_entry seed (qekc) */
+    uint16_t    mdate;     /* packed mod-date; 0 => the fill_dir_entry seed (qekc) */
     int         present;   /* 0 once unlinked / before create                 */
 } mock_file_t;
 
@@ -197,8 +199,11 @@ static void fill_dir_entry(const mock_file_t *m, dir_entry_t *de)
     for (int i = 0; i < 8; i++) de->filename[i]  = (uint8_t)(m->name8 ? m->name8[i] : ' ');
     for (int i = 0; i < 3; i++) de->extension[i] = (uint8_t)(m->ext3 ? m->ext3[i] : ' ');
     de->attribute     = m->attr;
-    de->mtime         = 0x1234u;
-    de->mdate         = 0x5678u;
+    /* The seeded default (0x1234/0x5678) is what the existing GET oracle asserts;
+     * a mock_set_time() call (beads initech-qekc) overrides the per-file fields so
+     * a fresh OPEN observes the new stamp too. */
+    de->mtime         = (m->mtime != 0u || m->mdate != 0u) ? m->mtime : 0x1234u;
+    de->mdate         = (m->mtime != 0u || m->mdate != 0u) ? m->mdate : 0x5678u;
     de->file_size     = m->size;
     de->start_cluster = m->start;
 }
@@ -344,6 +349,35 @@ static uint16_t mock_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset
 }
 
 static void mock_close(uint32_t slot) { (void)slot; }
+
+/* ---- mock SET_TIME backend (beads initech-qekc; AH=57h AL=01h SET) ---------- *
+ * Record the LAST call's args + an invocation COUNT so the host register-contract
+ * oracle can assert set_time was invoked EXACTLY once with the right
+ * (dir_start, slot, mtime, mdate). It also writes the stamp into the keyed mock
+ * file's stored mtime/mdate (so a fresh OPEN would observe it too -- though the
+ * AH=57h GET reads the SFT's in-memory copy, which do_filetime refreshes on SET).
+ * Returns 0 (success); never an error in this mock (read-only is exercised via a
+ * NULL set_time member, not here). */
+static int      g_mock_settime_calls = 0;
+static uint16_t g_mock_settime_dir   = 0xFFFFu;
+static uint32_t g_mock_settime_slot  = 0xFFFFFFFFu;
+static uint16_t g_mock_settime_mtime = 0u;
+static uint16_t g_mock_settime_mdate = 0u;
+
+static uint16_t mock_set_time(uint16_t dir_start, uint32_t slot,
+                              uint16_t mtime, uint16_t mdate)
+{
+    g_mock_settime_calls++;
+    g_mock_settime_dir   = dir_start;
+    g_mock_settime_slot  = slot;
+    g_mock_settime_mtime = mtime;
+    g_mock_settime_mdate = mdate;
+    if (slot < MOCK_SLOTS && g_mock[slot].present) {
+        g_mock[slot].mtime = mtime;   /* persist into the keyed mock file */
+        g_mock[slot].mdate = mdate;
+    }
+    return 0u;
+}
 
 static uint16_t mock_unlink(const char *name83, uint16_t dir_start_cluster)
 {
@@ -616,7 +650,8 @@ static const int21_file_backend_t g_mock_backend = {
     mock_resolve,     /* the path->containing-directory seam (beads initech-mzxa) */
     mock_resolve_dir, /* the path->DIRECTORY seam for CHDIR (beads initech-u6wa) */
     mock_mkdir,       /* AH=39h MKDIR (beads initech-u6wa) */
-    mock_rmdir        /* AH=3Ah RMDIR (beads initech-u6wa) */
+    mock_rmdir,       /* AH=3Ah RMDIR (beads initech-u6wa) */
+    mock_set_time     /* AH=57h SET FILE DATE/TIME (beads initech-qekc) */
 };
 
 int main(void)
@@ -1305,7 +1340,8 @@ int main(void)
             static const int21_file_backend_t ro2 = {
                 mock_open, mock_read_at, mock_dir_entry,
                 NULL, NULL, NULL, NULL, NULL,
-                mock_resolve, mock_resolve_dir, NULL, NULL };
+                mock_resolve, mock_resolve_dir, NULL, NULL,
+                NULL /* set_time: read-only (beads initech-qekc) */ };
             mock_reset_dir();
             bind_standard_process();
             int21_set_file_backend(&ro2);
@@ -1554,7 +1590,8 @@ int main(void)
         static const int21_file_backend_t ro = { mock_open, mock_read_at, mock_dir_entry,
                                                   NULL, NULL, NULL, NULL, NULL,
                                                   mock_resolve, mock_resolve_dir,
-                                                  NULL, NULL /* mkdir/rmdir: read-only */ };
+                                                  NULL, NULL, /* mkdir/rmdir: read-only */
+                                                  NULL /* set_time: read-only (qekc) */ };
         mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&ro);
@@ -1603,6 +1640,142 @@ int main(void)
         CHECK(frame_cf(&u3) == 1 &&
               (uint16_t)(u3.eax & 0xFFFFu) == INT21_ERR_PATH_NOT_FOUND,
               "UNLINK subdir path AX=0x0003");
+    }
+
+    /* --- AH=57h GET/SET FILE DATE+TIME by handle (beads initech-qekc) ------ *
+     * The host register-contract oracle: GET returns the seeded mtime/mdate
+     * (fill_dir_entry's 0x1234/0x5678) in CX/DX; SET writes CX/DX VERBATIM and
+     * flushes (mock_set_time invoked once with the right slot/dir/mtime/mdate),
+     * then a re-GET on the SAME handle reflects the new values; bad handle ->
+     * 0x0006; AL=2 -> 0x0001; a device handle -> 0x0001; read-only SET
+     * (set_time==NULL) -> 0x0005. Ref: DOS 3.3 PRM AH=57h. */
+    {
+        mock_reset_dir();
+        bind_standard_process();
+        int21_set_file_backend(&g_mock_backend);
+        g_mock_settime_calls = 0;
+
+        /* OPEN HELLO.TXT (root, slot 0) for RDWR so the handle is a FILE. */
+        uint32_t edx = low_dup("HELLO.TXT");
+        int_frame_t o = fresh_frame();
+        o.eax = 0x3D02u; o.edx = edx; o.eflags |= CF_BIT;   /* AL=2 RDWR */
+        int21_dispatch(&o);
+        CHECK(frame_cf(&o) == 0, "qekc: OPEN HELLO.TXT (RDWR) clears CF");
+        uint16_t handle = (uint16_t)(o.eax & 0xFFFFu);
+
+        /* GET (AL=00): CX=mtime(0x1234), DX=mdate(0x5678), CF=0. */
+        int_frame_t g = fresh_frame();
+        g.eax = 0x5700u; g.ebx = handle; g.ecx = 0u; g.edx = 0u;
+        g.eflags |= CF_BIT;
+        int21_dispatch(&g);
+        CHECK(frame_cf(&g) == 0, "qekc GET: clears CF");
+        CHECK((uint16_t)(g.ecx & 0xFFFFu) == 0x1234u,
+              "qekc GET: CX = seeded mtime 0x1234");
+        CHECK((uint16_t)(g.edx & 0xFFFFu) == 0x5678u,
+              "qekc GET: DX = seeded mdate 0x5678");
+
+        /* SET (AL=01): write CX=0x4A6B (a plausible packed time), DX=0x2C8D (a
+         * plausible packed date). CF=0; the mock set_time invoked ONCE with the
+         * handle's (dir_start, root_slot, mtime, mdate). HELLO.TXT is slot 0 in
+         * the root (dir_start 0). */
+        int_frame_t s = fresh_frame();
+        s.eax = 0x5701u; s.ebx = handle; s.ecx = 0x4A6Bu; s.edx = 0x2C8Du;
+        s.eflags |= CF_BIT;
+        int21_dispatch(&s);
+        CHECK(frame_cf(&s) == 0, "qekc SET: clears CF");
+        CHECK(g_mock_settime_calls == 1,
+              "qekc SET: backend set_time invoked exactly once");
+        CHECK(g_mock_settime_dir == 0u,
+              "qekc SET: set_time got dir_start 0 (HELLO.TXT is in the root)");
+        CHECK(g_mock_settime_slot == 0u,
+              "qekc SET: set_time got root_slot 0 (HELLO.TXT)");
+        CHECK(g_mock_settime_mtime == 0x4A6Bu,
+              "qekc SET: set_time got mtime CX=0x4A6B VERBATIM");
+        CHECK(g_mock_settime_mdate == 0x2C8Du,
+              "qekc SET: set_time got mdate DX=0x2C8D VERBATIM");
+
+        /* Re-GET on the SAME handle: do_filetime refreshed the SFT copy, so the
+         * GET now returns the values SET wrote (proves the in-memory refresh). */
+        int_frame_t g2 = fresh_frame();
+        g2.eax = 0x5700u; g2.ebx = handle; g2.ecx = 0u; g2.edx = 0u;
+        g2.eflags |= CF_BIT;
+        int21_dispatch(&g2);
+        CHECK(frame_cf(&g2) == 0, "qekc re-GET: clears CF");
+        CHECK((uint16_t)(g2.ecx & 0xFFFFu) == 0x4A6Bu,
+              "qekc re-GET: CX reflects the SET mtime 0x4A6B");
+        CHECK((uint16_t)(g2.edx & 0xFFFFu) == 0x2C8Du,
+              "qekc re-GET: DX reflects the SET mdate 0x2C8D");
+
+        /* CLOSE the handle (clean up the SFT slot). */
+        int_frame_t cl = fresh_frame();
+        cl.eax = 0x3E00u; cl.ebx = handle;
+        int21_dispatch(&cl);
+
+        /* Bad handle (never opened) -> CF=1, AX=0x0006 (both GET and SET). */
+        int_frame_t bg = fresh_frame();
+        bg.eax = 0x5700u; bg.ebx = 99u;
+        int21_dispatch(&bg);
+        CHECK(frame_cf(&bg) == 1 &&
+              (uint16_t)(bg.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "qekc GET bad handle -> CF=1, AX=0x0006");
+        int_frame_t bs = fresh_frame();
+        bs.eax = 0x5701u; bs.ebx = 99u; bs.ecx = 1u; bs.edx = 1u;
+        int21_dispatch(&bs);
+        CHECK(frame_cf(&bs) == 1 &&
+              (uint16_t)(bs.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "qekc SET bad handle -> CF=1, AX=0x0006");
+
+        /* AL=2 (neither GET nor SET) -> CF=1, AX=0x0001 (invalid function). The
+         * AL is rejected BEFORE the handle is resolved, so a VALID handle still
+         * fails. Re-open HELLO.TXT to provide one. */
+        int_frame_t o2 = fresh_frame();
+        o2.eax = 0x3D00u; o2.edx = low_dup("HELLO.TXT"); o2.eflags |= CF_BIT;
+        int21_dispatch(&o2);
+        uint16_t h2 = (uint16_t)(o2.eax & 0xFFFFu);
+        int_frame_t bad_al = fresh_frame();
+        bad_al.eax = 0x5702u; bad_al.ebx = h2;
+        int21_dispatch(&bad_al);
+        CHECK(frame_cf(&bad_al) == 1 &&
+              (uint16_t)(bad_al.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "qekc AL=2 -> CF=1, AX=0x0001 (invalid function)");
+        int_frame_t cl2 = fresh_frame();
+        cl2.eax = 0x3E00u; cl2.ebx = h2;
+        int21_dispatch(&cl2);
+
+        /* A DEVICE handle (CON, handle 1 -- stdout) has no dir entry -> the GET is
+         * invalid-function (0x0001), distinct from a bad handle (0x0006). */
+        int_frame_t dev = fresh_frame();
+        dev.eax = 0x5700u; dev.ebx = 1u;
+        int21_dispatch(&dev);
+        CHECK(frame_cf(&dev) == 1 &&
+              (uint16_t)(dev.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "qekc GET on a CON device handle -> CF=1, AX=0x0001");
+
+        /* Read-only backend (set_time == NULL): a SET on a valid FILE handle ->
+         * CF=1, AX=0x0005 (access denied). Use a read-only vtable that still
+         * resolves OPEN so we have a live FILE handle. */
+        {
+            static const int21_file_backend_t roqekc = {
+                mock_open, mock_read_at, mock_dir_entry,
+                NULL, NULL, NULL, NULL, NULL,
+                mock_resolve, mock_resolve_dir, NULL, NULL,
+                NULL /* set_time: read-only -> AH=57h SET access-denied */ };
+            mock_reset_dir();
+            bind_standard_process();
+            int21_set_file_backend(&roqekc);
+            int_frame_t o3 = fresh_frame();
+            o3.eax = 0x3D00u; o3.edx = low_dup("HELLO.TXT"); o3.eflags |= CF_BIT;
+            int21_dispatch(&o3);
+            CHECK(frame_cf(&o3) == 0, "qekc RO: OPEN HELLO.TXT clears CF");
+            uint16_t h3 = (uint16_t)(o3.eax & 0xFFFFu);
+            int_frame_t ros = fresh_frame();
+            ros.eax = 0x5701u; ros.ebx = h3; ros.ecx = 0x1111u; ros.edx = 0x2222u;
+            int21_dispatch(&ros);
+            CHECK(frame_cf(&ros) == 1 &&
+                  (uint16_t)(ros.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
+                  "qekc SET with no set_time backend -> CF=1, AX=0x0005");
+            int21_set_file_backend(&g_mock_backend);
+        }
     }
 
     return TEST_SUMMARY("test_fileio");

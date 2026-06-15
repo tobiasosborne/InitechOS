@@ -116,7 +116,8 @@ static const int21_file_backend_t g_space_backend = {
     NULL,  /* resolve: AH=36h does not resolve a path (beads initech-mzxa) */
     NULL,  /* resolve_dir: AH=36h does not CHDIR a path (beads initech-u6wa) */
     NULL,  /* mkdir: AH=36h does not create a dir (beads initech-u6wa) */
-    NULL   /* rmdir: AH=36h does not remove a dir (beads initech-u6wa) */
+    NULL,  /* rmdir: AH=36h does not remove a dir (beads initech-u6wa) */
+    NULL   /* set_time: AH=36h does not set file times (beads initech-qekc) */
 };
 
 /* The dispatcher reads EDX as a FLAT 32-bit linear address (uint32_t). On a
@@ -746,6 +747,40 @@ int main(void)
         CHECK(frame_cf(&f) == 0, "success clears CF");
         CHECK((f.eflags & ~CF_BIT) == (before & ~CF_BIT),
               "dispatcher must touch ONLY CF (bit 0) of eflags");
+    }
+
+    /* --- AH=57h GET/SET FILE DATE+TIME error contract (beads initech-qekc) - *
+     * Here (no file backend bound) we cover the error paths reachable without a
+     * file: a bad handle (0x0006), an invalid AL (0x0001), and a DEVICE handle
+     * (CON handle 1 has no dir entry -> 0x0001). The full GET/SET round-trip +
+     * the read-only-backend (0x0005) path live in test_fileio.c where a FILE
+     * handle + a set_time mock exist. Ref: DOS 3.3 PRM AH=57h. */
+    {
+        /* Bad handle (never opened): GET and SET both -> CF=1, AX=0x0006. */
+        int_frame_t bg = fresh_frame();
+        bg.eax = 0x5700u; bg.ebx = 77u;
+        int21_dispatch(&bg);
+        CHECK(frame_cf(&bg) == 1 &&
+              (uint16_t)(bg.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "AH=57h GET bad handle -> CF=1, AX=0x0006");
+
+        /* Invalid AL (=3): rejected BEFORE handle resolution -> CF=1, AX=0x0001
+         * even with handle 1 (a valid CON handle). */
+        int_frame_t bad_al = fresh_frame();
+        bad_al.eax = 0x5703u; bad_al.ebx = 1u;
+        int21_dispatch(&bad_al);
+        CHECK(frame_cf(&bad_al) == 1 &&
+              (uint16_t)(bad_al.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "AH=57h AL=3 -> CF=1, AX=0x0001 (invalid function)");
+
+        /* A DEVICE handle (CON, handle 1) is resolvable but has no dir entry ->
+         * GET is invalid-function (0x0001), distinct from a bad handle (0x0006). */
+        int_frame_t dev = fresh_frame();
+        dev.eax = 0x5700u; dev.ebx = 1u;
+        int21_dispatch(&dev);
+        CHECK(frame_cf(&dev) == 1 &&
+              (uint16_t)(dev.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "AH=57h GET on CON device handle -> CF=1, AX=0x0001");
     }
 
     return TEST_SUMMARY("test_int21");

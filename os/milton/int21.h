@@ -363,6 +363,22 @@ typedef struct int21_file_backend {
      * CWD state); this seam only resolves + removes. May be NULL on a read-only
      * backend. */
     uint16_t (*rmdir)(const char *name83, uint16_t dir_start_cluster);
+
+    /* SET_TIME (beads initech-qekc; AH=57h AL=01h SET FILE DATE/TIME by handle):
+     * patch the packed DOS modification time/date of the directory entry at slot
+     * `slot` of the directory whose first data cluster is `dir_start` (0 == the
+     * fixed root) to `mtime`/`mdate` and FLUSH IMMEDIATELY -- parity with the
+     * per-call write-commit model (write_at commits each call; AH=57h SET commits
+     * here, NOT deferred to CLOSE). `mtime`/`mdate` are the SAME packed words
+     * dir_entry_t.mtime(0x16)/.mdate(0x18) store on disk, so the dispatcher copies
+     * CX->mtime, DX->mdate VERBATIM (no encode/decode). On success returns 0; a
+     * read/write error -> 0x0005 (access denied). A NULL set_time member means a
+     * READ-ONLY backend: AH=57h SET then returns CF=1, AX=0x0005 (Rule 2 fail
+     * loud -- never a silent no-op). GET (AL=00) needs NO seam (it reads the SFT's
+     * in-memory dir_entry copy directly). Ref: DOS 3.3 PRM AH=57h; spec/
+     * dos_structs.h dir_entry_t (mtime 0x16 / mdate 0x18). */
+    uint16_t (*set_time)(uint16_t dir_start, uint32_t slot,
+                         uint16_t mtime, uint16_t mdate);
 } int21_file_backend_t;
 
 /* Bind the file backend (NULL clears it -> the file functions return
