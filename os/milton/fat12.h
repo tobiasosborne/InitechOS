@@ -623,7 +623,12 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *     parent GROWS by one cluster (fat12_grow_dir) so the just-past-end free
  *     slot fat12_scan_dir reported becomes valid (REUSED verbatim);
  *   - claim a free data cluster (find_free), set its FAT entry to EOC (0xFFF)
- *     and flush both FAT copies;
+ *     and flush both FAT copies. If the parent GREW for this MKDIR and ANY of
+ *     these post-grow steps fails -- no free cluster (NO_SPACE), the EOC
+ *     set_entry, or the flush -- the freshly-appended parent cluster is rolled
+ *     back (fat12_shrink_dir_tail) and a claimed-but-unused new cluster is freed,
+ *     so MKDIR leaks NOTHING on failure (Rule 2/Rule 3; beads initech-m0bp
+ *     rollback fix);
  *   - ZERO-FILL the new cluster's data sectors, then write the two canonical
  *     directory entries at offsets 0 and 32:
  *       '.'  name {0x2E, 0x20*10}, attr 0x10, start_cluster = the new cluster,
@@ -639,7 +644,8 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *     (fat12_write_dirent_in_dir -- the cluster-chain slot for a subdir, the
  *     fixed-region slot for the root). This is the LAST failable step: on a
  *     failure the new dir's data cluster AND (if the parent grew) the freshly-
- *     appended parent cluster are rolled back (Rule 2/Rule 3).
+ *     appended parent cluster are rolled back (Rule 2/Rule 3). The earlier
+ *     zero-fill write rolls back the same way.
  *
  * `fat`/`fat_len` is the whole-FAT buffer (mutated; both copies flushed);
  * `sector_buf` (>= sectors_per_cluster*512) is scratch for the new cluster's

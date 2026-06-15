@@ -2523,14 +2523,47 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 #endif
 	}
 
-	/* Claim a free data cluster for the new directory and mark it EOC. */
+	/* Claim a free data cluster for the new directory and mark it EOC. If the
+	 * parent GREW above (parent_grew) and we now fail to claim/commit the new
+	 * dir's own cluster, the freshly-appended parent cluster must be rolled back
+	 * -- otherwise it orphans, zero-filled and unreclaimable (this FS only
+	 * shrinks a dir via fat12_shrink_dir_tail), while MKDIR reports failure: a
+	 * broken write atomicity (Rule 2/Rule 3; beads initech-m0bp rollback fix,
+	 * adversarial finding). The discipline mirrors fat12_create's no-space
+	 * rollback: a claimed-but-unused cluster goes back to FREE (+ flush), and a
+	 * grow is undone with its exact inverse fat12_shrink_dir_tail. */
 	newc = fat12_find_free(vol, fat, fat_len, FAT12_FIRST_DATA_CLUSTER);
 	if (newc == 0u) {
+		/* No free cluster for the new dir's OWN cluster. newc==0 means NOTHING
+		 * was claimed for it, so roll back ONLY the parent grow (the one
+		 * cluster the grow consumed -- here, the volume's last free cluster). */
+#ifndef FAT12_MUTATE_MKDIR_NO_NOSPACE_ROLLBACK
+		if (parent_grew) {
+			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
+			                      parent_newc);
+		}
+#else
+		/* MUTANT m-nospace-noroll (Rule 6; make test-m0bp-rollback-mutant only):
+		 * SKIP the parent-grow rollback on the NO_SPACE post-grow path. The
+		 * appended parent cluster then leaks -- SUB stays 2 clusters and the
+		 * volume's last free cluster stays consumed while MKDIR fails: exactly
+		 * the atomicity defect this fix closes. The rollback oracle must go RED.
+		 * NEVER define in a real build. */
+		(void)parent_grew;
+#endif
 		return FAT12_ERR_NO_SPACE;   /* full volume */
 	}
 #ifndef FAT12_MUTATE_MKDIR_NO_EOC
 	rc = fat12_set_entry(fat, fat_len, newc, FAT12_EOC_VALUE);
 	if (rc != FAT12_OK) {
+		/* newc WAS claimed (in-memory only) -- return it to FREE, then undo the
+		 * parent grow, mirroring fat12_create's claimed-but-unused free. (Not
+		 * reachable without a write-fail seam; tracked by beads initech-lpf3.) */
+		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+		if (parent_grew) {
+			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
+			                      parent_newc);
+		}
 		return rc;
 	}
 #else
@@ -2542,6 +2575,20 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 #endif
 	rc = fat12_flush_fats(vol, fat, fat_len);
 	if (rc != FAT12_OK) {
+		/* The FAT commit failed with newc marked EOC in memory (the parent-grow
+		 * link was already flushed inside fat12_grow_dir). Mirror fat12_create's
+		 * flush-fail discipline -- but here the parent grow is committed on disk,
+		 * so we additionally roll it back: return newc to FREE in memory and run
+		 * fat12_shrink_dir_tail, which restores the parent tail to EOC, frees the
+		 * appended cluster, and re-flushes both FAT copies (best-effort: if the
+		 * device write is hard-down the rollback flush also fails, but the
+		 * in-memory FAT is left consistent and no cluster is leaked logically).
+		 * (Not reachable without a write-fail seam; beads initech-lpf3.) */
+		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+		if (parent_grew) {
+			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
+			                      parent_newc);
+		}
 		return rc;
 	}
 

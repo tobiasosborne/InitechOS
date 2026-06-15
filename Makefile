@@ -647,6 +647,15 @@ TEST_M0BP_MUT_ROOTSLOT    := $(BUILD)/test_fat12_mkdir_nested_mut_rootslot
 TEST_M0BP_MUT_NOGROW      := $(BUILD)/test_fat12_mkdir_nested_mut_nogrow
 TEST_M0BP_MUT_NOROOTRD    := $(BUILD)/test_fat12_mkdir_nested_mut_norootrd
 
+# The FAT12 MKDIR post-grow ROLLBACK atomicity oracle (host test; beads
+# initech-m0bp rollback fix, adversarial finding) + its mutant (Rule 6:
+# m-nospace-noroll skips the parent-grow rollback on the NO_SPACE post-grow path
+# so the appended cluster leaks -> the rollback oracle bites). The real
+# (geometry-driven) image is minted in the gate recipe, NOT committed.
+TEST_M0BP_ROLLBACK        := $(BUILD)/test_fat12_mkdir_rollback
+TEST_M0BP_ROLLBACK_MUT    := $(BUILD)/test_fat12_mkdir_rollback_mut_nospace
+FAT12_M0BP_ROLLBACK_IMG   := $(BUILD)/fat12_m0bp_rollback.img
+
 # The NESTED MKDIR differential images (build intermediates, NOT committed):
 #   M0BP_BLANK  -- a fresh mformat -f 1440 floppy with ONLY '\SUB' (mmd ::SUB);
 #                  the ARTIFACT fat12_mkdir('NEWDIR', parent=SUB) writes into it.
@@ -1189,6 +1198,57 @@ test-m0bp-mutant: $(TEST_M0BP_MUT_NOROOTMK) $(TEST_M0BP_MUT_ROOTSCAN) $(TEST_M0B
 		fi; \
 	done
 	@printf '>>> test-m0bp-mutant: green (ALL FIVE nested mutants ran + RED for the right reason)\n'
+
+# Build the FAT12 MKDIR post-grow ROLLBACK oracle + its mutant (beads initech-m0bp
+# rollback fix): the test + the REAL artifact fat12.c + the host blockdev backend.
+# The mutant defines FAT12_MUTATE_MKDIR_NO_NOSPACE_ROLLBACK -- the ONE perturbed
+# seam that disables the NO_SPACE-path parent-grow rollback (Rule 6).
+$(TEST_M0BP_ROLLBACK): $(FAT_DIFF_DIR)/test_fat12_mkdir_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_M0BP_ROLLBACK_MUT): $(FAT_DIFF_DIR)/test_fat12_mkdir_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MKDIR_NO_NOSPACE_ROLLBACK -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir_rollback.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# REAL gate: test-m0bp-rollback (beads initech-m0bp rollback fix -- FAT12 MKDIR
+# post-grow ATOMICITY). A fresh mformat -f 1440 floppy with only '\SUB' is minted;
+# the C test exhausts the data area to ONE free cluster, fills SUB, then proves
+# fat12_mkdir('NEWDIR', parent=SUB) returns NO_SPACE AND rolls the grown parent
+# cluster back (SUB chain 1, the consumed cluster FREE, free count 1) -- nothing
+# leaked. The image is RE-minted each run (the test consumes it in place).
+.PHONY: test-m0bp-rollback
+test-m0bp-rollback: $(TEST_M0BP_ROLLBACK)
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-m0bp-rollback FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mmd     >/dev/null 2>&1 || { printf '!!! test-m0bp-rollback FAIL: mtools `mmd` not found.\n'; exit 1; }
+	@printf ">>> test-m0bp-rollback: MKDIR post-grow rollback atomicity (NO_SPACE) -- nothing leaks (beads initech-m0bp rollback fix)\n"
+	@dd if=/dev/zero of=$(FAT12_M0BP_ROLLBACK_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_M0BP_ROLLBACK_IMG) -f 1440 ::
+	@mmd -i $(FAT12_M0BP_ROLLBACK_IMG) ::SUB
+	@$(TEST_M0BP_ROLLBACK) "$(FAT12_M0BP_ROLLBACK_IMG)"
+	@printf ">>> test-m0bp-rollback: green\n"
+
+# Mutation gate (Rule 6): m-nospace-noroll MUST turn the rollback oracle RED for
+# the right reason (the appended parent cluster leaks: SUB stays 2 clusters / the
+# consumed cluster stays allocated / free count drops to 0). The image is minted
+# before the mutant run (the test consumes it in place).
+.PHONY: test-m0bp-rollback-mutant
+test-m0bp-rollback-mutant: $(TEST_M0BP_ROLLBACK_MUT)
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-m0bp-rollback-mutant FAIL: mtools `mformat` not found.\n'; exit 1; }
+	@command -v mmd     >/dev/null 2>&1 || { printf '!!! test-m0bp-rollback-mutant FAIL: mtools `mmd` not found.\n'; exit 1; }
+	@printf ">>> test-m0bp-rollback-mutant: confirming m-nospace-noroll goes RED for the RIGHT reason (Rule 6; beads initech-m0bp rollback fix)\n"
+	@dd if=/dev/zero of=$(FAT12_M0BP_ROLLBACK_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_M0BP_ROLLBACK_IMG) -f 1440 ::
+	@mmd -i $(FAT12_M0BP_ROLLBACK_IMG) ::SUB
+	@out=$$("$(TEST_M0BP_ROLLBACK_MUT)" "$(FAT12_M0BP_ROLLBACK_IMG)" 2>&1); rc=$$?; \
+	echo "$$out" | grep -q 'checks,' \
+		|| { printf '!!! test-m0bp-rollback-mutant FAIL: m-nospace-noroll produced no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }; \
+	if [ $$rc -eq 0 ]; then \
+		printf '!!! test-m0bp-rollback-mutant FAIL: m-nospace-noroll PASSED -- the rollback oracle is decoration\n'; exit 1; \
+	fi; \
+	echo "$$out" | grep -qi 'BACK to 1 cluster' \
+		|| { printf '!!! test-m0bp-rollback-mutant FAIL: m-nospace-noroll RED but not on the rollback assertion -- wrong reason\n'; exit 1; }
+	@printf '>>> test-m0bp-rollback-mutant: green (m-nospace-noroll correctly RED -- the grown parent cluster leaks without the rollback)\n'
 
 # Build the FAT12 positioned-read oracle + its two mutants (beads initech-lq2):
 # the test + the REAL artifact fat12.c + the host blockdev backend (same include
@@ -7511,7 +7571,7 @@ test-kernel-repro-mutant: | $(BUILD)
 # Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
-	test-fat12-mkdir test-m0bp \
+	test-fat12-mkdir test-m0bp test-m0bp-rollback \
 	test-fat-subdir test-zs24 \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
@@ -7526,7 +7586,7 @@ TEST_UNIT_GATES := \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
-	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-zs24-mutant \
+	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-zs24-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-kernel-repro test-kernel-repro-mutant
