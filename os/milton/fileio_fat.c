@@ -332,9 +332,12 @@ static uint16_t fat_set_time(uint16_t dir_start, uint32_t slot,
  * into *io_attr; SET (set==1) writes *io_attr as the new attribute byte. Both
  * delegate to the fat12 primitives, which scan the directory (subdir-aware) and,
  * for SET, write back ONLY the attribute byte (mtime/mdate preserved -- Rule 11).
- * A GET works on a read-only volume; a SET requires a writable volume else
- * access-denied. The fat12 access-denied (a dir/vol-label target, or a SET attr
- * that re-types the entry) maps to 0x0005; not-found maps to 0x0002. */
+ * GET works on a read-only volume and reports a directory/volume-label entry's
+ * real attribute byte (CX=0x10 for a subdir) -- it does NOT reject (RBIL AX=4300h
+ * has no directory exclusion; the reject is SET-only). A SET requires a writable
+ * volume else access-denied. The fat12 access-denied (a SET dir/vol-label target,
+ * or a SET attr that re-types the entry) maps to 0x0005; not-found maps to
+ * 0x0002. */
 static uint16_t fat_chmod(const char *name83, uint16_t dir_start_cluster,
                           int set, uint8_t *io_attr)
 {

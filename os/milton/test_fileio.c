@@ -380,23 +380,27 @@ static uint16_t mock_set_time(uint16_t dir_start, uint32_t slot,
 }
 
 /* ---- mock CHMOD backend (beads initech-b53d; AH=43h GET/SET ATTRIBUTES) ----- *
- * GET (set==0): find the file in `dir_start_cluster`, reject a dir/vol-label
- * (0x0005), else return its attr byte in *io_attr. SET (set==1): reject a
- * dir/vol-label target (0x0005), else patch the keyed mock file's attr to
+ * GET (set==0): find the file in `dir_start_cluster`, return its attr byte in
+ * *io_attr -- INCLUDING a directory (0x10) or volume-label (0x08): GET is a pure
+ * read and CX=0x10 is the faithful DOS answer (RBIL AX=4300h has NO directory
+ * exclusion -- mirrors the real fat12_get_attr after the b53d fidelity fix).
+ * SET (set==1): reject a dir/vol-label TARGET (0x0005 -- operator-sanctioned
+ * SET-only deviation, initech-5o6o), else patch the keyed mock file's attr to
  * *io_attr (so a later GET observes it). Missing -> 0x0002. The dispatcher
- * already rejected an out-of-set AL and a re-typing CX, but the backend repeats
- * the dir/vol-label TARGET reject so the host oracle can drive it directly. */
+ * already rejected an out-of-set AL and a re-typing CX; the backend repeats the
+ * SET dir/vol-label TARGET reject so the host oracle can drive it directly. */
 static uint16_t mock_chmod(const char *name83, uint16_t dir_start_cluster,
                            int set, uint8_t *io_attr)
 {
     if (io_attr == 0) return 0x0005u;
     int idx = mock_find_in_dir(name83, dir_start_cluster);
     if (idx < 0) return 0x0002u;                      /* not found */
-    if ((g_mock[idx].attr & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0)
-        return 0x0005u;                               /* dir/vol-label target */
     if (set == 0) {
-        *io_attr = g_mock[idx].attr;                  /* GET */
+        *io_attr = g_mock[idx].attr;                  /* GET: report attr verbatim
+                                                       * (dir -> 0x10, vol -> 0x08) */
     } else {
+        if ((g_mock[idx].attr & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0)
+            return 0x0005u;                           /* SET dir/vol-label target */
         g_mock[idx].attr = *io_attr;                  /* SET (persist) */
     }
     return 0u;
@@ -1808,12 +1812,15 @@ int main(void)
     /* --- AH=43h GET/SET FILE ATTRIBUTES (CHMOD; beads initech-b53d) --------- *
      * The host register-contract oracle (path-based, NOT a handle call):
      *   GET (AL=00) returns CX = the dir entry's attribute byte (CL=attr, CH=0);
+     *   GET on a DIRECTORY succeeds with CX=0x10 (RBIL AX=4300h: pure read, no
+     *     directory exclusion -- the canonical "does this dir exist" idiom);
      *   SET (AL=01) writes CX as the new attribute and a re-GET reflects it;
-     *   SET targeting a DIRECTORY or VOLUME-LABEL entry -> 0x0005;
+     *   SET targeting a DIRECTORY or VOLUME-LABEL entry -> 0x0005 (SET-only
+     *     reject, operator-sanctioned, initech-5o6o);
      *   SET whose CX sets the Directory/VolLabel bit -> 0x0005;
      *   a missing file -> 0x0002; AL=2 -> 0x0001 (invalid function);
      *   a read-only backend (chmod==NULL) -> 0x0005 (both GET and SET).
-     * Ref: DOS 3.3 PRM INT 21h Function 43h. */
+     * Ref: RBIL INT 21h/AX=4300h; DOS 3.3 PRM INT 21h Function 43h. */
     {
         mock_reset_dir();
         bind_standard_process();
@@ -1854,14 +1861,20 @@ int main(void)
               (uint16_t)(sd.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
               "b53d SET on a DIRECTORY -> CF=1, AX=0x0005 (access denied)");
 
-        /* GET of the DIRECTORY entry also -> 0x0005 (never report a dir's attr as
-         * a file attr; Rule 2). */
+        /* GET of the DIRECTORY entry SUCCEEDS with CX=0x10 (the dir attr). GET is
+         * a pure read: real DOS AH=4300h on a directory returns CF=0/CX=attr with
+         * NO directory exclusion (RBIL AX=4300h) -- this is the canonical "does
+         * this directory exist / stat a path" idiom (ATTRIB, dir-exists probes).
+         * The dir/vol-label reject is SET-ONLY (operator-sanctioned, initech-5o6o);
+         * the previous CF=1/0x0005 here was an unsanctioned over-extension of the
+         * SET decision (initech-b53d fidelity fix). */
         int_frame_t gd = fresh_frame();
-        gd.eax = 0x4300u; gd.edx = low_dup("SUB"); gd.eflags |= CF_BIT;
+        gd.eax = 0x4300u; gd.edx = low_dup("SUB"); gd.ecx = 0xBEEFu;
+        gd.eflags |= CF_BIT;
         int21_dispatch(&gd);
-        CHECK(frame_cf(&gd) == 1 &&
-              (uint16_t)(gd.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
-              "b53d GET on a DIRECTORY -> CF=1, AX=0x0005 (access denied)");
+        CHECK(frame_cf(&gd) == 0, "b53d GET on a DIRECTORY clears CF (RBIL 4300h)");
+        CHECK((uint16_t)(gd.ecx & 0xFFFFu) == (uint16_t)DIR_ATTR_DIRECTORY,
+              "b53d GET on a DIRECTORY -> CF=0, CX=0x10 (the dir's attribute byte)");
 
         /* SET targeting the DISK VOLUME-LABEL entry (root slot 2) -> 0x0005. */
         int_frame_t sv = fresh_frame();
@@ -1871,6 +1884,16 @@ int main(void)
         CHECK(frame_cf(&sv) == 1 &&
               (uint16_t)(sv.eax & 0xFFFFu) == INT21_ERR_ACCESS_DENIED,
               "b53d SET on a VOLUME-LABEL -> CF=1, AX=0x0005 (access denied)");
+
+        /* GET of the VOLUME-LABEL entry SUCCEEDS with CX=0x08 (pure read; the GET
+         * reject is gone -- symmetric with the dir GET, RBIL AX=4300h). */
+        int_frame_t gv = fresh_frame();
+        gv.eax = 0x4300u; gv.edx = low_dup("DISK"); gv.ecx = 0xBEEFu;
+        gv.eflags |= CF_BIT;
+        int21_dispatch(&gv);
+        CHECK(frame_cf(&gv) == 0, "b53d GET on a VOLUME-LABEL clears CF (RBIL 4300h)");
+        CHECK((uint16_t)(gv.ecx & 0xFFFFu) == (uint16_t)DIR_ATTR_VOLLABEL,
+              "b53d GET on a VOLUME-LABEL -> CF=0, CX=0x08 (the vol-label attr byte)");
 
         /* SET HELLO.TXT with a CX that sets the Directory bit (0x10) -> 0x0005
          * (the dispatch-edge re-typing reject; never re-type via CHMOD). */

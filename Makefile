@@ -2676,6 +2676,11 @@ TEST_B53D_MUT_NODISPATCH     := $(BUILD)/test_fileio_b53d_mut_nodispatch
 TEST_B53D_MUT_NOFLUSH        := $(BUILD)/test_fileio_subdir_b53d_mut_noflush
 TEST_B53D_MUT_NOREJECT       := $(BUILD)/test_fileio_subdir_b53d_mut_noreject
 TEST_B53D_MUT_NOTFOUND       := $(BUILD)/test_fileio_subdir_b53d_mut_notfound
+# Mutant 7 (the b53d GET-on-dir fidelity fix, initech-b53d): fat12.c perturbed to
+# RE-INTRODUCE the removed GET-on-directory reject -> the subdir harness's
+# GET-on-dir legs (AH=43h GET '\SUB\DEEP' -> CF=0/CX=0x10 + fat12_get_attr -> 0x10)
+# bite (the reject would deny the dir, returning CF=1/0x0005 instead of 0x10).
+TEST_B53D_MUT_GETDIRREJECT   := $(BUILD)/test_fileio_subdir_b53d_mut_getdirreject
 
 # Host-contract mutant binaries (test_fileio.c host oracle, one int21.c -D each).
 $(TEST_B53D_MUT_NOALREJECT): $(TEST_FILEIO_SRC) $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS) | $(BUILD)
@@ -2702,6 +2707,10 @@ $(TEST_B53D_MUT_NOREJECT): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) 
 
 $(TEST_B53D_MUT_NOTFOUND): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFILEIO_MUTATE_CHMOD_NOTFOUND_ACCESS -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
+		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
+
+$(TEST_B53D_MUT_GETDIRREJECT): $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_GETATTR_DIR_REJECT -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild \
 		-o $@ $(TEST_FILEIO_SUBDIR_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
 
 .PHONY: test-b53d
@@ -2735,16 +2744,35 @@ test-b53d: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
 	@test "$$(python3 $(FAT12_REF_PY) $(FAT12_B53D_IMG) --stat-path-time 'SUB\ATTR.TXT')" = "0 0" \
 		|| { printf '!!! test-b53d FAIL [SET]: the attr-set flush DISTURBED mtime/mdate (Rule 11 violated -- the RMW must touch ONLY 0x0B)\n'; exit 1; }
 	@printf '>>> test-b53d [SET]: ATTR.TXT body + mtime/mdate untouched by CHMOD (attribute-byte-only RMW, Rule 11)\n'
+	@# (5) GET-on-DIRECTORY fidelity (beads initech-b53d fix): real DOS AH=4300h on
+	@# a directory SUCCEEDS with CX=0x10 (RBIL, no directory exclusion). The harness
+	@# attr-set self-check ALREADY proved the in-process legs (AH=43h GET '\SUB\DEEP'
+	@# -> CF=0/CX=0x10 AND fat12_get_attr off the cached FAT -> 0x10). Here the TWO
+	@# INDEPENDENT references must AGREE the DEEP directory reads 0x10 -- the 3-way
+	@# differential (fat12_get_attr / python --attr / mtools mattrib):
+	@#   python --attr: the raw on-disk attribute byte (ent[11]) EXACTLY == 16 (0x10)
+	@test "$$(python3 $(FAT12_REF_PY) $(FAT12_B53D_IMG) --attr 'SUB\DEEP')" = "16" \
+		|| { printf '!!! test-b53d FAIL [GET-dir]: python --attr SUB\\DEEP != 16 (the dir 0x10 byte)\n'; \
+		     printf '    got: [%s]\n' "$$(python3 $(FAT12_REF_PY) $(FAT12_B53D_IMG) --attr 'SUB\DEEP')"; exit 1; }
+	@#   mtools mattrib: a directory carries NO R/H/S/A flag letters (the 0x10
+	@#   Directory bit alone) -- an INDEPENDENT decoder agreeing it is not R/H/S/A.
+	@#   mattrib prints "<flags>   ::/path"; isolate the FLAGS COLUMN (everything
+	@#   BEFORE '::') so the path text 'SUB' is not mistaken for flag letters.
+	@mattrib -i $(FAT12_B53D_IMG) ::SUB/DEEP 2>/dev/null | sed 's/::.*//' | grep -Eq '[RHSA]' \
+		&& { printf '!!! test-b53d FAIL [GET-dir]: mtools mattrib shows R/H/S/A flags on the DEEP directory (expected bare 0x10)\n'; \
+		     mattrib -i $(FAT12_B53D_IMG) ::SUB/DEEP 2>/dev/null; exit 1; } || true
+	@printf '>>> test-b53d [GET-dir]: \\SUB\\DEEP reads 0x10 (fat12_get_attr == python --attr==16 == mtools mattrib bare; GET-on-dir succeeds, RBIL 4300h)\n'
 	@printf ">>> test-b53d: green\n"
 
-# Mutation gate (Rule 6): SIX b53d mutants. Host-contract mutants (1/2/6) must
-# drive the HOST register oracle (test_fileio) RED; differential mutants (3/4/5)
+# Mutation gate (Rule 6): SEVEN b53d mutants. Host-contract mutants (1/2/6) must
+# drive the HOST register oracle (test_fileio) RED; differential mutants (3/4/5/7)
 # must drive the subdir harness / on-disk differential RED. Each MUST bite.
 .PHONY: test-b53d-mutant
 test-b53d-mutant: $(TEST_B53D_MUT_NOALREJECT) $(TEST_B53D_MUT_GETZERO) $(TEST_B53D_MUT_NODISPATCH) \
                   $(TEST_B53D_MUT_NOFLUSH) $(TEST_B53D_MUT_NOREJECT) $(TEST_B53D_MUT_NOTFOUND) \
+                  $(TEST_B53D_MUT_GETDIRREJECT) \
                   $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
-	@printf ">>> test-b53d-mutant: confirming all SIX AH=43h mutants go RED for the RIGHT reason (Rule 6; beads initech-b53d)\n"
+	@printf ">>> test-b53d-mutant: confirming all SEVEN AH=43h mutants go RED for the RIGHT reason (Rule 6; beads initech-b53d)\n"
 	@# --- MUTANT 1 (NO_AL_REJECT): AL=2 no longer rejected (falls to GET) -> the
 	@# bad-AL host contract (CF=1/0x0001) bites.
 	@$(TEST_B53D_MUT_NOALREJECT) > $(BUILD)/b53d_mut_noalreject.report 2>&1 || true
@@ -2801,7 +2829,17 @@ test-b53d-mutant: $(TEST_B53D_MUT_NOALREJECT) $(TEST_B53D_MUT_GETZERO) $(TEST_B5
 	@grep -Eq 'test_fileio_subdir: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/b53d_mut_notfound.report \
 		|| { printf '!!! test-b53d-mutant FAIL: NOTFOUND_ACCESS mutant PASSED -- the missing-file 0x0002 contract is decoration\n'; exit 1; }
 	@printf '>>> test-b53d-mutant: green (NOTFOUND_ACCESS ran + RED -- the missing-file 0x0002 contract bites)\n'
-	@printf '>>> test-b53d-mutant: green (ALL SIX AH=43h mutants ran + RED for the right reason)\n'
+	@# --- MUTANT 7 (GETATTR_DIR_REJECT): fat12_get_attr RE-INTRODUCES the removed
+	@# GET-on-directory reject -> a GET of '\SUB\DEEP' is denied (CF=1/0x0005)
+	@# instead of returning CF=0/CX=0x10; the subdir harness GET-on-dir legs bite.
+	@cp $(FAT12_NESTED_IMG) $(FAT12_B53D_IMG)
+	@$(TEST_B53D_MUT_GETDIRREJECT) "$(FAT12_B53D_IMG)" "$(FAT12_FIXTURE_DIR)" --write attr-set > $(BUILD)/b53d_mut_getdirreject.report 2>&1 || true
+	@grep -q '^test_fileio_subdir: ' $(BUILD)/b53d_mut_getdirreject.report \
+		|| { printf '!!! test-b53d-mutant FAIL: GETATTR_DIR_REJECT mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
+	@grep -Eq 'test_fileio_subdir: [0-9]+ checks, [1-9][0-9]* failures' $(BUILD)/b53d_mut_getdirreject.report \
+		|| { printf '!!! test-b53d-mutant FAIL: GETATTR_DIR_REJECT mutant PASSED -- the GET-on-dir CF=0/CX=0x10 contract is decoration (the dir reject was wrongly re-allowed)\n'; exit 1; }
+	@printf '>>> test-b53d-mutant: green (GETATTR_DIR_REJECT ran + RED -- the GET-on-dir 0x10 contract bites; the reject must stay OUT of GET)\n'
+	@printf '>>> test-b53d-mutant: green (ALL SEVEN AH=43h mutants ran + RED for the right reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-int21-edge (beads initech-xrd / initech-1zk; double-close part

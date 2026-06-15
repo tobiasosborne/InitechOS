@@ -1373,23 +1373,29 @@ static void do_unlink(int_frame_t *f)
  *        ('\SUB\FILE'-qualified OK via resolve_dir_path). SET: CX = the new
  *        attribute byte (RO 0x01 / Hidden 0x02 / System 0x04 / Archive 0x20).
  *   OUT: GET success -> CF=0, CX = the dir entry's attribute byte (CL=attr,
- *        CH=0). SET success -> CF=0.
+ *        CH=0). A GET on a DIRECTORY succeeds with CX=0x10 (and a volume-label
+ *        with CX=0x08): GET is a pure read, and CX=0x10 is the faithful DOS
+ *        answer + the canonical "does this directory exist" idiom (RBIL AX=4300h
+ *        has NO directory exclusion). SET success -> CF=0.
  * ERRORS (CF=1):
  *   - AL not in {0,1}                          -> AX=0x0001 (invalid function)
  *   - NULL / empty path                        -> AX=0x0002 (file not found)
  *   - bad/overlong path component              -> AX=0x0003 (path not found; from
  *                                                 resolve_dir_path)
  *   - file not found                           -> AX=0x0002
- *   - a DIRECTORY or VOLUME-LABEL target, OR a SET CX that sets the
- *     Directory(0x10)/VolLabel(0x08) bit, OR no write backend -> AX=0x0005
+ *   - a SET targeting a DIRECTORY or VOLUME-LABEL entry, OR a SET CX that sets
+ *     the Directory(0x10)/VolLabel(0x08) bit, OR no write backend -> AX=0x0005
  *     (access denied -- the DOS-faithful SET reject set; Rule 2 fail loud, never
- *     silently corrupt a dirent's type bits).
+ *     silently corrupt a dirent's type bits). This reject is SET-ONLY; a GET on
+ *     a directory/volume-label SUCCEEDS (operator-sanctioned 2026-06-15;
+ *     initech-5o6o records the SET reject as the intentional fail-loud deviation).
  * The SET reject for a re-typing CX is enforced HERE at the dispatch edge (before
  * the backend is even consulted) AND again in the fat12 primitive (defense in
  * depth). No int21_note_error(): the AH=59h auto-note at the dispatch choke point
- * captures CF + AX. Ref: DOS 3.3 PRM INT 21h Function 43h (Get/Set File
- * Attributes); spec/dos_structs.h (attribute 0x0B; DIR_ATTR_*); CLAUDE.md Law 1
- * (cite), Rule 2 (fail loud), Rule 11 (mtime/mdate untouched on SET). */
+ * captures CF + AX. Ref: RBIL INT 21h/AX=4300h; DOS 3.3 PRM INT 21h Function 43h
+ * (Get/Set File Attributes); spec/dos_structs.h (attribute 0x0B; DIR_ATTR_*);
+ * CLAUDE.md Law 1 (cite), Rule 2 (fail loud), Rule 11 (mtime/mdate untouched on
+ * SET). */
 static void do_chmod(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;

@@ -537,6 +537,35 @@ int main(int argc, char **argv)
                 CHECK(rcd == -1,
                       "b53d: AH=43h SET on the DIRECTORY '\\SUB\\DEEP' is rejected (CF=1)");
             }
+            /* DIRECTORY GET SUCCEEDS with the dir attribute (0x10) -- GET is a pure
+             * read (RBIL AX=4300h has NO directory exclusion; the canonical "does
+             * this directory exist / stat a path" idiom). Prove the corrected
+             * behaviour TWO in-process ways over the REAL stack (the Makefile adds
+             * the python --attr + mtools mattrib legs for the 3-way differential):
+             *   (1) AH=43h GET '\SUB\DEEP' through the FULL dispatch stack -> CF=0,
+             *       CX=0x10;  (2) fat12_get_attr DIRECTLY off the cached FAT for the
+             * DEEP entry inside SUB -> 0x10. A mutant that RE-INTRODUCES the GET
+             * reject (-DFAT12_MUTATE_GETATTR_DIR_REJECT) makes BOTH legs go RED. */
+            {
+                uint8_t dattr = 0xFFu;
+                int rcgd = chmod_path("\\SUB\\DEEP", 0, 0u, &dattr);
+                CHECK(rcgd == 0 && dattr == (uint8_t)DIR_ATTR_DIRECTORY,
+                      "b53d: AH=43h GET '\\SUB\\DEEP' -> CF=0, CX=0x10 (dir attr, RBIL 4300h)");
+                uint32_t    flen2   = 0u;
+                void       *fatbuf2 = fileio_fat_fat_buffer(&flen2);
+                fat12_dir_t cont2;
+                dir_entry_t dent;
+                int rr2 = fat12_resolve_path(&wvol, wsec, fatbuf2, flen2,
+                                             "\\SUB\\DEEP", &cont2, &dent);
+                CHECK(rr2 == FAT12_OK,
+                      "b53d: fat12_resolve_path '\\SUB\\DEEP' (containing dir = SUB)");
+                uint16_t sub_start2 = cont2.is_root ? 0u : cont2.start_cluster;
+                uint8_t disk_dattr = 0xFFu;
+                int gd = fat12_get_attr(&wvol, fatbuf2, flen2, "DEEP",
+                                        sub_start2, wsec, &disk_dattr);
+                CHECK(gd == FAT12_OK && disk_dattr == (uint8_t)DIR_ATTR_DIRECTORY,
+                      "b53d: fat12_get_attr off cached FAT for DEEP -> 0x10 (on-disk dir byte)");
+            }
             /* MISSING-FILE error code (through the REAL fileio_fat backend): a GET
              * of '\SUB\NOPE.TXT' MUST report CF=1, AX=0x0002 (file not found), NOT
              * 0x0005. A mutant that maps fat12 NOT_FOUND to ACCESS_DENIED makes

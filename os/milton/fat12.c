@@ -1800,12 +1800,17 @@ int fat12_set_dirent_time(const fat12_volume_t *vol, const void *fat,
 /*
  * fat12_get_attr -- the AL=00 GET leg of INT 21h AH=43h CHMOD (beads
  * initech-b53d). Scan the directory for `name83` (subdir-aware via
- * fat12_scan_dir, exactly as fat12_unlink); on a match, REJECT a directory /
- * volume-label entry with FAT12_ERR_ACCESS (DOS CHMOD targets regular files only
- * -- Rule 2: never report a type-bit-laden attr as a plain file attr), else copy
- * the matched entry's attribute byte (offset 0x0B) into *out_attr. A missing
- * name -> FAT12_ERR_NOT_FOUND. Read-only: the volume need not be writable.
- * Ref: DOS 3.3 PRM AH=43h AL=00; spec/dos_structs.h (attribute 0x0B). */
+ * fat12_scan_dir, exactly as fat12_unlink); on a match, copy the matched
+ * entry's attribute byte (offset 0x0B) into *out_attr -- INCLUDING a directory
+ * (0x10) or volume-label (0x08) entry. GET is a pure READ: reporting the real
+ * attribute byte of a directory (CX=0x10) IS the faithful DOS behaviour and the
+ * canonical "does this directory exist / stat a path" idiom (ATTRIB, dir-exists
+ * probes all use AH=4300h on a directory and expect CF=0/CX=0x10). RBIL/PRM
+ * AH=4300h: "CF clear if successful / CX = file attributes" with NO directory
+ * exclusion -- the dir/vol-label reject is SET-only (fat12_set_attr), NOT GET.
+ * A missing name -> FAT12_ERR_NOT_FOUND. Read-only: the volume need not be
+ * writable. Ref: RBIL INT 21h/AX=4300h; DOS 3.3 PRM AH=43h AL=00;
+ * spec/dos_structs.h (attribute 0x0B). */
 int fat12_get_attr(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
                    const char *name83, uint16_t parent_dir_start,
                    void *sector_buf, uint8_t *out_attr)
@@ -1839,11 +1844,20 @@ int fat12_get_attr(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
 	if (!found) {
 		return FAT12_ERR_NOT_FOUND;
 	}
-	/* A directory or volume-label entry is NOT a CHMOD-able regular file (the
-	 * DOS reject set -- Rule 2 fail loud). */
+#ifdef FAT12_MUTATE_GETATTR_DIR_REJECT
+	/* MUTANT (Rule 6; make test-b53d-mutant only): RE-INTRODUCE the
+	 * (unfaithful) GET-on-directory reject that the b53d fidelity fix removed --
+	 * deny a directory / volume-label entry instead of reporting its real 0x10
+	 * attribute byte. The corrected "GET-on-dir -> CF=0/CX=0x10" contract (host
+	 * oracle + the test-b53d 3-way differential) then goes RED. NEVER in a real
+	 * build. Ref: RBIL AX=4300h (no directory exclusion on GET). */
 	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
 		return FAT12_ERR_ACCESS;
 	}
+#endif
+	/* A directory (0x10) or volume-label (0x08) entry is reported VERBATIM: GET
+	 * is a pure read and CX=0x10 is the faithful DOS answer (RBIL AX=4300h has no
+	 * directory exclusion -- the reject is SET-only, fat12_set_attr). */
 	*out_attr = match.attribute;
 	return FAT12_OK;
 }
