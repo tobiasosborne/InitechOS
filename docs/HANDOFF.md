@@ -130,7 +130,12 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **85 host + 26 emu gates** (re-verified green; WL-0025 added the
+`make test` = **90 host + 27 emu gates** (re-verified green TWICE from clean;
+WL-0026 discharged the WL-0025 follow-up debt -- +5 host (`test-nmpo`,
+`test-fat-fault-rollback`(+mutant), `test-4nbn-mutant`, `test-nmpo-mutant`) +1 emu
+(`test-absdisk-emu`), plus the test-gnrc non-root rename leg, the b53d MUTANT 8
+dispatch-edge CX-reject, and the test-spec error_codes completeness assertion;
+WL-0025 added the
 INT 21h parity tranche gates (`test-kji0/qekc/b53d/gnrc-mutant`,
 `test-m0bp-rollback`(+mutant), `test-absdisk`(+mutant), `test-spec[6/6]`) for
 CREATNEW/FILETIME/CHMOD/RENAME/IOCTL 5Bh/57h/43h/56h/44h + INT 25h/26h; WL-0024 added the
@@ -249,6 +254,35 @@ deferred `kzfs`). The natural Phase-1 closer is the capstone `initech-40oq`
 (Appendix-A coverage certificate). The SERIAL, oracle-gated discipline for
 shared-file kernel edits still stands (Rule 3 / WL-0023-25).
 
+**WL-0026 discharged the WL-0025 follow-up debt** (orchestrated: a serial coding
+workflow + parallel adversarial verifiers + a forward-grounding workflow). Landed
+green (90 host + 27 emu): `nmpo`+`glsw` (CREATNEW FS-effect oracle + e2e FAT12
+differential + fail-loud open==NULL), `4nbn` (IOCTL AH=44h minors AL=01/06/07/08 +
+PRM bit-label fix), `lpf3` (fault-injecting blockdev backend driving the fat12
+rollback paths RED), `8403` (in-emulator int 25h/26h asm-path self-test), `cnvp`
+(DEC-15 bad-buffer spec row + completeness gate), `isil` (non-root RENAME leg),
+`5o6o` (CHMOD SET-reject deviation doc). Adversarial review caught + fixed three
+Rule-6 "decoration" findings on the green suite (dead completeness branch, a
+phantom-mutant ADR citation, an unmutated headline gate). New P3 follow-ups (none
+blocking): `fgdz` (8403 emu serial-capture race -- green serially, flaky under
+concurrent QEMU relaunch), `jplu` (4nbn AL=08 BL=drive fidelity), `aaan` (lpf3
+mkdir-EOC-fail leg coverage), `815i` (nmpo host leg-(e) mock artifact).
+
+**NEXT FORWARD TRANCHE (pre-grounded in WL-0026, dependency-ordered, another
+SERIAL kernel lane):** `dao` (streaming cluster walk; kills the on-stack
+chain[2880]; unblocks z01) -> `z01` (FAT16 read-only; initrd/tarfs deferred to a
+discovery bead) -> `80k` (DOS 8.3 wildcard engine) -> `x8fs` (cooked CON
+line-read; MUST precede `4tw`, shared conin_get_pb seam) -> `4tw`+`er3h` (Ctrl-C/
+INT 23h + BREAK=) -> `mvg` (wire INT 24h to real ATA/FAT errors; consumes lpf3's
+fault backend). **TWO operator gates (ADR-by-committee draft -> ratify, per the
+DEC-15 pattern):** (1) **AH=33h** Get/Set-BREAK is NOT in the locked
+`spec/int21h_register.json` / Appendix A -- `4tw`/`er3h` need it added (Rule 8
+amendment); (2) **DEC-07 / `initech-t1on`** must rule on the `kzfs` MBR-partition
+forks (start-LBA authority: partition-table vs BPB hidden_sectors; application
+layer: mount vs blockdev; detection heuristic: BIOS-drive-number vs sector-0
+byte-sniff) before `kzfs` can be implemented. Full grounding briefs (file-touch
+maps, oracle + mutation plans) captured in the WL-0026 orchestration output.
+
 **FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
 ratified the region-first Toolbox plan; operator decided indexed-8 depth,
 640x480, keep seafoam desktop_bg, proceed in parallel with f8v.4. **The ATKINSON
@@ -289,7 +323,10 @@ docs/worklog/        WL-0001..0007 (foundations -> FAT mount); WL-0008+ file
                      diagnosis, WL-0015 Bochs standard-VGA fallback + C Bochs
                      gate, WL-0016 COMMAND.COM default boot, WL-0017..0024
                      hardening + subdir chain, WL-0025 INT 21h/25h/26h parity
-                     tranche (CREATNEW/FILETIME/CHMOD/RENAME/IOCTL + DEC-15) (latest)
+                     tranche (CREATNEW/FILETIME/CHMOD/RENAME/IOCTL + DEC-15),
+                     WL-0026 the WL-0025 follow-up tranche (CREATNEW oracle/
+                     robustness, IOCTL minors, absdisk spec/emu, fault-injection
+                     infra, oracle hardening) (latest)
 docs/research/       ground-truth briefs (fat12, boot-to-text, internals/int21h,
                      psp-loader, fs-mount-sft) -- the per-milestone evidence base
 docs/HANDOFF.md      this briefing
