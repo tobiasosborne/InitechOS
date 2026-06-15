@@ -71,6 +71,13 @@
       "notes": "Pre-filesystem subset: accept handles 1 (stdout) and 2 (stderr) -> CON only. Real file handles arrive with beads initech-509.3 (JFT/SFT)."
     },
     {
+      "ah": "44h", "mnemonic": "IOCTL",
+      "in": {"AL": "minor function (00h = Get Device Information; this milestone)", "EBX": "open handle (JFT index)"},
+      "out": {"DX": "device-information word for the handle (AL=00h, on success)"},
+      "cf": "set on error: AX=0x0006 (invalid handle) for a bad/closed/out-of-range EBX; AX=0x0001 (invalid function) for AL != 00h (minors 01/06/07/08 deferred -- beads initech-4nbn)",
+      "notes": "AL=00h Get Device Information (DOS 3.3 PRM INT 21h Fn 44h Subfunction 00h): resolve EBX through the JFT->SFT layer (sft_from_handle, the SAME resolution do_write/do_dup use) and return DX = the device-information word. A CHARACTER device (CON, SFT_KIND_DEVICE) -> DX=0x80D3 (the canonical real-DOS CON word: bit15 ISDEV + reserved bit7 + bit6 not-EOF + bit4 special + bit1 ISCIN + bit0 STDIN). A disk FILE (SFT_KIND_FILE) -> DX=0x0040 (bit15 clear; bits 0-5 = drive number 0 == A:, our single mounted volume; bit6 = 1 = file-not-written, the PRM default -- sft_entry_t has no per-handle dirty bit yet). Bad/closed/out-of-range handle -> CF=1, AX=0x0006. AL != 00h -> CF=1, AX=0x0001; the set-info (01h), input/output status (06h/07h) and changeable-media (08h) minors are deferred per operator decision 2026-06-15 (beads initech-4nbn). Purely an SFT/device-flag query -- touches NO FAT, no block layer, no ATA. Ref: DOS 3.3 PRM AH=44h; spec device-info bit names in os/milton/int21.h (INT21_DEVINFO_*); beads initech-ro6c."
+    },
+    {
       "ah": "4Ch", "mnemonic": "EXIT",
       "in": {"AL": "return code"},
       "out": {},

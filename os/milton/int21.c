@@ -856,6 +856,90 @@ static void do_dup2(int_frame_t *f)
     cf_clear(f);
 }
 
+/* AH=44h IOCTL. AL selects the minor function. This landing implements ONLY
+ * AL=00h (Get Device Information): EBX = an open handle, return DX = the device-
+ * information word for that handle (CF clear). It is purely an SFT/device-flag
+ * query -- it touches NO FAT, no block layer, no ATA.
+ *
+ * AL=00h contract (DOS 3.3 PRM INT 21h Fn 44h Subfunction 00h;
+ * spec/int21h_calling_convention.json AH=44h):
+ *   - Resolve EBX through the current process's JFT into the system SFT exactly
+ *     the way do_write/do_dup do (sft_from_handle). A bad / closed / out-of-range
+ *     handle -> CF=1, AX=0x0006 (INVALID_HANDLE), DX untouched (Rule 2).
+ *   - A CHARACTER device (kind==SFT_KIND_DEVICE) -> DX = INT21_DEVINFO_CON
+ *     (0x80D3, the PRM CON word; our only modeled char device is CON). bit15
+ *     (ISDEV) is set.
+ *   - A disk FILE (kind==SFT_KIND_FILE) -> DX = INT21_DEVINFO_FILE: bit15 clear,
+ *     bits 0-5 = drive number (0 == A:, our single mounted volume), bit6 = 1
+ *     (PRM "not written" default; no per-handle dirty bit in sft_entry_t yet).
+ *
+ * AL != 00h is DEFERRED this landing per operator decision 2026-06-15
+ * (bead initech-4nbn covers AL=01 set-info, AL=06/07 input/output status,
+ * AL=08 changeable-media): return CF=1, AX=0x0001 (INVALID_FUNCTION). */
+static void do_ioctl(int_frame_t *f)
+{
+    uint8_t al = frame_al(f);
+
+    if (al != 0x00u) {
+        /* AL minors 01/06/07/08 deferred per operator 2026-06-15; see
+         * initech-4nbn. Recognized AH, unimplemented minor -> invalid function. */
+#ifdef INT21_MUTATE_IOCTL_MINOR_OK
+        /* MUTANT (Rule 6): treat a deferred minor as success (CF=0) instead of
+         * 0x0001 -> the deferred-minor assertion goes RED. */
+        cf_clear(f);
+        return;
+#else
+        set_ax(f, INT21_ERR_INVALID_FUNCTION);
+        cf_set(f);
+        return;
+#endif
+    }
+
+    uint32_t handle = f->ebx;
+    sft_entry_t *e = (handle <= 0xFFu)
+                       ? sft_from_handle(g_cur_psp, (uint8_t)handle)
+                       : 0;
+    if (e == 0) {
+        /* No such open handle (out of range / closed / no process). Rule 2. */
+#ifdef INT21_MUTATE_IOCTL_BADHANDLE_OK
+        /* MUTANT (Rule 6): clear CF on a bad handle instead of failing ->
+         * the invalid-handle assertion goes RED. */
+        cf_clear(f);
+        return;
+#else
+        set_ax(f, INT21_ERR_INVALID_HANDLE);
+        cf_set(f);
+        return;
+#endif
+    }
+
+    /* Character device (our only one is CON) vs disk file: the bit15 (ISDEV)
+     * fork. DX carries the locked device-information word for the kind. */
+#ifdef INT21_MUTATE_IOCTL_CON_WRONG
+    /* MUTANT (Rule 6): emit the wrong CON word (drop a bit) -> the CON full-word
+     * assertion goes RED. */
+    uint16_t con_word = (uint16_t)(INT21_DEVINFO_CON & ~INT21_DEVINFO_STDIN);
+#else
+    uint16_t con_word = (uint16_t)INT21_DEVINFO_CON;
+#endif
+#ifdef INT21_MUTATE_IOCTL_ISDEV_INVERT
+    /* MUTANT (Rule 6): invert the device-vs-file fork (a device gets the FILE
+     * word, a file gets the CON word) -> BOTH word assertions go RED. */
+    if (e->kind == SFT_KIND_DEVICE) {
+        set_dx(f, (uint16_t)INT21_DEVINFO_FILE);
+    } else {
+        set_dx(f, con_word);
+    }
+#else
+    if (e->kind == SFT_KIND_DEVICE) {
+        set_dx(f, con_word);
+    } else {
+        set_dx(f, (uint16_t)INT21_DEVINFO_FILE);
+    }
+#endif
+    cf_clear(f);
+}
+
 /* ---- file-handle functions (beads initech-509.5 read-side) ---------------- *
  * All resolve a process handle through g_cur_psp->jft into g_sft (the SFT), and
  * reach the mounted volume through g_file (the backend vtable). DEC-04a ABI:
@@ -2752,6 +2836,17 @@ static void int21_dispatch_body(int_frame_t *frame)
         case 0x42:                       /* LSEEK (move file pointer) */
             do_lseek(frame);
             return;
+        case 0x44:                       /* IOCTL (AL=00 get device info) */
+#ifdef INT21_MUTATE_IOCTL_NO_DISPATCH
+            /* MUTANT (Rule 6): do NOT dispatch 0x44; fall through to the
+             * not-yet-impl path (CF=1, AX=0x0001). The (void) ref keeps
+             * -Werror=unused-function quiet so the mutant still BUILDS + RUNS. */
+            (void)do_ioctl;
+            break;
+#else
+            do_ioctl(frame);
+            return;
+#endif
         case 0x45:                       /* DUP (duplicate handle) */
             do_dup(frame);
             return;

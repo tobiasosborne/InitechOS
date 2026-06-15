@@ -49,6 +49,44 @@
 #define INT21_HANDLE_STDOUT  1u
 #define INT21_HANDLE_STDERR  2u
 
+/* ---- AH=44h AL=00h IOCTL Get-Device-Info: the device-information word (DX) ---
+ * Ref: DOS 3.3 Programmer's Reference Manual, INT 21h Function 44h Subfunction
+ * 00h (Get Device Information). DX is a bit-field whose meaning forks on bit 15
+ * (ISDEV): a CHARACTER device (bit15=1) reports the device-class bits below; a
+ * disk FILE (bit15=0) reports its drive number in bits 0-5 and a "not written"
+ * flag in bit 6. spec/int21h_calling_convention.json AH=44h locks the two words
+ * this milestone emits. (CLAUDE.md Law 1: every value cited; Rule 8: locked data.)
+ *
+ * The character-device bit names (PRM Fig. for Fn 44h/00h): */
+#define INT21_DEVINFO_ISDEV    0x8000u  /* bit15: 1 = handle is a device       */
+#define INT21_DEVINFO_ISCTL    0x4000u  /* bit14: device handles control strings */
+#define INT21_DEVINFO_RAW      0x0020u  /* bit5 : 1 = binary (raw) mode         */
+#define INT21_DEVINFO_ISCLK    0x0010u  /* bit4 : the CLOCK$ device (special)   */
+#define INT21_DEVINFO_ISNUL    0x0008u  /* bit3 : the NUL device                */
+#define INT21_DEVINFO_ISCOT    0x0004u  /* bit2 : 1 = console output (screen)   */
+#define INT21_DEVINFO_ISCIN    0x0002u  /* bit1 : 1 = console input (keyboard)  */
+#define INT21_DEVINFO_STDIN    0x0001u  /* bit0 : 1 = standard-input device     */
+
+/* LOCKED words (spec/int21h_calling_convention.json AH=44h):
+ *
+ * CON, the console character device. The canonical real-DOS CON device-info word
+ * is 0x80D3 = bits {15,7,6,4,1,0}: ISDEV(15) + reserved(7, set on the standard
+ * devices) + bit6 (0 == EOF-on-input; 1 here == NOT at EOF, the live keyboard) +
+ * special/CLOCK-class(4) + ISCIN(1, console input) + STDIN(0). Our CON SFT models
+ * the single bidirectional console (keyboard in / screen out) the way real DOS
+ * reports the CON handle, so the faithful value is the PRM CON word verbatim. */
+#define INT21_DEVINFO_CON       0x80D3u
+
+/* Disk FILE handle (bit15 clear). Bits 0-5 = drive number (0 == A:, our single
+ * mounted volume); bit6 = 1 ("file has NOT been written to", the PRM default);
+ * bit7 = 0. Our sft_entry_t carries no per-handle dirty bit, so bit6 is FIXED to
+ * the PRM not-written default (1); per-handle written-state tracking is deferred
+ * with the AL=01 set-info minor (beads initech-4nbn). Drive 0 -> 0x0000 low bits,
+ * | bit6 -> 0x0040. */
+#define INT21_DEVINFO_FILE_BIT_NOTWRITTEN  0x0040u  /* bit6: 1 = not written (PRM default) */
+#define INT21_DEVINFO_FILE_DRIVE_A         0x0000u  /* drive 0 (A:) in bits 0-5 */
+#define INT21_DEVINFO_FILE       (INT21_DEVINFO_FILE_DRIVE_A | INT21_DEVINFO_FILE_BIT_NOTWRITTEN)
+
 /* InitechDOS version (3.30; ADR-0003 DEC-12 / spec/dos_banner.txt). GETVER
  * returns AL=major, AH=minor. 3.30 -> minor 30 = 0x1E. */
 #define INT21_VER_MAJOR  3u

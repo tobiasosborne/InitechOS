@@ -1802,6 +1802,41 @@ $(TEST_INT21_MUT_NOOP): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) 
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_UNLISTED_NOOP -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
 
+# AH=44h IOCTL AL=00 get-device-info mutants (beads initech-ro6c). Five compile-
+# time perturbations of do_ioctl / its dispatch; each MUST drive the new AH=44h
+# assertions RED (Rule 6). A mutant that PASSES means the device-info oracle is
+# decoration.
+#   (1) CON_WRONG     : emit the wrong CON word -> CON full-word assertion RED.
+#   (2) ISDEV_INVERT  : swap the device/file fork -> CON + FILE word asserts RED.
+#   (3) BADHANDLE_OK  : clear CF on a bad handle -> invalid-handle assertion RED.
+#   (4) MINOR_OK      : succeed on a deferred AL minor -> deferred-minor assert RED.
+#   (5) NO_DISPATCH   : drop the 0x44 case -> the AL=00 success assertion RED.
+TEST_INT21_MUT_RO6C_CONWRONG  := $(BUILD)/test_int21_mutant_ro6c_conwrong
+TEST_INT21_MUT_RO6C_ISDEVINV  := $(BUILD)/test_int21_mutant_ro6c_isdevinv
+TEST_INT21_MUT_RO6C_BADHANDLE := $(BUILD)/test_int21_mutant_ro6c_badhandle
+TEST_INT21_MUT_RO6C_MINOROK   := $(BUILD)/test_int21_mutant_ro6c_minorok
+TEST_INT21_MUT_RO6C_NODISPATCH:= $(BUILD)/test_int21_mutant_ro6c_nodispatch
+
+$(TEST_INT21_MUT_RO6C_CONWRONG): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_CON_WRONG -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_RO6C_ISDEVINV): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_ISDEV_INVERT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_RO6C_BADHANDLE): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_BADHANDLE_OK -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_RO6C_MINOROK): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_MINOR_OK -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_RO6C_NODISPATCH): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_IOCTL_NO_DISPATCH -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
 # --- CON INPUT oracle (beads initech-n62) ----------------------------------
 # Host unit oracle for the INT 21h CON-INPUT functions (01h/06h/07h/08h/0Ah/
 # 0Bh/0Ch), driven through the REAL artifact int21_dispatch with a MOCK input
@@ -1884,6 +1919,39 @@ test-int21-mutant: $(TEST_INT21_MUT_DOLLAR) $(TEST_INT21_MUT_NOOP)
 		exit 1; \
 	else \
 		printf '>>> test-int21-mutant: green (unlisted-AH-noop mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+.PHONY: test-ro6c-mutant
+# Mutation-proof: ALL FIVE AH=44h IOCTL get-device-info mutants MUST fail the
+# oracle (Rule 6; beads initech-ro6c).
+test-ro6c-mutant: $(TEST_INT21_MUT_RO6C_CONWRONG) $(TEST_INT21_MUT_RO6C_ISDEVINV) \
+                  $(TEST_INT21_MUT_RO6C_BADHANDLE) $(TEST_INT21_MUT_RO6C_MINOROK) \
+                  $(TEST_INT21_MUT_RO6C_NODISPATCH)
+	@printf ">>> test-ro6c-mutant: confirming all five AH=44h IOCTL mutants go RED (Rule 6; beads initech-ro6c)\n"
+	@if $(TEST_INT21_MUT_RO6C_CONWRONG) >/dev/null 2>&1; then \
+		printf '!!! test-ro6c-mutant FAIL: CON_WRONG mutant PASSED -- the CON device-info word is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ro6c-mutant: green (CON_WRONG mutant correctly RED -- the 0x80D3 CON word bites)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_RO6C_ISDEVINV) >/dev/null 2>&1; then \
+		printf '!!! test-ro6c-mutant FAIL: ISDEV_INVERT mutant PASSED -- the device/file fork is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ro6c-mutant: green (ISDEV_INVERT mutant correctly RED -- the bit15 device/file fork bites)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_RO6C_BADHANDLE) >/dev/null 2>&1; then \
+		printf '!!! test-ro6c-mutant FAIL: BADHANDLE_OK mutant PASSED -- the invalid-handle guard is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ro6c-mutant: green (BADHANDLE_OK mutant correctly RED -- the 0x0006 guard bites)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_RO6C_MINOROK) >/dev/null 2>&1; then \
+		printf '!!! test-ro6c-mutant FAIL: MINOR_OK mutant PASSED -- the deferred-minor guard is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ro6c-mutant: green (MINOR_OK mutant correctly RED -- the AL!=00 -> 0x0001 guard bites)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_RO6C_NODISPATCH) >/dev/null 2>&1; then \
+		printf '!!! test-ro6c-mutant FAIL: NO_DISPATCH mutant PASSED -- the 0x44 dispatch wiring is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ro6c-mutant: green (NO_DISPATCH mutant correctly RED -- the 0x44 case bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -7582,6 +7650,7 @@ TEST_UNIT_GATES := \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
+	test-ro6c-mutant \
 	test-int24-mutant \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \

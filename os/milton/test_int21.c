@@ -20,6 +20,17 @@
  *   -DINT21_MUTATE_UNLISTED_NOOP    : unlisted-AH path becomes a silent no-op
  *                                     (no CF, no diagnostic) -> the controlled-
  *                                     scope test goes RED.
+ *   AH=44h IOCTL AL=00 (beads initech-ro6c):
+ *   -DINT21_MUTATE_IOCTL_CON_WRONG     : emit the wrong CON word -> the CON
+ *                                        full-word assertion goes RED.
+ *   -DINT21_MUTATE_IOCTL_ISDEV_INVERT  : swap the device/file fork (ISDEV) ->
+ *                                        the CON + FILE word assertions go RED.
+ *   -DINT21_MUTATE_IOCTL_BADHANDLE_OK  : clear CF on a bad handle -> the
+ *                                        invalid-handle assertion goes RED.
+ *   -DINT21_MUTATE_IOCTL_MINOR_OK      : succeed on a deferred AL minor -> the
+ *                                        deferred-minor assertion goes RED.
+ *   -DINT21_MUTATE_IOCTL_NO_DISPATCH   : drop the 0x44 dispatch case -> the
+ *                                        AL=00 success assertion goes RED.
  */
 
 #include <stdint.h>
@@ -369,6 +380,110 @@ int main(void)
         CHECK(frame_cf(&f) == 1, "AH=46h DUP2(closed src) sets CF");
         CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
               "AH=46h DUP2(closed src) returns AX=0x0006");
+    }
+
+    /* ======================================================================
+     * AH=44h IOCTL AL=00 GET DEVICE INFORMATION (beads initech-ro6c).
+     * A pure SFT/device-flag query: resolve EBX through the JFT->SFT layer and
+     * return DX = the locked device-information word for the handle. CON (a
+     * character device) -> 0x80D3; a disk FILE -> 0x0040. Bad handle -> CF=1,
+     * AX=0x0006. AL != 00h -> CF=1, AX=0x0001 (minors deferred, initech-4nbn).
+     * The FULL DX word is asserted (operator decision 2026-06-15).
+     * ==================================================================== */
+
+    /* CON: handle 0 (stdin) is a character device -> DX = INT21_DEVINFO_CON
+     * (0x80D3), bit15 ISDEV set, CF clear. Re-bind a pristine process first. */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4400u;          /* AH=44h, AL=00h */
+        f.ebx = 0u;               /* handle 0 = stdin = CON device */
+        f.edx = 0xFFFFu;          /* poison DX so we prove it is written */
+        f.eflags |= CF_BIT;       /* preload CF=1 so we prove it is CLEARED */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=44h/00 CON clears CF");
+        CHECK((uint16_t)(f.edx & 0xFFFFu) == (uint16_t)INT21_DEVINFO_CON,
+              "AH=44h/00 CON returns the FULL device-info word 0x80D3");
+        CHECK(((uint16_t)(f.edx & 0xFFFFu) & INT21_DEVINFO_ISDEV) != 0,
+              "AH=44h/00 CON has ISDEV (bit15) set");
+    }
+
+    /* CON: handle 1 (stdout, also the CON device) -> same 0x80D3 word. */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4400u;
+        f.ebx = INT21_HANDLE_STDOUT;  /* handle 1 -> CON-write device */
+        f.edx = 0u;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=44h/00 stdout(CON) clears CF");
+        CHECK((uint16_t)(f.edx & 0xFFFFu) == (uint16_t)INT21_DEVINFO_CON,
+              "AH=44h/00 stdout(CON) returns 0x80D3");
+    }
+
+    /* FILE: bind a FILE-kind SFT slot + a JFT handle to it (no FAT needed --
+     * AH=44h/00 is a pure flag query). Then DX = INT21_DEVINFO_FILE (0x0040):
+     * bit15 clear (a file, not a device), drive 0 (A:) in bits 0-5, bit6 set
+     * (PRM "not written" default). */
+    {
+        bind_standard_process();
+        uint8_t sft_idx = sft_alloc();
+        CHECK(sft_idx < SFT_MAX_ENTRIES, "sft_alloc gives a FILE slot");
+        g_sft[sft_idx].kind      = SFT_KIND_FILE;
+        g_sft[sft_idx].open_mode = SFT_MODE_READ;
+        g_sft[sft_idx].ref_count = 1u;
+        uint8_t h = jft_alloc(&g_test_psp);
+        CHECK(h != JFT_CLOSED, "jft_alloc gives a free handle for the FILE");
+        g_test_psp.jft[h] = sft_idx;
+
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4400u;
+        f.ebx = (uint32_t)h;      /* the FILE handle */
+        f.edx = 0xFFFFu;          /* poison */
+        f.eflags |= CF_BIT;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=44h/00 FILE clears CF");
+        CHECK((uint16_t)(f.edx & 0xFFFFu) == (uint16_t)INT21_DEVINFO_FILE,
+              "AH=44h/00 FILE returns the FULL device-info word 0x0040");
+        CHECK(((uint16_t)(f.edx & 0xFFFFu) & INT21_DEVINFO_ISDEV) == 0,
+              "AH=44h/00 FILE has ISDEV (bit15) CLEAR (it is a file, not a device)");
+    }
+
+    /* Bad handle (7, closed) -> CF set, AX=0x0006 (invalid handle), DX unchanged. */
+    {
+        bind_standard_process();
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4400u;
+        f.ebx = 7u;               /* closed handle -> sft_from_handle == NULL */
+        f.edx = 0x1234u;          /* must be left untouched on error */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/00 bad handle sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "AH=44h/00 bad handle returns AX=0x0006");
+        CHECK((uint16_t)(f.edx & 0xFFFFu) == 0x1234u,
+              "AH=44h/00 bad handle leaves DX untouched");
+    }
+
+    /* Out-of-range handle (0x1FF > 0xFF) -> also invalid handle. */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4400u;
+        f.ebx = 0x1FFu;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/00 out-of-range handle sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_HANDLE,
+              "AH=44h/00 out-of-range handle returns AX=0x0006");
+    }
+
+    /* AL=01h (a deferred minor) -> CF set, AX=0x0001 (invalid function). The
+     * set-info / status / changeable-media minors are deferred (initech-4nbn). */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4401u;          /* AH=44h, AL=01h (SET DEVICE INFO -- deferred) */
+        f.ebx = INT21_HANDLE_STDOUT;
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=44h/01 (deferred minor) sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "AH=44h/01 deferred minor returns AX=0x0001 (initech-4nbn)");
     }
 
     /* --- AH=30h GET VERSION: AL=3, AH=0x1E (30); CF clear. --------------- */
