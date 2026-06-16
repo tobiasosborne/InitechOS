@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-15
+**Last Reconciled:** 2026-06-16
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -130,7 +130,13 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **93 host + 27 emu gates** (WL-0027 added the FAT16 milestone
+`make test` = **103 host + 27 emu gates** (WL-0028 added +10 host: the forward
+tranche `80k`/`d27i`/`x8fs`/`er3h`/`4tw` x2 -- DOS 8.3 wildcard oracle,
+windowed FAT16 mount, AH=3Fh cooked CON read, AH=33h Get/Set BREAK + ^C/INT 23h
+check-point. Adversarial review caught + fixed a DEC-16 deviation (er3h SET
+wrote AL); a host-oracle HANG (x8fs cooked read on the no-source sentinel) was
+caught only by the FULL aggregate gate and root-fixed -- ALWAYS run
+`make clean && timeout 1200 make test` at integration. WL-0027 added the FAT16 milestone
 (dao streaming walk + z01 FAT16 decode): +3 host = test-fat-readfile-mutant +
 test-fat16 + test-fat16-mutant, re-verified from clean;
 WL-0026 discharged the WL-0025 follow-up debt -- +5 host (`test-nmpo`,
@@ -151,9 +157,10 @@ EXEC, and amended the DOS catalogue 16->19; WL-0023 added `test-u6wa-mutant` +
 before trusting an incremental oracle -- future-dated build/ artifacts make
 `make` skip rebuilds (false greens). Authoritative re-verify = `make clean &&
 make test`.
-**`make test-boot-bochs` PASS** with `KERNEL_SECTORS=144` (qekc grew it 128->144 in WL-0025;
-`IMG_SECTORS=192` = 3 whole cylinders; a boot-geometry change is a tri-emulator
-obligation, Rule 5 / WL-0019). The boot image is padded to a whole 2x32 cylinder geometry
+**`make test-boot-bochs` PASS** with `KERNEL_SECTORS=160` (4tw grew it 144->160 in
+WL-0028 as the kernel grew; qekc grew it 128->144 in WL-0025; `IMG_MIN`=1+16+160=177
+<= `IMG_SECTORS=192` = 3 whole cylinders, no IMG change; a boot-geometry change is a
+tri-emulator obligation, Rule 5 -- re-verified on Bochs in WL-0028). The boot image is padded to a whole 2x32 cylinder geometry
 (`IMG_SECTORS=192`, build-guarded) so the **Bochs boot leg passes**. Plus the
 separate `make test-boot-bochs` (the Bochs boot leg; env-specific Bochs +
 ~45 s, NOT in the default `make test`). `make factory` builds; `make` prints
@@ -302,6 +309,24 @@ workflow race (verifiers reverting/restoring the uncommitted tree) produced two
 transient false-alarm P0/P1s this tranche -- standing mitigation for the next lane:
 isolated worktrees for mutation-running verifiers, or commit-per-landing.
 
+**WL-0028 landed the forward tranche + the M6 evidence base** (103 host + 27 emu,
+Bochs boot leg PASS). DONE + closed: **`d27i`** (windowed FAT16 mount -- the true
+completion of FAT16; mode-aware bind keeps FAT12 whole-FAT for WRITE, windows FAT16
+for READ; FAT12 straddle byte-identical), **`80k`** (the FCB wildcard matcher was
+already correct -- landed the mutation-proven oracle + corrected a ground-truth
+guess), **`x8fs`** (AH=3Fh cooked CON read), **`er3h`** (AH=33h Get/Set BREAK +
+CONFIG/built-in + DEC-16 spec edits), **`4tw`** (^C -> INT 23h on 01h/08h/0Ah; 07h/06h
+RAW; `KERNEL_SECTORS 144->160`). Filed `docs/research/dbase-ground-truth.md` (M6
+InitechBase/SAMIR evidence base) + re-parented the 7 engine beads under `586` + filed
+`586.3/586.4`. Three lessons (see WL-0028): (1) **`t6nc`** -- Workflow worktree-isolation
+spawns from STALE `main` (e56695a), not the branch tip; keep `main` fast-forwarded or
+reset worktrees onto the tip. (2) **A host oracle HANG is worse than red** -- x8fs's
+cooked CON read spun on `conin_get`'s no-source 0; only the FULL aggregate gate caught
+it; ALWAYS `make clean && timeout 1200 make test` at integration (`bd memories`:
+host-oracle-hang-pattern). (3) **Adversarial review caught a real DEC-16 deviation**
+(er3h SET wrote AL) -- fixed + M7 mutant. Next: `bsy.1` (DIR wildcard emu leg), `bcg.16`
+(in-emulator FAT16 mount oracle -> `40oq` FAT16-green), remaining MILTON shell built-ins.
+
 **FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
 ratified the region-first Toolbox plan; operator decided indexed-8 depth,
 640x480, keep seafoam desktop_bg, proceed in parallel with f8v.4. **The ATKINSON
@@ -347,9 +372,12 @@ docs/worklog/        WL-0001..0007 (foundations -> FAT mount); WL-0008+ file
                      robustness, IOCTL minors, absdisk spec/emu, fault-injection
                      infra, oracle hardening), WL-0027 the FAT16 milestone (dao
                      streaming walk + z01 FAT16 decode layer) + DEC-16/DEC-07a
-                     ADR ratifications (latest)
-docs/research/       ground-truth briefs (fat12, boot-to-text, internals/int21h,
-                     psp-loader, fs-mount-sft) -- the per-milestone evidence base
+                     ADR ratifications, WL-0028 the forward tranche (80k wildcard,
+                     d27i windowed FAT16 mount, x8fs/er3h/4tw CON cluster) +
+                     InitechBase (SAMIR) M6 ground-truth research brief (latest)
+docs/research/       ground-truth briefs (fat12, fat16, boot-to-text, internals/
+                     int21h, psp-loader, fs-mount-sft, dbase/SAMIR) -- the
+                     per-milestone evidence base
 docs/HANDOFF.md      this briefing
 harness/emu/         qemu.{c,h}+qemu_main.c (QEMU), bochs.{c,h}+bochs_main.c
                      (Bochs, initech-564), rfb_unblock.py (diagnosis only)
