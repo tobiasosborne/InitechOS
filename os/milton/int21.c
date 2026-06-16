@@ -567,6 +567,52 @@ static int conin_poll_pb(void)
     return conin_poll();
 }
 
+/* The CON-input ^C (0x03) check-point (beads initech-4tw; ADR-0003 Amendment
+ * DEC-16, OEA-ADR-0003-A4, RATIFIED 2026-06-15, Sec 3.3 Fork A + Sec 7.2).
+ *
+ * Returns 1 and INVOKES the INT 23h break vector if `c` is Ctrl-C (0x03); the
+ * caller must then NOT deliver 0x03 as an ordinary char. Returns 0 for any other
+ * byte. Driven by the ^C-checking CON calls AH=01h / AH=08h / AH=0Ah ONLY -- the
+ * DIRECT calls AH=07h (no Ctrl-C) and AH=06h are the documented exceptions and do
+ * NOT call this (DOS 3.3 PRM AH=07h "no Ctrl-C"; int21.c do_conin_raw).
+ *
+ * FORK A GATING (DEC-16 Sec 3.3, the binding consumer obligation): under the
+ * ratified Fork A the CON character-input family is ALWAYS a ^C check-point --
+ * when BREAK is OFF, CON-I/O is the *only* check-point; when ON, it is one of
+ * many (the ON-widening to every INT 21h call is the C-6 forward obligation, NOT
+ * landed here). So the CON ^C detection fires whether g_break_flag is 0 or 1. We
+ * still READ g_break_flag (per DEC-16 Sec 3.3 (ii) "read g_break_flag rather than
+ * hard-coding") so the flag is a live input and the seam is ready for C-6: the
+ * `(g_break_flag, ON or OFF)` -> CON-checks-^C truth is the Fork-A row. When the
+ * non-CON every-call check-points are added (C-6) THEY are the ones gated to fire
+ * only when g_break_flag is ON; the CON path stays unconditional here.
+ *
+ * int23_dispatch is the existing default break handler (DEC-10 / initech-509.8);
+ * its default action terminates the current program (the DOS Ctrl-Break abort).
+ * Ref: DOS 3.3 PRM AH=01h/08h/0Ah, INT 23h; ADR-0003 Amendment DEC-16 Sec 3.3. */
+static int conin_check_ctrlc(int c, int_frame_t *f)
+{
+#ifdef INT21_MUTATE_NO_CTRLC_CHECK
+    /* MUTANT M5 (Rule 6; make test-4tw-mutant only): drop the ^C check so 0x03 is
+     * delivered as a raw char and INT 23h is NEVER invoked -> the [4tw.*] oracle
+     * goes RED. NEVER define in a real build -- DEC-16 Sec 3.3 mandates the CON
+     * check-point. */
+    (void)c; (void)f;
+    return 0;
+#else
+    /* Read the BREAK flag (live input / C-6-ready seam; see header). Under Fork A
+     * the CON family check-points whether it is ON or OFF, so the value does not
+     * suppress the CON detection -- it is consulted, not a gate, on this path. */
+    uint8_t brk = int21_get_break_flag();
+    (void)brk;
+    if ((c & 0xFF) == 0x03) {            /* ^C (Ctrl-C) */
+        int23_dispatch(f);              /* the DOS Ctrl-Break abort (DEC-10) */
+        return 1;
+    }
+    return 0;
+#endif
+}
+
 /* AH=01h CHARACTER INPUT WITH ECHO: block for one char, echo it to CON, AL=char.
  * (Ctrl-C check deferred -- see header note.) CF is not part of this function's
  * contract; success leaves it clear. Ref: DOS 3.3 PRM AH=01h.
@@ -581,6 +627,14 @@ static int conin_poll_pb(void)
 static void do_conin_echo(int_frame_t *f)
 {
     int c = conin_get_pb();
+    /* ^C check-point (beads initech-4tw; DEC-16 Sec 3.3 Fork A): a 0x03 routes to
+     * the INT 23h break handler instead of being delivered/echoed as a char. The
+     * CON family is ALWAYS a check-point under Fork A (BREAK ON or OFF). If the
+     * default break action returns (host: no exit hook), we still do NOT deliver
+     * 0x03 -- there is nothing to return after a break. */
+    if (conin_check_ctrlc(c, f)) {
+        return;
+    }
 #ifndef INT21_MUTATE_CONIN_NO_ECHO
     con_putc((char)c);          /* echo */
 #else
@@ -601,12 +655,16 @@ static void do_conin_raw(int_frame_t *f)
     cf_clear(f);
 }
 
-/* AH=08h CHARACTER INPUT, NO ECHO (with Ctrl-C check): block for one char,
- * AL=char, no echo. The ^C check is deferred (header note); functionally
- * identical to 07h this subset. Ref: DOS 3.3 PRM AH=08h. */
+/* AH=08h CHARACTER INPUT, NO ECHO (WITH Ctrl-C check): block for one char,
+ * AL=char, no echo. UNLIKE 07h, 08h IS a ^C check-point (beads initech-4tw;
+ * DEC-16 Sec 3.3 Fork A): a 0x03 routes to the INT 23h break handler rather than
+ * being delivered in AL. Ref: DOS 3.3 PRM AH=08h ("with Ctrl-C check"). */
 static void do_conin_noecho(int_frame_t *f)
 {
     int c = conin_get_pb();
+    if (conin_check_ctrlc(c, f)) {
+        return;
+    }
     set_al(f, (uint8_t)c);
     cf_clear(f);
 }
@@ -676,11 +734,23 @@ static void do_input_status(int_frame_t *f)
  * returned line (the buf[0]/buf[1]/CR format vs. line+CR+LF inclusive), not in
  * the editing. Factoring it here keeps the two callers in lockstep and shrinks
  * the later Ctrl-C surface (beads initech-4tw hooks the read inside here).
+ *
+ * ^C check-point (beads initech-4tw; DEC-16 Sec 3.3 Fork A): AH=0Ah / AH=3Fh-on-
+ * CON are ^C-checking calls. When 0x03 is read mid-line the editor invokes INT
+ * 23h (conin_check_ctrlc), sets *broke=1, and returns -- aborting the line. In
+ * the kernel int23's default action terminates and never returns; *broke lets the
+ * host caller (and any non-terminating future break handler) skip the normal line
+ * layout. `f` is the trap frame threaded through for int23_dispatch. `broke` may
+ * be NULL only if the caller cannot reach a ^C (none today; both callers pass it).
  * Ref: DOS 3.3 PRM AH=0Ah; Microsoft KB Q113058 (AH=3Fh CON read);
  * os/milton/kbd.c SC1_NORMAL[0x1C] == '\r'. */
-static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap)
+static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap, int_frame_t *f, int *broke)
 {
     uint8_t count = 0;          /* chars stored so far (excl. CR/LF) */
+
+    if (broke) {
+        *broke = 0;
+    }
 
     /* Rule 2 (host-safe, NEVER hang): with no CON input source bound and no
      * pending pushback, a cooked read yields an empty line (EOF) instead of
@@ -697,6 +767,16 @@ static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap)
     for (;;) {
         int ci = conin_get_pb();
         uint8_t c = (uint8_t)ci;
+
+        /* ^C check-point: 0x03 routes to INT 23h and aborts the line (DEC-16 Sec
+         * 3.3 Fork A; beads initech-4tw). Checked BEFORE CR/BACKSPACE/store so a
+         * Ctrl-C never lands in the line buffer. */
+        if (conin_check_ctrlc(c, f)) {
+            if (broke) {
+                *broke = 1;
+            }
+            return count;
+        }
 
         if (c == 0x0Du) {                       /* CR: terminate the line */
             con_putc('\r');                     /* echo CR + LF (DOS convention) */
@@ -749,7 +829,18 @@ static void do_buffered_input(int_frame_t *f)
      * no room for any char (max==1 -> room only for the CR; max==0 is degenerate
      * -- the editor still reads to the CR but stores nothing). */
     uint8_t cap = (max >= 1u) ? (uint8_t)(max - 1u) : 0u;
-    uint8_t count = conin_cooked_line(&buf[2], cap);
+    int broke = 0;
+    uint8_t count = conin_cooked_line(&buf[2], cap, f, &broke);
+
+    /* ^C aborted the line (beads initech-4tw; DEC-16 Sec 3.3 Fork A): INT 23h has
+     * already fired. In the kernel int23's default action terminated and never
+     * returned here; if a (future, non-terminating) break handler DID return, the
+     * 0Ah buffer is left as-is and we do NOT lay out a CR/count for an aborted
+     * line. Return clean (CF clear). */
+    if (broke) {
+        cf_clear(f);
+        return;
+    }
 
     /* Store the CR after the chars if there is room (real DOS always stores it at
      * buf[2+count]); the CR is NOT counted in buf[1]. `count` is capped at max-1
@@ -2003,8 +2094,8 @@ static void do_read(int_frame_t *f)
          * Ground truth: Microsoft KB Q113058 -- typing "abc"+Enter into a 3Fh read
          * yields buffer "abc\r\n" and AX=5; the line is terminated by CR and the
          * CR/LF pair is returned to the caller as data. AUX/PRN have no driver
-         * (handled by the EOF fall-through below). Ctrl-C/INT 23h handling is NOT
-         * here (deferred: beads initech-4tw). */
+         * (handled by the EOF fall-through below). Ctrl-C routes to INT 23h via the
+         * shared editor's ^C check-point (beads initech-4tw; DEC-16 Sec 3.3). */
         if (e->dev_id == SFT_DEV_CON) {
             /* A zero-count read returns 0 bytes WITHOUT consuming a line of input
              * (the DOS zero-count contract) -- do not block the keyboard for a
@@ -2023,7 +2114,19 @@ static void do_read(int_frame_t *f)
             }
 
             uint8_t line[INT21_CON_LINE_MAX];
-            uint8_t n = conin_cooked_line(line, (uint8_t)INT21_CON_LINE_MAX);
+            int broke = 0;
+            uint8_t n = conin_cooked_line(line, (uint8_t)INT21_CON_LINE_MAX, f, &broke);
+
+            /* ^C aborted the line (beads initech-4tw; DEC-16 Sec 3.3): INT 23h has
+             * fired. In the kernel int23's default action terminated and never
+             * returned here. If a non-terminating break handler returned, the
+             * handle read yields EOF (0 bytes), CF clear -- no partial cooked line
+             * with a ^C buried in it. */
+            if (broke) {
+                f->eax = 0u;
+                cf_clear(f);
+                return;
+            }
 
             /* Emit the cooked line + CR + LF into the caller's buffer, capped at
              * `count` bytes. The returned EAX is the number actually copied

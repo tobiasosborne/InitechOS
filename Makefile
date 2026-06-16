@@ -142,15 +142,21 @@ STAGE2_SECTORS  := 16
 # (fileio_fat.o); the BOOT_SHELL loaded .bin crossed the 128-sector window
 # (65989 > 65536). 144*512 = 72 KiB: 0x10000 + 144*512 = 0x22000, still well
 # below PROGRAM_BASE (0x30000). IMG_MIN = 1+16+144 = 161 <= IMG_SECTORS=192.
+# Bumped 144 -> 160 for beads initech-4tw: the CON-input ^C check-point adds
+# conin_check_ctrlc (int21.o) + the int23_dispatch call sites in do_conin_echo /
+# do_conin_noecho / conin_cooked_line (+ the threaded frame/broke params); the
+# kernel_shell.bin crossed the 144-sector window by 9 bytes (73737 > 73728).
+# 160*512 = 80 KiB: 0x10000 + 160*512 = 0x24000, still well below PROGRAM_BASE
+# (0x30000). IMG_MIN = 1+16+160 = 177 <= IMG_SECTORS=192 (no IMG_SECTORS change).
 # MUST equal the stage2.asm KERNEL_SECTORS equate.
-KERNEL_SECTORS  := 144
-# Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=144) = 161 sectors.
+KERNEL_SECTORS  := 160
+# Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=160) = 177 sectors.
 # IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
 # harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
 # of 2-head x 32-sector cylinders. 128 (2 cyl) sufficed at KERNEL_SECTORS=96; at 112
-# the image grew past 129 to 192 (3 cyl, 96 KiB); KERNEL_SECTORS=144 (initech-qekc;
-# was 128 at u6wa) raises the raw image to 161 sectors, still within the 192-sector
-# (3 cyl) window (192 >= 161), so IMG_SECTORS stays 192. (160 -- a multiple of 32 but NOT 64 =
+# the image grew past 129 to 192 (3 cyl, 96 KiB); KERNEL_SECTORS=160 (initech-4tw;
+# was 144 at qekc) raises the raw image to 177 sectors, still within the 192-sector
+# (3 cyl) window (192 >= 177), so IMG_SECTORS stays 192. (160 -- a multiple of 32 but NOT 64 =
 # 2.5 cyl -- booted on QEMU but broke `make test-boot-bochs`; the guard below now
 # fails that class loud at build time, Rule 2 / Rule 5.) Deterministic (Rule 11).
 IMG_SECTORS     := 192
@@ -2488,6 +2494,10 @@ TEST_CONIN_MUT_WRAP   := $(BUILD)/test_conin_mutant_crwrap
 # x8fs (AH=3Fh on CON, cooked line read) mutant: the handle-0 read reverts to the
 # old EOF return (0 bytes) -> the new cooked-read cases go RED (Rule 6).
 TEST_CONIN_MUT_NOCOOKED := $(BUILD)/test_conin_mutant_nocooked
+# 4tw (CON-input ^C -> INT 23h check-point) mutant: drop the 0x03 check so it is
+# delivered as a raw char and INT 23h is never invoked -> the [4tw.*] cases go RED
+# (Rule 6; the M5 mutant of DEC-16 Sec 7.3).
+TEST_CONIN_MUT_NOCTRLC := $(BUILD)/test_conin_mutant_noctrlc
 # test_conin.c drives only the CON-input path, but int21.c (one TU) references
 # the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
@@ -2513,6 +2523,10 @@ $(TEST_CONIN_MUT_WRAP): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) 
 
 $(TEST_CONIN_MUT_NOCOOKED): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_CONHANDLE_NOCOOKED -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
+
+$(TEST_CONIN_MUT_NOCTRLC): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_NO_CTRLC_CHECK -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
 
 .PHONY: test-conin-unit test-conin-mutant
@@ -2562,6 +2576,31 @@ test-x8fs-mutant: $(TEST_CONIN_MUT_NOCOOKED)
 		exit 1; \
 	else \
 		printf '>>> test-x8fs-mutant: green (no-cooked mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# --- CON-input ^C (0x03) -> INT 23h check-point oracle (beads initech-4tw) ---
+# The CON character-input family (AH=01h/08h/0Ah) must detect Ctrl-C (0x03) and
+# invoke the INT 23h break vector instead of delivering it as an ordinary char;
+# AH=07h/06h (the DIRECT, no-Ctrl-C calls) deliver 0x03 raw. Under the ratified
+# Fork A (ADR-0003 Amendment DEC-16 Sec 3.3) the CON family is ALWAYS a check-
+# point -- whether BREAK is ON or OFF. test-4tw runs the SAME test_conin binary
+# (the [4tw.*] cases live there); test-4tw-mutant proves they bite by dropping
+# the ^C check (-DINT21_MUTATE_NO_CTRLC_CHECK -> 0x03 raw, INT 23h never invoked;
+# the M5 mutant of DEC-16 Sec 7.3). Ground truth: DOS 3.3 PRM AH=01h/07h/08h/0Ah;
+# DEC-16 Sec 3.3 (Fork A) + Sec 7.2.
+.PHONY: test-4tw test-4tw-mutant
+test-4tw: $(TEST_CONIN)
+	@printf ">>> test-4tw: CON-input ^C (0x03) on 01h/08h/0Ah -> INT 23h (Fork A; 07h/06h deliver raw)\n"
+	@$(TEST_CONIN)
+	@printf ">>> test-4tw: green\n"
+
+test-4tw-mutant: $(TEST_CONIN_MUT_NOCTRLC)
+	@printf ">>> test-4tw-mutant: confirming the no-Ctrl-C mutant goes RED (Rule 6)\n"
+	@if $(TEST_CONIN_MUT_NOCTRLC) >/dev/null 2>&1; then \
+		printf '!!! test-4tw-mutant FAIL: no-Ctrl-C mutant PASSED -- the CON ^C -> INT 23h oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-4tw-mutant: green (no-Ctrl-C mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 .PHONY: test-int21 test-int21-mutant test-conin-unit
@@ -9257,7 +9296,7 @@ TEST_UNIT_GATES := \
 	test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
-	test-80k test-80k-mutant test-x8fs test-x8fs-mutant \
+	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
 	test-mcb test-mcb-int21 \
@@ -9265,7 +9304,7 @@ TEST_UNIT_GATES := \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
-	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant test-er3h-mutant \
+	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \

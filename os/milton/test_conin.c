@@ -25,6 +25,11 @@
  *   -DINT21_MUTATE_CONHANDLE_NOCOOKED: AH=3Fh on a CON handle reverts to the old
  *                                      EOF return (0 bytes) -> the x8fs handle-0
  *                                      cooked-read cases go RED (beads initech-x8fs).
+ *   -DINT21_MUTATE_NO_CTRLC_CHECK    : the CON-input ^C check-point is dropped, so
+ *                                      0x03 is delivered as a raw char and INT 23h
+ *                                      is NEVER invoked -> the [4tw.*] ^C cases go
+ *                                      RED (beads initech-4tw; the M5 mutant of
+ *                                      DEC-16 Sec 7.3).
  */
 
 #include <stdint.h>
@@ -102,6 +107,24 @@ static const char *sink_str(void)
     return g_sink_buf;
 }
 
+/* True if the CON sink captured the grep-able INT 23h break marker. int23's
+ * default handler (int23_dispatch_body) emits "INT23-BREAK\n" to the CON sink
+ * BEFORE the terminate, so a CON-input ^C check-point that invoked INT 23h
+ * leaves this marker in the capture -- the observable signal that 0x03 routed
+ * to the break handler rather than being delivered as an ordinary char.
+ * Ref: os/milton/int21.c int23_dispatch_body; DEC-16 Sec 7.2 (4tw ^C oracle). */
+static int sink_saw_int23(void)
+{
+    g_sink_buf[g_sink_len] = '\0';
+    return strstr(g_sink_buf, "INT23-BREAK") != NULL;
+}
+
+/* The second, independent int23 witness: int23 routes to do_terminate, which
+ * calls the bound exit hook. We observe BOTH (sink marker + exit-hook fire) so a
+ * single mutated observable cannot mask a regression. */
+static int g_exit_called;
+static void exit_observe(uint8_t code) { (void)code; g_exit_called = 1; }
+
 /* --- The MOCK input source: a queued string ----------------------------- *
  * mock_get is the BLOCKING source -- it dequeues the next byte and ABORTS the
  * test (via TEST_FATAL) on underflow, so a wrong blocking call can never hang
@@ -159,6 +182,12 @@ int main(void)
 {
     int21_set_sink(sink_capture);
     int21_set_conin(mock_get, mock_poll);
+    /* Bind the terminate hook so int23's default handler (do_terminate -> g_exit)
+     * is observable in the [4tw.*] ^C cases without actually exiting the test
+     * process. With no hook bound do_terminate just returns (the host default);
+     * with it bound we get a second witness alongside the CON "INT23-BREAK"
+     * marker. Ref: os/milton/int21.c int23_dispatch_body / do_terminate. */
+    int21_set_exit(exit_observe);
     /* Bind a process so AH=3Fh on handle 0 resolves to the CON read device. */
     bind_standard_process();
 
@@ -497,6 +526,138 @@ int main(void)
               "AH=3Fh CON empty line: buffer = CR,LF");
         CHECK(buf[2] == 0xCCu, "AH=3Fh CON empty line: no write past the LF");
         CHECK_STR_EQ(sink_str(), "\r\n", "AH=3Fh CON empty line: echoes CRLF");
+    }
+
+    /* ===== [4tw.*] CON-input ^C (0x03) -> INT 23h check-point ================
+     * beads initech-4tw; ADR-0003 Amendment DEC-16 (OEA-ADR-0003-A4, RATIFIED
+     * 2026-06-15), Sec 3.3 Fork A + Sec 7.2.
+     *
+     * GROUND TRUTH (DEC-16 Sec 3.3 + DOS 3.3 PRM): under the ratified Fork A the
+     * CON character-input family is ALWAYS a ^C check-point -- whether the BREAK
+     * flag is ON or OFF (OFF = CON-I/O check-point ONLY; ON additionally widens to
+     * every INT 21h call, the C-6 forward obligation NOT in 4tw's scope). So when
+     * 0x03 is read by AH=01h / AH=08h / AH=0Ah it must route to the INT 23h vector
+     * (observable here: the "INT23-BREAK" CON marker + the terminate hook fires),
+     * NOT be delivered as an ordinary 0x03 char. AH=07h (DIRECT input, NO ^C) and
+     * AH=06h (DIRECT console I/O) are the documented EXCEPTIONS -- they deliver
+     * 0x03 raw (DOS 3.3 PRM AH=07h "no Ctrl-C"; int21.c:595).
+     *
+     * The INT21_MUTATE_NO_CTRLC_CHECK mutant drops the check (delivers 0x03 raw,
+     * never invokes INT 23h) -> every [4tw.*] check below goes RED (the M5 mutant
+     * of DEC-16 Sec 7.3). */
+
+    /* [4tw.1] AH=01h reads 0x03 -> INT 23h (NOT delivered as the char). ------ */
+    {
+        sink_reset();
+        g_exit_called = 0;
+        int21_set_break_flag(1u);       /* BREAK ON (CON is a check-point) */
+        queue_set("\x03", 1);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0100u;                /* AH=01h CHAR INPUT WITH ECHO */
+        int21_dispatch(&f);
+        CHECK(sink_saw_int23(),
+              "AH=01h ^C: 0x03 invokes the INT 23h break handler (INT23-BREAK marker)");
+        CHECK(g_exit_called == 1,
+              "AH=01h ^C: INT 23h default action ran the terminate hook");
+    }
+
+    /* [4tw.2] AH=08h reads 0x03 -> INT 23h. --------------------------------- */
+    {
+        sink_reset();
+        g_exit_called = 0;
+        int21_set_break_flag(1u);
+        queue_set("\x03", 1);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0800u;                /* AH=08h CHAR INPUT, no echo */
+        int21_dispatch(&f);
+        CHECK(sink_saw_int23(),
+              "AH=08h ^C: 0x03 invokes the INT 23h break handler");
+        CHECK(g_exit_called == 1, "AH=08h ^C: terminate hook ran");
+    }
+
+    /* [4tw.3] AH=0Ah (buffered, shared cooked editor) reads 0x03 -> INT 23h. - */
+    {
+        sink_reset();
+        g_exit_called = 0;
+        int21_set_break_flag(1u);
+        uint8_t *buf = alloc_low_buf(16);
+        memset(buf, 0xCC, 16);
+        buf[0] = 8u;
+        queue_set("\x03", 1);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0A00u;                /* AH=0Ah BUFFERED INPUT */
+        f.edx = (uint32_t)(uintptr_t)buf;
+        int21_dispatch(&f);
+        CHECK(sink_saw_int23(),
+              "AH=0Ah ^C: 0x03 in the cooked line editor invokes the INT 23h handler");
+        CHECK(g_exit_called == 1, "AH=0Ah ^C: terminate hook ran");
+    }
+
+    /* [4tw.4] FORK A: the CON ^C check-point fires with BREAK OFF too -- under
+     * Fork A the CON family is ALWAYS a check-point (OFF = CON-I/O check-point
+     * ONLY, still active). This pins the ratified semantics: 4tw's CON ^C is NOT
+     * gated OFF by BREAK=OFF. (Mutating the check off makes this RED as well.) -- */
+    {
+        sink_reset();
+        g_exit_called = 0;
+        int21_set_break_flag(0u);       /* BREAK OFF */
+        queue_set("\x03", 1);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0800u;                /* AH=08h */
+        int21_dispatch(&f);
+        CHECK(sink_saw_int23(),
+              "AH=08h ^C with BREAK OFF: CON is ALWAYS a check-point (Fork A) -> INT 23h");
+        CHECK(g_exit_called == 1, "AH=08h ^C BREAK OFF: terminate hook ran");
+        int21_set_break_flag(1u);       /* restore boot default ON */
+    }
+
+    /* [4tw.5] AH=07h is the documented EXCEPTION (DIRECT input, NO ^C): 0x03 is
+     * delivered RAW in AL, INT 23h is NOT invoked. This is the negative pin that
+     * proves the check is scoped to the ^C-checking CON calls, not blanket. ---- */
+    {
+        sink_reset();
+        g_exit_called = 0;
+        int21_set_break_flag(1u);       /* even ON, 07h never checks ^C */
+        queue_set("\x03", 1);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0700u;                /* AH=07h DIRECT CHAR INPUT, no echo, no ^C */
+        int21_dispatch(&f);
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0x03u,
+              "AH=07h ^C: 0x03 delivered RAW in AL (07h is the no-Ctrl-C call)");
+        CHECK(!sink_saw_int23(), "AH=07h ^C: INT 23h NOT invoked (no marker)");
+        CHECK(g_exit_called == 0, "AH=07h ^C: terminate hook did NOT run");
+    }
+
+    /* [4tw.6] AH=06h DIRECT CONSOLE I/O input is likewise NOT a ^C check-point:
+     * 0x03 arrives raw in AL with ZF=0. (DOS 3.3 PRM AH=06h direct console I/O.) */
+    {
+        sink_reset();
+        g_exit_called = 0;
+        int21_set_break_flag(1u);
+        queue_set("\x03", 1);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0600u;
+        f.edx = 0xFFu;                  /* DL=FF -> 06h input direction */
+        int21_dispatch(&f);
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0x03u,
+              "AH=06h ^C: 0x03 delivered RAW in AL (06h direct console I/O, no ^C)");
+        CHECK(!sink_saw_int23(), "AH=06h ^C: INT 23h NOT invoked");
+    }
+
+    /* [4tw.7] A NON-^C char on a ^C-checking call is unaffected: AH=01h reads a
+     * plain 'A' -> AL='A', echoed, no INT 23h. Guards against a check that fires
+     * on the wrong byte. -------------------------------------------------------- */
+    {
+        sink_reset();
+        g_exit_called = 0;
+        int21_set_break_flag(1u);
+        queue_set("A", 1);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x0100u;
+        int21_dispatch(&f);
+        CHECK((uint8_t)(f.eax & 0xFFu) == 'A', "AH=01h non-^C: 'A' delivered normally");
+        CHECK(!sink_saw_int23(), "AH=01h non-^C: INT 23h NOT invoked for an ordinary char");
+        CHECK(g_exit_called == 0, "AH=01h non-^C: terminate hook did NOT run");
     }
 
     /* --- NULL source: a blocking read returns 0 (EOF), never hangs/faults. */
