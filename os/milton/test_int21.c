@@ -1045,6 +1045,12 @@ int main(void)
         s.eflags |= CF_BIT;
         int21_dispatch(&s);
         CHECK(frame_cf(&s) == 0, "AH=33h/01 SET OFF clears CF");
+        /* DEC-16 3.2: SET writes NO output register. Here the flag becomes 0 but
+         * AL must stay the input 0x01 (the SET selector), NOT the flag -- the one
+         * case where 'AL unchanged' (0x01) differs from 'AL=flag' (0), so the M7
+         * SET-writes-AL mutant is caught RED here. */
+        CHECK((uint8_t)(s.eax & 0xFFu) == 0x01u,
+              "AH=33h/01 SET OFF writes NO output register -- AL still 01h, not the flag (DEC-16 3.2)");
 
         int_frame_t g = fresh_frame();
         g.eax = 0x3300u;          /* GET */
@@ -1065,8 +1071,9 @@ int main(void)
         s.edx = 0x00FFu;          /* DL=0xFF -> ON (normalized to 1) */
         int21_dispatch(&s);
         CHECK(frame_cf(&s) == 0, "AH=33h/01 SET DL=0xFF clears CF");
-        CHECK((uint8_t)(s.eax & 0xFFu) == 1u,
-              "AH=33h/01 SET DL=0xFF returns AL=1 (normalized, DEC-16 3.2)");
+        CHECK((uint8_t)(s.eax & 0xFFu) == 0x01u,
+              "AH=33h/01 SET writes NO output register -- AL still 01h (DEC-16 3.2: "
+              "SET changes only the flag + CF). (M7 -- SET writes AL -- goes RED.)");
 
         int_frame_t g = fresh_frame();
         g.eax = 0x3300u;          /* GET */
@@ -1089,8 +1096,8 @@ int main(void)
         s.eax = 0x3301u;          /* SET */
         s.edx = 0x0042u;          /* DL=0x42 -> ON */
         int21_dispatch(&s);
-        CHECK((uint8_t)(s.eax & 0xFFu) == 1u,
-              "AH=33h/01 SET DL=0x42 returns AL=1 (normalized)");
+        CHECK((uint8_t)(s.eax & 0xFFu) == 0x01u,
+              "AH=33h/01 SET DL=0x42 writes NO output register -- AL still 01h (DEC-16 3.2)");
 
         int_frame_t g = fresh_frame();
         g.eax = 0x3300u;          /* GET */

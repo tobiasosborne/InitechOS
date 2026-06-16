@@ -2354,6 +2354,7 @@ $(TEST_INT21_MUT_NOOP): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) 
 TEST_INT21_MUT_ER3H_NODISP   := $(BUILD)/test_int21_mutant_er3h_nodisp
 TEST_INT21_MUT_ER3H_DLRAW    := $(BUILD)/test_int21_mutant_er3h_dlraw
 TEST_INT21_MUT_ER3H_DEFOFF   := $(BUILD)/test_int21_mutant_er3h_defoff
+TEST_INT21_MUT_ER3H_SETAL    := $(BUILD)/test_int21_mutant_er3h_setal
 
 $(TEST_INT21_MUT_ER3H_NODISP): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BREAK_NO_DISPATCH -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -2365,6 +2366,10 @@ $(TEST_INT21_MUT_ER3H_DLRAW): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_
 
 $(TEST_INT21_MUT_ER3H_DEFOFF): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BREAK_DEFAULT_OFF -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_ER3H_SETAL): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BREAK_SET_WRITES_AL -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
 
 # AH=44h IOCTL AL=00 get-device-info mutants (beads initech-ro6c). Five compile-
@@ -2636,9 +2641,9 @@ test-er3h: $(TEST_INT21)
 	@$(TEST_INT21)
 	@printf ">>> test-er3h: green\n"
 
-# Mutation-proof: ALL THREE AH=33h mutants MUST fail the oracle (Rule 6 / DEC-16 7.3).
-test-er3h-mutant: $(TEST_INT21_MUT_ER3H_NODISP) $(TEST_INT21_MUT_ER3H_DLRAW) $(TEST_INT21_MUT_ER3H_DEFOFF)
-	@printf ">>> test-er3h-mutant: confirming all three AH=33h mutants go RED (Rule 6)\n"
+# Mutation-proof: ALL FOUR AH=33h mutants MUST fail the oracle (Rule 6 / DEC-16 7.3).
+test-er3h-mutant: $(TEST_INT21_MUT_ER3H_NODISP) $(TEST_INT21_MUT_ER3H_DLRAW) $(TEST_INT21_MUT_ER3H_DEFOFF) $(TEST_INT21_MUT_ER3H_SETAL)
+	@printf ">>> test-er3h-mutant: confirming all four AH=33h mutants go RED (Rule 6)\n"
 	@if $(TEST_INT21_MUT_ER3H_NODISP) >/dev/null 2>&1; then \
 		printf '!!! test-er3h-mutant FAIL: AH=33h-no-dispatch mutant PASSED -- the AH=33h GET/SET oracle is decoration\n'; \
 		exit 1; \
@@ -2656,6 +2661,12 @@ test-er3h-mutant: $(TEST_INT21_MUT_ER3H_NODISP) $(TEST_INT21_MUT_ER3H_DLRAW) $(T
 		exit 1; \
 	else \
 		printf '>>> test-er3h-mutant: green (default-OFF mutant correctly RED -- the boot-default oracle bites)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_ER3H_SETAL) >/dev/null 2>&1; then \
+		printf '!!! test-er3h-mutant FAIL: SET-writes-AL mutant PASSED -- the no-output-register (DEC-16 3.2) oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-er3h-mutant: green (SET-writes-AL mutant correctly RED -- the SET no-output-register contract bites)\n'; \
 	fi
 
 .PHONY: test-ro6c-mutant

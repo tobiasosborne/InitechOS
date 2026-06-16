@@ -3456,11 +3456,19 @@ static void do_break(int_frame_t *f)
          * 0xFF (not 1) -- the DL-normalization assertions [er3h.3]/[er3h.4] go
          * RED. NEVER in a real build (DEC-16 3.2 fixes normalize-on-write). */
         g_break_flag = dl;
-        set_al(f, dl);
 #else
         g_break_flag = (uint8_t)(dl != 0u ? 1u : 0u);   /* normalize (DEC-16 3.2) */
+#endif
+#if defined(INT21_MUTATE_BREAK_SET_WRITES_AL)
+        /* MUTANT M7 (Rule 6; make test-er3h-mutant only): wrongly write an OUTPUT
+         * register on SET. DEC-16 3.2 (lines 241-242): for AL=01h "no register
+         * other than the saved flag state changes" -- SET returns nothing in AL.
+         * Writing AL makes the [er3h.3]/[er3h.4] AL-unchanged assertions go RED.
+         * NEVER in a real build. */
         set_al(f, g_break_flag);
 #endif
+        /* DEC-16 3.2: SET updates ONLY the flag + clears CF; it writes NO output
+         * register (AL/DL are left exactly as the caller passed them). */
         cf_clear(f);
         return;
     }
