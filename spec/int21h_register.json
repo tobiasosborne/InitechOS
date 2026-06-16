@@ -18,6 +18,7 @@
     { "ah": "2Ah-2Dh", "mnemonic": "DATE / TIME", "description": "Get/set system date and time", "class": "Resident" },
     { "ah": "30h", "mnemonic": "GETVER", "description": "Get operating system version", "class": "Resident" },
     { "ah": "31h", "mnemonic": "KEEP (TSR)", "description": "Terminate and stay resident", "class": "Resident" },
+    { "ah": "33h", "mnemonic": "BREAK", "description": "Get/set CTRL-BREAK checking state", "class": "Resident" },
     { "ah": "36h", "mnemonic": "GETSPACE", "description": "Get free disk space", "class": "Core" },
     { "ah": "39h / 3Ah / 3Bh", "mnemonic": "MKDIR / RMDIR / CHDIR", "description": "Directory operations", "class": "Core" },
     { "ah": "3Ch", "mnemonic": "CREAT", "description": "Create or truncate file (handle)", "class": "Core" },

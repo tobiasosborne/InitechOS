@@ -64,6 +64,13 @@
       "notes": "Version 3.30 per ADR-0003 DEC-12 / spec/dos_banner.txt. EAX low word = 0x1E03."
     },
     {
+      "ah": "33h", "mnemonic": "BREAK",
+      "in": {"AL": "sub-function (00h GET / 01h SET; AL is the selector, NOT EDX-as-pointer)", "DL": "new BREAK flag on AL=01h SET (0=OFF, non-zero=ON)"},
+      "out": {"AL": "normalized flag (0/1) on AL=01h SET", "DL": "current BREAK flag (0=OFF, 1=ON) on AL=00h GET"},
+      "cf": "never set for AL=00h/01h; set on an out-of-scope AL (AX=0x0001 invalid function)",
+      "notes": "INT 21h Function 33h Get/Set CTRL-BREAK State. Admitted into the locked register by ADR-0003 Amendment DEC-16 (OEA-ADR-0003-A4, RATIFIED 2026-06-15), Sec 3.1/3.2; implemented under beads initech-er3h. AL=00h GET: DL = the system-wide g_break_flag (0/1), CF=0 (a pure state read, no failure mode). AL=01h SET: g_break_flag = (DL != 0) -- NORMALIZED, so DL=0xFF stores 1 and a later GET returns exactly 1 (never a raw byte; DEC-16 Sec 3.2 normalize-on-write); AL = the normalized value, CF=0. Register-role caution (DEC-16 Sec 3.2 anti-transposition): AL is the sub-selector and DL is the 1-byte value -- EDX is NOT a pointer here, unlike most DEC-04a functions. Out-of-scope AL (the DOS-5 sub-functions AL=02h/05h/06h/07h are post-3.3 and fenced off, or any AL not 00h/01h) -> CF=1, AX=0x0001 (invalid function) + serial diagnostic 'INT21 not-yet-impl AH=33 AL=NN' (DEC-16 Sec 3.2 error contract; Rule 2 fail-loud -- NEVER misread as get/set). Boot default ON (DEC-16 Sec 3.3, per the DOS 3.3 PRM; C-7 86Box-confirmation obligation). The flag is the SAME source of truth CONFIG.SYS BREAK= (sysinit_apply_config) and the BREAK shell built-in (command.c) write; 4tw's ^C check-point reads it. Ref: DOS 3.3 PRM Function 33h; RBIL INT 21h/AH=33h; ADR-0003 Amendment DEC-16."
+    },
+    {
       "ah": "40h", "mnemonic": "WRITE",
       "in": {"EBX": "handle", "ECX": "byte count", "EDX": "flat ptr to buffer"},
       "out": {"EAX": "bytes written on success"},

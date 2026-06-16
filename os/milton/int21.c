@@ -160,6 +160,40 @@ int dos_in_dos(void)
     return g_indos != 0u ? 1 : 0;
 }
 
+/* ---- the system-wide CTRL-BREAK flag (beads initech-er3h; ADR-0003 Amendment
+ * DEC-16, OEA-ADR-0003-A4, RATIFIED 2026-06-15) -----------------------------
+ * The single source of truth read by AH=33h AL=00h GET and written by AH=33h
+ * AL=01h SET, by CONFIG.SYS BREAK= at SYSINIT, and by the BREAK shell built-in.
+ * Boot default ON (1): DOS 3.3 defaults BREAK ON per the DOS 3.3 PRM (DEC-16
+ * Sec 3.3; C-7 86Box-confirmation obligation -- editorial-erratum flippable).
+ * 4tw's ^C check-point reads this via int21_get_break_flag (the CON-input
+ * functions are always a check-point under Fork A; the ON-widening to every
+ * INT 21h call is the C-6 forward obligation). This bead provides ONLY the flag
+ * + the seam; it adds NO ^C detection. */
+#if defined(INT21_MUTATE_BREAK_DEFAULT_OFF)
+/* MUTANT M6 (Rule 6; make test-er3h-mutant only): boot the flag OFF instead of
+ * ON, so the [er3h.1] boot-default GET assertion goes RED. NEVER in a real
+ * build -- DEC-16 Sec 3.3 fixes the default ON. */
+static uint8_t g_break_flag = 0u;
+#else
+static uint8_t g_break_flag = 1u;   /* DOS 3.3 boot default ON (DEC-16 3.3) */
+#endif
+
+/* SET the BREAK flag, NORMALIZING any non-zero to 1 (DEC-16 Sec 3.2 -- store the
+ * boolean, not the raw byte, so a later GET returns exactly 0 or 1). The public
+ * seam CONFIG.SYS SYSINIT and the BREAK built-in call. */
+void int21_set_break_flag(uint8_t on)
+{
+    g_break_flag = (uint8_t)(on != 0u ? 1u : 0u);
+}
+
+/* GET the current BREAK flag (0 = OFF, 1 = ON). AH=33h AL=00h and the BREAK
+ * built-in's bare-form report read this; 4tw's ^C check-point will too. */
+uint8_t int21_get_break_flag(void)
+{
+    return g_break_flag;
+}
+
 #ifdef INT21_IRQTEST_SEAM
 /* MUTANT-ONLY test seam (CLAUDE.md Rule 6; compiled ONLY into the mutant-A
  * irqstorm image via -DINT21_IRQTEST_SEAM). It lets the mutant PIT ISR
@@ -408,6 +442,7 @@ static int ah_is_listed(uint8_t ah)
         case 0x25: case 0x35:            /* SETVECT / GETVECT */
         case 0x30:                       /* GETVER */
         case 0x31:                       /* KEEP (TSR) */
+        case 0x33:                       /* BREAK (Get/Set CTRL-BREAK; DEC-16) */
         case 0x36:                       /* GETSPACE */
         case 0x39: case 0x3A: case 0x3B: /* MKDIR / RMDIR / CHDIR */
         case 0x3C:                       /* CREAT */
@@ -534,7 +569,15 @@ static int conin_poll_pb(void)
 
 /* AH=01h CHARACTER INPUT WITH ECHO: block for one char, echo it to CON, AL=char.
  * (Ctrl-C check deferred -- see header note.) CF is not part of this function's
- * contract; success leaves it clear. Ref: DOS 3.3 PRM AH=01h. */
+ * contract; success leaves it clear. Ref: DOS 3.3 PRM AH=01h.
+ *
+ * 4tw HOOK (beads initech-4tw; ADR-0003 Amendment DEC-16 Sec 3.3 Fork A): this
+ * is a CON-input ^C check-point. 4tw lands the 0x03 -> INT 23h detection HERE
+ * (and in do_conin_noecho / do_buffered_input), reading the BREAK state via
+ * int21_get_break_flag() (the seam this bead, initech-er3h, provides). Under
+ * Fork A the CON family is ALWAYS a check-point (BREAK ON or OFF); the
+ * ON-widening to every INT 21h call is the C-6 forward obligation. This bead
+ * adds NO ^C logic -- only the flag + the seam. */
 static void do_conin_echo(int_frame_t *f)
 {
     int c = conin_get_pb();
@@ -3275,6 +3318,59 @@ static void do_getvect(int_frame_t *f)
     cf_clear(f);                        /* DOS 35h never sets CF */
 }
 
+/* AH=33h GET/SET CTRL-BREAK STATE (beads initech-er3h; ADR-0003 Amendment
+ * DEC-16, OEA-ADR-0003-A4, RATIFIED 2026-06-15). AL selects the sub-function;
+ * DL carries the 1-byte flag value in/out. Register-role caution (DEC-16 Sec
+ * 3.2 anti-transposition): AL is the sub-selector and DL is the value -- EDX is
+ * NOT a pointer here, unlike most DEC-04a functions.
+ *
+ *   AL=00h GET: DL = current g_break_flag (0=OFF, 1=ON); CF=0. (DEC-16 3.2.)
+ *   AL=01h SET: g_break_flag = (DL != 0) -- NORMALIZED, so a later GET returns
+ *               exactly 0/1 (never a raw DL like 0xFF); AL = the normalized
+ *               value; CF=0. (DEC-16 3.2 DL-normalization-on-SET.)
+ *   AL=other  : out of scope (the DOS-5 AL=05h/06h/07h sub-functions are
+ *               post-3.3 and fenced off) -> CF=1, AX=0x0001 INVALID_FUNCTION +
+ *               a grep-able serial diagnostic; NEVER a silent no-op, NEVER
+ *               misread as get/set (DEC-16 3.2 error contract; Rule 2 fail-loud).
+ * AL=00h/01h never set CF (a pure state read/write, no failure mode). Ref:
+ * DOS 3.3 PRM Function 33h; RBIL INT 21h/AH=33h; spec/int21h_register.json (the
+ * AH=33h BREAK row) + spec/int21h_calling_convention.json (the AH=33h stanza). */
+static void do_break(int_frame_t *f)
+{
+    uint8_t al = frame_al(f);
+
+    if (al == 0x00u) {                  /* GET */
+        /* DL = current flag (0/1); preserve DH + the upper EDX (write only DL). */
+        f->edx = (f->edx & 0xFFFFFF00u) | (uint32_t)g_break_flag;
+        cf_clear(f);
+        return;
+    }
+    if (al == 0x01u) {                  /* SET */
+        uint8_t dl = frame_dl(f);
+#if defined(INT21_MUTATE_BREAK_DL_RAW)
+        /* MUTANT M2 (Rule 6; make test-er3h-mutant only): store DL VERBATIM
+         * instead of the normalized boolean, so SET(DL=0xFF) then GET returns
+         * 0xFF (not 1) -- the DL-normalization assertions [er3h.3]/[er3h.4] go
+         * RED. NEVER in a real build (DEC-16 3.2 fixes normalize-on-write). */
+        g_break_flag = dl;
+        set_al(f, dl);
+#else
+        g_break_flag = (uint8_t)(dl != 0u ? 1u : 0u);   /* normalize (DEC-16 3.2) */
+        set_al(f, g_break_flag);
+#endif
+        cf_clear(f);
+        return;
+    }
+
+    /* Out-of-scope AL (the DOS-5 sub-functions, or any AL not 00h/01h) -- fail
+     * loud (DEC-16 3.2 / Rule 2). Distinct, grep-able serial diagnostic. */
+    con_puts("INT21 not-yet-impl AH=33 AL=");
+    con_hex2(al);
+    con_putc('\n');
+    set_ax(f, INT21_ERR_INVALID_FUNCTION);
+    cf_set(f);
+}
+
 /* INT 20h legacy terminate (vector 0x20; beads initech-509.5). Routes to the
  * SAME terminate path as 4Ch with exit code 0 (ground-truth Sec 2.1 / Sec 4.4).
  * A program doing `int 0x20` (or a near RET to PSP:0 = the CD 20 there) lands
@@ -3426,6 +3522,19 @@ static void int21_dispatch_body(int_frame_t *frame)
         case 0x30:                       /* GET VERSION */
             do_getver(frame);
             return;
+        case 0x33:                       /* GET/SET CTRL-BREAK STATE (DEC-16) */
+#ifdef INT21_MUTATE_BREAK_NO_DISPATCH
+            /* MUTANT M1/M3 base (Rule 6; make test-er3h-mutant only): do NOT
+             * dispatch 0x33; fall through to the listed-but-not-yet-impl path
+             * (CF=1, AX=0x0001) so every AH=33h GET/SET oracle goes RED. The
+             * (void) ref keeps -Werror=unused-function quiet so the mutant still
+             * BUILDS + RUNS. NEVER in a real build. */
+            (void)do_break;
+            break;
+#else
+            do_break(frame);
+            return;
+#endif
         case 0x3C:                       /* CREAT (create/truncate file) */
             do_creat(frame);
             return;

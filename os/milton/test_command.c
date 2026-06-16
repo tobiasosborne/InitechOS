@@ -97,6 +97,7 @@ static void test_classify(void)
     CHECK(cmd_classify("CLS")   == CMD_CLS,      "classify CLS");
     CHECK(cmd_classify("VER")   == CMD_VER,      "classify VER");
     CHECK(cmd_classify("ECHO")  == CMD_ECHO,     "classify ECHO");
+    CHECK(cmd_classify("BREAK") == CMD_BREAK,    "classify BREAK (AH=33h; DEC-16)");
     CHECK(cmd_classify("EXIT")  == CMD_EXIT,     "classify EXIT");
     CHECK(cmd_classify("")      == CMD_EMPTY,    "classify empty -> CMD_EMPTY");
     /* The biting case (Rule 6 mutant target): an unknown word is EXTERNAL, NOT

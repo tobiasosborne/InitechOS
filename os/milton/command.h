@@ -51,6 +51,7 @@ typedef enum cmd_kind {
     CMD_CLS,         /* CLS        -- clear the screen                           */
     CMD_VER,         /* VER        -- print the InitechDOS version line          */
     CMD_ECHO,        /* ECHO <text>-- print the text                            */
+    CMD_BREAK,       /* BREAK [ON|OFF] -- report/set CTRL-BREAK state (AH=33h)   */
     CMD_EXIT,        /* EXIT       -- leave the REPL                             */
     CMD_EXTERNAL     /* not a built-in -- try to EXEC <word>.COM                 */
 } cmd_kind_t;

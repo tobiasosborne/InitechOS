@@ -67,6 +67,7 @@ cmd_kind_t cmd_classify(const char *upper_command)
         { "CLS",   CMD_CLS  },
         { "VER",   CMD_VER  },
         { "ECHO",  CMD_ECHO },
+        { "BREAK", CMD_BREAK },  /* BREAK [ON|OFF] -- CTRL-BREAK state (AH=33h; DEC-16) */
         { "EXIT",  CMD_EXIT },
     };
     for (unsigned i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
@@ -473,6 +474,35 @@ static void dos_getver(uint8_t *major, uint8_t *minor)
     *minor = (uint8_t)((ax >> 8) & 0xFFu);
 }
 
+/* AH=33h AL=00h GET CTRL-BREAK STATE (beads initech-er3h; ADR-0003 Amendment
+ * DEC-16). Returns the current BREAK flag in DL (0=OFF, 1=ON). The shell BREAK
+ * built-in dogfoots the OS API (a real `int $0x21`) exactly as VER dogfoots
+ * AH=30h, so a flag change anywhere (CONFIG.SYS, AH=33h SET) is reflected. */
+static uint8_t dos_get_break(void)
+{
+    uint32_t ax = 0x3300u;     /* AH=33h, AL=00h GET */
+    uint32_t dx = 0;
+    __asm__ __volatile__(
+        "int $0x21"
+        : "+a"(ax), "=d"(dx)
+        : "d"(0u)
+        : "cc", "memory");
+    return (uint8_t)(dx & 0xFFu);
+}
+
+/* AH=33h AL=01h SET CTRL-BREAK STATE (beads initech-er3h; DEC-16). DL = the new
+ * flag (the dispatcher NORMALIZES non-zero -> ON). Writes the SAME g_break_flag
+ * AH=33h GET / CONFIG.SYS BREAK= read. */
+static void dos_set_break(uint8_t on)
+{
+    uint32_t ax = 0x3301u;     /* AH=33h, AL=01h SET */
+    __asm__ __volatile__(
+        "int $0x21"
+        : "+a"(ax)
+        : "d"((uint32_t)on)
+        : "cc", "memory");
+}
+
 /* AH=39h MKDIR (CREATE DIRECTORY): EDX -> ASCIIZ path. Returns 0 on success, or
  * the DOS error code (CF set) -- e.g. 0x0005 ACCESS_DENIED (name exists /
  * non-root parent / no write backend), 0x0003 PATH_NOT_FOUND. The dispatcher's
@@ -781,6 +811,38 @@ static void builtin_echo(const char *arg)
     dos_print("\r\n$");
 }
 
+/* BREAK [ON|OFF] (beads initech-er3h; ADR-0003 Amendment DEC-16). With no arg,
+ * report the current CTRL-BREAK state ("BREAK is on" / "BREAK is off" -- the
+ * built-in's own string, DEC-16 Sec 3.3; not a controlled MSG-DOS-NNNN). With
+ * "ON"/"OFF" (case-insensitive), set it via AH=33h SET. Any other argument is a
+ * lenient no-op report of the unchanged state (period DOS does not abort on a
+ * bad BREAK argument). All I/O dogfoots INT 21h (AH=33h GET/SET + AH=09h). */
+static void builtin_break(const char *arg)
+{
+    char first[CMD_TOKEN_MAX];
+    int  n = cmd_first_token(arg, first);
+
+    if (n != 0) {
+        cmd_upcase_str(first);
+        /* A bare hand-rolled compare keeps this freestanding (no libc). */
+        if (first[0] == 'O' && first[1] == 'N' && first[2] == '\0') {
+            dos_set_break(1u);
+        } else if (first[0] == 'O' && first[1] == 'F' &&
+                   first[2] == 'F' && first[3] == '\0') {
+            dos_set_break(0u);
+        }
+        /* else: unrecognized arg -> fall through and just report the state. */
+    }
+
+    /* Report the (possibly just-changed) state, read back via AH=33h GET so the
+     * report reflects the live g_break_flag (DEC-16 single source of truth). */
+    if (dos_get_break() != 0u) {
+        dos_print("BREAK is on\r\n$");
+    } else {
+        dos_print("BREAK is off\r\n$");
+    }
+}
+
 /* External command: append .COM (if no extension), upcase, AH=4Bh EXEC. On a
  * not-found / load failure => the controlled "Bad command or file name". On a
  * clean run control simply returns to the prompt. */
@@ -899,6 +961,9 @@ void command_repl(void)
                 break;
             case CMD_ECHO:
                 builtin_echo(parsed.arg);
+                break;
+            case CMD_BREAK:
+                builtin_break(parsed.arg);
                 break;
             case CMD_EXIT:
                 /* Grep-able clean-exit marker. Plain '\n' (no CR) so the serial

@@ -159,6 +159,29 @@ int main(void)
         CHECK(cfg.lastdrive_present && cfg.lastdrive == 'Z', "CRLF: LASTDRIVE=Z parsed");
     }
 
+    /* ================= BREAK=ON|OFF (beads initech-er3h; DEC-16) ========== *
+     * The CTRL-BREAK directive SYSINIT flows into g_break_flag. ON/OFF are the
+     * only well-formed values (case-insensitive); a malformed value is ignored
+     * (lenient), leaving break_present == 0 so the boot default ON stands. */
+    {
+        dos_config_t on, off, lo, bad, none;
+        static const char s_on[]  = "BREAK=ON\n";
+        static const char s_off[] = "BREAK=OFF\n";
+        static const char s_lo[]  = "break=off\n";   /* case-insensitive keyword + value */
+        static const char s_bad[] = "BREAK=MAYBE\n";  /* malformed -> ignored (lenient) */
+        static const char s_none[]= "FILES=20\n";     /* no BREAK= line */
+        config_sys_parse(s_on,  (uint32_t)(sizeof(s_on)  - 1), &on);
+        config_sys_parse(s_off, (uint32_t)(sizeof(s_off) - 1), &off);
+        config_sys_parse(s_lo,  (uint32_t)(sizeof(s_lo)  - 1), &lo);
+        config_sys_parse(s_bad, (uint32_t)(sizeof(s_bad) - 1), &bad);
+        config_sys_parse(s_none,(uint32_t)(sizeof(s_none)- 1), &none);
+        CHECK(on.break_present && on.break_on == 1u, "BREAK=ON -> present + break_on==1");
+        CHECK(off.break_present && off.break_on == 0u, "BREAK=OFF -> present + break_on==0");
+        CHECK(lo.break_present && lo.break_on == 0u, "break=off (lowercase) -> present + break_on==0");
+        CHECK(!bad.break_present, "BREAK=MAYBE (malformed) -> NOT present (lenient, default stands)");
+        CHECK(!none.break_present, "no BREAK= line -> break_present==0 (boot default ON stands)");
+    }
+
     /* ================= empty / missing input ============================= */
     {
         dos_config_t cfg;

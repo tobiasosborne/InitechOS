@@ -269,6 +269,24 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
                 out->shell_present = 1u;
                 recognized++;
             }
+        } else if (cfg_kw_eq(kw, kw_len, "BREAK")) {
+            /* BREAK=ON|OFF (beads initech-er3h; ADR-0003 Amendment DEC-16). The
+             * value is the literal token ON or OFF (case-insensitive). SYSINIT
+             * flows break_present/break_on into the kernel g_break_flag via
+             * int21_set_break_flag (DEC-16 Sec 3.3 / C-4). PERIOD-CORRECT
+             * LENIENCY: a malformed value (e.g. BREAK=MAYBE) is NOT recognized
+             * -- break_present stays 0 so the boot default ON stands, exactly as
+             * DOS ignores a directive value it does not understand. */
+            if (cfg_kw_eq(val, v_len, "ON")) {
+                out->break_on = 1u;
+                out->break_present = 1u;
+                recognized++;
+            } else if (cfg_kw_eq(val, v_len, "OFF")) {
+                out->break_on = 0u;
+                out->break_present = 1u;
+                recognized++;
+            }
+            /* else: unrecognized BREAK= value -> ignored (lenient), not fatal. */
         } else {
             /* Unknown directive (keyword had no match) -> DOS ignores it. */
 #ifdef CONFIG_MUTATE_FAIL_ON_UNKNOWN

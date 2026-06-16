@@ -207,6 +207,13 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
 
     (void)config_sys_parse(src, src_len, &cfg);
 
+    /* APPLY the CTRL-BREAK directive (beads initech-er3h; ADR-0003 Amendment
+     * DEC-16 Sec 3.3 / C-4): BREAK=ON|OFF flows into the kernel g_break_flag via
+     * the public seam. Absent BREAK= keeps the boot default ON (the baseline has
+     * no BREAK= line, so the default stands). The flag is the SAME source of
+     * truth AH=33h GET/SET and the BREAK built-in read/write. */
+    int21_set_break_flag(cfg.break_present ? cfg.break_on : 1u);
+
     /* APPLY the one directive with teeth: FILES=N -> the runtime SFT cap. If
      * FILES= was absent (or the file was unparseable), fall back to the baseline
      * FILES=20 so the system always has a coherent cap. */
@@ -255,6 +262,14 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
         serial(ld);
         serial(" accepted(deferred)\n");
     }
+
+    /* BREAK= state APPLIED (beads initech-er3h; DEC-16). Unlike DEVICE/INSTALL/
+     * BUFFERS/LASTDRIVE this one has teeth -- it set g_break_flag above. Report
+     * the effective state (the parsed value, or the boot default ON if absent)
+     * so the boot log shows it was honored (Rule 2 -- not silently dropped). */
+    serial("SYSINIT: BREAK=");
+    serial((cfg.break_present ? cfg.break_on : 1u) ? "ON" : "OFF");
+    serial(cfg.break_present ? " applied\n" : " (default)\n");
 
     return applied_limit;
 }

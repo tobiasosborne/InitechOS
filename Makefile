@@ -2314,9 +2314,13 @@ TEST_INT21_MUT_NOOP   := $(BUILD)/test_int21_mutant_noop
 # int21.c now routes handle functions through the SFT (initech-509.3), so the
 # host oracle links sft.c + psp.c too and needs -Ispec (sft.h -> psp.h ->
 # dos_structs.h). The standard JFT/SFT is bound in test_int21.c's main().
-TEST_INT21_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+# config_sys.c is linked too (beads initech-er3h): the AH=33h oracle parses a
+# CONFIG.SYS BREAK= snippet via the REAL config_sys_parse and flows it into
+# g_break_flag (DEC-16 7.1 step 5). config_sys.c is pure (no I/O), so the host
+# link is clean -- the SAME TU the kernel SYSINIT runs.
+TEST_INT21_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C) $(KERNEL_CONFIG_SYS_C)
 TEST_INT21_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
-                   $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
+                   $(MILTON_DIR)/psp.h $(MILTON_DIR)/config_sys.h spec/dos_structs.h $(DOS_MESSAGES_H)
 
 $(TEST_INT21): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -2328,6 +2332,33 @@ $(TEST_INT21_MUT_DOLLAR): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS
 
 $(TEST_INT21_MUT_NOOP): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_UNLISTED_NOOP -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+# --- AH=33h GET/SET CTRL-BREAK mutants (beads initech-er3h; DEC-16) ----------
+# Three single-branch/constant perturbations of do_break / its dispatch + the
+# boot default; each MUST drive the new AH=33h assertions RED (Rule 6). A mutant
+# that PASSES means the BREAK oracle is decoration. (DEC-16 Sec 7.3 mutation plan
+# M1/M2/M3/M6 -- M4/M5 belong to the CONFIG flow / the 4tw ^C check-point.)
+#   (a) NO_DISPATCH  : drop the 0x33 case -> AH=33h falls to not-yet-impl
+#                      (CF=1/AX=0x0001) -> the GET/SET assertions all RED.
+#   (b) DL_RAW       : SET stores DL verbatim (no != 0 normalization) -> the
+#                      DL=0x42/0xFF -> 1 round-trip assertions RED (M2).
+#   (c) DEFAULT_OFF  : g_break_flag boots OFF instead of ON -> the boot-default
+#                      GET assertion RED (M6).
+TEST_INT21_MUT_ER3H_NODISP   := $(BUILD)/test_int21_mutant_er3h_nodisp
+TEST_INT21_MUT_ER3H_DLRAW    := $(BUILD)/test_int21_mutant_er3h_dlraw
+TEST_INT21_MUT_ER3H_DEFOFF   := $(BUILD)/test_int21_mutant_er3h_defoff
+
+$(TEST_INT21_MUT_ER3H_NODISP): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BREAK_NO_DISPATCH -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_ER3H_DLRAW): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BREAK_DL_RAW -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
+
+$(TEST_INT21_MUT_ER3H_DEFOFF): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_BREAK_DEFAULT_OFF -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_INT21_SRC) $(TEST_INT21_DEPS)
 
 # AH=44h IOCTL AL=00 get-device-info mutants (beads initech-ro6c). Five compile-
@@ -2553,6 +2584,39 @@ test-int21-mutant: $(TEST_INT21_MUT_DOLLAR) $(TEST_INT21_MUT_NOOP)
 		exit 1; \
 	else \
 		printf '>>> test-int21-mutant: green (unlisted-AH-noop mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# --- AH=33h GET/SET CTRL-BREAK + CONFIG BREAK= + BREAK built-in (initech-er3h)
+# The AH=33h round-trip oracle (DEC-16 Sec 7.1) lives in the SAME test_int21
+# binary (the [er3h.*] cases); test-er3h runs it under the BREAK name so the gate
+# vector names the bead. test-er3h-mutant proves the AH=33h oracle BITES via the
+# three DEC-16 Sec 7.3 mutants (drop the dispatch / store DL raw / boot OFF).
+.PHONY: test-er3h test-er3h-mutant
+test-er3h: $(TEST_INT21)
+	@printf ">>> test-er3h: AH=33h GET/SET CTRL-BREAK (DL normalize, out-of-scope AL, boot default ON) + CONFIG BREAK= flow (DEC-16)\n"
+	@$(TEST_INT21)
+	@printf ">>> test-er3h: green\n"
+
+# Mutation-proof: ALL THREE AH=33h mutants MUST fail the oracle (Rule 6 / DEC-16 7.3).
+test-er3h-mutant: $(TEST_INT21_MUT_ER3H_NODISP) $(TEST_INT21_MUT_ER3H_DLRAW) $(TEST_INT21_MUT_ER3H_DEFOFF)
+	@printf ">>> test-er3h-mutant: confirming all three AH=33h mutants go RED (Rule 6)\n"
+	@if $(TEST_INT21_MUT_ER3H_NODISP) >/dev/null 2>&1; then \
+		printf '!!! test-er3h-mutant FAIL: AH=33h-no-dispatch mutant PASSED -- the AH=33h GET/SET oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-er3h-mutant: green (AH=33h-no-dispatch mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_ER3H_DLRAW) >/dev/null 2>&1; then \
+		printf '!!! test-er3h-mutant FAIL: DL-raw mutant PASSED -- the DL-normalization (DEC-16 3.2) oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-er3h-mutant: green (DL-raw mutant correctly RED -- the normalize-on-SET oracle bites)\n'; \
+	fi
+	@if $(TEST_INT21_MUT_ER3H_DEFOFF) >/dev/null 2>&1; then \
+		printf '!!! test-er3h-mutant FAIL: default-OFF mutant PASSED -- the boot-default-ON (DEC-16 3.3) oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-er3h-mutant: green (default-OFF mutant correctly RED -- the boot-default oracle bites)\n'; \
 	fi
 
 .PHONY: test-ro6c-mutant
@@ -8896,8 +8960,11 @@ ok={'Core','Legacy','Resident'}; \
 [ (_ for _ in ()).throw(AssertionError('row %d missing/empty field or bad class: %r'%(i,r))) \
   for i,r in enumerate(fns) \
   if not (all(r.get(k) for k in ('ah','mnemonic','description')) and r.get('class') in ok) ]; \
-print('    parsed %d functions; all have ah/mnemonic/description and valid class'%len(fns))" \
-		|| { printf '!!! test-spec FAIL: %s invalid (parse/shape/class)\n' "$(SPEC_INT21H)"; exit 1; }
+brk=[r for r in fns if r.get('ah')=='33h']; \
+assert len(brk)==1, 'AH=33h BREAK row missing or duplicated (ADR-0003 Amendment DEC-16 admission); got %d'%len(brk); \
+assert brk[0]['mnemonic']=='BREAK' and brk[0]['class']=='Resident' and 'CTRL-BREAK' in brk[0]['description'], 'AH=33h row drifted from the DEC-16 contract (BREAK / Resident / Get-set CTRL-BREAK): %r'%brk[0]; \
+print('    parsed %d functions; all have ah/mnemonic/description and valid class; AH=33h BREAK (Resident) present (DEC-16)'%len(fns))" \
+		|| { printf '!!! test-spec FAIL: %s invalid (parse/shape/class) OR the DEC-16 AH=33h BREAK row drifted\n' "$(SPEC_INT21H)"; exit 1; }
 	@printf '>>> test-spec [2/6]: INT 21h calling-convention JSON (beads initech-509.5 / initech-1f9)\n'
 	@python3 -c "import json,re; \
 cc=json.load(open('$(SPEC_INT21H_CC)')); \
@@ -9191,14 +9258,14 @@ TEST_UNIT_GATES := \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant \
-	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-int24 \
+	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
-	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant \
+	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \

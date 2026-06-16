@@ -598,6 +598,21 @@ int crit_error_action(int ch);
  * Exposed (non-static) only so the host oracle can seed/inspect it. */
 void int21_note_error(uint16_t code);
 
+/* ---- AH=33h GET/SET CTRL-BREAK state seam (beads initech-er3h; ADR-0003
+ * Amendment DEC-16, OEA-ADR-0003-A4, RATIFIED 2026-06-15) -------------------
+ * The system-wide BREAK flag governs how often DOS polls for Ctrl-Break (the
+ * 4tw ^C check-point reads it; this bead provides the flag + the seam, NOT the
+ * ^C detection). One source of truth (g_break_flag in int21.c), written by:
+ *   - AH=33h AL=01h SET (the dispatcher; normalized g_break_flag = (DL != 0)),
+ *   - CONFIG.SYS BREAK=ON|OFF at SYSINIT (sysinit_apply_config),
+ *   - the BREAK ON|OFF shell built-in (command.c),
+ * and read by AH=33h AL=00h GET. Boot default ON (DEC-16 Sec 3.3, per the DOS
+ * 3.3 PRM; C-7 86Box-confirmation obligation). int21_set_break_flag NORMALIZES
+ * its argument (any non-zero -> 1) so a GET always returns exactly 0 or 1.
+ * Ref (Law 1): DEC-16 Sec 3.2 (register contract) + Sec 3.3 (state/default). */
+void    int21_set_break_flag(uint8_t on);   /* SET (normalizes non-zero -> 1)  */
+uint8_t int21_get_break_flag(void);         /* GET current flag (0 or 1)       */
+
 /* The InDOS depth predicate (beads initech-xk2). Returns 1 while one or more
  * INT 21h calls are in flight (g_indos != 0), else 0. This is the period-
  * authentic DOS InDOS-flag contract: a future ISR/TSR/driver MUST poll

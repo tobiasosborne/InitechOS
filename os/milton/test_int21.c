@@ -41,6 +41,7 @@
 #include "int21.h"
 #include "sft.h"    /* JFT->SFT handle layer (initech-509.3): AH=40h/45h/46h */
 #include "psp.h"    /* psp_build -> the standard JFT bound for the write tests */
+#include "config_sys.h" /* AH=33h CONFIG BREAK= -> g_break_flag flow (initech-er3h) */
 #include "test_assert.h"
 
 TEST_HARNESS();
@@ -1006,6 +1007,192 @@ int main(void)
         CHECK(frame_cf(&dev) == 1 &&
               (uint16_t)(dev.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
               "AH=57h GET on CON device handle -> CF=1, AX=0x0001");
+    }
+
+    /* ======================================================================
+     * AH=33h GET/SET CTRL-BREAK STATE (beads initech-er3h; ADR-0003 Amendment
+     * DEC-16, OEA-ADR-0003-A4, RATIFIED 2026-06-15). The shared BREAK flag DOS
+     * reads via AL=00h and writes via AL=01h, plus the CONFIG.SYS BREAK= and the
+     * BREAK shell built-in that set the SAME g_break_flag.
+     *
+     * Ref (Law 1): DEC-16 Sec 3.2 (the register contract: AL=00h GET -> DL=0/1
+     *   CF=0; AL=01h SET <- DL, g_break_flag = (DL != 0), CF=0; out-of-scope AL
+     *   -> CF=1, AX=0x0001 invalid function), Sec 3.3 (boot default ON per the
+     *   DOS 3.3 PRM; the DL-normalization round-trip), Sec 7.1 (the round-trip
+     *   oracle this block transcribes step-for-step). NO QEMU -- pure flag logic.
+     * ==================================================================== */
+
+    /* [er3h.1] GET initial (AL=00h): the boot default is ON, so DL == 1, CF=0.
+     * DEC-16 Sec 3.3 / Sec 7.1 step 1. (M6 mutant -- default flipped OFF -- and
+     * M1 -- GET hard-codes a value -- both go RED here / in [er3h.2].) */
+    {
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3300u;          /* AH=33h, AL=00h GET */
+        f.edx = 0xFF00u;          /* poison DL so we prove it is written */
+        f.eflags |= CF_BIT;       /* preload CF=1 so we prove it is CLEARED */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 0, "AH=33h/00 GET clears CF");
+        CHECK((uint8_t)(f.edx & 0xFFu) == 1u,
+              "AH=33h/00 GET returns DL=1 at the boot default (ON; DEC-16 3.3)");
+    }
+
+    /* [er3h.2] SET OFF (AL=01h, DL=0) then GET -> DL==0. DEC-16 Sec 7.1 step 2.
+     * (M1 -- GET returns a hard-coded 1 -- goes RED on the GET assertion.) */
+    {
+        int_frame_t s = fresh_frame();
+        s.eax = 0x3301u;          /* AH=33h, AL=01h SET */
+        s.edx = 0x0000u;          /* DL=0 -> OFF */
+        s.eflags |= CF_BIT;
+        int21_dispatch(&s);
+        CHECK(frame_cf(&s) == 0, "AH=33h/01 SET OFF clears CF");
+
+        int_frame_t g = fresh_frame();
+        g.eax = 0x3300u;          /* GET */
+        g.edx = 0xFF00u;          /* poison DL */
+        int21_dispatch(&g);
+        CHECK(frame_cf(&g) == 0, "AH=33h/00 GET-after-SET-OFF clears CF");
+        CHECK((uint8_t)(g.edx & 0xFFu) == 0u,
+              "AH=33h GET after SET DL=0 returns DL=0 (OFF)");
+    }
+
+    /* [er3h.3] SET via DL=0xFF (a non-1 truthy value) then GET -> DL==1, NOT
+     * 0xFF: proves the DL-normalization (g_break_flag = (DL != 0)) of DEC-16
+     * Sec 3.2, not a verbatim store. DEC-16 Sec 7.1 step 3. (M2 -- SET stores DL
+     * verbatim -- goes RED: GET would return 0xFF.) */
+    {
+        int_frame_t s = fresh_frame();
+        s.eax = 0x3301u;          /* SET */
+        s.edx = 0x00FFu;          /* DL=0xFF -> ON (normalized to 1) */
+        int21_dispatch(&s);
+        CHECK(frame_cf(&s) == 0, "AH=33h/01 SET DL=0xFF clears CF");
+        CHECK((uint8_t)(s.eax & 0xFFu) == 1u,
+              "AH=33h/01 SET DL=0xFF returns AL=1 (normalized, DEC-16 3.2)");
+
+        int_frame_t g = fresh_frame();
+        g.eax = 0x3300u;          /* GET */
+        g.edx = 0xFF00u;          /* poison DL */
+        int21_dispatch(&g);
+        CHECK((uint8_t)(g.edx & 0xFFu) == 1u,
+              "AH=33h GET after SET DL=0xFF returns DL=1, NOT 0xFF (normalized)");
+    }
+
+    /* [er3h.4] SET via DL=0x42 (another non-1 truthy value) -> ON; GET -> DL==1.
+     * Two distinct non-{0,1} inputs (0xFF, 0x42) both normalize to 1, so the
+     * mutant that stores DL raw cannot pass by luck. */
+    {
+        /* Start from OFF so we observe a real transition to ON. */
+        int_frame_t off = fresh_frame();
+        off.eax = 0x3301u; off.edx = 0x0000u;
+        int21_dispatch(&off);
+
+        int_frame_t s = fresh_frame();
+        s.eax = 0x3301u;          /* SET */
+        s.edx = 0x0042u;          /* DL=0x42 -> ON */
+        int21_dispatch(&s);
+        CHECK((uint8_t)(s.eax & 0xFFu) == 1u,
+              "AH=33h/01 SET DL=0x42 returns AL=1 (normalized)");
+
+        int_frame_t g = fresh_frame();
+        g.eax = 0x3300u;          /* GET */
+        g.edx = 0xFF00u;
+        int21_dispatch(&g);
+        CHECK((uint8_t)(g.edx & 0xFFu) == 1u,
+              "AH=33h GET after SET DL=0x42 returns DL=1 (ON)");
+    }
+
+    /* [er3h.5] Out-of-scope AL (AL=05h, a DOS-5 sub-function) -> CF=1,
+     * AX=0x0001 (invalid function), and the flag is UNCHANGED. DEC-16 Sec 3.2
+     * (error contract: the DOS-5 sub-functions are fenced off, fail loud, NOT
+     * misread as get/set) / Sec 7.1 step 4. (M3 -- out-of-scope AL falls through
+     * to "treat as get" -- goes RED: no CF, no error.) */
+    {
+        /* Pin a known state (ON) so we can prove the bad AL did NOT mutate it. */
+        int_frame_t on = fresh_frame();
+        on.eax = 0x3301u; on.edx = 0x0001u;
+        int21_dispatch(&on);
+
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3305u;          /* AH=33h, AL=05h (out of scope) */
+        f.edx = 0x0000u;          /* would mean "OFF" if misread as a SET */
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) == 1, "AH=33h AL=05h (out-of-scope) sets CF");
+        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
+              "AH=33h AL=05h returns AX=0x0001 (invalid function; DEC-16 3.2)");
+
+        int_frame_t g = fresh_frame();
+        g.eax = 0x3300u;          /* GET -- prove the bad AL left the flag ON */
+        g.edx = 0xFF00u;
+        int21_dispatch(&g);
+        CHECK((uint8_t)(g.edx & 0xFFu) == 1u,
+              "AH=33h out-of-scope AL did NOT mutate the flag (still ON)");
+    }
+
+    /* [er3h.6] The public seam int21_set_break_flag() -- what CONFIG.SYS SYSINIT
+     * and the BREAK built-in call -- writes the SAME g_break_flag AH=33h GET
+     * reports. DEC-16 Sec 3.3 (single source of truth). It also normalizes
+     * (any non-zero -> 1). */
+    {
+        int21_set_break_flag(0u);
+        int_frame_t g0 = fresh_frame();
+        g0.eax = 0x3300u; g0.edx = 0xFF00u;
+        int21_dispatch(&g0);
+        CHECK((uint8_t)(g0.edx & 0xFFu) == 0u,
+              "int21_set_break_flag(0) -> AH=33h GET reports DL=0 (OFF)");
+
+        int21_set_break_flag(0x7Fu);   /* non-zero, non-1 -> normalized to 1 */
+        int_frame_t g1 = fresh_frame();
+        g1.eax = 0x3300u; g1.edx = 0xFF00u;
+        int21_dispatch(&g1);
+        CHECK((uint8_t)(g1.edx & 0xFFu) == 1u,
+              "int21_set_break_flag(0x7F) -> AH=33h GET reports DL=1 (ON, normalized)");
+    }
+
+    /* [er3h.7] CONFIG.SYS BREAK= flows to the flag. Parse a CONFIG.SYS snippet
+     * via the REAL config_sys_parse, then apply the directive exactly as SYSINIT
+     * does -- int21_set_break_flag(cfg.break_present ? cfg.break_on : 1) -- and
+     * confirm AH=33h GET reports the parsed state. DEC-16 Sec 7.1 step 5 / C-4.
+     * (M4 -- CONFIG writes a different/local flag -- goes RED: GET unchanged.) */
+    {
+        /* BREAK=OFF -> the flag goes OFF. */
+        static const char src_off[] = "FILES=20\nBREAK=OFF\n";
+        dos_config_t cfg;
+        (void)config_sys_parse(src_off, (uint32_t)(sizeof(src_off) - 1u), &cfg);
+        CHECK(cfg.break_present, "CONFIG BREAK=OFF -> break_present set");
+        CHECK(cfg.break_on == 0u, "CONFIG BREAK=OFF -> break_on == 0");
+        int21_set_break_flag(cfg.break_present ? cfg.break_on : 1u);
+        int_frame_t g = fresh_frame();
+        g.eax = 0x3300u; g.edx = 0xFF00u;
+        int21_dispatch(&g);
+        CHECK((uint8_t)(g.edx & 0xFFu) == 0u,
+              "CONFIG BREAK=OFF flows to g_break_flag -> AH=33h GET DL=0");
+    }
+    {
+        /* BREAK=ON -> the flag goes ON. */
+        static const char src_on[] = "BREAK=ON\n";
+        dos_config_t cfg;
+        (void)config_sys_parse(src_on, (uint32_t)(sizeof(src_on) - 1u), &cfg);
+        CHECK(cfg.break_present && cfg.break_on == 1u,
+              "CONFIG BREAK=ON -> break_present + break_on == 1");
+        int21_set_break_flag(cfg.break_present ? cfg.break_on : 1u);
+        int_frame_t g = fresh_frame();
+        g.eax = 0x3300u; g.edx = 0xFF00u;
+        int21_dispatch(&g);
+        CHECK((uint8_t)(g.edx & 0xFFu) == 1u,
+              "CONFIG BREAK=ON flows to g_break_flag -> AH=33h GET DL=1");
+    }
+    {
+        /* No BREAK= line -> break_present == 0 -> SYSINIT keeps the boot default
+         * ON (cfg.break_present ? cfg.break_on : 1). */
+        static const char src_none[] = "FILES=20\nBUFFERS=20\n";
+        dos_config_t cfg;
+        (void)config_sys_parse(src_none, (uint32_t)(sizeof(src_none) - 1u), &cfg);
+        CHECK(!cfg.break_present, "no BREAK= line -> break_present == 0");
+        int21_set_break_flag(cfg.break_present ? cfg.break_on : 1u);
+        int_frame_t g = fresh_frame();
+        g.eax = 0x3300u; g.edx = 0xFF00u;
+        int21_dispatch(&g);
+        CHECK((uint8_t)(g.edx & 0xFFu) == 1u,
+              "absent BREAK= -> SYSINIT default ON -> AH=33h GET DL=1");
     }
 
     return TEST_SUMMARY("test_int21");

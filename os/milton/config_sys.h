@@ -65,6 +65,15 @@ typedef struct dos_config {
 
     char     shell[CONFIG_SYS_SHELL_MAX]; /* SHELL= full tail, e.g. "COMMAND.COM /P /E:512" */
     uint8_t  shell_present;
+
+    /* BREAK=ON|OFF (beads initech-er3h; ADR-0003 Amendment DEC-16). The CTRL-
+     * BREAK checking state SYSINIT flows into the kernel g_break_flag via
+     * int21_set_break_flag(break_present ? break_on : 1) -- absent BREAK= keeps
+     * the boot default ON (DEC-16 Sec 3.3 / C-4). break_on is the normalized
+     * boolean (1 = ON, 0 = OFF). Lenient: a malformed BREAK= value leaves
+     * break_present == 0 (DOS-faithful leniency; the boot default stands). */
+    uint8_t  break_on;         /* parsed BREAK= state (1=ON, 0=OFF); 0 if absent */
+    uint8_t  break_present;    /* 1 iff a well-formed BREAK=ON|OFF line was seen  */
 } dos_config_t;
 
 /* Parse a CONFIG.SYS text buffer (`buf`, `len` bytes; need not be NUL-terminated)
