@@ -659,14 +659,22 @@ TEST_NDX_PARSE_MUT  := $(BUILD)/test_ndx_parse_mut
 # S4.2 .ndx key decode + collation (initech-ahu.2); ndx.c now links value.c.
 TEST_NDX_KEYS       := $(BUILD)/test_ndx_keys
 TEST_NDX_KEYS_MUT   := $(BUILD)/test_ndx_keys_mut
-# S2.1 .dbt III+ memo read (initech-aul.6).
+# S4.3 .ndx B-tree search/traverse/SEEK (initech-ahu.3).
+TEST_NDX_SEEK       := $(BUILD)/test_ndx_seek
+TEST_NDX_SEEK_MUT   := $(BUILD)/test_ndx_seek_mut
+# S2.1 .dbt III+ memo read (initech-aul.6); S2.2 write/round-trip (initech-aul.7).
 SAMIR_DBT_SRC     := $(SAMIR_DIR)/fs/dbt.c
 TEST_DBT_READ       := $(BUILD)/test_dbt_read
 TEST_DBT_READ_MUT   := $(BUILD)/test_dbt_read_mut
+TEST_DBT_ROUNDTRIP     := $(BUILD)/test_dbt_roundtrip
+TEST_DBT_ROUNDTRIP_MUT := $(BUILD)/test_dbt_roundtrip_mut
 # S3.5 xBase built-in functions A (initech-7az.1); eval.c now links fn_builtins.c.
+# S3.6a freestanding numeric/date functions (initech-7az.11) share fn_builtins.c.
 SAMIR_FN_SRC      := $(SAMIR_DIR)/core/fn_builtins.c
 TEST_XBASE_FN_A     := $(BUILD)/test_xbase_fn_a
 TEST_XBASE_FN_A_MUT := $(BUILD)/test_xbase_fn_a_mut
+TEST_XBASE_FN_B     := $(BUILD)/test_xbase_fn_b
+TEST_XBASE_FN_B_MUT := $(BUILD)/test_xbase_fn_b_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1536,6 +1544,36 @@ test-ndx-keys-mutant: $(TEST_NDX_KEYS_MUT)
 		printf '>>> test-ndx-keys-mutant: green (sign-flip correctly RED)\n'; \
 	fi
 
+# ---- SAMIR Phase-4 index: B-tree search/traverse/SEEK (S4.3 / initech-ahu.3) ----
+# ndx_inorder (ascending key-order enumerate) + ndx_seek (descend to first key >=
+# target via ndx_key_cmp; rightmost/trailing child for keys past all separators --
+# ndx.md ss5 "separator = HIGH key of subtree"; SET EXACT begins-with per mint-002).
+# Bounded by total_pages -> fail-loud NDX_ERR_CYCLE. Mutant: wrong-child descent
+# (entries[i+1] child) -> in-order/brute-force/SEEK recno diverge -> RED.
+$(TEST_NDX_SEEK): $(DBF_DIFF_DIR)/test_ndx_seek.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_seek.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_NDX_SEEK_MUT): $(DBF_DIFF_DIR)/test_ndx_seek.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_SEEK_CHILD -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_seek.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-ndx-seek
+test-ndx-seek: $(TEST_NDX_SEEK)
+	@printf ">>> test-ndx-seek: .ndx B-tree in-order traverse + SEEK (first key >= target, rightmost child; SET EXACT begins-with) (S4.3)\n"
+	@$(TEST_NDX_SEEK) $(DBASE3_DECOMP)
+	@printf ">>> test-ndx-seek: green\n"
+
+.PHONY: test-ndx-seek-mutant
+test-ndx-seek-mutant: $(TEST_NDX_SEEK_MUT)
+	@printf ">>> test-ndx-seek-mutant: wrong-child descent (off-by-one) must go RED (Rule 6; initech-ahu.3)\n"
+	@$(TEST_NDX_SEEK_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-ndx-seek-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_NDX_SEEK_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-ndx-seek-mutant FAIL: mutant PASSED -- the B-tree descent is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ndx-seek-mutant: green (wrong-child descent correctly RED)\n'; \
+	fi
+
 # ---- SAMIR Phase-2 memo: .dbt III+ memo READ (S2.1 / initech-aul.6) ----
 # dbt_open + dbt_read: 512-byte blocks, LE block-0 next-free ptr, 0x1A 0x1A
 # terminator (tolerate single trailing 0x1A), 10-byte ASCII M pointer. READ-only;
@@ -1565,6 +1603,35 @@ test-dbt-read-mutant: $(TEST_DBT_READ_MUT)
 		printf '>>> test-dbt-read-mutant: green (511-byte block geometry correctly RED)\n'; \
 	fi
 
+# ---- SAMIR Phase-2 memo: .dbt III+ write/append + round-trip (S2.2 / initech-aul.7) ----
+# dbt_create/dbt_append (text + 0x1A 0x1A + 0x00 pad; ceil((len+2)/512) blocks; LE
+# block-0 next-free write-back) + dbt_flush. Deterministic write (Rule 11). Bidir
+# round-trip: write -> read back (S2.1) -> normalized cmp. Mutant: BE next-free ptr
+# write -> S2.1 read-back decodes garbage -> RED.
+$(TEST_DBT_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbt_roundtrip.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbt_roundtrip.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBT_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbt_roundtrip.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBT_MUTATE_WRITE_PTR_ENDIAN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbt_roundtrip.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-dbt-roundtrip
+test-dbt-roundtrip: $(TEST_DBT_ROUNDTRIP)
+	@printf ">>> test-dbt-roundtrip: .dbt III+ write/append round-trip (dbt_create/dbt_append, ceil blocks, LE ptr) (S2.2)\n"
+	@$(TEST_DBT_ROUNDTRIP) $(DBASE3_DECOMP)
+	@printf ">>> test-dbt-roundtrip: green\n"
+
+.PHONY: test-dbt-roundtrip-mutant
+test-dbt-roundtrip-mutant: $(TEST_DBT_ROUNDTRIP_MUT)
+	@printf ">>> test-dbt-roundtrip-mutant: confirming the BE next-free-ptr mutant goes RED (Rule 6; initech-aul.7)\n"
+	@$(TEST_DBT_ROUNDTRIP_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-dbt-roundtrip-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_DBT_ROUNDTRIP_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-dbt-roundtrip-mutant FAIL: mutant PASSED -- the LE next-free ptr is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-dbt-roundtrip-mutant: green (BE next-free ptr correctly RED)\n'; \
+	fi
+
 # ---- SAMIR Phase-3 functions A: STR/VAL/CTOD/DTOC/SUBSTR/IIF/TYPE/... (S3.5 / initech-7az.1) ----
 # Lexer gains XBT_COMMA; parser implements XBN_CALL/XBN_ARG; evaluator dispatches
 # the fn_builtins.c table. 18 pure string/numeric/date functions; DTOS -> error #31
@@ -1592,6 +1659,35 @@ test-xbase-fn-a-mutant: $(TEST_XBASE_FN_A_MUT)
 		printf '!!! test-xbase-fn-a-mutant FAIL: mutant PASSED -- the SUBSTR 1-based rule is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-xbase-fn-a-mutant: green (SUBSTR 0-based correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-3 functions B (freestanding): ABS/INT/MOD/ROUND/MAX/MIN/DOW/CDOW/CMONTH (S3.6a / initech-7az.11) ----
+# The no-libm numeric/date half of S3.6 (transcendentals SQRT/LOG/EXP are 7az.13).
+# GATED edges (MOD-sign, INT-on-neg, ROUND-tie, MAX/MIN-of-date) are PROVISIONAL in
+# code + LOUD-SKIPPED in the oracle pending MINT (plan section 7). Mutant: DOW
+# numbering shifted by one -> grounded DOW assertions RED.
+$(TEST_XBASE_FN_B): $(DBF_DIFF_DIR)/test_xbase_fn_b.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_b.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_XBASE_FN_B_MUT): $(DBF_DIFF_DIR)/test_xbase_fn_b.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_DOW -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_b.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+
+.PHONY: test-xbase-fn-b
+test-xbase-fn-b: $(TEST_XBASE_FN_B)
+	@printf ">>> test-xbase-fn-b: xBase III+ functions B freestanding (ABS/INT/MOD/ROUND/MAX/MIN/DOW/CDOW/CMONTH) (S3.6a)\n"
+	@$(TEST_XBASE_FN_B)
+	@printf ">>> test-xbase-fn-b: green\n"
+
+.PHONY: test-xbase-fn-b-mutant
+test-xbase-fn-b-mutant: $(TEST_XBASE_FN_B_MUT)
+	@printf ">>> test-xbase-fn-b-mutant: confirming the DOW-shift mutant goes RED (Rule 6; initech-7az.11)\n"
+	@$(TEST_XBASE_FN_B_MUT) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-xbase-fn-b-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_XBASE_FN_B_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-fn-b-mutant FAIL: mutant PASSED -- the DOW numbering rule is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-xbase-fn-b-mutant: green (DOW shift correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 evaluator: xBase expression lexer (S3.1 / initech-gmo.1) ----
@@ -9878,10 +9974,13 @@ TEST_UNIT_GATES := \
 	test-dbf-mutate test-dbf-mutate-mutant \
 	test-ndx-parse test-ndx-parse-mutant \
 	test-ndx-keys test-ndx-keys-mutant \
+	test-ndx-seek test-ndx-seek-mutant \
 	test-dbt-read test-dbt-read-mutant \
+	test-dbt-roundtrip test-dbt-roundtrip-mutant \
 	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant \
 	test-xbase-eval test-xbase-eval-mutant test-xbase-coercion test-xbase-coercion-mutant \
-	test-xbase-fn-a test-xbase-fn-a-mutant
+	test-xbase-fn-a test-xbase-fn-a-mutant \
+	test-xbase-fn-b test-xbase-fn-b-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \

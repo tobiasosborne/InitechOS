@@ -103,7 +103,10 @@ typedef enum {
     NDX_ERR_BAD_KEYTYPE  = 6,  /* key_type is not 0 or 1 */
     NDX_ERR_BAD_PAGE     = 7,  /* page_no out of range in ndx_read_node */
     NDX_ERR_PAGE_OVF     = 8,  /* entry extends past 512-byte page boundary */
-    NDX_ERR_OOM          = 9   /* PAL arena exhausted */
+    NDX_ERR_OOM          = 9,  /* PAL arena exhausted */
+    NDX_ERR_CYCLE        = 10  /* B-tree descent revisited a page / overran the
+                                * total_pages depth bound -- a corrupt index
+                                * cycle. Fail loud (Rule 2) instead of looping. */
 } ndx_err;
 
 /* -----------------------------------------------------------------------
@@ -340,5 +343,120 @@ int ndx_key_decode(const ndx_index *idx, const uint8_t *key_data,
  * Ref: ndx.md ss4.2, ss6; re/mint-results-001.md; plan Sec 3.3, S4.2 contract.
  */
 int ndx_key_cmp(const ndx_index *idx, const uint8_t *a, const uint8_t *b);
+
+/* -----------------------------------------------------------------------
+ * S4.3: B-tree traverse + SEEK API
+ *
+ * The load-bearing B-tree navigation. A silently-wrong descent corrupts every
+ * SEEK / ORDER built on the index. The descent rule is fixed by ndx.md ss5 (NOT
+ * guessed): the branch separator at entry i is the HIGH key of the subtree
+ * rooted at child_page[i]; search descends into the first separator entry whose
+ * key >= target, or into the rightmost (trailing) child if target exceeds all
+ * separators.
+ *
+ * Ref (Law 1):
+ *   - ndx.md ss5 (B-tree ordering invariant + search algorithm; "Branch
+ *     separator = HIGH key of subtree", "scan entries in order until you find
+ *     an entry whose key >= K ... descend into that entry's child_page (or the
+ *     rightmost child if K exceeds all separators)").
+ *   - ndx.md ss8 step 3 (in-order traversal: recurse child before emitting the
+ *     separator key (branch); emit (key_data, dbf_recno) at a leaf; after the
+ *     last entry, if internal, recurse into the trailing child pointer).
+ *   - ndx.md ss3.2 (trailing/rightmost child pointer).
+ *   - re/mint-results-002.md (SET EXACT default OFF; char "=" is directional
+ *     begins-with: LEFT begins with RIGHT; "ab"="a" -> .T., "a"="ab" -> .F.).
+ *   - docs/plans/SAMIR-implementation-plan.md S4.3 contract.
+ * ----------------------------------------------------------------------- */
+
+/*
+ * ndx_visit_fn: callback invoked once per leaf entry during an in-order
+ * traversal, in ascending collation order (ndx.md ss5/ss6).
+ *
+ *   ctx       opaque caller context passed through ndx_inorder.
+ *   key_data  pointer to the leaf entry's raw key_data (ndx_key_length bytes);
+ *             valid ONLY for the duration of the callback (it points into the
+ *             arena node that is freed after the callback returns). The callback
+ *             MUST copy any bytes it needs to retain.
+ *   recno     the leaf entry's 1-based dbf_recno.
+ *
+ * Return 0 to continue the traversal; any non-zero value aborts the traversal
+ * immediately and is propagated back as the return value of ndx_inorder
+ * (callers use this to stop early or to signal a caller-side failure).
+ */
+typedef int (*ndx_visit_fn)(void *ctx, const uint8_t *key_data, uint32_t recno);
+
+/*
+ * ndx_inorder: in-order traverse the whole B-tree, invoking VISIT for every
+ * leaf entry in ascending key order (across all leaves).
+ *
+ * Descends leftmost-first; at a branch entry it recurses into child_page before
+ * the next entry; at the trailing slot of a branch it recurses into the
+ * rightmost child (ndx.md ss8 step 3). Leaf separators are never emitted (only
+ * leaf entries with child_page == 0 produce a callback).
+ *
+ * Bounded recursion (Rule 2): a corrupt index could in principle form a cycle;
+ * every descent is bounded by ndx_total_pages(idx) and any page revisit or
+ * over-deep descent fails loud with -NDX_ERR_CYCLE. Recursion depth is bounded
+ * by the same total_pages count.
+ *
+ * Returns:
+ *   NDX_OK (0)            traversal completed; every leaf entry visited.
+ *   < 0  (-ndx_err)       structural error (I/O, bad page, cycle, OOM).
+ *   > 0                   the value VISIT returned (early abort by the caller).
+ *
+ * Ref: ndx.md ss5, ss8 step 3; ss3.2 (trailing child).
+ */
+int ndx_inorder(ndx_index *idx, ndx_visit_fn visit, void *ctx);
+
+/*
+ * ndx_seek: B-tree SEEK for KEY, honouring SET EXACT.
+ *
+ * Descends the tree per ndx.md ss5: at each node it finds the first entry whose
+ * key >= KEY (via ndx_key_cmp); for a branch it descends into that entry's
+ * child_page, or into the rightmost child if KEY exceeds all separators; for a
+ * leaf the first entry with key >= KEY is the LANDING entry.
+ *
+ * Match semantics at the landing entry (set by *found_out):
+ *   key_type 1 (numeric/date):
+ *     FOUND iff the landing key compares arithmetically EQUAL to KEY
+ *     (ndx_key_cmp == 0). SET EXACT is irrelevant for N/D. KEY must be XB_N or
+ *     XB_D; its double is encoded to the 8-byte search key.
+ *   key_type 0 (character):
+ *     SET_EXACT == 0 (OFF, the III+ default): begins-with / directional match
+ *       -- FOUND iff the stored landing key BEGINS WITH the search key over the
+ *       search key's significant length (trailing spaces of KEY are trimmed
+ *       before comparison; the stored key is left-justified space-padded).
+ *       [re/mint-results-002.md: char "=" is directional, LEFT begins with
+ *        RIGHT; in SEEK the stored leaf key is LEFT, the search key is RIGHT.]
+ *     SET_EXACT != 0 (ON): full-length equality over ndx_key_length bytes
+ *       (the search key is space-padded to key_length before comparison).
+ *     KEY must be XB_C (or XB_M); shorter than key_length is right-padded with
+ *     spaces, longer is truncated to key_length.
+ *
+ * On a successful descent to a leaf:
+ *   *recno_out is set to the landing entry's dbf_recno (the FIRST leaf entry
+ *     with key >= KEY). When *found_out is 1 this is the record whose key
+ *     matched; when *found_out is 0 it is still set to the landing recno (the
+ *     record at the insertion point), so callers implementing FIND-style
+ *     positioning can use it. If the landing point is past the last leaf entry
+ *     (KEY greater than every key in the index) *recno_out is set to 0 and
+ *     *found_out to 0 (EOF: positioned past the end).
+ *
+ * Either recno_out or found_out may be NULL (the caller may want only one).
+ *
+ * Returns:
+ *   NDX_OK (0)            descent reached a leaf; *found_out / *recno_out set.
+ *   -NDX_ERR_BAD_KEYTYPE  KEY's xb_type is incompatible with the index key_type.
+ *   < 0  (other -ndx_err) structural error (I/O, bad page, cycle, OOM).
+ *
+ * Bounded descent (Rule 2): bounded by ndx_total_pages; a cycle or over-deep
+ * descent fails loud with -NDX_ERR_CYCLE rather than looping forever.
+ *
+ * Ref: ndx.md ss5 (search algorithm + HIGH-key separator invariant);
+ *      re/mint-results-002.md (SET EXACT OFF default + directional begins-with);
+ *      docs/plans/SAMIR-implementation-plan.md S4.3 contract.
+ */
+int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
+             uint32_t *recno_out, int *found_out);
 
 #endif /* INITECH_SAMIR_NDX_H */

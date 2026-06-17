@@ -1,6 +1,6 @@
 /*
  * os/samir/include/samir/dbt.h -- SAMIR (InitechBase) .dbt memo file contract.
- *                                   Step S2.1: III+ memo READ.
+ *                                   Steps S2.1 (READ) + S2.2 (WRITE/APPEND).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers. No libc, no
@@ -20,9 +20,9 @@
  *                 return a pointer to the text bytes and the length.
  *
  * S2.1 / S2.2 boundary:
- *   This header exposes no write primitives. Callers that need to append a
- *   memo (S2.2) will use dbt_append (defined in S2.2). The block-0 next-free
- *   pointer is read (to validate the file geometry) but never written here.
+ *   S2.2 adds dbt_create, dbt_append, and dbt_flush (write/append path).
+ *   All S2.1 read primitives (dbt_open, dbt_close, dbt_next_free, dbt_read)
+ *   are behavior-identical; no S2.1 API changes, only additions.
  *
  * File geometry (dbt.md sec 2, verified against TOURS/TRAVEL/UNIVERS.DBT):
  *   - Fixed 512-byte blocks, numbered from 0.  Block n is at file offset n*512.
@@ -122,8 +122,11 @@ typedef enum {
     DBT_ERR_BAD_VERSION = 4,   /* called with a 0x8B (IV) .dbt; III+ only */
     DBT_ERR_BAD_BLOCK   = 5,   /* blockno == 0 (the header; not a memo block),
                                  * or blockno >= next_free (out of range) */
-    DBT_ERR_NO_TERM     = 6    /* 0x1A 0x1A terminator not found within the
+    DBT_ERR_NO_TERM     = 6,   /* 0x1A 0x1A terminator not found within the
                                  * file (malformed / truncated file) */
+    DBT_ERR_RDONLY      = 7    /* dbt_append called on a read-only handle
+                                 * (opened with dbt_open, not dbt_create);
+                                 * S2.2 fail-loud guard (Rule 2). */
 } dbt_err;
 
 /* -----------------------------------------------------------------------
@@ -174,6 +177,105 @@ int dbt_close(dbt_file *f);
  * the first block past live data).  Ref: dbt.md sec 2.1, sec 3.
  * ----------------------------------------------------------------------- */
 uint32_t dbt_next_free(const dbt_file *f);
+
+/* -----------------------------------------------------------------------
+ * S2.2 WRITE / APPEND CONTRACT
+ *
+ * dbt_create: create a new, empty .dbt at `name` via `pal`.
+ *
+ * Writes a 512-byte block 0 with:
+ *   - next-free = 1 (LE uint32 at offset 0): the first memo will start at
+ *     block 1.  Ref: dbt.md sec 2.1 / sec 8 "Append a memo" step 1.
+ *   - Bytes 4..511: written as 0x00 (deterministic / reproducible; Rule 11).
+ *     The goldens contain leftover bytes here (dbt.md sec 6), but a freshly
+ *     created file has no leftover text.  The round-trip oracle normalizes
+ *     block-0 bytes 4..511 away (dbt.md sec 6 "NORMALIZE"), so 0x00 is the
+ *     canonical choice (deterministic, boring, correct).
+ *   - File is opened PAL_CREATE|PAL_RDWR so subsequent dbt_append calls can
+ *     both seek and write.
+ *
+ * On success returns DBT_OK and *out is a valid handle (next_free==1, fd open).
+ * On failure returns -(dbt_err) and *out is NULL; the partial file (if any) is
+ * closed (but NOT removed -- the caller owns temp-file cleanup).
+ *
+ * Ref: dbt.md sec 2.1 (block-0 layout), sec 3 (LE endian), sec 8 (writer
+ *      recipe step 1), sec 6 (block-0 tail is don't-care / NORMALIZE).
+ * ----------------------------------------------------------------------- */
+int dbt_create(samir_pal_t *pal, const char *name, dbt_file **out);
+
+/* -----------------------------------------------------------------------
+ * dbt_append: append a new memo to an open, writable .dbt.
+ *
+ * Parameters:
+ *   f       : a handle returned by dbt_create (must be writable; dbt_open
+ *             opens read-only and MUST NOT be passed here -- fail loud).
+ *   text    : the raw CP437 memo bytes (NOT including the 0x1A 0x1A
+ *             terminator; may contain 0x0D 0x0A or 0x8D 0x0A line breaks).
+ *             May be NULL when len==0 (append an empty memo).
+ *   len     : number of bytes in `text`.
+ *
+ * Algorithm (dbt.md sec 8 "Append a memo"):
+ *   1. start = f->next_free  (the block at which this memo begins).
+ *   2. Seek to start * DBT_BLOCK_SIZE.
+ *   3. Write `len` bytes of `text` followed by two 0x1A bytes (the
+ *      terminator).  Ref: dbt.md sec 5 "III+ memo ends at first 0x1A 0x1A".
+ *   4. Pad the remainder of the last 512-byte block with 0x00 bytes so the
+ *      file ends on a block boundary (deterministic tail; Rule 11).
+ *      Ref: dbt.md sec 2 "the remainder ... is unused garbage";
+ *           sec 8 step 2 "padding the final block's tail ... is don't-care."
+ *      We emit 0x00 for reproducibility (the oracle normalizes the tail per
+ *      dbt.md sec 6, so the exact pad value does not affect grading).
+ *   5. blocks_used = ceil((len + 2) / DBT_BLOCK_SIZE)
+ *      [i.e. (len + 2 + 511) / 512 using integer division]
+ *      Ref: dbt.md sec 8 step 3; plan S2.2 contract "ceil((len+2)/512)".
+ *      Special case: len==0 -> text is 0 bytes, terminator is 2 bytes ->
+ *      ceil(2/512) = 1 block.
+ *   6. f->next_free += blocks_used.
+ *   7. Seek back to file offset 0 and write f->next_free as a LE uint32.
+ *      Ref: dbt.md sec 2.1 (ptr @0x00 LE); sec 3 (endian RESOLVED).
+ *   8. Return `start` in *blockno_out (the M-field value to store in the
+ *      .dbf record; dbt.md sec 8 step 4).
+ *
+ * Block-sizing boundary test: for a memo > 510 bytes (i.e. text that spans
+ * more than one 512-byte block when the 2-byte terminator is added), this
+ * function must correctly advance next_free by >= 2.  The oracle exercises
+ * this via a 511-byte text payload (ceil((511+2)/512) = ceil(513/512) = 2).
+ *
+ * Return value:
+ *   DBT_OK (0) on success; *blockno_out is set to the starting block number.
+ *   -(dbt_err) on failure:
+ *     -DBT_ERR_IO    : seek or write failure (short write = ENOSPC = IO here)
+ *
+ * Mutation hook (Rule 6 -- -DDBT_MUTATE_WRITE_PTR_ENDIAN):
+ *   Writes the block-0 next-free pointer in BIG-ENDIAN instead of LE.
+ *   A subsequent dbt_open (which reads it LE) will decode a wrong value ->
+ *   the round-trip check goes RED (next_free mismatch + dbt_read returns
+ *   -DBT_ERR_BAD_BLOCK because blockno >= the wrong next_free).
+ *   This is the canonical write-path mutant for S2.2 (plan ARB rider (a)).
+ *
+ * Ref: dbt.md sec 2.1 (ptr@0x00 LE), sec 3 (endian RESOLVED), sec 5
+ *      (0x1A 0x1A terminator), sec 6 (tail = don't-care / 0x00 for
+ *      reproducibility), sec 8 (writer recipe steps 1-4).
+ * ----------------------------------------------------------------------- */
+int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
+               uint32_t *blockno_out);
+
+/* -----------------------------------------------------------------------
+ * dbt_flush: write back the block-0 next-free pointer and sync.
+ *
+ * dbt_append already writes the pointer back after every append; dbt_flush
+ * is an explicit fence for callers that want to ensure the file is
+ * consistent before closing (e.g. after a sequence of appends).  In the
+ * host PAL this is a seek+write of the 4-byte LE next_free; on Milton the
+ * PAL's write is synchronous and there is no cache to flush, so this is a
+ * no-op on the artifact.
+ *
+ * Safe to call on a read-only handle (dbt_open) -- it is a no-op in that
+ * case (the writable flag is tracked internally; no fail-loud for this).
+ *
+ * Return value: DBT_OK or -(DBT_ERR_IO) on write failure.
+ * ----------------------------------------------------------------------- */
+int dbt_flush(dbt_file *f);
 
 /* -----------------------------------------------------------------------
  * dbt_read: read the memo that starts at `blockno`.

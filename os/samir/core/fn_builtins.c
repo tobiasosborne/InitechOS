@@ -507,6 +507,314 @@ static int fn_type(const xb_val *args, int nargs, xb_ctx *ctx,
 }
 
 /* ======================================================================== */
+/* Numeric functions (S3.6a -- freestanding-legal, no libm)                  */
+/* ======================================================================== */
+
+/*
+ * ABS(<expN>) -> N. Absolute value: removes any negative sign.
+ * Total domain (any numeric is valid). No overflow beyond the ordinary range.
+ *   Ref: numeric-and-date-functions.md ABS section [verified: HELP.DBS line 1292
+ *        + Harbour math.txt:7-42]; real idiom: RECONCIL.PRG:28 ABS(notcash).
+ * Freestanding: negation via the unary minus operator; no libm needed.
+ */
+static int fn_abs(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    double v;
+    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+    v = args[0].u.n;
+#ifdef XB_MUTATE_FN_ABS
+    /* MUTATION (Rule 6): skip the sign-flip so ABS(-5) returns -5.
+     * Grounded assertion ABS(-5)=5 then goes RED, proving the test catches
+     * a missing sign inversion. Compile with -DXB_MUTATE_FN_ABS. */
+    /* (no-op: v stays negative) */
+#else
+    if (v < 0.0) v = -v;
+#endif
+    *out = xb_n(v);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * INT(<expN>) -> N. Integer portion: truncates toward zero (NOT rounding).
+ *   INT(3.99) -> 3, INT(3.01) -> 3.
+ *   Negatives: PROVISIONAL CHOICE = truncate toward zero (INT(-3.7) -> -3).
+ *     Harbour confirms toward-zero truncation (math.txt:103-104).
+ *     III+ exact behavior with negatives is [oracle-resolves] (numfn-2 GATED).
+ *     GATED: this choice is PROVISIONAL pending MINT; the oracle does NOT assert
+ *     negative-input cases (those cells are loud-skipped, see test_xbase_fn_b.c).
+ *   Freestanding: truncation via (int64_t) cast then back to double -- no libm.
+ *   Ref: numeric-and-date-functions.md INT section [verified: HELP.DBS line 1297
+ *        + Harbour math.txt:88-120].
+ */
+static int fn_int(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    double v;
+    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+    /* PROVISIONAL/GATED (numfn-2): truncate toward zero via cast. */
+    v = (double)(int64_t)args[0].u.n;
+    *out = xb_n(v);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * MOD(<expN1>, <expN2>) -> N. Modulus / division remainder.
+ *   Definition used: MOD(a,b) = a - b * INT(a/b)  (truncated-quotient remainder).
+ *   For positive operands MOD(17,5)=2, MOD(7,3)=1.
+ *   Sign convention with negative operands: PROVISIONAL CHOICE = sign-of-dividend
+ *     (truncation formula: MOD(-17,5) -> -2). Clipper follows sign-of-divisor;
+ *     III+ exact sign rule is [oracle-resolves] (numfn-3 GATED). The oracle does
+ *     NOT assert negative-operand cases (loud-skipped in test_xbase_fn_b.c).
+ *   MOD(a,0) zero-divisor: PROVISIONAL CHOICE = return a (Harbour: math.txt:271
+ *     shows MOD(12,0) as valid, return-value semantics). III+ exact behavior is
+ *     [oracle-resolves] (numfn-3 GATED). Not asserted in the oracle.
+ *   Freestanding: (double)(int64_t) for INT()-equivalent truncation; no libm.
+ *   Ref: numeric-and-date-functions.md MOD section [verified: HELP.DBS line 1306
+ *        + Harbour math.txt:247-284].
+ */
+static int fn_mod(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    double a, b, q;
+    if (nargs != 2)        return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+    if (args[1].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+    a = args[0].u.n;
+    b = args[1].u.n;
+    /* PROVISIONAL/GATED (numfn-3): MOD(a,0) -> a (zero-divisor not an error). */
+    if (b == 0.0) { *out = xb_n(a); *err = XBEE_OK; return 0; }
+    /* PROVISIONAL/GATED (numfn-3): truncated-quotient remainder.
+     * INT(a/b) via (int64_t) cast (truncation toward zero). */
+    q = (double)(int64_t)(a / b);
+    *out = xb_n(a - b * q);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * ROUND(<expN1>, <expN2>) -> N. Round to <expN2> decimal places.
+ *   <expN2> negative: rounds to whole-number places (tens, hundreds, ...) --
+ *     ROUND(1234.5, -2) -> 1200 (Harbour math.txt:349-351).
+ *   Rounding rule: PROVISIONAL CHOICE = ties-toward-+infinity, matching the
+ *     STR/dec_format minted rule (re/mint-results-001.md sec "Numeric rounding
+ *     tie-break"; ROUND(2.5,0)->3, ROUND(-2.5,0)->-2).
+ *     Harbour says round-half-away-from-zero; III+ exact tie direction is
+ *     [oracle-resolves] (numfn-1 GATED). The oracle asserts ONLY non-tie cases.
+ *   Freestanding: uses the same add-0.5*10^-dec + (int64_t) truncation idiom
+ *     as dec_format (rt.c); no libm.
+ *   Ref: numeric-and-date-functions.md ROUND section [verified: HELP.DBS lines
+ *        1307-1308 + Harbour math.txt:326-367].
+ */
+static int fn_round(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    double v, scale, rounded;
+    int    dec;
+    int    i;
+    if (nargs != 2)        return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+    if (args[1].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+    v   = args[0].u.n;
+    dec = to_int_trunc(args[1].u.n);   /* may be negative (round to tens, etc.) */
+
+    /* Build scale = 10^|dec| by repeated multiplication (no libm/pow). */
+    scale = 1.0;
+    if (dec >= 0) {
+        for (i = 0; i < dec; i++) scale *= 10.0;
+    } else {
+        int ndec = -dec;
+        for (i = 0; i < ndec; i++) scale *= 10.0;
+    }
+
+    if (dec >= 0) {
+        /* Round to `dec` decimal places. PROVISIONAL: ties -> +inf. */
+        rounded = (double)(int64_t)(v * scale + 0.5) / scale;
+    } else {
+        /* Round to |dec| whole-number places (e.g. dec=-2 -> nearest 100). */
+        rounded = (double)(int64_t)(v / scale + 0.5) * scale;
+    }
+    *out = xb_n(rounded);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * MAX/MIN(<expN1>, <expN2>) -> N (or D for two Date args).
+ *   Exactly two arguments of the SAME type; mixed type -> XBEE_MISMATCH (#9).
+ *   Numeric: returns the larger (MAX) or smaller (MIN) double.
+ *   Date: returns the later (MAX) or earlier (MIN) JDN-as-double.
+ *     Date overload: INFERRED from Harbour math.txt:177-189 + III+ date-as-number
+ *     model; return *type* (Date vs raw number) is [oracle-resolves] (numfn-4).
+ *     PROVISIONAL CHOICE: return XB_D (Date) for two Date args. Not asserted in
+ *     the oracle (loud-skipped per GATED discipline).
+ *   `is_max`: 1 for MAX, 0 for MIN.
+ *   Ref: numeric-and-date-functions.md MAX/MIN sections [verified: HELP.DBS
+ *        lines 1302-1305 + Harbour math.txt:162-244].
+ */
+static int fn_maxmin(const xb_val *args, int nargs, int is_max,
+                     xb_val *out, int *err)
+{
+    if (nargs != 2) return fn_fail(err, XBEE_INVALID_ARG);
+    /* Same-type required (numeric-and-date-functions.md: mixed raises #9). */
+    if (args[0].t != args[1].t) return fn_fail(err, XBEE_MISMATCH);
+
+    if (args[0].t == XB_N) {
+        double a = args[0].u.n, b = args[1].u.n;
+        *out = xb_n(is_max ? (a >= b ? a : b) : (a <= b ? a : b));
+        *err = XBEE_OK;
+        return 0;
+    }
+    if (args[0].t == XB_D) {
+        /* PROVISIONAL/GATED (numfn-4): Date overload returns XB_D. */
+        double a = args[0].u.d, b = args[1].u.d;
+        *out = xb_d(is_max ? (a >= b ? a : b) : (a <= b ? a : b));
+        *err = XBEE_OK;
+        return 0;
+    }
+    /* Any other type combination (C/C, L/L, etc.) -> mismatch. */
+    return fn_fail(err, XBEE_MISMATCH);
+}
+
+/* ======================================================================== */
+/* Date name functions (S3.6a -- freestanding, use ymd_from_jdn from rt.h)  */
+/* ======================================================================== */
+
+/*
+ * DOW(<expD>) -> N.  Day-of-week number: 1=Sunday .. 7=Saturday.
+ *   Blank date -> 0.
+ *   Formula from JDN: DOW = ((jdn + 1) % 7) + 1.
+ *     Derivation: JDN % 7 == 0 for a Monday (JDN=0 is Julian day 0, a Monday
+ *     by the standard astronomical convention). So jdn%7 gives 0=Mon,1=Tue,...
+ *     6=Sun. Adding 1 shifts 0->1=Sun,...,5->6=Fri,6->7=Sat -- but wraps wrong.
+ *     Cleaner: (jdn + 1) % 7 gives 0=Sun,1=Mon,...,6=Sat; +1 gives 1=Sun,...
+ *     7=Sat. [Verified: JDN(1985-08-04)=2446282 is Sunday -> DOW=1;
+ *     JDN(1985-08-05)=2446283 is Monday -> DOW=2; JDN(1985-08-10)=2446288 is
+ *     Saturday -> DOW=7.]
+ *   Ref: numeric-and-date-functions.md DOW section [verified: HELP.DBS line 1248
+ *        + Harbour datetime.txt:262 "1=Sunday, 7=Saturday"].
+ *
+ * MUTATION GUARD (-DXB_MUTATE_FN_DOW): shifts the DOW result by 1, so the
+ * grounded assertion DOW(CTOD('08/04/85'))=1 (Sunday) instead returns 2.
+ * The oracle then goes RED, proving it catches an off-by-one in the DOW
+ * numbering. This is the REQUIRED Rule 6 mutation for this bead (S3.6a).
+ * Targets a SETTLED, non-GATED case (the Sunday=1/Saturday=7 numbering is
+ * [verified] against Harbour datetime.txt:262; not one of the GATED cells).
+ */
+static int fn_dow(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    int32_t jdn, dow;
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
+    if (fn_date_blank(args[0].u.d)) { *out = xb_n(0.0); *err = XBEE_OK; return 0; }
+    jdn = (int32_t)args[0].u.d;
+    /* DOW: ((jdn+1)%7)+1  with 1=Sunday,7=Saturday [verified]. */
+    dow = (int32_t)(((jdn + 1) % 7) + 1);
+#ifdef XB_MUTATE_FN_DOW
+    /* MUTATION (Rule 6): shift by 1, making Sunday report 2 instead of 1.
+     * The Sunday=1 grounded assertion goes RED. */
+    dow = (dow % 7) + 1;
+#endif
+    *out = xb_n((double)dow);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * CDOW(<expD>) -> C. English weekday name, capitalized.
+ *   Blank date -> "" (empty string; Harbour datetime.txt:23-24 returns NUL byte;
+ *   we return empty string as the blank-safe result -- not asserted, GATED).
+ *   Names (1..7): "Sunday","Monday","Tuesday","Wednesday","Thursday","Friday",
+ *     "Saturday". Stored as string literals (ASCII); no allocation from scratch.
+ *   Ref: numeric-and-date-functions.md CDOW section [verified: HELP.DBS line 1243
+ *        + Harbour datetime.txt:6-41].
+ */
+
+/* Static weekday-name table, 1-indexed (index 0 unused; 1=Sunday..7=Saturday).
+ * Lengths: Sunday=6, Monday=6, Tuesday=7, Wednesday=9, Thursday=8,
+ *          Friday=6, Saturday=8.
+ * ASCII-clean (Rule 12): all English ASCII letters. */
+static const char * const fn_dow_names[8] = {
+    "",           /* 0: unused */
+    "Sunday",     /* 1 */
+    "Monday",     /* 2 */
+    "Tuesday",    /* 3 */
+    "Wednesday",  /* 4 */
+    "Thursday",   /* 5 */
+    "Friday",     /* 6 */
+    "Saturday"    /* 7 */
+};
+static const uint16_t fn_dow_lens[8] = { 0, 6, 6, 7, 9, 8, 6, 8 };
+
+static int fn_cdow(xb_ctx *ctx, const xb_val *args, int nargs,
+                   xb_val *out, int *err)
+{
+    int32_t jdn, dow;
+    (void)ctx;    /* No scratch needed: result points at a static literal. */
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
+    if (fn_date_blank(args[0].u.d)) {
+        /* Blank date -> empty string. PROVISIONAL: not asserted in the oracle
+         * (Harbour says NUL byte; III+ exact blank-date behavior [oracle-resolves]).
+         */
+        *out = xb_c("", 0); *err = XBEE_OK; return 0;
+    }
+    jdn = (int32_t)args[0].u.d;
+    dow = (int32_t)(((jdn + 1) % 7) + 1);   /* same formula as fn_dow */
+    /* dow is 1..7; the table covers that range. */
+    *out = xb_c(fn_dow_names[dow], fn_dow_lens[dow]);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * CMONTH(<expD>) -> C. English month name, capitalized.
+ *   Blank date -> "" (empty string).
+ *   Names (1..12): "January","February","March","April","May","June","July",
+ *     "August","September","October","November","December".
+ *   Ref: numeric-and-date-functions.md CMONTH section [verified: HELP.DBS line
+ *        1244 + Harbour datetime.txt:48-83].
+ */
+
+/* Static month-name table, 1-indexed (index 0 unused; 1=January..12=December).
+ * Lengths: Jan=7, Feb=8, Mar=5, Apr=5, May=3, Jun=4, Jul=4, Aug=6, Sep=9,
+ *          Oct=7, Nov=8, Dec=8.
+ * ASCII-clean (Rule 12). */
+static const char * const fn_mon_names[13] = {
+    "",           /* 0: unused */
+    "January",    /*  1 */
+    "February",   /*  2 */
+    "March",      /*  3 */
+    "April",      /*  4 */
+    "May",        /*  5 */
+    "June",       /*  6 */
+    "July",       /*  7 */
+    "August",     /*  8 */
+    "September",  /*  9 */
+    "October",    /* 10 */
+    "November",   /* 11 */
+    "December"    /* 12 */
+};
+static const uint16_t fn_mon_lens[13] = { 0, 7, 8, 5, 5, 3, 4, 4, 6, 9, 7, 8, 8 };
+
+static int fn_cmonth(xb_ctx *ctx, const xb_val *args, int nargs,
+                     xb_val *out, int *err)
+{
+    int32_t y, m, d;
+    (void)ctx;    /* No scratch: result points at a static literal. */
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
+    if (fn_date_blank(args[0].u.d)) {
+        *out = xb_c("", 0); *err = XBEE_OK; return 0;
+    }
+    ymd_from_jdn((int32_t)args[0].u.d, &y, &m, &d);
+    /* m is 1..12 (jdn_from_ymd/ymd_from_jdn valid range enforced at CTOD). */
+    *out = xb_c(fn_mon_names[m], fn_mon_lens[m]);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* ======================================================================== */
 /* The dispatch table (case-insensitive name -> handler)                     */
 /* ======================================================================== */
 
@@ -545,6 +853,19 @@ int xb_call_builtin(const char *name, uint16_t namelen,
 
     /* Generic */
     if (name_is(name, namelen, "TYPE"))   return fn_type(args, nargs, ctx, out, err_code);
+
+    /* Numeric functions (S3.6a freestanding half) */
+    if (name_is(name, namelen, "ABS"))    return fn_abs(args, nargs, out, err_code);
+    if (name_is(name, namelen, "INT"))    return fn_int(args, nargs, out, err_code);
+    if (name_is(name, namelen, "MOD"))    return fn_mod(args, nargs, out, err_code);
+    if (name_is(name, namelen, "ROUND"))  return fn_round(args, nargs, out, err_code);
+    if (name_is(name, namelen, "MAX"))    return fn_maxmin(args, nargs, 1, out, err_code);
+    if (name_is(name, namelen, "MIN"))    return fn_maxmin(args, nargs, 0, out, err_code);
+
+    /* Date name functions (S3.6a freestanding half) */
+    if (name_is(name, namelen, "CDOW"))   return fn_cdow(ctx, args, nargs, out, err_code);
+    if (name_is(name, namelen, "CMONTH")) return fn_cmonth(ctx, args, nargs, out, err_code);
+    if (name_is(name, namelen, "DOW"))    return fn_dow(args, nargs, out, err_code);
 
     /* DTOS exists in dBASE IV / Clipper but NOT in III+ 1.1 -> #31 (the same
      * path as any unknown name; the test asserts DTOS specifically).

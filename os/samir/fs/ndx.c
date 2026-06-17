@@ -1,7 +1,7 @@
 /*
  * os/samir/fs/ndx.c -- SAMIR (InitechBase) .ndx B-tree index codec.
- *                       Steps S4.1 (header + node parse) and S4.2 (key decode
- *                       + collation).
+ *                       Steps S4.1 (header + node parse), S4.2 (key decode +
+ *                       collation), and S4.3 (B-tree traverse + SEEK).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001). Includes ONLY <stdint.h> plus engine headers and the
@@ -26,6 +26,28 @@
  *   ndx_key_cmp   -- compare two raw key_data arrays for B-tree order:
  *                     char = unsigned byte compare; type-1 = arithmetic double
  *                     compare (NOT memcmp). [re/mint-results-001.md VERIFIED]
+ *
+ * S4.3 scope (B-tree traverse + SEEK):
+ *   ndx_inorder -- in-order traversal of the whole tree, invoking a callback
+ *                  per leaf entry in ascending collation order (ndx.md ss8 step
+ *                  3). The spine S4.4 (INDEX ON build verification) and S5
+ *                  (index-ordered nav) reuse.
+ *   ndx_seek    -- descend the B-tree to the first key >= target (ndx.md ss5),
+ *                  resolve the landing recno, and set FOUND per SET EXACT
+ *                  (char OFF = directional begins-with per mint-002; char ON =
+ *                  full-length equal; numeric/date = exact arithmetic equal).
+ *                  EOF when the target exceeds every key.
+ *
+ * S4.3 mutation hook (Rule 6 / plan S4.3 "wrong child descent"):
+ *   Build with -DNDX_MUTATE_SEEK_CHILD. The branch descent follows the WRONG
+ *   child: it descends into entry[i+1]'s child (off-by-one) instead of the
+ *   first separator entry whose key >= target. Per ndx.md ss5 the separator at
+ *   entry i is the HIGH key of subtree child_page[i], so following child[i+1]
+ *   skips the subtree that actually contains the target -> SEEK resolves the
+ *   wrong recno and the in-order traversal (which shares the descent stepper)
+ *   loses/duplicates leaves, so the sortedness + completeness + SEEK-recno
+ *   oracle checks go RED. [ndx.md ss5 "descend into THAT entry's child_page";
+ *   the mutation descends into the next entry's child.]
  *
  * S4.1 mutation hook (Rule 6 / plan S4.1 "clicketyclick wrong 18-23 sublayout"):
  *   Build with -DNDX_MUTATE_SUBLAYOUT. The perturbed read swaps the child_page
@@ -58,8 +80,12 @@
  *       ss2 (header 10 fields + casing RESOLVED), ss2.2 (CNAMES byte dump),
  *       ss3 (node 2+2 header), ss3.1 (group layout), ss3.2 (trailing child),
  *       ss4 (key encoding), ss4.1 (char: space-padded CP437), ss4.2 (numeric:
- *       raw LE double, NO sign-flip, arithmetic compare), ss6 (collation),
+ *       raw LE double, NO sign-flip, arithmetic compare), ss5 (B-tree ordering
+ *       invariant + search algorithm + HIGH-key separator), ss6 (collation),
  *       ss8 (implementation checklist).
+ *   - ../dbase3-decomp/re/mint-results-002.md  SET EXACT default OFF; char "="
+ *       is directional begins-with (LEFT begins with RIGHT): "ab"="a"->.T.,
+ *       "a"="ab"->.F. The S4.3 SEEK FOUND rule for char keys.
  *   - ../dbase3-decomp/re/mint-results-001.md  THE authority for numeric key
  *       encoding (raw LE double, NO sign-flip, arithmetic compare). Table of
  *       verified bytes: -123.45 cd cc cc cc cc dc 5e c0; -1.0 00..f0 bf;
@@ -709,5 +735,360 @@ int ndx_key_cmp(const ndx_index *idx, const uint8_t *a, const uint8_t *b)
         if (va < vb) return -1;
         if (va > vb) return  1;
         return 0;
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * S4.3: B-tree traverse + SEEK
+ * -----------------------------------------------------------------------
+ *
+ * The descent rule (ndx.md ss5, NOT guessed):
+ *   "Branch separator = HIGH key of subtree": in a branch node, the key_data of
+ *   entry i (for i < entry_count) is the LARGEST key in the subtree rooted at
+ *   child_page[i]. The rightmost child (trailing slot, ss3.2) holds keys greater
+ *   than the last separator.
+ *   "Search (find key K): start at root_page. In each node, scan entries in
+ *   order until you find an entry whose key >= K. If that node is internal
+ *   (child_page != 0), descend into THAT entry's child_page (or the rightmost
+ *   child if K exceeds all separators) and repeat. When you reach a leaf
+ *   (child_page == 0), an exact key match returns dbf_recno."
+ *
+ * Both ndx_inorder and ndx_seek use the same shared node stepper so the S4.3
+ * mutation (-DNDX_MUTATE_SEEK_CHILD wrong-child descent) bites BOTH the SEEK
+ * recno resolution AND the in-order sortedness/completeness checks.
+ * ----------------------------------------------------------------------- */
+
+/* Sentinel: a branch entry with child_page == 0 is a structural contradiction.
+ * A leaf entry has child_page == 0; a branch entry has child_page != 0. We use
+ * "first entry has child_page != 0" to decide branch-vs-leaf at the node level,
+ * which is what ndx.md ss3.1 specifies ("0 => this entry is in a LEAF"). */
+
+/* -----------------------------------------------------------------------
+ * ndx_inorder
+ *
+ * In-order traversal. Recursion depth is bounded by total_pages (a cycle would
+ * otherwise loop forever -- Rule 2). DEPTH is the remaining recursion budget;
+ * each descent decrements it, and reaching 0 is a cycle/over-deep failure.
+ *
+ * Ref: ndx.md ss8 step 3 (recurse child before emitting separator (branch);
+ * emit (key_data, dbf_recno) at a leaf; after the last entry, if internal,
+ * recurse into the trailing child pointer).
+ * ----------------------------------------------------------------------- */
+static int inorder_page(ndx_index *idx, uint32_t page_no, uint32_t depth,
+                        ndx_visit_fn visit, void *ctx)
+{
+    ndx_node_t *node = (ndx_node_t *)0;
+    int         rc;
+    uint32_t    i;
+    int         is_branch;
+
+    /* Bounded descent (Rule 2): a corrupt tree could cycle. */
+    if (depth == 0u)
+        return -NDX_ERR_CYCLE;
+
+    rc = ndx_read_node(idx, page_no, &node);
+    if (rc != NDX_OK)
+        return rc;
+
+    /* A node is a branch iff its first live entry has a child page (ss3.1).
+     * Empty nodes (entry_count == 0) are treated as empty leaves. */
+    is_branch = (node->entry_count > 0u && node->entries[0].child_page != 0u);
+
+    for (i = 0u; i < (uint32_t)node->entry_count; i++) {
+        if (is_branch) {
+#ifndef NDX_MUTATE_SEEK_CHILD
+            /* Correct: recurse into THIS entry's child before the separator.
+             * Ref: ndx.md ss8 step 3 / ss5 descent rule. */
+            uint32_t child = node->entries[i].child_page;
+#else
+            /* MUTATED wrong-child descent: recurse into the NEXT entry's child
+             * (off-by-one). For the last entry it folds onto the trailing child.
+             * This skips/duplicates subtrees -> the in-order sequence is no
+             * longer the sorted leaf order, and leaf counts go wrong. RED. */
+            uint32_t child = (i + 1u < (uint32_t)node->entry_count)
+                                 ? node->entries[i + 1u].child_page
+                                 : node->trail_child;
+#endif
+            /* Free the current node before recursing: the arena is a bump stack
+             * and the child allocation must sit above the freed mark. We re-read
+             * the parent after the child subtree completes. */
+            ndx_node_free(idx, node);
+            node = (ndx_node_t *)0;
+
+            rc = inorder_page(idx, child, depth - 1u, visit, ctx);
+            if (rc != NDX_OK)
+                return rc;   /* error (<0) or caller-abort (>0) propagates */
+
+            rc = ndx_read_node(idx, page_no, &node);
+            if (rc != NDX_OK)
+                return rc;
+        } else {
+            /* Leaf entry: emit (key_data, dbf_recno).
+             * Ref: ndx.md ss8 step 3. */
+            rc = visit(ctx, node->entries[i].key_data,
+                       node->entries[i].dbf_recno);
+            if (rc != 0) {        /* caller aborts the traversal */
+                ndx_node_free(idx, node);
+                return rc;
+            }
+        }
+    }
+
+    /* After the last entry, if internal, recurse into the rightmost child.
+     * Ref: ndx.md ss8 step 3 + ss3.2 (trailing child = keys > last separator).
+     * Under -DNDX_MUTATE_SEEK_CHILD the wrong-child loop already consumed the
+     * trailing child as entry[last]'s "next", so emitting it again would be
+     * wrong -- but the mutation's damage is already visible in the entry loop;
+     * we keep the trailing recursion correct so the mutation's signature is the
+     * skewed entry-loop descent, not a double-free. */
+    if (is_branch && node && node->trail_child != 0u) {
+        uint32_t trail = node->trail_child;
+        ndx_node_free(idx, node);
+        node = (ndx_node_t *)0;
+        return inorder_page(idx, trail, depth - 1u, visit, ctx);
+    }
+
+    if (node)
+        ndx_node_free(idx, node);
+    return NDX_OK;
+}
+
+int ndx_inorder(ndx_index *idx, ndx_visit_fn visit, void *ctx)
+{
+    if (!idx || !visit)
+        return -NDX_ERR_BAD_PAGE;
+    /* Depth budget = total_pages: a well-formed tree never descends deeper than
+     * the number of pages, so exceeding it means a cycle (Rule 2). */
+    return inorder_page(idx, idx->root_page, idx->total_pages, visit, ctx);
+}
+
+/* -----------------------------------------------------------------------
+ * SEEK: build the search key bytes from an xb_val
+ *
+ * The on-disk key_data layout is fixed (ndx.md ss4):
+ *   char (key_type 0): key_length bytes, left-justified, space-padded.
+ *   numeric/date (key_type 1): 8-byte LE IEEE-754 double.
+ * The caller's xb_val is encoded into a fixed scratch buffer in this layout,
+ * then compared against stored keys with ndx_key_cmp (which already implements
+ * the correct collation per key_type).
+ *
+ * For char SEEK we also track the "significant length" of the search key (its
+ * non-space-padded length) so the OFF/begins-with rule can compare only that
+ * prefix of the stored key (mint-002 directional begins-with).
+ * ----------------------------------------------------------------------- */
+
+/* SEEK scratch buffer: char keys can be up to key_length (validated <= 100 by
+ * the expression cap, but key_length itself is uint16). 256 covers every III+
+ * fixture key_length (max observed 40) with ample margin; we bound-check. */
+#define NDX_SEEK_KEYBUF 256
+
+/*
+ * build_search_key: render KEY into BUF (NDX_SEEK_KEYBUF bytes) in on-disk
+ * layout for IDX. On success returns NDX_OK and (for char keys) writes the
+ * significant length (trailing-space-trimmed) of the search key to *sig_len.
+ *
+ * Type compatibility (Rule 2 fail-loud):
+ *   key_type 0 (char): KEY must be XB_C or XB_M. Shorter than key_length is
+ *     right-padded with spaces; longer is truncated to key_length.
+ *   key_type 1 (num/date): KEY must be XB_N or XB_D. The double is stored LE.
+ * Any other combination returns -NDX_ERR_BAD_KEYTYPE.
+ */
+static int build_search_key(const ndx_index *idx, const xb_val *key,
+                            uint8_t *buf, uint32_t *sig_len)
+{
+    uint32_t kl = (uint32_t)idx->key_length;
+
+    if (kl == 0u || kl > (uint32_t)NDX_SEEK_KEYBUF)
+        return -NDX_ERR_BAD_GROUP;   /* nonsensical key width */
+
+    if (idx->key_type == (uint16_t)NDX_KEY_TYPE_CHAR) {
+        const char *p;
+        uint32_t    slen;
+        uint32_t    n;
+        uint32_t    i;
+
+        if (key->t != XB_C && key->t != XB_M)
+            return -NDX_ERR_BAD_KEYTYPE;
+
+        p    = key->u.c.p;
+        slen = (uint32_t)key->u.c.len;
+
+        /* Copy up to key_length bytes; right-pad the rest with spaces (0x20),
+         * matching the on-disk left-justified space-padded layout (ss4.1). */
+        n = (slen < kl) ? slen : kl;
+        for (i = 0u; i < n; i++)
+            buf[i] = (uint8_t)p[i];
+        for (i = n; i < kl; i++)
+            buf[i] = (uint8_t)' ';
+
+        /* Significant length = the search key's length with trailing spaces
+         * trimmed, clamped to key_length. The OFF/begins-with rule compares the
+         * stored key's first sig_len bytes against the search key.
+         * [mint-002: char "=" is directional, LEFT begins with RIGHT.] */
+        {
+            uint32_t s = n;
+            while (s > 0u && buf[s - 1u] == (uint8_t)' ')
+                s--;
+            *sig_len = s;
+        }
+        return NDX_OK;
+    }
+
+    if (idx->key_type == (uint16_t)NDX_KEY_TYPE_NUMERIC) {
+        double v;
+        if (key->t == XB_N)      v = key->u.n;
+        else if (key->t == XB_D) v = key->u.d;
+        else                     return -NDX_ERR_BAD_KEYTYPE;
+
+        if (kl != 8u)
+            return -NDX_ERR_BAD_GROUP;   /* type-1 key_length is always 8 */
+        rt_memcpy(buf, &v, 8u);
+        *sig_len = 8u;
+        return NDX_OK;
+    }
+
+    return -NDX_ERR_BAD_KEYTYPE;
+}
+
+/*
+ * match_at_landing: decide FOUND for the stored landing key vs the search key.
+ *
+ *   stored   the landing leaf entry's raw key_data (key_length bytes).
+ *   skey     the rendered search key (key_length bytes; from build_search_key).
+ *   sig_len  significant length of the search key (char) or 8 (num/date).
+ *   set_exact 0 = OFF (char begins-with), non-zero = ON (full equal).
+ *
+ * Returns 1 (found) or 0 (not found).
+ *
+ * char OFF (begins-with): stored[0..sig_len) == skey[0..sig_len). The stored
+ *   key is the LEFT operand; it must BEGIN WITH the search key (mint-002).
+ *   sig_len == 0 (empty search key) matches anything ("" begins every key) --
+ *   consistent with directional begins-with where RIGHT is empty.
+ * char ON (full equal): the full key_length bytes must match (ndx_key_cmp == 0).
+ * num/date: arithmetic equality (ndx_key_cmp == 0).
+ */
+static int match_at_landing(const ndx_index *idx, const uint8_t *stored,
+                            const uint8_t *skey, uint32_t sig_len, int set_exact)
+{
+    if (idx->key_type == (uint16_t)NDX_KEY_TYPE_CHAR && set_exact == 0) {
+        /* OFF: directional begins-with over the search key's significant prefix.
+         * Ref: re/mint-results-002.md (LEFT begins with RIGHT). */
+        uint32_t i;
+        for (i = 0u; i < sig_len; i++) {
+            if (stored[i] != skey[i])
+                return 0;
+        }
+        return 1;
+    }
+    /* char ON, or num/date: exact equality via the collation comparator. */
+    return (ndx_key_cmp(idx, stored, skey) == 0) ? 1 : 0;
+}
+
+int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
+             uint32_t *recno_out, int *found_out)
+{
+    uint8_t  skey[NDX_SEEK_KEYBUF];
+    uint32_t sig_len = 0u;
+    int      rc;
+    uint32_t page_no;
+    uint32_t depth;
+
+    if (recno_out) *recno_out = 0u;
+    if (found_out) *found_out = 0;
+
+    if (!idx || !key)
+        return -NDX_ERR_BAD_PAGE;
+
+    rc = build_search_key(idx, key, skey, &sig_len);
+    if (rc != NDX_OK)
+        return rc;
+
+    /* Descend from the root to a leaf, bounded by total_pages (Rule 2). */
+    page_no = idx->root_page;
+    depth   = idx->total_pages;
+
+    for (;;) {
+        ndx_node_t *node = (ndx_node_t *)0;
+        int         is_branch;
+        uint32_t    i;
+        uint32_t    next_page = 0u;
+        int         descended = 0;
+
+        if (depth == 0u)
+            return -NDX_ERR_CYCLE;
+        depth--;
+
+        rc = ndx_read_node(idx, page_no, &node);
+        if (rc != NDX_OK)
+            return rc;
+
+        is_branch = (node->entry_count > 0u
+                     && node->entries[0].child_page != 0u);
+
+        if (is_branch) {
+            /* Find the first separator entry whose key >= search key; descend
+             * into THAT entry's child. The separator at entry i is the HIGH key
+             * of subtree child_page[i] (ss5), so the first separator >= K bounds
+             * the subtree that may contain K. If K exceeds every separator,
+             * descend into the rightmost (trailing) child.
+             * Ref: ndx.md ss5 search algorithm. */
+            for (i = 0u; i < (uint32_t)node->entry_count; i++) {
+                if (ndx_key_cmp(idx, node->entries[i].key_data, skey) >= 0) {
+#ifndef NDX_MUTATE_SEEK_CHILD
+                    next_page = node->entries[i].child_page;
+#else
+                    /* MUTATED wrong-child descent: take entry[i+1]'s child
+                     * (off-by-one) -- skips the subtree that holds K (whose HIGH
+                     * key is entry[i]), so SEEK lands in the wrong subtree and
+                     * resolves the wrong recno / EOFs. RED. For the last entry
+                     * this folds onto the trailing child. */
+                    next_page = (i + 1u < (uint32_t)node->entry_count)
+                                    ? node->entries[i + 1u].child_page
+                                    : node->trail_child;
+#endif
+                    descended = 1;
+                    break;
+                }
+            }
+            if (!descended) {
+                /* K exceeds all separators: rightmost child (ss5 / ss3.2). */
+                next_page = node->trail_child;
+                descended = 1;
+            }
+            ndx_node_free(idx, node);
+            if (next_page == 0u)
+                return -NDX_ERR_BAD_PAGE;   /* branch with no child -- corrupt */
+            page_no = next_page;
+            continue;
+        }
+
+        /* Leaf: scan for the FIRST entry whose key >= search key. That is the
+         * landing entry. If none (every key < search key), the landing is past
+         * the end of this leaf. Since the descent already bounded us to the leaf
+         * whose subtree HIGH key >= K (or the rightmost leaf when K exceeds all),
+         * "past the end of THIS leaf" means past the end of the index -> EOF.
+         * Ref: ndx.md ss5 (leaf exact match returns dbf_recno). */
+        {
+            int found_landing = 0;
+            for (i = 0u; i < (uint32_t)node->entry_count; i++) {
+                if (ndx_key_cmp(idx, node->entries[i].key_data, skey) >= 0) {
+                    uint32_t recno   = node->entries[i].dbf_recno;
+                    int      matched = match_at_landing(idx,
+                                            node->entries[i].key_data,
+                                            skey, sig_len, set_exact);
+                    if (recno_out) *recno_out = recno;
+                    if (found_out) *found_out = matched;
+                    found_landing = 1;
+                    break;
+                }
+            }
+            ndx_node_free(idx, node);
+            if (!found_landing) {
+                /* EOF: positioned past the last key (recno 0, not found). */
+                if (recno_out) *recno_out = 0u;
+                if (found_out) *found_out = 0;
+            }
+            return NDX_OK;
+        }
     }
 }

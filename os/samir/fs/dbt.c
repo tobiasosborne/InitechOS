@@ -1,18 +1,30 @@
 /*
- * os/samir/fs/dbt.c -- SAMIR (InitechBase) .dbt memo codec: open + read (S2.1).
+ * os/samir/fs/dbt.c -- SAMIR (InitechBase) .dbt memo codec.
+ *                      S2.1: open + read.   S2.2: create + append + flush.
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (samir/pal.h,
  * samir/rt.h, samir/dbt.h). No libc, no int 0x21 -- all OS contact is through
  * the PAL vtable (plan Sec 2.B / 2.D).
  *
- * S2.1 scope (READ only; write is S2.2):
+ * S2.1 scope (READ -- behavior-identical; no API changes):
  *   - dbt_open   : open the .dbt; read + validate block-0 header; store the
  *                  LE uint32 next-free-block pointer; keep the PAL handle open.
+ *                  Opens PAL_RD (read-only); writable flag = 0.
  *   - dbt_close  : close the PAL handle and reset the arena mark.
  *   - dbt_read   : seek to blockno*512; read forward until 0x1A 0x1A across
  *                  consecutive 512-byte blocks; return arena-allocated buffer.
  *   - dbt_next_free : accessor for the block-0 pointer.
+ *
+ * S2.2 scope (WRITE / APPEND):
+ *   - dbt_create : create a new .dbt (PAL_CREATE|PAL_RDWR); write a clean
+ *                  512-byte block 0 with next_free=1 (LE) and 0x00 padding;
+ *                  writable flag = 1.
+ *   - dbt_append : append a memo at next_free * 512: write text + 0x1A 0x1A +
+ *                  0x00 tail-pad to block boundary; advance next_free by
+ *                  ceil((len+2)/512); write the updated ptr back LE @block-0.
+ *                  Fail loud (DBT_ERR_RDONLY) if writable flag = 0.
+ *   - dbt_flush  : write back block-0 next-free ptr; no-op on read-only handles.
  *
  * File geometry (dbt.md sec 2, Verification, all byte-verified 2026-06-16):
  *   Block 0: header. @0x00..0x03 = uint32 LE "next available block number"
@@ -40,13 +52,18 @@
  *   complete terminator.  This prevents spurious DBT_ERR_NO_TERM on these
  *   goldens.
  *
- * Mutation hook (Rule 6, -DDBT_MUTATE_BLOCKSIZE):
- *   Defines DBT_BLOCK_ACTUAL as 511 instead of 512.  All block-boundary
- *   arithmetic (seek to blockno*ACTUAL and block-boundary crossing in the
- *   scan loop) uses 511, landing reads 1 byte off from the true memo start.
- *   This makes the oracle go RED for the right reason: decoded content and
- *   length diverge from the golden.  The mutation does NOT cause a crash;
- *   it produces plausibly-sized but byte-incorrect output.
+ * S2.2 determinism (Rule 11):
+ *   Block-0 padding (bytes 4..511) written as 0x00 on create (not garbage).
+ *   Block tail-pad after 0x1A 0x1A written as 0x00.  The oracle normalizes
+ *   these bytes away (dbt.md sec 6 NORMALIZE), so 0x00 is canonical.
+ *   No timestamps, no host-path bytes, no nondeterminism anywhere.
+ *
+ * Mutation hooks (Rule 6):
+ *   -DDBT_MUTATE_BLOCKSIZE       (S2.1): uses 511 instead of 512 for block
+ *     seek/stride -> read lands 1 byte off -> content diverges -> RED.
+ *   -DDBT_MUTATE_WRITE_PTR_ENDIAN (S2.2): writes block-0 next-free ptr in
+ *     big-endian instead of LE -> a subsequent dbt_open reads the wrong value
+ *     -> next_free mismatch + dbt_read returns -DBT_ERR_BAD_BLOCK -> RED.
  *
  * Fail loud (CLAUDE.md Rule 2): every structural violation or I/O error
  * returns a distinct dbt_err code.  A silently-wrong buffer would corrupt
@@ -60,9 +77,9 @@
  * Ref (Law 1):
  *   - ../dbase3-decomp/specs/file-formats/dbt.md sec 2, 2.1, 2.2, 3, 4, 4.1,
  *     5, 6, 8, Verification.
- *   - docs/plans/SAMIR-implementation-plan.md S2.1 contract + Phase 2 header.
+ *   - docs/plans/SAMIR-implementation-plan.md S2.1 + S2.2 contracts + Phase 2.
  *   - os/samir/include/samir/dbt.h  (the public contract).
- *   - os/samir/include/samir/pal.h  (open/read/seek/close vtable).
+ *   - os/samir/include/samir/pal.h  (open/read/write/seek/close vtable).
  *   - os/samir/include/samir/rt.h   (rt_memcpy, rt_memset).
  */
 
@@ -89,13 +106,15 @@
 
 /* -----------------------------------------------------------------------
  * dbt_file: the opaque handle layout.
- * Arena-allocated at dbt_open; the mark stored here allows dbt_close to
- * unwind the arena to exactly the state before open.
+ * Arena-allocated at dbt_open / dbt_create; the mark stored here allows
+ * dbt_close to unwind the arena to exactly the state before open.
  * ----------------------------------------------------------------------- */
 struct dbt_file {
     samir_pal_t *pal;          /* the PAL vtable (borrowed; not owned) */
     pal_fd       fd;           /* open file handle (owned; closed on dbt_close) */
     uint32_t     next_free;    /* block-0 next-available-block (LE uint32) */
+    int          writable;     /* 0 = read-only (dbt_open); 1 = writable (dbt_create)
+                                * S2.2: dbt_append fails loud if writable==0. */
     void        *arena_mark;   /* arena mark taken just BEFORE the struct alloc;
                                 * reset to this on dbt_close to free the struct
                                 * plus any per-call buffers the caller freed too */
@@ -186,6 +205,109 @@ int dbt_open(samir_pal_t *pal, const char *name, int is_iv_dialect,
     f->pal        = pal;
     f->fd         = fd;
     f->next_free  = next_free;
+    f->writable   = 0;         /* dbt_open: read-only; S2.2 dbt_append will fail loud */
+    f->arena_mark = mark;
+
+    *out = f;
+    return DBT_OK;
+}
+
+/* -----------------------------------------------------------------------
+ * Helper: write the block-0 next-free pointer (uint32) at file offset 0.
+ *
+ * Under -DDBT_MUTATE_WRITE_PTR_ENDIAN: writes the value big-endian instead
+ * of little-endian.  A subsequent dbt_open reads the field LE and gets a
+ * garbage next_free value, causing the round-trip check to go RED.
+ * Ref: dbt.md sec 2.1 "uint32 LE @0x00"; sec 3 (endian RESOLVED LE).
+ * ----------------------------------------------------------------------- */
+static int write_next_free(samir_pal_t *pal, pal_fd fd, uint32_t nf)
+{
+    uint8_t  buf[4];
+    int32_t  nw;
+
+#ifdef DBT_MUTATE_WRITE_PTR_ENDIAN
+    /* Mutant: big-endian.  Intentionally wrong -- makes the oracle RED. */
+    buf[0] = (uint8_t)((nf >> 24) & 0xFFu);
+    buf[1] = (uint8_t)((nf >> 16) & 0xFFu);
+    buf[2] = (uint8_t)((nf >>  8) & 0xFFu);
+    buf[3] = (uint8_t)( nf        & 0xFFu);
+#else
+    /* Normal: little-endian (dbt.md sec 3 RESOLVED). */
+    buf[0] = (uint8_t)( nf        & 0xFFu);
+    buf[1] = (uint8_t)((nf >>  8) & 0xFFu);
+    buf[2] = (uint8_t)((nf >> 16) & 0xFFu);
+    buf[3] = (uint8_t)((nf >> 24) & 0xFFu);
+#endif
+
+    if (pal->seek(pal, fd, 0, PAL_SEEK_SET) < 0) return -DBT_ERR_IO;
+    nw = pal->write(pal, fd, buf, 4u);
+    if (nw < 0 || (uint32_t)nw != 4u) return -DBT_ERR_IO;
+    return DBT_OK;
+}
+
+/* -----------------------------------------------------------------------
+ * dbt_create: create a new, empty .dbt.
+ *
+ * Writes a clean 512-byte block 0: next_free=1 (LE @0x00) + 0x00 padding
+ * for bytes 4..511 (deterministic; Rule 11; normalized away by the oracle
+ * per dbt.md sec 6).  Leaves the file open PAL_CREATE|PAL_RDWR for
+ * subsequent dbt_append calls.
+ *
+ * Ref: dbt.md sec 2.1 (block-0 layout), sec 3 (LE), sec 8 writer step 1,
+ *      sec 6 (block-0 tail = don't-care / NORMALIZE -> we write 0x00).
+ * ----------------------------------------------------------------------- */
+int dbt_create(samir_pal_t *pal, const char *name, dbt_file **out)
+{
+    dbt_file *f;
+    pal_fd    fd;
+    uint8_t   pad[DBT_BLOCK_SIZE - 4u];  /* 508 zero bytes for @0x04..0x1FF */
+    int32_t   nw;
+    void     *mark;
+    int       rc;
+
+    *out = (dbt_file *)0;
+
+    /* Create / truncate the file read+write.
+     * PAL_CREATE | PAL_RDWR: create-or-truncate, open read+write.
+     * Ref: pal.h PAL_CREATE / PAL_RDWR. */
+    fd = pal->open(pal, name, PAL_CREATE | PAL_RDWR);
+    if (fd < 0) {
+        return -DBT_ERR_IO;
+    }
+
+    /* Write block-0 next_free = 1 (little-endian, normal; big-endian under mutant).
+     * Ref: dbt.md sec 2.1 "@0x00 = next-available block (uint32 LE)";
+     *      sec 8 step 1 "start = next_available_block". */
+    rc = write_next_free(pal, fd, 1u);
+    if (rc != DBT_OK) {
+        pal->close(pal, fd);
+        return rc;
+    }
+
+    /* Write 508 zero bytes for the remainder of block 0 (@0x04..0x1FF).
+     * Real dBASE leaves leftover garbage here (dbt.md sec 6), but we write
+     * 0x00 for reproducibility (Rule 11).  The oracle normalizes these bytes
+     * away so the exact value does not affect round-trip grading.
+     * Ref: dbt.md sec 6 "block-0 bytes 4..511 = NORMALIZE". */
+    rt_memset(pad, 0, sizeof(pad));
+    nw = pal->write(pal, fd, pad, (uint32_t)sizeof(pad));
+    if (nw < 0 || (uint32_t)nw != (uint32_t)sizeof(pad)) {
+        pal->close(pal, fd);
+        return -DBT_ERR_IO;
+    }
+
+    /* Allocate the handle from the arena (same pattern as dbt_open). */
+    mark = (void *)0;
+    f = (dbt_file *)pal->alloc(pal, (uint32_t)sizeof(dbt_file));
+    if (!f) {
+        pal->close(pal, fd);
+        return -DBT_ERR_NOMEM;
+    }
+
+    f->pal        = pal;
+    f->fd         = fd;
+    f->next_free  = 1u;  /* one block (block 0) written; next memo starts at 1 */
+    f->writable   = 1;   /* dbt_create: read+write; dbt_append is permitted */
     f->arena_mark = mark;
 
     *out = f;
@@ -218,6 +340,141 @@ int dbt_close(dbt_file *f)
 uint32_t dbt_next_free(const dbt_file *f)
 {
     return f->next_free;
+}
+
+/* -----------------------------------------------------------------------
+ * dbt_append: append a memo to a writable .dbt.
+ *
+ * Algorithm (dbt.md sec 8 "Append a memo"):
+ *   1. Fail loud if writable==0 (DBT_ERR_RDONLY).
+ *   2. start = f->next_free.
+ *   3. Seek to start * DBT_BLOCK_SIZE.
+ *   4. Write `len` bytes of `text` (may be 0).
+ *   5. Write the 0x1A 0x1A terminator (2 bytes).
+ *   6. Compute tail_pad = DBT_BLOCK_SIZE - ((len+2) % DBT_BLOCK_SIZE).
+ *      Special case: if (len+2) % DBT_BLOCK_SIZE == 0, no padding needed
+ *      (tail_pad = 0).  Write tail_pad 0x00 bytes for reproducibility (Rule 11).
+ *   7. blocks_used = (len + 2 + DBT_BLOCK_SIZE - 1) / DBT_BLOCK_SIZE
+ *      = ceil((len+2) / 512).  Ref: plan S2.2 / dbt.md sec 8 step 3.
+ *   8. f->next_free += blocks_used.
+ *   9. Write the updated next_free back to block-0 @0x00 LE.
+ *      Under -DDBT_MUTATE_WRITE_PTR_ENDIAN: writes big-endian -> oracle RED.
+ *  10. *blockno_out = start.
+ *
+ * Ref: dbt.md sec 5 (0x1A 0x1A terminator), sec 6 (tail = don't-care /
+ *      NORMALIZE; 0x00 for reproducibility), sec 8 (writer recipe steps 2-4).
+ * ----------------------------------------------------------------------- */
+int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
+               uint32_t *blockno_out)
+{
+    samir_pal_t *pal;
+    uint32_t     start;
+    uint32_t     blocks_used;
+    uint32_t     tail_pad;
+    uint32_t     written;
+    int32_t      nw;
+    uint8_t      term[2];
+    int          rc;
+
+    *blockno_out = 0u;
+
+    /* Fail loud if this handle is read-only (dbt_open).
+     * Ref: dbt.h dbt_append doc-comment; Rule 2 (fail fast, fail loud). */
+    if (!f->writable) {
+        return -DBT_ERR_RDONLY;
+    }
+
+    pal   = f->pal;
+    start = f->next_free;
+
+    /* Seek to the block where this memo will be written.
+     * Block `start` is at file offset start * DBT_BLOCK_SIZE.
+     * Ref: dbt.md sec 2 "byte offset of block n is n * 512"; sec 8 step 2. */
+    if (pal->seek(pal, f->fd, (int32_t)(start * DBT_BLOCK_SIZE),
+                  PAL_SEEK_SET) < 0) {
+        return -DBT_ERR_IO;
+    }
+
+    /* Write memo text (may be 0 bytes for an empty memo).
+     * Ref: dbt.md sec 2.2 "no III+ per-block header; text begins at byte 0". */
+    if (len > 0u) {
+        nw = pal->write(pal, f->fd, text, len);
+        if (nw < 0 || (uint32_t)nw != len) {
+            return -DBT_ERR_IO;
+        }
+    }
+
+    /* Write the 0x1A 0x1A terminator.
+     * Ref: dbt.md sec 5 "first 0x1A 0x1A"; cl-db3 db3.lisp:396-400. */
+    term[0] = DBT_TERM1;  /* 0x1A */
+    term[1] = DBT_TERM2;  /* 0x1A */
+    nw = pal->write(pal, f->fd, term, 2u);
+    if (nw < 0 || (uint32_t)nw != 2u) {
+        return -DBT_ERR_IO;
+    }
+
+    /* Compute and write tail padding to fill the final block.
+     * tail_pad = (DBT_BLOCK_SIZE - (len+2) % DBT_BLOCK_SIZE) % DBT_BLOCK_SIZE
+     * This gives 0 when (len+2) is exactly block-aligned (no extra zeros needed).
+     * We write 0x00 bytes (deterministic; Rule 11; normalized by the oracle).
+     * Ref: dbt.md sec 8 step 2 "padding ... tail ... is don't-care";
+     *      sec 6 "every block's bytes after its 0x1A 0x1A = NORMALIZE". */
+    written  = len + 2u;  /* text bytes + 2 terminator bytes */
+    tail_pad = (uint32_t)(DBT_BLOCK_SIZE - (written % DBT_BLOCK_SIZE))
+               % DBT_BLOCK_SIZE;
+    if (tail_pad > 0u) {
+        /* Write tail_pad 0x00 bytes in chunks (no static array of arbitrary
+         * size; use a fixed-size local scratch to stay freestanding-safe). */
+        uint8_t  zeroes[DBT_BLOCK_SIZE];
+        uint32_t remain = tail_pad;
+        rt_memset(zeroes, 0, (uint32_t)sizeof(zeroes));
+        while (remain > 0u) {
+            uint32_t chunk = (remain > (uint32_t)sizeof(zeroes))
+                             ? (uint32_t)sizeof(zeroes) : remain;
+            nw = pal->write(pal, f->fd, zeroes, chunk);
+            if (nw < 0 || (uint32_t)nw != chunk) {
+                return -DBT_ERR_IO;
+            }
+            remain -= chunk;
+        }
+    }
+
+    /* Compute blocks_used = ceil((len+2) / DBT_BLOCK_SIZE).
+     * Integer formula: (len + 2 + DBT_BLOCK_SIZE - 1) / DBT_BLOCK_SIZE.
+     * Examples (plan S2.2):
+     *   len=  0: ceil(2/512)=1.   len=127: ceil(129/512)=1.
+     *   len=510: ceil(512/512)=1. len=511: ceil(513/512)=2.  (boundary test)
+     * Ref: dbt.md sec 8 step 3; plan S2.2 contract. */
+    blocks_used = (len + 2u + DBT_BLOCK_SIZE - 1u) / DBT_BLOCK_SIZE;
+
+    /* Advance next_free. */
+    f->next_free += blocks_used;
+
+    /* Write updated next_free back to block-0 @0x00 (LE normally; BE under mutant).
+     * Ref: dbt.md sec 2.1 "@0x00 uint32 LE"; sec 3 (endian RESOLVED);
+     *      dbt.h dbt_append mutant doc-comment (-DDBT_MUTATE_WRITE_PTR_ENDIAN). */
+    rc = write_next_free(pal, f->fd, f->next_free);
+    if (rc != DBT_OK) {
+        /* next_free was already advanced in memory; caller should discard handle. */
+        return rc;
+    }
+
+    *blockno_out = start;
+    return DBT_OK;
+}
+
+/* -----------------------------------------------------------------------
+ * dbt_flush: explicitly write back the block-0 next-free pointer.
+ *
+ * dbt_append already writes it after every append; dbt_flush is a fence
+ * for callers that want an explicit sync.  No-op on read-only handles.
+ *
+ * Ref: dbt.h dbt_flush doc-comment.
+ * ----------------------------------------------------------------------- */
+int dbt_flush(dbt_file *f)
+{
+    if (!f || !f->writable) return DBT_OK;
+    return write_next_free(f->pal, f->fd, f->next_free);
 }
 
 /* -----------------------------------------------------------------------
