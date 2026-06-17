@@ -1,0 +1,159 @@
+# dBASE III PLUS 1.1 error code table
+# SOURCE: ../dbase3-decomp/archive/golden-mined/DBASE_MSG_codes.tsv
+#   (mined from DBASE.MSG binary; 151 codes, 1-based ordinal)
+# NOTES: codes 32, 40, 69, 135, 151 have empty messages in the source;
+#   they are preserved as empty here. The source line 150 had binary
+#   garbage after the NUL terminator; message truncated at NUL.
+# ASCII-clean (CLAUDE.md Rule 12). No timestamps (Rule 11).
+code	message
+1	File does not exist.
+2	Unassigned file no.
+3	File is already open.
+4	End of file encountered.
+5	Record is out of range.
+6	Too many files are open.
+7	File already exists.
+8	Unbalanced parenthesis.
+9	Data type mismatch.
+10	Syntax error.
+11	Invalid function argument.
+12	Variable not found.
+13	ALIAS not found.
+14	No find.
+15	Not a dBASE database.
+16	*** Unrecognized command verb.
+17	Cannot select requested database.
+18	Line exceeds maximum of 254 characters.
+19	Index file does not match database.
+20	Record is not in index.
+21	Out of memory variable memory.
+22	Out of memory variable slots.
+23	Index is too big (100 char maximum).
+24	ALIAS name already in use.
+25	Record is not inserted.
+26	Database is not indexed.
+27	Not a numeric expression.
+28	Too many indices.
+29	File is not accessible.
+30	Position is off the screen.
+31	Invalid function name.
+32	
+33	Structure invalid.
+34	Operation with Memo field invalid.
+35	Unterminated string.
+36	Unrecognized phrase/keyword in command.
+37	Not a Logical expression.
+38	Beginning of file encountered.
+39	Numeric overflow (data was lost).
+40	
+41	.DBT file cannot be opened.
+42	CONTINUE without LOCATE.
+43	Insufficient memory.
+44	Cyclic relation.
+45	Not a Character expression.
+46	Illegal value.
+47	No fields to process.
+48	Field not found.
+49	File has been deleted.
+50	Report file invalid.
+51	End of file or error on keyboard input.
+52	No database is in USE.
+53	There are no files of the type requested in this drive or catalog.
+54	Label file invalid.
+55	Memory Variable file is invalid.
+56	Disk full when writing file:
+57	CHR() : Out of range.
+58	LOG() : Zero or negative.
+59	SPACE() : Too large.
+60	SPACE() : Negative.
+61	SQRT() : Negative.
+62	SUBSTR() : Start point out of range.
+63	STR() : Out of range.
+64	Internal error:
+65	Unknown command code:
+66	CMDSET():
+67	EVAL work area overflow
+68	Illegal opcode
+69	
+70	** WARNING ** Data will probably be lost.  Confirm? (Y/N)
+71	, Database in Use:
+72	could not be opened.
+73	^^ Expected ON or OFF.
+74	^--- Truncated.
+75	^--- Out of range.
+76	- : Concatenated string too large.
+77	+ : Concatenated string too large.
+78	^ or ** : Negative base, fractional exponent.
+79	STORE : String too large.
+80	***Execution error on
+81	Invalid date.
+82	** Not Found **
+83	is not a dBASE command.
+84	Unlink of old name incomplete, errno =
+85	Error:
+86	^--- Keyword not found.
+87	NDX(): Invalid index number.
+88	REPLICATE(): String too large.
+89	Cannot erase a file which is open.
+90	Operation with Logical field invalid.
+91	File was not LOADed.
+92	Unable to load COMMAND.COM.
+93	No PARAMETER statement found.
+94	Wrong number of parameters.
+95	Valid only in programs.
+96	Mismatched DO WHILE and ENDDO.
+97	Bad read or illegal printer file.
+98	Not a RunTime file.
+99	Invalid DOS SET option.
+100	Lock failed, but not because of previous lock.
+101	Not suspended.
+102	STUFF():  String too large.
+103	DOs nested too deep.
+104	Unknown function key.
+105	Table is full.
+106	Invalid index number.
+107	Invalid operator.
+108	File is in use by another.
+109	Record is in use by another.
+110	Exclusive open of file is required.
+111	Cannot write to a read-only file.
+112	Index expression is too big (220 char maximum).
+113	Index interrupted.  Index will be deleted if not completed.
+114	Index damaged.  REINDEX should be done before using data.
+115	Invalid DIF File Header.
+116	Invalid DIF vector - DBF field mismatch.
+117	Invalid DIF type indicator.
+118	Invalid DIF character.
+119	Invalid SYLK file header.
+120	Invalid SYLK file dimension bounds.
+121	Invalid SYLK file format.
+122	Data Catalog has not been established.
+123	Invalid printer port.
+124	Invalid printer redirection.
+125	Printer not ready.
+126	Printer is either not connected or turned off.
+127	Not a valid VIEW file.
+128	Unable to SKIP.
+129	Unable to LOCK.
+130	Record is not locked.
+131	Database is encrypted.
+132	Unauthorized login.
+133	Unauthorized access level.
+134	Not a valid QUERY file.
+135	
+136	Unsupported path given.
+137	Maximum record length exceeded.
+138	No fields were found to copy.
+139	Cannot JOIN a file with itself.
+140	Not a valid PFS file.
+141	Fields list too complicated.
+142	Relation record is in use by others.
+143	Query not valid for this environment.
+144	Unauthorized duplicate.
+145	Error in configuration value.
+146	Maximum path length exceeded.
+147	Cannot append in column order.
+148	Network server busy.
+149	Master catalog is empty.
+150	Help text not found.
+151	

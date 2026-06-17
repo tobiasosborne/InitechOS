@@ -609,9 +609,15 @@ FAT_DIFF_DIR      := harness/diff/fat_diff
 # at S0.4), exactly as test-fat12-bpb stayed out of test-fat until its leg landed.
 SAMIR_DIR         := os/samir
 SAMIR_INC_DIR     := $(SAMIR_DIR)/include
+SAMIR_SPEC_DIR    := spec/samir
 SAMIR_PAL_NULL_SRC := $(SAMIR_DIR)/pal/pal_null.c
+SAMIR_RT_SRC      := $(SAMIR_DIR)/core/rt.c
+SAMIR_PAL_HOST_SRC := $(SAMIR_DIR)/pal/pal_host.c
 DBF_DIFF_DIR      := harness/diff/dbf_diff
 TEST_SAMIR_PAL    := $(BUILD)/test_samir_pal_contract
+TEST_SAMIR_RT     := $(BUILD)/test_samir_rt
+TEST_SAMIR_PAL_HOST := $(BUILD)/test_samir_pal_host
+TEST_SAMIR_SPEC   := $(BUILD)/test_samir_spec
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1229,6 +1235,45 @@ test-samir-pal: $(TEST_SAMIR_PAL)
 	@printf ">>> test-samir-pal: samir_pal vtable contract complete + linkable (pal_null)\n"
 	@$(TEST_SAMIR_PAL)
 	@printf ">>> test-samir-pal: green\n"
+
+# ---- SAMIR Phase-0 oracles: rt (S0.3), pal_host (S0.2), spec lock (S0.5) ----
+# Same host-oracle pattern as test-samir-pal. rt.c is freestanding engine code;
+# the host test links it. pal_host.c is the factory binding (libc). The spec
+# oracle asserts the LOCKED spec/samir data (ADR-0008 DEC-06) is consistent.
+$(TEST_SAMIR_RT): $(DBF_DIFF_DIR)/test_samir_rt.c $(SAMIR_RT_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/test_samir_rt.c $(SAMIR_RT_SRC)
+$(TEST_SAMIR_PAL_HOST): $(DBF_DIFF_DIR)/test_samir_pal_host.c $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/test_samir_pal_host.c $(SAMIR_PAL_HOST_SRC)
+$(TEST_SAMIR_SPEC): $(DBF_DIFF_DIR)/test_samir_spec.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_samir_spec.c
+
+.PHONY: test-samir-rt
+test-samir-rt: $(TEST_SAMIR_RT)
+	@printf ">>> test-samir-rt: freestanding rt (JDN, dec_format ties->+inf, mem/str)\n"
+	@$(TEST_SAMIR_RT)
+	@printf ">>> test-samir-rt: green\n"
+
+.PHONY: test-samir-pal-host
+test-samir-pal-host: $(TEST_SAMIR_PAL_HOST)
+	@printf ">>> test-samir-pal-host: host PAL binding (libc + injectable clock + arena)\n"
+	@$(TEST_SAMIR_PAL_HOST)
+	@printf ">>> test-samir-pal-host: green\n"
+
+.PHONY: test-samir-spec
+test-samir-spec: $(TEST_SAMIR_SPEC)
+	@printf ">>> test-samir-spec: spec/samir locked data consistent (III+-only; no ==; 0x1C/0x1F NORMALIZE)\n"
+	@$(TEST_SAMIR_SPEC) $(SAMIR_SPEC_DIR)
+	@printf ">>> test-samir-spec: green\n"
+
+# SAMIR foundation umbrella (the Phase-0 unit vector). Grows as engine steps land.
+# This is NOT the M6 gate -- the M6 differential is `test-dbase` (stub_fail until
+# the S6.x oracle lands). test-samir green == the engine FOUNDATION is green.
+.PHONY: test-samir
+test-samir: test-samir-pal test-samir-rt test-samir-pal-host test-samir-spec
+	@printf ">>> test-samir: SAMIR foundation green (PAL + rt + host binding + spec lock)\n"
 
 # Build the FAT12 decode + chain-walk oracle: the test + the REAL artifact
 # fat12.c + the host blockdev backend (same include set as the BPB oracle).
@@ -9358,7 +9403,8 @@ TEST_UNIT_GATES := \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-absdisk test-absdisk-mutant \
-	test-kernel-repro test-kernel-repro-mutant
+	test-kernel-repro test-kernel-repro-mutant \
+	test-samir
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \

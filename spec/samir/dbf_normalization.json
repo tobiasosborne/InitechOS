@@ -1,0 +1,216 @@
+{
+  "_comment": [
+    "dBASE III PLUS 1.1 .dbf byte normalization map.",
+    "SOURCE: ../dbase3-decomp/specs/file-formats/dbf.md section 2 (32-byte file header table)",
+    "  and section 4 (32-byte field descriptor table). Byte-verified against six III+ 1.1",
+    "  golden fixtures: BANK, CLIENTS, TOURS, TRAVEL, TAX, UNIVERSD.",
+    "III+ ONLY. Provenance: the corpus III+-only table, NOT docs/research/dbase-ground-truth.md",
+    "  (which straddles III+/IV and marks 0x1C/0x1F as 'MEANINGFUL iff .MDX'). That brief",
+    "  classification is superseded for III+ work by ADR-0008 DEC-06.",
+    "CLASSIFICATION RULE:",
+    "  MEANINGFUL = bytes whose value carries semantics for III+ round-trip correctness.",
+    "    A byte-exact reader/writer MUST preserve or reproduce these bytes.",
+    "  NORMALIZE = bytes that are always 0x00 in 100% of III+ fixtures and whose",
+    "    stated IV/VFP meaning does NOT apply to III+. Normalize to 0x00 on write;",
+    "    do not error on nonzero, but do not propagate IV meaning.",
+    "ASCII-clean (CLAUDE.md Rule 12). No timestamps (Rule 11)."
+  ],
+  "status": "III+ period-grounded; byte-verified against six III+ 1.1 golden fixtures",
+  "schema_version": 1,
+  "target_version": "dBASE III PLUS 1.1",
+  "header_bytes": [
+    {
+      "offset_hex": "0x00",
+      "size": 1,
+      "name": "version",
+      "classification": "MEANINGFUL",
+      "note": "0x03 or 0x83 in III+; bit 7 = has memo. Ref: dbf.md ss3."
+    },
+    {
+      "offset_hex": "0x01",
+      "size": 1,
+      "name": "last_update_year",
+      "classification": "MEANINGFUL",
+      "note": "year - 1900. Part of last-update date (YY,MM,DD). Ref: dbf.md ss2."
+    },
+    {
+      "offset_hex": "0x02",
+      "size": 1,
+      "name": "last_update_month",
+      "classification": "MEANINGFUL",
+      "note": "1..12. Ref: dbf.md ss2."
+    },
+    {
+      "offset_hex": "0x03",
+      "size": 1,
+      "name": "last_update_day",
+      "classification": "MEANINGFUL",
+      "note": "1..31. Ref: dbf.md ss2."
+    },
+    {
+      "offset_hex": "0x04",
+      "size": 4,
+      "name": "nrec",
+      "classification": "MEANINGFUL",
+      "note": "record count, u32 LE. Authoritative for reading. Ref: dbf.md ss2, ss8."
+    },
+    {
+      "offset_hex": "0x08",
+      "size": 2,
+      "name": "header_length",
+      "classification": "MEANINGFUL",
+      "note": "byte offset of first record, u16 LE. Trust this. Ref: dbf.md ss4, ss8."
+    },
+    {
+      "offset_hex": "0x0A",
+      "size": 2,
+      "name": "record_length",
+      "classification": "MEANINGFUL",
+      "note": "bytes per record, u16 LE. 1 + sum(field_lengths). Ref: dbf.md ss6, ss8."
+    },
+    {
+      "offset_hex": "0x0C",
+      "size": 2,
+      "name": "reserved_0x0C",
+      "classification": "NORMALIZE",
+      "note": "0x00 0x00 in all III+ fixtures. IV meaning not applicable. Ref: dbf.md ss2."
+    },
+    {
+      "offset_hex": "0x0E",
+      "size": 1,
+      "name": "reserved_0x0E",
+      "classification": "NORMALIZE",
+      "note": "0x00 in III+ fixtures. IV: incomplete-transaction flag; not used in III+. Ref: dbf.md ss2."
+    },
+    {
+      "offset_hex": "0x0F",
+      "size": 1,
+      "name": "reserved_0x0F",
+      "classification": "NORMALIZE",
+      "note": "0x00 in III+ fixtures. IV: encryption flag; not used in III+. Ref: dbf.md ss2."
+    },
+    {
+      "offset_hex": "0x10",
+      "size": 12,
+      "name": "reserved_multiuser_0x10",
+      "classification": "NORMALIZE",
+      "note": "all 0x00 in III+ fixtures. Reserved for multi-user/LAN. Ref: dbf.md ss2."
+    },
+    {
+      "offset_hex": "0x1C",
+      "size": 1,
+      "name": "mdx_flag",
+      "classification": "NORMALIZE",
+      "note": "0x00 in 100% of III+ fixtures. III+ has no MDX. IV production-.MDX flag meaning does NOT apply to III+. ADR-0008 DEC-06: NORMALIZE for III+. Ref: dbf.md ss2."
+    },
+    {
+      "offset_hex": "0x1D",
+      "size": 1,
+      "name": "ldid",
+      "classification": "NORMALIZE",
+      "note": "language driver / code-page id. 0x00 in all III+ 1.1 fixtures. A byte-exact III+ writer emits 0x00. Ref: dbf.md ss7."
+    },
+    {
+      "offset_hex": "0x1E",
+      "size": 2,
+      "name": "reserved_0x1E",
+      "classification": "NORMALIZE",
+      "note": "0x00 0x00 in III+ fixtures. Ref: dbf.md ss2."
+    }
+  ],
+  "descriptor_bytes": [
+    {
+      "offset_hex": "0x00",
+      "size": 11,
+      "name": "field_name",
+      "classification": "MEANINGFUL",
+      "note": "NUL-terminated ASCII, NUL-padded. Read to first NUL; trailing bytes may be garbage (stale). Ref: dbf.md ss4."
+    },
+    {
+      "offset_hex": "0x0B",
+      "size": 1,
+      "name": "field_type",
+      "classification": "MEANINGFUL",
+      "note": "ASCII char: C N D L M for III+. Ref: dbf.md ss4, ss5."
+    },
+    {
+      "offset_hex": "0x0C",
+      "size": 4,
+      "name": "field_data_addr",
+      "classification": "NORMALIZE",
+      "note": "RAM pointer; meaningless on disk. Ignore on read; writer may emit anything. Normalize to 0x00000000 for deterministic output. Ref: dbf.md ss4 (0x0C row), ss9."
+    },
+    {
+      "offset_hex": "0x10",
+      "size": 1,
+      "name": "field_length",
+      "classification": "MEANINGFUL",
+      "note": "bytes the field occupies in each record. For N: includes sign + decimal point. Ref: dbf.md ss4."
+    },
+    {
+      "offset_hex": "0x11",
+      "size": 1,
+      "name": "decimal_count",
+      "classification": "MEANINGFUL",
+      "note": "digits after decimal point; meaningful for N only (0 for C/D/L/M). Ref: dbf.md ss4."
+    },
+    {
+      "offset_hex": "0x12",
+      "size": 2,
+      "name": "reserved_desc_0x12",
+      "classification": "NORMALIZE",
+      "note": "0x00 0x00 in fixtures. Reserved multi-user/LAN. Ref: dbf.md ss4."
+    },
+    {
+      "offset_hex": "0x14",
+      "size": 1,
+      "name": "work_area_id",
+      "classification": "NORMALIZE",
+      "note": "0x00 or 0x01 in III+ fixtures. Do NOT import the Harbour/IV auto-increment meaning. Normalize to 0x00 for deterministic output. Ref: dbf.md ss4 (0x14 row), ss9."
+    },
+    {
+      "offset_hex": "0x15",
+      "size": 2,
+      "name": "reserved_desc_0x15",
+      "classification": "NORMALIZE",
+      "note": "0x00 0x00 in fixtures. Reserved multi-user/LAN. Ref: dbf.md ss4."
+    },
+    {
+      "offset_hex": "0x17",
+      "size": 1,
+      "name": "set_fields_flag",
+      "classification": "NORMALIZE",
+      "note": "0x00 in all III+ fixtures. Ref: dbf.md ss4 (0x17 row)."
+    },
+    {
+      "offset_hex": "0x18",
+      "size": 8,
+      "name": "reserved_desc_0x18",
+      "classification": "NORMALIZE",
+      "note": "0x00 in fixtures. Reserved. Ref: dbf.md ss4 (0x18 row)."
+    },
+    {
+      "offset_hex": "0x1F",
+      "size": 1,
+      "name": "index_field_flag",
+      "classification": "NORMALIZE",
+      "note": "0x00 in 100% of III+ fixtures. IV: index-field / MDX-field flag; does NOT apply to III+. ADR-0008 DEC-06: NORMALIZE for III+. Ref: dbf.md ss4 (0x1F row)."
+    }
+  ],
+  "record_bytes": [
+    {
+      "offset_in_record": 0,
+      "size": 1,
+      "name": "delete_flag",
+      "classification": "MEANINGFUL",
+      "note": "0x20 = live; 0x2A = deleted. Ref: dbf.md ss6."
+    },
+    {
+      "offset_in_record": "1..record_length-1",
+      "size": "sum(field_lengths)",
+      "name": "field_data",
+      "classification": "MEANINGFUL",
+      "note": "fixed-width packed ASCII field data; no padding between fields. All types C/N/D/L/M are ASCII in III+. Ref: dbf.md ss5, ss6."
+    }
+  ]
+}
