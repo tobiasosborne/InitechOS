@@ -66,6 +66,12 @@ struct work_area {
     uint32_t     nrec;                 /* cached dbf_nrec */
     int          eof;                  /* end-of-file flag */
     int          bof;                  /* begin-of-file flag */
+    int          found;                /* FOUND() flag: result of the last SEEK/
+                                        * LOCATE in this area. S5.1 inits it 0
+                                        * (fresh USE => FOUND .F., per the
+                                        * pointer/flag matrix); S4.3 SEEK / S5.4
+                                        * LOCATE set it. GATED until then -- the
+                                        * S3.6b FOUND() reads it via the vtable. */
 
     int          nfields;              /* cached dbf_nfields */
     char         alias[WA_ALIAS_CAP];  /* NUL-terminated alias */
@@ -316,6 +322,7 @@ wa_env *wa_env_make(samir_pal_t *pal)
         wa->nrec = 0u;
         wa->eof = 0;
         wa->bof = 0;
+        wa->found = 0;
         wa->nfields = 0;
         wa->alias[0] = '\0';
         wa->rec_cache = (xb_val *)0;
@@ -454,6 +461,7 @@ int wa_set_open(wa_env *env, int area, const char *name,
     wa->recno = 1u;                    /* dBASE positions at record 1 on USE */
     wa->bof   = 0;
     wa->eof   = (wa->nrec == 0u) ? 1 : 0;  /* empty table => EOF */
+    wa->found = 0;                     /* fresh USE => FOUND() .F. (no search) */
     wa->open  = 1;
 
     return WA_OK;
@@ -476,6 +484,7 @@ int wa_close(wa_env *env, int area)
     wa->nrec = 0u;
     wa->eof = 0;
     wa->bof = 0;
+    wa->found = 0;
     wa->nfields = 0;
     wa->alias[0] = '\0';
     wa->cache_recno = 0u;
@@ -659,12 +668,188 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
     return 0;
 }
 
+/* ===================================================================== */
+/* The DB-CURSOR vtable (eval.h xb_dbcursor) -- S3.6b decoupling           */
+/*                                                                         */
+/* These functions answer the database built-ins (RECNO/RECCOUNT/EOF/BOF/  */
+/* FOUND/DELETED/FIELD/DBF/FILE) about the SELECTED area, reading wa state  */
+/* directly here in workarea.c. fn_builtins.c calls them ONLY through the   */
+/* ctx->dbcur vtable pointer, so it never references a wa_* symbol -- the   */
+/* decoupling the S3.6b design requires. `u` is the wa_env*.               */
+/*                                                                         */
+/* SELECTED-AREA semantics: every slot operates on env->cur (the active    */
+/* area), matching system-and-database-functions.md sec 1 ("All ... operate */
+/* on the currently SELECTed (active) work area"). A closed selected area   */
+/* yields the empty/zero values (RECNO/RECCOUNT 0, flags .F., names "").    */
+/* The "no work area at all" case is fail-loud in fn_builtins.c via the     */
+/* NULL ctx->dbcur check (XBEE_NO_DATABASE); here a closed-but-selected     */
+/* area returns the empty values, also per the spec.                       */
+/* ===================================================================== */
+
+/* The currently selected area of env, or NULL if env is NULL / out of range. */
+static work_area *wa_cur_area(wa_env *env)
+{
+    if (!env)
+        return (work_area *)0;
+    if (env->cur < 0 || env->cur >= WA_NAREAS)
+        return (work_area *)0;
+    return &env->area[env->cur];
+}
+
+static uint32_t wac_recno(void *u)
+{
+    work_area *wa = wa_cur_area((wa_env *)u);
+    if (!wa || !wa->open)
+        return 0u;                     /* no DBF open -> 0 (RECNO() empty value) */
+    /* At EOF the cursor (wa->recno) is held at RECCOUNT()+1 by nav (S5.2); on a
+     * fresh non-empty USE it is 1; on an empty file RECNO()==1 (eof set, recno=1).
+     * We return the cursor verbatim -- nav owns the RECCOUNT+1-at-EOF invariant.
+     * Defensive: if eof and the cursor was not advanced past the end, normalize
+     * to RECCOUNT()+1 so RECNO() honors the documented EOF rule regardless of how
+     * the area reached EOF (system-and-database-functions.md RECNO()). */
+    if (wa->eof)
+        return wa->nrec + 1u;          /* RECCOUNT()+1 at EOF; empty file -> 1 */
+    return wa->recno;
+}
+
+static uint32_t wac_reccount(void *u)
+{
+    work_area *wa = wa_cur_area((wa_env *)u);
+    if (!wa || !wa->open)
+        return 0u;                     /* empty/none -> 0 (RECCOUNT()) */
+    return wa->nrec;                   /* physical count; ignores FILTER/DELETED */
+}
+
+static int wac_eof(void *u)
+{
+    work_area *wa = wa_cur_area((wa_env *)u);
+    if (!wa || !wa->open)
+        return 0;
+    return wa->eof ? 1 : 0;
+}
+
+static int wac_bof(void *u)
+{
+    work_area *wa = wa_cur_area((wa_env *)u);
+    if (!wa || !wa->open)
+        return 0;
+    return wa->bof ? 1 : 0;
+}
+
+static int wac_found(void *u)
+{
+    work_area *wa = wa_cur_area((wa_env *)u);
+    if (!wa || !wa->open)
+        return 0;
+    return wa->found ? 1 : 0;          /* GATED: SEEK/LOCATE set this (S4.3/S5.4) */
+}
+
+static int wac_deleted(void *u)
+{
+    work_area *wa = wa_cur_area((wa_env *)u);
+    if (!wa || !wa->open)
+        return 0;
+    /* On EOF / empty there is no current record -> .F. (DELETED() at EOF). */
+    if (wa->nrec == 0u || wa->eof)
+        return 0;
+    /* Ensure the current record is cached so cache_deleted is fresh. */
+    if (wa_touch_record(wa) != WA_OK)
+        return 0;                      /* read failure -> .F. (no record) */
+    return wa->cache_deleted ? 1 : 0;
+}
+
+static int wac_field_name(void *u, uint32_t i, char *buf, uint32_t cap)
+{
+    work_area *wa = wa_cur_area((wa_env *)u);
+    const dbf_field_t *f;
+    uint32_t n;
+    if (!wa || !wa->open || cap == 0u)
+        return -1;
+    /* 1-based ordinal; valid 1..nfields (III+ caps at 128). Out of range -> -1
+     * (FIELD() maps that to the null string). */
+    if (i < 1u || i > (uint32_t)wa->nfields)
+        return -1;
+    f = dbf_field(wa->tbl, (int)(i - 1u));
+    if (!f)
+        return -1;
+    /* The descriptor name is already UPPERCASE on disk (dBASE stores field names
+     * upper-cased; FIELD() returns uppercase). Copy to first NUL, bounded by cap. */
+    n = 0u;
+    while (f->name[n] != '\0' && n < cap - 1u) {
+        buf[n] = f->name[n];
+        n++;
+    }
+    buf[n] = '\0';
+    return (int)n;
+}
+
+static int wac_dbf_name(void *u, char *buf, uint32_t cap)
+{
+    work_area *wa = wa_cur_area((wa_env *)u);
+    uint32_t n;
+    if (!wa || !wa->open || cap == 0u)
+        return -1;                     /* no table open -> "" (DBF()) */
+    /* DBF() returns the open file's name, UPPERCASE; we return the work-area
+     * alias (the upper-cased base name, e.g. "TRAVEL"). The exact path/extension
+     * form is [oracle-resolves] (system-and-database-functions.md DBF() open Q6);
+     * the alias is the conservative grounded choice. */
+    n = 0u;
+    while (wa->alias[n] != '\0' && n < cap - 1u) {
+        buf[n] = wa->alias[n];
+        n++;
+    }
+    buf[n] = '\0';
+    if (n == 0u)
+        return -1;                     /* empty alias -> treat as none -> "" */
+    return (int)n;
+}
+
+static int wac_file_exists(void *u, const char *name)
+{
+    wa_env *env = (wa_env *)u;
+    samir_pal_t *pal;
+    pal_fd fd;
+    if (!env || !name)
+        return 0;
+    pal = env->pal;
+    if (!pal)
+        return 0;
+    /* FILE() tests existence via the PAL only (Law 3: no direct OS access).
+     * Open read-only; success => exists; close immediately. The engine never
+     * issues int 0x21 -- pal_milton.c maps this to INT 21h AH=3Dh on the
+     * artifact, pal_host.c to fopen on the host. */
+    fd = pal->open(pal, name, PAL_RD);
+    if (fd < 0)
+        return 0;
+    (void)pal->close(pal, fd);
+    return 1;
+}
+
+/* The single shared vtable instance (const; one per process). wa_bind_ctx points
+ * ctx->dbcur at this and ctx->dbcur_user at the env. */
+static const xb_dbcursor wa_dbcursor_vtable = {
+    wac_recno,
+    wac_reccount,
+    wac_eof,
+    wac_bof,
+    wac_found,
+    wac_deleted,
+    wac_field_name,
+    wac_dbf_name,
+    wac_file_exists
+};
+
 void wa_bind_ctx(wa_env *env, xb_ctx *ctx)
 {
     if (!ctx)
         return;
-    ctx->resolve = wa_resolve;
-    ctx->user    = env;
+    ctx->resolve     = wa_resolve;
+    ctx->user        = env;
+    /* Wire the DB-cursor hook so RECNO/EOF/FIELD/DBF/... resolve against the
+     * selected area (S3.6b). fn_builtins.c reaches these ONLY through the vtable;
+     * NULL dbcur (a pure-expression ctx with no env) makes them fail loud. */
+    ctx->dbcur       = &wa_dbcursor_vtable;
+    ctx->dbcur_user  = env;
 }
 
 /* ===================================================================== */

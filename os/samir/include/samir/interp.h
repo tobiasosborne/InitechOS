@@ -184,7 +184,148 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip);
  * `prg` is the program source (NUL-terminated). Returns INTERP_OK on completion.
  * IMPLEMENTED IN S5.3 (the statement executor + control flow). DECLARED here so
  * the handle/contract is stable for the swarm. Ref: plan Sec 8.2; S5.3.
+ *
+ * On a run-time error (a guard that is not Logical, a bad expression, a verb the
+ * dispatch chain does not recognise, or malformed control-flow structure) the
+ * executor STOPS and returns a negative interp_err; the dBASE catalog ordinal /
+ * detail is available through samir_last_error(ip). Fail loud (Rule 2): no
+ * silent skip of a broken statement.
  */
 int samir_do(xb_interp *ip, const char *prg);
+
+/* =======================================================================
+ * S5.3 -- statement executor + control-flow SPINE (initech-7az.4)
+ *
+ * This is the dot-prompt interpreter's STATEMENT layer: it tokenises a program
+ * into lines, dispatches each command line on its leading verb, and runs the
+ * structured control-flow constructs (DO WHILE/ENDDO, IF/ELSE/ENDIF,
+ * DO CASE/CASE/OTHERWISE/ENDCASE, LOOP, EXIT). It owns the memory-variable
+ * (memvar) table and the STORE / "<name> = <expr>" verbs.
+ *
+ * DESIGN FOR EXTENSION (S5.4 query, S5.5 mutation, S5.6 SET, S5.7 procedures):
+ *   The executor dispatches a command in two stages:
+ *     1. BUILT-IN spine verbs handled directly here: the control-flow keywords,
+ *        STORE, "<name> = <expr>" memvar assignment, and the structural verbs
+ *        that already have an engine (SELECT n / SELECT <alias>). RELEASE is
+ *        handled for the memvar table this step owns.
+ *     2. Anything else is handed to a registered COMMAND HOOK
+ *        (xb_interp_set_cmd_hook). A later step registers ONE hook that adds its
+ *        verbs (LIST/DISPLAY/?, REPLACE/APPEND, SET ..., DO/PROCEDURE) without
+ *        editing flow.c. The hook returns CMD_OK (handled), CMD_UNKNOWN (not my
+ *        verb -- the executor then fails loud #16), or a negative error.
+ *   This keeps S5.3 the stable SPINE: new verbs are additive registrations, the
+ *   control-flow engine never changes.
+ *
+ * MEMVARS (kept OFF workarea.c -- a parallel lane owns that file):
+ *   At samir_do entry the executor SAVES the interp ctx's existing resolve/user
+ *   (the work-area field resolver bound by xb_interp_make) and installs a COMPOSED
+ *   resolver that checks the memvar table first, then delegates to the saved
+ *   work-area resolver. STORE/= create or update memvars; field references in the
+ *   SAME expression still resolve through the delegate. ALL OTHER ctx fields
+ *   (set_exact, scratch, ctx_today, and any cursor hook a parallel lane adds) are
+ *   left untouched -- only resolve/user are swapped, and they are restored on
+ *   return. Memvar storage (names + C bytes) lives in the PAL arena.
+ *
+ * GUARD-MUST-BE-LOGICAL (the headline S5.3 rule; plan S5.3 + dBASE semantics):
+ *   The condition of IF, DO WHILE and each DO CASE CASE is evaluated through the
+ *   evaluator and MUST be Logical (XB_L). A non-Logical guard is a FAIL-LOUD
+ *   error #37 "Not a Logical expression." (dbase_msg_codes.tsv line 45,
+ *   XBEE_NOT_LOGICAL) -- there is NO C/Clojure-style truthiness (0/""/blank are
+ *   NOT "false"). This is enforced, not optional.
+ *
+ * Ref (Law 1):
+ *   - docs/plans/SAMIR-implementation-plan.md S5.3 ("command dispatch; DO WHILE/
+ *     ENDDO, IF/ELSE/ENDIF, DO CASE, LOOP/EXIT; guard-must-be-Logical").
+ *   - os/samir/include/samir/eval.h (xb_ctx + xb_lex/xb_parse/xb_eval;
+ *     XBEE_NOT_LOGICAL = #37).
+ *   - spec/samir/dbase_msg_codes.tsv (#37 "Not a Logical expression.").
+ *   - os/samir/include/samir/workarea.h (wa_resolve; the delegate).
+ * ======================================================================= */
+
+/*
+ * Command-hook return convention. A registered command hook returns:
+ *   CMD_OK      ( 0): the hook recognised + executed the verb.
+ *   CMD_UNKNOWN ( 1): not a verb this hook handles; the executor fails loud.
+ *   < 0          : a run-time error (negative); the executor stops and surfaces
+ *                  it through samir_last_error. The hook sets *err_code to the
+ *                  dBASE catalog ordinal where one applies.
+ */
+typedef enum {
+    CMD_OK      = 0,
+    CMD_UNKNOWN = 1
+} cmd_status;
+
+/*
+ * xb_cmd_hook: a registered command-line handler (S5.4..S5.7 each supply one).
+ *
+ *   user : the hook's own state (xb_interp_set_cmd_hook stores it).
+ *   ip   : the interpreter (the hook reaches the env / ctx / memvars through it).
+ *   verb : the upper-cased leading keyword of the line (NUL-terminated).
+ *   args : the remainder of the line after the verb (the operands), trimmed of
+ *          leading blanks; NUL-terminated; may be empty. NOT a copy you own --
+ *          valid only for the duration of the call.
+ *   err_code : set to the dBASE catalog ordinal on a negative return.
+ *
+ * Returns a cmd_status (>=0) or a negative interp/eval error.
+ */
+typedef int (*xb_cmd_hook)(void *user, xb_interp *ip,
+                           const char *verb, const char *args, int *err_code);
+
+/*
+ * xb_interp_set_cmd_hook: register the command hook (and its user state). A
+ * later step calls this once before samir_do so its verbs participate in
+ * dispatch. Passing NULL clears the hook (the spine-only set remains). The
+ * previous (hook,user) pair is overwritten.
+ */
+void xb_interp_set_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user);
+
+/*
+ * xb_interp_store: create-or-update a memvar `name` (NUL-terminated, case-
+ * insensitive, folded to upper-case) with value `v`. This is the engine behind
+ * STORE <expr> TO <name> and "<name> = <expr>". A Character/Memo value's bytes
+ * are COPIED into the memvar arena so the memvar outlives the eval scratch.
+ *
+ * Returns INTERP_OK or a negative interp_err (arena exhaustion / table full).
+ * Available to S5.5 (REPLACE assignment also stores) and S5.7 (PARAMETERS /
+ * PRIVATE seed the table).
+ */
+int xb_interp_store(xb_interp *ip, const char *name, const xb_val *v);
+
+/*
+ * xb_interp_get_memvar: look up memvar `name` (NUL-terminated, case-insensitive).
+ * On success returns 0 and fills *out with the stored value (C/M bytes point into
+ * the memvar arena, stable until the memvar is overwritten/released). Returns
+ * non-zero if no such memvar exists. Used by the oracle and by S5.7 scope checks.
+ */
+int xb_interp_get_memvar(xb_interp *ip, const char *name, xb_val *out);
+
+/*
+ * xb_interp_release_all: drop every memvar (RELEASE ALL). The arena bytes are not
+ * individually reclaimed (bump arena), but the names become invisible to resolve
+ * and to xb_interp_get_memvar. S5.7 narrows this to PRIVATE/PUBLIC scopes.
+ */
+void xb_interp_release_all(xb_interp *ip);
+
+/*
+ * samir_last_error: the dBASE catalog ordinal (or engine code) of the last
+ * run-time error raised by samir_do, or 0 if the last run completed cleanly.
+ * E.g. after "IF 1" it is 37 (XBEE_NOT_LOGICAL); after an unmatched ENDIF it is
+ * INTERP_ERR_STRUCT. Lets a caller / oracle assert the precise failure (Law 2).
+ */
+int samir_last_error(xb_interp *ip);
+
+/* Additional interp_err ordinals introduced by S5.3 (additive; INTERP_OK==0 and
+ * the S5.1 codes are unchanged). Returned negated from samir_do, recorded by
+ * samir_last_error. */
+enum {
+    INTERP_ERR_STRUCT  = 5,  /* malformed control structure: unmatched ELSE/
+                              * ENDIF/ENDDO/CASE/OTHERWISE/ENDCASE, EXIT/LOOP
+                              * outside a loop, missing terminator (fail loud) */
+    INTERP_ERR_UNKNOWN_CMD = 6,  /* a verb no spine rule and no hook handled
+                                  * (dBASE #16 "Unrecognized command verb.") */
+    INTERP_ERR_SYNTAX  = 7,  /* a statement's operands are syntactically wrong
+                              * (e.g. STORE without TO, bad assignment target) */
+    INTERP_ERR_DEPTH   = 8   /* control-flow / line-buffer capacity exceeded */
+};
 
 #endif /* INITECH_SAMIR_INTERP_H */

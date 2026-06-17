@@ -1217,6 +1217,247 @@ static int fn_transform(xb_ctx *ctx, const xb_val *args, int nargs,
 }
 
 /* ======================================================================== */
+/* Database / work-area functions (S3.6b, initech-7az.10)                    */
+/*   RECNO RECCOUNT EOF BOF FOUND DELETED FIELD DBF FILE                     */
+/*                                                                           */
+/* These need the SELECTED work area's record cursor, reached ONLY through   */
+/* the ctx->dbcur vtable (eval.h xb_dbcursor) -- NOT any workarea.c symbol,  */
+/* so this translation unit stays decoupled from the work-area subsystem     */
+/* (fn_builtins.o has no undefined wa_* symbols). cmd/workarea.c supplies the */
+/* concrete vtable; wa_bind_ctx wires it in.                                 */
+/*                                                                           */
+/* NO WORK AREA: ctx->dbcur == NULL means "no database in USE" -- every one  */
+/* fails loud with XBEE_NO_DATABASE (#52 "No database is in USE."), never a   */
+/* crash (Rule 2). The pure-expression tests leave ctx->dbcur NULL but never */
+/* call these, so they are unaffected.                                       */
+/*                                                                           */
+/* Ref (Law 1):                                                              */
+/*   - ../dbase3-decomp/specs/functions/system-and-database-functions.md     */
+/*       sec 2 (RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF) + sec 3 FILE; */
+/*       sec 1 "All ... operate on the currently SELECTed (active) work area".*/
+/*   - spec/samir/dbase_msg_codes.tsv code 52 "No database is in USE."        */
+/* ======================================================================== */
+
+/* All DB built-ins funnel the no-work-area case through here (fail loud). */
+static int need_dbcur(xb_ctx *ctx, int *err)
+{
+    if (ctx == 0 || ctx->dbcur == 0) {
+        *err = XBEE_NO_DATABASE;       /* #52 "No database is in USE." */
+        return 0;                      /* 0 => no cursor (caller bails) */
+    }
+    return 1;
+}
+
+/*
+ * RECNO() -> N. "Number of the current record." No arguments.
+ *   - 1-based current record of the active area.
+ *   - At EOF returns RECCOUNT()+1; on an empty file returns 1.
+ *     (system-and-database-functions.md RECNO(): "When the pointer is past the
+ *      last record (EOF() is .T.), RECNO() returns RECCOUNT()+1 ... On an empty
+ *      database, RECNO() returns 1".) The cursor vtable already encodes that:
+ *      wa_recno tracks the cursor and is RECCOUNT+1 at EOF -- we return it
+ *      verbatim. The mutation hook below proves the EOF==RECCOUNT+1 rule bites.
+ */
+static int fn_recno(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+{
+    uint32_t r;
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!need_dbcur(ctx, err)) return *err;
+    r = ctx->dbcur->recno(ctx->dbcur_user);
+#ifdef XB_MUTATE_FN_RECNO_EOF
+    /* MUTATION (Rule 6): at EOF, report RECCOUNT() instead of RECCOUNT()+1.
+     * The grounded assertion "RECNO()==RECCOUNT()+1 at EOF" then goes RED,
+     * proving the oracle catches a break in the load-bearing EOF rule
+     * (system-and-database-functions.md RECNO()/EOF()). Exactly one branch. */
+    if (ctx->dbcur->eof(ctx->dbcur_user) && r > 0u) {
+        r -= 1u;
+    }
+#endif
+    *out = xb_n((double)r);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * RECCOUNT() -> N. "Number of records in the database." No arguments.
+ *   - The PHYSICAL record count (DBF header nrec), ignoring SET FILTER / SET
+ *     DELETED. Returns 0 for an empty database (and when none is open, but the
+ *     none-open case is the #52 fail-loud here).
+ *   (system-and-database-functions.md RECCOUNT().)
+ */
+static int fn_reccount(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+{
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!need_dbcur(ctx, err)) return *err;
+    *out = xb_n((double)ctx->dbcur->reccount(ctx->dbcur_user));
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * EOF() -> L / BOF() -> L. The end/begin-of-file flags of the active area.
+ *   On an empty database both are .T. (system-and-database-functions.md table).
+ *   No arguments. is_eof: 1 for EOF, 0 for BOF.
+ */
+static int fn_eofbof(xb_ctx *ctx, int nargs, int is_eof, xb_val *out, int *err)
+{
+    int flag;
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!need_dbcur(ctx, err)) return *err;
+    flag = is_eof ? ctx->dbcur->eof(ctx->dbcur_user)
+                  : ctx->dbcur->bof(ctx->dbcur_user);
+    *out = xb_l(flag ? 1 : 0);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * FOUND() -> L. ".T. if a match was found for a previously issued search command."
+ *   No arguments. Reflects the most recent SEEK/FIND/LOCATE/CONTINUE in this area.
+ *   (system-and-database-functions.md FOUND().)
+ *
+ * GATED (Law 1 / plan sec.7): the FOUND flag is only MEANINGFUL after a search.
+ *   SEEK support is S4.3 (ndx_seek) and LOCATE/CONTINUE is S5.4 -- neither has
+ *   yet wired a FOUND flag into the work area. Until then the vtable's found()
+ *   returns the default (no search performed -> .F.). This function is fully
+ *   IMPLEMENTED and link-clean; what is GATED is the SEARCH state behind it. The
+ *   oracle therefore asserts ONLY the grounded default (fresh USE => FOUND()=.F.,
+ *   per the pointer/flag matrix "USE => FOUND .F.") and LOUD-SKIPS the post-SEEK/
+ *   post-LOCATE cases, which land when S5.4 wires the FOUND flag.
+ */
+static int fn_found(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+{
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!need_dbcur(ctx, err)) return *err;
+    *out = xb_l(ctx->dbcur->found(ctx->dbcur_user) ? 1 : 0);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * DELETED() -> L. ".T. if record is marked for deletion." No arguments.
+ *   Tests the delete flag (the '*' / 0x2A byte) of the CURRENT record in the
+ *   active area. Independent of SET DELETED. On EOF / no record -> .F.
+ *   (system-and-database-functions.md DELETED().)
+ */
+static int fn_deleted(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+{
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!need_dbcur(ctx, err)) return *err;
+    *out = xb_l(ctx->dbcur->deleted(ctx->dbcur_user) ? 1 : 0);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * FIELD(<expN>) -> C. "The name of the field ... corresponding to <expN>."
+ *   - One numeric argument, the 1-BASED field ordinal (valid 1..128 in III+).
+ *   - Returns the field name in UPPERCASE.
+ *   - Out-of-range <expN> (< 1, or > field count) returns the NULL STRING "",
+ *     NOT an error (system-and-database-functions.md FIELD():
+ *     "Invalid numbers return a null string.").
+ *   The field name lives in a vtable-written buffer; we copy it into scratch so
+ *   the returned XB_C owns stable bytes (Law 3: no malloc).
+ */
+#define FN_FIELD_NAME_CAP 16   /* dBASE field names are <= 10 chars + NUL */
+static int fn_field(xb_ctx *ctx, const xb_val *args, int nargs,
+                    xb_val *out, int *err)
+{
+    int32_t  idx;
+    char     namebuf[FN_FIELD_NAME_CAP];
+    int      nl;
+    char    *dst;
+    int      i;
+
+    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+    if (!need_dbcur(ctx, err)) return *err;
+
+    idx = to_int_trunc(args[0].u.n);
+    /* Out-of-range ordinal -> "" (NOT an error). field_name returns < 0 for an
+     * index < 1 or > field count; we surface that as the null string. */
+    if (idx < 1) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+
+    nl = ctx->dbcur->field_name(ctx->dbcur_user, (uint32_t)idx,
+                                namebuf, (uint32_t)FN_FIELD_NAME_CAP);
+    if (nl < 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }  /* no such field */
+    if (nl == 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+    if (nl > FN_FIELD_NAME_CAP) nl = FN_FIELD_NAME_CAP;            /* defensive */
+
+    dst = fn_scratch(ctx, (uint32_t)nl);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+    for (i = 0; i < nl; i++) dst[i] = namebuf[i];
+    *out = xb_c(dst, (uint16_t)nl);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * DBF() -> C. "The name of the database file if one is open."
+ *   - No arguments. Returns the open table's name in the active area; "" if none
+ *     is open (here the none-open case is the #52 fail-loud).
+ *   - III+ returns the UPPER-cased file name; the exact form (path/extension) is
+ *     interpreter-specific [oracle-resolves] (system-and-database-functions.md
+ *     DBF() open question 6). CONSERVATIVE CHOICE: return the work-area ALIAS
+ *     (the upper-cased base name, e.g. "TRAVEL"), which the vtable supplies. The
+ *     oracle asserts the alias form; the path/extension exactness is GATED.
+ */
+#define WA_DBF_NAME_CAP 16   /* alias cap (workarea WA_ALIAS_CAP=12) + headroom */
+static int fn_dbf(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+{
+    char  namebuf[WA_DBF_NAME_CAP];
+    int   nl;
+    char *dst;
+    int   i;
+
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!need_dbcur(ctx, err)) return *err;
+
+    nl = ctx->dbcur->dbf_name(ctx->dbcur_user, namebuf, (uint32_t)WA_DBF_NAME_CAP);
+    if (nl <= 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }  /* none open */
+    if (nl > WA_DBF_NAME_CAP) nl = WA_DBF_NAME_CAP;                 /* defensive */
+
+    dst = fn_scratch(ctx, (uint32_t)nl);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+    for (i = 0; i < nl; i++) dst[i] = namebuf[i];
+    *out = xb_c(dst, (uint16_t)nl);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * FILE(<expC>) -> L. ".T. if the file exists." One character argument.
+ *   - Tests existence through the PAL (the vtable's file_exists slot), so the
+ *     engine never touches the OS directly (Law 3). You must supply the
+ *     extension -- FILE("X") does not assume .DBF (system-and-database-
+ *     functions.md FILE()). A non-character argument -> #9 mismatch.
+ *   The name must be NUL-terminated for the PAL open; the arg is a pointer+len
+ *   slice (not NUL-terminated), so copy it into scratch with a trailing NUL.
+ */
+static int fn_file(xb_ctx *ctx, const xb_val *args, int nargs,
+                   xb_val *out, int *err)
+{
+    uint16_t len, i;
+    char    *nm;
+    int      exists;
+
+    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
+    if (!need_dbcur(ctx, err)) return *err;
+
+    len = args[0].u.c.len;
+    nm  = fn_scratch(ctx, (uint32_t)len + 1u);
+    if (nm == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+    for (i = 0; i < len; i++) nm[i] = args[0].u.c.p[i];
+    nm[len] = '\0';
+
+    exists = ctx->dbcur->file_exists(ctx->dbcur_user, nm);
+    *out = xb_l(exists ? 1 : 0);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* ======================================================================== */
 /* The dispatch table (case-insensitive name -> handler)                     */
 /* ======================================================================== */
 
@@ -1268,6 +1509,22 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     if (name_is(name, namelen, "CDOW"))   return fn_cdow(ctx, args, nargs, out, err_code);
     if (name_is(name, namelen, "CMONTH")) return fn_cmonth(ctx, args, nargs, out, err_code);
     if (name_is(name, namelen, "DOW"))    return fn_dow(args, nargs, out, err_code);
+
+    /* Database / work-area functions (S3.6b, initech-7az.10). These reach the
+     * SELECTED work area's cursor through ctx->dbcur (eval.h xb_dbcursor) -- NOT
+     * any workarea.c symbol -- so this TU stays link-clean against the engine
+     * core. ctx->dbcur == NULL (no work area) -> XBEE_NO_DATABASE (#52) fail loud.
+     * Refs: system-and-database-functions.md sec 2 (RECNO/RECCOUNT/EOF/BOF/FOUND/
+     *   DELETED/FIELD/DBF) + sec 3 (FILE); dbase_msg_codes.tsv #52. */
+    if (name_is(name, namelen, "RECNO"))    return fn_recno(ctx, nargs, out, err_code);
+    if (name_is(name, namelen, "RECCOUNT")) return fn_reccount(ctx, nargs, out, err_code);
+    if (name_is(name, namelen, "EOF"))      return fn_eofbof(ctx, nargs, 1, out, err_code);
+    if (name_is(name, namelen, "BOF"))      return fn_eofbof(ctx, nargs, 0, out, err_code);
+    if (name_is(name, namelen, "FOUND"))    return fn_found(ctx, nargs, out, err_code);
+    if (name_is(name, namelen, "DELETED"))  return fn_deleted(ctx, nargs, out, err_code);
+    if (name_is(name, namelen, "FIELD"))    return fn_field(ctx, args, nargs, out, err_code);
+    if (name_is(name, namelen, "DBF"))      return fn_dbf(ctx, nargs, out, err_code);
+    if (name_is(name, namelen, "FILE"))     return fn_file(ctx, args, nargs, out, err_code);
 
     /* String functions C (initech-7az.12): LEFT RIGHT STUFF REPLICATE AT
      * ISALPHA ISUPPER ISLOWER TRANSFORM.

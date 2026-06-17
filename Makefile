@@ -697,6 +697,13 @@ TEST_INTERP_NAV_MUT  := $(BUILD)/test_interp_nav_mut
 # S6.3 bidirectional round-trip oracle + normalization-mask mutant (initech-17n.1 / 586.3).
 TEST_DBASE_ROUNDTRIP     := $(BUILD)/test_dbase_roundtrip
 TEST_DBASE_ROUNDTRIP_MUT := $(BUILD)/test_dbase_roundtrip_mut
+# S5.3 statement executor + control flow (initech-7az.4).
+SAMIR_FLOW_SRC    := $(SAMIR_CMD_DIR)/flow.c
+TEST_INTERP_FLOW     := $(BUILD)/test_interp_flow
+TEST_INTERP_FLOW_MUT := $(BUILD)/test_interp_flow_mut
+# S3.6b DB-cursor built-in functions (initech-7az.10); share fn_builtins.c + work-area.
+TEST_XBASE_FN_D     := $(BUILD)/test_xbase_fn_d
+TEST_XBASE_FN_D_MUT := $(BUILD)/test_xbase_fn_d_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1893,6 +1900,66 @@ test-dbase-roundtrip-mutant: $(TEST_DBASE_ROUNDTRIP_MUT)
 		printf '!!! test-dbase-roundtrip-mutant FAIL: mutant PASSED -- the normalization mask is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-dbase-roundtrip-mutant: green (un-masked date correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-5 statement executor + control flow (S5.3 / initech-7az.4) ----
+# cmd/flow.c: line/verb dispatch + DO WHILE/IF/DO CASE/LOOP/EXIT + STORE/= memvars
+# (composed resolver installed at runtime -- does NOT edit workarea.c). Guard MUST be
+# Logical (#37, no truthiness). Pure-host oracle. Mutant: DO CASE runs all true CASEs
+# instead of the first -> RED.
+INTERP_FLOW_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_INTERP_FLOW): $(DBF_DIFF_DIR)/test_interp_flow.c $(INTERP_FLOW_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_flow.c $(INTERP_FLOW_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_INTERP_FLOW_MUT): $(DBF_DIFF_DIR)/test_interp_flow.c $(INTERP_FLOW_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLOW_MUTATE_DOCASE_ALL -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_flow.c $(INTERP_FLOW_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-interp-flow
+test-interp-flow: $(TEST_INTERP_FLOW)
+	@printf ">>> test-interp-flow: statement executor + DO WHILE/IF/DO CASE/LOOP/EXIT; guard-must-be-Logical (S5.3)\n"
+	@$(TEST_INTERP_FLOW) $(DBASE3_DECOMP)
+	@printf ">>> test-interp-flow: green\n"
+
+.PHONY: test-interp-flow-mutant
+test-interp-flow-mutant: $(TEST_INTERP_FLOW_MUT)
+	@printf ">>> test-interp-flow-mutant: confirming the DO-CASE-runs-all mutant goes RED (Rule 6; initech-7az.4)\n"
+	@$(TEST_INTERP_FLOW_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-interp-flow-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_INTERP_FLOW_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-interp-flow-mutant FAIL: mutant PASSED -- DO CASE first-match is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-interp-flow-mutant: green (DO CASE runs-all correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-3 DB-cursor functions: RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF/FILE (S3.6b / initech-7az.10) ----
+# DB fns reach the selected work area via a decoupling vtable (xb_ctx.dbcur in
+# eval.h, populated by wa_bind_ctx; fn_builtins.c has NO workarea dep). NULL dbcur
+# -> fail-loud #52. FOUND post-SEEK/LOCATE GATED (loud-skip) until S5.4. Mutant:
+# RECNO at EOF returns RECCOUNT (not RECCOUNT+1) -> RED.
+FN_D_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_XBASE_FN_D): $(DBF_DIFF_DIR)/test_xbase_fn_d.c $(FN_D_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_d.c $(FN_D_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_XBASE_FN_D_MUT): $(DBF_DIFF_DIR)/test_xbase_fn_d.c $(FN_D_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_RECNO_EOF -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_d.c $(FN_D_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-xbase-fn-d
+test-xbase-fn-d: $(TEST_XBASE_FN_D)
+	@printf ">>> test-xbase-fn-d: xBase III+ DB functions (RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF/FILE) (S3.6b)\n"
+	@$(TEST_XBASE_FN_D) $(DBASE3_DECOMP)
+	@printf ">>> test-xbase-fn-d: green\n"
+
+.PHONY: test-xbase-fn-d-mutant
+test-xbase-fn-d-mutant: $(TEST_XBASE_FN_D_MUT)
+	@printf ">>> test-xbase-fn-d-mutant: confirming the RECNO-at-EOF mutant goes RED (Rule 6; initech-7az.10)\n"
+	@$(TEST_XBASE_FN_D_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-xbase-fn-d-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_XBASE_FN_D_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-fn-d-mutant FAIL: mutant PASSED -- the RECNO-at-EOF rule is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-xbase-fn-d-mutant: green (RECNO-at-EOF correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 evaluator: xBase expression lexer (S3.1 / initech-gmo.1) ----
@@ -10189,8 +10256,10 @@ TEST_UNIT_GATES := \
 	test-xbase-fn-a test-xbase-fn-a-mutant \
 	test-xbase-fn-b test-xbase-fn-b-mutant \
 	test-xbase-fn-c test-xbase-fn-c-mutant \
+	test-xbase-fn-d test-xbase-fn-d-mutant \
 	test-interp-use test-interp-use-mutant \
 	test-interp-nav test-interp-nav-mutant \
+	test-interp-flow test-interp-flow-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.

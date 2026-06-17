@@ -460,6 +460,10 @@ typedef enum {
     XBEE_NOT_LOGICAL   = 37,  /* dbase_msg_codes.tsv code 37 */
     XBEE_NUM_OVERFLOW  = 39,  /* dbase_msg_codes.tsv code 39 */
     XBEE_NOT_CHARACTER = 45,  /* dbase_msg_codes.tsv code 45 */
+    XBEE_NO_DATABASE   = 52,  /* dbase_msg_codes.tsv code 52 "No database is in   */
+                              /*   USE." -- a DATABASE built-in (RECNO/EOF/...)   */
+                              /*   called with NO work area (ctx->dbcur == NULL). */
+                              /*   S3.6b fail-loud (Rule 2).                      */
     XBEE_CHR_RANGE     = 57,  /* dbase_msg_codes.tsv code 57 "CHR() : Out of   */
                               /*   range." -- CHR(n) with n outside 0..255     */
     XBEE_SPACE_LARGE   = 59,  /* dbase_msg_codes.tsv code 59 "SPACE() : Too    */
@@ -517,6 +521,69 @@ typedef enum {
  *   date. Use (double)jdn_from_ymd(y,m,d) to set it.
  *   Ref: numeric-and-date-functions.md DATE() "system date"; pal.h today().
  */
+/*
+ * xb_dbcursor -- the DB-CURSOR HOOK for the database/work-area built-in
+ * functions (S3.6b: RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF/FILE).
+ *
+ * WHY A VTABLE (the decoupling that keeps fn_builtins.c artifact-clean):
+ *   The pure built-ins (S3.5/S3.6a: STR/UPPER/DOW/...) are a function of
+ *   (name, args, ctx). The DATABASE built-ins additionally need the SELECTED
+ *   work area's record cursor -- RECNO, the EOF/BOF flags, the delete flag, the
+ *   field descriptors, the open file name -- which live in cmd/workarea.c. If
+ *   fn_builtins.c called wa_recno()/wa_eof()/... directly it would depend on
+ *   workarea.c (and thus dbf/dbt/ndx/pal), breaking the clean layering: the
+ *   evaluator + the function table would no longer link without the whole work-
+ *   area subsystem. Instead fn_builtins.c depends ONLY on this vtable TYPE (in
+ *   eval.h); cmd/workarea.c supplies a concrete xb_dbcursor whose functions call
+ *   wa_recno/wa_nrec/... on the selected area, and wa_bind_ctx wires it into the
+ *   ctx. So fn_builtins.o has NO undefined workarea symbols -- it is link-clean
+ *   against just the engine core.
+ *
+ * NULL = NO WORK AREA. The pure-expression tests (test-xbase-eval / -fn-a/-b/-c,
+ *   the coercion fuzzer) evaluate with NO interpreter and NO work area: they
+ *   leave ctx->dbcur == NULL. Every database built-in MUST fail loud
+ *   (XBEE_NO_DATABASE, #52 "No database is in USE.") when ctx->dbcur == NULL --
+ *   NEVER crash (Rule 2). Those tests never CALL a database built-in, so the
+ *   path is exercised only by the S3.6b oracle's explicit no-work-area case.
+ *
+ * Each slot takes the opaque `u` user pointer (set to the wa_env* by
+ * wa_bind_ctx) and answers ONE question about the SELECTED area:
+ *   recno      : 1-based current record; at EOF returns RECCOUNT()+1; on an
+ *                empty file returns 1 (system-and-database-functions.md RECNO()).
+ *   reccount   : physical record count (DBF header nrec), ignoring FILTER/DELETED
+ *                (system-and-database-functions.md RECCOUNT()).
+ *   eof / bof  : the cursor's end/begin-of-file flags (1/0).
+ *   found      : the FOUND() flag (result of the last SEEK/LOCATE in the area).
+ *   deleted    : 1 if the CURRENT record's delete flag is set (0x2A), else 0; at
+ *                EOF / no record -> 0 (system-and-database-functions.md DELETED()).
+ *   field_name : write the 1-based field i's name (UPPERCASE) into buf[cap]
+ *                NUL-terminated; return its length, or < 0 if i is out of range
+ *                (FIELD(<expN>): 1..fieldcount valid, else "" -- the caller maps
+ *                < 0 to the null string). (system-and-database-functions.md FIELD()).
+ *   dbf_name   : write the open table's name (the work-area alias, UPPERCASE)
+ *                into buf[cap] NUL-terminated; return its length, or < 0 if no
+ *                table is open (DBF() -> "" when nothing is open).
+ *   file_exists: 1 if the named file exists (via the PAL), else 0
+ *                (environment-functions FILE(<expC>)).
+ *
+ * Ref (Law 1):
+ *   - ../dbase3-decomp/specs/functions/system-and-database-functions.md sec 2
+ *     (RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF) + sec 3 (FILE).
+ *   - spec/samir/dbase_msg_codes.tsv code 52 "No database is in USE."
+ *   - docs/plans/SAMIR-implementation-plan.md S3.6 (the db function half).
+ */
+typedef struct xb_dbcursor {
+    uint32_t (*recno)      (void *u);
+    uint32_t (*reccount)   (void *u);
+    int      (*eof)        (void *u);
+    int      (*bof)        (void *u);
+    int      (*found)      (void *u);
+    int      (*deleted)    (void *u);
+    int      (*field_name) (void *u, uint32_t i, char *buf, uint32_t cap); /* 1-based; <0 none */
+    int      (*dbf_name)   (void *u, char *buf, uint32_t cap);             /* <0 if none open */
+    int      (*file_exists)(void *u, const char *name);
+} xb_dbcursor;
+
 typedef struct xb_ctx {
     int   set_exact;          /* 0 = OFF (III+ default); !=0 = ON */
 
@@ -528,6 +595,14 @@ typedef struct xb_ctx {
     uint32_t  scratch_used;   /* bytes consumed (reset per xb_eval)    */
 
     double    ctx_today;      /* INJECTABLE today as JDN double; DATE() (S3.5) */
+
+    /* DB-CURSOR HOOK (S3.6b): the database built-ins (RECNO/EOF/...) reach the
+     * SELECTED work area's cursor through this vtable. NULL => no work area =>
+     * those built-ins fail loud (XBEE_NO_DATABASE). The pure-expression tests
+     * leave it NULL. wa_bind_ctx (workarea.c) sets dbcur = &wa_dbcursor_vtable
+     * and dbcur_user = env. fn_builtins.c depends ONLY on the type above. */
+    const xb_dbcursor *dbcur;
+    void              *dbcur_user;
 } xb_ctx;
 
 /*
@@ -603,6 +678,15 @@ int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
  *   Date:    DATE DAY MONTH YEAR
  *   Generic: TYPE   (1-char type code of a sub-expression's result type)
  * (IIF is in this step but is dispatched in eval.c, see above.)
+ *
+ * S3.6b extends the SAME xb_call_builtin with the DATABASE / work-area
+ * functions, which read the SELECTED area's cursor through ctx->dbcur (the
+ * xb_dbcursor vtable above) -- NOT through any workarea.c symbol, so
+ * fn_builtins.o stays link-clean against the engine core:
+ *   DB-cursor: RECNO RECCOUNT EOF BOF FOUND DELETED FIELD DBF FILE
+ *   With ctx->dbcur == NULL (no work area) every one fails loud
+ *   (XBEE_NO_DATABASE, #52). The numeric/date functions ABS/INT/MOD/ROUND/MAX/
+ *   MIN/DOW/CDOW/CMONTH are the S3.6a half (already present).
  *
  * args:     argument values, already evaluated, in source order.
  * nargs:    number of arguments (0..XB_FN_MAX_ARGS).
