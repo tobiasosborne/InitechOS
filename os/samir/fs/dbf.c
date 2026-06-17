@@ -1,16 +1,24 @@
 /*
- * os/samir/fs/dbf.c -- SAMIR (InitechBase) .dbf header parser + invariants (S1.1).
+ * os/samir/fs/dbf.c -- SAMIR (InitechBase) .dbf codec: header (S1.1) +
+ *                      field-descriptor array (S1.2).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (samir/pal.h,
  * samir/rt.h, samir/dbf.h) and the LOCKED spec/samir/dbf_format.h. No libc, no
  * int 0x21 -- all OS contact is through the PAL vtable (plan Sec 2.B/2.D).
  *
- * Scope (plan S1.1): parse + validate the 32-byte header, locate the 0x0D
- * field-descriptor terminator (deriving nfields and the +1/+2 form), and assert
- * the three structural invariants from dbf.md sec 8. The field-length byte of
- * each descriptor (offset 0x10) is read ONLY to sum the record-length invariant
- * (1b); names/types/dec are NOT decoded here (that is S1.2).
+ * S1.1 scope: parse + validate the 32-byte header, locate the 0x0D
+ * field-descriptor terminator (deriving nfields and the +1/+2 form), assert the
+ * three structural invariants from dbf.md sec 8. The field-length byte of each
+ * descriptor (offset 0x10) is read during the scan loop for invariant-1b sum.
+ *
+ * S1.2 scope (docs/plans/SAMIR-implementation-plan.md S1.2): after S1.1's scan
+ * completes, re-read each descriptor in a second pass to decode the full
+ * name/type/length/dec metadata into an arena-allocated dbf_field_t array.
+ * S1.1 invariants are preserved; the field-count comes from S1.1's scan-to-0x0D
+ * (NOT re-derived independently). The mutation hook (DBF_MUTATE_STRIDE) perturbs
+ * the descriptor stride to the dBASE-7 48-byte value, shifting every field after
+ * the first so decoded names/types/lengths mismatch the golden -> tests go RED.
  *
  * Fail loud (Rule 2): every malformed-input / violated-invariant path returns a
  * negated dbf_err and leaves no half-open handle. A silently-wrong table would
@@ -18,13 +26,20 @@
  *
  * III+ 1.1 ONLY (plan Sec 2.C): dBASE IV version bytes (0x04/0x8B and anything
  * not 0x03/0x83) are rejected with DBF_ERR_BAD_VERSION, not half-supported.
+ * Unknown field type bytes (not C/N/D/L/M) fail loud with DBF_ERR_BAD_TYPE.
  *
  * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
  *
  * Ref (Law 1):
- *   - ../dbase3-decomp/specs/file-formats/dbf.md sec 2,3,4,8,9.
- *   - spec/samir/dbf_format.h (every offset/size constant; no hardcoded offsets).
- *   - docs/plans/SAMIR-implementation-plan.md S1.1 contract.
+ *   - ../dbase3-decomp/specs/file-formats/dbf.md sec 2,3,4,5,8,9.
+ *     sec 4 worked example: CLIENTS FIRSTNAME at offset 0x20
+ *       46 49 52 53 54 4E 41 4D 45 00 00 / 43 / 23 00 2C 40 / 14 / 00 / ...
+ *       name="FIRSTNAME", type='C', len=20, dec=0.
+ *     sec 9: "name = bytes to first NUL; trailing bytes may be garbage."
+ *   - spec/samir/dbf_format.h (every offset/size constant; no hardcoded offsets):
+ *     DBF_DESC_NAME_OFF, DBF_DESC_TYPE_OFF, DBF_DESC_FIELD_LEN_OFF,
+ *     DBF_DESC_DEC_COUNT_OFF, DBF_DESC_STRIDE=32, DBF_DESC_NAME_SIZE=11.
+ *   - docs/plans/SAMIR-implementation-plan.md S1.1+S1.2 contract.
  *   - os/samir/include/samir/pal.h (open/read/seek/close + seek=filesize idiom).
  */
 
@@ -36,21 +51,43 @@
 
 #include "samir/dbf_format.h"   /* LOCKED spec-data, on -Ispec/samir or -Ispec */
 
-/* ---- Opaque table layout (S1.1 fields + the handle S1.2 will build on) ---- */
-struct dbf_table {
-    samir_pal_t *pal;        /* the PAL this table was opened through */
-    pal_fd       fd;         /* OPEN handle; S1.2/S1.3 read the record area */
-    void        *mark;       /* arena mark taken before alloc; dbf_close unwinds */
+/*
+ * S1.2 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_STRIDE is defined, the
+ * descriptor decode pass uses a 48-byte stride (the dBASE-7 descriptor size)
+ * instead of the correct 32-byte III+ stride. This shifts the decode offset of
+ * every descriptor after the first, so names/types/lengths read from wrong bytes
+ * and diverge from the golden -> the test goes RED. The S1.1 scan-to-0x0D still
+ * uses the correct DBF_DESC_STRIDE (it runs before this constant is used), so the
+ * table still opens and nfields is still correct; only the S1.2 field-decode pass
+ * is perturbed. Exactly one constant is changed.
+ * Ref: docs/plans/SAMIR-implementation-plan.md S1.2 mutant (dBASE-7 stride -> RED).
+ */
+#ifdef DBF_MUTATE_STRIDE
+#  define DECODE_STRIDE  48u   /* dBASE-7 descriptor size; NOT the III+ 32-byte form */
+#else
+#  define DECODE_STRIDE  ((uint32_t)DBF_DESC_STRIDE)   /* correct: 32 bytes (dbf.md sec 4) */
+#endif
 
-    uint16_t     header_length;   /* offset 0x08, u16 LE */
-    uint16_t     record_length;   /* offset 0x0A, u16 LE */
-    uint32_t     nrec;            /* offset 0x04, u32 LE */
-    uint16_t     nfields;         /* derived: scan-to-0x0D / DBF_DESC_STRIDE */
-    uint8_t      version;         /* offset 0x00 */
-    uint8_t      year;            /* offset 0x01 (year - 1900) */
-    uint8_t      month;           /* offset 0x02 */
-    uint8_t      day;             /* offset 0x03 */
-    uint8_t      term_extra;      /* 1 (+1 form) or 2 (+2 form) */
+/* ---- Opaque table layout (S1.1 fields + S1.2 field array) ---- */
+struct dbf_table {
+    samir_pal_t  *pal;        /* the PAL this table was opened through */
+    pal_fd        fd;         /* OPEN handle; S1.3 reads the record area */
+    void         *mark;       /* arena mark taken before alloc; dbf_close unwinds */
+
+    dbf_field_t  *fields;     /* S1.2: arena-allocated array of nfields decoded
+                               * field descriptors; NULL until S1.2 decode pass runs.
+                               * dbf_field(tbl,i) reads from this array (0-based).
+                               * Ref: dbf.md sec 4 + spec/samir/dbf_format.h. */
+
+    uint16_t      header_length;   /* offset 0x08, u16 LE */
+    uint16_t      record_length;   /* offset 0x0A, u16 LE */
+    uint32_t      nrec;            /* offset 0x04, u32 LE */
+    uint16_t      nfields;         /* derived: scan-to-0x0D / DBF_DESC_STRIDE */
+    uint8_t       version;         /* offset 0x00 */
+    uint8_t       year;            /* offset 0x01 (year - 1900) */
+    uint8_t       month;           /* offset 0x02 */
+    uint8_t       day;             /* offset 0x03 */
+    uint8_t       term_extra;      /* 1 (+1 form) or 2 (+2 form) */
 };
 
 /* ---- little-endian readers (header binary is LE; dbf.md sec 1/2) ---- */
@@ -269,7 +306,7 @@ int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
     if ((uint32_t)filesz < body)
         return teardown(tbl, -DBF_ERR_BAD_FILESZ);
 
-    /* All invariants hold: capture the parsed values. */
+    /* All S1.1 invariants hold: capture the parsed values. */
     tbl->version       = ver;
     tbl->year          = hdr[DBF_HDR_YEAR_OFF];
     tbl->month         = hdr[DBF_HDR_MONTH_OFF];
@@ -279,6 +316,82 @@ int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
     tbl->record_length = record_length;
     tbl->nfields       = nfields;
     tbl->term_extra    = (uint8_t)hdr_extra;
+
+    /*
+     * --- S1.2: field-descriptor array decode ---
+     *
+     * Now that nfields is known (from S1.1's scan-to-0x0D), allocate and fill
+     * a dbf_field_t array. We re-read each descriptor from the PAL (the fd is
+     * still open at an arbitrary position after the invariant checks). This is a
+     * second pass over the same bytes; the S1.1 scan-loop results (nfields, the
+     * record-length sum) are authoritative and are NOT re-derived here.
+     *
+     * For each descriptor at (DBF_HDR_SIZE + i * DECODE_STRIDE):
+     *   - name   : 11 bytes (DBF_DESC_NAME_OFF) -> decode to first 0x00, store
+     *              NUL-terminated in dbf_field_t.name (dbf.md sec 4 / sec 9).
+     *   - type   : 1 byte  (DBF_DESC_TYPE_OFF)  -> ASCII char 'C'/'N'/'D'/'L'/'M';
+     *              fail loud (DBF_ERR_BAD_TYPE) on any other value (dbf.md sec 5).
+     *   - len    : 1 byte  (DBF_DESC_FIELD_LEN_OFF).
+     *   - dec    : 1 byte  (DBF_DESC_DEC_COUNT_OFF).
+     *
+     * The DECODE_STRIDE constant is 32 normally; when built with
+     * -DDBF_MUTATE_STRIDE it is 48 (the dBASE-7 stride) so every field after
+     * the first is decoded from shifted bytes -> mismatch with the golden -> RED
+     * (mutation hook, Rule 6).
+     *
+     * Ref: dbf.md sec 4/5/9; spec/samir/dbf_format.h (all offset constants);
+     *      plan S1.2 contract.
+     */
+    if (nfields > 0) {
+        uint32_t n       = (uint32_t)nfields;
+        uint32_t fsize   = n * (uint32_t)sizeof(dbf_field_t);
+        dbf_field_t *fa  = (dbf_field_t *)tbl->pal->alloc(tbl->pal, fsize);
+        uint32_t fi;
+
+        if (!fa)
+            return teardown(tbl, -DBF_ERR_NOMEM);
+
+        rt_memset(fa, 0, fsize);
+        tbl->fields = fa;
+
+        for (fi = 0u; fi < n; fi++) {
+            int32_t doff = (int32_t)((uint32_t)DBF_HDR_SIZE + fi * DECODE_STRIDE);
+            uint8_t dbuf[DBF_DESC_STRIDE];   /* always read 32 bytes (the real stride) */
+            uint8_t ttype;
+            uint32_t k;
+            int nul_found;
+
+            rc = read_exact(pal, fd, doff, dbuf, (uint32_t)DBF_DESC_STRIDE);
+            if (rc != DBF_OK)
+                return teardown(tbl, (rc == -DBF_ERR_SHORT) ? -DBF_ERR_SHORT : rc);
+
+            /* Name: decode to first 0x00 in the 11-byte slot; ignore trailing
+             * bytes (dbf.md sec 4 "Field name: read to first NUL; ignore
+             * trailing garbage", sec 9). Store NUL-terminated in .name[]. */
+            nul_found = 0;
+            for (k = 0u; k < (uint32_t)DBF_DESC_NAME_SIZE; k++) {
+                if (dbuf[DBF_DESC_NAME_OFF + k] == 0x00u) {
+                    nul_found = 1;
+                    break;
+                }
+                fa[fi].name[k] = (char)dbuf[DBF_DESC_NAME_OFF + k];
+            }
+            fa[fi].name[nul_found ? k : (uint32_t)DBF_DESC_NAME_SIZE] = '\0';
+
+            /* Type: must be one of C/N/D/L/M (III+ only; dbf.md sec 5).
+             * Any other byte fails loud (plan Sec 2.C; Rule 2). */
+            ttype = dbuf[DBF_DESC_TYPE_OFF];
+            if (ttype != (uint8_t)'C' && ttype != (uint8_t)'N' &&
+                ttype != (uint8_t)'D' && ttype != (uint8_t)'L' &&
+                ttype != (uint8_t)'M')
+                return teardown(tbl, -DBF_ERR_BAD_TYPE);
+            fa[fi].type = (char)ttype;
+
+            /* Length and decimal count (dbf.md sec 4, offsets 0x10/0x11). */
+            fa[fi].field_len  = dbuf[DBF_DESC_FIELD_LEN_OFF];
+            fa[fi].dec_count  = dbuf[DBF_DESC_DEC_COUNT_OFF];
+        }
+    }
 
     *out = tbl;
     return DBF_OK;
@@ -305,4 +418,27 @@ uint8_t  dbf_term_extra(const dbf_table *t)    { return t->term_extra; }
 int      dbf_has_memo(const dbf_table *t)
 {
     return (t->version & 0x80u) ? 1 : 0;   /* dbf.md sec 3: bit 7 = has memo */
+}
+
+/*
+ * dbf_field: return a pointer to the i-th decoded field descriptor (S1.2).
+ *
+ * Returns NULL for out-of-range i (i < 0 or i >= nfields). This signals a
+ * programming error (fail loud at the call site: callers must not pass a NULL
+ * return as a valid descriptor, Rule 2).
+ *
+ * The returned pointer is owned by the table and is valid until dbf_close.
+ * The fields array is populated during dbf_open (S1.2 decode pass); if a table
+ * has zero fields (theoretically impossible after the nfields==0 invariant in
+ * S1.1, but defensively handled) tbl->fields is NULL and this returns NULL.
+ *
+ * Ref: dbf.h dbf_field_t; dbf.md sec 4/9; plan S1.2 contract.
+ */
+const dbf_field_t *dbf_field(const dbf_table *t, int i)
+{
+    if (!t || !t->fields)
+        return (const dbf_field_t *)0;
+    if (i < 0 || (uint32_t)i >= (uint32_t)t->nfields)
+        return (const dbf_field_t *)0;
+    return &t->fields[i];
 }

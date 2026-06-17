@@ -634,9 +634,14 @@ DBF_REF_PY        := $(DBF_DIFF_DIR)/dbf_ref.py
 SAMIR_DBF_SRC     := $(SAMIR_DIR)/fs/dbf.c
 TEST_DBF_HEADER     := $(BUILD)/test_dbf_header
 TEST_DBF_HEADER_MUT := $(BUILD)/test_dbf_header_mut
+TEST_DBF_FIELDS     := $(BUILD)/test_dbf_fields
+TEST_DBF_FIELDS_MUT := $(BUILD)/test_dbf_fields_mut
 SAMIR_LEX_SRC     := $(SAMIR_DIR)/core/lex.c
 TEST_XBASE_LEX     := $(BUILD)/test_xbase_lex
 TEST_XBASE_LEX_MUT := $(BUILD)/test_xbase_lex_mut
+SAMIR_PARSE_SRC   := $(SAMIR_DIR)/core/parse.c
+TEST_XBASE_PARSE     := $(BUILD)/test_xbase_parse
+TEST_XBASE_PARSE_MUT := $(BUILD)/test_xbase_parse_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1328,6 +1333,35 @@ test-dbf-header-mutant: $(TEST_DBF_HEADER_MUT)
 		printf '>>> test-dbf-header-mutant: green (reclen off-by-one correctly RED)\n'; \
 	fi
 
+# ---- SAMIR Phase-1 .dbf codec: field-descriptor array (S1.2 / initech-aul.2) ----
+# Same engine/test/PAL link as test-dbf-header. Decodes the per-field name/type/
+# length/dec descriptors. The mutant decodes at a 48-byte (dBASE-7) stride
+# instead of 32, shifting every field after the first so a non-type byte fails
+# the C/N/D/L/M validation -> RED (Rule 6).
+$(TEST_DBF_FIELDS): $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_FIELDS_MUT): $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_STRIDE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-dbf-fields
+test-dbf-fields: $(TEST_DBF_FIELDS)
+	@printf ">>> test-dbf-fields: .dbf III+ field-descriptor array (name/type/len/dec; name-to-NUL) (S1.2)\n"
+	@$(TEST_DBF_FIELDS) $(DBASE3_DECOMP)
+	@printf ">>> test-dbf-fields: green\n"
+
+.PHONY: test-dbf-fields-mutant
+test-dbf-fields-mutant: $(TEST_DBF_FIELDS_MUT)
+	@printf ">>> test-dbf-fields-mutant: confirming the 48-byte (dBASE-7) stride mutant goes RED (Rule 6; initech-aul.2)\n"
+	@$(TEST_DBF_FIELDS_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-dbf-fields-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_DBF_FIELDS_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-dbf-fields-mutant FAIL: mutant PASSED -- the descriptor stride is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-dbf-fields-mutant: green (48-byte stride correctly RED)\n'; \
+	fi
+
 # ---- SAMIR Phase-3 evaluator: xBase expression lexer (S3.1 / initech-gmo.1) ----
 # Host oracle: the test + REAL engine lex.c + rt.c. The lexer is PURE (no PAL, no
 # spec dep) -- it writes into a caller-provided token buffer, allocation-free. The
@@ -1355,6 +1389,36 @@ test-xbase-lex-mutant: $(TEST_XBASE_LEX_MUT)
 		printf '!!! test-xbase-lex-mutant FAIL: mutant PASSED -- the == rejection is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-xbase-lex-mutant: green (== acceptance correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-3 evaluator: precedence parser -> AST (S3.2 / initech-gmo.2) ----
+# Host oracle: the test + REAL engine parse.c + lex.c + rt.c. The parser implements
+# the corpus-MINTED dBASE III+ precedence: ^ is LEFT-associative (2^3^2 = (2^3)^2 =
+# 64) and unary minus binds TIGHTER than ^ (-2^2 = (-2)^2 = 4) -- NON-standard vs
+# math (mint-results-002). The mutant makes ^ RIGHT-associative so 2^3^2 / 2**3**2
+# regroup -> RED (Rule 6).
+$(TEST_XBASE_PARSE): $(DBF_DIFF_DIR)/test_xbase_parse.c $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_RT_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_parse.c $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_RT_SRC)
+$(TEST_XBASE_PARSE_MUT): $(DBF_DIFF_DIR)/test_xbase_parse.c $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_RT_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_PARSE -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_parse.c $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_RT_SRC)
+
+.PHONY: test-xbase-parse
+test-xbase-parse: $(TEST_XBASE_PARSE)
+	@printf ">>> test-xbase-parse: xBase III+ precedence parser -> AST (^ left-assoc; unary>^) (S3.2)\n"
+	@$(TEST_XBASE_PARSE)
+	@printf ">>> test-xbase-parse: green\n"
+
+.PHONY: test-xbase-parse-mutant
+test-xbase-parse-mutant: $(TEST_XBASE_PARSE_MUT)
+	@printf ">>> test-xbase-parse-mutant: confirming the right-assoc-^ mutant goes RED (Rule 6; initech-gmo.2)\n"
+	@$(TEST_XBASE_PARSE_MUT) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-xbase-parse-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_XBASE_PARSE_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-parse-mutant FAIL: mutant PASSED -- the ^ associativity is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-xbase-parse-mutant: green (right-assoc ^ correctly RED)\n'; \
 	fi
 
 # dbf_ref.py (S6.1): the INDEPENDENT python .dbf/.dbt reader -- the oracle
@@ -9515,8 +9579,8 @@ TEST_UNIT_GATES := \
 	test-absdisk test-absdisk-mutant \
 	test-kernel-repro test-kernel-repro-mutant \
 	test-samir \
-	test-dbf-header test-dbf-header-mutant \
-	test-xbase-lex test-xbase-lex-mutant
+	test-dbf-header test-dbf-header-mutant test-dbf-fields test-dbf-fields-mutant \
+	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \

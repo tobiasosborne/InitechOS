@@ -222,25 +222,152 @@ int xb_lex(const char *src, uint32_t len,
            int *err_code);
 
 /* ======================================================================== */
-/* PARSER (S3.2) -- placeholder section; populated by the next step          */
+/* PARSER (S3.2)                                                              */
 /* ======================================================================== */
 
 /*
- * S3.2 will define xb_ast, xb_parse here.
+ * S3.2 -- xBase III+ expression precedence parser -> AST.
  *
- * Precedence note for S3.2 (from expressions-and-operators.md sec.9.1):
- *   Tier 1: ( )  grouping
- *   Tier 2/3: unary -, unary +, ** ^ (relative order [oracle-resolves];
- *             minted: -2^2=4 so unary minus binds tighter than ^ in III+)
- *   Tier 4: * /
- *   Tier 5: binary + - (arithmetic and string concat; same token, type-dispatch
- *             is evaluator concern)
- *   Tier 6: relational  < > = <> # <= >= $
- *   Tier 7: .NOT.
- *   Tier 8: .AND.
- *   Tier 9: .OR.
- *   ^ is LEFT-associative: 2^3^2 = (2^3)^2 = 64 [verified: mint-results-002.md]
+ * Builds an abstract syntax tree over the flat xb_token array that xb_lex
+ * produces. Allocation-free: nodes live in a caller-provided pool (an array
+ * of xb_node) and reference their children by INDEX, mirroring the lexer's
+ * caller-provided-buffer model. This is freestanding-friendly (no malloc, no
+ * recursion-into-the-heap) and reproducible (Rule 11): no pointers into the
+ * pool are stored, so the same input always yields the same node indices.
+ *
+ * ------------------------------------------------------------------------
+ * PRECEDENCE LADDER (highest binds first) -- the EXACT III+ 1.1 ladder.
+ *
+ * The static HELP surface leaves the unary/^ interaction and ^ associativity
+ * [oracle-resolves] (expressions-and-operators.md sec.9.1 lines 754-759, which
+ * even *notes* that standard Xbase/Clipper would give -2^2 = -(2^2) = -4 and
+ * right-assoc 2^3^2). The corpus MINT against real dBASE III+ 1.1 SETTLES both
+ * the other way, and per Law 2 the live oracle wins:
+ *
+ *   Tier 1  ( )  grouping / (function call placeholder -> S3.5)
+ *   Tier 2  unary .NOT. is NOT here; unary arithmetic prefix:
+ *           unary `-`, unary `+`   -- bind TIGHTER than `^`
+ *           [verified: mint-results-002.md "-2^2 = 4 -> unary minus binds
+ *            tighter than ^ ((-2)^2)"]
+ *   Tier 3  `^` / `**`  (exponentiation)  -- LEFT-associative
+ *           [verified: mint-results-002.md "2^3^2 = 64 -> ^ is LEFT-
+ *            associative ((2^3)^2)"]
+ *   Tier 4  `*` `/`                         left-assoc
+ *   Tier 5  binary `+` `-`                  left-assoc (arith AND string concat;
+ *                                           type-dispatch is the evaluator's job)
+ *   Tier 6  relational `< > = <> # <= >= $` left-assoc (chaining)
+ *   Tier 7  `.NOT.`  (logical negation, prefix)
+ *   Tier 8  `.AND.`                         left-assoc
+ *   Tier 9  `.OR.`                          left-assoc (loosest)
+ *
+ * Consequences (all from mint-002 / sec.9.1 verified idioms):
+ *   2+3*4   = 2+(3*4)               (Tier 4 over Tier 5)
+ *   2^3^2   = (2^3)^2 = 64          (^ LEFT-assoc)
+ *   -2^2    = (-2)^2 = 4            (unary minus TIGHTER than ^)
+ *   a > 0 .AND. .NOT. b = ((a>0) .AND. (.NOT. b))   (CLRDEP.PRG:154)
+ *
+ * Ref (Law 1):
+ *   - docs/plans/SAMIR-implementation-plan.md sec.5 S3.2 (the ladder; mint-002)
+ *   - ../dbase3-decomp/re/mint-results-002.md (THE authority: 2^3^2=64, -2^2=4)
+ *   - ../dbase3-decomp/specs/language/expressions-and-operators.md sec.9.1
+ *     (tiers 4-9 verified; tier 2/3 left open there, resolved by mint-002)
+ *   - DBASE.MSG.strings.txt:8 "Unbalanced parenthesis." (XBPE_UNBALANCED)
  */
+
+/*
+ * xb_node_type -- the AST node kinds.
+ *
+ * Literal nodes carry a decoded payload compatible with samir/value.h so the
+ * S3.3 evaluator can lift them straight into an xb_val:
+ *   XBN_LIT_N  numeric  -> xb_n(node.u.num)
+ *   XBN_LIT_C  char     -> xb_c(node.u.str.p, node.u.str.len)
+ *   XBN_LIT_L  logical  -> xb_l(node.u.log)
+ *   XBN_LIT_D  date     -- reserved; III+ has NO date literal (CTOD() only),
+ *              so the parser NEVER emits XBN_LIT_D. The kind exists so the
+ *              node model is type-complete for S3.3 (data-types.md sec.4).
+ * XBN_IDENT carries a slice into the source (field / memvar name).
+ * XBN_UNOP / XBN_BINOP carry the operator's xb_token_type in `op` and child
+ * node indices (kid[0] for unary; kid[0]=left, kid[1]=right for binary).
+ * XBN_CALL is a function-call placeholder for S3.5; the parser detects the
+ * IDENT '(' shape but does NOT implement argument parsing here (it returns
+ * XBPE_UNEXPECTED for a call-shaped input -- calls are S3.5).
+ */
+typedef enum {
+    XBN_LIT_C  = 0,  /* character literal  -> u.str (slice into source)   */
+    XBN_LIT_N  = 1,  /* numeric literal    -> u.num (decoded double)      */
+    XBN_LIT_L  = 2,  /* logical literal    -> u.log (0/1)                 */
+    XBN_LIT_D  = 3,  /* date literal       -- RESERVED; never emitted     */
+    XBN_IDENT  = 4,  /* identifier / field -> u.str (slice into source)   */
+    XBN_UNOP   = 5,  /* unary  op: op + kid[0]                            */
+    XBN_BINOP  = 6,  /* binary op: op + kid[0]=left, kid[1]=right         */
+    XBN_CALL   = 7   /* function call placeholder (S3.5; not implemented) */
+} xb_node_type;
+
+/*
+ * xb_node -- one AST node in the caller's pool.
+ *
+ * Children are referenced by index into the same pool (>= 0). An unused child
+ * slot is -1. `op` is meaningful only for XBN_UNOP / XBN_BINOP and holds the
+ * operator's xb_token_type (e.g. XBT_CARET, XBT_PLUS, XBT_NOT, XBT_MINUS for
+ * unary negate). For literals/identifiers `op` is unused (set to XBT_EOI).
+ *
+ * Literal payloads mirror samir/value.h so S3.3 can construct xb_val directly:
+ *   u.num : XBN_LIT_N decoded value (from the lexer's xb_token.u.n)
+ *   u.str : XBN_LIT_C / XBN_IDENT slice (pointer+len into the ORIGINAL source
+ *           bytes passed to xb_lex; not owned, not copied)
+ *   u.log : XBN_LIT_L 0/1 (from the lexer's xb_token.u.l)
+ */
+typedef struct {
+    xb_node_type  type;
+    xb_token_type op;        /* operator token for UNOP/BINOP; else XBT_EOI  */
+    int32_t       kid[2];    /* child node indices; unused slot = -1         */
+    uint32_t      src_off;   /* source byte offset of the token that began    */
+                             /* this node (for diagnostics; deterministic)    */
+    union {
+        double num;                          /* XBN_LIT_N                    */
+        struct { const char *p; uint16_t len; } str; /* XBN_LIT_C / XBN_IDENT */
+        uint8_t log;                         /* XBN_LIT_L                    */
+    } u;
+} xb_node;
+
+/*
+ * xb_parse_err -- error codes set in *err_code when xb_parse returns negative.
+ * Fail loud, no silent recovery (Rule 2).
+ */
+typedef enum {
+    XBPE_OK          = 0,  /* no error                                       */
+    XBPE_UNEXPECTED  = 1,  /* unexpected token (e.g. operator where operand   */
+                           /* expected, or a function-call shape -> S3.5)     */
+    XBPE_UNBALANCED  = 2,  /* unbalanced parenthesis (DBASE.MSG.strings.txt:8)*/
+    XBPE_POOL_FULL   = 3,  /* node pool capacity exceeded                     */
+    XBPE_EMPTY       = 4,  /* empty expression (no operand at all)            */
+    XBPE_TRAILING    = 5   /* leftover tokens after a complete expression     */
+} xb_parse_err;
+
+/*
+ * xb_parse -- parse a flat xb_token stream into an AST.
+ *
+ * toks:     token array produced by xb_lex (terminated by an XBT_EOI token).
+ * ntok:     number of tokens in `toks` INCLUDING the terminal XBT_EOI.
+ * pool:     caller-provided node storage. The parser fills it left-to-right
+ *           as it reduces sub-expressions; nodes reference children by index.
+ * cap:      capacity of `pool` in nodes (must be >= 1).
+ * err_code: output; set to an xb_parse_err. XBPE_OK on success.
+ *
+ * Returns:
+ *   >= 0: the ROOT node index into `pool`.
+ *   < 0:  parse error (-1). *err_code names the reason. Partial pool contents
+ *         are not meaningful.
+ *
+ * The parser does NOT call the lexer; it consumes a token stream the caller
+ * already produced. It rejects an XBT_ERROR token in the stream as
+ * XBPE_UNEXPECTED (the lexer should have failed first, but fail loud anyway).
+ *
+ * Allocation: none. Uses: <stdint.h>, rt.h, eval.h only. No libc, no PAL.
+ */
+int xb_parse(const xb_token *toks, uint32_t ntok,
+             xb_node *pool, uint32_t cap,
+             int *err_code);
 
 /* ======================================================================== */
 /* EVALUATOR (S3.3) -- placeholder section; populated at S3.3                */

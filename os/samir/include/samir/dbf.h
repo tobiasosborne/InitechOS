@@ -5,21 +5,29 @@
  * -nostdlib) alongside the shipped SAMIR engine. Depends ONLY on <stdint.h>
  * and samir/pal.h (which itself depends only on <stdint.h>). No libc headers.
  *
- * This is step S1.1 of docs/plans/SAMIR-implementation-plan.md: the dBASE
- * III PLUS 1.1 .dbf header parser + structural invariants -- the load-bearing
- * foundation of the .dbf codec. It owns:
+ * S1.1 (docs/plans/SAMIR-implementation-plan.md): the dBASE III PLUS 1.1 .dbf
+ * header parser + structural invariants.
  *   - dbf_open  : open a .dbf via the PAL, read + validate the 32-byte header,
  *                 derive the field count and terminator form, assert the three
  *                 structural invariants (fail loud, Rule 2), keep the handle
  *                 open for the record area.
  *   - dbf_close : release the table + its PAL handle.
- *   - accessors : every header field S1.1 parses.
+ *   - accessors : every header field S1.1 parses (version, date, nrec,
+ *                 header_length, record_length, nfields, term_extra, has_memo).
  *
- * S1.1 does NOT decode the field-descriptor array (names/types/dec). That is
- * S1.2's job. S1.1 reads ONLY the per-descriptor field-length byte (descriptor
- * offset 0x10) to compute the record-length invariant (1b) and the field count.
- * To let S1.2 build on this without re-opening, the table retains the PAL, the
- * fd, and header_length; S1.2 will add a dbf_field(tbl, i) accessor in dbf.c.
+ * S1.2 (docs/plans/SAMIR-implementation-plan.md): field-descriptor array decoder.
+ *   - Decodes name/type/length/dec for all nfields descriptors at open time.
+ *   - dbf_field(tbl, i) : return the i-th field descriptor (0-based), or NULL
+ *                         for out-of-range i (fail loud: returns NULL only when
+ *                         i >= nfields or i < 0 -- callers must check).
+ *   - dbf_nfields(tbl)  : already exposed by S1.1; reused here.
+ *   - dbf_field_t       : public struct holding name/type/length/dec.
+ *
+ * S1.1 reads ONLY the per-descriptor field-length byte (descriptor offset 0x10)
+ * during its scan loop; S1.2 decodes all fields fully on the second pass (same
+ * open call, second seek). S1.1 invariants are preserved; S1.2 adds no new
+ * error codes (a bad field type is caught by DBF_ERR_NO_TERM is insufficient --
+ * we reuse DBF_ERR_SHORT to signal a structural failure in the descriptor decode).
  *
  * III+ 1.1 ONLY (plan Sec 2.C): dbf_open FAILS LOUD on dBASE IV version bytes
  * (0x04, 0x8B, and anything other than 0x03/0x83) with DBF_ERR_BAD_VERSION.
@@ -28,10 +36,14 @@
  *
  * Ref (Law 1):
  *   - ../dbase3-decomp/specs/file-formats/dbf.md sec 2 (32-byte header),
- *     sec 3 (version byte), sec 4 (descriptor + terminator), sec 8 (invariants),
- *     sec 9 (implementer notes: trust header_length / record_length / nrec).
- *   - spec/samir/dbf_format.h (the LOCKED byte-offset constants).
- *   - docs/plans/SAMIR-implementation-plan.md S1.1 contract; Sec 8.2 dbf.h sketch.
+ *     sec 3 (version byte), sec 4 (descriptor + terminator), sec 5 (field types
+ *     C/N/D/L/M -- III+ only), sec 8 (invariants),
+ *     sec 9 (implementer notes: trust header_length / record_length / nrec;
+ *            field name = bytes to first NUL; trailing bytes may be garbage).
+ *   - spec/samir/dbf_format.h (the LOCKED byte-offset constants):
+ *     DBF_DESC_NAME_OFF/TYPE_OFF/FIELD_LEN_OFF/DEC_COUNT_OFF, DBF_DESC_STRIDE=32,
+ *     DBF_DESC_NAME_SIZE=11, DBF_DESC_TERMINATOR=0x0D.
+ *   - docs/plans/SAMIR-implementation-plan.md S1.2 contract; Sec 8.2 dbf.h sketch.
  *   - os/samir/include/samir/pal.h (the ONLY OS surface; seek=filesize idiom).
  */
 #ifndef INITECH_SAMIR_DBF_H
@@ -57,7 +69,9 @@ typedef enum {
     DBF_ERR_BAD_HDRLEN  = 6,  /* invariant 1: header_length terminator-extra not in {1,2} */
     DBF_ERR_BAD_RECLEN  = 7,  /* invariant 1b: record_length != 1 + sum(field lengths) */
     DBF_ERR_BAD_FILESZ  = 8,  /* invariant 2: file too short for header + nrec*reclen */
-    DBF_ERR_TOO_MANY    = 9   /* field count exceeds DBF_MAX_FIELDS */
+    DBF_ERR_TOO_MANY    = 9,  /* field count exceeds DBF_MAX_FIELDS */
+    DBF_ERR_BAD_TYPE    = 10  /* S1.2: field type byte is not one of C/N/D/L/M (III+ only).
+                               * Ref: dbf.md sec 5 (III+ types); plan Sec 2.C (fail loud). */
 } dbf_err;
 
 /* ---- Opaque table handle ----
@@ -131,5 +145,49 @@ uint8_t  dbf_term_extra(const dbf_table *tbl);
 
 /* 1 if the version byte has the memo bit (0x80) set, else 0 (dbf.md sec 3). */
 int      dbf_has_memo(const dbf_table *tbl);
+
+/* ---- S1.2: field-descriptor accessor ----
+ *
+ * dbf_field_t holds the decoded metadata for one field descriptor (S1.2).
+ * The name is a NUL-terminated C string (at most DBF_DESC_NAME_SIZE bytes
+ * including the terminating NUL) containing the field name decoded to the
+ * first 0x00 byte; trailing garbage in the 11-byte name slot is discarded
+ * (dbf.md sec 4 "read to first NUL; ignore trailing garbage").
+ *
+ * Ref (Law 1):
+ *   - dbf.md sec 4 (32-byte field descriptor table + worked example CLIENTS
+ *     FIRSTNAME); sec 5 (field type codes C/N/D/L/M, III+ only).
+ *   - spec/samir/dbf_format.h: DBF_DESC_NAME_OFF, DBF_DESC_TYPE_OFF,
+ *     DBF_DESC_FIELD_LEN_OFF, DBF_DESC_DEC_COUNT_OFF, DBF_DESC_NAME_SIZE=11,
+ *     DBF_DESC_STRIDE=32.
+ *   - docs/plans/SAMIR-implementation-plan.md S1.2 contract.
+ */
+typedef struct {
+    char    name[12];   /* field name, NUL-terminated; up to 10 usable chars +
+                         * the terminating NUL (DBF_DESC_NAME_SIZE=11 bytes on
+                         * disk, we store one extra byte to guarantee NUL even if
+                         * all 11 bytes are non-zero in a malformed file; in
+                         * practice III+ always NUL-terminates within 11 bytes).
+                         * Ref: dbf.md sec 4 "Field name" row. */
+    char    type;       /* field type char: 'C', 'N', 'D', 'L', or 'M' (III+ only).
+                         * Ref: dbf.md sec 5; spec/samir/dbf_format.h DBF_DESC_TYPE_OFF. */
+    uint8_t field_len;  /* bytes the field occupies in each record (1..255).
+                         * For N: includes sign + decimal point.
+                         * Ref: dbf.md sec 4 offset 0x10; DBF_DESC_FIELD_LEN_OFF. */
+    uint8_t dec_count;  /* decimal digit count; meaningful for N only (0 for C/D/L/M).
+                         * Ref: dbf.md sec 4 offset 0x11; DBF_DESC_DEC_COUNT_OFF. */
+} dbf_field_t;
+
+/*
+ * dbf_field: return a pointer to the decoded i-th field descriptor (0-based).
+ *
+ * Returns a non-NULL pointer to a dbf_field_t owned by the table (valid until
+ * dbf_close) on success, or NULL if i is out of range (i < 0 or i >= nfields).
+ * The caller MUST check for NULL (fail-loud contract: do not use a NULL return
+ * as a value; it signals a programming error or out-of-bounds access, Rule 2).
+ *
+ * Ref: dbf.md sec 4; spec/samir/dbf_format.h; plan S1.2 contract.
+ */
+const dbf_field_t *dbf_field(const dbf_table *tbl, int i);
 
 #endif /* INITECH_SAMIR_DBF_H */
