@@ -130,7 +130,12 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **104 host + 27 emu gates** (WL-0029 added +1 host: `test-samir`, the
+`make test` = **124 host + 27 emu gates** (WL-0030 added +20 host: the SAMIR `.dbf` codec +
+expression-engine + `.ndx`-parse oracles -- `test-dbf-{header,fields,read,roundtrip,mutate}`,
+`test-xbase-{lex,parse,eval,coercion}`, `test-ndx-parse`, each x unit+mutant; re-verified
+`make clean && make test-unit` = ALL GREEN 124 host; SAMIR is still host-only so the 27 emu gates
+are unchanged and `test-dbase` stays a milestone stub_fail until the M6 differential at S6.3/S6.4).
+Prior: WL-0029 added +1 host: `test-samir`, the
 SAMIR/M6 foundation umbrella -- pal/rt/pal-host/spec/value + the dbf_ref/ndx_ref Tier-1
 gates; re-verified `make clean && make test-unit` = ALL GREEN 104 host. SAMIR is host-only,
 not yet in the boot image, so the 27 emu gates are unchanged. `test-dbase` stays a milestone
@@ -347,13 +352,30 @@ independent python readers `dbf_ref.py`/`ndx_ref.py` (the oracle independence ba
 116/0 vs real goldens). Gate: `make test-samir` (7 sub-gates) green, wired into the aggregate.
 **Standing dependency:** the sister corpus `../dbase3-decomp` (Tier-1 gates resolve
 `DBASE3_DECOMP`; absent -> loud-skip; holds gitignored goldens + the dosbox-x mint harness).
-**NEXT = Phase 1, the `.dbf` codec** (epic `aul`): serial chain `S1.1 -> S1.2 -> S1.3 -> S1.4
--> S1.5` (`initech-aul.1..5`; header parse+invariants -> field descriptors -> record read ->
-write/round-trip -> mutate), graded against Tier-0 corpus values + the `dbf_ref.py` barrier,
-mutation-proven. **Orchestration cadence (operator-set):** delegate each step to a subagent
-(sonnet default, opus for load-bearing); the orchestrator owns DISJOINT file ownership +
-Makefile integration + independent re-grading + commit-per-landing + the bead ledger; report
-at phase boundaries.
+**SAMIR PROGRESS -- Phase 1 codec COMPLETE + Phase 3 core (gmo) COMPLETE + Phase 4 OPENED
+(WL-0030).** A second orchestrated session drove the engine forward in 5 parallel-lane waves
+(disjoint files, orchestrator owns the Makefile + independent re-grading + commit-per-wave;
+**104 -> 124 host gates**, all mutation-proven; 27 emu unchanged). **Phase 1 (.dbf codec,
+`aul.1..5`) is COMPLETE**: `dbf_open`/`dbf_field`/`dbf_read_rec` (read) + `dbf_create`/`append`/
+`flush` (deterministic write, round-trip vs `dbf_ref.py`) + `append_blank`/`replace`/`delete`/
+`recall`/`pack`/`zap` (mutation, assignment-coercion). **Phase 3 core (the `gmo` epic,
+`gmo.1..4`) is COMPLETE**: `xb_lex` (rejects IV `==`) -> `xb_parse` (corpus-minted `^` left-assoc,
+unary>`^`) -> `xb_eval` (every `xbase_coercion.json` cell incl. the C+N=error#9 HAZARD) -> the
+`dbf_coerce_fuzz` property-test (`os/samir/core/{lex,parse,eval}.c` + `eval.h`). **Phase 4 (.ndx,
+`ahu.1`) is OPENED**: `ndx_open`/node-read parse vs the 11 corpus `.ndx`, verbatim key-expr
+(`os/samir/fs/ndx.c`). See WL-0030 for the per-step ledger + boundary decisions.
+
+**NEXT (remaining DAG; pick per operator steer):** **Phase 2 `.dbt` memo** (`aul.6`=S2.1 read,
+`aul.7`=S2.2 write -- resolves the S1.3 M-pointer->text boundary); **Phase 4** continuation
+(`ahu.2`=S4.2 key decode+collation -> `ahu.3` SEEK -> `ahu.4` bulk INDEX ON -> `ahu.5`
+maintenance); **Phase 3 functions** (`7az` S3.5/S3.6 -- needs the parser to parse call args, the
+`XBN_CALL` placeholder); then the convergence point **Phase 5 interpreter** (`7az` S5.1-S5.8, the
+dot-prompt REPL `samir_main.c`) which needs Phases 1-4; then **Phase 6** oracle assembly (`17n`/
+`586.4` -- the M6 `test-dbase` differential goes green at S6.3/S6.4). **Orchestration cadence
+(operator-set):** delegate each step to a subagent (sonnet default, opus for load-bearing); the
+orchestrator owns DISJOINT file ownership + Makefile integration + independent re-grading +
+commit-per-wave + the bead ledger; run `make clean && make test-unit` at every integration;
+report at phase boundaries.
 
 **FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
 ratified the region-first Toolbox plan; operator decided indexed-8 depth,
