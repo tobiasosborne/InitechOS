@@ -634,6 +634,9 @@ DBF_REF_PY        := $(DBF_DIFF_DIR)/dbf_ref.py
 SAMIR_DBF_SRC     := $(SAMIR_DIR)/fs/dbf.c
 TEST_DBF_HEADER     := $(BUILD)/test_dbf_header
 TEST_DBF_HEADER_MUT := $(BUILD)/test_dbf_header_mut
+SAMIR_LEX_SRC     := $(SAMIR_DIR)/core/lex.c
+TEST_XBASE_LEX     := $(BUILD)/test_xbase_lex
+TEST_XBASE_LEX_MUT := $(BUILD)/test_xbase_lex_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1323,6 +1326,35 @@ test-dbf-header-mutant: $(TEST_DBF_HEADER_MUT)
 		printf '!!! test-dbf-header-mutant FAIL: mutant PASSED -- the invariant-1b reclen check is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-dbf-header-mutant: green (reclen off-by-one correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-3 evaluator: xBase expression lexer (S3.1 / initech-gmo.1) ----
+# Host oracle: the test + REAL engine lex.c + rt.c. The lexer is PURE (no PAL, no
+# spec dep) -- it writes into a caller-provided token buffer, allocation-free. The
+# mutant accepts the dBASE-IV-only "==" instead of rejecting it as a III+ lex
+# error (plan sec.2.C) so the "== -> lex error" assertions go RED (Rule 6).
+$(TEST_XBASE_LEX): $(DBF_DIFF_DIR)/test_xbase_lex.c $(SAMIR_LEX_SRC) $(SAMIR_RT_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_lex.c $(SAMIR_LEX_SRC) $(SAMIR_RT_SRC)
+$(TEST_XBASE_LEX_MUT): $(DBF_DIFF_DIR)/test_xbase_lex.c $(SAMIR_LEX_SRC) $(SAMIR_RT_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_LEX -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_lex.c $(SAMIR_LEX_SRC) $(SAMIR_RT_SRC)
+
+.PHONY: test-xbase-lex
+test-xbase-lex: $(TEST_XBASE_LEX)
+	@printf ">>> test-xbase-lex: xBase III+ expression lexer (literals/ops/dotted; rejects ==) (S3.1)\n"
+	@$(TEST_XBASE_LEX)
+	@printf ">>> test-xbase-lex: green\n"
+
+.PHONY: test-xbase-lex-mutant
+test-xbase-lex-mutant: $(TEST_XBASE_LEX_MUT)
+	@printf ">>> test-xbase-lex-mutant: confirming the '== accepted' mutant goes RED (Rule 6; initech-gmo.1)\n"
+	@$(TEST_XBASE_LEX_MUT) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-xbase-lex-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_XBASE_LEX_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-lex-mutant FAIL: mutant PASSED -- the == rejection is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-xbase-lex-mutant: green (== acceptance correctly RED)\n'; \
 	fi
 
 # dbf_ref.py (S6.1): the INDEPENDENT python .dbf/.dbt reader -- the oracle
@@ -9483,7 +9515,8 @@ TEST_UNIT_GATES := \
 	test-absdisk test-absdisk-mutant \
 	test-kernel-repro test-kernel-repro-mutant \
 	test-samir \
-	test-dbf-header test-dbf-header-mutant
+	test-dbf-header test-dbf-header-mutant \
+	test-xbase-lex test-xbase-lex-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
