@@ -651,6 +651,11 @@ TEST_DBF_ROUNDTRIP     := $(BUILD)/test_dbf_roundtrip
 TEST_DBF_ROUNDTRIP_MUT := $(BUILD)/test_dbf_roundtrip_mut
 DBF_COERCE_FUZZ        := $(BUILD)/dbf_coerce_fuzz
 DBF_COERCE_FUZZ_MUT    := $(BUILD)/dbf_coerce_fuzz_mut
+TEST_DBF_MUTATE     := $(BUILD)/test_dbf_mutate
+TEST_DBF_MUTATE_MUT := $(BUILD)/test_dbf_mutate_mut
+SAMIR_NDX_SRC     := $(SAMIR_DIR)/fs/ndx.c
+TEST_NDX_PARSE      := $(BUILD)/test_ndx_parse
+TEST_NDX_PARSE_MUT  := $(BUILD)/test_ndx_parse_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1429,6 +1434,66 @@ test-dbf-roundtrip-mutant: $(TEST_DBF_ROUNDTRIP_MUT)
 		printf '!!! test-dbf-roundtrip-mutant FAIL: mutant PASSED -- the memo version bit is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-dbf-roundtrip-mutant: green (0x03-for-memo correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-1 .dbf codec: record mutation verbs (S1.5 / initech-aul.5) ----
+# COMPLETES Phase 1. dbf_append_blank/replace/delete/recall/pack/zap with
+# assignment-coercion (per xbase_coercion.json: C truncate/pad, N stars-fill on
+# overflow, cross-type -> mismatch) + deterministic PACK (survivors in original
+# order). The mutant writes the live flag 0x20 where delete needs 0x2A -> the
+# deleted state + PACK survivor set go wrong -> RED (Rule 6).
+$(TEST_DBF_MUTATE): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_MUTATE_MUT): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_DELFLAG -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-dbf-mutate
+test-dbf-mutate: $(TEST_DBF_MUTATE)
+	@printf ">>> test-dbf-mutate: .dbf mutation verbs (append-blank/replace/delete/recall/pack/zap + assign-coerce) (S1.5)\n"
+	@$(TEST_DBF_MUTATE) $(DBASE3_DECOMP)
+	@printf ">>> test-dbf-mutate: green\n"
+
+.PHONY: test-dbf-mutate-mutant
+test-dbf-mutate-mutant: $(TEST_DBF_MUTATE_MUT)
+	@printf ">>> test-dbf-mutate-mutant: confirming the delete-flag (0x20-for-0x2A) mutant goes RED (Rule 6; initech-aul.5)\n"
+	@$(TEST_DBF_MUTATE_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-dbf-mutate-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_DBF_MUTATE_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-dbf-mutate-mutant FAIL: mutant PASSED -- the delete flag is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-dbf-mutate-mutant: green (delete-flag 0x20-for-0x2A correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-4 .ndx index: header + node parse (S4.1 / initech-ahu.1) ----
+# Opens Phase 4 (the index subsystem). ndx_open parses the 10-field header + the
+# 2+2 node header + the {child/recno/key} group array via the LOCKED ndx_format.h
+# offsets; key-expr is VERBATIM (cap 100, NOT lowercased). STRUCTURE only -- typed
+# key decode is S4.2. The mutant swaps the per-group child/recno/key sublayout ->
+# branch/leaf + recno mismatch the goldens -> RED (Rule 6).
+$(TEST_NDX_PARSE): $(DBF_DIFF_DIR)/test_ndx_parse.c $(SAMIR_NDX_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_parse.c $(SAMIR_NDX_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_NDX_PARSE_MUT): $(DBF_DIFF_DIR)/test_ndx_parse.c $(SAMIR_NDX_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_SUBLAYOUT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_parse.c $(SAMIR_NDX_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-ndx-parse
+test-ndx-parse: $(TEST_NDX_PARSE)
+	@printf ">>> test-ndx-parse: .ndx III+ header + node parse (10-field hdr, 2+2 node, verbatim key-expr) (S4.1)\n"
+	@$(TEST_NDX_PARSE) $(DBASE3_DECOMP)
+	@printf ">>> test-ndx-parse: green\n"
+
+.PHONY: test-ndx-parse-mutant
+test-ndx-parse-mutant: $(TEST_NDX_PARSE_MUT)
+	@printf ">>> test-ndx-parse-mutant: confirming the group-sublayout-swap mutant goes RED (Rule 6; initech-ahu.1)\n"
+	@$(TEST_NDX_PARSE_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-ndx-parse-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_NDX_PARSE_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-ndx-parse-mutant FAIL: mutant PASSED -- the .ndx group sublayout is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ndx-parse-mutant: green (group sublayout swap correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 evaluator: xBase expression lexer (S3.1 / initech-gmo.1) ----
@@ -9712,6 +9777,8 @@ TEST_UNIT_GATES := \
 	test-samir \
 	test-dbf-header test-dbf-header-mutant test-dbf-fields test-dbf-fields-mutant \
 	test-dbf-read test-dbf-read-mutant test-dbf-roundtrip test-dbf-roundtrip-mutant \
+	test-dbf-mutate test-dbf-mutate-mutant \
+	test-ndx-parse test-ndx-parse-mutant \
 	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant \
 	test-xbase-eval test-xbase-eval-mutant test-xbase-coercion test-xbase-coercion-mutant
 

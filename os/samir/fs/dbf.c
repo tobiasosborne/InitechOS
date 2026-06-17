@@ -1203,3 +1203,363 @@ int dbf_flush(dbf_table *tbl)
 
     return DBF_OK;
 }
+
+/* ======================================================================== */
+/* S1.5: record mutation verbs                                               */
+/*                                                                          */
+/* Record-cursor model: EXPLICIT recno arguments (1-based, matching         */
+/* dbf_read_rec). Cleaner for testing; S5.1 adds a work-area current-recno. */
+/*                                                                          */
+/* Write model: for dbf_create()'d (writable) tables all verbs patch the    */
+/* in-arena rec_region directly; the caller calls dbf_flush() afterwards to */
+/* persist the changes. This is consistent with S1.4's build-in-arena/flush */
+/* model and keeps a single code path for the deterministic write.          */
+/*                                                                          */
+/* Blank-field fill (dbf.md sec 5 + plan S1.5):                            */
+/*   C/M -> spaces; N -> spaces; D -> spaces; L -> '?' (uninitialised).    */
+/*                                                                          */
+/* Assignment coercion (xbase_coercion.json assignment_coercion, self-      */
+/* contained; no eval.c dependency per plan S1.5):                          */
+/*   C<-C ok (truncate/pad); N<-N ok (dec_format, stars on overflow);       */
+/*   D<-D ok; L<-L ok; cross-type -> -DBF_ERR_MISMATCH (fail loud).        */
+/* ======================================================================== */
+
+/*
+ * S1.5 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_DELFLAG is defined,
+ * dbf_delete writes 0x20 (live) instead of 0x2A (deleted). The mutation
+ * perturbs a single constant: the byte written to the delete-flag slot.
+ * The test asserts that after dbf_delete the flag byte reads back as 0x2A;
+ * with the mutant it reads 0x20, so every test that checks the deleted state
+ * goes RED. Exactly one constant is changed; dbf_recall is unaffected.
+ *
+ * Why this bites hardest: the delete flag is the gate for dbf_pack. If
+ * dbf_delete silently writes 0x20, pack cannot identify deleted records and
+ * the nrec check, survivor-count check, and content checks all fail.
+ * Ref: plan S1.5 mutant spec "dbf_delete writes 0x20 instead of 0x2A";
+ *      dbf.md sec 6; spec/samir/dbf_format.h DBF_REC_DELETE_DELETED=0x2A.
+ */
+#ifdef DBF_MUTATE_DELFLAG
+#  define DELETE_FLAG_BYTE  ((uint8_t)DBF_REC_DELETE_LIVE)   /* mutant: 0x20 */
+#else
+#  define DELETE_FLAG_BYTE  ((uint8_t)DBF_REC_DELETE_DELETED) /* correct: 0x2A */
+#endif
+
+/*
+ * rec_ptr: return a pointer to the start of the record at 1-based recno in
+ * the writable rec_region (recno 1 -> rec_region[0]).
+ * NO range-checking here; callers validate recno before calling.
+ */
+static uint8_t *rec_ptr(dbf_table *tbl, uint32_t recno)
+{
+    return tbl->rec_region + (recno - 1u) * (uint32_t)tbl->record_length;
+}
+
+/*
+ * field_offset_in_rec: return the byte offset of field `fi` (0-based) within
+ * a record buffer (i.e. from the record's first byte = the delete flag). This
+ * is DBF_REC_FLAG_SIZE + sum(field_len[0..fi-1]).
+ */
+static uint32_t field_offset_in_rec(const dbf_table *tbl, int fi)
+{
+    uint32_t off = (uint32_t)DBF_REC_FLAG_SIZE;
+    int k;
+    for (k = 0; k < fi; k++)
+        off += (uint32_t)tbl->fields[k].field_len;
+    return off;
+}
+
+/*
+ * fmt_blank_field: fill `dst[0..flen-1]` with the blank value for `ftype`.
+ *   C/M/N/D -> spaces (0x20).
+ *   L       -> '?' (0x3F) -- the III+ uninitialised logical value.
+ * Ref: dbf.md sec 5 (L uninitialized = '?'); plan S1.5 blank-field spec.
+ */
+static void fmt_blank_field(uint8_t *dst, uint8_t flen, char ftype)
+{
+    if ((unsigned char)ftype == (unsigned char)'L' && flen >= 1u) {
+        rt_memset(dst, ' ', (uint32_t)flen);
+        dst[0] = (uint8_t)'?';
+    } else {
+        rt_memset(dst, ' ', (uint32_t)flen);
+    }
+}
+
+int dbf_append_blank(dbf_table *tbl)
+{
+    uint8_t  *rec;
+    uint32_t  fi;
+    uint32_t  field_off;
+
+    if (!tbl)
+        return -DBF_ERR_IO;
+    if (!tbl->writable)
+        return -DBF_ERR_IO;   /* opened read-only; S5.1 handles RDWR open */
+    if (tbl->nrec >= DBF_MAX_RECS)
+        return -DBF_ERR_TOO_MANY;
+
+    /* Grow the record region if needed (mirrors dbf_append_rec logic). */
+    if (tbl->nrec >= tbl->rec_cap) {
+        uint32_t new_cap = (tbl->rec_cap == 0u) ? 16u : (tbl->rec_cap * 2u);
+        uint32_t bytes   = new_cap * (uint32_t)tbl->record_length;
+        uint8_t *nr      = (uint8_t *)tbl->pal->alloc(tbl->pal, bytes);
+        if (!nr)
+            return -DBF_ERR_NOMEM;
+        if (tbl->rec_region && tbl->nrec > 0u)
+            rt_memcpy(nr, tbl->rec_region,
+                      tbl->nrec * (uint32_t)tbl->record_length);
+        tbl->rec_region = nr;
+        tbl->rec_cap    = new_cap;
+    }
+
+    rec = rec_ptr(tbl, tbl->nrec + 1u);   /* zero-based: nrec is count BEFORE bump */
+
+    /* Delete flag: 0x20 (live). Ref: dbf.md sec 6. */
+    rec[0] = (uint8_t)DBF_REC_DELETE_LIVE;
+
+    /* Blank-fill each field in descriptor order. */
+    field_off = (uint32_t)DBF_REC_FLAG_SIZE;
+    for (fi = 0u; fi < (uint32_t)tbl->nfields; fi++) {
+        const dbf_field_t *f = &tbl->fields[fi];
+        fmt_blank_field(rec + field_off, f->field_len, f->type);
+        field_off += (uint32_t)f->field_len;
+    }
+
+    tbl->nrec++;
+    return DBF_OK;
+}
+
+/*
+ * coerce_and_write_field: apply assignment coercion and write the formatted
+ * bytes into `dst[0..flen-1]` for the given field type/dec. Returns DBF_OK
+ * on success or -DBF_ERR_MISMATCH on a cross-type incompatibility.
+ *
+ * Assignment coercion contract (xbase_coercion.json assignment_coercion; self-
+ * contained per plan S1.5 -- no eval.c):
+ *   C <- C : truncate to flen if too long; space-pad if too short.
+ *   N <- N : dec_format(v->u.n, flen, dec, dst). Overflow -> '*'-fill; DBF_OK.
+ *   D <- D : write YYYYMMDD; xb_u -> blank (8 spaces).
+ *   L <- L : 'T' for 1, 'F' for 0; xb_u -> '?'.
+ *   M <- C : memo text stored as C (xbase_coercion.json "target:M,expr:C,ok").
+ *   cross-type (C<-N, N<-C, N<-D, D<-C, L<-N, etc.) -> -DBF_ERR_MISMATCH.
+ *
+ * Ref: xbase_coercion.json assignment_coercion; dbf.md sec 5; rt.h dec_format,
+ *      ymd_from_jdn; plan S1.5.
+ */
+static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
+                                  uint8_t dec, const xb_val *v)
+{
+    uint32_t i;
+
+    switch ((unsigned char)ftype) {
+
+    case (unsigned char)'C': {
+        /* C <- C: ok. Truncate/pad. Ref: xbase_coercion.json target:C, expr:C. */
+        if (!v || v->t != XB_C)
+            return -DBF_ERR_MISMATCH;
+        rt_memset(dst, ' ', (uint32_t)flen);
+        if (v->u.c.p) {
+            uint32_t n = (uint32_t)v->u.c.len;
+            if (n > (uint32_t)flen) n = (uint32_t)flen;  /* truncate */
+            rt_memcpy(dst, v->u.c.p, n);
+        }
+        return DBF_OK;
+    }
+
+    case (unsigned char)'N': {
+        /* N <- N: ok; dec_format handles overflow by '*'-fill.
+         * Ref: xbase_coercion.json target:N, expr:N, on_overflow:stars_fill. */
+        if (!v || v->t != XB_N)
+            return -DBF_ERR_MISMATCH;
+        (void)dec_format(v->u.n, (int)flen, (int)dec, (char *)dst);
+        return DBF_OK;
+    }
+
+    case (unsigned char)'D': {
+        /* D <- D: ok. xb_u -> 8 spaces (blank date).
+         * Ref: xbase_coercion.json target:D, expr:D. dbf.md sec 5 D. */
+        if (!v || (v->t != XB_D && v->t != XB_U))
+            return -DBF_ERR_MISMATCH;
+        if (v->t == XB_D) {
+            int32_t y, m, d;
+            ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
+            i = 0u;
+            dst[i++] = (uint8_t)('0' + (int)((y / 1000) % 10));
+            dst[i++] = (uint8_t)('0' + (int)((y / 100) % 10));
+            dst[i++] = (uint8_t)('0' + (int)((y / 10) % 10));
+            dst[i++] = (uint8_t)('0' + (int)(y % 10));
+            dst[i++] = (uint8_t)('0' + (int)((m / 10) % 10));
+            dst[i++] = (uint8_t)('0' + (int)(m % 10));
+            dst[i++] = (uint8_t)('0' + (int)((d / 10) % 10));
+            dst[i]   = (uint8_t)('0' + (int)(d % 10));
+        } else {
+            /* xb_u -> blank date (8 spaces). flen is 8 (asserted at create). */
+            rt_memset(dst, ' ', (uint32_t)flen);
+        }
+        return DBF_OK;
+    }
+
+    case (unsigned char)'L': {
+        /* L <- L: ok. 'T'/'F'. xb_u -> '?'.
+         * Ref: xbase_coercion.json target:L, expr:L. dbf.md sec 5 L. */
+        if (!v || (v->t != XB_L && v->t != XB_U))
+            return -DBF_ERR_MISMATCH;
+        rt_memset(dst, ' ', (uint32_t)flen);
+        if (flen >= 1u) {
+            if (v->t == XB_L)
+                dst[0] = v->u.l ? (uint8_t)'T' : (uint8_t)'F';
+            else
+                dst[0] = (uint8_t)'?';
+        }
+        return DBF_OK;
+    }
+
+    case (unsigned char)'M': {
+        /* M <- C: ok (xbase_coercion.json target:M, expr:C, ok, "memo stores text").
+         * Write as left-justified, space-padded C-style into the 10-byte M slot
+         * (the .dbt block pointer slot). The full .dbt integration is S2.2;
+         * here we treat an M field like C for the field bytes. */
+        if (!v || v->t != XB_C)
+            return -DBF_ERR_MISMATCH;
+        rt_memset(dst, ' ', (uint32_t)flen);
+        if (v->u.c.p) {
+            uint32_t n = (uint32_t)v->u.c.len;
+            if (n > (uint32_t)flen) n = (uint32_t)flen;
+            rt_memcpy(dst, v->u.c.p, n);
+        }
+        return DBF_OK;
+    }
+
+    default:
+        return -DBF_ERR_MISMATCH;
+    }
+}
+
+int dbf_replace(dbf_table *tbl, uint32_t recno, int field, const xb_val *v)
+{
+    uint8_t  *rec;
+    uint8_t  *dst;
+    uint32_t  foff;
+    const dbf_field_t *f;
+
+    if (!tbl || !v)
+        return -DBF_ERR_IO;
+    if (!tbl->writable)
+        return -DBF_ERR_IO;
+
+    /* Validate recno (1-based, [1..nrec]). Fail loud. */
+    if (recno < 1u || recno > tbl->nrec)
+        return -DBF_ERR_BAD_RECNO;
+
+    /* Validate field index (0-based, [0..nfields-1]). Fail loud. */
+    if (field < 0 || (uint32_t)field >= (uint32_t)tbl->nfields)
+        return -DBF_ERR_BAD_RECNO;   /* reuse BAD_RECNO for out-of-range field */
+
+    f    = &tbl->fields[field];
+    foff = field_offset_in_rec(tbl, field);
+    rec  = rec_ptr(tbl, recno);
+    dst  = rec + foff;
+
+    /* Apply assignment coercion and write the formatted bytes.
+     * Returns DBF_OK or -DBF_ERR_MISMATCH for cross-type. */
+    return coerce_and_write_field(dst, f->field_len, f->type, f->dec_count, v);
+}
+
+int dbf_delete(dbf_table *tbl, uint32_t recno)
+{
+    uint8_t *rec;
+
+    if (!tbl)
+        return -DBF_ERR_IO;
+    if (!tbl->writable)
+        return -DBF_ERR_IO;
+    if (recno < 1u || recno > tbl->nrec)
+        return -DBF_ERR_BAD_RECNO;
+
+    rec = rec_ptr(tbl, recno);
+    /* Write the delete flag. DELETE_FLAG_BYTE is 0x2A normally; 0x20 with
+     * -DDBF_MUTATE_DELFLAG (the mutation hook; Rule 6). */
+    rec[0] = DELETE_FLAG_BYTE;
+    return DBF_OK;
+}
+
+int dbf_recall(dbf_table *tbl, uint32_t recno)
+{
+    uint8_t *rec;
+
+    if (!tbl)
+        return -DBF_ERR_IO;
+    if (!tbl->writable)
+        return -DBF_ERR_IO;
+    if (recno < 1u || recno > tbl->nrec)
+        return -DBF_ERR_BAD_RECNO;
+
+    rec = rec_ptr(tbl, recno);
+    rec[0] = (uint8_t)DBF_REC_DELETE_LIVE;   /* clear the delete flag */
+    return DBF_OK;
+}
+
+int dbf_pack(dbf_table *tbl)
+{
+    uint8_t  *new_region;
+    uint32_t  new_nrec;
+    uint32_t  r;
+    uint32_t  rlen;
+
+    if (!tbl)
+        return -DBF_ERR_IO;
+    if (!tbl->writable)
+        return -DBF_ERR_IO;
+
+    rlen    = (uint32_t)tbl->record_length;
+    new_nrec = 0u;
+
+    /* Count survivors first so we can allocate the exact size. */
+    for (r = 0u; r < tbl->nrec; r++) {
+        uint8_t *rec = tbl->rec_region + r * rlen;
+        if (rec[0] == (uint8_t)DBF_REC_DELETE_LIVE)
+            new_nrec++;
+    }
+
+    if (new_nrec == 0u) {
+        /* All records deleted (or table was already empty). Just zap. */
+        tbl->nrec = 0u;
+        return DBF_OK;
+    }
+
+    /* Allocate a fresh region for the survivors. */
+    new_region = (uint8_t *)tbl->pal->alloc(tbl->pal, new_nrec * rlen);
+    if (!new_region)
+        return -DBF_ERR_NOMEM;
+
+    /* Copy survivors in original record order (deterministic; Rule 11).
+     * A deleted record (flag == 0x2A) is skipped. Any other flag byte
+     * that survived earlier validation is treated as live (defensive). */
+    {
+        uint32_t dst_idx = 0u;
+        for (r = 0u; r < tbl->nrec; r++) {
+            uint8_t *rec = tbl->rec_region + r * rlen;
+            if (rec[0] == (uint8_t)DBF_REC_DELETE_LIVE) {
+                rt_memcpy(new_region + dst_idx * rlen, rec, rlen);
+                dst_idx++;
+            }
+        }
+    }
+
+    tbl->rec_region = new_region;
+    tbl->rec_cap    = new_nrec;
+    tbl->nrec       = new_nrec;
+    return DBF_OK;
+}
+
+int dbf_zap(dbf_table *tbl)
+{
+    if (!tbl)
+        return -DBF_ERR_IO;
+    if (!tbl->writable)
+        return -DBF_ERR_IO;
+
+    /* Reset the record count to 0. The rec_region is left as-is in the arena
+     * (bump allocator; no free needed). dbf_flush will write 0 records. */
+    tbl->nrec = 0u;
+    return DBF_OK;
+}

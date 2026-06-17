@@ -509,4 +509,200 @@ int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted);
  */
 int dbf_flush(dbf_table *tbl);
 
+/* ---- S1.5: record mutation verbs ----
+ *
+ * S1.5 (docs/plans/SAMIR-implementation-plan.md S1.5): the full set of record
+ * mutation verbs. All verbs operate through the PAL and update the header nrec
+ * on disk. Mutation of writable (created) tables operates on the in-arena
+ * rec_region; mutation of opened (read-only-at-open) tables writes directly to
+ * the file at the record's byte offset. The PAL handle is always RDWR for
+ * created tables; opened tables are read-only -- replace/delete/recall/pack/zap
+ * on them requires re-opening, which is the caller's responsibility (the
+ * REPL/work-area layer S5.1 opens for RDWR). However, for correctness
+ * in the S1.5 oracle the table IS opened RDWR by the test (dbf_open_rdwr, see
+ * note below).
+ *
+ * Record-cursor model (S1.5 decision, documented here):
+ *   dbf_replace and dbf_delete/dbf_recall take an EXPLICIT recno argument
+ *   (1-based, matching dbf_read_rec convention). This is cleaner for S1.5
+ *   testing and matches the "explicit position" style; S5.1 adds a current-
+ *   record cursor in the work-area layer. Ref: plan S1.5 contract note
+ *   "Decide the record-cursor model ... explicit recno arg is cleaner for S1.5".
+ *
+ * Write model (S1.5 decision):
+ *   For dbf_create()'d (writable) tables: patch the rec_region byte(s) directly
+ *   (the record is in-arena), then dbf_flush() rewrites the whole file. This is
+ *   consistent with S1.4's build-in-arena/flush model and keeps a single code
+ *   path for flush. The caller calls dbf_flush() after mutations.
+ *   For dbf_open()'d tables: the engine writes directly to the file at the
+ *   record's offset using pal->write after pal->seek (per-record seek-and-write).
+ *   This path requires the PAL fd to be RDWR; dbf_open opens with PAL_RD, so the
+ *   interpreter (S5.1) must use an internal open that uses PAL_RDWR. For S1.5
+ *   testing purposes we create tables with dbf_create (writable), not dbf_open.
+ *   The direct-write path is exercised via dbf_open+PAL_RDWR in S5.1.
+ *
+ * nrec invariant (dbf.md sec 8): every verb that changes nrec updates BOTH the
+ *   in-table nrec field AND the on-disk header nrec bytes (via pal->write at
+ *   DBF_HDR_NREC_OFF, then a seek-reset). This keeps the file consistent after
+ *   each verb even without a full flush.
+ *   For writable tables the nrec in the header image is written at flush time
+ *   (dbf_flush already does this); the in-arena nrec is always live. The test
+ *   verifies nrec after flush.
+ *
+ * Blank-field fill per type (S1.5 decision; dbf.md sec 5):
+ *   C  -> spaces (0x20) for all field_len bytes.
+ *   N  -> spaces (0x20) for all field_len bytes (blank numeric).
+ *   D  -> spaces (0x20) for all 8 bytes (blank date).
+ *   L  -> '?' (0x3F) -- the dBASE "uninitialised" logical value.
+ *        Ref: dbf.md sec 5 L; dbf_read_rec L-decode: '?'/space -> xb_u().
+ *   M  -> spaces (0x20) for all 10 bytes (blank memo pointer).
+ *
+ * Assignment-coercion contract for dbf_replace (S1.5 decision, plan S1.5 +
+ * spec/samir/xbase_coercion.json assignment_coercion array):
+ *   C <- C : ok; truncate to field_len if too long; space-pad if too short.
+ *   N <- N : ok; dec_format(v, field_len, dec) => may '*'-fill on overflow.
+ *            The overflow is not a hard error (dec_format returns it; Rule 2
+ *            says fail loud on invariant violations, but '*' fill IS the dBASE
+ *            III+ defined overflow behavior per xbase_coercion.json
+ *            "on_overflow: stars_fill"). Returns DBF_OK even on overflow.
+ *   D <- D : ok; write YYYYMMDD via ymd_from_jdn.
+ *   L <- L : ok; write 'T' or 'F'.
+ *   cross-type (e.g. C<-N, N<-C, D<-C, L<-N, etc.) : fail loud with
+ *            -DBF_ERR_MISMATCH. Per xbase_coercion.json: "result: error,
+ *            error: mismatch". The caller must use STR()/VAL()/etc. first.
+ *
+ * Ref (Law 1):
+ *   - dbf.md sec 6 (record layout: delete flag 0x20/0x2A).
+ *   - dbf.md sec 8 (nrec invariant; PACK/ZAP behaviour).
+ *   - spec/samir/xbase_coercion.json assignment_coercion array (the locked
+ *     contract; this function is the only place that implements it for .dbf
+ *     field stores -- no eval.c dependency per plan S1.5 "self-contained in
+ *     dbf.c per-type; do NOT pull in eval.c").
+ *   - spec/samir/dbf_format.h (DBF_REC_DELETE_LIVE/DELETED, offsets).
+ *   - rt.h dec_format (N field write), ymd_from_jdn (D field write).
+ *   - docs/plans/SAMIR-implementation-plan.md S1.5 contract.
+ */
+
+/* DBF_ERR_MISMATCH: assignment-coercion type mismatch (cross-type REPLACE).
+ * Ref: spec/samir/xbase_coercion.json assignment_coercion "result: error,
+ * error: mismatch". Value chosen after the existing DBF_ERR_BAD_REC (12). */
+/* NOTE: DBF_ERR_MISMATCH is defined here; it is NOT added to the dbf_err enum
+ * above because that enum is in the HEADER (public ABI). We extend it as a new
+ * enumerator. */
+
+/* ---- Updated error enum (extends S1.1-S1.4 set) ---- */
+/* DBF_ERR_MISMATCH is the S1.5 extension for cross-type assignment.
+ * It replaces the sentinel at the end; the numeric value is 13. */
+#define DBF_ERR_MISMATCH  13  /* S1.5: cross-type assignment coercion error.
+                               * Ref: xbase_coercion.json assignment_coercion:
+                               * "result: error, error: mismatch". */
+
+/*
+ * dbf_append_blank: append a blank (all-empty) record to a writable table.
+ *
+ * The blank record has delete flag 0x20 (live). Each field is filled per type:
+ *   C/M -> spaces; N -> spaces (blank numeric); D -> spaces (blank date);
+ *   L   -> '?' (uninitialised). Ref: plan S1.5 blank-field contract.
+ *
+ * nrec is bumped. Returns DBF_OK or -(dbf_err):
+ *   -DBF_ERR_IO     : table not writable (not from dbf_create).
+ *   -DBF_ERR_NOMEM  : arena exhausted growing the record region.
+ *   -DBF_ERR_TOO_MANY : nrec would exceed DBF_MAX_RECS.
+ *
+ * Ref: dbf.md sec 6 (record layout); plan S1.5.
+ */
+int dbf_append_blank(dbf_table *tbl);
+
+/*
+ * dbf_replace: set a field in the record at `recno` to the value `v`, applying
+ * assignment coercion per spec/samir/xbase_coercion.json assignment_coercion.
+ *
+ * Parameters:
+ *   tbl    : open writable table (from dbf_create; writable flag set).
+ *   recno  : 1-based record number (1..nrec). Fail loud on out-of-range.
+ *   field  : 0-based field index (0..nfields-1). Fail loud on out-of-range.
+ *   v      : the typed value to store.
+ *
+ * Assignment coercion (from xbase_coercion.json assignment_coercion; self-
+ * contained in dbf.c, no eval.c dependency):
+ *   C <- C : ok; truncate to field_len if v.u.c.len > field_len; space-pad
+ *            if shorter. Ref: "on_too_long: truncate, on_short: pad_blanks".
+ *   N <- N : ok; dec_format(v.u.n, field_len, dec_count, dst). Overflow ->
+ *            '*'-fill (dec_format contract; xbase_coercion.json
+ *            "on_overflow: stars_fill"). Returns DBF_OK even on '*'-fill.
+ *   D <- D : ok; format YYYYMMDD via ymd_from_jdn(JDN).
+ *   L <- L : ok; write 'T' (true) or 'F' (false).
+ *   cross-type : return -DBF_ERR_MISMATCH. The caller is responsible for
+ *                type-compatible values (use STR/VAL/CTOD/DTOC as needed).
+ *
+ * For writable tables: patches the rec_region byte(s) in-arena; the change
+ * is visible to dbf_read_rec AFTER dbf_flush (the in-arena record is used
+ * by flush, which rewrites the whole file). The test calls flush after replace.
+ *
+ * Returns DBF_OK or -(dbf_err).
+ *
+ * Ref: dbf.md sec 6; xbase_coercion.json; plan S1.5.
+ */
+int dbf_replace(dbf_table *tbl, uint32_t recno, int field, const xb_val *v);
+
+/*
+ * dbf_delete: mark the record at `recno` as deleted (delete flag = 0x2A).
+ *
+ * The record stays in the file until PACK. dbf_read_rec will still return the
+ * record with *deleted=1. Ref: dbf.md sec 6 "0x2A = deleted (not yet PACKed)".
+ *
+ * For writable tables: patches rec_region[offset] = 0x2A in-arena; requires a
+ * subsequent dbf_flush to persist. Returns DBF_OK or -(dbf_err):
+ *   -DBF_ERR_BAD_RECNO : recno < 1 or recno > nrec.
+ *   -DBF_ERR_IO        : table not writable.
+ *
+ * Mutation hook (Rule 6): when -DDBF_MUTATE_DELFLAG is defined, dbf_delete
+ * writes 0x20 (live) instead of 0x2A (deleted). The test asserts that after
+ * dbf_delete the record's delete flag is 0x2A; with the mutant it remains 0x20
+ * so the assertion goes RED.
+ *
+ * Ref: dbf.md sec 6; spec/samir/dbf_format.h DBF_REC_DELETE_DELETED=0x2A;
+ *      plan S1.5 mutant spec: "dbf_delete writes 0x20 instead of 0x2A".
+ */
+int dbf_delete(dbf_table *tbl, uint32_t recno);
+
+/*
+ * dbf_recall: clear the delete flag on the record at `recno` (flag = 0x20).
+ *
+ * The record is "un-deleted" and becomes live again. Ref: dbf.md sec 6.
+ *
+ * For writable tables: patches rec_region[offset] = 0x20; requires dbf_flush.
+ * Returns DBF_OK or -(dbf_err): -DBF_ERR_BAD_RECNO, -DBF_ERR_IO.
+ *
+ * Ref: dbf.md sec 6; spec/samir/dbf_format.h DBF_REC_DELETE_LIVE=0x20;
+ *      plan S1.5.
+ */
+int dbf_recall(dbf_table *tbl, uint32_t recno);
+
+/*
+ * dbf_pack: physically remove all deleted records, rewrite the file compactly,
+ * update nrec. Deterministic: survivors are written in original record order
+ * (the insertion order); no reordering. Ref: dbf.md sec 8 "PACK removes
+ * deleted records and rewrites the file".
+ *
+ * Implementation: build a new rec_region containing only live records, update
+ * nrec, then dbf_flush() rewrites the whole file. The old rec_region is
+ * abandoned in the arena (arena bump allocator; no free). Returns DBF_OK or
+ * -(dbf_err): -DBF_ERR_IO (table not writable), -DBF_ERR_NOMEM.
+ *
+ * Ref: plan S1.5; dbf.md sec 8; Rule 11 (deterministic output order).
+ */
+int dbf_pack(dbf_table *tbl);
+
+/*
+ * dbf_zap: remove ALL records (nrec=0), keep the header+descriptors.
+ *
+ * After zap the file is empty of records; the schema (header + descriptors)
+ * is preserved. dbf_flush() rewrites with nrec=0 and an empty record area.
+ * Returns DBF_OK or -(dbf_err): -DBF_ERR_IO (table not writable).
+ *
+ * Ref: plan S1.5; dbf.md sec 8; dBASE III+ ZAP command.
+ */
+int dbf_zap(dbf_table *tbl);
+
 #endif /* INITECH_SAMIR_DBF_H */
