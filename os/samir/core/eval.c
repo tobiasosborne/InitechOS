@@ -614,6 +614,104 @@ static int eval_unop(xb_token_type op, const xb_val *a, xb_val *out, int *err)
 }
 
 /* ======================================================================== */
+/* Function-call dispatch (S3.5)                                             */
+/* ======================================================================== */
+
+/* Forward declaration: eval_call evaluates argument sub-expressions. */
+static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
+                     xb_val *out, int *err);
+
+/* name_eq_ci: case-insensitive compare of a name slice vs a NUL-terminated
+ * upper-case keyword (used here only to special-case IIF). */
+static int name_eq_ci(const char *name, uint16_t len, const char *kw)
+{
+    uint16_t i;
+    for (i = 0; i < len; i++) {
+        char c = name[i];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        if (kw[i] == '\0') return 0;
+        if (c != kw[i]) return 0;
+    }
+    return kw[len] == '\0';
+}
+
+/*
+ * eval_call: evaluate an XBN_CALL node.
+ *
+ * IIF(<expL>, <exp1>, <exp2>) is handled SPECIALLY (eval.h): III+ IIF
+ * evaluates the CONDITION, then ONLY the selected branch (lazy / short-circuit)
+ * -- so IIF(.F., 1/0, 5) must NOT raise the divide error. This cannot go
+ * through the eager xb_call_builtin path (which receives already-evaluated
+ * args), so IIF walks the ARG spine itself and evaluates exactly two nodes.
+ *
+ * All other functions are EAGER: every argument sub-expression is evaluated
+ * left-to-right into a fixed argv[], then xb_call_builtin (fn_builtins.c) does
+ * the name lookup, arity/type checks, and the work.
+ *
+ * The ARG spine: call->kid[0] is the first XBN_ARG (or -1 for zero args); each
+ * XBN_ARG.kid[0] is an argument expression root and kid[1] is the next XBN_ARG.
+ */
+static int eval_call(const xb_node *pool, const xb_node *call, xb_ctx *ctx,
+                     xb_val *out, int *err)
+{
+    const char *name = call->u.str.p;
+    uint16_t    nlen = call->u.str.len;
+    int32_t     a    = call->kid[0];     /* first XBN_ARG, or -1               */
+    xb_val      argv[XB_FN_MAX_ARGS];
+    int         nargs = 0;
+
+    if (name == 0 || nlen == 0) {
+        return fail(err, XBEE_INVALID_FN);
+    }
+
+    /* ---- IIF: lazy branch selection (NOT through xb_call_builtin) -------- */
+    if (name_eq_ci(name, nlen, "IIF")) {
+        int32_t a_cond, a_then, a_else;
+        xb_val  cond;
+        int     rc;
+        /* Exactly three args. */
+        if (a < 0) return fail(err, XBEE_INVALID_ARG);
+        a_cond = a;
+        if (pool[a_cond].type != XBN_ARG) return fail(err, XBEE_BAD_NODE);
+        a_then = pool[a_cond].kid[1];
+        if (a_then < 0) return fail(err, XBEE_INVALID_ARG);
+        a_else = pool[a_then].kid[1];
+        if (a_else < 0) return fail(err, XBEE_INVALID_ARG);
+        if (pool[a_else].kid[1] >= 0) return fail(err, XBEE_INVALID_ARG); /* >3 */
+
+        /* Evaluate the condition; it MUST be Logical (no truthiness, III+). */
+        rc = eval_node(pool, pool[a_cond].kid[0], ctx, &cond, err);
+        if (rc != 0) return rc;
+        if (cond.t != XB_L) return fail(err, XBEE_NOT_LOGICAL);
+
+        /* Evaluate ONLY the selected branch (lazy). */
+        if (cond.u.l) {
+            return eval_node(pool, pool[a_then].kid[0], ctx, out, err);
+        }
+        return eval_node(pool, pool[a_else].kid[0], ctx, out, err);
+    }
+
+    /* ---- Eager path: evaluate every argument, then dispatch the table ---- */
+    while (a >= 0) {
+        int rc;
+        if (pool[a].type != XBN_ARG) {
+            return fail(err, XBEE_BAD_NODE);
+        }
+        if (nargs >= XB_FN_MAX_ARGS) {
+            /* More args than any A-set function accepts -> arity error #11.
+             * (No A-set function takes > 3; XB_FN_MAX_ARGS=4 leaves headroom.) */
+            return fail(err, XBEE_INVALID_ARG);
+        }
+        rc = eval_node(pool, pool[a].kid[0], ctx, &argv[nargs], err);
+        if (rc != 0) return rc;
+        nargs++;
+        a = pool[a].kid[1];
+    }
+
+    return xb_call_builtin(name, nlen, argv, nargs, ctx, out, err);
+}
+
+/* ======================================================================== */
 /* Recursive AST walk                                                        */
 /* ======================================================================== */
 
@@ -676,8 +774,12 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
     }
 
     case XBN_CALL:
-        /* Function calls are S3.5; the parser does not emit XBN_CALL yet
-         * (it rejects the IDENT '(' shape). Fail loud if one appears. */
+        return eval_call(pool, n, ctx, out, err);
+
+    case XBN_ARG:
+        /* An XBN_ARG is only ever reached via eval_call's spine walk, never as
+         * a stand-alone node in a value position. If one appears here the AST
+         * is malformed. Fail loud (Rule 2). */
         return fail(err, XBEE_BAD_NODE);
 
     default:

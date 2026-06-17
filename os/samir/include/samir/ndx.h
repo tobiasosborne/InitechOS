@@ -1,6 +1,6 @@
 /*
  * os/samir/include/samir/ndx.h -- SAMIR (InitechBase) .ndx index codec contract.
- *                                  Step S4.1: header + node parse.
+ *                                  Steps S4.1 + S4.2.
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers. All OS contact
@@ -21,6 +21,24 @@
  *     arena-allocated copy of the page; the bytes are RAW (no typed decode --
  *     that is S4.2). Caller must not read past key_length bytes.
  *   - ndx_node_free: release a node returned by ndx_read_node.
+ *
+ * S4.2 scope (key decode + collation; added in this step):
+ *   - ndx_key_decode: decode raw key_data bytes to an xb_val, dispatching on
+ *     key_type. char keys -> XB_C (pointer into caller-supplied buf); type-1
+ *     keys -> XB_N holding the raw LE double. S4.2->S5 boundary: the .ndx
+ *     header only records key_type 0/1, NOT N-vs-D (both are doubles). The
+ *     type-1 result is always XB_N; a caller that knows the field is a D column
+ *     (from the .dbf descriptor or the key expression) may reinterpret the
+ *     double as a JDN and construct XB_D itself. For B-tree collation (S4.3
+ *     SEEK and S4.4 build) the N/D distinction is irrelevant: both are doubles
+ *     compared arithmetically by ndx_key_cmp.
+ *   - ndx_key_cmp: compare two raw key_data byte arrays for B-tree ordering.
+ *     char: unsigned byte compare over key_length (CP437 byte order; ndx.md ss6).
+ *     type-1: decode both as LE double, compare arithmetically -- NOT memcmp
+ *     (raw IEEE doubles do not byte-sort across the sign boundary; the minted
+ *     NCOST.NDX leaf is in true numeric order: -123.45 < -1 < 0 < 279 even
+ *     though the sign bit is set in the MSB of negatives). [verified: minted
+ *     NCOST.NDX 2026-06-16; re/mint-results-001.md "NDX numeric & date keys"]
  *
  * S4.1/S4.2 boundary (what this header exposes for S4.2 to consume):
  *   - ndx_key_type(idx) returns 0 (char) or 1 (numeric/date) -- S4.2 switches
@@ -48,10 +66,18 @@
  *   - ../dbase3-decomp/specs/file-formats/ndx.md -- the byte-verified spec:
  *     ss1 (page geometry), ss2 (header + casing RESOLVED), ss3 (node + 2+2 hdr),
  *     ss3.1 (group layout), ss3.2 (trailing child), ss4 (key encoding),
- *     ss5 (B-tree ordering), ss6 (collation).
- *   - docs/plans/SAMIR-implementation-plan.md S4.1 contract.
+ *     ss4.1 (char: space-padded CP437), ss4.2 (numeric/date: raw LE double,
+ *     NO sign-flip, arithmetic compare -- VERIFIED minted NCOST.NDX 2026-06-16),
+ *     ss5 (B-tree ordering), ss6 (collation: char = unsigned byte; numeric =
+ *     double arithmetic).
+ *   - ../dbase3-decomp/re/mint-results-001.md -- THE authority that settled
+ *     numeric keys = raw LE IEEE-754 doubles, NO sign-flip, arithmetic compare.
+ *     Table: -123.45 -> cd cc cc cc cc dc 5e c0; -1.0 -> 00..00 f0 bf; 0.0 ->
+ *     all zeros; 279.0 -> 00..00 70 71 40. [verified: minted NCOST.NDX 2026-06-16]
+ *   - docs/plans/SAMIR-implementation-plan.md S4.1/S4.2 contracts, Sec 3.3.
  *   - os/samir/include/samir/pal.h (byte I/O vtable).
- *   - os/samir/include/samir/rt.h (rt_mem* helpers).
+ *   - os/samir/include/samir/rt.h (rt_mem* helpers; jdn_from_ymd for tests).
+ *   - os/samir/include/samir/value.h (xb_val, xb_n, xb_c).
  */
 
 #ifndef INITECH_SAMIR_NDX_H
@@ -59,6 +85,7 @@
 
 #include <stdint.h>
 #include "samir/pal.h"
+#include "samir/value.h"
 
 /* -----------------------------------------------------------------------
  * Error codes
@@ -232,5 +259,86 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out);
  * NODE is invalid after this call.
  */
 void ndx_node_free(ndx_index *idx, ndx_node_t *node);
+
+/* -----------------------------------------------------------------------
+ * S4.2: Key decode + collation API
+ * ----------------------------------------------------------------------- */
+
+/*
+ * ndx_key_decode: decode KEY_DATA bytes to a typed xb_val.
+ *
+ * Dispatches on ndx_key_type(idx):
+ *   key_type == 0 (NDX_KEY_TYPE_CHAR):
+ *     Produces XB_C. OUT->u.c.p is set to BUF (the caller's buffer); the raw
+ *     key_data bytes (ndx_key_length(idx) of them, including trailing spaces)
+ *     are copied into BUF via rt_memcpy. BUF must have room for at least
+ *     ndx_key_length(idx) bytes. Ownership: BUF is caller-owned; the xb_val
+ *     is valid as long as BUF is valid (value.h "NOT owned" contract).
+ *     [ndx.md ss4.1: "key_data is key_length bytes of space-padded ASCII (OEM/
+ *     CP437), left-justified, padded on the right with 0x20."]
+ *
+ *   key_type == 1 (NDX_KEY_TYPE_NUMERIC, covers both N and D fields):
+ *     Produces XB_N. The 8 key_data bytes are decoded as a little-endian
+ *     IEEE-754 double via rt_memcpy (no aliasing UB) and stored in out->u.n.
+ *     BUF is unused (may be NULL).
+ *
+ *     N-vs-D BOUNDARY NOTE: the .ndx header stores key_type=1 for BOTH numeric
+ *     (N field) and date (D field) expressions -- both are raw LE doubles. The
+ *     distinction between N and D is NOT in the .ndx file; it comes from the
+ *     key expression and the .dbf field descriptor (available to the interpreter
+ *     at S5.x). ndx_key_decode therefore always produces XB_N for type-1 keys.
+ *     A caller that knows the key is a date column may construct XB_D from the
+ *     same double (the JDN value) using xb_d(). For collation (ndx_key_cmp,
+ *     S4.3 SEEK, S4.4 build) the N/D distinction is irrelevant: both are
+ *     compared arithmetically as doubles.
+ *     [ndx.md ss4.2 / re/mint-results-001.md: "key_type=1 for BOTH numeric
+ *     and date". Plan Sec 3.3: "NDX numeric keys = raw LE IEEE-754 doubles,
+ *     NO sign-flip, compared ARITHMETICALLY."]
+ *
+ * Returns NDX_OK (0) on success, -NDX_ERR_BAD_KEYTYPE if key_type is not 0/1
+ * (should not occur for a successfully opened index, but fail loud: Rule 2).
+ *
+ * Ref: ndx.md ss4.1 (char), ss4.2 (numeric/date); re/mint-results-001.md;
+ *      docs/plans/SAMIR-implementation-plan.md S4.2 contract.
+ */
+int ndx_key_decode(const ndx_index *idx, const uint8_t *key_data,
+                   char *buf, xb_val *out);
+
+/*
+ * ndx_key_cmp: compare two raw key_data byte arrays for B-tree collation order.
+ *
+ * Both A and B must be ndx_key_length(idx) bytes.
+ *
+ * Returns: < 0 if A < B, 0 if A == B, > 0 if A > B.
+ *
+ * key_type == 0 (char): unsigned byte compare over the full key_length.
+ *   This is CP437 unsigned byte order: uppercase before lowercase; digits
+ *   before letters; no case-folding. Matches plain memcmp over unsigned bytes.
+ *   [ndx.md ss6: "Character keys collate by unsigned byte value (ASCII/OEM
+ *   CP437), left-to-right, space-padded. Verified: CNAMES 'DeBello'(0x42)
+ *   sorts before 'Dean'(0x61) because 'B'(0x42) < 'a'(0x61)"]
+ *
+ * key_type == 1 (numeric/date): decode both A and B as LE IEEE-754 doubles
+ *   and compare arithmetically. The double comparison is < / == / > on the
+ *   decoded values. THIS IS NOT MEMCMP: raw IEEE doubles do not byte-sort
+ *   correctly across the sign boundary (the MSB is the sign bit, making
+ *   negatives appear larger than positives in a raw byte compare). The minted
+ *   NCOST.NDX leaf is in true numeric order (-123.45 < -1 < 0 < 279) even
+ *   though the sign bit is set in the high byte of the negative doubles.
+ *   [ndx.md ss4.2 / re/mint-results-001.md: "Key comparison is ARITHMETIC,
+ *   not byte-wise, for key_type==1." VERIFIED minted NCOST.NDX 2026-06-16]
+ *
+ *   Mutation hook: build with -DNDX_MUTATE_KEY_SIGNFLIP to apply the sign-flip
+ *   transform that mint-001 DISPROVED (XOR the high bit of byte 7, equivalent
+ *   to negating the double for negative values). Under this mutation the
+ *   numeric ordering assertions go RED (the leaf traversal will no longer be
+ *   monotonically ascending for negatives). This is the canonical mutation for
+ *   S4.2: it implements the hypothesis that mint-001 was specifically minted to
+ *   refute. [re/mint-results-001.md: "corrects the prior ndx.md speculation
+ *   about a sign-flip transform -- there is none."]
+ *
+ * Ref: ndx.md ss4.2, ss6; re/mint-results-001.md; plan Sec 3.3, S4.2 contract.
+ */
+int ndx_key_cmp(const ndx_index *idx, const uint8_t *a, const uint8_t *b);
 
 #endif /* INITECH_SAMIR_NDX_H */

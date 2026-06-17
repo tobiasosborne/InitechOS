@@ -1,6 +1,7 @@
 /*
- * os/samir/fs/ndx.c -- SAMIR (InitechBase) .ndx B-tree index codec, step S4.1.
- *                       Header + node parse. Key decode to typed values is S4.2.
+ * os/samir/fs/ndx.c -- SAMIR (InitechBase) .ndx B-tree index codec.
+ *                       Steps S4.1 (header + node parse) and S4.2 (key decode
+ *                       + collation).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001). Includes ONLY <stdint.h> plus engine headers and the
@@ -19,7 +20,14 @@
  *                    header + per-group {child_page, dbf_recno, key_data} array.
  *   ndx_node_free -- unwind the PAL arena to the mark saved before this node.
  *
- * Mutation hook (Rule 6 / plan S4.1 "clicketyclick wrong 18-23 sublayout"):
+ * S4.2 scope (key decode + collation):
+ *   ndx_key_decode -- decode raw key_data bytes to xb_val (char -> XB_C into
+ *                     caller buffer; type-1 -> XB_N from raw LE double).
+ *   ndx_key_cmp   -- compare two raw key_data arrays for B-tree order:
+ *                     char = unsigned byte compare; type-1 = arithmetic double
+ *                     compare (NOT memcmp). [re/mint-results-001.md VERIFIED]
+ *
+ * S4.1 mutation hook (Rule 6 / plan S4.1 "clicketyclick wrong 18-23 sublayout"):
  *   Build with -DNDX_MUTATE_SUBLAYOUT. The perturbed read swaps the child_page
  *   and dbf_recno field offsets within each group AND shifts the key_data start
  *   by +4 bytes -- modeling the wrong clicketyclick header diagram that places
@@ -28,6 +36,15 @@
  *   golden -> the oracle goes RED. [ndx.md Open questions: "clicketyclick's
  *   diagram puts 'Size of key record' as a 4-byte long at bytes 18-21 ... The
  *   real bytes contradict it; the bytes win."]
+ *
+ * S4.2 mutation hook (Rule 6 / plan S4.2 "sign-flip that mint-001 disproved"):
+ *   Build with -DNDX_MUTATE_KEY_SIGNFLIP. Applies a sign-flip transform (XOR
+ *   bit 7 of the highest byte) to numeric keys in ndx_key_cmp, implementing
+ *   the hypothesis that re/mint-results-001.md was specifically minted to
+ *   disprove. Under this mutation the numeric ordering assertions go RED because
+ *   sign-flipping inverts the comparison for negative values. Cite:
+ *   [re/mint-results-001.md "corrects the prior ndx.md speculation about a
+ *   sign-flip transform -- there is none." VERIFIED minted NCOST.NDX 2026-06-16]
  *
  * Fail loud (CLAUDE.md Rule 2): every structural violation returns a negative
  * ndx_err. No half-open state is left on error.
@@ -40,15 +57,23 @@
  *   - ../dbase3-decomp/specs/file-formats/ndx.md  ss1 (page geometry),
  *       ss2 (header 10 fields + casing RESOLVED), ss2.2 (CNAMES byte dump),
  *       ss3 (node 2+2 header), ss3.1 (group layout), ss3.2 (trailing child),
- *       ss4 (key encoding boundaries), ss8 (implementation checklist).
- *   - docs/plans/SAMIR-implementation-plan.md S4.1 contract + Sec 3.3.
+ *       ss4 (key encoding), ss4.1 (char: space-padded CP437), ss4.2 (numeric:
+ *       raw LE double, NO sign-flip, arithmetic compare), ss6 (collation),
+ *       ss8 (implementation checklist).
+ *   - ../dbase3-decomp/re/mint-results-001.md  THE authority for numeric key
+ *       encoding (raw LE double, NO sign-flip, arithmetic compare). Table of
+ *       verified bytes: -123.45 cd cc cc cc cc dc 5e c0; -1.0 00..f0 bf;
+ *       0.0 all zeros; 279.0 00..70 71 40. [VERIFIED minted NCOST.NDX 2026-06-16]
+ *   - docs/plans/SAMIR-implementation-plan.md S4.1/S4.2 contract + Sec 3.3.
  *   - os/samir/include/samir/pal.h (byte I/O vtable).
  *   - os/samir/include/samir/rt.h  (rt_memcpy, rt_memset).
+ *   - os/samir/include/samir/value.h (xb_val, XB_C, XB_N, xb_c, xb_n).
  */
 
 #include <stdint.h>
 #include "samir/pal.h"
 #include "samir/rt.h"
+#include "samir/value.h"
 #include "samir/ndx.h"
 #include "samir/ndx_format.h"
 
@@ -543,4 +568,146 @@ void ndx_node_free(ndx_index *idx, ndx_node_t *node)
         return;
     idx->pal->reset(idx->pal, idx->last_node_mark);
     idx->last_node_mark = (void *)0;
+}
+
+/* -----------------------------------------------------------------------
+ * S4.2: Key decode + collation
+ * ----------------------------------------------------------------------- */
+
+/*
+ * read_le_double: decode 8 bytes at P as a little-endian IEEE-754 double.
+ *
+ * Uses rt_memcpy into a local double to avoid strict-aliasing UB (Rule 12;
+ * freestanding discipline: no memcpy from libc). The compiler is free to
+ * optimise this to a direct load on targets where alignment is not an issue.
+ *
+ * Ref: ndx.md ss4.2 "8-byte IEEE-754 double, little-endian";
+ *      C11 6.5 (strict aliasing: only safe via memcpy or character access).
+ */
+static double read_le_double(const uint8_t *p)
+{
+    double v;
+    rt_memcpy(&v, p, 8u);
+    return v;
+}
+
+/*
+ * ndx_key_decode: decode KEY_DATA bytes to a typed xb_val.
+ *
+ * char (key_type 0):
+ *   Copies ndx_key_length(idx) bytes into BUF, produces XB_C with p=BUF.
+ *   The caller owns BUF; xb_val is valid while BUF is live (value.h contract).
+ *   [ndx.md ss4.1: space-padded ASCII/OEM CP437, left-justified.]
+ *
+ * numeric/date (key_type 1):
+ *   Reads the 8-byte LE double via read_le_double (no aliasing UB), produces
+ *   XB_N. BUF is unused (may be NULL).
+ *   N-vs-D BOUNDARY: key_type==1 covers BOTH N and D fields; the .ndx has no
+ *   separate D bit. Always returns XB_N. A caller that knows the field is a
+ *   date column can reinterpret the double as a JDN and use xb_d(out->u.n).
+ *   For collation (ndx_key_cmp) the N/D distinction is irrelevant.
+ *   [ndx.md ss4.2 / re/mint-results-001.md / plan Sec 3.3]
+ *
+ * Returns NDX_OK or -NDX_ERR_BAD_KEYTYPE (fail loud: Rule 2).
+ */
+int ndx_key_decode(const ndx_index *idx, const uint8_t *key_data,
+                   char *buf, xb_val *out)
+{
+    if (idx->key_type == (uint16_t)NDX_KEY_TYPE_CHAR) {
+        /* char key: copy raw bytes (space-padded CP437) into caller buffer.
+         * Ref: ndx.md ss4.1. */
+        rt_memcpy(buf, key_data, (uint32_t)idx->key_length);
+        *out = xb_c(buf, idx->key_length);
+        return NDX_OK;
+    }
+    if (idx->key_type == (uint16_t)NDX_KEY_TYPE_NUMERIC) {
+        /* numeric/date: raw LE double, NO sign-flip, stored as XB_N.
+         * N-vs-D boundary: always XB_N here; see header for S4.2->S5 note.
+         * Ref: ndx.md ss4.2; re/mint-results-001.md [VERIFIED minted NCOST.NDX
+         *      2026-06-16: -123.45->cd cc cc cc cc dc 5e c0; key_length always 8
+         *      for type-1: ndx.md ss4.2 "key_length==8, group_length==16".] */
+        *out = xb_n(read_le_double(key_data));
+        return NDX_OK;
+    }
+    /* key_type is always validated at ndx_open; reaching here indicates
+     * memory corruption. Fail loud (Rule 2). */
+    return -NDX_ERR_BAD_KEYTYPE;
+}
+
+/*
+ * ndx_key_cmp: compare two raw key_data byte arrays for B-tree collation.
+ *
+ * char (key_type 0): unsigned byte compare over the full key_length.
+ *   Matches plain memcmp on a platform where chars are unsigned (or where we
+ *   compare byte-by-byte as uint8_t). We do the byte-by-byte loop explicitly
+ *   to stay freestanding (no libc memcmp dependency in the artifact).
+ *   [ndx.md ss6 "unsigned byte value (ASCII/OEM CP437), left-to-right".
+ *    Verified: CNAMES DeBello(0x42) < Dean(0x61); full in-order traversal
+ *    of CNAMES yields 49 leaf entries in sorted byte order. [ndx.md Verification]]
+ *
+ * numeric/date (key_type 1): decode both as LE doubles, compare arithmetically.
+ *   MUST NOT use memcmp on raw bytes: IEEE doubles have the sign bit in the MSB
+ *   of byte 7, making raw byte-compare wrong across the sign boundary (a large
+ *   negative double has 0xC0 in byte 7; a positive double has 0x40; byte-compare
+ *   would put the negative above the positive). The minted NCOST.NDX leaf shows
+ *   -123.45 < -1 < 0 < 279 in true numeric order even though raw bytes don't sort
+ *   that way. [re/mint-results-001.md "Key comparison is ARITHMETIC, not byte-wise,
+ *   for key_type==1." / ndx.md ss4.2 VERIFIED minted NCOST.NDX 2026-06-16]
+ *
+ * Mutation hook -DNDX_MUTATE_KEY_SIGNFLIP (Rule 6):
+ *   XOR bit 7 of byte 7 before decoding either double. This implements the
+ *   sign-flip transform that mint-001 was specifically minted to disprove.
+ *   Under this mutation the leaf ordering check goes RED for NCOST.NDX because
+ *   the "flipped" compare produces the wrong order for negatives.
+ *   [re/mint-results-001.md: "corrects the prior ndx.md speculation about a
+ *   sign-flip transform -- there is none."]
+ */
+int ndx_key_cmp(const ndx_index *idx, const uint8_t *a, const uint8_t *b)
+{
+    uint32_t i;
+    if (idx->key_type == (uint16_t)NDX_KEY_TYPE_CHAR) {
+        /* Unsigned byte compare, left-to-right over key_length bytes.
+         * Ref: ndx.md ss6 "unsigned byte value". */
+        for (i = 0u; i < (uint32_t)idx->key_length; i++) {
+            if (a[i] < b[i]) return -1;
+            if (a[i] > b[i]) return  1;
+        }
+        return 0;
+    }
+    /* key_type == NDX_KEY_TYPE_NUMERIC (or any other validated value):
+     * arithmetic double compare. key_length is always 8 for type-1.
+     * [ndx.md ss4.2 "key_length==8"] */
+    {
+        double va, vb;
+
+#ifndef NDX_MUTATE_KEY_SIGNFLIP
+        /* Correct path: raw LE double, NO sign-flip.
+         * [re/mint-results-001.md VERIFIED minted NCOST.NDX 2026-06-16] */
+        va = read_le_double(a);
+        vb = read_le_double(b);
+#else
+        /* MUTATED: apply sign-flip (XOR bit 7 of byte 7) before decoding.
+         * This implements the hypothesis that mint-001 disproved. Under this
+         * mutation: for negative doubles (byte 7 has MSB set, e.g. 0xC0),
+         * XOR 0x80 clears the sign bit, turning -123.45 into a large positive.
+         * The leaf ordering -123.45 < -1 < 0 < ... will appear wrong because
+         * the mutated comparison puts negatives above positives -> RED.
+         * [re/mint-results-001.md "corrects the prior ndx.md speculation about
+         *  a sign-flip transform -- there is none."]
+         * The XOR modifies only the comparison bytes; we do NOT modify key_data
+         * in place (const pointer). Use local copies. */
+        {
+            uint8_t ma[8], mb[8];
+            rt_memcpy(ma, a, 8u);
+            rt_memcpy(mb, b, 8u);
+            ma[7] ^= 0x80u;
+            mb[7] ^= 0x80u;
+            va = read_le_double(ma);
+            vb = read_le_double(mb);
+        }
+#endif
+        if (va < vb) return -1;
+        if (va > vb) return  1;
+        return 0;
+    }
 }

@@ -85,6 +85,7 @@
  *   $   (DOLLAR, substring containment)
  *   (   (LPAREN)
  *   )   (RPAREN)
+ *   ,   (COMMA, function-argument separator -- S3.5)
  *
  * NOT III+ operators (lex errors):
  *   ==   -> XBLE_EQ_EQ    (dBASE IV; plan sec.2.C and sec.3.3)
@@ -444,6 +445,7 @@ int xb_lex(const char *src, uint32_t len,
                 case '$': tt = XBT_DOLLAR; break;
                 case '(': tt = XBT_LPAREN; break;
                 case ')': tt = XBT_RPAREN; break;
+                case ',': tt = XBT_COMMA;  break;  /* fn arg separator (S3.5) */
                 default:  matched = 0;     tt = XBT_ERROR; break;
             }
             if (matched) {

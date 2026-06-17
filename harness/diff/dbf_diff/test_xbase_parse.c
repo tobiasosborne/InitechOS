@@ -406,16 +406,86 @@ int main(void)
     }
 
     /* ------------------------------------------------------------------ */
-    /* 12. Function-call shape -> S3.5 placeholder, loud reject for now     */
-    /* GATED: argument parsing is S3.5; S3.2 only detects IDENT '(' and    */
-    /*        returns XBPE_UNEXPECTED rather than mis-parse. [plan S3.5]    */
+    /* 12. Function calls -> XBN_CALL + XBN_ARG list (S3.5)                  */
+    /*     The IDENT '(' shape is now a real call: u.str = name, kid[0] is  */
+    /*     the head of an XBN_ARG linked list (kid[0]=expr, kid[1]=next).    */
+    /*     [plan S3.5; eval.h XBN_CALL/XBN_ARG contract]                     */
     /* ------------------------------------------------------------------ */
     {
         int perr;
-        int r = parse_expr("UPPER(NAME)", toks, pool, &perr);
-        CHECK(r < 0,                            "12(GATED): call -> error");
-        CHECK(perr == XBPE_UNEXPECTED,
-              "12(GATED): XBPE_UNEXPECTED (calls are S3.5)");
+        int r;
+
+        /* one-arg call: UPPER(NAME) -> CALL "UPPER" with a single ARG=IDENT. */
+        r = parse_expr("UPPER(NAME)", toks, pool, &perr);
+        CHECK(r >= 0,                           "12a: UPPER(NAME) parses");
+        CHECK(pool[r].type == XBN_CALL,         "12a: root XBN_CALL");
+        CHECK(pool[r].u.str.len == 5 &&
+              memcmp(pool[r].u.str.p, "UPPER", (size_t)5) == 0,
+              "12a: name UPPER");
+        {
+            int arg0 = pool[r].kid[0];
+            CHECK(arg0 >= 0 && pool[arg0].type == XBN_ARG,
+                  "12a: kid[0] is first XBN_ARG");
+            CHECK(pool[arg0].kid[1] == -1,      "12a: single arg (next == -1)");
+            CHECK(pool[pool[arg0].kid[0]].type == XBN_IDENT,
+                  "12a: arg expr is XBN_IDENT");
+        }
+
+        /* zero-arg call: DATE() -> CALL "DATE", kid[0] == -1. */
+        r = parse_expr("DATE()", toks, pool, &perr);
+        CHECK(r >= 0,                           "12b: DATE() parses");
+        CHECK(pool[r].type == XBN_CALL,         "12b: root XBN_CALL");
+        CHECK(pool[r].kid[0] == -1,             "12b: zero args (kid[0] == -1)");
+
+        /* three-arg call: SUBSTR('ABCDEF',2,3) -> ARG spine of length 3. */
+        r = parse_expr("SUBSTR('ABCDEF',2,3)", toks, pool, &perr);
+        CHECK(r >= 0,                           "12c: SUBSTR(...) parses");
+        CHECK(pool[r].type == XBN_CALL,         "12c: root XBN_CALL");
+        {
+            int a0 = pool[r].kid[0];
+            int a1 = (a0 >= 0) ? pool[a0].kid[1] : -1;
+            int a2 = (a1 >= 0) ? pool[a1].kid[1] : -1;
+            CHECK(a0 >= 0 && a1 >= 0 && a2 >= 0, "12c: three ARG cells");
+            CHECK(a2 >= 0 && pool[a2].kid[1] == -1, "12c: spine ends at arg3");
+            CHECK(pool[pool[a0].kid[0]].type == XBN_LIT_C,
+                  "12c: arg1 is char literal");
+            CHECK(pool[pool[a1].kid[0]].type == XBN_LIT_N &&
+                  pool[pool[a1].kid[0]].u.num == 2.0,
+                  "12c: arg2 is numeric 2");
+            CHECK(pool[pool[a2].kid[0]].type == XBN_LIT_N &&
+                  pool[pool[a2].kid[0]].u.num == 3.0,
+                  "12c: arg3 is numeric 3");
+        }
+
+        /* nested call as an argument: VAL(STR(5,3)) parses (sub-expr arg). */
+        r = parse_expr("VAL(STR(5,3))", toks, pool, &perr);
+        CHECK(r >= 0,                           "12d: nested call parses");
+        CHECK(pool[r].type == XBN_CALL,         "12d: outer root XBN_CALL");
+        {
+            int a0 = pool[r].kid[0];
+            CHECK(a0 >= 0 && pool[pool[a0].kid[0]].type == XBN_CALL,
+                  "12d: arg is itself a call (XBN_CALL)");
+        }
+
+        /* call inside an operator expression: LEN(NAME) > 0 (call as operand) */
+        r = parse_expr("LEN(NAME) > 0", toks, pool, &perr);
+        CHECK(r >= 0,                           "12e: call in rel-expr parses");
+        CHECK(pool[r].type == XBN_BINOP && pool[r].op == XBT_GT,
+              "12e: root is > with a call operand");
+        CHECK(pool[pool[r].kid[0]].type == XBN_CALL,
+              "12e: left operand is XBN_CALL");
+
+        /* malformed: missing close paren -> loud (unbalanced). */
+        r = parse_expr("UPPER(NAME", toks, pool, &perr);
+        CHECK(r < 0,                            "12f: missing ')' -> error");
+        CHECK(perr == XBPE_UNBALANCED,          "12f: XBPE_UNBALANCED");
+
+        /* malformed: trailing comma / empty arg -> loud. After the ',' an
+         * operand is expected; a bare ')' there is reported as XBPE_UNBALANCED
+         * by primary (deterministic). The point is it fails LOUD (Rule 2). */
+        r = parse_expr("UPPER(NAME,)", toks, pool, &perr);
+        CHECK(r < 0,                            "12g: trailing comma -> error");
+        CHECK(perr == XBPE_UNBALANCED,          "12g: XBPE_UNBALANCED (no operand)");
     }
 
     /* ------------------------------------------------------------------ */

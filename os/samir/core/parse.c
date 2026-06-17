@@ -52,7 +52,8 @@
  *   mul_expr  := pow_expr  ( (*|/) pow_expr  )*
  *   pow_expr  := unary_expr ( (^|**) unary_expr )*   -- LEFT fold (mint-002)
  *   unary_expr:= (-|+) unary_expr | primary          -- unary TIGHTER than ^
- *   primary   := LIT_C | LIT_N | LIT_L | IDENT | '(' or_expr ')'
+ *   primary   := LIT_C | LIT_N | LIT_L | IDENT | call | '(' or_expr ')'
+ *   call      := IDENT '(' [ or_expr ( ',' or_expr )* ] ')'   -- S3.5
  *
  * NOTE on rule 2 vs 3: `unary_expr` sits BELOW `pow_expr` in the descent so
  * that the unary prefix is parsed as a complete operand BEFORE `^` folds it.
@@ -138,6 +139,10 @@ static int32_t alloc_node(xb_parser *p, xb_node_type type)
 /* Forward declaration: the top of the precedence ladder. */
 static int32_t parse_or(xb_parser *p);
 
+/* Forward declaration: function-call argument-list parser (S3.5). */
+static int32_t parse_call(xb_parser *p, uint32_t name_off,
+                          const char *name_p, uint16_t name_len);
+
 /* ======================================================================== */
 /* primary := LIT | IDENT | '(' or_expr ')'                                  */
 /* ======================================================================== */
@@ -181,12 +186,13 @@ static int32_t parse_primary(xb_parser *p)
         const char *ip = t->u.ident.p;
         uint16_t    il = t->u.ident.len;
         advance(p);
-        /* Function-call shape: IDENT '(' ... ')' is a S3.5 placeholder.
-         * The parser detects it but does NOT implement argument parsing here.
-         * Fail loud rather than mis-parse (Rule 2). */
+        /* Function-call shape: IDENT '(' args ')' (S3.5).
+         * An IDENT immediately followed by '(' is a function call; parse a
+         * comma-separated argument list of full sub-expressions into an
+         * XBN_ARG linked list (eval.h XBN_CALL/XBN_ARG contract). An IDENT NOT
+         * followed by '(' is a field/memvar reference (XBN_IDENT). */
         if (cur(p)->type == XBT_LPAREN) {
-            if (p->err == XBPE_OK) p->err = XBPE_UNEXPECTED;
-            return -1;
+            return parse_call(p, off, ip, il);
         }
         {
             int32_t id = alloc_node(p, XBN_IDENT);
@@ -226,6 +232,86 @@ static int32_t parse_primary(xb_parser *p)
         if (p->err == XBPE_OK) p->err = XBPE_UNEXPECTED;
         return -1;
     }
+}
+
+/* ======================================================================== */
+/* call := IDENT '(' [ or_expr ( ',' or_expr )* ] ')'           (S3.5)        */
+/*                                                                            */
+/* The leading IDENT and the '(' have NOT been consumed by the caller        */
+/* (parse_primary consumed only the IDENT; cur(p) is the '(' on entry).      */
+/* Builds an XBN_CALL node whose kid[0] is the head of an XBN_ARG list, with  */
+/* each XBN_ARG.kid[0] = an argument's expression root and kid[1] = the next  */
+/* XBN_ARG (or -1). Zero args -> kid[0] == -1. Each argument is a FULL        */
+/* sub-expression (parse_or), so nested calls and operators work             */
+/* (e.g. SUBSTR(cnum, VAL(SUBSTR(s,2,1))*7-13, 7) -- the NUMWORDS idiom).     */
+/*                                                                            */
+/* Determinism (Rule 11): the CALL node is allocated FIRST (lowest index for  */
+/* the call), then arguments are parsed left-to-right and their ARG cells are */
+/* appended in source order, so the same input always yields the same node    */
+/* indices.                                                                   */
+/* ======================================================================== */
+
+static int32_t parse_call(xb_parser *p, uint32_t name_off,
+                          const char *name_p, uint16_t name_len)
+{
+    int32_t call;
+    int32_t prev_arg = -1;   /* index of the last XBN_ARG appended            */
+
+    /* Allocate the CALL node first (stable lowest index for the call). */
+    call = alloc_node(p, XBN_CALL);
+    if (call < 0) return -1;
+    p->pool[call].src_off   = name_off;
+    p->pool[call].u.str.p   = name_p;
+    p->pool[call].u.str.len = name_len;
+    /* kid[0] (first arg) defaults to -1 via alloc_node; set when first arg
+     * is parsed. kid[1] is unused for XBN_CALL (stays -1). */
+
+    advance(p);   /* consume '(' */
+
+    /* Zero-arg form: '()' immediately. */
+    if (cur(p)->type == XBT_RPAREN) {
+        advance(p);            /* consume ')' */
+        return call;           /* kid[0] stays -1 (no args) */
+    }
+
+    /* One-or-more arguments: each a full sub-expression, comma-separated. */
+    for (;;) {
+        int32_t arg_expr;
+        int32_t arg_cell;
+
+        arg_expr = parse_or(p);
+        if (arg_expr < 0) return -1;       /* parse_or set p->err loudly */
+
+        arg_cell = alloc_node(p, XBN_ARG);
+        if (arg_cell < 0) return -1;
+        p->pool[arg_cell].src_off = p->pool[arg_expr].src_off;
+        p->pool[arg_cell].kid[0]  = arg_expr;
+        p->pool[arg_cell].kid[1]  = -1;     /* end of list until linked       */
+
+        if (prev_arg < 0) {
+            p->pool[call].kid[0] = arg_cell;     /* first arg -> CALL.kid[0]  */
+        } else {
+            p->pool[prev_arg].kid[1] = arg_cell; /* link onto the spine       */
+        }
+        prev_arg = arg_cell;
+
+        if (cur(p)->type == XBT_COMMA) {
+            advance(p);                     /* consume ',' and parse next arg */
+            continue;
+        }
+        break;
+    }
+
+    /* The argument list MUST close with ')'. Anything else is loud. */
+    if (cur(p)->type != XBT_RPAREN) {
+        if (p->err == XBPE_OK) {
+            p->err = (cur(p)->type == XBT_EOI) ? XBPE_UNBALANCED
+                                               : XBPE_UNEXPECTED;
+        }
+        return -1;
+    }
+    advance(p);   /* consume ')' */
+    return call;
 }
 
 /* ======================================================================== */

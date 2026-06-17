@@ -125,10 +125,14 @@ typedef enum {
     /* --- Logical operators (dotted; require surrounding dots) --- */
     XBT_AND     = 22,   /* .AND. */
     XBT_OR      = 23,   /* .OR. */
-    XBT_NOT     = 24    /* .NOT. */
+    XBT_NOT     = 24,   /* .NOT. */
 
-    /* S3.2 will add: XBT_COMMA (for function arg lists) etc. */
-    /* S3.3 will add: nothing lexical */
+    /* --- Argument separator (S3.5, function call lists) --- */
+    XBT_COMMA   = 25    /* , (separates function arguments)               */
+                        /* Ref: string-functions.md (SUBSTR(c,n1,n2)...)  */
+                        /* + numeric-and-date-functions.md (IIF(l,e1,e2)) */
+
+    /* S3.3 added: nothing lexical */
 
 } xb_token_type;
 
@@ -288,9 +292,29 @@ int xb_lex(const char *src, uint32_t len,
  * XBN_IDENT carries a slice into the source (field / memvar name).
  * XBN_UNOP / XBN_BINOP carry the operator's xb_token_type in `op` and child
  * node indices (kid[0] for unary; kid[0]=left, kid[1]=right for binary).
- * XBN_CALL is a function-call placeholder for S3.5; the parser detects the
- * IDENT '(' shape but does NOT implement argument parsing here (it returns
- * XBPE_UNEXPECTED for a call-shaped input -- calls are S3.5).
+ * XBN_CALL is a function call (S3.5). The parser detects the IDENT '(' shape
+ * and parses a comma-separated argument list. To support N args in an
+ * allocation-free pool whose nodes have only kid[2], the argument list is an
+ * XBN_ARG singly-linked list:
+ *
+ *   XBN_CALL : u.str   = function-name slice (case-preserved, into source)
+ *              kid[0]  = index of the FIRST XBN_ARG, or -1 for zero args
+ *              kid[1]  = unused (-1)
+ *   XBN_ARG  : kid[0]  = index of this argument's expression root
+ *              kid[1]  = index of the NEXT XBN_ARG, or -1 (end of list)
+ *
+ * This keeps the model deterministic (Rule 11): identical input always yields
+ * identical node indices, because args are reduced left-to-right and the ARG
+ * spine is built in source order. `()` (no args) -> XBN_CALL.kid[0] == -1.
+ *
+ * Ref (Law 1): docs/plans/SAMIR-implementation-plan.md sec.5 S3.5
+ *   ("fn_* table; STR/VAL/CTOD/DTOC/UPPER/.../IIF/TYPE"); the per-function
+ *   semantics live in the corpus:
+ *   - ../dbase3-decomp/specs/functions/string-functions.md (SUBSTR 1-based,
+ *     LEN, UPPER/LOWER/TRIM/LTRIM, SPACE, CHR/ASC, STR, VAL)
+ *   - ../dbase3-decomp/specs/functions/numeric-and-date-functions.md
+ *     (CTOD/DTOC/DAY/MONTH/YEAR/DATE; IIF same-type branches; DTOS NOT III+)
+ *   - ../dbase3-decomp/specs/functions/system-and-database-functions.md (TYPE)
  */
 typedef enum {
     XBN_LIT_C  = 0,  /* character literal  -> u.str (slice into source)   */
@@ -300,7 +324,8 @@ typedef enum {
     XBN_IDENT  = 4,  /* identifier / field -> u.str (slice into source)   */
     XBN_UNOP   = 5,  /* unary  op: op + kid[0]                            */
     XBN_BINOP  = 6,  /* binary op: op + kid[0]=left, kid[1]=right         */
-    XBN_CALL   = 7   /* function call placeholder (S3.5; not implemented) */
+    XBN_CALL   = 7,  /* function call: u.str=name, kid[0]=first XBN_ARG   */
+    XBN_ARG    = 8   /* arg list cell: kid[0]=expr, kid[1]=next XBN_ARG   */
 } xb_node_type;
 
 /*
@@ -424,10 +449,27 @@ int xb_parse(const xb_token *toks, uint32_t ntok,
 typedef enum {
     XBEE_OK            = 0,
     XBEE_MISMATCH      = 9,   /* dbase_msg_codes.tsv code 9  */
+    XBEE_INVALID_ARG   = 11,  /* dbase_msg_codes.tsv code 11 "Invalid function */
+                              /*   argument." -- wrong arg count, bad value   */
+                              /*   (S3.5: arity mismatch, negative SPACE n,   */
+                              /*   negative REPLICATE count, etc.)            */
     XBEE_NOT_NUMERIC   = 27,  /* dbase_msg_codes.tsv code 27 */
+    XBEE_INVALID_FN    = 31,  /* dbase_msg_codes.tsv code 31 "Invalid function */
+                              /*   name." -- unknown OR not-in-III+ function   */
+                              /*   (S3.5: DTOS, and any name not in the table) */
     XBEE_NOT_LOGICAL   = 37,  /* dbase_msg_codes.tsv code 37 */
     XBEE_NUM_OVERFLOW  = 39,  /* dbase_msg_codes.tsv code 39 */
     XBEE_NOT_CHARACTER = 45,  /* dbase_msg_codes.tsv code 45 */
+    XBEE_CHR_RANGE     = 57,  /* dbase_msg_codes.tsv code 57 "CHR() : Out of   */
+                              /*   range." -- CHR(n) with n outside 0..255     */
+    XBEE_SPACE_LARGE   = 59,  /* dbase_msg_codes.tsv code 59 "SPACE() : Too    */
+                              /*   large." -- SPACE(n) result > 254            */
+    XBEE_SPACE_NEG     = 60,  /* dbase_msg_codes.tsv code 60 "SPACE() :        */
+                              /*   Negative." -- SPACE(n) with n < 0           */
+    XBEE_SUBSTR_RANGE  = 62,  /* dbase_msg_codes.tsv code 62 "SUBSTR() : Start */
+                              /*   point out of range." -- start < 1           */
+    XBEE_STR_RANGE     = 63,  /* dbase_msg_codes.tsv code 63 "STR() : Out of   */
+                              /*   range." -- bad width/dec argument           */
     XBEE_UNBOUND       = -1,  /* identifier, no ctx->resolve hook bound      */
     XBEE_SCRATCH_FULL  = -2,  /* C result bytes do not fit ctx scratch arena */
     XBEE_BAD_NODE      = -3   /* malformed AST node (should be unreachable)  */
@@ -455,13 +497,25 @@ typedef enum {
  *
  * scratch / scratch_cap / scratch_used: a caller-provided bump arena for the
  *   bytes produced by the C+C concat and C-C reloc operators (xbase_coercion
- *   R_concat_plus / R_concat_minus). value.h Character values are pointer+len
- *   with NO ownership, so a synthesized C result must live somewhere the
- *   evaluator does not own and cannot malloc (freestanding, Law 3). The
- *   evaluator bump-allocates from [scratch, scratch+scratch_cap); on exhaustion
- *   it fails loud with XBEE_SCRATCH_FULL rather than overflow. scratch_used is
- *   reset to 0 by xb_eval at the start of every top-level call. If a tree has
- *   no C concat/reloc, the arena is never touched and may be NULL/0.
+ *   R_concat_plus / R_concat_minus) AND by the S3.5 string-producing built-in
+ *   functions (STR, UPPER, LOWER, TRIM, LTRIM, SUBSTR, SPACE, CHR, DTOC, ...).
+ *   value.h Character values are pointer+len with NO ownership, so a
+ *   synthesized C result must live somewhere the evaluator does not own and
+ *   cannot malloc (freestanding, Law 3). The evaluator bump-allocates from
+ *   [scratch, scratch+scratch_cap); on exhaustion it fails loud with
+ *   XBEE_SCRATCH_FULL rather than overflow. scratch_used is reset to 0 by
+ *   xb_eval at the start of every top-level call. If a tree has no C
+ *   concat/reloc/function, the arena is never touched and may be NULL/0.
+ *
+ * ctx_today: the INJECTABLE current date as a Julian Day Number (double),
+ *   consumed by the DATE() built-in (S3.5). The engine is freestanding and
+ *   MUST NOT read the OS clock; the caller (the dot-prompt REPL on the host
+ *   PAL, or the Phase-5 interpreter) injects today's JDN here for
+ *   reproducibility (Rule 11) -- exactly the PAL's injectable-clock contract
+ *   (pal.h today()). 0.0 is the "blank date" sentinel (rt.h date_is_blank);
+ *   a caller that has not set a date leaves it 0.0 and DATE() returns a blank
+ *   date. Use (double)jdn_from_ymd(y,m,d) to set it.
+ *   Ref: numeric-and-date-functions.md DATE() "system date"; pal.h today().
  */
 typedef struct xb_ctx {
     int   set_exact;          /* 0 = OFF (III+ default); !=0 = ON */
@@ -469,9 +523,11 @@ typedef struct xb_ctx {
     int  (*resolve)(void *user, const char *name, uint16_t len, xb_val *out);
     void  *user;
 
-    char     *scratch;        /* bump arena for C+C / C-C result bytes */
+    char     *scratch;        /* bump arena for C+C / C-C / fn result bytes */
     uint32_t  scratch_cap;    /* capacity in bytes                     */
     uint32_t  scratch_used;   /* bytes consumed (reset per xb_eval)    */
+
+    double    ctx_today;      /* INJECTABLE today as JDN double; DATE() (S3.5) */
 } xb_ctx;
 
 /*
@@ -503,5 +559,68 @@ typedef struct xb_ctx {
  */
 int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
             xb_val *out, int *err_code);
+
+/* ======================================================================== */
+/* BUILT-IN FUNCTIONS A (S3.5)                                                */
+/* ======================================================================== */
+
+/*
+ * S3.5 -- xBase III+ 1.1 built-in function dispatch (the "A" set: the pure
+ * string / numeric / date / conversion functions). The DB-aware functions
+ * (RECNO/EOF/RECCOUNT/...) and the deferred numeric/date functions
+ * (INT/ROUND/MOD/CDOW/...) are S3.6 (built-in functions B) and are NOT here.
+ *
+ * The evaluator (eval.c, XBN_CALL case) evaluates each argument expression to
+ * an xb_val, then calls xb_call_builtin with the function name slice and the
+ * argument vector. The implementation lives in fn_builtins.c (a separate
+ * freestanding translation unit, owned by S3.5). This keeps eval.c's coercion
+ * table (S3.3) cleanly separated from the function table (S3.5).
+ *
+ * Name lookup is CASE-INSENSITIVE (dBASE folds case). An unknown name -- OR a
+ * name that exists in a later dialect but NOT in III+ 1.1 (the canonical case:
+ * DTOS) -- fails loud with XBEE_INVALID_FN (#31 "Invalid function name."),
+ * exactly the corpus-documented III+ behavior
+ * (numeric-and-date-functions.md: DTOS absent from @DATE FUNCTIONS).
+ *
+ * Arity / argument-type violations fail loud:
+ *   - wrong argument COUNT            -> XBEE_INVALID_ARG  (#11)
+ *   - argument of the wrong TYPE      -> XBEE_MISMATCH     (#9)
+ *   - a value out of a function's domain uses that function's DEDICATED catalog
+ *     code where one exists: CHR -> #57, SPACE neg -> #60 / too large -> #59,
+ *     SUBSTR start -> #62, STR -> #63 (dbase_msg_codes.tsv).
+ *
+ * IIF(<expL>, <exp1>, <exp2>) is handled SPECIALLY by the evaluator (eval.c),
+ * NOT by xb_call_builtin: III+ IIF evaluates its CONDITION first and then only
+ * the SELECTED branch (lazy / short-circuit), so the unselected branch's
+ * sub-expression must NOT be evaluated (e.g. IIF(.F., 1/0, 5) must not raise
+ * the divide error). Eager evaluation of both branches would be wrong, so IIF
+ * cannot go through the eager xb_call_builtin path. (system-and-database-
+ * functions.md IIF: branch selected by the logical condition.)
+ *
+ * Functions in this set (xb_call_builtin):
+ *   String:  UPPER LOWER TRIM LTRIM SUBSTR LEN SPACE CHR ASC
+ *   Convert: STR VAL CTOD DTOC
+ *   Date:    DATE DAY MONTH YEAR
+ *   Generic: TYPE   (1-char type code of a sub-expression's result type)
+ * (IIF is in this step but is dispatched in eval.c, see above.)
+ *
+ * args:     argument values, already evaluated, in source order.
+ * nargs:    number of arguments (0..XB_FN_MAX_ARGS).
+ * ctx:      evaluation context; supplies the scratch arena (for C results)
+ *           and ctx_today (for DATE()).
+ * out:      receives the result xb_val on success.
+ * err_code: set to XBEE_OK on success, else a positive catalog ordinal.
+ *
+ * Returns 0 on success, non-zero on failure (and *err_code names the reason).
+ * Allocation: none beyond ctx->scratch. Freestanding (Law 3): <stdint.h>,
+ * rt.h, value.h, eval.h only. Reproducible (Rule 11): pure function of
+ * (name, args, ctx state) -- the only "clock" is the injected ctx_today.
+ */
+#define XB_FN_MAX_ARGS 4   /* III+ A-set max arity (STUFF=4 is S3.6+; A-set
+                            * peaks at SUBSTR/STR/IIF = 3 -- 4 leaves headroom) */
+
+int xb_call_builtin(const char *name, uint16_t namelen,
+                    const xb_val *args, int nargs,
+                    xb_ctx *ctx, xb_val *out, int *err_code);
 
 #endif /* INITECH_SAMIR_EVAL_H */

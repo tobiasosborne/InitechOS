@@ -1,0 +1,553 @@
+/*
+ * os/samir/core/fn_builtins.c -- SAMIR xBase III+ 1.1 built-in functions A (S3.5).
+ *
+ * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * -nostdlib, CDR-0001 interim toolchain). Uses ONLY <stdint.h>, rt.h, value.h
+ * and eval.h. No libc, no PAL, no I/O. Pure (Rule 11): a result is a function
+ * of (name, args, ctx state); the only "clock" is the INJECTED ctx->ctx_today.
+ *
+ * Step S3.5 of docs/plans/SAMIR-implementation-plan.md ("built-in functions A
+ * (bridges + core)"). The evaluator (eval.c, XBN_CALL case) evaluates the
+ * argument expressions and calls xb_call_builtin here with the (already typed)
+ * argument vector. This file is the fn_* TABLE; eval.c keeps the operator
+ * coercion table (S3.3). IIF is dispatched in eval.c (lazy branch selection),
+ * NOT here -- see eval.h.
+ *
+ * This step implements EXACTLY the pure string/numeric/date/conversion set:
+ *   UPPER LOWER TRIM LTRIM SUBSTR LEN SPACE CHR ASC   (string)
+ *   STR VAL CTOD DTOC                                 (conversion bridges)
+ *   DATE DAY MONTH YEAR                               (date)
+ *   TYPE                                              (generic 1-char type code)
+ * The DB-aware functions (RECNO/EOF/...) and the deferred numeric/date
+ * functions (INT/ROUND/MOD/CDOW/CMONTH/DOW/SQRT/LOG/...) are S3.6 and are NOT
+ * here. DTOS does NOT exist in III+ -> XBEE_INVALID_FN (#31).
+ *
+ * Error policy (fail loud, Rule 2; dbase_msg_codes.tsv):
+ *   unknown / not-in-III+ name      -> XBEE_INVALID_FN  (#31)
+ *   wrong argument COUNT            -> XBEE_INVALID_ARG  (#11)
+ *   wrong argument TYPE             -> XBEE_MISMATCH     (#9)
+ *   CHR(n) out of 0..255           -> XBEE_CHR_RANGE    (#57)
+ *   SPACE(n) negative              -> XBEE_SPACE_NEG    (#60)
+ *   SPACE(n) result > 254          -> XBEE_SPACE_LARGE  (#59)
+ *   SUBSTR start < 1               -> XBEE_SUBSTR_RANGE (#62)
+ *   STR bad width/dec              -> XBEE_STR_RANGE    (#63)
+ *
+ * Ref (Law 1):
+ *   - ../dbase3-decomp/specs/functions/string-functions.md
+ *       SUBSTR 1-based (line 119 "SUBSTR(\"ABCDEF\",1,3) -> \"ABC\"");
+ *       LEN -> N; UPPER/LOWER ASCII a-z<->A-Z; TRIM == RTRIM (trailing only);
+ *       LTRIM (leading blanks only); SPACE(0)=\"\", neg -> #60, >254 -> #59;
+ *       CHR 0..255 else #57; ASC leftmost byte, \"\" -> 0; VAL leading numeric;
+ *       STR right-justified width/dec.
+ *   - ../dbase3-decomp/specs/functions/numeric-and-date-functions.md
+ *       DATE() system date; CTOD parse mm/dd/yy (American default), bad -> blank;
+ *       DTOC mm/dd/yy 8-char (CENTURY OFF default), blank -> 8 spaces;
+ *       DAY/MONTH/YEAR -> N, blank -> 0; DTOS NOT III+.
+ *   - ../dbase3-decomp/specs/functions/system-and-database-functions.md
+ *       TYPE() -> one of C/N/D/L/M/U.
+ *   - ../dbase3-decomp/specs/runtime/dates-and-century.md
+ *       default SET DATE AMERICAN mm/dd/yy, SET CENTURY OFF (width 8);
+ *       base-1900 2-digit-year rule (CTOD('01/01/00')=1900);
+ *       blank date sentinel (JDN 0); DTOC(blank) = 8 spaces.
+ *   - spec/samir/dbase_msg_codes.tsv (the codes above).
+ *   - os/samir/include/samir/{eval.h,value.h,rt.h}.
+ *
+ * BOUNDARIES / GATED (loud-noted, NOT guessed):
+ *   - SET DATE / SET CENTURY are NOT yet wired into xb_ctx (S5.6). CTOD/DTOC
+ *     therefore assume the III+ DEFAULTS: AMERICAN (mm/dd/yy) + CENTURY OFF
+ *     (2-digit year, width 8). When S5.6 lands, these read ctx state instead.
+ *     (dates-and-century.md: AMERICAN + CENTURY OFF are the documented defaults.)
+ *   - SUBSTR start-point upper threshold (start past end -> "" vs #62) is
+ *     corpus [oracle-resolves] (string-functions.md Open Q1). CONSERVATIVE
+ *     CHOICE: start<1 -> #62 (the dedicated message exists); start>len returns
+ *     "" (no error). Negative-start "from the right" is Clipper-only -> rejected.
+ *   - VAL of non-numeric/empty -> 0 is corpus [oracle-resolves] (Open Q6); we
+ *     adopt the documented Clipper/Harbour 0 result via rt.h dec_parse.
+ *
+ * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
+ */
+
+#include <stdint.h>
+
+#include "samir/eval.h"
+#include "samir/value.h"
+#include "samir/rt.h"
+
+/* ======================================================================== */
+/* Small freestanding helpers                                                */
+/* ======================================================================== */
+
+/* Fail loud: set *err and return it (non-zero for every real error code). */
+static int fn_fail(int *err, int code)
+{
+    *err = code;
+    return code;
+}
+
+/* ASCII upper / lower fold of a single byte (a-z <-> A-Z; others unchanged).
+ * Scope is ASCII only: high CP437 bytes are NOT folded (string-functions.md
+ * UPPER/LOWER "ASCII a-z only ... accented vowels generally do NOT fold"). */
+static char fold_upper(char c)
+{
+    if (c >= 'a' && c <= 'z') return (char)(c - 32);
+    return c;
+}
+static char fold_lower(char c)
+{
+    if (c >= 'A' && c <= 'Z') return (char)(c + 32);
+    return c;
+}
+
+/* A C/M (character or memo) value is acceptable wherever <expC> is required.
+ * (value.h: XB_M shares the pointer+len layout with XB_C.) */
+static int is_char(const xb_val *v) { return v->t == XB_C || v->t == XB_M; }
+
+/* Blank-date sentinel: a real III+ date (1900..2155) has a large positive JDN;
+ * 0.0 is the blank/empty date (dates-and-century.md + eval.c date_is_blank).
+ * Mirrors eval.c's static date_is_blank (kept local; freestanding, no export). */
+static int fn_date_blank(double jdn) { return jdn <= 0.0; }
+
+/* Truncate a numeric arg toward zero to an int32 (string-functions.md: non-
+ * integer length/index args truncate toward zero -- the [oracle-resolves]
+ * conservative choice, consistent with the C cast). */
+static int32_t to_int_trunc(double v) { return (int32_t)v; }
+
+/* Bump-allocate n bytes of C-result storage from ctx->scratch, or NULL on
+ * exhaustion (caller fails loud, XBEE_SCRATCH_FULL). No malloc (Law 3). */
+static char *fn_scratch(xb_ctx *ctx, uint32_t n)
+{
+    char *p;
+    if (ctx->scratch == 0) return 0;
+    if (n > ctx->scratch_cap || ctx->scratch_used > ctx->scratch_cap - n) {
+        return 0;
+    }
+    p = ctx->scratch + ctx->scratch_used;
+    ctx->scratch_used += n;
+    return p;
+}
+
+/* Case-insensitive compare of a name slice against a NUL-terminated keyword
+ * (keyword already upper-case). Returns 1 on a full match. */
+static int name_is(const char *name, uint16_t len, const char *kw)
+{
+    uint16_t i;
+    for (i = 0; i < len; i++) {
+        char c = name[i];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        if (kw[i] == '\0') return 0;          /* kw shorter than name        */
+        if (c != kw[i]) return 0;
+    }
+    return kw[len] == '\0';                    /* both ended together         */
+}
+
+/* The III+ max character-expression length (string-functions.md: 254 bytes).
+ * SPACE() guards against this (#59). */
+#define XB_STR_MAX 254
+
+/* ======================================================================== */
+/* String functions                                                          */
+/* ======================================================================== */
+
+/* UPPER(<expC>) / LOWER(<expC>) -> C. Per-byte ASCII fold into scratch. */
+static int fn_case(xb_ctx *ctx, const xb_val *args, int nargs,
+                   int up, xb_val *out, int *err)
+{
+    uint16_t len, i;
+    char *dst;
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
+    len = args[0].u.c.len;
+    if (len == 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+    dst = fn_scratch(ctx, len);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+    for (i = 0; i < len; i++) {
+        dst[i] = up ? fold_upper(args[0].u.c.p[i]) : fold_lower(args[0].u.c.p[i]);
+    }
+    *out = xb_c(dst, len);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* TRIM(<expC>) / RTRIM(<expC>) -> C: drop TRAILING blanks only (synonyms in
+ * III+, string-functions.md). LTRIM(<expC>) -> C: drop LEADING blanks only.
+ * No allocation: trimming yields a sub-slice of the SAME backing bytes. */
+static int fn_trim(const xb_val *args, int nargs, int leading,
+                   xb_val *out, int *err)
+{
+    uint16_t len;
+    const char *p;
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
+    p   = args[0].u.c.p;
+    len = args[0].u.c.len;
+    if (leading) {
+        uint16_t s = 0;
+        while (s < len && p[s] == ' ') s++;
+        *out = xb_c(p + s, (uint16_t)(len - s));
+    } else {
+        while (len > 0 && p[len - 1] == ' ') len--;
+        *out = xb_c(p, len);
+    }
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* SUBSTR(<expC>, <expN1> [, <expN2>]) -> C. 1-based start. start<1 -> #62.
+ * start>len -> "". expN2 omitted -> to end; expN2 clamped to available; a
+ * negative or zero expN2 -> "" (string-functions.md). No allocation: a SUBSTR
+ * result is a sub-slice of the SAME backing bytes. */
+static int fn_substr(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    int32_t  start, count;
+    uint16_t len;
+    uint16_t avail;
+    if (nargs != 2 && nargs != 3) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0]))       return fn_fail(err, XBEE_MISMATCH);
+    if (args[1].t != XB_N)        return fn_fail(err, XBEE_MISMATCH);
+    if (nargs == 3 && args[2].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+
+    len   = args[0].u.c.len;
+    start = to_int_trunc(args[1].u.n);
+
+    /* start < 1 -> dedicated #62 "SUBSTR() : Start point out of range."
+     * (Clipper negative-from-the-right is NOT III+, string-functions.md.) */
+    if (start < 1) return fn_fail(err, XBEE_SUBSTR_RANGE);
+
+    /* start past end-of-string -> empty (conservative; Open Q1). */
+    if ((uint32_t)start > (uint32_t)len) {
+        *out = xb_c("", 0); *err = XBEE_OK; return 0;
+    }
+
+#ifdef XB_MUTATE_FN_SUBSTR
+    /* MUTATION HOOK (Rule 6): treat the start position as 0-BASED instead of
+     * 1-based. Then SUBSTR("ABCDEF",2,3) returns "CDE" (wrong) not "BCD", and
+     * the unit assertion goes RED, proving the test catches an off-by-one in
+     * the load-bearing 1-based-index rule (string-functions.md line 119).
+     * Compile with -DXB_MUTATE_FN_SUBSTR to activate. Exactly one branch. */
+    start += 1;
+    if ((uint32_t)start > (uint32_t)len) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+#endif
+
+    avail = (uint16_t)(len - (start - 1));     /* chars from start to end     */
+    if (nargs == 3) {
+        count = to_int_trunc(args[2].u.n);
+        if (count <= 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+        if ((uint32_t)count > (uint32_t)avail) count = avail; /* clamp        */
+    } else {
+        count = avail;                          /* omitted -> to end          */
+    }
+    *out = xb_c(args[0].u.c.p + (start - 1), (uint16_t)count);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* LEN(<expC>) -> N: byte length (string-functions.md). */
+static int fn_len(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
+    *out = xb_n((double)args[0].u.c.len);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* SPACE(<expN>) -> C: n blanks. SPACE(0)="". n<0 -> #60. n>254 -> #59. */
+static int fn_space(xb_ctx *ctx, const xb_val *args, int nargs,
+                    xb_val *out, int *err)
+{
+    int32_t n, i;
+    char *dst;
+    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+    n = to_int_trunc(args[0].u.n);
+    if (n < 0)          return fn_fail(err, XBEE_SPACE_NEG);   /* #60          */
+    if (n > XB_STR_MAX) return fn_fail(err, XBEE_SPACE_LARGE); /* #59          */
+    if (n == 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+    dst = fn_scratch(ctx, (uint32_t)n);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+    for (i = 0; i < n; i++) dst[i] = ' ';
+    *out = xb_c(dst, (uint16_t)n);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* CHR(<expN>) -> C: single-byte string of code n. 0..255 else #57. */
+static int fn_chr(xb_ctx *ctx, const xb_val *args, int nargs,
+                  xb_val *out, int *err)
+{
+    int32_t n;
+    char *dst;
+    if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+    n = to_int_trunc(args[0].u.n);
+    if (n < 0 || n > 255) return fn_fail(err, XBEE_CHR_RANGE); /* #57          */
+    dst = fn_scratch(ctx, 1);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+    dst[0] = (char)(uint8_t)n;
+    *out = xb_c(dst, 1);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* ASC(<expC>) -> N: code of the leftmost byte; ASC("") -> 0
+ * (string-functions.md; the conservative documented Clipper/Harbour result). */
+static int fn_asc(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
+    if (args[0].u.c.len == 0) { *out = xb_n(0.0); *err = XBEE_OK; return 0; }
+    *out = xb_n((double)(uint8_t)args[0].u.c.p[0]);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* ======================================================================== */
+/* Conversion bridges                                                         */
+/* ======================================================================== */
+
+/* STR(<expN1> [, <expN2> [, <expN3>]]) -> C. Right-justified width <expN2>
+ * (default 10), <expN3> decimals (default 0 -> integer). Uses rt.h dec_format
+ * (ties -> +inf, '*'-overflow-fill -- the minted rule).
+ *   - width default 10 (string-functions.md general-expression default; the
+ *     exact III+ default table is [oracle-resolves], 10 is the documented
+ *     minimum; bare STR(n) acceptance is also [oracle-resolves] but we accept).
+ *   - width/dec must be >= 0 and width within the field cap; else #63. */
+static int fn_str(xb_ctx *ctx, const xb_val *args, int nargs,
+                  xb_val *out, int *err)
+{
+    int32_t width = 10;   /* default general-expression width (Open Q3)        */
+    int32_t dec   = 0;    /* default integer (string-functions.md)             */
+    char *dst;
+    if (nargs < 1 || nargs > 3) return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_N)      return fn_fail(err, XBEE_MISMATCH);
+    if (nargs >= 2) {
+        if (args[1].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+        width = to_int_trunc(args[1].u.n);
+    }
+    if (nargs == 3) {
+        if (args[2].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
+        dec = to_int_trunc(args[2].u.n);
+    }
+    /* Field-width sanity: width 1..254, dec 0..15, dec must leave room for at
+     * least one integer digit + sign space. Out of range -> #63. */
+    if (width < 1 || width > XB_STR_MAX) return fn_fail(err, XBEE_STR_RANGE);
+    if (dec   < 0 || dec   > 15)         return fn_fail(err, XBEE_STR_RANGE);
+    if (dec > 0 && width < dec + 2)      return fn_fail(err, XBEE_STR_RANGE);
+    dst = fn_scratch(ctx, (uint32_t)width);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+    dec_format(args[0].u.n, (int)width, (int)dec, dst); /* '*'-fill on overflow */
+    *out = xb_c(dst, (uint16_t)width);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* VAL(<expC>) -> N: leading numeric portion (rt.h dec_parse). Non-numeric /
+ * empty -> 0 (string-functions.md Open Q6 conservative choice). */
+static int fn_val(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
+    *out = xb_n(dec_parse(args[0].u.c.p, (int)args[0].u.c.len));
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* ======================================================================== */
+/* Date functions                                                            */
+/* ======================================================================== */
+
+/* CTOD(<expC>) -> D. Parses an American mm/dd/yy (default SET DATE) string into
+ * a Date (JDN). 2-digit year uses the III+ base-1900 rule (no sliding window:
+ * '00'->1900, '99'->1999; dates-and-century.md). A 4-digit year (length 10) is
+ * taken literally (CENTURY-ON-shaped strings still parse). Unparseable / blank
+ * -> the blank date (JDN 0), NOT an error (numeric-and-date-functions.md).
+ *
+ * GATED: assumes default AMERICAN + base-1900. SET DATE / SET CENTURY wiring is
+ * S5.6; until then only the default format is honored. */
+static int fn_ctod_impl(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    const char *p;
+    uint16_t len, i;
+    char digbuf[16];   /* compacted "MMDDYY" / "MMDDYYYY" + room               */
+    int  nd = 0;
+    int  mm, dd, yy;
+    int  yearlen;
+
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
+    p   = args[0].u.c.p;
+    len = args[0].u.c.len;
+
+    /* Collect digits in order, ignoring the separators ('/', '.', '-', space).
+     * American order is mm dd yy[yy]. A blank/empty/garbage string yields too
+     * few digits -> blank date. */
+    for (i = 0; i < len && nd < (int)sizeof(digbuf) - 1; i++) {
+        char c = p[i];
+        if (c >= '0' && c <= '9') digbuf[nd++] = c;
+    }
+    digbuf[nd] = '\0';
+
+    /* Need at least mm(2)+dd(2)+yy(2) = 6 digits; 8 digits -> 4-digit year. */
+    if (nd != 6 && nd != 8) {
+        *out = xb_d(0.0); *err = XBEE_OK; return 0;   /* blank date            */
+    }
+    yearlen = (nd == 8) ? 4 : 2;
+
+    /* mm = first 2 digits, dd = next 2, yy = remainder. */
+    mm = (digbuf[0] - '0') * 10 + (digbuf[1] - '0');
+    dd = (digbuf[2] - '0') * 10 + (digbuf[3] - '0');
+    {
+        int j;
+        yy = 0;
+        for (j = 4; j < 4 + yearlen; j++) yy = yy * 10 + (digbuf[j] - '0');
+    }
+    if (yearlen == 2) yy += 1900;          /* base-1900 (dates-and-century.md) */
+
+    /* Validate ranges; an invalid field -> blank date (CTOD of a bad string is
+     * the blank date, not the entry-time #78). */
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yy < 1900 || yy > 2155) {
+        *out = xb_d(0.0); *err = XBEE_OK; return 0;
+    }
+    *out = xb_d((double)jdn_from_ymd(yy, mm, dd));
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* DTOC(<expD>) -> C. Renders a Date as mm/dd/yy (8 chars, default AMERICAN +
+ * CENTURY OFF). Blank date -> 8 spaces (dates-and-century.md). 2-digit year is
+ * (year mod 100). GATED: assumes default format until S5.6 wires SET DATE. */
+static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    char *dst;
+    int32_t y, m, d;
+    int yy2;
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
+    dst = fn_scratch(ctx, 8);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+    if (fn_date_blank(args[0].u.d)) {
+        int i; for (i = 0; i < 8; i++) dst[i] = ' ';   /* blank -> 8 spaces    */
+        *out = xb_c(dst, 8); *err = XBEE_OK; return 0;
+    }
+    ymd_from_jdn((int32_t)args[0].u.d, &y, &m, &d);
+    yy2 = (int)(y % 100);
+    dst[0] = (char)('0' + (m / 10)); dst[1] = (char)('0' + (m % 10));
+    dst[2] = '/';
+    dst[3] = (char)('0' + (d / 10)); dst[4] = (char)('0' + (d % 10));
+    dst[5] = '/';
+    dst[6] = (char)('0' + (yy2 / 10)); dst[7] = (char)('0' + (yy2 % 10));
+    *out = xb_c(dst, 8);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* DATE() -> D: today's date from the INJECTED ctx->ctx_today (JDN). No args.
+ * Freestanding: never reads the OS clock (Rule 11; pal.h today()). If the
+ * caller has not injected a date, ctx_today is 0.0 -> a blank date. */
+static int fn_date(xb_ctx *ctx, int nargs, xb_val *out, int *err)
+{
+    if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+    *out = xb_d(ctx->ctx_today);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* DAY/MONTH/YEAR(<expD>) -> N. Blank date -> 0 (dates-and-century.md table).
+ * which: 0=DAY, 1=MONTH, 2=YEAR. */
+static int fn_dmy(const xb_val *args, int nargs, int which,
+                  xb_val *out, int *err)
+{
+    int32_t y, m, d;
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
+    if (fn_date_blank(args[0].u.d)) { *out = xb_n(0.0); *err = XBEE_OK; return 0; }
+    ymd_from_jdn((int32_t)args[0].u.d, &y, &m, &d);
+    switch (which) {
+    case 0:  *out = xb_n((double)d); break;
+    case 1:  *out = xb_n((double)m); break;
+    default: *out = xb_n((double)y); break;     /* YEAR is full 4-digit        */
+    }
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* ======================================================================== */
+/* TYPE(<expC>) -> C (1-char code)                                            */
+/* ======================================================================== */
+
+/*
+ * TYPE() in real III+ takes a STRING expression and reports the type of the
+ * expression that string denotes, WITHOUT a value resolver evaluating it for
+ * value. At the eval layer (S3.5) the argument has ALREADY been evaluated to a
+ * value (eager XBN_CALL args), so what we receive is the value of the
+ * expression -- we report ITS type. This matches TYPE("3+4")->"N",
+ * TYPE("'x'")->"C", TYPE(".T.")->"L" for literal/constant argument strings,
+ * which is the test surface available at S3.5. Full TYPE("FIELDNAME") /
+ * TYPE("RECNO()") semantics (re-parsing the inner string, returning "U" for an
+ * undefined/invalid inner expression) require the inner expression to be lexed/
+ * parsed from the string CONTENTS -- that is a Phase-5 concern (TYPE feeding
+ * SET FILTER) and is GATED here: an unresolved inner symbol surfaces as the
+ * eager-eval XBEE_UNBOUND BEFORE TYPE runs, so TYPE never sees it. This is the
+ * documented honest boundary (system-and-database-functions.md TYPE).
+ */
+static int fn_type(const xb_val *args, int nargs, xb_ctx *ctx,
+                   xb_val *out, int *err)
+{
+    char *dst;
+    if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    dst = fn_scratch(ctx, 1);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+    /* xb_type_char maps XB_U -> 'U' too, so an undefined value reports "U"
+     * (the III+ "undefined/invalid expression" code). */
+    dst[0] = xb_type_char(args[0].t);
+    *out = xb_c(dst, 1);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/* ======================================================================== */
+/* The dispatch table (case-insensitive name -> handler)                     */
+/* ======================================================================== */
+
+int xb_call_builtin(const char *name, uint16_t namelen,
+                    const xb_val *args, int nargs,
+                    xb_ctx *ctx, xb_val *out, int *err_code)
+{
+    *err_code = XBEE_OK;
+    *out = xb_u();
+
+    if (name == 0 || namelen == 0) return fn_fail(err_code, XBEE_INVALID_FN);
+
+    /* String functions */
+    if (name_is(name, namelen, "UPPER"))  return fn_case(ctx, args, nargs, 1, out, err_code);
+    if (name_is(name, namelen, "LOWER"))  return fn_case(ctx, args, nargs, 0, out, err_code);
+    if (name_is(name, namelen, "TRIM"))   return fn_trim(args, nargs, 0, out, err_code);
+    if (name_is(name, namelen, "RTRIM"))  return fn_trim(args, nargs, 0, out, err_code); /* synonym */
+    if (name_is(name, namelen, "LTRIM"))  return fn_trim(args, nargs, 1, out, err_code);
+    if (name_is(name, namelen, "SUBSTR")) return fn_substr(args, nargs, out, err_code);
+    if (name_is(name, namelen, "LEN"))    return fn_len(args, nargs, out, err_code);
+    if (name_is(name, namelen, "SPACE"))  return fn_space(ctx, args, nargs, out, err_code);
+    if (name_is(name, namelen, "CHR"))    return fn_chr(ctx, args, nargs, out, err_code);
+    if (name_is(name, namelen, "ASC"))    return fn_asc(args, nargs, out, err_code);
+
+    /* Conversion bridges */
+    if (name_is(name, namelen, "STR"))    return fn_str(ctx, args, nargs, out, err_code);
+    if (name_is(name, namelen, "VAL"))    return fn_val(args, nargs, out, err_code);
+    if (name_is(name, namelen, "CTOD"))   return fn_ctod_impl(args, nargs, out, err_code);
+    if (name_is(name, namelen, "DTOC"))   return fn_dtoc_impl(ctx, args, nargs, out, err_code);
+
+    /* Date functions */
+    if (name_is(name, namelen, "DATE"))   return fn_date(ctx, nargs, out, err_code);
+    if (name_is(name, namelen, "DAY"))    return fn_dmy(args, nargs, 0, out, err_code);
+    if (name_is(name, namelen, "MONTH"))  return fn_dmy(args, nargs, 1, out, err_code);
+    if (name_is(name, namelen, "YEAR"))   return fn_dmy(args, nargs, 2, out, err_code);
+
+    /* Generic */
+    if (name_is(name, namelen, "TYPE"))   return fn_type(args, nargs, ctx, out, err_code);
+
+    /* DTOS exists in dBASE IV / Clipper but NOT in III+ 1.1 -> #31 (the same
+     * path as any unknown name; the test asserts DTOS specifically).
+     * (numeric-and-date-functions.md: DTOS absent from @DATE FUNCTIONS.) */
+    return fn_fail(err_code, XBEE_INVALID_FN);   /* #31 "Invalid function name." */
+}
