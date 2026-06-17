@@ -662,6 +662,10 @@ TEST_NDX_KEYS_MUT   := $(BUILD)/test_ndx_keys_mut
 # S4.3 .ndx B-tree search/traverse/SEEK (initech-ahu.3).
 TEST_NDX_SEEK       := $(BUILD)/test_ndx_seek
 TEST_NDX_SEEK_MUT   := $(BUILD)/test_ndx_seek_mut
+# S4.4 .ndx bulk INDEX ON build (initech-ahu.4); test links the evaluator for key
+# extraction, but fs/ndx.c stays decoupled (key-provider callback).
+TEST_NDX_BUILD      := $(BUILD)/test_ndx_build
+TEST_NDX_BUILD_MUT  := $(BUILD)/test_ndx_build_mut
 # S2.1 .dbt III+ memo read (initech-aul.6); S2.2 write/round-trip (initech-aul.7).
 SAMIR_DBT_SRC     := $(SAMIR_DIR)/fs/dbt.c
 TEST_DBT_READ       := $(BUILD)/test_dbt_read
@@ -675,6 +679,14 @@ TEST_XBASE_FN_A     := $(BUILD)/test_xbase_fn_a
 TEST_XBASE_FN_A_MUT := $(BUILD)/test_xbase_fn_a_mut
 TEST_XBASE_FN_B     := $(BUILD)/test_xbase_fn_b
 TEST_XBASE_FN_B_MUT := $(BUILD)/test_xbase_fn_b_mut
+# Remaining III+ string functions (initech-7az.12) share fn_builtins.c.
+TEST_XBASE_FN_C     := $(BUILD)/test_xbase_fn_c
+TEST_XBASE_FN_C_MUT := $(BUILD)/test_xbase_fn_c_mut
+# S5.1 work-area model + USE/CLOSE (initech-7az.2): the Phase-5 interpreter foundation.
+SAMIR_CMD_DIR     := $(SAMIR_DIR)/cmd
+SAMIR_WORKAREA_SRC := $(SAMIR_CMD_DIR)/workarea.c
+TEST_INTERP_USE      := $(BUILD)/test_interp_use
+TEST_INTERP_USE_MUT  := $(BUILD)/test_interp_use_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1574,6 +1586,39 @@ test-ndx-seek-mutant: $(TEST_NDX_SEEK_MUT)
 		printf '>>> test-ndx-seek-mutant: green (wrong-child descent correctly RED)\n'; \
 	fi
 
+# ---- SAMIR Phase-4 index: bulk INDEX ON build, byte-exact (S4.4 / initech-ahu.4) ----
+# ndx_build: collect keys (via a caller key-provider -- ndx.c stays decoupled from
+# core/eval.c), STABLE sort by ndx_key_cmp (ties keep ascending recno), pack leaves
+# 100% L->R + remainder last, one root branch (sep[i]=HIGH key of leaf i; trailing
+# child=last leaf). Normalized-byte-exact vs ZIPCODE/CNAMES/NCOST goldens. The TEST
+# links the evaluator for key extraction; the engine codec ndx.c does NOT. Multi-
+# level (3-level) interior packing is corpus-OPEN -> ndx_build fails loud
+# NDX_ERR_PAGE_OVF (no golden to ground it). Mutant: 50/50 leaf split -> RED.
+NDX_BUILD_ENG := $(SAMIR_NDX_SRC) $(SAMIR_DBF_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_NDX_BUILD): $(DBF_DIFF_DIR)/test_ndx_build.c $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_build.c $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_NDX_BUILD_MUT): $(DBF_DIFF_DIR)/test_ndx_build.c $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_SPLIT_5050 -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_build.c $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-ndx-build
+test-ndx-build: $(TEST_NDX_BUILD)
+	@printf ">>> test-ndx-build: bulk INDEX ON build, byte-exact (pack 100%% L->R, remainder last; N keys/N+1 children) (S4.4)\n"
+	@$(TEST_NDX_BUILD) $(DBASE3_DECOMP)
+	@printf ">>> test-ndx-build: green\n"
+
+.PHONY: test-ndx-build-mutant
+test-ndx-build-mutant: $(TEST_NDX_BUILD_MUT)
+	@printf ">>> test-ndx-build-mutant: 50/50 leaf-split mutant must go RED (Rule 6; initech-ahu.4)\n"
+	@$(TEST_NDX_BUILD_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-ndx-build-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_NDX_BUILD_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-ndx-build-mutant FAIL: mutant PASSED -- the leaf packing is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ndx-build-mutant: green (50/50 split correctly RED)\n'; \
+	fi
+
 # ---- SAMIR Phase-2 memo: .dbt III+ memo READ (S2.1 / initech-aul.6) ----
 # dbt_open + dbt_read: 512-byte blocks, LE block-0 next-free ptr, 0x1A 0x1A
 # terminator (tolerate single trailing 0x1A), 10-byte ASCII M pointer. READ-only;
@@ -1688,6 +1733,65 @@ test-xbase-fn-b-mutant: $(TEST_XBASE_FN_B_MUT)
 		printf '!!! test-xbase-fn-b-mutant FAIL: mutant PASSED -- the DOW numbering rule is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-xbase-fn-b-mutant: green (DOW shift correctly RED)\n'; \
+	fi
+
+# ---- SAMIR remaining III+ string fns: LEFT/RIGHT/STUFF/REPLICATE/AT/IS*/TRANSFORM (initech-7az.12) ----
+# 8 fully-grounded string fns + a GATED TRANSFORM skeleton (only the minted 9-picture
+# numeric case; @-clauses loud-skipped -> 7az.TRANSFORM). Shares fn_builtins.c.
+# Mutant: LEFT returns n+1 chars -> grounded LEFT assertions RED.
+$(TEST_XBASE_FN_C): $(DBF_DIFF_DIR)/test_xbase_fn_c.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_c.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_XBASE_FN_C_MUT): $(DBF_DIFF_DIR)/test_xbase_fn_c.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_LEFT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_c.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+
+.PHONY: test-xbase-fn-c
+test-xbase-fn-c: $(TEST_XBASE_FN_C)
+	@printf ">>> test-xbase-fn-c: xBase III+ string fns C (LEFT/RIGHT/STUFF/REPLICATE/AT/ISALPHA/ISUPPER/ISLOWER; TRANSFORM GATED) (7az.12)\n"
+	@$(TEST_XBASE_FN_C)
+	@printf ">>> test-xbase-fn-c: green\n"
+
+.PHONY: test-xbase-fn-c-mutant
+test-xbase-fn-c-mutant: $(TEST_XBASE_FN_C_MUT)
+	@printf ">>> test-xbase-fn-c-mutant: confirming the LEFT n+1 mutant goes RED (Rule 6; initech-7az.12)\n"
+	@$(TEST_XBASE_FN_C_MUT) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-xbase-fn-c-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_XBASE_FN_C_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-fn-c-mutant FAIL: mutant PASSED -- the LEFT semantics is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-xbase-fn-c-mutant: green (LEFT n+1 correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-5 interpreter foundation: work-area model + USE/CLOSE (S5.1 / initech-7az.2) ----
+# 10 work areas, SELECT by number/alias, per-area .dbf(+.dbt+.ndx) open, RECNO=1,
+# master order; the xb_ctx.resolve hook binds field names (and M fields via .dbt) to
+# the selected area's current record -- the Phase-5 convergence point. The unit links
+# all four codecs + the evaluator + the cmd layer. Mutant: SELECT misroutes -> RED.
+SAMIR_CMD_SRC := $(SAMIR_WORKAREA_SRC)
+INTERP_USE_ENG := $(SAMIR_CMD_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_INTERP_USE): $(DBF_DIFF_DIR)/test_interp_use.c $(INTERP_USE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_use.c $(INTERP_USE_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_INTERP_USE_MUT): $(DBF_DIFF_DIR)/test_interp_use.c $(INTERP_USE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWA_MUTATE_SELECT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_use.c $(INTERP_USE_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-interp-use
+test-interp-use: $(TEST_INTERP_USE)
+	@printf ">>> test-interp-use: work-area model + USE/CLOSE/SELECT + field/memo resolve glue (S5.1)\n"
+	@$(TEST_INTERP_USE) $(DBASE3_DECOMP)
+	@printf ">>> test-interp-use: green\n"
+
+.PHONY: test-interp-use-mutant
+test-interp-use-mutant: $(TEST_INTERP_USE_MUT)
+	@printf ">>> test-interp-use-mutant: confirming the SELECT-misroute mutant goes RED (Rule 6; initech-7az.2)\n"
+	@$(TEST_INTERP_USE_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-interp-use-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_INTERP_USE_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-interp-use-mutant FAIL: mutant PASSED -- SELECT routing is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-interp-use-mutant: green (SELECT misroute correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 evaluator: xBase expression lexer (S3.1 / initech-gmo.1) ----
@@ -9975,12 +10079,15 @@ TEST_UNIT_GATES := \
 	test-ndx-parse test-ndx-parse-mutant \
 	test-ndx-keys test-ndx-keys-mutant \
 	test-ndx-seek test-ndx-seek-mutant \
+	test-ndx-build test-ndx-build-mutant \
 	test-dbt-read test-dbt-read-mutant \
 	test-dbt-roundtrip test-dbt-roundtrip-mutant \
 	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant \
 	test-xbase-eval test-xbase-eval-mutant test-xbase-coercion test-xbase-coercion-mutant \
 	test-xbase-fn-a test-xbase-fn-a-mutant \
-	test-xbase-fn-b test-xbase-fn-b-mutant
+	test-xbase-fn-b test-xbase-fn-b-mutant \
+	test-xbase-fn-c test-xbase-fn-c-mutant \
+	test-interp-use test-interp-use-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \

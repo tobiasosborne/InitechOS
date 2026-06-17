@@ -1,7 +1,8 @@
 /*
  * os/samir/fs/ndx.c -- SAMIR (InitechBase) .ndx B-tree index codec.
  *                       Steps S4.1 (header + node parse), S4.2 (key decode +
- *                       collation), and S4.3 (B-tree traverse + SEEK).
+ *                       collation), S4.3 (B-tree traverse + SEEK), and S4.4
+ *                       (bulk INDEX ON build).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001). Includes ONLY <stdint.h> plus engine headers and the
@@ -37,6 +38,24 @@
  *                  (char OFF = directional begins-with per mint-002; char ON =
  *                  full-length equal; numeric/date = exact arithmetic equal).
  *                  EOF when the target exceeds every key.
+ *
+ * S4.4 scope (bulk INDEX ON build):
+ *   ndx_build  -- build a fresh .ndx that reproduces dBASE's bulk INDEX ON /
+ *                 REINDEX output byte-for-byte (meaningful bytes): collect one
+ *                 key per record via a caller key-provider callback (NO eval.c
+ *                 dependency -- the decoupling barrier of bead initech-ahu.4),
+ *                 STABLE-sort by ndx_key_cmp (ties keep ascending recno), PACK
+ *                 LEAVES 100% left-to-right with the remainder in the last leaf
+ *                 (NOT 50/50), then build the root branch over the leaves' HIGH
+ *                 keys (N keys / N+1 children). [VERIFIED minted BIGIDX.NDX +
+ *                 NCOST.NDX; re/mint-results-003.md]
+ *
+ * S4.4 mutation hook (Rule 6 / plan S4.4 "50/50 split"):
+ *   Build with -DNDX_MUTATE_SPLIT_5050. Leaves are packed ~50/50 instead of
+ *   100%-then-remainder; the leaf fill levels (and therefore the page bytes +
+ *   the root separator set) diverge from the golden -> the byte-exact rebuild
+ *   oracle goes RED. [re/mint-results-003.md: the bulk build packs to 100%,
+ *   never 50/50.]
  *
  * S4.3 mutation hook (Rule 6 / plan S4.3 "wrong child descent"):
  *   Build with -DNDX_MUTATE_SEEK_CHILD. The branch descent follows the WRONG
@@ -1091,4 +1110,373 @@ int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
             return NDX_OK;
         }
     }
+}
+
+/* -----------------------------------------------------------------------
+ * S4.4: bulk INDEX ON build
+ * -----------------------------------------------------------------------
+ *
+ * The byte-exact bulk-build algorithm, grounded entirely in minted/pristine
+ * bytes (NOT guessed -- Law 1):
+ *
+ *   - PACK leaves 100% left-to-right, remainder in the last leaf.
+ *     [re/mint-results-003.md: BIGIDX 245 = 13*18 + 11; ndx.md Open questions
+ *      "bulk build" RESOLVED]
+ *   - Root branch separator i = HIGH (last) key of leaf i; trailing child = the
+ *     last leaf (N keys / N+1 children).
+ *     [VERIFIED: BIGIDX root sep[i] == last key of leaf i+1 byte-checked here;
+ *      NCOST root sep[0]=3295.0 == leaf 1 high key; ZIPCODE sep[0]="91306".]
+ *   - Page numbering: leaves on pages 1..L; L==1 -> root_page=1,total=2;
+ *     L>1 -> root_page=L+1,total=L+2.
+ *     [VERIFIED: NDATE root=1/total=2; NCOST root=3/total=4; BIGIDX 15/16.]
+ *   - Equal-key tie-break = ascending recno (stable sort over physical order).
+ *     [VERIFIED: BIGIDX five "Beman" entries in recno order 42,91,140,189,238.]
+ *
+ * NORMALIZE bytes are written 0x00 (Rule 11: SAMIR is more normalized than
+ * genuine III+; the oracle masks these before cmp -- header reserved/dummy,
+ * header tail past the expr NUL, group filler, node filler word, page tails,
+ * and the non-child bytes of the trailing slot).
+ * ----------------------------------------------------------------------- */
+
+/* u32le_w / u16le_w: write a little-endian integer (no aliasing cast). */
+static void u32le_w(uint8_t *p, uint32_t v)
+{
+    p[0] = (uint8_t)(v & 0xFFu);
+    p[1] = (uint8_t)((v >> 8) & 0xFFu);
+    p[2] = (uint8_t)((v >> 16) & 0xFFu);
+    p[3] = (uint8_t)((v >> 24) & 0xFFu);
+}
+
+static void u16le_w(uint8_t *p, uint16_t v)
+{
+    p[0] = (uint8_t)(v & 0xFFu);
+    p[1] = (uint8_t)((v >> 8) & 0xFFu);
+}
+
+/*
+ * build_cmp: compare two collected keys for the bulk-build sort. Mirrors
+ * ndx_key_cmp but operates on a (key_type, key_len) pair directly (no open
+ * ndx_index yet). char = unsigned byte compare over key_len; type-1 = arithmetic
+ * double compare (NO sign-flip; ndx.md ss4.2). This MUST match ndx_key_cmp so
+ * the rebuilt order equals the read order.
+ */
+static int build_cmp(uint16_t key_type, uint16_t key_len,
+                     const uint8_t *a, const uint8_t *b)
+{
+    if (key_type == (uint16_t)NDX_KEY_TYPE_CHAR) {
+        uint32_t i;
+        for (i = 0u; i < (uint32_t)key_len; i++) {
+            if (a[i] < b[i]) return -1;
+            if (a[i] > b[i]) return  1;
+        }
+        return 0;
+    }
+    {
+        double va = read_le_double(a);
+        double vb = read_le_double(b);
+        if (va < vb) return -1;
+        if (va > vb) return  1;
+        return 0;
+    }
+}
+
+/*
+ * stable_sort_keys: stable insertion sort of the parallel (keys, recnos)
+ * arrays by build_cmp. STABLE so equal keys keep their input (physical recno)
+ * order -- the verified tie-break (BIGIDX "Beman" recnos 42,91,140,189,238).
+ * Insertion sort uses a strict `> 0` comparison so equal keys never swap.
+ * N is small (one page-buffer of keys per record; corpus tops out ~245), so
+ * O(N^2) is fine and avoids a recursive merge's extra arena.
+ */
+static void stable_sort_keys(uint16_t key_type, uint16_t key_len,
+                             uint8_t *keys, uint32_t *recnos, uint32_t n,
+                             uint8_t *tmpkey)
+{
+    uint32_t i;
+    for (i = 1u; i < n; i++) {
+        uint32_t tmpr = recnos[i];
+        uint32_t j    = i;
+        rt_memcpy(tmpkey, keys + (uint32_t)i * key_len, key_len);
+        while (j > 0u &&
+               build_cmp(key_type, key_len,
+                         keys + (uint32_t)(j - 1u) * key_len, tmpkey) > 0) {
+            rt_memcpy(keys + (uint32_t)j * key_len,
+                      keys + (uint32_t)(j - 1u) * key_len, key_len);
+            recnos[j] = recnos[j - 1u];
+            j--;
+        }
+        rt_memcpy(keys + (uint32_t)j * key_len, tmpkey, key_len);
+        recnos[j] = tmpr;
+    }
+}
+
+/*
+ * write_page: seek to page PAGE_NO * 512 and write the 512-byte PAGE buffer.
+ * Returns NDX_OK or -NDX_ERR_IO (fail loud on short write -- Rule 2).
+ */
+static int write_page(samir_pal_t *pal, pal_fd fd, uint32_t page_no,
+                      const uint8_t *page)
+{
+    int rc = seek_to(pal, fd, page_no * (uint32_t)NDX_PAGE_SIZE);
+    int32_t put;
+    if (rc != NDX_OK)
+        return rc;
+    put = pal->write(pal, fd, page, (uint32_t)NDX_PAGE_SIZE);
+    if (put < 0 || (uint32_t)put != (uint32_t)NDX_PAGE_SIZE)
+        return -NDX_ERR_IO;
+    return NDX_OK;
+}
+
+int ndx_build(samir_pal_t *pal, const char *out_name,
+              uint16_t key_type, uint16_t key_len, const char *key_expr,
+              uint32_t nrec, ndx_key_provider get_key, void *user)
+{
+    void     *mark;
+    uint8_t  *keys;       /* nrec * key_len bytes of on-disk key data */
+    uint32_t *recnos;     /* nrec recnos, parallel to keys */
+    uint8_t  *tmpkey;     /* one key_len scratch for the stable sort */
+    uint32_t  group_len;
+    uint32_t  kpp;        /* keys_per_page */
+    uint32_t  nleaf;      /* number of leaf pages */
+    uint32_t  root_page;
+    uint32_t  total_pages;
+    pal_fd    fd;
+    uint8_t   page[NDX_PAGE_SIZE];
+    int       rc;
+    uint32_t  i;
+
+    if (!pal || !out_name || !get_key)
+        return -NDX_ERR_IO;
+
+    /* --- Validate key_type / key_len (Rule 2). --- */
+    if (key_type != (uint16_t)NDX_KEY_TYPE_CHAR
+        && key_type != (uint16_t)NDX_KEY_TYPE_NUMERIC)
+        return -NDX_ERR_BAD_KEYTYPE;
+    if (key_type == (uint16_t)NDX_KEY_TYPE_NUMERIC
+        && key_len != (uint16_t)NDX_KEY_LEN_DOUBLE)
+        return -NDX_ERR_BAD_KEYTYPE;   /* type-1 key_length is always 8 */
+    if (key_len == 0u)
+        return -NDX_ERR_BAD_GROUP;
+
+    /* --- Derived geometry (must match ndx_open's validation formulas). --- */
+    group_len = ceil4((uint32_t)key_len + (uint32_t)NDX_GRP_OVERHEAD);
+    if (group_len > 0xFFFFu)
+        return -NDX_ERR_BAD_GROUP;     /* group_length must fit a u16 */
+    kpp = (uint32_t)(NDX_PAGE_SIZE - NDX_NODE_HDR_SIZE) / group_len;
+    if (kpp == 0u)
+        return -NDX_ERR_BAD_GROUP;     /* a single key does not fit a page */
+
+    mark = pal->alloc(pal, 0u);        /* arena entry mark; reset before return */
+
+    /* --- Allocate the key buffer + recnos + sort scratch from the arena. --- */
+    {
+        uint32_t keys_bytes = nrec * (uint32_t)key_len;
+        keys   = (uint8_t  *)pal->alloc(pal, keys_bytes ? keys_bytes : 1u);
+        recnos = (uint32_t *)pal->alloc(pal,
+                     (nrec ? nrec : 1u) * (uint32_t)sizeof(uint32_t));
+        tmpkey = (uint8_t  *)pal->alloc(pal, (uint32_t)key_len);
+        if (!keys || !recnos || !tmpkey) {
+            pal->reset(pal, mark);
+            return -NDX_ERR_OOM;
+        }
+    }
+
+    /* --- Collect one key per record, in physical recno order (1..nrec). --- */
+    for (i = 0u; i < nrec; i++) {
+        uint32_t recno = i + 1u;       /* 1-based DBF recno */
+        int prc = get_key(user, recno, keys + i * (uint32_t)key_len, key_len);
+        if (prc != 0) {
+            pal->reset(pal, mark);
+            return (prc > 0) ? -prc : -NDX_ERR_IO;
+        }
+        recnos[i] = recno;
+    }
+
+    /* --- STABLE sort by collation; ties keep ascending recno. --- */
+    stable_sort_keys(key_type, key_len, keys, recnos, nrec, tmpkey);
+
+    /* --- Leaf count: pack 100% L->R, remainder last. --- */
+    /* nleaf = ceil(nrec / kpp), minimum 1 (an empty index still has 1 leaf). */
+    nleaf = (nrec + kpp - 1u) / kpp;
+    if (nleaf == 0u)
+        nleaf = 1u;
+
+    /*
+     * Page layout (VERIFIED):
+     *   L == 1: the single leaf IS the root. root_page = 1, total_pages = 2.
+     *   L  > 1: leaves on pages 1..L, root branch on page L+1.
+     *           root_page = L+1, total_pages = L+2.
+     *
+     * MULTI-LEVEL GUARD (corpus-OPEN, Law 1 / Rule 2): when L > 1 the root
+     * branch holds L-1 separators + a trailing child. All L child pointers must
+     * fit one branch page: the L-1 separator GROUPS plus the trailing 4-byte
+     * child slot must fit in 512 bytes, i.e. (L-1) <= kpp (the same keys_per_page
+     * bound the reader validates). If L-1 > kpp a 3-level tree would be needed,
+     * whose interior packing has no minted III+ golden -- FAIL LOUD instead of
+     * guessing. (The two-level case -- one root branch over the leaves -- is
+     * byte-exact and is what every corpus .ndx uses.)
+     */
+    if (nleaf > 1u && (nleaf - 1u) > kpp) {
+        pal->reset(pal, mark);
+        return -NDX_ERR_PAGE_OVF;
+    }
+
+    if (nleaf == 1u) {
+        root_page   = 1u;
+        total_pages = 2u;
+    } else {
+        root_page   = nleaf + 1u;
+        total_pages = nleaf + 2u;
+    }
+
+    /* --- Open the output file (create/truncate). --- */
+    fd = pal->open(pal, out_name, PAL_RDWR | PAL_CREATE | PAL_TRUNC);
+    if (fd < 0) {
+        pal->reset(pal, mark);
+        return -NDX_ERR_IO;
+    }
+
+    /* --- Page 0: the header. --- */
+    rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
+    u32le_w(page + NDX_HDR_ROOT_PAGE_OFF,    root_page);
+    u32le_w(page + NDX_HDR_TOTAL_PAGES_OFF,  total_pages);
+    u32le_w(page + NDX_HDR_RESERVED_OFF,     0u);             /* NORMALIZE -> 0 */
+    u16le_w(page + NDX_HDR_KEY_LENGTH_OFF,   key_len);
+    u16le_w(page + NDX_HDR_KEYS_PER_PAGE_OFF,(uint16_t)kpp);
+    u16le_w(page + NDX_HDR_KEY_TYPE_OFF,     key_type);
+    u16le_w(page + NDX_HDR_GROUP_LENGTH_OFF, (uint16_t)group_len);
+    u16le_w(page + NDX_HDR_DUMMY_OFF,        0u);             /* NORMALIZE -> 0 */
+    u16le_w(page + NDX_HDR_UNIQUE_FLAG_OFF,  0u);             /* bulk INDEX ON is non-unique */
+    /* key_expr verbatim, NUL-terminated, cap 100. Tail after NUL stays 0. */
+    if (key_expr) {
+        uint32_t e;
+        for (e = 0u; e < (uint32_t)NDX_HDR_KEY_EXPR_SIZE; e++) {
+            char c = key_expr[e];
+            if (c == '\0') break;
+            page[NDX_HDR_KEY_EXPR_OFF + e] = (uint8_t)c;
+        }
+        /* page already memset to 0 -> the NUL terminator + tail are 0. */
+    }
+    rc = write_page(pal, fd, 0u, page);
+    if (rc != NDX_OK) { pal->close(pal, fd); pal->reset(pal, mark); return rc; }
+
+    /* --- Leaf pages 1..nleaf: pack 100% L->R, remainder in the last leaf. --- */
+    {
+        uint32_t leaf;
+        uint32_t key_i = 0u;           /* next sorted key index to place */
+        for (leaf = 0u; leaf < nleaf; leaf++) {
+            uint32_t remaining = (nrec > key_i) ? (nrec - key_i) : 0u;
+            uint32_t fill;
+            uint32_t leaves_left = nleaf - leaf;
+            uint32_t g;
+
+#ifndef NDX_MUTATE_SPLIT_5050
+            /* CORRECT bulk-build packing: fill this leaf to capacity, leaving the
+             * remainder for the LAST leaf. The last leaf takes whatever is left.
+             * [re/mint-results-003.md: 100%-pack, remainder last; NOT 50/50.] */
+            if (leaf + 1u < nleaf) {
+                fill = kpp;            /* a non-final leaf is always full */
+            } else {
+                fill = remaining;      /* the final leaf gets the remainder */
+            }
+#else
+            /* MUTATED ~50/50 split (Rule 6): spread the remaining keys evenly
+             * across the remaining leaves (ceil division) instead of packing to
+             * capacity. With L leaves this fills each to about N/L < kpp, so the
+             * fill levels (and the root separators) diverge from the golden ->
+             * the byte-exact rebuild oracle goes RED. */
+            fill = (remaining + leaves_left - 1u) / leaves_left;
+            if (fill > kpp) fill = kpp;
+#endif
+            (void)leaves_left;
+            if (fill > remaining) fill = remaining;
+
+            rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
+            u16le_w(page + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)fill);
+            u16le_w(page + NDX_NODE_FILLER_OFF, 0u);   /* NORMALIZE -> 0 */
+
+            for (g = 0u; g < fill; g++) {
+                uint32_t base = (uint32_t)NDX_NODE_ENTRIES_OFF
+                              + g * group_len;
+                u32le_w(page + base + NDX_GRP_CHILD_PAGE_OFF, 0u);  /* leaf */
+                u32le_w(page + base + NDX_GRP_DBF_RECNO_OFF, recnos[key_i + g]);
+                rt_memcpy(page + base + NDX_GRP_KEY_DATA_OFF,
+                          keys + (key_i + g) * (uint32_t)key_len, key_len);
+                /* group filler after key_data stays 0 (NORMALIZE). */
+            }
+            /* The unused page tail + trailing slot stay 0 (NORMALIZE; leaf
+             * trailing slot is garbage in genuine III+, ndx.md ss3.2). */
+
+            rc = write_page(pal, fd, leaf + 1u, page);
+            if (rc != NDX_OK) {
+                pal->close(pal, fd); pal->reset(pal, mark); return rc;
+            }
+
+            key_i += fill;
+        }
+    }
+
+    /* --- Root branch page (only when L > 1). --- */
+    if (nleaf > 1u) {
+        /* The root branch has nleaf-1 separator entries + a trailing child.
+         * separator i = the HIGH (last) key of leaf (i+1), child_page = leaf i+1
+         * (1-based page number), recno = 0 (branch entries carry recno 0).
+         * trailing child = leaf nleaf. (ndx.md ss5 / ss3.2; VERIFIED BIGIDX.)
+         *
+         * We recompute each leaf's high-key index from the SAME fill schedule
+         * used above so the separator keys match the leaves byte-for-byte.
+         */
+        uint32_t nsep = nleaf - 1u;
+        uint32_t leaf;
+        uint32_t key_i = 0u;
+        uint32_t sep   = 0u;
+
+        rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
+        u16le_w(page + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)nsep);
+        u16le_w(page + NDX_NODE_FILLER_OFF, 0u);   /* NORMALIZE -> 0 */
+
+        for (leaf = 0u; leaf < nleaf; leaf++) {
+            uint32_t remaining = (nrec > key_i) ? (nrec - key_i) : 0u;
+            uint32_t fill;
+#ifndef NDX_MUTATE_SPLIT_5050
+            if (leaf + 1u < nleaf) fill = kpp;
+            else                   fill = remaining;
+#else
+            uint32_t leaves_left = nleaf - leaf;
+            fill = (remaining + leaves_left - 1u) / leaves_left;
+            if (fill > kpp) fill = kpp;
+#endif
+            if (fill > remaining) fill = remaining;
+
+            if (leaf + 1u < nleaf) {
+                /* separator for this leaf = its HIGH (last) key. */
+                uint32_t hi_idx = key_i + fill - 1u;   /* last key of this leaf */
+                uint32_t base   = (uint32_t)NDX_NODE_ENTRIES_OFF
+                                + sep * group_len;
+                u32le_w(page + base + NDX_GRP_CHILD_PAGE_OFF, leaf + 1u);
+                u32le_w(page + base + NDX_GRP_DBF_RECNO_OFF, 0u);   /* branch */
+                rt_memcpy(page + base + NDX_GRP_KEY_DATA_OFF,
+                          keys + hi_idx * (uint32_t)key_len, key_len);
+                sep++;
+            }
+            key_i += fill;
+        }
+
+        /* Trailing child slot = the last leaf (rightmost subtree, ndx.md ss3.2).
+         * Only the 4-byte child pointer is MEANINGFUL; recno/key bytes stay 0. */
+        {
+            uint32_t trail_off = (uint32_t)NDX_NODE_ENTRIES_OFF
+                               + nsep * group_len;
+            u32le_w(page + trail_off + NDX_GRP_CHILD_PAGE_OFF, nleaf);
+        }
+
+        rc = write_page(pal, fd, root_page, page);
+        if (rc != NDX_OK) {
+            pal->close(pal, fd); pal->reset(pal, mark); return rc;
+        }
+    }
+
+    pal->close(pal, fd);
+    pal->reset(pal, mark);
+    return NDX_OK;
 }

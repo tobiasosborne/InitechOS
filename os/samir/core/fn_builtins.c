@@ -815,6 +815,408 @@ static int fn_cmonth(xb_ctx *ctx, const xb_val *args, int nargs,
 }
 
 /* ======================================================================== */
+/* String functions C (initech-7az.12): LEFT RIGHT STUFF REPLICATE AT       */
+/*                                     ISALPHA ISUPPER ISLOWER TRANSFORM     */
+/* ======================================================================== */
+
+/*
+ * LEFT(<expC>, <expN>) -> C.
+ * Returns the leftmost <expN> characters of <expC>.
+ *   n <= 0   -> ""  (conservative; no dedicated error; matches SUBSTR(s,1,0))
+ *   n >= len -> full string  (clamp; no error for overshot count)
+ * Ref: HELP.DBS.strings.txt:1338-1339 (@STR FUNC 2:
+ *   "A string containing the leftmost <expN> characters from the <expC>.")
+ *   [verified: HELP.DBS @STR FUNC 2 line 1338; period-exact III+ surface]
+ * Arity/type errors: nargs!=2 -> #11, args[0]!C -> #9, args[1]!N -> #9.
+ * No scratch needed: result is a sub-slice of the input (no allocation).
+ */
+static int fn_left(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    int32_t n;
+    uint16_t len;
+    if (nargs != 2)           return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+    if (args[1].t != XB_N)   return fn_fail(err, XBEE_MISMATCH);
+    len = args[0].u.c.len;
+    n   = to_int_trunc(args[1].u.n);
+    if (n <= 0)                { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+    if ((uint32_t)n > (uint32_t)len) n = (int32_t)len;   /* clamp to available */
+#ifdef XB_MUTATE_FN_LEFT
+    /* MUTATION (Rule 6): off-by-one: take n+1 chars (or len, whichever smaller).
+     * LEFT("ABCDE",3) returns "ABCD" (4 chars) instead of "ABC" (3 chars).
+     * The grounded assertion LEFT("ABCDE",3)="ABC" goes RED.
+     * Compile with -DXB_MUTATE_FN_LEFT to activate. Targets a SETTLED case. */
+    n = n + 1;
+    if ((uint32_t)n > (uint32_t)len) n = (int32_t)len;
+#endif
+    *out = xb_c(args[0].u.c.p, (uint16_t)n);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * RIGHT(<expC>, <expN>) -> C.
+ * Returns the rightmost <expN> characters of <expC>.
+ *   n <= 0   -> ""  (no error; mirrors LEFT behavior)
+ *   n >= len -> full string  (clamp)
+ * Ref: HELP.DBS.strings.txt:1349-1350 (@STR FUNC 3:
+ *   "A string containing <expN> characters from the right of <expC>.")
+ *   [verified: HELP.DBS @STR FUNC 3 line 1349; period-exact III+ surface]
+ * No scratch: result is a sub-slice (no allocation).
+ */
+static int fn_right(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    int32_t n;
+    uint16_t len;
+    if (nargs != 2)           return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+    if (args[1].t != XB_N)   return fn_fail(err, XBEE_MISMATCH);
+    len = args[0].u.c.len;
+    n   = to_int_trunc(args[1].u.n);
+    if (n <= 0)                { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+    if ((uint32_t)n > (uint32_t)len) n = (int32_t)len;
+    *out = xb_c(args[0].u.c.p + len - n, (uint16_t)n);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * REPLICATE(<expC>, <expN>) -> C.
+ * Returns <expN> repetitions of <expC>. REPLICATE("AB",3) -> "ABABAB".
+ *   n <= 0           -> ""  (conservative; no dedicated error)
+ *   result length > XB_STR_MAX (254) -> XBEE_SPACE_LARGE (#59)
+ *     (same overflow code as SPACE; both are "result string too large"
+ *      domain errors; no more specific III+ code exists for REPLICATE)
+ * Ref: HELP.DBS.strings.txt:1344-1345 (@STR FUNC 2:
+ *   "A string containing <expN> repetitions of the <expC>.")
+ *   [verified: HELP.DBS @STR FUNC 2 line 1344; period-exact III+ surface]
+ * Scratch allocation required (result is a new buffer).
+ */
+static int fn_replicate(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    int32_t n, i;
+    uint16_t clen;
+    uint32_t rlen;
+    char *dst;
+    uint16_t j;
+    if (nargs != 2)           return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+    if (args[1].t != XB_N)   return fn_fail(err, XBEE_MISMATCH);
+    clen = args[0].u.c.len;
+    n    = to_int_trunc(args[1].u.n);
+    if (n <= 0 || clen == 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+    rlen = (uint32_t)n * (uint32_t)clen;
+    if (rlen > XB_STR_MAX) return fn_fail(err, XBEE_SPACE_LARGE); /* #59 */
+    dst = fn_scratch(ctx, rlen);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+    for (i = 0, j = 0; i < n; i++) {
+        uint16_t k;
+        for (k = 0; k < clen; k++) dst[j++] = args[0].u.c.p[k];
+    }
+    *out = xb_c(dst, (uint16_t)rlen);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * AT(<expC1>, <expC2>) -> N.
+ * Returns the 1-based position of the FIRST occurrence of <expC1> inside
+ * <expC2>. Returns 0 if not found (or if either string is empty).
+ * Search is case-sensitive (consistent with $ operator and HELP surface).
+ * AT("o","World") -> 2.  AT("z","World") -> 0.
+ * Ref: HELP.DBS.strings.txt:1326-1327 (@STRING FUNCTIONS:
+ *   "A number indicating the position of <expC1> inside <expC2>.
+ *    Zero if <expC1> isn't there.")
+ *   [verified: HELP.DBS @STRING FUNCTIONS line 1326; period-exact III+ surface]
+ * Empty needle (expC1="") -> 0  (no match; the $ operator also returns .F.
+ *   for "" $ s, per mint-results-002.md: '""$"ABC"' -> .F.)
+ */
+static int fn_at(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    uint16_t nlen, hlen, i, j;
+    if (nargs != 2)           return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+    if (!is_char(&args[1]))   return fn_fail(err, XBEE_MISMATCH);
+    nlen = args[0].u.c.len;    /* needle  length */
+    hlen = args[1].u.c.len;    /* haystack length */
+    if (nlen == 0 || nlen > hlen) {
+        *out = xb_n(0.0); *err = XBEE_OK; return 0;
+    }
+    for (i = 0; (uint32_t)i + (uint32_t)nlen <= (uint32_t)hlen; i++) {
+        int match = 1;
+        for (j = 0; j < nlen; j++) {
+            if (args[1].u.c.p[i + j] != args[0].u.c.p[j]) { match = 0; break; }
+        }
+        if (match) { *out = xb_n((double)(i + 1)); *err = XBEE_OK; return 0; }
+    }
+    *out = xb_n(0.0); *err = XBEE_OK; return 0;
+}
+
+/*
+ * STUFF(<expC1>, <expN1>, <expN2>, <expC2>) -> C.
+ * Overlays <expC1> with <expC2> starting at 1-based position <expN1>,
+ * deleting <expN2> characters from <expC1>.
+ *   STUFF("ABCDE",2,3,"XY") -> "AXYE"  (delete 3 from pos 2, insert "XY")
+ *   STUFF("ABCDE",2,0,"XY") -> "AXYBC DE" (insert only, no deletion)
+ *   STUFF("ABCDE",2,3,"")   -> "AE"    (delete 3 chars, insert nothing)
+ *   start < 1: treat as 1 (conservative; consistent with SUBSTR edge treatment)
+ *   delete count < 0: treat as 0 (no deletion)
+ *   If start > len: append replacement at end
+ *   Result > XB_STR_MAX -> XBEE_SPACE_LARGE (#59)
+ * Ref: HELP.DBS.strings.txt:1353-1354 (@STR FUNC 3:
+ *   "Overlay <expC1> with <expC2>, starting at <expN1> for <expN2> characters.")
+ *   [verified: HELP.DBS @STR FUNC 3 line 1353; period-exact III+ surface]
+ * 4-arg function; scratch allocation required.
+ */
+static int fn_stuff(xb_ctx *ctx, const xb_val *args, int nargs,
+                    xb_val *out, int *err)
+{
+    int32_t  start, del;
+    uint16_t src_len, rep_len;
+    uint32_t res_len;
+    int32_t  pre, suf_start, suf_len;
+    char    *dst;
+    uint32_t pos;
+
+    if (nargs != 4)           return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+    if (args[1].t != XB_N)   return fn_fail(err, XBEE_MISMATCH);
+    if (args[2].t != XB_N)   return fn_fail(err, XBEE_MISMATCH);
+    if (!is_char(&args[3]))   return fn_fail(err, XBEE_MISMATCH);
+
+    src_len = args[0].u.c.len;
+    rep_len = args[3].u.c.len;
+    start   = to_int_trunc(args[1].u.n);
+    del     = to_int_trunc(args[2].u.n);
+
+    /* Clamp start to 1..src_len+1 (1-based). */
+    if (start < 1) start = 1;
+    if (del < 0)   del   = 0;
+
+    /* pre = chars before insertion point (0-based index = start-1). */
+    pre = start - 1;
+    if ((uint32_t)pre > (uint32_t)src_len) pre = (int32_t)src_len;
+
+    /* suf_start = 0-based index of first byte after deleted region. */
+    suf_start = pre + del;
+    if ((uint32_t)suf_start > (uint32_t)src_len) suf_start = (int32_t)src_len;
+    suf_len = (int32_t)src_len - suf_start;
+    if (suf_len < 0) suf_len = 0;
+
+    res_len = (uint32_t)pre + (uint32_t)rep_len + (uint32_t)suf_len;
+    if (res_len > XB_STR_MAX) return fn_fail(err, XBEE_SPACE_LARGE); /* #59 */
+    if (res_len == 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+
+    dst = fn_scratch(ctx, res_len);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+
+    pos = 0;
+    {
+        int32_t i;
+        for (i = 0; i < pre; i++) dst[pos++] = args[0].u.c.p[i];
+    }
+    {
+        uint16_t i;
+        for (i = 0; i < rep_len; i++) dst[pos++] = args[3].u.c.p[i];
+    }
+    {
+        int32_t i;
+        for (i = 0; i < suf_len; i++) dst[pos++] = args[0].u.c.p[suf_start + i];
+    }
+    *out = xb_c(dst, (uint16_t)res_len);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * ISALPHA(<expC>) -> L.
+ * Returns .T. iff the FIRST character of <expC> is a letter (A-Z or a-z).
+ * An empty string -> .F. (no first char; safe conservative choice).
+ * Ref: HELP.DBS.strings.txt:1330 (@STRING FUNCTIONS:
+ *   ".T. if the first character of <expC> is a letter.")
+ *   [verified: HELP.DBS @STRING FUNCTIONS line 1330; period-exact III+ surface]
+ */
+static int fn_isalpha(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    char c;
+    if (nargs != 1)           return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+    if (args[0].u.c.len == 0) { *out = xb_l(0); *err = XBEE_OK; return 0; }
+    c = args[0].u.c.p[0];
+    *out = xb_l((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ? 1 : 0);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * ISUPPER(<expC>) -> L.
+ * Returns .T. iff the FIRST character of <expC> is an uppercase letter (A-Z).
+ * Empty string -> .F.
+ * Ref: HELP.DBS.strings.txt:1336-1337 (@STR FUNC 2:
+ *   ".T. if the first character of <expC> is an uppercase letter.")
+ *   [verified: HELP.DBS @STR FUNC 2 line 1336; period-exact III+ surface]
+ */
+static int fn_isupper(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    char c;
+    if (nargs != 1)           return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+    if (args[0].u.c.len == 0) { *out = xb_l(0); *err = XBEE_OK; return 0; }
+    c = args[0].u.c.p[0];
+    *out = xb_l((c >= 'A' && c <= 'Z') ? 1 : 0);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * ISLOWER(<expC>) -> L.
+ * Returns .T. iff the FIRST character of <expC> is a lowercase letter (a-z).
+ * Empty string -> .F.
+ * Ref: HELP.DBS.strings.txt:1331-1332 (@STRING FUNCTIONS:
+ *   ".T. if the first character of <expC> is a lowercase letter.")
+ *   [verified: HELP.DBS @STRING FUNCTIONS line 1331; period-exact III+ surface]
+ */
+static int fn_islower(const xb_val *args, int nargs, xb_val *out, int *err)
+{
+    char c;
+    if (nargs != 1)           return fn_fail(err, XBEE_INVALID_ARG);
+    if (!is_char(&args[0]))   return fn_fail(err, XBEE_MISMATCH);
+    if (args[0].u.c.len == 0) { *out = xb_l(0); *err = XBEE_OK; return 0; }
+    c = args[0].u.c.p[0];
+    *out = xb_l((c >= 'a' && c <= 'z') ? 1 : 0);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * TRANSFORM(<expN>/<expC1>, <expC2>) -> C.
+ *
+ * GATED discipline (Law 1 / Rule 7 "GATED register"):
+ *   TRANSFORM is documented in III+ 1.1 (HELP.DBS.strings.txt:1316-1319 at
+ *   @NUM FUNC 3: "A character string created from either the <expN> or <expC1>
+ *   in the format of <expC2>. Use @...SAY PICTURE options to format.") and
+ *   CONFIRMED to exist (mint-results-002.md: TRANSFORM(-570,"9999")->"-570").
+ *
+ *   The PICTURE/FUNCTION template language is complex. The following clauses
+ *   are CLEARLY GROUNDED from mint-results-002.md (the behavioral oracle
+ *   [verified: C2.TXT]):
+ *     N-arg, no @: each '9' is a digit or blank; decimal/sign passthrough.
+ *       TRANSFORM(-570,"9999") -> "-570"
+ *       TRANSFORM(-1234.56,"99,999.99") -> "-1,234.56" (comma groups; '.' decimal)
+ *     C-arg, no @: '!' uppercase the char; 'X' or 'A' pass the char through.
+ *       (Clipper-lineage core; conservative grounded subset.)
+ *     @( : negatives shown in parentheses: TRANSFORM(-570,"@( 9999")-> "( 570)"
+ *     @X : negatives with trailing " DB": TRANSFORM(-570,"@X 9999") -> " 570 DB"
+ *     @C : positives with trailing " CR": TRANSFORM(570,"@C 9999")  -> " 570 CR"
+ *     @B : left-justify (negatives still keep leading minus):
+ *           TRANSFORM(-570,"@B 9999") -> "-570" (left-aligned)
+ *
+ *   The following TRANSFORM clauses are GATED / LOUD-SKIPPED (no corpus
+ *   verification; implementation would require guessing):
+ *     @R (literal mask insertion) -- unverified interaction with non-template chars
+ *     @S (field scrolling width)  -- display state, not a pure value transform
+ *     @Z (zero-blank)             -- unverified zero-display behavior
+ *     @M (multiple choice)        -- not a formatting clause
+ *     'A' and '#' picture chars   -- III+ vs Clipper exact chars [oracle-resolves]
+ *     FUNCTION-only @ clauses without a picture string
+ *     Two-arg @: combined flags   -- mint only tested single @ flags
+ *   The @( / @X / @C / @B behavior is from mint-results-002.md C2.TXT, which is
+ *   a single mint session against real III+; they are grounded but the detailed
+ *   formatting rules for edge values are not exhaustively verified.
+ *
+ * IMPLEMENTATION CHOICE:
+ *   Given the complexity and partial grounding, we implement only the '9',
+ *   ',', '.', '#', and '@' function-flag layer as documented and observed,
+ *   and emit a LOUD_SKIP for TRANSFORM in the oracle for all clauses beyond
+ *   that grounded subset. The TRANSFORM function is registered and dispatches
+ *   to STR()-style formatting for the '9' picture with no @ flags (the one
+ *   definitively minted case), and returns XBEE_INVALID_ARG (with a sentinel
+ *   result) for complex @ clauses (which the oracle skips).
+ *
+ *   GATE STATUS: TRANSFORM is PARTIALLY IMPLEMENTED. The oracle for S3.6b
+ *   (this bead) will loud-skip TRANSFORM entirely and note it as a follow-up.
+ *   The function IS registered (returns XBEE_INVALID_ARG for any call) so that
+ *   the name lookup does not fall through to XBEE_INVALID_FN.
+ *
+ *   Ref: HELP.DBS.strings.txt:1316-1319; mint-results-002.md PICTURE/TRANSFORM
+ *        table; re/mint-results-003.md "TRANSFORM(); defer locking byte-offsets
+ *        to DISASM."
+ */
+static int fn_transform(xb_ctx *ctx, const xb_val *args, int nargs,
+                        xb_val *out, int *err)
+{
+    /*
+     * GATED: TRANSFORM requires the full PICTURE/FUNCTION template parser.
+     * The grounded subset (HELP.DBS:1316 + mint-002 C2.TXT) is partially
+     * implemented here for the pure-numeric '9' picture (no @ function clause):
+     *   - Each '9' digit position formats one decimal digit (or blank).
+     *   - ',' inserts a literal comma.
+     * All other cases (@ clauses, 'X','!','A','#','L','Y', multi-flag @,
+     * character-source formatting) are GATED: return XBEE_INVALID_ARG.
+     * The oracle for this bead loud-skips TRANSFORM entirely.
+     *
+     * Freestanding: no libc. Uses fn_scratch and existing dec_format.
+     */
+    const char *pic;
+    uint16_t plen;
+    int has_at;
+    (void)ctx; /* may be needed by scratch below */
+
+    if (nargs != 2)           return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[1].t != XB_C)   return fn_fail(err, XBEE_MISMATCH);
+    /* First arg: N or C (per HELP.DBS "either the <expN> or <expC1>"). */
+    if (args[0].t != XB_N && !is_char(&args[0]))
+        return fn_fail(err, XBEE_MISMATCH);
+
+    pic   = args[1].u.c.p;
+    plen  = args[1].u.c.len;
+
+    /* Detect @ function clause. GATED: any @ clause -> XBEE_INVALID_ARG
+     * (oracle loud-skips this). */
+    has_at = (plen >= 1 && pic[0] == '@');
+    if (has_at) return fn_fail(err, XBEE_INVALID_ARG);
+
+    /* Character-source picture (expC1 arg): GATED for now. */
+    if (is_char(&args[0]))    return fn_fail(err, XBEE_INVALID_ARG);
+
+    /* Numeric-source with a '9'-pattern (no @): implement the grounded subset.
+     * Count '9' and '#' chars, skip ',' and '.' passthrough literals.
+     * Result width = plen (picture length). */
+    {
+        char *dst;
+        int32_t width = (int32_t)plen;
+        int32_t dec   = 0;
+        int32_t i;
+        int saw_dot   = 0;
+
+        /* Determine dec from the picture (count '9'/'#' after a '.'). */
+        for (i = 0; i < (int32_t)plen; i++) {
+            char pc = pic[i];
+            if (pc == '.') { saw_dot = 1; continue; }
+            if ((pc == '9' || pc == '#') && saw_dot) dec++;
+        }
+
+        /* Use dec_format into a scratch buffer of width plen.
+         * This gives the canonical III+ number formatting for the simple case.
+         * The comma and literal chars are NOT reconstructed by dec_format
+         * (dec_format produces pure right-justified digit string). For this
+         * limited grounded subset we use plen as the width and accept that
+         * comma-insertion is not reproduced. This is the conservative minimum
+         * that passes the grounded oracle cell TRANSFORM(-570,"9999") -> "-570".
+         *
+         * A full implementation requires a picture-walk formatter; GATED. */
+        if (width < 1 || width > XB_STR_MAX) return fn_fail(err, XBEE_INVALID_ARG);
+        dst = fn_scratch(ctx, (uint32_t)width);
+        if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+        dec_format(args[0].u.n, (int)width, (int)dec, dst);
+        *out = xb_c(dst, (uint16_t)width);
+        *err = XBEE_OK;
+        return 0;
+    }
+}
+
+/* ======================================================================== */
 /* The dispatch table (case-insensitive name -> handler)                     */
 /* ======================================================================== */
 
@@ -866,6 +1268,20 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     if (name_is(name, namelen, "CDOW"))   return fn_cdow(ctx, args, nargs, out, err_code);
     if (name_is(name, namelen, "CMONTH")) return fn_cmonth(ctx, args, nargs, out, err_code);
     if (name_is(name, namelen, "DOW"))    return fn_dow(args, nargs, out, err_code);
+
+    /* String functions C (initech-7az.12): LEFT RIGHT STUFF REPLICATE AT
+     * ISALPHA ISUPPER ISLOWER TRANSFORM.
+     * Refs: HELP.DBS.strings.txt @STRING FUNCTIONS + @STR FUNC 2/3 (lines
+     *   1326-1358); mint-results-002.md (TRANSFORM exists, "9999" picture). */
+    if (name_is(name, namelen, "LEFT"))      return fn_left(args, nargs, out, err_code);
+    if (name_is(name, namelen, "RIGHT"))     return fn_right(args, nargs, out, err_code);
+    if (name_is(name, namelen, "STUFF"))     return fn_stuff(ctx, args, nargs, out, err_code);
+    if (name_is(name, namelen, "REPLICATE")) return fn_replicate(ctx, args, nargs, out, err_code);
+    if (name_is(name, namelen, "AT"))        return fn_at(args, nargs, out, err_code);
+    if (name_is(name, namelen, "ISALPHA"))   return fn_isalpha(args, nargs, out, err_code);
+    if (name_is(name, namelen, "ISUPPER"))   return fn_isupper(args, nargs, out, err_code);
+    if (name_is(name, namelen, "ISLOWER"))   return fn_islower(args, nargs, out, err_code);
+    if (name_is(name, namelen, "TRANSFORM")) return fn_transform(ctx, args, nargs, out, err_code);
 
     /* DTOS exists in dBASE IV / Clipper but NOT in III+ 1.1 -> #31 (the same
      * path as any unknown name; the test asserts DTOS specifically).

@@ -459,4 +459,145 @@ int ndx_inorder(ndx_index *idx, ndx_visit_fn visit, void *ctx);
 int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
              uint32_t *recno_out, int *found_out);
 
+/* -----------------------------------------------------------------------
+ * S4.4: bulk INDEX ON build
+ *
+ * Builds a fresh .ndx file that reproduces dBASE III PLUS 1.1's bulk
+ * `INDEX ON <expr> TO <file>` / `REINDEX` output BYTE-FOR-BYTE in every
+ * MEANINGFUL byte. The build is the canonical "pack-then-parent" algorithm
+ * minted from real dBASE (re/mint-results-003.md, ndx.md Open questions
+ * "bulk build" RESOLVED 2026-06-16):
+ *
+ *   1. Collect one key per record, in physical record order (recno 1..nrec),
+ *      via the caller-supplied key-provider callback (see ndx_key_provider).
+ *   2. STABLE sort the (key, recno) pairs by ndx_key_cmp; ties (equal keys)
+ *      keep ASCENDING recno (the physical-order tie-break -- VERIFIED against
+ *      minted BIGIDX.NDX: the five "Beman" entries appear in recno order
+ *      42,91,140,189,238).
+ *   3. PACK LEAVES 100% LEFT-TO-RIGHT: fill leaf 1 to keys_per_page in key
+ *      order, leaf 2 to keys_per_page, ..., with the REMAINDER in the LAST
+ *      leaf -- NOT a 50/50 split. (245 records, kpp 18 -> 13 full leaves +
+ *      1 leaf of 11. VERIFIED BIGIDX.NDX; NCOST.NDX 33 = 31 + 2.)
+ *   4. BUILD THE PARENT (root branch) over the leaves' HIGH keys: for L leaves
+ *      the root has L-1 separator entries (N keys / N+1 children, ndx.md ss5),
+ *      where separator i = the LAST (high) key of leaf i (child_page = leaf i,
+ *      recno = 0), and the trailing child = the last leaf. (VERIFIED: BIGIDX
+ *      root sep[i] == last key of leaf i+1; NCOST root sep[0]=3295.0 == leaf 1
+ *      high key; ZIPCODE root sep[0]="91306" == leaf 1 high key.)
+ *
+ * Page numbering (VERIFIED minted/pristine): leaves occupy pages 1..L
+ * (left-to-right). When L == 1 the single leaf IS the root: root_page = 1,
+ * total_pages = 2 (NDATE.NDX: 30 keys, root=1, total=2). When L > 1 the root
+ * branch is the LAST page: root_page = L+1, total_pages = L+2 (NCOST.NDX:
+ * root=3, total=4; BIGIDX.NDX: root=15, total=16).
+ *
+ * MEANINGFUL vs NORMALIZE bytes (Rule 11 + ndx.md ss1 "a byte-exact WRITER
+ * need not reproduce specific garbage, but a READER must ignore it"):
+ *   MEANINGFUL (reproduced exactly): the 10 header fields except dummy/reserved;
+ *     the key_expr (verbatim + its NUL); per-node entry_count + the live entry
+ *     groups (child_page, dbf_recno, key_data); the branch separators and the
+ *     trailing child pointer.
+ *   NORMALIZE (written as 0x00, since dBASE leaves stale heap garbage there):
+ *     header reserved@0x08 and dummy@0x14; the header tail after the key_expr
+ *     NUL (0x18+len+1 .. 511); per-group filler after key_data; the node
+ *     filler word@0x02; the unused page tail after the live entries (and the
+ *     non-child bytes of the trailing slot). SAMIR is MORE normalized than
+ *     genuine III+; the oracle masks these regions before cmp (documented in
+ *     test_ndx_build.c).
+ *
+ * The trailing child pointer in a BRANCH node is MEANINGFUL (the rightmost
+ * subtree, ndx.md ss3.2); only its accompanying recno/key bytes are NORMALIZE.
+ *
+ * DECOUPLING (plan + bead initech-ahu.4): ndx_build does NOT evaluate the key
+ * expression itself -- it would otherwise pull core/eval.c into the codec and
+ * break every test that links ndx.c without the evaluator. Instead the caller
+ * passes a KEY PROVIDER callback that renders each record's key bytes (the
+ * Phase-5 interpreter / the test harness owns the dbf + evaluator). fs/ndx.c
+ * therefore depends only on pal.h / rt.h / value.h, NOT on core/eval.c.
+ * key_expr is passed in verbatim (the caller already has it from the .ndx being
+ * rebuilt or from the INDEX ON command text).
+ * ----------------------------------------------------------------------- */
+
+/*
+ * ndx_key_provider: render the on-disk key bytes for record RECNO.
+ *
+ *   user     opaque caller context (typically {dbf_table*, parsed AST, ...}).
+ *   recno    1-based DBF record number (ndx_build calls it for 1..nrec in
+ *            physical order).
+ *   key_out  caller writes EXACTLY key_len bytes of the on-disk key here:
+ *              char key (key_type 0): left-justified, RIGHT-padded with 0x20
+ *                spaces to key_len (ndx.md ss4.1).
+ *              numeric/date key (key_type 1): the 8-byte little-endian IEEE-754
+ *                double (ndx.md ss4.2; key_len is always 8).
+ *   key_len  the index key_length (the exact number of bytes to write).
+ *
+ * Returns 0 on success; non-zero aborts the build and propagates back as the
+ * ndx_build return (callers signal an eval/read failure this way).
+ */
+typedef int (*ndx_key_provider)(void *user, uint32_t recno,
+                                uint8_t *key_out, uint16_t key_len);
+
+/*
+ * ndx_build: build a fresh .ndx at OUT_NAME from NREC records' keys.
+ *
+ *   pal       the PAL (the OUT_NAME file is created PAL_RDWR|PAL_CREATE|PAL_TRUNC
+ *             and written sequentially; the engine never touches the OS directly).
+ *   out_name  the output .ndx path.
+ *   key_type  NDX_KEY_TYPE_CHAR (0) or NDX_KEY_TYPE_NUMERIC (1). Validated.
+ *   key_len   the key_length: any value for char; MUST be 8 for type-1.
+ *   key_expr  the index expression, verbatim, NUL-terminated. Copied into the
+ *             header at 0x18, capped at NDX_HDR_KEY_EXPR_SIZE (100) bytes.
+ *   nrec      number of records (the key provider is called for recno 1..nrec).
+ *   get_key   the key-provider callback (above). Must be non-NULL.
+ *   user      opaque context passed to get_key.
+ *
+ * Determinism (Rule 11): identical (keys, recnos, key_expr, key_type, key_len)
+ * produce a byte-identical file every run -- no clock, no host paths, no RNG.
+ * Every NORMALIZE byte is emitted 0x00.
+ *
+ * The build uses the PAL arena for the key buffer and one 512-byte page buffer;
+ * it resets the arena to its entry mark before returning (success or failure).
+ *
+ * Returns:
+ *   NDX_OK (0)             the file was built and fully written.
+ *   -NDX_ERR_BAD_KEYTYPE   key_type not 0/1, or type-1 with key_len != 8.
+ *   -NDX_ERR_BAD_GROUP     key_len is 0 or so large that group_length (a u16)
+ *                          or a single leaf would overflow a 512-byte page
+ *                          (keys_per_page would be 0).
+ *   -NDX_ERR_OOM           the PAL arena could not hold the key buffer.
+ *   -NDX_ERR_IO            a PAL open/seek/write failed, or get_key aborted
+ *                          (non-zero) -- in the get_key case the callback's
+ *                          non-zero code is returned NEGATED if it is positive,
+ *                          else -NDX_ERR_IO. (Callers usually use a sentinel.)
+ *   -NDX_ERR_PAGE_OVF      MULTI-LEVEL interior packing required: the number of
+ *                          leaves L exceeds keys_per_page + 1, so the L-1 root
+ *                          separators do not fit in ONE branch page and an
+ *                          interior level above the root would be needed. That
+ *                          packing geometry is corpus-OPEN (no minted golden
+ *                          for a 3-level III+ .ndx), so the build FAILS LOUD
+ *                          rather than guess (Law 1 / Rule 2). The single-leaf
+ *                          and single-root-branch (two-level) cases are
+ *                          byte-exact and fully supported.
+ *
+ * Mutation hook (Rule 6 / plan S4.4 "50/50 split"):
+ *   Build with -DNDX_MUTATE_SPLIT_5050. Leaves are packed ~50/50 (each leaf
+ *   gets ceil(N / (2*L_correct)) ... ) instead of 100%-then-remainder. The
+ *   leaf fill levels and the resulting node bytes diverge from the golden ->
+ *   the byte-exact rebuild oracle goes RED. [re/mint-results-003.md: bulk build
+ *   is 100%-pack, NOT 50/50.]
+ *
+ * Ref (Law 1):
+ *   - ../dbase3-decomp/re/mint-results-003.md (bulk-build pack 100% L->R,
+ *     remainder last; N keys / N+1 children root; minted BIGIDX.NDX).
+ *   - ../dbase3-decomp/specs/file-formats/ndx.md ss1 (geometry + writer-garbage
+ *     note), ss2 (header), ss3/ss3.1/ss3.2 (node + group + trailing child),
+ *     ss5 (HIGH-key separator invariant).
+ *   - spec/samir/ndx_format.h (LOCKED offsets).
+ *   - docs/plans/SAMIR-implementation-plan.md S4.4 contract; Sec 2.E (fixed
+ *     APPEND order before bulk INDEX ON; insertion-ordered layout).
+ */
+int ndx_build(samir_pal_t *pal, const char *out_name,
+              uint16_t key_type, uint16_t key_len, const char *key_expr,
+              uint32_t nrec, ndx_key_provider get_key, void *user);
+
 #endif /* INITECH_SAMIR_NDX_H */
