@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-16
+**Last Reconciled:** 2026-06-17
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -130,7 +130,11 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **103 host + 27 emu gates** (WL-0028 added +10 host: the forward
+`make test` = **104 host + 27 emu gates** (WL-0029 added +1 host: `test-samir`, the
+SAMIR/M6 foundation umbrella -- pal/rt/pal-host/spec/value + the dbf_ref/ndx_ref Tier-1
+gates; re-verified `make clean && make test-unit` = ALL GREEN 104 host. SAMIR is host-only,
+not yet in the boot image, so the 27 emu gates are unchanged. `test-dbase` stays a milestone
+stub_fail -- the M6 differential lands at S6.3/S6.4). Prior: WL-0028 added +10 host: the forward
 tranche `80k`/`d27i`/`x8fs`/`er3h`/`4tw` x2 -- DOS 8.3 wildcard oracle,
 windowed FAT16 mount, AH=3Fh cooked CON read, AH=33h Get/Set BREAK + ^C/INT 23h
 check-point. Adversarial review caught + fixed a DEC-16 deviation (er3h SET
@@ -327,6 +331,30 @@ host-oracle-hang-pattern). (3) **Adversarial review caught a real DEC-16 deviati
 (er3h SET wrote AL) -- fixed + M7 mutant. Next: `bsy.1` (DIR wildcard emu leg), `bcg.16`
 (in-emulator FAT16 mount oracle -> `40oq` FAT16-green), remaining MILTON shell built-ins.
 
+**SAMIR / M6 (InitechBase) LAUNCHED -- architecture ratified + Phase-0 foundation green
+(WL-0029).** The operator opened M6 and directed a corpus-grounded, platform-agnostic,
+orchestrated build. **`ADR-0008` is RATIFIED** (ADR-by-committee): the **Platform Abstraction
+Layer** (`os/samir/include/samir/pal.h` -- the engine's ONLY OS surface, so InitechDOS drift
+touches only `pal_milton.c`), the artifact/factory storage split (`os/samir/` engine +
+`harness/diff/dbf_diff/` grader + `spec/samir/` locked data), **dBASE III PLUS 1.1-ONLY**
+(IV/`.mdx` dropped; `PRD §6.6` reconciled), and a three-tier corpus-backed grader. The full
+**~38-step DAG is materialized** under epic `initech-586` (the granular plan is
+`docs/plans/SAMIR-implementation-plan.md` -- THE authority). **Phase 0 (portability + harness
+foundation) is COMPLETE + green**: `586.5.1..8` -- the PAL contract, freestanding `rt.c`
+(JDN, dec_format ties->+inf) + `value.c`, host PAL binding, the LOCKED `spec/samir/` (imported
+from the III+-only corpus: no `==`, `0x1C`/`0x1F` NORMALIZE, 151-code msg table), and BOTH
+independent python readers `dbf_ref.py`/`ndx_ref.py` (the oracle independence barrier, 147/0 +
+116/0 vs real goldens). Gate: `make test-samir` (7 sub-gates) green, wired into the aggregate.
+**Standing dependency:** the sister corpus `../dbase3-decomp` (Tier-1 gates resolve
+`DBASE3_DECOMP`; absent -> loud-skip; holds gitignored goldens + the dosbox-x mint harness).
+**NEXT = Phase 1, the `.dbf` codec** (epic `aul`): serial chain `S1.1 -> S1.2 -> S1.3 -> S1.4
+-> S1.5` (`initech-aul.1..5`; header parse+invariants -> field descriptors -> record read ->
+write/round-trip -> mutate), graded against Tier-0 corpus values + the `dbf_ref.py` barrier,
+mutation-proven. **Orchestration cadence (operator-set):** delegate each step to a subagent
+(sonnet default, opus for load-bearing); the orchestrator owns DISJOINT file ownership +
+Makefile integration + independent re-grading + commit-per-landing + the bead ledger; report
+at phase boundaries.
+
 **FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
 ratified the region-first Toolbox plan; operator decided indexed-8 depth,
 640x480, keep seafoam desktop_bg, proceed in parallel with f8v.4. **The ATKINSON
@@ -374,7 +402,9 @@ docs/worklog/        WL-0001..0007 (foundations -> FAT mount); WL-0008+ file
                      streaming walk + z01 FAT16 decode layer) + DEC-16/DEC-07a
                      ADR ratifications, WL-0028 the forward tranche (80k wildcard,
                      d27i windowed FAT16 mount, x8fs/er3h/4tw CON cluster) +
-                     InitechBase (SAMIR) M6 ground-truth research brief (latest)
+                     InitechBase (SAMIR) M6 ground-truth research brief, WL-0029
+                     SAMIR/M6 architecture (ADR-0008) + Phase-0 foundation
+                     (PAL, rt, value, spec lock, dbf_ref/ndx_ref) orchestrated (latest)
 docs/research/       ground-truth briefs (fat12, fat16, boot-to-text, internals/
                      int21h, psp-loader, fs-mount-sft, dbase/SAMIR) -- the
                      per-milestone evidence base
