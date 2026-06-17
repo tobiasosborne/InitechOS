@@ -1304,9 +1304,19 @@ test-samir-dbf-ref:
 # SAMIR foundation umbrella (the Phase-0 unit vector). Grows as engine steps land.
 # This is NOT the M6 gate -- the M6 differential is `test-dbase` (stub_fail until
 # the S6.x oracle lands). test-samir green == the engine FOUNDATION is green.
+# ndx_ref.py (S6.2): the INDEPENDENT python .ndx reader (oracle independence
+# barrier, companion to dbf_ref). Tier-1: goldens-guarded selftest.
+.PHONY: test-samir-ndx-ref
+test-samir-ndx-ref:
+	$(call need_goldens,test-samir-ndx-ref)
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-samir-ndx-ref FAIL: python3 not found.\n'; exit 1; }
+	@printf ">>> test-samir-ndx-ref: independent .ndx B-tree reader vs corpus goldens\n"
+	@DBASE3_DECOMP=$(DBASE3_DECOMP) python3 $(DBF_DIFF_DIR)/ndx_ref.py --selftest
+	@printf ">>> test-samir-ndx-ref: green\n"
+
 .PHONY: test-samir
-test-samir: test-samir-pal test-samir-rt test-samir-pal-host test-samir-spec test-samir-value test-samir-dbf-ref
-	@printf ">>> test-samir: SAMIR foundation green (PAL + rt + value + host binding + spec lock + dbf_ref)\n"
+test-samir: test-samir-pal test-samir-rt test-samir-pal-host test-samir-spec test-samir-value test-samir-dbf-ref test-samir-ndx-ref
+	@printf ">>> test-samir: SAMIR foundation green (PAL + rt + value + host binding + spec lock + dbf_ref + ndx_ref)\n"
 
 # Build the FAT12 decode + chain-walk oracle: the test + the REAL artifact
 # fat12.c + the host blockdev backend (same include set as the BPB oracle).
