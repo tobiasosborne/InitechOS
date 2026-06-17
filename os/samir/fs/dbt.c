@@ -185,17 +185,13 @@ int dbt_open(samir_pal_t *pal, const char *name, int is_iv_dialect,
               | ((uint32_t)hdr[3] << 24);
 
     /* Allocate the handle from the arena.
-     * Take the mark BEFORE the alloc so dbt_close can unwind the whole thing.
-     * Ref: pal.h alloc/reset; plan Sec 2.B "fixed arena, no malloc on Milton". */
-    mark = (void *)0;     /* NULL -> reset to base (safest; arena may be fresh) */
-    /* We cannot call alloc before storing the mark returned by the previous
-     * alloc, so we just record NULL and accept that dbt_close resets to base.
-     * In practice the engine opens one .dbt at a time per work area; this is
-     * fine for S2.1/S2.2 scope.  A more precise mark would require pal->alloc
-     * to return the mark BEFORE allocating, which is not in the PAL contract.
-     * We store a sentinel (NULL) meaning "reset to base"; the arena discipline
-     * guarantees no other live allocations precede this in S2.1 test scenarios.
-     */
+     * Take the PRECISE mark BEFORE the alloc so dbt_close unwinds ONLY what this
+     * .dbt allocated -- NOT the caller's prior allocations. pal->alloc(pal, 0)
+     * returns the current bump pointer without consuming space (same idiom as
+     * dbf.c / ndx.c); resetting to NULL would free a live interpreter's ctx when
+     * a memo-bearing table is closed (initech-7az.5 found this). Ref: pal.h
+     * alloc/reset; plan Sec 2.B "fixed arena, no malloc on Milton". */
+    mark = pal->alloc(pal, 0u);   /* current arena mark (zero alloc) */
     f = (dbt_file *)pal->alloc(pal, (uint32_t)sizeof(dbt_file));
     if (!f) {
         pal->close(pal, fd);
@@ -296,8 +292,9 @@ int dbt_create(samir_pal_t *pal, const char *name, dbt_file **out)
         return -DBT_ERR_IO;
     }
 
-    /* Allocate the handle from the arena (same pattern as dbt_open). */
-    mark = (void *)0;
+    /* Allocate the handle from the arena (same pattern as dbt_open): take the
+     * precise mark BEFORE the alloc so dbt_close unwinds only this .dbt. */
+    mark = pal->alloc(pal, 0u);   /* current arena mark (zero alloc) */
     f = (dbt_file *)pal->alloc(pal, (uint32_t)sizeof(dbt_file));
     if (!f) {
         pal->close(pal, fd);
