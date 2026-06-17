@@ -647,6 +647,10 @@ TEST_DBF_READ      := $(BUILD)/test_dbf_read
 TEST_DBF_READ_MUT  := $(BUILD)/test_dbf_read_mut
 TEST_XBASE_EVAL     := $(BUILD)/test_xbase_eval
 TEST_XBASE_EVAL_MUT := $(BUILD)/test_xbase_eval_mut
+TEST_DBF_ROUNDTRIP     := $(BUILD)/test_dbf_roundtrip
+TEST_DBF_ROUNDTRIP_MUT := $(BUILD)/test_dbf_roundtrip_mut
+DBF_COERCE_FUZZ        := $(BUILD)/dbf_coerce_fuzz
+DBF_COERCE_FUZZ_MUT    := $(BUILD)/dbf_coerce_fuzz_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1396,6 +1400,37 @@ test-dbf-read-mutant: $(TEST_DBF_READ_MUT)
 		printf '>>> test-dbf-read-mutant: green (record-offset +1 correctly RED)\n'; \
 	fi
 
+# ---- SAMIR Phase-1 .dbf codec: deterministic write + round-trip (S1.4 / initech-aul.4) ----
+# dbf_create/dbf_append_rec/dbf_flush emit a byte-deterministic +1-form .dbf
+# (injectable date, NORMALIZE bytes -> 0 per dbf_normalization.json, version 0x83
+# iff memo). Bidirectional round-trip: write -> C read-back + dbf_ref.py read-back
+# (the independence barrier; the host oracle invokes python3 via system(),
+# loud-skip if absent) + golden masked-cmp. The mutant drops the 0x80 memo bit
+# (emits 0x03 where 0x83 required) -> a memo schema reads back has_memo=false -> RED.
+$(TEST_DBF_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_VERSION -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-dbf-roundtrip
+test-dbf-roundtrip: $(TEST_DBF_ROUNDTRIP)
+	@printf ">>> test-dbf-roundtrip: .dbf deterministic write + bidirectional round-trip (C + dbf_ref.py + golden mask) (S1.4)\n"
+	@$(TEST_DBF_ROUNDTRIP) $(DBASE3_DECOMP)
+	@printf ">>> test-dbf-roundtrip: green\n"
+
+.PHONY: test-dbf-roundtrip-mutant
+test-dbf-roundtrip-mutant: $(TEST_DBF_ROUNDTRIP_MUT)
+	@printf ">>> test-dbf-roundtrip-mutant: confirming the memo-version-bit mutant goes RED (Rule 6; initech-aul.4)\n"
+	@$(TEST_DBF_ROUNDTRIP_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-dbf-roundtrip-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_DBF_ROUNDTRIP_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-dbf-roundtrip-mutant FAIL: mutant PASSED -- the memo version bit is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-dbf-roundtrip-mutant: green (0x03-for-memo correctly RED)\n'; \
+	fi
+
 # ---- SAMIR Phase-3 evaluator: xBase expression lexer (S3.1 / initech-gmo.1) ----
 # Host oracle: the test + REAL engine lex.c + rt.c. The lexer is PURE (no PAL, no
 # spec dep) -- it writes into a caller-provided token buffer, allocation-free. The
@@ -1484,6 +1519,37 @@ test-xbase-eval-mutant: $(TEST_XBASE_EVAL_MUT)
 		printf '!!! test-xbase-eval-mutant FAIL: mutant PASSED -- the C+N type-mismatch rule is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-xbase-eval-mutant: green (C+N auto-stringify correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-3 evaluator: coercion fuzzer + shrinker (S3.4 / initech-gmo.4) ----
+# The gmo deliverable: a seeded property-test differential over the REAL evaluator
+# vs a table-driven reference mirroring xbase_coercion.json (directed all-34-cells
+# pass + 2000-seed random sweep). Structured localized signal + shrink-to-minimal +
+# replay seed on divergence. The mutant rebuilds the ENGINE with -DXB_MUTATE_EVAL
+# (C+N succeeds); the fuzzer's reference stays correct so it detects the (C,+,N)
+# divergence -> RED (Rule 6). Deterministic (seeded PRNG, no wall-clock).
+$(DBF_COERCE_FUZZ): $(DBF_DIFF_DIR)/dbf_coerce_fuzz.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/dbf_coerce_fuzz.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC)
+$(DBF_COERCE_FUZZ_MUT): $(DBF_DIFF_DIR)/dbf_coerce_fuzz.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_EVAL -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/dbf_coerce_fuzz.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC)
+
+.PHONY: test-xbase-coercion
+test-xbase-coercion: $(DBF_COERCE_FUZZ)
+	@printf ">>> test-xbase-coercion: coercion fuzzer -- engine vs table-driven reference (directed 34 cells + 2000 seeds) (S3.4)\n"
+	@$(DBF_COERCE_FUZZ)
+	@printf ">>> test-xbase-coercion: green\n"
+
+.PHONY: test-xbase-coercion-mutant
+test-xbase-coercion-mutant: $(DBF_COERCE_FUZZ_MUT)
+	@printf ">>> test-xbase-coercion-mutant: confirming the engine C+N-succeeds mutant is caught by the fuzzer (Rule 6; initech-gmo.4)\n"
+	@$(DBF_COERCE_FUZZ_MUT) 2>/dev/null | grep -q 'checks,\|coverage:' \
+		|| { printf '!!! test-xbase-coercion-mutant FAIL: no summary -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(DBF_COERCE_FUZZ_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-coercion-mutant FAIL: mutant PASSED -- the coercion fuzzer is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-xbase-coercion-mutant: green (fuzzer caught the C+N divergence)\n'; \
 	fi
 
 # dbf_ref.py (S6.1): the INDEPENDENT python .dbf/.dbt reader -- the oracle
@@ -9645,9 +9711,9 @@ TEST_UNIT_GATES := \
 	test-kernel-repro test-kernel-repro-mutant \
 	test-samir \
 	test-dbf-header test-dbf-header-mutant test-dbf-fields test-dbf-fields-mutant \
-	test-dbf-read test-dbf-read-mutant \
+	test-dbf-read test-dbf-read-mutant test-dbf-roundtrip test-dbf-roundtrip-mutant \
 	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant \
-	test-xbase-eval test-xbase-eval-mutant
+	test-xbase-eval test-xbase-eval-mutant test-xbase-coercion test-xbase-coercion-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \

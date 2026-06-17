@@ -344,4 +344,169 @@ const dbf_field_t *dbf_field(const dbf_table *tbl, int i);
 int dbf_read_rec(dbf_table *tbl, uint32_t recno,
                  xb_val *out /*[nfields]*/, int *deleted);
 
+/* ---- S1.4: deterministic write + round-trip ----
+ *
+ * S1.4 (docs/plans/SAMIR-implementation-plan.md): the .dbf creation + write path.
+ *   - dbf_create     : create a NEW (empty, nrec=0) table from a field schema,
+ *                      building the header + descriptors in the PAL arena. The
+ *                      file is NOT written to disk until dbf_flush. The PAL file
+ *                      handle is opened (PAL_RDWR|PAL_CREATE|PAL_TRUNC) at create
+ *                      time so dbf_flush can write and the same handle can be
+ *                      reused for record reads after flush.
+ *   - dbf_append_rec : append one record (formatted from a typed-value array)
+ *                      into the in-arena record region; bumps nrec. (Minimal
+ *                      write-record primitive S1.4 needs for the round-trip; the
+ *                      full mutation verbs REPLACE/DELETE/PACK/ZAP are S1.5.)
+ *   - dbf_flush      : write the complete deterministic file image (header +
+ *                      descriptors + 0x0D terminator + records [+ 0x1A EOF]) to
+ *                      disk through the PAL, and re-sync the open handle so the
+ *                      table can be read back (dbf_read_rec) without re-open.
+ *
+ * Write model (S1.4 decision; documented in dbf.c):
+ *   Build-in-arena, flush-to-disk. dbf_create allocates the header bytes, the
+ *   descriptor bytes, and a growable record region in the PAL arena. Records are
+ *   appended into the arena (each is formatted into record_length bytes). One
+ *   dbf_flush serializes the whole image with a single deterministic byte layout.
+ *   Rationale: a single contiguous write is the simplest path to byte-determinism
+ *   (Rule 11) and matches the "deterministic write" S1.4 contract; per-record
+ *   seek-and-write (needed for in-place REPLACE/DELETE) is deferred to S1.5.
+ *
+ * Determinism (Rule 11): identical inputs + identical injected pal->today()
+ *   date produce a byte-identical file every run. Specifically:
+ *     - version    : 0x83 iff ANY field type is 'M' (memo), else 0x03.
+ *     - last-update: from pal->today() (INJECTABLE; never a wall clock).
+ *     - header_length = DBF_HDR_SIZE + DBF_DESC_STRIDE*nfields + 1  (the "+1"
+ *       lone-0x0D terminator form; S1.4 always emits +1).
+ *     - record_length = DBF_REC_FLAG_SIZE + sum(field lengths).
+ *     - EVERY NORMALIZE byte (spec/samir/dbf_normalization.json) is emitted as
+ *       0x00: header reserved (0x0C..0x0F, 0x10..0x1B multiuser, MDX flag 0x1C,
+ *       LDID 0x1D, 0x1E..0x1F); per-descriptor RAM address 0x0C (0x00000000),
+ *       work-area id 0x14, and all reserved/flag bytes. There are NO live RAM
+ *       pointers or timestamps in SAMIR output (Rule 11) -- the writer is more
+ *       normalized than genuine III+, which leaves a live address at desc 0x0C.
+ *       Ref: spec/samir/dbf_normalization.json (MEANINGFUL vs NORMALIZE map).
+ *
+ * 0x1A EOF byte (S1.4 decision): dbf_flush EMITS a trailing 0x1A after the last
+ *   record. dbf.md sec 8: the EOF byte is OPTIONAL in III+ (present in TAX/
+ *   UNIVERSD, absent in CLIENTS/TOURS/TRAVEL); a reader MUST NOT require it
+ *   (dbf_open does not). We emit it because it is harmless, period-authentic
+ *   (DCREATE writes it), and bounds the file. It is NOT counted in
+ *   header_length or record_length; it sits at offset
+ *   header_length + nrec*record_length. The round-trip oracle normalizes the
+ *   optional trailing 0x1A before comparing to a golden that lacks one.
+ *
+ * Memo (M) field write (S1.4->S2.2 boundary): dbf_create accepts an 'M' field
+ *   and sets the memo (0x80) version bit, but S1.4 does NOT write a .dbt file.
+ *   On dbf_append_rec an 'M' value formats to the 10-byte right-justified block
+ *   number from the xb_m/xb_n payload (or 10 spaces for xb_u "no memo"). Writing
+ *   the .dbt content + back-patching the block number is S2.2. A memo-bearing
+ *   .dbf written by S1.4 has version 0x83 and valid M pointers but no sibling
+ *   .dbt -- exercising it as a standalone memo store is the S2.2 contract.
+ *
+ * Mutation hook (Rule 6):
+ *   -DDBF_MUTATE_VERSION: dbf_flush emits 0x03 in the version byte even when a
+ *   memo (M) field is present (i.e. drops the 0x80 memo bit). A round-trip of a
+ *   memo-bearing schema then reads back has_memo=false -> the oracle goes RED.
+ *   Exactly one constant changes; no other byte is perturbed.
+ *
+ * Ref (Law 1):
+ *   - dbf.md sec 2 (header), sec 3 (version byte / memo bit), sec 4 (descriptor +
+ *     +1 terminator), sec 5 (C/N/D/L/M on-disk encodings), sec 6 (record layout),
+ *     sec 8 (invariants + optional 0x1A EOF).
+ *   - spec/samir/dbf_normalization.json (MEANINGFUL vs NORMALIZE byte map).
+ *   - spec/samir/dbf_format.h (all offsets; DBF_VERSION_NO_MEMO/_WITH_MEMO).
+ *   - rt.h dec_format (N output), jdn/ymd (D output), rt_memset/rt_memcpy.
+ *   - pal.h (write/seek/open with PAL_CREATE/PAL_TRUNC; injectable today()).
+ *   - docs/plans/SAMIR-implementation-plan.md S1.4 contract; Sec 2.E determinism.
+ */
+
+/*
+ * dbf_field_spec: the per-field creation input for dbf_create. (Distinct from
+ * dbf_field_t, which is the DECODED descriptor from an opened table -- this is
+ * the user-supplied schema row.)
+ *
+ *   name       : NUL-terminated field name. Up to 10 usable chars; truncated to
+ *                10 if longer (the 11th byte is the on-disk NUL). dbf.md sec 4.
+ *   type       : 'C', 'N', 'D', 'L', or 'M' (III+ only). dbf.md sec 5.
+ *   field_len  : bytes the field occupies in each record (1..254). For N this
+ *                must include the sign + decimal point. For D it must be 8, for
+ *                L it must be 1, for M it must be 10 (dbf_create asserts these).
+ *   dec        : decimal-place count; meaningful for N only (must be 0 for
+ *                C/D/L/M, asserted). dbf.md sec 4 offset 0x11.
+ */
+typedef struct {
+    const char *name;
+    char        type;
+    uint8_t     field_len;
+    uint8_t     dec;
+} dbf_field_spec;
+
+/*
+ * dbf_create: create a new, empty (nrec=0) .dbf table from a field schema.
+ *
+ * Builds the 32-byte header + nfields 32-byte descriptors + the +1 terminator
+ * in the PAL arena, opens the file via PAL_RDWR|PAL_CREATE|PAL_TRUNC, and
+ * returns the handle in *out (nothing is written to disk until dbf_flush).
+ *
+ * Validates the schema (fail loud, Rule 2):
+ *   - nfields in [1, DBF_MAX_FIELDS]                  -> DBF_ERR_TOO_MANY
+ *   - every type is one of C/N/D/L/M                  -> DBF_ERR_BAD_TYPE
+ *   - per-type length: D==8, L==1, M==10, C/N>=1      -> DBF_ERR_BAD_RECLEN
+ *   - dec==0 for non-N types                          -> DBF_ERR_BAD_TYPE
+ *   - record_length and header_length fit in u16      -> DBF_ERR_BAD_RECLEN/HDRLEN
+ *
+ * Returns DBF_OK and *out != NULL on success; on failure returns -(dbf_err),
+ * sets *out = NULL, and leaves no half-open handle.
+ *
+ * Ref: dbf.md sec 2/3/4/5; spec/samir/dbf_format.h; plan S1.4.
+ */
+int dbf_create(samir_pal_t *pal, const char *name,
+               const dbf_field_spec *fields, int nfields, dbf_table **out);
+
+/*
+ * dbf_append_rec: append one record to a table created by dbf_create.
+ *
+ *   in      : array of at least dbf_nfields(tbl) xb_val, one per field in
+ *             descriptor order. Each is formatted to its field bytes per type
+ *             (C left-justified space-pad; N right-justified via dec_format;
+ *             D YYYYMMDD or 8 spaces for xb_u/xb_d; L 'T'/'F'; M 10-byte
+ *             right-justified block number or 10 spaces for xb_u/empty).
+ *   deleted : 0 -> delete flag 0x20 (live); non-zero -> 0x2A (deleted).
+ *
+ * The formatted record is appended into the in-arena record region and nrec is
+ * bumped. Type-mismatch tolerance: a value whose type does not match the field
+ * is coerced where natural (e.g. xb_u -> blank field) or formatted by the
+ * field's own rule; the full assignment-coercion matrix is S5.5's concern.
+ * S1.4 round-trip only round-trips well-typed values.
+ *
+ * Returns DBF_OK or -(dbf_err): -DBF_ERR_NOMEM (record region exhausted),
+ * -DBF_ERR_BAD_RECLEN (a field value cannot be formatted into its width -- N
+ * overflow is '*'-filled by dec_format, not an error, so this is for structural
+ * faults only). Appending past DBF_MAX_RECS is -DBF_ERR_TOO_MANY.
+ *
+ * Ref: dbf.md sec 5/6; rt.h dec_format; plan S1.4 ("write the records you
+ * create for the round-trip").
+ */
+int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted);
+
+/*
+ * dbf_flush: write the complete deterministic file image to disk through the PAL.
+ *
+ * Serializes: 32-byte header (version 0x03/0x83, injected last-update date,
+ * nrec, header_length, record_length, all NORMALIZE bytes 0x00) + nfields
+ * 32-byte descriptors (name, type, length, dec; RAM addr/work-area/reserved all
+ * 0x00) + the lone 0x0D terminator + every appended record + a trailing 0x1A
+ * EOF byte. The write is one contiguous deterministic byte stream (Rule 11).
+ *
+ * After a successful flush the open handle is repositioned to the file start so
+ * dbf_read_rec can read the just-written records without re-open.
+ *
+ * Only valid on a table from dbf_create (a table from dbf_open is read-only in
+ * S1.4; flushing it returns -DBF_ERR_IO). Returns DBF_OK or -(dbf_err); a short
+ * PAL write is -DBF_ERR_IO (fail loud, Rule 2).
+ *
+ * Ref: dbf.md sec 2/4/6/8; spec/samir/dbf_normalization.json; plan S1.4.
+ */
+int dbf_flush(dbf_table *tbl);
+
 #endif /* INITECH_SAMIR_DBF_H */

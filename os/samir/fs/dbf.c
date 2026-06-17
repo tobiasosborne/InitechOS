@@ -1,6 +1,7 @@
 /*
  * os/samir/fs/dbf.c -- SAMIR (InitechBase) .dbf codec: header (S1.1),
- *                      field-descriptor array (S1.2), record read (S1.3).
+ *                      field-descriptor array (S1.2), record read (S1.3),
+ *                      deterministic write + round-trip (S1.4).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (samir/pal.h,
@@ -32,6 +33,16 @@
  * The mutation hook (DBF_MUTATE_RECOFF) shifts the record offset by +1 (skips
  * the delete-flag byte) so every decoded field value is wrong -> tests go RED.
  * Ref: dbf.md sec 6 (record layout) and sec 5 (field type encodings).
+ *
+ * S1.4 scope (docs/plans/SAMIR-implementation-plan.md S1.4): deterministic
+ * write + round-trip. dbf_create builds the header + descriptors + opens the
+ * file; dbf_append_rec formats typed values into an in-arena record region;
+ * dbf_flush serializes the whole image (version 0x03/0x83, injected last-update
+ * date, +1 terminator, records, trailing 0x1A) in one deterministic byte stream
+ * (Rule 11). Every NORMALIZE byte (spec/samir/dbf_normalization.json) is written
+ * 0x00 (esp. the field RAM address 0x0C, work-area 0x14, LDID 0x1D). The mutation
+ * hook (DBF_MUTATE_VERSION) drops the 0x80 memo bit so a memo schema round-trips
+ * with has_memo=false -> RED. Ref: dbf.md sec 2/3/4/5/6/8.
  *
  * Fail loud (Rule 2): every malformed-input / violated-invariant path returns a
  * negated dbf_err and leaves no half-open handle. A silently-wrong table would
@@ -106,6 +117,31 @@
 #  define REC_OFFSET_EXTRA  0u   /* correct: no extra offset */
 #endif
 
+/*
+ * S1.4 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_VERSION is defined, dbf_flush
+ * writes 0x03 in the version byte EVEN WHEN a memo (M) field is present (it
+ * drops the 0x80 memo bit). A round-trip of a memo-bearing schema then reads
+ * back has_memo=false (and version 0x03), so the round-trip oracle goes RED.
+ * Exactly one decision is perturbed: the has-memo -> memo-bit mapping. The
+ * no-memo case (0x03) is unaffected, so a no-memo round-trip still passes --
+ * only the memo schema bites, which is the point. Ref: plan S1.4 mutant
+ * ("emit 0x03 where 0x83 required -> RED").
+ */
+#ifdef DBF_MUTATE_VERSION
+#  define DBF_MEMO_VERSION_BIT  0x00u   /* mutant: drop the 0x80 memo bit */
+#else
+#  define DBF_MEMO_VERSION_BIT  0x80u   /* correct: dbf.md sec 3 bit 7 = has memo */
+#endif
+
+/*
+ * Upper bound on appended records for an in-arena built table (S1.4). Keeps the
+ * record region from being asked to grow without bound; well above any S1.4
+ * round-trip fixture. A genuine III+ table allows up to ~1e9 records, but the
+ * S1.4 build-in-arena writer is for creating small test/seed tables, not bulk
+ * loads. Ref: plan S1.4 ("minimal ... to put records before flush").
+ */
+#define DBF_MAX_RECS  65535u
+
 /* ---- Opaque table layout (S1.1 fields + S1.2 field array + S1.3 record buf) ---- */
 struct dbf_table {
     samir_pal_t  *pal;        /* the PAL this table was opened through */
@@ -124,6 +160,14 @@ struct dbf_table {
                                * LIFETIME: valid until the next dbf_read_rec call
                                * on the same table. NULL until dbf_open allocates it.
                                * Ref: dbf.h S1.3 "Record buffer lifetime" note. */
+
+    uint8_t      *rec_region; /* S1.4: arena-allocated contiguous record region for
+                               * a dbf_create()'d table; record_length * cap bytes.
+                               * Each dbf_append_rec formats one record here. NULL
+                               * for a dbf_open()'d (read-only) table. */
+    uint32_t      rec_cap;    /* S1.4: capacity of rec_region in records. */
+    uint8_t       writable;   /* S1.4: 1 if created by dbf_create (flushable),
+                               * 0 if opened read-only by dbf_open. */
 
     uint16_t      header_length;   /* offset 0x08, u16 LE */
     uint16_t      record_length;   /* offset 0x0A, u16 LE */
@@ -148,6 +192,21 @@ static uint32_t rd_u32le(const uint8_t *b)
          | ((uint32_t)b[1] << 8)
          | ((uint32_t)b[2] << 16)
          | ((uint32_t)b[3] << 24);
+}
+
+/* ---- little-endian writers (S1.4; mirror the readers above) ---- */
+static void wr_u16le(uint8_t *b, uint16_t v)
+{
+    b[0] = (uint8_t)(v & 0xFFu);
+    b[1] = (uint8_t)((v >> 8) & 0xFFu);
+}
+
+static void wr_u32le(uint8_t *b, uint32_t v)
+{
+    b[0] = (uint8_t)(v & 0xFFu);
+    b[1] = (uint8_t)((v >> 8) & 0xFFu);
+    b[2] = (uint8_t)((v >> 16) & 0xFFu);
+    b[3] = (uint8_t)((v >> 24) & 0xFFu);
 }
 
 /*
@@ -724,6 +783,423 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
 
         field_off += (int32_t)flen;
     }
+
+    return DBF_OK;
+}
+
+/* ======================================================================== */
+/* S1.4: deterministic write + round-trip                                   */
+/*                                                                          */
+/* Write model: build-in-arena, flush-to-disk (dbf.h S1.4 note). dbf_create  */
+/* lays out the header + descriptor metadata + opens the file; records are    */
+/* formatted into an arena record region by dbf_append_rec; dbf_flush         */
+/* serializes the whole image in one deterministic byte stream (Rule 11).     */
+/*                                                                          */
+/* Determinism (Rule 11): no malloc-address or wall-clock leakage. The only   */
+/* date is pal->today() (INJECTABLE). Every NORMALIZE byte                    */
+/* (spec/samir/dbf_normalization.json) is written 0x00. Same inputs + same    */
+/* injected date => byte-identical file every run.                            */
+/* ======================================================================== */
+
+/*
+ * fmt_field: format one xb_val `v` into `dst[0..flen-1]` per the field type
+ * `ftype`/`dec` (dbf.md sec 5 on-disk encodings). `dst` is exactly flen bytes.
+ *
+ *   C : raw bytes of an xb_c/xb_m payload, left-justified, space-padded to flen
+ *       (truncated if longer). xb_u / wrong type -> all spaces.
+ *   N : right-justified ASCII via dec_format(value, flen, dec) (overflow ->
+ *       dec_format fills '*'). xb_u / wrong type -> all spaces (blank N).
+ *   D : 8-char YYYYMMDD from the JDN in an xb_d. xb_u / wrong type -> 8 spaces
+ *       (blank date). (flen is always 8 for D, asserted at create.)
+ *   L : 'T' for a true xb_l, 'F' for false. xb_u -> '?'. (flen is always 1.)
+ *   M : 10-byte right-justified ASCII block number. xb_m payload carries the
+ *       raw 10-byte pointer (copied verbatim); xb_n carries a numeric block
+ *       number (formatted right-justified, 0-padded? no -- space-padded per
+ *       dbf.md sec 5 M "right-justified, space-padded"). xb_u / 0 -> 10 spaces
+ *       (no memo). (flen is always 10 for M.)
+ *
+ * Ref: dbf.md sec 5 (C/N/D/L/M encodings); rt.h dec_format; value.h xb_val.
+ */
+static void fmt_field(uint8_t *dst, uint8_t flen, char ftype, uint8_t dec,
+                      const xb_val *v)
+{
+    uint32_t i;
+
+    switch ((unsigned char)ftype) {
+
+    case (unsigned char)'C': {
+        /* Left-justified, space-padded (dbf.md sec 5 C). */
+        rt_memset(dst, ' ', (uint32_t)flen);
+        if (v && (v->t == XB_C || v->t == XB_M) && v->u.c.p) {
+            uint32_t n = (uint32_t)v->u.c.len;
+            if (n > (uint32_t)flen)
+                n = (uint32_t)flen;   /* truncate to field width */
+            rt_memcpy(dst, v->u.c.p, n);
+        }
+        break;
+    }
+
+    case (unsigned char)'N': {
+        /* Right-justified ASCII; dec_format writes exactly flen bytes and
+         * '*'-fills on overflow (rt.h; dbf.md sec 5 N). Blank/wrong -> spaces. */
+        if (v && v->t == XB_N) {
+            (void)dec_format(v->u.n, (int)flen, (int)dec, (char *)dst);
+        } else {
+            rt_memset(dst, ' ', (uint32_t)flen);   /* blank numeric */
+        }
+        break;
+    }
+
+    case (unsigned char)'D': {
+        /* 8-char YYYYMMDD from the JDN; blank (8 spaces) for xb_u/wrong type.
+         * dbf.md sec 5 D. flen is 8 (create-asserted). */
+        if (v && v->t == XB_D) {
+            int32_t y, m, d;
+            char    buf[8];
+            ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
+            /* YYYY MM DD as zero-padded ASCII (no separators). dec_format would
+             * right-justify with spaces; dates need leading zeros, so emit
+             * digits directly. */
+            buf[0] = (char)('0' + (int)((y / 1000) % 10));
+            buf[1] = (char)('0' + (int)((y / 100) % 10));
+            buf[2] = (char)('0' + (int)((y / 10) % 10));
+            buf[3] = (char)('0' + (int)(y % 10));
+            buf[4] = (char)('0' + (int)((m / 10) % 10));
+            buf[5] = (char)('0' + (int)(m % 10));
+            buf[6] = (char)('0' + (int)((d / 10) % 10));
+            buf[7] = (char)('0' + (int)(d % 10));
+            for (i = 0; i < 8u && i < (uint32_t)flen; i++)
+                dst[i] = (uint8_t)buf[i];
+            for (; i < (uint32_t)flen; i++)
+                dst[i] = (uint8_t)' ';
+        } else {
+            rt_memset(dst, ' ', (uint32_t)flen);   /* blank date */
+        }
+        break;
+    }
+
+    case (unsigned char)'L': {
+        /* One byte: 'T'/'F'; xb_u -> '?'. dbf.md sec 5 L. flen is 1. */
+        uint8_t b;
+        if (v && v->t == XB_L)
+            b = v->u.l ? (uint8_t)'T' : (uint8_t)'F';
+        else
+            b = (uint8_t)'?';   /* uninitialised */
+        rt_memset(dst, ' ', (uint32_t)flen);
+        if (flen >= 1u)
+            dst[0] = b;
+        break;
+    }
+
+    case (unsigned char)'M': {
+        /* 10-byte right-justified ASCII block number; blank (10 spaces) for
+         * xb_u / no memo. dbf.md sec 5 M. flen is 10 (create-asserted).
+         *   xb_m: copy the raw 10-byte pointer verbatim (round-trips the
+         *         on-disk pointer the reader handed back).
+         *   xb_n: format the numeric block number right-justified.
+         *   xb_u/other: 10 spaces (no memo). */
+        rt_memset(dst, ' ', (uint32_t)flen);
+        if (v && v->t == XB_M && v->u.c.p) {
+            uint32_t n = (uint32_t)v->u.c.len;
+            if (n > (uint32_t)flen)
+                n = (uint32_t)flen;
+            /* right-justify the raw pointer bytes (already right-justified on
+             * disk, but copy into the low `n` bytes to be safe). */
+            rt_memcpy(dst + ((uint32_t)flen - n), v->u.c.p, n);
+        } else if (v && v->t == XB_N && v->u.n >= 0.5) {
+            (void)dec_format(v->u.n, (int)flen, 0, (char *)dst);
+        }
+        /* else: 10 spaces -> no memo */
+        break;
+    }
+
+    default:
+        /* dbf_create rejects non-C/N/D/L/M types; fail safe with spaces. */
+        rt_memset(dst, ' ', (uint32_t)flen);
+        break;
+    }
+}
+
+int dbf_create(samir_pal_t *pal, const char *name,
+               const dbf_field_spec *fields, int nfields, dbf_table **out)
+{
+    void       *mark;
+    dbf_table  *tbl;
+    pal_fd      fd;
+    uint32_t    sum_lens;     /* 1 + sum(field lengths) */
+    uint32_t    hdr_len;      /* DBF_HDR_SIZE + 32*nfields + 1 (the +1 form) */
+    int         has_memo;
+    int         fi;
+
+    if (out)
+        *out = (dbf_table *)0;
+    if (!pal || !name || !fields || !out)
+        return -DBF_ERR_IO;
+    if (nfields < 1 || nfields > DBF_MAX_FIELDS)
+        return -DBF_ERR_TOO_MANY;
+
+    /* Validate the schema BEFORE touching the arena/file (fail loud, Rule 2). */
+    sum_lens = (uint32_t)DBF_REC_FLAG_SIZE;
+    has_memo = 0;
+    for (fi = 0; fi < nfields; fi++) {
+        char    t   = fields[fi].type;
+        uint8_t len = fields[fi].field_len;
+        uint8_t dec = fields[fi].dec;
+
+        switch ((unsigned char)t) {
+        case (unsigned char)'C':
+            if (len < 1u || dec != 0u) return -DBF_ERR_BAD_TYPE;
+            break;
+        case (unsigned char)'N':
+            if (len < 1u) return -DBF_ERR_BAD_RECLEN;
+            /* dec must leave room for at least one integer digit + '.' when >0;
+             * dbf.md sec 5 N: width includes sign + '.'. Be permissive on the
+             * exact split (dec_format '*'-fills overflow), require dec < len. */
+            if (dec != 0u && (uint32_t)dec + 1u >= (uint32_t)len)
+                return -DBF_ERR_BAD_RECLEN;
+            break;
+        case (unsigned char)'D':
+            if (len != 8u || dec != 0u) return -DBF_ERR_BAD_TYPE;
+            break;
+        case (unsigned char)'L':
+            if (len != 1u || dec != 0u) return -DBF_ERR_BAD_TYPE;
+            break;
+        case (unsigned char)'M':
+            if (len != 10u || dec != 0u) return -DBF_ERR_BAD_TYPE;
+            has_memo = 1;
+            break;
+        default:
+            return -DBF_ERR_BAD_TYPE;   /* III+ only (plan Sec 2.C) */
+        }
+        sum_lens += (uint32_t)len;
+    }
+
+    /* record_length and header_length must fit in u16 (the header stores them
+     * as u16 LE; dbf.md sec 2). */
+    if (sum_lens > 0xFFFFu)
+        return -DBF_ERR_BAD_RECLEN;
+    hdr_len = (uint32_t)DBF_HDR_SIZE + (uint32_t)DBF_DESC_STRIDE * (uint32_t)nfields + 1u;
+    if (hdr_len > 0xFFFFu)
+        return -DBF_ERR_BAD_HDRLEN;
+
+    /* Allocate the table from the arena; mark first so teardown unwinds it. */
+    mark = pal->alloc(pal, 0);
+    tbl  = (dbf_table *)pal->alloc(pal, (uint32_t)sizeof(*tbl));
+    if (!tbl)
+        return -DBF_ERR_NOMEM;
+    rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
+    tbl->pal  = pal;
+    tbl->mark = mark;
+    tbl->fd   = -1;
+
+    /* Capture header values. Version 0x83 iff any memo field, else 0x03
+     * (dbf.md sec 3). NORMALIZE bytes are emitted at flush time as 0x00. */
+    tbl->version       = has_memo ? (uint8_t)DBF_VERSION_WITH_MEMO
+                                  : (uint8_t)DBF_VERSION_NO_MEMO;
+    tbl->nrec          = 0u;
+    tbl->record_length = (uint16_t)sum_lens;
+    tbl->header_length = (uint16_t)hdr_len;
+    tbl->nfields       = (uint16_t)nfields;
+    tbl->term_extra    = 1u;   /* S1.4 always emits the +1 (lone 0x0D) form */
+    tbl->writable      = 1u;
+
+    /* Injected last-update date (INJECTABLE clock; Rule 11). */
+    pal->today(pal, &tbl->year, &tbl->month, &tbl->day);
+
+    /* Decode the schema into the dbf_field_t array (same shape S1.2 builds). */
+    {
+        uint32_t fsize  = (uint32_t)nfields * (uint32_t)sizeof(dbf_field_t);
+        dbf_field_t *fa = (dbf_field_t *)pal->alloc(pal, fsize);
+        if (!fa)
+            return teardown(tbl, -DBF_ERR_NOMEM);
+        rt_memset(fa, 0, fsize);
+        tbl->fields = fa;
+
+        for (fi = 0; fi < nfields; fi++) {
+            const char *nm = fields[fi].name;
+            uint32_t k;
+            /* Copy name to first NUL, max DBF_DESC_NAME_SIZE-1 usable bytes, then
+             * NUL-terminate. dbf.md sec 4 (up to 10 usable + NUL). */
+            for (k = 0u; nm && nm[k] != '\0' &&
+                         k < (uint32_t)(DBF_DESC_NAME_SIZE - 1); k++)
+                fa[fi].name[k] = nm[k];
+            fa[fi].name[k] = '\0';
+            fa[fi].type      = fields[fi].type;
+            fa[fi].field_len = fields[fi].field_len;
+            fa[fi].dec_count = fields[fi].dec;
+        }
+    }
+
+    /* Allocate the reusable record-read buffer (record_length bytes) so the
+     * table can be read back (dbf_read_rec) after flush without re-open. */
+    {
+        uint8_t *rb = (uint8_t *)pal->alloc(pal, (uint32_t)tbl->record_length);
+        if (!rb)
+            return teardown(tbl, -DBF_ERR_NOMEM);
+        tbl->rec_buf = rb;
+    }
+
+    /* Open the file for read/write, creating/truncating it (PAL contract). */
+    fd = pal->open(pal, name, PAL_RDWR | PAL_CREATE | PAL_TRUNC);
+    if (fd < 0)
+        return teardown(tbl, -DBF_ERR_IO);
+    tbl->fd = fd;
+
+    /* The record region is allocated lazily on the first append (we do not know
+     * the record count at create time). rec_region stays NULL until then. */
+    tbl->rec_region = (uint8_t *)0;
+    tbl->rec_cap    = 0u;
+
+    *out = tbl;
+    return DBF_OK;
+}
+
+int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted)
+{
+    uint8_t  *rec;
+    uint32_t  field_off;
+    uint32_t  fi;
+
+    if (!tbl || !in)
+        return -DBF_ERR_IO;
+    if (!tbl->writable)
+        return -DBF_ERR_IO;   /* read-only (dbf_open) table */
+    if (tbl->nrec >= DBF_MAX_RECS)
+        return -DBF_ERR_TOO_MANY;
+
+    /*
+     * Grow the record region if needed. We bump-allocate from the arena; since
+     * the arena is a pure bump allocator we must allocate the region contiguous.
+     * Strategy: allocate the region once with a growable doubling policy. On the
+     * first append, reserve an initial capacity; if exhausted, allocate a new
+     * (larger) region and copy. This keeps the region contiguous for the single
+     * flush write. (Arena waste is acceptable for S1.4's small test tables.)
+     */
+    if (tbl->nrec >= tbl->rec_cap) {
+        uint32_t new_cap = (tbl->rec_cap == 0u) ? 16u : (tbl->rec_cap * 2u);
+        uint32_t bytes   = new_cap * (uint32_t)tbl->record_length;
+        uint8_t *nr      = (uint8_t *)tbl->pal->alloc(tbl->pal, bytes);
+        if (!nr)
+            return -DBF_ERR_NOMEM;
+        if (tbl->rec_region && tbl->nrec > 0u)
+            rt_memcpy(nr, tbl->rec_region,
+                      tbl->nrec * (uint32_t)tbl->record_length);
+        tbl->rec_region = nr;
+        tbl->rec_cap    = new_cap;
+    }
+
+    rec = tbl->rec_region + tbl->nrec * (uint32_t)tbl->record_length;
+
+    /* Delete flag (dbf.md sec 6). */
+    rec[0] = deleted ? (uint8_t)DBF_REC_DELETE_DELETED
+                     : (uint8_t)DBF_REC_DELETE_LIVE;
+
+    /* Format each field in descriptor order, packed with no separators. */
+    field_off = (uint32_t)DBF_REC_FLAG_SIZE;
+    for (fi = 0u; fi < (uint32_t)tbl->nfields; fi++) {
+        const dbf_field_t *f = &tbl->fields[fi];
+        fmt_field(rec + field_off, f->field_len, f->type, f->dec_count, &in[fi]);
+        field_off += (uint32_t)f->field_len;
+    }
+
+    tbl->nrec++;
+    return DBF_OK;
+}
+
+int dbf_flush(dbf_table *tbl)
+{
+    uint8_t   hdr[DBF_HDR_SIZE];
+    uint8_t   desc[DBF_DESC_STRIDE];
+    uint8_t   term;
+    uint8_t   eof;
+    int32_t   pos;
+    int32_t   wr;
+    uint32_t  fi;
+    uint8_t   memo_bit;
+
+    if (!tbl)
+        return -DBF_ERR_IO;
+    if (!tbl->writable)
+        return -DBF_ERR_IO;   /* read-only (dbf_open) table is not flushable */
+
+    /* Seek to the start; we always rewrite the whole file (TRUNC at create). */
+    pos = tbl->pal->seek(tbl->pal, tbl->fd, 0, PAL_SEEK_SET);
+    if (pos != 0)
+        return -DBF_ERR_IO;
+
+    /* --- 32-byte header (dbf.md sec 2). EVERY non-MEANINGFUL byte is 0x00
+     * (spec/samir/dbf_normalization.json): 0x0C..0x1F all stay zero from the
+     * rt_memset; we only set the MEANINGFUL fields. --- */
+    rt_memset(hdr, 0, DBF_HDR_SIZE);
+
+    /* Version: 0x03 or 0x83. The memo bit comes from DBF_MEMO_VERSION_BIT so the
+     * DBF_MUTATE_VERSION mutant drops it (Rule 6). tbl->version already encodes
+     * has_memo, but we recompute the bit so the mutant perturbation is local. */
+    memo_bit = (tbl->version & 0x80u) ? DBF_MEMO_VERSION_BIT : 0x00u;
+    hdr[DBF_HDR_VERSION_OFF] = (uint8_t)(DBF_VERSION_NO_MEMO | memo_bit);
+
+    hdr[DBF_HDR_YEAR_OFF]  = tbl->year;   /* from pal->today() (Rule 11) */
+    hdr[DBF_HDR_MONTH_OFF] = tbl->month;
+    hdr[DBF_HDR_DAY_OFF]   = tbl->day;
+    wr_u32le(hdr + DBF_HDR_NREC_OFF,       tbl->nrec);
+    wr_u16le(hdr + DBF_HDR_HEADER_LEN_OFF, tbl->header_length);
+    wr_u16le(hdr + DBF_HDR_RECORD_LEN_OFF, tbl->record_length);
+    /* hdr[0x0C..0x1F] remain 0x00 (NORMALIZE: reserved/MDX/LDID/multiuser). */
+
+    wr = tbl->pal->write(tbl->pal, tbl->fd, hdr, DBF_HDR_SIZE);
+    if (wr != (int32_t)DBF_HDR_SIZE)
+        return -DBF_ERR_IO;
+
+    /* --- field descriptors (dbf.md sec 4). NORMALIZE bytes (RAM addr 0x0C,
+     * work-area 0x14, all reserved) stay 0x00 from the rt_memset. --- */
+    for (fi = 0u; fi < (uint32_t)tbl->nfields; fi++) {
+        const dbf_field_t *f = &tbl->fields[fi];
+        uint32_t k;
+
+        rt_memset(desc, 0, DBF_DESC_STRIDE);
+
+        /* Name: bytes up to first NUL, NUL-padded (rt_memset already zeroed). */
+        for (k = 0u; f->name[k] != '\0' &&
+                     k < (uint32_t)DBF_DESC_NAME_SIZE; k++)
+            desc[DBF_DESC_NAME_OFF + k] = (uint8_t)f->name[k];
+
+        desc[DBF_DESC_TYPE_OFF]      = (uint8_t)f->type;
+        /* desc 0x0C..0x0F (field RAM address): 0x00000000 (NORMALIZE). */
+        desc[DBF_DESC_FIELD_LEN_OFF] = f->field_len;
+        desc[DBF_DESC_DEC_COUNT_OFF] = f->dec_count;
+        /* desc 0x14 work-area id, 0x12/0x15/0x17/0x18/0x1F: 0x00 (NORMALIZE). */
+
+        wr = tbl->pal->write(tbl->pal, tbl->fd, desc, DBF_DESC_STRIDE);
+        if (wr != (int32_t)DBF_DESC_STRIDE)
+            return -DBF_ERR_IO;
+    }
+
+    /* --- the lone 0x0D terminator (the +1 form; dbf.md sec 4). --- */
+    term = (uint8_t)DBF_DESC_TERMINATOR;
+    wr = tbl->pal->write(tbl->pal, tbl->fd, &term, 1u);
+    if (wr != 1)
+        return -DBF_ERR_IO;
+
+    /* --- the record region: nrec records, record_length bytes each. --- */
+    if (tbl->nrec > 0u) {
+        uint32_t total = tbl->nrec * (uint32_t)tbl->record_length;
+        wr = tbl->pal->write(tbl->pal, tbl->fd, tbl->rec_region, total);
+        if (wr != (int32_t)total)
+            return -DBF_ERR_IO;
+    }
+
+    /* --- trailing 0x1A EOF byte (S1.4 decision: emit it; dbf.md sec 8 optional;
+     * NOT counted in header_length/record_length; a reader must not require it). */
+    eof = (uint8_t)DBF_EOF_MARKER;
+    wr = tbl->pal->write(tbl->pal, tbl->fd, &eof, 1u);
+    if (wr != 1)
+        return -DBF_ERR_IO;
+
+    /* Reposition to the file start so the table can be read back without
+     * re-open (the open handle is RDWR). */
+    pos = tbl->pal->seek(tbl->pal, tbl->fd, 0, PAL_SEEK_SET);
+    if (pos != 0)
+        return -DBF_ERR_IO;
 
     return DBF_OK;
 }
