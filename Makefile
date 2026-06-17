@@ -598,6 +598,20 @@ CONVERT          ?= convert
 MILTON_DIR        := os/milton
 FAT12_SRC         := $(MILTON_DIR)/fat12.c
 FAT_DIFF_DIR      := harness/diff/fat_diff
+
+# ---- SAMIR (InitechBase, M6) PAL contract oracle (beads initech-586.5.1 / S0.1) ----
+# The PAL is the engine's ONLY OS surface (ADR-0008 DEC-02). pal_null.c is the
+# freestanding completeness proof; the host smoke test links it and exercises
+# every vtable slot through the contract. Engine public headers live under
+# os/samir/include/ ; the host oracle compiles the freestanding pal_null.c with
+# the factory host CC (libc allowed in the test, NOT in pal_null.c). Standalone
+# for now -- NOT yet wired into TEST_UNIT_GATES (that lands with the real harness
+# at S0.4), exactly as test-fat12-bpb stayed out of test-fat until its leg landed.
+SAMIR_DIR         := os/samir
+SAMIR_INC_DIR     := $(SAMIR_DIR)/include
+SAMIR_PAL_NULL_SRC := $(SAMIR_DIR)/pal/pal_null.c
+DBF_DIFF_DIR      := harness/diff/dbf_diff
+TEST_SAMIR_PAL    := $(BUILD)/test_samir_pal_contract
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1196,6 +1210,25 @@ test-fat12-bpb: $(TEST_FAT12_BPB) $(FAT12_IMG)
 	@printf ">>> test-fat12-bpb: mount + BPB parse + geometry vs verified constants\n"
 	@$(TEST_FAT12_BPB) "$(FAT12_IMG)"
 	@printf ">>> test-fat12-bpb: green\n"
+
+# ---- SAMIR PAL contract oracle (beads initech-586.5.1 / S0.1) ----
+# Build the contract oracle: the host smoke test + the freestanding pal_null.c
+# binding. -Iseed for test_assert.h, -I$(SAMIR_INC_DIR) for samir/pal.h. The
+# host CC builds pal_null.c too -- it is freestanding-LEGAL (no libc include) but
+# host-compilable; the artifact build will recompile it with the kernel
+# toolchain at S0.2/S8.1. Fails loud (non-zero) if the build OR any assertion fails.
+$(TEST_SAMIR_PAL): $(DBF_DIFF_DIR)/test_samir_pal_contract.c $(SAMIR_PAL_NULL_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/test_samir_pal_contract.c $(SAMIR_PAL_NULL_SRC)
+
+# Helper gate: build the oracle, run it. NOT yet wired into `test-dbase` /
+# TEST_UNIT_GATES (that happens when the real SAMIR harness lands at S0.4);
+# standalone for now, matching the test-fat12-bpb sequencing.
+.PHONY: test-samir-pal
+test-samir-pal: $(TEST_SAMIR_PAL)
+	@printf ">>> test-samir-pal: samir_pal vtable contract complete + linkable (pal_null)\n"
+	@$(TEST_SAMIR_PAL)
+	@printf ">>> test-samir-pal: green\n"
 
 # Build the FAT12 decode + chain-walk oracle: the test + the REAL artifact
 # fat12.c + the host blockdev backend (same include set as the BPB oracle).
