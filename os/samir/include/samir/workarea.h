@@ -438,6 +438,22 @@ uint32_t wa_nrec(const wa_env *env, int area);
 int wa_eof(const wa_env *env, int area);
 int wa_bof(const wa_env *env, int area);
 
+/*
+ * wa_nav_set_eof / wa_nav_set_bof: write the EOF / BOF flag of area `area`.
+ *
+ * Used ONLY by S5.2 nav.c: wa_goto already clears both flags on a successful
+ * move, but SKIP-past-the-last and SKIP-before-the-first need to SET the flag
+ * after the final wa_goto call. These are the only S5.2 write paths for the
+ * flags that are not covered by wa_goto (which always clears them).
+ *
+ * Silently ignored for a closed area or an out-of-range area number.
+ * val: 0 to clear, non-zero to set.
+ *
+ * Ref: nav.c S5.2 SKIP implementation; workarea.h wa_eof/wa_bof (read side).
+ */
+void wa_nav_set_eof(wa_env *env, int area, int val);
+void wa_nav_set_bof(wa_env *env, int area, int val);
+
 /* wa_alias: NUL-terminated alias of area `area`, or "" (empty) if closed.
  * Pointer is owned by the area; valid until the area is closed/re-USEd. */
 const char *wa_alias(const wa_env *env, int area);

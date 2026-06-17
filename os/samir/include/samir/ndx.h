@@ -104,9 +104,16 @@ typedef enum {
     NDX_ERR_BAD_PAGE     = 7,  /* page_no out of range in ndx_read_node */
     NDX_ERR_PAGE_OVF     = 8,  /* entry extends past 512-byte page boundary */
     NDX_ERR_OOM          = 9,  /* PAL arena exhausted */
-    NDX_ERR_CYCLE        = 10  /* B-tree descent revisited a page / overran the
+    NDX_ERR_CYCLE        = 10, /* B-tree descent revisited a page / overran the
                                 * total_pages depth bound -- a corrupt index
                                 * cycle. Fail loud (Rule 2) instead of looping. */
+    /* S4.5: incremental maintenance error codes. */
+    NDX_ERR_READONLY     = 11, /* write op on a read-only index (ndx_open, not
+                                * ndx_open_rw) */
+    NDX_ERR_NOROOM       = 12, /* split would require 3+ tree levels; corpus-open
+                                * (no minted golden for 3-level III+ split) --
+                                * fail loud (Law 1 / Rule 2) rather than guess. */
+    NDX_ERR_NOTFOUND     = 13  /* key+recno to delete not found in the index */
 } ndx_err;
 
 /* -----------------------------------------------------------------------
@@ -599,5 +606,141 @@ typedef int (*ndx_key_provider)(void *user, uint32_t recno,
 int ndx_build(samir_pal_t *pal, const char *out_name,
               uint16_t key_type, uint16_t key_len, const char *key_expr,
               uint32_t nrec, ndx_key_provider get_key, void *user);
+
+/* -----------------------------------------------------------------------
+ * S4.5: incremental index maintenance
+ *
+ * These functions maintain an open .ndx after a DBF record is appended,
+ * replaced, or deleted. They are the interface that S5.5 (REPLACE/APPEND
+ * interpreter commands) calls to keep the index consistent.
+ *
+ * GATED (plan S4.5 + sec7): mid-leaf split byte-exactness is corpus-open.
+ * The oracle asserts behavioral correctness (ndx_seek finds every key with
+ * the right recno; ndx_inorder is fully sorted and contains exactly the
+ * expected set) but LOUD-SKIPs byte-exact node layout after a split.
+ *
+ * Mutation hook (Rule 6):
+ *   Build with -DNDX_MUTATE_INSERT_NOSORT. ndx_insert_key appends the new
+ *   key AT THE END of the target leaf without inserting it in sorted order.
+ *   Post-insert ndx_inorder will then not be monotonically ascending and
+ *   ndx_seek for some inserted keys will fail to find them -> oracle RED.
+ *   The macro is documented in ndx.c.
+ *
+ * Design notes (S5.5 caller contract):
+ *   1. Open the index with ndx_open_rw (read-write; ndx_open is read-only).
+ *      ndx_insert_key / ndx_delete_key / ndx_update_key require a writable fd.
+ *   2. After DBF APPEND, call ndx_insert_key with the new record's key bytes
+ *      and its 1-based recno.
+ *   3. After DBF REPLACE that changes the indexed field, call ndx_update_key
+ *      (which is ndx_delete_key + ndx_insert_key).
+ *   4. After DBF DELETE/PACK, call ndx_delete_key for each deleted recno.
+ *   5. ndx_close closes the fd regardless of whether the index was opened
+ *      read-only (ndx_open) or read-write (ndx_open_rw).
+ *
+ * Error code additions:
+ *   NDX_ERR_READONLY  -- write attempted on a read-only fd.
+ *   NDX_ERR_NOROOM    -- a split would require 3+ tree levels (corpus-open);
+ *                        fails loud per Law 1 / Rule 2 rather than guessing.
+ *   NDX_ERR_NOTFOUND  -- key/recno to delete was not found in the index.
+ *
+ * Ref (Law 1):
+ *   - docs/plans/SAMIR-implementation-plan.md S4.5 contract + sec7 GATED register.
+ *   - ../dbase3-decomp/specs/file-formats/ndx.md ss3 (node layout), ss5 (B-tree
+ *     ordering invariant); incremental-insert open questions (GATED: mid-leaf
+ *     split byte-exact layout pending MINT).
+ *   - CLAUDE.md Rule 2 (fail loud), Rule 3 (all bugs deep), Rule 6 (mutation-prove).
+ * ----------------------------------------------------------------------- */
+
+/*
+ * ndx_open_rw: open an existing .ndx at PATH in read-write mode.
+ *
+ * Identical to ndx_open (same validation, same error codes) but opens the
+ * file with PAL_RDWR so ndx_insert_key / ndx_delete_key / ndx_update_key
+ * can write back to it. The returned ndx_index carries a writable flag;
+ * ndx_close closes it the same way.
+ *
+ * ndx_open (PAL_RD) is sufficient for read-only use (ndx_seek, ndx_inorder).
+ * ndx_insert_key / ndx_delete_key called on a read-only index return
+ * -NDX_ERR_READONLY immediately (fail loud).
+ *
+ * Returns NDX_OK and *out set on success; negative ndx_err on failure.
+ */
+int ndx_open_rw(samir_pal_t *pal, const char *name, ndx_index **out);
+
+/*
+ * ndx_insert_key: insert a (key_data, recno) entry into the open B-tree.
+ *
+ *   idx       must be opened with ndx_open_rw (else -NDX_ERR_READONLY).
+ *   key_data  ndx_key_length(idx) bytes in on-disk encoding:
+ *               char key (type 0): left-justified, space-padded to key_length.
+ *               numeric/date key (type 1): 8-byte LE IEEE-754 double.
+ *   recno     1-based DBF record number for this entry.
+ *
+ * Behaviour:
+ *   1. Descend to the leaf where the new key belongs (same search as ndx_seek,
+ *      using ndx_key_cmp to find the insertion slot -- the first existing key
+ *      strictly greater than the new key; ties broken by recno ascending).
+ *   2. Insert the (key_data, recno) entry at that position in the leaf, shifting
+ *      later entries right (maintains sorted invariant).
+ *   3. If the leaf was already full (entry_count == keys_per_page):
+ *      a. Allocate a new page (appended to the file; total_pages incremented).
+ *      b. Split the overfull leaf. GATED: byte-exact split layout is corpus-open;
+ *         the implementation uses a simple ~half split. The oracle loud-skips
+ *         byte-exact split layout but asserts behavioral correctness.
+ *      c. Update the parent branch: insert a new separator for the new page.
+ *         If the parent (root) is also full -> -NDX_ERR_NOROOM (fail loud;
+ *         3-level trees are corpus-open, Law 1).
+ *      d. Update the header (total_pages; possibly root_page when a new root
+ *         branch is created).
+ *   4. Write the modified page(s) back via the PAL.
+ *
+ * Mutation hook (-DNDX_MUTATE_INSERT_NOSORT): step 2 is skipped; the new
+ * entry is appended at the end of the leaf without sorted placement.
+ * After this mutation, ndx_inorder yields an out-of-order sequence and
+ * ndx_seek fails to find some inserted keys -> oracle goes RED.
+ *
+ * Returns NDX_OK (0) on success; negative ndx_err on failure.
+ */
+int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno);
+
+/*
+ * ndx_delete_key: remove the entry with matching key_data AND recno from
+ * the B-tree.
+ *
+ *   idx       must be opened with ndx_open_rw (else -NDX_ERR_READONLY).
+ *   key_data  ndx_key_length(idx) bytes (exact match, not begins-with).
+ *   recno     the 1-based DBF record number to match.
+ *
+ * Behaviour: seek the leaf for key_data, scan for the entry with matching
+ * key_data (exact, ndx_key_cmp == 0) AND recno. If found, remove it by
+ * shifting the remaining entries left. No re-balancing (dBASE III PLUS does
+ * not re-balance on delete -- it leaves underfull nodes). Write the page back.
+ *
+ * If not found returns -NDX_ERR_NOTFOUND (fail loud -- the caller passed a
+ * key that was never inserted, which is a coding bug in S5.5).
+ *
+ * Returns NDX_OK (0) on success; negative ndx_err on failure.
+ */
+int ndx_delete_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno);
+
+/*
+ * ndx_update_key: update the index after a REPLACE command changes the
+ * indexed field. This is delete-old + insert-new.
+ *
+ *   idx          must be opened with ndx_open_rw.
+ *   old_key_data ndx_key_length(idx) bytes -- the old key (to remove).
+ *   new_key_data ndx_key_length(idx) bytes -- the new key (to insert).
+ *   recno        the 1-based DBF record number (same for both ops).
+ *
+ * If old == new (ndx_key_cmp == 0 and recno matches), returns NDX_OK without
+ * any I/O (no-op optimization: the key did not change).
+ *
+ * Returns NDX_OK on success; negative ndx_err on failure (propagates
+ * ndx_delete_key or ndx_insert_key error).
+ */
+int ndx_update_key(ndx_index *idx,
+                   const uint8_t *old_key_data,
+                   const uint8_t *new_key_data,
+                   uint32_t recno);
 
 #endif /* INITECH_SAMIR_NDX_H */

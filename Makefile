@@ -687,6 +687,16 @@ SAMIR_CMD_DIR     := $(SAMIR_DIR)/cmd
 SAMIR_WORKAREA_SRC := $(SAMIR_CMD_DIR)/workarea.c
 TEST_INTERP_USE      := $(BUILD)/test_interp_use
 TEST_INTERP_USE_MUT  := $(BUILD)/test_interp_use_mut
+# S4.5 .ndx incremental maintenance (initech-ahu.5).
+TEST_NDX_MAINTAIN     := $(BUILD)/test_ndx_maintain
+TEST_NDX_MAINTAIN_MUT := $(BUILD)/test_ndx_maintain_mut
+# S5.2 navigation GO/SKIP/TOP/BOTTOM/EOF/BOF (initech-7az.3).
+SAMIR_NAV_SRC     := $(SAMIR_CMD_DIR)/nav.c
+TEST_INTERP_NAV      := $(BUILD)/test_interp_nav
+TEST_INTERP_NAV_MUT  := $(BUILD)/test_interp_nav_mut
+# S6.3 bidirectional round-trip oracle + normalization-mask mutant (initech-17n.1 / 586.3).
+TEST_DBASE_ROUNDTRIP     := $(BUILD)/test_dbase_roundtrip
+TEST_DBASE_ROUNDTRIP_MUT := $(BUILD)/test_dbase_roundtrip_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1619,6 +1629,36 @@ test-ndx-build-mutant: $(TEST_NDX_BUILD_MUT)
 		printf '>>> test-ndx-build-mutant: green (50/50 split correctly RED)\n'; \
 	fi
 
+# ---- SAMIR Phase-4 index: incremental maintenance (S4.5 / initech-ahu.5) ----
+# ndx_open_rw + ndx_insert_key/ndx_update_key/ndx_delete_key keep an open index
+# correct after APPEND/REPLACE: post-insert SEEK + in-order stay correct (BEHAVIORAL;
+# mid-leaf-split BYTE-exactness is corpus-OPEN -> loud-skipped). The Tier-1 corpus
+# leg COPIES the golden to /tmp before RW (never mutate a read-only golden). Mutant:
+# insert without sorted placement -> in-order/SEEK RED.
+$(TEST_NDX_MAINTAIN): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_NDX_MAINTAIN_MUT): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_INSERT_NOSORT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-ndx-maintain
+test-ndx-maintain: $(TEST_NDX_MAINTAIN)
+	@printf ">>> test-ndx-maintain: .ndx incremental insert/update/delete keep SEEK + in-order correct (behavioral) (S4.5)\n"
+	@$(TEST_NDX_MAINTAIN) $(DBASE3_DECOMP)
+	@printf ">>> test-ndx-maintain: green\n"
+
+.PHONY: test-ndx-maintain-mutant
+test-ndx-maintain-mutant: $(TEST_NDX_MAINTAIN_MUT)
+	@printf ">>> test-ndx-maintain-mutant: confirming the no-sorted-insert mutant goes RED (Rule 6; initech-ahu.5)\n"
+	@$(TEST_NDX_MAINTAIN_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-ndx-maintain-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_NDX_MAINTAIN_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-ndx-maintain-mutant FAIL: mutant PASSED -- the sorted-insert invariant is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ndx-maintain-mutant: green (no-sorted-insert correctly RED)\n'; \
+	fi
+
 # ---- SAMIR Phase-2 memo: .dbt III+ memo READ (S2.1 / initech-aul.6) ----
 # dbt_open + dbt_read: 512-byte blocks, LE block-0 next-free ptr, 0x1A 0x1A
 # terminator (tolerate single trailing 0x1A), 10-byte ASCII M pointer. READ-only;
@@ -1792,6 +1832,67 @@ test-interp-use-mutant: $(TEST_INTERP_USE_MUT)
 		printf '!!! test-interp-use-mutant FAIL: mutant PASSED -- SELECT routing is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-interp-use-mutant: green (SELECT misroute correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-5 navigation: GO/GOTO/SKIP/TOP/BOTTOM/EOF/BOF (S5.2 / initech-7az.3) ----
+# Physical (recno 1..nrec) AND index order (materialized via the existing ndx_inorder
+# -- nav.c does NOT touch ndx.c). EOF/BOF cursor maintenance. GATED edges (SKIP-at-
+# EOF/BOF error-vs-silent; SET DELETED/FILTER-hidden GO) loud-skipped (plan sec.7).
+# Mutant: SKIP off-by-one / index-order uses physical -> walk RED.
+INTERP_NAV_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_INTERP_NAV): $(DBF_DIFF_DIR)/test_interp_nav.c $(INTERP_NAV_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_nav.c $(INTERP_NAV_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_INTERP_NAV_MUT): $(DBF_DIFF_DIR)/test_interp_nav.c $(INTERP_NAV_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNAV_MUTATE_SKIP -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_nav.c $(INTERP_NAV_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-interp-nav
+test-interp-nav: $(TEST_INTERP_NAV)
+	@printf ">>> test-interp-nav: GO/GOTO/SKIP/GO TOP-BOTTOM/EOF/BOF; physical + index order (S5.2)\n"
+	@$(TEST_INTERP_NAV) $(DBASE3_DECOMP)
+	@printf ">>> test-interp-nav: green\n"
+
+.PHONY: test-interp-nav-mutant
+test-interp-nav-mutant: $(TEST_INTERP_NAV_MUT)
+	@printf ">>> test-interp-nav-mutant: confirming the SKIP off-by-one mutant goes RED (Rule 6; initech-7az.3)\n"
+	@$(TEST_INTERP_NAV_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-interp-nav-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_INTERP_NAV_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-interp-nav-mutant FAIL: mutant PASSED -- nav SKIP is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-interp-nav-mutant: green (SKIP off-by-one correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-6 oracle: bidirectional round-trip + normalization-mask mutant (S6.3 / initech-17n.1, bead 586.3) ----
+# SAMIR writes .dbf+.dbt + builds .ndx, masked-memcmp vs golden (mask per
+# spec/samir/dbf_normalization.json) AND independent python read-back (dbf_ref.py/
+# ndx_ref.py; loud-skip if absent). Distinct from the test-dbase milestone umbrella.
+# Mutant NORM_MUTATE_MASK_CELL un-masks the last-update date -> a passing round-trip
+# (whose injected date differs from the golden's) goes RED -> proves the mask bites.
+DBASE_RT_ENG := $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_DBASE_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbase_roundtrip.c $(DBASE_RT_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbase_roundtrip.c $(DBASE_RT_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBASE_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbase_roundtrip.c $(DBASE_RT_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNORM_MUTATE_MASK_CELL -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbase_roundtrip.c $(DBASE_RT_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-dbase-roundtrip
+test-dbase-roundtrip: $(TEST_DBASE_ROUNDTRIP)
+	@printf ">>> test-dbase-roundtrip: bidirectional .dbf+.dbt+.ndx round-trip (masked-memcmp + python read-back) (S6.3)\n"
+	@$(TEST_DBASE_ROUNDTRIP) $(DBASE3_DECOMP)
+	@printf ">>> test-dbase-roundtrip: green\n"
+
+.PHONY: test-dbase-roundtrip-mutant
+test-dbase-roundtrip-mutant: $(TEST_DBASE_ROUNDTRIP_MUT)
+	@printf ">>> test-dbase-roundtrip-mutant: confirming the un-masked-date mutant goes RED (Rule 6; bead 586.3)\n"
+	@$(TEST_DBASE_ROUNDTRIP_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-dbase-roundtrip-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_DBASE_ROUNDTRIP_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-dbase-roundtrip-mutant FAIL: mutant PASSED -- the normalization mask is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-dbase-roundtrip-mutant: green (un-masked date correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 evaluator: xBase expression lexer (S3.1 / initech-gmo.1) ----
@@ -10080,6 +10181,7 @@ TEST_UNIT_GATES := \
 	test-ndx-keys test-ndx-keys-mutant \
 	test-ndx-seek test-ndx-seek-mutant \
 	test-ndx-build test-ndx-build-mutant \
+	test-ndx-maintain test-ndx-maintain-mutant \
 	test-dbt-read test-dbt-read-mutant \
 	test-dbt-roundtrip test-dbt-roundtrip-mutant \
 	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant \
@@ -10087,7 +10189,9 @@ TEST_UNIT_GATES := \
 	test-xbase-fn-a test-xbase-fn-a-mutant \
 	test-xbase-fn-b test-xbase-fn-b-mutant \
 	test-xbase-fn-c test-xbase-fn-c-mutant \
-	test-interp-use test-interp-use-mutant
+	test-interp-use test-interp-use-mutant \
+	test-interp-nav test-interp-nav-mutant \
+	test-dbase-roundtrip test-dbase-roundtrip-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \

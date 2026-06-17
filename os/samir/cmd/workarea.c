@@ -713,6 +713,20 @@ int wa_bof(const wa_env *env, int area)
     return env->area[area - 1].bof;
 }
 
+void wa_nav_set_eof(wa_env *env, int area, int val)
+{
+    if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)
+        return;
+    env->area[area - 1].eof = val ? 1 : 0;
+}
+
+void wa_nav_set_bof(wa_env *env, int area, int val)
+{
+    if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)
+        return;
+    env->area[area - 1].bof = val ? 1 : 0;
+}
+
 const char *wa_alias(const wa_env *env, int area)
 {
     if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)
