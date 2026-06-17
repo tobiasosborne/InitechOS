@@ -630,6 +630,10 @@ TEST_SAMIR_SPEC   := $(BUILD)/test_samir_spec
 SAMIR_VALUE_SRC   := $(SAMIR_DIR)/core/value.c
 TEST_SAMIR_VALUE  := $(BUILD)/test_samir_value
 DBF_REF_PY        := $(DBF_DIFF_DIR)/dbf_ref.py
+# Phase-1 .dbf codec engine source (S1.x); Phase-3 evaluator core (S3.x).
+SAMIR_DBF_SRC     := $(SAMIR_DIR)/fs/dbf.c
+TEST_DBF_HEADER     := $(BUILD)/test_dbf_header
+TEST_DBF_HEADER_MUT := $(BUILD)/test_dbf_header_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1289,6 +1293,37 @@ test-samir-value: $(TEST_SAMIR_VALUE)
 	@printf ">>> test-samir-value: xb_val typed value (C/N/D/L/M/U) + xb_typeof/xb_eq\n"
 	@$(TEST_SAMIR_VALUE)
 	@printf ">>> test-samir-value: green\n"
+
+# ---- SAMIR Phase-1 .dbf codec: header parse + invariants (S1.1 / initech-aul.1) ----
+# Host oracle: the test + REAL engine dbf.c + rt.c + the host PAL binding. -Ispec
+# resolves the LOCKED spec/samir/dbf_format.h offsets. Tier-0 manifest assertions
+# gate with NO external dep; Tier-1 reads the corpus goldens by path
+# ($(DBASE3_DECOMP)) and loud-skips per-fixture if absent (plan sec.2.A: Tier-0
+# still gates -- never a silent pass). The mutant perturbs the invariant-1b
+# record_length check (reclen off-by-one) so a valid golden fails dbf_open (Rule 6).
+$(TEST_DBF_HEADER): $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_HEADER_MUT): $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_RECLEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-dbf-header
+test-dbf-header: $(TEST_DBF_HEADER)
+	@printf ">>> test-dbf-header: .dbf III+ header parse + structural invariants 1/1b/2 (S1.1)\n"
+	@$(TEST_DBF_HEADER) $(DBASE3_DECOMP)
+	@printf ">>> test-dbf-header: green\n"
+
+.PHONY: test-dbf-header-mutant
+test-dbf-header-mutant: $(TEST_DBF_HEADER_MUT)
+	@printf ">>> test-dbf-header-mutant: confirming the reclen off-by-one mutant goes RED (Rule 6; initech-aul.1)\n"
+	@$(TEST_DBF_HEADER_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-dbf-header-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_DBF_HEADER_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-dbf-header-mutant FAIL: mutant PASSED -- the invariant-1b reclen check is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-dbf-header-mutant: green (reclen off-by-one correctly RED)\n'; \
+	fi
 
 # dbf_ref.py (S6.1): the INDEPENDENT python .dbf/.dbt reader -- the oracle
 # independence barrier. Tier-1: its selftest asserts against the sister-corpus
@@ -9447,7 +9482,8 @@ TEST_UNIT_GATES := \
 	test-rtc-mutant \
 	test-absdisk test-absdisk-mutant \
 	test-kernel-repro test-kernel-repro-mutant \
-	test-samir
+	test-samir \
+	test-dbf-header test-dbf-header-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
