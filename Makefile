@@ -614,10 +614,22 @@ SAMIR_PAL_NULL_SRC := $(SAMIR_DIR)/pal/pal_null.c
 SAMIR_RT_SRC      := $(SAMIR_DIR)/core/rt.c
 SAMIR_PAL_HOST_SRC := $(SAMIR_DIR)/pal/pal_host.c
 DBF_DIFF_DIR      := harness/diff/dbf_diff
+# Sister corpus (../dbase3-decomp) holds the copyrighted golden fixtures
+# (gitignored). Tier-1 golden-diff gates resolve it by path; if absent they FAIL
+# LOUD (exit 1) naming the missing path -- never a silent skip (ADR-0008 DEC-05,
+# the test-fat-fault-rollback mformat-guard idiom). Tier-0 manifest gates need
+# nothing external. Use $(call need_goldens,<gate-name>) at the top of a Tier-1 recipe.
+DBASE3_DECOMP     ?= ../dbase3-decomp
+define need_goldens
+	@test -d "$(DBASE3_DECOMP)/goldens" || { printf '!!! $(1) FAIL: sister-corpus goldens not found at $(DBASE3_DECOMP)/goldens -- set DBASE3_DECOMP=<path>. A skipped oracle is worse than a red one.\n'; exit 1; }
+endef
 TEST_SAMIR_PAL    := $(BUILD)/test_samir_pal_contract
 TEST_SAMIR_RT     := $(BUILD)/test_samir_rt
 TEST_SAMIR_PAL_HOST := $(BUILD)/test_samir_pal_host
 TEST_SAMIR_SPEC   := $(BUILD)/test_samir_spec
+SAMIR_VALUE_SRC   := $(SAMIR_DIR)/core/value.c
+TEST_SAMIR_VALUE  := $(BUILD)/test_samir_value
+DBF_REF_PY        := $(DBF_DIFF_DIR)/dbf_ref.py
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1268,12 +1280,33 @@ test-samir-spec: $(TEST_SAMIR_SPEC)
 	@$(TEST_SAMIR_SPEC) $(SAMIR_SPEC_DIR)
 	@printf ">>> test-samir-spec: green\n"
 
+# value model (S0.6): freestanding typed value; links rt.c (uses rt_memcmp).
+$(TEST_SAMIR_VALUE): $(DBF_DIFF_DIR)/test_samir_value.c $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/test_samir_value.c $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC)
+.PHONY: test-samir-value
+test-samir-value: $(TEST_SAMIR_VALUE)
+	@printf ">>> test-samir-value: xb_val typed value (C/N/D/L/M/U) + xb_typeof/xb_eq\n"
+	@$(TEST_SAMIR_VALUE)
+	@printf ">>> test-samir-value: green\n"
+
+# dbf_ref.py (S6.1): the INDEPENDENT python .dbf/.dbt reader -- the oracle
+# independence barrier. Tier-1: its selftest asserts against the sister-corpus
+# goldens, so it is goldens-guarded (need_goldens fails loud if absent, DEC-05).
+.PHONY: test-samir-dbf-ref
+test-samir-dbf-ref:
+	$(call need_goldens,test-samir-dbf-ref)
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-samir-dbf-ref FAIL: python3 not found.\n'; exit 1; }
+	@printf ">>> test-samir-dbf-ref: independent .dbf/.dbt reader vs corpus goldens\n"
+	@DBASE3_DECOMP=$(DBASE3_DECOMP) python3 $(DBF_REF_PY) --selftest
+	@printf ">>> test-samir-dbf-ref: green\n"
+
 # SAMIR foundation umbrella (the Phase-0 unit vector). Grows as engine steps land.
 # This is NOT the M6 gate -- the M6 differential is `test-dbase` (stub_fail until
 # the S6.x oracle lands). test-samir green == the engine FOUNDATION is green.
 .PHONY: test-samir
-test-samir: test-samir-pal test-samir-rt test-samir-pal-host test-samir-spec
-	@printf ">>> test-samir: SAMIR foundation green (PAL + rt + host binding + spec lock)\n"
+test-samir: test-samir-pal test-samir-rt test-samir-pal-host test-samir-spec test-samir-value test-samir-dbf-ref
+	@printf ">>> test-samir: SAMIR foundation green (PAL + rt + value + host binding + spec lock + dbf_ref)\n"
 
 # Build the FAT12 decode + chain-walk oracle: the test + the REAL artifact
 # fat12.c + the host blockdev backend (same include set as the BPB oracle).
