@@ -704,6 +704,10 @@ TEST_INTERP_FLOW_MUT := $(BUILD)/test_interp_flow_mut
 # S3.6b DB-cursor built-in functions (initech-7az.10); share fn_builtins.c + work-area.
 TEST_XBASE_FN_D     := $(BUILD)/test_xbase_fn_d
 TEST_XBASE_FN_D_MUT := $(BUILD)/test_xbase_fn_d_mut
+# S5.4 query/display LIST/DISPLAY/?/??/LOCATE/CONTINUE/SEEK/FIND (initech-7az.5).
+SAMIR_QUERY_SRC   := $(SAMIR_CMD_DIR)/query.c
+TEST_INTERP_LIST     := $(BUILD)/test_interp_list
+TEST_INTERP_LIST_MUT := $(BUILD)/test_interp_list_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1930,6 +1934,37 @@ test-interp-flow-mutant: $(TEST_INTERP_FLOW_MUT)
 		printf '!!! test-interp-flow-mutant FAIL: mutant PASSED -- DO CASE first-match is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-interp-flow-mutant: green (DO CASE runs-all correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-5 query/display: LIST/DISPLAY/?/??/LOCATE/CONTINUE/SEEK/FIND (S5.4 / initech-7az.5) ----
+# cmd/query.c registers a command-CHAIN hook (xb_interp_add_cmd_hook -- S5.5/S5.6/
+# S5.7 add their modules the same way). LIST/DISPLAY scope/FIELDS/FOR/WHILE/OFF;
+# ?/??; LOCATE+CONTINUE (CONTINUE re-applies FOR only, not WHILE/scope); SEEK/FIND
+# via ndx_seek. LOCATE/SEEK/FIND set the work-area FOUND flag (un-gates FOUND()).
+# Mutant: CONTINUE re-applies scope -> recno/FOUND/EOF RED.
+INTERP_LIST_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_INTERP_LIST): $(DBF_DIFF_DIR)/test_interp_list.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_list.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_INTERP_LIST_MUT): $(DBF_DIFF_DIR)/test_interp_list.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DQUERY_MUTATE_CONTINUE_SCOPE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_list.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-interp-list
+test-interp-list: $(TEST_INTERP_LIST)
+	@printf ">>> test-interp-list: LIST/DISPLAY scope/FOR/WHILE/OFF; ?/??; LOCATE/CONTINUE; SEEK/FIND (S5.4)\n"
+	@$(TEST_INTERP_LIST) $(DBASE3_DECOMP)
+	@printf ">>> test-interp-list: green\n"
+
+.PHONY: test-interp-list-mutant
+test-interp-list-mutant: $(TEST_INTERP_LIST_MUT)
+	@printf ">>> test-interp-list-mutant: confirming the CONTINUE-re-scope mutant goes RED (Rule 6; initech-7az.5)\n"
+	@$(TEST_INTERP_LIST_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-interp-list-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_INTERP_LIST_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-interp-list-mutant FAIL: mutant PASSED -- CONTINUE FOR-only is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-interp-list-mutant: green (CONTINUE re-scope correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 DB-cursor functions: RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF/FILE (S3.6b / initech-7az.10) ----
@@ -10260,6 +10295,7 @@ TEST_UNIT_GATES := \
 	test-interp-use test-interp-use-mutant \
 	test-interp-nav test-interp-nav-mutant \
 	test-interp-flow test-interp-flow-mutant \
+	test-interp-list test-interp-list-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.

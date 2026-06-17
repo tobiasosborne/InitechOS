@@ -905,6 +905,20 @@ void wa_nav_set_eof(wa_env *env, int area, int val)
     env->area[area - 1].eof = val ? 1 : 0;
 }
 
+int wa_found(const wa_env *env, int area)
+{
+    if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)
+        return 0;
+    return env->area[area - 1].found;
+}
+
+void wa_set_found(wa_env *env, int area, int val)
+{
+    if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)
+        return;
+    env->area[area - 1].found = val ? 1 : 0;
+}
+
 void wa_nav_set_bof(wa_env *env, int area, int val)
 {
     if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)

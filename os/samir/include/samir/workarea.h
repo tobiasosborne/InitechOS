@@ -439,6 +439,26 @@ int wa_eof(const wa_env *env, int area);
 int wa_bof(const wa_env *env, int area);
 
 /*
+ * wa_found / wa_set_found: read / write the FOUND() flag of area `area`.
+ *
+ * FOUND() reports whether the LAST search command (SEEK / FIND / LOCATE /
+ * CONTINUE) in this area succeeded (navigation-query-display.md: "set only by
+ * those four commands; NOT changed by GO/SKIP/DISPLAY/LIST/aggregates"). S5.1
+ * inits it 0 on USE; S5.4 (query.c) drives it via wa_set_found on every SEEK /
+ * FIND / LOCATE / CONTINUE -- a match sets it 1, a failed search clears it 0.
+ * The S3.6b FOUND() built-in reads it through the DB-cursor vtable (wac_found),
+ * which already returns this flag; wa_set_found is the write path S5.4 needs.
+ *
+ * wa_set_found is silently ignored for a closed / out-of-range area. val: 0 to
+ * clear, non-zero to set. wa_found returns 0 for a closed / out-of-range area.
+ *
+ * Ref: navigation-query-display.md FOUND() row + LOCATE/CONTINUE/SEEK/FIND
+ *      "Pointer / state effects"; eval.h xb_dbcursor.found; plan S5.4.
+ */
+int  wa_found(const wa_env *env, int area);
+void wa_set_found(wa_env *env, int area, int val);
+
+/*
  * wa_nav_set_eof / wa_nav_set_bof: write the EOF / BOF flag of area `area`.
  *
  * Used ONLY by S5.2 nav.c: wa_goto already clears both flags on a successful

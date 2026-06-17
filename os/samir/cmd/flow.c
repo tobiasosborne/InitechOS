@@ -83,9 +83,12 @@ typedef struct {
     uint32_t  arena_cap;
     uint32_t  arena_used;
 
-    /* the registered command hook (S5.4..S5.7 extension point) */
-    xb_cmd_hook hook;
-    void       *hook_user;
+    /* the registered command-hook CHAIN (S5.4..S5.7 extension point). Each
+     * module appends one hook via xb_interp_add_cmd_hook; exec_command tries
+     * them in order, each returning CMD_UNKNOWN to pass to the next. */
+    xb_cmd_hook hooks[INTERP_MAX_CMD_HOOKS];
+    void       *hook_users[INTERP_MAX_CMD_HOOKS];
+    int         nhooks;
 
     /* composed resolver bookkeeping: the saved work-area resolver */
     int  (*saved_resolve)(void *user, const char *name, uint16_t len, xb_val *out);
@@ -117,8 +120,11 @@ static void flow_reset(flow_state *fs)
     fs->nvars        = 0;
     fs->arena_cap    = FLOW_MEMVAR_ARENA;
     fs->arena_used   = 0u;
-    fs->hook         = (xb_cmd_hook)0;
-    fs->hook_user    = (void *)0;
+    fs->nhooks       = 0;
+    for (i = 0; i < INTERP_MAX_CMD_HOOKS; i++) {
+        fs->hooks[i]      = (xb_cmd_hook)0;
+        fs->hook_users[i] = (void *)0;
+    }
     fs->saved_resolve = (int (*)(void *, const char *, uint16_t, xb_val *))0;
     fs->saved_user   = (void *)0;
     fs->last_error   = 0;
@@ -949,14 +955,20 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
         }
     }
 
-    /* (5) the registered command hook (S5.4..S5.7). */
-    if (fs->hook) {
-        int hrc = fs->hook(fs->hook_user, ip, verb, args, ec);
-        if (hrc == CMD_OK)
-            return INTERP_OK;
-        if (hrc < 0)
-            return hrc;             /* a real run-time error from the hook */
-        /* hrc == CMD_UNKNOWN -> fall through to fail loud. */
+    /* (5) the registered command-hook CHAIN (S5.4..S5.7), tried in order. */
+    {
+        int h;
+        for (h = 0; h < fs->nhooks; h++) {
+            int hrc;
+            if (!fs->hooks[h])
+                continue;
+            hrc = fs->hooks[h](fs->hook_users[h], ip, verb, args, ec);
+            if (hrc == CMD_OK)
+                return INTERP_OK;
+            if (hrc < 0)
+                return hrc;         /* a real run-time error from the hook */
+            /* hrc == CMD_UNKNOWN -> try the next hook in the chain. */
+        }
     }
 
     /* unrecognised verb: fail loud (#16). */
@@ -1220,13 +1232,60 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
 /* Public API                                                             */
 /* ===================================================================== */
 
+/*
+ * flow_mark_inuse: install the composed resolver onto ip's ctx if it is not
+ * already there, capturing the work-area delegate. This marks the flow_state as
+ * "in use" (ctx->resolve == flow_resolve) so a subsequent flow_state_for /
+ * samir_do does NOT mistake a registered-but-not-yet-run interp for a remade one
+ * and RESET it (which would wipe the just-registered command hooks). It is the
+ * same install xb_interp_store performs; field resolution is unchanged because
+ * flow_resolve delegates to the saved work-area resolver.
+ */
+static void flow_mark_inuse(xb_interp *ip, flow_state *fs)
+{
+    xb_ctx *ctx = xb_interp_ctx(ip);
+    if (ctx && ctx->resolve != flow_resolve) {
+        fs->saved_resolve = ctx->resolve;
+        fs->saved_user    = ctx->user;
+        ctx->resolve = flow_resolve;
+        ctx->user    = fs;
+    }
+}
+
 void xb_interp_set_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user)
 {
     flow_state *fs = flow_state_for(ip);
+    int i;
     if (!fs)
         return;
-    fs->hook      = hook;
-    fs->hook_user = user;
+    flow_mark_inuse(ip, fs);
+    /* Clear the chain, then register `hook` as its sole entry (S5.3 compat). */
+    for (i = 0; i < INTERP_MAX_CMD_HOOKS; i++) {
+        fs->hooks[i]      = (xb_cmd_hook)0;
+        fs->hook_users[i] = (void *)0;
+    }
+    fs->nhooks = 0;
+    if (hook) {
+        fs->hooks[0]      = hook;
+        fs->hook_users[0] = user;
+        fs->nhooks        = 1;
+    }
+}
+
+int xb_interp_add_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user)
+{
+    flow_state *fs = flow_state_for(ip);
+    if (!fs)
+        return -INTERP_ERR_NOMEM;
+    if (!hook)
+        return INTERP_OK;                  /* NULL append is a no-op */
+    flow_mark_inuse(ip, fs);               /* keep the chain across the first samir_do */
+    if (fs->nhooks >= INTERP_MAX_CMD_HOOKS)
+        return -INTERP_ERR_DEPTH;          /* chain full: fail loud (Rule 2) */
+    fs->hooks[fs->nhooks]      = hook;
+    fs->hook_users[fs->nhooks] = user;
+    fs->nhooks++;
+    return INTERP_OK;
 }
 
 int xb_interp_store(xb_interp *ip, const char *name, const xb_val *v)

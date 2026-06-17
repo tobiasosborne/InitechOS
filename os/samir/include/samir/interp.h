@@ -272,10 +272,40 @@ typedef int (*xb_cmd_hook)(void *user, xb_interp *ip,
                            const char *verb, const char *args, int *err_code);
 
 /*
- * xb_interp_set_cmd_hook: register the command hook (and its user state). A
- * later step calls this once before samir_do so its verbs participate in
- * dispatch. Passing NULL clears the hook (the spine-only set remains). The
- * previous (hook,user) pair is overwritten.
+ * COMMAND-HOOK CHAIN (S5.4 extension; was a single hook in S5.3).
+ *
+ * The executor (flow.c exec_command) now tries a CHAIN of registered command
+ * hooks in registration order. Each is offered the verb; it returns CMD_OK
+ * (handled -> stop), CMD_UNKNOWN (not my verb -> try the next hook), or a
+ * negative error (a real run-time error -> stop + surface it). If every hook
+ * returns CMD_UNKNOWN the executor fails loud #16 (Unrecognized command verb).
+ *
+ * This lets S5.4 (query), S5.5 (mutation), S5.6 (SET) and S5.7 (procedures)
+ * each register their OWN module via xb_interp_add_cmd_hook WITHOUT editing
+ * flow.c or each other -- the spine stays the stable S5.3 control-flow engine
+ * and new verbs are additive registrations. The chain is bounded
+ * (INTERP_MAX_CMD_HOOKS); overflow is a no-op (fail-loud is the caller's, since
+ * a verb then simply goes unrecognized -- never silently mis-dispatched).
+ *
+ * Ref: plan S5.4..S5.7 (each adds a module); CLAUDE.md Rule 2 (fail loud).
+ */
+#define INTERP_MAX_CMD_HOOKS 8
+
+/*
+ * xb_interp_add_cmd_hook: APPEND (hook,user) to the command-hook chain. The
+ * hook is tried after all earlier-registered hooks. Returns INTERP_OK, or
+ * -INTERP_ERR_DEPTH if the chain is full (fail loud; Rule 2). A NULL hook is a
+ * no-op returning INTERP_OK. The S5.4..S5.7 modules each call this once before
+ * samir_do.
+ */
+int xb_interp_add_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user);
+
+/*
+ * xb_interp_set_cmd_hook: CLEAR the chain, then register (hook,user) as its sole
+ * entry. Passing NULL just clears the chain (the spine-only set remains).
+ *
+ * Retained for the S5.3 single-hook callers and tests. New modules (S5.4..S5.7)
+ * compose via xb_interp_add_cmd_hook instead, so they do not clobber each other.
  */
 void xb_interp_set_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user);
 
