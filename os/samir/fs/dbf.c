@@ -1,11 +1,12 @@
 /*
- * os/samir/fs/dbf.c -- SAMIR (InitechBase) .dbf codec: header (S1.1) +
- *                      field-descriptor array (S1.2).
+ * os/samir/fs/dbf.c -- SAMIR (InitechBase) .dbf codec: header (S1.1),
+ *                      field-descriptor array (S1.2), record read (S1.3).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (samir/pal.h,
- * samir/rt.h, samir/dbf.h) and the LOCKED spec/samir/dbf_format.h. No libc, no
- * int 0x21 -- all OS contact is through the PAL vtable (plan Sec 2.B/2.D).
+ * samir/rt.h, samir/value.h, samir/dbf.h) and the LOCKED spec/samir/dbf_format.h.
+ * No libc, no int 0x21 -- all OS contact is through the PAL vtable (plan Sec
+ * 2.B/2.D).
  *
  * S1.1 scope: parse + validate the 32-byte header, locate the 0x0D
  * field-descriptor terminator (deriving nfields and the +1/+2 form), assert the
@@ -20,6 +21,18 @@
  * the descriptor stride to the dBASE-7 48-byte value, shifting every field after
  * the first so decoded names/types/lengths mismatch the golden -> tests go RED.
  *
+ * S1.3 scope (docs/plans/SAMIR-implementation-plan.md S1.3): dbf_read_rec reads
+ * a single record by 1-based record number and decodes each field into an xb_val:
+ *   C -> xb_c (raw bytes in arena record buffer; trimming is evaluator's job)
+ *   N -> xb_n(dec_parse(raw, len)) (all-spaces -> 0.0)
+ *   D -> xb_d(jdn_from_ymd(y,m,d)) for valid date; xb_u() for blank/00000000
+ *   L -> xb_l(1/0) for T/Y/F/N; xb_u() for '?'/space; fail loud otherwise
+ *   M -> xb_m(raw10, 10) for block>0; xb_u() for block 0 / blanks
+ * Delete flag: 0x20 -> *deleted=0, 0x2A -> *deleted=1; other bytes -> fail loud.
+ * The mutation hook (DBF_MUTATE_RECOFF) shifts the record offset by +1 (skips
+ * the delete-flag byte) so every decoded field value is wrong -> tests go RED.
+ * Ref: dbf.md sec 6 (record layout) and sec 5 (field type encodings).
+ *
  * Fail loud (Rule 2): every malformed-input / violated-invariant path returns a
  * negated dbf_err and leaves no half-open handle. A silently-wrong table would
  * corrupt everything built on top of it (Tool of last resort).
@@ -31,22 +44,31 @@
  * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
  *
  * Ref (Law 1):
- *   - ../dbase3-decomp/specs/file-formats/dbf.md sec 2,3,4,5,8,9.
+ *   - ../dbase3-decomp/specs/file-formats/dbf.md sec 2,3,4,5,6,8,9.
  *     sec 4 worked example: CLIENTS FIRSTNAME at offset 0x20
  *       46 49 52 53 54 4E 41 4D 45 00 00 / 43 / 23 00 2C 40 / 14 / 00 / ...
  *       name="FIRSTNAME", type='C', len=20, dec=0.
+ *     sec 5: field type on-disk encodings (C space-padded; N right-just; D YYYYMMDD;
+ *       L T/F/Y/N/?; M 10-byte ASCII block#).
+ *     sec 6: record layout (1 delete-flag byte + packed field bytes, no separator).
  *     sec 9: "name = bytes to first NUL; trailing bytes may be garbage."
  *   - spec/samir/dbf_format.h (every offset/size constant; no hardcoded offsets):
  *     DBF_DESC_NAME_OFF, DBF_DESC_TYPE_OFF, DBF_DESC_FIELD_LEN_OFF,
- *     DBF_DESC_DEC_COUNT_OFF, DBF_DESC_STRIDE=32, DBF_DESC_NAME_SIZE=11.
- *   - docs/plans/SAMIR-implementation-plan.md S1.1+S1.2 contract.
+ *     DBF_DESC_DEC_COUNT_OFF, DBF_DESC_STRIDE=32, DBF_DESC_NAME_SIZE=11,
+ *     DBF_REC_DELETE_LIVE=0x20, DBF_REC_DELETE_DELETED=0x2A, DBF_REC_FLAG_SIZE=1.
+ *   - docs/plans/SAMIR-implementation-plan.md S1.1+S1.2+S1.3 contract.
  *   - os/samir/include/samir/pal.h (open/read/seek/close + seek=filesize idiom).
+ *   - os/samir/include/samir/value.h (xb_val, xb_c/xb_n/xb_d/xb_l/xb_m/xb_u).
+ *   - os/samir/include/samir/rt.h (dec_parse, jdn_from_ymd).
+ *   - harness/diff/dbf_diff/dbf_ref.py decode_field() (independent reference;
+ *     our typed values agree with it field-by-field).
  */
 
 #include <stdint.h>
 
 #include "samir/pal.h"
 #include "samir/rt.h"
+#include "samir/value.h"   /* xb_val, xb_c/xb_n/xb_d/xb_l/xb_m/xb_u */
 #include "samir/dbf.h"
 
 #include "samir/dbf_format.h"   /* LOCKED spec-data, on -Ispec/samir or -Ispec */
@@ -68,7 +90,23 @@
 #  define DECODE_STRIDE  ((uint32_t)DBF_DESC_STRIDE)   /* correct: 32 bytes (dbf.md sec 4) */
 #endif
 
-/* ---- Opaque table layout (S1.1 fields + S1.2 field array) ---- */
+/*
+ * S1.3 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_RECOFF is defined,
+ * dbf_read_rec reads the record starting one byte PAST the correct offset.
+ * This effectively skips the delete-flag byte and reads field data shifted by
+ * one, so decoded field values mismatch the golden -> Tier-0 checks go RED.
+ * The perturbation is a single additive offset; exactly one constant changes.
+ * The mutant still reads record_length bytes (not record_length-1), so the
+ * data it decodes comes from the next byte onward -- every field is shifted.
+ * Ref: docs/plans/SAMIR-implementation-plan.md S1.3 mutant (recoff -> RED).
+ */
+#ifdef DBF_MUTATE_RECOFF
+#  define REC_OFFSET_EXTRA  1u   /* skip 1 extra byte -> field data is shifted */
+#else
+#  define REC_OFFSET_EXTRA  0u   /* correct: no extra offset */
+#endif
+
+/* ---- Opaque table layout (S1.1 fields + S1.2 field array + S1.3 record buf) ---- */
 struct dbf_table {
     samir_pal_t  *pal;        /* the PAL this table was opened through */
     pal_fd        fd;         /* OPEN handle; S1.3 reads the record area */
@@ -78,6 +116,14 @@ struct dbf_table {
                                * field descriptors; NULL until S1.2 decode pass runs.
                                * dbf_field(tbl,i) reads from this array (0-based).
                                * Ref: dbf.md sec 4 + spec/samir/dbf_format.h. */
+
+    uint8_t      *rec_buf;    /* S1.3: arena-allocated record buffer, record_length
+                               * bytes. Allocated at open time; reused by every
+                               * dbf_read_rec call. xb_c/xb_m pointers in the
+                               * decoded xb_val array point into this buffer.
+                               * LIFETIME: valid until the next dbf_read_rec call
+                               * on the same table. NULL until dbf_open allocates it.
+                               * Ref: dbf.h S1.3 "Record buffer lifetime" note. */
 
     uint16_t      header_length;   /* offset 0x08, u16 LE */
     uint16_t      record_length;   /* offset 0x0A, u16 LE */
@@ -318,6 +364,20 @@ int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
     tbl->term_extra    = (uint8_t)hdr_extra;
 
     /*
+     * --- S1.3: allocate the reusable record buffer ---
+     * Allocate record_length bytes from the PAL arena at open time.  Every call
+     * to dbf_read_rec reuses this buffer (overwriting it), so xb_c/xb_m
+     * pointers that reference it are invalidated by the next dbf_read_rec call.
+     * Ref: dbf.h S1.3 "Record buffer lifetime" + dbf.md sec 6 (record_length).
+     */
+    {
+        uint8_t *rb = (uint8_t *)pal->alloc(pal, (uint32_t)record_length);
+        if (!rb)
+            return teardown(tbl, -DBF_ERR_NOMEM);
+        tbl->rec_buf = rb;
+    }
+
+    /*
      * --- S1.2: field-descriptor array decode ---
      *
      * Now that nfields is known (from S1.1's scan-to-0x0D), allocate and fill
@@ -441,4 +501,229 @@ const dbf_field_t *dbf_field(const dbf_table *t, int i)
     if (i < 0 || (uint32_t)i >= (uint32_t)t->nfields)
         return (const dbf_field_t *)0;
     return &t->fields[i];
+}
+
+/*
+ * dbf_read_rec: read and decode one record by 1-based record number (S1.3).
+ *
+ * 1-based convention: recno 1 is the first data record, stored at byte offset
+ * header_length + 0*record_length (i.e. the 0-based index is recno-1).
+ * Confirmed by dbf_ref.py iter_records (yields i=0 for the first record).
+ *
+ * Record layout (dbf.md sec 6):
+ *   byte 0            : delete flag (0x20 live, 0x2A deleted)
+ *   bytes 1..reclen-1 : field data packed in descriptor order, no separators
+ *
+ * Field decode (dbf.md sec 5; dbf_ref.py decode_field() for each type):
+ *   C  -> xb_c(ptr, field_len) -- raw bytes in rec_buf including trailing spaces.
+ *   N  -> xb_n(dec_parse(raw, field_len)) -- dec_parse handles spaces -> 0.0.
+ *   D  -> xb_d(jdn_from_ymd) for valid date; xb_u() for blank(8 spaces)/"00000000".
+ *   L  -> xb_l(1) T/t/Y/y; xb_l(0) F/f/N/n; xb_u() '?'/space; else BAD_REC.
+ *   M  -> xb_m(ptr, 10) block>0; xb_u() block==0 / blanks. S2.1 reads .dbt.
+ *
+ * Mutation hook (DBF_MUTATE_RECOFF): adds REC_OFFSET_EXTRA (=1 when mutant) to
+ * the file seek offset, so field data is read from byte 1 of the record onward
+ * (the delete-flag byte is consumed into field 0 rather than the flag slot, and
+ * every subsequent field byte is shifted). All decoded values diverge -> RED.
+ * The mutant build still opens correctly (dbf_open is unchanged); only
+ * dbf_read_rec is perturbed. The extra offset is applied to the byte address
+ * passed to read_exact, not to the record-length count.
+ *
+ * Ref (Law 1):
+ *   - dbf.md sec 5 (C/N/D/L/M on-disk encodings; blank date; L uninitialised).
+ *   - dbf.md sec 6 (record layout; delete flag 0x20/0x2A).
+ *   - spec/samir/dbf_format.h (DBF_REC_DELETE_LIVE, DBF_REC_DELETE_DELETED,
+ *     DBF_REC_FLAG_SIZE=1).
+ *   - rt.h dec_parse (all-spaces -> 0.0), jdn_from_ymd (Y,M,D -> JDN).
+ *   - value.h xb_c/xb_n/xb_d/xb_l/xb_m/xb_u.
+ *   - dbf_ref.py decode_field() for C/N/D/L/M field-by-field agreement.
+ */
+int dbf_read_rec(dbf_table *tbl, uint32_t recno,
+                 xb_val *out, int *deleted)
+{
+    int32_t     rec_off;     /* byte offset of this record's first byte (delete flag) */
+    int32_t     field_off;   /* running offset into rec_buf for each field */
+    uint8_t     del_flag;
+    uint32_t    fi;
+    int         rc;
+
+    if (!tbl || !out)
+        return -DBF_ERR_IO;
+
+    /* Validate 1-based recno: must be in [1, nrec]. dbf.h S1.3 contract.
+     * Ref: dbf.md sec 9 "header nrec is authoritative for reading". */
+    if (recno < 1u || recno > tbl->nrec)
+        return -DBF_ERR_BAD_RECNO;
+
+    /* Compute the byte offset of this record's first byte (the delete flag).
+     * recno 1 -> header_length + 0*record_length; recno k -> + (k-1)*record_length.
+     * Ref: dbf.md sec 6 "Record k begins at header_length + k*record_length" (0-based k).
+     * The REC_OFFSET_EXTRA mutation shifts this by +1 byte (DBF_MUTATE_RECOFF). */
+    rec_off = (int32_t)((uint32_t)tbl->header_length
+                        + (recno - 1u) * (uint32_t)tbl->record_length
+                        + REC_OFFSET_EXTRA);
+
+    /* Read the entire record into the reusable rec_buf.
+     * read_exact seeks to rec_off and reads record_length bytes. */
+    rc = read_exact(tbl->pal, tbl->fd, rec_off, tbl->rec_buf,
+                    (uint32_t)tbl->record_length);
+    if (rc != DBF_OK)
+        return rc;
+
+    /* Delete flag is the first byte of the record (rec_buf[0]).
+     * 0x20 = live, 0x2A = deleted; any other byte is corrupt data -> fail loud.
+     * Ref: dbf.md sec 6; spec/samir/dbf_format.h DBF_REC_DELETE_LIVE/_DELETED. */
+    del_flag = tbl->rec_buf[0];
+    if (del_flag == (uint8_t)DBF_REC_DELETE_LIVE) {
+        if (deleted) *deleted = 0;
+    } else if (del_flag == (uint8_t)DBF_REC_DELETE_DELETED) {
+        if (deleted) *deleted = 1;
+    } else {
+        /* Corrupt record: delete flag is neither 0x20 nor 0x2A. Fail loud
+         * (Rule 2). A silently-wrong delete-flag interpretation corrupts pack/zap. */
+        return -DBF_ERR_BAD_REC;
+    }
+
+    /* Decode each field in descriptor order.
+     * Field data starts at rec_buf[DBF_REC_FLAG_SIZE] (= rec_buf[1]).
+     * Each field occupies exactly field_len bytes, packed with no separator.
+     * Ref: dbf.md sec 6. */
+    field_off = (int32_t)DBF_REC_FLAG_SIZE;
+
+    for (fi = 0u; fi < (uint32_t)tbl->nfields; fi++) {
+        const dbf_field_t *fd = &tbl->fields[fi];
+        uint8_t *raw = tbl->rec_buf + (uint32_t)field_off;
+        uint8_t  flen = fd->field_len;
+        char     ftype = fd->type;
+
+        switch ((unsigned char)ftype) {
+
+        case (unsigned char)'C':
+            /*
+             * Character: raw bytes in rec_buf, left-justified, space-padded.
+             * We expose the FULL field_len bytes (including trailing spaces)
+             * as xb_c so that the round-trip (S1.4) is lossless. Trimming is
+             * the evaluator's job (S3.3). Pointer into rec_buf; valid until
+             * the next dbf_read_rec call. Ref: dbf.md sec 5 C; dbf_ref.py
+             * decode_field('C') -> rstrip but that is display-only.
+             */
+            out[fi] = xb_c((const char *)raw, (uint16_t)flen);
+            break;
+
+        case (unsigned char)'N':
+            /*
+             * Numeric: right-justified ASCII decimal. dec_parse skips leading/
+             * trailing spaces and returns 0.0 for all-spaces (blank N field).
+             * All-asterisk overflow fields: non-digit char -> dec_parse returns
+             * 0.0 (rt.h: "malformed input -> some double"). This matches the
+             * blank/overflow fallback of dbf_ref.py decode_field('N') -> None.
+             * Ref: dbf.md sec 5 N; rt.h dec_parse; dbf_ref.py.
+             */
+            out[fi] = xb_n(dec_parse((const char *)raw, (int)flen));
+            break;
+
+        case (unsigned char)'D':
+            /*
+             * Date: 8 ASCII chars YYYYMMDD. Blank (8 spaces) or "00000000" ->
+             * xb_u(). Valid non-blank date -> xb_d(jdn_from_ymd(y,m,d)).
+             * Ref: dbf.md sec 5 D "8 spaces = blank/empty; 00000000 not valid".
+             * dbf_ref.py decode_field('D') returns "" for blank; xb_u() is the
+             * typed-model equivalent (no blank-date sentinel in xb_type).
+             *
+             * Blank detection: if raw[0] is a space (0x20) we treat the whole
+             * field as blank (all 8 spaces; a partial-blank date is malformed
+             * but we treat it as blank rather than failing to avoid unnecessary
+             * halt on uncommon edge cases). "00000000" check: if all 8 chars
+             * are '0', also treat as xb_u() (dbf.md sec 5 D explicit rule).
+             */
+            {
+                int32_t y, m, d;
+                int is_blank, is_zero;
+                int32_t jdn;
+
+                /* Blank check: first byte is a space. */
+                is_blank = (raw[0] == (uint8_t)' ');
+                /* Zero-date check: "00000000" -- all ASCII zeros. */
+                is_zero = (raw[0] == (uint8_t)'0' &&
+                           raw[1] == (uint8_t)'0' &&
+                           raw[2] == (uint8_t)'0' &&
+                           raw[3] == (uint8_t)'0' &&
+                           raw[4] == (uint8_t)'0' &&
+                           raw[5] == (uint8_t)'0' &&
+                           raw[6] == (uint8_t)'0' &&
+                           raw[7] == (uint8_t)'0');
+
+                if (is_blank || is_zero) {
+                    out[fi] = xb_u();
+                } else {
+                    /* Parse YYYYMMDD from ASCII digits. dec_parse on 4-char
+                     * slice gives the integer year; same for month and day. */
+                    y = (int32_t)dec_parse((const char *)raw,     4);
+                    m = (int32_t)dec_parse((const char *)raw + 4, 2);
+                    d = (int32_t)dec_parse((const char *)raw + 6, 2);
+                    jdn = jdn_from_ymd(y, m, d);
+                    out[fi] = xb_d((double)jdn);
+                }
+            }
+            break;
+
+        case (unsigned char)'L':
+            /*
+             * Logical: 1 byte. T/t/Y/y -> xb_l(1); F/f/N/n -> xb_l(0);
+             * '?'/space (0x3F/0x20) -> xb_u() (uninitialised).
+             * Any other byte is corrupt -> fail loud (Rule 2).
+             * Ref: dbf.md sec 5 L; dbf_ref.py decode_field('L').
+             * Note: corpus fixtures only exhibit T and F (no '?' seen in
+             * TRAVEL.DBF PAID column), but we handle all defined values.
+             */
+            {
+                uint8_t lb = raw[0];
+                if (lb == (uint8_t)'T' || lb == (uint8_t)'t' ||
+                    lb == (uint8_t)'Y' || lb == (uint8_t)'y') {
+                    out[fi] = xb_l(1);
+                } else if (lb == (uint8_t)'F' || lb == (uint8_t)'f' ||
+                           lb == (uint8_t)'N' || lb == (uint8_t)'n') {
+                    out[fi] = xb_l(0);
+                } else if (lb == (uint8_t)'?' || lb == (uint8_t)' ') {
+                    out[fi] = xb_u();   /* uninitialised L field */
+                } else {
+                    /* Unknown L byte: corrupt data. Fail loud (Rule 2). */
+                    return -DBF_ERR_BAD_REC;
+                }
+            }
+            break;
+
+        case (unsigned char)'M':
+            /*
+             * Memo pointer: 10-byte right-justified ASCII decimal block number.
+             * S1.3->S2.1 boundary: the .dbt is NOT read here.
+             * Block 0 or all-blank field -> xb_u() (no memo for this record).
+             * Block > 0 -> xb_m(raw, 10): pointer into rec_buf; S2.1 uses
+             *   dec_parse(ptr, 10) to recover the block number and open .dbt.
+             * Ref: dbf.md sec 5 M "block 0 or blanks = no memo";
+             *      dbf_ref.py decode_field('M') -> 0 for blank/zero.
+             *
+             * GATED: "10 blanks" vs right-justified "0" both mean no-memo;
+             * both are treated as xb_u() here. [dbf.md sec 5 M note]
+             */
+            {
+                double block_num = dec_parse((const char *)raw, 10);
+                if (block_num <= 0.5) {   /* block 0 or blank (dec_parse -> 0.0) */
+                    out[fi] = xb_u();
+                } else {
+                    out[fi] = xb_m((const char *)raw, 10u);
+                }
+            }
+            break;
+
+        default:
+            /* Should never reach here: dbf_open rejects non-C/N/D/L/M types
+             * with DBF_ERR_BAD_TYPE. If somehow reached, fail loud (Rule 2). */
+            return -DBF_ERR_BAD_REC;
+        }
+
+        field_off += (int32_t)flen;
+    }
+
+    return DBF_OK;
 }

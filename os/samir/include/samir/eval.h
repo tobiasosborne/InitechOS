@@ -370,12 +370,138 @@ int xb_parse(const xb_token *toks, uint32_t ntok,
              int *err_code);
 
 /* ======================================================================== */
-/* EVALUATOR (S3.3) -- placeholder section; populated at S3.3                */
+/* EVALUATOR (S3.3)                                                           */
 /* ======================================================================== */
 
 /*
- * S3.3 will define xb_ctx (SET EXACT state etc.), xb_eval, and the error
- * dispatch table consuming spec/samir/xbase_coercion.json.
+ * S3.3 -- xBase III+ 1.1 expression EVALUATOR + operator type-coercion.
+ *
+ * Post-order evaluates the xb_node AST that xb_parse produced, dispatching
+ * every binary/unary operator on its operand types EXACTLY per the LOCKED
+ * contract spec/samir/xbase_coercion.json (operator_coercion cells + rules +
+ * the SET EXACT mode). The JSON is the source of truth; eval.c HARDCODES the
+ * dispatch in C (the engine is freestanding -- it does NOT parse JSON at
+ * runtime). Every dispatch branch cites the JSON cell / rule (Law 1).
+ *
+ * HEADLINE III+ DELTA (corpus mint-results-002.md + xbase_coercion.json
+ *   not_in_iii_plus): there is NO auto-stringification. C+N, N+C, C+D, D+D,
+ *   C-N, N-D, N<C, N$C, N .AND. L ... are ERRORS, NOT silent coercions.
+ *   "A" + 1 -> error #9 "Data type mismatch." [verified: mint-002 C1.TXT].
+ *
+ * Ref (Law 1):
+ *   - docs/plans/SAMIR-implementation-plan.md sec.5 S3.3 (the contract;
+ *     "dispatch on (lhs,op,rhs) from xbase_coercion.json; SET EXACT-aware C=;
+ *      D/N arithmetic; $; error#9. Oracle: the sec.3 dispatch-table cells")
+ *   - spec/samir/xbase_coercion.json (THE CONTRACT -- every operator_coercion
+ *     cell, every rule R_*, the SET_EXACT mode)
+ *   - spec/samir/dbase_msg_codes.tsv (numeric error catalog; #9 mismatch,
+ *     #27 not_numeric, #37 not_logical, #39 num_overflow, #45 not_character)
+ *   - ../dbase3-decomp/re/mint-results-002.md (C+N=error #9; ""$"ABC"=.F.;
+ *     SET EXACT default OFF + directional begins-with; 1/0 -> overflow-fill)
  */
+
+/*
+ * xb_eval_err -- error codes set in *err_code when xb_eval returns non-zero.
+ *
+ * These are the dBASE III+ 1.1 error CATALOG ordinals (the numbers a real
+ * DBASE.EXE prints), mapped from spec/samir/dbase_msg_codes.tsv so the engine
+ * reports the period-authentic code. The xbase_coercion.json error keys map:
+ *   "mismatch"      -> XBEE_MISMATCH      (#9  "Data type mismatch.")
+ *   "not_numeric"   -> XBEE_NOT_NUMERIC   (#27 "Not a numeric expression.")
+ *   "not_logical"   -> XBEE_NOT_LOGICAL   (#37 "Not a Logical expression.")
+ *   "num_overflow"  -> XBEE_NUM_OVERFLOW  (#39 "Numeric overflow (data was lost).")
+ *   "not_character" -> XBEE_NOT_CHARACTER (#45 "Not a Character expression.")
+ * Plus engine-internal conditions that are NOT III+ catalog codes (negative,
+ * so they can never collide with a real 1..151 ordinal):
+ *   XBEE_OK             0   success
+ *   XBEE_UNBOUND      -1   identifier with no resolver (Phase 5 binds these)
+ *   XBEE_SCRATCH_FULL -2   C+C / C-C result has no room in ctx scratch arena
+ *   XBEE_BAD_NODE     -3   malformed AST (fail loud, Rule 2)
+ *
+ * Fail loud (Rule 2): every result:"error" cell in xbase_coercion.json sets
+ * one of the positive catalog codes; NO silent coercion ever happens.
+ */
+typedef enum {
+    XBEE_OK            = 0,
+    XBEE_MISMATCH      = 9,   /* dbase_msg_codes.tsv code 9  */
+    XBEE_NOT_NUMERIC   = 27,  /* dbase_msg_codes.tsv code 27 */
+    XBEE_NOT_LOGICAL   = 37,  /* dbase_msg_codes.tsv code 37 */
+    XBEE_NUM_OVERFLOW  = 39,  /* dbase_msg_codes.tsv code 39 */
+    XBEE_NOT_CHARACTER = 45,  /* dbase_msg_codes.tsv code 45 */
+    XBEE_UNBOUND       = -1,  /* identifier, no ctx->resolve hook bound      */
+    XBEE_SCRATCH_FULL  = -2,  /* C result bytes do not fit ctx scratch arena */
+    XBEE_BAD_NODE      = -3   /* malformed AST node (should be unreachable)  */
+} xb_eval_err;
+
+/*
+ * xb_ctx -- evaluation context (mutable state + host hooks).
+ *
+ * set_exact: the SET EXACT mode. 0 = OFF (the III+ DEFAULT; xbase_coercion.json
+ *   modes.SET_EXACT.default = "OFF"), non-zero = ON. Affects ONLY the C=C /
+ *   C<>C / C#C operators (the JSON modes.affects list: =,<>,#,SEEK,FIND).
+ *   The $ operator and the ordering operators <,>,<=,>= IGNORE it
+ *   (modes.SET_EXACT.note + R_substr + R_order_same_type).
+ *
+ * resolve / user: OPTIONAL identifier-resolver hook. When the evaluator meets
+ *   an XBN_IDENT node (a field or memvar name), it calls
+ *       resolve(user, name, len, &out)
+ *   which must return 0 and fill *out with the bound value, or non-zero to
+ *   signal "not found". If resolve is NULL, an identifier is a FAIL-LOUD error
+ *   (XBEE_UNBOUND) -- full work-area / memvar binding is Phase 5 (S5.x), NOT
+ *   this step. The test harness and the Phase-5 interpreter supply this hook.
+ *   `name` points into the ORIGINAL source bytes (case-preserved, NOT NUL-
+ *   terminated); `len` is its byte length. The callee folds case as needed
+ *   (dBASE names are case-insensitive).
+ *
+ * scratch / scratch_cap / scratch_used: a caller-provided bump arena for the
+ *   bytes produced by the C+C concat and C-C reloc operators (xbase_coercion
+ *   R_concat_plus / R_concat_minus). value.h Character values are pointer+len
+ *   with NO ownership, so a synthesized C result must live somewhere the
+ *   evaluator does not own and cannot malloc (freestanding, Law 3). The
+ *   evaluator bump-allocates from [scratch, scratch+scratch_cap); on exhaustion
+ *   it fails loud with XBEE_SCRATCH_FULL rather than overflow. scratch_used is
+ *   reset to 0 by xb_eval at the start of every top-level call. If a tree has
+ *   no C concat/reloc, the arena is never touched and may be NULL/0.
+ */
+typedef struct xb_ctx {
+    int   set_exact;          /* 0 = OFF (III+ default); !=0 = ON */
+
+    int  (*resolve)(void *user, const char *name, uint16_t len, xb_val *out);
+    void  *user;
+
+    char     *scratch;        /* bump arena for C+C / C-C result bytes */
+    uint32_t  scratch_cap;    /* capacity in bytes                     */
+    uint32_t  scratch_used;   /* bytes consumed (reset per xb_eval)    */
+} xb_ctx;
+
+/*
+ * xb_eval -- evaluate the AST rooted at `root` in pool[].
+ *
+ * pool / root: the node pool and root index returned by xb_parse.
+ * ctx:      evaluation context (SET EXACT, resolver hook, scratch arena).
+ *           Must be non-NULL. ctx->scratch_used is reset to 0 on entry.
+ * out:      receives the result xb_val on success.
+ * err_code: output; set to an xb_eval_err. XBEE_OK (0) on success, else the
+ *           dBASE catalog ordinal (positive) or an engine code (negative).
+ *
+ * Returns:
+ *   0  success; *out holds the result, *err_code == XBEE_OK.
+ *   != 0 failure; *err_code names the reason (a result:"error" cell fired, an
+ *        identifier was unbound, or the scratch arena was exhausted). *out is
+ *        left as XB_U (undefined).
+ *
+ * Dispatch (xbase_coercion.json operator_coercion, exhaustive):
+ *   N {+ - * / ^ **} N -> N   ;  C + C -> C (R_concat_plus)
+ *   C - C -> C (R_concat_minus); D +/- N, N + D -> D (R_date_plus_num)
+ *   D - D -> N (R_date_minus_date); relational -> L (SET EXACT-aware for C=C)
+ *   C $ C -> L (R_substr); L {.AND. .OR.} L -> L; .NOT. L -> L; unary -N -> N.
+ *   Every other (lhs,op,rhs) combination is a result:"error" cell -> fail loud.
+ *
+ * Allocation: none beyond the caller's scratch arena. Uses: <stdint.h>, rt.h,
+ * value.h, eval.h. No libc, no PAL, no I/O. Reproducible (Rule 11): pure
+ * function of (pool, root, ctx state) -- no time, no host paths, no RNG.
+ */
+int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
+            xb_val *out, int *err_code);
 
 #endif /* INITECH_SAMIR_EVAL_H */

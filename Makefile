@@ -642,6 +642,11 @@ TEST_XBASE_LEX_MUT := $(BUILD)/test_xbase_lex_mut
 SAMIR_PARSE_SRC   := $(SAMIR_DIR)/core/parse.c
 TEST_XBASE_PARSE     := $(BUILD)/test_xbase_parse
 TEST_XBASE_PARSE_MUT := $(BUILD)/test_xbase_parse_mut
+SAMIR_EVAL_SRC    := $(SAMIR_DIR)/core/eval.c
+TEST_DBF_READ      := $(BUILD)/test_dbf_read
+TEST_DBF_READ_MUT  := $(BUILD)/test_dbf_read_mut
+TEST_XBASE_EVAL     := $(BUILD)/test_xbase_eval
+TEST_XBASE_EVAL_MUT := $(BUILD)/test_xbase_eval_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1309,12 +1314,12 @@ test-samir-value: $(TEST_SAMIR_VALUE)
 # ($(DBASE3_DECOMP)) and loud-skips per-fixture if absent (plan sec.2.A: Tier-0
 # still gates -- never a silent pass). The mutant perturbs the invariant-1b
 # record_length check (reclen off-by-one) so a valid golden fails dbf_open (Rule 6).
-$(TEST_DBF_HEADER): $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_HEADER): $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_HEADER_MUT): $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_HEADER_MUT): $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_RECLEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-header
 test-dbf-header: $(TEST_DBF_HEADER)
@@ -1338,12 +1343,12 @@ test-dbf-header-mutant: $(TEST_DBF_HEADER_MUT)
 # length/dec descriptors. The mutant decodes at a 48-byte (dBASE-7) stride
 # instead of 32, shifting every field after the first so a non-type byte fails
 # the C/N/D/L/M validation -> RED (Rule 6).
-$(TEST_DBF_FIELDS): $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_FIELDS): $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_FIELDS_MUT): $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_FIELDS_MUT): $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_STRIDE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-fields
 test-dbf-fields: $(TEST_DBF_FIELDS)
@@ -1360,6 +1365,35 @@ test-dbf-fields-mutant: $(TEST_DBF_FIELDS_MUT)
 		printf '!!! test-dbf-fields-mutant FAIL: mutant PASSED -- the descriptor stride is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-dbf-fields-mutant: green (48-byte stride correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-1 .dbf codec: record read -> typed values (S1.3 / initech-aul.3) ----
+# Links value.c now (dbf_read_rec emits xb_val via xb_c/n/d/l/m/u). Decodes each
+# field per its type (C/N/D/L + M block-ptr) + the delete flag. The mutant shifts
+# the record offset by +1 (consumes the delete-flag byte as field data) so every
+# field decodes shifted -> a non-flag byte fails the 0x20/0x2A check -> RED (Rule 6).
+$(TEST_DBF_READ): $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_READ_MUT): $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_RECOFF -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-dbf-read
+test-dbf-read: $(TEST_DBF_READ)
+	@printf ">>> test-dbf-read: .dbf III+ record read -> typed xb_val (C/N/D/L/M + delete flag) (S1.3)\n"
+	@$(TEST_DBF_READ) $(DBASE3_DECOMP)
+	@printf ">>> test-dbf-read: green\n"
+
+.PHONY: test-dbf-read-mutant
+test-dbf-read-mutant: $(TEST_DBF_READ_MUT)
+	@printf ">>> test-dbf-read-mutant: confirming the record-offset +1 mutant goes RED (Rule 6; initech-aul.3)\n"
+	@$(TEST_DBF_READ_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-dbf-read-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_DBF_READ_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-dbf-read-mutant FAIL: mutant PASSED -- the record offset is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-dbf-read-mutant: green (record-offset +1 correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 evaluator: xBase expression lexer (S3.1 / initech-gmo.1) ----
@@ -1419,6 +1453,37 @@ test-xbase-parse-mutant: $(TEST_XBASE_PARSE_MUT)
 		printf '!!! test-xbase-parse-mutant FAIL: mutant PASSED -- the ^ associativity is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-xbase-parse-mutant: green (right-assoc ^ correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-3 evaluator: operator coercion (S3.3 / initech-gmo.3) ----
+# Host oracle: the test + REAL engine eval.c + parse.c + lex.c + value.c + rt.c.
+# eval.c hardcodes the LOCKED spec/samir/xbase_coercion.json dispatch in C (the
+# JSON is source-of-truth, not runtime-parsed -- engine is freestanding). Covers
+# every operator_coercion cell incl. the III+ HAZARD C+N -> error #9 (NOT
+# stringified). The mutant makes the C+N cell succeed -> the HAZARD assertion
+# goes RED (Rule 6).
+$(TEST_XBASE_EVAL): $(DBF_DIFF_DIR)/test_xbase_eval.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_eval.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC)
+$(TEST_XBASE_EVAL_MUT): $(DBF_DIFF_DIR)/test_xbase_eval.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_EVAL -Iseed -I$(SAMIR_INC_DIR) \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_eval.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC)
+
+.PHONY: test-xbase-eval
+test-xbase-eval: $(TEST_XBASE_EVAL)
+	@printf ">>> test-xbase-eval: xBase III+ evaluator + operator coercion (C+N=error#9; SET EXACT; D arith; \$$) (S3.3)\n"
+	@$(TEST_XBASE_EVAL)
+	@printf ">>> test-xbase-eval: green\n"
+
+.PHONY: test-xbase-eval-mutant
+test-xbase-eval-mutant: $(TEST_XBASE_EVAL_MUT)
+	@printf ">>> test-xbase-eval-mutant: confirming the C+N-succeeds mutant goes RED (Rule 6; initech-gmo.3)\n"
+	@$(TEST_XBASE_EVAL_MUT) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-xbase-eval-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_XBASE_EVAL_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-eval-mutant FAIL: mutant PASSED -- the C+N type-mismatch rule is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-xbase-eval-mutant: green (C+N auto-stringify correctly RED)\n'; \
 	fi
 
 # dbf_ref.py (S6.1): the INDEPENDENT python .dbf/.dbt reader -- the oracle
@@ -9580,7 +9645,9 @@ TEST_UNIT_GATES := \
 	test-kernel-repro test-kernel-repro-mutant \
 	test-samir \
 	test-dbf-header test-dbf-header-mutant test-dbf-fields test-dbf-fields-mutant \
-	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant
+	test-dbf-read test-dbf-read-mutant \
+	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant \
+	test-xbase-eval test-xbase-eval-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
