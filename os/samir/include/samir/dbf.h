@@ -189,6 +189,42 @@ typedef struct dbf_table dbf_table;
 int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out);
 
 /*
+ * dbf_open_rw: open an EXISTING .dbf read-write (7az.16 -- the writable USE path).
+ *
+ * Identical header/descriptor/record-area parse + validation as dbf_open (it
+ * shares the same internal parse path, so the two cannot drift), but:
+ *   - opens the file PAL_RDWR (not PAL_RD) so dbf_flush can write back;
+ *   - loads every existing record into the in-arena record region;
+ *   - sets the writable flag so the S1.5 mutation verbs
+ *     (dbf_replace / dbf_append_blank / dbf_delete / dbf_recall / dbf_pack /
+ *     dbf_zap) and dbf_flush operate on the opened table.
+ *
+ * This closes the plain-USE editing gap: dbf_open opens PAL_RD with writable=0,
+ * so a REPLACE/APPEND/DELETE after `USE <file>` previously required the
+ * dbf_create + wa_adopt_table seam. With dbf_open_rw a work area can be opened
+ * read-write directly (see wa_set_open_rw / WA_OPEN_RW in workarea.h).
+ *
+ * Write model (consistent with dbf_create + S1.5): the mutation verbs patch the
+ * in-arena record region; dbf_flush rewrites the WHOLE file deterministically
+ * (header + descriptors + lone 0x0D terminator + records + trailing 0x1A). A .dbf
+ * opened RW is normalized to the +1 (lone 0x0D) terminator form on flush; the
+ * records loaded here come from the original (possibly +2-form) header_length
+ * offset, so the normalization is loss-free.
+ *
+ * On success returns DBF_OK and *out points to a WRITABLE arena-allocated table
+ * whose PAL handle stays OPEN. On any failure returns -(dbf_err), sets *out to
+ * NULL, and leaves no half-open handle -- fails loud (Rule 2) on a missing file
+ * (-DBF_ERR_IO), an unsupported version, or a violated invariant, exactly like
+ * dbf_open.
+ *
+ * Mutation hook (Rule 6): -DDBF_MUTATE_OPENRW_RO loads the records but leaves the
+ * table read-only, so the mutation verbs + flush reject it and nothing persists.
+ *
+ * Ref: dbf.md sec 2/3/4/5/6/8; dbf.h S1.5; pal.h (PAL_RDWR); plan 7az.16.
+ */
+int dbf_open_rw(samir_pal_t *pal, const char *name, dbf_table **out);
+
+/*
  * dbf_close: close the PAL handle held by `tbl` and reset the arena to the
  * mark taken at open (freeing the table). NULL is a no-op. Returns DBF_OK or
  * -(dbf_err) if the PAL close reported a failure (the table is freed either

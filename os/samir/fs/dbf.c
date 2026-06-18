@@ -134,6 +134,18 @@
 #endif
 
 /*
+ * 7az.16 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_OPENRW_RO is defined,
+ * dbf_open_rw opens the file PAL_RDWR + loads the record region (as normal) but
+ * leaves tbl->writable = 0 (the read-only state dbf_open produces). Every S1.5
+ * mutation verb (dbf_replace/dbf_append_blank/dbf_delete/...) and dbf_flush then
+ * reject the table with -DBF_ERR_IO, so a plain-USE-then-REPLACE persists NOTHING
+ * -> the RW-USE oracle goes RED. Exactly one decision (the writable flag) is
+ * perturbed; the read path (dbf_read_rec) still works, so a read-only assertion
+ * would still pass -- the mutant bites precisely the write capability 7az.16 adds.
+ * Ref: dbf.h dbf_open_rw; dbf.c dbf_replace/dbf_flush writable guards.
+ */
+
+/*
  * Upper bound on appended records for an in-arena built table (S1.4). Keeps the
  * record region from being asked to grow without bound; well above any S1.4
  * round-trip fixture. A genuine III+ table allows up to ~1e9 records, but the
@@ -249,7 +261,33 @@ static int teardown(dbf_table *tbl, int rc)
     return (close_rc < 0) ? -DBF_ERR_IO : DBF_OK;
 }
 
-int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
+/*
+ * dbf_open_common: the shared open+parse path behind both dbf_open (read-only)
+ * and dbf_open_rw (read-write; 7az.16). It opens `name` with `open_mode`, parses
+ * + validates the header/descriptors/record-area exactly the same way for both
+ * callers (one parse path, no duplicate-and-drift), allocates the field array +
+ * the record-read buffer, and -- when `want_writable` -- loads every on-disk
+ * record into the in-arena rec_region and sets the writable flag so the S1.5
+ * mutation verbs (dbf_replace/dbf_append_blank/dbf_delete/recall/pack/zap) and
+ * dbf_flush operate on the opened table, NOT only on a dbf_create()'d one.
+ *
+ * Why the record region is loaded for the RW path (Law 1 / dbf.c S1.5 model):
+ * the mutation verbs all patch tbl->rec_region in-arena and dbf_flush rewrites
+ * the WHOLE file from that region (build-in-arena/flush-to-disk). A table opened
+ * RW with an empty rec_region would flush an empty file. So dbf_open_rw must
+ * prime rec_region from the existing records before any verb runs. We read the
+ * record bytes directly through read_exact (the same primitive dbf_read_rec uses)
+ * so no record is decoded/re-encoded -- the bytes round-trip verbatim.
+ *
+ * `open_mode`     : PAL_RD (read-only) or PAL_RDWR (read-write).
+ * `want_writable` : 0 -> read-only table (dbf_open); 1 -> load rec_region +
+ *                   set writable=1 (dbf_open_rw). When 1, open_mode MUST be
+ *                   PAL_RDWR so dbf_flush's write path has a writable fd.
+ *
+ * Ref: dbf.md sec 2/3/4/5/6/8; dbf.h S1.1-S1.5; spec/samir/dbf_format.h.
+ */
+static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
+                           int open_mode, int want_writable)
 {
     uint8_t hdr[DBF_HDR_SIZE];
     uint8_t desc[DBF_DESC_STRIDE];
@@ -285,8 +323,9 @@ int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
     tbl->mark = mark;
     tbl->fd   = -1;
 
-    /* Open for reading; the handle stays open for the record area (S1.2/S1.3). */
-    fd = pal->open(pal, name, PAL_RD);
+    /* Open per the caller's mode; the handle stays open for the record area
+     * (S1.2/S1.3) and, for the RW path, for dbf_flush's write-back. */
+    fd = pal->open(pal, name, open_mode);
     if (fd < 0)
         return teardown(tbl, -DBF_ERR_IO);
     tbl->fd = fd;
@@ -512,8 +551,83 @@ int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
         }
     }
 
+    /*
+     * --- 7az.16: writable (read-write) USE path ---
+     * For a read-write open (dbf_open_rw, want_writable=1) load every existing
+     * record into the in-arena rec_region so the S1.5 mutation verbs + dbf_flush
+     * (which operate on rec_region, not on disk-in-place) can run after a plain
+     * USE. The bytes are copied verbatim from disk via read_exact (the same
+     * primitive dbf_read_rec uses) -- no decode/re-encode round-trip, so the
+     * records flush back byte-for-byte unless a verb changed them.
+     * The DBF_MUTATE_OPENRW_RO mutation hook drops the writable flag so the verbs
+     * reject the table -> the RW-USE oracle goes RED (Rule 6; see hook below).
+     */
+    if (want_writable) {
+#ifdef DBF_MUTATE_OPENRW_RO
+        tbl->writable = 0u;          /* MUTANT: opened RW but flagged read-only */
+#else
+        tbl->writable = 1u;
+#endif
+        /* Load the existing records from the ORIGINAL header_length offset (the
+         * value parsed from disk; the records start there regardless of the
+         * +1/+2 terminator form). Read BEFORE the header_length normalization
+         * below so the offset is the on-disk one. */
+        if (nrec > 0u) {
+            uint32_t rlen   = (uint32_t)record_length;
+            uint32_t total  = nrec * rlen;
+            uint8_t *region = (uint8_t *)pal->alloc(pal, total);
+            if (!region)
+                return teardown(tbl, -DBF_ERR_NOMEM);
+            rc = read_exact(pal, fd, (int32_t)header_length, region, total);
+            if (rc != DBF_OK)
+                return teardown(tbl, rc);
+            tbl->rec_region = region;
+            tbl->rec_cap    = nrec;
+        } else {
+            tbl->rec_region = (uint8_t *)0;
+            tbl->rec_cap    = 0u;
+        }
+
+        /*
+         * Normalize the header geometry to the +1 (lone 0x0D) terminator form
+         * that dbf_flush ALWAYS emits, so a subsequent flush stays
+         * self-consistent: dbf_flush writes header + descriptors + ONE 0x0D
+         * + records, placing records at DBF_HDR_SIZE + 32*nfields + 1. If we
+         * kept a +2-form header_length (genuine III+ files exist: TEST1C/2C.DBF),
+         * the flushed records would no longer sit at the stored header_length and
+         * a re-open would read garbage. We already captured the records above
+         * from the original offset, so re-pointing header_length is loss-free.
+         * Ref: dbf.md sec 4 (+1/+2 forms); dbf_flush (+1 emitter); dbf_create.
+         */
+        tbl->header_length = (uint16_t)((uint32_t)DBF_HDR_SIZE + descbytes + 1u);
+        tbl->term_extra    = 1u;
+    }
+
     *out = tbl;
     return DBF_OK;
+}
+
+/*
+ * dbf_open: open an existing .dbf read-only. Thin wrapper over dbf_open_common
+ * (PAL_RD, want_writable=0). The shared parse path keeps dbf_open and dbf_open_rw
+ * from drifting (Rule 3 / 7az.16 contract).
+ */
+int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
+{
+    return dbf_open_common(pal, name, out, PAL_RD, /*want_writable=*/0);
+}
+
+/*
+ * dbf_open_rw: open an existing .dbf read-write (7az.16). Same parse + validation
+ * as dbf_open, but opens PAL_RDWR, loads the on-disk records into rec_region, and
+ * sets the writable flag so REPLACE/APPEND/DELETE/RECALL/PACK/ZAP + dbf_flush work
+ * after a plain USE -- no dbf_create / wa_adopt_table seam required.
+ * Fails loud (Rule 2) on a missing/unopenable file (teardown -> -DBF_ERR_IO) or a
+ * malformed header, identically to dbf_open.
+ */
+int dbf_open_rw(samir_pal_t *pal, const char *name, dbf_table **out)
+{
+    return dbf_open_common(pal, name, out, PAL_RDWR, /*want_writable=*/1);
 }
 
 int dbf_close(dbf_table *tbl)

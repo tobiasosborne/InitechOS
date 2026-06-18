@@ -369,8 +369,26 @@ static void close_handles(work_area *wa)
     }
 }
 
-int wa_set_open(wa_env *env, int area, const char *name,
-                const char *alias, const wa_index_list *idx)
+/*
+ * wa_open_impl: the shared body behind wa_set_open (read-only USE) and
+ * wa_set_open_rw (read-write USE, 7az.16). `rw` selects the open mode:
+ *   rw == 0 : the .dbf via dbf_open (PAL_RD, writable=0) and indexes via
+ *             ndx_open (read-only) -- the historical read-only USE.
+ *   rw != 0 : the .dbf via dbf_open_rw (PAL_RDWR, writable=1 + record region
+ *             loaded) and indexes via ndx_open_rw (writable) so REPLACE/APPEND/
+ *             DELETE can mutate the table AND re-file the open indexes after a
+ *             plain `USE <file>`. The sibling .dbt is opened read (dbt_open) in
+ *             both modes -- memo TEXT writes are a separate concern (dbt_append
+ *             on a dbt_create handle); 7az.16 needs the memo only for READ.
+ *
+ * Everything else (cache alloc, alias, cursor init, fail-loud teardown) is
+ * IDENTICAL for both modes, so there is one code path -- no read/write drift.
+ *
+ * Ref: dbf.h dbf_open / dbf_open_rw; ndx.h ndx_open / ndx_open_rw; dbt.h
+ *      dbt_open; workarea.h wa_set_open / wa_set_open_rw; plan 7az.16.
+ */
+static int wa_open_impl(wa_env *env, int area, const char *name,
+                        const char *alias, const wa_index_list *idx, int rw)
 {
     work_area *wa;
     samir_pal_t *pal;
@@ -391,8 +409,11 @@ int wa_set_open(wa_env *env, int area, const char *name,
 
     pal = env->pal;
 
-    /* --- open the .dbf --- */
-    rc = dbf_open(pal, name, &wa->tbl);
+    /* --- open the .dbf (read-only or read-write per `rw`) --- */
+    if (rw)
+        rc = dbf_open_rw(pal, name, &wa->tbl);
+    else
+        rc = dbf_open(pal, name, &wa->tbl);
     if (rc != DBF_OK) {
         wa->tbl = (dbf_table *)0;
         return rc;                     /* propagate the codec error (negative) */
@@ -408,7 +429,7 @@ int wa_set_open(wa_env *env, int area, const char *name,
         return -WA_ERR_NOMEM;
     }
 
-    /* --- open the sibling .dbt iff the table has a memo --- */
+    /* --- open the sibling .dbt iff the table has a memo (read; both modes) --- */
     if (dbf_has_memo(wa->tbl)) {
         if (derive_dbt_path(dbtpath, sizeof(dbtpath), name) != 0) {
             close_handles(wa);
@@ -423,12 +444,17 @@ int wa_set_open(wa_env *env, int area, const char *name,
         }
     }
 
-    /* --- open each named index (the first becomes master order 1) --- */
+    /* --- open each named index (the first becomes master order 1) ---
+     * Read-write USE opens indexes ndx_open_rw so S5.5 REPLACE/APPEND can
+     * ndx_update/ndx_insert them; read-only USE opens them ndx_open. */
     wa->nidx = 0;
     if (idx && idx->count > 0) {
         for (i = 0; i < idx->count; i++) {
             ndx_index *ix = (ndx_index *)0;
-            rc = ndx_open(pal, idx->names[i], &ix);
+            if (rw)
+                rc = ndx_open_rw(pal, idx->names[i], &ix);
+            else
+                rc = ndx_open(pal, idx->names[i], &ix);
             if (rc != NDX_OK) {
                 close_handles(wa);
                 return rc;             /* propagate the ndx error */
@@ -461,6 +487,30 @@ int wa_set_open(wa_env *env, int area, const char *name,
     wa->open  = 1;
 
     return WA_OK;
+}
+
+/*
+ * wa_set_open: read-only USE (unchanged default; opens dbf_open + ndx_open).
+ * Existing callers/tests that rely on a read-only USE are untouched -- this is a
+ * thin wrapper over the shared wa_open_impl with rw=0.
+ */
+int wa_set_open(wa_env *env, int area, const char *name,
+                const char *alias, const wa_index_list *idx)
+{
+    return wa_open_impl(env, area, name, alias, idx, /*rw=*/0);
+}
+
+/*
+ * wa_set_open_rw: read-WRITE USE (7az.16). Opens the .dbf via dbf_open_rw
+ * (PAL_RDWR + record region loaded + writable=1) and any indexes via
+ * ndx_open_rw, so REPLACE/APPEND/DELETE + dbf_flush + ndx_update work after a
+ * plain `USE <file>` -- no dbf_create / wa_adopt_table seam needed. Identical
+ * behaviour to wa_set_open otherwise (alias, RECNO=1, fail-loud teardown).
+ */
+int wa_set_open_rw(wa_env *env, int area, const char *name,
+                   const char *alias, const wa_index_list *idx)
+{
+    return wa_open_impl(env, area, name, alias, idx, /*rw=*/1);
 }
 
 /*

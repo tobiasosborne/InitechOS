@@ -724,6 +724,9 @@ TEST_INTERP_PROC_MUT := $(BUILD)/test_interp_proc_mut
 SAMIR_MAIN_SRC    := $(SAMIR_DIR)/samir_main.c
 TEST_SAMIR_REPL     := $(BUILD)/test_samir_repl
 TEST_SAMIR_REPL_MUT := $(BUILD)/test_samir_repl_mut
+# Writable USE: dbf_open_rw + wa_set_open_rw (initech-7az.16).
+TEST_USE_RW      := $(BUILD)/test_use_rw
+TEST_USE_RW_MUT  := $(BUILD)/test_use_rw_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -2106,6 +2109,36 @@ test-samir-repl-mutant: $(TEST_SAMIR_REPL_MUT)
 		printf '!!! test-samir-repl-mutant FAIL: mutant PASSED -- REPL module registration is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-samir-repl-mutant: green (REPLACE-unregistered correctly RED)\n'; \
+	fi
+
+# ---- SAMIR writable USE: dbf_open_rw + wa_set_open_rw (initech-7az.16) ----
+# dbf_open_rw opens an EXISTING .dbf PAL_RDWR (shared parse path with dbf_open) so
+# the S1.5 mutation verbs + dbf_flush work; wa_set_open_rw USEs it RW (+ ndx_open_rw)
+# so REPLACE/APPEND persist after a plain USE. wa_set_open default stays read-only.
+# Mutant: open RW but don't set writable -> REPLACE fails #41 -> RED.
+USE_RW_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_USE_RW): $(DBF_DIFF_DIR)/test_use_rw.c $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_use_rw.c $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_USE_RW_MUT): $(DBF_DIFF_DIR)/test_use_rw.c $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_OPENRW_RO -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_use_rw.c $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-use-rw
+test-use-rw: $(TEST_USE_RW)
+	@printf ">>> test-use-rw: writable USE (dbf_open_rw + wa_set_open_rw); plain USE-then-REPLACE persists (7az.16)\n"
+	@$(TEST_USE_RW) $(DBASE3_DECOMP)
+	@printf ">>> test-use-rw: green\n"
+
+.PHONY: test-use-rw-mutant
+test-use-rw-mutant: $(TEST_USE_RW_MUT)
+	@printf ">>> test-use-rw-mutant: confirming the open-RW-but-read-only mutant goes RED (Rule 6; initech-7az.16)\n"
+	@$(TEST_USE_RW_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-use-rw-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_USE_RW_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-use-rw-mutant FAIL: mutant PASSED -- writable USE is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-use-rw-mutant: green (open-RW-but-read-only correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 DB-cursor functions: RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF/FILE (S3.6b / initech-7az.10) ----
@@ -10441,6 +10474,7 @@ TEST_UNIT_GATES := \
 	test-interp-set test-interp-set-mutant \
 	test-interp-proc test-interp-proc-mutant \
 	test-samir-repl test-samir-repl-mutant \
+	test-use-rw test-use-rw-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.

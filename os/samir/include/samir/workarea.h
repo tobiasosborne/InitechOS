@@ -267,6 +267,35 @@ int wa_set_open(wa_env *env, int area, const char *name,
                 const char *alias, const wa_index_list *idx);
 
 /*
+ * wa_set_open_rw: read-WRITE USE -- same as wa_set_open but opens the table for
+ * editing (7az.16, the writable-USE path).
+ *
+ * Identical parameters and behaviour to wa_set_open, EXCEPT:
+ *   - the .dbf is opened via dbf_open_rw (PAL_RDWR, writable=1, the on-disk
+ *     records loaded into the table's record region), so the S5.5 mutation verbs
+ *     (REPLACE / APPEND BLANK / DELETE / RECALL / PACK / ZAP) and dbf_flush
+ *     operate on the table directly after a plain `USE <file>`; and
+ *   - any named indexes are opened via ndx_open_rw (writable) so REPLACE/APPEND
+ *     can re-file them (ndx_update / ndx_insert).
+ * The sibling .dbt is opened read (dbt_open) in both modes -- memo TEXT writes
+ * are a separate concern; the writable USE path needs the memo only for READ.
+ *
+ * THE GAP THIS CLOSES (7az.16): wa_set_open opens read-only (dbf_open =>
+ * writable=0), so REPLACE/APPEND/DELETE after a plain USE previously required the
+ * dbf_create + wa_adopt_table seam (S5.5). The REPL / canon apps need plain-USE
+ * editing; wa_set_open_rw is that path. wa_set_open's read-only default is kept
+ * so callers/tests that USE a read-only-on-disk corpus golden never write to it.
+ *
+ * Returns WA_OK with the area open + WRITABLE, or -(wa_err) / propagated codec
+ * error on failure (area left CLOSED, no half-open handles). Does NOT change the
+ * SELECTed area (the caller drives wa_select), matching wa_set_open.
+ *
+ * Ref: dbf.h dbf_open_rw; ndx.h ndx_open_rw; workarea.h wa_set_open; plan 7az.16.
+ */
+int wa_set_open_rw(wa_env *env, int area, const char *name,
+                   const char *alias, const wa_index_list *idx);
+
+/*
  * wa_adopt_table: install an ALREADY-OPEN, WRITABLE table (from dbf_create) into
  * area `area` (1-based), instead of opening one from disk via wa_set_open.
  *
