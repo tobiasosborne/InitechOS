@@ -344,6 +344,85 @@ void xb_interp_release_all(xb_interp *ip);
  */
 int samir_last_error(xb_interp *ip);
 
+/* =======================================================================
+ * S5.7 -- procedure / memvar SCOPE model (initech-7az.8)
+ *
+ * The memvar table (owned by flow.c, S5.3) grows a DOWNWARD-stacking scope:
+ * each DO-call (cmd/proc.c) brackets the called routine's body between a
+ * xb_interp_scope_enter() / xb_interp_scope_leave() pair. A memvar carries the
+ * DO-call LEVEL at which it was created; on scope_leave every var at the leaving
+ * level is released and any caller/PUBLIC var it shadowed is restored. This is
+ * the III+ dynamic, stack-based scoping model (memory-variables.md sec 3):
+ *
+ *   - dot-prompt / main level = level 0.
+ *   - PUBLIC <list>  : declares level-0 GLOBALS that survive RETURN
+ *     (xb_interp_declare_public). GATED: the uninitialized PUBLIC VALUE
+ *     (Clipper inits to .F.; III+ 1.1 parity unconfirmed -- memory-variables.md
+ *     Open-question 3) -- we init to XB_U and the oracle loud-skips its value.
+ *   - PRIVATE <list> : creates a FRESH level-current var that HIDES any visible
+ *     same-named caller/PUBLIC var until scope_leave (xb_interp_declare_private).
+ *   - PARAMETERS <list> + DO ... WITH : binds the WITH values BY POSITION into
+ *     fresh level-current PRIVATE vars (xb_interp_store_param). GATED: by-REF
+ *     write-back exactness (memory-variables.md Open-question 5) -- not modelled;
+ *     the oracle loud-skips it. The bound values are by-VALUE copies.
+ *   - auto-private: a STORE/= to a name NOT currently visible creates it at the
+ *     current level (handled inside xb_interp_store; sec 3.1 rule 2). A STORE/=
+ *     to a VISIBLE name modifies that var (rule 1) -- this is how a callee writes
+ *     a caller's still-visible var.
+ *
+ * These are the additive hooks cmd/proc.c uses; the executor + every S5.1..S5.6
+ * behavior is unchanged (a program that never DO-calls runs entirely at level 0).
+ *
+ * Ref (Law 1):
+ *   - ../dbase3-decomp/specs/language/memory-variables.md sec 3 (PUBLIC/PRIVATE/
+ *     PARAMETERS scope, the auto-private rule, hiding+restore on RETURN).
+ *   - ../dbase3-decomp/specs/commands/control-flow-and-procedures.md sec 7-8
+ *     (DO/PROCEDURE/PARAMETERS/RETURN/DO WITH; by-ref/by-value).
+ * ======================================================================= */
+
+/*
+ * xb_interp_scope_enter: push one DO-call level (cmd/proc.c calls this before
+ * running a procedure body). Subsequent PRIVATE / PARAMETERS / auto-private
+ * memvars are created AT this new level. Returns the new level (>=1), or a
+ * negative interp_err on depth overflow (fail loud; Rule 2).
+ */
+int xb_interp_scope_enter(xb_interp *ip);
+
+/*
+ * xb_interp_scope_leave: pop the current DO-call level (cmd/proc.c calls this on
+ * RETURN / end-of-procedure). Releases EVERY level-current memvar and RESTORES
+ * any caller/PUBLIC var a PRIVATE/PARAMETERS declaration shadowed at this level.
+ * PUBLIC globals are untouched. NULL/at-level-0 is a no-op.
+ */
+void xb_interp_scope_leave(xb_interp *ip);
+
+/*
+ * xb_interp_declare_public: declare `name` (NUL-terminated, case-insensitive) a
+ * PUBLIC global. If a same-named visible var already exists it is left as-is
+ * (PUBLIC must precede the first assignment); otherwise a level-0 PUBLIC var is
+ * created with an UNINITIALIZED value (XB_U). Returns INTERP_OK or a negative
+ * interp_err. (memory-variables.md sec 3.2.)
+ */
+int xb_interp_declare_public(xb_interp *ip, const char *name);
+
+/*
+ * xb_interp_declare_private: declare `name` PRIVATE to the current level. Any
+ * currently-visible same-named var (a caller's or a PUBLIC) is HIDDEN until the
+ * current level is left; a fresh, UNINITIALIZED (XB_U) level-current var of that
+ * name is created. Returns INTERP_OK or a negative interp_err.
+ * (memory-variables.md sec 3.3.)
+ */
+int xb_interp_declare_private(xb_interp *ip, const char *name);
+
+/*
+ * xb_interp_store_param: bind a DO ... WITH argument value into a PARAMETERS
+ * name BY POSITION, as a fresh level-current PRIVATE var (a by-VALUE copy; the
+ * by-reference write-back is GATED -- see the scope header). Same storage
+ * contract as xb_interp_store (C/M bytes copied to the memvar arena). Returns
+ * INTERP_OK or a negative interp_err. (control-flow-and-procedures.md sec 8.)
+ */
+int xb_interp_store_param(xb_interp *ip, const char *name, const xb_val *v);
+
 /* Additional interp_err ordinals introduced by S5.3 (additive; INTERP_OK==0 and
  * the S5.1 codes are unchanged). Returned negated from samir_do, recorded by
  * samir_last_error. */

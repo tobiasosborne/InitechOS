@@ -58,6 +58,9 @@
 #define FLOW_MAX_NODES     128   /* per-expression node pool */
 #define FLOW_MAX_LINELEN   254   /* a working copy of one line (dBASE cap 254) */
 #define FLOW_MAX_REGISTRY  16    /* concurrent interpreters with flow state */
+#define FLOW_MAX_SCOPE     64    /* max DO-call scope depth (Rule 2 fail-loud cap;
+                                  * the corpus DO-stack cap is 32 -- error 100 --
+                                  * so 64 is generous headroom) */
 
 /* dBASE catalog ordinal used by the spine (not in eval.h). */
 #define FLOW_MSG_UNRECOGNIZED 16  /* "Unrecognized command verb." */
@@ -69,10 +72,26 @@
 /* engine is single-threaded cooperative; the registry is bounded + static.*/
 /* ===================================================================== */
 
+/* Memvar scope (S5.7).
+ *   level     : the DO-call nesting depth at which this memvar was created.
+ *               0 = the top (dot-prompt / main program) level. Auto-private,
+ *               PRIVATE, and PARAMETERS vars are released when their level is
+ *               left (xb_interp_scope_leave); PUBLIC vars (is_public=1) are
+ *               LEVEL-0 globals never released by a RETURN.
+ *   is_public : 1 = a PUBLIC global (survives RETURN); 0 = a level-scoped local.
+ *   shadows   : >=0 = the slot index of the SAME-named memvar this one HIDES
+ *               (a PRIVATE declaration shadowing a lower-level / PUBLIC var).
+ *               The hidden slot's `live` is cleared while shadowed and RESTORED
+ *               on scope leave; -1 = shadows nothing. (memory-variables.md sec 3.3:
+ *               "PRIVATE hides higher-level definitions ... restored on RETURN".)
+ */
 typedef struct {
     char     name[FLOW_MAX_NAME];  /* upper-cased, NUL-terminated */
     xb_val   val;                  /* C/M bytes live in the memvar arena */
     int      live;                 /* 0 = released slot */
+    int      level;                /* DO-call depth at creation (0 = top) */
+    int      is_public;            /* 1 = PUBLIC global (survives RETURN) */
+    int      shadows;             /* slot a PRIVATE decl hid; -1 = none */
 } memvar;
 
 typedef struct {
@@ -82,6 +101,13 @@ typedef struct {
     char     *arena;               /* memvar byte arena (names copies + C/M) */
     uint32_t  arena_cap;
     uint32_t  arena_used;
+
+    /* scope (S5.7): the current DO-call nesting depth. A new memvar created by
+     * STORE/= takes this level UNLESS the name is already visible (then the
+     * visible one is modified -- memory-variables.md sec 3.1). PARAMETERS /
+     * PRIVATE create vars AT this level. xb_interp_scope_leave drops every
+     * level-> var and restores any it shadowed. (S5.7 scope model.) */
+    int       cur_level;
 
     /* the registered command-hook CHAIN (S5.4..S5.7 extension point). Each
      * module appends one hook via xb_interp_add_cmd_hook; exec_command tries
@@ -128,8 +154,13 @@ static void flow_reset(flow_state *fs)
     fs->saved_resolve = (int (*)(void *, const char *, uint16_t, xb_val *))0;
     fs->saved_user   = (void *)0;
     fs->last_error   = 0;
-    for (i = 0; i < FLOW_MAX_MEMVARS; i++)
-        fs->vars[i].live = 0;
+    fs->cur_level    = 0;
+    for (i = 0; i < FLOW_MAX_MEMVARS; i++) {
+        fs->vars[i].live      = 0;
+        fs->vars[i].level     = 0;
+        fs->vars[i].is_public = 0;
+        fs->vars[i].shadows   = -1;
+    }
 }
 
 /*
@@ -296,6 +327,13 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
             fs->vars[slot].name[i] = fl_up1(name[i]);
         fs->vars[slot].name[nlen] = '\0';
         fs->vars[slot].live = 1;
+        /* A NEWLY-created memvar (the name was not visible) is auto-PRIVATE to
+         * the current DO-call level (memory-variables.md sec 3.1 rule 2). If
+         * the name WAS visible, slot>=0 above and we keep that var's existing
+         * level/scope -- the assignment modifies the visible var (rule 1). */
+        fs->vars[slot].level     = fs->cur_level;
+        fs->vars[slot].is_public = 0;
+        fs->vars[slot].shadows   = -1;
     }
 
     /* copy the value; for C/M, copy the bytes into the memvar arena. */
@@ -1317,6 +1355,158 @@ int xb_interp_get_memvar(xb_interp *ip, const char *name, xb_val *out)
         return 1;
     *out = fs->vars[slot].val;
     return 0;
+}
+
+/* ===================================================================== */
+/* S5.7 scope model -- the DO-call level stack over the memvar table       */
+/* ===================================================================== */
+
+int xb_interp_scope_enter(xb_interp *ip)
+{
+    flow_state *fs = flow_state_for(ip);
+    if (!fs)
+        return -INTERP_ERR_NOMEM;
+    flow_mark_inuse(ip, fs);
+    if (fs->cur_level >= FLOW_MAX_SCOPE)
+        return -INTERP_ERR_DEPTH;          /* DO nested too deep: fail loud */
+    fs->cur_level++;
+    return fs->cur_level;
+}
+
+void xb_interp_scope_leave(xb_interp *ip)
+{
+    flow_state *fs = flow_lookup(ip);
+    int lvl, i;
+    if (!fs || fs->cur_level <= 0)
+        return;
+    lvl = fs->cur_level;
+
+    /* Release every memvar created AT the leaving level (PRIVATE, PARAMETERS,
+     * auto-private). PUBLIC vars are level-0 globals and is_public, so they are
+     * never at lvl>=1 and never released here. As each level-var dies, RESTORE
+     * the var it shadowed (a PRIVATE that hid a caller/PUBLIC var). */
+    for (i = 0; i < fs->nvars; i++) {
+        if (!fs->vars[i].live)
+            continue;
+        if (fs->vars[i].is_public)
+            continue;
+        if (fs->vars[i].level == lvl) {
+#ifdef PROC_MUTATE_PRIVATE_NORESTORE
+            /* MUTANT (Rule 6 -- -DPROC_MUTATE_PRIVATE_NORESTORE): drop the
+             * level var but DO NOT un-hide the var it shadowed. The caller's
+             * shadowed value then stays clobbered/invisible after RETURN, so
+             * the oracle's "outer x unchanged after a PRIVATE callee" check
+             * goes RED. */
+            fs->vars[i].live = 0;
+#else
+            int sh = fs->vars[i].shadows;
+            fs->vars[i].live = 0;
+            if (sh >= 0 && sh < fs->nvars)
+                fs->vars[sh].live = 1;     /* un-hide the shadowed var */
+#endif
+        }
+    }
+    fs->cur_level--;
+}
+
+int xb_interp_declare_public(xb_interp *ip, const char *name)
+{
+    flow_state *fs = flow_state_for(ip);
+    int slot, i;
+    uint32_t nlen;
+    if (!fs || !name)
+        return -INTERP_ERR_NOMEM;
+    flow_mark_inuse(ip, fs);
+
+    /* If the name is already visible, PUBLIC is a no-op (it must precede the
+     * first assignment; memory-variables.md sec 3.2). */
+    if (memvar_find(fs, name) >= 0)
+        return INTERP_OK;
+
+    for (nlen = 0; name[nlen] != '\0'; nlen++) { }
+    if (nlen == 0u || nlen >= FLOW_MAX_NAME)
+        return -INTERP_ERR_SYNTAX;
+
+    /* allocate a slot (reuse a released one, else extend). */
+    slot = -1;
+    for (i = 0; i < fs->nvars; i++) {
+        if (!fs->vars[i].live) { slot = i; break; }
+    }
+    if (slot < 0) {
+        if (fs->nvars >= FLOW_MAX_MEMVARS)
+            return -INTERP_ERR_DEPTH;
+        slot = fs->nvars++;
+    }
+    for (i = 0; (uint32_t)i < nlen; i++)
+        fs->vars[slot].name[i] = fl_up1(name[i]);
+    fs->vars[slot].name[nlen] = '\0';
+    fs->vars[slot].live      = 1;
+    fs->vars[slot].level     = 0;          /* PUBLIC is a level-0 global */
+    fs->vars[slot].is_public = 1;
+    fs->vars[slot].shadows   = -1;
+    /* Uninitialized PUBLIC value GATED (memory-variables.md Open-q 3): XB_U. */
+    fs->vars[slot].val       = xb_u();
+    return INTERP_OK;
+}
+
+int xb_interp_declare_private(xb_interp *ip, const char *name)
+{
+    flow_state *fs = flow_state_for(ip);
+    int slot, i, hidden;
+    uint32_t nlen;
+    if (!fs || !name)
+        return -INTERP_ERR_NOMEM;
+    flow_mark_inuse(ip, fs);
+
+    for (nlen = 0; name[nlen] != '\0'; nlen++) { }
+    if (nlen == 0u || nlen >= FLOW_MAX_NAME)
+        return -INTERP_ERR_SYNTAX;
+
+    /* HIDE any currently-visible same-named var (caller's or PUBLIC) by clearing
+     * its live flag; it is restored on scope_leave. */
+    hidden = memvar_find(fs, name);
+    if (hidden >= 0)
+        fs->vars[hidden].live = 0;
+
+    /* allocate the fresh level-current PRIVATE var. */
+    slot = -1;
+    for (i = 0; i < fs->nvars; i++) {
+        if (!fs->vars[i].live && i != hidden) { slot = i; break; }
+    }
+    if (slot < 0) {
+        if (fs->nvars >= FLOW_MAX_MEMVARS) {
+            if (hidden >= 0) fs->vars[hidden].live = 1;  /* roll back the hide */
+            return -INTERP_ERR_DEPTH;
+        }
+        slot = fs->nvars++;
+    }
+    for (i = 0; (uint32_t)i < nlen; i++)
+        fs->vars[slot].name[i] = fl_up1(name[i]);
+    fs->vars[slot].name[nlen] = '\0';
+    fs->vars[slot].live      = 1;
+    fs->vars[slot].level     = fs->cur_level;
+    fs->vars[slot].is_public = 0;
+    fs->vars[slot].shadows   = hidden;     /* restore this on scope_leave */
+    /* Uninitialized PRIVATE value GATED: XB_U (memory-variables.md Open-q 3). */
+    fs->vars[slot].val       = xb_u();
+    return INTERP_OK;
+}
+
+int xb_interp_store_param(xb_interp *ip, const char *name, const xb_val *v)
+{
+    flow_state *fs = flow_state_for(ip);
+    int rc;
+    if (!fs || !name || !v)
+        return -INTERP_ERR_NOMEM;
+    flow_mark_inuse(ip, fs);
+    /* PARAMETERS binds a fresh level-current PRIVATE var (a by-value copy). It
+     * deliberately HIDES any visible same-named caller/PUBLIC var (positional,
+     * not by name -- control-flow-and-procedures.md sec 8.3). declare_private
+     * does the hide + fresh-slot; then store the value into it. */
+    rc = xb_interp_declare_private(ip, name);
+    if (rc != INTERP_OK)
+        return rc;
+    return memvar_set(fs, name, v);        /* fills the fresh PRIVATE slot */
 }
 
 void xb_interp_release_all(xb_interp *ip)

@@ -716,6 +716,10 @@ TEST_INTERP_REPLACE_MUT := $(BUILD)/test_interp_replace_mut
 SAMIR_SET_SRC     := $(SAMIR_CMD_DIR)/set.c
 TEST_INTERP_SET      := $(BUILD)/test_interp_set
 TEST_INTERP_SET_MUT  := $(BUILD)/test_interp_set_mut
+# S5.7 procedures + scope + I/O DO/PROC/PARAMS/PUBLIC/PRIVATE/ACCEPT/INPUT/ON ERROR (initech-7az.8).
+SAMIR_PROC_SRC    := $(SAMIR_CMD_DIR)/proc.c
+TEST_INTERP_PROC     := $(BUILD)/test_interp_proc
+TEST_INTERP_PROC_MUT := $(BUILD)/test_interp_proc_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -2035,6 +2039,37 @@ test-interp-set-mutant: $(TEST_INTERP_SET_MUT)
 		printf '!!! test-interp-set-mutant FAIL: mutant PASSED -- SET EXACT default is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-interp-set-mutant: green (EXACT default-ON correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-5 procedures + scope + I/O + ON ERROR (S5.7 / initech-7az.8) ----
+# cmd/proc.c (command-chain hook + proc_run/proc_fire_onerror): DO <name> [WITH],
+# PROCEDURE/PARAMETERS/RETURN, PUBLIC/PRIVATE scope (PRIVATE shadows+restores on
+# RETURN; downward-stacking DO-call levels in flow.c's memvar table), ACCEPT/INPUT/
+# WAIT (PAL conin), ON ERROR. GATED (loud-skip): param by-ref, uninit-PUBLIC value,
+# DO-name precedence. Mutant: PRIVATE doesn't restore the shadowed var -> RED.
+INTERP_PROC_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_INTERP_PROC): $(DBF_DIFF_DIR)/test_interp_proc.c $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_proc.c $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_INTERP_PROC_MUT): $(DBF_DIFF_DIR)/test_interp_proc.c $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUTATE_PRIVATE_NORESTORE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_proc.c $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-interp-proc
+test-interp-proc: $(TEST_INTERP_PROC)
+	@printf ">>> test-interp-proc: DO/PROC/PARAMS/RETURN/PUBLIC/PRIVATE/ACCEPT/INPUT/WAIT/ON ERROR + scope (S5.7)\n"
+	@$(TEST_INTERP_PROC) $(DBASE3_DECOMP)
+	@printf ">>> test-interp-proc: green\n"
+
+.PHONY: test-interp-proc-mutant
+test-interp-proc-mutant: $(TEST_INTERP_PROC_MUT)
+	@printf ">>> test-interp-proc-mutant: confirming the PRIVATE-no-restore mutant goes RED (Rule 6; initech-7az.8)\n"
+	@$(TEST_INTERP_PROC_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-interp-proc-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_INTERP_PROC_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-interp-proc-mutant FAIL: mutant PASSED -- PRIVATE scope restore is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-interp-proc-mutant: green (PRIVATE no-restore correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 DB-cursor functions: RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF/FILE (S3.6b / initech-7az.10) ----
@@ -10368,6 +10403,7 @@ TEST_UNIT_GATES := \
 	test-interp-list test-interp-list-mutant \
 	test-interp-replace test-interp-replace-mutant \
 	test-interp-set test-interp-set-mutant \
+	test-interp-proc test-interp-proc-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
