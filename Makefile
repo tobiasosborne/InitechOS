@@ -720,6 +720,10 @@ TEST_INTERP_SET_MUT  := $(BUILD)/test_interp_set_mut
 SAMIR_PROC_SRC    := $(SAMIR_CMD_DIR)/proc.c
 TEST_INTERP_PROC     := $(BUILD)/test_interp_proc
 TEST_INTERP_PROC_MUT := $(BUILD)/test_interp_proc_mut
+# S5.8 dot-prompt REPL -- the convergence finale (initech-7az.9).
+SAMIR_MAIN_SRC    := $(SAMIR_DIR)/samir_main.c
+TEST_SAMIR_REPL     := $(BUILD)/test_samir_repl
+TEST_SAMIR_REPL_MUT := $(BUILD)/test_samir_repl_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -2070,6 +2074,38 @@ test-interp-proc-mutant: $(TEST_INTERP_PROC_MUT)
 		printf '!!! test-interp-proc-mutant FAIL: mutant PASSED -- PRIVATE scope restore is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-interp-proc-mutant: green (PRIVATE no-restore correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-5 FINALE: the dot-prompt REPL samir_repl (S5.8 / initech-7az.9) ----
+# os/samir/samir_main.c registers all four command modules (query/mutate/set/proc)
+# into the interp, then loops: emit ". " prompt -> conin_line -> QUIT/EXIT/EOF stop;
+# USE/CLOSE owned here; else proc_run the line; on error render the period-authentic
+# 151-code catalog message and CONTINUE (never abort). main() is behind
+# SAMIR_MAIN_STANDALONE so the engine stays freestanding-linkable (Milton S8.2 wires
+# pal_milton there). Reuses INTERP_PROC_ENG (the full engine chain). Mutant: skip
+# registering the mutate module -> REPLACE in the scripted session fails -> RED.
+$(TEST_SAMIR_REPL): $(DBF_DIFF_DIR)/test_samir_repl.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_samir_repl.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_SAMIR_REPL_MUT): $(DBF_DIFF_DIR)/test_samir_repl.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DREPL_MUTATE_NO_MUTATE_MODULE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_samir_repl.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-samir-repl
+test-samir-repl: $(TEST_SAMIR_REPL)
+	@printf ">>> test-samir-repl: dot-prompt REPL USE/LIST/LOCATE/REPLACE/STORE/SET/DO/QUIT + catalog errors (S5.8)\n"
+	@$(TEST_SAMIR_REPL) $(DBASE3_DECOMP)
+	@printf ">>> test-samir-repl: green\n"
+
+.PHONY: test-samir-repl-mutant
+test-samir-repl-mutant: $(TEST_SAMIR_REPL_MUT)
+	@printf ">>> test-samir-repl-mutant: confirming the no-mutate-module mutant goes RED (Rule 6; initech-7az.9)\n"
+	@$(TEST_SAMIR_REPL_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-samir-repl-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_SAMIR_REPL_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-samir-repl-mutant FAIL: mutant PASSED -- REPL module registration is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-samir-repl-mutant: green (REPLACE-unregistered correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 DB-cursor functions: RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF/FILE (S3.6b / initech-7az.10) ----
@@ -10404,6 +10440,7 @@ TEST_UNIT_GATES := \
 	test-interp-replace test-interp-replace-mutant \
 	test-interp-set test-interp-set-mutant \
 	test-interp-proc test-interp-proc-mutant \
+	test-samir-repl test-samir-repl-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
