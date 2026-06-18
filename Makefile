@@ -727,6 +727,10 @@ TEST_SAMIR_REPL_MUT := $(BUILD)/test_samir_repl_mut
 # Writable USE: dbf_open_rw + wa_set_open_rw (initech-7az.16).
 TEST_USE_RW      := $(BUILD)/test_use_rw
 TEST_USE_RW_MUT  := $(BUILD)/test_use_rw_mut
+# S6.4 xBase .prg program differential -- the M6 capstone (initech-17n.2).
+PROG_DIFF_DIR     := $(DBF_DIFF_DIR)/xbase_prog_diff
+TEST_DBASE_DIFF     := $(BUILD)/prog_diff
+TEST_DBASE_DIFF_MUT := $(BUILD)/prog_diff_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -7449,8 +7453,42 @@ test-fat-write-mutant: $(TEST_FAT12_WRITE_MUT_ONEFAT) $(TEST_FAT12_WRITE_MUT_EOC
 		printf '>>> test-fat-write-mutant: green (wrong-EOC mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
-test-dbase:
-	$(call stub_fail,test-dbase,M6)
+# ---- SAMIR Phase-6 CAPSTONE: xBase .prg program differential (S6.4 / initech-17n.2) ----
+# Runs a committed deterministic .prg corpus (expr/funcs/exact/flow/proc/query/mutate)
+# through the REAL engine (proc_run + a capturing host PAL, fixed clock) and diffs
+# normalized stdout (+ the mutate result .dbf via dbf_ref.py) vs authored Tier-0
+# goldens hand-derived from the III+ spec. gate 100% (PRD sec.8). Tier-2 real-DBASE.EXE
+# authenticity is GATED-env (loud-skip). Mutant: swap the =-direction golden -> RED.
+PROG_DIFF_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_DBASE_DIFF): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBASE_DIFF_MUT): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROGDIFF_MUTATE_SWAP_EQ_GOLDEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-dbase-diff
+test-dbase-diff: $(TEST_DBASE_DIFF)
+	@printf ">>> test-dbase-diff: xBase .prg program differential (stdout + result .dbf vs authored goldens; gate 100%%) (S6.4)\n"
+	@$(TEST_DBASE_DIFF) $(DBASE3_DECOMP) $(PROG_DIFF_DIR)
+	@printf ">>> test-dbase-diff: green\n"
+
+.PHONY: test-dbase-diff-mutant
+test-dbase-diff-mutant: $(TEST_DBASE_DIFF_MUT)
+	@printf ">>> test-dbase-diff-mutant: confirming the =-direction-swap mutant goes RED (Rule 6; initech-17n.2)\n"
+	@$(TEST_DBASE_DIFF_MUT) $(DBASE3_DECOMP) $(PROG_DIFF_DIR) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-dbase-diff-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_DBASE_DIFF_MUT) $(DBASE3_DECOMP) $(PROG_DIFF_DIR) >/dev/null 2>&1; then \
+		printf '!!! test-dbase-diff-mutant FAIL: mutant PASSED -- the program differential is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-dbase-diff-mutant: green (=-direction swap correctly RED)\n'; \
+	fi
+
+# M6 InitechBase differential milestone -- GREEN now that S6.3 (round-trip) + S6.4
+# (program diff) exist (was a stub_fail; plan: test-dbase goes green at S6.3/S6.4).
+.PHONY: test-dbase
+test-dbase: test-dbase-roundtrip test-dbase-roundtrip-mutant test-dbase-diff test-dbase-diff-mutant
+	@printf '>>> test-dbase: M6 InitechBase differential GREEN -- round-trip + program diff (100%%)\n'
 
 test-compiler:
 	$(call stub_fail,test-compiler,M7)
@@ -10475,7 +10513,8 @@ TEST_UNIT_GATES := \
 	test-interp-proc test-interp-proc-mutant \
 	test-samir-repl test-samir-repl-mutant \
 	test-use-rw test-use-rw-mutant \
-	test-dbase-roundtrip test-dbase-roundtrip-mutant
+	test-dbase-roundtrip test-dbase-roundtrip-mutant \
+	test-dbase-diff test-dbase-diff-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
