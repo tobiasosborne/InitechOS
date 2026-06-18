@@ -689,6 +689,10 @@ TEST_XBASE_TRANSFORM_MUT := $(BUILD)/test_xbase_transform_mut
 # affected by SET DECIMALS (verified: numeric-and-string-formatting.md:11-13,:33).
 TEST_INTERP_SETFMT     := $(BUILD)/test_interp_setfmt
 TEST_INTERP_SETFMT_MUT := $(BUILD)/test_interp_setfmt_mut
+# SET DECIMALS -> ?/?? display of a computed (non-integer) numeric (initech-7az.20);
+# verified scope (division/VAL/computed-display), NOT STR. SQRT/LOG GATED (7az.13).
+TEST_INTERP_DECIMALS     := $(BUILD)/test_interp_decimals
+TEST_INTERP_DECIMALS_MUT := $(BUILD)/test_interp_decimals_mut
 # Phase-7 canon: Initech accounting app + the enforced Y2K bug (initech-586.1).
 TEST_CANON_Y2K     := $(BUILD)/test_canon_y2k
 TEST_CANON_Y2K_MUT := $(BUILD)/test_canon_y2k_mut
@@ -2124,6 +2128,37 @@ test-interp-setfmt-mutant: $(TEST_INTERP_SETFMT_MUT)
 		printf '!!! test-interp-setfmt-mutant FAIL: mutant PASSED -- the SET DATE/CENTURY wiring is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-interp-setfmt-mutant: green (DTOC-ignores-SET-DATE correctly RED)\n'; \
+	fi
+
+# ---- SAMIR S5.6: SET DECIMALS -> ?/?? computed-numeric display (initech-7az.20) ----
+# The verified SET DECIMALS scope (numeric-and-string-formatting.md:33; mint-002
+# '? 1/3 -> 0.33'): a COMPUTED non-integer numeric displayed via ?/?? uses
+# SET DECIMALS places; integer literals stay 0-dec; STR is NOT affected (stays
+# 0-dec). SQRT/LOG/EXP + VAL-precision + integer-division trailing zeros are GATED
+# (loud-skip). Mutant: ? of a division ignores SET DECIMALS -> RED.
+INTERP_DECIMALS_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_INTERP_DECIMALS): $(DBF_DIFF_DIR)/test_interp_decimals.c $(INTERP_DECIMALS_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_decimals.c $(INTERP_DECIMALS_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_INTERP_DECIMALS_MUT): $(DBF_DIFF_DIR)/test_interp_decimals.c $(INTERP_DECIMALS_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDEC_MUTATE_IGNORE_SETDEC -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_decimals.c $(INTERP_DECIMALS_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-interp-decimals
+test-interp-decimals: $(TEST_INTERP_DECIMALS)
+	@printf ">>> test-interp-decimals: SET DECIMALS -> ?/?? computed-numeric display (division; 1/3->0.33) (7az.20)\n"
+	@$(TEST_INTERP_DECIMALS) $(DBASE3_DECOMP)
+	@printf ">>> test-interp-decimals: green\n"
+
+.PHONY: test-interp-decimals-mutant
+test-interp-decimals-mutant: $(TEST_INTERP_DECIMALS_MUT)
+	@printf ">>> test-interp-decimals-mutant: confirming the ignore-SET-DECIMALS mutant goes RED (Rule 6; 7az.20)\n"
+	@$(TEST_INTERP_DECIMALS_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-interp-decimals-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_INTERP_DECIMALS_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-interp-decimals-mutant FAIL: mutant PASSED -- the SET DECIMALS display wiring is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-interp-decimals-mutant: green (ignore-SET-DECIMALS correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-7 CANON: Initech AR accounting app + enforced Y2K bug (S7.1 / initech-586.1) ----
@@ -10651,6 +10686,7 @@ TEST_UNIT_GATES := \
 	test-interp-replace test-interp-replace-mutant \
 	test-interp-set test-interp-set-mutant \
 	test-interp-setfmt test-interp-setfmt-mutant \
+	test-interp-decimals test-interp-decimals-mutant \
 	test-interp-proc test-interp-proc-mutant \
 	test-canon-y2k test-canon-y2k-mutant \
 	test-canon-salami test-canon-salami-mutant \

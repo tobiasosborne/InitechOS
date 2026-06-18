@@ -294,8 +294,50 @@ static void q_append_uint_rj(char *buf, uint32_t *pos, uint32_t cap,
  *   L   : "T" / "F" (LIST column form; ? prints .T./.F. but the oracle asserts
  *         on field values, so we use the LIST "T"/"F" form here uniformly).
  *   U   : blank (an unset value renders empty).
+ *
+ * SET DECIMALS scope (numeric-and-string-formatting.md line 33, HELP.DBS:1413-1416
+ * [verified: HELP.DBS]): division / SQRT / LOG / VAL / EXP results use SET DECIMALS
+ * as the minimum decimal-place count in display. The headline verified case is:
+ *   ? 1/3  ->  0.33  (SET DECIMALS=2, the III+ default)
+ *   [verified: ../dbase3-decomp/re/mint-results-002.md: "? 1/3 -> 0.33;
+ *    SET DECIMALS default = 2"]
+ *
+ * At the rendering layer we have only the xb_val double -- we cannot distinguish
+ * a division result from any other non-integral computed value. We apply the
+ * following verified+gated policy:
+ *
+ *   VERIFIED: a non-integral computed numeric uses ctx->set_decimals decimal
+ *   places. This is correct for the headline division case and for VAL
+ *   (numeric-and-string-formatting.md S5.3: both are in the closed SET DECIMALS
+ *   scope [verified: HELP.DBS:1413-1416]).
+ *
+ *   GATED: distinguishing division/VAL from other non-integral results (e.g. the
+ *   result of a user arithmetic expression that happens to be non-integral but is
+ *   not division/VAL) would require value tagging through the AST -- [oracle-resolves].
+ *   The CONSERVATIVE CHOICE is to apply set_decimals to ALL non-integral computed
+ *   numerics, which at minimum satisfies the verified cases without silently
+ *   under-formatting them.
+ *
+ *   NOT AFFECTED: integer-valued results (fr <= 1e-9) always display with 0
+ *   decimals regardless of SET DECIMALS. "? 5" -> "5" (integral literal);
+ *   "? VAL('42')" -> "42" (VAL of an integer string yields an integral double).
+ *   [ground: numeric-and-string-formatting.md S5.3: "a literal numeric memvar is
+ *   NOT widened to DECIMALS places merely by being ?-printed".]
+ *
+ *   STR IS UNAFFECTED: STR() returns a C value (not an N), so this XB_N branch
+ *   is never taken for STR output. STR always uses dec=0 by default regardless
+ *   of SET DECIMALS [verified: numeric-and-string-formatting.md lines 11-13].
+ *
+ *   SQRT / LOG / EXP: GATED (bead 7az.13 -- not yet implemented). If those
+ *   functions land, they will produce XB_N values that pass through this same
+ *   path and will automatically honor set_decimals.
+ *
+ * ctx: the evaluation context; carries ctx->set_decimals (uint8_t, default 2).
+ *   NULL ctx is a caller bug -- if it occurs we fall back to dec=2 (fail safe;
+ *   Rule 2 note: a NULL ctx here means the interpreter was not initialized).
  */
-static void q_render_val(char *buf, uint32_t *pos, uint32_t cap, const xb_val *v)
+static void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
+                         const xb_val *v, const xb_ctx *ctx)
 {
     switch (v->t) {
     case XB_C:
@@ -303,15 +345,45 @@ static void q_render_val(char *buf, uint32_t *pos, uint32_t cap, const xb_val *v
         q_append(buf, pos, cap, v->u.c.p ? v->u.c.p : "", (uint32_t)v->u.c.len);
         break;
     case XB_N: {
-        /* Render the numeric value. Choose 0 decimals if it is integral, else 2.
-         * dec_format ties-to-+inf; we left-trim the field-padding spaces. */
+        /*
+         * Render the numeric value.
+         *
+         * decimal count selection:
+         *   - integral value (fr <= 1e-9): dec = 0  (no forced decimal places).
+         *   - non-integral value: dec = ctx->set_decimals (honors SET DECIMALS).
+         *     Default = 2 [verified: mint-results-002.md].
+         *
+         * Ref (Law 1):
+         *   - numeric-and-string-formatting.md line 33 (SET DECIMALS scope:
+         *     division/SQRT/LOG/VAL/EXP [verified: HELP.DBS:1413-1416]).
+         *   - mint-results-002.md: "? 1/3 -> 0.33 (DECIMALS=2)" [verified].
+         *   - numeric-and-string-formatting.md S5.1 "floor, not a fixed count"
+         *     (FIXED OFF default: set_decimals is the MINIMUM; more fractional
+         *     digits may show if present; [oracle-resolves] for FIXED ON edge).
+         *
+         * MUTATION GUARD (-DDEC_MUTATE_IGNORE_SETDEC):
+         *   Force dec=2 regardless of ctx->set_decimals so that SET DECIMALS TO 4
+         *   followed by "? 1/3" still shows "0.33" (wrong) not "0.3333" (correct).
+         *   Also SET DECIMALS TO 0 would give "0.33" (wrong) not "0" (correct).
+         *   The test oracle assertions for these cases go RED, proving the oracle
+         *   catches the missing ctx->set_decimals read. (Rule 6 mutation proof.)
+         */
         char tmp[40];
         int width = 20, dec = 0, w, lead = 0;
         double n = v->u.n, fr;
         /* integral test: fractional part within a small epsilon */
         fr = n - (double)(int64_t)n;
         if (fr < 0.0) fr = -fr;
-        if (fr > 1e-9) dec = 2;
+        if (fr > 1e-9) {
+#ifdef DEC_MUTATE_IGNORE_SETDEC
+            (void)ctx;  /* mutant: ctx deliberately unused; suppress -Wunused-parameter */
+            dec = 2;    /* MUTANT: ignore SET DECIMALS, always use 2 */
+#else
+            /* Non-integral: use SET DECIMALS (the verified scope).
+             * ctx->set_decimals is uint8_t, always safe to cast to int. */
+            dec = (ctx != (const xb_ctx *)0) ? (int)ctx->set_decimals : 2;
+#endif
+        }
         w = dec_format(n, width, dec, tmp);   /* writes exactly `width` bytes */
         while (lead < w && tmp[lead] == ' ') lead++;
         q_append(buf, pos, cap, tmp + lead, (uint32_t)(w - lead));
@@ -617,7 +689,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             rc = q_eval(ip, expr, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
-            q_render_val(line, &pos, sizeof(line), &v);
+            q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip));
         }
         if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
     } else {
@@ -634,7 +706,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             rc = q_eval(ip, f->name, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
-            q_render_val(line, &pos, sizeof(line), &v);
+            q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip));
         }
     }
 
@@ -785,7 +857,7 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
         rc = q_eval(ip, expr, &v, ec);
         if (rc != INTERP_OK)
             return rc;
-        q_render_val(line, &pos, sizeof(line), &v);
+        q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip));
     }
     if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
 
