@@ -130,7 +130,7 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **174 host + 27 emu gates** (WL-0031+WL-0032 took SAMIR/M6 from 124 to 174 host:
+`make test` = **176 host + 27 emu gates** (WL-0031+WL-0032 took SAMIR/M6 from 124 to 176 host:
 the full `.dbt` codec, `.ndx` keys/SEEK/build/maintain, the whole interpreter S5.1-S5.8 + the
 dot-prompt REPL, writable USE, all five function families, and the Phase-6/7 oracles). **The M6
 `make test-dbase` milestone is now GREEN** (was a stub_fail) -- it aggregates `test-dbase-roundtrip`
