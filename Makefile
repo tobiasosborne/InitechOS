@@ -689,6 +689,9 @@ TEST_XBASE_TRANSFORM_MUT := $(BUILD)/test_xbase_transform_mut
 # affected by SET DECIMALS (verified: numeric-and-string-formatting.md:11-13,:33).
 TEST_INTERP_SETFMT     := $(BUILD)/test_interp_setfmt
 TEST_INTERP_SETFMT_MUT := $(BUILD)/test_interp_setfmt_mut
+# Phase-7 canon: Initech accounting app + the enforced Y2K bug (initech-586.1).
+TEST_CANON_Y2K     := $(BUILD)/test_canon_y2k
+TEST_CANON_Y2K_MUT := $(BUILD)/test_canon_y2k_mut
 # S5.1 work-area model + USE/CLOSE (initech-7az.2): the Phase-5 interpreter foundation.
 SAMIR_CMD_DIR     := $(SAMIR_DIR)/cmd
 SAMIR_WORKAREA_SRC := $(SAMIR_CMD_DIR)/workarea.c
@@ -2118,6 +2121,39 @@ test-interp-setfmt-mutant: $(TEST_INTERP_SETFMT_MUT)
 		printf '!!! test-interp-setfmt-mutant FAIL: mutant PASSED -- the SET DATE/CENTURY wiring is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-interp-setfmt-mutant: green (DTOC-ignores-SET-DATE correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-7 CANON: Initech AR accounting app + enforced Y2K bug (S7.1 / initech-586.1) ----
+# A straight-faced .prg AR-aging report run through the engine. With SET CENTURY OFF
+# (III+ default) CTOD parses "00" as 1900, so year-2000 invoices mis-age by ~100yr
+# and the report claims $0 overdue while 1999 invoices sit months past due -- the
+# genuine dBASE-era Y2K failure, played straight (Law 4: canon is ENFORCED, not
+# fixed). Mutant (-DCANON_Y2K_FIXED) corrects the rollover -> the report no longer
+# matches the canon golden -> RED (a "fix" breaks the gate). label:canon.
+CANON_Y2K_ENG := $(SAMIR_MAIN_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+CANON_DIR := $(DBF_DIFF_DIR)/canon
+$(TEST_CANON_Y2K): $(DBF_DIFF_DIR)/test_canon_y2k.c $(CANON_Y2K_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_canon_y2k.c $(CANON_Y2K_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_CANON_Y2K_MUT): $(DBF_DIFF_DIR)/test_canon_y2k.c $(CANON_Y2K_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCANON_Y2K_FIXED -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_canon_y2k.c $(CANON_Y2K_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-canon-y2k
+test-canon-y2k: $(TEST_CANON_Y2K)
+	@printf ">>> test-canon-y2k: Initech AR accounting app with the enforced Y2K bug (S7.1 canon, Law 4)\n"
+	@$(TEST_CANON_Y2K) $(DBASE3_DECOMP) $(CANON_DIR)
+	@printf ">>> test-canon-y2k: green (the Y2K bug is present and matches canon)\n"
+
+.PHONY: test-canon-y2k-mutant
+test-canon-y2k-mutant: $(TEST_CANON_Y2K_MUT)
+	@printf ">>> test-canon-y2k-mutant: confirming a Y2K 'fix' breaks canon -> RED (Rule 6 + Law 4; initech-586.1)\n"
+	@$(TEST_CANON_Y2K_MUT) $(DBASE3_DECOMP) $(CANON_DIR) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-canon-y2k-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_CANON_Y2K_MUT) $(DBASE3_DECOMP) $(CANON_DIR) >/dev/null 2>&1; then \
+		printf '!!! test-canon-y2k-mutant FAIL: mutant PASSED -- the Y2K bug is not enforced (canon decoration)\n'; exit 1; \
+	else \
+		printf '>>> test-canon-y2k-mutant: green (a Y2K fix correctly breaks canon)\n'; \
 	fi
 
 # ---- SAMIR Phase-5 procedures + scope + I/O + ON ERROR (S5.7 / initech-7az.8) ----
@@ -10581,6 +10617,7 @@ TEST_UNIT_GATES := \
 	test-interp-set test-interp-set-mutant \
 	test-interp-setfmt test-interp-setfmt-mutant \
 	test-interp-proc test-interp-proc-mutant \
+	test-canon-y2k test-canon-y2k-mutant \
 	test-samir-repl test-samir-repl-mutant \
 	test-use-rw test-use-rw-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant \

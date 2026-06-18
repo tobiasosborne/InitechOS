@@ -1,0 +1,12 @@
+
+INITECH SYSTEMS CORP -- ACCOUNTS RECEIVABLE
+OPEN INVOICE AGING REPORT
+RUN DATE: 01/31/00
+-----------------------------------------------
+INVNO  DUE DATE   AGE(DAYS)  STATUS
+A1001  12/15/99  -36477   CURRENT
+A1002  01/05/00      26   CURRENT
+A1003  11/30/99  -36462   CURRENT
+A1004  02/10/00     -10   CURRENT
+-----------------------------------------------
+TOTAL UNPAID OVERDUE:       0.00
