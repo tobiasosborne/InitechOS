@@ -708,6 +708,14 @@ TEST_XBASE_FN_D_MUT := $(BUILD)/test_xbase_fn_d_mut
 SAMIR_QUERY_SRC   := $(SAMIR_CMD_DIR)/query.c
 TEST_INTERP_LIST     := $(BUILD)/test_interp_list
 TEST_INTERP_LIST_MUT := $(BUILD)/test_interp_list_mut
+# S5.5 mutation verbs REPLACE/APPEND/DELETE/RECALL/PACK/ZAP (initech-7az.6).
+SAMIR_MUTATE_SRC  := $(SAMIR_CMD_DIR)/mutate.c
+TEST_INTERP_REPLACE     := $(BUILD)/test_interp_replace
+TEST_INTERP_REPLACE_MUT := $(BUILD)/test_interp_replace_mut
+# S5.6 SET state EXACT/DECIMALS/DATE/CENTURY/ORDER/... (initech-7az.7).
+SAMIR_SET_SRC     := $(SAMIR_CMD_DIR)/set.c
+TEST_INTERP_SET      := $(BUILD)/test_interp_set
+TEST_INTERP_SET_MUT  := $(BUILD)/test_interp_set_mut
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -1965,6 +1973,68 @@ test-interp-list-mutant: $(TEST_INTERP_LIST_MUT)
 		printf '!!! test-interp-list-mutant FAIL: mutant PASSED -- CONTINUE FOR-only is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-interp-list-mutant: green (CONTINUE re-scope correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-5 mutation verbs: REPLACE/APPEND/DELETE/RECALL/PACK/ZAP (S5.5 / initech-7az.6) ----
+# cmd/mutate.c (command-chain hook): REPLACE <f> WITH <e> [scope/FOR/WHILE] with
+# assignment-coercion (cross-type #9, N-overflow '*'-fill) + master-key index
+# re-file (ndx_update/insert) + memo; APPEND BLANK; DELETE/RECALL/PACK/ZAP. Writable
+# tables via wa_adopt_table + wa_refresh (workarea.c). Mutant: REPLACE ignores
+# scope/FOR -> RED.
+INTERP_REPLACE_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_INTERP_REPLACE): $(DBF_DIFF_DIR)/test_interp_replace.c $(INTERP_REPLACE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_replace.c $(INTERP_REPLACE_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_INTERP_REPLACE_MUT): $(DBF_DIFF_DIR)/test_interp_replace.c $(INTERP_REPLACE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMUTATE_REPLACE_NO_SCOPE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_replace.c $(INTERP_REPLACE_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-interp-replace
+test-interp-replace: $(TEST_INTERP_REPLACE)
+	@printf ">>> test-interp-replace: REPLACE/APPEND/DELETE/RECALL/PACK/ZAP; coercion + index drift (S5.5)\n"
+	@$(TEST_INTERP_REPLACE) $(DBASE3_DECOMP)
+	@printf ">>> test-interp-replace: green\n"
+
+.PHONY: test-interp-replace-mutant
+test-interp-replace-mutant: $(TEST_INTERP_REPLACE_MUT)
+	@printf ">>> test-interp-replace-mutant: confirming the REPLACE-ignores-scope mutant goes RED (Rule 6; initech-7az.6)\n"
+	@$(TEST_INTERP_REPLACE_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-interp-replace-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_INTERP_REPLACE_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-interp-replace-mutant FAIL: mutant PASSED -- REPLACE scope is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-interp-replace-mutant: green (REPLACE-ignores-scope correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-5 SET state: EXACT/DECIMALS/DATE/CENTURY/ORDER/... (S5.6 / initech-7az.7) ----
+# cmd/set.c (command-chain hook): SET EXACT -> ctx->set_exact (governs C= begins-with);
+# SET ORDER -> wa_set_order; DECIMALS/DATE/CENTURY/TALK/SAFETY stored with minted
+# defaults (EXACT=OFF, DECIMALS=2, AMERICAN, CENTURY=OFF) -- formatter-honoring +
+# INDEX/FILTER/RELATION runtime DEFERRED (loud-skip; follow-ups). Mutant: default
+# EXACT=ON instead of OFF -> RED.
+INTERP_SET_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_SET_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_INTERP_SET): $(DBF_DIFF_DIR)/test_interp_set.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_set.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_INTERP_SET_MUT): $(DBF_DIFF_DIR)/test_interp_set.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSET_MUTATE_EXACT_DEFAULT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_set.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-interp-set
+test-interp-set: $(TEST_INTERP_SET)
+	@printf ">>> test-interp-set: SET EXACT/DECIMALS/DATE/CENTURY/ORDER/... defaults + override (S5.6)\n"
+	@$(TEST_INTERP_SET) $(DBASE3_DECOMP)
+	@printf ">>> test-interp-set: green\n"
+
+.PHONY: test-interp-set-mutant
+test-interp-set-mutant: $(TEST_INTERP_SET_MUT)
+	@printf ">>> test-interp-set-mutant: confirming the EXACT-default-ON mutant goes RED (Rule 6; initech-7az.7)\n"
+	@$(TEST_INTERP_SET_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-interp-set-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_INTERP_SET_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-interp-set-mutant FAIL: mutant PASSED -- SET EXACT default is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-interp-set-mutant: green (EXACT default-ON correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 DB-cursor functions: RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF/FILE (S3.6b / initech-7az.10) ----
@@ -10296,6 +10366,8 @@ TEST_UNIT_GATES := \
 	test-interp-nav test-interp-nav-mutant \
 	test-interp-flow test-interp-flow-mutant \
 	test-interp-list test-interp-list-mutant \
+	test-interp-replace test-interp-replace-mutant \
+	test-interp-set test-interp-set-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.

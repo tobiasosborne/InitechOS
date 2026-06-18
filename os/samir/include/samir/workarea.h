@@ -267,6 +267,74 @@ int wa_set_open(wa_env *env, int area, const char *name,
                 const char *alias, const wa_index_list *idx);
 
 /*
+ * wa_adopt_table: install an ALREADY-OPEN, WRITABLE table (from dbf_create) into
+ * area `area` (1-based), instead of opening one from disk via wa_set_open.
+ *
+ * S5.5 RATIONALE (the mutation-verb writability gap): wa_set_open opens the .dbf
+ * read-only (dbf_open => writable=0), but every dbf mutation verb
+ * (dbf_replace/dbf_append_blank/dbf_delete/recall/pack/zap) requires a WRITABLE
+ * table (writable=1, set only by dbf_create; see dbf.h S1.5). So a table the
+ * REPLACE/APPEND/DELETE interpreter verbs operate on must be created writable and
+ * handed to the work area directly. wa_adopt_table is that injection seam: it
+ * takes ownership of `tbl` (a dbf_table* returned by dbf_create, after the caller
+ * has appended any seed records + dbf_flush'd them) plus an optional companion
+ * .dbt and an optional array of open .ndx indexes, allocates the same per-area
+ * record / memo caches wa_set_open builds, and sets RECNO=1 (eof iff empty). The
+ * area MUST be closed first (-WA_ERR_OCCUPIED otherwise; same as wa_set_open).
+ *
+ *   env   : the environment.
+ *   area  : 1..WA_NAREAS (-WA_ERR_BAD_AREA out of range).
+ *   tbl   : a NON-NULL writable dbf_table* (the area takes ownership; wa_close
+ *           dbf_close's it). NULL -> -WA_ERR_IO.
+ *   memo  : a companion dbt_file* (opened/created by the caller) or NULL. If
+ *           non-NULL it is closed by wa_close like a wa_set_open'd memo.
+ *   alias : NUL-terminated alias, or NULL to derive from `name` (the .dbf base
+ *           name, upper-cased). Truncated to WA_ALIAS_CAP-1.
+ *   name  : the file path (used only to derive the alias when `alias` is NULL;
+ *           may be NULL when `alias` is given).
+ *   idx   : array of `nidx` open ndx_index* (opened with ndx_open_rw by the
+ *           caller so S5.5 can maintain them), or NULL. The FIRST becomes master
+ *           order 1 (dBASE rule), as in wa_set_open. nidx > NDX_PER_AREA ->
+ *           -WA_ERR_TOO_MANY.
+ *   nidx  : number of indexes in `idx` (0..NDX_PER_AREA).
+ *
+ * Returns WA_OK with the area open + addressable, or -(wa_err). On failure the
+ * area is left CLOSED, but the caller still owns `tbl`/`memo`/`idx` and must free
+ * them (wa_adopt_table only takes ownership on SUCCESS). Does NOT change the
+ * SELECTed area (the caller drives wa_select), matching wa_set_open.
+ *
+ * Ref: dbf.h S1.5 (writable tables + the mutation verbs); plan S5.5 ("REPLACE
+ *      writes to FIELDS ... index update"); workarea.h wa_set_open (mirrored).
+ */
+int wa_adopt_table(wa_env *env, int area, dbf_table *tbl, dbt_file *memo,
+                   const char *alias, const char *name,
+                   ndx_index *const *idx, int nidx);
+
+/*
+ * wa_refresh: invalidate area `area`'s decoded-record cache AND re-read nrec from
+ * the (possibly mutated) table, then re-position the cursor sensibly.
+ *
+ * S5.5 RATIONALE (post-mutation cache coherence): after a dbf mutation verb +
+ * dbf_flush, the table's nrec and on-disk record bytes have changed, but the work
+ * area still holds the OLD nrec and a STALE decoded-record cache (cache_recno).
+ * wa_refresh re-reads dbf_nrec, drops the cache (so the next wa_resolve re-reads
+ * the new bytes), and clamps the cursor into [1, nrec] (or sets eof on an empty
+ * table). It does NOT touch FOUND / the selected area / the master order.
+ *
+ *   keep_recno : 1-based record the cursor SHOULD land on after the refresh
+ *                (e.g. the just-APPENDed record, or the current record after a
+ *                REPLACE). Clamped to [1, nrec]; 0 means "keep the current
+ *                recno" (clamped). For an empty table (nrec==0) the cursor is set
+ *                to recno=1, eof=1 (dBASE positions an empty table at EOF).
+ *
+ * Silently ignored (returns WA_OK) for a closed / out-of-range area. Returns
+ * WA_OK or a negative wa/codec error if the cache re-read fails.
+ *
+ * Ref: workarea.h wa_touch_record (the cache); dbf.h dbf_nrec; plan S5.5.
+ */
+int wa_refresh(wa_env *env, int area, uint32_t keep_recno);
+
+/*
  * wa_close: CLOSE the table in area `area` (1-based).
  *
  * Closes the .ndx indexes, the .dbt (if open), and the .dbf, in that order,

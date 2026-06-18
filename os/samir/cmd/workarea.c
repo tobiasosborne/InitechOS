@@ -345,6 +345,9 @@ samir_pal_t *wa_env_pal(const wa_env *env)
 /* USE / CLOSE / SELECT                                                   */
 /* ===================================================================== */
 
+/* Forward decl: shared cache allocator (defined below; used by wa_set_open). */
+static int wa_alloc_caches(wa_env *env, work_area *wa, uint16_t reclen);
+
 /* close_handles: close the codec handles of an open area, in reverse order. */
 static void close_handles(work_area *wa)
 {
@@ -399,18 +402,11 @@ int wa_set_open(wa_env *env, int area, const char *name,
     reclen      = dbf_record_length(wa->tbl);
 
     /* --- allocate the stable record cache from the arena --- */
-    wa->rec_cache = (xb_val *)pal->alloc(pal,
-        (uint32_t)sizeof(xb_val) * (uint32_t)(wa->nfields > 0 ? wa->nfields : 1));
-    wa->rec_bytes = (char *)pal->alloc(pal, reclen > 0 ? (uint32_t)reclen : 1u);
-    wa->memo_buf  = (char *)pal->alloc(pal, WA_MEMO_BUF_CAP);
-    if (!wa->rec_cache || !wa->rec_bytes || !wa->memo_buf) {
+    if (wa_alloc_caches(env, wa, reclen) != WA_OK) {
         close_handles(wa);
         wa->tbl = (dbf_table *)0;
         return -WA_ERR_NOMEM;
     }
-    wa->rec_bytes_len = (uint32_t)reclen;
-    wa->memo_buf_cap  = WA_MEMO_BUF_CAP;
-    wa->cache_recno   = 0u;
 
     /* --- open the sibling .dbt iff the table has a memo --- */
     if (dbf_has_memo(wa->tbl)) {
@@ -464,6 +460,131 @@ int wa_set_open(wa_env *env, int area, const char *name,
     wa->found = 0;                     /* fresh USE => FOUND() .F. (no search) */
     wa->open  = 1;
 
+    return WA_OK;
+}
+
+/*
+ * wa_alloc_caches: allocate the per-area stable record cache + memo scratch from
+ * the PAL arena, sizing the rec_bytes buffer to `reclen`. Shared by wa_set_open
+ * and wa_adopt_table. Returns WA_OK or -WA_ERR_NOMEM (the caller closes handles).
+ */
+static int wa_alloc_caches(wa_env *env, work_area *wa, uint16_t reclen)
+{
+    samir_pal_t *pal = env->pal;
+    wa->rec_cache = (xb_val *)pal->alloc(pal,
+        (uint32_t)sizeof(xb_val) * (uint32_t)(wa->nfields > 0 ? wa->nfields : 1));
+    wa->rec_bytes = (char *)pal->alloc(pal, reclen > 0 ? (uint32_t)reclen : 1u);
+    wa->memo_buf  = (char *)pal->alloc(pal, WA_MEMO_BUF_CAP);
+    if (!wa->rec_cache || !wa->rec_bytes || !wa->memo_buf)
+        return -WA_ERR_NOMEM;
+    wa->rec_bytes_len = (uint32_t)reclen;
+    wa->memo_buf_cap  = WA_MEMO_BUF_CAP;
+    wa->cache_recno   = 0u;
+    return WA_OK;
+}
+
+int wa_adopt_table(wa_env *env, int area, dbf_table *tbl, dbt_file *memo,
+                   const char *alias, const char *name,
+                   ndx_index *const *idx, int nidx)
+{
+    work_area *wa;
+    int i, rc;
+
+    if (!env || area < 1 || area > WA_NAREAS)
+        return -WA_ERR_BAD_AREA;
+    if (!tbl)
+        return -WA_ERR_IO;
+    if (nidx < 0 || nidx > NDX_PER_AREA)
+        return -WA_ERR_TOO_MANY;
+
+    wa = &env->area[area - 1];
+    if (wa->open)
+        return -WA_ERR_OCCUPIED;       /* caller must CLOSE first (fail loud) */
+
+    /* Adopt the codec handles directly (the area takes ownership). */
+    wa->tbl     = tbl;
+    wa->memo    = memo;
+    wa->nrec    = dbf_nrec(tbl);
+    wa->nfields = (int)dbf_nfields(tbl);
+
+    rc = wa_alloc_caches(env, wa, dbf_record_length(tbl));
+    if (rc != WA_OK) {
+        /* On failure the caller still owns the handles -- detach + fail loud. */
+        wa->tbl  = (dbf_table *)0;
+        wa->memo = (dbt_file *)0;
+        wa->nrec = 0u;
+        wa->nfields = 0;
+        return rc;
+    }
+
+    /* Attach the indexes (the first becomes master order 1, the dBASE rule). */
+    wa->nidx = 0;
+    if (idx && nidx > 0) {
+        for (i = 0; i < nidx; i++) {
+            wa->idx[i] = idx[i];
+            wa->nidx = i + 1;
+        }
+        wa->master = 1;
+    } else {
+        wa->master = 0;
+    }
+
+    /* Alias: explicit, else derived from the file name (or empty). */
+    if (alias && alias[0] != '\0') {
+        uint32_t k = 0;
+        while (alias[k] != '\0' && k < (uint32_t)(WA_ALIAS_CAP - 1)) {
+            wa->alias[k] = up1(alias[k]);
+            k++;
+        }
+        wa->alias[k] = '\0';
+    } else if (name && name[0] != '\0') {
+        derive_alias(wa->alias, WA_ALIAS_CAP, name);
+    } else {
+        wa->alias[0] = '\0';
+    }
+
+    /* Cursor: RECNO=1 (the S5.1 contract); empty table => EOF. */
+    wa->recno = 1u;
+    wa->bof   = 0;
+    wa->eof   = (wa->nrec == 0u) ? 1 : 0;
+    wa->found = 0;
+    wa->open  = 1;
+
+    return WA_OK;
+}
+
+int wa_refresh(wa_env *env, int area, uint32_t keep_recno)
+{
+    work_area *wa;
+
+    if (!env || area < 1 || area > WA_NAREAS)
+        return WA_OK;                  /* silently ignore: closed/out-of-range */
+    wa = &env->area[area - 1];
+    if (!wa->open)
+        return WA_OK;
+
+    /* Re-read the (possibly changed) record count from the table. */
+    wa->nrec = dbf_nrec(wa->tbl);
+
+    /* Drop the decoded-record cache so the next resolve re-reads new bytes. */
+    wa->cache_recno = 0u;
+
+    if (wa->nrec == 0u) {
+        wa->recno = 1u;
+        wa->eof   = 1;
+        wa->bof   = 0;
+        return WA_OK;
+    }
+
+    /* Clamp the cursor: keep_recno (or the current recno when 0) into [1,nrec]. */
+    {
+        uint32_t target = (keep_recno != 0u) ? keep_recno : wa->recno;
+        if (target < 1u)      target = 1u;
+        if (target > wa->nrec) target = wa->nrec;
+        wa->recno = target;
+        wa->eof   = 0;
+        wa->bof   = 0;
+    }
     return WA_OK;
 }
 
