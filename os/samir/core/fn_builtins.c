@@ -1090,129 +1090,459 @@ static int fn_islower(const xb_val *args, int nargs, xb_val *out, int *err)
 }
 
 /*
- * TRANSFORM(<expN>/<expC1>, <expC2>) -> C.
+ * TRANSFORM(<expN>/<expC1>, <expC2>) -> C   (initech-7az.14 -- full engine).
  *
- * GATED discipline (Law 1 / Rule 7 "GATED register"):
- *   TRANSFORM is documented in III+ 1.1 (HELP.DBS.strings.txt:1316-1319 at
- *   @NUM FUNC 3: "A character string created from either the <expN> or <expC1>
- *   in the format of <expC2>. Use @...SAY PICTURE options to format.") and
- *   CONFIRMED to exist (mint-results-002.md: TRANSFORM(-570,"9999")->"-570").
+ * Ref (Law 1):
+ *   - HELP.DBS.strings.txt:1316-1319 @NUM FUNC 3: "A character string created
+ *     from either the <expN> or <expC1> in the format of <expC2>. Use @...SAY
+ *     PICTURE options to format." [verified: mined HELP lines 1316-1319]
+ *   - ../dbase3-decomp/re/mint-results-002.md C2.TXT [verified vs real III+]:
+ *       TRANSFORM(-570,"9999")       -> "-570"
+ *       TRANSFORM(-570,"@( 9999")   -> "( 570)"   (@( parens for negatives)
+ *       TRANSFORM(-570,"@X 9999")   -> " 570 DB"  (@X trailing " DB")
+ *       TRANSFORM(570, "@C 9999")   -> " 570 CR"  (@C trailing " CR")
+ *       TRANSFORM(-570,"@B 9999")   -> "-570    " (@B left-justify in field)
+ *       TRANSFORM(-1234.56,"99,999.99") -> "-1,234.56" (comma grouping + decimal)
+ *       TRANSFORM(-12.5,"$$,$$9.99")   -> "$$$-12.50"  (floating $ fill)
+ *       TRANSFORM(-570,"999-")       -> "***-"  (overflow; '-' is a literal)
+ *   - ../dbase3-decomp/specs/functions/string-functions.md lines 562-600:
+ *       Numeric template chars (III+ verified): 9, #, ., ,, $
+ *       @-flags (III+ core, verified): @X, @C, @(, @B
+ *       Character template chars (documented): ! (uppercase in place)
+ *       Passthrough for C-source (documented): X, A, N (any char)
  *
- *   The PICTURE/FUNCTION template language is complex. The following clauses
- *   are CLEARLY GROUNDED from mint-results-002.md (the behavioral oracle
- *   [verified: C2.TXT]):
- *     N-arg, no @: each '9' is a digit or blank; decimal/sign passthrough.
- *       TRANSFORM(-570,"9999") -> "-570"
- *       TRANSFORM(-1234.56,"99,999.99") -> "-1,234.56" (comma groups; '.' decimal)
- *     C-arg, no @: '!' uppercase the char; 'X' or 'A' pass the char through.
- *       (Clipper-lineage core; conservative grounded subset.)
- *     @( : negatives shown in parentheses: TRANSFORM(-570,"@( 9999")-> "( 570)"
- *     @X : negatives with trailing " DB": TRANSFORM(-570,"@X 9999") -> " 570 DB"
- *     @C : positives with trailing " CR": TRANSFORM(570,"@C 9999")  -> " 570 CR"
- *     @B : left-justify (negatives still keep leading minus):
- *           TRANSFORM(-570,"@B 9999") -> "-570" (left-aligned)
+ * GATED / LOUD-SKIPPED (not minted against real III+):
+ *   @Z  (zero-blank)         -- listed in transfrm.txt; not minted vs III+
+ *   @!  (force uppercase)    -- not minted against III+; [oracle-resolves]
+ *   @R  (literal-insert mask)-- transfrm.txt marks as Harbour extension
+ *   @S, @M, @E, @0, @L       -- display-state / Harbour; not III+ verified
+ *   *   (float asterisk fill)-- in transfrm.txt; not minted against III+
+ *   L, Y, 9, # for C-source picture -- [oracle-resolves]
+ *   Combined @-flags ("@(B")  -- mint only tested single flags
  *
- *   The following TRANSFORM clauses are GATED / LOUD-SKIPPED (no corpus
- *   verification; implementation would require guessing):
- *     @R (literal mask insertion) -- unverified interaction with non-template chars
- *     @S (field scrolling width)  -- display state, not a pure value transform
- *     @Z (zero-blank)             -- unverified zero-display behavior
- *     @M (multiple choice)        -- not a formatting clause
- *     'A' and '#' picture chars   -- III+ vs Clipper exact chars [oracle-resolves]
- *     FUNCTION-only @ clauses without a picture string
- *     Two-arg @: combined flags   -- mint only tested single @ flags
- *   The @( / @X / @C / @B behavior is from mint-results-002.md C2.TXT, which is
- *   a single mint session against real III+; they are grounded but the detailed
- *   formatting rules for edge values are not exhaustively verified.
+ * MUTATION (Rule 6):
+ *   -DXB_MUTATE_TRANSFORM_PAREN: @( does NOT parenthesize negatives (returns
+ *   the plain minus form). The grounded assertion
+ *   TRANSFORM(-570,"@( 9999")="( 570)" then goes RED.
  *
- * IMPLEMENTATION CHOICE:
- *   Given the complexity and partial grounding, we implement only the '9',
- *   ',', '.', '#', and '@' function-flag layer as documented and observed,
- *   and emit a LOUD_SKIP for TRANSFORM in the oracle for all clauses beyond
- *   that grounded subset. The TRANSFORM function is registered and dispatches
- *   to STR()-style formatting for the '9' picture with no @ flags (the one
- *   definitively minted case), and returns XBEE_INVALID_ARG (with a sentinel
- *   result) for complex @ clauses (which the oracle skips).
- *
- *   GATE STATUS: TRANSFORM is PARTIALLY IMPLEMENTED. The oracle for S3.6b
- *   (this bead) will loud-skip TRANSFORM entirely and note it as a follow-up.
- *   The function IS registered (returns XBEE_INVALID_ARG for any call) so that
- *   the name lookup does not fall through to XBEE_INVALID_FN.
- *
- *   Ref: HELP.DBS.strings.txt:1316-1319; mint-results-002.md PICTURE/TRANSFORM
- *        table; re/mint-results-003.md "TRANSFORM(); defer locking byte-offsets
- *        to DISASM."
+ * Freestanding (Law 3): <stdint.h> + samir/ only. No libc, no libm.
+ * ASCII-clean (Rule 12). Reproducible (Rule 11).
  */
+
+/* Flags from tr_parse_at_flags: which @ clauses are present in the picture. */
+#define TR_AT_PAREN  0x01   /* @( parens for negatives [verified: mint-002] */
+#define TR_AT_DEBIT  0x02   /* @X trailing " DB"       [verified: mint-002] */
+#define TR_AT_CREDIT 0x04   /* @C trailing " CR"       [verified: mint-002] */
+#define TR_AT_LEFT   0x08   /* @B left-justify          [verified: mint-002] */
+
+/* '9' and '#' both occupy numeric digit slots.
+ * [verified: mint-002 "9999"; string-functions.md:581 "9/#(digit)"] */
+static int tr_is_digit_slot(char c) { return c == '9' || c == '#'; }
+
+/* '$' occupies a digit slot AND enables floating-dollar fill mode.
+ * [verified: mint-002 "$$,$$9.99" -> "$$$-12.50"] */
+static int tr_is_dollar_slot(char c) { return c == '$'; }
+
+/*
+ * tr_parse_at_flags -- parse the @ function segment of a picture string.
+ *
+ * If pic begins with '@', the flag chars follow '@' until the first space or
+ * end; the template segment starts after that space.  Recognised flags:
+ *   '(' -> TR_AT_PAREN    '(B')  -> TR_AT_PAREN | TR_AT_LEFT  (etc.)
+ *   'X' -> TR_AT_DEBIT    'x'/'X' both accepted (fold to upper)
+ *   'C' -> TR_AT_CREDIT
+ *   'B' -> TR_AT_LEFT
+ * Unknown letters in the @ segment are silently skipped (GATED: exact error
+ * policy for unknown @ flags is [oracle-resolves]).
+ *
+ * Ref: mint-results-002.md C2.TXT: "@( 9999", "@X 9999", "@C 9999", "@B 9999"
+ * all use exactly one space between flags and template.
+ */
+static int tr_parse_at_flags(const char *pic, uint16_t plen,
+                              uint16_t *tmpl_start)
+{
+    int flags = 0;
+    uint16_t i;
+
+    if (plen == 0 || pic[0] != '@') { *tmpl_start = 0; return 0; }
+    i = 1; /* skip '@' */
+    while (i < plen && pic[i] != ' ') {
+        char fc = pic[i];
+        if (fc >= 'a' && fc <= 'z') fc = (char)(fc - 32);
+        if      (fc == '(') flags |= TR_AT_PAREN;
+        else if (fc == 'X') flags |= TR_AT_DEBIT;
+        else if (fc == 'C') flags |= TR_AT_CREDIT;
+        else if (fc == 'B') flags |= TR_AT_LEFT;
+        /* GATED: @!, @R, @Z, @S, @M, @E -- not minted; silently skip. */
+        i++;
+    }
+    if (i < plen && pic[i] == ' ') i++; /* skip separator space */
+    *tmpl_start = i;
+    return flags;
+}
+
+/*
+ * tr_format_numeric -- picture-walk numeric formatter.
+ *
+ * Implements the grounded III+ picture algorithm for a numeric source value v
+ * against template tmpl[0..tlen). at_flags selects @-clause post-processing.
+ * suffix_extra = extra bytes needed after tlen (pre-computed by caller):
+ *   0 = no suffix; 1 = ')' for @( negative; 3 = " DB" or " CR".
+ *
+ * Algorithm (grounded on mint-002 C2.TXT + string-functions.md):
+ *
+ * 1. Scan template: count digit slots (9, #, $), find decimal '.', dollar mode.
+ * 2. Format abs(v) with dec_format(|v|, n_digit, n_dec, fmtbuf).
+ *    If fmtbuf[0]=='*': overflow. All digit slots -> '*'; literals pass through.
+ *    [verified: mint-002 "999-" + -570 -> "***-"]
+ * 3. No overflow: extract digit chars from fmtbuf (skip spaces and '.').
+ *    Map digits RIGHT-TO-LEFT into output digit slots.  Leading unfilled slots
+ *    stay ' ' (or '$' in dollar_fill mode after Step D).
+ * 4. Sign placement (unless overflow):
+ *    - Default/@B: put '-' in the first EMPTY digit slot to the left of the
+ *      first actual digit. No room -> overflow.
+ *    - @( negative: replace the leftmost non-digit-slot literal ' ' with '(';
+ *      append ')' at dst[tlen].  No literal ' ' available -> overflow.
+ *    - @( positive: no sign; dst[tlen] stays ' ' (for @( positive suffix byte).
+ *    [verified: mint-002 "( 570)" from "@( 9999" + -570]
+ * 5. Dollar fill: replace remaining ' ' in $-slots with '$'.
+ *    [verified: mint-002 "$$$-12.50" from "$$,$$9.99" + -12.5]
+ * 6. @B left-justify: shift all non-space content left, pad right with ' '.
+ *    [verified: mint-002 "-570    " from "@B 9999" + -570]
+ * 7. @X/@C suffixes: append " DB" (negative) or " CR" (positive) past tlen.
+ *    [verified: mint-002 " 570 DB" from "@X 9999" + -570;
+ *               " 570 CR" from "@C 9999" + 570]
+ */
+static int tr_format_numeric(xb_ctx *ctx, double v,
+                             const char *tmpl, uint16_t tlen,
+                             int at_flags, int32_t suffix_extra,
+                             xb_val *out, int *err)
+{
+    /*
+     * suffix_extra layout (pre-computed by fn_transform):
+     *   0 = no suffix
+     *   2 = @( negative: '(' prefix at dst[0], formatted field at dst[1..tlen],
+     *          ')' at dst[tlen+1]  [output = tlen+2 chars]
+     *   3 = @X negative: " DB" at dst[tlen..tlen+2]  [output = tlen+3 chars]
+     *       @C positive: " CR" at dst[tlen..tlen+2]
+     *
+     * The @( case uses suffix_extra=2 and a paren_wrap layout: the output buffer
+     * has '(' at dst[0], the tlen-char template field at dst[1..tlen], then ')'
+     * at dst[tlen+1]. The digit-slot mapping writes into dst[1..tlen] (offset 1).
+     *
+     * All other cases (suffix_extra=0 or 3) write the template field at
+     * dst[0..tlen-1] and any suffix at dst[tlen..].
+     */
+    int32_t  i;
+    int32_t  n_digit = 0;
+    int32_t  n_dec   = 0;
+    int      dot_seen    = 0;
+    int      dollar_fill = 0;
+    char     fmtbuf[256]; /* abs(v) formatted; n_digit <= 254 */
+    int      is_neg, overflow;
+    int      paren_wrap; /* 1 if @( negative with suffix_extra==2 */
+    uint32_t out_len;
+    char    *dst;
+    int32_t  field_off; /* byte offset into dst where the tlen-char field starts */
+
+    /* Step 1: scan template. */
+    for (i = 0; i < (int32_t)tlen; i++) {
+        char tc = tmpl[i];
+        if (tc == '.') { dot_seen = 1; continue; }
+        if (tr_is_digit_slot(tc))  { n_digit++; if (dot_seen) n_dec++; continue; }
+        if (tr_is_dollar_slot(tc)) {
+            n_digit++; dollar_fill = 1;
+            if (dot_seen) n_dec++;
+        }
+    }
+
+    /* Step 2: format abs(v). */
+    is_neg     = (v < 0.0);
+    paren_wrap = (suffix_extra == 2); /* @( negative layout */
+    field_off  = paren_wrap ? 1 : 0;
+
+    if (n_digit > 0) {
+        double absv = is_neg ? -v : v;
+        dec_format(absv, (int)n_digit, (int)n_dec, fmtbuf);
+    }
+    overflow = (n_digit > 0 && fmtbuf[0] == '*');
+
+    /* Allocate output buffer: tlen + suffix_extra. */
+    out_len = (uint32_t)tlen + (uint32_t)suffix_extra;
+    if (out_len > XB_STR_MAX) return fn_fail(err, XBEE_SPACE_LARGE);
+    dst = fn_scratch(ctx, out_len > 0 ? out_len : 1);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+
+    if (n_digit == 0) {
+        /* No digit slots: copy template literally. */
+        for (i = 0; i < (int32_t)tlen; i++) dst[field_off + i] = tmpl[i];
+        if (paren_wrap) { dst[0] = ' '; dst[tlen+1] = ' '; } /* no digits -> spaces */
+        *out = xb_c(dst, (uint16_t)out_len); *err = XBEE_OK; return 0;
+    }
+
+    if (overflow) {
+        /* Overflow: digit slots -> '*', literals pass through.
+         * [verified: mint-002 "999-" + -570 -> "***-"]                          */
+        if (paren_wrap) { dst[0] = ' '; }
+        for (i = 0; i < (int32_t)tlen; i++) {
+            char tc = tmpl[i];
+            dst[field_off + i] = (tr_is_digit_slot(tc) || tr_is_dollar_slot(tc)) ? '*' : tc;
+        }
+        if (paren_wrap) { dst[tlen+1] = ' '; } /* no paren on overflow */
+        /* @X/@C suffix: suppress on overflow. */
+    } else {
+        /* Step 3a: lay out literals and decimal point; digit slots -> ' '. */
+        for (i = 0; i < (int32_t)tlen; i++) {
+            char tc = tmpl[i];
+            if (tc == '.')                          dst[field_off + i] = '.';
+            else if (tr_is_digit_slot(tc)
+                  || tr_is_dollar_slot(tc))         dst[field_off + i] = ' ';
+            else                                    dst[field_off + i] = tc;
+        }
+
+        /* Step 3b: extract digit chars from fmtbuf; map right-to-left. */
+        {
+            char     digits[256];
+            int      nd = 0;
+            int32_t  fj;
+            int32_t  dpos;
+            int32_t  tpos;
+            int32_t  first_filled = -1;
+            int      sign_placed  = 0;
+
+            for (fj = 0; fj < n_digit; fj++) {
+                char fc = fmtbuf[fj];
+                if (fc >= '0' && fc <= '9') digits[nd++] = fc;
+            }
+
+            dpos = nd - 1;
+            for (tpos = (int32_t)tlen - 1; tpos >= 0 && dpos >= 0; tpos--) {
+                char tc = tmpl[tpos];
+                if (!tr_is_digit_slot(tc) && !tr_is_dollar_slot(tc)) continue;
+                dst[field_off + tpos] = digits[dpos--];
+                first_filled = tpos;
+            }
+
+            /* Step 4: sign handling. */
+
+            /* @( paren wrap for negative: '(' at dst[0], ')' at dst[tlen+1].
+             * No minus sign in digit slots. No sign needed for positive.
+             * [verified: mint-002 "@( 9999" + -570 -> "( 570)"]               */
+            if (paren_wrap) {
+#ifndef XB_MUTATE_TRANSFORM_PAREN
+                dst[0]        = '(';
+                dst[tlen + 1] = ')';
+                sign_placed   = 1;
+#else
+                /* MUTATION (Rule 6): @( does NOT parenthesize negatives.
+                 * Leave paren_wrap layout but use space at [0] and [tlen+1],
+                 * then fall through to plain sign in the digit slots.
+                 * The assertion TRANSFORM(-570,"@( 9999")="( 570)" goes RED. */
+                dst[0]        = ' ';
+                dst[tlen + 1] = ' ';
+                /* sign_placed stays 0 -> plain sign fires below */
+#endif
+            } else if ((at_flags & TR_AT_PAREN) && !is_neg) {
+                /* @( positive: no parens needed, and positive has no sign to place. */
+                sign_placed = 1;
+            }
+            /* @( with is_neg and paren_wrap==0: sign_placed stays 0 -> plain sign.
+             * This path is taken under XB_MUTATE_TRANSFORM_PAREN (suffix_extra=0
+             * so paren_wrap=0) to produce "-570" instead of "( 570)".             */
+
+            /* @X (TR_AT_DEBIT) for negatives: sign conveyed by " DB" suffix --
+             * NO leading minus in the digit slots.
+             * [verified: mint-002 "@X 9999" + -570 -> " 570 DB" (no minus)]   */
+            if (!sign_placed && is_neg && (at_flags & TR_AT_DEBIT))
+                sign_placed = 1;
+
+            /* Plain sign: '-' in the first fill slot left of first_filled.
+             * [verified: mint-002 "9999" + -570 -> "-570"]                     */
+            if (!sign_placed && is_neg) {
+                int32_t sp;
+                int placed = 0;
+                if (first_filled > 0) {
+                    for (sp = first_filled - 1; sp >= 0; sp--) {
+                        char tc = tmpl[sp];
+                        if ((tr_is_digit_slot(tc) || tr_is_dollar_slot(tc))
+                            && dst[field_off + sp] == ' ') {
+                            dst[field_off + sp] = '-'; placed = 1; break;
+                        }
+                    }
+                }
+                if (!placed) {
+                    /* No room for sign -> overflow digit slots. */
+                    for (i = 0; i < (int32_t)tlen; i++) {
+                        char tc = tmpl[i];
+                        if (tr_is_digit_slot(tc) || tr_is_dollar_slot(tc))
+                            dst[field_off + i] = '*';
+                    }
+                }
+            }
+
+            /* Step 5: dollar fill.
+             * Fill remaining ' ' in $-slots with '$'; also fill comma group
+             * separators that are entirely within the fill zone (i.e. to the
+             * left of any actual digit or sign char that was placed).
+             *
+             * Algorithm: find the leftmost non-' ' position in the digit/$ slots
+             * (that's the fill boundary); for all positions strictly left of that,
+             * replace $-slots and ',' group separators with '$'.
+             *
+             * [verified: mint-002 "$$,$$9.99" + -12.5 -> "$$$-12.50"
+             *   (comma at template[2] -> '$' because no digit to its left)]      */
+            if (dollar_fill) {
+                int32_t fill_boundary = (int32_t)tlen; /* leftmost non-fill pos */
+                int32_t di;
+                for (di = 0; di < (int32_t)tlen; di++) {
+                    char tc = tmpl[di];
+                    if ((tr_is_digit_slot(tc) || tr_is_dollar_slot(tc))
+                        && dst[field_off + di] != ' ') {
+                        fill_boundary = di;
+                        break;
+                    }
+                }
+                for (i = 0; i < fill_boundary; i++) {
+                    char tc = tmpl[i];
+                    if (tr_is_dollar_slot(tc) && dst[field_off + i] == ' ')
+                        dst[field_off + i] = '$';      /* $-slot in fill zone */
+                    else if (tc == ',')
+                        dst[field_off + i] = '$';      /* comma group sep in fill zone */
+                }
+            }
+
+            /* Step 6: @B left-justify within the field.
+             * [verified: mint-002 "@B 9999" + -570 -> "-570    "]              */
+            if (at_flags & TR_AT_LEFT) {
+                int32_t first_ns = -1, oi;
+                for (oi = 0; oi < (int32_t)tlen; oi++) {
+                    if (dst[field_off + oi] != ' ') { first_ns = oi; break; }
+                }
+                if (first_ns > 0) {
+                    int32_t ri = first_ns, wi = 0;
+                    while (ri < (int32_t)tlen)
+                        dst[field_off + wi++] = dst[field_off + ri++];
+                    while (wi < (int32_t)tlen) dst[field_off + wi++] = ' ';
+                }
+            }
+        }
+
+        /* Step 7: @X/@C suffix.
+         * [verified: mint-002 "@X 9999" + -570 -> " 570 DB";
+         *            "@C 9999" + 570  -> " 570 CR"]                            */
+        if (suffix_extra == 3) {
+            if ((at_flags & TR_AT_DEBIT) && is_neg) {
+                dst[tlen] = ' '; dst[tlen+1] = 'D'; dst[tlen+2] = 'B';
+            } else if ((at_flags & TR_AT_CREDIT) && !is_neg) {
+                dst[tlen] = ' '; dst[tlen+1] = 'C'; dst[tlen+2] = 'R';
+            } else {
+                dst[tlen] = ' '; dst[tlen+1] = ' '; dst[tlen+2] = ' ';
+            }
+        }
+    }
+
+    *out = xb_c(dst, (uint16_t)out_len);
+    *err = XBEE_OK;
+    return 0;
+}
+
+/*
+ * tr_format_char -- apply a character-source picture to a C value.
+ *
+ * Grounded template chars (string-functions.md lines 585-586):
+ *   '!' -> uppercase the source char at this position.
+ *          [documented: string-functions.md:586 "Template '!' (uppercase)"]
+ *   'X', 'A', 'N' -> passthrough (any char).
+ *          [documented: string-functions.md:586 "A/N/X (any char)"]
+ *   other -> literal: the template char is placed in the output.
+ *
+ * Result length = tlen. Source shorter than tlen: space-fill remaining positions
+ * (conservative; exact III+ short-source behavior is [oracle-resolves], GATED).
+ * Source longer than tlen: truncated.
+ *
+ * GATED: '@!' (force-uppercase on whole char result) -- not minted vs III+.
+ * 'L', 'Y', '9', '#' for char source: [oracle-resolves].
+ */
+static int tr_format_char(xb_ctx *ctx,
+                          const char *src, uint16_t slen,
+                          const char *tmpl, uint16_t tlen,
+                          xb_val *out, int *err)
+{
+    char    *dst;
+    int32_t  i;
+
+    if (tlen == 0) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+    if (tlen > XB_STR_MAX) return fn_fail(err, XBEE_SPACE_LARGE);
+    dst = fn_scratch(ctx, (uint32_t)tlen);
+    if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+
+    for (i = 0; i < (int32_t)tlen; i++) {
+        char tc = tmpl[i];
+        char sc = (i < (int32_t)slen) ? src[i] : ' ';
+        if      (tc == '!')                           dst[i] = fold_upper(sc);
+        else if (tc == 'X' || tc == 'A' || tc == 'N') dst[i] = sc;
+        else                                          dst[i] = tc;
+    }
+    *out = xb_c(dst, tlen);
+    *err = XBEE_OK;
+    return 0;
+}
+
 static int fn_transform(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
     /*
-     * GATED: TRANSFORM requires the full PICTURE/FUNCTION template parser.
-     * The grounded subset (HELP.DBS:1316 + mint-002 C2.TXT) is partially
-     * implemented here for the pure-numeric '9' picture (no @ function clause):
-     *   - Each '9' digit position formats one decimal digit (or blank).
-     *   - ',' inserts a literal comma.
-     * All other cases (@ clauses, 'X','!','A','#','L','Y', multi-flag @,
-     * character-source formatting) are GATED: return XBEE_INVALID_ARG.
-     * The oracle for this bead loud-skips TRANSFORM entirely.
+     * TRANSFORM(<expN>/<expC1>, <expC2>) -> C.
      *
-     * Freestanding: no libc. Uses fn_scratch and existing dec_format.
+     * Ref: HELP.DBS.strings.txt:1316-1319; mint-results-002.md C2.TXT;
+     *      string-functions.md lines 562-600.
+     *
+     * Parse @ flags from the picture; dispatch to tr_format_numeric or
+     * tr_format_char.
      */
     const char *pic;
-    uint16_t plen;
-    int has_at;
-    (void)ctx; /* may be needed by scratch below */
+    uint16_t    plen;
+    uint16_t    tmpl_start;
+    int         at_flags;
+    const char *tmpl;
+    uint16_t    tlen;
 
-    if (nargs != 2)           return fn_fail(err, XBEE_INVALID_ARG);
-    if (args[1].t != XB_C)   return fn_fail(err, XBEE_MISMATCH);
-    /* First arg: N or C (per HELP.DBS "either the <expN> or <expC1>"). */
-    if (args[0].t != XB_N && !is_char(&args[0]))
-        return fn_fail(err, XBEE_MISMATCH);
+    if (nargs != 2)                               return fn_fail(err, XBEE_INVALID_ARG);
+    if (args[1].t != XB_C)                        return fn_fail(err, XBEE_MISMATCH);
+    if (args[0].t != XB_N && !is_char(&args[0]))  return fn_fail(err, XBEE_MISMATCH);
 
-    pic   = args[1].u.c.p;
-    plen  = args[1].u.c.len;
+    pic  = args[1].u.c.p;
+    plen = args[1].u.c.len;
 
-    /* Detect @ function clause. GATED: any @ clause -> XBEE_INVALID_ARG
-     * (oracle loud-skips this). */
-    has_at = (plen >= 1 && pic[0] == '@');
-    if (has_at) return fn_fail(err, XBEE_INVALID_ARG);
+    at_flags = tr_parse_at_flags(pic, plen, &tmpl_start);
+    tmpl     = pic + tmpl_start;
+    tlen     = (plen >= tmpl_start) ? (uint16_t)(plen - tmpl_start) : 0;
 
-    /* Character-source picture (expC1 arg): GATED for now. */
-    if (is_char(&args[0]))    return fn_fail(err, XBEE_INVALID_ARG);
+    if (is_char(&args[0])) {
+        /* Character-source: use template char semantics (!,X,A,N).
+         * GATED: @( @X @C @B behavior for char source is [oracle-resolves]. */
+        return tr_format_char(ctx,
+                              args[0].u.c.p, args[0].u.c.len,
+                              tmpl, tlen, out, err);
+    }
 
-    /* Numeric-source with a '9'-pattern (no @): implement the grounded subset.
-     * Count '9' and '#' chars, skip ',' and '.' passthrough literals.
-     * Result width = plen (picture length). */
+    /* Numeric source: pre-compute suffix_extra, then format. */
     {
-        char *dst;
-        int32_t width = (int32_t)plen;
-        int32_t dec   = 0;
-        int32_t i;
-        int saw_dot   = 0;
+        int     is_neg       = (args[0].u.n < 0.0);
+        int32_t suffix_extra = 0;
 
-        /* Determine dec from the picture (count '9'/'#' after a '.'). */
-        for (i = 0; i < (int32_t)plen; i++) {
-            char pc = pic[i];
-            if (pc == '.') { saw_dot = 1; continue; }
-            if ((pc == '9' || pc == '#') && saw_dot) dec++;
-        }
-
-        /* Use dec_format into a scratch buffer of width plen.
-         * This gives the canonical III+ number formatting for the simple case.
-         * The comma and literal chars are NOT reconstructed by dec_format
-         * (dec_format produces pure right-justified digit string). For this
-         * limited grounded subset we use plen as the width and accept that
-         * comma-insertion is not reproduced. This is the conservative minimum
-         * that passes the grounded oracle cell TRANSFORM(-570,"9999") -> "-570".
-         *
-         * A full implementation requires a picture-walk formatter; GATED. */
-        if (width < 1 || width > XB_STR_MAX) return fn_fail(err, XBEE_INVALID_ARG);
-        dst = fn_scratch(ctx, (uint32_t)width);
-        if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
-        dec_format(args[0].u.n, (int)width, (int)dec, dst);
-        *out = xb_c(dst, (uint16_t)width);
-        *err = XBEE_OK;
-        return 0;
+        if (at_flags & TR_AT_DEBIT)  { if (is_neg)  suffix_extra = 3; } /* " DB" */
+        if (at_flags & TR_AT_CREDIT) { if (!is_neg)  suffix_extra = 3; } /* " CR" */
+        /* @( paren wrap: 2 extra bytes: '(' at dst[0] (prefix), ')' at dst[tlen+1].
+         * tr_format_numeric detects suffix_extra==2 as paren_wrap layout.
+         * [verified: mint-002 "@( 9999" + -570 -> "( 570)" = tlen(4) + 2 = 6 chars] */
+#ifndef XB_MUTATE_TRANSFORM_PAREN
+        if (at_flags & TR_AT_PAREN)  { if (is_neg)  suffix_extra = 2; } /* "(" prefix + ")" suffix */
+#endif
+        return tr_format_numeric(ctx, args[0].u.n,
+                                 tmpl, tlen,
+                                 at_flags, suffix_extra,
+                                 out, err);
     }
 }
 

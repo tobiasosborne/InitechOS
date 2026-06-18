@@ -682,6 +682,9 @@ TEST_XBASE_FN_B_MUT := $(BUILD)/test_xbase_fn_b_mut
 # Remaining III+ string functions (initech-7az.12) share fn_builtins.c.
 TEST_XBASE_FN_C     := $(BUILD)/test_xbase_fn_c
 TEST_XBASE_FN_C_MUT := $(BUILD)/test_xbase_fn_c_mut
+# Full TRANSFORM() picture/function engine (initech-7az.14) shares fn_builtins.c.
+TEST_XBASE_TRANSFORM     := $(BUILD)/test_xbase_transform
+TEST_XBASE_TRANSFORM_MUT := $(BUILD)/test_xbase_transform_mut
 # S5.1 work-area model + USE/CLOSE (initech-7az.2): the Phase-5 interpreter foundation.
 SAMIR_CMD_DIR     := $(SAMIR_DIR)/cmd
 SAMIR_WORKAREA_SRC := $(SAMIR_CMD_DIR)/workarea.c
@@ -1835,6 +1838,35 @@ test-xbase-fn-c-mutant: $(TEST_XBASE_FN_C_MUT)
 		printf '!!! test-xbase-fn-c-mutant FAIL: mutant PASSED -- the LEFT semantics is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-xbase-fn-c-mutant: green (LEFT n+1 correctly RED)\n'; \
+	fi
+
+# ---- SAMIR full TRANSFORM() picture/function engine (initech-7az.14) ----
+# Extends fn_transform: numeric pictures (9/#/$/*/,/. + overflow), @( parens for
+# negatives, @X ' DB', @C ' CR', @B left-justify, char pictures (!/X/A). GATED
+# clauses (@Z/@!/@R/combined flags/...) loud-skip pending MINT. Mutant: @( doesn't
+# parenthesize negatives -> RED.
+$(TEST_XBASE_TRANSFORM): $(DBF_DIFF_DIR)/test_xbase_transform.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_transform.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_XBASE_TRANSFORM_MUT): $(DBF_DIFF_DIR)/test_xbase_transform.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_TRANSFORM_PAREN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_transform.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+
+.PHONY: test-xbase-transform
+test-xbase-transform: $(TEST_XBASE_TRANSFORM)
+	@printf ">>> test-xbase-transform: TRANSFORM full picture/function engine (numeric + @(/@X/@C/@B + char) (7az.14)\n"
+	@$(TEST_XBASE_TRANSFORM)
+	@printf ">>> test-xbase-transform: green\n"
+
+.PHONY: test-xbase-transform-mutant
+test-xbase-transform-mutant: $(TEST_XBASE_TRANSFORM_MUT)
+	@printf ">>> test-xbase-transform-mutant: confirming the @( paren mutant goes RED (Rule 6; initech-7az.14)\n"
+	@$(TEST_XBASE_TRANSFORM_MUT) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-xbase-transform-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_XBASE_TRANSFORM_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-transform-mutant FAIL: mutant PASSED -- the @( paren rule is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-xbase-transform-mutant: green (@( paren correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-5 interpreter foundation: work-area model + USE/CLOSE (S5.1 / initech-7az.2) ----
@@ -10504,6 +10536,7 @@ TEST_UNIT_GATES := \
 	test-xbase-fn-b test-xbase-fn-b-mutant \
 	test-xbase-fn-c test-xbase-fn-c-mutant \
 	test-xbase-fn-d test-xbase-fn-d-mutant \
+	test-xbase-transform test-xbase-transform-mutant \
 	test-interp-use test-interp-use-mutant \
 	test-interp-nav test-interp-nav-mutant \
 	test-interp-flow test-interp-flow-mutant \
