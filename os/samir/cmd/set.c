@@ -207,13 +207,17 @@ static int do_set_exact(xb_interp *ip, const char *args, int *err_code)
 
 /*
  * do_set_decimals: SET DECIMALS TO [<n>].
- * Stores the value in set_state. Formatter-honoring DEFERRED (fn_builtins.c
- * is owned by a parallel lane). Ref: set-commands.md Sec 3.1 (default 2;
- * "SET DECIMALS TO" with no value resets to 2).
+ * Stores the value in set_state AND writes ctx->set_decimals so fn_builtins.c
+ * STR() 1-arg picks up the new setting immediately.
+ * Ref: set-commands.md Sec 3.1 (default 2; "SET DECIMALS TO" with no value
+ * resets to 2). [verified: mint-results-002.md DECIMALS=2 default]
  */
-static int do_set_decimals(set_state *ss, const char *args, int *err_code)
+static int do_set_decimals(xb_interp *ip, set_state *ss,
+                           const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
+    uint8_t v;
+
     /* consume optional "TO" keyword */
     if (s_ci_eq(s, "TO") ||
             ((s[0]=='T'||s[0]=='t') && (s[1]=='O'||s[1]=='o')
@@ -223,51 +227,67 @@ static int do_set_decimals(set_state *ss, const char *args, int *err_code)
     }
     if (*s == '\0') {
         /* SET DECIMALS TO (no value) -> reset to default 2 */
-        ss->decimals = 2;
+        v = 2;
     } else {
-        uint32_t v = s_parse_uint(&s);
-        ss->decimals = (int)v;
+        uint32_t raw = s_parse_uint(&s);
+        v = (uint8_t)(raw > 15 ? 15 : raw);  /* cap to valid dec range */
     }
+    ss->decimals = (int)v;
+    /* Wire into ctx so fn_builtins.c STR() reads the updated value.
+     * Ref: eval.h xb_ctx.set_decimals; fn_builtins.c fn_str 1-arg path. */
+    xb_interp_ctx(ip)->set_decimals = v;
     if (err_code) *err_code = 0;
     return INTERP_OK;
 }
 
 /*
  * do_set_date: SET DATE [TO] <keyword>.
- * Stores the set_date_fmt in set_state. Formatter-honoring DEFERRED.
+ * Stores the set_date_fmt in set_state AND writes ctx->set_date_fmt so
+ * fn_builtins.c DTOC()/CTOD() reads the updated format immediately.
  * Ref: set-commands.md Sec 3.2 (AMERICAN/ANSI/BRITISH/ITALIAN/FRENCH/GERMAN/
- * JAPAN/USA; default AMERICAN) [verified: harbour set.txt:130-140].
+ * JAPAN/USA; default AMERICAN) [verified: harbour set.txt:130-140;
+ * mint-results-003.md DATE=AMERICAN].
  */
-static int do_set_date(set_state *ss, const char *args, int *err_code)
+static int do_set_date(xb_interp *ip, set_state *ss,
+                       const char *args, int *err_code)
 {
+    set_date_fmt fmt;
     const char *s = s_skip_ws(args);
+
     /* consume optional "TO" keyword */
     if ((s[0]=='T'||s[0]=='t') && (s[1]=='O'||s[1]=='o')
             && (s[2]=='\0' || s_isspace(s[2]))) {
         s = s_skip_ws(s + 2);
     }
-    if (s_ci_eq(s, "AMERICAN")) { ss->date_fmt = SET_DATE_AMERICAN; }
-    else if (s_ci_eq(s, "ANSI"))     { ss->date_fmt = SET_DATE_ANSI; }
-    else if (s_ci_eq(s, "BRITISH"))  { ss->date_fmt = SET_DATE_BRITISH; }
-    else if (s_ci_eq(s, "ITALIAN"))  { ss->date_fmt = SET_DATE_ITALIAN; }
-    else if (s_ci_eq(s, "FRENCH"))   { ss->date_fmt = SET_DATE_FRENCH; }
-    else if (s_ci_eq(s, "GERMAN"))   { ss->date_fmt = SET_DATE_GERMAN; }
-    else if (s_ci_eq(s, "JAPAN"))    { ss->date_fmt = SET_DATE_JAPAN; }
-    else if (s_ci_eq(s, "USA"))      { ss->date_fmt = SET_DATE_USA; }
+    if      (s_ci_eq(s, "AMERICAN")) { fmt = SET_DATE_AMERICAN; }
+    else if (s_ci_eq(s, "ANSI"))     { fmt = SET_DATE_ANSI; }
+    else if (s_ci_eq(s, "BRITISH"))  { fmt = SET_DATE_BRITISH; }
+    else if (s_ci_eq(s, "ITALIAN"))  { fmt = SET_DATE_ITALIAN; }
+    else if (s_ci_eq(s, "FRENCH"))   { fmt = SET_DATE_FRENCH; }
+    else if (s_ci_eq(s, "GERMAN"))   { fmt = SET_DATE_GERMAN; }
+    else if (s_ci_eq(s, "JAPAN"))    { fmt = SET_DATE_JAPAN; }
+    else if (s_ci_eq(s, "USA"))      { fmt = SET_DATE_USA; }
     else {
         if (err_code) *err_code = 0;
         return -INTERP_ERR_SYNTAX;
     }
+    ss->date_fmt = fmt;
+    /* Wire into ctx so fn_builtins.c DTOC/CTOD reads the updated format.
+     * Ref: eval.h xb_ctx.set_date_fmt; fn_builtins.c fn_dtoc_impl/fn_ctod_impl. */
+    xb_interp_ctx(ip)->set_date_fmt = (uint8_t)fmt;
     if (err_code) *err_code = 0;
     return INTERP_OK;
 }
 
 /*
  * do_set_century: SET CENTURY ON|OFF.
- * Stores in set_state. Formatter-honoring DEFERRED.
- * Ref: set-commands.md Sec 2 (default OFF) [verified: mint-results-003.md].
+ * Stores in set_state AND writes ctx->set_century so fn_builtins.c DTOC()
+ * emits 4-digit years when ON.
+ * Ref: set-commands.md Sec 2 (default OFF) [verified: mint-results-003.md;
+ * dates-and-century.md: CENTURY OFF = 2-digit year; ON = 4-digit year].
  */
-static int do_set_century(set_state *ss, const char *args, int *err_code)
+static int do_set_century(xb_interp *ip, set_state *ss,
+                          const char *args, int *err_code)
 {
     int val;
     if (parse_on_off(args, &val) != 0) {
@@ -275,6 +295,9 @@ static int do_set_century(set_state *ss, const char *args, int *err_code)
         return -INTERP_ERR_SYNTAX;
     }
     ss->century = val;
+    /* Wire into ctx so fn_builtins.c DTOC reads the updated century flag.
+     * Ref: eval.h xb_ctx.set_century; fn_builtins.c fn_dtoc_impl. */
+    xb_interp_ctx(ip)->set_century = (uint8_t)(val ? 1 : 0);
     if (err_code) *err_code = 0;
     return INTERP_OK;
 }
@@ -439,14 +462,19 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
     xb_interp_ctx(ip)->set_exact = 0;    /* correct: EXACT OFF */
 #endif
 
-    /* SET DECIMALS default = 2 [verified: mint-results-002.md]. */
+    /* SET DECIMALS default = 2 [verified: mint-results-002.md].
+     * Written into ss->decimals (stored state) AND ctx->set_decimals (the live field
+     * fn_builtins.c reads for STR() 1-arg default decimals). */
     ss->decimals = 2;
+    xb_interp_ctx(ip)->set_decimals = 2;
 
     /* SET DATE default = AMERICAN [verified: mint-results-003.md]. */
     ss->date_fmt = SET_DATE_AMERICAN;
+    xb_interp_ctx(ip)->set_date_fmt = (uint8_t)SET_DATE_AMERICAN;
 
     /* SET CENTURY default = OFF [verified: mint-results-003.md]. */
     ss->century = 0;
+    xb_interp_ctx(ip)->set_century = 0;
 
     /* SET TALK default = ON [verified: set-commands.md Sec 2]. */
     ss->talk = 1;
@@ -532,17 +560,17 @@ static int set_cmd_hook(void *user, xb_interp *ip,
     }
 
     if (s_ci_eq(opt, "DECIMALS")) {
-        int rc = do_set_decimals(ss, s, err_code);
+        int rc = do_set_decimals(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
     if (s_ci_eq(opt, "DATE")) {
-        int rc = do_set_date(ss, s, err_code);
+        int rc = do_set_date(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
     if (s_ci_eq(opt, "CENTURY")) {
-        int rc = do_set_century(ss, s, err_code);
+        int rc = do_set_century(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 

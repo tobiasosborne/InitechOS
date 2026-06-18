@@ -306,27 +306,44 @@ static int fn_asc(const xb_val *args, int nargs, xb_val *out, int *err)
 /* ======================================================================== */
 
 /* STR(<expN1> [, <expN2> [, <expN3>]]) -> C. Right-justified width <expN2>
- * (default 10), <expN3> decimals (default 0 -> integer). Uses rt.h dec_format
- * (ties -> +inf, '*'-overflow-fill -- the minted rule).
- *   - width default 10 (string-functions.md general-expression default; the
- *     exact III+ default table is [oracle-resolves], 10 is the documented
- *     minimum; bare STR(n) acceptance is also [oracle-resolves] but we accept).
- *   - width/dec must be >= 0 and width within the field cap; else #63. */
+ * (default 10), <expN3> decimals (default 0). Uses rt.h dec_format (ties ->
+ * +inf, '*'-overflow-fill -- the minted rule).
+ *   - width default 10 (string-functions.md general-expression default).
+ *   - dec default: ALWAYS 0, for ALL call forms that omit <expN3>.
+ *     STR() does NOT read ctx->set_decimals under any form.
+ *     [verified: ../dbase3-decomp/specs/runtime/numeric-and-string-formatting.md
+ *      lines 11-13 "default decimals 0"; line 33 "SET DECIMALS scope is the
+ *      closed list division/SQRT/LOG/VAL/EXP -- does NOT affect STR".
+ *      Corroborated: re/mint-results-001.md STR(-570,4)='-570' (no-dec form
+ *      -> 0 decimals confirmed on real III+).]
+ *   - width/dec must be >= 0 and width within the field cap; else #63.
+ *
+ * NOTE on SET DECIMALS and mutation:
+ *   ctx->set_decimals is STORED in the ctx (eval.h / set.c) for future use by
+ *   division/SQRT/LOG/VAL/computed-display (numeric-and-string-formatting.md
+ *   line 33 -- the correct scope, a separate follow-up bead). STR ignores it.
+ *   The mutation hook for the date formatter path is -DXB_MUTATE_SETFMT_IGNORE
+ *   (see fn_ctod_impl / fn_dtoc_impl below); that macro no longer gates STR.
+ */
 static int fn_str(xb_ctx *ctx, const xb_val *args, int nargs,
                   xb_val *out, int *err)
 {
     int32_t width = 10;   /* default general-expression width (Open Q3)        */
-    int32_t dec   = 0;    /* default integer (string-functions.md)             */
+    int32_t dec   = 0;    /* default 0 -- STR never reads SET DECIMALS [verified] */
     char *dst;
     if (nargs < 1 || nargs > 3) return fn_fail(err, XBEE_INVALID_ARG);
     if (args[0].t != XB_N)      return fn_fail(err, XBEE_MISMATCH);
     if (nargs >= 2) {
         if (args[1].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
         width = to_int_trunc(args[1].u.n);
+        /* 2-arg STR(n, width): dec stays 0. SET DECIMALS does NOT govern STR
+         * in any call form (numeric-and-string-formatting.md lines 11-13, 33). */
     }
+    /* 1-arg STR(n): dec stays 0. STR never reads ctx->set_decimals.
+     * [verified: numeric-and-string-formatting.md lines 11-13 + mint-001] */
     if (nargs == 3) {
         if (args[2].t != XB_N) return fn_fail(err, XBEE_MISMATCH);
-        dec = to_int_trunc(args[2].u.n);
+        dec = to_int_trunc(args[2].u.n);   /* 3-arg always overrides */
     }
     /* Field-width sanity: width 1..254, dec 0..15, dec must leave room for at
      * least one integer digit + sign space. Out of range -> #63. */
@@ -356,88 +373,284 @@ static int fn_val(const xb_val *args, int nargs, xb_val *out, int *err)
 /* Date functions                                                            */
 /* ======================================================================== */
 
-/* CTOD(<expC>) -> D. Parses an American mm/dd/yy (default SET DATE) string into
- * a Date (JDN). 2-digit year uses the III+ base-1900 rule (no sliding window:
- * '00'->1900, '99'->1999; dates-and-century.md). A 4-digit year (length 10) is
- * taken literally (CENTURY-ON-shaped strings still parse). Unparseable / blank
- * -> the blank date (JDN 0), NOT an error (numeric-and-date-functions.md).
+/*
+ * ctod_parse_digits -- helper: collect digit bytes from a date string.
+ * Strips all non-digit bytes (separators '/', '.', '-', space). Returns count.
+ * buf must be at least 12 bytes. Ref: dates-and-century.md (separator stripping).
+ */
+static int ctod_collect_digits(const char *p, uint16_t len, char *buf, int cap)
+{
+    int nd = 0;
+    uint16_t i;
+    for (i = 0; i < len && nd < cap - 1; i++) {
+        char c = p[i];
+        if (c >= '0' && c <= '9') buf[nd++] = c;
+    }
+    buf[nd] = '\0';
+    return nd;
+}
+
+/* CTOD(<expC>) -> D. Parses a date string using ctx->set_date_fmt and
+ * ctx->set_century. Unparseable / blank -> the blank date (JDN 0), NOT an
+ * error (numeric-and-date-functions.md).
  *
- * GATED: assumes default AMERICAN + base-1900. SET DATE / SET CENTURY wiring is
- * S5.6; until then only the default format is honored. */
-static int fn_ctod_impl(const xb_val *args, int nargs, xb_val *out, int *err)
+ * Format order (set-commands.md Sec 3.2; dates-and-century.md):
+ *   AMERICAN (0): MM/DD/YY[YY]  -- III+ default
+ *   ANSI     (1): YY[YY].MM.DD
+ *   BRITISH  (2): DD/MM/YY[YY]
+ *   ITALIAN  (3): DD-MM-YY[YY]
+ *   FRENCH   (4): DD/MM/YY[YY]  (same picture as BRITISH)
+ *   GERMAN   (5): DD.MM.YY[YY]
+ *   JAPAN    (6): YY[YY]/MM/DD
+ *   USA      (7): MM-DD-YY[YY]
+ *
+ * 2-digit year rule: base-1900 (no sliding window; '00'->1900, '99'->1999).
+ * [verified: dates-and-century.md base-1900 rule]
+ *
+ * CENTURY ON (ctx->set_century != 0): accept 10-char 4-digit year strings.
+ * CENTURY OFF (default): accept 8-char 2-digit year strings.
+ * A 4-digit-year string is accepted even under CENTURY OFF (CTOD is lenient;
+ * dates-and-century.md "4-digit year still parses under CENTURY OFF").
+ *
+ * Ref (Law 1):
+ *   - ../dbase3-decomp/specs/commands/set-commands.md Sec 3.2 (format table).
+ *   - ../dbase3-decomp/specs/runtime/dates-and-century.md (base-1900; format
+ *     widths; CTOD blank-date for bad input).
+ *   - ../dbase3-decomp/re/mint-results-003.md (DATE=AMERICAN default [verified]).
+ *
+ * MUTATION GUARD (-DXB_MUTATE_SETFMT_IGNORE):
+ *   Force AMERICAN + CENTURY OFF regardless of ctx, so SET DATE ANSI +
+ *   CTOD('1985.08.05') returns blank instead of the correct date, and the
+ *   unit assertion goes RED.
+ */
+static int fn_ctod_impl(const xb_val *args, int nargs,
+                        xb_ctx *ctx, xb_val *out, int *err)
 {
     const char *p;
-    uint16_t len, i;
-    char digbuf[16];   /* compacted "MMDDYY" / "MMDDYYYY" + room               */
-    int  nd = 0;
+    uint16_t len;
+    char digbuf[12];
+    int  nd;
     int  mm, dd, yy;
     int  yearlen;
+    uint8_t fmt, century;
 
     if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
     if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
     p   = args[0].u.c.p;
     len = args[0].u.c.len;
 
-    /* Collect digits in order, ignoring the separators ('/', '.', '-', space).
-     * American order is mm dd yy[yy]. A blank/empty/garbage string yields too
-     * few digits -> blank date. */
-    for (i = 0; i < len && nd < (int)sizeof(digbuf) - 1; i++) {
-        char c = p[i];
-        if (c >= '0' && c <= '9') digbuf[nd++] = c;
-    }
-    digbuf[nd] = '\0';
+#ifdef XB_MUTATE_SETFMT_IGNORE
+    (void)ctx;      /* ctx not read under mutation; suppress -Wunused-parameter */
+    fmt     = (uint8_t)XB_DATE_AMERICAN;
+    century = 0;
+#else
+    fmt     = ctx->set_date_fmt;
+    century = ctx->set_century;
+#endif
+    (void)century;  /* used below for yearlen selection only */
 
-    /* Need at least mm(2)+dd(2)+yy(2) = 6 digits; 8 digits -> 4-digit year. */
+    /* Collect digits; strip separators. */
+    nd = ctod_collect_digits(p, len, digbuf, (int)sizeof(digbuf));
+
+    /* Need exactly 6 (2-digit year) or 8 (4-digit year) digit bytes.
+     * Ref: dates-and-century.md (format width table). */
     if (nd != 6 && nd != 8) {
-        *out = xb_d(0.0); *err = XBEE_OK; return 0;   /* blank date            */
+        *out = xb_d(0.0); *err = XBEE_OK; return 0;   /* blank date */
     }
     yearlen = (nd == 8) ? 4 : 2;
 
-    /* mm = first 2 digits, dd = next 2, yy = remainder. */
-    mm = (digbuf[0] - '0') * 10 + (digbuf[1] - '0');
-    dd = (digbuf[2] - '0') * 10 + (digbuf[3] - '0');
+    /*
+     * Map the three two-digit groups (plus optional extra year digits) to
+     * mm/dd/yy according to the format.
+     *
+     * Layout of digbuf[]:
+     *   6-digit (CENTURY OFF): [g0-1][g1-2][g2-3] = three 2-digit groups
+     *   8-digit (CENTURY ON):  [g0-1][g1-2][g2-5] = two 2-digit + one 4-digit
+     *
+     * For formats where the year is FIRST (ANSI, JAPAN), yearlen digits start
+     * at position 0 (not 4). For formats where year is LAST (all others),
+     * yearlen digits start at position 4.
+     *
+     * Ref: set-commands.md Sec 3.2 (format table; ANSI/JAPAN year-first).
+     */
     {
-        int j;
-        yy = 0;
-        for (j = 4; j < 4 + yearlen; j++) yy = yy * 10 + (digbuf[j] - '0');
-    }
-    if (yearlen == 2) yy += 1900;          /* base-1900 (dates-and-century.md) */
+        int g0, g1, gyy;
+        int year_first = (fmt == XB_DATE_ANSI || fmt == XB_DATE_JAPAN);
 
-    /* Validate ranges; an invalid field -> blank date (CTOD of a bad string is
-     * the blank date, not the entry-time #78). */
-    if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yy < 1900 || yy > 2155) {
-        *out = xb_d(0.0); *err = XBEE_OK; return 0;
+        if (year_first) {
+            /* YY[YY].MM.DD or YY[YY]/MM/DD: year is first group. */
+            int j;
+            gyy = 0;
+            for (j = 0; j < yearlen; j++) gyy = gyy * 10 + (digbuf[j] - '0');
+            g0 = (digbuf[yearlen]     - '0') * 10 + (digbuf[yearlen + 1] - '0');
+            g1 = (digbuf[yearlen + 2] - '0') * 10 + (digbuf[yearlen + 3] - '0');
+            /* ANSI: YY.MM.DD -> g0=mm, g1=dd.
+             * JAPAN: YY/MM/DD -> g0=mm, g1=dd. */
+            mm = g0; dd = g1; yy = gyy;
+        } else {
+            /* All other formats: first two groups are [f0][f1], year is last. */
+            g0 = (digbuf[0] - '0') * 10 + (digbuf[1] - '0');
+            g1 = (digbuf[2] - '0') * 10 + (digbuf[3] - '0');
+            {
+                int j;
+                gyy = 0;
+                for (j = 4; j < 4 + yearlen; j++) gyy = gyy * 10 + (digbuf[j] - '0');
+            }
+            yy = gyy;
+            /* Determine which group is MM and which is DD. */
+            switch (fmt) {
+            case XB_DATE_AMERICAN:  /* MM/DD/YY */
+            case XB_DATE_USA:       /* MM-DD-YY */
+                mm = g0; dd = g1; break;
+            case XB_DATE_BRITISH:   /* DD/MM/YY */
+            case XB_DATE_ITALIAN:   /* DD-MM-YY */
+            case XB_DATE_FRENCH:    /* DD/MM/YY */
+            case XB_DATE_GERMAN:    /* DD.MM.YY */
+            default:
+                dd = g0; mm = g1; break;
+            }
+        }
+
+        if (yearlen == 2) yy += 1900;  /* base-1900 [verified: dates-and-century.md] */
+
+        /* Validate. An invalid field -> blank date (CTOD of a bad string). */
+        if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yy < 1900 || yy > 2155) {
+            *out = xb_d(0.0); *err = XBEE_OK; return 0;
+        }
+        *out = xb_d((double)jdn_from_ymd(yy, mm, dd));
+        *err = XBEE_OK;
+        return 0;
     }
-    *out = xb_d((double)jdn_from_ymd(yy, mm, dd));
-    *err = XBEE_OK;
-    return 0;
 }
 
-/* DTOC(<expD>) -> C. Renders a Date as mm/dd/yy (8 chars, default AMERICAN +
- * CENTURY OFF). Blank date -> 8 spaces (dates-and-century.md). 2-digit year is
- * (year mod 100). GATED: assumes default format until S5.6 wires SET DATE. */
+/*
+ * fn_dtoc_write2 / fn_dtoc_write4: write a 2/4-digit number into dst at pos.
+ * Freestanding helpers (no sprintf). pos is updated.
+ */
+static void fn_dtoc_write2(char *dst, int *pos, int v)
+{
+    dst[(*pos)++] = (char)('0' + (v / 10));
+    dst[(*pos)++] = (char)('0' + (v % 10));
+}
+static void fn_dtoc_write4(char *dst, int *pos, int v)
+{
+    dst[(*pos)++] = (char)('0' + (v / 1000));
+    dst[(*pos)++] = (char)('0' + ((v / 100) % 10));
+    dst[(*pos)++] = (char)('0' + ((v / 10)  % 10));
+    dst[(*pos)++] = (char)('0' + (v % 10));
+}
+
+/* DTOC(<expD>) -> C. Renders a Date using ctx->set_date_fmt and ctx->set_century.
+ * Blank date -> (width) spaces (8 or 10 depending on CENTURY ON/OFF).
+ * [verified: dates-and-century.md blank-date -> spaces rule]
+ *
+ * CENTURY OFF (default): 2-digit year, width=8.
+ * CENTURY ON:            4-digit year, width=10 (extra 2 chars for full year).
+ *
+ * Format table (CENTURY OFF / CENTURY ON):
+ *   AMERICAN:  MM/DD/YY (8) / MM/DD/YYYY (10)
+ *   ANSI:      YY.MM.DD (8) / YYYY.MM.DD (10)
+ *   BRITISH:   DD/MM/YY (8) / DD/MM/YYYY (10)
+ *   ITALIAN:   DD-MM-YY (8) / DD-MM-YYYY (10)
+ *   FRENCH:    DD/MM/YY (8) / DD/MM/YYYY (10)
+ *   GERMAN:    DD.MM.YY (8) / DD.MM.YYYY (10)
+ *   JAPAN:     YY/MM/DD (8) / YYYY/MM/DD (10)
+ *   USA:       MM-DD-YY (8) / MM-DD-YYYY (10)
+ * [verified: set-commands.md Sec 3.2; dates-and-century.md format table]
+ *
+ * Ref (Law 1):
+ *   - ../dbase3-decomp/specs/commands/set-commands.md Sec 3.2 (format table).
+ *   - ../dbase3-decomp/specs/runtime/dates-and-century.md (widths; blank rule).
+ *   - ../dbase3-decomp/re/mint-results-003.md (AMERICAN + CENTURY OFF default
+ *     [verified]).
+ *
+ * MUTATION GUARD (-DXB_MUTATE_SETFMT_IGNORE):
+ *   Force AMERICAN + CENTURY OFF regardless of ctx, so SET CENTURY ON +
+ *   DTOC(date) returns 8-char 2-digit-year output instead of 10-char 4-digit,
+ *   and the unit assertion goes RED.
+ */
 static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args, int nargs,
                         xb_val *out, int *err)
 {
     char *dst;
     int32_t y, m, d;
-    int yy2;
+    int  yy_display;
+    uint8_t fmt, century;
+    uint32_t width;
+    char sep;
+    int  pos;
+    int  year_first;
+    int  i;
+
     if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
     if (args[0].t != XB_D) return fn_fail(err, XBEE_MISMATCH);
-    dst = fn_scratch(ctx, 8);
+
+#ifdef XB_MUTATE_SETFMT_IGNORE
+    fmt     = (uint8_t)XB_DATE_AMERICAN;
+    century = 0;
+#else
+    fmt     = ctx->set_date_fmt;
+    century = ctx->set_century;
+#endif
+
+    width = century ? 10u : 8u;
+    dst = fn_scratch(ctx, width);
     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+
     if (fn_date_blank(args[0].u.d)) {
-        int i; for (i = 0; i < 8; i++) dst[i] = ' ';   /* blank -> 8 spaces    */
-        *out = xb_c(dst, 8); *err = XBEE_OK; return 0;
+        /* Blank date -> (width) spaces. [verified: dates-and-century.md] */
+        for (i = 0; i < (int)width; i++) dst[i] = ' ';
+        *out = xb_c(dst, (uint16_t)width); *err = XBEE_OK; return 0;
     }
+
     ymd_from_jdn((int32_t)args[0].u.d, &y, &m, &d);
-    yy2 = (int)(y % 100);
-    dst[0] = (char)('0' + (m / 10)); dst[1] = (char)('0' + (m % 10));
-    dst[2] = '/';
-    dst[3] = (char)('0' + (d / 10)); dst[4] = (char)('0' + (d % 10));
-    dst[5] = '/';
-    dst[6] = (char)('0' + (yy2 / 10)); dst[7] = (char)('0' + (yy2 % 10));
-    *out = xb_c(dst, 8);
+    yy_display = century ? (int)y : (int)(y % 100);  /* 2- or 4-digit year */
+
+    /* Determine separator and field order. */
+    switch (fmt) {
+    case XB_DATE_AMERICAN: sep = '/'; year_first = 0; break; /* MM/DD/YY[YY] */
+    case XB_DATE_ANSI:     sep = '.'; year_first = 1; break; /* YY[YY].MM.DD */
+    case XB_DATE_BRITISH:  sep = '/'; year_first = 0; break; /* DD/MM/YY[YY] */
+    case XB_DATE_ITALIAN:  sep = '-'; year_first = 0; break; /* DD-MM-YY[YY] */
+    case XB_DATE_FRENCH:   sep = '/'; year_first = 0; break; /* DD/MM/YY[YY] */
+    case XB_DATE_GERMAN:   sep = '.'; year_first = 0; break; /* DD.MM.YY[YY] */
+    case XB_DATE_JAPAN:    sep = '/'; year_first = 1; break; /* YY[YY]/MM/DD */
+    case XB_DATE_USA:      sep = '-'; year_first = 0; break; /* MM-DD-YY[YY] */
+    default:               sep = '/'; year_first = 0; break; /* fallback=AMERICAN */
+    }
+
+    pos = 0;
+    if (year_first) {
+        /* ANSI (YY[YY].MM.DD) and JAPAN (YY[YY]/MM/DD): year first. */
+        if (century) fn_dtoc_write4(dst, &pos, yy_display);
+        else         fn_dtoc_write2(dst, &pos, yy_display);
+        dst[pos++] = sep;
+        fn_dtoc_write2(dst, &pos, (int)m);
+        dst[pos++] = sep;
+        fn_dtoc_write2(dst, &pos, (int)d);
+    } else {
+        /* All other formats: two leading fields + year last. */
+        int f0, f1;
+        switch (fmt) {
+        case XB_DATE_AMERICAN: /* MM/DD/YY[YY] */
+        case XB_DATE_USA:      /* MM-DD-YY[YY] */
+            f0 = (int)m; f1 = (int)d; break;
+        case XB_DATE_BRITISH:  /* DD/MM/YY[YY] */
+        case XB_DATE_ITALIAN:  /* DD-MM-YY[YY] */
+        case XB_DATE_FRENCH:   /* DD/MM/YY[YY] */
+        case XB_DATE_GERMAN:   /* DD.MM.YY[YY] */
+        default:
+            f0 = (int)d; f1 = (int)m; break;
+        }
+        fn_dtoc_write2(dst, &pos, f0);
+        dst[pos++] = sep;
+        fn_dtoc_write2(dst, &pos, f1);
+        dst[pos++] = sep;
+        if (century) fn_dtoc_write4(dst, &pos, yy_display);
+        else         fn_dtoc_write2(dst, &pos, yy_display);
+    }
+
+    *out = xb_c(dst, (uint16_t)width);
     *err = XBEE_OK;
     return 0;
 }
@@ -1815,7 +2028,7 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     /* Conversion bridges */
     if (name_is(name, namelen, "STR"))    return fn_str(ctx, args, nargs, out, err_code);
     if (name_is(name, namelen, "VAL"))    return fn_val(args, nargs, out, err_code);
-    if (name_is(name, namelen, "CTOD"))   return fn_ctod_impl(args, nargs, out, err_code);
+    if (name_is(name, namelen, "CTOD"))   return fn_ctod_impl(args, nargs, ctx, out, err_code);
     if (name_is(name, namelen, "DTOC"))   return fn_dtoc_impl(ctx, args, nargs, out, err_code);
 
     /* Date functions */

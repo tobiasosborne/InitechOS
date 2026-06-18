@@ -129,12 +129,19 @@ static int eval_expr(const char *s, int set_exact, xb_val *out, int *err)
     root = xb_parse(toks, (uint32_t)nt, pool, NBUF, &perr);
     if (root < 0) { *err = -1001; *out = xb_u(); return -1001; }
 
-    ctx.set_exact   = set_exact;
-    ctx.resolve     = test_resolve;
-    ctx.user        = NULL;
-    ctx.scratch     = g_scratch;
-    ctx.scratch_cap = (uint32_t)sizeof(g_scratch);
+    ctx.set_exact    = set_exact;
+    /* III+ defaults for formatter context fields (eval.h xb_ctx). */
+    ctx.set_decimals = 2;
+    ctx.set_date_fmt = 0; /* XB_DATE_AMERICAN */
+    ctx.set_century  = 0; /* OFF */
+    ctx.resolve      = test_resolve;
+    ctx.user         = NULL;
+    ctx.scratch      = g_scratch;
+    ctx.scratch_cap  = (uint32_t)sizeof(g_scratch);
     ctx.scratch_used = 0;
+    ctx.ctx_today    = 0.0;
+    ctx.dbcur        = NULL;
+    ctx.dbcur_user   = NULL;
 
     return xb_eval(pool, root, &ctx, out, err);
 }

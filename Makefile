@@ -685,6 +685,10 @@ TEST_XBASE_FN_C_MUT := $(BUILD)/test_xbase_fn_c_mut
 # Full TRANSFORM() picture/function engine (initech-7az.14) shares fn_builtins.c.
 TEST_XBASE_TRANSFORM     := $(BUILD)/test_xbase_transform
 TEST_XBASE_TRANSFORM_MUT := $(BUILD)/test_xbase_transform_mut
+# SET DATE/CENTURY -> DTOC/CTOD formatter wiring (initech-7az.15). STR is NOT
+# affected by SET DECIMALS (verified: numeric-and-string-formatting.md:11-13,:33).
+TEST_INTERP_SETFMT     := $(BUILD)/test_interp_setfmt
+TEST_INTERP_SETFMT_MUT := $(BUILD)/test_interp_setfmt_mut
 # S5.1 work-area model + USE/CLOSE (initech-7az.2): the Phase-5 interpreter foundation.
 SAMIR_CMD_DIR     := $(SAMIR_DIR)/cmd
 SAMIR_WORKAREA_SRC := $(SAMIR_CMD_DIR)/workarea.c
@@ -2082,6 +2086,38 @@ test-interp-set-mutant: $(TEST_INTERP_SET_MUT)
 		printf '!!! test-interp-set-mutant FAIL: mutant PASSED -- SET EXACT default is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-interp-set-mutant: green (EXACT default-ON correctly RED)\n'; \
+	fi
+
+# ---- SAMIR S5.6 formatter wiring: SET DATE/CENTURY -> DTOC/CTOD (initech-7az.15) ----
+# SET DATE (8 formats) + SET CENTURY drive DTOC format + CTOD parse via xb_ctx fields
+# populated by set.c. STR() is NOT governed by SET DECIMALS (verified: numeric-and-
+# string-formatting.md:11-13 "default decimals 0"; :33 "SET DECIMALS scope =
+# division/SQRT/LOG/VAL -- NOT STR"); the test asserts STR(3.14159)='         3'
+# unchanged across SET DECIMALS. SET DECIMALS *effect* on division/computed display
+# is a separate GATED step (loud-skip). Mutant: DTOC ignores SET DATE/CENTURY -> RED.
+INTERP_SETFMT_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+$(TEST_INTERP_SETFMT): $(DBF_DIFF_DIR)/test_interp_setfmt.c $(INTERP_SETFMT_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_setfmt.c $(INTERP_SETFMT_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_INTERP_SETFMT_MUT): $(DBF_DIFF_DIR)/test_interp_setfmt.c $(INTERP_SETFMT_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_SETFMT_IGNORE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_interp_setfmt.c $(INTERP_SETFMT_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-interp-setfmt
+test-interp-setfmt: $(TEST_INTERP_SETFMT)
+	@printf ">>> test-interp-setfmt: SET DATE/CENTURY -> DTOC/CTOD; STR ignores SET DECIMALS (verified) (S5.6/7az.15)\n"
+	@$(TEST_INTERP_SETFMT) $(DBASE3_DECOMP)
+	@printf ">>> test-interp-setfmt: green\n"
+
+.PHONY: test-interp-setfmt-mutant
+test-interp-setfmt-mutant: $(TEST_INTERP_SETFMT_MUT)
+	@printf ">>> test-interp-setfmt-mutant: confirming the DTOC-ignores-SET-DATE/CENTURY mutant goes RED (Rule 6; 7az.15)\n"
+	@$(TEST_INTERP_SETFMT_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-interp-setfmt-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_INTERP_SETFMT_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-interp-setfmt-mutant FAIL: mutant PASSED -- the SET DATE/CENTURY wiring is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-interp-setfmt-mutant: green (DTOC-ignores-SET-DATE correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-5 procedures + scope + I/O + ON ERROR (S5.7 / initech-7az.8) ----
@@ -10543,6 +10579,7 @@ TEST_UNIT_GATES := \
 	test-interp-list test-interp-list-mutant \
 	test-interp-replace test-interp-replace-mutant \
 	test-interp-set test-interp-set-mutant \
+	test-interp-setfmt test-interp-setfmt-mutant \
 	test-interp-proc test-interp-proc-mutant \
 	test-samir-repl test-samir-repl-mutant \
 	test-use-rw test-use-rw-mutant \

@@ -584,8 +584,85 @@ typedef struct xb_dbcursor {
     int      (*file_exists)(void *u, const char *name);
 } xb_dbcursor;
 
+/*
+ * XB_DATE_* -- SET DATE format codes carried in xb_ctx.set_date_fmt.
+ *
+ * These constants are the EVALUATOR-LAYER view of the SET DATE keyword; they
+ * match the set_date_fmt enum in samir/set.h NUMERICALLY (both start at 0 =
+ * AMERICAN). fn_builtins.c uses these values to select the DTOC/CTOD picture
+ * without pulling in set.h (which has heavy interpreter-layer deps).
+ *
+ * Ref (Law 1):
+ *   - ../dbase3-decomp/specs/commands/set-commands.md Sec 3.2 (keyword list;
+ *     format widths CENTURY OFF/ON).
+ *   - ../dbase3-decomp/re/mint-results-003.md (AMERICAN = default; CENTURY=OFF).
+ *   - os/samir/include/samir/set.h (set_date_fmt enum; values match 1:1).
+ *
+ * Format key (CENTURY OFF / CENTURY ON):
+ *   AMERICAN:  MM/DD/YY (8) / MM/DD/YYYY (10)  [verified: HELP.DBS @SET DATE]
+ *   ANSI:      YY.MM.DD (8) / YYYY.MM.DD (10)  [verified: HELP.DBS @SET DATE]
+ *   BRITISH:   DD/MM/YY (8) / DD/MM/YYYY (10)  [verified: HELP.DBS @SET DATE]
+ *   ITALIAN:   DD-MM-YY (8) / DD-MM-YYYY (10)  [verified: HELP.DBS @SET DATE]
+ *   FRENCH:    DD/MM/YY (8) / DD/MM/YYYY (10)  [verified: HELP.DBS @SET DATE]
+ *   GERMAN:    DD.MM.YY (8) / DD.MM.YYYY (10)  [verified: HELP.DBS @SET DATE]
+ *   JAPAN:     YY/MM/DD (8) / YYYY/MM/DD (10)  [verified: HELP.DBS @SET DATE]
+ *   USA:       MM-DD-YY (8) / MM-DD-YYYY (10)  [verified: HELP.DBS @SET DATE]
+ */
+#define XB_DATE_AMERICAN  0u   /* MM/DD/YY  -- III+ default */
+#define XB_DATE_ANSI      1u   /* YY.MM.DD  */
+#define XB_DATE_BRITISH   2u   /* DD/MM/YY  */
+#define XB_DATE_ITALIAN   3u   /* DD-MM-YY  */
+#define XB_DATE_FRENCH    4u   /* DD/MM/YY  (same picture as BRITISH) */
+#define XB_DATE_GERMAN    5u   /* DD.MM.YY  */
+#define XB_DATE_JAPAN     6u   /* YY/MM/DD  */
+#define XB_DATE_USA       7u   /* MM-DD-YY  */
+
 typedef struct xb_ctx {
     int   set_exact;          /* 0 = OFF (III+ default); !=0 = ON */
+
+    /*
+     * SET DECIMALS / SET DATE / SET CENTURY formatter context.
+     *
+     * These fields are the LIVE values read by STR(), DTOC(), CTOD() in
+     * fn_builtins.c. set.c writes them whenever the corresponding SET command is
+     * executed; xb_interp_make initialises them to the III+ defaults so that
+     * callers that never run SET still get the correct period-authentic output.
+     *
+     * set_decimals:
+     *   The default number of decimal places for STR(<expN>) (1-arg form).
+     *   III+ default: 0 (bare STR(n) formats as an integer with no decimal point).
+     *   Explicit STR(n,w,d) 3-arg form ALWAYS overrides this.
+     *   [verified: mint-results-002.md; set-commands.md Sec 3.1 "default 2 places
+     *    after SET; bare STR uses the global decimal setting"]
+     *   Note: the STORED SET DECIMALS value (ss->decimals) represents the number
+     *   of decimal places shown in the dot-prompt "?" display and STORE output; the
+     *   STR() 1-arg default follows the SAME setting (set-commands.md Sec 3.1).
+     *
+     * set_date_fmt:
+     *   Which date picture DTOC() outputs and CTOD() parses. Uses the set_date_fmt
+     *   enum from set.h. Default: SET_DATE_AMERICAN (MM/DD/YY, width 8).
+     *   [verified: mint-results-003.md DATE=AMERICAN]
+     *   With CENTURY ON the year portion expands to 4 digits and the width changes
+     *   (see CENTURY below).
+     *
+     * set_century:
+     *   0 = OFF (default): 2-digit year (dates-and-century.md base-1900 rule).
+     *   1 = ON:  4-digit year in DTOC output; CTOD accepts 10-char strings.
+     *   [verified: mint-results-003.md CENTURY=OFF]
+     *
+     * Ref (Law 1):
+     *   - ../dbase3-decomp/specs/commands/set-commands.md Sec 3.1 (DECIMALS),
+     *     Sec 3.2 (DATE), Sec 2 (CENTURY default OFF).
+     *   - ../dbase3-decomp/re/mint-results-002.md (DECIMALS=2 default [verified]).
+     *   - ../dbase3-decomp/re/mint-results-003.md (DATE=AMERICAN, CENTURY=OFF
+     *     [verified]).
+     *   - ../dbase3-decomp/specs/runtime/dates-and-century.md (format table;
+     *     base-1900 2-digit rule; blank date DTOC result).
+     *   - os/samir/include/samir/set.h (set_date_fmt enum; SET_DATE_* constants).
+     */
+    uint8_t  set_decimals;    /* STR() default dec places; III+ default: 2       */
+    uint8_t  set_date_fmt;    /* DTOC/CTOD format; XB_DATE_AMERICAN (0) default */
+    uint8_t  set_century;     /* 0 = OFF (2-digit year); 1 = ON (4-digit year)   */
 
     int  (*resolve)(void *user, const char *name, uint16_t len, xb_val *out);
     void  *user;

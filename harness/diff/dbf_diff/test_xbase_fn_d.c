@@ -160,6 +160,10 @@ static int bare_eval(const char *s, xb_val *out, int *err)
     /* A bare ctx: no resolve, no dbcur (the no-work-area case). Set EVERY field
      * so dbcur is explicitly NULL (the pure-expression tests rely on this). */
     ctx.set_exact    = 0;
+    /* III+ defaults for formatter context fields (eval.h xb_ctx). */
+    ctx.set_decimals = 2;
+    ctx.set_date_fmt = 0; /* XB_DATE_AMERICAN */
+    ctx.set_century  = 0; /* OFF */
     ctx.resolve      = NULL;
     ctx.user         = NULL;
     ctx.scratch      = g_scratch;

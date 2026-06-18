@@ -103,6 +103,10 @@ static int eval_expr(const char *s, xb_val *out, int *err)
     if (root < 0) { *err = -1001; *out = xb_u(); return -1001; }
 
     ctx.set_exact    = 0;
+    /* III+ defaults for formatter context fields (eval.h xb_ctx). */
+    ctx.set_decimals = 2;
+    ctx.set_date_fmt = 0; /* XB_DATE_AMERICAN */
+    ctx.set_century  = 0; /* OFF */
     ctx.resolve      = NULL;
     ctx.user         = NULL;
     ctx.scratch      = g_scratch;
