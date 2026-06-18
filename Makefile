@@ -692,6 +692,9 @@ TEST_INTERP_SETFMT_MUT := $(BUILD)/test_interp_setfmt_mut
 # Phase-7 canon: Initech accounting app + the enforced Y2K bug (initech-586.1).
 TEST_CANON_Y2K     := $(BUILD)/test_canon_y2k
 TEST_CANON_Y2K_MUT := $(BUILD)/test_canon_y2k_mut
+# Phase-7 canon: Bolton's salami/rounding-error virus + the too-much-too-fast bug (initech-586.2).
+TEST_CANON_SALAMI     := $(BUILD)/test_canon_salami
+TEST_CANON_SALAMI_MUT := $(BUILD)/test_canon_salami_mut
 # S5.1 work-area model + USE/CLOSE (initech-7az.2): the Phase-5 interpreter foundation.
 SAMIR_CMD_DIR     := $(SAMIR_DIR)/cmd
 SAMIR_WORKAREA_SRC := $(SAMIR_CMD_DIR)/workarea.c
@@ -2154,6 +2157,38 @@ test-canon-y2k-mutant: $(TEST_CANON_Y2K_MUT)
 		printf '!!! test-canon-y2k-mutant FAIL: mutant PASSED -- the Y2K bug is not enforced (canon decoration)\n'; exit 1; \
 	else \
 		printf '>>> test-canon-y2k-mutant: green (a Y2K fix correctly breaks canon)\n'; \
+	fi
+
+# ---- SAMIR Phase-7 CANON: Bolton's salami/rounding-error virus (S7.2 / initech-586.2) ----
+# A straight-faced .prg finance-charge posting run through the engine. The billing
+# precision SCALE is keyed 0 (whole dollars) instead of 2 (cents) -- a misplaced
+# decimal -- so the rounding-adjustment sweep into the hidden BOLTON suspense
+# account is dollars-scale, balloons 100x too fast ("too much too fast"; BOLTON
+# foots to 0.38 off three postings vs 0.00 correct). Law 4: ENFORCED, not fixed.
+# Mutant (-DCANON_SALAMI_FIXED, SCALE=2) corrects the decimal -> honest sub-cent
+# skim -> no longer matches the canon golden -> RED. label:canon.
+$(TEST_CANON_SALAMI): $(DBF_DIFF_DIR)/test_canon_salami.c $(CANON_Y2K_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_canon_salami.c $(CANON_Y2K_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_CANON_SALAMI_MUT): $(DBF_DIFF_DIR)/test_canon_salami.c $(CANON_Y2K_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCANON_SALAMI_FIXED -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_canon_salami.c $(CANON_Y2K_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-canon-salami
+test-canon-salami: $(TEST_CANON_SALAMI)
+	@printf ">>> test-canon-salami: Bolton's salami rounding-error routine with the enforced too-much-too-fast bug (S7.2 canon, Law 4)\n"
+	@$(TEST_CANON_SALAMI) $(DBASE3_DECOMP) $(CANON_DIR)
+	@printf ">>> test-canon-salami: green (the skim bug is present and matches canon)\n"
+
+.PHONY: test-canon-salami-mutant
+test-canon-salami-mutant: $(TEST_CANON_SALAMI_MUT)
+	@printf ">>> test-canon-salami-mutant: confirming a rounding 'fix' breaks canon -> RED (Rule 6 + Law 4; initech-586.2)\n"
+	@$(TEST_CANON_SALAMI_MUT) $(DBASE3_DECOMP) $(CANON_DIR) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-canon-salami-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_CANON_SALAMI_MUT) $(DBASE3_DECOMP) $(CANON_DIR) >/dev/null 2>&1; then \
+		printf '!!! test-canon-salami-mutant FAIL: mutant PASSED -- the skim bug is not enforced (canon decoration)\n'; exit 1; \
+	else \
+		printf '>>> test-canon-salami-mutant: green (a rounding fix correctly breaks canon)\n'; \
 	fi
 
 # ---- SAMIR Phase-5 procedures + scope + I/O + ON ERROR (S5.7 / initech-7az.8) ----
@@ -10618,6 +10653,7 @@ TEST_UNIT_GATES := \
 	test-interp-setfmt test-interp-setfmt-mutant \
 	test-interp-proc test-interp-proc-mutant \
 	test-canon-y2k test-canon-y2k-mutant \
+	test-canon-salami test-canon-salami-mutant \
 	test-samir-repl test-samir-repl-mutant \
 	test-use-rw test-use-rw-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant \
