@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-17
+**Last Reconciled:** 2026-06-18
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -130,6 +130,13 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
+`make test` = **174 host + 27 emu gates** (WL-0031+WL-0032 took SAMIR/M6 from 124 to 174 host:
+the full `.dbt` codec, `.ndx` keys/SEEK/build/maintain, the whole interpreter S5.1-S5.8 + the
+dot-prompt REPL, writable USE, all five function families, and the Phase-6/7 oracles). **The M6
+`make test-dbase` milestone is now GREEN** (was a stub_fail) -- it aggregates `test-dbase-roundtrip`
+(S6.3 bidirectional round-trip) + `test-dbase-diff` (S6.4 program differential, 100%); InitechBase
+passes its mechanical oracle (Law 2). SAMIR is still host-only, so the 27 emu gates are unchanged
+(Milton integration S8.x is GATED). See WL-0032 for the wave ledger. Historical:
 `make test` = **124 host + 27 emu gates** (WL-0030 added +20 host: the SAMIR `.dbf` codec +
 expression-engine + `.ndx`-parse oracles -- `test-dbf-{header,fields,read,roundtrip,mutate}`,
 `test-xbase-{lex,parse,eval,coercion}`, `test-ndx-parse`, each x unit+mutant; re-verified
@@ -365,17 +372,40 @@ unary>`^`) -> `xb_eval` (every `xbase_coercion.json` cell incl. the C+N=error#9 
 `ahu.1`) is OPENED**: `ndx_open`/node-read parse vs the 11 corpus `.ndx`, verbatim key-expr
 (`os/samir/fs/ndx.c`). See WL-0030 for the per-step ledger + boundary decisions.
 
-**NEXT (remaining DAG; pick per operator steer):** **Phase 2 `.dbt` memo** (`aul.6`=S2.1 read,
-`aul.7`=S2.2 write -- resolves the S1.3 M-pointer->text boundary); **Phase 4** continuation
-(`ahu.2`=S4.2 key decode+collation -> `ahu.3` SEEK -> `ahu.4` bulk INDEX ON -> `ahu.5`
-maintenance); **Phase 3 functions** (`7az` S3.5/S3.6 -- needs the parser to parse call args, the
-`XBN_CALL` placeholder); then the convergence point **Phase 5 interpreter** (`7az` S5.1-S5.8, the
-dot-prompt REPL `samir_main.c`) which needs Phases 1-4; then **Phase 6** oracle assembly (`17n`/
-`586.4` -- the M6 `test-dbase` differential goes green at S6.3/S6.4). **Orchestration cadence
-(operator-set):** delegate each step to a subagent (sonnet default, opus for load-bearing); the
-orchestrator owns DISJOINT file ownership + Makefile integration + independent re-grading +
-commit-per-wave + the bead ledger; run `make clean && make test-unit` at every integration;
-report at phase boundaries.
+**SAMIR / M6 (InitechBase) IS SUBSTANTIALLY COMPLETE -- `make test-dbase` GREEN (WL-0031 +
+WL-0032).** Two further orchestrated sessions (21 waves total; 124 -> 174 host gates) drove the
+engine to a dBASE-III+-1.1-compatible database that **really runs**: the full `.dbf`/`.dbt`/`.ndx`
+storage layer (read/write/index parse+keys+SEEK+build+maintain), the xBase expression engine
+(lex/parse/eval/coercion + five function families incl. full TRANSFORM), the complete interpreter
+(USE/CLOSE/SELECT -> navigation -> control flow + memvars -> query/display -> mutation verbs -> SET
+state -> procedures/scope/IO -> the dot-prompt REPL `samir_main.c`), writable USE (edit at the dot
+prompt), and the M6 oracle: **`test-dbase` = `test-dbase-roundtrip` (S6.3 bidirectional round-trip,
+mask-mutant = bead 586.3) + `test-dbase-diff` (S6.4 program differential vs authored III+ goldens,
+100%)**. Plus the two Law-4 canon apps -- the Initech accounting **Y2K bug** (`586.1`: "00"->1900,
+$0-overdue) and Michael Bolton's **salami-slicing rounding virus** (`586.2`: misplaced decimal,
+BOLTON suspense skims dollars "too much too fast") -- both with the bug ENFORCED (a "fix" breaks the
+gate). Two Law-2 catches this session: an `STR()`/SET-DECIMALS Law-1 grounding error (STR's default
+decimals is 0, verified; SET DECIMALS's scope is division/VAL, not STR -- corrected) and a
+program-diff harness liveness defect (summary to stderr -> mutant gate couldn't bite -- fixed).
+
+**REMAINING SAMIR work -- ALL GATED / deferred (no ungated host work left):**
+- `7az.13` transcendentals SQRT/LOG/EXP -- **committee-worthy** (no-libm strategy: x87-asm vs
+  polynomial approx) + MINT for numeric edges.
+- `7az` SET-DECIMALS-division (wire SET DECIMALS into its verified scope: division/VAL/computed
+  display, NOT STR); `7az.17` (commands.h consolidation), `7az.18` (mutate.c #41->#111) -- cleanups.
+- GATED TRANSFORM `@`-clauses + numeric/date MINT (MOD-sign, INT-on-neg, ROUND-tie, ITALIAN/FRENCH
+  dates) -- need a **dosbox-x MINT** session vs real dBASE III+ 1.1.
+- `586.4`/`586.4.1`/`17n.3` -- Tier-2 real-`DBASE.EXE` authenticity minting + re-mint the authentic
+  `CNAMES.NDX` golden (faithful SAMIR rebuild after the WL-0031 test mishap; needs dosbox-x).
+- `0tl` (@SAY/GET forms) + `ax9` (FLAIR text-console window) + S8.x (`pal_milton`, FPU-ready, SAMIR
+  as a flat `.COM` on Milton; the 27 emu gates) -- gated on **M4 (FLAIR)** / the boot image /
+  `spec/hardware.json`.
+
+**Orchestration cadence (operator-set, proven across 21 waves):** delegate each step to a subagent
+(sonnet default, opus for load-bearing; <=6 sonnet / <=2 opus parallel); the orchestrator owns
+DISJOINT file ownership + Makefile integration + INDEPENDENT re-grading (Law 2: re-run the oracle +
+mutant + clean aggregate + golden-integrity, never trust the report) + commit-per-wave + the bead
+ledger; `make clean && make test-unit` at every integration; committee for serious decisions.
 
 **FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
 ratified the region-first Toolbox plan; operator decided indexed-8 depth,
