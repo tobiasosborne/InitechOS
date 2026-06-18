@@ -33,11 +33,13 @@
  *   verb, and the spine (flow.c) owns SELECT but not USE. A real dot prompt must
  *   open tables, so the REPL parses "USE <file> [ALIAS a] [INDEX i1,i2,...]" and
  *   "CLOSE [DATABASES|ALL]" itself and drives the work-area env (workarea.h
- *   wa_set_open / wa_select / wa_close / wa_close_all). USE opens read-only
- *   (wa_set_open is the engine's only open-from-disk path today; there is no
- *   dbf_open_rw -- a write-after-USE then fails loud #41, which the engine raises,
- *   not this file). A follow-up (below) tracks consolidating USE into a command
- *   module + adding a writable open path.
+ *   wa_set_open_rw / wa_select / wa_close / wa_close_all). USE opens read-WRITE
+ *   (wa_set_open_rw, 7az.16 / 7az.19) so the S5.5 mutation verbs (REPLACE /
+ *   APPEND / DELETE / PACK / ZAP) and dbf_flush work on the table directly after
+ *   a plain `USE <file>` -- this is the dBASE default (a plain USE opens for
+ *   editing). The old wa_adopt_table seam for writable tables is no longer needed
+ *   at the dot prompt; it remains available for tests/tooling that need to inject
+ *   an already-created table. Ref: workarea.h wa_set_open_rw (7az.16 / 7az.19).
  *
  * ERROR RENDERING (the 151-code catalog):
  *   The catalog lives as spec/samir/dbase_msg_codes.tsv -- a factory artifact the
@@ -58,7 +60,8 @@
  * Mutation hooks (Rule 6 -- the oracle's mutant siblings):
  *   -DREPL_MUTATE_NO_MUTATE_MODULE : skip registering the mutate module, so a
  *       REPLACE typed in the session fails (#16 unrecognized) -> the oracle's
- *       "REPLACE changed the field" assertions go RED.
+ *       "REPLACE changed the field" assertions go RED (both the convergence
+ *       session and the plain-USE-REPLACE-persists leg, initech-7az.19).
  *   -DREPL_MUTATE_ERR_RENDER : render code+1 instead of code, so the catalog
  *       message text for a forced error no longer matches -> the oracle's
  *       error-text assertion goes RED.
@@ -464,8 +467,13 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
 
     /* dBASE USE replaces the table in the current area: close it first. */
     wa_close(env, area);
-    rc = wa_set_open(env, area, file, have_alias,
-                     il.count > 0 ? &il : (const wa_index_list *)0);
+    /* Ref: PRD S5.8; workarea.h wa_set_open_rw (7az.16 / 7az.19).
+     * Open read-WRITE: dBASE USE opens the table for editing by default, so
+     * REPLACE/APPEND/DELETE persist without the dbf_create + wa_adopt_table seam.
+     * wa_set_open (read-only) is kept for tests/tooling that must NOT write to a
+     * corpus golden; the dot prompt always opens rw. */
+    rc = wa_set_open_rw(env, area, file, have_alias,
+                        il.count > 0 ? &il : (const wa_index_list *)0);
     if (rc != WA_OK) {
         /* file open / codec faults: a missing .dbf is #1; anything else #15
          * "Not a dBASE database." The engine returns negated wa/codec codes;

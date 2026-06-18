@@ -1,6 +1,6 @@
 /*
  * harness/diff/dbf_diff/test_samir_repl.c -- host oracle for S5.8: the dot-prompt
- * REPL (os/samir/samir_main.c, samir_repl). initech-7az.9.
+ * REPL (os/samir/samir_main.c, samir_repl). initech-7az.9 + initech-7az.19.
  *
  * FACTORY host test (CLAUDE.md Law 3): libc OK here. Mirrors test_interp_list.c
  * (the CAPTURING PAL that intercepts conout) + test_interp_proc.c (the SCRIPTED
@@ -14,14 +14,13 @@
  *   into a byte buffer. We assert the captured transcript at each step.
  *
  * SESSION 1 (the convergence session -- USE..LOCATE..REPLACE..STORE..DO..QUIT):
- *   The REPL registers query/mutate/set/proc itself, so the only setup the test
- *   does is pre-adopt a WRITABLE table (dbf_create + wa_adopt_table) into area 1
- *   so the session's REPLACE has a writable target -- wa_set_open (the engine's
- *   USE-from-disk path) opens READ-ONLY and there is no dbf_open_rw yet, so a
- *   REPLACE after a plain USE would fail loud #41 (a real, current engine gap,
- *   flagged as a follow-up). Area 1 is the writable adopted table; the session
- *   also USEs a second, read-only /tmp table into area 2 to exercise the REPL's
- *   own USE-verb parser + a read path (LIST / LOCATE / FOUND).
+ *   The REPL registers query/mutate/set/proc itself. Area 1 carries a WRITABLE
+ *   table injected via wa_adopt_table (dbf_create path); the session's REPLACE
+ *   targets that area. With 7az.19 the REPL's plain USE now also opens rw
+ *   (wa_set_open_rw), but the convergence session still pre-adopts area 1 (the
+ *   adopt path is kept to exercise wa_adopt_table). Area 2 is opened via the
+ *   REPL's USE verb (now wa_set_open_rw) for LIST / LOCATE / FOUND on a /tmp
+ *   table (the file is writable by the process; no corpus golden is involved).
  *
  *     USE <ro /tmp copy> in area 2  (the REPL's USE parser + wa_set_open)
  *     ? RECNO()                     -> "1"   (fresh USE positions at record 1)
@@ -60,6 +59,9 @@
  *   -DREPL_MUTATE_NO_MUTATE_MODULE: samir_main.c then does NOT register the mutate
  *   module, so the session's "REPLACE CODE WITH 'ZZ'" is unrecognized (#16) and
  *   "? CODE" still shows the OLD value -> the "REPLACE wrote ZZ" assertion RED.
+ *   This bites BOTH the convergence session (SESSION 1) AND the new plain-USE-rw
+ *   session (SESSION 6 / initech-7az.19): with no mutate module, plain-USE-REPLACE
+ *   also fails unrecognized, so the new disk-persistence assertion also goes RED.
  *   The alternative -DREPL_MUTATE_ERR_RENDER renders code+1, so SESSION 4's
  *   "9  Data type mismatch." text assertion goes RED.
  *
@@ -483,6 +485,94 @@ static void test_session_errors(samir_pal_t *pal)
 }
 
 /* =====================================================================
+ * SESSION 6: plain-USE-REPLACE-persists (initech-7az.19).
+ *   Proves that a bare `USE <file>` at the dot prompt opens the table for
+ *   editing (wa_set_open_rw, the dBASE default), so REPLACE / ? / QUIT persist
+ *   to disk WITHOUT the dbf_create + wa_adopt_table seam.
+ *
+ * Steps:
+ *   1. Create a /tmp table via make_writable_table; dbf_close it (on disk).
+ *   2. Fresh REPL (no pre-adoption): USE <path>, REPLACE CODE WITH 'RW', ? CODE,
+ *      QUIT.
+ *   3. Assert ? CODE shows 'RW' in the transcript (new value in-session).
+ *   4. Re-open the /tmp file fresh from disk (dbf_open) and assert CODE == 'RW '
+ *      (persisted; padded to field width 3). This proves the RW open flushed.
+ *
+ * Mutation proof: -DREPL_MUTATE_NO_MUTATE_MODULE -> REPLACE unrecognized (#16) ->
+ *   ? CODE shows old 'AAA' -> cap_has("\nRW") FALSE -> RED. The existing Make
+ *   mutant already covers this leg with no Makefile change.
+ *
+ * /tmp safety: only /tmp paths are ever mutated; no corpus golden is opened rw.
+ * Ref: workarea.h wa_set_open_rw (7az.16 / 7az.19); samir_main.c repl_do_use.
+ * ===================================================================== */
+static void test_session_plain_use_rw(samir_pal_t *pal)
+{
+    const char *path = "/tmp/test_samir_repl_rw6.dbf";
+    static const qrow seed[3] = { {"AAA",100,1}, {"BBB",200,0}, {"CCC",300,1} };
+    dbf_table *wtbl;
+    xb_interp *ip;
+    char msg[256];
+    char cbuf[16];
+    static char useln[128];
+    int rc;
+
+    /* 1. Create the table on disk, then close the handle (plain USE needs the
+     *    file on disk, not an already-open writable handle). dbf_flush is called
+     *    inside make_writable_table before returning. */
+    wtbl = make_writable_table(pal, path, seed, 3);
+    snprintf(msg, sizeof msg, "rw6: make_writable_table at %s", path);
+    CHECK(wtbl != NULL, msg);
+    if (!wtbl) return;
+    dbf_close(wtbl);   /* on disk; the REPL will re-open it via wa_set_open_rw */
+    wtbl = NULL;
+
+    /* 2. Fresh REPL -- no pre-adoption; the REPL's USE opens rw (7az.19). */
+    ip = xb_interp_make(pal);
+    CHECK(ip != NULL, "rw6: xb_interp_make");
+    if (!ip) { remove(path); return; }
+
+    script_reset();
+    cap_clear();
+    snprintf(useln, sizeof useln, "USE %s", path);
+    script_push(useln);                      /* plain USE -> wa_set_open_rw */
+    script_push("REPLACE CODE WITH 'RW'");  /* S5.5 mutate; needs writable table */
+    script_push("? CODE");                   /* -> show the new value in-session */
+    script_push("QUIT");
+
+    rc = samir_repl(pal, ip);
+    snprintf(msg, sizeof msg, "rw6: samir_repl rc=%d (want 0)", rc);
+    CHECK(rc == INTERP_OK, msg);
+
+    /* 3. In-session: ? CODE must show the REPLACEd value 'RW' (padded to 'RW ').
+     *    Mutation-proof bite: -DREPL_MUTATE_NO_MUTATE_MODULE -> REPLACE #16 ->
+     *    ? CODE shows 'AAA' -> no "\nRW" in transcript -> RED. */
+    CHECK(cap_has("\nRW"), "rw6: ? CODE shows REPLACEd value 'RW' in-session");
+
+    xb_interp_free(ip);
+
+    /* 4. Disk-persistence: re-open the /tmp file with a fresh dbf_open and assert
+     *    the new value survived QUIT (proves wa_set_open_rw flushed on mutation).
+     *    This assertion is distinct from the transcript check: it proves the bytes
+     *    are on disk, not just in the work area's record cache. */
+    {
+        dbf_table *verify = NULL;
+        rc = dbf_open(pal, path, &verify);
+        snprintf(msg, sizeof msg, "rw6: dbf_open for verify rc=%d (want 0)", rc);
+        CHECK(rc == DBF_OK, msg);
+        if (verify) {
+            read_c_field(verify, 1, 0, cbuf, sizeof cbuf);
+            snprintf(msg, sizeof msg,
+                     "rw6: rec1 CODE persisted == 'RW ' after plain-USE-REPLACE (got '%s')",
+                     cbuf);
+            CHECK(strcmp(cbuf, "RW ") == 0, msg);
+            dbf_close(verify);
+        }
+    }
+
+    remove(path);
+}
+
+/* =====================================================================
  * SESSION 5: EOF terminates cleanly (empty script -> EOF first read).
  * ===================================================================== */
 static void test_session_eof(samir_pal_t *pal)
@@ -531,6 +621,7 @@ int main(int argc, char **argv)
     test_session_procedure(pal);
     test_session_errors(pal);
     test_session_eof(pal);
+    test_session_plain_use_rw(pal);  /* 7az.19: plain USE opens rw -> REPLACE persists */
 
     pal_host_free(host);
     return TEST_SUMMARY("test-samir-repl");
