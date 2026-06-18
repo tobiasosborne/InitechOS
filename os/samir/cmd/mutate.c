@@ -65,7 +65,7 @@
  *   writable and injected into the work area via wa_adopt_table (workarea.h S5.5).
  *   After each verb mutates the in-arena rec_region, this module dbf_flush()es
  *   (deterministic whole-file rewrite) so dbf_read_rec sees the new bytes, then
- *   wa_refresh()es the area's cache + nrec. A NON-writable table -> fail loud #41
+ *   wa_refresh()es the area's cache + nrec. A NON-writable table -> fail loud #111
  *   "Cannot write to a read-only file." (mapped from the codec's -DBF_ERR_IO).
  *
  * Ref (Law 1):
@@ -74,7 +74,7 @@
  *     shared scope/FOR/WHILE grammar sec 0; the type-compatibility rule sec 0).
  *   - spec/samir/xbase_coercion.json assignment_coercion (the locked contract
  *     dbf_replace implements).
- *   - spec/samir/dbase_msg_codes.tsv (#9 mismatch, #37 not logical, #41 read-only).
+ *   - spec/samir/dbase_msg_codes.tsv (#9 mismatch, #37 not logical, #111 read-only).
  *   - os/samir/include/samir/interp.h (the xb_cmd_hook contract + chain).
  *   - os/samir/include/samir/workarea.h (wa_table/wa_recno/wa_nrec/wa_index/
  *     wa_index_count/wa_adopt_table/wa_refresh).
@@ -112,7 +112,8 @@
 
 /* dBASE catalog ordinals used by this module (mirrors eval.h XBEE_* where they
  * exist; the read-only code is command-level, not in eval.h). */
-#define M_MSG_READONLY     41   /* "Cannot write to a read-only file." */
+#define M_MSG_READONLY     111  /* "Cannot write to a read-only file." (catalog #111;
+                                 * #41 is ".DBT file cannot be opened." -- fixed 7az.18) */
 /* XBEE_NOT_LOGICAL (#37) and XBEE_MISMATCH (#9) come from eval.h. */
 
 /* Scope kinds (mirror query.c). */
