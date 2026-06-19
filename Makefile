@@ -11388,6 +11388,209 @@ test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DOTRUNC) $
 	@sed 's/^/    /' "$(BUILD)/$(CY2K_MUT_NAME).samir"
 	@printf '>>> test-samir-canon-y2k-mutant: green (the DO-file half-read mutant correctly RED -- the canon report body is absent; no crash)\n'
 
+# ===========================================================================
+# REAL gate: test-samir-canon-salami (bead initech-4hte) -- the CANON pair's
+#            second half (Bolton's salami-slicing rounding virus, bead 586.2)
+# ===========================================================================
+# THE MILESTONE: Michael Bolton's salami-slicing finance-charge routine
+# (SALAMI.PRG) RUNS INSIDE InitechOS on QEMU -- WITH its ENFORCED "too much too
+# fast" misplaced-decimal skim (bead 586.2) -- via the same `DO <file>` dot-prompt
+# verb (samir_main.c repl_try_do_file) the Y2K twin (bead 9a0f) uses. Boot the
+# COMMAND.COM shell kernel with a FAT12 data disk carrying SAMIR.COM +
+# INVOICE.DBF + SALAMI.PRG, then inject (gated on SHELL-READY):
+#     samir<ret>      (COMMAND.COM EXEC of SAMIR.COM)
+#     use invoice.dbf<ret> (SAMIR's dot prompt opens the AR ledger)
+#     do salami<ret>  (SAMIR's dot prompt loads + runs SALAMI.PRG off disk)
+#     quit<ret>       (SAMIR REPL clean exit)
+#     exit<ret>       (COMMAND.COM clean exit)
+# The .prg STOREs its own posting parameters (STORE 0.015 TO RATE / STORE 0 TO
+# SCALE) since the QMP key vocabulary cannot type '=' (so the canon test's
+# operator step RATE=0.015/SCALE=0 cannot be keyed at the dot prompt -- it is
+# baked into the program exactly as test_canon_salami.c set_params sets it).
+# The misplaced decimal is SCALE=0 (whole-dollar precision instead of cents), so
+# each charge's POSTED rounds to the nearest DOLLAR and ADJUST sweeps the entire
+# sub-DOLLAR remainder into the hidden BOLTON suspense account -- which balloons
+# ~100x faster than a sub-cent skim ever could. The in-emu posting report thus
+# reproduces the IDENTICAL too-much-too-fast values the host gate test-canon-salami
+# asserts: A1004 sweeps 0.4998 (dollars-scale, not sub-cent) and BOLTON balloons
+# to 0.38 off just three postings.
+#
+# FIXTURE REUSE (no new mint): the salami routine reads AMOUNT and PAID only (it
+# does NOT age, so DUEDATE is irrelevant). The 9a0f INVOICE.DBF carries exactly the
+# AMOUNTs (1250.00/875.50/4400.00/99.99) and PAID flags (F/F/T/F) the salami canon
+# needs -- bit-for-bit the same AMOUNT/PAID set test_canon_salami.c make_invoices
+# uses. So $(INVOICE_DBF) is reused verbatim; the in-emu skim equals the canon value
+# (probe-confirmed: the driver .prg over $(INVOICE_DBF) renders A1004 0.4998 +
+# BOLTON 0.38). No salami-specific mint is needed.
+#
+# Assert (every miss fail-loud + exit-non-zero, Law 2):
+#   1. NO triple-fault (the USE / DO WHILE posting walk / ROUND / STR run, no crash).
+#   2. SHELL-READY (COMMAND.COM REPL entered).
+#   3. SERIAL: the posting report reaches serial AND the SPECIFIC too-much-too-fast
+#      skim values (A1004 ... 0.4998, BOLTON SUSPENSE ACCOUNT ... 0.38 -- the SAME
+#      canon values the host gate asserts) are present -- the salami virus RAN
+#      inside the OS (Law 4).
+#   4. SCREENDUMP (Law 4): a separate keys+grab run renders the report on the LFB.
+# It BITES (test-samir-canon-salami-mutant) via -DREPL_MUTATE_DO_TRUNC (the
+# DO-file-read mutant, SAMIR_DOTRUNC.COM): SAMIR reads only the FIRST HALF of
+# SALAMI.PRG -> the posting body + the BOLTON line are cut off -> the canon serial
+# values vanish -> RED, no crash. (Canon-bug ENFORCEMENT -- the misplaced-decimal
+# SCALE -- stays covered by the host gate test-canon-salami-mutant; the in-emu
+# mutant proves the DO-file plumbing is load-bearing.) TRI-EMULATOR: QEMU only
+# (Bochs/86Box deferred, bead initech-x0i).
+# Ref: bead initech-4hte; harness/diff/dbf_diff/canon/salami.{prg,out};
+#      harness/diff/dbf_diff/test_canon_salami.c (the host canon oracle this mirrors);
+#      os/samir/samir_main.c repl_try_do_file (the DO <file> feature; bead 9a0f).
+
+# --- SALAMI.PRG: the canon finance-charge program + two leading STORE...TO driver
+#     lines (RATE/SCALE) so it self-drives from `DO SALAMI` (the QMP keys cannot type
+#     the '=' assignment). The body after the STOREs is byte-for-byte canon/salami.prg.
+SALAMI_PRG_SRC := $(CANON_DIR)/salami_driver.prg
+SALAMI_PRG     := $(BUILD)/SALAMI.PRG
+$(SALAMI_PRG): $(SALAMI_PRG_SRC) | $(BUILD)
+	@cp $(SALAMI_PRG_SRC) $@
+	@printf '>>> SALAMI.PRG: staged %s (canon finance-charge sweep + self-driving RATE/SCALE; salami bug ENFORCED)\n' "$@"
+
+# --- canon-salami data-disk minter: $(call csalami_mint,<image>,<samir.com>)
+#     -- FRESH FAT12 disk with SAMIR.COM + INVOICE.DBF + SALAMI.PRG. INVOICE.DBF is
+#     reused from the 9a0f mint (same AMOUNT/PAID the salami canon needs). ---
+define csalami_mint
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(2) ::SAMIR.COM
+	@mcopy -i $(1) $(INVOICE_DBF) ::INVOICE.DBF
+	@mcopy -i $(1) $(SALAMI_PRG) ::SALAMI.PRG
+endef
+
+CSAL_IMG          := $(BUILD)/samir_canon_salami.img
+CSAL_SCRN_IMG     := $(BUILD)/samir_canon_salami_scrn.img
+CSAL_MUT_IMG      := $(BUILD)/samir_canon_salami_mut.img
+CSAL_NAME         := samir_canon_salami
+CSAL_SERIAL       := $(BUILD)/$(CSAL_NAME).serial
+CSAL_REPORT       := $(BUILD)/$(CSAL_NAME).report
+CSAL_SCRN_NAME    := samir_canon_salami_scrn
+CSAL_SCRN_REPORT  := $(BUILD)/$(CSAL_SCRN_NAME).report
+CSAL_PPM          := $(BUILD)/$(CSAL_SCRN_NAME).ppm
+CSAL_MUT_NAME     := samir_canon_salami_mut
+CSAL_MUT_SERIAL   := $(BUILD)/$(CSAL_MUT_NAME).serial
+CSAL_MUT_REPORT   := $(BUILD)/$(CSAL_MUT_NAME).report
+# The key script: samir / use invoice.dbf / do salami / quit / exit
+#   The operator USEs the AR ledger at the dot prompt (the REPL owns USE), then
+#   DOes the finance-charge program off disk -- exactly as the canon host harness
+#   adopts the table then runs the .prg body. All tokens are in the QMP key
+#   vocabulary (a-z, 0-9, spc, dot, ret); the RATE/SCALE STOREs are baked into the
+#   .prg (the keys cannot type '='). Ref: bead initech-4hte.
+CSAL_KEYS      := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,s,a,l,a,m,i,ret,q,u,i,t,ret,e,x,i,t,ret
+# Screendump leg: same but NO quit/exit (keep the report on screen for the grab).
+CSAL_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,s,a,l,a,m,i,ret
+
+.PHONY: test-samir-canon-salami test-samir-canon-salami-mutant
+test-samir-canon-salami: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $(SALAMI_PRG) $(PPM_TEXT_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-samir-canon-salami : Bolton salami virus RUNS inside InitechOS\n'
+	@printf '  Ref: bead initech-4hte (canon pair, salami twin of 9a0f); 586.2 (the enforced skim). boot -> EXEC SAMIR -> USE INVOICE -> DO SALAMI.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + data disk %s (SAMIR.COM + INVOICE.DBF + SALAMI.PRG)\n' "$(TRACER_IMG)" "$(CSAL_IMG)"
+	@printf 'Expecting : the posting report on serial WITH the buggy A1004 0.4998 / BOLTON 0.38 (too much too fast, canon)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call csalami_mint,$(CSAL_IMG),$(SAMIR_COM))
+	@printf '>>> samir_canon_salami: minted FRESH %s (SAMIR.COM + INVOICE.DBF + SALAMI.PRG)\n' "$(CSAL_IMG)"
+	@# Run 1 (serial): EXEC SAMIR, USE INVOICE, DO SALAMI, QUIT, EXIT.
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CSAL_IMG)" \
+		--name "$(CSAL_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(CSAL_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(CSAL_REPORT)" || true
+	@cat "$(CSAL_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(CSAL_REPORT)"; then \
+		printf '!!! test-samir-canon-salami FAIL: TRIPLE FAULT -- the DO/posting path crashed (root-cause pal_milton DO-read or flow, Rule 3)\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-samir-canon-salami [1/4]: no triple-fault (the salami routine ran without crashing)\n'
+	@if [ ! -s "$(CSAL_SERIAL)" ]; then \
+		printf '!!! test-samir-canon-salami FAIL: no serial captured at %s\n' "$(CSAL_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(CSAL_SERIAL)" \
+		|| { printf '!!! test-samir-canon-salami FAIL: SHELL-READY missing -- COMMAND.COM never reached the prompt\n'; exit 1; }
+	@printf '>>> test-samir-canon-salami [2/4]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@# Scope to AFTER `A:\>samir` so the assertions bite SAMIR's OWN output.
+	@tr -d '\r' < "$(CSAL_SERIAL)" | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(CSAL_NAME).samir"
+	@grep -qF 'INITECH SYSTEMS CORP -- ACCOUNTS RECEIVABLE' "$(BUILD)/$(CSAL_NAME).samir" \
+		|| { printf '!!! test-samir-canon-salami FAIL: the posting report banner is absent -- DO SALAMI did not run the .prg (root-cause repl_try_do_file / pal_milton DO-read)\n'; \
+		     cat "$(BUILD)/$(CSAL_NAME).samir"; exit 1; }
+	@# ---- THE CANON TOO-MUCH-TOO-FAST SKIM VALUES (the SAME the host gate test-canon-salami asserts): ----
+	@grep -qF 'A1004      1.4998        1.00      0.4998' "$(BUILD)/$(CSAL_NAME).samir" \
+		|| { printf '!!! test-samir-canon-salami FAIL: the buggy A1004 ... 0.4998 posting line is absent -- the dollars-scale skim did not run in-emu (Law 4)\n'; \
+		     cat "$(BUILD)/$(CSAL_NAME).samir"; exit 1; }
+	@grep -qF 'BOLTON SUSPENSE ACCOUNT:         0.38' "$(BUILD)/$(CSAL_NAME).samir" \
+		|| { printf '!!! test-samir-canon-salami FAIL: the headline BOLTON 0.38 balloon is absent -- the too-much-too-fast skim did not accumulate in-emu (Law 4)\n'; \
+		     cat "$(BUILD)/$(CSAL_NAME).samir"; exit 1; }
+	@printf '>>> test-samir-canon-salami [3/4]: SERIAL shows the finance-charge posting report WITH the enforced too-much-too-fast skim (A1004 0.4998 / BOLTON 0.38)\n'
+	@# ---- 4. SCREENDUMP (Run 2; Law 4): the report on the LFB. The DO SALAMI run
+	@# prints ~10 report lines; they scroll the active band lower than the 3-row LIST
+	@# gate, so the report text lands in band [176,260). seafoam right margin checked
+	@# (immune to vertical scroll), same discriminator pattern as test-samir-canon-y2k. ----
+	@$(call csalami_mint,$(CSAL_SCRN_IMG),$(SAMIR_COM))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CSAL_SCRN_IMG)" \
+		--name "$(CSAL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(CSAL_SCRN_KEYS)" --keys-after "SHELL-READY" \
+		--screendump --screendump-after "SHELL-READY" \
+		2> "$(CSAL_SCRN_REPORT)" || true
+	@if grep -q 'triple_fault=1' "$(CSAL_SCRN_REPORT)"; then \
+		printf '!!! test-samir-canon-salami FAIL: TRIPLE FAULT on the screendump run\n'; exit 1; \
+	fi
+	@if [ ! -s "$(CSAL_PPM)" ]; then \
+		printf '!!! test-samir-canon-salami FAIL: no screendump captured at %s (live guest required)\n' "$(CSAL_PPM)"; exit 1; \
+	fi
+	@$(PPM_TEXT_CHECK_BIN) "$(CSAL_PPM)" 176 260 300 32 560 \
+		|| { printf '!!! test-samir-canon-salami FAIL: the posting report did not render on the framebuffer (band [176,260) < 300 fg), or the right-margin desktop is not seafoam\n'; exit 1; }
+	@printf '>>> test-samir-canon-salami [4/4]: screendump shows the finance-charge posting report on the seafoam desktop\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- Bolton'\''s salami-slicing rounding virus RAN inside InitechOS via DO SALAMI,\n'
+	@printf '            and its ENFORCED misplaced-decimal skim (586.2) produced the canonical "too much\n'
+	@printf '            too fast" balloon (A1004 sweeps 0.4998 dollars-scale; BOLTON suspense 0.38).\n'
+	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# The mutant: the DO-file-READ bite (Rule 6, the 9a0f DO <file> feature). SAMIR_DOTRUNC.COM
+# (-DREPL_MUTATE_DO_TRUNC) reads only the FIRST HALF of SALAMI.PRG, so the posting BODY
+# (the DO WHILE record walk + the BOLTON total line) is cut off -> the canon serial
+# values (A1004 0.4998, BOLTON 0.38) VANISH -> RED. This proves the DO-file plumbing is
+# load-bearing: a truncated .prg read produces NO posting report, not a green one. A clean
+# wrong-data RED, no crash (Law 2 -- the app still STARTS, it just reads a partial program).
+# (Canon-bug ENFORCEMENT -- the misplaced-decimal SCALE=0 -- stays covered by the host gate
+# test-canon-salami-mutant, which flips SCALE to 2 and confirms the honest BOLTON 0.00.)
+# Ref: bead initech-4hte; samir_main.c repl_load_prg REPL_MUTATE_DO_TRUNC.
+test-samir-canon-salami-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DOTRUNC) $(INVOICE_DBF) $(SALAMI_PRG)
+	@printf '>>> test-samir-canon-salami-mutant: confirming the DO-file half-read mutant breaks canon in-emu -> RED (Rule 6; initech-4hte)\n'
+	@$(call csalami_mint,$(CSAL_MUT_IMG),$(SAMIR_COM_DOTRUNC))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CSAL_MUT_IMG)" \
+		--name "$(CSAL_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(CSAL_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(CSAL_MUT_REPORT)" || true
+	@# The mutant must NOT triple-fault (it is a wrong-data bug, not a crash).
+	@if grep -q 'triple_fault=1' "$(CSAL_MUT_REPORT)"; then \
+		printf '!!! test-samir-canon-salami-mutant FAIL: the mutant TRIPLE-FAULTED -- a crash, not the wrong-data RED the gate asserts\n'; exit 1; \
+	fi
+	@if [ ! -s "$(CSAL_MUT_SERIAL)" ]; then \
+		printf '!!! test-samir-canon-salami-mutant FAIL: no serial captured (the mutant must still RUN, just read a partial .prg)\n'; exit 1; \
+	fi
+	@tr -d '\r' < "$(CSAL_MUT_SERIAL)" | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(CSAL_MUT_NAME).samir"
+	@# With the .prg read truncated, the canon report BODY is cut off: the buggy
+	@# A1004 0.4998 posting line and the BOLTON 0.38 total MUST be absent -> the canon
+	@# assertions would fail. If they are STILL present, the mutant did not bite (decoration).
+	@if grep -qF 'A1004      1.4998        1.00      0.4998' "$(BUILD)/$(CSAL_MUT_NAME).samir"; then \
+		printf '!!! test-samir-canon-salami-mutant FAIL: the buggy A1004 0.4998 line is STILL present under the DO-truncation mutant -- it did not bite (gate is decoration)\n'; \
+		cat "$(BUILD)/$(CSAL_MUT_NAME).samir"; exit 1; \
+	fi
+	@if grep -qF 'BOLTON SUSPENSE ACCOUNT:         0.38' "$(BUILD)/$(CSAL_MUT_NAME).samir"; then \
+		printf '!!! test-samir-canon-salami-mutant FAIL: the headline BOLTON 0.38 balloon is STILL present under the DO-truncation mutant -- it did not bite\n'; \
+		cat "$(BUILD)/$(CSAL_MUT_NAME).samir"; exit 1; \
+	fi
+	@printf '    --- the TRUNCATED (mutant) in-emu transcript (the .prg body was cut off) ---\n'
+	@sed 's/^/    /' "$(BUILD)/$(CSAL_MUT_NAME).samir"
+	@printf '>>> test-samir-canon-salami-mutant: green (the DO-file half-read mutant correctly RED -- the canon posting body is absent; no crash)\n'
+
 # ---------------------------------------------------------------------------
 # Aggregate green gate vector (beads initech-4mc)
 # ---------------------------------------------------------------------------
@@ -11472,7 +11675,8 @@ TEST_EMU_GATES := \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm \
 	test-samir-boot test-samir-boot-mutant \
 	test-samir-write test-samir-write-mutant \
-	test-samir-canon-y2k test-samir-canon-y2k-mutant
+	test-samir-canon-y2k test-samir-canon-y2k-mutant \
+	test-samir-canon-salami test-samir-canon-salami-mutant
 
 test-unit:
 	@printf '======================================================================\n'
