@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include "io.h"
 #include "boot_info.h"
+#include "memory_map.h"  /* FLAIR_HEAP_* + flair_heap_ram_ok (ADR-0004 DEC-03) */
 #include "console.h"
 #include "idt.h"
 #include "pic.h"
@@ -104,6 +105,17 @@ static void serial_putu(uint32_t v)
     }
     while (n > 0) {
         serial_putc(buf[--n]);
+    }
+}
+
+/* Emit a 32-bit value as 8 fixed-width hex nibbles (MSB first). Used by the
+ * FLAIR-heap RAM-sufficiency panic to print the heap window addresses (more
+ * readable than decimal). Freestanding: no libc; deterministic (Rule 11). */
+static void serial_puthex32(uint32_t v)
+{
+    static const char H[] = "0123456789ABCDEF";
+    for (int i = 28; i >= 0; i -= 4) {
+        serial_putc(H[(v >> i) & 0xFu]);
     }
 }
 
@@ -531,6 +543,7 @@ void kernel_main(void)
     b.lfb_width  = bi->lfb_width;
     b.lfb_height = bi->lfb_height;
     b.font_addr  = bi->font_addr;
+    b.ext_mem_kb = bi->ext_mem_kb;   /* extended RAM probed by stage2 (DEC-03) */
 
     /* Sanity-check the handoff struct (Rule 2 -- fail loud, but stay live so
      * the screendump still captures). Emit BI-OK on success, or BI-BAD + the
@@ -555,6 +568,15 @@ void kernel_main(void)
     if (ok) {
         serial_puts("BI-OK\n");
     }
+
+    /* Echo the probed extended-memory size (ADR-0004 DEC-03 / FO-G) so the boot
+     * oracle can confirm stage2's INT 15h probe populated ext_mem_kb with a sane
+     * value (e.g. ~130048 KiB for a 128 MiB QEMU/Bochs guest). This is
+     * diagnostic only; the gating decision is the panic-below-min below, which
+     * happens AFTER the console is up so PC LOAD LETTER can render on screen. */
+    serial_puts("EXTMEM kb=");
+    serial_putu(b.ext_mem_kb);
+    serial_putc('\n');
 
     /* SYSINIT PHASE 1 -- interrupt + syscall foundation (beads initech-509.2;
      * beads initech-a5a / initech-509.5 / initech-509.3). This was a long ad-hoc
@@ -656,6 +678,58 @@ void kernel_main(void)
             serial_putc('\n');
         }
     }
+
+    /* ------------------------------------------------------------------ *
+     * FLAIR HEAP RAM-SUFFICIENCY GATE (beads initech-k8o5.5; ADR-0004
+     * DEC-03 / FO-G). The FLAIR Toolbox heap is a FIXED extended-memory
+     * window [FLAIR_HEAP_BASE, FLAIR_HEAP_BASE+FLAIR_HEAP_SIZE) (spec/
+     * memory_map.h). stage2 probed installed RAM above 1 MiB into
+     * boot_info_t.ext_mem_kb; if the machine does not have enough extended
+     * RAM to back the whole window, the OS must REFUSE TO RUN (fail loud,
+     * Rule 2) rather than scribble GUI state into RAM that is not there.
+     *
+     * The probe GATES boot; it NEVER alters the memory map (Rule 11 -- the
+     * layout is identical every boot; the self-host fixpoint K2==K3 is
+     * unaffected). The decision is the SAME pure function the host oracle
+     * tests (flair_heap_ram_ok, memory_map.h), so artifact and oracle agree
+     * by construction (Law 2). Real emulators (QEMU/Bochs default >= 128 MiB)
+     * pass; the panic only fires on a genuinely under-provisioned machine.
+     *
+     * Reuse the fail-loud panic contract (panic.c): the grep-able "PANIC ..."
+     * serial line + a diagnostic dump + the on-screen "PC LOAD LETTER" line
+     * (rendered through the live console, bound to panic via panic_set_console
+     * above), then a permanent cli;hlt. We do not have a CPU int_frame_t here
+     * (this is a boot-policy panic, not a CPU exception), so we render the
+     * PC LOAD LETTER line directly and dump the relevant values to serial. */
+    if (!flair_heap_ram_ok(b.ext_mem_kb)) {
+        /* Grep-able marker first (the oracle keys on "PANIC"). */
+        serial_puts("PANIC flair-heap: insufficient extended RAM\n");
+        serial_puts("  ext_mem_kb=");
+        serial_putu(b.ext_mem_kb);
+        serial_puts(" required_kb=");
+        serial_putu((uint32_t)FLAIR_HEAP_REQUIRED_EXT_KB);
+        serial_putc('\n');
+        serial_puts("  FLAIR_HEAP=[0x");
+        serial_puthex32(FLAIR_HEAP_BASE);
+        serial_puts(",0x");
+        serial_puthex32(FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE);
+        serial_puts(")\n");
+        serial_puts("HALTED\n");
+
+        /* The one visible line -- PC LOAD LETTER canon (Rule 2 / Law 4).
+         * g_panic_con is bound iff the console came up; render through it. */
+        if (g_int21_con) {
+            console_puts(g_int21_con,
+                "\nPC LOAD LETTER  (not enough memory for FLAIR)\n");
+        }
+
+        /* Terminal: never proceed into FLAIR/heap work on a machine that
+         * cannot back the heap. IF handling is irrelevant; cli;hlt forever. */
+        for (;;) {
+            __asm__ __volatile__("cli; hlt");
+        }
+    }
+    serial_puts("FLAIR-HEAP-OK\n");
 
 #ifdef BOOT_SELFTEST_FAULT
     /* SELF-TEST BUILD ONLY (beads initech-a5a; make test-panic). Deliberately

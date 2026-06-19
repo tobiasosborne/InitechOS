@@ -7,6 +7,12 @@
  *        y*pitch + x*(bpp/8)). CLAUDE.md Law 2 (oracle is truth -- the blit
  *        math is host-tested), Rule 2 (fail loud), Rule 11 (reproducible,
  *        no timestamps), Rule 12 (ASCII source).
+ * beads: initech-k8o5. Ref: ADR-0004 D-2 (console is a CLIENT of the one
+ *        surface module; no second pixel writer). The pixel path is now owned
+ *        by os/flair/surface.{c,h}; this file binds a bitmap_t over its LFB
+ *        params and delegates all pixel writes to the surface primitives.
+ *        The public API in console.h is BYTE-FOR-BYTE IDENTICAL to before;
+ *        kmain.c and every other consumer is untouched.
  *
  * ARTIFACT code: freestanding, <stdint.h> only, no libc, no malloc. Compiles
  * BOTH under the kernel flags (gcc -m32 -ffreestanding -nostdlib -std=c11
@@ -23,6 +29,7 @@
  */
 
 #include "console.h"
+#include "../flair/surface.h"
 
 /* ---- color packing -------------------------------------------------------
  * Pack (r,g,b) for the bound bpp. Both formats place 0x00RRGGBB into the dword
@@ -55,25 +62,19 @@ console_color_t console_pack_rgb(uint32_t bpp, uint8_t r, uint8_t g, uint8_t b)
 
 #define CONSOLE_TAB_WIDTH 8
 
-/* ---- low-level pixel write ----------------------------------------------- */
-/* Write one packed pixel at byte offset `off` into the framebuffer. Branches on
- * bpp (Sec 5 Risk 2). For 24bpp we decompose the canonical 0x00RRGGBB into the
- * B,G,R byte triple. */
-static inline void put_pixel(console_t *con, uint32_t off, console_color_t px)
+/* ---- bitmap_t helper ----------------------------------------------------- */
+/* Bind a bitmap_t from a console_t. Used internally so all surface calls
+ * receive the same descriptor (ADR-0004 D-2: one surface, no duplication). */
+static bitmap_t con_bitmap(const console_t *con)
 {
-    if (con->bpp == 8) {
-        /* Mode 0x13 fallback: one byte per pixel = a VGA palette INDEX (the low
-         * 8 bits of the color; fg/bg are bound to CONSOLE_FG_IDX/BG_IDX). */
-        con->lfb[off] = (uint8_t)(px & 0xFFu);
-    } else if (con->bpp == 32) {
-        /* The dword is XRGB8888 (little-endian 0x00RRGGBB => bytes B,G,R,X). */
-        *(volatile uint32_t *)(con->lfb + off) = px;
-    } else {
-        /* 24bpp: store B,G,R at increasing addresses (stage2 fill24). */
-        con->lfb[off + 0u] = (uint8_t)(px & 0xFFu);          /* B */
-        con->lfb[off + 1u] = (uint8_t)((px >> 8) & 0xFFu);   /* G */
-        con->lfb[off + 2u] = (uint8_t)((px >> 16) & 0xFFu);  /* R */
-    }
+    bitmap_t bm;
+    bm.base            = con->lfb;
+    bm.pitch           = con->pitch;
+    bm.bpp             = con->bpp;
+    bm.bytes_per_pixel = con->bytes_per_pixel;
+    bm.width           = con->width;
+    bm.height          = con->height;
+    return bm;
 }
 
 /* ---- glyph blit (the load-bearing math) ---------------------------------- */
@@ -93,18 +94,9 @@ void console_draw_glyph(console_t *con, uint32_t col, uint32_t row,
     uint32_t x0 = col * CONSOLE_CELL_W;
     uint32_t y0 = row * CONSOLE_CELL_H;
 
-    for (uint32_t gy = 0; gy < CONSOLE_CELL_H; gy++) {
-        uint8_t  bits = glyph[gy];
-        uint32_t off  = (y0 + gy) * con->pitch + x0 * con->bytes_per_pixel;
-        for (uint32_t gx = 0; gx < CONSOLE_CELL_W; gx++) {
-            /* MSB = leftmost pixel: column 0 is bit 0x80, column 7 is 0x01
-             * (Sec 1.2). A set bit is ink (fg); a clear bit is bg. */
-            uint8_t mask = (uint8_t)(0x80u >> gx);
-            console_color_t px = (bits & mask) ? fg : bg;
-            put_pixel(con, off, px);
-            off += con->bytes_per_pixel;
-        }
-    }
+    bitmap_t bm = con_bitmap(con);
+    /* Delegate to the one surface blit primitive (ADR-0004 D-2). */
+    surface_blit(&bm, x0, y0, glyph, CONSOLE_CELL_W, CONSOLE_CELL_H, fg, bg);
 }
 
 /* ---- clear --------------------------------------------------------------- */
@@ -113,15 +105,13 @@ void console_clear(console_t *con)
     if (con == 0 || con->lfb == 0) {
         return;
     }
-    /* Fill every pixel of every scanline with bg. Honor pitch but only write
-     * the `width` visible pixels per row (padding bytes are off-screen; leaving
-     * them avoids relying on pitch==width*bpp/8). */
+    bitmap_t bm = con_bitmap(con);
+    /* Fill every pixel of every scanline with bg. Honor pitch by using
+     * surface_fill_span which takes (x,y,len) and strides by pitch. Only
+     * write the `width` visible pixels per row (padding bytes are off-screen;
+     * leaving them avoids relying on pitch==width*bpp/8). */
     for (uint32_t y = 0; y < con->height; y++) {
-        uint32_t off = y * con->pitch;
-        for (uint32_t x = 0; x < con->width; x++) {
-            put_pixel(con, off, con->bg);
-            off += con->bytes_per_pixel;
-        }
+        surface_fill_span(&bm, 0u, y, con->width, con->bg);
     }
 }
 
@@ -135,6 +125,7 @@ void console_scroll(console_t *con)
     if (con == 0 || con->lfb == 0) {
         return;
     }
+    bitmap_t bm = con_bitmap(con);
     uint32_t text_h = con->rows * CONSOLE_CELL_H; /* 400 px */
     if (text_h > con->height) {
         text_h = con->height;
@@ -145,32 +136,19 @@ void console_scroll(console_t *con)
      * the same code path serves both bpp; src is always below dst so a forward
      * copy is safe (no overlap hazard for an upward move). */
     for (uint32_t y = 0; y < move_rows; y++) {
-        uint32_t dst_off = y * con->pitch;
-        uint32_t src_off = (y + CONSOLE_CELL_H) * con->pitch;
-        for (uint32_t x = 0; x < con->width; x++) {
-            console_color_t px;
-            uint32_t so = src_off + x * con->bytes_per_pixel;
-            if (con->bpp == 8) {
-                px = con->lfb[so];                       /* palette index */
-            } else if (con->bpp == 32) {
-                px = *(volatile uint32_t *)(con->lfb + so);
-            } else {
-                px = ((console_color_t)con->lfb[so + 2u] << 16) |
-                     ((console_color_t)con->lfb[so + 1u] << 8)  |
-                     ((console_color_t)con->lfb[so + 0u]);
-            }
-            put_pixel(con, dst_off + x * con->bytes_per_pixel, px);
+        uint32_t dst_off = y * bm.pitch;
+        uint32_t src_off = (y + CONSOLE_CELL_H) * bm.pitch;
+        for (uint32_t x = 0; x < bm.width; x++) {
+            uint32_t so = src_off + x * bm.bytes_per_pixel;
+            uint32_t px = surface_get_pixel(&bm, so);
+            surface_put_pixel(&bm, dst_off + x * bm.bytes_per_pixel, px);
         }
     }
 
     /* Clear the freed last text row (the bottom CONSOLE_CELL_H scanlines of the
      * text band) to bg. */
     for (uint32_t y = move_rows; y < text_h; y++) {
-        uint32_t off = y * con->pitch;
-        for (uint32_t x = 0; x < con->width; x++) {
-            put_pixel(con, off, con->bg);
-            off += con->bytes_per_pixel;
-        }
+        surface_fill_span(&bm, 0u, y, bm.width, con->bg);
     }
 }
 

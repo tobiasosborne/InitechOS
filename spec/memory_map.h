@@ -210,4 +210,115 @@
 #define LOAD_STAGING_BASE   0x00070000u
 #define LOAD_STAGING_MAX    0x00010000u   /* 64 KiB staging (0x70000..0x80000)   */
 
+/* ------------------------------------------------------------------------ *
+ * FLAIR TOOLBOX HEAP -- dedicated EXTENDED-MEMORY region above 1 MiB
+ * (beads initech-k8o5.5; ADR-0004 DEC-03 / FO-5 / AM-5, RATIFIED 2026-06-19;
+ * Rule 8 -- a deliberate locked-data act).
+ *
+ * THE RULING (DEC-03, verbatim intent): the FLAIR Toolbox allocates its
+ * WindowRecords / MenuInfo / ControlRecords / region pools / indexed-8 offscreen
+ * bitmaps / NFNT strikes from a DEDICATED high region in extended memory --
+ * NOT the per-program DOS MCB arena. The window is FIXED and spec-locked, NOT a
+ * runtime-computed base, so the layout is identical every boot (Rule 11
+ * determinism; the self-host fixpoint K2==K3 is unaffected). stage2 PROBES
+ * installed RAM (INT 15h E820/E801/88h -> boot_info_t.ext_mem_kb) and the kernel
+ * PANICS LOUD ("PC LOAD LETTER", Rule 2) below FLAIR_HEAP_MIN -- the probe GATES
+ * boot but NEVER alters this map.
+ *
+ *   FLAIR_HEAP_BASE = 0x00100000   (first byte above the 1 MiB line)
+ *   FLAIR_HEAP_SIZE = 0x00400000   (4 MiB)
+ *   window          = [0x00100000, 0x00500000)
+ *   FLAIR_HEAP_MIN  = 0x00400000   (== FLAIR_HEAP_SIZE: required extended RAM)
+ *
+ * Law 1 source citations (all local):
+ *
+ *  (a) ADR-0004 DEC-03 full ruling (Sec 8.1) -- base/size/probe/allocator and
+ *      the "FIXED + spec-locked window" mandate; AM-5 (Sec 8.2) -- the ONE
+ *      Rule 8 act scoping; FO-5 (Sec 5.2) / FO-G (Sec 8.4) -- the fail-loud
+ *      probe gate.
+ *
+ *  (b) ADR-0001 (386+, 32-bit flat) -- extended memory above 1 MiB is DIRECTLY
+ *      addressable in flat 32-bit protected mode. No A20-segment-wraparound
+ *      games, no HIMEM/XMS handle gymnastics: the kernel runs with one flat
+ *      4 GiB data segment (os/boot/stage2.asm GDT: base 0, limit 0xFFFFF, G=1),
+ *      so 0x00100000 is just a pointer. (A20 is already enabled by stage2's
+ *      port-0x92 fast-A20 before the PM switch, so the 1 MiB line is not a
+ *      wraparound boundary.)
+ *
+ *  (c) NO-LFB-COLLISION proof (verified by reading os/boot/stage2.asm): the
+ *      framebuffer base handed to the kernel (boot_info_t.lfb_addr) is EITHER
+ *        - the VBE PhysBasePtr at ModeInfoBlock offset 0x28 (stage2.asm:380),
+ *          a PCI aperture FAR above 0xE0000000 on QEMU/SeaBIOS; OR
+ *        - 0x000A0000, the standard-VGA mode-0x13 fallback aperture
+ *          (stage2.asm:436, the Bochs leg).
+ *      Neither lands in [0x00100000, 0x00500000): 0xA0000 < 0x100000, and any
+ *      PCI aperture >= 0xE0000000 > 0x500000. The FLAIR window is disjoint from
+ *      the LFB on BOTH the VBE and the mode-0x13 paths.
+ *
+ *  (d) REBOUND-MCB-ARENA DISQUALIFIER: the per-program MCB arena cannot host
+ *      GUI state because loader.c int21_mcb_bind_program(arena_base,
+ *      arena_ceil) REBINDS the arena to the freshly-loaded program on EVERY
+ *      AH=4Bh EXEC (see the ARENA DISJOINTNESS INVARIANT block above). GUI
+ *      state (WindowRecords, z-order, visRgn/clipRgn, save-unders, the
+ *      EventRecord queue) MUST persist across app launches; coupling it to the
+ *      DOS arena would destroy it on the next EXEC -- a deep correctness bug
+ *      (Rule 3), not a trade-off. The arena ceiling is also tight
+ *      (PROGRAM_ARENA_CEIL == ENV_BLOCK == 0x5F000, already snug for SAMIR),
+ *      and the 0x90000..0xA0000 conventional gap (~64 KiB) cannot hold even one
+ *      307,200-byte indexed-8 640x480 offscreen. Extended memory is the only
+ *      viable home.
+ *
+ * DISJOINTNESS FROM THE CONVENTIONAL MAP: the entire conventional layout above
+ * lives at or below the kernel stack (0x80000+) and the staging window
+ * (0x70000..0x80000); the highest conventional address in use is < 0x100000.
+ * FLAIR_HEAP_BASE == 0x100000 begins ABOVE the 1 MiB line, so [0x100000,
+ * 0x500000) is disjoint from PROGRAM_BASE / PROGRAM_IMAGE / ENV_BLOCK / the
+ * PROGRAM_STACK region / PROGRAM_ARENA_CEIL / the LOAD_STAGING window by
+ * construction. NO existing constant changes (Rule 8 / AM-5).
+ *
+ * ALLOCATOR (DEFERRED to a later bead, NOT written here): one FLAIR-owned flat
+ * arena over [FLAIR_HEAP_BASE, FLAIR_HEAP_BASE+FLAIR_HEAP_SIZE) -- bump-pointer
+ * + typed free-list per class, no per-row malloc, fail-loud on exhaustion
+ * (PRD Sec 5). This locked-data act defines ONLY the window + the boot probe +
+ * the fail-loud gate; no allocator .c may land before its own bead is open. */
+#define FLAIR_HEAP_BASE     0x00100000u
+#define FLAIR_HEAP_SIZE     0x00400000u
+#define FLAIR_HEAP_MIN      0x00400000u
+
+/* Required installed extended memory, in KiB, for the FLAIR heap window to be
+ * fully backed by RAM (ADR-0004 DEC-03 / FO-G). Extended memory is reported by
+ * stage2 as KiB ABOVE the 1 MiB line (boot_info_t.ext_mem_kb); the top of the
+ * FLAIR window is FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE. So the heap is fully backed
+ * iff
+ *     ext_mem_kb * 1024 + 0x100000  >=  FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE
+ * i.e. ext_mem_kb >= (FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE - 0x100000) / 1024.
+ * DERIVED from the constants -- NOT hardcoded -- so it tracks any future
+ * Rule-8 change to base/size. For the locked window this evaluates to
+ *   (0x500000 - 0x100000) / 1024 = 0x400000 / 1024 = 4096 KiB
+ * (== FLAIR_HEAP_MIN / 1024). The "- 0x100000" is the 1 MiB line that
+ * ext_mem_kb is measured ABOVE, not a hardcoded literal: FLAIR_HEAP_BASE is
+ * itself 0x100000, so the window's footprint above 1 MiB is exactly
+ * FLAIR_HEAP_BASE - 0x100000 (== 0) + FLAIR_HEAP_SIZE == FLAIR_HEAP_SIZE. */
+#define FLAIR_HEAP_REQUIRED_EXT_KB \
+    (((FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE) - 0x00100000u) / 1024u)
+
+/* flair_heap_ram_ok -- the PURE RAM-sufficiency decision (ADR-0004 FO-G /
+ * DEC-03). Returns 1 (PASS) iff the probed extended memory `ext_mem_kb` is at
+ * or above the derived minimum; 0 (FAIL) below it. This is the single point of
+ * truth the kernel boot gate and the host oracle BOTH call -- so the mechanical
+ * test (harness) and the artifact agree by construction (Law 2). Threshold is
+ * DERIVED from the FLAIR constants (FLAIR_HEAP_REQUIRED_EXT_KB), never a magic
+ * literal, so it can never drift from the locked window. Pure, side-effect-free,
+ * freestanding-safe (no libc, no includes): callable from the kernel and the
+ * host test alike. NOT compiled into NASM/ld -- those only cite this header in
+ * comments (the constants are duplicated in asm), so a C function here is safe.
+ *
+ * The comparison is `>=` (at-min PASSES): a machine with EXACTLY
+ * FLAIR_HEAP_REQUIRED_EXT_KB of extended memory backs the whole window to its
+ * last byte, so it must boot. */
+static inline int flair_heap_ram_ok(unsigned long ext_mem_kb)
+{
+    return (ext_mem_kb >= (unsigned long)FLAIR_HEAP_REQUIRED_EXT_KB) ? 1 : 0;
+}
+
 #endif /* INITECH_SPEC_MEMORY_MAP_H */

@@ -45,6 +45,25 @@
       "note": "Conventional program window for a loaded flat .COM-equivalent. Constants are defined in spec/memory_map.h -- cite that header; do NOT duplicate the values. The window includes the PSP (256 B at PROGRAM_BASE), the program image (from PROGRAM_IMAGE = PROGRAM_BASE+0x100), the environment block (ENV_BLOCK = 0x5F000), and the program stack [PROGRAM_STACK_BOT, PROGRAM_STACK_TOP]. The AH=48h MCB arena must be disjoint from the loaded program + stack (ADR-0009 DEC-04 / spec/memory_map.h ARENA DISJOINTNESS INVARIANT)."
     },
     "heap_model": "AH=48h MCB arena, flat, bound to [image_end_rounded, PROGRAM_STACK_BOT)",
+    "flair_heap": {
+      "base_symbol":  "FLAIR_HEAP_BASE",
+      "size_symbol":  "FLAIR_HEAP_SIZE",
+      "min_symbol":   "FLAIR_HEAP_MIN",
+      "base_value":   "0x00100000",
+      "size_value":   "0x00400000",
+      "min_value":    "0x00400000",
+      "size_kib":     4096,
+      "window":       "[0x00100000, 0x00500000)",
+      "probe": {
+        "interface": "INT 15h",
+        "methods":   ["E820", "E801", "AH=88h"],
+        "field":     "boot_info_t.ext_mem_kb (KiB above 1 MiB; 0 if all probes failed)",
+        "note": "stage2 (os/boot/stage2.asm mem_probe) probes installed extended memory in real mode BEFORE the protected-mode switch -- INT 15h AX=E820h (SMAP, sum type-1 ranges above 1 MiB) with E801h then AH=88h as period-BIOS fallbacks. Works on SeaBIOS (QEMU) and the Bochs LGPL BIOS (both E820)."
+      },
+      "fail_loud_below_min": "The kernel (os/milton/kmain.c) PANICS LOUD ('PC LOAD LETTER' on screen + a diagnostic dump to serial, Rule 2) at boot when ext_mem_kb < FLAIR_HEAP_MIN/1024 -- the probe GATES boot but NEVER alters the memory map (Rule 11 determinism). The decision is the pure flair_heap_ram_ok() in spec/memory_map.h, shared by the kernel and the host oracle (test_flair_heap_ram.c).",
+      "note": "DEDICATED extended-memory FLAIR Toolbox heap (ADR-0004 DEC-03), NOT the per-program MCB arena (rebound on every EXEC -> would destroy GUI state). FIXED, spec-locked window. Constants are defined in spec/memory_map.h -- cite that header; do NOT duplicate the values. No LFB collision (lfb_addr is the VBE PhysBasePtr aperture or the 0xA0000 mode-0x13 fallback; neither in [0x100000,0x500000)). The allocator (bump + typed free-list) is a later bead -- this contract defines only the window + boot probe + fail-loud gate.",
+      "ref": ["spec/memory_map.h (FLAIR_HEAP_BASE/SIZE/MIN + flair_heap_ram_ok + commentary)", "os/milton/boot_info.h (ext_mem_kb field)", "os/boot/stage2.asm (mem_probe INT 15h E820/E801/88h)", "ADR-0004 DEC-03 / FO-5 / FO-G (RATIFIED 2026-06-19)", "ADR-0001 (32-bit flat: extended memory directly addressable above 1 MiB)"]
+    },
     "ref": ["spec/memory_map.h (PROGRAM_BASE / PROGRAM_ALLOC_END + full layout)", "ADR-0009 DEC-03 (flat .COM in conventional memory, FLOW_MAX_REGISTRY=1 for target)", "ADR-0009 DEC-04 (arena disjointness invariant; latent-corruption fix)", "PRD Sec 5 (Memory: flat 32-bit; bump + free-list allocator; no demand paging)"]
   },
 
@@ -107,6 +126,7 @@
     "cpu":                    "PRD Sec 5 table row 'CPU'; CLAUDE.md hallucination-risk callout (386+ only; no 8088/286)",
     "fpu":                    "ADR-0009 DEC-01 (soft-float primary, init_by_kernel=false); ADR-0009 Sec 1 period grounding (dBASE III+ software FP, DOS 3.3 uninvolved); DOS 3.3 PRM (no FPU init in single-tasking DOS); PRD Sec 5 (386+ hardware target)",
     "memory_program_window":  "spec/memory_map.h (PROGRAM_BASE/PROGRAM_ALLOC_END + full layout commentary); ADR-0009 DEC-03 (Milton build profile, FLOW_MAX_REGISTRY=1); ADR-0009 DEC-04 (arena disjointness invariant); PRD Sec 5 table row 'Memory'",
+    "memory_flair_heap":      "ADR-0004 DEC-03 / FO-5 / FO-G (RATIFIED 2026-06-19; dedicated extended-memory FLAIR heap 0x100000..0x500000, 4 MiB, FIXED window, INT 15h probe + fail-loud-below-min); spec/memory_map.h (FLAIR_HEAP_BASE/SIZE/MIN + flair_heap_ram_ok); os/milton/boot_info.h (ext_mem_kb); os/boot/stage2.asm (mem_probe); ADR-0001 (32-bit flat, extended memory directly addressable)",
     "video":                  "PRD Sec 5 table rows 'Display' + 'Text'; ADR-0004 (FLAIR LFB surface)",
     "input":                  "PRD Sec 5 table row 'Input'",
     "timer":                  "PRD Sec 5 table row 'Timer'; CLAUDE.md hallucination-risk (cooperative, not preemptive)",

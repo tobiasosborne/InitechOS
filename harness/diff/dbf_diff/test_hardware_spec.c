@@ -368,6 +368,92 @@ static void test_adr_citation(const char *path)
 }
 
 /* -----------------------------------------------------------------------
+ * Test 9: flair_heap block present and consistent with spec/memory_map.h.
+ * ADR-0004 DEC-03 / FO-5 / FO-G: the dedicated extended-memory FLAIR Toolbox
+ * heap window + the INT 15h probe + the fail-loud-below-min contract are
+ * recorded under memory.flair_heap. The values must match spec/memory_map.h
+ * (FLAIR_HEAP_BASE / FLAIR_HEAP_SIZE / FLAIR_HEAP_MIN) exactly, so a Rule-8
+ * change to the header that forgets to update the JSON goes RED.
+ *
+ * MUTATION GATE: with -DHARDWARE_SPEC_MUTANT we assert the WRONG base value
+ * (the 2 MiB minority window 0x300000) to prove the gate goes RED.
+ * ----------------------------------------------------------------------- */
+static void test_flair_heap(const char *path)
+{
+    int  r;
+    char base_lo[32], size_lo[32];
+    char tmp[32];
+    size_t i;
+
+    /* Compile-time anchors: if memory_map.h changes the FLAIR window without
+     * updating this test, the named CHECKs below fail loud (Rule 2). */
+    CHECK(FLAIR_HEAP_BASE == 0x00100000u,
+          "spec/memory_map.h: FLAIR_HEAP_BASE == 0x00100000 (regression guard)");
+    CHECK(FLAIR_HEAP_SIZE == 0x00400000u,
+          "spec/memory_map.h: FLAIR_HEAP_SIZE == 0x00400000 (4 MiB; regression guard)");
+    CHECK(FLAIR_HEAP_MIN == 0x00400000u,
+          "spec/memory_map.h: FLAIR_HEAP_MIN == 0x00400000 (regression guard)");
+
+    /* The block + symbolic references must be present. */
+    r = file_contains_substr(path, "\"flair_heap\"", -1);
+    CHECK(r == 1, "hardware.json: memory.flair_heap block present (ADR-0004 DEC-03)");
+
+    r = file_contains_substr(path, "FLAIR_HEAP_BASE", -1);
+    CHECK(r == 1, "hardware.json: references symbol FLAIR_HEAP_BASE (cites memory_map.h)");
+
+    r = file_contains_substr(path, "FLAIR_HEAP_SIZE", -1);
+    CHECK(r == 1, "hardware.json: references symbol FLAIR_HEAP_SIZE");
+
+    r = file_contains_substr(path, "FLAIR_HEAP_MIN", -1);
+    CHECK(r == 1, "hardware.json: references symbol FLAIR_HEAP_MIN");
+
+    /* The INT 15h probe contract + the three probe methods. */
+    r = file_contains_substr(path, "INT 15h", -1);
+    CHECK(r == 1, "hardware.json: flair_heap cites the INT 15h probe interface");
+
+    r = file_contains_substr(path, "ext_mem_kb", -1);
+    CHECK(r == 1, "hardware.json: flair_heap cites boot_info_t.ext_mem_kb");
+
+    /* The fail-loud-below-min behavior (FO-G). */
+    r = file_contains_substr(path, "fail_loud_below_min", -1);
+    CHECK(r == 1, "hardware.json: flair_heap records fail_loud_below_min (FO-G)");
+
+    /* The ADR-0004 DEC-03 provenance must be cited in the block. */
+    r = file_contains_substr(path, "DEC-03", -1);
+    CHECK(r == 1, "hardware.json: ADR-0004 DEC-03 cited (flair_heap mandate)");
+
+    /* Render FLAIR_HEAP_BASE / FLAIR_HEAP_SIZE as lowercase hex (as the JSON
+     * writes them) and confirm they appear -- the byte-value cross-check. */
+    hex_str((unsigned long)FLAIR_HEAP_BASE, tmp, sizeof(tmp));
+    for (i = 0; tmp[i] && i < sizeof(base_lo) - 1; i++) {
+        base_lo[i] = (char)((tmp[i] >= 'A' && tmp[i] <= 'F')
+                            ? tmp[i] - 'A' + 'a' : tmp[i]);
+    }
+    base_lo[i] = '\0';
+
+    hex_str((unsigned long)FLAIR_HEAP_SIZE, tmp, sizeof(tmp));
+    for (i = 0; tmp[i] && i < sizeof(size_lo) - 1; i++) {
+        size_lo[i] = (char)((tmp[i] >= 'A' && tmp[i] <= 'F')
+                            ? tmp[i] - 'A' + 'a' : tmp[i]);
+    }
+    size_lo[i] = '\0';
+
+#ifndef HARDWARE_SPEC_MUTANT
+    r = file_contains_substr(path, base_lo, -1);
+    CHECK(r == 1, "hardware.json: flair_heap contains FLAIR_HEAP_BASE value (0x00100000)");
+
+    r = file_contains_substr(path, size_lo, -1);
+    CHECK(r == 1, "hardware.json: flair_heap contains FLAIR_HEAP_SIZE value (0x00400000)");
+#else
+    /* MUTANT: assert the rejected 2 MiB-window base (0x00300000) is present --
+     * it is NOT, so the gate goes RED, proving this arm of the oracle bites. */
+    r = file_contains_substr(path, "0x00300000", -1);
+    CHECK(r == 1,
+          "MUTANT: hardware.json: flair_heap base == 0x00300000 (should FAIL)");
+#endif
+}
+
+/* -----------------------------------------------------------------------
  * main
  * ----------------------------------------------------------------------- */
 int main(int argc, char **argv)
@@ -396,6 +482,7 @@ int main(int argc, char **argv)
     test_memory_window(path);
     test_libgcc_provenance(path);
     test_adr_citation(path);
+    test_flair_heap(path);
 
     return TEST_SUMMARY("test_hardware_spec");
 }

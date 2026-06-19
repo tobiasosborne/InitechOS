@@ -51,9 +51,16 @@ WANT_H          equ 480
 VBE_CTRL_BUF    equ 0x7000      ; 512-byte VbeInfoBlock
 VBE_MODE_BUF    equ 0x7200      ; 256-byte ModeInfoBlock
 
+; INT 15h E820 SMAP scratch (24-byte entry buffer). Below the stage2 load addr
+; (0x8000) and above the VBE ModeInfoBlock (0x7200..0x7300); 0x7400 is free
+; real-mode low RAM. Sized 32 bytes (24 used + slack). (ADR-0004 DEC-03 probe.)
+E820_BUF        equ 0x7400
+
 ; -- Handoff contract (boot_info.h / docs/research/boot-to-text-ground-truth.md
 ;    Sec 2-3). All physical low-memory addresses; flat == physical.
-BOOT_INFO_ADDR  equ 0x0500      ; 24-byte boot_info struct (above the BDA)
+BOOT_INFO_ADDR  equ 0x0500      ; 28-byte boot_info struct (above the BDA)
+                                ; (was 24; +4 for ext_mem_kb -- boot_info.h /
+                                ;  ADR-0004 DEC-03; backward-compatible append)
 FONT_STASH      equ 0x1000      ; 4096-byte VGA ROM 8x16 font copy
 
 ; -- Kernel load (INT 13h CHS). Image layout: MBR s0, stage2 s1..16, kernel
@@ -144,12 +151,24 @@ start:
 
 .font_done:
 
+    ; -- Probe installed extended memory (real mode; MUST precede CR0.PE=1) --
+    ; Ref: ADR-0004 DEC-03 / FO-G -- stage2 records installed RAM above 1 MiB in
+    ;      boot_info_t.ext_mem_kb so the kernel can fail loud below FLAIR_HEAP_MIN.
+    ;      RBIL / ACPI: INT 15h AX=E820h (SMAP) is the modern map; E801h and
+    ;      AH=88h are the period BIOS fallbacks. mem_probe leaves the KiB above
+    ;      1 MiB in EAX (0 if every probe failed -- fail-safe, Rule 2). INT 15h is
+    ;      a BIOS service, so the probe goes HERE, before the PM switch. DS=0/ES=0
+    ;      are restored after the font copy above.
+    call mem_probe                     ; -> EAX = ext_mem_kb (0 on total failure)
+    mov [ext_mem_kb], eax
+
     ; -- Build boot_info at BOOT_INFO_ADDR (0x500), real mode, DS=0 ---------
-    ; 24-byte struct, uint32 fields IN ORDER (boot_info.h / ground-truth Sec 2):
-    ;   lfb_addr, lfb_pitch, lfb_bpp, lfb_width, lfb_height, font_addr.
+    ; 28-byte struct, uint32 fields IN ORDER (boot_info.h / ground-truth Sec 2):
+    ;   lfb_addr, lfb_pitch, lfb_bpp, lfb_width, lfb_height, font_addr, ext_mem_kb.
     ; lfb_addr/pitch/bpp were captured by vbe_setup. width/height use the
     ; WANT_W/WANT_H constants -- valid because vbe_setup matched the mode to
     ; them before proceeding (stage2.asm XResolution/YResolution checks).
+    ; ext_mem_kb was probed by mem_probe just above (ADR-0004 DEC-03).
     xor ax, ax
     mov ds, ax
     mov eax, [lfb_addr]
@@ -163,6 +182,8 @@ start:
     mov eax, [lfb_height]
     mov [BOOT_INFO_ADDR + 16], eax     ; lfb_height (480 VBE / 200 mode-0x13)
     mov dword [BOOT_INFO_ADDR + 20], FONT_STASH   ; font_addr
+    mov eax, [ext_mem_kb]
+    mov [BOOT_INFO_ADDR + 24], eax     ; ext_mem_kb (KiB above 1 MiB; DEC-03)
 
     ; -- Load the flat C kernel into 0x10000 (real mode, INT 13h CHS) -------
     ; Image layout: MBR s0, stage2 s1..16, kernel s17.. (Makefile). We read
@@ -449,6 +470,174 @@ vbe_setup:
     hlt
     jmp .vga_halt
 
+; ===========================================================================
+; mem_probe -- probe installed extended memory (KiB above the 1 MiB line).
+; Returns the total in EAX (0 if every probe failed -- fail-safe; the kernel
+; then PANICS below FLAIR_HEAP_MIN, ADR-0004 DEC-03 / FO-G). Real mode only.
+;
+; Strategy (most reliable first, with period-BIOS fallbacks; RBIL INT 15h):
+;   1. AX=E820h (SMAP): walk the system memory map, summing TYPE-1 (usable)
+;      ranges that lie at or above 0x100000. The authoritative modern map
+;      (SeaBIOS/QEMU, Bochs LGPL BIOS). Emits "E820".
+;   2. AX=E801h: AX/CX = KiB in the 1..16 MiB window; BX/DX = 64-KiB blocks
+;      ABOVE 16 MiB. total_kib = AX + DX*64. Emits "E801".
+;   3. AH=88h: AX = KiB above 1 MiB (capped ~64 MiB on real period BIOSes).
+;      The last resort. Emits "E88".
+; Each method falls through to the next on failure; total failure -> EAX=0.
+;
+; Verified to work on BOTH SeaBIOS (QEMU; E820 succeeds) and the Bochs LGPL
+; BIOS (E820 succeeds there too; E801/88h remain as the period-hardware path).
+; All scratch is real-mode (DS=ES=0 on entry, preserved on exit). ASCII-clean.
+; ===========================================================================
+mem_probe:
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+
+    ; ---- Method 1: INT 15h AX=E820h (SMAP) -----------------------------
+    ; ES:DI -> a 24-byte buffer; EBX = continuation (0 to start); EDX = 'SMAP';
+    ; ECX = buffer size (24). On each call AX=0x534D4150 ('SMAP'), CF clear,
+    ; ECX = bytes stored. Entry: base(8) length(8) type(4) [ext-attr(4)].
+    xor ax, ax
+    mov es, ax
+    mov di, E820_BUF
+    xor ebx, ebx                 ; continuation = 0 (first call)
+    xor ebp, ebp                 ; running total: KiB above 1 MiB (32-bit)
+    xor si, si                   ; entry count (detect "no entries" failure)
+.e820_loop:
+    mov eax, 0x0000E820
+    mov edx, 0x534D4150          ; 'SMAP'
+    mov ecx, 24                  ; buffer size
+    mov dword [es:di + 20], 1    ; force a valid ACPI-3 ext-attr (some BIOSes)
+    int 0x15
+    jc .e820_done                ; CF set on first call => unsupported
+    cmp eax, 0x534D4150          ; AX must read back 'SMAP'
+    jne .e820_done
+    inc si                       ; count this entry
+    ; CRITICAL: EBX is the BIOS continuation token and MUST survive to the next
+    ; INT 15h call -- so the per-entry math below NEVER touches EBX (it reads all
+    ; fields straight from the buffer [es:di+...] and uses only EAX/EDX, which
+    ; are reloaded at the top of the loop). EBP carries the running KiB total
+    ; (preserved). type at [di+16] (dword): only TYPE 1 (usable) counts.
+    mov eax, [es:di + 16]
+    cmp eax, 1
+    jne .e820_next
+    ; base at [di+0..7] (64-bit), length at [di+8..15] (64-bit). We only need
+    ; the portion AT/ABOVE 0x100000. Period machines are <4 GiB and our heap
+    ; window tops out at 0x500000, so 32-bit math on the low dwords is ample;
+    ; guard the high dwords so a >4 GiB range is not silently mis-summed.
+    mov eax, [es:di + 4]         ; base high dword
+    test eax, eax
+    jnz .e820_huge               ; base >= 4 GiB: entirely above our window
+    mov eax, [es:di + 12]        ; length high dword
+    test eax, eax
+    jnz .e820_huge               ; length high != 0 => range >= 4 GiB: clamp
+    ; 32-bit case: base = [di+0], len = [di+8] (both low dwords).
+    ; Compute the part of [base, base+len) at/above 0x100000 into EDX (bytes).
+    ;   if base >= 0x100000:        usable_bytes = len
+    ;   elif base+len > 0x100000:   usable_bytes = base+len - 0x100000
+    ;   else:                        usable_bytes = 0
+    mov eax, [es:di + 0]         ; base low
+    cmp eax, 0x00100000
+    jae .e820_full               ; base >= 1 MiB: all of len is above the line
+    ; base < 1 MiB: end = base + len, clipped to the 1 MiB line.
+    mov edx, eax
+    add edx, [es:di + 8]         ; edx = base + len (low 32; len high==0 and
+                                 ; base < 1 MiB so end < 4 GiB for period RAM)
+    cmp edx, 0x00100000
+    jbe .e820_next               ; range ends at/below 1 MiB: nothing usable
+    sub edx, 0x00100000          ; edx = bytes above the 1 MiB line
+    jmp .e820_add
+.e820_full:
+    mov edx, [es:di + 8]         ; usable bytes = len (low dword)
+    jmp .e820_add
+.e820_huge:
+    ; A range >= 4 GiB (based there or that long): far more than we need. Add a
+    ; bounded large amount (0x00040000 KiB = 256 MiB) so the total clears
+    ; FLAIR_HEAP_MIN without 32-bit overflow. (Period targets never hit this.)
+    add ebp, 0x00040000
+    jmp .e820_next
+.e820_add:
+    ; edx = usable bytes above 1 MiB; convert to KiB (>>10) and accumulate.
+    shr edx, 10
+    add ebp, edx
+.e820_next:
+    test ebx, ebx                ; EBX==0 => that was the last entry
+    jz .e820_finish
+    jmp .e820_loop
+.e820_finish:
+    test si, si                  ; got at least one entry?
+    jz .e820_done                ; zero entries => treat as failure, fall back
+    test ebp, ebp                ; summed > 0 ?
+    jz .e820_done
+    mov si, msg_e820
+    call serial_puts
+    mov eax, ebp                 ; EAX = KiB above 1 MiB
+    jmp .mp_done
+.e820_done:
+
+    ; ---- Method 2: INT 15h AX=E801h ------------------------------------
+    ; Ref: RBIL INT 15h AX=E801h. Returns TWO register pairs reporting the same
+    ; thing in two unit ranges:
+    ;   AX/CX = configured extended memory 1..16 MiB, in KiB
+    ;   BX/DX = configured extended memory above 16 MiB, in 64-KiB blocks
+    ; The canonical consumer rule: use CX/DX if CX is non-zero (the BIOS-filled
+    ; pair on most machines), else fall back to AX/BX. total_kib = lo + hi*64.
+    xor cx, cx                   ; pre-zero so a BIOS that sets only AX/BX is
+    xor dx, dx                   ; detected (CX stays 0 -> use AX/BX)
+    mov ax, 0xE801
+    int 0x15
+    jc .e801_done
+    ; Choose the populated pair: CX/DX if CX != 0, else AX/BX.
+    test cx, cx
+    jz .e801_use_axbx
+    mov ax, cx                   ; lo = KiB in 1..16 MiB  (from CX)
+    mov bx, dx                   ; hi = 64-KiB blocks above 16 MiB (from DX)
+.e801_use_axbx:
+    ; total_kib = AX + BX*64. Build in EBP (32-bit) to avoid 16-bit overflow.
+    movzx ebp, ax                ; KiB in 1..16 MiB
+    movzx edx, bx                ; 64-KiB blocks above 16 MiB
+    shl edx, 6                   ; *64 -> KiB
+    add ebp, edx
+    test ebp, ebp
+    jz .e801_done                ; both zero => failure, fall back to AH=88h
+    mov si, msg_e801
+    call serial_puts
+    mov eax, ebp
+    jmp .mp_done
+.e801_done:
+
+    ; ---- Method 3: INT 15h AH=88h --------------------------------------
+    ; Returns AX = KiB of extended memory above 1 MiB (capped ~63/64 MiB on
+    ; period BIOSes). CF set or AX==0 => unavailable.
+    mov ax, 0x8800               ; AH=0x88, AL=0 (AL ignored by this call)
+    int 0x15
+    jc .e88_done
+    test ax, ax
+    jz .e88_done
+    mov si, msg_e88
+    call serial_puts
+    movzx eax, ax                ; EAX = KiB above 1 MiB
+    jmp .mp_done
+.e88_done:
+
+    ; ---- Total failure: report 0 (fail-safe; kernel panics below min) --
+    mov si, msg_emem_fail
+    call serial_puts
+    xor eax, eax
+
+.mp_done:
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    ret
+
 ; ---------------------------------------------------------------------------
 ; 16-bit serial helpers (real UART; COM1 already inited by the MBR).
 ; ---------------------------------------------------------------------------
@@ -614,6 +803,11 @@ lfb_bpp:    dd 0
 lfb_width:  dd 0
 lfb_height: dd 0
 
+; Extended-memory probe result (KiB above 1 MiB), filled by mem_probe; written
+; to boot_info_t.ext_mem_kb. 0 means every INT 15h probe failed (ADR-0004
+; DEC-03 / FO-G; the kernel panics below FLAIR_HEAP_MIN).
+ext_mem_kb: dd 0
+
 ; Serial marker strings.
 msg_s2:      db "S2", 0x0A, 0
 msg_vbe:     db "VBE", 0x0A, 0
@@ -633,3 +827,9 @@ msg_font:        db "FONT", 0x0A, 0
 msg_err_font:    db "ERR-FONT", 0x0A, 0
 msg_kload:       db "KLOAD", 0x0A, 0
 msg_err_kernel:  db "ERR-KERNEL", 0x0A, 0
+; Extended-memory probe markers (mem_probe; ADR-0004 DEC-03). Exactly one of the
+; first three (or EMEM-FAIL) prints, recording which INT 15h method succeeded.
+msg_e820:        db "E820", 0x0A, 0
+msg_e801:        db "E801", 0x0A, 0
+msg_e88:         db "E88", 0x0A, 0
+msg_emem_fail:   db "EMEM-FAIL", 0x0A, 0

@@ -232,6 +232,10 @@ KERNEL_LD     := $(KERNEL_DIR)/kernel.ld
 KERNEL_START_ASM := $(KERNEL_DIR)/kstart.asm
 KERNEL_MAIN_C    := $(KERNEL_DIR)/kmain.c
 KERNEL_CONSOLE_C := $(KERNEL_DIR)/console.c
+# FLAIR surface module (beads initech-k8o5.6, ADR-0004 D-2): the ONE low-level
+# pixel writer. console.c is a CLIENT of it (no second pixel path). Freestanding
+# in the kernel; hosted in test_console.c / test_fbagree.c.
+KERNEL_SURFACE_C := os/flair/surface.c
 # Interrupt foundation (beads initech-a5a): IDT + PIC + panic + exception stubs.
 KERNEL_IDT_C     := $(KERNEL_DIR)/idt.c
 KERNEL_PIC_C     := $(KERNEL_DIR)/pic.c
@@ -334,6 +338,7 @@ KERNEL_ISR_ASM   := $(KERNEL_DIR)/isr.asm
 KERNEL_START_OBJ := $(BUILD)/kstart.o
 KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
 KERNEL_CONSOLE_OBJ := $(BUILD)/console.o
+KERNEL_SURFACE_OBJ := $(BUILD)/surface.o
 KERNEL_IDT_OBJ   := $(BUILD)/idt.o
 KERNEL_PIC_OBJ   := $(BUILD)/pic.o
 KERNEL_PANIC_OBJ := $(BUILD)/panic.o
@@ -3495,15 +3500,44 @@ test-fat-corrupt-fuzz-mutant: $(TEST_FAT12_CORRUPT_FUZZ_MUT_STEP) $(TEST_FAT12_C
 TEST_CONSOLE     := $(BUILD)/test_console
 TEST_CONSOLE_SRC := $(MILTON_DIR)/test_console.c
 
-$(TEST_CONSOLE): $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c $(MILTON_DIR)/console.h $(MILTON_DIR)/boot_info.h | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
-		-o $@ $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c
+$(TEST_CONSOLE): $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c $(MILTON_DIR)/console.h $(MILTON_DIR)/boot_info.h os/flair/surface.c os/flair/surface.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed -Ios/flair \
+		-o $@ $(TEST_CONSOLE_SRC) $(MILTON_DIR)/console.c os/flair/surface.c
 
 .PHONY: test-console
 test-console: $(TEST_CONSOLE)
 	@printf ">>> test-console: 8x16 glyph blit (MSB-left, bpp 32/24) + cursor/wrap/scroll\n"
 	@$(TEST_CONSOLE)
 	@printf ">>> test-console: green\n"
+
+# fb-agree oracle (beads initech-k8o5.6, ADR-0004 D-2/D-8 + FO-1/AM-2): the ONE
+# surface invariant -- the console pixel path and the direct surface pixel path
+# MUST agree byte-for-byte on shared primitives, across bpp 32/24/8. The named
+# mutant FBAGREE_MUTATE_SECOND_PATH perturbs one path so the two diverge and the
+# oracle goes RED (Rule 6 -- a green-but-undetecting oracle is decoration).
+TEST_FBAGREE     := $(BUILD)/test_fbagree
+TEST_FBAGREE_MUT := $(BUILD)/test_fbagree_mutant
+TEST_FBAGREE_SRC := harness/proptest/test_fbagree.c
+
+$(TEST_FBAGREE): $(TEST_FBAGREE_SRC) $(MILTON_DIR)/console.c os/flair/surface.c os/flair/surface.h $(MILTON_DIR)/console.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I. -I$(MILTON_DIR) -Iseed -Ios/flair \
+		-o $@ $(TEST_FBAGREE_SRC) $(MILTON_DIR)/console.c os/flair/surface.c
+
+$(TEST_FBAGREE_MUT): $(TEST_FBAGREE_SRC) $(MILTON_DIR)/console.c os/flair/surface.c os/flair/surface.h $(MILTON_DIR)/console.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFBAGREE_MUTATE_SECOND_PATH -I. -I$(MILTON_DIR) -Iseed -Ios/flair \
+		-o $@ $(TEST_FBAGREE_SRC) $(MILTON_DIR)/console.c os/flair/surface.c
+
+.PHONY: test-fbagree
+test-fbagree: $(TEST_FBAGREE)
+	@printf ">>> test-fbagree: one-surface invariant (console == surface, bpp 32/24/8)\n"
+	@$(TEST_FBAGREE)
+	@printf ">>> test-fbagree: green\n"
+
+.PHONY: test-fbagree-mutant
+test-fbagree-mutant: $(TEST_FBAGREE_MUT)
+	@printf ">>> test-fbagree-mutant: FBAGREE_MUTATE_SECOND_PATH must go RED (Rule 6)\n"
+	@$(TEST_FBAGREE_MUT); test $$? -ne 0
+	@printf ">>> test-fbagree-mutant: confirmed RED (oracle bites)\n"
 
 # ---------------------------------------------------------------------------
 # IDT encode + interrupt-frame layout oracle (os/milton, beads initech-a5a)
@@ -5930,10 +5964,17 @@ $(KERNEL_START_OBJ): $(KERNEL_START_ASM) | $(BUILD)
 $(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
+# FLAIR surface module (beads initech-k8o5.6, ADR-0004 D-2): the single pixel
+# writer, freestanding. Lifted from console.c; console.o links it for the glyph
+# blit / span fill (surface_blit, surface_fill_span). -Ios/flair for surface.h.
+$(KERNEL_SURFACE_OBJ): $(KERNEL_SURFACE_C) os/flair/surface.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -c $(KERNEL_SURFACE_C) -o $@
+
 # Text console (beads initech-yqb): the SAME console.c the host blit oracle
-# (os/milton/test_console.c) exercises; freestanding here, hosted there.
-$(KERNEL_CONSOLE_OBJ): $(KERNEL_CONSOLE_C) $(KERNEL_DIR)/console.h $(KERNEL_DIR)/boot_info.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_CONSOLE_C) -o $@
+# (os/milton/test_console.c) exercises; freestanding here, hosted there. Now a
+# CLIENT of the FLAIR surface module (initech-k8o5.6): includes ../flair/surface.h.
+$(KERNEL_CONSOLE_OBJ): $(KERNEL_CONSOLE_C) $(KERNEL_DIR)/console.h $(KERNEL_DIR)/boot_info.h os/flair/surface.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -Ios/flair -c $(KERNEL_CONSOLE_C) -o $@
 
 # Interrupt foundation objects (beads initech-a5a).
 $(KERNEL_IDT_OBJ): $(KERNEL_IDT_C) $(KERNEL_DIR)/idt.h | $(BUILD)
@@ -6166,7 +6207,7 @@ $(KERNEL_IRQSTORM_PROG_OBJ): $(IRQSTORM_PROG_BLOB_C) | $(BUILD)
 $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
-KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6184,7 +6225,7 @@ $(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
 $(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SELFTEST_FAULT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6221,7 +6262,7 @@ $(PANIC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FAULT_BIN) | $(BUILD)
 $(KERNEL_SPURIOUS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SPURIOUS -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_SPURIOUS_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SPURIOUS_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_SPURIOUS_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SPURIOUS_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                         $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                         $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                         $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6258,7 +6299,7 @@ $(SPURIOUS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SPURIOUS_BIN) | $(BUILD)
 $(KERNEL_ECHO_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_KBD_ECHO -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6296,7 +6337,7 @@ $(KBD_ECHO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ECHO_BIN) | $(BUILD)
 $(KERNEL_CONIN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_CONIN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6335,7 +6376,7 @@ $(CONIN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_CONIN_BIN) | $(BUILD)
 $(KERNEL_VECT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_VECT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_VECT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_VECT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_VECT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_VECT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6374,7 +6415,7 @@ $(VECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_VECT_BIN) | $(BUILD)
 $(KERNEL_ABSDISK_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_ABSDISK -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_ABSDISK_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ABSDISK_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_ABSDISK_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ABSDISK_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6415,7 +6456,7 @@ $(KERNEL_MEMTEST_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_
 # The REAL int21.o + mcb.o (the standard kernel objects) link into this image --
 # BOOT_MEMTEST only changes kmain.c. The mutant image swaps in the perturbed
 # int21.o below.
-KERNEL_MEMTEST_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_MEMTEST_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6448,7 +6489,7 @@ $(MEMTEST_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_BIN) | $(BUILD)
 $(KERNEL_MEMTEST_MUT_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DINT21_MUTATE_ALLOC_NO_SEGBASE -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
-KERNEL_MEMTEST_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_MEMTEST_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_MEMTEST_MUT_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6480,7 +6521,7 @@ $(MEMTEST_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_MUT_BIN) | $(BUILD
 $(KERNEL_EXEC_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_EXEC -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6518,7 +6559,7 @@ $(EXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXEC_BIN) | $(BUILD)
 $(KERNEL_WRITE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_WRITE -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6556,7 +6597,7 @@ $(WRITE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_WRITE_BIN) | $(BUILD)
 $(KERNEL_MULTIOPEN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_MULTIOPEN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6593,7 +6634,7 @@ $(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) | $(BUILD)
 $(KERNEL_DATETIME_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/rtc.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_DATETIME -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_DATETIME_OBJS := $(KERNEL_START_OBJ) $(KERNEL_DATETIME_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_DATETIME_OBJS := $(KERNEL_START_OBJ) $(KERNEL_DATETIME_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6635,7 +6676,7 @@ $(KERNEL_IRQSTORM_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL
 
 # Object list shared by all three irqstorm images (the per-image differences are
 # the main obj, the pit obj, and -- for mutant A -- the int21 obj; defined below).
-KERNEL_IRQSTORM_OBJS_COMMON := $(KERNEL_START_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_IRQSTORM_OBJS_COMMON := $(KERNEL_START_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6742,7 +6783,7 @@ $(IRQSTORM_MUTB_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTB_BIN) | $(B
 $(KERNEL_EXITH_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_EXITH -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6783,7 +6824,7 @@ $(KERNEL_SFT_MUT_OBJ): $(KERNEL_SFT_C) $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h s
 $(KERNEL_EXITH_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_EXITH -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_MUT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6821,7 +6862,7 @@ $(EXITH_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_MUT_BIN) | $(BUILD)
 $(KERNEL_SYSI_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/config_sys.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SYSINIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -6861,7 +6902,7 @@ $(SYSI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SYSI_BIN) | $(BUILD)
 $(KERNEL_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SHELL -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) \
+KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
@@ -10679,6 +10720,25 @@ test-hardware-spec-mutant: $(TEST_HWSPEC_MUT)
 	@if $(TEST_HWSPEC_MUT) spec/hardware.json >/dev/null 2>&1; then printf '!!! test-hardware-spec-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; \
 	else printf '>>> test-hardware-spec-mutant: green (mutant correctly RED)\n'; fi
 
+# --- test-flair-heap-ram (bead k8o5.5; ADR-0004 DEC-03 / FO-G): the PURE
+#     RAM-sufficiency decision flair_heap_ram_ok() the kernel boot gate calls --
+#     FAIL below FLAIR_HEAP_MIN, PASS at/above, threshold DERIVED from the locked
+#     constants. The kernel (kmain.c) panics loud (PC LOAD LETTER) below min on a
+#     genuinely under-provisioned machine; this host oracle pins the decision. ---
+TEST_FLAIR_RAM      := $(BUILD)/test_flair_heap_ram
+TEST_FLAIR_RAM_MUT  := $(BUILD)/test_flair_heap_ram_mut
+$(TEST_FLAIR_RAM): $(MILTON_DIR)/test_flair_heap_ram.c spec/memory_map.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -Ispec -o $@ $(MILTON_DIR)/test_flair_heap_ram.c
+$(TEST_FLAIR_RAM_MUT): $(MILTON_DIR)/test_flair_heap_ram.c spec/memory_map.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_RAM_MUTANT -Iseed -Ispec -o $@ $(MILTON_DIR)/test_flair_heap_ram.c
+.PHONY: test-flair-heap-ram test-flair-heap-ram-mutant
+test-flair-heap-ram: $(TEST_FLAIR_RAM)
+	@printf '>>> test-flair-heap-ram: flair_heap_ram_ok() FAIL<min / PASS>=min (ADR-0004 DEC-03 / FO-G)\n'
+	@$(TEST_FLAIR_RAM)
+test-flair-heap-ram-mutant: $(TEST_FLAIR_RAM_MUT)
+	@if $(TEST_FLAIR_RAM_MUT) >/dev/null 2>&1; then printf '!!! test-flair-heap-ram-mutant FAIL: boundary mutant PASSED -- oracle is decoration\n'; exit 1; \
+	else printf '>>> test-flair-heap-ram-mutant: green (boundary mutant correctly RED)\n'; fi
+
 # --- test-samir-softfp (bead ap5g; ADR-0009 DEC-02 / Law 2): softfp.c's 18
 #     vendored libgcc helpers vs the host hardware double, bit-for-bit. ---
 SAMIR_SOFTFP_SRC      := $(SAMIR_DIR)/boot/softfp.c
@@ -11617,6 +11677,7 @@ TEST_UNIT_GATES := \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
+	test-fbagree test-fbagree-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
@@ -11631,6 +11692,7 @@ TEST_UNIT_GATES := \
 	test-arena-disjoint test-arena-disjoint-mutant \
 	test-loader-big test-loader-big-mutant \
 	test-hardware-spec test-hardware-spec-mutant \
+	test-flair-heap-ram test-flair-heap-ram-mutant \
 	test-samir-softfp test-samir-softfp-mutant \
 	test-samir \
 	test-dbf-header test-dbf-header-mutant test-dbf-fields test-dbf-fields-mutant \
