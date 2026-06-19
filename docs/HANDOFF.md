@@ -130,13 +130,16 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **184 host + 31 emu gates** (WL-0033: SAMIR now RUNS INSIDE InitechOS --
+`make test` = **184 host + 33 emu gates** (WL-0033: SAMIR now RUNS INSIDE InitechOS --
 +8 host [`test-arena-disjoint`, `test-loader-big`, `test-hardware-spec`, `test-samir-softfp`
-x unit+mutant] and +4 emu [`test-samir-boot`(+mutant): boot->EXEC SAMIR.COM->USE->LIST;
-`test-samir-write`(+mutant): REPLACE/APPEND persists to the .dbf on the FAT volume, verified
-by the independent reader]. The S8.2 milestone is GREEN on QEMU: the dBASE-III+-1.1 engine
-boots as a flat .COM, opens a .dbf, lists + edits records, all via soft-float + the disjoint
-AH=48h arena + the in-place FAT loader. See ADR-0009 + WL-0033.). Prior:
+x unit+mutant] and +6 emu: `test-samir-boot`(+mutant) boot->EXEC SAMIR.COM->USE->LIST;
+`test-samir-write`(+mutant) REPLACE/APPEND persists to the .dbf on the FAT volume (independent-
+reader-verified); **`test-samir-canon-y2k`(+mutant)** the Initech AR aging app with the ENFORCED
+Y2K bug RUNS in-OS via a new `DO <file>` REPL feature (ASOF parses '00' as 1900 -> 1999 invoices
+mis-age ~ -100 years, TOTAL OVERDUE wrongly $0.00 -- the deadpan canon, played straight on the
+emulated 386). The S8.2 milestone + capstone is GREEN on QEMU: the dBASE-III+-1.1 engine boots
+as a flat .COM, opens/lists/EDITS a .dbf, and runs real .prg programs, all via soft-float + the
+disjoint AH=48h arena + the in-place FAT loader. See ADR-0009 + WL-0033.). Prior:
 `make test` = **176 host + 27 emu gates** (WL-0031+WL-0032 took SAMIR/M6 from 124 to 176 host:
 the full `.dbt` codec, `.ndx` keys/SEEK/build/maintain, the whole interpreter S5.1-S5.8 + the
 dot-prompt REPL, writable USE, all five function families, and the Phase-6/7 oracles). **The M6
@@ -407,9 +410,11 @@ LIST) + **`test-samir-write`** (REPLACE/APPEND persists to the .dbf, independent
 `make samir-com` -> `build/SAMIR.COM` (77792 bytes). Closed: ax9.1/ax9.2/hdlb/za4m/1q4u/qucm/
 nh0m/ap5g/g6wx.
 
-**NEXT ungated SAMIR-in-InitechOS deepening (filed):** SEEK/`.ndx` + DELETE/PACK in-emulator;
-a CANON app (`586.1` Y2K accounting / `586.2` Bolton salami) running INSIDE InitechOS via a
-small `DO <file>` REPL feature (read a .prg off the data disk + execute) -- the Law-4 showpiece.
+**Capstone DONE (`9a0f`, `c95a4db`):** the `586.1` Y2K accounting app RUNS inside InitechOS via the
+new additive `DO <file>` REPL feature -- `test-samir-canon-y2k`. **NEXT ungated deepening (filed):**
+SEEK/`.ndx` index + DELETE/PACK in-emulator; the `586.2` Bolton salami virus running INSIDE
+InitechOS (now that `DO <file>` exists, same pattern as the Y2K app); `7az.13` transcendentals
+on the soft-float base.
 
 **REMAINING SAMIR work -- GATED / deferred (no ungated host work left):**
 - `7az.13` transcendentals SQRT/LOG/EXP -- now tractable on the soft-float base (poly approx;
