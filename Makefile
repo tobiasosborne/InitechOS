@@ -5813,6 +5813,7 @@ endef
 .PHONY: help factory image run run-bochs smoke ssim test test-region test-region-mutant \
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
+        test-chrome test-chrome-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-int24 test-int24-mutant \
@@ -7237,6 +7238,119 @@ test-flair-heap-mutant: $(TEST_FLAIR_HEAP_MUT_BOUNDS) $(TEST_FLAIR_HEAP_MUT_REUS
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-chrome (beads initech-k8o5.7 host render skeleton +
+# initech-k8o5.8 first rendered System-7 window chrome + the structural oracle)
+# ---------------------------------------------------------------------------
+# The crown-jewel FLAIR step: the GUI is built on REAL measurements, MECHANICALLY
+# enforced. The host render skeleton (harness/render, FACTORY, AM-1: parameterized
+# by a RUNTIME boot_info LFB geometry, NEVER a hardcoded aperture) hosts the REAL
+# artifact chrome drawer (os/flair/chrome.c -- the SAME freestanding code the
+# kernel links) on a heap-backed offscreen bitmap and the oracle STRUCTURALLY
+# asserts the rendered pixels against chrome_metrics v1 (ADR-0004 D-8: a HARD
+# pass/fail gate, NOT SSIM):
+#   - title-bar band occupies rows [frame, frame+TITLEBAR_H) with pinstripe
+#     ALTERNATION at PINSTRIPE_PERIOD (2),
+#   - the window frame is exactly FRAME (1) px,
+#   - the vertical scrollbar is a SCROLLBAR_W (16) px column on the right,
+#   - the close box (top-left) + zoom box (top-right) are present.
+# Both 8bpp (OD-2 indexed-8) and 32bpp targets are rendered. STEP-1 .h<->.json
+# CONSISTENCY tooth (python3) asserts every spec/chrome_metrics.h #define equals
+# the LOCKED spec/chrome_metrics.json native value -- the .h can NEVER silently
+# drift from the lock. THREE named mutants (Rule 6; FO-2/AM-3) prove the oracle
+# BITES: CHROME_MUTATE_TITLEBAR_H / CHROME_MUTATE_NO_FRAME / CHROME_MUTATE_SCROLLBAR_W.
+CHROME_DRAWER_C  := os/flair/chrome.c
+CHROME_DRAWER_H  := os/flair/chrome.h
+RENDER_SKEL_C    := harness/render/render.c
+RENDER_SKEL_H    := harness/render/render.h
+SPEC_CHROME_METRICS := spec/chrome_metrics.json
+SPEC_CHROME_METRICS_H := spec/chrome_metrics.h
+TEST_CHROME      := $(BUILD)/test_chrome
+TEST_CHROME_SRC  := harness/proptest/test_chrome.c
+CHROME_DEPS      := $(CHROME_DRAWER_C) $(CHROME_DRAWER_H) $(RENDER_SKEL_C) \
+                    $(RENDER_SKEL_H) $(SPEC_CHROME_METRICS_H) \
+                    os/flair/surface.c os/flair/surface.h \
+                    os/flair/heap.c os/flair/heap.h \
+                    $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
+                    spec/grafport.h spec/imaging.h spec/region_algebra.h \
+                    spec/assets/palette.h
+# Link set shared by the gate + every mutant (the artifact chrome.c is varied by
+# -D per mutant; everything else is the same REAL code).
+CHROME_LINK      := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c \
+                    $(REGION_ENGINE_C)
+CHROME_INC       := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson \
+                    -Iharness/render -Iseed
+TEST_CHROME_MUT_TITLE := $(BUILD)/test_chrome_mutant_titlebar
+TEST_CHROME_MUT_FRAME := $(BUILD)/test_chrome_mutant_noframe
+TEST_CHROME_MUT_SBW   := $(BUILD)/test_chrome_mutant_scrollbar
+
+$(TEST_CHROME): $(TEST_CHROME_SRC) $(CHROME_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_MUT_TITLE): $(TEST_CHROME_SRC) $(CHROME_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_MUTATE_TITLEBAR_H $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_MUT_FRAME): $(TEST_CHROME_SRC) $(CHROME_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_MUTATE_NO_FRAME $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_MUT_SBW): $(TEST_CHROME_SRC) $(CHROME_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_MUTATE_SCROLLBAR_W $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+test-chrome: $(TEST_CHROME) $(SPEC_CHROME_METRICS) $(SPEC_CHROME_METRICS_H)
+	@printf '>>> test-chrome [1/3]: CONSISTENCY -- spec/chrome_metrics.h == spec/chrome_metrics.json (native)\n'
+	@python3 -c "import json,re; \
+d=json.load(open('$(SPEC_CHROME_METRICS)')); \
+nat=d['native']; \
+hdr=open('$(SPEC_CHROME_METRICS_H)').read(); \
+pairs=[('FLAIR_CHROME_MENUBAR_H',nat['menubar_height']['value']), \
+('FLAIR_CHROME_TITLEBAR_H',nat['titlebar_height_std']['value']), \
+('FLAIR_CHROME_SCROLLBAR_W',nat['scrollbar_width']['value']), \
+('FLAIR_CHROME_FRAME',nat['window_frame']['value']), \
+('FLAIR_CHROME_DIALOG_BORDER',nat['dialog_dboxproc_border']['value']), \
+('FLAIR_CHROME_WBOX_DELTA',nat['close_zoom_box_frame_delta']['value']), \
+('FLAIR_CHROME_PINSTRIPE_PERIOD',nat['pinstripe_period']['value']), \
+('FLAIR_CHROME_TITLE_SHADE_LIGHT',nat['titlebar_shade_indices']['wTitleBarLight']), \
+('FLAIR_CHROME_TITLE_SHADE_DARK',nat['titlebar_shade_indices']['wTitleBarDark']), \
+('FLAIR_CHROME_GROW',nat['grow_box_size']['value']), \
+('FLAIR_CHROME_SMALL_ICON',nat['small_icon_in_title']['value'])]; \
+bad=[]; \
+[ bad.append((n,(int(m.group(1)) if m else 'MISSING'),want)) for (n,want) in pairs for m in [re.search(r'#define\s+'+re.escape(n)+r'\s+(\d+)',hdr)] if (not m or int(m.group(1))!=want) ]; \
+assert not bad, 'chrome_metrics.h DRIFTED from chrome_metrics.json: %r'%bad; \
+print('    all %d chrome #defines == spec/chrome_metrics.json native values'%len(pairs))" \
+		|| { printf '!!! test-chrome FAIL: spec/chrome_metrics.h diverges from the LOCKED spec/chrome_metrics.json (Rule 8)\n'; exit 1; }
+	@printf '>>> test-chrome [2/3]: STRUCTURAL -- System-7 window chrome vs chrome_metrics v1 (8bpp + 32bpp)\n'
+	@$(TEST_CHROME) $(BUILD)/chrome_window.ppm
+	@printf '>>> test-chrome [3/3]: ARTIFACT FREESTANDING -- chrome.c compiles under kernel flags\n'
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $(BUILD)/chrome_freestanding.o \
+		|| { printf '!!! test-chrome FAIL: chrome.c does NOT compile freestanding (Law 3 dual-compile)\n'; exit 1; }
+	@printf '    chrome.c compiles freestanding (-ffreestanding -nostdlib); wrote $(BUILD)/chrome_window.ppm\n'
+	@printf '>>> test-chrome: green\n'
+
+test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHROME_MUT_SBW)
+	@printf '>>> test-chrome-mutant: confirming all three mutants go RED (Rule 6; FO-2/AM-3)\n'
+	@if $(TEST_CHROME_MUT_TITLE) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-mutant FAIL: TITLEBAR_H mutant PASSED -- the title-bar-height oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-mutant: green (CHROME_MUTATE_TITLEBAR_H correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_CHROME_MUT_FRAME) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-mutant FAIL: NO_FRAME mutant PASSED -- the window-frame oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-mutant: green (CHROME_MUTATE_NO_FRAME correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_CHROME_MUT_SBW) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-mutant FAIL: SCROLLBAR_W mutant PASSED -- the scrollbar-width oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-mutant: green (CHROME_MUTATE_SCROLLBAR_W correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
 # canon) -- a COMPILE-CONTRACT oracle. Until a Manager consumer exists, nothing
 # includes grafport.h/imaging.h, so their 47 _Static_asserts never fire in the
@@ -7248,7 +7362,7 @@ test-flair-heap-mutant: $(TEST_FLAIR_HEAP_MUT_BOUNDS) $(TEST_FLAIR_HEAP_MUT_REUS
 TEST_FLAIR_HEADERS     := $(BUILD)/test_flair_headers
 TEST_FLAIR_HEADERS_MUT := $(BUILD)/test_flair_headers_mutant
 TEST_FLAIR_HEADERS_SRC := harness/proptest/test_flair_headers.c
-FLAIR_HDR_DEPS := spec/grafport.h spec/imaging.h spec/assets/cursors.h spec/assets/menu_canon.h os/flair/surface.h spec/region_algebra.h
+FLAIR_HDR_DEPS := spec/grafport.h spec/imaging.h spec/assets/cursors.h spec/assets/menu_canon.h spec/event_model.h spec/window_record.h spec/ssim_params.h os/flair/surface.h spec/region_algebra.h
 FLAIR_HDR_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson
 
 $(TEST_FLAIR_HEADERS): $(TEST_FLAIR_HEADERS_SRC) $(FLAIR_HDR_DEPS) | $(BUILD)
@@ -11770,6 +11884,7 @@ TEST_UNIT_GATES := \
 	test-region test-region-mutant \
 	test-flair-heap test-flair-heap-mutant \
 	test-flair-headers test-flair-headers-mutant \
+	test-chrome test-chrome-mutant \
 	test-fbagree test-fbagree-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \

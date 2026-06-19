@@ -25,6 +25,9 @@
 #include "imaging.h"
 #include "cursors.h"
 #include "menu_canon.h"
+#include "event_model.h"     /* beads k8o5.4 -- EventRecord + what codes (D-4) */
+#include "window_record.h"   /* beads k8o5.4 -- WindowRecord + FindWindow part-codes */
+#include "ssim_params.h"     /* beads k8o5.4 -- SSIM guide params (guide, NOT a gate) */
 
 #include <string.h>
 #include <stdio.h>
@@ -41,6 +44,14 @@ int main(void)
     Pattern       pat;  (void)pat;
     RGBColor      rgb;  (void)rgb;
     flair_point_t pt;   (void)pt;
+    EventRecord   ev;   (void)ev;   /* k8o5.4: fires event_model.h static_asserts */
+    WindowRecord  win;  (void)win;  /* k8o5.4: fires window_record.h static_asserts */
+
+    /* event/window model constants (verbatim Inside Macintosh values) */
+    checks++; if ((int)nullEvent != 0)  { fails++; printf("FAIL nullEvent!=0\n"); }
+    checks++; if ((int)mouseDown != 1)  { fails++; printf("FAIL mouseDown!=1\n"); }
+    checks++; if ((int)inContent != 3)  { fails++; printf("FAIL inContent!=3\n"); }
+    checks++; if ((int)inGoAway != 6)   { fails++; printf("FAIL inGoAway!=6\n"); }
 
     /* The transfer-mode contract is reachable as constants. */
     checks++; if ((int)srcCopy != 0)     { fails++; printf("FAIL srcCopy!=0\n"); }
