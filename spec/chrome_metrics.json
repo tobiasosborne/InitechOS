@@ -1,26 +1,51 @@
 {
   "_comment": [
-    "InitechOS chrome metrics v0 -- LOCKED spec-data (CLAUDE.md Rule 8).",
+    "InitechOS chrome metrics -- LOCKED spec-data (CLAUDE.md Rule 8).",
     "Ref: PRD Sec 6.3 (Toolbox chrome), PRD Sec 10 (chrome metrics measured",
     "from stills), PRD Appendix A (Mac pinstripe title bars -> chrome",
-    "metrics, M4). PRD Sec 12 (frame is REFERENCE ONLY: we measure it).",
+    "metrics, M4).",
     "",
-    "This is the v0 BASICS only -- title-bar height, menu-bar height, and",
-    "the window border/pinstripe thickness. The full chrome-metrics sheet",
-    "(scrollbar widths, close-box geometry, control insets, ...) is a later",
-    "task (m4-7). Every value below is a pixel measurement read off the",
-    "reference frame spec/assets/preview.webp (1456x819) by vertical/",
-    "horizontal luminance scans; the scan that yielded each is recorded.",
+    "schema_version 2 = v0->v1 uplift (beads initech-k8o5.9, 2026-06-19).",
+    "DELIBERATE ACT: this is a Rule 8 locked-spec change tracked by beads",
+    "initech-k8o5.9 (chrome_metrics v1) + initech-fb47 (chimera element map).",
     "",
-    "CAVEAT: the frame is a photo of a CRT at ~1456 px wide; the underlying",
-    "OS resolution (likely 640x480 / 800x600) is upscaled in the photo, so",
-    "these are FRAME pixels, not native OS pixels. They fix proportions and",
-    "give M4 a starting point to back-check, not final native constants."
+    "Structure:",
+    "  frame_pixels  -- v0 measurements from spec/assets/preview.webp (1456x819).",
+    "                   CAVEAT: the frame is a CRT photo, NOT a linear upscale",
+    "                   of a 640x480 buffer. The OS window in the photo is not",
+    "                   full-screen, so back-computing native px from frame px",
+    "                   yields wrong numbers (24/19 title-bar gap proves this --",
+    "                   implied scale 1.26x, not the naive 1456/640=2.28x).",
+    "                   Keep for traceability only; do NOT use as oracle datums.",
+    "                   Ref: docs/research/gui-ground-truth.md Sec 3.4.",
+    "  native        -- System 7.0/7.1 color chrome constants, source-cited.",
+    "                   These drive test-chrome (ADR-0004 D-8, FO-2/AM-3).",
+    "                   Every value is a per-value object {value, unit, source, note}.",
+    "  golden_resolves -- metrics that CANNOT be sourced from WDEF/IM and need",
+    "                   a real emulator screendump (beads pvo4 / initech-q0gy).",
+    "",
+    "Rule 12: ASCII-clean. No smart quotes, no non-ASCII characters.",
+    "Ref: StandardWDEF.a FIRST-HAND FETCHED 2026-06-19 from",
+    "  https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+    "Ref: GetMBarHeight FIRST-HAND FETCHED 2026-06-19 from",
+    "  https://developer.apple.com/library/archive/documentation/mac/Toolbox/Toolbox-128.html",
+    "Inside Macintosh: Macintosh Toolbox Essentials PDF fetch returned binary only",
+    "  (PDF not text-extractable by WebFetch); Toolbox-303/313 values below are",
+    "  brief-sourced (docs/research/gui-ground-truth.md Sec 3.3) pending a",
+    "  local PDF text extraction. WDEF constants are first-hand verified."
   ],
-  "schema_version": 1,
+  "schema_version": 2,
+  "target_system": "Apple System 7.0/7.1 color chrome (WDEF minColorDepth=8 satisfied by ADR-0004 OD-2 indexed-8 640x480)",
   "source_fixture": "spec/assets/preview.webp",
   "source_dims": { "w": 1456, "h": 819 },
-  "metrics": {
+
+  "frame_pixels": {
+    "_caveat": [
+      "FRAME pixels, NOT native OS pixels. The frame is a CRT photograph;",
+      "the OS window is not a full-screen 640x480 buffer in the still.",
+      "Back-computing native px from these values produces wrong numbers.",
+      "Retained for traceability only. Ref: gui-ground-truth.md Sec 3.4."
+    ],
     "menubar_height_px": {
       "value": 19,
       "measured_from": "col x=905 vertical scan: black border ends y72, menu-bar fill y73..y91, dark DESKTOP-window top frame line y92..y94. Fill band = 73..91 -> 19 px.",
@@ -40,6 +65,183 @@
       "value": 1,
       "measured_from": "Title-bar pinstripe is alternating 1 px light/dark scanlines: e.g. FILE COPY col x=620 shows the ~1 px luminance ripple across y307..y327 (period ~2 px). v0 records the stripe thickness; full period is an m4-7 metric.",
       "role": "thickness of a single title-bar pinstripe scanline"
+    }
+  },
+
+  "native": {
+    "_provenance": [
+      "System 7.0/7.1 color chrome at indexed-8 640x480 (ADR-0004 OD-2/OD-3).",
+      "Primary source: StandardWDEF.a (Apple System 7.0 WDEF assembly).",
+      "FIRST-HAND FETCH STATUS (2026-06-19):",
+      "  WDEF listing: FETCHED AND VERIFIED --",
+      "    https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "  GetMBarHeight: FETCHED AND VERIFIED --",
+      "    https://developer.apple.com/library/archive/documentation/mac/Toolbox/Toolbox-128.html",
+      "  Inside Macintosh Toolbox Essentials PDF: FETCH RETURNED BINARY ONLY --",
+      "    https://developer.apple.com/library/archive/documentation/mac/pdf/MacintoshToolboxEssentials.pdf",
+      "    Toolbox-303 / Toolbox-313 references are brief-sourced from",
+      "    docs/research/gui-ground-truth.md Sec 3.3 pending local PDF extraction.",
+      "  Inside Macintosh Imaging With QuickDraw PDF: NOT FETCHED (not needed",
+      "    for chrome geometry; governs region API semantics per ADR-0005)."
+    ],
+
+    "menubar_height": {
+      "value": 20,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/documentation/mac/Toolbox/Toolbox-128.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
+      "note": "GetMBarHeight returns 20 px for Roman script. v0 frame_pixels value was 19 (CRT photo measurement -- superseded by this native constant per gui-ground-truth.md Sec 3.4 resolution)."
+    },
+
+    "titlebar_height_std": {
+      "value": 19,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
+      "wdef_constant": "minTitleH EQU 19",
+      "note": "Standard documentProc title bar height (without small icon). v0 frame_pixels value was 24 -- the 24/19 ratio (1.26x) proves the photo is not a linear upscale of the 640x480 buffer; do NOT back-compute native values from frame pixels (gui-ground-truth.md Sec 3.4)."
+    },
+
+    "titlebar_height_with_icon": {
+      "value": 21,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
+      "wdef_constant": "minTitleHIcon EQU 21",
+      "note": "Title bar height when a small (SICN) icon is present. IconSize EQU 20 is the icon width (also FIRST-HAND VERIFIED from same source)."
+    },
+
+    "scrollbar_width": {
+      "value": 16,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
+      "wdef_constant": "scrollBarSize EQU 16",
+      "source_toolbox": "https://developer.apple.com/library/archive/documentation/mac/pdf/MacintoshToolboxEssentials.pdf",
+      "toolbox_ref": "Toolbox-313 kScrollbarWidth; Toolbox-303 '15-pixel-deep region'",
+      "toolbox_fetch_status": "BRIEF-SOURCED (PDF binary; pending local text extraction)",
+      "note": "The scrollbar control rect is 16 px wide. The right 1 px overlaps the 1 px window frame, so the control presents 15 px of ADDED width past the content area. Use 16 px for the rendered scrollbar control rect. The 15-vs-16 discrepancy is one pixel of frame overlap, not a contradiction (gui-ground-truth.md Sec 3.4)."
+    },
+
+    "window_frame": {
+      "value": 1,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19 (FrameRect inset + frame drawing code)",
+      "source_toolbox": "https://developer.apple.com/library/archive/documentation/mac/pdf/MacintoshToolboxEssentials.pdf",
+      "toolbox_ref": "Toolbox-313 '1-pixel-wide window frame'",
+      "toolbox_fetch_status": "BRIEF-SOURCED (PDF binary; pending local text extraction)",
+      "note": "Classic Mac double-line frame: 1 px outer line + 1 px inner groove. The v0 frame_pixels value was 2 -- this is actually consistent: the photo captured the combined visual width of both lines."
+    },
+
+    "grow_box_size": {
+      "value": 16,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19 (grow box computed from scrollBarSize)",
+      "source_toolbox": "https://developer.apple.com/library/archive/documentation/mac/pdf/MacintoshToolboxEssentials.pdf",
+      "toolbox_ref": "Toolbox-313 (same listing as kScrollbarWidth)",
+      "toolbox_fetch_status": "BRIEF-SOURCED (PDF binary; pending local text extraction)",
+      "note": "16x16 px square in the bottom-right corner. The WDEF positions it using scrollBarSize-2 (14 px) inset from the content rect edges, creating a 2 px overlap with each scrollbar. The rendered fill pattern (2D hash) is golden-resolves -- needs screendump."
+    },
+
+    "close_zoom_box_frame_delta": {
+      "value": 13,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
+      "wdef_calculation": "(titleHeight - 13) / 2 stored in WInfo.wBoxDelta; box is 13 px tall",
+      "note": "The WBoxDelta calculation 'sub.w #13,D0 / LSR.w #1,D0' shows the close/goAway box is 13 px in the vertical dimension, vertically centered in the title bar. Horizontal position: goAway at ~x=8 from left, zoom at ~x=20 from right (WDEF hit zone). The rendered interior fill and exact border appearance are golden-resolves -- needs screendump. WDEF also confirms: hit zone uses 'add.w #11,D0' (+11 after subtracting delta) meaning box spans 13 px vertically from delta to delta+13."
+    },
+
+    "dialog_dboxproc_border": {
+      "value": 7,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
+      "wdef_constant": "dBoxBorderSize EQU 7",
+      "note": "dBoxProc (modal dialog) fancy border is 7 px wide. Distinct from documentProc (standard document window) which uses the 1 px frame + 1 px groove."
+    },
+
+    "drop_shadow_documentproc": {
+      "value": 1,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
+      "wdef_code": "move.l OneOne,D4 ; varCode=0 (documentProc) -> shadow 1,1",
+      "note": "documentProc (varCode=0) drop shadow is 1 px at offset (1,1). WDEF code: 'move.l OneOne,D4 / tst.w varCodeReg / beq.s @1'. Other variants: dBoxProc without title (varCode=1) uses 2x2 shadow; some variants use no shadow."
+    },
+
+    "small_icon_in_title": {
+      "value": 20,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
+      "wdef_constant": "IconSize EQU 20",
+      "note": "Width of the small (SICN) icon in the title bar. Corresponds to minTitleHIcon EQU 21 (the title bar is 1 px taller when this icon is present)."
+    },
+
+    "pinstripe_period": {
+      "value": 2,
+      "unit": "px",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "BRIEF-SOURCED from community CSS recreation + v0 frame measurement (gui-ground-truth.md Sec 3.3); consistent with WDEF wTitleBarLight/wTitleBarDark shade index pairs (FIRST-HAND VERIFIED -- WDEF defines wTitleBarLight EQU 7 and wTitleBarDark EQU 8 as the alternating shade indices)",
+      "note": "1 dark + 1 light alternating scanline pattern; total period = 2 px. The WDEF source confirms the light/dark pairing via wTitleBarLight EQU 7 / wTitleBarDark EQU 8 (first-hand verified). The exact RGB values for those shade indices (stored in the wctb resource ID -4096) are golden-resolves -- they cannot be derived from WDEF alone and need a real System 7 screendump with wctb resource extraction via ResEdit."
+    },
+
+    "titlebar_shade_indices": {
+      "wTitleBarLight": 7,
+      "wTitleBarDark": 8,
+      "unit": "wctb-index",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
+      "note": "WDEF constants wTitleBarLight EQU 7 and wTitleBarDark EQU 8 are the indices into the wctb (window color table) resource ID -4096 for the alternating pinstripe shades. The actual RGB values at these indices are golden-resolves (beads pvo4) -- require a System 7 emulator boot and ResEdit wctb extraction."
+    }
+  },
+
+  "golden_resolves": {
+    "_description": [
+      "Metrics that CANNOT be sourced from WDEF/IM alone and require a real",
+      "System 7 or Windows 3.x screendump under an emulator.",
+      "These are TODOs -- do NOT invent pixel values.",
+      "Ref: ADR-0004 D-8 / FO-2 / AM-3; gui-ground-truth.md Sec 3.3, Sec 8.",
+      "Primary blocker: Mac 68K ROM (abandonware-grey, operator decision required).",
+      "See gui-ground-truth.md Sec 6 (acquisition checklist P1) and Sec 8 (risks)."
+    ],
+    "pinstripe_shade_rgbs": {
+      "what": "Exact 8-bpp RGB values for wTitleBarLight (index 7) and wTitleBarDark (index 8) in the wctb resource ID -4096.",
+      "why_blocked": "wctb is a compiled resource in the System file; only recoverable by booting a real System 7 and extracting via ResEdit.",
+      "blocker_bead": "pvo4",
+      "acquisition_path": "Boot Basilisk II with Mac 68K ROM + System 7.0.1 or 7.5.3; open ResEdit; extract 'wctb' resource ID -4096; read color table entries at indices 7 and 8.",
+      "prerequisite": "Mac 68K ROM (operator decision required -- gui-ground-truth.md Sec 8 'Mac ROM legality')"
+    },
+    "close_zoom_box_rendered_interior": {
+      "what": "Exact rendered appearance of close (goAway) and zoom box interiors: border color, fill, any inner reduction square.",
+      "why_blocked": "WDEF gives the 13 px vertical frame-delta math and hit-test zones but does not describe the interior rendering (that is handled by the WDEF drawing routines using wctb color indices, not raw constants).",
+      "blocker_bead": "pvo4",
+      "acquisition_path": "System 7 screendump via Basilisk II; crop title bar; measure box pixels.",
+      "prerequisite": "Mac 68K ROM (operator decision required)"
+    },
+    "grow_box_fill_pattern": {
+      "what": "Exact fill pattern of the 16x16 grow box (2D hash / hatching pattern and colors in 8-bpp indexed).",
+      "why_blocked": "WDEF computes the grow box rect from scrollBarSize but the actual fill is drawn via QuickDraw pattern calls using wctb indices; pattern bytes not in WDEF constants.",
+      "blocker_bead": "pvo4",
+      "acquisition_path": "System 7 screendump via Basilisk II; crop grow box area.",
+      "prerequisite": "Mac 68K ROM (operator decision required)"
+    },
+    "win31_sm_cycaption": {
+      "what": "Windows 3.1 SM_CYCAPTION (caption bar / title bar height in pixels).",
+      "why_blocked": "Common web claim is 17 px but this is unconfirmed; gui-ground-truth.md Sec 4.1 explicitly states 'All Windows pixel heights are golden-resolves -- measure from a DOSBox-X screenshot; do not trust web claims'.",
+      "blocker_bead": "77wz",
+      "acquisition_path": "Boot Windows 3.1 under DOSBox-X (svga_s3/386); capture Program Manager + a dialog; pixel-scan caption height. DOSBox-X is installed: /usr/bin/dosbox-x. Windows 3.1 disk image needed from archive.org.",
+      "prerequisite": "Windows 3.1 disk image (archive.org download; see gui-ground-truth.md Sec 6 P0 item 2)"
+    },
+    "win31_sm_cxvscroll": {
+      "what": "Windows 3.1 SM_CXVSCROLL (vertical scrollbar width in pixels).",
+      "why_blocked": "Same as SM_CYCAPTION -- unconfirmed from web sources; must be pixel-measured from a real DOSBox-X boot.",
+      "blocker_bead": "77wz",
+      "acquisition_path": "Same DOSBox-X boot as SM_CYCAPTION; pixel-scan scrollbar width in Program Manager or a dialog with scrollbar.",
+      "prerequisite": "Windows 3.1 disk image (archive.org download)"
     }
   }
 }

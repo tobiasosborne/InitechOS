@@ -1,0 +1,142 @@
+{
+  "_comment": [
+    "InitechOS FLAIR chimera element map -- LOCKED spec-data (CLAUDE.md Rule 8).",
+    "Ref: PRD Sec 6.3 (Toolbox chrome), PRD Appendix A (the frame).",
+    "ADR-0004 D-3 (Manager decomposition, Photoshop menu bar canon),",
+    "  AM-4 (canon as frozen locked-data), Sec 5.2 FO-2.",
+    "Source: docs/research/gui-ground-truth.md Sec 4 + Sec 4.2 (11-element table).",
+    "beads: initech-fb47 (this file), initech-k8o5.9 (chrome_metrics v1 uplift),",
+    "  initech-zaqj (canon -- Photoshop string + hourglass bytes FROZEN).",
+    "",
+    "Rule 8 deliberate act: authored 2026-06-19 from gui-ground-truth.md Sec 4.2.",
+    "Rule 12: ASCII-clean. No smart quotes, no non-ASCII.",
+    "",
+    "IMPORTANT: element 9 (Photoshop menu items) references the frozen string",
+    "  owned by beads initech-zaqj. The string is NOT duplicated here as a mutable",
+    "  data field -- it is referenced by bead ID and ADR-0004 D-3 to prevent",
+    "  independent drift. The canon oracle (ADR-0004 D-8) gates those frozen bytes.",
+    "",
+    "origin values: 'mac-system7' | 'win31-accent' | 'chimera-intentional'",
+    "  mac-system7       -- standard System 7.0/7.1 chrome element",
+    "  win31-accent      -- Windows 3.1 flat 2-D accent (NOT Win95 CTL3D)",
+    "  chimera-intentional -- deliberate anachronism / impossible combination;",
+    "                        FROZEN by canon oracle; do NOT 'correct'"
+  ],
+  "schema_version": 1,
+  "source": "docs/research/gui-ground-truth.md Sec 4.2",
+  "governing_adr": "ADR-0004 D-3 / AM-4 / Sec 5.2 FO-2",
+  "canon_bead": "initech-zaqj",
+
+  "win31_accent_colors": {
+    "_comment": [
+      "Windows 3.1 flat 2-D chrome accent colors (NOT Win95 CTL3D heavy bevel).",
+      "Source: gui-ground-truth.md Sec 4.1 (Win 3.1 WIN.INI [colors] defaults,",
+      "  socket3.wordpress.com pre-Win95 flatness, Wikipedia/KB Q84169).",
+      "NOTE: ALL Windows pixel heights (SM_CYCAPTION / SM_CXVSCROLL) are",
+      "golden-resolves -- do NOT use web-claimed values; measure from DOSBox-X.",
+      "See spec/chrome_metrics.json golden_resolves.win31_sm_cycaption/sm_cxvscroll."
+    ],
+    "title_bar_active": "#000080",
+    "title_bar_active_rgb": [0, 0, 128],
+    "title_bar_active_note": "navy blue; caption text is white",
+    "button_face": "#c0c0c0",
+    "button_face_rgb": [192, 192, 192],
+    "shadow": "#808080",
+    "shadow_rgb": [128, 128, 128],
+    "highlight": "#dfdfdf",
+    "highlight_rgb": [223, 223, 223],
+    "inactive_title_bar": "#808080",
+    "inactive_title_bar_rgb": [128, 128, 128],
+    "caption_font": "System (proportional bitmap, Windows built-in)",
+    "icon_title_font": "MS Sans Serif 8 pt (SSERIFE.FON)"
+  },
+
+  "elements": [
+    {
+      "id": 1,
+      "element": "Pinstripe title bar",
+      "origin": "mac-system7",
+      "rendering": "Alternating 1 px light/dark scanlines, 19 px tall (minTitleH) or 21 px with small icon (minTitleHIcon). Chicago 12 white centered text. Shade indices wTitleBarLight=7 and wTitleBarDark=8 (wctb resource ID -4096); exact RGB values are golden-resolves (beads pvo4).",
+      "source": "StandardWDEF.a (minTitleH EQU 19, minTitleHIcon EQU 21, wTitleBarLight EQU 7, wTitleBarDark EQU 8) -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html"
+    },
+    {
+      "id": 2,
+      "element": "Close box (top-left, goAway box)",
+      "origin": "mac-system7",
+      "rendering": "13 px tall frame square (WBoxDelta calculation: (titleHeight-13)/2 for vertical centering), hollow, 1 px border, positioned ~8 px from left edge of title bar. Rendered interior appearance is golden-resolves (beads pvo4).",
+      "source": "StandardWDEF.a (WBoxDelta = (titleHeight-13)/2; hit zone 'sub.w #13,D0 / add.w #11,D0') -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html"
+    },
+    {
+      "id": 3,
+      "element": "Zoom box (top-right)",
+      "origin": "mac-system7",
+      "rendering": "Same vertical dimensions and centering as close box (uses WBoxDelta). Positioned ~20 px from right edge of title bar (WDEF hit zone: -19 to -9 from right = 10 px wide, ~20 px from right). Rendered interior appearance is golden-resolves (beads pvo4).",
+      "source": "StandardWDEF.a (PlotZoom code; hit zone cmp.w #-19,D0 / cmp.w #-9,D0) -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html"
+    },
+    {
+      "id": 4,
+      "element": "Vertical scrollbar",
+      "origin": "mac-system7",
+      "rendering": "16 px wide control rect (scrollBarSize EQU 16). Right 1 px overlaps the 1 px window frame, presenting 15 px of added width past the content area. Contains arrow buttons at top/bottom, pattern-fill track, and thumb. Arrow and thumb rendering details are golden-resolves (beads pvo4).",
+      "source": "StandardWDEF.a (scrollBarSize EQU 16) -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html; brief-corroborated by Inside Macintosh Toolbox Essentials Toolbox-313 kScrollbarWidth"
+    },
+    {
+      "id": 5,
+      "element": "Window frame",
+      "origin": "mac-system7",
+      "rendering": "1 px outer line + 1 px inner groove = classic Mac double-line frame (visually 2 px wide, not the Win 3.1 2-layer beveled border). documentProc drop shadow is 1 px at offset (1,1).",
+      "source": "StandardWDEF.a (FrameRect inset, shadow: 'move.l OneOne,D4 / tst.w varCodeReg / beq.s @1') -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html; brief-corroborated by Inside Macintosh Toolbox Essentials Toolbox-313 '1-pixel-wide window frame'"
+    },
+    {
+      "id": 6,
+      "element": "Grow box (bottom-right)",
+      "origin": "mac-system7",
+      "rendering": "16x16 px square at bottom-right corner, inset scrollBarSize-2 (14 px) from content rect edges (2 px overlap with each scrollbar). Exact fill pattern (2D hash / hatching) is golden-resolves (beads pvo4).",
+      "source": "StandardWDEF.a (grow box: 'sub.w #scrollBarSize-2,top(rectReg)'; scrollBarSize EQU 16) -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html; brief-corroborated by Inside Macintosh Toolbox Essentials Toolbox-313"
+    },
+    {
+      "id": 7,
+      "element": "Menu bar",
+      "origin": "mac-system7",
+      "rendering": "Solid fill, Chicago 12 pt, 20 px tall (GetMBarHeight, Roman script). The specific fill color at indexed-8 depth is governed by spec/assets/palette.json (menubar_bg) pending FO-3 reconciliation (beads initech-ch81).",
+      "source": "GetMBarHeight -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/documentation/mac/Toolbox/Toolbox-128.html"
+    },
+    {
+      "id": 8,
+      "element": "Apple-menu glyph (left of bar)",
+      "origin": "mac-system7",
+      "rendering": "The Apple logo (solid apple silhouette) rendered in Chicago 12 as a special glyph character (0x14 in Mac Roman encoding). Leftmost item in the menu bar. Clean-room glyph is hand-authored in spec/assets/chicago8x16.h.",
+      "source": "docs/research/gui-ground-truth.md Sec 4.2; ADR-0004 D-3. Chicago 12 Apple glyph: Mac Roman 0x14, hand-authored in spec/assets/chicago8x16.h (CLAUDE.md hallucination-risk: glyphs are hand-authored, not pixel-extracted from the frame)."
+    },
+    {
+      "id": 9,
+      "element": "Photoshop menu items",
+      "origin": "chimera-intentional",
+      "rendering": "Mac-located top menu bar (System 7 style, Chicago 12), but the item set is the Photoshop-style string: see frozen constant owned by beads initech-zaqj and ADR-0004 D-3. Rendered in the Mac menu bar, not a Windows caption.",
+      "frozen_string_owner": "beads initech-zaqj (ADR-0004 D-3 / AM-4 / Sec 5.2 FO-E)",
+      "frozen_string_note": "The exact menu string 'File Edit Image Layer Select View Window Help' is FROZEN locked-data owned exclusively by beads initech-zaqj and ADR-0004 D-3. It is NOT duplicated here to prevent independent drift. The canon oracle (ADR-0004 D-8) gates those frozen bytes. Do NOT 'correct' it to match any real Photoshop version.",
+      "why_chimera": "This menu set is historically impossible as a single Photoshop version: Photoshop 3.0 for Mac (Sept 1994, first with Layer menu) had 'Mode' where the frame shows 'View'; 'View' arrived in a later point release. The impossible combination IS the canon -- it reproduces the Office Space prop verbatim. Ref: gui-ground-truth.md Sec 4.3; ADR-0004 D-3; CLAUDE.md Law 4.",
+      "source": "docs/research/gui-ground-truth.md Sec 4.2, Sec 4.3; ADR-0004 D-3 / AM-4; PRD Sec 1, Appendix A"
+    },
+    {
+      "id": 10,
+      "element": "Modal dialog buttons",
+      "origin": "win31-accent",
+      "rendering": "Gray #c0c0c0 face, flat 1 px bevel (NOT Mac rounded-rect, NOT Win95 CTL3D deep bevel). Windows 3.1 flat 2-D style. Button dimensions are golden-resolves for exact pixel heights (beads 77wz; SM_CYCAPTION / DOSBox-X measurement required).",
+      "color": "#c0c0c0",
+      "color_rgb": [192, 192, 192],
+      "source": "docs/research/gui-ground-truth.md Sec 4.1 (Win 3.1 WIN.INI [colors] defaults; socket3.wordpress.com pre-Win95 flatness); gui-ground-truth.md Sec 4.2 element 10"
+    },
+    {
+      "id": 11,
+      "element": "MDI child chrome (if present)",
+      "origin": "win31-accent",
+      "rendering": "Windows 3.1 MDI child window pattern where present: flat 2-D, navy (#000080) active caption, gray (#808080) inactive caption, System font caption text. Pixel heights are golden-resolves (beads 77wz).",
+      "color_active": "#000080",
+      "color_active_rgb": [0, 0, 128],
+      "color_inactive": "#808080",
+      "color_inactive_rgb": [128, 128, 128],
+      "source": "docs/research/gui-ground-truth.md Sec 4.1 (Win 3.1 WIN.INI [colors], Wikipedia/KB Q84169); gui-ground-truth.md Sec 4.2 element 11"
+    }
+  ]
+}
