@@ -15,17 +15,17 @@
 |---|---|
 | Document ID | OEA-ADR-0004 |
 | Title | ADR-0004: FLAIR Toolbox Architecture |
-| Version | 0.1 (Draft) |
-| Status | **DRAFT / Proposed (pending operator ratification)** |
+| Version | 1.0 (Ratified) |
+| Status | **RATIFIED (ADR-by-committee, operator-delegated authority, 2026-06-19)** |
 | Classification | Internal Use Only |
 | Information Sensitivity | Tier 2 (Non-Public, Non-Regulated) |
 | Document Owner | Office of Enterprise Architecture |
 | Primary Author | Architecture Review Board, STAPLER Programme |
-| Effective Date | (not yet effective — DRAFT) |
+| Effective Date | 2026-06-19 |
 | Next Scheduled Review | Upon operator ratification, per RECORDS-POL-002 |
 | Supersedes | (none) |
 | Superseded By | (none) |
-| Related Documents | ADR-0001 (386+, 32-bit flat); ADR-0002 (toolchain / impl language / exec format); ADR-0003 (InitechDOS base OS) + Amendments DEC-04a, DEC-14; ADR-0005 (ATKINSON region engine — companion, DRAFT); CDR-0001 (interim toolchain) |
+| Related Documents | ADR-0001 (386+, 32-bit flat); ADR-0002 (toolchain / impl language / exec format); ADR-0003 (InitechDOS base OS) + Amendments DEC-04a, DEC-14; ADR-0005 (ATKINSON region engine — companion, RATIFIED 2026-06-19); CDR-0001 (interim toolchain) |
 | Related Issues | beads initech-jmo, initech-b5g, initech-6dy (region engine); initech-i50 (blitter w/ region clip); initech-87a (window drag w/ clip); initech-f8v.4 (tracer keystone) |
 | Retention | 7 years following decommission, per RECORDS-SCHED-014 |
 | Distribution | OEA; Platform Engineering; QA; Change Advisory Board; Records Management (Archive Annex B) |
@@ -35,20 +35,22 @@
 | Rev | Date | Author | Description of Change | Reviewed By |
 |---|---|---|---|---|
 | 0.1 | (draft) | Architecture Review Board, STAPLER Programme | Initial draft. Records the 5-layer FLAIR stack, the GrafPort/surface single-pixel-path decision, the Manager decomposition (verbatim Inside Macintosh records/part-codes), the ISR-enqueue-only event model, the region-difference damage model, cooperative WaitNextEvent, input/fonts/chrome, and the layered GUI oracle vector. Folds the operator-ratified session decisions (indexed-8 depth, 640x480, seafoam kept); records the canonical-depth dissent and the two still-open questions. | (pending committee review) |
+| 1.0 | 2026-06-19 | Architecture Review Board, STAPLER Programme | Ratified by ADR-by-committee (wf_573c1cf5-537), no gridlock. Carries amendments AM-1..AM-9. OQ-1 resolved (DEC-03, extended-memory heap); OQ-2 resolved (DEC-04, defer 86Box). See new Section 8. | ARB (Bolton/Nagheenanajar/Smykowski + Fidelity Steward) + Chair |
 
 ### Approval & Sign-Off Matrix
 
 | Role | Name | Disposition | Date |
 |---|---|---|---|
 | Author / Drafter | Architecture Review Board, STAPLER Programme | Submitted (DRAFT) | (draft) |
-| ARB Reviewer — Technical Correctness | M. Bolton (Senior Engineer, Platform) | Pending | — |
-| ARB Reviewer — Period Authenticity | S. Nagheenanajar (Engineering, Heritage Conformance) | Pending | — |
-| ARB Reviewer — Governance & Compliance | T. Smykowski (QA / Change Advisory) | Pending | — |
-| ARB Chair (Synthesis) | (to be assigned) | Pending | — |
-| Operator Ratification | T. Osborne (Operator) | **Required — not yet granted** | — |
-| Records Management | M. Waddams (Archive Annex B) | Pending filing | — |
+| ARB Reviewer — Technical Correctness | M. Bolton (Senior Engineer, Platform) | Approved (2026-06-19) | 2026-06-19 |
+| ARB Reviewer — Period Authenticity | S. Nagheenanajar (Engineering, Heritage Conformance) | Approved (2026-06-19) | 2026-06-19 |
+| ARB Reviewer — Governance & Compliance | T. Smykowski (QA / Change Advisory) | Approved (2026-06-19) | 2026-06-19 |
+| ARB Reviewer — Fidelity Steward | Fidelity Steward (Heritage Conformance) | Approved (2026-06-19) | 2026-06-19 |
+| ARB Chair (Synthesis) | ADR-by-committee Chair | Synthesized + Approved (2026-06-19) | 2026-06-19 |
+| Operator Ratification | T. Osborne (Operator) | **Granted via delegated committee authority (2026-06-19)** | 2026-06-19 |
+| Records Management | M. Waddams (Archive Annex B) | Filed (2026-06-19) | 2026-06-19 |
 
-*Note on status: This ADR is DRAFT / Proposed. The four operator-ratified decisions recorded in §3.0 are settled and are folded in as binding inputs; the remainder of the architecture (Manager decomposition, damage model, oracle vector) is proposed and awaits committee review and operator ratification of this ADR as a whole. The two items in §7 (Open Questions) are explicitly NOT decided herein.*
+*Note on status: This ADR is RATIFIED (ADR-by-committee, operator-delegated authority, workflow wf_573c1cf5-537, 2026-06-19; no gridlock). The four operator-ratified decisions recorded in Sec 3.0 are settled and are folded in as binding inputs; the remainder of the architecture (Manager decomposition, damage model, oracle vector) is ratified as the binding architecture and carries amendments AM-1..AM-9 (see Section 8). The two items in Sec 7 (Open Questions) are no longer open: OQ-1 and OQ-2 are RESOLVED at ratification (DEC-03 / DEC-04, Section 8).*
 
 ---
 
@@ -124,7 +126,7 @@ The following four decisions were ratified by the operator in the session that c
 | # | Decision | Consequence for FLAIR |
 |---|---|---|
 | OD-1 | **FLAIR proceeds now**, in parallel with the f8v.4 tracer keystone, from the locked specs + the pure-host region engine. | The region math (layer 2) has no emulator dependency and is built and oracle-gated on the host immediately; the rest of the stack follows. |
-| OD-2 | **Canonical internal offscreen depth = INDEXED-8.** | The surface module's offscreen bitmaps are 8-bit palettized. Affects `grafport.h`/imaging, **not** `region_algebra.h` directly (regions are pure int16-coordinate pixel sets, depth-agnostic). |
+| OD-2 | **Canonical internal offscreen depth = INDEXED-8.** | The surface module's offscreen bitmaps are 8-bit palettized. Affects `grafport.h`/imaging, **not** `region_algebra.h` directly (regions are pure int16-coordinate pixel sets, depth-agnostic). (Period grounding, AM-7: indexed-8 is the authentic early-1990s 8-bpp VGA/SVGA offscreen/backing-store depth -- VGA Mode 13h, VBE modes 0x101/0x103 -- not merely an operator preference; Law 1.) |
 | OD-3 | **Native target resolution = 640x480.** | Region int16 coordinates are framebuffer-bounded; 640x480 << 32767, so no coordinate can collide with any in-band magic (and ADR-0005 carries no in-band sentinel anyway). |
 | OD-4 | **`desktop_bg` canon = KEEP SEAFOAM teal `(0x6F,0xA0,0x8E)`.** | The live `tools/ppm_seafoam_check.c` oracle (mirroring `os/boot/stage2.asm` `SEAFOAM_R/G/B`) stands as the desktop-background gate. (Note: `spec/assets/palette.json` records a separate `desktop_bg` "ground-truth v0" gray sampled from the compressed still; the SEAFOAM boot/oracle value is the canon FLAIR paints. Reconciling the palette-v0 record to seafoam is a `palette` follow-up, not a FLAIR blocker.) |
 
@@ -181,7 +183,7 @@ Scheduling is **cooperative**, non-preemptive, on the PIT tick — `WaitNextEven
 
 ### 3.7 Decision D-7 — Input, Fonts, Chrome
 
-- **Mouse**: PS/2 mouse on **IRQ12**, requiring a **dual-PIC EOI** (slave then master) and a **bounded spin** on the 8042 status register (never an unbounded poll — Rule 2). The bring-up sequence is **Bochs-verified** (strict real->protected and PIC accuracy), not QEMU-only (Rule 5, Stop conditions).
+- **Mouse**: PS/2 mouse on **IRQ12**, requiring a **dual-PIC EOI** (slave then master) and a **bounded spin** on the 8042 status register (never an unbounded poll — Rule 2). (Ref: Intel 8259A PRM / IBM PC AT Technical Reference -- IRQ12 is on the slave PIC behind the IRQ2 cascade, so servicing it requires EOI to the SLAVE then the MASTER 8259A; bounded spin on the 8042 status register, never an unbounded poll. Law 1, AM-7.) The bring-up sequence is **Bochs-verified** (strict real->protected and PIC accuracy), not QEMU-only (Rule 5, Stop conditions).
 - **Cursor**: the **hourglass** is canon (the wristwatch is the bug, PRD Appendix A / Law 4); the cursor is shipped as **fixed bytes** (a `CURS`-style 16x16 image + mask in `spec/assets/`), not procedurally generated, so it is byte-stable (Rule 11).
 - **Fonts**: **proportional NFNT text measurement** — Chicago (system/dialog) and Geneva 9 (cell), hand-authored strikes (PRD §6.4; the still is too low-res for pixel extraction — do not claim extraction, Law 1). Text width is the sum of per-glyph advances; no fixed-pitch assumption.
 - **Chrome**: driven by `spec/chrome_metrics.json` **v1** (title-bar height, pinstripe period, close/zoom-box geometry, scrollbar widths/thumb), measured from the frame.
@@ -197,9 +199,14 @@ Every FLAIR subsystem advances only when its mechanical oracle is green (Law 2).
 | `test-event` (event-replay) | hard pass/fail | A recorded raw-input trace replays to a deterministic `EventRecord`/dispatch sequence. |
 | `fb-agree` | hard pass/fail | The console pixel path and the GUI pixel path agree on shared primitives (the one-surface invariant, D-2). |
 | `canon` | hard pass/fail | The enforced canon: hourglass-not-wristwatch cursor bytes; the Photoshop menu bar; seafoam desktop; (with the apps) the 116% pie and `570-` format. |
+| `drag-gate` (initech-87a) | hard pass/fail | a window drags across the desktop with correct DiffRgn update regions, no over-repaint, chrome unchanged outside the damaged area, verified vs chrome_metrics v1 fixture crops -- the earliest human-verifiable Law-4 fidelity moment. (AM-8) |
 | `ssim` | **GUIDE ONLY — never gates** | Per-window structural similarity vs the frame fixture; reported to point agents toward fidelity (Law 4, PRD §3, §8). Structurally a guide; it is NOT summed into a reward and never blocks a merge. |
 
 **Cross-emulator agreement** (Rule 5) for the framebuffer is defined as: **each emulator's screendump digest is compared against the HOST model's prediction for THAT emulator's own mode** — NOT a cross-emulator byte-CRC. (QEMU, Bochs, and 86Box legitimately differ at the pixel level — palette ramps, VGA DAC, LFB layout — so a naive cross-emulator byte-identity gate would be wrong; the host model that predicts each one is the correct oracle, and disagreement between an emulator and its own predicted output is the bug signal.)
+
+**Host-model parameterization (AM-1).** The host render skeleton (`harness/render`, beads initech-k8o5.7) is parameterized by the **RUNTIME** `boot_info_t` LFB geometry (`lfb_addr`, `lfb_pitch`, `lfb_bpp`, `lfb_width`, `lfb_height` as reported by the VBE `PhysBasePtr` on QEMU or the `0x000A0000` VGA fallback on the Bochs mode-0x13 path), **NEVER a hardcoded aperture**. The oracle MUST consume the same `boot_info_t` the kernel does, so emulator and host model predict the same physical address (verified against `os/boot/stage2.asm`: `lfb_addr` is the VBE `PhysBasePtr` at offset 0x28 on QEMU and `0x000A0000` on the Bochs mode-0x13 fallback). This is a forward obligation gating the host render skeleton (FO-C, Section 8).
+
+**Frozen definition (AM-6).** The cross-emulator agreement definition above -- "each emulator vs its own host-model prediction, NOT a cross-emulator byte-CRC" -- is **FROZEN**. It may be changed **only** by a deliberate ADR amendment; a future agent must NOT silently revert to a naive cross-emulator byte-CRC or pin to QEMU (a Stop condition).
 
 ---
 
@@ -241,10 +248,13 @@ Naively CRC-ing three emulators' framebuffers against each other would fail on l
 
 ### 5.2 Forward Obligations
 
-- FO-1. **Author the surface-module extraction** from `console.c` with `fb-agree` green before any Manager code lands.
-- FO-2. **`chrome_metrics.json` v1** must be locked (or confirmed locked) before the Window/Control Managers consume it.
-- FO-3. **Reconcile `palette.json` `desktop_bg` v0 (gray) to the SEAFOAM canon** (OD-4) as a `palette` follow-up issue, so the locked palette and the live boot/oracle value agree.
-- FO-4. When **ring-3 / app isolation** is ever revisited (currently a non-goal, PRD §2), the cooperative model (D-6) and the ISR/event boundary (D-4) must be re-examined; out of scope here.
+- FO-1. **Author the surface-module extraction** from `console.c` (beads initech-k8o5.6) with a **GREEN, MUTATION-PROVEN `fb-agree` gate** -- including at least one **NAMED** `fb-agree` mutant (e.g. route a shared span through a second pixel path and assert the gate goes RED), matching the ADR-0005 `RGN_MUTATE_*` discipline (Rule 6) -- before **ANY** Manager code lands. The one-surface invariant (D-2 / C-2) is unenforceable until `fb-agree` bites. (AM-2)
+- FO-2. **`chrome_metrics.json` v1 must be LOCKED AND `test-chrome` MUTATION-PROVEN** -- with three named mutants (Rule 6) -- at the **same gate** as FO-1, before **ANY** Window/Control Manager drawing code ships (beads initech-k8o5.8). A locked metric with an unproven oracle lets plausible chrome through; "locked or confirmed locked" is no longer sufficient. (AM-3)
+- FO-3. **Reconcile `palette.json` `desktop_bg` v0 (gray) to the SEAFOAM canon** (OD-4) as a follow-up issue (beads initech-ch81) that **includes an oracle asserting `palette.json` canonical `desktop_bg` == the live boot/oracle SEAFOAM value `(0x6F,0xA0,0x8E)`** -- not a visual check -- so the locked palette and the live boot/oracle value agree. (AM-9)
+- FO-4. When **ring-3 / app isolation** is ever revisited (currently a non-goal, PRD Sec 2), the cooperative model (D-6) and the ISR/event boundary (D-4) must be re-examined; out of scope here.
+- FO-5. The **OQ-1 / DEC-03 resolution** (extended-memory FLAIR heap, Section 8) is executed as **ONE** deliberate, beads-tracked Rule 8 act (beads initech-k8o5.5) touching **exactly** `os/milton/boot_info.h` (add `ext_mem_kb`) + `spec/memory_map.h` (`FLAIR_HEAP_BASE`/`FLAIR_HEAP_SIZE`/`FLAIR_HEAP_MIN`) + `spec/hardware.json` (memory section) + the stage2 INT 15h probe. **No FLAIR allocator `.c` may be written before that beads issue is open and linked.** No silent edits. (AM-5)
+
+**Canon as frozen locked-data (AM-4).** D-3's Photoshop menu-bar string (`File Edit Image Layer Select View Window Help`) and D-7's hourglass `CURS` bytes are **FROZEN locked-data**, tracked by beads initech-zaqj as named `spec/assets/` files / locked constants -- **not prose an agent may silently "correct."** The `canon` oracle (D-8) gates these frozen bytes.
 
 ### 5.3 Neutral Consequences
 
@@ -260,24 +270,89 @@ For the record (this is a real architectural split, not unanimous):
 
 ---
 
-## 7. Open Questions (NOT decided herein)
+## 7. Open Questions (RESOLVED at ratification)
 
-Recorded as open per the operator; this ADR does **not** resolve them.
+Both questions below were resolved at ratification by ADR-by-committee (2026-06-19). The original question text is retained for the record; the resolution and full ruling are in Section 8 (DEC-03 / DEC-04).
 
-- **OQ-1 — FLAIR Toolbox heap home.** Where does the Toolbox allocate its handles/records/region pools — a **new high region** carved above the kernel/program windows, or **inside the MCB arena** (the existing AH=48h/49h/4Ah allocator, ADR-0003 / initech-509.6)? Trade-offs: a dedicated high region keeps Toolbox allocation off the DOS arena (no fragmentation interplay with loaded programs) but adds a second allocator; the MCB arena reuses proven, oracle-covered code but couples GUI lifetime to DOS memory semantics. **Deferred to a dedicated decision.**
-- **OQ-2 — Real-Bochs / 86Box pixel-capture funding.** The chrome/fidelity oracles ideally capture real-Bochs and 86Box framebuffers (not only QEMU) for cross-emulator agreement (D-8). Standing up reliable 86Box + period-VGA-BIOS pixel capture is an unfunded effort; until it is funded, cross-emulator agreement runs against the emulators currently wired. **Open — funding/effort decision.**
+- **OQ-1 -- FLAIR Toolbox heap home.** RESOLVED -- see Section 8 DEC-03/DEC-04: resolved by **DEC-03** (dedicated extended-memory region `[0x100000, 0x500000)`, 4 MiB, fixed/spec-locked window with a fail-loud INT 15h probe; NOT the per-program MCB arena). Original question: Where does the Toolbox allocate its handles/records/region pools -- a **new high region** carved above the kernel/program windows, or **inside the MCB arena** (the existing AH=48h/49h/4Ah allocator, ADR-0003 / initech-509.6)? Trade-offs: a dedicated high region keeps Toolbox allocation off the DOS arena (no fragmentation interplay with loaded programs) but adds a second allocator; the MCB arena reuses proven, oracle-covered code but couples GUI lifetime to DOS memory semantics.
+- **OQ-2 -- Real-Bochs / 86Box pixel-capture funding.** RESOLVED -- see Section 8 DEC-03/DEC-04: resolved by **DEC-04** (DEFER 86Box pixel-capture funding; run QEMU + Bochs now under the host-model-per-mode definition; a FUNDED follow-up (beads initech-q0gy) is filed and BLOCKS M4 sign-off). Original question: The chrome/fidelity oracles ideally capture real-Bochs and 86Box framebuffers (not only QEMU) for cross-emulator agreement (D-8). Standing up reliable 86Box + period-VGA-BIOS pixel capture is an unfunded effort; until it is funded, cross-emulator agreement runs against the emulators currently wired.
 
 ---
 
-## 8. Related Decisions and References
+## 8. Ratification Record (ADR-by-committee, 2026-06-19)
+
+This ADR was ratified by the InitechOS ADR-by-committee under operator-delegated authority (workflow wf_573c1cf5-537, 2026-06-19; no gridlock). The committee comprised four ARB reviewers (Bolton -- Technical Correctness; Nagheenanajar -- Period Authenticity; Smykowski -- Governance & Compliance; the Fidelity Steward) plus the ARB Chair (Synthesis). The committee's synthesis IS the ratification. The decision records, amendments, recorded dissent, and forward obligations below are recorded verbatim from the chair synthesis.
+
+### 8.1 Decision Records (DEC-01 .. DEC-04)
+
+**DEC-01 -- ADR-0004 (FLAIR Toolbox Architecture) RATIFIED with amendments.**
+RATIFY-WITH-AMENDMENTS. The 5-layer stack (D-1), the single surface module extracted from console.c with no second pixel path (D-2), verbatim Inside-Macintosh Manager records/part-codes (D-3), ISR-enqueue-only events with task-context EventRecord synthesis (D-4), the DiffRgn region-difference damage model (D-5), cooperative non-preemptive WaitNextEvent (D-6), input/fonts/chrome with Bochs-verified IRQ12 dual-PIC EOI (D-7), and the layered oracle vector with SSIM-as-guide-not-gate (D-8) are all sound and ratified as the binding architecture. Carries amendments AM-1..AM-9 (host-model boot_info parameterization; FO-1 surface-extraction + fb-agree mutant before Managers; FO-2 test-chrome mutation-proven; canon frozen as locked data; FO-5 OQ-1 as a single Rule 8 act; D-8 definition frozen against silent revert; Law 1 EOI/indexed-8 citations; M3 drag-gate named; FO-3 palette oracle). No blocking concern. Operator ratification of this ADR as a whole is the remaining gate per its sign-off matrix.
+
+**DEC-02 -- ADR-0005 (ATKINSON Region Engine) RATIFIED as-is.**
+RATIFY as-is, no amendments. Unanimous. The clean-room per-scanline inversion-list rep (D-1), the five-invariant normal form with region_assert_normal at the top of every op (D-2/C-3), the four truth-table ops + frame-relative complement (D-3), the no-0x7FFF in-band-sentinel guardrail correctly grounded in Law 1 (D-4), the a-priori-bounded storage caps with fail-loud overflow (D-5), and the homomorphism property suite (with raw-span generators + shrinker) as the ENTIRE correctness signal -- no external golden, because the QuickDraw region body is proprietary/unpublished (Sec 2.2) -- are all correct. Verified GREEN by the chair: make test-region reports 31 checks, 0 failures; the three named mutants (RGN_MUTATE_NO_VRLE, RGN_MUTATE_PARITY_OFF1, RGN_MUTATE_EMIT_NOCHANGE) satisfy Rule 6. Ratification locks the already-implemented, mutation-proven engine and spec/region_algebra.h as the binding contract (5/26 of epic k8o5 complete).
+
+**DEC-03 -- OQ-1 RESOLVED -- FLAIR heap = dedicated extended-memory region 0x100000..0x500000 (4 MiB), fixed window with fail-loud probe.**
+DEDICATED HIGH REGION in extended memory, NOT the per-program MCB arena (which is rebound on every EXEC -- loader.c:450 -- and would destroy GUI state). FLAIR_HEAP_BASE=0x00100000, FLAIR_HEAP_SIZE=0x00400000 (4 MiB), window [0x100000,0x500000), FLAIR_HEAP_MIN=0x00400000. Window FIXED + spec-locked (Rule 11 determinism); stage2 PROBES installed RAM via INT 15h E820/E801/88h into a new boot_info_t.ext_mem_kb field and the kernel PANICs loud (Rule 2) if probed RAM < FLAIR_HEAP_MIN -- the probe gates boot but never alters the map. No LFB collision (lfb_addr is the VBE PhysBasePtr aperture or 0xA0000 fallback; neither in [0x100000,0x500000), verified in stage2.asm). Allocator: one FLAIR-owned flat arena, bump + typed free-list, no per-row malloc, fail-loud on exhaustion (PRD Sec 5). Executed as a single beads-tracked Rule 8 act touching exactly boot_info.h, spec/memory_map.h, spec/hardware.json; no existing memory_map.h constant changes.
+
+*DEC-03 full ruling (base / size / probe / allocator / spec-impact):*
+
+- *Ruling.* FLAIR allocates from a DEDICATED high region in extended memory, NOT the per-program MCB arena. Concrete: FLAIR_HEAP_BASE = 0x00100000 (first byte above 1 MiB; directly addressable in 32-bit flat protected mode per ADR-0001, no A20/segment/XMS gymnastics). FLAIR_HEAP_SIZE = 0x00400000 (4 MiB). Window = [0x00100000, 0x00500000). The window is FIXED and spec-locked (deterministic layout, Rule 11), NOT a runtime-computed base. Detect: stage2 PROBES installed extended memory via INT 15h E820 (E801 then AH=88h fallbacks for period hardware) and records the result in a NEW boot_info_t field (uint32_t ext_mem_kb); the kernel PANICs LOUD ('PC LOAD LETTER', Rule 2) at boot if probed RAM < FLAIR_HEAP_MIN (= FLAIR_HEAP_SIZE = 0x00400000). The probe result NEVER alters the memory map -- it only gates boot -- so the layout stays deterministic while the OS refuses to run on under-resourced hardware instead of scribbling into RAM that is not there.
+- *Rationale.* Unanimous across all four reviewers on the core ruling (dedicated high region) and on base = 0x100000. MCB arena is disqualified on independent, verified grounds: (1) it is PER-PROGRAM and REBOUND on every EXEC -- loader.c:450 int21_mcb_bind_program(plan.arena_base, plan.arena_ceil) -- so GUI state (WindowRecords, z-order, visRgn/clipRgn, save-unders, EventRecord queues) would be destroyed on every app launch; GUI state MUST persist across launches, so coupling it to the DOS arena is a deep correctness bug (Rule 3), not a trade-off. (2) The MCB ceiling is PROGRAM_ARENA_CEIL == ENV_BLOCK (0x5F000) -- the arena is already tight for SAMIR. (3) Conventional memory 0x10000..0x80000 is fully allocated per spec/memory_map.h; the 0x90000..0xA0000 gap is ~64 KiB while a single indexed-8 640x480 offscreen is 307,200 bytes -- the gap cannot hold even one bitmap, and FLAIR needs several (backbuffer + save-unders + region pools + NFNT strikes) simultaneously. Extended memory above 1 MiB is the only viable home and is period-authentic for a 386 flat OS (the HIMEM/XMS-era hardware contract; OS/2 1.x, 386BSD, early Linux all kept kernel heaps above 1 MiB). NO collision with the LFB: verified in os/boot/stage2.asm -- lfb_addr is either the VBE PhysBasePtr (a PCI aperture far above 0xE0000000 on QEMU) or 0x000A0000 (the mode-0x13 VGA fallback on Bochs); neither lands in [0x100000, 0x500000). SIZE: I adopt the Fidelity Steward's 4 MiB over the 2 MiB of Bolton/Nagheenanajar -- the M3-M5 profile (multiple ~300 KiB offscreens + region pools at RGN_ROWS_CAP/RGN_X_POOL_CAP + handle tables + strikes) makes 2 MiB tight with no margin, while 4 MiB clears the LFB by a wide margin on the 386+ target at zero cost. DETECT-vs-FIXED: I adopt Smykowski's fail-loud probe as the strictly stronger synthesis. The Bolton/Nagheenanajar/Steward 'no probe, assume RAM' variant violates Law 1 / Rule 2 (it assumes >= 5 MiB installed without ever checking; on a 4 MiB-or-less machine the FLAIR heap silently runs into non-existent RAM). Keeping the WINDOW fixed preserves Rule 11 determinism (the layout is identical every boot; the self-host fixpoint K2==K3 is unaffected); adding the probe only makes the OS fail loud on under-provisioning. boot_info.h confirmed to carry no extended-memory field today (only LFB geometry + font_addr), so the field is a genuine, deliberate addition.
+- *Spec impact.* ONE beads-tracked Rule 8 act touches exactly THREE locked files (no other constant changes): (1) os/milton/boot_info.h -- add `uint32_t ext_mem_kb;` to boot_info_t (extends the handoff block; update the byte-count comment and stage2's BOOT_INFO_ADDR field writes). (2) spec/memory_map.h -- add FLAIR_HEAP_BASE (0x00100000), FLAIR_HEAP_SIZE (0x00400000), FLAIR_HEAP_MIN (0x00400000), with a commentary block citing ADR-0001 (flat 32-bit direct addressability), the no-LFB-collision proof (stage2.asm lfb_addr paths), and the rebound-MCB-arena disqualifier (loader.c int21_mcb_bind_program). NO existing constant (PROGRAM_BASE/IMAGE/ENV_BLOCK/STACK_*/ARENA_CEIL/LOAD_STAGING_*) changes -- the conventional map and arena disjointness invariant are untouched. (3) spec/hardware.json -- add a flair_heap block under 'memory' recording base/size/min and the E820/E801/88h probe + fail-loud-below-min contract; add a provenance row; the existing mutation-proven test_hardware_spec.c gate covers it. stage2.asm also gains the INT 15h probe + the ext_mem_kb write (artifact code change tracked by the same bead, not a locked-spec file).
+- *Allocator.* A single flat arena owned by FLAIR over the fixed [FLAIR_HEAP_BASE, FLAIR_HEAP_BASE+FLAIR_HEAP_SIZE) window: bump-pointer for allocation, typed free-list per allocation class (region rows[]/x_pool backing, indexed-8 offscreen bitmaps, WindowRecord/MenuInfo/ControlRecord/DialogRecord handles, NFNT strikes) for frees -- matching PRD Sec 5 'bump + free-list allocator'. NO per-row / per-handle malloc (Rule 11 deterministic layout; freestanding, no libc). Fail-loud (Rule 2) on exhaustion -- never silent truncation. ADR-0005's region rep is allocator-agnostic (caller-supplied storage), so this arena backs it with no change to the engine; OQ-1 does not block ATKINSON, which is already green.
+
+**DEC-04 -- OQ-2 RESOLVED -- DEFER 86Box pixel-capture funding; funded follow-up gates M4.**
+DEFER (unanimous). Cross-emulator framebuffer agreement runs now against wired QEMU + Bochs via the host-model-per-mode definition (each emulator vs its own host model, not a cross-emulator byte-CRC) -- a real, un-weakened oracle. The hard structural gates (test-region green, test-chrome, test-event, fb-agree, canon) do not need 86Box; SSIM-as-guide surfaces any DAC/palette drift early. File a FUNDED follow-up beads issue now -- 86Box + period Cirrus/ET4000 BIOS, headless capture, host-model DAC calibration, and a mutation proof the 86Box fb-agree arm goes RED on real divergence -- and BLOCK M4 sign-off on it so the period-authenticity leg lands before the chrome/window fidelity bar is locked and apps are frozen. Not a pre-ratification blocker; the 86Box leg of Rule 5's tri-emulator vector is pending, not abandoned.
+
+*DEC-04 full ruling.* DEFER. Do NOT fund 86Box period-VGA pixel capture now. Run cross-emulator framebuffer agreement (D-8) against the currently-wired QEMU + Bochs using the host-model-per-mode definition (each emulator vs its own host model's prediction for its own mode). File a FUNDED follow-up beads issue NOW, scoped to: (1) 86Box + a period Cirrus CL-GD5422 / ET4000-W32 VGA BIOS setup and headless screendump automation; (2) host-model calibration for 86Box's specific DAC/palette ramp; (3) a mutation proof that the 86Box arm of fb-agree can go RED on a real divergence. The follow-up issue MUST be filed and MUST block M4 sign-off (the first full-desktop chrome milestone), so 86Box coverage lands before the fidelity bar is locked and before bundled apps are frozen -- it is NOT a pre-ratification blocker.
+
+### 8.2 Amendments (AM-1 .. AM-9) -- carried by DEC-01
+
+**AM-1 (D-8 host-model parameterization, Bolton):** The cross-emulator agreement model in D-8 must explicitly state that the host render skeleton is parameterized by the RUNTIME boot_info_t (lfb_addr, lfb_pitch, lfb_bpp, lfb_width, lfb_height as reported by VBE PhysBasePtr or the 0xA0000 VGA fallback) -- NOT any hardcoded aperture. Verified against os/boot/stage2.asm: lfb_addr is the VBE PhysBasePtr (offset 0x28) on QEMU and 0x000A0000 on the Bochs mode-0x13 fallback; the oracle MUST consume the same boot_info_t the kernel does so emulator and host model predict the same physical address. Stated as a forward obligation gating the host render skeleton (initech-k8o5.7).
+
+**AM-2 (FO-1 sequencing, Bolton + Fidelity Steward):** FO-1 (surface-module extraction from console.c) and a GREEN, MUTATION-PROVEN fb-agree gate MUST precede ALL Manager code -- the one-surface invariant (D-2/C-2) is unenforceable until fb-agree bites. At least one named fb-agree mutant must be recorded in the ratified text (e.g. route a shared span through a second pixel path; assert the gate goes RED), matching the ADR-0005 RGN_MUTATE_* discipline (Smykowski C-7 gap).
+
+**AM-3 (FO-2 strengthened, Fidelity Steward + Smykowski):** FO-2 is hardened from 'chrome_metrics.json v1 locked or confirmed locked' to: chrome_metrics.json v1 is LOCKED AND test-chrome is MUTATION-PROVEN (three named mutants, Rule 6) at the SAME gate as FO-1, before ANY Window/Control Manager drawing code ships. A locked metric with an unproven oracle lets plausible chrome through.
+
+**AM-4 (canon as frozen data, Nagheenanajar):** D-3's Photoshop menu bar (File Edit Image Layer Select View Window Help) and D-7's hourglass cursor must be FROZEN locked-data (named spec/assets/ files or named locked constants), not prose an agent may silently 'correct.' Either confirm spec/assets/ contains the CURS bytes and the menu-bar string and name the files, or record each as a Forward Obligation with a beads issue. The canon oracle (D-8) gates these frozen bytes.
+
+**AM-5 (FO-5 new, Smykowski governance):** Add FO-5 to Sec 5.2: the OQ-1 resolution (DEC-03 below) is executed as ONE deliberate, beads-tracked Rule 8 act touching exactly three locked files -- boot_info.h (new ext_mem_kb field), spec/memory_map.h (FLAIR_HEAP_BASE/SIZE/MIN constants), spec/hardware.json (memory section). No FLAIR allocator .c may be written before that beads issue is open and linked. No silent edits.
+
+**AM-6 (D-8 definition frozen, Smykowski + Fidelity Steward):** The 'each emulator vs its own host-model prediction, NOT a cross-emulator byte-CRC' definition in D-8/Sec 4.5 is preserved verbatim and may only be changed by a deliberate ADR amendment -- a future agent must not be able to silently revert to a naive cross-emulator byte-CRC or pin to QEMU (a Stop condition).
+
+**AM-7 (Law 1 source citations, Nagheenanajar):** D-7 must cite a local source for the dual-PIC EOI sequence (8259A / IBM PC AT Technical Reference for the IRQ2-cascade / IRQ12 slave-EOI-then-master-EOI order); OD-2's indexed-8 rationale must note its period grounding (8-bpp VGA/SVGA offscreen model -- Mode 13h, VBE 0x101/0x103 -- as the authentic backing-store depth of the era), not merely 'operator decided.'
+
+**AM-8 (M3 drag-gate named, Fidelity Steward):** Add the M3 window-drag gate (beads initech-87a) as an explicit hard pass/fail row in the D-8 oracle vector: 'drag-gate -- a window drags across the desktop with correct DiffRgn update regions, no over-repaint, chrome unchanged outside the damaged area, verified against chrome_metrics v1 fixture crops.' This is the earliest human-verifiable Law-4 fidelity moment and belongs in the ADR, not only in beads.
+
+**AM-9 (FO-3 palette gate, Smykowski):** FO-3 (reconcile palette.json desktop_bg v0 gray -> SEAFOAM) must name an oracle: the follow-up issue includes a test asserting the palette.json canonical desktop_bg entry equals the live boot/oracle SEAFOAM value (0x6F,0xA0,0x8E), not a visual check.
+
+### 8.3 Recorded Dissent
+
+- **D-DISSENT-1 (carried forward from Section 6, unresolved by ratification):** one reviewing function held the canonical internal offscreen depth should be 32-bit direct color (simpler blits, no palette management, closer to the modern LFB) rather than the operator-ratified indexed-8 (OD-2). The operator ratified indexed-8 as period-authentic (8-bpp VGA/SVGA era; smaller offscreens; matches the palettized seafoam/chrome). Recorded so a future depth-related friction (e.g. a 32-bpp-only LFB mode) re-opens an informed trade-off rather than rediscovering it. The committee did NOT re-open OD-2; Nagheenanajar (Heritage) affirms indexed-8 is the period-correct choice.
+- **OQ-1 minority on heap size (Bolton, Nagheenanajar):** both proposed a 2 MiB window (0x100000..0x300000) rather than the ratified 4 MiB. Chair sided with the 4 MiB of the Fidelity Steward for M3-M5 offscreen + region-pool + strike + handle-table headroom at zero cost on the 386+ target. Recorded; if the hardware-minimum contract becomes a friction the size can be revisited as a Rule 8 act.
+- **OQ-1 minority on detect (Bolton, Nagheenanajar, Fidelity Steward):** three reviewers proposed NO boot-time probe (fixed window, assume RAM present, validate later as a Forward Obligation). Chair adopted Smykowski's fail-loud INT 15h probe + boot_info ext_mem_kb + panic-below-min as the strictly stronger position (Law 1 / Rule 2: do not assume RAM that may not be installed), while keeping the WINDOW fixed so Rule 11 determinism is preserved. Recorded as a deliberate chair override of the 3-1 reviewer lean on this sub-point, justified because the no-probe variant silently runs the FLAIR heap into possibly-absent RAM.
+
+### 8.4 Forward Obligations (FO-A .. FO-G)
+
+- **FO-A (DEC-03 / AM-5, beads initech-k8o5.5):** Open ONE beads issue for the OQ-1 Rule 8 locked-spec act before any FLAIR allocator .c is written; it edits exactly boot_info.h (add ext_mem_kb), spec/memory_map.h (add FLAIR_HEAP_BASE=0x100000 / FLAIR_HEAP_SIZE=0x400000 / FLAIR_HEAP_MIN=0x400000 + commentary), spec/hardware.json (add flair_heap block + provenance row), and adds the stage2 INT 15h E820/E801/88h probe + kernel panic-below-min. No silent edits; link the issue in ADR-0004 Sec 5.2 as FO-5. This UNBLOCKS the FLAIR heap allocator bead and all Manager/offscreen-bitmap work in epic k8o5 (M4).
+- **FO-B (DEC-01 / AM-2, AM-3, beads initech-k8o5.6 + initech-k8o5.8):** The surface-module extraction from console.c (initech-k8o5 FO-1) with a GREEN, MUTATION-PROVEN fb-agree gate AND a mutation-proven test-chrome (chrome_metrics.json v1 locked) MUST be green before ANY Window/Control/Menu/Dialog Manager drawing code lands. Record one named fb-agree mutant in the ADR text. UNBLOCKS Manager work (layer 3).
+- **FO-C (DEC-01 / AM-1, beads initech-k8o5.7):** Before wiring the host render skeleton (initech-k8o5.7), state and implement that the host model is parameterized by the runtime boot_info_t LFB geometry (VBE PhysBasePtr or 0xA0000 fallback), never a hardcoded aperture. Gates the D-8 cross-emulator/fb-agree oracle correctness.
+- **FO-D (DEC-04, beads initech-q0gy):** File the FUNDED 86Box pixel-capture follow-up beads issue now (86Box + period Cirrus/ET4000 BIOS, headless capture, host-model DAC calibration, mutation proof the 86Box fb-agree arm goes RED). Mark it BLOCKING for M4 sign-off so the period-authenticity emulator leg lands before the chrome/window fidelity bar is locked and bundled apps are frozen.
+- **FO-E (DEC-01 / AM-4, AM-7, beads initech-zaqj):** Confirm-or-create locked-data + beads issues for the canon assets (the hourglass CURS bytes and the 'File Edit Image Layer Select View Window Help' menu-bar string as named spec/assets/ files or locked constants), and add the Law-1 source citations to D-7 (8259A/IBM AT EOI sequence) and OD-2 (period 8-bpp offscreen grounding).
+- **FO-F (DEC-01 / AM-9, beads initech-ch81):** The palette follow-up (FO-3, reconcile palette.json desktop_bg v0 gray -> SEAFOAM 0x6F,0xA0,0x8E) must include an oracle asserting the palette.json canonical entry equals the live boot/oracle SEAFOAM value -- not a visual check.
+- **FO-G (DEC-03, beads initech-k8o5.5):** When stage2 reports ext_mem_kb, the kernel validates installed RAM >= FLAIR_HEAP_BASE+FLAIR_HEAP_SIZE at boot and panics loud (PC LOAD LETTER) below FLAIR_HEAP_MIN; this fail-loud path itself must be covered (a test/mutant confirming the panic fires on under-provisioned RAM).
+
+---
+
+## 9. Related Decisions and References
 
 - ADR-0001 — 386+, 32-bit flat (the platform FLAIR draws on).
 - ADR-0002 — Toolchain / implementation language (C) / executable format.
 - ADR-0003 — InitechDOS base OS (MILTON), incl. the MCB arena (OQ-1) and `console.c` (the surface module's origin, D-2); Amendments DEC-04a (INT 21h convention), DEC-14 (user-pointer validation).
-- **ADR-0005 — ATKINSON Region Engine** (companion, DRAFT): layer 2 of this stack; the locked `spec/region_algebra.h`.
+- **ADR-0005 — ATKINSON Region Engine** (companion, RATIFIED 2026-06-19, DEC-02): layer 2 of this stack; the locked `spec/region_algebra.h`.
 - ADR-0007 — Turbo Initech (pending); a FLAIR tenant, not part of FLAIR.
 - CDR-0001 — interim toolchain deviation.
 - PRD §2 (non-goals: cooperative, no isolation), §3 (fidelity bar / SSIM guide), §4 (architecture), §6.2 (region engine), §6.3 (Toolbox + oracle), §6.4 (fonts/assets), §6.5 (apps / FILE COPY), §8 (oracle infra / gate vector), §9 (swarm discipline), §12 (Toolbox-sprawl risk), §15 (cooperative DECIDED), Appendix A (the frame), Appendix B (comedic constants / panic).
 - Locked spec-data: `spec/region_algebra.h`, `spec/chrome_metrics.json`, `spec/assets/`.
 
-<!-- END OEA-ADR-0004 (DRAFT) — INITECH CONFIDENTIAL -->
+<!-- END OEA-ADR-0004 (RATIFIED) — INITECH CONFIDENTIAL -->

@@ -55,3 +55,9 @@ fixtures/*.jpeg
 # Python bytecode cache (harness/diff/fat_diff/fat12_ref.py)
 __pycache__/
 *.pyc
+
+# FLAIR ground-truth references (Inside Macintosh PDFs, WDEF listings) -- local-only, copyright Apple, NEVER commit
+refs/
+# Mac 68K ROMs + period disk images -- abandonware-grey, NEVER commit (gui-ground-truth.md Sec 8)
+*.ROM
+*.rom

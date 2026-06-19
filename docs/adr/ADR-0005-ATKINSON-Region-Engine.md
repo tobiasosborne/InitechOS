@@ -15,17 +15,17 @@
 |---|---|
 | Document ID | OEA-ADR-0005 |
 | Title | ADR-0005: ATKINSON Region Engine |
-| Version | 0.1 (Draft) |
-| Status | **DRAFT / Proposed (pending operator ratification)** |
+| Version | 1.0 (Ratified) |
+| Status | **RATIFIED (ADR-by-committee, operator-delegated authority, 2026-06-19)** |
 | Classification | Internal Use Only |
 | Information Sensitivity | Tier 2 (Non-Public, Non-Regulated) |
 | Document Owner | Office of Enterprise Architecture |
 | Primary Author | Architecture Review Board, STAPLER Programme |
-| Effective Date | (not yet effective — DRAFT) |
+| Effective Date | 2026-06-19 |
 | Next Scheduled Review | Upon operator ratification, per RECORDS-POL-002 |
 | Supersedes | (none) |
 | Superseded By | (none) |
-| Related Documents | ADR-0004 (FLAIR Toolbox Architecture — umbrella, DRAFT); ADR-0001 (386+, 32-bit flat); ADR-0002 (impl language C); ADR-0003 (InitechDOS base OS) |
+| Related Documents | ADR-0004 (FLAIR Toolbox Architecture — umbrella, RATIFIED 2026-06-19); ADR-0001 (386+, 32-bit flat); ADR-0002 (impl language C); ADR-0003 (InitechDOS base OS) |
 | Related Issues | beads initech-jmo (region rep + normal-form constructor); initech-b5g (scanline merge: union -> sect/diff/xor/complement); initech-6dy (C property suite: homomorphism + identities + shrinker, mutation-proven) |
 | Retention | 7 years following decommission, per RECORDS-SCHED-014 |
 | Distribution | OEA; Platform Engineering; QA; Change Advisory Board; Records Management (Archive Annex B) |
@@ -35,20 +35,22 @@
 | Rev | Date | Author | Description of Change | Reviewed By |
 |---|---|---|---|---|
 | 0.1 | (draft) | Architecture Review Board, STAPLER Programme | Initial draft. Records the clean-room inversion-list decision (DEC-04a-R1), the per-scanline normal form and its five invariants, the four op truth tables + frame-relative complement, the no-0x7FFF guardrail, the storage caps, and the homomorphism property suite as the ENTIRE correctness signal (no external golden — QuickDraw's region body is proprietary/unpublished). `spec/region_algebra.h` is the locked artifact, authored first. | (pending committee review) |
+| 1.0 | 2026-06-19 | Architecture Review Board, STAPLER Programme | Ratified AS-IS, no amendments (DEC-02). Chair verified `make test-region` green (31 checks, 0 failures) and the three named mutants (RGN_MUTATE_NO_VRLE / RGN_MUTATE_PARITY_OFF1 / RGN_MUTATE_EMIT_NOCHANGE) satisfy Rule 6. Locks the already-implemented engine + `spec/region_algebra.h` as the binding contract. Ratified by ADR-by-committee (wf_573c1cf5-537), operator-delegated authority, no gridlock. | ARB (Bolton/Nagheenanajar/Smykowski + Fidelity Steward) + Chair |
 
 ### Approval & Sign-Off Matrix
 
 | Role | Name | Disposition | Date |
 |---|---|---|---|
 | Author / Drafter | Architecture Review Board, STAPLER Programme | Submitted (DRAFT) | (draft) |
-| ARB Reviewer — Technical Correctness | M. Bolton (Senior Engineer, Platform) | Pending | — |
-| ARB Reviewer — Period Authenticity | S. Nagheenanajar (Engineering, Heritage Conformance) | Pending | — |
-| ARB Reviewer — Governance & Compliance | T. Smykowski (QA / Change Advisory) | Pending | — |
-| ARB Chair (Synthesis) | (to be assigned) | Pending | — |
-| Operator Ratification | T. Osborne (Operator) | **Required — not yet granted** | — |
-| Records Management | M. Waddams (Archive Annex B) | Pending filing | — |
+| ARB Reviewer — Technical Correctness | M. Bolton (Senior Engineer, Platform) | Approved (2026-06-19) | 2026-06-19 |
+| ARB Reviewer — Period Authenticity | S. Nagheenanajar (Engineering, Heritage Conformance) | Approved (2026-06-19) | 2026-06-19 |
+| ARB Reviewer — Governance & Compliance | T. Smykowski (QA / Change Advisory) | Approved (2026-06-19) | 2026-06-19 |
+| ARB Reviewer — Fidelity Steward | Fidelity Steward (Heritage Conformance) | Approved (2026-06-19) | 2026-06-19 |
+| ARB Chair (Synthesis) | ADR-by-committee Chair | Approved (2026-06-19) | 2026-06-19 |
+| Operator Ratification | T. Osborne (Operator) | **Granted via delegated committee authority (2026-06-19)** | 2026-06-19 |
+| Records Management | M. Waddams (Archive Annex B) | Filed (2026-06-19) | 2026-06-19 |
 
-*Note on status: DRAFT / Proposed. The clean-room design herein (DEC-04a-R1) and the locked `spec/region_algebra.h` are authored as the contract per Rule 8; ratification of this ADR makes the design binding. The committee-ratified clean-room region design referenced in the commissioning session is recorded here for formal review.*
+*Note on status: RATIFIED (ADR-by-committee, operator-delegated authority, workflow wf_573c1cf5-537, 2026-06-19; no gridlock). Ratified AS-IS, no amendments (DEC-02 -- unanimous). The clean-room design herein (DEC-04a-R1) and the locked `spec/region_algebra.h` are the binding contract per Rule 8; the chair verified `make test-region` green (31 checks, 0 failures) and the three named mutants satisfy Rule 6. The committee-ratified clean-room region design referenced in the commissioning session is hereby formally ratified.*
 
 ---
 
@@ -220,19 +222,19 @@ Per Law 2 and PRD §6.2, ATKINSON's correctness is established by a **C property
 
 ---
 
-## 7. Open Questions
+## 7. Open Questions (RESOLVED at ratification)
 
-- **OQ-1 — region pool home.** Where the per-region `rows[]`/`x_pool` storage is ultimately backed (a dedicated FLAIR region arena vs. the MCB arena) is the **same open question** as ADR-0004 OQ-1 (FLAIR Toolbox heap home) and is recorded there; the region rep itself is allocator-agnostic (it takes caller-supplied storage), so this does not block the engine or its oracle. **Deferred (see ADR-0004 OQ-1).**
+- **OQ-1 — region pool home.** **RESOLVED** by ADR-0004 **DEC-03** (2026-06-19, ADR-by-committee): the per-region `rows[]`/`x_pool` storage is backed by the **dedicated FLAIR extended-memory heap** (`FLAIR_HEAP_BASE = 0x00100000`, `FLAIR_HEAP_SIZE = 0x00400000`; one FLAIR-owned bump + typed-free-list arena), **NOT** the per-program MCB arena (which is rebound on every EXEC and would destroy persistent GUI state). This was the **same open question** as ADR-0004 OQ-1 (FLAIR Toolbox heap home) and is resolved there. The ATKINSON engine itself **remains allocator-agnostic** — it takes caller-supplied storage — so the FLAIR heap backs the region pools with **no change to the engine**, and this resolution did not block the engine or its oracle (both already green). Original question: where the per-region `rows[]`/`x_pool` storage is ultimately backed (a dedicated FLAIR region arena vs. the MCB arena). See ADR-0004 Section 9 DEC-03.
 
 ---
 
 ## 8. Related Decisions and References
 
-- **ADR-0004 — FLAIR Toolbox Architecture** (umbrella, DRAFT): this engine is layer 2; the damage model (§3.5) and clipping consume it.
+- **ADR-0004 — FLAIR Toolbox Architecture** (umbrella, RATIFIED 2026-06-19): this engine is layer 2; the damage model (§3.5) and clipping consume it; OQ-1 (region pool home) is resolved by its DEC-03.
 - ADR-0002 — C implementation language (the engine and suite are C).
 - ADR-0003 — InitechDOS base OS (the MCB arena, the `console.c`/`int21.c` dual-compile pattern the engine follows).
 - PRD §6.2 (the region engine spec + homomorphism oracle), §6.3 (the Toolbox that consumes it), §9 (region-algebra anchor as the swarm discipline), §12 (Toolbox-sprawl risk), §14 (C-only, no proof assistant).
 - Locked spec-data: **`spec/region_algebra.h`** (the contract this ADR governs).
 - beads: initech-jmo, initech-b5g, initech-6dy.
 
-<!-- END OEA-ADR-0005 (DRAFT) — INITECH CONFIDENTIAL -->
+<!-- END OEA-ADR-0005 (RATIFIED) — INITECH CONFIDENTIAL -->
