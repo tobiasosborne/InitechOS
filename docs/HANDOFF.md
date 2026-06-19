@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-19 (WL-0033 -- SAMIR runs inside InitechOS; ADR-0009)
+**Last Reconciled:** 2026-06-20 (WL-0034 + WL-0035 -- FLAIR M3: a draggable System-7 desktop, oracle-enforced; ADR-0004/0005 ratified)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -435,18 +435,37 @@ DISJOINT file ownership + Makefile integration + INDEPENDENT re-grading (Law 2: 
 mutant + clean aggregate + golden-integrity, never trust the report) + commit-per-wave + the bead
 ledger; `make clean && make test-unit` at every integration; committee for serious decisions.
 
-**FLAIR GUI groundwork launched (WL-0021 + WL-0020).** An ADR-by-committee
-ratified the region-first Toolbox plan; operator decided indexed-8 depth,
-640x480, keep seafoam desktop_bg, proceed in parallel with f8v.4. **The ATKINSON
-region engine is implemented + green** (`spec/region_algebra.h` locked;
-`os/flair/atkinson/`; `make test-region` homomorphism oracle over 16000 pairs +
-3 mutants; freestanding-legal). Draft `ADR-0004` (FLAIR) + `ADR-0005` (region
-engine) await operator ratification (`initech-k8o5.2`). Epic **`initech-k8o5`**
-carries the 26-bead lattice; next FLAIR steps: `k8o5.6` (extract `console.c`
-into one surface module) + `initech-i50` (blitter with region clipping, now
-unblocked) `→ initech-26d` / `initech-kg5` `→ initech-87a` (M3 window-drag gate).
-STILL-OPEN operator questions (in the ADRs): FLAIR heap home; real-Bochs
-pixel-capture funding.
+**FLAIR M3 is LIVE -- a draggable System-7 desktop, oracle-enforced (WL-0034 + WL-0035).**
+The operator opened FLAIR as the crown jewel ("built on REAL measurements + RE/source-as-spec
++ goldens from real era software; 100% usable; obviously a System-7+Windows chimera" -- see
+`bd memories` operator-directive-2026-06-19-flair-is-the). Driven as orchestrated parallel
+waves; **ADR-0004 (FLAIR) + ADR-0005 (ATKINSON) RATIFIED by committee** (operator-delegated
+authority, no gridlock; OQ-1 -> extended-memory heap DEC-03; OQ-2 -> defer 86Box DEC-04).
+**Built + green + pushed (8 commits, FLAIR epic 22/33 = 66%):**
+- GROUND TRUTH: `docs/research/gui-ground-truth.md` (System 7.0/7.1 target; Apple WDEF assembly
+  source + Inside Macintosh as the authoritative native-pixel source); `spec/chrome_metrics.json`
+  v1 (menu 20/title 19/scrollbar 16/frame 1/dialog 7 -- FIRST-HAND from StandardWDEF.a);
+  `spec/chimera_element_map.json` (11-element mac-vs-win map).
+- DRAWING: the ONE surface module (`os/flair/surface.c`, console is a client; `test-fbagree`),
+  the extended-memory FLAIR heap (`spec/memory_map.h` FLAIR_HEAP_* + stage2 INT15h probe +
+  `os/flair/heap.c` allocator), GrafPort/imaging + event/window + canon specs, the
+  region-clipped blitter (`os/flair/blitter.c`), Chicago+Geneva text (`os/flair/text.c`),
+  the seafoam desktop, the canon oracle (`test-canon`), and the chrome oracle
+  (`os/flair/chrome.c` + `test-chrome` -- renders a System-7 window, diffs vs WDEF metrics).
+- INTERACTIVE: the Window Manager (`os/flair/window.c`, z-order + DiffRgn damage, `test-window`),
+  the Event Manager (`os/flair/event.c`, ISR-enqueue SPSC ring + WaitNextEvent, `test-event`),
+  and the **M3 DRAG-GATE CAPSTONE** (`os/flair/desktop.c` compositor + `test-drag`): a window
+  drags across a 3-window desktop with PIXEL-LEVEL no-over-repaint (D-5) proven against an
+  independent owner-grid. Visually audited: `build/drag_{before,after}.ppm` = a real draggable
+  Mac desktop. **`make test-unit` = 208 host gates** (was 184) + 35 QEMU + Bochs boot.
+**NEXT FLAIR ARC (resume here):** everything above is HOST-RENDERED (the oracles). Wire the
+FLAIR stack INTO the kernel and boot to a live desktop in the emulator -- `initech-26d` (PS/2
+mouse IRQ12 + hourglass cursor) + a desktop kmain path + an emu screendump gate. Then M4
+Managers: `n3e` (Menu, Photoshop-exact), `8h9` (Control), `qcc` (Dialog/FILE COPY),
+`k8o5.12` (manager set), `859` (desktop shell) -> reproduce the frame. Fidelity follow-ups
+filed (palette single-source + content-WHITE; autoKey; `u9gf` Bochs RFB capture). OPERATOR-gated
+(non-blocking): `pvo4` Mac 68K ROM (Basilisk II rendered SSIM goldens), `77wz` Win 3.1
+(`apt install xvfb xdotool`), `q0gy` 86Box (blocks M4 sign-off).
 
 **Other ready work** (`bd ready`; distinct directions — pick per operator
 steer):
