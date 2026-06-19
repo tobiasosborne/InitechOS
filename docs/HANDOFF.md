@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-18
+**Last Reconciled:** 2026-06-19 (WL-0033 -- SAMIR runs inside InitechOS; ADR-0009)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -130,6 +130,13 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
+`make test` = **184 host + 31 emu gates** (WL-0033: SAMIR now RUNS INSIDE InitechOS --
++8 host [`test-arena-disjoint`, `test-loader-big`, `test-hardware-spec`, `test-samir-softfp`
+x unit+mutant] and +4 emu [`test-samir-boot`(+mutant): boot->EXEC SAMIR.COM->USE->LIST;
+`test-samir-write`(+mutant): REPLACE/APPEND persists to the .dbf on the FAT volume, verified
+by the independent reader]. The S8.2 milestone is GREEN on QEMU: the dBASE-III+-1.1 engine
+boots as a flat .COM, opens a .dbf, lists + edits records, all via soft-float + the disjoint
+AH=48h arena + the in-place FAT loader. See ADR-0009 + WL-0033.). Prior:
 `make test` = **176 host + 27 emu gates** (WL-0031+WL-0032 took SAMIR/M6 from 124 to 176 host:
 the full `.dbt` codec, `.ndx` keys/SEEK/build/maintain, the whole interpreter S5.1-S5.8 + the
 dot-prompt REPL, writable USE, all five function families, and the Phase-6/7 oracles). **The M6
@@ -388,18 +395,34 @@ gate). Two Law-2 catches this session: an `STR()`/SET-DECIMALS Law-1 grounding e
 decimals is 0, verified; SET DECIMALS's scope is division/VAL, not STR -- corrected) and a
 program-diff harness liveness defect (summary to stderr -> mutant gate couldn't bite -- fixed).
 
-**REMAINING SAMIR work -- ALL GATED / deferred (no ungated host work left):**
-- `7az.13` transcendentals SQRT/LOG/EXP -- **committee-worthy** (no-libm strategy: x87-asm vs
-  polynomial approx) + MINT for numeric edges.
+**SAMIR RUNS INSIDE InitechOS -- M6 Phase 8 S8.1+S8.2 COMPLETE (WL-0033; ADR-0009 ratified).**
+The operator opened the SAMIR<->Milton integration; an ADR-by-committee (period-authenticity
+steer: dBASE did software FP, DOS ignored the 8087) ratified **ADR-0009**: SOFT-FLOAT engine
+(no kernel FPU), flat `.COM` in conventional memory, kernel-x87 deferred. Landed + green +
+pushed (`bf54c91`/`6f06411`/`8afa37d`/`6336efb`): `pal_milton.c` (the sole int 0x21 TU),
+the DISJOINT AH=48h arena fix (`1q4u`), vendored `softfp.c` (`ap5g`), `samir_crt0`+`samir.ld`,
+the `FLOW_MAX_REGISTRY=1` Milton profile (`qucm`), `spec/hardware.json` (`nh0m`), the in-place
+FAT loader for >64 KiB apps (`za4m`), and the two emu gates: **`test-samir-boot`** (boot->USE->
+LIST) + **`test-samir-write`** (REPLACE/APPEND persists to the .dbf, independent-reader-verified).
+`make samir-com` -> `build/SAMIR.COM` (77792 bytes). Closed: ax9.1/ax9.2/hdlb/za4m/1q4u/qucm/
+nh0m/ap5g/g6wx.
+
+**NEXT ungated SAMIR-in-InitechOS deepening (filed):** SEEK/`.ndx` + DELETE/PACK in-emulator;
+a CANON app (`586.1` Y2K accounting / `586.2` Bolton salami) running INSIDE InitechOS via a
+small `DO <file>` REPL feature (read a .prg off the data disk + execute) -- the Law-4 showpiece.
+
+**REMAINING SAMIR work -- GATED / deferred (no ungated host work left):**
+- `7az.13` transcendentals SQRT/LOG/EXP -- now tractable on the soft-float base (poly approx;
+  `softfp.c` is the home) + MINT for numeric edges.
 - `7az` SET-DECIMALS-division (wire SET DECIMALS into its verified scope: division/VAL/computed
   display, NOT STR); `7az.17` (commands.h consolidation), `7az.18` (mutate.c #41->#111) -- cleanups.
 - GATED TRANSFORM `@`-clauses + numeric/date MINT (MOD-sign, INT-on-neg, ROUND-tie, ITALIAN/FRENCH
   dates) -- need a **dosbox-x MINT** session vs real dBASE III+ 1.1.
 - `586.4`/`586.4.1`/`17n.3` -- Tier-2 real-`DBASE.EXE` authenticity minting + re-mint the authentic
   `CNAMES.NDX` golden (faithful SAMIR rebuild after the WL-0031 test mishap; needs dosbox-x).
-- `0tl` (@SAY/GET forms) + `ax9` (FLAIR text-console window) + S8.x (`pal_milton`, FPU-ready, SAMIR
-  as a flat `.COM` on Milton; the 27 emu gates) -- gated on **M4 (FLAIR)** / the boot image /
-  `spec/hardware.json`.
+- ~~S8.1 `pal_milton` + S8.2 SAMIR-as-flat-`.COM` on Milton~~ **DONE (WL-0033).** Still GATED on
+  **M4 (FLAIR)**: `ax9.3` (S8.3 SAMIR<->FLAIR text-console window) + `0tl`/`0tl.1` (S8.4 @SAY/GET/READ
+  full-screen forms) -- these need the FLAIR window/event surface, which does not exist yet.
 
 **Orchestration cadence (operator-set, proven across 21 waves):** delegate each step to a subagent
 (sonnet default, opus for load-bearing; <=6 sonnet / <=2 opus parallel); the orchestrator owns
