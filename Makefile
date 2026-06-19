@@ -5811,6 +5811,8 @@ endef
 # Real targets vs. phony stubs are all .PHONY (no file products tracked by
 # make here except the smoke binary, which depends on its source).
 .PHONY: help factory image run run-bochs smoke ssim test test-region test-region-mutant \
+        test-flair-heap test-flair-heap-mutant \
+        test-flair-headers test-flair-headers-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-int24 test-int24-mutant \
@@ -7177,6 +7179,95 @@ test-region-mutant: $(TEST_REGION_MUT_VRLE) $(TEST_REGION_MUT_PARITY) $(TEST_REG
 		exit 1; \
 	else \
 		printf '>>> test-region-mutant: green (EMIT_NOCHANGE mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-heap (beads initech-k8o5.5 -- the FLAIR Toolbox heap
+# allocator, ADR-0004 DEC-03 *Allocator* / PRD Sec 5 "bump + free-list")
+# ---------------------------------------------------------------------------
+# The allocator property suite (harness/proptest/test_flair_heap.c) drives the
+# REAL allocator (os/flair/heap.c) HOSTED, the dual-compile pattern: the SAME
+# heap.c the kernel links freestanding (the kernel binds the LOCKED spec window
+# FLAIR_HEAP_BASE/SIZE; the host backs it with a malloc'd buffer -- caller-
+# supplied storage, region.c-style). Properties: bump monotonicity + 16-align,
+# typed free-list REUSE, CLASS ISOLATION (a freed REGION block never satisfies a
+# BITMAP request), FAIL-LOUD EXHAUSTION (NULL, no overrun -- Rule 2), and
+# DETERMINISM (same script -> identical layout, Rule 11) + a data-integrity /
+# disjointness fuzz. Two named mutants (NO_BOUNDS / NO_REUSE) prove the oracle
+# BITES (Rule 6).
+FLAIR_HEAP_C       := os/flair/heap.c
+FLAIR_HEAP_H       := os/flair/heap.h
+TEST_FLAIR_HEAP    := $(BUILD)/test_flair_heap
+TEST_FLAIR_HEAP_SRC := harness/proptest/test_flair_heap.c
+TEST_FLAIR_HEAP_DEPS := $(FLAIR_HEAP_C) $(FLAIR_HEAP_H)
+TEST_FLAIR_HEAP_MUT_BOUNDS := $(BUILD)/test_flair_heap_mutant_bounds
+TEST_FLAIR_HEAP_MUT_REUSE  := $(BUILD)/test_flair_heap_mutant_reuse
+FLAIR_HEAP_INC := -Ios/flair -Iseed
+
+$(TEST_FLAIR_HEAP): $(TEST_FLAIR_HEAP_SRC) $(TEST_FLAIR_HEAP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HEAP_INC) \
+		-o $@ $(TEST_FLAIR_HEAP_SRC) $(FLAIR_HEAP_C)
+
+$(TEST_FLAIR_HEAP_MUT_BOUNDS): $(TEST_FLAIR_HEAP_SRC) $(TEST_FLAIR_HEAP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HEAP_MUTATE_NO_BOUNDS $(FLAIR_HEAP_INC) \
+		-o $@ $(TEST_FLAIR_HEAP_SRC) $(FLAIR_HEAP_C)
+
+$(TEST_FLAIR_HEAP_MUT_REUSE): $(TEST_FLAIR_HEAP_SRC) $(TEST_FLAIR_HEAP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HEAP_MUTATE_NO_REUSE $(FLAIR_HEAP_INC) \
+		-o $@ $(TEST_FLAIR_HEAP_SRC) $(FLAIR_HEAP_C)
+
+test-flair-heap: $(TEST_FLAIR_HEAP)
+	@printf ">>> test-flair-heap: FLAIR heap allocator -- bump monotonicity/align + typed free-list reuse + class isolation + fail-loud exhaustion + determinism + data-integrity fuzz\n"
+	@$(TEST_FLAIR_HEAP)
+	@printf ">>> test-flair-heap: green\n"
+
+test-flair-heap-mutant: $(TEST_FLAIR_HEAP_MUT_BOUNDS) $(TEST_FLAIR_HEAP_MUT_REUSE)
+	@printf ">>> test-flair-heap-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_FLAIR_HEAP_MUT_BOUNDS) >/dev/null 2>&1; then \
+		printf '!!! test-flair-heap-mutant FAIL: NO_BOUNDS mutant PASSED -- the exhaustion oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-flair-heap-mutant: green (NO_BOUNDS mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_FLAIR_HEAP_MUT_REUSE) >/dev/null 2>&1; then \
+		printf '!!! test-flair-heap-mutant FAIL: NO_REUSE mutant PASSED -- the free-list-reuse oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-flair-heap-mutant: green (NO_REUSE mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
+# canon) -- a COMPILE-CONTRACT oracle. Until a Manager consumer exists, nothing
+# includes grafport.h/imaging.h, so their 47 _Static_asserts never fire in the
+# build. This gate FORCES them to compile (the compile-time contract) AND asserts
+# the frozen canon (hourglass cursor bytes + Photoshop menu string) at runtime.
+# The -DFLAIR_HEADERS_MUTANT arm perturbs the compared canon byte so the runtime
+# check is proven to bite (Rule 6). The full canon mutation gate = initech-k8o5.10.
+# ---------------------------------------------------------------------------
+TEST_FLAIR_HEADERS     := $(BUILD)/test_flair_headers
+TEST_FLAIR_HEADERS_MUT := $(BUILD)/test_flair_headers_mutant
+TEST_FLAIR_HEADERS_SRC := harness/proptest/test_flair_headers.c
+FLAIR_HDR_DEPS := spec/grafport.h spec/imaging.h spec/assets/cursors.h spec/assets/menu_canon.h os/flair/surface.h spec/region_algebra.h
+FLAIR_HDR_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson
+
+$(TEST_FLAIR_HEADERS): $(TEST_FLAIR_HEADERS_SRC) $(FLAIR_HDR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) -o $@ $(TEST_FLAIR_HEADERS_SRC)
+
+$(TEST_FLAIR_HEADERS_MUT): $(TEST_FLAIR_HEADERS_SRC) $(FLAIR_HDR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HEADERS_MUTANT $(FLAIR_HDR_INC) -o $@ $(TEST_FLAIR_HEADERS_SRC)
+
+test-flair-headers: $(TEST_FLAIR_HEADERS)
+	@printf ">>> test-flair-headers: FLAIR locked-spec compile contract (grafport/imaging static_asserts) + frozen canon (hourglass + Photoshop menu)\n"
+	@$(TEST_FLAIR_HEADERS)
+	@printf ">>> test-flair-headers: green\n"
+
+test-flair-headers-mutant: $(TEST_FLAIR_HEADERS_MUT)
+	@printf ">>> test-flair-headers-mutant: confirming the canon-byte mutant goes RED (Rule 6)\n"
+	@if $(TEST_FLAIR_HEADERS_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-flair-headers-mutant FAIL: mutant PASSED -- the canon oracle is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-flair-headers-mutant: green (canon mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -11677,6 +11768,8 @@ TEST_UNIT_GATES := \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
+	test-flair-heap test-flair-heap-mutant \
+	test-flair-headers test-flair-headers-mutant \
 	test-fbagree test-fbagree-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
