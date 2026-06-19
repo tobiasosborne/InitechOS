@@ -10724,6 +10724,192 @@ $(SAMIR_COM): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@sz=$$(stat -c%s $@); x87=$$(objdump -d $(BUILD)/samir_com/SAMIR.elf | grep -ciE '\bf(ld|st|add|sub|mul|div)[a-z]*\b' || true); \
 	 printf '>>> SAMIR.COM: %s bytes (flat .COM @0x30100, soft-float, x87=%s)\n' "$$sz" "$$x87"
 
+# --- SAMIR.COM SHORT-READ MUTANT (bead hdlb; Rule 6): the SAME .COM build but
+#     with -DPAL_MILTON_MUTATE_SHORT_READ on the on-target I/O path -- milton_read
+#     shaves one byte off every multi-byte read, so the .dbf header/records read
+#     short and the on-target codec mis-decodes -> the LIST rows the S8.2 gate
+#     asserts garble/vanish (USE reports #15) -> the gate goes RED for the RIGHT
+#     reason (wrong data, NOT a crash; no triple-fault). The mutant gate
+#     (test-samir-boot-mutant) confirms the bite. ---
+SAMIR_COM_MUT   := $(BUILD)/SAMIR_MUT.COM
+.PHONY: samir-com-mutant
+samir-com-mutant: $(SAMIR_COM_MUT)
+$(SAMIR_COM_MUT): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+	@rm -rf $(BUILD)/samir_com_mut && mkdir -p $(BUILD)/samir_com_mut
+	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_mut/samir_crt0.o
+	@set -e; for s in $(SAMIR_COM_CSRCS); do \
+		o=$(BUILD)/samir_com_mut/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
+		$(CC) $(SAMIR_COM_PROFILE) -DPAL_MILTON_MUTATE_SHORT_READ -c $$s -o $$o; \
+	done
+	@$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_mut/SAMIR.elf $(BUILD)/samir_com_mut/samir_crt0.o $$(ls $(BUILD)/samir_com_mut/*.o | grep -v 'samir_crt0\.o')
+	@$(OBJCOPY) -O binary $(BUILD)/samir_com_mut/SAMIR.elf $@
+	@printf '>>> SAMIR_MUT.COM: %s bytes (short-read on-target I/O mutant; Rule 6)\n' "$$(stat -c%s $@)"
+
+# --- CLIENTS.DBF FIXTURE (bead hdlb): a deterministic 3-field / 3-record .dbf the
+#     S8.2 gate USEs + LISTs. Minted by mint_clients_dbf, which LINKS the shipped
+#     SAMIR host dbf writer (dbf.c + value.c + rt.c over pal_host.c) so the fixture
+#     is read back BIT-FOR-BIT by the on-target SAMIR.COM reader (one writer, no
+#     second encoder to drift). Deterministic (injected date; Rule 11), build
+#     intermediate, NOT committed. ---
+MINT_CLIENTS_BIN := $(BUILD)/mint_clients_dbf
+CLIENTS_DBF      := $(BUILD)/CLIENTS.DBF
+$(MINT_CLIENTS_BIN): $(DBF_DIFF_DIR)/mint_clients_dbf.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/mint_clients_dbf.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(CLIENTS_DBF): $(MINT_CLIENTS_BIN) | $(BUILD)
+	@$(MINT_CLIENTS_BIN) $@
+	@printf '>>> CLIENTS.DBF: minted %s (NAME/C CITY/C BAL/N; 3 records; deterministic; bead hdlb)\n' "$@"
+
+# --- SAMIR DATA DISKS (bead hdlb): FAT12 floppies carrying SAMIR.COM + CLIENTS.DBF
+#     (the production gate disk) and SAMIR_MUT.COM + CLIENTS.DBF (the mutant disk).
+#     Mirrors FAT_EXEC_IMG; re-minted per build, NOT committed (Rule 11). ---
+SAMIR_LIST_IMG     := $(BUILD)/samir_list.img
+SAMIR_LIST_MUT_IMG := $(BUILD)/samir_list_mut.img
+$(SAMIR_LIST_IMG): $(SAMIR_COM) $(CLIENTS_DBF) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(SAMIR_COM) ::SAMIR.COM
+	@mcopy -i $@ $(CLIENTS_DBF) ::CLIENTS.DBF
+	@printf '>>> samir_list: minted %s (FAT12 disk for test-samir-boot; SAMIR.COM + CLIENTS.DBF)\n' "$@"
+$(SAMIR_LIST_MUT_IMG): $(SAMIR_COM_MUT) $(CLIENTS_DBF) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(SAMIR_COM_MUT) ::SAMIR.COM
+	@mcopy -i $@ $(CLIENTS_DBF) ::CLIENTS.DBF
+	@printf '>>> samir_list_mut: minted %s (short-read mutant disk for test-samir-boot-mutant)\n' "$@"
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-samir-boot (bead initech-hdlb; ADR-0009 DEC-08) -- S8.2 keystone
+# ---------------------------------------------------------------------------
+# THE MILESTONE: SAMIR (InitechBase) RUNS INSIDE InitechOS, end-to-end, on the
+# emulator. Boot the COMMAND.COM shell kernel (TRACER_IMG) WITH a FAT12 data disk
+# (--disk2 = SAMIR_LIST_IMG, carrying SAMIR.COM + CLIENTS.DBF) and inject, gated on
+# SHELL-READY:
+#     samir<ret>                 (COMMAND.COM EXEC of SAMIR.COM via AH=4Bh)
+#     use clients.dbf<ret>       (SAMIR's dot-prompt USE opens the .dbf rw)
+#     list<ret>                  (LIST walks + renders every record)
+#     quit<ret>                  (SAMIR REPL clean exit -> crt0 INT 21h AH=4Ch)
+#     exit<ret>                  (COMMAND.COM clean exit)
+# This forces a REAL AH=48h arena allocation (pal_milton_make; ADR-0009 DEC-04 +
+# bead hdlb's FREE-arena fix) -- a tiny USE+LIST that fit in static BSS would NOT
+# (Rule 3). Assert (every miss fail-loud + exit-non-zero, Law 2):
+#   1. NO triple-fault (a SAMIR crash / bad int 0x21 / arena panic triple-faults).
+#   2. SHELL-READY (the COMMAND.COM REPL was entered).
+#   3. SERIAL: SAMIR's AH=40h CON output reaches serial (as COMMAND.COM's does --
+#      test-shell proves this), so the LIST rows -- the fixture's distinctive
+#      record values (PESTON/HONOLULU/1234.50, WADDAMS/AUSTIN, LUMBERGH/DALLAS/
+#      7777.77) -- appear in the serial capture, scoped to AFTER `A:\>samir`.
+#   4. SCREENDUMP (Law 4): a SEPARATE keys+grab run renders the dot prompt + the
+#      LIST table on the LFB; ppm_text_check asserts the LIST-rows band [160,176)
+#      inks >= 300 fg pixels (it inks 745 with the rows, 0 without -- a clean
+#      discriminator; the band is empty if SAMIR did not USE+LIST).
+# It BITES (test-samir-boot-mutant): the short-read pal_milton mutant makes USE
+# report #15 and LIST emit no rows -> the serial row tokens VANISH + the screendump
+# band goes empty -> RED, with NO triple-fault (wrong data, not a crash; Rule 6).
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred (bead initech-x0i, like test-shell).
+# Ref: ADR-0009 DEC-08; spec/int21h_calling_convention.json; os/samir/pal/pal_milton.c.
+SAMIRBOOT_NAME     := samir_boot
+SAMIRBOOT_SERIAL   := $(BUILD)/$(SAMIRBOOT_NAME).serial
+SAMIRBOOT_REPORT   := $(BUILD)/$(SAMIRBOOT_NAME).report
+SAMIRBOOT_SCRN_NAME   := samir_boot_scrn
+SAMIRBOOT_SCRN_REPORT := $(BUILD)/$(SAMIRBOOT_SCRN_NAME).report
+SAMIRBOOT_PPM      := $(BUILD)/$(SAMIRBOOT_SCRN_NAME).ppm
+SAMIRBOOT_MUT_NAME   := samir_boot_mut
+SAMIRBOOT_MUT_SERIAL := $(BUILD)/$(SAMIRBOOT_MUT_NAME).serial
+SAMIRBOOT_MUT_REPORT := $(BUILD)/$(SAMIRBOOT_MUT_NAME).report
+# The key script (each token a key; "ret"=Enter, "spc"=space, "dot"='.'):
+#   samir / use clients.dbf / list / quit / exit
+SAMIRBOOT_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,ret,q,u,i,t,ret,e,x,i,t,ret
+# The key script for the screendump leg (no quit/exit -- keep SAMIR's LIST on
+# screen when the grab fires): samir / use clients.dbf / list
+SAMIRBOOT_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,ret
+
+.PHONY: test-samir-boot test-samir-boot-mutant
+test-samir-boot: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-samir-boot : SAMIR runs INSIDE InitechOS (S8.2)\n'
+	@printf '  Ref: bead initech-hdlb; ADR-0009 DEC-08. boot -> EXEC SAMIR.COM -> USE -> LIST.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(TRACER_IMG)" "$(SAMIR_LIST_IMG)"
+	@printf 'Expecting : SHELL-READY + dot prompt + LIST rows {PESTON,WADDAMS,LUMBERGH} + no triple-fault\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# Run 1 (serial): EXEC SAMIR, USE CLIENTS.DBF, LIST, QUIT, EXIT. Generous
+	@# timeout: SAMIR is 77 KiB soft-float -- slower to load + construct than a
+	@# baked .COM. No screendump here (Run 2 grabs it on its own clean keys run).
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
+		--name "$(SAMIRBOOT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(SAMIRBOOT_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(SAMIRBOOT_REPORT)" || true
+	@cat "$(SAMIRBOOT_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(SAMIRBOOT_REPORT)"; then \
+		printf '!!! test-samir-boot FAIL: TRIPLE FAULT -- SAMIR crashed (arena panic / bad int 0x21)\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-samir-boot [1/5]: no triple-fault (SAMIR ran without crashing)\n'
+	@if [ ! -s "$(SAMIRBOOT_SERIAL)" ]; then \
+		printf '!!! test-samir-boot FAIL: no serial captured at %s\n' "$(SAMIRBOOT_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(SAMIRBOOT_SERIAL)" \
+		|| { printf '!!! test-samir-boot FAIL: SHELL-READY missing -- COMMAND.COM never reached the prompt\n'; exit 1; }
+	@printf '>>> test-samir-boot [2/5]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@# Scope to AFTER `A:\>samir` so the assertions bite SAMIR's OWN output, not any
+	@# earlier boot text (the FAT dir listing also prints CLIENTS.DBF).
+	@tr -d '\r' < "$(SAMIRBOOT_SERIAL)" | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(SAMIRBOOT_NAME).samir"
+	@grep -q '^\. ' "$(BUILD)/$(SAMIRBOOT_NAME).samir" \
+		|| { printf '!!! test-samir-boot FAIL: the SAMIR dot prompt ". " never appeared (SAMIR REPL did not start)\n'; \
+		     cat "$(BUILD)/$(SAMIRBOOT_NAME).samir"; exit 1; }
+	@printf '>>> test-samir-boot [3/5]: SAMIR EXEC ran and the dBASE dot prompt appeared\n'
+	@# ---- the LIST rows: every fixture record value reaches serial. ----
+	@for tok in PESTON HONOLULU 1234.50 WADDAMS AUSTIN LUMBERGH DALLAS 7777.77; do \
+		grep -qF "$$tok" "$(BUILD)/$(SAMIRBOOT_NAME).samir" \
+		  || { printf '!!! test-samir-boot FAIL: LIST row token "%s" missing -- USE/LIST did not render the .dbf record (root-cause the on-target dbf read path, Rule 3)\n' "$$tok"; \
+		       cat "$(BUILD)/$(SAMIRBOOT_NAME).samir"; exit 1; }; \
+	done
+	@printf '>>> test-samir-boot [4/5]: LIST rendered all 3 records on serial (PESTON / WADDAMS / LUMBERGH)\n'
+	@# ---- 5. SCREENDUMP (Run 2; Law 4): a SEPARATE keys+grab run leaves SAMIR's
+	@# dot prompt + LIST table on the LFB. screendump-after SHELL-READY syncs the
+	@# grab AFTER the harness injects the keys (qemu.c qmp_session: keys then dump),
+	@# so the LIST rows are on screen. ppm_text_check asserts the LIST-rows band
+	@# y in [160,176) inks >= 300 fg pixels: it inks 745 with the three rows and 0
+	@# without (a clean discriminator -- the band is pure seafoam if SAMIR did not
+	@# USE+LIST). Deterministic across runs (verified). ----
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
+		--name "$(SAMIRBOOT_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(SAMIRBOOT_SCRN_KEYS)" --keys-after "SHELL-READY" \
+		--screendump --screendump-after "SHELL-READY" \
+		2> "$(SAMIRBOOT_SCRN_REPORT)" || true
+	@if grep -q 'triple_fault=1' "$(SAMIRBOOT_SCRN_REPORT)"; then \
+		printf '!!! test-samir-boot FAIL: TRIPLE FAULT on the screendump run\n'; exit 1; \
+	fi
+	@if [ ! -s "$(SAMIRBOOT_PPM)" ]; then \
+		printf '!!! test-samir-boot FAIL: no screendump captured at %s (live guest required)\n' "$(SAMIRBOOT_PPM)"; exit 1; \
+	fi
+	@$(PPM_TEXT_CHECK_BIN) "$(SAMIRBOOT_PPM)" 160 176 300 \
+		|| { printf '!!! test-samir-boot FAIL: the LIST rows did not render on the framebuffer (band [160,176) < 300 fg)\n'; exit 1; }
+	@printf '>>> test-samir-boot [5/5]: screendump shows SAMIR'"'"'s dot prompt + LIST table on the seafoam desktop\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- InitechBase (SAMIR) booted inside InitechOS, opened a .dbf and LISTed it\n'
+	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
+	@printf '======================================================================\n'
+
+test-samir-boot-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_LIST_MUT_IMG)
+	@printf '>>> test-samir-boot-mutant: confirming the short-read pal_milton mutant goes RED (Rule 6)\n'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_LIST_MUT_IMG)" \
+		--name "$(SAMIRBOOT_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(SAMIRBOOT_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(SAMIRBOOT_MUT_REPORT)" || true
+	@# The mutant must NOT triple-fault (it is a DATA bug, not a crash) ...
+	@if grep -q 'triple_fault=1' "$(SAMIRBOOT_MUT_REPORT)"; then \
+		printf '!!! test-samir-boot-mutant FAIL: the mutant TRIPLE-FAULTED -- a crash, not the wrong-data RED the gate asserts\n'; exit 1; \
+	fi
+	@# ... and the LIST rows MUST be absent (the short read mis-decodes the .dbf).
+	@if tr -d '\r' < "$(SAMIRBOOT_MUT_SERIAL)" 2>/dev/null | sed -n '/A:.>samir/,$$p' | grep -qF 'PESTON'; then \
+		printf '!!! test-samir-boot-mutant FAIL: PESTON present under the short-read mutant -- the gate is decoration\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-samir-boot-mutant: green (short-read mutant correctly RED -- LIST rows garbled/absent, no crash)\n'
+
 # ---------------------------------------------------------------------------
 # Aggregate green gate vector (beads initech-4mc)
 # ---------------------------------------------------------------------------
@@ -10805,7 +10991,8 @@ TEST_EMU_GATES := \
 	test-dir test-exec test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
-	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm
+	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm \
+	test-samir-boot test-samir-boot-mutant
 
 test-unit:
 	@printf '======================================================================\n'

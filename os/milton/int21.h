@@ -204,13 +204,27 @@ int int21_mcb_reset(void);
 
 /* ---- PROGRAM-DISJOINT ARENA BIND (beads initech-1q4u; ADR-0009 DEC-04) -------
  * Bind the AH=48h/49h/4Ah heap arena to the half-open flat window
- * [arena_base_linear, arena_ceil_linear) and hand it (as one terminal block) to
- * the CURRENT PSP -- the authentic "DOS gives the program the block AFTER its
- * image" model. The loader computes the window from the LOADED image so the heap
- * is PROVABLY DISJOINT from the program image+BSS (below arena_base) and from the
- * env + stack (at/above arena_ceil); see spec/memory_map.h's ARENA DISJOINTNESS
- * INVARIANT. Replaces the old whole-window int21_mcb_reset() bind, which overlaid
- * the running program (the latent corruption ADR-0009 Sec 1 / DEC-04 fixes).
+ * [arena_base_linear, arena_ceil_linear) as ONE terminal FREE block. This is the
+ * DISJOINT free region ABOVE the loaded program image+BSS (DEC-04's "the arena's
+ * FREE region"): unlike the program's own image block, the disjoint arena is NOT
+ * owned by the program at load -- it is left FREE so the program's first AH=48h
+ * carves its heap straight from it (the allocation is then stamped with the
+ * program's PSP owner by mcb_alloc). The loader computes the window from the
+ * LOADED image so the heap is PROVABLY DISJOINT from the program image+BSS (below
+ * arena_base) and from the env + stack (at/above arena_ceil); see
+ * spec/memory_map.h's ARENA DISJOINTNESS INVARIANT. Replaces the old whole-window
+ * int21_mcb_reset() bind, which overlaid the running program (the latent
+ * corruption ADR-0009 Sec 1 / DEC-04 fixes).
+ *
+ * FREE not OWNED (bead initech-hdlb, S8.2): an earlier revision handed the whole
+ * disjoint window to the current PSP via int21_mcb_reset (the OLD overlay model's
+ * "single big block" the program had to AH=4Ah SETBLOCK-shrink before 48h). That
+ * left ZERO free space, so a heap-using program (SAMIR) whose contract is "AH=48h
+ * draws straight from the disjoint arena, no SETBLOCK first" (pal_milton.c) got
+ * 48h insufficient-memory and panicked. The disjoint arena is NOT the program's
+ * image block; there is nothing to shrink, so it MUST be left FREE -- matching the
+ * SYSINIT kernel-context bind (sysinit.c), which already lays a FREE block for the
+ * identical reason. The S8.2 in-emulator gate (bead hdlb) forces this real 48h.
  *
  * Both arguments are flat LINEAR addresses; the DOS segment a 48h block reports
  * is (arena_base_linear >> 4) + data_para. arena_base_linear MUST be paragraph-
@@ -218,8 +232,7 @@ int int21_mcb_reset(void);
  * (or the window is < 2 paragraphs -- no room for a header + one data paragraph)
  * the arena is left UNBOUND (fail loud, Rule 2): a 48h ALLOC then returns
  * insufficient memory rather than a corrupting overlap. Returns 1 if the arena
- * was bound (and assigned to the current PSP, if one is bound), 0 if it was left
- * unbound. */
+ * was bound as a FREE block, 0 if it was left unbound. */
 int int21_mcb_bind_program(uint32_t arena_base_linear, uint32_t arena_ceil_linear);
 
 /* ---- File backend (beads initech-0qh; epic initech-6qy) --------------------

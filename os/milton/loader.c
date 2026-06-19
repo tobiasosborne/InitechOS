@@ -434,13 +434,18 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * (beads initech-1q4u; ADR-0009 DEC-04). The arena starts ABOVE the loaded
      * image+BSS (plan.arena_base) and ends at PROGRAM_ARENA_CEIL (plan.arena_ceil),
      * so a 48h ALLOC can never return memory inside the program image/env/stack --
-     * the authentic DOS model (DOS hands the program the block AFTER its image).
+     * the authentic DOS model (DOS hands the program a FREE block AFTER its image).
      * This SUPERSEDES the old int21_mcb_reset() over [PROGRAM_BASE, PROGRAM_ALLOC_
      * END), which overlaid the running program (ADR-0009 Sec 1 latent corruption).
-     * MUST run AFTER int21_set_psp above so the lone block is stamped with THIS
-     * program's PSP as owner. If the image was too large to leave a positive arena
-     * (plan.arena_present == 0) the arena is left UNBOUND -- a 48h ALLOC then
-     * reports insufficient memory rather than overlapping (fail loud, Rule 2). */
+     * The disjoint arena is bound as ONE FREE block (NOT owned by the PSP): unlike
+     * the program's image block, it is not the program's "single big block", so
+     * there is nothing to AH=4Ah SETBLOCK-shrink -- the program's first AH=48h
+     * carves its heap straight from the free region (bead hdlb, S8.2: handing the
+     * whole arena to the PSP up front left zero free space and made a no-SETBLOCK
+     * heap user -- SAMIR -- get 48h insufficient-memory and panic). If the image
+     * was too large to leave a positive arena (plan.arena_present == 0) the arena
+     * is left UNBOUND -- a 48h ALLOC then reports insufficient memory rather than
+     * overlapping (fail loud, Rule 2). */
     if (plan.arena_present) {
         (void)int21_mcb_bind_program(plan.arena_base, plan.arena_ceil);
     } else {

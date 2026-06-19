@@ -339,6 +339,13 @@ static int milton_close(samir_pal_t *p, pal_fd fd)
  * NEVER synthesizes a full read on short -- report what the kernel gave
  * (Rule 2: do NOT report a short read as a full one; pal.h read contract).
  * Ref: do_read returns EAX=bytes_read or CF+AX=err.
+ *
+ * Mutation hook (Rule 6): -DPAL_MILTON_MUTATE_SHORT_READ shaves ONE byte off
+ * every multi-byte read request (ECX = n-1). The .dbf header/record reads then
+ * come up one byte short, so the on-target dbf codec mis-decodes: the LIST rows
+ * the S8.2 emu gate (bead hdlb) asserts garble (or the open fails) -- the gate's
+ * serial + screendump assertions go RED for the RIGHT reason (wrong data on the
+ * on-target I/O path), not a crash. NEVER define in a real build.
  */
 static int32_t milton_read(samir_pal_t *p, pal_fd fd, void *buf, uint32_t n)
 {
@@ -352,6 +359,13 @@ static int32_t milton_read(samir_pal_t *p, pal_fd fd, void *buf, uint32_t n)
     if (n == 0u) {
         return 0;
     }
+#ifdef PAL_MILTON_MUTATE_SHORT_READ
+    /* MUTANT: request one byte fewer so reads come up short (>1 only, so a
+     * single-byte read still moves). The dbf codec then mis-frames records. */
+    if (n > 1u) {
+        n -= 1u;
+    }
+#endif
     result = int21(0x3Fu, 0x00u,
                    (uint32_t)(uintptr_t)buf,   /* EDX=buffer flat ptr */
                    (uint32_t)fd,                /* EBX=handle */

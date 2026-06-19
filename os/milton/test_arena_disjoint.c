@@ -217,6 +217,77 @@ static void check_live_alloc_disjoint(uint32_t image_len, uint8_t *arena_buf,
           "at least one 48h ALLOC must succeed from the disjoint window");
 }
 
+/* Part D: the ACTUAL on-target program flow (bead initech-hdlb / S8.2). The loader
+ * binds the disjoint arena via int21_mcb_bind_program and the program's FIRST
+ * AH=48h carves its heap STRAIGHT from the free region -- with NO AH=4Ah SETBLOCK
+ * first (pal_milton.c's documented contract: "AH=48h draws straight from it").
+ *
+ * This is the flow SAMIR actually uses, distinct from Part C (which binds via
+ * int21_set_mcb_arena + int21_mcb_reset and SETBLOCK-shrinks first). The bug this
+ * locks down: an earlier int21_mcb_bind_program handed the WHOLE disjoint arena to
+ * the PSP (int21_mcb_reset), leaving ZERO free space, so a no-SETBLOCK 48h returned
+ * insufficient-memory and SAMIR panicked at construction (the silent triple-fault
+ * the S8.2 emu gate surfaced). int21_mcb_bind_program MUST leave the arena FREE so
+ * the direct 48h succeeds; with the old reowning bind, the very first CHECK below
+ * (a direct 48h with CF=0) goes RED.
+ *
+ * The arena buffer is the host RAM; we pass its OWN linear base to
+ * int21_mcb_bind_program (base_linear == the buffer it reads from -- the function's
+ * documented requirement), so the reported DOS segments map (seg<<4) back into the
+ * buffer. We assert the alloc succeeds, the block lies inside the bound window, and
+ * a second alloc also succeeds (the arena is genuinely a free pool, not a one-shot). */
+static void check_bind_program_direct_alloc(uint8_t *arena_buf, size_t arena_buf_paras)
+{
+    /* A modest disjoint window inside the host buffer. base_linear == the buffer's
+     * own flat address (paragraph-aligned: alloc_low + MAP gives page alignment). */
+    uint32_t base_lin = (uint32_t)(uintptr_t)arena_buf;
+    CHECK((base_lin & 0xFu) == 0u, "Part D: host arena buffer is paragraph-aligned");
+
+    /* Use up to 1024 paragraphs (16 KiB) of the buffer for the window. */
+    uint32_t win_paras = (arena_buf_paras < 1024u) ? (uint32_t)arena_buf_paras : 1024u;
+    uint32_t ceil_lin  = base_lin + win_paras * 16u;
+
+    int bound = int21_mcb_bind_program(base_lin, ceil_lin);
+    CHECK(bound == 1, "Part D: int21_mcb_bind_program binds the disjoint window");
+
+    /* Segment math runs in the kernel's 16-bit DOS-segment space:
+     * arena_seg_base() = (base_linear >> 4) & 0xFFFF, and a 48h block reports
+     * seg = arena_seg_base() + data_para. The host buffer can sit at a high flat
+     * address (> 1 MiB), so reconstructing the FULL flat address from the 16-bit
+     * segment is impossible (and not what the kernel does). We assert on the
+     * data-paragraph OFFSET from the arena base instead -- which is exactly the
+     * disjointness-relevant quantity (the block sits inside [0, win_paras) of the
+     * window). seg_base is the low-16 of the arena base segment. */
+    uint16_t seg_base16 = (uint16_t)((base_lin >> 4) & 0xFFFFu);
+
+    /* THE KEYSTONE: a DIRECT AH=48h (no AH=4Ah SETBLOCK first) MUST succeed,
+     * because the disjoint arena was left FREE. With the reowning bug this is the
+     * exact assertion that bit RED on-target (SAMIR's pal_milton_make panicked). */
+    int_frame_t f = call(0x48u, 256u /* paras */, 0u);
+    CHECK(frame_cf(&f) == 0,
+          "Part D: a DIRECT 48h (no SETBLOCK) succeeds from the FREE disjoint arena");
+
+    uint16_t seg = (uint16_t)(f.eax & 0xFFFFu);
+    uint16_t off = (uint16_t)(seg - seg_base16);   /* data_para offset into window */
+    CHECK(off >= 1u,
+          "Part D: the 48h block sits ABOVE the arena base header (data_para >= 1)");
+    CHECK((uint32_t)off + 256u <= win_paras,
+          "Part D: the 48h block lies wholly inside the bound window");
+
+    /* A SECOND alloc also succeeds -> the arena is a genuine free pool, and the
+     * first alloc carved a tail (not a one-shot whole-window grab). */
+    int_frame_t f2 = call(0x48u, 64u, 0u);
+    CHECK(frame_cf(&f2) == 0,
+          "Part D: a SECOND 48h also allocates from the remaining free arena");
+    uint16_t seg2 = (uint16_t)(f2.eax & 0xFFFFu);
+    CHECK(seg2 != seg,
+          "Part D: the two allocations return DISTINCT segments (bump, not alias)");
+    (void)ceil_lin;
+
+    /* Unbind so later parts that re-bind start clean. */
+    int21_set_mcb_arena(0, 0u, 0u);
+}
+
 int main(void)
 {
     g_psp = (psp_t *)alloc_low(sizeof(psp_t));
@@ -272,6 +343,11 @@ int main(void)
     check_live_alloc_disjoint(0x100u, arena_buf, buf_paras);
     check_live_alloc_disjoint(0x10000u, arena_buf, buf_paras);
     check_live_alloc_disjoint(0x1C000u, arena_buf, buf_paras);
+
+    /* === Part D: the ACTUAL on-target program flow (bead hdlb / S8.2). =========
+     * int21_mcb_bind_program leaves the disjoint arena FREE so the program's first
+     * DIRECT AH=48h (no SETBLOCK) succeeds -- the flow SAMIR uses. */
+    check_bind_program_direct_alloc(arena_buf, buf_paras);
 
     return TEST_SUMMARY("test_arena_disjoint");
 }

@@ -350,13 +350,24 @@ int int21_mcb_bind_program(uint32_t arena_base_linear, uint32_t arena_ceil_linea
         return 0;
     }
 
-    /* Bind the buffer over the computed disjoint window, then hand the lone
-     * terminal block to the current PSP (the authentic single-big-block, but now
-     * ABOVE the program image instead of overlaying it). int21_mcb_reset stamps
-     * the owner from the now-current PSP exactly as the old path did. */
+    /* Bind the buffer over the computed disjoint window and leave it as ONE FREE
+     * terminal block (int21_set_mcb_arena's mcb_init lays exactly that). The arena
+     * is the DISJOINT free region ABOVE the program image+BSS (DEC-04): unlike the
+     * old overlay model -- where the program OWNED its whole window and had to
+     * AH=4Ah SETBLOCK-shrink before AH=48h could carve a tail -- the disjoint arena
+     * is NOT the program's image block, so there is nothing for the program to
+     * shrink. It must be left FREE so the program's first AH=48h allocates straight
+     * from it (the allocation is then stamped with the program's PSP owner by
+     * mcb_alloc). Handing the whole arena to the PSP up front (int21_mcb_reset)
+     * would leave zero FREE space, and a heap-using program (SAMIR) that -- per its
+     * documented contract -- does NOT SETBLOCK first would get AH=48h "insufficient
+     * memory" and panic. So we deliberately do NOT call int21_mcb_reset here.
+     * Ref: ADR-0009 DEC-04 ("the arena's FREE region"); pal_milton.c pal_milton_make
+     * ("AH=48h draws straight from it; no AH=4Ah SETBLOCK first"); the S8.2 in-emu
+     * gate (bead hdlb) forces this real allocation. */
     int21_set_mcb_arena((void *)(uintptr_t)arena_base_linear, total_paras,
                         arena_base_linear);
-    return int21_mcb_reset();
+    return g_arena_bound;   /* 1 if int21_set_mcb_arena bound it (>= 2 paras), else 0 */
 }
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
 {
