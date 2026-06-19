@@ -5815,6 +5815,7 @@ endef
         test-flair-headers test-flair-headers-mutant \
         test-blitter test-blitter-mutant test-text test-text-mutant \
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
+        test-window test-window-mutant test-event test-event-mutant \
         test-chrome test-chrome-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
@@ -7465,6 +7466,71 @@ test-palette-seafoam: $(TEST_PALETTE_SEAFOAM)
 test-palette-seafoam-mutant: $(TEST_PALETTE_SEAFOAM_MUT)
 	@printf ">>> test-palette-seafoam-mutant: confirming GRAY_DESKTOP mutant goes RED (Rule 6)\n"
 	@if $(TEST_PALETTE_SEAFOAM_MUT) >/dev/null 2>&1; then printf '!!! test-palette-seafoam-mutant FAIL: GRAY_DESKTOP PASSED -- the seafoam oracle is decoration\n'; exit 1; else printf '>>> test-palette-seafoam-mutant: green (GRAY_DESKTOP correctly RED -- the oracle bites)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-window (beads initech-9qf) -- FLAIR Window Manager.
+# Visible region == strucRgn DIFF union-of-fronts; move damage == exact
+# symmetric covered-area diff, NO over-repaint (ADR-0004 D-5). Oracle proves it
+# against an INDEPENDENT per-pixel owner-grid. Mutants ZORDER/OVERPAINT bite.
+# ---------------------------------------------------------------------------
+TEST_WINDOW     := $(BUILD)/test_window
+TEST_WINDOW_SRC := harness/proptest/test_window.c
+TEST_WINDOW_MUT_ZORDER    := $(BUILD)/test_window_mutant_zorder
+TEST_WINDOW_MUT_OVERPAINT := $(BUILD)/test_window_mutant_overpaint
+TEST_WINDOW_DEPS := os/flair/window.c os/flair/window.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h
+WINDOW_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
+WINDOW_LINK := os/flair/window.c $(REGION_ENGINE_C)
+
+$(TEST_WINDOW): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_ZORDER): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_ZORDER $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_OVERPAINT): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_OVERPAINT $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+
+test-window: $(TEST_WINDOW)
+	@printf ">>> test-window: visible region (strucRgn DIFF fronts) + DiffRgn damage (no over-repaint, D-5) + z-order + FindWindow\n"
+	@$(TEST_WINDOW)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $(BUILD)/window_freestanding.o \
+		|| { printf '!!! test-window FAIL: window.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-window: green\n"
+
+test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT)
+	@printf ">>> test-window-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_WINDOW_MUT_ZORDER) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZORDER PASSED -- the visible-region oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZORDER correctly RED)\n'; fi
+	@if $(TEST_WINDOW_MUT_OVERPAINT) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: OVERPAINT PASSED -- the no-over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (OVERPAINT correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-event (beads initech-8b7) -- FLAIR Event Manager. ISR
+# enqueue-only SPSC ring (D-4); WaitNextEvent cooks raw input -> EventRecords in
+# task context; a recorded raw trace replays to a DETERMINISTIC event sequence
+# (D-8). Mutants DROP_SYNTH/STALE_WHERE bite (Rule 6).
+# ---------------------------------------------------------------------------
+TEST_EVENT     := $(BUILD)/test_event
+TEST_EVENT_SRC := harness/proptest/test_event.c
+TEST_EVENT_MUT_DROP  := $(BUILD)/test_event_mutant_drop
+TEST_EVENT_MUT_WHERE := $(BUILD)/test_event_mutant_where
+TEST_EVENT_DEPS := os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h
+EVENT_INC := -Ios/flair -Ispec -Iseed
+
+$(TEST_EVENT): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+$(TEST_EVENT_MUT_DROP): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_DROP_SYNTH $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+$(TEST_EVENT_MUT_WHERE): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_STALE_WHERE $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+
+test-event: $(TEST_EVENT)
+	@printf ">>> test-event: ISR-enqueue SPSC ring + WaitNextEvent deterministic replay (raw trace -> EventRecord sequence, D-4/D-8)\n"
+	@$(TEST_EVENT)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(EVENT_INC) -c os/flair/event.c -o $(BUILD)/event_freestanding.o \
+		|| { printf '!!! test-event FAIL: event.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-event: green\n"
+
+test-event-mutant: $(TEST_EVENT_MUT_DROP) $(TEST_EVENT_MUT_WHERE)
+	@printf ">>> test-event-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_EVENT_MUT_DROP) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: DROP_SYNTH PASSED -- the synthesis oracle is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (DROP_SYNTH correctly RED)\n'; fi
+	@if $(TEST_EVENT_MUT_WHERE) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: STALE_WHERE PASSED -- the cursor-tracking oracle is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (STALE_WHERE correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
@@ -12002,6 +12068,7 @@ TEST_UNIT_GATES := \
 	test-flair-headers test-flair-headers-mutant \
 	test-blitter test-blitter-mutant test-text test-text-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
+	test-window test-window-mutant test-event test-event-mutant \
 	test-chrome test-chrome-mutant \
 	test-fbagree test-fbagree-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
