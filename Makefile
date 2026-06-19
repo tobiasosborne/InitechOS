@@ -5813,6 +5813,8 @@ endef
 .PHONY: help factory image run run-bochs smoke ssim test test-region test-region-mutant \
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
+        test-blitter test-blitter-mutant test-text test-text-mutant \
+        test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-chrome test-chrome-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
@@ -7349,6 +7351,120 @@ test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHR
 	else \
 		printf '>>> test-chrome-mutant: green (CHROME_MUTATE_SCROLLBAR_W correctly RED -- the oracle bites)\n'; \
 	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-blitter (beads initech-i50) -- FLAIR region-clipped blitter.
+# A pixel is written IFF inside the blit rect AND inside the clip region
+# (visRgn INTERSECT clipRgn). Thin layer over surface.c (no 2nd pixel path, D-2).
+# The oracle builds the expected buffer by an INDEPENDENT region rasterize.
+# Mutants IGNORE_CLIP / OFF_BY_ONE bite (Rule 6).
+# ---------------------------------------------------------------------------
+TEST_BLITTER     := $(BUILD)/test_blitter
+TEST_BLITTER_SRC := harness/proptest/test_blitter.c
+TEST_BLITTER_MUT_IGNORE := $(BUILD)/test_blitter_mutant_ignore
+TEST_BLITTER_MUT_OFF1   := $(BUILD)/test_blitter_mutant_off1
+TEST_BLITTER_DEPS := os/flair/blitter.c os/flair/blitter.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) os/flair/surface.c os/flair/surface.h spec/region_algebra.h
+BLITTER_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
+BLITTER_LINK := os/flair/blitter.c $(REGION_ENGINE_C) os/flair/surface.c
+
+$(TEST_BLITTER): $(TEST_BLITTER_SRC) $(TEST_BLITTER_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(BLITTER_INC) -o $@ $(TEST_BLITTER_SRC) $(BLITTER_LINK)
+$(TEST_BLITTER_MUT_IGNORE): $(TEST_BLITTER_SRC) $(TEST_BLITTER_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DBLITTER_MUTATE_IGNORE_CLIP $(BLITTER_INC) -o $@ $(TEST_BLITTER_SRC) $(BLITTER_LINK)
+$(TEST_BLITTER_MUT_OFF1): $(TEST_BLITTER_SRC) $(TEST_BLITTER_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DBLITTER_MUTATE_OFF_BY_ONE $(BLITTER_INC) -o $@ $(TEST_BLITTER_SRC) $(BLITTER_LINK)
+
+test-blitter: $(TEST_BLITTER)
+	@printf ">>> test-blitter: region-clipped blit/fill -- IFF (in rect AND in clip), 8bpp+32bpp, full/empty/non-rect/partial\n"
+	@$(TEST_BLITTER)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(BLITTER_INC) -c os/flair/blitter.c -o $(BUILD)/blitter_freestanding.o \
+		|| { printf '!!! test-blitter FAIL: blitter.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-blitter: green\n"
+
+test-blitter-mutant: $(TEST_BLITTER_MUT_IGNORE) $(TEST_BLITTER_MUT_OFF1)
+	@printf ">>> test-blitter-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_BLITTER_MUT_IGNORE) >/dev/null 2>&1; then printf '!!! test-blitter-mutant FAIL: IGNORE_CLIP PASSED -- the clip oracle is decoration\n'; exit 1; else printf '>>> test-blitter-mutant: green (IGNORE_CLIP correctly RED)\n'; fi
+	@if $(TEST_BLITTER_MUT_OFF1) >/dev/null 2>&1; then printf '!!! test-blitter-mutant FAIL: OFF_BY_ONE PASSED -- the clip-edge oracle is decoration\n'; exit 1; else printf '>>> test-blitter-mutant: green (OFF_BY_ONE correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-text (beads initech-kg5) -- proportional FLAIR text rendering.
+# Chicago + Geneva 9 strikes; text_measure = SUM of per-glyph advances (NO fixed
+# pitch, D-7). Mutant TEXT_MUTATE_FIXED_PITCH bites (Rule 6).
+# ---------------------------------------------------------------------------
+TEST_TEXT     := $(BUILD)/test_text
+TEST_TEXT_MUT := $(BUILD)/test_text_mutant
+TEST_TEXT_SRC := harness/proptest/test_text.c
+TEST_TEXT_DEPS := os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/assets/chicago8x16.h os/flair/surface.h
+TEXT_INC := -Ios/flair -Ispec/assets -Ispec -Iseed
+
+$(TEST_TEXT): $(TEST_TEXT_SRC) $(TEST_TEXT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HOSTED=1 $(TEXT_INC) -o $@ $(TEST_TEXT_SRC) os/flair/text.c
+$(TEST_TEXT_MUT): $(TEST_TEXT_SRC) $(TEST_TEXT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HOSTED=1 -DTEXT_MUTATE_FIXED_PITCH=1 $(TEXT_INC) -o $@ $(TEST_TEXT_SRC) os/flair/text.c
+
+test-text: $(TEST_TEXT)
+	@printf ">>> test-text: proportional Chicago/Geneva text -- measure (sum of advances) + draw + center\n"
+	@$(TEST_TEXT)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(TEXT_INC) -c os/flair/text.c -o $(BUILD)/text_freestanding.o \
+		|| { printf '!!! test-text FAIL: text.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-text: green\n"
+
+test-text-mutant: $(TEST_TEXT_MUT)
+	@printf ">>> test-text-mutant: confirming FIXED_PITCH mutant goes RED (Rule 6)\n"
+	@if $(TEST_TEXT_MUT) >/dev/null 2>&1; then printf '!!! test-text-mutant FAIL: FIXED_PITCH PASSED -- the proportional oracle is decoration\n'; exit 1; else printf '>>> test-text-mutant: green (FIXED_PITCH correctly RED -- the oracle bites)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-canon (beads initech-k8o5.10) -- the FLAIR canon oracle (Law 4).
+# Aggregates the ENFORCED canon: hourglass-not-wristwatch (cursors.h), Photoshop
+# menu (menu_canon.h), PC LOAD LETTER (panic source string), pie==116, 570-
+# trailing minus. Mutants WATCH / FIX_MENU bite (Rule 6). The app-level pie/570
+# rendered behavior is additionally gated by test-canon-y2k / test-canon-salami.
+# ---------------------------------------------------------------------------
+TEST_CANON     := $(BUILD)/test_canon
+TEST_CANON_SRC := harness/proptest/test_canon.c
+TEST_CANON_MUT_WATCH := $(BUILD)/test_canon_mutant_watch
+TEST_CANON_MUT_MENU  := $(BUILD)/test_canon_mutant_menu
+CANON_INC := -Ispec/assets -Iseed
+
+$(TEST_CANON): $(TEST_CANON_SRC) spec/assets/cursors.h spec/assets/menu_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CANON_INC) -o $@ $(TEST_CANON_SRC)
+$(TEST_CANON_MUT_WATCH): $(TEST_CANON_SRC) spec/assets/cursors.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCANON_MUTATE_WATCH $(CANON_INC) -o $@ $(TEST_CANON_SRC)
+$(TEST_CANON_MUT_MENU): $(TEST_CANON_SRC) spec/assets/menu_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCANON_MUTATE_FIX_MENU $(CANON_INC) -o $@ $(TEST_CANON_SRC)
+
+test-canon: $(TEST_CANON)
+	@printf ">>> test-canon: FLAIR canon (Law 4) -- hourglass-not-watch, Photoshop menu, PC LOAD LETTER, pie==116, 570-\n"
+	@$(TEST_CANON)
+	@printf ">>> test-canon: green\n"
+
+test-canon-mutant: $(TEST_CANON_MUT_WATCH) $(TEST_CANON_MUT_MENU)
+	@printf ">>> test-canon-mutant: confirming WATCH + FIX_MENU mutants go RED (Rule 6; Law 4)\n"
+	@if $(TEST_CANON_MUT_WATCH) >/dev/null 2>&1; then printf '!!! test-canon-mutant FAIL: WATCH PASSED -- canon is decoration (wristwatch would pass)\n'; exit 1; else printf '>>> test-canon-mutant: green (WATCH correctly RED -- the hourglass canon bites)\n'; fi
+	@if $(TEST_CANON_MUT_MENU) >/dev/null 2>&1; then printf '!!! test-canon-mutant FAIL: FIX_MENU PASSED -- canon is decoration (a corrected menu would pass)\n'; exit 1; else printf '>>> test-canon-mutant: green (FIX_MENU correctly RED -- the Photoshop-menu canon bites)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-palette-seafoam (beads initech-ch81; ADR-0004 OD-4/AM-9) --
+# the desktop_bg canon: palette.h canonical desktop_bg == SEAFOAM (0x6F,0xA0,0x8E)
+# == the stage2 boot value, EXACT (no tolerance). Mutant GRAY_DESKTOP bites.
+# ---------------------------------------------------------------------------
+TEST_PALETTE_SEAFOAM     := $(BUILD)/test_palette_seafoam
+TEST_PALETTE_SEAFOAM_MUT := $(BUILD)/test_palette_seafoam_mutant
+TEST_PALETTE_SEAFOAM_SRC := harness/proptest/test_palette_seafoam.c
+
+$(TEST_PALETTE_SEAFOAM): $(TEST_PALETTE_SEAFOAM_SRC) spec/assets/palette.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec/assets -o $@ $(TEST_PALETTE_SEAFOAM_SRC)
+$(TEST_PALETTE_SEAFOAM_MUT): $(TEST_PALETTE_SEAFOAM_SRC) spec/assets/palette.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPALETTE_MUTATE_GRAY_DESKTOP -Ispec/assets -o $@ $(TEST_PALETTE_SEAFOAM_SRC)
+
+test-palette-seafoam: $(TEST_PALETTE_SEAFOAM)
+	@printf ">>> test-palette-seafoam: palette.h desktop_bg == SEAFOAM (0x6F,0xA0,0x8E) == stage2 boot value (exact)\n"
+	@$(TEST_PALETTE_SEAFOAM)
+	@printf ">>> test-palette-seafoam: green\n"
+
+test-palette-seafoam-mutant: $(TEST_PALETTE_SEAFOAM_MUT)
+	@printf ">>> test-palette-seafoam-mutant: confirming GRAY_DESKTOP mutant goes RED (Rule 6)\n"
+	@if $(TEST_PALETTE_SEAFOAM_MUT) >/dev/null 2>&1; then printf '!!! test-palette-seafoam-mutant FAIL: GRAY_DESKTOP PASSED -- the seafoam oracle is decoration\n'; exit 1; else printf '>>> test-palette-seafoam-mutant: green (GRAY_DESKTOP correctly RED -- the oracle bites)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
@@ -11884,6 +12000,8 @@ TEST_UNIT_GATES := \
 	test-region test-region-mutant \
 	test-flair-heap test-flair-heap-mutant \
 	test-flair-headers test-flair-headers-mutant \
+	test-blitter test-blitter-mutant test-text test-text-mutant \
+	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-chrome test-chrome-mutant \
 	test-fbagree test-fbagree-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \

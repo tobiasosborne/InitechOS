@@ -1,26 +1,37 @@
 {
   "_comment": [
-    "InitechOS desktop palette v0 -- LOCKED spec-data (CLAUDE.md Rule 8).",
+    "InitechOS desktop palette -- LOCKED spec-data (CLAUDE.md Rule 8).",
     "Ref: PRD Sec 10 (asset pipeline: palette/chrome extract cleanly from",
-    "the frame), PRD Sec 6.4 (resources/assets), PRD Sec 12 (IP: the frame",
+    "the frame), PRD Sec 6.4 (resources/assets), Sec 12 (IP: the frame",
     "is REFERENCE ONLY; we MEASURE it, we do not embed it).",
     "",
-    "PROVENANCE / HONESTY (Law 1): every color below was SAMPLED from the",
-    "reference frame spec/assets/preview.webp (1456x819) at the recorded",
-    "(x,y) using a 3x3-average around the point (tools/palette_extract.c).",
-    "The frame is a PHOTOGRAPH of a CRT, not a clean OS screenshot: it is",
-    "dim, the blacks are lifted and there is a slight warm/magenta cast.",
-    "The RGB values here are therefore the *measured* on-frame values, not",
-    "idealized System-7 colors -- they are auditable and reproducible",
-    "(the test-assets gate re-samples the frame at these (x,y) and asserts",
-    "the value still matches within tolerance). Brightness/white-point",
-    "correction toward the intended UI colors is a DELIBERATE later step",
-    "(see notes.desktop_bg below); v0 records ground truth.",
+    "PROVENANCE / HONESTY (Law 1): every color in 'colors' below was SAMPLED",
+    "from the reference frame spec/assets/preview.webp (1456x819) at the",
+    "recorded (x,y) using a 3x3-average around the point",
+    "(tools/palette_extract.c). The frame is a PHOTOGRAPH of a CRT, not a",
+    "clean OS screenshot: it is dim, the blacks are lifted and there is a",
+    "slight warm/magenta cast. The RGB values here are therefore the *measured*",
+    "on-frame values, not idealized System-7 colors -- they are auditable and",
+    "reproducible (the test-assets gate re-samples the frame at these (x,y)",
+    "and asserts the value still matches within tolerance). Brightness/",
+    "white-point correction toward the intended UI colors is a DELIBERATE",
+    "later step; v0 records ground truth.",
     "",
     "Coordinates are in frame pixels, origin top-left. 'sample' is the",
     "3x3-averaged RGB at (x,y). Keep the names stable (Rule 8).",
     "Regenerate palette.h from this file with tools/palette_extract.c via",
-    "'make spec/assets/palette.h' (or the test-assets gate prerequisite)."
+    "'make spec/assets/palette.h' (or the test-assets gate prerequisite).",
+    "",
+    "DESKTOP_BG RECONCILIATION (ADR-0004 OD-4 / AM-9 / FO-3, beads",
+    "initech-ch81): the frame-sampled 'desktop_bg_frame_v0' entry (gray",
+    "(115,105,108), recorded in 'colors' so test-assets re-checks it) has",
+    "been SUPERSEDED by the SEAFOAM canon (0x6F,0xA0,0x8E) = (111,160,142)",
+    "ratified in ADR-0004 OD-4 and mirrored by os/boot/stage2.asm",
+    "SEAFOAM_R/G/B and tools/ppm_seafoam_check.c. The canonical value lives",
+    "in the 'canonical' section below (ignored by the frame-resample gate;",
+    "it is not a frame measurement). palette.h INITECH_DESKTOP_BG_* reflects",
+    "the canonical SEAFOAM; INITECH_DESKTOP_BG_FRAME_V0_* preserves the",
+    "frame-measurement provenance. Oracle: harness/proptest/test_palette_seafoam.c."
   ],
   "schema_version": 1,
   "source_fixture": "spec/assets/preview.webp",
@@ -28,10 +39,11 @@
   "sample_radius": 2,
   "tolerance": 10,
   "colors": {
-    "desktop_bg": {
+    "desktop_bg_frame_v0": {
       "x": 1240, "y": 180,
       "rgb": [115, 105, 108],
-      "role": "the gray desktop background behind the windows (upper-right, clear of windows and the pie chart)"
+      "_comment": "SUPERSEDED as the live desktop color by the SEAFOAM canon (ADR-0004 OD-4). This entry is the compressed-still frame sample (ground-truth v0, warm neutral gray). Preserved HERE (in 'colors') so test-assets continues to audit the frame-measurement provenance. The canonical desktop_bg is SEAFOAM (0x6F,0xA0,0x8E) in the 'canonical' section. DO NOT DELETE -- provenance record (Law 1).",
+      "role": "frame-sampled gray desktop background (upper-right, clear of windows and pie chart) -- v0 ground truth, SUPERSEDED by SEAFOAM canon for the live render"
     },
     "menubar_bg": {
       "x": 1000, "y": 82,
@@ -64,19 +76,31 @@
       "role": "accent blue: the FILE COPY progress bar fill and the pie-chart blue"
     }
   },
+  "canonical": {
+    "_comment": [
+      "Canonical (non-frame-sampled) palette values. NOT iterated by the",
+      "test-assets frame-resample gate (which only touches 'colors'). These",
+      "are the live render values the OS actually uses, set by ADR/oracle",
+      "rather than measured from the compressed still."
+    ],
+    "desktop_bg": {
+      "rgb": [111, 160, 142],
+      "hex": ["0x6F", "0xA0", "0x8E"],
+      "source": "os/boot/stage2.asm SEAFOAM_R/G/B + tools/ppm_seafoam_check.c (the live boot/oracle value)",
+      "rationale": "ADR-0004 OD-4: 'desktop_bg canon = KEEP SEAFOAM teal (0x6F,0xA0,0x8E)'. AM-9 / FO-3: reconcile palette.json desktop_bg v0 gray -> SEAFOAM; oracle in harness/proptest/test_palette_seafoam.c asserts palette.h INITECH_DESKTOP_BG_{R,G,B} == (0x6F,0xA0,0x8E). Ref: stage2.asm SEAFOAM_R equ 0x6F / SEAFOAM_G equ 0xA0 / SEAFOAM_B equ 0x8E (lines 42-44).",
+      "role": "canonical FLAIR desktop background fill -- the color the render paints behind windows"
+    }
+  },
   "notes": {
     "desktop_bg": [
-      "RECONCILIATION WITH THE BOOT (deliverable 5): os/boot/stage2.asm",
-      "currently fills the LFB with a PLACEHOLDER 'SEAFOAM_RGB' =",
-      "(0x6F,0xA0,0x8E) = (111,160,142), a teal/green. The MEASURED",
-      "desktop_bg above is (115,105,108) -- a warm neutral GRAY, not teal.",
-      "They differ materially (the green channel alone is 160 vs 105).",
-      "ACTION for f8v.3 / the tracer draw step: adopt desktop_bg from this",
-      "file as the true background. The exact value f8v.3 ships may apply a",
-      "CRT-dimness/white-point correction (the photo is underexposed); the",
-      "audited ground-truth sample is recorded here so any correction is a",
-      "documented, deliberate transform off a real measurement, not a",
-      "guess. Do NOT edit os/boot/ from the asset task (that is f8v.3)."
+      "RECONCILIATION COMPLETE (ADR-0004 OD-4 / AM-9 / FO-3, beads initech-ch81).",
+      "The frame-sampled 'desktop_bg_frame_v0' in 'colors' (gray (115,105,108))",
+      "is the compressed-still ground-truth measurement. It is preserved in",
+      "'colors' so test-assets can continue to audit the frame provenance.",
+      "The CANONICAL desktop_bg is now SEAFOAM (0x6F,0xA0,0x8E) = (111,160,142),",
+      "matching os/boot/stage2.asm SEAFOAM_R/G/B and tools/ppm_seafoam_check.c.",
+      "palette.h INITECH_DESKTOP_BG_{R,G,B,RGB} reflect SEAFOAM.",
+      "Oracle: harness/proptest/test_palette_seafoam.c (test-palette-seafoam gate)."
     ],
     "accent_blue": [
       "The single saturated color in the frame; the most reliable anchor.",

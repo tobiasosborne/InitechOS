@@ -261,6 +261,66 @@ static int parse_anchors(const char *json, anchor_t *out, int max_out,
     return n;
 }
 
+/*
+ * Parse the OPTIONAL "canonical" object: entries are "name": { "rgb":[r,g,b], ... }
+ * with NO x/y -- these are OS-CANON values (set by ADR/oracle, e.g. the SEAFOAM
+ * desktop_bg, ADR-0004 OD-4), NOT frame-sampled, so test-assets does not re-check
+ * them against the frame. Non-object entries (e.g. "_comment": [ ... ]) are
+ * skipped. Returns the count (0 if the block is absent -- it is optional). Shallow
+ * parser like parse_anchors (entry objects contain arrays but no nested braces).
+ */
+static int parse_canonical(const char *json, anchor_t *out, int max_out)
+{
+    const char *end = json + strlen(json);
+    const char *can = find_key(json, end, "canonical");
+    if (!can) return 0;  /* optional block */
+    const char *p = can;
+    while (p < end && *p != '{') p++;
+    if (p >= end) return 0;
+    p++;  /* past the canonical object's opening brace */
+
+    int n = 0;
+    while (n < max_out) {
+        char name[64];
+        if (next_string(&p, end, name, sizeof name)) break;
+        /* Locate the value opener: '{' (object), '[' (array), or '}' (end). */
+        const char *v = p;
+        while (v < end && *v != '{' && *v != '[' && *v != '}') v++;
+        if (v >= end || *v == '}') break;            /* end of canonical object */
+        if (*v == '[') {                              /* array (e.g. _comment): skip */
+            const char *q = v;
+            while (q < end && *q != ']') q++;
+            p = (q < end) ? q + 1 : end;
+            continue;
+        }
+        /* *v == '{' : an entry object -- parse its rgb (shallow). */
+        const char *kr = find_key(v, end, "rgb");
+        const char *obj_end = v + 1;
+        while (obj_end < end && *obj_end != '}') obj_end++;
+        if (!kr || kr > obj_end) {                    /* no rgb in this object: skip */
+            p = (obj_end < end) ? obj_end + 1 : end;
+            continue;
+        }
+        const char *q = kr;
+        while (q < end && *q != '[') q++;
+        if (q >= end) break;
+        q++;
+        long r, g, b; char *e;
+        r = strtol(q, &e, 10); if (e == q) break; q = e; while (q<end && (*q==','||*q==' ')) q++;
+        g = strtol(q, &e, 10); if (e == q) break; q = e; while (q<end && (*q==','||*q==' ')) q++;
+        b = strtol(q, &e, 10); if (e == q) break;
+
+        anchor_t *a = &out[n++];
+        strncpy(a->name, name, sizeof a->name - 1);
+        a->name[sizeof a->name - 1] = '\0';
+        a->x = -1; a->y = -1;  /* not frame-sampled */
+        a->rgb[0] = (int)r; a->rgb[1] = (int)g; a->rgb[2] = (int)b;
+
+        p = (obj_end < end) ? obj_end + 1 : end;
+    }
+    return n;
+}
+
 static void cmd_anchors(const ppm_t *p, const char *jsonpath)
 {
     char *json = slurp(jsonpath);
@@ -286,6 +346,8 @@ static void cmd_header(const char *jsonpath)
     if (!json) exit(2);
     anchor_t a[MAX_ANCHORS]; int tol = 10; char fixture[256] = "(unknown)";
     int na = parse_anchors(json, a, MAX_ANCHORS, &tol, fixture, sizeof fixture);
+    anchor_t canon[MAX_ANCHORS];
+    int nc = parse_canonical(json, canon, MAX_ANCHORS);
     free(json);
     if (na <= 0) { fprintf(stderr, "palette_extract: parsed 0 anchors\n"); exit(2); }
 
@@ -312,6 +374,22 @@ static void cmd_header(const char *jsonpath)
         printf("#define INITECH_%s_B 0x%02X\n", up, a[i].rgb[2]);
         printf("#define INITECH_%s_RGB 0x%02X%02X%02Xu\n\n",
                up, a[i].rgb[0], a[i].rgb[1], a[i].rgb[2]);
+    }
+    /* Canonical (OS-canon) values -- set by ADR/oracle, NOT frame-sampled (e.g.
+     * the SEAFOAM desktop_bg, ADR-0004 OD-4 / AM-9). Emitted with the same
+     * INITECH_<NAME>_* macro form so render/chrome code consumes one source. */
+    for (int i = 0; i < nc; i++) {
+        char up[64];
+        size_t j;
+        for (j = 0; canon[i].name[j] && j < sizeof up - 1; j++)
+            up[j] = (char)toupper((unsigned char)canon[i].name[j]);
+        up[j] = '\0';
+        printf("/* canonical (OS canon -- ADR/oracle, not frame-sampled) */\n");
+        printf("#define INITECH_%s_R 0x%02X\n", up, canon[i].rgb[0]);
+        printf("#define INITECH_%s_G 0x%02X\n", up, canon[i].rgb[1]);
+        printf("#define INITECH_%s_B 0x%02X\n", up, canon[i].rgb[2]);
+        printf("#define INITECH_%s_RGB 0x%02X%02X%02Xu\n\n",
+               up, canon[i].rgb[0], canon[i].rgb[1], canon[i].rgb[2]);
     }
     printf("#endif /* INITECH_PALETTE_H */\n");
 }
