@@ -5816,6 +5816,7 @@ endef
         test-blitter test-blitter-mutant test-text test-text-mutant \
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-window test-window-mutant test-event test-event-mutant \
+        test-drag test-drag-mutant \
         test-chrome test-chrome-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
@@ -7531,6 +7532,50 @@ test-event-mutant: $(TEST_EVENT_MUT_DROP) $(TEST_EVENT_MUT_WHERE)
 	@printf ">>> test-event-mutant: confirming both mutants go RED (Rule 6)\n"
 	@if $(TEST_EVENT_MUT_DROP) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: DROP_SYNTH PASSED -- the synthesis oracle is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (DROP_SYNTH correctly RED)\n'; fi
 	@if $(TEST_EVENT_MUT_WHERE) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: STALE_WHERE PASSED -- the cursor-tracking oracle is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (STALE_WHERE correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-drag (beads initech-87a; ADR-0004 AM-8 / D-5) -- the M3
+# drag-gate CAPSTONE: a window drags across the desktop via event->window->
+# compositor, with the DiffRgn payoff proven at the PIXEL level (the set of
+# pixels that change during the drag == the computed update regions; NO over-
+# repaint; vacated area re-exposes the windows behind; chrome geometry holds).
+# Integrates window/event/blitter/chrome/surface/region/render via os/flair/
+# desktop.c (the minimal-repaint compositor). Mutants SKIP_EXPOSED/NO_CLIP bite.
+# ---------------------------------------------------------------------------
+TEST_DRAG          := $(BUILD)/test_drag
+TEST_DRAG_SRC      := harness/proptest/test_drag.c
+DESKTOP_C          := os/flair/desktop.c
+DESKTOP_H          := os/flair/desktop.h
+TEST_DRAG_MUT_SKIP   := $(BUILD)/test_drag_mutant_skip
+TEST_DRAG_MUT_NOCLIP := $(BUILD)/test_drag_mutant_noclip
+DRAG_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
+DRAG_LINK := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c $(REGION_ENGINE_C) \
+             os/flair/window.c os/flair/event.c os/flair/blitter.c $(CHROME_DRAWER_C)
+DRAG_DEPS := $(TEST_DRAG_SRC) $(DESKTOP_C) $(DESKTOP_H) $(DRAG_LINK) \
+             os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h \
+             os/flair/surface.h os/flair/heap.h $(RENDER_SKEL_H) \
+             $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h \
+             spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h \
+             spec/assets/palette.h
+
+$(TEST_DRAG): $(DRAG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DRAG_INC) -o $@ $(TEST_DRAG_SRC) $(DESKTOP_C) $(DRAG_LINK)
+$(TEST_DRAG_MUT_SKIP): $(DRAG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDRAG_MUTATE_SKIP_EXPOSED $(DRAG_INC) -o $@ $(TEST_DRAG_SRC) $(DESKTOP_C) $(DRAG_LINK)
+$(TEST_DRAG_MUT_NOCLIP): $(DRAG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDRAG_MUTATE_NO_CLIP $(DRAG_INC) -o $@ $(TEST_DRAG_SRC) $(DESKTOP_C) $(DRAG_LINK)
+
+test-drag: $(TEST_DRAG)
+	@printf ">>> test-drag: window drags w/ correct DiffRgn update regions, no over-repaint, chrome unchanged outside damage (D-5/AM-8)\n"
+	@$(TEST_DRAG) $(BUILD)/drag_before.ppm $(BUILD)/drag_after.ppm
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(DRAG_INC) -c $(DESKTOP_C) -o $(BUILD)/desktop_freestanding.o \
+		|| { printf '!!! test-drag FAIL: desktop.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-drag: green (wrote $(BUILD)/drag_before.ppm + $(BUILD)/drag_after.ppm)\n"
+
+test-drag-mutant: $(TEST_DRAG_MUT_SKIP) $(TEST_DRAG_MUT_NOCLIP)
+	@printf ">>> test-drag-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_DRAG_MUT_SKIP) >/dev/null 2>&1; then printf '!!! test-drag-mutant FAIL: SKIP_EXPOSED PASSED -- the no-over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-drag-mutant: green (SKIP_EXPOSED correctly RED)\n'; fi
+	@if $(TEST_DRAG_MUT_NOCLIP) >/dev/null 2>&1; then printf '!!! test-drag-mutant FAIL: NO_CLIP PASSED -- the clip/over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-drag-mutant: green (NO_CLIP correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
@@ -12069,6 +12114,7 @@ TEST_UNIT_GATES := \
 	test-blitter test-blitter-mutant test-text test-text-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-window test-window-mutant test-event test-event-mutant \
+	test-drag test-drag-mutant \
 	test-chrome test-chrome-mutant \
 	test-fbagree test-fbagree-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
