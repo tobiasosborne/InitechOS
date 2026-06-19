@@ -573,6 +573,93 @@ static void test_session_plain_use_rw(samir_pal_t *pal)
 }
 
 /* =====================================================================
+ * SESSION 7: DO <file> -- run a .PRG program OFF DISK from the dot prompt
+ *   (initech-9a0f). Proves the REPL's `DO <name>` opens <name>[.PRG] via the
+ *   PAL (pal_host here), reads the whole program into a PAL-arena buffer, and
+ *   executes it through proc_run -- the authentic dBASE "DO a disk program".
+ *
+ * This is the HOST oracle leg the bead asks for: the DO-file feature is graded
+ * on the factory host, not only in-emulator. The same code path runs in-emu over
+ * pal_milton (test-samir-canon-y2k), so a green here + a green there proves the
+ * feature end-to-end.
+ *
+ * Steps:
+ *   1. Write a tiny program GREET.PRG to /tmp (no .dbf needed): it ? prints a
+ *      distinctive line and STOREs a memvar, so we can assert BOTH the conout
+ *      transcript AND the post-run memvar (proof the body actually executed).
+ *   2. Fresh REPL: type `DO /tmp/.../GREET` (no extension) -- the REPL appends
+ *      ".PRG", finds it, reads it, runs it.
+ *   3. Assert the ? line is in the transcript and the memvar took its value.
+ *   4. Negative: `DO NOSUCHFILE` (not on disk, no in-source proc) -> dBASE #16
+ *      (unrecognized / not found) is rendered, and the session CONTINUES.
+ *
+ * Mutation proof (Rule 6): the Make gate's -DREPL_MUTATE_DO_TRUNC reads only the
+ *   first half of the .prg, so GREET.PRG's STORE line (in the back half) is cut
+ *   off -> the memvar assertion + the in-emu canon report go RED. (Here we keep
+ *   the program small but put the STORE LAST so a half-read drops it.)
+ * ===================================================================== */
+static void test_session_do_file(samir_pal_t *pal)
+{
+    const char *prgpath = "/tmp/test_samir_repl_GREET.PRG";
+    const char *noext   = "/tmp/test_samir_repl_GREET";   /* REPL appends .PRG */
+    FILE *f;
+    xb_interp *ip;
+    int rc;
+    char msg[256];
+    static char doln[160];
+
+    /* 1. Author GREET.PRG: a ? line FIRST, the STORE LAST (so a half-read drops
+     *    the STORE -- the DO-TRUNC mutant bite). Padded with a comment so the
+     *    file is comfortably longer than one PAL read. */
+    f = fopen(prgpath, "wb");
+    CHECK(f != NULL, "dofile: author GREET.PRG");
+    if (!f) return;
+    fputs("* GREET.PRG -- a tiny disk program run via DO from the dot prompt.\n", f);
+    fputs("? 'HELLO FROM A DISK PROGRAM'\n", f);
+    fputs("* the STORE is LAST so a truncated DO-read drops it (mutant bite):\n", f);
+    fputs("STORE 1234 TO GREETED\n", f);
+    fclose(f);
+
+    ip = xb_interp_make(pal);
+    CHECK(ip != NULL, "dofile: xb_interp_make");
+    if (!ip) { remove(prgpath); return; }
+
+    /* 2/3. DO the program by its bare name (the REPL appends .PRG). */
+    script_reset();
+    cap_clear();
+    snprintf(doln, sizeof doln, "DO %s", noext);
+    script_push(doln);
+    script_push("DO NOSUCHPRG");   /* 4. negative: not on disk -> #16, loop continues */
+    script_push("? 'AFTER'");      /* the session survives the missing-program DO */
+    script_push("QUIT");
+
+    rc = samir_repl(pal, ip);
+    snprintf(msg, sizeof msg, "dofile: samir_repl rc=%d (want 0)", rc);
+    CHECK(rc == INTERP_OK, msg);
+
+    /* the ? line from the disk program reached conout. */
+    CHECK(cap_has("HELLO FROM A DISK PROGRAM"),
+          "dofile: DO <file> ran the disk program's ? (transcript)");
+    /* the STORE in the disk program executed (memvar took its value). With
+     * -DREPL_MUTATE_DO_TRUNC the STORE line is read-truncated -> GREETED unset
+     * -> this assertion goes RED. */
+    {
+        xb_val gv;
+        CHECK(xb_interp_get_memvar(ip, "GREETED", &gv) == 0 && gv.t == XB_N &&
+              gv.u.n == 1234.0,
+              "dofile: DO <file> executed the disk program's STORE (GREETED==1234)");
+    }
+    /* the missing-program DO rendered #16 and the loop continued. */
+    CHECK(cap_has("16  *** Unrecognized command verb."),
+          "dofile: DO NOSUCHPRG (no file, no proc) -> #16 rendered");
+    CHECK(cap_has("AFTER"),
+          "dofile: session continued after the missing-program DO");
+
+    xb_interp_free(ip);
+    remove(prgpath);
+}
+
+/* =====================================================================
  * SESSION 5: EOF terminates cleanly (empty script -> EOF first read).
  * ===================================================================== */
 static void test_session_eof(samir_pal_t *pal)
@@ -622,6 +709,7 @@ int main(int argc, char **argv)
     test_session_errors(pal);
     test_session_eof(pal);
     test_session_plain_use_rw(pal);  /* 7az.19: plain USE opens rw -> REPLACE persists */
+    test_session_do_file(pal);       /* 9a0f: DO <file> runs a .PRG off disk via the PAL */
 
     pal_host_free(host);
     return TEST_SUMMARY("test-samir-repl");

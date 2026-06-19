@@ -11152,6 +11152,242 @@ test-samir-write-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DROPWRITE) $(C
 	fi
 	@printf '>>> test-samir-write-mutant: green (drop-write mutant correctly RED -- on-disk .dbf STALE [3 records, original BALs], no crash)\n'
 
+# ===========================================================================
+# REAL gate: test-samir-canon-y2k (bead initech-9a0f) -- the Law-4 CAPSTONE
+# ===========================================================================
+# THE MILESTONE: the Initech AR-aging accounting app (Y2KACCT.PRG) RUNS INSIDE
+# InitechOS on QEMU -- WITH its ENFORCED Year-2000 bug (bead 586.1) -- via the
+# new `DO <file>` dot-prompt verb (samir_main.c repl_try_do_file). Boot the
+# COMMAND.COM shell kernel with a FAT12 data disk carrying SAMIR.COM +
+# INVOICE.DBF + Y2KACCT.PRG, then inject (gated on SHELL-READY):
+#     samir<ret>      (COMMAND.COM EXEC of SAMIR.COM)
+#     do y2kacct<ret> (SAMIR's dot prompt loads + runs Y2KACCT.PRG off disk)
+#     quit<ret>       (SAMIR REPL clean exit)
+#     exit<ret>       (COMMAND.COM clean exit)
+# The .prg STOREs its own ASOF reporting date (CTOD('01/31/00') -> base-1900 by
+# the SET CENTURY OFF default) since the QMP key vocabulary cannot type '='/'('/
+# "'"/'/'; INVOICE.DBF's year-2000 due dates are likewise stored base-1900 (the
+# mint mirrors the canon harness make_invoices, bit-for-bit). So the in-emu aging
+# report reproduces the IDENTICAL buggy values the host gate test-canon-y2k
+# asserts: A1001 mis-ages to -36477 (mislabeled CURRENT), A1003 to -36462, and
+# TOTAL UNPAID OVERDUE wrongly reports 0.00 -- two large 1999 receivables hidden.
+#
+# Assert (every miss fail-loud + exit-non-zero, Law 2):
+#   1. NO triple-fault (the DO WHILE record walk / dates / IIF run without crash).
+#   2. SHELL-READY (COMMAND.COM REPL entered).
+#   3. SERIAL: the aging report reaches serial AND the SPECIFIC Y2K-buggy values
+#      (A1001 -36477 CURRENT, A1003 -36462 CURRENT, TOTAL ... 0.00 -- the SAME
+#      canon values) are present -- the bug RAN inside the OS (Law 4).
+#   4. SCREENDUMP (Law 4): a separate keys+grab run renders the report on the LFB.
+# It BITES two ways (test-samir-canon-y2k-mutant):
+#   (a) -DMINT_INVOICE_Y2K_FIXED: INVOICE.DBF stores year-2000 dates with the TRUE
+#       century -> the aging is correct, A1001/A1003 flag OVERDUE, the total goes
+#       non-zero -> the canon -36477/0.00 serial assertions go RED (the Y2K fix
+#       breaks canon; Law 4 -- enforced, not fixed); OR
+#   (b) -DREPL_MUTATE_DO_TRUNC (the DO-file-read mutant): SAMIR reads only half the
+#       .prg -> the report body is cut off -> the assertions go RED.
+# The mutant gate exercises (a) as the canonical Law-4 bite (a clean wrong-data
+# RED, no crash). TRI-EMULATOR: QEMU only (Bochs/86Box deferred, bead initech-x0i).
+# Ref: bead initech-9a0f; harness/diff/dbf_diff/canon/y2k_accounting.{prg,out};
+#      harness/diff/dbf_diff/test_canon_y2k.c (the host canon oracle this mirrors);
+#      os/samir/samir_main.c repl_try_do_file (the DO <file> feature).
+
+# --- INVOICE.DBF fixtures (canon + Y2K-fixed mutant). Minted by mint_invoice_dbf,
+#     which links the shipped SAMIR host dbf writer so the fixture is read back
+#     bit-for-bit by the on-target SAMIR.COM reader. Deterministic (Rule 11). ---
+MINT_INVOICE_BIN     := $(BUILD)/mint_invoice_dbf
+MINT_INVOICE_FIX_BIN := $(BUILD)/mint_invoice_dbf_fix
+INVOICE_DBF          := $(BUILD)/INVOICE.DBF
+INVOICE_FIX_DBF      := $(BUILD)/INVOICE.fix.dbf
+MINT_INVOICE_DEPS    := $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(MINT_INVOICE_BIN): $(DBF_DIFF_DIR)/mint_invoice_dbf.c $(MINT_INVOICE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/mint_invoice_dbf.c $(MINT_INVOICE_DEPS)
+$(MINT_INVOICE_FIX_BIN): $(DBF_DIFF_DIR)/mint_invoice_dbf.c $(MINT_INVOICE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMINT_INVOICE_Y2K_FIXED -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/mint_invoice_dbf.c $(MINT_INVOICE_DEPS)
+$(INVOICE_DBF): $(MINT_INVOICE_BIN) | $(BUILD)
+	@$(MINT_INVOICE_BIN) $@
+	@printf '>>> INVOICE.DBF: minted %s (INVNO/CUST/AMOUNT/DUEDATE/PAID; 4 recs; Y2K bug ENFORCED; bead 9a0f)\n' "$@"
+$(INVOICE_FIX_DBF): $(MINT_INVOICE_FIX_BIN) | $(BUILD)
+	@$(MINT_INVOICE_FIX_BIN) $@
+	@printf '>>> INVOICE.fix.dbf: minted %s (year-2000 dates TRUE century -- the canon-fix mutant fixture)\n' "$@"
+
+# --- Y2KACCT.PRG: the canon AR-aging program + a leading STORE...TO ASOF driver
+#     line so it self-drives from `DO Y2KACCT` (the QMP keys cannot type the ASOF
+#     expression). Copied verbatim from the committed canon source. ---
+Y2KACCT_PRG_SRC := $(CANON_DIR)/y2kacct_driver.prg
+Y2KACCT_PRG     := $(BUILD)/Y2KACCT.PRG
+$(Y2KACCT_PRG): $(Y2KACCT_PRG_SRC) | $(BUILD)
+	@cp $(Y2KACCT_PRG_SRC) $@
+	@printf '>>> Y2KACCT.PRG: staged %s (canon AR aging + self-driving ASOF; Y2K bug ENFORCED)\n' "$@"
+
+# --- SAMIR.COM DO-TRUNC MUTANT (bead 9a0f; Rule 6): the SAME .COM build but
+#     samir_main.c compiled with -DREPL_MUTATE_DO_TRUNC so repl_load_prg reads
+#     only the first HALF of the .prg -> the report body is cut off -> the in-emu
+#     canon assertions go RED for the RIGHT reason (truncated DO-file read, no
+#     crash). NEVER define in a real build. ---
+SAMIR_COM_DOTRUNC := $(BUILD)/SAMIR_DOTRUNC.COM
+.PHONY: samir-com-dotrunc
+samir-com-dotrunc: $(SAMIR_COM_DOTRUNC)
+$(SAMIR_COM_DOTRUNC): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+	@rm -rf $(BUILD)/samir_com_dotrunc && mkdir -p $(BUILD)/samir_com_dotrunc
+	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_dotrunc/samir_crt0.o
+	@set -e; for s in $(SAMIR_COM_CSRCS); do \
+		o=$(BUILD)/samir_com_dotrunc/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
+		$(CC) $(SAMIR_COM_PROFILE) -DREPL_MUTATE_DO_TRUNC -c $$s -o $$o; \
+	done
+	@$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_dotrunc/SAMIR.elf $(BUILD)/samir_com_dotrunc/samir_crt0.o $$(ls $(BUILD)/samir_com_dotrunc/*.o | grep -v 'samir_crt0\.o')
+	@$(OBJCOPY) -O binary $(BUILD)/samir_com_dotrunc/SAMIR.elf $@
+	@printf '>>> SAMIR_DOTRUNC.COM: %s bytes (DO-file half-read mutant; Rule 6)\n' "$$(stat -c%s $@)"
+
+# --- canon-y2k data-disk minter: $(call cy2k_mint,<image>,<samir.com>,<invoice.dbf>)
+#     -- FRESH FAT12 disk with SAMIR.COM + INVOICE.DBF + Y2KACCT.PRG. Re-minted per
+#     leg (the .prg is read-only here, but mint fresh for Rule 11 hygiene). ---
+define cy2k_mint
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(2) ::SAMIR.COM
+	@mcopy -i $(1) $(3) ::INVOICE.DBF
+	@mcopy -i $(1) $(Y2KACCT_PRG) ::Y2KACCT.PRG
+endef
+
+CY2K_IMG          := $(BUILD)/samir_canon_y2k.img
+CY2K_SCRN_IMG     := $(BUILD)/samir_canon_y2k_scrn.img
+CY2K_MUT_IMG      := $(BUILD)/samir_canon_y2k_mut.img
+CY2K_NAME         := samir_canon_y2k
+CY2K_SERIAL       := $(BUILD)/$(CY2K_NAME).serial
+CY2K_REPORT       := $(BUILD)/$(CY2K_NAME).report
+CY2K_SCRN_NAME    := samir_canon_y2k_scrn
+CY2K_SCRN_REPORT  := $(BUILD)/$(CY2K_SCRN_NAME).report
+CY2K_PPM          := $(BUILD)/$(CY2K_SCRN_NAME).ppm
+CY2K_MUT_NAME     := samir_canon_y2k_mut
+CY2K_MUT_SERIAL   := $(BUILD)/$(CY2K_MUT_NAME).serial
+CY2K_MUT_REPORT   := $(BUILD)/$(CY2K_MUT_NAME).report
+# The key script: samir / use invoice.dbf / do y2kacct / quit / exit
+#   The operator USEs the AR ledger at the dot prompt (the REPL owns USE), then
+#   DOes the report program off disk -- exactly as the canon host harness adopts
+#   the table then runs the .prg body. All tokens are in the QMP key vocabulary
+#   (a-z, 0-9, spc, dot, ret); the ASOF expression is baked into the .prg (the
+#   keys cannot type '='/'('/"'"/'/'). Ref: bead initech-9a0f.
+CY2K_KEYS      := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,y,2,k,a,c,c,t,ret,q,u,i,t,ret,e,x,i,t,ret
+# Screendump leg: same but NO quit/exit (keep the report on screen for the grab).
+CY2K_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,y,2,k,a,c,c,t,ret
+
+.PHONY: test-samir-canon-y2k test-samir-canon-y2k-mutant
+test-samir-canon-y2k: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $(Y2KACCT_PRG) $(PPM_TEXT_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-samir-canon-y2k : the Initech AR app + its Y2K bug RUN inside InitechOS\n'
+	@printf '  Ref: bead initech-9a0f (Law-4 capstone); 586.1 (the enforced Y2K bug). boot -> EXEC SAMIR -> DO Y2KACCT.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + data disk %s (SAMIR.COM + INVOICE.DBF + Y2KACCT.PRG)\n' "$(TRACER_IMG)" "$(CY2K_IMG)"
+	@printf 'Expecting : the aging report on serial WITH the buggy A1001 -36477 / A1003 -36462 / TOTAL 0.00 (canon)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call cy2k_mint,$(CY2K_IMG),$(SAMIR_COM),$(INVOICE_DBF))
+	@printf '>>> samir_canon_y2k: minted FRESH %s (SAMIR.COM + INVOICE.DBF + Y2KACCT.PRG)\n' "$(CY2K_IMG)"
+	@# Run 1 (serial): EXEC SAMIR, DO Y2KACCT, QUIT, EXIT.
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CY2K_IMG)" \
+		--name "$(CY2K_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(CY2K_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(CY2K_REPORT)" || true
+	@cat "$(CY2K_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(CY2K_REPORT)"; then \
+		printf '!!! test-samir-canon-y2k FAIL: TRIPLE FAULT -- the DO/aging path crashed (root-cause pal_milton DO-read or flow, Rule 3)\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-samir-canon-y2k [1/4]: no triple-fault (the AR app ran without crashing)\n'
+	@if [ ! -s "$(CY2K_SERIAL)" ]; then \
+		printf '!!! test-samir-canon-y2k FAIL: no serial captured at %s\n' "$(CY2K_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(CY2K_SERIAL)" \
+		|| { printf '!!! test-samir-canon-y2k FAIL: SHELL-READY missing -- COMMAND.COM never reached the prompt\n'; exit 1; }
+	@printf '>>> test-samir-canon-y2k [2/4]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@# Scope to AFTER `A:\>samir` so the assertions bite SAMIR's OWN output.
+	@tr -d '\r' < "$(CY2K_SERIAL)" | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(CY2K_NAME).samir"
+	@grep -qF 'INITECH SYSTEMS CORP -- ACCOUNTS RECEIVABLE' "$(BUILD)/$(CY2K_NAME).samir" \
+		|| { printf '!!! test-samir-canon-y2k FAIL: the AR report banner is absent -- DO Y2KACCT did not run the .prg (root-cause repl_try_do_file / pal_milton DO-read)\n'; \
+		     cat "$(BUILD)/$(CY2K_NAME).samir"; exit 1; }
+	@# ---- THE CANON Y2K-BUGGY VALUES (the SAME the host gate test-canon-y2k asserts): ----
+	@grep -qF 'A1001  12/15/99  -36477   CURRENT' "$(BUILD)/$(CY2K_NAME).samir" \
+		|| { printf '!!! test-samir-canon-y2k FAIL: the buggy A1001 -36477 CURRENT line is absent -- the Y2K mis-aging did not run in-emu (Law 4)\n'; \
+		     cat "$(BUILD)/$(CY2K_NAME).samir"; exit 1; }
+	@grep -qF 'A1003  11/30/99  -36462   CURRENT' "$(BUILD)/$(CY2K_NAME).samir" \
+		|| { printf '!!! test-samir-canon-y2k FAIL: the buggy A1003 -36462 CURRENT line is absent (Law 4)\n'; \
+		     cat "$(BUILD)/$(CY2K_NAME).samir"; exit 1; }
+	@grep -qF 'TOTAL UNPAID OVERDUE:       0.00' "$(BUILD)/$(CY2K_NAME).samir" \
+		|| { printf '!!! test-samir-canon-y2k FAIL: the headline 0.00 overdue total is absent -- the Y2K under-reporting did not occur (Law 4)\n'; \
+		     cat "$(BUILD)/$(CY2K_NAME).samir"; exit 1; }
+	@printf '>>> test-samir-canon-y2k [3/4]: SERIAL shows the AR aging report WITH the enforced Y2K-buggy values (A1001 -36477 / A1003 -36462 / TOTAL 0.00)\n'
+	@# ---- 4. SCREENDUMP (Run 2; Law 4): the report on the LFB. The DO Y2KACCT run
+	@# prints ~12 report lines; they scroll the active band lower than the 3-row LIST
+	@# gate, so the report text lands in band [176,260). seafoam right margin checked
+	@# (immune to vertical scroll), same discriminator pattern as test-samir-write. ----
+	@$(call cy2k_mint,$(CY2K_SCRN_IMG),$(SAMIR_COM),$(INVOICE_DBF))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CY2K_SCRN_IMG)" \
+		--name "$(CY2K_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(CY2K_SCRN_KEYS)" --keys-after "SHELL-READY" \
+		--screendump --screendump-after "SHELL-READY" \
+		2> "$(CY2K_SCRN_REPORT)" || true
+	@if grep -q 'triple_fault=1' "$(CY2K_SCRN_REPORT)"; then \
+		printf '!!! test-samir-canon-y2k FAIL: TRIPLE FAULT on the screendump run\n'; exit 1; \
+	fi
+	@if [ ! -s "$(CY2K_PPM)" ]; then \
+		printf '!!! test-samir-canon-y2k FAIL: no screendump captured at %s (live guest required)\n' "$(CY2K_PPM)"; exit 1; \
+	fi
+	@$(PPM_TEXT_CHECK_BIN) "$(CY2K_PPM)" 176 260 300 32 560 \
+		|| { printf '!!! test-samir-canon-y2k FAIL: the aging report did not render on the framebuffer (band [176,260) < 300 fg), or the right-margin desktop is not seafoam\n'; exit 1; }
+	@printf '>>> test-samir-canon-y2k [4/4]: screendump shows the AR aging report on the seafoam desktop\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- the Initech AR accounting app RAN inside InitechOS via DO Y2KACCT,\n'
+	@printf '            and its ENFORCED Year-2000 bug (586.1) produced the canonical wrong aging\n'
+	@printf '            (A1001/A1003 mis-aged to ~ -100 years; TOTAL UNPAID OVERDUE wrongly 0.00).\n'
+	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# The mutant: the DO-file-READ bite (Rule 6, this bead's feature). SAMIR_DOTRUNC.COM
+# (-DREPL_MUTATE_DO_TRUNC) reads only the FIRST HALF of Y2KACCT.PRG, so the report
+# BODY (the DO WHILE record walk + the TOTAL line) is cut off -> the canon serial
+# lines (A1001 -36477, A1003 -36462, TOTAL 0.00) VANISH -> RED. This proves the new
+# DO-file plumbing is load-bearing: a truncated .prg read produces a WRONG report,
+# not a green one. A clean wrong-data RED, no crash (Law 2 -- the app still STARTS,
+# it just reads a partial program). NOTE: a Y2K "data-fix" mutant on INVOICE.DBF
+# alone does NOT bite here, because the headline A1001/A1003 mis-aging is driven by
+# the base-1900 ASOF parse (in the .prg, shared by both builds), not by the stored
+# year-2000 dates -- so the DO-read mutant is the honest in-emu bite for this bead.
+# (The host gate test-canon-y2k-mutant covers the ASOF+data Y2K-fix bite, which can
+# patch both at once; INVOICE.fix.dbf is retained as a documented host-equivalent
+# fixture.) Ref: bead initech-9a0f; samir_main.c repl_load_prg REPL_MUTATE_DO_TRUNC.
+test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DOTRUNC) $(INVOICE_DBF) $(Y2KACCT_PRG)
+	@printf '>>> test-samir-canon-y2k-mutant: confirming the DO-file half-read mutant breaks canon in-emu -> RED (Rule 6; initech-9a0f)\n'
+	@$(call cy2k_mint,$(CY2K_MUT_IMG),$(SAMIR_COM_DOTRUNC),$(INVOICE_DBF))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CY2K_MUT_IMG)" \
+		--name "$(CY2K_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(CY2K_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(CY2K_MUT_REPORT)" || true
+	@# The mutant must NOT triple-fault (it is a wrong-data bug, not a crash).
+	@if grep -q 'triple_fault=1' "$(CY2K_MUT_REPORT)"; then \
+		printf '!!! test-samir-canon-y2k-mutant FAIL: the mutant TRIPLE-FAULTED -- a crash, not the wrong-data RED the gate asserts\n'; exit 1; \
+	fi
+	@if [ ! -s "$(CY2K_MUT_SERIAL)" ]; then \
+		printf '!!! test-samir-canon-y2k-mutant FAIL: no serial captured (the mutant must still RUN, just read a partial .prg)\n'; exit 1; \
+	fi
+	@tr -d '\r' < "$(CY2K_MUT_SERIAL)" | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(CY2K_MUT_NAME).samir"
+	@# With the .prg read truncated, the canon report BODY is cut off: the buggy
+	@# A1001 -36477 line and the 0.00 total MUST be absent -> the canon assertions
+	@# would fail. If they are STILL present, the mutant did not bite (decoration).
+	@if grep -qF 'A1001  12/15/99  -36477   CURRENT' "$(BUILD)/$(CY2K_MUT_NAME).samir"; then \
+		printf '!!! test-samir-canon-y2k-mutant FAIL: the buggy A1001 -36477 line is STILL present under the DO-truncation mutant -- it did not bite (gate is decoration)\n'; \
+		cat "$(BUILD)/$(CY2K_MUT_NAME).samir"; exit 1; \
+	fi
+	@if grep -qF 'TOTAL UNPAID OVERDUE:       0.00' "$(BUILD)/$(CY2K_MUT_NAME).samir"; then \
+		printf '!!! test-samir-canon-y2k-mutant FAIL: the headline 0.00 total is STILL present under the DO-truncation mutant -- it did not bite\n'; \
+		cat "$(BUILD)/$(CY2K_MUT_NAME).samir"; exit 1; \
+	fi
+	@printf '    --- the TRUNCATED (mutant) in-emu transcript (the .prg body was cut off) ---\n'
+	@sed 's/^/    /' "$(BUILD)/$(CY2K_MUT_NAME).samir"
+	@printf '>>> test-samir-canon-y2k-mutant: green (the DO-file half-read mutant correctly RED -- the canon report body is absent; no crash)\n'
+
 # ---------------------------------------------------------------------------
 # Aggregate green gate vector (beads initech-4mc)
 # ---------------------------------------------------------------------------
@@ -11235,7 +11471,8 @@ TEST_EMU_GATES := \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm \
 	test-samir-boot test-samir-boot-mutant \
-	test-samir-write test-samir-write-mutant
+	test-samir-write test-samir-write-mutant \
+	test-samir-canon-y2k test-samir-canon-y2k-mutant
 
 test-unit:
 	@printf '======================================================================\n'

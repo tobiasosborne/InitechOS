@@ -498,6 +498,149 @@ static int repl_do_close(xb_interp *ip, const char *args)
 }
 
 /* ===================================================================== */
+/* DO <file> -- run a .PRG program off disk from the dot prompt.           */
+/*                                                                         */
+/* dBASE III PLUS 1.1: `DO <name>` at the dot prompt runs <name>.PRG from   */
+/* disk when <name> is NOT a PROCEDURE defined in the (already-registered)  */
+/* program source (control-flow-and-procedures.md sec 7; "DO-name           */
+/* precedence" -- open PROCEDURE vs disk <name>.prg). At the dot prompt no   */
+/* multi-PROCEDURE program is registered (each typed line is its own         */
+/* proc_run source), so a bare `DO Y2KACCT` resolves to Y2KACCT.PRG on the   */
+/* data disk: the canonical "run my program" verb. This is the keystone for  */
+/* initech-9a0f -- the Initech AR aging app (Y2KACCT.PRG, the enforced Y2K   */
+/* bug, bead 586.1) RUNS inside InitechOS by typing `DO Y2KACCT`.            */
+/*                                                                          */
+/* ADDITIVE (does NOT touch cmd/proc.c's in-source DO): this is a REPL-level */
+/* pre-resolution. Only a BARE `DO <name>` line (one word after DO, not      */
+/* "DO WHILE"/"DO CASE" -- those are flow-spine and never reach the REPL as  */
+/* the leading verb of a typed line; and not "DO <name> WITH ..." which is   */
+/* an in-source procedure call) is offered to disk first. If the file is NOT */
+/* on disk, we FALL THROUGH to the normal proc_run path (an in-source        */
+/* PROCEDURE, else dBASE #16) -- so every existing REPL/host gate is          */
+/* unchanged. ASCII-clean (Rule 12); fail loud on a too-large .prg (Rule 2). */
+/* ===================================================================== */
+
+#define REPL_PRG_CAP   8192u   /* max .PRG size we load (proc body cap mirror) */
+
+/*
+ * repl_load_prg: open `name` (then `name` + ".PRG") via the PAL, read the whole
+ * file into a PAL-arena buffer, NUL-terminate it. On success returns the buffer
+ * (arena-owned; the interp's xb_interp_free reset reclaims it) and sets *out_len;
+ * returns NULL if the file does not exist on disk (so the caller falls through to
+ * the in-source DO path) or on a read fault / over-cap (fail loud via *ec).
+ *
+ * `name` is the bare target token (already upper-cased by the caller is fine --
+ * the FAT layer is case-insensitive). We try the name as typed, then with a
+ * ".PRG" extension appended (the dBASE default program extension).
+ */
+static char *repl_load_prg(xb_interp *ip, const char *name, uint32_t *out_len,
+                           int *ec)
+{
+    samir_pal_t *pal = xb_interp_pal(ip);
+    char fn[REPL_TOK_CAP + 4];
+    pal_fd fd;
+    int32_t total;
+    char *buf;
+    uint32_t cap, used;
+    int try2;
+
+    if (out_len) *out_len = 0u;
+    if (ec) *ec = 0;
+    if (!pal || !pal->open || !pal->read || !pal->close) return (char *)0;
+
+    /* Two open attempts: the bare name, then name + ".PRG". A negative fd on
+     * BOTH means "no such program on disk" -> caller falls through (NULL, ec=0).
+     * The DO target is opened READ-ONLY (a program is executed, never written). */
+    fd = -1;
+    for (try2 = 0; try2 < 2 && fd < 0; try2++) {
+        uint32_t i = 0;
+        while (name[i] != '\0' && i < REPL_TOK_CAP - 1u) { fn[i] = name[i]; i++; }
+        if (try2 == 1) {
+            /* append ".PRG" (only when the bare open missed). */
+            fn[i++] = '.'; fn[i++] = 'P'; fn[i++] = 'R'; fn[i++] = 'G';
+        }
+        fn[i] = '\0';
+        fd = pal->open(pal, fn, PAL_RD);
+    }
+    if (fd < 0) return (char *)0;     /* not on disk -> fall through (in-source DO) */
+
+    /* Determine the size via the seek=END idiom, then rewind. A program over the
+     * cap is a fail-loud (Rule 2) -- we never silently truncate the .prg, which
+     * would run a partial program (the DO-read mutant exploits exactly this). */
+    total = pal->seek ? pal->seek(pal, fd, 0, PAL_SEEK_END) : -1;
+    if (total < 0 || (uint32_t)total >= REPL_PRG_CAP) {
+        pal->close(pal, fd);
+        if (ec) *ec = 18;             /* "Line exceeds maximum ..." (closest cat) */
+        return (char *)0;
+    }
+    (void)pal->seek(pal, fd, 0, PAL_SEEK_SET);
+
+    cap = (uint32_t)total + 1u;
+    buf = (char *)(pal->alloc ? pal->alloc(pal, cap) : (void *)0);
+    if (!buf) { pal->close(pal, fd); if (ec) *ec = 43; return (char *)0; } /* #43 mem */
+
+#ifdef REPL_MUTATE_DO_TRUNC
+    /* MUTANT (Rule 6 -- -DREPL_MUTATE_DO_TRUNC): read only the FIRST HALF of the
+     * .prg, then claim success. The aging-report body (the DO WHILE record walk +
+     * the TOTAL line) is cut off, so the in-emu report is wrong/incomplete -> the
+     * test-samir-canon-y2k assertions (the buggy A1001 -36477 line + the 0.00
+     * total) go RED for the RIGHT reason (a truncated DO-file read, not a crash).
+     * NEVER define in a real build. */
+    total = (int32_t)((uint32_t)total / 2u);
+#endif
+
+    /* Read the WHOLE file (loop until EOF -- the PAL read may be short). */
+    used = 0u;
+    while (used < (uint32_t)total) {
+        int32_t n = pal->read(pal, fd, buf + used, (uint32_t)total - used);
+        if (n < 0) { pal->close(pal, fd); if (ec) *ec = 1; return (char *)0; }
+        if (n == 0) break;            /* EOF */
+        used += (uint32_t)n;
+    }
+    pal->close(pal, fd);
+    buf[used] = '\0';
+    if (out_len) *out_len = used;
+    return buf;
+}
+
+/*
+ * repl_try_do_file: if `s` is a bare "DO <name>" (no WITH, single target word),
+ * try to load <name>[.PRG] off disk and run it via proc_run. Returns:
+ *   1  -- handled here (the .prg was found + run); *rc holds proc_run's result.
+ *   0  -- NOT a disk-program DO (no file on disk, or the line was DO ... WITH /
+ *         DO WHILE-shaped): the caller runs the normal proc_run(ip, s) path.
+ * *ec receives the catalog ordinal on a fail-loud load error (over-cap / I/O).
+ */
+static int repl_try_do_file(xb_interp *ip, const char *s, int *rc, int *ec)
+{
+    const char *rest = (const char *)0;
+    char name[REPL_TOK_CAP];
+    const char *p;
+    uint32_t prglen = 0u;
+    char *prg;
+
+    if (ec) *ec = 0;
+    if (!repl_verb_eq(s, "DO", &rest) || !rest) return 0;
+
+    /* Take the single target word. If anything non-blank follows it (e.g. WITH
+     * <args>), this is an in-source procedure call -- leave it to proc_run. */
+    p = rest;
+    if (repl_word(&p, name, sizeof name) == 0u) return 0;     /* bare "DO" */
+    while (*p != '\0' && repl_isspace(*p)) p++;
+    if (*p != '\0') return 0;             /* DO <name> WITH ... -> in-source DO */
+
+    prg = repl_load_prg(ip, name, &prglen, ec);
+    if (!prg) {
+        /* ec!=0 -> a real load fault (surface it); ec==0 -> not on disk (fall
+         * through so an in-source PROCEDURE of that name still runs). */
+        return (ec && *ec != 0) ? 1 : 0;
+    }
+
+    *rc = proc_run(ip, prg);
+    return 1;
+}
+
+/* ===================================================================== */
 /* Module registration.                                                    */
 /* ===================================================================== */
 
@@ -584,7 +727,27 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
             continue;
         }
 
-        /* (3) everything else -> the proc module's program driver, which wraps
+        /* (3) DO <name> off disk: a bare "DO <name>" at the dot prompt runs
+         * <name>.PRG from the data disk (dBASE: DO a disk program). Tried BEFORE
+         * the generic proc_run so the .prg is loaded + executed; if no such file
+         * exists we fall through (an in-source PROCEDURE of that name, else #16).
+         * This is the initech-9a0f keystone: `DO Y2KACCT` runs the Initech AR
+         * aging app (with its enforced Y2K bug, bead 586.1) INSIDE InitechOS. */
+        {
+            int dofile_ec = 0;
+            int dofile_rc = INTERP_OK;
+            if (repl_try_do_file(ip, s, &dofile_rc, &dofile_ec)) {
+                if (dofile_ec != 0) {
+                    repl_render_error(pal, dofile_ec);   /* a load fault (#18/#43/#1) */
+                } else if (dofile_rc != INTERP_OK) {
+                    int code = samir_last_error(ip);
+                    repl_render_error(pal, code != 0 ? code : 16);
+                }
+                continue;                                /* the .prg was handled */
+            }
+        }
+
+        /* (4) everything else -> the proc module's program driver, which wraps
          * samir_do (the S5.3 spine + the registered hook chain) so DO/PROCEDURE
          * and ON ERROR work at the dot prompt. proc_run sets samir_last_error and
          * fires an installed ON ERROR trap once on a runtime error. */
