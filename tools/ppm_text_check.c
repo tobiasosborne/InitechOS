@@ -115,14 +115,40 @@ int main(int argc, char **argv)
      * y in [band_y0, band_y1) contains >= min_fg foreground pixels. test-boot
      * calls with 1 arg (banner only); test-fs passes the proto-DIR band so the
      * gate BITES if the directory listing fails to render on screen (Rule 6 --
-     * the gate previously false-passed on the banner alone). */
+     * the gate previously false-passed on the banner alone).
+     *
+     * OPTIONAL argv[5] = bg_y0 -- override the seafoam-background floor (default
+     * BG_Y0=240). OPTIONAL argv[6] = bg_x0 -- restrict the seafoam region to the
+     * right margin x in [bg_x0, w) (default 0 = full width). Both are for screens
+     * whose LEGITIMATE text scrolls past the fixed y=240 floor and whose vertical
+     * scroll position is wall-clock-sensitive (e.g. the test-samir-write 4-row
+     * LIST table over the long dot-prompt session, bead initech-g6wx): the dot
+     * prompt keeps scrolling so the LAST text row drifts run-to-run, but the text
+     * is always confined to the LEFT columns. Sampling the RIGHT margin (which the
+     * session never inks below the banner) keeps the seafoam check (C) -- "not a
+     * solid fill / not garbage" -- deterministic AND immune to vertical scroll: a
+     * solid gray fill or garbage screen still fails C in the right margin. Purely
+     * additive: 1-arg and 5-arg callers are unchanged (bg_y0=BG_Y0, bg_x0=0).
+     * Strengthens flexibility, weakens nothing. */
     long band_y0 = -1, band_y1 = -1, band_min = 0;
-    if (argc == 5) {
+    long bg_y0 = BG_Y0;
+    long bg_x0 = 0;
+    if (argc >= 5 && argc <= 7) {
         band_y0  = strtol(argv[2], NULL, 10);
         band_y1  = strtol(argv[3], NULL, 10);
         band_min = strtol(argv[4], NULL, 10);
+        if (argc >= 6) {
+            bg_y0 = strtol(argv[5], NULL, 10);
+            if (bg_y0 < 0) bg_y0 = BG_Y0;
+        }
+        if (argc == 7) {
+            bg_x0 = strtol(argv[6], NULL, 10);
+            if (bg_x0 < 0) bg_x0 = 0;
+        }
     } else if (argc != 2) {
-        fprintf(stderr, "usage: %s <screendump.ppm> [band_y0 band_y1 min_fg]\n",
+        fprintf(stderr,
+                "usage: %s <screendump.ppm> "
+                "[band_y0 band_y1 min_fg [bg_y0 [bg_x0]]]\n",
                 argv[0]);
         return 2;
     }
@@ -173,10 +199,11 @@ int main(int argc, char **argv)
     }
 
     /* The banner band must fit on screen (defensive; the LFB is 640x480). */
-    if (w < LINE1_X1 || h <= BG_Y0) {
+    if (w < LINE1_X1 || h <= bg_y0 || bg_x0 >= w) {
         fprintf(stderr,
-                "ppm_text_check: image %ldx%ld too small for banner band/bg region\n",
-                w, h);
+                "ppm_text_check: image %ldx%ld too small for banner band/bg region "
+                "(bg_y0=%ld bg_x0=%ld)\n",
+                w, h, bg_y0, bg_x0);
         free(buf);
         return 2;
     }
@@ -205,8 +232,8 @@ int main(int argc, char **argv)
     int bg_checked = 0, bg_bad = 0;
     long fbx = -1, fby = -1;
     int br = 0, bg = 0, bb = 0;
-    for (long y = BG_Y0; y < h; y += 7) {
-        for (long x = 0; x < w; x += 7) {
+    for (long y = bg_y0; y < h; y += 7) {
+        for (long x = bg_x0; x < w; x += 7) {
             unsigned char *p = buf + (y * w + x) * 3;
             bg_checked++;
             if (!is_color(p, BG_R, BG_G, BG_B)) {
@@ -235,9 +262,9 @@ int main(int argc, char **argv)
     free(buf);
 
     printf("ppm_text_check: %ldx%ld -- banner band fg=%ld (>=%d req), "
-           "cell(0,0) fg=%ld (>=1 req), bg seafoam %d/%d below y=%d",
+           "cell(0,0) fg=%ld (>=1 req), bg seafoam %d/%d below y=%ld",
            w, h, fg_line1, MIN_FG_PIXELS, fg_cell00,
-           bg_checked - bg_bad, bg_checked, BG_Y0);
+           bg_checked - bg_bad, bg_checked, bg_y0);
     if (band_checked) {
         printf(", band[%ld,%ld) fg=%ld (>=%ld req)",
                band_y0, band_y1, fg_band, band_min);
@@ -267,10 +294,10 @@ int main(int argc, char **argv)
     }
     if (bg_bad != 0) {
         fprintf(stderr,
-                "ppm_text_check: FAIL [C] -- %d/%d bg samples below y=%d are not "
+                "ppm_text_check: FAIL [C] -- %d/%d bg samples below y=%ld are not "
                 "seafoam; first at (%ld,%ld) = RGB(%d,%d,%d) -- solid fill / "
                 "blank / garbage, not the seafoam desktop\n",
-                bg_bad, bg_checked, BG_Y0, fbx, fby, br, bg, bb);
+                bg_bad, bg_checked, bg_y0, fbx, fby, br, bg, bb);
         fail = 1;
     }
     if (fail) {

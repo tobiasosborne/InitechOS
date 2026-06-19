@@ -384,6 +384,18 @@ static int32_t milton_read(samir_pal_t *p, pal_fd fd, void *buf, uint32_t n)
  * A short write (< n) means the device is full; engine treats < n as PAL_ENOSPC
  * per the pal.h contract. We return the actual count, not an error.
  * Ref: do_write returns EAX=bytes_written or CF+AX=err.
+ *
+ * Mutation hook (Rule 6): -DPAL_MILTON_MUTATE_DROP_WRITE makes a WRITE to a real
+ * FILE handle (fd >= 3 -- handles 0/1/2 are CON/stdout/stderr) a NO-OP that
+ * REPORTS full success (return n) WITHOUT issuing the INT 21h WRITE. The engine
+ * then believes dbf_flush wrote the mutated image, but NOTHING reaches the FAT
+ * volume: the on-disk .dbf stays at the original 3 records with the original
+ * BALs, so the post-run dbf_ref.py persistence assertion (4 records, BAL=9999.99,
+ * BAL=5555.55) goes RED -- the .dbf is stale, not garbled, and there is NO crash
+ * (a clean data-not-persisted RED for the right reason, test-samir-write-mutant).
+ * Console writes (fd <= 2) are LEFT INTACT so the dot prompt + the in-emu LIST
+ * still render -- the bite is the on-disk persistence, not the live session.
+ * NEVER define in a real build.
  */
 static int32_t milton_write(samir_pal_t *p, pal_fd fd, const void *buf, uint32_t n)
 {
@@ -397,6 +409,14 @@ static int32_t milton_write(samir_pal_t *p, pal_fd fd, const void *buf, uint32_t
     if (n == 0u) {
         return 0;
     }
+#ifdef PAL_MILTON_MUTATE_DROP_WRITE
+    /* MUTANT: drop the WRITE to a real file (fd >= 3) but claim n bytes written,
+     * so the .dbf flush never hits the disk. CON handles (0/1/2) pass through so
+     * the session still renders. */
+    if (fd >= 3) {
+        return (int32_t)n;
+    }
+#endif
     result = int21(0x40u, 0x00u,
                    (uint32_t)(uintptr_t)buf,   /* EDX=buffer flat ptr */
                    (uint32_t)fd,                /* EBX=handle */

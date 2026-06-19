@@ -10911,6 +10911,248 @@ test-samir-boot-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_LIST_MUT_IMG)
 	@printf '>>> test-samir-boot-mutant: green (short-read mutant correctly RED -- LIST rows garbled/absent, no crash)\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-samir-write (bead initech-g6wx) -- S8.2 deepening (WRITE)
+# ---------------------------------------------------------------------------
+# THE MILESTONE: SAMIR (InitechBase) WRITES a .dbf inside InitechOS and the change
+# PERSISTS to the FAT volume. test-samir-boot proved the READ path (USE/LIST);
+# this gate is the FIRST runtime exercise of pal_milton's WRITE/SEEK/CLOSE path
+# (AH=40h WRITE + AH=42h LSEEK + AH=3Eh CLOSE -> the kernel FAT12 write path over
+# ATA). Boot the COMMAND.COM shell kernel (TRACER_IMG) WITH a FRESH, WRITABLE
+# FAT12 data disk (--disk2 = SAMIR_WRITE_IMG, a per-run copy of SAMIR.COM +
+# CLIENTS.DBF -- Rule 11 deterministic start: the kernel MUTATES it, so it must
+# NOT be a committed fixture), and inject, gated on SHELL-READY:
+#     samir<ret>                       (EXEC SAMIR.COM via AH=4Bh)
+#     use clients.dbf<ret>             (USE opens the .dbf read-WRITE, 7az.19)
+#     replace bal with 9999.99<ret>    (REPLACE rec 1 BAL, default scope = current)
+#     append blank<ret>                (APPEND BLANK adds rec 4)
+#     replace bal with 5555.55<ret>    (REPLACE the new rec 4 BAL)
+#     list<ret>                        (LIST shows the mutated rows)
+#     quit<ret>                        (REPL exit flushes + closes the work area)
+#     exit<ret>                        (COMMAND.COM clean exit)
+# NUMERIC REPLACEs only -- no string quotes (avoids QMP quote-injection pain).
+# Each mutation -> dbf_flush -> milton_write/seek/close -> the FAT write path.
+# Assert (every miss fail-loud + exit-non-zero, Law 2):
+#   1. NO triple-fault (the WRITE/SEEK/CLOSE path did not crash).
+#   2. SHELL-READY (the COMMAND.COM REPL was entered).
+#   3. SERIAL (after `A:\>samir`): the LIST after the mutations shows the changed
+#      rec-1 BAL (9999.99) and the new rec-4 BAL (5555.55) on serial.
+#   4. SCREENDUMP (Law 4): a SEPARATE keys+grab run renders the LIST table on the
+#      LFB; the LIST-rows band [176,240) inks >= 300 fg pixels (the 4 data rows),
+#      with the right-margin desktop still seafoam (immune to dot-prompt scroll).
+#   5. THE KEY PROOF -- PERSISTENCE: AFTER QEMU exits, mcopy CLIENTS.DBF OUT of the
+#      (mutated) data-disk image and run dbf_ref.py (the INDEPENDENT python reader,
+#      shares NO code with os/samir) on it. Assert: record_count == 4 (was 3);
+#      rec0 BAL == 9999.99; rec3 BAL == 5555.55. This proves the write actually hit
+#      the on-disk .dbf through pal_milton -> INT 21h -> the kernel FAT write path,
+#      not just an in-memory mutation. (mcopy/python3 REQUIRED -- this is the gate's
+#      whole point, NOT a bonus; absence is a hard fail.)
+# It BITES (test-samir-write-mutant): the -DPAL_MILTON_MUTATE_DROP_WRITE pal_milton
+# mutant drops the file WRITE (returns n, writes 0) so dbf_flush never reaches the
+# disk -> the extracted .dbf is STALE (3 records, original BALs) -> the dbf_ref.py
+# persistence assertion goes RED, with NO triple-fault (data-not-persisted, not a
+# crash; the live session still renders since CON writes pass through).
+# TRI-EMULATOR: QEMU only -- Bochs/86Box deferred (bead initech-x0i).
+# Ref: bead initech-g6wx; ADR-0009 DEC-08; os/samir/pal/pal_milton.c (milton_write/
+#      seek/close); os/samir/cmd/mutate.c (REPLACE/APPEND -> dbf_flush);
+#      harness/diff/dbf_diff/dbf_ref.py (independent reader); test-fatwrite (the
+#      writable --disk2 precedent -- QEMU writes persist to the raw image).
+
+# FRESH, WRITABLE data-disk image paths. CRITICAL (Rule 11 determinism): the
+# kernel MUTATES these disks (APPEND BLANK grows the .dbf), so they MUST be
+# re-minted from the pristine 3-record fixture at the START of EVERY leg of EVERY
+# run -- a stale disk would accumulate appends (3->4->5...) across legs/invocations
+# and the persistence assertion would see the WRONG record count. The mint is
+# therefore done INLINE in the gate recipes (not as a once-built file prerequisite),
+# via samir_write_mint below. Distinct disks per leg so the screendump leg's
+# appends never disturb the serial leg's on-disk persistence proof.
+# serial leg (the on-disk persistence proof disk):
+SAMIR_WRITE_IMG      := $(BUILD)/samir_write.img
+# screendump leg (its own disk so its appends don't disturb the proof):
+SAMIR_WRITE_SCRN_IMG := $(BUILD)/samir_write_scrn.img
+# drop-write mutant leg:
+SAMIR_WRITE_MUT_IMG  := $(BUILD)/samir_write_mut.img
+
+# samir_write_mint: $(call samir_write_mint,<image>,<samir.com>) -- mint a FRESH
+# 1.44 MB FAT12 disk with the given SAMIR.COM + a PRISTINE copy of CLIENTS.DBF.
+define samir_write_mint
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(2) ::SAMIR.COM
+	@mcopy -i $(1) $(CLIENTS_DBF) ::CLIENTS.DBF
+endef
+
+# --- SAMIR.COM DROP-WRITE MUTANT (bead g6wx; Rule 6): the SAME .COM build but
+#     pal_milton.c is compiled with -DPAL_MILTON_MUTATE_DROP_WRITE so milton_write
+#     on a real file handle (fd >= 3) is a no-op that reports success. dbf_flush
+#     then "succeeds" in the engine but nothing reaches the disk -> the extracted
+#     .dbf is STALE -> test-samir-write-mutant's persistence assertion bites
+#     (3 records, original BALs; NO crash; the live LIST still renders). ---
+SAMIR_COM_DROPWRITE := $(BUILD)/SAMIR_DROPWRITE.COM
+.PHONY: samir-com-dropwrite
+samir-com-dropwrite: $(SAMIR_COM_DROPWRITE)
+$(SAMIR_COM_DROPWRITE): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+	@rm -rf $(BUILD)/samir_com_dropwrite && mkdir -p $(BUILD)/samir_com_dropwrite
+	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_dropwrite/samir_crt0.o
+	@set -e; for s in $(SAMIR_COM_CSRCS); do \
+		o=$(BUILD)/samir_com_dropwrite/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
+		$(CC) $(SAMIR_COM_PROFILE) -DPAL_MILTON_MUTATE_DROP_WRITE -c $$s -o $$o; \
+	done
+	@$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_dropwrite/SAMIR.elf $(BUILD)/samir_com_dropwrite/samir_crt0.o $$(ls $(BUILD)/samir_com_dropwrite/*.o | grep -v 'samir_crt0\.o')
+	@$(OBJCOPY) -O binary $(BUILD)/samir_com_dropwrite/SAMIR.elf $@
+	@printf '>>> SAMIR_DROPWRITE.COM: %s bytes (drop-write on-target WRITE mutant; Rule 6)\n' "$$(stat -c%s $@)"
+
+SAMIRWR_NAME       := samir_write
+SAMIRWR_SERIAL     := $(BUILD)/$(SAMIRWR_NAME).serial
+SAMIRWR_REPORT     := $(BUILD)/$(SAMIRWR_NAME).report
+SAMIRWR_OUT_DBF    := $(BUILD)/CLIENTS.out.dbf
+SAMIRWR_SCRN_NAME   := samir_write_scrn
+SAMIRWR_SCRN_REPORT := $(BUILD)/$(SAMIRWR_SCRN_NAME).report
+SAMIRWR_PPM         := $(BUILD)/$(SAMIRWR_SCRN_NAME).ppm
+SAMIRWR_MUT_NAME    := samir_write_mut
+SAMIRWR_MUT_SERIAL  := $(BUILD)/$(SAMIRWR_MUT_NAME).serial
+SAMIRWR_MUT_REPORT  := $(BUILD)/$(SAMIRWR_MUT_NAME).report
+SAMIRWR_MUT_OUT_DBF := $(BUILD)/CLIENTS.mut.dbf
+# The key script: samir / use clients.dbf / replace bal with 9999.99 /
+#   append blank / replace bal with 5555.55 / list / quit / exit
+SAMIRWR_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,r,e,p,l,a,c,e,spc,b,a,l,spc,w,i,t,h,spc,9,9,9,9,dot,9,9,ret,a,p,p,e,n,d,spc,b,l,a,n,k,ret,r,e,p,l,a,c,e,spc,b,a,l,spc,w,i,t,h,spc,5,5,5,5,dot,5,5,ret,l,i,s,t,ret,q,u,i,t,ret,e,x,i,t,ret
+# Screendump leg: same mutations + LIST, but NO quit/exit so the LIST stays on
+# screen when the grab fires.
+SAMIRWR_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,r,e,p,l,a,c,e,spc,b,a,l,spc,w,i,t,h,spc,9,9,9,9,dot,9,9,ret,a,p,p,e,n,d,spc,b,l,a,n,k,ret,r,e,p,l,a,c,e,spc,b,a,l,spc,w,i,t,h,spc,5,5,5,5,dot,5,5,ret,l,i,s,t,ret
+
+.PHONY: test-samir-write test-samir-write-mutant
+test-samir-write: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(CLIENTS_DBF) $(PPM_TEXT_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-samir-write : SAMIR WRITES a .dbf that PERSISTS (S8.2 deepening)\n'
+	@printf '  Ref: bead initech-g6wx; ADR-0009 DEC-08. boot -> USE -> REPLACE + APPEND -> flush -> on-disk .dbf.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + FRESH WRITABLE data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(TRACER_IMG)" "$(SAMIR_WRITE_IMG)"
+	@printf 'Expecting : in-emu LIST shows BAL 9999.99 + rec4 5555.55; extracted .dbf has 4 records (independent reader)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# FRESH disk for the serial leg -- Rule 11: each run starts from the pristine
+	@# 3-record fixture so APPEND BLANK lands exactly one new record (3->4), never
+	@# accumulating across legs/invocations.
+	@$(call samir_write_mint,$(SAMIR_WRITE_IMG),$(SAMIR_COM))
+	@printf '>>> samir_write: minted FRESH %s (pristine 3-record CLIENTS.DBF) for the serial leg\n' "$(SAMIR_WRITE_IMG)"
+	@# Run 1 (serial): EXEC SAMIR, USE rw, REPLACE + APPEND + REPLACE, LIST, QUIT, EXIT.
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_WRITE_IMG)" \
+		--name "$(SAMIRWR_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(SAMIRWR_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(SAMIRWR_REPORT)" || true
+	@cat "$(SAMIRWR_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(SAMIRWR_REPORT)"; then \
+		printf '!!! test-samir-write FAIL: TRIPLE FAULT -- the WRITE/SEEK/CLOSE path crashed (root-cause pal_milton, Rule 3)\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-samir-write [1/5]: no triple-fault (SAMIR ran the mutations without crashing)\n'
+	@if [ ! -s "$(SAMIRWR_SERIAL)" ]; then \
+		printf '!!! test-samir-write FAIL: no serial captured at %s\n' "$(SAMIRWR_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(SAMIRWR_SERIAL)" \
+		|| { printf '!!! test-samir-write FAIL: SHELL-READY missing -- COMMAND.COM never reached the prompt\n'; exit 1; }
+	@printf '>>> test-samir-write [2/5]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@# Scope to AFTER `A:\>samir` so the assertions bite SAMIR's OWN output.
+	@tr -d '\r' < "$(SAMIRWR_SERIAL)" | sed -n '/A:.>samir/,$$p' > "$(BUILD)/$(SAMIRWR_NAME).samir"
+	@grep -qF '9999.99' "$(BUILD)/$(SAMIRWR_NAME).samir" \
+		|| { printf '!!! test-samir-write FAIL: the in-emu LIST did not show the REPLACEd BAL 9999.99 (the mutation did not apply, root-cause mutate.c / dbf_replace)\n'; \
+		     cat "$(BUILD)/$(SAMIRWR_NAME).samir"; exit 1; }
+	@grep -qF '5555.55' "$(BUILD)/$(SAMIRWR_NAME).samir" \
+		|| { printf '!!! test-samir-write FAIL: the in-emu LIST did not show the new rec-4 BAL 5555.55 (APPEND BLANK + REPLACE did not apply)\n'; \
+		     cat "$(BUILD)/$(SAMIRWR_NAME).samir"; exit 1; }
+	@printf '>>> test-samir-write [3/5]: in-emu LIST shows the mutated rec-1 BAL (9999.99) + new rec-4 BAL (5555.55)\n'
+	@# ---- 4. SCREENDUMP (Run 2; Law 4): a SEPARATE keys+grab run leaves the
+	@# mutated LIST table (now 4 rows) on the LFB. The longer session (USE +
+	@# REPLACE + APPEND + REPLACE echoes) scrolls the LIST lower than the 3-row
+	@# boot gate: the 4 data rows land DETERMINISTICALLY in band [176,240) (fg
+	@# ~2400 every run; 0 if SAMIR did not USE+mutate+LIST). The ABSOLUTE bottom of
+	@# the dot-prompt scroll drifts run-to-run (the REPL keeps prompting during the
+	@# grab drain), but the session text is always confined to the LEFT columns
+	@# (x < ~320 below the banner). So the seafoam check (C) samples the RIGHT
+	@# margin x in [560,640), y in [32,480) -- a region the session NEVER inks and
+	@# that a solid-fill/garbage screen would still fail (ppm_text_check optional
+	@# bg_y0=32 bg_x0=560; immune to vertical scroll; weakens nothing). ----
+	@# FRESH disk for the screendump leg (its OWN image) so its appends never
+	@# disturb the serial leg's on-disk persistence proof (Rule 11).
+	@$(call samir_write_mint,$(SAMIR_WRITE_SCRN_IMG),$(SAMIR_COM))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_WRITE_SCRN_IMG)" \
+		--name "$(SAMIRWR_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(SAMIRWR_SCRN_KEYS)" --keys-after "SHELL-READY" \
+		--screendump --screendump-after "SHELL-READY" \
+		2> "$(SAMIRWR_SCRN_REPORT)" || true
+	@if grep -q 'triple_fault=1' "$(SAMIRWR_SCRN_REPORT)"; then \
+		printf '!!! test-samir-write FAIL: TRIPLE FAULT on the screendump run\n'; exit 1; \
+	fi
+	@if [ ! -s "$(SAMIRWR_PPM)" ]; then \
+		printf '!!! test-samir-write FAIL: no screendump captured at %s (live guest required)\n' "$(SAMIRWR_PPM)"; exit 1; \
+	fi
+	@$(PPM_TEXT_CHECK_BIN) "$(SAMIRWR_PPM)" 176 240 300 32 560 \
+		|| { printf '!!! test-samir-write FAIL: the mutated LIST rows did not render on the framebuffer (band [176,240) < 300 fg), or the right-margin desktop is not seafoam\n'; exit 1; }
+	@printf '>>> test-samir-write [4/5]: screendump shows the mutated 4-row LIST table on the seafoam desktop\n'
+	@# ---- 5. THE KEY PROOF -- PERSISTENCE: extract CLIENTS.DBF off the (mutated)
+	@# data disk and verify with the INDEPENDENT python reader. mcopy + python3 are
+	@# REQUIRED here (this is the whole point of the gate, not a bonus). ----
+	@command -v mcopy >/dev/null 2>&1 \
+		|| { printf '!!! test-samir-write FAIL: mcopy absent -- cannot extract the on-disk .dbf to PROVE persistence (this gate REQUIRES mtools)\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 \
+		|| { printf '!!! test-samir-write FAIL: python3 absent -- the independent dbf_ref.py reader is REQUIRED\n'; exit 1; }
+	@rm -f "$(SAMIRWR_OUT_DBF)"
+	@mcopy -i "$(SAMIR_WRITE_IMG)" ::CLIENTS.DBF "$(SAMIRWR_OUT_DBF)" 2>/dev/null \
+		|| { printf '!!! test-samir-write FAIL: mcopy could not extract CLIENTS.DBF off the post-run disk\n'; exit 1; }
+	@python3 harness/diff/dbf_diff/dbf_ref.py --records "$(SAMIRWR_OUT_DBF)" > "$(BUILD)/$(SAMIRWR_NAME).recs" 2> "$(BUILD)/$(SAMIRWR_NAME).recerr" \
+		|| { printf '!!! test-samir-write FAIL: dbf_ref.py could not parse the extracted .dbf (structural corruption?):\n'; cat "$(BUILD)/$(SAMIRWR_NAME).recerr"; exit 1; }
+	@printf '    --- dbf_ref.py --records on the EXTRACTED (post-run) CLIENTS.DBF ---\n'
+	@sed 's/^/    /' "$(BUILD)/$(SAMIRWR_NAME).recs"
+	@nrec=$$(grep -c '^rec' "$(BUILD)/$(SAMIRWR_NAME).recs"); \
+	 if [ "$$nrec" -ne 4 ]; then \
+		printf '!!! test-samir-write FAIL: extracted .dbf has %s records, expected 4 (APPEND BLANK did not persist to the FAT volume)\n' "$$nrec"; exit 1; \
+	 fi
+	@grep -q '^rec0 active NAME=PESTON CITY=HONOLULU BAL=9999.99$$' "$(BUILD)/$(SAMIRWR_NAME).recs" \
+		|| { printf '!!! test-samir-write FAIL: rec0 BAL != 9999.99 on disk (the REPLACE did not persist through pal_milton -> FAT write)\n'; exit 1; }
+	@grep -q '^rec3 active NAME= CITY= BAL=5555.55$$' "$(BUILD)/$(SAMIRWR_NAME).recs" \
+		|| { printf '!!! test-samir-write FAIL: rec3 BAL != 5555.55 on disk (the APPEND+REPLACE did not persist)\n'; exit 1; }
+	@printf '>>> test-samir-write [5/5]: PERSISTED -- independent reader confirms 4 records, rec0 BAL=9999.99, rec3 BAL=5555.55 ON DISK\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- SAMIR WROTE a .dbf inside InitechOS; the REPLACE + APPEND BLANK\n'
+	@printf '            round-tripped through pal_milton -> INT 21h -> the kernel FAT12 write path\n'
+	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
+	@printf '======================================================================\n'
+
+test-samir-write-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DROPWRITE) $(CLIENTS_DBF)
+	@printf '>>> test-samir-write-mutant: confirming the drop-write pal_milton mutant goes RED (Rule 6)\n'
+	@# FRESH mutant disk from the pristine fixture (Rule 11).
+	@$(call samir_write_mint,$(SAMIR_WRITE_MUT_IMG),$(SAMIR_COM_DROPWRITE))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_WRITE_MUT_IMG)" \
+		--name "$(SAMIRWR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(SAMIRWR_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(SAMIRWR_MUT_REPORT)" || true
+	@# The mutant must NOT triple-fault (it is a data-not-persisted bug, not a crash).
+	@if grep -q 'triple_fault=1' "$(SAMIRWR_MUT_REPORT)"; then \
+		printf '!!! test-samir-write-mutant FAIL: the mutant TRIPLE-FAULTED -- a crash, not the stale-disk RED the gate asserts\n'; exit 1; \
+	fi
+	@command -v mcopy >/dev/null 2>&1 \
+		|| { printf '!!! test-samir-write-mutant FAIL: mcopy absent -- cannot extract the on-disk .dbf to confirm the bite\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 \
+		|| { printf '!!! test-samir-write-mutant FAIL: python3 absent -- the independent reader is REQUIRED\n'; exit 1; }
+	@rm -f "$(SAMIRWR_MUT_OUT_DBF)"
+	@mcopy -i "$(SAMIR_WRITE_MUT_IMG)" ::CLIENTS.DBF "$(SAMIRWR_MUT_OUT_DBF)" 2>/dev/null \
+		|| { printf '!!! test-samir-write-mutant FAIL: mcopy could not extract CLIENTS.DBF off the mutant disk\n'; exit 1; }
+	@python3 harness/diff/dbf_diff/dbf_ref.py --records "$(SAMIRWR_MUT_OUT_DBF)" > "$(BUILD)/$(SAMIRWR_MUT_NAME).recs" 2>/dev/null \
+		|| { printf '!!! test-samir-write-mutant FAIL: dbf_ref.py could not parse the mutant .dbf -- expected a STALE-but-valid 3-record file, not corruption\n'; exit 1; }
+	@printf '    --- dbf_ref.py --records on the mutant extracted CLIENTS.DBF ---\n'
+	@sed 's/^/    /' "$(BUILD)/$(SAMIRWR_MUT_NAME).recs"
+	@# The mutant dropped the WRITE: the on-disk .dbf MUST be the original 3-record
+	@# fixture (unmutated). If it has 4 records or rec0 BAL=9999.99, the mutant did
+	@# NOT bite -> the gate is decoration.
+	@nrec=$$(grep -c '^rec' "$(BUILD)/$(SAMIRWR_MUT_NAME).recs"); \
+	 if [ "$$nrec" -ne 3 ]; then \
+		printf '!!! test-samir-write-mutant FAIL: mutant disk has %s records (expected the original 3) -- the drop-write mutant did NOT bite\n' "$$nrec"; exit 1; \
+	 fi
+	@if grep -q 'BAL=9999.99' "$(BUILD)/$(SAMIRWR_MUT_NAME).recs"; then \
+		printf '!!! test-samir-write-mutant FAIL: mutant on-disk .dbf has BAL=9999.99 -- the write was NOT dropped (gate decoration)\n'; exit 1; \
+	fi
+	@printf '>>> test-samir-write-mutant: green (drop-write mutant correctly RED -- on-disk .dbf STALE [3 records, original BALs], no crash)\n'
+
+# ---------------------------------------------------------------------------
 # Aggregate green gate vector (beads initech-4mc)
 # ---------------------------------------------------------------------------
 # The single command that asserts "InitechDOS is rock solid". Runs the entire
@@ -10992,7 +11234,8 @@ TEST_EMU_GATES := \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm \
-	test-samir-boot test-samir-boot-mutant
+	test-samir-boot test-samir-boot-mutant \
+	test-samir-write test-samir-write-mutant
 
 test-unit:
 	@printf '======================================================================\n'
