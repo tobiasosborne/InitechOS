@@ -130,7 +130,7 @@ A fresh session is the right home for these (esp. `bcg.12`'s delicate ATA
 command-sequence change).
 
 ### 4.1 Gates that must stay green
-`make test` = **184 host + 33 emu gates** (WL-0033: SAMIR now RUNS INSIDE InitechOS --
+`make test` = **184 host + 35 emu gates** (WL-0033: SAMIR now RUNS INSIDE InitechOS --
 +8 host [`test-arena-disjoint`, `test-loader-big`, `test-hardware-spec`, `test-samir-softfp`
 x unit+mutant] and +6 emu: `test-samir-boot`(+mutant) boot->EXEC SAMIR.COM->USE->LIST;
 `test-samir-write`(+mutant) REPLACE/APPEND persists to the .dbf on the FAT volume (independent-
@@ -410,11 +410,11 @@ LIST) + **`test-samir-write`** (REPLACE/APPEND persists to the .dbf, independent
 `make samir-com` -> `build/SAMIR.COM` (77792 bytes). Closed: ax9.1/ax9.2/hdlb/za4m/1q4u/qucm/
 nh0m/ap5g/g6wx.
 
-**Capstone DONE (`9a0f`, `c95a4db`):** the `586.1` Y2K accounting app RUNS inside InitechOS via the
-new additive `DO <file>` REPL feature -- `test-samir-canon-y2k`. **NEXT ungated deepening (filed):**
-SEEK/`.ndx` index + DELETE/PACK in-emulator; the `586.2` Bolton salami virus running INSIDE
-InitechOS (now that `DO <file>` exists, same pattern as the Y2K app); `7az.13` transcendentals
-on the soft-float base.
+**Capstone DONE -- BOTH canon apps run inside InitechOS:** `586.1` Y2K accounting (`9a0f`,
+`test-samir-canon-y2k`) + `586.2` Bolton's salami/rounding virus (`4hte`, `test-samir-canon-salami`),
+both via the additive `DO <file>` REPL feature -- the Office Space deadpan bugs executing on the
+emulated 386. **NEXT ungated deepening (filed):** SEEK/`.ndx` index + DELETE/PACK in-emulator;
+`7az.13` transcendentals on the soft-float base.
 
 **REMAINING SAMIR work -- GATED / deferred (no ungated host work left):**
 - `7az.13` transcendentals SQRT/LOG/EXP -- now tractable on the soft-float base (poly approx;
