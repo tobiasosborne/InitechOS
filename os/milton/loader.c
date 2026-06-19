@@ -76,6 +76,46 @@ loader_status_t loader_prepare(const uint8_t *image, uint32_t image_len,
     out->params.cmd_tail          = cmd_tail;           /* may be NULL (no args) */
     out->params.cmd_tail_len      = cmd_tail_len;
 
+    /* Compute the AH=48h heap-arena window DISJOINT from the loaded program (beads
+     * initech-1q4u; ADR-0009 DEC-04). The arena starts paragraph-rounded ABOVE the
+     * loaded image + a conservative BSS reserve, and ends at PROGRAM_ARENA_CEIL
+     * (== ENV_BLOCK), so a 48h ALLOC can never return memory inside the program
+     * image+BSS, the env block, or the 64 KiB stack. See spec/memory_map.h's ARENA
+     * DISJOINTNESS INVARIANT for the proof. (Was: the arena overlaid the running
+     * program -- the latent corruption SAMIR would have hit.) */
+    {
+#ifdef LOADER_MUTATE_ARENA_OVERLAP
+        /* MUTANT (CLAUDE.md Rule 6; make test-arena-disjoint-mutant only): revert
+         * the arena base to PROGRAM_BASE -- the EXACT pre-fix bug (the arena
+         * overlays the PSP/image/stack). The disjointness oracle MUST go RED
+         * (an allocation lands inside [PROGRAM_IMAGE, image_end) or the stack).
+         * NEVER define in a real build. */
+        uint32_t arena_base = PROGRAM_BASE;
+#else
+        /* roundup_paragraph(PROGRAM_IMAGE + image_len + PROGRAM_BSS_RESERVE). The
+         * +0xF then mask-to-16 rounds UP to the next paragraph boundary so the DOS
+         * segment math (base_linear >> 4) is exact. */
+        uint32_t image_end  = PROGRAM_IMAGE + image_len;
+        uint32_t arena_base = (image_end + PROGRAM_BSS_RESERVE + 0xFu) & ~0xFu;
+#endif
+        uint32_t arena_ceil = PROGRAM_ARENA_CEIL;   /* == ENV_BLOCK (exclusive) */
+
+        if (arena_base < arena_ceil &&
+            (arena_ceil - arena_base) >= 32u) {     /* >= 2 paragraphs (hdr+data) */
+            out->arena_base    = arena_base;
+            out->arena_ceil    = arena_ceil;
+            out->arena_present = 1u;
+        } else {
+            /* Image too large to host a heap below the ceiling: no arena (fail
+             * loud -- 48h reports insufficient memory, never a corrupting
+             * overlap). The image itself already fit (PROGRAM_IMAGE_MAX check
+             * above); this only denies the *heap*, not the run. */
+            out->arena_base    = 0u;
+            out->arena_ceil    = 0u;
+            out->arena_present = 0u;
+        }
+    }
+
     return LOADER_OK;
 }
 
@@ -288,14 +328,22 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * the standard predefined set psp_build just laid down. */
     int21_set_psp((struct psp *)(uintptr_t)plan.psp_addr);
 
-    /* Re-initialize the MCB memory arena (beads initech-509.6) so the freshly
-     * loaded program owns its WHOLE window [PROGRAM_BASE, PROGRAM_ALLOC_END) as
-     * one block (the authentic single-big-block a .COM owns at load). MUST run
-     * AFTER int21_set_psp above so the arena's lone block is stamped with THIS
-     * program's PSP as owner (a later child EXEC re-binds + re-resets for itself;
-     * kmain restores the kernel PSP on return). int21_mcb_reset reads the now-
-     * current PSP. With no arena bound (host loader oracle) this is a no-op. */
-    (void)int21_mcb_reset();
+    /* Bind the MCB heap arena to the window DISJOINT from this loaded program
+     * (beads initech-1q4u; ADR-0009 DEC-04). The arena starts ABOVE the loaded
+     * image+BSS (plan.arena_base) and ends at PROGRAM_ARENA_CEIL (plan.arena_ceil),
+     * so a 48h ALLOC can never return memory inside the program image/env/stack --
+     * the authentic DOS model (DOS hands the program the block AFTER its image).
+     * This SUPERSEDES the old int21_mcb_reset() over [PROGRAM_BASE, PROGRAM_ALLOC_
+     * END), which overlaid the running program (ADR-0009 Sec 1 latent corruption).
+     * MUST run AFTER int21_set_psp above so the lone block is stamped with THIS
+     * program's PSP as owner. If the image was too large to leave a positive arena
+     * (plan.arena_present == 0) the arena is left UNBOUND -- a 48h ALLOC then
+     * reports insufficient memory rather than overlapping (fail loud, Rule 2). */
+    if (plan.arena_present) {
+        (void)int21_mcb_bind_program(plan.arena_base, plan.arena_ceil);
+    } else {
+        int21_set_mcb_arena(0, 0u, 0u);   /* no heap -> 48h insufficient, no overlap */
+    }
 
     /* Reset the current working directory to the root for the freshly loaded
      * program (beads initech-mzxa; ti8 Layer 2). Mirrors int21_mcb_reset above:

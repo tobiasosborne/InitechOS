@@ -62,6 +62,20 @@ typedef struct loader_plan {
     uint32_t     image_len;    /* bytes to copy from `image` to image_dst        */
     const uint8_t *image_src;  /* the source image bytes (validated non-NULL)    */
     psp_params_t params;       /* the exact inputs handed to psp_build()         */
+
+    /* AH=48h heap-arena window, COMPUTED disjoint from the loaded program (beads
+     * initech-1q4u; ADR-0009 DEC-04). load_program binds the arena to
+     * [arena_base, arena_ceil) via int21_mcb_bind_program -- NOT the old whole-
+     * window [PROGRAM_BASE, PROGRAM_ALLOC_END) that overlaid the running program.
+     * arena_base = roundup_paragraph(PROGRAM_IMAGE + image_len + PROGRAM_BSS_
+     * RESERVE); arena_ceil = PROGRAM_ARENA_CEIL (== ENV_BLOCK). arena_present is 0
+     * (and arena_base==arena_ceil==0) when the image is too large to leave a
+     * positive arena below the ceiling -- the program then runs with NO heap and
+     * 48h reports insufficient memory (fail loud, never a corrupting overlap).
+     * The host oracle asserts these directly (Law 2). */
+    uint32_t     arena_base;   /* flat linear base of the disjoint heap arena     */
+    uint32_t     arena_ceil;   /* flat linear ceiling (exclusive); == ENV_BLOCK   */
+    uint8_t      arena_present; /* 1 if a positive-size arena was computed, else 0 */
 } loader_plan_t;
 
 /* loader_prepare -- validate inputs and compute the deterministic load plan

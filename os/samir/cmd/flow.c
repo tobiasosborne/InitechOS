@@ -57,7 +57,11 @@
 #define FLOW_MAX_TOKS      128   /* per-expression token pool */
 #define FLOW_MAX_NODES     128   /* per-expression node pool */
 #define FLOW_MAX_LINELEN   254   /* a working copy of one line (dBASE cap 254) */
-#define FLOW_MAX_REGISTRY  16    /* concurrent interpreters with flow state */
+#ifndef FLOW_MAX_REGISTRY
+# define FLOW_MAX_REGISTRY 16    /* host-test default; Milton .COM build passes -DFLOW_MAX_REGISTRY=1 (ADR-0009 DEC-03) */
+#endif
+/* FLOW_MAX_REGISTRY: concurrent interpreters with flow state. Pure dimensioning
+ * knob -- no target-only behavioral code paths (CLAUDE.md Law 3). */
 #define FLOW_MAX_SCOPE     64    /* max DO-call scope depth (Rule 2 fail-loud cap;
                                   * the corpus DO-stack cap is 32 -- error 100 --
                                   * so 64 is generous headroom) */

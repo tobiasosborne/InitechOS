@@ -1,0 +1,118 @@
+{
+  "_comment": [
+    "InitechOS hardware contract v1 -- LOCKED spec-data (CLAUDE.md Rule 8).",
+    "Ref: PRD Sec 5 (Target Platform / Hardware Contract table) + Sec 11 (M1).",
+    "This file is the on-disk companion to ADR-0009 DEC-07: a locked contract so",
+    "that every subsystem (kernel, SAMIR, Turbo Initech) reads the same platform",
+    "ground truth from a single versioned source, not prose in someone's head.",
+    "",
+    "CHANGE POLICY (Rule 8): editing any row requires a deliberate act -- an open",
+    "beads issue + worklog note. A silent edit to make one test pass is forbidden.",
+    "The gate `harness/diff/dbf_diff/test_hardware_spec.c` is mutation-proven",
+    "(a -D-gated mutant goes RED); weakening the gate is a stop-condition.",
+    "",
+    "ADR/source citations are in the provenance ledger at the bottom of this file.",
+    "ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11)."
+  ],
+  "schema_version": 1,
+  "status": "ratified -- ADR-0009 DEC-07 (2026-06-19)",
+
+  "cpu": {
+    "value": "386+",
+    "note": "i386/i486; boot in real mode, switch to 32-bit protected, flat segmentation. No 8088/286 real-mode support -- dropped by decree (CLAUDE.md hallucination-risk callout). All code runs in a single flat 32-bit protected-mode segment; no segment:offset arithmetic in the kernel or apps.",
+    "ref": ["PRD Sec 5", "ADR-0001 (386+, 32-bit flat; cited by CLAUDE.md and PRD Sec 5)"]
+  },
+
+  "fpu": {
+    "value": "optional",
+    "init_by_kernel": false,
+    "note": "A 387 coprocessor is OPTIONAL; most period PC/XT/AT business machines lacked an 8087/287/387. DOS 3.3 did nothing with the FPU (no FNINIT, no CR0.EM/MP, no #NM handler). dBASE III+ 1.1 used compiler-runtime software emulation -- the runtime auto-detected the 8087 and fell back to a software IEEE-80387 emulator when absent. InitechDOS does NOT initialize the FPU (init_by_kernel=false, binding ADR-0009 DEC-01). The SAMIR engine ships compiled -msoft-float -mno-80387 so no x87 instructions are emitted; double arithmetic runs through libgcc soft-float helpers (__adddf3/__muldf3/__divdf3 etc.), which is exactly what a period dBASE clone would do. The kernel x87 init path (CR0.EM=0/MP=1/NE=1 + FNINIT + pinned control word) is DEFERRED to a post-M6 bead (initech-zj6w) for FLAIR/Turbo-Initech hardware-FP use.",
+    "ref": [
+      "ADR-0009 DEC-01 (soft-float primary; kernel x87 deferred)",
+      "PRD Sec 5 (hardware contract; 386+ target)",
+      "Period grounding: DOS 3.3 PRM -- no FPU init in DOS 3.3; dBASE III+ 1.1 compiler runtime FP emulation"
+    ]
+  },
+
+  "memory": {
+    "model": "flat 32-bit protected",
+    "conventional_program_window": {
+      "base_symbol":  "PROGRAM_BASE",
+      "ceiling_symbol": "PROGRAM_ALLOC_END",
+      "base_value":   "0x00030000",
+      "ceiling_value": "0x00070000",
+      "size_kib": 256,
+      "note": "Conventional program window for a loaded flat .COM-equivalent. Constants are defined in spec/memory_map.h -- cite that header; do NOT duplicate the values. The window includes the PSP (256 B at PROGRAM_BASE), the program image (from PROGRAM_IMAGE = PROGRAM_BASE+0x100), the environment block (ENV_BLOCK = 0x5F000), and the program stack [PROGRAM_STACK_BOT, PROGRAM_STACK_TOP]. The AH=48h MCB arena must be disjoint from the loaded program + stack (ADR-0009 DEC-04 / spec/memory_map.h ARENA DISJOINTNESS INVARIANT)."
+    },
+    "heap_model": "AH=48h MCB arena, flat, bound to [image_end_rounded, PROGRAM_STACK_BOT)",
+    "ref": ["spec/memory_map.h (PROGRAM_BASE / PROGRAM_ALLOC_END + full layout)", "ADR-0009 DEC-03 (flat .COM in conventional memory, FLOW_MAX_REGISTRY=1 for target)", "ADR-0009 DEC-04 (arena disjointness invariant; latent-corruption fix)", "PRD Sec 5 (Memory: flat 32-bit; bump + free-list allocator; no demand paging)"]
+  },
+
+  "video": {
+    "mode": "VBE 2.0 linear framebuffer (LFB)",
+    "resolutions": ["640x480", "800x600", "832x624"],
+    "boot_resolution": "640x480",
+    "bpp_options": [8, 32],
+    "text_rendering": "80x25 via VGA 8x16 ROM font blitted into the LFB (no mode switch)",
+    "note": "The boot path sets the VBE LFB mode; all FLAIR window rendering is pixel-direct into the LFB. No VGA text-mode switch after boot. 832x624 is the Mac-ish resolution for period authenticity.",
+    "ref": ["PRD Sec 5 (Display + Text rows)", "ADR-0004 (FLAIR Toolbox; LFB surface)"]
+  },
+
+  "input": {
+    "keyboard": "PS/2, IRQ1",
+    "mouse": "PS/2, IRQ12",
+    "ref": ["PRD Sec 5 (Input row)"]
+  },
+
+  "timer": {
+    "device": "PIT (8253/8254), IRQ0",
+    "scheduler": "cooperative WaitNextEvent-style tick; no preemption",
+    "ref": ["PRD Sec 5 (Timer row)", "CLAUDE.md hallucination-risk (Cooperative, not preemptive)"]
+  },
+
+  "storage": {
+    "formats": ["FAT12 floppy image", "FAT16 HDD image"],
+    "interface": "ATA PIO",
+    "initrd": "baked initrd/tarfs also supported",
+    "ref": ["PRD Sec 5 (Storage row)"]
+  },
+
+  "executable_format": {
+    "kernel": "flat binary, loaded by stage2",
+    "apps_current_release": "flat .COM-equivalent (ADR-0003 DEC-08)",
+    "mz_exe": "DEFERRED (bead initech-dtw) -- the authentic dBASE.EXE/overlay pattern; not yet implemented",
+    "ref": ["PRD Sec 5 (Executable fmt row)", "ADR-0003 DEC-08", "ADR-0009 DEC-03", "CLAUDE.md hallucination-risk (Flat .COM-equivalent apps; MZ deferred)"]
+  },
+
+  "emulators": {
+    "qemu": "dev loop; gdb stub (-s -S) + symbols; QMP screendump; -serial; -d int,guest_errors,cpu_reset",
+    "bochs": "real->protected accuracy; strict transition checking; triple-fault detect",
+    "box86": "period authenticity + reference; cycle-accurate 486 + period VGA BIOS (Cirrus/ET4000)",
+    "ref": ["PRD Sec 5 (Emulators row)", "PRD Sec 8 (tri-emulator oracle discipline)", "CLAUDE.md Rule 5 (Differential / tri-emulator from day one)"]
+  },
+
+  "toolchain_reproducibility": {
+    "libgcc_pin": {
+      "role": "resolves soft-float helpers (__adddf3/__subdf3/__muldf3/__divdf3/__fixdfsi/__fixdfdi/__floatsidf/__floatdidf/__eqdf2/__nedf2/__ltdf2/__ledf2/__gtdf2/__gedf2) AND 64-bit integer helpers (__divdi3/__udivdi3/__udivmoddi4) for the freestanding SAMIR.COM artifact",
+      "strategy": "extract i386-multilib objects from pinned host libgcc, OR vendor a small audited softfp.c/softint.c -- whichever is chosen is recorded here and mutation-proven",
+      "pinned_version": "FILL_IN_AT_BUILD_TIME",
+      "note": "A floating libgcc version is a reproducibility hole (CLAUDE.md Rule 11). The pin must be committed in the build manifest alongside this file. The SAMIR.COM image must link the SAME object set every build so the self-host fixpoint K2==K3 is meaningful."
+    },
+    "determinism": "No timestamps, no host paths, no nondeterminism baked into the artifact. Reproducible builds are a hard requirement (CLAUDE.md Rule 11) because the Turbo Initech self-host fixpoint (K2==K3) depends on them.",
+    "ref": ["ADR-0009 DEC-02 (libgcc linkage pin, Rule 11)", "CLAUDE.md Rule 11 (Reproducible everything)"]
+  },
+
+  "provenance": {
+    "_comment": "Per-row source ledger (Law 1). Every row in this file cites a LOCAL source.",
+    "cpu":                    "PRD Sec 5 table row 'CPU'; CLAUDE.md hallucination-risk callout (386+ only; no 8088/286)",
+    "fpu":                    "ADR-0009 DEC-01 (soft-float primary, init_by_kernel=false); ADR-0009 Sec 1 period grounding (dBASE III+ software FP, DOS 3.3 uninvolved); DOS 3.3 PRM (no FPU init in single-tasking DOS); PRD Sec 5 (386+ hardware target)",
+    "memory_program_window":  "spec/memory_map.h (PROGRAM_BASE/PROGRAM_ALLOC_END + full layout commentary); ADR-0009 DEC-03 (Milton build profile, FLOW_MAX_REGISTRY=1); ADR-0009 DEC-04 (arena disjointness invariant); PRD Sec 5 table row 'Memory'",
+    "video":                  "PRD Sec 5 table rows 'Display' + 'Text'; ADR-0004 (FLAIR LFB surface)",
+    "input":                  "PRD Sec 5 table row 'Input'",
+    "timer":                  "PRD Sec 5 table row 'Timer'; CLAUDE.md hallucination-risk (cooperative, not preemptive)",
+    "storage":                "PRD Sec 5 table row 'Storage'",
+    "executable_format":      "PRD Sec 5 table row 'Executable fmt'; ADR-0003 DEC-08 (flat .COM now, MZ deferred); ADR-0009 DEC-03",
+    "emulators":              "PRD Sec 5 table row 'Emulators'; PRD Sec 8 (tri-emulator discipline); CLAUDE.md Rule 5",
+    "toolchain_reproducibility": "ADR-0009 DEC-02 (libgcc pin, Rule 11); CLAUDE.md Rule 11"
+  }
+}

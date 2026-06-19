@@ -107,17 +107,34 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
     }
     int21_set_psp(kernel_psp);
 
-    /* Bind the MCB memory arena behind AH=48h/49h/4Ah (beads initech-509.6) over
-     * the LOCKED program-memory region [PROGRAM_BASE, PROGRAM_ALLOC_END)
-     * (spec/memory_map.h). The arena's flat base IS PROGRAM_BASE, so the DOS
-     * segment a program sees == (PROGRAM_BASE >> 4) + data_para -- exactly the
-     * paragraph addressing real DOS uses. total_paras = the whole 256 KiB window
-     * / 16. The loader re-initializes this per program load (int21_mcb_reset) so
-     * each program owns its whole window (the authentic single-big-block). NO
-     * locked-spec change: the region is already PROGRAM_BASE..PROGRAM_ALLOC_END. */
-    int21_set_mcb_arena((void *)(uintptr_t)PROGRAM_BASE,
-                        (PROGRAM_ALLOC_END - PROGRAM_BASE) / 16u,
-                        PROGRAM_BASE);
+    /* Bind a DISJOINT kernel-context default MCB heap arena (beads initech-1q4u;
+     * ADR-0009 DEC-04). The arena is REBOUND per program load by the loader
+     * (int21_mcb_bind_program) to a window computed disjoint from THAT program's
+     * image; until a program loads, kernel/shell-context AH=48h needs an arena
+     * that does NOT overlay the program window. We use the SAME disjoint formula
+     * the loader uses for the smallest (zero-length) image: base = roundup_para(
+     * PROGRAM_IMAGE + PROGRAM_BSS_RESERVE), ceiling = PROGRAM_ARENA_CEIL (==
+     * ENV_BLOCK). This is BELOW the env+stack and ABOVE the (kernel-context: empty)
+     * image region, so a kernel-context 48h ALLOC gets real, non-overlapping RAM.
+     *
+     * THIS REPLACES the latent-corruption bind the bug introduced: the OLD code
+     * bound [PROGRAM_BASE, PROGRAM_ALLOC_END) with base == PROGRAM_BASE -- the
+     * EXACT window a loaded program's PSP (0x30000) / image (0x30100+) / env
+     * (0x5F000) / stack (top 0x6FFFC) occupy, so a 48h ALLOC overlaid the running
+     * program (ADR-0009 Sec 1). The base is now a COMPUTED disjoint value, never
+     * PROGRAM_BASE. See spec/memory_map.h's ARENA DISJOINTNESS INVARIANT. */
+    {
+        uint32_t arena_base = (PROGRAM_IMAGE + PROGRAM_BSS_RESERVE + 0xFu) & ~0xFu;
+        uint32_t arena_ceil = PROGRAM_ARENA_CEIL;   /* == ENV_BLOCK (exclusive) */
+        /* Lay ONE terminal FREE block (mcb_init via int21_set_mcb_arena) over the
+         * disjoint window -- NOT int21_mcb_reset (which would stamp the bound
+         * kernel PSP as owner and make a direct kernel-context 48h fail). The old
+         * SYSINIT bind likewise left the window FREE; we keep that exact behavior,
+         * only over the disjoint window. A loaded program REBINDS + reowns its own
+         * disjoint window via int21_mcb_bind_program. */
+        uint32_t total_paras = (arena_ceil - arena_base) / 16u;
+        int21_set_mcb_arena((void *)(uintptr_t)arena_base, total_paras, arena_base);
+    }
 
     idt_install_trap(0x21u, (void *)int21_entry);
     idt_install_trap(0x20u, (void *)int20_entry);

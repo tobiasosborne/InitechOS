@@ -10624,6 +10624,90 @@ test-kernel-repro-mutant: | $(BUILD)
 	 fi; \
 	 printf '>>> test-kernel-repro-mutant: green (byte change detected -- the repro comparison bites)\n'
 
+# ===========================================================================
+# SAMIR <-> InitechDOS integration gates + the SAMIR.COM artifact (ADR-0009;
+# beads ax9.1/ax9.2/ap5g/1q4u/qucm/nh0m). Host gates here; the boot->USE->LIST
+# emu gate (bead hdlb) lands later in TEST_EMU_GATES.
+# ===========================================================================
+
+# --- test-arena-disjoint (bead 1q4u; ADR-0009 DEC-04): AH=48h heap arena is
+#     provably DISJOINT from the loaded program image+BSS / env / stack. ---
+TEST_ARENADJ      := $(BUILD)/test_arena_disjoint
+TEST_ARENADJ_MUT  := $(BUILD)/test_arena_disjoint_mut
+TEST_ARENADJ_DEPS := $(KERNEL_LOADER_C) $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+$(TEST_ARENADJ): $(MILTON_DIR)/test_arena_disjoint.c $(TEST_ARENADJ_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild -o $@ $(MILTON_DIR)/test_arena_disjoint.c $(TEST_ARENADJ_DEPS)
+$(TEST_ARENADJ_MUT): $(MILTON_DIR)/test_arena_disjoint.c $(TEST_ARENADJ_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUTATE_ARENA_OVERLAP -Ispec -I$(MILTON_DIR) -Iseed -Ibuild -o $@ $(MILTON_DIR)/test_arena_disjoint.c $(TEST_ARENADJ_DEPS)
+.PHONY: test-arena-disjoint test-arena-disjoint-mutant
+test-arena-disjoint: $(TEST_ARENADJ)
+	@printf '>>> test-arena-disjoint: AH=48h arena disjoint from program image+BSS / env / stack (DEC-04)\n'
+	@$(TEST_ARENADJ)
+test-arena-disjoint-mutant: $(TEST_ARENADJ_MUT)
+	@if $(TEST_ARENADJ_MUT) >/dev/null 2>&1; then printf '!!! test-arena-disjoint-mutant FAIL: overlap mutant PASSED -- oracle is decoration\n'; exit 1; \
+	else printf '>>> test-arena-disjoint-mutant: green (overlap mutant correctly RED)\n'; fi
+
+# --- test-hardware-spec (bead nh0m; ADR-0009 DEC-07): spec/hardware.json
+#     contract -- fpu=optional/init_by_kernel=false, cpu=386+, mem window. ---
+TEST_HWSPEC      := $(BUILD)/test_hardware_spec
+TEST_HWSPEC_MUT  := $(BUILD)/test_hardware_spec_mut
+$(TEST_HWSPEC): $(DBF_DIFF_DIR)/test_hardware_spec.c spec/hardware.json spec/memory_map.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -Ispec -o $@ $(DBF_DIFF_DIR)/test_hardware_spec.c
+$(TEST_HWSPEC_MUT): $(DBF_DIFF_DIR)/test_hardware_spec.c spec/memory_map.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DHARDWARE_SPEC_MUTANT -Iseed -Ispec -o $@ $(DBF_DIFF_DIR)/test_hardware_spec.c
+.PHONY: test-hardware-spec test-hardware-spec-mutant
+test-hardware-spec: $(TEST_HWSPEC)
+	@printf '>>> test-hardware-spec: spec/hardware.json contract (DEC-07)\n'
+	@$(TEST_HWSPEC) spec/hardware.json
+test-hardware-spec-mutant: $(TEST_HWSPEC_MUT)
+	@if $(TEST_HWSPEC_MUT) spec/hardware.json >/dev/null 2>&1; then printf '!!! test-hardware-spec-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; \
+	else printf '>>> test-hardware-spec-mutant: green (mutant correctly RED)\n'; fi
+
+# --- test-samir-softfp (bead ap5g; ADR-0009 DEC-02 / Law 2): softfp.c's 18
+#     vendored libgcc helpers vs the host hardware double, bit-for-bit. ---
+SAMIR_SOFTFP_SRC      := $(SAMIR_DIR)/boot/softfp.c
+TEST_SAMIR_SOFTFP     := $(BUILD)/test_samir_softfp
+TEST_SAMIR_SOFTFP_MUT := $(BUILD)/test_samir_softfp_mut
+$(TEST_SAMIR_SOFTFP): $(DBF_DIFF_DIR)/test_samir_softfp.c $(SAMIR_SOFTFP_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $(DBF_DIFF_DIR)/test_samir_softfp.c $(SAMIR_SOFTFP_SRC)
+$(TEST_SAMIR_SOFTFP_MUT): $(DBF_DIFF_DIR)/test_samir_softfp.c $(SAMIR_SOFTFP_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSOFTFP_MUTANT -Iseed -o $@ $(DBF_DIFF_DIR)/test_samir_softfp.c $(SAMIR_SOFTFP_SRC)
+.PHONY: test-samir-softfp test-samir-softfp-mutant
+test-samir-softfp: $(TEST_SAMIR_SOFTFP)
+	@printf '>>> test-samir-softfp: softfp.c 18 helpers vs host double (DEC-02 / Law 2)\n'
+	@$(TEST_SAMIR_SOFTFP)
+test-samir-softfp-mutant: $(TEST_SAMIR_SOFTFP_MUT)
+	@if $(TEST_SAMIR_SOFTFP_MUT) >/dev/null 2>&1; then printf '!!! test-samir-softfp-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; \
+	else printf '>>> test-samir-softfp-mutant: green (mutant correctly RED)\n'; fi
+
+# --- SAMIR.COM: the Milton-bound flat .COM (ADR-0009 DEC-01/02/03/05/06).
+#     Soft-float, one-interp profile (FLOW_MAX_REGISTRY=1), org 0x30100 via
+#     samir.ld, BSS (.bss NOLOAD) zeroed at runtime by samir_crt0. ---
+SAMIR_COM_PROFILE := -m32 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
+                     -std=c11 -Wall -Wextra -Werror -Os -msoft-float -mno-80387 \
+                     -DFLOW_MAX_REGISTRY=1 -I$(SAMIR_INC_DIR) -Ispec
+SAMIR_COM_CSRCS := $(SAMIR_RT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_PARSE_SRC) \
+                   $(SAMIR_EVAL_SRC) $(SAMIR_FN_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) \
+                   $(SAMIR_NDX_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) \
+                   $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) \
+                   $(SAMIR_MAIN_SRC) $(SAMIR_DIR)/pal/pal_milton.c $(SAMIR_SOFTFP_SRC)
+SAMIR_CRT0_ASM  := $(SAMIR_DIR)/boot/samir_crt0.asm
+SAMIR_LD_SCRIPT := $(SAMIR_DIR)/boot/samir.ld
+SAMIR_COM       := $(BUILD)/SAMIR.COM
+.PHONY: samir-com
+samir-com: $(SAMIR_COM)
+$(SAMIR_COM): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+	@rm -rf $(BUILD)/samir_com && mkdir -p $(BUILD)/samir_com
+	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com/samir_crt0.o
+	@set -e; for s in $(SAMIR_COM_CSRCS); do \
+		o=$(BUILD)/samir_com/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
+		$(CC) $(SAMIR_COM_PROFILE) -c $$s -o $$o; \
+	done
+	@$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com/SAMIR.elf $(BUILD)/samir_com/samir_crt0.o $$(ls $(BUILD)/samir_com/*.o | grep -v 'samir_crt0\.o')
+	@$(OBJCOPY) -O binary $(BUILD)/samir_com/SAMIR.elf $@
+	@sz=$$(stat -c%s $@); x87=$$(objdump -d $(BUILD)/samir_com/SAMIR.elf | grep -ciE '\bf(ld|st|add|sub|mul|div)[a-z]*\b' || true); \
+	 printf '>>> SAMIR.COM: %s bytes (flat .COM @0x30100, soft-float, x87=%s)\n' "$$sz" "$$x87"
+
 # ---------------------------------------------------------------------------
 # Aggregate green gate vector (beads initech-4mc)
 # ---------------------------------------------------------------------------
@@ -10661,6 +10745,9 @@ TEST_UNIT_GATES := \
 	test-rtc-mutant \
 	test-absdisk test-absdisk-mutant \
 	test-kernel-repro test-kernel-repro-mutant \
+	test-arena-disjoint test-arena-disjoint-mutant \
+	test-hardware-spec test-hardware-spec-mutant \
+	test-samir-softfp test-samir-softfp-mutant \
 	test-samir \
 	test-dbf-header test-dbf-header-mutant test-dbf-fields test-dbf-fields-mutant \
 	test-dbf-read test-dbf-read-mutant test-dbf-roundtrip test-dbf-roundtrip-mutant \

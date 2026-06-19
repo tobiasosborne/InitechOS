@@ -202,6 +202,26 @@ void int21_set_mcb_arena(void *base, uint32_t total_paras, uint32_t base_linear)
  * was (re)initialized, 0 if none is bound. */
 int int21_mcb_reset(void);
 
+/* ---- PROGRAM-DISJOINT ARENA BIND (beads initech-1q4u; ADR-0009 DEC-04) -------
+ * Bind the AH=48h/49h/4Ah heap arena to the half-open flat window
+ * [arena_base_linear, arena_ceil_linear) and hand it (as one terminal block) to
+ * the CURRENT PSP -- the authentic "DOS gives the program the block AFTER its
+ * image" model. The loader computes the window from the LOADED image so the heap
+ * is PROVABLY DISJOINT from the program image+BSS (below arena_base) and from the
+ * env + stack (at/above arena_ceil); see spec/memory_map.h's ARENA DISJOINTNESS
+ * INVARIANT. Replaces the old whole-window int21_mcb_reset() bind, which overlaid
+ * the running program (the latent corruption ADR-0009 Sec 1 / DEC-04 fixes).
+ *
+ * Both arguments are flat LINEAR addresses; the DOS segment a 48h block reports
+ * is (arena_base_linear >> 4) + data_para. arena_base_linear MUST be paragraph-
+ * aligned (the loader rounds it up). If arena_ceil_linear <= arena_base_linear
+ * (or the window is < 2 paragraphs -- no room for a header + one data paragraph)
+ * the arena is left UNBOUND (fail loud, Rule 2): a 48h ALLOC then returns
+ * insufficient memory rather than a corrupting overlap. Returns 1 if the arena
+ * was bound (and assigned to the current PSP, if one is bound), 0 if it was left
+ * unbound. */
+int int21_mcb_bind_program(uint32_t arena_base_linear, uint32_t arena_ceil_linear);
+
 /* ---- File backend (beads initech-0qh; epic initech-6qy) --------------------
  * The file-handle functions (3Dh OPEN, 3Fh READ/40h WRITE on a FILE, 4Eh/4Fh
  * FINDFIRST/FINDNEXT) need the mounted FAT12 volume -- which lives in the

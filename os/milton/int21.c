@@ -320,6 +320,44 @@ int int21_mcb_reset(void)
     }
     return 1;
 }
+
+/* PROGRAM-DISJOINT ARENA BIND (beads initech-1q4u; ADR-0009 DEC-04). Bind the
+ * heap arena to [arena_base_linear, arena_ceil_linear) and hand it to the current
+ * PSP. The loader computes the window from the LOADED image so the heap is
+ * provably disjoint from the program image+BSS / env / stack (spec/memory_map.h
+ * ARENA DISJOINTNESS INVARIANT). This SUPERSEDES the whole-window int21_mcb_reset
+ * bind that overlaid the running program.
+ *
+ * Fail loud (Rule 2): a degenerate window (ceil <= base, or fewer than 2
+ * paragraphs) leaves the arena UNBOUND (int21_set_mcb_arena's own < 2 guard) so a
+ * 48h ALLOC returns insufficient memory rather than a corrupting overlap. We also
+ * reject a non-paragraph-aligned base here (the caller must round up) -- a mis-
+ * aligned base would shift every reported DOS segment. */
+int int21_mcb_bind_program(uint32_t arena_base_linear, uint32_t arena_ceil_linear)
+{
+    /* Degenerate / inverted window, or a base not paragraph-aligned: unbind. */
+    if (arena_ceil_linear <= arena_base_linear ||
+        (arena_base_linear & 0xFu) != 0u) {
+        int21_set_mcb_arena(0, 0u, 0u);   /* UNBOUND -> 48h reports insufficient */
+        return 0;
+    }
+
+    uint32_t total_paras = (arena_ceil_linear - arena_base_linear) / 16u;
+    /* < 2 paragraphs (no room for a header + one data paragraph) -> int21_set_mcb_
+     * arena leaves it unbound; mirror that as the "not bound" return. */
+    if (total_paras < 2u) {
+        int21_set_mcb_arena(0, 0u, 0u);
+        return 0;
+    }
+
+    /* Bind the buffer over the computed disjoint window, then hand the lone
+     * terminal block to the current PSP (the authentic single-big-block, but now
+     * ABOVE the program image instead of overlaying it). int21_mcb_reset stamps
+     * the owner from the now-current PSP exactly as the old path did. */
+    int21_set_mcb_arena((void *)(uintptr_t)arena_base_linear, total_paras,
+                        arena_base_linear);
+    return int21_mcb_reset();
+}
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
 {
     g_conin_get  = get;

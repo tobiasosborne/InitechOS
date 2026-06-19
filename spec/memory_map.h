@@ -87,7 +87,12 @@
 #define PROGRAM_STACK_TOP   0x0006FFFCu
 
 /* Bottom of the program stack region (informational; the loader does not need
- * to touch it -- the stack descends from PROGRAM_STACK_TOP). Ref Sec 3.2. */
+ * to touch it -- the stack descends from PROGRAM_STACK_TOP). Ref Sec 3.2.
+ *
+ * ALSO the AH=48h MCB ARENA CEILING (beads initech-1q4u; ADR-0009 DEC-04): the
+ * loader binds the heap arena to end here, so a 48h ALLOC can never return memory
+ * inside the 64 KiB program stack [PROGRAM_STACK_BOT, PROGRAM_STACK_TOP]. See the
+ * ARENA DISJOINTNESS INVARIANT block below. */
 #define PROGRAM_STACK_BOT   0x00060000u
 
 /* The largest program image that fits between PROGRAM_IMAGE and the dedicated
@@ -98,6 +103,81 @@
  * the image arena). The env region 0x5F000..0x60000 sits between the max image
  * and PROGRAM_STACK_BOT (0x60000). */
 #define PROGRAM_IMAGE_MAX   (ENV_BLOCK - PROGRAM_IMAGE)
+
+/* ------------------------------------------------------------------------ *
+ * AH=48h MCB ARENA DISJOINTNESS INVARIANT (beads initech-1q4u; ADR-0009 DEC-04,
+ * RATIFIED 2026-06-19; Rule 8 -- a deliberate locked-data act).
+ *
+ * THE BUG THIS FIXES (ADR-0009 Sec 1 / DEC-04): the AH=48h/49h/4Ah MCB heap arena
+ * was bound over the WHOLE program window [PROGRAM_BASE, PROGRAM_ALLOC_END) with
+ * flat base == PROGRAM_BASE (sysinit.c). That window IS the running program: its
+ * PSP (0x30000), its image+BSS (0x30100+), its env (0x5F000), and its 64 KiB
+ * stack (top 0x6FFFC) all live inside it. So a 48h ALLOC (after the authentic
+ * 4Ah shrink) would hand the program a block OVERLAPPING its own code/BSS/stack.
+ * Latent before SAMIR (toy .COMs never call 48h; the emulator zero-inits RAM),
+ * but SAMIR -- the first heap-using app -- would corrupt itself nondeterministically.
+ *
+ * THE FIX (DEC-04; the authentic DOS model -- DOS hands the program the block
+ * AFTER its image, not the block it is running in): the loader binds the arena to
+ * a COMPUTED window DISJOINT from the loaded program, NOT to [PROGRAM_BASE, ...).
+ * The window is
+ *
+ *   arena_base    = roundup_paragraph(PROGRAM_IMAGE + image_len + PROGRAM_BSS_RESERVE)
+ *   arena_ceiling = PROGRAM_ARENA_CEIL              ( == ENV_BLOCK, see below )
+ *   arena         = [arena_base, arena_ceiling)
+ *
+ * so EVERY address a 48h ALLOC can return satisfies
+ *   arena_base >= PROGRAM_IMAGE + image_len   (above the loaded image+BSS), AND
+ *   alloc + size <= PROGRAM_ARENA_CEIL         (below env + stack).
+ *
+ * DISJOINTNESS PROOF (the regions a heap block must NEVER touch):
+ *   1. PSP + image + BSS  : [PROGRAM_BASE, image_end), image_end = PROGRAM_IMAGE
+ *      + image_len. arena_base is paragraph-rounded ABOVE image_end +
+ *      PROGRAM_BSS_RESERVE, so arena_base > image_end: the arena never overlaps
+ *      the PSP/image/BSS. (PROGRAM_BSS_RESERVE covers the .bss a flat .COM does
+ *      NOT carry in its file -- the loader knows only image_len, not the BSS
+ *      extent; ADR-0009 DEC-05's crt0 stub zeroes BSS within this reserve.)
+ *   2. Env block          : [ENV_BLOCK, ENV_BLOCK+ENV_BLOCK_LEN). The ceiling is
+ *      PROGRAM_ARENA_CEIL == ENV_BLOCK (exclusive), so no allocated paragraph
+ *      reaches the env the PSP env_seg points at.
+ *   3. Program stack      : [PROGRAM_STACK_BOT, PROGRAM_STACK_TOP]. Since
+ *      PROGRAM_ARENA_CEIL (== ENV_BLOCK, 0x5F000) < PROGRAM_STACK_BOT (0x60000),
+ *      the ceiling is BELOW the stack: no allocated paragraph reaches the stack.
+ * The single invariant a caller relies on: a 48h block is ALWAYS within
+ * [arena_base, PROGRAM_ARENA_CEIL) with arena_base > image_end -- provably
+ * disjoint from the image, the env, and the stack.
+ *
+ * The loader fails loud (Rule 2) if image_len + PROGRAM_BSS_RESERVE leaves no
+ * positive-size window below PROGRAM_ARENA_CEIL (an image too big to heap-host);
+ * the program then runs with NO arena bound and a 48h ALLOC reports insufficient
+ * memory rather than a corrupting overlap. See loader.c int21_mcb_bind_program.
+ *
+ * NO numeric constant above (PROGRAM_BASE / PROGRAM_IMAGE / ENV_BLOCK /
+ * PROGRAM_STACK_BOT / ...) changes -- the .asm `org`s and PROGRAM_IMAGE_MAX bound
+ * are untouched. The arena BASE is now a COMPUTED value (was the literal
+ * PROGRAM_BASE in sysinit.c); only this commentary + the new PROGRAM_BSS_RESERVE
+ * constant below are added. Ref: ADR-0009 DEC-04/DEC-05; DOS 3.3 PRM AH=48h. */
+
+/* Conservative .bss reserve the loader adds PAST the loaded image before the heap
+ * arena begins (beads initech-1q4u; ADR-0009 DEC-04/DEC-05). A flat .COM does NOT
+ * carry its .bss in the file, so the loader -- which knows only image_len (the
+ * on-disk bytes) -- cannot compute the BSS end. This reserve bounds it. Sized for
+ * the S8.2 SAMIR profile (FLOW_MAX_REGISTRY=1): ADR-0009 Sec 1 measures SAMIR at
+ * ~81 KiB text + ~26 KiB BSS; 64 KiB (0x10000) comfortably covers the BSS the
+ * crt0 stub (DEC-05) zeroes past the text, with headroom. It is intentionally
+ * generous: a too-small reserve risks a heap block overlapping uninitialised BSS;
+ * a too-large one only shrinks the heap window (a 188 KiB image arena minus a
+ * 64 KiB reserve still leaves a usable heap below PROGRAM_STACK_BOT for any
+ * realistic image). The loader fails loud (Rule 2) if image_len + this reserve
+ * leaves no positive arena below the ceiling. */
+#define PROGRAM_BSS_RESERVE 0x00010000u
+
+/* The AH=48h heap-arena CEILING (exclusive): no allocated paragraph reaches at
+ * or above this address (beads initech-1q4u; ADR-0009 DEC-04). == ENV_BLOCK so
+ * the heap stays BELOW both the env block (at ENV_BLOCK) and -- since ENV_BLOCK
+ * (0x5F000) < PROGRAM_STACK_BOT (0x60000) -- the 64 KiB program stack. The loader
+ * binds [arena_base, PROGRAM_ARENA_CEIL); see the disjointness invariant above. */
+#define PROGRAM_ARENA_CEIL  ENV_BLOCK
 
 /* ------------------------------------------------------------------------ *
  * FAT-sourced program load staging (beads initech-saw; multi-tenant file I/O
