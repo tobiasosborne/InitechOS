@@ -91,6 +91,23 @@ loader_status_t loader_prepare(const uint8_t *image, uint32_t image_len,
                                const char *cmd_tail, uint32_t cmd_tail_len,
                                loader_plan_t *out);
 
+/* loader_prepare_in_place -- the IN-PLACE variant (beads initech-za4m; ADR-0009
+ * companion to DEC-04). Validates + lays out for an image ALREADY resident at
+ * PROGRAM_IMAGE (0x30100) -- e.g. a FAT .COM that load_program_from_fat read
+ * DIRECTLY into the program region. Identical layout/params/arena to
+ * loader_prepare EXCEPT it takes NO image pointer (there is nothing to copy
+ * from): it validates image_len only, sets out->image_src = NULL and leaves
+ * out->image_dst == out->entry == PROGRAM_IMAGE (the in-place address). The
+ * single size bound is PROGRAM_IMAGE_MAX -- the OLD 64 KiB LOAD_STAGING_MAX cap
+ * is GONE (the image never transits the 64 KiB staging buffer; it is read
+ * straight into the ~188 KiB program arena). Host-testable: the big-.COM oracle
+ * (test_loader_big.c) drives this with image_len = 64KiB+1 / PROGRAM_IMAGE_MAX /
+ * +1 to prove the new bound. Ref: spec/memory_map.h; ADR-0009 DEC-04. */
+loader_status_t loader_prepare_in_place(uint32_t image_len,
+                                        const char *cmd_tail,
+                                        uint32_t cmd_tail_len,
+                                        loader_plan_t *out);
+
 /* load_program -- the full kernel loader: validate (via loader_prepare), copy
  * the image to PROGRAM_IMAGE, build the PSP at PROGRAM_BASE + the env block,
  * save the loader's kernel context, repoint the INT 21h exit hook to the
@@ -113,14 +130,43 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
                              const char *cmd_tail, uint32_t cmd_tail_len,
                              uint8_t *out_exit_code);
 
-/* ---- FAT-sourced load (beads initech-saw) --------------------------------
+/* load_program_in_place -- run a program whose image is ALREADY resident at
+ * PROGRAM_IMAGE (beads initech-za4m; ADR-0009 companion to DEC-04). Everything
+ * load_program does EXCEPT the image copy: validate via loader_prepare_in_place,
+ * build the PSP at PROGRAM_BASE + the env block, save/repoint the INT 21h exit
+ * hook, bind the disjoint MCB arena, save the loader's kernel context, switch to
+ * the program stack, JMP to PROGRAM_IMAGE, and -- on the child's INT 21h AH=4Ch /
+ * INT 20h -- regain control and return its exit code. The control-transfer and
+ * return-to-loader path is BYTE-FOR-BYTE the same as load_program (a shared
+ * static helper drives both); only the "copy staging -> PROGRAM_IMAGE" step is
+ * omitted, because the caller (load_program_from_fat) already read the .COM
+ * straight into PROGRAM_IMAGE.
+ *
+ * `image_len` is the on-disk byte count already present at PROGRAM_IMAGE (used
+ * for the arena base = roundup(PROGRAM_IMAGE + image_len + BSS_RESERVE) and the
+ * PROGRAM_IMAGE_MAX bound). Returns LOADER_OK on a clean run-and-return with
+ * *out_exit_code set; a LOADER_ERR_* on a validation failure (the program is NOT
+ * run). KERNEL ONLY; in a hosted build it is a validate-only stub.
+ * Ref: spec/memory_map.h; ADR-0009 DEC-04; psp-loader-ground-truth.md Sec 4. */
+loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
+                                      uint32_t cmd_tail_len,
+                                      uint8_t *out_exit_code);
+
+/* ---- FAT-sourced load (beads initech-saw; DIRECT-LOAD beads initech-za4m) --
  * load_program_from_fat -- the "saw" core: load a flat .COM BY NAME from the
- * mounted FAT12 volume and run it through load_program(). Reads the named file
- * (the bare 8.3 leaf, e.g. "GREET.COM") from the directory whose first data
- * cluster is `dir_start` (0 == the fixed root) off the volume bound via
- * loader_bind_fat_volume() into the off-stack staging buffer (LOAD_STAGING_BASE,
- * spec/memory_map.h Risk 2 -- never a multi-KB buffer on the kernel stack), then
- * hands the bytes to load_program() (copy to PROGRAM_IMAGE + PSP + JMP + return).
+ * mounted FAT12 volume and run it. Reads the named file (the bare 8.3 leaf, e.g.
+ * "GREET.COM") from the directory whose first data cluster is `dir_start` (0 ==
+ * the fixed root) off the volume bound via loader_bind_fat_volume() DIRECTLY into
+ * the program region (PROGRAM_IMAGE, 0x30100) -- NO intermediate staging buffer --
+ * then runs it through load_program_in_place() (PSP + JMP + return; no copy). All
+ * scratch is kernel BSS (spec/memory_map.h Risk 2 -- never a multi-KB buffer on
+ * the kernel stack).
+ *
+ * SIZE BOUND (beads initech-za4m): because the .COM is read straight into the
+ * program arena, the ONLY size limit is PROGRAM_IMAGE_MAX (~188 KiB). The OLD
+ * path staged through a 64 KiB buffer (LOAD_STAGING_MAX) that abutted the kernel
+ * stack and could not grow -- it wrongly rejected a 77 KiB SAMIR.COM. That cap is
+ * gone; LOAD_STAGING is now UNUSED by this path.
  *
  * SUBDIR EXEC (beads initech-zs24, Landing 2): `dir_start` is the containing
  * directory do_exec resolved the EXEC path to through the file-backend resolve

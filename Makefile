@@ -10647,6 +10647,22 @@ test-arena-disjoint-mutant: $(TEST_ARENADJ_MUT)
 	@if $(TEST_ARENADJ_MUT) >/dev/null 2>&1; then printf '!!! test-arena-disjoint-mutant FAIL: overlap mutant PASSED -- oracle is decoration\n'; exit 1; \
 	else printf '>>> test-arena-disjoint-mutant: green (overlap mutant correctly RED)\n'; fi
 
+# --- test-loader-big (bead za4m): FAT .COM loads DIRECT into PROGRAM_IMAGE;
+#     the >64 KiB SAMIR.COM clears the old LOAD_STAGING cap (PROGRAM_IMAGE_MAX). ---
+TEST_LOADER_BIG     := $(BUILD)/test_loader_big
+TEST_LOADER_BIG_MUT := $(BUILD)/test_loader_big_mutant_stagingcap
+$(TEST_LOADER_BIG): $(MILTON_DIR)/test_loader_big.c $(KERNEL_LOADER_C) $(KERNEL_PSP_C) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -o $@ $(MILTON_DIR)/test_loader_big.c $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+$(TEST_LOADER_BIG_MUT): $(MILTON_DIR)/test_loader_big.c $(KERNEL_LOADER_C) $(KERNEL_PSP_C) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUTATE_REIMPOSE_STAGING_CAP -Ispec -I$(MILTON_DIR) -Iseed -o $@ $(MILTON_DIR)/test_loader_big.c $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+.PHONY: test-loader-big test-loader-big-mutant
+test-loader-big: $(TEST_LOADER_BIG)
+	@printf '>>> test-loader-big: FAT in-place loader -- >64 KiB .COM loads (PROGRAM_IMAGE_MAX sole bound; za4m)\n'
+	@$(TEST_LOADER_BIG)
+test-loader-big-mutant: $(TEST_LOADER_BIG_MUT)
+	@if $(TEST_LOADER_BIG_MUT) >/dev/null 2>&1; then printf '!!! test-loader-big-mutant FAIL: cap mutant PASSED -- decoration\n'; exit 1; \
+	else printf '>>> test-loader-big-mutant: green (re-imposed-cap mutant correctly RED)\n'; fi
+
 # --- test-hardware-spec (bead nh0m; ADR-0009 DEC-07): spec/hardware.json
 #     contract -- fpu=optional/init_by_kernel=false, cpu=386+, mem window. ---
 TEST_HWSPEC      := $(BUILD)/test_hardware_spec
@@ -10746,6 +10762,7 @@ TEST_UNIT_GATES := \
 	test-absdisk test-absdisk-mutant \
 	test-kernel-repro test-kernel-repro-mutant \
 	test-arena-disjoint test-arena-disjoint-mutant \
+	test-loader-big test-loader-big-mutant \
 	test-hardware-spec test-hardware-spec-mutant \
 	test-samir-softfp test-samir-softfp-mutant \
 	test-samir \
