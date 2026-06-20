@@ -72,8 +72,19 @@ typedef struct {
     uint32_t  cur_col;          /* cursor column (0..cols-1)                 */
     uint32_t  cur_row;          /* cursor row    (0..rows-1)                 */
 
-    console_color_t fg;         /* packed foreground (ink)                   */
-    console_color_t bg;         /* packed background                         */
+    console_color_t fg;         /* packed foreground (ink) -- DEFAULT ink     */
+    console_color_t bg;         /* packed background -- DEFAULT paper          */
+
+    /* CURRENT attribute (beads initech-p96i -- ANSI.SYS wiring). console_putc /
+     * the glyph draw use THESE so an ANSI SGR (ESC[..m) can recolour subsequent
+     * text. Initialised to fg/bg at console_init so the no-ANSI / no-SGR output
+     * path stays PIXEL-IDENTICAL to before this field existed (CLAUDE.md Law 4:
+     * the default rendering must not change). console_set_attr maps a CGA
+     * attribute byte onto these; the 8bpp (mode-0x13) path has only two DAC
+     * entries programmed, so there it falls back to the default fg/bg pair
+     * (full 16-colour DAC reprogramming is a deferred follow-up). */
+    console_color_t cur_fg;     /* current ink   (ANSI SGR target)            */
+    console_color_t cur_bg;     /* current paper (ANSI SGR target)            */
 } console_t;
 
 /* Pack an (r,g,b) triple into the framebuffer pixel format for the given bpp.
@@ -107,5 +118,42 @@ void console_putc(console_t *con, char ch);
 /* Emit a NUL-terminated string / an explicit-length buffer. */
 void console_puts(console_t *con, const char *s);
 void console_write(console_t *con, const char *buf, uint32_t len);
+
+/* ---------------------------------------------------------------------------
+ * ANSI.SYS support (beads initech-p96i -- wiring the ANSI FSM into CON).
+ *
+ * These are the console operations the ANSI escape interpreter drives. They are
+ * ADDITIVE: an artifact that never loads ANSI.SYS never calls them, so the
+ * default (no-ANSI) rendering is byte/pixel-identical to before (CLAUDE.md
+ * Law 4). All clamp defensively (Rule 2 -- never address past the grid).
+ * Ref: MS-DOS 3.3 Technical Reference Ch 4 "ANSI.SYS" (CUP/ED/EL/SGR effects);
+ *      IBM PC Technical Reference (1984) App B "Display Adapter" (CGA attribute
+ *      byte: bits 2:0 fg nibble, bit 3 bright, bits 6:4 bg nibble, bit 7 blink).
+ * -------------------------------------------------------------------------*/
+
+/* Set the CURRENT attribute from a CGA attribute byte (as produced by ansi.c's
+ * SGR dispatcher). Maps fg/bg nibbles onto cur_fg/cur_bg via the CGA 16-colour
+ * palette. In 8bpp (mode 0x13) only two DAC entries exist, so cur_fg/cur_bg are
+ * set to the default ink/paper there (colour approximated; deferred follow-up).
+ * Passing ANSI_ATTR_DEFAULT (0x07) restores the default ink/paper exactly. */
+void console_set_attr(console_t *con, uint8_t cga_attr);
+
+/* Move the cursor to an ABSOLUTE 0-based (row, col), clamped to the grid. The
+ * console is the single source of truth for the cursor position (the ANSI FSM
+ * reconciles to this -- see int21.c ansi_apply). */
+void console_set_cursor(console_t *con, uint32_t row, uint32_t col);
+
+/* Read the current cursor position (for ANSI ESC[s save + ESC[6n DSR). */
+void console_get_cursor(const console_t *con, uint32_t *row, uint32_t *col);
+
+/* Erase in display (ESC[<n>J). mode: 0 = cursor..end-of-screen, 1 =
+ * start-of-screen..cursor, 2 = whole screen. Filled with the CURRENT paper
+ * (cur_bg). The cursor does NOT move. Ref: MS-DOS 3.3 Tech Ref Ch 4 "ED". */
+void console_erase_display(console_t *con, int mode);
+
+/* Erase in line (ESC[<n>K). mode: 0 = cursor..end-of-line, 1 =
+ * start-of-line..cursor, 2 = whole line. Filled with the CURRENT paper. The
+ * cursor does NOT move. Ref: MS-DOS 3.3 Tech Ref Ch 4 "EL". */
+void console_erase_line(console_t *con, int mode);
 
 #endif /* INITECH_CONSOLE_H */

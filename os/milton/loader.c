@@ -421,8 +421,13 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
 
 /* Hosted stub: the FAT-sourced load is kernel-only (it pulls the volume + the
  * asm transfer). The host oracle exercises the AH=4Bh register/validation logic
- * through int21's MOCK EXEC backend (test_exec.c), never this path. */
-void loader_bind_fat_volume(const struct fat12_volume *vol) { (void)vol; }
+ * through int21's MOCK EXEC backend (test_exec.c), never this path. The shared-
+ * FAT-cache signature (fat/fat_len) mirrors the kernel definition (beads
+ * y206/headroom): the loader aliases the file backend's FAT instead of a second
+ * 6 KiB copy. */
+void loader_bind_fat_volume(const struct fat12_volume *vol,
+                            const uint8_t *fat, uint32_t fat_len)
+{ (void)vol; (void)fat; (void)fat_len; }
 
 loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
                                       const char *cmd_tail, uint32_t cmd_tail_len,
@@ -958,33 +963,37 @@ static loader_status_t load_program_mz_in_place(uint32_t file_len,
  * loader_bind_fat_volume). NULL -> load_program_from_fat returns NO_VOLUME. */
 static const fat12_volume_t *g_load_vol = 0;
 
-/* The whole-FAT cache (1.44 MB FAT12: 9 sectors * 512 = 4608 bytes; round up so
- * a slightly larger FAT still fits). Filled once at bind by fat12_read_fat. */
-static uint8_t  g_load_fat[12u * 512u];
-static uint32_t g_load_fat_len = 0;
+/* The whole-FAT cache: a POINTER that ALIASES the int21 file backend's FAT
+ * buffer (fileio_fat's g_fat -- the SAME mounted volume's FAT), passed in at
+ * loader_bind_fat_volume. This module used to keep its OWN 6 KiB copy in kernel
+ * .bss (the recurring kernel-window pressure); sharing the backend's already-
+ * loaded FAT removes that duplicate. Safe because the loader reads the FAT only
+ * during load_program_from_fat (the load phase), never while a program runs.
+ * NULL until a successful bind. */
+static const uint8_t *g_load_fat = 0;
+static uint32_t       g_load_fat_len = 0;
 
 /* Sector scratch for fat12_find; cluster scratch for fat12_read_file (one
  * sector each on the 1.44 MB geometry). Kernel BSS. */
 static uint8_t  g_load_sector[BLOCKDEV_SECTOR_SIZE];
 static uint8_t  g_load_cluster[BLOCKDEV_SECTOR_SIZE];
 
-void loader_bind_fat_volume(const struct fat12_volume *vol)
+void loader_bind_fat_volume(const struct fat12_volume *vol,
+                            const uint8_t *fat, uint32_t fat_len)
 {
-    if (vol == 0) {
+    /* A missing volume OR a missing whole-FAT cache (NULL/zero -- e.g. a windowed
+     * FAT16 volume) leaves the loader UNBOUND (fail loud, Rule 2 -- never half-
+     * initialised; load_program_from_fat then returns NO_VOLUME). */
+    if (vol == 0 || fat == 0 || fat_len == 0u) {
         g_load_vol     = 0;
+        g_load_fat     = 0;
         g_load_fat_len = 0;
         return;
     }
-    /* Cache the whole FAT (read-only this milestone). A read error leaves the
-     * loader UNBOUND (fail loud, Rule 2 -- never half-initialised). */
-    int rc = fat12_read_fat(vol, g_load_fat, (uint32_t)sizeof(g_load_fat));
-    if (rc != FAT12_OK) {
-        g_load_vol     = 0;
-        g_load_fat_len = 0;
-        return;
-    }
-    g_load_fat_len = (uint32_t)vol->bpb.sectors_per_fat *
-                     (uint32_t)vol->bpb.bytes_per_sector;
+    /* Alias the int21 file backend's already-loaded FAT (the SAME volume's FAT).
+     * No second 6 KiB buffer, no second FAT read. */
+    g_load_fat     = fat;
+    g_load_fat_len = fat_len;
     g_load_vol     = vol;
 }
 

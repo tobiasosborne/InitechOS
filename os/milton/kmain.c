@@ -236,6 +236,74 @@ static void int21_con_sink(char c)
     serial_putc(c);
 }
 
+/* ---- ANSI.SYS console-ops adapters (beads initech-p96i) -------------------
+ * Bridge the int21 ANSI vtable (con_putc -> ansi_feed -> these) to the live
+ * console + serial.  CRITICAL: ansi_put_char fans to serial EXACTLY like
+ * int21_con_sink, so the emu serial markers survive when ANSI.SYS is loaded --
+ * the normal boot loads it (CONFIG.SYS DEVICE=ANSI.SYS), so con_putc routes
+ * through the FSM and every plain (escape-free) byte becomes a put_char here.
+ * ctx is the live console (g_int21_con). */
+static void ansi_put_char(void *ctx, uint8_t ch, uint8_t cga_attr)
+{
+    console_t *con = (console_t *)ctx;
+    if (con) {
+        console_set_attr(con, cga_attr);
+        console_putc(con, (char)ch);
+    }
+    serial_putc((char)ch);
+}
+static void ansi_set_cursor(void *ctx, int row, int col)
+{
+    if (ctx) {
+        console_set_cursor((console_t *)ctx, row, col);
+    }
+}
+static void ansi_cursor_rel(void *ctx, int drow, int dcol)
+{
+    console_t *con = (console_t *)ctx;
+    if (con) {
+        uint32_t r = 0, c = 0;
+        int nr, nc;
+        console_get_cursor(con, &r, &c);
+        /* Clamp the LOW edge here: console_set_cursor takes uint32_t and only
+         * clamps the HIGH edge, so a negative relative move (cursor up past row
+         * 0) must be pinned to 0 before the cast (else it wraps to ~UINT32 and
+         * clamps to the LAST row -- the wrong direction). */
+        nr = (int)r + drow;
+        nc = (int)c + dcol;
+        if (nr < 0) { nr = 0; }
+        if (nc < 0) { nc = 0; }
+        console_set_cursor(con, (uint32_t)nr, (uint32_t)nc);
+    }
+}
+static void ansi_erase_display(void *ctx, int mode)
+{
+    if (ctx) {
+        console_erase_display((console_t *)ctx, mode);
+    }
+}
+static void ansi_erase_line(void *ctx, int mode)
+{
+    if (ctx) {
+        console_erase_line((console_t *)ctx, mode);
+    }
+}
+static void ansi_set_attr(void *ctx, uint8_t cga_attr)
+{
+    if (ctx) {
+        console_set_attr((console_t *)ctx, cga_attr);
+    }
+}
+static void ansi_get_cursor(void *ctx, int *row, int *col)
+{
+    if (ctx) {
+        uint32_t r = 0, c = 0;
+        console_get_cursor((console_t *)ctx, &r, &c);
+        *row = (int)r;
+        *col = (int)c;
+    }
+}
+
 static void int21_exit_hook(uint8_t code)
 {
     /* Emit the grep-able exit marker to serial + one console line, then halt
@@ -863,9 +931,18 @@ void kernel_main(void)
             /* Bind the SAME volume to the loader so AH=4Bh EXEC / the saw path
              * (load_program_from_fat) can load a .COM BY NAME off this disk, and
              * bind the EXEC backend seam so int21's AH=4Bh reaches the loader
-             * (beads initech-saw). load_program_from_fat caches the FAT here; a
-             * read error leaves it unbound (fail loud). */
-            loader_bind_fat_volume(&vol);
+             * (beads initech-saw). The loader SHARES the file backend's already-
+             * loaded whole-FAT buffer (fileio_fat_fat_buffer, bound just above)
+             * instead of keeping a second 6 KiB copy in kernel .bss -- this frees
+             * the duplicate that drove the recurring kernel-window pressure (beads
+             * y206/headroom). A windowed FAT16 volume returns NULL -> the loader
+             * stays unbound (fail loud; EXEC-from-FAT16 unsupported this milestone). */
+            {
+                uint32_t load_fat_len = 0;
+                const uint8_t *load_fat =
+                    (const uint8_t *)fileio_fat_fat_buffer(&load_fat_len);
+                loader_bind_fat_volume(&vol, load_fat, load_fat_len);
+            }
             int21_set_exec_backend(loader_exec_by_name);
             serial_puts("LOADER-FAT-BIND-OK\n");
 
@@ -907,6 +984,28 @@ void kernel_main(void)
      * harness's pinned `-rtc base` the readings are deterministic. */
     int21_set_clock(int21_clock_get_rtc, int21_clock_set_rtc);
     serial_puts("CLOCK-LIVE\n");
+
+    /* Wire ANSI.SYS into the CON output path (beads initech-p96i): bind the
+     * console-ops vtable (ctx = the live console) + the ENABLE gate
+     * (sysinit_ansi_enabled, set by CONFIG.SYS DEVICE=ANSI.SYS, applied in the
+     * SYSINIT Phase-2 above). From here con_putc feeds the ANSI FSM whenever
+     * ANSI.SYS is loaded; escape sequences move the cursor / set colour / erase,
+     * and escape-free output renders identically (ansi_put_char fans to
+     * console+serial exactly like int21_con_sink, so serial markers survive). */
+    {
+        int21_ansi_console_t ansi_ops;
+        ansi_ops.put_char      = ansi_put_char;
+        ansi_ops.set_cursor    = ansi_set_cursor;
+        ansi_ops.cursor_rel    = ansi_cursor_rel;
+        ansi_ops.erase_display = ansi_erase_display;
+        ansi_ops.erase_line    = ansi_erase_line;
+        ansi_ops.set_attr      = ansi_set_attr;
+        ansi_ops.get_cursor    = ansi_get_cursor;
+        ansi_ops.ctx           = g_int21_con;
+        int21_set_ansi_console(&ansi_ops);
+        int21_set_ansi_gate(sysinit_ansi_enabled);
+    }
+    serial_puts("ANSI-WIRED\n");
 
     /* Bind the INT 21h vector-table seam to the live IDT (beads initech-509.8)
      * so AH=25h SETVECT / AH=35h GETVECT read+write real IDT gates. The DOS

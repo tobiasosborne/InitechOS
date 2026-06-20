@@ -152,10 +152,12 @@ STAGE2_SECTORS  := 16
 # folded into loader.o, ADR-0003 DEC-08a) + the SET built-in + the Tranche-F verbs
 # (COPY/DEL/REN/DATE/TIME) grew kernel_shell.bin to ~85 KiB, past the 80 KiB window.
 # 208*512 = 104 KiB: 0x10000 + 208*512 = 0x2A000, still below PROGRAM_BASE (0x30000).
-# IMG_MIN = 1+16+208 = 225 -> IMG_SECTORS grows 192->256 (4 cyl). A boot-geometry
-# change is a tri-emulator obligation (Rule 5): re-verified on `make test-boot-bochs`.
-# MUST equal the stage2.asm KERNEL_SECTORS equate.
-KERNEL_SECTORS  := 208
+# IMG_MIN = 1+16+224 = 241 -> IMG_SECTORS=256 (4 cyl) still accommodates. A boot-
+# geometry change is a tri-emulator obligation (Rule 5): re-verified on
+# `make test-boot-bochs`. MUST equal the stage2.asm KERNEL_SECTORS equate.
+# Bumped 208->224 for the p96i ANSI.SYS wiring (ansi.c folded into int21.o +
+# console cursor/erase/attr extensions grew the shell kernel ~5 KiB on disk).
+KERNEL_SECTORS  := 224
 # Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=160) = 177 sectors.
 # IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
 # harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
@@ -5903,6 +5905,44 @@ test-devwire-mutant: $(TEST_DEVWIRE_MUT)
 	@if $(TEST_DEVWIRE_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-devwire-mutant FAIL: no-device mutant PASSED -- the OPEN-by-name oracle is decoration\n'; exit 1; \
 	else printf '>>> test-devwire-mutant: green (no-device mutant correctly RED -- the oracle bites)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-ansi-wire (beads initech-p96i -- ansi.c FSM wired into con_putc)
+# ---------------------------------------------------------------------------
+# Drives the REAL con_putc -> ansi_feed -> ansi_apply -> console-ops chain via
+# int21_dispatch (AH=02h) HOSTED, against a mock console grid + a mock gate:
+# the ANSI-ENABLE gate (ANSI off -> escapes render LITERALLY; on -> they take
+# effect), cursor addressing (ESC[r;cH), erase (ESC[2J), SGR colour (ESC[31;1m),
+# save/restore (ESC[s/u) reading the LIVE console cursor, and -- the load-bearing
+# constraint -- a plain string with ANSI on renders IDENTICALLY to ANSI off
+# (default attribute, cursor advance).  test_ansi_wire.c #includes int21.c (which
+# #includes ansi.c) -- the TU trick -- so NO ansi.o/int21.o on the link line.
+# Mutant (Rule 6): IGNORE_GATE -> the FSM is fed even when ANSI is off -> the
+# "ANSI off renders literally" assertion goes RED.
+TEST_ANSI_WIRE      := $(BUILD)/test_ansi_wire
+TEST_ANSI_WIRE_SRC  := $(MILTON_DIR)/test_ansi_wire.c
+TEST_ANSI_WIRE_DEPS := $(KERNEL_DEVICES_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C) $(KERNEL_CONFIG_SYS_C)
+TEST_ANSI_WIRE_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/ansi.h $(MILTON_DIR)/ansi.c $(MILTON_DIR)/int21.c \
+                       $(MILTON_DIR)/sft.h $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
+TEST_ANSI_WIRE_MUT  := $(BUILD)/test_ansi_wire_mutant_gate
+
+$(TEST_ANSI_WIRE): $(TEST_ANSI_WIRE_SRC) $(TEST_ANSI_WIRE_DEPS) $(TEST_ANSI_WIRE_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild -o $@ $(TEST_ANSI_WIRE_SRC) $(TEST_ANSI_WIRE_DEPS)
+
+$(TEST_ANSI_WIRE_MUT): $(TEST_ANSI_WIRE_SRC) $(TEST_ANSI_WIRE_DEPS) $(TEST_ANSI_WIRE_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DANSIWIRE_MUTATE_IGNORE_GATE -Ispec -I$(MILTON_DIR) -Iseed -Ibuild -o $@ $(TEST_ANSI_WIRE_SRC) $(TEST_ANSI_WIRE_DEPS)
+
+.PHONY: test-ansi-wire test-ansi-wire-mutant
+test-ansi-wire: $(TEST_ANSI_WIRE)
+	@printf ">>> test-ansi-wire: con_putc -> ansi_feed -> console-ops (gate + cursor + erase + SGR + save/restore + plain-text identity)\n"
+	@$(TEST_ANSI_WIRE)
+	@printf ">>> test-ansi-wire: green\n"
+
+test-ansi-wire-mutant: $(TEST_ANSI_WIRE_MUT)
+	@printf ">>> test-ansi-wire-mutant: confirming the ignore-gate mutant goes RED (Rule 6)\n"
+	@if $(TEST_ANSI_WIRE_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-ansi-wire-mutant FAIL: ignore-gate mutant PASSED -- the ANSI-OFF literal-render test is decoration\n'; exit 1; \
+	else printf '>>> test-ansi-wire-mutant: green (ignore-gate mutant correctly RED -- the oracle bites)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-psp (beads initech-509.4 -- PSP full 256-byte construction)
@@ -13080,7 +13120,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-batch-exec test-ansi test-keep test-devices test-int24-wired test-devwire test-psp test-sft test-loader test-mz test-mzload \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
@@ -13099,7 +13139,7 @@ TEST_UNIT_GATES := \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \

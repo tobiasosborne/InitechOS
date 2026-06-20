@@ -556,6 +556,60 @@ typedef int (*int21_coninpoll_fn)(void);  /* NON-blocking: char 0..255, or -1   
  * keyboard-backed callbacks near the sti; the host oracle binds a queued mock. */
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll);
 
+/* ---- ANSI.SYS CONSOLE OPS (beads initech-p96i; consumes the x3mh FSM) ------
+ * When CONFIG.SYS loaded DEVICE=ANSI.SYS (sysinit_ansi_enabled()), every CON
+ * output byte is fed through the ANSI escape-sequence FSM (os/milton/ansi.c)
+ * instead of going straight to the sink. The FSM emits abstract actions
+ * (put-char, move-cursor, erase, set-attr); this seam is how int21.c applies
+ * them to the LIVE console WITHOUT linking console.c (the SAME decoupling as the
+ * sink/conin/clock seams -- int21.c stays HOSTED-clean and console.h-free).
+ *
+ * The kernel binds these to console.c functions over its live console (kmain.c);
+ * the host oracle binds them to a mock grid. If NO ops are bound (the unbound
+ * default), the ANSI path degrades to "emit the PUT_CHAR byte through the sink"
+ * (so plain text still renders) and silently drops cursor/erase/attr actions --
+ * never a fault (Rule 2).
+ *
+ *   put_char     : draw `ch` at the cursor with the CURRENT attribute, then
+ *                  advance (wrap + scroll) -- i.e. console_putc semantics. This
+ *                  is the ONLY op that also mirrors to serial (the kernel's
+ *                  put_char binding does console_putc + serial_putc), so plain
+ *                  text stays byte-identical on BOTH the LFB and the COM1 tap.
+ *   set_cursor   : absolute 0-based (row,col), clamped to the grid.
+ *   cursor_rel   : signed (drow,dcol) relative move, clamped.
+ *   erase_display: ESC[<n>J mode 0/1/2 (fills with the current paper).
+ *   erase_line   : ESC[<n>K mode 0/1/2.
+ *   set_attr     : set the current attribute from a CGA attribute byte.
+ *   get_cursor   : read the live (row,col) -- used for ESC[s save + ESC[6n DSR.
+ *
+ * `ctx` is forwarded unchanged to every callback (the kernel passes its
+ * console_t*; the host oracle passes its mock). A partly-NULL table is allowed:
+ * a NULL individual callback makes that one action a no-op. */
+typedef struct int21_ansi_console {
+    void (*put_char)(void *ctx, uint8_t ch, uint8_t cga_attr);
+    void (*set_cursor)(void *ctx, int row, int col);
+    void (*cursor_rel)(void *ctx, int drow, int dcol);
+    void (*erase_display)(void *ctx, int mode);
+    void (*erase_line)(void *ctx, int mode);
+    void (*set_attr)(void *ctx, uint8_t cga_attr);
+    void (*get_cursor)(void *ctx, int *row, int *col);
+    void  *ctx;
+} int21_ansi_console_t;
+
+/* Bind (a COPY of) the ANSI console-ops table (NULL clears it). Called once by
+ * the kernel at boot AFTER the console is up; the host oracle binds a mock. */
+void int21_set_ansi_console(const int21_ansi_console_t *ops);
+
+/* The ANSI ENABLE gate (beads initech-p96i). con_putc feeds the FSM only when
+ * this returns non-zero. The kernel binds it to sysinit_ansi_enabled() (set by
+ * CONFIG.SYS DEVICE=ANSI.SYS); the host oracle binds a flag it can flip. int21.c
+ * reaches the gate through this seam -- NOT a direct sysinit_ansi_enabled() call
+ * -- so int21.c does NOT link sysinit.c and stays HOSTED-clean (Law 3). When
+ * UNBOUND (the default), the gate reads as DISABLED (0): the CON output path is
+ * byte-for-byte identical to before this bead (raw sink, no FSM). */
+typedef int (*int21_ansi_gate_fn)(void);
+void int21_set_ansi_gate(int21_ansi_gate_fn gate);
+
 /* ---- CLOCK SOURCE (beads initech-yv9) -------------------------------------
  * GET/SET DATE+TIME (AH=2Ah/2Bh/2Ch/2Dh) read and write the wall clock through
  * a CLOCK seam -- the same pattern as the sink/conin/file seams -- so int21.c

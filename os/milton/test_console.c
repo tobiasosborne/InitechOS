@@ -430,6 +430,117 @@ int main(void)
         }
     }
 
+    /* ============ ANSI.SYS console extensions (beads initech-p96i) ============
+     * console_set_attr / console_set_cursor / console_get_cursor /
+     * console_erase_line / console_erase_display, and the LOAD-BEARING claim:
+     * the cur_fg/cur_bg DEFAULT path is pixel-identical to drawing with fg/bg
+     * (CLAUDE.md Law 4 -- the no-ANSI rendering must not change). 32bpp path. */
+    {
+        size_t fb_bytes = (size_t)FB_W * FB_H * 4u;
+        uint8_t *fb = alloc_low(fb_bytes);
+        CHECK(fb != NULL, "alloc 32bpp fb for ANSI console-extension tests");
+        if (fb) {
+            boot_info_t bi = make_bi(fb, 32, font);
+            console_t con;
+            int rc = console_init(&con, &bi);
+            CHECK(rc == CONSOLE_OK, "console_init OK (ANSI-ext block)");
+
+            uint32_t fg = con.fg, bg = con.bg;
+
+            /* --- default-attribute pixel identity --- */
+            CHECK(con.cur_fg == con.fg && con.cur_bg == con.bg,
+                  "init: cur_fg/cur_bg default EQUAL to fg/bg (Law 4 pixel-identity)");
+            /* A glyph drawn via console_putc (which uses cur_fg/cur_bg) is the
+             * SAME pixels as one drawn with fg/bg explicitly. */
+            con.cur_row = 1; con.cur_col = 1;
+            console_putc(&con, (char)GLYPH_SOLID);
+            check_solid_cell(&con, fb, 1, 1, fg, bg);
+
+            /* --- console_set_cursor clamps to the grid --- */
+            console_set_cursor(&con, 4, 9);
+            CHECK(con.cur_row == 4 && con.cur_col == 9, "set_cursor lands at (4,9)");
+            console_set_cursor(&con, 9999, 9999);
+            CHECK(con.cur_row == con.rows - 1 && con.cur_col == con.cols - 1,
+                  "set_cursor clamps an out-of-range target to the last cell");
+
+            /* --- console_get_cursor reads it back --- */
+            {
+                uint32_t r = 99, c = 99;
+                console_set_cursor(&con, 7, 3);
+                console_get_cursor(&con, &r, &c);
+                CHECK(r == 7 && c == 3, "get_cursor reads back the set position");
+            }
+
+            /* --- console_set_attr: default 0x07 maps back to fg/bg (seafoam) --- */
+            console_set_attr(&con, 0x47u);   /* some non-default attr first */
+            console_set_attr(&con, 0x07u);   /* ANSI default / ESC[0m */
+            CHECK(con.cur_fg == con.fg && con.cur_bg == con.bg,
+                  "set_attr(0x07) restores the console default ink/paper (seafoam-safe)");
+
+            /* --- console_set_attr: bright red (CGA attr 0x0C) gives a red ink --- */
+            console_set_attr(&con, 0x0Cu);   /* fg nibble 0x0C = bright red */
+            {
+                uint32_t want = console_pack_rgb(con.bpp, 0xFF, 0x55, 0x55); /* CGA 12 */
+                CHECK(con.cur_fg == want,
+                      "set_attr(0x0C) sets cur_fg to bright-red (CGA palette 12)");
+            }
+            /* A glyph now draws in bright red, not the default ink. */
+            console_set_cursor(&con, 6, 6);
+            console_putc(&con, (char)GLYPH_SOLID);
+            {
+                uint32_t red = console_pack_rgb(con.bpp, 0xFF, 0x55, 0x55);
+                CHECK(fb_get(fb, con.pitch, con.bpp, 6*CONSOLE_CELL_W, 6*CONSOLE_CELL_H) == red,
+                      "a glyph drawn after set_attr(0x0C) is inked bright red");
+            }
+            console_set_attr(&con, 0x07u);   /* back to default for the erase tests */
+
+            /* --- console_erase_line mode 2: whole current line -> cur_bg --- */
+            console_set_cursor(&con, 2, 0);
+            for (uint32_t c = 0; c < 10; c++) console_putc(&con, (char)GLYPH_SOLID);
+            console_set_cursor(&con, 2, 0);
+            console_erase_line(&con, 2);
+            {
+                int all_bg = 1;
+                for (uint32_t c = 0; c < 10; c++)
+                    if (fb_get(fb, con.pitch, con.bpp, c*CONSOLE_CELL_W, 2*CONSOLE_CELL_H) != bg)
+                        all_bg = 0;
+                CHECK(all_bg, "erase_line(2) clears the whole current row to bg");
+            }
+
+            /* --- console_erase_line mode 0: cursor..end-of-line --- */
+            console_set_cursor(&con, 3, 0);
+            for (uint32_t c = 0; c < 6; c++) console_putc(&con, (char)GLYPH_SOLID);
+            console_set_cursor(&con, 3, 3);   /* erase from col 3 to end */
+            console_erase_line(&con, 0);
+            CHECK(fb_get(fb, con.pitch, con.bpp, 2*CONSOLE_CELL_W, 3*CONSOLE_CELL_H) == fg,
+                  "erase_line(0) leaves cells BEFORE the cursor (col 2) inked");
+            CHECK(fb_get(fb, con.pitch, con.bpp, 4*CONSOLE_CELL_W, 3*CONSOLE_CELL_H) == bg,
+                  "erase_line(0) clears cells FROM the cursor (col 4) to end");
+
+            /* --- console_erase_display mode 2: whole screen -> cur_bg --- */
+            console_set_cursor(&con, 5, 5);
+            console_putc(&con, (char)GLYPH_SOLID);
+            console_erase_display(&con, 2);
+            CHECK(fb_get(fb, con.pitch, con.bpp, 5*CONSOLE_CELL_W, 5*CONSOLE_CELL_H) == bg,
+                  "erase_display(2) clears the whole screen to bg");
+
+            /* --- erase fills with the CURRENT paper, not the default --- *
+             * Set a bright-blue background (CGA attr bg nibble 1 -> 0x10) and
+             * erase: the cleared cells must be bright-blue, proving erase honours
+             * cur_bg (the ANSI "erase with current attribute" contract). */
+            console_set_attr(&con, 0x10u);    /* bg nibble 1 = blue; fg nibble 0 */
+            console_set_cursor(&con, 8, 0);
+            console_erase_line(&con, 2);
+            {
+                uint32_t blue = console_pack_rgb(con.bpp, 0x00, 0x00, 0xAA); /* CGA 1 */
+                CHECK(fb_get(fb, con.pitch, con.bpp, 0, 8*CONSOLE_CELL_H) == blue,
+                      "erase fills with the CURRENT paper (cur_bg), not the default bg");
+            }
+
+            munmap(fb, fb_bytes);
+        }
+    }
+
     munmap(font, CONSOLE_FONT_BYTES);
     return TEST_SUMMARY("test_console");
 }

@@ -289,8 +289,19 @@ struct fat12_volume;   /* full type in os/milton/fat12.h (kernel-only) */
 
 /* Bind the mounted FAT12 volume the loader reads .COMs from (caller-owned,
  * outlives the binding). NULL clears it -> load_program_from_fat returns
- * LOADER_ERR_NO_VOLUME. Mirrors int21_set_file_backend's bind discipline. */
-void loader_bind_fat_volume(const struct fat12_volume *vol);
+ * LOADER_ERR_NO_VOLUME. Mirrors int21_set_file_backend's bind discipline.
+ *
+ * `fat`/`fat_len` is the volume's WHOLE-FAT cache, SHARED with the int21 file
+ * backend (fileio_fat_fat_buffer) -- the SAME mounted volume's FAT, already
+ * slurped at fileio_fat_bind (kmain binds it FIRST). The loader reads the FAT
+ * ONLY during load_program_from_fat (the load phase), never while a program
+ * runs, so aliasing the backend's buffer is safe -- and it removes the 6 KiB
+ * this module used to DUPLICATE in kernel .bss (the recurring kernel-window
+ * pressure; beads y206/headroom). A NULL/zero `fat` (e.g. a windowed FAT16
+ * volume with no whole-FAT cache) leaves the loader UNBOUND (fail loud, Rule 2)
+ * -- EXEC-from-FAT16 is not a supported path this milestone. */
+void loader_bind_fat_volume(const struct fat12_volume *vol,
+                            const uint8_t *fat, uint32_t fat_len);
 
 loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
                                       const char *cmd_tail, uint32_t cmd_tail_len,

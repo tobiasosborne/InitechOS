@@ -27,6 +27,18 @@
 #include "irq.h"        /* in-IRQ depth + reentrancy guard (beads initech-xk2) */
 #include "dos_messages.h" /* MSG_DOS_0001 controlled diagnostic (DEC-13; -Ibuild) */
 
+/* The ANSI.SYS escape-sequence FSM (beads initech-p96i, consuming x3mh). ansi.c
+ * is PURE + I/O-free + freestanding (the same shape as the other modules we
+ * compile as a single TU), so we #include it DIRECTLY rather than link a
+ * separate ansi.o. This keeps the KERNEL link and EVERY int21-linking host
+ * oracle (test_int21, test_devwire, ...) building with ZERO Makefile change:
+ * ansi.c contributes no separately-linked object, and no other TU in those
+ * binaries also pulls ansi.c (test_ansi.c is its own binary). The FSM is driven
+ * from con_putc (below) and its actions are applied to the live console through
+ * the int21_ansi_console_t seam (int21.h) -- so int21.c still never includes
+ * console.h and stays HOSTED-clean (Law 3). */
+#include "ansi.c"
+
 /* The carry flag is bit 0 of EFLAGS (Intel SDM Vol 1 Sec 3.4.3). The whole
  * error-return contract rides on this single bit (ground-truth Sec 5.4). */
 #define CF_BIT 0x1u
@@ -46,6 +58,27 @@ static int21_exit_fn g_exit = 0;
  * hang or fault (Rule 2). */
 static int21_conin_fn     g_conin_get  = 0;
 static int21_coninpoll_fn g_conin_poll = 0;
+
+/* ---- ANSI.SYS CON wiring (beads initech-p96i; consumes the x3mh FSM) -------
+ * When the ANSI gate is enabled, con_putc routes every CON output byte through
+ * g_ansi_st (the escape-sequence FSM) and applies the resulting actions to the
+ * live console through g_ansi_ops. g_ansi_inited guards a one-time ansi_init on
+ * first use (so the FSM starts at GROUND with the default attribute).
+ *
+ * Cursor authority (the x3mh design fork, resolved here): the CONSOLE owns the
+ * real cursor (it advances/wraps/scrolls on every put_char, which the pure FSM
+ * cannot predict). The apply layer therefore keeps the console authoritative:
+ * ESC[s save / ESC[6n DSR read the LIVE console cursor (via ops->get_cursor),
+ * and ESC[u restore drives ops->set_cursor to the apply-layer save slot below.
+ * The FSM's own row/col/saved_row/saved_col are NOT trusted for positioning --
+ * only g_ansi_saved_{row,col} (read from the console at ESC[s) are. */
+static ansi_state_t       g_ansi_st;
+static int                g_ansi_inited = 0;
+static int21_ansi_console_t g_ansi_ops  = { 0, 0, 0, 0, 0, 0, 0, 0 };
+static int21_ansi_gate_fn g_ansi_gate   = 0;
+/* The apply-layer cursor save slot (ESC[s/ESC[u); the console is the truth. */
+static int                g_ansi_saved_row = 0;
+static int                g_ansi_saved_col = 0;
 
 /* The current process's PSP (beads initech-509.3). Handle functions resolve a
  * handle through g_cur_psp->jft into the system SFT. NULL until the kernel binds
@@ -466,9 +499,159 @@ static int conin_poll(void)
     return -1;  /* no source bound -> no char */
 }
 
+/* ---- ANSI.SYS bind points + the apply layer (beads initech-p96i) ---------- */
+
+void int21_set_ansi_console(const int21_ansi_console_t *ops)
+{
+    if (ops == 0) {
+        /* Clear: a zeroed table has every callback NULL -> each action a no-op,
+         * and ansi_apply's PUT_CHAR fallback (raw sink) still renders text. */
+        for (uint32_t i = 0u; i < (uint32_t)sizeof(g_ansi_ops); i++) {
+            ((uint8_t *)&g_ansi_ops)[i] = 0u;
+        }
+        return;
+    }
+    g_ansi_ops = *ops;   /* struct copy -- independent of the caller's lifetime */
+}
+
+void int21_set_ansi_gate(int21_ansi_gate_fn gate)
+{
+    g_ansi_gate = gate;
+}
+
+/* Is the ANSI escape interpreter active for the CON output path?  EXTRACTED so
+ * the host oracle can test the gate decision directly (Law 2). True iff the
+ * gate is bound AND returns non-zero (CONFIG.SYS loaded DEVICE=ANSI.SYS). When
+ * UNBOUND (the default) this is false, so con_putc takes the raw-sink path that
+ * is byte-for-byte identical to before this bead. */
+static int con_ansi_active(void)
+{
+#ifdef ANSIWIRE_MUTATE_IGNORE_GATE
+    /* MUTANT (Rule 6; make test-ansi-wire-mutant): IGNORE the gate and always
+     * feed the FSM. The "ANSI OFF renders escape bytes literally" oracle then
+     * goes RED (the FSM swallows the escape bytes instead of passing them to the
+     * sink). One-branch RUNTIME perturbation; compiles clean under -Werror.
+     * NEVER in a real build -- without DEVICE=ANSI.SYS, DOS prints bytes raw. */
+    return 1;
+#else
+    return (g_ansi_gate != 0) && (g_ansi_gate() != 0);
+#endif
+}
+
+/* Apply one ANSI FSM action to the live console (through g_ansi_ops). This is
+ * the seam between the PURE FSM and the console driver. `ctx` is unused (the
+ * console handle travels inside g_ansi_ops.ctx); the signature matches
+ * ansi_action_cb_t. Ref: MS-DOS 3.3 Tech Ref Ch 4 "ANSI.SYS" effect table. */
+static void ansi_apply(const ansi_action_t *act, void *ctx)
+{
+    (void)ctx;
+    switch (act->kind) {
+
+    case ANSI_ACT_PUT_CHAR:
+        /* Draw the glyph with the action's attribute, then advance (the console
+         * op also mirrors to serial -- see kmain's binding). If no console op is
+         * bound (host default), fall back to the raw sink so plain text still
+         * renders and serial still sees the byte. The FSM only emits PUT_CHAR for
+         * non-escape bytes, so with NO escapes in the stream this is identical to
+         * the old con_putc -> g_sink path (CLAUDE.md Law 4). */
+        if (g_ansi_ops.put_char) {
+            g_ansi_ops.put_char(g_ansi_ops.ctx, act->ch, act->attr);
+        } else if (g_sink) {
+            g_sink((char)act->ch);
+        }
+        break;
+
+    case ANSI_ACT_MOVE_CURSOR:
+        if (g_ansi_ops.set_cursor) {
+            g_ansi_ops.set_cursor(g_ansi_ops.ctx, act->row, act->col);
+        }
+        break;
+
+    case ANSI_ACT_CURSOR_REL:
+        if (g_ansi_ops.cursor_rel) {
+            g_ansi_ops.cursor_rel(g_ansi_ops.ctx, act->delta_row, act->delta_col);
+        }
+        break;
+
+    case ANSI_ACT_SAVE_CURSOR:
+        /* Cursor authority: read the LIVE console cursor (not the FSM's, which is
+         * stale after plain text advanced it) into the apply-layer save slot. */
+        if (g_ansi_ops.get_cursor) {
+            g_ansi_ops.get_cursor(g_ansi_ops.ctx, &g_ansi_saved_row, &g_ansi_saved_col);
+        }
+        break;
+
+    case ANSI_ACT_RESTORE_CURSOR:
+        /* Drive the console back to the saved slot (NOT the FSM's saved value). */
+        if (g_ansi_ops.set_cursor) {
+            g_ansi_ops.set_cursor(g_ansi_ops.ctx, g_ansi_saved_row, g_ansi_saved_col);
+        }
+        break;
+
+    case ANSI_ACT_ERASE_DISPLAY:
+        if (g_ansi_ops.erase_display) {
+            g_ansi_ops.erase_display(g_ansi_ops.ctx, act->erase_mode);
+        }
+        break;
+
+    case ANSI_ACT_ERASE_LINE:
+        if (g_ansi_ops.erase_line) {
+            g_ansi_ops.erase_line(g_ansi_ops.ctx, act->erase_mode);
+        }
+        break;
+
+    case ANSI_ACT_SET_ATTR:
+        if (g_ansi_ops.set_attr) {
+            g_ansi_ops.set_attr(g_ansi_ops.ctx, act->attr);
+        }
+        break;
+
+    case ANSI_ACT_DEVICE_STATUS:
+        /* ESC[6n Device Status Report. The response (ESC[<row+1>;<col+1>R) must
+         * be injected into the CON INPUT queue so a program reading stdin sees
+         * it. There is no keyboard-INJECT seam yet (g_conin_* are READ-only), so
+         * this is a DEFERRED follow-up: we read the live cursor (proving the data
+         * path) but drop the response. Wiring it needs a kbd-inject seam bound by
+         * the kernel. Ref: MS-DOS 3.3 Tech Ref Ch 4 "DSR" / RBIL ANSI.SYS 6n. */
+        /* (deferred -- see bd follow-up) */
+        break;
+
+    case ANSI_ACT_BELL:
+        /* BEL: no PC speaker driver wired into CON yet; drop (the byte was
+         * consumed). A serial/speaker tap is a deferred nicety, not a blocker. */
+        break;
+
+    case ANSI_ACT_KEY_REMAP:
+        /* ESC[...p keyboard reassignment: deferred (no key-remap table yet). */
+        break;
+
+    case ANSI_ACT_NONE:
+    default:
+        break;
+    }
+}
+
 /* ---- the CON sink fan-out (NULL-safe) ---- */
 static void con_putc(char c)
 {
+    if (con_ansi_active()) {
+        /* ANSI.SYS loaded: route the byte through the escape-sequence FSM, whose
+         * actions are applied to the live console (and serial, via the put_char
+         * op) by ansi_apply. Plain (non-escape) bytes become a single PUT_CHAR
+         * action -> the SAME console_putc + serial path as the raw sink, so a
+         * stream WITHOUT escapes renders byte-for-byte identically (Law 4). */
+        if (!g_ansi_inited) {
+            /* One-time init at first use. Dimensions match the canonical 80x25
+             * console (console.h CONSOLE_COLS/ROWS); the FSM uses them only to
+             * clamp absolute moves, and the console clamps again defensively. */
+            ansi_init(&g_ansi_st, 25, 80);
+            g_ansi_inited = 1;
+        }
+        ansi_feed(&g_ansi_st, (uint8_t)c, ansi_apply, 0);
+        return;
+    }
+    /* ANSI not loaded: the original path, untouched (byte-identical to before
+     * this bead). con_ansi_active() is false whenever the gate is unbound. */
     if (g_sink) {
         g_sink(c);
     }
