@@ -22,6 +22,7 @@
 #include "sft.h"        /* JFT->SFT handle layer (beads initech-509.3); pulls psp.h */
 #include "mcb.h"        /* MCB arena allocator behind AH=48h/49h/4Ah (initech-509.6) */
 #include "dos_structs.h" /* exec_param_block_t (AH=4Bh EBX block; initech-456)      */
+#include "memory_map.h"  /* ENV_BLOCK -- the canonical populated-env sentinel (1i0x) */
 #include "find_data.h"  /* find_data_t (43-byte DTA block, LOCKED; spec/) */
 #include "irq.h"        /* in-IRQ depth + reentrancy guard (beads initech-xk2) */
 #include "dos_messages.h" /* MSG_DOS_0001 controlled diagnostic (DEC-13; -Ibuild) */
@@ -2880,7 +2881,18 @@ static void do_exec(int_frame_t *f)
         uint32_t pb = f->ebx;
         if (pb != 0 && user_buf_ok(pb, (uint32_t)sizeof(exec_param_block_t))) {
             const exec_param_block_t *blk = (const exec_param_block_t *)(uintptr_t)pb;
+            /* Sanitize the caller's env_block exactly as the cmd_tail below is guarded
+             * (Rule 2 -- never fault on a legacy/stale EBX, this function's stated
+             * intent): loader_decide_env honors ONLY {0, ENV_BLOCK}, so any OTHER value
+             * -- a caller that left EBX pointing at a block whose env_block field is
+             * stale garbage, or a real-DOS program passing its own env segment we do not
+             * yet copy -- is degraded to inherit-empty instead of failing the EXEC
+             * (loader_decide_env's BAD_ENV mapped to BAD_FORMAT at the kmain seam). The
+             * shell's populated-env path (env_block == ENV_BLOCK) is preserved. */
             env_block = blk->env_block;
+            if (env_block != 0u && env_block != (uint32_t)ENV_BLOCK) {
+                env_block = 0u;
+            }
             uint32_t tp = blk->cmd_tail;
             if (tp != 0 && user_buf_ok(tp, 1u)) {
                 uint8_t count = ((const uint8_t *)(uintptr_t)tp)[0];
