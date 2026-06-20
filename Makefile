@@ -5792,6 +5792,9 @@ TEST_LOADER_SRC  := $(MILTON_DIR)/test_loader.c
 # Mutation build (CLAUDE.md Rule 6): loader.c compiled with the .COM 0x100 image
 # offset removed so `make test-loader-mutant` can prove the layout oracle BITES.
 TEST_LOADER_MUT  := $(BUILD)/test_loader_mutant_nooffset
+# Mutation build (Rule 6; beads initech-1i0x inc-3): loader.c compiled to ignore a
+# provided env and always write the empty block, so the EXEC env-inheritance oracle BITES.
+TEST_LOADER_MUT_ENV := $(BUILD)/test_loader_mutant_forceempty
 
 $(TEST_LOADER): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
                 $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h $(MILTON_DIR)/fat12.h \
@@ -5805,6 +5808,12 @@ $(TEST_LOADER_MUT): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUTATE_NO_OFFSET -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
 
+$(TEST_LOADER_MUT_ENV): $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
+                    $(MILTON_DIR)/loader.h $(MILTON_DIR)/psp.h $(MILTON_DIR)/fat12.h \
+                    $(MILTON_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUTATE_FORCE_EMPTY_ENV -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+
 .PHONY: test-loader test-loader-mutant
 test-loader: $(TEST_LOADER)
 	@printf ">>> test-loader: loader_prepare layout (psp/image+0x100/entry/stack) + params + fail-loud validation\n"
@@ -5813,13 +5822,19 @@ test-loader: $(TEST_LOADER)
 
 # Mutation-proof: the no-offset mutant build MUST fail the oracle (Rule 6). A
 # mutant that PASSES means the layout test is decoration.
-test-loader-mutant: $(TEST_LOADER_MUT)
-	@printf ">>> test-loader-mutant: confirming the no-0x100-offset mutant goes RED (Rule 6)\n"
+test-loader-mutant: $(TEST_LOADER_MUT) $(TEST_LOADER_MUT_ENV)
+	@printf ">>> test-loader-mutant: confirming the no-0x100-offset + force-empty-env mutants go RED (Rule 6)\n"
 	@if $(TEST_LOADER_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-loader-mutant FAIL: no-offset mutant PASSED the oracle -- the layout test is decoration\n'; \
 		exit 1; \
 	else \
 		printf '>>> test-loader-mutant: green (no-offset mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_LOADER_MUT_ENV) >/dev/null 2>&1; then \
+		printf '!!! test-loader-mutant FAIL: force-empty-env mutant PASSED -- the EXEC env-inheritance test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-loader-mutant: green (force-empty-env mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------

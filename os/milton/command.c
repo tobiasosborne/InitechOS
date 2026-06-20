@@ -364,6 +364,7 @@ void cmd_set_parse(const char *arg, set_cmd_t *out)
 
 #include "find_data.h"   /* find_data_t (43-byte DTA record; offsets DIR reads) */
 #include "int21.h"       /* INT21_CWD_MAX -- the AH=47h root-relative CWD bound */
+#include "memory_map.h"  /* ENV_BLOCK / ENV_BLOCK_CAP -- EXEC env inheritance (inc 3) */
 
 /* DEC-04a flat ABI (spec/int21h_calling_convention.json): AH=function in EAX,
  * EBX=handle, ECX=count, EDX=flat ptr, EAX=return, CF=error in EFLAGS. The
@@ -497,11 +498,35 @@ static void dos_close(int handle)
         : "cc", "memory");
 }
 
+/* The master environment store for COMMAND.COM (beads initech-1i0x Tranche E
+ * inc 2/3). File scope so builtin_set, command_repl, AND the EXEC path (dos_exec)
+ * can all reach it. Seeded once at REPL entry with the canonical startup variables
+ * (COMSPEC, PROMPT, PATH). On EXEC (inc 3) dos_exec serializes it into the child's
+ * env block (ENV_BLOCK) so the child PSP env_seg points at the inherited copy.
+ * Declared HERE (before dos_exec) so the EXEC wrapper can serialize it; builtin_set
+ * + command_repl (below) reach it as the same file-scope object. */
+static env_store_t g_master_env;
+
 /* AH=4Bh EXEC (AL=00 load+execute): EDX -> ASCIIZ program path, EBX -> the EXEC
  * parameter block (exec_param_block_t). `tail` is the verbatim DOS command tail
  * (leading separator + args, or "" / NULL for none); we frame it as the DOS
  * {count, text, CR} block the child reads at PSP:80h (initech-456). Returns 0 on
- * a clean run (CF clear), or the DOS error code (CF set; e.g. 0x0002 not found). */
+ * a clean run (CF clear), or the DOS error code (CF set; e.g. 0x0002 not found).
+ *
+ * ENV INHERITANCE (beads initech-1i0x Tranche E inc 3): BEFORE the syscall we
+ * serialize the master environment into the dedicated ENV_BLOCK region (the DOS
+ * env-block format: "NAME=VALUE\0" entries + a final extra NUL) and set
+ * blk.env_block = ENV_BLOCK (the FLAT-linear contract of exec_param_block_t.env_
+ * block; psp.c stores it as env_seg via flat_to_fake_paragraph). The loader then
+ * does NOT overwrite that block and the child PSP env_seg points at the inherited
+ * copy -- a per-process COPY by construction (a separate physical region from the
+ * shell's g_master_env). The env is serialized into THE SAME ENV_BLOCK the loader
+ * would otherwise stub empty; the loader's inc-3 conditional respects whichever we
+ * pass. If the env is somehow too large for ENV_BLOCK_CAP (impossible with the
+ * 513-byte env.h ceiling vs the 4096-byte region, but checked for fail-loud
+ * discipline), we DO NOT write a truncated/garbage block: print a diagnostic and
+ * forward env_block=0 (inherit-empty) -- the cleanest fail-loud choice (the child
+ * still runs, with an empty env, never a corrupt one). Rule 2. */
 static uint16_t dos_exec(const char *path, const char *tail)
 {
     /* DOS-format command tail: byte0 = count, bytes1..count = text, then CR.
@@ -517,8 +542,21 @@ static uint16_t dos_exec(const char *path, const char *tail)
     tailblk[0]      = (uint8_t)n;     /* count of text chars (n <= 128)           */
     tailblk[1u + n] = 0x0Du;          /* CR terminator (real-DOS PSP:80h)         */
 
+    /* Serialize the master env into the ENV_BLOCK region (inc 3). On overflow
+     * (env_serialize returns 0) fail loud: do NOT point the child at a half-written
+     * block -- forward env_block=0 so the loader synthesizes a clean empty env. */
+    uint32_t env_block = (uint32_t)ENV_BLOCK;
+    {
+        int wrote = env_serialize(&g_master_env, (uint8_t *)(uintptr_t)ENV_BLOCK,
+                                  (int)ENV_BLOCK_CAP);
+        if (wrote == 0) {
+            dos_print("Out of environment space\r\n$");
+            env_block = 0u;           /* inherit-empty (clean), never a garbage env */
+        }
+    }
+
     exec_param_block_t blk;
-    blk.env_block = 0u;               /* inherit (no env block yet)               */
+    blk.env_block = env_block;        /* ENV_BLOCK (populated) or 0 (inherit-empty) */
     blk.cmd_tail  = (uint32_t)(uintptr_t)tailblk;
     blk.fcb1      = 0u;
     blk.fcb2      = 0u;
@@ -653,13 +691,6 @@ static void dos_getcwd(uint8_t drive, char *buf)
         : "a"(0x4700u), "d"((uint32_t)drive), "S"((uint32_t)(uintptr_t)buf)
         : "cc", "memory");
 }
-
-/* The master environment store for COMMAND.COM (beads initech-1i0x Tranche E
- * inc 2). File scope so builtin_set, command_repl, and (in increment 3) the
- * EXEC path can all reach it. Seeded once at REPL entry with the canonical
- * startup variables (COMSPEC, PROMPT, PATH). Increment 3 will serialize it
- * into the child's env block at EXEC time (via env_serialize). */
-static env_store_t g_master_env;
 
 /* The shell's DTA: a dedicated 43-byte find-record buffer FINDFIRST/NEXT write
  * into (bound via AH=1Ah). File scope so it outlives each DIR invocation. */

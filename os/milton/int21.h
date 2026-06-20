@@ -508,11 +508,16 @@ void int21_set_file_backend(const int21_file_backend_t *backend);
  *
  * `cmd_tail`/`cmd_tail_len` carry the command-tail TEXT (no count byte, no CR)
  * the loader writes to the child PSP:80h (beads initech-456); cmd_tail may be
- * NULL with cmd_tail_len 0 for a no-argument launch. The signature matches
- * loader.c load_program_from_fat so the kernel can bind it through one adapter. */
+ * NULL with cmd_tail_len 0 for a no-argument launch. `env_block` (beads
+ * initech-1i0x Tranche E inc 3 -- EXEC env inheritance) is the FLAT linear address
+ * of the env block the child inherits (the exec_param_block_t.env_block contract:
+ * a flat ptr; 0 = inherit-empty). do_exec extracts it from the EBX param block and
+ * threads it here; the backend hands it to load_program_from_fat unchanged. The
+ * signature matches loader.c load_program_from_fat so the kernel can bind it
+ * through one adapter. */
 typedef uint16_t (*int21_exec_fn)(const char *name83, uint16_t dir_start,
-                                  const char *cmd_tail,
-                                  uint32_t cmd_tail_len, uint8_t *out_rc);
+                                  const char *cmd_tail, uint32_t cmd_tail_len,
+                                  uint32_t env_block, uint8_t *out_rc);
 
 /* Bind the EXEC backend (NULL clears it -> AH=4Bh returns file-not-found, as if
  * no program could be loaded). The kernel binds the saw-path loader; the host

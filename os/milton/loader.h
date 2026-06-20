@@ -46,7 +46,12 @@ typedef enum loader_status {
     LOADER_ERR_NO_VOLUME,    /* no FAT volume bound                             */
     LOADER_ERR_NOT_FOUND,    /* named .COM not in the (root) directory          */
     LOADER_ERR_READ,         /* FAT read error pulling the .COM bytes           */
-    LOADER_ERR_BUSY          /* a load is already active (nested EXEC; deferred) */
+    LOADER_ERR_BUSY,         /* a load is already active (nested EXEC; deferred) */
+    /* EXEC env inheritance (beads initech-1i0x Tranche E inc 3): a non-zero
+     * env_block that is not the locked ENV_BLOCK region -- the caller asked the
+     * child to inherit an env block at an address the loader never wrote. Fail
+     * loud (Rule 2) rather than build a PSP env_seg pointing at garbage. */
+    LOADER_ERR_BAD_ENV
 } loader_status_t;
 
 /* loader_plan_t -- the fully-computed, deterministic load layout. loader_prepare
@@ -77,6 +82,27 @@ typedef struct loader_plan {
     uint32_t     arena_ceil;   /* flat linear ceiling (exclusive); == ENV_BLOCK   */
     uint8_t      arena_present; /* 1 if a positive-size arena was computed, else 0 */
 } loader_plan_t;
+
+/* loader_env_decision_t -- the EXEC env-inheritance decision (beads initech-1i0x
+ * Tranche E inc 3), computed by the pure loader_decide_env(). `env_linear` is the
+ * flat addr the child PSP env_seg must point at; `write_empty` is 1 iff the loader
+ * must synthesize the 2-byte empty env block at ENV_BLOCK (the inherit-empty /
+ * legacy path), 0 iff the shell already populated [ENV_BLOCK, ...) and the loader
+ * must leave it intact. The host oracle asserts both fields directly (Law 2). */
+typedef struct loader_env_decision {
+    uint32_t env_linear;   /* flat addr stored in the child PSP env_seg        */
+    int      write_empty;  /* 1 => synthesize the 2-byte empty block at ENV_BLOCK */
+} loader_env_decision_t;
+
+/* loader_decide_env -- the PURE, host-testable EXEC env-inheritance decision
+ * (beads initech-1i0x Tranche E inc 3). Maps the caller's env_block (0 =
+ * inherit-empty; ENV_BLOCK = inherit the shell's populated env) to a
+ * loader_env_decision_t. A non-zero env_block that is NOT ENV_BLOCK fails loud
+ * (LOADER_ERR_BAD_ENV); a NULL out fails LOADER_ERR_NULL_OUT (Rule 2). The kernel
+ * loader (loader_run_plan, kernel-only asm path) calls this to choose, so the
+ * oracle and the artifact agree by construction. Ref: spec/memory_map.h ENV_BLOCK;
+ * spec/dos_structs.h exec_param_block_t.env_block. */
+loader_status_t loader_decide_env(uint32_t env_block, loader_env_decision_t *out);
 
 /* loader_prepare -- validate inputs and compute the deterministic load plan
  * (layout + psp_params) WITHOUT touching memory or transferring control. Pure
@@ -144,12 +170,16 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
  *
  * `image_len` is the on-disk byte count already present at PROGRAM_IMAGE (used
  * for the arena base = roundup(PROGRAM_IMAGE + image_len + BSS_RESERVE) and the
- * PROGRAM_IMAGE_MAX bound). Returns LOADER_OK on a clean run-and-return with
- * *out_exit_code set; a LOADER_ERR_* on a validation failure (the program is NOT
- * run). KERNEL ONLY; in a hosted build it is a validate-only stub.
- * Ref: spec/memory_map.h; ADR-0009 DEC-04; psp-loader-ground-truth.md Sec 4. */
+ * PROGRAM_IMAGE_MAX bound). `env_block` (beads initech-1i0x Tranche E inc 3) is
+ * the FLAT linear address of the env block the child inherits, or 0 for
+ * inherit-empty (the loader then synthesizes the 2-byte empty block at ENV_BLOCK,
+ * the legacy behavior); a non-zero value MUST be the locked ENV_BLOCK region or
+ * the call fails LOADER_ERR_BAD_ENV (Rule 2). Returns LOADER_OK on a clean
+ * run-and-return with *out_exit_code set; a LOADER_ERR_* on a validation failure
+ * (the program is NOT run). KERNEL ONLY; in a hosted build it is a validate-only
+ * stub. Ref: spec/memory_map.h; ADR-0009 DEC-04; psp-loader-ground-truth.md Sec 4. */
 loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
-                                      uint32_t cmd_tail_len,
+                                      uint32_t cmd_tail_len, uint32_t env_block,
                                       uint8_t *out_exit_code);
 
 /* ---- FAT-sourced load (beads initech-saw; DIRECT-LOAD beads initech-za4m) --
@@ -182,7 +212,15 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  *   - a FAT/ATA read error                  -> LOADER_ERR_READ
  *   - image too large for staging/program   -> LOADER_ERR_TOO_BIG
  *   - a load is already active (nested)      -> LOADER_ERR_BUSY (deferred; guarded)
+ *   - env_block != 0 and != ENV_BLOCK        -> LOADER_ERR_BAD_ENV (inc 3)
  * On LOADER_OK *out_rc receives the child's exit code.
+ *
+ * `env_block` (beads initech-1i0x Tranche E inc 3 -- EXEC env inheritance) is the
+ * FLAT linear address of the env block the child inherits, or 0 for inherit-empty
+ * (the loader then synthesizes the 2-byte empty block at ENV_BLOCK, the legacy /
+ * baked-demo behavior). The SHELL serializes its master env into [ENV_BLOCK, ...)
+ * and passes env_block == ENV_BLOCK; the loader then does NOT overwrite that block
+ * and points the child PSP env_seg at it. Threaded verbatim to load_program_in_place.
  *
  * REENTRANCY: load_program's return-to-loader context (g_loader_ctx) is
  * single-level (Sec 6.2 -- no process table). A nested call (EXEC from inside a
@@ -201,7 +239,7 @@ struct fat12_volume;   /* full type in os/milton/fat12.h (kernel-only) */
 void loader_bind_fat_volume(const struct fat12_volume *vol);
 
 loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
-                                      const char *cmd_tail,
-                                      uint32_t cmd_tail_len, uint8_t *out_rc);
+                                      const char *cmd_tail, uint32_t cmd_tail_len,
+                                      uint32_t env_block, uint8_t *out_rc);
 
 #endif /* INITECH_LOADER_H */

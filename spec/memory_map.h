@@ -77,6 +77,19 @@
  * program walking env_seg:0 immediately finds the terminator. Ref Sec 2.7. */
 #define ENV_BLOCK_LEN       2u
 
+/* Total bytes available in the dedicated environment region for a POPULATED
+ * environment block (beads initech-1i0x Tranche E inc 3 -- EXEC env inheritance).
+ * The region runs from ENV_BLOCK (0x5F000) up to PROGRAM_STACK_BOT (0x60000), so
+ * the shell may serialize up to ENV_BLOCK_CAP bytes of "NAME=VALUE\0..\0" there
+ * before the AH=4Bh EXEC without ever reaching the program stack. = PROGRAM_STACK_
+ * BOT - ENV_BLOCK = 0x1000 = 4096 bytes -- comfortably above env.h's serialize
+ * ceiling (ENV_ARENA_MAX + 1 = 513 bytes), with headroom for the deferred DOS 3.0+
+ * trailing word-count + program-path string (beads atf). The shell bounds the
+ * serialize write to this capacity and fails loud (Rule 2) on overflow rather than
+ * scribbling past 0x60000 into the program stack. DERIVED from the locked
+ * constants -- never a magic literal -- so it tracks any Rule-8 map change. */
+#define ENV_BLOCK_CAP       (PROGRAM_STACK_BOT - ENV_BLOCK)
+
 /* Flat linear address one past the program's allocation (the memory ceiling).
  * Stored in the PSP alloc_end_seg as (this >> 4) = 0x7000. This is the top of
  * the program stack region. Ref Sec 2.2 / Sec 3.2. */

@@ -173,6 +173,55 @@ loader_status_t loader_prepare_in_place(uint32_t image_len, const char *cmd_tail
                                cmd_tail_len, /*in_place=*/1, out);
 }
 
+/* loader_decide_env -- the PURE, host-testable EXEC env-inheritance decision
+ * (beads initech-1i0x Tranche E inc 3). Given the caller's env_block (the flat
+ * linear address of the env block the child inherits, 0 = inherit-empty), compute:
+ *   out->env_linear  = the flat addr to store in the child PSP env_seg, and
+ *   out->write_empty = 1 iff the loader must synthesize the 2-byte empty block at
+ *                      ENV_BLOCK (the legacy / inherit-empty path).
+ *
+ * Two cases:
+ *   env_block == 0 (inherit-empty / baked path): env_linear = ENV_BLOCK,
+ *       write_empty = 1 -- byte-identical legacy: the loader writes the 2-byte
+ *       double-NUL empty block and the child PSP env_seg points at it.
+ *   env_block == ENV_BLOCK (the shell populated the region): env_linear =
+ *       env_block, write_empty = 0 -- the loader must NOT overwrite the shell's
+ *       serialized env; the child PSP env_seg points at the populated block.
+ * A non-zero env_block that is NOT ENV_BLOCK is a caller bug (the loader never
+ * wrote that region) -> LOADER_ERR_BAD_ENV (Rule 2 fail loud).
+ *
+ * Split out as a pure function (NO asm, NO absolute-address writes) so the host
+ * oracle drives the inheritance decision directly (loader_run_plan -- the asm
+ * stack-switch path -- is kernel-only and cannot run hosted). loader_run_plan
+ * calls THIS to choose, so the kernel and the oracle agree by construction (Law 2). */
+loader_status_t loader_decide_env(uint32_t env_block, loader_env_decision_t *out)
+{
+    if (out == 0) {
+        return LOADER_ERR_NULL_OUT;
+    }
+    if (env_block != 0u && env_block != (uint32_t)ENV_BLOCK) {
+        return LOADER_ERR_BAD_ENV;   /* an env at an address the loader never wrote */
+    }
+#ifdef LOADER_MUTATE_FORCE_EMPTY_ENV
+    /* MUTANT (CLAUDE.md Rule 6; make test-exec-env-mutant only): IGNORE the provided
+     * env_block and ALWAYS choose the empty-block path -- the exact pre-inc-3 bug
+     * (every child gets an empty env, the shell's master env never inherited). The
+     * inheritance oracle (a populated env_block must yield write_empty=0 and
+     * env_linear==env_block) MUST go RED. NEVER define in a real build. */
+    out->env_linear  = (uint32_t)ENV_BLOCK;
+    out->write_empty = 1;
+#else
+    if (env_block == 0u) {
+        out->env_linear  = (uint32_t)ENV_BLOCK;   /* inherit-empty: PSP -> ENV_BLOCK */
+        out->write_empty = 1;                     /* synthesize the 2-byte empty block */
+    } else {
+        out->env_linear  = env_block;             /* inherit the populated block      */
+        out->write_empty = 0;                     /* do NOT overwrite the shell's env  */
+    }
+#endif
+    return LOADER_OK;
+}
+
 /* ------------------------------------------------------------------------ *
  * Kernel-only: image copy + PSP build + control transfer + return-to-loader.
  *
@@ -200,12 +249,13 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
  * big-.COM oracle (test_loader_big.c) drives loader_prepare_in_place directly to
  * prove the PROGRAM_IMAGE_MAX bound; it never reaches the asm jump. */
 loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
-                                      uint32_t cmd_tail_len,
+                                      uint32_t cmd_tail_len, uint32_t env_block,
                                       uint8_t *out_exit_code)
 {
     loader_plan_t plan;
     loader_status_t st = loader_prepare_in_place(image_len, cmd_tail,
                                                  cmd_tail_len, &plan);
+    (void)env_block;
     (void)out_exit_code;
     return st;
 }
@@ -216,11 +266,11 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
 void loader_bind_fat_volume(const struct fat12_volume *vol) { (void)vol; }
 
 loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
-                                      const char *cmd_tail,
-                                      uint32_t cmd_tail_len, uint8_t *out_rc)
+                                      const char *cmd_tail, uint32_t cmd_tail_len,
+                                      uint32_t env_block, uint8_t *out_rc)
 {
     (void)name83; (void)dir_start; (void)cmd_tail; (void)cmd_tail_len;
-    (void)out_rc;
+    (void)env_block; (void)out_rc;
     return LOADER_ERR_NO_VOLUME;
 }
 
@@ -361,6 +411,24 @@ static void loader_exit_hook(uint8_t code)
  *               reader put it there directly (beads initech-za4m). plan.image_src
  *               is NULL -- DO NOT copy (a NULL-src copy would fault / corrupt).
  *
+ * env_block (beads initech-1i0x Tranche E inc 3 -- EXEC env inheritance): the
+ * FLAT linear address of the environment block the CHILD should inherit, or 0 for
+ * "inherit-empty" (the legacy / baked-demo path). The contract matches the AH=4Bh
+ * exec_param_block_t.env_block field (dos_structs.h: a flat ptr, 0 = inherit) and
+ * psp.c's flat_to_fake_paragraph (which stores a flat linear addr as env_seg).
+ *   env_block == 0 (inherit-empty): synthesize the 2-byte empty block at ENV_BLOCK
+ *               exactly as before (byte-identical legacy); plan.params.env_linear
+ *               stays ENV_BLOCK (set by loader_prepare), so the child PSP env_seg
+ *               points at the empty block. The baked demos take THIS path.
+ *   env_block != 0 (inherit a populated env): the SHELL (command.c) has ALREADY
+ *               serialized its master env into [ENV_BLOCK, ...) and passes env_block
+ *               == ENV_BLOCK. DO NOT overwrite it with the empty stub; thread
+ *               env_block into plan.params.env_linear so the child PSP env_seg
+ *               points at the populated block. ENV_BLOCK is the ONLY env region in
+ *               the locked map (spec/memory_map.h), so a non-zero env_block MUST be
+ *               ENV_BLOCK -- any other value is a caller bug and we fail loud
+ *               (Rule 2) rather than build a PSP whose env_seg points at garbage.
+ *
  * IN-PLACE SAFETY PROOF (writing PROGRAM_IMAGE while the kernel/shell runs):
  *   The currently-running code is the KERNEL (the COMMAND.COM shell runs IN the
  *   kernel as a function, NOT as a separately-loaded program at PROGRAM_IMAGE --
@@ -374,9 +442,21 @@ static void loader_exit_hook(uint8_t code)
  *   write the SAME region while the SAME kernel runs; za4m merely elides the
  *   intermediate 64 KiB staging buffer. (spec/memory_map.h gap proof; ADR-0009.) */
 static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
-                                       uint8_t *out_exit_code)
+                                       uint32_t env_block, uint8_t *out_exit_code)
 {
     loader_plan_t plan = *plan_in;
+
+    /* EXEC env inheritance (beads initech-1i0x Tranche E inc 3): resolve the
+     * env-block decision through the pure, host-tested loader_decide_env (so the
+     * kernel and the oracle agree by construction). A bad env_block fails loud
+     * (Rule 2: LOADER_ERR_BAD_ENV -- the program is NOT run). */
+    loader_env_decision_t env_dec;
+    {
+        loader_status_t es = loader_decide_env(env_block, &env_dec);
+        if (es != LOADER_OK) {
+            return es;
+        }
+    }
 
 #ifdef LOADER_MUTATE_INPLACE_DOUBLE_HANDLE
     /* MUTANT (CLAUDE.md Rule 6; make test-loader-big-mutant only): force the copy
@@ -397,13 +477,24 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
                       plan.image_len);
     }
 
-    /* Build the 2-byte empty environment block at ENV_BLOCK (Sec 2.7): the
-     * double-NUL = a valid empty environment. */
-    {
+    /* Environment block at ENV_BLOCK (Sec 2.7; beads initech-1i0x Tranche E inc 3).
+     * loader_decide_env (above) chose:
+     *   - write_empty == 1 (inherit-empty / the baked-demo path): synthesize the
+     *     2-byte empty block (double-NUL = a valid empty environment), EXACTLY as
+     *     before. Byte-identical legacy behavior the baked programs + every existing
+     *     boot oracle depend on.
+     *   - write_empty == 0 (the shell populated [ENV_BLOCK, ...) before EXEC): do
+     *     NOT write the empty stub -- that would zero the first two bytes of the
+     *     shell's serialized env. env_dec.env_linear already carries the block the
+     *     child PSP env_seg must point at.
+     * Either way thread env_dec.env_linear into the PSP params so env_seg =
+     * flat_to_fake_paragraph(env_linear) is honest about which block we inherit. */
+    if (env_dec.write_empty) {
         uint8_t *env = (uint8_t *)(uintptr_t)ENV_BLOCK;
         env[0] = 0x00;
         env[1] = 0x00;
     }
+    plan.params.env_linear = env_dec.env_linear;
 
     /* Build the PSP at PROGRAM_BASE (psp_build, beads initech-509.4). A clamp
      * (non-zero return) means the command tail was too long; that is a loud
@@ -559,11 +650,14 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
     if (st != LOADER_OK) {
         return st;   /* fail loud: the program is NOT run (Rule 2) */
     }
-    return loader_run_plan(&plan, /*do_copy=*/1, out_exit_code);
+    /* Baked path inherits an EMPTY env (env_block=0): the baked demos carry no
+     * environment, so loader_run_plan synthesizes the 2-byte empty block exactly
+     * as before (byte-identical; beads initech-1i0x inc 3). */
+    return loader_run_plan(&plan, /*do_copy=*/1, /*env_block=*/0u, out_exit_code);
 }
 
 loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
-                                      uint32_t cmd_tail_len,
+                                      uint32_t cmd_tail_len, uint32_t env_block,
                                       uint8_t *out_exit_code)
 {
     /* In-place path (beads initech-za4m; ADR-0009 companion to DEC-04): the .COM
@@ -572,14 +666,16 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
      * PROGRAM_IMAGE_MAX). Validate + lay out via loader_prepare_in_place (no image
      * pointer; image_src comes back NULL), then run with NO copy (do_copy=0) --
      * the PSP build, env, vector save/restore, arena bind, stack switch, JMP and
-     * return-to-loader are all the SAME shared path load_program uses. */
+     * return-to-loader are all the SAME shared path load_program uses. env_block
+     * (beads initech-1i0x inc 3) selects inherit-empty (0) vs inherit the shell's
+     * populated env block (ENV_BLOCK); it threads to loader_run_plan unchanged. */
     loader_plan_t plan;
     loader_status_t st = loader_prepare_in_place(image_len, cmd_tail,
                                                  cmd_tail_len, &plan);
     if (st != LOADER_OK) {
         return st;   /* fail loud: the program is NOT run (Rule 2) */
     }
-    return loader_run_plan(&plan, /*do_copy=*/0, out_exit_code);
+    return loader_run_plan(&plan, /*do_copy=*/0, env_block, out_exit_code);
 }
 
 /* ------------------------------------------------------------------------ *
@@ -640,8 +736,8 @@ void loader_bind_fat_volume(const struct fat12_volume *vol)
 }
 
 loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
-                                      const char *cmd_tail,
-                                      uint32_t cmd_tail_len, uint8_t *out_rc)
+                                      const char *cmd_tail, uint32_t cmd_tail_len,
+                                      uint32_t env_block, uint8_t *out_rc)
 {
     if (g_load_vol == 0) {
         return LOADER_ERR_NO_VOLUME;
@@ -741,7 +837,8 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * load_program uses for the baked demo. */
     g_load_active = 1;
     uint8_t rcv = 0;
-    loader_status_t st = load_program_in_place(got, cmd_tail, cmd_tail_len, &rcv);
+    loader_status_t st = load_program_in_place(got, cmd_tail, cmd_tail_len,
+                                               env_block, &rcv);
     g_load_active = 0;
 
     if (st != LOADER_OK) {

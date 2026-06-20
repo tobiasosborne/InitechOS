@@ -2862,13 +2862,25 @@ static void do_exec(int_frame_t *f)
      * or unreadable block degrades to a no-argument launch (count=0) rather than
      * faulting on a legacy caller's stale EBX (Rule 2). The tail at cmd_tail is a
      * DOS-format {count, text, CR}; we hand the loader the TEXT (cmd_tail+1) and
-     * its length, and psp_build re-frames it (count byte + CR) at PSP:80h. */
+     * its length, and psp_build re-frames it (count byte + CR) at PSP:80h.
+     *
+     * EXEC env inheritance (beads initech-1i0x Tranche E inc 3): the SAME param
+     * block carries env_block at offset 0 (a FLAT linear ptr; 0 = inherit the
+     * parent's / inherit-empty, per dos_structs.h). We thread it to the EXEC
+     * backend unchanged -- the loader decides whether to synthesize the empty
+     * block (env_block==0) or honor the caller's populated block (the shell
+     * serializes its master env into ENV_BLOCK and passes env_block==ENV_BLOCK).
+     * An absent/unreadable EBX block degrades to env_block=0 (inherit-empty),
+     * exactly like the no-arg tail degrade above (Rule 2 -- never fault on a
+     * legacy caller's stale EBX). */
     const char *tail_text = 0;
     uint32_t    tail_len  = 0;
+    uint32_t    env_block = 0;
     {
         uint32_t pb = f->ebx;
         if (pb != 0 && user_buf_ok(pb, (uint32_t)sizeof(exec_param_block_t))) {
             const exec_param_block_t *blk = (const exec_param_block_t *)(uintptr_t)pb;
+            env_block = blk->env_block;
             uint32_t tp = blk->cmd_tail;
             if (tp != 0 && user_buf_ok(tp, 1u)) {
                 uint8_t count = ((const uint8_t *)(uintptr_t)tp)[0];
@@ -2883,7 +2895,7 @@ static void do_exec(int_frame_t *f)
 
     uint32_t indos_snapshot = g_indos;
     uint8_t rc = 0;
-    uint16_t err = g_exec(leaf, dir_start, tail_text, tail_len, &rc);
+    uint16_t err = g_exec(leaf, dir_start, tail_text, tail_len, env_block, &rc);
     g_indos = indos_snapshot;
     if (err != 0) {
         /* Load/run failed (not found / nested / too big). Fail loud (Rule 2). */

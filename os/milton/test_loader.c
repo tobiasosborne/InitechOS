@@ -22,9 +22,17 @@
  *                               the image_dst/entry == PROGRAM_BASE+0x100
  *                               assertions go RED. A mutant that PASSES means
  *                               the layout oracle is decoration.
+ *   -DLOADER_MUTATE_FORCE_EMPTY_ENV : loader_decide_env IGNORES the provided
+ *                               env_block and always chooses the empty-block path
+ *                               (write_empty=1, env_linear=ENV_BLOCK) -- the exact
+ *                               pre-inc-3 bug (every child inherits an empty env).
+ *                               The EXEC-env inheritance assertions (a populated
+ *                               env_block yields write_empty=0 + env_linear==block)
+ *                               go RED (beads initech-1i0x Tranche E inc 3).
  */
 
 #include <stdint.h>
+#include <string.h>   /* memset -- poison the decision struct before each check */
 
 #include "loader.h"
 #include "memory_map.h"
@@ -118,6 +126,49 @@ int main(void)
         CHECK(loader_prepare(k_image, 4u, (const char *)0, 0u, (loader_plan_t *)0)
                   == LOADER_ERR_NULL_OUT,
               "NULL out plan must be rejected (LOADER_ERR_NULL_OUT)");
+    }
+
+    /* ---- Case 5: EXEC env inheritance decision (beads initech-1i0x Tranche E
+     *      inc 3). loader_decide_env maps the AH=4Bh env_block (0 = inherit-empty;
+     *      ENV_BLOCK = inherit the shell's populated env) to (env_linear,
+     *      write_empty). The kernel loader (loader_run_plan, asm-path, kernel-only)
+     *      calls THIS, so proving it here proves the artifact's inheritance choice
+     *      hosted -- and the LOADER_MUTATE_FORCE_EMPTY_ENV mutant flips it RED. -- */
+    {
+        loader_env_decision_t dec;
+
+        /* (a) env_block == 0 -> inherit-EMPTY: write the 2-byte block, PSP env_seg
+         *     -> ENV_BLOCK. THIS is the byte-identical legacy / baked-demo path. */
+        memset(&dec, 0xAA, sizeof(dec));   /* poison so we prove both fields written */
+        CHECK(loader_decide_env(0u, &dec) == LOADER_OK,
+              "loader_decide_env(0) must succeed (inherit-empty)");
+        CHECK(dec.env_linear == ENV_BLOCK,
+              "env_block=0 -> env_linear == ENV_BLOCK (PSP env_seg -> empty block)");
+        CHECK(dec.write_empty == 1,
+              "env_block=0 -> write_empty=1 (synthesize the 2-byte empty block; legacy)");
+
+        /* (b) env_block == ENV_BLOCK -> inherit the POPULATED block: do NOT write
+         *     the empty stub (the shell already serialized its env there); PSP
+         *     env_seg -> the populated block. THE load-bearing inheritance case --
+         *     the FORCE_EMPTY_ENV mutant makes write_empty=1 here, going RED. */
+        memset(&dec, 0xAA, sizeof(dec));
+        CHECK(loader_decide_env((uint32_t)ENV_BLOCK, &dec) == LOADER_OK,
+              "loader_decide_env(ENV_BLOCK) must succeed (inherit populated env)");
+        CHECK(dec.env_linear == (uint32_t)ENV_BLOCK,
+              "env_block=ENV_BLOCK -> env_linear == ENV_BLOCK (PSP env_seg -> populated)");
+        CHECK(dec.write_empty == 0,
+              "env_block=ENV_BLOCK -> write_empty=0 (DO NOT overwrite the shell's env)");
+
+        /* (c) a non-zero env_block that is NOT ENV_BLOCK -> fail loud (the loader
+         *     never wrote that region; a child PSP env_seg there would be garbage). */
+        CHECK(loader_decide_env((uint32_t)ENV_BLOCK + 0x10u, &dec)
+                  == LOADER_ERR_BAD_ENV,
+              "a non-ENV_BLOCK env_block must fail loud (LOADER_ERR_BAD_ENV)");
+
+        /* (d) NULL out -> fail loud, never a write through NULL (Rule 2). */
+        CHECK(loader_decide_env(0u, (loader_env_decision_t *)0)
+                  == LOADER_ERR_NULL_OUT,
+              "loader_decide_env NULL out must be rejected (LOADER_ERR_NULL_OUT)");
     }
 
     return TEST_SUMMARY("test_loader");

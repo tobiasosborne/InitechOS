@@ -75,13 +75,15 @@ static uint16_t g_exec_result;   /* the DOS error the mock returns (0 = success)
 static uint8_t  g_exec_child_rc; /* the child rc the mock reports on success     */
 static char     g_exec_tail[160];/* the command tail TEXT the backend received   */
 static uint32_t g_exec_tail_len; /* its length (initech-456)                     */
+static uint32_t g_exec_env_block;/* the env_block the backend received (inc 3)    */
 
 static uint16_t exec_mock(const char *name83, uint16_t dir_start,
-                          const char *cmd_tail,
-                          uint32_t cmd_tail_len, uint8_t *out_rc)
+                          const char *cmd_tail, uint32_t cmd_tail_len,
+                          uint32_t env_block, uint8_t *out_rc)
 {
     g_exec_called = 1;
     g_exec_dir_start = dir_start;
+    g_exec_env_block = env_block;   /* capture the threaded env block (inc 3) */
     g_exec_name[0] = '\0';
     if (name83) {
         size_t i = 0;
@@ -117,6 +119,7 @@ static void exec_reset(uint16_t result, uint8_t child_rc)
     g_exec_child_rc  = child_rc;
     g_exec_tail[0]   = '\0';
     g_exec_tail_len  = 0;
+    g_exec_env_block = 0xFFFFFFFFu;   /* sentinel: prove do_exec wrote the real value */
 }
 
 /* --- A MOCK resolve backend (beads initech-zs24) -------------------------- *
@@ -399,9 +402,12 @@ int main(void)
               "AH=4Bh passes the command-tail length to the backend");
         CHECK_STR_EQ(g_exec_tail, " /S FILE.TXT",
                      "AH=4Bh passes the command-tail TEXT (-> PSP:80h) to the backend");
+        CHECK(g_exec_env_block == 0u,
+              "AH=4Bh with env_block=0 threads 0 (inherit-empty) to the backend");
 
         /* No EBX param block (fresh_frame zeroes EBX) -> a no-argument launch
-         * (count=0), never a fault on a legacy caller's stale EBX (Rule 2). */
+         * (count=0), never a fault on a legacy caller's stale EBX (Rule 2). The
+         * env_block also degrades to 0 (inherit-empty), never a fault. */
         exec_reset(0u, 0u);
         uint32_t edx2 = low_dup("GREET.COM");
         int_frame_t g = fresh_frame();
@@ -411,6 +417,36 @@ int main(void)
         CHECK(g_exec_called == 1, "AH=4Bh with no param block still runs");
         CHECK(g_exec_tail_len == 0u,
               "AH=4Bh with no EBX block -> empty tail (no-argument launch)");
+        CHECK(g_exec_env_block == 0u,
+              "AH=4Bh with no EBX block -> env_block=0 (inherit-empty, no fault)");
+    }
+
+    /* --- AH=4Bh env inheritance threading (beads initech-1i0x Tranche E inc 3):
+     *     the EBX param block's env_block field (offset 0, a FLAT linear ptr) must
+     *     reach the EXEC backend UNCHANGED, so the kernel loader can point the child
+     *     PSP env_seg at the inherited block. We assert a populated env_block (a
+     *     non-zero flat addr standing in for ENV_BLOCK) threads through verbatim. -- */
+    {
+        const uint32_t kEnvAddr = 0x0005F000u;   /* ENV_BLOCK; do_exec is address-agnostic */
+
+        exec_param_block_t *pb = (exec_param_block_t *)alloc_low(sizeof(*pb));
+        CHECK(pb != NULL, "alloc_low env-param block in low 4 GiB");
+        pb->env_block = kEnvAddr;     /* the shell's populated env block            */
+        pb->cmd_tail  = 0u;           /* no tail (no-argument launch)               */
+        pb->fcb1 = 0u; pb->fcb2 = 0u;
+
+        exec_reset(0u, 0u);
+        uint32_t edx = low_dup("GREET.COM");
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4B00u;
+        f.edx = edx;
+        f.ebx = (uint32_t)(uintptr_t)pb;
+        int21_dispatch(&f);
+        CHECK(g_exec_called == 1, "AH=4Bh with a populated env_block reaches the backend");
+        CHECK(g_exec_env_block == kEnvAddr,
+              "AH=4Bh threads the param block's env_block (ENV_BLOCK) to the backend");
+        CHECK(g_exec_tail_len == 0u,
+              "AH=4Bh env-only block -> empty tail (no-argument launch)");
     }
 
     /* --- SUBDIR EXEC dispatch (beads initech-zs24, Landing 2) ---------------- *

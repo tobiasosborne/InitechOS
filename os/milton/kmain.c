@@ -452,8 +452,8 @@ static int dir_visit(const dir_entry_t *e, void *user)
  * exactly as run_baked does -- otherwise a later kernel-context INT 21h would
  * dispatch through the child's stale hook/PSP. */
 static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
-                                    const char *cmd_tail,
-                                    uint32_t cmd_tail_len, uint8_t *out_rc)
+                                    const char *cmd_tail, uint32_t cmd_tail_len,
+                                    uint32_t env_block, uint8_t *out_rc)
 {
     uint8_t rc = 0;
     /* Save the kernel/shell CWD before the child run (the loader resets the CWD
@@ -461,10 +461,12 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
      * lockstep with the PSP/exit-hook restore, so the child's CWD never leaks
      * into kernel-context INT 21h. The CWD is saved/restored AROUND the run, so a
      * subdir EXEC (dir_start!=0, the leaf resolved relative to the parent's CWD)
-     * cannot corrupt the parent's CWD (beads initech-zs24). */
+     * cannot corrupt the parent's CWD (beads initech-zs24). env_block (beads
+     * initech-1i0x inc 3) threads the shell's inherited env block through
+     * unchanged (0 = inherit-empty). */
     int21_cwd_snapshot_t cwd_snap = int21_cwd_save();
     loader_status_t st = load_program_from_fat(name83, dir_start, cmd_tail,
-                                               cmd_tail_len, &rc);
+                                               cmd_tail_len, env_block, &rc);
     int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
     int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
     int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
@@ -482,7 +484,8 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
             return INT21_ERR_INSUFFICIENT_MEM;  /* 0x0008 -- nested EXEC (deferred) */
         case LOADER_ERR_TOO_BIG:
         case LOADER_ERR_ZERO_LEN:
-            return INT21_ERR_BAD_FORMAT;        /* 0x000B -- bad/oversized image */
+        case LOADER_ERR_BAD_ENV:
+            return INT21_ERR_BAD_FORMAT;        /* 0x000B -- bad/oversized image/env */
         case LOADER_ERR_READ:
         default:
             return INT21_ERR_FILE_NOT_FOUND;    /* read error reads as absent */
@@ -965,7 +968,9 @@ void kernel_main(void)
         uint8_t saw_rc = 0;
         int21_cwd_snapshot_t cwd_snap = int21_cwd_save();   /* save kernel CWD (mzxa) */
         loader_status_t st = load_program_from_fat("GREET.COM", 0u /* root */,
-                                                   (const char *)0, 0u, &saw_rc);
+                                                   (const char *)0, 0u,
+                                                   0u /* env: inherit-empty */,
+                                                   &saw_rc);
         int21_set_exit(int21_exit_hook);   /* restore kernel-context terminate */
         int21_set_psp(&g_kernel_psp);      /* restore kernel-context JFT */
         int21_cwd_restore(&cwd_snap);      /* restore kernel-context CWD */
@@ -1201,7 +1206,9 @@ void kernel_main(void)
             uint8_t rc = 0;
             int21_cwd_snapshot_t cwd_snap = int21_cwd_save();  /* save kernel CWD (mzxa) */
             loader_status_t st = load_program_from_fat("EXITH.COM", 0u /* root */,
-                                                       (const char *)0, 0u, &rc);
+                                                       (const char *)0, 0u,
+                                                       0u /* env: inherit-empty */,
+                                                       &rc);
             int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
             int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
             int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
@@ -1241,7 +1248,9 @@ void kernel_main(void)
         uint8_t rc = 0;
         int21_cwd_snapshot_t cwd_snap = int21_cwd_save();   /* save kernel CWD (mzxa) */
         loader_status_t st = load_program_from_fat("SYSI.COM", 0u /* root */,
-                                                   (const char *)0, 0u, &rc);
+                                                   (const char *)0, 0u,
+                                                   0u /* env: inherit-empty */,
+                                                   &rc);
         int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
         int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
         int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
