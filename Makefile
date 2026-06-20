@@ -5817,7 +5817,7 @@ endef
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-window test-window-mutant test-event test-event-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
-        test-control test-control-mutant \
+        test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
         test-dialog test-dialog-mutant \
         test-chrome test-chrome-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
@@ -7655,6 +7655,53 @@ test-control-mutant: $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP)
 	@printf ">>> test-control-mutant: confirming both mutants go RED (Rule 6)\n"
 	@if $(TEST_CONTROL_MUT_THUMB) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: THUMB_OFF PASSED -- the scrollbar-math oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (THUMB_OFF correctly RED)\n'; fi
 	@if $(TEST_CONTROL_MUT_CLAMP) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: NO_CLAMP PASSED -- the value-clamp oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (NO_CLAMP correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-shell (beads initech-k8o5.12 + initech-859) -- the M4 CAPSTONE:
+# the desktop shell composes the Office Space frame (seafoam + two stacked menu
+# bars + System-7 windows + the modal FILE COPY box on top) via EVERY manager,
+# one surface module. Structural assert vs chrome_metrics + canon strings + z-order;
+# writes build/desktop_scene.ppm. Mutants ONE_MENUBAR/NO_MODAL/MODAL_BEHIND bite.
+# ---------------------------------------------------------------------------
+TEST_SHELL     := $(BUILD)/test_shell
+TEST_SHELL_SRC := harness/proptest/test_shell.c
+SHELL_C        := os/flair/shell.c
+SHELL_H        := os/flair/shell.h
+TEST_SHELL_MUT_ONEBAR  := $(BUILD)/test_shell_mutant_onemenubar
+TEST_SHELL_MUT_NOMODAL := $(BUILD)/test_shell_mutant_nomodal
+TEST_SHELL_MUT_BEHIND  := $(BUILD)/test_shell_mutant_modalbehind
+SHELL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
+SHELL_LINK := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c $(REGION_ENGINE_C) \
+              os/flair/window.c os/flair/blitter.c $(CHROME_DRAWER_C) os/flair/menu.c \
+              os/flair/text.c os/flair/control.c os/flair/dialog.c os/flair/event.c $(DESKTOP_C)
+SHELL_DEPS := $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_H) $(SHELL_LINK) \
+              os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h \
+              os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h \
+              os/flair/heap.h os/flair/text.h os/flair/event.h $(RENDER_SKEL_H) \
+              $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h \
+              spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h
+
+$(TEST_SHELL): $(SHELL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(SHELL_INC) -o $@ $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_LINK)
+$(TEST_SHELL_MUT_ONEBAR): $(SHELL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSHELL_MUTATE_ONE_MENUBAR $(SHELL_INC) -o $@ $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_LINK)
+$(TEST_SHELL_MUT_NOMODAL): $(SHELL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSHELL_MUTATE_NO_MODAL $(SHELL_INC) -o $@ $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_LINK)
+$(TEST_SHELL_MUT_BEHIND): $(SHELL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSHELL_MUTATE_MODAL_BEHIND $(SHELL_INC) -o $@ $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_LINK)
+
+test-flair-shell: $(TEST_SHELL)
+	@printf ">>> test-flair-shell: M4 capstone -- composed desktop reproduces the Office Space frame (seafoam + 2 stacked menu bars + windows + modal FILE COPY on top)\n"
+	@$(TEST_SHELL) $(BUILD)/desktop_scene.ppm
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(SHELL_INC) -c $(SHELL_C) -o $(BUILD)/shell_freestanding.o \
+		|| { printf '!!! test-flair-shell FAIL: shell.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-flair-shell: green (wrote $(BUILD)/desktop_scene.ppm)\n"
+
+test-flair-shell-mutant: $(TEST_SHELL_MUT_ONEBAR) $(TEST_SHELL_MUT_NOMODAL) $(TEST_SHELL_MUT_BEHIND)
+	@printf ">>> test-flair-shell-mutant: confirming all three mutants go RED (Rule 6)\n"
+	@if $(TEST_SHELL_MUT_ONEBAR)  >/dev/null 2>&1; then printf '!!! test-flair-shell-mutant FAIL: ONE_MENUBAR PASSED -- the two-bar oracle is decoration\n'; exit 1; else printf '>>> test-flair-shell-mutant: green (ONE_MENUBAR correctly RED)\n'; fi
+	@if $(TEST_SHELL_MUT_NOMODAL) >/dev/null 2>&1; then printf '!!! test-flair-shell-mutant FAIL: NO_MODAL PASSED -- the modal-present oracle is decoration\n'; exit 1; else printf '>>> test-flair-shell-mutant: green (NO_MODAL correctly RED)\n'; fi
+	@if $(TEST_SHELL_MUT_BEHIND)  >/dev/null 2>&1; then printf '!!! test-flair-shell-mutant FAIL: MODAL_BEHIND PASSED -- the z-order oracle is decoration\n'; exit 1; else printf '>>> test-flair-shell-mutant: green (MODAL_BEHIND correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-dialog (Dialog Manager: DialogRecord/item lists, ModalDialog,
@@ -12258,7 +12305,7 @@ TEST_UNIT_GATES := \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-window test-window-mutant test-event test-event-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
-	test-control test-control-mutant \
+	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \
 	test-fbagree test-fbagree-mutant \
