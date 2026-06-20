@@ -281,6 +281,37 @@ typedef struct {
 int cmd_path_candidates(const char *word, const char *path_value,
                         const char *cwd, cmd_path_iter_t *out);
 
+/* ---- OUTPUT redirection parser (PURE, host-testable) ----------------------
+ * cmd_redir_parse: scan `line` for a `>` (create/truncate) or `>>` (append)
+ * STDOUT redirection operator and split it off.  No I/O, no asm -- the SAME TU
+ * compiles HOSTED for test_redir_parse.c.
+ *
+ * Ref: DOS 3.3 COMMAND.COM redirection (MS-DOS 3.3 Tech Ref Ch.6): the shell
+ *   strips `> file` / `>> file` from the command line, DUP2's the file onto
+ *   handle 1 (stdout) around the command, and the command runs with its output
+ *   going to the file.  `<` (stdin) and `|` (pipe) are DEFERRED (beads
+ *   initech-hsct OUTPUT increment; follow-ups for `<` and `|`).
+ *
+ * SEMANTICS (kept deliberately simple -- this shell has no quoting):
+ *   - Scan left to right; the LAST `>`/`>>` operator wins (DOS: a later
+ *     redirect of the same stream supersedes the earlier; we keep the last).
+ *   - `>>` (two adjacent '>') is APPEND; a single `>` is CREATE/TRUNCATE.
+ *   - The TARGET is the next whitespace-delimited token after the operator
+ *     (works for `cmd>file`, `cmd > file`, `cmd >> file`, `cmd>>file`).
+ *   - `clean_out` receives the line with the operator+target removed and the
+ *     surrounding whitespace tidied (single internal runs collapse at the cut;
+ *     trailing space trimmed) -- this is what gets dispatched.
+ *   - Returns 1 if a redirect was found (clean_out/target_out/append_out set),
+ *     else 0 (clean_out == a copy of `line`, target_out == "", append_out == 0).
+ *
+ * Rule 2 (fail loud / never overflow): every write to clean_out/target_out is
+ * bounded by clean_cap/target_cap; on a would-overflow the output is clamped
+ * (NUL-terminated within the buffer), never written past the end. */
+int cmd_redir_parse(const char *line,
+                    char *clean_out, uint32_t clean_cap,
+                    char *target_out, uint32_t target_cap,
+                    int *append_out);
+
 /* ---- The REPL (kernel-only; compiled out of the host build) --------------- */
 /* COMMAND_KERNEL_REPL is defined for the kernel command.o; the kmain BOOT_SHELL
  * object also needs the declaration, so BOOT_SHELL implies it for the header. */

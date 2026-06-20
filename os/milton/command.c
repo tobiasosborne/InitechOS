@@ -1133,6 +1133,184 @@ int cmd_path_candidates(const char *word, const char *path_value,
     return out->count;
 }
 
+/* ---- OUTPUT redirection parser (PURE, host-testable) ----------------------
+ * cmd_redir_parse: see command.h for the full citation + semantics block.
+ *
+ * Ref: PRD Sec 6.1 (COMMAND.COM personality); MS-DOS 3.3 Tech Ref Ch.6 (the
+ *   shell strips `> file` / `>> file` and DUP2's the file onto handle 1).
+ *   beads initech-hsct (OUTPUT increment: `>` create/truncate, `>>` append).
+ *
+ * Implementation: a single left-to-right scan that records the position of the
+ * LAST `>` operator (and whether it was `>>`) plus the bounds of the target
+ * token that follows it.  We then rebuild `clean_out` = [prefix before op] +
+ * " " (one space, only if both sides are non-empty) + [suffix after target],
+ * with leading/trailing whitespace trimmed.  Pure: no asm, no I/O.
+ *
+ * MUTATION hooks (CLAUDE.md Rule 6; the test_redir_parse oracle proves they
+ * bite):
+ *   CMD_MUTATE_REDIR_NO_APPEND -- treat `>>` as a single `>` (truncate), so the
+ *                                 append flag is never set -> the `>>`-append
+ *                                 assertion goes RED.  NEVER in a real build.
+ *   CMD_MUTATE_REDIR_KEEP_TARGET -- leave the target token IN clean_out, so the
+ *                                   redirected command would mis-parse its args
+ *                                   -> the clean-command assertion goes RED.
+ *                                   NEVER in a real build. */
+static int redir_is_space(char c)
+{
+    return c == ' ' || c == '\t';
+}
+
+int cmd_redir_parse(const char *line,
+                    char *clean_out, uint32_t clean_cap,
+                    char *target_out, uint32_t target_cap,
+                    int *append_out)
+{
+    /* Defensive defaults so every early return leaves the outputs well-formed
+     * (Rule 2 -- a caller must never read uninitialized clean/target). */
+    if (append_out != 0) {
+        *append_out = 0;
+    }
+    if (target_out != 0 && target_cap > 0u) {
+        target_out[0] = '\0';
+    }
+
+    /* Helper: copy `src` into clean_out clamped to clean_cap (always NUL-term).
+     * Used for the no-redirect passthrough and the rebuilt clean line. */
+    /* (inlined below; no nested functions in C) */
+
+    if (line == 0) {
+        if (clean_out != 0 && clean_cap > 0u) {
+            clean_out[0] = '\0';
+        }
+        return 0;
+    }
+
+    /* Pass 1: find the LAST '>' operator. op_at = index of the FIRST '>' of the
+     * winning operator; op_len = 1 (`>`) or 2 (`>>`). */
+    int op_at = -1;
+    int op_len = 0;
+    {
+        uint32_t i = 0;
+        while (line[i] != '\0') {
+            if (line[i] == '>') {
+                op_at = (int)i;
+                if (line[i + 1u] == '>') {
+                    op_len = 2;
+                    i += 2u;     /* consume both '>' so a later lone '>' wins fresh */
+                } else {
+                    op_len = 1;
+                    i += 1u;
+                }
+            } else {
+                i += 1u;
+            }
+        }
+    }
+
+    if (op_at < 0) {
+        /* No redirect: clean_out is a clamped copy of line; target empty. */
+        uint32_t j = 0;
+        if (clean_out != 0 && clean_cap > 0u) {
+            while (line[j] != '\0' && j + 1u < clean_cap) {
+                clean_out[j] = line[j];
+                j++;
+            }
+            clean_out[j] = '\0';
+        }
+        return 0;
+    }
+
+#ifdef CMD_MUTATE_REDIR_NO_APPEND
+    /* MUTANT: force every operator to single '>' (truncate) -- the append flag
+     * is never set; the `>>` oracle case goes RED.  NEVER in a real build. */
+    op_len = 1;
+#endif
+
+    if (append_out != 0) {
+        *append_out = (op_len == 2) ? 1 : 0;
+    }
+
+    /* Locate the target token: skip whitespace after the operator, then take a
+     * run of non-whitespace.  tgt_start/tgt_end are [start, end) into line. */
+    uint32_t after = (uint32_t)op_at + (uint32_t)op_len;
+    while (line[after] != '\0' && redir_is_space(line[after])) {
+        after++;
+    }
+    uint32_t tgt_start = after;
+    uint32_t tgt_end = tgt_start;
+    while (line[tgt_end] != '\0' && !redir_is_space(line[tgt_end]) &&
+           line[tgt_end] != '>') {
+        tgt_end++;
+    }
+
+    /* Copy the target token (clamped, NUL-terminated). */
+    if (target_out != 0 && target_cap > 0u) {
+        uint32_t k = 0;
+        uint32_t s = tgt_start;
+        while (s < tgt_end && k + 1u < target_cap) {
+            target_out[k] = line[s];
+            k++;
+            s++;
+        }
+        target_out[k] = '\0';
+    }
+
+    /* Rebuild clean_out = prefix [0, op_at) + suffix [tgt_end, end), with one
+     * separating space inserted only when both sides have non-space content, and
+     * the whole result whitespace-trimmed at both ends.  We build into clean_out
+     * directly with bound checks at every byte (Rule 2). */
+    if (clean_out != 0 && clean_cap > 0u) {
+        uint32_t w = 0;
+
+        /* Emit prefix [0, op_at), trimming its trailing whitespace as we go is
+         * easier to do AFTER: emit raw then trim.  Emit prefix bytes. */
+        {
+            uint32_t p = 0;
+            while (p < (uint32_t)op_at && w + 1u < clean_cap) {
+                clean_out[w++] = line[p++];
+            }
+        }
+        /* Trim trailing whitespace of the prefix already in clean_out. */
+        while (w > 0u && redir_is_space(clean_out[w - 1u])) {
+            w--;
+        }
+        uint32_t prefix_len = w;
+
+        /* Find where the suffix's non-space content begins. */
+        uint32_t suf = tgt_end;
+        while (line[suf] != '\0' && redir_is_space(line[suf])) {
+            suf++;
+        }
+
+#ifdef CMD_MUTATE_REDIR_KEEP_TARGET
+        /* MUTANT: rewind the suffix start back over the target token so the
+         * target filename stays in clean_out -> the clean-command oracle goes
+         * RED.  NEVER in a real build. */
+        suf = tgt_start;
+#endif
+
+        /* If there is suffix content AND we already wrote a non-empty prefix,
+         * insert a single separating space. */
+        if (line[suf] != '\0' && prefix_len > 0u && w + 1u < clean_cap) {
+            clean_out[w++] = ' ';
+        }
+
+        /* Emit the suffix verbatim (it may itself contain interior spaces; those
+         * are part of the command's args and are preserved). */
+        while (line[suf] != '\0' && w + 1u < clean_cap) {
+            clean_out[w++] = line[suf++];
+        }
+
+        /* Trim any trailing whitespace of the whole result. */
+        while (w > 0u && redir_is_space(clean_out[w - 1u])) {
+            w--;
+        }
+        clean_out[w] = '\0';
+    }
+
+    return 1;
+}
+
 /* ===========================================================================
  * The REPL (kernel-only). Everything below dogfoods the INT 21h API via real
  * `int $0x21` calls -- the authentic COMMAND.COM design + proof the OS API is a
@@ -1318,6 +1496,89 @@ static uint32_t dos_write_h(int handle, const uint8_t *buf, uint32_t count)
         return 0u;       /* CF set -> treat as a failed write */
     }
     return ax;           /* EAX = bytes written */
+}
+
+/* AH=3Dh OPEN with an explicit AL access mode. dos_open above pins AL=00 (read);
+ * `>>` append needs the file opened RDWR (AL=02) so LSEEK-to-end + WRITE land in
+ * the existing file. Returns the handle (>=0) on success, or -(error) on CF.
+ * Ref: DOS 3.3 PRM AH=3Dh; beads initech-hsct (`>>` open-existing path). */
+static int dos_open_mode(const char *path, uint8_t mode)
+{
+    uint32_t ax = 0x3D00u | (uint32_t)mode;   /* AH=3Dh, AL=mode */
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "d"((uint32_t)(uintptr_t)path)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return -(int)(ax & 0xFFFFu);
+    }
+    return (int)(ax & 0xFFFFu);
+}
+
+/* AH=45h DUP: duplicate handle EBX into the lowest free JFT slot. Returns the
+ * NEW handle (>=0, AL) on success (CF clear), or -1 on failure (CF set). Used by
+ * the redirect driver to SAVE the current stdout (handle 1) before repointing
+ * it at the target file, so it can be restored afterward.
+ * Ref: DOS 3.3 PRM AH=45h; int21.c do_dup; beads initech-hsct. */
+static int dos_dup(int handle)
+{
+    uint32_t ax = 0x4500u;
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "b"((uint32_t)handle)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return -1;
+    }
+    return (int)(ax & 0xFFu);   /* AL = new handle */
+}
+
+/* AH=46h DUP2 (FORCEDUP): force handle `dst` to alias handle `src`. This is THE
+ * I/O-redirection primitive: dos_dup2(file_h, 1) repoints stdout at the file so
+ * every AH=09h/02h/06h/40h-handle-1 write (k36g) lands in the file. Returns 0 on
+ * success (CF clear), or -1 on failure (CF set; bad src/dst).
+ * Ref: DOS 3.3 PRM AH=46h; int21.c do_dup2; beads initech-hsct. */
+static int dos_dup2(int src, int dst)
+{
+    uint32_t ax = 0x4600u;
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "b"((uint32_t)src), "c"((uint32_t)dst)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return -1;
+    }
+    return 0;
+}
+
+/* AH=42h AL=02h LSEEK-FROM-END: move handle `handle`'s file pointer to EOF so a
+ * subsequent WRITE appends. ECX:EDX offset = 0 (seek exactly to end). Returns 0
+ * on success (CF clear), or -1 on failure (CF set). Used by the `>>` append path
+ * after opening the existing file RDWR.
+ * Ref: DOS 3.3 PRM AH=42h; int21.c do_lseek (whence 2 = from end); initech-hsct. */
+static int dos_lseek_end(int handle)
+{
+    uint32_t ax = 0x4202u;   /* AH=42h, AL=02 (from end) */
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "b"((uint32_t)handle), "c"(0u), "d"(0u)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return -1;
+    }
+    return 0;
 }
 
 /* AH=41h UNLINK (DELETE FILE): EDX -> ASCIIZ path. Returns 0 on success (CF
@@ -2428,6 +2689,139 @@ static int dispatch_line(const char *line)
     return 0;
 }
 
+/* ---- OUTPUT redirection driver (beads initech-hsct) ----------------------
+ * run_with_redirect wraps dispatch_line: it parses `>`/`>>` off the line, opens
+ * the target file, DUP2's it onto stdout (handle 1), dispatches the CLEAN line,
+ * then RESTORES handle 1 to CON on EVERY path.  BUILTINS (echo/dir/type/ver/...)
+ * emit via AH=09h/02h/06h -> stdout_emit -> the redirectable handle 1 (k36g), so
+ * their output goes to the file -- this is the canonical `echo HELLO > FILE.TXT`
+ * case, proven end-to-end by the test-hsct-redir emu gate.
+ *
+ * EXTERNAL .COM EXEC redirect is NOT yet delivered: the loader's psp_build
+ * (psp.c) HARD-RESETS the child JFT slot 1 to CON (jft[1]=0x01) and carries no
+ * JFT-inheritance param, so an EXEC child's handle 1 points at CON regardless of
+ * the parent's DUP2 -- its output is NOT captured.  This driver already brackets
+ * the EXEC dispatch correctly (save/dup2/dispatch/restore); when the loader
+ * learns to inherit the parent JFT (the EXEC-child-JFT-inheritance follow-up
+ * bead), external EXEC redirect will work here with ZERO driver changes.  Until
+ * then this increment scopes to builtins (Law 1/Law 2: surfaced, not papered).
+ *
+ * Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6 (the shell DUP2's stdout around the
+ *   command); spec/int21h_calling_convention.json (AH=3Ch/3Dh/3Eh/42h/45h/46h).
+ *   k36g (CON output routed through handle 1) + o0td (kernel-window room) are the
+ *   prerequisites that make `echo HELLO > file` actually redirect.
+ *
+ * Returns dispatch_line's return code (1 = EXIT) so EXIT-through-redirect still
+ * tears the shell down.  On a target-open failure: prints a DOS-style diagnostic
+ * to CON and does NOT run the command (authentic DOS aborts the line; Rule 2
+ * fail-loud -- never silently run unredirected).
+ *
+ * MUTATION hooks (Rule 6):
+ *   CMD_MUTATE_REDIR_NO_RESTORE -- leave handle 1 pointing at the file after the
+ *     dispatch (skip the restore), so a SECOND redirected command (or the next
+ *     prompt) would write to the wrong place -- the emu gate's "post-redirect
+ *     output returns to CON" assertion goes RED.
+ *   CMD_MUTATE_REDIR_BYPASS -- restore handle 1 to CON *before* dispatching, and
+ *     dispatch the RAW line, so `ECHO X > FILE` runs UNREDIRECTED (X leaks to
+ *     CON, the file gets nothing) -- the emu gate's RZZHELLO-count==2 assertion
+ *     goes RED.  Note: the file is still opened + DUP2'd + closed here, so every
+ *     dos_* handle helper stays referenced under the mutant build (no dead-code
+ *     warning); only the dispatch target + restore order change.
+ * Both NEVER in a real build. */
+static int run_with_redirect(const char *line)
+{
+    char clean[CMD_LINE_MAX];
+    char target[CMD_LINE_MAX];
+    int  append = 0;
+
+    int has = cmd_redir_parse(line, clean, (uint32_t)sizeof(clean),
+                              target, (uint32_t)sizeof(target), &append);
+    if (!has) {
+        return dispatch_line(line);     /* no redirect -> unchanged behaviour */
+    }
+
+    /* A redirect with no target (e.g. "echo hi >") is a syntax error in DOS.
+     * Fail loud: print the diagnostic and abort the line (do not dispatch). */
+    if (target[0] == '\0') {
+        dos_print(MSG_DOS_0011 "\r\n$");   /* "Required parameter missing" */
+        return 0;
+    }
+
+    /* Open the target.  `>` create/truncate via AH=3Ch; `>>` open-existing-RDWR
+     * + LSEEK-to-end, else create if absent (DOS `>>` semantics). */
+    int file_h;
+    if (append) {
+        file_h = dos_open_mode(target, 0x02u);   /* AL=02 RDWR */
+        if (file_h < 0) {
+            /* Not found (or unopenable) -> create it fresh (append-to-empty). */
+            file_h = dos_creat(target);
+        } else {
+            if (dos_lseek_end(file_h) < 0) {
+                dos_close(file_h);
+                dos_print(MSG_DOS_0002 "\r\n$");   /* "Bad command or file name" */
+                return 0;
+            }
+        }
+    } else {
+        file_h = dos_creat(target);              /* create / truncate */
+    }
+
+    if (file_h < 0) {
+        /* Could not open/create the redirection target.  Authentic DOS prints an
+         * error and does NOT run the command. */
+        dos_print(MSG_DOS_0002 "\r\n$");           /* "Bad command or file name" */
+        return 0;
+    }
+
+    /* Save the current stdout (handle 1) so we can restore CON afterward, then
+     * force handle 1 onto the file.  If either step fails, fail loud and do NOT
+     * run the command unredirected (Rule 2). */
+    int saved = dos_dup(1);
+    if (saved < 0) {
+        dos_close(file_h);
+        dos_print(MSG_DOS_0002 "\r\n$");
+        return 0;
+    }
+    if (dos_dup2(file_h, 1) < 0) {
+        dos_close(saved);
+        dos_close(file_h);
+        dos_print(MSG_DOS_0002 "\r\n$");
+        return 0;
+    }
+
+#ifdef CMD_MUTATE_REDIR_BYPASS
+    /* MUTANT: restore CON BEFORE dispatching, and dispatch the RAW line -- the
+     * command runs unredirected (output leaks to screen, the file stays empty).
+     * The emu gate's RZZHELLO-count==2 assertion goes RED.  NEVER in a real
+     * build. */
+    dos_dup2(saved, 1);
+    int rc = dispatch_line(line);
+    dos_close(saved);
+    dos_close(file_h);
+    return rc;
+#else
+    /* Dispatch the cleaned command.  Builtins emit via stdout_emit -> handle 1
+     * -> the file (k36g).  An external EXEC child runs under its OWN PSP/JFT
+     * (psp_build resets jft[1]=CON), so it does NOT yet redirect -- see the
+     * function header.  rc==1 means EXIT was issued (we still restore). */
+    int rc = dispatch_line(clean);
+
+#ifndef CMD_MUTATE_REDIR_NO_RESTORE
+    /* Restore handle 1 to CON on EVERY path (including EXIT / child EXEC return).
+     * The EXEC child cannot clobber the parent's `saved` slot: `saved` lives in
+     * the PARENT's JFT (a free slot DUP'd from handle 1), the child gets a fresh
+     * per-process JFT framed by the loader, and on the child's return g_cur_psp
+     * is restored to the parent whose JFT is intact -- so dos_dup2(saved,1)
+     * repoints handle 1 back at CON's SFT entry. */
+    dos_dup2(saved, 1);
+#endif
+    dos_close(saved);
+    dos_close(file_h);
+
+    return rc;
+#endif /* CMD_MUTATE_REDIR_BYPASS */
+}
+
 /* ---- the .BAT interpreter (beads initech-xw1) ----------------------------
  * run_batch reads a whole .BAT file into a buffer, splits it on CR/LF, and
  * interprets each line per DOS 3.3 batch semantics (MS-DOS 3.3 Tech Ref Ch.3):
@@ -2729,9 +3123,47 @@ static void run_batch(const char *path, const char *const argv[], int argc)
                     if (batch_expand(bp.echo_text, view, vcount,
                                      batch_env_cb, &g_master_env,
                                      expanded, BATCH_LINE_MAX) >= 0) {
-                        dos_puts_raw(expanded);
+                        /* OUTPUT redirection (initech-hsct): batch_classify peels
+                         * `ECHO` into BL_ECHO_TEXT and handles it inline (this
+                         * fast path), so a `>`/`>>` inside the text would never
+                         * reach run_with_redirect via BL_COMMAND.  When the
+                         * EXPANDED text carries a redirect operator, reconstruct
+                         * the full `ECHO <text>` line and route it through the
+                         * redirect driver, which strips `> target` and dispatches
+                         * the clean ECHO -- so `ECHO HELLO > FILE` in a .BAT
+                         * (incl. AUTOEXEC.BAT) writes to the file.  No redirect ->
+                         * the original inline print (no regression). */
+                        int has_gt = 0;
+                        {
+                            const char *s = expanded;
+                            while (*s) { if (*s == '>') { has_gt = 1; break; } s++; }
+                        }
+                        if (has_gt) {
+                            char echo_line[BATCH_LINE_MAX];
+                            /* "ECHO " + expanded, clamped to BATCH_LINE_MAX. */
+                            const char *pfx = "ECHO ";
+                            uint32_t w = 0;
+                            while (pfx[w] != '\0' &&
+                                   w + 1u < (uint32_t)BATCH_LINE_MAX) {
+                                echo_line[w] = pfx[w];
+                                w++;
+                            }
+                            {
+                                uint32_t e = 0;
+                                while (expanded[e] != '\0' &&
+                                       w + 1u < (uint32_t)BATCH_LINE_MAX) {
+                                    echo_line[w++] = expanded[e++];
+                                }
+                            }
+                            echo_line[w] = '\0';
+                            (void)run_with_redirect(echo_line);
+                        } else {
+                            dos_puts_raw(expanded);
+                            dos_print("\r\n$");
+                        }
+                    } else {
+                        dos_print("\r\n$");
                     }
-                    dos_print("\r\n$");
                 }
                 break;
             }
@@ -2775,9 +3207,11 @@ static void run_batch(const char *path, const char *const argv[], int argc)
                                           batch_exist_probe, 0, &cond) &&
                             cond != 0 && cond[0] != '\0') {
                             /* Run the conditional body through the shared
-                             * dispatch.  An EXIT inside it sets g_shell_exit,
-                             * which the loop checks at the bottom to tear down. */
-                            (void)dispatch_line(cond);
+                             * dispatch via the redirect driver (initech-hsct),
+                             * so `IF ... ECHO x > log` redirects.  An EXIT inside
+                             * it sets g_shell_exit, which the loop checks at the
+                             * bottom to tear down. */
+                            (void)run_with_redirect(cond);
                         }
                     }
                 }
@@ -2814,7 +3248,10 @@ static void run_batch(const char *path, const char *const argv[], int argc)
                                 char cmd[BATCH_LINE_MAX];
                                 if (batch_for_subst(tmpl, var, tok, cmd,
                                                     BATCH_LINE_MAX) >= 0) {
-                                    dispatch_line(cmd);
+                                    /* FOR-body via the redirect driver so
+                                     * `FOR ... DO ECHO %X > log` redirects
+                                     * (initech-hsct). */
+                                    (void)run_with_redirect(cmd);
                                 }
                             }
                         }
@@ -2919,7 +3356,10 @@ static void run_batch(const char *path, const char *const argv[], int argc)
                     if (echo_on && !bp.at_suppressed) {
                         batch_echo_line(expanded);
                     }
-                    dispatch_line(expanded);
+                    /* Plain batch command via the redirect driver (initech-hsct)
+                     * so `ECHO HELLO > OUT.TXT` / `DIR >> log` in a .BAT (incl.
+                     * AUTOEXEC.BAT) repoint stdout around the command. */
+                    (void)run_with_redirect(expanded);
                 }
                 break;
             }
@@ -3109,9 +3549,12 @@ void command_repl(void)
         read_line(line);
 
         /* Dispatch through the SHARED path the .BAT interpreter also uses
-         * (beads initech-xw1).  A return value of 1 means EXIT was typed: print
-         * was already emitted in dispatch_line; tear the REPL down. */
-        if (dispatch_line(line)) {
+         * (beads initech-xw1), via the OUTPUT-redirection driver (initech-hsct)
+         * so `echo HELLO > FILE.TXT` / `dir >> log` repoint stdout around the
+         * command.  A no-redirect line passes straight through to dispatch_line.
+         * A return value of 1 means EXIT was typed (print already emitted); tear
+         * the REPL down. */
+        if (run_with_redirect(line)) {
             return;
         }
     }

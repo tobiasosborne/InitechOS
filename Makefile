@@ -5497,6 +5497,61 @@ test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COM
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-redir-parse (beads initech-hsct -- the PURE OUTPUT-redirect
+# parser cmd_redir_parse: > create/truncate, >> append, target extraction,
+# clean-command, no-redirect passthrough, last-wins, buffer-bound guards)
+# ---------------------------------------------------------------------------
+# Host unit oracle for cmd_redir_parse. Compiles the REAL artifact command.c
+# HOSTED WITHOUT -DCOMMAND_KERNEL_REPL (only the asm-free pure parser is linked;
+# the redirect DRIVER + int 0x21 wrappers are compiled out -- the Law 3 seam).
+TEST_REDIR_PARSE      := $(BUILD)/test_redir_parse
+TEST_REDIR_PARSE_SRC  := $(MILTON_DIR)/test_redir_parse.c
+TEST_REDIR_PARSE_DEPS := $(KERNEL_COMMAND_C) $(MILTON_DIR)/env.c
+TEST_REDIR_PARSE_HDRS := $(MILTON_DIR)/command.h $(MILTON_DIR)/env.h spec/dos_structs.h spec/find_data.h \
+                         $(DOS_MESSAGES_H)
+# Mutation builds (CLAUDE.md Rule 6): command.c compiled with one perturbation so
+# `make test-redir-parse-mutant` proves the oracle BITES. (a) NO_APPEND: `>>` is
+# treated as `>` (truncate) so the append flag never sets -> the >>-append checks
+# go RED; (b) KEEP_TARGET: the target token is left in clean_out -> the
+# clean-command checks go RED.
+TEST_REDIR_PARSE_MUT_NOAPP := $(BUILD)/test_redir_parse_mutant_noappend
+TEST_REDIR_PARSE_MUT_KEEP  := $(BUILD)/test_redir_parse_mutant_keeptarget
+
+$(TEST_REDIR_PARSE): $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS) $(TEST_REDIR_PARSE_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS)
+
+$(TEST_REDIR_PARSE_MUT_NOAPP): $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS) $(TEST_REDIR_PARSE_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_REDIR_NO_APPEND -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS)
+
+$(TEST_REDIR_PARSE_MUT_KEEP): $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS) $(TEST_REDIR_PARSE_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_REDIR_KEEP_TARGET -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS)
+
+.PHONY: test-redir-parse test-redir-parse-mutant
+test-redir-parse: $(TEST_REDIR_PARSE)
+	@printf ">>> test-redir-parse: cmd_redir_parse -- '>' truncate / '>>' append / target+clean extraction / no-redir passthrough / last-wins / bound guards (beads initech-hsct)\n"
+	@$(TEST_REDIR_PARSE)
+	@printf ">>> test-redir-parse: green\n"
+
+# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
+test-redir-parse-mutant: $(TEST_REDIR_PARSE_MUT_NOAPP) $(TEST_REDIR_PARSE_MUT_KEEP)
+	@printf ">>> test-redir-parse-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_REDIR_PARSE_MUT_NOAPP) >/dev/null 2>&1; then \
+		printf '!!! test-redir-parse-mutant FAIL: no-append mutant PASSED -- the >>-append parse test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-redir-parse-mutant: green (no-append mutant correctly RED -- the >>-append parse bites)\n'; \
+	fi
+	@if $(TEST_REDIR_PARSE_MUT_KEEP) >/dev/null 2>&1; then \
+		printf '!!! test-redir-parse-mutant FAIL: keep-target mutant PASSED -- the clean-command parse test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-redir-parse-mutant: green (keep-target mutant correctly RED -- the clean-command parse bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-env (beads initech-1i0x -- COMMAND.COM master env store)
 # ---------------------------------------------------------------------------
 # Host unit oracle for the DOS environment store (env.c / env.h): init,
@@ -13214,7 +13269,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-redir test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
@@ -13233,7 +13288,7 @@ TEST_UNIT_GATES := \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-redir-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-redir-parse-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
@@ -13414,6 +13469,147 @@ test-autoexec-mutant: $(HARNESS_BIN) $(AUTOEXEC_TRACER_MUT_IMG) $(GREET_PROG_BIN
 	fi
 	@printf '>>> test-autoexec-mutant: green (no-autoexec mutant correctly RED -- AUTOEXEC markers absent, the oracle bites)\n'
 
+# ---------------------------------------------------------------------------
+# REAL emu gate: test-hsct-redir (beads initech-hsct -- OUTPUT redirection
+# `>` / `>>` end-to-end on the emulated 386)
+# ---------------------------------------------------------------------------
+# Boots the shell kernel with a FAT12 data disk carrying AUTOEXEC.BAT, which:
+#   ECHO RZZHELLO> OUT.TXT   (>) redirect -- HELLO goes to the FILE, NOT screen
+#   TYPE OUT.TXT             prints RZZHELLO  (proves OUT.TXT received the bytes)
+#   ECHO RZZWORLD>> OUT.TXT  (>>) append -- WORLD appends to the file
+#   TYPE OUT.TXT             prints RZZHELLO + RZZWORLD (proves append worked)
+# The discriminating assertion: RZZHELLO appears EXACTLY TWICE on serial (once
+# per TYPE), and ZERO times directly from the redirected ECHO -- if `>` leaked to
+# the screen (or never wrote the file) the count would be 1, not 2.  RZZWORLD
+# appears once (only the 2nd TYPE), proving the `>>` append landed.
+# Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6; prereqs k36g (CON via handle 1) +
+# o0td (kernel-window room).
+HSCT_REDIR_IMG      := $(BUILD)/hsct_redir.img
+HSCT_REDIR_MUT_IMG  := $(BUILD)/hsct_redir_mut.img
+HSCT_REDIR_NAME     := hsct_redir
+HSCT_REDIR_MUT_NAME := hsct_redir_mut
+HSCT_REDIR_SERIAL   := $(BUILD)/$(HSCT_REDIR_NAME).serial
+HSCT_REDIR_MUT_SERIAL := $(BUILD)/$(HSCT_REDIR_MUT_NAME).serial
+HSCT_REDIR_REPORT   := $(BUILD)/$(HSCT_REDIR_NAME).report
+HSCT_REDIR_MUT_REPORT := $(BUILD)/$(HSCT_REDIR_MUT_NAME).report
+HSCT_REDIR_BAT      := $(FAT12_FIXTURE_DIR)/autoexec_hsct.bat
+
+# Mint a fresh writable FAT12 floppy with just AUTOEXEC.BAT (the redirect script).
+# OUT.TXT is CREATED by the redirect at runtime, so it is NOT placed on the disk.
+define hsct-redir-mint-disk
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(HSCT_REDIR_BAT) ::AUTOEXEC.BAT
+endef
+
+.PHONY: test-hsct-redir test-hsct-redir-mutant
+test-hsct-redir: $(HARNESS_BIN) $(TRACER_IMG) $(HSCT_REDIR_BAT)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-hsct-redir : `>` / `>>` OUTPUT redirect\n'
+	@printf '  beads initech-hsct. AUTOEXEC.BAT: ECHO RZZHELLO> OUT.TXT ; TYPE OUT.TXT\n'
+	@printf '  ; ECHO RZZWORLD>> OUT.TXT ; TYPE OUT.TXT.  Proves echo>file redirects\n'
+	@printf '  (HELLO to the FILE, not the screen) and >> appends. Prereqs k36g+o0td.\n'
+	@printf '======================================================================\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-hsct-redir FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-hsct-redir FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	$(call hsct-redir-mint-disk,$(HSCT_REDIR_IMG))
+	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script)\n' "$(TRACER_IMG)" "$(HSCT_REDIR_IMG)"
+	@printf 'Expecting : RZZHELLO twice (2 TYPEs), RZZWORLD once, then clean EXIT\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(HSCT_REDIR_IMG)" \
+		--name "$(HSCT_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(HSCT_REDIR_REPORT)" || true
+	@cat "$(HSCT_REDIR_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(HSCT_REDIR_REPORT)"; then \
+		printf '!!! test-hsct-redir FAIL: TRIPLE FAULT -- redirect execution crashed\n'; exit 1; \
+	fi
+	@printf '>>> test-hsct-redir [1/5]: no triple-fault\n'
+	@if [ ! -s "$(HSCT_REDIR_SERIAL)" ]; then \
+		printf '!!! test-hsct-redir FAIL: no serial captured at %s\n' "$(HSCT_REDIR_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(HSCT_REDIR_SERIAL)" \
+		|| { printf '!!! test-hsct-redir FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
+	@printf '>>> test-hsct-redir [2/5]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@sed -n '/^SHELL-READY$$/,$$p' "$(HSCT_REDIR_SERIAL)" | tr -d '\r' > "$(BUILD)/$(HSCT_REDIR_NAME).repl"
+	@hcnt=$$(grep -oF 'RZZHELLO' "$(BUILD)/$(HSCT_REDIR_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$hcnt" != "2" ]; then \
+		printf '!!! test-hsct-redir FAIL: RZZHELLO seen %s time(s), expected EXACTLY 2 (one per TYPE).  count==1 means `>` leaked to screen / never wrote OUT.TXT; the `>` redirect did NOT work (root-cause the driver/DUP2/k36g path, Rule 3)\n' "$$hcnt"; \
+		exit 1; \
+	fi
+	@printf '>>> test-hsct-redir [3/5]: RZZHELLO appears EXACTLY twice -- `echo RZZHELLO > OUT.TXT` REDIRECTED to the file (both TYPEs read it back; the ECHO did NOT leak to screen)\n'
+	@wcnt=$$(grep -oF 'RZZWORLD' "$(BUILD)/$(HSCT_REDIR_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$wcnt" != "1" ]; then \
+		printf '!!! test-hsct-redir FAIL: RZZWORLD seen %s time(s), expected EXACTLY 1 (only the 2nd TYPE).  The `>>` append did not land in OUT.TXT (root-cause the open-existing+LSEEK-to-end path, Rule 3)\n' "$$wcnt"; \
+		exit 1; \
+	fi
+	@printf '>>> test-hsct-redir [4/5]: RZZWORLD appears exactly once -- `echo RZZWORLD >> OUT.TXT` APPENDED (only the 2nd TYPE shows it)\n'
+	@grep -q '^SHELL-EXIT$$' "$(HSCT_REDIR_SERIAL)" \
+		|| { printf '!!! test-hsct-redir FAIL: SHELL-EXIT missing -- the post-AUTOEXEC interactive EXIT did not run (handle 1 may not have been restored to CON)\n'; exit 1; }
+	@printf '>>> test-hsct-redir [5/5]: post-redirect `exit` reached the REPL + halted cleanly (handle 1 restored to CON)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- `echo > file` and `>>` append really redirect on the 386\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ----- Mutant kernel for test-hsct-redir-mutant (Rule 6) -----
+# command.c compiled with -DCMD_MUTATE_REDIR_BYPASS: run_with_redirect dispatches
+# the RAW line, so `ECHO RZZHELLO > OUT.TXT` runs UNREDIRECTED (RZZHELLO leaks to
+# the screen, OUT.TXT is never written).  The RZZHELLO-count==2 assertion goes RED
+# (TYPE finds no file, the ECHO leaks once -> count==1).  Same object-swap idiom
+# as the autoexec mutant kernel above.
+HSCT_REDIR_COMMAND_MUT_OBJ := $(BUILD)/command_mut_redirbypass.o
+HSCT_REDIR_SHELL_MUT_ELF   := $(BUILD)/kernel_shell_mut_redirbypass.elf
+HSCT_REDIR_SHELL_MUT_BIN   := $(BUILD)/kernel_shell_mut_redirbypass.bin
+HSCT_REDIR_TRACER_MUT_IMG  := $(BUILD)/tracer_boot_mut_redirbypass.img
+
+$(HSCT_REDIR_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/batch.h \
+                               spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_BYPASS \
+		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
+
+HSCT_REDIR_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(HSCT_REDIR_COMMAND_MUT_OBJ)
+
+$(HSCT_REDIR_SHELL_MUT_ELF): $(HSCT_REDIR_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(HSCT_REDIR_SHELL_MUT_OBJS)
+
+$(HSCT_REDIR_SHELL_MUT_BIN): $(HSCT_REDIR_SHELL_MUT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_mut_redirbypass.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-mut-redirbypass): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,shell-mut-redirbypass)
+
+$(HSCT_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(HSCT_REDIR_SHELL_MUT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(HSCT_REDIR_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> hsct-redir mutant image: %s (redirect driver BYPASSED -- RZZHELLO must leak / OUT.TXT empty)\n" "$@"
+
+test-hsct-redir-mutant: $(HARNESS_BIN) $(HSCT_REDIR_TRACER_MUT_IMG) $(HSCT_REDIR_BAT)
+	@printf '>>> test-hsct-redir-mutant: confirming the REDIR-BYPASS mutant goes RED (Rule 6)\n'
+	$(call hsct-redir-mint-disk,$(HSCT_REDIR_MUT_IMG))
+	@$(HARNESS_BIN) --disk "$(HSCT_REDIR_TRACER_MUT_IMG)" --disk2 "$(HSCT_REDIR_MUT_IMG)" \
+		--name "$(HSCT_REDIR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(HSCT_REDIR_MUT_REPORT)" || true
+	@if [ ! -s "$(HSCT_REDIR_MUT_SERIAL)" ]; then \
+		printf '!!! test-hsct-redir-mutant FAIL: no serial from the mutant boot\n'; exit 1; \
+	fi
+	@sed -n '/^SHELL-READY$$/,$$p' "$(HSCT_REDIR_MUT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(HSCT_REDIR_MUT_NAME).repl"
+	@hcnt=$$(grep -oF 'RZZHELLO' "$(BUILD)/$(HSCT_REDIR_MUT_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$hcnt" = "2" ]; then \
+		printf '!!! test-hsct-redir-mutant FAIL: RZZHELLO seen 2x under CMD_MUTATE_REDIR_BYPASS -- the redirect would pass even with the driver dead; the emu gate is decoration\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-hsct-redir-mutant: green (redir-bypass mutant correctly RED -- RZZHELLO count != 2, the redirect driver is load-bearing)\n'
+
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
@@ -13424,7 +13620,8 @@ TEST_EMU_GATES := \
 	test-samir-write test-samir-write-mutant \
 	test-samir-canon-y2k test-samir-canon-y2k-mutant \
 	test-samir-canon-salami test-samir-canon-salami-mutant \
-	test-autoexec test-autoexec-mutant
+	test-autoexec test-autoexec-mutant \
+	test-hsct-redir test-hsct-redir-mutant
 
 test-unit:
 	@printf '======================================================================\n'
