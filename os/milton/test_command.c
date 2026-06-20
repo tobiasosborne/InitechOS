@@ -158,10 +158,81 @@ static void test_format_dir_line(void)
     CHECK(strncmp(out, "SUBDIR", 6) == 0, "format_dir_line: dir name at start");
 }
 
+/* ---- SET classify (CMD_MUTATE_NO_SET mutation hook) -------------------- */
+/* Ref: beads initech-1i0x Tranche E inc 2; cmd_classify table in command.c.
+ * Under CMD_MUTATE_NO_SET the SET row is DROPPED -> "SET" falls through to
+ * CMD_EXTERNAL -> this assertion FAILS -> the mutant oracle correctly goes RED
+ * (Rule 6: the golden has caught a real regression). */
+static void test_classify_set(void)
+{
+#ifdef CMD_MUTATE_NO_SET
+    /* MUTANT build: the SET row was dropped; "SET" must NOT classify as CMD_SET.
+     * We assert it equals CMD_EXTERNAL (the fall-through) so the mutant binary
+     * exits non-zero (the CHECK below fails -> g_fails > 0 -> TEST_SUMMARY
+     * returns 1). */
+    CHECK(cmd_classify("SET") == CMD_SET,
+          "classify SET -> CMD_SET [mutant: row dropped -> goes RED as required]");
+#else
+    CHECK(cmd_classify("SET") == CMD_SET, "classify SET -> CMD_SET");
+#endif
+}
+
+/* ---- SET parsing oracle ------------------------------------------------- */
+/* Ref: beads initech-1i0x Tranche E inc 2; cmd_set_parse in command.c.
+ * Cases: empty->LIST; NAME=VALUE->ASSIGN; NAME=->CLEAR; NAME->QUERY;
+ * a value with embedded '=' (X=A=B) -> ASSIGN name=X value="A=B". */
+static void test_set_parse(void)
+{
+    set_cmd_t sc;
+
+    /* Empty arg -> SET_OP_LIST; name and value are empty strings. */
+    cmd_set_parse("", &sc);
+    CHECK(sc.op == SET_OP_LIST, "set_parse: \"\" -> SET_OP_LIST");
+    CHECK_STR_EQ(sc.name,  "", "set_parse: LIST name is empty");
+    CHECK_STR_EQ(sc.value, "", "set_parse: LIST value is empty");
+
+    /* All-whitespace arg -> SET_OP_LIST. */
+    cmd_set_parse("   ", &sc);
+    CHECK(sc.op == SET_OP_LIST, "set_parse: spaces-only -> SET_OP_LIST");
+
+    /* "PATH=A:\\BIN" -> ASSIGN, name="PATH", value="A:\\BIN". */
+    cmd_set_parse("PATH=A:\\BIN", &sc);
+    CHECK(sc.op == SET_OP_ASSIGN, "set_parse: PATH=A:\\BIN -> SET_OP_ASSIGN");
+    CHECK_STR_EQ(sc.name,  "PATH",    "set_parse: ASSIGN name is PATH");
+    CHECK_STR_EQ(sc.value, "A:\\BIN", "set_parse: ASSIGN value is A:\\BIN");
+
+    /* "PATH=" (empty value) -> CLEAR. */
+    cmd_set_parse("PATH=", &sc);
+    CHECK(sc.op == SET_OP_CLEAR, "set_parse: PATH= -> SET_OP_CLEAR");
+    CHECK_STR_EQ(sc.name,  "PATH", "set_parse: CLEAR name is PATH");
+    CHECK_STR_EQ(sc.value, "",     "set_parse: CLEAR value is empty");
+
+    /* "PATH" (no '=') -> QUERY. */
+    cmd_set_parse("PATH", &sc);
+    CHECK(sc.op == SET_OP_QUERY, "set_parse: PATH -> SET_OP_QUERY");
+    CHECK_STR_EQ(sc.name,  "PATH", "set_parse: QUERY name is PATH");
+    CHECK_STR_EQ(sc.value, "",     "set_parse: QUERY value is empty");
+
+    /* "X=A=B" -> ASSIGN name="X" value="A=B"
+     * (only the FIRST '=' is the NAME/VALUE delimiter; value may contain '='). */
+    cmd_set_parse("X=A=B", &sc);
+    CHECK(sc.op == SET_OP_ASSIGN, "set_parse: X=A=B -> SET_OP_ASSIGN");
+    CHECK_STR_EQ(sc.name,  "X",   "set_parse: embedded-eq name is X");
+    CHECK_STR_EQ(sc.value, "A=B", "set_parse: embedded-eq value is A=B");
+
+    /* Leading whitespace before name is stripped. */
+    cmd_set_parse("  COMSPEC=A:\\COMMAND.COM", &sc);
+    CHECK(sc.op == SET_OP_ASSIGN, "set_parse: leading-space ASSIGN op");
+    CHECK_STR_EQ(sc.name,  "COMSPEC",         "set_parse: leading-space name");
+    CHECK_STR_EQ(sc.value, "A:\\COMMAND.COM", "set_parse: leading-space value");
+}
+
 int main(void)
 {
     test_parse_basic();
     test_classify();
+    test_classify_set();
+    test_set_parse();
     test_first_token();
     test_append_com();
     test_format_dir_line();

@@ -17,6 +17,7 @@
 #include "command.h"
 #include "dos_structs.h"   /* DIR_ATTR_DIRECTORY -- the DIR formatter's attr bit */
 #include "dos_messages.h"  /* MSG_DOS_* controlled diagnostics (DEC-13; -Ibuild) */
+#include "env.h"           /* env_store_t, env_init/set/get/unset/count/entry    */
 
 /* ---- PURE shell logic (host-testable; the test_command.c oracle drives these) */
 
@@ -69,6 +70,13 @@ cmd_kind_t cmd_classify(const char *upper_command)
         { "ECHO",  CMD_ECHO },
         { "BREAK", CMD_BREAK },  /* BREAK [ON|OFF] -- CTRL-BREAK state (AH=33h; DEC-16) */
         { "EXIT",  CMD_EXIT },
+#ifndef CMD_MUTATE_NO_SET
+        /* SET [NAME[=VALUE]] -- list/assign/clear/query env vars (beads
+         * initech-1i0x Tranche E inc 2). The CMD_MUTATE_NO_SET mutant DROPS
+         * this row so "SET" falls through to CMD_EXTERNAL -> the classify
+         * oracle goes RED (Rule 6). NEVER dropped in a real build. */
+        { "SET",   CMD_SET  },
+#endif
     };
     for (unsigned i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
         const char *a = upper_command;
@@ -275,6 +283,74 @@ int cmd_format_dir_line(const char *fname, uint32_t fsize, uint8_t attr,
     out[pos++] = '\n';
     out[pos]   = '\0';
     return pos;
+}
+
+/* cmd_set_parse: PURE SET argument parser (beads initech-1i0x Tranche E inc 2).
+ * Ref: DOS 3.3 COMMAND.COM SET behaviour (DEC-11 / Appendix D).
+ *   ""          -> SET_OP_LIST  (print all NAME=VALUE pairs from the env).
+ *   "NAME=VAL"  -> SET_OP_ASSIGN name="NAME" value="VAL" (value verbatim, may
+ *                  contain further '=' characters; only the first '=' splits).
+ *   "NAME="     -> SET_OP_CLEAR name="NAME" value="" (empty value -> unset).
+ *   "NAME"      -> SET_OP_QUERY name="NAME" value="" (no '=' -> query current).
+ * The name is copied verbatim (NOT upcased here; env_set handles upcasing).
+ * Clamps: name to CMD_TOKEN_MAX-1 bytes; value to CMD_LINE_MAX-1 bytes. */
+void cmd_set_parse(const char *arg, set_cmd_t *out)
+{
+    int ni;
+    int vi;
+    const char *p;
+
+    /* Defensive init (Rule 2). */
+    out->op       = SET_OP_LIST;
+    out->name[0]  = '\0';
+    out->value[0] = '\0';
+
+    if (arg == 0) {
+        return;
+    }
+
+    /* Skip leading whitespace (DOS SET strips leading spaces from the arg). */
+    p = arg;
+    while (*p == ' ' || *p == '\t') {
+        p++;
+    }
+
+    /* Empty or all-whitespace arg -> LIST. */
+    if (*p == '\0') {
+        out->op = SET_OP_LIST;
+        return;
+    }
+
+    /* Scan for '=' to determine the op.  Copy the name portion as we go.
+     * Stop at '=' (delimiter), NUL (end of input), or CMD_TOKEN_MAX-1 bytes. */
+    ni = 0;
+    while (*p != '\0' && *p != '=' && ni < CMD_TOKEN_MAX - 1) {
+        out->name[ni++] = *p++;
+    }
+    out->name[ni] = '\0';
+
+    /* If we hit NUL before '=', there is no '=' at all -> QUERY. */
+    if (*p == '\0') {
+        out->op = SET_OP_QUERY;
+        return;
+    }
+
+    /* *p == '='. Advance past it to the value. */
+    p++;   /* skip the '=' */
+
+    /* Copy the value verbatim (may contain further '=', spaces, etc.).
+     * An empty string here means SET_OP_CLEAR. */
+    vi = 0;
+    while (*p != '\0' && vi < CMD_LINE_MAX - 1) {
+        out->value[vi++] = *p++;
+    }
+    out->value[vi] = '\0';
+
+    if (vi == 0) {
+        out->op = SET_OP_CLEAR;
+    } else {
+        out->op = SET_OP_ASSIGN;
+    }
 }
 
 /* ===========================================================================
@@ -578,6 +654,13 @@ static void dos_getcwd(uint8_t drive, char *buf)
         : "cc", "memory");
 }
 
+/* The master environment store for COMMAND.COM (beads initech-1i0x Tranche E
+ * inc 2). File scope so builtin_set, command_repl, and (in increment 3) the
+ * EXEC path can all reach it. Seeded once at REPL entry with the canonical
+ * startup variables (COMSPEC, PROMPT, PATH). Increment 3 will serialize it
+ * into the child's env block at EXEC time (via env_serialize). */
+static env_store_t g_master_env;
+
 /* The shell's DTA: a dedicated 43-byte find-record buffer FINDFIRST/NEXT write
  * into (bound via AH=1Ah). File scope so it outlives each DIR invocation. */
 static find_data_t g_shell_dta;
@@ -591,6 +674,87 @@ static char g_out[64];
  * the use-sites reference the catalogue macros directly. */
 
 /* ---- the built-in command handlers ---------------------------------------- */
+
+/* SET [NAME[=VALUE]] (beads initech-1i0x Tranche E inc 2).
+ * Ref: DOS 3.3 COMMAND.COM SET (DEC-11 / Appendix D).
+ *   LIST   -> print every "NAME=VALUE\r\n" from the master env.
+ *   ASSIGN -> env_set(name, value); on overflow print env-full message.
+ *   CLEAR  -> env_unset(name); silent on success (DOS SET NAME= is silent).
+ *   QUERY  -> env_get(name); print "NAME=value\r\n" if found, else error.
+ * "Out of environment space" and "Environment variable not defined" are not in
+ * the controlled catalogue (dos_messages.json) so they are inlined here --
+ * they are SET-specific; the catalogue covers the general DOS diagnostics. */
+static void builtin_set(const char *arg)
+{
+    set_cmd_t sc;
+
+    cmd_set_parse(arg, &sc);
+
+    switch (sc.op) {
+
+        case SET_OP_LIST: {
+            /* Print every entry as "NAME=VALUE\r\n" via AH=40h (raw write).
+             * env_entry returns the full "NAME=VALUE" ASCIIZ string. */
+            int count = env_count(&g_master_env);
+            int i;
+            for (i = 0; i < count; i++) {
+                const char *entry = env_entry(&g_master_env, i);
+                if (entry != 0) {
+                    dos_puts_raw(entry);
+                    dos_print("\r\n$");
+                }
+            }
+            break;
+        }
+
+        case SET_OP_ASSIGN: {
+            /* UPSERT; env_set upcases the name (DOS semantics). */
+            if (!env_set(&g_master_env, sc.name, sc.value)) {
+                /* Overflow: the new entry would not fit in the 512-byte arena. */
+                dos_print("Out of environment space\r\n$");
+            }
+            break;
+        }
+
+        case SET_OP_CLEAR: {
+            /* Remove the variable (silent on success; silent if already absent,
+             * matching DOS SET NAME= behaviour -- it does not error on missing). */
+            env_unset(&g_master_env, sc.name);
+            break;
+        }
+
+        case SET_OP_QUERY: {
+            /* Show the current value if defined, else print an error. */
+            const char *val = env_get(&g_master_env, sc.name);
+            if (val != 0) {
+                /* Print "NAME=value\r\n". sc.name is verbatim from the arg
+                 * (not upcased), but DOS SET QUERY mirrors the stored name.
+                 * Use env_get's result to walk back to the full stored entry. */
+                int count = env_count(&g_master_env);
+                int i;
+                for (i = 0; i < count; i++) {
+                    const char *entry = env_entry(&g_master_env, i);
+                    if (entry != 0) {
+                        /* Find the stored name portion and check it matches. */
+                        const char *eq = entry;
+                        while (*eq != '\0' && *eq != '=') {
+                            eq++;
+                        }
+                        if (*eq == '=' && (eq + 1) == val) {
+                            dos_puts_raw(entry);
+                            dos_print("\r\n$");
+                            break;
+                        }
+                    }
+                }
+            } else {
+                /* Not defined: mirror the DOS "Variable not defined" phrasing. */
+                dos_print("Environment variable not defined\r\n$");
+            }
+            break;
+        }
+    }
+}
 
 /* DIR: FINDFIRST "*.*" then loop FINDNEXT, formatting each find-record into a
  * DOS-like line. A header ("Directory of A:\") + a file-count footer frame it
@@ -895,6 +1059,17 @@ void command_repl(void)
     char line[CMD_LINE_MAX];
     cmd_line_t parsed;
 
+    /* Seed the master environment once at REPL entry (beads initech-1i0x
+     * Tranche E inc 2). These three variables match DOS 3.3 startup defaults
+     * for a single-floppy system. Overflow is impossible here (well under 512
+     * bytes), but we follow fail-loud discipline (Rule 2) with no-op silence:
+     * env_set returns 0 on overflow; the REPL continues regardless (the OS
+     * must boot even if seeding somehow fails on a future tiny-arena config). */
+    env_init(&g_master_env);
+    env_set(&g_master_env, "COMSPEC", "A:\\COMMAND.COM");
+    env_set(&g_master_env, "PROMPT",  "$P$G");
+    env_set(&g_master_env, "PATH",    "");
+
     /* A serial marker the oracle gates key-injection on (mirrors KBD-ECHO-READY
      * / CONIN-PROG-READY). The kernel's CON sink also fans this to serial via
      * the AH=09h banner, but a distinct grep-able marker keeps the gate robust;
@@ -964,6 +1139,9 @@ void command_repl(void)
                 break;
             case CMD_BREAK:
                 builtin_break(parsed.arg);
+                break;
+            case CMD_SET:
+                builtin_set(parsed.arg);
                 break;
             case CMD_EXIT:
                 /* Grep-able clean-exit marker. Plain '\n' (no CR) so the serial

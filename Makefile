@@ -358,6 +358,9 @@ KERNEL_RTC_OBJ   := $(BUILD)/rtc.o
 KERNEL_IRQ_OBJ   := $(BUILD)/irq.o
 # COMMAND.COM shell object (beads initech-7pc), compiled with the REPL enabled.
 KERNEL_COMMAND_OBJ := $(BUILD)/command.o
+# COMMAND.COM master environment store (beads initech-1i0x); linked into the
+# shell kernel because command.c's SET built-in calls env_*.
+KERNEL_ENV_OBJ := $(BUILD)/env.o
 KERNEL_TEST_PROG_OBJ := $(BUILD)/test_prog_blob.o
 KERNEL_TYPE_PROG_OBJ := $(BUILD)/type_prog_blob.o
 KERNEL_DIR_PROG_OBJ  := $(BUILD)/dir_prog_blob.o
@@ -5259,8 +5262,8 @@ test-exec-mutant: $(TEST_EXEC_MUT_RC) $(TEST_EXEC_MUT_PATHSCAN)
 # -Ispec for dos_structs.h (DIR_ATTR_DIRECTORY). Mirrors the $(TEST_INT21) idiom.
 TEST_COMMAND      := $(BUILD)/test_command
 TEST_COMMAND_SRC  := $(MILTON_DIR)/test_command.c
-TEST_COMMAND_DEPS := $(KERNEL_COMMAND_C)
-TEST_COMMAND_HDRS := $(MILTON_DIR)/command.h spec/dos_structs.h spec/find_data.h \
+TEST_COMMAND_DEPS := $(KERNEL_COMMAND_C) $(MILTON_DIR)/env.c
+TEST_COMMAND_HDRS := $(MILTON_DIR)/command.h $(MILTON_DIR)/env.h spec/dos_structs.h spec/find_data.h \
                      $(DOS_MESSAGES_H)
 # Mutation builds (CLAUDE.md Rule 6): command.c compiled with a single perturbation
 # so `make test-command-mutant` can prove the oracle BITES. (a) the parser stops
@@ -5274,6 +5277,9 @@ TEST_COMMAND_MUT_BADCMD := $(BUILD)/test_command_mutant_badcmd
 # CMD_EXTERNAL instead of CMD_MD/CMD_RD; the new classify checks go RED (Rule 6;
 # beads initech-ut6d).
 TEST_COMMAND_MUT_NOMDRD := $(BUILD)/test_command_mutant_nomdrd
+# (e) the classifier drops the SET row -> "SET" classifies as CMD_EXTERNAL; the
+# new SET classify check goes RED (Rule 6; beads initech-1i0x, Tranche E inc-2).
+TEST_COMMAND_MUT_NOSET := $(BUILD)/test_command_mutant_noset
 
 $(TEST_COMMAND): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -5295,6 +5301,10 @@ $(TEST_COMMAND_MUT_NOMDRD): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMM
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_MDRD -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
 
+$(TEST_COMMAND_MUT_NOSET): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_SET -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
 .PHONY: test-command test-command-mutant
 test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: parse/upcase + built-in classify + .COM-append + DIR-line format\n"
@@ -5302,7 +5312,7 @@ test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: green\n"
 
 # Mutation-proof: ALL three mutant builds MUST fail the oracle (Rule 6).
-test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD)
+test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD) $(TEST_COMMAND_MUT_NOSET)
 	@printf ">>> test-command-mutant: confirming all four mutants go RED (Rule 6)\n"
 	@if $(TEST_COMMAND_MUT_NOUP) >/dev/null 2>&1; then \
 		printf '!!! test-command-mutant FAIL: no-upcase mutant PASSED -- the parse/upcase test is decoration\n'; \
@@ -5327,6 +5337,12 @@ test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COM
 		exit 1; \
 	else \
 		printf '>>> test-command-mutant: green (no-mdrd mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_NOSET) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-set mutant PASSED -- the SET classify test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-set mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -5379,6 +5395,57 @@ test-env-mutant: $(TEST_ENV_MUT_NOUP) $(TEST_ENV_MUT_NODUP)
 		exit 1; \
 	else \
 		printf '>>> test-env-mutant: green (no-dedup mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-mz (beads initech-dtw.1 -- InitechMZ header-parse + flat relocs)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the InitechMZ pure-logic unit (mz.c / mz.h, ADR-0003
+# DEC-08a): mz_is_mz dispatch probe, mz_parse_header (both e_cblp==0 and
+# e_cblp!=0 last-page cases, the foreign-MZ fail-loud gate, all fail-loud error
+# paths) and mz_apply_relocs (byte-exact flat-32 relocation, OOB guard). mz.c is
+# pure + I/O-free; test_mz.c #includes it directly (same TU trick as test_env).
+# Compile test_mz.c ALONE (NOT mz.c as a second source). -I$(MILTON_DIR) -Iseed.
+# Mutation builds (Rule 6): MZ_MUTATE_RELOC_NOADD / MZ_MUTATE_RELOC_PARAGRAPH
+# each make the reloc-apply oracle go RED.
+TEST_MZ            := $(BUILD)/test_mz
+TEST_MZ_SRC        := $(MILTON_DIR)/test_mz.c
+TEST_MZ_HDRS       := $(MILTON_DIR)/mz.h $(MILTON_DIR)/mz.c
+TEST_MZ_MUT_NOADD  := $(BUILD)/test_mz_mutant_noadd
+TEST_MZ_MUT_PARA   := $(BUILD)/test_mz_mutant_paragraph
+
+$(TEST_MZ): $(TEST_MZ_SRC) $(TEST_MZ_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_MZ_SRC)
+
+$(TEST_MZ_MUT_NOADD): $(TEST_MZ_SRC) $(TEST_MZ_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMZ_MUTATE_RELOC_NOADD \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_MZ_SRC)
+
+$(TEST_MZ_MUT_PARA): $(TEST_MZ_SRC) $(TEST_MZ_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMZ_MUTATE_RELOC_PARAGRAPH \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_MZ_SRC)
+
+.PHONY: test-mz test-mz-mutant
+test-mz: $(TEST_MZ)
+	@printf ">>> test-mz: is_mz + parse (both last-page cases) + foreign-gate + fail-loud + apply_relocs\n"
+	@$(TEST_MZ)
+	@printf ">>> test-mz: green\n"
+
+# Mutation-proof: BOTH reloc mutants MUST fail the oracle (Rule 6).
+test-mz-mutant: $(TEST_MZ_MUT_NOADD) $(TEST_MZ_MUT_PARA)
+	@printf ">>> test-mz-mutant: confirming both reloc mutants go RED (Rule 6)\n"
+	@if $(TEST_MZ_MUT_NOADD) >/dev/null 2>&1; then \
+		printf '!!! test-mz-mutant FAIL: RELOC_NOADD mutant PASSED -- the reloc oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-mz-mutant: green (RELOC_NOADD mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_MZ_MUT_PARA) >/dev/null 2>&1; then \
+		printf '!!! test-mz-mutant FAIL: RELOC_PARAGRAPH mutant PASSED -- the reloc oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-mz-mutant: green (RELOC_PARAGRAPH mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -5885,7 +5952,7 @@ endef
         test-multiopen \
         test-int21-irqstorm test-int21-irqstorm-mutant \
         test-fat-write-partial test-fat-write-partial-mutant \
-        test-command test-command-mutant test-env test-env-mutant test-shell \
+        test-command test-command-mutant test-env test-env-mutant test-mz test-mz-mutant test-shell \
         test-ut6d test-ut6d-mutant \
         test-zs24-exec test-zs24-exec-mutant \
         test-panic test-spurious test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
@@ -6147,9 +6214,14 @@ $(KERNEL_IRQ_OBJ): $(KERNEL_IRQ_C) $(KERNEL_DIR)/irq.h $(KERNEL_DIR)/io.h | $(BU
 # freestanding here with -DCOMMAND_KERNEL_REPL so the int 0x21 REPL is compiled
 # IN (the host build leaves it out). -Ispec for find_data.h + dos_structs.h.
 # -I$(BUILD) for the generated dos_messages.h (beads initech-509.1).
-$(KERNEL_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
+$(KERNEL_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/env.h \
                        spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
+
+# env.o -- COMMAND.COM master environment store (beads initech-1i0x). Freestanding
+# (stdint only; no REPL/asm). Linked into the shell kernel for the SET built-in.
+$(KERNEL_ENV_OBJ): $(KERNEL_DIR)/env.c $(KERNEL_DIR)/env.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_DIR)/env.c -o $@
 
 # --- Baked test program pipeline (beads initech-509.5; Sec 5.4) ------------
 # bin2c is a host factory tool (libc), built with the factory CC, not KERNEL_CC.
@@ -6967,7 +7039,7 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
 
@@ -12345,7 +12417,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-psp test-sft test-loader \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-psp test-sft test-loader test-mz \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
@@ -12365,7 +12437,7 @@ TEST_UNIT_GATES := \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-psp-mutant \
-	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
+	test-sft-mutant test-loader-mutant test-mz-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \

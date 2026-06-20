@@ -53,6 +53,7 @@ typedef enum cmd_kind {
     CMD_ECHO,        /* ECHO <text>-- print the text                            */
     CMD_BREAK,       /* BREAK [ON|OFF] -- report/set CTRL-BREAK state (AH=33h)   */
     CMD_EXIT,        /* EXIT       -- leave the REPL                             */
+    CMD_SET,         /* SET [NAME[=VALUE]] -- list/assign/clear/query env vars   */
     CMD_EXTERNAL     /* not a built-in -- try to EXEC <word>.COM                 */
 } cmd_kind_t;
 
@@ -102,6 +103,37 @@ int cmd_append_com(const char *name, char *out);
  * out[CMD_TOKEN_MAX] (TYPE/EXEC take a single filename; extra params ignored
  * this milestone). Returns the token length; out is ASCIIZ. */
 int cmd_first_token(const char *arg, char *out);
+
+/* ---- SET built-in parsing (PURE, host-testable; beads initech-1i0x Tranche E
+ * increment 2). Ref: DOS 3.3 COMMAND.COM SET behaviour (DEC-11 / Appendix D):
+ *   SET              -> list every NAME=VALUE in the master environment.
+ *   SET NAME=VALUE   -> UPSERT the variable (NAME is upcased by env_set).
+ *   SET NAME=        -> remove the variable (empty value = CLEAR).
+ *   SET NAME         -> show the current value, or an error if undefined. */
+
+typedef enum set_op {
+    SET_OP_LIST,     /* no arg / all-whitespace: print all NAME=VALUE lines     */
+    SET_OP_ASSIGN,   /* NAME=VALUE (value may be empty -> CLEAR; see set_cmd_t) */
+    SET_OP_CLEAR,    /* NAME= (trailing '=' with no value -> unset the var)     */
+    SET_OP_QUERY     /* NAME (no '=' at all, name nonempty -> show current val) */
+} set_op_t;
+
+/* Parsed SET argument. `name` is the variable name (NOT yet upcased; env_set
+ * handles upcasing). `value` is verbatim (may contain '=' or spaces after the
+ * first '='; only the first '=' is the delimiter). For SET_OP_LIST both fields
+ * are empty strings. For SET_OP_QUERY `value` is empty. For SET_OP_CLEAR
+ * `value` is also empty (the REPL distinguishes CLEAR vs ASSIGN by the op). */
+typedef struct set_cmd {
+    set_op_t op;
+    char     name[CMD_TOKEN_MAX];
+    char     value[CMD_LINE_MAX];
+} set_cmd_t;
+
+/* Parse the argument tail of a SET command line into `out`. `arg` is the raw
+ * argument string after the "SET " command word (i.e. cmd_line_t.arg). PURE:
+ * no asm, no I/O. The function is deterministic and never overflows (inputs are
+ * bounded by CMD_LINE_MAX; name is clamped to CMD_TOKEN_MAX-1). */
+void cmd_set_parse(const char *arg, set_cmd_t *out);
 
 /* Format one DIR listing line from a find-record into out (DOS-like columns):
  * "NAME     EXT       <size>\n" -- the 8.3 name left-justified, the size right-
