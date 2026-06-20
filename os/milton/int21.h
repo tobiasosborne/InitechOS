@@ -630,6 +630,28 @@ void int24_dispatch(int_frame_t *frame);
  * documented modern A/R/F mapping pinned here). */
 int crit_error_action(int ch);
 
+/* ---- CRITICAL-ERROR CHOKE POINT (beads initech-mvg) ------------------------
+ * The single kernel entry the disk layer (ata.c's critical-error wrapper
+ * blockdev, set up by crit_blockdev_init) calls on a HARD sector-I/O failure.
+ * It RAISES INT 24h (presents MSG-DOS-0001, reads the operator A/R/F key via the
+ * conin seam, maps it through crit_error_action) and returns the disk layer's
+ * decision -- so a real floating-bus / BSY-or-DRQ timeout / status-error /
+ * write-protect failure (ata.c), and any fat12.c read/write that originates from
+ * one, actually presents the operator prompt and honors the answer:
+ *   INT21_CRIT_RETRY : Retry -- the wrapper RE-ISSUES the failed sector op.
+ *   INT21_CRIT_FAIL  : Fail  -- the wrapper propagates the error (CF=1) up the
+ *                      INT 21h syscall (the prior, no-prompt behavior).
+ *   (Abort is handled INSIDE this call: it routes through the REAL do_terminate
+ *    path with the DOS "terminated by INT 24h" code 0x23, then returns
+ *    INT21_CRIT_FAIL if the exit hook returns -- the host-oracle default.)
+ * `op_is_write` (0 read / 1 write) tags the failing direction (DOS INT 24h AH
+ * bit0); it does not change the A/R/F contract. Returns one of INT21_CRIT_*.
+ * Ref: DOS 3.3 INT 24h (RBIL INT 24h); ADR-0003 DEC-10; spec/dos_messages.json
+ * MSG-DOS-0001. */
+#define INT21_CRIT_FAIL   0   /* propagate the error up the syscall (Fail)     */
+#define INT21_CRIT_RETRY  1   /* re-issue the failed sector operation (Retry)  */
+int int21_run_critical_error(int op_is_write);
+
 /* Record the most recent DOS error code so AH=59h GET EXTENDED ERROR can report
  * it (beads initech-yv9). The error-returning functions (OPEN/UNLINK/etc.) call
  * this with the DOS error they return; AH=59h derives the class/action/locus.

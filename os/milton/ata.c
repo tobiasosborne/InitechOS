@@ -358,3 +358,134 @@ void ata_ctx_init_primary_slave(ata_ctx_t *ctx)
 	ctx->ctrl_base    = ATA_CTRL_PRIMARY;
 	ctx->drive_select = ATA_DRIVE_SLAVE_LBA;
 }
+
+/* ===========================================================================
+ * CRITICAL-ERROR WRAPPER BLOCKDEV (beads initech-mvg, ADR-0003 DEC-10)
+ * ===========================================================================
+ * Period-authentic DOS: a hard sector-I/O failure is caught by the DISK DRIVER,
+ * which raises INT 24h and honors the operator's Abort/Retry/Fail. We model that
+ * with a blockdev_t that wraps the real backend (ata above, or the host file
+ * backend in the oracle) and routes any negative inner return through the bound
+ * critical-error hook (int21_run_critical_error in the kernel; a stub in the
+ * oracle). fat12.c calls through this wrapper, so it -- and every fat12 read/
+ * write -- inherits A/R/F handling with no change to fat12.c or its 20 device
+ * call sites. NULL hook -> transparent (the inner error is returned verbatim,
+ * the historical Fail). Ref: RBIL INT 24h; ADR-0003 DEC-10; blockdev.h contract
+ * (0 ok / negative on error -- Rule 2). */
+
+/* One process-wide hook (single-tenant DOS; no reentrant disk I/O -- the InDOS
+ * model in int21.c). NULL until the kernel/oracle binds it. */
+static crit_blockdev_hook_t g_crit_hook = NULL;
+
+void crit_blockdev_set_hook(crit_blockdev_hook_t hook)
+{
+	g_crit_hook = hook;
+}
+
+/* Decide whether to re-issue after an inner failure: ask the bound hook (which
+ * raises INT 24h + reads A/R/F, and on Abort terminates inside the call). A
+ * RETRY answer returns 1 (the wrapper loops, bounded by CRIT_BLOCKDEV_MAX_
+ * RETRIES); any other answer (Fail, or a returned Abort) returns 0 (propagate
+ * the inner error). No hook bound -> 0 (transparent: never re-issue, return the
+ * error -- the historical behavior). */
+static int crit_should_retry(int op_is_write)
+{
+	if (g_crit_hook == NULL) {
+		return 0;                  /* transparent: propagate the inner error */
+	}
+	return (g_crit_hook(op_is_write) == CRIT_BLOCKDEV_RETRY) ? 1 : 0;
+}
+
+/* Wrapped READ: call the inner read; on a negative return raise the critical-
+ * error path and, on a Retry decision, re-issue -- bounded so a permanently-dead
+ * drive cannot spin forever (Rule 2). Returns 0 on a (possibly retried) success
+ * or the LAST inner error code on Fail/Abort/budget-exhaustion. */
+static int crit_blockdev_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
+{
+	crit_blockdev_t *cb = (crit_blockdev_t *)ctx;
+	uint32_t         attempt;
+	int              rc;
+
+	if (cb == NULL || cb->inner == NULL || cb->inner->read_sectors == NULL) {
+		return ATA_ERR_ARG;        /* fail loud: a misconfigured wrapper */
+	}
+
+	for (attempt = 0u; ; attempt++) {
+		rc = cb->inner->read_sectors(cb->inner->ctx, lba, count, buf);
+		if (rc == 0) {
+			return 0;              /* success (first try or after a Retry) */
+		}
+		/* Hard error: raise INT 24h. Stop re-issuing once the bound budget is
+		 * spent even if the operator keeps choosing Retry on a dead drive. */
+#if defined(MVG_MUTATE_RETRY_UNBOUNDED)
+		/* MUTANT (Rule 6; make test-int24-wired-mutant only): DROP the retry
+		 * bound -- an always-Retry operator on a dead drive then loops forever.
+		 * Scenario [E]'s bounded queue underflows (mock_get exit(2)) -> RED,
+		 * proving the bound is load-bearing (Rule 2). NEVER in a real build. */
+		if (!crit_should_retry(0 /* read */)) {
+			return rc;
+		}
+#else
+		if (attempt >= CRIT_BLOCKDEV_MAX_RETRIES ||
+		    !crit_should_retry(0 /* read */)) {
+			return rc;             /* Fail / Abort-returned / budget -> error */
+		}
+#endif
+		/* else: Retry -> loop and re-issue the SAME read. */
+	}
+}
+
+/* Wrapped WRITE: the write twin of crit_blockdev_read. A NULL inner write_sectors
+ * (a read-only backend == write-protect) is itself a hard error: raise INT 24h
+ * (the operator's choice still applies, though a Retry cannot succeed against a
+ * read-only device, so it is bounded the same way) and propagate the error. */
+static int crit_blockdev_write(void *ctx, uint32_t lba, uint32_t count,
+                               const void *buf)
+{
+	crit_blockdev_t *cb = (crit_blockdev_t *)ctx;
+	uint32_t         attempt;
+	int              rc;
+
+	if (cb == NULL || cb->inner == NULL) {
+		return ATA_ERR_ARG;
+	}
+
+	for (attempt = 0u; ; attempt++) {
+		if (cb->inner->write_sectors == NULL) {
+			rc = ATA_ERR_ARG;      /* write-protect: no write backend (Rule 2) */
+		} else {
+			rc = cb->inner->write_sectors(cb->inner->ctx, lba, count, buf);
+		}
+		if (rc == 0) {
+			return 0;
+		}
+#if defined(MVG_MUTATE_RETRY_UNBOUNDED)
+		/* MUTANT (Rule 6; make test-int24-wired-mutant only): DROP the write
+		 * retry bound (see the read twin above). [E] underflows -> RED. */
+		if (!crit_should_retry(1 /* write */)) {
+			return rc;
+		}
+#else
+		if (attempt >= CRIT_BLOCKDEV_MAX_RETRIES ||
+		    !crit_should_retry(1 /* write */)) {
+			return rc;
+		}
+#endif
+	}
+}
+
+void crit_blockdev_init(crit_blockdev_t *cb, const blockdev_t *inner)
+{
+	if (cb == NULL) {
+		return;
+	}
+	cb->inner          = inner;
+	cb->dev.ctx        = cb;
+	cb->dev.read_sectors  = crit_blockdev_read;
+	/* Mirror the inner device's write capability: a read-only inner stays read-
+	 * only through the wrapper (so an absdisk/write-protect probe still sees a
+	 * NULL write member, the contract the int21 absolute-disk seam relies on). */
+	cb->dev.write_sectors =
+	    (inner != NULL && inner->write_sectors != NULL) ? crit_blockdev_write
+	                                                     : NULL;
+}

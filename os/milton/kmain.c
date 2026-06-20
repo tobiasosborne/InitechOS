@@ -796,6 +796,7 @@ void kernel_main(void)
     static uint8_t sector_buf[BLOCKDEV_SECTOR_SIZE]; /* caller scratch (BSS) */
     ata_ctx_t      ata_slave;
     blockdev_t     fatdev;
+    crit_blockdev_t crit_fatdev;   /* INT 24h critical-error wrapper (beads mvg) */
     fat12_volume_t vol;
     int            mounted = 0;
 
@@ -810,10 +811,31 @@ void kernel_main(void)
         ata_ctx_init_primary_slave(&ata_slave);
         ata_blockdev_init(&fatdev, &ata_slave);
 
-        rc = fat12_mount(&vol, &fatdev, sector_buf);
+        /* Wrap the FAT backend in the INT 24h critical-error layer (beads
+         * initech-mvg): once armed, a HARD sector-I/O failure raises the real
+         * INT 24h critical-error handler (MSG-DOS-0001) and honors Abort/Retry/
+         * Fail, instead of silently returning an error up the syscall. The
+         * INT 25h/26h absolute-disk seam below stays on the INNER &fatdev (its
+         * own read-only/bounds contract is unchanged).
+         *
+         * The hook is NOT armed yet -- the wrapper stays TRANSPARENT through the
+         * boot-time mount probe so a boot WITHOUT a data disk still fails the
+         * mount gracefully and continues (real DOS raises the critical-error
+         * prompt for PROGRAM disk I/O, not for boot-time drive probing). The
+         * hook is armed only AFTER a successful mount (below), so it covers the
+         * shell/program file I/O that runs through this volume. */
+        crit_blockdev_init(&crit_fatdev, &fatdev);
+
+        rc = fat12_mount(&vol, &crit_fatdev.dev, sector_buf);
         if (rc == FAT12_OK) {
             serial_puts("FAT-MOUNT-OK\n");
             mounted = 1;
+
+            /* Mount succeeded -> ARM the INT 24h critical-error hook now, so the
+             * shell/program file I/O through this volume raises MSG-DOS-0001 on a
+             * hard sector failure (beads initech-mvg). Boot-time probing above
+             * ran transparent so a missing disk still degraded gracefully. */
+            crit_blockdev_set_hook(int21_run_critical_error);
 
             /* Proto-DIR: a header line, then one NAME.EXT + size per file. */
             dir_puts("Directory of A:\\\n");

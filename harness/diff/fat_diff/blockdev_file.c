@@ -30,6 +30,16 @@ static int blockdev_file_read(void *ctx, uint32_t lba, uint32_t count, void *buf
 		return -1;
 	}
 
+	/* READ-fault seam (beads initech-mvg): the read twin of the write seam --
+	 * count this read and, if armed for THIS ordinal, fail it BEFORE touching
+	 * the file (exactly as a real device READ I/O failure does). Disarmed
+	 * (read_fail_at == 0) -> no-op, every existing oracle unchanged. */
+	bf->read_calls++;
+	if (bf->read_fail_at != 0u && bf->read_calls == bf->read_fail_at) {
+		bf->read_faulted = 1;
+		return -1;   /* forced device read error (fail loud, Rule 2) */
+	}
+
 	/* Byte offset of the first requested sector. */
 	off  = (long)lba * (long)BLOCKDEV_SECTOR_SIZE;
 	want = (size_t)count * (size_t)BLOCKDEV_SECTOR_SIZE;
@@ -103,6 +113,9 @@ int blockdev_file_open(blockdev_file_t *bf, const char *path)
 	bf->write_fail_at     = 0u;   /* fault seam DISARMED (beads initech-lpf3) */
 	bf->write_calls       = 0u;
 	bf->write_faulted     = 0;
+	bf->read_fail_at      = 0u;   /* read-fault seam DISARMED (beads initech-mvg) */
+	bf->read_calls        = 0u;
+	bf->read_faulted      = 0;
 	return 0;
 }
 
@@ -121,6 +134,9 @@ int blockdev_file_open_rw(blockdev_file_t *bf, const char *path)
 	bf->write_fail_at     = 0u;   /* fault seam DISARMED (beads initech-lpf3) */
 	bf->write_calls       = 0u;
 	bf->write_faulted     = 0;
+	bf->read_fail_at      = 0u;   /* read-fault seam DISARMED (beads initech-mvg) */
+	bf->read_calls        = 0u;
+	bf->read_faulted      = 0;
 	return 0;
 }
 
@@ -143,6 +159,25 @@ void blockdev_file_arm_write_fault(blockdev_file_t *bf, uint32_t nth)
 int blockdev_file_write_faulted(const blockdev_file_t *bf)
 {
 	return (bf != NULL) ? bf->write_faulted : 0;
+}
+
+void blockdev_file_arm_read_fault(blockdev_file_t *bf, uint32_t nth)
+{
+	if (bf == NULL) {
+		return;
+	}
+	bf->read_fail_at = nth;     /* 0 disarms; K fails the K-th subsequent read */
+	bf->read_calls   = 0u;      /* count from this point forward */
+	if (nth != 0u) {
+		/* Arming a FRESH fault clears the fired flag; DISARMING preserves it
+		 * (symmetric with the write seam) so a caller can disarm then inspect. */
+		bf->read_faulted = 0;
+	}
+}
+
+int blockdev_file_read_faulted(const blockdev_file_t *bf)
+{
+	return (bf != NULL) ? bf->read_faulted : 0;
 }
 
 void blockdev_file_close(blockdev_file_t *bf)

@@ -3708,8 +3708,11 @@ static void int23_dispatch_body(int_frame_t *frame)
  * operator key (blocking, honoring the 0Bh pushback), and decide the action via
  * crit_error_action. On an invalid key, re-present + re-read (the -1 re-prompt
  * loop). Write the action code into AL and clear CF; do NOT terminate -- 24h
- * RETURNS the action to the failed caller (DOS contract). Nothing calls 24h yet
- * (no driver raises a critical error this milestone), so it just returns. */
+ * RETURNS the action to the failed caller (DOS contract). The disk layer now
+ * raises this on a hard sector-I/O failure through int21_run_critical_error
+ * (beads initech-mvg) -- a `int $0x24` software-INT or that helper both land
+ * here -- and honors the returned AL (Retry re-issues, Abort terminates the
+ * program, Fail propagates the error). */
 static void int24_dispatch_body(int_frame_t *frame)
 {
     int action;
@@ -4069,6 +4072,83 @@ void int24_dispatch(int_frame_t *frame)
     g_indos++;
     int24_dispatch_body(frame);
     g_indos--;
+}
+
+/* ---- CRITICAL-ERROR CHOKE POINT (beads initech-mvg) -----------------------
+ * THE single in-kernel entry the disk layer (ata.c's critical-error wrapper
+ * blockdev) calls when a hard sector I/O fails. It RAISES INT 24h by running the
+ * real handler over a synthesized frame -- so the SAME MSG-DOS-0001 prompt +
+ * A/R/F read + crit_error_action mapping the `int $0x24` software-interrupt path
+ * uses is exercised here (Law 2: one code path, one oracle) -- then maps the
+ * returned AL to the disk layer's decision:
+ *
+ *   AL=0 Retry -> return INT21_CRIT_RETRY : the wrapper RE-ISSUES the sector op.
+ *   AL=1 Abort -> TERMINATE the current program through the REAL do_terminate
+ *                 path (handle/memory/CWD reclaim + the bound exit hook) with the
+ *                 DOS abort code 0x23 ('#', "terminated by INT 24h" -- never a
+ *                 new teardown, Rule 3), then -- if the exit hook returns (the
+ *                 host-oracle default; the kernel hook does NOT return, it
+ *                 long-jumps to the loader) -- return INT21_CRIT_FAIL so a stray
+ *                 caller still propagates an error rather than continuing as if
+ *                 the I/O succeeded (Rule 2 fail-loud).
+ *   AL=2 Fail  -> return INT21_CRIT_FAIL  : the wrapper propagates the error
+ *                 (CF=1 / the DOS error code) up the syscall (current behavior).
+ *   Ignore (AL=3) is DEFERRED (the int24 handler never returns it -- the A/R/F
+ *                 prompt has no Ignore key this milestone); were it ever returned
+ *                 it is treated as Fail (the bead's defer-Ignore-as-Fail note).
+ *
+ * `op_is_write` (0 read / 1 write) is accepted for a future per-direction
+ * diagnostic + matches the DOS INT 24h AH bit0 (read/write) semantics; it does
+ * not change the A/R/F contract here. The frame is local (NOT the interrupted
+ * caller's): int24_dispatch only reads/writes AL+CF on it, so a synthetic frame
+ * is sufficient and keeps the disk layer ignorant of int_frame_t. Ref: DOS 3.3
+ * INT 24h (RBIL INT 24h: AL return 0=Ignore/1=Retry/2=Abort/3=Fail historically
+ * varies; we use the crit_error_action A/R/F mapping pinned in int21.h); ADR-0003
+ * DEC-10. */
+int int21_run_critical_error(int op_is_write)
+{
+    int_frame_t f;
+    uint8_t     action;
+    uint32_t    i;
+
+    (void)op_is_write;   /* reserved for a future per-direction diagnostic */
+
+    /* A zeroed frame with CF preset so we can prove int24 CLEARS it (mirrors the
+     * host oracle's fresh_frame; the only fields int24 touches are AL + CF). */
+    for (i = 0u; i < sizeof(f); i++) {
+        ((uint8_t *)&f)[i] = 0u;
+    }
+    f.eflags = 0x00000202u | CF_BIT;   /* IF + reserved bit1; CF preset */
+
+#if defined(MVG_MUTATE_NO_RAISE)
+    /* MUTANT (Rule 6; make test-int24-wired-mutant only): return Fail WITHOUT
+     * raising INT 24h -- the regression this bead fixes (a disk error never
+     * presents the operator prompt). MSG-DOS-0001 is never emitted and Retry
+     * never re-issues, so scenarios [A]/[B]/[C]/[D] go RED. NEVER in a real
+     * build. The (void) refs keep -Werror=unused quiet so the mutant still
+     * BUILDS + RUNS. */
+    (void)f; (void)action;
+    return INT21_CRIT_FAIL;
+#else
+    int24_dispatch(&f);                /* present MSG-DOS-0001, read A/R/F -> AL */
+    action = (uint8_t)(f.eax & 0xFFu);
+#endif
+
+    switch (action) {
+        case 0u:                       /* Retry */
+            return INT21_CRIT_RETRY;
+        case 1u:                       /* Abort */
+            /* Terminate the current program through the REAL terminate path with
+             * the DOS "terminated by INT 24h" exit code 0x23. do_terminate runs
+             * the handle/memory/CWD reclaim then the bound exit hook (which does
+             * not return in the kernel build). If it DOES return (host default),
+             * fall through to FAIL so we never report a fake success (Rule 2). */
+            do_terminate(&f, 0x23u);
+            return INT21_CRIT_FAIL;
+        case 2u:                       /* Fail */
+        default:                       /* Ignore (3) deferred -> treat as Fail */
+            return INT21_CRIT_FAIL;
+    }
 }
 
 /* ==== INT 25h / 26h ABSOLUTE DISK READ/WRITE (ADR-0003 DEC-15) ==============

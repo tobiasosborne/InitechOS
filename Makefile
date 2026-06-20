@@ -5767,6 +5767,103 @@ test-keep-mutant: $(TEST_KEEP_MUT)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-devices (beads initech-509.7 -- DOS character-device chain)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the five resident character devices (NUL/CON/AUX/PRN/
+# CLOCK$): device-header chain + attribute bits + request-packet dispatch
+# (READ/WRITE/NDREAD/IN+OUT STATUS/FLUSH/INIT) + the CLOCK$ 6-byte date/time
+# record + the callback I/O seam.  devices.c is pure (all real I/O via
+# callbacks); test_devices.c #includes it DIRECTLY (the test_batch.c TU trick).
+# The int21 OPEN-by-name + sysinit DEVICE= install + INT 2Fh are deferred.
+# Mutation builds (Rule 6): NO_DONE_BIT -> the status DONE bit never set;
+# NUL_READ_BYTE -> NUL READ returns a byte instead of EOF.
+TEST_DEVICES               := $(BUILD)/test_devices
+TEST_DEVICES_SRC           := $(MILTON_DIR)/test_devices.c
+TEST_DEVICES_HDRS          := $(MILTON_DIR)/devices.h $(MILTON_DIR)/devices.c
+TEST_DEVICES_MUT_NODONE    := $(BUILD)/test_devices_mutant_nodonebit
+TEST_DEVICES_MUT_NULREAD   := $(BUILD)/test_devices_mutant_nulreadbyte
+
+$(TEST_DEVICES): $(TEST_DEVICES_SRC) $(TEST_DEVICES_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed -o $@ $(TEST_DEVICES_SRC)
+
+$(TEST_DEVICES_MUT_NODONE): $(TEST_DEVICES_SRC) $(TEST_DEVICES_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDEVICES_MUTATE_NO_DONE_BIT \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_DEVICES_SRC)
+
+$(TEST_DEVICES_MUT_NULREAD): $(TEST_DEVICES_SRC) $(TEST_DEVICES_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDEVICES_MUTATE_NUL_READ_BYTE \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_DEVICES_SRC)
+
+.PHONY: test-devices test-devices-mutant
+test-devices: $(TEST_DEVICES)
+	@printf ">>> test-devices: chain + attr bits + NUL/CON/PRN/AUX/CLOCK$$ dispatch\n"
+	@$(TEST_DEVICES)
+	@printf ">>> test-devices: green\n"
+
+test-devices-mutant: $(TEST_DEVICES_MUT_NODONE) $(TEST_DEVICES_MUT_NULREAD)
+	@printf ">>> test-devices-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_DEVICES_MUT_NODONE) >/dev/null 2>&1; then \
+		printf '!!! test-devices-mutant FAIL: no-done-bit mutant PASSED -- the DONE test is decoration\n'; exit 1; \
+	else printf '>>> test-devices-mutant: green (no-done-bit mutant correctly RED)\n'; fi
+	@if $(TEST_DEVICES_MUT_NULREAD) >/dev/null 2>&1; then \
+		printf '!!! test-devices-mutant FAIL: nul-read-byte mutant PASSED -- the NUL EOF test is decoration\n'; exit 1; \
+	else printf '>>> test-devices-mutant: green (nul-read-byte mutant correctly RED -- the oracle bites)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-int24-wired (beads initech-mvg -- INT 24h raised by the disk
+# layer + Abort/Retry/Fail honored)
+# ---------------------------------------------------------------------------
+# Drives the REAL int21.c (int21_run_critical_error -> the real int24_dispatch),
+# ata.c (the crit_blockdev wrapper) + the lpf3 fault-injecting blockdev backend
+# HOSTED: a forced disk fault raises INT 24h (real MSG-DOS-0001); Retry re-issues
+# (bounded), Abort routes through do_terminate (code 0x23), Fail propagates the
+# error; no-hook-bound stays transparent.  Mutants (Rule 6): NO_RAISE -> the disk
+# layer never raises 24h; RETRY_UNBOUNDED -> the retry bound is removed (a dead
+# drive would spin forever -- the bounded mock conin underflows and the oracle
+# bites).  Needs an mformat'd blank floppy arg (minted in the recipe).
+TEST_INT24_WIRED      := $(BUILD)/test_int24_wired
+TEST_INT24_WIRED_SRC  := $(MILTON_DIR)/test_int24_wired.c
+TEST_INT24_WIRED_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) \
+                         $(KERNEL_IRQ_C) $(KERNEL_ATA_C) $(BLOCKDEV_FILE_SRC)
+TEST_INT24_WIRED_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/ata.h $(MILTON_DIR)/mcb.h \
+                         $(MILTON_DIR)/sft.h $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
+TEST_INT24_WIRED_IMG  := $(BUILD)/int24_wired_blank.img
+TEST_INT24_WIRED_MUT_NORAISE := $(BUILD)/test_int24_wired_mut_noraise
+TEST_INT24_WIRED_MUT_UNBOUND := $(BUILD)/test_int24_wired_mut_unbound
+
+$(TEST_INT24_WIRED): $(TEST_INT24_WIRED_SRC) $(TEST_INT24_WIRED_DEPS) $(TEST_INT24_WIRED_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild -I$(FAT_DIFF_DIR) \
+		-o $@ $(TEST_INT24_WIRED_SRC) $(TEST_INT24_WIRED_DEPS)
+
+$(TEST_INT24_WIRED_MUT_NORAISE): $(TEST_INT24_WIRED_SRC) $(TEST_INT24_WIRED_DEPS) $(TEST_INT24_WIRED_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMVG_MUTATE_NO_RAISE -Ispec -I$(MILTON_DIR) -Iseed -Ibuild -I$(FAT_DIFF_DIR) \
+		-o $@ $(TEST_INT24_WIRED_SRC) $(TEST_INT24_WIRED_DEPS)
+
+$(TEST_INT24_WIRED_MUT_UNBOUND): $(TEST_INT24_WIRED_SRC) $(TEST_INT24_WIRED_DEPS) $(TEST_INT24_WIRED_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMVG_MUTATE_RETRY_UNBOUNDED -Ispec -I$(MILTON_DIR) -Iseed -Ibuild -I$(FAT_DIFF_DIR) \
+		-o $@ $(TEST_INT24_WIRED_SRC) $(TEST_INT24_WIRED_DEPS)
+
+.PHONY: test-int24-wired test-int24-wired-mutant
+test-int24-wired: $(TEST_INT24_WIRED)
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-int24-wired FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@printf ">>> test-int24-wired: INT 24h raised by the disk layer + A/R/F honored (beads initech-mvg)\n"
+	@dd if=/dev/zero of=$(TEST_INT24_WIRED_IMG) bs=512 count=2880 status=none
+	@mformat -i $(TEST_INT24_WIRED_IMG) -f 1440 ::
+	@$(TEST_INT24_WIRED) "$(TEST_INT24_WIRED_IMG)"
+	@printf ">>> test-int24-wired: green\n"
+
+test-int24-wired-mutant: $(TEST_INT24_WIRED_MUT_NORAISE) $(TEST_INT24_WIRED_MUT_UNBOUND)
+	@dd if=/dev/zero of=$(TEST_INT24_WIRED_IMG) bs=512 count=2880 status=none
+	@mformat -i $(TEST_INT24_WIRED_IMG) -f 1440 ::
+	@printf ">>> test-int24-wired-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_INT24_WIRED_MUT_NORAISE) "$(TEST_INT24_WIRED_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-int24-wired-mutant FAIL: NO_RAISE mutant PASSED -- the int24-is-raised oracle is decoration\n'; exit 1; \
+	else printf '>>> test-int24-wired-mutant: green (NO_RAISE correctly RED)\n'; fi
+	@if timeout 15 $(TEST_INT24_WIRED_MUT_UNBOUND) "$(TEST_INT24_WIRED_IMG)" >/dev/null 2>&1; then \
+		printf '!!! test-int24-wired-mutant FAIL: RETRY_UNBOUNDED mutant PASSED -- the retry-bound oracle is decoration\n'; exit 1; \
+	else printf '>>> test-int24-wired-mutant: green (RETRY_UNBOUNDED correctly RED -- the oracle bites)\n'; fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-psp (beads initech-509.4 -- PSP full 256-byte construction)
 # ---------------------------------------------------------------------------
 # Host unit oracle for psp_build() (os/milton/psp.c): zero-init + every field
@@ -12936,7 +13033,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-batch-exec test-ansi test-keep test-psp test-sft test-loader test-mz test-mzload \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-batch-exec test-ansi test-keep test-devices test-int24-wired test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
@@ -12955,7 +13052,7 @@ TEST_UNIT_GATES := \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-keep-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \

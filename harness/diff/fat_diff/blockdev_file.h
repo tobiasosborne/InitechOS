@@ -45,6 +45,15 @@ typedef struct blockdev_file {
 	uint32_t   write_fail_at;  /* 1-based ordinal of the write to fail; 0=off */
 	uint32_t   write_calls;    /* count of write_sectors calls seen so far    */
 	int        write_faulted;  /* set non-zero once the injected fault fired  */
+
+	/* READ-fault seam (beads initech-mvg): the symmetric twin of the write
+	 * seam above, so the INT 24h critical-error oracle can force a READ to fail
+	 * (a real ata_read floating-bus / timeout / status error) and assert the
+	 * read path raises INT 24h + honors A/R/F. Same 1-based ordinal semantics;
+	 * 0 == disarmed (every existing oracle byte-identical). */
+	uint32_t   read_fail_at;   /* 1-based ordinal of the read to fail; 0=off   */
+	uint32_t   read_calls;     /* count of read_sectors calls seen so far      */
+	int        read_faulted;   /* set non-zero once the injected read fault fired */
 } blockdev_file_t;
 
 /* Open `path` read-only and wire `bf->dev`. Returns 0 on success, negative on
@@ -72,6 +81,16 @@ void blockdev_file_arm_write_fault(blockdev_file_t *bf, uint32_t nth);
  * forced to fail). Lets an oracle assert the fault was REACHED (a rollback
  * test that never tripped the fault has proven nothing -- Law 2). */
 int blockdev_file_write_faulted(const blockdev_file_t *bf);
+
+/* ARM the READ-fault seam (beads initech-mvg): the symmetric twin of
+ * blockdev_file_arm_write_fault -- make the `nth` (1-based) subsequent
+ * read_sectors call return an error, as a real device READ failure would
+ * (Rule 2). Resets the counter on arm; `nth == 0` DISARMS. Arming clears the
+ * fired flag; disarming preserves it (so a caller can disarm then inspect). */
+void blockdev_file_arm_read_fault(blockdev_file_t *bf, uint32_t nth);
+
+/* Non-zero iff the armed read fault has actually fired. */
+int blockdev_file_read_faulted(const blockdev_file_t *bf);
 
 /* Close the backing file. Safe to call once after a successful open. */
 void blockdev_file_close(blockdev_file_t *bf);

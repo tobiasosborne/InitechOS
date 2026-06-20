@@ -87,4 +87,67 @@ void ata_ctx_init_primary_master(ata_ctx_t *ctx);
 /* Fill `ctx` for the primary slave (the FAT12 data disk, drive-select 0xF0). */
 void ata_ctx_init_primary_slave(ata_ctx_t *ctx);
 
+/* ===========================================================================
+ * CRITICAL-ERROR WRAPPER BLOCKDEV (beads initech-mvg, ADR-0003 DEC-10)
+ * ===========================================================================
+ * A blockdev_t that WRAPS an inner backend (ata.c on hardware; the host file-
+ * backed backend in the oracle) and, on a HARD sector-I/O failure, RAISES the
+ * DOS INT 24h critical-error handler and HONORS the operator's Abort/Retry/Fail
+ * decision. This is the period-authentic DOS model: INT 24h is raised by the
+ * DISK DRIVER LAYER when a sector op fails, NOT by the FAT logic above it -- so
+ * fat12.c (which calls through this wrapper) needs ZERO knowledge of INT 24h,
+ * and EVERY ata.c failure source (floating-bus ATA_ERR_NO_DRIVE, BSY/DRQ
+ * ATA_ERR_TIMEOUT, status ATA_ERR_DEVICE, and a NULL write_sectors / write-
+ * protect) is covered uniformly because they all surface as a negative return.
+ *
+ * The wrapper reaches INT 24h ONLY through a bound HOOK (a function pointer the
+ * kernel sets to int21_run_critical_error, int21.h) -- so ata.c does NOT link
+ * int21.c and compiles freestanding standalone (Law 3), and the host oracle
+ * binds its own stub responder. With NO hook bound (the default) the wrapper is
+ * TRANSPARENT: it returns the inner error verbatim (== the historical "Fail"
+ * behavior), so nothing changes until the kernel wires the hook.
+ *
+ * The hook returns the disk-layer decision:
+ *   CRIT_BLOCKDEV_RETRY -> RE-ISSUE the inner op (bounded by CRIT_BLOCKDEV_MAX_
+ *                          RETRIES so a permanently-dead drive cannot spin
+ *                          forever -- Rule 2);
+ *   CRIT_BLOCKDEV_FAIL  -> return the inner error (Abort is handled inside the
+ *                          hook via do_terminate, which normally does not
+ *                          return; a returning Abort degrades to Fail).
+ * These two values MUST equal int21.h's INT21_CRIT_FAIL / INT21_CRIT_RETRY (the
+ * hook is int21_run_critical_error); they are re-stated here so ata.c does not
+ * include int21.h (keeping the disk layer's INT 24h knowledge to one function
+ * pointer). op_is_write: 0 = a read failed, 1 = a write failed. */
+#define CRIT_BLOCKDEV_FAIL        0   /* propagate the inner error (Fail/Abort) */
+#define CRIT_BLOCKDEV_RETRY       1   /* re-issue the failed inner op (Retry)   */
+#define CRIT_BLOCKDEV_MAX_RETRIES 5u  /* bound the Retry loop (a dead drive must
+                                       * not spin forever -- Rule 2). DOS itself
+                                       * re-prompts indefinitely, but each Retry
+                                       * here is one operator decision; this caps
+                                       * the AUTOMATIC re-issues per decision. */
+
+typedef int (*crit_blockdev_hook_t)(int op_is_write);
+
+/* The wrapper's backing state (caller-owned, kernel BSS / host stack). `inner`
+ * points at the real backend (an ata blockdev or the host file backend); `dev`
+ * is the wrapped blockdev_t the caller hands to fat12_mount in place of the
+ * inner one. */
+typedef struct crit_blockdev {
+	const blockdev_t *inner;   /* the real backend being wrapped               */
+	blockdev_t        dev;     /* the wrapped device handed to fat12_mount     */
+} crit_blockdev_t;
+
+/* Initialise `cb` to wrap `inner` and fill `cb->dev` with the wrapping
+ * blockdev_t (cb->dev.ctx = cb). After this, hand `&cb->dev` to fat12_mount.
+ * `cb->dev.write_sectors` is NULL iff inner->write_sectors is NULL (a read-only
+ * inner device stays read-only through the wrapper). Both `cb` and `inner` are
+ * caller-owned; `inner` must outlive `cb`. */
+void crit_blockdev_init(crit_blockdev_t *cb, const blockdev_t *inner);
+
+/* Bind the critical-error hook the wrapper raises on a hard I/O failure (NULL
+ * clears it -> the wrapper is transparent, returning the inner error). The
+ * kernel binds int21_run_critical_error at boot; the host oracle binds a stub.
+ * One process-wide hook (the single-tenant DOS model). */
+void crit_blockdev_set_hook(crit_blockdev_hook_t hook);
+
 #endif /* INITECH_MILTON_ATA_H */
