@@ -31,6 +31,15 @@
 #include <stdint.h>
 #include "psp.h"   /* psp_t (jft[20]); pulls dos_structs.h (dir_entry_t) */
 
+/* Forward declaration of the character-device chain header (os/milton/devices.h,
+ * beads initech-509.7). An SFT entry that an AH=3Dh OPEN-by-name bound to a
+ * resident device (CON/NUL/PRN/AUX/CLOCK$) carries a pointer to that device's
+ * header in sft_entry.device (beads initech-6zd9). sft.h does NOT include
+ * devices.h: sft.c stays a PURE table module (no devices.c dependency, still
+ * host-unit-testable in isolation) -- only the pointer width is needed here. The
+ * full type lives in devices.h, which int21.c includes for devices_request(). */
+struct device_header;
+
 /* FILES=20 (ADR-0003 Appendix D.2 CONFIG.SYS baseline) governs the SFT capacity
  * AND the JFT width (DEC-06: a 20-entry JFT). */
 #define SFT_MAX_ENTRIES   20u
@@ -96,6 +105,15 @@ typedef struct sft_entry {
     uint8_t      open_mode;     /* SFT_MODE_*                                  */
     uint8_t      dev_id;        /* sft_dev_id_t (valid when kind == DEVICE)    */
     uint16_t     ref_count;     /* JFT references to this slot (DUP semantics) */
+    /* --- DEVICE state (valid when kind == SFT_KIND_DEVICE; beads initech-6zd9) -
+     * An AH=3Dh OPEN-by-name of "CON"/"NUL"/"PRN"/"AUX"/"CLOCK$" binds the slot to
+     * the matching resident device header (devices.c). NULL on the predefined
+     * slots 0..3 (sft_init lays them with dev_id but NO device chain pointer --
+     * those keep the legacy do_write CON fast path), and NULL on FILE/FREE slots.
+     * A non-NULL `device` means "route READ/WRITE through devices_request" -- the
+     * dispatcher uses (device != NULL) to select the chain path; the predefined
+     * CON slots stay on the byte-for-byte-preserved legacy leg. */
+    struct device_header *device; /* devices.c header for an OPEN-by-name device */
     /* --- FILE state (valid when kind == SFT_KIND_FILE; set by OPEN/CREAT) --- */
     dir_entry_t  dir_entry;     /* copy of the 32-byte FAT dir entry at open   */
     uint32_t     file_offset;   /* current byte offset (READ/WRITE/LSEEK move) */

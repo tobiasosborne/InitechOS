@@ -28,7 +28,11 @@
 #define INITECH_INT21_H
 
 #include <stdint.h>
-#include "idt.h"   /* int_frame_t -- the trap stub builds the SAME layout */
+#include "idt.h"      /* int_frame_t -- the trap stub builds the SAME layout */
+#include "devices.h"  /* device_header_t / devices_io_t -- the AH=3Dh OPEN-by-name
+                       * character-device chain (beads initech-509.7 / 6zd9). Pure
+                       * type/decl header (stdint/stddef only, freestanding-clean),
+                       * so pulling it into int21.h adds no dependency weight. */
 
 /* DOS error codes used by this subset (DOS 3.3 INT 21h error returns). */
 #define INT21_ERR_INVALID_FUNCTION  0x0001u  /* unlisted/not-yet-impl AH      */
@@ -598,6 +602,34 @@ void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set);
 typedef void     (*int21_setvect_fn)(uint8_t vec, uint32_t handler);
 typedef uint32_t (*int21_getvect_fn)(uint8_t vec);
 void int21_set_vectortable(int21_setvect_fn set, int21_getvect_fn get);
+
+/* ---- CHARACTER-DEVICE CHAIN SEAM (beads initech-6zd9; ADR-0003 DEC-09) -------
+ * Wire the resident character-device chain (os/milton/devices.c, beads
+ * initech-509.7) into the INT 21h OPEN-by-name path (AH=3Dh) and the device
+ * READ/WRITE routing (AH=3Fh/40h). The seam follows the SAME bound-pointer
+ * pattern as the sink/conin/clock seams so int21.c stays host-testable and the
+ * kernel binds the real chain at SYSINIT.
+ *
+ *   chain : the head of the device chain (devices_head() after devices_init()).
+ *           NULL leaves OPEN-by-name disabled -- an OPEN of a device NAME then
+ *           falls through to the FAT file path (the pre-6zd9 behavior), and a
+ *           device-bound SFT slot (which only an OPEN-by-name can create) never
+ *           exists, so the READ/WRITE chain routing is inert. The predefined
+ *           CON/AUX/PRN slots 0..3 keep their legacy do_write/do_read legs
+ *           UNCHANGED regardless of this seam (the CON output path is preserved
+ *           byte-for-byte).
+ *   io    : the I/O callback bundle devices_request() drives (con_write ->
+ *           console sink, con_read/peek -> the keyboard, prn_write/aux_* -> the
+ *           port sinks, clk_read/write -> the RTC). COPIED so the caller need not
+ *           keep it alive. A NULL `io` clears the bundle (every device callback
+ *           then reads as "not present" -> the handler sets the device error
+ *           bit, mapped to CF=1 -- never a fault, Rule 2).
+ *
+ * Ref (Law 1): Ralf Brown's Interrupt List INT 21/AH=3Dh (DOS OPEN walks the
+ * device chain by name BEFORE the directory); MS-DOS 3.3 Technical Reference
+ * Ch. 4 (device names CON/NUL/PRN/AUX/CLOCK$); ADR-0003 DEC-09 (the device
+ * chain); os/milton/devices.h (the chain API + the io bundle). */
+void int21_set_devices(device_header_t *chain, const devices_io_t *io);
 
 /* ---- DOS termination / control-break / critical-error handlers (DEC-10) ----
  * beads initech-509.8. The asm trap stubs (int22_entry / int23_entry /

@@ -80,6 +80,27 @@ static int21_clock_set_fn g_clock_set = 0;
 static int21_setvect_fn g_setvect = 0;
 static int21_getvect_fn g_getvect = 0;
 
+/* The character-device chain seam (beads initech-6zd9; ADR-0003 DEC-09). The
+ * resident device chain (devices.c: NUL/CON/AUX/PRN/CLOCK$) wired into the
+ * AH=3Dh OPEN-by-name path and the AH=3Fh/40h device READ/WRITE routing. NULL
+ * until the kernel binds it at SYSINIT (or the host oracle binds it). With no
+ * chain bound, OPEN-by-name is disabled (a device NAME open falls through to the
+ * FAT path) and no device-bound SFT slot can exist -- so the legacy CON/AUX/PRN
+ * slots 0..3 are entirely unaffected (the CON output path is preserved exactly).
+ * g_devio is a COPY of the io bundle (its lifetime is independent of the caller);
+ * g_devio_bound gates it (an unbound bundle leaves every device callback NULL ->
+ * the handler sets the device error bit, mapped to CF=1, never a fault). */
+static device_header_t *g_devchain     = 0;
+static devices_io_t     g_devio        = { 0 };
+static int              g_devio_bound  = 0;
+
+/* Forward declarations (beads initech-6zd9): do_write/do_read (defined ABOVE the
+ * OPEN-by-name device routing block) reach the chain through these. The full
+ * definitions live with the file-handle functions further down. */
+static device_header_t *dev_open_lookup(const char *path);
+static uint16_t dev_route_rw(device_header_t *dev, int is_write,
+                             uint8_t *buf, uint32_t len, uint32_t *out_count);
+
 /* The file backend (beads initech-509.5 read-side). NULL until the kernel binds
  * a FAT12-backed impl (or the host oracle binds a mock). The file functions
  * resolve FAT-specific work through it so int21.c stays host-testable. */
@@ -393,6 +414,28 @@ void int21_set_vectortable(int21_setvect_fn set, int21_getvect_fn get)
 {
     g_setvect = set;
     g_getvect = get;
+}
+
+/* Bind the character-device chain + its I/O bundle (beads initech-6zd9). The io
+ * bundle is COPIED so the caller need not keep it alive; a NULL io clears the
+ * bundle (every device callback then reads as "not present"). The chain head may
+ * be NULL to disable OPEN-by-name. The kernel binds devices_head() + an io bundle
+ * routed to the real console/keyboard/RTC at SYSINIT; the host oracle binds a
+ * mock chain + stub callbacks. */
+void int21_set_devices(device_header_t *chain, const devices_io_t *io)
+{
+    g_devchain = chain;
+    if (io == 0) {
+        /* Clear the bundle: a zeroed devices_io_t has every callback NULL, which
+         * the devices.c handlers treat as "device not present" -> error bit. */
+        for (uint32_t i = 0u; i < (uint32_t)sizeof(g_devio); i++) {
+            ((uint8_t *)&g_devio)[i] = 0u;
+        }
+        g_devio_bound = 0;
+        return;
+    }
+    g_devio = *io;          /* struct copy -- independent of the caller's lifetime */
+    g_devio_bound = 1;
 }
 
 /* ---- CF helpers: write ONLY bit 0 of the saved EFLAGS image. ---- */
@@ -1015,12 +1058,36 @@ static void do_write(int_frame_t *f)
     }
 
     /* CON device write: fan the bytes to the console sink. CON is the screen
-     * regardless of the slot's nominal mode (DOS treats CON as writable). */
+     * regardless of the slot's nominal mode (DOS treats CON as writable). This is
+     * the LEGACY predefined-CON fast path (slots 0..3, device == NULL) -- the most
+     * load-bearing output path in the OS (the shell prompt, every diagnostic). It
+     * is PRESERVED BYTE-FOR-BYTE: an OPEN-by-name CON slot (device != NULL) does
+     * NOT match here (its dev_id is not SFT_DEV_CON) and takes the chain route
+     * below instead, which routes con_write back to this same console sink. */
     if (e->kind == SFT_KIND_DEVICE && e->dev_id == SFT_DEV_CON) {
         for (uint32_t i = 0; i < count; i++) {
             con_putc(buf[i]);
         }
         f->eax = count;   /* full EAX = bytes written */
+        cf_clear(f);
+        return;
+    }
+
+    /* OPEN-by-name device write (beads initech-6zd9): a SFT slot bound to a
+     * resident device (CON/NUL/PRN/AUX/CLOCK$ via AH=3Dh) routes through the
+     * devices.c chain. NUL discards + succeeds; CON/PRN/AUX reach their sinks;
+     * CLOCK$ accepts a 6-byte record. A device the io bundle cannot serve ->
+     * access-denied (Rule 2: never a silent drop). */
+    if (e->kind == SFT_KIND_DEVICE && e->device != 0) {
+        uint32_t wrote = 0u;
+        uint16_t derr = dev_route_rw((device_header_t *)e->device, 1 /* write */,
+                                     (uint8_t *)(uintptr_t)buf, count, &wrote);
+        if (derr != 0u) {
+            set_ax(f, derr);
+            cf_set(f);
+            return;
+        }
+        f->eax = wrote;   /* EAX = bytes the device consumed */
         cf_clear(f);
         return;
     }
@@ -1434,17 +1501,297 @@ static uint16_t resolve_dir_path(const char *path, const char **out_leaf,
     return 0u;
 }
 
+/* ---- internal devices_io_t adapters for CON + CLOCK$ (beads initech-6zd9) --- *
+ * The device chain's CON and CLOCK$ legs are wired to int21.c's OWN existing
+ * seams -- NOT to a separately-bound kernel bundle -- for two reasons:
+ *   1. CON OUTPUT IDENTITY (the load-bearing constraint): a device-chain CON
+ *      write goes through the SAME con_putc() the legacy do_write CON fast path
+ *      uses, so OPEN-by-name "CON" output is provably the same byte stream as
+ *      handle-1 output. There is exactly one CON output path.
+ *   2. CLOCK$ reuses the existing clock seam (g_clock_get/set), already bound to
+ *      the RTC by the kernel and to a fixed mock by the host oracle.
+ * The kernel-bound g_devio bundle is consulted ONLY for PRN + AUX (the two
+ * sinks int21.c has no other path to). So a device READ/WRITE merges: CON/CLOCK$
+ * from the internal adapters, PRN/AUX from g_devio. */
+
+/* CON write adapter: route device-chain CON output through con_putc (== the
+ * legacy CON path). Always "succeeds" for the count requested (con_putc is the
+ * synchronous sink; a NULL sink silently discards, exactly as AH=02h/40h do). */
+static int dev_con_write_adapter(const uint8_t *b, int n, void *ctx)
+{
+    (void)ctx;
+    for (int i = 0; i < n; i++) {
+        con_putc((char)b[i]);
+    }
+    return n;
+}
+
+/* CON read adapter: deliver raw keyboard bytes through the existing CON input
+ * source (conin_get_pb honors the 0Bh pushback). A device-chain CON read is RAW
+ * (no cooked editing -- the cooked line editor is the legacy predefined-CON-slot
+ * behavior; an OPEN-by-name CON read is the raw character stream). Fills up to
+ * `n` bytes, blocking for the first (conin_get never hangs the host: an unbound
+ * source returns 0). */
+static int conin_get_pb(void);   /* fwd: defined with the CON-input subset below */
+static int dev_con_read_adapter(uint8_t *b, int n, void *ctx)
+{
+    (void)ctx;
+    if (n <= 0) {
+        return 0;
+    }
+    b[0] = (uint8_t)conin_get_pb();
+    return 1;                    /* one char per call (DOS char-device semantics) */
+}
+
+/* CON peek adapter: non-destructive one-byte poll through the existing CON poll
+ * (conin_poll_pb). -1 == no data yet. */
+static int conin_poll_pb(void);  /* fwd: defined with the CON-input subset below */
+static int dev_con_peek_adapter(void *ctx)
+{
+    (void)ctx;
+    return conin_poll_pb();
+}
+
+/* Days from 1 Jan 1980 to y/mo/d (the CLOCK$ record's offset-0 WORD). Pure,
+ * deterministic Gregorian day count (Rule 11). Ref: MS-DOS 3.3 Tech Ref Ch. 4
+ * (CLOCK$ record: WORD days-since-1980). Valid for 1980-01-01 onward; a date at
+ * or before the epoch yields 0 (the epoch sentinel). */
+static uint16_t dev_days_since_1980(uint16_t y, uint8_t mo, uint8_t d)
+{
+    static const uint16_t cum[12] = {   /* days before month m (non-leap) */
+        0u, 31u, 59u, 90u, 120u, 151u, 181u, 212u, 243u, 273u, 304u, 334u
+    };
+    if (y < 1980u || mo < 1u || mo > 12u || d < 1u) {
+        return 0u;
+    }
+    uint32_t days = 0u;
+    for (uint16_t yy = 1980u; yy < y; yy++) {
+        int leap = ((yy % 4u) == 0u && ((yy % 100u) != 0u || (yy % 400u) == 0u));
+        days += leap ? 366u : 365u;
+    }
+    days += cum[mo - 1u];
+    if (mo > 2u && ((y % 4u) == 0u && ((y % 100u) != 0u || (y % 400u) == 0u))) {
+        days += 1u;              /* this year's leap day, already past in m > Feb */
+    }
+    days += (uint32_t)(d - 1u);
+    return (days > 0xFFFFu) ? (uint16_t)0xFFFFu : (uint16_t)days;
+}
+
+/* CLOCK$ read adapter: build the 6-byte date/time record from the existing clock
+ * seam (g_clock_get). With no clock bound, g_clock_get is NULL -> fail (the
+ * devices.c handler then sets the error bit). Ref: MS-DOS 3.3 Tech Ref Ch. 4. */
+static int dev_clk_read_adapter(dev_clock_rec_t *rec, void *ctx)
+{
+    (void)ctx;
+    if (g_clock_get == 0) {
+        return 0;
+    }
+    uint16_t y; uint8_t mo, d, h, mi, s, dow;
+    if (!g_clock_get(&y, &mo, &d, &h, &mi, &s, &dow)) {
+        return 0;
+    }
+    rec->days_since_1980 = dev_days_since_1980(y, mo, d);
+    rec->minutes    = mi;
+    rec->hours      = h;
+    rec->hundredths = 0u;        /* the clock seam has no sub-second field */
+    rec->seconds    = s;
+    return 1;
+}
+
+/* CLOCK$ write adapter: program the clock seam (g_clock_set) from a 6-byte
+ * record. The record carries days-since-1980 (which the clock seam, taking
+ * y/mo/d, cannot consume without a reverse day->date walk) -- the kernel clock
+ * seam SET takes a full date, so a CLOCK$ WRITE setting only the time fields is
+ * the practical case. We set the TIME (hours/minutes/seconds) via the seam's
+ * which-mask; the date half is accepted but a days->y/m/d reverse walk is a
+ * flagged follow-up (bead to file). With no clock bound, g_clock_set is NULL ->
+ * fail (the handler sets the error bit). */
+static int dev_clk_write_adapter(const dev_clock_rec_t *rec, void *ctx)
+{
+    (void)ctx;
+    if (g_clock_set == 0) {
+        return 0;
+    }
+    /* Set only the TIME fields (the date reverse-walk is deferred); the seam's
+     * which-mask leaves the date untouched. year/month/day are passed as the
+     * current-epoch placeholders the seam ignores for a TIME-only SET. */
+    return g_clock_set(1980u, 1u, 1u,
+                       rec->hours, rec->minutes, rec->seconds,
+                       INT21_CLOCK_SET_TIME);
+}
+
+/* Build the merged device io bundle for one request: CON + CLOCK$ from the
+ * internal adapters (CON output identity; clock-seam reuse), PRN + AUX from the
+ * kernel-bound g_devio (the two sinks int21.c has no other path to). */
+static devices_io_t dev_build_io(void)
+{
+    devices_io_t io;
+    for (uint32_t i = 0u; i < (uint32_t)sizeof(io); i++) {
+        ((uint8_t *)&io)[i] = 0u;
+    }
+    /* CON: always int21.c's own seams (the load-bearing identity). */
+    io.con_write = dev_con_write_adapter;
+    io.con_read  = dev_con_read_adapter;
+    io.con_peek  = dev_con_peek_adapter;
+    io.con_ctx   = 0;
+    /* CLOCK$: the existing clock seam. */
+    io.clk_read  = dev_clk_read_adapter;
+    io.clk_write = dev_clk_write_adapter;
+    io.clk_ctx   = 0;
+    /* PRN + AUX: the kernel-bound bundle (NULL when unbound -> handler errors). */
+    if (g_devio_bound) {
+        io.prn_write = g_devio.prn_write;
+        io.prn_ctx   = g_devio.prn_ctx;
+        io.aux_write = g_devio.aux_write;
+        io.aux_read  = g_devio.aux_read;
+        io.aux_peek  = g_devio.aux_peek;
+        io.aux_ctx   = g_devio.aux_ctx;
+    }
+    return io;
+}
+
+/* ---- AH=3Dh OPEN-by-name device routing (beads initech-6zd9) --------------- *
+ * DOS resolves an OPEN (AH=3Dh) of a DEVICE NAME -- "CON", "NUL", "PRN", "AUX",
+ * "CLOCK$" -- by walking the resident device chain BY NAME *before* it ever
+ * touches the directory; a match yields a character-device handle, never a file.
+ * The name match ignores a leading path/drive and any extension (so "A:\NUL",
+ * "NUL", and "NUL.TXT" all open the NUL device). Ref (Law 1): Ralf Brown's
+ * Interrupt List INT 21/AH=3Dh ("DOS first checks for a character device of the
+ * specified name"); MS-DOS 3.3 Technical Reference Ch. 4 (the 8-byte, space-
+ * padded device names; the base name is matched, the extension is ignored).
+ *
+ * dev_name_from_path: extract the bare base name from an ASCIIZ path and write it
+ * UPPER-CASED + space-padded into out8[DEV_NAME_LEN] (exactly the 8-byte form
+ * devices_find() compares). Skips a leading "X:" drive and any "...\\" / "/" path
+ * components (so the LAST component is the candidate name), then copies up to the
+ * first '.' (an extension is not part of the device name). Returns 1 if a non-
+ * empty base name was produced, 0 otherwise (caller then is not a device open). */
+static int dev_name_from_path(const char *path, char out8[DEV_NAME_LEN])
+{
+    uint32_t i;
+    for (i = 0u; i < (uint32_t)DEV_NAME_LEN; i++) {
+        out8[i] = ' ';                    /* space-pad to 8 (DOS device-name form) */
+    }
+    if (path == 0 || *path == '\0') {
+        return 0;
+    }
+
+    /* Skip a leading "X:" drive prefix (one volume this milestone; the letter is
+     * irrelevant to a device-name match). */
+    const char *p = path;
+    if (p[0] != '\0' && p[1] == ':') {
+        p += 2;
+    }
+
+    /* Advance past the LAST path separator so only the final component remains
+     * (DOS device names live in every directory; "A:\\SUB\\NUL" still opens NUL).
+     * Bounded by INT21_PATH_SCAN_MAX so a malformed/unterminated pointer can never
+     * run away (Rule 2; the same runaway bound the file path uses). */
+    const char *base = p;
+    uint32_t scanned = 0u;
+    for (const char *q = p; *q; q++) {
+        if (*q == '\\' || *q == '/') {
+            base = q + 1;
+        }
+        if (++scanned >= INT21_PATH_SCAN_MAX) {
+            return 0;                     /* runaway -> not a device name */
+        }
+    }
+
+    /* Copy the base name up to the first '.' (extension excluded) or 8 chars,
+     * upper-casing as we go. An empty base ("A:\\" or a trailing separator) is
+     * not a device name. */
+    uint32_t n = 0u;
+    for (const char *q = base; *q && *q != '.' && n < (uint32_t)DEV_NAME_LEN; q++) {
+        char c = *q;
+        if (c >= 'a' && c <= 'z') {
+            c = (char)(c - 32);           /* upper-case (devices_find is exact) */
+        }
+        out8[n++] = c;
+    }
+    return (n > 0u) ? 1 : 0;
+}
+
+/* dev_open_lookup: if OPEN-by-name is enabled (a device chain is bound) AND
+ * `path` names a resident device, return its header; else NULL (the caller then
+ * takes the FAT file path). NULL chain -> OPEN-by-name disabled (pre-6zd9). */
+static device_header_t *dev_open_lookup(const char *path)
+{
+#ifdef INT21_MUTATE_OPEN_NO_DEVICE
+    /* MUTANT (Rule 6; make test-devwire-mutant only): pretend NO path is ever a
+     * device, so an OPEN of "NUL"/"CON"/"PRN"/"CLOCK$" falls through to the FAT
+     * path -> with no such FILE it returns file-not-found and the device-OPEN
+     * oracle goes RED. A one-branch RUNTIME perturbation that compiles under
+     * -Werror. NEVER define in a real build. The (void) refs keep
+     * -Werror=unused-function quiet (dev_name_from_path is otherwise unreached). */
+    (void)path;
+    (void)dev_name_from_path;
+    return 0;
+#else
+    if (g_devchain == 0) {
+        return 0;                         /* chain unbound -> OPEN-by-name disabled */
+    }
+    char name8[DEV_NAME_LEN];
+    if (!dev_name_from_path(path, name8)) {
+        return 0;
+    }
+    return devices_find(name8);           /* NULL if the name is not a device */
+#endif
+}
+
+/* dev_route_rw: drive one READ (DEVCMD_READ) or WRITE (DEVCMD_WRITE) request
+ * through devices_request() for an SFT slot bound to a resident device (beads
+ * initech-6zd9). Builds a device_request_t over the caller's [buf,len) and the
+ * bound io bundle, then maps the result back to the syscall contract:
+ *   - success: *out_count = the bytes the device transferred, returns 0;
+ *   - device error (DEVST_ERROR set): returns a DOS error code (CF=1 at the
+ *     call site). A WRITE that the device could not perform (no sink bound, or a
+ *     write-only device read) maps to ACCESS_DENIED; a READ fault maps the same
+ *     so a program sees a clean DOS error rather than a fault (Rule 2).
+ * is_write selects the command. */
+static uint16_t dev_route_rw(device_header_t *dev, int is_write,
+                             uint8_t *buf, uint32_t len, uint32_t *out_count)
+{
+    device_request_t pkt;
+    for (uint32_t i = 0u; i < (uint32_t)sizeof(pkt); i++) {
+        ((uint8_t *)&pkt)[i] = 0u;        /* zero the packet (reserved + status) */
+    }
+    pkt.length        = (uint8_t)DEV_REQ_HDR_LEN;
+    pkt.command       = is_write ? (uint8_t)DEVCMD_WRITE : (uint8_t)DEVCMD_READ;
+    pkt.data.rw.buffer = buf;
+    /* The DOS device count field is 16-bit; a single INT 21h device READ/WRITE in
+     * this model transfers at most 0xFFFF bytes (a larger request is clamped --
+     * the device serves what it can, the syscall reports the actual count). */
+    pkt.data.rw.count = (len > 0xFFFFu) ? (uint16_t)0xFFFFu : (uint16_t)len;
+
+    devices_io_t io = dev_build_io();     /* CON/CLOCK$ internal, PRN/AUX bound */
+    devices_request(dev, &pkt, &io);
+
+    if (pkt.status & DEVST_ERROR) {
+        /* A device that cannot satisfy the request (no sink bound, write-only
+         * device read, etc.) -> a clean DOS error, never a fault. */
+        *out_count = 0u;
+        return INT21_ERR_ACCESS_DENIED;   /* 0x0005 */
+    }
+    *out_count = (uint32_t)pkt.data.rw.count;
+    return 0u;
+}
+
 /* AH=3Dh OPEN: EDX = flat ptr to ASCIIZ path, AL = mode (0=r,1=w,2=rdwr).
- * A '\SUB\FILE'-qualified path is resolved to its containing directory's start
- * cluster via the backend resolve seam (beads initech-mzxa); a missing/non-dir
- * component or an overlength path -> CF=1, AX=0x0003 (path not found). On
- * success: allocate an SFT FILE slot + a JFT slot, LOCATE the file in the
- * resolved directory (no whole-file read -- positioned per-handle I/O, beads
+ * DEVICE-by-name (beads initech-6zd9): if `path` names a resident character
+ * device (CON/NUL/PRN/AUX/CLOCK$), bind a SFT_KIND_DEVICE slot to that device
+ * header and return the handle -- the device open NEVER touches the FAT (DOS
+ * checks the device chain before the directory; Ralf Brown INT 21/AH=3Dh).
+ * Otherwise: a '\SUB\FILE'-qualified path is resolved to its containing
+ * directory's start cluster via the backend resolve seam (beads initech-mzxa);
+ * a missing/non-dir component or an overlength path -> CF=1, AX=0x0003 (path not
+ * found). On success: allocate an SFT FILE slot + a JFT slot, LOCATE the file in
+ * the resolved directory (no whole-file read -- positioned per-handle I/O, beads
  * initech-0qh), store its dir_entry + root_slot + mode in the SFT with
  * file_offset=0, return EAX = handle (JFT index), CF clear. Any number of files
  * may be open concurrently (each its own SFT slot). Errors: AX=0x0002 (not
  * found), 0x0003 (path), 0x0004 (no free SFT/JFT slot). Ref: brief Sec 4.1;
- * DOS 3.3 PRM AH=3Dh. */
+ * DOS 3.3 PRM AH=3Dh; RBIL INT 21/AH=3Dh (device-name precedence). */
 static void do_open(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
@@ -1455,6 +1802,44 @@ static void do_open(int_frame_t *f)
         cf_set(f);
         return;
     }
+
+    /* DEVICE-by-name FIRST (DOS precedence): a device open binds a device-kind
+     * SFT slot and returns immediately, bypassing the FAT path entirely. Only the
+     * JFT slot is needed (no FAT, no per-handle file state). */
+    device_header_t *dev = dev_open_lookup(path);
+    if (dev != 0) {
+        uint8_t sft_idx = sft_alloc();
+        if (sft_idx >= (uint8_t)SFT_MAX_ENTRIES) {
+            set_ax(f, INT21_ERR_TOO_MANY_OPEN);
+            cf_set(f);
+            return;
+        }
+        uint8_t handle = jft_alloc(g_cur_psp);
+        if (handle == JFT_CLOSED) {
+            set_ax(f, INT21_ERR_TOO_MANY_OPEN);
+            cf_set(f);
+            return;
+        }
+        sft_entry_t *e = &g_sft[sft_idx];
+        e->kind        = SFT_KIND_DEVICE;
+        /* dev_id is the legacy predefined-device tag (CON/AUX/PRN); an OPEN-by-name
+         * slot is identified by its `device` chain pointer, not dev_id. Leave dev_id
+         * at a non-CON value so this slot never matches the legacy CON fast path in
+         * do_write/do_read -- the (device != NULL) chain route owns it. */
+        e->open_mode   = mode;
+        e->dev_id      = (uint8_t)SFT_DEV_AUX;  /* != SFT_DEV_CON: not the CON fast path */
+        e->ref_count   = 1u;
+        e->device      = dev;                   /* the chain route selector */
+        e->file_offset = 0u;
+        e->root_slot   = 0u;
+        e->dir_start   = 0u;
+        g_cur_psp->jft[handle] = sft_idx;
+
+        f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)handle;  /* EAX (AX) = handle */
+        cf_clear(f);
+        return;
+    }
+
     const char *leaf      = path;
     uint16_t    dir_start = 0u;
     uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
@@ -2143,6 +2528,38 @@ static void do_read(int_frame_t *f)
     }
 
     if (e->kind == SFT_KIND_DEVICE) {
+        /* OPEN-by-name device read (beads initech-6zd9): a SFT slot bound to a
+         * resident device (device != NULL) routes through the devices.c chain --
+         * NUL returns EOF (0 bytes), CLOCK$ returns the 6-byte date/time record,
+         * an OPEN-by-name CON returns raw keyboard bytes, PRN read is an error.
+         * The predefined CON slots 0..3 (device == NULL, dev_id == SFT_DEV_CON)
+         * are NOT matched here -- they fall through to the cooked-line editor
+         * below, preserving the existing handle-1/etc. read behavior exactly. */
+        if (e->device != 0) {
+            if (count == 0u) {
+                f->eax = 0u;             /* zero-count read: 0 bytes, no device I/O */
+                cf_clear(f);
+                return;
+            }
+            /* The device may WRITE into the caller's buffer (CLOCK$/CON read);
+             * validate it first (ADR-0003 DEC-14 / initech-tzq). */
+            if (!user_buf_ok(f->edx, count)) {
+                set_ax(f, INT21_ERR_INVALID_MEMORY);
+                cf_set(f);
+                return;
+            }
+            uint32_t got = 0u;
+            uint16_t derr = dev_route_rw((device_header_t *)e->device, 0 /* read */,
+                                         buf, count, &got);
+            if (derr != 0u) {
+                set_ax(f, derr);          /* PRN read / unserviceable -> 0x0005 */
+                cf_set(f);
+                return;
+            }
+            f->eax = got;                 /* bytes the device delivered (0 = EOF) */
+            cf_clear(f);
+            return;
+        }
 #if !defined(INT21_MUTATE_CONHANDLE_NOCOOKED)
         /* CON cooked line-read (beads initech-x8fs). Reading a console handle in
          * the default (cooked/ASCII) mode delivers a full line of edited keyboard

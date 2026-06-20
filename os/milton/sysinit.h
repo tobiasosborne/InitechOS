@@ -70,4 +70,12 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
  * + gates BEFORE unmask; unmask BEFORE sti. This is the FIRST `sti` of the boot. */
 void sysinit_enable_irqs(sysinit_serial_fn serial);
 
+/* ANSI.SYS install flag (beads initech-6zd9 records it at sysinit_apply_config;
+ * beads initech-p96i, the ANSI escape interpreter, consumes it). Returns 1 iff a
+ * CONFIG.SYS `DEVICE=ANSI.SYS` line was applied. Period-authentic: without
+ * ANSI.SYS loaded, DOS prints escape bytes literally -- p96i gates its CSI
+ * handling on this flag. This bead ONLY records it; it implements no ANSI
+ * behavior. */
+int sysinit_ansi_enabled(void);
+
 #endif /* INITECH_MILTON_SYSINIT_H */

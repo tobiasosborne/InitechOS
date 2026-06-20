@@ -300,10 +300,22 @@ void sft_close_process(psp_t *psp)
             return; /* not reached */
         }
 
-        /* Only the process's FILE handles are reclaimed; the resident device
-         * slots 0..3 (CON/AUX/PRN) stay live for the next program. */
-        if (g_sft[idx].kind != SFT_KIND_FILE) {
-            continue;
+        /* Reclaim the process's OWN handles: FILE slots, AND OPEN-by-name DEVICE
+         * slots (beads initech-6zd9 -- an AH=3Dh OPEN of "NUL"/"CON"/etc. binds a
+         * SFT_KIND_DEVICE slot at index >= SFT_FIRST_FILE, exactly like a file, and
+         * leaks identically if not released on exit). The RESIDENT device slots
+         * 0..3 (CON/AUX/PRN, index < SFT_FIRST_FILE) are shared/live across every
+         * program and are NEVER touched -- releasing them would leave the next
+         * program with no stdin/stdout. sft_alloc only ever hands out slots
+         * >= SFT_FIRST_FILE, so the index test cleanly separates the two: a
+         * process-owned slot (FILE or OPEN-by-name DEVICE) is at/above the floor;
+         * a resident device slot is below it. */
+        if (idx < (uint8_t)SFT_FIRST_FILE) {
+            continue;   /* resident CON/AUX/PRN device slot -- never reclaimed */
+        }
+        if (g_sft[idx].kind != SFT_KIND_FILE &&
+            g_sft[idx].kind != SFT_KIND_DEVICE) {
+            continue;   /* defensive: only file/device kinds are reclaimable */
         }
 
 #ifndef SFT_MUTATE_NO_CLOSE_PROCESS

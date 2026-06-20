@@ -2437,10 +2437,13 @@ static int dispatch_line(const char *line)
  * (batch_classify / batch_expand / batch_eval_if / batch_for_*) live in batch.c
  * and are host-tested by test_batch_exec.c (Law 2/Law 3 seam). */
 
-/* The maximum bytes of a .BAT file we read into memory at once.  4 KiB covers
+/* The maximum bytes of a .BAT file we read into memory at once.  2 KiB covers
  * AUTOEXEC.BAT and ordinary scripts; a larger file is truncated at this bound
- * (fail-safe: we interpret what we read, never overrun). */
-#define BATCH_FILE_MAX  4096
+ * (fail-safe: we interpret what we read, never overrun).  Sized down from 4 KiB
+ * to keep the shell kernel's .bss under the program-load window as the kernel
+ * grew (env+mz+batch+mvg+device-chain); the principled headroom fix (raise
+ * PROGRAM_BASE or share the two 6 KiB FAT buffers) is tracked separately. */
+#define BATCH_FILE_MAX  2048
 
 /* The CALL nesting cap (Rule 2: bound recursion so a self-CALL'ing .BAT cannot
  * blow the stack).  8 levels is far beyond any real DOS batch nest. */

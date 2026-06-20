@@ -21,7 +21,43 @@
 #include "config_sys.h"
 #include "fat12.h"
 #include "int21.h"        /* int21_set_mcb_arena (the AH=48/49/4A seam; 509.6) */
+#include "devices.h"      /* devices_init / devices_head (the char-device chain; 6zd9) */
 #include "memory_map.h"   /* PROGRAM_BASE / PROGRAM_ALLOC_END (the arena region) */
+
+/* ANSI.SYS install flag (beads initech-6zd9 records it; beads initech-p96i, the
+ * ANSI escape interpreter, consumes it). A CONFIG.SYS `DEVICE=ANSI.SYS` line sets
+ * this so p96i can gate its CSI handling on "the operator loaded ANSI.SYS"
+ * (period-authentic: without ANSI.SYS, DOS prints the escape bytes literally).
+ * This bead ONLY records the flag -- it does NOT implement any ANSI behavior. */
+static int g_ansi_enabled = 0;
+
+int sysinit_ansi_enabled(void) { return g_ansi_enabled; }
+
+/* The serial sink for the PRN/AUX device callbacks (beads initech-6zd9). Captured
+ * from the sysinit_early `serial` fn so a WRITE to a chain-routed PRN/AUX handle
+ * reaches the COM1 boot log -- the only output sink sysinit can reach without
+ * pulling console.c (off-limits) into the phase. A real LPT1/COM1 port driver is
+ * a flagged follow-up; this makes PRN/AUX OBSERVABLE (Rule 2: not a silent drop)
+ * rather than a fault. NULL-safe (no serial bound -> the write is discarded). */
+static sysinit_serial_fn g_dev_serial = 0;
+
+/* PRN/AUX write adapter (dev_write_fn): emit each byte to the captured serial
+ * sink. Returns the byte count (a synchronous sink never short-writes). The
+ * single-char buffer keeps the freestanding, malloc-free discipline (Law 3). */
+static int sysinit_prn_aux_write(const uint8_t *buf, int len, void *ctx)
+{
+    (void)ctx;
+    if (g_dev_serial == 0 || buf == 0) {
+        return len;   /* no sink -> discard (still "consumed", never a fault) */
+    }
+    for (int i = 0; i < len; i++) {
+        char s[2];
+        s[0] = (char)buf[i];
+        s[1] = '\0';
+        g_dev_serial(s);
+    }
+    return len;
+}
 
 /* The interrupt/IRQ stub entrypoints (isr.asm) -- the SAME externs kmain.c uses.
  * Naming them here keeps the gate-install order self-contained in the phase. */
@@ -49,6 +85,21 @@ static const char SYSINIT_CONFIG_BASELINE[] =
     "DEVICE=INITNET.SYS\n"
     "INSTALL=SHARE.EXE\n"
     "SHELL=COMMAND.COM /P /E:512\n";
+
+/* Case-insensitive ASCII compare of a NUL-terminated parsed DEVICE= name against
+ * a literal (e.g. "ANSI.SYS"). Freestanding (Law 3), bounded by the NUL on both
+ * sides. Returns 1 iff equal ignoring case. */
+static int sysinit_name_eq_ci(const char *a, const char *b)
+{
+    while (*a && *b) {
+        char ca = *a, cb = *b;
+        if (ca >= 'a' && ca <= 'z') ca = (char)(ca - 32);
+        if (cb >= 'a' && cb <= 'z') cb = (char)(cb - 32);
+        if (ca != cb) return 0;
+        a++; b++;
+    }
+    return (*a == '\0' && *b == '\0') ? 1 : 0;
+}
 
 /* ---- freestanding numeric helper for the summary line ------------------- */
 static void sysinit_put_uint(sysinit_serial_fn serial, uint32_t v)
@@ -106,6 +157,28 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
         (void)psp_build(kernel_psp, &kp);
     }
     int21_set_psp(kernel_psp);
+
+    /* Character-device chain (beads initech-6zd9; ADR-0003 DEC-09). Build the
+     * resident chain (devices_init lays NUL/CON/AUX/PRN/CLOCK$) and wire it into
+     * the INT 21h OPEN-by-name + READ/WRITE routing (int21_set_devices). The chain
+     * MUST exist before the shell so a program can OPEN "CON"/"NUL"/"PRN"/"AUX"/
+     * "CLOCK$" by name. int21.c self-wires the CON + CLOCK$ legs to its OWN sink /
+     * clock seams (so device CON output is the SAME byte stream as handle-1 output
+     * -- the CON path is preserved exactly); the bundle here supplies only the
+     * PRN + AUX write sinks (-> the COM1 boot log, the only sink reachable here).
+     * The clock seam itself is bound later in kmain (int21_set_clock); CLOCK$ READ
+     * works once it is. */
+    g_dev_serial = serial;
+    devices_init();
+    {
+        devices_io_t dio;
+        for (uint32_t i = 0u; i < (uint32_t)sizeof(dio); i++) {
+            ((uint8_t *)&dio)[i] = 0u;
+        }
+        dio.prn_write = sysinit_prn_aux_write;
+        dio.aux_write = sysinit_prn_aux_write;
+        int21_set_devices(devices_head(), &dio);
+    }
 
     /* Bind a DISJOINT kernel-context default MCB heap arena (beads initech-1q4u;
      * ADR-0009 DEC-04). The arena is REBOUND per program load by the loader
@@ -253,13 +326,26 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
     serial(cfg.shell_present ? cfg.shell : "(none)");
     serial("\n");
 
-    /* DEVICE / INSTALL / BUFFERS / LASTDRIVE: parsed + recorded; honored later
-     * (DEVICE drivers land in 509.7). Emit "accepted(deferred)" so the oracle
-     * sees they were seen and NOT silently dropped (Rule 2). */
+    /* DEVICE / INSTALL / BUFFERS / LASTDRIVE: parsed + recorded. The resident
+     * character-device chain (NUL/CON/AUX/PRN/CLOCK$) is now installed at
+     * sysinit_early (beads initech-6zd9) -- it is intrinsic, not a CONFIG.SYS
+     * DEVICE= load. A CONFIG.SYS DEVICE= line names an INSTALLABLE driver:
+     *   - DEVICE=ANSI.SYS sets g_ansi_enabled so beads initech-p96i (the ANSI
+     *     escape interpreter) can gate its CSI handling on it -- this bead ONLY
+     *     records the flag, it implements no ANSI behavior; logged "ansi-enabled".
+     *   - DEVICE=INITNET.SYS stays accepted(deferred): the INT 2Fh redirector is
+     *     amendment-gated and OUT of scope here.
+     * Anything else stays accepted(deferred). Emitting a line per DEVICE= keeps
+     * the operator log honest (Rule 2: directives were seen, not silently dropped). */
     for (uint8_t d = 0; d < cfg.device_count; d++) {
         serial("SYSINIT: DEVICE=");
         serial(cfg.devices[d]);
-        serial(" accepted(deferred)\n");
+        if (sysinit_name_eq_ci(cfg.devices[d], "ANSI.SYS")) {
+            g_ansi_enabled = 1;          /* recorded for beads initech-p96i (ANSI) */
+            serial(" ansi-enabled\n");
+        } else {
+            serial(" accepted(deferred)\n");
+        }
     }
     for (uint8_t n = 0; n < cfg.install_count; n++) {
         serial("SYSINIT: INSTALL=");
