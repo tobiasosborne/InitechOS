@@ -5330,6 +5330,58 @@ test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COM
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-env (beads initech-1i0x -- COMMAND.COM master env store)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the DOS environment store (env.c / env.h): init,
+# set/get round-trip, name upcasing, UPSERT/dedup, unset, overflow guard,
+# serialize correctness, and env_entry iteration. env.c is pure + I/O-free, so
+# test_env.c #includes it DIRECTLY (same TU trick the SAMIR oracles use) --
+# the recipe therefore compiles test_env.c ALONE (NOT env.c as a second source,
+# which would double-define every symbol). -Iseed for the test_assert.h harness.
+# Mutation builds (Rule 6): ENV_MUTATE_NO_UPCASE -> "path" stays lowercase so
+# the upcase assertion goes RED; ENV_MUTATE_NO_DEDUP -> a double SET leaves a
+# duplicate so the UPSERT/count-stays-1 assertion goes RED.
+TEST_ENV           := $(BUILD)/test_env
+TEST_ENV_SRC       := $(MILTON_DIR)/test_env.c
+TEST_ENV_HDRS      := $(MILTON_DIR)/env.h $(MILTON_DIR)/env.c
+TEST_ENV_MUT_NOUP  := $(BUILD)/test_env_mutant_noupcase
+TEST_ENV_MUT_NODUP := $(BUILD)/test_env_mutant_nodedup
+
+$(TEST_ENV): $(TEST_ENV_SRC) $(TEST_ENV_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_ENV_SRC)
+
+$(TEST_ENV_MUT_NOUP): $(TEST_ENV_SRC) $(TEST_ENV_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DENV_MUTATE_NO_UPCASE -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_ENV_SRC)
+
+$(TEST_ENV_MUT_NODUP): $(TEST_ENV_SRC) $(TEST_ENV_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DENV_MUTATE_NO_DEDUP -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_ENV_SRC)
+
+.PHONY: test-env test-env-mutant
+test-env: $(TEST_ENV)
+	@printf ">>> test-env: init + set/get + upcase + upsert + unset + overflow + serialize + iteration\n"
+	@$(TEST_ENV)
+	@printf ">>> test-env: green\n"
+
+# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
+test-env-mutant: $(TEST_ENV_MUT_NOUP) $(TEST_ENV_MUT_NODUP)
+	@printf ">>> test-env-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_ENV_MUT_NOUP) >/dev/null 2>&1; then \
+		printf '!!! test-env-mutant FAIL: no-upcase mutant PASSED -- the upcase test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-env-mutant: green (no-upcase mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_ENV_MUT_NODUP) >/dev/null 2>&1; then \
+		printf '!!! test-env-mutant FAIL: no-dedup mutant PASSED -- the UPSERT test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-env-mutant: green (no-dedup mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-psp (beads initech-509.4 -- PSP full 256-byte construction)
 # ---------------------------------------------------------------------------
 # Host unit oracle for psp_build() (os/milton/psp.c): zero-init + every field
@@ -5833,7 +5885,7 @@ endef
         test-multiopen \
         test-int21-irqstorm test-int21-irqstorm-mutant \
         test-fat-write-partial test-fat-write-partial-mutant \
-        test-command test-command-mutant test-shell \
+        test-command test-command-mutant test-env test-env-mutant test-shell \
         test-ut6d test-ut6d-mutant \
         test-zs24-exec test-zs24-exec-mutant \
         test-panic test-spurious test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
@@ -12293,7 +12345,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-psp test-sft test-loader \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-psp test-sft test-loader \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
@@ -12312,7 +12364,7 @@ TEST_UNIT_GATES := \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
