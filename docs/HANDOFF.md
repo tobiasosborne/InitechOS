@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-20 (WL-0034..0036 -- FLAIR M3 + M4 core: a draggable System-7 desktop + Menu/Control/Dialog Managers + a desktop shell that REPRODUCES THE FRAME; 216 host gates; ADR-0004/0005 ratified)
+**Last Reconciled:** 2026-06-20 (WL-0034..0037 -- FLAIR M3 + M4 core: a draggable System-7 desktop + Menu/Control/Dialog Managers + a desktop shell that REPRODUCES THE FRAME; 216 host gates; ADR-0004/0005 ratified; WL-0037 = ground-truth provenance audit + the parallel goldens-repo plan, epic initech-rf2l)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -490,10 +490,19 @@ desktop shell are DONE (this session, WL-0036). Remaining, in priority order:
    EOI, Bochs-verified) + the hourglass cursor + a desktop `kmain` path + an emu screendump gate.
    This makes the host-tested logic the bootable product (operator's "100% usable"); after it,
    `make run` shows this desktop in QEMU.
-3. Other filed: `u9gf` (Bochs RFB capture, fb-agree Bochs leg), `k8o5.11` (test-fb-agree dual-target),
-   autoKey. OPERATOR-gated (non-blocking): `pvo4` Mac 68K ROM (Basilisk II rendered SSIM goldens +
-   real content-white/pinstripe RGBs), `77wz` Win 3.1 (`apt install xvfb xdotool`), `q0gy` 86Box
-   (blocks M4 sign-off). M5 apps (InitechCalc w/ the 116% pie) consume these Managers next.
+3. **GROUND-TRUTH / GOLDENS in a PARALLEL REPO (epic `initech-rf2l`; WL-0037).** Provenance audit
+   found two Law-1 gaps: (1) `chrome_metrics.json` cites Apple's WDEF source by URL + the values
+   match the documented System-7 constants, but `refs/` is NOT cached locally (WebFetch persists
+   nothing), so "FETCHED AND VERIFIED" overstates what is auditable -- cache the WDEF/IM sources +
+   correct the wording; (2) NO real-era-software screenshot goldens exist yet (all pixel-perfect
+   values are `golden_resolves`). DECISION: mirror the SAMIR `../dbase3-decomp` pattern -- a
+   SISTER GUI-ground-truth repo holds the refs/ROM/disk-images/mint-harness/real-screenshot
+   goldens (copyright-grey + large, gitignored), and the main repo's FLAIR gates resolve a
+   `FLAIR_GOLDENS` env var via a `need_goldens`-style helper + loud-skip (NOTHING heavy/copyrighted
+   in the main repo). Pieces: `pvo4` Mac 68K ROM (Basilisk II System-7 goldens -> pinstripe RGBs,
+   content-white; OPERATOR DECISION), `77wz` Win 3.1 via dosbox-x (NO ROM; `apt install xvfb
+   xdotool`), `q0gy` 86Box (blocks M4 sign-off), `u9gf` Bochs RFB capture, `k8o5.11` fb-agree.
+4. Other: autoKey. M5 apps (InitechCalc w/ the 116% pie) consume these Managers next.
 
 **Other ready work** (`bd ready`; distinct directions — pick per operator
 steer):
