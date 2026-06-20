@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-20 (WL-0034..0037 -- FLAIR M3 + M4 core: a draggable System-7 desktop + Menu/Control/Dialog Managers + a desktop shell that REPRODUCES THE FRAME; 216 host gates; ADR-0004/0005 ratified; WL-0037 = ground-truth provenance audit + the parallel goldens-repo plan, epic initech-rf2l)
+**Last Reconciled:** 2026-06-20 (WL-0038 -- DOS-3.3 PARITY PUSH, orchestrated: Tranche E env-store COMPLETE [SET + EXEC env inheritance, 1i0x closed], the MZ .EXE END-TO-END [ADR-0003 DEC-08a committee-ratified; a real .EXE PROVABLY RUNS in-emulator, 0kiq], Tranche F shell verbs [COPY/DEL/REN/DATE/TIME], Tranche G start [PROMPT, PATH/COMSPEC, the .BAT parser module]; **224 host gates** + new emu test-mzexec; a real do_exec env_block regression caught via the EMU gate + root-fixed. **FLAIR is PAUSED** -- golden masters being minted in sister repos ../system7-decomp + ../win31-decomp. Prior: WL-0034..0037 FLAIR M3/M4 core, 216 host gates, ADR-0004/0005, epic initech-rf2l.)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -202,6 +202,24 @@ desktop. (Under Bochs: `make test-boot-bochs` — same boot via the mode-0x13
 fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
+
+> **CURRENT DIRECTION (2026-06-20, WL-0038 -- supersedes the FLAIR "NEXT ARC" below).**
+> The operator PAUSED FLAIR (golden masters minted in sister repos `../system7-decomp`
+> + `../win31-decomp`) and directed an ORCHESTRATED push to full **DOS 3.3 parity**
+> (MILTON). Two operator rulings (`bd memories`): (1) parity = "Appendix-A now,
+> amendments later" -- COUNTRY/SHARE/INT-2Fh go to a separate amendment-gated epic
+> (`om2a`/`ws3x`/`t1hl`); (2) the `40oq` capstone certifies with FCB stubbed.
+> **DONE this session (see WL-0038):** Tranche E env-store COMPLETE (`1i0x` closed);
+> MZ `.EXE` end-to-end (ADR-0003 **DEC-08a**, committee-ratified -- a real InitechMZ
+> `.EXE` PROVABLY RUNS in-emulator via `test-mzexec`); Tranche F verbs (COPY/DEL/REN/
+> DATE/TIME, `hpls`/`fyox`/`uy4l`); Tranche G start (PROMPT `dibc`, PATH/COMSPEC `atf`,
+> the `.BAT` parser module `xw1`). **224 host gates + emu.** **NEXT:** the `xw1` command.c
+> `.BAT`/AUTOEXEC integration (parser ready); Tranche I (`mvg` INT 24h wiring, `509.7`
+> device chain); `bo40` AH=31h KEEP; then the **`40oq` capstone**. **HARD LESSON
+> (`bd memories`):** EXEC-path / int21 / loader edits MUST re-run the EMU EXEC gates
+> (test-exec/test-program/test-zs24-exec/test-ut6d/test-samir-boot), not just
+> `make test-unit` -- a real do_exec env_block regression passed host-green but broke
+> the emu `test-exec`.
 
 **Branches + remote (a remote now exists — this supersedes the old "local-only,
 do not push" note):**
