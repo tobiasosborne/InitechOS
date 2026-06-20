@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-20 (WL-0034 + WL-0035 -- FLAIR M3: a draggable System-7 desktop, oracle-enforced; ADR-0004/0005 ratified)
+**Last Reconciled:** 2026-06-20 (WL-0034..0036 -- FLAIR M3 + M4 core: a draggable System-7 desktop + Menu/Control/Dialog Managers + a desktop shell that REPRODUCES THE FRAME; 216 host gates; ADR-0004/0005 ratified)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -457,7 +457,17 @@ authority, no gridlock; OQ-1 -> extended-memory heap DEC-03; OQ-2 -> defer 86Box
   and the **M3 DRAG-GATE CAPSTONE** (`os/flair/desktop.c` compositor + `test-drag`): a window
   drags across a 3-window desktop with PIXEL-LEVEL no-over-repaint (D-5) proven against an
   independent owner-grid. Visually audited: `build/drag_{before,after}.ppm` = a real draggable
-  Mac desktop. **`make test-unit` = 208 host gates** (was 184) + 35 QEMU + Bochs boot.
+  Mac desktop.
+- M4 MANAGERS + SHELL (WL-0036): the Menu Manager (`os/flair/menu.c`, canon Photoshop bar,
+  `test-menu`), Control Manager (`os/flair/control.c`, buttons/16px-scrollbar/progress,
+  `test-control`), Dialog Manager (`os/flair/dialog.c`, ModalDialog + the canon "Saving tables
+  to disk..." FILE COPY box, `test-dialog`), and the **M4 CAPSTONE desktop shell**
+  (`os/flair/shell.c`, `test-flair-shell`) which COMPOSES THE OFFICE SPACE FRAME: seafoam +
+  two stacked menu bars (System-7 + canon Photoshop) + System-7 windows + the FILE COPY modal
+  on top. Visually audited: `build/desktop_scene.ppm` = the reproduced frame. **`make test-unit`
+  = 216 host gates** (was 184) + 35 QEMU + Bochs boot. KNOWN P1 fidelity gap (`bmih`): window/
+  dialog "white" is gray 0x7F7F86 so the modal blends -- fix content-white across the palette
+  lockstep.
 **NEXT FLAIR ARC (resume here):** everything above is HOST-RENDERED (the oracles). Wire the
 FLAIR stack INTO the kernel and boot to a live desktop in the emulator -- `initech-26d` (PS/2
 mouse IRQ12 + hourglass cursor) + a desktop kmain path + an emu screendump gate. Then M4
