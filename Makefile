@@ -5816,7 +5816,7 @@ endef
         test-blitter test-blitter-mutant test-text test-text-mutant \
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-window test-window-mutant test-event test-event-mutant \
-        test-drag test-drag-mutant \
+        test-drag test-drag-mutant test-menu test-menu-mutant \
         test-chrome test-chrome-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
@@ -7576,6 +7576,46 @@ test-drag-mutant: $(TEST_DRAG_MUT_SKIP) $(TEST_DRAG_MUT_NOCLIP)
 	@printf ">>> test-drag-mutant: confirming both mutants go RED (Rule 6)\n"
 	@if $(TEST_DRAG_MUT_SKIP) >/dev/null 2>&1; then printf '!!! test-drag-mutant FAIL: SKIP_EXPOSED PASSED -- the no-over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-drag-mutant: green (SKIP_EXPOSED correctly RED)\n'; fi
 	@if $(TEST_DRAG_MUT_NOCLIP) >/dev/null 2>&1; then printf '!!! test-drag-mutant FAIL: NO_CLIP PASSED -- the clip/over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-drag-mutant: green (NO_CLIP correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-menu (beads initech-n3e) -- FLAIR Menu Manager. Proportional
+# bar layout (D-7), the canon Photoshop bar (Law 4, menu_canon.h), deterministic
+# MenuSelect pull-down tracking + MenuKey, the rendered bar/panel pixels. Mutants
+# FIXED_WIDTH / SELECT_DISABLED bite (Rule 6).
+# ---------------------------------------------------------------------------
+TEST_MENU     := $(BUILD)/test_menu
+TEST_MENU_SRC := harness/proptest/test_menu.c
+TEST_MENU_MUT_FW := $(BUILD)/test_menu_mutant_fixedwidth
+TEST_MENU_MUT_SD := $(BUILD)/test_menu_mutant_selectdisabled
+TEST_MENU_DEPS := os/flair/menu.c os/flair/menu.h os/flair/text.c os/flair/text.h \
+                  os/flair/blitter.c os/flair/blitter.h os/flair/surface.c os/flair/surface.h \
+                  os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
+                  $(RENDER_SKEL_C) $(RENDER_SKEL_H) \
+                  spec/assets/menu_canon.h spec/chrome_metrics.h \
+                  spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h \
+                  spec/assets/chicago8x16.h spec/assets/geneva9.h
+MENU_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
+MENU_LINK := os/flair/menu.c os/flair/text.c os/flair/blitter.c os/flair/surface.c \
+             $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c
+
+$(TEST_MENU): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+$(TEST_MENU_MUT_FW): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUTATE_FIXED_WIDTH=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+$(TEST_MENU_MUT_SD): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUTATE_SELECT_DISABLED=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+
+test-menu: $(TEST_MENU)
+	@printf ">>> test-menu: proportional bar layout + canon Photoshop bar (Law 4) + MenuSelect tracking + MenuKey + rendered panel\n"
+	@$(TEST_MENU) $(BUILD)/menu_window.ppm
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $(BUILD)/menu_freestanding.o \
+		|| { printf '!!! test-menu FAIL: menu.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-menu: green\n"
+
+test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD)
+	@printf ">>> test-menu-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_MENU_MUT_FW) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: FIXED_WIDTH PASSED -- the proportional-layout oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (FIXED_WIDTH correctly RED)\n'; fi
+	@if $(TEST_MENU_MUT_SD) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: SELECT_DISABLED PASSED -- the selectability oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (SELECT_DISABLED correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
@@ -12114,7 +12154,7 @@ TEST_UNIT_GATES := \
 	test-blitter test-blitter-mutant test-text test-text-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-window test-window-mutant test-event test-event-mutant \
-	test-drag test-drag-mutant \
+	test-drag test-drag-mutant test-menu test-menu-mutant \
 	test-chrome test-chrome-mutant \
 	test-fbagree test-fbagree-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
