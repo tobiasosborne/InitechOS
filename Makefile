@@ -5818,6 +5818,7 @@ endef
         test-window test-window-mutant test-event test-event-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
         test-control test-control-mutant \
+        test-dialog test-dialog-mutant \
         test-chrome test-chrome-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
@@ -7654,6 +7655,70 @@ test-control-mutant: $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP)
 	@printf ">>> test-control-mutant: confirming both mutants go RED (Rule 6)\n"
 	@if $(TEST_CONTROL_MUT_THUMB) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: THUMB_OFF PASSED -- the scrollbar-math oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (THUMB_OFF correctly RED)\n'; fi
 	@if $(TEST_CONTROL_MUT_CLAMP) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: NO_CLAMP PASSED -- the value-clamp oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (NO_CLAMP correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-dialog (Dialog Manager: DialogRecord/item lists, ModalDialog,
+# FILE COPY box -- the "Saving tables to disk..." canon box, PRD Sec 6.5/App A).
+# Properties: LAYOUT (border=7px, item rects, FILE COPY canonical string byte-
+# exact), MODALDIALOG (event routing: click->itemHit; Return->default; Escape->
+# cancel; statText/disabled NOT returned), DRAW (render 8bpp, assert border/
+# content/progress-bar pixels).
+# Mutants: BORDER (wrong border width), HIT_STATIC (return statText), FILECOPY_MSG
+# (alter canon string -- Law 4 required). All three MUST drive oracle RED (Rule 6).
+# Ref: ADR-0004 D-3; spec/chrome_metrics.h FLAIR_CHROME_DIALOG_BORDER=7;
+#      spec/window_record.h dBoxProc=1, dialogKind=2;
+#      FLAIR_CANON_FILECOPY_MSG (Law 4, must not be paraphrased).
+# ---------------------------------------------------------------------------
+TEST_DIALOG     := $(BUILD)/test_dialog
+TEST_DIALOG_SRC := harness/proptest/test_dialog.c
+TEST_DIALOG_MUT_BORDER  := $(BUILD)/test_dialog_mutant_border
+TEST_DIALOG_MUT_STATIC  := $(BUILD)/test_dialog_mutant_hit_static
+TEST_DIALOG_MUT_FILECOPY := $(BUILD)/test_dialog_mutant_filecopy_msg
+TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
+                    os/flair/control.c os/flair/control.h \
+                    os/flair/text.c os/flair/text.h \
+                    os/flair/event.c os/flair/event.h \
+                    os/flair/blitter.c os/flair/blitter.h \
+                    os/flair/surface.c os/flair/surface.h \
+                    os/flair/chrome.c os/flair/chrome.h \
+                    os/flair/heap.c \
+                    $(REGION_ENGINE_C) $(RENDER_SKEL_C) \
+                    spec/chrome_metrics.h spec/grafport.h spec/event_model.h \
+                    spec/window_record.h spec/region_algebra.h \
+                    spec/assets/palette.h spec/assets/chicago8x16.h
+DIALOG_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
+DIALOG_LINK := os/flair/dialog.c os/flair/control.c os/flair/text.c os/flair/event.c \
+               os/flair/window.c os/flair/blitter.c os/flair/surface.c os/flair/chrome.c os/flair/heap.c \
+               $(REGION_ENGINE_C) $(RENDER_SKEL_C)
+
+$(TEST_DIALOG): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+$(TEST_DIALOG_MUT_BORDER): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_BORDER=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+$(TEST_DIALOG_MUT_STATIC): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_HIT_STATIC=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+$(TEST_DIALOG_MUT_FILECOPY): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_FILECOPY_MSG=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+
+test-dialog: $(TEST_DIALOG)
+	@printf ">>> test-dialog: LAYOUT (border=7px, item rects, FILE COPY canon byte-exact) + MODALDIALOG event routing + DRAW 8bpp (D-3; Law 4)\n"
+	@$(TEST_DIALOG)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets \
+		-c os/flair/dialog.c -o $(BUILD)/dialog_freestanding.o \
+		|| { printf '!!! test-dialog FAIL: dialog.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-dialog: green\n"
+
+test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY)
+	@printf ">>> test-dialog-mutant: confirming all three mutants go RED (Rule 6; Law 4 for FILECOPY_MSG)\n"
+	@if $(TEST_DIALOG_MUT_BORDER) >/dev/null 2>&1; then \
+		printf '!!! test-dialog-mutant FAIL: BORDER mutant PASSED -- the border-width oracle is decoration\n'; exit 1; \
+	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_BORDER correctly RED)\n'; fi
+	@if $(TEST_DIALOG_MUT_STATIC) >/dev/null 2>&1; then \
+		printf '!!! test-dialog-mutant FAIL: HIT_STATIC mutant PASSED -- the statText-exclusion oracle is decoration\n'; exit 1; \
+	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_HIT_STATIC correctly RED)\n'; fi
+	@if $(TEST_DIALOG_MUT_FILECOPY) >/dev/null 2>&1; then \
+		printf '!!! test-dialog-mutant FAIL: FILECOPY_MSG mutant PASSED -- the canon-string oracle is decoration (Law 4 violated)\n'; exit 1; \
+	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_FILECOPY_MSG correctly RED -- Law 4 oracle bites)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
@@ -12194,6 +12259,7 @@ TEST_UNIT_GATES := \
 	test-window test-window-mutant test-event test-event-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
 	test-control test-control-mutant \
+	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \
 	test-fbagree test-fbagree-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
