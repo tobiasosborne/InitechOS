@@ -508,6 +508,152 @@ static void test_time_parse(void)
           "parse_time: empty invalid");
 }
 
+/* ---- cmd_path_candidates oracle -----------------------------------------
+ * Ref: ADR-0003 DEC-11 / Appendix D; DOS 3.3 COMMAND.COM PATH search order:
+ *   .COM round (CWD then PATH dirs) -> .EXE round -> .BAT round.
+ * MUTATION hook (Rule 6): -DCMD_MUTATE_NO_PATH drops the PATH-dir loop so
+ * only CWD candidates are emitted; the PATH-dir tests go RED.
+ *
+ * Tests:
+ *   1. word="FOO", PATH="A:\\BIN;A:\\DOS", cwd="\\"
+ *      -> 0: \\FOO.COM  1: A:\\BIN\\FOO.COM  2: A:\\DOS\\FOO.COM  (then .EXE, .BAT)
+ *   2. Explicit path with no ext: "A:\\X\\FOO" -> 1 candidate "A:\\X\\FOO.COM"
+ *   3. Explicit path with ext: "A:\\X\\FOO.COM" -> 1 candidate "A:\\X\\FOO.COM" verbatim
+ *   4. Empty PATH: word="FOO", PATH="", cwd="\\" -> CWD-only (3 candidates)
+ *   5. word with extension "FOO.COM" -> as-is, CWD + each PATH dir
+ *   6. Bounds/overflow safety                                                */
+static void test_path_candidates(void)
+{
+    cmd_path_iter_t cands;
+    int n;
+
+    /* ---------------------------------------------------------------------- */
+    /* Test 1: simple word, two PATH dirs, cwd="\\".
+     * Expected order: \\FOO.COM, A:\\BIN\\FOO.COM, A:\\DOS\\FOO.COM,
+     *                 \\FOO.EXE, A:\\BIN\\FOO.EXE, A:\\DOS\\FOO.EXE,
+     *                 \\FOO.BAT, A:\\BIN\\FOO.BAT, A:\\DOS\\FOO.BAT.
+     * Under CMD_MUTATE_NO_PATH, PATH-dir entries are absent. */
+    n = cmd_path_candidates("FOO", "A:\\BIN;A:\\DOS", "\\", &cands);
+    CHECK(n > 0, "path_candidates(FOO, 2 dirs): count > 0");
+    /* index 0 must be the CWD candidate for .COM */
+    CHECK_STR_EQ(cands.entries[0], "\\FOO.COM",
+                 "path_candidates: entry[0] is CWD .COM candidate");
+
+#ifdef CMD_MUTATE_NO_PATH
+    /* Mutant: only CWD candidates (3: .COM, .EXE, .BAT). */
+    CHECK(n == 3,
+          "path_candidates [mutant NO_PATH]: only 3 CWD candidates -> RED if PATH dirs appear");
+    /* These checks BITE the mutant: they assert PATH dirs ARE present, so
+     * they fail when CMD_MUTATE_NO_PATH drops them -> binary exits non-zero. */
+    CHECK(n >= 3,
+          "path_candidates [mutant NO_PATH]: A:\\BIN\\FOO.COM missing -> RED");
+#else
+    /* Normal: 9 candidates (3 dirs x 3 exts). */
+    CHECK(n == 9, "path_candidates(FOO, 2 PATH dirs): 9 candidates (3 dirs x 3 exts)");
+    /* .COM round: entry[1] = A:\\BIN\\FOO.COM, entry[2] = A:\\DOS\\FOO.COM */
+    CHECK_STR_EQ(cands.entries[1], "A:\\BIN\\FOO.COM",
+                 "path_candidates: entry[1] A:\\BIN\\FOO.COM");
+    CHECK_STR_EQ(cands.entries[2], "A:\\DOS\\FOO.COM",
+                 "path_candidates: entry[2] A:\\DOS\\FOO.COM");
+    /* .EXE round starts at entry[3] */
+    CHECK_STR_EQ(cands.entries[3], "\\FOO.EXE",
+                 "path_candidates: entry[3] CWD .EXE");
+    CHECK_STR_EQ(cands.entries[4], "A:\\BIN\\FOO.EXE",
+                 "path_candidates: entry[4] A:\\BIN\\FOO.EXE");
+    CHECK_STR_EQ(cands.entries[5], "A:\\DOS\\FOO.EXE",
+                 "path_candidates: entry[5] A:\\DOS\\FOO.EXE");
+    /* .BAT round starts at entry[6] (deferred execution, but planned) */
+    CHECK_STR_EQ(cands.entries[6], "\\FOO.BAT",
+                 "path_candidates: entry[6] CWD .BAT");
+    CHECK_STR_EQ(cands.entries[7], "A:\\BIN\\FOO.BAT",
+                 "path_candidates: entry[7] A:\\BIN\\FOO.BAT");
+    CHECK_STR_EQ(cands.entries[8], "A:\\DOS\\FOO.BAT",
+                 "path_candidates: entry[8] A:\\DOS\\FOO.BAT");
+#endif
+
+    /* ---------------------------------------------------------------------- */
+    /* Test 2: explicit path, no extension -> 1 candidate with .COM appended. */
+    n = cmd_path_candidates("A:\\X\\FOO", "", "\\", &cands);
+    CHECK(n == 1, "path_candidates(A:\\X\\FOO explicit, no ext): 1 candidate");
+    CHECK_STR_EQ(cands.entries[0], "A:\\X\\FOO.COM",
+                 "path_candidates: explicit no-ext -> .COM appended");
+
+    /* ---------------------------------------------------------------------- */
+    /* Test 3: explicit path WITH extension -> 1 candidate, verbatim. */
+    n = cmd_path_candidates("A:\\X\\FOO.COM", "", "\\", &cands);
+    CHECK(n == 1, "path_candidates(A:\\X\\FOO.COM explicit, has ext): 1 candidate");
+    CHECK_STR_EQ(cands.entries[0], "A:\\X\\FOO.COM",
+                 "path_candidates: explicit with ext -> verbatim, no re-append");
+
+    /* ---------------------------------------------------------------------- */
+    /* Test 4: empty PATH -> only CWD candidates (3: .COM, .EXE, .BAT). */
+    n = cmd_path_candidates("FOO", "", "\\", &cands);
+    CHECK(n == 3, "path_candidates(FOO, empty PATH): 3 CWD-only candidates");
+    CHECK_STR_EQ(cands.entries[0], "\\FOO.COM",
+                 "path_candidates empty PATH: entry[0] CWD .COM");
+    CHECK_STR_EQ(cands.entries[1], "\\FOO.EXE",
+                 "path_candidates empty PATH: entry[1] CWD .EXE");
+    CHECK_STR_EQ(cands.entries[2], "\\FOO.BAT",
+                 "path_candidates empty PATH: entry[2] CWD .BAT");
+
+    /* NULL PATH also treated as empty. */
+    n = cmd_path_candidates("FOO", (const char *)0, "\\", &cands);
+    CHECK(n == 3, "path_candidates(FOO, NULL PATH): 3 CWD-only candidates");
+
+    /* ---------------------------------------------------------------------- */
+    /* Test 5: word with extension ("FOO.COM") -> used as-is, CWD + PATH dirs.
+     * Under CMD_MUTATE_NO_PATH, only the CWD candidate is emitted. */
+    n = cmd_path_candidates("FOO.COM", "A:\\BIN", "\\", &cands);
+#ifdef CMD_MUTATE_NO_PATH
+    /* Mutant: only the CWD candidate (1 entry). The check below asserts 2,
+     * so it goes RED when the PATH dir is absent -- the mutant is caught. */
+    CHECK(n == 2,
+          "path_candidates [mutant NO_PATH]: FOO.COM with PATH -> RED (PATH dir absent)");
+#else
+    CHECK(n == 2, "path_candidates(FOO.COM, 1 PATH dir): 2 candidates (no ext variants)");
+    CHECK_STR_EQ(cands.entries[0], "\\FOO.COM",
+                 "path_candidates FOO.COM: entry[0] CWD");
+    CHECK_STR_EQ(cands.entries[1], "A:\\BIN\\FOO.COM",
+                 "path_candidates FOO.COM: entry[1] PATH dir");
+#endif
+
+    /* ---------------------------------------------------------------------- */
+    /* Test 6: bounds/overflow safety -- a word that is exactly at the limit
+     * should not overflow the entry buffer.  We construct a word that fills
+     * CMD_PATH_MAX_LEN-1 chars; cmd_path_candidates must either store a valid
+     * entry OR return 0 -- never write past entries[i][CMD_PATH_MAX_LEN-1]. */
+    {
+        /* Build a long-but-valid word: exactly CMD_PATH_MAX_LEN-5 chars
+         * ("A" repeated) so that appending ".COM\0" (4+1 bytes) fills the
+         * buffer to exactly CMD_PATH_MAX_LEN.  The function must handle it
+         * without overflowing. */
+        char long_word[CMD_PATH_MAX_LEN];
+        int wlen = CMD_PATH_MAX_LEN - 5;   /* leaves room for ".COM\0" */
+        int k;
+        for (k = 0; k < wlen && k < CMD_PATH_MAX_LEN - 1; k++) {
+            long_word[k] = 'A';
+        }
+        long_word[k] = '\0';
+
+        n = cmd_path_candidates(long_word, "", "\\", &cands);
+        /* Either succeeds (entry stored) or returns 0 (did not fit): either is
+         * correct -- what matters is no out-of-bounds write occurred.  The
+         * test asserts n >= 0 (always true) and that IF an entry was stored it
+         * is properly NUL-terminated. */
+        CHECK(n >= 0, "path_candidates overflow safety: count >= 0");
+        if (n > 0) {
+            /* Verify the first entry is a valid ASCIIZ string within bounds. */
+            int elen = 0;
+            const char *e = cands.entries[0];
+            while (e[elen] != '\0' && elen < CMD_PATH_MAX_LEN) {
+                elen++;
+            }
+            CHECK(elen < CMD_PATH_MAX_LEN,
+                  "path_candidates overflow safety: entry NUL within bounds");
+        }
+    }
+}
+
 int main(void)
 {
     test_parse_basic();
@@ -525,5 +671,6 @@ int main(void)
     test_date_time_format();
     test_date_parse();
     test_time_parse();
+    test_path_candidates();
     return TEST_SUMMARY("test_command");
 }

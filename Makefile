@@ -5298,6 +5298,9 @@ TEST_COMMAND_MUT_NOTIME   := $(BUILD)/test_command_mutant_notime
 # (g) the classifier drops the PROMPT row -> "PROMPT" classifies as CMD_EXTERNAL;
 # the new PROMPT classify check goes RED (Rule 6; beads initech-dibc).
 TEST_COMMAND_MUT_NOPROMPT := $(BUILD)/test_command_mutant_noprompt
+# (h) the PATH-dir loop is dropped by CMD_MUTATE_NO_PATH -> only CWD candidates
+# are emitted; PATH-dir assertions in test_path_candidates go RED (Rule 6).
+TEST_COMMAND_MUT_NOPATH := $(BUILD)/test_command_mutant_nopath
 
 $(TEST_COMMAND): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -5347,6 +5350,10 @@ $(TEST_COMMAND_MUT_NOTIME): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMM
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_TIME -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
 
+$(TEST_COMMAND_MUT_NOPATH): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_PATH -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
 .PHONY: test-command test-command-mutant
 test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: parse/upcase + built-in classify + .COM-append + DIR-line format\n"
@@ -5354,7 +5361,7 @@ test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: green\n"
 
 # Mutation-proof: ALL three mutant builds MUST fail the oracle (Rule 6).
-test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD) $(TEST_COMMAND_MUT_NOSET) $(TEST_COMMAND_MUT_NOCOPY) $(TEST_COMMAND_MUT_NODEL) $(TEST_COMMAND_MUT_NOREN) $(TEST_COMMAND_MUT_NODATE) $(TEST_COMMAND_MUT_NOTIME) $(TEST_COMMAND_MUT_NOPROMPT)
+test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD) $(TEST_COMMAND_MUT_NOSET) $(TEST_COMMAND_MUT_NOCOPY) $(TEST_COMMAND_MUT_NODEL) $(TEST_COMMAND_MUT_NOREN) $(TEST_COMMAND_MUT_NODATE) $(TEST_COMMAND_MUT_NOTIME) $(TEST_COMMAND_MUT_NOPROMPT) $(TEST_COMMAND_MUT_NOPATH)
 	@printf ">>> test-command-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_COMMAND_MUT_NOUP) >/dev/null 2>&1; then \
 		printf '!!! test-command-mutant FAIL: no-upcase mutant PASSED -- the parse/upcase test is decoration\n'; \
@@ -5421,6 +5428,12 @@ test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COM
 		exit 1; \
 	else \
 		printf '>>> test-command-mutant: green (no-prompt mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_NOPATH) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-path mutant PASSED -- the PATH-dir candidate test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-path mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -5565,6 +5578,68 @@ test-mzload-mutant: $(TEST_MZLOAD_MUT)
 		exit 1; \
 	else \
 		printf '>>> test-mzload-mutant: green (NO_RELOC mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-batch (beads initech-xw1 -- COMMAND.COM .BAT parser/expander)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the pure batch-language logic (batch.c / batch.h):
+# parameter expansion (%0..%9, %VAR%, %%->%), line classification (REM/ECHO
+# ON|OFF|TEXT/@/GOTO/:label/IF/FOR/SHIFT/CALL/PAUSE/command), and the GOTO
+# label-match helper. batch.c is pure + I/O-free; test_batch.c #includes it
+# DIRECTLY (same TU trick as test_env.c) -- compile test_batch.c ALONE. The .BAT
+# REPL/AUTOEXEC integration into command.c is a separate (deferred) bead.
+# Mutation builds (Rule 6): NO_PCT_PCT -> %% not collapsed; ECHO_OFF_MISS -> ECHO
+# OFF misclassified; GOTO_NOLABEL -> target always empty.
+TEST_BATCH             := $(BUILD)/test_batch
+TEST_BATCH_SRC         := $(MILTON_DIR)/test_batch.c
+TEST_BATCH_HDRS        := $(MILTON_DIR)/batch.h $(MILTON_DIR)/batch.c
+TEST_BATCH_MUT_PCTPCT  := $(BUILD)/test_batch_mutant_nopctpct
+TEST_BATCH_MUT_ECHOOFF := $(BUILD)/test_batch_mutant_echooff
+TEST_BATCH_MUT_GOTO    := $(BUILD)/test_batch_mutant_gotonolabel
+
+$(TEST_BATCH): $(TEST_BATCH_SRC) $(TEST_BATCH_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_BATCH_SRC)
+
+$(TEST_BATCH_MUT_PCTPCT): $(TEST_BATCH_SRC) $(TEST_BATCH_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DBATCH_MUTATE_NO_PCT_PCT \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_BATCH_SRC)
+
+$(TEST_BATCH_MUT_ECHOOFF): $(TEST_BATCH_SRC) $(TEST_BATCH_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DBATCH_MUTATE_ECHO_OFF_MISS \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_BATCH_SRC)
+
+$(TEST_BATCH_MUT_GOTO): $(TEST_BATCH_SRC) $(TEST_BATCH_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DBATCH_MUTATE_GOTO_NOLABEL \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_BATCH_SRC)
+
+.PHONY: test-batch test-batch-mutant
+test-batch: $(TEST_BATCH)
+	@printf ">>> test-batch: expand (%%0-9/%%VAR%%/%%%%) + classify + label_matches\n"
+	@$(TEST_BATCH)
+	@printf ">>> test-batch: green\n"
+
+# Mutation-proof: ALL three mutant builds MUST fail the oracle (Rule 6).
+test-batch-mutant: $(TEST_BATCH_MUT_PCTPCT) $(TEST_BATCH_MUT_ECHOOFF) $(TEST_BATCH_MUT_GOTO)
+	@printf ">>> test-batch-mutant: confirming all three mutants go RED (Rule 6)\n"
+	@if $(TEST_BATCH_MUT_PCTPCT) >/dev/null 2>&1; then \
+		printf '!!! test-batch-mutant FAIL: no-pct-pct mutant PASSED -- the %%%% test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-batch-mutant: green (no-pct-pct mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_BATCH_MUT_ECHOOFF) >/dev/null 2>&1; then \
+		printf '!!! test-batch-mutant FAIL: echo-off-miss mutant PASSED -- the ECHO OFF test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-batch-mutant: green (echo-off-miss mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_BATCH_MUT_GOTO) >/dev/null 2>&1; then \
+		printf '!!! test-batch-mutant FAIL: goto-nolabel mutant PASSED -- the GOTO target test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-batch-mutant: green (goto-nolabel mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -6086,7 +6161,7 @@ endef
         test-multiopen \
         test-int21-irqstorm test-int21-irqstorm-mutant \
         test-fat-write-partial test-fat-write-partial-mutant \
-        test-command test-command-mutant test-env test-env-mutant test-mz test-mz-mutant test-mzload test-mzload-mutant test-shell \
+        test-command test-command-mutant test-env test-env-mutant test-batch test-batch-mutant test-mz test-mz-mutant test-mzload test-mzload-mutant test-shell \
         test-ut6d test-ut6d-mutant \
         test-zs24-exec test-zs24-exec-mutant \
         test-panic test-spurious test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
@@ -12730,7 +12805,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-psp test-sft test-loader test-mz test-mzload \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
@@ -12749,7 +12824,7 @@ TEST_UNIT_GATES := \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \

@@ -249,6 +249,38 @@ int cmd_render_prompt(const char *templ, const prompt_ctx_t *ctx,
 int cmd_format_dir_line(const char *fname, uint32_t fsize, uint8_t attr,
                         char *out);
 
+/* ---- PATH-directory search planner (PURE, host-testable) ------------------
+ * cmd_path_candidates: plan the ordered set of candidate paths for an
+ * external command word.  No I/O, no asm -- the SAME TU compiles HOSTED.
+ *
+ * Ref: DOS 3.3 COMMAND.COM PATH search order (ADR-0003 DEC-11 / Appendix D):
+ *   1. Try CWD + word + .COM, then each PATH dir + word + .COM.
+ *   2. Then CWD + word + .EXE, then each PATH dir + word + .EXE.
+ *   3. Then CWD + word + .BAT, then each PATH dir + word + .BAT
+ *      (.BAT is deferred for execution -- beads xw1 -- but planned here so
+ *      the candidate list is complete and the deferred path can reuse it).
+ * If `word` is an explicit path (contains '\\' or ':'), use it verbatim (with
+ * .COM appended if it has no '.').  Never overflows CMD_PATH_MAX_LEN.
+ *
+ * MUTATION hook (CLAUDE.md Rule 6):
+ *   CMD_MUTATE_NO_PATH -- wraps the PATH-dir loop so only CWD candidates are
+ *                         emitted; PATH-dir tests go RED.  NEVER in a real
+ *                         build. */
+#define CMD_PATH_MAX_DIRS  16
+#define CMD_PATH_MAX_LEN   128
+
+typedef struct {
+    char entries[CMD_PATH_MAX_DIRS + 1][CMD_PATH_MAX_LEN]; /* +1 for CWD candidate */
+    int  count;
+} cmd_path_iter_t;
+
+/* Build the ordered candidate path list for `word` into `out`.
+ * `path_value` is the value of the PATH env variable (may be NULL or "").
+ * `cwd`        is the current working directory (e.g. "\\").
+ * Returns the number of candidates stored in out->entries. */
+int cmd_path_candidates(const char *word, const char *path_value,
+                        const char *cwd, cmd_path_iter_t *out);
+
 /* ---- The REPL (kernel-only; compiled out of the host build) --------------- */
 /* COMMAND_KERNEL_REPL is defined for the kernel command.o; the kmain BOOT_SHELL
  * object also needs the declaration, so BOOT_SHELL implies it for the header. */

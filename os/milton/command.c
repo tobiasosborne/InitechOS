@@ -854,6 +854,286 @@ int cmd_render_prompt(const char *templ, const prompt_ctx_t *ctx,
 }
 
 /* ===========================================================================
+ * PATH-directory search planner (PURE, host-testable).
+ * cmd_path_candidates: compute the ordered candidate list for an external
+ * command word, following the DOS 3.3 PATH search order.
+ * Ref: ADR-0003 DEC-11 / Appendix D; DOS 3.3 COMMAND.COM PATH search.
+ * CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Rule 2 (fail loud),
+ * Rule 11 (deterministic), Rule 12 (ASCII).
+ * ===========================================================================*/
+
+/* Determine if `word` is an explicit path (contains a ':' drive prefix or a
+ * '\\' directory separator).  An explicit path is used verbatim (with .COM
+ * appended if no '.' is present).  Returns 1 if explicit, 0 if simple. */
+static int is_explicit_path(const char *word)
+{
+    const char *p;
+    if (word == 0) {
+        return 0;
+    }
+    for (p = word; *p != '\0'; p++) {
+        if (*p == '\\' || *p == ':') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Return 1 if `word` already has an extension (a '.' after the last '\\'),
+ * 0 otherwise.  Applies to both simple names ("FOO.COM") and explicit paths
+ * ("A:\\X\\FOO.COM"). */
+static int has_extension(const char *word)
+{
+    const char *last_dot = 0;
+    const char *p;
+    if (word == 0) {
+        return 0;
+    }
+    for (p = word; *p != '\0'; p++) {
+        if (*p == '.') {
+            last_dot = p;
+        } else if (*p == '\\') {
+            last_dot = 0;   /* a dot before a backslash is NOT an extension dot */
+        }
+    }
+    return (last_dot != 0) ? 1 : 0;
+}
+
+/* Append `suffix` to `dst` (already holding some prefix text of length `n`),
+ * writing into dst[CMD_PATH_MAX_LEN].  Returns the new length on success, or
+ * -1 if the result would not fit (never overflows -- Rule 2 / fail loud). */
+static int path_cat(char *dst, int n, const char *suffix)
+{
+    const char *p = suffix;
+    while (*p != '\0') {
+        if (n >= CMD_PATH_MAX_LEN - 1) {
+            return -1;   /* would overflow; caller skips this entry */
+        }
+        dst[n++] = *p++;
+    }
+    dst[n] = '\0';
+    return n;
+}
+
+/* Split `path_value` on ';' into dirs[].  Each dir is stored as an ASCIIZ
+ * string.  Returns the number of dirs extracted (bounded to CMD_PATH_MAX_DIRS;
+ * extras silently discarded -- Rule 2: never overflow the array). */
+static int split_path(const char *path_value,
+                      char dirs[CMD_PATH_MAX_DIRS][CMD_PATH_MAX_LEN])
+{
+    int nd = 0;
+    int di = 0;
+    const char *p;
+
+    if (path_value == 0 || path_value[0] == '\0') {
+        return 0;
+    }
+
+    p = path_value;
+    while (*p != '\0' && nd < CMD_PATH_MAX_DIRS) {
+        if (*p == ';') {
+            /* Emit the current token if non-empty. */
+            if (di > 0) {
+                dirs[nd][di] = '\0';
+                nd++;
+                di = 0;
+            }
+            p++;
+        } else {
+            if (di < CMD_PATH_MAX_LEN - 1) {
+                dirs[nd][di++] = *p;
+            }
+            /* else: dir name too long -- silently drop characters (Rule 2:
+             * never overflow; the resulting truncated dir will not be found). */
+            p++;
+        }
+    }
+    /* Flush the last token. */
+    if (di > 0 && nd < CMD_PATH_MAX_DIRS) {
+        dirs[nd][di] = '\0';
+        nd++;
+    }
+    return nd;
+}
+
+/* Build one candidate "dir + '\\' + word + ext" into out->entries[out->count].
+ * `dir`  may be NULL/empty for the CWD bare-root case (we treat empty dir as
+ *        already containing the backslash entry: caller passes cwd).
+ * `word` is the command word (not yet appended with ext).
+ * `ext`  is ".COM", ".EXE", ".BAT", or "" (if word already has extension).
+ * Returns 1 on success (entry stored), 0 on overflow (skipped -- Rule 2). */
+static int emit_candidate(cmd_path_iter_t *out,
+                          const char *dir, const char *word, const char *ext)
+{
+    char *dst;
+    int   n = 0;
+
+    if (out->count >= CMD_PATH_MAX_DIRS + 1) {
+        return 0;   /* array full -- skip silently (Rule 2) */
+    }
+
+    dst = out->entries[out->count];
+    dst[0] = '\0';
+
+    /* Append dir (if present and non-empty). */
+    if (dir != 0 && dir[0] != '\0') {
+        n = path_cat(dst, n, dir);
+        if (n < 0) { return 0; }
+        /* Ensure a trailing backslash between dir and word. */
+        if (n > 0 && dst[n - 1] != '\\') {
+            if (n >= CMD_PATH_MAX_LEN - 1) { return 0; }
+            dst[n++] = '\\';
+            dst[n]   = '\0';
+        }
+    }
+
+    /* Append the command word. */
+    n = path_cat(dst, n, word);
+    if (n < 0) { return 0; }
+
+    /* Append the extension (may be "" if word already has one). */
+    if (ext != 0 && ext[0] != '\0') {
+        n = path_cat(dst, n, ext);
+        if (n < 0) { return 0; }
+    }
+
+    out->count++;
+    return 1;
+}
+
+int cmd_path_candidates(const char *word, const char *path_value,
+                        const char *cwd, cmd_path_iter_t *out)
+{
+    /* Defensive init (Rule 2). */
+    out->count = 0;
+
+    if (word == 0 || word[0] == '\0') {
+        return 0;
+    }
+
+    if (is_explicit_path(word)) {
+        /* Explicit path: use verbatim.  If no extension present, append .COM.
+         * One candidate total (the explicit path -- no PATH search). */
+        char entry[CMD_PATH_MAX_LEN];
+        int n = 0;
+        const char *p = word;
+
+        entry[0] = '\0';
+        while (*p != '\0' && n < CMD_PATH_MAX_LEN - 1) {
+            entry[n++] = *p++;
+        }
+        if (*p != '\0') {
+            /* Word too long to fit -- fail loud: return 0 candidates (Rule 2). */
+            return 0;
+        }
+        entry[n] = '\0';
+
+        if (!has_extension(word)) {
+            /* No extension: append .COM if it fits. */
+            if (n + 4 >= CMD_PATH_MAX_LEN) {
+                return 0;   /* would overflow -- skip */
+            }
+            entry[n++] = '.';
+            entry[n++] = 'C';
+            entry[n++] = 'O';
+            entry[n++] = 'M';
+            entry[n]   = '\0';
+        }
+
+        /* Store the single explicit-path candidate. */
+        {
+            int i;
+            for (i = 0; i < n && i < CMD_PATH_MAX_LEN - 1; i++) {
+                out->entries[0][i] = entry[i];
+            }
+            out->entries[0][i] = '\0';
+        }
+        out->count = 1;
+        return 1;
+    }
+
+    /* Simple name (no '\\' or ':'): generate extension rounds.
+     * Order: .COM round (CWD then PATH dirs), .EXE round, .BAT round.
+     * Ref: DOS 3.3 PATH search -- .COM is tried before .EXE before .BAT in
+     * each dir, then the next dir (ADR-0003 DEC-11). */
+    {
+        /* Determine the effective extension suffix for the word. */
+        const char *ext_com = ".COM";
+        const char *ext_exe = ".EXE";
+        const char *ext_bat = ".BAT";
+
+        /* Split PATH into individual directory strings. */
+        char path_dirs[CMD_PATH_MAX_DIRS][CMD_PATH_MAX_LEN];
+        int  nd = split_path(path_value, path_dirs);
+
+#ifdef CMD_MUTATE_NO_PATH
+        /* MUTANT (Rule 6; make test-command-mutant only): suppress the PATH-
+         * dir loop so the split result is "used" and no unused-variable
+         * warning fires.  Only CWD candidates are emitted -> PATH tests go
+         * RED.  NEVER compiled in a real build. */
+        (void)nd;
+        (void)path_dirs;
+#endif
+
+        if (has_extension(word)) {
+            /* Word already has extension: emit CWD + each PATH dir, no ext. */
+            emit_candidate(out, cwd, word, "");
+#ifndef CMD_MUTATE_NO_PATH
+            /* PATH-dir candidates (mutant: -DCMD_MUTATE_NO_PATH drops this
+             * block so only the CWD candidate is emitted -> PATH tests go RED;
+             * NEVER dropped in a real build -- CLAUDE.md Rule 6). */
+            {
+                int di;
+                for (di = 0; di < nd; di++) {
+                    emit_candidate(out, path_dirs[di], word, "");
+                }
+            }
+#endif
+            return out->count;
+        }
+
+        /* .COM round: CWD first, then PATH dirs. */
+        emit_candidate(out, cwd, word, ext_com);
+#ifndef CMD_MUTATE_NO_PATH
+        {
+            int di;
+            for (di = 0; di < nd; di++) {
+                emit_candidate(out, path_dirs[di], word, ext_com);
+            }
+        }
+#endif
+
+        /* .EXE round: CWD first, then PATH dirs. */
+        emit_candidate(out, cwd, word, ext_exe);
+#ifndef CMD_MUTATE_NO_PATH
+        {
+            int di;
+            for (di = 0; di < nd; di++) {
+                emit_candidate(out, path_dirs[di], word, ext_exe);
+            }
+        }
+#endif
+
+        /* .BAT round: CWD first, then PATH dirs.
+         * NOTE: .BAT execution is deferred (beads xw1); these candidates are
+         * planned and returned so the caller can report "Bad command or file
+         * name" after exhausting all three extension types rather than stopping
+         * at .EXE.  The REPL's run_external ignores .BAT entries for now. */
+        emit_candidate(out, cwd, word, ext_bat);
+#ifndef CMD_MUTATE_NO_PATH
+        {
+            int di;
+            for (di = 0; di < nd; di++) {
+                emit_candidate(out, path_dirs[di], word, ext_bat);
+            }
+        }
+#endif
+    }
+
+    return out->count;
+}
+
+/* ===========================================================================
  * The REPL (kernel-only). Everything below dogfoods the INT 21h API via real
  * `int $0x21` calls -- the authentic COMMAND.COM design + proof the OS API is a
  * usable surface (the brief's central design point). Compiled out of the host
@@ -1903,30 +2183,56 @@ static void builtin_time(const char *arg)
     dos_print("\r\n$");
 }
 
-/* External command: append .COM (if no extension), upcase, AH=4Bh EXEC. On a
- * not-found / load failure => the controlled "Bad command or file name". On a
- * clean run control simply returns to the prompt. */
+/* External command: search PATH directories for `command` (.COM, .EXE, .BAT
+ * order), AH=4Bh EXEC the first match.  On exhausting all candidates =>
+ * "Bad command or file name" (MSG-DOS-0002).  .BAT candidates are planned
+ * but not executed yet (deferred to beads xw1); we skip them silently (the
+ * EXEC on a .BAT path would fail and we would try the next one).
+ * Ref: ADR-0003 DEC-11 / Appendix D; DOS 3.3 COMMAND.COM PATH search.
+ * Ref: cmd_path_candidates (above) for the candidate planning logic. */
 static void run_external(const char *command, const char *tail)
 {
-    char prog[CMD_TOKEN_MAX];
-    uint16_t err;
+    cmd_path_iter_t cands;
+    char cwd[3 + INT21_CWD_MAX]; /* "A:\" + root-relative + NUL */
+    const char *path_val;
+    int i;
 
-    /* `command` is already upper-cased by cmd_parse. Append .COM if needed. */
-    if (!cmd_append_com(command, prog)) {
-        dos_print(MSG_DOS_0002 "\r\n$");
-        return;
-    }
-    /* Defensive: upcase again (cmd_append_com preserves what it was given). */
-    cmd_upcase_str(prog);
+    /* Build the absolute CWD string ("A:\" at root, "A:\SUB" in a subdir)
+     * for use by cmd_path_candidates.  cwd_display assembles this from the
+     * AH=47h root-relative path -- the same helper the $P$G renderer uses. */
+    cwd_display(cwd);
 
-    /* `tail` is the verbatim DOS command tail -> the child's PSP:80h (initech-456). */
-    err = dos_exec(prog, tail);
-    if (err != 0u) {
-        /* Not found / bad format / nested -> the canonical DOS diagnostic. */
-        dos_print(MSG_DOS_0002 "\r\n$");
-        return;
+    /* Read PATH from the master environment.  env_get returns NULL when the
+     * variable is absent; treat that identically to an empty string (no PATH
+     * dirs, CWD-only search -- the fail-safe DOS behaviour). */
+    path_val = env_get(&g_master_env, "PATH");
+
+    /* Plan the ordered candidates.  `command` is already upper-cased by
+     * cmd_parse, and cmd_path_candidates upcases the word in the candidate
+     * strings it builds (they inherit `command`'s case as-is). */
+    cmd_path_candidates(command, path_val, cwd, &cands);
+
+    /* Try each candidate in order; stop at the first successful EXEC. */
+    for (i = 0; i < cands.count; i++) {
+        char *prog = cands.entries[i];
+        uint16_t err;
+
+        /* Upcase the full candidate path (DOS is case-insensitive; the kernel
+         * FAT layer stores names in upper case). */
+        cmd_upcase_str(prog);
+
+        /* `tail` is the verbatim DOS command tail -> the child's PSP:80h
+         * (initech-456). */
+        err = dos_exec(prog, tail);
+        if (err == 0u) {
+            /* Clean run: control is back; the next prompt follows. */
+            return;
+        }
+        /* Non-zero: file not found / bad format / load error -> try next. */
     }
-    /* Clean run: control is back; the next prompt follows. */
+
+    /* All candidates exhausted (or list empty) -> the canonical diagnostic. */
+    dos_print(MSG_DOS_0002 "\r\n$");
 }
 
 /* Read one line from the keyboard via AH=0Ah into `out` (ASCIIZ, CR stripped).
