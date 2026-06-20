@@ -271,12 +271,15 @@ you catch yourself about to do one, stop and re-check the cited reference.
   checking), not just QEMU. A triple-fault in QEMU silently reboots; turn
   on `-d int,guest_errors,cpu_reset` and watch for it.
 
-- **Flat `.COM`-equivalent apps for the current release; MZ `.EXE`
-  deferred; flat binary for the kernel (ADR-0003 DEC-08).** Application
-  executables ship as flat (`.COM`-equivalent) images for the current
-  release; the relocatable MZ `.EXE` loader is **deferred** until apps
-  are realized as independently loadable files. The kernel itself is a
-  flat binary handed off by stage2. Do not assume an MZ loader exists yet.
+- **Flat `.COM`-equivalent apps AND InitechMZ flat-32 `.EXE` both ship
+  (ADR-0003 DEC-08 + ADR-0003-AMENDMENT-DEC-08a); flat binary for the
+  kernel.** Application executables ship as flat (`.COM`-equivalent)
+  images; the InitechMZ `.EXE` loader ALSO ships (ADR-0003-DEC-08a): a
+  real MZ container with a flat-32 load module and uint32 flat-base
+  relocations (`os/milton/mz.c`, `loader_prepare_mz`). An untagged
+  genuine-16-bit MZ panics fail-loud. The OS still does NOT run real
+  16-bit binaries (no v8086, ADR-0001). The kernel itself is a flat
+  binary handed off by stage2.
 
 - **Cooperative, not preemptive.** Scheduling is a `WaitNextEvent`-style
   cooperative loop on the PIT tick. No preemption, no protected

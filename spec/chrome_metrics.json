@@ -32,9 +32,22 @@
     "Inside Macintosh: Macintosh Toolbox Essentials PDF fetch returned binary only",
     "  (PDF not text-extractable by WebFetch); Toolbox-303/313 values below are",
     "  brief-sourced (docs/research/gui-ground-truth.md Sec 3.3) pending a",
-    "  local PDF text extraction. WDEF constants are first-hand verified."
+    "  local PDF text extraction. WDEF constants are first-hand verified.",
+    "",
+    "schema_version 3 = P1-4 uplift (beads initech-dh5k.4, 2026-06-21).",
+    "  DELIBERATE ACT (Rule 8): resolved chrome RGBs moved OUT of golden_resolves",
+    "  into native.* locked values; each era-tagged + provenance-noted.",
+    "  Sources: ../system7-decomp/specs/chrome/pinstripe.md (era-stable 7.0.1",
+    "  via mint-005; goldens/captures/s7_701_doc_window_8bpp.png + mint-results-005.md),",
+    "  ../system7-decomp/specs/chrome/close-zoom-box.md,",
+    "  ../system7-decomp/specs/chrome/grow-box.md,",
+    "  ../system7-decomp/specs/chrome/scrollbar.md,",
+    "  ../win31-decomp/specs/chrome/system-metrics.md (verified DOSBox-X goldens).",
+    "  Provenance note: values cited from the ../system7-decomp and ../win31-decomp",
+    "  goldens corpora; pixel values resolved from those corpora goldens (not from",
+    "  a first-hand fetch of refs/ into this repo -- refs/ was not persisted here)."
   ],
-  "schema_version": 2,
+  "schema_version": 3,
   "target_system": "Apple System 7.0/7.1 color chrome (WDEF minColorDepth=8 satisfied by ADR-0004 OD-2 indexed-8 640x480)",
   "source_fixture": "spec/assets/preview.webp",
   "source_dims": { "w": 1456, "h": 819 },
@@ -72,17 +85,26 @@
     "_provenance": [
       "System 7.0/7.1 color chrome at indexed-8 640x480 (ADR-0004 OD-2/OD-3).",
       "Primary source: StandardWDEF.a (Apple System 7.0 WDEF assembly).",
-      "FIRST-HAND FETCH STATUS (2026-06-19):",
-      "  WDEF listing: FETCHED AND VERIFIED --",
+      "Cited; values match documented System-7 constants; pixel values resolved",
+      "from the ../system7-decomp goldens corpus.",
+      "WDEF geometry constants (schema_version 2, 2026-06-19):",
+      "  WDEF listing: cited --",
       "    https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
-      "  GetMBarHeight: FETCHED AND VERIFIED --",
+      "  GetMBarHeight: cited --",
       "    https://developer.apple.com/library/archive/documentation/mac/Toolbox/Toolbox-128.html",
       "  Inside Macintosh Toolbox Essentials PDF: FETCH RETURNED BINARY ONLY --",
       "    https://developer.apple.com/library/archive/documentation/mac/pdf/MacintoshToolboxEssentials.pdf",
       "    Toolbox-303 / Toolbox-313 references are brief-sourced from",
       "    docs/research/gui-ground-truth.md Sec 3.3 pending local PDF extraction.",
       "  Inside Macintosh Imaging With QuickDraw PDF: NOT FETCHED (not needed",
-      "    for chrome geometry; governs region API semantics per ADR-0005)."
+      "    for chrome geometry; governs region API semantics per ADR-0005).",
+      "Chrome RGB pixel values (schema_version 3, 2026-06-21):",
+      "  Cited; values match documented System-7 constants; pixel values resolved",
+      "  from the ../system7-decomp goldens corpus (goldens/captures/s7_*.png,",
+      "  re/mint-results-002.md through mint-005.md) and confirmed era-stable",
+      "  at System 7.0.1 (IIci ROM, native boot, re/mint-results-005.md).",
+      "  refs/ was NOT persisted to this repo -- provenance is the corpus files,",
+      "  not a local first-hand fetch."
     ],
 
     "menubar_height": {
@@ -194,54 +216,240 @@
       "wTitleBarDark": 8,
       "unit": "wctb-index",
       "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
-      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
-      "note": "WDEF constants wTitleBarLight EQU 7 and wTitleBarDark EQU 8 are the indices into the wctb (window color table) resource ID -4096 for the alternating pinstripe shades. The actual RGB values at these indices are golden-resolves (beads pvo4) -- require a System 7 emulator boot and ResEdit wctb extraction."
+      "fetch_status": "cited; values match documented System-7 constants",
+      "note": "WDEF constants wTitleBarLight EQU 7 and wTitleBarDark EQU 8 are the indices into the wctb (window color table) resource ID -4096 for the alternating pinstripe shades. The wctb id=0 (full 7.0.1 distribution + 7.5.3, byte-identical) carries wTitleBarLight (idx 7) = #FFFFFF and wTitleBarDark (idx 8) = #000000, confirming the stripe gray is a DITHER of those two anchors -- not a palette entry. See native.pinstripe_light_rgb / native.pinstripe_dark_rgb for the rendered values. Ref: ../system7-decomp/specs/chrome/pinstripe.md; re/mint-results-006.md [verified: wctb_0_System_colorHD.bin == wctb_0_System_753.bin]"
+    },
+
+    "pinstripe_light_rgb": {
+      "value": "#F3F3F3",
+      "rgb": [243, 243, 243],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/pinstripe.md",
+      "corpus_golden": "goldens/captures/s7_doc_window.png @ x=450,y=166",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png",
+      "note": "Rendered RGB of the LIGHT (wTitleBarLight / wHiliteShade8 foreground) stripe row in an ACTIVE title bar. NOT pure white: the 8-bpp dither of the WDEF HilitePattern ($FF00 x4) over back-color wTitleBarShade1 produces this softened gray pair. Ref: pinstripe.md Sec 'Rendered colors'; WDEF @ 2206, 692, 861."
+    },
+
+    "pinstripe_dark_rgb": {
+      "value": "#969696",
+      "rgb": [150, 150, 150],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/pinstripe.md",
+      "corpus_golden": "goldens/captures/s7_doc_window.png @ x=450,y=168",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png",
+      "note": "Rendered RGB of the DARK (wTitleBarDark / back-color wTitleBarShade1) stripe row. NOT pure black: the dither renders as solid #969696 horizontal rows (confirmed x=373..518 continuous at y=168). Ref: pinstripe.md Sec 'Rendered colors'."
+    },
+
+    "pinstripe_bevel_top_rgb": {
+      "value": "#DADAFF",
+      "rgb": [218, 218, 255],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/pinstripe.md",
+      "corpus_golden": "goldens/captures/s7_doc_window.png @ x=450,y=165",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png; tinge SCHEME (#CCCCFF/#333366 anchors) 7.0-origin [verified: WDEF_0.bin DISASM @0xE0E/0xE1A/0xE20 + cctb_0; re/wdef-shade-table-disasm.md]",
+      "note": "Rendered RGB of the top bevel HIGHLIGHT row (wLTinge0, WDEF @ 711-744), drawn 1px inside the black outer frame. The 1px lavender row at the very top of the pinstripe interior. Ref: pinstripe.md Sec 'Rendered colors'; WDEF wLTinge0 (shade index 34)."
+    },
+
+    "pinstripe_bevel_bottom_rgb": {
+      "value": "#B3B3DA",
+      "rgb": [179, 179, 218],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/pinstripe.md",
+      "corpus_golden": "goldens/captures/s7_doc_window.png @ x=450,y=181",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png; tinge SCHEME 7.0-origin [re/wdef-shade-table-disasm.md]",
+      "note": "Rendered RGB of the bottom bevel SHADOW row (wLTinge4, WDEF @ 711-744), drawn 1px inside the black outer frame at the base of the title bar interior. Ref: pinstripe.md Sec 'Rendered colors'; WDEF wLTinge4."
+    },
+
+    "close_zoom_box_dark_outline_rgb": {
+      "value": "#545487",
+      "rgb": [84, 84, 135],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/close-zoom-box.md",
+      "corpus_golden": "goldens/captures/s7_doc_window.png @ x=361,y=170 (IDLE close box left edge)",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png; tinge SCHEME 7.0-origin [re/wdef-shade-table-disasm.md]",
+      "note": "Rendered RGB of the dark blue-violet outline of the close (goAway) and zoom boxes in IDLE state. NOT pure black. The outer top/left and inner right(x=370)/bottom(y=177) ring of the 3-D beveled gadget. Applies to both close and zoom boxes. Ref: close-zoom-box.md Sec 'IDLE state'."
+    },
+
+    "close_zoom_box_bevel_highlight_rgb": {
+      "value": "#DADAFF",
+      "rgb": [218, 218, 255],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/close-zoom-box.md",
+      "corpus_golden": "goldens/captures/s7_doc_window.png @ x=362,y=169 (UL bevel of IDLE close box)",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png; tinge SCHEME 7.0-origin [re/wdef-shade-table-disasm.md]",
+      "note": "Rendered RGB of the inner lavender bevel HIGHLIGHT of the close/zoom box gadget in IDLE state. Matches the title-bar bevel top highlight (same wLTinge0 family). Applies to both close and zoom boxes. Ref: close-zoom-box.md Sec 'IDLE state'."
+    },
+
+    "close_zoom_box_face_rgb": {
+      "value": "#C0C0C0",
+      "rgb": [192, 192, 192],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/close-zoom-box.md",
+      "corpus_golden": "goldens/captures/s7_doc_window.png @ x=366,y=172 (7x7 gray face of IDLE close box)",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md; also confirmed by grow-box interior scan (s7_growbox.png)",
+      "note": "Rendered RGB of the recessed 7x7 interior face of the close/zoom box in IDLE state. The wTitleBarShade4 blend. Ref: close-zoom-box.md Sec 'IDLE state'."
+    },
+
+    "close_zoom_box_pressed_interior_rgb": {
+      "value": "#B3B3DA",
+      "rgb": [179, 179, 218],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/close-zoom-box.md",
+      "corpus_golden": "goldens/captures/s7_close_pressed.png @ x=16..25,y=31..41 (mint-004 2026-06-20); also goldens/captures/s7_zoom_pressed.png",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png; tinge SCHEME 7.0-origin [re/wdef-shade-table-disasm.md]",
+      "note": "Rendered RGB of the close/zoom box interior in PRESSED (mousedown) state. The hilit/pressed tone used by wGoAwayHilitedGadget / wZoomHilitedGadget. PRESSED also changes the outline from #545487 to solid #000000. Identical for close and zoom boxes. Ref: close-zoom-box.md Sec 'PRESSED state'; re/mint-results-004.md sec 4."
+    },
+
+    "grow_box_ground_rgb": {
+      "value": "#F3F3F3",
+      "rgb": [243, 243, 243],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/grow-box.md",
+      "corpus_golden": "goldens/captures/s7_growbox.png @ x=398..413,y=220..233 (104 px dominant; mint-004 2026-06-20)",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png",
+      "note": "Rendered RGB of the DrawGrowIcon grow-box background field (wTitleBarShade1 = shade index 22). Same wTitleBarShade1 value as the pinstripe light row. The grow box ACTIVE ground: the WDEF erases to this shade before plotting the nested-box glyph. Ref: grow-box.md Sec 'Rendered colors'; re/mint-results-004.md sec 3."
+    },
+
+    "grow_box_figure_rgb": {
+      "value": "#545487",
+      "rgb": [84, 84, 135],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/grow-box.md",
+      "corpus_golden": "goldens/captures/s7_growbox.png; 39 px figure pixels (mint-004 2026-06-20)",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png; tinge SCHEME 7.0-origin [re/wdef-shade-table-disasm.md]",
+      "note": "Rendered RGB of the nested-box figure outlines (wFrameColor / wDTingeF) in the active DrawGrowIcon gadget. Same dark blue-violet as the close/zoom box outline (#545487). Ref: grow-box.md Sec 'Rendered colors'; re/mint-results-004.md sec 3."
+    },
+
+    "grow_box_highlight_rgb": {
+      "value": "#DADAFF",
+      "rgb": [218, 218, 255],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/grow-box.md",
+      "corpus_golden": "goldens/captures/s7_growbox.png; 17 px highlight pixels (mint-004 2026-06-20)",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png; tinge SCHEME 7.0-origin [re/wdef-shade-table-disasm.md]",
+      "note": "Rendered RGB of the wLTinge0 light highlight edges in the DrawGrowIcon gadget (the lower/right light edges of the outer nested box, per the two-box ascii art in WDEF @ 1642-1648). Ref: grow-box.md Sec 'Rendered colors'; re/mint-results-004.md sec 3."
+    },
+
+    "grow_box_inner_fill_rgb": {
+      "value": "#C0C0C0",
+      "rgb": [192, 192, 192],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/grow-box.md",
+      "corpus_golden": "goldens/captures/s7_growbox.png; 27 px interior pixels (mint-004 2026-06-20)",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md",
+      "note": "Rendered RGB of the inner nested-box interior fill (wTitleBarShade4 / wDTingeF center, WDEF @ 1617-1627). Same value as the close/zoom box face (#C0C0C0). A secondary lighter shade #CDCDCD (205,205,205) also appears (9 px) in the grow cell as wTitleBarShade4 family variation; see grow_box_secondary_rgb. Ref: grow-box.md Sec 'Rendered colors'."
+    },
+
+    "grow_box_secondary_rgb": {
+      "value": "#CDCDCD",
+      "rgb": [205, 205, 205],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/grow-box.md",
+      "corpus_golden": "goldens/captures/s7_growbox.png; 9 px secondary interior (mint-004 2026-06-20)",
+      "era_stability": "verified: golden goldens/captures/s7_growbox.png; era 7.5.3; cite re/mint-results-004.md sec 3",
+      "note": "Secondary interior shading within the grow box (wTitleBarShade4 family variation, 9 px). Appears in addition to the primary #C0C0C0 fill; exact WDEF shade assignment is a minor variant of wTitleBarShade4. Lower confidence than primary values; era-stable to 7.0.1 assumed via the wTitleBarShade4 family but not independently re/mint-005 confirmed."
+    },
+
+    "scrollbar_active_thumb_light_rgb": {
+      "value": "#DADAFF",
+      "rgb": [218, 218, 255],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/scrollbar.md",
+      "corpus_golden": "goldens/captures/s7_scrollbar_active.png; 50/50 dither confirmed 24/24 px sample x=402..407,y=84..92 (mint-004 2026-06-20)",
+      "era_stability": "verified era-stable System 7.0.1 (IIci ROM, native boot) -- ZERO delta vs 7.5.3 goldens; re/mint-results-005.md + goldens/captures/s7_701_doc_window_8bpp.png; tinge SCHEME 7.0-origin [re/wdef-shade-table-disasm.md]",
+      "note": "Rendered RGB of the LIGHT row of the active scrollbar thumb face dither. The thumb is a 50/50 alternating dither of this value and scrollbar_active_thumb_dark_rgb (#8787B3). The light value (#DADAFF) is era-stable to 7.0.1 [verified: re/mint-results-005.md]. Ref: scrollbar.md Sec 'Active scroll bar'; re/mint-results-004.md sec 2."
+    },
+
+    "scrollbar_active_thumb_dark_rgb": {
+      "value": "#8787B3",
+      "rgb": [135, 135, 179],
+      "era": "system7.0-7.1",
+      "era_stability_note": "LOW CONFIDENCE for 7.0/7.1: #8787B3 thumb-face dither partner not independently measured in re/mint-results-005.md (only #DADAFF was confirmed era-stable in that mint). The 7.5.3 value is [verified: golden s7_scrollbar_active.png; re/mint-results-004.md sec 2]; era-stability to 7.0/7.1 is [golden-resolves: needs bootable 7.0.1/7.1 image with active overflowing window].",
+      "source": "../system7-decomp/specs/chrome/scrollbar.md",
+      "corpus_golden": "goldens/captures/s7_scrollbar_active.png @ x=402..407,y=84..92 (mint-004 2026-06-20)",
+      "note": "Rendered RGB of the DARK row of the active scrollbar thumb face dither. Part of the 50/50 lavender dither (#DADAFF / #8787B3). Era-stability to 7.0/7.1 is [golden-resolves]. Ref: scrollbar.md Sec 'Active scroll bar'; re/mint-results-004.md sec 2."
+    },
+
+    "scrollbar_active_track_light_rgb": {
+      "value": "#E7E7E7",
+      "rgb": [231, 231, 231],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/scrollbar.md",
+      "corpus_golden": "goldens/captures/s7_scrollbar_active.png; 1000:300 light:dark ratio over 13x100 sample (mint-004 2026-06-20)",
+      "era_stability": "verified: golden goldens/captures/s7_scrollbar_active.png; era 7.5.3; cite re/mint-results-004.md sec 2",
+      "note": "Rendered RGB of the LIGHT element (2/3) of the active scrollbar track gutter dither (#E7E7E7 / #969696, 2:1 ratio). Also used as the enabled arrow-box face fill. Ref: scrollbar.md Sec 'Active scroll bar'; re/mint-results-004.md sec 2."
+    },
+
+    "scrollbar_active_track_dark_rgb": {
+      "value": "#969696",
+      "rgb": [150, 150, 150],
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/scrollbar.md",
+      "corpus_golden": "goldens/captures/s7_scrollbar_active.png; same 2:1 dither sample (mint-004 2026-06-20)",
+      "era_stability": "verified: golden goldens/captures/s7_scrollbar_active.png; era 7.5.3; cite re/mint-results-004.md sec 2",
+      "note": "Rendered RGB of the DARK element (1/3) of the active scrollbar track gutter dither. Same shade as the pinstripe dark row (#969696) -- they share the wTitleBarDark family. Ref: scrollbar.md Sec 'Active scroll bar'; re/mint-results-004.md sec 2."
+    },
+
+    "win31_sm_cycaption": {
+      "value": 18,
+      "unit": "px",
+      "era": "win31-accent",
+      "source": "../win31-decomp/specs/chrome/system-metrics.md",
+      "corpus_golden": "goldens/screenshots/clean/w31_client.png y=52-69 x=300 (ProgMan) + y=94-111 x=300 (MDI child) -- two independent measurements agree",
+      "confidence": "VERIFIED",
+      "note": "Windows 3.1 SM_CYCAPTION (caption bar interior height). 18 rows of VGA blue (#000080); 1px black border above (SM_CYBORDER) and below are NOT counted. Replaces the prior [golden-resolves] status: value was blocked pending DOSBox-X measurement; now resolved by the ../win31-decomp corpus golden (M-A row 1 + row 5). Ref: ../win31-decomp/specs/chrome/system-metrics.md Sec 1."
+    },
+
+    "win31_sm_cxvscroll": {
+      "value": 15,
+      "unit": "px",
+      "era": "win31-accent",
+      "confidence": "LOW -- golden-resolves",
+      "source": "../win31-decomp/specs/chrome/system-metrics.md",
+      "corpus_golden": "goldens/screenshots/clean/w31_listbox_scrollbar.png -- left border x=586, face x=587-600 (14 px); 16-color VGA artifacts reduce confidence",
+      "refuted_claim": "The widely cited '17 px' web claim is REFUTED -- that value is a Win 95/NT figure NOT confirmed in any Win 3.1 golden. Ref: system-metrics.md Sec 1 + Sec 5 cross-version-guardrails.",
+      "note": "Windows 3.1 SM_CXVSCROLL (vertical scrollbar width). Best measurement from current 16-color goldens is ~15 px; low confidence due to VGA-16 color artifacts making the left scrollbar border hard to isolate. Definitive value requires 256-color S3 re-mint. Replacing the prior [golden-resolves] block: the 17px web claim is now actively REFUTED; the value 15 is the best available estimate. Ref: ../win31-decomp/specs/chrome/system-metrics.md Sec 3 (mint recipe) + Sec 1."
     }
   },
 
   "golden_resolves": {
     "_description": [
-      "Metrics that CANNOT be sourced from WDEF/IM alone and require a real",
-      "System 7 or Windows 3.x screendump under an emulator.",
+      "Metrics that CANNOT be sourced from WDEF/IM or the sister corpora alone",
+      "and require further mint work.",
       "These are TODOs -- do NOT invent pixel values.",
       "Ref: ADR-0004 D-8 / FO-2 / AM-3; gui-ground-truth.md Sec 3.3, Sec 8.",
-      "Primary blocker: Mac 68K ROM (abandonware-grey, operator decision required).",
-      "See gui-ground-truth.md Sec 6 (acquisition checklist P1) and Sec 8 (risks)."
+      "",
+      "RESOLVED in schema_version 3 (P1-4 uplift, beads initech-dh5k.4):",
+      "  pinstripe_shade_rgbs -> native.pinstripe_light_rgb + native.pinstripe_dark_rgb",
+      "  pinstripe bevel -> native.pinstripe_bevel_top_rgb + native.pinstripe_bevel_bottom_rgb",
+      "  close_zoom_box_rendered_interior -> native.close_zoom_box_* (IDLE + PRESSED)",
+      "  grow_box_fill_pattern -> native.grow_box_* (all major colors resolved)",
+      "  win31_sm_cycaption -> native.win31_sm_cycaption (VERIFIED = 18)",
+      "  win31_sm_cxvscroll -> native.win31_sm_cxvscroll (low-confidence ~15; 17px refuted)",
+      "  scrollbar active state -> native.scrollbar_active_* (thumb/track/arrow resolved)",
+      "",
+      "Remaining items:"
     ],
-    "pinstripe_shade_rgbs": {
-      "what": "Exact 8-bpp RGB values for wTitleBarLight (index 7) and wTitleBarDark (index 8) in the wctb resource ID -4096.",
-      "why_blocked": "wctb is a compiled resource in the System file; only recoverable by booting a real System 7 and extracting via ResEdit.",
+    "scrollbar_active_thumb_dark_7x_era": {
+      "what": "Era-stability confirmation of #8787B3 (scrollbar active thumb dark dither partner) for System 7.0/7.1 specifically.",
+      "why_blocked": "The 7.5.3 value #8787B3 is verified from s7_scrollbar_active.png (mint-004). re/mint-results-005.md confirmed #DADAFF (the light partner) is era-stable to 7.0.1 but did NOT independently measure #8787B3 in the 7.0.1 active-thumb boot. The dark partner is therefore [golden-resolves] only for the 7.0/7.1 era claim.",
       "blocker_bead": "pvo4",
-      "acquisition_path": "Boot Basilisk II with Mac 68K ROM + System 7.0.1 or 7.5.3; open ResEdit; extract 'wctb' resource ID -4096; read color table entries at indices 7 and 8.",
-      "prerequisite": "Mac 68K ROM (operator decision required -- gui-ground-truth.md Sec 8 'Mac ROM legality')"
+      "acquisition_path": "Boot Basilisk II with a 7.0.1 or 7.1 System file; open a window whose content overflows the view (so an active scroll thumb appears); capture active scroll bar golden; measure thumb face dither dark partner.",
+      "current_best": "#8787B3 from 7.5.3 golden (native.scrollbar_active_thumb_dark_rgb); use this value pending era-confirmation."
     },
-    "close_zoom_box_rendered_interior": {
-      "what": "Exact rendered appearance of close (goAway) and zoom box interiors: border color, fill, any inner reduction square.",
-      "why_blocked": "WDEF gives the 13 px vertical frame-delta math and hit-test zones but does not describe the interior rendering (that is handled by the WDEF drawing routines using wctb color indices, not raw constants).",
+    "grow_box_inactive_blank": {
+      "what": "Confirmation that the grow box is completely blank (WDEF erases to content color) on a non-front (inactive) growable window.",
+      "why_blocked": "WDEF code documents EraseRect at 1487-1492 (inactive path), but no two-growable-window golden exists to visually confirm the back window's lower-right corner is blank vs dimmed.",
       "blocker_bead": "pvo4",
-      "acquisition_path": "System 7 screendump via Basilisk II; crop title bar; measure box pixels.",
-      "prerequisite": "Mac 68K ROM (operator decision required)"
+      "acquisition_path": "Mint a golden with two stacked growable windows; measure the back window's grow corner.",
+      "inferred": "WDEF @ 1487-1492 documents the inactive erase path; functional behavior is documented, pixel appearance not yet confirmed."
     },
-    "grow_box_fill_pattern": {
-      "what": "Exact fill pattern of the 16x16 grow box (2D hash / hatching pattern and colors in 8-bpp indexed).",
-      "why_blocked": "WDEF computes the grow box rect from scrollBarSize but the actual fill is drawn via QuickDraw pattern calls using wctb indices; pattern bytes not in WDEF constants.",
-      "blocker_bead": "pvo4",
-      "acquisition_path": "System 7 screendump via Basilisk II; crop grow box area.",
-      "prerequisite": "Mac 68K ROM (operator decision required)"
-    },
-    "win31_sm_cycaption": {
-      "what": "Windows 3.1 SM_CYCAPTION (caption bar / title bar height in pixels).",
-      "why_blocked": "Common web claim is 17 px but this is unconfirmed; gui-ground-truth.md Sec 4.1 explicitly states 'All Windows pixel heights are golden-resolves -- measure from a DOSBox-X screenshot; do not trust web claims'.",
+    "win31_sm_cxvscroll_definitive": {
+      "what": "Definitive pixel count for SM_CXVSCROLL at 256-color depth (the 16-color golden gives ~15 px with low confidence due to color artifacts).",
+      "why_blocked": "Current golden (w31_listbox_scrollbar.png) is 16-color VGA; bright-blue VGA-16 listbox selection merges with scrollbar face pixels, making the left border hard to isolate. Definitive value requires 256-color S3/SVGA re-mint.",
       "blocker_bead": "77wz",
-      "acquisition_path": "Boot Windows 3.1 under DOSBox-X (svga_s3/386); capture Program Manager + a dialog; pixel-scan caption height. DOSBox-X is installed: /usr/bin/dosbox-x. Windows 3.1 disk image needed from archive.org.",
-      "prerequisite": "Windows 3.1 disk image (archive.org download; see gui-ground-truth.md Sec 6 P0 item 2)"
-    },
-    "win31_sm_cxvscroll": {
-      "what": "Windows 3.1 SM_CXVSCROLL (vertical scrollbar width in pixels).",
-      "why_blocked": "Same as SM_CYCAPTION -- unconfirmed from web sources; must be pixel-measured from a real DOSBox-X boot.",
-      "blocker_bead": "77wz",
-      "acquisition_path": "Same DOSBox-X boot as SM_CYCAPTION; pixel-scan scrollbar width in Program Manager or a dialog with scrollbar.",
-      "prerequisite": "Windows 3.1 disk image (archive.org download)"
+      "acquisition_path": "Install the S3/SVGA-256 Win 3.1 display driver via ProgMan > Windows Setup > Change System Settings > Display. Reboot DOSBox-X at 640x480x256. Re-open the printer list dialog (listbox with vertical scrollbar). Capture a clean crop. Measure scrollbar width. See ../win31-decomp/specs/chrome/system-metrics.md Sec 3.",
+      "current_best": "~15 px from 16-color golden (native.win31_sm_cxvscroll); 17 px web claim ACTIVELY REFUTED."
     }
   }
 }

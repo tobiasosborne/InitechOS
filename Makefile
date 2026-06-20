@@ -8719,6 +8719,86 @@ test-flair-headers-mutant: $(TEST_FLAIR_HEADERS_MUT)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gates: FLAIR Phase 1 canonical spec-data (epic initech-dh5k;
+# docs/plans/FLAIR-implementation-plan.md). Host oracles over the LOCKED Manager
+# records (control/menu/dialog), the QuickDraw operation semantics (drawing_ops),
+# and the 256-entry indexed-8 CLUT. Mirror test-flair-headers; each mutant BITES
+# (Rule 6). Native cc per CC?=cc (no 32-bit libc needed). SYSTEM7_DECOMP resolves
+# the gitignored ROM-CLUT golden for the test-clut entry-by-entry diff (loud-skip
+# if absent -- never silent-pass).
+# ---------------------------------------------------------------------------
+SYSTEM7_DECOMP ?= ../system7-decomp
+
+TEST_CTRL_RECORD     := $(BUILD)/test_control_record
+TEST_CTRL_RECORD_MUT := $(BUILD)/test_control_record_mutant
+$(TEST_CTRL_RECORD): harness/proptest/test_control_record.c spec/control_record.h $(FLAIR_HDR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) -o $@ $<
+$(TEST_CTRL_RECORD_MUT): harness/proptest/test_control_record.c spec/control_record.h $(FLAIR_HDR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEST_CTRL_MUTANT $(FLAIR_HDR_INC) -o $@ $<
+test-control-record: $(TEST_CTRL_RECORD)
+	@printf ">>> test-control-record: ControlRecord + part-codes + CDEF proc IDs + Win flat-button accent (spec/control_record.h)\n"
+	@$(TEST_CTRL_RECORD)
+	@printf ">>> test-control-record: green\n"
+test-control-record-mutant: $(TEST_CTRL_RECORD_MUT)
+	@if $(TEST_CTRL_RECORD_MUT) >/dev/null 2>&1; then printf '!!! test-control-record-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; else printf '>>> test-control-record-mutant: green (mutant correctly RED)\n'; fi
+
+TEST_MENU_RECORD     := $(BUILD)/test_menu_record
+TEST_MENU_RECORD_MUT := $(BUILD)/test_menu_record_mutant
+$(TEST_MENU_RECORD): harness/proptest/test_menu_record.c spec/menu_record.h $(FLAIR_HDR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) -Iseed -o $@ $<
+$(TEST_MENU_RECORD_MUT): harness/proptest/test_menu_record.c spec/menu_record.h $(FLAIR_HDR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_REC_MUTATE_CHECKCONSTANT=1 $(FLAIR_HDR_INC) -Iseed -o $@ $<
+test-menu-record: $(TEST_MENU_RECORD)
+	@printf ">>> test-menu-record: MenuInfo + enableFlags + MenuSelect result-word (spec/menu_record.h)\n"
+	@$(TEST_MENU_RECORD)
+	@printf ">>> test-menu-record: green\n"
+test-menu-record-mutant: $(TEST_MENU_RECORD_MUT)
+	@if $(TEST_MENU_RECORD_MUT) >/dev/null 2>&1; then printf '!!! test-menu-record-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; else printf '>>> test-menu-record-mutant: green (mutant correctly RED)\n'; fi
+
+TEST_DIALOG_RECORD     := $(BUILD)/test_dialog_record
+TEST_DIALOG_RECORD_MUT := $(BUILD)/test_dialog_record_mutant
+$(TEST_DIALOG_RECORD): harness/proptest/test_dialog_record.c spec/dialog_record.h $(FLAIR_HDR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) -Iseed -o $@ $<
+$(TEST_DIALOG_RECORD_MUT): harness/proptest/test_dialog_record.c spec/dialog_record.h $(FLAIR_HDR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_REC_MUTATE_OK $(FLAIR_HDR_INC) -Iseed -o $@ $<
+test-dialog-record: $(TEST_DIALOG_RECORD)
+	@printf ">>> test-dialog-record: DialogRecord + DITL item-type bytes + alert stages + ok/cancel=1/2 (spec/dialog_record.h)\n"
+	@$(TEST_DIALOG_RECORD)
+	@printf ">>> test-dialog-record: green\n"
+test-dialog-record-mutant: $(TEST_DIALOG_RECORD_MUT)
+	@if $(TEST_DIALOG_RECORD_MUT) >/dev/null 2>&1; then printf '!!! test-dialog-record-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; else printf '>>> test-dialog-record-mutant: green (mutant correctly RED)\n'; fi
+
+TEST_DRAWING_OPS     := $(BUILD)/test_drawing_ops
+TEST_DRAWING_OPS_MUT := $(BUILD)/test_drawing_ops_mutant
+$(TEST_DRAWING_OPS): harness/proptest/test_drawing_ops.c spec/drawing_ops.h $(FLAIR_HDR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I. $(FLAIR_HDR_INC) -o $@ $<
+$(TEST_DRAWING_OPS_MUT): harness/proptest/test_drawing_ops.c spec/drawing_ops.h $(FLAIR_HDR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I. -DTEST_DRAWOPS_MUTANT $(FLAIR_HDR_INC) -o $@ $<
+test-drawing-ops: $(TEST_DRAWING_OPS)
+	@printf ">>> test-drawing-ops: QuickDraw verb/coord/CopyBits/pattern-phase op semantics (spec/drawing_ops.h)\n"
+	@$(TEST_DRAWING_OPS)
+	@printf ">>> test-drawing-ops: green\n"
+test-drawing-ops-mutant: $(TEST_DRAWING_OPS_MUT)
+	@if $(TEST_DRAWING_OPS_MUT) >/dev/null 2>&1; then printf '!!! test-drawing-ops-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; else printf '>>> test-drawing-ops-mutant: green (mutant correctly RED)\n'; fi
+
+TEST_CLUT     := $(BUILD)/test_clut
+TEST_CLUT_MUT := $(BUILD)/test_clut_mutant
+$(TEST_CLUT): harness/proptest/test_clut.c spec/assets/clut.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\" -o $@ $<
+$(TEST_CLUT_MUT): harness/proptest/test_clut.c spec/assets/clut.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\" -DTEST_CLUT_MUTANT -o $@ $<
+test-clut: $(TEST_CLUT)
+	@printf ">>> test-clut: 256-entry indexed-8 CLUT (ROM clut_8 cube/ramps + RGB->index) (spec/assets/clut.h)\n"
+	@$(TEST_CLUT)
+	@printf ">>> test-clut: green\n"
+test-clut-mutant: $(TEST_CLUT_MUT)
+	@if $(TEST_CLUT_MUT) >/dev/null 2>&1; then printf '!!! test-clut-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; else printf '>>> test-clut-mutant: green (mutant correctly RED)\n'; fi
+
+.PHONY: test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \
+	test-dialog-record test-dialog-record-mutant test-drawing-ops test-drawing-ops-mutant \
+	test-clut test-clut-mutant
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-fat (beads initech-5cu; FAT12 read path beads initech-adf)
 # ---------------------------------------------------------------------------
 # The FAT12 DIFFERENTIAL ORACLE. Our C reader (os/milton/fat12.c, driven on the
@@ -13277,6 +13357,9 @@ TEST_UNIT_GATES := \
 	test-region test-region-mutant \
 	test-flair-heap test-flair-heap-mutant \
 	test-flair-headers test-flair-headers-mutant \
+	test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \
+	test-dialog-record test-dialog-record-mutant test-drawing-ops test-drawing-ops-mutant \
+	test-clut test-clut-mutant \
 	test-blitter test-blitter-mutant test-text test-text-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-window test-window-mutant test-event test-event-mutant \

@@ -91,6 +91,181 @@
 #define FLAIR_CHROME_SMALL_ICON         20
 
 /* ===========================================================================
+ * ERA-TAGGED CHROME RGB CONSTANTS  (P1-4 uplift; beads initech-dh5k.4, 2026-06-21)
+ * ---------------------------------------------------------------------------
+ * Moved OUT of golden_resolves into locked native.* values in schema_version 3.
+ * All values cited from ../system7-decomp/ and ../win31-decomp/ corpora.
+ * era=system7.0-7.1 unless tagged win31-accent.
+ * Ref: spec/chrome_metrics.json native.* entries (the authority; this header
+ * re-states them for freestanding C consumption and is consistency-checked).
+ * ===========================================================================*/
+
+/* --- Pinstripe RGBs (era=system7.0-7.1) ----------------------------------- */
+
+/* native.pinstripe_light_rgb = #F3F3F3 (243,243,243)
+ * Rendered LIGHT stripe row in the active title bar (wHiliteShade8 fore over
+ * wTitleBarShade1 back, $FF00 HilitePattern).
+ * Ref: ../system7-decomp/specs/chrome/pinstripe.md; golden s7_doc_window.png
+ * @ x=450,y=166; era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_PINSTRIPE_LIGHT_R  243
+#define FLAIR_CHROME_PINSTRIPE_LIGHT_G  243
+#define FLAIR_CHROME_PINSTRIPE_LIGHT_B  243
+
+/* native.pinstripe_dark_rgb = #969696 (150,150,150)
+ * Rendered DARK stripe row in the active title bar (wTitleBarShade1 back).
+ * Ref: ../system7-decomp/specs/chrome/pinstripe.md; golden s7_doc_window.png
+ * @ x=450,y=168; era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_PINSTRIPE_DARK_R   150
+#define FLAIR_CHROME_PINSTRIPE_DARK_G   150
+#define FLAIR_CHROME_PINSTRIPE_DARK_B   150
+
+/* native.pinstripe_bevel_top_rgb = #DADAFF (218,218,255)
+ * Top bevel HIGHLIGHT row (wLTinge0), 1px inside the black frame.
+ * Ref: ../system7-decomp/specs/chrome/pinstripe.md; golden s7_doc_window.png
+ * @ x=450,y=165; era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_BEVEL_TOP_R        218
+#define FLAIR_CHROME_BEVEL_TOP_G        218
+#define FLAIR_CHROME_BEVEL_TOP_B        255
+
+/* native.pinstripe_bevel_bottom_rgb = #B3B3DA (179,179,218)
+ * Bottom bevel SHADOW row (wLTinge4), 1px inside the black frame at the base.
+ * Ref: ../system7-decomp/specs/chrome/pinstripe.md; golden s7_doc_window.png
+ * @ x=450,y=181; era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_BEVEL_BOTTOM_R     179
+#define FLAIR_CHROME_BEVEL_BOTTOM_G     179
+#define FLAIR_CHROME_BEVEL_BOTTOM_B     218
+
+/* --- Close/zoom box RGBs (era=system7.0-7.1) ------------------------------ */
+
+/* native.close_zoom_box_dark_outline_rgb = #545487 (84,84,135)
+ * Dark blue-violet outline of the close/zoom box gadget in IDLE state.
+ * NOT pure black (wFrameColor / wDTingeF blend).
+ * Ref: ../system7-decomp/specs/chrome/close-zoom-box.md; golden
+ * s7_doc_window.png @ x=361,y=170; era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_BOX_DARK_R         84
+#define FLAIR_CHROME_BOX_DARK_G         84
+#define FLAIR_CHROME_BOX_DARK_B         135
+
+/* native.close_zoom_box_bevel_highlight_rgb = #DADAFF (218,218,255)
+ * Inner lavender bevel HIGHLIGHT of the close/zoom box gadget (IDLE).
+ * Same wLTinge0 family as the title-bar bevel top.
+ * Ref: ../system7-decomp/specs/chrome/close-zoom-box.md; golden
+ * s7_doc_window.png @ x=362,y=169; era-stable 7.0.1 [verified: re/mint-results-005.md].
+ * (Same value as FLAIR_CHROME_BEVEL_TOP_*.) */
+#define FLAIR_CHROME_BOX_BEVEL_R        218
+#define FLAIR_CHROME_BOX_BEVEL_G        218
+#define FLAIR_CHROME_BOX_BEVEL_B        255
+
+/* native.close_zoom_box_face_rgb = #C0C0C0 (192,192,192)
+ * Recessed 7x7 interior face of the close/zoom box (IDLE; wTitleBarShade4 blend).
+ * Ref: ../system7-decomp/specs/chrome/close-zoom-box.md; golden
+ * s7_doc_window.png @ x=366,y=172; era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_BOX_FACE_R         192
+#define FLAIR_CHROME_BOX_FACE_G         192
+#define FLAIR_CHROME_BOX_FACE_B         192
+
+/* native.close_zoom_box_pressed_interior_rgb = #B3B3DA (179,179,218)
+ * Close/zoom box interior fill in PRESSED (mousedown) state (wGoAwayHilitedGadget).
+ * PRESSED also changes outline from #545487 to #000000.
+ * Ref: ../system7-decomp/specs/chrome/close-zoom-box.md;
+ * golden s7_close_pressed.png + s7_zoom_pressed.png (mint-004);
+ * era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_BOX_PRESSED_R      179
+#define FLAIR_CHROME_BOX_PRESSED_G      179
+#define FLAIR_CHROME_BOX_PRESSED_B      218
+
+/* --- Grow box RGBs (era=system7.0-7.1) ------------------------------------ */
+
+/* native.grow_box_ground_rgb = #F3F3F3 (243,243,243)
+ * DrawGrowIcon grow-box background field (wTitleBarShade1). Dominant color
+ * (104 px). Same shade as pinstripe light row.
+ * Ref: ../system7-decomp/specs/chrome/grow-box.md; golden s7_growbox.png
+ * (mint-004); era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_GROW_GROUND_R      243
+#define FLAIR_CHROME_GROW_GROUND_G      243
+#define FLAIR_CHROME_GROW_GROUND_B      243
+
+/* native.grow_box_figure_rgb = #545487 (84,84,135)
+ * Nested-box figure outlines in the active DrawGrowIcon gadget (wFrameColor /
+ * wDTingeF). Same dark blue-violet as close/zoom box outline.
+ * Ref: ../system7-decomp/specs/chrome/grow-box.md; golden s7_growbox.png
+ * (mint-004); era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_GROW_FIGURE_R      84
+#define FLAIR_CHROME_GROW_FIGURE_G      84
+#define FLAIR_CHROME_GROW_FIGURE_B      135
+
+/* native.grow_box_highlight_rgb = #DADAFF (218,218,255)
+ * wLTinge0 light highlight edges of the DrawGrowIcon outer nested box.
+ * Same wLTinge0 family as the title-bar bevel top and box bevel highlight.
+ * Ref: ../system7-decomp/specs/chrome/grow-box.md; golden s7_growbox.png
+ * (mint-004); era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_GROW_HIGHLIGHT_R   218
+#define FLAIR_CHROME_GROW_HIGHLIGHT_G   218
+#define FLAIR_CHROME_GROW_HIGHLIGHT_B   255
+
+/* native.grow_box_inner_fill_rgb = #C0C0C0 (192,192,192)
+ * Inner nested-box interior fill (wTitleBarShade4). Same as close/zoom box face.
+ * Ref: ../system7-decomp/specs/chrome/grow-box.md; golden s7_growbox.png
+ * (mint-004); era-stable 7.0.1 [verified: re/mint-results-005.md]. */
+#define FLAIR_CHROME_GROW_FILL_R        192
+#define FLAIR_CHROME_GROW_FILL_G        192
+#define FLAIR_CHROME_GROW_FILL_B        192
+
+/* --- Scrollbar RGBs (era=system7.0-7.1) ----------------------------------- */
+
+/* native.scrollbar_active_thumb_light_rgb = #DADAFF (218,218,255)
+ * LIGHT row of the active scrollbar thumb face dither (50/50 lavender dither).
+ * Era-stable 7.0.1 [verified: re/mint-results-005.md].
+ * Ref: ../system7-decomp/specs/chrome/scrollbar.md; golden
+ * s7_scrollbar_active.png (mint-004). */
+#define FLAIR_CHROME_THUMB_LIGHT_R      218
+#define FLAIR_CHROME_THUMB_LIGHT_G      218
+#define FLAIR_CHROME_THUMB_LIGHT_B      255
+
+/* native.scrollbar_active_thumb_dark_rgb = #8787B3 (135,135,179)
+ * DARK row of the active scrollbar thumb face dither (50/50 lavender dither).
+ * LOW CONFIDENCE for era-stability to 7.0/7.1 -- the 7.5.3 value is verified;
+ * 7.0.1 confirmation is [golden-resolves]. Use with caution.
+ * Ref: ../system7-decomp/specs/chrome/scrollbar.md; golden
+ * s7_scrollbar_active.png (mint-004). */
+#define FLAIR_CHROME_THUMB_DARK_R       135
+#define FLAIR_CHROME_THUMB_DARK_G       135
+#define FLAIR_CHROME_THUMB_DARK_B       179
+
+/* native.scrollbar_active_track_light_rgb = #E7E7E7 (231,231,231)
+ * LIGHT element (2/3 ratio) of the active scrollbar track gutter dither.
+ * Also the enabled arrow-box face fill.
+ * Ref: ../system7-decomp/specs/chrome/scrollbar.md; golden
+ * s7_scrollbar_active.png (mint-004). */
+#define FLAIR_CHROME_TRACK_LIGHT_R      231
+#define FLAIR_CHROME_TRACK_LIGHT_G      231
+#define FLAIR_CHROME_TRACK_LIGHT_B      231
+
+/* native.scrollbar_active_track_dark_rgb = #969696 (150,150,150)
+ * DARK element (1/3 ratio) of the active scrollbar track gutter dither.
+ * Same shade as the pinstripe dark row.
+ * Ref: ../system7-decomp/specs/chrome/scrollbar.md; golden
+ * s7_scrollbar_active.png (mint-004). */
+#define FLAIR_CHROME_TRACK_DARK_R       150
+#define FLAIR_CHROME_TRACK_DARK_G       150
+#define FLAIR_CHROME_TRACK_DARK_B       150
+
+/* --- Win 3.1 system metrics (era=win31-accent) ----------------------------- */
+
+/* native.win31_sm_cycaption.value = 18
+ * Windows 3.1 SM_CYCAPTION (caption bar interior height, px).
+ * VERIFIED from two independent DOSBox-X golden measurements (ProgMan + MDI child).
+ * Ref: ../win31-decomp/specs/chrome/system-metrics.md Sec 1 M-A row 1+5. */
+#define FLAIR_WIN31_SM_CYCAPTION        18
+
+/* native.win31_sm_cxvscroll.value = 15
+ * Windows 3.1 SM_CXVSCROLL (vertical scrollbar width, px).
+ * LOW CONFIDENCE: ~15 px from 16-color golden; 17px web claim REFUTED.
+ * Definitive value needs 256-color re-mint.
+ * Ref: ../win31-decomp/specs/chrome/system-metrics.md Sec 1 + Sec 3. */
+#define FLAIR_WIN31_SM_CXVSCROLL        15
+
+/* ===========================================================================
  * COMPILE-TIME SANITY  (the cheap internal-consistency tooth; the .h<->.json
  * lock is enforced at build time by the python3 consistency tooth in
  * test-chrome, not here -- C cannot read the JSON freestanding).
@@ -119,5 +294,72 @@ _Static_assert(FLAIR_CHROME_WBOX_DELTA <= FLAIR_CHROME_TITLEBAR_H,
 /* The scrollbar and grow box are both the 16 px scrollBarSize family. */
 _Static_assert(FLAIR_CHROME_SCROLLBAR_W == FLAIR_CHROME_GROW,
                "scrollbar width and grow box both derive from scrollBarSize=16");
+
+/* --- RGB color consistency asserts (P1-4 era-tagged constants) ------------ */
+
+/* The pinstripe bevel top and the box bevel highlight are the SAME wLTinge0
+ * family value (#DADAFF = 218,218,255). If they ever diverge a Law-3 error
+ * has been introduced -- they map to the same WDEF shade. */
+_Static_assert(FLAIR_CHROME_BEVEL_TOP_R == FLAIR_CHROME_BOX_BEVEL_R &&
+               FLAIR_CHROME_BEVEL_TOP_G == FLAIR_CHROME_BOX_BEVEL_G &&
+               FLAIR_CHROME_BEVEL_TOP_B == FLAIR_CHROME_BOX_BEVEL_B,
+               "bevel top (#DADAFF) and box bevel highlight must match (both wLTinge0)");
+
+/* The bevel top (#DADAFF) and grow box highlight (#DADAFF) must also match. */
+_Static_assert(FLAIR_CHROME_BEVEL_TOP_R == FLAIR_CHROME_GROW_HIGHLIGHT_R &&
+               FLAIR_CHROME_BEVEL_TOP_G == FLAIR_CHROME_GROW_HIGHLIGHT_G &&
+               FLAIR_CHROME_BEVEL_TOP_B == FLAIR_CHROME_GROW_HIGHLIGHT_B,
+               "bevel top and grow box highlight both derive from wLTinge0 (#DADAFF)");
+
+/* The close/zoom box dark outline (#545487) and grow box figure (#545487) must
+ * match -- both are wFrameColor / wDTingeF (the same WDEF shade). */
+_Static_assert(FLAIR_CHROME_BOX_DARK_R == FLAIR_CHROME_GROW_FIGURE_R &&
+               FLAIR_CHROME_BOX_DARK_G == FLAIR_CHROME_GROW_FIGURE_G &&
+               FLAIR_CHROME_BOX_DARK_B == FLAIR_CHROME_GROW_FIGURE_B,
+               "box dark outline and grow figure both derive from wFrameColor (#545487)");
+
+/* The box face (#C0C0C0) and grow box inner fill (#C0C0C0) must match
+ * (both are wTitleBarShade4 blend). */
+_Static_assert(FLAIR_CHROME_BOX_FACE_R == FLAIR_CHROME_GROW_FILL_R &&
+               FLAIR_CHROME_BOX_FACE_G == FLAIR_CHROME_GROW_FILL_G &&
+               FLAIR_CHROME_BOX_FACE_B == FLAIR_CHROME_GROW_FILL_B,
+               "box face and grow box fill both derive from wTitleBarShade4 (#C0C0C0)");
+
+/* The grow box ground (#F3F3F3) and the pinstripe light row (#F3F3F3) must match
+ * -- both are wTitleBarShade1 (shade index 22). */
+_Static_assert(FLAIR_CHROME_GROW_GROUND_R == FLAIR_CHROME_PINSTRIPE_LIGHT_R &&
+               FLAIR_CHROME_GROW_GROUND_G == FLAIR_CHROME_PINSTRIPE_LIGHT_G &&
+               FLAIR_CHROME_GROW_GROUND_B == FLAIR_CHROME_PINSTRIPE_LIGHT_B,
+               "grow ground and pinstripe light both derive from wTitleBarShade1 (#F3F3F3)");
+
+/* Scrollbar track dark (#969696) and pinstripe dark (#969696) must match --
+ * both derive from the wTitleBarDark family. */
+_Static_assert(FLAIR_CHROME_TRACK_DARK_R == FLAIR_CHROME_PINSTRIPE_DARK_R &&
+               FLAIR_CHROME_TRACK_DARK_G == FLAIR_CHROME_PINSTRIPE_DARK_G &&
+               FLAIR_CHROME_TRACK_DARK_B == FLAIR_CHROME_PINSTRIPE_DARK_B,
+               "scrollbar track dark and pinstripe dark both derive from wTitleBarDark (#969696)");
+
+/* The pressed-interior lavender (#B3B3DA) must differ from the bevel top
+ * lavender (#DADAFF): they are distinct WDEF shade blends and must not merge. */
+_Static_assert(!(FLAIR_CHROME_BOX_PRESSED_R == FLAIR_CHROME_BEVEL_TOP_R &&
+                 FLAIR_CHROME_BOX_PRESSED_G == FLAIR_CHROME_BEVEL_TOP_G &&
+                 FLAIR_CHROME_BOX_PRESSED_B == FLAIR_CHROME_BEVEL_TOP_B),
+               "pressed interior (#B3B3DA) and bevel top (#DADAFF) must be distinct shades");
+
+/* The thumb light (#DADAFF) and the bevel top (#DADAFF) are the same wLTinge0
+ * family -- confirm they remain equal. */
+_Static_assert(FLAIR_CHROME_THUMB_LIGHT_R == FLAIR_CHROME_BEVEL_TOP_R &&
+               FLAIR_CHROME_THUMB_LIGHT_G == FLAIR_CHROME_BEVEL_TOP_G &&
+               FLAIR_CHROME_THUMB_LIGHT_B == FLAIR_CHROME_BEVEL_TOP_B,
+               "scrollbar thumb light (#DADAFF) and bevel top (#DADAFF) must match (wLTinge0)");
+
+/* Win31 SM_CYCAPTION must be a positive value > 0 and less than the system
+ * menubar height (it is a caption, not a full screen). */
+_Static_assert(FLAIR_WIN31_SM_CYCAPTION > 0 && FLAIR_WIN31_SM_CYCAPTION < 640,
+               "win31 SM_CYCAPTION must be a sane positive pixel count");
+
+/* Win31 SM_CXVSCROLL must be a positive non-zero width. */
+_Static_assert(FLAIR_WIN31_SM_CXVSCROLL > 0,
+               "win31 SM_CXVSCROLL must be a positive pixel width");
 
 #endif /* INITECH_SPEC_CHROME_METRICS_H */

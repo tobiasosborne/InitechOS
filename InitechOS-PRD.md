@@ -99,7 +99,7 @@ A graphical Toolbox layered on a DOS-like base. This is historically coherent �
 | Input | PS/2 keyboard + mouse (IRQ1/IRQ12) |
 | Timer | PIT (IRQ0); cooperative scheduler tick |
 | Storage | FAT12 floppy image + FAT16 HDD image; ATA PIO, plus a baked initrd/tarfs |
-| Executable fmt | Flat binary for kernel; flat (`.COM`-equivalent) apps for the current release; MZ `.EXE` **deferred** — **DECIDED (ADR-0003 DEC-08, §15)** |
+| Executable fmt | Flat binary for kernel; flat (`.COM`-equivalent) apps for the current release; MZ `.EXE` **deferred** — **DECIDED (ADR-0003 DEC-08, §15)** [Reconciled: ADR-0003-DEC-08a ratified InitechMZ flat-32 .EXE; shipped.] |
 | Boot | Custom MBR → stage2 (bucket-list build); Limine as bootstrap fallback — **DECIDED (§15)** |
 | Emulators | QEMU (dev loop), Bochs (accuracy/debug), 86Box (period authenticity + reference SW) |
 
@@ -238,7 +238,7 @@ Sequenced per the agreed principle: **the compiler is the finale, not the founda
 | **M3** | ATKINSON + GUI primitives | Region engine (C property suite green — homomorphism, normal-form, algebra identities), blitting, Chicago/Geneva fonts, hourglass cursor. Draw a System-7 window, drag it with correct clipping. |
 | **M4** | Toolbox | Window/Menu/Control/Event/Dialog managers; desktop; live pull-down menus (incl. Photoshop-exact). Reproduce the frame's *chrome* at target SSIM. |
 | **M5** | Desktop apps | InitechCalc + File Manager + InitechPaint + FILE COPY dialog. **Reproduce the entire reference frame as a live, interactive arrangement that looks and feels like the film clip** — windows draggable, menus live, per-window SSIM reported as a fidelity guide. |
-| **M6** | InitechBase | `.dbf`/`.mdx` I/O, xBase interpreter, `@SAY/GET` forms, in a text-console window. Differential suite vs real dBASE IV green; interoperable round-trips (real dBASE reads what we write, meaningful bytes diffed). |
+| **M6** | InitechBase | `.dbf`/`.mdx` I/O, xBase interpreter, `@SAY/GET` forms, in a text-console window. Differential suite vs real dBASE IV green; interoperable round-trips (real dBASE reads what we write, meaningful bytes diffed). [Reconciled: ADR-0008 -- M6 is dBASE III PLUS 1.1 only; IV/.mdx deferred to a post-M6 epic.] |
 | **M7** | Turbo Initech (seed-built) | Pascal subset, single-pass codegen, freestanding output; the seed builds Turbo Initech (cross, on host) and Turbo Initech compiles a Pascal corpus + itself. Differential vs fpc green. (The C OS is built by the factory cross-toolchain, not by Turbo Initech.) |
 | **M8** | Resident IDE + self-host | Port Turbo Initech onto InitechOS (blue IDE, InitechDOS file I/O); compile **Turbo Initech (and the Pascal programs it compiles)** from inside the OS; **verify bit-identical two-stage fixpoint** (`K₂ == K₃`) for the resident Pascal compiler — not the C kernel/Toolbox. *Finale: boot → open IDE → load Turbo Initech (Pascal) source → Compile → a self-reproduced resident compiler.* |
 
@@ -291,7 +291,7 @@ The 2026 agent factory produces a 1991 reproducible artifact; the stack lives in
 | OS implementation language | **DECIDED** | C for the OS — kernel/InitechDOS/Toolbox/bundled apps (ADR-0002); see §14 |
 | Turbo Initech language | **DECIDED** | Pascal — Turbo Initech (the self-hosting compiler, ADR-0007) + user programs it compiles (see §6.7) |
 | OS toolchain | **DECIDED** | Target `i686-elf` cross-compilation (ADR-0002); interim host `gcc -m32 -ffreestanding -nostdlib` + nasm + ld per CDR-0001 (time-limited) |
-| Executable format | **DECIDED** | Flat (`.COM`-equivalent) for apps in the current release; MZ `.EXE` **deferred**; flat binary for the kernel (ADR-0003 DEC-08) |
+| Executable format | **DECIDED** | Flat (`.COM`-equivalent) for apps in the current release; MZ `.EXE` **deferred**; flat binary for the kernel (ADR-0003 DEC-08) [Reconciled: ADR-0003-DEC-08a ratified InitechMZ flat-32 .EXE; shipped.] |
 | Multitasking | **DECIDED** | cooperative `WaitNextEvent`-style (period-authentic; the Toolbox needs it anyway) |
 | Bootloader | **DECIDED** | custom MBR → stage2 (bucket-list); Limine as bootstrap fallback |
 | VibeMode scope | OPEN | stretch S1; off by default |
