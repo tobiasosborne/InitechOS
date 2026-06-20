@@ -51,7 +51,17 @@ typedef enum loader_status {
      * env_block that is not the locked ENV_BLOCK region -- the caller asked the
      * child to inherit an env block at an address the loader never wrote. Fail
      * loud (Rule 2) rather than build a PSP env_seg pointing at garbage. */
-    LOADER_ERR_BAD_ENV
+    LOADER_ERR_BAD_ENV,
+    /* InitechMZ (.EXE) load (beads initech-wczy / dtw.2; ADR-0003 DEC-08a): */
+    LOADER_ERR_FOREIGN_MZ,   /* a genuine UNTAGGED 16-bit DOS MZ reached the
+                              * loader (DEC-08a.5). The pure prep returns THIS;
+                              * the KERNEL call site PANICS fail-loud rather than
+                              * relocate-and-misexecute 16-bit code in flat mode.
+                              * NEVER run -- a flat CPU cannot decode 16-bit. */
+    LOADER_ERR_BAD_FORMAT    /* a tagged MZ that is otherwise malformed: a bad
+                              * header (truncated, header > image), an OOB reloc,
+                              * or a load module too big for PROGRAM_IMAGE_MAX.
+                              * Fail loud (Rule 2) -- do NOT run garbage. */
 } loader_status_t;
 
 /* loader_plan_t -- the fully-computed, deterministic load layout. loader_prepare
@@ -133,6 +143,50 @@ loader_status_t loader_prepare_in_place(uint32_t image_len,
                                         const char *cmd_tail,
                                         uint32_t cmd_tail_len,
                                         loader_plan_t *out);
+
+/* loader_prepare_mz -- the PURE, host-testable InitechMZ (.EXE) PROLOGUE (beads
+ * initech-wczy / dtw.2; ADR-0003 DEC-08a). The dispatch sibling of
+ * loader_prepare_in_place: the WHOLE MZ FILE is already resident at `file_at`
+ * (PROGRAM_IMAGE on the kernel; a host buffer in the oracle), `file_len` bytes.
+ * This function performs the DEC-08a content path IN PLACE:
+ *
+ *   1. mz_parse_header(file_at, file_len) -- validate the MZ container.
+ *        MZ_ERR_FOREIGN  -> LOADER_ERR_FOREIGN_MZ (the KERNEL caller PANICS;
+ *                           DEC-08a.5 -- never relocate-and-misexecute 16-bit).
+ *        any other error -> LOADER_ERR_BAD_FORMAT (fail loud; do NOT run).
+ *   2. Bound-check load_module_len <= PROGRAM_IMAGE_MAX (LOADER_ERR_BAD_FORMAT).
+ *   3. memmove the LOAD MODULE down over the header: from
+ *        file_at + load_module_off  ->  file_at (PROGRAM_IMAGE), load_module_len
+ *      bytes. After this the load base PROGRAM_IMAGE holds the flat code with the
+ *      MZ header SKIPPED (DEC-08a.2 -- the header is never part of the image).
+ *   4. mz_apply_relocs(file_at, load_module_len, PROGRAM_IMAGE,
+ *        reloc table at file_at + reloc_table_off (pre-move offset; the reloc
+ *        table lives in the header/trailer region OUTSIDE the moved load module),
+ *        reloc_count) -- add PROGRAM_IMAGE to each flat dword (DEC-08a.1).
+ *        An OOB reloc -> LOADER_ERR_BAD_FORMAT.
+ *   5. Lay out the plan exactly as loader_prepare_in_place (PSP @ PROGRAM_BASE,
+ *      image @ PROGRAM_IMAGE, arena disjoint from the load module), then:
+ *        out->entry     = PROGRAM_IMAGE + entry_off       (DEC-08a.2)
+ *        out->image_len = load_module_len  (the arena base sits ABOVE the module)
+ *        out->image_src = NULL             (in place; loader_run_plan must NOT copy)
+ *      ESP stays PROGRAM_STACK_TOP for the current release (DEC-08a.2 -- e_ss:e_sp
+ *      advisory; the canonical InitechMZ emission is ss=sp=0).
+ *   6. e_minalloc TEETH (DEC-08a.3): if the disjoint arena (arena_ceil -
+ *      arena_base) cannot satisfy min_alloc_paras*16 bytes, fail loud
+ *      LOADER_ERR_BAD_FORMAT (maps to DOS 08h insufficient memory at the EXEC
+ *      seam). e_maxalloc is naturally clamped to the ceiling -- the arena already
+ *      ends at PROGRAM_ARENA_CEIL, so a max-hungry 0xFFFF never reaches past it.
+ *
+ * The relocation WRITES into the in-place buffer, so this is NOT a no-op layout
+ * computation like loader_prepare_in_place -- it mutates [file_at, file_at +
+ * file_len). The host oracle (test_mzload.c) drives it against a hand-authored
+ * InitechMZ image and asserts the relocated dword, the entry, and the arena.
+ *
+ * MUTATION hook (Rule 6; -DLOADER_MUTATE_MZ_NO_RELOC): step 4 is SKIPPED so the
+ * relocated-dword assertion goes RED.  Ref: ADR-0003 DEC-08a; mz.h. */
+loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
+                                  const char *cmd_tail, uint32_t cmd_tail_len,
+                                  loader_plan_t *out);
 
 /* load_program -- the full kernel loader: validate (via loader_prepare), copy
  * the image to PROGRAM_IMAGE, build the PSP at PROGRAM_BASE + the env block,

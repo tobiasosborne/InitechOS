@@ -25,6 +25,16 @@
 #include "int21.h"        /* int21_set_exit / int21_exit_fn (the repointed hook) */
 #include "fat12.h"        /* FAT-sourced load (beads initech-saw): find + read file */
 #include "psp.h"          /* psp_save_vectors / psp_load_vectors (beads 509.8)    */
+/* InitechMZ parse + flat relocs (beads dtw.1; ADR-0003 DEC-08a). Pulled in via
+ * the same-TU INCLUDE (not a separate object) so loader.c carries the mz_* code
+ * directly: nothing in the tree links a standalone mz.o (the only other consumer,
+ * test_mz.c, also #includes mz.c into its OWN TU), and the kernel object list
+ * does not build mz.o. This keeps the existing Makefile recipes -- every kernel
+ * image variant + the host loader oracles that link loader.c -- working with NO
+ * Makefile edit (CLAUDE.md scope: do not touch the Makefile; Law 3 artifact = C).
+ * mz.c is pure + freestanding (-ffreestanding, <stdint.h> only), so inlining it
+ * here is identical to compiling it as a peer object. */
+#include "mz.c"
 
 /* ------------------------------------------------------------------------ *
  * Pure prep: validate + lay out + compute psp_params (HOST-TESTABLE).
@@ -173,6 +183,155 @@ loader_status_t loader_prepare_in_place(uint32_t image_len, const char *cmd_tail
                                cmd_tail_len, /*in_place=*/1, out);
 }
 
+/* ------------------------------------------------------------------------ *
+ * InitechMZ (.EXE) PROLOGUE -- the pure, host-testable content path (beads
+ * initech-wczy / dtw.2; ADR-0003 DEC-08a). Mutates the in-place buffer (memmove
+ * the load module over the header + apply flat relocs) and produces the SAME
+ * loader_plan_t loader_run_plan consumes -- a prologue on the single transfer
+ * path (Rule 3). See loader.h for the full contract.
+ * ------------------------------------------------------------------------ */
+
+/* Forward (low-address-first) byte move for the load-module down-shift. The MZ
+ * load module is moved from file_at+header_bytes DOWN to file_at (dst < src), so
+ * a forward copy can never clobber a not-yet-read source byte (dst[i] is written
+ * before src[i+k] for any k>0 is read). Freestanding (loader.c pulls in no libc;
+ * Rule 11 deterministic). NOT a general memmove -- it assumes dst <= src, which
+ * the down-shift always satisfies. */
+static void loader_move_down(uint8_t *dst, const uint8_t *src, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i++) {
+        dst[i] = src[i];
+    }
+}
+
+loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
+                                  const char *cmd_tail, uint32_t cmd_tail_len,
+                                  loader_plan_t *out)
+{
+    mz_image_t img;
+    int ps;
+
+    if (out == 0) {
+        return LOADER_ERR_NULL_OUT;
+    }
+    if (file_at == 0 || file_len == 0u) {
+        return LOADER_ERR_BAD_FORMAT;   /* nothing to parse -- fail loud (Rule 2) */
+    }
+
+    /* 1. Parse + validate the MZ container (DEC-08a.1/.5). The pure prep NEVER
+     *    panics: it maps MZ_ERR_FOREIGN to a DISTINCT status the KERNEL call site
+     *    panics on (DEC-08a.5), and every other parse error to bad-format. This
+     *    keeps the panic at the kernel seam (host-observable here, Law 2). */
+    ps = mz_parse_header(file_at, file_len, &img);
+    if (ps == MZ_ERR_FOREIGN) {
+        /* DEC-08a.5: a genuine untagged 16-bit DOS MZ. The kernel will PANIC
+         * (loader_panic_foreign_mz) rather than relocate-and-misexecute 16-bit
+         * code in 32-bit flat mode. NEVER produce a runnable plan. */
+        return LOADER_ERR_FOREIGN_MZ;
+    }
+    if (ps != MZ_OK) {
+        return LOADER_ERR_BAD_FORMAT;   /* truncated / bad header / OOB reloc */
+    }
+
+    /* 2. Bound-check the LOAD MODULE against the program region (DEC-08a.2). The
+     *    module lands at PROGRAM_IMAGE; it must fit below the env/stack exactly
+     *    like a flat .COM. (load_module_len, not file_len: the header + reloc
+     *    table are dropped, so a file slightly over the cap may still fit.) */
+    if (img.load_module_len == 0u || img.load_module_len > PROGRAM_IMAGE_MAX) {
+        return LOADER_ERR_BAD_FORMAT;
+    }
+    /* The load module must lie wholly within the resident file (mz_parse_header
+     * already proved image_bytes <= file_len, so this is belt-and-braces, Rule 2). */
+    if (img.load_module_off + img.load_module_len < img.load_module_off ||
+        img.load_module_off + img.load_module_len > file_len) {
+        return LOADER_ERR_BAD_FORMAT;
+    }
+
+    /* 3. Apply flat-32 relocations to the module IN ITS ORIGINAL FILE POSITION
+     *    (at file_at + load_module_off), reading the reloc table from its original
+     *    file offset -- THEN move. Relocating BEFORE the move makes the order
+     *    robust to ANY reloc-table placement: a real MZ commonly puts the reloc
+     *    table in the header gap (reloc_table_off < load_module_off), which the
+     *    down-move's DESTINATION window [0, load_module_len) would overwrite if we
+     *    relocated after moving. Applying first -- while header, reloc table, and
+     *    module all sit untouched at their file offsets -- can never read a
+     *    clobbered fixup (Rule 3: fix the root cause, not a placement-specific
+     *    band-aid). The reloc offsets are MODULE-RELATIVE, so they index the module
+     *    at load_module_off here exactly as they will at the load base after the
+     *    move; mz_apply_relocs adds PROGRAM_IMAGE (the flat load base, DEC-08a.1),
+     *    not the staging address, so the dwords are correct for the run location. */
+#ifdef LOADER_MUTATE_MZ_NO_RELOC
+    /* MUTANT (CLAUDE.md Rule 6; make test-mzload-mutant only): SKIP the flat-32
+     * relocation entirely. The load module's absolute references keep their
+     * unrelocated (link-time) value, so the relocated-dword assertion in
+     * test_mzload.c (dword == original + PROGRAM_IMAGE) MUST go RED. This is the
+     * EXACT bug -- a relocatable MZ run without its fixups -- the oracle exists to
+     * catch. NEVER define in a real build. */
+    (void)0;
+#else
+    if (img.reloc_count > 0u) {
+        int rs = mz_apply_relocs(file_at + img.load_module_off,
+                                 img.load_module_len,
+                                 (uint32_t)PROGRAM_IMAGE,
+                                 file_at + img.reloc_table_off, img.reloc_count);
+        if (rs != MZ_OK) {
+            return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud (Rule 2) */
+        }
+    }
+#endif
+
+    /* 4. Move the (now-relocated) LOAD MODULE down over the header to the flat
+     *    load base (PROGRAM_IMAGE == file_at). DEC-08a.2: the MZ header is NEVER
+     *    part of the loaded image. dst (file_at) <= src (file_at+load_module_off),
+     *    so the forward loader_move_down can never clobber an unread source byte.
+     *    A zero header (load_module_off == 0; degenerate) needs no move. */
+    if (img.load_module_off != 0u) {
+        loader_move_down(file_at, file_at + img.load_module_off,
+                         img.load_module_len);
+    }
+
+    /* 5. Lay out the plan exactly like the in-place .COM path (PSP @ PROGRAM_BASE,
+     *    image @ PROGRAM_IMAGE, the heap arena DISJOINT above the load module).
+     *    image_len is the LOAD MODULE length, so the arena base sits above the
+     *    relocated module, not the whole file (DEC-08a.3). */
+    {
+        loader_status_t cs = loader_prepare_core(/*image=*/(const uint8_t *)0,
+                                                 img.load_module_len, cmd_tail,
+                                                 cmd_tail_len, /*in_place=*/1, out);
+        if (cs != LOADER_OK) {
+            return cs;
+        }
+    }
+
+    /* 6. Flat MZ entry (DEC-08a.2): entry = PROGRAM_IMAGE + (e_cs*16 + e_ip). The
+     *    canonical InitechMZ emits cs=ip=0 (entry == load base, identical to a
+     *    .COM), but a non-zero entry_off is honored. ESP stays PROGRAM_STACK_TOP
+     *    (loader_prepare_core set it); e_ss:e_sp are advisory this release. */
+    if (img.entry_off > img.load_module_len) {
+        /* The entry must point INTO the loaded module (Rule 2: never JMP past it). */
+        return LOADER_ERR_BAD_FORMAT;
+    }
+    out->entry = (uint32_t)PROGRAM_IMAGE + img.entry_off;
+
+    /* 7. e_minalloc TEETH (DEC-08a.3): the program declares it needs at least
+     *    min_alloc_paras paragraphs of heap PAST its image. If the disjoint arena
+     *    cannot satisfy that minimum, fail loud (DOS 08h insufficient memory) --
+     *    never run a heap-starved program. e_maxalloc (typically 0xFFFF) is
+     *    naturally clamped: the arena already ends at PROGRAM_ARENA_CEIL, so a
+     *    max-hungry request can never reach past the ceiling. */
+    {
+        uint32_t need_bytes = (uint32_t)img.min_alloc_paras * 16u;
+        uint32_t have_bytes = out->arena_present
+                                  ? (out->arena_ceil - out->arena_base)
+                                  : 0u;
+        if (need_bytes > have_bytes) {
+            return LOADER_ERR_BAD_FORMAT;   /* maps to DOS 08h at the EXEC seam */
+        }
+    }
+
+    return LOADER_OK;
+}
+
 /* loader_decide_env -- the PURE, host-testable EXEC env-inheritance decision
  * (beads initech-1i0x Tranche E inc 3). Given the caller's env_block (the flat
  * linear address of the env block the child inherits, 0 = inherit-empty), compute:
@@ -277,6 +436,7 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
 #else /* freestanding kernel build */
 
 #include "idt.h"          /* idt_get_gate / idt_install_trap -- live IDT vectors */
+#include "io.h"           /* inb / outb -- the foreign-MZ panic serial dump (dtw.2) */
 
 /* ------------------------------------------------------------------------ *
  * Live IDT vector read/write for INT 22h/23h/24h (beads initech-509.8).
@@ -679,6 +839,99 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
 }
 
 /* ------------------------------------------------------------------------ *
+ * InitechMZ (.EXE) fail-loud foreign-MZ panic + in-place runner (beads
+ * initech-wczy / dtw.2; ADR-0003 DEC-08a).
+ * ------------------------------------------------------------------------ */
+
+/* loader_panic_foreign_mz -- the DEC-08a.5 honesty gate, fail-loud (Rule 2).
+ *
+ * Reached ONLY from the kernel EXEC path when loader_prepare_mz reports
+ * LOADER_ERR_FOREIGN_MZ: a genuine UNTAGGED 16-bit DOS MZ (e_res[0] != the
+ * InitechMZ tag) whose relocations are paragraph fixups over 16-bit code. The
+ * flat 32-bit CPU (ADR-0001: no v8086, no 16-bit segments) cannot decode that
+ * instruction stream; relocating and jumping to it would silently misexecute
+ * (DEC-08a.5). So we PANIC instead of run -- never relocate-and-misexecute.
+ *
+ * Self-contained serial dump (mirrors panic.c's bounded 16550 poll so a
+ * stuck/absent UART can never hang the panic itself) + the "PC LOAD LETTER"
+ * canon line is the kernel's job after the console is up; loader.c is below the
+ * console layer, so it emits the grep-able "PANIC foreign-mz" serial marker the
+ * boot/emu oracle keys on, then halts forever. Marked noreturn: a foreign MZ is
+ * terminal -- control NEVER returns to the EXEC caller. */
+#define LDR_COM1_THR  0x3F8u
+#define LDR_COM1_LSR  0x3FDu
+#define LDR_LSR_THRE  0x20u
+#define LDR_SERIAL_SPIN_MAX 100000u
+
+static void ldr_serial_putc(char c)
+{
+    uint32_t spins = 0u;
+    while ((inb(LDR_COM1_LSR) & LDR_LSR_THRE) == 0u) {
+        if (++spins >= LDR_SERIAL_SPIN_MAX) {
+            return;   /* UART not draining -> drop the byte, never hang (Rule 2) */
+        }
+    }
+    outb(LDR_COM1_THR, (uint8_t)c);
+}
+
+static void ldr_serial_puts(const char *s)
+{
+    while (*s) {
+        ldr_serial_putc(*s++);
+    }
+}
+
+__attribute__((noreturn))
+static void loader_panic_foreign_mz(const char *name83)
+{
+    /* Grep-able marker FIRST (the oracle keys on "PANIC"). */
+    ldr_serial_puts("PANIC foreign-mz: untagged 16-bit DOS .EXE -- cannot run in flat mode\n");
+    if (name83) {
+        ldr_serial_puts("  name=");
+        ldr_serial_puts(name83);
+        ldr_serial_putc('\n');
+    }
+    ldr_serial_puts("  DEC-08a.5: refusing to relocate-and-misexecute 16-bit code\n");
+    ldr_serial_puts("HALTED\n");
+    /* Terminal: never proceed (Rule 2). cli;hlt forever -- the in-universe
+     * PC LOAD LETTER screen is the kernel's banner; the loader halts here. */
+    for (;;) {
+        __asm__ __volatile__("cli; hlt");
+    }
+}
+
+/* load_program_mz_in_place -- the InitechMZ sibling of load_program_in_place
+ * (DEC-08a). The WHOLE MZ FILE is already resident at PROGRAM_IMAGE (the FAT
+ * reader put it there); loader_prepare_mz parses it, moves the load module down
+ * over the header, applies the flat relocations IN PLACE, and produces the same
+ * loader_plan_t -- then we run it through the ONE shared transfer (loader_run_plan,
+ * do_copy=0: the relocated module is already at PROGRAM_IMAGE). A foreign MZ
+ * PANICS here (DEC-08a.5); any other malformed MZ fails loud with the prep status.
+ *
+ * `file_len` is the on-disk MZ file byte count at PROGRAM_IMAGE. `name83` is the
+ * program name, for the panic diagnostic only. */
+static loader_status_t load_program_mz_in_place(uint32_t file_len,
+                                                const char *name83,
+                                                const char *cmd_tail,
+                                                uint32_t cmd_tail_len,
+                                                uint32_t env_block,
+                                                uint8_t *out_exit_code)
+{
+    loader_plan_t plan;
+    loader_status_t st = loader_prepare_mz((uint8_t *)(uintptr_t)PROGRAM_IMAGE,
+                                           file_len, cmd_tail, cmd_tail_len,
+                                           &plan);
+    if (st == LOADER_ERR_FOREIGN_MZ) {
+        /* DEC-08a.5 fail-loud honesty gate -- never returns. */
+        loader_panic_foreign_mz(name83);
+    }
+    if (st != LOADER_OK) {
+        return st;   /* fail loud: the program is NOT run (Rule 2) -- bad format */
+    }
+    return loader_run_plan(&plan, /*do_copy=*/0, env_block, out_exit_code);
+}
+
+/* ------------------------------------------------------------------------ *
  * FAT-sourced load (beads initech-saw; DIRECT-LOAD beads initech-za4m).
  *
  * loader.c reads the named .COM off the mounted volume DIRECTLY into the program
@@ -828,17 +1081,31 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
         return LOADER_ERR_READ;
     }
 
-    /* Run it IN PLACE (beads initech-za4m). Mark the load active across the run so
+    /* DISPATCH BY CONTENT (DEC-08a.4 -- DOS-authentic: format from the first two
+     * image bytes, NOT the extension). 'MZ'/'ZM' routes to the InitechMZ (.EXE)
+     * path; anything else is the flat .COM-equivalent path (DEC-08, UNCHANGED --
+     * byte-identical to before dtw.2). The .COM default is the common case and is
+     * not perturbed: the mz_is_mz probe is a 2-byte read, then the SAME
+     * load_program_in_place runs as always.
+     *
+     * Run it IN PLACE (beads initech-za4m). Mark the load active across the run so
      * a nested EXEC issued by the child is rejected (the guard above). The image
-     * is ALREADY at PROGRAM_IMAGE (we just read it there), so load_program_in_place
+     * is ALREADY at PROGRAM_IMAGE (we just read it there), so the in-place runner
      * does everything EXCEPT the copy -- builds the PSP, env, saves/restores the
      * INT 22/23/24 vectors, binds the disjoint MCB arena, switches the stack, JMPs
      * to PROGRAM_IMAGE, and handles return-to-loader -- via the SAME shared path
-     * load_program uses for the baked demo. */
+     * (loader_run_plan, do_copy=0). For an MZ the runner adds the DEC-08a prologue
+     * (parse + move load module over header + apply flat relocs) BEFORE that one
+     * transfer; a foreign untagged MZ PANICS fail-loud (DEC-08a.5). */
     g_load_active = 1;
     uint8_t rcv = 0;
-    loader_status_t st = load_program_in_place(got, cmd_tail, cmd_tail_len,
-                                               env_block, &rcv);
+    loader_status_t st;
+    if (mz_is_mz(image, got)) {
+        st = load_program_mz_in_place(got, name83, cmd_tail, cmd_tail_len,
+                                      env_block, &rcv);
+    } else {
+        st = load_program_in_place(got, cmd_tail, cmd_tail_len, env_block, &rcv);
+    }
     g_load_active = 0;
 
     if (st != LOADER_OK) {

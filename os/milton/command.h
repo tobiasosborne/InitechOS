@@ -54,6 +54,11 @@ typedef enum cmd_kind {
     CMD_BREAK,       /* BREAK [ON|OFF] -- report/set CTRL-BREAK state (AH=33h)   */
     CMD_EXIT,        /* EXIT       -- leave the REPL                             */
     CMD_SET,         /* SET [NAME[=VALUE]] -- list/assign/clear/query env vars   */
+    CMD_COPY,        /* COPY <src> <dst> -- copy a single file (3Dh/3Ch/3Fh/40h) */
+    CMD_DEL,         /* DEL/ERASE <name> -- delete file(s) (41h; wildcard 4E/4F) */
+    CMD_REN,         /* REN/RENAME <old> <new> -- rename in place (56h)          */
+    CMD_DATE,        /* DATE [MM-DD-YY[YY]] -- show/set the system date (2Ah/2Bh) */
+    CMD_TIME,        /* TIME [HH:MM[:SS]] -- show/set the system time (2Ch/2Dh)   */
     CMD_EXTERNAL     /* not a built-in -- try to EXEC <word>.COM                 */
 } cmd_kind_t;
 
@@ -134,6 +139,60 @@ typedef struct set_cmd {
  * no asm, no I/O. The function is deterministic and never overflows (inputs are
  * bounded by CMD_LINE_MAX; name is clamped to CMD_TOKEN_MAX-1). */
 void cmd_set_parse(const char *arg, set_cmd_t *out);
+
+/* ---- Tranche-F file/clock built-in parsing (PURE; host-testable) ----------
+ * Ref: DOS 3.3 COMMAND.COM (DEC-11 / Appendix D); spec/int21h_register.json
+ *   (3Dh OPEN, 3Ch CREAT, 3Fh READ, 40h WRITE, 3Eh CLOSE, 41h UNLINK,
+ *    56h RENAME, 4Eh/4Fh FINDFIRST/NEXT, 2Ah/2Bh DATE, 2Ch/2Dh TIME).
+ *   - COPY <src> <dst> : two filename tokens (initech-hpls).
+ *   - REN/RENAME <old> <new> : two filename tokens (initech-fyox).
+ *   - DEL/ERASE <name> : one filename token, wildcard-aware (initech-hpls).
+ *   - DATE / TIME : the get-format builders + the optional set-arg parsers
+ *     (initech-uy4l). */
+
+/* A parsed two-token command tail (COPY <a> <b>, REN <a> <b>). `first`/`second`
+ * are the two whitespace-delimited tokens, each clamped to CMD_TOKEN_MAX-1 and
+ * UPPER-CASED (DOS upcases 8.3 names). `ok` is 1 iff BOTH tokens are present
+ * (a missing second token => 0, the "Required parameter missing" case). */
+typedef struct cmd_pair {
+    char first[CMD_TOKEN_MAX];
+    char second[CMD_TOKEN_MAX];
+    int  ok;                 /* 1 iff both tokens parsed (else missing operand) */
+} cmd_pair_t;
+
+/* Parse the argument tail of a COPY / REN command into the two upcased tokens.
+ * PURE: no asm, no I/O. `ok` is 0 if either token is empty (DOS needs both a
+ * source and a destination). Deterministic; never overflows. */
+void cmd_pair_parse(const char *arg, cmd_pair_t *out);
+
+/* Return 1 if `name` contains a DOS wildcard ('*' or '?'), else 0. DEL/ERASE
+ * dispatches a single UNLINK for a plain name and a FINDFIRST/NEXT delete loop
+ * for a wildcard pattern. PURE. */
+int cmd_has_wildcard(const char *name);
+
+/* Build the DOS "Current date is Day MM-DD-YYYY" line into out (>= 32 bytes).
+ * `dow` is the day-of-week (0=Sun..6=Sat) AH=2Ah returns in AL; `year` is the
+ * full year, `mon`/`day` are 1-based. Returns the formatted length. PURE
+ * formatting -- the day name + the zero-padded MM-DD-YYYY are period-DOS (Law 4). */
+int cmd_format_date(uint8_t dow, uint16_t year, uint8_t mon, uint8_t day,
+                    char *out);
+
+/* Build the DOS "Current time is HH:MM:SS.cc" line into out (>= 32 bytes).
+ * `hh`/`mi`/`ss` are 0-based; `cs` is centiseconds (the RTC reports 0). Returns
+ * the formatted length. PURE. */
+int cmd_format_time(uint8_t hh, uint8_t mi, uint8_t ss, uint8_t cs, char *out);
+
+/* Parse a "MM-DD-YY[YY]" date argument into mon/day/year. Accepts '-' or '/' as
+ * the DOS-permitted separators. A two-digit year is windowed DOS-style (80..99
+ * -> 1980..1999, else 2000..2079). Returns 1 on a syntactically + range-valid
+ * date, 0 otherwise (the REPL then prints "Invalid date" and skips the SET).
+ * PURE: validation only, no I/O. */
+int cmd_parse_date(const char *arg, uint16_t *year, uint8_t *mon, uint8_t *day);
+
+/* Parse a "HH:MM[:SS]" time argument into hh/mi/ss. Seconds default to 0 when
+ * omitted. Returns 1 on a syntactically + range-valid time, 0 otherwise (the
+ * REPL then prints "Invalid time" and skips the SET). PURE. */
+int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss);
 
 /* Format one DIR listing line from a find-record into out (DOS-like columns):
  * "NAME     EXT       <size>\n" -- the 8.3 name left-justified, the size right-

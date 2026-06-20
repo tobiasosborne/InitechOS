@@ -227,6 +227,178 @@ static void test_set_parse(void)
     CHECK_STR_EQ(sc.value, "A:\\COMMAND.COM", "set_parse: leading-space value");
 }
 
+/* ---- Tranche-F classify (CMD_MUTATE_NO_<VERB> mutation hooks) ----------- */
+/* Ref: beads initech-hpls (COPY+DEL), initech-fyox (REN), initech-uy4l
+ * (DATE+TIME); the cmd_classify table in command.c. Each verb's row is dropped
+ * under -DCMD_MUTATE_NO_<VERB>, so the word falls through to CMD_EXTERNAL and
+ * the matching CHECK below goes RED (Rule 6: the golden bites). The mutant
+ * builds assert the SAME equality, so a dropped row makes the binary exit
+ * non-zero -- which is exactly what make test-command-mutant requires. */
+static void test_classify_tranche_f(void)
+{
+    /* COPY (initech-hpls). */
+    CHECK(cmd_classify("COPY") == CMD_COPY,
+          "classify COPY -> CMD_COPY [CMD_MUTATE_NO_COPY drops the row -> RED]");
+
+    /* DEL + the ERASE alias (initech-hpls). */
+    CHECK(cmd_classify("DEL") == CMD_DEL,
+          "classify DEL -> CMD_DEL [CMD_MUTATE_NO_DEL drops the rows -> RED]");
+    CHECK(cmd_classify("ERASE") == CMD_DEL,
+          "classify ERASE -> CMD_DEL (alias) [CMD_MUTATE_NO_DEL -> RED]");
+
+    /* REN + the RENAME alias (initech-fyox). */
+    CHECK(cmd_classify("REN") == CMD_REN,
+          "classify REN -> CMD_REN [CMD_MUTATE_NO_REN drops the rows -> RED]");
+    CHECK(cmd_classify("RENAME") == CMD_REN,
+          "classify RENAME -> CMD_REN (alias) [CMD_MUTATE_NO_REN -> RED]");
+
+    /* DATE (initech-uy4l). */
+    CHECK(cmd_classify("DATE") == CMD_DATE,
+          "classify DATE -> CMD_DATE [CMD_MUTATE_NO_DATE drops the row -> RED]");
+
+    /* TIME (initech-uy4l). */
+    CHECK(cmd_classify("TIME") == CMD_TIME,
+          "classify TIME -> CMD_TIME [CMD_MUTATE_NO_TIME drops the row -> RED]");
+}
+
+/* ---- COPY / REN two-token parsing -------------------------------------- */
+/* Ref: cmd_pair_parse in command.c. Two upcased tokens; ok=0 if either is
+ * missing (the "Required parameter missing" path). */
+static void test_pair_parse(void)
+{
+    cmd_pair_t p;
+
+    /* Two tokens, lower-case -> both upcased; ok. */
+    cmd_pair_parse("a.txt b.txt", &p);
+    CHECK(p.ok == 1, "pair_parse: two tokens -> ok");
+    CHECK_STR_EQ(p.first,  "A.TXT", "pair_parse: first upcased");
+    CHECK_STR_EQ(p.second, "B.TXT", "pair_parse: second upcased");
+
+    /* Leading + extra interior spaces are skipped; only the first two tokens. */
+    cmd_pair_parse("   src.dat   dst.dat   extra", &p);
+    CHECK(p.ok == 1, "pair_parse: spaced two tokens -> ok");
+    CHECK_STR_EQ(p.first,  "SRC.DAT", "pair_parse: spaced first");
+    CHECK_STR_EQ(p.second, "DST.DAT", "pair_parse: spaced second");
+
+    /* Missing second operand -> ok=0 (the parameter-missing error). */
+    cmd_pair_parse("only.one", &p);
+    CHECK(p.ok == 0, "pair_parse: one token -> not ok (missing 2nd arg)");
+    CHECK_STR_EQ(p.first, "ONLY.ONE", "pair_parse: lone first still captured");
+    CHECK_STR_EQ(p.second, "", "pair_parse: missing second is empty");
+
+    /* Empty arg -> ok=0, both empty. */
+    cmd_pair_parse("", &p);
+    CHECK(p.ok == 0, "pair_parse: empty -> not ok");
+    CHECK_STR_EQ(p.first,  "", "pair_parse: empty first");
+    CHECK_STR_EQ(p.second, "", "pair_parse: empty second");
+}
+
+/* ---- DEL wildcard-vs-plain detection ----------------------------------- */
+static void test_has_wildcard(void)
+{
+    CHECK(cmd_has_wildcard("FILE.TXT") == 0, "wildcard: plain name -> 0");
+    CHECK(cmd_has_wildcard("*.TXT")    == 1, "wildcard: '*' -> 1");
+    CHECK(cmd_has_wildcard("FILE?.DAT")== 1, "wildcard: '?' -> 1");
+    CHECK(cmd_has_wildcard("*.*")      == 1, "wildcard: *.* -> 1");
+    CHECK(cmd_has_wildcard("")         == 0, "wildcard: empty -> 0");
+}
+
+/* ---- DATE / TIME format builders + arg parsers ------------------------- */
+/* Ref: cmd_format_date / cmd_format_time / cmd_parse_date / cmd_parse_time. */
+static void test_date_time_format(void)
+{
+    char out[40];
+
+    /* Fri 2026-06-20: dow=5 (Fri), 06-20-2026 zero-padded. */
+    cmd_format_date(5u, 2026u, 6u, 20u, out);
+    CHECK_STR_EQ(out, "Current date is Fri 06-20-2026",
+                 "format_date: Fri 06-20-2026 zero-padded");
+
+    /* Sun 1980-01-01 (the epoch; single-digit month/day -> zero-padded). */
+    cmd_format_date(0u, 1980u, 1u, 1u, out);
+    CHECK_STR_EQ(out, "Current date is Sun 01-01-1980",
+                 "format_date: Sun 01-01-1980 epoch");
+
+    /* 09:05:03.00 -- all fields zero-padded to two digits. */
+    cmd_format_time(9u, 5u, 3u, 0u, out);
+    CHECK_STR_EQ(out, "Current time is 09:05:03.00",
+                 "format_time: 09:05:03.00 zero-padded");
+
+    /* 23:59:59.00 -- the upper bounds. */
+    cmd_format_time(23u, 59u, 59u, 0u, out);
+    CHECK_STR_EQ(out, "Current time is 23:59:59.00",
+                 "format_time: 23:59:59.00 bounds");
+}
+
+static void test_date_parse(void)
+{
+    uint16_t year;
+    uint8_t  mon, day;
+
+    /* MM-DD-YYYY full year. */
+    CHECK(cmd_parse_date("06-20-2026", &year, &mon, &day) == 1,
+          "parse_date: 06-20-2026 valid");
+    CHECK(year == 2026u && mon == 6u && day == 20u,
+          "parse_date: 06-20-2026 fields");
+
+    /* MM-DD-YY two-digit year windowing: 26 -> 2026, 85 -> 1985. */
+    CHECK(cmd_parse_date("12-31-85", &year, &mon, &day) == 1,
+          "parse_date: 12-31-85 valid");
+    CHECK(year == 1985u && mon == 12u && day == 31u,
+          "parse_date: 12-31-85 windows to 1985");
+
+    /* '/' separator is accepted (DOS permits it). */
+    CHECK(cmd_parse_date("01/15/2000", &year, &mon, &day) == 1,
+          "parse_date: 01/15/2000 slash separator");
+    CHECK(year == 2000u && mon == 1u && day == 15u,
+          "parse_date: 01/15/2000 fields");
+
+    /* Invalid cases (the REPL prints "Invalid date" and skips the SET). */
+    CHECK(cmd_parse_date("13-01-2026", &year, &mon, &day) == 0,
+          "parse_date: month 13 invalid");
+    CHECK(cmd_parse_date("02-30-2026", &year, &mon, &day) == 0,
+          "parse_date: Feb 30 invalid");
+    CHECK(cmd_parse_date("02-29-2025", &year, &mon, &day) == 0,
+          "parse_date: Feb 29 of a non-leap year invalid");
+    CHECK(cmd_parse_date("02-29-2024", &year, &mon, &day) == 1,
+          "parse_date: Feb 29 of a leap year valid");
+    CHECK(cmd_parse_date("06-20", &year, &mon, &day) == 0,
+          "parse_date: missing year invalid");
+    CHECK(cmd_parse_date("06/20-2026", &year, &mon, &day) == 0,
+          "parse_date: mismatched separators invalid");
+    CHECK(cmd_parse_date("abc", &year, &mon, &day) == 0,
+          "parse_date: non-numeric invalid");
+}
+
+static void test_time_parse(void)
+{
+    uint8_t hh, mi, ss;
+
+    /* HH:MM:SS full. */
+    CHECK(cmd_parse_time("14:30:15", &hh, &mi, &ss) == 1,
+          "parse_time: 14:30:15 valid");
+    CHECK(hh == 14u && mi == 30u && ss == 15u,
+          "parse_time: 14:30:15 fields");
+
+    /* HH:MM (seconds default to 0). */
+    CHECK(cmd_parse_time("09:05", &hh, &mi, &ss) == 1,
+          "parse_time: 09:05 valid (no seconds)");
+    CHECK(hh == 9u && mi == 5u && ss == 0u,
+          "parse_time: 09:05 seconds default 0");
+
+    /* Invalid cases. */
+    CHECK(cmd_parse_time("24:00:00", &hh, &mi, &ss) == 0,
+          "parse_time: hour 24 invalid");
+    CHECK(cmd_parse_time("12:60:00", &hh, &mi, &ss) == 0,
+          "parse_time: minute 60 invalid");
+    CHECK(cmd_parse_time("12:30:61", &hh, &mi, &ss) == 0,
+          "parse_time: second 61 invalid");
+    CHECK(cmd_parse_time("1230", &hh, &mi, &ss) == 0,
+          "parse_time: missing colon invalid");
+    CHECK(cmd_parse_time("", &hh, &mi, &ss) == 0,
+          "parse_time: empty invalid");
+}
+
 int main(void)
 {
     test_parse_basic();
@@ -236,5 +408,11 @@ int main(void)
     test_first_token();
     test_append_com();
     test_format_dir_line();
+    test_classify_tranche_f();
+    test_pair_parse();
+    test_has_wildcard();
+    test_date_time_format();
+    test_date_parse();
+    test_time_parse();
     return TEST_SUMMARY("test_command");
 }

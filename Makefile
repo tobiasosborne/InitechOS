@@ -148,18 +148,26 @@ STAGE2_SECTORS  := 16
 # kernel_shell.bin crossed the 144-sector window by 9 bytes (73737 > 73728).
 # 160*512 = 80 KiB: 0x10000 + 160*512 = 0x24000, still well below PROGRAM_BASE
 # (0x30000). IMG_MIN = 1+16+160 = 177 <= IMG_SECTORS=192 (no IMG_SECTORS change).
+# BUMPED 160->208 (DOS-3.3 parity session): env.o + the InitechMZ loader (mz.c
+# folded into loader.o, ADR-0003 DEC-08a) + the SET built-in + the Tranche-F verbs
+# (COPY/DEL/REN/DATE/TIME) grew kernel_shell.bin to ~85 KiB, past the 80 KiB window.
+# 208*512 = 104 KiB: 0x10000 + 208*512 = 0x2A000, still below PROGRAM_BASE (0x30000).
+# IMG_MIN = 1+16+208 = 225 -> IMG_SECTORS grows 192->256 (4 cyl). A boot-geometry
+# change is a tri-emulator obligation (Rule 5): re-verified on `make test-boot-bochs`.
 # MUST equal the stage2.asm KERNEL_SECTORS equate.
-KERNEL_SECTORS  := 160
+KERNEL_SECTORS  := 208
 # Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=160) = 177 sectors.
 # IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
 # harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
 # of 2-head x 32-sector cylinders. 128 (2 cyl) sufficed at KERNEL_SECTORS=96; at 112
 # the image grew past 129 to 192 (3 cyl, 96 KiB); KERNEL_SECTORS=160 (initech-4tw;
 # was 144 at qekc) raises the raw image to 177 sectors, still within the 192-sector
-# (3 cyl) window (192 >= 177), so IMG_SECTORS stays 192. (160 -- a multiple of 32 but NOT 64 =
-# 2.5 cyl -- booted on QEMU but broke `make test-boot-bochs`; the guard below now
-# fails that class loud at build time, Rule 2 / Rule 5.) Deterministic (Rule 11).
-IMG_SECTORS     := 192
+# (3 cyl) window (192 >= 177), so IMG_SECTORS stayed 192. At KERNEL_SECTORS=208 the
+# raw image is 225 sectors > 192, so IMG_SECTORS grows to 256 (4 cyl, a multiple of
+# 64; 256 >= 225). (160 -- a multiple of 32 but NOT 64 = 2.5 cyl -- booted on QEMU but
+# broke `make test-boot-bochs`; the guard below fails that class loud at build time,
+# Rule 2 / Rule 5.) Deterministic (Rule 11).
+IMG_SECTORS     := 256
 # Build-time geometry + capacity guard (Rule 2 fail-loud): prevents the QEMU-green /
 # Bochs-broken IMG_SECTORS regression from recurring.
 IMG_MIN_SECTORS := $(shell expr 1 + $(STAGE2_SECTORS) + $(KERNEL_SECTORS))
@@ -5280,6 +5288,13 @@ TEST_COMMAND_MUT_NOMDRD := $(BUILD)/test_command_mutant_nomdrd
 # (e) the classifier drops the SET row -> "SET" classifies as CMD_EXTERNAL; the
 # new SET classify check goes RED (Rule 6; beads initech-1i0x, Tranche E inc-2).
 TEST_COMMAND_MUT_NOSET := $(BUILD)/test_command_mutant_noset
+# (f) Tranche-F verbs (beads hpls/fyox/uy4l): each mutant drops one classify row
+# (COPY/DEL/REN/DATE/TIME) -> the verb classifies as CMD_EXTERNAL and its check goes RED.
+TEST_COMMAND_MUT_NOCOPY := $(BUILD)/test_command_mutant_nocopy
+TEST_COMMAND_MUT_NODEL  := $(BUILD)/test_command_mutant_nodel
+TEST_COMMAND_MUT_NOREN  := $(BUILD)/test_command_mutant_noren
+TEST_COMMAND_MUT_NODATE := $(BUILD)/test_command_mutant_nodate
+TEST_COMMAND_MUT_NOTIME := $(BUILD)/test_command_mutant_notime
 
 $(TEST_COMMAND): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -5305,6 +5320,26 @@ $(TEST_COMMAND_MUT_NOSET): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMA
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_SET -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
 
+$(TEST_COMMAND_MUT_NOCOPY): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_COPY -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
+$(TEST_COMMAND_MUT_NODEL): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_DEL -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
+$(TEST_COMMAND_MUT_NOREN): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_REN -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
+$(TEST_COMMAND_MUT_NODATE): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_DATE -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
+$(TEST_COMMAND_MUT_NOTIME): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_TIME -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
 .PHONY: test-command test-command-mutant
 test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: parse/upcase + built-in classify + .COM-append + DIR-line format\n"
@@ -5312,8 +5347,8 @@ test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: green\n"
 
 # Mutation-proof: ALL three mutant builds MUST fail the oracle (Rule 6).
-test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD) $(TEST_COMMAND_MUT_NOSET)
-	@printf ">>> test-command-mutant: confirming all four mutants go RED (Rule 6)\n"
+test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD) $(TEST_COMMAND_MUT_NOSET) $(TEST_COMMAND_MUT_NOCOPY) $(TEST_COMMAND_MUT_NODEL) $(TEST_COMMAND_MUT_NOREN) $(TEST_COMMAND_MUT_NODATE) $(TEST_COMMAND_MUT_NOTIME)
+	@printf ">>> test-command-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_COMMAND_MUT_NOUP) >/dev/null 2>&1; then \
 		printf '!!! test-command-mutant FAIL: no-upcase mutant PASSED -- the parse/upcase test is decoration\n'; \
 		exit 1; \
@@ -5343,6 +5378,36 @@ test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COM
 		exit 1; \
 	else \
 		printf '>>> test-command-mutant: green (no-set mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_NOCOPY) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-copy mutant PASSED -- the COPY classify test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-copy mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_NODEL) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-del mutant PASSED -- the DEL/ERASE classify test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-del mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_NOREN) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-ren mutant PASSED -- the REN/RENAME classify test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-ren mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_NODATE) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-date mutant PASSED -- the DATE classify test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-date mutant correctly RED)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_NOTIME) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-time mutant PASSED -- the TIME classify test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-time mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -5446,6 +5511,47 @@ test-mz-mutant: $(TEST_MZ_MUT_NOADD) $(TEST_MZ_MUT_PARA)
 		exit 1; \
 	else \
 		printf '>>> test-mz-mutant: green (RELOC_PARAGRAPH mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-mzload (beads initech-dtw.2 -- InitechMZ loader integration)
+# ---------------------------------------------------------------------------
+# Host oracle driving the REAL loader path (loader_prepare_mz, which #includes
+# mz.c same-TU) against hand-authored in-memory InitechMZ images: content
+# dispatch, flat reloc applied byte-exact (trailer + header-resident tables),
+# load module placed at PROGRAM_IMAGE (header skipped), flat entry, disjoint
+# arena + e_minalloc fail-loud teeth, the foreign-MZ (untagged) fail-loud gate,
+# and the .COM path left byte-identical. Links loader.c + psp.c (mz.c rides in
+# loader.c). Mutation (Rule 6): LOADER_MUTATE_MZ_NO_RELOC -> reloc asserts RED.
+TEST_MZLOAD       := $(BUILD)/test_mzload
+TEST_MZLOAD_SRC   := $(MILTON_DIR)/test_mzload.c
+TEST_MZLOAD_MUT   := $(BUILD)/test_mzload_mutant_noreloc
+
+$(TEST_MZLOAD): $(TEST_MZLOAD_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
+                $(MILTON_DIR)/loader.h $(MILTON_DIR)/mz.h $(MILTON_DIR)/mz.c \
+                $(MILTON_DIR)/psp.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_MZLOAD_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+
+$(TEST_MZLOAD_MUT): $(TEST_MZLOAD_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
+                $(MILTON_DIR)/loader.h $(MILTON_DIR)/mz.h $(MILTON_DIR)/mz.c \
+                $(MILTON_DIR)/psp.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUTATE_MZ_NO_RELOC -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_MZLOAD_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+
+.PHONY: test-mzload test-mzload-mutant
+test-mzload: $(TEST_MZLOAD)
+	@printf ">>> test-mzload: parse+dispatch + flat-reloc (trailer + header-resident) + place@PROGRAM_IMAGE + entry + arena/minalloc + foreign-fail-loud + .COM-untouched\n"
+	@$(TEST_MZLOAD)
+	@printf ">>> test-mzload: green\n"
+
+test-mzload-mutant: $(TEST_MZLOAD_MUT)
+	@printf ">>> test-mzload-mutant: confirming the no-reloc mutant goes RED (Rule 6)\n"
+	@if $(TEST_MZLOAD_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-mzload-mutant FAIL: NO_RELOC mutant PASSED -- the reloc oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-mzload-mutant: green (NO_RELOC mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -5967,7 +6073,7 @@ endef
         test-multiopen \
         test-int21-irqstorm test-int21-irqstorm-mutant \
         test-fat-write-partial test-fat-write-partial-mutant \
-        test-command test-command-mutant test-env test-env-mutant test-mz test-mz-mutant test-shell \
+        test-command test-command-mutant test-env test-env-mutant test-mz test-mz-mutant test-mzload test-mzload-mutant test-shell \
         test-ut6d test-ut6d-mutant \
         test-zs24-exec test-zs24-exec-mutant \
         test-panic test-spurious test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
@@ -12432,7 +12538,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-psp test-sft test-loader test-mz \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
@@ -12452,7 +12558,7 @@ TEST_UNIT_GATES := \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-psp-mutant \
-	test-sft-mutant test-loader-mutant test-mz-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
+	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \

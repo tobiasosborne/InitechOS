@@ -77,6 +77,43 @@ cmd_kind_t cmd_classify(const char *upper_command)
          * oracle goes RED (Rule 6). NEVER dropped in a real build. */
         { "SET",   CMD_SET  },
 #endif
+#ifndef CMD_MUTATE_NO_COPY
+        /* COPY <src> <dst> -- single-file copy via 3Dh/3Ch/3Fh/40h/3Eh (beads
+         * initech-hpls, Tranche F). The CMD_MUTATE_NO_COPY mutant DROPS this row
+         * so "COPY" falls through to CMD_EXTERNAL -> the classify oracle goes RED
+         * (Rule 6). NEVER dropped in a real build. */
+        { "COPY",  CMD_COPY },
+#endif
+#ifndef CMD_MUTATE_NO_DEL
+        /* DEL/ERASE <name> -- delete file(s) via 41h (wildcard: 4Eh/4Fh loop)
+         * (beads initech-hpls, Tranche F). The CMD_MUTATE_NO_DEL mutant DROPS
+         * BOTH rows so "DEL"/"ERASE" fall through to CMD_EXTERNAL -> the classify
+         * oracle goes RED (Rule 6). NEVER dropped in a real build. */
+        { "DEL",   CMD_DEL  },
+        { "ERASE", CMD_DEL  },   /* ERASE is the long form of DEL (DOS) */
+#endif
+#ifndef CMD_MUTATE_NO_REN
+        /* REN/RENAME <old> <new> -- same-dir dir-entry rename via 56h (beads
+         * initech-fyox, Tranche F). The CMD_MUTATE_NO_REN mutant DROPS BOTH rows
+         * so "REN"/"RENAME" fall through to CMD_EXTERNAL -> the classify oracle
+         * goes RED (Rule 6). NEVER dropped in a real build. */
+        { "REN",    CMD_REN },
+        { "RENAME", CMD_REN },   /* RENAME is the long form of REN (DOS) */
+#endif
+#ifndef CMD_MUTATE_NO_DATE
+        /* DATE [MM-DD-YY[YY]] -- show/set the system date via 2Ah/2Bh (beads
+         * initech-uy4l, Tranche F). The CMD_MUTATE_NO_DATE mutant DROPS this row
+         * so "DATE" falls through to CMD_EXTERNAL -> the classify oracle goes RED
+         * (Rule 6). NEVER dropped in a real build. */
+        { "DATE",  CMD_DATE },
+#endif
+#ifndef CMD_MUTATE_NO_TIME
+        /* TIME [HH:MM[:SS]] -- show/set the system time via 2Ch/2Dh (beads
+         * initech-uy4l, Tranche F). The CMD_MUTATE_NO_TIME mutant DROPS this row
+         * so "TIME" falls through to CMD_EXTERNAL -> the classify oracle goes RED
+         * (Rule 6). NEVER dropped in a real build. */
+        { "TIME",  CMD_TIME },
+#endif
     };
     for (unsigned i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
         const char *a = upper_command;
@@ -353,6 +390,286 @@ void cmd_set_parse(const char *arg, set_cmd_t *out)
     }
 }
 
+/* ---- Tranche-F PURE parsing/formatting (host-testable) --------------------
+ * Ref: DOS 3.3 COMMAND.COM (DEC-11 / Appendix D); spec/int21h_register.json.
+ * These carry NO asm + NO I/O so test_command.c links them directly; the REPL
+ * (below, COMMAND_KERNEL_REPL) wires them to the matching int $0x21 calls. */
+
+/* cmd_pair_parse: split `arg` into its first two whitespace-delimited tokens,
+ * each UPPER-CASED (DOS upcases 8.3 names). `ok` is 1 iff BOTH are non-empty.
+ * Used by COPY <src> <dst> (initech-hpls) and REN <old> <new> (initech-fyox). */
+void cmd_pair_parse(const char *arg, cmd_pair_t *out)
+{
+    const char *p;
+    int i;
+
+    /* Defensive init (Rule 2). */
+    out->first[0]  = '\0';
+    out->second[0] = '\0';
+    out->ok        = 0;
+
+    if (arg == 0) {
+        return;
+    }
+
+    p = arg;
+    while (is_space(*p)) {            /* skip leading spaces */
+        p++;
+    }
+    i = 0;
+    while (*p && !is_space(*p) && i < CMD_TOKEN_MAX - 1) {
+        out->first[i++] = cmd_upcase_char(*p);
+        p++;
+    }
+    out->first[i] = '\0';
+    while (*p && !is_space(*p)) {     /* swallow an overlong first token's tail */
+        p++;
+    }
+
+    while (is_space(*p)) {            /* skip the separator before token two */
+        p++;
+    }
+    i = 0;
+    while (*p && !is_space(*p) && i < CMD_TOKEN_MAX - 1) {
+        out->second[i++] = cmd_upcase_char(*p);
+        p++;
+    }
+    out->second[i] = '\0';
+
+    /* Both operands required (a missing src or dst is a parameter-missing error). */
+    out->ok = (out->first[0] != '\0' && out->second[0] != '\0') ? 1 : 0;
+}
+
+/* cmd_has_wildcard: 1 if `name` carries a DOS wildcard ('*' or '?'). DEL/ERASE
+ * routes a plain name to a single UNLINK and a pattern to a FINDFIRST/NEXT loop. */
+int cmd_has_wildcard(const char *name)
+{
+    if (name == 0) {
+        return 0;
+    }
+    for (const char *p = name; *p; p++) {
+        if (*p == '*' || *p == '?') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Append `v` to out[*pos] as exactly `width` zero-padded decimal digits (DOS
+ * date/time fields are fixed-width: MM, DD, HH, etc.). Truncates the high digits
+ * if v exceeds the field width (callers range-validate first; defensive). */
+static void put_u_pad0(char *out, int *pos, uint32_t v, int width)
+{
+    char tmp[10];
+    int n = 0;
+    int k;
+
+    if (width > (int)sizeof(tmp)) {
+        width = (int)sizeof(tmp);
+    }
+    for (k = 0; k < width; k++) {
+        tmp[k] = (char)('0' + (v % 10u));
+        v /= 10u;
+    }
+    /* tmp holds the digits least-significant-first; emit reversed. */
+    for (n = width - 1; n >= 0; n--) {
+        out[(*pos)++] = tmp[n];
+    }
+}
+
+int cmd_format_date(uint8_t dow, uint16_t year, uint8_t mon, uint8_t day,
+                    char *out)
+{
+    /* DOS day-of-week abbreviations (0=Sun..6=Sat), as DATE prints them. */
+    static const char *const days[7] = {
+        "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+    };
+    const char *prefix = "Current date is ";
+    const char *dname  = (dow <= 6u) ? days[dow] : "Sun";
+    int pos = 0;
+    int i;
+
+    for (i = 0; prefix[i] != '\0'; i++) {
+        out[pos++] = prefix[i];
+    }
+    for (i = 0; dname[i] != '\0'; i++) {
+        out[pos++] = dname[i];
+    }
+    out[pos++] = ' ';
+    put_u_pad0(out, &pos, (uint32_t)mon, 2);     /* MM */
+    out[pos++] = '-';
+    put_u_pad0(out, &pos, (uint32_t)day, 2);     /* DD */
+    out[pos++] = '-';
+    put_u_pad0(out, &pos, (uint32_t)year, 4);    /* YYYY */
+    out[pos]   = '\0';
+    return pos;
+}
+
+int cmd_format_time(uint8_t hh, uint8_t mi, uint8_t ss, uint8_t cs, char *out)
+{
+    const char *prefix = "Current time is ";
+    int pos = 0;
+    int i;
+
+    for (i = 0; prefix[i] != '\0'; i++) {
+        out[pos++] = prefix[i];
+    }
+    put_u_pad0(out, &pos, (uint32_t)hh, 2);       /* HH */
+    out[pos++] = ':';
+    put_u_pad0(out, &pos, (uint32_t)mi, 2);       /* MM */
+    out[pos++] = ':';
+    put_u_pad0(out, &pos, (uint32_t)ss, 2);       /* SS */
+    out[pos++] = '.';
+    put_u_pad0(out, &pos, (uint32_t)cs, 2);       /* cc (centiseconds) */
+    out[pos]   = '\0';
+    return pos;
+}
+
+/* Parse an unsigned decimal field of 1..`maxdig` digits starting at *pp; advance
+ * *pp past it. Returns 1 on at least one digit consumed (value in *out), else 0. */
+static int parse_u_field(const char **pp, uint32_t *out, int maxdig)
+{
+    const char *p = *pp;
+    uint32_t v = 0;
+    int n = 0;
+
+    while (*p >= '0' && *p <= '9' && n < maxdig) {
+        v = v * 10u + (uint32_t)(*p - '0');
+        p++;
+        n++;
+    }
+    if (n == 0) {
+        return 0;
+    }
+    *out = v;
+    *pp  = p;
+    return 1;
+}
+
+/* Days-in-month with a Gregorian leap-year check (the SET DATE validation also
+ * runs in the kernel's rtc_encode, but DOS COMMAND.COM rejects a bad date BEFORE
+ * issuing 2Bh, so we validate here too -- Law 1: match DOS reprompt behaviour). */
+static int days_in_month(uint16_t year, uint8_t mon)
+{
+    static const uint8_t dim[12] = {
+        31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+    };
+    if (mon < 1u || mon > 12u) {
+        return 0;
+    }
+    if (mon == 2u) {
+        int leap = ((year % 4u) == 0u && (year % 100u) != 0u) ||
+                   ((year % 400u) == 0u);
+        return leap ? 29 : 28;
+    }
+    return (int)dim[mon - 1];
+}
+
+int cmd_parse_date(const char *arg, uint16_t *year, uint8_t *mon, uint8_t *day)
+{
+    const char *p;
+    uint32_t mm = 0, dd = 0, yy = 0;
+    char sep;
+
+    if (arg == 0) {
+        return 0;
+    }
+    p = arg;
+    while (*p == ' ' || *p == '\t') {     /* skip leading whitespace */
+        p++;
+    }
+
+    if (!parse_u_field(&p, &mm, 2)) {
+        return 0;
+    }
+    if (*p != '-' && *p != '/') {         /* DOS accepts '-' or '/' */
+        return 0;
+    }
+    sep = *p++;
+    if (!parse_u_field(&p, &dd, 2)) {
+        return 0;
+    }
+    if (*p != sep) {                      /* the two separators must match */
+        return 0;
+    }
+    p++;
+    if (!parse_u_field(&p, &yy, 4)) {
+        return 0;
+    }
+    /* Trailing whitespace OK; anything else is a malformed date. */
+    while (*p == ' ' || *p == '\t') {
+        p++;
+    }
+    if (*p != '\0') {
+        return 0;
+    }
+
+    /* DOS two-digit-year windowing: 80..99 -> 19xx, 00..79 -> 20xx. */
+    if (yy < 100u) {
+        yy = (yy >= 80u) ? (1900u + yy) : (2000u + yy);
+    }
+    /* DOS DATE accepts years 1980..2099. */
+    if (yy < 1980u || yy > 2099u) {
+        return 0;
+    }
+    if (mm < 1u || mm > 12u) {
+        return 0;
+    }
+    if (dd < 1u || (int)dd > days_in_month((uint16_t)yy, (uint8_t)mm)) {
+        return 0;
+    }
+
+    *year = (uint16_t)yy;
+    *mon  = (uint8_t)mm;
+    *day  = (uint8_t)dd;
+    return 1;
+}
+
+int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss)
+{
+    const char *p;
+    uint32_t h = 0, m = 0, s = 0;
+
+    if (arg == 0) {
+        return 0;
+    }
+    p = arg;
+    while (*p == ' ' || *p == '\t') {
+        p++;
+    }
+
+    if (!parse_u_field(&p, &h, 2)) {
+        return 0;
+    }
+    if (*p != ':') {
+        return 0;
+    }
+    p++;
+    if (!parse_u_field(&p, &m, 2)) {
+        return 0;
+    }
+    if (*p == ':') {                      /* seconds are optional (HH:MM[:SS]) */
+        p++;
+        if (!parse_u_field(&p, &s, 2)) {
+            return 0;
+        }
+    }
+    while (*p == ' ' || *p == '\t') {
+        p++;
+    }
+    if (*p != '\0') {
+        return 0;
+    }
+
+    if (h > 23u || m > 59u || s > 59u) {
+        return 0;
+    }
+    *hh = (uint8_t)h;
+    *mi = (uint8_t)m;
+    *ss = (uint8_t)s;
+    return 1;
+}
+
 /* ===========================================================================
  * The REPL (kernel-only). Everything below dogfoods the INT 21h API via real
  * `int $0x21` calls -- the authentic COMMAND.COM design + proof the OS API is a
@@ -496,6 +813,147 @@ static void dos_close(int handle)
         :
         : "a"(0x3E00u), "b"((uint32_t)handle)
         : "cc", "memory");
+}
+
+/* AH=3Ch CREAT (CREATE/TRUNCATE FILE): EDX -> ASCIIZ 8.3 path, CX = attribute
+ * (0 = normal). Returns the write handle (>=0) on success (CF clear), or
+ * -(error) on failure (CF set; e.g. 0x0005 access denied / 0x0003 path). The
+ * dispatcher's do_creat owns the FAT12 create + SFT/JFT slots (beads
+ * initech-0qh); COPY's destination side calls it. */
+static int dos_creat(const char *path)
+{
+    uint32_t ax = 0x3C00u;   /* AH=3Ch, AL=00 */
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "c"(0u), "d"((uint32_t)(uintptr_t)path)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return -(int)(ax & 0xFFFFu);
+    }
+    return (int)(ax & 0xFFFFu);
+}
+
+/* AH=40h WRITE TO FILE/DEVICE: EBX=handle, ECX=count, EDX=flat ptr. Returns the
+ * bytes written (EAX) on success, or 0 on a CF error (the COPY loop treats a
+ * short/zero write as a failure). This is the FILE-handle counterpart of the
+ * console dos_write above (which pins handle 1). */
+static uint32_t dos_write_h(int handle, const uint8_t *buf, uint32_t count)
+{
+    uint32_t ax = 0x4000u;
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "b"((uint32_t)handle), "c"(count), "d"((uint32_t)(uintptr_t)buf)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return 0u;       /* CF set -> treat as a failed write */
+    }
+    return ax;           /* EAX = bytes written */
+}
+
+/* AH=41h UNLINK (DELETE FILE): EDX -> ASCIIZ path. Returns 0 on success (CF
+ * clear), or the DOS error code (CF set; 0x0002 not found / 0x0005 error). */
+static uint16_t dos_unlink(const char *path)
+{
+    uint32_t ax = 0x4100u;
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "d"((uint32_t)(uintptr_t)path)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return (uint16_t)(ax & 0xFFFFu);
+    }
+    return 0u;
+}
+
+/* AH=56h RENAME (SAME-directory dir-entry rename): EDX -> OLD ASCIIZ path,
+ * EDI -> NEW ASCIIZ path (the flat-ABI second pointer, beads initech-gnrc).
+ * Returns 0 on success (CF clear), or the DOS error code (CF set; 0x0002 not
+ * found / 0x0005 dest exists / 0x0011 cross-dir). */
+static uint16_t dos_rename(const char *old_path, const char *new_path)
+{
+    uint32_t ax = 0x5600u;
+    uint32_t carry = 0;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "d"((uint32_t)(uintptr_t)old_path), "D"((uint32_t)(uintptr_t)new_path)
+        : "cc", "memory");
+    if (carry != 0u) {
+        return (uint16_t)(ax & 0xFFFFu);
+    }
+    return 0u;
+}
+
+/* AH=2Ah GET DATE: CX=year(full), DH=month, DL=day, AL=day-of-week (0=Sun).
+ * No error path (DOS 2Ah always succeeds). */
+static void dos_getdate(uint16_t *year, uint8_t *mon, uint8_t *day, uint8_t *dow)
+{
+    uint32_t ax = 0x2A00u;
+    uint32_t cx = 0, dx = 0;
+    __asm__ __volatile__(
+        "int $0x21"
+        : "+a"(ax), "=c"(cx), "=d"(dx)
+        :
+        : "cc", "memory");
+    *year = (uint16_t)(cx & 0xFFFFu);
+    *mon  = (uint8_t)((dx >> 8) & 0xFFu);   /* DH */
+    *day  = (uint8_t)(dx & 0xFFu);          /* DL */
+    *dow  = (uint8_t)(ax & 0xFFu);          /* AL */
+}
+
+/* AH=2Bh SET DATE: CX=year(full), DH=month, DL=day. Returns 1 if AL=0 (success),
+ * 0 if AL=0xFF (invalid date rejected by the clock seam). */
+static int dos_setdate(uint16_t year, uint8_t mon, uint8_t day)
+{
+    uint32_t ax = 0x2B00u;
+    uint32_t dx = ((uint32_t)mon << 8) | (uint32_t)day;   /* DH=mon, DL=day */
+    __asm__ __volatile__(
+        "int $0x21"
+        : "+a"(ax)
+        : "c"((uint32_t)year), "d"(dx)
+        : "cc", "memory");
+    return ((ax & 0xFFu) == 0u) ? 1 : 0;    /* AL: 0 success / 0xFF invalid */
+}
+
+/* AH=2Ch GET TIME: CH=hour, CL=min, DH=sec, DL=centiseconds. No error path. */
+static void dos_gettime(uint8_t *hh, uint8_t *mi, uint8_t *ss, uint8_t *cs)
+{
+    uint32_t ax = 0x2C00u;
+    uint32_t cx = 0, dx = 0;
+    __asm__ __volatile__(
+        "int $0x21"
+        : "+a"(ax), "=c"(cx), "=d"(dx)
+        :
+        : "cc", "memory");
+    *hh = (uint8_t)((cx >> 8) & 0xFFu);     /* CH */
+    *mi = (uint8_t)(cx & 0xFFu);            /* CL */
+    *ss = (uint8_t)((dx >> 8) & 0xFFu);     /* DH */
+    *cs = (uint8_t)(dx & 0xFFu);            /* DL (centiseconds; RTC reports 0) */
+}
+
+/* AH=2Dh SET TIME: CH=hour, CL=min, DH=sec, DL=centiseconds(ignored). Returns 1
+ * if AL=0 (success), 0 if AL=0xFF (invalid time rejected). */
+static int dos_settime(uint8_t hh, uint8_t mi, uint8_t ss)
+{
+    uint32_t ax = 0x2D00u;
+    uint32_t cx = ((uint32_t)hh << 8) | (uint32_t)mi;     /* CH=hh, CL=mi */
+    uint32_t dx = ((uint32_t)ss << 8);                    /* DH=ss, DL=0  */
+    __asm__ __volatile__(
+        "int $0x21"
+        : "+a"(ax)
+        : "c"(cx), "d"(dx)
+        : "cc", "memory");
+    return ((ax & 0xFFu) == 0u) ? 1 : 0;
 }
 
 /* The master environment store for COMMAND.COM (beads initech-1i0x Tranche E
@@ -1038,6 +1496,199 @@ static void builtin_break(const char *arg)
     }
 }
 
+/* COPY <src> <dst> (beads initech-hpls, Tranche F). Single-file copy:
+ *   OPEN src (3Dh) -> CREAT dst (3Ch) -> READ/WRITE loop (3Fh/40h) -> CLOSE both
+ *   (3Eh). On success: "        1 file(s) copied" (the DOS COPY footer, Law 4).
+ * Errors: a missing operand -> "Required parameter missing" (MSG-DOS-0011); a
+ * missing/unopenable source -> "File not found" (MSG-DOS-0003); a destination
+ * that cannot be created or a short write -> "Bad command or file name"
+ * (MSG-DOS-0002, the catch-all COMMAND.COM diagnostic). Wildcard COPY (src
+ * patterns / dir destinations) is DEFERRED -- single-file is the must (the
+ * follow-up bead). Ref: DOS 3.3 COPY; spec/int21h_register.json 3Dh/3Ch/3Fh/40h. */
+static void builtin_copy(const char *arg)
+{
+    cmd_pair_t pair;
+    int  src_h, dst_h;
+    uint8_t chunk[128];
+    uint32_t got;
+
+    cmd_pair_parse(arg, &pair);
+    if (!pair.ok) {
+        dos_print(MSG_DOS_0011 "\r\n$");        /* "Required parameter missing" */
+        return;
+    }
+
+    src_h = dos_open(pair.first);
+    if (src_h < 0) {
+        dos_print(MSG_DOS_0003 "\r\n$");        /* "File not found" */
+        return;
+    }
+    dst_h = dos_creat(pair.second);
+    if (dst_h < 0) {
+        dos_close(src_h);
+        dos_print(MSG_DOS_0002 "\r\n$");        /* "Bad command or file name" */
+        return;
+    }
+
+    for (;;) {
+        got = dos_read(src_h, chunk, sizeof(chunk));
+        if (got == 0u) {
+            break;                              /* EOF -> the copy is complete */
+        }
+        if (dos_write_h(dst_h, chunk, got) != got) {
+            /* A short/failed write (disk full / access) -- fail loud (Rule 2). */
+            dos_close(src_h);
+            dos_close(dst_h);
+            dos_print(MSG_DOS_0002 "\r\n$");
+            return;
+        }
+    }
+
+    dos_close(src_h);
+    dos_close(dst_h);
+    /* DOS COPY footer: a count column then " file(s) copied" (Law 4). */
+    dos_print("        1 file(s) copied\r\n$");
+}
+
+/* DEL / ERASE <name> (beads initech-hpls, Tranche F).
+ *   plain name    -> UNLINK (41h).
+ *   wildcard name -> FINDFIRST/NEXT (4Eh/4Fh) collecting matches, then UNLINK
+ *                    each (the DTA name is the formatted 8.3 leaf). We COLLECT
+ *                    the matches first, then delete -- deleting under an active
+ *                    FINDNEXT cursor would mutate the directory mid-walk.
+ * No arg -> "Required parameter missing" (MSG-DOS-0011). A plain name that does
+ * not exist -> "File not found" (MSG-DOS-0003). DOS prompts "Are you sure (Y/N)?"
+ * only for the bare "DEL *.*" form; that prompt is DEFERRED (the wildcard delete
+ * itself runs). Ref: DOS 3.3 DEL/ERASE; spec/int21h_register.json 41h/4Eh/4Fh. */
+static void builtin_del(const char *arg)
+{
+    char name[CMD_TOKEN_MAX];
+
+    if (cmd_first_token(arg, name) == 0) {
+        dos_print(MSG_DOS_0011 "\r\n$");        /* "Required parameter missing" */
+        return;
+    }
+    cmd_upcase_str(name);                       /* DOS upcases 8.3 names */
+
+    if (!cmd_has_wildcard(name)) {
+        /* Plain name: a single UNLINK. Not-found -> "File not found". */
+        if (dos_unlink(name) != 0u) {
+            dos_print(MSG_DOS_0003 "\r\n$");
+        }
+        return;
+    }
+
+    /* Wildcard: collect the matching 8.3 names into a fixed roster, then delete.
+     * (Collect-then-delete: UNLINK mutates the directory the search walks, so we
+     * must not delete while a FINDNEXT cursor is live over the same dir.) */
+    {
+        char roster[16][13];                    /* up to 16 names per DEL pass */
+        int  count = 0;
+
+        dos_setdta(&g_shell_dta);
+        if (!dos_findfirst(name, 0u)) {
+            /* No match for the pattern -> "File not found" (DOS DEL *.foo). */
+            dos_print(MSG_DOS_0003 "\r\n$");
+            return;
+        }
+        do {
+            if (count < 16) {
+                int i;
+                for (i = 0; i < 12 && g_shell_dta.fname[i] != '\0'; i++) {
+                    roster[count][i] = g_shell_dta.fname[i];
+                }
+                roster[count][i] = '\0';
+                count++;
+            }
+        } while (dos_findnext());
+
+        for (int j = 0; j < count; j++) {
+            (void)dos_unlink(roster[j]);        /* best-effort per match (DOS) */
+        }
+    }
+}
+
+/* REN / RENAME <old> <new> (beads initech-fyox, Tranche F). AH=56h same-dir
+ * dir-entry rename. DOS prints NOTHING on success; a missing operand ->
+ * "Required parameter missing" (MSG-DOS-0011); any failure (source missing /
+ * dest exists / no backend) -> "Bad command or file name" (MSG-DOS-0002, the
+ * COMMAND.COM catch-all). Cross-directory MOVE is a separate kernel bead
+ * (initech-ycb3); REN here is in-place only. Ref: DOS 3.3 REN; 56h. */
+static void builtin_ren(const char *arg)
+{
+    cmd_pair_t pair;
+
+    cmd_pair_parse(arg, &pair);
+    if (!pair.ok) {
+        dos_print(MSG_DOS_0011 "\r\n$");        /* "Required parameter missing" */
+        return;
+    }
+    if (dos_rename(pair.first, pair.second) != 0u) {
+        dos_print(MSG_DOS_0002 "\r\n$");        /* "Bad command or file name" */
+        return;
+    }
+    /* Success is SILENT (DOS REN prints nothing). */
+}
+
+/* DATE [MM-DD-YY[YY]] (beads initech-uy4l, Tranche F).
+ *   no arg -> AH=2Ah GET, print "Current date is Day MM-DD-YYYY".
+ *   arg    -> AH=2Bh SET after validating the date (DOS rejects a bad date and
+ *             reprompts; we print "Invalid date" and skip the SET, then still
+ *             report the unchanged current date). Ref: DOS 3.3 DATE; 2Ah/2Bh. */
+static void builtin_date(const char *arg)
+{
+    char first[CMD_TOKEN_MAX];
+    uint16_t year;
+    uint8_t  mon, day, dow;
+    int len;
+
+    if (cmd_first_token(arg, first) != 0) {
+        uint16_t syear;
+        uint8_t  smon, sday;
+        if (cmd_parse_date(first, &syear, &smon, &sday)) {
+            if (!dos_setdate(syear, smon, sday)) {
+                dos_print("Invalid date\r\n$");
+            }
+        } else {
+            dos_print("Invalid date\r\n$");
+        }
+    }
+
+    /* Report the (possibly just-set) current date, read back via AH=2Ah. */
+    dos_getdate(&year, &mon, &day, &dow);
+    len = cmd_format_date(dow, year, mon, day, g_out);
+    dos_write(g_out, (uint32_t)len);
+    dos_print("\r\n$");
+}
+
+/* TIME [HH:MM[:SS]] (beads initech-uy4l, Tranche F).
+ *   no arg -> AH=2Ch GET, print "Current time is HH:MM:SS.cc".
+ *   arg    -> AH=2Dh SET after validating; bad time -> "Invalid time" + skip.
+ * Ref: DOS 3.3 TIME; spec/int21h_register.json 2Ch/2Dh. */
+static void builtin_time(const char *arg)
+{
+    char first[CMD_TOKEN_MAX];
+    uint8_t hh, mi, ss, cs;
+    int len;
+
+    if (cmd_first_token(arg, first) != 0) {
+        uint8_t shh, smi, sss;
+        if (cmd_parse_time(first, &shh, &smi, &sss)) {
+            if (!dos_settime(shh, smi, sss)) {
+                dos_print("Invalid time\r\n$");
+            }
+        } else {
+            dos_print("Invalid time\r\n$");
+        }
+    }
+
+    /* Report the (possibly just-set) current time, read back via AH=2Ch. */
+    dos_gettime(&hh, &mi, &ss, &cs);
+    len = cmd_format_time(hh, mi, ss, cs, g_out);
+    dos_write(g_out, (uint32_t)len);
+    dos_print("\r\n$");
+}
+
 /* External command: append .COM (if no extension), upcase, AH=4Bh EXEC. On a
  * not-found / load failure => the controlled "Bad command or file name". On a
  * clean run control simply returns to the prompt. */
@@ -1173,6 +1824,21 @@ void command_repl(void)
                 break;
             case CMD_SET:
                 builtin_set(parsed.arg);
+                break;
+            case CMD_COPY:
+                builtin_copy(parsed.arg);
+                break;
+            case CMD_DEL:
+                builtin_del(parsed.arg);
+                break;
+            case CMD_REN:
+                builtin_ren(parsed.arg);
+                break;
+            case CMD_DATE:
+                builtin_date(parsed.arg);
+                break;
+            case CMD_TIME:
+                builtin_time(parsed.arg);
                 break;
             case CMD_EXIT:
                 /* Grep-able clean-exit marker. Plain '\n' (no CR) so the serial
