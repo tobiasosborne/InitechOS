@@ -42,14 +42,15 @@
 ;        count, DX/EDX=start LBA, EBX=flat buffer, CF=status); os/milton/int21.c
 ;        absdisk_body / int25_dispatch / int26_dispatch; os/milton/isr.asm
 ;        int25_entry / int26_entry; do_write (40h: EBX=1 -> CON), do_terminate
-;        (4Ch); spec/memory_map.h PROGRAM_IMAGE 0x00030100. ADR-0003 DEC-15.
+;        (4Ch); spec/memory_map.h PROGRAM_IMAGE 0x00038100. ADR-0003 DEC-15.
 ;        CLAUDE.md Law 1, Law 2, Rule 2, Rule 11, Rule 12.
 ;
 ; Assembled: nasm -f bin os/milton/absdisk_program.asm -o build/absdisk_program.bin
-; ADDRESSING (Solution A): org 0x00030100 == PROGRAM_IMAGE (mirrors vect_program).
+; ADDRESSING (Solution A): org 0x00038100 == PROGRAM_IMAGE (mirrors vect_program).
+; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org + scratch equs updated]
 
 bits 32
-org 0x00030100
+org 0x00038100
 
 SCRATCH_LBA equ 2879           ; == 1.44MB FAT12 total_sectors_16 (2880) - 1 (SAFE)
 LBA_LOW     equ (SCRATCH_LBA & 0xFF)   ; pattern seed byte == 63 (0x3F) for LBA 2879
@@ -234,7 +235,9 @@ str_rt_fail:  db "ABS-RT-FAIL idx=", 0
 ; Scratch (off the code page; mirrors vect_program.asm's layout). LBUF assembles
 ; each serial line; PATBUF holds the written pattern; RDBUF the read-back; R_AX a
 ; recorded dword for the *-FAIL fields.
-LBUF   equ 0x31000             ; line-assembly scratch (one page above the image)
-PATBUF equ 0x31200             ; 512B written pattern
-RDBUF  equ 0x31400             ; 512B read-back (distinct from PATBUF)
-R_AX   equ 0x31600             ; recorded value for the FAIL diagnostic fields
+; [initech-o0td: scratch pages shifted +0x8000: LBUF 0x31000->0x39000,
+;  PATBUF/RDBUF/R_AX follow; keeps scratch above PROGRAM_BASE (0x38000)]
+LBUF   equ 0x39000             ; line-assembly scratch (one page above the image at 0x38100)
+PATBUF equ 0x39200             ; 512B written pattern
+RDBUF  equ 0x39400             ; 512B read-back (distinct from PATBUF)
+R_AX   equ 0x39600             ; recorded value for the FAIL diagnostic fields

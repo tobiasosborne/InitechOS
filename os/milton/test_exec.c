@@ -31,6 +31,7 @@
 #include <sys/mman.h>
 
 #include "int21.h"
+#include "memory_map.h"    /* ENV_BLOCK -- do_exec honors ONLY {0, ENV_BLOCK} (1i0x) */
 #include "dos_structs.h"   /* exec_param_block_t (AH=4Bh EBX block; initech-456) */
 #include "test_assert.h"
 
@@ -427,7 +428,11 @@ int main(void)
      *     PSP env_seg at the inherited block. We assert a populated env_block (a
      *     non-zero flat addr standing in for ENV_BLOCK) threads through verbatim. -- */
     {
-        const uint32_t kEnvAddr = 0x0005F000u;   /* ENV_BLOCK; do_exec is address-agnostic */
+        const uint32_t kEnvAddr = (uint32_t)ENV_BLOCK;  /* do_exec sanitizes env_block to
+                                                  * honor ONLY {0, ENV_BLOCK} (int21.c do_exec);
+                                                  * use the macro so this tracks spec/memory_map.h
+                                                  * (was a hardcoded 0x5F000 that broke when
+                                                  * initech-o0td shifted ENV_BLOCK -> 0x67000). */
 
         exec_param_block_t *pb = (exec_param_block_t *)alloc_low(sizeof(*pb));
         CHECK(pb != NULL, "alloc_low env-param block in low 4 GiB");

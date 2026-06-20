@@ -105,7 +105,7 @@
  * 32 KiB = 2048 paragraphs (1 paragraph = 16 bytes). The constant is documented
  * as a deliberate locked decision here (Rule 8 -- "a deliberate act with a
  * worklog note"). Increasing it requires verifying it still fits below
- * PROGRAM_STACK_BOT = 0x60000 (spec/memory_map.h); the S8.2 oracle forces a
+ * PROGRAM_STACK_BOT = 0x68000 (spec/memory_map.h); the S8.2 oracle forces a
  * real AH=48h call so a mis-sizing fails at the oracle, not in production
  * (ADR-0009 DEC-04 + DEC-08).
  *

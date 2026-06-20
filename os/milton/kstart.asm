@@ -19,10 +19,14 @@ global _start
 extern kernel_main
 
 _start:
-    ; Kernel stack: 0x0008FFFC, 4-byte aligned, below the abandoned stage2
-    ; stack anchor at 0x90000 and well above the kernel image (linked at
-    ; 0x10000, a few KiB). Grows down into free conventional RAM.
-    mov esp, 0x0008FFFC
+    ; Kernel stack: top 0x00097FFC, 4-byte aligned. Region [0x88000, 0x98000)
+    ; shifted +0x8000 in lockstep with the program map (initech-o0td) so the
+    ; stack stays disjoint from the LOAD_STAGING window [0x78000, 0x88000) and
+    ; from the kernel image (linked at 0x10000, a few KiB). The stage2 stack
+    ; anchor (0x90000) is inside this region but stage2 has already far-jumped
+    ; to the kernel before we reach this instruction, so the region is dead and
+    ; safe to reuse. Grows down into free conventional RAM.
+    mov esp, 0x00097FFC
     xor ebp, ebp                ; null frame pointer => top of stack to debugger
     push ebp
     call kernel_main            ; void kernel_main(void) -- never returns

@@ -34,15 +34,16 @@
 ;        (25h: AL=vec, EDX=handler), int24_dispatch_body (MSG-DOS-0001 + A/R/F),
 ;        do_write (40h: EBX=1 -> CON), do_terminate (4Ch); loader.c EXEC-save /
 ;        EXIT-restore of IDT 0x22/0x23/0x24; spec/memory_map.h PROGRAM_IMAGE
-;        0x00030100. CLAUDE.md Law 1, Law 2, Rule 2, Rule 11, Rule 12.
+;        0x00038100. CLAUDE.md Law 1, Law 2, Rule 2, Rule 11, Rule 12.
 ;
 ; Assembled: nasm -f bin os/milton/vect_program.asm -o build/vect_program.bin
-; ADDRESSING (Solution A): org 0x00030100 == PROGRAM_IMAGE.
+; ADDRESSING (Solution A): org 0x00038100 == PROGRAM_IMAGE.
+; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org + scratch equs updated]
 
 bits 32
-org 0x00030100
+org 0x00038100
 
-BOGUS_24 equ 0x00031234        ; the child's bogus 0x24 handler (never restored)
+BOGUS_24 equ 0x00039234        ; the child's bogus 0x24 handler (never restored); [initech-o0td: shifted +0x8000]
 
 start:
     ; ===== 1. GETVECT 0x24: record the ORIGINAL kernel handler ============
@@ -171,7 +172,9 @@ str_ready:  db "VECT-PROG-READY", 0
 str_crital: db "CRIT-AL=", 0
 
 ; Scratch (off the code page; the report buffer lives a page higher than the
-; image at 0x30100). LBUF assembles each line; R_* hold the recorded dwords.
-LBUF     equ 0x31000
-R_V24PRE equ 0x32000
-R_CRITAL equ 0x32004
+; image at 0x38100). LBUF assembles each line; R_* hold the recorded dwords.
+; [initech-o0td: scratch pages shifted +0x8000: LBUF 0x31000->0x39000,
+;  R_* 0x32000->0x3A000, keeping them above PROGRAM_BASE (0x38000)]
+LBUF     equ 0x39000
+R_V24PRE equ 0x3A000
+R_CRITAL equ 0x3A004

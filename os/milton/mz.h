@@ -4,7 +4,7 @@
  * Ref:   docs/adr/ADR-0003-AMENDMENT-DEC-08a-MZ-EXE-Flat-Loader.md
  *          DEC-08a.1: container is real MZ; code inside is flat 32-bit;
  *                     relocations are flat (add load_base to 32-bit dword).
- *          DEC-08a.2: PROGRAM_IMAGE (0x30100) is the flat load base.
+ *          DEC-08a.2: PROGRAM_IMAGE (0x38100) is the flat load base.
  *          DEC-08a.4: dispatch by content (first 2 bytes 'MZ'/'ZM'), not ext.
  *          DEC-08a.5: tag word at e_res[0] (offset 0x1C); untagged -> PANIC.
  *        spec/memory_map.h (PROGRAM_BASE, PROGRAM_IMAGE constants).
@@ -45,7 +45,7 @@
  * (loader.c dtw.2) to:
  *   1. Copy file[load_module_off .. +load_module_len) to PROGRAM_IMAGE.
  *   2. Call mz_apply_relocs with image=PROGRAM_IMAGE, reloc_table from file,
- *      load_base=PROGRAM_IMAGE (0x30100).
+ *      load_base=PROGRAM_IMAGE (0x38100).
  *   3. Jump to PROGRAM_IMAGE + entry_off (flat entry).
  *   4. Set ESP = PROGRAM_IMAGE + stack_off (or PROGRAM_STACK_TOP if cs==ss==ip==sp==0).
  * Ref: DEC-08a.1, DEC-08a.2. */
@@ -122,7 +122,7 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out);
  *
  * `image`       -- the loaded module buffer (writable, base is PROGRAM_IMAGE).
  * `image_len`   -- byte count of the load module buffer.
- * `load_base`   -- flat linear load base (PROGRAM_IMAGE, 0x30100).
+ * `load_base`   -- flat linear load base (PROGRAM_IMAGE, 0x38100).
  * `reloc_table` -- pointer to the raw reloc table bytes from the MZ file.
  * `reloc_count` -- number of 4-byte reloc entries.
  *

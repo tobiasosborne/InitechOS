@@ -192,8 +192,8 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
      *
      * THIS REPLACES the latent-corruption bind the bug introduced: the OLD code
      * bound [PROGRAM_BASE, PROGRAM_ALLOC_END) with base == PROGRAM_BASE -- the
-     * EXACT window a loaded program's PSP (0x30000) / image (0x30100+) / env
-     * (0x5F000) / stack (top 0x6FFFC) occupy, so a 48h ALLOC overlaid the running
+     * EXACT window a loaded program's PSP (0x38000) / image (0x38100+) / env
+     * (0x67000) / stack (top 0x77FFC) occupy, so a 48h ALLOC overlaid the running
      * program (ADR-0009 Sec 1). The base is now a COMPUTED disjoint value, never
      * PROGRAM_BASE. See spec/memory_map.h's ARENA DISJOINTNESS INVARIANT. */
     {

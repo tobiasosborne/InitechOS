@@ -10,19 +10,20 @@
 ;        sketch); os/milton/int21.c do_open (AH=3Dh: EDX -> ASCIIZ path, AL=mode,
 ;        EAX=handle), do_read (AH=3Fh: EBX=handle, ECX=count, EDX=buf, EAX=bytes),
 ;        do_write (AH=40h: EBX=1 -> CON), do_close (AH=3Eh), do_terminate
-;        (AH=4Ch: AL=exit code); spec/memory_map.h (PROGRAM_IMAGE = 0x00030100).
+;        (AH=4Ch: AL=exit code); spec/memory_map.h (PROGRAM_IMAGE = 0x00038100).
 ;        CLAUDE.md Law 1 (cite), Rule 2 (fail loud on OPEN error), Rule 11
 ;        (deterministic: nasm -f bin), Rule 12 (ASCII).
 ;
 ; Assembled: nasm -f bin os/milton/type_program.asm -o build/type_program.bin
-; Embedded:  bin2c -> a C .rodata array; the loader copies it to 0x30100 and JMPs.
+; Embedded:  bin2c -> a C .rodata array; the loader copies it to 0x38100 and JMPs.
 ;
-; ADDRESSING (Solution A): assembled at org 0x00030100 == PROGRAM_IMAGE so the
+; ADDRESSING (Solution A): assembled at org 0x00038100 == PROGRAM_IMAGE so the
 ; absolute references (the filename + the read buffer) resolve at the load
 ; address. If PROGRAM_IMAGE moves, this org constant moves with it.
+; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
 
 bits 32
-org 0x00030100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00038100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
 start:
     ; AH=3Dh OPEN: EDX = flat ptr to ASCIIZ "HELLO.TXT", AL = 0 (read).

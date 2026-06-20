@@ -4,9 +4,9 @@
 ;        toolchain). ADR-0009 DEC-01/DEC-05.
 ;
 ; Ref (Law 1):
-;   spec/memory_map.h : PROGRAM_IMAGE = 0x00030100 (the .COM load + entry
+;   spec/memory_map.h : PROGRAM_IMAGE = 0x00038100 (the .COM load + entry
 ;     address; the loader JMPs to the first byte of the image). PROGRAM_STACK_TOP
-;     = 0x0006FFFC (the initial program ESP).
+;     = 0x00077FFC (the initial program ESP).
 ;   os/milton/loader.c : the control transfer (the inline asm near line 348)
 ;     loads EBX = PSP_ADDR and does `mov stack_top, %esp` (ESP =
 ;     PROGRAM_STACK_TOP) BEFORE the `jmp` to the program entry. So the loader
@@ -15,7 +15,7 @@
 ;     forgets the stack still works (fail-safe, Rule 2).
 ;   os/milton/kstart.asm : THE PRECEDENT -- a 32-bit nasm entry stub linked
 ;     first that sets ESP, calls a C entry, and guards with a hlt-loop. This
-;     mirrors it at org 0x30100 and ADDS .bss zeroing (DEC-05).
+;     mirrors it at org 0x38100 and ADDS .bss zeroing (DEC-05).
 ;
 ; Contract (shared with the pal_milton agent): the C entry symbol is
 ;   void samir_milton_entry(void);
@@ -43,7 +43,7 @@ extern __bss_end               ; from samir.ld -- end of .bss
 ; PROGRAM_STACK_TOP from spec/memory_map.h (NASM cannot include the C header;
 ; this MUST move with that define -- same duplication contract the os/milton
 ; program .asm files honor for PROGRAM_IMAGE/org).
-PROGRAM_STACK_TOP   equ 0x0006FFFC
+PROGRAM_STACK_TOP   equ 0x00077FFC
 
 ; INT 21h AH=4Ch -- DOS "terminate with return code". Hardcoded per the loader's
 ; exit hook (os/milton/loader.c) which catches AH=4Ch and unwinds to the kernel.
