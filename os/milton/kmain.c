@@ -1022,6 +1022,91 @@ void kernel_main(void)
     serial_puts("EXEC-4B-END\n");
 #endif
 
+#ifdef BOOT_MZEXEC
+    /* InitechMZ (.EXE) RUNTIME-PROOF self-test (beads initech-0kiq / dtw.2-emu;
+     * ADR-0003 DEC-08a). Only in the -DBOOT_MZEXEC image so the normal boot is
+     * unchanged. Requires --disk2 carrying MZEXEC.EXE (the mzlink container of
+     * mzexec_fixture.asm), which is NOT baked -- it lives on the FAT volume, so
+     * this proves a FROM-FAT MZ load through the REAL kernel path.
+     *
+     * THE RUNTIME PROOF (the complement to the host oracle test_mzload): call
+     * load_program_from_fat("MZEXEC.EXE", ...) -- the SAME proven saw core the
+     * BOOT_EXEC block uses for GREET.COM, EXCEPT the content dispatch (mz_is_mz)
+     * routes the 'MZ' image through load_program_mz_in_place ->
+     * loader_prepare_mz: parse the container, move the load module down over the
+     * header, APPLY THE FLAT-32 RELOCATION (add PROGRAM_IMAGE to the dword at the
+     * reloc site), then the ONE shared loader_run_plan transfer (JMP to
+     * PROGRAM_IMAGE). The fixture's `mov edx, msg` was assembled at org 0, so its
+     * imm32 is msg's offset RELATIVE TO LOAD BASE 0 -- WRONG at the real load
+     * address (0x30100) UNLESS relocated. So:
+     *   WITH reloc:    EDX = 0x30100 + msg_off -> AH=09h prints "MZEXEC-OK".
+     *   WITHOUT reloc: EDX = msg_off (~0x11)   -> low RAM, no marker.
+     * The gate asserts "MZEXEC-OK" on serial AND MZEXEC-EXIT rc=9 -- present iff
+     * the relocation resolved AT RUNTIME (Law 2). The mzlink --no-reloc container
+     * variant (test-mzexec-mutant) drops the fixup; the marker is ABSENT and the
+     * gate goes RED (Rule 6 -- the runtime sibling of LOADER_MUTATE_MZ_NO_RELOC).
+     *
+     * We restore the kernel-context exit hook + PSP + CWD after the child (the
+     * loader rebinds all three during a run), exactly as the BOOT_EXEC saw block. */
+    serial_puts("MZEXEC-BEGIN\n");
+    {
+        uint8_t mz_rc = 0;
+        int21_cwd_snapshot_t cwd_snap = int21_cwd_save();   /* save kernel CWD (mzxa) */
+        loader_status_t st = load_program_from_fat("MZEXEC.EXE", 0u /* root */,
+                                                   (const char *)0, 0u,
+                                                   0u /* env: inherit-empty */,
+                                                   &mz_rc);
+        int21_set_exit(int21_exit_hook);   /* restore kernel-context terminate */
+        int21_set_psp(&g_kernel_psp);      /* restore kernel-context JFT */
+        int21_cwd_restore(&cwd_snap);      /* restore kernel-context CWD */
+        if (st == LOADER_OK) {
+            serial_puts("MZEXEC-EXIT rc=");
+            serial_putu((uint32_t)mz_rc);
+            serial_putc('\n');
+        } else {
+            serial_puts("MZEXEC-FAIL st=");
+            serial_putu((uint32_t)st);
+            serial_putc('\n');
+        }
+    }
+    serial_puts("MZEXEC-END\n");
+#endif
+
+#ifdef BOOT_MZFOREIGN
+    /* InitechMZ FAIL-LOUD FOREIGN-MZ self-test (beads initech-0kiq / dtw.2-emu;
+     * ADR-0003 DEC-08a.5). Only in the -DBOOT_MZFOREIGN image. Requires --disk2
+     * carrying FOREIGN.EXE: a valid MZ container whose e_res[0] tag is 0 (an
+     * UNTAGGED 16-bit DOS .EXE, mzlink --foreign). The flat 32-bit CPU cannot
+     * decode 16-bit code, so relocating + jumping to it would silently misexecute.
+     * The kernel MUST refuse: load_program_from_fat -> mz_is_mz -> load_program_mz
+     * _in_place -> loader_prepare_mz returns LOADER_ERR_FOREIGN_MZ -> the call site
+     * calls loader_panic_foreign_mz, which emits "PANIC foreign-mz" to serial and
+     * halts forever (cli;hlt). The emu gate asserts that marker AND that the
+     * program's own marker NEVER appears (it never ran), AND no triple-fault.
+     *
+     * loader_panic_foreign_mz is NORETURN, so MZFOREIGN-AFTER must NOT appear on
+     * serial -- if it does, the kernel did NOT panic on a foreign MZ (the honesty
+     * gate failed). The harness sees the kernel halt INSIDE the EXEC. */
+    serial_puts("MZFOREIGN-BEGIN\n");
+    {
+        uint8_t frc = 0;
+        int21_cwd_snapshot_t cwd_snap = int21_cwd_save();
+        loader_status_t st = load_program_from_fat("FOREIGN.EXE", 0u /* root */,
+                                                   (const char *)0, 0u,
+                                                   0u /* env: inherit-empty */,
+                                                   &frc);
+        /* Reached ONLY if the loader did NOT panic (it must -- DEC-08a.5). Restore
+         * the kernel context and report the (wrong) outcome fail-loud (Rule 2). */
+        int21_set_exit(int21_exit_hook);
+        int21_set_psp(&g_kernel_psp);
+        int21_cwd_restore(&cwd_snap);
+        serial_puts("MZFOREIGN-AFTER st=");   /* the gate asserts this is ABSENT */
+        serial_putu((uint32_t)st);
+        serial_putc('\n');
+    }
+    serial_puts("MZFOREIGN-END\n");
+#endif
+
 #ifdef BOOT_MEMTEST
     /* MEMORY ARENA self-test (beads initech-509.6; make test-mcb-emu). Only in
      * the -DBOOT_MEMTEST image so the normal boot is unchanged. Drives the REAL

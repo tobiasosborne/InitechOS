@@ -6819,6 +6819,126 @@ $(EXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXEC_BIN) | $(BUILD)
 	@dd if=$(KERNEL_EXEC_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> exec image: %s (FAT-sourced load + EXEC self-test kernel @s17)\n" "$@"
 
+# ---------------------------------------------------------------------------
+# InitechMZ (.EXE) runtime EXEC proof (beads initech-0kiq / dtw.2-emu; DEC-08a)
+# ---------------------------------------------------------------------------
+# mzlink (factory CC) wraps the flat nasm fixture + its reloc offset into a real
+# InitechMZ container (0x4943 tag). The fixture's first insn "mov edx,msg" carries
+# a reloc-dependent imm32 at module offset 1, so the serial marker prints ONLY if
+# the loader applied the flat relocation at RUNTIME. Two kernel variants
+# (BOOT_MZEXEC / BOOT_MZFOREIGN) + three FAT disks (reloc / no-reloc mutant /
+# untagged-foreign) prove: a real .EXE runs, the no-reloc image does NOT print the
+# marker, and an untagged 16-bit MZ panics fail-loud (DEC-08a.5). FAT-resident
+# (--disk2) so the fixture never bloats the kernel .bin (KERNEL_SECTORS budget).
+MZLINK_BIN         := $(BUILD)/mzlink
+MZEXEC_FIX_ASM     := $(KERNEL_DIR)/mzexec_fixture.asm
+MZEXEC_FIX_BIN     := $(BUILD)/mzexec_fixture.bin
+MZEXEC_EXE         := $(BUILD)/mzexec.exe
+MZEXEC_NORELOC_EXE := $(BUILD)/mzexec_noreloc.exe
+MZFOREIGN_EXE      := $(BUILD)/mzforeign.exe
+
+$(MZLINK_BIN): tools/mzlink.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+
+$(MZEXEC_FIX_BIN): $(MZEXEC_FIX_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+# reloc site = the imm32 of "mov edx,msg" at module offset 1; the loader adds
+# PROGRAM_IMAGE to it at load time (DEC-08a.1).
+$(MZEXEC_EXE): $(MZEXEC_FIX_BIN) $(MZLINK_BIN) | $(BUILD)
+	$(MZLINK_BIN) $(MZEXEC_FIX_BIN) $@ --reloc 1 --entry 0
+$(MZEXEC_NORELOC_EXE): $(MZEXEC_FIX_BIN) $(MZLINK_BIN) | $(BUILD)
+	$(MZLINK_BIN) $(MZEXEC_FIX_BIN) $@ --no-reloc --entry 0
+$(MZFOREIGN_EXE): $(MZEXEC_FIX_BIN) $(MZLINK_BIN) | $(BUILD)
+	$(MZLINK_BIN) $(MZEXEC_FIX_BIN) $@ --reloc 1 --entry 0 --foreign
+
+# Kernel variants: the SAME objects as KERNEL_EXEC_OBJS, kmain compiled with
+# -DBOOT_MZEXEC / -DBOOT_MZFOREIGN (the inert legs in kmain.c).
+KERNEL_MZEXEC_MAIN_OBJ    := $(BUILD)/kmain_mzexec.o
+KERNEL_MZEXEC_ELF         := $(BUILD)/kernel_mzexec.elf
+KERNEL_MZEXEC_BIN         := $(BUILD)/kernel_mzexec.bin
+MZEXEC_IMG                := $(BUILD)/mzexec_boot.img
+KERNEL_MZFOREIGN_MAIN_OBJ := $(BUILD)/kmain_mzforeign.o
+KERNEL_MZFOREIGN_ELF      := $(BUILD)/kernel_mzforeign.elf
+KERNEL_MZFOREIGN_BIN      := $(BUILD)/kernel_mzforeign.bin
+MZFOREIGN_IMG             := $(BUILD)/mzforeign_boot.img
+
+$(KERNEL_MZEXEC_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_MZEXEC -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+$(KERNEL_MZFOREIGN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_MZFOREIGN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_MZEXEC_OBJS    := $(KERNEL_START_OBJ) $(KERNEL_MZEXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
+                         $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                         $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                         $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                         $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
+                         $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                         $(KERNEL_ISR_OBJ)
+KERNEL_MZFOREIGN_OBJS := $(filter-out $(KERNEL_MZEXEC_MAIN_OBJ),$(KERNEL_MZEXEC_OBJS)) $(KERNEL_MZFOREIGN_MAIN_OBJ)
+
+$(KERNEL_MZEXEC_ELF): $(KERNEL_MZEXEC_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MZEXEC_OBJS)
+$(KERNEL_MZFOREIGN_ELF): $(KERNEL_MZFOREIGN_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MZFOREIGN_OBJS)
+
+$(KERNEL_MZEXEC_BIN): $(KERNEL_MZEXEC_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_mzexec.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(mzexec): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,mzexec)
+$(KERNEL_MZFOREIGN_BIN): $(KERNEL_MZFOREIGN_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_mzforeign.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(mzforeign): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,mzforeign)
+
+$(MZEXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MZEXEC_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_MZEXEC_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> mzexec image: %s (InitechMZ EXEC self-test kernel @s17)\n" "$@"
+$(MZFOREIGN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MZFOREIGN_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_MZFOREIGN_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> mzforeign image: %s (InitechMZ foreign-panic self-test kernel @s17)\n" "$@"
+
+# FAT data disks (--disk2): reloc (MZEXEC-OK prints), no-reloc mutant (absent),
+# foreign (untagged MZ -> panic). MZEXEC.EXE / FOREIGN.EXE are the kmain names.
+FAT_MZEXEC_IMG         := $(BUILD)/fat_mzexec.img
+FAT_MZEXEC_NORELOC_IMG := $(BUILD)/fat_mzexec_noreloc.img
+FAT_MZFOREIGN_IMG      := $(BUILD)/fat_mzforeign.img
+
+$(FAT_MZEXEC_IMG): $(FAT12_FIXTURES) $(MZEXEC_EXE) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(MZEXEC_EXE) ::MZEXEC.EXE
+	@printf ">>> fat_mzexec: minted %s (MZEXEC.EXE relocated InitechMZ + HELLO.TXT)\n" "$@"
+$(FAT_MZEXEC_NORELOC_IMG): $(FAT12_FIXTURES) $(MZEXEC_NORELOC_EXE) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(MZEXEC_NORELOC_EXE) ::MZEXEC.EXE
+	@printf ">>> fat_mzexec_noreloc: minted %s (MZEXEC.EXE no-reloc mutant)\n" "$@"
+$(FAT_MZFOREIGN_IMG): $(FAT12_FIXTURES) $(MZFOREIGN_EXE) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@mcopy -i $@ $(MZFOREIGN_EXE) ::FOREIGN.EXE
+	@printf ">>> fat_mzforeign: minted %s (FOREIGN.EXE untagged 16-bit MZ)\n" "$@"
+
 # --- FAT WRITE round-trip self-test kernel (beads initech-509.11; test-fatwrite)
 # Same sources, kmain.c compiled with -DBOOT_WRITE so the boot runs the baked
 # WRITE program over a WRITABLE FAT12 data disk. The write_prog blob is linked
@@ -9170,6 +9290,65 @@ test-type: $(HARNESS_BIN) $(DEMO_IMG) $(FAT_DATA_IMG)
 	@printf 'VERDICT   : PASS -- a flat program OPENed, READ, and TYPEd a real FAT12 file via INT 21h\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-mzexec (beads initech-0kiq / dtw.2-emu -- a real .EXE RUNS)
+# ---------------------------------------------------------------------------
+# Boot + EXEC a real InitechMZ .EXE from FAT through the unmodified loader MZ
+# path (DEC-08a). Three proofs (Law 2 / Rule 2): (1) RELOC -- MZEXEC.EXE runs ->
+# "MZEXEC-OK" (printed ONLY if the flat relocation resolved at runtime) +
+# MZEXEC-EXIT rc=9; (2) FOREIGN -- an untagged 16-bit MZ panics fail-loud
+# ("PANIC foreign-mz") and the post-EXEC marker MZFOREIGN-AFTER is ABSENT
+# (DEC-08a.5). test-mzexec-mutant proves the marker is RELOCATION-borne.
+MZEXEC_RUN_NAME    := mzexec_run
+MZFOREIGN_RUN_NAME := mzforeign_run
+
+.PHONY: test-mzexec test-mzexec-mutant
+# --expect reads serial LIVE + exits early on the marker -- race-free vs the
+# QEMU serial-file flush (a post-hoc grep can miss late-flushed bytes), and the
+# generous 30s ceiling absorbs cold QEMU-TCG slowness (the kernel reaches its leg
+# after the proto-DIR + baked demos; only the no-reloc mutant burns the full wait).
+test-mzexec: $(HARNESS_BIN) $(MZEXEC_IMG) $(FAT_MZEXEC_IMG) $(MZFOREIGN_IMG) $(FAT_MZFOREIGN_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-mzexec : RUN A REAL InitechMZ .EXE\n'
+	@printf '  Ref: ADR-0003 DEC-08a; beads initech-dtw/0kiq. The flat-32 relocation\n'
+	@printf '  must resolve at RUNTIME or the marker never prints.\n'
+	@printf '======================================================================\n'
+	@# These self-test kernels do NOT halt after their leg (they continue to
+	@# IRQ-LIVE/CONIN-LIVE), so the harness times out and its EXIT CODE is non-zero
+	@# even on success -- exactly why test-exec uses `|| true` + a marker check. We
+	@# judge on marker_found (set by --expect's LIVE serial read; race-free), NOT
+	@# the exit code.
+	@# [1/2] RELOC: a real InitechMZ runs + the flat relocation resolves at runtime.
+	@$(HARNESS_BIN) --disk "$(MZEXEC_IMG)" --disk2 "$(FAT_MZEXEC_IMG)" \
+		--expect "MZEXEC-OK" --name "$(MZEXEC_RUN_NAME)" --out "$(BUILD)" --timeout-ms 30000 \
+		2> "$(BUILD)/$(MZEXEC_RUN_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(MZEXEC_RUN_NAME).report"; then \
+		printf '!!! test-mzexec FAIL: TRIPLE FAULT booting/running the InitechMZ\n'; exit 1; fi
+	@grep -q 'marker_found=1' "$(BUILD)/$(MZEXEC_RUN_NAME).report" \
+		&& printf '>>> test-mzexec [1/2]: MZEXEC-OK -- the relocated .EXE ran (reloc resolved at runtime)\n' \
+		|| { printf '!!! test-mzexec FAIL: MZEXEC-OK never appeared -- the .EXE did not run OR the reloc did not resolve\n'; cat "$(BUILD)/$(MZEXEC_RUN_NAME).report"; exit 1; }
+	@# [2/2] FOREIGN: an untagged 16-bit MZ panics fail-loud (DEC-08a.5), never runs.
+	@$(HARNESS_BIN) --disk "$(MZFOREIGN_IMG)" --disk2 "$(FAT_MZFOREIGN_IMG)" \
+		--expect "PANIC foreign-mz" --name "$(MZFOREIGN_RUN_NAME)" --out "$(BUILD)" --timeout-ms 30000 \
+		2> "$(BUILD)/$(MZFOREIGN_RUN_NAME).report" || true
+	@grep -q 'marker_found=1' "$(BUILD)/$(MZFOREIGN_RUN_NAME).report" \
+		&& printf '>>> test-mzexec [2/2]: untagged 16-bit MZ panicked fail-loud (no run) -- DEC-08a.5\n' \
+		|| { printf '!!! test-mzexec FAIL: foreign untagged MZ did NOT panic -- the DEC-08a.5 fail-loud gate is broken\n'; cat "$(BUILD)/$(MZFOREIGN_RUN_NAME).report"; exit 1; }
+	@printf 'VERDICT   : PASS -- InitechOS loaded + RAN a real InitechMZ .EXE (reloc resolved at runtime);\n'
+	@printf '            an untagged 16-bit MZ was refused with a fail-loud panic. (QEMU; Bochs -> x0i.)\n'
+	@printf '======================================================================\n'
+
+test-mzexec-mutant: $(HARNESS_BIN) $(MZEXEC_IMG) $(FAT_MZEXEC_NORELOC_IMG)
+	@printf '>>> test-mzexec-mutant: the NO-RELOC InitechMZ must NOT print MZEXEC-OK (Rule 6)\n'
+	@$(HARNESS_BIN) --disk "$(MZEXEC_IMG)" --disk2 "$(FAT_MZEXEC_NORELOC_IMG)" \
+		--expect "MZEXEC-OK" --name "mzexec_noreloc_run" --out "$(BUILD)" --timeout-ms 20000 \
+		2> "$(BUILD)/mzexec_noreloc_run.report" || true
+	@if grep -q 'marker_found=1' "$(BUILD)/mzexec_noreloc_run.report"; then \
+		printf '!!! test-mzexec-mutant FAIL: MZEXEC-OK printed WITHOUT the relocation -- the reloc gate is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-mzexec-mutant: green (no-reloc image correctly did NOT print MZEXEC-OK -- the reloc is load-bearing)\n'; \
+	fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-dir (beads initech-509.5 read-side -- a program DIRs a volume)
@@ -12620,7 +12799,7 @@ TEST_UNIT_GATES := \
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
-	test-dir test-exec test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
+	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm \
