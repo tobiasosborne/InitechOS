@@ -37,6 +37,15 @@
  *                                 as BL_ECHO_TEXT; the ECHO OFF test goes RED.
  *   BATCH_MUTATE_GOTO_NOLABEL  -- batch_goto_target always returns 0 chars
  *                                 extracted; the GOTO target test goes RED.
+ *
+ * EXECUTION-LOGIC mutation hooks (CLAUDE.md Rule 6 -- driven by the new
+ * make test-batch-exec-mutant; the IF/FOR decision helpers below):
+ *   BATCH_MUTATE_IF_IGNORE_NOT -- batch_eval_if ignores the "NOT" prefix, so a
+ *                                 NOT'd condition returns the un-negated truth;
+ *                                 the IF-NOT test goes RED.
+ *   BATCH_MUTATE_FOR_NO_TOKENS -- batch_for_next_token always reports "no more
+ *                                 tokens", so a FOR set yields zero iterations;
+ *                                 the FOR-tokenize test goes RED.
  */
 #ifndef INITECH_BATCH_H
 #define INITECH_BATCH_H
@@ -172,5 +181,95 @@ batch_line_kind_t batch_classify(const char *line, batch_parsed_t *out);
  *
  * PURE: no asm, no I/O.  Deterministic. */
 int batch_label_matches(const char *line, const char *target);
+
+/* ---- IF condition evaluation (PURE; the REPL's BL_IF decision) ----------- */
+
+/* The EXIST probe callback type.  batch_eval_if cannot touch the file system
+ * (it is pure), so the caller supplies a prober: given an ASCIIZ file spec it
+ * returns 1 if the file exists, 0 otherwise.  The REPL passes a dos_open-based
+ * prober; the host test passes a stub table.  `ctx` is forwarded verbatim. */
+typedef int (*batch_exist_fn)(const char *spec, void *ctx);
+
+/* Evaluate one IF directive's condition.
+ *
+ * `if_args` is the text AFTER the "IF" keyword (already expanded by the caller
+ * via batch_expand, so %1 / %VAR% are resolved).  Three condition forms are
+ * recognised (DOS 3.3; MS-DOS 3.3 Tech Ref Ch.3), each optionally preceded by
+ * the "NOT" keyword:
+ *   IF [NOT] ERRORLEVEL n      -- true iff `errorlevel` >= n  (DOS semantics:
+ *                                 ERRORLEVEL is a >= test, not == ).
+ *   IF [NOT] EXIST filespec    -- true iff exist_fn(filespec, ctx) != 0.
+ *   IF [NOT] str1==str2        -- true iff the two strings are byte-equal
+ *                                 (DOS string IF is CASE-SENSITIVE; the operands
+ *                                 are taken literally, quotes included -- the
+ *                                 caller typically wrote "%1"=="" so both sides
+ *                                 carry their own quotes and they compare as
+ *                                 written).  The "==" is the delimiter; the
+ *                                 first "==" found splits the two operands.
+ *
+ * On a TRUE condition, `*out_cmd` is set to point at the remainder of `if_args`
+ * (the command to execute, leading whitespace skipped) and the function returns
+ * 1.  On a FALSE condition it returns 0 and `*out_cmd` is set to NULL.  On a
+ * malformed/unrecognised condition it returns 0 and `*out_cmd` is NULL (the
+ * REPL then skips the line -- fail safe, Rule 2).
+ *
+ * `exist_fn` may be NULL; an EXIST test then evaluates as "does not exist" (0).
+ *
+ * PURE: no asm, no I/O (the only outside reach is the exist_fn callback).
+ *
+ * MUTANT BATCH_MUTATE_IF_IGNORE_NOT: the NOT prefix is ignored, so a NOT'd
+ * condition returns the un-negated truth value.  The IF-NOT test goes RED. */
+int batch_eval_if(const char *if_args, uint8_t errorlevel,
+                  batch_exist_fn exist_fn, void *ctx,
+                  const char **out_cmd);
+
+/* ---- FOR loop parsing + iteration (PURE; the REPL's BL_FOR decision) ----- */
+
+/* Parse a FOR directive's arguments.
+ *
+ * `for_args` is the text AFTER the "FOR" keyword (already expanded), e.g.
+ * "%%F IN (A.TXT B.TXT) DO TYPE %%F".  DOS 3.3 FOR syntax (MS-DOS 3.3 Tech Ref
+ * Ch.3): FOR %%v IN (set) DO command.
+ *
+ * On success returns 1 and fills:
+ *   `var_out`  -- the loop variable token verbatim INCLUDING its "%%" prefix
+ *                 (e.g. "%%F"), so batch_for_subst can match it in the command.
+ *                 Capacity BATCH_LABEL_MAX.
+ *   `set_out`  -- the raw text between '(' and ')' (the iteration set), capacity
+ *                 BATCH_LINE_MAX.
+ *   `cmd_out`  -- the command template after "DO " (capacity BATCH_LINE_MAX).
+ * Returns 0 on a syntactically malformed FOR (missing IN/(/)/DO); the outputs
+ * are left as empty strings (the REPL then skips the line -- fail safe).
+ *
+ * PURE: no asm, no I/O.  Never overflows (all fields are bounded). */
+int batch_for_parse(const char *for_args,
+                    char *var_out, char *set_out, char *cmd_out);
+
+/* Iterate the whitespace/comma-separated tokens of a FOR set.
+ *
+ * `set` is the raw set text (from batch_for_parse's set_out).  `*cursor` is the
+ * caller's iteration position; initialise it to 0 before the first call and do
+ * NOT modify it between calls.  Each call copies the next token into `tok_out`
+ * (ASCIIZ, capacity `cap`), advances `*cursor`, and returns 1.  When no tokens
+ * remain it returns 0 and sets tok_out[0] = '\0'.
+ *
+ * Token separators are spaces, tabs, and commas (DOS FOR set separators).
+ *
+ * PURE: no asm, no I/O.  Never overflows `tok_out` (clamped to `cap`-1).
+ *
+ * MUTANT BATCH_MUTATE_FOR_NO_TOKENS: always reports "no more tokens" on the
+ * first call, so a FOR set yields zero iterations.  The FOR-tokenize test goes
+ * RED. */
+int batch_for_next_token(const char *set, int *cursor, char *tok_out, int cap);
+
+/* Substitute every occurrence of the FOR variable `var` (e.g. "%%F", the
+ * verbatim form batch_for_parse returns) in `templ` with `token`, writing the
+ * result into `out` (capacity `cap`).  Used to build each iteration's concrete
+ * command from the FOR command template.
+ *
+ * Writes at most `cap`-1 chars + a NUL; returns the number of chars written, or
+ * -1 on overflow (out[0] set to NUL for safety, Rule 2).  PURE: no asm/I/O. */
+int batch_for_subst(const char *templ, const char *var, const char *token,
+                    char *out, int cap);
 
 #endif /* INITECH_BATCH_H */

@@ -106,6 +106,15 @@ static int21_exec_fn g_exec = 0;
  * this milestone -- the shell reads it once right after EXEC). */
 static uint8_t g_last_child_rc = 0;
 
+/* The TERMINATION TYPE the last terminating process reported, retrievable as the
+ * AH high byte of AH=4Dh GET RETURN CODE. DOS 3.3 types: 0 = normal (4Ch / INT
+ * 20h / 00h), 1 = Ctrl-Break, 2 = critical error, 3 = TSR (terminated via AH=31h
+ * KEEP). We produce 0 (normal) and 3 (KEEP); 1/2 have no termination path yet. Set
+ * to 3 by do_keep and reset to 0 by do_exec on a normal child run, so a parent's
+ * 4Dh reports AH=3 exactly when the child KEEP'd. Ref: DOS 3.3 PRM AH=4Dh (AH =
+ * exit type); RBIL INT 21/AH=4Dh; RBIL INT 21/AH=31h (KEEP -> 4Dh AH=3). */
+static uint8_t g_last_child_term_type = 0;
+
 /* The MCB memory arena behind AH=48h/49h/4Ah (beads initech-509.6). g_arena
  * walks the kernel's program-memory region (PROGRAM_BASE..PROGRAM_ALLOC_END,
  * spec/memory_map.h); g_arena_base_linear is that region's flat base so a
@@ -2905,6 +2914,14 @@ static void do_exec(int_frame_t *f)
         }
     }
 
+    /* Default this child's termination type to 0 (normal) BEFORE it runs. A child
+     * that ends via AH=31h KEEP overwrites it to 3 from inside its own do_keep
+     * (which executes synchronously within g_exec, before control unwinds back
+     * here); a child that ends normally leaves it 0. Resetting here -- not after --
+     * is what keeps a normal child run from inheriting a PRIOR KEEP child's type
+     * (beads initech-bo40; DOS 3.3 4Dh reports the type of the child JUST run). */
+    g_last_child_term_type = 0u;
+
     uint32_t indos_snapshot = g_indos;
     uint8_t rc = 0;
     uint16_t err = g_exec(leaf, dir_start, tail_text, tail_len, env_block, &rc);
@@ -2917,16 +2934,20 @@ static void do_exec(int_frame_t *f)
     }
 
     /* The child ran and returned. Stash its exit code for AH=4Dh; CF clear. DOS
-     * leaves the child's rc retrievable via 4Dh, not in AX of the 4Bh return. */
+     * leaves the child's rc retrievable via 4Dh, not in AX of the 4Bh return. The
+     * termination type was defaulted to 0 above and overwritten to 3 by the child's
+     * own do_keep iff it ended via AH=31h KEEP -- so it already reflects this child
+     * (beads initech-bo40); no action needed here. */
     g_last_child_rc = rc;
     cf_clear(f);
 }
 
 /* AH=4Dh GET RETURN CODE (WAIT): return the exit code of the last child run via
- * AH=4Bh EXEC. AL = the exit code; AH = the termination type (0 = normal exit,
- * the only kind this milestone -- no Ctrl-C/critical-error/TSR termination). DOS
- * "consumes" the value (a second 4Dh reads 0), which we model by clearing the
- * stash after read. CF clear. Ref: DOS 3.3 PRM AH=4Dh. */
+ * AH=4Bh EXEC. AL = the exit code; AH = the termination TYPE (0 = normal exit via
+ * 4Ch / INT 20h / 00h; 3 = terminated by AH=31h KEEP -- the TSR case, beads
+ * initech-bo40). Ctrl-Break(1) / critical-error(2) have no termination path yet.
+ * DOS "consumes" the value (a second 4Dh reads 0), which we model by clearing the
+ * stash after read. CF clear. Ref: DOS 3.3 PRM AH=4Dh; RBIL INT 21/AH=4Dh. */
 static void do_get_return_code(int_frame_t *f)
 {
 #ifdef INT21_MUTATE_RETCODE_ZERO
@@ -2935,10 +2956,13 @@ static void do_get_return_code(int_frame_t *f)
      * that exits rc=7 and asserts AL==7) goes RED. NEVER define in a real build. */
     f->eax = (f->eax & 0xFFFF0000u);          /* AL=0, AH=0 */
 #else
-    f->eax = (f->eax & 0xFFFF0000u) | (uint32_t)g_last_child_rc; /* AL = exit code */
-    /* AH = 0 (normal termination); high byte of AX is the termination type. */
+    /* AL = exit code; AH = termination type (3 == KEEP/TSR, else 0 normal). */
+    f->eax = (f->eax & 0xFFFF0000u)
+           | ((uint32_t)g_last_child_term_type << 8)
+           | (uint32_t)g_last_child_rc;
 #endif
-    g_last_child_rc = 0u;   /* consumed (DOS clears after the read) */
+    g_last_child_rc        = 0u;   /* consumed (DOS clears after the read) */
+    g_last_child_term_type = 0u;   /* consumed alongside the code          */
     cf_clear(f);
 }
 
@@ -3141,6 +3165,62 @@ static void do_terminate(int_frame_t *f, uint8_t code)
     }
     /* If no hook is bound (host default), just return; the kernel's hook never
      * returns. We deliberately do NOT touch CF -- 4Ch has no error path. */
+}
+
+/* AH=31h KEEP (Terminate and Stay Resident): AL = exit/return code, DX = the
+ * number of paragraphs to keep RESIDENT, measured from the program's PSP segment.
+ * Like terminate (return control to the parent / the EXEC'r), BUT the program's
+ * memory block is NOT freed: it is shrunk to DX paragraphs and re-homed to the
+ * DOS system arena (MCB_OWNER_SYSTEM) so a later AH=48h ALLOC never reuses it and
+ * the terminate-time owner reclaim (do_terminate -> mcb_free_owner) SKIPS it. The
+ * parent retrieves AL via AH=4Dh, which then reports AH=3 (terminated by KEEP).
+ *
+ * FLAT-MODE PARAGRAPH MAPPING (Law 1; DOS 3.3 PRM / RBIL INT 21/AH=31h, adapted):
+ * real DOS DX counts paragraphs from the PSP segment, and the PSP is the first 16
+ * paragraphs (256 bytes) of the program's block. In our MCB model the program's
+ * single-big-block (mcb_set_arena_owner / int21_mcb_reset) has its DATA region
+ * starting at data paragraph 1 (the 1-paragraph MCB header sits at data_para 0),
+ * and the PSP occupies the FIRST data paragraph of that region (PROGRAM_BASE). So
+ * DX paragraphs "from the PSP" == DX DATA paragraphs of the block -- a 1:1 map we
+ * pass straight to mcb_keep_resident (which clamps a too-large DX to the block's
+ * own size; DOS keeps at most the program's own block).
+ *
+ * Fail loud (Rule 2): if the current PSP owns no arena block (e.g. the disjoint-
+ * arena bind that leaves the window FREE -- the program never claimed a block to
+ * keep), mcb_keep_resident returns BAD_BLOCK; KEEP then terminates normally
+ * (there is nothing to keep) rather than corrupting the chain. KEEP is otherwise
+ * EXACTLY terminate: it routes through the SAME do_terminate return path (handle
+ * close, owner reclaim of whatever is STILL owned by the PSP, CWD reset, exit
+ * hook), differing only in that the kept block is already re-homed resident so
+ * the reclaim leaves it standing. Ref: DOS 3.3 PRM AH=31h; ADR-0003 (the arena
+ * model); spec/int21h_register.json (31h KEEP, Resident). */
+static void do_keep(int_frame_t *f)
+{
+    uint8_t  code = frame_al(f);
+    uint16_t keep_paras = frame_dx(f);
+
+    /* Mark the program's block resident BEFORE the terminate reclaim runs. With
+     * an arena + a live PSP bound, re-home the PSP's block to MCB_OWNER_SYSTEM at
+     * DX paragraphs; BAD_BLOCK (the PSP owns nothing to keep) degrades to a normal
+     * terminate (nothing kept), never a fault. */
+    if (g_arena_bound && g_cur_psp != 0) {
+        (void)mcb_keep_resident(&g_arena, cur_psp_owner(), (uint32_t)keep_paras);
+    }
+
+    /* Record this process's exit status for the parent's AH=4Dh: AL = the exit
+     * code, AH = termination type 3 (KEEP/TSR). In the kernel build the loader
+     * regains control after the exit hook and do_exec re-stashes the SAME code
+     * (g_last_child_rc) from the loader's captured rc; recording it here makes the
+     * status retrievable on the DIRECT-dispatch path too (and is byte-consistent
+     * with the EXEC path -- both store the identical code). The type is set to 3
+     * here and defaults back to 0 on the next EXEC of a normal child (do_exec). */
+    g_last_child_rc        = code;
+    g_last_child_term_type = 3u;
+
+    /* Terminate-to-parent: the SAME control transfer as 4Ch. do_terminate's
+     * mcb_free_owner reclaim now finds nothing owned by the PSP (the kept block is
+     * MCB_OWNER_SYSTEM), so the resident block survives. */
+    do_terminate(f, code);
 }
 
 /* ===========================================================================
@@ -3827,6 +3907,9 @@ static void int21_dispatch_body(int_frame_t *frame)
             return;
         case 0x4B:                       /* EXEC (load and execute) */
             do_exec(frame);
+            return;
+        case 0x31:                       /* KEEP (Terminate and Stay Resident) */
+            do_keep(frame);
             return;
         case 0x4C:                       /* TERMINATE WITH RETURN CODE */
             do_terminate(frame, frame_al(frame));

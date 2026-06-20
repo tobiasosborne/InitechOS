@@ -369,6 +369,9 @@ KERNEL_COMMAND_OBJ := $(BUILD)/command.o
 # COMMAND.COM master environment store (beads initech-1i0x); linked into the
 # shell kernel because command.c's SET built-in calls env_*.
 KERNEL_ENV_OBJ := $(BUILD)/env.o
+# COMMAND.COM .BAT interpreter (beads initech-xw1); linked into the shell kernel
+# because command.c's run_batch/dispatch_line call batch_classify/expand/eval_if/for_*.
+KERNEL_BATCH_OBJ := $(BUILD)/batch.o
 KERNEL_TEST_PROG_OBJ := $(BUILD)/test_prog_blob.o
 KERNEL_TYPE_PROG_OBJ := $(BUILD)/type_prog_blob.o
 KERNEL_DIR_PROG_OBJ  := $(BUILD)/dir_prog_blob.o
@@ -5643,6 +5646,127 @@ test-batch-mutant: $(TEST_BATCH_MUT_PCTPCT) $(TEST_BATCH_MUT_ECHOOFF) $(TEST_BAT
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-batch-exec (beads initech-xw1 -- .BAT EXECUTION logic)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the pure execution helpers (batch_eval_if / batch_for_*):
+# IF [NOT] ERRORLEVEL/EXIST/str==str, FOR set parse/tokenize/substitute.
+# batch.c is pure + I/O-free; test_batch_exec.c #includes it DIRECTLY (the same
+# TU trick as test_batch.c). Mutation builds (Rule 6): IF_IGNORE_NOT -> NOT
+# dropped; FOR_NO_TOKENS -> empty set.
+TEST_BATCH_EXEC          := $(BUILD)/test_batch_exec
+TEST_BATCH_EXEC_SRC      := $(MILTON_DIR)/test_batch_exec.c
+TEST_BATCH_EXEC_HDRS     := $(MILTON_DIR)/batch.h $(MILTON_DIR)/batch.c
+TEST_BATCH_EXEC_MUT_NOT  := $(BUILD)/test_batch_exec_mutant_ifignorenot
+TEST_BATCH_EXEC_MUT_FOR  := $(BUILD)/test_batch_exec_mutant_fornotokens
+
+$(TEST_BATCH_EXEC): $(TEST_BATCH_EXEC_SRC) $(TEST_BATCH_EXEC_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed -o $@ $(TEST_BATCH_EXEC_SRC)
+
+$(TEST_BATCH_EXEC_MUT_NOT): $(TEST_BATCH_EXEC_SRC) $(TEST_BATCH_EXEC_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DBATCH_MUTATE_IF_IGNORE_NOT \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_BATCH_EXEC_SRC)
+
+$(TEST_BATCH_EXEC_MUT_FOR): $(TEST_BATCH_EXEC_SRC) $(TEST_BATCH_EXEC_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DBATCH_MUTATE_FOR_NO_TOKENS \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_BATCH_EXEC_SRC)
+
+.PHONY: test-batch-exec test-batch-exec-mutant
+test-batch-exec: $(TEST_BATCH_EXEC)
+	@printf ">>> test-batch-exec: IF [NOT] ERRORLEVEL/EXIST/str==str + FOR parse/tokenize/subst\n"
+	@$(TEST_BATCH_EXEC)
+	@printf ">>> test-batch-exec: green\n"
+
+test-batch-exec-mutant: $(TEST_BATCH_EXEC_MUT_NOT) $(TEST_BATCH_EXEC_MUT_FOR)
+	@printf ">>> test-batch-exec-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_BATCH_EXEC_MUT_NOT) >/dev/null 2>&1; then \
+		printf '!!! test-batch-exec-mutant FAIL: if-ignore-not mutant PASSED -- the IF-NOT test is decoration\n'; exit 1; \
+	else printf '>>> test-batch-exec-mutant: green (if-ignore-not mutant correctly RED)\n'; fi
+	@if $(TEST_BATCH_EXEC_MUT_FOR) >/dev/null 2>&1; then \
+		printf '!!! test-batch-exec-mutant FAIL: for-no-tokens mutant PASSED -- the FOR test is decoration\n'; exit 1; \
+	else printf '>>> test-batch-exec-mutant: green (for-no-tokens mutant correctly RED -- the oracle bites)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-ansi (beads initech-x3mh -- ANSI.SYS escape-sequence FSM)
+# ---------------------------------------------------------------------------
+# Host unit oracle for the pure ANSI.SYS logic (ansi.c / ansi.h): CSI parser,
+# cursor movement, erase, SGR colour mapping, save/restore, passthrough.
+# ansi.c is pure + I/O-free; test_ansi.c #includes it DIRECTLY (same TU trick
+# as test_batch.c). The CON wiring is a separate (deferred) bead.
+# Mutation builds (Rule 6): PARAM_ACCUM -> multi-digit params wrong;
+# SGR_COLOR -> ANSI-to-CGA colour swap bypassed.
+TEST_ANSI             := $(BUILD)/test_ansi
+TEST_ANSI_SRC         := $(MILTON_DIR)/test_ansi.c
+TEST_ANSI_HDRS        := $(MILTON_DIR)/ansi.h $(MILTON_DIR)/ansi.c
+TEST_ANSI_MUT_PARAM   := $(BUILD)/test_ansi_mutant_paramaccum
+TEST_ANSI_MUT_SGR     := $(BUILD)/test_ansi_mutant_sgrcolor
+
+$(TEST_ANSI): $(TEST_ANSI_SRC) $(TEST_ANSI_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed -o $@ $(TEST_ANSI_SRC)
+
+$(TEST_ANSI_MUT_PARAM): $(TEST_ANSI_SRC) $(TEST_ANSI_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DANSI_MUTATE_PARAM_ACCUM \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_ANSI_SRC)
+
+$(TEST_ANSI_MUT_SGR): $(TEST_ANSI_SRC) $(TEST_ANSI_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DANSI_MUTATE_SGR_COLOR \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_ANSI_SRC)
+
+.PHONY: test-ansi test-ansi-mutant
+test-ansi: $(TEST_ANSI)
+	@printf ">>> test-ansi: CSI parser + cursor + erase + SGR + save/restore\n"
+	@$(TEST_ANSI)
+	@printf ">>> test-ansi: green\n"
+
+test-ansi-mutant: $(TEST_ANSI_MUT_PARAM) $(TEST_ANSI_MUT_SGR)
+	@printf ">>> test-ansi-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_ANSI_MUT_PARAM) >/dev/null 2>&1; then \
+		printf '!!! test-ansi-mutant FAIL: param-accum mutant PASSED -- the multi-digit param test is decoration\n'; exit 1; \
+	else printf '>>> test-ansi-mutant: green (param-accum mutant correctly RED)\n'; fi
+	@if $(TEST_ANSI_MUT_SGR) >/dev/null 2>&1; then \
+		printf '!!! test-ansi-mutant FAIL: sgr-color mutant PASSED -- the ANSI-to-CGA colour test is decoration\n'; exit 1; \
+	else printf '>>> test-ansi-mutant: green (sgr-color mutant correctly RED -- the oracle bites)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-keep (beads initech-bo40 -- INT 21h AH=31h KEEP / TSR)
+# ---------------------------------------------------------------------------
+# Drives the REAL artifact mcb.c + int21.c HOSTED: the pure mcb_keep_resident
+# layer (shrink + mark resident + alloc-avoids-kept + terminate-reclaim-skips-
+# kept) AND the AH=31h int21_dispatch seam end to end (KEEP -> resident block,
+# AH=4Dh AH=3, ALLOC avoids the kept region). int21.c references the SFT/PSP
+# handle layer, so the link needs sft.c + psp.c + irq.c plus mcb.c; -Ibuild for
+# int21.c's generated dos_messages.h. The mutant (KEEP fails to mark resident)
+# proves the resident-survival assertions BITE (Rule 6).
+TEST_KEEP      := $(BUILD)/test_keep
+TEST_KEEP_SRC  := $(MILTON_DIR)/test_keep.c
+TEST_KEEP_DEPS := $(KERNEL_INT21_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_KEEP_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/mcb.h \
+                  $(MILTON_DIR)/sft.h $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
+TEST_KEEP_MUT  := $(BUILD)/test_keep_mutant_noresident
+
+$(TEST_KEEP): $(TEST_KEEP_SRC) $(TEST_KEEP_DEPS) $(TEST_KEEP_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_KEEP_SRC) $(TEST_KEEP_DEPS)
+
+$(TEST_KEEP_MUT): $(TEST_KEEP_SRC) $(TEST_KEEP_DEPS) $(TEST_KEEP_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMCB_MUTATE_KEEP_NO_RESIDENT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_KEEP_SRC) $(TEST_KEEP_DEPS)
+
+.PHONY: test-keep test-keep-mutant
+test-keep: $(TEST_KEEP)
+	@printf ">>> test-keep: AH=31h KEEP (TSR) -- mcb resident model + shrink/mark + ALLOC-avoids-kept + terminate-survives + AH=4Dh type 3\n"
+	@$(TEST_KEEP)
+	@printf ">>> test-keep: green\n"
+
+test-keep-mutant: $(TEST_KEEP_MUT)
+	@printf ">>> test-keep-mutant: confirming the no-resident mutant goes RED (Rule 6)\n"
+	@if $(TEST_KEEP_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-keep-mutant FAIL: no-resident mutant PASSED -- the resident oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-keep-mutant: green (no-resident mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-psp (beads initech-509.4 -- PSP full 256-byte construction)
 # ---------------------------------------------------------------------------
 # Host unit oracle for psp_build() (os/milton/psp.c): zero-init + every field
@@ -6424,6 +6548,7 @@ $(KERNEL_IRQ_OBJ): $(KERNEL_IRQ_C) $(KERNEL_DIR)/irq.h $(KERNEL_DIR)/io.h | $(BU
 # IN (the host build leaves it out). -Ispec for find_data.h + dos_structs.h.
 # -I$(BUILD) for the generated dos_messages.h (beads initech-509.1).
 $(KERNEL_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/env.h \
+                       $(KERNEL_DIR)/batch.h \
                        spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
@@ -6431,6 +6556,12 @@ $(KERNEL_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)
 # (stdint only; no REPL/asm). Linked into the shell kernel for the SET built-in.
 $(KERNEL_ENV_OBJ): $(KERNEL_DIR)/env.c $(KERNEL_DIR)/env.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_DIR)/env.c -o $@
+
+# batch.o -- COMMAND.COM .BAT interpreter (parser + IF/FOR decision helpers,
+# beads initech-xw1). Freestanding (stdint only; no asm). Linked into the shell
+# kernel; command.c calls batch_classify/expand/eval_if/for_*.
+$(KERNEL_BATCH_OBJ): $(KERNEL_DIR)/batch.c $(KERNEL_DIR)/batch.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_DIR)/batch.c -o $@
 
 # --- Baked test program pipeline (beads initech-509.5; Sec 5.4) ------------
 # bin2c is a host factory tool (libc), built with the factory CC, not KERNEL_CC.
@@ -7368,7 +7499,7 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) \
+                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) $(KERNEL_BATCH_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
 
@@ -12805,7 +12936,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-psp test-sft test-loader test-mz test-mzload \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-batch-exec test-ansi test-keep test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
@@ -12824,7 +12955,7 @@ TEST_UNIT_GATES := \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-keep-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
@@ -12872,6 +13003,139 @@ TEST_UNIT_GATES := \
 	test-dbase-diff test-dbase-diff-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
+# ---------------------------------------------------------------------------
+# REAL emu gate: test-autoexec (beads initech-xw1 -- AUTOEXEC.BAT + .BAT
+# EXECUTION end-to-end on the emulated 386)
+# ---------------------------------------------------------------------------
+# Boots the shell kernel with a FAT12 data disk carrying AUTOEXEC.BAT, SUB.BAT,
+# and GREET.COM (the existing fixture that exits rc=7).  AUTOEXEC.BAT runs
+# automatically at REPL entry and exercises EVERY batch feature in one pass:
+# @ECHO OFF state, IF string-equality + IF NOT, a FOR loop, an external EXEC
+# (GREET.COM), IF [NOT] ERRORLEVEL against the rc=7, and a CALL into SUB.BAT --
+# the CALL proves the shared-buffer reload on return (the kernel-window fix).
+# The HARD LESSON (WL-0038): EXEC-path edits MUST be proven on the emulator,
+# not just on the host.  The mutant (CMD_MUTATE_NO_AUTOEXEC -- the AUTOEXEC hook
+# skipped) makes the markers ABSENT, proving the gate bites (Rule 6).
+AUTOEXEC_IMG      := $(BUILD)/autoexec_xw1.img
+AUTOEXEC_MUT_IMG  := $(BUILD)/autoexec_xw1_mut.img
+AUTOEXEC_NAME     := autoexec_xw1
+AUTOEXEC_MUT_NAME := autoexec_xw1_mut
+AUTOEXEC_SERIAL   := $(BUILD)/$(AUTOEXEC_NAME).serial
+AUTOEXEC_MUT_SERIAL := $(BUILD)/$(AUTOEXEC_MUT_NAME).serial
+AUTOEXEC_REPORT   := $(BUILD)/$(AUTOEXEC_NAME).report
+AUTOEXEC_MUT_REPORT := $(BUILD)/$(AUTOEXEC_MUT_NAME).report
+AUTOEXEC_BAT      := $(FAT12_FIXTURE_DIR)/autoexec_xw1.bat
+AUTOEXEC_SUB_BAT  := $(FAT12_FIXTURE_DIR)/sub_xw1.bat
+AUTOEXEC_MARKERS  := AUTOEXEC-RAN IF-EQ-OK IF-NEQ-OK FORITEM-A FORITEM-B FORITEM-C ERRLVL-GE-7-OK ERRLVL-LT-8-OK SUB-RAN-WORLD AUTOEXEC-DONE
+
+# Mint a fresh writable FAT12 floppy with the three batch fixtures (Rule 11:
+# minted per run, NOT committed).  GREET.COM is the rc=7 fixture (greet_program).
+define autoexec-mint-disk
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(AUTOEXEC_BAT) ::AUTOEXEC.BAT
+	@mcopy -i $(1) $(AUTOEXEC_SUB_BAT) ::SUB.BAT
+	@mcopy -i $(1) $(GREET_PROG_BIN) ::GREET.COM
+endef
+
+.PHONY: test-autoexec test-autoexec-mutant
+test-autoexec: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(AUTOEXEC_BAT) $(AUTOEXEC_SUB_BAT)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-autoexec : AUTOEXEC.BAT + .BAT execution\n'
+	@printf '  beads initech-xw1. AUTOEXEC.BAT runs at REPL entry: @ECHO OFF, IF\n'
+	@printf '  string/ERRORLEVEL, FOR, external EXEC (GREET rc=7), CALL SUB.BAT.\n'
+	@printf '  Ref: MS-DOS 3.3 Tech Ref Ch.3; ADR-0003 DEC-08; WL-0038 HARD LESSON.\n'
+	@printf '======================================================================\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-autoexec FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-autoexec FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	$(call autoexec-mint-disk,$(AUTOEXEC_IMG))
+	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT + SUB.BAT + GREET.COM)\n' "$(TRACER_IMG)" "$(AUTOEXEC_IMG)"
+	@printf 'Expecting : SHELL-READY then 10 batch markers, then clean EXIT\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(AUTOEXEC_IMG)" \
+		--name "$(AUTOEXEC_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(AUTOEXEC_REPORT)" || true
+	@cat "$(AUTOEXEC_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(AUTOEXEC_REPORT)"; then \
+		printf '!!! test-autoexec FAIL: TRIPLE FAULT -- AUTOEXEC/.BAT execution crashed\n'; exit 1; \
+	fi
+	@printf '>>> test-autoexec [1/4]: no triple-fault\n'
+	@if [ ! -s "$(AUTOEXEC_SERIAL)" ]; then \
+		printf '!!! test-autoexec FAIL: no serial captured at %s\n' "$(AUTOEXEC_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(AUTOEXEC_SERIAL)" \
+		|| { printf '!!! test-autoexec FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
+	@printf '>>> test-autoexec [2/4]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@sed -n '/^SHELL-READY$$/,$$p' "$(AUTOEXEC_SERIAL)" | tr -d '\r' > "$(BUILD)/$(AUTOEXEC_NAME).repl"
+	@for m in $(AUTOEXEC_MARKERS); do \
+		grep -qF "$$m" "$(BUILD)/$(AUTOEXEC_NAME).repl" \
+			|| { printf '!!! test-autoexec FAIL: marker %s missing -- AUTOEXEC/.BAT did not execute that step (root-cause batch driver / EXEC / CALL-reload, Rule 3)\n' "$$m"; exit 1; }; \
+	done
+	@printf '>>> test-autoexec [3/4]: all 10 batch markers present (ECHO state, IF str/ERRORLEVEL, FOR, EXEC, CALL+reload)\n'
+	@grep -q '^SHELL-EXIT$$' "$(AUTOEXEC_SERIAL)" \
+		|| { printf '!!! test-autoexec FAIL: SHELL-EXIT missing -- the post-AUTOEXEC interactive EXIT did not run\n'; exit 1; }
+	@printf '>>> test-autoexec [4/4]: post-AUTOEXEC `exit` reached the REPL + halted cleanly\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- AUTOEXEC.BAT ran end-to-end on the emulated 386\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ----- Mutant kernel for test-autoexec-mutant (Rule 6) -----
+# command.c compiled with -DCMD_MUTATE_NO_AUTOEXEC: the AUTOEXEC.BAT hook in
+# command_repl is skipped, so NONE of the batch markers reach serial.  Swap ONLY
+# command.o into the shell object set (same idiom as ut6d/zs24 mutant kernels).
+AUTOEXEC_COMMAND_MUT_OBJ := $(BUILD)/command_mut_autoexec.o
+AUTOEXEC_SHELL_MUT_ELF   := $(BUILD)/kernel_shell_mut_autoexec.elf
+AUTOEXEC_SHELL_MUT_BIN   := $(BUILD)/kernel_shell_mut_autoexec.bin
+AUTOEXEC_TRACER_MUT_IMG  := $(BUILD)/tracer_boot_mut_autoexec.img
+
+$(AUTOEXEC_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/batch.h \
+                             spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_AUTOEXEC \
+		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
+
+AUTOEXEC_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(AUTOEXEC_COMMAND_MUT_OBJ)
+
+$(AUTOEXEC_SHELL_MUT_ELF): $(AUTOEXEC_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(AUTOEXEC_SHELL_MUT_OBJS)
+
+$(AUTOEXEC_SHELL_MUT_BIN): $(AUTOEXEC_SHELL_MUT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_mut_autoexec.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-mut-autoexec): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,shell-mut-autoexec)
+
+$(AUTOEXEC_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(AUTOEXEC_SHELL_MUT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(AUTOEXEC_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> autoexec mutant image: %s (AUTOEXEC hook skipped -- markers must be ABSENT)\n" "$@"
+
+test-autoexec-mutant: $(HARNESS_BIN) $(AUTOEXEC_TRACER_MUT_IMG) $(GREET_PROG_BIN) $(AUTOEXEC_BAT) $(AUTOEXEC_SUB_BAT)
+	@printf '>>> test-autoexec-mutant: confirming the NO-AUTOEXEC mutant goes RED (Rule 6)\n'
+	$(call autoexec-mint-disk,$(AUTOEXEC_MUT_IMG))
+	@$(HARNESS_BIN) --disk "$(AUTOEXEC_TRACER_MUT_IMG)" --disk2 "$(AUTOEXEC_MUT_IMG)" \
+		--name "$(AUTOEXEC_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(AUTOEXEC_MUT_REPORT)" || true
+	@if [ ! -s "$(AUTOEXEC_MUT_SERIAL)" ]; then \
+		printf '!!! test-autoexec-mutant FAIL: no serial from the mutant boot\n'; exit 1; \
+	fi
+	@sed -n '/^SHELL-READY$$/,$$p' "$(AUTOEXEC_MUT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(AUTOEXEC_MUT_NAME).repl"
+	@if grep -qF 'AUTOEXEC-RAN' "$(BUILD)/$(AUTOEXEC_MUT_NAME).repl"; then \
+		printf '!!! test-autoexec-mutant FAIL: AUTOEXEC-RAN present under CMD_MUTATE_NO_AUTOEXEC -- the gate is decoration (it would pass even if the hook were dead)\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-autoexec-mutant: green (no-autoexec mutant correctly RED -- AUTOEXEC markers absent, the oracle bites)\n'
+
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
@@ -12881,7 +13145,8 @@ TEST_EMU_GATES := \
 	test-samir-boot test-samir-boot-mutant \
 	test-samir-write test-samir-write-mutant \
 	test-samir-canon-y2k test-samir-canon-y2k-mutant \
-	test-samir-canon-salami test-samir-canon-salami-mutant
+	test-samir-canon-salami test-samir-canon-salami-mutant \
+	test-autoexec test-autoexec-mutant
 
 test-unit:
 	@printf '======================================================================\n'

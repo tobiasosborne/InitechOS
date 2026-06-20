@@ -38,6 +38,17 @@
 #define MCB_OWNER_FREE 0x0000u         /* owner == 0 marks a free block          */
 #define MCB_OWNER_ANY  0xFFFFu         /* free/setblock: skip the owner check    */
 
+/* The RESIDENT (system-owned) marker for a TSR's kept block (INT 21h AH=31h KEEP;
+ * beads initech-bo40). Real DOS marks the DOS system MCB with owner id 8 (the
+ * "owned by DOS" arena -- DOS 3.3 internals / RBIL INT 21/AH=31h; the MCB owner
+ * field). We reuse that canonical id so a KEEP'd block (a) is NEVER reclaimed by
+ * mcb_free_owner(terminating_psp) -- its owner is no longer the terminating PSP --
+ * and (b) is NEVER handed out by mcb_alloc (which reuses ONLY MCB_OWNER_FREE
+ * blocks; any non-free owner, including SYSTEM, is skipped). It is distinct from a
+ * live PSP owner (a flat-mode PSP segment is PROGRAM_BASE>>4, far above 8) so a
+ * resident block can never be confused with a process's own block. */
+#define MCB_OWNER_SYSTEM 0x0008u       /* DOS system-owned (a resident TSR block) */
+
 /* A region handed to the arena: `base` must be paragraph-aligned and span
  * `total_paras` 16-byte paragraphs (header paragraphs included). */
 typedef struct mcb_arena {
@@ -85,6 +96,28 @@ uint16_t mcb_setblock(mcb_arena_t *a, uint32_t data_para, uint32_t want,
  * handle close. Returns 0 on a corrupt chain (no-op; the caller is mid-teardown
  * and a panic on the way out is worse than leaving the chain). */
 uint32_t mcb_free_owner(mcb_arena_t *a, uint16_t owner);
+
+/* INT 21h AH=31h KEEP (Terminate and Stay Resident; beads initech-bo40). Make the
+ * block currently owned by `psp_owner` RESIDENT at a size of `keep_data_paras`
+ * DATA paragraphs: SHRINK it to keep_data_paras (the freed tail becomes a free
+ * block, exactly as mcb_setblock's shrink), then RE-OWN it to MCB_OWNER_SYSTEM so
+ * the subsequent terminate-time mcb_free_owner(psp_owner) SKIPS it and a later
+ * mcb_alloc never hands the kept region out. `psp_owner` must be a live owner (not
+ * MCB_OWNER_FREE / MCB_OWNER_SYSTEM); the resized block is the FIRST block that
+ * psp_owner owns (the authentic single-big-block a freshly-loaded program owns --
+ * the PSP+image window the loader hands it via mcb_set_arena_owner).
+ *
+ * Semantics (DOS 3.3 AH=31h; RBIL INT 21/AH=31h; MS-DOS 3.3 Tech Ref):
+ *   - keep_data_paras > the block's current data size -> CLAMPED to the current
+ *     size (DOS keeps at most the program's own block; it never grows on KEEP).
+ *   - keep_data_paras == current size -> the block is re-owned resident, no split.
+ *   - keep_data_paras < current size -> shrink (free the tail) then re-own.
+ * Returns MCB_OK on success; MCB_ERR_BAD_BLOCK if psp_owner owns no block (the
+ * "KEEP on a process owning no arena block" invariant -- the do_keep caller fails
+ * loud), or if psp_owner is FREE/SYSTEM; MCB_ERR_DESTROYED on a corrupt chain.
+ * Coalesces the freed tail afterward (Rule 2: leave the chain in normal form). */
+uint16_t mcb_keep_resident(mcb_arena_t *a, uint16_t psp_owner,
+                           uint32_t keep_data_paras);
 
 /* Walk the chain and assert the structural invariants: every header signature is
  * 'M' or 'Z'; no block runs past the arena; exactly one 'Z' and it is last; the

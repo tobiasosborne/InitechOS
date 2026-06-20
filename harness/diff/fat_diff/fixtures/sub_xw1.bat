@@ -1,0 +1,2 @@
+@ECHO OFF
+ECHO SUB-RAN-%1

@@ -31,6 +31,14 @@
  *   BATCH_MUTATE_GOTO_NOLABEL  -- batch_goto_target always copies 0 chars
  *                                 into the output (the GOTO target test goes
  *                                 RED).  NEVER in a real build.
+ *   BATCH_MUTATE_IF_IGNORE_NOT -- batch_eval_if ignores the "NOT" prefix so a
+ *                                 NOT'd condition returns the un-negated truth;
+ *                                 the IF-NOT test goes RED.  NEVER in a real
+ *                                 build.
+ *   BATCH_MUTATE_FOR_NO_TOKENS -- batch_for_next_token always reports "no more
+ *                                 tokens" so a FOR set yields zero iterations;
+ *                                 the FOR-tokenize test goes RED.  NEVER in a
+ *                                 real build.
  */
 
 #include "batch.h"
@@ -501,4 +509,350 @@ int batch_label_matches(const char *line, const char *target)
 
     /* Compare case-insensitively (DOS 3.3 GOTO is case-insensitive). */
     return (bat_stricmp(lname, target) == 0) ? 1 : 0;
+}
+
+/* ---- batch_eval_if ------------------------------------------------------- */
+
+/* Copy a single whitespace-delimited token from `src` into `dst` (capacity
+ * `cap`), returning a pointer to the first char AFTER the token (the next
+ * unconsumed char, NOT yet ws-skipped).  Leading whitespace in `src` is skipped
+ * first.  `dst` is always NUL-terminated.  A NULL/empty `src` yields an empty
+ * token and returns `src`. */
+static const char *bat_take_token(const char *src, char *dst, int cap)
+{
+    int n = 0;
+    if (src == 0) {
+        if (cap > 0) {
+            dst[0] = '\0';
+        }
+        return src;
+    }
+    src = bat_skip_ws(src);
+    while (*src != '\0' && !bat_isspace(*src) && n < cap - 1) {
+        dst[n++] = *src++;
+    }
+    if (cap > 0) {
+        dst[n] = '\0';
+    }
+    /* If the token overran `cap`, swallow the rest so the caller's cursor lands
+     * past the whole token (Rule 2: never bleed a half-token into the tail). */
+    while (*src != '\0' && !bat_isspace(*src)) {
+        src++;
+    }
+    return src;
+}
+
+/* Parse a non-negative decimal integer at the start of `s` (after ws-skip).
+ * Stores the value in `*val` and returns 1 if at least one digit was present,
+ * else returns 0 (and `*val` is 0).  Clamps to 255 (the ERRORLEVEL range is a
+ * byte; DOS ERRORLEVEL is 0..255). */
+static int bat_parse_uint(const char *s, unsigned *val)
+{
+    unsigned v = 0;
+    int digits = 0;
+    s = bat_skip_ws(s);
+    while (*s >= '0' && *s <= '9') {
+        v = v * 10u + (unsigned)(*s - '0');
+        if (v > 255u) {
+            v = 255u;   /* clamp to the ERRORLEVEL byte range */
+        }
+        s++;
+        digits++;
+    }
+    *val = v;
+    return digits > 0 ? 1 : 0;
+}
+
+/* Byte-exact (CASE-SENSITIVE) compare of two NUL-terminated strings.  DOS string
+ * IF ("str1"=="str2") is case-sensitive.  Returns 1 if equal, 0 otherwise. */
+static int bat_streq_exact(const char *a, const char *b)
+{
+    int i = 0;
+    if (a == 0 || b == 0) {
+        return (a == b) ? 1 : 0;
+    }
+    while (a[i] != '\0' && b[i] != '\0') {
+        if (a[i] != b[i]) {
+            return 0;
+        }
+        i++;
+    }
+    return (a[i] == b[i]) ? 1 : 0;
+}
+
+int batch_eval_if(const char *if_args, uint8_t errorlevel,
+                  batch_exist_fn exist_fn, void *ctx,
+                  const char **out_cmd)
+{
+    int negate = 0;
+    int result = 0;
+    const char *rest = 0;
+    const char *p;
+
+    if (out_cmd != 0) {
+        *out_cmd = 0;
+    }
+    if (if_args == 0) {
+        return 0;
+    }
+
+    p = bat_skip_ws(if_args);
+
+    /* Optional leading "NOT" (case-insensitive, word-bounded). */
+    if (bat_match_kw(p, "NOT", &rest)) {
+        negate = 1;
+        p = rest;   /* bat_match_kw already ws-skipped past "NOT" */
+    }
+
+    /* ---- IF ERRORLEVEL n -------------------------------------------------- */
+    if (bat_match_kw(p, "ERRORLEVEL", &rest)) {
+        unsigned n = 0;
+        if (!bat_parse_uint(rest, &n)) {
+            return 0;   /* malformed: no number -> skip (fail safe) */
+        }
+        /* DOS semantics: ERRORLEVEL n is TRUE iff errorlevel >= n. */
+        result = ((unsigned)errorlevel >= n) ? 1 : 0;
+
+        /* The command tail begins after the number; re-walk the digits. */
+        {
+            const char *q = bat_skip_ws(rest);
+            while (*q >= '0' && *q <= '9') {
+                q++;
+            }
+            rest = bat_skip_ws(q);
+        }
+    }
+    /* ---- IF EXIST filespec ------------------------------------------------ */
+    else if (bat_match_kw(p, "EXIST", &rest)) {
+        char spec[BATCH_LINE_MAX];
+        rest = bat_take_token(rest, spec, BATCH_LINE_MAX);
+        if (spec[0] == '\0') {
+            return 0;   /* malformed: no filespec -> skip */
+        }
+        result = (exist_fn != 0 && exist_fn(spec, ctx) != 0) ? 1 : 0;
+        rest = bat_skip_ws(rest);
+    }
+    /* ---- IF str1==str2 ---------------------------------------------------- */
+    else {
+        /* Find the "==" delimiter.  The left operand is everything from `p` up
+         * to (but not including) the first "==" with surrounding whitespace
+         * stripped; the right operand is the first ws-delimited token after it. */
+        const char *eq = p;
+        while (*eq != '\0' && !(eq[0] == '=' && eq[1] == '=')) {
+            eq++;
+        }
+        if (*eq == '\0') {
+            return 0;   /* no "==" and not ERRORLEVEL/EXIST -> malformed, skip */
+        }
+        {
+            char lhs[BATCH_LINE_MAX];
+            char rhs[BATCH_LINE_MAX];
+            int  li = 0;
+            const char *lp = p;
+            const char *rp;
+
+            /* Left operand: copy up to `eq`, then trim trailing whitespace. */
+            while (lp < eq && li < BATCH_LINE_MAX - 1) {
+                lhs[li++] = *lp++;
+            }
+            while (li > 0 && bat_isspace(lhs[li - 1])) {
+                li--;
+            }
+            lhs[li] = '\0';
+
+            /* Right operand: the first ws-delimited token after "==". */
+            rp = eq + 2;                 /* skip "==" */
+            rp = bat_take_token(rp, rhs, BATCH_LINE_MAX);
+
+            result = bat_streq_exact(lhs, rhs);
+            rest = bat_skip_ws(rp);
+        }
+    }
+
+    /* Apply NOT.
+     * MUTANT BATCH_MUTATE_IF_IGNORE_NOT: drop the negation so a NOT'd condition
+     * returns the un-negated truth -> the IF-NOT oracle goes RED (Rule 6). */
+#ifndef BATCH_MUTATE_IF_IGNORE_NOT
+    if (negate) {
+        result = result ? 0 : 1;
+    }
+#else
+    (void)negate;
+#endif
+
+    if (result) {
+        if (out_cmd != 0) {
+            *out_cmd = (rest != 0) ? rest : "";
+        }
+        return 1;
+    }
+    return 0;
+}
+
+/* ---- batch_for_parse ----------------------------------------------------- */
+
+int batch_for_parse(const char *for_args,
+                    char *var_out, char *set_out, char *cmd_out)
+{
+    const char *p;
+    const char *rest = 0;
+    const char *lp;     /* '(' position */
+    const char *rp;     /* ')' position */
+
+    /* Defensive init (Rule 2). */
+    var_out[0] = '\0';
+    set_out[0] = '\0';
+    cmd_out[0] = '\0';
+
+    if (for_args == 0) {
+        return 0;
+    }
+
+    /* Loop variable token (e.g. "%%F"), verbatim including the "%%". */
+    p = bat_take_token(for_args, var_out, BATCH_LABEL_MAX);
+    if (var_out[0] == '\0') {
+        return 0;
+    }
+
+    /* The "IN" keyword. */
+    p = bat_skip_ws(p);
+    if (!bat_match_kw(p, "IN", &rest)) {
+        var_out[0] = '\0';
+        return 0;
+    }
+    p = bat_skip_ws(rest);
+
+    /* The "(set)" -- everything between the first '(' and the next ')'. */
+    if (*p != '(') {
+        var_out[0] = '\0';
+        return 0;
+    }
+    lp = p + 1;
+    rp = lp;
+    while (*rp != '\0' && *rp != ')') {
+        rp++;
+    }
+    if (*rp != ')') {
+        var_out[0] = '\0';
+        return 0;   /* unterminated set */
+    }
+    {
+        int n = 0;
+        const char *q = lp;
+        while (q < rp && n < BATCH_LINE_MAX - 1) {
+            set_out[n++] = *q++;
+        }
+        set_out[n] = '\0';
+    }
+
+    /* The "DO" keyword, then the command template (verbatim, ws-skipped). */
+    p = bat_skip_ws(rp + 1);    /* skip ')' */
+    if (!bat_match_kw(p, "DO", &rest)) {
+        var_out[0] = '\0';
+        set_out[0] = '\0';
+        return 0;
+    }
+    bat_strlcpy(cmd_out, bat_skip_ws(rest), BATCH_LINE_MAX);
+    return 1;
+}
+
+/* ---- batch_for_next_token ------------------------------------------------ */
+
+/* A FOR-set separator: space, tab, or comma (DOS FOR set element delimiters). */
+static int bat_is_for_sep(char c)
+{
+    return (c == ' ' || c == '\t' || c == ',');
+}
+
+int batch_for_next_token(const char *set, int *cursor, char *tok_out, int cap)
+{
+    int i;
+    int n = 0;
+
+    if (cap > 0) {
+        tok_out[0] = '\0';
+    }
+    if (set == 0 || cursor == 0 || cap <= 0) {
+        return 0;
+    }
+    i = *cursor;
+
+    /* Skip leading separators. */
+    while (set[i] != '\0' && bat_is_for_sep(set[i])) {
+        i++;
+    }
+#ifdef BATCH_MUTATE_FOR_NO_TOKENS
+    /* MUTANT (Rule 6): after skipping separators, pretend the set is always
+     * exhausted -> a FOR set yields zero tokens so the FOR-tokenize oracle goes
+     * RED.  A genuine one-branch RUNTIME perturbation (still compiles clean
+     * under -Werror: i + bat_is_for_sep are exercised by the skip loop above).
+     * NEVER in a real build. */
+    (void)n;
+    *cursor = i;
+    return 0;
+#else
+    if (set[i] == '\0') {
+        *cursor = i;
+        return 0;   /* no more tokens */
+    }
+
+    /* Copy the token up to the next separator. */
+    while (set[i] != '\0' && !bat_is_for_sep(set[i]) && n < cap - 1) {
+        tok_out[n++] = set[i++];
+    }
+    tok_out[n] = '\0';
+    /* Swallow any overrun of a too-long token so the cursor lands past it. */
+    while (set[i] != '\0' && !bat_is_for_sep(set[i])) {
+        i++;
+    }
+    *cursor = i;
+    return 1;
+#endif
+}
+
+/* ---- batch_for_subst ----------------------------------------------------- */
+
+int batch_for_subst(const char *templ, const char *var, const char *token,
+                    char *out, int cap)
+{
+    int pos = 0;
+    int i = 0;
+    int vlen;
+
+    if (out == 0 || cap <= 0) {
+        return -1;
+    }
+    if (templ == 0) {
+        out[0] = '\0';
+        return 0;
+    }
+    vlen = bat_strlen(var);
+
+    while (templ[i] != '\0') {
+        /* Match the variable token verbatim (it carries its own "%%" prefix). */
+        if (vlen > 0) {
+            int j = 0;
+            while (j < vlen && templ[i + j] != '\0' &&
+                   templ[i + j] == var[j]) {
+                j++;
+            }
+            if (j == vlen) {
+                /* Substitute the token. */
+                if (bat_emit_str(out, &pos, cap, token) < 0) {
+                    out[0] = '\0';
+                    return -1;
+                }
+                i += vlen;
+                continue;
+            }
+        }
+        if (!bat_emit(out, &pos, cap, templ[i])) {
+            out[0] = '\0';
+            return -1;
+        }
+        i++;
+    }
+
+    out[pos] = '\0';
+    return pos;
 }

@@ -317,3 +317,63 @@ uint16_t mcb_setblock(mcb_arena_t *a, uint32_t data_para, uint32_t want,
     }
     return MCB_ERR_INSUFFICIENT;
 }
+
+/* INT 21h AH=31h KEEP (TSR): shrink psp_owner's block to keep_data_paras and
+ * mark it resident (MCB_OWNER_SYSTEM). See mcb.h for the full DOS semantics.
+ * Ref: DOS 3.3 AH=31h (RBIL INT 21/AH=31h; MS-DOS 3.3 Tech Ref) -- terminate but
+ * keep the program's memory block, re-homed to the system arena so it is never
+ * freed/reused. Rule 2: fail loud (BAD_BLOCK) if psp_owner owns nothing. */
+uint16_t mcb_keep_resident(mcb_arena_t *a, uint16_t psp_owner,
+                           uint32_t keep_data_paras)
+{
+    if (psp_owner == MCB_OWNER_FREE || psp_owner == MCB_OWNER_SYSTEM) {
+        return MCB_ERR_BAD_BLOCK;                       /* not a live process    */
+    }
+    if (!mcb_chain_intact(a)) {
+        return MCB_ERR_DESTROYED;
+    }
+
+    /* Locate the FIRST block psp_owner owns (the program's single-big-block). */
+    uint32_t para = 0u;
+    mcb_t   *h    = 0;
+    for (;;) {
+        mcb_t *cand = mcb_hdr(a, para);
+        uint8_t term = (cand->signature == MCB_SIG_TERMINAL);
+        if (cand->owner == psp_owner) {
+            h = cand;
+            break;
+        }
+        if (term) {
+            break;
+        }
+        para += 1u + cand->size_paras;
+    }
+    if (h == 0) {
+        return MCB_ERR_BAD_BLOCK;                       /* owns no block (R2)    */
+    }
+
+    /* DOS keeps AT MOST the program's own block: clamp a too-large request to the
+     * current size (never grow on KEEP). keep == current -> no split; keep <
+     * current -> free the tail via the SAME split mcb_setblock's shrink uses. */
+    uint32_t cur = h->size_paras;
+    if (keep_data_paras > cur) {
+        keep_data_paras = cur;                          /* clamp (DOS keeps own) */
+    }
+    if (keep_data_paras < cur) {
+        mcb_split(a, para, h, cur, keep_data_paras);    /* free the shrunk tail  */
+    }
+
+#ifdef MCB_MUTATE_KEEP_NO_RESIDENT
+    /* MUTANT (Rule 6; make test-keep-mutant only): shrink but FAIL to re-own the
+     * block resident -- it stays owned by the terminating PSP, so the terminate-
+     * time mcb_free_owner reclaims it and a later mcb_alloc re-hands the kept
+     * region. The "kept region survives terminate + ALLOC avoids it" assertions go
+     * RED. NEVER define in a real build. */
+    (void)0;
+#else
+    h->owner = MCB_OWNER_SYSTEM;                        /* RESIDENT: never freed */
+#endif
+
+    mcb_coalesce(a);                                    /* normal form (R2)      */
+    return MCB_OK;
+}
