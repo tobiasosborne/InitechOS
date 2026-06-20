@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-20 (WL-0038 -- DOS-3.3 PARITY PUSH, orchestrated: Tranche E env-store COMPLETE [SET + EXEC env inheritance, 1i0x closed], the MZ .EXE END-TO-END [ADR-0003 DEC-08a committee-ratified; a real .EXE PROVABLY RUNS in-emulator, 0kiq], Tranche F shell verbs [COPY/DEL/REN/DATE/TIME], Tranche G start [PROMPT, PATH/COMSPEC, the .BAT parser module]; **224 host gates** + new emu test-mzexec; a real do_exec env_block regression caught via the EMU gate + root-fixed. **FLAIR is PAUSED** -- golden masters being minted in sister repos ../system7-decomp + ../win31-decomp. Prior: WL-0034..0037 FLAIR M3/M4 core, 216 host gates, ADR-0004/0005, epic initech-rf2l.)
+**Last Reconciled:** 2026-06-20 (WL-0040..0045 -- DOS-3.3 PARITY: 5-WAVE ORCHESTRATED PUSH TO THE CAPSTONE. **224 -> 240 host gates; full emu (39) + Bochs GREEN throughout; 5 commits pushed (9a5fea3..4e60bd5).** Wave 1 xw1(.BAT/AUTOEXEC) + bo40(AH=31h KEEP) + x3mh(ANSI FSM); Wave 2 mvg(INT 24h critical-error) + 509.7(device chain); Wave 3 6zd9(device chain->INT 21h OPEN-by-name); Wave 4 p96i(ANSI CON wiring) + the FAT-cache share [a committee ratified raising PROGRAM_BASE; orchestrator grading (Law 4) caught that the raise BROKE SAMIR's heap arena -> reverted -> the committee's own option B instead]; **Wave 5 CAPSTONE 40oq -- the Appendix-A INT 21h functional-coverage CERTIFICATE is GREEN** (55 dispatched, 0 unwaived gaps; AH=03/04/05 AUX/PRN gap closed; FCB-waived; partitions+multivol deferred). Beads closed: xw1/bo40/mvg/509.7/6zd9/p96i/x3mh; 40oq functional-certified (stays open on kzfs/slvd). Wave 6 hsct(I/O redirection) ATTEMPTED + REVERTED -- found 2 blockers (AH=09h not redirectable; kernel window exhausted). **THE KERNEL WINDOW [0x10000,0x30000) IS FULL -- o0td (P1) is now the gating prereq for further kernel growth.** Prior: WL-0038 (Tranches E/F/G + MZ .EXE end-to-end); FLAIR PAUSED.)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -202,6 +202,51 @@ desktop. (Under Bochs: `make test-boot-bochs` — same boot via the mode-0x13
 fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
+
+> **CURRENT STATE (2026-06-20, WL-0040..0045 -- supersedes the WL-0038 block below).**
+> The DOS-3.3 parity push (MILTON) reached its **FUNCTIONAL CAPSTONE** over 5
+> orchestrated waves (all pushed, 9a5fea3..4e60bd5; **240 host + full emu (39) +
+> Bochs green**). The INT 21h Appendix-A surface is CERTIFIED feature-complete
+> (`make test-40oq`: 55 dispatched, ZERO unwaived not-yet-impl gaps; FCB-waived;
+> partitions+multivol deferred). ANSI.SYS works in-OS (colour/cursor/erase when
+> CONFIG.SYS loads DEVICE=ANSI.SYS); the device chain (CON/NUL/PRN/AUX/CLOCK$)
+> answers OPEN-by-name; INT 24h critical-errors raise from the disk layer; KEEP/
+> TSR, .BAT/AUTOEXEC all land. Beads closed this push: xw1, bo40, mvg, 509.7,
+> 6zd9, p96i, x3mh (40oq functional-certified, stays open on its deferred deps).
+>
+> **THE GATING ISSUE NOW: the kernel window [0x10000,0x30000)=128 KiB is FULL.**
+> `_kernel_end` sits ~1.5 KiB under PROGRAM_BASE; the Wave-6 hsct redirect driver
+> could not fit (reverted, WL-0045). **`initech-o0td` (P1) is the prerequisite for
+> ANY further kernel-resident growth:** raise PROGRAM_BASE 0x30000->0x34000 PAIRED
+> WITH PROGRAM_BSS_RESERVE 0x10000->0x8000 (the pairing PRESERVES SAMIR's heap
+> arena -- the Wave-4 raise-alone BROKE SAMIR, y206 superseded). Do it carefully:
+> the .COM-org blast radius (committee-mapped in y206) + verify SAMIR's BSS fits
+> 32 KiB + full emu + Bochs (Rule 5). Then restore BATCH_FILE_MAX 1536->4096.
+>
+> **NEXT WORK (pick per operator steer):**
+> 1. **`o0td` (P1) -- the kernel-window memory-map redesign.** Unblocks everything
+>    kernel-resident. The careful raise+BSS_RESERVE-cut above.
+> 2. **`hsct` (redirection) redo** -- after o0td (room) + the new bead "route
+>    AH=09h/02h/06h CON output through handle 1" (so builtin `echo > file`
+>    actually redirects, not just AH=40h filters). Its parse/driver design is
+>    sound (WL-0045); redo once both prereqs land.
+> 3. **40oq literal-100%** -- the OPERATOR go/no-go the cert surfaces: dispatch
+>    FCB (509.9, consumer = TPS Report Generator 8479.1) and/or lift the kzfs
+>    (MBR partition) + slvd (multi-volume) deferral. Operator deferred kzfs
+>    2026-06-15 ("no in-tranche consumer"); raise when FAT16-HDD/multivol land.
+> 4. **Filed emu-deepening gates** (host-proven, in-emu deferred): device-OPEN,
+>    INT-24h-trigger, KEEP-survival, the in-emu ANSI screendump.
+> 5. Other parity: `f9z4` (VOL/VERIFY/BREAK/CTTY/TRUENAME built-ins), the
+>    installable DEVICE= driver loader, ANSI DSR (ESC[6n) kbd-inject.
+>
+> **Orchestration note (operator-set this session):** delegate each coding step
+> to a subagent (sonnet default / opus for load-bearing; <=6 sonnet / <=2 opus
+> parallel; DISJOINT files per lane, shared files SERIAL); orchestrator owns
+> grading (re-run the oracle + mutant under -Werror; NEVER trust the report --
+> Law 4 caught the SAMIR break + the hsct AH=09h gap), Makefile integration,
+> commit-per-wave, the bead ledger; convene the committee for serious decisions
+> (it ruled on the PROGRAM_BASE raise -- and the orchestrator overturned its
+> implementation when grading found it broke SAMIR).
 
 > **CURRENT DIRECTION (2026-06-20, WL-0038 -- supersedes the FLAIR "NEXT ARC" below).**
 > The operator PAUSED FLAIR (golden masters minted in sister repos `../system7-decomp`
