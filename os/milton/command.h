@@ -54,6 +54,7 @@ typedef enum cmd_kind {
     CMD_BREAK,       /* BREAK [ON|OFF] -- report/set CTRL-BREAK state (AH=33h)   */
     CMD_EXIT,        /* EXIT       -- leave the REPL                             */
     CMD_SET,         /* SET [NAME[=VALUE]] -- list/assign/clear/query env vars   */
+    CMD_PROMPT,      /* PROMPT [template] -- set/reset the $P$G prompt string     */
     CMD_COPY,        /* COPY <src> <dst> -- copy a single file (3Dh/3Ch/3Fh/40h) */
     CMD_DEL,         /* DEL/ERASE <name> -- delete file(s) (41h; wildcard 4E/4F) */
     CMD_REN,         /* REN/RENAME <old> <new> -- rename in place (56h)          */
@@ -193,6 +194,51 @@ int cmd_parse_date(const char *arg, uint16_t *year, uint8_t *mon, uint8_t *day);
  * omitted. Returns 1 on a syntactically + range-valid time, 0 otherwise (the
  * REPL then prints "Invalid time" and skips the SET). PURE. */
 int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss);
+
+/* ---- PROMPT built-in + $-metacharacter renderer (PURE, host-testable) -----
+ * Ref: ADR-0003 DEC-12 (the $P$G prompt + version 3.30); DOS 3.3 COMMAND.COM
+ *      PROMPT command and $-metacharacter set (Appendix D / DEC-11).
+ * beads: initech-dibc.
+ *
+ * DOS $-metacharacter expansion:
+ *   $P -> drive + ":" + cwd (e.g. "A:\" for root, "A:\SUB" for a subdir)
+ *   $G -> ">"
+ *   $L -> "<"
+ *   $B -> "|"
+ *   $$ -> "$"
+ *   $Q -> "="
+ *   $N -> the drive letter as a single char (e.g. "A")
+ *   $T -> "HH:MM:SS.CC" from ctx->hour/minute/second/centisec
+ *   $D -> "mm-dd-yyyy" from ctx->month/day/year
+ *   $_ -> CRLF (\r\n)
+ *   $E -> ESC (0x1B)
+ *   $H -> backspace (0x08)
+ *   Unknown "$X" -> emit X literally (DOS 3.3 behaviour: unknown codes pass the
+ *                   character through; this matches the real COMMAND.COM).
+ */
+
+/* Context block for cmd_render_prompt: carries the live drive + CWD + clock
+ * fields needed to expand $P / $N / $T / $D without any I/O inside the
+ * renderer.  The REPL populates this from AH=47h / AH=2Ch before calling. */
+typedef struct {
+    char        drive;      /* current drive letter, e.g. 'A'                   */
+    const char *cwd;        /* root-relative CWD as returned by AH=47h, e.g.
+                             * "" for the root or "SUB" for A:\SUB              */
+    int         hour;
+    int         minute;
+    int         second;
+    int         centisec;
+    int         year;
+    int         month;
+    int         day;
+} prompt_ctx_t;
+
+/* Expand `templ` (a PROMPT env-var string, e.g. "$P$G") into `out` using the
+ * fields in `ctx`.  Writes at most cap-1 chars + a NUL terminator (never
+ * overflows).  Returns the number of chars written (not counting NUL).
+ * PURE: no asm, no I/O.  Safe to call from the host test harness. */
+int cmd_render_prompt(const char *templ, const prompt_ctx_t *ctx,
+                      char *out, int cap);
 
 /* Format one DIR listing line from a find-record into out (DOS-like columns):
  * "NAME     EXT       <size>\n" -- the 8.3 name left-justified, the size right-

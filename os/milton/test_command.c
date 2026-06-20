@@ -158,6 +158,115 @@ static void test_format_dir_line(void)
     CHECK(strncmp(out, "SUBDIR", 6) == 0, "format_dir_line: dir name at start");
 }
 
+/* ---- PROMPT classify (CMD_MUTATE_NO_PROMPT mutation hook) --------------- */
+/* Ref: beads initech-dibc; ADR-0003 DEC-12; cmd_classify table in command.c.
+ * Under CMD_MUTATE_NO_PROMPT the PROMPT row is DROPPED -> "PROMPT" falls through
+ * to CMD_EXTERNAL -> this assertion FAILS -> the mutant oracle correctly goes RED
+ * (Rule 6: the golden has caught a real regression). */
+static void test_classify_prompt(void)
+{
+#ifdef CMD_MUTATE_NO_PROMPT
+    /* MUTANT build: the PROMPT row was dropped; "PROMPT" must NOT classify as
+     * CMD_PROMPT.  We assert CMD_PROMPT to make the binary exit non-zero (the
+     * CHECK fails -> g_fails > 0 -> TEST_SUMMARY returns 1). */
+    CHECK(cmd_classify("PROMPT") == CMD_PROMPT,
+          "classify PROMPT -> CMD_PROMPT [mutant: row dropped -> goes RED as required]");
+#else
+    CHECK(cmd_classify("PROMPT") == CMD_PROMPT, "classify PROMPT -> CMD_PROMPT");
+#endif
+}
+
+/* ---- cmd_render_prompt oracle ------------------------------------------- */
+/* Ref: beads initech-dibc; ADR-0003 DEC-12; DOS 3.3 COMMAND.COM $-metacharacter
+ * set (Appendix D / DEC-11). Tests the PURE renderer with no I/O.
+ *
+ * Key invariant (DEC-12): the default "$P$G" template with drive='A' and
+ * cwd="" (root) must produce exactly "A:\>" -- the byte-identical string the
+ * REPL printed before this feature landed, so existing prompt-band assertions
+ * in the integration harness continue to pass. */
+static void test_render_prompt(void)
+{
+    char buf[128];
+    int  n;
+
+    prompt_ctx_t ctx_root;
+    ctx_root.drive    = 'A';
+    ctx_root.cwd      = "";      /* AH=47h returns "" for the root */
+    ctx_root.hour     = 9;
+    ctx_root.minute   = 5;
+    ctx_root.second   = 3;
+    ctx_root.centisec = 7;
+    ctx_root.year     = 2026;
+    ctx_root.month    = 6;
+    ctx_root.day      = 20;
+
+    prompt_ctx_t ctx_sub;
+    ctx_sub.drive    = 'A';
+    ctx_sub.cwd      = "SUB";   /* AH=47h returns "SUB" for A:\SUB */
+    ctx_sub.hour     = 0;
+    ctx_sub.minute   = 0;
+    ctx_sub.second   = 0;
+    ctx_sub.centisec = 0;
+    ctx_sub.year     = 1980;
+    ctx_sub.month    = 1;
+    ctx_sub.day      = 1;
+
+    /* $P$G at root -> "A:\>" (the canonical InitechDOS prompt; DEC-12). */
+    n = cmd_render_prompt("$P$G", &ctx_root, buf, sizeof(buf));
+    CHECK(n == 4, "render_prompt: $P$G root len=4");
+    CHECK_STR_EQ(buf, "A:\\>", "render_prompt: $P$G root -> 'A:\\>'");
+
+    /* $P$G in a subdir -> "A:\\SUB>" (note: "\\" in C string = single backslash). */
+    n = cmd_render_prompt("$P$G", &ctx_sub, buf, sizeof(buf));
+    CHECK(n == 7, "render_prompt: $P$G subdir len=7");
+    CHECK_STR_EQ(buf, "A:\\SUB>", "render_prompt: $P$G subdir -> 'A:\\SUB>'");
+
+    /* $$ -> single "$". */
+    n = cmd_render_prompt("$$", &ctx_root, buf, sizeof(buf));
+    CHECK(n == 1, "render_prompt: $$ -> 1 char");
+    CHECK_STR_EQ(buf, "$", "render_prompt: $$ -> '$'");
+
+    /* $L$G -> "<>". */
+    n = cmd_render_prompt("$L$G", &ctx_root, buf, sizeof(buf));
+    CHECK(n == 2, "render_prompt: $L$G len=2");
+    CHECK_STR_EQ(buf, "<>", "render_prompt: $L$G -> '<>'");
+
+    /* $N -> drive letter only, no colon. */
+    n = cmd_render_prompt("$N", &ctx_root, buf, sizeof(buf));
+    CHECK(n == 1, "render_prompt: $N len=1");
+    CHECK_STR_EQ(buf, "A", "render_prompt: $N -> 'A'");
+
+    /* Literal text mixed with a metacharacter: "MS-DOS$G". */
+    n = cmd_render_prompt("MS-DOS$G", &ctx_root, buf, sizeof(buf));
+    CHECK(n == 7, "render_prompt: MS-DOS$G len=7");
+    CHECK_STR_EQ(buf, "MS-DOS>", "render_prompt: MS-DOS$G -> 'MS-DOS>'");
+
+    /* Unknown "$Z" -> emits 'Z' literally (DOS 3.3 pass-through behaviour). */
+    n = cmd_render_prompt("$Z", &ctx_root, buf, sizeof(buf));
+    CHECK(n == 1, "render_prompt: $Z (unknown) len=1");
+    CHECK_STR_EQ(buf, "Z", "render_prompt: $Z -> 'Z' (literal pass-through)");
+
+    /* $T -> "HH:MM:SS.CC" from ctx_root (09:05:03.07). */
+    n = cmd_render_prompt("$T", &ctx_root, buf, sizeof(buf));
+    CHECK(n == 11, "render_prompt: $T len=11");
+    CHECK_STR_EQ(buf, "09:05:03.07", "render_prompt: $T -> '09:05:03.07'");
+
+    /* $D -> "MM-DD-YYYY" from ctx_root (06-20-2026). */
+    n = cmd_render_prompt("$D", &ctx_root, buf, sizeof(buf));
+    CHECK(n == 10, "render_prompt: $D len=10");
+    CHECK_STR_EQ(buf, "06-20-2026", "render_prompt: $D -> '06-20-2026'");
+
+    /* Bound / overflow safety: cap=3 with a longer template.  The renderer must
+     * write at most cap-1=2 chars + NUL and NEVER write past out[cap-1].
+     * "$P$G" -> "A:\>" (4 chars) but with cap=3 only "A:" fits (2 chars). */
+    buf[3] = (char)0xAA;   /* sentinel: must survive uncorrupted */
+    n = cmd_render_prompt("$P$G", &ctx_root, buf, 3);
+    CHECK(n <= 2, "render_prompt: cap=3 clamps to <=2 chars written");
+    CHECK(buf[2] == '\0', "render_prompt: cap=3 NUL at out[cap-1]");
+    CHECK((unsigned char)buf[3] == 0xAAu,
+          "render_prompt: cap=3 sentinel byte not overwritten");
+}
+
 /* ---- SET classify (CMD_MUTATE_NO_SET mutation hook) -------------------- */
 /* Ref: beads initech-1i0x Tranche E inc 2; cmd_classify table in command.c.
  * Under CMD_MUTATE_NO_SET the SET row is DROPPED -> "SET" falls through to
@@ -404,6 +513,8 @@ int main(void)
     test_parse_basic();
     test_classify();
     test_classify_set();
+    test_classify_prompt();
+    test_render_prompt();
     test_set_parse();
     test_first_token();
     test_append_com();

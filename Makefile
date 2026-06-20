@@ -5294,7 +5294,10 @@ TEST_COMMAND_MUT_NOCOPY := $(BUILD)/test_command_mutant_nocopy
 TEST_COMMAND_MUT_NODEL  := $(BUILD)/test_command_mutant_nodel
 TEST_COMMAND_MUT_NOREN  := $(BUILD)/test_command_mutant_noren
 TEST_COMMAND_MUT_NODATE := $(BUILD)/test_command_mutant_nodate
-TEST_COMMAND_MUT_NOTIME := $(BUILD)/test_command_mutant_notime
+TEST_COMMAND_MUT_NOTIME   := $(BUILD)/test_command_mutant_notime
+# (g) the classifier drops the PROMPT row -> "PROMPT" classifies as CMD_EXTERNAL;
+# the new PROMPT classify check goes RED (Rule 6; beads initech-dibc).
+TEST_COMMAND_MUT_NOPROMPT := $(BUILD)/test_command_mutant_noprompt
 
 $(TEST_COMMAND): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -5336,6 +5339,10 @@ $(TEST_COMMAND_MUT_NODATE): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMM
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_DATE -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
 
+$(TEST_COMMAND_MUT_NOPROMPT): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_PROMPT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
 $(TEST_COMMAND_MUT_NOTIME): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_TIME -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
@@ -5347,7 +5354,7 @@ test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: green\n"
 
 # Mutation-proof: ALL three mutant builds MUST fail the oracle (Rule 6).
-test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD) $(TEST_COMMAND_MUT_NOSET) $(TEST_COMMAND_MUT_NOCOPY) $(TEST_COMMAND_MUT_NODEL) $(TEST_COMMAND_MUT_NOREN) $(TEST_COMMAND_MUT_NODATE) $(TEST_COMMAND_MUT_NOTIME)
+test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD) $(TEST_COMMAND_MUT_NOSET) $(TEST_COMMAND_MUT_NOCOPY) $(TEST_COMMAND_MUT_NODEL) $(TEST_COMMAND_MUT_NOREN) $(TEST_COMMAND_MUT_NODATE) $(TEST_COMMAND_MUT_NOTIME) $(TEST_COMMAND_MUT_NOPROMPT)
 	@printf ">>> test-command-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_COMMAND_MUT_NOUP) >/dev/null 2>&1; then \
 		printf '!!! test-command-mutant FAIL: no-upcase mutant PASSED -- the parse/upcase test is decoration\n'; \
@@ -5408,6 +5415,12 @@ test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COM
 		exit 1; \
 	else \
 		printf '>>> test-command-mutant: green (no-time mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_NOPROMPT) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-prompt mutant PASSED -- the PROMPT classify test is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-prompt mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------

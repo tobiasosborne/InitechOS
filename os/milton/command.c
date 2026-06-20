@@ -75,7 +75,14 @@ cmd_kind_t cmd_classify(const char *upper_command)
          * initech-1i0x Tranche E inc 2). The CMD_MUTATE_NO_SET mutant DROPS
          * this row so "SET" falls through to CMD_EXTERNAL -> the classify
          * oracle goes RED (Rule 6). NEVER dropped in a real build. */
-        { "SET",   CMD_SET  },
+        { "SET",    CMD_SET    },
+#endif
+#ifndef CMD_MUTATE_NO_PROMPT
+        /* PROMPT [template] -- set/reset the $P$G prompt string (beads
+         * initech-dibc; ADR-0003 DEC-12). The CMD_MUTATE_NO_PROMPT mutant
+         * DROPS this row so "PROMPT" falls through to CMD_EXTERNAL -> the
+         * classify oracle goes RED (Rule 6). NEVER dropped in a real build. */
+        { "PROMPT", CMD_PROMPT },
 #endif
 #ifndef CMD_MUTATE_NO_COPY
         /* COPY <src> <dst> -- single-file copy via 3Dh/3Ch/3Fh/40h/3Eh (beads
@@ -670,6 +677,182 @@ int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss)
     return 1;
 }
 
+/* cmd_render_prompt: PURE $-metacharacter renderer (beads initech-dibc).
+ * Ref: ADR-0003 DEC-12 (the $P$G prompt + version 3.30); DOS 3.3 COMMAND.COM
+ *      PROMPT command + $-metacharacter set (Appendix D / DEC-11).
+ *
+ * Expands each "$X" sequence in `templ` according to `ctx`, writing into `out`
+ * with a hard cap at `cap`-1 characters (always NUL-terminates).  Unknown "$X"
+ * codes emit X literally -- this matches real DOS 3.3 COMMAND.COM behaviour
+ * (undocumented metacharacters pass the character through rather than being
+ * silently dropped, so custom prompt strings like "$Pmy$G" still render their
+ * literal chars).  PURE: no asm, no I/O; safe for the host test oracle. */
+int cmd_render_prompt(const char *templ, const prompt_ctx_t *ctx,
+                      char *out, int cap)
+{
+    int pos = 0;
+    const char *p;
+
+    /* Defensive: if cap is nonsensical, write nothing. */
+    if (out == 0 || cap <= 0) {
+        return 0;
+    }
+    out[0] = '\0';
+
+    if (templ == 0 || ctx == 0) {
+        return 0;
+    }
+
+/* Helper: append one character, stopping when `pos` reaches cap-1. */
+#define PROMPT_PUTC(c) do { \
+    if (pos < cap - 1) { out[pos++] = (char)(c); } \
+} while (0)
+
+    for (p = templ; *p != '\0'; p++) {
+        if (*p != '$') {
+            PROMPT_PUTC(*p);
+            continue;
+        }
+
+        /* '$' found: look at the next character. */
+        p++;
+        if (*p == '\0') {
+            /* Trailing '$' with no following char: emit nothing and stop. */
+            break;
+        }
+
+        switch (*p) {
+            case 'P': case 'p':
+                /* $P -> drive + ":" + "\" + cwd (DOS root-relative).
+                 * ctx->cwd is the AH=47h root-relative string ("" for root or
+                 * "SUB" for a subdir).  We emit: drive ':' '\' [cwd].
+                 * Ref: ADR-0003 DEC-12 -- "A:\" at root, "A:\SUB" in subdir. */
+                PROMPT_PUTC(ctx->drive);
+                PROMPT_PUTC(':');
+                PROMPT_PUTC('\\');
+                if (ctx->cwd != 0) {
+                    const char *q = ctx->cwd;
+                    while (*q != '\0') {
+                        PROMPT_PUTC(*q);
+                        q++;
+                    }
+                }
+                break;
+
+            case 'G': case 'g':
+                /* $G -> ">" (greater-than; the DOS prompt arrow). */
+                PROMPT_PUTC('>');
+                break;
+
+            case 'L': case 'l':
+                /* $L -> "<" (less-than). */
+                PROMPT_PUTC('<');
+                break;
+
+            case 'B': case 'b':
+                /* $B -> "|" (pipe). */
+                PROMPT_PUTC('|');
+                break;
+
+            case '$':
+                /* $$ -> "$" (literal dollar sign). */
+                PROMPT_PUTC('$');
+                break;
+
+            case 'Q': case 'q':
+                /* $Q -> "=" (equals sign). */
+                PROMPT_PUTC('=');
+                break;
+
+            case 'N': case 'n':
+                /* $N -> the single drive letter (e.g. "A"). */
+                PROMPT_PUTC(ctx->drive);
+                break;
+
+            case 'T': case 't': {
+                /* $T -> "HH:MM:SS.CC" (the current time from ctx).
+                 * Each field is zero-padded to two digits. */
+                char tmp[12];
+                int n = 0;
+                /* HH */
+                tmp[n++] = (char)('0' + ((ctx->hour   / 10) % 10));
+                tmp[n++] = (char)('0' + ( ctx->hour   % 10));
+                tmp[n++] = ':';
+                /* MM */
+                tmp[n++] = (char)('0' + ((ctx->minute / 10) % 10));
+                tmp[n++] = (char)('0' + ( ctx->minute % 10));
+                tmp[n++] = ':';
+                /* SS */
+                tmp[n++] = (char)('0' + ((ctx->second / 10) % 10));
+                tmp[n++] = (char)('0' + ( ctx->second % 10));
+                tmp[n++] = '.';
+                /* CC */
+                tmp[n++] = (char)('0' + ((ctx->centisec / 10) % 10));
+                tmp[n++] = (char)('0' + ( ctx->centisec % 10));
+                tmp[n]   = '\0';
+                for (int i = 0; i < n; i++) {
+                    PROMPT_PUTC(tmp[i]);
+                }
+                break;
+            }
+
+            case 'D': case 'd': {
+                /* $D -> "mm-dd-yyyy" (the current date from ctx).
+                 * DOS DATE command uses MM-DD-YYYY; mirrors cmd_format_date.
+                 * We emit the raw numeric form (no day-of-week; the prompt just
+                 * needs the date, not the "Current date is ..." wrapper). */
+                char tmp[11];
+                int n = 0;
+                /* MM */
+                tmp[n++] = (char)('0' + ((ctx->month / 10) % 10));
+                tmp[n++] = (char)('0' + ( ctx->month % 10));
+                tmp[n++] = '-';
+                /* DD */
+                tmp[n++] = (char)('0' + ((ctx->day   / 10) % 10));
+                tmp[n++] = (char)('0' + ( ctx->day   % 10));
+                tmp[n++] = '-';
+                /* YYYY (four digits; DOS years 1980-2099 are always four-digit) */
+                tmp[n++] = (char)('0' + ((ctx->year / 1000) % 10));
+                tmp[n++] = (char)('0' + ((ctx->year / 100)  % 10));
+                tmp[n++] = (char)('0' + ((ctx->year / 10)   % 10));
+                tmp[n++] = (char)('0' + ( ctx->year         % 10));
+                tmp[n]   = '\0';
+                for (int i = 0; i < n; i++) {
+                    PROMPT_PUTC(tmp[i]);
+                }
+                break;
+            }
+
+            case '_':
+                /* $_ -> CRLF (carriage-return + line-feed). */
+                PROMPT_PUTC('\r');
+                PROMPT_PUTC('\n');
+                break;
+
+            case 'E': case 'e':
+                /* $E -> ESC (0x1B; ANSI escape sequence introducer). */
+                PROMPT_PUTC(0x1B);
+                break;
+
+            case 'H': case 'h':
+                /* $H -> backspace (0x08). */
+                PROMPT_PUTC(0x08);
+                break;
+
+            default:
+                /* Unknown "$X": emit X literally (DOS 3.3 behaviour -- unknown
+                 * metacharacters pass the character through, not dropped). */
+                PROMPT_PUTC(*p);
+                break;
+        }
+    }
+
+#undef PROMPT_PUTC
+
+    out[pos] = '\0';
+    return pos;
+}
+
 /* ===========================================================================
  * The REPL (kernel-only). Everything below dogfoods the INT 21h API via real
  * `int $0x21` calls -- the authentic COMMAND.COM design + proof the OS API is a
@@ -1245,6 +1428,37 @@ static void builtin_set(const char *arg)
     }
 }
 
+/* PROMPT [template] (beads initech-dibc; ADR-0003 DEC-12).
+ *   PROMPT <template> -> env_set(&g_master_env, "PROMPT", template).
+ *   PROMPT (no arg)   -> env_set(&g_master_env, "PROMPT", "$P$G")  (reset to
+ *                        the DOS 3.3 default prompt; DEC-12 establishes "$P$G"
+ *                        as the InitechDOS default, matching DOS 3.3 on a
+ *                        single-floppy system).
+ * Silent on success (DOS PROMPT prints nothing). On env overflow: "Out of
+ * environment space" (matching the SET built-in's phrasing; SET-specific, not
+ * in the MSG-DOS-NNNN catalogue). The REPL reads back env_get("PROMPT") at
+ * every prompt print, so the new string takes effect immediately next loop. */
+static void builtin_prompt(const char *arg)
+{
+    const char *templ;
+    const char *p;
+
+    /* Skip leading whitespace to determine if the arg is empty. */
+    p = arg;
+    while (*p == ' ' || *p == '\t') {
+        p++;
+    }
+
+    /* Empty (or all-whitespace) arg -> reset to "$P$G" (the DOS 3.3 default).
+     * Ref: ADR-0003 DEC-12: the InitechDOS prompt default is "$P$G". */
+    templ = (*p == '\0') ? "$P$G" : p;
+
+    if (!env_set(&g_master_env, "PROMPT", templ)) {
+        dos_print("Out of environment space\r\n$");
+    }
+    /* Success is SILENT (DOS PROMPT prints nothing on success). */
+}
+
 /* DIR: FINDFIRST "*.*" then loop FINDNEXT, formatting each find-record into a
  * DOS-like line. A header ("Directory of A:\") + a file-count footer frame it
  * (Law 4 -- plausibly period DOS). The find-record fields are read via the
@@ -1757,10 +1971,12 @@ void command_repl(void)
      * the AH=09h banner, but a distinct grep-able marker keeps the gate robust;
      * kmain prints SHELL-READY before calling us, so we don't duplicate it. */
     for (;;) {
-        /* $P$G prompt = current drive + path + '>' (ADR-0003 DEC-11). Compose it
-         * from AH=47h GET CURRENT DIRECTORY so a subdir CWD shows ("A:\SUB>");
-         * at the root cwd_display yields exactly "A:\", so the prompt renders the
-         * byte-identical "A:\>" the test-shell prompt-band assertion depends on. */
+        /* $P$G prompt: read the PROMPT env var, build a prompt_ctx_t from the
+         * live CWD (AH=47h) + clock (AH=2Ch), expand via cmd_render_prompt, then
+         * print via AH=09h.  This replaces the old cwd_display+'>'+$' approach;
+         * the default "$P$G" produces byte-identical "A:\>" / "A:\SUB>" output
+         * so the test-shell prompt-band assertions continue to pass (DEC-12).
+         * Ref: ADR-0003 DEC-12; beads initech-dibc. */
 #ifdef CMD_MUTATE_NO_CWD_PROMPT
         /* MUTANT (Rule 6; make test-ut6d-mutant only): pin the prompt to the
          * root "A:\>" regardless of the CWD, so after `CD SUB` the prompt never
@@ -1769,23 +1985,52 @@ void command_repl(void)
         dos_print("A:\\>$");
 #else
         {
-            /* Worst-case index math: cwd_display writes "A:\" (3) + up to
-             * (INT21_CWD_MAX-1) relative-path bytes + NUL = 3 + INT21_CWD_MAX
-             * bytes used; we then append '>' and '$' and a final NUL, so the live
-             * high-water mark is 3 + (INT21_CWD_MAX-1) + '>' + '$' + NUL =
-             * 3 + INT21_CWD_MAX + 2. The +4 of slack below leaves headroom over
-             * that bound (defensive, Rule 2; behavior unchanged). */
-            char prompt[3 + INT21_CWD_MAX + 2 + 4];   /* "A:\" + path + '>' + '$' (+slack) */
-            int len;
-            cwd_display(prompt);
-            len = 0;
-            while (prompt[len] != '\0') {
-                len++;
+            /* Retrieve the PROMPT template from the master environment.
+             * Fall back to "$P$G" if the variable is absent/empty (a defensive
+             * guard: command_repl seeds it to "$P$G" above, but a PROMPT CLEAR
+             * via `SET PROMPT=` would leave env_get returning ""; in that case
+             * DOS 3.3 also falls back to the bare drive letter, but "$P$G" is
+             * more useful and matches the seeded default -- Law 4). */
+            const char *templ = env_get(&g_master_env, "PROMPT");
+            if (templ == 0 || templ[0] == '\0') {
+                templ = "$P$G";
             }
-            prompt[len++] = '>';
-            prompt[len++] = '$';                  /* AH=09h '$' terminator */
-            prompt[len]   = '\0';
-            dos_print(prompt);
+
+            /* Build the prompt_ctx_t: CWD from AH=47h, time from AH=2Ch.
+             * Date fields are populated for $D but are not needed for $P$G.
+             * cwd_rel is the AH=47h root-relative path (no drive, no leading \):
+             * "" at root, "SUB" for A:\SUB. */
+            char cwd_rel[INT21_CWD_MAX];
+            dos_getcwd(0u, cwd_rel);    /* DL=0 -> default drive (A:) */
+
+            prompt_ctx_t pctx;
+            pctx.drive    = 'A';
+            pctx.cwd      = cwd_rel;   /* root-relative, passed to $P expander */
+            /* Seed time fields (AH=2Ch); date fields default to 0 for $D if
+             * $D is not in the template -- the REPL seeds them cheaply. */
+            {
+                uint8_t hh = 0, mi = 0, ss = 0, cs = 0;
+                dos_gettime(&hh, &mi, &ss, &cs);
+                pctx.hour     = (int)hh;
+                pctx.minute   = (int)mi;
+                pctx.second   = (int)ss;
+                pctx.centisec = (int)cs;
+            }
+            pctx.year  = 0;
+            pctx.month = 0;
+            pctx.day   = 0;
+
+            /* Render the prompt into a scratch buffer.  Size: INT21_CWD_MAX (64)
+             * covers the CWD component; we add slack for the drive/colon/arrow
+             * plus time/date fields and other metacharacter expansions.  The
+             * rendered string is then printed via AH=09h (DOS '$'-terminated
+             * string), so we append '$' after the NUL position. */
+            char rendered[INT21_CWD_MAX + 32];  /* generous; no overflow possible */
+            int rlen = cmd_render_prompt(templ, &pctx,
+                                         rendered, (int)(sizeof(rendered) - 1));
+            rendered[rlen++] = '$';    /* AH=09h '$'-terminator */
+            rendered[rlen]   = '\0';
+            dos_print(rendered);
         }
 #endif
 
@@ -1824,6 +2069,9 @@ void command_repl(void)
                 break;
             case CMD_SET:
                 builtin_set(parsed.arg);
+                break;
+            case CMD_PROMPT:
+                builtin_prompt(parsed.arg);
                 break;
             case CMD_COPY:
                 builtin_copy(parsed.arg);
