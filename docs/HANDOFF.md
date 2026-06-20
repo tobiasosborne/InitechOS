@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-20 (WL-0040..0045 -- DOS-3.3 PARITY: 5-WAVE ORCHESTRATED PUSH TO THE CAPSTONE. **224 -> 240 host gates; full emu (39) + Bochs GREEN throughout; 5 commits pushed (9a5fea3..4e60bd5).** Wave 1 xw1(.BAT/AUTOEXEC) + bo40(AH=31h KEEP) + x3mh(ANSI FSM); Wave 2 mvg(INT 24h critical-error) + 509.7(device chain); Wave 3 6zd9(device chain->INT 21h OPEN-by-name); Wave 4 p96i(ANSI CON wiring) + the FAT-cache share [a committee ratified raising PROGRAM_BASE; orchestrator grading (Law 4) caught that the raise BROKE SAMIR's heap arena -> reverted -> the committee's own option B instead]; **Wave 5 CAPSTONE 40oq -- the Appendix-A INT 21h functional-coverage CERTIFICATE is GREEN** (55 dispatched, 0 unwaived gaps; AH=03/04/05 AUX/PRN gap closed; FCB-waived; partitions+multivol deferred). Beads closed: xw1/bo40/mvg/509.7/6zd9/p96i/x3mh; 40oq functional-certified (stays open on kzfs/slvd). Wave 6 hsct(I/O redirection) ATTEMPTED + REVERTED -- found 2 blockers (AH=09h not redirectable; kernel window exhausted). **THE KERNEL WINDOW [0x10000,0x30000) IS FULL -- o0td (P1) is now the gating prereq for further kernel growth.** Prior: WL-0038 (Tranches E/F/G + MZ .EXE end-to-end); FLAIR PAUSED.)
+**Last Reconciled:** 2026-06-20 (WL-0046..0048 -- THE KERNEL-GROWTH / REDIRECTION ARC: **o0td** (PROGRAM_BASE 0x30000->0x38000, whole-map shift +0x8000 = **+32 KiB kernel window**; SAMIR's heap preserved byte-identical) -> **k36g** (INT 21h AH=09h/02h/06h CON output now routes through the **redirectable JFT handle 1**) -> **hsct OUTPUT redirect** (`echo HELLO > file` + `>>` append REALLY redirect on the emulated 386). 3 commits pushed (bae46d4 / 7de96e6 / 24194ed); **240->244 host + 39->41 emu + Bochs GREEN**. The committee disproved the prescribed o0td fix (SAMIR .bss measured 47.3 KiB not the documented 26 KiB) and the orchestrator amended the chair's ruling (kstart ESP). Next: **bsy.9** (loader child-PSP-inherits-parent-JFT -> external EXEC redirect), **bsy.7** (`<` stdin), **bsy.8** (`|` pipe). Prior: WL-0040..0045 -- DOS-3.3 PARITY: 5-WAVE ORCHESTRATED PUSH TO THE CAPSTONE. **224 -> 240 host gates; full emu (39) + Bochs GREEN throughout; 5 commits pushed (9a5fea3..4e60bd5).** Wave 1 xw1(.BAT/AUTOEXEC) + bo40(AH=31h KEEP) + x3mh(ANSI FSM); Wave 2 mvg(INT 24h critical-error) + 509.7(device chain); Wave 3 6zd9(device chain->INT 21h OPEN-by-name); Wave 4 p96i(ANSI CON wiring) + the FAT-cache share [a committee ratified raising PROGRAM_BASE; orchestrator grading (Law 4) caught that the raise BROKE SAMIR's heap arena -> reverted -> the committee's own option B instead]; **Wave 5 CAPSTONE 40oq -- the Appendix-A INT 21h functional-coverage CERTIFICATE is GREEN** (55 dispatched, 0 unwaived gaps; AH=03/04/05 AUX/PRN gap closed; FCB-waived; partitions+multivol deferred). Beads closed: xw1/bo40/mvg/509.7/6zd9/p96i/x3mh; 40oq functional-certified (stays open on kzfs/slvd). Wave 6 hsct(I/O redirection) ATTEMPTED + REVERTED -- found 2 blockers (AH=09h not redirectable; kernel window exhausted). **THE KERNEL WINDOW [0x10000,0x30000) IS FULL -- o0td (P1) is now the gating prereq for further kernel growth.** Prior: WL-0038 (Tranches E/F/G + MZ .EXE end-to-end); FLAIR PAUSED.)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -202,6 +202,61 @@ desktop. (Under Bochs: `make test-boot-bochs` — same boot via the mode-0x13
 fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
+
+> **CURRENT STATE (2026-06-20, WL-0046..0048 -- supersedes the WL-0040..0045 block below).**
+> **THE KERNEL-WINDOW WALL IS GONE and I/O REDIRECTION WORKS.** Three features
+> landed + pushed + green this session (the o0td -> k36g -> hsct arc), all
+> orchestrated (committee + delegated lanes + independent grading):
+>
+> 1. **`o0td` (P1, CLOSED, commit bae46d4)** -- the conventional-memory-map
+>    redesign. PROGRAM_BASE 0x30000->0x38000 (whole-map shift +0x8000), kernel
+>    window [0x10000,0x38000) = **160 KiB (+32 KiB)**, reclaiming half the dead
+>    [0x90000,0xA0000) gap. An **ADR-by-committee ratified PATH 2** after the
+>    orchestrator MEASURED that the bead's prescribed fix (cut PROGRAM_BSS_RESERVE
+>    to 32 KiB) was UNSOUND -- SAMIR's real .bss is **47.3 KiB (0xBD20)**, not the
+>    "26 KiB" documented in memory_map.h/ADR-0009 (corrected). Reserve HELD at
+>    0x10000; SAMIR's heap arena preserved byte-identical (test-samir-boot PASS --
+>    the exact oracle that went RED at the earlier raise, y206). Orchestrator
+>    amendment (Law 4): kstart ESP 0x8FFFC->0x97FFC (the chair's "ESP unchanged"
+>    would have overlapped LOAD_STAGING with the kernel stack). Full clean grade
+>    caught 2 blast-radius misses (test_exec.c latent 0x5F000; the FACTORY
+>    `harness/diff/dbf_diff/test_hardware_spec.c` + `spec/hardware.json` regression
+>    guards) -- always `make clean && make test`. **BATCH_FILE_MAX restored 4096.**
+> 2. **`k36g` (P2, CLOSED, commit 7de96e6)** -- INT 21h AH=09h/02h/06h CON output
+>    now routes through the redirectable STDOUT handle 1 (`stdout_emit`, with a
+>    `con_putc` fallback when handle 1 is unresolvable so the early banner / every
+>    pre-PSP diagnostic still prints). Un-redirected console output is byte-for-byte
+>    unchanged (still -> con_putc -> ANSI + g_sink). New mutation-proven `test-redir`.
+> 3. **`hsct` OUTPUT increment (P2, IN_PROGRESS, commit 24194ed)** -- COMMAND.COM
+>    `>` (create/truncate) and `>>` (append) redirection for builtins.
+>    `cmd_redir_parse` + `run_with_redirect` (DUP/DUP2-around-dispatch, restore on
+>    every path). **`echo HELLO > FILE.TXT` + `>>` append PROVEN end-to-end on the
+>    386** (emu gate `test-hsct-redir`). HONEST GAP (Law 1/2, filed not papered):
+>    external `.COM` EXEC output does NOT redirect -- `psp_build` hard-resets the
+>    child JFT slot 1 to CON with no inheritance; **`bsy.9`** filed (loader
+>    child-PSP-inherits-parent-JFT), **hsct depends on it**.
+>
+> **`make test` = 244 host + 41 emu + Bochs GREEN.** All three commits on
+> origin/command-com-default.
+>
+> **NEXT WORK (the redirection arc continues -- all filed, dependency-ordered):**
+> 1. **`bsy.9`** (loader: child PSP inherits the parent JFT) -- a loader/psp.c
+>    change; UNLOCKS external `.COM` EXEC output redirect (`myprog > file`), the
+>    last gap for full output redirection. Most consequential next step.
+> 2. **`bsy.7`** (`<` stdin redirect) -- symmetric to output (DUP2 onto handle 0);
+>    cheap in command.c, mirrors run_with_redirect.
+> 3. **`bsy.8`** (`|` pipe via temp-file) -- two-command, temp-file between; the
+>    most complex, depends on bsy.7.
+> When bsy.7/.8/.9 land, hsct closes. Other ready directions unchanged below
+> (40oq literal-100% / FCB; the filed emu-deepening gates; FLAIR in-OS arc).
+>
+> **Orchestration note (operator-set, proven this session):** convene the
+> committee for serious/contested decisions (it ruled o0td PATH 2; the orchestrator
+> graded + amended it), delegate each coding step to a subagent (sonnet default /
+> opus for load-bearing; disjoint files parallel, shared files serial), and the
+> orchestrator OWNS grading (re-run the oracle + mutant + the FULL clean aggregate
+> + Bochs; NEVER trust the report -- Law 4 caught the unsound 26-KiB premise, the
+> chair's staging overlap, two missed literals, and the EXEC-inheritance gap).
 
 > **CURRENT STATE (2026-06-20, WL-0040..0045 -- supersedes the WL-0038 block below).**
 > The DOS-3.3 parity push (MILTON) reached its **FUNCTIONAL CAPSTONE** over 5
