@@ -465,17 +465,35 @@ authority, no gridlock; OQ-1 -> extended-memory heap DEC-03; OQ-2 -> defer 86Box
   (`os/flair/shell.c`, `test-flair-shell`) which COMPOSES THE OFFICE SPACE FRAME: seafoam +
   two stacked menu bars (System-7 + canon Photoshop) + System-7 windows + the FILE COPY modal
   on top. Visually audited: `build/desktop_scene.ppm` = the reproduced frame. **`make test-unit`
-  = 216 host gates** (was 184) + 35 QEMU + Bochs boot. KNOWN P1 fidelity gap (`bmih`): window/
-  dialog "white" is gray 0x7F7F86 so the modal blends -- fix content-white across the palette
-  lockstep.
-**NEXT FLAIR ARC (resume here):** everything above is HOST-RENDERED (the oracles). Wire the
-FLAIR stack INTO the kernel and boot to a live desktop in the emulator -- `initech-26d` (PS/2
-mouse IRQ12 + hourglass cursor) + a desktop kmain path + an emu screendump gate. Then M4
-Managers: `n3e` (Menu, Photoshop-exact), `8h9` (Control), `qcc` (Dialog/FILE COPY),
-`k8o5.12` (manager set), `859` (desktop shell) -> reproduce the frame. Fidelity follow-ups
-filed (palette single-source + content-WHITE; autoKey; `u9gf` Bochs RFB capture). OPERATOR-gated
-(non-blocking): `pvo4` Mac 68K ROM (Basilisk II rendered SSIM goldens), `77wz` Win 3.1
-(`apt install xvfb xdotool`), `q0gy` 86Box (blocks M4 sign-off).
+  = 216 host gates** (was 184) + 35 QEMU + Bochs boot. KNOWN P1 fidelity polish (`bmih`): the
+  window/dialog INTERIOR "white" is gray 0x7F7F86 (not crisp white), so the FILE COPY modal --
+  though visible/legible via its 7px black border -- reads gray-on-gray-ish rather than the
+  frame's white box; fix content-white across the palette lockstep.
+
+**HOW TO SEE IT (the FLAIR renders).** The desktop is rendered HOST-side by the real artifact
+code into `build/*.ppm` (640x480, deterministic). Regenerate + view:
+`make test-flair-shell` -> `build/desktop_scene.ppm` (the composed frame); `make test-drag` ->
+`build/drag_before.ppm`+`drag_after.ppm`; `make test-chrome` -> `build/chrome_window.ppm`.
+Convert/montage with ImageMagick (`convert build/desktop_scene.ppm out.png`; a `flair_gallery.png`
+montage helper was used this session). NOTE: this is NOT yet what `make run` boots -- the kernel
+still drops to `A:\>` COMMAND.COM; the FLAIR desktop is host-rendered until the in-OS arc lands.
+
+**NEXT FLAIR ARC (resume here).** The four core M4 Managers (Window/Menu/Control/Dialog) + the
+desktop shell are DONE (this session, WL-0036). Remaining, in priority order:
+1. **`bmih` (P1) content-white + palette single-source** -- make CIDX_WHITE/INITECH_WINDOW_WHITE_RGB
+   actual white across the lockstep (chrome.c CHROME_PAL + render.c render_palette_rgb +
+   palette.json `canonical` -> palette.h), re-verify test-chrome/test-flair-shell + re-audit the
+   PPM. Now visible in the capstone. Ideally calibrate the exact white from a real System-7
+   screendump (`pvo4`).
+2. **THE IN-OS ARC** -- everything above is HOST-RENDERED (the oracles). Wire the FLAIR stack INTO
+   the kernel + boot to a live desktop in the emulator: `initech-26d` (PS/2 mouse IRQ12, dual-PIC
+   EOI, Bochs-verified) + the hourglass cursor + a desktop `kmain` path + an emu screendump gate.
+   This makes the host-tested logic the bootable product (operator's "100% usable"); after it,
+   `make run` shows this desktop in QEMU.
+3. Other filed: `u9gf` (Bochs RFB capture, fb-agree Bochs leg), `k8o5.11` (test-fb-agree dual-target),
+   autoKey. OPERATOR-gated (non-blocking): `pvo4` Mac 68K ROM (Basilisk II rendered SSIM goldens +
+   real content-white/pinstripe RGBs), `77wz` Win 3.1 (`apt install xvfb xdotool`), `q0gy` 86Box
+   (blocks M4 sign-off). M5 apps (InitechCalc w/ the 116% pie) consume these Managers next.
 
 **Other ready work** (`bd ready`; distinct directions — pick per operator
 steer):
