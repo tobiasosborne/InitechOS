@@ -762,13 +762,158 @@ static int ah_is_listed(uint8_t ah)
     return 0;
 }
 
+/* ---- the SFT write core (beads initech-k36g) ------------------------------
+ * sft_write is the frame-LESS fan-out do_write (AH=40h) performs once the
+ * handle is resolved and the source buffer validated: a resolved SFT entry +
+ * the bytes -> the right sink (CON device / OPEN-by-name device chain / FILE /
+ * access-denied). It is split out of do_write so BOTH AH=40h AND the redirectable
+ * AH=02h/09h/06h CON-output path (stdout_emit) reach the SAME backend through
+ * the SAME JFT handle 1 -- so a DUP2(file,1) redirect catches the builtins'
+ * output exactly as real DOS routes AH=02h/09h to STDOUT (handle 1). do_write's
+ * behavior is BYTE-IDENTICAL to before this split (the bodies moved verbatim);
+ * stdout_emit reuses this for the redirect.
+ *
+ * Returns a DOS error code (0 == success) and sets *written to the bytes the
+ * sink consumed. Does NOT touch the frame -- the caller maps the result onto
+ * EAX/CF/AX. Does NOT validate `buf` -- the caller (do_write via user_buf_ok,
+ * or stdout_emit with a kernel/string pointer) owns that.
+ *
+ * Ref: DOS 3.3 PRM AH=40h WRITE; fs-mount-sft-ground-truth.md Sec 3.2-3.4 (the
+ * JFT->SFT resolution + the CON-write predefined slot). Rule 2 (never a silent
+ * drop: a device the io bundle cannot serve -> access-denied). */
+static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
+                          uint32_t *written)
+{
+    *written = 0u;
+
+    /* CON device write: fan the bytes to the console sink. CON is the screen
+     * regardless of the slot's nominal mode (DOS treats CON as writable). This is
+     * the LEGACY predefined-CON fast path (slots 0..3, device == NULL) -- the most
+     * load-bearing output path in the OS (the shell prompt, every diagnostic). It
+     * is PRESERVED BYTE-FOR-BYTE: an OPEN-by-name CON slot (device != NULL) does
+     * NOT match here (its dev_id is not SFT_DEV_CON) and takes the chain route
+     * below instead, which routes con_write back to this same console sink. */
+    if (e->kind == SFT_KIND_DEVICE && e->dev_id == SFT_DEV_CON) {
+        for (uint32_t i = 0; i < count; i++) {
+            con_putc(buf[i]);
+        }
+        *written = count;
+        return 0u;
+    }
+
+    /* OPEN-by-name device write (beads initech-6zd9): a SFT slot bound to a
+     * resident device (CON/NUL/PRN/AUX/CLOCK$ via AH=3Dh) routes through the
+     * devices.c chain. NUL discards + succeeds; CON/PRN/AUX reach their sinks;
+     * CLOCK$ accepts a 6-byte record. A device the io bundle cannot serve ->
+     * access-denied (Rule 2: never a silent drop). */
+    if (e->kind == SFT_KIND_DEVICE && e->device != 0) {
+        uint32_t wrote = 0u;
+        uint16_t derr = dev_route_rw((device_header_t *)e->device, 1 /* write */,
+                                     (uint8_t *)(uintptr_t)buf, count, &wrote);
+        if (derr != 0u) {
+            return derr;
+        }
+        *written = wrote;   /* bytes the device consumed */
+        return 0u;
+    }
+
+    /* FILE write (beads initech-0qh): POSITIONED write of the bytes at the
+     * per-handle file_offset over the cluster chain (backend write_at via
+     * fat12_write_partial -- overwrite/extend/zero-fill-hole, committed to disk
+     * per call). The handle must have been opened for write (CREAT). A read-mode
+     * FILE handle or a missing write backend -> access denied (Rule 2). The
+     * backend returns the UPDATED dir entry so we refresh the SFT copy's size +
+     * start_cluster, then advance the position. */
+    if (e->kind == SFT_KIND_FILE) {
+        /* AH=3Dh AL=2 (RDWR) must permit writing, not only AL=1 (WRITE) per the
+         * DOS 3.3 PRM (bcg.1). A read-only (AL=0) handle or a missing write
+         * backend -> access denied (Rule 2). */
+        int writable = (e->open_mode == SFT_MODE_WRITE ||
+                        e->open_mode == SFT_MODE_RDWR);
+        if (!writable || g_file == 0 || g_file->write_at == 0) {
+            return INT21_ERR_ACCESS_DENIED;
+        }
+        uint32_t wrote = 0u;
+        dir_entry_t updated = e->dir_entry;
+        uint16_t err = g_file->write_at(e->dir_start, e->root_slot,
+                                        e->file_offset,
+                                        (const uint8_t *)buf, count,
+                                        &wrote, &updated);
+        if (err != 0) {
+            return err;
+        }
+        e->dir_entry    = updated;        /* refresh size + start_cluster */
+        e->file_offset += wrote;          /* advance the per-handle position */
+        *written = wrote;
+        return 0u;
+    }
+
+    /* AUX/PRN devices have no driver yet -> AX=0x0005 (access denied)
+     * (Rule 2: never silently drop the bytes). */
+    return INT21_ERR_ACCESS_DENIED;
+}
+
+/* ---- the redirectable STDOUT emit (beads initech-k36g) --------------------
+ * stdout_emit routes `count` bytes through the CURRENT process's STDOUT handle
+ * (JFT handle 1) -- the SAME resolution AH=40h uses -- so the console-output
+ * builtins (AH=02h DISPLAY OUTPUT / AH=09h DISPLAY STRING / AH=06h direct-conout)
+ * are REDIRECTABLE: a DUP2(file,1) repoints handle 1 at a FILE SFT slot and the
+ * builtins' bytes land in the file, exactly as real DOS routes AH=02h/09h to
+ * STDOUT (handle 1). With the DEFAULT JFT (handle 1 -> the predefined CON-write
+ * slot) sft_write's CON branch runs con_putc per byte -- the SAME ANSI FSM +
+ * g_sink path as a direct con_putc, so un-redirected console output is
+ * BYTE-FOR-BYTE unchanged (Law 4).
+ *
+ * FALLBACK (Rule 2, never drop a byte): if handle 1 does not resolve --
+ * no current PSP yet (the EARLY banner prints via AH=09h before the kernel JFT
+ * is bound), the JFT slot closed, or a corrupt-but-caught handle -- we emit each
+ * byte straight to con_putc. The banner + every pre-PSP / closed-stdout
+ * diagnostic still reaches CON; nothing is silently lost.
+ *
+ * BEST-EFFORT: AH=02h/09h/06h report NO write error (no CF/AX error contract on
+ * the output path), so a sft_write failure (e.g. a redirect target whose backend
+ * rejects the write) is swallowed here -- the byte was offered to the resolved
+ * sink, which is the AH=09h contract. On the CON branch sft_write never fails.
+ *
+ * Does NOT user_buf_ok: the callers hold valid kernel/string pointers (DL byte
+ * on the stack, the AH=09h '$'-string, the banner in kernel rodata), never a
+ * user-supplied [ptr,count) -- that guard belongs to do_write (AH=40h). */
+static void stdout_emit(const char *buf, uint32_t count)
+{
+#ifdef K36G_MUTATE_NO_REDIR
+    /* MUTANT (Rule 6; make test-redir-mutant only): always con_putc, NEVER the
+     * resolved handle-1 SFT -> AH=02h/09h/06h are NO LONGER redirectable, so the
+     * test_redir DUP2(file,1) assertion (b) goes RED. NEVER define in a real
+     * build -- it reverts the whole bead. */
+    for (uint32_t i = 0; i < count; i++) {
+        con_putc(buf[i]);
+    }
+    return;
+#else
+    sft_entry_t *e = sft_from_handle(g_cur_psp, INT21_HANDLE_STDOUT);
+    if (e == 0) {
+        /* No resolvable STDOUT (pre-PSP banner / closed handle): straight to CON
+         * so the byte is NEVER dropped (Rule 2). */
+        for (uint32_t i = 0; i < count; i++) {
+            con_putc(buf[i]);
+        }
+        return;
+    }
+    uint32_t written = 0u;
+    (void)sft_write(e, buf, count, &written);   /* best-effort; no error path here */
+#endif
+}
+
 /* ---- the console-output subset implementations ---- */
 
-/* AH=02h DISPLAY OUTPUT: DL = char -> CON. DOS returns AL = last char. CF clear. */
+/* AH=02h DISPLAY OUTPUT: DL = char -> CON. DOS returns AL = last char. CF clear.
+ * Routed through stdout_emit (JFT handle 1) so a DUP2(file,1) redirect catches it
+ * (beads initech-k36g); un-redirected handle 1 -> CON, byte-identical to before. */
 static void do_putchar(int_frame_t *f)
 {
     uint8_t c = frame_dl(f);
-    con_putc((char)c);
+    char ch = (char)c;
+    stdout_emit(&ch, 1u);
     set_al(f, c);   /* DOS convention: AL = the character written */
     cf_clear(f);
 }
@@ -780,7 +925,13 @@ static void do_putchar(int_frame_t *f)
 
 /* AH=09h DISPLAY STRING: EDX -> flat ptr to a '$'-terminated string -> CON.
  * The '$' (0x24) is the terminator and is NOT emitted (DOS 3.3 convention,
- * ground-truth Sec 6.2). Returns AL='$'. CF clear. */
+ * ground-truth Sec 6.2). Returns AL='$'. CF clear.
+ *
+ * Each byte is emitted through stdout_emit (JFT handle 1) so the string is
+ * redirectable by DUP2(file,1) (beads initech-k36g) -- per-byte because the
+ * '$'-scan is byte-by-byte (a buffered batch write on a redirect is a deferred
+ * optimization, NOT correctness; keep it simple). Un-redirected handle 1 -> CON
+ * -> con_putc, so the rendered output is byte-identical to before. */
 static void do_puts(int_frame_t *f)
 {
     const char *p = (const char *)(uintptr_t)f->edx;
@@ -802,11 +953,11 @@ static void do_puts(int_frame_t *f)
             /* MUTANT (Rule 6; make test-int21-mutant only): emit the '$' too
              * before breaking, so the PUTS oracle (which expects "HELLO", not
              * "HELLO$") goes RED. NEVER define in a real build. */
-            con_putc('$');
+            { char dollar = '$'; stdout_emit(&dollar, 1u); }
 #endif
             break;
         }
-        con_putc(c);
+        stdout_emit(&c, 1u);
         if (++scanned >= INT21_PUTS_SCAN_MAX) {
             break;   /* unterminated string -> stop before walking off memory */
         }
@@ -974,9 +1125,11 @@ static void do_direct_conio(int_frame_t *f)
         }
         cf_clear(f);
     } else {
-        /* OUTPUT direction: emit DL to CON (this is the 06h output leg; the
-         * dual of the input above). */
-        con_putc((char)dl);
+        /* OUTPUT direction: emit DL through stdout (JFT handle 1) so the 06h
+         * output leg is redirectable by DUP2(file,1) (beads initech-k36g); the
+         * un-redirected handle 1 -> CON, byte-identical to the old con_putc. */
+        char ch = (char)dl;
+        stdout_emit(&ch, 1u);
         set_al(f, dl);
         zf_clear(f);
         cf_clear(f);
@@ -1293,81 +1446,20 @@ static void do_write(int_frame_t *f)
         return;
     }
 
-    /* CON device write: fan the bytes to the console sink. CON is the screen
-     * regardless of the slot's nominal mode (DOS treats CON as writable). This is
-     * the LEGACY predefined-CON fast path (slots 0..3, device == NULL) -- the most
-     * load-bearing output path in the OS (the shell prompt, every diagnostic). It
-     * is PRESERVED BYTE-FOR-BYTE: an OPEN-by-name CON slot (device != NULL) does
-     * NOT match here (its dev_id is not SFT_DEV_CON) and takes the chain route
-     * below instead, which routes con_write back to this same console sink. */
-    if (e->kind == SFT_KIND_DEVICE && e->dev_id == SFT_DEV_CON) {
-        for (uint32_t i = 0; i < count; i++) {
-            con_putc(buf[i]);
-        }
-        f->eax = count;   /* full EAX = bytes written */
-        cf_clear(f);
+    /* The CON / OPEN-by-name-device / FILE / access-denied fan-out lives in
+     * sft_write (shared with the redirectable AH=02h/09h/06h stdout path; beads
+     * initech-k36g). The behavior is BYTE-IDENTICAL to the inline version this
+     * replaced -- the same branches in the same order. Map the DOS error code +
+     * bytes-written onto the frame here. */
+    uint32_t written = 0u;
+    uint16_t err = sft_write(e, buf, count, &written);
+    if (err != 0u) {
+        set_ax(f, err);
+        cf_set(f);
         return;
     }
-
-    /* OPEN-by-name device write (beads initech-6zd9): a SFT slot bound to a
-     * resident device (CON/NUL/PRN/AUX/CLOCK$ via AH=3Dh) routes through the
-     * devices.c chain. NUL discards + succeeds; CON/PRN/AUX reach their sinks;
-     * CLOCK$ accepts a 6-byte record. A device the io bundle cannot serve ->
-     * access-denied (Rule 2: never a silent drop). */
-    if (e->kind == SFT_KIND_DEVICE && e->device != 0) {
-        uint32_t wrote = 0u;
-        uint16_t derr = dev_route_rw((device_header_t *)e->device, 1 /* write */,
-                                     (uint8_t *)(uintptr_t)buf, count, &wrote);
-        if (derr != 0u) {
-            set_ax(f, derr);
-            cf_set(f);
-            return;
-        }
-        f->eax = wrote;   /* EAX = bytes the device consumed */
-        cf_clear(f);
-        return;
-    }
-
-    /* FILE write (beads initech-0qh): POSITIONED write of the bytes at the
-     * per-handle file_offset over the cluster chain (backend write_at via
-     * fat12_write_partial -- overwrite/extend/zero-fill-hole, committed to disk
-     * per call). The handle must have been opened for write (CREAT). A read-mode
-     * FILE handle or a missing write backend -> access denied (Rule 2). The
-     * backend returns the UPDATED dir entry so we refresh the SFT copy's size +
-     * start_cluster, then advance the position. */
-    if (e->kind == SFT_KIND_FILE) {
-        /* AH=3Dh AL=2 (RDWR) must permit writing, not only AL=1 (WRITE) per the
-         * DOS 3.3 PRM (bcg.1). A read-only (AL=0) handle or a missing write
-         * backend -> access denied (Rule 2). */
-        int writable = (e->open_mode == SFT_MODE_WRITE ||
-                        e->open_mode == SFT_MODE_RDWR);
-        if (!writable || g_file == 0 || g_file->write_at == 0) {
-            set_ax(f, INT21_ERR_ACCESS_DENIED);
-            cf_set(f);
-            return;
-        }
-        uint32_t written = 0u;
-        dir_entry_t updated = e->dir_entry;
-        uint16_t err = g_file->write_at(e->dir_start, e->root_slot,
-                                        e->file_offset,
-                                        (const uint8_t *)buf, count,
-                                        &written, &updated);
-        if (err != 0) {
-            set_ax(f, err);
-            cf_set(f);
-            return;
-        }
-        e->dir_entry    = updated;        /* refresh size + start_cluster */
-        e->file_offset += written;        /* advance the per-handle position */
-        f->eax = written;                 /* EAX = bytes written */
-        cf_clear(f);
-        return;
-    }
-
-    /* AUX/PRN devices have no driver yet -> AX=0x0005 (access denied), CF=1
-     * (Rule 2: never silently drop the bytes). */
-    set_ax(f, INT21_ERR_ACCESS_DENIED);
-    cf_set(f);
+    f->eax = written;   /* full EAX = bytes written */
+    cf_clear(f);
 }
 
 /* AH=45h DUP: duplicate handle EBX into the lowest free JFT slot; the new

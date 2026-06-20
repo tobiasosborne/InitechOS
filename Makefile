@@ -3986,6 +3986,56 @@ test-int21-mutant: $(TEST_INT21_MUT_DOLLAR) $(TEST_INT21_MUT_NOOP)
 		printf '>>> test-int21-mutant: green (unlisted-AH-noop mutant correctly RED -- the oracle bites)\n'; \
 	fi
 
+# ---------------------------------------------------------------------------
+# STDOUT-handle redirection oracle (os/milton, beads initech-k36g)
+# ---------------------------------------------------------------------------
+# Host unit oracle (factory; libc + seed/test_assert.h) proving the console-
+# output builtins (AH=02h DISPLAY OUTPUT / AH=09h DISPLAY STRING / AH=06h direct-
+# console-output) route through the REDIRECTABLE JFT handle 1 (STDOUT), the way
+# real DOS does -- so a DUP2(file,1) redirect ('echo HELLO > file') catches their
+# output, while un-redirected handle 1 still reaches CON byte-identically.
+#   (a) default JFT (handle 1 -> CON) -> the three builtins reach the CON sink;
+#   (b) handle 1 bound to a FILE SFT slot (the DUP2 redirect) -> they reach the
+#       FILE backend's write_at, NOT CON (the load-bearing 'echo > file' case);
+#   (c) no current PSP (handle 1 unresolvable) -> AH=09h STILL reaches CON via the
+#       fallback (the early-banner-survival case; Rule 2 never drops a byte).
+# Compiles the REAL artifact int21.c HOSTED; same dep set as test-fileio (no
+# config_sys -- this oracle does not touch AH=33h). The mutant
+# (-DK36G_MUTATE_NO_REDIR -- stdout_emit always con_putc) makes assertion (b) go
+# RED, proving the gate BITES (Rule 6).
+TEST_REDIR          := $(BUILD)/test_redir
+TEST_REDIR_SRC      := $(MILTON_DIR)/test_redir.c
+TEST_REDIR_DEPS     := $(KERNEL_INT21_C) $(KERNEL_DEVICES_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
+TEST_REDIR_HDRS     := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+                       $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
+TEST_REDIR_MUT_NOREDIR := $(BUILD)/test_redir_mutant_noredir
+
+$(TEST_REDIR): $(TEST_REDIR_SRC) $(TEST_REDIR_DEPS) $(TEST_REDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_REDIR_SRC) $(TEST_REDIR_DEPS)
+
+$(TEST_REDIR_MUT_NOREDIR): $(TEST_REDIR_SRC) $(TEST_REDIR_DEPS) $(TEST_REDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DK36G_MUTATE_NO_REDIR -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_REDIR_SRC) $(TEST_REDIR_DEPS)
+
+.PHONY: test-redir test-redir-mutant
+test-redir: $(TEST_REDIR)
+	@printf ">>> test-redir: AH=02h/09h/06h output via redirectable STDOUT handle 1 (default CON / DUP2(file,1) / no-PSP fallback) -- beads initech-k36g\n"
+	@$(TEST_REDIR)
+	@printf ">>> test-redir: green\n"
+
+# Mutation-proof (Rule 6): the no-redirect mutant MUST fail the oracle -- it
+# reverts stdout_emit to always-con_putc, so the DUP2(file,1) assertion (b) goes
+# RED (the builtins stop being redirectable).
+test-redir-mutant: $(TEST_REDIR_MUT_NOREDIR)
+	@printf ">>> test-redir-mutant: confirming the no-redirect mutant goes RED (Rule 6)\n"
+	@if $(TEST_REDIR_MUT_NOREDIR) >/dev/null 2>&1; then \
+		printf '!!! test-redir-mutant FAIL: no-redirect mutant PASSED -- the DUP2(file,1) redirect oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-redir-mutant: green (no-redirect mutant correctly RED -- the redirect oracle bites)\n'; \
+	fi
+
 # --- AH=33h GET/SET CTRL-BREAK + CONFIG BREAK= + BREAK built-in (initech-er3h)
 # The AH=33h round-trip oracle (DEC-16 Sec 7.1) lives in the SAME test_int21
 # binary (the [er3h.*] cases); test-er3h runs it under the BREAK name so the gate
@@ -6496,7 +6546,7 @@ endef
         test-chrome test-chrome-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
-        test-idt-mutant test-int21 test-int21-mutant test-int24 test-int24-mutant \
+        test-idt-mutant test-int21 test-int21-mutant test-redir test-redir-mutant test-int24 test-int24-mutant \
         test-vect test-absdisk-emu test-psp test-psp-mutant \
         test-sft test-sft-mutant test-fileio test-fileio-mutant \
         test-loader test-loader-mutant test-mcb test-mcb-mutant \
@@ -13163,7 +13213,7 @@ TEST_UNIT_GATES := \
 	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
-	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
+	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-redir test-er3h test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
@@ -13180,7 +13230,7 @@ TEST_UNIT_GATES := \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \
 	test-fbagree test-fbagree-mutant \
-	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
+	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-redir-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
