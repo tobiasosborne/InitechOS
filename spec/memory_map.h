@@ -30,11 +30,20 @@
  * Gap proof (psp-loader-ground-truth.md Sec 3.2; re-verified, raised per
  * beads initech-5pe, then shifted up +0x8000 per beads initech-o0td):
  *   kernel window     = 0x10000..0x38000 = 160 KiB (kernel.ld + 96 sectors;
- *                       _kernel_end ~0x1fd20, so ~0x182E0 headroom under
+ *                       _kernel_end ~0x28890 (MEASURED 2026-06-21 via
+ *                       `nm build/kernel.elf`; the earlier "~0x1fd20" figure was
+ *                       stale by ~36 KiB), so ~0xF770 (~61 KiB) headroom under
  *                       PROGRAM_BASE -- was a 128 KiB window 0x10000..0x30000;
  *                       initech-o0td raised PROGRAM_BASE 0x30000 -> 0x38000 to
  *                       give the kernel +32 KiB of growth window, analogous to
- *                       how initech-5pe raised it 0x20000 -> 0x30000)
+ *                       how initech-5pe raised it 0x20000 -> 0x30000. NOTE
+ *                       (initech-re30.1): the BOOTING shell kernel
+ *                       (kernel_shell.elf) is TIGHTER -- _kernel_end=0x30920,
+ *                       only ~29 KiB headroom -- and linking the FLAIR Manager
+ *                       set (~51 KiB) at Phase-3 M3.0 WILL exceed it; kernel.ld
+ *                       now ASSERTs _kernel_end<0x38000 (fail-loud at LINK,
+ *                       mutation-proven), and a +0x8000 PROGRAM_BASE raise is
+ *                       pre-authorized as the mitigation.)
  *   PROGRAM_BASE       = 0x38000   -> top of the 160 KiB kernel window
  *   PROGRAM_IMAGE      = 0x38100   -> PSP + 0x100 (the authentic .COM offset)
  *   PROGRAM_IMAGE_MAX end = ENV_BLOCK -> image arena 0x38100..0x67000 (~187 KiB)

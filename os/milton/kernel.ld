@@ -39,3 +39,14 @@ SECTIONS
         *(.eh_frame*)
     }
 }
+
+/* B0 (beads initech-re30.1): fail-loud if the kernel image busts the
+ * PROGRAM_BASE window. PROGRAM_BASE = 0x38000 (spec/memory_map.h) -- keep this
+ * literal in sync. A bust is a LINK error (Rule 2), not silent boot-time
+ * corruption of the program-image arena. Mitigation: raise PROGRAM_BASE +0x8000
+ * (Rule-8 whole-map shift, initech-o0td/5pe precedent). Top-level ASSERT (after
+ * the SECTIONS block) is the portable GNU ld form -- a bare ASSERT inside
+ * SECTIONS is a syntax error. Headroom ~61 KiB at introduction
+ * (_kernel_end=0x28890); Phase-3 FLAIR linking (M3.0) consumes it. */
+ASSERT(_kernel_end < 0x38000,
+       "kernel image busts the PROGRAM_BASE window (0x38000) -- raise PROGRAM_BASE +0x8000 (o0td precedent) or shrink the kernel")
