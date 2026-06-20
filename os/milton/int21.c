@@ -1183,6 +1183,59 @@ static void do_flush_then_input(int_frame_t *f)
     }
 }
 
+/* ---- AUX / PRN legacy character-I/O (AH=03h/04h/05h; beads initech-40oq) ---
+ * AH=03h AUX INPUT:    AL = byte read from AUX (COM1). CF clear.
+ * AH=04h AUX OUTPUT:   DL = byte sent to AUX (COM1). CF clear.
+ * AH=05h PRINT OUTPUT: DL = byte sent to PRN (LPT1). CF clear.
+ *
+ * These three functions are the character-I/O entry points for the AUX (serial
+ * COM1) and PRN (parallel LPT1) devices. They route through the g_devio bundle
+ * (int21_set_devices / dev_build_io) exactly as the device-chain read/write
+ * path does for OPEN-by-name AUX/PRN handles (reuse the same seam; no new
+ * I/O path needed). If the seam is not bound (g_devio_bound == 0, the host-
+ * oracle default), the call returns 0x00 for reads and discards writes -- silent
+ * no-data / no-op is the correct host-safe behaviour (the equivalent of an
+ * unbound null device). CF is clear in all cases: DOS 3.3 PRM AH=03h/04h/05h
+ * define no error path. Ref: DOS 3.3 Programmer's Reference Manual AH=03h/04h/05h.
+ *
+ * CERT_MUTATE_DROP_GETVER (beads initech-40oq mutant): that guard wraps the
+ * AH=30h case, not these. These handlers are unconditional.
+ *
+ * NOTE: adding these dispatch stubs is what closes the 40oq cert (the only
+ * remaining not-yet-impl AHs in the Appendix-A Core+Resident scope after
+ * Waves 1-4 + the per-driver beads). The device seam (g_devio) already exists
+ * (initech-509.7, closed). */
+static void do_aux_input(int_frame_t *f)
+{
+    uint8_t c = 0u;
+    if (g_devio_bound && g_devio.aux_read) {
+        /* One-byte blocking read from AUX through the kernel-bound seam.
+         * The seam returns a count; a return <= 0 means no data -> deliver 0
+         * (no error path in DOS AH=03h). */
+        (void)g_devio.aux_read(&c, 1, g_devio.aux_ctx);
+    }
+    set_al(f, c);
+    cf_clear(f);
+}
+
+static void do_aux_output(int_frame_t *f)
+{
+    uint8_t c = frame_dl(f);
+    if (g_devio_bound && g_devio.aux_write) {
+        (void)g_devio.aux_write(&c, 1, g_devio.aux_ctx);
+    }
+    cf_clear(f);
+}
+
+static void do_prn_output(int_frame_t *f)
+{
+    uint8_t c = frame_dl(f);
+    if (g_devio_bound && g_devio.prn_write) {
+        (void)g_devio.prn_write(&c, 1, g_devio.prn_ctx);
+    }
+    cf_clear(f);
+}
+
 /* Validate a user-supplied INT 21h buffer [ptr, ptr+count) BEFORE any access.
  * Returns 1 if safe, 0 if the call must fail loud (caller sets CF=1,
  * AX=0x0009). A bad caller pointer -- NULL, or a count that wraps the 32-bit
@@ -4371,6 +4424,15 @@ static void int21_dispatch_body(int_frame_t *frame)
         case 0x0C:                       /* FLUSH KB BUFFER + invoke input */
             do_flush_then_input(frame);
             return;
+        case 0x03:                       /* AUX INPUT (COM1 -> AL; beads initech-40oq) */
+            do_aux_input(frame);
+            return;
+        case 0x04:                       /* AUX OUTPUT (DL -> COM1; beads initech-40oq) */
+            do_aux_output(frame);
+            return;
+        case 0x05:                       /* PRINT OUTPUT (DL -> LPT1; beads initech-40oq) */
+            do_prn_output(frame);
+            return;
         case 0x09:                       /* DISPLAY STRING */
             do_puts(frame);
             return;
@@ -4387,8 +4449,18 @@ static void int21_dispatch_body(int_frame_t *frame)
             do_getdta(frame);
             return;
         case 0x30:                       /* GET VERSION */
+#ifdef CERT_MUTATE_DROP_GETVER
+            /* MUTANT (Rule 6; make test-40oq-mutant only): drop the AH=30h
+             * dispatch so it falls to the not-yet-impl arm and the test_40oq
+             * dynamic safe-set check sees "not-yet-impl AH=30" -> RED.
+             * The (void) reference keeps -Werror=unused-function quiet so the
+             * mutant still COMPILES + RUNS. NEVER define in a real build. */
+            (void)do_getver;
+            break;
+#else
             do_getver(frame);
             return;
+#endif
         case 0x33:                       /* GET/SET CTRL-BREAK STATE (DEC-16) */
 #ifdef INT21_MUTATE_BREAK_NO_DISPATCH
             /* MUTANT M1/M3 base (Rule 6; make test-er3h-mutant only): do NOT

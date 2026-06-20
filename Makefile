@@ -5945,6 +5945,50 @@ test-ansi-wire-mutant: $(TEST_ANSI_WIRE_MUT)
 	else printf '>>> test-ansi-wire-mutant: green (ignore-gate mutant correctly RED -- the oracle bites)\n'; fi
 
 # ---------------------------------------------------------------------------
+# CAPSTONE gate: test-40oq (beads initech-40oq -- Appendix-A INT 21h coverage cert)
+# ---------------------------------------------------------------------------
+# Certifies the INT 21h Appendix-A FUNCTIONAL surface is feature-complete: a
+# static manifest (every recognized AH from ah_is_listed is DISPATCHED or in the
+# operator-WAIVED FCB range 0x0F-0x24) + a dynamic safe-set drive (the pointer-
+# safe query AHs reach a real handler -- no "not-yet-impl AH=" on the recording
+# CON sink; the FCB range DOES hit not-yet-impl, proving the waiver is real).
+# Surfaces the go/no-go: FCB(0x0F-0x24) waived (509.9, operator 2026-06-14);
+# partitions+multivol DEFERRED (kzfs/slvd, operator 2026-06-15). The subsystem
+# deps (subdirs/FAT16/MCB/absdisk/INT24h/break/wildcard) are proven by their own
+# green gates. Mutant (Rule 6): CERT_MUTATE_DROP_GETVER un-dispatches AH=30h ->
+# the dynamic check sees not-yet-impl AH=30 -> RED.
+TEST_40OQ     := $(BUILD)/test_40oq
+TEST_40OQ_SRC := $(MILTON_DIR)/test_40oq.c
+TEST_40OQ_MUT := $(BUILD)/test_40oq_mutant_getver
+TEST_40OQ_DEPS := $(KERNEL_INT21_C) $(KERNEL_DEVICES_C) $(KERNEL_MCB_C) \
+                  $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C) \
+                  $(KERNEL_CONFIG_SYS_C)
+TEST_40OQ_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+                  $(MILTON_DIR)/psp.h $(MILTON_DIR)/config_sys.h \
+                  spec/dos_structs.h $(DOS_MESSAGES_H)
+
+$(TEST_40OQ): $(TEST_40OQ_SRC) $(TEST_40OQ_DEPS) $(TEST_40OQ_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_40OQ_SRC) $(TEST_40OQ_DEPS)
+
+$(TEST_40OQ_MUT): $(TEST_40OQ_SRC) $(TEST_40OQ_DEPS) $(TEST_40OQ_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCERT_MUTATE_DROP_GETVER \
+		-Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_40OQ_SRC) $(TEST_40OQ_DEPS)
+
+.PHONY: test-40oq test-40oq-mutant
+test-40oq: $(TEST_40OQ)
+	@printf ">>> test-40oq: Appendix-A INT 21h coverage certificate (initech-40oq capstone)\n"
+	@$(TEST_40OQ)
+	@printf ">>> test-40oq: green\n"
+
+test-40oq-mutant: $(TEST_40OQ_MUT)
+	@printf ">>> test-40oq-mutant: CERT_MUTATE_DROP_GETVER must go RED (Rule 6)\n"
+	@if $(TEST_40OQ_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-40oq-mutant FAIL: mutant PASSED -- the dynamic GETVER coverage check is decoration\n'; exit 1; \
+	else printf '>>> test-40oq-mutant: green (mutant correctly RED -- a real coverage gap is detected)\n'; fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-psp (beads initech-509.4 -- PSP full 256-byte construction)
 # ---------------------------------------------------------------------------
 # Host unit oracle for psp_build() (os/milton/psp.c): zero-init + every field
@@ -13120,7 +13164,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-psp test-sft test-loader test-mz test-mzload \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
@@ -13139,7 +13183,7 @@ TEST_UNIT_GATES := \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
