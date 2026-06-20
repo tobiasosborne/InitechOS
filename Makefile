@@ -5817,6 +5817,7 @@ endef
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-window test-window-mutant test-event test-event-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
+        test-control test-control-mutant \
         test-chrome test-chrome-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
@@ -7616,6 +7617,43 @@ test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD)
 	@printf ">>> test-menu-mutant: confirming both mutants go RED (Rule 6)\n"
 	@if $(TEST_MENU_MUT_FW) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: FIXED_WIDTH PASSED -- the proportional-layout oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (FIXED_WIDTH correctly RED)\n'; fi
 	@if $(TEST_MENU_MUT_SD) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: SELECT_DISABLED PASSED -- the selectability oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (SELECT_DISABLED correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-control (beads initech-8h9) -- FLAIR Control Manager. Buttons,
+# checkbox/radio, the 16px scrollbar (proportional thumb, invertible value<->Y),
+# and the FILE COPY progress bar. TestControl/TrackControl part-codes + tracking.
+# Mutants THUMB_OFF / NO_CLAMP bite (Rule 6).
+# ---------------------------------------------------------------------------
+TEST_CONTROL     := $(BUILD)/test_control
+TEST_CONTROL_SRC := harness/proptest/test_control.c
+TEST_CONTROL_MUT_THUMB := $(BUILD)/test_control_mutant_thumb
+TEST_CONTROL_MUT_CLAMP := $(BUILD)/test_control_mutant_clamp
+TEST_CONTROL_DEPS := os/flair/control.c os/flair/control.h os/flair/blitter.c os/flair/text.c \
+                     os/flair/surface.c $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) \
+                     spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h \
+                     spec/assets/palette.h spec/assets/chicago8x16.h
+CONTROL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
+CONTROL_LINK := os/flair/control.c os/flair/blitter.c os/flair/text.c os/flair/surface.c \
+                $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C)
+
+$(TEST_CONTROL): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+$(TEST_CONTROL_MUT_THUMB): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONTROL_MUTATE_THUMB_OFF=1 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+$(TEST_CONTROL_MUT_CLAMP): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONTROL_MUTATE_NO_CLAMP=1 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+
+test-control: $(TEST_CONTROL)
+	@printf ">>> test-control: buttons + 16px scrollbar (invertible thumb math) + FILE COPY progress bar + TestControl/TrackControl\n"
+	@$(TEST_CONTROL)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $(BUILD)/control_freestanding.o \
+		|| { printf '!!! test-control FAIL: control.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-control: green\n"
+
+test-control-mutant: $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP)
+	@printf ">>> test-control-mutant: confirming both mutants go RED (Rule 6)\n"
+	@if $(TEST_CONTROL_MUT_THUMB) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: THUMB_OFF PASSED -- the scrollbar-math oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (THUMB_OFF correctly RED)\n'; fi
+	@if $(TEST_CONTROL_MUT_CLAMP) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: NO_CLAMP PASSED -- the value-clamp oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (NO_CLAMP correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
@@ -12155,6 +12193,7 @@ TEST_UNIT_GATES := \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-window test-window-mutant test-event test-event-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
+	test-control test-control-mutant \
 	test-chrome test-chrome-mutant \
 	test-fbagree test-fbagree-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-er3h-mutant \
