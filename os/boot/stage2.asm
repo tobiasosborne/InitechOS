@@ -67,7 +67,7 @@ FONT_STASH      equ 0x1000      ; 4096-byte VGA ROM 8x16 font copy
 ;    s17.. (Makefile). KERNEL_SECTORS is generous + deterministic (the Makefile
 ;    pads the kernel binary to exactly this many sectors). CHS geometry matches
 ;    what SeaBIOS presents for the raw image (the MBR already reads track 0).
-KERNEL_SECTORS    equ 224       ; 224 * 512 = 112 KiB kernel window (bumped 64->80
+KERNEL_SECTORS    equ 320       ; 320 * 512 = 160 KiB kernel window (bumped 64->80
                                 ; for 509.11, 80->96 for 509.2 SYSINIT, 96->112
                                 ; for 509.6 -- mcb.o now links into every kernel;
                                 ; 112->128 for u6wa -- MKDIR/RMDIR (AH=39h/3Ah);
@@ -81,6 +81,9 @@ KERNEL_SECTORS    equ 224       ; 224 * 512 = 112 KiB kernel window (bumped 64->
                                 ; grew kernel_shell.bin to ~85 KiB; ends 0x2A000 < PROGRAM_BASE;
                                 ; 208->224 for p96i -- ansi.c folded into int21.o + console
                                 ; cursor/erase/attr; kernel_shell.bin ~108 KiB on disk;
+                                ; 224->320 for re30.2 -- the 12 FLAIR Toolbox Managers
+                                ; LINKED into both kernels (no call sites yet); kernel_shell.bin
+                                ; grew to 159,000 bytes; ends 0x38000 < PROGRAM_BASE (0x40000);
                                 ; MUST equal Makefile)
 KERNEL_LBA        equ 17        ; first kernel sector (1+16)
 ; SPT / heads are QUERIED at runtime via INT 13h AH=08h (geometry varies by

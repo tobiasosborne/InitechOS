@@ -157,7 +157,16 @@ STAGE2_SECTORS  := 16
 # `make test-boot-bochs`. MUST equal the stage2.asm KERNEL_SECTORS equate.
 # Bumped 208->224 for the p96i ANSI.SYS wiring (ansi.c folded into int21.o +
 # console cursor/erase/attr extensions grew the shell kernel ~5 KiB on disk).
-KERNEL_SECTORS  := 224
+# Bumped 224 -> 320 for beads initech-re30.2 (FLAIR Manager link): the 12 FLAIR
+# Toolbox Managers (region/heap/event/window/blitter/chrome/text/menu/control/
+# dialog/desktop/flair_shell) are now LINKED into BOTH kernels (no call sites yet);
+# kernel_shell.bin grew 113,513 -> 159,000 bytes on disk, past the 224-sector
+# (114,688) window. 320*512 = 160 KiB: 0x10000 + 320*512 = 0x38000, still below
+# PROGRAM_BASE (0x40000). IMG_MIN = 1+16+320 = 337 -> IMG_SECTORS 256 -> 384 (6
+# cyl, a multiple of 64; 384 >= 337). A boot-geometry change (IMG_SECTORS) is a
+# tri-emulator obligation (Rule 5): re-run `make test-boot-bochs`. MUST equal the
+# stage2.asm KERNEL_SECTORS equate.
+KERNEL_SECTORS  := 320
 # Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=160) = 177 sectors.
 # IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
 # harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
@@ -168,8 +177,11 @@ KERNEL_SECTORS  := 224
 # raw image is 225 sectors > 192, so IMG_SECTORS grows to 256 (4 cyl, a multiple of
 # 64; 256 >= 225). (160 -- a multiple of 32 but NOT 64 = 2.5 cyl -- booted on QEMU but
 # broke `make test-boot-bochs`; the guard below fails that class loud at build time,
-# Rule 2 / Rule 5.) Deterministic (Rule 11).
-IMG_SECTORS     := 256
+# Rule 2 / Rule 5.) Deterministic (Rule 11). At KERNEL_SECTORS=320 (initech-re30.2,
+# FLAIR Manager link) the raw image is 1+16+320 = 337 sectors > 256, so IMG_SECTORS
+# grows to 384 (6 cyl, a multiple of 64; 384 >= 337). BOOT-GEOMETRY change =
+# tri-emulator obligation (Rule 5): re-run `make test-boot-bochs`.
+IMG_SECTORS     := 384
 # Build-time geometry + capacity guard (Rule 2 fail-loud): prevents the QEMU-green /
 # Bochs-broken IMG_SECTORS regression from recurring.
 IMG_MIN_SECTORS := $(shell expr 1 + $(STAGE2_SECTORS) + $(KERNEL_SECTORS))
@@ -353,6 +365,35 @@ KERNEL_START_OBJ := $(BUILD)/kstart.o
 KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
 KERNEL_CONSOLE_OBJ := $(BUILD)/console.o
 KERNEL_SURFACE_OBJ := $(BUILD)/surface.o
+# FLAIR Toolbox Manager set (beads initech-re30.2 Step B): promoted from
+# *_freestanding.o COMPILE-CHECKS (the test-* gates) to LINKED kernel objects so
+# the linker + window-size question is isolated (does the FLAIR set link cleanly
+# and fit the PROGRAM_BASE window?). NO call sites yet -- kmain.c is unchanged;
+# these objects are added to KERNEL_OBJS + KERNEL_SHELL_OBJS ONLY. surface.o is
+# ALREADY linked (above); the FLAIR shell.c (desktop shell) is named distinctly
+# (KERNEL_FLAIR_SHELL_OBJ -> flair_shell.o) to avoid any collision with the
+# KERNEL_SHELL_* booting-shell-kernel variant. Each object's include set mirrors
+# the PROVEN-freestanding compile-check recipe for that Manager (the test-* gate).
+KERNEL_REGION_OBJ      := $(BUILD)/region.o
+KERNEL_HEAP_OBJ        := $(BUILD)/heap.o
+KERNEL_EVENT_OBJ       := $(BUILD)/event.o
+KERNEL_WINDOW_OBJ      := $(BUILD)/window.o
+KERNEL_BLITTER_OBJ     := $(BUILD)/blitter.o
+KERNEL_CHROME_OBJ      := $(BUILD)/chrome.o
+KERNEL_TEXT_OBJ        := $(BUILD)/text.o
+KERNEL_MENU_OBJ        := $(BUILD)/menu.o
+KERNEL_CONTROL_OBJ     := $(BUILD)/control.o
+KERNEL_DIALOG_OBJ      := $(BUILD)/dialog.o
+KERNEL_DESKTOP_OBJ     := $(BUILD)/desktop.o
+KERNEL_FLAIR_SHELL_OBJ := $(BUILD)/flair_shell.o
+# Shared, deterministically-ordered FLAIR Manager object list (Rule 11). Added to
+# KERNEL_OBJS (demo kernel) + KERNEL_SHELL_OBJS (booting shell kernel) ONLY -- NOT
+# to the 16 diagnostic kernel lists (they get more padding from the KERNEL_SECTORS
+# bump but must not carry FLAIR). surface.o is NOT here (already linked above).
+KERNEL_FLAIR_OBJS := $(KERNEL_REGION_OBJ) $(KERNEL_HEAP_OBJ) $(KERNEL_EVENT_OBJ) \
+                     $(KERNEL_WINDOW_OBJ) $(KERNEL_BLITTER_OBJ) $(KERNEL_CHROME_OBJ) \
+                     $(KERNEL_TEXT_OBJ) $(KERNEL_MENU_OBJ) $(KERNEL_CONTROL_OBJ) \
+                     $(KERNEL_DIALOG_OBJ) $(KERNEL_DESKTOP_OBJ) $(KERNEL_FLAIR_SHELL_OBJ)
 KERNEL_IDT_OBJ   := $(BUILD)/idt.o
 KERNEL_PIC_OBJ   := $(BUILD)/pic.o
 KERNEL_PANIC_OBJ := $(BUILD)/panic.o
@@ -6758,6 +6799,55 @@ $(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.
 $(KERNEL_SURFACE_OBJ): $(KERNEL_SURFACE_C) os/flair/surface.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -c $(KERNEL_SURFACE_C) -o $@
 
+# --- FLAIR Toolbox Manager kernel objects (beads initech-re30.2 Step B) ------
+# These mirror, one-for-one, the PROVEN-freestanding compile-check in each
+# Manager's REAL gate (test-region/-flair-heap/-event/-window/-blitter/-chrome/
+# -text/-menu/-control/-dialog/-drag/-flair-shell): the SAME source, the SAME
+# $(KERNEL_CC) $(KERNEL_CFLAGS) <Manager>_INC invocation that compiles clean
+# under -ffreestanding -nostdlib. Each <Manager>_INC is defined later in the file
+# (deferred recipe expansion -- they are all set by the time any recipe runs).
+# NO -ffunction-sections/--gc-sections in KERNEL_CFLAGS, so every object is kept
+# in the .elf (the window-size question is real). Reproducible: deterministic
+# source ordering, no timestamps (Rule 11).
+$(KERNEL_REGION_OBJ): $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(REGION_INC) -c $(REGION_ENGINE_C) -o $@
+
+$(KERNEL_HEAP_OBJ): $(FLAIR_HEAP_C) $(FLAIR_HEAP_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_HEAP_INC) -c $(FLAIR_HEAP_C) -o $@
+
+$(KERNEL_EVENT_OBJ): os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(EVENT_INC) -c os/flair/event.c -o $@
+
+$(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $@
+
+$(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h $(REGION_ENGINE_H) os/flair/surface.h spec/region_algebra.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(BLITTER_INC) -c os/flair/blitter.c -o $@
+
+$(KERNEL_CHROME_OBJ): $(CHROME_DRAWER_C) $(CHROME_DRAWER_H) $(SPEC_CHROME_METRICS_H) spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $@
+
+$(KERNEL_TEXT_OBJ): os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/assets/chicago8x16.h os/flair/surface.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TEXT_INC) -c os/flair/text.c -o $@
+
+# menu/control/dialog: their freestanding compile-checks use a LITERAL include
+# set (-Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets), NOT the *_INC used
+# for the hosted gate (which adds -Iharness/render -Iseed). Mirror the literal.
+$(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h spec/assets/menu_canon.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h spec/assets/geneva9.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
+
+$(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
+
+$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
+
+$(KERNEL_DESKTOP_OBJ): $(DESKTOP_C) $(DESKTOP_H) os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(DRAG_INC) -c $(DESKTOP_C) -o $@
+
+$(KERNEL_FLAIR_SHELL_OBJ): $(SHELL_C) $(SHELL_H) os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(SHELL_INC) -c $(SHELL_C) -o $@
+
 # Text console (beads initech-yqb): the SAME console.c the host blit oracle
 # (os/milton/test_console.c) exercises; freestanding here, hosted there. Now a
 # CLIENT of the FLAIR surface module (initech-k8o5.6): includes ../flair/surface.h.
@@ -7019,7 +7109,8 @@ KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KE
                $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
-               $(KERNEL_ISR_OBJ)
+               $(KERNEL_ISR_OBJ) \
+               $(KERNEL_FLAIR_OBJS)
 
 $(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_OBJS)
@@ -7834,7 +7925,8 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) $(KERNEL_BATCH_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
-                     $(KERNEL_ISR_OBJ)
+                     $(KERNEL_ISR_OBJ) \
+                     $(KERNEL_FLAIR_OBJS)
 
 $(KERNEL_SHELL_ELF): $(KERNEL_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SHELL_OBJS)
