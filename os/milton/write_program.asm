@@ -15,16 +15,17 @@
 ; Ref:   os/milton/int21.c do_creat (AH=3Ch: EDX -> ASCIIZ path, CX=attr,
 ;        EAX=handle), do_write (AH=40h FILE: EBX=handle, ECX=count, EDX=buf),
 ;        do_close (AH=3Eh: flush write handle), do_open/do_read (3Dh/3Fh);
-;        spec/memory_map.h (PROGRAM_IMAGE = 0x00038100). CLAUDE.md Law 1, Rule 2
+;        spec/memory_map.h (PROGRAM_IMAGE = 0x00040100). CLAUDE.md Law 1, Rule 2
 ;        (fail loud), Rule 11 (deterministic: nasm -f bin), Rule 12 (ASCII).
 ;
 ; Assembled: nasm -f bin os/milton/write_program.asm -o build/write_program.bin
 ; org PROGRAM_IMAGE so absolute references (the name, the buffers) resolve at the
 ; load address (Solution A, mirrors type_program.asm).
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
+; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00038100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
 start:
     ; AH=3Ch CREAT: EDX = "OUT.TXT", CX = 0 (normal attribute). EAX = handle.

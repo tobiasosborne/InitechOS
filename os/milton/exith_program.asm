@@ -16,7 +16,7 @@
 ; Ref:   os/milton/int21.c do_open (AH=3Dh: EDX->ASCIIZ path, AL=mode, EAX=handle,
 ;        CF=error), do_puts (AH=09h), do_terminate (AH=4Ch: AL=exit code ->
 ;        sft_close_process(g_cur_psp) then the loader exit hook); os/milton/sft.c
-;        sft_close_process; spec/memory_map.h (PROGRAM_IMAGE = 0x00038100).
+;        sft_close_process; spec/memory_map.h (PROGRAM_IMAGE = 0x00040100).
 ;        CLAUDE.md Law 1 (cite), Rule 2 (fail loud), Rule 11 (nasm -f bin is
 ;        deterministic), Rule 12 (ASCII).
 ;
@@ -25,9 +25,10 @@
 ;            loaded BY NAME via load_program_from_fat / INT 21h AH=4Bh EXEC).
 ; org PROGRAM_IMAGE so absolute data references resolve at the load address.
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
+; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00038100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
 start:
     ; ---- OPEN HELLO.TXT (read) -- leak handle 1 ----

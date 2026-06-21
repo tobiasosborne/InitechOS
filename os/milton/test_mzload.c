@@ -27,7 +27,7 @@
  * loader_prepare_mz here proves the artifact's whole MZ content path WITHOUT the
  * kernel-only jump (mirrors how test_loader drives loader_prepare).
  *
- * The relocation adds the FLAT LOAD BASE -- the constant PROGRAM_IMAGE (0x38100),
+ * The relocation adds the FLAT LOAD BASE -- the constant PROGRAM_IMAGE (0x40100),
  * the address the code will actually run at -- NOT this host staging buffer's
  * address. So the oracle can build the image anywhere in host memory and still
  * assert the dword == original + PROGRAM_IMAGE byte-exactly.

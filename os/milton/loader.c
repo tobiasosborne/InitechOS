@@ -52,7 +52,7 @@
  *
  * EITHER way the ONLY size bound is PROGRAM_IMAGE_MAX (~188 KiB = ENV_BLOCK -
  * PROGRAM_IMAGE). The old FAT path also rejected image_len > LOAD_STAGING_MAX
- * (64 KiB), because it staged the .COM through [0x78000,0x88000) before copying
+ * (64 KiB), because it staged the .COM through [0x80000,0x90000) before copying
  * down; za4m reads straight into PROGRAM_IMAGE, so that 64 KiB cap is GONE and
  * a 77 KiB SAMIR.COM now loads (it used to fail LOADER_ERR_TOO_BIG). */
 static loader_status_t loader_prepare_core(const uint8_t *image,
@@ -115,8 +115,8 @@ static loader_status_t loader_prepare_core(const uint8_t *image,
     /* The psp_build inputs (Sec 2.2 / 2.5 / 2.7 / 2.11; psp.h). The vestigial
      * segment fields are passed as flat LINEAR addresses; psp_build stores each
      * as a fake paragraph (linear >> 4). */
-    out->params.alloc_end_linear  = PROGRAM_ALLOC_END;  /* 0x78000 -> seg 0x7800 */
-    out->params.env_linear        = ENV_BLOCK;          /* 0x67000 -> seg 0x6700 (2og) */
+    out->params.alloc_end_linear  = PROGRAM_ALLOC_END;  /* 0x80000 -> seg 0x8000 */
+    out->params.env_linear        = ENV_BLOCK;          /* 0x6F000 -> seg 0x6F00 (2og) */
     out->params.parent_psp_linear = 0u;                 /* no parent PSP yet (Sec 2.5) */
     out->params.cmd_tail          = cmd_tail;           /* may be NULL (no args) */
     out->params.cmd_tail_len      = cmd_tail_len;
@@ -600,9 +600,9 @@ static void loader_exit_hook(uint8_t code)
  *   there is no second program region). EXEC is single-level (g_load_active guards
  *   re-entry in load_program_from_fat), so no OTHER program occupies
  *   [PROGRAM_IMAGE, ...] when the FAT reader writes there. The child loads at
- *   PROGRAM_IMAGE (0x38100); the parent (kernel) executes from its own link
- *   region [0x10000,0x38000) and its own stack at 0x88000+, both DISJOINT from
- *   [0x38100, PROGRAM_STACK_BOT). So reading the .COM straight into PROGRAM_IMAGE
+ *   PROGRAM_IMAGE (0x40100); the parent (kernel) executes from its own link
+ *   region [0x10000,0x40000) and its own stack at 0x90000+, both DISJOINT from
+ *   [0x40100, PROGRAM_STACK_BOT). So reading the .COM straight into PROGRAM_IMAGE
  *   is exactly as safe as the OLD code that copied staging -> PROGRAM_IMAGE: both
  *   write the SAME region while the SAME kernel runs; za4m merely elides the
  *   intermediate 64 KiB staging buffer. (spec/memory_map.h gap proof; ADR-0009.) */
@@ -633,7 +633,7 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
     do_copy = 1;
 #endif
 
-    /* Copy the program image to PROGRAM_IMAGE (0x38100) ONLY on the baked path.
+    /* Copy the program image to PROGRAM_IMAGE (0x40100) ONLY on the baked path.
      * On the in-place path (za4m) the bytes are already there -- skip the copy
      * (plan.image_src is NULL; a copy would dereference NULL). Volatile-correct:
      * the destination is a fixed physical region the loader owns. */
@@ -940,15 +940,15 @@ static loader_status_t load_program_mz_in_place(uint32_t file_len,
  * FAT-sourced load (beads initech-saw; DIRECT-LOAD beads initech-za4m).
  *
  * loader.c reads the named .COM off the mounted volume DIRECTLY into the program
- * region (PROGRAM_IMAGE, 0x38100) and runs it IN PLACE via load_program_in_place
+ * region (PROGRAM_IMAGE, 0x40100) and runs it IN PLACE via load_program_in_place
  * -- NO intermediate staging buffer, NO staging -> image copy. It caches the
  * volume + the whole FAT at bind time (fat12_read_file needs the FAT for the
  * cluster-chain walk). All scratch is kernel BSS -- NEVER a multi-KB buffer on
  * the kernel stack (spec/memory_map.h Risk 2).
  *
  * WHY DIRECT (beads initech-za4m; ADR-0009 companion to DEC-04): the OLD path
- * read the .COM into the 64 KiB LOAD_STAGING buffer [0x78000,0x88000) (it abuts
- * the kernel stack at 0x88000, so it CANNOT grow) and then copied DOWN to
+ * read the .COM into the 64 KiB LOAD_STAGING buffer [0x80000,0x90000) (it abuts
+ * the kernel stack at 0x90000, so it CANNOT grow) and then copied DOWN to
  * PROGRAM_IMAGE. That capped a FAT .COM at 64 KiB (LOAD_STAGING_MAX) even though
  * the program arena allows ~188 KiB (PROGRAM_IMAGE_MAX = ENV_BLOCK -
  * PROGRAM_IMAGE). A 77 KiB SAMIR.COM was wrongly rejected LOADER_ERR_TOO_BIG.
@@ -1072,15 +1072,15 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
         return LOADER_ERR_TOO_BIG;   /* reuse: nothing runnable (size 0) */
     }
 
-    /* Read the whole .COM DIRECTLY into PROGRAM_IMAGE (0x38100) -- no staging
+    /* Read the whole .COM DIRECTLY into PROGRAM_IMAGE (0x40100) -- no staging
      * buffer, no later copy (beads initech-za4m). dst_cap is PROGRAM_IMAGE_MAX so
      * fat12_read_file fails loud (FAT12_ERR_BUFFER) before overrunning the program
      * arena -- redundant with the file_size guard above but a hard backstop (Rule
      * 2). Safety (writing PROGRAM_IMAGE while the kernel runs): see the IN-PLACE
      * SAFETY PROOF on loader_run_plan -- the parent is the KERNEL (links at
-     * [0x10000,0x38000), stack at 0x88000+, both disjoint from [0x38100,...)),
+     * [0x10000,0x40000), stack at 0x90000+, both disjoint from [0x40100,...)),
      * EXEC is single-level (g_load_active), so nothing else occupies PROGRAM_IMAGE.
-     * This is exactly as safe as the OLD copy to 0x38100 -- same region, same
+     * This is exactly as safe as the OLD copy to 0x40100 -- same region, same
      * running kernel, minus the intermediate staging hop. */
     uint8_t *image = (uint8_t *)(uintptr_t)PROGRAM_IMAGE;
     uint32_t got = 0;

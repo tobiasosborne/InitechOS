@@ -11,12 +11,12 @@
 ; Ref:   docs/adr/ADR-0003-AMENDMENT-DEC-08a-MZ-EXE-Flat-Loader.md
 ;          DEC-08a.1: the load module is flat 32-bit code; relocations are a
 ;            list of uint32 flat offsets; for each, the loader ADDS the flat load
-;            base PROGRAM_IMAGE (0x38100) to the 32-bit dword at that offset.
+;            base PROGRAM_IMAGE (0x40100) to the 32-bit dword at that offset.
 ;          DEC-08a.2: the load module lands at PROGRAM_IMAGE; entry = load base
 ;            (cs=ip=0); EBX = PROGRAM_BASE on entry, as for a flat .COM.
 ;        os/milton/int21.c do_puts (AH=09h: EDX -> '$'-terminated string, '$' not
 ;          emitted) + do_terminate (AH=4Ch: AL = exit code); spec/memory_map.h
-;          (PROGRAM_IMAGE = 0x00038100). CLAUDE.md Law 1 (cite), Law 2 (the
+;          (PROGRAM_IMAGE = 0x00040100). CLAUDE.md Law 1 (cite), Law 2 (the
 ;          marker is the oracle signal), Rule 2 (fail loud / defense in depth),
 ;          Rule 11 (deterministic: nasm -f bin is reproducible), Rule 12 (ASCII).
 ;
@@ -25,15 +25,15 @@
 ;            (the InitechMZ container with the 0x4943 tag + the one reloc entry).
 ;
 ; THE RELOCATION-PROOF ADDRESSING (the whole point -- contrast greet_program.asm):
-; greet_program.asm assembles at `org 0x00038100`, so `mov edx, msg` already
+; greet_program.asm assembles at `org 0x00040100`, so `mov edx, msg` already
 ; encodes the FINAL runtime address and needs NO relocation. THIS fixture
 ; assembles at `org 0` instead, so `mov edx, msg` encodes msg's offset RELATIVE
 ; TO LOAD BASE 0 -- a LINK-TIME-relative absolute that is WRONG at the real load
-; address (0x38100) UNLESS the loader relocates it. nasm encodes
+; address (0x40100) UNLESS the loader relocates it. nasm encodes
 ; `mov edx, msg` as the opcode 0xBA at byte 0 followed by the imm32 at byte 1, so
 ; the imm32 dword at OFFSET 1 is the single relocation site. The loader's
 ; mz_apply_relocs adds PROGRAM_IMAGE to that dword:
-;   WITH reloc:    EDX = 0x38100 + (msg offset)  == the real string -> prints the marker.
+;   WITH reloc:    EDX = 0x40100 + (msg offset)  == the real string -> prints the marker.
 ;   WITHOUT reloc: EDX = (msg offset, ~0x11)     == low kernel RAM  -> NO marker.
 ; So a green gate that sees "MZEXEC-OK" on serial PROVES the flat-32 relocation
 ; resolved AT RUNTIME -- not merely in a host unit test (Law 2). The no-reloc

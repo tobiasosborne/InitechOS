@@ -39,10 +39,10 @@
     "conventional_program_window": {
       "base_symbol":  "PROGRAM_BASE",
       "ceiling_symbol": "PROGRAM_ALLOC_END",
-      "base_value":   "0x00038000",
-      "ceiling_value": "0x00078000",
+      "base_value":   "0x00040000",
+      "ceiling_value": "0x00080000",
       "size_kib": 256,
-      "note": "Conventional program window for a loaded flat .COM-equivalent. Constants are defined in spec/memory_map.h -- cite that header; do NOT duplicate the values. The window includes the PSP (256 B at PROGRAM_BASE), the program image (from PROGRAM_IMAGE = PROGRAM_BASE+0x100), the environment block (ENV_BLOCK = 0x67000), and the program stack [PROGRAM_STACK_BOT, PROGRAM_STACK_TOP]. RAISED 0x30000->0x38000 (ceiling 0x70000->0x78000) by beads initech-o0td -- the whole-map shift +0x8000 reclaiming half the dead [0x90000,0xA0000) gap for kernel-window headroom. The AH=48h MCB arena must be disjoint from the loaded program + stack (ADR-0009 DEC-04 / spec/memory_map.h ARENA DISJOINTNESS INVARIANT)."
+      "note": "Conventional program window for a loaded flat .COM-equivalent. Constants are defined in spec/memory_map.h -- cite that header; do NOT duplicate the values. The window includes the PSP (256 B at PROGRAM_BASE), the program image (from PROGRAM_IMAGE = PROGRAM_BASE+0x100), the environment block (ENV_BLOCK = 0x6F000), and the program stack [PROGRAM_STACK_BOT, PROGRAM_STACK_TOP]. RAISED 0x30000->0x38000 (ceiling 0x70000->0x78000) by beads initech-o0td, then RAISED 0x38000->0x40000 (ceiling 0x78000->0x80000) by beads initech-re30.2 -- the second whole-map shift +0x8000 spending the last of the dead [0x90000,0xA0000) gap for kernel-window headroom (gap now exhausted; kernel stack tops at 0x9FFFC adjacent to the 0xA0000 VGA aperture). The AH=48h MCB arena must be disjoint from the loaded program + stack (ADR-0009 DEC-04 / spec/memory_map.h ARENA DISJOINTNESS INVARIANT)."
     },
     "heap_model": "AH=48h MCB arena, flat, bound to [image_end_rounded, PROGRAM_STACK_BOT)",
     "flair_heap": {

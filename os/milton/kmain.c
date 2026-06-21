@@ -1029,8 +1029,8 @@ void kernel_main(void)
          * rather than a SECOND ~4.6 KiB .bss buffer: the kernel .bss was butting
          * against PROGRAM_BASE (_kernel_end within ~160 bytes of the old 0x20000
          * window), so a dedicated cfg_fat_buf risked a kernel/program collision
-         * (beads initech-509.2 fix). The window has since been raised to 0x38000
-         * (beads initech-5pe + map shift), but reusing the resident FAT is still the right
+         * (beads initech-509.2 fix). The window has since been raised to 0x40000
+         * (beads initech-5pe + o0td + re30.2 map shifts), but reusing the resident FAT is still the right
          * call. The FAT is already resident from the bind. */
         uint32_t cfg_fat_len = 0u;
         void    *cfg_fat = fileio_fat_fat_buffer(&cfg_fat_len);
@@ -1159,8 +1159,8 @@ void kernel_main(void)
      * reloc site), then the ONE shared loader_run_plan transfer (JMP to
      * PROGRAM_IMAGE). The fixture's `mov edx, msg` was assembled at org 0, so its
      * imm32 is msg's offset RELATIVE TO LOAD BASE 0 -- WRONG at the real load
-     * address (0x38100) UNLESS relocated. So:
-     *   WITH reloc:    EDX = 0x38100 + msg_off -> AH=09h prints "MZEXEC-OK".
+     * address (0x40100) UNLESS relocated. So:
+     *   WITH reloc:    EDX = 0x40100 + msg_off -> AH=09h prints "MZEXEC-OK".
      *   WITHOUT reloc: EDX = msg_off (~0x11)   -> low RAM, no marker.
      * The gate asserts "MZEXEC-OK" on serial AND MZEXEC-EXIT rc=9 -- present iff
      * the relocation resolved AT RUNTIME (Law 2). The mzlink --no-reloc container

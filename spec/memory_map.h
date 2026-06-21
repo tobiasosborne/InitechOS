@@ -15,6 +15,22 @@
  * docs/worklog for the ratification. PROGRAM_BSS_RESERVE and every FLAIR_HEAP_*
  * constant are UNCHANGED.
  *
+ * DELIBERATE-ACT NOTE (Rule 8) -- beads initech-re30.2 (FLAIR Phase-3 M3.0
+ * headroom, 2026-06-21): the SECOND whole-map shift +0x8000 of the conventional
+ * layout above PROGRAM_BASE, lifting it 0x38000 -> 0x40000 for ANOTHER +32 KiB
+ * of kernel-window headroom (160 -> 192 KiB, 0x10000..0x40000) to make room for
+ * the FLAIR Toolbox manager set (linked at M3.0, a SEPARATE later step). Exactly
+ * mirrors the initech-o0td shift one step earlier (0x30000 -> 0x38000): every
+ * program-region constant and the kernel stack (kstart.asm) move up the same
+ * +0x8000, so all relative distances -- and the disjointness proofs -- are
+ * preserved; only the absolute literals move. PROGRAM_BSS_RESERVE and every
+ * FLAIR_HEAP_* constant are UNCHANGED. CRITICAL: this +0x8000 raise spends the
+ * LAST of the conventional free gap (free gap = 0xA0000..0xA0000 = 0 KiB, since
+ * the kernel stack now tops at 0x9FFFC, adjacent to the 0xA0000 VGA aperture):
+ * this is the MAXIMUM PROGRAM_BASE raise possible under the conventional-memory
+ * scheme -- any further kernel growth requires a high-half / extended-memory
+ * relocation (filed as a follow-up). See docs/worklog for the ratification.
+ *
  * Source / Law 1 citations (all local):
  *   docs/research/psp-loader-ground-truth.md Sec 1 (the confirmed memory map +
  *     the gap proof), Sec 3.2 (the concrete addresses + the worked alloc/env
@@ -23,51 +39,61 @@
  *   os/milton/kernel.ld:18 (kernel linked at 0x00010000; _kernel_end);
  *   Makefile KERNEL_SECTORS=96 -> kernel end ~0x1fd20 (kernel .bss grew:
  *     cfg_fat_buf et al. filled the old 64 KiB window);
- *   os/milton/kstart.asm:25 (kernel ESP = 0x00097FFC -- the kernel stack lives
- *     at 0x88000+, well above the program region; raised +0x8000 by initech-o0td
- *     in lockstep with the whole-map shift below).
+ *   os/milton/kstart.asm:25 (kernel ESP = 0x0009FFFC -- the kernel stack lives
+ *     at 0x90000+, well above the program region; raised +0x8000 by initech-o0td
+ *     then ANOTHER +0x8000 by initech-re30.2 in lockstep with the whole-map
+ *     shifts below).
  *
  * Gap proof (psp-loader-ground-truth.md Sec 3.2; re-verified, raised per
- * beads initech-5pe, then shifted up +0x8000 per beads initech-o0td):
- *   kernel window     = 0x10000..0x38000 = 160 KiB (kernel.ld + 96 sectors;
+ * beads initech-5pe, then shifted up +0x8000 per beads initech-o0td, then a
+ * SECOND +0x8000 per beads initech-re30.2):
+ *   kernel window     = 0x10000..0x40000 = 192 KiB (kernel.ld + 96 sectors;
  *                       _kernel_end ~0x28890 (MEASURED 2026-06-21 via
  *                       `nm build/kernel.elf`; the earlier "~0x1fd20" figure was
- *                       stale by ~36 KiB), so ~0xF770 (~61 KiB) headroom under
- *                       PROGRAM_BASE -- was a 128 KiB window 0x10000..0x30000;
- *                       initech-o0td raised PROGRAM_BASE 0x30000 -> 0x38000 to
- *                       give the kernel +32 KiB of growth window, analogous to
- *                       how initech-5pe raised it 0x20000 -> 0x30000. NOTE
+ *                       stale by ~36 KiB), so ~0x17770 (~93 KiB) headroom under
+ *                       PROGRAM_BASE -- was a 160 KiB window 0x10000..0x38000;
+ *                       initech-re30.2 raised PROGRAM_BASE 0x38000 -> 0x40000 to
+ *                       give the kernel +32 KiB MORE of growth window, analogous
+ *                       to how initech-o0td raised it 0x30000 -> 0x38000 and
+ *                       initech-5pe raised it 0x20000 -> 0x30000. NOTE
  *                       (initech-re30.1): the BOOTING shell kernel
  *                       (kernel_shell.elf) is TIGHTER -- _kernel_end=0x30920,
- *                       only ~29 KiB headroom -- and linking the FLAIR Manager
- *                       set (~51 KiB) at Phase-3 M3.0 WILL exceed it; kernel.ld
- *                       now ASSERTs _kernel_end<0x38000 (fail-loud at LINK,
- *                       mutation-proven), and a +0x8000 PROGRAM_BASE raise is
- *                       pre-authorized as the mitigation.)
- *   PROGRAM_BASE       = 0x38000   -> top of the 160 KiB kernel window
- *   PROGRAM_IMAGE      = 0x38100   -> PSP + 0x100 (the authentic .COM offset)
- *   PROGRAM_IMAGE_MAX end = ENV_BLOCK -> image arena 0x38100..0x67000 (~187 KiB)
- *   ENV_BLOCK          = 0x67000   -> 2-byte empty env, OUTSIDE the image arena
+ *                       only ~61 KiB headroom under the new 0x40000 base -- and
+ *                       linking the FLAIR Manager set (~51 KiB) at Phase-3 M3.0
+ *                       is the reason this raise was taken NOW; kernel.ld now
+ *                       ASSERTs _kernel_end<0x40000 (fail-loud at LINK,
+ *                       mutation-proven).)
+ *   PROGRAM_BASE       = 0x40000   -> top of the 192 KiB kernel window
+ *   PROGRAM_IMAGE      = 0x40100   -> PSP + 0x100 (the authentic .COM offset)
+ *   PROGRAM_IMAGE_MAX end = ENV_BLOCK -> image arena 0x40100..0x6F000 (~187 KiB)
+ *   ENV_BLOCK          = 0x6F000   -> 2-byte empty env, OUTSIDE the image arena
  *                                     (was 0x20200 = image+0x100 -> corrupted any
  *                                      .COM > 256 B; beads initech-2og, Rule 8)
- *   PROGRAM_STACK_BOT  = 0x68000   -> env region 0x67000..0x68000 below the stack
- *   PROGRAM_ALLOC_END  = 0x78000   -> ceiling of the program's allocation
- *   PROGRAM_STACK_TOP  = 0x77FFC   -> initial program ESP (4-aligned, < ceiling)
- *   LOAD_STAGING       = 0x78000..0x88000 -> 64 KiB EXEC staging (above ceiling)
- *   kernel stack       = 0x88000..0x98000 -> kstart.asm ESP 0x97FFC; 32 KiB free
- *   free gap           = 0x98000..0xA0000 = 32 KiB (was 64 KiB; +0x8000 shift
- *                        spent half of it to widen the kernel window)
+ *   PROGRAM_STACK_BOT  = 0x70000   -> env region 0x6F000..0x70000 below the stack
+ *   PROGRAM_ALLOC_END  = 0x80000   -> ceiling of the program's allocation
+ *   PROGRAM_STACK_TOP  = 0x7FFFC   -> initial program ESP (4-aligned, < ceiling)
+ *   LOAD_STAGING       = 0x80000..0x90000 -> 64 KiB EXEC staging (above ceiling)
+ *   kernel stack       = 0x90000..0xA0000 -> kstart.asm ESP 0x9FFFC; 0 KiB free
+ *   free gap           = 0xA0000..0xA0000 = 0 KiB (this +0x8000 raise spent the
+ *                        LAST of the conventional gap; the kernel stack now tops
+ *                        at 0x9FFFC, adjacent to the 0xA0000 VGA / mode-0x13-LFB-
+ *                        fallback aperture. This is the MAXIMUM PROGRAM_BASE raise
+ *                        possible under the conventional-memory scheme -- further
+ *                        kernel growth requires a high-half / extended-memory
+ *                        relocation, filed as a follow-up.)
  *
- * THE WHOLE-MAP SHIFT (beads initech-o0td, committee-ratified PATH 2, 2026-06-20;
- * Rule 8 -- a deliberate locked-data act): the entire conventional-memory layout
- * above PROGRAM_BASE moved UP by delta = 0x8000 (32 KiB). This reclaimed half of
- * the old [0x90000,0xA0000) free gap to lift PROGRAM_BASE 0x30000 -> 0x38000,
- * widening the kernel window from 128 KiB to 160 KiB. Every program-region
- * constant (PROGRAM_BASE/IMAGE, ENV_BLOCK, PROGRAM_STACK_BOT/TOP,
- * PROGRAM_ALLOC_END, LOAD_STAGING_BASE) and the kernel stack (kstart.asm) shifted
- * by the same +0x8000, so all relative distances -- and thus the disjointness
+ * THE WHOLE-MAP SHIFTS (beads initech-o0td 2026-06-20, then initech-re30.2
+ * 2026-06-21; both committee-ratified; Rule 8 -- deliberate locked-data acts):
+ * the entire conventional-memory layout above PROGRAM_BASE moved UP by delta =
+ * 0x8000 (32 KiB) TWICE. o0td reclaimed half the old [0x90000,0xA0000) free gap
+ * to lift PROGRAM_BASE 0x30000 -> 0x38000 (kernel window 128 -> 160 KiB);
+ * re30.2 reclaimed the OTHER half to lift it 0x38000 -> 0x40000 (160 -> 192 KiB),
+ * spending the last of the conventional gap. Every program-region constant
+ * (PROGRAM_BASE/IMAGE, ENV_BLOCK, PROGRAM_STACK_BOT/TOP, PROGRAM_ALLOC_END,
+ * LOAD_STAGING_BASE) and the kernel stack (kstart.asm) shifted by the same
+ * +0x8000 each time, so all relative distances -- and thus the disjointness
  * proofs below -- are PRESERVED; only the absolute addresses move. See
- * docs/worklog for the committee ratification. PROGRAM_BSS_RESERVE and every
+ * docs/worklog for the committee ratifications. PROGRAM_BSS_RESERVE and every
  * FLAIR_HEAP_* constant are UNCHANGED.
  *
  * ASCII-clean (Rule 12). No nondeterminism (Rule 11).
@@ -77,36 +103,38 @@
 
 /* Flat linear address of the PSP (256 bytes). The program's "segment" base in
  * the .COM model. Ref Sec 1 / Sec 3.2. RAISED 0x20000 -> 0x30000 (beads
- * initech-5pe), then RAISED 0x30000 -> 0x38000 (beads initech-o0td; LOCKED-spec
- * change, Rule 8): the whole conventional map shifted up +0x8000 to give the
- * kernel a 160 KiB window (0x10000..0x38000), +32 KiB of growth room over the
- * prior 128 KiB window. */
-#define PROGRAM_BASE        0x00038000u
+ * initech-5pe), then RAISED 0x30000 -> 0x38000 (beads initech-o0td), then RAISED
+ * 0x38000 -> 0x40000 (beads initech-re30.2; LOCKED-spec change, Rule 8): the
+ * whole conventional map shifted up +0x8000 a SECOND time to give the kernel a
+ * 192 KiB window (0x10000..0x40000), +32 KiB of growth room over the prior
+ * 160 KiB window -- the room the FLAIR Toolbox manager set needs at M3.0. */
+#define PROGRAM_BASE        0x00040000u
 
 /* Flat linear entry point of the loaded program image = PROGRAM_BASE + 0x100.
  * The 0x100 offset preserves the authentic DOS .COM layout (PSP then image);
- * the baked .asm programs are assembled with `org 0x00038100` so their absolute
+ * the baked .asm programs are assembled with `org 0x00040100` so their absolute
  * references resolve at the load address. NASM cannot read this C header, so
  * each os/milton program .asm duplicates this constant -- they MUST move
- * together with this define (initech-5pe; shifted +0x8000 by initech-o0td).
- * Ref Sec 3.1 / Sec 3.2 / Sec 5.3. */
-#define PROGRAM_IMAGE       0x00038100u
+ * together with this define (initech-5pe; shifted +0x8000 by initech-o0td, then
+ * a SECOND +0x8000 by initech-re30.2). Ref Sec 3.1 / Sec 3.2 / Sec 5.3. */
+#define PROGRAM_IMAGE       0x00040100u
 
 /* Flat linear address of the minimal environment block (two bytes: 00 00 = the
- * empty-but-valid environment). env_seg in the PSP stores (this >> 4) = 0x6700.
+ * empty-but-valid environment). env_seg in the PSP stores (this >> 4) = 0x6F00.
  *
  * RELOCATED 0x20200 -> 0x5F000 (beads initech-2og; LOCKED-spec change, Rule 8 --
  * deliberate, with that issue + worklog note), then SHIFTED 0x5F000 -> 0x67000
- * (beads initech-o0td; whole-map +0x8000). The OLD value 0x20200 = PROGRAM_
+ * (beads initech-o0td; whole-map +0x8000), then SHIFTED 0x67000 -> 0x6F000 (beads
+ * initech-re30.2; whole-map +0x8000 again). The OLD value 0x20200 = PROGRAM_
  * IMAGE (0x20100) + 0x100 sat INSIDE the program image: load_program() copies the
  * whole .COM to 0x20100 and THEN wrote the 2-byte env at 0x20200, silently zeroing
  * the program's own bytes at file offset 0x100 for ANY image > 256 bytes (a
  * deterministic 2-byte corruption -- reads as NUL). The env now lives in a
- * dedicated region (0x67000..0x68000) just BELOW the program stack (PROGRAM_STACK_
- * BOT = 0x68000) and ABOVE the largest image (PROGRAM_IMAGE_MAX now ends at
+ * dedicated region (0x6F000..0x70000) just BELOW the program stack (PROGRAM_STACK_
+ * BOT = 0x70000) and ABOVE the largest image (PROGRAM_IMAGE_MAX now ends at
  * ENV_BLOCK), so it can never overlap the image or the stack. Room (~4 KiB) for a
  * real PATH/COMSPEC environment later (beads atf). Ref Sec 2.7 / Sec 3.2. */
-#define ENV_BLOCK           0x00067000u
+#define ENV_BLOCK           0x0006F000u
 
 /* Two bytes: a double-NUL = an empty (but valid) DOS environment block. A
  * program walking env_seg:0 immediately finds the terminator. Ref Sec 2.7. */
@@ -114,47 +142,51 @@
 
 /* Total bytes available in the dedicated environment region for a POPULATED
  * environment block (beads initech-1i0x Tranche E inc 3 -- EXEC env inheritance).
- * The region runs from ENV_BLOCK (0x67000) up to PROGRAM_STACK_BOT (0x68000), so
+ * The region runs from ENV_BLOCK (0x6F000) up to PROGRAM_STACK_BOT (0x70000), so
  * the shell may serialize up to ENV_BLOCK_CAP bytes of "NAME=VALUE\0..\0" there
  * before the AH=4Bh EXEC without ever reaching the program stack. = PROGRAM_STACK_
  * BOT - ENV_BLOCK = 0x1000 = 4096 bytes -- comfortably above env.h's serialize
  * ceiling (ENV_ARENA_MAX + 1 = 513 bytes), with headroom for the deferred DOS 3.0+
  * trailing word-count + program-path string (beads atf). The shell bounds the
  * serialize write to this capacity and fails loud (Rule 2) on overflow rather than
- * scribbling past 0x68000 into the program stack. DERIVED from the locked
+ * scribbling past 0x70000 into the program stack. DERIVED from the locked
  * constants -- never a magic literal -- so it tracks any Rule-8 map change. */
 #define ENV_BLOCK_CAP       (PROGRAM_STACK_BOT - ENV_BLOCK)
 
 /* Flat linear address one past the program's allocation (the memory ceiling).
- * Stored in the PSP alloc_end_seg as (this >> 4) = 0x7800. This is the top of
+ * Stored in the PSP alloc_end_seg as (this >> 4) = 0x8000. This is the top of
  * the program stack region. Ref Sec 2.2 / Sec 3.2. (Shifted 0x70000 -> 0x78000
- * by beads initech-o0td; whole-map +0x8000.) */
-#define PROGRAM_ALLOC_END   0x00078000u
+ * by beads initech-o0td, then 0x78000 -> 0x80000 by beads initech-re30.2;
+ * whole-map +0x8000 each.) */
+#define PROGRAM_ALLOC_END   0x00080000u
 
 /* Initial program ESP: top of the 64 KiB program stack, 4-byte aligned, below
- * PROGRAM_ALLOC_END and far below the kernel stack (0x88000+). Ref Sec 3.2.
- * (Shifted 0x6FFFC -> 0x77FFC by beads initech-o0td; whole-map +0x8000.) */
-#define PROGRAM_STACK_TOP   0x00077FFCu
+ * PROGRAM_ALLOC_END and far below the kernel stack (0x90000+). Ref Sec 3.2.
+ * (Shifted 0x6FFFC -> 0x77FFC by beads initech-o0td, then 0x77FFC -> 0x7FFFC by
+ * beads initech-re30.2; whole-map +0x8000 each.) */
+#define PROGRAM_STACK_TOP   0x0007FFFCu
 
 /* Bottom of the program stack region (informational; the loader does not need
  * to touch it -- the stack descends from PROGRAM_STACK_TOP). Ref Sec 3.2.
- * (Shifted 0x60000 -> 0x68000 by beads initech-o0td; whole-map +0x8000.)
+ * (Shifted 0x60000 -> 0x68000 by beads initech-o0td, then 0x68000 -> 0x70000 by
+ * beads initech-re30.2; whole-map +0x8000 each.)
  *
  * ALSO the AH=48h MCB ARENA CEILING (beads initech-1q4u; ADR-0009 DEC-04): the
  * loader binds the heap arena to end here, so a 48h ALLOC can never return memory
  * inside the 64 KiB program stack [PROGRAM_STACK_BOT, PROGRAM_STACK_TOP]. See the
  * ARENA DISJOINTNESS INVARIANT block below. */
-#define PROGRAM_STACK_BOT   0x00068000u
+#define PROGRAM_STACK_BOT   0x00070000u
 
 /* The largest program image that fits between PROGRAM_IMAGE and the dedicated
  * environment region (ENV_BLOCK, just below the program stack). The loader
  * rejects (fail loud, Rule 2) any image larger than this, so the image can never
  * reach the env block or the stack. = ENV_BLOCK - PROGRAM_IMAGE (beads
  * initech-2og: was PROGRAM_STACK_BOT - PROGRAM_IMAGE, before the env moved out of
- * the image arena). The env region 0x67000..0x68000 sits between the max image
- * and PROGRAM_STACK_BOT (0x68000). Value is invariant under the initech-o0td
- * +0x8000 shift (both ENV_BLOCK and PROGRAM_IMAGE moved up together):
- * 0x67000 - 0x38100 = 0x2EF00 (~187 KiB), same as the old 0x5F000 - 0x30100. */
+ * the image arena). The env region 0x6F000..0x70000 sits between the max image
+ * and PROGRAM_STACK_BOT (0x70000). Value is invariant under both whole-map
+ * +0x8000 shifts (both ENV_BLOCK and PROGRAM_IMAGE moved up together each time):
+ * 0x6F000 - 0x40100 = 0x2EF00 (~187 KiB), same as the o0td 0x67000 - 0x38100 and
+ * the original 0x5F000 - 0x30100. */
 #define PROGRAM_IMAGE_MAX   (ENV_BLOCK - PROGRAM_IMAGE)
 
 /* ------------------------------------------------------------------------ *
@@ -164,8 +196,8 @@
  * THE BUG THIS FIXES (ADR-0009 Sec 1 / DEC-04): the AH=48h/49h/4Ah MCB heap arena
  * was bound over the WHOLE program window [PROGRAM_BASE, PROGRAM_ALLOC_END) with
  * flat base == PROGRAM_BASE (sysinit.c). That window IS the running program: its
- * PSP (0x38000), its image+BSS (0x38100+), its env (0x67000), and its 64 KiB
- * stack (top 0x77FFC) all live inside it. So a 48h ALLOC (after the authentic
+ * PSP (0x40000), its image+BSS (0x40100+), its env (0x6F000), and its 64 KiB
+ * stack (top 0x7FFFC) all live inside it. So a 48h ALLOC (after the authentic
  * 4Ah shrink) would hand the program a block OVERLAPPING its own code/BSS/stack.
  * Latent before SAMIR (toy .COMs never call 48h; the emulator zero-inits RAM),
  * but SAMIR -- the first heap-using app -- would corrupt itself nondeterministically.
@@ -194,24 +226,26 @@
  *      PROGRAM_ARENA_CEIL == ENV_BLOCK (exclusive), so no allocated paragraph
  *      reaches the env the PSP env_seg points at.
  *   3. Program stack      : [PROGRAM_STACK_BOT, PROGRAM_STACK_TOP]. Since
- *      PROGRAM_ARENA_CEIL (== ENV_BLOCK, 0x67000) < PROGRAM_STACK_BOT (0x68000),
+ *      PROGRAM_ARENA_CEIL (== ENV_BLOCK, 0x6F000) < PROGRAM_STACK_BOT (0x70000),
  *      the ceiling is BELOW the stack: no allocated paragraph reaches the stack.
  * The single invariant a caller relies on: a 48h block is ALWAYS within
  * [arena_base, PROGRAM_ARENA_CEIL) with arena_base > image_end -- provably
  * disjoint from the image, the env, and the stack.
  *
- * WORKED NUMBERS at the initech-o0td map, for SAMIR (image_len = 0x13220,
- * .bss = 0xBD20, both measured 2026-06-20):
- *   image_end  = PROGRAM_IMAGE + image_len     = 0x38100 + 0x13220 = 0x4B320
- *   .bss end   = image_end + .bss              = 0x4B320 + 0xBD20  = 0x57040
- *   arena_base = roundup_para(0x38100 + 0x13220 + 0x10000)         = 0x5B320
- *   arena      = [0x5B320, 0x67000)            = 0xBCE0 = 47.2 KiB usable heap
- *   margin     = arena_base - .bss end = 0x5B320 - 0x57040 = 0x42E0 = 16.7 KiB
- *               -> arena_base (0x5B320) >= .bss end (0x57040): NO heap/BSS overlap.
- *   env  [0x67000, 0x67002) sits AT the exclusive ceiling (PROGRAM_ARENA_CEIL);
- *   stack [0x68000, 0x77FFC] sits ABOVE the ceiling -> arena, env, stack all
- *   pairwise disjoint. (This is exactly the disjointness PATH 2 preserves: the
- *   16.7 KiB margin is why the rejected 32 KiB reserve would have failed.)
+ * WORKED NUMBERS at the initech-re30.2 map, for SAMIR (image_len = 0x13220,
+ * .bss = 0xBD20, both measured 2026-06-20; addresses shifted +0x8000 from the
+ * o0td worked example, distances unchanged):
+ *   image_end  = PROGRAM_IMAGE + image_len     = 0x40100 + 0x13220 = 0x53320
+ *   .bss end   = image_end + .bss              = 0x53320 + 0xBD20  = 0x5F040
+ *   arena_base = roundup_para(0x40100 + 0x13220 + 0x10000)         = 0x63320
+ *   arena      = [0x63320, 0x6F000)            = 0xBCE0 = 47.2 KiB usable heap
+ *   margin     = arena_base - .bss end = 0x63320 - 0x5F040 = 0x42E0 = 16.7 KiB
+ *               -> arena_base (0x63320) >= .bss end (0x5F040): NO heap/BSS overlap.
+ *   env  [0x6F000, 0x6F002) sits AT the exclusive ceiling (PROGRAM_ARENA_CEIL);
+ *   stack [0x70000, 0x7FFFC] sits ABOVE the ceiling -> arena, env, stack all
+ *   pairwise disjoint. (This is exactly the disjointness the +0x8000 shift
+ *   preserves: every distance -- usable heap 0xBCE0, margin 0x42E0 -- is
+ *   byte-identical to the o0td and 5pe maps; only the absolute literals moved.)
  *
  * The loader fails loud (Rule 2) if image_len + PROGRAM_BSS_RESERVE leaves no
  * positive-size window below PROGRAM_ARENA_CEIL (an image too big to heap-host);
@@ -221,13 +255,15 @@
  * (HISTORICAL NOTE: when this invariant was ADDED -- ADR-0009 DEC-04 -- it changed
  * no numeric constant; the arena BASE became a COMPUTED value, was the literal
  * PROGRAM_BASE in sysinit.c, and only this commentary + PROGRAM_BSS_RESERVE were
- * added. The LATER beads initech-o0td whole-map +0x8000 shift DOES move the
- * numeric constants (PROGRAM_BASE / PROGRAM_IMAGE / ENV_BLOCK / PROGRAM_STACK_BOT /
- * ...) and the .asm `org`s up by 0x8000, but the proof STRUCTURE is invariant:
- * every region shifted by the same delta, so all the >= / < relations and the
+ * added. The LATER beads initech-o0td whole-map +0x8000 shift, and then the
+ * beads initech-re30.2 SECOND +0x8000 shift, DO move the numeric constants
+ * (PROGRAM_BASE / PROGRAM_IMAGE / ENV_BLOCK / PROGRAM_STACK_BOT / ...) and the
+ * .asm `org`s up by 0x8000 each, but the proof STRUCTURE is invariant: every
+ * region shifted by the same delta, so all the >= / < relations and the
  * PROGRAM_IMAGE_MAX bound hold byte-for-byte at the new addresses -- only the
- * absolute literals in the worked SAMIR numbers below move.)
- * Ref: ADR-0009 DEC-04/DEC-05; DOS 3.3 PRM AH=48h; beads initech-o0td. */
+ * absolute literals in the worked SAMIR numbers above move.)
+ * Ref: ADR-0009 DEC-04/DEC-05; DOS 3.3 PRM AH=48h; beads initech-o0td,
+ * initech-re30.2. */
 
 /* Conservative .bss reserve the loader adds PAST the loaded image before the heap
  * arena begins (beads initech-1q4u; ADR-0009 DEC-04/DEC-05). A flat .COM does NOT
@@ -254,13 +290,15 @@
  * uninitialised BSS; a too-large one only shrinks the heap window (a ~187 KiB image
  * arena minus a 64 KiB reserve still leaves a usable heap below PROGRAM_STACK_BOT
  * for any realistic image). The loader fails loud (Rule 2) if image_len + this
- * reserve leaves no positive arena below the ceiling. UNCHANGED by initech-o0td. */
+ * reserve leaves no positive arena below the ceiling. UNCHANGED by initech-o0td
+ * AND by initech-re30.2 (both whole-map shifts move only absolute addresses; the
+ * reserve is a distance, so it is invariant). */
 #define PROGRAM_BSS_RESERVE 0x00010000u
 
 /* The AH=48h heap-arena CEILING (exclusive): no allocated paragraph reaches at
  * or above this address (beads initech-1q4u; ADR-0009 DEC-04). == ENV_BLOCK so
  * the heap stays BELOW both the env block (at ENV_BLOCK) and -- since ENV_BLOCK
- * (0x67000) < PROGRAM_STACK_BOT (0x68000) -- the 64 KiB program stack. The loader
+ * (0x6F000) < PROGRAM_STACK_BOT (0x70000) -- the 64 KiB program stack. The loader
  * binds [arena_base, PROGRAM_ARENA_CEIL); see the disjointness invariant above. */
 #define PROGRAM_ARENA_CEIL  ENV_BLOCK
 
@@ -270,33 +308,40 @@
  *
  * AH=4Bh EXEC / load_program_from_fat (os/milton/loader.c) reads the named .COM
  * off the mounted FAT12 volume into a STAGING buffer, then load_program() copies
- * it DOWN to PROGRAM_IMAGE (0x38100) and JMPs in. The staging buffer must NOT
- * collide with the program region (0x38100..PROGRAM_STACK_BOT) -- the copy reads
+ * it DOWN to PROGRAM_IMAGE (0x40100) and JMPs in. The staging buffer must NOT
+ * collide with the program region (0x40100..PROGRAM_STACK_BOT) -- the copy reads
  * staging and writes the program region, so they must be disjoint.
  *
- * Placement: the 64 KiB gap between PROGRAM_ALLOC_END (0x78000, the program's
- * memory ceiling) and the kernel stack (0x88000+; os/milton/kstart.asm:25 ESP =
- * 0x00097FFC -- the kernel stack moved up +0x8000 with the rest of the map under
- * beads initech-o0td). This region is unused by the program model (it is ABOVE
- * the program's alloc ceiling) and below the kernel stack, so it is disjoint from
- * PROGRAM_IMAGE -- a clean, kernel-owned staging home (NOT the kernel stack;
- * Risk 2 / fs-mount-sft-ground-truth.md). The old single open-file buffer that
- * used to share this region is GONE: file OPEN/READ/WRITE are now positioned
- * per-handle over the cluster chain (no whole-file buffer; beads initech-0qh),
- * so this region is staging-only.
+ * Placement: the 64 KiB gap between PROGRAM_ALLOC_END (0x80000, the program's
+ * memory ceiling) and the kernel stack (0x90000+; os/milton/kstart.asm:25 ESP =
+ * 0x0009FFFC -- the kernel stack moved up +0x8000 with the rest of the map under
+ * beads initech-o0td, then a SECOND +0x8000 under beads initech-re30.2). This
+ * region is unused by the program model (it is ABOVE the program's alloc ceiling)
+ * and below the kernel stack, so it is disjoint from PROGRAM_IMAGE -- a clean,
+ * kernel-owned staging home (NOT the kernel stack; Risk 2 /
+ * fs-mount-sft-ground-truth.md). The old single open-file buffer that used to
+ * share this region is GONE: file OPEN/READ/WRITE are now positioned per-handle
+ * over the cluster chain (no whole-file buffer; beads initech-0qh), so this
+ * region is staging-only.
  *
- * Disjoint-from-PROGRAM_IMAGE proof: LOAD_STAGING_BASE (0x78000) >=
- * PROGRAM_ALLOC_END (0x78000) > PROGRAM_STACK_BOT (0x68000) > PROGRAM_IMAGE
- * (0x38100); the staging window [0x78000,0x88000) never overlaps the program
- * region [0x38100,0x68000). Disjoint-from-kernel-stack proof: the staging top
- * (0x88000) == the kernel-stack bottom (0x88000) -- adjacent, so disjoint -- and
- * the kernel-stack top (kstart.asm ESP 0x97FFC) < VGA/BIOS (0xA0000). SINGLE-USE
- * LIMIT (documented): EXEC runs from kernel/shell context and is single-level
- * (loader g_load_active guard), so one staging region suffices; concurrent EXEC
- * is a follow-up bead. The image-size cap is the smaller of LOAD_STAGING_MAX and
- * PROGRAM_IMAGE_MAX (load_program rejects anything bigger). */
-#define LOAD_STAGING_BASE   0x00078000u
-#define LOAD_STAGING_MAX    0x00010000u   /* 64 KiB staging (0x78000..0x88000)   */
+ * Disjoint-from-PROGRAM_IMAGE proof: LOAD_STAGING_BASE (0x80000) >=
+ * PROGRAM_ALLOC_END (0x80000) > PROGRAM_STACK_BOT (0x70000) > PROGRAM_IMAGE
+ * (0x40100); the staging window [0x80000,0x90000) never overlaps the program
+ * region [0x40100,0x70000). Disjoint-from-kernel-stack proof: the staging top
+ * (0x90000) == the kernel-stack bottom (0x90000) -- adjacent, so disjoint -- and
+ * the kernel-stack top (kstart.asm ESP 0x9FFFC) is adjacent to (one dword below)
+ * the 0xA0000 VGA/BIOS aperture, so the kernel stack [0x90000,0xA0000) stays
+ * BELOW VGA: 0x9FFFC < 0xA0000. NOTE (initech-re30.2): this SECOND +0x8000 shift
+ * spent the LAST of the conventional free gap -- the kernel stack now butts
+ * directly against the 0xA0000 VGA aperture with no slack, so this is the maximum
+ * raise possible under the conventional-memory scheme (further growth needs a
+ * high-half / extended-memory relocation). SINGLE-USE LIMIT (documented): EXEC
+ * runs from kernel/shell context and is single-level (loader g_load_active
+ * guard), so one staging region suffices; concurrent EXEC is a follow-up bead.
+ * The image-size cap is the smaller of LOAD_STAGING_MAX and PROGRAM_IMAGE_MAX
+ * (load_program rejects anything bigger). */
+#define LOAD_STAGING_BASE   0x00080000u
+#define LOAD_STAGING_MAX    0x00010000u   /* 64 KiB staging (0x80000..0x90000)   */
 
 /* ------------------------------------------------------------------------ *
  * FLAIR TOOLBOX HEAP -- dedicated EXTENDED-MEMORY region above 1 MiB
@@ -351,16 +396,16 @@
  *      EventRecord queue) MUST persist across app launches; coupling it to the
  *      DOS arena would destroy it on the next EXEC -- a deep correctness bug
  *      (Rule 3), not a trade-off. The arena ceiling is also tight
- *      (PROGRAM_ARENA_CEIL == ENV_BLOCK == 0x67000, already snug for SAMIR),
- *      and the 0x98000..0xA0000 conventional gap (~32 KiB, after initech-o0td
- *      spent half the old 64 KiB gap on the kernel window) cannot hold even one
- *      307,200-byte indexed-8 640x480 offscreen. Extended memory is the only
- *      viable home.
+ *      (PROGRAM_ARENA_CEIL == ENV_BLOCK == 0x6F000, already snug for SAMIR),
+ *      and the conventional gap is now GONE (0xA0000..0xA0000 = 0 KiB, after
+ *      initech-o0td then initech-re30.2 spent BOTH halves of the old 64 KiB gap
+ *      on the kernel window) -- it cannot hold even one 307,200-byte indexed-8
+ *      640x480 offscreen. Extended memory is the only viable home.
  *
  * DISJOINTNESS FROM THE CONVENTIONAL MAP: the entire conventional layout above
- * lives at or below the kernel stack (0x88000..0x98000, post initech-o0td) and
- * the staging window (0x78000..0x88000); the highest conventional address in use
- * is < 0x100000 (kernel-stack top 0x97FFC < the 1 MiB line).
+ * lives at or below the kernel stack (0x90000..0xA0000, post initech-re30.2) and
+ * the staging window (0x80000..0x90000); the highest conventional address in use
+ * is < 0x100000 (kernel-stack top 0x9FFFC < the 1 MiB line).
  * FLAIR_HEAP_BASE == 0x100000 begins ABOVE the 1 MiB line, so [0x100000,
  * 0x500000) is disjoint from PROGRAM_BASE / PROGRAM_IMAGE / ENV_BLOCK / the
  * PROGRAM_STACK region / PROGRAM_ARENA_CEIL / the LOAD_STAGING window by

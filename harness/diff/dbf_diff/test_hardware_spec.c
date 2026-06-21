@@ -14,9 +14,11 @@
  *      lacked an 8087; software FP is the authentic stance).
  *   4. fpu.init_by_kernel == false (ADR-0009 DEC-01: InitechDOS does NOT init the FPU,
  *      exactly as DOS 3.3 did not). Tested as the literal string "false".
- *   5. memory window references PROGRAM_BASE (0x00038000) and PROGRAM_ALLOC_END
- *      (0x00078000) by value, matching spec/memory_map.h exactly (raised +0x8000
- *      from 0x30000/0x70000 by beads initech-o0td, the whole-map kernel-headroom shift).
+ *   5. memory window references PROGRAM_BASE (0x00040000) and PROGRAM_ALLOC_END
+ *      (0x00080000) by value, matching spec/memory_map.h exactly (raised +0x8000
+ *      from 0x30000/0x70000 by beads initech-o0td, then ANOTHER +0x8000 to
+ *      0x38000/0x78000 -> 0x40000/0x80000 by beads initech-re30.2; both whole-map
+ *      kernel-headroom shifts).
  *   6. schema_version key present.
  *
  * MUTATION GATE (compile with -DHARDWARE_SPEC_MUTANT to invert expectations):
@@ -281,16 +283,17 @@ static void test_memory_window(const char *path)
     hex_str((unsigned long)PROGRAM_BASE,      base_hex, sizeof(base_hex));
     hex_str((unsigned long)PROGRAM_ALLOC_END, ceil_hex, sizeof(ceil_hex));
 
-    /* PROGRAM_BASE must be 0x00038000 (spec/memory_map.h; raised 0x30000->0x38000
-     * by beads initech-o0td, the whole-map shift +0x8000 for kernel-window
-     * headroom; was 0x30000 per initech-5pe). If this regression guard fires,
-     * memory_map.h changed without updating this test -- it fails loud (Rule 2). */
+    /* PROGRAM_BASE must be 0x00040000 (spec/memory_map.h; raised 0x38000->0x40000
+     * by beads initech-re30.2, the SECOND whole-map shift +0x8000 for kernel-window
+     * headroom; was 0x38000 per initech-o0td, 0x30000 per initech-5pe). If this
+     * regression guard fires, memory_map.h changed without updating this test --
+     * it fails loud (Rule 2). */
     /* We use a plain runtime check so the failure is a named CHECK, not a
      * compile-time abort that obscures the spec mismatch. */
-    CHECK(PROGRAM_BASE == 0x00038000u,
-          "spec/memory_map.h: PROGRAM_BASE == 0x00038000 (regression guard; o0td)");
-    CHECK(PROGRAM_ALLOC_END == 0x00078000u,
-          "spec/memory_map.h: PROGRAM_ALLOC_END == 0x00078000 (regression guard; o0td)");
+    CHECK(PROGRAM_BASE == 0x00040000u,
+          "spec/memory_map.h: PROGRAM_BASE == 0x00040000 (regression guard; re30.2)");
+    CHECK(PROGRAM_ALLOC_END == 0x00080000u,
+          "spec/memory_map.h: PROGRAM_ALLOC_END == 0x00080000 (regression guard; re30.2)");
 
     /* Convert to lowercase for the JSON search (JSON uses lowercase 0x...): */
     {

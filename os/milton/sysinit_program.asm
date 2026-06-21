@@ -23,9 +23,10 @@
 ; Deployed:  mcopy build/sysinit_program.bin ::SYSI.COM (loaded BY NAME via
 ;            load_program_from_fat). org PROGRAM_IMAGE so abs refs resolve.
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
+; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00038100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
 start:
     xor ebx, ebx               ; ebx = successful-open count

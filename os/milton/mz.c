@@ -6,7 +6,7 @@
  *          DEC-08a.4: dispatch by content bytes 0-1 ('MZ'/'ZM').
  *          DEC-08a.5: e_res[0] (offset 0x1C) == MZ_INITECH_TAG required;
  *                     untagged MZ -> MZ_ERR_FOREIGN (kernel will PANIC).
- *        spec/memory_map.h: PROGRAM_IMAGE (0x38100) is the flat load base.
+ *        spec/memory_map.h: PROGRAM_IMAGE (0x40100) is the flat load base.
  *        IBM DOS 3.3 Technical Reference (MZ header layout / field semantics).
  *        CLAUDE.md Law 1, Law 2, Law 3 (artifact = C, freestanding),
  *        Rule 2 (fail loud), Rule 6 (mutation-proven),

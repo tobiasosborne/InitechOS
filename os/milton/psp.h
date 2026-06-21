@@ -54,7 +54,7 @@ typedef struct psp_params {
     /* Flat linear address of the first byte BEYOND the program's allocation
      * (the memory ceiling). Stored at psp_t.alloc_end_seg as (addr >> 4) &
      * 0xFFFF -- a flat address in fake paragraph units. Ref Sec 2.2 / Sec 3.2
-     * (e.g. 0x78000 -> 0x7800). */
+     * (e.g. 0x80000 -> 0x8000). */
     uint32_t alloc_end_linear;
 
     /* Flat linear address of the environment block. Stored at psp_t.env_seg as

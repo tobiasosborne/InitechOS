@@ -19,14 +19,18 @@ global _start
 extern kernel_main
 
 _start:
-    ; Kernel stack: top 0x00097FFC, 4-byte aligned. Region [0x88000, 0x98000)
-    ; shifted +0x8000 in lockstep with the program map (initech-o0td) so the
-    ; stack stays disjoint from the LOAD_STAGING window [0x78000, 0x88000) and
-    ; from the kernel image (linked at 0x10000, a few KiB). The stage2 stack
-    ; anchor (0x90000) is inside this region but stage2 has already far-jumped
-    ; to the kernel before we reach this instruction, so the region is dead and
-    ; safe to reuse. Grows down into free conventional RAM.
-    mov esp, 0x00097FFC
+    ; Kernel stack: top 0x0009FFFC, 4-byte aligned. Region [0x90000, 0xA0000)
+    ; shifted +0x8000 in lockstep with the program map (initech-o0td), then a
+    ; SECOND +0x8000 (initech-re30.2), so the stack stays disjoint from the
+    ; LOAD_STAGING window [0x80000, 0x90000) and from the kernel image (linked at
+    ; 0x10000, a few KiB). The stage2 stack anchor (0x90000) is the bottom of this
+    ; region but stage2 has already far-jumped to the kernel before we reach this
+    ; instruction, so the region is dead and safe to reuse. The stack TOP 0x9FFFC
+    ; is one dword below the 0xA0000 VGA aperture -- this region butts directly
+    ; against VGA with no slack (initech-re30.2 spent the last conventional gap;
+    ; 0x9FFFC < 0xA0000 keeps the stack below VGA). Grows down into free
+    ; conventional RAM.
+    mov esp, 0x0009FFFC
     xor ebp, ebp                ; null frame pointer => top of stack to debugger
     push ebp
     call kernel_main            ; void kernel_main(void) -- never returns

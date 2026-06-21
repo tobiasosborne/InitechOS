@@ -13,11 +13,12 @@
 ;        CLAUDE.md Law 1 (cite), Rule 11 (deterministic), Rule 12 (ASCII).
 ;
 ; Assembled: nasm -f bin os/milton/dir_program.asm -o build/dir_program.bin
-; ADDRESSING (Solution A): org 0x00038100 == PROGRAM_IMAGE.
+; ADDRESSING (Solution A): org 0x00040100 == PROGRAM_IMAGE.
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
+; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00038100
+org 0x00040100
 
 FIND_FNAME_OFF equ 0x1E        ; spec/find_data.h: fname at offset 0x1E (real DOS, dww)
 

@@ -41,12 +41,13 @@ SECTIONS
 }
 
 /* B0 (beads initech-re30.1): fail-loud if the kernel image busts the
- * PROGRAM_BASE window. PROGRAM_BASE = 0x38000 (spec/memory_map.h) -- keep this
- * literal in sync. A bust is a LINK error (Rule 2), not silent boot-time
- * corruption of the program-image arena. Mitigation: raise PROGRAM_BASE +0x8000
- * (Rule-8 whole-map shift, initech-o0td/5pe precedent). Top-level ASSERT (after
- * the SECTIONS block) is the portable GNU ld form -- a bare ASSERT inside
- * SECTIONS is a syntax error. Headroom ~61 KiB at introduction
- * (_kernel_end=0x28890); Phase-3 FLAIR linking (M3.0) consumes it. */
-ASSERT(_kernel_end < 0x38000,
-       "kernel image busts the PROGRAM_BASE window (0x38000) -- raise PROGRAM_BASE +0x8000 (o0td precedent) or shrink the kernel")
+ * PROGRAM_BASE window. PROGRAM_BASE = 0x40000 (spec/memory_map.h; raised
+ * 0x38000->0x40000 by beads initech-re30.2, the whole-map +0x8000 shift) -- keep
+ * this literal in sync. A bust is a LINK error (Rule 2), not silent boot-time
+ * corruption of the program-image arena. Top-level ASSERT (after the SECTIONS
+ * block) is the portable GNU ld form -- a bare ASSERT inside SECTIONS is a
+ * syntax error. NOTE (initech-re30.2): this raise spent the LAST conventional
+ * gap (kernel stack now butts 0xA0000), so the next mitigation is no longer a
+ * +0x8000 shift but a high-half / extended-memory kernel relocation. */
+ASSERT(_kernel_end < 0x40000,
+       "kernel image busts the PROGRAM_BASE window (0x40000) -- raise PROGRAM_BASE (high-half/ext-mem relocation; conventional gap exhausted) or shrink the kernel")

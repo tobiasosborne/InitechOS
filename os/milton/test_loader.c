@@ -56,7 +56,7 @@ int main(void)
 
         /* Layout (Sec 3.2): psp at PROGRAM_BASE, image at PSP+0x100. */
         CHECK(plan.psp_addr == PROGRAM_BASE,
-              "psp_addr must be PROGRAM_BASE (0x38000)");
+              "psp_addr must be PROGRAM_BASE (0x40000)");
         CHECK(plan.image_dst == PROGRAM_BASE + 0x100u,
               "image_dst must be PROGRAM_BASE + 0x100 (the .COM offset)");
         CHECK(plan.image_dst == PROGRAM_IMAGE,
@@ -64,7 +64,7 @@ int main(void)
         CHECK(plan.entry == plan.image_dst,
               "entry EIP must equal image_dst (flat .COM entry)");
         CHECK(plan.stack_top == PROGRAM_STACK_TOP,
-              "stack_top must be PROGRAM_STACK_TOP (0x77FFC)");
+              "stack_top must be PROGRAM_STACK_TOP (0x7FFFC)");
         CHECK(plan.image_len == (uint32_t)sizeof(k_image),
               "image_len must pass through unchanged");
         CHECK(plan.image_src == k_image,
@@ -73,9 +73,9 @@ int main(void)
         /* psp_params (Sec 2.2/2.5/2.7): linear addresses for the vestigial
          * segment fields; psp_build converts each to a fake paragraph. */
         CHECK(plan.params.alloc_end_linear == PROGRAM_ALLOC_END,
-              "params.alloc_end_linear must be PROGRAM_ALLOC_END (0x78000)");
+              "params.alloc_end_linear must be PROGRAM_ALLOC_END (0x80000)");
         CHECK(plan.params.env_linear == ENV_BLOCK,
-              "params.env_linear must be ENV_BLOCK (0x67000, beads 2og)");
+              "params.env_linear must be ENV_BLOCK (0x6F000, beads 2og)");
         CHECK(plan.params.parent_psp_linear == 0u,
               "params.parent_psp_linear must be 0 (no parent PSP yet, Sec 2.5)");
         CHECK(plan.params.cmd_tail == (const char *)0,

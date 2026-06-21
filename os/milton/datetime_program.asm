@@ -11,8 +11,8 @@
 ;          DT-SPC=1  DT-BPS=512  DT-FREE=N  DT-TOTAL=N  (free > 0)
 ;          DT-PSP=NNNN                                  (nonzero)
 ;
-; DESIGN: each query stashes its results to a scratch block (0x3A000) disjoint
-; from both the code page (0x38000) and the report buffer (0x39000). The WHOLE
+; DESIGN: each query stashes its results to a scratch block (0x42000) disjoint
+; from both the code page (0x40000) and the report buffer (0x41000). The WHOLE
 ; report is assembled into one buffer (one field per line: "<tag>=<decimal>") and
 ; written with a SINGLE AH=40h syscall. Every field is emitted TWICE: in the
 ; guest run exactly one build is dropped deterministically (reproducible even on
@@ -25,34 +25,36 @@
 ;        do_gettime (2Ch: CH=hour, CL=min, DH=sec), do_getspace (36h: DL=drive;
 ;        AX=spc, BX=free, CX=bps, DX=total), do_getpsp (62h: BX=psp para),
 ;        do_write (40h: EBX=1 -> CON), do_terminate (4Ch). spec/memory_map.h
-;        PROGRAM_IMAGE 0x00038100. CLAUDE.md Law 1, Rule 2, Rule 11, Rule 12.
+;        PROGRAM_IMAGE 0x00040100. CLAUDE.md Law 1, Rule 2, Rule 11, Rule 12.
 ;
 ; Assembled: nasm -f bin os/milton/datetime_program.asm -o build/datetime_program.bin
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org + scratch equs updated]
+; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org + scratch equs updated]
 
 bits 32
-org 0x00038100
+org 0x00040100
 
 ; LBUF holds the WHOLE report (~150 bytes); give it a generous 0x200 window so
 ; the growing buffer never reaches the register stash. The stash lives a full
-; page higher (0x3A000) -- disjoint from both the code page (0x38000) and the
-; report buffer (0x39000..0x391FF). (A prior layout put R_* at 0x31080, which the
+; page higher (0x42000) -- disjoint from both the code page (0x40000) and the
+; report buffer (0x41000..0x411FF). (A prior layout put R_* at 0x31080, which the
 ; growing report buffer overran -- clobbering not-yet-read values; that is the
 ; real bug behind the "one field comes out wrong/missing" symptom.)
 ; [initech-o0td: LBUF 0x31000->0x39000, R_* 0x32000->0x3A000]
-LBUF    equ 0x39000            ; report buffer (off the code page)
-R_YEAR  equ 0x3A000
-R_MON   equ 0x3A004
-R_DAY   equ 0x3A008
-R_DOW   equ 0x3A00C
-R_HOUR  equ 0x3A010
-R_MIN   equ 0x3A014
-R_SEC   equ 0x3A018
-R_SPC   equ 0x3A01C
-R_BPS   equ 0x3A020
-R_FREE  equ 0x3A024
-R_TOTAL equ 0x3A028
-R_PSP   equ 0x3A02C
+; [initech-re30.2: LBUF 0x39000->0x41000, R_* 0x3A000->0x42000]
+LBUF    equ 0x41000            ; report buffer (off the code page)
+R_YEAR  equ 0x42000
+R_MON   equ 0x42004
+R_DAY   equ 0x42008
+R_DOW   equ 0x4200C
+R_HOUR  equ 0x42010
+R_MIN   equ 0x42014
+R_SEC   equ 0x42018
+R_SPC   equ 0x4201C
+R_BPS   equ 0x42020
+R_FREE  equ 0x42024
+R_TOTAL equ 0x42028
+R_PSP   equ 0x4202C
 
 start:
     ; ===== QUERY PHASE: run all four, stash each result as a full dword =====

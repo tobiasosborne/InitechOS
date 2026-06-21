@@ -432,7 +432,9 @@ int main(void)
                                                   * honor ONLY {0, ENV_BLOCK} (int21.c do_exec);
                                                   * use the macro so this tracks spec/memory_map.h
                                                   * (was a hardcoded 0x5F000 that broke when
-                                                  * initech-o0td shifted ENV_BLOCK -> 0x67000). */
+                                                  * initech-o0td shifted ENV_BLOCK -> 0x67000;
+                                                  * initech-re30.2 then shifted it -> 0x6F000 --
+                                                  * the macro tracks both shifts automatically). */
 
         exec_param_block_t *pb = (exec_param_block_t *)alloc_low(sizeof(*pb));
         CHECK(pb != NULL, "alloc_low env-param block in low 4 GiB");

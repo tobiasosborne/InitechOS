@@ -3,8 +3,8 @@
  *
  * THE BUG (ADR-0009 Sec 1 / DEC-04): the AH=48h heap arena used to be bound over
  * the WHOLE program window [PROGRAM_BASE, PROGRAM_ALLOC_END) with flat base ==
- * PROGRAM_BASE -- the EXACT region the loaded program image (0x38100), its PSP
- * (0x38000), env (0x67000) and stack (top 0x77FFC) occupy. So a 48h ALLOC handed
+ * PROGRAM_BASE -- the EXACT region the loaded program image (0x40100), its PSP
+ * (0x40000), env (0x6F000) and stack (top 0x7FFFC) occupy. So a 48h ALLOC handed
  * a running program memory OVERLAPPING its own code/BSS/stack. Latent for toy
  * .COMs (they never call 48h; the emulator zero-inits RAM), but SAMIR -- the
  * first heap-using app -- would corrupt itself.

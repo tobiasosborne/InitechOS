@@ -130,28 +130,28 @@ STAGE2_SECTORS  := 16
 # links mcb.o into EVERY kernel (it was test-only before) + the int21 handlers
 # / arena reset+reclaim grew int21.o, pushing the BOOT_SHELL loaded .text past
 # the 96-sector (48 KiB) window (51525 > 49152). 112*512 = 56 KiB: 0x10000 +
-# 112*512 = 0x1E000, still well below PROGRAM_BASE (0x38000; beads initech-5pe).
+# 112*512 = 0x1E000, still well below PROGRAM_BASE (0x40000; beads initech-5pe/o0td/re30.2).
 # Bumped 112 -> 128 for beads initech-u6wa (Landing 2): wiring AH=39h/3Ah
 # MKDIR/RMDIR adds fat12_mkdir/fat12_rmdir (fat12.o) + fat_mkdir/fat_rmdir
 # (fileio_fat.o) + do_mkdir/do_rmdir (int21.o); the BOOT_SHELL loaded .bin hit
 # exactly the 112-sector window at Landing 1 (57344 bytes, zero headroom) and the
 # new code crossed it (60069 > 57344). 128*512 = 64 KiB: 0x10000 + 128*512 =
-# 0x20000, still well below PROGRAM_BASE (0x38000).
+# 0x20000, still well below PROGRAM_BASE (0x40000).
 # Bumped 128 -> 144 for beads initech-qekc: wiring AH=57h GET/SET FILE DATE/TIME
 # adds do_filetime (int21.o) + fat12_set_dirent_time (fat12.o) + fat_set_time
 # (fileio_fat.o); the BOOT_SHELL loaded .bin crossed the 128-sector window
 # (65989 > 65536). 144*512 = 72 KiB: 0x10000 + 144*512 = 0x22000, still well
-# below PROGRAM_BASE (0x38000). IMG_MIN = 1+16+144 = 161 <= IMG_SECTORS=192.
+# below PROGRAM_BASE (0x40000). IMG_MIN = 1+16+144 = 161 <= IMG_SECTORS=192.
 # Bumped 144 -> 160 for beads initech-4tw: the CON-input ^C check-point adds
 # conin_check_ctrlc (int21.o) + the int23_dispatch call sites in do_conin_echo /
 # do_conin_noecho / conin_cooked_line (+ the threaded frame/broke params); the
 # kernel_shell.bin crossed the 144-sector window by 9 bytes (73737 > 73728).
 # 160*512 = 80 KiB: 0x10000 + 160*512 = 0x24000, still well below PROGRAM_BASE
-# (0x38000). IMG_MIN = 1+16+160 = 177 <= IMG_SECTORS=192 (no IMG_SECTORS change).
+# (0x40000). IMG_MIN = 1+16+160 = 177 <= IMG_SECTORS=192 (no IMG_SECTORS change).
 # BUMPED 160->208 (DOS-3.3 parity session): env.o + the InitechMZ loader (mz.c
 # folded into loader.o, ADR-0003 DEC-08a) + the SET built-in + the Tranche-F verbs
 # (COPY/DEL/REN/DATE/TIME) grew kernel_shell.bin to ~85 KiB, past the 80 KiB window.
-# 208*512 = 104 KiB: 0x10000 + 208*512 = 0x2A000, still below PROGRAM_BASE (0x38000).
+# 208*512 = 104 KiB: 0x10000 + 208*512 = 0x2A000, still below PROGRAM_BASE (0x40000).
 # IMG_MIN = 1+16+224 = 241 -> IMG_SECTORS=256 (4 cyl) still accommodates. A boot-
 # geometry change is a tri-emulator obligation (Rule 5): re-verified on
 # `make test-boot-bochs`. MUST equal the stage2.asm KERNEL_SECTORS equate.
@@ -184,7 +184,7 @@ endif
 # The KERNEL_SECTORS / .bin-size guards above only check the LOADED .bin (.text
 # + .data) against the disk window. They are BLIND to .bss: _kernel_end (end of
 # .bss) is NOT in the .bin, so a .bss growth can silently push _kernel_end up to
-# and past PROGRAM_BASE (0x38000) -- the flat address where loaded programs land
+# and past PROGRAM_BASE (0x40000) -- the flat address where loaded programs land
 # -- corrupting the program-load region at RUNTIME with no build-time warning.
 # (During 509.2 the shell kernel's _kernel_end reached 0x1FF60: 160 bytes from
 # collision, invisibly.) This guard extracts _kernel_end from each kernel ELF
@@ -192,7 +192,7 @@ endif
 # PROGRAM_BASE - KERNEL_END_MARGIN.
 #
 # PROGRAM_BASE is parsed from spec/memory_map.h (the locked spec, Rule 8) so it
-# stays in sync; cite: spec/memory_map.h `#define PROGRAM_BASE 0x00038000u`.
+# stays in sync; cite: spec/memory_map.h `#define PROGRAM_BASE 0x00040000u`.
 PROGRAM_BASE := $(shell grep -E '^\#define[[:space:]]+PROGRAM_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
 # Safety margin below PROGRAM_BASE (bytes). Small, deterministic; a kernel whose
 # .bss ends within this of PROGRAM_BASE is too close for comfort and fails.
@@ -291,7 +291,7 @@ KERNEL_IRQ_C     := $(KERNEL_DIR)/irq.c
 # kernel-only behind -DCOMMAND_KERNEL_REPL.
 KERNEL_COMMAND_C := $(KERNEL_DIR)/command.c
 # Baked flat test program: nasm -f bin -> bin2c -> a .rodata C array. The loader
-# copies it to PROGRAM_IMAGE (0x38100) and JMPs in (initech-509.5).
+# copies it to PROGRAM_IMAGE (0x40100) and JMPs in (initech-509.5).
 TEST_PROG_ASM    := $(KERNEL_DIR)/test_program.asm
 TEST_PROG_BIN    := $(BUILD)/test_program.bin
 BIN2C_SRC        := tools/bin2c.c
@@ -1170,7 +1170,7 @@ $(FAT_DATA_IMG): $(FAT12_FIXTURES) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
 	@printf ">>> fat_data: minted %s (1.44MB FAT12 data disk for test-fs; build intermediate)\n" "$@"
 
-# Assemble the GREET .COM (org 0x38100; nasm -f bin is deterministic, Rule 11).
+# Assemble the GREET .COM (org 0x40100; nasm -f bin is deterministic, Rule 11).
 $(GREET_PROG_BIN): $(GREET_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
 
@@ -1190,7 +1190,7 @@ $(FAT_EXEC_IMG): $(FAT12_FIXTURES) $(GREET_PROG_BIN) | $(BUILD)
 	@mcopy -i $@ $(GREET_PROG_BIN) ::GREET.COM
 	@printf ">>> fat_exec: minted %s (1.44MB FAT12 disk for test-exec; GREET.COM + HELLO.TXT; build intermediate)\n" "$@"
 
-# Assemble the leaky-child EXITH .COM (org 0x38100; nasm -f bin is deterministic,
+# Assemble the leaky-child EXITH .COM (org 0x40100; nasm -f bin is deterministic,
 # Rule 11). It OPENs four files and TERMINATEs WITHOUT closing them.
 $(EXITH_PROG_BIN): $(EXITH_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
@@ -1212,7 +1212,7 @@ $(FAT_EXITH_IMG): $(FAT12_FIXTURES) $(EXITH_PROG_BIN) | $(BUILD)
 	@printf ">>> fat_exith: minted %s (1.44MB FAT12 disk for test-exit-handles; EXITH.COM + 4 target files; build intermediate)\n" "$@"
 
 # SYSINIT / CONFIG.SYS FILES= cap oracle (beads initech-509.2; make test-sysinit).
-# Assemble SYSI.COM (org 0x38100; nasm -f bin is deterministic, Rule 11) -- it OPENs
+# Assemble SYSI.COM (org 0x40100; nasm -f bin is deterministic, Rule 11) -- it OPENs
 # HELLO.TXT repeatedly and reports the success count when the cap bites.
 $(SYSI_PROG_BIN): $(SYSI_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
@@ -6863,7 +6863,7 @@ $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BU
 # I/O paths; the pure conversion is shared with the test-rtc host oracle.
 # Built with -Os (size): the BCD/binary/century/DOW math is branchy and the rest
 # of the kernel is -O0, so -O0 here would cost ~1.3 KiB and push the kernel .bss
-# past PROGRAM_BASE (0x38000). -Os is deterministic/reproducible (Rule 11) and
+# past PROGRAM_BASE (0x40000). -Os is deterministic/reproducible (Rule 11) and
 # the codegen is covered byte-for-behaviour by the test-rtc host oracle. The
 # host oracle compiles rtc.c with its OWN flags, so this does not affect it.
 $(KERNEL_RTC_OBJ): $(KERNEL_RTC_C) $(KERNEL_DIR)/rtc.h $(KERNEL_DIR)/io.h | $(BUILD)
@@ -6901,7 +6901,7 @@ $(KERNEL_BATCH_OBJ): $(KERNEL_DIR)/batch.c $(KERNEL_DIR)/batch.h | $(BUILD)
 $(BIN2C_BIN): $(BIN2C_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
-# Assemble the flat (.COM-equivalent) test program (org 0x38100). nasm -f bin is
+# Assemble the flat (.COM-equivalent) test program (org 0x40100). nasm -f bin is
 # deterministic for a fixed source (Rule 11).
 $(TEST_PROG_BIN): $(TEST_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
@@ -12435,7 +12435,7 @@ test-samir-softfp-mutant: $(TEST_SAMIR_SOFTFP_MUT)
 	else printf '>>> test-samir-softfp-mutant: green (mutant correctly RED)\n'; fi
 
 # --- SAMIR.COM: the Milton-bound flat .COM (ADR-0009 DEC-01/02/03/05/06).
-#     Soft-float, one-interp profile (FLOW_MAX_REGISTRY=1), org 0x38100 via
+#     Soft-float, one-interp profile (FLOW_MAX_REGISTRY=1), org 0x40100 via
 #     samir.ld, BSS (.bss NOLOAD) zeroed at runtime by samir_crt0. ---
 SAMIR_COM_PROFILE := -m32 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
                      -std=c11 -Wall -Wextra -Werror -Os -msoft-float -mno-80387 \
@@ -12460,7 +12460,7 @@ $(SAMIR_COM): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com/SAMIR.elf $(BUILD)/samir_com/samir_crt0.o $$(ls $(BUILD)/samir_com/*.o | grep -v 'samir_crt0\.o')
 	@$(OBJCOPY) -O binary $(BUILD)/samir_com/SAMIR.elf $@
 	@sz=$$(stat -c%s $@); x87=$$(objdump -d $(BUILD)/samir_com/SAMIR.elf | grep -ciE '\bf(ld|st|add|sub|mul|div)[a-z]*\b' || true); \
-	 printf '>>> SAMIR.COM: %s bytes (flat .COM @0x38100, soft-float, x87=%s)\n' "$$sz" "$$x87"
+	 printf '>>> SAMIR.COM: %s bytes (flat .COM @0x40100, soft-float, x87=%s)\n' "$$sz" "$$x87"
 
 # --- SAMIR.COM SHORT-READ MUTANT (bead hdlb; Rule 6): the SAME .COM build but
 #     with -DPAL_MILTON_MUTATE_SHORT_READ on the on-target I/O path -- milton_read

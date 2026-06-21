@@ -98,8 +98,8 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
 
     /* --- 02h alloc_end_seg: segment of first byte beyond allocated memory. --
      * Option B: flat allocation-end address in fake paragraph units
-     * (linear >> 4). The loader passes the actual ceiling (e.g. 0x78000 ->
-     * 0x7800). Ref: Sec 2.2 / Sec 3.2; dos_structs.h:93. */
+     * (linear >> 4). The loader passes the actual ceiling (e.g. 0x80000 ->
+     * 0x8000). Ref: Sec 2.2 / Sec 3.2; dos_structs.h:93. */
     psp->alloc_end_seg = flat_to_fake_paragraph(params->alloc_end_linear);
 
     /* --- 04h reserved_04[6]: the real-DOS offset-0x05 CP/M far-call stub. ---

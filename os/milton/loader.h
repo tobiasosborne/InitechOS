@@ -129,7 +129,7 @@ loader_status_t loader_prepare(const uint8_t *image, uint32_t image_len,
 
 /* loader_prepare_in_place -- the IN-PLACE variant (beads initech-za4m; ADR-0009
  * companion to DEC-04). Validates + lays out for an image ALREADY resident at
- * PROGRAM_IMAGE (0x38100) -- e.g. a FAT .COM that load_program_from_fat read
+ * PROGRAM_IMAGE (0x40100) -- e.g. a FAT .COM that load_program_from_fat read
  * DIRECTLY into the program region. Identical layout/params/arena to
  * loader_prepare EXCEPT it takes NO image pointer (there is nothing to copy
  * from): it validates image_len only, sets out->image_src = NULL and leaves
@@ -241,7 +241,7 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  * mounted FAT12 volume and run it. Reads the named file (the bare 8.3 leaf, e.g.
  * "GREET.COM") from the directory whose first data cluster is `dir_start` (0 ==
  * the fixed root) off the volume bound via loader_bind_fat_volume() DIRECTLY into
- * the program region (PROGRAM_IMAGE, 0x38100) -- NO intermediate staging buffer --
+ * the program region (PROGRAM_IMAGE, 0x40100) -- NO intermediate staging buffer --
  * then runs it through load_program_in_place() (PSP + JMP + return; no copy). All
  * scratch is kernel BSS (spec/memory_map.h Risk 2 -- never a multi-KB buffer on
  * the kernel stack).
