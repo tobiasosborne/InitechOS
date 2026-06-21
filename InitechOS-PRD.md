@@ -90,9 +90,17 @@ A graphical Toolbox layered on a DOS-like base. This is historically coherent �
 
 ## 5. Target Platform / Hardware Contract
 
+> **FORWARD NOTE (operator, 2026-06-21; tracked as `initech-fgs1`):** the
+> canonical app era (dBASE III+/IV, Lotus 1-2-3, WordPerfect) running into the
+> *Office Space*-frame period skews **later than 386 — closer to 486/Pentium**.
+> A **486+ minimum is period-defensible** for the FINAL build and is an open
+> question for the north star (the most consequential delta is the 486DX on-die
+> x87 FPU vs SAMIR's soft-float, ADR-0009). This is NOT yet ratified — ADR-0001
+> still says 386+ — but the bar may rise. Weigh it in the next PRD/ADR pass.
+
 | Concern | Decision |
 |---|---|
-| CPU | 386+ (i386/i486); boot in real mode, switch to 32-bit protected, flat segmentation |
+| CPU | 386+ (i386/i486); boot in real mode, switch to 32-bit protected, flat segmentation. *(486+ floor under consideration — see Forward Note above.)* |
 | Memory | Flat 32-bit; bump + free-list allocator; no demand paging |
 | Display | VBE 2.0 **linear framebuffer**, 640×480 / 800×600 / 832×624 (Mac-ish) ×8/×32 |
 | Text | 80×25 rendered by blitting the VGA 8×16 ROM font into the LFB (no mode switch) |
