@@ -391,6 +391,65 @@ static void cmd_header(const char *jsonpath)
         printf("#define INITECH_%s_RGB 0x%02X%02X%02Xu\n\n",
                up, canon[i].rgb[0], canon[i].rgb[1], canon[i].rgb[2]);
     }
+    /* The deterministic FLAIR indexed-8 palette function (beads initech-re30.3).
+     * Emitted from the generator (NOT hand-added) so a regen reproduces it
+     * byte-for-byte and palette.h stays fully generated (Rule 8 / "DO NOT EDIT
+     * BY HAND" contract). THE single index->RGB point of truth shared by the
+     * LIVE desktop converter (kmain.c BOOT_FLAIR_SHELL) and the host screendump
+     * oracle (Law 2). A byte-for-byte port of harness/render/render.c:56-75
+     * (render_palette_rgb): SAME cases, SAME constants, SAME total gray ramp. */
+    printf(
+"/* ---------------------------------------------------------------------------\n"
+" * flair_palette_rgb -- the deterministic FLAIR indexed-8 palette: a palette\n"
+" * INDEX (0..255) -> a canonical 0x00RRGGBB value.\n"
+" *\n"
+" * This is THE single point of truth for \"what RGB does FLAIR index N mean\", so\n"
+" * the LIVE desktop converter (os/milton/kmain.c BOOT_FLAIR_SHELL: present the\n"
+" * 8bpp offscreen onto a 24/32bpp LFB) and the host screendump oracle agree by\n"
+" * CONSTRUCTION (Law 2). It is a byte-for-byte port of the FACTORY render\n"
+" * skeleton's render_palette_rgb (harness/render/render.c:56-75) -- SAME cases,\n"
+" * SAME constants, SAME total gray ramp for any other index. The two share the\n"
+" * same INITECH_*_RGB samples here, so the rendered-in-indices desktop reads back\n"
+" * the SAME pixels whether it is run on the host (render_palette_rgb) or composed\n"
+" * live and presented to a direct-color LFB (this function).\n"
+" *\n"
+" * Indices (verbatim render.c comments; chrome.c CIDX_* / desktop.h\n"
+" * FLAIR_DESKTOP_BG_INDEX use these too):\n"
+" *   0 black ink   1 window white   2 desktop seafoam   3 menubar gray\n"
+" *   4 titlebar ink   5 accent blue   6 light control gray\n"
+" *   7 pinstripe LIGHT (WDEF idx 7)   8 pinstripe DARK (WDEF idx 8)\n"
+" *   default: a deterministic gray scaled by the index (total over all 256).\n"
+" *\n"
+" * The 0xBFBFBFu (idx 6) and 0x8A8A93u (idx 8) literals are golden-resolves\n"
+" * (gui-ground-truth.md Sec 3.3) carried verbatim from render.c; the oracle keys\n"
+" * on the INDEX, not the exact RGB, for the pinstripe shades.\n"
+" *\n"
+" * Pure, freestanding-safe (no libc, <stdint.h> only): callable from the kernel\n"
+" * AND the host. Ref: harness/render/render.c:56-75 (render_palette_rgb, the\n"
+" * correspondence the screendump oracle reuses); CLAUDE.md Law 2 (oracle is\n"
+" * truth), Rule 11 (deterministic), Rule 12 (ASCII-clean). beads initech-re30.3\n"
+" * (toward the bmih palette-share consolidation). */\n"
+"#include <stdint.h>\n"
+"static inline uint32_t flair_palette_rgb(uint8_t index)\n"
+"{\n"
+"    switch (index) {\n"
+"    case 0: return 0x000000u;                        /* black                  */\n"
+"    case 1: return INITECH_WINDOW_WHITE_RGB;         /* body white             */\n"
+"    case 2: return INITECH_DESKTOP_BG_RGB;           /* desktop seafoam        */\n"
+"    case 3: return INITECH_MENUBAR_BG_RGB;           /* menubar gray           */\n"
+"    case 4: return INITECH_TITLEBAR_INK_RGB;         /* title ink / dark frame */\n"
+"    case 5: return INITECH_ACCENT_BLUE_RGB;          /* accent blue            */\n"
+"    case 6: return 0xBFBFBFu;                         /* light control gray     */\n"
+"    case 7: return INITECH_TITLEBAR_PINSTRIPE_RGB;   /* pinstripe LIGHT (idx 7)*/\n"
+"    case 8: return 0x8A8A93u;                         /* pinstripe DARK  (idx 8)*/\n"
+"    default:\n"
+"        /* Total ramp for any other index: a deterministic gray scaled by index.*/\n"
+"        {\n"
+"            uint32_t v = (uint32_t)index;\n"
+"            return (v << 16) | (v << 8) | v;\n"
+"        }\n"
+"    }\n"
+"}\n\n");
     printf("#endif /* INITECH_PALETTE_H */\n");
 }
 

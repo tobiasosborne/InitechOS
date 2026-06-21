@@ -238,6 +238,17 @@ PPM_CHECK_BIN   := $(BUILD)/ppm_seafoam_check
 PPM_TEXT_CHECK_SRC := tools/ppm_text_check.c
 PPM_TEXT_CHECK_BIN := $(BUILD)/ppm_text_check
 
+# PPM FLAIR live-desktop STRUCTURE checker (factory C tool, tools/, beads
+# initech-re30.3 LANE 2). Asserts the composed Office Space chimera desktop as
+# PRESENTED to the live LFB (build/flair_desktop.img, kmain -DBOOT_FLAIR_SHELL)
+# and captured as a QEMU 32bpp screendump: seafoam background, TWO stacked menu
+# bars (the chimera tell), document-window pinstripe chrome, and the centered
+# FILE COPY modal occluding the windows. Probes the SAME scene as the host oracle
+# (harness/proptest/test_shell.c) in RGB space via flair_palette_rgb (Law 2 --
+# agree by construction). Compiled with -Ispec/assets for palette.h.
+PPM_FLAIR_CHECK_SRC := tools/ppm_flair_check.c
+PPM_FLAIR_CHECK_BIN := $(BUILD)/ppm_flair_check
+
 # ---------------------------------------------------------------------------
 # Flat C kernel (os/milton, beads initech-d00; ADR-0003 DEC-08)
 # ---------------------------------------------------------------------------
@@ -580,6 +591,18 @@ IRQSTORM_MUTB_IMG            := $(BUILD)/irqstorm_mutb_boot.img
 KERNEL_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell.o
 KERNEL_SHELL_ELF      := $(BUILD)/kernel_shell.elf
 KERNEL_SHELL_BIN      := $(BUILD)/kernel_shell.bin
+# LIVE FLAIR DESKTOP kernel/image (beads initech-re30.3, LANE 1; THE milestone):
+# the SAME kernel sources but with -DBOOT_FLAIR_SHELL so the boot, after
+# FLAIR-HEAP-OK, builds the Office Space chimera desktop into an indexed-8
+# offscreen (from the FLAIR heap), renders it via shell_render EXACTLY as the host
+# oracle does, PRESENTS it to the live LFB, emits the FLAIR-DESKTOP serial marker,
+# and HALTS (a stable screen for the QEMU screendump). Links KERNEL_FLAIR_OBJS
+# (the Manager set + the desktop shell) -- the FIRST call site for the library
+# linked at re30.2. Separate image so the normal boot (A:\>) is byte-unchanged.
+KERNEL_FLAIRSHELL_MAIN_OBJ := $(BUILD)/kmain_flairshell.o
+KERNEL_FLAIRSHELL_ELF      := $(BUILD)/kernel_flairshell.elf
+KERNEL_FLAIRSHELL_BIN      := $(BUILD)/kernel_flairshell.bin
+FLAIRSHELL_IMG             := $(BUILD)/flair_desktop.img
 # EXIT-handle teardown self-test kernel/image (beads initech-6hk; epic
 # initech-6qy; make test-exit-handles): the SAME kernel sources but with
 # -DBOOT_EXITH so the boot EXECs the FAT-sourced leaky child EXITH.COM RUNS
@@ -7942,6 +7965,95 @@ $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 	printf ">>> kernel(shell): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell)
 
+# --- LIVE FLAIR DESKTOP kernel (beads initech-re30.3, LANE 1; THE milestone) -
+# Same sources, but kmain.c compiled with -DBOOT_FLAIR_SHELL so the boot, after
+# FLAIR-HEAP-OK, composes the Office Space desktop into an indexed-8 offscreen
+# (from the FLAIR heap), renders it via shell_render, PRESENTS it to the live
+# LFB, emits FLAIR-DESKTOP, and halts. Links KERNEL_FLAIR_OBJS (the Manager set +
+# the desktop shell) -- the FIRST call site for the library linked at re30.2.
+# Separate image so the normal boot (A:\>) is byte-unchanged. The FLAIR + spec
+# headers are added as prereqs (they are #include'd only under -DBOOT_FLAIR_SHELL).
+$(KERNEL_FLAIRSHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_SHELL -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FLAIRSHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
+                          $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                          $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                          $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                          $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
+                          $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                          $(KERNEL_ISR_OBJ) \
+                          $(KERNEL_FLAIR_OBJS)
+
+$(KERNEL_FLAIRSHELL_ELF): $(KERNEL_FLAIRSHELL_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRSHELL_OBJS)
+
+$(KERNEL_FLAIRSHELL_BIN): $(KERNEL_FLAIRSHELL_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairshell.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairshell): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairshell)
+
+# The live FLAIR desktop disk image: identical layout to TRACER_IMG but with the
+# BOOT_FLAIR_SHELL kernel at sector 17. Boot it under QEMU via the harness with
+# --screendump-after FLAIR-DESKTOP to capture the composed desktop.
+$(FLAIRSHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRSHELL_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRSHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-desktop image: %s (live FLAIR desktop kernel @s17)\n" "$@"
+
+# --- MUTANT flair_desktop kernels (beads initech-re30.3, LANE 2; Rule 6) -----
+# To MUTATION-PROVE the screendump oracle (a check that never bites is decoration),
+# rebuild the flair_desktop kernel three times, each with one named mutation -D
+# guard in os/flair/shell.c (the SAME guards the host test_shell.c uses):
+#   SHELL_MUTATE_ONE_MENUBAR  -- drop the 2nd (Photoshop) bar -> the chimera tell
+#                                collapses; ppm_flair_check (b) goes RED.
+#   SHELL_MUTATE_NO_MODAL     -- skip the FILE COPY modal -> the box + canon text
+#                                are absent; ppm_flair_check (d) goes RED.
+#   SHELL_MUTATE_MODAL_BEHIND -- draw the modal BEHIND -> the windows occlude it;
+#                                ppm_flair_check (d) z-order probe goes RED.
+# Object-swap idiom (mirrors the hsct-redir-mutant kernel): recompile ONLY
+# flair_shell.o with the extra -D and substitute it into KERNEL_FLAIRSHELL_OBJS;
+# everything else (incl. the -DBOOT_FLAIR_SHELL kmain object) is the proven build.
+# A canonical-rebuild target restores the clean object afterwards (so a later
+# `make` does not link a stale mutant flair_shell.o into the real image).
+#
+# define flair-desktop-mutant-rules: $(1)=mutant macro name, $(2)=short tag
+define flair-desktop-mutant-rules
+$(BUILD)/flair_shell_mut_$(2).o: $(SHELL_C) $(SHELL_H) os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(1) $(SHELL_INC) -c $(SHELL_C) -o $$@
+
+$(BUILD)/kernel_flairshell_mut_$(2).elf: $(filter-out $(KERNEL_FLAIR_SHELL_OBJ),$(KERNEL_FLAIRSHELL_OBJS)) $(BUILD)/flair_shell_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIR_SHELL_OBJ),$(KERNEL_FLAIRSHELL_OBJS)) $(BUILD)/flair_shell_mut_$(2).o
+
+$(BUILD)/kernel_flairshell_mut_$(2).bin: $(BUILD)/kernel_flairshell_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairshell_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairshell-mut-$(2)): %s (flat binary, padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+
+$(BUILD)/flair_desktop_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairshell_mut_$(2).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairshell_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-desktop MUTANT image ($(1)): %s\n" "$$@"
+endef
+# NB: the $(eval $(call flair-desktop-mutant-rules,...)) instantiations live AFTER
+# the SHELL_C / SHELL_H / SHELL_INC / REGION_ENGINE_H definitions (~line 8740),
+# because $(eval) expands the rule bodies immediately and those vars are set later.
+
 # (The old $(SHELL_IMG) / build/shell_boot.img recipe lived here. It was
 # byte-identical to the $(TRACER_IMG) recipe (~2414) -- same MBR/STAGE2/
 # KERNEL_SHELL_BIN prereqs, same dd seek offsets -- once beads initech-k6x made
@@ -7965,6 +8077,11 @@ $(PPM_CHECK_BIN): $(PPM_CHECK_SRC) | $(BUILD)
 
 $(PPM_TEXT_CHECK_BIN): $(PPM_TEXT_CHECK_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
+
+# The FLAIR desktop-structure checker needs palette.h (flair_palette_rgb) for the
+# index->RGB expected values (single source of truth; Law 2 agree-by-construction).
+$(PPM_FLAIR_CHECK_BIN): $(PPM_FLAIR_CHECK_SRC) spec/assets/palette.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
 
 # --- Asset tools + derived artifacts (beads initech-vcq) -------------------
 $(PALETTE_TOOL_BIN): $(PALETTE_TOOL_SRC) | $(BUILD)
@@ -8689,6 +8806,13 @@ SHELL_DEPS := $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_H) $(SHELL_LINK) \
               os/flair/heap.h os/flair/text.h os/flair/event.h $(RENDER_SKEL_H) \
               $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h \
               spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h
+
+# Instantiate the LIVE flair_desktop MUTANT kernel/image rules (defined ~line
+# 8011) HERE, after SHELL_C / SHELL_H / SHELL_INC / REGION_ENGINE_H exist (the
+# $(eval) expands the rule bodies immediately; see the define's NB note).
+$(eval $(call flair-desktop-mutant-rules,SHELL_MUTATE_ONE_MENUBAR,onebar))
+$(eval $(call flair-desktop-mutant-rules,SHELL_MUTATE_NO_MODAL,nomodal))
+$(eval $(call flair-desktop-mutant-rules,SHELL_MUTATE_MODAL_BEHIND,modalbehind))
 
 $(TEST_SHELL): $(SHELL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(SHELL_INC) -o $@ $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_LINK)
@@ -9782,6 +9906,215 @@ test-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_BANNER)
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- InitechDOS banner printed (serial == spec, rendered on screen), no triple-fault\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-desktop (beads initech-re30.3, LANE 2 -- the FLAIR LIVE
+# DESKTOP screendump oracle: the Office Space frame, on the live LFB)
+# ---------------------------------------------------------------------------
+# Boot build/flair_desktop.img (kmain -DBOOT_FLAIR_SHELL) under QEMU; after the
+# FLAIR-DESKTOP serial marker the composed chimera desktop is presented to the
+# live LFB. Capture the screendump and run ppm_flair_check on it. Four assertions
+# (Law 2 / Law 4): NO triple-fault; the FLAIR-DESKTOP marker on serial; a
+# screendump was written; and the STRUCTURE check (seafoam desktop + TWO stacked
+# menu bars + window pinstripe chrome + the centered FILE COPY modal occluding the
+# windows). The check probes the SAME scene as the host oracle test_shell.c, in
+# RGB space via flair_palette_rgb -> agree by construction. The guest cli;hlt
+# loops (stable screen), so the harness times out by design; OK is driven by the
+# marker + no-triple-fault + the structure check, not the exit code.
+FLAIR_DESKTOP_NAME    := flair_desktop
+FLAIR_DESKTOP_SERIAL  := $(BUILD)/$(FLAIR_DESKTOP_NAME).serial
+FLAIR_DESKTOP_PPM     := $(BUILD)/$(FLAIR_DESKTOP_NAME).ppm
+FLAIR_DESKTOP_REPORT  := $(BUILD)/$(FLAIR_DESKTOP_NAME).report
+.PHONY: test-flair-desktop
+test-flair-desktop: $(HARNESS_BIN) $(FLAIRSHELL_IMG) $(PPM_FLAIR_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-desktop : FLAIR LIVE DESKTOP oracle\n'
+	@printf '  Ref: ADR-0004 (the desktop shell); PRD Sec 1 / Appendix A (the frame).\n'
+	@printf '  beads initech-re30.3 LANE 2. CLAUDE.md Law 2/4, Rule 2/6/11.\n'
+	@printf '  TRI-EMULATOR: QEMU here; Bochs 8bpp leg = make test-flair-desktop-bochs.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (live FLAIR chimera desktop presented to the LFB)\n' "$(FLAIRSHELL_IMG)"
+	@printf 'Expecting : FLAIR-DESKTOP serial marker + screendump == Office Space frame\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(FLAIRSHELL_IMG)" --screendump --screendump-after FLAIR-DESKTOP \
+		--name "$(FLAIR_DESKTOP_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(FLAIR_DESKTOP_REPORT)" || true
+	@cat "$(FLAIR_DESKTOP_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- 1. No triple-fault. ----
+	@if grep -q 'triple_fault=1' "$(FLAIR_DESKTOP_REPORT)"; then \
+		printf '!!! test-flair-desktop FAIL: TRIPLE FAULT in the live desktop boot\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-flair-desktop [1/3]: no triple-fault\n'
+	@# ---- 2. FLAIR-DESKTOP serial marker (the desktop composed + presented). ----
+	@if [ ! -s "$(FLAIR_DESKTOP_SERIAL)" ]; then \
+		printf '!!! test-flair-desktop FAIL: no serial captured at %s\n' "$(FLAIR_DESKTOP_SERIAL)"; \
+		exit 1; \
+	fi
+	@grep -q '^FLAIR-DESKTOP$$' "$(FLAIR_DESKTOP_SERIAL)" \
+		|| { printf '!!! test-flair-desktop FAIL: FLAIR-DESKTOP marker missing -- the desktop never composed/presented\n'; exit 1; }
+	@printf '>>> test-flair-desktop [2/3]: FLAIR-DESKTOP marker present on serial\n'
+	@# ---- 3. Screendump structure: the Office Space frame. ----
+	@if [ ! -s "$(FLAIR_DESKTOP_PPM)" ]; then \
+		printf '!!! test-flair-desktop FAIL: no screendump captured at %s (live guest required)\n' "$(FLAIR_DESKTOP_PPM)"; \
+		exit 1; \
+	fi
+	@$(PPM_FLAIR_CHECK_BIN) "$(FLAIR_DESKTOP_PPM)" \
+		|| { printf '!!! test-flair-desktop FAIL: the live desktop screendump is NOT the Office Space frame structure\n'; exit 1; }
+	@printf '>>> test-flair-desktop [3/3]: screendump == seafoam + TWO menu bars + window chrome + FILE COPY modal\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- the LIVE FLAIR chimera desktop is the Office Space frame\n'
+	@printf '            (QEMU only; Bochs 8bpp leg = make test-flair-desktop-bochs)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-desktop-mutant (beads initech-re30.3, LANE 2; Rule 6 --
+# MUTATION-PROVE the screendump oracle BITES; a check that never bites is decoration)
+# ---------------------------------------------------------------------------
+# Rebuild the flair_desktop kernel with EACH of the three named shell.c mutation
+# guards, boot+screendump each, and confirm ppm_flair_check goes RED (non-zero)
+# for every one. If any mutant PASSES the checker the oracle is decoration -> FAIL
+# loud. The clean flair_shell.o is restored at the end so a later `make` links the
+# real (un-mutated) image.
+.PHONY: test-flair-desktop-mutant
+test-flair-desktop-mutant: $(HARNESS_BIN) $(PPM_FLAIR_CHECK_BIN) \
+	$(BUILD)/flair_desktop_mut_onebar.img \
+	$(BUILD)/flair_desktop_mut_nomodal.img \
+	$(BUILD)/flair_desktop_mut_modalbehind.img
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-mutant : Rule 6 (the gate bites)\n'
+	@printf '  3 mutants of os/flair/shell.c, each MUST drive ppm_flair_check RED.\n'
+	@printf '======================================================================\n'
+	@rc=0; \
+	for spec in "onebar:SHELL_MUTATE_ONE_MENUBAR:dropped the 2nd (Photoshop) menu bar -- the two-bar chimera" \
+	            "nomodal:SHELL_MUTATE_NO_MODAL:skipped the FILE COPY modal -- the modal box + canon text" \
+	            "modalbehind:SHELL_MUTATE_MODAL_BEHIND:drew the modal BEHIND the windows -- the z-order"; do \
+		tag=$${spec%%:*}; rest=$${spec#*:}; macro=$${rest%%:*}; desc=$${rest#*:}; \
+		img="$(BUILD)/flair_desktop_mut_$$tag.img"; \
+		printf '%s\n' '----------------------------------------------------------------------'; \
+		printf '>>> mutant %s (-D%s): %s\n' "$$tag" "$$macro" "$$desc"; \
+		$(HARNESS_BIN) --disk "$$img" --screendump --screendump-after FLAIR-DESKTOP \
+			--name "flair_mut_$$tag" --out "$(BUILD)" --timeout-ms 8000 \
+			2> "$(BUILD)/flair_mut_$$tag.report" || true; \
+		if grep -q 'triple_fault=1' "$(BUILD)/flair_mut_$$tag.report"; then \
+			printf '!!! test-flair-desktop-mutant FAIL: mutant %s TRIPLE-FAULTED (cannot judge the oracle)\n' "$$tag"; rc=1; continue; \
+		fi; \
+		if [ ! -s "$(BUILD)/flair_mut_$$tag.ppm" ]; then \
+			printf '!!! test-flair-desktop-mutant FAIL: mutant %s produced no screendump\n' "$$tag"; rc=1; continue; \
+		fi; \
+		if $(PPM_FLAIR_CHECK_BIN) "$(BUILD)/flair_mut_$$tag.ppm" > "$(BUILD)/flair_mut_$$tag.chk" 2>&1; then \
+			printf '!!! test-flair-desktop-mutant FAIL: the %s oracle is DECORATION -- mutant %s PASSED ppm_flair_check\n' "$$macro" "$$tag"; \
+			rc=1; \
+		else \
+			printf '>>> mutant %s correctly RED:\n' "$$tag"; \
+			grep -m3 'FAIL ' "$(BUILD)/flair_mut_$$tag.chk" | sed 's/^/      /'; \
+		fi; \
+	done; \
+	$(MAKE) --no-print-directory $(KERNEL_FLAIR_SHELL_OBJ) >/dev/null; \
+	if [ "$$rc" != "0" ]; then exit 1; fi
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- all 3 mutants drive ppm_flair_check RED (the oracle bites; Rule 6)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-desktop-bochs (beads initech-re30.3, LANE 2; Rule 5 --
+# tri-emulator; the BOCHS leg of the live FLAIR desktop boot)
+# ---------------------------------------------------------------------------
+# Boots the SAME flair_desktop image under Bochs and asserts the kernel reached
+# the shared milestones a single emulator would hide. TRUTHFUL CONSTRAINT (Law 1 /
+# Law 2 -- the oracle is the truth, not the wish):
+#
+#   The lane-1 desktop is rendered at 640x480 (ADR-0004 OD-3) and kmain
+#   (BOOT_FLAIR_SHELL) FAILS LOUD on a smaller LFB (Rule 2 -- a clipped/garbage
+#   desktop is worse than a panic). stage2 only accepts a 640x480 24/32bpp VBE
+#   mode (stage2.asm:388-394); the Bochs 2.7 LGPL vgabios ENOMODEs that mode and
+#   falls back to standard VGA mode 0x13 == 320x200x8. So under Bochs the
+#   framebuffer is 320x200 and the desktop CANNOT be presented: kmain correctly
+#   panics ("PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200"). The
+#   FLAIR-DESKTOP marker therefore genuinely DOES NOT (and should not) appear on
+#   the Bochs leg -- asserting it would be a wish, not a test (and there is no
+#   path in the tree that hands a 640x480x8 LFB to the 8bpp present code).
+#
+#   What the Bochs leg DOES prove (the real differential): the SAME flair_desktop
+#   kernel runs the boot chain + the FLAIR heap gate IDENTICALLY on Bochs and
+#   QEMU (S1..CONSOLE, BANNER, FLAIR-HEAP-OK all match), then the 640x480-required
+#   guard FIRES CORRECTLY under the 320x200 fallback (the PANIC + HALTED markers)
+#   instead of triple-faulting or silently misrendering. That IS the tri-emulator
+#   signal for this milestone: the desktop subsystem reaches the present decision
+#   point on Bochs and the fail-loud guard is load-bearing. NO triple-fault.
+#
+# The 8bpp DAC present path (kmain flair_desktop_present, lfb_bpp==8) is real but
+# currently UNREACHABLE on any emulator in-tree (QEMU = 32bpp VBE; Bochs = 320x200
+# < 640x480 => guard). Exercising it needs a 640x480x8 LFB -- TRACKED in bead
+# initech-2gva (committee ruling re30.3-chair: KEEP the path; a stage2 0x101
+# (640x480x8) VBE fallback + an oracle leg that REACHES this wrapper land there,
+# sequenced before the M4/86Box period-authenticity sign-off). SERIAL-only (Bochs RFB cannot show
+# mode 0x13 + no QMP screendump). Env-specific (needs Bochs) + ~45s; a SEPARATE
+# target, NOT in the default `make test` (like test-boot-bochs).
+FLAIR_BOCHS_NAME   := flair_desktop_bochs
+FLAIR_BOCHS_REPORT := $(BUILD)/$(FLAIR_BOCHS_NAME).report.txt
+FLAIR_BOCHS_SERIAL := $(BUILD)/$(FLAIR_BOCHS_NAME).serial
+.PHONY: test-flair-desktop-bochs
+test-flair-desktop-bochs: $(BOCHS_BIN) $(FLAIRSHELL_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-bochs : BOCHS leg (FLAIR desktop)\n'
+	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). beads initech-re30.3 LANE 2.\n'
+	@printf '  Bochs 2.7: legacy BIOS + LGPL vgabios; VBE ENOMODE -> mode-0x13 (320x200).\n'
+	@printf '  The 640x480 desktop cannot fit 320x200, so kmain FAILS LOUD (Rule 2);\n'
+	@printf '  the leg proves the shared boot/heap milestones + that the guard fires.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRSHELL_IMG)"
+	@printf 'Expecting : VGA13 (320x200 fallback) + shared kernel markers + the\n'
+	@printf '            "LFB smaller than 640x480" fail-loud guard, no triple-fault\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# --expect HALTED: the fail-loud guard's terminal marker (the guest then
+	@# cli;hlt loops, so the harness times out by design -- OK is the markers +
+	@# no-triple-fault, not the exit code; mirrors test-boot-bochs).
+	@$(BOCHS_BIN) --disk "$(FLAIRSHELL_IMG)" --expect HALTED \
+		--name "$(FLAIR_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
+		2> "$(FLAIR_BOCHS_REPORT)" || true
+	@cat "$(FLAIR_BOCHS_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@grep -q 'rfb_unblocked=1' "$(FLAIR_BOCHS_REPORT)" \
+		|| { printf '!!! test-flair-desktop-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(FLAIR_BOCHS_REPORT)"; then \
+		printf '!!! test-flair-desktop-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
+	fi
+	@if [ ! -s "$(FLAIR_BOCHS_SERIAL)" ]; then \
+		printf '!!! test-flair-desktop-bochs FAIL: no serial captured at %s\n' "$(FLAIR_BOCHS_SERIAL)"; exit 1; \
+	fi
+	@printf 'Serial markers captured:\n'
+	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK HALTED; do \
+		if grep -q "^$$m$$" "$(FLAIR_BOCHS_SERIAL)"; then printf '  %-14s : present\n' "$$m"; \
+		else printf '  %-14s : MISSING\n' "$$m"; fi; \
+	done
+	@# 1. The Bochs-specific 320x200 fallback fired (VBE ENOMODE -> mode 0x13).
+	@for m in VBE-ENOMODE VGA13; do \
+		grep -q "^$$m$$" "$(FLAIR_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-desktop-bochs FAIL: fallback marker %s missing (stage2 did not take the mode-0x13 path)\n' "$$m"; exit 1; }; \
+	done
+	@# 2. The SHARED kernel + FLAIR-heap milestones -- the differential vs QEMU:
+	@#    the SAME flair_desktop kernel reached the same state on Bochs as on QEMU.
+	@for m in S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK; do \
+		grep -q "^$$m$$" "$(FLAIR_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-desktop-bochs FAIL: shared kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
+	done
+	@# 3. The 640x480-required fail-loud guard FIRED correctly under the 320x200
+	@#    fallback (NOT a triple-fault, NOT a silent misrender): the PANIC line +
+	@#    the HALTED terminal marker. This is the load-bearing tri-emulator tooth.
+	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-desktop-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback (silent misrender or wrong path?)\n'; exit 1; }
+	@grep -q '^HALTED$$' "$(FLAIR_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-desktop-bochs FAIL: HALTED terminal marker missing -- the guard did not reach its clean halt\n'; exit 1; }
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- the flair_desktop kernel booted under Bochs through the\n'
+	@printf '            shared kernel + FLAIR-heap milestones (== QEMU), and the 640x480\n'
+	@printf '            fail-loud guard FIRED correctly under the 320x200 mode-0x13\n'
+	@printf '            fallback (no triple-fault). NOTE: FLAIR-DESKTOP (the composed\n'
+	@printf '            present) is QEMU-only -- Bochs has no 640x480 LFB; the 8bpp DAC\n'
+	@printf '            present path is unreachable in-tree (tracked: bead initech-2gva).\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -13796,7 +14129,8 @@ TEST_EMU_GATES := \
 	test-samir-canon-y2k test-samir-canon-y2k-mutant \
 	test-samir-canon-salami test-samir-canon-salami-mutant \
 	test-autoexec test-autoexec-mutant \
-	test-hsct-redir test-hsct-redir-mutant
+	test-hsct-redir test-hsct-redir-mutant \
+	test-flair-desktop test-flair-desktop-mutant
 
 test-unit:
 	@printf '======================================================================\n'

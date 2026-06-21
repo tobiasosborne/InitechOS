@@ -41,6 +41,21 @@
 #include "command.h"     /* COMMAND.COM REPL (initech-7pc); BOOT_SHELL only */
 #include "sysinit.h"     /* SYSINIT named bring-up phases (beads initech-509.2) */
 
+#ifdef BOOT_FLAIR_SHELL
+/* The LIVE FLAIR desktop demo kernel (beads initech-re30.3, LANE 1). These
+ * FLAIR Toolbox + spec headers are pulled in ONLY for the BOOT_FLAIR_SHELL demo
+ * build, so the NORMAL boot path (and every other -D demo kernel) is byte-
+ * unchanged. The objects are ALREADY in KERNEL_OBJS (linked at re30.2, no call
+ * sites); this build is the FIRST call site -- it composes the Office Space
+ * desktop into an indexed-8 offscreen and PRESENTS it to the live LFB. */
+#include "heap.h"            /* flair_heap_t, flair_alloc (-Ios/flair)        */
+#include "surface.h"         /* bitmap_t, surface_put_pixel (-Ios/flair)      */
+#include "region_algebra.h"  /* region_t, RGN_ROWS_CAP/RGN_X_POOL_CAP (-Ispec)*/
+#include "shell.h"           /* shell_scene_t, shell_build_scene/render       */
+#include "menu_canon.h"      /* FLAIR_CANON_PHOTOSHOP_MENU_COUNT (-Ispec/assets)*/
+#include "palette.h"         /* flair_palette_rgb + INITECH_*_RGB (-Ispec/assets)*/
+#endif
+
 /* Seafoam: ported VERBATIM from stage2.asm:42-44 (SEAFOAM_R/G/B). The pie
  * chart (116%) and the HOURGLASS cursor are canon (the wristwatch is THE BUG,
  * PRD Appendix A); so is this fill color. The screendump oracle
@@ -595,6 +610,311 @@ static void run_baked(const char *tag, const uint8_t *image, uint32_t image_len)
     }
 }
 
+#ifdef BOOT_FLAIR_SHELL
+/* ===========================================================================
+ * THE LIVE FLAIR DESKTOP (beads initech-re30.3, LANE 1) -- render the Office
+ * Space chimera desktop LIVE on the emulated 386.
+ *
+ * THE milestone: re30.2 linked the 12 FLAIR Managers into the kernel with NO
+ * call sites; this is the FIRST call site. It mirrors the HOST oracle
+ * harness/proptest/test_shell.c build_shell() EXACTLY (same 2 windows, the two
+ * stacked menu bars, the modal FILE COPY box), with two and only two
+ * differences: (a) every byte of scene storage comes from the FLAIR heap via
+ * flair_alloc (NOT static/BSS -- the kernel window has only ~17 KiB of runway
+ * under the B0 kernel.ld ASSERT, bead 5dr8), and (b) it renders to an indexed-8
+ * OFFSCREEN then PRESENTS that to the live LFB (instead of malloc+PPM).
+ *
+ * THE INDEXED-8 SEAM (ADR-0004 OD-2): desktop.c/chrome.c/menu.c/dialog.c return
+ * palette INDICES as the "color"; surface_put_pixel writes the raw index at
+ * 8bpp but interprets the value as XRGB at 24/32bpp. So shell_render produces
+ * CORRECT pixels only into an 8bpp bitmap. We therefore render the scene into an
+ * 8bpp offscreen (EXACTLY as the host oracle does) and then convert index->RGB
+ * via flair_palette_rgb (THE shared point of truth with the host oracle's
+ * render_palette_rgb; spec/assets/palette.h) when the live LFB is direct-color.
+ *
+ * Ref: ADR-0004 D-1/D-2 (one surface module; Layer-5 desktop shell), D-5
+ *      (z-order), OD-2/OD-4 (indexed-8 / seafoam). os/flair/shell.h
+ *      (shell_build_scene/shell_render), os/flair/desktop.h
+ *      (FLAIR_DESKTOP_BG_INDEX), spec/memory_map.h (FLAIR_HEAP_*),
+ *      harness/render/render.c:56-75 (render_palette_rgb -- the index->RGB
+ *      correspondence flair_palette_rgb mirrors). harness/proptest/test_shell.c
+ *      build_shell (the scene this MIRRORS). CLAUDE.md Law 2 (oracle is truth),
+ *      Law 4 (look like the frame), Rule 2 (fail loud), Rule 11 (deterministic),
+ *      Rule 12 (ASCII-clean).
+ * ===========================================================================*/
+
+/* The scene geometry MIRRORS test_shell.c byte-for-byte (Law 2: the screendump
+ * oracle reuses the host test's known band positions). */
+#define FD_N_WINDOWS    2
+#define FD_N_SYS_MENUS  4
+
+/* Window bounds + titles -- IDENTICAL to test_shell.c W0_/W1_ bounds + titles. */
+static const rgn_rect_t fd_win_bounds[FD_N_WINDOWS] = {
+    {  80,  60, 300, 360 },   /* window 0 (back, upper-left -- overlaps the box)  */
+    { 120, 300, 360, 560 }    /* window 1 (front, lower-right)                    */
+};
+static const char *const fd_win_titles[FD_N_WINDOWS] = {
+    "untitled-1",
+    "Saving tables to disk"
+};
+/* System-7 bar titles (File/Edit/View/Special) -- IDENTICAL to test_shell.c. */
+static const char *const fd_sys_titles[FD_N_SYS_MENUS] = {
+    "File", "Edit", "View", "Special"
+};
+
+/* The fail-loud sink for a NULL flair_alloc (Rule 2): emit a grep-able marker
+ * with which allocation failed, then halt forever. Never proceed into FLAIR work
+ * on a heap that could not back the scene (a silently-wrong framebuffer is worse
+ * than a halt; CLAUDE.md Rule 2). */
+static void flair_desktop_oom(const char *what)
+{
+    serial_puts("PANIC flair-desktop: flair_alloc returned NULL for ");
+    serial_puts(what);
+    serial_putc('\n');
+    serial_puts("HALTED\n");
+    if (g_int21_con) {
+        console_puts(g_int21_con,
+            "\nPC LOAD LETTER  (FLAIR heap exhausted)\n");
+    }
+    for (;;) {
+        __asm__ __volatile__("cli; hlt");
+    }
+}
+
+/* Allocate ONE region from the FLAIR heap with its rows[]/x_pool pools attached
+ * and set to the empty set -- the test_drag/test_shell store_attach() idiom, but
+ * heap-backed. Fail loud (Rule 2) if any of the three allocations is NULL. */
+static region_t *flair_desktop_alloc_region(flair_heap_t *h, const char *what)
+{
+    region_t  *r    = (region_t *)flair_alloc(h, FLAIR_CLASS_HANDLE,
+                                              (uint32_t)sizeof(region_t));
+    rgn_row_t *rows = (rgn_row_t *)flair_alloc(h, FLAIR_CLASS_REGION,
+                          (uint32_t)(sizeof(rgn_row_t) * RGN_ROWS_CAP));
+    int16_t   *pool = (int16_t *)flair_alloc(h, FLAIR_CLASS_REGION,
+                          (uint32_t)(sizeof(int16_t) * RGN_X_POOL_CAP));
+    if (!r || !rows || !pool) {
+        flair_desktop_oom(what);
+    }
+    r->rows       = rows;
+    r->cap_rows   = RGN_ROWS_CAP;
+    r->x_pool     = pool;
+    r->x_pool_cap = RGN_X_POOL_CAP;
+    region_set_empty(r);
+    return r;
+}
+
+/* Present the indexed-8 offscreen onto the live LFB, honoring lfb_bpp + the LFB
+ * pitch (scanline padding). 8bpp: program the VGA DAC with the FLAIR palette
+ * (only the indices the scene uses, 0..8) and copy indices row-by-row. 24/32bpp:
+ * convert each index -> 0x00RRGGBB via flair_palette_rgb and write it through the
+ * ONE surface module (surface_put_pixel) into a bitmap_t wrapping the LFB. */
+static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
+{
+    uint32_t W = off->width;
+    uint32_t H = off->height;
+
+    if (bi->lfb_bpp == 8u) {
+        /* Indexed-8 LFB present (the period-authentic SVGA depth, ADR-0004
+         * OD-2/AM-7: VBE 0x101 on a Cirrus/ET4000-class card). The LFB stores
+         * palette indices: program the DAC for every index flair_palette_rgb
+         * defines (0..8; DAC is 6 bits/channel so 8-bit RGB is >> 2,
+         * vga_set_dac) then copy indices row-by-row honoring lfb_pitch (not
+         * width).
+         *
+         * KEEP -- do NOT delete as dead code (committee ruling re30.3-chair,
+         * 2026-06-21). This path is correct + ratified but currently UNREACHED:
+         * stage2 vbe_setup requests only 640x480x32/24, and the sole 8bpp the
+         * boot yields is mode-0x13 320x200, which the 640x480 size guard below
+         * rejects before present runs. Reached when a 640x480x8 LFB exists
+         * (VESA 0x101 / 86Box at M4). Activation of the stage2 0x101 fallback
+         * AND a test that REACHES this wrapper are tracked in bead initech-2gva
+         * (host-modeled separately in harness/render/render.c). */
+        for (uint32_t idx = 0; idx <= 8u; idx++) {
+            uint32_t rgb = flair_palette_rgb((uint8_t)idx);
+            vga_set_dac((uint8_t)idx,
+                        (uint8_t)((rgb >> 16) & 0xFFu),
+                        (uint8_t)((rgb >> 8) & 0xFFu),
+                        (uint8_t)(rgb & 0xFFu));
+        }
+        volatile uint8_t *lfb = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
+        for (uint32_t y = 0; y < H; y++) {
+            const uint8_t *srow = (const uint8_t *)off->base + (uint32_t)y * off->pitch;
+            volatile uint8_t *drow = lfb + (uint32_t)y * bi->lfb_pitch;
+            for (uint32_t x = 0; x < W; x++) {
+                drow[x] = srow[x];
+            }
+        }
+        return;
+    }
+
+    /* Direct-color LFB (QEMU VBE leg, 24 or 32 bpp). Wrap the LFB as a bitmap_t
+     * and write each converted pixel through surface_put_pixel (the ONE pixel
+     * path; ADR-0004 D-2). The byte offset uses lfb_pitch so padded scanlines
+     * are honored. */
+    bitmap_t lbm;
+    lbm.base            = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
+    lbm.pitch           = bi->lfb_pitch;
+    lbm.bpp             = bi->lfb_bpp;
+    lbm.bytes_per_pixel = bi->lfb_bpp / 8u;
+    lbm.width           = bi->lfb_width;
+    lbm.height          = bi->lfb_height;
+    for (uint32_t y = 0; y < H; y++) {
+        const uint8_t *srow = (const uint8_t *)off->base + (uint32_t)y * off->pitch;
+        for (uint32_t x = 0; x < W; x++) {
+            uint32_t rgb = flair_palette_rgb(srow[x]) & 0x00FFFFFFu;
+            uint32_t boff = (uint32_t)y * lbm.pitch + x * lbm.bytes_per_pixel;
+            surface_put_pixel(&lbm, boff, rgb);
+        }
+    }
+}
+
+/* Build + render + present the live FLAIR desktop. Returns nothing; fails loud
+ * on a too-small LFB or any heap exhaustion (Rule 2). */
+static void flair_desktop_run(const boot_info_t *bi)
+{
+    enum { FD_W = 640, FD_H = 480 };
+
+    /* The scene is rendered at 640x480 (ADR-0004 OD-3, the native desktop). The
+     * mode-0x13 fallback (320x200) cannot hold it; fail loud rather than render
+     * a clipped/garbage desktop (Rule 2). */
+    if (bi->lfb_width < (uint32_t)FD_W || bi->lfb_height < (uint32_t)FD_H) {
+        serial_puts("PANIC flair-desktop: LFB smaller than 640x480 w=");
+        serial_putu(bi->lfb_width);
+        serial_puts(" h=");
+        serial_putu(bi->lfb_height);
+        serial_putc('\n');
+        serial_puts("HALTED\n");
+        if (g_int21_con) {
+            console_puts(g_int21_con,
+                "\nPC LOAD LETTER  (FLAIR needs a 640x480 framebuffer)\n");
+        }
+        for (;;) {
+            __asm__ __volatile__("cli; hlt");
+        }
+    }
+
+    /* Bind the FLAIR heap to its fixed 4 MiB extended-memory window (NOT over
+     * the LFB -- the heap is [FLAIR_HEAP_BASE, +SIZE); the LFB is the render
+     * destination). The RAM-sufficiency gate above already proved this window is
+     * backed by real RAM (FLAIR-HEAP-OK). */
+    static flair_heap_t heap;   /* tiny bookkeeping struct; no buffer embedded */
+    flair_heap_init(&heap, (void *)(uintptr_t)FLAIR_HEAP_BASE, FLAIR_HEAP_SIZE);
+
+    /* --- The whole scene, allocated from the FLAIR heap (Law 3; bead 5dr8) --- */
+    shell_scene_t *scene =
+        (shell_scene_t *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
+                                     (uint32_t)sizeof(shell_scene_t));
+    if (!scene) { flair_desktop_oom("shell_scene_t"); }
+
+    /* The five Window-Manager regions (desktop_update + 3 manager scratch + the
+     * compositor's distinct visible-region carrier; desktop.h). */
+    region_t *desk = flair_desktop_alloc_region(&heap, "wm.desktop_update");
+    region_t *sa   = flair_desktop_alloc_region(&heap, "wm.scratch_a");
+    region_t *sb   = flair_desktop_alloc_region(&heap, "wm.scratch_b");
+    region_t *sc   = flair_desktop_alloc_region(&heap, "wm.scratch_c");
+    region_t *comp = flair_desktop_alloc_region(&heap, "wm.comp_scratch");
+
+    /* The document windows + their region trios. */
+    shell_window_store *wins =
+        (shell_window_store *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
+                          (uint32_t)(sizeof(shell_window_store) * FD_N_WINDOWS));
+    if (!wins) { flair_desktop_oom("shell_window_store[]"); }
+    for (int i = 0; i < FD_N_WINDOWS; i++) {
+        wins[i].strucRgn  = flair_desktop_alloc_region(&heap, "win.strucRgn");
+        wins[i].contRgn   = flair_desktop_alloc_region(&heap, "win.contRgn");
+        wins[i].updateRgn = flair_desktop_alloc_region(&heap, "win.updateRgn");
+    }
+
+    /* The System-7 bar: 4 menus, each with a 2-item list (well-formed). Mirrors
+     * test_shell.c. */
+    MenuInfo *sys_menus =
+        (MenuInfo *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
+                                (uint32_t)(sizeof(MenuInfo) * FD_N_SYS_MENUS));
+    MenuItem *sys_items =
+        (MenuItem *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
+                            (uint32_t)(sizeof(MenuItem) * FD_N_SYS_MENUS * 2));
+    if (!sys_menus || !sys_items) { flair_desktop_oom("sys menus/items"); }
+    for (int mi = 0; mi < FD_N_SYS_MENUS; mi++) {
+        MenuItem *it = &sys_items[mi * 2];
+        it[0] = (MenuItem){ "About", 0, 0,   0, 1, 0 };
+        it[1] = (MenuItem){ "Quit",  0, 'Q', 0, 1, 0 };
+        sys_menus[mi].menuID    = (int16_t)(128 + mi);
+        sys_menus[mi].title     = fd_sys_titles[mi];
+        sys_menus[mi].items     = it;
+        sys_menus[mi].n_items   = 2;
+        sys_menus[mi].menuWidth = 0;
+    }
+
+    /* The Photoshop bar: 8 menus; the shell STAMPS the canon titles from
+     * menu_canon.h (the caller leaves title NULL + supplies the item lists). */
+    MenuInfo *ps_menus =
+        (MenuInfo *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
+            (uint32_t)(sizeof(MenuInfo) * FLAIR_CANON_PHOTOSHOP_MENU_COUNT));
+    MenuItem *ps_items =
+        (MenuItem *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
+            (uint32_t)(sizeof(MenuItem) * FLAIR_CANON_PHOTOSHOP_MENU_COUNT * 2));
+    if (!ps_menus || !ps_items) { flair_desktop_oom("photoshop menus/items"); }
+    for (int mi = 0; mi < FLAIR_CANON_PHOTOSHOP_MENU_COUNT; mi++) {
+        MenuItem *it = &ps_items[mi * 2];
+        it[0] = (MenuItem){ "New",  0, 'N', 0, 1, 0 };
+        it[1] = (MenuItem){ "Open", 0, 'O', 0, 1, 0 };
+        ps_menus[mi].title     = (const char *)0;  /* set by shell from canon  */
+        ps_menus[mi].items     = it;
+        ps_menus[mi].n_items   = 2;
+        ps_menus[mi].menuWidth = 0;
+    }
+
+    /* The modal FILE COPY dialog storage (DialogRecord + 2 items + progress
+     * control + 3 regions). */
+    DialogRecord *dlg =
+        (DialogRecord *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
+                                    (uint32_t)sizeof(DialogRecord));
+    DialogItem *dlg_items =
+        (DialogItem *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
+                                  (uint32_t)(sizeof(DialogItem) * 2));
+    ControlRecord *dlg_progress =
+        (ControlRecord *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
+                                     (uint32_t)sizeof(ControlRecord));
+    if (!dlg || !dlg_items || !dlg_progress) { flair_desktop_oom("dialog storage"); }
+    region_t *dlg_struc = flair_desktop_alloc_region(&heap, "dlg.strucRgn");
+    region_t *dlg_cont  = flair_desktop_alloc_region(&heap, "dlg.contRgn");
+    region_t *dlg_upd   = flair_desktop_alloc_region(&heap, "dlg.updateRgn");
+
+    /* The indexed-8 offscreen the scene renders into (OD-2: 1 byte/pixel = a
+     * palette index). FLAIR_CLASS_BITMAP. Tight pitch == width (no padding). */
+    uint8_t *off_px =
+        (uint8_t *)flair_alloc(&heap, FLAIR_CLASS_BITMAP,
+                               (uint32_t)((uint32_t)FD_W * (uint32_t)FD_H));
+    if (!off_px) { flair_desktop_oom("offscreen8 (640x480)"); }
+    bitmap_t off;
+    off.base            = (volatile uint8_t *)off_px;
+    off.pitch           = (uint32_t)FD_W;     /* tight: width * (8/8) */
+    off.bpp             = 8u;
+    off.bytes_per_pixel = 1u;
+    off.width           = (uint32_t)FD_W;
+    off.height          = (uint32_t)FD_H;
+
+    /* --- Wire the scene (IDENTICAL call shape to test_shell.c build_shell) --- */
+    rgn_rect_t frame = { 0, 0, (int16_t)FD_H, (int16_t)FD_W };
+    shell_build_scene(scene,
+                      frame,
+                      wins, FD_N_WINDOWS, fd_win_bounds, fd_win_titles,
+                      desk, sa, sb, sc, comp,
+                      sys_menus, FD_N_SYS_MENUS,
+                      ps_menus,
+                      dlg, dlg_items, dlg_progress,
+                      dlg_struc, dlg_cont, dlg_upd,
+                      1 /* show_modal -- the canon Office Space frame */);
+
+    /* --- Render the desktop in INDICES into the 8bpp offscreen (EXACTLY as the
+     * host oracle does) --- */
+    shell_render(scene, &off);
+
+    /* --- PRESENT the offscreen onto the live LFB (8 -> DAC+copy; 24/32 -> convert) --- */
+    flair_desktop_present(bi, &off);
+}
+#endif /* BOOT_FLAIR_SHELL */
+
 void kernel_main(void)
 {
     /* Marker: C kernel entered. This is the acceptance signal for the handoff
@@ -801,6 +1121,23 @@ void kernel_main(void)
         }
     }
     serial_puts("FLAIR-HEAP-OK\n");
+
+#ifdef BOOT_FLAIR_SHELL
+    /* THE LIVE FLAIR DESKTOP (beads initech-re30.3, LANE 1; THE milestone): build
+     * the Office Space chimera desktop into an indexed-8 offscreen from the FLAIR
+     * heap, render it (EXACTLY as the host oracle test_shell.c does), and PRESENT
+     * it to the live LFB. This is a DEDICATED demo kernel: it does NOT touch the
+     * normal boot (guarded by BOOT_FLAIR_SHELL), and after painting it emits the
+     * grep-able "FLAIR-DESKTOP" marker (the screendump oracle's paint-complete
+     * signal) then HALTS forever -- a STABLE screen for the screendump. It does
+     * NOT fall through to FAT-mount / the REPL. (b is the boot_info_t snapshot
+     * populated at the top of kernel_main.) */
+    flair_desktop_run(&b);
+    serial_puts("FLAIR-DESKTOP\n");
+    for (;;) {
+        __asm__ __volatile__("cli; hlt");
+    }
+#endif
 
 #ifdef BOOT_SELFTEST_FAULT
     /* SELF-TEST BUILD ONLY (beads initech-a5a; make test-panic). Deliberately
