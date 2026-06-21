@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-06-20 (WL-0046..0048 -- THE KERNEL-GROWTH / REDIRECTION ARC: **o0td** (PROGRAM_BASE 0x30000->0x38000, whole-map shift +0x8000 = **+32 KiB kernel window**; SAMIR's heap preserved byte-identical) -> **k36g** (INT 21h AH=09h/02h/06h CON output now routes through the **redirectable JFT handle 1**) -> **hsct OUTPUT redirect** (`echo HELLO > file` + `>>` append REALLY redirect on the emulated 386). 3 commits pushed (bae46d4 / 7de96e6 / 24194ed); **240->244 host + 39->41 emu + Bochs GREEN**. The committee disproved the prescribed o0td fix (SAMIR .bss measured 47.3 KiB not the documented 26 KiB) and the orchestrator amended the chair's ruling (kstart ESP). Next: **bsy.9** (loader child-PSP-inherits-parent-JFT -> external EXEC redirect), **bsy.7** (`<` stdin), **bsy.8** (`|` pipe). Prior: WL-0040..0045 -- DOS-3.3 PARITY: 5-WAVE ORCHESTRATED PUSH TO THE CAPSTONE. **224 -> 240 host gates; full emu (39) + Bochs GREEN throughout; 5 commits pushed (9a5fea3..4e60bd5).** Wave 1 xw1(.BAT/AUTOEXEC) + bo40(AH=31h KEEP) + x3mh(ANSI FSM); Wave 2 mvg(INT 24h critical-error) + 509.7(device chain); Wave 3 6zd9(device chain->INT 21h OPEN-by-name); Wave 4 p96i(ANSI CON wiring) + the FAT-cache share [a committee ratified raising PROGRAM_BASE; orchestrator grading (Law 4) caught that the raise BROKE SAMIR's heap arena -> reverted -> the committee's own option B instead]; **Wave 5 CAPSTONE 40oq -- the Appendix-A INT 21h functional-coverage CERTIFICATE is GREEN** (55 dispatched, 0 unwaived gaps; AH=03/04/05 AUX/PRN gap closed; FCB-waived; partitions+multivol deferred). Beads closed: xw1/bo40/mvg/509.7/6zd9/p96i/x3mh; 40oq functional-certified (stays open on kzfs/slvd). Wave 6 hsct(I/O redirection) ATTEMPTED + REVERTED -- found 2 blockers (AH=09h not redirectable; kernel window exhausted). **THE KERNEL WINDOW [0x10000,0x30000) IS FULL -- o0td (P1) is now the gating prereq for further kernel growth.** Prior: WL-0038 (Tranches E/F/G + MZ .EXE end-to-end); FLAIR PAUSED.)
+**Last Reconciled:** 2026-06-21 (WL-0049+WL-0050 -- **FLAIR CONSOLIDATION + EXPANSION begun.** Operator opened the FLAIR build-out (north star: a period-authentic GUI that hosts all serious era apps as **Initech-versions**). A 7-lane understand workflow + critic mapped the state: **FLAIR is host-green but does NOT boot** -- only `surface.o` links into the kernel; the booted OS still shows seafoam + a console banner; the locked imaging spec is partly aspirational (no draw verbs). Authored **`docs/plans/FLAIR-implementation-plan.md`** (7 phases, dependency-ordered, era-layered **Sys7-now / Sys8-Platinum-accreted-later**; ratified forks: Doom = flat-32 source port [NO DPMI -- already 32-bit flat], Minecraft = native "Initech Mines", M5 frame apps before the hosting arc, canonical suite **InitechBase -> Initech 123 (Lotus) -> InitechWord (WordPerfect)**). **Phase 0/1 LANDED (commit fe4d9b1; 244 -> 254 host gates):** the era-layered canonical spec -- `spec/{control,menu,dialog}_record.h` + `drawing_ops.h` + the 256-entry `assets/clut.{json,h}` + ingested chrome RGBs (out of golden_resolves) + the **`#dfdfdf`->`#ffffff` Law-3 fix** + `CANON-MANIFEST.md` (88 corpus specs mapped) + `win95ism_guardrails.md`; docs reconciled (MZ ships per DEC-08a; M6 = dBASE III+ per ADR-0008); 5 new gates + mutants. **Phase 3 committee** (2 opus seats, chair-synthesized, no gridlock) ruled **GROW** (the GrafPort verb layer + one palette module from clut.h) on a **bisectable boot sequence** (M3.1 ships on the existing cfill path; the verb refactor lands parallel). **B0 (commit 50c1374):** a mutation-proven **kernel.ld fail-loud `ASSERT(_kernel_end < 0x38000)`** + corrected the stale `memory_map.h` headroom comment -- and FOUND the **BOOTING shell kernel has only ~29 KiB headroom (`_kernel_end=0x30920`) < FLAIR's ~51 KiB**, so M3.0 needs the **pre-authorized +0x8000 PROGRAM_BASE raise**. Both commits pushed to origin/command-com-default. **NEXT = `re30.2` M3.0** (the +0x8000 raise, o0td-style, preserve SAMIR's arena, FULL emu+Bochs grade) -> **`re30.3` M3.1** (static live desktop via shell_render + a new `test-flair-desktop` screendump gate). The MILTON redirection arc (bsy.7/.8/.9) remains open in parallel. **Prior: WL-0046..0048 -- THE KERNEL-GROWTH / REDIRECTION ARC: o0td** (PROGRAM_BASE 0x30000->0x38000, whole-map shift +0x8000 = **+32 KiB kernel window**; SAMIR's heap preserved byte-identical) -> **k36g** (INT 21h AH=09h/02h/06h CON output now routes through the **redirectable JFT handle 1**) -> **hsct OUTPUT redirect** (`echo HELLO > file` + `>>` append REALLY redirect on the emulated 386). 3 commits pushed (bae46d4 / 7de96e6 / 24194ed); **240->244 host + 39->41 emu + Bochs GREEN**. The committee disproved the prescribed o0td fix (SAMIR .bss measured 47.3 KiB not the documented 26 KiB) and the orchestrator amended the chair's ruling (kstart ESP). Next: **bsy.9** (loader child-PSP-inherits-parent-JFT -> external EXEC redirect), **bsy.7** (`<` stdin), **bsy.8** (`|` pipe). Prior: WL-0040..0045 -- DOS-3.3 PARITY: 5-WAVE ORCHESTRATED PUSH TO THE CAPSTONE. **224 -> 240 host gates; full emu (39) + Bochs GREEN throughout; 5 commits pushed (9a5fea3..4e60bd5).** Wave 1 xw1(.BAT/AUTOEXEC) + bo40(AH=31h KEEP) + x3mh(ANSI FSM); Wave 2 mvg(INT 24h critical-error) + 509.7(device chain); Wave 3 6zd9(device chain->INT 21h OPEN-by-name); Wave 4 p96i(ANSI CON wiring) + the FAT-cache share [a committee ratified raising PROGRAM_BASE; orchestrator grading (Law 4) caught that the raise BROKE SAMIR's heap arena -> reverted -> the committee's own option B instead]; **Wave 5 CAPSTONE 40oq -- the Appendix-A INT 21h functional-coverage CERTIFICATE is GREEN** (55 dispatched, 0 unwaived gaps; AH=03/04/05 AUX/PRN gap closed; FCB-waived; partitions+multivol deferred). Beads closed: xw1/bo40/mvg/509.7/6zd9/p96i/x3mh; 40oq functional-certified (stays open on kzfs/slvd). Wave 6 hsct(I/O redirection) ATTEMPTED + REVERTED -- found 2 blockers (AH=09h not redirectable; kernel window exhausted). **THE KERNEL WINDOW [0x10000,0x30000) IS FULL -- o0td (P1) is now the gating prereq for further kernel growth.** Prior: WL-0038 (Tranches E/F/G + MZ .EXE end-to-end); FLAIR PAUSED.)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -202,6 +202,80 @@ desktop. (Under Bochs: `make test-boot-bochs` — same boot via the mode-0x13
 fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
+
+> **CURRENT STATE (2026-06-21, WL-0049+WL-0050 -- FLAIR CONSOLIDATION + EXPANSION;
+> the active arc. Supersedes the WL-0046..0048 block below for FLAIR; the MILTON
+> redirection arc bsy.7/.8/.9 remains open in parallel.)**
+>
+> **FLAIR is the crown-jewel north star now: a period-authentic GUI that boots
+> live and hosts all serious era apps as Initech-versions.** A 7-lane understand
+> workflow (`wf_e7335f49-a55`) + a completeness critic established the ground
+> truth and the critic cross-verified it: **FLAIR is host-green (254 host gates)
+> but does NOT boot** -- only `surface.o` links into the kernel image; the booted
+> OS still shows seafoam + a console banner; the locked `grafport.h`/`imaging.h`
+> is partly aspirational decoration (no drawing verbs; `grafProcs` NULL-only).
+>
+> **The plan-of-record is `docs/plans/FLAIR-implementation-plan.md`** (read it):
+> 7 phases, dependency-ordered, **era-layered (System 7.0/7.1 base NOW; a System 8
+> Platinum layer ACCRETES later** -- the Office Space frame is likely Platinum,
+> "never delete, always accrete"). Ratified operator forks: **Doom = a flat-32
+> SOURCE PORT (NO DPMI/extender -- the OS is already 32-bit flat); Minecraft =
+> native "Initech Mines" (literal JVM out by Law 3 + ADR-0001); M5 native frame
+> apps BEFORE the hosting arc; the canonical productivity suite comes first --
+> InitechBase (=SAMIR, done-ish) -> Initech 123 (Lotus) -> InitechWord
+> (WordPerfect).** Bead DAG: phase epics `v94x`(P0) `dh5k`(P1) `re30`(P3)
+> `4e35`(P4) `t4hp`(P6) + the critical-path chain; stale `8oi`/`ox7` superseded.
+>
+> **DONE this session (2 commits, pushed; orchestrated -- delegate/grade/commit):**
+> 1. **Phase 0/1 -- the era-layered CANONICAL SPEC (the red-green target)**
+>    (commit `fe4d9b1`; **244 -> 254 host gates green**). 6 disjoint sonnet lanes,
+>    orchestrator-graded: `spec/control_record.h`/`menu_record.h`/`dialog_record.h`
+>    + `drawing_ops.h` (QuickDraw verb/CopyBits/coord/pattern op semantics) + the
+>    real 256-entry `spec/assets/clut.{json,h}` (from the system7-decomp ROM
+>    golden) + ingested chrome RGBs OUT of `golden_resolves` (pinstripe/bevel/box/
+>    scrollbar + win31 SM_CYCAPTION=18) + the **`#dfdfdf`->`#ffffff` Law-3 fix** +
+>    `spec/CANON-MANIFEST.md` (all 88 corpus specs mapped) + `win95ism_guardrails.md`.
+>    Docs reconciled: CLAUDE.md/PRD "MZ deferred" -> **InitechMZ SHIPS** (DEC-08a);
+>    PRD dBASE IV -> III+ (ADR-0008). All 5 new gates + mutants bite.
+> 2. **Phase 3 committee ruling + B0** (commit `50c1374`; WL-0050). The committee
+>    (2 opus seats) ruled **GROW the impl** (build the GrafPort verb layer + ONE
+>    palette module on the blitter; the locked spec is ratified truth, not
+>    decoration) on a **bisectable boot sequence**: M3.1 ships the static desktop
+>    on the existing `cfill` path; the verb refactor lands PARALLEL, off the
+>    first-pixels critical path. **B0** added a **mutation-proven kernel.ld
+>    fail-loud `ASSERT(_kernel_end < 0x38000)`** (top-level; a bare ASSERT inside
+>    SECTIONS is an ld syntax error -- caught during grading) and corrected the
+>    stale `memory_map.h` headroom comment. **Key measured finding: the BOOTING
+>    shell kernel has only ~29 KiB headroom (`_kernel_end=0x30920`) < FLAIR's
+>    ~51 KiB** -- so M3.0 WILL trip the assert.
+>
+> **NEXT WORK (Phase 3, dependency-ordered -- `bd show initech-re30`):**
+> 1. **`re30.2` M3.0 (the gating step):** the **pre-authorized +0x8000
+>    PROGRAM_BASE raise** (0x38000 -> 0x40000, 192 KiB window) -- a Rule-8
+>    whole-map shift mirroring **o0td EXACTLY**, PRESERVING SAMIR's heap arena
+>    byte-identical (the Wave-4 raise-alone BROKE it; o0td's pairing did not),
+>    then link the FLAIR Manager set into `KERNEL_OBJS`. **FULL `make clean &&
+>    make test` incl. emu + Bochs** (kernel/memory-map change = tri-emulator
+>    obligation, Rule 5; the WL-0028 hard lesson). The kernel.ld assert is the
+>    safety net.
+> 2. **`re30.3` M3.1 (the milestone):** static live desktop via `shell_render` to
+>    the LFB in kmain + a new `test-flair-desktop` emu gate (QEMU screendump
+>    structural-band + Bochs serial) -- the chimera desktop LIVE on the 386.
+> 3. **Verb-layer track (parallel, off critical path):** `re30.4` one palette
+>    module -> `re30.5` verbs + grafProcs -> `re30.6` per-Manager flip ->
+>    `re30.7` CopyBits/GWorld. **Input arc:** `re30.8` tick -> `re30.9` keyboard
+>    -> `initech-26d` mouse/IRQ12 (Bochs-gated for dual-PIC EOI). **Fidelity:**
+>    `initech-u9gf` (Bochs RFB) + `k8o5.11` (dual-target digest); host-model-
+>    PER-MODE (AM-6), SSIM guide-not-gate; LAND 86Box (`q0gy`) at M4, don't waive.
+>
+> **Orchestration cadence (operator-set):** delegate each coding step to a
+> subagent (<=6 sonnet / <=2 opus parallel; DISJOINT files per lane, shared files
+> SERIAL); the orchestrator OWNS Makefile integration + independent re-grading
+> (Law 2/4: re-run oracle + mutant + the FULL clean aggregate, NEVER trust the
+> report -- this session caught comment-only "decoration" mutants + a faked-pass
+> ld syntax error that way) + commit-per-wave + the bead ledger; convene the
+> **committee** for serious forks (it ruled Phase 3 GROW-vs-trim + the boot
+> sequence); committee has ultimate control, escalate only on gridlock.
 
 > **CURRENT STATE (2026-06-20, WL-0046..0048 -- supersedes the WL-0040..0045 block below).**
 > **THE KERNEL-WINDOW WALL IS GONE and I/O REDIRECTION WORKS.** Three features
