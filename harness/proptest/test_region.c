@@ -410,10 +410,11 @@ int main(void)
         CHECK(!mism, "region_contains_point matches rasterize on every pixel");
     }
 
-    /* ---- region_intersects + region_rect_in_region vs the pixel truth ----- */
+    /* ---- region_intersects + region_rect_fully_in + region_rect_overlaps vs
+     *      the pixel truth (AM-4: CONTAINMENT and OVERLAP are distinct) ------- */
     {
-        int inter_bad = 0, rir_bad = 0;
-        for (int t = 0; t < 800 && !inter_bad && !rir_bad; t++) {
+        int inter_bad = 0, rir_bad = 0, ovl_bad = 0;
+        for (int t = 0; t < 800 && !inter_bad && !rir_bad && !ovl_bad; t++) {
             rgn_spec_t sA, sB; gen_spec(&sA); gen_spec(&sB);
             static rgn_store_t SA, SB; bitmap_t bA, bB;
             spec_to_region(&sA, &SA); spec_to_region(&sB, &SB);
@@ -423,8 +424,8 @@ int main(void)
             for (int i = 0; i < GW * GH && !share; i++) if (bA.px[i] && bB.px[i]) share = 1;
             if (region_intersects(&SA.r, &SB.r) != share) inter_bad = 1;
 
-            /* region_rect_in_region: a random rect is fully inside A iff every
-             * one of its pixels is set in A's bitmap. */
+            /* region_rect_fully_in (CONTAINMENT): a random rect is fully inside A
+             * iff EVERY one of its pixels is set in A's bitmap. */
             int top = rnd(0, GH - 1), left = rnd(0, GW - 1);
             int bot = rnd(top + 1, GH), right = rnd(left + 1, GW);
             int all_in = 1;
@@ -432,10 +433,20 @@ int main(void)
                 for (int x = left; x < right; x++)
                     if (!bm_get(&bA, x, y)) { all_in = 0; break; }
             rgn_rect_t rc = { (int16_t)top, (int16_t)left, (int16_t)bot, (int16_t)right };
-            if (region_rect_in_region(&SA.r, rc) != all_in) rir_bad = 1;
+            if (region_rect_fully_in(&SA.r, rc) != all_in) rir_bad = 1;
+
+            /* region_rect_overlaps (OVERLAP, AM-4): the SAME random rect overlaps
+             * A iff ANY one of its pixels is set in A's bitmap. Independent pixel
+             * ground truth -- this is a DIFFERENT predicate than containment. */
+            int any_in = 0;
+            for (int y = top; y < bot && !any_in; y++)
+                for (int x = left; x < right; x++)
+                    if (bm_get(&bA, x, y)) { any_in = 1; break; }
+            if (region_rect_overlaps(&SA.r, rc) != any_in) ovl_bad = 1;
         }
         CHECK(!inter_bad, "region_intersects matches pixel-overlap ground truth");
-        CHECK(!rir_bad,   "region_rect_in_region matches pixel-containment truth");
+        CHECK(!rir_bad,   "region_rect_fully_in matches pixel-containment truth");
+        CHECK(!ovl_bad,   "region_rect_overlaps matches pixel-any-overlap truth");
     }
 
     /* ======================================================================

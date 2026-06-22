@@ -2,14 +2,20 @@
  * spec/region_algebra.h -- ATKINSON region engine: the LOCKED contract.
  *
  * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.2 -- "the load-bearing math").
- * QuickDraw-style regions are the spine of the whole FLAIR Toolbox: clipping,
- * window overlap, visRgn/clipRgn, and the update/damage model all reduce to
- * region algebra. This header is the contract BOTH the engine
- * (os/flair/atkinson, the .c sources) and its property suite (harness/proptest/
- * test_region.c) include. The region's INTERNAL byte format is OUR clean-room
- * design (DEC-04a-R1 / ADR-0005, pending); it is NOT a port of QuickDraw's
- * proprietary, unpublished region body -- only the public op NAMES and Rect
- * field order are carried for period authenticity.
+ * ATKINSON is the SINGLE scanline-inversion-list Boolean set engine that is the
+ * shared spine behind BOTH the System-7 QuickDraw Rgn family AND the Win-3.1 GDI
+ * HRGN family: clipping, window overlap, visRgn/clipRgn, the update/damage model,
+ * and the GDI region calls all reduce to ONE region algebra. BOTH heritages clip
+ * through the ONE region_op (Sec 6); NEITHER heritage owns it (ADR-0005 Amendment
+ * AM-1, AM-1/AM-2). The two heritage names -- QuickDraw (UnionRgn/SectRgn/...)
+ * and GDI (CombineRgn RGN_OR/RGN_AND/...) -- are strict PEER facades over the one
+ * neutral primitive (Sec 7 = QuickDraw facade, Sec 7b = GDI facade). This header
+ * is the contract BOTH the engine (os/flair/atkinson, the .c sources) and its
+ * property suite (harness/proptest/test_region.c) include. The region's INTERNAL
+ * byte format is OUR clean-room design (DEC-04a-R1 / ADR-0005); it is NOT a port
+ * of QuickDraw's proprietary, unpublished region body NOR of the GDI HRGN body --
+ * only the public op NAMES, mode codes, and Rect field order are carried, from
+ * both heritages, for period authenticity.
  *
  * Source / Law 1 citations (all local):
  *   PRD Sec 6.2 -- a region is a pixel set R in Z^2, represented per scanline by
@@ -29,12 +35,20 @@
  *     5-layer stack this engine anchors; operator decisions: indexed-8 internal
  *     offscreen depth, 640x480 native resolution (so int16 region coords are
  *     framebuffer-bounded, 640x480 << 32767).
- *   Inside Macintosh I, "QuickDraw" -- the PUBLIC region op names (UnionRgn,
- *     SectRgn, DiffRgn, XorRgn, SetRectRgn, SetEmptyRgn, PtInRgn, RectInRgn,
- *     EmptyRgn, EqualRgn) and the Rect field order (top,left,bottom,right),
- *     carried verbatim for authenticity. The 0x7FFF in-band sentinel that
- *     QuickDraw's body reportedly uses is UNVERIFIED lore and is NOT adopted
- *     (see GUARDRAIL below).
+ *   Inside Macintosh I, "QuickDraw" -- the System-7 heritage facade: the PUBLIC
+ *     region op names (UnionRgn, SectRgn, DiffRgn, XorRgn, SetRectRgn,
+ *     SetEmptyRgn, PtInRgn, RectInRgn, EmptyRgn, EqualRgn) and the Rect field
+ *     order (top,left,bottom,right), carried verbatim for authenticity. The
+ *     0x7FFF in-band sentinel that QuickDraw's body reportedly uses is UNVERIFIED
+ *     lore and is NOT adopted (see GUARDRAIL below).
+ *   Win-3.1 "wingdi.h" -- the GDI heritage facade (dual provenance, ADR-0005
+ *     Amendment AM-1): the PUBLIC HRGN combine entry CombineRgn(dst,src1,src2,
+ *     mode), the RGN_* mode codes (RGN_AND=1, RGN_OR=2, RGN_XOR=3, RGN_DIFF=4,
+ *     RGN_COPY=5), the region-type complexity return (ERROR=0, NULLREGION=1,
+ *     SIMPLEREGION=2, COMPLEXREGION=3), and the GDI argument orders for
+ *     PtInRegion/RectInRegion/GetRgnBox -- carried verbatim for authenticity
+ *     (Sec 7b). The GDI body format is likewise proprietary and is NOT ported;
+ *     only the names/codes are borrowed.
  *
  * DUAL-COMPILE (the console.c/int21.c pattern): the engine that includes this
  * header compiles BOTH freestanding for the kernel (gcc -m32 -ffreestanding
@@ -172,11 +186,28 @@ typedef struct region {
  * i.e. the frame minus A (over the frame). State this everywhere complement is
  * offered: "complement" without a frame is meaningless here.
  * ===========================================================================*/
+/* THREE name columns (heritage-symmetric, ADR-0005 Amendment AM-3): the internal
+ * rgn_op_t, its System-7 QuickDraw name, and its Win-3.1 GDI CombineRgn mode.
+ * Both heritages dispatch to the SAME op; neither owns it (Sec 7 / Sec 7b).
+ *
+ *   internal rgn_op_t   | QuickDraw name | GDI CombineRgn mode
+ *   --------------------+----------------+--------------------
+ *   RGN_OP_UNION        | UnionRgn       | RGN_OR
+ *   RGN_OP_INTERSECT    | SectRgn        | RGN_AND
+ *   RGN_OP_DIFF         | DiffRgn        | RGN_DIFF
+ *   RGN_OP_XOR          | XorRgn         | RGN_XOR
+ *
+ * XOR-decomposition note (the dual-heritage proof point): GDI documents XOR as
+ * (src1 SUB src2) UNION (src2 SUB src1) -- it reaches XOR a different SYNTACTIC
+ * way -- but that is provably the SAME SET as the one XOR primitive, as the
+ * existing _Static_assert at the XOR line (Sec 8, "XOR == UNION minus INTERSECT
+ * on the 4-bit truth tables") pins. Two heritages, one set: neither owns the
+ * engine. */
 typedef enum rgn_op {
-    RGN_OP_UNION     = 0,  /* OR(inA, inB)          -- UnionRgn               */
-    RGN_OP_INTERSECT = 1,  /* AND(inA, inB)         -- SectRgn                */
-    RGN_OP_DIFF      = 2,  /* ANDNOT(inA, inB)      -- DiffRgn (A and not B)  */
-    RGN_OP_XOR       = 3   /* XOR(inA, inB)         -- XorRgn                 */
+    RGN_OP_UNION     = 0,  /* OR(inA, inB)     QuickDraw UnionRgn / GDI RGN_OR  */
+    RGN_OP_INTERSECT = 1,  /* AND(inA, inB)    QuickDraw SectRgn  / GDI RGN_AND */
+    RGN_OP_DIFF      = 2,  /* ANDNOT(inA,inB)  QuickDraw DiffRgn  / GDI RGN_DIFF*/
+    RGN_OP_XOR       = 3   /* XOR(inA, inB)    QuickDraw XorRgn   / GDI RGN_XOR */
 } rgn_op_t;
 
 /* The boolfn truth table as data (so a test can assert the engine's boolfn
@@ -310,20 +341,33 @@ int region_contains_point(const region_t *r, int16_t h, int16_t v);
  * compare; it requires both inputs already normal. */
 int region_equal(const region_t *A, const region_t *B);
 
-/* rect-in-region: 1 iff every pixel of `rect` is in `r` (bbox reject, then an
- * op-empty test: rect DIFF r == empty). */
-int region_rect_in_region(const region_t *r, rgn_rect_t rect);
+/* rect FULLY in region (CONTAINMENT): 1 iff every pixel of `rect` is in `r`
+ * (bbox reject, then an op-empty test: rect DIFF r == empty). Renamed from
+ * region_rect_in_region per ADR-0005 Amendment AM-4; retained for window-clip
+ * contexts that genuinely want containment. This is NOT the RectInRgn/
+ * RectInRegion semantic -- those are OVERLAP (see region_rect_overlaps). */
+int region_rect_fully_in(const region_t *r, rgn_rect_t rect);
+
+/* rect OVERLAPS region: 1 iff `rect` and `r` share at least one pixel (bbox
+ * reject, then INTERSECT-non-empty). This is the DOCUMENTED semantic of BOTH
+ * heritages' RectInRgn (QuickDraw, "any overlap") and RectInRegion (GDI, "at
+ * least partially inside") -- ADR-0005 Amendment AM-4 (the containment->overlap
+ * deep-bug fix; binding constraint C-9). An empty rect overlaps nothing. */
+int region_rect_overlaps(const region_t *r, rgn_rect_t rect);
 
 /* Do the two regions share any pixel? (bbox reject, then INTERSECT-non-empty.) */
 int region_intersects(const region_t *A, const region_t *B);
 
 /* ===========================================================================
- * 7. VERBATIM QUICKDRAW OP NAMES  (period authenticity)
+ * 7. HERITAGE FACADES -- QUICKDRAW FACADE  (period authenticity)
  * ---------------------------------------------------------------------------
- * The PUBLIC Inside Macintosh names, carried verbatim for authenticity, in the
- * QuickDraw (srcA, srcB, dstRgn) argument order. These are THIN WRAPPERS over
- * region_op / the section-6 primitives. The internal byte format is NOT a
- * QuickDraw port (section 0); only the names + Rect order are borrowed.
+ * The first of TWO strict-peer heritage facades over the ONE neutral region_op
+ * (ADR-0005 Amendment AM-1; the GDI facade is Sec 7b). The PUBLIC Inside
+ * Macintosh names, carried verbatim for authenticity, in the QuickDraw (srcA,
+ * srcB, dstRgn) argument order. These are THIN WRAPPERS over region_op / the
+ * section-6 primitives. The internal byte format is NOT a QuickDraw port
+ * (section 0); only the names + Rect order are borrowed. NEITHER facade owns the
+ * engine; both bottom out in region_op (binding constraint C-7).
  *
  *   UnionRgn(srcA, srcB, dst)  -> region_op(dst, srcA, srcB, RGN_OP_UNION)
  *   SectRgn (srcA, srcB, dst)  -> region_op(dst, srcA, srcB, RGN_OP_INTERSECT)
@@ -340,9 +384,114 @@ void SetRectRgn(region_t *rgn, int16_t left, int16_t top,
 void SetEmptyRgn(region_t *rgn);                   /* -> region_set_empty       */
 
 int  PtInRgn  (int16_t h, int16_t v, const region_t *rgn); /* QuickDraw Point   */
+/* RectInRgn -> region_rect_overlaps: 1 iff rect and rgn OVERLAP (share any
+ * pixel), NOT containment. QuickDraw documents this as "any overlap" (ADR-0005
+ * Amendment AM-4 / C-9; was wrongly containment pre-AM-4). For containment use
+ * region_rect_fully_in. */
 int  RectInRgn(rgn_rect_t rect, const region_t *rgn);
 int  EmptyRgn (const region_t *rgn);
 int  EqualRgn (const region_t *rgnA, const region_t *rgnB);
+
+/* ===========================================================================
+ * 7b. HERITAGE FACADES -- GDI/HRGN FACADE  (period authenticity)
+ * ---------------------------------------------------------------------------
+ * The SECOND strict-peer heritage facade over the ONE neutral region_op (a peer
+ * of Sec 7; ADR-0005 Amendment AM-1/AM-2). The PUBLIC Win-3.1 wingdi.h names,
+ * mode codes, region-type return convention, and argument orders, carried
+ * VERBATIM for authenticity. These are THIN WRAPPERS over region_op + the
+ * section-6 primitives + a region-type classifier -- ZERO new region math, ZERO
+ * second engine (binding constraint C-7). The HRGN body format is NOT ported;
+ * the GDI facade operates on the SAME in-engine region_t representation.
+ *
+ *   CombineRgn(dst, src1, src2, mode) -> region_op(dst, src1, src2, map(mode));
+ *                                        RGN_COPY -> self-union identity copy.
+ *   GetRgnBox (rgn, out)              -> *out = bbox; return region-type code.
+ *   PtInRegion(rgn, x, y)            -> region_contains_point (GDI arg order).
+ *   RectInRegion(rgn, rect)          -> region_rect_overlaps  (OVERLAP, AM-4).
+ * ===========================================================================*/
+
+/* GDI CombineRgn mode codes, carried VERBATIM from Win-3.1 wingdi.h. */
+#define RGN_AND   1   /* dst = src1 AND src2          -> RGN_OP_INTERSECT       */
+#define RGN_OR    2   /* dst = src1 OR  src2          -> RGN_OP_UNION           */
+#define RGN_XOR   3   /* dst = src1 XOR src2          -> RGN_OP_XOR             */
+#define RGN_DIFF  4   /* dst = src1 AND NOT src2      -> RGN_OP_DIFF            */
+#define RGN_COPY  5   /* dst = copy of src1 (normalized; self-union identity)   */
+
+/* GDI region-type / complexity return codes, VERBATIM from wingdi.h. ERROR is
+ * for invalid args only; the rest classify the NORMALIZED result. Named with a
+ * RGN_TYPE_ prefix on ERROR to avoid colliding with the bare GDI ERROR token. */
+#define RGN_TYPE_ERROR   0   /* invalid argument (NULL / bad mode)             */
+#define NULLREGION       1   /* the empty region                              */
+#define SIMPLEREGION     2   /* a single rectangle (is_rect fast-path)        */
+#define COMPLEXREGION    3   /* a multi-span / multi-row region               */
+
+/* map a CombineRgn mode to the internal rgn_op_t -- the SINGLE source of truth
+ * for the mode->op wiring, used BOTH by the static-assert mapping oracle below
+ * AND by rgn_op_from_combine_mode (so the machine-check exercises the real map).
+ * It is a constant-foldable conditional expression so it is usable inside
+ * _Static_assert under C11 (a static-inline function call is NOT a constant
+ * expression and would not compile in an assert). RGN_COPY has no boolean op
+ * (it is the self-union identity copy idiom) and is handled specially by
+ * CombineRgn; this map is defined only for the four set ops. */
+#define RGN_OP_FROM_MODE(m) \
+    ((m) == RGN_AND  ? RGN_OP_INTERSECT : \
+     (m) == RGN_OR   ? RGN_OP_UNION     : \
+     (m) == RGN_XOR  ? RGN_OP_XOR       : \
+     (m) == RGN_DIFF ? RGN_OP_DIFF      : RGN_OP_UNION)
+
+static inline rgn_op_t rgn_op_from_combine_mode(int mode)
+{
+    return RGN_OP_FROM_MODE(mode);
+}
+
+/* CombineRgn(dst, src1, src2, mode): the GDI combine entry. Selects the Boolean
+ * op by `mode` (RGN_AND/OR/XOR/DIFF) or copies src1 (RGN_COPY), normalizes the
+ * result into dst, and RETURNS the GDI region-type code of the result
+ * (NULLREGION/SIMPLEREGION/COMPLEXREGION). NULL args or an invalid mode return
+ * RGN_TYPE_ERROR and write nothing. */
+int CombineRgn(region_t *dst, const region_t *src1, const region_t *src2, int mode);
+
+/* GetRgnBox(rgn, out): write rgn's bounding box to *out; RETURN the region-type
+ * code of rgn. NULL args return RGN_TYPE_ERROR. */
+int GetRgnBox(const region_t *rgn, rgn_rect_t *out);
+
+/* PtInRegion(rgn, x, y): 1 iff pixel (x,y) is in rgn (GDI argument order). */
+int PtInRegion(const region_t *rgn, int16_t x, int16_t y);
+
+/* RectInRegion(rgn, rect): 1 iff rect OVERLAPS rgn (GDI argument order; OVERLAP,
+ * not containment -- ADR-0005 Amendment AM-4 / C-9; GDI "at least partially
+ * inside"). -> region_rect_overlaps. */
+int RectInRegion(const region_t *rgn, rgn_rect_t rect);
+
+/* --- Build-time GDI-constant oracle (AM-2/AM-3): a swapped wiring or a typo'd
+ *     constant is a COMPILE error -- the cheapest oracle in the vector. ------- */
+
+/* Each mode constant pinned VERBATIM to wingdi.h. */
+_Static_assert(RGN_AND  == 1, "GDI RGN_AND == 1 (wingdi.h)");
+_Static_assert(RGN_OR   == 2, "GDI RGN_OR == 2 (wingdi.h)");
+_Static_assert(RGN_XOR  == 3, "GDI RGN_XOR == 3 (wingdi.h)");
+_Static_assert(RGN_DIFF == 4, "GDI RGN_DIFF == 4 (wingdi.h)");
+_Static_assert(RGN_COPY == 5, "GDI RGN_COPY == 5 (wingdi.h)");
+
+/* Each region-type code pinned VERBATIM to wingdi.h. */
+_Static_assert(RGN_TYPE_ERROR == 0, "GDI ERROR == 0 (wingdi.h)");
+_Static_assert(NULLREGION     == 1, "GDI NULLREGION == 1 (wingdi.h)");
+_Static_assert(SIMPLEREGION   == 2, "GDI SIMPLEREGION == 2 (wingdi.h)");
+_Static_assert(COMPLEXREGION  == 3, "GDI COMPLEXREGION == 3 (wingdi.h)");
+
+/* The mode->op mapping is machine-checked via the constant-foldable
+ * RGN_OP_FROM_MODE macro (the SAME map rgn_op_from_combine_mode uses): a swapped
+ * wiring (e.g. RGN_OR -> INTERSECT) becomes a COMPILE error -- the cheapest
+ * oracle in the vector (ADR-0005 Amendment AM-3, Sec 7.5; mutation-proven by
+ * deliberately mis-mapping one mode and confirming the build fails). */
+_Static_assert(RGN_OP_FROM_MODE(RGN_AND)  == RGN_OP_INTERSECT,
+               "map(RGN_AND) == RGN_OP_INTERSECT");
+_Static_assert(RGN_OP_FROM_MODE(RGN_OR)   == RGN_OP_UNION,
+               "map(RGN_OR) == RGN_OP_UNION");
+_Static_assert(RGN_OP_FROM_MODE(RGN_XOR)  == RGN_OP_XOR,
+               "map(RGN_XOR) == RGN_OP_XOR");
+_Static_assert(RGN_OP_FROM_MODE(RGN_DIFF) == RGN_OP_DIFF,
+               "map(RGN_DIFF) == RGN_OP_DIFF");
 
 /* ===========================================================================
  * 8. COMPILE-TIME CONTRACT CHECKS  (the oracle bites at build time)

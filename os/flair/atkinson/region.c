@@ -577,7 +577,11 @@ int region_equal(const region_t *A, const region_t *B)
     return 1;
 }
 
-int region_rect_in_region(const region_t *r, rgn_rect_t rect)
+/* CONTAINMENT: 1 iff every pixel of `rect` is in `r` (rect DIFF r == empty).
+ * Renamed from region_rect_in_region per ADR-0005 Amendment AM-4; retained for
+ * window-clip contexts that genuinely want containment. NOT the RectInRgn/
+ * RectInRegion semantic -- those are OVERLAP (region_rect_overlaps). */
+int region_rect_fully_in(const region_t *r, rgn_rect_t rect)
 {
     if (rect_is_empty(rect)) return 1;          /* empty rect is trivially in */
     /* bbox reject */
@@ -592,6 +596,28 @@ int region_rect_in_region(const region_t *r, rgn_rect_t rect)
     region_set_rect(&rr, rect);
     region_op(&df, &rr, r, RGN_OP_DIFF);
     return region_is_empty(&df);
+}
+
+/* OVERLAP: 1 iff `rect` and `r` share at least one pixel (the documented
+ * RectInRgn/RectInRegion semantic of BOTH heritages -- ADR-0005 Amendment AM-4 /
+ * C-9; "any overlap" / "at least partially inside"). bbox-reject then build a
+ * rect region and INTERSECT-non-empty. An empty rect overlaps nothing. */
+int region_rect_overlaps(const region_t *r, rgn_rect_t rect)
+{
+    if (rect_is_empty(rect)) return 0;          /* empty rect overlaps nothing */
+    if (r == 0 || region_is_empty(r)) return 0;
+    /* bbox reject (rect vs r->bbox, half-open) */
+    if (rect.right <= r->bbox.left || r->bbox.right <= rect.left ||
+        rect.bottom <= r->bbox.top || r->bbox.bottom <= rect.top) return 0;
+    /* rect INTERSECT r non-empty <=> they share a pixel */
+    region_t rr, in;
+    rgn_row_t rr_rows[2], in_rows[RGN_ROWS_CAP];
+    int16_t   rr_pool[2], in_pool[RGN_X_POOL_CAP];
+    rgn_zero(&rr, sizeof rr); rr.rows = rr_rows; rr.cap_rows = 2; rr.x_pool = rr_pool; rr.x_pool_cap = 2;
+    rgn_zero(&in, sizeof in); in.rows = in_rows; in.cap_rows = RGN_ROWS_CAP; in.x_pool = in_pool; in.x_pool_cap = RGN_X_POOL_CAP;
+    region_set_rect(&rr, rect);
+    region_op(&in, &rr, r, RGN_OP_INTERSECT);
+    return region_is_empty(&in) ? 0 : 1;
 }
 
 int region_intersects(const region_t *A, const region_t *B)
@@ -626,7 +652,56 @@ void SetEmptyRgn(region_t *rgn) { region_set_empty(rgn); }
 
 int PtInRgn(int16_t h, int16_t v, const region_t *rgn)
 { return region_contains_point(rgn, h, v); }
+/* RectInRgn -> OVERLAP (ADR-0005 Amendment AM-4 / C-9). Was wrongly containment
+ * (region_rect_in_region) pre-AM-4; both heritages document "any overlap". */
 int RectInRgn(rgn_rect_t rect, const region_t *rgn)
-{ return region_rect_in_region(rgn, rect); }
+{ return region_rect_overlaps(rgn, rect); }
 int EmptyRgn(const region_t *rgn) { return region_is_empty(rgn); }
 int EqualRgn(const region_t *rgnA, const region_t *rgnB) { return region_equal(rgnA, rgnB); }
+
+/* ===========================================================================
+ * 7b. GDI/HRGN HERITAGE FACADE (spec Sec 7b) -- thin shims over region_op, a
+ * strict PEER of the QuickDraw facade above. ZERO new region math, ZERO second
+ * engine: every GDI combine bottoms out in the ONE region_op (constraint C-7,
+ * ADR-0005 Amendment AM-1/AM-2). The region-type classifier reads the is_empty/
+ * is_rect flags region_normalize already maintains -- it does not recompute
+ * geometry.
+ * ===========================================================================*/
+
+/* Classify a NORMALIZED region into its GDI region-type code (spec Sec 7b):
+ * empty -> NULLREGION, single rect -> SIMPLEREGION, else COMPLEXREGION.
+ * RGN_TYPE_ERROR is reserved for invalid args (handled by the callers). */
+static int region_type_classify(const region_t *r)
+{
+    if (region_is_empty(r)) return NULLREGION;
+    if (r->is_rect)         return SIMPLEREGION;
+    return COMPLEXREGION;
+}
+
+int CombineRgn(region_t *dst, const region_t *src1, const region_t *src2, int mode)
+{
+    if (dst == 0 || src1 == 0) return RGN_TYPE_ERROR;
+    if (mode == RGN_COPY) {
+        /* copy of src1, normalized -- the self-union identity copy idiom. */
+        region_op(dst, src1, src1, RGN_OP_UNION);
+        return region_type_classify(dst);
+    }
+    if (mode != RGN_AND && mode != RGN_OR &&
+        mode != RGN_XOR && mode != RGN_DIFF) return RGN_TYPE_ERROR;
+    if (src2 == 0) return RGN_TYPE_ERROR;
+    region_op(dst, src1, src2, rgn_op_from_combine_mode(mode));
+    return region_type_classify(dst);
+}
+
+int GetRgnBox(const region_t *rgn, rgn_rect_t *out)
+{
+    if (rgn == 0 || out == 0) return RGN_TYPE_ERROR;
+    *out = region_get_bbox(rgn);
+    return region_type_classify(rgn);
+}
+
+int PtInRegion(const region_t *rgn, int16_t x, int16_t y)
+{ return region_contains_point(rgn, x, y); }
+
+int RectInRegion(const region_t *rgn, rgn_rect_t rect)
+{ return region_rect_overlaps(rgn, rect); }
