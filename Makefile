@@ -6752,7 +6752,7 @@ help:
 # Build the C factory. Today that is just the smoke stub, which proves the
 # C11 toolchain compiles clean under -Wall -Wextra -Werror and runs. As the
 # seed compiler (seed/) and harness (harness/) land, add them here.
-factory: $(SMOKE_BIN) $(SEED_BIN) $(HARNESS_BIN) $(BOCHS_BIN) $(HARNESS_FIXTURES) $(SEED_SMOKE_ELF) $(TRACER_IMG) $(PPM_CHECK_BIN) $(PALETTE_TOOL_BIN) $(ASSET_CHECK_BIN)
+factory: $(SMOKE_BIN) $(SEED_BIN) $(HARNESS_BIN) $(BOCHS_BIN) $(HARNESS_FIXTURES) $(SEED_SMOKE_ELF) $(TRACER_IMG) $(PALETTE_TOOL_BIN) $(ASSET_CHECK_BIN)
 	@printf ">>> factory: C toolchain OK. Running smoke binary:\n"
 	@$(SMOKE_BIN)
 	@printf ">>> factory: seed front-end driver built -> %s\n" "$(SEED_BIN)"
@@ -6760,7 +6760,7 @@ factory: $(SMOKE_BIN) $(SEED_BIN) $(HARNESS_BIN) $(BOCHS_BIN) $(HARNESS_FIXTURES
 	@printf ">>> factory: harness fixtures built -> %s\n" "$(HARNESS_FIXTURES)"
 	@printf ">>> factory: seed codegen smoke ELF built -> %s\n" "$(SEED_SMOKE_ELF)"
 	@printf ">>> factory: tracer boot image built -> %s\n" "$(TRACER_IMG)"
-	@printf ">>> factory: ppm seafoam checker built -> %s\n" "$(PPM_CHECK_BIN)"
+	@# ppm_seafoam_check RETIRED (ADR-0010 CD-6/CD-7; seafoam canon revoked -> teal).
 	@printf ">>> factory: asset tools built -> %s %s\n" "$(PALETTE_TOOL_BIN)" "$(ASSET_CHECK_BIN)"
 
 # ---------------------------------------------------------------------------
@@ -8080,10 +8080,19 @@ $(PPM_CHECK_BIN): $(PPM_CHECK_SRC) | $(BUILD)
 $(PPM_TEXT_CHECK_BIN): $(PPM_TEXT_CHECK_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
-# The FLAIR desktop-structure checker needs palette.h (flair_palette_rgb) for the
-# index->RGB expected values (single source of truth; Law 2 agree-by-construction).
-$(PPM_FLAIR_CHECK_BIN): $(PPM_FLAIR_CHECK_SRC) spec/assets/palette.h | $(BUILD)
+# The FLAIR desktop-STRUCTURE checker reads color_canon.h (flair_canon_rgb) to know
+# WHICH region is which; the color VALUES are graded INDEPENDENTLY by test-color-canon
+# (ADR-0010 CD-5 -- NOT by construction; the HER-02 re-key). It grades structure only.
+$(PPM_FLAIR_CHECK_BIN): $(PPM_FLAIR_CHECK_SRC) spec/assets/color_canon.h spec/assets/palette.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+# The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
+# probes are value-BLIND (a teal->seafoam value perturbation leaves the period-2
+# alternation / ink-density ordering / z-order GREEN), so the value authority is
+# test-color-canon, not this file. Run as the [+] step of test-flair-desktop.
+PPM_FLAIR_HER02_BIN := $(BUILD)/ppm_flair_check_her02
+$(PPM_FLAIR_HER02_BIN): $(PPM_FLAIR_CHECK_SRC) spec/assets/color_canon.h spec/assets/palette.h | $(BUILD)
+	$(CC) $(CFLAGS) -DPPM_FLAIR_HER02_DEMO -Ispec/assets -o $@ $<
 
 # --- Asset tools + derived artifacts (beads initech-vcq) -------------------
 $(PALETTE_TOOL_BIN): $(PALETTE_TOOL_SRC) | $(BUILD)
@@ -10074,10 +10083,10 @@ test-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_BANNER)
 # FLAIR-DESKTOP serial marker the composed chimera desktop is presented to the
 # live LFB. Capture the screendump and run ppm_flair_check on it. Four assertions
 # (Law 2 / Law 4): NO triple-fault; the FLAIR-DESKTOP marker on serial; a
-# screendump was written; and the STRUCTURE check (seafoam desktop + TWO stacked
+# screendump was written; and the STRUCTURE check (teal desktop + TWO stacked
 # menu bars + window pinstripe chrome + the centered FILE COPY modal occluding the
-# windows). The check probes the SAME scene as the host oracle test_shell.c, in
-# RGB space via flair_palette_rgb -> agree by construction. The guest cli;hlt
+# windows). ppm_flair_check grades STRUCTURE only; the color VALUES are graded
+# INDEPENDENTLY by test-color-canon (ADR-0010 CD-5, NOT by construction). The guest cli;hlt
 # loops (stable screen), so the harness times out by design; OK is driven by the
 # marker + no-triple-fault + the structure check, not the exit code.
 FLAIR_DESKTOP_NAME    := flair_desktop
@@ -10085,7 +10094,10 @@ FLAIR_DESKTOP_SERIAL  := $(BUILD)/$(FLAIR_DESKTOP_NAME).serial
 FLAIR_DESKTOP_PPM     := $(BUILD)/$(FLAIR_DESKTOP_NAME).ppm
 FLAIR_DESKTOP_REPORT  := $(BUILD)/$(FLAIR_DESKTOP_NAME).report
 .PHONY: test-flair-desktop
-test-flair-desktop: $(HARNESS_BIN) $(FLAIRSHELL_IMG) $(PPM_FLAIR_CHECK_BIN)
+# CD-5 item 5: test-color-canon (the INDEPENDENT value oracle) + test-color-canon-gen
+# run FIRST as a HARD precondition -- the structure gate cannot pass if the canon
+# VALUES are red/stale (the value authority gates the structure oracle).
+test-flair-desktop: test-color-canon-gen test-color-canon $(HARNESS_BIN) $(FLAIRSHELL_IMG) $(PPM_FLAIR_CHECK_BIN) $(PPM_FLAIR_HER02_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-desktop : FLAIR LIVE DESKTOP oracle\n'
 	@printf '  Ref: ADR-0004 (the desktop shell); PRD Sec 1 / Appendix A (the frame).\n'
@@ -10121,7 +10133,15 @@ test-flair-desktop: $(HARNESS_BIN) $(FLAIRSHELL_IMG) $(PPM_FLAIR_CHECK_BIN)
 	fi
 	@$(PPM_FLAIR_CHECK_BIN) "$(FLAIR_DESKTOP_PPM)" \
 		|| { printf '!!! test-flair-desktop FAIL: the live desktop screendump is NOT the Office Space frame structure\n'; exit 1; }
-	@printf '>>> test-flair-desktop [3/3]: screendump == seafoam + TWO menu bars + window chrome + FILE COPY modal\n'
+	@printf '>>> test-flair-desktop [3/3]: screendump == teal desktop + TWO menu bars + window chrome + FILE COPY modal\n'
+	@# ---- [+] HER-02 boundary (ADR-0010): ppm_flair_check STRUCTURE is value-BLIND.
+	@#         Run the demo build on the SAME teal dump; a teal->seafoam value
+	@#         perturbation must leave the structural relations GREEN (else a probe
+	@#         secretly reads the absolute desktop RGB). The value authority is
+	@#         test-color-canon (run as the precondition above), not this file. ----
+	@$(PPM_FLAIR_HER02_BIN) "$(FLAIR_DESKTOP_PPM)" >/dev/null \
+		|| { printf '!!! test-flair-desktop FAIL: HER-02 demo -- a STRUCTURE probe secretly depends on the absolute desktop RGB (value/structure boundary broken)\n'; exit 1; }
+	@printf '>>> test-flair-desktop [+]: HER-02 boundary -- structure value-blind (color VALUES graded by test-color-canon, not by construction)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- the LIVE FLAIR chimera desktop is the Office Space frame\n'
 	@printf '            (QEMU only; Bochs 8bpp leg = make test-flair-desktop-bochs)\n'

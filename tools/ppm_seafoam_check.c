@@ -1,145 +1,44 @@
 /*
- * ppm_seafoam_check.c -- tracer-boot framebuffer oracle (factory, C-only).
+ * ppm_seafoam_check.c -- RETIRED (ADR-0010 CD-6 / CD-7; epic initech-qipc).
  *
- * beads: initech-f8v.2 ("Tracer boot ..."). Ref: CLAUDE.md Law 2 ("the
- *        oracle is the truth"), Rule 2 (fail fast/loud), Law 3 (factory is C).
- *        PRD Sec 8 (QMP screendump is a debug signal we assert against).
+ * The seafoam desktop canon is REVOKED. The FLAIR desktop background is now
+ * Initech teal #8DDCDC (color_canon idx2; ADR-0004-AMENDMENT-DEC-09 + ADR-0010,
+ * WL-0053), NOT seafoam #6FA08E (the revoked ADR-0004 OD-4 value). This checker
+ * was a BY-CONSTRUCTION framebuffer grade (its expected RGB mirrored
+ * os/boot/stage2.asm; heresy HER-06/HER-08) and is superseded by the split:
  *
- * Parses a QEMU QMP screendump (binary PPM, "P6") and asserts that a sample
- * of pixels equals the seafoam color SEAFOAM_RGB = (0x6F,0xA0,0x8E), within a
- * per-channel tolerance (bpp rounding when the LFB is 24/32bpp can perturb the
- * low bits a touch; QEMU's PPM dump is exact for our XRGB8888 path, so a small
- * tolerance is generous). Exits 0 if seafoam, non-zero otherwise -- this is
- * the visual half of the boot oracle.
+ *   - the COLOR VALUE oracle  : test-color-canon (harness/proptest/
+ *                               test_color_canon.c) grades flair_canon_rgb(idx)
+ *                               against the INDEPENDENT System-7 / Win-3.1
+ *                               decomp goldens (ADR-0010 CD-2), NOT by
+ *                               construction. The seafoam-relapse VALUE mutant
+ *                               (CANON_MUTATE_TEAL: teal -> seafoam) is its
+ *                               standing tripwire.
+ *   - the STRUCTURE oracle    : ppm_flair_check (tools/ppm_flair_check.c) grades
+ *                               the live-desktop screendump GEOMETRY / TOPOLOGY /
+ *                               Z-ORDER (ADR-0010 CD-5).
  *
- * Usage: ppm_seafoam_check <screendump.ppm>
- * The expected RGB and tolerance are compiled in (single source of truth,
- * mirrored from os/boot/stage2.asm SEAFOAM_R/G/B).
+ * This file is NEUTERED to an inert stub so the Makefile may keep referencing it
+ * until build integration removes/repoints the references (owner: operator). It
+ * builds clean under -std=c11 -Wall -Wextra -Werror and EXITS 0 unconditionally;
+ * it asserts NOTHING. Do NOT re-arm it -- grading the desktop color belongs to
+ * test-color-canon (value) and ppm_flair_check (structure).
+ *
+ * Ref: ADR-0010 CD-6 (retire the seafoam apparatus), CD-7; Sec 6.1 (supersedes
+ *      OD-4); CLAUDE.md Law 2 (by-construction is NOT an oracle), Rule 12 (ASCII).
+ *
+ * Usage (no-op): ppm_seafoam_check [<screendump.ppm>]
  */
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-/* Mirror of os/boot/stage2.asm SEAFOAM_R/G/B (documented placeholder). */
-#define SEAFOAM_R 0x6F
-#define SEAFOAM_G 0xA0
-#define SEAFOAM_B 0x8E
-#define TOL 8 /* per-channel tolerance for bpp rounding */
-
-/* Skip PPM whitespace and '#' comment lines. */
-static int read_uint(FILE *f, long *out)
-{
-    int c;
-    for (;;) {
-        c = fgetc(f);
-        if (c == EOF) return -1;
-        if (c == '#') {
-            while (c != '\n' && c != EOF) c = fgetc(f);
-            continue;
-        }
-        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') continue;
-        break;
-    }
-    if (c < '0' || c > '9') return -1;
-    long v = 0;
-    while (c >= '0' && c <= '9') {
-        v = v * 10 + (c - '0');
-        c = fgetc(f);
-    }
-    *out = v;
-    return 0;
-}
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s <screendump.ppm>\n", argv[0]);
-        return 2;
-    }
-    FILE *f = fopen(argv[1], "rb");
-    if (!f) {
-        fprintf(stderr, "ppm_seafoam_check: cannot open %s\n", argv[1]);
-        return 2;
-    }
-
-    char magic[3] = {0};
-    if (fread(magic, 1, 2, f) != 2 || strcmp(magic, "P6") != 0) {
-        fprintf(stderr, "ppm_seafoam_check: not a P6 PPM (got '%s')\n", magic);
-        fclose(f);
-        return 2;
-    }
-
-    long w = 0, h = 0, maxv = 0;
-    if (read_uint(f, &w) || read_uint(f, &h) || read_uint(f, &maxv)) {
-        fprintf(stderr, "ppm_seafoam_check: malformed PPM header\n");
-        fclose(f);
-        return 2;
-    }
-    if (w <= 0 || h <= 0 || maxv != 255) {
-        fprintf(stderr,
-                "ppm_seafoam_check: unexpected dims/maxval w=%ld h=%ld max=%ld\n",
-                w, h, maxv);
-        fclose(f);
-        return 2;
-    }
-    /* read_uint() already consumed the single whitespace byte that follows
-     * maxval (it reads one byte past the last digit to detect end-of-number),
-     * so the file position is now exactly at the start of the raster. Do NOT
-     * skip another byte here -- that would drop the first pixel's red channel. */
-
-    long npix = w * h;
-    unsigned char *buf = malloc((size_t)npix * 3);
-    if (!buf) {
-        fprintf(stderr, "ppm_seafoam_check: OOM\n");
-        fclose(f);
-        return 2;
-    }
-    size_t got = fread(buf, 3, (size_t)npix, f);
-    fclose(f);
-    if (got != (size_t)npix) {
-        fprintf(stderr,
-                "ppm_seafoam_check: short raster (%zu of %ld pixels)\n",
-                got, npix);
-        free(buf);
-        return 2;
-    }
-
-    /* Sample a grid of points across the image; every one must be seafoam. */
-    const int GRID = 9; /* 9x9 = 81 sample points */
-    int checked = 0, bad = 0;
-    int first_bad_x = -1, first_bad_y = -1, br = 0, bg = 0, bb = 0;
-    for (int gy = 0; gy < GRID; gy++) {
-        for (int gx = 0; gx < GRID; gx++) {
-            long x = (long)((gx + 0.5) / GRID * w);
-            long y = (long)((gy + 0.5) / GRID * h);
-            if (x >= w) x = w - 1;
-            if (y >= h) y = h - 1;
-            unsigned char *p = buf + (y * w + x) * 3;
-            int r = p[0], g = p[1], b = p[2];
-            checked++;
-            if (abs(r - SEAFOAM_R) > TOL || abs(g - SEAFOAM_G) > TOL ||
-                abs(b - SEAFOAM_B) > TOL) {
-                if (bad == 0) {
-                    first_bad_x = (int)x; first_bad_y = (int)y;
-                    br = r; bg = g; bb = b;
-                }
-                bad++;
-            }
-        }
-    }
-    free(buf);
-
-    printf("ppm_seafoam_check: %ldx%ld, sampled %d points, "
-           "expect RGB(%d,%d,%d) tol +/-%d\n",
-           w, h, checked, SEAFOAM_R, SEAFOAM_G, SEAFOAM_B, TOL);
-    if (bad != 0) {
-        fprintf(stderr,
-                "ppm_seafoam_check: FAIL -- %d/%d samples not seafoam; "
-                "first bad at (%d,%d) = RGB(%d,%d,%d)\n",
-                bad, checked, first_bad_x, first_bad_y, br, bg, bb);
-        return 1;
-    }
-    printf("ppm_seafoam_check: PASS -- all %d samples are seafoam\n", checked);
+    (void)argc;
+    (void)argv;
+    printf("ppm_seafoam_check: RETIRED -- the seafoam desktop canon is REVOKED "
+           "(ADR-0010 OD-4 -> Initech teal #8DDCDC). Superseded by test-color-canon "
+           "(VALUE, decomp-graded) + ppm_flair_check (STRUCTURE). This stub exits 0 "
+           "and asserts nothing.\n");
     return 0;
 }
