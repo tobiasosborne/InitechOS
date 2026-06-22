@@ -24,7 +24,7 @@
 | Effective Date | 2026-06-19 |
 | Next Scheduled Review | Upon operator ratification, per RECORDS-POL-002 |
 | Supersedes | (none) |
-| Superseded By | (none) |
+| Superseded By | (ADR whole) none. **OD-4 (seafoam `desktop_bg` canon) SUPERSEDED 2026-06-22** by ADR-0004-AMENDMENT-DEC-09 + ADR-0010 -> Initech teal `#8DDCDC`; see REVOCATION-RECORD-2026-06-21 (HER-01/06/08). |
 | Related Documents | ADR-0001 (386+, 32-bit flat); ADR-0002 (toolchain / impl language / exec format); ADR-0003 (InitechDOS base OS) + Amendments DEC-04a, DEC-14; ADR-0005 (ATKINSON region engine — companion, RATIFIED 2026-06-19); CDR-0001 (interim toolchain) |
 | Related Issues | beads initech-jmo, initech-b5g, initech-6dy (region engine); initech-i50 (blitter w/ region clip); initech-87a (window drag w/ clip); initech-f8v.4 (tracer keystone) |
 | Retention | 7 years following decommission, per RECORDS-SCHED-014 |
@@ -128,7 +128,7 @@ The following four decisions were ratified by the operator in the session that c
 | OD-1 | **FLAIR proceeds now**, in parallel with the f8v.4 tracer keystone, from the locked specs + the pure-host region engine. | The region math (layer 2) has no emulator dependency and is built and oracle-gated on the host immediately; the rest of the stack follows. |
 | OD-2 | **Canonical internal offscreen depth = INDEXED-8.** | The surface module's offscreen bitmaps are 8-bit palettized. Affects `grafport.h`/imaging, **not** `region_algebra.h` directly (regions are pure int16-coordinate pixel sets, depth-agnostic). (Period grounding, AM-7: indexed-8 is the authentic early-1990s 8-bpp VGA/SVGA offscreen/backing-store depth -- VGA Mode 13h, VBE modes 0x101/0x103 -- not merely an operator preference; Law 1.) |
 | OD-3 | **Native target resolution = 640x480.** | Region int16 coordinates are framebuffer-bounded; 640x480 << 32767, so no coordinate can collide with any in-band magic (and ADR-0005 carries no in-band sentinel anyway). |
-| OD-4 | **`desktop_bg` canon = KEEP SEAFOAM teal `(0x6F,0xA0,0x8E)`.** | The live `tools/ppm_seafoam_check.c` oracle (mirroring `os/boot/stage2.asm` `SEAFOAM_R/G/B`) stands as the desktop-background gate. (Note: `spec/assets/palette.json` records a separate `desktop_bg` "ground-truth v0" gray sampled from the compressed still; the SEAFOAM boot/oracle value is the canon FLAIR paints. Reconciling the palette-v0 record to seafoam is a `palette` follow-up, not a FLAIR blocker.) |
+| OD-4 | **`desktop_bg` canon = KEEP SEAFOAM teal `(0x6F,0xA0,0x8E)`.** | The live `tools/ppm_seafoam_check.c` oracle (mirroring `os/boot/stage2.asm` `SEAFOAM_R/G/B`) stands as the desktop-background gate. (Note: `spec/assets/palette.json` records a separate `desktop_bg` "ground-truth v0" gray sampled from the compressed still; the SEAFOAM boot/oracle value is the canon FLAIR paints. Reconciling the palette-v0 record to seafoam is a `palette` follow-up, not a FLAIR blocker.) **[SUPERSEDED 2026-06-22 by ADR-0004-AMENDMENT-DEC-09 + ADR-0010: `desktop_bg` canon = Initech teal `#8DDCDC` (idx2); seafoam `#6FA08E` REVOKED -- see Revocation Record HER-01. The `ppm_seafoam_check`/`test-palette-seafoam` by-construction gate is retired (HER-08).]** |
 
 ### 3.1 Decision D-1 — The 5-Layer FLAIR Stack
 
@@ -198,7 +198,7 @@ Every FLAIR subsystem advances only when its mechanical oracle is green (Law 2).
 | `test-chrome` | hard pass/fail | Chrome renders match `chrome_metrics` v1 + fixture crops (structural compare, not SSIM). |
 | `test-event` (event-replay) | hard pass/fail | A recorded raw-input trace replays to a deterministic `EventRecord`/dispatch sequence. |
 | `fb-agree` | hard pass/fail | The console pixel path and the GUI pixel path agree on shared primitives (the one-surface invariant, D-2). |
-| `canon` | hard pass/fail | The enforced canon: hourglass-not-wristwatch cursor bytes; the Photoshop menu bar; seafoam desktop; (with the apps) the 116% pie and `570-` format. |
+| `canon` | hard pass/fail | The enforced canon: hourglass-not-wristwatch cursor bytes; the Photoshop menu bar; **Initech teal `#8DDCDC` desktop** (supersedes seafoam 2026-06-22, DEC-09/ADR-0010, graded LIVE vs the decomp/operator canon -- NOT by construction); (with the apps) the 116% pie and `570-` format. |
 | `drag-gate` (initech-87a) | hard pass/fail | a window drags across the desktop with correct DiffRgn update regions, no over-repaint, chrome unchanged outside the damaged area, verified vs chrome_metrics v1 fixture crops -- the earliest human-verifiable Law-4 fidelity moment. (AM-8) |
 | `ssim` | **GUIDE ONLY — never gates** | Per-window structural similarity vs the frame fixture; reported to point agents toward fidelity (Law 4, PRD §3, §8). Structurally a guide; it is NOT summed into a reward and never blocks a merge. |
 

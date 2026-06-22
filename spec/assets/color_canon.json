@@ -1,0 +1,101 @@
+{
+  "_banner": "LOCKED spec-data -- InitechOS FLAIR Color Canon (CLAUDE.md Rule 8). DO NOT EDIT to make a test pass. Deliberate spec changes only, with a beads issue + worklog note.",
+  "schema_version": 1,
+  "canon_version": "WL-0053 (Initech Color Canon, operator-ratified 2026-06-21)",
+  "era": "system7.0-7.1",
+  "ratified_by": "ADR-0004-AMENDMENT-DEC-09 + ADR-0010 (FLAIR Grading and Goldens); supersedes ADR-0004 OD-4 (seafoam desktop canon, REVOKED).",
+  "purpose": "THE single source of truth for FLAIR color POLICY: a palette INDEX -> a canonical 0x00RRGGBB value. The mechanism (surface/GrafPort/region clip/Manager geometry) names INDICES only and never an RGB literal (ADR-0004 C-8, P1). chrome.c/control.c/dialog.c/render.c/palette.h's five duplicated index->RGB switches collapse onto the single accessor flair_canon_rgb(idx) generated into spec/assets/color_canon.h.",
+
+  "grading_contract": {
+    "principle": "P3 -- every color entry is graded by a LIVE diff against an INDEPENDENT decomp golden (the test-clut pattern), NEVER by-construction (an oracle must not read the same source the artifact renders from). The ONE value oracle is test-color-canon (harness/proptest/test_color_canon.c).",
+    "golden_path_resolution": "Per-row golden resolved by macro priority: FLAIR_<ROW>_GOLDEN_PATH > $(SYSTEM7_DECOMP)/goldens|specs/... or $(WIN31_DECOMP)/refs|specs/... > built-in default. SYSTEM7_DECOMP ?= ../system7-decomp ; WIN31_DECOMP ?= ../win31-decomp.",
+    "loud_skip": "If a sibling golden is absent the oracle LOUD-SKIPS that leg (prints the exact missing path), NEVER silent-passes, and prints a 'N rows NOT graded (goldens absent)' summary line.",
+    "authored_exception": "graded_by:'authored' rows have NO upstream decomp golden (they are Initech identity injections). They are gated against DRIFT by a locked-constant equality + a VALUE mutant (e.g. seafoam-relapse must go RED), and are NEVER claimed decomp-sourced (P4 honesty).",
+    "win_depth_trap": "Win-3.1/GDI rows (idx5/idx6) grade the DOCUMENTED indexed-8 WIN.INI value as PRIMARY (#000080 / #C0C0C0); a 16-color VGA artifact (#0000AA / #C3C7CB) is corroboration-ONLY; a swamping (~42-level) blue tolerance is REJECTED (Stop condition, R5)."
+  },
+
+  "wctb_crosswalk_note": "idx0..4 map to wctb part-codes (R8). idx7/idx8 are the pinstripe RENDERED dither shades graded vs pinstripe.md -- they are NOT wctb part7/part8 (which are the #FFFFFF/#000000 WDEF hilite-table ENDPOINTS, a distinct lane). The bevel rows substitute teal for the System-7 dialog-lavender wctb part9/part11.",
+
+  "entries": [
+    { "idx": 0, "name": "CIDX_BLACK", "role": "ink / window frame / box borders / text",
+      "rgb": "#000000", "rgb_bytes": [0, 0, 0],
+      "heritage": "system7-quickdraw", "wctb_part": "part1 (wFrameColor)",
+      "source_golden": "$(SYSTEM7_DECOMP)/goldens/resources/wctb_0_System_753.bin part1 = #000000 (== wctb_0_System_colorHD.bin, MD5 dede55082e92a3c6bce408335cf77614)",
+      "graded_by": "live-diff vs wctb binary part1 (LEG A, TOL=0) + win31 WindowFrame #000000 corroboration (LEG B)" },
+
+    { "idx": 1, "name": "CIDX_WHITE", "role": "window / content body white",
+      "rgb": "#FFFFFF", "rgb_bytes": [255, 255, 255],
+      "heritage": "system7-quickdraw", "wctb_part": "part0 (wContentColor)",
+      "source_golden": "$(SYSTEM7_DECOMP)/goldens/resources/wctb_0_System_753.bin part0 = #FFFFFF",
+      "graded_by": "live-diff vs wctb binary part0 (LEG A, TOL=0) + win31 COLOR_WINDOW #FFFFFF corroboration (LEG B)" },
+
+    { "idx": 2, "name": "CIDX_DESKTOP", "role": "desktop background -- THE Initech teal",
+      "rgb": "#8DDCDC", "rgb_bytes": [141, 220, 220],
+      "heritage": "initech-identity", "wctb_part": "none (no wctb part is teal)",
+      "source_golden": "AUTHORED -- operator WL-0053 (VIC-20 cyan, hardware colour 3, screen/phosphor value). No upstream decomp golden exists.",
+      "graded_by": "authored -- generated-header-vs-LOCKED-json equality + green-cyan-octant luminance bound + the seafoam-relapse VALUE mutant (CANON_MUTATE_TEAL #8DDCDC->#6FA08E MUST go RED). NEVER claimed decomp-sourced.",
+      "supersedes": "ADR-0004 OD-4 seafoam #6FA08E (REVOKED 2026-06-21)" },
+
+    { "idx": 3, "name": "CIDX_MENUBAR", "role": "menu-bar background -- white bar, black baseline (System-7)",
+      "rgb": "#FFFFFF", "rgb_bytes": [255, 255, 255],
+      "heritage": "system7-quickdraw", "wctb_part": "part0 (wContentColor; the bar shares content white)",
+      "source_golden": "$(SYSTEM7_DECOMP)/goldens/resources/wctb_0_System_753.bin part0 = #FFFFFF (WL-0053 'white bar, black baseline'; the win31 COLOR_MENU #C0C0C0 is correctly NOT used -- System-7 chrome owns the bar)",
+      "graded_by": "live-diff vs wctb binary part0 (LEG A, TOL=0)" },
+
+    { "idx": 4, "name": "CIDX_TITLE_INK", "role": "title ink / title + control title text",
+      "rgb": "#000000", "rgb_bytes": [0, 0, 0],
+      "heritage": "system7-quickdraw", "wctb_part": "part2 (wTextColor)",
+      "source_golden": "$(SYSTEM7_DECOMP)/goldens/resources/wctb_0_System_753.bin part2 = #000000",
+      "graded_by": "live-diff vs wctb binary part2 (LEG A, TOL=0)" },
+
+    { "idx": 5, "name": "CIDX_ACCENT", "role": "accent navy -- progress bar / 116% pie / selection / active caption",
+      "rgb": "#000080", "rgb_bytes": [0, 0, 128],
+      "heritage": "win31-gdi", "wctb_part": "none (Win-3.1/GDI accent)",
+      "source_golden": "$(WIN31_DECOMP)/refs/win31-chrome/default-colors-cross-check.txt ActiveTitle/Hilight 0 0 128 = #000080 (3 independent documented WIN.INI sources); $(WIN31_DECOMP)/specs/chrome/color-scheme.md COLOR_ACTIVECAPTION (2)",
+      "graded_by": "live-diff vs win31 default-colors-cross-check.txt (LEG B). DEPTH-TRAP: indexed-8 #000080 PRIMARY; 16-color #0000AA corroboration-ONLY; REJECT ~42-level blue tolerance (R5, Stop condition)",
+      "was_preview_sample": "#1E2F87 (REVOKED preview.webp accent_blue)" },
+
+    { "idx": 6, "name": "CIDX_CONTROL", "role": "control face / BTNFACE -- scrollbar track, arrow-button face, button face",
+      "rgb": "#C0C0C0", "rgb_bytes": [192, 192, 192],
+      "heritage": "win31-gdi", "wctb_part": "none (Win-3.1/GDI BTNFACE)",
+      "source_golden": "$(WIN31_DECOMP)/refs/win31-chrome/default-colors-cross-check.txt ButtonFace 192 192 192 = #C0C0C0 (3 sources); color-scheme.md COLOR_BTNFACE (15)",
+      "graded_by": "live-diff vs win31 default-colors-cross-check.txt (LEG B). indexed-8 #C0C0C0 PRIMARY; DOSBox-X #C3C7CB is a 16-color VGA artifact, corroboration-only",
+      "was_preview_sample": "#BFBFBF (REVOKED)" },
+
+    { "idx": 7, "name": "CIDX_PIN_LIGHT", "role": "pinstripe LIGHT row -- active title-bar racing-stripe highlight",
+      "rgb": "#F3F3F3", "rgb_bytes": [243, 243, 243],
+      "heritage": "system7-quickdraw", "wctb_part": "none (rendered dither shade, NOT wctb part7 #FFFFFF endpoint)",
+      "source_golden": "$(SYSTEM7_DECOMP)/specs/chrome/pinstripe.md rendered-golden row #F3F3F3 @ x=450,y=166",
+      "graded_by": "live-diff vs pinstripe.md rendered rows (LEG C)",
+      "was_preview_sample": "#6B6B74 (REVOKED INITECH_TITLEBAR_PINSTRIPE_RGB)" },
+
+    { "idx": 8, "name": "CIDX_PIN_DARK", "role": "pinstripe DARK row -- active title-bar racing-stripe shadow",
+      "rgb": "#969696", "rgb_bytes": [150, 150, 150],
+      "heritage": "system7-quickdraw", "wctb_part": "none (rendered dither shade, NOT wctb part8 #000000 endpoint)",
+      "source_golden": "$(SYSTEM7_DECOMP)/specs/chrome/pinstripe.md rendered-golden row #969696 @ x=450,y=168",
+      "graded_by": "live-diff vs pinstripe.md rendered rows (LEG C)",
+      "was_preview_sample": "#8A8A93 (REVOKED)" }
+  ],
+
+  "derived_rows": [
+    { "name": "bevel_light", "role": "title/dialog 3-D bevel + groove HIGHLIGHT (the WL-0053 lavender->teal swap)",
+      "rgb": "#8DDCDC", "rgb_bytes": [141, 220, 220],
+      "heritage": "initech-identity", "wctb_part": "part9/part11 (System-7 dialog lavender #CCCCFF/#DADAFF, teal-SUBSTITUTED)",
+      "source_golden": "AUTHORED -- WL-0053 replaces ALL System-7 lavender bevel/groove tinge (#DADAFF/#B3B3DA/#CCCCFF/#8787B3/#333366) with Initech teal. == entries idx2 teal.",
+      "graded_by": "authored -- locked-constant equality (== idx2 teal) + a lavender-relapse VALUE mutant (#8DDCDC->#DADAFF MUST go RED). Graded against the pinstripe.md lavender rows ONLY as a recorded SUPERSEDED baseline, never as the expected value." },
+
+    { "name": "bevel_shadow", "role": "title/dialog 3-D bevel + groove SHADOW (darkened teal, same hue as #8DDCDC)",
+      "rgb": "#4E9BA3", "rgb_bytes": [78, 155, 163],
+      "heritage": "initech-identity", "wctb_part": "part9/part11 dark (System-7 lavender shadow #B3B3DA, teal-SUBSTITUTED)",
+      "source_golden": "AUTHORED -- WL-0053 darkened teal, preserves the 3-D bevel with the Initech hue. Replaces System-7 #B3B3DA.",
+      "graded_by": "authored -- locked-constant + DERIVED-SHADOW lock (same-hue-as-bevel_light proof) + a lavender-relapse VALUE mutant." }
+  ],
+
+  "superseded": {
+    "OD-4_seafoam": { "rgb": "#6FA08E", "rgb_bytes": [111, 160, 142],
+      "status": "REVOKED 2026-06-21 (management decree, heresy HER-01/HER-06/HER-08)",
+      "note": "Was ADR-0004 OD-4 desktop_bg canon + the D-8 'canon' hard-gate row. Superseded by idx2 Initech teal #8DDCDC. Retained here for revocation-history traceability ONLY; nothing renders it; the seafoam-relapse VALUE mutant uses it as the RED-must-fire target." },
+    "preview_webp_samples": { "status": "PROVENANCE ONLY (REVOKED as render/oracle source, HER-03)",
+      "note": "The spec/assets/palette.h 3x3 frame samples (#7F7F86 white, #67696C menubar, #6B6B74 pinstripe, #1E2F87 accent) are a dim Office-Space CRT MOCK-UP. They survive only as INITECH_*_FRAME_V0 provenance constants; NOTHING renders or grades against them (P4)." }
+  }
+}

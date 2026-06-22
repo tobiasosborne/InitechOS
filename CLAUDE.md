@@ -89,6 +89,11 @@ round-trips through real dBASE, Turbo Initech diffs clean against Free
 Pascal, the self-host fixpoint converges (`K₂ == K₃` bit-for-bit). An
 agent that *claims* it works but never ran the oracle — or ran it against
 a stub golden — has produced nothing. Reviewer prose is not a signal.
+**An oracle that computes its expected values from the same source the
+artifact renders from is not an oracle** — it agrees *by construction* and
+cannot catch a wrong value (the FLAIR palette-grading heresy; ADR-0010 /
+Revocation Record HER-02). Grade against an *independent* golden (the
+decomp corpora, the `test-clut` pattern).
 
 **Law 3 — Know which language each piece speaks; never blur artifact and
 factory.** The shipped OS — kernel/InitechDOS/Toolbox and the bundled
@@ -103,8 +108,12 @@ Turbo Initech self-host fixpoint depends on them (PRD §7).
 **Law 4 — It must look and feel like the frame.** Fidelity is the product
 (PRD §1, §3). The judge is a person who used early-90s Mac+DOS software
 saying "yes, that's it" — the live, draggable arrangement with working
-menus. SSIM is a *guide* the harness reports per-window to push you toward
-it, **not a hard numeric gate**. The canonical bugs are canon: the
+menus. SSIM is *intended* as a per-window guide, **never a hard numeric
+gate** — but `harness/ssim.c` is **NOT YET BUILT** (`make ssim` is a stub;
+`spec/ssim_params.h` crops are TODO_GOLDEN), so today fidelity rests on the
+structural oracles + the operator's Law-4 eyeball; when built it grades
+against the `../system7-decomp` / `../win31-decomp` rendered goldens, never
+`preview.webp` (ADR-0010 / Revocation Record HER-11). The canonical bugs are canon: the
 hourglass cursor (not a wristwatch), the `570-` trailing-minus, the pie
 chart summing to **116%** — these are enforced, not fixed.
 
@@ -385,7 +394,7 @@ initech-os/
 ├── seed/                    C seed cross-compiler (Pascal -> x86); genesis of Turbo Initech, not the OS bootstrap
 ├── harness/                 C oracle + emulator drivers
 │   ├── emu/                 qemu.c, bochs.c, box86.c
-│   ├── ssim.c               per-window fidelity guide
+│   ├── ssim.c               per-window fidelity guide (PLANNED -- NOT YET BUILT; `make ssim` is a stub)
 │   ├── diff/                fat_diff, dbf_diff, compiler_diff
 │   └── proptest/            region property suite + shrinker
 ├── os/                      THE ARTIFACT — C (ADR-0002); kernel/DOS/Toolbox/apps

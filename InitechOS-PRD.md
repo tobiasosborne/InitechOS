@@ -14,7 +14,7 @@ A bootable, period-plausible operating system for **emulated 386+ PCs**: a **DOS
 
 It is built by an **agent swarm whose fitness function is the emulator itself**: debug and error signals come from QEMU/Bochs/86Box; success is measured by boot milestones, pixel-fidelity against the film stills, and differential conformance against real period software.
 
-**The whole point (acceptance test):** a person who used early-90s Mac and DOS software boots InitechOS and *cannot immediately tell it isn't a real period product* — down to the seafoam palette, the Chicago and Geneva bitmaps, the folder icons, and the pie chart whose slices sum to 116%.
+**The whole point (acceptance test):** a person who used early-90s Mac and DOS software boots InitechOS and *cannot immediately tell it isn't a real period product* — down to the **Initech-teal (`#8DDCDC`) desktop and the System-7 decomp-golden chrome palette** (WL-0053; supersedes the earlier seafoam render), the Chicago and Geneva bitmaps, the folder icons, and the pie chart whose slices sum to 116%.
 
 ---
 
@@ -207,7 +207,7 @@ Running all three is **differential emulation** — it catches QEMU-isms, which 
 
 ```
 boot_stage_reached            # serial milestones — discrete gates per M1/M2
-SSIM(screendump, fixture)     # continuous *guide* toward chrome/desktop fidelity (not a hard cutoff)
+SSIM(screendump, fixture)     # continuous *guide* toward chrome/desktop fidelity (not a hard cutoff; harness/ssim.c PLANNED -- NOT YET BUILT, ADR-0010/HER-11)
 differential_pass_rate        # InitechBase vs real dBASE; Turbo Initech vs fpc — gate at 100% on the shared corpus
 self-host fixpoint converges  # boolean gate — bit-identical K₂ == K₃
 panics / guest_errors         # must be zero on the green path
@@ -240,7 +240,7 @@ Sequenced per the agreed principle: **the compiler is the finale, not the founda
 
 | # | Milestone | Demo / acceptance |
 |---|---|---|
-| **M0** | Foundations | C build+emulator harness; seed cross-toolchain emits freestanding x86; QEMU boot + serial + QMP screendump wired; asset-extraction v0 (palette + a few glyphs). A freestanding binary prints over serial; SSIM harness scores a blank framebuffer. **M0.5 — Tracer Bullet & Smoke Test (the first real deliverable):** a thin thread through *every* layer that actually runs — seed compiler → boot → 32-bit protected/flat → VESA LFB → minimal region/blit → one Chicago glyph → QEMU screendump → SSIM/serial oracle — using *real* (minimal) implementations, not throwaway stubs, plus a repeatable `make smoke` heartbeat. The bullet flying is the **gate that unblocks fleshing out M1–M8**; until it's green, no thick subsystem work starts. |
+| **M0** | Foundations | C build+emulator harness; seed cross-toolchain emits freestanding x86; QEMU boot + serial + QMP screendump wired; asset-extraction v0 (palette + a few glyphs). A freestanding binary prints over serial. (NOTE: the SSIM harness named here is **PLANNED, not yet built** -- `make ssim` is a stub, `harness/ssim.c` absent; when built it grades against the decomp rendered goldens, never `preview.webp`. ADR-0010 / Revocation Record HER-11.) **M0.5 — Tracer Bullet & Smoke Test (the first real deliverable):** a thin thread through *every* layer that actually runs — seed compiler → boot → 32-bit protected/flat → VESA LFB → minimal region/blit → one Chicago glyph → QEMU screendump → SSIM/serial oracle — using *real* (minimal) implementations, not throwaway stubs, plus a repeatable `make smoke` heartbeat. The bullet flying is the **gate that unblocks fleshing out M1–M8**; until it's green, no thick subsystem work starts. |
 | **M1** | Boot to text | MBR → stage2 → 32-bit protected/flat → VESA LFB → 80×25 console (ROM font blit) → `InitechDOS 3.3` banner. Boots identically in QEMU/Bochs/86Box. |
 | **M2** | DOS personality | FAT12/16 read, program loader, `INT 21h` API, shell. `DIR`, `TYPE`, run a baked program from `A:`. |
 | **M3** | ATKINSON + GUI primitives | Region engine (C property suite green — homomorphism, normal-form, algebra identities), blitting, Chicago/Geneva fonts, hourglass cursor. Draw a System-7 window, drag it with correct clipping. |
