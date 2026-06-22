@@ -6655,7 +6655,7 @@ endef
 # make here except the smoke binary, which depends on its source).
 .PHONY: help factory image run run-bochs smoke ssim test test-region test-region-mutant \
         test-region-gdi test-region-gdi-mutant \
-        gen-color-canon test-color-canon-gen \
+        gen-color-canon test-color-canon-gen test-color-canon test-color-canon-mutant \
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
         test-blitter test-blitter-mutant test-text test-text-mutant \
@@ -9126,6 +9126,47 @@ test-clut: $(TEST_CLUT)
 	@printf ">>> test-clut: green\n"
 test-clut-mutant: $(TEST_CLUT_MUT)
 	@if $(TEST_CLUT_MUT) >/dev/null 2>&1; then printf '!!! test-clut-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; else printf '>>> test-clut-mutant: green (mutant correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-color-canon (beads initech-mwpw -- ADR-0010 CD-2, ORACLE-FIRST).
+# THE FLAIR color VALUE oracle: grades the GENERATED spec/assets/color_canon.h
+# against INDEPENDENT decomp goldens (NEVER by construction -- the heresy HER-02
+# this re-ratification exists to kill). 4 legs: A=wctb_0_System_753.bin binary
+# (idx0/1/3/4), B=win31 default-colors-cross-check.txt (idx5 navy #000080 w/ the
+# depth-trap, idx6 #C0C0C0), C=pinstripe.md rendered rows (idx7/idx8), D=AUTHORED
+# teal (idx2 #8DDCDC + bevels; no external golden -- locked-constant + the
+# seafoam-relapse mutant, P4 honesty). Per-leg LOUD-SKIP if a sibling golden is
+# absent (never silent-pass). SYSTEM7_DECOMP/WIN31_DECOMP already declared.
+# ---------------------------------------------------------------------------
+TEST_COLOR_CANON           := $(BUILD)/test_color_canon
+TEST_COLOR_CANON_MUT_TEAL  := $(BUILD)/test_color_canon_mut_teal
+TEST_COLOR_CANON_MUT_NAVY  := $(BUILD)/test_color_canon_mut_navy
+TEST_COLOR_CANON_MUT_WHITE := $(BUILD)/test_color_canon_mut_white
+TEST_COLOR_CANON_MUT_PIN   := $(BUILD)/test_color_canon_mut_pin
+COLOR_CANON_ORACLE_DEF     := -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\" -DWIN31_DECOMP=\"$(WIN31_DECOMP)\"
+
+$(TEST_COLOR_CANON): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -o $@ $<
+$(TEST_COLOR_CANON_MUT_TEAL): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_TEAL -o $@ $<
+$(TEST_COLOR_CANON_MUT_NAVY): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_NAVY -o $@ $<
+$(TEST_COLOR_CANON_MUT_WHITE): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_WHITE -o $@ $<
+$(TEST_COLOR_CANON_MUT_PIN): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_PIN -o $@ $<
+
+test-color-canon: $(TEST_COLOR_CANON)
+	@printf ">>> test-color-canon: FLAIR color VALUE oracle -- 4 legs vs INDEPENDENT decomp goldens (A wctb / B win31 / C pinstripe / D authored-teal); NOT by construction (ADR-0010)\n"
+	@$(TEST_COLOR_CANON)
+	@printf ">>> test-color-canon: green\n"
+
+test-color-canon-mutant: $(TEST_COLOR_CANON_MUT_TEAL) $(TEST_COLOR_CANON_MUT_NAVY) $(TEST_COLOR_CANON_MUT_WHITE) $(TEST_COLOR_CANON_MUT_PIN)
+	@printf ">>> test-color-canon-mutant: confirming all 4 VALUE mutants go RED (Rule 6; the INDEPENDENT golden catches a wrong canon value)\n"
+	@if $(TEST_COLOR_CANON_MUT_TEAL) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_TEAL PASSED -- the authored-teal datum is not gated (seafoam relapse slips past)\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_TEAL correctly RED -- LEG D seafoam-relapse caught)\n'; fi
+	@if $(TEST_COLOR_CANON_MUT_NAVY) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_NAVY PASSED -- the win31 depth-trap is swamped (#0000AA accepted)\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_NAVY correctly RED -- LEG B depth-trap tight)\n'; fi
+	@if $(TEST_COLOR_CANON_MUT_WHITE) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_WHITE PASSED -- the wctb binary golden is decoration\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_WHITE correctly RED -- LEG A wctb bites)\n'; fi
+	@if $(TEST_COLOR_CANON_MUT_PIN) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_PIN PASSED -- the pinstripe.md golden is decoration\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_PIN correctly RED -- LEG C pinstripe bites)\n'; fi
 
 .PHONY: test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \
 	test-dialog-record test-dialog-record-mutant test-drawing-ops test-drawing-ops-mutant \
@@ -13898,7 +13939,7 @@ TEST_UNIT_GATES := \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \
-	test-color-canon-gen \
+	test-color-canon-gen test-color-canon test-color-canon-mutant \
 	test-flair-heap test-flair-heap-mutant \
 	test-flair-headers test-flair-headers-mutant \
 	test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \
