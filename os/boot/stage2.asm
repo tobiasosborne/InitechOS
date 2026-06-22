@@ -16,7 +16,8 @@
 ;
 ; Loaded by the MBR at 0x0000:0x8000 in 16-bit real mode. We do all BIOS work
 ; (VBE is real-mode only) FIRST, then switch to 32-bit flat protected mode and
-; fill the linear framebuffer with the seafoam color.
+; hand off to the C kernel, which owns the framebuffer fill (the canonical
+; Initech teal desktop; the pre-FLAIR text console paints its own background).
 ;
 ; Serial markers (PRD acceptance: "serial marks each boot stage"):
 ;   S2   -- stage2 entered
@@ -34,14 +35,17 @@ org 0x8000
 ; -- Constants --------------------------------------------------------------
 COM1            equ 0x3F8
 
-; Seafoam: a single documented constant. Classic System-7-ish seafoam/teal.
-; SEAFOAM_RGB = (0x6F, 0xA0, 0x8E) -> R=0x6F G=0xA0 B=0x8E.
-; PLACEHOLDER (per task brief): to be reconciled later with the extracted
-; palette sheet (beads initech-vcq / m0-5). For the tracer boot a fixed
-; constant is sufficient. The 32-bit fill below packs this per the mode bpp.
-SEAFOAM_R       equ 0x6F
-SEAFOAM_G       equ 0xA0
-SEAFOAM_B       equ 0x8E
+; Initech desktop teal: the LOCKED Initech Color Canon desktop background
+; (color_canon.json idx2 CIDX_DESKTOP). TEAL_RGB = (0x8D, 0xDC, 0xDC) ->
+; R=0x8D G=0xDC B=0xDC. Supersedes the REVOKED OD-4 seafoam (0x6F,0xA0,0x8E)
+; per ADR-0004-AMENDMENT-DEC-09 OD-4-REVOKED / FO-3 so no seafoam constant
+; survives under the teal desktop. NOTE: stage2 no longer fills the LFB itself
+; (the C kernel owns the framebuffer fill -- see the LFB marker below); these
+; are kept as the documented canon constant for the boot color. R/G/B byte
+; order preserved.
+TEAL_R          equ 0x8D
+TEAL_G          equ 0xDC
+TEAL_B          equ 0xDC
 
 ; Desired VESA resolution.
 WANT_W          equ 640

@@ -54,6 +54,7 @@
 #include "chrome_metrics.h"   /* FLAIR_CHROME_DIALOG_BORDER (-Ispec)           */
 #include "region_algebra.h"   /* region_contains_point (-Ispec)               */
 #include "event_model.h"      /* flair_event_what_t, EventRecord (-Ispec)      */
+#include "color_canon.h"      /* flair_canon_rgb (-Ispec/assets)              */
 
 /* ---------------------------------------------------------------------------
  * FAIL-LOUD (Rule 2): dual panic (kernel infinite loop / hosted abort).
@@ -81,18 +82,13 @@ enum {
 /* ---------------------------------------------------------------------------
  * PIXEL VALUE HELPER (same dual-depth pattern as control.c ctrl_px)
  * ------------------------------------------------------------------------- */
+/* The DLG_* index names (0,1,2,4) are the SAME slots as the canon indices;
+ * route the 32bpp RGB ENTIRELY through flair_canon_rgb (color_canon.h, the ONE
+ * locked color authority) so this site is byte-identical to chrome/control/
+ * render/palette (ARB-1; fb-agree). No per-file index->RGB switch survives. */
 static uint32_t dlg_pal_rgb(uint8_t index)
 {
-    switch (index) {
-    case DLG_BLACK:    return 0x000000u;
-    case DLG_WHITE:    return 0x7F7F86u;
-    case DLG_DESKTOP:  return 0x73696Cu;
-    case DLG_TEXT_INK: return 0x000000u;
-    default: {
-        uint32_t v = (uint32_t)index;
-        return (v << 16) | (v << 8) | v;
-    }
-    }
+    return flair_canon_rgb(index);
 }
 
 static uint32_t dlg_px(const GrafPort *port, uint8_t index)

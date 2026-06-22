@@ -355,100 +355,96 @@ static void cmd_header(const char *jsonpath)
     printf(" * palette.h -- GENERATED from %s by tools/palette_extract.c.\n", jsonpath);
     printf(" * DO NOT EDIT BY HAND. Regenerate: make %s\n", "spec/assets/palette.h");
     printf(" *\n");
-    printf(" * InitechOS desktop palette v0. Ref: PRD Sec 10 (palette extracted\n");
+    printf(" * InitechOS desktop palette. Ref: PRD Sec 10 (palette extracted\n");
     printf(" * from the reference frame), Sec 6.4 (assets), Sec 12 (frame is\n");
     printf(" * REFERENCE ONLY -- these are MEASURED samples, not embedded image).\n");
     printf(" * Source fixture: %s. Each color was 3x3-sampled at the (x,y)\n", fixture);
     printf(" * recorded in palette.json (auditable; test-assets re-checks it).\n");
+    printf(" *\n");
+    printf(" * REVOKED provenance (ADR-0004-AMENDMENT-DEC-09 / ADR-0010, HER-03):\n");
+    printf(" * the frame-sampled INITECH_*_FRAME_V0 constants below are the dim\n");
+    printf(" * Office-Space CRT MOCK-UP samples. They are PROVENANCE ONLY -- NOTHING\n");
+    printf(" * renders or grades against them. The ONE color authority is\n");
+    printf(" * flair_canon_rgb (color_canon.h, generated from the LOCKED\n");
+    printf(" * color_canon.json); flair_palette_rgb below is a THIN ALIAS to it\n");
+    printf(" * (idx2 = Initech teal #8DDCDC, NOT the revoked seafoam/preview gray).\n");
     printf(" */\n");
     printf("#ifndef INITECH_PALETTE_H\n#define INITECH_PALETTE_H\n\n");
+    printf("#include \"color_canon.h\"  /* flair_canon_rgb -- THE color authority (ARB-1) */\n\n");
     for (int i = 0; i < na; i++) {
-        char up[64];
+        char up[80];
         size_t j;
         for (j = 0; a[i].name[j] && j < sizeof up - 1; j++)
             up[j] = (char)toupper((unsigned char)a[i].name[j]);
         up[j] = '\0';
-        printf("/* sampled @ (%ld,%ld) */\n", a[i].x, a[i].y);
+        /* Demote frame-sampled anchors to PROVENANCE-ONLY constants by suffixing
+         * _FRAME_V0 (HER-03): nothing renders them. Idempotent -- a name that is
+         * already a *_FRAME_V0 anchor (e.g. desktop_bg_frame_v0) is left as-is so
+         * a regen is byte-stable and we never emit a doubled suffix (Rule 11). */
+        size_t L = j;
+        int already = (L >= 9 &&
+                       up[L-9]=='_' && up[L-8]=='F' && up[L-7]=='R' &&
+                       up[L-6]=='A' && up[L-5]=='M' && up[L-4]=='E' &&
+                       up[L-3]=='_' && up[L-2]=='V' && up[L-1]=='0');
+        if (!already && L + 9 < sizeof up) {
+            up[L+0]='_'; up[L+1]='F'; up[L+2]='R'; up[L+3]='A'; up[L+4]='M';
+            up[L+5]='E'; up[L+6]='_'; up[L+7]='V'; up[L+8]='0'; up[L+9]='\0';
+        }
+        printf("/* sampled @ (%ld,%ld) -- REVOKED provenance (HER-03); nothing renders it */\n",
+               a[i].x, a[i].y);
         printf("#define INITECH_%s_R 0x%02X\n", up, a[i].rgb[0]);
         printf("#define INITECH_%s_G 0x%02X\n", up, a[i].rgb[1]);
         printf("#define INITECH_%s_B 0x%02X\n", up, a[i].rgb[2]);
         printf("#define INITECH_%s_RGB 0x%02X%02X%02Xu\n\n",
                up, a[i].rgb[0], a[i].rgb[1], a[i].rgb[2]);
     }
-    /* Canonical (OS-canon) values -- set by ADR/oracle, NOT frame-sampled (e.g.
-     * the SEAFOAM desktop_bg, ADR-0004 OD-4 / AM-9). Emitted with the same
-     * INITECH_<NAME>_* macro form so render/chrome code consumes one source. */
+    /* Canonical (OS-canon) values -- set by ADR/oracle, NOT frame-sampled. These
+     * keep their plain INITECH_<NAME>_* names because live consumers reference
+     * them (e.g. os/flair/desktop.c INITECH_DESKTOP_BG_RGB). Their VALUE is the
+     * LOCKED canon from palette.json's "canonical" block: desktop_bg is now
+     * Initech teal #8DDCDC (== color_canon.json idx2; supersedes OD-4 seafoam,
+     * REVOKED per ADR-0004-AMENDMENT-DEC-09). The single index->RGB authority is
+     * still flair_canon_rgb; these named constants agree with it by value. */
     for (int i = 0; i < nc; i++) {
         char up[64];
         size_t j;
         for (j = 0; canon[i].name[j] && j < sizeof up - 1; j++)
             up[j] = (char)toupper((unsigned char)canon[i].name[j]);
         up[j] = '\0';
-        printf("/* canonical (OS canon -- ADR/oracle, not frame-sampled) */\n");
+        printf("/* canonical (OS canon -- ADR/oracle, not frame-sampled; LOCKED) */\n");
         printf("#define INITECH_%s_R 0x%02X\n", up, canon[i].rgb[0]);
         printf("#define INITECH_%s_G 0x%02X\n", up, canon[i].rgb[1]);
         printf("#define INITECH_%s_B 0x%02X\n", up, canon[i].rgb[2]);
         printf("#define INITECH_%s_RGB 0x%02X%02X%02Xu\n\n",
                up, canon[i].rgb[0], canon[i].rgb[1], canon[i].rgb[2]);
     }
-    /* The deterministic FLAIR indexed-8 palette function (beads initech-re30.3).
-     * Emitted from the generator (NOT hand-added) so a regen reproduces it
-     * byte-for-byte and palette.h stays fully generated (Rule 8 / "DO NOT EDIT
-     * BY HAND" contract). THE single index->RGB point of truth shared by the
-     * LIVE desktop converter (kmain.c BOOT_FLAIR_SHELL) and the host screendump
-     * oracle (Law 2). A byte-for-byte port of harness/render/render.c:56-75
-     * (render_palette_rgb): SAME cases, SAME constants, SAME total gray ramp. */
+    /* The deterministic FLAIR indexed-8 palette function. Per
+     * ADR-0004-AMENDMENT-DEC-09 ARB-1, flair_palette_rgb is now a THIN ALIAS to
+     * flair_canon_rgb (color_canon.h, generated from the LOCKED color_canon.json)
+     * -- the ONE color authority. The old per-index switch (which read the dim
+     * preview-mock-up / seafoam INITECH_* samples) is RETIRED; those samples
+     * survive only as INITECH_*_FRAME_V0 provenance above (HER-03). Emitted from
+     * the generator (NOT hand-added) so a regen reproduces it byte-for-byte and
+     * palette.h stays fully generated (Rule 8 / "DO NOT EDIT BY HAND"). */
     printf(
 "/* ---------------------------------------------------------------------------\n"
-" * flair_palette_rgb -- the deterministic FLAIR indexed-8 palette: a palette\n"
-" * INDEX (0..255) -> a canonical 0x00RRGGBB value.\n"
+" * flair_palette_rgb -- THIN ALIAS to flair_canon_rgb (color_canon.h).\n"
 " *\n"
-" * This is THE single point of truth for \"what RGB does FLAIR index N mean\", so\n"
-" * the LIVE desktop converter (os/milton/kmain.c BOOT_FLAIR_SHELL: present the\n"
-" * 8bpp offscreen onto a 24/32bpp LFB) and the host screendump oracle agree by\n"
-" * CONSTRUCTION (Law 2). It is a byte-for-byte port of the FACTORY render\n"
-" * skeleton's render_palette_rgb (harness/render/render.c:56-75) -- SAME cases,\n"
-" * SAME constants, SAME total gray ramp for any other index. The two share the\n"
-" * same INITECH_*_RGB samples here, so the rendered-in-indices desktop reads back\n"
-" * the SAME pixels whether it is run on the host (render_palette_rgb) or composed\n"
-" * live and presented to a direct-color LFB (this function).\n"
+" * A palette INDEX (0..255) -> a canonical 0x00RRGGBB value, resolved by the ONE\n"
+" * color authority flair_canon_rgb (idx2 = Initech teal #8DDCDC, crisp white,\n"
+" * navy accent, System-7 pinstripe; gray ramp for idx>=9). The LIVE desktop\n"
+" * converter (os/milton/kmain.c BOOT_FLAIR_SHELL) and the host screendump oracle\n"
+" * call this name, so both route through the SAME locked table and the rendered\n"
+" * desktop reads back identical pixels on host and metal (Law 2; fb-agree).\n"
 " *\n"
-" * Indices (verbatim render.c comments; chrome.c CIDX_* / desktop.h\n"
-" * FLAIR_DESKTOP_BG_INDEX use these too):\n"
-" *   0 black ink   1 window white   2 desktop seafoam   3 menubar gray\n"
-" *   4 titlebar ink   5 accent blue   6 light control gray\n"
-" *   7 pinstripe LIGHT (WDEF idx 7)   8 pinstripe DARK (WDEF idx 8)\n"
-" *   default: a deterministic gray scaled by the index (total over all 256).\n"
-" *\n"
-" * The 0xBFBFBFu (idx 6) and 0x8A8A93u (idx 8) literals are golden-resolves\n"
-" * (gui-ground-truth.md Sec 3.3) carried verbatim from render.c; the oracle keys\n"
-" * on the INDEX, not the exact RGB, for the pinstripe shades.\n"
-" *\n"
-" * Pure, freestanding-safe (no libc, <stdint.h> only): callable from the kernel\n"
-" * AND the host. Ref: harness/render/render.c:56-75 (render_palette_rgb, the\n"
-" * correspondence the screendump oracle reuses); CLAUDE.md Law 2 (oracle is\n"
-" * truth), Rule 11 (deterministic), Rule 12 (ASCII-clean). beads initech-re30.3\n"
-" * (toward the bmih palette-share consolidation). */\n"
-"#include <stdint.h>\n"
+" * Provenance: the old switch read the REVOKED preview/seafoam samples; it is\n"
+" * retired (ADR-0004-AMENDMENT-DEC-09 ARB-1, ADR-0010 HER-02/HER-03). Pure,\n"
+" * freestanding-safe (color_canon.h pulls <stdint.h> only): callable from the\n"
+" * kernel AND the host. Ref: spec/assets/color_canon.json (LOCKED, Rule 8);\n"
+" * CLAUDE.md Law 2, Rule 11 (deterministic), Rule 12 (ASCII-clean). */\n"
 "static inline uint32_t flair_palette_rgb(uint8_t index)\n"
 "{\n"
-"    switch (index) {\n"
-"    case 0: return 0x000000u;                        /* black                  */\n"
-"    case 1: return INITECH_WINDOW_WHITE_RGB;         /* body white             */\n"
-"    case 2: return INITECH_DESKTOP_BG_RGB;           /* desktop seafoam        */\n"
-"    case 3: return INITECH_MENUBAR_BG_RGB;           /* menubar gray           */\n"
-"    case 4: return INITECH_TITLEBAR_INK_RGB;         /* title ink / dark frame */\n"
-"    case 5: return INITECH_ACCENT_BLUE_RGB;          /* accent blue            */\n"
-"    case 6: return 0xBFBFBFu;                         /* light control gray     */\n"
-"    case 7: return INITECH_TITLEBAR_PINSTRIPE_RGB;   /* pinstripe LIGHT (idx 7)*/\n"
-"    case 8: return 0x8A8A93u;                         /* pinstripe DARK  (idx 8)*/\n"
-"    default:\n"
-"        /* Total ramp for any other index: a deterministic gray scaled by index.*/\n"
-"        {\n"
-"            uint32_t v = (uint32_t)index;\n"
-"            return (v << 16) | (v << 8) | v;\n"
-"        }\n"
-"    }\n"
+"    return flair_canon_rgb(index);\n"
 "}\n\n");
     printf("#endif /* INITECH_PALETTE_H */\n");
 }

@@ -22,16 +22,18 @@
     "Regenerate palette.h from this file with tools/palette_extract.c via",
     "'make spec/assets/palette.h' (or the test-assets gate prerequisite).",
     "",
-    "DESKTOP_BG RECONCILIATION (ADR-0004 OD-4 / AM-9 / FO-3, beads",
-    "initech-ch81): the frame-sampled 'desktop_bg_frame_v0' entry (gray",
-    "(115,105,108), recorded in 'colors' so test-assets re-checks it) has",
-    "been SUPERSEDED by the SEAFOAM canon (0x6F,0xA0,0x8E) = (111,160,142)",
-    "ratified in ADR-0004 OD-4 and mirrored by os/boot/stage2.asm",
-    "SEAFOAM_R/G/B and tools/ppm_seafoam_check.c. The canonical value lives",
-    "in the 'canonical' section below (ignored by the frame-resample gate;",
-    "it is not a frame measurement). palette.h INITECH_DESKTOP_BG_* reflects",
-    "the canonical SEAFOAM; INITECH_DESKTOP_BG_FRAME_V0_* preserves the",
-    "frame-measurement provenance. Oracle: harness/proptest/test_palette_seafoam.c."
+    "DESKTOP_BG RENDER FLIP (ADR-0004-AMENDMENT-DEC-09 OD-4-REVOKED / FO-3):",
+    "the frame-sampled 'desktop_bg_frame_v0' entry (gray (115,105,108),",
+    "recorded in 'colors' so test-assets re-checks it) and the formerly-",
+    "canonical SEAFOAM (0x6F,0xA0,0x8E) are BOTH SUPERSEDED by the Initech",
+    "Color Canon desktop teal #8DDCDC (141,220,220) = color_canon.json idx2.",
+    "The canonical value lives in the 'canonical' section below (ignored by",
+    "the frame-resample gate; it is not a frame measurement). palette.h",
+    "INITECH_DESKTOP_BG_* now resolves to TEAL; the frame-sampled anchors are",
+    "demoted to INITECH_*_FRAME_V0 provenance constants (nothing renders them).",
+    "The ONE color authority is flair_canon_rgb (color_canon.h); flair_palette_rgb",
+    "is a thin alias. Value oracle: test-color-canon (ADR-0010). OD-4 seafoam is",
+    "revocation-history only in color_canon.json's superseded block."
   ],
   "schema_version": 1,
   "source_fixture": "spec/assets/preview.webp",
@@ -84,23 +86,26 @@
       "rather than measured from the compressed still."
     ],
     "desktop_bg": {
-      "rgb": [111, 160, 142],
-      "hex": ["0x6F", "0xA0", "0x8E"],
-      "source": "os/boot/stage2.asm SEAFOAM_R/G/B + tools/ppm_seafoam_check.c (the live boot/oracle value)",
-      "rationale": "ADR-0004 OD-4: 'desktop_bg canon = KEEP SEAFOAM teal (0x6F,0xA0,0x8E)'. AM-9 / FO-3: reconcile palette.json desktop_bg v0 gray -> SEAFOAM; oracle in harness/proptest/test_palette_seafoam.c asserts palette.h INITECH_DESKTOP_BG_{R,G,B} == (0x6F,0xA0,0x8E). Ref: stage2.asm SEAFOAM_R equ 0x6F / SEAFOAM_G equ 0xA0 / SEAFOAM_B equ 0x8E (lines 42-44).",
-      "role": "canonical FLAIR desktop background fill -- the color the render paints behind windows"
+      "rgb": [141, 220, 220],
+      "hex": ["0x8D", "0xDC", "0xDC"],
+      "source": "spec/assets/color_canon.json idx2 CIDX_DESKTOP (the LOCKED Initech Color Canon, WL-0053) -- the ONE color authority flair_canon_rgb resolves; supersedes the boot SEAFOAM value (REVOKED).",
+      "rationale": "ADR-0004-AMENDMENT-DEC-09 OD-4-REVOKED + FO-3: the FLAIR desktop background is Initech teal #8DDCDC (== color_canon.json idx2). OD-4's SEAFOAM (0x6F,0xA0,0x8E) is REVOKED (management decree 2026-06-21, HER-01/HER-06/HER-08) and survives only as revocation-history in color_canon.json's superseded block; the seafoam-relapse VALUE mutant uses it as the RED-must-fire target. INITECH_DESKTOP_BG_RGB now resolves to teal for desktop.c/test_shell. graded_by:authored (P4 honesty; no upstream decomp golden). Value oracle: test-color-canon (ADR-0010).",
+      "role": "canonical FLAIR desktop background fill -- the Initech teal #8DDCDC the render paints behind windows"
     }
   },
   "notes": {
     "desktop_bg": [
-      "RECONCILIATION COMPLETE (ADR-0004 OD-4 / AM-9 / FO-3, beads initech-ch81).",
+      "RENDER FLIP COMPLETE (ADR-0004-AMENDMENT-DEC-09 OD-4-REVOKED / FO-3).",
       "The frame-sampled 'desktop_bg_frame_v0' in 'colors' (gray (115,105,108))",
       "is the compressed-still ground-truth measurement. It is preserved in",
       "'colors' so test-assets can continue to audit the frame provenance.",
-      "The CANONICAL desktop_bg is now SEAFOAM (0x6F,0xA0,0x8E) = (111,160,142),",
-      "matching os/boot/stage2.asm SEAFOAM_R/G/B and tools/ppm_seafoam_check.c.",
-      "palette.h INITECH_DESKTOP_BG_{R,G,B,RGB} reflect SEAFOAM.",
-      "Oracle: harness/proptest/test_palette_seafoam.c (test-palette-seafoam gate)."
+      "The CANONICAL desktop_bg is now Initech teal #8DDCDC (141,220,220) =",
+      "color_canon.json idx2 CIDX_DESKTOP. OD-4's SEAFOAM (0x6F,0xA0,0x8E) is",
+      "REVOKED (HER-01/HER-06/HER-08) -- revocation-history only in",
+      "color_canon.json's superseded block; nothing renders it. palette.h",
+      "INITECH_DESKTOP_BG_{R,G,B,RGB} now resolve to teal; flair_palette_rgb is a",
+      "thin alias to flair_canon_rgb. Value oracle: test-color-canon (ADR-0010).",
+      "(test-palette-seafoam is RETIRED, superseded by test-color-canon.)"
     ],
     "accent_blue": [
       "The single saturated color in the frame; the most reliable anchor.",

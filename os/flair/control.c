@@ -42,6 +42,7 @@
 #include "text.h"               /* text_measure / text_draw / text_center_in    */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_SCROLLBAR_W (-Ispec)            */
 #include "region_algebra.h"     /* region_contains_point (-Ispec)              */
+#include "color_canon.h"        /* flair_canon_rgb (-Ispec/assets)             */
 
 /* ===========================================================================
  * PALETTE INDICES  (mirror chrome.c CIDX_* / render_palette_rgb; byte-stable)
@@ -61,23 +62,13 @@ enum {
 /* ===========================================================================
  * PIXEL VALUE HELPER  (same pattern as chrome.c chrome_px; 8bpp vs 32bpp)
  * ===========================================================================*/
+/* The CTRL_* index names (0..8) are the SAME slots as the canon indices; route
+ * the 32bpp RGB ENTIRELY through flair_canon_rgb (color_canon.h, the ONE locked
+ * color authority) so this site is byte-identical to chrome/dialog/render/
+ * palette (ARB-1; fb-agree). No per-file index->RGB switch survives. */
 static uint32_t ctrl_pal_rgb(uint8_t index)
 {
-    switch (index) {
-    case CTRL_BLACK:     return 0x000000u;
-    case CTRL_WHITE:     return 0x7F7F86u;
-    case CTRL_DESKTOP:   return 0x73696Cu;
-    case CTRL_MENUBAR:   return 0x67696Cu;
-    case CTRL_TITLE_INK: return 0x525A63u;
-    case CTRL_ACCENT:    return 0x1E2F87u;
-    case CTRL_CONTROL:   return 0xBFBFBFu;
-    case CTRL_PIN_LIGHT: return 0x6B6B74u;
-    case CTRL_PIN_DARK:  return 0x8A8A93u;
-    default: {
-        uint32_t v = (uint32_t)index;
-        return (v << 16) | (v << 8) | v;
-    }
-    }
+    return flair_canon_rgb(index);
 }
 
 static uint32_t ctrl_px(const GrafPort *port, uint8_t index)

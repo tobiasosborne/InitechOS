@@ -35,42 +35,27 @@
 #include "surface.h"            /* surface_fill_span / surface_pack_rgb (-Ios/flair) */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_* (-Ispec)                    */
 #include "region_algebra.h"     /* region_contains_point (-Ispec)            */
+#include "color_canon.h"        /* flair_canon_rgb + CIDX_* (-Ispec/assets)  */
 
 /* ---------------------------------------------------------------------------
  * The indexed-8 chrome palette. INDEX is the authored color; RGB is for 32bpp.
- * MUST stay in lockstep with harness/render render_palette_rgb (the oracle maps
- * 8bpp indices to RGB through that mirror). Byte-stable (Rule 11).
+ *
+ * The CIDX_* index names are the LOCKED canon constants from color_canon.h
+ * (idx2 teal #8DDCDC, idx7/idx8 = the WDEF pinstripe shades 7/8 == the old
+ * FLAIR_CHROME_TITLE_SHADE_LIGHT/DARK; identical values, so chrome.c's local
+ * enum is DROPPED to avoid the macro/enum collision -- ADR-0004-AMENDMENT-DEC-09
+ * ARB-1/FO-3). The 32bpp RGB now routes ENTIRELY through flair_canon_rgb so
+ * chrome/control/dialog/render/palette/kernel share the ONE color authority and
+ * the index->pixel map is byte-identical at every site (fb-agree). Byte-stable
+ * (Rule 11).
  * ------------------------------------------------------------------------- */
-enum {
-    CIDX_BLACK      = 0,  /* frame lines / box borders / ink                  */
-    CIDX_WHITE      = 1,  /* content body fill                                 */
-    CIDX_DESKTOP    = 2,  /* desktop gray (unused by a single window)          */
-    CIDX_MENUBAR    = 3,  /* menubar gray (unused by a single window)          */
-    CIDX_TITLE_INK  = 4,  /* title ink / inner groove dark                     */
-    CIDX_ACCENT     = 5,  /* accent blue (unused by bare chrome)               */
-    CIDX_CONTROL    = 6,  /* scrollbar track / arrow-button face (light gray)  */
-    CIDX_PIN_LIGHT  = FLAIR_CHROME_TITLE_SHADE_LIGHT, /* 7 -- pinstripe light  */
-    CIDX_PIN_DARK   = FLAIR_CHROME_TITLE_SHADE_DARK   /* 8 -- pinstripe dark   */
-};
 
-/* index -> 0x00RRGGBB, for the 32bpp path. Mirrors render_palette_rgb. */
+/* index -> 0x00RRGGBB, for the 32bpp path. THE single color authority is
+ * flair_canon_rgb (color_canon.h, generated from the LOCKED color_canon.json);
+ * no per-file index->RGB switch survives (ARB-1). */
 static uint32_t chrome_pal_rgb(uint8_t index)
 {
-    switch (index) {
-    case CIDX_BLACK:     return 0x000000u;
-    case CIDX_WHITE:     return 0x7F7F86u; /* INITECH_WINDOW_WHITE_RGB        */
-    case CIDX_DESKTOP:   return 0x73696Cu; /* INITECH_DESKTOP_BG_RGB          */
-    case CIDX_MENUBAR:   return 0x67696Cu; /* INITECH_MENUBAR_BG_RGB          */
-    case CIDX_TITLE_INK: return 0x525A63u; /* INITECH_TITLEBAR_INK_RGB        */
-    case CIDX_ACCENT:    return 0x1E2F87u; /* INITECH_ACCENT_BLUE_RGB         */
-    case CIDX_CONTROL:   return 0xBFBFBFu;
-    case CIDX_PIN_LIGHT: return 0x6B6B74u; /* INITECH_TITLEBAR_PINSTRIPE_RGB  */
-    case CIDX_PIN_DARK:  return 0x8A8A93u;
-    default: {
-        uint32_t v = (uint32_t)index;
-        return (v << 16) | (v << 8) | v;
-    }
-    }
+    return flair_canon_rgb(index);
 }
 
 /* Convert an authored palette index to the surface pixel value for this port's

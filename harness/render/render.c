@@ -23,6 +23,7 @@
 
 #include "render.h"
 #include "palette.h"           /* INITECH_*_RGB sampled colors (-Ispec/assets) */
+#include "color_canon.h"       /* flair_canon_rgb -- the ONE color authority   */
 
 /* RENDER_DESKTOP_INDEX (the blank-canvas desktop gray, NOT 0/black) is declared
  * in render.h so the oracle can distinguish painted chrome from the bare desktop.
@@ -53,25 +54,15 @@
  * INDEX alternation (period 2), not the exact RGB. Higher indices fall back to a
  * gray ramp so the palette is total for all 256 indices.
  * ------------------------------------------------------------------------- */
+/* THE single color authority is flair_canon_rgb (color_canon.h, generated from
+ * the LOCKED color_canon.json): idx2 teal #8DDCDC, crisp white, navy accent,
+ * System-7 pinstripe, with the gray ramp for idx>=9. This factory skeleton and
+ * the artifact (chrome/control/dialog) now resolve the index->pixel map through
+ * the SAME accessor, so 8bpp and 32bpp render identically and fb-agree holds
+ * (ADR-0004-AMENDMENT-DEC-09 ARB-1). RENDER_DESKTOP_INDEX stays 2 (CIDX_DESKTOP). */
 uint32_t render_palette_rgb(uint8_t index)
 {
-    switch (index) {
-    case 0: return 0x000000u;                        /* black                  */
-    case 1: return INITECH_WINDOW_WHITE_RGB;         /* body white             */
-    case 2: return INITECH_DESKTOP_BG_RGB;           /* desktop gray           */
-    case 3: return INITECH_MENUBAR_BG_RGB;           /* menubar gray           */
-    case 4: return INITECH_TITLEBAR_INK_RGB;         /* title ink / dark frame */
-    case 5: return INITECH_ACCENT_BLUE_RGB;          /* accent blue            */
-    case 6: return 0xBFBFBFu;                         /* light control gray     */
-    case 7: return INITECH_TITLEBAR_PINSTRIPE_RGB;   /* pinstripe LIGHT (idx 7)*/
-    case 8: return 0x8A8A93u;                         /* pinstripe DARK  (idx 8)*/
-    default:
-        /* Total ramp for any other index: a deterministic gray scaled by index.*/
-        {
-            uint32_t v = (uint32_t)index;
-            return (v << 16) | (v << 8) | v;
-        }
-    }
+    return flair_canon_rgb(index);
 }
 
 /* ---- geometry helpers ---------------------------------------------------- */
