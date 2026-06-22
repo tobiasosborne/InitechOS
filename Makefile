@@ -6655,6 +6655,7 @@ endef
 # make here except the smoke binary, which depends on its source).
 .PHONY: help factory image run run-bochs smoke ssim test test-region test-region-mutant \
         test-region-gdi test-region-gdi-mutant \
+        gen-color-canon test-color-canon-gen \
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
         test-blitter test-blitter-mutant test-text test-text-mutant \
@@ -8103,6 +8104,42 @@ $(PREVIEW_PPM): $(PREVIEW_WEBP) | $(BUILD)
 $(PALETTE_H): $(PALETTE_JSON) $(PALETTE_TOOL_BIN)
 	@$(PALETTE_TOOL_BIN) --header $(PALETTE_JSON) > $@
 	@printf ">>> assets: regenerated %s from %s\n" "$@" "$(PALETTE_JSON)"
+
+# ---------------------------------------------------------------------------
+# FLAIR Color Canon module (beads initech-h714 -- ADR-0004-AMENDMENT-DEC-09
+# ARB-1). The ONE color-policy authority: spec/assets/color_canon.json (LOCKED)
+# -> generated spec/assets/color_canon.h (flair_canon_rgb + the 9-entry table +
+# INITECH_CANON_* macros + the two teal bevel rows). The header is a COMMITTED
+# artifact; regenerate deliberately with `make gen-color-canon` after a LOCKED
+# json change. test-color-canon-gen is the regen-consistency gate (committed
+# header == generator output; catches a hand-edit of the DO-NOT-EDIT file). The
+# VALUE oracle that grades each entry vs an INDEPENDENT decomp golden is
+# test-color-canon (beads initech-mwpw, ADR-0010). NOTHING renders color_canon.h
+# yet -- the five-switch collapse + teal flip is a LATER step (beads initech-7x9k).
+# ---------------------------------------------------------------------------
+COLOR_CANON_JSON     := $(ASSET_DIR)/color_canon.json
+COLOR_CANON_H        := $(ASSET_DIR)/color_canon.h
+COLOR_CANON_TOOL_SRC := tools/color_canon_extract.c
+COLOR_CANON_TOOL_BIN := $(BUILD)/color_canon_extract
+
+$(COLOR_CANON_TOOL_BIN): $(COLOR_CANON_TOOL_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+
+# Deliberate regeneration of the committed header (after a LOCKED-json change).
+gen-color-canon: $(COLOR_CANON_TOOL_BIN) $(COLOR_CANON_JSON)
+	@$(COLOR_CANON_TOOL_BIN) $(COLOR_CANON_JSON) > $(COLOR_CANON_H)
+	@printf ">>> assets: regenerated %s from %s\n" "$(COLOR_CANON_H)" "$(COLOR_CANON_JSON)"
+
+# Regen-consistency gate: the committed header MUST equal the generator output
+# (Rule 11; catches a hand-edit of the DO-NOT-EDIT header). Does NOT overwrite.
+test-color-canon-gen: $(COLOR_CANON_TOOL_BIN) $(COLOR_CANON_JSON) $(COLOR_CANON_H)
+	@$(COLOR_CANON_TOOL_BIN) $(COLOR_CANON_JSON) > $(BUILD)/color_canon_regen.h
+	@if diff -q $(COLOR_CANON_H) $(BUILD)/color_canon_regen.h >/dev/null 2>&1; then \
+		printf ">>> test-color-canon-gen: green (committed color_canon.h == generator output)\n"; \
+	else \
+		printf "!!! test-color-canon-gen FAIL: spec/assets/color_canon.h diverges from the generator (hand-edited? -- regenerate with make gen-color-canon)\n"; \
+		diff $(COLOR_CANON_H) $(BUILD)/color_canon_regen.h | head -20; exit 1; \
+	fi
 
 $(SMOKE_BIN): $(SMOKE_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
@@ -13861,6 +13898,7 @@ TEST_UNIT_GATES := \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \
+	test-color-canon-gen \
 	test-flair-heap test-flair-heap-mutant \
 	test-flair-headers test-flair-headers-mutant \
 	test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \
