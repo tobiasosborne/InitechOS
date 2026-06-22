@@ -12,10 +12,12 @@
  * Hit-testing and tracking are pure geometry + value math (deterministic;
  * Rule 11). No libc. No malloc. No 2026-isms.
  *
- * COLOR MODEL (OD-2): indexed-8 palette indices authored here; the surface
- * module + chrome.c's chrome_px pattern handles the 8bpp/32bpp dispatch. We
- * replicate the CTRL_PAL inline (mirroring chrome.c CHROME_PAL / CIDX_*) so
- * this TU compiles standalone for freestanding and hosted oracle builds.
+ * COLOR MODEL (C-8; ADR-0004-AMENDMENT-DEC-09 Sec 3.1/3.3). control.c is a
+ * DECORATION policy: it keeps control GEOMETRY but names NO color.  It names a
+ * wctb-keyed PART (FLAIR_PART_*) and resolves PART -> destination pixel ONLY
+ * through the ONE policy seam flair_look_pixel(port, PART)
+ * (os/flair/flair_look.h).  This TU ships ZERO 0xRRGGBB literal, ZERO
+ * INITECH_*_RGB, ZERO index->RGB switch -- the C-8 cut-line.
  *
  * MUTATION HOOKS (Rule 6):
  *   CONTROL_MUTATE_THUMB_OFF  -- thumb position math uses wrong scale factor
@@ -42,41 +44,33 @@
 #include "text.h"               /* text_measure / text_draw / text_center_in    */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_SCROLLBAR_W (-Ispec)            */
 #include "region_algebra.h"     /* region_contains_point (-Ispec)              */
-#include "color_canon.h"        /* flair_canon_rgb (-Ispec/assets)             */
+#include "flair_look.h"         /* flair_look_pixel + FLAIR_PART_* (the seam)   */
 
 /* ===========================================================================
- * PALETTE INDICES  (mirror chrome.c CIDX_* / render_palette_rgb; byte-stable)
+ * PART NAMESPACE  (C-8; the wctb-keyed roles control draw names -- NOT colors)
+ * The control draw code names these semantic PARTs and resolves PART ->
+ * destination pixel through the ONE policy seam flair_look_pixel.  The names
+ * below are local aliases onto FLAIR_PART_* so the draw code reads naturally
+ * (CTRL_BLACK == frame ink, CTRL_WHITE == content, ...).  No index, no color.
  * ===========================================================================*/
 enum {
-    CTRL_BLACK      = 0,  /* frame lines / borders                              */
-    CTRL_WHITE      = 1,  /* content body / button face                         */
-    CTRL_DESKTOP    = 2,  /* desktop gray (unused by controls directly)         */
-    CTRL_MENUBAR    = 3,  /* menubar gray (unused)                              */
-    CTRL_TITLE_INK  = 4,  /* title ink / dark frame                             */
-    CTRL_ACCENT     = 5,  /* accent blue (hilite fill for pressed button)       */
-    CTRL_CONTROL    = 6,  /* scrollbar track / control face (light gray)        */
-    CTRL_PIN_LIGHT  = 7,  /* pinstripe light (reused for scrollbar thumb light) */
-    CTRL_PIN_DARK   = 8   /* pinstripe dark  (reused for scrollbar thumb dark)  */
+    CTRL_BLACK      = FLAIR_PART_FRAME,        /* frame lines / borders         */
+    CTRL_WHITE      = FLAIR_PART_CONTENT,      /* content body / button face    */
+    CTRL_DESKTOP    = FLAIR_PART_DESKTOP,      /* desktop background            */
+    CTRL_TITLE_INK  = FLAIR_PART_TEXT,         /* title ink / dark frame        */
+    CTRL_ACCENT     = FLAIR_PART_CAPTION_NAVY, /* accent (hilite fill)          */
+    CTRL_CONTROL    = FLAIR_PART_BTNFACE       /* scrollbar track / button face */
 };
 
 /* ===========================================================================
- * PIXEL VALUE HELPER  (same pattern as chrome.c chrome_px; 8bpp vs 32bpp)
+ * PIXEL VALUE HELPER  (C-8 policy seam; the ONE PART->pixel resolution)
  * ===========================================================================*/
-/* The CTRL_* index names (0..8) are the SAME slots as the canon indices; route
- * the 32bpp RGB ENTIRELY through flair_canon_rgb (color_canon.h, the ONE locked
- * color authority) so this site is byte-identical to chrome/dialog/render/
- * palette (ARB-1; fb-agree). No per-file index->RGB switch survives. */
-static uint32_t ctrl_pal_rgb(uint8_t index)
+/* ctrl_px resolves a wctb-keyed PART to the destination pixel for this port's
+ * depth via the ONE policy seam flair_look_pixel (os/flair/flair_look.h).
+ * control.c names NO color and carries NO index->RGB switch (C-8). */
+static uint32_t ctrl_px(const GrafPort *port, int part)
 {
-    return flair_canon_rgb(index);
-}
-
-static uint32_t ctrl_px(const GrafPort *port, uint8_t index)
-{
-    if (port->portBits.bm.bpp == 8u) {
-        return (uint32_t)index;
-    }
-    return ctrl_pal_rgb(index);
+    return flair_look_pixel(port, part);
 }
 
 /* ===========================================================================
@@ -98,14 +92,16 @@ static int ctrl_in_clip(const GrafPort *port, int x, int y)
     return 1;
 }
 
-/* cfill_ctrl -- fill [x, x+w) on row y with index `idx`, clipped.
- * Mirrors chrome.c cfill; batches maximal in-clip runs into surface_fill_span. */
-static void cfill_ctrl(GrafPort *port, int x, int y, int w, uint8_t idx)
+/* cfill_ctrl -- fill [x, x+w) on row y with PART `part`, clipped.
+ * Mirrors chrome.c cfill; batches maximal in-clip runs into surface_fill_span.
+ * PART -> pixel resolution is the ONE policy seam (ctrl_px -> flair_look_pixel;
+ * C-8): control.c names a PART, never a color. */
+static void cfill_ctrl(GrafPort *port, int x, int y, int w, int part)
 {
     if (w <= 0) {
         return;
     }
-    uint32_t px = ctrl_px(port, idx);
+    uint32_t px = ctrl_px(port, part);
     int run_start = -1;
     for (int i = 0; i <= w; i++) {
         int cx = x + i;
@@ -121,25 +117,25 @@ static void cfill_ctrl(GrafPort *port, int x, int y, int w, uint8_t idx)
     }
 }
 
-/* crect_ctrl -- fill solid rectangle [x0,x1) x [y0,y1) with idx. */
-static void crect_ctrl(GrafPort *port, int x0, int y0, int x1, int y1, uint8_t idx)
+/* crect_ctrl -- fill solid rectangle [x0,x1) x [y0,y1) with PART `part`. */
+static void crect_ctrl(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 {
     for (int y = y0; y < y1; y++) {
-        cfill_ctrl(port, x0, y, x1 - x0, idx);
+        cfill_ctrl(port, x0, y, x1 - x0, part);
     }
 }
 
-/* cframe_ctrl -- 1 px hollow outline [x0,x1) x [y0,y1) with idx. */
-static void cframe_ctrl(GrafPort *port, int x0, int y0, int x1, int y1, uint8_t idx)
+/* cframe_ctrl -- 1 px hollow outline [x0,x1) x [y0,y1) with PART `part`. */
+static void cframe_ctrl(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 {
     if (x1 <= x0 || y1 <= y0) {
         return;
     }
-    cfill_ctrl(port, x0, y0,     x1 - x0, idx);       /* top           */
-    cfill_ctrl(port, x0, y1 - 1, x1 - x0, idx);       /* bottom        */
+    cfill_ctrl(port, x0, y0,     x1 - x0, part);      /* top           */
+    cfill_ctrl(port, x0, y1 - 1, x1 - x0, part);      /* bottom        */
     for (int y = y0; y < y1; y++) {
-        cfill_ctrl(port, x0,     y, 1, idx);           /* left          */
-        cfill_ctrl(port, x1 - 1, y, 1, idx);           /* right         */
+        cfill_ctrl(port, x0,     y, 1, part);          /* left          */
+        cfill_ctrl(port, x1 - 1, y, 1, part);          /* right         */
     }
 }
 
@@ -371,8 +367,8 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
     int hilited = (ctrl->contrlHilite == inButton);
 
     /* Button face fill. */
-    uint8_t face_idx = hilited ? CTRL_ACCENT : CTRL_WHITE;
-    crect_ctrl(port, x0, y0, x1, y1, face_idx);
+    int face_part = hilited ? CTRL_ACCENT : CTRL_WHITE;
+    crect_ctrl(port, x0, y0, x1, y1, face_part);
 
     /* 1 px black outer frame. */
     cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
@@ -387,7 +383,7 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
 
     /* Chicago label, centered. */
     uint32_t fg = ctrl_px(port, hilited ? CTRL_WHITE : CTRL_BLACK);
-    uint32_t bg = ctrl_px(port, face_idx);
+    uint32_t bg = ctrl_px(port, face_part);
     int label_w = text_measure(FONT_CHICAGO, ctrl->contrlTitle);
     int label_h = text_cell_height(FONT_CHICAGO);
     int lx = x0 + text_center_in(w, ctrl->contrlTitle, FONT_CHICAGO);
@@ -545,14 +541,14 @@ static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
     /* Thumb is SB_THUMB_MIN px tall, full scrollbar width (minus left divider).
      * Frame it black; interior light gray (or accent if tracking). */
     int thumb_hilite = (ctrl->contrlHilite == inThumb);
-    uint8_t thumb_face = thumb_hilite ? CTRL_ACCENT : CTRL_CONTROL;
+    int thumb_face = thumb_hilite ? CTRL_ACCENT : CTRL_CONTROL;
     crect_ctrl(port,  x0 + 1, (int)ty, x1, (int)ty + thumb_h, thumb_face);
     cframe_ctrl(port, x0 + 1, (int)ty, x1, (int)ty + thumb_h, CTRL_BLACK);
 
     /* Up-arrow button (top): framed box with a small up-triangle indicator.
      * Hilite: fill face with accent when contrlHilite == inUpButton. */
     int up_hilite = (ctrl->contrlHilite == inUpButton);
-    uint8_t up_face = up_hilite ? CTRL_ACCENT : CTRL_CONTROL;
+    int up_face = up_hilite ? CTRL_ACCENT : CTRL_CONTROL;
     crect_ctrl(port,  x0 + 1, y0, x1, y0 + btn, up_face);
     cframe_ctrl(port, x0 + 1, y0, x1, y0 + btn, CTRL_BLACK);
     /* Arrow indicator: a small upward-pointing triangle drawn in the center.
@@ -567,7 +563,7 @@ static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
 
     /* Down-arrow button (bottom): framed box with down-triangle indicator. */
     int dn_hilite = (ctrl->contrlHilite == inDownButton);
-    uint8_t dn_face = dn_hilite ? CTRL_ACCENT : CTRL_CONTROL;
+    int dn_face = dn_hilite ? CTRL_ACCENT : CTRL_CONTROL;
     crect_ctrl(port,  x0 + 1, y1 - btn, x1, y1, dn_face);
     cframe_ctrl(port, x0 + 1, y1 - btn, x1, y1, CTRL_BLACK);
     {

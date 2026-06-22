@@ -10,9 +10,16 @@
  *        (DiffRgn damage; MINIMAL repaint, NO over-repaint -- the compositor touches
  *        ONLY damaged pixels), AM-8 (the drag gate). PRD Sec 6.2 / 6.3.
  *        os/flair/window.h, os/flair/blitter.h, os/flair/chrome.h,
- *        os/flair/surface.h, spec/grafport.h, spec/region_algebra.h,
- *        spec/assets/palette.h (INITECH_DESKTOP_BG_RGB seafoam).
+ *        os/flair/surface.h, os/flair/flair_look.h (the C-8 policy seam),
+ *        spec/grafport.h, spec/region_algebra.h.
  *        CLAUDE.md Law 2/3/4, Rule 2/3/11/12.
+ *
+ * C-8 (ADR-0004-AMENDMENT-DEC-09 Sec 3.1/5.1): desktop.c is MECHANISM
+ * (compositor / repaint geometry).  It names NO color: the desktop background
+ * pixel is resolved through the ONE policy seam flair_look_pixel_depth(bpp,
+ * FLAIR_PART_DESKTOP) (os/flair/flair_look.h), the bitmap-only variant of the
+ * seam (the compositor fills a bitmap_t with no GrafPort).  ZERO 0xRRGGBB
+ * literal, ZERO INITECH_*_RGB, ZERO index->RGB switch below the cut-line.
  *
  * STORAGE (Law 3): mallocs nothing. The per-window visible region is held in a
  * CALLER-SUPPLIED, attached scratch region (distinct from the manager's three
@@ -45,10 +52,10 @@
 #include "window.h"             /* WindowMgr, ComputeVisible, WindowMgr_validate */
 #include "blitter.h"            /* blitter_fill_rect_clipped (clipped bg fill)   */
 #include "chrome.h"             /* flair_draw_document_window (clipped chrome)   */
-#include "surface.h"            /* bitmap_t, surface_pack_rgb                     */
+#include "surface.h"            /* bitmap_t                                      */
 #include "grafport.h"           /* GrafPort, FLAIR_BitMap                         */
 #include "region_algebra.h"     /* region_t, rgn_rect_t, region_is_empty         */
-#include "palette.h"            /* INITECH_DESKTOP_BG_RGB (seafoam; -Ispec/assets)*/
+#include "flair_look.h"         /* flair_look_pixel_depth + FLAIR_PART_* (seam)  */
 
 /* ---------------------------------------------------------------------------
  * Fail-loud (dual: abort hosted / deterministic hang in-kernel), mirroring the
@@ -62,16 +69,17 @@
 #  define DESK_PANIC(msg)  do { for (;;) { } } while (0)
 #endif
 
-/* The desktop background pixel value for this destination depth. 8bpp: the
- * desktop palette index (FLAIR_DESKTOP_BG_INDEX, == RENDER_DESKTOP_INDEX, maps to
- * seafoam through the palette). 32bpp/24bpp: the packed seafoam RGB directly (the
- * OD-4 canon INITECH_DESKTOP_BG_RGB). One conversion site, branching on bpp. */
+/* The desktop background pixel value for this destination depth.  C-8: this
+ * MECHANISM names NO color -- it names FLAIR_PART_DESKTOP and resolves PART ->
+ * destination pixel through the ONE policy seam flair_look_pixel_depth (the
+ * bitmap-only variant; the compositor fills a bitmap_t with no GrafPort).
+ *   8bpp     -> the desktop palette index byte (CIDX_DESKTOP == idx2 teal).
+ *   32/24bpp -> the packed canon teal RGB (flair_canon_rgb(CIDX_DESKTOP)).
+ * Byte-identical to the prior named-constant site (same value, now resolved
+ * through the seam rather than named here). */
 static uint32_t desktop_px(const bitmap_t *dst)
 {
-    if (dst->bpp == 8u) {
-        return (uint32_t)FLAIR_DESKTOP_BG_INDEX;
-    }
-    return surface_pack_rgb(dst->bpp, 0, 0, 0) | (uint32_t)INITECH_DESKTOP_BG_RGB;
+    return flair_look_pixel_depth(dst->bpp, FLAIR_PART_DESKTOP);
 }
 
 /* Build a GrafPort over `dst` with the given visRgn / clipRgn so the chrome drawer

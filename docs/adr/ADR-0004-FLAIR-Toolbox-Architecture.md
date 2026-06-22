@@ -246,6 +246,7 @@ Naively CRC-ing three emulators' framebuffers against each other would fail on l
 - C-5. Scheduling is cooperative `WaitNextEvent`; no preemption is added (D-6).
 - C-6. The mouse bring-up is Bochs-verified before it is trusted (D-7, Rule 5).
 - C-7. Every FLAIR oracle in §3.8 is mutation-proven before its subsystem is "done" (Rule 6).
+- C-8. No mechanism module names a color. The mechanism (surface/blitter, the cfill/crect/cframe span engine, the GrafPort imaging verbs, the ATKINSON region clip, and window/event/desktop geometry) MAY name a palette INDEX and convert index->destination-pixel ONLY via the shared accessor `flair_look_pixel(port, PART)`. It ships ZERO `0xRRGGBB` literal, ZERO `INITECH_*_RGB`, and ZERO index->RGB switch below the cut-line. Color/pattern/metric cross the boundary as PARAMETERS via the already-locked `grafport.h` seam plus `spec/chrome_metrics.h`. The single color-policy authority is `spec/assets/color_canon.json` -> generated `spec/assets/color_canon.h` (`flair_canon_rgb`); `flair_look_pixel` is a resolver ON TOP of it (no table); `clut.h` and the `flair_look` resolver TU are the only sites permitted to turn an index into a color. Graded by the two structural oracles `test-mech-policy` (source scanner) + `test-flair-mechanism-colorblind` (sentinel render), added to the §3.8 oracle vector. C-8 changes ONLY by a deliberate ADR amendment. (Bound by ADR-0004-AMENDMENT-DEC-09 Sec 3.1/3.3/3.10/5.1; cross-reference that amendment for the full arbitration.)
 
 ### 5.2 Forward Obligations
 

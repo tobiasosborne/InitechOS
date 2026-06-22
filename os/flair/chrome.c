@@ -8,14 +8,16 @@
  * writing ONLY via the ONE surface module (os/flair/surface.h). Dimensions are
  * the LOCKED native constants from spec/chrome_metrics.h (== chrome_metrics.json).
  *
- * COLOR MODEL (OD-2): the chrome is authored in indexed-8 palette indices -- the
- * canonical FLAIR offscreen depth. For an 8bpp destination the surface module
- * writes the index byte directly (surface_put_pixel low byte). For a 32bpp
- * destination it needs a packed 0x00RRGGBB, so this file carries a small fixed
- * index->RGB table (CHROME_PAL) -- artifact chrome data, byte-stable (Rule 11) --
- * and chrome_px() returns the right pixel value for the port's bpp. The host
- * oracle's render_palette_rgb() mirrors CHROME_PAL so 8bpp and 32bpp render
- * identically up to the depth.
+ * COLOR MODEL (C-8; ADR-0004-AMENDMENT-DEC-09 Sec 3.1/3.3). chrome.c is a
+ * DECORATION policy: it keeps the System-7 window GEOMETRY but names NO color.
+ * It names a wctb-keyed PART (FLAIR_PART_*) and resolves PART -> destination
+ * pixel ONLY through the ONE policy seam flair_look_pixel(port, PART)
+ * (os/flair/flair_look.h).  The seam is the single site that turns an index
+ * into a color (via flair_canon_rgb over the locked color_canon.h) and
+ * device-quantizes for the port depth.  This TU ships ZERO 0xRRGGBB literal,
+ * ZERO INITECH_*_RGB, ZERO index->RGB switch -- the C-8 cut-line (constraint
+ * C-8).  The PART enum keys on the wctb namespace so the seam KEY matches the
+ * golden KEY (the value oracle diffs key-for-key; ADR-0010).
  *
  * MUTATION HOOKS (Rule 6; FO-2/AM-3): three named mutants compiled via -D, each
  * a single deliberate defect that test-chrome must catch:
@@ -32,42 +34,10 @@
 #include <stdint.h>
 
 #include "chrome.h"
-#include "surface.h"            /* surface_fill_span / surface_pack_rgb (-Ios/flair) */
+#include "surface.h"            /* surface_fill_span (-Ios/flair)             */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_* (-Ispec)                    */
 #include "region_algebra.h"     /* region_contains_point (-Ispec)            */
-#include "color_canon.h"        /* flair_canon_rgb + CIDX_* (-Ispec/assets)  */
-
-/* ---------------------------------------------------------------------------
- * The indexed-8 chrome palette. INDEX is the authored color; RGB is for 32bpp.
- *
- * The CIDX_* index names are the LOCKED canon constants from color_canon.h
- * (idx2 teal #8DDCDC, idx7/idx8 = the WDEF pinstripe shades 7/8 == the old
- * FLAIR_CHROME_TITLE_SHADE_LIGHT/DARK; identical values, so chrome.c's local
- * enum is DROPPED to avoid the macro/enum collision -- ADR-0004-AMENDMENT-DEC-09
- * ARB-1/FO-3). The 32bpp RGB now routes ENTIRELY through flair_canon_rgb so
- * chrome/control/dialog/render/palette/kernel share the ONE color authority and
- * the index->pixel map is byte-identical at every site (fb-agree). Byte-stable
- * (Rule 11).
- * ------------------------------------------------------------------------- */
-
-/* index -> 0x00RRGGBB, for the 32bpp path. THE single color authority is
- * flair_canon_rgb (color_canon.h, generated from the LOCKED color_canon.json);
- * no per-file index->RGB switch survives (ARB-1). */
-static uint32_t chrome_pal_rgb(uint8_t index)
-{
-    return flair_canon_rgb(index);
-}
-
-/* Convert an authored palette index to the surface pixel value for this port's
- * destination depth. 8bpp: the index byte. 32bpp: the packed RGB. */
-static uint32_t chrome_px(const GrafPort *port, uint8_t index)
-{
-    if (port->portBits.bm.bpp == 8u) {
-        return (uint32_t)index;            /* surface writes the low byte      */
-    }
-    return surface_pack_rgb(port->portBits.bm.bpp, 0, 0, 0) |
-           chrome_pal_rgb(index);          /* canonical 0x00RRGGBB             */
-}
+#include "flair_look.h"         /* flair_look_pixel + FLAIR_PART_* (the seam) */
 
 /* ---------------------------------------------------------------------------
  * clip_in -- is port-local pixel (x,y) inside visRgn INTERSECT clipRgn?
@@ -93,18 +63,20 @@ static int clip_in(const GrafPort *port, int x, int y)
 }
 
 /* ---------------------------------------------------------------------------
- * cfill -- fill the half-open span [x, x+w) on row y with palette index `idx`,
- * clipped to visRgn INTERSECT clipRgn, writing only through the surface module.
+ * cfill -- fill the half-open span [x, x+w) on row y with the color of PART
+ * `part`, clipped to visRgn INTERSECT clipRgn, writing only through the surface
+ * module.  The PART -> destination pixel resolution is the ONE policy seam
+ * (flair_look_pixel; C-8): chrome.c names a PART, never a color.
  *
  * Walks the span, batching maximal in-clip runs into single surface_fill_span
  * calls. The surface module additionally clips to the bitmap bounds (Rule 2).
  * ------------------------------------------------------------------------- */
-static void cfill(GrafPort *port, int x, int y, int w, uint8_t idx)
+static void cfill(GrafPort *port, int x, int y, int w, int part)
 {
     if (w <= 0) {
         return;
     }
-    uint32_t px = chrome_px(port, idx);
+    uint32_t px = flair_look_pixel(port, part);     /* the ONE color seam (C-8) */
     int run_start = -1;
     for (int i = 0; i <= w; i++) {
         int cx = x + i;
@@ -120,25 +92,25 @@ static void cfill(GrafPort *port, int x, int y, int w, uint8_t idx)
     }
 }
 
-/* Fill a solid rectangle [x0,x1) x [y0,y1) with palette index `idx`. */
-static void crect(GrafPort *port, int x0, int y0, int x1, int y1, uint8_t idx)
+/* Fill a solid rectangle [x0,x1) x [y0,y1) with PART `part`. */
+static void crect(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 {
     for (int y = y0; y < y1; y++) {
-        cfill(port, x0, y, x1 - x0, idx);
+        cfill(port, x0, y, x1 - x0, part);
     }
 }
 
-/* Frame (1 px hollow outline) of [x0,x1) x [y0,y1) with palette index `idx`. */
-static void cframe(GrafPort *port, int x0, int y0, int x1, int y1, uint8_t idx)
+/* Frame (1 px hollow outline) of [x0,x1) x [y0,y1) with PART `part`. */
+static void cframe(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 {
     if (x1 <= x0 || y1 <= y0) {
         return;
     }
-    cfill(port, x0, y0,     x1 - x0, idx);          /* top edge    */
-    cfill(port, x0, y1 - 1, x1 - x0, idx);          /* bottom edge */
+    cfill(port, x0, y0,     x1 - x0, part);         /* top edge    */
+    cfill(port, x0, y1 - 1, x1 - x0, part);         /* bottom edge */
     for (int y = y0; y < y1; y++) {
-        cfill(port, x0,     y, 1, idx);             /* left edge   */
-        cfill(port, x1 - 1, y, 1, idx);             /* right edge  */
+        cfill(port, x0,     y, 1, part);            /* left edge   */
+        cfill(port, x1 - 1, y, 1, part);            /* right edge  */
     }
 }
 
@@ -186,7 +158,7 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame)
      * left/right frame lines). */
     for (int y = title_top; y < title_bot; y++) {
         int phase = (y - title_top) % FLAIR_CHROME_PINSTRIPE_PERIOD;
-        uint8_t shade = (phase == 0) ? CIDX_PIN_LIGHT : CIDX_PIN_DARK;
+        int shade = (phase == 0) ? FLAIR_PART_PIN_LIGHT : FLAIR_PART_PIN_DARK;
         cfill(port, left + fr, y, w - 2 * fr, shade);
     }
 
@@ -208,12 +180,12 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame)
         /* close box, top-left */
         int cx0 = left + margin;
         int cx1 = cx0 + box;
-        cframe(port, cx0, by0, cx1, by1, CIDX_BLACK);
+        cframe(port, cx0, by0, cx1, by1, FLAIR_PART_FRAME);
 
         /* zoom box, top-right */
         int zx1 = right - margin;
         int zx0 = zx1 - box;
-        cframe(port, zx0, by0, zx1, by1, CIDX_BLACK);
+        cframe(port, zx0, by0, zx1, by1, FLAIR_PART_FRAME);
     }
 
     /* 3. The content area: white body below the title bar, inside the frame and
@@ -224,7 +196,26 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame)
     int content_bot = bottom - fr;               /* above the bottom frame      */
     int content_left = left + fr;
     int content_right = right - fr;
-    crect(port, content_left, content_top, content_right, content_bot, CIDX_WHITE);
+    crect(port, content_left, content_top, content_right, content_bot,
+          FLAIR_PART_CONTENT);
+
+#if defined(FLAIR_COLORBLIND_MUTANT)
+    /* NAMED MUTANT (Rule 6; ADR-0004-AMENDMENT-DEC-09 Sec 3.10 #2): a
+     * resurrected color in a decoration draw -- one span written with a color
+     * COMPUTED straight to the surface, BYPASSING the C-8 policy seam
+     * (flair_look_pixel).  The value is computed (no bare color literal token)
+     * precisely so the SOURCE scanner (test-mech-policy) cannot see it -- this
+     * is exactly the obfuscated/computed-literal case that the BEHAVIORAL
+     * colorblind oracle exists to catch: it renders non-sentinel pixels and
+     * test-flair-mechanism-colorblind MUST go RED.  Default builds never define
+     * this; it is a host-oracle-only perturbation, never shipped. */
+    {
+        uint32_t orange = ((uint32_t)0xFFu << 16) | ((uint32_t)0x88u << 8); /* != sentinel */
+        surface_fill_span(&port->portBits.bm,
+                          (uint32_t)content_left, (uint32_t)content_top,
+                          (uint32_t)(content_right - content_left), orange);
+    }
+#endif
 
     /* 4. Vertical scrollbar on the right: FLAIR_CHROME_SCROLLBAR_W (16) px wide,
      * running the height of the content area. Up/down arrow buttons (square,
@@ -243,20 +234,20 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame)
     int sb_bot   = content_bot;
     if (sb_left > content_left) {
         /* track fill (light control gray) */
-        crect(port, sb_left, sb_top, sb_right, sb_bot, CIDX_CONTROL);
+        crect(port, sb_left, sb_top, sb_right, sb_bot, FLAIR_PART_BTNFACE);
         /* left edge of the scrollbar gutter (1 px black divider) */
-        cfill(port, sb_left, sb_top, 1, CIDX_BLACK);
+        cfill(port, sb_left, sb_top, 1, FLAIR_PART_FRAME);
         for (int y = sb_top; y < sb_bot; y++) {
-            cfill(port, sb_left, y, 1, CIDX_BLACK);
+            cfill(port, sb_left, y, 1, FLAIR_PART_FRAME);
         }
         /* up-arrow button (top square) + down-arrow button (bottom square):
          * framed boxes the width of the scrollbar with a 1 px black border. */
         int btn = sb_w;
         if (sb_top + btn <= sb_bot) {
-            cframe(port, sb_left, sb_top, sb_right, sb_top + btn, CIDX_BLACK);
+            cframe(port, sb_left, sb_top, sb_right, sb_top + btn, FLAIR_PART_FRAME);
         }
         if (sb_bot - btn >= sb_top) {
-            cframe(port, sb_left, sb_bot - btn, sb_right, sb_bot, CIDX_BLACK);
+            cframe(port, sb_left, sb_bot - btn, sb_right, sb_bot, FLAIR_PART_FRAME);
         }
     }
 
@@ -271,7 +262,7 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame)
      * that the outer 1 px frame line is missing. */
     (void)fr;
 #else
-    cframe(port, left, top, right, bottom, CIDX_BLACK);           /* outer 1 px */
+    cframe(port, left, top, right, bottom, FLAIR_PART_FRAME);     /* outer 1 px */
     /* The inner groove (the second line of the classic Mac double-line frame):
      * a 1 px line just inside the outer frame on the LEFT, RIGHT and BOTTOM
      * edges only. It deliberately does NOT cross the TOP / title bar -- the
@@ -279,10 +270,10 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame)
      * would consume a pinstripe scanline and shorten the band below the locked
      * TITLEBAR_H. The groove runs from the title bar down to the bottom frame. */
     for (int y = top + fr; y < bottom - fr; y++) {
-        cfill(port, left + fr,      y, 1, CIDX_TITLE_INK);   /* inner left  */
-        cfill(port, right - fr - 1, y, 1, CIDX_TITLE_INK);   /* inner right */
+        cfill(port, left + fr,      y, 1, FLAIR_PART_TEXT);   /* inner left  */
+        cfill(port, right - fr - 1, y, 1, FLAIR_PART_TEXT);   /* inner right */
     }
-    cfill(port, left + fr, bottom - fr - 1, w - 2 * fr, CIDX_TITLE_INK); /* bottom */
+    cfill(port, left + fr, bottom - fr - 1, w - 2 * fr, FLAIR_PART_TEXT); /* bottom */
 #endif
 
     /* Title text (Chicago strike, centered) is DEFERRED this pass (chrome.h):

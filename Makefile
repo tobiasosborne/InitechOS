@@ -396,7 +396,13 @@ KERNEL_MENU_OBJ        := $(BUILD)/menu.o
 KERNEL_CONTROL_OBJ     := $(BUILD)/control.o
 KERNEL_DIALOG_OBJ      := $(BUILD)/dialog.o
 KERNEL_DESKTOP_OBJ     := $(BUILD)/desktop.o
+KERNEL_FLAIRLOOK_OBJ   := $(BUILD)/flair_look.o
 KERNEL_FLAIR_SHELL_OBJ := $(BUILD)/flair_shell.o
+# The C-8 policy seam (beads initech-6bq2): flair_look_pixel(port, PART) -- the
+# ONLY site besides clut.h that turns an index into a color. Linked by every
+# decoration TU (chrome/control/dialog/desktop call it).
+FLAIRLOOK_C := os/flair/flair_look.c
+FLAIRLOOK_H := os/flair/flair_look.h
 # Shared, deterministically-ordered FLAIR Manager object list (Rule 11). Added to
 # KERNEL_OBJS (demo kernel) + KERNEL_SHELL_OBJS (booting shell kernel) ONLY -- NOT
 # to the 16 diagnostic kernel lists (they get more padding from the KERNEL_SECTORS
@@ -404,7 +410,7 @@ KERNEL_FLAIR_SHELL_OBJ := $(BUILD)/flair_shell.o
 KERNEL_FLAIR_OBJS := $(KERNEL_REGION_OBJ) $(KERNEL_HEAP_OBJ) $(KERNEL_EVENT_OBJ) \
                      $(KERNEL_WINDOW_OBJ) $(KERNEL_BLITTER_OBJ) $(KERNEL_CHROME_OBJ) \
                      $(KERNEL_TEXT_OBJ) $(KERNEL_MENU_OBJ) $(KERNEL_CONTROL_OBJ) \
-                     $(KERNEL_DIALOG_OBJ) $(KERNEL_DESKTOP_OBJ) $(KERNEL_FLAIR_SHELL_OBJ)
+                     $(KERNEL_DIALOG_OBJ) $(KERNEL_DESKTOP_OBJ) $(KERNEL_FLAIRLOOK_OBJ) $(KERNEL_FLAIR_SHELL_OBJ)
 KERNEL_IDT_OBJ   := $(BUILD)/idt.o
 KERNEL_PIC_OBJ   := $(BUILD)/pic.o
 KERNEL_PANIC_OBJ := $(BUILD)/panic.o
@@ -6656,6 +6662,7 @@ endef
 .PHONY: help factory image run run-bochs smoke ssim test test-region test-region-mutant \
         test-region-gdi test-region-gdi-mutant \
         gen-color-canon test-color-canon-gen test-color-canon test-color-canon-mutant \
+        test-mech-policy test-mech-policy-mutant test-flair-mechanism-colorblind test-flair-mechanism-colorblind-mutant \
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
         test-blitter test-blitter-mutant test-text test-text-mutant \
@@ -6867,8 +6874,12 @@ $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics
 $(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
 
-$(KERNEL_DESKTOP_OBJ): $(DESKTOP_C) $(DESKTOP_H) os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_DESKTOP_OBJ): $(DESKTOP_C) $(DESKTOP_H) os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(DRAG_INC) -c $(DESKTOP_C) -o $@
+
+# The C-8 policy seam (beads initech-6bq2). Freestanding-safe; reads color_canon.h.
+$(KERNEL_FLAIRLOOK_OBJ): $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/assets/color_canon.h os/flair/surface.h spec/grafport.h spec/imaging.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(FLAIRLOOK_C) -o $@
 
 $(KERNEL_FLAIR_SHELL_OBJ): $(SHELL_C) $(SHELL_H) os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(SHELL_INC) -c $(SHELL_C) -o $@
@@ -8534,7 +8545,7 @@ CHROME_DEPS      := $(CHROME_DRAWER_C) $(CHROME_DRAWER_H) $(RENDER_SKEL_C) \
 # Link set shared by the gate + every mutant (the artifact chrome.c is varied by
 # -D per mutant; everything else is the same REAL code).
 CHROME_LINK      := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c \
-                    $(REGION_ENGINE_C)
+                    $(REGION_ENGINE_C) $(FLAIRLOOK_C)
 CHROME_INC       := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson \
                     -Iharness/render -Iseed
 TEST_CHROME_MUT_TITLE := $(BUILD)/test_chrome_mutant_titlebar
@@ -8804,7 +8815,7 @@ TEST_DRAG_MUT_SKIP   := $(BUILD)/test_drag_mutant_skip
 TEST_DRAG_MUT_NOCLIP := $(BUILD)/test_drag_mutant_noclip
 DRAG_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 DRAG_LINK := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c $(REGION_ENGINE_C) \
-             os/flair/window.c os/flair/event.c os/flair/blitter.c $(CHROME_DRAWER_C)
+             os/flair/window.c os/flair/event.c os/flair/blitter.c $(CHROME_DRAWER_C) $(FLAIRLOOK_C)
 DRAG_DEPS := $(TEST_DRAG_SRC) $(DESKTOP_C) $(DESKTOP_H) $(DRAG_LINK) \
              os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h \
              os/flair/surface.h os/flair/heap.h $(RENDER_SKEL_H) \
@@ -8887,7 +8898,7 @@ TEST_CONTROL_DEPS := os/flair/control.c os/flair/control.h os/flair/blitter.c os
                      spec/assets/palette.h spec/assets/chicago8x16.h
 CONTROL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 CONTROL_LINK := os/flair/control.c os/flair/blitter.c os/flair/text.c os/flair/surface.c \
-                $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C)
+                $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) $(FLAIRLOOK_C)
 
 $(TEST_CONTROL): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
@@ -8925,7 +8936,7 @@ TEST_SHELL_MUT_BEHIND  := $(BUILD)/test_shell_mutant_modalbehind
 SHELL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 SHELL_LINK := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c $(REGION_ENGINE_C) \
               os/flair/window.c os/flair/blitter.c $(CHROME_DRAWER_C) os/flair/menu.c \
-              os/flair/text.c os/flair/control.c os/flair/dialog.c os/flair/event.c $(DESKTOP_C)
+              os/flair/text.c os/flair/control.c os/flair/dialog.c os/flair/event.c $(DESKTOP_C) $(FLAIRLOOK_C)
 SHELL_DEPS := $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_H) $(SHELL_LINK) \
               os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h \
               os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h \
@@ -8995,7 +9006,7 @@ TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
 DIALOG_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 DIALOG_LINK := os/flair/dialog.c os/flair/control.c os/flair/text.c os/flair/event.c \
                os/flair/window.c os/flair/blitter.c os/flair/surface.c os/flair/chrome.c os/flair/heap.c \
-               $(REGION_ENGINE_C) $(RENDER_SKEL_C)
+               $(REGION_ENGINE_C) $(RENDER_SKEL_C) $(FLAIRLOOK_C)
 
 $(TEST_DIALOG): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
@@ -9176,6 +9187,55 @@ test-color-canon-mutant: $(TEST_COLOR_CANON_MUT_TEAL) $(TEST_COLOR_CANON_MUT_NAV
 	@if $(TEST_COLOR_CANON_MUT_NAVY) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_NAVY PASSED -- the win31 depth-trap is swamped (#0000AA accepted)\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_NAVY correctly RED -- LEG B depth-trap tight)\n'; fi
 	@if $(TEST_COLOR_CANON_MUT_WHITE) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_WHITE PASSED -- the wctb binary golden is decoration\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_WHITE correctly RED -- LEG A wctb bites)\n'; fi
 	@if $(TEST_COLOR_CANON_MUT_PIN) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_PIN PASSED -- the pinstripe.md golden is decoration\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_PIN correctly RED -- LEG C pinstripe bites)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gates: test-mech-policy + test-flair-mechanism-colorblind (beads
+# initech-6bq2 -- ADR-0004-AMENDMENT-DEC-09 DEC-09-D4, the C-8 mechanism/policy
+# enforcement). test-mech-policy: a deterministic SOURCE scanner asserting ZERO
+# 0xRRGGBB literal / INITECH_*_RGB / index->RGB switch in the mechanism file set
+# (allowlist EXACTLY clut.h + the flair_look resolver TU). test-flair-mechanism-
+# colorblind: compile the decoration against a SENTINEL policy stub (magenta) and
+# assert EVERY chrome pixel == sentinel (no color originates in the mechanism).
+# Both mutation-proven; NEITHER is by-construction. Per DEC-09-D4 / FO-5.
+# ---------------------------------------------------------------------------
+TEST_MECH_POLICY      := $(BUILD)/test_mech_policy
+TEST_MECH_POLICY_MUT  := $(BUILD)/test_mech_policy_mutant
+TEST_MECH_POLICY_SRC  := harness/proptest/test_mech_policy.c
+# Prereqs = the scanned mechanism + decoration sources (so a newly-introduced
+# literal re-runs the scan); the recipe only compiles the self-contained scanner.
+MECH_SCAN_SRCS := os/flair/surface.c os/flair/blitter.c os/flair/window.c os/flair/event.c $(DESKTOP_C) os/flair/chrome.c os/flair/control.c os/flair/dialog.c $(FLAIRLOOK_C)
+
+$(TEST_MECH_POLICY): $(TEST_MECH_POLICY_SRC) $(MECH_SCAN_SRCS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $(TEST_MECH_POLICY_SRC)
+$(TEST_MECH_POLICY_MUT): $(TEST_MECH_POLICY_SRC) harness/proptest/fixtures/mech_policy_mutant.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMECH_POLICY_MUTANT -Iseed -o $@ $(TEST_MECH_POLICY_SRC)
+
+test-mech-policy: $(TEST_MECH_POLICY)
+	@printf ">>> test-mech-policy: C-8 SOURCE scanner -- ZERO color literal/switch in the mechanism file set (allowlist clut.h + flair_look)\n"
+	@$(TEST_MECH_POLICY)
+	@printf ">>> test-mech-policy: green\n"
+test-mech-policy-mutant: $(TEST_MECH_POLICY_MUT)
+	@if $(TEST_MECH_POLICY_MUT) >/dev/null 2>&1; then printf '!!! test-mech-policy-mutant FAIL: the planted 0xRRGGBB literal was NOT detected -- the scanner is decoration\n'; exit 1; else printf '>>> test-mech-policy-mutant: green (planted literal correctly RED -- the scanner bites)\n'; fi
+
+TEST_COLORBLIND      := $(BUILD)/test_flair_mechanism_colorblind
+TEST_COLORBLIND_MUT  := $(BUILD)/test_flair_mechanism_colorblind_mutant
+TEST_COLORBLIND_SRC  := harness/proptest/test_flair_mechanism_colorblind.c
+COLORBLIND_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
+# Links chrome.c against the SENTINEL stub (NOT the real flair_look.c -- the stub
+# IS the policy here, returning magenta for every PART).
+COLORBLIND_LINK := harness/render/render.c os/flair/surface.c os/flair/heap.c $(REGION_ENGINE_C) harness/proptest/flair_look_sentinel_stub.c
+
+$(TEST_COLORBLIND): $(TEST_COLORBLIND_SRC) os/flair/chrome.c harness/proptest/flair_look_sentinel_stub.c $(FLAIRLOOK_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(COLORBLIND_INC) -o $@ $(TEST_COLORBLIND_SRC) os/flair/chrome.c $(COLORBLIND_LINK)
+$(TEST_COLORBLIND_MUT): $(TEST_COLORBLIND_SRC) os/flair/chrome.c harness/proptest/flair_look_sentinel_stub.c $(FLAIRLOOK_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_COLORBLIND_MUTANT $(COLORBLIND_INC) -o $@ $(TEST_COLORBLIND_SRC) os/flair/chrome.c $(COLORBLIND_LINK)
+
+test-flair-mechanism-colorblind: $(TEST_COLORBLIND)
+	@printf ">>> test-flair-mechanism-colorblind: stub the policy seam -> sentinel; assert EVERY chrome pixel == sentinel (no color in the mechanism)\n"
+	@$(TEST_COLORBLIND)
+	@printf ">>> test-flair-mechanism-colorblind: green\n"
+test-flair-mechanism-colorblind-mutant: $(TEST_COLORBLIND_MUT)
+	@if $(TEST_COLORBLIND_MUT) >/dev/null 2>&1; then printf '!!! test-flair-mechanism-colorblind-mutant FAIL: a hardcoded color in the decoration was NOT caught -- the sentinel render is decoration\n'; exit 1; else printf '>>> test-flair-mechanism-colorblind-mutant: green (hardcoded decoration color correctly RED)\n'; fi
 
 .PHONY: test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \
 	test-dialog-record test-dialog-record-mutant test-drawing-ops test-drawing-ops-mutant \
@@ -13960,6 +14020,8 @@ TEST_UNIT_GATES := \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \
 	test-color-canon-gen test-color-canon test-color-canon-mutant \
+	test-mech-policy test-mech-policy-mutant \
+	test-flair-mechanism-colorblind test-flair-mechanism-colorblind-mutant \
 	test-flair-heap test-flair-heap-mutant \
 	test-flair-headers test-flair-headers-mutant \
 	test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \

@@ -54,7 +54,7 @@
 #include "chrome_metrics.h"   /* FLAIR_CHROME_DIALOG_BORDER (-Ispec)           */
 #include "region_algebra.h"   /* region_contains_point (-Ispec)               */
 #include "event_model.h"      /* flair_event_what_t, EventRecord (-Ispec)      */
-#include "color_canon.h"      /* flair_canon_rgb (-Ispec/assets)              */
+#include "flair_look.h"       /* flair_look_pixel + FLAIR_PART_* (the seam)    */
 
 /* ---------------------------------------------------------------------------
  * FAIL-LOUD (Rule 2): dual panic (kernel infinite loop / hosted abort).
@@ -68,35 +68,27 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- * PALETTE INDICES (mirror chrome.c / control.c CIDX_*; indexed-8 OD-2)
- * Using the same stable index values so dialog frame integrates with the
- * rest of the Toolbox palette. See control.c commentary for RGB mappings.
+ * PART NAMESPACE (C-8; the wctb-keyed roles the dialog draw names -- NOT colors)
+ * Local aliases onto FLAIR_PART_* so the dialog frame/items read naturally.
+ * dialog.c names a PART and resolves PART -> destination pixel through the ONE
+ * policy seam flair_look_pixel.  No index, no color (the C-8 cut-line).
  * ------------------------------------------------------------------------- */
 enum {
-    DLG_BLACK     = 0,  /* frame lines / borders                               */
-    DLG_WHITE     = 1,  /* dialog content background                           */
-    DLG_DESKTOP   = 2,  /* desktop gray                                        */
-    DLG_TEXT_INK  = 4   /* text / static text foreground                       */
+    DLG_BLACK     = FLAIR_PART_FRAME,    /* frame lines / borders               */
+    DLG_WHITE     = FLAIR_PART_CONTENT,  /* dialog content background           */
+    DLG_DESKTOP   = FLAIR_PART_DESKTOP,  /* desktop background                  */
+    DLG_TEXT_INK  = FLAIR_PART_TEXT      /* text / static text foreground       */
 };
 
 /* ---------------------------------------------------------------------------
- * PIXEL VALUE HELPER (same dual-depth pattern as control.c ctrl_px)
+ * PIXEL VALUE HELPER (C-8 policy seam; the ONE PART->pixel resolution)
  * ------------------------------------------------------------------------- */
-/* The DLG_* index names (0,1,2,4) are the SAME slots as the canon indices;
- * route the 32bpp RGB ENTIRELY through flair_canon_rgb (color_canon.h, the ONE
- * locked color authority) so this site is byte-identical to chrome/control/
- * render/palette (ARB-1; fb-agree). No per-file index->RGB switch survives. */
-static uint32_t dlg_pal_rgb(uint8_t index)
+/* dlg_px resolves a wctb-keyed PART to the destination pixel for this port's
+ * depth via the ONE policy seam flair_look_pixel (os/flair/flair_look.h).
+ * dialog.c names NO color and carries NO index->RGB switch (C-8). */
+static uint32_t dlg_px(const GrafPort *port, int part)
 {
-    return flair_canon_rgb(index);
-}
-
-static uint32_t dlg_px(const GrafPort *port, uint8_t index)
-{
-    if (port->portBits.bm.bpp == 8u) {
-        return (uint32_t)index;
-    }
-    return dlg_pal_rgb(index);
+    return flair_look_pixel(port, part);
 }
 
 /* ---------------------------------------------------------------------------
@@ -119,15 +111,16 @@ static int dlg_in_clip(const GrafPort *port, int x, int y)
     return 1;
 }
 
-/* cfill_dlg -- fill [x, x+w) on row y with palette index `idx`, clipped.
+/* cfill_dlg -- fill [x, x+w) on row y with PART `part`, clipped.
  * Mirrors cfill_ctrl in control.c: batches maximal in-clip runs into
- * surface_fill_span. */
-static void cfill_dlg(GrafPort *port, int x, int y, int w, uint8_t idx)
+ * surface_fill_span.  PART -> pixel resolution is the ONE policy seam
+ * (dlg_px -> flair_look_pixel; C-8): dialog.c names a PART, never a color. */
+static void cfill_dlg(GrafPort *port, int x, int y, int w, int part)
 {
     if (w <= 0) {
         return;
     }
-    uint32_t px = dlg_px(port, idx);
+    uint32_t px = dlg_px(port, part);
     int run_start = -1;
     for (int i = 0; i <= w; i++) {
         int cx = x + i;
@@ -143,11 +136,11 @@ static void cfill_dlg(GrafPort *port, int x, int y, int w, uint8_t idx)
     }
 }
 
-/* crect_dlg -- fill solid rectangle [x0,x1) x [y0,y1) with palette idx. */
-static void crect_dlg(GrafPort *port, int x0, int y0, int x1, int y1, uint8_t idx)
+/* crect_dlg -- fill solid rectangle [x0,x1) x [y0,y1) with PART `part`. */
+static void crect_dlg(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 {
     for (int y = y0; y < y1; y++) {
-        cfill_dlg(port, x0, y, x1 - x0, idx);
+        cfill_dlg(port, x0, y, x1 - x0, part);
     }
 }
 
