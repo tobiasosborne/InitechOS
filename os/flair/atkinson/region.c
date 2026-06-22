@@ -689,7 +689,21 @@ int CombineRgn(region_t *dst, const region_t *src1, const region_t *src2, int mo
     if (mode != RGN_AND && mode != RGN_OR &&
         mode != RGN_XOR && mode != RGN_DIFF) return RGN_TYPE_ERROR;
     if (src2 == 0) return RGN_TYPE_ERROR;
+#ifdef GDI_MUTATE_DISPATCH
+    /* MUTANT (ADR-0005 Amendment AM-1 Sec 7.4, M-DISPATCH): force ONE mode to
+     * the WRONG op at RUNTIME, bypassing the compile-checked RGN_OP_FROM_MODE
+     * map. RGN_OR is wired to INTERSECT here. This must drive BOTH the L1
+     * cross-family equality leg (CombineRgn(...,RGN_OR) vs UnionRgn) AND the L2
+     * wine differential (CombineRgn RGN_OR vs gdi_ref_union_region) RED --
+     * proving the mode->op SEMANTICS are graded, not just the plumbing. */
+    {
+        rgn_op_t op = (mode == RGN_OR) ? RGN_OP_INTERSECT
+                                       : rgn_op_from_combine_mode(mode);
+        region_op(dst, src1, src2, op);
+    }
+#else
     region_op(dst, src1, src2, rgn_op_from_combine_mode(mode));
+#endif
     return region_type_classify(dst);
 }
 
@@ -704,4 +718,15 @@ int PtInRegion(const region_t *rgn, int16_t x, int16_t y)
 { return region_contains_point(rgn, x, y); }
 
 int RectInRegion(const region_t *rgn, rgn_rect_t rect)
-{ return region_rect_overlaps(rgn, rect); }
+{
+#ifdef GDI_MUTATE_RECTIN
+    /* MUTANT (ADR-0005 Amendment AM-1 Sec 7.4, M-RECTIN): wire RectInRegion to
+     * CONTAINMENT (region_rect_fully_in) instead of OVERLAP -- re-introducing
+     * the pre-AM-4 deep bug. The RectInRegion-vs-wine-rect_in_region row of L2
+     * must go RED, proving the overlap value is graded against the EXTERNAL wine
+     * authority ("at least partially inside"), NOT by construction. */
+    return region_rect_fully_in(rgn, rect);
+#else
+    return region_rect_overlaps(rgn, rect);
+#endif
+}

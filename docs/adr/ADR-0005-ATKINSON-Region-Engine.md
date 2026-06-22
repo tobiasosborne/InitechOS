@@ -199,6 +199,7 @@ Per Law 2 and PRD §6.2, ATKINSON's correctness is established by a **C property
 - C-4. The homomorphism suite (with raw-span generators + shrinker) is the **entire** correctness signal; it is **mutation-proven** before the engine is "done" (Law 2, Rule 6).
 - C-5. **No in-band sentinel** (no 0x7FFF); length-prefixed x-lists (D-4).
 - C-6. Complement is **frame-relative**; "complement" without a frame is rejected as meaningless (D-3).
+- C-7. **One engine, two peer facades** (added by ADR-0005 Amendment AM-1, 2026-06-21): every region Boolean op of EITHER heritage -- the System-7 QuickDraw `Rgn` family OR the Win-3.1 GDI `HRGN` family -- bottoms out in the single `region.c` `region_op`. No second `region_op`/`xmerge`/band-sweep DEFINITION may appear outside `os/flair/atkinson/region.c`. The load-bearing guard is the **STRUCTURAL grep gate** (`test-region-gdi` L3), NOT a link-error backstop (the wine reference engine's `region_op` has a different signature, so static linkage gives no collision); any host-only foreign reference engine MUST be `gdi_ref_`-namespaced and NEVER linked into a kernel/artifact line (Law 3). See Amendment AM-1 Sec 5.1.
 
 ### 5.2 Forward Obligations
 

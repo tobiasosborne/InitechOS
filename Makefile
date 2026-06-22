@@ -6654,6 +6654,7 @@ endef
 # Real targets vs. phony stubs are all .PHONY (no file products tracked by
 # make here except the smoke binary, which depends on its source).
 .PHONY: help factory image run run-bochs smoke ssim test test-region test-region-mutant \
+        test-region-gdi test-region-gdi-mutant \
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
         test-blitter test-blitter-mutant test-text test-text-mutant \
@@ -8312,6 +8313,85 @@ test-region-mutant: $(TEST_REGION_MUT_VRLE) $(TEST_REGION_MUT_PARITY) $(TEST_REG
 		exit 1; \
 	else \
 		printf '>>> test-region-mutant: green (EMIT_NOCHANGE mutant correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-region-gdi (beads initech-n79q -- ADR-0005 Amendment AM-1, the
+# DUAL-HERITAGE conformance oracle). L1 cross-family equality (by-construction:
+# the GDI CombineRgn family == the QuickDraw facade), L2 the INDEPENDENT golden
+# (the ATKINSON GDI facade rasterized bit-exact vs the REAL wine server/region.c
+# banded-rect engine -- gdi_ref_-namespaced + host-only, NEVER linked into a
+# kernel/artifact line, Law 3), L3 the single-engine grep gate (no second
+# region_op/xmerge DEFINITION outside region.c, constraint C-7). SEPARATE from
+# test-region (the frozen homomorphism oracle; AM-6 leaves it untouched).
+# WIN31_DECOMP is the FIRST win31-decomp Makefile wiring (FO-D2-5); it is passed
+# UNQUOTED (the whole path is stringized into the wine #include path) and L2
+# LOUD-SKIPS when it is absent (never a silent pass). Native cc per CC?=cc.
+# ---------------------------------------------------------------------------
+WIN31_DECOMP ?= ../win31-decomp
+
+TEST_REGION_GDI      := $(BUILD)/test_region_gdi
+TEST_REGION_GDI_SRC  := harness/proptest/test_region_gdi.c
+TEST_REGION_GDI_REF  := harness/proptest/gdi_ref_wine.c
+TEST_REGION_GDI_DEPS := $(TEST_REGION_GDI_SRC) $(TEST_REGION_GDI_REF) \
+        harness/proptest/gdi_ref_wine.h harness/proptest/gdi_ref_wine_shim.h \
+        $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h
+REGION_GDI_INC  := $(REGION_INC) -Iharness/proptest -Iharness/proptest/gdi_ref_winestubs -I.
+REGION_GDI_DEF  := -DWIN31_DECOMP=$(WIN31_DECOMP)
+REGION_GDI_LINK := $(TEST_REGION_GDI_SRC) $(TEST_REGION_GDI_REF) $(REGION_ENGINE_C)
+
+TEST_REGION_GDI_MUT_DISPATCH := $(BUILD)/test_region_gdi_mut_dispatch
+TEST_REGION_GDI_MUT_RECTIN   := $(BUILD)/test_region_gdi_mut_rectin
+TEST_REGION_GDI_MUT_EMIT     := $(BUILD)/test_region_gdi_mut_emit
+TEST_REGION_GDI_MUT_PARITY   := $(BUILD)/test_region_gdi_mut_parity
+
+$(TEST_REGION_GDI): $(TEST_REGION_GDI_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(REGION_GDI_INC) $(REGION_GDI_DEF) \
+		-o $@ $(REGION_GDI_LINK)
+
+$(TEST_REGION_GDI_MUT_DISPATCH): $(TEST_REGION_GDI_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DGDI_MUTATE_DISPATCH $(REGION_GDI_INC) $(REGION_GDI_DEF) \
+		-o $@ $(REGION_GDI_LINK)
+
+$(TEST_REGION_GDI_MUT_RECTIN): $(TEST_REGION_GDI_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DGDI_MUTATE_RECTIN $(REGION_GDI_INC) $(REGION_GDI_DEF) \
+		-o $@ $(REGION_GDI_LINK)
+
+$(TEST_REGION_GDI_MUT_EMIT): $(TEST_REGION_GDI_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRGN_MUTATE_EMIT_NOCHANGE $(REGION_GDI_INC) $(REGION_GDI_DEF) \
+		-o $@ $(REGION_GDI_LINK)
+
+$(TEST_REGION_GDI_MUT_PARITY): $(TEST_REGION_GDI_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRGN_MUTATE_PARITY_OFF1 $(REGION_GDI_INC) $(REGION_GDI_DEF) \
+		-o $@ $(REGION_GDI_LINK)
+
+test-region-gdi: $(TEST_REGION_GDI)
+	@printf ">>> test-region-gdi: ATKINSON dual-heritage spine -- L1 cross-family + L2 wine independent golden + L3 single-engine gate (ADR-0005 AM-1)\n"
+	@$(TEST_REGION_GDI)
+	@printf ">>> test-region-gdi: green\n"
+
+# Mutation proof (Rule 6). DISPATCH (reddens L1 cross-family) and EMIT (the
+# engine fail-loud during construction) bite REGARDLESS of win31-decomp; RECTIN
+# and PARITY redden ONLY the L2 wine legs, so they are asserted ONLY when the
+# wine reference is present (else L2 loud-skips and the mutant would falsely
+# "pass" -- so the assert loud-skips too, never a false RED on a clean checkout).
+test-region-gdi-mutant: $(TEST_REGION_GDI_MUT_DISPATCH) $(TEST_REGION_GDI_MUT_RECTIN) $(TEST_REGION_GDI_MUT_EMIT) $(TEST_REGION_GDI_MUT_PARITY)
+	@printf ">>> test-region-gdi-mutant: confirming the dual-heritage oracle BITES (Rule 6)\n"
+	@if $(TEST_REGION_GDI_MUT_DISPATCH) >/dev/null 2>&1; then \
+		printf '!!! test-region-gdi-mutant FAIL: GDI_MUTATE_DISPATCH PASSED -- the mode->op semantics are not graded\n'; exit 1; \
+	else printf '>>> test-region-gdi-mutant: green (GDI_MUTATE_DISPATCH correctly RED -- L1+L2 catch a wrong mode->op)\n'; fi
+	@if $(TEST_REGION_GDI_MUT_EMIT) >/dev/null 2>&1; then \
+		printf '!!! test-region-gdi-mutant FAIL: RGN_MUTATE_EMIT_NOCHANGE PASSED -- a wrong engine VALUE slips past\n'; exit 1; \
+	else printf '>>> test-region-gdi-mutant: green (RGN_MUTATE_EMIT_NOCHANGE correctly RED -- M-VALUE)\n'; fi
+	@if [ -f "$(WIN31_DECOMP)/oracles/wine/server/region.c" ]; then \
+		if $(TEST_REGION_GDI_MUT_RECTIN) >/dev/null 2>&1; then \
+			printf '!!! test-region-gdi-mutant FAIL: GDI_MUTATE_RECTIN PASSED -- the RectInRegion overlap value is not graded vs wine\n'; exit 1; \
+		else printf '>>> test-region-gdi-mutant: green (GDI_MUTATE_RECTIN correctly RED -- RectInRegion overlap graded vs wine)\n'; fi; \
+		if $(TEST_REGION_GDI_MUT_PARITY) >/dev/null 2>&1; then \
+			printf '!!! test-region-gdi-mutant FAIL: RGN_MUTATE_PARITY_OFF1 PASSED -- the L2 wine differential is decoration\n'; exit 1; \
+		else printf '>>> test-region-gdi-mutant: green (RGN_MUTATE_PARITY_OFF1 correctly RED -- L2 cross-redden)\n'; fi; \
+	else \
+		printf '>>> test-region-gdi-mutant: SKIP RECTIN/PARITY (win31-decomp absent -- the L2-only mutants cannot bite without the wine golden)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -13780,6 +13860,7 @@ TEST_UNIT_GATES := \
 	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
+	test-region-gdi test-region-gdi-mutant \
 	test-flair-heap test-flair-heap-mutant \
 	test-flair-headers test-flair-headers-mutant \
 	test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \

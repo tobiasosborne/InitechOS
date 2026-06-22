@@ -195,6 +195,7 @@ Every FLAIR subsystem advances only when its mechanical oracle is green (Law 2).
 | Oracle | Gate | What it proves |
 |---|---|---|
 | `test-region` | hard pass/fail | ATKINSON homomorphism + 5 invariants + algebra identities (ADR-0005). The spine. |
+| `test-region-gdi` | hard pass/fail | The ATKINSON **dual-heritage** spine (ADR-0005 Amendment AM-1): L1 GDI-`CombineRgn`-vs-QuickDraw cross-family equality, L2 the **INDEPENDENT** wine `server/region.c` differential (bit-exact rasterized pixel sets -- NOT by construction), L3 the single-engine grep gate (constraint C-7). `RectInRgn`/`RectInRegion` = OVERLAP (AM-4). Loud-skips L2 when `../win31-decomp` is absent. |
 | `test-chrome` | hard pass/fail | Chrome renders match `chrome_metrics` v1 + fixture crops (structural compare, not SSIM). |
 | `test-event` (event-replay) | hard pass/fail | A recorded raw-input trace replays to a deterministic `EventRecord`/dispatch sequence. |
 | `fb-agree` | hard pass/fail | The console pixel path and the GUI pixel path agree on shared primitives (the one-surface invariant, D-2). |
