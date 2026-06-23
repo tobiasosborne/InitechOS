@@ -6663,6 +6663,7 @@ endef
         test-region-gdi test-region-gdi-mutant \
         gen-color-canon test-color-canon-gen test-color-canon test-color-canon-mutant \
         test-mech-policy test-mech-policy-mutant test-flair-mechanism-colorblind test-flair-mechanism-colorblind-mutant \
+        test-skin-teal test-skin-teal-mutant test-skin-era-frozen test-skin-era-frozen-mutant check-win95isms check-win95isms-mutant \
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
         test-blitter test-blitter-mutant test-text test-text-mutant \
@@ -9236,6 +9237,56 @@ test-flair-mechanism-colorblind: $(TEST_COLORBLIND)
 	@printf ">>> test-flair-mechanism-colorblind: green\n"
 test-flair-mechanism-colorblind-mutant: $(TEST_COLORBLIND_MUT)
 	@if $(TEST_COLORBLIND_MUT) >/dev/null 2>&1; then printf '!!! test-flair-mechanism-colorblind-mutant FAIL: a hardcoded color in the decoration was NOT caught -- the sentinel render is decoration\n'; exit 1; else printf '>>> test-flair-mechanism-colorblind-mutant: green (hardcoded decoration color correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gates: the FLAIR era-layering registry oracles (beads initech-m6qx --
+# ADR-0004-AMENDMENT-DEC-09 D-9 / ADR-0006). spec/flair_skins.h is a DATA-ONLY
+# VIEW over the ONE color canon (every slot RGB by-inclusion from color_canon.h).
+# test-skin-teal: the authored-grade (teal/bevel/win31 slots == canon). test-skin-
+# era-frozen: the FNV-1a accretion digest over the locked base rows (append, never
+# mutate). check-win95isms: a grep gate forbidding #DFDFDF / COLOR_3DLIGHT (the
+# flat-2D Win-3.1 target rejects the Win95 3D-light import). All mutation-proven.
+# ---------------------------------------------------------------------------
+TEST_SKIN_TEAL        := $(BUILD)/test_skin_teal
+TEST_SKIN_TEAL_MUT    := $(BUILD)/test_skin_teal_mutant
+TEST_SKIN_FROZEN      := $(BUILD)/test_skin_era_frozen
+TEST_SKIN_FROZEN_MUT  := $(BUILD)/test_skin_era_frozen_mutant
+CHECK_WIN95ISMS       := $(BUILD)/check_win95isms
+CHECK_WIN95ISMS_MUT   := $(BUILD)/check_win95isms_mutant
+SKIN_INC := -Ispec -Ispec/assets
+SKIN_DEPS := spec/flair_skins.h spec/assets/color_canon.h
+
+$(TEST_SKIN_TEAL): harness/proptest/test_skin_teal.c $(SKIN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SKIN_INC) -o $@ $<
+$(TEST_SKIN_TEAL_MUT): harness/proptest/test_skin_teal.c $(SKIN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -DSKIN_TEAL_MUTANT $(SKIN_INC) -o $@ $<
+$(TEST_SKIN_FROZEN): harness/proptest/test_skin_era_frozen.c $(SKIN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SKIN_INC) -o $@ $<
+$(TEST_SKIN_FROZEN_MUT): harness/proptest/test_skin_era_frozen.c $(SKIN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -DSKIN_FROZEN_MUTANT $(SKIN_INC) -o $@ $<
+$(CHECK_WIN95ISMS): harness/proptest/check_win95isms.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -o $@ $<
+$(CHECK_WIN95ISMS_MUT): harness/proptest/check_win95isms.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWIN95ISM_MUTANT -o $@ $<
+
+test-skin-teal: $(TEST_SKIN_TEAL)
+	@printf ">>> test-skin-teal: era registry authored-grade -- teal/bevel/win31 slots == the canon (by-inclusion)\n"
+	@$(TEST_SKIN_TEAL)
+	@printf ">>> test-skin-teal: green\n"
+test-skin-teal-mutant: $(TEST_SKIN_TEAL_MUT)
+	@if $(TEST_SKIN_TEAL_MUT) >/dev/null 2>&1; then printf '!!! test-skin-teal-mutant FAIL: a slot drifting from the canon was NOT caught\n'; exit 1; else printf '>>> test-skin-teal-mutant: green (a canon-drifted slot correctly RED)\n'; fi
+test-skin-era-frozen: $(TEST_SKIN_FROZEN)
+	@printf ">>> test-skin-era-frozen: accretion digest over the LOCKED base rows (append, never mutate)\n"
+	@$(TEST_SKIN_FROZEN)
+	@printf ">>> test-skin-era-frozen: green\n"
+test-skin-era-frozen-mutant: $(TEST_SKIN_FROZEN_MUT)
+	@if $(TEST_SKIN_FROZEN_MUT) >/dev/null 2>&1; then printf '!!! test-skin-era-frozen-mutant FAIL: a mutated base-row field did NOT change the digest\n'; exit 1; else printf '>>> test-skin-era-frozen-mutant: green (a mutated base row correctly RED)\n'; fi
+check-win95isms: $(CHECK_WIN95ISMS)
+	@printf ">>> check-win95isms: grep gate -- NO #DFDFDF / COLOR_3DLIGHT Win95-ism in the FLAIR color sources\n"
+	@$(CHECK_WIN95ISMS)
+	@printf ">>> check-win95isms: green\n"
+check-win95isms-mutant: $(CHECK_WIN95ISMS_MUT)
+	@if $(CHECK_WIN95ISMS_MUT) >/dev/null 2>&1; then printf '!!! check-win95isms-mutant FAIL: a planted #DFDFDF was NOT caught\n'; exit 1; else printf '>>> check-win95isms-mutant: green (planted Win95-ism correctly RED)\n'; fi
 
 .PHONY: test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \
 	test-dialog-record test-dialog-record-mutant test-drawing-ops test-drawing-ops-mutant \
@@ -14022,6 +14073,8 @@ TEST_UNIT_GATES := \
 	test-color-canon-gen test-color-canon test-color-canon-mutant \
 	test-mech-policy test-mech-policy-mutant \
 	test-flair-mechanism-colorblind test-flair-mechanism-colorblind-mutant \
+	test-skin-teal test-skin-teal-mutant test-skin-era-frozen test-skin-era-frozen-mutant \
+	check-win95isms check-win95isms-mutant \
 	test-flair-heap test-flair-heap-mutant \
 	test-flair-headers test-flair-headers-mutant \
 	test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \
