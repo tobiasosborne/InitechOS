@@ -36,6 +36,7 @@
 #include "fat12.h"       /* FAT12 mount + root-dir enumerate (proto-DIR)  */
 #include "fileio_fat.h"  /* bind the FAT12 file backend into int21 (509.5) */
 #include "kbd.h"         /* PS/2 keyboard IRQ1 driver (initech-3rs) */
+#include "mouse.h"       /* PS/2 mouse IRQ12 driver (initech-5l5z FO-6) */
 #include "pit.h"         /* 8254 PIT IRQ0 tick (initech-3rs) */
 #include "rtc.h"         /* MC146818 RTC clock source (initech-yv9) */
 #include "command.h"     /* COMMAND.COM REPL (initech-7pc); BOOT_SHELL only */
@@ -222,6 +223,10 @@ extern void int20_entry(void);
  * PIT IRQ0 -> vector 0x28, keyboard IRQ1 -> vector 0x29 (post PIC remap). */
 extern void irq0_entry(void);
 extern void irq1_entry(void);
+/* PS/2 mouse IRQ12 stub (isr.asm, beads initech-5l5z FO-6) -> vector 0x34
+ * (slave 8259A IR4 = PIC_SLAVE_BASE 0x30 + 4). Installed + unmasked ONLY by the
+ * BOOT_FLAIR_LIVE arm below; inert in every other kernel. */
+extern void irq12_entry(void);
 
 /* Called by isr_selftest (isr.asm) on `int 0x80`. Emits the self-test marker
  * to serial proving dispatch reached C; the handler then irets and the boot
@@ -959,6 +964,31 @@ static void flair_live_kbd_post(uint8_t sc)
     raw.payload = (uint32_t)sc;                 /* low byte=raw scancode (SET 1) */
     (void)flair_raw_post(&g_flair_kbd_ring, &raw);
 }
+
+/* flair_live_mouse_post -- mouse completed-packet hook installed by
+ * BOOT_FLAIR_LIVE (ADR-0006 E-D3(b) / FO-6; beads initech-5l5z). Called from
+ * IRQ12 context (mouse_irq_handler, after the 3-byte PS/2 packet is assembled
+ * and BEFORE the dual-PIC EOI) with the signed deltas + button bits. Posts ONE
+ * FLAIR_RAW_MOUSE event into the SAME g_flair_kbd_ring the kbd path feeds (the
+ * one SPSC raw ring; spec/event_model.h Sec 5 payload layout: buttons in bits
+ * 0..7, signed dX in 8..15, signed dY in 16..23). ISR-enqueue-only minimum
+ * (ADR-0004 D-4): a single flair_raw_post() call; no Toolbox, no alloc, no I/O.
+ *
+ * __attribute__((unused)): the FLAIR_LIVE_MUTATE_NO_MOUSE_HOOK Rule-6 mutant
+ * compiles out the SOLE call site (mouse_set_event_hook(flair_live_mouse_post),
+ * #ifndef-guarded below), so this hook is legitimately unused there -- exactly
+ * the mutant's point (no install => no FLAIR-MOUSE). */
+__attribute__((unused))
+static void flair_live_mouse_post(int dx, int dy, uint8_t buttons)
+{
+    flair_raw_event_t raw;
+    raw.kind    = (uint32_t)FLAIR_RAW_MOUSE;     /* FLAIR_RAW_MOUSE=1 */
+    raw.tick    = flair_tick_count();            /* PIT tick count at IRQ time */
+    raw.payload = (uint32_t)(buttons & 0x07u)               /* bits 0..7 buttons */
+                | (((uint32_t)((uint8_t)(int8_t)dx)) << 8)  /* bits 8..15 dX     */
+                | (((uint32_t)((uint8_t)(int8_t)dy)) << 16);/* bits 16..23 dY    */
+    (void)flair_raw_post(&g_flair_kbd_ring, &raw);
+}
 #endif /* BOOT_FLAIR_LIVE */
 
 void kernel_main(void)
@@ -1253,6 +1283,29 @@ void kernel_main(void)
 #ifndef FLAIR_LIVE_MUTATE_NO_KBD_HOOK
     kbd_set_scancode_hook(flair_live_kbd_post);
 #endif
+
+    /* --- FO-6: bring up the PS/2 mouse IRQ12 path BEFORE sti (ADR-0006 E-D3b) - *
+     * THE minefield lane (CLAUDE.md "real mode -> protected is a minefield"; the
+     * dual-8259A cascade EOI). Order (all BEFORE sti, with IRQ12 still masked):
+     *   (a) install the IRQ12 IDT gate: vector 0x34 (slave 8259A IR4 = 0x30+4)
+     *       -> irq12_entry (isr.asm). A 0x8E INTERRUPT gate, same as IRQ0/IRQ1.
+     *   (b) mouse_init(): the 8042 aux bring-up (enable aux, set config bit1 /
+     *       clear bit5, 0xF4 enable-reporting). Polls the 8042 with BOUNDED
+     *       spins (Rule 11); the 0xF4 ACK is drained here by polling, NOT as a
+     *       surprise IRQ12 (IRQ12 is still masked + IF=0).
+     *   (c) install the mouse completed-packet hook (flair_live_mouse_post):
+     *       posts FLAIR_RAW_MOUSE to the SAME g_flair_kbd_ring. Guarded by the
+     *       FLAIR_LIVE_MUTATE_NO_MOUSE_HOOK Rule-6 mutant (skip the install ->
+     *       no FLAIR-MOUSE -> test-flair-mouse RED). NEVER define in a real build.
+     * pic_unmask_irq12() (the cascade + IRQ12 unmask) is issued AFTER
+     * sysinit_enable_irqs() below, so every gate is installed before the line is
+     * live. The hourglass busy CURS is canon (NOT a wristwatch; ADR-0006 BC-8). */
+    idt_install_irq(0x34u, (void *)irq12_entry);   /* PS/2 mouse IRQ12 -> 0x34 */
+    mouse_init();
+#ifndef FLAIR_LIVE_MUTATE_NO_MOUSE_HOOK
+    mouse_set_event_hook(flair_live_mouse_post);
+#endif
+
     serial_puts("FLAIR-HOOK-SET\n");
 
     /* Bring up the PIT (100 Hz), the IRQ0/IRQ1 gates, unmask IRQ0+IRQ1, and sti
@@ -1263,8 +1316,17 @@ void kernel_main(void)
      * IRQ1 fires on every keystroke from the 8042 output buffer. */
     sysinit_enable_irqs(serial_puts);
 
-    /* --- FO-4 + FO-5: the BOUNDED, deterministic wake loop -------------------- *
-     * Sleep on hlt; each IRQ (PIT tick or kbd IRQ1) wakes us.
+    /* --- FO-6: unmask the PS/2 mouse IRQ12 AFTER sti (ADR-0006 E-D3d) --------- *
+     * sysinit_enable_irqs() above installed the IRQ0/IRQ1 gates, unmasked IRQ0+
+     * IRQ1, and issued sti. The IRQ12 gate (0x34) + 8042 aux bring-up are already
+     * done (before sti). Now clear BOTH the master IMR bit2 (the IRQ2 cascade)
+     * AND the slave IMR bit4 (IRQ12) so the slave-8259A mouse line can reach the
+     * CPU -- the cascade requirement (CLAUDE.md minefield). After this the mouse
+     * fires IRQ12 on every PS/2 packet byte. Ref: ADR-0006 E-D3d/BC-3; pic.h. */
+    pic_unmask_irq12();
+
+    /* --- FO-4 + FO-5 + FO-6: the BOUNDED, deterministic wake loop ------------- *
+     * Sleep on hlt; each IRQ (PIT tick, kbd IRQ1, or mouse IRQ12) wakes us.
      *
      * FO-4: read flair_tick_count(); when it advances, emit FLAIR-TICK n=<count>.
      * FO-5: drain g_flair_kbd_ring (SPSC consumer in task context); for each
@@ -1337,10 +1399,27 @@ void kernel_main(void)
                     serial_puts("FLAIR-KEY sc=");
                     serial_puthex32(rev.payload & 0xFFu);
                     serial_putc('\n');
+                } else if ((flair_raw_kind_t)rev.kind == FLAIR_RAW_MOUSE) {
+                    /* FO-6: decode the FLAIR_RAW_MOUSE payload (spec/event_model.h
+                     * Sec 5: buttons bits 0..7, signed dX bits 8..15, signed dY
+                     * bits 16..23) and emit FLAIR-MOUSE dx=<d> dy=<d> btn=<x>.
+                     * Each DISTINCT line is on-metal proof that mouse IRQ12 ->
+                     * mouse_irq_handler -> dual-PIC EOI -> flair_live_mouse_post ->
+                     * g_flair_kbd_ring -> drain works AND did NOT wedge (a second
+                     * line can only appear if the SLAVE EOI re-armed the line). */
+                    int dx = (int)(int8_t)((rev.payload >> 8) & 0xFFu);
+                    int dy = (int)(int8_t)((rev.payload >> 16) & 0xFFu);
+                    serial_puts("FLAIR-MOUSE dx=");
+                    serial_puti((int32_t)dx);
+                    serial_puts(" dy=");
+                    serial_puti((int32_t)dy);
+                    serial_puts(" btn=");
+                    serial_puthex32(rev.payload & 0x07u);
+                    serial_putc('\n');
                 }
             }
 
-            __asm__ __volatile__("hlt");   /* sleep until next IRQ (IRQ0 or IRQ1) */
+            __asm__ __volatile__("hlt");   /* sleep until next IRQ (IRQ0/IRQ1/IRQ12) */
         }
     }
     serial_puts("FLAIR-LIVE-OK\n");

@@ -35,4 +35,13 @@ void pic_remap_and_mask(void);
  * MASKS the line). beads: initech-3rs. */
 void pic_unmask_irq0_irq1(void);
 
+/* Unmask the PS/2 mouse IRQ12 (ADR-0006 E-D3(d) / FO-6; beads initech-5l5z).
+ * IRQ12 is the SLAVE 8259A's IR4, cascaded behind the master IRQ2: a slave IRQ
+ * reaches the CPU ONLY when BOTH the master IMR bit 2 (cascade) AND the slave
+ * IMR bit 4 (IRQ12) are clear. This clears BOTH (read-modify-write each IMR,
+ * leaving the PIT/keyboard unmasks intact). Call AFTER the IRQ12 IDT gate is
+ * installed and mouse_init() has brought up the 8042 aux channel. Ref: Intel
+ * 8259A datasheet (OCW1 IMR; cascade mode). */
+void pic_unmask_irq12(void);
+
 #endif /* INITECH_PIC_H */

@@ -461,6 +461,13 @@ extern pit_irq_handler         ; void pit_irq_handler(void)  -- increments ticks
 extern kbd_irq_handler         ; void kbd_irq_handler(void)  -- reads 0x60 + EOI
 extern irq_enter               ; void irq_enter(void)  -- g_irq_depth++ (irq.c)
 extern irq_leave               ; void irq_leave(void)  -- g_irq_depth-- (irq.c)
+; PS/2 mouse IRQ12 C body (os/milton/mouse.c). WEAK external reference (ADR-0006
+; FO-6): isr.o is SHARED by every kernel, but mouse.o is linked ONLY into the
+; flair_live kernel(s). A weak extern lets the non-flair kernels link cleanly
+; (the undefined reference resolves to 0) -- harmless because irq12_entry is
+; INERT in those kernels (no IDT 0x34 gate installed, IRQ12 stays masked, so the
+; stub is never reached). When mouse.o IS linked, the strong definition wins.
+extern mouse_irq_handler:weak  ; void mouse_irq_handler(void) -- reads 0x60 + dual-PIC EOI
 
 global irq0_entry
 irq0_entry:
@@ -488,6 +495,33 @@ irq1_entry:
     mov es, ax
     call irq_enter             ; g_irq_depth++ (xk2 reentrancy guard arm)
     call kbd_irq_handler       ; reads scancode @0x60, enqueues ASCII, sends EOI
+    call irq_leave             ; g_irq_depth-- (disarm before iretd)
+    pop es
+    pop ds
+    popad
+    iretd
+
+; --- PS/2 mouse IRQ12 stub (vector 0x34) -- ADR-0006 E-D3(b)/FO-6 ----------
+; beads: initech-5l5z FO-6 (THE minefield: dual-8259A cascade EOI). IRQ12 = the
+; SLAVE 8259A IR4 -> vector PIC_SLAVE_BASE(0x30) + 4 = 0x34. This stub is a
+; BYTE-FOR-BYTE clone of irq1_entry (same pushad / push ds,es / DATA_SEL load /
+; irq_enter / C-call / irq_leave / restore / iretd bracket): the C handler
+; (mouse_irq_handler) reads the packet byte from 0x60, assembles the 3-byte
+; PS/2 packet, posts ONE FLAIR_RAW_MOUSE on a complete packet, and issues its
+; OWN dual-PIC EOI (SLAVE 0xA0 then MASTER 0x20). isr.o is shared, but only the
+; flair_live kernel installs the 0x34 IDT gate + unmasks IRQ12, so the stub is
+; inert (never reached) in every other kernel (mouse_irq_handler resolves weakly
+; to 0 there -- see the weak extern above).
+global irq12_entry
+irq12_entry:
+    pushad
+    push ds
+    push es
+    mov ax, 0x10               ; DATA_SEL
+    mov ds, ax
+    mov es, ax
+    call irq_enter             ; g_irq_depth++ (xk2 reentrancy guard arm)
+    call mouse_irq_handler     ; reads packet @0x60, posts raw, dual-PIC EOI
     call irq_leave             ; g_irq_depth-- (disarm before iretd)
     pop es
     pop ds

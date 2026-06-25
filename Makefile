@@ -308,6 +308,7 @@ KERNEL_FAT12_C   := $(KERNEL_DIR)/fat12.c
 # hardware-interrupt sources. The pure halves (ring + scancode table + divisor
 # math) ALSO compile hosted in the test-kbd-unit oracle.
 KERNEL_KBD_C     := $(KERNEL_DIR)/kbd.c
+KERNEL_MOUSE_C   := $(KERNEL_DIR)/mouse.c
 KERNEL_PIT_C     := $(KERNEL_DIR)/pit.c
 # MC146818 RTC clock source (beads initech-yv9): CMOS ports 0x70/0x71 reader +
 # the PURE BCD/binary/century/DOW conversion (host-testable, -DRTC_HOST_TEST).
@@ -433,6 +434,8 @@ KERNEL_ATA_OBJ   := $(BUILD)/ata.o
 KERNEL_FAT12_OBJ := $(BUILD)/fat12.o
 KERNEL_FILEIO_OBJ := $(BUILD)/fileio_fat.o
 KERNEL_KBD_OBJ   := $(BUILD)/kbd.o
+KERNEL_MOUSE_OBJ := $(BUILD)/mouse.o
+KERNEL_MOUSE_MUT_EOI_OBJ := $(BUILD)/mouse_mut_eoi.o
 KERNEL_PIT_OBJ   := $(BUILD)/pit.o
 KERNEL_RTC_OBJ   := $(BUILD)/rtc.o
 KERNEL_IRQ_OBJ   := $(BUILD)/irq.o
@@ -7021,6 +7024,19 @@ $(KERNEL_FILEIO_OBJ): $(KERNEL_DIR)/fileio_fat.c $(KERNEL_DIR)/fileio_fat.h \
 $(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_KBD_C) -o $@
 
+# PS/2 mouse IRQ12 driver (beads initech-5l5z FO-6). io.h only. mouse.o is
+# linked ONLY into the flair_live kernel(s) (isr.o's irq12_entry references
+# mouse_irq_handler via a WEAK extern, so non-flair kernels link without it).
+$(KERNEL_MOUSE_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
+
+# Rule-6 EOI mutant mouse.o (beads initech-5l5z FO-6; ADR-0006 BC-3/BC-9):
+# -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI compiles OUT the slave (0xA0) EOI, leaving
+# only the master (0x20) EOI -> the slave 8259A wedges -> the mouse stops after
+# the first IRQ12 -> test-flair-mouse goes RED. NEVER define in a real build.
+$(KERNEL_MOUSE_MUT_EOI_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
+
 $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
 
@@ -8075,7 +8091,7 @@ KERNEL_FLAIRLIVE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) $(KERN
                           $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                           $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                           $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
-                          $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
+                          $(KERNEL_KBD_OBJ) $(KERNEL_MOUSE_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                           $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                           $(KERNEL_ISR_OBJ) \
                           $(KERNEL_FLAIR_OBJS)
@@ -8156,6 +8172,148 @@ $(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BI
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_FLAIRLIVE_MUT_KBD_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-live kbd-MUTANT image: %s (no kbd hook -- FLAIR-KEY never appears)\n" "$@"
+
+# ===========================================================================
+# FO-6 (beads initech-5l5z): PS/2 mouse IRQ12 -- the mouse-enabled flair_live
+# image is the EXISTING $(FLAIRLIVE_IMG) (mouse.o is now in KERNEL_FLAIRLIVE_OBJS
+# and the BOOT_FLAIR_LIVE arm installs the IRQ12 gate + 8042 aux + dual-PIC EOI).
+# Two Rule-6 mutant images (ADR-0006 BC-9):
+#   (1) no-mouse-hook  : kmain -DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK -> no hook
+#       install -> FLAIR-MOUSE NEVER appears -> test-flair-mouse RED.
+#   (2) master-only-EOI: mouse.o -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI -> the
+#       slave 8259A wedges after the first IRQ12 -> <2 FLAIR-MOUSE -> RED.
+# ===========================================================================
+KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_mouse.o
+KERNEL_FLAIRLIVE_MUT_MOUSE_ELF      := $(BUILD)/kernel_flairlive_mut_mouse.elf
+KERNEL_FLAIRLIVE_MUT_MOUSE_BIN      := $(BUILD)/kernel_flairlive_mut_mouse.bin
+FLAIRLIVE_MUT_MOUSE_IMG             := $(BUILD)/flair_live_mut_mouse.img
+
+KERNEL_FLAIRLIVE_MUT_EOI_ELF        := $(BUILD)/kernel_flairlive_mut_eoi.elf
+KERNEL_FLAIRLIVE_MUT_EOI_BIN        := $(BUILD)/kernel_flairlive_mut_eoi.bin
+FLAIRLIVE_MUT_EOI_IMG               := $(BUILD)/flair_live_mut_eoi.img
+
+# (1) no-mouse-hook mutant: swap ONLY the main obj (the kbd/tick hooks stay).
+$(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h os/flair/event.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ)
+
+$(KERNEL_FLAIRLIVE_MUT_MOUSE_ELF): $(KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS)
+
+$(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN): $(KERNEL_FLAIRLIVE_MUT_MOUSE_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_mut_mouse.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-mut-nomousehook): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(FLAIRLIVE_MUT_MOUSE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live mouse-MUTANT image: %s (no mouse hook -- FLAIR-MOUSE never appears)\n" "$@"
+
+# (2) master-only-EOI mutant: swap ONLY mouse.o for the EOI-mutant mouse.o.
+KERNEL_FLAIRLIVE_MUT_EOI_OBJS := $(filter-out $(KERNEL_MOUSE_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_MOUSE_MUT_EOI_OBJ)
+
+$(KERNEL_FLAIRLIVE_MUT_EOI_ELF): $(KERNEL_FLAIRLIVE_MUT_EOI_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_EOI_OBJS)
+
+$(KERNEL_FLAIRLIVE_MUT_EOI_BIN): $(KERNEL_FLAIRLIVE_MUT_EOI_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_mut_eoi.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-mut-eoi): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(FLAIRLIVE_MUT_EOI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_EOI_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_MUT_EOI_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live EOI-MUTANT image: %s (master-only EOI -- slave wedges after first IRQ12)\n" "$@"
+
+# --- REAL gate: test-flair-mouse (beads initech-5l5z FO-6) ------------------
+# Boot build/flair_live.img (now mouse-enabled) under QEMU; inject 4 DISTINCT
+# mouse events after FLAIR-HOOK-SET (move right, move down, left-press, left-
+# release). Assertions (Law 2): NO triple-fault; FLAIR-HOOK-SET reached; >=2
+# DISTINCT "FLAIR-MOUSE" lines (THE minefield assertion -- a second distinct
+# line is only possible if the dual-PIC EOI re-armed the slave 8259A); and the
+# injected deltas/buttons are reflected. The guest cli;hlt loops, so the harness
+# times out by design (OK = markers, not exit code; mirrors test-flair-live).
+FLAIR_MOUSE_NAME    := flair_mouse
+FLAIR_MOUSE_SERIAL  := $(BUILD)/$(FLAIR_MOUSE_NAME).serial
+FLAIR_MOUSE_REPORT  := $(BUILD)/$(FLAIR_MOUSE_NAME).report
+FLAIR_MOUSE_SPEC    := m20:0,m0:20,l1,l0
+.PHONY: test-flair-mouse
+test-flair-mouse: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-mouse : FLAIR MOUSE IRQ12 lane (FO-6)\n'
+	@printf '  THE minefield: IRQ12 = slave 8259A IR4 (vec 0x34); dual-PIC EOI\n'
+	@printf '  (slave 0xA0 THEN master 0x20). >=2 distinct FLAIR-MOUSE = no wedge.\n'
+	@printf '  beads initech-5l5z FO-6; ADR-0006 E-D3b/BC-3. Law 2, Rule 2/5/6/11.\n'
+	@printf '======================================================================\n'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_MOUSE_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-HOOK-SET" --timeout-ms 15000 \
+		2> "$(FLAIR_MOUSE_REPORT)" || true
+	@cat "$(FLAIR_MOUSE_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(FLAIR_MOUSE_REPORT)"; then \
+		printf '!!! test-flair-mouse FAIL: TRIPLE FAULT in the mouse IRQ12 boot\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-mouse [1/3]: no triple-fault\n'
+	@if [ ! -s "$(FLAIR_MOUSE_SERIAL)" ]; then printf '!!! test-flair-mouse FAIL: no serial captured\n'; exit 1; fi
+	@grep -q '^FLAIR-HOOK-SET$$' "$(FLAIR_MOUSE_SERIAL)" \
+		|| { printf '!!! test-flair-mouse FAIL: FLAIR-HOOK-SET missing -- mouse_init/IRQ12-gate path not reached\n'; exit 1; }
+	@n=$$(grep -c '^FLAIR-MOUSE ' "$(FLAIR_MOUSE_SERIAL)"); \
+	d=$$(grep '^FLAIR-MOUSE ' "$(FLAIR_MOUSE_SERIAL)" | sort -u | wc -l); \
+	if [ "$$d" -lt 2 ]; then \
+		printf '!!! test-flair-mouse FAIL: only %s FLAIR-MOUSE lines (%s distinct) -- the dual-PIC EOI WEDGED (no second IRQ12)\n' "$$n" "$$d"; \
+		grep '^FLAIR-MOUSE ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; \
+	fi; \
+	printf '>>> test-flair-mouse [2/3]: %s FLAIR-MOUSE lines, %s DISTINCT -- dual-PIC EOI did NOT wedge\n' "$$n" "$$d"
+	@grep -q '^FLAIR-MOUSE dx=20 ' "$(FLAIR_MOUSE_SERIAL)" \
+		|| { printf '!!! test-flair-mouse FAIL: the injected dx=20 move not reflected -- PS/2 delta decode wrong\n'; grep '^FLAIR-MOUSE ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; }
+	@grep -q '^FLAIR-MOUSE .*btn=00000001$$' "$(FLAIR_MOUSE_SERIAL)" \
+		|| { printf '!!! test-flair-mouse FAIL: the injected left-button press (btn=1) not reflected\n'; grep '^FLAIR-MOUSE ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-mouse [3/3]: injected move (dx=20) AND button (btn=1) reflected (PS/2 packet decode LIVE)\n'
+	@printf 'VERDICT   : PASS -- mouse IRQ12 -> packet -> dual-PIC EOI -> FLAIR-MOUSE LIVE (FO-6)\n'
+	@printf '======================================================================\n'
+
+.PHONY: test-flair-mouse-mutant
+test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_MUT_EOI_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-mouse-mutant : Rule 6 (the gate BITES)\n'
+	@printf '======================================================================\n'
+	@# Mutant 1: no mouse hook (-DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK) -> no FLAIR-MOUSE.
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_MOUSE_IMG)" --name flair_mouse_mut_nohook --out "$(BUILD)" \
+		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-HOOK-SET" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@grep -q '^FLAIR-HOOK-SET$$' "$(BUILD)/flair_mouse_mut_nohook.serial" \
+		|| { printf '!!! mutant1 did not reach FLAIR-HOOK-SET (not comparable)\n'; exit 1; }
+	@if grep -q '^FLAIR-MOUSE ' "$(BUILD)/flair_mouse_mut_nohook.serial"; then \
+		printf '!!! test-flair-mouse-mutant FAIL: no-mouse-hook mutant STILL emitted FLAIR-MOUSE -- the gate is decoration\n'; exit 1; \
+	fi
+	@printf '>>> mutant1 (NO_MOUSE_HOOK): RED as required -- no FLAIR-MOUSE (the gate bites)\n'
+	@# Mutant 2: master-only EOI (-DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI) -> slave wedges.
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_EOI_IMG)" --name flair_mouse_mut_eoi --out "$(BUILD)" \
+		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-HOOK-SET" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@grep -q '^FLAIR-HOOK-SET$$' "$(BUILD)/flair_mouse_mut_eoi.serial" \
+		|| { printf '!!! mutant2 did not reach FLAIR-HOOK-SET (not comparable)\n'; exit 1; }
+	@d=$$(grep '^FLAIR-MOUSE ' "$(BUILD)/flair_mouse_mut_eoi.serial" | sort -u | wc -l); \
+	if [ "$$d" -ge 2 ]; then \
+		printf '!!! test-flair-mouse-mutant FAIL: master-only-EOI mutant produced %s distinct FLAIR-MOUSE -- the no-wedge gate is decoration (QEMU too forgiving)\n' "$$d"; exit 1; \
+	fi; \
+	printf '>>> mutant2 (MASTER_ONLY_EOI): RED as required -- %s distinct FLAIR-MOUSE (<2, slave 8259A wedged)\n' "$$d"
+	@printf 'VERDICT   : PASS -- both FO-6 mutants BITE (Rule 6)\n'
+	@printf '======================================================================\n'
 
 # --- MUTANT flair_desktop kernels (beads initech-re30.3, LANE 2; Rule 6) -----
 # To MUTATION-PROVE the screendump oracle (a check that never bites is decoration),
@@ -14955,7 +15113,8 @@ TEST_EMU_GATES := \
 	test-hsct-redir test-hsct-redir-mutant \
 	test-flair-desktop test-flair-desktop-mutant \
 	test-flair-live test-flair-live-mutant \
-	test-flair-key test-flair-key-mutant
+	test-flair-key test-flair-key-mutant \
+	test-flair-mouse test-flair-mouse-mutant
 
 test-unit:
 	@printf '======================================================================\n'

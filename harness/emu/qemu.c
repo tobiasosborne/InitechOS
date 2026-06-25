@@ -349,6 +349,122 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad)
     return sent;
 }
 
+/* ------------------------------------------------------------------ */
+/* QMP relative-mouse injection (beads initech-5l5z FO-6 / FO-8)        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Send ONE QMP `input-send-event` carrying a relative mouse move by (dx,dy).
+ * Format: {"execute":"input-send-event","arguments":{"events":[
+ *   {"type":"rel","data":{"axis":"x","value":<dx>}},
+ *   {"type":"rel","data":{"axis":"y","value":<dy>}}]}}.
+ * QEMU translates this into a PS/2 mouse packet -> guest IRQ12. Returns 0 on a
+ * successful write. Ref: QMP input-send-event + qapi/ui.json (InputMoveEvent,
+ * axis x/y). */
+static int qmp_mouse_move(int fd, int dx, int dy)
+{
+    char cmd[256];
+    int n = snprintf(cmd, sizeof(cmd),
+                     "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":["
+                     "{\"type\":\"rel\",\"data\":{\"axis\":\"x\",\"value\":%d}},"
+                     "{\"type\":\"rel\",\"data\":{\"axis\":\"y\",\"value\":%d}}]}}\n",
+                     dx, dy);
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        return -1;
+    }
+    return qmp_send(fd, cmd);
+}
+
+/*
+ * Send ONE QMP `input-send-event` carrying a mouse button up/down.
+ * Format: {"execute":"input-send-event","arguments":{"events":[
+ *   {"type":"btn","data":{"button":"<name>","down":<bool>}}]}}.
+ * Ref: QMP input-send-event + qapi/ui.json (InputBtnEvent, button left/right/
+ * middle). Returns 0 on a successful write. */
+static int qmp_mouse_button(int fd, const char *button, int down)
+{
+    char cmd[256];
+    int n = snprintf(cmd, sizeof(cmd),
+                     "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":["
+                     "{\"type\":\"btn\",\"data\":{\"button\":\"%s\",\"down\":%s}}]}}\n",
+                     button, down ? "true" : "false");
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        return -1;
+    }
+    return qmp_send(fd, cmd);
+}
+
+/*
+ * Inject every mouse token in mouse_spec (comma-separated) over an already-
+ * handshaked QMP fd. Token grammar (sufficient for the FO-6 no-wedge gate):
+ *   "m<dx>:<dy>"  relative move by signed (dx,dy), e.g. "m20:0", "m0:-12";
+ *   "l1"/"l0"     left   button down/up;
+ *   "r1"/"r0"     right  button down/up;
+ *   "M1"/"M0"     middle button down/up.
+ * Unknown tokens are skipped with a stderr note (Law 2: loud). Returns the
+ * number of events sent. The gate injects >=2 so the dual-PIC-EOI no-wedge
+ * property is assertable (a second distinct FLAIR-MOUSE line proves the slave
+ * EOI re-armed the line). */
+static int qmp_inject_mouse(int fd, const char *mouse_spec)
+{
+    int sent = 0;
+    char buf[256];
+    size_t L = strlen(mouse_spec);
+    if (L >= sizeof(buf)) {
+        fprintf(stderr, "[harness] --mouse spec too long (max %zu); truncating\n",
+                sizeof(buf) - 1);
+        L = sizeof(buf) - 1;
+    }
+    memcpy(buf, mouse_spec, L);
+    buf[L] = '\0';
+
+    char *save = NULL;
+    for (char *tok = strtok_r(buf, ",", &save); tok != NULL;
+         tok = strtok_r(NULL, ",", &save)) {
+        while (*tok == ' ') {
+            tok++;
+        }
+        size_t tl = strlen(tok);
+        while (tl > 0 && tok[tl - 1] == ' ') {
+            tok[--tl] = '\0';
+        }
+        if (tok[0] == '\0') {
+            continue;
+        }
+        int ok = 0;
+        if (tok[0] == 'm') {
+            /* "m<dx>:<dy>" -- a relative move. */
+            int dx = 0, dy = 0;
+            const char *colon = strchr(tok + 1, ':');
+            if (colon != NULL) {
+                dx = atoi(tok + 1);
+                dy = atoi(colon + 1);
+                if (qmp_mouse_move(fd, dx, dy) == 0) {
+                    ok = 1;
+                }
+            }
+        } else if ((tok[0] == 'l' || tok[0] == 'r' || tok[0] == 'M') &&
+                   (tok[1] == '0' || tok[1] == '1') && tok[2] == '\0') {
+            const char *btn = (tok[0] == 'l') ? "left"
+                            : (tok[0] == 'r') ? "right" : "middle";
+            if (qmp_mouse_button(fd, btn, tok[1] == '1') == 0) {
+                ok = 1;
+            }
+        }
+        if (ok) {
+            sent++;
+            /* Drain the QMP reply + give the guest a beat to take the 3 IRQ12s
+             * (one per PS/2 packet byte) before the next event, so each event's
+             * FLAIR-MOUSE line lands deterministically. */
+            qmp_drain(fd, 40);
+        } else {
+            fprintf(stderr, "[harness] --mouse: unknown token '%s' (skipped)\n",
+                    tok);
+        }
+    }
+    return sent;
+}
+
 /*
  * Wait until `marker` appears in the file at serial_path, or budget_ms
  * elapses. Re-reads the (growing) serial capture file in a short poll loop.
@@ -392,11 +508,15 @@ static int wait_for_serial_marker(const char *serial_path, const char *marker,
  */
 static int qmp_session(const char *sock_path, const char *ppm_path,
                        const char *keys_spec, const char *keys_after,
+                       const char *mouse_spec,
                        const char *screendump_after, int screendump_budget_ms,
-                       const char *serial_path, int *keys_sent)
+                       const char *serial_path, int *keys_sent, int *mouse_sent)
 {
     if (keys_sent) {
         *keys_sent = 0;
+    }
+    if (mouse_sent) {
+        *mouse_sent = 0;
     }
     int fd = -1;
     long long deadline = mono_ms() + 3000;
@@ -441,28 +561,43 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
     }
     qmp_drain(fd, 300);
 
-    /* 3. keystroke injection (beads initech-43b). Trigger timing: if keys_after
-     * is set, WAIT for that substring on the serial capture (the guest tells us
-     * it is ready -- the robust, deterministic choice); else fall back to a
-     * fixed 500 ms startup delay. Then inject keys_spec via QMP send-key. */
-    if (keys_spec && keys_spec[0] != '\0') {
-        if (keys_after && keys_after[0] != '\0') {
-            if (!wait_for_serial_marker(serial_path, keys_after, 4000)) {
-                fprintf(stderr,
-                        "[harness] --keys-after marker '%s' not seen before "
-                        "inject deadline; injecting anyway\n", keys_after);
+    /* 3. input injection (keystrokes: beads initech-43b; relative mouse: beads
+     * initech-5l5z FO-6). Trigger timing: if keys_after is set, WAIT for that
+     * substring on the serial capture ONCE (the guest tells us it is ready --
+     * the robust, deterministic choice; e.g. FLAIR-HOOK-SET); else fall back to
+     * a fixed 500 ms startup delay. Then inject keys (send-key) and/or mouse
+     * (input-send-event), keys first. The mouse half reuses the SAME trigger as
+     * the keys half (ADR-0006 E-D6 / FO-8). */
+    {
+        int want_keys  = (keys_spec  && keys_spec[0]  != '\0');
+        int want_mouse = (mouse_spec && mouse_spec[0] != '\0');
+        if (want_keys || want_mouse) {
+            if (keys_after && keys_after[0] != '\0') {
+                if (!wait_for_serial_marker(serial_path, keys_after, 4000)) {
+                    fprintf(stderr,
+                            "[harness] --keys-after marker '%s' not seen before "
+                            "inject deadline; injecting anyway\n", keys_after);
+                }
+            } else {
+                sleep_ms(500);
             }
-        } else {
-            sleep_ms(500);
+            if (want_keys) {
+                int bad = 0;
+                int sent = qmp_inject_keys(fd, keys_spec, &bad);
+                if (keys_sent) {
+                    *keys_sent = sent;
+                }
+            }
+            if (want_mouse) {
+                int msent = qmp_inject_mouse(fd, mouse_spec);
+                if (mouse_sent) {
+                    *mouse_sent = msent;
+                }
+            }
+            /* Let the last event's IRQ + the guest's serial echo flush before we
+             * (optionally) screendump and quit. */
+            qmp_drain(fd, 100);
         }
-        int bad = 0;
-        int sent = qmp_inject_keys(fd, keys_spec, &bad);
-        if (keys_sent) {
-            *keys_sent = sent;
-        }
-        /* Let the last keystroke's IRQ1 + the guest's echo flush to serial
-         * before we (optionally) screendump and quit. */
-        qmp_drain(fd, 100);
     }
 
     /* 4. screendump (PPM), if requested. filename must be JSON-escaped; our
@@ -633,11 +768,12 @@ static int build_argv(const QemuConfig *cfg, char **argv,
         PUSH("-S");
     }
 
-    /* QMP for screendump AND/OR keystroke injection (beads initech-43b: --keys
-     * needs the same QMP socket). server=on,wait=off => qemu does not block on
-     * us. */
+    /* QMP for screendump AND/OR keystroke AND/OR mouse injection (beads
+     * initech-43b: --keys; initech-5l5z FO-6: --mouse -- both need the same QMP
+     * socket). server=on,wait=off => qemu does not block on us. */
     if (cfg->enable_qmp_screendump ||
-        (cfg->keys_spec && cfg->keys_spec[0] != '\0')) {
+        (cfg->keys_spec && cfg->keys_spec[0] != '\0') ||
+        (cfg->mouse_spec && cfg->mouse_spec[0] != '\0')) {
         static char qmpbuf[QEMU_PATH_MAX + 32];
         snprintf(qmpbuf, sizeof(qmpbuf), "unix:%s,server=on,wait=off",
                  sock_path);
@@ -739,12 +875,14 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
 
     out->launched = true;
 
-    /* If we are doing a screendump and/or keystroke injection, drive QMP from
-     * the parent while qemu runs: qmp_session retries the connect, optionally
-     * waits for the keys-after marker + injects keys, optionally screendumps,
-     * then quits (beads initech-f2s + initech-43b). */
-    bool want_keys = cfg->keys_spec && cfg->keys_spec[0] != '\0';
-    if (cfg->enable_qmp_screendump || want_keys) {
+    /* If we are doing a screendump and/or keystroke and/or mouse injection,
+     * drive QMP from the parent while qemu runs: qmp_session retries the connect,
+     * optionally waits for the keys-after marker + injects keys + mouse,
+     * optionally screendumps, then quits (beads initech-f2s + initech-43b +
+     * initech-5l5z FO-6). */
+    bool want_keys  = cfg->keys_spec  && cfg->keys_spec[0]  != '\0';
+    bool want_mouse = cfg->mouse_spec && cfg->mouse_spec[0] != '\0';
+    if (cfg->enable_qmp_screendump || want_keys || want_mouse) {
         const char *ppm = cfg->enable_qmp_screendump ? out->screendump_path
                                                       : NULL;
         /* The screendump-after wait runs in this parent WHILE qemu runs, so its
@@ -756,14 +894,17 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
             sd_budget = 500;
         }
         int sent = 0;
+        int msent = 0;
         if (qmp_session(sock_path, ppm,
                         want_keys ? cfg->keys_spec : NULL,
-                        want_keys ? cfg->keys_after : NULL,
+                        (want_keys || want_mouse) ? cfg->keys_after : NULL,
+                        want_mouse ? cfg->mouse_spec : NULL,
                         cfg->enable_qmp_screendump ? cfg->screendump_after
                                                    : NULL,
                         sd_budget,
-                        out->serial_path, &sent) == 0) {
+                        out->serial_path, &sent, &msent) == 0) {
             out->keys_sent = sent;
+            out->mouse_events_sent = msent;
             if (cfg->enable_qmp_screendump) {
                 struct stat st;
                 if (stat(out->screendump_path, &st) == 0 && st.st_size > 0) {

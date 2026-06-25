@@ -64,3 +64,27 @@ void pic_unmask_irq0_irq1(void)
     mask &= (uint8_t)~((1u << 0) | (1u << 1));  /* enable IRQ0 + IRQ1 only */
     outb(PIC1_DATA, mask);
 }
+
+void pic_unmask_irq12(void)
+{
+    /* Unmask the PS/2 mouse IRQ12 (ADR-0006 E-D3(d)/FO-6; beads initech-5l5z).
+     *
+     * THE CASCADE REQUIREMENT (CLAUDE.md minefield): IRQ12 is on the SLAVE
+     * 8259A (IR4), which reaches the CPU ONLY through the master's IRQ2 cascade
+     * line. So a slave IRQ is delivered ONLY when BOTH are unmasked:
+     *   - the MASTER IMR bit 2 (the cascade input from the slave), AND
+     *   - the SLAVE  IMR bit 4 (IRQ12 itself).
+     * pic_unmask_irq0_irq1() left the slave FULLY masked and the master cascade
+     * masked, so unmasking only the slave's bit 4 would NOT work -- the request
+     * would die at the still-masked master cascade. We therefore clear BOTH.
+     * Read-modify-write each IMR so we touch only the bits we own and leave the
+     * PIT/keyboard unmasks intact. Ref: Intel 8259A datasheet (OCW1 IMR; cascade
+     * mode: a 1 bit masks, a 0 bit enables). */
+    uint8_t m_mask = inb(PIC1_DATA);
+    m_mask &= (uint8_t)~(1u << 2);   /* master: enable IRQ2 cascade  */
+    outb(PIC1_DATA, m_mask);
+
+    uint8_t s_mask = inb(PIC2_DATA);
+    s_mask &= (uint8_t)~(1u << 4);   /* slave: enable IRQ12 (IR4)    */
+    outb(PIC2_DATA, s_mask);
+}

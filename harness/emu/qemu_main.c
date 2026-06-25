@@ -36,7 +36,12 @@ static void usage(const char *argv0)
         "                     SPEC is comma-separated qcode tokens, e.g.\n"
         "                     \"d,i,r,ret\" (letters/digits, ret, spc)\n"
         "  --keys-after MARK  wait for MARK on serial before injecting --keys\n"
-        "                     (else a fixed startup delay is used)\n"
+        "                     (else a fixed startup delay is used); ALSO gates\n"
+        "                     --mouse injection (same trigger)\n"
+        "  --mouse SPEC       inject relative-mouse events via QMP input-send-\n"
+        "                     event after boot; SPEC is comma-separated tokens:\n"
+        "                     \"m<dx>:<dy>\" move, \"l1\"/\"l0\" left btn down/up,\n"
+        "                     \"r1\"/\"r0\" right, \"M1\"/\"M0\" middle (IRQ12)\n"
         "  --screendump       QMP screendump to <out>/<name>.ppm\n"
         "  --screendump-after MARK\n"
         "                     wait for MARK on serial before the --screendump\n"
@@ -87,6 +92,9 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--keys-after") == 0) {
             NEED_ARG();
             cfg.keys_after = argv[++i];
+        } else if (strcmp(a, "--mouse") == 0) {
+            NEED_ARG();
+            cfg.mouse_spec = argv[++i];
         } else if (strcmp(a, "--screendump") == 0) {
             cfg.enable_qmp_screendump = true;
         } else if (strcmp(a, "--screendump-after") == 0) {
@@ -144,13 +152,13 @@ int main(int argc, char **argv)
         "[harness] launched=%d timed_out=%d exit=%d signal=%d\n"
         "[harness] serial_len=%zu marker_found=%d (expect=%s)\n"
         "[harness] triple_fault=%d cpu_reset=%d guest_errors=%d\n"
-        "[harness] keys_sent=%d screendump_taken=%d path=%s\n"
+        "[harness] keys_sent=%d mouse_events_sent=%d screendump_taken=%d path=%s\n"
         "[harness] OK=%d\n",
         res.launched, res.timed_out, res.exit_code, res.term_signal,
         res.serial_len, res.marker_found,
         cfg.expect_marker ? cfg.expect_marker : "(none)",
         res.triple_fault, res.cpu_reset_count, res.guest_errors,
-        res.keys_sent, res.screendump_taken,
+        res.keys_sent, res.mouse_events_sent, res.screendump_taken,
         res.screendump_taken ? res.screendump_path : "(none)",
         res.ok);
 

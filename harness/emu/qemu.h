@@ -91,6 +91,20 @@ typedef struct {
      * tells us it is ready). If NULL, a fixed startup delay is used instead.  */
     const char *keys_after;    /* serial marker to wait for, or NULL.        */
 
+    /* QMP RELATIVE MOUSE injection (beads initech-5l5z FO-6 / FO-8). When
+     * mouse_spec is non-NULL, the harness -- after the guest boots -- sends QMP
+     * `input-send-event` events over the same QMP socket so a moving / clicking
+     * mouse reaches the guest PS/2 aux device (IRQ12). The spec is a comma-
+     * separated list of tokens (see qmp_inject_mouse in qemu.c):
+     *   "m<dx>:<dy>"  one relative move by signed (dx,dy), e.g. "m20:0";
+     *   "l1"/"l0"     left button down/up;  "r1"/"r0" right; "M1"/"M0" middle.
+     * It uses the SAME keys_after trigger as --keys (so it fires after the
+     * guest's ready marker, e.g. FLAIR-HOOK-SET). The gate injects MULTIPLE
+     * (>=2) events so the no-EOI-wedge property is assertable: a second distinct
+     * FLAIR-MOUSE line can only appear if the dual-PIC EOI re-armed the slave.
+     * Like keys_spec, mouse_spec implies the QMP socket is opened. */
+    const char *mouse_spec;    /* comma-separated mouse tokens, or NULL.     */
+
     /* Pure-screendump synchronisation (beads initech-3pe). When a screendump is
      * requested (enable_qmp_screendump) with NO keys, the harness otherwise
      * dumps the framebuffer the instant QMP connects -- a wall-clock race: under
@@ -152,6 +166,9 @@ typedef struct {
 
     int  keys_sent;            /* count of QMP send-key events issued (beads
                                   initech-43b); 0 if keys_spec was NULL.     */
+    int  mouse_events_sent;    /* count of QMP input-send-event mouse events
+                                  issued (beads initech-5l5z FO-6); 0 if
+                                  mouse_spec was NULL.                        */
 
     bool ok;                   /* overall verdict (see above).              */
 } QemuResult;
