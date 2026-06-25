@@ -134,8 +134,9 @@ static void cframe(GrafPort *port, int x0, int y0, int x1, int y1, int part)
  *
  * MECHANISM/POLICY (C-8): every pixel resolves through the flair_look_pixel seam
  * by PART, never a color literal.  The recolor-invariant tonal roles map:
- *   dark outline -> FLAIR_PART_BEVEL_SHADOW (the dark tinge role; 8bpp idx 4),
- *   lavender bevel -> FLAIR_PART_PIN_LIGHT (the wLTinge0 light role; 8bpp idx 7),
+ *   dark outline -> FLAIR_PART_BEVEL_SHADOW (canon teal-dark; 8bpp idx 4),
+ *   lavender bevel -> FLAIR_PART_BEVEL_LIGHT (canon TEAL, the WL-0053 lavender->teal
+ *                     recolor of the wLTinge0 #DADAFF bevel; 8bpp idx 2),
  *   gray face -> FLAIR_PART_BTNFACE (#C0C0C0 control face; 8bpp idx 6).
  * If `zoom` is non-zero the box additionally carries the inner nested-square
  * "little dude" glyph (PlotZoom, close-zoom-box.md WDEF @1695); the close box
@@ -369,9 +370,51 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
 #endif
 
     /* 4. Vertical scrollbar on the right: FLAIR_CHROME_SCROLLBAR_W (16) px wide,
-     * running the height of the content area. Up/down arrow buttons (square,
-     * scrollbar-wide) at top and bottom, a light-gray track between. The right
-     * edge overlaps the 1 px window frame (presents 15 px of added width). */
+     * running the height of the content area.  Inactive (no thumb) per the golden
+     * (s7_about.png, right gutter x=494..509 y=159..217; scrollbar.md).
+     *
+     * STRUCTURE (scrollbar.md Geometry + Rendered colors; Law 2 golden wins):
+     *   - 1 px black gutter-divider at sb_left (WDEF @1332; FLAIR_PART_FRAME idx 0)
+     *   - 14 px interior: track + arrow boxes (x in (sb_left, sb_right))
+     *   - 1 px black right window-frame (drawn in section 5; shared line)
+     *
+     *   Arrow boxes: top square + bottom square, each sb_w (16) px tall.
+     *   - Entire band (track + boxes) filled PIN_LIGHT (idx 7, #F3F3F3) as base.
+     *   - Gutter-divider column (x=sb_left): FRAME/black for full height.
+     *   - Up-arrow box: outer TOP edge (y=sb_top) = FRAME black (idx 0).
+     *     Inner lower separator (y=sb_top+sb_w-1) = PIN_DARK gray (idx 8, #969696).
+     *     The remaining edges (left col=divider, right col=frame) are already
+     *     handled by the divider line and the window frame (section 5).
+     *   - Down-arrow box: inner upper separator (y=sb_bot-sb_w) = PIN_DARK (idx 8).
+     *     Outer BOTTOM edge (y=sb_bot-1) = FRAME black (idx 0).
+     *
+     *   Arrow GLYPHS (inactive/dimmed = gray outline; scrollbar.md ASCII diagram):
+     *   Up arrow: a hollow triangle-on-stem in PIN_DARK (idx 8).  Interior is
+     *     sb_w-2 cols wide (inside outer left/right lines).  The glyph spans ~10
+     *     rows with apex ~3 px from the box top; two vertical shaft strokes close
+     *     with a base bar.  Using the 14-px interior (cols relative to int_left):
+     *
+     *       row+2  (apex):        ......mm......   col 6,7
+     *       row+3:                .....m..m.....   col 5,8
+     *       row+4:                ....m....m....   col 4,9
+     *       row+5:                ...m......m...   col 3,10
+     *       row+6:                ..m........m..   col 2,11
+     *       row+7 (barbs):        .mmmm....mmmm.   col 1-4,9-12
+     *       row+8:                ....m....m....   col 4,9
+     *       row+9:                ....m....m....   col 4,9
+     *       row+10:               ....m....m....   col 4,9
+     *       row+11 (base):        ....mmmmmm....   col 4-9
+     *
+     *   Down arrow: vertical mirror (apex near bottom of box).
+     *   All rendered through FLAIR_PART_PIN_DARK (the C-8 seam; no color literal).
+     *   Inactive bar carries NO thumb (golden-resolves: active thumb = CDEF).
+     *
+     * RECOLOR-INVARIANCE: FLAIR_PART_FRAME (idx 0), FLAIR_PART_PIN_LIGHT (idx 7),
+     * FLAIR_PART_PIN_DARK (idx 8) only -- zero color literals (C-8 seam).
+     *
+     * Ref: ../system7-decomp/specs/chrome/scrollbar.md (golden s7_about.png;
+     *   Geometry + Rendered colors + arrow-glyph shape); CLAUDE.md Law 1/2/4;
+     *   beads initech-jh7m. */
 #if defined(CHROME_MUTATE_SCROLLBAR_W)
     /* MUTANT: scrollbar 15 px wide, not 16 (FO-2/AM-3). test-chrome must catch
      * that the scrollbar column is one pixel too narrow. */
@@ -384,22 +427,119 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
     int sb_top   = content_top;
     int sb_bot   = content_bot;
     if (sb_left > content_left) {
-        /* track fill (light control gray) */
+#if defined(CHROME_FID_MUT_SCROLL_FLAT)
+        /* MUTANT (Rule 6; beads initech-jh7m): revert to the OLD render --
+         * BTNFACE track (idx 6, wrong), all-black cframe edges (inner separators
+         * black not gray), no arrow glyphs (empty boxes).
+         * test-chrome-fidelity legs (14)/(15)/(16) MUST go RED. */
         crect(port, sb_left, sb_top, sb_right, sb_bot, FLAIR_PART_BTNFACE);
-        /* left edge of the scrollbar gutter (1 px black divider) */
-        cfill(port, sb_left, sb_top, 1, FLAIR_PART_FRAME);
         for (int y = sb_top; y < sb_bot; y++) {
             cfill(port, sb_left, y, 1, FLAIR_PART_FRAME);
         }
-        /* up-arrow button (top square) + down-arrow button (bottom square):
-         * framed boxes the width of the scrollbar with a 1 px black border. */
-        int btn = sb_w;
-        if (sb_top + btn <= sb_bot) {
-            cframe(port, sb_left, sb_top, sb_right, sb_top + btn, FLAIR_PART_FRAME);
+        {
+            int btn = sb_w;
+            if (sb_top + btn <= sb_bot) {
+                cframe(port, sb_left, sb_top, sb_right, sb_top + btn, FLAIR_PART_FRAME);
+            }
+            if (sb_bot - btn >= sb_top) {
+                cframe(port, sb_left, sb_bot - btn, sb_right, sb_bot, FLAIR_PART_FRAME);
+            }
         }
-        if (sb_bot - btn >= sb_top) {
-            cframe(port, sb_left, sb_bot - btn, sb_right, sb_bot, FLAIR_PART_FRAME);
+#else
+        /* --- STEP 1: fill the whole scrollbar band PIN_LIGHT (track + box faces). */
+        crect(port, sb_left, sb_top, sb_right, sb_bot, FLAIR_PART_PIN_LIGHT);
+
+        /* --- STEP 2: gutter-divider column (x=sb_left) = FRAME/black for full
+         * height. (StandardWDEF_a.txt @1330-1338; scrollbar.md Geometry.) */
+        for (int y = sb_top; y < sb_bot; y++) {
+            cfill(port, sb_left, y, 1, FLAIR_PART_FRAME);
         }
+
+        /* --- STEP 3: up-arrow box separators + outer edge.
+         * Outer top edge (row y=sb_top): FRAME black.
+         * Inner lower separator (row y=sb_top+sb_w-1): PIN_DARK gray.
+         * Ref: scrollbar.md Geometry "y=159 black / y=174 gray". */
+        if (sb_top + sb_w <= sb_bot) {
+            /* outer top edge of up-arrow box */
+            cfill(port, sb_left, sb_top, sb_w, FLAIR_PART_FRAME);
+            /* inner lower separator (between up-arrow box and track) */
+            cfill(port, sb_left, sb_top + sb_w - 1, sb_w, FLAIR_PART_PIN_DARK);
+        }
+
+        /* --- STEP 4: down-arrow box separators + outer edge.
+         * Inner upper separator (row y=sb_bot-sb_w): PIN_DARK gray.
+         * Outer bottom edge (row y=sb_bot-1): FRAME black.
+         * Ref: scrollbar.md Geometry "y=202 gray / y=217 black". */
+        if (sb_bot - sb_w >= sb_top) {
+            /* inner upper separator (between track and down-arrow box) */
+            cfill(port, sb_left, sb_bot - sb_w, sb_w, FLAIR_PART_PIN_DARK);
+            /* outer bottom edge of down-arrow box */
+            cfill(port, sb_left, sb_bot - 1, sb_w, FLAIR_PART_FRAME);
+        }
+
+        /* --- STEP 5: arrow glyphs (inactive/dimmed, PIN_DARK gray outline).
+         * Table-driven to minimise compiled code size.  Each glyph row is encoded
+         * as two span descriptors {x_off, width} relative to int_left (sb_left+1).
+         * A row with two separate spans uses both entries; a solid span has the
+         * second entry start past the interior (terminator: x2=99).
+         * Ref: scrollbar.md arrow-glyph shape ASCII (INACTIVE hollow outline;
+         * 14-col interior x=0..13 relative to int_left). */
+        {
+            /* Glyph row table for the UP-arrow (top-down, rows 1..10 inside box).
+             * Each entry: { x1_off, w1, x2_off, w2 } where x2_off>=14 => no 2nd span.
+             *   row 1: apex   col 6..7    (1 span, w=2)
+             *   row 2:        col 5, 8    (2 spans, w=1 each)
+             *   row 3:        col 4, 9
+             *   row 4:        col 3, 10
+             *   row 5:        col 2, 11
+             *   row 6: barbs  col 1..4, col 9..12  (2 spans)
+             *   row 7: shaft  col 4, 9
+             *   row 8: shaft  col 4, 9
+             *   row 9: shaft  col 4, 9
+             *   row10: base   col 4..9   (1 span, w=6) */
+            static const signed char up_glyph[10][4] = {
+                { 6, 2, 99, 0 },   /* row 1: apex */
+                { 5, 1,  8, 1 },   /* row 2 */
+                { 4, 1,  9, 1 },   /* row 3 */
+                { 3, 1, 10, 1 },   /* row 4 */
+                { 2, 1, 11, 1 },   /* row 5 */
+                { 1, 4,  9, 4 },   /* row 6: barbs */
+                { 4, 1,  9, 1 },   /* row 7: shaft */
+                { 4, 1,  9, 1 },   /* row 8: shaft */
+                { 4, 1,  9, 1 },   /* row 9: shaft */
+                { 4, 6, 99, 0 }    /* row10: base */
+            };
+            /* Down-arrow is the vertical mirror: read up_glyph in reverse. */
+            if (sb_top + sb_w <= sb_bot) {
+                int il = sb_left + 1;
+                int gy = sb_top + 1;          /* first interior row of up-arrow box */
+                for (int k = 0; k < 10; k++) {
+                    int y2 = gy + 1 + k;      /* row+1 .. row+10 */
+                    cfill(port, il + up_glyph[k][0], y2, up_glyph[k][1],
+                          FLAIR_PART_PIN_DARK);
+                    if (up_glyph[k][2] < 14) {
+                        cfill(port, il + up_glyph[k][2], y2, up_glyph[k][3],
+                              FLAIR_PART_PIN_DARK);
+                    }
+                }
+            }
+            if (sb_bot - sb_w >= sb_top) {
+                int il = sb_left + 1;
+                int dy = sb_bot - sb_w + 1;   /* first interior row of down-arrow box */
+                for (int k = 0; k < 10; k++) {
+                    /* mirror: row k of down = row (9-k) of up */
+                    int mk = 9 - k;
+                    int y2 = dy + k;
+                    cfill(port, il + up_glyph[mk][0], y2, up_glyph[mk][1],
+                          FLAIR_PART_PIN_DARK);
+                    if (up_glyph[mk][2] < 14) {
+                        cfill(port, il + up_glyph[mk][2], y2, up_glyph[mk][3],
+                              FLAIR_PART_PIN_DARK);
+                    }
+                }
+            }
+        }
+#endif /* CHROME_FID_MUT_SCROLL_FLAT */
     }
 
     /* 5. The window frame: 1 px black outer frame around the whole window.

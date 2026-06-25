@@ -8643,6 +8643,7 @@ TEST_CHROME_FID_MUT     := $(BUILD)/test_chrome_fidelity_mutant_phase
 TEST_CHROME_FID_MUT_TTL := $(BUILD)/test_chrome_fidelity_mutant_notitle
 TEST_CHROME_FID_MUT_SHA := $(BUILD)/test_chrome_fidelity_mutant_noshadow
 TEST_CHROME_FID_MUT_BOX := $(BUILD)/test_chrome_fidelity_mutant_boxgeom
+TEST_CHROME_FID_MUT_SBF := $(BUILD)/test_chrome_fidelity_mutant_scrollflat
 
 $(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
@@ -8669,14 +8670,22 @@ $(TEST_CHROME_FID_MUT_BOX): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_BOX_GEOM $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
+# CHROME_FID_MUT_SCROLL_FLAT (beads initech-jh7m, Rule 6): revert the scrollbar
+# to the OLD render -- BTNFACE track (wrong), all-black cframe edges (inner
+# separators black not gray), no arrow glyphs (empty boxes).
+# test-chrome-fidelity scrollbar legs (14)/(15)/(16) MUST go RED.
+$(TEST_CHROME_FID_MUT_SBF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_SCROLL_FLAT $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
 .PHONY: test-chrome-fidelity test-chrome-fidelity-mutant
 test-chrome-fidelity: $(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: System-7 window-chrome fidelity vs the INDEPENDENT ../system7-decomp golden (Law 2, NOT by-construction)\n'
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX)
-	@printf '>>> test-chrome-fidelity-mutant: confirming the phase + title + shadow + box-geom mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF)
+	@printf '>>> test-chrome-fidelity-mutant: confirming the phase + title + shadow + box-geom + scrollflat mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
 		exit 1; \
@@ -8700,6 +8709,12 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 		exit 1; \
 	else \
 		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_BOX_GEOM correctly RED -- the flat 13px no-bevel box is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_SBF) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_SCROLL_FLAT PASSED -- the scrollbar oracle legs are decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_SCROLL_FLAT correctly RED -- the flat/btnface/no-glyph scrollbar is caught)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------

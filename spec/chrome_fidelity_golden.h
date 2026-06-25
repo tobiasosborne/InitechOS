@@ -250,4 +250,101 @@
  * glyph ... the close box interior carries no glyph"). */
 #define FG_ZOOM_HAS_NESTED_GLYPH   1
 
+/* ===========================================================================
+ * VERTICAL SCROLLBAR (inactive, no thumb).
+ *
+ * Source: ../system7-decomp/specs/chrome/scrollbar.md (pixel-measured from
+ *   ../system7-decomp/goldens/captures/s7_about.png, right gutter of the
+ *   "About This Macintosh" window, x=494..509, y=159..217) +
+ *   refs/StandardWDEF_a.txt (scrollBarSize EQU 16 @73; WDEF gutter-divider
+ *   lines @1330-1338 + @1310-1318).
+ *
+ * GEOMETRY (scrollbar.md Geometry table).
+ *   Total band width: 16 px (scrollBarSize; x=494..509 in the golden).
+ *   Structure left-to-right: 1 px black gutter-DIVIDER (WDEF draws this
+ *   vertical line, @1332), 14 px interior (drawable track + arrows), 1 px
+ *   black window-FRAME line (shared with window-frame.md).
+ *   Up-arrow box: 16 px square (top edge BLACK, box face y=160..173, lower
+ *   separator GRAY #969696 at y=174).
+ *   Down-arrow box: symmetric at the bottom (upper separator GRAY #969696 at
+ *   y=202, box face y=203..216, bottom edge BLACK at y=217).
+ *   Page track: the stretch between the two separator lines (y=175..201 in
+ *   the golden; varies with window height).
+ *
+ * RENDERED COLORS (scrollbar.md "Rendered colors" table + Law-2 note).
+ *   All fills are SOLID (NO dither, NO #969696 sub-pixels in the track --
+ *   verified x=495..508, y=176..200 uniformly #F3F3F3 in the golden).
+ *
+ *   element                   | hex     | idx (8bpp) | FLAIR_PART
+ *   --------------------------+---------+------------+---------------------
+ *   outer box edges + divider | #000000 | 0          | FLAIR_PART_FRAME
+ *   inner box/track separators| #969696 | 8          | FLAIR_PART_PIN_DARK
+ *   arrow-box face + page track| #F3F3F3| 7          | FLAIR_PART_PIN_LIGHT
+ *   arrow-glyph outline       | #969696 | 8          | FLAIR_PART_PIN_DARK
+ *
+ * NOTE: the #F3F3F3/#969696 pair is "the same light/dark RGBs seen in the
+ * title-bar pinstripe" (scrollbar.md Rendered colors).  They are the
+ * PINSTRIPE shades (idx 7/8), NOT the lavender bevel roles (idx 2/4).
+ *
+ * ARROW GLYPH (scrollbar.md arrow-glyph shape section, inactive rendering).
+ *   Each arrow box (14 px wide interior) carries a hollow-outlined triangle-
+ *   on-stem glyph in #969696 (FLAIR_PART_PIN_DARK, idx 8) on a #F3F3F3
+ *   face.  The up-arrow apex is ~3 px from the box top; the down-arrow is
+ *   the vertical mirror.  The inactive bar dimmed arrows are gray outlines
+ *   (NOT solid black -- that is the ACTIVE/enabled state, golden-resolves).
+ *   Minimum PIN_DARK pixels per arrow box (interior, excluding outer edge):
+ *   the glyph outline spans roughly 10 rows x ~4 columns = ~14 pixels;
+ *   we assert >= 8 to be tolerant of exact anchor pixel shifts.
+ *
+ * INACTIVE BAR: no thumb (the "About This Macintosh" window does not
+ * overflow its content; the active-bar thumb + dithered track are a
+ * separate golden (s7_scrollbar_active.png) and are deferred to the Control
+ * Manager CDEF implementation (not the WDEF chrome; golden-resolves for the
+ * active state).
+ *
+ * SEPARATOR TOPOLOGY (the key fidelity bug).
+ *   The two rows between the arrow boxes and the track (y=174 and y=202 in
+ *   the golden) are SOLID #969696 (PIN_DARK, idx 8) -- NOT black (FRAME,
+ *   idx 0).  The outer top (y=159) and bottom (y=217) box-edge rows ARE
+ *   solid black (FRAME, idx 0).  FLAIR previously drew all four edges of
+ *   each arrow box with cframe(..., FLAIR_PART_FRAME) -- making both the
+ *   outer edges AND the inner separator the same black, which is WRONG.
+ *
+ * RECOLOR-INVARIANCE.
+ *   All graded by INDEX CLASS (idx 0/7/8), not by RGB.  The gray/near-white
+ *   pair is invariant under the Initech teal recolor (which only touches the
+ *   lavender bevel roles, not the pinstripe roles; test-color-canon's job).
+ * ========================================================================= */
+
+/* Outer edge ink (top + bottom outer rows of each arrow box = window-frame
+ * black = CIDX_BLACK).  Ref: scrollbar.md Geometry + Rendered colors
+ * (x=494,x=509 col y=159..217; rows y=159 & y=217 = #000000). */
+#define FG_SB_OUTER_EDGE_IDX    0   /* FLAIR_PART_FRAME -> CIDX_BLACK (idx 0) */
+
+/* Inner separator ink (the two rows between an arrow box and the page track).
+ * Ref: scrollbar.md Rendered colors (rows y=174 & y=202 = solid #969696 =
+ * NOT black; "inactive-dimmed separator lines"). */
+#define FG_SB_SEPARATOR_IDX     8   /* FLAIR_PART_PIN_DARK -> CIDX_PIN_DARK (idx 8) */
+
+/* Arrow-box face + page-track fill (SOLID, no dither).
+ * Ref: scrollbar.md Rendered colors + Law-2 note ("the empty page track and
+ * arrow-box faces are SOLID #F3F3F3; no dither"). */
+#define FG_SB_FACE_IDX          7   /* FLAIR_PART_PIN_LIGHT -> CIDX_PIN_LIGHT (idx 7) */
+
+/* Arrow glyph ink (hollow triangle-on-stem outline, INACTIVE/dimmed = gray).
+ * Same shade as the inner separator.
+ * Ref: scrollbar.md "arrow glyph (up/down triangle) #969696 (150) outline". */
+#define FG_SB_GLYPH_IDX         8   /* FLAIR_PART_PIN_DARK -> CIDX_PIN_DARK (idx 8) */
+
+/* Minimum PIN_DARK glyph pixels per arrow box (the inactive outlined triangle
+ * spans ~10 rows x ~4 cols; we require >=8 to tolerate pixel-exact anchor
+ * shifts while still catching a box with NO glyph at all).
+ * Ref: scrollbar.md arrow-glyph shape ASCII diagram. */
+#define FG_SB_GLYPH_MIN_PX      8
+
+/* Inactive bar carries NO thumb.
+ * Ref: scrollbar.md Geometry ("INACTIVE (no-thumb)"); active thumb is
+ * golden-resolves (s7_scrollbar_active.png). */
+#define FG_SB_INACTIVE_NO_THUMB 1
+
 #endif /* INITECH_SPEC_CHROME_FIDELITY_GOLDEN_H */

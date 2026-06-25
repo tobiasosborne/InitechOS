@@ -547,6 +547,199 @@ int main(void)
               "glyph @1695, 'the close box interior carries no glyph'");
     }
 
+    /* ====================================================================
+     * VERTICAL SCROLLBAR (beads initech-jh7m).
+     *
+     * Ground truth: ../system7-decomp/specs/chrome/scrollbar.md (pixel-measured
+     *   from goldens/captures/s7_about.png, right gutter x=494..509 y=159..217) +
+     *   refs/StandardWDEF_a.txt (scrollBarSize EQU 16 @73; gutter divider @1332).
+     *
+     * The window (40,30)-(360,300) in half-open coords:
+     *   outer right frame at x=359; inner-right edge: x = WIN_RIGHT - fr = 359.
+     *   scrollbar occupies [sb_left, inner_right) where
+     *     inner_right = WIN_RIGHT - fr = 359
+     *     sb_left     = inner_right - FLAIR_CHROME_SCROLLBAR_W = 359-16 = 343
+     *   (The left gutter-divider line is at sb_left=343.)
+     *
+     *   content_top = WIN_TOP + fr + FLAIR_CHROME_TITLEBAR_H = 30+1+19 = 50
+     *   content_bot = WIN_BOTTOM - fr = 299
+     *
+     *   Up-arrow box: rows [content_top, content_top + sb_w) = [50, 66)
+     *     outer top edge  at y = content_top     = 50  (BLACK, FG_SB_OUTER_EDGE_IDX=0)
+     *     inner separator at y = content_top+sb_w-1 = 65 (GRAY, FG_SB_SEPARATOR_IDX=8)
+     *     face interior   at y in (50, 65), x in (343, 359)
+     *
+     *   Down-arrow box: rows [content_bot - sb_w, content_bot) = [283, 299)
+     *     inner separator at y = content_bot-sb_w = 283 (GRAY, FG_SB_SEPARATOR_IDX=8)
+     *     face interior   at y in (283, 299), x in (343, 359)
+     *     outer bottom edge at y = content_bot-1 = 298 (BLACK, FG_SB_OUTER_EDGE_IDX=0)
+     *
+     *   Track: rows [66, 283), solid PIN_LIGHT (FG_SB_FACE_IDX=7).
+     *
+     * CURRENT FIDELITY BUGS (before this fix):
+     *   (a) track filled with FLAIR_PART_BTNFACE (#C0C0C0, idx 6) -- should be PIN_LIGHT (idx 7).
+     *   (b) arrow boxes framed with cframe(FLAIR_PART_FRAME): ALL FOUR edges black --
+     *       the inner separator should be PIN_DARK (idx 8), not FRAME (idx 0).
+     *   (c) No arrow glyphs -- the boxes are empty, so zero PIN_DARK glyph pixels.
+     * ==================================================================== */
+    {
+        const int sb_w        = FLAIR_CHROME_SCROLLBAR_W;  /* 16 */
+        const int fr2         = FLAIR_CHROME_FRAME;         /* 1; POSITIONING only */
+        const int inner_right = WIN_RIGHT - fr2;            /* 359 */
+        const int sb_left     = inner_right - sb_w;         /* 343 */
+        const int content_top = WIN_TOP + fr2 + FLAIR_CHROME_TITLEBAR_H; /* 50 */
+        const int content_bot = WIN_BOTTOM - fr2;           /* 299 */
+
+        /* Arrow-box row coordinates (scrollbar-width-square boxes).
+         * Up box:   rows [content_top,             content_top + sb_w)  = [50, 66)
+         * Down box: rows [content_bot - sb_w,      content_bot)         = [283, 299) */
+        const int up_box_top    = content_top;           /* 50  */
+        const int up_box_bot    = content_top + sb_w;   /* 66  */
+        const int dn_box_top    = content_bot - sb_w;   /* 283 */
+        const int dn_box_bot    = content_bot;           /* 299 */
+
+        /* The interior columns of the scrollbar (between divider and frame).
+         * Gutter divider is at sb_left (x=343); interior: x in (343, 359).
+         * For glyph sampling we scan x in [sb_left+1, inner_right). */
+        const int int_left  = sb_left + 1;              /* 344 */
+        const int int_right = inner_right;              /* 359 */
+
+        /* (13) OUTER BOX EDGES -- top edge of the up-arrow box and bottom edge of
+         * the down-arrow box must be FRAME ink (idx 0 = black, outer black edges).
+         * Ref: scrollbar.md Geometry "y=159 & y=217 all #000000" (row y=159 maps to
+         * our content_top; y=217 maps to content_bot-1).
+         * OLD render: the cframe() draws all 4 edges black -> this reads 0 already.
+         * After the fix: outer edges still 0 (correct). This leg stays GREEN in both
+         * states so it is the POSITIVE confirmation; the decisive RED is leg (14). */
+        {
+            /* Sample a mid-column on the top outer edge of the up-arrow box. */
+            const int mid_x_sb = (int_left + int_right) / 2;    /* ~351 */
+            uint32_t up_top_px = render_pixel_index(&ctx,
+                                     (uint32_t)mid_x_sb, (uint32_t)up_box_top);
+            uint32_t dn_bot_px = render_pixel_index(&ctx,
+                                     (uint32_t)mid_x_sb, (uint32_t)(dn_box_bot - 1));
+            printf("test-chrome-fidelity: sb up-arrow outer-top  y=%d x=%d -> idx=%u "
+                   "(expect FG_SB_OUTER_EDGE_IDX=%d black)\n",
+                   up_box_top, mid_x_sb, up_top_px, FG_SB_OUTER_EDGE_IDX);
+            printf("test-chrome-fidelity: sb dn-arrow outer-bot  y=%d x=%d -> idx=%u "
+                   "(expect FG_SB_OUTER_EDGE_IDX=%d black)\n",
+                   dn_box_bot - 1, mid_x_sb, dn_bot_px, FG_SB_OUTER_EDGE_IDX);
+            CHECK((uint32_t)FG_SB_OUTER_EDGE_IDX == up_top_px,
+                  "leg (13a): scrollbar up-arrow outer top edge must be FRAME ink "
+                  "(idx 0 = black); scrollbar.md Geometry y=159 = #000000; "
+                  "refs/StandardWDEF_a.txt @1330-1338 gutter divider");
+            CHECK((uint32_t)FG_SB_OUTER_EDGE_IDX == dn_bot_px,
+                  "leg (13b): scrollbar down-arrow outer bottom edge must be FRAME ink "
+                  "(idx 0 = black); scrollbar.md Geometry y=217 = #000000");
+        }
+
+        /* (14) INNER SEPARATORS -- the rows between each arrow box and the track
+         * must be PIN_DARK (idx 8, #969696), NOT FRAME (idx 0, black).
+         * Ref: scrollbar.md Rendered colors "inner box/track separators #969696 (150)
+         * SOLID -- y=174 & y=202 all #969696 ... the inactive-dimmed separator lines".
+         * OLD render: cframe draws all 4 box edges black -> inner separator = idx 0
+         * -> this leg is DEFINITIVELY RED before the fix (expected 8, got 0). */
+        {
+            /* The up-arrow box interior separator: the row BELOW the up-arrow box,
+             * i.e. y = up_box_bot - 1 (the last row of the box, which in the golden
+             * is the lower separator at y=174). */
+            const int mid_x_sb = (int_left + int_right) / 2;
+            uint32_t up_sep_px = render_pixel_index(&ctx,
+                                     (uint32_t)mid_x_sb, (uint32_t)(up_box_bot - 1));
+            /* The down-arrow box interior separator: the row ABOVE the down-arrow box,
+             * i.e. y = dn_box_top (the first row of the box, which is the upper
+             * separator at y=202 in the golden). */
+            uint32_t dn_sep_px = render_pixel_index(&ctx,
+                                     (uint32_t)mid_x_sb, (uint32_t)dn_box_top);
+            printf("test-chrome-fidelity: sb up-arrow inner-sep  y=%d x=%d -> idx=%u "
+                   "(expect FG_SB_SEPARATOR_IDX=%d gray; old cframe gives 0=black)\n",
+                   up_box_bot - 1, mid_x_sb, up_sep_px, FG_SB_SEPARATOR_IDX);
+            printf("test-chrome-fidelity: sb dn-arrow inner-sep  y=%d x=%d -> idx=%u "
+                   "(expect FG_SB_SEPARATOR_IDX=%d gray; old cframe gives 0=black)\n",
+                   dn_box_top, mid_x_sb, dn_sep_px, FG_SB_SEPARATOR_IDX);
+            CHECK((uint32_t)FG_SB_SEPARATOR_IDX == up_sep_px,
+                  "leg (14a): scrollbar up-arrow INNER separator (row between box and "
+                  "track) must be PIN_DARK (idx 8 = #969696 gray), NOT FRAME black; "
+                  "scrollbar.md Rendered colors row y=174 = solid #969696; "
+                  "the FLAIR cframe() all-black-edges bug makes this RED before fix");
+            CHECK((uint32_t)FG_SB_SEPARATOR_IDX == dn_sep_px,
+                  "leg (14b): scrollbar down-arrow INNER separator (row between track "
+                  "and box) must be PIN_DARK (idx 8 = #969696 gray), NOT FRAME black; "
+                  "scrollbar.md Rendered colors row y=202 = solid #969696");
+        }
+
+        /* (15) ARROW-BOX FACE + TRACK must be PIN_LIGHT (idx 7, #F3F3F3 solid).
+         * Ref: scrollbar.md Rendered colors "arrow-box face + page track fill #F3F3F3
+         * (243) SOLID ... verified x=495..508, y=176..200 uniformly #F3F3F3; no dither".
+         * OLD render: track filled with FLAIR_PART_BTNFACE (#C0C0C0, idx 6) -> RED.
+         * After fix: PIN_LIGHT (idx 7) -> GREEN. */
+        {
+            /* Sample a mid-point in the page track (well between the two boxes). */
+            const int mid_x_sb = (int_left + int_right) / 2;
+            const int track_y  = (up_box_bot + dn_box_top) / 2;   /* mid-track */
+            uint32_t track_px  = render_pixel_index(&ctx,
+                                     (uint32_t)mid_x_sb, (uint32_t)track_y);
+            /* Sample the face of the up-arrow box interior (above the separator). */
+            const int up_face_y = (up_box_top + up_box_bot) / 2;  /* ~58 */
+            uint32_t up_face_px = render_pixel_index(&ctx,
+                                     (uint32_t)mid_x_sb, (uint32_t)up_face_y);
+            printf("test-chrome-fidelity: sb track mid-point     y=%d x=%d -> idx=%u "
+                   "(expect FG_SB_FACE_IDX=%d PIN_LIGHT; old BTNFACE was idx 6)\n",
+                   track_y, mid_x_sb, track_px, FG_SB_FACE_IDX);
+            printf("test-chrome-fidelity: sb up-arrow face mid   y=%d x=%d -> idx=%u "
+                   "(expect FG_SB_FACE_IDX=%d PIN_LIGHT; old BTNFACE was idx 6)\n",
+                   up_face_y, mid_x_sb, up_face_px, FG_SB_FACE_IDX);
+            CHECK((uint32_t)FG_SB_FACE_IDX == track_px,
+                  "leg (15a): scrollbar page track must be PIN_LIGHT (idx 7 = #F3F3F3), "
+                  "NOT BTNFACE (idx 6 = #C0C0C0 -- the old wrong fill); scrollbar.md "
+                  "Rendered colors 'arrow-box face + page track fill #F3F3F3 SOLID'");
+            CHECK((uint32_t)FG_SB_FACE_IDX == up_face_px,
+                  "leg (15b): scrollbar up-arrow box face must be PIN_LIGHT (idx 7), "
+                  "NOT BTNFACE; scrollbar.md 'arrow-box face ... #F3F3F3 SOLID'");
+        }
+
+        /* (16) ARROW GLYPHS -- each arrow box must carry >=FG_SB_GLYPH_MIN_PX (8)
+         * PIN_DARK (idx 8) pixels (the hollow triangle-on-stem glyph outline).
+         * Ref: scrollbar.md "arrow glyph (up/down triangle) #969696 (150) outline on
+         * #F3F3F3" + the ASCII shape diagram (hollow triangle, ~14 glyph outline px).
+         * OLD render: no glyphs drawn -> zero PIN_DARK pixels in the box -> RED.
+         * After fix: >= 8 PIN_DARK glyph outline pixels -> GREEN. */
+        {
+            /* Count PIN_DARK pixels in the up-arrow box interior (rows/cols inside
+             * the outer edge; we exclude the outer top edge row and the inner
+             * separator row to count only glyph pixels, not frame pixels). */
+            int up_glyph_px = 0;
+            for (int y = up_box_top + 1; y < up_box_bot - 1; y++) {
+                for (int x = int_left; x < int_right; x++) {
+                    uint32_t idx2 = render_pixel_index(&ctx, (uint32_t)x, (uint32_t)y);
+                    if (idx2 == (uint32_t)FG_SB_GLYPH_IDX) up_glyph_px++;
+                }
+            }
+            int dn_glyph_px = 0;
+            for (int y = dn_box_top + 1; y < dn_box_bot - 1; y++) {
+                for (int x = int_left; x < int_right; x++) {
+                    uint32_t idx2 = render_pixel_index(&ctx, (uint32_t)x, (uint32_t)y);
+                    if (idx2 == (uint32_t)FG_SB_GLYPH_IDX) dn_glyph_px++;
+                }
+            }
+            printf("test-chrome-fidelity: sb up-arrow glyph PIN_DARK(idx%d) px=%d "
+                   "(expect >=%d; 0 = no glyph)\n",
+                   FG_SB_GLYPH_IDX, up_glyph_px, FG_SB_GLYPH_MIN_PX);
+            printf("test-chrome-fidelity: sb dn-arrow glyph PIN_DARK(idx%d) px=%d "
+                   "(expect >=%d; 0 = no glyph)\n",
+                   FG_SB_GLYPH_IDX, dn_glyph_px, FG_SB_GLYPH_MIN_PX);
+            CHECK(up_glyph_px >= FG_SB_GLYPH_MIN_PX,
+                  "leg (16a): up-arrow box must carry >=8 PIN_DARK (idx 8 = #969696) "
+                  "glyph-outline pixels (the hollow triangle-on-stem; scrollbar.md "
+                  "arrow-glyph shape ASCII diagram); zero means no glyph was drawn "
+                  "-- the old FLAIR empty-box bug");
+            CHECK(dn_glyph_px >= FG_SB_GLYPH_MIN_PX,
+                  "leg (16b): down-arrow box must carry >=8 PIN_DARK (idx 8) "
+                  "glyph-outline pixels; zero means no glyph drawn -- old FLAIR bug; "
+                  "scrollbar.md down-arrow = vertical mirror of the up-arrow glyph");
+        }
+    }
+
     render_ctx_free(&ctx);
     return TEST_SUMMARY("test-chrome-fidelity");
 }
