@@ -218,47 +218,112 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
 
     const int fr = FLAIR_CHROME_FRAME;           /* 1 px frame                  */
 
-    /* The title-bar band sits just inside the top frame line. */
+    /* The title-bar INTERIOR sits just inside the top frame line (drawn by the
+     * outer cframe in section 5 at y=top).  title_top is the first INTERIOR row
+     * (the top bevel highlight), NOT the top frame line.
+     *
+     * BAND DECOMPOSITION (../system7-decomp/specs/chrome/window-frame.md Sec 2a,
+     * the x=400 vertical scan, top frame at y=164):
+     *   y=164 top frame (black)                       -> y=top      (outer cframe)
+     *   y=165 bevel-hi  #DADAFF (wLTinge0)             -> y=title_top      (BEVEL_LIGHT)
+     *   y=166..180 = 15 pinstripe rows                 -> [title_top+1, +16)
+     *   y=181 bevel-lo  #B3B3DA (wLTinge4)             -> y=title_top+16   (BEVEL_SHADOW)
+     *   y=182 SHARED frame line (black; bottom of the title FrameRect AND top of
+     *         the content-body FrameRect)              -> y=title_top+17   (FRAME)
+     * So the 19-px title band (FLAIR_CHROME_TITLEBAR_H) = top-frame(1) +
+     * bevel-hi(1) + 15 stripe + bevel-lo(1) + shared-frame(1) = 19, and the white
+     * content begins one row below the shared line at content_top = top+TITLEBAR_H
+     * (beads initech-92li; window-frame.md Sec 2a/2b + pinstripe.md y=165..181). */
+    const int bevel_rows  = FLAIR_CHROME_TITLE_BEVEL_ROWS;   /* 1 (each edge)    */
 #if defined(CHROME_MUTATE_TITLEBAR_H)
     /* MUTANT: title bar 1 px too tall (FO-2/AM-3). test-chrome must catch this:
-     * the pinstripe band would run one scanline past the locked 19 px. */
-    const int title_h = FLAIR_CHROME_TITLEBAR_H + 1;
+     * the stripe band runs one scanline past the locked 15 px, pushing the shared
+     * frame line + the content body one row past the locked 19 px band. */
+    const int stripe_rows = FLAIR_CHROME_TITLE_STRIPE_ROWS + 1;
 #else
-    const int title_h = FLAIR_CHROME_TITLEBAR_H; /* 19 px (WDEF minTitleH)      */
+    const int stripe_rows = FLAIR_CHROME_TITLE_STRIPE_ROWS;  /* 15 (golden)      */
 #endif
 
-    int title_top = top + fr;
-    int title_bot = title_top + title_h;         /* half-open                   */
+    int title_top   = top + fr;                  /* first interior row (bevel-hi)*/
+    int stripe_top  = title_top + bevel_rows;    /* first of the 15 stripe rows  */
+    int stripe_bot  = stripe_top + stripe_rows;  /* half-open; bevel-lo row      */
+    int shared_line = stripe_bot + bevel_rows;   /* the shared bottom frame line */
 
-    /* 1. Pinstripe title bar: the System-7 "racing stripe" -- a period-2
-     * horizontal stripe (HilitePattern $FF00) PHASE-LOCKED to the window structure
-     * so a LIGHT row lands at BOTH title-bar edges, yielding the doubled-LIGHT row
-     * pairs the golden shows (../system7-decomp/specs/chrome/pinstripe.md, golden
-     * s7_doc_window.png column x=450: interior y=166/167 both light .. y=179/180
-     * both light). A free-running period-2 fill anchored to the title top (L,D,L,D
-     * ...) is WRONG -- it has NO doubled-light pairs, yet still satisfies a naive
-     * "period-2 alternation" check; graded against the INDEPENDENT decomp golden by
-     * test-chrome-fidelity (beads initech-hmll, Law 2). Shade indices are the WDEF
-     * wTitleBarLight (7) / wTitleBarDark (8). Spans the inner width (inside the
-     * left/right frame lines). (Bevel edge rows + the exact 15-row interior
-     * decomposition are a follow-up increment; this lands the PHASE only.) */
-    for (int y = title_top; y < title_bot; y++) {
-        int k = y - title_top;
+    /* 1a. Top bevel HIGHLIGHT row (wLTinge0 #DADAFF -> the WL-0053 lavender->teal
+     * recolor canon TEAL, FLAIR_PART_BEVEL_LIGHT, 8bpp idx 2 -- the SAME bevel-hi
+     * role the close/zoom box uses, beads initech-ts3t; window-frame.md Sec 2b
+     * golden y=165 #DADAFF).  Spans the inner width (inside the left/right frame
+     * lines).  C-8 seam: a PART, never a color. */
+#if defined(CHROME_FID_MUT_NO_BEVEL)
+    /* MUTANT (Rule 6; beads initech-92li): SKIP the two bevel rows -- revert to the
+     * old all-stripe interior (the full [title_top, shared_line) band -- bevel-hi +
+     * 15 stripe + bevel-lo, = 17 rows -- ALL filled as pinstripe, no BEVEL_LIGHT /
+     * BEVEL_SHADOW edge rows).  The contiguous L/D stripe run is then 17, NOT the
+     * golden 15, AND there is no bevel-hi (idx 2) above / bevel-lo (idx 4) below it,
+     * so test-chrome-fidelity's NEW bevel + 15-row leg MUST go RED. */
+    {
+        int interior_rows = stripe_rows + 2 * bevel_rows;   /* 17 */
+        for (int y = title_top; y < shared_line; y++) {
+            int k = y - title_top;               /* 0 .. interior_rows-1         */
+            int light = (k <= 1) || (k >= interior_rows - 2) ||
+                        ((k % FLAIR_CHROME_PINSTRIPE_PERIOD) == 1);
+            int shade = light ? FLAIR_PART_PIN_LIGHT : FLAIR_PART_PIN_DARK;
+            cfill(port, left + fr, y, w - 2 * fr, shade);
+        }
+    }
+#else
+    for (int by = title_top; by < stripe_top; by++) {
+        cfill(port, left + fr, by, w - 2 * fr, FLAIR_PART_BEVEL_LIGHT);
+    }
+
+    /* 1b. The 15-row phase-locked pinstripe (the System-7 "racing stripe") --
+     * the period-2 horizontal stripe (HilitePattern $FF00) PHASE-LOCKED to the
+     * window structure so a LIGHT row lands at BOTH stripe-band edges, yielding
+     * the doubled-LIGHT row pairs the golden shows
+     * (../system7-decomp/specs/chrome/pinstripe.md, golden s7_doc_window.png
+     * column x=450: interior y=166/167 both light .. y=179/180 both light;
+     * the exactly-15-row interior = FG_TITLE_INTERIOR_PATTERN "LLDLDLDLDLDLDLL").
+     * A free-running period-2 fill anchored to the band top (L,D,L,D...) is WRONG
+     * -- it has NO doubled-light pairs, yet still satisfies a naive "period-2
+     * alternation" check; graded against the INDEPENDENT decomp golden by
+     * test-chrome-fidelity (beads initech-hmll/92li, Law 2). The stripe run is now
+     * bounded ABOVE by the bevel-hi row and BELOW by the bevel-lo row, so the
+     * contiguous L/D run is EXACTLY 15.  Shade indices are the WDEF wTitleBarLight
+     * (7) / wTitleBarDark (8). */
+    for (int y = stripe_top; y < stripe_bot; y++) {
+        int j = y - stripe_top;                  /* 0 .. stripe_rows-1           */
 #if defined(CHROME_FID_MUT_PHASE)
         /* MUTANT (Rule 6; beads initech-hmll): revert to the free-running period-2
-         * fill anchored to the title top -- no phase lock, no doubled-light pairs.
+         * fill anchored to the stripe top -- no phase lock, no doubled-light pairs.
          * test-chrome-fidelity MUST go RED. */
-        int light = ((k % FLAIR_CHROME_PINSTRIPE_PERIOD) == 0);
+        int light = ((j % FLAIR_CHROME_PINSTRIPE_PERIOD) == 0);
 #else
-        /* Phase lock: LIGHT at both band edges (the top pair k<=1 and the bottom
-         * pair k>=title_h-2) and on the odd interior rows; DARK on the even
-         * interior rows -- reproducing the golden's doubled-light-pairs signature. */
-        int light = (k <= 1) || (k >= title_h - 2) ||
-                    ((k % FLAIR_CHROME_PINSTRIPE_PERIOD) == 1);
+        /* Phase lock: LIGHT at both stripe-band edges (the top pair j<=1 and the
+         * bottom pair j>=stripe_rows-2) and on the odd interior rows; DARK on the
+         * even interior rows -- reproducing the golden's doubled-light-pairs
+         * signature "LLDLDLDLDLDLDLL" over the exactly-15-row run. */
+        int light = (j <= 1) || (j >= stripe_rows - 2) ||
+                    ((j % FLAIR_CHROME_PINSTRIPE_PERIOD) == 1);
 #endif
         int shade = light ? FLAIR_PART_PIN_LIGHT : FLAIR_PART_PIN_DARK;
         cfill(port, left + fr, y, w - 2 * fr, shade);
     }
+
+    /* 1c. Bottom bevel SHADOW row (wLTinge4 #B3B3DA -> the canon teal-dark
+     * recolor, FLAIR_PART_BEVEL_SHADOW, 8bpp idx 4 -- the SAME bevel-lo role the
+     * close/zoom box dark outline uses; window-frame.md Sec 2b golden y=181
+     * #B3B3DA). */
+    for (int by = stripe_bot; by < shared_line; by++) {
+        cfill(port, left + fr, by, w - 2 * fr, FLAIR_PART_BEVEL_SHADOW);
+    }
+#endif /* CHROME_FID_MUT_NO_BEVEL */
+
+    /* 1d. The SHARED bottom frame line (black): the bottom edge of the title-bar
+     * FrameRect AND the top edge of the content-body FrameRect (window-frame.md
+     * Sec 2a golden y=182 #000000 "the shared line").  Spans the inner width;
+     * the outer left/right frame columns are drawn by the outer cframe (section
+     * 5).  C-8 seam (FLAIR_PART_FRAME = wFrameColor = black). */
+    cfill(port, left + fr, shared_line, w - 2 * fr, FLAIR_PART_FRAME);
 
     /* 2. Close box (top-left) and zoom box (top-right): each a double-beveled
      * 11x11 gadget (NOT a flat 1px frame, NOT 13x13).  Geometry from
@@ -330,9 +395,13 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
         if (tx < left + box_clear) {
             tx = left + box_clear;
         }
-        int ty = title_top + (title_h - cell_h) / 2;          /* vertical center   */
-        if (ty < title_top) {
-            ty = title_top;
+        /* Center the title in the 15-row STRIPE band (not the whole title band):
+         * the knockout panel is drawn with bg = PIN_LIGHT, so the glyph cells must
+         * land on the pinstripe rows -- NOT over the bevel-hi/bevel-lo or the shared
+         * frame line.  Ref: title-bar.md Sec 3; beads initech-92li recomposition. */
+        int ty = stripe_top + (stripe_rows - cell_h) / 2;     /* vertical center   */
+        if (ty < stripe_top) {
+            ty = stripe_top;
         }
         uint32_t ink   = flair_look_pixel(port, FLAIR_PART_TEXT);      /* seam, black */
         uint32_t knock = flair_look_pixel(port, FLAIR_PART_PIN_LIGHT); /* seam, light */
@@ -343,8 +412,18 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
     /* 3. The content area: white body below the title bar, inside the frame and
      * to the left of the scrollbar. Drawn before the scrollbar so the scrollbar
      * sits on top of (overlaps) the right content edge by 1 px frame (Toolbox
-     * 15-vs-16; gui-ground-truth.md Sec 3.4). */
-    int content_top = title_bot;                 /* below the title bar         */
+     * 15-vs-16; gui-ground-truth.md Sec 3.4).
+     *
+     * The white body begins ONE row below the shared frame line (window-frame.md
+     * Sec 2a: the shared black line at golden y=182 is the content-body FrameRect
+     * top; the white content begins at y=183 = content_top).  In the canonical
+     * (non-mutant) build content_top = top + FLAIR_CHROME_TITLEBAR_H (the 19-px
+     * title band -- top-frame + interior + shared-frame -- precedes the body).
+     * The recomposition shifted content_top UP by 1 vs the old all-stripe band
+     * (old content_top = title_top + TITLEBAR_H = top + 1 + 19; new = top + 19),
+     * because the golden's 19-row band is measured INCLUSIVE of both frame lines.
+     * beads initech-92li. */
+    int content_top = shared_line + fr;          /* one row below the shared line*/
     int content_bot = bottom - fr;               /* above the bottom frame      */
     int content_left = left + fr;
     int content_right = right - fr;

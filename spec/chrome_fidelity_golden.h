@@ -97,6 +97,58 @@
 #define FG_PHASE_DOUBLED_LIGHT_AT_EDGES  1
 
 /* ===========================================================================
+ * TITLE-BAR BEVEL ROWS + EXACTLY-15-ROW INTERIOR (beads initech-92li).
+ *
+ * Source: ../system7-decomp/specs/chrome/window-frame.md Sec 2a (the x=400
+ *   vertical scan, top frame at y=164) + Sec 2b (the bevel "groove") +
+ *   pinstripe.md Geometry ("title interior height 15 px y=166..180; bevel rows 1
+ *   px top + 1 px bottom") + refs/StandardWDEF_a.txt L709-744 (the wLTinge0 top/
+ *   left highlight _Line and wLTinge4 bottom/right shadow _Line, drawn 1px inside
+ *   the title FrameRect after _InsetRect OneOne, only when wHilited).
+ *
+ * THE MECHANISM (window-frame.md Sec 2a, x=400 vertical scan):
+ *     y=164  #000000  top window frame (black)
+ *     y=165  #DADAFF  bevel-hi highlight (wLTinge0)      -- NOT a stripe
+ *     y=166..180       15 pinstripe rows (FG_TITLE_INTERIOR_PATTERN)
+ *     y=181  #B3B3DA  bevel-lo shadow (wLTinge4)         -- NOT a stripe
+ *     y=182  #000000  the SHARED frame line (bottom of the title FrameRect AND
+ *                     top of the content-body FrameRect)
+ *   So the pinstripe run is bounded ABOVE by the bevel-hi row and BELOW by the
+ *   bevel-lo row, and the contiguous LIGHT/DARK run is EXACTLY 15.
+ *
+ * THE TELL THIS CATCHES. FLAIR previously drew 19 ALL-stripe rows with NO bevel
+ * rows (the contiguous L/D run was the full band, > 15, with no distinct bevel
+ * row-class bounding it).  The measurable, recolor-invariant tells: (a) the
+ * contiguous stripe run is EXACTLY 15 rows, (b) the row immediately ABOVE it is
+ * the bevel-hi role (idx 2), and (c) the row immediately BELOW it is the bevel-lo
+ * role (idx 4) -- a DISTINCT 3rd/4th row-class, neither L (idx 7) nor D (idx 8).
+ *
+ * RECOLOR-INVARIANCE: graded by INDEX class only.  bevel-hi #DADAFF (wLTinge0) ->
+ *   FLAIR_PART_BEVEL_LIGHT canon TEAL -> 8bpp idx 2 (the SAME WL-0053 lavender->
+ *   teal recolor the close/zoom box bevel uses, beads initech-ts3t); bevel-lo
+ *   #B3B3DA (wLTinge4) -> FLAIR_PART_BEVEL_SHADOW canon teal-dark -> 8bpp idx 4.
+ *   The exact #DADAFF/#B3B3DA -> teal canon values are test-color-canon's job,
+ *   OUT OF SCOPE here.  These are the same idx 2 / idx 4 classes FG_BOX_BEVEL_IDX
+ *   / FG_BOX_DARK_IDX already pin for the box gadget.
+ * ========================================================================= */
+
+/* The bevel HIGHLIGHT row (wLTinge0 #DADAFF) classifies as FLAIR_PART_BEVEL_LIGHT
+ * -> 8bpp idx 2.  Ref: window-frame.md Sec 2b golden y=165 #DADAFF; the WL-0053
+ * lavender->teal canon (== FG_BOX_BEVEL_IDX). */
+#define FG_TITLE_BEVEL_HI_IDX   2   /* bevel-hi -> BEVEL_LIGHT canon teal, 8bpp idx 2 */
+
+/* The bevel SHADOW row (wLTinge4 #B3B3DA) classifies as FLAIR_PART_BEVEL_SHADOW
+ * -> 8bpp idx 4.  Ref: window-frame.md Sec 2b golden y=181 #B3B3DA; the canon
+ * teal-dark recolor (== FG_BOX_DARK_IDX). */
+#define FG_TITLE_BEVEL_LO_IDX   4   /* bevel-lo -> BEVEL_SHADOW canon teal-dark, idx 4 */
+
+/* The SHARED frame line below the bevel-lo (golden y=182 #000000) classifies as
+ * FLAIR_PART_FRAME -> 8bpp idx 0 (== FG_SHADOW_INK_IDX).  Ref: window-frame.md
+ * Sec 2a "the shared line: bottom of the title-bar FrameRect AND top of the
+ * content-body FrameRect". */
+#define FG_TITLE_SHARED_FRAME_IDX  0   /* shared frame line -> CIDX_BLACK (idx 0) */
+
+/* ===========================================================================
  * WINDOW DROP SHADOW + BODY SINGLE-LINE FRAME.
  *
  * Source: ../system7-decomp/specs/chrome/window-frame.md Sec 1 (native-px

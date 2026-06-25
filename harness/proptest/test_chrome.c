@@ -101,8 +101,16 @@ static uint32_t shade_index(const render_ctx_t *ctx, int x, int y)
 static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
 {
     const int fr = FLAIR_CHROME_FRAME;
-    const int title_top = WIN_TOP + fr;
-    const int title_bot = title_top + FLAIR_CHROME_TITLEBAR_H;   /* half-open  */
+    /* The 19-px title BAND is now decomposed (beads initech-92li; window-frame.md
+     * Sec 2a): top-frame(1, y=WIN_TOP) + bevel-hi(1) + 15 pinstripe + bevel-lo(1) +
+     * shared-frame(1).  title_top is the first INTERIOR row (the bevel-hi), the
+     * pinstripe runs [stripe_top, stripe_bot), and the white content body begins
+     * one row below the shared frame line at content_top = WIN_TOP + TITLEBAR_H. */
+    const int title_top  = WIN_TOP + fr;                              /* bevel-hi */
+    const int stripe_top = title_top + FLAIR_CHROME_TITLE_BEVEL_ROWS; /* 15-stripe top */
+    const int stripe_bot = stripe_top + FLAIR_CHROME_TITLE_STRIPE_ROWS; /* half-open */
+    /* content_top: white body start (one row below the shared frame line). */
+    const int title_content_top = WIN_TOP + FLAIR_CHROME_TITLEBAR_H;
     /* A column well inside the title bar, clear of the close/zoom boxes (those
      * are inset ~fr+3 .. +3+13 from each corner). The window is 320 px wide; the
      * horizontal center is comfortably between the two boxes. */
@@ -133,35 +141,52 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
         CHECK(is_painted(ctx, WIN_LEFT + i, edge_y), msg);
     }
 
-    /* --- 2. The title-bar band occupies rows [top+fr, top+fr+TITLEBAR_H) ---- */
-    /* Top row of the title bar is painted. */
-    snprintf(msg, sizeof msg,
-             "[%s] title-bar top row (y=%d) must be painted", bpp_tag, title_top);
-    CHECK(is_painted(ctx, mid_x, title_top), msg);
+    /* A clear pinstripe column: right of the close box and LEFT of the centered
+     * title, so the title knockout/glyphs do not interrupt the stripe run when we
+     * scan the 15-row pinstripe band (beads initech-92li recomposition). */
+    const int pin_x = WIN_LEFT + 20;
 
-    /* Bottom row of the title bar (last band scanline) is painted. */
+    /* --- 2. The title-bar band occupies rows [WIN_TOP, WIN_TOP+TITLEBAR_H) ---
+     * decomposed top-frame + bevel-hi + 15 stripe + bevel-lo + shared-frame.
+     *
+     * NOTE (beads initech-92li): is_painted treats RENDER_DESKTOP_INDEX (idx 2 =
+     * CIDX_DESKTOP) as "blank", and the bevel-hi row resolves to FLAIR_PART_BEVEL_
+     * LIGHT -> canon teal idx 2 (the WL-0053 lavender->teal recolor ALIASES the
+     * desktop index by design; chrome_fidelity_golden.h FG_BOX_BEVEL_IDX note).
+     * So we probe the first PINSTRIPE row (idx 7/8, unambiguously painted) for the
+     * "band is painted" tooth; the bevel-row CLASS is graded by the recolor-
+     * invariant index legs in test-chrome-fidelity, not by is_painted here. */
     snprintf(msg, sizeof msg,
-             "[%s] title-bar bottom row (y=%d) must be painted",
-             bpp_tag, title_bot - 1);
-    CHECK(is_painted(ctx, mid_x, title_bot - 1), msg);
+             "[%s] title-bar first pinstripe row (y=%d) must be painted",
+             bpp_tag, stripe_top);
+    CHECK(is_painted(ctx, mid_x, stripe_top), msg);
 
-    /* The row just BELOW the title bar is the WHITE content body, not the
+    /* Last interior row of the title band (the shared frame line at
+     * WIN_TOP+TITLEBAR_H-1) is painted (it is the black shared FrameRect line). */
+    snprintf(msg, sizeof msg,
+             "[%s] title-bar shared frame line (y=%d) must be painted",
+             bpp_tag, title_content_top - 1);
+    CHECK(is_painted(ctx, mid_x, title_content_top - 1), msg);
+
+    /* The row just BELOW the title BAND is the WHITE content body, not the
      * pinstripe band. For 8bpp the content is index CIDX_WHITE (1); the pinstripe
      * is index 7/8. This asserts the band height is EXACTLY TITLEBAR_H: if the
      * title bar were 1 px too tall (CHROME_MUTATE_TITLEBAR_H), this row would be
-     * a pinstripe shade, not the body. */
+     * a pinstripe shade (the stripe ran 16 rows, pushing content down 1), not the
+     * body. window-frame.md Sec 2a: white content begins one row below the shared
+     * frame line at content_top = WIN_TOP + TITLEBAR_H. */
     if (idx_mode) {
-        uint32_t below = shade_index(ctx, mid_x, title_bot);
+        uint32_t below = shade_index(ctx, mid_x, title_content_top);
         snprintf(msg, sizeof msg,
-                 "[%s] row below title bar (y=%d) must be content body (idx %d), "
-                 "not a pinstripe shade -- title-bar height must be exactly %d",
-                 bpp_tag, title_bot, 1, FLAIR_CHROME_TITLEBAR_H);
+                 "[%s] row below title band (y=%d) must be content body (idx %d), "
+                 "not a pinstripe shade -- title band must be exactly %d",
+                 bpp_tag, title_content_top, 1, FLAIR_CHROME_TITLEBAR_H);
         CHECK(below == 1u, msg);
 
         /* And it must NOT be either pinstripe shade index (the decisive tooth
          * for the title-bar-height mutant). */
         snprintf(msg, sizeof msg,
-                 "[%s] row below title bar must NOT be pinstripe light/dark "
+                 "[%s] row below title band must NOT be pinstripe light/dark "
                  "(idx %d/%d) -- catches a too-tall title bar",
                  bpp_tag, FLAIR_CHROME_TITLE_SHADE_LIGHT,
                  FLAIR_CHROME_TITLE_SHADE_DARK);
@@ -169,46 +194,46 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
               below != (uint32_t)FLAIR_CHROME_TITLE_SHADE_DARK, msg);
     }
 
-    /* --- 3. Pinstripe is a two-shade STRIPE (phase owned elsewhere) --------- */
-    /* The title bar is filled with the two WDEF shades (wTitleBarLight 7 /
-     * wTitleBarDark 8) as a horizontal stripe. This oracle asserts only that it IS
-     * a two-shade stripe -- NOT a specific phase. The System-7 racing-stripe PHASE
-     * (the patAlign mod-8 doubled-LIGHT pairs) is graded against the INDEPENDENT
-     * ../system7-decomp golden by test-chrome-fidelity (beads initech-hmll, Law 2).
-     * The previous strict-period-2 assertion here was WRONG: the real phase-locked
-     * stripe is NOT strict period-2 (it has doubled-light pairs), so that check
-     * accepted the free-running L,D,L,D bug and would REJECT the correct render. */
+    /* --- 3. Pinstripe is a two-shade STRIPE over the 15-row interior (phase
+     * owned elsewhere) --------------------------------------------------------
+     * The pinstripe interior [stripe_top, stripe_bot) is filled with the two WDEF
+     * shades (wTitleBarLight 7 / wTitleBarDark 8) as a horizontal stripe. This
+     * oracle asserts only that it IS a two-shade stripe -- NOT a specific phase.
+     * The System-7 racing-stripe PHASE (the patAlign mod-8 doubled-LIGHT pairs)
+     * and the exactly-15-row interior bounded by the bevel rows are graded against
+     * the INDEPENDENT ../system7-decomp golden by test-chrome-fidelity (beads
+     * initech-hmll/92li, Law 2).  Scanned at a clear column (pin_x) so the
+     * centered title knockout does not interrupt the run. */
     if (idx_mode) {
         int saw_light = 0, saw_dark = 0, striped = 0;
         uint32_t prev = 0xFFFFFFFFu;
-        for (int k = 0; k < FLAIR_CHROME_TITLEBAR_H; k++) {
-            uint32_t s = shade_index(ctx, mid_x, title_top + k);
+        for (int y = stripe_top; y < stripe_bot; y++) {
+            uint32_t s = shade_index(ctx, pin_x, y);
             if (s == (uint32_t)FLAIR_CHROME_TITLE_SHADE_LIGHT) saw_light = 1;
             if (s == (uint32_t)FLAIR_CHROME_TITLE_SHADE_DARK)  saw_dark = 1;
-            if (k > 0 && s != prev) striped = 1;
+            if (y > stripe_top && s != prev) striped = 1;
             prev = s;
         }
         snprintf(msg, sizeof msg,
-                 "[%s] title bar must show BOTH WDEF shades (light %d + dark %d)",
+                 "[%s] pinstripe interior must show BOTH WDEF shades (light %d + dark %d)",
                  bpp_tag, FLAIR_CHROME_TITLE_SHADE_LIGHT,
                  FLAIR_CHROME_TITLE_SHADE_DARK);
         CHECK(saw_light && saw_dark, msg);
         snprintf(msg, sizeof msg,
-                 "[%s] title bar must be STRIPED (>=1 adjacent shade change)",
+                 "[%s] pinstripe interior must be STRIPED (>=1 adjacent shade change)",
                  bpp_tag);
         CHECK(striped, msg);
     } else {
-        /* 32bpp: the band must contain >=2 distinct row RGBs (it is striped). */
+        /* 32bpp: the interior must contain >=2 distinct row RGBs (it is striped). */
         int striped = 0;
-        uint32_t first = render_pixel_rgb(ctx, (uint32_t)mid_x,
-                                          (uint32_t)title_top);
-        for (int k = 1; k < FLAIR_CHROME_TITLEBAR_H; k++) {
-            uint32_t a = render_pixel_rgb(ctx, (uint32_t)mid_x,
-                                          (uint32_t)(title_top + k));
+        uint32_t first = render_pixel_rgb(ctx, (uint32_t)pin_x,
+                                          (uint32_t)stripe_top);
+        for (int y = stripe_top + 1; y < stripe_bot; y++) {
+            uint32_t a = render_pixel_rgb(ctx, (uint32_t)pin_x, (uint32_t)y);
             if (a != first) { striped = 1; break; }
         }
         snprintf(msg, sizeof msg,
-                 "[%s] title bar must be STRIPED in RGB (>=2 distinct row colors)",
+                 "[%s] pinstripe interior must be STRIPED in RGB (>=2 distinct row colors)",
                  bpp_tag);
         CHECK(striped, msg);
     }
@@ -220,7 +245,7 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
      * painted columns from the inner-right edge leftward on a content row that
      * is NOT inside an arrow button (mid-height of the content). */
     {
-        int content_top = title_bot;
+        int content_top = title_content_top;        /* WIN_TOP + TITLEBAR_H (92li) */
         int content_bot = WIN_BOTTOM - fr;
         int row = (content_top + content_bot) / 2;   /* between the arrow buttons*/
         int inner_right = WIN_RIGHT - fr;            /* first col inside R frame */

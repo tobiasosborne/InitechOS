@@ -123,6 +123,15 @@ enum { SCRW = 640, SCRH = 480 };
 #define FRAME       1
 #define TITLEBAR_H  19
 
+/* Title-bar BAND decomposition (beads initech-92li; window-frame.md Sec 2a): the
+ * 19-px band is top-frame(1) + bevel-hi(1) + 15 pinstripe + bevel-lo(1) +
+ * shared-frame(1).  The pinstripe interior the (c) leg scans is the 15-row band,
+ * NOT the whole TITLEBAR_H -- the bevel-hi (idx 2)/bevel-lo (idx 4)/shared-frame
+ * (idx 0) rows are NOT pinstripe shades.  (Hardcoded to mirror spec/chrome_metrics.h
+ * FLAIR_CHROME_TITLE_BEVEL_ROWS/STRIPE_ROWS; test-chrome locks them vs the JSON.) */
+#define TITLE_BEVEL_ROWS  1
+#define TITLE_STRIPE_ROWS 15
+
 /* Back document window 0 (upper-left; overlapped by the centered modal):
  * T80 L60 B300 R360 (test_shell.c W0_*) -- used for the z-order occlusion probe. */
 #define W0_T 80
@@ -301,18 +310,22 @@ static int her02_demo(void)
      * EQUAL-row pair exists (the phase lock). (A strict period-2 relation would be
      * WRONG now -- the real stripe has doubled rows.) */
     {
-        const int title_top = W1_T + FRAME;
+        /* Scan the 15-row pinstripe INTERIOR band only (between the two bevel rows;
+         * beads initech-92li): bevel-hi (idx 2)/bevel-lo (idx 4)/shared-frame
+         * (idx 0) are NOT pinstripe shades. */
+        const int stripe_top = (W1_T + FRAME) + TITLE_BEVEL_ROWS;   /* 122 */
+        const int stripe_bot = stripe_top + TITLE_STRIPE_ROWS;       /* 137 */
         /* Scan a CLEAR pinstripe column (right of the close box, LEFT of the
          * centered title) so the title knockout/glyphs do not break the relation
          * (the title sits at the bar center now; beads initech-lxg9). */
         const int pin_x = W1_L + 24;
         int shade_ok = 1, saw_light = 0, saw_dark = 0, doubled = 0, prev = -2;
-        for (int k = 0; k < TITLEBAR_H; k++) {
-            int s = her02_classify_pin(pin_x, title_top + k);
+        for (int y = stripe_top; y < stripe_bot; y++) {
+            int s = her02_classify_pin(pin_x, y);
             if (s < 0) shade_ok = 0;
             if (s == 7) saw_light = 1;
             if (s == 8) saw_dark = 1;
-            if (k > 0 && s == prev) doubled = 1;
+            if (y > stripe_top && s == prev) doubled = 1;
             prev = s;
         }
         if (!(shade_ok && saw_light && saw_dark && doubled)) {
@@ -561,38 +574,47 @@ int main(int argc, char **argv)
      * (c) WINDOW CHROME (front window 1). test_shell.c assertion (3).
      * ====================================================================== */
     {
-        const int title_top = W1_T + FRAME;          /* 121 */
-        const int title_bot = title_top + TITLEBAR_H; /* 140 */
+        const int title_top = W1_T + FRAME;          /* 121 = bevel-hi interior row */
+        /* The 15-row pinstripe interior band (between the two bevel rows; beads
+         * initech-92li). stripe_top = title_top + bevel-hi(1) = 122; stripe_bot
+         * (half-open) = 122 + 15 = 137. window-frame.md Sec 2a y=166..180. */
+        const int stripe_top = title_top + TITLE_BEVEL_ROWS;     /* 122 */
+        const int stripe_bot = stripe_top + TITLE_STRIPE_ROWS;   /* 137 (half-open) */
+        /* content_top: white body begins one row below the shared frame line, at
+         * W1_T + TITLEBAR_H = 139 (beads initech-92li; old was title_top+TITLEBAR_H
+         * = 140).  The shared black frame line is at W1_T+TITLEBAR_H-1 = 138. */
+        const int content_top = W1_T + TITLEBAR_H;    /* 139 */
         const int mid_x = (W1_L + W1_R) / 2;          /* 430 = the centered title  */
         /* The stripe is scanned at a clear column -- right of the close box and LEFT
          * of the centered title ("untitled-2"), so the title knockout/glyphs do not
          * interrupt the stripe run (beads initech-lxg9). */
         const int pin_x = W1_L + 24;                  /* 324 */
-        const int body_row = (title_bot + (W1_B - FRAME)) / 2;
+        const int body_row = (content_top + (W1_B - FRAME)) / 2;
 
-        /* The title bar must be a two-shade STRIPE (every row is shade 7 or 8, both
-         * appear, with >=1 adjacent change). The specific System-7 racing-stripe
-         * PHASE (the patAlign mod-8 doubled-LIGHT pairs) is graded against the
-         * INDEPENDENT ../system7-decomp golden by test-chrome-fidelity (beads
-         * initech-hmll), NOT here: a strict period-2 assertion would be WRONG (the
-         * phase-locked stripe is not strict period-2) and accepted the free-running
-         * L,D,L,D bug. This leg grades STRUCTURE; the fidelity oracle grades phase. */
+        /* The pinstripe INTERIOR must be a two-shade STRIPE (every row is shade 7 or
+         * 8, both appear, with >=1 adjacent change). Scanned over the 15-row band
+         * [stripe_top, stripe_bot) ONLY -- the bevel-hi (idx 2)/bevel-lo (idx 4)/
+         * shared-frame (idx 0) rows are NOT pinstripe shades (beads initech-92li;
+         * window-frame.md Sec 2a/2b).  The specific System-7 racing-stripe PHASE
+         * (the patAlign mod-8 doubled-LIGHT pairs) and the exactly-15-row interior
+         * bounded by the bevel rows are graded against the INDEPENDENT
+         * ../system7-decomp golden by test-chrome-fidelity (beads initech-hmll/92li),
+         * NOT here. This leg grades STRUCTURE; the fidelity oracle grades phase. */
         int shade_ok = 1, saw_light = 0, saw_dark = 0, striped = 0, prev = -1;
-        for (int k = 0; k < TITLEBAR_H; k++) {
-            int y = title_top + k;
+        for (int y = stripe_top; y < stripe_bot; y++) {
             int s;
             if      (is_rgb(pin_x, y, IDX(7))) s = 7;
             else if (is_rgb(pin_x, y, IDX(8))) s = 8;
             else { s = -1; shade_ok = 0; }
             if (s == 7) saw_light = 1;
             if (s == 8) saw_dark = 1;
-            if (k > 0 && s != prev) striped = 1;
+            if (y > stripe_top && s != prev) striped = 1;
             prev = s;
         }
         if (!shade_ok) {
             fprintf(stderr,
-                    "ppm_flair_check: FAIL (c) front window title bar at x=%d is not "
-                    "the pinstripe shade pair (idx 7 #%06X / idx 8 #%06X)\n",
+                    "ppm_flair_check: FAIL (c) front window pinstripe interior at x=%d "
+                    "is not the pinstripe shade pair (idx 7 #%06X / idx 8 #%06X)\n",
                     pin_x, IDX(7), IDX(8));
             g_fail = 1;
         }
@@ -614,7 +636,10 @@ int main(int argc, char **argv)
          * graded host-side by test-chrome-fidelity.) */
         {
             int title_ink = 0;
-            for (int y = title_top + 2; y < title_bot - 2; y++) {
+            /* Scan the 15-row pinstripe interior (where the centered title is drawn
+             * over the PIN_LIGHT knockout; beads initech-92li). The bevel/shared
+             * rows carry no title ink. */
+            for (int y = stripe_top; y < stripe_bot; y++) {
                 for (int x = mid_x - 24; x < mid_x + 24; x++) {
                     if (is_rgb(x, y, IDX(4))) title_ink++;
                 }
@@ -631,10 +656,12 @@ int main(int argc, char **argv)
                    title_ink);
         }
 
-        /* The row just below the title bar is the white body (idx 1) -> the title
-         * bar is EXACTLY TITLEBAR_H tall. */
-        assert_idx(mid_x, title_bot, 1,
-                   "(c) front window row below title bar is white body (title height exact)");
+        /* The row just below the title BAND (content_top = W1_T+TITLEBAR_H) is the
+         * white body (idx 1) -> the title band is EXACTLY TITLEBAR_H tall, and the
+         * white content begins one row below the shared frame line (beads
+         * initech-92li; window-frame.md Sec 2a). */
+        assert_idx(mid_x, content_top, 1,
+                   "(c) front window first content row below the title band is white body (title height exact)");
         assert_idx(mid_x, body_row, 1,
                    "(c) front window body fill is window white");
 

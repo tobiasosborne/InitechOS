@@ -57,6 +57,23 @@
 /* native.titlebar_height_std.value = 19  (WDEF minTitleH EQU 19) */
 #define FLAIR_CHROME_TITLEBAR_H         19
 
+/* TITLE-BAR INTERIOR DECOMPOSITION (beads initech-92li; Rule 8 deliberate spec
+ * change, 92li IS the issue).  The 19-px title band is NOT 19 all-stripe rows: it
+ * decomposes (top-to-bottom, INCLUSIVE of both frame lines) as
+ *   top-frame(1) + bevel-hi(1) + 15 pinstripe + bevel-lo(1) + shared-frame(1) = 19.
+ * The bevel rows are the WDEF wLTinge0 (top highlight) / wLTinge4 (bottom shadow)
+ * 3-D inset frame, 1px inside the black title FrameRect; the shared frame line is
+ * the bottom of the title FrameRect AND the top of the content-body FrameRect.
+ * Ref: ../system7-decomp/specs/chrome/window-frame.md Sec 2a (x=400 vertical scan:
+ *   y=164 frame / y=165 bevel-hi #DADAFF / y=166..180 15 stripe / y=181 bevel-lo
+ *   #B3B3DA / y=182 shared frame) + Sec 2b + pinstripe.md ("title interior height
+ *   15 px y=166..180; bevel rows 1 px top + 1 px bottom").  These are NOT in
+ *   chrome_metrics.json's `native` section (the JSON locks the 19-px BAND; this
+ *   decomposition is the on-screen row breakdown the WDEF draws within it).
+ *   ANY change to these is a deliberate Rule-8 act with an issue. */
+#define FLAIR_CHROME_TITLE_BEVEL_ROWS   1   /* wLTinge0/wLTinge4 edge, 1px each   */
+#define FLAIR_CHROME_TITLE_STRIPE_ROWS  15  /* pinstripe interior (golden y=166..180)*/
+
 /* native.scrollbar_width.value = 16  (WDEF scrollBarSize EQU 16; Toolbox-313) */
 #define FLAIR_CHROME_SCROLLBAR_W        16
 
@@ -295,6 +312,23 @@ _Static_assert(FLAIR_CHROME_TITLE_SHADE_LIGHT != FLAIR_CHROME_TITLE_SHADE_DARK,
  * thicker frame would be the dBoxProc 7 px border, a different chrome). */
 _Static_assert(FLAIR_CHROME_FRAME == 1,
                "documentProc window frame is exactly 1 px (WDEF/Toolbox-313)");
+
+/* The 19-px title BAND decomposes EXACTLY as top-frame(1) + bevel-hi(1) + 15
+ * stripe + bevel-lo(1) + shared-frame(1) (window-frame.md Sec 2a; beads
+ * initech-92li).  If the decomposition ever stops summing to TITLEBAR_H a band
+ * row has been mis-counted -- the recomposition would over/under-fill the band. */
+_Static_assert(2 * FLAIR_CHROME_FRAME + 2 * FLAIR_CHROME_TITLE_BEVEL_ROWS +
+                   FLAIR_CHROME_TITLE_STRIPE_ROWS == FLAIR_CHROME_TITLEBAR_H,
+               "title band = top-frame + bevel-hi + 15 stripe + bevel-lo + "
+               "shared-frame must sum to the locked 19-px TITLEBAR_H "
+               "(window-frame.md Sec 2a; pinstripe.md interior=15)");
+
+/* The golden pinstripe interior is exactly 15 rows (FG_TITLE_INTERIOR_ROWS;
+ * pinstripe.md y=166..180).  A drift here would un-sync the render from the
+ * locked fidelity golden FG_TITLE_INTERIOR_PATTERN "LLDLDLDLDLDLDLL". */
+_Static_assert(FLAIR_CHROME_TITLE_STRIPE_ROWS == 15,
+               "the title pinstripe interior is exactly 15 rows "
+               "(pinstripe.md golden y=166..180; FG_TITLE_INTERIOR_ROWS)");
 
 /* The close/zoom box (13 px derivation) must fit inside the title bar (19 px) with
  * room to center it (WBoxDelta = (titleH-13)/2 must be >= 0). */

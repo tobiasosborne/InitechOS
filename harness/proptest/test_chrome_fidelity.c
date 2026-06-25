@@ -101,13 +101,17 @@ int main(void)
     render_run(&ctx, draw_window);
 
     /* Collect the contiguous run of STRIPE rows (L/D) in the title-bar column,
-     * skipping any leading/trailing non-stripe (frame/bevel/body) rows. */
+     * skipping any leading/trailing non-stripe (frame/bevel/body) rows. Record the
+     * y of the FIRST stripe row so the bevel-row legs can probe the row immediately
+     * ABOVE the run (bevel-hi) and BELOW it (bevel-lo); beads initech-92li. */
     char run[64];
     int  n = 0;
     int  started = 0;
+    int  run_start_y = -1;
     for (int y = scan_lo; y < scan_hi && n < (int)sizeof run - 1; y++) {
         char c = classify_row(&ctx, pin_x, y);
         if (c == 'L' || c == 'D') {
+            if (!started) run_start_y = y;
             run[n++] = c;
             started = 1;
         } else if (started) {
@@ -115,6 +119,7 @@ int main(void)
         }
     }
     run[n] = '\0';
+    int run_end_y = run_start_y + n - 1;        /* y of the last stripe row         */
 
     printf("test-chrome-fidelity: title-bar stripe column x=%d -> \"%s\" (%d rows)\n",
            pin_x, run, n);
@@ -153,6 +158,79 @@ int main(void)
               "title-bar pinstripe must be PHASE-LOCKED (>=1 adjacent equal-row "
               "pair); FLAIR's free-running period-2 alternation has none -- this is "
               "the phase bug ppm_flair_check's 'period-2 alternation' cannot catch");
+    }
+
+    /* ====================================================================
+     * (4b) TITLE-BAR BEVEL ROWS + EXACTLY-15-ROW INTERIOR (beads initech-92li).
+     *
+     * Ground truth: ../system7-decomp/specs/chrome/window-frame.md Sec 2a (x=400
+     * vertical scan: y=164 frame / y=165 bevel-hi #DADAFF / y=166..180 15 stripe /
+     * y=181 bevel-lo #B3B3DA / y=182 shared frame) + Sec 2b + pinstripe.md
+     * ("title interior height 15 px y=166..180; bevel rows 1 px top + 1 px bottom").
+     *
+     * The pinstripe interior is EXACTLY 15 rows (FG_TITLE_INTERIOR_ROWS), bounded
+     * ABOVE by the bevel-hi row (FLAIR_PART_BEVEL_LIGHT -> idx 2) and BELOW by the
+     * bevel-lo row (FLAIR_PART_BEVEL_SHADOW -> idx 4) -- a DISTINCT 3rd/4th row
+     * class, neither L (idx 7) nor D (idx 8), recolor-invariant.
+     *
+     * RED before the recomposition: FLAIR drew 19 ALL-stripe rows, no bevel -- the
+     * contiguous L/D run was >15 AND the rows bounding it were NOT bevel-hi (idx 2)
+     * / bevel-lo (idx 4).  The CHROME_FID_MUT_NO_BEVEL mutant reverts to that.
+     * ==================================================================== */
+    {
+        /* The row indices, read directly from the render (NOT classified L/D). */
+        uint32_t bevel_hi_px = (run_start_y > scan_lo)
+            ? render_pixel_index(&ctx, (uint32_t)pin_x, (uint32_t)(run_start_y - 1))
+            : 0xFFFFFFFFu;
+        uint32_t bevel_lo_px =
+            render_pixel_index(&ctx, (uint32_t)pin_x, (uint32_t)(run_end_y + 1));
+        uint32_t shared_px =
+            render_pixel_index(&ctx, (uint32_t)pin_x, (uint32_t)(run_end_y + 2));
+
+        printf("test-chrome-fidelity: stripe run = %d rows (golden exactly %d); row "
+               "ABOVE (y=%d) idx=%u (expect bevel-hi %d), row BELOW (y=%d) idx=%u "
+               "(expect bevel-lo %d), shared frame (y=%d) idx=%u (expect %d)\n",
+               n, FG_TITLE_INTERIOR_ROWS, run_start_y - 1, bevel_hi_px,
+               FG_TITLE_BEVEL_HI_IDX, run_end_y + 1, bevel_lo_px,
+               FG_TITLE_BEVEL_LO_IDX, run_end_y + 2, shared_px,
+               FG_TITLE_SHARED_FRAME_IDX);
+
+        /* (4b-i) The contiguous pinstripe run is EXACTLY 15 rows. */
+        CHECK(n == FG_TITLE_INTERIOR_ROWS,
+              "title-bar pinstripe interior must be EXACTLY 15 rows "
+              "(FG_TITLE_INTERIOR_ROWS; window-frame.md Sec 2a y=166..180); the old "
+              "all-stripe band ran the full title height (>15, no bevel rows)");
+
+        /* (4b-ii) The row immediately ABOVE the stripe run is the bevel-HI role
+         * (BEVEL_LIGHT -> idx 2): a distinct row class, NOT a pinstripe shade. */
+        CHECK(bevel_hi_px == (uint32_t)FG_TITLE_BEVEL_HI_IDX,
+              "the row above the pinstripe run must be the bevel-HI highlight "
+              "(FLAIR_PART_BEVEL_LIGHT -> idx 2; window-frame.md Sec 2b golden y=165 "
+              "#DADAFF wLTinge0); an all-stripe band has a pinstripe shade there");
+
+        /* (4b-iii) The row immediately BELOW the stripe run is the bevel-LO role
+         * (BEVEL_SHADOW -> idx 4): a distinct row class, NOT a pinstripe shade. */
+        CHECK(bevel_lo_px == (uint32_t)FG_TITLE_BEVEL_LO_IDX,
+              "the row below the pinstripe run must be the bevel-LO shadow "
+              "(FLAIR_PART_BEVEL_SHADOW -> idx 4; window-frame.md Sec 2b golden y=181 "
+              "#B3B3DA wLTinge4); an all-stripe band has a pinstripe shade there");
+
+        /* (4b-iv) Below the bevel-lo is the SHARED frame line (FRAME -> idx 0):
+         * the bottom of the title FrameRect AND the top of the content body. */
+        CHECK(shared_px == (uint32_t)FG_TITLE_SHARED_FRAME_IDX,
+              "below the bevel-lo must be the SHARED frame line (FLAIR_PART_FRAME -> "
+              "idx 0; window-frame.md Sec 2a golden y=182 #000000 -- bottom of the "
+              "title FrameRect AND top of the content-body FrameRect)");
+
+        /* (4b-v) The bevel-hi and bevel-lo are DISTINCT from the pinstripe shades
+         * (recolor-invariant: a 3rd/4th row class, not L=idx7/D=idx8). */
+        CHECK(bevel_hi_px != (uint32_t)FG_STRIPE_LIGHT_IDX &&
+              bevel_hi_px != (uint32_t)FG_STRIPE_DARK_IDX &&
+              bevel_lo_px != (uint32_t)FG_STRIPE_LIGHT_IDX &&
+              bevel_lo_px != (uint32_t)FG_STRIPE_DARK_IDX,
+              "the bevel rows must be a DISTINCT row class (idx 2 / idx 4), neither "
+              "the pinstripe LIGHT (idx 7) nor DARK (idx 8) -- the bevel is NOT a "
+              "stripe (window-frame.md Sec 2b: y=165/y=181 are bevel _Lines)");
     }
 
     /* ====================================================================
@@ -561,20 +639,24 @@ int main(void)
      *     sb_left     = inner_right - FLAIR_CHROME_SCROLLBAR_W = 359-16 = 343
      *   (The left gutter-divider line is at sb_left=343.)
      *
-     *   content_top = WIN_TOP + fr + FLAIR_CHROME_TITLEBAR_H = 30+1+19 = 50
+     *   content_top = WIN_TOP + FLAIR_CHROME_TITLEBAR_H = 30+19 = 49
+     *     (beads initech-92li: the 19-px title BAND now INCLUDES the top frame and
+     *      the shared bottom frame line, so the white content -- and the scrollbar
+     *      that runs the content height -- begins at WIN_TOP+TITLEBAR_H, one row
+     *      UP from the old WIN_TOP+fr+TITLEBAR_H=50. window-frame.md Sec 2a.)
      *   content_bot = WIN_BOTTOM - fr = 299
      *
-     *   Up-arrow box: rows [content_top, content_top + sb_w) = [50, 66)
-     *     outer top edge  at y = content_top     = 50  (BLACK, FG_SB_OUTER_EDGE_IDX=0)
-     *     inner separator at y = content_top+sb_w-1 = 65 (GRAY, FG_SB_SEPARATOR_IDX=8)
-     *     face interior   at y in (50, 65), x in (343, 359)
+     *   Up-arrow box: rows [content_top, content_top + sb_w) = [49, 65)
+     *     outer top edge  at y = content_top     = 49  (BLACK, FG_SB_OUTER_EDGE_IDX=0)
+     *     inner separator at y = content_top+sb_w-1 = 64 (GRAY, FG_SB_SEPARATOR_IDX=8)
+     *     face interior   at y in (49, 64), x in (343, 359)
      *
      *   Down-arrow box: rows [content_bot - sb_w, content_bot) = [283, 299)
      *     inner separator at y = content_bot-sb_w = 283 (GRAY, FG_SB_SEPARATOR_IDX=8)
      *     face interior   at y in (283, 299), x in (343, 359)
      *     outer bottom edge at y = content_bot-1 = 298 (BLACK, FG_SB_OUTER_EDGE_IDX=0)
      *
-     *   Track: rows [66, 283), solid PIN_LIGHT (FG_SB_FACE_IDX=7).
+     *   Track: rows [65, 283), solid PIN_LIGHT (FG_SB_FACE_IDX=7).
      *
      * CURRENT FIDELITY BUGS (before this fix):
      *   (a) track filled with FLAIR_PART_BTNFACE (#C0C0C0, idx 6) -- should be PIN_LIGHT (idx 7).
@@ -587,13 +669,13 @@ int main(void)
         const int fr2         = FLAIR_CHROME_FRAME;         /* 1; POSITIONING only */
         const int inner_right = WIN_RIGHT - fr2;            /* 359 */
         const int sb_left     = inner_right - sb_w;         /* 343 */
-        const int content_top = WIN_TOP + fr2 + FLAIR_CHROME_TITLEBAR_H; /* 50 */
+        const int content_top = WIN_TOP + FLAIR_CHROME_TITLEBAR_H;       /* 49 (92li) */
         const int content_bot = WIN_BOTTOM - fr2;           /* 299 */
 
         /* Arrow-box row coordinates (scrollbar-width-square boxes).
-         * Up box:   rows [content_top,             content_top + sb_w)  = [50, 66)
+         * Up box:   rows [content_top,             content_top + sb_w)  = [49, 65)
          * Down box: rows [content_bot - sb_w,      content_bot)         = [283, 299) */
-        const int up_box_top    = content_top;           /* 50  */
+        const int up_box_top    = content_top;           /* 49  */
         const int up_box_bot    = content_top + sb_w;   /* 66  */
         const int dn_box_top    = content_bot - sb_w;   /* 283 */
         const int dn_box_bot    = content_bot;           /* 299 */

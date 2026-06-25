@@ -166,7 +166,14 @@ STAGE2_SECTORS  := 16
 # cyl, a multiple of 64; 384 >= 337). A boot-geometry change (IMG_SECTORS) is a
 # tri-emulator obligation (Rule 5): re-run `make test-boot-bochs`. MUST equal the
 # stage2.asm KERNEL_SECTORS equate.
-KERNEL_SECTORS  := 320
+# At KERNEL_SECTORS=320 the FLAIR window-chrome FIDELITY work (initech-hmll: drop
+# shadow 54nw + close/zoom box ts3t + scrollbar jh7m + title bevel 92li) grew
+# kernel_shell.bin to 163,960 bytes, 120 bytes PAST the 320-sector (163,840 B)
+# window -> bumped to 352 (180,224 B; 0x10000 + 352*512 = 0x3C000, still below
+# PROGRAM_BASE 0x40000). IMG_MIN = 1+16+352 = 369 <= IMG_SECTORS=384, so the
+# 6-cyl image geometry is UNCHANGED (only stage2's INT 13h read count grows);
+# still a Rule-5 obligation -- re-ran make test-boot-bochs + test-flair-desktop-bochs.
+KERNEL_SECTORS  := 352
 # Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=160) = 177 sectors.
 # IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
 # harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
@@ -8644,6 +8651,7 @@ TEST_CHROME_FID_MUT_TTL := $(BUILD)/test_chrome_fidelity_mutant_notitle
 TEST_CHROME_FID_MUT_SHA := $(BUILD)/test_chrome_fidelity_mutant_noshadow
 TEST_CHROME_FID_MUT_BOX := $(BUILD)/test_chrome_fidelity_mutant_boxgeom
 TEST_CHROME_FID_MUT_SBF := $(BUILD)/test_chrome_fidelity_mutant_scrollflat
+TEST_CHROME_FID_MUT_BVL := $(BUILD)/test_chrome_fidelity_mutant_nobevel
 
 $(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
@@ -8678,14 +8686,22 @@ $(TEST_CHROME_FID_MUT_SBF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_SCROLL_FLAT $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
+# CHROME_FID_MUT_NO_BEVEL (beads initech-92li, Rule 6): skip the title-bar bevel
+# rows -- revert to the OLD all-stripe title band (17 stripe rows, no bevel-hi /
+# bevel-lo, contiguous L/D run != 15). test-chrome-fidelity's bevel + 15-row leg
+# (4b) MUST go RED.
+$(TEST_CHROME_FID_MUT_BVL): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NO_BEVEL $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
 .PHONY: test-chrome-fidelity test-chrome-fidelity-mutant
 test-chrome-fidelity: $(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: System-7 window-chrome fidelity vs the INDEPENDENT ../system7-decomp golden (Law 2, NOT by-construction)\n'
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF)
-	@printf '>>> test-chrome-fidelity-mutant: confirming the phase + title + shadow + box-geom + scrollflat mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL)
+	@printf '>>> test-chrome-fidelity-mutant: confirming the phase + title + shadow + box-geom + scrollflat + no-bevel mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
 		exit 1; \
@@ -8715,6 +8731,12 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 		exit 1; \
 	else \
 		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_SCROLL_FLAT correctly RED -- the flat/btnface/no-glyph scrollbar is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_BVL) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_NO_BEVEL PASSED -- the title-bar bevel + 15-row leg is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_NO_BEVEL correctly RED -- the all-stripe no-bevel band is caught)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
