@@ -8582,6 +8582,7 @@ pairs=[('FLAIR_CHROME_MENUBAR_H',nat['menubar_height']['value']), \
 ('FLAIR_CHROME_FRAME',nat['window_frame']['value']), \
 ('FLAIR_CHROME_DIALOG_BORDER',nat['dialog_dboxproc_border']['value']), \
 ('FLAIR_CHROME_WBOX_DELTA',nat['close_zoom_box_frame_delta']['value']), \
+('FLAIR_CHROME_WBOX_RENDER',nat['close_zoom_box_frame_delta']['rendered_px']), \
 ('FLAIR_CHROME_PINSTRIPE_PERIOD',nat['pinstripe_period']['value']), \
 ('FLAIR_CHROME_TITLE_SHADE_LIGHT',nat['titlebar_shade_indices']['wTitleBarLight']), \
 ('FLAIR_CHROME_TITLE_SHADE_DARK',nat['titlebar_shade_indices']['wTitleBarDark']), \
@@ -8641,6 +8642,7 @@ CHROME_FID_GOLDEN_H := spec/chrome_fidelity_golden.h
 TEST_CHROME_FID_MUT     := $(BUILD)/test_chrome_fidelity_mutant_phase
 TEST_CHROME_FID_MUT_TTL := $(BUILD)/test_chrome_fidelity_mutant_notitle
 TEST_CHROME_FID_MUT_SHA := $(BUILD)/test_chrome_fidelity_mutant_noshadow
+TEST_CHROME_FID_MUT_BOX := $(BUILD)/test_chrome_fidelity_mutant_boxgeom
 
 $(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
@@ -8660,14 +8662,21 @@ $(TEST_CHROME_FID_MUT_SHA): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NO_SHADOW $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
+# CHROME_FID_MUT_BOX_GEOM (beads initech-ts3t, Rule 6): revert the close/zoom box
+# to the OLD flat 1px 13x13 frame at inset fr+3 (wrong size/offset, no bevel, zoom
+# == close). test-chrome-fidelity box legs (9)/(10)/(11)/(12) MUST go RED.
+$(TEST_CHROME_FID_MUT_BOX): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_BOX_GEOM $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
 .PHONY: test-chrome-fidelity test-chrome-fidelity-mutant
 test-chrome-fidelity: $(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: System-7 window-chrome fidelity vs the INDEPENDENT ../system7-decomp golden (Law 2, NOT by-construction)\n'
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA)
-	@printf '>>> test-chrome-fidelity-mutant: confirming the phase + title + shadow mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX)
+	@printf '>>> test-chrome-fidelity-mutant: confirming the phase + title + shadow + box-geom mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
 		exit 1; \
@@ -8685,6 +8694,12 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 		exit 1; \
 	else \
 		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_NO_SHADOW correctly RED -- the missing shadow is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_BOX) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_BOX_GEOM PASSED -- the close/zoom box legs are decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_BOX_GEOM correctly RED -- the flat 13px no-bevel box is caught)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------

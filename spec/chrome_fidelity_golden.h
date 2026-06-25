@@ -173,4 +173,81 @@
 #define FG_TITLE_INK_IDX        4   /* wTextColor -> CIDX_TITLE_INK (idx 4, black) */
 #define FG_TITLE_KNOCKOUT_IDX   7   /* the suppressed-stripe gap -> light (idx 7)  */
 
+/* ===========================================================================
+ * CLOSE / ZOOM BOX (the title-bar goAway + zoom gadgets).
+ *
+ * Source: ../system7-decomp/specs/chrome/close-zoom-box.md (pixel-measured from
+ *   ../system7-decomp/goldens/captures/s7_doc_window.png close box x=361..371,
+ *   y=168..178; s7_scrollbar_active.png zoom box x=393..403, y=31..41) +
+ *   refs/StandardWDEF_a.txt (PlotGoAway left+=9 @1675-1678; PlotZoom
+ *   left:=right-20 @1682-1693; dest top = struct.top + wBoxDelta + 1 @1705-1707;
+ *   box-height derivation (titleHgt-13)/2 @344-346; PlotZoom nested-square glyph
+ *   @1695).
+ *
+ * THE MECHANISM. The active title bar carries two small 3-D beveled square
+ * gadgets: the CLOSE (goAway) box on the LEFT, the ZOOM box on the RIGHT.  Each
+ * RENDERS 11x11 (the WDEF derives a 13 px box but the CopyBits dest is inset and
+ * the lavender bevel sits inside the dark frame -- LAW 2, the golden wins).  The
+ * close box left edge is struct.left + 9; the zoom box left edge is
+ * struct.right - 20.  The box top is struct.top + wBoxDelta + 1 where
+ * wBoxDelta = (titleHgt-13)/2 (= 3 for the 19 px bar), i.e. box top = frame_top + 4.
+ *
+ * Each gadget is a DOUBLE-BEVELED square (close-zoom-box.md ASCII diagram):
+ *   dark OUTER top/left frame, an inner lavender bevel HIGHLIGHT just inside
+ *   top/left, an inner-right + inner-bottom DARK ring, a lavender bottom/right,
+ *   and a 7x7 GRAY recessed face.  At least THREE distinct tonal roles
+ *   (dark outline / light bevel / gray face) in that arrangement.  The ZOOM box
+ *   additionally carries the inner nested-square "little dude" glyph (dark figure
+ *   inside the face); the CLOSE box interior is plain gray (no glyph).
+ *
+ * THE TELL THIS CATCHES. FLAIR previously drew both boxes as a FLAT 1px frame,
+ * 13x13, inset fr+3 (=4) from each corner -- wrong size, wrong offsets, NO bevel
+ * (one tonal role, not three), and the zoom box identical to the close box (no
+ * glyph).  The measurable, recolor-invariant tells are: size (11 not 13), the +9
+ * / -20 offsets, the >=3 tonal roles per box, and the zoom box's extra interior
+ * dark structure vs the close box.
+ *
+ * RECOLOR-INVARIANCE: graded by INDEX class + relations only.  The dark outline
+ * is the dark bevel-SHADOW role (FLAIR_PART_BEVEL_SHADOW -> 8bpp idx 4); the bevel
+ * highlight is the canon TEAL bevel-LIGHT role (FLAIR_PART_BEVEL_LIGHT -> 8bpp
+ * idx 2 = CIDX_DESKTOP -- the WL-0053 lavender->teal recolor of the wLTinge0
+ * #DADAFF bevel); the face is the GRAY control role (idx 6, #C0C0C0).  No RGB
+ * literals; the exact #545487/#DADAFF/#C0C0C0 -> teal canon values are
+ * test-color-canon's job, OUT OF SCOPE here.
+ * ========================================================================= */
+
+/* The rendered gadget size: 11x11 (whole gadget incl bevel).  NOT the WDEF 13 px
+ * derivation.  Ref: close-zoom-box.md Geometry (golden 11x11). */
+#define FG_BOX_RENDER_SIZE   11
+
+/* Horizontal offsets from the window struct frame.  Close box LEFT edge =
+ * struct.left + 9 (PlotGoAway 'moveq #9,D1' WDEF @1675-1678); zoom box LEFT edge =
+ * struct.right - 20 (PlotZoom 'left:=right; moveq #-20,D1' WDEF @1682-1693).
+ * Ref: close-zoom-box.md FLAIR mapping (close X = struct.left+9; zoom X = struct.right-20). */
+#define FG_CLOSE_BOX_LEFT_OFF    9    /* struct.left + 9  -> close box left edge */
+#define FG_ZOOM_BOX_RIGHT_OFF   20    /* struct.right - 20 -> zoom box left edge */
+
+/* The double-bevel exhibits >=3 distinct tonal roles per box (dark outline vs
+ * light bevel vs gray face).  A flat 1px frame has ONE.  Ref: close-zoom-box.md
+ * ASCII bevel diagram (D dark / ^ lavender / g gray). */
+#define FG_BOX_MIN_TONAL_ROLES   3
+
+/* Recolor-invariant tonal-role index classes for the box gadget (System-7 shade
+ * roles, mapped to the FLAIR canon INDEX the recolor-invariant role resolves to in
+ * 8bpp; NOT teal/lavender RGBs).  Ref: close-zoom-box.md Rendered colors table +
+ * the WL-0053 lavender->teal canon (color_canon.h):
+ *   dark outline #545487 -> BEVEL_SHADOW canon teal-dark #4E9BA3 -> 8bpp idx 4;
+ *   bevel highlight #DADAFF -> BEVEL_LIGHT canon teal #8DDCDC -> 8bpp idx 2;
+ *   gray face #C0C0C0 -> the GRAY control role -> idx 6. */
+#define FG_BOX_DARK_IDX     4    /* dark outline -> BEVEL_SHADOW teal-dark, 8bpp idx 4 */
+#define FG_BOX_BEVEL_IDX    2    /* bevel highlight -> BEVEL_LIGHT canon teal, 8bpp idx 2 */
+#define FG_BOX_FACE_IDX     6    /* 7x7 recessed gray face (#C0C0C0 control role)  */
+
+/* The ZOOM box carries an inner nested-square glyph (extra interior dark figure)
+ * that the CLOSE box lacks: the zoom box has STRICTLY MORE interior dark pixels in
+ * the face region than the close box.  Ref: close-zoom-box.md (PlotZoom nested-
+ * square glyph @1695; "the zoom box would carry the nested-square 'little dude'
+ * glyph ... the close box interior carries no glyph"). */
+#define FG_ZOOM_HAS_NESTED_GLYPH   1
+
 #endif /* INITECH_SPEC_CHROME_FIDELITY_GOLDEN_H */

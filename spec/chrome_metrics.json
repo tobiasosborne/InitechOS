@@ -169,11 +169,13 @@
 
     "close_zoom_box_frame_delta": {
       "value": 13,
+      "rendered_px": 11,
       "unit": "px",
       "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
-      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
-      "wdef_calculation": "(titleHeight - 13) / 2 stored in WInfo.wBoxDelta; box is 13 px tall",
-      "note": "The WBoxDelta calculation 'sub.w #13,D0 / LSR.w #1,D0' shows the close/goAway box is 13 px in the vertical dimension, vertically centered in the title bar. Horizontal position: goAway at ~x=8 from left, zoom at ~x=20 from right (WDEF hit zone). The rendered interior fill and exact border appearance are golden-resolves -- needs screendump. WDEF also confirms: hit zone uses 'add.w #11,D0' (+11 after subtracting delta) meaning box spans 13 px vertically from delta to delta+13."
+      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19; rendered_px golden-resolved 2026-06-25 (initech-ts3t)",
+      "rendered_source": "../system7-decomp/specs/chrome/close-zoom-box.md Geometry table (golden s7_doc_window.png close box x=361..371, y=168..178 = 11x11 whole gadget incl bevel; x=360/372 and y=167/179 are pinstripe #F3F3F3, NOT box)",
+      "wdef_calculation": "(titleHeight - 13) / 2 stored in WInfo.wBoxDelta; the WDEF DERIVES a 13 px box height (the vertical-gap derivation) but the gadget RENDERS 11 px tall in the golden (the InsetRect/EraseRect pair @ WDEF 1719-1728 pulls the CopyBits dest in; the lavender bevel sits INSIDE the dark frame, not outside)",
+      "note": "value=13 is the WDEF vertical-gap derivation (wBoxDelta = (titleHeight-13)/2 centers the box). rendered_px=11 is the visible gadget size in the golden (close-zoom-box.md, LAW 2: the golden wins over the WDEF derivation). Horizontal: close box left = struct.left + 9 (PlotGoAway 'moveq #9,D1' WDEF @1675-1678); zoom box left = struct.right - 20 (PlotZoom 'left := right; moveq #-20,D1' WDEF @1682-1693). Box top = struct.top + wBoxDelta + 1 (WDEF @1705-1707). The gadget is a double-beveled 3-D square: dark outer top/left frame + inner lavender bevel highlight + inner-right/inner-bottom dark + lavender bottom/right + 7x7 gray face; the ZOOM box additionally carries the nested-square 'little dude' glyph, the CLOSE box does not."
     },
 
     "dialog_dboxproc_border": {

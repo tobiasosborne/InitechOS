@@ -367,6 +367,186 @@ int main(void)
               "L567-570 body is ONE _FrameRect, L709-744 bevel _Lines are title-only)");
     }
 
+    /* ====================================================================
+     * CLOSE / ZOOM BOX (beads initech-ts3t).
+     *
+     * Ground truth: ../system7-decomp/specs/chrome/close-zoom-box.md.
+     *   - boxes RENDER 11x11 (NOT the WDEF 13 px derivation; golden
+     *     s7_doc_window.png close box x=361..371, y=168..178).
+     *   - close box left edge = struct.left + 9 (PlotGoAway WDEF @1675-1678).
+     *   - zoom box  left edge = struct.right - 20 (PlotZoom WDEF @1682-1693).
+     *   - box top = struct.top + wBoxDelta + 1, wBoxDelta=(titleHgt-13)/2
+     *     (=3 for the 19 px bar) -> box top = frame_top + 4 (WDEF @1705-1707).
+     *   - the gadget is a double-beveled square: >=3 distinct tonal roles
+     *     (dark outline idx FG_BOX_DARK_IDX / lavender bevel idx FG_BOX_BEVEL_IDX
+     *     / gray face idx FG_BOX_FACE_IDX) in the ASCII-diagram arrangement.
+     *   - the ZOOM box additionally carries the nested-square glyph (extra interior
+     *     dark figure); the CLOSE box interior is plain gray (no glyph).
+     *
+     * The window is rendered at (40,30)-(360,300) in half-open coords:
+     *   wBoxDelta = (FLAIR_CHROME_TITLEBAR_H - FLAIR_CHROME_WBOX_DELTA)/2 = 3.
+     *   box top  = WIN_TOP + wBoxDelta + 1 = 30+3+1 = 34.
+     *   close box left = WIN_LEFT  + 9  = 49  (spans x=[49, 60), 11 px).
+     *   zoom box  left = WIN_RIGHT - 20 = 340 (spans x=[340,351), 11 px).
+     *
+     * RED on the current render (flat 1px 13x13 frame inset fr+3=4): the close box
+     * draws at x=[44,57) (13 wide), zoom at x=[343,356), one tonal role only, zoom
+     * identical to close. Every leg below bites that.
+     * ==================================================================== */
+    {
+        const int wbox_delta =
+            (FLAIR_CHROME_TITLEBAR_H - FLAIR_CHROME_WBOX_DELTA) / 2;   /* 3 */
+        const int box_top   = WIN_TOP + wbox_delta + 1;               /* 34 */
+        const int box_sz    = FG_BOX_RENDER_SIZE;                     /* 11 */
+        const int close_l   = WIN_LEFT  + FG_CLOSE_BOX_LEFT_OFF;      /* 49 */
+        const int zoom_l    = WIN_RIGHT - FG_ZOOM_BOX_RIGHT_OFF;      /* 340 */
+
+        /* Helper-free inline scan over an 11x11 box at left edge `bl`. Counts the
+         * distinct tonal roles present (dark/bevel/face) and the interior dark
+         * pixels (for the zoom-glyph comparison). The box outer-rim is x in
+         * [bl, bl+11), y in [box_top, box_top+11); the INTERIOR (face) region is
+         * the inset 7x7 (close-zoom-box.md x=363..369,y=170..176 => +2 inset). */
+        /* --- close box scan --- */
+        int close_dark = 0, close_bevel = 0, close_face = 0;
+        int close_interior_dark = 0;
+        for (int y = box_top; y < box_top + box_sz; y++) {
+            for (int x = close_l; x < close_l + box_sz; x++) {
+                uint32_t idx = render_pixel_index(&ctx, (uint32_t)x, (uint32_t)y);
+                if (idx == (uint32_t)FG_BOX_DARK_IDX)  close_dark++;
+                if (idx == (uint32_t)FG_BOX_BEVEL_IDX) close_bevel++;
+                if (idx == (uint32_t)FG_BOX_FACE_IDX)  close_face++;
+                /* interior = inset by 2 from each edge (the 7x7 face region) */
+                if (x >= close_l + 2 && x < close_l + box_sz - 2 &&
+                    y >= box_top + 2 && y < box_top + box_sz - 2 &&
+                    idx == (uint32_t)FG_BOX_DARK_IDX) {
+                    close_interior_dark++;
+                }
+            }
+        }
+        /* --- zoom box scan --- */
+        int zoom_dark = 0, zoom_bevel = 0, zoom_face = 0;
+        int zoom_interior_dark = 0;
+        for (int y = box_top; y < box_top + box_sz; y++) {
+            for (int x = zoom_l; x < zoom_l + box_sz; x++) {
+                uint32_t idx = render_pixel_index(&ctx, (uint32_t)x, (uint32_t)y);
+                if (idx == (uint32_t)FG_BOX_DARK_IDX)  zoom_dark++;
+                if (idx == (uint32_t)FG_BOX_BEVEL_IDX) zoom_bevel++;
+                if (idx == (uint32_t)FG_BOX_FACE_IDX)  zoom_face++;
+                if (x >= zoom_l + 2 && x < zoom_l + box_sz - 2 &&
+                    y >= box_top + 2 && y < box_top + box_sz - 2 &&
+                    idx == (uint32_t)FG_BOX_DARK_IDX) {
+                    zoom_interior_dark++;
+                }
+            }
+        }
+
+        int close_roles = (close_dark > 0) + (close_bevel > 0) + (close_face > 0);
+        int zoom_roles  = (zoom_dark  > 0) + (zoom_bevel  > 0) + (zoom_face  > 0);
+
+        printf("test-chrome-fidelity: close box [x %d..%d y %d..%d] roles=%d "
+               "(dark=%d bevel=%d face=%d) interior_dark=%d\n",
+               close_l, close_l + box_sz, box_top, box_top + box_sz, close_roles,
+               close_dark, close_bevel, close_face, close_interior_dark);
+        printf("test-chrome-fidelity: zoom  box [x %d..%d y %d..%d] roles=%d "
+               "(dark=%d bevel=%d face=%d) interior_dark=%d\n",
+               zoom_l, zoom_l + box_sz, box_top, box_top + box_sz, zoom_roles,
+               zoom_dark, zoom_bevel, zoom_face, zoom_interior_dark);
+
+        /* (9) RENDERED SIZE = 11x11.  The top edge is the dark OUTER frame row,
+         * spanning EXACTLY the 11 columns [close_l, close_l+11).  We assert the
+         * dark top-edge run is exactly 11 px wide: the box top-left corner IS dark,
+         * the column one px PAST the box (x=close_l+11) is NOT dark and NOT the gray
+         * face, and the dark run measured along the top edge == 11.  (The lavender
+         * bevel role idx 7 is INDISTINGUISHABLE from the pinstripe LIGHT idx 7 by
+         * index, so the recolor-invariant size discriminator uses the UNAMBIGUOUS
+         * box tints -- dark outline idx 4 and gray face idx 6 -- which never appear
+         * in the surrounding pinstripe band.)  The OLD 13px-wide box would give a
+         * dark run != 11 and a box tint at x=close_l+11 -> RED. */
+        {
+            uint32_t corner = render_pixel_index(&ctx, (uint32_t)close_l,
+                                                 (uint32_t)box_top);
+            uint32_t past   = render_pixel_index(&ctx, (uint32_t)(close_l + box_sz),
+                                                 (uint32_t)box_top);
+            int past_is_solid_box = (past == (uint32_t)FG_BOX_DARK_IDX) ||
+                                    (past == (uint32_t)FG_BOX_FACE_IDX);
+            /* measure the contiguous dark top-edge run starting at close_l. */
+            int dark_run = 0;
+            for (int x = close_l;
+                 render_pixel_index(&ctx, (uint32_t)x, (uint32_t)box_top)
+                     == (uint32_t)FG_BOX_DARK_IDX;
+                 x++) {
+                dark_run++;
+                if (dark_run > 64) break;       /* safety */
+            }
+            printf("test-chrome-fidelity: close box top-left idx=%u, dark top-edge run "
+                   "=%d (expect %d), one px past (x=%d) idx=%u (must not be dark/face)\n",
+                   corner, dark_run, box_sz, close_l + box_sz, past);
+            CHECK(corner == (uint32_t)FG_BOX_DARK_IDX,
+                  "leg (9a): close box top-left corner (struct.left+9, box top) must "
+                  "be the dark outline role (idx 4); close-zoom-box.md golden "
+                  "x=361,y=168 = #545487 dark frame");
+            CHECK(dark_run == box_sz,
+                  "leg (9b): close box must render 11x11 -- the dark OUTER top-edge run "
+                  "must be EXACTLY 11 px; a 13px box (old FLAIR) gives a different run "
+                  "-- close-zoom-box.md golden 11x11 (x=361..371)");
+            CHECK(!past_is_solid_box,
+                  "leg (9c): one px PAST the 11-wide box (x=struct.left+9+11) must NOT "
+                  "be a solid box tint (dark idx 4 / face idx 6) -- it is pinstripe; "
+                  "close-zoom-box.md golden x=372 is pinstripe NOT box");
+        }
+
+        /* (10) HORIZONTAL OFFSETS: the close box left edge is at struct.left+9 and
+         * the zoom box left edge is at struct.right-20.  The dark outline corner
+         * must be AT each offset, and the column one px to the LEFT of each box must
+         * NOT be a solid box tint (dark/face) -- nothing extends left of the offset
+         * (the bevel is INSIDE the dark frame).  The bevel role (idx 7) is excluded
+         * from the "left of" tint set because it aliases the pinstripe light idx 7.
+         * Old FLAIR insets fr+3=4 (close) / right-4-13 (zoom), so the dark corner at
+         * the CORRECT offset (10a) is RED. */
+        {
+            uint32_t zcorner = render_pixel_index(&ctx, (uint32_t)zoom_l,
+                                                  (uint32_t)box_top);
+            uint32_t zleft   = render_pixel_index(&ctx, (uint32_t)(zoom_l - 1),
+                                                  (uint32_t)box_top);
+            int zleft_is_solid_box = (zleft == (uint32_t)FG_BOX_DARK_IDX) ||
+                                     (zleft == (uint32_t)FG_BOX_FACE_IDX);
+            printf("test-chrome-fidelity: zoom box left edge (x=%d) idx=%u, one px "
+                   "left (x=%d) idx=%u (must not be dark/face)\n",
+                   zoom_l, zcorner, zoom_l - 1, zleft);
+            CHECK(zcorner == (uint32_t)FG_BOX_DARK_IDX,
+                  "leg (10a): zoom box left edge (struct.right-20, box top) must be the "
+                  "dark outline role (idx 4); close-zoom-box.md zoom box left = right-20");
+            CHECK(!zleft_is_solid_box,
+                  "leg (10b): nothing extends left of the zoom box's struct.right-20 "
+                  "offset (the bevel is INSIDE the dark frame; the column one px left "
+                  "is not a solid box tint); close-zoom-box.md");
+        }
+
+        /* (11) DOUBLE BEVEL: each box must exhibit >=3 distinct tonal roles
+         * (dark outline / lavender bevel / gray face).  The OLD flat 1px frame has
+         * exactly ONE role (the frame ink) -> RED. */
+        CHECK(close_roles >= FG_BOX_MIN_TONAL_ROLES,
+              "leg (11a): the close box must be a DOUBLE-BEVELED square with >=3 "
+              "distinct tonal roles (dark outline idx 4 / lavender bevel idx 7 / gray "
+              "face idx 6); a flat 1px frame (old FLAIR) has ONE -- close-zoom-box.md "
+              "ASCII bevel diagram");
+        CHECK(zoom_roles >= FG_BOX_MIN_TONAL_ROLES,
+              "leg (11b): the zoom box must be a DOUBLE-BEVELED square with >=3 distinct "
+              "tonal roles (dark / bevel / face); a flat 1px frame has ONE -- "
+              "close-zoom-box.md ASCII bevel diagram");
+
+        /* (12) ZOOM NESTED-SQUARE GLYPH: the zoom box carries the inner nested-square
+         * "little dude" glyph that the close box lacks -- so the zoom box has STRICTLY
+         * MORE interior dark pixels than the close box.  Old FLAIR drew zoom==close
+         * (both flat, identical interiors) -> RED (equal counts). */
+        CHECK(zoom_interior_dark > close_interior_dark,
+              "leg (12): the ZOOM box must carry the inner nested-square glyph (extra "
+              "interior dark figure) that the CLOSE box lacks -- the zoom box interior "
+              "must have STRICTLY MORE dark pixels than the (plain-gray) close box; "
+              "old FLAIR drew zoom==close -- close-zoom-box.md PlotZoom nested-square "
+              "glyph @1695, 'the close box interior carries no glyph'");
+    }
+
     render_ctx_free(&ctx);
     return TEST_SUMMARY("test-chrome-fidelity");
 }

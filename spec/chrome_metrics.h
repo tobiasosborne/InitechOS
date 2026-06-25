@@ -67,9 +67,19 @@
 /* native.dialog_dboxproc_border.value = 7  (WDEF dBoxBorderSize EQU 7) */
 #define FLAIR_CHROME_DIALOG_BORDER      7
 
-/* native.close_zoom_box_frame_delta.value = 13  (WDEF WBoxDelta: box is 13 px
- * tall, vertically centered in the title bar via (titleHeight-13)/2) */
+/* native.close_zoom_box_frame_delta.value = 13  (WDEF WBoxDelta: the box-height
+ * DERIVATION -- (titleHeight-13)/2 yields wBoxDelta, the vertical gap above the
+ * box. This is the WDEF derivation, NOT the rendered gadget size.) */
 #define FLAIR_CHROME_WBOX_DELTA         13
+
+/* native.close_zoom_box_frame_delta.rendered_px = 11  (the close/zoom gadget
+ * RENDERS 11x11 in the golden, NOT 13x13: the WDEF derives a 13 px box but the
+ * InsetRect/EraseRect pair pulls the CopyBits dest in and the lavender bevel sits
+ * INSIDE the dark frame, so the visible gadget is 11x11).  LAW 2: the golden wins.
+ * Ref: ../system7-decomp/specs/chrome/close-zoom-box.md Geometry table (golden
+ * s7_doc_window.png close box x=361..371, y=168..178 = 11x11 whole gadget incl
+ * bevel; x=360/372 and y=167/179 are pinstripe #F3F3F3, NOT box). */
+#define FLAIR_CHROME_WBOX_RENDER        11
 
 /* native.pinstripe_period.value = 2  (1 dark + 1 light alternating scanline) */
 #define FLAIR_CHROME_PINSTRIPE_PERIOD   2
@@ -286,10 +296,26 @@ _Static_assert(FLAIR_CHROME_TITLE_SHADE_LIGHT != FLAIR_CHROME_TITLE_SHADE_DARK,
 _Static_assert(FLAIR_CHROME_FRAME == 1,
                "documentProc window frame is exactly 1 px (WDEF/Toolbox-313)");
 
-/* The close/zoom box (13 px) must fit inside the title bar (19 px) with room to
- * center it (WBoxDelta = (titleH-13)/2 must be >= 0). */
+/* The close/zoom box (13 px derivation) must fit inside the title bar (19 px) with
+ * room to center it (WBoxDelta = (titleH-13)/2 must be >= 0). */
 _Static_assert(FLAIR_CHROME_WBOX_DELTA <= FLAIR_CHROME_TITLEBAR_H,
-               "the 13 px close/zoom box must fit in the 19 px title bar");
+               "the 13 px close/zoom box derivation must fit in the 19 px title bar");
+
+/* The RENDERED gadget (11 px) is smaller than the WDEF derivation (13 px) -- the
+ * bevel/InsetRect pulls the visible box in by 2 px (close-zoom-box.md Geometry).
+ * It is positive, square, and must fit in the title bar with the wBoxDelta gap. */
+_Static_assert(FLAIR_CHROME_WBOX_RENDER > 0 &&
+               FLAIR_CHROME_WBOX_RENDER < FLAIR_CHROME_WBOX_DELTA,
+               "the rendered close/zoom gadget is 11 px -- smaller than the 13 px "
+               "WDEF derivation (the bevel sits inside the dark frame; "
+               "close-zoom-box.md golden s7_doc_window.png 11x11)");
+
+/* The rendered box plus the wBoxDelta gap above and the +1 dest-top offset must
+ * leave the gadget inside the title bar: wBoxDelta+1 + 11 <= titleH (3+1+11=15<=19).
+ * (box top = struct.top + (titleH-13)/2 + 1; close-zoom-box.md WDEF @1705-1707.) */
+_Static_assert(((FLAIR_CHROME_TITLEBAR_H - FLAIR_CHROME_WBOX_DELTA) / 2) + 1 +
+               FLAIR_CHROME_WBOX_RENDER <= FLAIR_CHROME_TITLEBAR_H,
+               "rendered box (11) + wBoxDelta gap + 1 must fit in the 19 px title bar");
 
 /* The scrollbar and grow box are both the 16 px scrollBarSize family. */
 _Static_assert(FLAIR_CHROME_SCROLLBAR_W == FLAIR_CHROME_GROW,

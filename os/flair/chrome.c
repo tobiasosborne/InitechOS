@@ -116,6 +116,81 @@ static void cframe(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 }
 
 /* ---------------------------------------------------------------------------
+ * cbox -- draw one close/zoom title-bar gadget: a double-beveled 11x11 square at
+ * top-left (bx0, by0) (half-open extent [bx0, bx0+11) x [by0, by0+11)).
+ *
+ * Ref: ../system7-decomp/specs/chrome/close-zoom-box.md (ASCII bevel diagram +
+ *   Rendered colors).  The gadget reads (golden s7_doc_window.png x=361..371,
+ *   y=168..178) as a 3-D double bevel (lavender bevel INSIDE the dark frame):
+ *     row 0  : D D D D D D D D D D D    -- top dark OUTER frame
+ *     row 1  : D ^ ^ ^ ^ ^ ^ ^ ^ ^ ^   -- inner lavender bevel highlight (top)
+ *     rows2-8: D ^ g g g g g g g D ^    -- col0 D, col1 ^, 7x7 gray FACE, col9 D
+ *                                          (inner-right dark), col10 ^ (lavender)
+ *     row 9  : D ^ D D D D D D D D ^    -- inner-bottom dark ring
+ *     row 10 : D ^ ^ ^ ^ ^ ^ ^ ^ ^ ^   -- bottom lavender bevel
+ *   D = dark outline (#545487, the wDTingeF/wFrameColor dark tinge),
+ *   ^ = lavender bevel highlight (#DADAFF, the wLTinge0 light tinge),
+ *   g = 7x7 recessed gray face (#C0C0C0).
+ *
+ * MECHANISM/POLICY (C-8): every pixel resolves through the flair_look_pixel seam
+ * by PART, never a color literal.  The recolor-invariant tonal roles map:
+ *   dark outline -> FLAIR_PART_BEVEL_SHADOW (the dark tinge role; 8bpp idx 4),
+ *   lavender bevel -> FLAIR_PART_PIN_LIGHT (the wLTinge0 light role; 8bpp idx 7),
+ *   gray face -> FLAIR_PART_BTNFACE (#C0C0C0 control face; 8bpp idx 6).
+ * If `zoom` is non-zero the box additionally carries the inner nested-square
+ * "little dude" glyph (PlotZoom, close-zoom-box.md WDEF @1695); the close box
+ * (zoom == 0) leaves the face plain gray.
+ *
+ * Defined only when the box is drawn the real way: the CHROME_FID_MUT_BOX_GEOM
+ * mutant (Rule 6) reverts to the old flat cframe path and never calls cbox, so it
+ * is compiled out there to keep -Werror=unused-function clean.
+ * ------------------------------------------------------------------------- */
+#if !defined(CHROME_FID_MUT_BOX_GEOM)
+static void cbox(GrafPort *port, int bx0, int by0, int zoom)
+{
+    const int sz = FLAIR_CHROME_WBOX_RENDER;     /* 11 px (close-zoom-box.md)   */
+    const int dark  = FLAIR_PART_BEVEL_SHADOW;   /* dark outline #545487 -> canon teal-dark */
+    const int bevel = FLAIR_PART_BEVEL_LIGHT;    /* lavender bevel #DADAFF -> canon TEAL
+                                                  * (WL-0053 lavender->teal; NOT pinstripe
+                                                  * near-white -- same lavender role as the
+                                                  * title bevel, beads initech-92li). */
+    const int face  = FLAIR_PART_BTNFACE;        /* 7x7 gray face (#C0C0C0)     */
+    int bx1 = bx0 + sz;                          /* half-open right (exclusive) */
+    int by1 = by0 + sz;                          /* half-open bottom (exclusive)*/
+    int last = sz - 1;                           /* col/row index 10            */
+
+    /* Fill the whole gadget with the lavender bevel first; the dark frame, gray
+     * face and inner-dark ring overwrite from there (matches the WDEF erase +
+     * tinge order). */
+    crect(port, bx0, by0, bx1, by1, bevel);
+
+    /* row 0: top dark OUTER frame (all 11 columns). */
+    cfill(port, bx0, by0, sz, dark);
+    /* col 0: left dark OUTER frame (all 11 rows). */
+    for (int y = by0; y < by1; y++) {
+        cfill(port, bx0, y, 1, dark);
+    }
+    /* the 7x7 recessed gray FACE: cols [2..8], rows [2..8] (inset 2 from edges). */
+    crect(port, bx0 + 2, by0 + 2, bx0 + sz - 2, by0 + sz - 2, face);
+    /* inner-RIGHT dark ring: col (sz-2)=9, rows [2 .. sz-2)=2..8. */
+    for (int y = by0 + 2; y < by1 - 2; y++) {
+        cfill(port, bx0 + last - 1, y, 1, dark);
+    }
+    /* inner-BOTTOM dark ring: row (sz-2)=9, cols [2 .. sz-2)=2..8. */
+    cfill(port, bx0 + 2, by0 + last - 1, sz - 4, dark);
+
+    if (zoom) {
+        /* The nested-square glyph: a small dark square centred in the 7x7 face
+         * (PlotZoom "little dude", close-zoom-box.md WDEF @1695).  A hollow 3x3
+         * dark frame at the face centre -- extra interior dark figure the close
+         * box lacks.  Centre of the 11x11 box is (sz/2, sz/2) = (5,5); the glyph
+         * frame spans cols [4..6], rows [4..6]. */
+        cframe(port, bx0 + 4, by0 + 4, bx0 + 7, by0 + 7, dark);
+    }
+}
+#endif /* !CHROME_FID_MUT_BOX_GEOM */
+
+/* ---------------------------------------------------------------------------
  * flair_draw_document_window -- the chrome composition (top to bottom).
  * ------------------------------------------------------------------------- */
 void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
@@ -184,30 +259,45 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
         cfill(port, left + fr, y, w - 2 * fr, shade);
     }
 
-    /* 2. Close box (top-left) and zoom box (top-right): hollow 1 px squares,
-     * FLAIR_CHROME_WBOX_DELTA (13) px tall, vertically centered in the title
-     * bar, inset a few px from the corners (WDEF goAway near the left edge, zoom
-     * near the right edge). Interior reduced to the pinstripe so the box reads
-     * hollow over the band. */
+    /* 2. Close box (top-left) and zoom box (top-right): each a double-beveled
+     * 11x11 gadget (NOT a flat 1px frame, NOT 13x13).  Geometry from
+     * ../system7-decomp/specs/chrome/close-zoom-box.md:
+     *   - the gadget RENDERS FLAIR_CHROME_WBOX_RENDER (11) px square (the WDEF
+     *     derives 13 but the bevel sits INSIDE the dark frame; LAW 2 golden wins);
+     *   - close box LEFT edge = struct.left + 9 (PlotGoAway 'moveq #9,D1' @1675-1678);
+     *   - zoom box  LEFT edge = struct.right - 20 (PlotZoom 'left:=right-20' @1682-1693);
+     *   - box TOP = struct.top + wBoxDelta + 1, wBoxDelta = (titleHgt-13)/2 = 3
+     *     (so box top = frame_top + 4; WDEF @1705-1707).  `top` is the outer frame
+     *     top (struct.top); title_top = top + fr.
+     * The zoom box additionally carries the nested-square glyph; the close box
+     * does not (cbox `zoom` flag). */
     {
-        int box = FLAIR_CHROME_WBOX_DELTA;       /* 13 px square                */
-        int vpad = (FLAIR_CHROME_TITLEBAR_H - box) / 2; /* WBoxDelta centering   */
-        if (vpad < 0) {
-            vpad = 0;
+        int wbox_delta = (FLAIR_CHROME_TITLEBAR_H - FLAIR_CHROME_WBOX_DELTA) / 2;
+        if (wbox_delta < 0) {
+            wbox_delta = 0;
         }
-        int by0 = title_top + vpad;
-        int by1 = by0 + box;
-        int margin = fr + 3;                     /* small inset from the corner */
-
-        /* close box, top-left */
-        int cx0 = left + margin;
-        int cx1 = cx0 + box;
-        cframe(port, cx0, by0, cx1, by1, FLAIR_PART_FRAME);
-
-        /* zoom box, top-right */
-        int zx1 = right - margin;
-        int zx0 = zx1 - box;
-        cframe(port, zx0, by0, zx1, by1, FLAIR_PART_FRAME);
+#if defined(CHROME_FID_MUT_BOX_GEOM)
+        /* MUTANT (Rule 6; beads initech-ts3t): revert to the OLD flat 1px 13x13
+         * box at inset fr+3 with NO bevel and NO zoom glyph (zoom == close).
+         * test-chrome-fidelity's box legs (9)/(10)/(11)/(12) MUST go RED:
+         * wrong size (13 not 11), wrong offset (fr+3 not +9/-20), one tonal role
+         * (flat frame), and zoom identical to close (no nested-square glyph). */
+        {
+            int box = FLAIR_CHROME_WBOX_DELTA;   /* 13 px */
+            int by0 = (top + fr) + wbox_delta;   /* old centering (title_top+vpad) */
+            int margin = fr + 3;                 /* old inset */
+            int cx0 = left + margin;
+            cframe(port, cx0, by0, cx0 + box, by0 + box, FLAIR_PART_FRAME);
+            int zx1 = right - margin;
+            cframe(port, zx1 - box, by0, zx1, by0 + box, FLAIR_PART_FRAME);
+        }
+#else
+        int box_top = top + wbox_delta + 1;      /* struct.top + wBoxDelta + 1   */
+        int close_x = left + 9;                  /* struct.left + 9 (PlotGoAway) */
+        int zoom_x  = right - 20;                /* struct.right - 20 (PlotZoom) */
+        cbox(port, close_x, box_top, 0);         /* close box (no glyph)         */
+        cbox(port, zoom_x,  box_top, 1);         /* zoom box  (nested-square)    */
+#endif
     }
 
     /* 2.5 Title text: the window's name, drawn CENTERED in the title bar in
@@ -229,7 +319,12 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
     if (title != 0 && title[0] != '\0') {
         int cell_h = text_cell_height(FONT_CHICAGO);
         int tw     = text_measure(FONT_CHICAGO, title);
-        int box_clear = fr + 3 + FLAIR_CHROME_WBOX_DELTA + 2; /* right of close box */
+        /* Clamp the centered title right of the close box: the close box left edge
+         * is struct.left + 9 and it renders FLAIR_CHROME_WBOX_RENDER (11) px wide,
+         * so its right edge is left+9+11 = left+20; +3 px gap = left+23.  Recomputed
+         * from the NEW close-box geometry (close-zoom-box.md; was fr+3+WBOX_DELTA+2
+         * for the old 13px box at inset fr+3). */
+        int box_clear = 9 + FLAIR_CHROME_WBOX_RENDER + 3;     /* right of close box */
         int tx = left + fr + (w - 2 * fr - tw) / 2;           /* centered          */
         if (tx < left + box_clear) {
             tx = left + box_clear;

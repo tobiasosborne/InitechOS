@@ -102,8 +102,11 @@ uint32_t flair_look_pixel_depth(uint32_t bpp, int part)
         /* 8bpp destination writes the palette index low byte (OD-2). The 9
          * indexed parts ARE canon indices; the derived bevel rows have none, so
          * fall back to their light/shadow index neighbour where exact (bevel
-         * light == idx2 teal) and CIDX_TITLE_INK otherwise -- the 8bpp bevel
-         * path is unexercised by current decoration (no bevel draw ships). */
+         * light == idx2 teal) and CIDX_TITLE_INK otherwise.  The 8bpp bevel
+         * path IS now exercised: the close/zoom box gadget (chrome.c cbox,
+         * beads initech-ts3t) draws BEVEL_LIGHT (-> idx2 teal) + BEVEL_SHADOW
+         * (-> idx4) for its 3-D double bevel; the title bevel (initech-92li)
+         * will too. */
         if (row == 0) {
             return (uint32_t)CIDX_BLACK;
         }

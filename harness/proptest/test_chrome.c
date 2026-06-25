@@ -265,28 +265,47 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
     }
 
     /* --- 5. Close box (top-left) and zoom box (top-right) present ----------- */
-    /* Each is a 1 px hollow square inset ~fr+3 from its corner, WBOX_DELTA (13)
-     * tall, centered in the title bar. Probe a point on each box's frame. */
+    /* Each is a double-beveled FLAIR_CHROME_WBOX_RENDER (11x11) gadget, NOT a flat
+     * 13px frame.  Geometry amended to the rendered close-zoom-box.md ground truth
+     * (beads initech-ts3t; strengthening toward the golden, Law 2):
+     *   box top = WIN_TOP + wBoxDelta + 1, wBoxDelta=(titleHgt-13)/2 (WDEF @1705-1707);
+     *   close box LEFT edge = WIN_LEFT + 9 (PlotGoAway @1675-1678);
+     *   zoom box  LEFT edge = WIN_RIGHT - 20 (PlotZoom @1682-1693).
+     * The box top-left corner is the dark OUTLINE (close-zoom-box.md golden
+     * x=361,y=168 = #545487 dark frame -> the dark figure role; 8bpp idx 4).
+     * (The exact bevel/role structure is graded by test-chrome-fidelity; here we
+     * pin the geometry: the box corners are painted at the NEW offsets.) */
     {
-        int box = FLAIR_CHROME_WBOX_DELTA;
-        int vpad = (FLAIR_CHROME_TITLEBAR_H - box) / 2;
-        if (vpad < 0) {
-            vpad = 0;
+        int wbox_delta = (FLAIR_CHROME_TITLEBAR_H - FLAIR_CHROME_WBOX_DELTA) / 2;
+        if (wbox_delta < 0) {
+            wbox_delta = 0;
         }
-        int by0 = title_top + vpad;       /* box top edge row                   */
-        int margin = fr + 3;
+        int by0 = WIN_TOP + wbox_delta + 1;  /* box top edge (struct.top+wBoxDelta+1) */
 
-        /* close box top-left corner is painted (its frame). */
-        int cx0 = WIN_LEFT + margin;
+        /* close box top-left corner is painted (its dark outline). */
+        int cx0 = WIN_LEFT + 9;              /* struct.left + 9 (close-zoom-box.md) */
         snprintf(msg, sizeof msg,
-                 "[%s] close box (top-left) must be present", bpp_tag);
+                 "[%s] close box (top-left, struct.left+9) must be present", bpp_tag);
         CHECK(is_painted(ctx, cx0, by0), msg);
+        if (idx_mode) {
+            /* the dark outline role at the corner (recolor-invariant, 8bpp idx 4). */
+            snprintf(msg, sizeof msg,
+                     "[%s] close box top-left corner must be the dark outline "
+                     "(idx 4; close-zoom-box.md x=361,y=168 #545487)", bpp_tag);
+            CHECK(shade_index(ctx, cx0, by0) == 4u, msg);
+        }
 
-        /* zoom box top-right corner is painted (its frame). */
-        int zx1 = WIN_RIGHT - margin;
+        /* zoom box top-left corner is painted (its dark outline). */
+        int zx0 = WIN_RIGHT - 20;            /* struct.right - 20 (close-zoom-box.md) */
         snprintf(msg, sizeof msg,
-                 "[%s] zoom box (top-right) must be present", bpp_tag);
-        CHECK(is_painted(ctx, zx1 - 1, by0), msg);
+                 "[%s] zoom box (top-left, struct.right-20) must be present", bpp_tag);
+        CHECK(is_painted(ctx, zx0, by0), msg);
+        if (idx_mode) {
+            snprintf(msg, sizeof msg,
+                     "[%s] zoom box top-left corner must be the dark outline "
+                     "(idx 4; close-zoom-box.md zoom left = right-20)", bpp_tag);
+            CHECK(shade_index(ctx, zx0, by0) == 4u, msg);
+        }
     }
 }
 
