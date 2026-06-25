@@ -176,6 +176,21 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
 static kbd_ring_t  g_kbd;
 static kbd_state_t g_kbd_state;
 
+/* Optional raw-scancode hook for the FLAIR live event loop (ADR-0006
+ * E-D3(c) / FO-5 -- beads initech-5l5z). DEFAULT NULL: kbd_irq_handler is
+ * byte-for-byte the legacy ASCII-ring-put+EOI for every kernel that never
+ * calls kbd_set_scancode_hook() (CLAUDE.md Rule 11 byte-stability of all
+ * kbd.o-linking kernels; the NULL branch is simply not taken, never
+ * dereferenced). Written once from task context BEFORE `sti`; read in ISR
+ * context -- safe on a single-core cooperative system (set while IRQs are
+ * masked, never changed after; CLAUDE.md "cooperative not preemptive"). */
+static void (*g_scancode_hook)(uint8_t) = 0;
+
+void kbd_set_scancode_hook(void (*fn)(uint8_t))
+{
+    g_scancode_hook = fn;
+}
+
 void kbd_init(void)
 {
     kbd_ring_init(&g_kbd);
@@ -199,6 +214,18 @@ void kbd_irq_handler(void)
     uint8_t ascii = kbd_translate(&g_kbd_state, sc);
     if (ascii != 0u) {
         (void)kbd_ring_put(&g_kbd, ascii);   /* full -> dropped (fail safe) */
+    }
+
+    /* FLAIR live event loop scancode hook (ADR-0006 E-D3(c) / FO-5): post
+     * the RAW scancode byte (the value read from port 0x60 above) into the
+     * FLAIR raw ring AFTER the DOS g_kbd ASCII ring post (above) and BEFORE
+     * the PIC EOI (below). The DOS g_kbd path is 100% unchanged by this hook.
+     * DEFAULT NULL: every kernel that did not call kbd_set_scancode_hook()
+     * runs the identical legacy path (Rule 11 byte-stability). ISR-enqueue-
+     * only minimum (ADR-0004 D-4): the hook posts to a lock-free SPSC ring
+     * and returns; no Toolbox, no alloc, no port I/O in the hook itself. */
+    if (g_scancode_hook) {
+        g_scancode_hook(sc);
     }
 
     /* End-of-interrupt to the master 8259A (OCW2 non-specific EOI). Ref: 8259A

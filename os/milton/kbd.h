@@ -98,6 +98,30 @@ void kbd_init(void);
  * ring, then sends EOI (0x20 -> port 0x20). Kernel-only (port I/O). */
 void kbd_irq_handler(void);
 
+/* Optional raw-scancode hook for the FLAIR live event loop (ADR-0006
+ * E-D3(c) / FO-5 -- beads initech-5l5z). When non-NULL, kbd_irq_handler
+ * calls this AFTER posting the decoded ASCII to the DOS g_kbd ring and
+ * BEFORE issuing the PIC EOI (kbd.c). The hook receives the RAW PS/2
+ * scancode byte read from port 0x60 (scancode SET 1 make/break; NOT the
+ * ASCII translation). DEFAULT NULL: every kernel that never calls
+ * kbd_set_scancode_hook() has a kbd_irq_handler that is byte-for-byte
+ * the legacy scan->ASCII->ring-put->EOI path (CLAUDE.md Rule 11 byte-
+ * stability; the hook branch is not executed).
+ *
+ * ISR context: the hook must do the ADR-0004 D-4 minimum -- post the raw
+ * byte to a lock-free ring and return; NO Toolbox call, NO allocation,
+ * NO port I/O. The EventRecord synthesis (keyDown/keyUp) happens in task
+ * context inside WaitNextEvent (ADR-0004 D-4 / event.h). Written once
+ * from task context BEFORE `sti`; read in ISR context -- safe on a single-
+ * core cooperative system (no concurrent writer; CLAUDE.md "cooperative").
+ *
+ * The FLAIR-live kernel (kmain.c -DBOOT_FLAIR_LIVE) installs its private
+ * flair_live_kbd_post() hook here so the kbd IRQ1 -> FLAIR raw ring path
+ * fires on metal with no WaitNextEvent pump yet (FO-5, the cheapest on-metal
+ * SPSC-ring-atomicity-under-async-producer test). Ref: ADR-0006 E-D3(c),
+ * FO-5; kbd.c g_scancode_hook; spec/event_model.h flair_raw_event_t. */
+void kbd_set_scancode_hook(void (*fn)(uint8_t sc));
+
 /* Non-blocking consumer API for the event loop / the echo self-test.
  * kbd_getchar returns the next ASCII byte, or -1 if the ring is empty.
  * kbd_haschar returns 1 if a byte is waiting. Both run with IRQs briefly

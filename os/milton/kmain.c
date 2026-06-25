@@ -56,7 +56,8 @@
 #include "shell.h"           /* shell_scene_t, shell_build_scene/render       */
 #include "menu_canon.h"      /* FLAIR_CANON_PHOTOSHOP_MENU_COUNT (-Ispec/assets)*/
 #include "palette.h"         /* flair_palette_rgb + INITECH_*_RGB (-Ispec/assets)*/
-#include "event.h"           /* flair_tick_advance / flair_tick_count (FO-4)  */
+#include "event.h"           /* flair_tick_advance/count (FO-4) + flair_raw_post/
+                              * flair_event_init / flair_raw_ring_t (FO-5)    */
 #endif
 
 /* Seafoam: ported VERBATIM from stage2.asm:42-44 (SEAFOAM_R/G/B). The pie
@@ -918,6 +919,48 @@ static void flair_desktop_run(const boot_info_t *bi)
 }
 #endif /* BOOT_FLAIR_SHELL || BOOT_FLAIR_LIVE */
 
+#ifdef BOOT_FLAIR_LIVE
+/* ===========================================================================
+ * FO-5: FLAIR raw ring + kbd scancode hook (beads initech-5l5z; ADR-0006
+ * E-D3(c) / FO-5; landing-sequence Step 3).
+ *
+ * Kernel-static SPSC ring for raw keyboard events. Zero-initialised in BSS;
+ * flair_event_init() is called by the BOOT_FLAIR_LIVE arm of kernel_main
+ * BEFORE any hook is installed or IRQ is unmasked (ADR-0004 D-4 contract).
+ * The kbd IRQ1 producer posts into this ring; the bounded wake loop in
+ * kernel_main drains it in task context and emits FLAIR-KEY on serial.
+ *
+ * Additive (ADR-0006 E-D3 / BC-2): the DOS g_kbd ASCII ring in kbd.c is
+ * kept 100% intact; COMMAND.COM / test-shell / test-samir-boot are GREEN. */
+static flair_raw_ring_t g_flair_kbd_ring;
+
+/* flair_live_kbd_post -- kbd scancode hook installed by BOOT_FLAIR_LIVE.
+ * Called from IRQ1 context (kbd_irq_handler, AFTER the DOS g_kbd ring post
+ * and BEFORE the PIC EOI) with the RAW PS/2 scancode byte (scancode SET 1
+ * make/break from port 0x60; NOT the ASCII translation). Posts ONE
+ * FLAIR_RAW_KEYBOARD event to g_flair_kbd_ring.
+ * ISR-enqueue-only minimum (ADR-0004 D-4): a single flair_raw_post() call;
+ * no Toolbox, no alloc, no port I/O. The full ring drop case is the defined
+ * non-panic behaviour for ISR context (event.h Sec 1; Rule 2 telemetry).
+ * Ref: ADR-0006 E-D3(c), FO-5; kbd.h kbd_set_scancode_hook; event.h;
+ *      spec/event_model.h flair_raw_event_t (kind/tick/payload layout).
+ *
+ * __attribute__((unused)): the FLAIR_LIVE_MUTATE_NO_KBD_HOOK Rule-6 mutant build
+ * compiles out the SOLE call site (kbd_set_scancode_hook(flair_live_kbd_post),
+ * #ifndef-guarded below), so this hook is legitimately unused there -- exactly
+ * the mutant's point (no install => no FLAIR-KEY). Same idiom as run_baked above
+ * for the BOOT_SHELL build. */
+__attribute__((unused))
+static void flair_live_kbd_post(uint8_t sc)
+{
+    flair_raw_event_t raw;
+    raw.kind    = (uint32_t)FLAIR_RAW_KEYBOARD; /* FLAIR_RAW_KEYBOARD=0 */
+    raw.tick    = flair_tick_count();            /* PIT tick count at IRQ time */
+    raw.payload = (uint32_t)sc;                 /* low byte=raw scancode (SET 1) */
+    (void)flair_raw_post(&g_flair_kbd_ring, &raw);
+}
+#endif /* BOOT_FLAIR_LIVE */
+
 void kernel_main(void)
 {
     /* Marker: C kernel entered. This is the acceptance signal for the handoff
@@ -1143,44 +1186,46 @@ void kernel_main(void)
 #endif
 
 #ifdef BOOT_FLAIR_LIVE
-    /* THE FLAIR LIVE COOPERATIVE EVENT LOOP -- FO-4: the PIT tick lane (beads
-     * initech-5l5z; ADR-0006 E-D3a / E-D4 / FO-4; landing-sequence Step 2).
+    /* THE FLAIR LIVE COOPERATIVE EVENT LOOP -- FO-4 + FO-5 (beads initech-5l5z;
+     * ADR-0006 E-D3a/E-D3c / E-D4 / FO-4+FO-5; landing-sequence Steps 2+3).
      *
      * This is the THIRD FLAIR demo kernel (alongside BOOT_FLAIR_SHELL), shipped
      * behind -DBOOT_FLAIR_LIVE so the DEFAULT boot stays the static render-once-
      * and-HLT frame and every existing emu gate stays byte-stable (ADR-0006
-     * FO-GAP-A; CLAUDE.md Rule 11). FO-4 wires ONLY the PIT IRQ0 -> tick hook ->
-     * flair_tick_advance() path and proves it fires on metal with a bounded,
-     * deterministic wake loop. The kbd raw post (FO-5), the mouse IRQ12 (FO-6),
-     * and the real WaitNextEvent dispatch pump (FO-7) are LATER lanes and are
-     * deliberately NOT built here.
+     * FO-GAP-A; CLAUDE.md Rule 11). FO-4 wired the PIT IRQ0 -> tick hook path;
+     * FO-5 ADDS the kbd IRQ1 -> raw scancode -> FLAIR raw ring path. The mouse
+     * IRQ12 (FO-6) and the real WaitNextEvent pump (FO-7) are later lanes.
      *
-     * Sequence (the ordering minefield -- ADR-0004 D-4 / CLAUDE.md "real mode ->
-     * protected"):
+     * Sequence (the ordering minefield -- ADR-0004 D-4 / "real mode -> protected"):
      *   1. Render + PRESENT the SAME FLAIR scene the BOOT_FLAIR_SHELL kernel does
-     *      (flair_desktop_run -- keep the initial present, ADR-0006 BC-4). On a
-     *      640x480 LFB (QEMU) this presents the canon frame; on a 320x200 LFB
-     *      (Bochs mode-0x13 fallback) flair_desktop_run FAILS LOUD and halts,
-     *      exactly like test-flair-desktop-bochs -- so the Bochs leg proves the
-     *      shared boot/heap milestones + the fail-loud guard, never a tick wedge.
-     *   2. Install the tick hook BEFORE enabling IRQs (ADR-0006 E-D3a): the PIT
-     *      ISR will call flair_tick_advance() on every IRQ0 (pit.c:93 region).
-     *      DEFAULT-NULL hook means no other kernel is affected (Rule 11).
-     *   3. sysinit_enable_irqs(): pit_init (100 Hz) -> kbd_init -> install the
-     *      IRQ0/IRQ1 gates -> pic_unmask_irq0_irq1() (this UNMASKS IRQ0, the PIT,
-     *      AND IRQ1) -> sti. So IRQ0 is unmasked here; FO-4 needs no extra mask
-     *      clearing. (kbd_init/IRQ1 are along for the ride and harmless -- FO-4
-     *      injects no keys; the FLAIR raw post is FO-5, not built here.)
-     *   4. Run a BOUNDED wake loop: hlt; on each wake read flair_tick_count()
-     *      (the value the hook maintains) and emit "FLAIR-TICK n=<count>" on
-     *      serial when it ADVANCES. After FLAIR_LIVE_TICK_GOAL distinct ticks the
-     *      wiring is proven; emit "FLAIR-LIVE-OK" and cli;hlt (so the gate
-     *      terminates and can screendump a stable frame).
+     *      (flair_desktop_run -- keep the initial present, ADR-0006 BC-4).
+     *   2. flair_event_init(&g_flair_kbd_ring): initialise the SPSC ring, cursor
+     *      state, and event.c tick counter BEFORE any hook is installed or IRQ is
+     *      unmasked (ADR-0004 D-4 contract; event.h).
+     *   3. Install the PIT tick hook BEFORE sti (ADR-0006 E-D3a): flair_tick_advance
+     *      runs on every IRQ0. DEFAULT-NULL hook means no other kernel is affected.
+     *   4. Install the kbd scancode hook BEFORE sti (ADR-0006 E-D3c / FO-5):
+     *      flair_live_kbd_post posts the raw scancode to g_flair_kbd_ring on each
+     *      IRQ1. The DOS g_kbd ASCII ring is kept 100% intact (additive; BC-2).
+     *   5. sysinit_enable_irqs(): pit_init (100 Hz), kbd_init, install the IRQ
+     *      gates, unmask IRQ0+IRQ1, sti. After this both IRQ0 and IRQ1 are live.
+     *   6. Run a BOUNDED wake loop: hlt; on each wake (a) check the FLAIR tick
+     *      counter and emit FLAIR-TICK n=<count> when it advances; (b) drain the
+     *      FLAIR raw ring and emit FLAIR-KEY sc=<hex> for each keyboard raw event.
+     *      After FLAIR_LIVE_TICK_GOAL distinct ticks, emit FLAIR-LIVE-OK + cli;hlt.
      *
      * Reproducible (Rule 11): the loop is bounded by tick COUNT, never by a spin
-     * count or wall-clock, so the serial transcript is deterministic. */
+     * count or wall-clock. A QMP-injected key fires IRQ1, which wakes the hlt and
+     * delivers the raw scancode to the ring; the drain in the same iteration emits
+     * FLAIR-KEY -- on-metal SPSC-ring-atomicity-under-async-producer proof (FO-5). */
     flair_desktop_run(&b);
     serial_puts("FLAIR-DESKTOP\n");
+
+    /* --- FO-5: initialise the FLAIR raw ring BEFORE installing any hook ------- *
+     * flair_event_init resets the ring (head=tail=0), cursor state, and the
+     * event.c tick counter to 0. IRQs are still masked here (before sti); no
+     * producer can be running yet. Ref: event.h flair_event_init contract. */
+    flair_event_init(&g_flair_kbd_ring);
 
     /* --- FO-4: install the PIT tick hook BEFORE sti (ADR-0006 E-D3a) --------- *
      * pit_set_tick_hook defaults NULL; only THIS kernel installs it, so every
@@ -1190,10 +1235,23 @@ void kernel_main(void)
      *
      * The FLAIR_LIVE_MUTATE_NO_HOOK Rule-6 mutant (defined ONLY by the mutant
      * image) SKIPS the install, so the tick base never advances -> FLAIR-TICK
-     * never appears -> test-flair-live goes RED. This PROVES the gate bites on a
-     * dead tick wiring. NEVER define in a real build. */
+     * never appears -> test-flair-live goes RED. NEVER define in a real build. */
 #ifndef FLAIR_LIVE_MUTATE_NO_HOOK
     pit_set_tick_hook(flair_tick_advance);
+#endif
+
+    /* --- FO-5: install the kbd scancode hook BEFORE sti (ADR-0006 E-D3c) ------ *
+     * kbd_set_scancode_hook defaults NULL; only THIS kernel installs the hook, so
+     * every other kbd.o-linking kernel is byte-identical (Rule 11). The hook is
+     * flair_live_kbd_post (above in this TU): posts FLAIR_RAW_KEYBOARD to
+     * g_flair_kbd_ring -- the ADR-0004 D-4 ISR-enqueue-only minimum. The DOS
+     * g_kbd ASCII ring (kbd.c) is kept 100% intact (additive; ADR-0006 BC-2).
+     *
+     * The FLAIR_LIVE_MUTATE_NO_KBD_HOOK Rule-6 mutant SKIPS this install, so
+     * no FLAIR-KEY ever appears -> the FO-5 gate goes RED. NEVER define in a
+     * real build. */
+#ifndef FLAIR_LIVE_MUTATE_NO_KBD_HOOK
+    kbd_set_scancode_hook(flair_live_kbd_post);
 #endif
     serial_puts("FLAIR-HOOK-SET\n");
 
@@ -1201,34 +1259,88 @@ void kernel_main(void)
      * -- the SAME proven path the shell uses (sysinit.c). pit_init resets the
      * pit.o tick counter to 0 but does NOT touch g_tick_hook; flair_tick_advance
      * maintains event.c's own g_tick (read via flair_tick_count), which starts
-     * at 0 in BSS. After this, IRQ0 fires ~every 10 ms and drives the hook. */
+     * at 0 after flair_event_init above. After this, IRQ0 fires ~every 10 ms and
+     * IRQ1 fires on every keystroke from the 8042 output buffer. */
     sysinit_enable_irqs(serial_puts);
 
-    /* --- FO-4: the BOUNDED, deterministic wake loop -------------------------- *
-     * Sleep on hlt; each IRQ (PIT tick or a stray IRQ1) wakes us. Read the FLAIR
-     * tick the hook maintains; when it advances, emit FLAIR-TICK n=<count>. Stop
-     * after FLAIR_LIVE_TICK_GOAL distinct ticks (>=3) so the gate sees >=2
-     * distinct counts advance, then emit FLAIR-LIVE-OK and cli;hlt forever (a
-     * stable screen for the screendump; the desktop frame is already presented).
+    /* --- FO-4 + FO-5: the BOUNDED, deterministic wake loop -------------------- *
+     * Sleep on hlt; each IRQ (PIT tick or kbd IRQ1) wakes us.
      *
-     * Bounded by COUNT, not spins (Rule 11): if the hook were not wired (the
-     * mutant), flair_tick_count() stays 0 forever and FLAIR-TICK never prints --
-     * the loop hlt-sleeps until the harness times out, and the gate fails on the
-     * missing FLAIR-TICK marker (the intended RED). */
+     * FO-4: read flair_tick_count(); when it advances, emit FLAIR-TICK n=<count>.
+     * FO-5: drain g_flair_kbd_ring (SPSC consumer in task context); for each
+     *   FLAIR_RAW_KEYBOARD event emit FLAIR-KEY sc=<hex> (8 uppercase hex digits;
+     *   serial_puthex32 of the low byte -- the raw scancode set-1 byte).
+     *
+     * Stop after FLAIR_LIVE_TICK_GOAL distinct ticks, then emit FLAIR-LIVE-OK +
+     * cli;hlt. Bounded by COUNT (Rule 11 -- reproducible serial transcript). A
+     * QMP-injected key wakes the hlt via IRQ1; the ring drain immediately below
+     * emits the FLAIR-KEY. If no key is injected, the loop still terminates on
+     * tick count (never spins forever). */
     {
-        enum { FLAIR_LIVE_TICK_GOAL = 4 };  /* emit ticks 1..4 -> >=2 distinct */
+        /* FO-5: the live wake loop runs a GENEROUS, deterministic tick window so
+         * the ASYNCHRONOUSLY QMP-injected key is drained WHILE interrupts are
+         * still enabled. The injection is not synchronous with the guest: the
+         * harness polls the serial file until it SEES FLAIR-HOOK-SET, THEN sends
+         * 'a' over QMP -- a serial-poll + QMP round-trip of ~100-300 ms under
+         * host load. A narrow window (the earlier 10-tick / ~100 ms loop) raced:
+         * the key's IRQ1 could arrive AFTER the loop already emitted FLAIR-LIVE-OK
+         * and executed cli;hlt (interrupts OFF), so the FLAIR ring was never fed
+         * and FLAIR-KEY never appeared. Widening the window keeps IF=1 long enough
+         * to receive the post-marker key with a large margin.
+         *
+         * Bounded by tick COUNT, never wall-clock or a spin count (Rule 11 -- a
+         * reproducible serial transcript; the loop terminates on the 100 Hz PIT
+         * IRQ0 advancing g_tick, independent of host speed). 150 ticks ~= 1.5 s
+         * at 100 Hz: a 5-15x margin over the inject latency, robust under load,
+         * and well within every gate timeout (test-flair-live 8000 ms;
+         * test-flair-key 15000 ms).
+         *
+         * Wire economy: FLAIR-TICK is emitted only for the FIRST
+         * FLAIR_LIVE_TICK_ANNOUNCE advances -- the FO-4 tick proof (test-flair-live
+         * asserts >=2 DISTINCT FLAIR-TICK values; 4 distinct satisfies it) --
+         * after which the loop keeps ticking SILENTLY (no 150 noisy lines) while
+         * STILL draining the FLAIR raw ring on EVERY wake, so an injected key
+         * landing at tick ~10-30 emits FLAIR-KEY immediately, well before the
+         * window closes. */
+        enum { FLAIR_LIVE_TICK_WINDOW   = 150 }; /* ~1.5 s @100 Hz: async-inject margin */
+        enum { FLAIR_LIVE_TICK_ANNOUNCE = 4   }; /* emit FLAIR-TICK for the first 4 only */
         uint32_t last = flair_tick_count();
         uint32_t seen = 0u;
-        while (seen < (uint32_t)FLAIR_LIVE_TICK_GOAL) {
+        while (seen < (uint32_t)FLAIR_LIVE_TICK_WINDOW) {
+            /* FO-4: tick advance check. Announce only the first few advances so
+             * the transcript stays quiet over the wide window; the loop keeps
+             * counting ticks to the window bound either way. */
             uint32_t now = flair_tick_count();
             if (now != last) {
                 last = now;
                 seen++;
-                serial_puts("FLAIR-TICK n=");
-                serial_putu(now);
-                serial_putc('\n');
+                if (seen <= (uint32_t)FLAIR_LIVE_TICK_ANNOUNCE) {
+                    serial_puts("FLAIR-TICK n=");
+                    serial_putu(now);
+                    serial_putc('\n');
+                }
             }
-            __asm__ __volatile__("hlt");   /* sleep until the next IRQ0 tick */
+
+            /* FO-5: drain the FLAIR raw ring in task context (SPSC consumer) on
+             * EVERY wake. head is volatile (ISR producer), tail is our own
+             * write-only index. Slot access via tail & FLAIR_RAW_RING_MASK
+             * (unmasked monotonic indices; spec/event_model.h Sec 5). Emit
+             * FLAIR-KEY sc=<8-hex-digits> for each FLAIR_RAW_KEYBOARD event (raw
+             * scancode SET 1 byte in payload low byte). This is the on-metal proof
+             * that kbd IRQ1 -> flair_live_kbd_post -> g_flair_kbd_ring -> drain
+             * path works. */
+            while (g_flair_kbd_ring.head != g_flair_kbd_ring.tail) {
+                uint32_t idx = g_flair_kbd_ring.tail & FLAIR_RAW_RING_MASK;
+                flair_raw_event_t rev = g_flair_kbd_ring.slots[idx];
+                g_flair_kbd_ring.tail++;  /* consume: task context, single consumer */
+                if ((flair_raw_kind_t)rev.kind == FLAIR_RAW_KEYBOARD) {
+                    serial_puts("FLAIR-KEY sc=");
+                    serial_puthex32(rev.payload & 0xFFu);
+                    serial_putc('\n');
+                }
+            }
+
+            __asm__ __volatile__("hlt");   /* sleep until next IRQ (IRQ0 or IRQ1) */
         }
     }
     serial_puts("FLAIR-LIVE-OK\n");

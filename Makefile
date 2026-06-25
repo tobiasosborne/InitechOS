@@ -640,6 +640,12 @@ KERNEL_FLAIRLIVE_MUT_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut.o
 KERNEL_FLAIRLIVE_MUT_ELF      := $(BUILD)/kernel_flairlive_mut.elf
 KERNEL_FLAIRLIVE_MUT_BIN      := $(BUILD)/kernel_flairlive_mut.bin
 FLAIRLIVE_MUT_IMG             := $(BUILD)/flair_live_mut.img
+# FO-5 kbd-hook mutant (beads initech-5l5z FO-5): -DFLAIR_LIVE_MUTATE_NO_KBD_HOOK
+# skips kbd_set_scancode_hook so FLAIR-KEY never appears -> test-flair-key RED.
+KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_kbd.o
+KERNEL_FLAIRLIVE_MUT_KBD_ELF      := $(BUILD)/kernel_flairlive_mut_kbd.elf
+KERNEL_FLAIRLIVE_MUT_KBD_BIN      := $(BUILD)/kernel_flairlive_mut_kbd.bin
+FLAIRLIVE_MUT_KBD_IMG             := $(BUILD)/flair_live_mut_kbd.img
 # EXIT-handle teardown self-test kernel/image (beads initech-6hk; epic
 # initech-6qy; make test-exit-handles): the SAME kernel sources but with
 # -DBOOT_EXITH so the boot EXECs the FAT-sourced leaky child EXITH.COM RUNS
@@ -8125,6 +8131,32 @@ $(FLAIRLIVE_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_BIN) | $(B
 	@dd if=$(KERNEL_FLAIRLIVE_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-live MUTANT image: %s (no tick hook -- FLAIR-TICK never advances)\n" "$@"
 
+# --- FO-5 kbd-hook MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6) -
+$(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h os/flair/event.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_KBD_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FLAIRLIVE_MUT_KBD_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ)
+
+$(KERNEL_FLAIRLIVE_MUT_KBD_ELF): $(KERNEL_FLAIRLIVE_MUT_KBD_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_KBD_OBJS)
+
+$(KERNEL_FLAIRLIVE_MUT_KBD_BIN): $(KERNEL_FLAIRLIVE_MUT_KBD_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_mut_kbd.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-mutant-nokbdhook): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_MUT_KBD_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live kbd-MUTANT image: %s (no kbd hook -- FLAIR-KEY never appears)\n" "$@"
+
 # --- MUTANT flair_desktop kernels (beads initech-re30.3, LANE 2; Rule 6) -----
 # To MUTATION-PROVE the screendump oracle (a check that never bites is decoration),
 # rebuild the flair_desktop kernel three times, each with one named mutation -D
@@ -8979,6 +9011,41 @@ test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT)
 	@printf ">>> test-window-mutant: confirming both mutants go RED (Rule 6)\n"
 	@if $(TEST_WINDOW_MUT_ZORDER) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZORDER PASSED -- the visible-region oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZORDER correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_OVERPAINT) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: OVERPAINT PASSED -- the no-over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (OVERPAINT correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
+# the HOST internal-geometry oracle for the FLAIR live pump: FindWindow part-code
+# routing + DragWindow geometry + z-order visible regions, graded by INDEPENDENT
+# recomputation (Law 2; not by replaying the artifact's own output). Self-mutants
+# DRAG_NOOP / FINDWINDOW_OFFBYONE / VISIBLE_IGNORE_FRONT perturb the EXPECTED-value
+# recomputation to prove the checks are live differentials (Rule 6).
+# ---------------------------------------------------------------------------
+TEST_INTERACT     := $(BUILD)/test_interact
+TEST_INTERACT_SRC := harness/proptest/test_interact.c
+TEST_INTERACT_MUT_DRAG := $(BUILD)/test_interact_mutant_dragnoop
+TEST_INTERACT_MUT_FIND := $(BUILD)/test_interact_mutant_findoffbyone
+TEST_INTERACT_MUT_VIS  := $(BUILD)/test_interact_mutant_visignorefront
+TEST_INTERACT_DEPS := os/flair/window.c os/flair/window.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h
+
+$(TEST_INTERACT): $(TEST_INTERACT_SRC) $(TEST_INTERACT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_INC) -o $@ $(TEST_INTERACT_SRC) $(WINDOW_LINK)
+$(TEST_INTERACT_MUT_DRAG): $(TEST_INTERACT_SRC) $(TEST_INTERACT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINTERACT_MUT_DRAG_NOOP $(WINDOW_INC) -o $@ $(TEST_INTERACT_SRC) $(WINDOW_LINK)
+$(TEST_INTERACT_MUT_FIND): $(TEST_INTERACT_SRC) $(TEST_INTERACT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINTERACT_MUT_FINDWINDOW_OFFBYONE $(WINDOW_INC) -o $@ $(TEST_INTERACT_SRC) $(WINDOW_LINK)
+$(TEST_INTERACT_MUT_VIS): $(TEST_INTERACT_SRC) $(TEST_INTERACT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINTERACT_MUT_VISIBLE_IGNORE_FRONT $(WINDOW_INC) -o $@ $(TEST_INTERACT_SRC) $(WINDOW_LINK)
+
+test-interact: $(TEST_INTERACT)
+	@printf ">>> test-interact: FindWindow part-codes + DragWindow geometry + z-order visible regions (HOST, independent-by-recomputation, FO-9)\n"
+	@$(TEST_INTERACT)
+	@printf ">>> test-interact: green\n"
+
+test-interact-mutant: $(TEST_INTERACT_MUT_DRAG) $(TEST_INTERACT_MUT_FIND) $(TEST_INTERACT_MUT_VIS)
+	@printf ">>> test-interact-mutant: confirming all three self-mutants go RED (Rule 6)\n"
+	@if $(TEST_INTERACT_MUT_DRAG) >/dev/null 2>&1; then printf '!!! test-interact-mutant FAIL: DRAG_NOOP PASSED -- the drag-geometry oracle is decoration\n'; exit 1; else printf '>>> test-interact-mutant: green (DRAG_NOOP correctly RED)\n'; fi
+	@if $(TEST_INTERACT_MUT_FIND) >/dev/null 2>&1; then printf '!!! test-interact-mutant FAIL: FINDWINDOW_OFFBYONE PASSED -- the hit-test oracle is decoration\n'; exit 1; else printf '>>> test-interact-mutant: green (FINDWINDOW_OFFBYONE correctly RED)\n'; fi
+	@if $(TEST_INTERACT_MUT_VIS) >/dev/null 2>&1; then printf '!!! test-interact-mutant FAIL: VISIBLE_IGNORE_FRONT PASSED -- the visible-region oracle is decoration\n'; exit 1; else printf '>>> test-interact-mutant: green (VISIBLE_IGNORE_FRONT correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-event (beads initech-8b7) -- FLAIR Event Manager. ISR
@@ -10727,6 +10794,68 @@ test-flair-live-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_IMG)
 		exit 1; \
 	fi
 	@printf '>>> test-flair-live-mutant: RED as required -- no hook => FLAIR-TICK never advanced; the gate BITES (Rule 6)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-key (beads initech-5l5z FO-5; the kbd IRQ1 raw-scancode
+# post). Boots flair_live.img, QMP-injects 'a' AFTER FLAIR-HOOK-SET, and asserts
+# the live wake loop drained the FLAIR raw ring and emitted FLAIR-KEY for BOTH the
+# make (sc=0000001E) and the break (sc=0000009E) -- proving IRQ1 -> kbd hook ->
+# flair_raw_post -> task-context drain fires on metal (the DOS g_kbd ring is
+# untouched, FO-5). QMP sendkey "a" generates make+break (PS/2 SET 1).
+# ---------------------------------------------------------------------------
+FLAIR_KEY_NAME   := flair_key
+FLAIR_KEY_SERIAL := $(BUILD)/$(FLAIR_KEY_NAME).serial
+FLAIR_KEY_REPORT := $(BUILD)/$(FLAIR_KEY_NAME).report
+test-flair-key: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (FO-5 kbd raw-scancode post)\n' "$(FLAIRLIVE_IMG)"
+	@printf 'Expecting : FLAIR-KEY sc=0000001E (a make) + FLAIR-KEY sc=0000009E (a break)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" \
+		--keys "a" --keys-after "FLAIR-HOOK-SET" \
+		--name "$(FLAIR_KEY_NAME)" --out "$(BUILD)" --timeout-ms 15000 \
+		2> "$(FLAIR_KEY_REPORT)" || true
+	@cat "$(FLAIR_KEY_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(FLAIR_KEY_REPORT)"; then \
+		printf '!!! test-flair-key FAIL: triple fault\n'; exit 1; \
+	fi
+	@if [ ! -s "$(FLAIR_KEY_SERIAL)" ]; then \
+		printf '!!! test-flair-key FAIL: no serial captured\n'; exit 1; \
+	fi
+	@grep -q '^FLAIR-KEY sc=0000001E$$' "$(FLAIR_KEY_SERIAL)" \
+		|| { printf '!!! test-flair-key FAIL: FLAIR-KEY sc=0000001E (make) not on serial -- IRQ1 raw post did not reach the FLAIR ring\n'; exit 1; }
+	@grep -q '^FLAIR-KEY sc=0000009E$$' "$(FLAIR_KEY_SERIAL)" \
+		|| { printf '!!! test-flair-key FAIL: FLAIR-KEY sc=0000009E (break) not on serial\n'; exit 1; }
+	@printf '>>> test-flair-key PASS -- kbd IRQ1 -> FLAIR ring -> drain -> FLAIR-KEY LIVE (FO-5)\n'
+	@printf '======================================================================\n'
+
+# REAL gate: test-flair-key-mutant (Rule 6) -- the kbd-hook mutant image
+# (-DFLAIR_LIVE_MUTATE_NO_KBD_HOOK) never installs the kbd hook, so the injected
+# key fires IRQ1 (DOS g_kbd ring fed, EOI sent) but the FLAIR ring is never fed and
+# FLAIR-KEY never appears. Proves test-flair-key bites.
+FLAIR_KEY_MUT_NAME   := flair_key_mut
+FLAIR_KEY_MUT_SERIAL := $(BUILD)/$(FLAIR_KEY_MUT_NAME).serial
+FLAIR_KEY_MUT_REPORT := $(BUILD)/$(FLAIR_KEY_MUT_NAME).report
+test-flair-key-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_KBD_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-key-mutant : Rule 6 (the gate bites)\n'
+	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_NO_KBD_HOOK (kbd_set_scancode_hook NEVER called).\n'
+	@printf '  Expect: FLAIR-KEY NEVER appears -> test-flair-key would go RED.\n'
+	@printf '======================================================================\n'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_KBD_IMG)" \
+		--keys "a" --keys-after "FLAIR-HOOK-SET" \
+		--name "$(FLAIR_KEY_MUT_NAME)" --out "$(BUILD)" --timeout-ms 15000 \
+		2> "$(FLAIR_KEY_MUT_REPORT)" || true
+	@cat "$(FLAIR_KEY_MUT_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@grep -q '^FLAIR-HOOK-SET$$' "$(FLAIR_KEY_MUT_SERIAL)" \
+		|| { printf '!!! test-flair-key-mutant FAIL: mutant did not reach FLAIR-HOOK-SET (not the same boot path)\n'; exit 1; }
+	@if grep -q '^FLAIR-KEY' "$(FLAIR_KEY_MUT_SERIAL)" 2>/dev/null; then \
+		printf '!!! test-flair-key-mutant FAIL: FLAIR-KEY appeared despite no kbd hook -- the gate is decoration\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-key-mutant: RED as required -- no kbd hook => FLAIR-KEY never posted; the gate BITES (Rule 6)\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -14481,6 +14610,7 @@ TEST_UNIT_GATES := \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-window test-window-mutant test-event test-event-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
+	test-interact test-interact-mutant \
 	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \
@@ -14824,7 +14954,8 @@ TEST_EMU_GATES := \
 	test-autoexec test-autoexec-mutant \
 	test-hsct-redir test-hsct-redir-mutant \
 	test-flair-desktop test-flair-desktop-mutant \
-	test-flair-live test-flair-live-mutant
+	test-flair-live test-flair-live-mutant \
+	test-flair-key test-flair-key-mutant
 
 test-unit:
 	@printf '======================================================================\n'
