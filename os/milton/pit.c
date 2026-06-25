@@ -47,6 +47,20 @@ uint16_t pit_divisor_for_hz(uint32_t target_hz)
  * cooperative loop reads it; the compiler must not cache either side. */
 static volatile uint32_t g_ticks;
 
+/* Optional per-tick hook (ADR-0006 E-D3a / FO-4). DEFAULT NULL: pit_irq_handler
+ * is byte-identical to the legacy increment+EOI for every kernel that never
+ * calls pit_set_tick_hook(), so pit.o stays shared across all kernels with no
+ * behavioural change (CLAUDE.md Rule 11). Only the FLAIR-live kernel installs a
+ * non-NULL hook (flair_tick_advance). file-static; written once from task
+ * context BEFORE `sti`, read in ISR context -- no concurrency (the hook is set
+ * while IRQs are masked, then never changed). */
+static void (*g_tick_hook)(void) = 0;
+
+void pit_set_tick_hook(void (*fn)(void))
+{
+    g_tick_hook = fn;
+}
+
 void pit_init(void)
 {
     g_ticks = 0u;
@@ -88,6 +102,17 @@ void pit_irq_handler(void)
      * NEVER define in a real build. */
     __asm__ __volatile__("int $0x21" : : "a"(0x3000u) : "cc", "memory");
 #endif
+
+    /* FLAIR live event loop tick hook (ADR-0006 E-D3a / FO-4): invoked AFTER
+     * g_ticks++ (and the mutant blocks above) and BEFORE the PIC EOI below,
+     * iff a non-NULL hook was installed via pit_set_tick_hook(). DEFAULT NULL,
+     * so every kernel that does not install a hook runs the IDENTICAL legacy
+     * increment+EOI path (Rule 11 byte-stability of all pit.o-linking kernels).
+     * The FLAIR-live kernel installs flair_tick_advance() here -- ISR-enqueue-
+     * only minimum (a single volatile counter increment; ADR-0004 D-4). */
+    if (g_tick_hook) {
+        g_tick_hook();
+    }
 
     /* End-of-interrupt to the master 8259A (OCW2 non-specific EOI). */
     outb(PIC1_CMD, PIC_EOI);

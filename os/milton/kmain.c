@@ -41,19 +41,22 @@
 #include "command.h"     /* COMMAND.COM REPL (initech-7pc); BOOT_SHELL only */
 #include "sysinit.h"     /* SYSINIT named bring-up phases (beads initech-509.2) */
 
-#ifdef BOOT_FLAIR_SHELL
-/* The LIVE FLAIR desktop demo kernel (beads initech-re30.3, LANE 1). These
- * FLAIR Toolbox + spec headers are pulled in ONLY for the BOOT_FLAIR_SHELL demo
- * build, so the NORMAL boot path (and every other -D demo kernel) is byte-
- * unchanged. The objects are ALREADY in KERNEL_OBJS (linked at re30.2, no call
- * sites); this build is the FIRST call site -- it composes the Office Space
- * desktop into an indexed-8 offscreen and PRESENTS it to the live LFB. */
+#if defined(BOOT_FLAIR_SHELL) || defined(BOOT_FLAIR_LIVE)
+/* The LIVE FLAIR desktop demo kernels (beads initech-re30.3 LANE 1; initech-5l5z
+ * FO-4). These FLAIR Toolbox + spec headers are pulled in ONLY for the
+ * BOOT_FLAIR_SHELL (static render-once) and BOOT_FLAIR_LIVE (cooperative pump,
+ * ADR-0006) demo builds, so the NORMAL boot path (and every other -D demo
+ * kernel) is byte-unchanged. The objects are ALREADY in KERNEL_FLAIR_OBJS
+ * (linked at re30.2); these builds compose the Office Space desktop and present
+ * it to the live LFB. BOOT_FLAIR_LIVE ADDITIONALLY drives the PIT tick into the
+ * cooperative WaitNextEvent time base (FO-4). */
 #include "heap.h"            /* flair_heap_t, flair_alloc (-Ios/flair)        */
 #include "surface.h"         /* bitmap_t, surface_put_pixel (-Ios/flair)      */
 #include "region_algebra.h"  /* region_t, RGN_ROWS_CAP/RGN_X_POOL_CAP (-Ispec)*/
 #include "shell.h"           /* shell_scene_t, shell_build_scene/render       */
 #include "menu_canon.h"      /* FLAIR_CANON_PHOTOSHOP_MENU_COUNT (-Ispec/assets)*/
 #include "palette.h"         /* flair_palette_rgb + INITECH_*_RGB (-Ispec/assets)*/
+#include "event.h"           /* flair_tick_advance / flair_tick_count (FO-4)  */
 #endif
 
 /* Seafoam: ported VERBATIM from stage2.asm:42-44 (SEAFOAM_R/G/B). The pie
@@ -610,7 +613,7 @@ static void run_baked(const char *tag, const uint8_t *image, uint32_t image_len)
     }
 }
 
-#ifdef BOOT_FLAIR_SHELL
+#if defined(BOOT_FLAIR_SHELL) || defined(BOOT_FLAIR_LIVE)
 /* ===========================================================================
  * THE LIVE FLAIR DESKTOP (beads initech-re30.3, LANE 1) -- render the Office
  * Space chimera desktop LIVE on the emulated 386.
@@ -913,7 +916,7 @@ static void flair_desktop_run(const boot_info_t *bi)
     /* --- PRESENT the offscreen onto the live LFB (8 -> DAC+copy; 24/32 -> convert) --- */
     flair_desktop_present(bi, &off);
 }
-#endif /* BOOT_FLAIR_SHELL */
+#endif /* BOOT_FLAIR_SHELL || BOOT_FLAIR_LIVE */
 
 void kernel_main(void)
 {
@@ -1134,6 +1137,101 @@ void kernel_main(void)
      * populated at the top of kernel_main.) */
     flair_desktop_run(&b);
     serial_puts("FLAIR-DESKTOP\n");
+    for (;;) {
+        __asm__ __volatile__("cli; hlt");
+    }
+#endif
+
+#ifdef BOOT_FLAIR_LIVE
+    /* THE FLAIR LIVE COOPERATIVE EVENT LOOP -- FO-4: the PIT tick lane (beads
+     * initech-5l5z; ADR-0006 E-D3a / E-D4 / FO-4; landing-sequence Step 2).
+     *
+     * This is the THIRD FLAIR demo kernel (alongside BOOT_FLAIR_SHELL), shipped
+     * behind -DBOOT_FLAIR_LIVE so the DEFAULT boot stays the static render-once-
+     * and-HLT frame and every existing emu gate stays byte-stable (ADR-0006
+     * FO-GAP-A; CLAUDE.md Rule 11). FO-4 wires ONLY the PIT IRQ0 -> tick hook ->
+     * flair_tick_advance() path and proves it fires on metal with a bounded,
+     * deterministic wake loop. The kbd raw post (FO-5), the mouse IRQ12 (FO-6),
+     * and the real WaitNextEvent dispatch pump (FO-7) are LATER lanes and are
+     * deliberately NOT built here.
+     *
+     * Sequence (the ordering minefield -- ADR-0004 D-4 / CLAUDE.md "real mode ->
+     * protected"):
+     *   1. Render + PRESENT the SAME FLAIR scene the BOOT_FLAIR_SHELL kernel does
+     *      (flair_desktop_run -- keep the initial present, ADR-0006 BC-4). On a
+     *      640x480 LFB (QEMU) this presents the canon frame; on a 320x200 LFB
+     *      (Bochs mode-0x13 fallback) flair_desktop_run FAILS LOUD and halts,
+     *      exactly like test-flair-desktop-bochs -- so the Bochs leg proves the
+     *      shared boot/heap milestones + the fail-loud guard, never a tick wedge.
+     *   2. Install the tick hook BEFORE enabling IRQs (ADR-0006 E-D3a): the PIT
+     *      ISR will call flair_tick_advance() on every IRQ0 (pit.c:93 region).
+     *      DEFAULT-NULL hook means no other kernel is affected (Rule 11).
+     *   3. sysinit_enable_irqs(): pit_init (100 Hz) -> kbd_init -> install the
+     *      IRQ0/IRQ1 gates -> pic_unmask_irq0_irq1() (this UNMASKS IRQ0, the PIT,
+     *      AND IRQ1) -> sti. So IRQ0 is unmasked here; FO-4 needs no extra mask
+     *      clearing. (kbd_init/IRQ1 are along for the ride and harmless -- FO-4
+     *      injects no keys; the FLAIR raw post is FO-5, not built here.)
+     *   4. Run a BOUNDED wake loop: hlt; on each wake read flair_tick_count()
+     *      (the value the hook maintains) and emit "FLAIR-TICK n=<count>" on
+     *      serial when it ADVANCES. After FLAIR_LIVE_TICK_GOAL distinct ticks the
+     *      wiring is proven; emit "FLAIR-LIVE-OK" and cli;hlt (so the gate
+     *      terminates and can screendump a stable frame).
+     *
+     * Reproducible (Rule 11): the loop is bounded by tick COUNT, never by a spin
+     * count or wall-clock, so the serial transcript is deterministic. */
+    flair_desktop_run(&b);
+    serial_puts("FLAIR-DESKTOP\n");
+
+    /* --- FO-4: install the PIT tick hook BEFORE sti (ADR-0006 E-D3a) --------- *
+     * pit_set_tick_hook defaults NULL; only THIS kernel installs it, so every
+     * other pit.o-linking kernel is byte-identical (Rule 11). The hook is
+     * flair_tick_advance (os/flair/event.c:98): a single volatile g_tick++ --
+     * the ADR-0004 D-4 ISR-enqueue-only minimum (no Toolbox, no alloc, no I/O).
+     *
+     * The FLAIR_LIVE_MUTATE_NO_HOOK Rule-6 mutant (defined ONLY by the mutant
+     * image) SKIPS the install, so the tick base never advances -> FLAIR-TICK
+     * never appears -> test-flair-live goes RED. This PROVES the gate bites on a
+     * dead tick wiring. NEVER define in a real build. */
+#ifndef FLAIR_LIVE_MUTATE_NO_HOOK
+    pit_set_tick_hook(flair_tick_advance);
+#endif
+    serial_puts("FLAIR-HOOK-SET\n");
+
+    /* Bring up the PIT (100 Hz), the IRQ0/IRQ1 gates, unmask IRQ0+IRQ1, and sti
+     * -- the SAME proven path the shell uses (sysinit.c). pit_init resets the
+     * pit.o tick counter to 0 but does NOT touch g_tick_hook; flair_tick_advance
+     * maintains event.c's own g_tick (read via flair_tick_count), which starts
+     * at 0 in BSS. After this, IRQ0 fires ~every 10 ms and drives the hook. */
+    sysinit_enable_irqs(serial_puts);
+
+    /* --- FO-4: the BOUNDED, deterministic wake loop -------------------------- *
+     * Sleep on hlt; each IRQ (PIT tick or a stray IRQ1) wakes us. Read the FLAIR
+     * tick the hook maintains; when it advances, emit FLAIR-TICK n=<count>. Stop
+     * after FLAIR_LIVE_TICK_GOAL distinct ticks (>=3) so the gate sees >=2
+     * distinct counts advance, then emit FLAIR-LIVE-OK and cli;hlt forever (a
+     * stable screen for the screendump; the desktop frame is already presented).
+     *
+     * Bounded by COUNT, not spins (Rule 11): if the hook were not wired (the
+     * mutant), flair_tick_count() stays 0 forever and FLAIR-TICK never prints --
+     * the loop hlt-sleeps until the harness times out, and the gate fails on the
+     * missing FLAIR-TICK marker (the intended RED). */
+    {
+        enum { FLAIR_LIVE_TICK_GOAL = 4 };  /* emit ticks 1..4 -> >=2 distinct */
+        uint32_t last = flair_tick_count();
+        uint32_t seen = 0u;
+        while (seen < (uint32_t)FLAIR_LIVE_TICK_GOAL) {
+            uint32_t now = flair_tick_count();
+            if (now != last) {
+                last = now;
+                seen++;
+                serial_puts("FLAIR-TICK n=");
+                serial_putu(now);
+                serial_putc('\n');
+            }
+            __asm__ __volatile__("hlt");   /* sleep until the next IRQ0 tick */
+        }
+    }
+    serial_puts("FLAIR-LIVE-OK\n");
     for (;;) {
         __asm__ __volatile__("cli; hlt");
     }

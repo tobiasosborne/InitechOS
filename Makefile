@@ -616,6 +616,30 @@ KERNEL_FLAIRSHELL_MAIN_OBJ := $(BUILD)/kmain_flairshell.o
 KERNEL_FLAIRSHELL_ELF      := $(BUILD)/kernel_flairshell.elf
 KERNEL_FLAIRSHELL_BIN      := $(BUILD)/kernel_flairshell.bin
 FLAIRSHELL_IMG             := $(BUILD)/flair_desktop.img
+# LIVE FLAIR COOPERATIVE EVENT LOOP kernel/image (beads initech-5l5z FO-4;
+# ADR-0006 E-D3a/E-D4/FO-4; landing-sequence Step 2). The SAME kernel sources
+# but with -DBOOT_FLAIR_LIVE: after presenting the SAME chimera desktop, it
+# installs the PIT tick hook (pit_set_tick_hook(flair_tick_advance)), enables
+# IRQ0 (unmasked by sysinit_enable_irqs), and runs a BOUNDED wake loop emitting
+# "FLAIR-TICK n=<count>" until >=4 distinct ticks, then "FLAIR-LIVE-OK" + cli;hlt.
+# This PROVES the PIT IRQ -> hook -> flair_tick_advance wiring fires on metal.
+# Separate image (the third FLAIR demo kernel) so the default boot and every
+# existing emu gate stay byte-stable (ADR-0006 FO-GAP-A; Rule 11). Links the
+# SAME object set as FLAIRSHELL (event.o, which provides flair_tick_advance /
+# flair_tick_count, is already in KERNEL_FLAIR_OBJS).
+KERNEL_FLAIRLIVE_MAIN_OBJ  := $(BUILD)/kmain_flairlive.o
+KERNEL_FLAIRLIVE_ELF       := $(BUILD)/kernel_flairlive.elf
+KERNEL_FLAIRLIVE_BIN       := $(BUILD)/kernel_flairlive.bin
+FLAIRLIVE_IMG              := $(BUILD)/flair_live.img
+# Rule-6 MUTANT (initech-5l5z FO-4 / ADR-0006 BC-9): the SAME BOOT_FLAIR_LIVE
+# kernel but compiled with -DFLAIR_LIVE_MUTATE_NO_HOOK so the tick hook is NEVER
+# installed -> the FLAIR tick base never advances -> "FLAIR-TICK" never appears
+# -> test-flair-live goes RED. Its OWN main obj + elf + bin + image so the mutant
+# cannot contaminate the real build. Proves the gate bites; default is GREEN.
+KERNEL_FLAIRLIVE_MUT_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut.o
+KERNEL_FLAIRLIVE_MUT_ELF      := $(BUILD)/kernel_flairlive_mut.elf
+KERNEL_FLAIRLIVE_MUT_BIN      := $(BUILD)/kernel_flairlive_mut.bin
+FLAIRLIVE_MUT_IMG             := $(BUILD)/flair_live_mut.img
 # EXIT-handle teardown self-test kernel/image (beads initech-6hk; epic
 # initech-6qy; make test-exit-handles): the SAME kernel sources but with
 # -DBOOT_EXITH so the boot EXECs the FAT-sourced leaky child EXITH.COM RUNS
@@ -8031,6 +8055,76 @@ $(FLAIRSHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRSHELL_BIN) | $(BUILD)
 	@dd if=$(KERNEL_FLAIRSHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-desktop image: %s (live FLAIR desktop kernel @s17)\n" "$@"
 
+# --- LIVE FLAIR COOPERATIVE EVENT LOOP kernel/image (beads initech-5l5z FO-4) -
+# kmain compiled with -DBOOT_FLAIR_LIVE. Same source + same FLAIR object set as
+# FLAIRSHELL (event.o supplies flair_tick_advance/flair_tick_count). Adds the
+# os/flair/event.h prereq the FLAIR-live arm includes. ADR-0006 FO-4.
+$(KERNEL_FLAIRLIVE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+# The FLAIR-live kernel links the IDENTICAL object set as FLAIRSHELL, swapping
+# only the BOOT_FLAIR_LIVE main obj (the pit.o tick hook is in the shared
+# KERNEL_PIT_OBJ; the hook defaults NULL so every other kernel is unaffected).
+KERNEL_FLAIRLIVE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
+                          $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
+                          $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                          $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                          $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
+                          $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
+                          $(KERNEL_ISR_OBJ) \
+                          $(KERNEL_FLAIR_OBJS)
+
+$(KERNEL_FLAIRLIVE_ELF): $(KERNEL_FLAIRLIVE_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_OBJS)
+
+$(KERNEL_FLAIRLIVE_BIN): $(KERNEL_FLAIRLIVE_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive)
+
+$(FLAIRLIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live image: %s (FLAIR cooperative tick kernel @s17)\n" "$@"
+
+# --- Rule-6 MUTANT FLAIR-live kernel (beads initech-5l5z FO-4; ADR-0006 BC-9) -
+# Same BOOT_FLAIR_LIVE kmain but with -DFLAIR_LIVE_MUTATE_NO_HOOK: the tick hook
+# is never installed, so flair_tick_advance never runs, so FLAIR-TICK never
+# appears -> test-flair-live goes RED. Its own main obj/elf/bin/image so it
+# cannot leak into the real build (the default kernel is GREEN).
+$(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h os/flair/event.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FLAIRLIVE_MUT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ)
+
+$(KERNEL_FLAIRLIVE_MUT_ELF): $(KERNEL_FLAIRLIVE_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_OBJS)
+
+$(KERNEL_FLAIRLIVE_MUT_BIN): $(KERNEL_FLAIRLIVE_MUT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_mut.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-mutant): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(FLAIRLIVE_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live MUTANT image: %s (no tick hook -- FLAIR-TICK never advances)\n" "$@"
+
 # --- MUTANT flair_desktop kernels (beads initech-re30.3, LANE 2; Rule 6) -----
 # To MUTATION-PROVE the screendump oracle (a check that never bites is decoration),
 # rebuild the flair_desktop kernel three times, each with one named mutation -D
@@ -10523,6 +10617,190 @@ test-flair-desktop-bochs: $(BOCHS_BIN) $(FLAIRSHELL_IMG)
 	@printf '            fallback (no triple-fault). NOTE: FLAIR-DESKTOP (the composed\n'
 	@printf '            present) is QEMU-only -- Bochs has no 640x480 LFB; the 8bpp DAC\n'
 	@printf '            present path is unreachable in-tree (tracked: bead initech-2gva).\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-live (beads initech-5l5z FO-4 -- the PIT tick lane of the
+# FLAIR cooperative event loop; ADR-0006 E-D3a/E-D4/FO-4; landing-sequence Step 2)
+# ---------------------------------------------------------------------------
+# Boot build/flair_live.img (kmain -DBOOT_FLAIR_LIVE) under QEMU. After presenting
+# the SAME chimera desktop, the kernel installs the PIT tick hook
+# (pit_set_tick_hook(flair_tick_advance)), enables IRQ0, and runs a BOUNDED wake
+# loop emitting "FLAIR-TICK n=<count>" on serial as the tick advances, then
+# "FLAIR-LIVE-OK" and cli;hlt. Four assertions (Law 2; ADR-0006 Sec 4.5 liveness):
+# NO triple-fault; serial captured; FLAIR-TICK ADVANCES (>=2 distinct counts --
+# the live PIT IRQ -> hook -> flair_tick_advance wiring fires on metal); the
+# FLAIR-LIVE-OK terminal marker. The guest cli;hlt loops (stable screen), so the
+# harness times out by design; OK is the markers + advancing tick + no triple-
+# fault, not the exit code (mirrors test-flair-desktop's harness invocation).
+FLAIR_LIVE_NAME    := flair_live
+FLAIR_LIVE_SERIAL  := $(BUILD)/$(FLAIR_LIVE_NAME).serial
+FLAIR_LIVE_REPORT  := $(BUILD)/$(FLAIR_LIVE_NAME).report
+.PHONY: test-flair-live
+test-flair-live: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-live : FLAIR PIT-TICK lane (FO-4)\n'
+	@printf '  Ref: ADR-0006 E-D3a/E-D4/FO-4 (the cooperative WaitNextEvent time base);\n'
+	@printf '       pit.c:93 (tick hook before PIC EOI); os/flair/event.c:98.\n'
+	@printf '  beads initech-5l5z FO-4. CLAUDE.md Law 2, Rule 2/5/6/11.\n'
+	@printf '  TRI-EMULATOR: QEMU here; Bochs leg = make test-flair-live-bochs.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (FLAIR live cooperative tick kernel)\n' "$(FLAIRLIVE_IMG)"
+	@printf 'Expecting : FLAIR-HOOK-SET + IRQ-LIVE + FLAIR-TICK advancing + FLAIR-LIVE-OK\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" \
+		--name "$(FLAIR_LIVE_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(FLAIR_LIVE_REPORT)" || true
+	@cat "$(FLAIR_LIVE_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- 1. No triple-fault (sti + the PIT IRQ path did not cascade to a reboot). ----
+	@if grep -q 'triple_fault=1' "$(FLAIR_LIVE_REPORT)"; then \
+		printf '!!! test-flair-live FAIL: TRIPLE FAULT in the live tick boot\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-flair-live [1/4]: no triple-fault\n'
+	@# ---- 2. Serial captured + the hook+sti milestones reached. ----
+	@if [ ! -s "$(FLAIR_LIVE_SERIAL)" ]; then \
+		printf '!!! test-flair-live FAIL: no serial captured at %s\n' "$(FLAIR_LIVE_SERIAL)"; \
+		exit 1; \
+	fi
+	@grep -q '^FLAIR-HOOK-SET$$' "$(FLAIR_LIVE_SERIAL)" \
+		|| { printf '!!! test-flair-live FAIL: FLAIR-HOOK-SET missing -- the desktop present/hook-install path never reached\n'; exit 1; }
+	@grep -q '^IRQ-LIVE$$' "$(FLAIR_LIVE_SERIAL)" \
+		|| { printf '!!! test-flair-live FAIL: IRQ-LIVE missing -- sti/PIC-unmask path did not complete\n'; exit 1; }
+	@printf '>>> test-flair-live [2/4]: FLAIR-HOOK-SET + IRQ-LIVE (hook installed, first sti survived)\n'
+	@# ---- 3. THE FO-4 PROOF: the FLAIR tick ADVANCES on metal. Count the DISTINCT
+	@#         "FLAIR-TICK n=<count>" lines; >=2 distinct counts proves the PIT IRQ ->
+	@#         hook -> flair_tick_advance wiring actually fires (a dead hook -- the
+	@#         mutant -- emits ZERO). ----
+	@n=$$(grep -c '^FLAIR-TICK n=' "$(FLAIR_LIVE_SERIAL)"); \
+	d=$$(grep '^FLAIR-TICK n=' "$(FLAIR_LIVE_SERIAL)" | sort -u | wc -l); \
+	if [ "$$d" -lt 2 ]; then \
+		printf '!!! test-flair-live FAIL: FLAIR-TICK did not advance (%s lines, %s distinct) -- the PIT tick hook never drove flair_tick_advance\n' "$$n" "$$d"; \
+		exit 1; \
+	fi; \
+	printf '>>> test-flair-live [3/4]: FLAIR-TICK advanced (%s emissions, %s distinct counts) -- PIT IRQ -> hook -> flair_tick_advance LIVE\n' "$$n" "$$d"
+	@# ---- 4. FLAIR-LIVE-OK terminal marker (the bounded loop completed its goal). ----
+	@grep -q '^FLAIR-LIVE-OK$$' "$(FLAIR_LIVE_SERIAL)" \
+		|| { printf '!!! test-flair-live FAIL: FLAIR-LIVE-OK missing -- the bounded tick loop never reached its goal\n'; exit 1; }
+	@printf '>>> test-flair-live [4/4]: FLAIR-LIVE-OK (the bounded wake loop converged on >=4 ticks)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- the FLAIR PIT tick lane is LIVE; IRQ0 drives the\n'
+	@printf '            flair_tick_advance hook into the cooperative time base on metal\n'
+	@printf '            (QEMU; Bochs leg = make test-flair-live-bochs)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-live-mutant (beads initech-5l5z FO-4; Rule 6 / ADR-0006
+# BC-9 -- MUTATION-PROVE the tick gate BITES)
+# ---------------------------------------------------------------------------
+# Boot the -DFLAIR_LIVE_MUTATE_NO_HOOK mutant (the tick hook is NEVER installed)
+# and confirm FLAIR-TICK NEVER appears -> the gate's advancing-tick assertion
+# would go RED. If the mutant emitted FLAIR-TICK the gate is decoration -> FAIL
+# loud. Proves the FO-4 wiring is what makes the tick advance, not a free-running
+# accident.
+FLAIR_LIVE_MUT_NAME   := flair_live_mut
+FLAIR_LIVE_MUT_SERIAL := $(BUILD)/$(FLAIR_LIVE_MUT_NAME).serial
+FLAIR_LIVE_MUT_REPORT := $(BUILD)/$(FLAIR_LIVE_MUT_NAME).report
+.PHONY: test-flair-live-mutant
+test-flair-live-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-live-mutant : Rule 6 (the gate bites)\n'
+	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_NO_HOOK (pit_set_tick_hook NEVER called).\n'
+	@printf '  Expect: FLAIR-TICK NEVER appears -> test-flair-live would go RED.\n'
+	@printf '======================================================================\n'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_IMG)" \
+		--name "$(FLAIR_LIVE_MUT_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
+		2> "$(FLAIR_LIVE_MUT_REPORT)" || true
+	@cat "$(FLAIR_LIVE_MUT_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if [ ! -s "$(FLAIR_LIVE_MUT_SERIAL)" ]; then \
+		printf '!!! test-flair-live-mutant FAIL: no serial captured (cannot judge the mutant)\n'; \
+		exit 1; \
+	fi
+	@# The mutant DID reach the hook-install site (so it is the SAME boot path) but
+	@# SKIPPED the install: FLAIR-HOOK-SET present, FLAIR-TICK absent.
+	@grep -q '^FLAIR-HOOK-SET$$' "$(FLAIR_LIVE_MUT_SERIAL)" \
+		|| { printf '!!! test-flair-live-mutant FAIL: mutant did not reach FLAIR-HOOK-SET (not the same boot path -- mutant is not comparable)\n'; exit 1; }
+	@if grep -q '^FLAIR-TICK n=' "$(FLAIR_LIVE_MUT_SERIAL)"; then \
+		printf '!!! test-flair-live-mutant FAIL: the no-hook mutant STILL emitted FLAIR-TICK -- the gate is decoration (tick advanced without the hook?!)\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-flair-live-mutant: RED as required -- no hook => FLAIR-TICK never advanced; the gate BITES (Rule 6)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-live-bochs (beads initech-5l5z FO-4; Rule 5 -- the BOCHS
+# leg of the FLAIR live tick boot)
+# ---------------------------------------------------------------------------
+# Boots the SAME flair_live image under Bochs. TRUTHFUL CONSTRAINT (Law 1/Law 2,
+# identical to test-flair-desktop-bochs): the FLAIR-live arm presents the 640x480
+# desktop FIRST (flair_desktop_run, keep-the-present), and Bochs 2.7's LGPL
+# vgabios ENOMODEs the 640x480 VBE mode and falls back to standard VGA mode 0x13
+# (320x200x8). flair_desktop_run then FAILS LOUD ("LFB smaller than 640x480") and
+# halts BEFORE the tick loop -- so the FLAIR-TICK markers genuinely DO NOT (and
+# should not) appear on Bochs; asserting them would be a wish, not a test. What
+# the Bochs leg proves (the real differential): the SAME flair_live kernel runs
+# the boot chain + the FLAIR heap gate IDENTICALLY to QEMU, then the 640x480 guard
+# fires correctly under the 320x200 fallback (no triple-fault). The PIT tick
+# wiring itself is graded on QEMU (test-flair-live). SERIAL-only; env-specific
+# (needs Bochs); a SEPARATE target, NOT in the default `make test`.
+FLAIR_LIVE_BOCHS_NAME   := flair_live_bochs
+FLAIR_LIVE_BOCHS_REPORT := $(BUILD)/$(FLAIR_LIVE_BOCHS_NAME).report.txt
+FLAIR_LIVE_BOCHS_SERIAL := $(BUILD)/$(FLAIR_LIVE_BOCHS_NAME).serial
+.PHONY: test-flair-live-bochs
+test-flair-live-bochs: $(BOCHS_BIN) $(FLAIRLIVE_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-live-bochs : BOCHS leg (FLAIR live tick)\n'
+	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). beads initech-5l5z FO-4.\n'
+	@printf '  Bochs 2.7: VBE ENOMODE -> mode-0x13 (320x200); the 640x480 desktop\n'
+	@printf '  cannot fit, so kmain FAILS LOUD (Rule 2) BEFORE the tick loop; the leg\n'
+	@printf '  proves the shared boot/heap milestones + that the guard fires, no reboot.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRLIVE_IMG)"
+	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
+	@printf '            guard (PANIC + HALTED), no triple-fault\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(BOCHS_BIN) --disk "$(FLAIRLIVE_IMG)" --expect HALTED \
+		--name "$(FLAIR_LIVE_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
+		2> "$(FLAIR_LIVE_BOCHS_REPORT)" || true
+	@cat "$(FLAIR_LIVE_BOCHS_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@grep -q 'rfb_unblocked=1' "$(FLAIR_LIVE_BOCHS_REPORT)" \
+		|| { printf '!!! test-flair-live-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(FLAIR_LIVE_BOCHS_REPORT)"; then \
+		printf '!!! test-flair-live-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
+	fi
+	@if [ ! -s "$(FLAIR_LIVE_BOCHS_SERIAL)" ]; then \
+		printf '!!! test-flair-live-bochs FAIL: no serial captured at %s\n' "$(FLAIR_LIVE_BOCHS_SERIAL)"; exit 1; \
+	fi
+	@printf 'Serial markers captured:\n'
+	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK HALTED; do \
+		if grep -q "^$$m$$" "$(FLAIR_LIVE_BOCHS_SERIAL)"; then printf '  %-14s : present\n' "$$m"; \
+		else printf '  %-14s : MISSING\n' "$$m"; fi; \
+	done
+	@# 1. The Bochs 320x200 fallback fired (VBE ENOMODE -> mode 0x13).
+	@for m in VBE-ENOMODE VGA13; do \
+		grep -q "^$$m$$" "$(FLAIR_LIVE_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-live-bochs FAIL: fallback marker %s missing\n' "$$m"; exit 1; }; \
+	done
+	@# 2. The SHARED kernel + FLAIR-heap milestones -- the differential vs QEMU.
+	@for m in S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK; do \
+		grep -q "^$$m$$" "$(FLAIR_LIVE_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-live-bochs FAIL: shared kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
+	done
+	@# 3. The 640x480-required fail-loud guard FIRED (PANIC + HALTED), NOT a tick
+	@#    wedge and NOT a triple-fault. (FLAIR-TICK is QEMU-only -- see header.)
+	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_LIVE_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-live-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback\n'; exit 1; }
+	@grep -q '^HALTED$$' "$(FLAIR_LIVE_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-live-bochs FAIL: HALTED terminal marker missing\n'; exit 1; }
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- the flair_live kernel booted under Bochs through the shared\n'
+	@printf '            kernel + FLAIR-heap milestones (== QEMU), and the 640x480 fail-loud\n'
+	@printf '            guard fired correctly under the 320x200 fallback (no triple-fault).\n'
+	@printf '            NOTE: the FLAIR-TICK proof is QEMU-only (test-flair-live) -- Bochs\n'
+	@printf '            has no 640x480 LFB so the present halts before the tick loop.\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -14545,7 +14823,8 @@ TEST_EMU_GATES := \
 	test-samir-canon-salami test-samir-canon-salami-mutant \
 	test-autoexec test-autoexec-mutant \
 	test-hsct-redir test-hsct-redir-mutant \
-	test-flair-desktop test-flair-desktop-mutant
+	test-flair-desktop test-flair-desktop-mutant \
+	test-flair-live test-flair-live-mutant
 
 test-unit:
 	@printf '======================================================================\n'

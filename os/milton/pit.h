@@ -48,6 +48,23 @@ void pit_init(void);
  * increments the tick counter, sends EOI. Kernel-only (port I/O). */
 void pit_irq_handler(void);
 
+/* Optional per-tick hook (ADR-0006 E-D3a / FO-4 -- the FLAIR live event loop).
+ * The IRQ0 handler invokes this AFTER incrementing g_ticks and BEFORE the PIC
+ * EOI (pit.c:93), iff a non-NULL function has been installed. It DEFAULTS to
+ * NULL: every kernel that does not call pit_set_tick_hook() observes a
+ * pit_irq_handler that is byte-for-byte the legacy behaviour (increment + EOI),
+ * so pit.o is shared across all kernels with ZERO new undefined symbol and ZERO
+ * behavioural change (CLAUDE.md Rule 11 byte-stability; Rule 2 fail-loud is
+ * preserved -- a NULL hook is simply not called, never dereferenced).
+ *
+ * The FLAIR-live kernel installs flair_tick_advance() here so the cooperative
+ * WaitNextEvent time base advances from the real PIT interrupt. The hook is
+ * ISR context: it must do the ADR-0004 D-4 minimum (advance a counter only --
+ * no Toolbox call, no allocation, no port I/O beyond what flair_tick_advance
+ * itself does, which is a single volatile increment). Ref: ADR-0006 E-D3(a),
+ * FO-4; os/flair/event.c:98 (flair_tick_advance). */
+void pit_set_tick_hook(void (*fn)(void));
+
 /* Monotonic tick count since pit_init (incremented by the IRQ0 handler).
  * volatile read of the shared counter. */
 uint32_t pit_ticks(void);
