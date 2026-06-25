@@ -152,13 +152,33 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame)
     int title_top = top + fr;
     int title_bot = title_top + title_h;         /* half-open                   */
 
-    /* 1. Pinstripe title bar: alternating light/dark horizontal scanlines at
-     * period FLAIR_CHROME_PINSTRIPE_PERIOD (2). The shade indices are the WDEF
+    /* 1. Pinstripe title bar: the System-7 "racing stripe" -- a period-2
+     * horizontal stripe (HilitePattern $FF00) PHASE-LOCKED to the window structure
+     * so a LIGHT row lands at BOTH title-bar edges, yielding the doubled-LIGHT row
+     * pairs the golden shows (../system7-decomp/specs/chrome/pinstripe.md, golden
+     * s7_doc_window.png column x=450: interior y=166/167 both light .. y=179/180
+     * both light). A free-running period-2 fill anchored to the title top (L,D,L,D
+     * ...) is WRONG -- it has NO doubled-light pairs, yet still satisfies a naive
+     * "period-2 alternation" check; graded against the INDEPENDENT decomp golden by
+     * test-chrome-fidelity (beads initech-hmll, Law 2). Shade indices are the WDEF
      * wTitleBarLight (7) / wTitleBarDark (8). Spans the inner width (inside the
-     * left/right frame lines). */
+     * left/right frame lines). (Bevel edge rows + the exact 15-row interior
+     * decomposition are a follow-up increment; this lands the PHASE only.) */
     for (int y = title_top; y < title_bot; y++) {
-        int phase = (y - title_top) % FLAIR_CHROME_PINSTRIPE_PERIOD;
-        int shade = (phase == 0) ? FLAIR_PART_PIN_LIGHT : FLAIR_PART_PIN_DARK;
+        int k = y - title_top;
+#if defined(CHROME_FID_MUT_PHASE)
+        /* MUTANT (Rule 6; beads initech-hmll): revert to the free-running period-2
+         * fill anchored to the title top -- no phase lock, no doubled-light pairs.
+         * test-chrome-fidelity MUST go RED. */
+        int light = ((k % FLAIR_CHROME_PINSTRIPE_PERIOD) == 0);
+#else
+        /* Phase lock: LIGHT at both band edges (the top pair k<=1 and the bottom
+         * pair k>=title_h-2) and on the odd interior rows; DARK on the even
+         * interior rows -- reproducing the golden's doubled-light-pairs signature. */
+        int light = (k <= 1) || (k >= title_h - 2) ||
+                    ((k % FLAIR_CHROME_PINSTRIPE_PERIOD) == 1);
+#endif
+        int shade = light ? FLAIR_PART_PIN_LIGHT : FLAIR_PART_PIN_DARK;
         cfill(port, left + fr, y, w - 2 * fr, shade);
     }
 

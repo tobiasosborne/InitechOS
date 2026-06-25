@@ -366,19 +366,24 @@ int main(int argc, char **argv)
         const int title_bot = title_top + FLAIR_CHROME_TITLEBAR_H;
         const int mid_x = (W1_L + W1_R) / 2;
 
-        /* Title-bar pinstripe ALTERNATES with period 2 (the WDEF shade pair). */
-        int alt_ok = 1, period_ok = 1;
-        int shades[FLAIR_CHROME_TITLEBAR_H];
-        for (int k = 0; k < FLAIR_CHROME_TITLEBAR_H; k++)
-            shades[k] = idx_at(&ctx, mid_x, title_top + k);
-        for (int k = 1; k < FLAIR_CHROME_TITLEBAR_H; k++)
-            if (shades[k] == shades[k - 1]) alt_ok = 0;
-        for (int k = 2; k < FLAIR_CHROME_TITLEBAR_H; k++)
-            if (shades[k] != shades[k - 2]) period_ok = 0;
-        CHECK(alt_ok, "(3) front window title-bar pinstripe ALTERNATES");
-        snprintf(msg, sizeof msg, "(3) front window pinstripe period == %d",
-                 FLAIR_CHROME_PINSTRIPE_PERIOD);
-        CHECK(period_ok, msg);
+        /* Title-bar pinstripe is STRIPED with the two WDEF shades (7/8). The
+         * specific System-7 PHASE (the patAlign mod-8 doubled-LIGHT pairs) is NOT
+         * asserted here -- it is graded against the INDEPENDENT decomp golden by
+         * test-chrome-fidelity (beads initech-hmll). The previous strict-period-2
+         * check was WRONG: the real phase-locked stripe is not strict period-2, so
+         * it accepted the free-running L,D,L,D bug and would reject the correct
+         * render. */
+        int saw_light = 0, saw_dark = 0, striped = 0, prev = -1;
+        for (int k = 0; k < FLAIR_CHROME_TITLEBAR_H; k++) {
+            int s = idx_at(&ctx, mid_x, title_top + k);
+            if (s == FLAIR_CHROME_TITLE_SHADE_LIGHT) saw_light = 1;
+            if (s == FLAIR_CHROME_TITLE_SHADE_DARK)  saw_dark = 1;
+            if (k > 0 && s != prev) striped = 1;
+            prev = s;
+        }
+        CHECK(saw_light && saw_dark,
+              "(3) front window title bar shows both WDEF shades (light 7 + dark 8)");
+        CHECK(striped, "(3) front window title-bar pinstripe is STRIPED");
 
         /* The row just below the title bar is the white body (idx 1) -- proves
          * the title bar is EXACTLY FLAIR_CHROME_TITLEBAR_H tall. */

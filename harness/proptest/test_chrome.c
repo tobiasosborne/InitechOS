@@ -166,64 +166,48 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
               below != (uint32_t)FLAIR_CHROME_TITLE_SHADE_DARK, msg);
     }
 
-    /* --- 3. Pinstripe ALTERNATION at period PINSTRIPE_PERIOD (2) ------------ */
-    /* Within the title-bar band the shade INDEX alternates light/dark with
-     * period 2: rows of equal parity share a shade, adjacent rows differ. We
-     * check this on the 8bpp pass (indices are exact). */
+    /* --- 3. Pinstripe is a two-shade STRIPE (phase owned elsewhere) --------- */
+    /* The title bar is filled with the two WDEF shades (wTitleBarLight 7 /
+     * wTitleBarDark 8) as a horizontal stripe. This oracle asserts only that it IS
+     * a two-shade stripe -- NOT a specific phase. The System-7 racing-stripe PHASE
+     * (the patAlign mod-8 doubled-LIGHT pairs) is graded against the INDEPENDENT
+     * ../system7-decomp golden by test-chrome-fidelity (beads initech-hmll, Law 2).
+     * The previous strict-period-2 assertion here was WRONG: the real phase-locked
+     * stripe is NOT strict period-2 (it has doubled-light pairs), so that check
+     * accepted the free-running L,D,L,D bug and would REJECT the correct render. */
     if (idx_mode) {
-        int alt_ok = 1;          /* adjacent rows differ                        */
-        int period_ok = 1;       /* same-parity rows match (period == 2)        */
-        uint32_t shades[FLAIR_CHROME_TITLEBAR_H];
+        int saw_light = 0, saw_dark = 0, striped = 0;
+        uint32_t prev = 0xFFFFFFFFu;
         for (int k = 0; k < FLAIR_CHROME_TITLEBAR_H; k++) {
-            shades[k] = shade_index(ctx, mid_x, title_top + k);
+            uint32_t s = shade_index(ctx, mid_x, title_top + k);
+            if (s == (uint32_t)FLAIR_CHROME_TITLE_SHADE_LIGHT) saw_light = 1;
+            if (s == (uint32_t)FLAIR_CHROME_TITLE_SHADE_DARK)  saw_dark = 1;
+            if (k > 0 && s != prev) striped = 1;
+            prev = s;
         }
-        for (int k = 1; k < FLAIR_CHROME_TITLEBAR_H; k++) {
-            if (shades[k] == shades[k - 1]) {
-                alt_ok = 0;      /* two adjacent rows the same => no alternation */
-            }
-        }
-        for (int k = 2; k < FLAIR_CHROME_TITLEBAR_H; k++) {
-            if (shades[k] != shades[k - 2]) {
-                period_ok = 0;   /* rows 2 apart differ => period != 2          */
-            }
-        }
-        /* The two shades present are exactly the WDEF light/dark indices. */
-        int shades_named =
-            (shades[0] == (uint32_t)FLAIR_CHROME_TITLE_SHADE_LIGHT ||
-             shades[0] == (uint32_t)FLAIR_CHROME_TITLE_SHADE_DARK) &&
-            (shades[1] == (uint32_t)FLAIR_CHROME_TITLE_SHADE_LIGHT ||
-             shades[1] == (uint32_t)FLAIR_CHROME_TITLE_SHADE_DARK) &&
-            (shades[0] != shades[1]);
-
         snprintf(msg, sizeof msg,
-                 "[%s] pinstripe must ALTERNATE (adjacent rows differ)", bpp_tag);
-        CHECK(alt_ok, msg);
-        snprintf(msg, sizeof msg,
-                 "[%s] pinstripe period must be %d (rows 2 apart match)",
-                 bpp_tag, FLAIR_CHROME_PINSTRIPE_PERIOD);
-        CHECK(period_ok, msg);
-        snprintf(msg, sizeof msg,
-                 "[%s] pinstripe shades must be WDEF light/dark indices (%d/%d)",
+                 "[%s] title bar must show BOTH WDEF shades (light %d + dark %d)",
                  bpp_tag, FLAIR_CHROME_TITLE_SHADE_LIGHT,
                  FLAIR_CHROME_TITLE_SHADE_DARK);
-        CHECK(shades_named, msg);
+        CHECK(saw_light && saw_dark, msg);
+        snprintf(msg, sizeof msg,
+                 "[%s] title bar must be STRIPED (>=1 adjacent shade change)",
+                 bpp_tag);
+        CHECK(striped, msg);
     } else {
-        /* 32bpp: assert alternation via RGB difference (the two shades map to
-         * distinct RGBs through the chrome palette). */
-        int alt_ok = 1;
+        /* 32bpp: the band must contain >=2 distinct row RGBs (it is striped). */
+        int striped = 0;
+        uint32_t first = render_pixel_rgb(ctx, (uint32_t)mid_x,
+                                          (uint32_t)title_top);
         for (int k = 1; k < FLAIR_CHROME_TITLEBAR_H; k++) {
             uint32_t a = render_pixel_rgb(ctx, (uint32_t)mid_x,
                                           (uint32_t)(title_top + k));
-            uint32_t b = render_pixel_rgb(ctx, (uint32_t)mid_x,
-                                          (uint32_t)(title_top + k - 1));
-            if (a == b) {
-                alt_ok = 0;
-            }
+            if (a != first) { striped = 1; break; }
         }
         snprintf(msg, sizeof msg,
-                 "[%s] pinstripe must ALTERNATE in RGB (adjacent rows differ)",
+                 "[%s] title bar must be STRIPED in RGB (>=2 distinct row colors)",
                  bpp_tag);
-        CHECK(alt_ok, msg);
+        CHECK(striped, msg);
     }
 
     /* --- 4. The vertical scrollbar is a SCROLLBAR_W (16) px column on right -- */

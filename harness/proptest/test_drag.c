@@ -289,21 +289,25 @@ static void assert_chrome_geometry(render_ctx_t *ctx, rgn_rect_t f)
     const int mid_x = (f.left + f.right) / 2;
     char msg[160];
 
-    /* Title bar: 19 px band of pinstripe alternation (period 2), then the white
-     * body just below (proves height EXACTLY TITLEBAR_H). */
-    int alt_ok = 1, period_ok = 1;
-    int shades[FLAIR_CHROME_TITLEBAR_H];
-    for (int k = 0; k < FLAIR_CHROME_TITLEBAR_H; k++)
-        shades[k] = idx_at(ctx, mid_x, title_top + k);
-    for (int k = 1; k < FLAIR_CHROME_TITLEBAR_H; k++)
-        if (shades[k] == shades[k - 1]) alt_ok = 0;
-    for (int k = 2; k < FLAIR_CHROME_TITLEBAR_H; k++)
-        if (shades[k] != shades[k - 2]) period_ok = 0;
-    snprintf(msg, sizeof msg, "(d) moved window: title-bar pinstripe ALTERNATES");
-    CHECK(alt_ok, msg);
-    snprintf(msg, sizeof msg, "(d) moved window: pinstripe period == %d",
-             FLAIR_CHROME_PINSTRIPE_PERIOD);
-    CHECK(period_ok, msg);
+    /* Title bar: a two-shade pinstripe STRIPE, then the white body just below
+     * (proves height EXACTLY TITLEBAR_H). The System-7 racing-stripe PHASE (the
+     * patAlign mod-8 doubled-LIGHT pairs) is graded against the INDEPENDENT decomp
+     * golden by test-chrome-fidelity (beads initech-hmll), NOT by a strict period-2
+     * check -- the real phase-locked stripe is not strict period-2 (it has doubled
+     * rows), so that check accepted the free-running L,D,L,D bug. */
+    int saw_light = 0, saw_dark = 0, striped = 0, prev = -1;
+    for (int k = 0; k < FLAIR_CHROME_TITLEBAR_H; k++) {
+        int s = idx_at(ctx, mid_x, title_top + k);
+        if (s == FLAIR_CHROME_TITLE_SHADE_LIGHT) saw_light = 1;
+        if (s == FLAIR_CHROME_TITLE_SHADE_DARK)  saw_dark = 1;
+        if (k > 0 && s != prev) striped = 1;
+        prev = s;
+    }
+    snprintf(msg, sizeof msg,
+             "(d) moved window: title bar shows both WDEF shades (light 7 + dark 8)");
+    CHECK(saw_light && saw_dark, msg);
+    snprintf(msg, sizeof msg, "(d) moved window: title-bar pinstripe is STRIPED");
+    CHECK(striped, msg);
 
     int below = idx_at(ctx, mid_x, title_bot);
     snprintf(msg, sizeof msg,

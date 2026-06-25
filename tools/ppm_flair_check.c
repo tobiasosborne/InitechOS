@@ -293,29 +293,35 @@ static int her02_demo(void)
     printf("    perturbing the EXPECTED desktop value teal #%06X -> seafoam "
            "#%06X (== CANON_MUTATE_TEAL)\n", true_teal, her02_desktop_seafoam);
 
-    /* (1) STRUCTURE STAYS GREEN: period-2 pinstripe alternation, a pure RELATION
-     * over pixel classifications -- never reads the desktop color at all. */
+    /* (1) STRUCTURE STAYS GREEN: the phase-locked pinstripe RELATION -- a pure
+     * relation over pixel classifications, never reading the desktop color. The
+     * System-7 racing stripe is phase-locked (doubled-LIGHT pairs at the band
+     * edges; chrome.c + ../system7-decomp pinstripe.md), so the value-blind facts
+     * are: every title row is shade 7 or 8, both shades appear, and >=1 adjacent
+     * EQUAL-row pair exists (the phase lock). (A strict period-2 relation would be
+     * WRONG now -- the real stripe has doubled rows.) */
     {
         const int title_top = W1_T + FRAME;
         const int mid_x = (W1_L + W1_R) / 2;
-        int shades[TITLEBAR_H];
-        int alt_ok = 1, period_ok = 1, shade_ok = 1;
+        int shade_ok = 1, saw_light = 0, saw_dark = 0, doubled = 0, prev = -2;
         for (int k = 0; k < TITLEBAR_H; k++) {
-            shades[k] = her02_classify_pin(mid_x, title_top + k);
-            if (shades[k] < 0) shade_ok = 0;
+            int s = her02_classify_pin(mid_x, title_top + k);
+            if (s < 0) shade_ok = 0;
+            if (s == 7) saw_light = 1;
+            if (s == 8) saw_dark = 1;
+            if (k > 0 && s == prev) doubled = 1;
+            prev = s;
         }
-        for (int k = 1; k < TITLEBAR_H; k++)
-            if (shades[k] == shades[k - 1]) alt_ok = 0;
-        for (int k = 2; k < TITLEBAR_H; k++)
-            if (shades[k] != shades[k - 2]) period_ok = 0;
-        if (!(shade_ok && alt_ok && period_ok)) {
+        if (!(shade_ok && saw_light && saw_dark && doubled)) {
             fprintf(stderr, "ppm_flair_check[HER02-DEMO]: UNEXPECTED -- pinstripe "
-                    "RELATION not green on the real desktop (shade=%d alt=%d "
-                    "period=%d)\n", shade_ok, alt_ok, period_ok);
+                    "RELATION not green on the real desktop (shade=%d light=%d "
+                    "dark=%d doubled=%d)\n",
+                    shade_ok, saw_light, saw_dark, doubled);
             demo_fail = 1;
         } else {
-            printf("    [blind] pinstripe period-2 alternation: GREEN under the "
-                   "seafoam value perturbation (relation, not RGB)\n");
+            printf("    [blind] phase-locked pinstripe relation (two shades + "
+                   "doubled-light pair): GREEN under the seafoam value "
+                   "perturbation (relation, not RGB)\n");
         }
     }
 
@@ -557,21 +563,25 @@ int main(int argc, char **argv)
         const int mid_x = (W1_L + W1_R) / 2;          /* 430 */
         const int body_row = (title_bot + (W1_B - FRAME)) / 2;
 
-        /* Pinstripe ALTERNATES with period 2 between idx 7 and idx 8. Each row in
-         * the title bar must be idx 7 OR idx 8, must differ from its neighbor,
-         * and equal the row 2 above (period 2). */
-        int alt_ok = 1, period_ok = 1, shade_ok = 1;
-        int shades[TITLEBAR_H];
+        /* The title bar must be a two-shade STRIPE (every row is shade 7 or 8, both
+         * appear, with >=1 adjacent change). The specific System-7 racing-stripe
+         * PHASE (the patAlign mod-8 doubled-LIGHT pairs) is graded against the
+         * INDEPENDENT ../system7-decomp golden by test-chrome-fidelity (beads
+         * initech-hmll), NOT here: a strict period-2 assertion would be WRONG (the
+         * phase-locked stripe is not strict period-2) and accepted the free-running
+         * L,D,L,D bug. This leg grades STRUCTURE; the fidelity oracle grades phase. */
+        int shade_ok = 1, saw_light = 0, saw_dark = 0, striped = 0, prev = -1;
         for (int k = 0; k < TITLEBAR_H; k++) {
             int y = title_top + k;
-            if      (is_rgb(mid_x, y, IDX(7))) shades[k] = 7;
-            else if (is_rgb(mid_x, y, IDX(8))) shades[k] = 8;
-            else { shades[k] = -1; shade_ok = 0; }
+            int s;
+            if      (is_rgb(mid_x, y, IDX(7))) s = 7;
+            else if (is_rgb(mid_x, y, IDX(8))) s = 8;
+            else { s = -1; shade_ok = 0; }
+            if (s == 7) saw_light = 1;
+            if (s == 8) saw_dark = 1;
+            if (k > 0 && s != prev) striped = 1;
+            prev = s;
         }
-        for (int k = 1; k < TITLEBAR_H; k++)
-            if (shades[k] == shades[k - 1]) alt_ok = 0;
-        for (int k = 2; k < TITLEBAR_H; k++)
-            if (shades[k] != shades[k - 2]) period_ok = 0;
         if (!shade_ok) {
             fprintf(stderr,
                     "ppm_flair_check: FAIL (c) front window title bar at x=%d is not "
@@ -579,20 +589,15 @@ int main(int argc, char **argv)
                     mid_x, IDX(7), IDX(8));
             g_fail = 1;
         }
-        if (!alt_ok) {
+        if (!(saw_light && saw_dark && striped)) {
             fprintf(stderr,
-                    "ppm_flair_check: FAIL (c) front window title-bar pinstripe does "
-                    "NOT alternate (two equal adjacent rows at x=%d)\n", mid_x);
+                    "ppm_flair_check: FAIL (c) front window title bar at x=%d is not a "
+                    "two-shade pinstripe (light=%d dark=%d striped=%d)\n",
+                    mid_x, saw_light, saw_dark, striped);
             g_fail = 1;
         }
-        if (!period_ok) {
-            fprintf(stderr,
-                    "ppm_flair_check: FAIL (c) front window pinstripe period != 2 at "
-                    "x=%d\n", mid_x);
-            g_fail = 1;
-        }
-        printf("    (c) pinstripe at x=%d: %s, period-2 %s (idx7 #%06X / idx8 #%06X)\n",
-               mid_x, alt_ok ? "alternates" : "FLAT", period_ok ? "ok" : "BAD",
+        printf("    (c) pinstripe at x=%d: %s (idx7 #%06X / idx8 #%06X)\n",
+               mid_x, (saw_light && saw_dark && striped) ? "two-shade stripe" : "BAD",
                IDX(7), IDX(8));
 
         /* The row just below the title bar is the white body (idx 1) -> the title

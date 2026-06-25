@@ -6673,6 +6673,7 @@ endef
         test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
         test-dialog test-dialog-mutant \
         test-chrome test-chrome-mutant \
+        test-chrome-fidelity test-chrome-fidelity-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-redir test-redir-mutant test-int24 test-int24-mutant \
@@ -8618,6 +8619,48 @@ test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHR
 		exit 1; \
 	else \
 		printf '>>> test-chrome-mutant: green (CHROME_MUTATE_SCROLLBAR_W correctly RED -- the oracle bites)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate (oracle-first, beads initech-hmll): test-chrome-fidelity -- grade the
+# FLAIR window chrome against the INDEPENDENT ../system7-decomp pixel-measured
+# golden (spec/chrome_fidelity_golden.h), NOT against chrome_metrics.h (which
+# chrome.c renders from -- that is the HER-02 by-construction trap; CLAUDE.md
+# Law 2). First increment: the title-bar pinstripe PHASE (the System-7 patAlign
+# mod-8 doubled-LIGHT pairs). Landed RED on the free-running period-2 render, then
+# GREEN once chrome.c was phase-locked; the strict-period-2 assertions it
+# contradicted (test_chrome.c, test_shell.c, ppm_flair_check leg c + the HER-02
+# demo) were operator-ratified for amendment to phase-AGNOSTIC "striped" checks,
+# so this fidelity oracle solely owns the phase truth. Reuses the test-chrome link
+# set + host render skeleton. Mutation-proven by CHROME_FID_MUT_PHASE (revert to
+# the free-running fill -> RED).
+# ---------------------------------------------------------------------------
+TEST_CHROME_FID     := $(BUILD)/test_chrome_fidelity
+TEST_CHROME_FID_SRC := harness/proptest/test_chrome_fidelity.c
+CHROME_FID_GOLDEN_H := spec/chrome_fidelity_golden.h
+TEST_CHROME_FID_MUT := $(BUILD)/test_chrome_fidelity_mutant_phase
+
+$(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_PHASE $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+.PHONY: test-chrome-fidelity test-chrome-fidelity-mutant
+test-chrome-fidelity: $(TEST_CHROME_FID)
+	@printf '>>> test-chrome-fidelity: System-7 window-chrome fidelity vs the INDEPENDENT ../system7-decomp golden (Law 2, NOT by-construction)\n'
+	@$(TEST_CHROME_FID)
+	@printf '>>> test-chrome-fidelity: green\n'
+
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT)
+	@printf '>>> test-chrome-fidelity-mutant: confirming the phase mutant goes RED (Rule 6)\n'
+	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_PHASE correctly RED -- the free-running period-2 fill is caught)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -14087,6 +14130,7 @@ TEST_UNIT_GATES := \
 	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \
+	test-chrome-fidelity test-chrome-fidelity-mutant \
 	test-fbagree test-fbagree-mutant \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-redir-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
