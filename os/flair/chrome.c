@@ -307,37 +307,56 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
         }
     }
 
-    /* 5. The window frame: classic Mac double line -- a 1 px black outer frame
-     * around the whole window, plus a 1 px groove line separating the title bar
-     * from the content (and the content from the bottom frame). Drawn LAST so it
-     * is never painted over by the body/scrollbar. The groove does NOT cross the
-     * title bar (that would eat a pinstripe scanline and shorten the band below
-     * the locked TITLEBAR_H). */
+    /* 5. The window frame: 1 px black outer frame around the whole window.
+     * Drawn LAST so it is never painted over by the body/scrollbar.
+     *
+     * FIDELITY NOTE (beads initech-54nw; Law 4): per window-frame.md Sec 2a
+     * (../system7-decomp/specs/chrome/window-frame.md) the body edge is a
+     * SINGLE 1px _FrameRect -- horizontal scan y=300: x=352 = black, x=353 =
+     * white content, NO second groove line.  The lavender bevel _Lines
+     * (wLTinge0/wLTinge4) are TITLE-BAR-ONLY (StandardWDEF_a.txt L709-744).
+     * The inner-groove loop that previously ran down the body left/right/bottom
+     * was a fidelity bug and has been removed.  The title-bar bevel is a
+     * separate element (beads initech-92li; out of scope here). */
 #if defined(CHROME_MUTATE_NO_FRAME)
     /* MUTANT: skip the window frame entirely (FO-2/AM-3). test-chrome must catch
      * that the outer 1 px frame line is missing. */
     (void)fr;
 #else
     cframe(port, left, top, right, bottom, FLAIR_PART_FRAME);     /* outer 1 px */
-    /* The inner groove (the second line of the classic Mac double-line frame):
-     * a 1 px line just inside the outer frame on the LEFT, RIGHT and BOTTOM
-     * edges only. It deliberately does NOT cross the TOP / title bar -- the
-     * title bar's top edge is the outer frame line, and adding a groove there
-     * would consume a pinstripe scanline and shorten the band below the locked
-     * TITLEBAR_H. The groove runs from the title bar down to the bottom frame. */
-    for (int y = top + fr; y < bottom - fr; y++) {
-        cfill(port, left + fr,      y, 1, FLAIR_PART_TEXT);   /* inner left  */
-        cfill(port, right - fr - 1, y, 1, FLAIR_PART_TEXT);   /* inner right */
-    }
-    cfill(port, left + fr, bottom - fr - 1, w - 2 * fr, FLAIR_PART_TEXT); /* bottom */
+    /* Body groove INTENTIONALLY ABSENT (fidelity fix, initech-54nw):
+     * the inner groove is title-bar-only (window-frame.md Sec 2a / Sec 1;
+     * StandardWDEF_a.txt L567-570 body = one _FrameRect, L709-744 bevel
+     * _Lines = title-bar interior only).  No body inner-left/inner-right
+     * columns or inner-bottom groove line.  Title-bar bevel is beads initech-92li. */
 #endif
 
-    /* Title text (Chicago strike, centered) is DEFERRED this pass (chrome.h):
-     * the pinstripe band is drawn without text. The chicago8x16.h strike exists
-     * and surface_blit can render it, but proportional Chicago centering + the
-     * close/zoom boxes overlapping the text run is a Font-Manager concern
-     * (ADR-0004 D-7) -- adding it here would couple chrome geometry to font
-     * metrics before the Font Manager lands. Documented deferral, not a silent
-     * omission (Law 1 honesty). The title-bar GEOMETRY (the load-bearing
-     * test-chrome datum) is complete. */
+    /* 6. Drop shadow: documentProc varCode 0 shadow factor = (1,1) px
+     * (StandardWDEF_a.txt L515: `move.l OneOne,D4`).  The WDEF paints an L:
+     *   MoveTo(right, top+shadow); LineTo(right, bottom);   -- down the right
+     *   LineTo(left+shadow, bottom);                        -- across the bottom
+     * (StandardWDEF_a.txt L578-594), in wFrameColor = black = FLAIR_PART_FRAME.
+     * In our half-open [left,right) x [top,bottom) coordinate space:
+     *   shadow column: x=right,   y in [top+1, bottom+1)   (one px right of frame)
+     *   shadow row:    y=bottom,   x in [left+1, right+1)   (one px below frame)
+     * The top-right corner (x=right, y=top) and bottom-left corner (x=left,
+     * y=bottom) are NOT part of the L (offset +1 misses them -- WDEF geometry).
+     *
+     * Drawn via C-8 seam (FLAIR_PART_FRAME -- wFrameColor = black).  NEVER a
+     * raw color literal (constraint C-8; ADR-0004-AMENDMENT-DEC-09 Sec 3.1).
+     * Ref: window-frame.md Sec 1 / Sec 4; StandardWDEF_a.txt L515/L578-594.
+     * Golden-resolves: s7_get_info.png on-screen right edge (Sec 4).
+     * Mutation probe: CHROME_FID_MUT_NO_SHADOW (beads initech-54nw, Rule 6). */
+#if defined(CHROME_FID_MUT_NO_SHADOW)
+    /* MUTANT (Rule 6; beads initech-54nw): skip the drop-shadow draw entirely.
+     * test-chrome-fidelity leg (7) MUST go RED. */
+    (void)h;
+#else
+    /* Shadow column: x=right, y in [top+1, bottom+1). */
+    crect(port, right, top + 1, right + 1, bottom + 1, FLAIR_PART_FRAME);
+    /* Shadow row: y=bottom, x in [left+1, right+1).
+     * The column above already writes (right, bottom), so the row [left+1, right+1)
+     * includes (right, bottom) -- written twice is fine (same pixel, same color). */
+    crect(port, left + 1, bottom, right + 1, bottom + 1, FLAIR_PART_FRAME);
+#endif
 }

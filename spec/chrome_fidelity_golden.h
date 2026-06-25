@@ -97,6 +97,63 @@
 #define FG_PHASE_DOUBLED_LIGHT_AT_EDGES  1
 
 /* ===========================================================================
+ * WINDOW DROP SHADOW + BODY SINGLE-LINE FRAME.
+ *
+ * Source: ../system7-decomp/specs/chrome/window-frame.md Sec 1 (native-px
+ *   geometry), Sec 2a (horizontal scan y=300 proves single-line body frame),
+ *   Sec 4 (shadow clipped in s7_doc_window.png; golden-resolves: s7_get_info.png
+ *   for the on-screen right edge) + refs/StandardWDEF_a.txt L515 (drop-shadow
+ *   factor D4 = OneOne = (1,1) for documentProc varCode 0) + L578-594 (the
+ *   L-shape paint: MoveTo(right,top+shadow); LineTo(right,bottom);
+ *   LineTo(left+shadow,bottom) in wFrameColor = black).
+ *
+ * THE MECHANISM (WDEF; StandardWDEF_a.txt).
+ *   L515: `move.l OneOne,D4` -- the shadow factor for documentProc (varCode 0)
+ *   is (1,1): offset 1 px right, 1 px down.  L578-594: the shadow L is painted
+ *   with _PenSize = D4 (1x1) and wFrameColor (black, idx 0):
+ *     down the RIGHT column just OUTSIDE the window frame (x = right+0, i.e.
+ *     right through right+shadow-1 = right+0 -- one column, at x = right, from
+ *     y = top+shadow = top+1 to y = bottom inclusive), and
+ *     across the BOTTOM row just OUTSIDE the window frame (y = bottom, from
+ *     x = left+shadow = left+1 to x = right+shadow-1 = right+0).
+ *   In half-open [left,right) x [top,bottom) coordinate space (the window
+ *   occupies [left,right) x [top,bottom)):
+ *     shadow column: x = right,   y in [top+1, bottom+1)   (down right edge)
+ *     shadow row:    y = bottom,   x in [left+1, right+1)   (across bottom)
+ *   The top-right corner (right, top) and bottom-left corner (left, bottom) are
+ *   NOT shadowed (the L misses them by the +1 offset).
+ *
+ * BODY EDGE IS SINGLE-LINE (window-frame.md Sec 2a).
+ *   Horizontal scan at y=300 (a content row, below the title bar):
+ *     x=352 = black (#000000) -- the 1px outer frame line.
+ *     x=353 = white (#FFFFFF) -- CONTENT begins IMMEDIATELY; NO second ink line.
+ *   This matches the WDEF: the body is ONE _FrameRect; the lavender bevel _Lines
+ *   (wLTinge0/wLTinge4) are drawn only on the TITLE-BAR interior.  Any inner
+ *   groove running down the body left/right/bottom edges is a FIDELITY BUG.
+ *
+ * RECOLOR-INVARIANCE: shade RELATIONS only -- shadow ink = FRAME (black, idx 0);
+ *   body inner pixel = CONTENT (white, idx 1).  No RGB literals.
+ * ========================================================================= */
+
+/* Shadow ink index (wFrameColor = black = CIDX_BLACK).
+ * Ref: window-frame.md Sec 1 / Sec 3 (wFrameColor -- frame/content fore); NOT
+ * from chrome_metrics.h. */
+#define FG_SHADOW_INK_IDX    0   /* wFrameColor -> CIDX_BLACK (idx 0) */
+
+/* Shadow offset: (1,1) -- 1 px to the right, 1 px down.
+ * Ref: refs/StandardWDEF_a.txt L515 `move.l OneOne,D4` for varCode 0 documentProc. */
+#define FG_SHADOW_OFFSET     1   /* 1 px at (1,1): documentProc only (varCode 0) */
+
+/* Body-no-groove fact: on a content row (below the title bar), the pixel one
+ * column INSIDE the outer left frame is CONTENT (white, idx 1) -- NOT a second
+ * inked groove line.  Ref: window-frame.md Sec 2a horizontal scan y=300. */
+#define FG_BODY_NO_GROOVE    1   /* 1 = inner pixel is CONTENT, not a groove */
+
+/* Content body pixel index (the one column inside the outer frame on a content
+ * row must be this).  Ref: window-frame.md Sec 2a x=353 = white = CIDX_WHITE. */
+#define FG_BODY_INNER_IDX    1   /* CIDX_WHITE (idx 1) */
+
+/* ===========================================================================
  * TITLE TEXT + KNOCKOUT (the centered window name).
  *
  * Source: ../system7-decomp/specs/chrome/title-bar.md Sec 3 + pinstripe.md.

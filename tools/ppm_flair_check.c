@@ -638,18 +638,28 @@ int main(int argc, char **argv)
         assert_idx(mid_x, body_row, 1,
                    "(c) front window body fill is window white");
 
-        /* Frame: exactly 1 px. The right frame column is painted (non-desktop);
-         * the pixel just outside is bare teal. (Value-free RELATION: the frame
-         * pixel must DIFFER from the desktop color and the neighbor must MATCH
-         * it -- a topology test, not an RGB grade.) */
+        /* Frame + drop shadow: exactly 1 px frame + 1 px shadow at offset (1,1).
+         * The right frame column (x=W1_R-1) is painted frame ink (non-desktop);
+         * the shadow column (x=W1_R=560) is also frame ink -- it is the documentProc
+         * 1px drop shadow (StandardWDEF_a.txt L515 D4=OneOne + L578-594 L-shape;
+         * window-frame.md Sec 1/Sec 4; beads initech-54nw).  The pixel one column
+         * PAST the shadow (x=W1_R+1=561) is bare teal.
+         * (Value-free RELATION: frame+shadow columns both differ from desktop;
+         * the pixel past the shadow matches desktop -- topology test, not RGB.) */
         if (is_rgb(W1_R - 1, body_row, IDX(2))) {
             fprintf(stderr,
                     "ppm_flair_check: FAIL (c) front window right frame column "
                     "(x=%d) reads bare teal -- the frame is not painted\n", W1_R - 1);
             g_fail = 1;
         }
-        assert_idx(W1_R, body_row, 2,
-                   "(c) pixel just right of the 1 px frame is bare teal");
+        /* Shadow column (x=W1_R) must be FRAME ink (idx 0 = black), not teal.
+         * Ref: window-frame.md Sec 1/Sec 4; StandardWDEF_a.txt L515/L578-594. */
+        assert_idx(W1_R, body_row, 0,
+                   "(c) drop shadow column (x=W1_R) is FRAME ink (black idx 0); "
+                   "documentProc 1px shadow at offset (1,1) -- window-frame.md Sec 1");
+        /* One column past the shadow is bare teal. */
+        assert_idx(W1_R + 1, body_row, 2,
+                   "(c) pixel just right of the 1px shadow (x=W1_R+1) is bare teal");
     }
 
     /* ======================================================================
