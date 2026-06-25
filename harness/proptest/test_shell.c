@@ -365,6 +365,10 @@ int main(int argc, char **argv)
         const int title_top = W1_T + fr;
         const int title_bot = title_top + FLAIR_CHROME_TITLEBAR_H;
         const int mid_x = (W1_L + W1_R) / 2;
+        /* The pinstripe is scanned at a clear column -- right of the close box and
+         * LEFT of the centered window title ("untitled-2"), so the title knockout/
+         * glyphs do not interrupt the stripe run (beads initech-lxg9). */
+        const int pin_x = W1_L + 24;
 
         /* Title-bar pinstripe is STRIPED with the two WDEF shades (7/8). The
          * specific System-7 PHASE (the patAlign mod-8 doubled-LIGHT pairs) is NOT
@@ -375,7 +379,7 @@ int main(int argc, char **argv)
          * render. */
         int saw_light = 0, saw_dark = 0, striped = 0, prev = -1;
         for (int k = 0; k < FLAIR_CHROME_TITLEBAR_H; k++) {
-            int s = idx_at(&ctx, mid_x, title_top + k);
+            int s = idx_at(&ctx, pin_x, title_top + k);
             if (s == FLAIR_CHROME_TITLE_SHADE_LIGHT) saw_light = 1;
             if (s == FLAIR_CHROME_TITLE_SHADE_DARK)  saw_dark = 1;
             if (k > 0 && s != prev) striped = 1;

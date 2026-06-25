@@ -116,7 +116,7 @@ static void paint_window_chrome(const bitmap_t *dst, WindowPtr w,
     GrafPort port;
     rgn_rect_t frame = region_get_bbox(w->strucRgn);
     make_port(&port, dst, visRgn, clipRgn);
-    flair_draw_document_window(&port, frame);
+    flair_draw_document_window(&port, frame, w->titleHandle);
 }
 
 /* Recursive back-to-front walk: paint the window list from the BACK (tail) toward

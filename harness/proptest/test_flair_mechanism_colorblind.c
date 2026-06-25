@@ -62,7 +62,10 @@ static rgn_rect_t win_frame(void)
 
 static void draw_window(GrafPort *port)
 {
-    flair_draw_document_window(port, win_frame());
+    /* A real title here EXERCISES the title path through the C-8 seam: the glyph
+     * ink + knockout resolve via flair_look_pixel, so under the sentinel stub the
+     * title pixels are the sentinel too (proves the title is colorblind-clean). */
+    flair_draw_document_window(port, win_frame(), "untitled");
 }
 
 int main(void)

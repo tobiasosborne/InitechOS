@@ -38,6 +38,7 @@
 #include "chrome_metrics.h"     /* FLAIR_CHROME_* (-Ispec)                    */
 #include "region_algebra.h"     /* region_contains_point (-Ispec)            */
 #include "flair_look.h"         /* flair_look_pixel + FLAIR_PART_* (the seam) */
+#include "text.h"               /* text_draw/measure/cell_height (inline)     */
 
 /* ---------------------------------------------------------------------------
  * clip_in -- is port-local pixel (x,y) inside visRgn INTERSECT clipRgn?
@@ -117,7 +118,8 @@ static void cframe(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 /* ---------------------------------------------------------------------------
  * flair_draw_document_window -- the chrome composition (top to bottom).
  * ------------------------------------------------------------------------- */
-void flair_draw_document_window(GrafPort *port, rgn_rect_t frame)
+void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
+                                const char *title)
 {
     if (port == 0) {
         return;
@@ -207,6 +209,40 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame)
         int zx0 = zx1 - box;
         cframe(port, zx0, by0, zx1, by1, FLAIR_PART_FRAME);
     }
+
+    /* 2.5 Title text: the window's name, drawn CENTERED in the title bar in
+     * Chicago over a KNOCKED-OUT light gap. System 7 suppresses the racing stripe
+     * under the centered title and draws black Chicago glyphs there (golden
+     * s7_doc_window.png: a centered #F3F3F3 gap with #000000 glyphs;
+     * ../system7-decomp/specs/chrome/title-bar.md Sec 3). surface_blit writes the
+     * glyph-cell background OPAQUELY, so drawing the title with bg = the pinstripe
+     * LIGHT shade paints the knockout panel AND the text in one pass. Both the ink
+     * and the knockout resolve through the C-8 policy seam (flair_look_pixel) --
+     * NEVER a color literal -- so test-flair-mechanism-colorblind stays green
+     * (beads initech-lxg9). The centering indent is clamped right of the close box
+     * (WDEF reserves the go-away box; title-bar.md "indent x=left+32"). */
+#if defined(CHROME_FID_MUT_NO_TITLE)
+    /* MUTANT (Rule 6; beads initech-lxg9): skip the title render -> a blank title
+     * bar. test-chrome-fidelity's title-ink + knockout legs MUST go RED. */
+    (void)title;
+#else
+    if (title != 0 && title[0] != '\0') {
+        int cell_h = text_cell_height(FONT_CHICAGO);
+        int tw     = text_measure(FONT_CHICAGO, title);
+        int box_clear = fr + 3 + FLAIR_CHROME_WBOX_DELTA + 2; /* right of close box */
+        int tx = left + fr + (w - 2 * fr - tw) / 2;           /* centered          */
+        if (tx < left + box_clear) {
+            tx = left + box_clear;
+        }
+        int ty = title_top + (title_h - cell_h) / 2;          /* vertical center   */
+        if (ty < title_top) {
+            ty = title_top;
+        }
+        uint32_t ink   = flair_look_pixel(port, FLAIR_PART_TEXT);      /* seam, black */
+        uint32_t knock = flair_look_pixel(port, FLAIR_PART_PIN_LIGHT); /* seam, light */
+        text_draw(&port->portBits.bm, tx, ty, title, FONT_CHICAGO, ink, knock);
+    }
+#endif /* CHROME_FID_MUT_NO_TITLE */
 
     /* 3. The content area: white body below the title bar, inside the frame and
      * to the left of the scrollbar. Drawn before the scrollbar so the scrollbar

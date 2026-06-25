@@ -302,10 +302,13 @@ static int her02_demo(void)
      * WRONG now -- the real stripe has doubled rows.) */
     {
         const int title_top = W1_T + FRAME;
-        const int mid_x = (W1_L + W1_R) / 2;
+        /* Scan a CLEAR pinstripe column (right of the close box, LEFT of the
+         * centered title) so the title knockout/glyphs do not break the relation
+         * (the title sits at the bar center now; beads initech-lxg9). */
+        const int pin_x = W1_L + 24;
         int shade_ok = 1, saw_light = 0, saw_dark = 0, doubled = 0, prev = -2;
         for (int k = 0; k < TITLEBAR_H; k++) {
-            int s = her02_classify_pin(mid_x, title_top + k);
+            int s = her02_classify_pin(pin_x, title_top + k);
             if (s < 0) shade_ok = 0;
             if (s == 7) saw_light = 1;
             if (s == 8) saw_dark = 1;
@@ -560,7 +563,11 @@ int main(int argc, char **argv)
     {
         const int title_top = W1_T + FRAME;          /* 121 */
         const int title_bot = title_top + TITLEBAR_H; /* 140 */
-        const int mid_x = (W1_L + W1_R) / 2;          /* 430 */
+        const int mid_x = (W1_L + W1_R) / 2;          /* 430 = the centered title  */
+        /* The stripe is scanned at a clear column -- right of the close box and LEFT
+         * of the centered title ("untitled-2"), so the title knockout/glyphs do not
+         * interrupt the stripe run (beads initech-lxg9). */
+        const int pin_x = W1_L + 24;                  /* 324 */
         const int body_row = (title_bot + (W1_B - FRAME)) / 2;
 
         /* The title bar must be a two-shade STRIPE (every row is shade 7 or 8, both
@@ -574,8 +581,8 @@ int main(int argc, char **argv)
         for (int k = 0; k < TITLEBAR_H; k++) {
             int y = title_top + k;
             int s;
-            if      (is_rgb(mid_x, y, IDX(7))) s = 7;
-            else if (is_rgb(mid_x, y, IDX(8))) s = 8;
+            if      (is_rgb(pin_x, y, IDX(7))) s = 7;
+            else if (is_rgb(pin_x, y, IDX(8))) s = 8;
             else { s = -1; shade_ok = 0; }
             if (s == 7) saw_light = 1;
             if (s == 8) saw_dark = 1;
@@ -586,19 +593,43 @@ int main(int argc, char **argv)
             fprintf(stderr,
                     "ppm_flair_check: FAIL (c) front window title bar at x=%d is not "
                     "the pinstripe shade pair (idx 7 #%06X / idx 8 #%06X)\n",
-                    mid_x, IDX(7), IDX(8));
+                    pin_x, IDX(7), IDX(8));
             g_fail = 1;
         }
         if (!(saw_light && saw_dark && striped)) {
             fprintf(stderr,
                     "ppm_flair_check: FAIL (c) front window title bar at x=%d is not a "
                     "two-shade pinstripe (light=%d dark=%d striped=%d)\n",
-                    mid_x, saw_light, saw_dark, striped);
+                    pin_x, saw_light, saw_dark, striped);
             g_fail = 1;
         }
         printf("    (c) pinstripe at x=%d: %s (idx7 #%06X / idx8 #%06X)\n",
-               mid_x, (saw_light && saw_dark && striped) ? "two-shade stripe" : "BAD",
+               pin_x, (saw_light && saw_dark && striped) ? "two-shade stripe" : "BAD",
                IDX(7), IDX(8));
+
+        /* TITLE (beads initech-lxg9): the window name is drawn CENTERED in Chicago
+         * over a knocked-out light gap. Live-screendump tripwire: assert FIGURE ink
+         * (black, idx 4 = CIDX_TITLE_INK) is present in the centered title region --
+         * a blank title bar is a regression. (The full title geometry/knockout is
+         * graded host-side by test-chrome-fidelity.) */
+        {
+            int title_ink = 0;
+            for (int y = title_top + 2; y < title_bot - 2; y++) {
+                for (int x = mid_x - 24; x < mid_x + 24; x++) {
+                    if (is_rgb(x, y, IDX(4))) title_ink++;
+                }
+            }
+            if (title_ink < 8) {
+                fprintf(stderr,
+                        "ppm_flair_check: FAIL (c) front window title TEXT missing -- "
+                        "centered title region [x %d..%d] has %d ink px (need >=8); "
+                        "the title bar is blank\n",
+                        mid_x - 24, mid_x + 24, title_ink);
+                g_fail = 1;
+            }
+            printf("    (c) title ink (idx4 black) in centered region: %d px\n",
+                   title_ink);
+        }
 
         /* The row just below the title bar is the white body (idx 1) -> the title
          * bar is EXACTLY TITLEBAR_H tall. */

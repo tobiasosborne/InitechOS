@@ -96,4 +96,24 @@
  *     has zero). */
 #define FG_PHASE_DOUBLED_LIGHT_AT_EDGES  1
 
+/* ===========================================================================
+ * TITLE TEXT + KNOCKOUT (the centered window name).
+ *
+ * Source: ../system7-decomp/specs/chrome/title-bar.md Sec 3 + pinstripe.md.
+ *   The window title is drawn CENTERED in the bar in Chicago, black (wTextColor
+ *   #000000), with the racing stripe SUPPRESSED under it -- a centered LIGHT
+ *   (#F3F3F3) knockout gap with black glyphs (golden s7_doc_window.png: the
+ *   "System7_5_3" glyph run on a #F3F3F3 gap; pinstripe.md y=168 horizontal scan:
+ *   the dark row is broken by the centered title gap #F3F3F3 at x=519..618). The
+ *   centering indent clamps right of the go-away box (title-bar.md x=left+32).
+ *
+ * Two recolor-invariant structural facts (graded by INDEX class, not RGB):
+ *   (a) FIGURE ink (wTextColor; FLAIR CIDX_TITLE_INK = idx 4) appears in the
+ *       centered title region -- the glyphs are drawn (not a blank bar).
+ *   (b) under the centered title the DARK stripe (idx 8) is SUPPRESSED to the
+ *       light knockout panel -- ZERO dark pixels in the centered title cell rows.
+ * ========================================================================= */
+#define FG_TITLE_INK_IDX        4   /* wTextColor -> CIDX_TITLE_INK (idx 4, black) */
+#define FG_TITLE_KNOCKOUT_IDX   7   /* the suppressed-stripe gap -> light (idx 7)  */
+
 #endif /* INITECH_SPEC_CHROME_FIDELITY_GOLDEN_H */

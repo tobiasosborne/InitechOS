@@ -54,10 +54,12 @@
  * window smaller than the chrome it must hold is a no-op (fail-soft, the caller
  * is responsible for a sane frame -- the Window Manager sizes it).
  *
- * Title text: Chicago-strike text is NOT drawn this pass (see chrome.c note);
- * the title-bar pinstripe band is drawn without text. This is a documented
- * deferral, not a silent omission.
+ * `title` is the window's name (the WindowRecord titleHandle), drawn CENTERED in
+ * the title bar in Chicago over a knocked-out light gap (System 7; beads
+ * initech-lxg9). A NULL or empty title draws no text. The ink + knockout resolve
+ * through the C-8 policy seam (flair_look_pixel), never a color literal.
  * ------------------------------------------------------------------------- */
-void flair_draw_document_window(GrafPort *port, rgn_rect_t frame);
+void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
+                                const char *title);
 
 #endif /* INITECH_OS_FLAIR_CHROME_H */

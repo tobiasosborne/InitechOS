@@ -293,6 +293,9 @@ void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content
     w->goAwayFlag           = goAway;
     w->visible              = 1;
     w->spareFlag            = 0;
+    w->titleHandle[0]       = '\0';   /* empty title until SetWTitle/caller sets it
+                                       * (NewWindow leaves "" per IM-I; required now
+                                       * that the chrome drawer renders the title) */
 
     list_push_front(wm, w);
     reaffirm_active(wm);

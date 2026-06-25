@@ -64,7 +64,10 @@ static rgn_rect_t win_frame(void)
 /* The draw program the skeleton runs. */
 static void draw_window(GrafPort *port)
 {
-    flair_draw_document_window(port, win_frame());
+    /* No title here: this oracle grades the pinstripe/box/frame/scrollbar geometry,
+     * not the title (the title element is graded by test-chrome-fidelity, lxg9). An
+     * empty title draws no text, so the mid_x pinstripe probes stay valid. */
+    flair_draw_document_window(port, win_frame(), "");
 }
 
 /* Is pixel (x,y) CHROME (i.e. NOT the bare desktop background)? The skeleton
