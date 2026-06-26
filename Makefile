@@ -255,6 +255,11 @@ PPM_TEXT_CHECK_BIN := $(BUILD)/ppm_text_check
 # agree by construction). Compiled with -Ispec/assets for palette.h.
 PPM_FLAIR_CHECK_SRC := tools/ppm_flair_check.c
 PPM_FLAIR_CHECK_BIN := $(BUILD)/ppm_flair_check
+# FO-9 drag-oracle screendump grader (beads initech-5l5z FO-7/8; ADR-0006 E-D5):
+# grades the post-drag frame (chrome at the SHIFTED rect + vacated area = bare
+# teal) against the INDEPENDENT canon, never the render. Built like ppm_flair_check.
+PPM_FLAIR_DRAG_CHECK_SRC := tools/ppm_flair_drag_check.c
+PPM_FLAIR_DRAG_CHECK_BIN := $(BUILD)/ppm_flair_drag_check
 
 # ---------------------------------------------------------------------------
 # Flat C kernel (os/milton, beads initech-d00; ADR-0003 DEC-08)
@@ -649,6 +654,15 @@ KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_kbd.o
 KERNEL_FLAIRLIVE_MUT_KBD_ELF      := $(BUILD)/kernel_flairlive_mut_kbd.elf
 KERNEL_FLAIRLIVE_MUT_KBD_BIN      := $(BUILD)/kernel_flairlive_mut_kbd.bin
 FLAIRLIVE_MUT_KBD_IMG             := $(BUILD)/flair_live_mut_kbd.img
+
+# FO-7/8 drag-noop MUTANT flair_live kernel/image (beads initech-5l5z; ADR-0006
+# M1/BC-9 -- the HER-14 static-frame mutant: -DFLAIR_LIVE_MUTATE_DRAG_NOOP makes
+# the pump's inDrag dispatch a NO-OP so the window does NOT move; test-flair-drag
+# then sees bare teal at the new pos + chrome still at the old -> RED).
+KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_drag.o
+KERNEL_FLAIRLIVE_MUT_DRAG_ELF      := $(BUILD)/kernel_flairlive_mut_drag.elf
+KERNEL_FLAIRLIVE_MUT_DRAG_BIN      := $(BUILD)/kernel_flairlive_mut_drag.bin
+FLAIRLIVE_MUT_DRAG_IMG             := $(BUILD)/flair_live_mut_drag.img
 # EXIT-handle teardown self-test kernel/image (beads initech-6hk; epic
 # initech-6qy; make test-exit-handles): the SAME kernel sources but with
 # -DBOOT_EXITH so the boot EXECs the FAT-sourced leaky child EXITH.COM RUNS
@@ -8173,6 +8187,36 @@ $(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BI
 	@dd if=$(KERNEL_FLAIRLIVE_MUT_KBD_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-live kbd-MUTANT image: %s (no kbd hook -- FLAIR-KEY never appears)\n" "$@"
 
+# --- FO-7/8 drag-noop MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6;
+# ADR-0006 M1/BC-9). -DFLAIR_LIVE_MUTATE_DRAG_NOOP: the pump's inDrag dispatch does
+# NOTHING (the window stays put) -> test-flair-drag's screendump sees bare teal at
+# the new pos + chrome still at the old -> RED. The direct HER-14 static-frame
+# mutant. Mirrors the FLAIRLIVE_MUT_KBD obj/elf/bin/img rules. -----------------
+$(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h os/flair/event.h os/flair/window.h os/flair/desktop.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_DRAG_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FLAIRLIVE_MUT_DRAG_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ)
+
+$(KERNEL_FLAIRLIVE_MUT_DRAG_ELF): $(KERNEL_FLAIRLIVE_MUT_DRAG_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_DRAG_OBJS)
+
+$(KERNEL_FLAIRLIVE_MUT_DRAG_BIN): $(KERNEL_FLAIRLIVE_MUT_DRAG_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_mut_drag.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-mutant-dragnoop): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_MUT_DRAG_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live drag-noop MUTANT image: %s (inDrag dispatch is a no-op -- the window never moves)\n" "$@"
+
 # ===========================================================================
 # FO-6 (beads initech-5l5z): PS/2 mouse IRQ12 -- the mouse-enabled flair_live
 # image is the EXISTING $(FLAIRLIVE_IMG) (mouse.o is now in KERNEL_FLAIRLIVE_OBJS
@@ -8258,11 +8302,11 @@ test-flair-mouse: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-mouse : FLAIR MOUSE IRQ12 lane (FO-6)\n'
 	@printf '  THE minefield: IRQ12 = slave 8259A IR4 (vec 0x34); dual-PIC EOI\n'
-	@printf '  (slave 0xA0 THEN master 0x20). >=2 distinct FLAIR-MOUSE = no wedge.\n'
-	@printf '  beads initech-5l5z FO-6; ADR-0006 E-D3b/BC-3. Law 2, Rule 2/5/6/11.\n'
+	@printf '  (slave 0xA0 THEN master 0x20). cursor advance + 2 cooked events = no wedge.\n'
+	@printf '  beads initech-5l5z FO-6/7; ADR-0006 E-D3b/BC-3. Law 2, Rule 2/5/6/11.\n'
 	@printf '======================================================================\n'
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_MOUSE_NAME)" --out "$(BUILD)" \
-		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-HOOK-SET" --timeout-ms 15000 \
+		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 \
 		2> "$(FLAIR_MOUSE_REPORT)" || true
 	@cat "$(FLAIR_MOUSE_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -8273,19 +8317,19 @@ test-flair-mouse: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
 	@if [ ! -s "$(FLAIR_MOUSE_SERIAL)" ]; then printf '!!! test-flair-mouse FAIL: no serial captured\n'; exit 1; fi
 	@grep -q '^FLAIR-HOOK-SET$$' "$(FLAIR_MOUSE_SERIAL)" \
 		|| { printf '!!! test-flair-mouse FAIL: FLAIR-HOOK-SET missing -- mouse_init/IRQ12-gate path not reached\n'; exit 1; }
-	@n=$$(grep -c '^FLAIR-MOUSE ' "$(FLAIR_MOUSE_SERIAL)"); \
-	d=$$(grep '^FLAIR-MOUSE ' "$(FLAIR_MOUSE_SERIAL)" | sort -u | wc -l); \
-	if [ "$$d" -lt 2 ]; then \
-		printf '!!! test-flair-mouse FAIL: only %s FLAIR-MOUSE lines (%s distinct) -- the dual-PIC EOI WEDGED (no second IRQ12)\n' "$$n" "$$d"; \
-		grep '^FLAIR-MOUSE ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; \
-	fi; \
-	printf '>>> test-flair-mouse [2/3]: %s FLAIR-MOUSE lines, %s DISTINCT -- dual-PIC EOI did NOT wedge\n' "$$n" "$$d"
-	@grep -q '^FLAIR-MOUSE dx=20 ' "$(FLAIR_MOUSE_SERIAL)" \
-		|| { printf '!!! test-flair-mouse FAIL: the injected dx=20 move not reflected -- PS/2 delta decode wrong\n'; grep '^FLAIR-MOUSE ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; }
-	@grep -q '^FLAIR-MOUSE .*btn=00000001$$' "$(FLAIR_MOUSE_SERIAL)" \
-		|| { printf '!!! test-flair-mouse FAIL: the injected left-button press (btn=1) not reflected\n'; grep '^FLAIR-MOUSE ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; }
-	@printf '>>> test-flair-mouse [3/3]: injected move (dx=20) AND button (btn=1) reflected (PS/2 packet decode LIVE)\n'
-	@printf 'VERDICT   : PASS -- mouse IRQ12 -> packet -> dual-PIC EOI -> FLAIR-MOUSE LIVE (FO-6)\n'
+	@# THE no-wedge + cook proof: the spec moves the cursor (+20,+20 in cursor
+	@# coords -> 340,220 from the 320,240 center) THEN clicks. WaitNextEvent cooks
+	@# the moves into the cursor (mouse moves => nullEvent, the cursor still
+	@# advances) and delivers the mouseDown at the ADVANCED cursor. That can only
+	@# happen if MULTIPLE IRQ12 packets fired (each move = 3 bytes) -- i.e. the
+	@# dual-PIC EOI re-armed the slave 8259A after every byte (no wedge).
+	@grep -q '^FLAIR-EVT what=1 where=340,220 ' "$(FLAIR_MOUSE_SERIAL)" \
+		|| { printf '!!! test-flair-mouse FAIL: cooked mouseDown at the ADVANCED cursor (FLAIR-EVT what=1 where=340,220) not on serial -- the injected moves did not cook into the cursor AND/OR the dual-PIC EOI WEDGED (no IRQ12 re-arm)\n'; grep '^FLAIR-EVT ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-mouse [2/3]: cooked mouseDown where=340,220 -- moves cooked into the cursor; multiple IRQ12 packets fired (dual-PIC EOI did NOT wedge)\n'
+	@grep -q '^FLAIR-EVT what=2 ' "$(FLAIR_MOUSE_SERIAL)" \
+		|| { printf '!!! test-flair-mouse FAIL: cooked mouseUp (FLAIR-EVT what=2) not on serial -- the button-up IRQ12 packet did not fire\n'; grep '^FLAIR-EVT ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-mouse [3/3]: cooked mouseUp (a further IRQ12 packet) -- WaitNextEvent cook path LIVE\n'
+	@printf 'VERDICT   : PASS -- mouse IRQ12 -> packet -> dual-PIC EOI -> WaitNextEvent cook -> FLAIR-EVT LIVE (FO-6/7)\n'
 	@printf '======================================================================\n'
 
 .PHONY: test-flair-mouse-mutant
@@ -8293,25 +8337,26 @@ test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_M
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-mouse-mutant : Rule 6 (the gate BITES)\n'
 	@printf '======================================================================\n'
-	@# Mutant 1: no mouse hook (-DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK) -> no FLAIR-MOUSE.
+	@# Mutant 1: no mouse hook (-DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK) -> no cooked mouse event.
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_MOUSE_IMG)" --name flair_mouse_mut_nohook --out "$(BUILD)" \
-		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-HOOK-SET" --timeout-ms 15000 >/dev/null 2>&1 || true
-	@grep -q '^FLAIR-HOOK-SET$$' "$(BUILD)/flair_mouse_mut_nohook.serial" \
-		|| { printf '!!! mutant1 did not reach FLAIR-HOOK-SET (not comparable)\n'; exit 1; }
-	@if grep -q '^FLAIR-MOUSE ' "$(BUILD)/flair_mouse_mut_nohook.serial"; then \
-		printf '!!! test-flair-mouse-mutant FAIL: no-mouse-hook mutant STILL emitted FLAIR-MOUSE -- the gate is decoration\n'; exit 1; \
+		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_mouse_mut_nohook.serial" \
+		|| { printf '!!! mutant1 did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
+	@if grep -q '^FLAIR-EVT what=1 ' "$(BUILD)/flair_mouse_mut_nohook.serial"; then \
+		printf '!!! test-flair-mouse-mutant FAIL: no-mouse-hook mutant STILL cooked a mouseDown (FLAIR-EVT what=1) -- the gate is decoration\n'; exit 1; \
 	fi
-	@printf '>>> mutant1 (NO_MOUSE_HOOK): RED as required -- no FLAIR-MOUSE (the gate bites)\n'
-	@# Mutant 2: master-only EOI (-DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI) -> slave wedges.
+	@printf '>>> mutant1 (NO_MOUSE_HOOK): RED as required -- no cooked mouseDown (the gate bites)\n'
+	@# Mutant 2: master-only EOI (-DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI) -> slave wedges
+	@# after the FIRST IRQ12, so the move packets never complete -> the cursor never
+	@# advances to 340,220 -> no cooked mouseDown at the advanced position.
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_EOI_IMG)" --name flair_mouse_mut_eoi --out "$(BUILD)" \
-		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-HOOK-SET" --timeout-ms 15000 >/dev/null 2>&1 || true
-	@grep -q '^FLAIR-HOOK-SET$$' "$(BUILD)/flair_mouse_mut_eoi.serial" \
-		|| { printf '!!! mutant2 did not reach FLAIR-HOOK-SET (not comparable)\n'; exit 1; }
-	@d=$$(grep '^FLAIR-MOUSE ' "$(BUILD)/flair_mouse_mut_eoi.serial" | sort -u | wc -l); \
-	if [ "$$d" -ge 2 ]; then \
-		printf '!!! test-flair-mouse-mutant FAIL: master-only-EOI mutant produced %s distinct FLAIR-MOUSE -- the no-wedge gate is decoration (QEMU too forgiving)\n' "$$d"; exit 1; \
-	fi; \
-	printf '>>> mutant2 (MASTER_ONLY_EOI): RED as required -- %s distinct FLAIR-MOUSE (<2, slave 8259A wedged)\n' "$$d"
+		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_mouse_mut_eoi.serial" \
+		|| { printf '!!! mutant2 did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
+	@if grep -q '^FLAIR-EVT what=1 where=340,220 ' "$(BUILD)/flair_mouse_mut_eoi.serial"; then \
+		printf '!!! test-flair-mouse-mutant FAIL: master-only-EOI mutant reached the ADVANCED cursor (FLAIR-EVT what=1 where=340,220) -- the no-wedge gate is decoration (the slave did NOT wedge)\n'; exit 1; \
+	fi
+	@printf '>>> mutant2 (MASTER_ONLY_EOI): RED as required -- cursor never advanced to 340,220 (slave 8259A wedged after the first IRQ12)\n'
 	@printf 'VERDICT   : PASS -- both FO-6 mutants BITE (Rule 6)\n'
 	@printf '======================================================================\n'
 
@@ -8388,6 +8433,12 @@ $(PPM_TEXT_CHECK_BIN): $(PPM_TEXT_CHECK_SRC) | $(BUILD)
 # WHICH region is which; the color VALUES are graded INDEPENDENTLY by test-color-canon
 # (ADR-0010 CD-5 -- NOT by construction; the HER-02 re-key). It grades structure only.
 $(PPM_FLAIR_CHECK_BIN): $(PPM_FLAIR_CHECK_SRC) spec/assets/color_canon.h spec/assets/palette.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+# FO-9 drag-oracle screendump grader (beads initech-5l5z FO-7/8; ADR-0006 E-D5).
+# Grades the post-drag frame against the INDEPENDENT canon (flair_canon_rgb +
+# chrome_metrics geometry), never the render. Built like ppm_flair_check.
+$(PPM_FLAIR_DRAG_CHECK_BIN): $(PPM_FLAIR_DRAG_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
@@ -10967,11 +11018,11 @@ FLAIR_KEY_SERIAL := $(BUILD)/$(FLAIR_KEY_NAME).serial
 FLAIR_KEY_REPORT := $(BUILD)/$(FLAIR_KEY_NAME).report
 test-flair-key: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s (FO-5 kbd raw-scancode post)\n' "$(FLAIRLIVE_IMG)"
-	@printf 'Expecting : FLAIR-KEY sc=0000001E (a make) + FLAIR-KEY sc=0000009E (a break)\n'
+	@printf 'Booting   : %s (FO-5 kbd raw post -> FO-7 WaitNextEvent cook)\n' "$(FLAIRLIVE_IMG)"
+	@printf 'Expecting : cooked FLAIR-EVT what=3 where=320,240 msg=00001E61 (keyDown a)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" \
-		--keys "a" --keys-after "FLAIR-HOOK-SET" \
+		--keys "a" --keys-after "FLAIR-LIVE-READY" \
 		--name "$(FLAIR_KEY_NAME)" --out "$(BUILD)" --timeout-ms 15000 \
 		2> "$(FLAIR_KEY_REPORT)" || true
 	@cat "$(FLAIR_KEY_REPORT)"
@@ -10982,11 +11033,9 @@ test-flair-key: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
 	@if [ ! -s "$(FLAIR_KEY_SERIAL)" ]; then \
 		printf '!!! test-flair-key FAIL: no serial captured\n'; exit 1; \
 	fi
-	@grep -q '^FLAIR-KEY sc=0000001E$$' "$(FLAIR_KEY_SERIAL)" \
-		|| { printf '!!! test-flair-key FAIL: FLAIR-KEY sc=0000001E (make) not on serial -- IRQ1 raw post did not reach the FLAIR ring\n'; exit 1; }
-	@grep -q '^FLAIR-KEY sc=0000009E$$' "$(FLAIR_KEY_SERIAL)" \
-		|| { printf '!!! test-flair-key FAIL: FLAIR-KEY sc=0000009E (break) not on serial\n'; exit 1; }
-	@printf '>>> test-flair-key PASS -- kbd IRQ1 -> FLAIR ring -> drain -> FLAIR-KEY LIVE (FO-5)\n'
+	@grep -q '^FLAIR-EVT what=3 where=320,240 msg=00001E61$$' "$(FLAIR_KEY_SERIAL)" \
+		|| { printf '!!! test-flair-key FAIL: cooked keyDown a (FLAIR-EVT what=3 msg=00001E61, scancode 0x1E -> ASCII 0x61) not on serial -- WaitNextEvent did not cook the IRQ1 scancode into an EventRecord\n'; grep '^FLAIR-EVT ' "$(FLAIR_KEY_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-key PASS -- kbd IRQ1 -> FLAIR ring -> WaitNextEvent COOK -> FLAIR-EVT keyDown a LIVE (FO-5/7)\n'
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-key-mutant (Rule 6) -- the kbd-hook mutant image
@@ -11000,20 +11049,108 @@ test-flair-key-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_KBD_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-key-mutant : Rule 6 (the gate bites)\n'
 	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_NO_KBD_HOOK (kbd_set_scancode_hook NEVER called).\n'
-	@printf '  Expect: FLAIR-KEY NEVER appears -> test-flair-key would go RED.\n'
+	@printf '  Expect: cooked keyDown a (FLAIR-EVT msg=00001E61) NEVER appears -> test-flair-key would go RED.\n'
 	@printf '======================================================================\n'
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_KBD_IMG)" \
-		--keys "a" --keys-after "FLAIR-HOOK-SET" \
+		--keys "a" --keys-after "FLAIR-LIVE-READY" \
 		--name "$(FLAIR_KEY_MUT_NAME)" --out "$(BUILD)" --timeout-ms 15000 \
 		2> "$(FLAIR_KEY_MUT_REPORT)" || true
 	@cat "$(FLAIR_KEY_MUT_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@grep -q '^FLAIR-HOOK-SET$$' "$(FLAIR_KEY_MUT_SERIAL)" \
 		|| { printf '!!! test-flair-key-mutant FAIL: mutant did not reach FLAIR-HOOK-SET (not the same boot path)\n'; exit 1; }
-	@if grep -q '^FLAIR-KEY' "$(FLAIR_KEY_MUT_SERIAL)" 2>/dev/null; then \
-		printf '!!! test-flair-key-mutant FAIL: FLAIR-KEY appeared despite no kbd hook -- the gate is decoration\n'; exit 1; \
+	@# Match the SPECIFIC cooked 'a' keyDown (msg=00001E61), NOT a bare ^FLAIR-EVT:
+	@# a harmless boot-time phantom keyDown (the mouse 0xFA ACK via IRQ1, msg=0000FA00)
+	@# is always present, so the gate keys on the injected key's message.
+	@if grep -q '^FLAIR-EVT what=3 .*msg=00001E61' "$(FLAIR_KEY_MUT_SERIAL)" 2>/dev/null; then \
+		printf '!!! test-flair-key-mutant FAIL: cooked keyDown a appeared despite no kbd hook -- the gate is decoration\n'; exit 1; \
 	fi
-	@printf '>>> test-flair-key-mutant: RED as required -- no kbd hook => FLAIR-KEY never posted; the gate BITES (Rule 6)\n'
+	@printf '>>> test-flair-key-mutant: RED as required -- no kbd hook => no cooked keyDown a; the gate BITES (Rule 6)\n'
+	@printf '======================================================================\n'
+
+# ===========================================================================
+# REAL gate: test-flair-drag (beads initech-5l5z FO-7/8/9; ADR-0006 E-D5/FO-9 --
+# THE headline behavioural oracle: the booted desktop is INTERACTIVE / draggable).
+# Boots $(FLAIRLIVE_IMG) (the WaitNextEvent pump), injects the LOCKED drag trace
+# (move onto window 1's title bar -> button down -> drag (+40,+30) -> button up),
+# and screendumps AFTER the FLAIR-DRAG marker. Asserts (Law 2, INDEPENDENT golden):
+#   1. no triple-fault;
+#   2. FLAIR-LIVE-READY (the pump armed) + FLAIR-DRAG (the inDrag dispatch ran);
+#   3. ppm_flair_drag_check: chrome at the SHIFTED rect {T150 L340 B390 R600}
+#      (a WDEF-scan at the new pos) + the vacated area reads bare canon teal
+#      (idx2 #8DDCDC -- the D-5 minimal-repaint damage law erased the old chrome).
+# The SCREENDUMP is the discriminator (the drag-noop mutant still emits FLAIR-DRAG
+# but the pixels do not move -- see test-flair-drag-mutant). The guest cli;hlt
+# loops after the budget, so the harness times out by design (OK = the asserts).
+# ===========================================================================
+FLAIR_DRAG_NAME    := flair_drag
+FLAIR_DRAG_SERIAL  := $(BUILD)/$(FLAIR_DRAG_NAME).serial
+FLAIR_DRAG_REPORT  := $(BUILD)/$(FLAIR_DRAG_NAME).report
+FLAIR_DRAG_PPM     := $(BUILD)/$(FLAIR_DRAG_NAME).ppm
+# The LOCKED drag trace (ADR-0006 E-D6; Rule 11). QEMU rel->cursor is 1:1 with
+# x-positive=right and y-INVERTED (rel +y -> cursor up): from the 320,240 center,
+# "m80:110" lands the cursor on window 1's title bar (400,130); l1 = button down;
+# "m40:-30" drags (+40 cursor x, +30 cursor y) to 440,160; l0 = button up. Net
+# drag delta = (+40,+30): window 1 struct (300,120) -> (340,150).
+FLAIR_DRAG_SPEC    := m80:110,l1,m40:-30,l0
+.PHONY: test-flair-drag
+test-flair-drag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_DRAG_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-drag : THE live draggable desktop (FO-9)\n'
+	@printf '  Inject the locked drag trace -> WaitNextEvent pump -> FindWindow inDrag\n'
+	@printf '  -> DragWindow + desktop_paint_damage + present. Chrome moves to the NEW\n'
+	@printf '  rect; the vacated area reads bare teal. beads initech-5l5z FO-7/8/9.\n'
+	@printf '  ADR-0006 E-D5 (Tier-A damage law + Tier-B shifted geometry). Law 2/4.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (the WaitNextEvent pump)\n' "$(FLAIRLIVE_IMG)"
+	@printf 'Expecting : FLAIR-DRAG win 1 (300,120)->(340,150) + chrome@new + teal@old\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_DRAG_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_DRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG" --timeout-ms 15000 \
+		2> "$(FLAIR_DRAG_REPORT)" || true
+	@cat "$(FLAIR_DRAG_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(FLAIR_DRAG_REPORT)"; then \
+		printf '!!! test-flair-drag FAIL: TRIPLE FAULT in the pump/drag boot\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-drag [1/4]: no triple-fault\n'
+	@grep -q '^FLAIR-LIVE-READY$$' "$(FLAIR_DRAG_SERIAL)" \
+		|| { printf '!!! test-flair-drag FAIL: FLAIR-LIVE-READY missing -- the pump never armed\n'; exit 1; }
+	@printf '>>> test-flair-drag [2/4]: FLAIR-LIVE-READY (the WaitNextEvent pump is armed)\n'
+	@grep -q '^FLAIR-DRAG win 1 (300,120)->(340,150)$$' "$(FLAIR_DRAG_SERIAL)" \
+		|| { printf '!!! test-flair-drag FAIL: FLAIR-DRAG win 1 (300,120)->(340,150) marker missing -- inDrag dispatch did not run / wrong delta\n'; grep '^FLAIR-' "$(FLAIR_DRAG_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-drag [3/4]: FLAIR-DRAG win 1 (300,120)->(340,150) (the pump moved window 1)\n'
+	@if [ ! -s "$(FLAIR_DRAG_PPM)" ]; then printf '!!! test-flair-drag FAIL: no screendump captured at %s\n' "$(FLAIR_DRAG_PPM)"; exit 1; fi
+	@$(PPM_FLAIR_DRAG_CHECK_BIN) "$(FLAIR_DRAG_PPM)" \
+		|| { printf '!!! test-flair-drag FAIL: the screendump does not show chrome at the NEW rect + bare teal at the OLD (the desktop is not actually interactive)\n'; exit 1; }
+	@printf '>>> test-flair-drag [4/4]: screendump == chrome at the SHIFTED rect + vacated area bare teal\n'
+	@printf 'VERDICT   : PASS -- the booted FLAIR desktop is LIVE and DRAGGABLE (Law 4)\n'
+	@printf '======================================================================\n'
+
+# REAL gate: test-flair-drag-mutant (Rule 6; ADR-0006 M1/BC-9 -- the HER-14
+# static-frame mutant). The drag-noop image's inDrag dispatch is a no-op, so the
+# window never moves. It STILL emits FLAIR-DRAG (the pump ran the dispatch), so the
+# SCREENDUMP is the discriminator: ppm_flair_drag_check MUST go RED (teal at the
+# new pos + chrome still at the old). If it passed, the gate would be decoration.
+.PHONY: test-flair-drag-mutant
+test-flair-drag-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_DRAG_IMG) $(PPM_FLAIR_DRAG_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-drag-mutant : Rule 6 (the gate BITES)\n'
+	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_DRAG_NOOP (the inDrag dispatch is a no-op).\n'
+	@printf '  Expect: the window does NOT move -> ppm_flair_drag_check RED (teal@new,\n'
+	@printf '  chrome@old). The direct HER-14 "static frame dressed as interactive" mutant.\n'
+	@printf '======================================================================\n'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_DRAG_IMG)" --name flair_drag_mut --out "$(BUILD)" \
+		--mouse "$(FLAIR_DRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_drag_mut.serial" \
+		|| { printf '!!! test-flair-drag-mutant: mutant did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
+	@if [ ! -s "$(BUILD)/flair_drag_mut.ppm" ]; then printf '!!! test-flair-drag-mutant: no screendump captured (cannot judge the mutant)\n'; exit 1; fi
+	@if $(PPM_FLAIR_DRAG_CHECK_BIN) "$(BUILD)/flair_drag_mut.ppm" >/dev/null 2>&1; then \
+		printf '!!! test-flair-drag-mutant FAIL: the drag-noop screendump PASSED ppm_flair_drag_check -- the gate is decoration (a static frame passed as interactive)\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-drag-mutant: RED as required -- the no-op drag leaves teal at the new pos + chrome at the old; the gate BITES (Rule 6, HER-14)\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -15114,7 +15251,8 @@ TEST_EMU_GATES := \
 	test-flair-desktop test-flair-desktop-mutant \
 	test-flair-live test-flair-live-mutant \
 	test-flair-key test-flair-key-mutant \
-	test-flair-mouse test-flair-mouse-mutant
+	test-flair-mouse test-flair-mouse-mutant \
+	test-flair-drag test-flair-drag-mutant
 
 test-unit:
 	@printf '======================================================================\n'

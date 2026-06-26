@@ -55,10 +55,12 @@
 #include "surface.h"         /* bitmap_t, surface_put_pixel (-Ios/flair)      */
 #include "region_algebra.h"  /* region_t, RGN_ROWS_CAP/RGN_X_POOL_CAP (-Ispec)*/
 #include "shell.h"           /* shell_scene_t, shell_build_scene/render       */
+#include "desktop.h"         /* desktop_paint_damage (FO-7 minimal repaint)   */
 #include "menu_canon.h"      /* FLAIR_CANON_PHOTOSHOP_MENU_COUNT (-Ispec/assets)*/
 #include "palette.h"         /* flair_palette_rgb + INITECH_*_RGB (-Ispec/assets)*/
 #include "event.h"           /* flair_tick_advance/count (FO-4) + flair_raw_post/
-                              * flair_event_init / flair_raw_ring_t (FO-5)    */
+                              * flair_event_init / flair_raw_ring_t (FO-5);
+                              * WaitNextEvent / flair_event_set_yield (FO-7)  */
 #endif
 
 /* Seafoam: ported VERBATIM from stage2.asm:42-44 (SEAFOAM_R/G/B). The pie
@@ -777,9 +779,31 @@ static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
     }
 }
 
+/* FO-7 (beads initech-5l5z; ADR-0006 E-D4): the live-loop context the FLAIR
+ * WaitNextEvent pump drives. flair_desktop_run populates it (when ctx_out is
+ * non-NULL) AFTER the initial present so the pump can keep driving the SAME
+ * already-built scene -- the Window Manager (z-order + DiffRgn damage), the
+ * document-window store (for FindWindow part-code routing), the compositor
+ * scratch region, and the indexed-8 offscreen the damage repaints into and the
+ * present blits to the LFB. BC-1 (single spine): the pump runs the IDENTICAL
+ * window.c/desktop.c verbs the host suites mutation-prove; kmain is a thin
+ * source/sink adapter (no event/geometry logic re-implemented here). */
+typedef struct flair_live_ctx {
+    WindowMgr          *wm;         /* &scene->wm (z-order + damage)             */
+    shell_window_store *windows;    /* the document-window store (FindWindow)    */
+    int                 n_windows;  /* document window count                     */
+    region_t           *comp;       /* compositor visible-region scratch (D-5)   */
+    bitmap_t            off;         /* the indexed-8 offscreen (descriptor copy) */
+    shell_scene_t      *scene;      /* the whole scene (heap-backed)             */
+} flair_live_ctx_t;
+
 /* Build + render + present the live FLAIR desktop. Returns nothing; fails loud
- * on a too-small LFB or any heap exhaustion (Rule 2). */
-static void flair_desktop_run(const boot_info_t *bi)
+ * on a too-small LFB or any heap exhaustion (Rule 2). When ctx_out is non-NULL
+ * (the BOOT_FLAIR_LIVE pump), the built scene handles are captured into it after
+ * the initial present so the cooperative WaitNextEvent pump can drive them
+ * (FO-7). BOOT_FLAIR_SHELL passes NULL -- byte-for-byte the same render + present
+ * + (no capture), so the static screendump gate is unchanged (Rule 11). */
+static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
 {
     enum { FD_W = 640, FD_H = 480 };
 
@@ -921,6 +945,19 @@ static void flair_desktop_run(const boot_info_t *bi)
 
     /* --- PRESENT the offscreen onto the live LFB (8 -> DAC+copy; 24/32 -> convert) --- */
     flair_desktop_present(bi, &off);
+
+    /* FO-7: hand the built scene to the live pump (BC-4: present FIRST, then the
+     * pump keeps driving the SAME scene). The storage is all FLAIR-heap-backed and
+     * outlives this frame; `off` is a value descriptor (its .base is heap) copied
+     * by value. NULL for the BOOT_FLAIR_SHELL static frame (no behaviour change). */
+    if (ctx_out) {
+        ctx_out->wm        = &scene->wm;
+        ctx_out->windows   = wins;
+        ctx_out->n_windows = FD_N_WINDOWS;
+        ctx_out->comp      = comp;
+        ctx_out->off       = off;
+        ctx_out->scene     = scene;
+    }
 }
 #endif /* BOOT_FLAIR_SHELL || BOOT_FLAIR_LIVE */
 
@@ -988,6 +1025,146 @@ static void flair_live_mouse_post(int dx, int dy, uint8_t buttons)
                 | (((uint32_t)((uint8_t)(int8_t)dx)) << 8)  /* bits 8..15 dX     */
                 | (((uint32_t)((uint8_t)(int8_t)dy)) << 16);/* bits 16..23 dY    */
     (void)flair_raw_post(&g_flair_kbd_ring, &raw);
+}
+
+/* ===========================================================================
+ * FO-7/8: the WaitNextEvent pump support (beads initech-5l5z; ADR-0006 E-D4 /
+ * FO-7; landing-sequence Step 6). These are the THIN source/sink glue around the
+ * already-built, host-mutation-proven window.c/desktop.c verbs (BC-1 single
+ * spine): NO event/geometry logic is re-implemented here.
+ * ===========================================================================*/
+
+/* The cooperative HLT yield hook (ADR-0004 D-6 / event.h Sec 3): on bare metal
+ * WaitNextEvent calls this once per idle iteration to sleep until the next IRQ
+ * (PIT tick / kbd / mouse). NOT preemption -- the pump holds the CPU and yields
+ * voluntarily (BC-7; cooperative, not preemptive). */
+static void flair_live_yield(void)
+{
+    __asm__ __volatile__("hlt");
+}
+
+/* FO-5/6 marker reconciliation: the pump now COOKS the raw ring via WaitNextEvent
+ * (so the raw-drain FLAIR-KEY/FLAIR-MOUSE markers no longer apply). Emit ONE
+ * coherent cooked marker per delivered EventRecord: the `what` code (mouseDown=1,
+ * mouseUp=2, keyDown=3, keyUp=4; spec/event_model.h Sec 1) and the global cursor
+ * `where` event.c stamps from the accumulated mouse deltas. A keyDown 'a' (no
+ * mouse) reads `FLAIR-EVT what=3 where=320,240`; a mouseDown after injected
+ * motion reads the advanced cursor -- on-metal proof the pump cooks the ring. */
+static void flair_live_emit_evt(const EventRecord *ev)
+{
+    serial_puts("FLAIR-EVT what=");
+    serial_putu((uint32_t)ev->what);
+    serial_puts(" where=");
+    serial_puti((int32_t)ev->where.h);
+    serial_putc(',');
+    serial_puti((int32_t)ev->where.v);
+    serial_puts(" msg=");
+    serial_puthex32(ev->message & 0xFFFFu);   /* key: (vkey<<8)|ascii; mouse: 0 */
+    serial_putc('\n');
+}
+
+/* Map a hit WindowPtr back to its document-window store index (or -1). For the
+ * FLAIR-DRAG marker only (the modal/dialog window is not in this store). */
+static int flair_live_window_index(const flair_live_ctx_t *ctx, WindowPtr w)
+{
+    int i;
+    for (i = 0; i < ctx->n_windows; i++) {
+        if (&ctx->windows[i].rec == w) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* FO-7 inDrag dispatch: track the live drag, then move + minimal-repaint + present.
+ *
+ * The net drag delta is the cursor displacement from button-down (where0) to
+ * mouse-up: WaitNextEvent updates the global cursor on EVERY raw mouse move (a
+ * pure move cooks to nullEvent so it is NOT delivered, but the cursor still
+ * advances) and DELIVERS the mouseUp with `where` == the final cursor. So we
+ * re-enter WaitNextEvent until mouseUp (bounded by a tick guard, Rule 11) and sum
+ * the net (dh,dv). Then DragWindow translates the window + accrues the D-5 damage
+ * (the vacated desktop into desktop_update, any re-exposed window behind into its
+ * updateRgn); WindowMgr_invalidate seeds the moved window's OWN repaint (MoveWindow
+ * clears its updateRgn -- the D-5 oracle scopes to OTHER windows + desktop, the
+ * test_drag.c idiom); desktop_paint_damage repaints ONLY the damage; the present
+ * blits the offscreen to the live LFB the same way the initial present does. */
+static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               WindowPtr w, flair_point_t where0)
+{
+    EventRecord up;
+    flair_point_t where1 = where0;
+    uint32_t guard = flair_tick_count() + 150u;   /* bounded drag wait (~1.5 s) */
+    rgn_rect_t before, after;
+    int16_t dh, dv;
+    int wid;
+
+    for (;;) {
+        int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &up, 3u);
+        if (g) {
+            flair_live_emit_evt(&up);
+            if (up.what == (uint16_t)mouseUp) { where1 = up.where; break; }
+        } else {
+            /* timeout: WaitNextEvent stamped `up.where` with the current cursor
+             * (it advanced as the move packets cooked); keep tracking it. */
+            where1 = up.where;
+        }
+        if (flair_tick_count() >= guard) { break; }
+    }
+
+    dh = (int16_t)(where1.h - where0.h);
+    dv = (int16_t)(where1.v - where0.v);
+
+    before = region_get_bbox(w->strucRgn);
+#ifndef FLAIR_LIVE_MUTATE_DRAG_NOOP
+    if (dh != 0 || dv != 0) {
+        DragWindow(ctx->wm, w, dh, dv);
+        /* seed the moved window's self-repaint at its NEW position. */
+        WindowMgr_invalidate(ctx->wm, w, region_get_bbox(w->strucRgn));
+    }
+#else
+    /* HER-14 drag-noop mutant (ADR-0006 M1 / BC-9): the inDrag dispatch does
+     * NOTHING -- the window does NOT move. The WDEF-scan at the new pos then reads
+     * bare teal and the OLD pos still shows chrome, so test-flair-drag goes RED.
+     * This catches the "static frame dressed as interactive" heresy. NEVER define
+     * in a real build. */
+    (void)dh; (void)dv;
+#endif
+
+    /* D-5 minimal repaint of the damage, then PRESENT to the live LFB. */
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_desktop_present(bi, &ctx->off);
+
+    after = region_get_bbox(w->strucRgn);
+    wid   = flair_live_window_index(ctx, w);
+    serial_puts("FLAIR-DRAG win ");
+    serial_puti((int32_t)wid);
+    serial_puts(" (");
+    serial_puti((int32_t)before.left);
+    serial_putc(',');
+    serial_puti((int32_t)before.top);
+    serial_puts(")->(");
+    serial_puti((int32_t)after.left);
+    serial_putc(',');
+    serial_puti((int32_t)after.top);
+    serial_puts(")\n");
+}
+
+/* FO-7 inGoAway dispatch (wired, not gated -- the drag gate does not exercise it;
+ * a focused close gate is the thin FO-8b follow-on). HideWindow accrues the
+ * exposure damage of everything the window covered exactly like DisposeWindow
+ * (window.h Sec 2); desktop_paint_damage then repaints the exposed area + any
+ * re-exposed window behind, and the present blits it. */
+static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                WindowPtr w)
+{
+    int wid = flair_live_window_index(ctx, w);
+    HideWindow(ctx->wm, w);
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_desktop_present(bi, &ctx->off);
+    serial_puts("FLAIR-CLOSE win ");
+    serial_puti((int32_t)wid);
+    serial_putc('\n');
 }
 #endif /* BOOT_FLAIR_LIVE */
 
@@ -1208,7 +1385,7 @@ void kernel_main(void)
      * signal) then HALTS forever -- a STABLE screen for the screendump. It does
      * NOT fall through to FAT-mount / the REPL. (b is the boot_info_t snapshot
      * populated at the top of kernel_main.) */
-    flair_desktop_run(&b);
+    flair_desktop_run(&b, (flair_live_ctx_t *)0);
     serial_puts("FLAIR-DESKTOP\n");
     for (;;) {
         __asm__ __volatile__("cli; hlt");
@@ -1216,39 +1393,40 @@ void kernel_main(void)
 #endif
 
 #ifdef BOOT_FLAIR_LIVE
-    /* THE FLAIR LIVE COOPERATIVE EVENT LOOP -- FO-4 + FO-5 (beads initech-5l5z;
-     * ADR-0006 E-D3a/E-D3c / E-D4 / FO-4+FO-5; landing-sequence Steps 2+3).
+    /* THE FLAIR LIVE COOPERATIVE WaitNextEvent PUMP -- FO-7/8 (beads initech-5l5z;
+     * ADR-0006 E-D4 / FO-7; landing-sequence Step 6). This is the CAPSTONE: it
+     * makes the booted desktop INTERACTIVE -- the live, draggable arrangement that
+     * is Law 4's literal goal -- by replacing the FO-4/5/6 bounded raw-drain wake
+     * loop with the cooperative WaitNextEvent pump driving the ALREADY-BUILT,
+     * host-mutation-proven Managers (BC-1 single spine: kmain is a thin source/sink
+     * adapter; NO event/geometry logic is re-implemented here).
      *
      * This is the THIRD FLAIR demo kernel (alongside BOOT_FLAIR_SHELL), shipped
      * behind -DBOOT_FLAIR_LIVE so the DEFAULT boot stays the static render-once-
-     * and-HLT frame and every existing emu gate stays byte-stable (ADR-0006
-     * FO-GAP-A; CLAUDE.md Rule 11). FO-4 wired the PIT IRQ0 -> tick hook path;
-     * FO-5 ADDS the kbd IRQ1 -> raw scancode -> FLAIR raw ring path. The mouse
-     * IRQ12 (FO-6) and the real WaitNextEvent pump (FO-7) are later lanes.
+     * and-HLT frame (ADR-0006 FO-GAP-A; Rule 11).
      *
-     * Sequence (the ordering minefield -- ADR-0004 D-4 / "real mode -> protected"):
+     * Sequence (ADR-0006 E-D4):
      *   1. Render + PRESENT the SAME FLAIR scene the BOOT_FLAIR_SHELL kernel does
-     *      (flair_desktop_run -- keep the initial present, ADR-0006 BC-4).
-     *   2. flair_event_init(&g_flair_kbd_ring): initialise the SPSC ring, cursor
-     *      state, and event.c tick counter BEFORE any hook is installed or IRQ is
-     *      unmasked (ADR-0004 D-4 contract; event.h).
-     *   3. Install the PIT tick hook BEFORE sti (ADR-0006 E-D3a): flair_tick_advance
-     *      runs on every IRQ0. DEFAULT-NULL hook means no other kernel is affected.
-     *   4. Install the kbd scancode hook BEFORE sti (ADR-0006 E-D3c / FO-5):
-     *      flair_live_kbd_post posts the raw scancode to g_flair_kbd_ring on each
-     *      IRQ1. The DOS g_kbd ASCII ring is kept 100% intact (additive; BC-2).
-     *   5. sysinit_enable_irqs(): pit_init (100 Hz), kbd_init, install the IRQ
-     *      gates, unmask IRQ0+IRQ1, sti. After this both IRQ0 and IRQ1 are live.
-     *   6. Run a BOUNDED wake loop: hlt; on each wake (a) check the FLAIR tick
-     *      counter and emit FLAIR-TICK n=<count> when it advances; (b) drain the
-     *      FLAIR raw ring and emit FLAIR-KEY sc=<hex> for each keyboard raw event.
-     *      After FLAIR_LIVE_TICK_GOAL distinct ticks, emit FLAIR-LIVE-OK + cli;hlt.
+     *      (flair_desktop_run, CAPTURING the scene handles into `ctx`; keep the
+     *      initial present FIRST -- BC-4. On Bochs the 640x480 guard fires here and
+     *      halts before the pump, so test-flair-live-bochs is unchanged.)
+     *   2. flair_event_init(&g_flair_kbd_ring): the SPSC ring + cursor + tick base.
+     *   3. Install the tick (FO-4) + kbd (FO-5) + mouse IRQ12 (FO-6) hooks, then
+     *      sysinit_enable_irqs() + pic_unmask_irq12(): all three ISR producers live.
+     *   4. Install the HLT yield (flair_event_set_yield) and run the pump:
+     *      WaitNextEvent -> FindWindow part-code -> dispatch via the EXISTING verbs
+     *      (inDrag -> DragWindow + desktop_paint_damage + present; inGoAway ->
+     *      HideWindow + repaint; inMenuBar -> deferred FO-8b marker). The pump emits
+     *      one cooked FLAIR-EVT per delivered EventRecord (FO-5/6 marker
+     *      reconciliation) and FLAIR-DRAG on a completed drag.
      *
-     * Reproducible (Rule 11): the loop is bounded by tick COUNT, never by a spin
-     * count or wall-clock. A QMP-injected key fires IRQ1, which wakes the hlt and
-     * delivers the raw scancode to the ring; the drain in the same iteration emits
-     * FLAIR-KEY -- on-metal SPSC-ring-atomicity-under-async-producer proof (FO-5). */
-    flair_desktop_run(&b);
+     * DETERMINISTIC BOUNDED TERMINATION (Rule 11): the pump runs until a tick BUDGET
+     * elapses (bounded by COUNT, never wall-clock), then emits FLAIR-LIVE-OK +
+     * cli;hlt so the harness can screendump + assert. FLAIR-TICK is still announced
+     * (test-flair-live: >=2 distinct) and FLAIR-LIVE-OK still terminates the loop.
+     * Cooperative, not preemptive (BC-7): the pump holds the CPU + yields via HLT. */
+    flair_live_ctx_t ctx;
+    flair_desktop_run(&b, &ctx);
     serial_puts("FLAIR-DESKTOP\n");
 
     /* --- FO-5: initialise the FLAIR raw ring BEFORE installing any hook ------- *
@@ -1325,53 +1503,45 @@ void kernel_main(void)
      * fires IRQ12 on every PS/2 packet byte. Ref: ADR-0006 E-D3d/BC-3; pic.h. */
     pic_unmask_irq12();
 
-    /* --- FO-4 + FO-5 + FO-6: the BOUNDED, deterministic wake loop ------------- *
-     * Sleep on hlt; each IRQ (PIT tick, kbd IRQ1, or mouse IRQ12) wakes us.
+    /* --- FO-7: install the cooperative HLT yield, then announce READY ---------- *
+     * flair_event_set_yield installs the HLT sleep WaitNextEvent calls while the
+     * ring is empty (ADR-0006 E-D4 step 1; cooperative, BC-7). FLAIR-LIVE-READY is
+     * the deterministic inject trigger: the harness waits for it (the guest tells
+     * us the pump is armed), THEN injects the locked mouse/key trace (ADR-0006
+     * E-D6). The ring buffers any IRQ that lands before the first WaitNextEvent. */
+    flair_event_set_yield(flair_live_yield);
+    serial_puts("FLAIR-LIVE-READY\n");
+
+    /* --- FO-7/8: THE WaitNextEvent PUMP --------------------------------------- *
+     * The cooperative loop that makes the desktop INTERACTIVE. Each iteration:
+     *   - WaitNextEvent cooks the raw ring (kbd/mouse) into one EventRecord,
+     *     yielding via HLT while the ring is empty (up to WNE_SLICE ticks);
+     *   - announce FLAIR-TICK for the first few advances (test-flair-live: the
+     *     PIT time base still advances under the pump -- >=2 distinct required);
+     *   - emit a cooked FLAIR-EVT per delivered event (FO-5/6 reconciliation);
+     *   - on mouseDown, FindWindow -> part-code -> dispatch via the EXISTING verbs
+     *     (inDrag -> flair_live_do_drag; inGoAway -> flair_live_do_close;
+     *     inMenuBar -> deferred FO-8b marker).
      *
-     * FO-4: read flair_tick_count(); when it advances, emit FLAIR-TICK n=<count>.
-     * FO-5: drain g_flair_kbd_ring (SPSC consumer in task context); for each
-     *   FLAIR_RAW_KEYBOARD event emit FLAIR-KEY sc=<hex> (8 uppercase hex digits;
-     *   serial_puthex32 of the low byte -- the raw scancode set-1 byte).
-     *
-     * Stop after FLAIR_LIVE_TICK_GOAL distinct ticks, then emit FLAIR-LIVE-OK +
-     * cli;hlt. Bounded by COUNT (Rule 11 -- reproducible serial transcript). A
-     * QMP-injected key wakes the hlt via IRQ1; the ring drain immediately below
-     * emits the FLAIR-KEY. If no key is injected, the loop still terminates on
-     * tick count (never spins forever). */
+     * BOUNDED TERMINATION (Rule 11): run until FLAIR_LIVE_TICK_BUDGET ticks elapse
+     * (bounded by the 100 Hz PIT COUNT, never wall-clock), then emit FLAIR-LIVE-OK
+     * + cli;hlt so the harness can screendump a STABLE post-drag frame. The budget
+     * (~2.5 s) is a generous margin over the inject latency and the screendump, and
+     * well within every gate timeout (test-flair-live 8000 ms; the drag gate). */
     {
-        /* FO-5: the live wake loop runs a GENEROUS, deterministic tick window so
-         * the ASYNCHRONOUSLY QMP-injected key is drained WHILE interrupts are
-         * still enabled. The injection is not synchronous with the guest: the
-         * harness polls the serial file until it SEES FLAIR-HOOK-SET, THEN sends
-         * 'a' over QMP -- a serial-poll + QMP round-trip of ~100-300 ms under
-         * host load. A narrow window (the earlier 10-tick / ~100 ms loop) raced:
-         * the key's IRQ1 could arrive AFTER the loop already emitted FLAIR-LIVE-OK
-         * and executed cli;hlt (interrupts OFF), so the FLAIR ring was never fed
-         * and FLAIR-KEY never appeared. Widening the window keeps IF=1 long enough
-         * to receive the post-marker key with a large margin.
-         *
-         * Bounded by tick COUNT, never wall-clock or a spin count (Rule 11 -- a
-         * reproducible serial transcript; the loop terminates on the 100 Hz PIT
-         * IRQ0 advancing g_tick, independent of host speed). 150 ticks ~= 1.5 s
-         * at 100 Hz: a 5-15x margin over the inject latency, robust under load,
-         * and well within every gate timeout (test-flair-live 8000 ms;
-         * test-flair-key 15000 ms).
-         *
-         * Wire economy: FLAIR-TICK is emitted only for the FIRST
-         * FLAIR_LIVE_TICK_ANNOUNCE advances -- the FO-4 tick proof (test-flair-live
-         * asserts >=2 DISTINCT FLAIR-TICK values; 4 distinct satisfies it) --
-         * after which the loop keeps ticking SILENTLY (no 150 noisy lines) while
-         * STILL draining the FLAIR raw ring on EVERY wake, so an injected key
-         * landing at tick ~10-30 emits FLAIR-KEY immediately, well before the
-         * window closes. */
-        enum { FLAIR_LIVE_TICK_WINDOW   = 150 }; /* ~1.5 s @100 Hz: async-inject margin */
-        enum { FLAIR_LIVE_TICK_ANNOUNCE = 4   }; /* emit FLAIR-TICK for the first 4 only */
-        uint32_t last = flair_tick_count();
-        uint32_t seen = 0u;
-        while (seen < (uint32_t)FLAIR_LIVE_TICK_WINDOW) {
-            /* FO-4: tick advance check. Announce only the first few advances so
-             * the transcript stays quiet over the wide window; the loop keeps
-             * counting ticks to the window bound either way. */
+        enum { FLAIR_LIVE_TICK_BUDGET   = 250 }; /* ~2.5 s @100 Hz: inject+dump margin */
+        enum { FLAIR_LIVE_TICK_ANNOUNCE = 4   }; /* announce the first 4 advances only */
+        enum { FLAIR_LIVE_WNE_SLICE     = 3   }; /* WaitNextEvent sleepTicks per call   */
+        uint32_t start = flair_tick_count();
+        uint32_t last  = start;
+        uint32_t seen  = 0u;
+
+        while ((flair_tick_count() - start) < (uint32_t)FLAIR_LIVE_TICK_BUDGET) {
+            EventRecord ev;
+            int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev,
+                                    (uint32_t)FLAIR_LIVE_WNE_SLICE);
+
+            /* FO-4 tick announce (still the cooperative time base under the pump). */
             uint32_t now = flair_tick_count();
             if (now != last) {
                 last = now;
@@ -1383,43 +1553,27 @@ void kernel_main(void)
                 }
             }
 
-            /* FO-5: drain the FLAIR raw ring in task context (SPSC consumer) on
-             * EVERY wake. head is volatile (ISR producer), tail is our own
-             * write-only index. Slot access via tail & FLAIR_RAW_RING_MASK
-             * (unmasked monotonic indices; spec/event_model.h Sec 5). Emit
-             * FLAIR-KEY sc=<8-hex-digits> for each FLAIR_RAW_KEYBOARD event (raw
-             * scancode SET 1 byte in payload low byte). This is the on-metal proof
-             * that kbd IRQ1 -> flair_live_kbd_post -> g_flair_kbd_ring -> drain
-             * path works. */
-            while (g_flair_kbd_ring.head != g_flair_kbd_ring.tail) {
-                uint32_t idx = g_flair_kbd_ring.tail & FLAIR_RAW_RING_MASK;
-                flair_raw_event_t rev = g_flair_kbd_ring.slots[idx];
-                g_flair_kbd_ring.tail++;  /* consume: task context, single consumer */
-                if ((flair_raw_kind_t)rev.kind == FLAIR_RAW_KEYBOARD) {
-                    serial_puts("FLAIR-KEY sc=");
-                    serial_puthex32(rev.payload & 0xFFu);
-                    serial_putc('\n');
-                } else if ((flair_raw_kind_t)rev.kind == FLAIR_RAW_MOUSE) {
-                    /* FO-6: decode the FLAIR_RAW_MOUSE payload (spec/event_model.h
-                     * Sec 5: buttons bits 0..7, signed dX bits 8..15, signed dY
-                     * bits 16..23) and emit FLAIR-MOUSE dx=<d> dy=<d> btn=<x>.
-                     * Each DISTINCT line is on-metal proof that mouse IRQ12 ->
-                     * mouse_irq_handler -> dual-PIC EOI -> flair_live_mouse_post ->
-                     * g_flair_kbd_ring -> drain works AND did NOT wedge (a second
-                     * line can only appear if the SLAVE EOI re-armed the line). */
-                    int dx = (int)(int8_t)((rev.payload >> 8) & 0xFFu);
-                    int dy = (int)(int8_t)((rev.payload >> 16) & 0xFFu);
-                    serial_puts("FLAIR-MOUSE dx=");
-                    serial_puti((int32_t)dx);
-                    serial_puts(" dy=");
-                    serial_puti((int32_t)dy);
-                    serial_puts(" btn=");
-                    serial_puthex32(rev.payload & 0x07u);
-                    serial_putc('\n');
-                }
+            if (!got) {
+                continue;   /* timeout / nullEvent: keep ticking to the budget */
             }
 
-            __asm__ __volatile__("hlt");   /* sleep until next IRQ (IRQ0/IRQ1/IRQ12) */
+            /* Cooked-event marker (FO-5/6 marker reconciliation). */
+            flair_live_emit_evt(&ev);
+
+            if (ev.what == (uint16_t)mouseDown) {
+                WindowPtr w = (WindowPtr)0;
+                flair_part_code_t pc = FindWindow(ctx.wm, ev.where, &w);
+                if (pc == inDrag && w != (WindowPtr)0) {
+                    flair_live_do_drag(&ctx, &b, w, ev.where);
+                } else if (pc == inGoAway && w != (WindowPtr)0) {
+                    flair_live_do_close(&ctx, &b, w);
+                } else if (pc == inMenuBar) {
+                    /* FO-8b (deferred): MenuSelect is driven by a SUPPLIED point
+                     * sequence (menu.h Sec 8), so the live menu track is the thin
+                     * follow-on; emit a marker, do NOT block the drag deliverable. */
+                    serial_puts("FLAIR-MENU-DOWN (FO-8b deferred)\n");
+                }
+            }
         }
     }
     serial_puts("FLAIR-LIVE-OK\n");
