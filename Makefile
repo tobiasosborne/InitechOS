@@ -261,6 +261,13 @@ PPM_FLAIR_CHECK_BIN := $(BUILD)/ppm_flair_check
 PPM_FLAIR_DRAG_CHECK_SRC := tools/ppm_flair_drag_check.c
 PPM_FLAIR_DRAG_CHECK_BIN := $(BUILD)/ppm_flair_drag_check
 
+# FO-8b menu-oracle screendump grader (beads initech-5l5z FO-8b; ADR-0004 D-3 /
+# ADR-0006 FO-8): grades the dropped System-7 "File" pull-down (black frame + the
+# BTNFACE-gray body + the selected "Quit" hilite band where bare teal/menubar-white
+# was) against the INDEPENDENT canon, never the render. Built like ppm_flair_check.
+PPM_FLAIR_MENU_CHECK_SRC := tools/ppm_flair_menu_check.c
+PPM_FLAIR_MENU_CHECK_BIN := $(BUILD)/ppm_flair_menu_check
+
 # ---------------------------------------------------------------------------
 # Flat C kernel (os/milton, beads initech-d00; ADR-0003 DEC-08)
 # ---------------------------------------------------------------------------
@@ -663,6 +670,13 @@ KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_drag.o
 KERNEL_FLAIRLIVE_MUT_DRAG_ELF      := $(BUILD)/kernel_flairlive_mut_drag.elf
 KERNEL_FLAIRLIVE_MUT_DRAG_BIN      := $(BUILD)/kernel_flairlive_mut_drag.bin
 FLAIRLIVE_MUT_DRAG_IMG             := $(BUILD)/flair_live_mut_drag.img
+# FO-8b menu-noop MUTANT (beads initech-5l5z; Rule 6; the HER-14 "menus do not
+# work" heresy): -DFLAIR_LIVE_MUTATE_MENU_NOOP makes the pump's inMenuBar dispatch
+# drop NO panel (FLAIR-MENU sel=0) -> ppm_flair_menu_check sees bare teal -> RED.
+KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_menu.o
+KERNEL_FLAIRLIVE_MUT_MENU_ELF      := $(BUILD)/kernel_flairlive_mut_menu.elf
+KERNEL_FLAIRLIVE_MUT_MENU_BIN      := $(BUILD)/kernel_flairlive_mut_menu.bin
+FLAIRLIVE_MUT_MENU_IMG             := $(BUILD)/flair_live_mut_menu.img
 # EXIT-handle teardown self-test kernel/image (beads initech-6hk; epic
 # initech-6qy; make test-exit-handles): the SAME kernel sources but with
 # -DBOOT_EXITH so the boot EXECs the FAT-sourced leaky child EXITH.COM RUNS
@@ -8217,6 +8231,37 @@ $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_
 	@dd if=$(KERNEL_FLAIRLIVE_MUT_DRAG_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-live drag-noop MUTANT image: %s (inDrag dispatch is a no-op -- the window never moves)\n" "$@"
 
+# --- FO-8b menu-noop MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6;
+# ADR-0006 FO-8). -DFLAIR_LIVE_MUTATE_MENU_NOOP: the pump's inMenuBar dispatch drops
+# NO panel and tracks/selects nothing (FLAIR-MENU sel=0) -> ppm_flair_menu_check
+# sees bare teal where the dropped panel would be -> RED. The HER-14 "menus do not
+# work" heresy mutant. Exact mirror of the FLAIRLIVE_MUT_DRAG obj/elf/bin/img rules
+# (the mut-obj prereqs add os/flair/menu.h os/flair/shell.h). -----------------
+$(KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h os/flair/event.h os/flair/window.h os/flair/desktop.h os/flair/menu.h os/flair/shell.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_MENU_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FLAIRLIVE_MUT_MENU_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ)
+
+$(KERNEL_FLAIRLIVE_MUT_MENU_ELF): $(KERNEL_FLAIRLIVE_MUT_MENU_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_MENU_OBJS)
+
+$(KERNEL_FLAIRLIVE_MUT_MENU_BIN): $(KERNEL_FLAIRLIVE_MUT_MENU_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_mut_menu.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-mutant-menunoop): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(FLAIRLIVE_MUT_MENU_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MENU_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_MUT_MENU_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live menu-noop MUTANT image: %s (inMenuBar dispatch drops no panel -- FLAIR-MENU sel=0)\n" "$@"
+
 # ===========================================================================
 # FO-6 (beads initech-5l5z): PS/2 mouse IRQ12 -- the mouse-enabled flair_live
 # image is the EXISTING $(FLAIRLIVE_IMG) (mouse.o is now in KERNEL_FLAIRLIVE_OBJS
@@ -8439,6 +8484,12 @@ $(PPM_FLAIR_CHECK_BIN): $(PPM_FLAIR_CHECK_SRC) spec/assets/color_canon.h spec/as
 # Grades the post-drag frame against the INDEPENDENT canon (flair_canon_rgb +
 # chrome_metrics geometry), never the render. Built like ppm_flair_check.
 $(PPM_FLAIR_DRAG_CHECK_BIN): $(PPM_FLAIR_DRAG_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+# FO-8b menu-oracle screendump grader (beads initech-5l5z FO-8b; ADR-0006 FO-8).
+# Grades the dropped pull-down against the INDEPENDENT canon (flair_canon_rgb +
+# menu.h geometry), never the render. Built like ppm_flair_drag_check.
+$(PPM_FLAIR_MENU_CHECK_BIN): $(PPM_FLAIR_MENU_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
@@ -11151,6 +11202,97 @@ test-flair-drag-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_DRAG_IMG) $(PPM_FLAIR_DRA
 		printf '!!! test-flair-drag-mutant FAIL: the drag-noop screendump PASSED ppm_flair_drag_check -- the gate is decoration (a static frame passed as interactive)\n'; exit 1; \
 	fi
 	@printf '>>> test-flair-drag-mutant: RED as required -- the no-op drag leaves teal at the new pos + chrome at the old; the gate BITES (Rule 6, HER-14)\n'
+	@printf '======================================================================\n'
+
+# ===========================================================================
+# REAL gate: test-flair-menu (beads initech-5l5z FO-8b; ADR-0004 D-3 / ADR-0006
+# FO-8 -- inMenuBar -> MenuSelect; THE "working menus" oracle, Law 4).
+# Boots $(FLAIRLIVE_IMG) (the WaitNextEvent pump), injects the LOCKED menu trace
+# (move onto the System-7 "File" title -> button down -> DROP -> track into the
+# panel's "Quit" row -> button up -> MenuSelect item 2), and screendumps AFTER the
+# FLAIR-MENU marker (the panel persists, drag-analogous). Asserts (Law 2, INDEPENDENT
+# golden):
+#   1. no triple-fault;
+#   2. FLAIR-LIVE-READY (pump armed) + FLAIR-MENU-DROP (panel dropped) +
+#      FLAIR-MENU menu=128 item=2 (sel=0x00800002) (MenuSelect chose "Quit");
+#   3. ppm_flair_menu_check: the 1px black panel frame + the BTNFACE-gray body + the
+#      selected "Quit" hilite band where bare teal / menubar-white was.
+# The SCREENDUMP is the discriminator (the menu-noop mutant emits FLAIR-MENU sel=0
+# and drops NO panel -- see test-flair-menu-mutant). The guest cli;hlt loops after
+# the budget, so the harness times out by design (OK = the asserts).
+# ===========================================================================
+FLAIR_MENU_NAME    := flair_menu
+FLAIR_MENU_SERIAL  := $(BUILD)/$(FLAIR_MENU_NAME).serial
+FLAIR_MENU_REPORT  := $(BUILD)/$(FLAIR_MENU_NAME).report
+FLAIR_MENU_PPM     := $(BUILD)/$(FLAIR_MENU_NAME).ppm
+# The LOCKED menu trace (ADR-0006 E-D6; Rule 11). QEMU rel->cursor is 1:1 with
+# x-positive=right and y-INVERTED (rel +y -> cursor up); deltas are int8 (a >127
+# delta sets the PS/2 overflow bits and is DROPPED), so the large move from the
+# 320,240 center to the menu bar is SPLIT into three <=int8 hops: "m-97:77" x3
+# lands the cursor on the System-7 "File" title (30,10); l1 = button down -> DROP;
+# "m15:-35" tracks down into the panel's "Quit" row (45,45); l0 = button up ->
+# MenuSelect chooses item 2 (Quit) = (128<<16|2) = 0x00800002.
+FLAIR_MENU_SPEC    := m-97:77,m-97:77,m-96:76,l1,m15:-35,l0
+.PHONY: test-flair-menu
+test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-menu : THE live WORKING MENUS (FO-8b)\n'
+	@printf '  Inject the locked menu trace -> WaitNextEvent pump -> inMenuBar band\n'
+	@printf '  -> flair_draw_menu_panel + present + track + MenuSelect. The System-7\n'
+	@printf '  "File" pull-down DROPS live; "Quit" (item 2) is chosen. beads initech-5l5z\n'
+	@printf '  FO-8b. ADR-0004 D-3 / ADR-0006 FO-8. Law 2/4.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (the WaitNextEvent pump)\n' "$(FLAIRLIVE_IMG)"
+	@printf 'Expecting : FLAIR-MENU menu=128 item=2 (sel=0x00800002) + dropped panel\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_MENU_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 \
+		2> "$(FLAIR_MENU_REPORT)" || true
+	@cat "$(FLAIR_MENU_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(FLAIR_MENU_REPORT)"; then \
+		printf '!!! test-flair-menu FAIL: TRIPLE FAULT in the pump/menu boot\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-menu [1/4]: no triple-fault\n'
+	@grep -q '^FLAIR-LIVE-READY$$' "$(FLAIR_MENU_SERIAL)" \
+		|| { printf '!!! test-flair-menu FAIL: FLAIR-LIVE-READY missing -- the pump never armed\n'; exit 1; }
+	@printf '>>> test-flair-menu [2/4]: FLAIR-LIVE-READY (the WaitNextEvent pump is armed)\n'
+	@grep -q '^FLAIR-MENU-DROP menu=128$$' "$(FLAIR_MENU_SERIAL)" \
+		|| { printf '!!! test-flair-menu FAIL: FLAIR-MENU-DROP menu=128 missing -- the inMenuBar dispatch did not drop the panel\n'; grep '^FLAIR-' "$(FLAIR_MENU_SERIAL)" || true; exit 1; }
+	@grep -q '^FLAIR-MENU menu=128 item=2 (sel=0x00800002)$$' "$(FLAIR_MENU_SERIAL)" \
+		|| { printf '!!! test-flair-menu FAIL: FLAIR-MENU menu=128 item=2 (sel=0x00800002) missing -- MenuSelect did not choose item 2 / wrong result word\n'; grep '^FLAIR-' "$(FLAIR_MENU_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-menu [3/4]: FLAIR-MENU-DROP + FLAIR-MENU menu=128 item=2 (sel=0x00800002) (the pump dropped + selected)\n'
+	@if [ ! -s "$(FLAIR_MENU_PPM)" ]; then printf '!!! test-flair-menu FAIL: no screendump captured at %s\n' "$(FLAIR_MENU_PPM)"; exit 1; fi
+	@$(PPM_FLAIR_MENU_CHECK_BIN) "$(FLAIR_MENU_PPM)" \
+		|| { printf '!!! test-flair-menu FAIL: the screendump does not show the dropped pull-down (black frame + body + hilite) where bare teal was (the menus do not actually work)\n'; exit 1; }
+	@printf '>>> test-flair-menu [4/4]: screendump == dropped panel (frame + BTNFACE body + Quit hilite) over the previously-teal desktop\n'
+	@printf 'VERDICT   : PASS -- the booted FLAIR desktop has WORKING MENUS (Law 4)\n'
+	@printf '======================================================================\n'
+
+# REAL gate: test-flair-menu-mutant (Rule 6; ADR-0006 FO-8 -- the HER-14 "menus do
+# not work" heresy). The menu-noop image's inMenuBar dispatch drops NO panel, so the
+# desktop under the title stays bare teal. It STILL emits FLAIR-MENU (sel=0), so the
+# SCREENDUMP is the discriminator: ppm_flair_menu_check MUST go RED (teal where the
+# panel + hilite + body should be). If it passed, the gate would be decoration.
+.PHONY: test-flair-menu-mutant
+test-flair-menu-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MENU_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-menu-mutant : Rule 6 (the gate BITES)\n'
+	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_MENU_NOOP (the inMenuBar dispatch drops no panel).\n'
+	@printf '  Expect: no panel -> ppm_flair_menu_check RED (teal where the frame/body/hilite\n'
+	@printf '  should be). The direct HER-14 "menus do not work" mutant.\n'
+	@printf '======================================================================\n'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_MENU_IMG)" --name flair_menu_mut --out "$(BUILD)" \
+		--mouse "$(FLAIR_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_menu_mut.serial" \
+		|| { printf '!!! test-flair-menu-mutant: mutant did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
+	@if [ ! -s "$(BUILD)/flair_menu_mut.ppm" ]; then printf '!!! test-flair-menu-mutant: no screendump captured (cannot judge the mutant)\n'; exit 1; fi
+	@if $(PPM_FLAIR_MENU_CHECK_BIN) "$(BUILD)/flair_menu_mut.ppm" >/dev/null 2>&1; then \
+		printf '!!! test-flair-menu-mutant FAIL: the menu-noop screendump PASSED ppm_flair_menu_check -- the gate is decoration (no panel passed as a dropped menu)\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-menu-mutant: RED as required -- the no-drop dispatch leaves bare teal where the panel should be; the gate BITES (Rule 6, HER-14)\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -15252,7 +15394,8 @@ TEST_EMU_GATES := \
 	test-flair-live test-flair-live-mutant \
 	test-flair-key test-flair-key-mutant \
 	test-flair-mouse test-flair-mouse-mutant \
-	test-flair-drag test-flair-drag-mutant
+	test-flair-drag test-flair-drag-mutant \
+	test-flair-menu test-flair-menu-mutant
 
 test-unit:
 	@printf '======================================================================\n'

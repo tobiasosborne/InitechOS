@@ -1166,6 +1166,161 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puti((int32_t)wid);
     serial_putc('\n');
 }
+
+/* FO-8b dropped-pull-down colors (indexed-8 offscreen; OD-2). A BTNFACE-gray
+ * body + a black 1px frame/text and an inverted (black) hilite band (the
+ * GDI-facade pull-down body, the FO-D2-8/rmsr chimera). idx6 = canon BTNFACE
+ * gray #C0C0C0 (CIDX_CONTROL), idx0 = canon black (spec/assets/color_canon.h):
+ * the SAME indices the controls (idx6) and frame ink (idx0) use, so the present
+ * path (flair_palette_rgb) and the INDEPENDENT ppm canon (flair_canon_rgb)
+ * agree on VALUE while the load-bearing differential stays STRUCTURAL (a panel
+ * where bare teal / menubar-white was). BTNFACE gray (not idx1 white) is chosen
+ * so the body-fill leg BITES the menu-noop mutant: the System-7 menu bar is
+ * canon WHITE (idx3), so a white panel body would be invisible against it; gray
+ * is distinct from teal, white AND black. */
+#define FLAIR_MENU_PANEL_BG_IDX   6u   /* BTNFACE gray body (CIDX_CONTROL)    */
+#define FLAIR_MENU_PANEL_FG_IDX   0u   /* black frame/text/hilite (CIDX_BLACK)*/
+
+/* Bounded cursor-point capture while the menu button is held (Rule 11): the
+ * drop+track is a sub-second gesture, so a small cap is ample and never grows
+ * unbounded; the most-recent (release) point is always kept in the last slot. */
+#define FLAIR_MENU_TRACK_MAX      64
+
+/* FO-8b inMenuBar dispatch (beads initech-5l5z; ADR-0004 D-3 / ADR-0006 FO-8 --
+ * inMenuBar -> MenuSelect): the LIVE pull-down. On a mouseDown in the System-7
+ * menu-bar band the pump calls this to DROP the menu live on the booted 386 (Law
+ * 4's "draggable arrangement with WORKING MENUS"): MenuBar_hit the title, draw the
+ * dropped panel into the offscreen + present, TRACK the cursor (bounded; the
+ * test_drag re-enter-WaitNextEvent-until-mouseUp idiom) re-hiliting the item under
+ * it, then MenuSelect the (menuID<<16|item) result and leave the chosen menu
+ * visibly OPEN as the demo's final interactive frame.
+ *
+ * BC-1 single spine: this is THIN source/sink glue around the already-built,
+ * host-mutation-proven menu.c verbs (MenuBar_hit / flair_draw_menu_panel /
+ * MenuInfo_item_at / MenuSelect; test_menu.c) and the present the initial frame
+ * uses -- NO menu geometry is re-implemented here.
+ *
+ * PERSISTENT, drag-analogous (ADR-0006 BC-4): the selected menu stays DROPPED as
+ * the final frame so the post-trace screendump grades the live drop, EXACTLY as
+ * the live drag leaves the window at its NEW position (the drag does not snap the
+ * window back; the menu does not snap shut before the dump). The
+ * desktop_paint_damage menu CLOSE (invalidate the panel rect -> D-5 minimal
+ * repaint -> present) is the documented follow-on close path; running it before
+ * the screendump would ERASE the very panel the oracle asserts (Law 2), so it is
+ * not run in this bounded demo. The GDI-facade CombineRgn panel clip (FO-D2-8 /
+ * initech-rmsr) stays open: the drop draws with clip=NULL (the panel spans free
+ * desktop below the bar), noted for the rmsr follow-on.
+ *
+ * FLAIR_LIVE_MUTATE_MENU_NOOP (Rule 6; the HER-14 "menus do not work" heresy):
+ * the dispatch does NOT drop a panel and does NOT track/select -- it only emits
+ * the marker with sel=0. The desktop under the title stays bare teal, so
+ * ppm_flair_menu_check sees teal (RED) and the sel=0 marker proves nothing was
+ * chosen. NEVER define in a real build. */
+static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               MenuBar *bar, flair_point_t where0)
+{
+    int mi = MenuBar_hit(bar, (int)where0.h);
+    int16_t menuID = (mi >= 0) ? bar->menus[mi].menuID : (int16_t)0;
+
+#ifndef FLAIR_LIVE_MUTATE_MENU_NOOP
+    if (mi < 0) {
+        /* In the bar but not on a title (Apple slot / past the last title): no
+         * menu drops. Emit the marker with sel=0 so the gate can tell. */
+        serial_puts("FLAIR-MENU menu=0 item=0 (sel=0x00000000)\n");
+        return;
+    }
+
+    /* A whole-bitmap GrafPort over the offscreen (mirrors shell.c make_bar_port;
+     * flair_draw_menu_panel reads only port->portBits.bm + the supplied clip). */
+    GrafPort port;
+    rgn_rect_t whole = { 0, 0, (int16_t)ctx->off.height, (int16_t)ctx->off.width };
+    port.portBits.bm     = ctx->off;
+    port.portBits.bounds = whole;
+    port.portRect        = whole;
+    port.visRgn          = (region_t *)0;
+    port.clipRgn         = (region_t *)0;
+    port.pnLoc.v = 0; port.pnLoc.h = 0;
+    port.pnSize.v = 1; port.pnSize.h = 1;
+    port.pnVis = 0;
+    port.grafProcs = (QDProcs *)0;
+
+    /* DROP: draw the dropped panel (no hilite yet) + present -- the menu is down. */
+    flair_draw_menu_panel(&port, bar, mi, -1,
+                          FLAIR_MENU_PANEL_FG_IDX, FLAIR_MENU_PANEL_BG_IDX,
+                          (const region_t *)0);
+    flair_desktop_present(bi, &ctx->off);
+    serial_puts("FLAIR-MENU-DROP menu=");
+    serial_puti((int32_t)menuID);
+    serial_putc('\n');
+
+    /* TRACK: collect the cursor points (deduped, bounded) until mouseUp, re-hiliting
+     * the item under the cursor as it moves. A pure move cooks to nullEvent (got=0)
+     * but WaitNextEvent still stamps `where` with the advanced cursor (the drag
+     * idiom). Bounded by a tick guard (Rule 11) in case mouseUp never arrives. */
+    flair_point_t pts[FLAIR_MENU_TRACK_MAX];
+    int n = 0;
+    int last_hi = -1;
+    uint32_t guard = flair_tick_count() + 150u;   /* ~1.5 s bound */
+    for (;;) {
+        EventRecord mev;
+        int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &mev, 3u);
+        if (got) {
+            flair_live_emit_evt(&mev);
+        }
+        /* Append the cursor point, dedup consecutive identical; when full, keep
+         * the most recent in the last slot so the RELEASE point is always pts[n-1]
+         * for MenuSelect (deterministic selection, Rule 11). */
+        if (n == 0 || pts[n - 1].h != mev.where.h || pts[n - 1].v != mev.where.v) {
+            if (n < FLAIR_MENU_TRACK_MAX) {
+                pts[n++] = mev.where;
+            } else {
+                pts[FLAIR_MENU_TRACK_MAX - 1] = mev.where;
+            }
+        }
+        int hi = MenuInfo_item_at(bar, mi, (int)mev.where.h, (int)mev.where.v);
+        if (hi != last_hi) {
+            flair_draw_menu_panel(&port, bar, mi, hi,
+                                  FLAIR_MENU_PANEL_FG_IDX, FLAIR_MENU_PANEL_BG_IDX,
+                                  (const region_t *)0);
+            flair_desktop_present(bi, &ctx->off);
+            last_hi = hi;
+        }
+        if (got && mev.what == (uint16_t)mouseUp) {
+            break;
+        }
+        if (flair_tick_count() >= guard) {
+            break;
+        }
+    }
+
+    /* SELECT: the IM (menuID<<16|item) result from the tracked sequence (the
+     * release is pts[n-1]). Leave the chosen item hilited as the persistent final
+     * frame; if nothing was chosen, keep the last tracked hilite. */
+    uint32_t sel = MenuSelect(bar, where0, pts, n);
+    int sel_item = (int)MenuResultItem(sel);
+    int sel_hi   = (sel_item > 0) ? (sel_item - 1) : last_hi;
+    flair_draw_menu_panel(&port, bar, mi, sel_hi,
+                          FLAIR_MENU_PANEL_FG_IDX, FLAIR_MENU_PANEL_BG_IDX,
+                          (const region_t *)0);
+    flair_desktop_present(bi, &ctx->off);
+
+    serial_puts("FLAIR-MENU menu=");
+    serial_puti((int32_t)menuID);
+    serial_puts(" item=");
+    serial_putu((uint32_t)sel_item);
+    serial_puts(" (sel=0x");
+    serial_puthex32(sel);
+    serial_puts(")\n");
+#else
+    /* HER-14 MENU-NOOP mutant: no drop, no track, no select -- only the marker
+     * with sel=0. The desktop under the title stays bare teal (ppm RED) and sel=0
+     * proves nothing was chosen. NEVER define in a real build. */
+    serial_puts("FLAIR-MENU menu=");
+    serial_puti((int32_t)menuID);
+    serial_puts(" item=0 (sel=0x00000000)\n");
+    (void)ctx; (void)bi;
+#endif
+}
 #endif /* BOOT_FLAIR_LIVE */
 
 void kernel_main(void)
@@ -1416,7 +1571,7 @@ void kernel_main(void)
      *   4. Install the HLT yield (flair_event_set_yield) and run the pump:
      *      WaitNextEvent -> FindWindow part-code -> dispatch via the EXISTING verbs
      *      (inDrag -> DragWindow + desktop_paint_damage + present; inGoAway ->
-     *      HideWindow + repaint; inMenuBar -> deferred FO-8b marker). The pump emits
+     *      HideWindow + repaint; inMenuBar -> flair_live_do_menu, FO-8b). The pump emits
      *      one cooked FLAIR-EVT per delivered EventRecord (FO-5/6 marker
      *      reconciliation) and FLAIR-DRAG on a completed drag.
      *
@@ -1521,7 +1676,7 @@ void kernel_main(void)
      *   - emit a cooked FLAIR-EVT per delivered event (FO-5/6 reconciliation);
      *   - on mouseDown, FindWindow -> part-code -> dispatch via the EXISTING verbs
      *     (inDrag -> flair_live_do_drag; inGoAway -> flair_live_do_close;
-     *     inMenuBar -> deferred FO-8b marker).
+     *     menu-bar band -> flair_live_do_menu, the FO-8b live pull-down).
      *
      * BOUNDED TERMINATION (Rule 11): run until FLAIR_LIVE_TICK_BUDGET ticks elapse
      * (bounded by the 100 Hz PIT COUNT, never wall-clock), then emit FLAIR-LIVE-OK
@@ -1567,11 +1722,15 @@ void kernel_main(void)
                     flair_live_do_drag(&ctx, &b, w, ev.where);
                 } else if (pc == inGoAway && w != (WindowPtr)0) {
                     flair_live_do_close(&ctx, &b, w);
-                } else if (pc == inMenuBar) {
-                    /* FO-8b (deferred): MenuSelect is driven by a SUPPLIED point
-                     * sequence (menu.h Sec 8), so the live menu track is the thin
-                     * follow-on; emit a marker, do NOT block the drag deliverable. */
-                    serial_puts("FLAIR-MENU-DOWN (FO-8b deferred)\n");
+                } else if (ev.where.v >= 0 &&
+                           ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
+                    /* inMenuBar (ADR-0006 FO-8): the click is in the TOP System-7
+                     * menu-bar band [0,FLAIR_MENUBAR_H). FindWindow returns inDesk
+                     * for it (no document window covers the bar; window.c FindWindow
+                     * has no inMenuBar branch), so the y<MENUBAR_H band test IS the
+                     * menu-bar hit. DROP the System-7 bar's pull-down LIVE -- the
+                     * FO-8b deliverable (Law 4 "working menus"). */
+                    flair_live_do_menu(&ctx, &b, &ctx.scene->bar_sys, ev.where);
                 }
             }
         }
