@@ -677,6 +677,20 @@ KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_menu.o
 KERNEL_FLAIRLIVE_MUT_MENU_ELF      := $(BUILD)/kernel_flairlive_mut_menu.elf
 KERNEL_FLAIRLIVE_MUT_MENU_BIN      := $(BUILD)/kernel_flairlive_mut_menu.bin
 FLAIRLIVE_MUT_MENU_IMG             := $(BUILD)/flair_live_mut_menu.img
+# INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on):
+# the SAME BOOT_FLAIR_LIVE kmain but compiled ALSO with -DFLAIR_LIVE_INTERACTIVE,
+# which (a) composites the LOCKED FLAIR_CURSOR_ARROW (a save-under, dirty-rect
+# overlay on the indexed-8 offscreen) so the mouse cursor is VISIBLE, and (b)
+# makes the WaitNextEvent pump UNBOUNDED (for(;;), runs until power-off) so the
+# operator can drag windows + use menus with a visible cursor. Its OWN main obj/
+# elf/bin/image so the DEFAULT $(FLAIRLIVE_IMG) (the gate image) is byte-for-
+# behavior unchanged -- the cursor + the unbounded loop are wholly inside
+# #ifdef FLAIR_LIVE_INTERACTIVE. NOT a gate image (cannot be screendumped
+# deterministically -- it never halts); driven by `make run-flair`.
+KERNEL_FLAIRLIVE_INT_MAIN_OBJ := $(BUILD)/kmain_flairlive_int.o
+KERNEL_FLAIRLIVE_INT_ELF      := $(BUILD)/kernel_flairlive_int.elf
+KERNEL_FLAIRLIVE_INT_BIN      := $(BUILD)/kernel_flairlive_int.bin
+FLAIRLIVE_INTERACTIVE_IMG     := $(BUILD)/flair_live_interactive.img
 # EXIT-handle teardown self-test kernel/image (beads initech-6hk; epic
 # initech-6qy; make test-exit-handles): the SAME kernel sources but with
 # -DBOOT_EXITH so the boot EXECs the FAT-sourced leaky child EXITH.COM RUNS
@@ -8261,6 +8275,44 @@ $(FLAIRLIVE_MUT_MENU_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MENU_
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_FLAIRLIVE_MUT_MENU_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-live menu-noop MUTANT image: %s (inMenuBar dispatch drops no panel -- FLAIR-MENU sel=0)\n" "$@"
+
+# --- INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on)
+# Same BOOT_FLAIR_LIVE kmain but ALSO -DFLAIR_LIVE_INTERACTIVE: a VISIBLE software
+# mouse cursor (the LOCKED FLAIR_CURSOR_ARROW save-under overlay) + an UNBOUNDED
+# pump (for(;;), runs until power-off). Adds the spec/assets/cursors.h prereq the
+# interactive arm includes. Mirrors the FLAIRLIVE main-obj rule; swaps ONLY the
+# main obj so the shared FLAIR/kernel object set is reused. ----------------------
+$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FLAIRLIVE_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
+
+$(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS)
+
+$(KERNEL_FLAIRLIVE_INT_BIN): $(KERNEL_FLAIRLIVE_INT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_int.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-interactive): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-interactive)
+
+$(FLAIRLIVE_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_INT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live INTERACTIVE image: %s (visible arrow cursor + unbounded pump)\n" "$@"
+
+# Windowed GUI run so the operator can DRAG windows + use menus with a VISIBLE
+# cursor (Law 4's live, draggable arrangement). Serial -> stdio narrates the pump.
+.PHONY: run-flair
+run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
+	qemu-system-i386 -drive format=raw,file=$(FLAIRLIVE_INTERACTIVE_IMG) -serial stdio
 
 # ===========================================================================
 # FO-6 (beads initech-5l5z): PS/2 mouse IRQ12 -- the mouse-enabled flair_live
