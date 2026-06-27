@@ -209,8 +209,8 @@ fallback, asserted on serial.)
 > services ship.**
 >
 > Orchestrated session (committee for the scope/architecture fork + delegated
-> coding lanes + independent orchestrator grading), 2 commits `3eb39e4` (Wave 1)
-> + `67f96f1` (Wave 2), both pushed. The plan-of-record's next arc -- **Phase 4.5
+> coding lanes + independent orchestrator grading), 3 waves: `3eb39e4` (Wave 1)
+> + `67f96f1` (Wave 2) + `1c895cc` (Wave 3), all pushed. The plan-of-record's next arc -- **Phase 4.5
 > Platform Services (`initech-49ez`, ADR-0012 D-2b)** -- is underway; these shared
 > services LAND BEFORE the canonical app suite so Initech123/InitechWord build ON
 > them (ADR-0012 D-2c). Committee `wf_00931e9e` (3 seats -> chair -> adversarial
@@ -232,19 +232,26 @@ fallback, asserted on serial.)
 > 3. **Scrap/Clipboard (`initech-b2vk` CLOSED)** -- `os/flair/scrap.{c,h}`: a shell-
 >    owned cross-tenant Scrap (TEXT+PICT flavors), the co-residency copy/paste
 >    payoff; independent op/byte oracle incl. the cross-tenant leg.
+> 4. **TextEdit + List Manager (`initech-77dj` CLOSED, Wave 3, `1c895cc`)** --
+>    `os/flair/textedit.{c,h}` (reduced TERec: half-open selection, CR+wrap line-
+>    breaking, TECut/TECopy/TEPaste through the Scrap -- the first Scrap consumer) +
+>    `os/flair/list.{c,h}` (reduced ListRec: cell store + LClick hit-test + lOnlyOne).
+>    The text-entry + list floor. Oracles 55/55 + 49/49; 6 mutants RED.
 >
-> **`make clean && make test` = ALL GREEN 287 host + 57 emu** (was 283+57); Bochs
-> tenant-boot leg PASS; O-5 app-switch + O-7 SAMIR-suspend + the Office Space frame
-> UNREGRESSED; `_kernel_end=0x38ec0 < 0x40000`; all new mutants RED.
+> **`make clean && make test-unit` = ALL GREEN 291 host** (Wave 1+2 full run was
+> 287 host + 57 emu + Bochs; Wave 3 is host-only -- neither module in any kernel
+> object -- so emu/Bochs unchanged); all new mutants RED; reproducible; ASCII-clean.
 >
-> **NEXT WORK (Phase 4.5 remaining, dependency-ordered -- `bd show initech-49ez`):**
-> `77dj` TextEdit + List Manager (depends on the Scrap; TERec/ListRec into the DATA
-> arena) -> `gymo` Standard File (Law-1 acquisition gate first: no SFGetFile spec in
-> the corpus) -> `o5vm` Print Manager (BLOCKED until the GrafPort verb layer, re30
-> P3-pre -- grafProcs verified NULL today). Plus 2 filed follow-ons: `ww9c` (wire the
-> Scrap singleton into the live desktop, copy/paste HELLO<->NOTES) + `0lko` (Resource
-> per-type record instantiation). Then the canonical app suite builds ON these
-> services. See **WL-0065**.
+> **NEXT WORK (Phase 4.5 remaining, dependency-ordered -- `bd show initech-49ez`,
+> now 3/5 service children done):** `gymo` Standard File / Common Dialogs (now
+> UNBLOCKED -- Dialog Mgr + List Mgr + TextEdit + the MILTON FAT enumerator all exist;
+> honor the Law-1 acquisition gate for the SFGetFile navigation model first, no decomp
+> spec in the corpus) -> `o5vm` Print Manager (BLOCKED until the GrafPort verb layer,
+> re30 P3-pre -- grafProcs verified NULL today). Plus 3 filed follow-ons: `ww9c` (wire
+> the Scrap singleton into the live desktop, copy/paste HELLO<->NOTES), `0lko` (Resource
+> per-type record instantiation), `ncfu` (full TERec lineStarts + List scroll/multi-
+> column/drag-select). Then the canonical app suite (Initech123/InitechWord) builds ON
+> these services. See **WL-0065**.
 >
 > ---
 >

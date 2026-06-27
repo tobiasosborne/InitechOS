@@ -111,3 +111,32 @@ the right reason; reproducible; ASCII-clean; freestanding host+kernel dual-compi
   the corpus) -> `o5vm` Print Manager (BLOCKED until the GrafPort verb layer / re30 P3-pre).
   Plus the 2 filed follow-ups (`ww9c` Scrap live-desktop wiring; `0lko` Resource per-type
   instantiation). Then the canonical app suite (Initech123 / InitechWord) builds ON these services.
+
+## Addendum -- Wave 3 (TextEdit + List Manager, `initech-77dj` CLOSED, commit `1c895cc`)
+
+Continued the same orchestration cadence (2 file-disjoint lanes: TextEdit opus, List Manager
+sonnet; orchestrator grades/integrates/commits). The text-entry + list floor that Initech123
+cells / InitechWord body / Standard File build on. No new committee -- the Wave-1 committee
+already scoped 77dj (reduced first cuts).
+
+- **TextEdit (`os/flair/textedit.{c,h}`):** a REDUCED FLAIR-TERec (flat buffer + half-open
+  `[selStart,selEnd)` selection + teLength/just/crOnly + a capped `lineStarts`, NOT the full
+  IM `lineStarts[0..16000]`) per `textedit.md`. Selection clamp, TEKey insert/backspace, CR +
+  simple word-wrap line-breaking, and TECut/TECopy/TEPaste routed through the shell-owned Scrap
+  (`FlairPutScrap`/`FlairGetScrap`, `FLAIR_SCRAP_TYPE_TEXT`) -- the first consumer proving the
+  Scrap is the shared clipboard. Oracle 55/55; mutants `TE_MUT_SEL_INCLUSIVE`/`PASTE_NO_DELETE`/
+  `LINEBREAK_OFF` bite.
+- **List Manager (`os/flair/list.{c,h}`):** a reduced FLAIR-ListRec (Cell=`flair_point_t`,
+  ListBounds=`rgn_rect_t` -- existing geometry reused, no redefinition; dataBounds/visible,
+  cellSize, selFlags lOnlyOne, lastClick) per `list-manager.md`. Cell store round-trip + LClick
+  hit-test + lOnlyOne selection. Oracle 49/49; mutants `LIST_MUT_CELL_INDEX_SWAP`/`HIT_OFFBYONE`/
+  `NO_DESELECT` bite.
+- **Frictions:** Lane D (TextEdit) dropped its connection mid-response AFTER writing all 3 files;
+  the orchestrator's independent re-grade (which runs regardless of the lane report, Rule 4)
+  confirmed 55/55 + mutants RED -- the dropped report cost nothing. Host-only addition (neither
+  module in any kernel object), so emu/Bochs unchanged from `67f96f1`.
+- **Grade:** `make clean && make test-unit` = ALL GREEN **291 host** (was 287; +4). Filed follow-up
+  `ncfu` (full TERec lineStarts + List scroll/multi-column/drag-select, as apps demand).
+- **NEXT:** `gymo` Standard File (now UNBLOCKED -- Dialog Mgr + List Mgr + TextEdit + the MILTON FAT
+  enumerator all exist; Law-1 acquisition gate for the SFGetFile navigation model first) ->
+  `o5vm` Print Manager (BLOCKED on the GrafPort verb layer, re30 P3-pre).
