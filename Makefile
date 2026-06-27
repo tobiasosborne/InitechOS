@@ -9521,6 +9521,50 @@ test-process-activate-mutant: $(TEST_PROC_ACTIVATE_MUT_HILITE) $(TEST_PROC_ACTIV
 	@if $(TEST_PROC_ACTIVATE_MUT_FRONT) >/dev/null 2>&1; then printf '!!! test-process-activate-mutant FAIL: RAISE_FRONT_ONLY PASSED -- the whole-group-raise oracle is decoration\n'; exit 1; else printf '>>> test-process-activate-mutant: green (RAISE_FRONT_ONLY correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
+# STANDALONE gate (NOT yet in any aggregate): test-process-update
+# (ADR-0013 Sec 3.3 -- the updateEvt spine) -- the HOST oracle for
+# `flair_route_updates`, the helper the live kmain pump calls each iteration to
+# route each damaged window's pending repaint to its OWNING tenant as an updateEvt
+# and then clear the damage (WindowMgr_validate). A 4-window scene -- app A owns
+# WA0+WA1, app B owns WB0, plus an UNOWNED WU (refCon 0, the shell-furniture
+# analogue) -- invalidates WA0/WB0/WU, calls flair_route_updates (BC-2, the SAME
+# symbol the live pump runs), and asserts against a HAND-AUTHORED golden (Law 2):
+# WA0->A and WB0->B each get exactly ONE updateEvt (message = the affected window),
+# the clean owned window WA1 + the UNOWNED WU get NONE, routed windows' updateRgn is
+# now empty (validate ran), and WU is TOLERATED (no panic) + SKIPPED (its updateRgn
+# untouched -- unlike content-click dispatch which fails loud on an unowned hit).
+# Self-mutants UPDATE_MUT_WRONG_OWNER (expected routes to the wrong app) and
+# UPDATE_MUT_SKIP_VALIDATE (expected leaves a routed updateRgn non-empty) perturb
+# the EXPECTED side, each biting a DISTINCT invariant -> RED (Rule 6). NOTE: not
+# added to test-unit / any TEST_*_GATES; process.o not in KERNEL_*_OBJS -- standalone
+# only (the orchestrator integrates).
+# ---------------------------------------------------------------------------
+TEST_PROC_UPDATE     := $(BUILD)/test_process_update
+TEST_PROC_UPDATE_SRC := harness/proptest/test_process_update.c
+TEST_PROC_UPDATE_MUT_OWNER := $(BUILD)/test_process_update_mutant_wrongowner
+TEST_PROC_UPDATE_MUT_VALID := $(BUILD)/test_process_update_mutant_skipvalidate
+TEST_PROC_UPDATE_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+                     os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
+                     spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
+
+$(TEST_PROC_UPDATE): $(TEST_PROC_UPDATE_SRC) $(TEST_PROC_UPDATE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_PROC_UPDATE_SRC) $(PROCESS_LINK)
+$(TEST_PROC_UPDATE_MUT_OWNER): $(TEST_PROC_UPDATE_SRC) $(TEST_PROC_UPDATE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DUPDATE_MUT_WRONG_OWNER $(PROCESS_INC) -o $@ $(TEST_PROC_UPDATE_SRC) $(PROCESS_LINK)
+$(TEST_PROC_UPDATE_MUT_VALID): $(TEST_PROC_UPDATE_SRC) $(TEST_PROC_UPDATE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DUPDATE_MUT_SKIP_VALIDATE $(PROCESS_INC) -o $@ $(TEST_PROC_UPDATE_SRC) $(PROCESS_LINK)
+
+test-process-update: $(TEST_PROC_UPDATE)
+	@printf ">>> test-process-update: ADR-0013 updateEvt-spine host oracle (flair_route_updates: damage -> owning tenant, validate, unowned tolerated)\n"
+	@$(TEST_PROC_UPDATE)
+	@printf ">>> test-process-update: green\n"
+
+test-process-update-mutant: $(TEST_PROC_UPDATE_MUT_OWNER) $(TEST_PROC_UPDATE_MUT_VALID)
+	@printf ">>> test-process-update-mutant: confirming both self-mutants go RED (Rule 6)\n"
+	@if $(TEST_PROC_UPDATE_MUT_OWNER) >/dev/null 2>&1; then printf '!!! test-process-update-mutant FAIL: WRONG_OWNER PASSED -- the update-routing oracle is decoration\n'; exit 1; else printf '>>> test-process-update-mutant: green (WRONG_OWNER correctly RED)\n'; fi
+	@if $(TEST_PROC_UPDATE_MUT_VALID) >/dev/null 2>&1; then printf '!!! test-process-update-mutant FAIL: SKIP_VALIDATE PASSED -- the validate-clears oracle is decoration\n'; exit 1; else printf '>>> test-process-update-mutant: green (SKIP_VALIDATE correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-event (beads initech-8b7) -- FLAIR Event Manager. ISR
 # enqueue-only SPSC ring (D-4); WaitNextEvent cooks raw input -> EventRecords in
 # task context; a recorded raw trace replays to a DETERMINISTIC event sequence
@@ -15265,6 +15309,7 @@ TEST_UNIT_GATES := \
 	test-process-teardown test-process-teardown-mutant \
 	test-process-budget test-process-budget-mutant \
 	test-process-activate test-process-activate-mutant \
+	test-process-update test-process-update-mutant \
 	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \

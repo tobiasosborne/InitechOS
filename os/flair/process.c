@@ -211,6 +211,8 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
         FlairLaunchParams lp;
         lp.bounds = bounds;
         lp.budget = budget;
+        lp.wm     = wm;   /* thread the shell WindowMgr so open() can NewWindow(lp->wm,
+                           * ...) instead of reaching a file-global (bead initech-fka6). */
         if (procs->open != NULL && procs->open(app, &lp) != 0) {
 #ifdef BUDGET_MUT_OVERCOMMIT
             /* MUTANT (Rule 6): open() failed but install anyway (partial install).
@@ -470,7 +472,82 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
         return;
 
     default:
-        /* updateEvt/activateEvt/nullEvent/... -- no-op here (Wave 3/4). */
+        /* updateEvt/activateEvt/nullEvent/... -- no-op here. updateEvt routing is
+         * the SEPARATE spine helper flair_route_updates (below), driven off the
+         * window-damage state rather than a single cooked EventRecord. */
         return;
+    }
+}
+
+/* --------------------------------------------------------------------------
+ * owner_of_window_tolerant -- the refCon demux WITHOUT the fail-loud panic.
+ *
+ * The SAME match rule owner_of_window uses (magic-tag + truncated-identity, Sec
+ * 3.1, width-portable) but returns NULL instead of panicking when no resident app
+ * owns `w`. flair_route_updates uses this because the shell's own frame/desktop
+ * furniture windows are UNOWNED and legitimately carry damage; routing must tolerate
+ * them. A content click (owner_of_window) instead panics on an unowned hit, because
+ * a click delivered to no app is a routing bug -- but damage on an ownerless window
+ * is not. Ref: ADR-0013 Sec 3.1 (binding rule), Sec 3.3 (updateEvt routing).
+ * -------------------------------------------------------------------------- */
+static FlairApp *owner_of_window_tolerant(FlairProcessList *list, WindowPtr w)
+{
+    if (w == NULL) return NULL;
+    for (FlairApp *a = list->head; a != NULL; a = a->nextApp) {
+        if (a->magic == FLAIR_APP_MAGIC &&
+            (int32_t)(uintptr_t)a == w->refCon)
+            return a;
+    }
+    return NULL;   /* shell furniture / foreign window: no resident owner */
+}
+
+/* --------------------------------------------------------------------------
+ * flair_route_updates -- route pending window damage to owning tenants (Sec 3.3).
+ *
+ * One forward pass over the z-order. For each VISIBLE window with a NON-EMPTY
+ * updateRgn: synthesize one updateEvt, recover the owner (tolerant), deliver, then
+ * validate (clear the damage). Unowned damaged windows are skipped (no delivery,
+ * no validate -- the shell repaints its own furniture). WindowMgr_validate only
+ * sets updateRgn empty (it does NOT mutate the z-order list), so a single forward
+ * nextWindow walk is safe -- unlike terminate's DisposeWindow loop, which re-scans.
+ *
+ * Ref: ADR-0013 Sec 3.3 (updateEvt -> each damaged window's owning app, background
+ *      apps included), Sec 3.1 (refCon demux); window.h (WindowMgr_validate,
+ *      the updateRgn damage model); spec/event_model.h (updateEvt, the WindowPtr
+ *      in `message`, MTE Ch 2). CLAUDE.md Law 2, Rule 2, Rule 11.
+ * -------------------------------------------------------------------------- */
+void flair_route_updates(FlairProcessList *list, WindowMgr *wm)
+{
+    if (list == NULL || wm == NULL)
+        PROC_PANIC("route_updates: NULL argument");
+
+    for (WindowPtr w = wm->front; w != (WindowPtr)0; w = w->nextWindow) {
+        if (!w->visible) continue;                 /* hidden windows owe no update  */
+        if (w->updateRgn == (region_t *)0) continue;
+        if (region_is_empty(w->updateRgn)) continue;   /* no damage outstanding     */
+
+        /* Recover the owning tenant by the binding rule -- TOLERANT: an unowned
+         * (shell furniture) window is skipped here, NOT panicked (the distinction
+         * from owner_of_window's content-click fail-loud). */
+        FlairApp *owner = owner_of_window_tolerant(list, w);
+        if (owner == (FlairApp *)0) continue;      /* shell furniture -> shell paints*/
+
+        /* Synthesize ONE updateEvt for this window and deliver to its owner. The
+         * window identity goes in message ((uint32_t)(uintptr_t)w, MTE Ch 2 -- exact
+         * on flat-32, truncated-but-stable on host-64); where/when best-effort 0
+         * (deterministic, Rule 11). */
+        if (owner->procs != (const FlairAppProcs *)0 &&
+            owner->procs->event != (void (*)(FlairApp *, const EventRecord *))0) {
+            EventRecord ev;
+            proc_zero(&ev, (uint32_t)sizeof ev);
+            ev.what    = (uint16_t)updateEvt;
+            ev.message = (uint32_t)(uintptr_t)w;
+            owner->procs->event(owner, &ev);
+        }
+
+        /* Clear the damage (the pump's EndUpdate). Only for OWNED windows -- the
+         * unowned skip above never reaches here, so shell furniture keeps its
+         * updateRgn for the shell to service. */
+        WindowMgr_validate(w);
     }
 }

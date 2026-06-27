@@ -117,8 +117,6 @@ static void mgr_attach(mgr_store_t *m, rgn_rect_t frame)
     WindowMgr_init(&m->wm, frame, &m->desk.r, &m->sa.r, &m->sb.r, &m->sc.r);
 }
 
-static WindowMgr *g_wm = NULL;   /* the single shell WindowMgr open() builds into */
-
 /* ===========================================================================
  * The tenant's window bundle, allocated FROM THE CHILD ARENA in open(). Small
  * region caps (a single rectangular document window needs only a couple of rows
@@ -173,7 +171,7 @@ static int tenant_open(FlairApp *self, const FlairLaunchParams *lp)
     rgn_rect_t b = lp->bounds;
     rgn_rect_t c = { (int16_t)(b.top + 3), (int16_t)(b.left + 1),
                      (int16_t)(b.bottom - 1), (int16_t)(b.right - 1) };
-    NewWindow(g_wm, &w->rec, b, c, documentKind, documentProc, 1);
+    NewWindow(lp->wm, &w->rec, b, c, documentKind, documentProc, 1); /* lp->wm: Sec 3.2 */
     w->rec.refCon = (int32_t)(uintptr_t)self;   /* the binding rule (Sec 3.1) */
     self->windows = &w->rec;
     return 0;
@@ -204,7 +202,6 @@ int main(void)
     rgn_rect_t bounds = { 10, 10, 46, 70 };   /* the tenant's document window      */
 
     mgr_attach(&M, FRAME);
-    g_wm = &M.wm;
     flair_heap_init(&master, master_buf, (uint32_t)MASTER_BYTES);
     FlairProcessList_init(&plist);
 

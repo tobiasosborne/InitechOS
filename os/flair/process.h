@@ -101,6 +101,12 @@ enum {
 typedef struct FlairLaunchParams {
     rgn_rect_t bounds;   /* initial structure bounds the app's open() builds into */
     uint32_t   budget;   /* child-arena byte budget; over-budget = fail-loud (BC-5)*/
+    WindowMgr  *wm;      /* the shell Window Manager the tenant's open() builds its
+                          * window(s) into -- NewWindow(lp->wm, ...). Threaded in by
+                          * FlairProcess_launch (the kernel passes the live shell wm);
+                          * the demux refCon still binds open()'s windows to `self`.
+                          * Ref: ADR-0013 amendment, bead initech-fka6 (FlairLaunch-
+                          * Params.wm -- the locked-contract edit, Rule 8). */
 } FlairLaunchParams;
 
 /* FlairAppProcs -- the const vtable of tenant entry-points (the A5 jump-table
@@ -233,5 +239,28 @@ void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
  * goes RED for the right reason before Wave 2 lands the real logic (Law 2). */
 void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
                         const EventRecord *ev);
+
+/* flair_route_updates -- the updateEvt SPINE: route pending window DAMAGE to each
+ * damaged window's owning tenant (ADR-0013 Sec 3.3 -- "updateEvt: each damaged
+ * window's owning app, background apps included").
+ *
+ * Walks the WindowMgr z-order (wm->front .. nextWindow) and, for every VISIBLE
+ * window whose updateRgn is NON-EMPTY, synthesizes ONE updateEvt EventRecord
+ * (what=updateEvt; message = the affected window's identity, (uint32_t)(uintptr_t)w
+ * per MTE Ch 2 -- exact on flat-32; where/when best-effort/zero, Rule 11),
+ * recovers the owning FlairApp by the SAME refCon-match rule the dispatcher uses
+ * (magic-tag + truncated-identity match, width-portable), delivers it to that
+ * tenant's `event` entry-point, and then WindowMgr_validate(w) clears the
+ * updateRgn (the pump's EndUpdate).
+ *
+ * TOLERANCE (the distinction from content-click dispatch): a damaged window with
+ * NO owning resident app -- the shell's own frame/desktop furniture, which is
+ * unowned -- is SKIPPED without panicking and WITHOUT validating (the shell drives
+ * its own furniture repaint). owner_of_window (content dispatch) instead PANICS on
+ * an unowned hit, because a content click on an ownerless window IS a bug; an
+ * unowned window merely carrying damage is NOT. Called by the live kmain pump each
+ * iteration after the input event is dispatched; graded by the host O-5 oracle
+ * (harness/proptest/test_process_update.c). */
+void flair_route_updates(FlairProcessList *list, WindowMgr *wm);
 
 #endif /* INITECH_OS_FLAIR_PROCESS_H */
