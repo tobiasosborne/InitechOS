@@ -2094,10 +2094,30 @@ void kernel_main(void)
                     WindowMgr_invalidate(ctx.wm, ten_plist.head->windows,
                             region_get_bbox(ten_plist.head->windows->contRgn));
                 }
+#ifndef FLAIR_LIVE_MUTATE_DROP_UPDATE
                 flair_route_updates(&ten_plist, ctx.wm);
+#else
+                /* MUTANT FLAIR_LIVE_MUTATE_DROP_UPDATE (Rule 6; the O-5 tenants
+                 * emu-mutant image ONLY): SKIP the updateEvt route after the switch.
+                 * The raised tenant is never handed its updateEvt, so it never
+                 * repaints the newly-exposed overlap -- the exposed region keeps the
+                 * OLD foreground's content colour -> the booted O-5 gate's TIER-A
+                 * overlap probe stays NOTES_FILL (RED). The switch + menubar swap
+                 * still happen (FLAIR-DISPATCH still fires). NEVER in a real build. */
+#endif
+#ifndef FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP
                 DrawMenuBar(&ten_barport, ten_plist.head->menubar,
                             (uint32_t)FLAIR_TEN_MENU_FG_IDX,
                             (uint32_t)FLAIR_TEN_MENU_BG_IDX, (const region_t *)0);
+#else
+                /* MUTANT FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP (Rule 6; the O-5 tenants
+                 * emu-mutant image ONLY): SKIP the foreground-tenant menubar swap.
+                 * The System-7 band keeps the OLD foreground's menu titles, so the
+                 * booted O-5 gate's MENU-BAND differential finds the title strip
+                 * UNCHANGED pre-vs-post (0 diffs) -> RED. The raise + activate still
+                 * happen (TIER-A/TIER-B stay GREEN). NEVER in a real build. */
+                (void)ten_barport;  /* referenced (else -Werror=unused-but-set-variable) */
+#endif
                 flair_desktop_present(&b, &ctx.off);
                 serial_puts("FLAIR-DISPATCH app=");
                 serial_puts(ten_plist.head->name ? ten_plist.head->name : "?");

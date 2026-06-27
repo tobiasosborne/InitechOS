@@ -268,6 +268,21 @@ PPM_FLAIR_DRAG_CHECK_BIN := $(BUILD)/ppm_flair_drag_check
 PPM_FLAIR_MENU_CHECK_SRC := tools/ppm_flair_menu_check.c
 PPM_FLAIR_MENU_CHECK_BIN := $(BUILD)/ppm_flair_menu_check
 
+# O-5 app-switch screendump grader (ADR-0013 FLAIR App Contract; Wave-4 gate O-5).
+# Grades the PRE->POST delta of the booted -DFLAIR_LIVE_TENANTS desktop (click
+# HELLO's sliver -> raise + activate HELLO over NOTES + swap its menubar) against
+# the INDEPENDENT canon (flair_canon_rgb + the spec/flair_tenants_demo.h probe
+# geometry), never the render. argv = pre.ppm post.ppm. It includes the shared
+# demo layout header (spec/flair_tenants_demo.h -> assets/color_canon.h), so it is
+# built with -Ispec -Ispec/assets (cf. PPM_FLAIR_CHECK_BIN).
+PPM_FLAIR_APPSWITCH_CHECK_SRC := tools/ppm_flair_appswitch_check.c
+PPM_FLAIR_APPSWITCH_CHECK_BIN := $(BUILD)/ppm_flair_appswitch_check
+
+# The LOCKED O-5 app-switch input trace + capture contract (spec/flair_appswitch_
+# trace.mk, Rule 8/11): sets FLAIR_APPSWITCH_SPEC := m-85:45,m-85:45,l1,l0. Pulled
+# in here so test-flair-appswitch wires it mechanically (single source of truth).
+include spec/flair_appswitch_trace.mk
+
 # ---------------------------------------------------------------------------
 # Flat C kernel (os/milton, beads initech-d00; ADR-0003 DEC-08)
 # ---------------------------------------------------------------------------
@@ -8423,6 +8438,107 @@ run-flair-tenants: $(FLAIRTENANTS_INTERACTIVE_IMG)
 	qemu-system-i386 -drive format=raw,file=$(FLAIRTENANTS_INTERACTIVE_IMG) -serial stdio
 
 # ===========================================================================
+# O-5 APP-SWITCH Rule-6 MUTANT images (ADR-0013; Wave-4 Step 5; beads initech-4e35)
+# ---------------------------------------------------------------------------
+# Each mutant is a SEPARATE flair_tenants image whose dispatcher (os/flair/process.c)
+# OR pump (os/milton/kmain.c) is built with ONE -DFLAIR_LIVE_MUTATE_* knob (all behind
+# #ifdef, so the DEFAULT build is byte-identical -- proven by cmp). test-flair-appswitch-
+# mutant boots each, runs the SAME PRE/POST capture + grader, and asserts the grader
+# goes RED (Rule 6: a check that never bites is decoration). The 5th candidate knob,
+# NO_GROUP_RAISE, is HOST-COVERED (see the OMISSION note at the instantiations) and
+# carries no emu image.
+#
+# Two templates: a process.c (dispatcher) mutant swaps ONLY process.o (the clean
+# kmain main + ref_tenant.o reused -> the mutation is isolated to Layer-5 routing); a
+# kmain.c (pump) mutant swaps ONLY the flairtenants main obj (clean process.o +
+# ref_tenant.o reused). Both mirror the FLAIRTENANTS .bin/.img recipes (incl. the
+# size guard + the kernel-end guard, deferred via $$(call ...) so it runs at recipe
+# time after the per-mutant ELF exists).
+# ---------------------------------------------------------------------------
+
+# $(call flair-tenants-proc-mutant-rules,<KNOB>,<tag>): a Layer-5-dispatcher mutant.
+define flair-tenants-proc-mutant-rules
+$(BUILD)/process_mut_$(2).o: os/flair/process.c os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $$@
+
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o
+
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+
+# $(call flair-tenants-kmain-mutant-rules,<KNOB>,<tag>): a pump (kmain.c) mutant. The
+# main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
+# arm's includes); the flags add the one -D knob to the bounded-gate flag set.
+define flair-tenants-kmain-mutant-rules
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
+
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o
+
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+
+# The 4 emu mutants that BITE the booted O-5 gate (instantiated AFTER the vars they
+# reference; $(eval) expands the bodies immediately). Each names the leg it bites:
+#   IGNORE_REFCON   (dispatcher) -> owner-recovery returns the foreground always:
+#                    no switch -> overlap stays NOTES_FILL            -> TIER-A RED
+#   SKIP_ACTIVATE   (dispatcher) -> skip the deactivate/activate pair:
+#                    no accent painted                                -> TIER-B RED
+#   DROP_UPDATE     (pump)       -> skip flair_route_updates post-switch:
+#                    exposed overlap not repainted                    -> TIER-A RED
+#   NO_MENUBAR_SWAP (pump)       -> skip DrawMenuBar(head->menubar):
+#                    title strip unchanged pre-vs-post (0 diffs)      -> MENU-BAND RED
+$(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_IGNORE_REFCON,ignore_refcon))
+$(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_SKIP_ACTIVATE,skip_activate))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_DROP_UPDATE,drop_update))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP,no_menubar_swap))
+
+# OMISSION (Rule 6 / Law 2 honesty): the 5th candidate knob FLAIR_LIVE_MUTATE_NO_
+# GROUP_RAISE (raise only the front window instead of raise_group's whole group) does
+# NOT bite the BOOTED gate, because BOTH reference tenants (HELLO, NOTES) are SINGLE-
+# window apps -- for a single-window tenant raise_group reduces to exactly one
+# SelectWindow of the front window, so "raise front only" is byte-for-byte the correct
+# behaviour and the screendump would be identical (a passing "mutant" == decoration).
+# It is HOST-COVERED by test-process-activate-mutant's ACTIVATE_MUT_RAISE_FRONT_ONLY
+# leg (harness/proptest/test_process_activate.c), which proves whole-group raise over a
+# MULTI-window app where front-only diverges. So NO emu image is built for it here; the
+# four above are the ones that bite the booted O-5 gate.
+
+# ===========================================================================
 # FO-6 (beads initech-5l5z): PS/2 mouse IRQ12 -- the mouse-enabled flair_live
 # image is the EXISTING $(FLAIRLIVE_IMG) (mouse.o is now in KERNEL_FLAIRLIVE_OBJS
 # and the BOOT_FLAIR_LIVE arm installs the IRQ12 gate + 8042 aux + dual-PIC EOI).
@@ -8651,6 +8767,13 @@ $(PPM_FLAIR_DRAG_CHECK_BIN): $(PPM_FLAIR_DRAG_CHECK_SRC) spec/assets/color_canon
 # menu.h geometry), never the render. Built like ppm_flair_drag_check.
 $(PPM_FLAIR_MENU_CHECK_BIN): $(PPM_FLAIR_MENU_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+# O-5 app-switch screendump grader (ADR-0013; Wave-4 gate O-5). Grades the booted
+# tenants PRE->POST delta against the INDEPENDENT canon (flair_canon_rgb + the
+# flair_tenants_demo.h probe geometry), never the render. It includes the shared
+# demo layout header (which pulls in assets/color_canon.h), so -Ispec -Ispec/assets.
+$(PPM_FLAIR_APPSWITCH_CHECK_BIN): $(PPM_FLAIR_APPSWITCH_CHECK_SRC) spec/flair_tenants_demo.h spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec -Ispec/assets -o $@ $<
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
 # probes are value-BLIND (a teal->seafoam value perturbation leaves the period-2
@@ -11658,6 +11781,216 @@ test-flair-menu-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MENU_IMG) $(PPM_FLAIR_MEN
 		printf '!!! test-flair-menu-mutant FAIL: the menu-noop screendump PASSED ppm_flair_menu_check -- the gate is decoration (no panel passed as a dropped menu)\n'; exit 1; \
 	fi
 	@printf '>>> test-flair-menu-mutant: RED as required -- the no-drop dispatch leaves bare teal where the panel should be; the gate BITES (Rule 6, HER-14)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-appswitch (beads initech-4e35; ADR-0013 Wave-4 gate O-5 --
+# THE booted FLAIR App Contract oracle: clicking a BACKGROUND tenant's visible
+# sliver RAISES + ACTIVATES it over the foreground tenant AND swaps its menubar).
+# ---------------------------------------------------------------------------
+# Two deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG):
+#   PRE : no mouse; screendump after FLAIR-TENANTS-READY -> the co-resident scene
+#         BEFORE the click (NOTES on top, HELLO covered + inactive).
+#   POST: inject the LOCKED $(FLAIR_APPSWITCH_SPEC) trace; screendump after
+#         FLAIR-DISPATCH app=HELLO -> HELLO raised + repainted + active + menubar
+#         swapped.
+# ppm_flair_appswitch_check then grades the PRE->POST delta against the INDEPENDENT
+# canon (TIER-A overlap NOTES_FILL->HELLO_FILL ; TIER-B accent FILL->ACTIVE_ACCENT ;
+# MENU-BAND title strip differs). Asserts (Law 2): no triple-fault either boot;
+# FLAIR-TENANTS-READY + FLAIR-LIVE-READY + FLAIR-DISPATCH app=HELLO on serial; both
+# screendumps written; grader PASS. The guests cli;hlt after the bounded budget, so
+# the harness times out by design (OK = the asserts). Mutation-proven by
+# test-flair-appswitch-mutant. The locked trace is spec/flair_appswitch_trace.mk.
+FLAIR_APPSW_PRE_NAME    := flair_appswitch_pre
+FLAIR_APPSW_POST_NAME   := flair_appswitch_post
+FLAIR_APPSW_PRE_PPM     := $(BUILD)/$(FLAIR_APPSW_PRE_NAME).ppm
+FLAIR_APPSW_POST_PPM    := $(BUILD)/$(FLAIR_APPSW_POST_NAME).ppm
+FLAIR_APPSW_PRE_SERIAL  := $(BUILD)/$(FLAIR_APPSW_PRE_NAME).serial
+FLAIR_APPSW_POST_SERIAL := $(BUILD)/$(FLAIR_APPSW_POST_NAME).serial
+FLAIR_APPSW_PRE_REPORT  := $(BUILD)/$(FLAIR_APPSW_PRE_NAME).report
+FLAIR_APPSW_POST_REPORT := $(BUILD)/$(FLAIR_APPSW_POST_NAME).report
+.PHONY: test-flair-appswitch
+test-flair-appswitch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_APPSWITCH_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch : THE booted App Contract (O-5)\n'
+	@printf '  Click HELLO sliver -> raise+activate HELLO over NOTES + swap its menubar.\n'
+	@printf '  Ref: ADR-0013 (FLAIR App Contract); spec/flair_appswitch_trace.mk. Law 2/4.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (PRE + POST captures of the co-resident tenants)\n' "$(FLAIRTENANTS_IMG)"
+	@printf 'Expecting : PRE co-resident scene + POST FLAIR-DISPATCH app=HELLO + grader PASS\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- PRE: the co-resident scene before the click (no mouse). ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_APPSW_PRE_NAME)" --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 \
+		2> "$(FLAIR_APPSW_PRE_REPORT)" || true
+	@# ---- POST: inject the locked trace; dump after the dispatch marker. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_APPSW_POST_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_APPSWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DISPATCH app=HELLO" --timeout-ms 15000 \
+		2> "$(FLAIR_APPSW_POST_REPORT)" || true
+	@cat "$(FLAIR_APPSW_POST_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- 1. No triple-fault in either boot. ----
+	@if grep -q 'triple_fault=1' "$(FLAIR_APPSW_PRE_REPORT)" "$(FLAIR_APPSW_POST_REPORT)"; then \
+		printf '!!! test-flair-appswitch FAIL: TRIPLE FAULT in a tenants boot\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-appswitch [1/4]: no triple-fault (PRE + POST)\n'
+	@# ---- 2. Serial milestones. ----
+	@grep -q '^FLAIR-TENANTS-READY' "$(FLAIR_APPSW_PRE_SERIAL)" \
+		|| { printf '!!! test-flair-appswitch FAIL: FLAIR-TENANTS-READY missing in the PRE boot (the scene never composed)\n'; exit 1; }
+	@grep -q '^FLAIR-LIVE-READY$$' "$(FLAIR_APPSW_POST_SERIAL)" \
+		|| { printf '!!! test-flair-appswitch FAIL: FLAIR-LIVE-READY missing -- the pump never armed\n'; exit 1; }
+	@grep -q '^FLAIR-DISPATCH app=HELLO$$' "$(FLAIR_APPSW_POST_SERIAL)" \
+		|| { printf '!!! test-flair-appswitch FAIL: FLAIR-DISPATCH app=HELLO missing -- the click did not dispatch the switch\n'; grep '^FLAIR-' "$(FLAIR_APPSW_POST_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-appswitch [2/4]: FLAIR-TENANTS-READY + FLAIR-LIVE-READY + FLAIR-DISPATCH app=HELLO\n'
+	@# ---- 3. Both screendumps captured. ----
+	@if [ ! -s "$(FLAIR_APPSW_PRE_PPM)" ] || [ ! -s "$(FLAIR_APPSW_POST_PPM)" ]; then \
+		printf '!!! test-flair-appswitch FAIL: a screendump is missing (PRE %s / POST %s)\n' "$(FLAIR_APPSW_PRE_PPM)" "$(FLAIR_APPSW_POST_PPM)"; exit 1; \
+	fi
+	@printf '>>> test-flair-appswitch [3/4]: PRE + POST screendumps captured\n'
+	@# ---- 4. Grade the PRE->POST delta against the INDEPENDENT canon. ----
+	@$(PPM_FLAIR_APPSWITCH_CHECK_BIN) "$(FLAIR_APPSW_PRE_PPM)" "$(FLAIR_APPSW_POST_PPM)" \
+		|| { printf '!!! test-flair-appswitch FAIL: the PRE->POST delta is not a raise+activate+menubar-swap (the App Contract app-switch is not wired)\n'; exit 1; }
+	@printf '>>> test-flair-appswitch [4/4]: grader PASS (TIER-A overlap + TIER-B accent + MENU-BAND swap)\n'
+	@printf 'VERDICT   : PASS -- clicking the background tenant RAISES + ACTIVATES it and swaps\n'
+	@printf '            its menubar; the booted FLAIR App Contract honours O-5 (ADR-0013)\n'
+	@printf '            (QEMU; Bochs boot leg = make test-flair-appswitch-bochs)\n'
+	@printf '======================================================================\n'
+
+# REAL gate: test-flair-appswitch-mutant (Rule 6 -- MUTATION-PROVE the O-5 grader
+# BITES; a check that never bites is decoration). Boots 4 separate FLAIRTENANTS mutant
+# images (each one -DFLAIR_LIVE_MUTATE_* knob, all behind #ifdef so the real image is
+# byte-identical), runs the SAME PRE/POST capture + grader, and confirms the grader
+# goes RED for every one. The CLEAN image is graded GREEN first as the baseline (same
+# PRE, same grader), so the only variable is the mutation. (The 5th candidate,
+# NO_GROUP_RAISE, is HOST-COVERED -- single-window tenants make front-only == correct,
+# so it carries no emu image; see the OMISSION note at the mutant-image instantiations.)
+.PHONY: test-flair-appswitch-mutant
+test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(FLAIRTENANTS_IMG) \
+	$(BUILD)/flair_tenants_mut_ignore_refcon.img \
+	$(BUILD)/flair_tenants_mut_skip_activate.img \
+	$(BUILD)/flair_tenants_mut_drop_update.img \
+	$(BUILD)/flair_tenants_mut_no_menubar_swap.img
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch-mutant : Rule 6 (the gate BITES)\n'
+	@printf '  4 FLAIRTENANTS mutants, each MUST drive ppm_flair_appswitch_check RED.\n'
+	@printf '======================================================================\n'
+	@# ---- baseline: the CLEAN image must grade GREEN (same PRE, same grader). ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name flair_appswitch_pre --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name flair_appswitch_post --out "$(BUILD)" \
+		--mouse "$(FLAIR_APPSWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DISPATCH app=HELLO" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@if [ ! -s "$(BUILD)/flair_appswitch_pre.ppm" ]; then printf '!!! test-flair-appswitch-mutant FAIL: clean PRE screendump missing (cannot establish the baseline)\n'; exit 1; fi
+	@$(PPM_FLAIR_APPSWITCH_CHECK_BIN) "$(BUILD)/flair_appswitch_pre.ppm" "$(BUILD)/flair_appswitch_post.ppm" >/dev/null 2>&1 \
+		|| { printf '!!! test-flair-appswitch-mutant FAIL: the CLEAN image did not grade GREEN -- the baseline is broken (not a mutant)\n'; exit 1; }
+	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN (the grader is live)\n'
+	@# ---- each mutant: same clean PRE, mutant POST -> the grader MUST go RED. ----
+	@rc=0; \
+	for spec in "ignore_refcon:FLAIR_LIVE_MUTATE_IGNORE_REFCON:owner-recovery returns the foreground always -- no switch (TIER-A)" \
+	            "skip_activate:FLAIR_LIVE_MUTATE_SKIP_ACTIVATE:skip the deactivate/activate pair -- no accent (TIER-B)" \
+	            "drop_update:FLAIR_LIVE_MUTATE_DROP_UPDATE:skip flair_route_updates -- exposed overlap stale (TIER-A)" \
+	            "no_menubar_swap:FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP:skip DrawMenuBar -- band unchanged (MENU-BAND)"; do \
+		tag=$${spec%%:*}; rest=$${spec#*:}; macro=$${rest%%:*}; desc=$${rest#*:}; \
+		img="$(BUILD)/flair_tenants_mut_$$tag.img"; \
+		printf '%s\n' '----------------------------------------------------------------------'; \
+		printf '>>> mutant %s (-D%s): %s\n' "$$tag" "$$macro" "$$desc"; \
+		$(HARNESS_BIN) --disk "$$img" --name "flair_appswitch_mut_$$tag" --out "$(BUILD)" \
+			--mouse "$(FLAIR_APPSWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+			--screendump --screendump-after "FLAIR-DISPATCH app=HELLO" --timeout-ms 15000 \
+			2> "$(BUILD)/flair_appswitch_mut_$$tag.report" || true; \
+		if grep -q 'triple_fault=1' "$(BUILD)/flair_appswitch_mut_$$tag.report"; then \
+			printf '!!! test-flair-appswitch-mutant FAIL: mutant %s TRIPLE-FAULTED (cannot judge the oracle)\n' "$$tag"; rc=1; continue; \
+		fi; \
+		if [ ! -s "$(BUILD)/flair_appswitch_mut_$$tag.ppm" ]; then \
+			printf '!!! test-flair-appswitch-mutant FAIL: mutant %s produced no screendump\n' "$$tag"; rc=1; continue; \
+		fi; \
+		if $(PPM_FLAIR_APPSWITCH_CHECK_BIN) "$(BUILD)/flair_appswitch_pre.ppm" "$(BUILD)/flair_appswitch_mut_$$tag.ppm" > "$(BUILD)/flair_appswitch_mut_$$tag.chk" 2>&1; then \
+			printf '!!! test-flair-appswitch-mutant FAIL: the %s oracle is DECORATION -- mutant %s PASSED ppm_flair_appswitch_check\n' "$$macro" "$$tag"; \
+			rc=1; \
+		else \
+			printf '>>> mutant %s correctly RED:\n' "$$tag"; \
+			grep -m3 'FAIL ' "$(BUILD)/flair_appswitch_mut_$$tag.chk" | sed 's/^/      /'; \
+		fi; \
+	done; \
+	if [ "$$rc" != "0" ]; then exit 1; fi
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- all 4 mutants drive ppm_flair_appswitch_check RED (the gate bites; Rule 6)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-appswitch-bochs (ADR-0013; Rule 5 -- the BOCHS boot leg of
+# the FLAIR App Contract tenants image)
+# ---------------------------------------------------------------------------
+# TRUTHFUL CONSTRAINT (Law 1/Law 2, identical to test-flair-desktop-bochs / test-
+# flair-live-bochs): the FLAIRTENANTS image shares the BOOT_FLAIR_LIVE path, which
+# presents the 640x480 desktop FIRST. Bochs 2.7's LGPL vgabios ENOMODEs the 640x480
+# VBE mode and falls back to standard VGA mode 0x13 (320x200x8); flair_desktop_run
+# then FAILS LOUD ("LFB smaller than 640x480") and HALTS BEFORE the tenants are
+# launched -- so FLAIR-TENANTS-READY / FLAIR-DISPATCH genuinely DO NOT (and should
+# not) appear on Bochs, and there is NO mouse injection on the Bochs leg (no QMP).
+# What this leg proves (the real differential): the SAME flairtenants kernel runs the
+# boot chain + the FLAIR heap gate IDENTICALLY to QEMU, then the 640x480 guard fires
+# correctly under the 320x200 fallback (no triple-fault). The app-switch behaviour
+# itself is graded on QEMU (test-flair-appswitch). SERIAL-only; env-specific (needs
+# Bochs); a SEPARATE target, NOT in the default make test (like test-flair-live-bochs).
+FLAIR_APPSW_BOCHS_NAME   := flair_appswitch_bochs
+FLAIR_APPSW_BOCHS_REPORT := $(BUILD)/$(FLAIR_APPSW_BOCHS_NAME).report.txt
+FLAIR_APPSW_BOCHS_SERIAL := $(BUILD)/$(FLAIR_APPSW_BOCHS_NAME).serial
+.PHONY: test-flair-appswitch-bochs
+test-flair-appswitch-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch-bochs : BOCHS leg (App Contract)\n'
+	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). ADR-0013; beads initech-4e35.\n'
+	@printf '  Bochs 2.7: VBE ENOMODE -> mode-0x13 (320x200); the 640x480 desktop cannot\n'
+	@printf '  fit, so kmain FAILS LOUD (Rule 2) BEFORE the tenants launch; the leg proves\n'
+	@printf '  the shared boot/heap milestones + that the guard fires, no triple-fault.\n'
+	@printf '  (No mouse injection on Bochs -> boot leg only; the app-switch is graded on\n'
+	@printf '  QEMU by test-flair-appswitch.)\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRTENANTS_IMG)"
+	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
+	@printf '            guard (PANIC + HALTED), no triple-fault\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --expect HALTED \
+		--name "$(FLAIR_APPSW_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
+		2> "$(FLAIR_APPSW_BOCHS_REPORT)" || true
+	@cat "$(FLAIR_APPSW_BOCHS_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@grep -q 'rfb_unblocked=1' "$(FLAIR_APPSW_BOCHS_REPORT)" \
+		|| { printf '!!! test-flair-appswitch-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(FLAIR_APPSW_BOCHS_REPORT)"; then \
+		printf '!!! test-flair-appswitch-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
+	fi
+	@if [ ! -s "$(FLAIR_APPSW_BOCHS_SERIAL)" ]; then \
+		printf '!!! test-flair-appswitch-bochs FAIL: no serial captured at %s\n' "$(FLAIR_APPSW_BOCHS_SERIAL)"; exit 1; \
+	fi
+	@printf 'Serial markers captured:\n'
+	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK HALTED; do \
+		if grep -q "^$$m$$" "$(FLAIR_APPSW_BOCHS_SERIAL)"; then printf '  %-14s : present\n' "$$m"; \
+		else printf '  %-14s : MISSING\n' "$$m"; fi; \
+	done
+	@# 1. The Bochs 320x200 fallback fired (VBE ENOMODE -> mode 0x13).
+	@for m in VBE-ENOMODE VGA13; do \
+		grep -q "^$$m$$" "$(FLAIR_APPSW_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-appswitch-bochs FAIL: fallback marker %s missing\n' "$$m"; exit 1; }; \
+	done
+	@# 2. The SHARED kernel + FLAIR-heap milestones -- the differential vs QEMU.
+	@for m in S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK; do \
+		grep -q "^$$m$$" "$(FLAIR_APPSW_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-appswitch-bochs FAIL: shared kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
+	done
+	@# 3. The 640x480-required fail-loud guard FIRED (PANIC + HALTED), not a reboot.
+	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_APPSW_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-appswitch-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback\n'; exit 1; }
+	@grep -q '^HALTED$$' "$(FLAIR_APPSW_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-appswitch-bochs FAIL: HALTED terminal marker missing\n'; exit 1; }
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- the flairtenants kernel booted under Bochs through the shared\n'
+	@printf '            kernel + FLAIR-heap milestones (== QEMU), and the 640x480 fail-loud\n'
+	@printf '            guard fired correctly under the 320x200 fallback (no triple-fault).\n'
+	@printf '            NOTE: FLAIR-TENANTS-READY + the app-switch are QEMU-only (Bochs has\n'
+	@printf '            no 640x480 LFB + no QMP mouse injection); graded by test-flair-appswitch.\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -15765,7 +16098,8 @@ TEST_EMU_GATES := \
 	test-flair-key test-flair-key-mutant \
 	test-flair-mouse test-flair-mouse-mutant \
 	test-flair-drag test-flair-drag-mutant \
-	test-flair-menu test-flair-menu-mutant
+	test-flair-menu test-flair-menu-mutant \
+	test-flair-appswitch test-flair-appswitch-mutant
 
 test-unit:
 	@printf '======================================================================\n'

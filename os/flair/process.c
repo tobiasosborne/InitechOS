@@ -349,6 +349,17 @@ void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
 static FlairApp *owner_of_window(FlairProcessList *list, WindowPtr w)
 {
     if (w == NULL) PROC_PANIC("dispatch: NULL hit window for inContent");
+#ifdef FLAIR_LIVE_MUTATE_IGNORE_REFCON
+    /* MUTANT FLAIR_LIVE_MUTATE_IGNORE_REFCON (Rule 6; the O-5 tenants emu-mutant
+     * image ONLY): IGNORE the refCon binding rule and always return the FOREGROUND
+     * app, never the clicked background tenant. A click on HELLO's visible sliver
+     * then "belongs to" the foreground NOTES, so flair_app_dispatch sees
+     * owner == old_fg, takes NO switch (no raise / no activate / no promote), and
+     * HELLO is never raised or repainted -> the booted O-5 gate's TIER-A overlap
+     * probe stays NOTES_FILL (RED). NEVER define in a real build. */
+    (void)w;
+    return list->head;
+#else
     for (FlairApp *a = list->head; a != NULL; a = a->nextApp) {
         if (a->magic == FLAIR_APP_MAGIC &&
             (int32_t)(uintptr_t)a == w->refCon)
@@ -356,6 +367,7 @@ static FlairApp *owner_of_window(FlairProcessList *list, WindowPtr w)
     }
     PROC_PANIC("dispatch: inContent on a window owned by no resident app");
     return NULL;   /* unreachable (PROC_PANIC does not return) */
+#endif
 }
 
 /* deliver one cooked EventRecord to a tenant's REQUIRED `event` entry-point. */
@@ -456,10 +468,21 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
         if (owner != old_fg) {
             /* CLICK-TO-ACTIVATE (Sec 3.3 / Sec 3.5), in deterministic order. */
             raise_group(wm, owner);                    /* (1) raise WHOLE group  */
+#ifndef FLAIR_LIVE_MUTATE_SKIP_ACTIVATE
             EventRecord deact = mk_activate(ev, old_fg ? old_fg->windows : NULL, 0);
             deliver(old_fg, &deact);                   /* (2) deactivate old fg  */
             EventRecord act = mk_activate(ev, owner->windows, 1);
             deliver(owner, &act);                      /* (3) activate new fg    */
+#else
+            /* MUTANT FLAIR_LIVE_MUTATE_SKIP_ACTIVATE (Rule 6; the O-5 tenants
+             * emu-mutant image ONLY): SKIP the deactivate/activate pair. The group
+             * still raises (1) and is still promoted (4), so the booted O-5 gate's
+             * TIER-A overlap repaint + MENU-BAND swap stay GREEN -- but the raised
+             * tenant never receives activateEvt active=1, so it never paints its
+             * content accent -> the gate's TIER-B accent probe stays FILL (RED).
+             * Isolates the activation leg. NEVER define in a real build. */
+            (void)mk_activate;   /* keep referenced (else -Werror=unused-function) */
+#endif
             promote_to_front(list, owner, old_fg);     /* (4) relink process list*/
         }
         /* THEN the original mouseDown to the (now-foreground) owner. */
