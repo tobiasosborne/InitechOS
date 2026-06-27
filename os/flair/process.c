@@ -157,55 +157,71 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
                              const bitmap_t *surface,
                              flair_heap_t *master, const FlairAppProcs *procs,
                              const char *name, rgn_rect_t bounds,
-                             uint32_t budget)
+                             uint32_t records_budget, uint32_t budget)
 {
     if (list == NULL || wm == NULL || master == NULL || procs == NULL)
         PROC_PANIC("launch: NULL argument (contract error)");
     /* `surface` MAY be NULL: the stub host oracles launch non-drawing tenants. */
 
+    /* SPLIT-ARENA carve (ADR-0013 Amendment AC-2, bead initech-ubd0): THREE blocks
+     * IN ORDER -- (a) the FlairApp handle, (b) the RECORDS block (HANDLE; holds the
+     * WindowRecord(s) + region pools), (c) the DATA block (GENERAL; per-instance
+     * state). Keeping the WindowRecord + regions OFF the DATA arena is what lets app
+     * DEATH survive a scribbled DATA arena (BC-6). */
     /* (a) the FlairApp handle from the master heap (HANDLE class). */
     FlairApp *app = (FlairApp *)flair_alloc(master, FLAIR_CLASS_HANDLE,
                                             (uint32_t)sizeof(FlairApp));
-    /* (b) the child partition block of the app's budget (GENERAL class). */
+    /* (b) the RECORDS block (HANDLE class) -- WindowRecord(s) + region pools (AC-2). */
+    void *records_block = (records_budget > 0u)
+                ? flair_alloc(master, FLAIR_CLASS_HANDLE, records_budget)
+                : (void *)0;
+    /* (c) the DATA block of the app's budget (GENERAL class) -- per-instance state. */
     void *block = (budget > 0u)
                 ? flair_alloc(master, FLAIR_CLASS_GENERAL, budget)
                 : (void *)0;
 
-    /* (O-4 / BC-5) Fail-loud budget: if EITHER carve failed, reclaim whatever we
-     * got, install NOTHING, leave `list`/`wm` unchanged, and return NULL. Do NOT
-     * overcommit, do NOT partially install a window/menubar (Rule 2). */
-    if (app == NULL || block == NULL) {
+    /* (O-4 / BC-5) Fail-loud budget: if ANY carve failed, reclaim whatever we got
+     * IN REVERSE carve order, install NOTHING, leave `list`/`wm` unchanged, and
+     * return NULL. Do NOT overcommit, do NOT partially install (Rule 2). */
+    if (app == NULL || records_block == NULL || block == NULL) {
 #ifdef BUDGET_MUT_OVERCOMMIT
         /* MUTANT BUDGET_MUT_OVERCOMMIT (Rule 6; budget-mutant build only): instead
          * of fail-loud reclaim, OVERCOMMIT -- partially install the (incompletely
          * carved) app anyway. O-4 expects NULL + no install, so this goes RED.
          * NEVER define in a real build. */
         if (app != NULL) {
-            app->block   = block;          /* may be NULL */
-            app->magic   = FLAIR_APP_MAGIC;
-            app->nextApp = list->head;
-            list->head   = app;            /* partial install */
+            app->block         = block;          /* may be NULL */
+            app->records_block = records_block;  /* may be NULL */
+            app->magic         = FLAIR_APP_MAGIC;
+            app->nextApp       = list->head;
+            list->head         = app;            /* partial install */
         }
         return app;                        /* non-NULL on the handle-ok path */
 #else
-        if (block != NULL) flair_free(master, FLAIR_CLASS_GENERAL, block);
-        if (app   != NULL) flair_free(master, FLAIR_CLASS_HANDLE,  app);
+        /* REVERSE of the (a)->(b)->(c) carve order: data, then records, then handle.
+         * This LIFO discipline keeps the small FlairApp handle the HANDLE free-list
+         * head (records_budget > sizeof(FlairApp)) -- see FlairProcess_terminate. */
+        if (block         != NULL) flair_free(master, FLAIR_CLASS_GENERAL, block);
+        if (records_block != NULL) flair_free(master, FLAIR_CLASS_HANDLE,  records_block);
+        if (app           != NULL) flair_free(master, FLAIR_CLASS_HANDLE,  app);
         return NULL;
 #endif
     }
 
-    /* (c) zero + init the handle; lay a CHILD heap over the partition block. */
+    /* (c') zero + init the handle; lay the TWO child heaps over their blocks. */
     proc_zero(app, (uint32_t)sizeof(FlairApp));
+    flair_heap_init(&app->records_arena, records_block, records_budget); /* AC-2 */
     flair_heap_init(&app->arena, block, budget);
-    app->magic   = FLAIR_APP_MAGIC;        /* BC-3 refCon-tag sentinel            */
-    app->name    = name;
-    app->procs   = procs;
-    app->block   = block;
-    app->menubar = (struct MenuBar *)0;
-    app->windows = (WindowPtr)0;
-    app->refCon  = 0;
-    app->state   = (uint8_t)FLAIR_APP_FG;  /* provisional; affirmed on link (f)   */
-    app->nextApp = (FlairApp *)0;
+    app->magic         = FLAIR_APP_MAGIC;  /* BC-3 refCon-tag sentinel            */
+    app->name          = name;
+    app->procs         = procs;
+    app->block         = block;
+    app->records_block = records_block;    /* AC-2 RECORDS block (freed at teardown)*/
+    app->menubar       = (struct MenuBar *)0;
+    app->windows       = (WindowPtr)0;
+    app->refCon        = 0;
+    app->state         = (uint8_t)FLAIR_APP_FG;  /* provisional; affirmed on link (f)*/
+    app->nextApp       = (FlairApp *)0;
 
     /* (d) build the app's world from its child arena. open() does NewWindow into
      * app->arena and sets each w->refCon = (int32_t)(uintptr_t)app (Sec 3.1). */
@@ -224,11 +240,12 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
             list->head   = app;
             return app;
 #else
-            /* (O-4 open-fail) reclaim block + handle, install nothing, return NULL.
-             * The contract (Sec 3.1) is open()!=0 == launch fail. CLEAN failures
-             * (the O-4 stub) thread no window before failing; the corrupt/partial
-             * open() path -- like corrupt-arena death -- is deferred (initech-ubd0). */
+            /* (O-4 open-fail) reclaim data + records + handle (REVERSE carve order,
+             * LIFO), install nothing, return NULL. The contract (Sec 3.1) is
+             * open()!=0 == launch fail. CLEAN failures (the O-4 stub) thread no
+             * window before failing. */
             flair_free(master, FLAIR_CLASS_GENERAL, app->block);
+            flair_free(master, FLAIR_CLASS_HANDLE,  app->records_block);
             flair_free(master, FLAIR_CLASS_HANDLE,  app);
             return NULL;
 #endif
@@ -251,38 +268,37 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
 }
 
 /* --------------------------------------------------------------------------
- * FlairProcess_terminate -- CLEAN teardown (ADR-0013 Sec 3.4).
+ * teardown_common -- the SHARED teardown body for FlairProcess_terminate (clean)
+ * and FlairProcess_kill (death). Performs {DisposeWindow-loop + unlink +
+ * promote-next + the three one-shot frees}. It does NOT call procs->close(): the
+ * caller decides (terminate calls close() first; kill -- a crashed app -- never
+ * runs the dead app's code). ADR-0013 Sec 3.4 + Amendment AC-2 (bead initech-ubd0).
  *
- * For a tenant brought up by FlairProcess_launch (app->block carved from
- * `master`). The one-shot child-block free is the clean-death property (Sec 3.6).
+ * SPLIT-ARENA (AC-2): the WindowRecord(s) + region pools live in app->records_arena
+ * (a SEPARATE HANDLE block), so the DisposeWindow loop reads ONLY records-resident
+ * structural fields (refCon/nextWindow/strucRgn) -- intact even when the DATA arena
+ * (app->block) was scribbled by a crash. The DATA block is freed WITHOUT reading its
+ * payload (flair_free touches only the in-band master-heap header, which precedes
+ * the payload and the scribble), so death survives a corrupted DATA arena (BC-6).
  *
- * SCOPE LIMIT (orchestrator ruling, bead initech-ubd0): CLEAN teardown only. The
- * "app-death survives a CORRUPTED child arena" path (ADR Sec 3.4 vs Sec 3.6
- * tension -- the WindowRecords live IN the child arena, so step (2)'s window
- * removal reads that arena) is DEFERRED pending a committee ruling and is NOT
- * implemented here.
+ * FREE ORDER (LIFO -- load-bearing for the O-3 avail-stable invariant): the DATA
+ * block (GENERAL) first, then the RECORDS block (HANDLE), then the FlairApp handle
+ * (HANDLE) LAST. The two HANDLE frees push records_block then the small handle, so
+ * the HANDLE free-list head ends up the SMALL FlairApp handle. Because
+ * records_budget > sizeof(FlairApp), cycle-2's first (small) HANDLE alloc then
+ * reuses the small handle and the (large) records alloc reuses records_block -- no
+ * fresh bump, avail stable. The REVERSE order would hand the large records block to
+ * the small request and force a fresh bump for the large request every cycle ->
+ * avail drift (the very bug O-3 + TEARDOWN_MUT_LEAK_RECORDS guard).
  * -------------------------------------------------------------------------- */
-void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
+static void teardown_common(FlairProcessList *list, WindowMgr *wm,
                             flair_heap_t *master, FlairApp *app)
 {
-    if (list == NULL || wm == NULL || master == NULL || app == NULL) return;
-
-    /* BC-3: a teardown of a non-tenant (scribbled/foreign handle) fails loud
-     * rather than freeing arbitrary memory (Rule 2). */
-    if (app->magic != FLAIR_APP_MAGIC)
-        PROC_PANIC("terminate: app->magic mismatch (BC-3)");
-
-    app->state = (uint8_t)FLAIR_APP_DYING;
-
-    /* (1) optional close hook (flush docs); the shell tears down regardless. */
-    if (app->procs != NULL && app->procs->close != NULL)
-        app->procs->close(app);
-
     /* (2) DisposeWindow every window in the wm z-order OWNED by app -- matched by
      * refCon == (int32_t)(uintptr_t)app (the SAME demux key open() set, Sec 3.1).
      * DisposeWindow mutates the z-order, so re-scan from wm->front after each
-     * removal. (CLEAN teardown reads the child arena where the WindowRecords live;
-     * the corrupt-arena death path is deferred -- bead initech-ubd0.) */
+     * removal. WindowRecords are records_arena-resident (AC-2): a scribbled DATA
+     * arena does NOT corrupt them. */
     for (;;) {
         WindowPtr owned = (WindowPtr)0;
         for (WindowPtr w = wm->front; w != (WindowPtr)0; w = w->nextWindow) {
@@ -314,18 +330,83 @@ void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
         succ->state = (uint8_t)FLAIR_APP_FG;
     }
 
-    /* (3) ONE-SHOT free: the child partition block (GENERAL) first ... */
+    /* (3) ONE-SHOT frees, LIFO: the DATA block (GENERAL) first ... */
 #ifndef TEARDOWN_MUT_LEAK_BLOCK
     flair_free(master, FLAIR_CLASS_GENERAL, app->block);
 #else
     /* MUTANT TEARDOWN_MUT_LEAK_BLOCK (Rule 6; teardown-mutant build only): SKIP the
-     * child-block free -> the GENERAL block leaks -> flair_heap_avail drifts
+     * DATA-block free -> the GENERAL block leaks -> flair_heap_avail drifts
      * monotonically DOWN per launch/terminate cycle (the bump cursor is never
      * rolled back), so O-3's "avail stable across cycles" check goes RED. NEVER
      * define in a real build. */
 #endif
-    /* ... then the handle (HANDLE) LAST. Do not touch `app` after this. */
+    /* ... then the RECORDS block (HANDLE) ... */
+#ifndef TEARDOWN_MUT_LEAK_RECORDS
+    flair_free(master, FLAIR_CLASS_HANDLE, app->records_block);
+#else
+    /* MUTANT TEARDOWN_MUT_LEAK_RECORDS (Rule 6; AC-2; records-mutant build only):
+     * SKIP the RECORDS-block free -> the HANDLE records block leaks -> every cycle
+     * BUMPS a fresh records block (sizeof FlairApp != records_budget, so the small
+     * handle on the free-list never satisfies the large records request) -> avail
+     * drifts DOWN -> O-3's "avail stable across cycles" check goes RED. NEVER define
+     * in a real build. */
+#endif
+    /* ... then the FlairApp handle (HANDLE) LAST. Do not touch `app` after this. */
     flair_free(master, FLAIR_CLASS_HANDLE, app);
+}
+
+/* --------------------------------------------------------------------------
+ * FlairProcess_terminate -- CLEAN teardown (ADR-0013 Sec 3.4 + Amendment AC-2).
+ *
+ * For a tenant brought up by FlairProcess_launch (app->block + app->records_block
+ * carved from `master`). Runs procs->close() (flush docs) THEN the shared teardown
+ * helper. The split-arena one-shot frees are the clean-death property (Sec 3.6).
+ * -------------------------------------------------------------------------- */
+void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
+                            flair_heap_t *master, FlairApp *app)
+{
+    if (list == NULL || wm == NULL || master == NULL || app == NULL) return;
+
+    /* BC-3: a teardown of a non-tenant (scribbled/foreign handle) fails loud
+     * rather than freeing arbitrary memory (Rule 2). The handle lives in its OWN
+     * HANDLE block, NOT the DATA arena, so a scribbled DATA arena leaves it intact. */
+    if (app->magic != FLAIR_APP_MAGIC)
+        PROC_PANIC("terminate: app->magic mismatch (BC-3)");
+
+    app->state = (uint8_t)FLAIR_APP_DYING;
+
+    /* (1) optional close hook (flush docs); the shell tears down regardless. */
+    if (app->procs != NULL && app->procs->close != NULL)
+        app->procs->close(app);
+
+    teardown_common(list, wm, master, app);
+}
+
+/* --------------------------------------------------------------------------
+ * FlairProcess_kill -- the DEATH path (ADR-0013 Sec 3.4 application-death; AC-2 /
+ * BC-6). FlairProcess_terminate MINUS procs->close(): a crashed app's code is
+ * NEVER run again. The shared helper removes the windows from the z-order reading
+ * only records_arena-resident fields, promotes the successor, and one-shot-frees
+ * the data + records + handle WITHOUT trusting the (possibly scribbled) DATA
+ * payload. This is the path the death-survival oracle scribbles app->block before
+ * calling -- it must still empty the z-order with no panic (BC-6).
+ * -------------------------------------------------------------------------- */
+void FlairProcess_kill(FlairProcessList *list, WindowMgr *wm,
+                       flair_heap_t *master, FlairApp *app)
+{
+    if (list == NULL || wm == NULL || master == NULL || app == NULL) return;
+
+    /* BC-3: the magic tag lives in the handle (its OWN HANDLE block), intact even
+     * when the DATA arena was scribbled by the crash -- so the integrity check is
+     * meaningful here, not itself a read of the dead heap (Rule 2). */
+    if (app->magic != FLAIR_APP_MAGIC)
+        PROC_PANIC("kill: app->magic mismatch (BC-3)");
+
+    app->state = (uint8_t)FLAIR_APP_DYING;
+
+    /* NO procs->close(): never run a dead app's code (the death-vs-clean-quit
+     * distinction; ADR-0013 Sec 3.4). */
+    teardown_common(list, wm, master, app);
 }
 
 /* --------------------------------------------------------------------------

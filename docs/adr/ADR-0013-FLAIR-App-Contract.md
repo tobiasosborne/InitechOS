@@ -36,6 +36,7 @@
 |---|---|---|---|---|
 | 0.1 | 2026-06-27 | App-Contract Committee (3 seats), Chair-synthesized | Initial draft (ADR-by-committee `wf_42352963-a57`). Mac Process-Manager model as spine, minimal-cooperative mechanics grafted, Win16 dispatch-shape only. All file:line citations verified against HEAD; three drift corrections folded (refCon field at window_record.h:400; desktop_paint_all at desktop.c:149 via shell_render shell.h:239; SHELL_MAX_WINDOWS==2 at shell.h:104; osEvt synthesis not promised by event_model.h:71). | (adversarial verify) |
 | 1.0 | 2026-06-27 | Chair + Adversarial Reviewer | Ratified. Adversarial verifier returned "ratifiable-with-fixes"; the four fixes are folded into the normative text: (1) the refCon demux/activation extracted into a HOST-BUILDABLE Layer-5 dispatcher (`flair_app_dispatch`) called by both kmain and the oracle, so E-D2 single-spine holds and oracle #1 is real (Sec 2, Sec 3.3, BC-2); (2) the teardown/leak oracle reframed to "avail STABLE across cycles >=2 / leak drifts down" to match the bump+free-list heap contract (Sec 7 O-3); (3) a fail-loud launch-budget oracle and a char-tenant suspend/rebuild oracle added (Sec 7 O-4/O-7); (4) citation fixes (FLAIR_CLASS_GENERAL enumerator at heap.h ~108, not heap.h:177; ADR-0001 dangling-path note). | T. Osborne (Operator) |
+| 1.1 | 2026-06-27 | App-Contract Committee (Architecture Review Board) | **Amendment AC-2 -- the SPLIT-ARENA resolution of initech-ubd0** (full text in `ADR-0013-AMENDMENT-AC-2-Split-Arena.md`; summary appended as "Amendment AC-2" below). Resolves the Sec 3.4-vs-3.6 tension AC-1 deferred: Sec 3.4 claims app DEATH survives a corrupted child arena, but Sec 3.6 + the code put each tenant's WindowRecord + region pools IN the child arena, so the DisposeWindow loop reads the dead heap -- the claim was FALSE (BC-6 unsatisfied). Ruling **option (b) split-arena**: a tenant now owns TWO child blocks -- a RECORDS block (`FLAIR_CLASS_HANDLE`; WindowRecord(s) + all region pools, read during teardown) and a DATA block (`FLAIR_CLASS_GENERAL`; per-instance state). New `FlairProcess_kill` (= terminate minus `close()`) is the death path. **BC-6 now SATISFIED** -- oracle-proven (O-3 death-survival sub-test + UBD0_MUT_RECORDS_IN_DATA_ARENA / TEARDOWN_MUT_LEAK_RECORDS mutants). | (ARB; adversarial-verified) |
 
 ### Approval & Sign-Off Matrix
 
@@ -244,4 +245,79 @@ Rationale:
 
 ---
 
-*End of ADR-0013. RATIFIED by ADR-by-committee + adversarial verification, operator-ratified 2026-06-27. Spine: Apple Process Manager model (Seat A); mechanics: minimal-cooperative (Seat C, grafted); Win16 dispatch-shape only (Seat B, noted). All file:line citations verified against HEAD. Controlled Document; verify revision before use.*
+## Amendment AC-2 -- the split-arena resolution of initech-ubd0 (BC-6 satisfied)
+
+*Normative. Amends Sec 3.2, 3.4, 3.6, Sec 7 O-3, and BC-6. Full enterprise-doc
+version: `ADR-0013-AMENDMENT-AC-2-Split-Arena.md`. Resolution of bead initech-ubd0,
+the death-survival tension AC-1 (`ADR-0013-AMENDMENT-AC-1-App-Contract-Integration.md`
+Sec 6) explicitly deferred.*
+
+**The defect.** Sec 3.4 asserts application **death** "routes through steps (2) and
+(5) **independently of the dead app's possibly-corrupt arena**" because "`WindowRecord`s
+are caller-owned records the WindowMgr threads, so removing them from the z-order does
+not read the dead heap." But Sec 3.6 and the implementation allocate each tenant's
+`WindowRecord` **and** its region pools **from the tenant child arena** (`ref_tenant.c
+open_common`: `rec`,`rs`,`rc`,`ru`,`rk` carved from `&self->arena`). So
+`FlairProcess_terminate`'s `DisposeWindow` loop dereferences `w->nextWindow` /
+`w->refCon` / `w->strucRgn` -- all of which live in the very arena a crash corrupts.
+The Sec 3.4 claim was therefore **false today** and **BC-6 was unsatisfied** (the
+corrupt-arena death path was scoped out of the first cut, AC-1 Sec 6 / initech-ubd0).
+
+**The ruling -- option (b), SPLIT ARENA.** A tenant now owns **TWO** child blocks
+carved from the master FLAIR heap at launch, instead of one:
+
+1. **(Sec 3.6 amended) Two child blocks.** A **RECORDS block** (`FLAIR_CLASS_HANDLE`),
+   over which a new `records_arena` is `flair_heap_init`'d, holds the tenant's
+   `WindowRecord`(s) + **all** its `region_t` pools (`strucRgn`/`contRgn`/`updateRgn`
+   + the clip scratch). A **DATA block** (`FLAIR_CLASS_GENERAL`), over which the
+   existing `arena` is init'd, holds everything else (per-instance private state,
+   `TERec`, `userData`, future resource blobs). The shell reads **only** the RECORDS
+   arena during teardown; the DATA arena is freed without reading its payload. The
+   field names `block`/`arena` keep their meaning as the DATA side (unchanged);
+   siblings `records_block`/`records_arena` are added (`os/flair/process.h`).
+
+2. **(Sec 3.2 amended) Launch carves THREE blocks, fail-loud.** `FlairProcess_launch`
+   gains a `records_budget` parameter (immediately before `budget`) and carves, in
+   order: (a) the `FlairApp` handle (`HANDLE`), (b) the RECORDS block (`HANDLE`,
+   `records_budget`) then `flair_heap_init(&app->records_arena, ...)`, (c) the DATA
+   block (`GENERAL`, `budget`) then `flair_heap_init(&app->arena, ...)`. On **any**
+   carve NULL it reclaims whatever was carved **in reverse**, installs nothing, leaves
+   `list`/`wm` unchanged, and returns NULL (BC-5 preserved; no partial install).
+   `open()` carves the `WindowRecord` + regions from `records_arena`, per-instance
+   state from `arena`. A new constant `FLAIR_TENANT_RECORDS_DEFAULT` (16 KiB; >
+   `sizeof(FlairApp)`) sizes the demo records arena.
+
+3. **(Sec 3.4 amended) Two teardown entries over one helper.** A shared helper does
+   {`DisposeWindow` loop + unlink + promote-next + the three one-shot frees}, reading
+   window structural state **only** from `records_arena`-resident fields and freeing
+   the DATA block **without** reading its payload. `FlairProcess_terminate` (clean
+   quit) calls `procs->close()` then the helper; the **new** `FlairProcess_kill`
+   (DEATH/crash) calls the helper **only** -- a dead app's code is never run again.
+   **Free order is LIFO and load-bearing:** DATA block (`GENERAL`) first, then the
+   RECORDS block (`HANDLE`), then the `FlairApp` handle (`HANDLE`) **last** -- so the
+   small handle is the `HANDLE` free-list head and cycle-2's first (small) `HANDLE`
+   alloc reuses it rather than the large records block (requires `records_budget >
+   sizeof(FlairApp)`), keeping the O-3 avail-stable invariant.
+
+4. **(Sec 7 O-3 amended) The death-survival sub-test is now REQUIRED.** O-3's cycle-1
+   drop is now THREE spans (handle + records + data). The deferred corrupt-arena
+   sub-test is added and mandatory: launch a tenant, `memset(app->block, 0xFF, budget)`
+   to scribble the DATA arena, call `FlairProcess_kill`, and assert the process list +
+   z-order go empty with **no panic** and `avail` stable across N>=3 cycles -- a
+   NON-by-construction proof (Law 2). Mutants: `UBD0_MUT_RECORDS_IN_DATA_ARENA`
+   (records carved from the DATA arena -> the scribble corrupts them -> kill reads a
+   corrupted z-order -> RED) and `TEARDOWN_MUT_LEAK_RECORDS` (skip the records-block
+   free -> `avail` drifts down -> RED); the prior `TEARDOWN_MUT_LEAK_BLOCK` still
+   bites. O-4 gains an over-records-budget fail-loud leg.
+
+5. **(BC-6 amended) BC-6 is now SATISFIED.** "Death survives a corrupt arena" is no
+   longer aspirational: teardown removes windows from the z-order and one-shot-frees
+   the child blocks **without reading the (DATA) dead heap**, because the records the
+   loop reads live in a SEPARATE, uncorrupted block. Verified mechanically, not by
+   reviewer prose (Law 2).
+
+This is the initech-ubd0 resolution (architecture-committee ruling, option (b)).
+
+---
+
+*End of ADR-0013. RATIFIED by ADR-by-committee + adversarial verification, operator-ratified 2026-06-27; Amendment AC-2 (split-arena, initech-ubd0) appended 2026-06-27. Spine: Apple Process Manager model (Seat A); mechanics: minimal-cooperative (Seat C, grafted); Win16 dispatch-shape only (Seat B, noted). All file:line citations verified against HEAD. Controlled Document; verify revision before use.*

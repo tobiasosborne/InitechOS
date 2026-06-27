@@ -248,22 +248,27 @@ static int open_common(FlairApp *self, const FlairLaunchParams *lp,
         cfg == (const tenant_cfg_t *)0 || lp->wm == (WindowMgr *)0)
         return 1;
 
-    /* the private per-instance state (GENERAL class). */
+    /* the private per-instance state -- DATA arena (GENERAL class). This is the
+     * only thing open() carves from self->arena; the WindowRecord + region pools
+     * move to self->records_arena per ADR-0013 Amendment AC-2 (bead initech-ubd0). */
     tenant_priv_t *p = (tenant_priv_t *)flair_alloc(&self->arena, FLAIR_CLASS_GENERAL,
                                                     (uint32_t)sizeof *p);
     if (p == (tenant_priv_t *)0) return 1;
     zero_bytes(p, (uint32_t)sizeof *p);
 
-    /* the WindowRecord (HANDLE) + four region bundles (REGION). */
-    WindowRecord *rec = (WindowRecord *)flair_alloc(&self->arena, FLAIR_CLASS_HANDLE,
+    /* the WindowRecord (HANDLE) + four region bundles (REGION) -- RECORDS arena
+     * (ADR-0013 Amendment AC-2): the shell reads ONLY these during teardown, so app
+     * DEATH survives a scribbled DATA arena (BC-6). They carve from self->records_-
+     * arena, NEVER self->arena. */
+    WindowRecord *rec = (WindowRecord *)flair_alloc(&self->records_arena, FLAIR_CLASS_HANDLE,
                                                     (uint32_t)sizeof *rec);
-    ten_rgn_t *rs = (ten_rgn_t *)flair_alloc(&self->arena, FLAIR_CLASS_REGION,
+    ten_rgn_t *rs = (ten_rgn_t *)flair_alloc(&self->records_arena, FLAIR_CLASS_REGION,
                                              (uint32_t)sizeof *rs);
-    ten_rgn_t *rc = (ten_rgn_t *)flair_alloc(&self->arena, FLAIR_CLASS_REGION,
+    ten_rgn_t *rc = (ten_rgn_t *)flair_alloc(&self->records_arena, FLAIR_CLASS_REGION,
                                              (uint32_t)sizeof *rc);
-    ten_rgn_t *ru = (ten_rgn_t *)flair_alloc(&self->arena, FLAIR_CLASS_REGION,
+    ten_rgn_t *ru = (ten_rgn_t *)flair_alloc(&self->records_arena, FLAIR_CLASS_REGION,
                                              (uint32_t)sizeof *ru);
-    ten_rgn_t *rk = (ten_rgn_t *)flair_alloc(&self->arena, FLAIR_CLASS_REGION,
+    ten_rgn_t *rk = (ten_rgn_t *)flair_alloc(&self->records_arena, FLAIR_CLASS_REGION,
                                              (uint32_t)sizeof *rk);
     if (rec == (WindowRecord *)0 || rs == (ten_rgn_t *)0 || rc == (ten_rgn_t *)0 ||
         ru == (ten_rgn_t *)0 || rk == (ten_rgn_t *)0)

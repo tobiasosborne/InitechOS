@@ -74,8 +74,15 @@
 #define FLAIR_TEN_HELLO_CLICK_X    150
 #define FLAIR_TEN_HELLO_CLICK_Y    150
 
-/* --- Per-tenant child-arena budget (bytes) carved from the 4 MiB FLAIR heap by
- *     FlairProcess_launch.  Must hold a WindowRecord + its 3 region pools. --- */
+/* --- Per-tenant DATA-arena budget (bytes) carved from the 4 MiB FLAIR heap by
+ *     FlairProcess_launch.  Under ADR-0013 Amendment AC-2 (the initech-ubd0 split-
+ *     arena resolution) this is the DATA arena ONLY: per-instance private state
+ *     (tenant_priv_t) + slack.  The WindowRecord + its region pools now carve from
+ *     the SEPARATE records arena sized by FLAIR_TENANT_RECORDS_DEFAULT (process.h),
+ *     NOT from this budget -- which is why a scribbled DATA arena cannot corrupt the
+ *     window records (BC-6).  VALUE UNCHANGED (Rule 8): only the now-stale comment is
+ *     corrected; 2*(FLAIR_TEN_BUDGET + FLAIR_TENANT_RECORDS_DEFAULT) ~= 160 KiB stays
+ *     well under FLAIR_HEAP_SIZE (4 MiB). --- */
 #define FLAIR_TEN_BUDGET   (64u * 1024u)
 
 #endif /* FLAIR_TENANTS_DEMO_H */

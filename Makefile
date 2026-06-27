@@ -9669,6 +9669,8 @@ test-process-mutant: $(TEST_PROCESS_MUT_REFCON) $(TEST_PROCESS_MUT_ACTIVATE) $(T
 TEST_PROC_TEARDOWN     := $(BUILD)/test_process_teardown
 TEST_PROC_TEARDOWN_SRC := harness/proptest/test_process_teardown.c
 TEST_PROC_TEARDOWN_MUT := $(BUILD)/test_process_teardown_mutant_leakblock
+TEST_PROC_TEARDOWN_MUT_RECS := $(BUILD)/test_process_teardown_mutant_leakrecords
+TEST_PROC_TEARDOWN_MUT_UBD0 := $(BUILD)/test_process_teardown_mutant_ubd0
 TEST_PROC_TEARDOWN_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
                      os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
@@ -9677,15 +9679,27 @@ $(TEST_PROC_TEARDOWN): $(TEST_PROC_TEARDOWN_SRC) $(TEST_PROC_TEARDOWN_DEPS) | $(
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_PROC_TEARDOWN_SRC) $(PROCESS_LINK)
 $(TEST_PROC_TEARDOWN_MUT): $(TEST_PROC_TEARDOWN_SRC) $(TEST_PROC_TEARDOWN_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEARDOWN_MUT_LEAK_BLOCK $(PROCESS_INC) -o $@ $(TEST_PROC_TEARDOWN_SRC) $(PROCESS_LINK)
+$(TEST_PROC_TEARDOWN_MUT_RECS): $(TEST_PROC_TEARDOWN_SRC) $(TEST_PROC_TEARDOWN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEARDOWN_MUT_LEAK_RECORDS $(PROCESS_INC) -o $@ $(TEST_PROC_TEARDOWN_SRC) $(PROCESS_LINK)
+$(TEST_PROC_TEARDOWN_MUT_UBD0): $(TEST_PROC_TEARDOWN_SRC) $(TEST_PROC_TEARDOWN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DUBD0_MUT_RECORDS_IN_DATA_ARENA $(PROCESS_INC) -o $@ $(TEST_PROC_TEARDOWN_SRC) $(PROCESS_LINK)
 
 test-process-teardown: $(TEST_PROC_TEARDOWN)
-	@printf ">>> test-process-teardown: ADR-0013 O-3 host teardown/leak oracle (bump+free-list avail: cycle-1 drop, cycles>=2 stable)\n"
+	@printf ">>> test-process-teardown: ADR-0013 O-3 host teardown/leak oracle (bump+free-list avail: cycle-1 drop, cycles>=2 stable; ADR-0013 AC-2 split-arena death-survival sub-test)\n"
 	@$(TEST_PROC_TEARDOWN)
 	@printf ">>> test-process-teardown: green\n"
 
-test-process-teardown-mutant: $(TEST_PROC_TEARDOWN_MUT)
-	@printf ">>> test-process-teardown-mutant: confirming TEARDOWN_MUT_LEAK_BLOCK goes RED (Rule 6)\n"
-	@if $(TEST_PROC_TEARDOWN_MUT) >/dev/null 2>&1; then printf '!!! test-process-teardown-mutant FAIL: LEAK_BLOCK PASSED -- the leak oracle is decoration\n'; exit 1; else printf '>>> test-process-teardown-mutant: green (LEAK_BLOCK correctly RED -- avail drifts down)\n'; fi
+# AC-2 (initech-ubd0): LEAK_BLOCK (data-block leak, ARTIFACT) + LEAK_RECORDS
+# (records-block leak, ARTIFACT) drift avail down -> RED; UBD0_MUT_RECORDS_IN_DATA_ARENA
+# (the oracle stub tenant carves its WindowRecord+regions from the DATA arena instead
+# of the records_arena, TEST-side) makes FlairProcess_kill read the 0xFF-scribbled
+# records on death -> z-order not cleared / SIGSEGV -> RED. Each bites a DISTINCT
+# invariant the split-arena ruling rests on (Rule 6).
+test-process-teardown-mutant: $(TEST_PROC_TEARDOWN_MUT) $(TEST_PROC_TEARDOWN_MUT_RECS) $(TEST_PROC_TEARDOWN_MUT_UBD0)
+	@printf ">>> test-process-teardown-mutant: confirming LEAK_BLOCK + LEAK_RECORDS + UBD0_RECORDS_IN_DATA_ARENA all go RED (Rule 6)\n"
+	@if $(TEST_PROC_TEARDOWN_MUT) >/dev/null 2>&1; then printf '!!! test-process-teardown-mutant FAIL: LEAK_BLOCK PASSED -- the data-leak oracle is decoration\n'; exit 1; else printf '>>> test-process-teardown-mutant: green (LEAK_BLOCK correctly RED -- data-block avail drifts down)\n'; fi
+	@if $(TEST_PROC_TEARDOWN_MUT_RECS) >/dev/null 2>&1; then printf '!!! test-process-teardown-mutant FAIL: LEAK_RECORDS PASSED -- the records-leak oracle is decoration\n'; exit 1; else printf '>>> test-process-teardown-mutant: green (LEAK_RECORDS correctly RED -- records-block avail drifts down)\n'; fi
+	@if $(TEST_PROC_TEARDOWN_MUT_UBD0) >/dev/null 2>&1; then printf '!!! test-process-teardown-mutant FAIL: UBD0_RECORDS_IN_DATA_ARENA PASSED -- AC-2 death-survival is decoration\n'; exit 1; else printf '>>> test-process-teardown-mutant: green (UBD0 records-in-data correctly RED -- kill reads the scribbled DATA arena)\n'; fi
 
 # ---------------------------------------------------------------------------
 # STANDALONE gate (NOT yet in any aggregate): test-process-budget
@@ -9718,6 +9732,45 @@ test-process-budget: $(TEST_PROC_BUDGET)
 test-process-budget-mutant: $(TEST_PROC_BUDGET_MUT)
 	@printf ">>> test-process-budget-mutant: confirming BUDGET_MUT_OVERCOMMIT goes RED (Rule 6)\n"
 	@if $(TEST_PROC_BUDGET_MUT) >/dev/null 2>&1; then printf '!!! test-process-budget-mutant FAIL: OVERCOMMIT PASSED -- the budget oracle is decoration\n'; exit 1; else printf '>>> test-process-budget-mutant: green (OVERCOMMIT correctly RED -- partial install detected)\n'; fi
+
+# ---------------------------------------------------------------------------
+# test-resource (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-0w45): the HOST oracle
+# for the FLAIR Resource Manager (os/flair/resource.{c,h}). A clean-room parser of
+# a REAL big-endian Mac resource-fork SUBSET (resource-manager.md Sec 1.1-1.6:
+# 16-byte fork header -> 24-byte map preamble -> type list (count-1) -> 12-byte
+# reference lists (3-byte data offset) -> length-prefixed data area), all reads
+# positional/endian-neutral, every offset bounds-checked (fail-loud), loaded into
+# the tenant DATA arena. The oracle round-trips a HAND-AUTHORED fork blob (authored
+# byte-by-byte from the spec offset tables) against an INDEPENDENTLY hand-authored
+# WIND128_EXPECT literal -- a genuine parser between two independent goldens, NOT
+# by-construction (Law 2). Self-mutants RES_MUT_IGNORE_TYPE (ignore the 4-char type
+# key -> wrong-type lookups leak) and RES_MUT_COUNT_OFF_BY_ONE (iterate numTypes-1
+# not numTypes -> last type missed) each bite a distinct invariant -> RED (Rule 6).
+# ---------------------------------------------------------------------------
+TEST_RESOURCE     := $(BUILD)/test_resource
+TEST_RESOURCE_SRC := harness/proptest/test_resource.c
+TEST_RESOURCE_MUT_TYPE  := $(BUILD)/test_resource_mutant_ignoretype
+TEST_RESOURCE_MUT_COUNT := $(BUILD)/test_resource_mutant_countoffbyone
+TEST_RESOURCE_LINK := os/flair/resource.c os/flair/heap.c
+TEST_RESOURCE_DEPS := os/flair/resource.c os/flair/resource.h os/flair/heap.c os/flair/heap.h \
+                     os/flair/ostype.h
+
+$(TEST_RESOURCE): $(TEST_RESOURCE_SRC) $(TEST_RESOURCE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_RESOURCE_SRC) $(TEST_RESOURCE_LINK)
+$(TEST_RESOURCE_MUT_TYPE): $(TEST_RESOURCE_SRC) $(TEST_RESOURCE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRES_MUT_IGNORE_TYPE $(PROCESS_INC) -o $@ $(TEST_RESOURCE_SRC) $(TEST_RESOURCE_LINK)
+$(TEST_RESOURCE_MUT_COUNT): $(TEST_RESOURCE_SRC) $(TEST_RESOURCE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRES_MUT_COUNT_OFF_BY_ONE $(PROCESS_INC) -o $@ $(TEST_RESOURCE_SRC) $(TEST_RESOURCE_LINK)
+
+test-resource: $(TEST_RESOURCE)
+	@printf ">>> test-resource: ADR-0012 D-2b / initech-0w45 Resource Manager -- real BE Mac resource-fork parse + type+ID lookup (round-trip vs independent hand-authored fork+expect golden)\n"
+	@$(TEST_RESOURCE)
+	@printf ">>> test-resource: green\n"
+
+test-resource-mutant: $(TEST_RESOURCE_MUT_TYPE) $(TEST_RESOURCE_MUT_COUNT)
+	@printf ">>> test-resource-mutant: confirming RES_MUT_IGNORE_TYPE + RES_MUT_COUNT_OFF_BY_ONE go RED (Rule 6)\n"
+	@if $(TEST_RESOURCE_MUT_TYPE) >/dev/null 2>&1; then printf '!!! test-resource-mutant FAIL: IGNORE_TYPE PASSED -- the type-key oracle is decoration\n'; exit 1; else printf '>>> test-resource-mutant: green (IGNORE_TYPE correctly RED -- wrong-type lookups leak)\n'; fi
+	@if $(TEST_RESOURCE_MUT_COUNT) >/dev/null 2>&1; then printf '!!! test-resource-mutant FAIL: COUNT_OFF_BY_ONE PASSED -- the count-1 decode oracle is decoration\n'; exit 1; else printf '>>> test-resource-mutant: green (COUNT_OFF_BY_ONE correctly RED -- last type missed)\n'; fi
 
 # ---------------------------------------------------------------------------
 # STANDALONE gate (NOT yet in any aggregate): test-process-activate
@@ -15940,6 +15993,7 @@ TEST_UNIT_GATES := \
 	test-process-budget test-process-budget-mutant \
 	test-process-activate test-process-activate-mutant \
 	test-process-update test-process-update-mutant \
+	test-resource test-resource-mutant \
 	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \

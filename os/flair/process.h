@@ -98,6 +98,32 @@ enum {
     FLAIR_APP_DYING = 2    /* terminating; teardown runs between pump iterations    */
 };
 
+/* FLAIR_TENANT_RECORDS_DEFAULT -- the default RECORDS-arena budget (bytes) carved
+ * as a FLAIR_CLASS_HANDLE block from the master FLAIR heap and laid over with
+ * `records_arena` (ADR-0013 Amendment AC-2, the initech-ubd0 split-arena
+ * resolution). The RECORDS arena holds a tenant's WindowRecord(s) + ALL its
+ * region_t pools (strucRgn/contRgn/updateRgn + the clip scratch); the shell reads
+ * ONLY these during teardown, so app DEATH survives a scribbled DATA arena (BC-6).
+ *
+ * ARITHMETIC (the requirement this must cover; document, do not under-size):
+ *     sizeof(WindowRecord)                         ~  256 B  (host; less on the
+ *                                                    32-bit kernel -- 4-byte ptrs)
+ *   + 4 * region bundle (ref_tenant ten_rgn_t      ~ 4 * 816 B = 3264 B host)
+ *        = region_t + rgn_row_t[32] + int16_t[128])
+ *   + 5 * flair_blk_t headers (16 B each, one per  ~   80 B
+ *        flair_alloc: rec + 4 region bundles)
+ *   ----------------------------------------------------------
+ *     actual requirement                           ~ 3600 B  (host worst case)
+ *   rounded UP to 16 KiB for slack (future resource blobs / extra WindowRecords /
+ *   16-byte alignment). 16384 is comfortably > sizeof(FlairApp) (~232 B host) --
+ *   a HARD requirement of the LIFO free-order coupling in FlairProcess_terminate /
+ *   _kill: the small FlairApp HANDLE handle must be the FLAIR_CLASS_HANDLE
+ *   free-list head after teardown so cycle-2's first (small) HANDLE alloc reuses
+ *   it instead of the large records block (records_budget > sizeof(FlairApp);
+ *   see process.c). Per-tenant overrides may pass any records_budget; the demo
+ *   passes FLAIR_TENANT_RECORDS_DEFAULT (spec/flair_tenants_demo.h sizing note). */
+#define FLAIR_TENANT_RECORDS_DEFAULT  (16u * 1024u)
+
 /* FlairLaunchParams -- the open() build parameters (ADR-0013 Sec 3.2). */
 typedef struct FlairLaunchParams {
     rgn_rect_t bounds;   /* initial structure bounds the app's open() builds into */
@@ -141,8 +167,18 @@ struct FlairApp {
     uint32_t             magic;    /* FLAIR_APP_MAGIC -- refCon-tag check (Rule 2) */
     const char          *name;
     const FlairAppProcs *procs;    /* the code surface (the A5 jump-table analogue) */
-    flair_heap_t         arena;    /* per-tenant CHILD heap over a carved block     */
-    void                *block;    /* the parent block backing `arena` (for free)   */
+    flair_heap_t         arena;    /* per-tenant DATA child heap (GENERAL block):    */
+                                   /* per-instance private state, TERec, userData,   */
+                                   /* future resource blobs (ADR-0013 AC-2 DATA side)*/
+    void                *block;    /* the parent GENERAL block backing `arena` (free)*/
+    flair_heap_t         records_arena; /* per-tenant RECORDS child heap (HANDLE     */
+                                   /* block): the WindowRecord(s) + ALL region_t      */
+                                   /* pools (strucRgn/contRgn/updateRgn + clip        */
+                                   /* scratch). The shell reads ONLY these during     */
+                                   /* teardown, so app DEATH survives a scribbled     */
+                                   /* DATA arena (ADR-0013 Amendment AC-2; BC-6).     */
+    void                *records_block; /* the parent HANDLE block backing            */
+                                   /* records_arena (for free). AC-2.                 */
     struct MenuBar      *menubar;  /* this app's menu set; swapped in when foreground */
     WindowPtr            windows;  /* head of THIS app's window group (z-order run)  */
     int32_t              refCon;   /* per-app datum                                 */
@@ -194,52 +230,74 @@ FlairApp *FlairProcess_register(FlairProcessList *list, FlairApp *app);
  *
  * Carves a tenant out of the master FLAIR heap and brings it up as the new
  * foreground (the MultiFinder "partition" is a convention, not hardware -- Sec
- * 3.6). Steps (Sec 3.2 a-g):
- *   (a) flair_alloc(master, FLAIR_CLASS_HANDLE, sizeof(FlairApp)) -- the handle;
- *   (b) flair_alloc(master, FLAIR_CLASS_GENERAL, budget)          -- the child block;
- *   (O-4 / BC-5) if EITHER alloc fails: reclaim whatever was carved, install
- *       NOTHING, leave `list`/`wm` unchanged, and return NULL (fail-loud budget --
- *       never overcommit, never partially install; Rule 2);
- *   (c) flair_heap_init(&app->arena, block, budget) -- a CHILD heap over the block;
- *       stamp magic, name, procs, block, state;
- *   (d) procs->open(app, &lp) -- builds the window(s) from app->arena and sets each
- *       w->refCon = (int32_t)(uintptr_t)app; if open() returns != 0 the launch
- *       FAILS: reclaim block + handle, install nothing, return NULL (O-4 open-fail);
+ * 3.6). SPLIT-ARENA carve (ADR-0013 Amendment AC-2, the initech-ubd0 resolution):
+ * a tenant owns TWO child blocks -- a RECORDS block (HANDLE; WindowRecord(s) +
+ * region pools) and a DATA block (GENERAL; per-instance state). Steps:
+ *   (a) flair_alloc(master, FLAIR_CLASS_HANDLE, sizeof(FlairApp))   -- the handle;
+ *   (b) flair_alloc(master, FLAIR_CLASS_HANDLE, records_budget)     -- RECORDS block,
+ *       then flair_heap_init(&app->records_arena, records_block, records_budget);
+ *   (c) flair_alloc(master, FLAIR_CLASS_GENERAL, budget)            -- DATA block,
+ *       then flair_heap_init(&app->arena, block, budget);
+ *   (O-4 / BC-5) if ANY alloc fails: reclaim whatever was carved IN REVERSE carve
+ *       order, install NOTHING, leave `list`/`wm` unchanged, return NULL (fail-loud
+ *       budget -- never overcommit, never partially install; Rule 2);
+ *       stamp magic, name, procs, block, records_block, state;
+ *   (d) procs->open(app, &lp) -- builds the window(s): the WindowRecord + region
+ *       pools from app->records_arena (AC-2), per-instance state from app->arena,
+ *       and sets each w->refCon = (int32_t)(uintptr_t)app; if open() returns != 0
+ *       the launch FAILS: reclaim data + records + handle, install nothing, NULL;
  *   (e) SelectWindow the app's front window (raise z-order + activate);
  *   (f) link at the list head as the new foreground, demoting the old head to BG;
  *   (g) return the launched tenant.
  *
- * `surface` is the offscreen the launched tenant's open() draws its content into
- * (threaded into lp->surface before procs->open; the kernel passes the live FLAIR
- * compositor surface, the host stub oracles pass NULL -- their open() does not draw).
- * Additive, ADR-0013 amendment bead initech-fka6.
+ * `records_budget` sizes the RECORDS arena (WindowRecord + region pools; the demo
+ * passes FLAIR_TENANT_RECORDS_DEFAULT); `budget` sizes the DATA arena. `surface`
+ * is the offscreen the launched tenant's open() draws its content into (threaded
+ * into lp->surface before procs->open; the kernel passes the live FLAIR compositor
+ * surface, the host stub oracles pass NULL -- their open() does not draw). Additive,
+ * ADR-0013 amendment bead initech-fka6; split-arena AC-2 (bead initech-ubd0).
  *
- * Teardown is FlairProcess_terminate (the one-shot child-block free, Sec 3.4). */
+ * Teardown is FlairProcess_terminate (clean) / FlairProcess_kill (death); both
+ * one-shot free the data block + records block + handle (Sec 3.4 / AC-2). */
 FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
                              const bitmap_t *surface,
                              flair_heap_t *master, const FlairAppProcs *procs,
                              const char *name, rgn_rect_t bounds,
-                             uint32_t budget);
+                             uint32_t records_budget, uint32_t budget);
 
 /* FlairProcess_terminate -- CLEAN teardown (ADR-0013 Sec 3.4), for tenants brought
- * up by FlairProcess_launch (app->block carved from `master`).
+ * up by FlairProcess_launch (app->block / app->records_block carved from `master`).
  *
  *   (1) procs->close(app) if non-NULL (flush docs);
  *   (2) DisposeWindow every window in the wm z-order OWNED by app (refCon match +
  *       magic, the same demux rule the dispatcher uses), accruing exposure damage;
- *   (3) ONE-SHOT free: flair_free(master, FLAIR_CLASS_GENERAL, app->block) then
- *       flair_free(master, FLAIR_CLASS_HANDLE, app) LAST -- do not touch app after;
+ *       window structural state is read ONLY from records_arena-resident fields;
+ *   (3) ONE-SHOT free in LIFO order: DATA block (FLAIR_CLASS_GENERAL, app->block)
+ *       FIRST, then records block (FLAIR_CLASS_HANDLE, app->records_block), then the
+ *       FlairApp handle (FLAIR_CLASS_HANDLE, app) LAST -- do not touch app after;
  *   (4) unlink app from the process list;
  *   (5) if app was the foreground head, promote the next app (SelectWindow its
  *       front window + foreground state).
  *
- * SCOPE LIMIT (orchestrator ruling, bead initech-ubd0): this implements CLEAN
- * teardown only. The "app-death survives a CORRUPTED child arena" path (ADR Sec
- * 3.4 vs Sec 3.6 tension -- WindowRecords live in the child arena, so removing
- * them reads that arena) is DEFERRED pending a committee ruling and is not
- * implemented here. */
+ * SPLIT-ARENA (ADR-0013 Amendment AC-2, bead initech-ubd0): the WindowRecord(s) +
+ * region pools live in app->records_arena (a SEPARATE HANDLE block), NOT in the
+ * DATA arena, so step (2) reads only intact records and the data block is freed
+ * WITHOUT reading its (possibly corrupt) payload -- which is exactly what makes
+ * FlairProcess_kill (below) survive a scribbled DATA arena (BC-6 now satisfied). */
 void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
                             flair_heap_t *master, FlairApp *app);
+
+/* FlairProcess_kill -- the DEATH path (ADR-0013 Sec 3.4 application-death; AC-2 /
+ * BC-6). Identical to FlairProcess_terminate EXCEPT it NEVER calls procs->close():
+ * a crashed app's code must not run again. The shared teardown helper removes the
+ * app's windows from the z-order (reading ONLY records_arena-resident structural
+ * fields -- intact even if the DATA arena was scribbled), promotes the successor,
+ * and one-shot-frees the data block + records block + handle WITHOUT reading the
+ * data payload. This is the corrupt-arena death path that ADR-0013 Sec 3.4 claims
+ * and the initech-ubd0 split-arena ruling (AC-2) finally makes TRUE: app death
+ * survives a corrupted DATA arena because no dead-heap byte is ever trusted. */
+void FlairProcess_kill(FlairProcessList *list, WindowMgr *wm,
+                       flair_heap_t *master, FlairApp *app);
 
 /* flair_app_dispatch -- THE single Layer-5 dispatcher (ADR-0013 Sec 3.3, BC-2).
  *

@@ -34,14 +34,27 @@
  *   forbidden (Law 2; HER-02).
  *
  * THE WINDOW PATH (faithful clean teardown). open() builds ONE real document
- *   window FROM THE CHILD ARENA (the test_interact/test_process region-backing
+ *   window FROM THE RECORDS ARENA (the test_interact/test_process region-backing
  *   idiom: a caller-supplied rows[]/x_pool per region) and binds w->refCon =
  *   (int32_t)(uintptr_t)self; terminate finds it by that refCon and DisposeWindow's
  *   it -- so the real teardown path (close + DisposeWindow + one-shot free) runs
- *   every cycle. The child-arena allocations come out of the GENERAL block and so
- *   do NOT perturb the MASTER avail accounting (they are inside the block already
- *   counted by the GENERAL span). SCOPE LIMIT (bead initech-ubd0): CLEAN teardown
- *   only -- no corrupted-arena death path (ADR Sec 3.4 vs 3.6 tension, deferred).
+ *   every cycle. The child-arena allocations come out of the RECORDS/DATA blocks
+ *   and so do NOT perturb the MASTER avail accounting (they are inside the blocks
+ *   already counted by the RECORDS + GENERAL spans).
+ *
+ * SPLIT-ARENA + THE DEATH-SURVIVAL SUB-TEST (ADR-0013 Amendment AC-2, bead
+ *   initech-ubd0 -- the deferred corrupt-arena death path, now REQUIRED). Under
+ *   AC-2 a tenant owns TWO child blocks: a RECORDS block (HANDLE; WindowRecord +
+ *   region pools) and a DATA block (GENERAL; per-instance state). The cycle-1 drop
+ *   is therefore THREE spans (handle + records + data). The death sub-test launches
+ *   a tenant, SCRIBBLES its DATA arena (memset app->block, 0xFF) to simulate a
+ *   crash, calls FlairProcess_kill, and asserts the z-order + process list go empty
+ *   with NO panic and avail STABLE across N>=3 cycles -- a NON-by-construction proof
+ *   that app death survives a corrupted DATA arena (BC-6) because the WindowRecords
+ *   live in the SEPARATE records arena. The UBD0_MUT_RECORDS_IN_DATA_ARENA mutant
+ *   (records carved from the DATA arena) makes the scribble corrupt them -> kill
+ *   reads a corrupted z-order -> RED. The TEARDOWN_MUT_LEAK_RECORDS artifact mutant
+ *   (skip the records-block free) drifts avail down -> RED.
  *
  * Ref: ADR-0013 Sec 3.2 (launch a-g), Sec 3.4 (clean teardown), Sec 3.6 (child
  *      sub-arena + the heap-contract note), Sec 7 O-3; heap.h (flair_heap_t,
@@ -151,12 +164,24 @@ static void tenant_event(FlairApp *self, const EventRecord *ev)
     (void)self; (void)ev;
 }
 
-/* open(): build ONE document window from the child arena + bind its refCon. */
+/* open(): build ONE document window from the RECORDS arena + bind its refCon
+ * (ADR-0013 Amendment AC-2: the WindowRecord + regions carve from records_arena,
+ * NOT the DATA arena -- so a scribbled DATA arena cannot corrupt them, BC-6). */
 static int tenant_open(FlairApp *self, const FlairLaunchParams *lp)
 {
-    tw_win_t *w = (tw_win_t *)flair_alloc(&self->arena, FLAIR_CLASS_HANDLE,
+#ifdef UBD0_MUT_RECORDS_IN_DATA_ARENA
+    /* MUTANT (Rule 6; AC-2 records-placement mutant, records-mutant build only):
+     * carve the WindowRecord + regions from the DATA arena instead of the RECORDS
+     * arena. After the death sub-test scribbles app->block (the DATA block),
+     * FlairProcess_kill then reads a corrupted nextWindow/refCon -> the
+     * z-order-empty / no-panic asserts go RED. NEVER define in a real build. */
+    flair_heap_t *ra = &self->arena;
+#else
+    flair_heap_t *ra = &self->records_arena;       /* AC-2: records arena */
+#endif
+    tw_win_t *w = (tw_win_t *)flair_alloc(ra, FLAIR_CLASS_HANDLE,
                                           (uint32_t)sizeof(tw_win_t));
-    if (w == NULL) return 1;                 /* child budget too small -> fail */
+    if (w == NULL) return 1;                 /* records budget too small -> fail */
 
     /* zero just the WindowRecord (regions are re-attached below). */
     memset(&w->rec, 0, sizeof w->rec);
@@ -188,8 +213,14 @@ static const FlairAppProcs g_tenant_procs = {
  * MAIN -- the O-3 teardown / leak oracle.
  * ===========================================================================*/
 enum { NCYCLES = 4 };                 /* >= 3 cycles (ADR-0013 Sec 7 O-3)        */
-enum { BUDGET  = 4096 };              /* per-tenant child-arena byte budget       */
-enum { MASTER_BYTES = 64 * 1024 };    /* master heap window (holds N mutant bumps)*/
+enum { DCYCLES = 3 };                 /* >= 3 death-survival cycles (AC-2 / BC-6)  */
+enum { BUDGET  = 4096 };              /* per-tenant DATA-arena byte budget         */
+/* RECORDS-arena budget (AC-2): the WindowRecord + region pools carve from here. */
+enum { RECORDS_BUDGET = (int)FLAIR_TENANT_RECORDS_DEFAULT };
+/* master heap window. Sized so the LEAK_RECORDS / LEAK_BLOCK mutants can BUMP a
+ * fresh block every cycle (clean + death cycles) WITHOUT exhausting the heap, so
+ * it is the avail-DRIFT assertion that bites them (not a launch-NULL). */
+enum { MASTER_BYTES = 256 * 1024 };
 
 int main(void)
 {
@@ -205,14 +236,23 @@ int main(void)
     flair_heap_init(&master, master_buf, (uint32_t)MASTER_BYTES);
     FlairProcessList_init(&plist);
 
-    /* the child budget must hold one window bundle + its block header. */
+    /* the RECORDS budget must hold one window bundle + its block header (AC-2). */
+    CHECK(alloc_span((uint32_t)sizeof(tw_win_t)) <= (uint32_t)RECORDS_BUDGET,
+          "setup: RECORDS_BUDGET holds one window bundle (alloc_span(sizeof tw_win_t) <= RECORDS_BUDGET)");
+    /* the DATA budget must hold the same bundle too, so the UBD0 records-in-data
+     * mutant's open() can still build the window (from the DATA arena). */
     CHECK(alloc_span((uint32_t)sizeof(tw_win_t)) <= (uint32_t)BUDGET,
-          "setup: BUDGET holds one window bundle (alloc_span(sizeof tw_win_t) <= BUDGET)");
+          "setup: BUDGET holds one window bundle (the UBD0 records-in-data mutant builds it from DATA)");
+    /* the LIFO free-order coupling precondition (process.c teardown_common). */
+    CHECK((uint32_t)RECORDS_BUDGET > (uint32_t)sizeof(FlairApp),
+          "setup: RECORDS_BUDGET > sizeof(FlairApp) (the AC-2 LIFO free-order coupling)");
 
-    /* the INDEPENDENT expected cycle-1 drop (header + aligned payload, per side). */
+    /* the INDEPENDENT expected cycle-1 drop: THREE spans now (handle + RECORDS +
+     * DATA), per the AC-2 split-arena carve (header + aligned payload, per side). */
     uint32_t hspan = alloc_span((uint32_t)sizeof(FlairApp));
+    uint32_t rspan = alloc_span((uint32_t)RECORDS_BUDGET);
     uint32_t gspan = alloc_span((uint32_t)BUDGET);
-    uint32_t expect_drop = hspan + gspan;
+    uint32_t expect_drop = hspan + rspan + gspan;
 
     uint32_t avail_pre = flair_heap_avail(&master);
     uint32_t avail_after[NCYCLES + 1];
@@ -220,7 +260,7 @@ int main(void)
     for (int k = 1; k <= NCYCLES; k++) {
         FlairApp *app = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
                                             &g_tenant_procs, "T", bounds,
-                                            (uint32_t)BUDGET);
+                                            (uint32_t)RECORDS_BUDGET, (uint32_t)BUDGET);
         CHECK(app != NULL, "cycle: arena launch succeeds");
         CHECK(plist.head == app, "cycle: launched app is the foreground head");
         CHECK(M.wm.front != NULL && M.wm.front->refCon == (int32_t)(uintptr_t)app,
@@ -233,18 +273,19 @@ int main(void)
         avail_after[k] = flair_heap_avail(&master);
     }
 
-    /* --- cycle 1: avail DROPS by EXACTLY (HANDLE span + GENERAL span). --- */
+    /* --- cycle 1: avail DROPS by EXACTLY (HANDLE + RECORDS + GENERAL spans). --- */
     CHECK(avail_after[1] < avail_pre,
           "O-3: cycle 1 drops avail (the bump cursor advanced; frees do not roll it back)");
     CHECK(avail_pre - avail_after[1] == expect_drop,
-          "O-3: the cycle-1 drop == EXACTLY hdr+align(sizeof FlairApp) + hdr+align(budget)");
-    CHECK(avail_pre - avail_after[1] >= (uint32_t)BUDGET,
-          "O-3: the drop is at least the child budget (sanity)");
+          "O-3: cycle-1 drop == EXACTLY hdr+align(FlairApp) + hdr+align(records_budget) + hdr+align(budget)");
+    CHECK(avail_pre - avail_after[1] >= (uint32_t)BUDGET + (uint32_t)RECORDS_BUDGET,
+          "O-3: the drop is at least DATA budget + RECORDS budget (sanity)");
 
-    /* --- cycles k >= 2: avail is STABLE (the freed HANDLE+GENERAL blocks are
-     *     reused from the class free-lists; the bump cursor never advances again).
-     *     The LEAK mutant bumps a fresh GENERAL span every cycle, so this is the
-     *     check that goes RED under TEARDOWN_MUT_LEAK_BLOCK. --- */
+    /* --- cycles k >= 2: avail is STABLE (the freed handle + RECORDS + DATA blocks
+     *     are reused from the class free-lists; the bump cursor never advances
+     *     again). TEARDOWN_MUT_LEAK_BLOCK bumps a fresh DATA span every cycle and
+     *     TEARDOWN_MUT_LEAK_RECORDS bumps a fresh RECORDS span every cycle, so this
+     *     is the check that goes RED under EITHER artifact leak mutant. --- */
     int stable = 1;
     for (int k = 2; k <= NCYCLES; k++)
         if (avail_after[k] != avail_after[1]) stable = 0;
@@ -255,6 +296,59 @@ int main(void)
      * makes avail STRICTLY decrease cycle-over-cycle; a correct impl holds it. */
     CHECK(avail_after[NCYCLES] == avail_after[1],
           "O-3: avail after the last cycle == avail after cycle 1 (no monotonic drift)");
+
+    /* =======================================================================
+     * THE DEATH-SURVIVAL SUB-TEST (ADR-0013 Amendment AC-2 / BC-6 -- the deferred
+     * corrupt-arena death path, now REQUIRED; the NON-by-construction proof).
+     *
+     * Launch a tenant; SCRIBBLE its DATA arena (memset app->block, 0xFF) to
+     * simulate a crash that corrupted the data heap; call FlairProcess_kill (NOT
+     * terminate -- death never runs the dead app's close()). Assert the z-order +
+     * process list go EMPTY, NO panic fired (the CHECKs below only execute if kill
+     * neither aborted nor crashed), and avail STABLE across DCYCLES.
+     *
+     * CORRECT build: the WindowRecord + regions live in records_arena (a SEPARATE
+     * block), so kill's DisposeWindow loop reads INTACT records and the scribble is
+     * harmless -> empties the z-order, avail stable. The UBD0_MUT_RECORDS_IN_DATA_-
+     * ARENA mutant puts the records in the DATA arena -> the 0xFF scribble corrupts
+     * nextWindow/refCon -> kill reads the corrupted z-order (never disposes the
+     * window, or crashes) -> these asserts go RED. That bite is what proves BC-6 is
+     * mechanical, not by-construction.
+     * ======================================================================= */
+    uint32_t avail_death_pre = flair_heap_avail(&master);
+    uint32_t avail_death[DCYCLES + 1];
+    for (int k = 1; k <= DCYCLES; k++) {
+        FlairApp *app = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
+                                            &g_tenant_procs, "D", bounds,
+                                            (uint32_t)RECORDS_BUDGET, (uint32_t)BUDGET);
+        CHECK(app != NULL, "death: arena launch succeeds");
+        CHECK(M.wm.front != NULL, "death: open() installed the tenant's window at front");
+
+        /* SCRIBBLE the DATA arena (the crash). app->block is the GENERAL data block;
+         * memset writes only its payload -- the master-heap block header PRECEDES the
+         * payload and is untouched, so the later flair_free of app->block stays
+         * valid. The records arena is a DIFFERENT block and is NOT scribbled. */
+        memset(app->block, 0xFF, (size_t)BUDGET);
+
+        /* DEATH: remove the window(s) from the z-order + one-shot free WITHOUT
+         * running close() and WITHOUT trusting the scribbled data heap (BC-6). */
+        FlairProcess_kill(&plist, &M.wm, &master, app);
+
+        CHECK(plist.head == NULL,
+              "death: after kill the process list is empty (no dead-heap read, no panic)");
+        CHECK(M.wm.front == NULL,
+              "death: after kill the window is removed from the z-order (records survived the DATA scribble)");
+
+        avail_death[k] = flair_heap_avail(&master);
+    }
+    /* avail STABLE across the death cycles: kill reuses the free-listed handle +
+     * records + data blocks, so the bump cursor never advances. A leak (LEAK_RECORDS
+     * / LEAK_BLOCK) would drift here too -> RED. */
+    int death_stable = 1;
+    for (int k = 1; k <= DCYCLES; k++)
+        if (avail_death[k] != avail_death_pre) death_stable = 0;
+    CHECK(death_stable,
+          "AC-2/BC-6: avail STABLE across N>=3 death (kill) cycles (free-list reuse; no leak)");
 
     return TEST_SUMMARY("test-process-teardown");
 }

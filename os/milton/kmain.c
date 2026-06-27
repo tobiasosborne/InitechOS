@@ -1939,9 +1939,11 @@ void kernel_main(void)
         nb.bottom = (int16_t)FLAIR_TEN_NOTES_B; nb.right = (int16_t)FLAIR_TEN_NOTES_R;
         ten_hello = FlairProcess_launch(&ten_plist, ctx.wm, &ctx.off, ctx.master,
                                         &hello_procs, FLAIR_TEN_HELLO_NAME, hb,
+                                        (uint32_t)FLAIR_TENANT_RECORDS_DEFAULT,
                                         (uint32_t)FLAIR_TEN_BUDGET);
         ten_notes = FlairProcess_launch(&ten_plist, ctx.wm, &ctx.off, ctx.master,
                                         &notes_procs, FLAIR_TEN_NOTES_NAME, nb,
+                                        (uint32_t)FLAIR_TENANT_RECORDS_DEFAULT,
                                         (uint32_t)FLAIR_TEN_BUDGET);
     }
     if (ten_hello == (FlairApp *)0 || ten_notes == (FlairApp *)0) {

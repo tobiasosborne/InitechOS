@@ -9,12 +9,17 @@
  *        Sec 3.6 "partition sizing is a fail-loud budget; a launch that cannot
  *        carve its block refuses and reports; it does not overcommit").
  *
- * THE TWO LEGS (ADR-0013 Sec 7 O-4):
- *   (a) OVER-BUDGET: a budget exceeding the master heap remaining. The HANDLE
- *       carve may succeed but the GENERAL (block) carve returns NULL -> launch
- *       reclaims the handle, installs nothing, returns NULL.
- *   (b) OPEN-FAIL: both carves succeed but the tenant's open() returns != 0 ->
- *       launch reclaims block + handle, installs nothing, returns NULL.
+ * THE LEGS (ADR-0013 Sec 7 O-4; the over-records leg added by Amendment AC-2):
+ *   (a)  OVER-DATA-BUDGET: a DATA budget exceeding the master heap remaining. The
+ *        HANDLE handle + HANDLE records carves succeed but the GENERAL (data block)
+ *        carve returns NULL -> launch reclaims records + handle, installs nothing,
+ *        returns NULL.
+ *   (a2) OVER-RECORDS-BUDGET (AC-2): a records_budget exceeding the master heap
+ *        remaining. The HANDLE handle carve succeeds but the HANDLE records carve
+ *        returns NULL -> launch reclaims the (reused) data block + handle, installs
+ *        nothing, returns NULL. Isolates the RECORDS-side carve failure.
+ *   (b)  OPEN-FAIL: all three carves succeed but the tenant's open() returns != 0 ->
+ *        launch reclaims data + records + handle, installs nothing, returns NULL.
  *
  * THE "avail returns to before" CHECK + WHY WE PRIME (the bump+free-list heap).
  *   flair_free does NOT roll the bump cursor back; it pushes the freed block onto
@@ -119,10 +124,11 @@ static void tenant_event(FlairApp *self, const EventRecord *ev)
     (void)self; (void)ev;
 }
 
-/* good open(): builds a document window from the child arena (success path). */
+/* good open(): builds a document window from the RECORDS arena (success path;
+ * ADR-0013 Amendment AC-2 -- WindowRecord + regions live in records_arena). */
 static int good_open(FlairApp *self, const FlairLaunchParams *lp)
 {
-    tw_win_t *w = (tw_win_t *)flair_alloc(&self->arena, FLAIR_CLASS_HANDLE,
+    tw_win_t *w = (tw_win_t *)flair_alloc(&self->records_arena, FLAIR_CLASS_HANDLE,
                                           (uint32_t)sizeof(tw_win_t));
     if (w == NULL) return 1;
 
@@ -157,8 +163,9 @@ static const FlairAppProcs g_bad_procs  = { bad_open,  tenant_event, NULL, NULL 
 /* ===========================================================================
  * MAIN -- the O-4 fail-loud launch-budget oracle.
  * ===========================================================================*/
-enum { BUDGET  = 4096 };
-enum { MASTER_BYTES = 64 * 1024 };
+enum { BUDGET  = 4096 };                                  /* DATA-arena budget       */
+enum { RECORDS_BUDGET = (int)FLAIR_TENANT_RECORDS_DEFAULT };/* RECORDS-arena budget (AC-2)*/
+enum { MASTER_BYTES = 256 * 1024 };
 
 int main(void)
 {
@@ -178,7 +185,8 @@ int main(void)
      *     each hold a reusable block (see the file header on why this makes the
      *     "avail returns to before" assertion the TRUE contract). --- */
     FlairApp *app0 = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
-                                         &g_good_procs, "P", bounds, (uint32_t)BUDGET);
+                                         &g_good_procs, "P", bounds,
+                                         (uint32_t)RECORDS_BUDGET, (uint32_t)BUDGET);
     CHECK(app0 != NULL, "prime: a within-budget launch succeeds");
     CHECK(plist.head == app0 && M.wm.front != NULL,
           "prime: the primed tenant is installed (head + front window)");
@@ -196,9 +204,10 @@ int main(void)
           "leg(a): the requested budget genuinely exceeds the master remaining (meaningful)");
 
     FlairApp *app_a = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
-                                          &g_good_procs, "OB", bounds, over_budget);
+                                          &g_good_procs, "OB", bounds,
+                                          (uint32_t)RECORDS_BUDGET, over_budget);
     CHECK(app_a == NULL,
-          "leg(a): an over-budget launch FAILS LOUD -- returns NULL (BC-5)");
+          "leg(a): an over-DATA-budget launch FAILS LOUD -- returns NULL (BC-5)");
     CHECK(plist.head == head_before_a,
           "leg(a): the process list is UNCHANGED (no partial install)");
     CHECK(M.wm.front == front_before_a,
@@ -206,13 +215,39 @@ int main(void)
     CHECK(flair_heap_avail(&master) == avail_before_a,
           "leg(a): the failed launch reclaims cleanly (avail returns to before)");
 
+    /* ===== leg (a2): OVER-RECORDS-BUDGET launch (records_budget > master remaining;
+     *       AC-2). The HANDLE handle carve (a) succeeds but the HANDLE records carve
+     *       (b) returns NULL -> launch reclaims the (reused) data block + handle,
+     *       installs nothing, returns NULL. The DATA budget here is in-budget, so
+     *       this leg isolates the RECORDS-side carve failure from the DATA side. ==== */
+    uint32_t  avail_before_a2 = flair_heap_avail(&master);
+    FlairApp *head_before_a2  = plist.head;     /* NULL */
+    WindowPtr front_before_a2 = M.wm.front;     /* NULL */
+    uint32_t  over_records    = (uint32_t)MASTER_BYTES;   /* > remaining, always   */
+
+    CHECK(over_records > avail_before_a2,
+          "leg(a2): the requested RECORDS budget genuinely exceeds the master remaining (meaningful)");
+
+    FlairApp *app_a2 = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
+                                           &g_good_procs, "OR", bounds,
+                                           over_records, (uint32_t)BUDGET);
+    CHECK(app_a2 == NULL,
+          "leg(a2): an over-RECORDS-budget launch FAILS LOUD -- returns NULL (BC-5 / AC-2)");
+    CHECK(plist.head == head_before_a2,
+          "leg(a2): the process list is UNCHANGED (no partial install)");
+    CHECK(M.wm.front == front_before_a2,
+          "leg(a2): the WindowMgr z-order is UNCHANGED -- NO window installed");
+    CHECK(flair_heap_avail(&master) == avail_before_a2,
+          "leg(a2): the failed records carve reclaims data + handle cleanly (avail returns to before)");
+
     /* ===== leg (b): OPEN-FAIL launch (carves succeed, open() returns != 0) ===== */
     uint32_t  avail_before_b = flair_heap_avail(&master);
     FlairApp *head_before_b  = plist.head;     /* NULL */
     WindowPtr front_before_b = M.wm.front;     /* NULL */
 
     FlairApp *app_b = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
-                                          &g_bad_procs, "OF", bounds, (uint32_t)BUDGET);
+                                          &g_bad_procs, "OF", bounds,
+                                          (uint32_t)RECORDS_BUDGET, (uint32_t)BUDGET);
     CHECK(app_b == NULL,
           "leg(b): an open()-failure launch FAILS LOUD -- returns NULL (Sec 3.1)");
     CHECK(plist.head == head_before_b,
@@ -226,7 +261,8 @@ int main(void)
      *       succeeds + reuses the primed blocks (the heap is not poisoned). ===== */
     uint32_t avail_before_c = flair_heap_avail(&master);
     FlairApp *app_c = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
-                                          &g_good_procs, "OK", bounds, (uint32_t)BUDGET);
+                                          &g_good_procs, "OK", bounds,
+                                          (uint32_t)RECORDS_BUDGET, (uint32_t)BUDGET);
     CHECK(app_c != NULL && plist.head == app_c && M.wm.front != NULL,
           "post: a within-budget launch after the failures still installs cleanly");
     FlairProcess_terminate(&plist, &M.wm, &master, app_c);
