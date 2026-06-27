@@ -9773,6 +9773,52 @@ test-resource-mutant: $(TEST_RESOURCE_MUT_TYPE) $(TEST_RESOURCE_MUT_COUNT)
 	@if $(TEST_RESOURCE_MUT_COUNT) >/dev/null 2>&1; then printf '!!! test-resource-mutant FAIL: COUNT_OFF_BY_ONE PASSED -- the count-1 decode oracle is decoration\n'; exit 1; else printf '>>> test-resource-mutant: green (COUNT_OFF_BY_ONE correctly RED -- last type missed)\n'; fi
 
 # ---------------------------------------------------------------------------
+# test-scrap (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-b2vk): the HOST oracle for
+# the FLAIR Scrap/Clipboard (os/flair/scrap.{c,h}). A shell-owned, cross-tenant
+# Scrap (the Inside Macintosh Scrap Manager model: ZeroScrap/PutScrap/GetScrap/
+# InfoScrap; monotonic scrapCount; coexisting TEXT+PICT flavors keyed by 4-char
+# OSType). There is NO decomp golden (the Scrap is not in the corpus), so the oracle
+# round-trips a HAND-AUTHORED op/expected sequence with LITERAL expected bytes
+# spelled in the test (independent of the impl struct -- NOT by-construction, Law 2),
+# including the CROSS-TENANT payoff leg (App A PutScrap / App B GetScrap through one
+# shared scrap, via FlairProcess_register). Self-mutants SCRAP_MUT_IGNORE_FLAVOR
+# (ignore the type key -> wrong-flavor leak), SCRAP_MUT_NO_INCREMENT (ZeroScrap skips
+# scrapCount++) and SCRAP_MUT_NO_CLEAR (ZeroScrap leaves stale flavors) each bite a
+# distinct invariant -> RED (Rule 6). Wiring the singleton into the live kmain/shell
+# desktop (copy/paste between HELLO+NOTES on the booted 386) is a filed follow-up.
+# ---------------------------------------------------------------------------
+TEST_SCRAP     := $(BUILD)/test_scrap
+TEST_SCRAP_SRC := harness/proptest/test_scrap.c
+TEST_SCRAP_MUT_FLAVOR  := $(BUILD)/test_scrap_mutant_ignoreflavor
+TEST_SCRAP_MUT_NOINC   := $(BUILD)/test_scrap_mutant_noincrement
+TEST_SCRAP_MUT_NOCLEAR := $(BUILD)/test_scrap_mutant_noclear
+TEST_SCRAP_LINK := os/flair/scrap.c os/flair/process.c os/flair/window.c os/flair/heap.c $(REGION_ENGINE_C)
+TEST_SCRAP_DEPS := os/flair/scrap.c os/flair/scrap.h os/flair/ostype.h \
+                     os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+                     os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
+                     spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
+
+$(TEST_SCRAP): $(TEST_SCRAP_SRC) $(TEST_SCRAP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_SCRAP_SRC) $(TEST_SCRAP_LINK)
+$(TEST_SCRAP_MUT_FLAVOR): $(TEST_SCRAP_SRC) $(TEST_SCRAP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSCRAP_MUT_IGNORE_FLAVOR $(PROCESS_INC) -o $@ $(TEST_SCRAP_SRC) $(TEST_SCRAP_LINK)
+$(TEST_SCRAP_MUT_NOINC): $(TEST_SCRAP_SRC) $(TEST_SCRAP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSCRAP_MUT_NO_INCREMENT $(PROCESS_INC) -o $@ $(TEST_SCRAP_SRC) $(TEST_SCRAP_LINK)
+$(TEST_SCRAP_MUT_NOCLEAR): $(TEST_SCRAP_SRC) $(TEST_SCRAP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSCRAP_MUT_NO_CLEAR $(PROCESS_INC) -o $@ $(TEST_SCRAP_SRC) $(TEST_SCRAP_LINK)
+
+test-scrap: $(TEST_SCRAP)
+	@printf ">>> test-scrap: ADR-0012 D-2b / initech-b2vk Scrap (Clipboard) -- shell-owned cross-tenant copy/paste, multi-flavor TEXT+PICT (round-trip vs independent hand-authored op/byte golden)\n"
+	@$(TEST_SCRAP)
+	@printf ">>> test-scrap: green\n"
+
+test-scrap-mutant: $(TEST_SCRAP_MUT_FLAVOR) $(TEST_SCRAP_MUT_NOINC) $(TEST_SCRAP_MUT_NOCLEAR)
+	@printf ">>> test-scrap-mutant: confirming IGNORE_FLAVOR + NO_INCREMENT + NO_CLEAR go RED (Rule 6)\n"
+	@if $(TEST_SCRAP_MUT_FLAVOR) >/dev/null 2>&1; then printf '!!! test-scrap-mutant FAIL: IGNORE_FLAVOR PASSED -- the flavor-key oracle is decoration\n'; exit 1; else printf '>>> test-scrap-mutant: green (IGNORE_FLAVOR correctly RED -- flavors collapse)\n'; fi
+	@if $(TEST_SCRAP_MUT_NOINC) >/dev/null 2>&1; then printf '!!! test-scrap-mutant FAIL: NO_INCREMENT PASSED -- the scrapCount oracle is decoration\n'; exit 1; else printf '>>> test-scrap-mutant: green (NO_INCREMENT correctly RED -- scrapCount frozen)\n'; fi
+	@if $(TEST_SCRAP_MUT_NOCLEAR) >/dev/null 2>&1; then printf '!!! test-scrap-mutant FAIL: NO_CLEAR PASSED -- the ZeroScrap oracle is decoration\n'; exit 1; else printf '>>> test-scrap-mutant: green (NO_CLEAR correctly RED -- stale flavors survive)\n'; fi
+
+# ---------------------------------------------------------------------------
 # STANDALONE gate (NOT yet in any aggregate): test-process-activate
 # (ADR-0013 Sec 7 O-2) -- the HOST activation / z-order oracle for APP-GROUP RAISE
 # on app switch (Wave 3b). A 3-window scene with app A (2 windows A0+A1) and app B
@@ -15994,6 +16040,7 @@ TEST_UNIT_GATES := \
 	test-process-activate test-process-activate-mutant \
 	test-process-update test-process-update-mutant \
 	test-resource test-resource-mutant \
+	test-scrap test-scrap-mutant \
 	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \
