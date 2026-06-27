@@ -1518,6 +1518,122 @@ static void cursor_hide(flair_live_ctx_t *ctx, const boot_info_t *bi)
     cursor_present_rect(bi, off, ox, oy, CURSOR_DIM, CURSOR_DIM);
 }
 #endif /* FLAIR_LIVE_INTERACTIVE */
+
+#ifdef FLAIR_LIVE_TENANTS
+/* ===========================================================================
+ * O-7 (ADR-0013 Sec 3.2 class-2): SAMIR -- the FIRST TEXT TENANT.
+ * ---------------------------------------------------------------------------
+ * SAMIR (InitechBase) is a character-mode .COM, not a FLAIR GUI tenant: it owns
+ * the WHOLE screen as a DOS text program (its dot-prompt REPL writes 80x25 text
+ * via INT 21h). The App Contract launches it as a TEXT tenant by SUSPENDING the
+ * live desktop, running SAMIR full-screen, and REBUILDING the desktop on return
+ * -- the classic System-7/MultiFinder "switch to a full-screen app" gesture.
+ *
+ * THE SYSTEM HOTKEY (deterministic, harness-sendable): BACKSLASH ('\'), PS/2
+ * SET-1 make code 0x2B. The harness `--keys bsl` sends QMP qcode "backslash" ->
+ * SET-1 0x2B. The FLAIR pump cooks it (event.c: message = (vkey<<8)|ascii, so
+ * vkey == the make code 0x2B) and routes it HERE before flair_app_dispatch, so
+ * it launches SAMIR instead of being delivered to a GUI tenant. It is NOT a
+ * letter SAMIR types (its USE/LIST/QUIT commands are alpha) so it never collides.
+ *
+ * THE g_kbd DRAIN (the brief's contract): the kbd IRQ1 handler posts to BOTH the
+ * DOS g_kbd ASCII ring (SAMIR reads this via INT 21h) AND the FLAIR raw ring
+ * (the pump cooks this) -- kbd.c. So the hotkey ALSO left a '\' in g_kbd. Drain
+ * g_kbd before running SAMIR so the hotkey does not prepend to SAMIR's first
+ * cooked line. The drain happens the instant the hotkey is seen (microseconds);
+ * SAMIR's own keys arrive ~30ms later (qmp_drain beat) so the drain takes only
+ * the hotkey, never a SAMIR key.
+ *
+ * REBUILD = RE-PRESENT THE PRESERVED OFFSCREEN (Option A, stateless; the ADR's
+ * "re-render the SAME scene + re-present"). SAMIR runs ENTIRELY below the 1 MiB
+ * line -- image/BSS/env/stack at 0x40100..0x7FFFC, the AH=48h arena ceiling at
+ * 0x6F000, and the load staging at 0x80000..0x90000 (spec/memory_map.h) -- all
+ * DISJOINT from the FLAIR heap [0x100000,0x500000) the offscreen lives in. So
+ * ctx->off STILL holds the EXACT pre-suspend co-resident desktop after SAMIR
+ * returns; flair_desktop_present re-blits it to the LFB BIT-IDENTICALLY (the same
+ * bytes SAMIR's text overwrote). No heap re-init, no tenant relaunch needed --
+ * the tenants' WindowRecords/content are heap-resident and untouched.
+ *
+ * Ref: ADR-0013 Sec 3.2 (class-2 text tenants); spec/memory_map.h (the < 1 MiB
+ *      vs FLAIR-heap disjointness proof); os/milton/kmain.c loader_exec_by_name
+ *      (the PSP/JFT/CWD save+restore wrapper this reuses); os/milton/kbd.c (the
+ *      dual-ring post). CLAUDE.md Law 2 (pre==post is real, not by luck), Law 4
+ *      (full-screen app then back to the live desktop), Rule 2 (fail loud),
+ *      Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ * ===========================================================================*/
+#define FLAIR_TEXT_TENANT_HOTKEY_VKEY  0x2Bu        /* PS/2 SET-1 make '\' */
+#define FLAIR_TEXT_TENANT_NAME         "SAMIR.COM"  /* 8.3 name on the FAT volume */
+
+/* g_flair_kbd_ring (the SPSC raw ring the FLAIR pump drains) is defined earlier
+ * in this TU's BOOT_FLAIR_LIVE block; flair_launch_text_tenant drains its stale
+ * events after the suspend (the scancode hook stays installed through SAMIR). */
+
+/* flair_launch_text_tenant -- suspend the live desktop, run a character-mode .COM
+ * TEXT tenant full-screen, then rebuild the desktop BIT-IDENTICALLY on return.
+ * Reuses the EXISTING loader_exec_by_name wrapper (PSP/JFT/CWD save+restore) and
+ * the EXISTING flair_desktop_present blit (BC-1: no new load/geometry logic). */
+static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ctx,
+                                     const char *name83)
+{
+    serial_puts("FLAIR-SUSPEND\n");
+
+    /* Drain the DOS g_kbd ring of the hotkey so it does not pollute SAMIR's first
+     * cooked INT-21h line (the dual-ring post in kbd.c put a '\' here too). */
+    while (kbd_getchar() >= 0) {
+        /* drop the hotkey byte */
+    }
+
+    /* Prepare the screen for SAMIR's text I/O: clear the LFB to the console paper
+     * + home the cursor. The kernel console came up at boot and is already bound
+     * to the INT 21h CON sink (g_int21_con), so SAMIR's AH=09h/AH=40h output fans
+     * to LFB + serial with no extra wiring (reuse, not re-init). */
+    if (g_int21_con) {
+        console_clear(g_int21_con);
+        console_set_cursor(g_int21_con, 0u, 0u);
+    }
+
+    /* Run the .COM through the EXISTING saw wrapper: load_program_from_fat off the
+     * booted volume, then restore the kernel-context exit-hook/PSP/CWD (the loader
+     * rebinds all three during the run). loader_exec_by_name returns 0 on success
+     * (else a DOS EXEC error code). */
+    {
+        uint8_t  rc   = 0;
+        uint16_t derr = loader_exec_by_name(name83, 0u /* root dir */,
+                                            (const char *)0, 0u,
+                                            0u /* env: inherit-empty */, &rc);
+        if (derr == 0u) {
+            serial_puts("FLAIR-TEXT-EXIT rc=");
+            serial_putu((uint32_t)rc);
+            serial_putc('\n');
+        } else {
+            serial_puts("FLAIR-TEXT-FAIL err=");
+            serial_putu((uint32_t)derr);
+            serial_putc('\n');
+        }
+    }
+
+    /* Drain the FLAIR raw ring of the stale scancodes SAMIR's typed input left in
+     * it (the scancode hook stayed installed through the suspend), so the resumed
+     * pump does not cook+dispatch them. Consumer-side drain (the pump owns tail;
+     * spec/event_model.h SPSC) -- does NOT reset the tick/cursor the way
+     * flair_event_init would (which would break the pump's tick budget). */
+    g_flair_kbd_ring.tail = g_flair_kbd_ring.head;
+
+#ifndef FLAIR_LIVE_MUTATE_NO_REBUILD
+    /* REBUILD: the offscreen survived SAMIR (< 1 MiB vs FLAIR-heap disjoint, see
+     * the header), so re-present it to restore the desktop BIT-IDENTICALLY. */
+    flair_desktop_present(bi, &ctx->off);
+#else
+    /* MUTANT (Rule 6; test-flair-samir-suspend-mutant image ONLY): SKIP the
+     * rebuild. The LFB keeps SAMIR's full-screen text, so post.ppm != pre.ppm and
+     * the O-7 gate goes RED for the right reason (the desktop did NOT return).
+     * NEVER define in a real build. */
+    (void)bi; (void)ctx;
+#endif
+
+    serial_puts("FLAIR-RESUME\n");
+}
+#endif /* FLAIR_LIVE_TENANTS */
 #endif /* BOOT_FLAIR_LIVE */
 
 void kernel_main(void)
@@ -1865,6 +1981,57 @@ void kernel_main(void)
     /* (6) BC-4: present the co-resident tenant desktop BEFORE arming the pump. */
     flair_desktop_present(&b, &ctx.off);
     serial_puts("FLAIR-TENANTS-READY hello+notes co-resident; NOTES foreground\n");
+
+    /* (7) O-7: MOUNT the FAT volume + bind the loader so the SYSTEM HOTKEY can
+     * launch SAMIR (a TEXT tenant) off --disk2. The BOOT_FLAIR_LIVE arm HALTs in
+     * the pump and NEVER reaches the late-boot FAT mount far below, so a text-
+     * tenant launch needs the volume mounted + the file/loader backends bound
+     * HERE, before the pump. This is the minimal subset of the late-boot sequence
+     * SAMIR needs: ATA primary-slave -> fat12_mount -> fileio_fat_bind (file
+     * OPEN/READ/SEEK for USE/LIST) -> loader_bind_fat_volume (so
+     * load_program_from_fat finds SAMIR.COM) -> int21_set_clock (the .dbf date).
+     * FILES=20 is the g_files_limit default (sft.h), and sft_init already ran in
+     * sysinit_early, so no CONFIG.SYS apply is needed. The AH=48h arena is bound
+     * by the loader per-EXEC (ADR-0009 DEC-04), so SAMIR's heap is covered.
+     *
+     * Storage is `static`: the BOOT_FLAIR_LIVE arm never returns, and the file/
+     * loader backends cache &ften_vol for the lifetime of the pump. Fail-soft
+     * (Rule 2): a missing --disk2 leaves the loader unbound; the hotkey then
+     * reports FLAIR-TEXT-FAIL rather than hanging -- exactly how the late-boot
+     * mount degrades without a data disk. This whole block is FLAIR_LIVE_TENANTS-
+     * only, so non-tenant kernels are byte-identical (Rule 11). */
+    {
+        static ata_ctx_t       ften_ata;
+        static blockdev_t      ften_fatdev;
+        static crit_blockdev_t ften_crit;
+        static fat12_volume_t  ften_vol;
+        static uint8_t         ften_secbuf[BLOCKDEV_SECTOR_SIZE];
+        /* Bind the INT 21h CON INPUT seam to the live PS/2 keyboard (g_kbd) so
+         * SAMIR's dot-prompt REPL can READ keystrokes via INT 21h (the blocking
+         * get sleeps on hlt until IRQ1). The late-boot CONIN-LIVE bind is below
+         * the pump halt and never runs in this arm, so without this SAMIR's input
+         * seam is unbound and its REPL spins on empty input. The FLAIR pump reads
+         * the SEPARATE raw ring (g_flair_kbd_ring), so this does not disturb it. */
+        int21_set_conin(int21_conin_get_kbd, int21_conin_poll_kbd);
+        serial_puts("FLAIR-FAT-MOUNT-BEGIN\n");
+        ata_ctx_init_primary_slave(&ften_ata);
+        ata_blockdev_init(&ften_fatdev, &ften_ata);
+        crit_blockdev_init(&ften_crit, &ften_fatdev);
+        if (fat12_mount(&ften_vol, &ften_crit.dev, ften_secbuf) == FAT12_OK) {
+            crit_blockdev_set_hook(int21_run_critical_error);
+            (void)fileio_fat_bind(&ften_vol);
+            {
+                uint32_t fat_len = 0u;
+                const uint8_t *fat =
+                    (const uint8_t *)fileio_fat_fat_buffer(&fat_len);
+                loader_bind_fat_volume(&ften_vol, fat, fat_len);
+            }
+            int21_set_clock(int21_clock_get_rtc, int21_clock_set_rtc);
+            serial_puts("FLAIR-FAT-MOUNT-OK\n");
+        } else {
+            serial_puts("FLAIR-FAT-MOUNT-FAIL\n");
+        }
+    }
 #endif
 
     /* --- FO-5: initialise the FLAIR raw ring BEFORE installing any hook ------- *
@@ -2057,6 +2224,19 @@ void kernel_main(void)
 
             /* Cooked-event marker (FO-5/6 reconciliation). */
             flair_live_emit_evt(&ev);
+
+            /* O-7 (ADR-0013 Sec 3.2 class-2): the SYSTEM HOTKEY ('\', PS/2 SET-1
+             * make 0x2B) launches SAMIR as a full-screen TEXT tenant. Detect the
+             * cooked hotkey keyDown BEFORE the Layer-5 dispatch so it is NOT routed
+             * to a GUI tenant; suspend the desktop, run SAMIR, rebuild on return,
+             * then resume the pump. event.c cooks keyboard `message` as
+             * (vkey<<8)|ascii, so vkey == the PS/2 make code (top byte). */
+            if (ev.what == (uint16_t)keyDown &&
+                ((ev.message >> 8) & 0xFFu) ==
+                    (uint32_t)FLAIR_TEXT_TENANT_HOTKEY_VKEY) {
+                flair_launch_text_tenant(&b, &ctx, FLAIR_TEXT_TENANT_NAME);
+                continue;
+            }
 
             /* THE SOLE ROUTING CALL (ADR-0006 E-D2 / ADR-0013 BC-2 single spine).
              * inContent click-to-activate (raise group + activate pair + deliver)

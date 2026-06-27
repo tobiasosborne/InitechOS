@@ -8527,6 +8527,15 @@ $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_SKIP_ACTIVATE,sk
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_DROP_UPDATE,drop_update))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP,no_menubar_swap))
 
+# O-7 SAMIR-suspend Rule-6 MUTANT image (Wave-5; this lane). A pump (kmain.c)
+# mutant: -DFLAIR_LIVE_MUTATE_NO_REBUILD makes flair_launch_text_tenant SKIP the
+# post-SAMIR flair_desktop_present rebuild, so the LFB keeps SAMIR's full-screen
+# text -> post.ppm != pre.ppm -> test-flair-samir-suspend goes RED. Reuses the
+# kmain-mutant template (swaps ONLY the flairtenants main obj; clean process.o +
+# ref_tenant.o). Built behind #ifdef, so the DEFAULT flair_tenants build is
+# byte-identical (Rule 11). Produces build/flair_tenants_mut_no_rebuild.img.
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_REBUILD,no_rebuild))
+
 # OMISSION (Rule 6 / Law 2 honesty): the 5th candidate knob FLAIR_LIVE_MUTATE_NO_
 # GROUP_RAISE (raise only the front window instead of raise_group's whole group) does
 # NOT bite the BOOTED gate, because BOTH reference tenants (HELLO, NOTES) are SINGLE-
@@ -11991,6 +12000,186 @@ test-flair-appswitch-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG)
 	@printf '            guard fired correctly under the 320x200 fallback (no triple-fault).\n'
 	@printf '            NOTE: FLAIR-TENANTS-READY + the app-switch are QEMU-only (Bochs has\n'
 	@printf '            no 640x480 LFB + no QMP mouse injection); graded by test-flair-appswitch.\n'
+	@printf '======================================================================\n'
+
+# ===========================================================================
+# REAL gate: test-flair-samir-suspend (ADR-0013 Wave-5 gate O-7 -- THE booted
+# FLAIR text-tenant oracle: a SYSTEM HOTKEY launches SAMIR full-screen, then the
+# desktop returns BIT-IDENTICAL). beads: this lane.
+# ---------------------------------------------------------------------------
+# SAMIR (InitechBase) is a character-mode .COM -- the FIRST class-2 TEXT tenant.
+# From the live co-resident HELLO+NOTES desktop, pressing the system hotkey
+# ('\', PS/2 SET-1 make 0x2B; harness token "bsl") SUSPENDS the desktop, runs
+# SAMIR full-screen (USE CLIENTS.DBF / LIST / QUIT), and REBUILDS the desktop on
+# return -- the System-7/MultiFinder "switch to a full-screen app" gesture.
+#
+# Two deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG), each WITH
+# --disk2 = $(SAMIR_LIST_IMG) (SAMIR.COM + CLIENTS.DBF on the primary slave, the
+# SAME data disk as test-samir-boot):
+#   PRE : no keys; screendump after FLAIR-LIVE-READY -> the co-resident desktop.
+#   POST: inject "bsl" (the hotkey) then SAMIR's USE/LIST/QUIT; keys-after
+#         FLAIR-LIVE-READY; screendump after FLAIR-RESUME -> the desktop rebuilt
+#         AFTER SAMIR ran.
+# Assert (Law 2, every miss fail-loud + exit-non-zero):
+#   1. NO triple-fault in either boot.
+#   2. SERIAL (POST): FLAIR-SUSPEND + the SAMIR LIST rows (PESTON/WADDAMS/LUMBERGH,
+#      via SAMIR's AH=40h CON output reaching serial) + FLAIR-RESUME.
+#   3. BIT-IDENTITY (Law 4): pre.ppm and post.ppm are byte-for-byte identical
+#      (cmp -s) -- SAMIR runs ENTIRELY below 1 MiB (spec/memory_map.h), DISJOINT
+#      from the FLAIR-heap offscreen, so the rebuild re-presents the EXACT
+#      pre-suspend scene.
+# It BITES (test-flair-samir-suspend-mutant): -DFLAIR_LIVE_MUTATE_NO_REBUILD skips
+# the rebuild -> the LFB keeps SAMIR's text -> post.ppm != pre.ppm -> RED.
+# TRI-EMULATOR: QEMU here; the Bochs boot leg is test-flair-samir-suspend-bochs
+# (the 640x480 guard fires before the tenants/SAMIR, like test-flair-appswitch-bochs).
+# Ref: ADR-0013 Sec 3.2 (class-2 text tenants); spec/memory_map.h (disjointness);
+# os/milton/kmain.c flair_launch_text_tenant. NOT in `make test` (orchestrator
+# wires the suite).
+SAMIR_SUSP_PRE_NAME    := flair_samir_suspend_pre
+SAMIR_SUSP_POST_NAME   := flair_samir_suspend_post
+SAMIR_SUSP_PRE_PPM     := $(BUILD)/$(SAMIR_SUSP_PRE_NAME).ppm
+SAMIR_SUSP_POST_PPM    := $(BUILD)/$(SAMIR_SUSP_POST_NAME).ppm
+SAMIR_SUSP_PRE_SERIAL  := $(BUILD)/$(SAMIR_SUSP_PRE_NAME).serial
+SAMIR_SUSP_POST_SERIAL := $(BUILD)/$(SAMIR_SUSP_POST_NAME).serial
+SAMIR_SUSP_PRE_REPORT  := $(BUILD)/$(SAMIR_SUSP_PRE_NAME).report
+SAMIR_SUSP_POST_REPORT := $(BUILD)/$(SAMIR_SUSP_POST_NAME).report
+# The POST key script: hotkey "bsl", then SAMIR's USE CLIENTS.DBF / LIST / QUIT
+# (mirrors SAMIRBOOT_KEYS minus the COMMAND.COM `samir`/`exit` -- the hotkey is
+# the launch trigger here, not a shell command).
+SAMIR_SUSP_KEYS := bsl,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,ret,q,u,i,t,ret
+
+.PHONY: test-flair-samir-suspend test-flair-samir-suspend-mutant test-flair-samir-suspend-bochs
+test-flair-samir-suspend: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(SAMIR_LIST_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-samir-suspend : booted TEXT tenant (O-7)\n'
+	@printf '  Hotkey -> suspend desktop -> SAMIR full-screen (USE/LIST/QUIT) -> rebuild.\n'
+	@printf '  Ref: ADR-0013 Sec 3.2 (class-2 text tenant); spec/memory_map.h. Law 2/4.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(FLAIRTENANTS_IMG)" "$(SAMIR_LIST_IMG)"
+	@printf 'Expecting : FLAIR-SUSPEND + LIST rows {PESTON,WADDAMS,LUMBERGH} + FLAIR-RESUME + pre==post\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- PRE: the co-resident desktop before the hotkey (no keys). ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
+		--name "$(SAMIR_SUSP_PRE_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
+		--screendump --screendump-after "FLAIR-LIVE-READY" \
+		2> "$(SAMIR_SUSP_PRE_REPORT)" || true
+	@# ---- POST: hotkey + SAMIR's USE/LIST/QUIT; dump after the rebuild. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
+		--name "$(SAMIR_SUSP_POST_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(SAMIR_SUSP_KEYS)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-RESUME" \
+		2> "$(SAMIR_SUSP_POST_REPORT)" || true
+	@cat "$(SAMIR_SUSP_POST_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- 1. No triple-fault either boot. ----
+	@if grep -q 'triple_fault=1' "$(SAMIR_SUSP_PRE_REPORT)" "$(SAMIR_SUSP_POST_REPORT)"; then \
+		printf '!!! test-flair-samir-suspend FAIL: TRIPLE FAULT in a tenants boot\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-samir-suspend [1/4]: no triple-fault (PRE + POST)\n'
+	@# ---- 2. Suspend/resume markers + the SAMIR LIST rows on serial. ----
+	@grep -q '^FLAIR-SUSPEND$$' "$(SAMIR_SUSP_POST_SERIAL)" \
+		|| { printf '!!! test-flair-samir-suspend FAIL: FLAIR-SUSPEND missing -- the hotkey did not launch SAMIR\n'; grep '^FLAIR-' "$(SAMIR_SUSP_POST_SERIAL)" || true; exit 1; }
+	@grep -q '^FLAIR-RESUME$$' "$(SAMIR_SUSP_POST_SERIAL)" \
+		|| { printf '!!! test-flair-samir-suspend FAIL: FLAIR-RESUME missing -- the desktop never rebuilt after SAMIR\n'; exit 1; }
+	@# Scope the LIST-row assertions to AFTER FLAIR-SUSPEND (SAMIR's own output).
+	@tr -d '\r' < "$(SAMIR_SUSP_POST_SERIAL)" | sed -n '/FLAIR-SUSPEND/,$$p' > "$(BUILD)/$(SAMIR_SUSP_POST_NAME).samir"
+	@for tok in PESTON WADDAMS LUMBERGH; do \
+		grep -qF "$$tok" "$(BUILD)/$(SAMIR_SUSP_POST_NAME).samir" \
+		  || { printf '!!! test-flair-samir-suspend FAIL: LIST row token "%s" missing -- SAMIR USE/LIST did not render (root-cause the on-target dbf path, Rule 3)\n' "$$tok"; \
+		       cat "$(BUILD)/$(SAMIR_SUSP_POST_NAME).samir"; exit 1; }; \
+	done
+	@printf '>>> test-flair-samir-suspend [2/4]: FLAIR-SUSPEND + LIST rows (PESTON/WADDAMS/LUMBERGH) + FLAIR-RESUME\n'
+	@# ---- 3. Both screendumps captured. ----
+	@if [ ! -s "$(SAMIR_SUSP_PRE_PPM)" ] || [ ! -s "$(SAMIR_SUSP_POST_PPM)" ]; then \
+		printf '!!! test-flair-samir-suspend FAIL: a screendump is missing (PRE %s / POST %s)\n' "$(SAMIR_SUSP_PRE_PPM)" "$(SAMIR_SUSP_POST_PPM)"; exit 1; \
+	fi
+	@printf '>>> test-flair-samir-suspend [3/4]: PRE + POST screendumps captured\n'
+	@# ---- 4. BIT-IDENTITY: the desktop returned to its exact pre-suspend state. ----
+	@cmp -s "$(SAMIR_SUSP_PRE_PPM)" "$(SAMIR_SUSP_POST_PPM)" \
+		|| { printf '!!! test-flair-samir-suspend FAIL: pre.ppm != post.ppm -- the desktop did NOT return BIT-IDENTICAL after SAMIR\n'; cmp "$(SAMIR_SUSP_PRE_PPM)" "$(SAMIR_SUSP_POST_PPM)" || true; exit 1; }
+	@printf '>>> test-flair-samir-suspend [4/4]: pre.ppm == post.ppm (desktop rebuilt BIT-IDENTICAL)\n'
+	@printf 'VERDICT   : PASS -- the system hotkey launched SAMIR full-screen (LISTed CLIENTS.DBF)\n'
+	@printf '            and the live FLAIR desktop returned BIT-IDENTICAL; O-7 holds (ADR-0013)\n'
+	@printf '            (QEMU; Bochs boot leg = make test-flair-samir-suspend-bochs)\n'
+	@printf '======================================================================\n'
+
+# REAL gate: test-flair-samir-suspend-mutant (Rule 6 -- MUTATION-PROVE the O-7 gate
+# BITES). Boots build/flair_tenants_mut_no_rebuild.img (-DFLAIR_LIVE_MUTATE_NO_REBUILD:
+# skip the post-SAMIR rebuild) with the SAME PRE/POST capture, and asserts the
+# bit-identity check goes RED (post.ppm != the CLEAN pre.ppm) with NO triple-fault.
+SAMIR_SUSP_MUT_NAME    := flair_samir_suspend_mut
+SAMIR_SUSP_MUT_PPM     := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).ppm
+SAMIR_SUSP_MUT_SERIAL  := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).serial
+SAMIR_SUSP_MUT_REPORT  := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).report
+test-flair-samir-suspend-mutant: $(HARNESS_BIN) $(SAMIR_LIST_IMG) $(BUILD)/flair_tenants_mut_no_rebuild.img
+	@printf '>>> test-flair-samir-suspend-mutant: confirming the no-rebuild mutant goes RED (Rule 6)\n'
+	@# Establish the CLEAN pre baseline (the real desktop) if not already present.
+	@if [ ! -s "$(SAMIR_SUSP_PRE_PPM)" ]; then \
+		$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
+			--name "$(SAMIR_SUSP_PRE_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
+			--screendump --screendump-after "FLAIR-LIVE-READY" 2>/dev/null || true; \
+	fi
+	@if [ ! -s "$(SAMIR_SUSP_PRE_PPM)" ]; then printf '!!! test-flair-samir-suspend-mutant FAIL: clean PRE screendump missing (cannot establish the baseline)\n'; exit 1; fi
+	@# POST under the mutant image: same keys, dump after FLAIR-RESUME.
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_rebuild.img" --disk2 "$(SAMIR_LIST_IMG)" \
+		--name "$(SAMIR_SUSP_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
+		--keys "$(SAMIR_SUSP_KEYS)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-RESUME" \
+		2> "$(SAMIR_SUSP_MUT_REPORT)" || true
+	@if grep -q 'triple_fault=1' "$(SAMIR_SUSP_MUT_REPORT)"; then \
+		printf '!!! test-flair-samir-suspend-mutant FAIL: the mutant TRIPLE-FAULTED -- a crash, not the wrong-pixels RED the gate asserts\n'; exit 1; \
+	fi
+	@if [ ! -s "$(SAMIR_SUSP_MUT_PPM)" ]; then printf '!!! test-flair-samir-suspend-mutant FAIL: no mutant screendump captured (live guest required)\n'; exit 1; fi
+	@# The mutant skipped the rebuild, so its post MUST DIFFER from the clean pre.
+	@if cmp -s "$(SAMIR_SUSP_PRE_PPM)" "$(SAMIR_SUSP_MUT_PPM)"; then \
+		printf '!!! test-flair-samir-suspend-mutant FAIL: pre.ppm == mutant post.ppm -- the bit-identity oracle is DECORATION (it did not bite the no-rebuild mutant)\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-samir-suspend-mutant: green (no-rebuild mutant correctly RED -- pre != post, no crash)\n'
+
+# REAL gate: test-flair-samir-suspend-bochs (Rule 5 -- the BOCHS boot leg). Same
+# TRUTHFUL CONSTRAINT as test-flair-appswitch-bochs: Bochs 2.7 VBE ENOMODEs 640x480
+# -> mode-0x13 (320x200), so flair_desktop_run FAILS LOUD ("LFB smaller than
+# 640x480") and HALTs BEFORE the tenants/FAT-mount/SAMIR launch. So FLAIR-SUSPEND /
+# the SAMIR rows / FLAIR-RESUME genuinely DO NOT (and should not) appear on Bochs,
+# and there is NO key injection (no QMP). What this leg proves: the SAME kernel
+# runs the boot chain + FLAIR-heap gate IDENTICALLY to QEMU, then the guard fires
+# (no triple-fault). The text-tenant suspend/rebuild is graded on QEMU. SERIAL-only;
+# env-specific (needs Bochs); a SEPARATE target, NOT in `make test`.
+SAMIR_SUSP_BOCHS_NAME   := flair_samir_suspend_bochs
+SAMIR_SUSP_BOCHS_REPORT := $(BUILD)/$(SAMIR_SUSP_BOCHS_NAME).report.txt
+SAMIR_SUSP_BOCHS_SERIAL := $(BUILD)/$(SAMIR_SUSP_BOCHS_NAME).serial
+test-flair-samir-suspend-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-samir-suspend-bochs : BOCHS leg (O-7)\n'
+	@printf '  Bochs 2.7: VBE ENOMODE -> mode-0x13 (320x200); the 640x480 desktop cannot\n'
+	@printf '  fit, so kmain FAILS LOUD (Rule 2) BEFORE the FAT mount / SAMIR launch; the\n'
+	@printf '  leg proves the shared boot/heap milestones + that the guard fires. The\n'
+	@printf '  text-tenant suspend/rebuild is graded on QEMU by test-flair-samir-suspend.\n'
+	@printf '======================================================================\n'
+	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --expect HALTED \
+		--name "$(SAMIR_SUSP_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
+		2> "$(SAMIR_SUSP_BOCHS_REPORT)" || true
+	@cat "$(SAMIR_SUSP_BOCHS_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@grep -q 'rfb_unblocked=1' "$(SAMIR_SUSP_BOCHS_REPORT)" \
+		|| { printf '!!! test-flair-samir-suspend-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(SAMIR_SUSP_BOCHS_REPORT)"; then \
+		printf '!!! test-flair-samir-suspend-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
+	fi
+	@if [ ! -s "$(SAMIR_SUSP_BOCHS_SERIAL)" ]; then \
+		printf '!!! test-flair-samir-suspend-bochs FAIL: no serial captured at %s\n' "$(SAMIR_SUSP_BOCHS_SERIAL)"; exit 1; \
+	fi
+	@for m in VBE-ENOMODE VGA13 S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK; do \
+		grep -q "^$$m$$" "$(SAMIR_SUSP_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-samir-suspend-bochs FAIL: shared marker %s missing under Bochs\n' "$$m"; exit 1; }; \
+	done
+	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(SAMIR_SUSP_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-samir-suspend-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback\n'; exit 1; }
+	@grep -q '^HALTED$$' "$(SAMIR_SUSP_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-samir-suspend-bochs FAIL: HALTED terminal marker missing\n'; exit 1; }
+	@printf 'VERDICT   : PASS -- the flairtenants kernel booted under Bochs through the shared\n'
+	@printf '            kernel + FLAIR-heap milestones (== QEMU), and the 640x480 fail-loud\n'
+	@printf '            guard fired before the FAT mount / SAMIR launch (no triple-fault).\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -16099,7 +16288,8 @@ TEST_EMU_GATES := \
 	test-flair-mouse test-flair-mouse-mutant \
 	test-flair-drag test-flair-drag-mutant \
 	test-flair-menu test-flair-menu-mutant \
-	test-flair-appswitch test-flair-appswitch-mutant
+	test-flair-appswitch test-flair-appswitch-mutant \
+	test-flair-samir-suspend test-flair-samir-suspend-mutant
 
 test-unit:
 	@printf '======================================================================\n'
