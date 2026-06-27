@@ -15153,6 +15153,7 @@ TEST_UNIT_GATES := \
 	test-window test-window-mutant test-event test-event-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
 	test-interact test-interact-mutant \
+	test-process test-process-mutant \
 	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \
