@@ -203,7 +203,52 @@ fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
 
-> **CURRENT STATE (2026-06-26, WL-0062 -- THE LIVE INTERACTIVE FLAIR DESKTOP +
+> **CURRENT STATE (2026-06-27, WL-0065 -- FLAIR PHASE 4.5 PLATFORM SERVICES,
+> FIRST WAVE. THIS SUPERSEDES the WL-0064 App Contract block + the WL-0062 block
+> below.) The App Contract is now FULLY COMPLETE and the first two shared Toolbox
+> services ship.**
+>
+> Orchestrated session (committee for the scope/architecture fork + delegated
+> coding lanes + independent orchestrator grading), 2 commits `3eb39e4` (Wave 1)
+> + `67f96f1` (Wave 2), both pushed. The plan-of-record's next arc -- **Phase 4.5
+> Platform Services (`initech-49ez`, ADR-0012 D-2b)** -- is underway; these shared
+> services LAND BEFORE the canonical app suite so Initech123/InitechWord build ON
+> them (ADR-0012 D-2c). Committee `wf_00931e9e` (3 seats -> chair -> adversarial
+> verify = PROCEED-WITH-AMENDMENTS) ruled the wave + folded 5 amendments.
+>
+> 1. **ubd0 split-arena (ADR-0013 Amendment AC-2, `initech-ubd0` CLOSED)** -- app
+>    DEATH now provably survives a corrupt child arena. A tenant carves TWO master-
+>    heap blocks: a RECORDS block (FLAIR_CLASS_HANDLE -> `records_arena`:
+>    WindowRecord + region pools) + the DATA block (GENERAL -> `arena`). The shell
+>    reads ONLY `records_arena` at teardown; new `FlairProcess_kill` death path.
+>    BC-6 now SATISFIED (was FALSE). Closing this AUTO-CLOSED the App Contract epic
+>    `initech-4e35`.
+> 2. **Resource Manager (`initech-0w45` CLOSED)** -- `os/flair/resource.{c,h}`: a
+>    clean-room parser of a REAL big-endian Mac resource-fork subset (per
+>    `system7-decomp` resource-manager.md), type+ID lookup into the tenant DATA
+>    arena. Round-trip oracle vs an independent hand-authored fork+expect golden
+>    (NOT by-construction). The verifier caught + fixed a 22-vs-24-byte map-preamble
+>    off-by-two before any code.
+> 3. **Scrap/Clipboard (`initech-b2vk` CLOSED)** -- `os/flair/scrap.{c,h}`: a shell-
+>    owned cross-tenant Scrap (TEXT+PICT flavors), the co-residency copy/paste
+>    payoff; independent op/byte oracle incl. the cross-tenant leg.
+>
+> **`make clean && make test` = ALL GREEN 287 host + 57 emu** (was 283+57); Bochs
+> tenant-boot leg PASS; O-5 app-switch + O-7 SAMIR-suspend + the Office Space frame
+> UNREGRESSED; `_kernel_end=0x38ec0 < 0x40000`; all new mutants RED.
+>
+> **NEXT WORK (Phase 4.5 remaining, dependency-ordered -- `bd show initech-49ez`):**
+> `77dj` TextEdit + List Manager (depends on the Scrap; TERec/ListRec into the DATA
+> arena) -> `gymo` Standard File (Law-1 acquisition gate first: no SFGetFile spec in
+> the corpus) -> `o5vm` Print Manager (BLOCKED until the GrafPort verb layer, re30
+> P3-pre -- grafProcs verified NULL today). Plus 2 filed follow-ons: `ww9c` (wire the
+> Scrap singleton into the live desktop, copy/paste HELLO<->NOTES) + `0lko` (Resource
+> per-type record instantiation). Then the canonical app suite builds ON these
+> services. See **WL-0065**.
+>
+> ---
+>
+> **PRIOR STATE (2026-06-26, WL-0062 -- THE LIVE INTERACTIVE FLAIR DESKTOP +
 > the chrome FIDELITY arc. THIS SUPERSEDES the WL-0060/0061 block below.) The booted
 > 386 desktop is now INTERACTIVE: windows DRAG and menus DROP+SELECT under the mouse.**
 >
