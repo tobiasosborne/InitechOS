@@ -6,7 +6,7 @@
 **Issuing Body:** Initech Systems Corporation -- Platform Engineering, Presentation Layer Section (FLAIR)
 **Document Class:** Implementation Plan (living; supersede in place)
 **Programme / Milestone:** InitechOS (STAPLER) -- M3/M4/M5 + the app-hosting north star (PRD Sec 3, Sec 6.2-6.5, Sec 8)
-**Governing ADRs:** ADR-0004 (FLAIR Toolbox, RATIFIED), ADR-0005 (ATKINSON region engine, RATIFIED). New ADRs this plan introduces: ADR-0010 (FLAIR App Contract, Phase 4, PENDING), ADR-0011 (App-Hosting / Initech-versions, Phase 6, PENDING).
+**Governing ADRs:** ADR-0004 (FLAIR Toolbox, RATIFIED), ADR-0005 (ATKINSON region engine, RATIFIED). New ADRs this plan introduces: **ADR-0013 (FLAIR App Contract, Phase 4, RATIFIED 2026-06-27)**, ADR-0011 (App-Hosting / Initech-versions, Phase 6, PENDING). **Numbering note (2026-06-27):** this plan originally reserved "ADR-0010" for the App Contract, but ADR-0010 was used for the (unrelated) FLAIR Grading-and-Goldens ADR; the App Contract is therefore **ADR-0013** (driven by the charter expansion ADR-0012, PRD Sec 1.4). A new **Phase 4.5 "Platform Services"** sits between Phase 4 and Phase 5 (ADR-0012 D-2b).
 **Governing epics:** `initech-k8o5` (Toolbox arch), `initech-rf2l` (goldens), `initech-ib6` (M5 apps) + the new phase epics filed by this plan.
 **Last Reconciled:** 2026-06-20 (authored from the 7-lane FLAIR understand workflow `wf_e7335f49-a55` + committee/operator rulings below).
 
@@ -79,9 +79,18 @@ Make fidelity gateable against real pixels.
 - **[OP]** M4 sign-off: land 86Box (`initech-q0gy`) OR record an explicit DEC-04 waiver for M4.
 - **DoD:** the booted OS (QEMU + Bochs) shows the live System-7 chimera desktop with the modal FILE COPY; the emu screendump gate is green + mutation-proven; mouse moves the hourglass.
 
-### Phase 4 -- APP CONTRACT (the missing spine for every app) -- ADR-0010, epic `initech-4e35`
-- **[OP / committee]** Ratify ADR-0010: how a tenant owns a window content GrafPort/bitmap_t; is launched from the shell; receives routed keyboard/mouse/update events via `WaitNextEvent`; yields cooperatively; exits cleanly. Model on the SAMIR-as-tenant precedent + the window content-rect + event ring.
-- **DoD:** ADR ratified; a reference "hello window" tenant runs on the live desktop via the contract, gated on an emu screendump.
+### Phase 4 -- APP CONTRACT (the missing spine for every app) -- ADR-0013 (was mis-numbered "ADR-0010"), epic `initech-4e35`
+- **[OP / committee] RATIFIED 2026-06-27 (ADR-0013, ADR-by-committee `wf_42352963-a57`).** How a tenant owns a window content GrafPort/bitmap_t; is launched from the shell; receives routed keyboard/mouse/update events via `WaitNextEvent`; yields cooperatively; exits cleanly -- **plus multi-app co-residency** (the MultiFinder / cooperative-Windows capability) over the existing cooperative pump, within flat-32 + no-isolation. Models the SAMIR-as-tenant precedent + the window content-rect + the event ring. The native-vs-character-host fork for Initech 123 / InitechWord is ruled in ADR-0013.
+- **DoD:** ADR-0013 ratified; a reference "hello window" tenant AND a second co-resident tenant run on the live desktop via the contract, with app-switch, gated on an emu screendump + a host behavioural oracle (mutation-proven).
+
+### Phase 4.5 -- PLATFORM SERVICES (the app-platform bar's table-stakes) -- ADR-0012 D-2b, NEW epic
+The keystone (Phase 4 / ADR-0013) makes apps *possible*; Phase 4.5 makes them *credible* per the PRD Sec 1.4 app-platform bar (ADR-0012). These are the table-stakes a real System 7 / Win 3.1 competitor could not omit, promoted from Phase-5 one-liners / the deferred P1-8 into first-class, oracle-backed shared Toolbox services that tenants call. **They land BEFORE the canonical app suite** (Phase 5/6) so InitechBase / Initech 123 / InitechWord are built ON the contract + services, not hardwired (ADR-0012 D-2c). Each is built against the `../system7-decomp` (BASE) / `../win31-decomp` (ACCENTS) corpora, era-tagged, with its own independent mechanical oracle (Law 2), never by-construction.
+- **P4.5-1 Resource Manager** -- un-defer P1-8: a keyed resource store (Get/Release by type+ID) + the templated UI resources (WIND/MENU/DLOG/DITL, NFNT/FOND, CURS/PAT). Tenant assets load into the tenant child arena (ADR-0013 Sec 3.6). The defining storage/extensibility idiom of the era. + round-trip oracle vs a hand-authored resource fixture.
+- **P4.5-2 Scrap (Clipboard)** -- a shell-owned cross-tenant Scrap with text + picture flavors; the inter-app copy/paste that is the payoff of co-residency. + a round-trip + cross-tenant-flavor oracle.
+- **P4.5-3 TextEdit + List Manager** -- shared editable-text (`TERec`: selection, word-wrap, cut/copy/paste against the Scrap) + `ListRec`; the text-entry floor for 123 cells / Word body / Standard File. + selection/word-wrap + list-hit oracles.
+- **P4.5-4 Standard File / Common Dialogs** -- shell-owned Open/Save (and Color/Font/Print choosers) -- shell modal helpers like FILE COPY, NOT tenants (ADR-0013 Sec 3.6). The only sanctioned way an app names a file; built on the dialog manager + List Manager + the MILTON FAT directory enumerator. + a behavioural (navigate/select/return) oracle.
+- **P4.5-5 Print Manager** -- device-independent draw-to-printer (replay the GrafPort verb layer to a printer port) + Page Setup/Print dialogs + spool. Turns `PC LOAD LETTER` from a panic gag into a real, on-brand path (Appendix B canon). The `570-` / 116% canon lives in app content, not the service. + a draw-to-printer-port differential oracle.
+- **DoD:** each service compiles + its oracle is mutation-proven + `make clean && make test` green; at least one reference tenant exercises each service on the live desktop (emu-gated); era-tagged; `check-win95isms` clean (ADR-0012 D-4 era ceiling).
 
 ### Phase 5 -- TOOLBOX COMPLETION + M5 NATIVE FRAME APPS -- epic `initech-ib6`
 - Complete higher Toolbox as apps demand: ResizeWindow/ZoomWindow/GrowWindow; Font Manager + proportional Chicago + txFace styles; un-stub apple glyph + window title text; TextEdit (TERec); List Manager (ListRec); Scrap/clipboard.
