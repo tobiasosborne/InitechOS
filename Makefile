@@ -9360,6 +9360,59 @@ test-interact-mutant: $(TEST_INTERACT_MUT_DRAG) $(TEST_INTERACT_MUT_FIND) $(TEST
 	@if $(TEST_INTERACT_MUT_VIS) >/dev/null 2>&1; then printf '!!! test-interact-mutant FAIL: VISIBLE_IGNORE_FRONT PASSED -- the visible-region oracle is decoration\n'; exit 1; else printf '>>> test-interact-mutant: green (VISIBLE_IGNORE_FRONT correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
+# STANDALONE gate (NOT yet in any aggregate): test-process (ADR-0013 Sec 7 O-1)
+# -- the HOST routing/dispatch oracle for the FLAIR App Contract. Launches TWO
+# stub FlairApp tenants, drives a scripted EventRecord trace through the Layer-5
+# `flair_app_dispatch` (BC-2, the SAME symbol the live kmain pump runs), and
+# asserts the delivery log against a HAND-AUTHORED golden (Law 2; independent of
+# the router). ORACLE-FIRST: os/flair/process.c ships a STUB dispatcher, so
+# test-process is RED for the RIGHT reason until ADR-0013 Wave 2 lands the real
+# refCon demux + click-to-activate + activateEvt pair. Self-mutants
+# PROC_MUT_IGNORE_REFCON / _SKIP_ACTIVATE_PAIR / _KEY_TO_UNDER_CURSOR perturb the
+# EXPECTED golden, each biting a distinct leg (they COMPILE now; they go RED once
+# the Wave-2 dispatcher exists, Rule 6). NOTE: not added to test-unit / any
+# TEST_*_GATES, and process.o is not in any KERNEL_*_OBJS -- standalone only.
+# ---------------------------------------------------------------------------
+TEST_PROCESS     := $(BUILD)/test_process
+TEST_PROCESS_SRC := harness/proptest/test_process.c
+TEST_PROCESS_MUT_REFCON   := $(BUILD)/test_process_mutant_ignorerefcon
+TEST_PROCESS_MUT_ACTIVATE := $(BUILD)/test_process_mutant_skipactivate
+TEST_PROCESS_MUT_KEY      := $(BUILD)/test_process_mutant_keyundercursor
+TEST_PROCESS_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+                     os/flair/heap.h os/flair/event.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
+                     spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
+PROCESS_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
+PROCESS_LINK := os/flair/process.c os/flair/window.c $(REGION_ENGINE_C)
+
+$(TEST_PROCESS): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
+$(TEST_PROCESS_MUT_REFCON): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUT_IGNORE_REFCON $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
+$(TEST_PROCESS_MUT_ACTIVATE): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUT_SKIP_ACTIVATE_PAIR $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
+$(TEST_PROCESS_MUT_KEY): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUT_KEY_TO_UNDER_CURSOR $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
+
+test-process: $(TEST_PROCESS)
+	@printf ">>> test-process: ADR-0013 O-1 host routing/dispatch oracle (refCon demux + click-to-activate + activateEvt pair)\n"
+	@$(TEST_PROCESS)
+	@printf ">>> test-process: green\n"
+
+# Compile-only check for the three self-mutants (Wave 1: they need only BUILD;
+# they go run-RED once the Wave-2 dispatcher exists -- Rule 6).
+test-process-mutant-build: $(TEST_PROCESS_MUT_REFCON) $(TEST_PROCESS_MUT_ACTIVATE) $(TEST_PROCESS_MUT_KEY)
+	@printf ">>> test-process-mutant-build: all three self-mutants COMPILE (IGNORE_REFCON / SKIP_ACTIVATE_PAIR / KEY_TO_UNDER_CURSOR)\n"
+
+# Wave-2 mutant gate (the real Rule-6 bite, once flair_app_dispatch is implemented):
+# each mutant must go RED against the CORRECT dispatcher. (Today the STUB dispatcher
+# makes every build RED, so this gate is forward-looking -- use after Wave 2.)
+test-process-mutant: $(TEST_PROCESS_MUT_REFCON) $(TEST_PROCESS_MUT_ACTIVATE) $(TEST_PROCESS_MUT_KEY)
+	@printf ">>> test-process-mutant: confirming all three self-mutants go RED (Rule 6; Wave-2 gate)\n"
+	@if $(TEST_PROCESS_MUT_REFCON) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: IGNORE_REFCON PASSED -- the routing oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (IGNORE_REFCON correctly RED)\n'; fi
+	@if $(TEST_PROCESS_MUT_ACTIVATE) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: SKIP_ACTIVATE_PAIR PASSED -- the activate-pair oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (SKIP_ACTIVATE_PAIR correctly RED)\n'; fi
+	@if $(TEST_PROCESS_MUT_KEY) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: KEY_TO_UNDER_CURSOR PASSED -- the key-routing oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (KEY_TO_UNDER_CURSOR correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-event (beads initech-8b7) -- FLAIR Event Manager. ISR
 # enqueue-only SPSC ring (D-4); WaitNextEvent cooks raw input -> EventRecords in
 # task context; a recorded raw trace replays to a DETERMINISTIC event sequence
