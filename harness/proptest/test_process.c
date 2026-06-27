@@ -267,10 +267,13 @@ int main(void)
     g_appA = &appA; g_appB = &appB;
 
     FlairProcessList_init(&plist);
-    /* Launch B then A so A ends as the foreground head; launch binds each owned
-     * window's refCon = (int32_t)(uintptr_t)app (the demux key, Sec 3.1). */
-    FlairProcess_launch(&plist, &appB);
-    FlairProcess_launch(&plist, &appA);
+    /* Register B then A so A ends as the foreground head; register binds each
+     * owned window's refCon = (int32_t)(uintptr_t)app (the demux key, Sec 3.1).
+     * O-1 uses the caller-storage registrar (the two appA/appB are static here);
+     * the arena-allocating production launch (FlairProcess_launch) is graded by
+     * the O-3 teardown/leak + O-4 budget oracles (test_process_teardown/budget). */
+    FlairProcess_register(&plist, &appB);
+    FlairProcess_register(&plist, &appA);
 
     /* --- scene meaningfulness (INDEPENDENT rect arithmetic, NOT FindWindow) --- */
     CHECK(rect_contains(Ac, 20, 20),

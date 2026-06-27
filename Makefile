@@ -9379,10 +9379,10 @@ TEST_PROCESS_MUT_REFCON   := $(BUILD)/test_process_mutant_ignorerefcon
 TEST_PROCESS_MUT_ACTIVATE := $(BUILD)/test_process_mutant_skipactivate
 TEST_PROCESS_MUT_KEY      := $(BUILD)/test_process_mutant_keyundercursor
 TEST_PROCESS_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
-                     os/flair/heap.h os/flair/event.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
+                     os/flair/heap.c os/flair/heap.h os/flair/event.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 PROCESS_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
-PROCESS_LINK := os/flair/process.c os/flair/window.c $(REGION_ENGINE_C)
+PROCESS_LINK := os/flair/process.c os/flair/window.c os/flair/heap.c $(REGION_ENGINE_C)
 
 $(TEST_PROCESS): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
@@ -9411,6 +9411,73 @@ test-process-mutant: $(TEST_PROCESS_MUT_REFCON) $(TEST_PROCESS_MUT_ACTIVATE) $(T
 	@if $(TEST_PROCESS_MUT_REFCON) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: IGNORE_REFCON PASSED -- the routing oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (IGNORE_REFCON correctly RED)\n'; fi
 	@if $(TEST_PROCESS_MUT_ACTIVATE) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: SKIP_ACTIVATE_PAIR PASSED -- the activate-pair oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (SKIP_ACTIVATE_PAIR correctly RED)\n'; fi
 	@if $(TEST_PROCESS_MUT_KEY) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: KEY_TO_UNDER_CURSOR PASSED -- the key-routing oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (KEY_TO_UNDER_CURSOR correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# STANDALONE gate (NOT yet in any aggregate): test-process-teardown
+# (ADR-0013 Sec 7 O-3) -- the HOST teardown/leak oracle for the ARENA memory
+# model (Wave 3a). Runs N>=3 launch+terminate cycles over a master flair_heap and
+# asserts the REFRAMED leak invariant of the bump+free-list heap: cycle 1 drops
+# avail by EXACTLY (HANDLE span + GENERAL span), cycles >= 2 keep avail STABLE
+# (the freed HANDLE+GENERAL blocks are reused from the class free-lists; the bump
+# cursor is never rolled back). Expected values are recomputed independently from
+# the documented heap span formula (Law 2). The ARTIFACT mutant
+# TEARDOWN_MUT_LEAK_BLOCK (a #ifdef in os/flair/process.c FlairProcess_terminate
+# that SKIPS the child-block free) makes avail DRIFT DOWN per cycle -> the
+# stability check goes RED (Rule 6). NOTE: not added to test-unit / any
+# TEST_*_GATES; process.o is not in any KERNEL_*_OBJS -- standalone only.
+# ---------------------------------------------------------------------------
+TEST_PROC_TEARDOWN     := $(BUILD)/test_process_teardown
+TEST_PROC_TEARDOWN_SRC := harness/proptest/test_process_teardown.c
+TEST_PROC_TEARDOWN_MUT := $(BUILD)/test_process_teardown_mutant_leakblock
+TEST_PROC_TEARDOWN_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+                     os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
+                     spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
+
+$(TEST_PROC_TEARDOWN): $(TEST_PROC_TEARDOWN_SRC) $(TEST_PROC_TEARDOWN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_PROC_TEARDOWN_SRC) $(PROCESS_LINK)
+$(TEST_PROC_TEARDOWN_MUT): $(TEST_PROC_TEARDOWN_SRC) $(TEST_PROC_TEARDOWN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEARDOWN_MUT_LEAK_BLOCK $(PROCESS_INC) -o $@ $(TEST_PROC_TEARDOWN_SRC) $(PROCESS_LINK)
+
+test-process-teardown: $(TEST_PROC_TEARDOWN)
+	@printf ">>> test-process-teardown: ADR-0013 O-3 host teardown/leak oracle (bump+free-list avail: cycle-1 drop, cycles>=2 stable)\n"
+	@$(TEST_PROC_TEARDOWN)
+	@printf ">>> test-process-teardown: green\n"
+
+test-process-teardown-mutant: $(TEST_PROC_TEARDOWN_MUT)
+	@printf ">>> test-process-teardown-mutant: confirming TEARDOWN_MUT_LEAK_BLOCK goes RED (Rule 6)\n"
+	@if $(TEST_PROC_TEARDOWN_MUT) >/dev/null 2>&1; then printf '!!! test-process-teardown-mutant FAIL: LEAK_BLOCK PASSED -- the leak oracle is decoration\n'; exit 1; else printf '>>> test-process-teardown-mutant: green (LEAK_BLOCK correctly RED -- avail drifts down)\n'; fi
+
+# ---------------------------------------------------------------------------
+# STANDALONE gate (NOT yet in any aggregate): test-process-budget
+# (ADR-0013 Sec 7 O-4 / BC-5) -- the HOST fail-loud launch-budget oracle for the
+# ARENA memory model (Wave 3a). Asserts that an over-budget launch AND an
+# open()-failure launch each return NULL, install NO window/menubar, leave the
+# process list + WindowMgr unchanged, and reclaim cleanly (avail returns to
+# before, after priming the free-lists). The ARTIFACT mutant BUDGET_MUT_OVERCOMMIT
+# (a #ifdef in os/flair/process.c FlairProcess_launch that partially installs on
+# alloc-NULL/open-fail instead of failing loud) makes both legs go RED (Rule 6).
+# NOTE: not added to test-unit / any TEST_*_GATES; process.o not in KERNEL_*_OBJS.
+# ---------------------------------------------------------------------------
+TEST_PROC_BUDGET     := $(BUILD)/test_process_budget
+TEST_PROC_BUDGET_SRC := harness/proptest/test_process_budget.c
+TEST_PROC_BUDGET_MUT := $(BUILD)/test_process_budget_mutant_overcommit
+TEST_PROC_BUDGET_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+                     os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
+                     spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
+
+$(TEST_PROC_BUDGET): $(TEST_PROC_BUDGET_SRC) $(TEST_PROC_BUDGET_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_PROC_BUDGET_SRC) $(PROCESS_LINK)
+$(TEST_PROC_BUDGET_MUT): $(TEST_PROC_BUDGET_SRC) $(TEST_PROC_BUDGET_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DBUDGET_MUT_OVERCOMMIT $(PROCESS_INC) -o $@ $(TEST_PROC_BUDGET_SRC) $(PROCESS_LINK)
+
+test-process-budget: $(TEST_PROC_BUDGET)
+	@printf ">>> test-process-budget: ADR-0013 O-4 host fail-loud launch-budget oracle (over-budget + open-fail -> NULL, no install, reclaimed)\n"
+	@$(TEST_PROC_BUDGET)
+	@printf ">>> test-process-budget: green\n"
+
+test-process-budget-mutant: $(TEST_PROC_BUDGET_MUT)
+	@printf ">>> test-process-budget-mutant: confirming BUDGET_MUT_OVERCOMMIT goes RED (Rule 6)\n"
+	@if $(TEST_PROC_BUDGET_MUT) >/dev/null 2>&1; then printf '!!! test-process-budget-mutant FAIL: OVERCOMMIT PASSED -- the budget oracle is decoration\n'; exit 1; else printf '>>> test-process-budget-mutant: green (OVERCOMMIT correctly RED -- partial install detected)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-event (beads initech-8b7) -- FLAIR Event Manager. ISR
@@ -15154,6 +15221,8 @@ TEST_UNIT_GATES := \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
 	test-interact test-interact-mutant \
 	test-process test-process-mutant \
+	test-process-teardown test-process-teardown-mutant \
+	test-process-budget test-process-budget-mutant \
 	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \

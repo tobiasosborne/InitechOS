@@ -154,27 +154,66 @@ void FlairProcessList_init(FlairProcessList *list);
  * 3. LIFECYCLE + THE LAYER-5 DISPATCHER  (ADR-0013 Sec 3.2/3.3/3.4, BC-2)
  * ===========================================================================*/
 
-/* FlairProcess_launch -- WAVE-1 minimal launch (ADR-0013 Sec 8 first cut).
+/* FlairProcess_register -- caller-storage registration (the O-1 host-oracle path).
  *
  * Registers a caller-constructed FlairApp (its `procs`, `name`, and owned
- * `windows` already set) as the new FOREGROUND: it stamps FLAIR_APP_MAGIC, binds
- * the owned window's refCon = (int32_t)(uintptr_t)app (the demux key, Sec 3.1),
- * demotes the previous foreground to FLAIR_APP_BG, links the app at the list head
- * as FLAIR_APP_FG, and returns it (NULL on a NULL argument -- BC-5 placeholder).
- *
- * WAVE 2 (ADR-0013 Sec 3.2) replaces this with the full Toolbox launch:
- * flair_alloc a FLAIR_CLASS_GENERAL partition block, flair_heap_init a child
- * arena over it, call procs->open() (which does NewWindow + sets refCons),
- * SelectWindow the front window, install the menubar, link the app, and
- * WindowMgr_invalidate to seed the first updateEvt. */
-FlairApp *FlairProcess_launch(FlairProcessList *list, FlairApp *app);
+ * `windows` already set, its storage owned by the caller -- NOT carved from a
+ * heap) as the new FOREGROUND: it stamps FLAIR_APP_MAGIC, binds the owned
+ * window's refCon = (int32_t)(uintptr_t)app (the demux key, Sec 3.1), demotes the
+ * previous foreground to FLAIR_APP_BG, links the app at the list head as
+ * FLAIR_APP_FG, and returns it (NULL on a NULL argument). It does NOT carve a
+ * child arena and does NOT call procs->open(): it is the thin no-allocation
+ * registrar the dispatch oracle (test_process.c O-1) uses to wire stub tenants
+ * over caller-built windows. The arena-allocating production launch is
+ * FlairProcess_launch below; an app installed by _register has app->block == NULL
+ * and must NOT be torn down with FlairProcess_terminate (which one-shot-frees the
+ * child block). */
+FlairApp *FlairProcess_register(FlairProcessList *list, FlairApp *app);
 
-/* FlairProcess_terminate -- WAVE-1 minimal teardown: mark DYING and unlink from
- * the process list. WAVE 2 (ADR-0013 Sec 3.4) additionally calls procs->close(),
- * DisposeWindow's the app's window group (accruing exposure damage), one-shot
- * frees the child block (flair_free(parent, FLAIR_CLASS_GENERAL, app->block)),
- * and promotes the next app (front window + activate pair + menubar swap). */
-void FlairProcess_terminate(FlairProcessList *list, FlairApp *app);
+/* FlairProcess_launch -- the ARENA-ALLOCATING Toolbox launch (ADR-0013 Sec 3.2).
+ *
+ * Carves a tenant out of the master FLAIR heap and brings it up as the new
+ * foreground (the MultiFinder "partition" is a convention, not hardware -- Sec
+ * 3.6). Steps (Sec 3.2 a-g):
+ *   (a) flair_alloc(master, FLAIR_CLASS_HANDLE, sizeof(FlairApp)) -- the handle;
+ *   (b) flair_alloc(master, FLAIR_CLASS_GENERAL, budget)          -- the child block;
+ *   (O-4 / BC-5) if EITHER alloc fails: reclaim whatever was carved, install
+ *       NOTHING, leave `list`/`wm` unchanged, and return NULL (fail-loud budget --
+ *       never overcommit, never partially install; Rule 2);
+ *   (c) flair_heap_init(&app->arena, block, budget) -- a CHILD heap over the block;
+ *       stamp magic, name, procs, block, state;
+ *   (d) procs->open(app, &lp) -- builds the window(s) from app->arena and sets each
+ *       w->refCon = (int32_t)(uintptr_t)app; if open() returns != 0 the launch
+ *       FAILS: reclaim block + handle, install nothing, return NULL (O-4 open-fail);
+ *   (e) SelectWindow the app's front window (raise z-order + activate);
+ *   (f) link at the list head as the new foreground, demoting the old head to BG;
+ *   (g) return the launched tenant.
+ *
+ * Teardown is FlairProcess_terminate (the one-shot child-block free, Sec 3.4). */
+FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
+                             flair_heap_t *master, const FlairAppProcs *procs,
+                             const char *name, rgn_rect_t bounds,
+                             uint32_t budget);
+
+/* FlairProcess_terminate -- CLEAN teardown (ADR-0013 Sec 3.4), for tenants brought
+ * up by FlairProcess_launch (app->block carved from `master`).
+ *
+ *   (1) procs->close(app) if non-NULL (flush docs);
+ *   (2) DisposeWindow every window in the wm z-order OWNED by app (refCon match +
+ *       magic, the same demux rule the dispatcher uses), accruing exposure damage;
+ *   (3) ONE-SHOT free: flair_free(master, FLAIR_CLASS_GENERAL, app->block) then
+ *       flair_free(master, FLAIR_CLASS_HANDLE, app) LAST -- do not touch app after;
+ *   (4) unlink app from the process list;
+ *   (5) if app was the foreground head, promote the next app (SelectWindow its
+ *       front window + foreground state).
+ *
+ * SCOPE LIMIT (orchestrator ruling, bead initech-ubd0): this implements CLEAN
+ * teardown only. The "app-death survives a CORRUPTED child arena" path (ADR Sec
+ * 3.4 vs Sec 3.6 tension -- WindowRecords live in the child arena, so removing
+ * them reads that arena) is DEFERRED pending a committee ruling and is not
+ * implemented here. */
+void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
+                            flair_heap_t *master, FlairApp *app);
 
 /* flair_app_dispatch -- THE single Layer-5 dispatcher (ADR-0013 Sec 3.3, BC-2).
  *
