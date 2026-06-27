@@ -154,12 +154,14 @@ FlairApp *FlairProcess_register(FlairProcessList *list, FlairApp *app)
  *      BC-5 (fail-loud launch budget -- never overcommit, never partial install).
  * -------------------------------------------------------------------------- */
 FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
+                             const bitmap_t *surface,
                              flair_heap_t *master, const FlairAppProcs *procs,
                              const char *name, rgn_rect_t bounds,
                              uint32_t budget)
 {
     if (list == NULL || wm == NULL || master == NULL || procs == NULL)
         PROC_PANIC("launch: NULL argument (contract error)");
+    /* `surface` MAY be NULL: the stub host oracles launch non-drawing tenants. */
 
     /* (a) the FlairApp handle from the master heap (HANDLE class). */
     FlairApp *app = (FlairApp *)flair_alloc(master, FLAIR_CLASS_HANDLE,
@@ -209,10 +211,11 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
      * app->arena and sets each w->refCon = (int32_t)(uintptr_t)app (Sec 3.1). */
     {
         FlairLaunchParams lp;
-        lp.bounds = bounds;
-        lp.budget = budget;
-        lp.wm     = wm;   /* thread the shell WindowMgr so open() can NewWindow(lp->wm,
-                           * ...) instead of reaching a file-global (bead initech-fka6). */
+        lp.bounds   = bounds;
+        lp.budget   = budget;
+        lp.wm       = wm;   /* thread the shell WindowMgr so open() can NewWindow(lp->wm,
+                             * ...) instead of reaching a file-global (bead initech-fka6). */
+        lp.surface  = surface;   /* the offscreen open() draws content into (fka6). */
         if (procs->open != NULL && procs->open(app, &lp) != 0) {
 #ifdef BUDGET_MUT_OVERCOMMIT
             /* MUTANT (Rule 6): open() failed but install anyway (partial install).

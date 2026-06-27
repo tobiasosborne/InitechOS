@@ -218,7 +218,7 @@ int main(void)
     uint32_t avail_after[NCYCLES + 1];
 
     for (int k = 1; k <= NCYCLES; k++) {
-        FlairApp *app = FlairProcess_launch(&plist, &M.wm, &master,
+        FlairApp *app = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
                                             &g_tenant_procs, "T", bounds,
                                             (uint32_t)BUDGET);
         CHECK(app != NULL, "cycle: arena launch succeeds");

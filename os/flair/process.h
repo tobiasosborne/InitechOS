@@ -70,6 +70,7 @@
 #include "window.h"        /* WindowMgr, WindowPtr, FindWindow/SelectWindow/... */
 #include "heap.h"          /* flair_heap_t, flair_class_t (the child sub-arena) */
 #include "event_model.h"   /* EventRecord, flair_event_what_t, modifier bits    */
+#include "surface.h"       /* bitmap_t -- the offscreen a tenant draws into      */
 
 /* MenuBar is defined by os/flair/menu.h (the whole Menu Manager surface). The
  * contract only needs a pointer slot ("swapped in when foreground"), so we
@@ -107,6 +108,13 @@ typedef struct FlairLaunchParams {
                           * the demux refCon still binds open()'s windows to `self`.
                           * Ref: ADR-0013 amendment, bead initech-fka6 (FlairLaunch-
                           * Params.wm -- the locked-contract edit, Rule 8). */
+    const bitmap_t *surface; /* the OFFSCREEN the tenant's open()/event() draws its
+                          * content into (global coords; blitter_fill_rect_clipped on
+                          * lp->surface clipped to the window's content region). The
+                          * compositor composites the live z-order from this surface;
+                          * a tenant that does NOT draw (the O-1/O-3/O-4 stub tenants)
+                          * is launched with surface==NULL and ignores it. Additive,
+                          * ADR-0013 amendment bead initech-fka6 (Wave-4 Step 1). */
 } FlairLaunchParams;
 
 /* FlairAppProcs -- the const vtable of tenant entry-points (the A5 jump-table
@@ -138,6 +146,12 @@ struct FlairApp {
     struct MenuBar      *menubar;  /* this app's menu set; swapped in when foreground */
     WindowPtr            windows;  /* head of THIS app's window group (z-order run)  */
     int32_t              refCon;   /* per-app datum                                 */
+    void                *userData; /* per-INSTANCE tenant state (FULL-WIDTH pointer, */
+                                   /* NOT refCon/int32): a tenant's open() stashes a */
+                                   /* heap-allocated private struct here and recovers */
+                                   /* it in event(self,ev) as self->userData. Zeroed */
+                                   /* by FlairProcess_launch; additive, ADR-0013      */
+                                   /* amendment bead initech-fka6 (Wave-4 Step 1).    */
     uint8_t              state;    /* FLAIR_APP_FG / FLAIR_APP_BG / FLAIR_APP_DYING */
     FlairApp            *nextApp;  /* the resident-app (process) list               */
 };
@@ -195,8 +209,14 @@ FlairApp *FlairProcess_register(FlairProcessList *list, FlairApp *app);
  *   (f) link at the list head as the new foreground, demoting the old head to BG;
  *   (g) return the launched tenant.
  *
+ * `surface` is the offscreen the launched tenant's open() draws its content into
+ * (threaded into lp->surface before procs->open; the kernel passes the live FLAIR
+ * compositor surface, the host stub oracles pass NULL -- their open() does not draw).
+ * Additive, ADR-0013 amendment bead initech-fka6.
+ *
  * Teardown is FlairProcess_terminate (the one-shot child-block free, Sec 3.4). */
 FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
+                             const bitmap_t *surface,
                              flair_heap_t *master, const FlairAppProcs *procs,
                              const char *name, rgn_rect_t bounds,
                              uint32_t budget);

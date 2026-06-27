@@ -177,8 +177,8 @@ int main(void)
     /* --- PRIME: one successful launch+terminate so the HANDLE + GENERAL free-lists
      *     each hold a reusable block (see the file header on why this makes the
      *     "avail returns to before" assertion the TRUE contract). --- */
-    FlairApp *app0 = FlairProcess_launch(&plist, &M.wm, &master, &g_good_procs,
-                                         "P", bounds, (uint32_t)BUDGET);
+    FlairApp *app0 = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
+                                         &g_good_procs, "P", bounds, (uint32_t)BUDGET);
     CHECK(app0 != NULL, "prime: a within-budget launch succeeds");
     CHECK(plist.head == app0 && M.wm.front != NULL,
           "prime: the primed tenant is installed (head + front window)");
@@ -195,8 +195,8 @@ int main(void)
     CHECK(over_budget > avail_before_a,
           "leg(a): the requested budget genuinely exceeds the master remaining (meaningful)");
 
-    FlairApp *app_a = FlairProcess_launch(&plist, &M.wm, &master, &g_good_procs,
-                                          "OB", bounds, over_budget);
+    FlairApp *app_a = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
+                                          &g_good_procs, "OB", bounds, over_budget);
     CHECK(app_a == NULL,
           "leg(a): an over-budget launch FAILS LOUD -- returns NULL (BC-5)");
     CHECK(plist.head == head_before_a,
@@ -211,8 +211,8 @@ int main(void)
     FlairApp *head_before_b  = plist.head;     /* NULL */
     WindowPtr front_before_b = M.wm.front;     /* NULL */
 
-    FlairApp *app_b = FlairProcess_launch(&plist, &M.wm, &master, &g_bad_procs,
-                                          "OF", bounds, (uint32_t)BUDGET);
+    FlairApp *app_b = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
+                                          &g_bad_procs, "OF", bounds, (uint32_t)BUDGET);
     CHECK(app_b == NULL,
           "leg(b): an open()-failure launch FAILS LOUD -- returns NULL (Sec 3.1)");
     CHECK(plist.head == head_before_b,
@@ -225,8 +225,8 @@ int main(void)
     /* ===== sanity: after the two failed launches, a within-budget launch still
      *       succeeds + reuses the primed blocks (the heap is not poisoned). ===== */
     uint32_t avail_before_c = flair_heap_avail(&master);
-    FlairApp *app_c = FlairProcess_launch(&plist, &M.wm, &master, &g_good_procs,
-                                          "OK", bounds, (uint32_t)BUDGET);
+    FlairApp *app_c = FlairProcess_launch(&plist, &M.wm, NULL /* surface */, &master,
+                                          &g_good_procs, "OK", bounds, (uint32_t)BUDGET);
     CHECK(app_c != NULL && plist.head == app_c && M.wm.front != NULL,
           "post: a within-budget launch after the failures still installs cleanly");
     FlairProcess_terminate(&plist, &M.wm, &master, app_c);
