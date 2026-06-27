@@ -9480,6 +9480,47 @@ test-process-budget-mutant: $(TEST_PROC_BUDGET_MUT)
 	@if $(TEST_PROC_BUDGET_MUT) >/dev/null 2>&1; then printf '!!! test-process-budget-mutant FAIL: OVERCOMMIT PASSED -- the budget oracle is decoration\n'; exit 1; else printf '>>> test-process-budget-mutant: green (OVERCOMMIT correctly RED -- partial install detected)\n'; fi
 
 # ---------------------------------------------------------------------------
+# STANDALONE gate (NOT yet in any aggregate): test-process-activate
+# (ADR-0013 Sec 7 O-2) -- the HOST activation / z-order oracle for APP-GROUP RAISE
+# on app switch (Wave 3b). A 3-window scene with app A (2 windows A0+A1) and app B
+# (1 window B0) INTERLEAVED in the z-order [A0, B0, A1]; a background click drives
+# `flair_app_dispatch` (BC-2, the SAME symbol the live kmain pump runs). Asserts,
+# against an INDEPENDENTLY recomputed expected z-order (a stable-partition raise,
+# NOT read from the dispatcher; Law 2): the switched-to app's WHOLE window group is
+# the front contiguous run in original relative order, hilited==1 on exactly
+# wm->front, refCon round-trips to the right owner, and the old foreground's front
+# window got the deactivate. Self-mutants ACTIVATE_MUT_NO_HILITE (expected hilite
+# stays on the old front) and ACTIVATE_MUT_RAISE_FRONT_ONLY (expected raises only
+# the group-front window) perturb the EXPECTED side, each biting a DISTINCT
+# invariant -> RED (Rule 6). NOTE: not added to test-unit / any TEST_*_GATES;
+# process.o not in KERNEL_*_OBJS -- standalone only (orchestrator integrates).
+# ---------------------------------------------------------------------------
+TEST_PROC_ACTIVATE     := $(BUILD)/test_process_activate
+TEST_PROC_ACTIVATE_SRC := harness/proptest/test_process_activate.c
+TEST_PROC_ACTIVATE_MUT_HILITE := $(BUILD)/test_process_activate_mutant_nohilite
+TEST_PROC_ACTIVATE_MUT_FRONT  := $(BUILD)/test_process_activate_mutant_raisefrontonly
+TEST_PROC_ACTIVATE_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+                     os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
+                     spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
+
+$(TEST_PROC_ACTIVATE): $(TEST_PROC_ACTIVATE_SRC) $(TEST_PROC_ACTIVATE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_PROC_ACTIVATE_SRC) $(PROCESS_LINK)
+$(TEST_PROC_ACTIVATE_MUT_HILITE): $(TEST_PROC_ACTIVATE_SRC) $(TEST_PROC_ACTIVATE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DACTIVATE_MUT_NO_HILITE $(PROCESS_INC) -o $@ $(TEST_PROC_ACTIVATE_SRC) $(PROCESS_LINK)
+$(TEST_PROC_ACTIVATE_MUT_FRONT): $(TEST_PROC_ACTIVATE_SRC) $(TEST_PROC_ACTIVATE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DACTIVATE_MUT_RAISE_FRONT_ONLY $(PROCESS_INC) -o $@ $(TEST_PROC_ACTIVATE_SRC) $(PROCESS_LINK)
+
+test-process-activate: $(TEST_PROC_ACTIVATE)
+	@printf ">>> test-process-activate: ADR-0013 O-2 host activation/z-order oracle (app-group raise: whole group to front run, hilite-on-front, refCon round-trip)\n"
+	@$(TEST_PROC_ACTIVATE)
+	@printf ">>> test-process-activate: green\n"
+
+test-process-activate-mutant: $(TEST_PROC_ACTIVATE_MUT_HILITE) $(TEST_PROC_ACTIVATE_MUT_FRONT)
+	@printf ">>> test-process-activate-mutant: confirming both self-mutants go RED (Rule 6)\n"
+	@if $(TEST_PROC_ACTIVATE_MUT_HILITE) >/dev/null 2>&1; then printf '!!! test-process-activate-mutant FAIL: NO_HILITE PASSED -- the hilite-on-front oracle is decoration\n'; exit 1; else printf '>>> test-process-activate-mutant: green (NO_HILITE correctly RED)\n'; fi
+	@if $(TEST_PROC_ACTIVATE_MUT_FRONT) >/dev/null 2>&1; then printf '!!! test-process-activate-mutant FAIL: RAISE_FRONT_ONLY PASSED -- the whole-group-raise oracle is decoration\n'; exit 1; else printf '>>> test-process-activate-mutant: green (RAISE_FRONT_ONLY correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-event (beads initech-8b7) -- FLAIR Event Manager. ISR
 # enqueue-only SPSC ring (D-4); WaitNextEvent cooks raw input -> EventRecords in
 # task context; a recorded raw trace replays to a DETERMINISTIC event sequence
@@ -15223,6 +15264,7 @@ TEST_UNIT_GATES := \
 	test-process test-process-mutant \
 	test-process-teardown test-process-teardown-mutant \
 	test-process-budget test-process-budget-mutant \
+	test-process-activate test-process-activate-mutant \
 	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \

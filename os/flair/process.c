@@ -64,6 +64,58 @@ static void proc_zero(void *p, uint32_t n)
 }
 
 /* --------------------------------------------------------------------------
+ * raise_group -- APP-GROUP RAISE on app switch (ADR-0013 Sec 3.5).
+ *
+ * Raise `app`'s ENTIRE window group to the FRONT contiguous run of the WindowMgr
+ * z-order, PRESERVING the group's internal relative z-order, leaving the group's
+ * front window (app->windows) frontmost + hilited. "Switching ... raises that
+ * app's WHOLE window group to the front run" (ADR-0013 Sec 3.5: app-grouped
+ * z-order); the foreground app's windows form the front contiguous run.
+ *
+ * METHOD (allocation-free, cooperative). Enumerate the app's windows in the
+ * z-order by the SAME demux key the binding rule sets --
+ * (int32_t)(uintptr_t)app == w->refCon (Sec 3.1; the rule owner_of_window and
+ * terminate's DisposeWindow loop already use). Then pull the BACKMOST owned
+ * window to the head via SelectWindow exactly `count` times: each pull takes the
+ * current-deepest un-pulled member and pushes it ahead of the previously-pulled
+ * ones, so the group ends clustered at the front in its ORIGINAL relative order
+ * (pull back-to-front => reassemble front-to-front). No temp array, no malloc
+ * (Rule 2 / Law 3); a bounded back-to-front scan per member, and the group is
+ * small.
+ *
+ * SINGLE-WINDOW INVARIANCE (keeps O-1 / launch / single-window switches
+ * byte-identical): count==1 runs exactly one SelectWindow of the sole owned
+ * window, which for a single-window app IS owner->windows -- identical to the
+ * pre-group `SelectWindow(wm, owner->windows)`. SelectWindow itself reaffirms the
+ * hilite (window.c reaffirm_active: frontmost visible window hilited, rest 0).
+ *
+ * Ref: ADR-0013 Sec 3.5 (app-grouped z-order, whole-group raise on switch),
+ *      Sec 3.1 (the refCon demux key); window.h SelectWindow (raise one window
+ *      to front + reaffirm activation). CLAUDE.md Law 2, Rule 2, Rule 11.
+ * -------------------------------------------------------------------------- */
+static void raise_group(WindowMgr *wm, FlairApp *app)
+{
+    if (wm == NULL || app == NULL) return;
+    int32_t key = (int32_t)(uintptr_t)app;   /* the demux key (Sec 3.1)         */
+
+    /* count the app's windows currently in the z-order. */
+    int count = 0;
+    for (WindowPtr w = wm->front; w != (WindowPtr)0; w = w->nextWindow)
+        if (w->refCon == key) count++;
+
+    /* pull the BACKMOST owned window to the front `count` times: each pull lands
+     * the current-deepest un-pulled member just ahead of the prior pulls, so the
+     * group reassembles at the front in its original relative order. */
+    for (int i = 0; i < count; i++) {
+        WindowPtr back = (WindowPtr)0;
+        for (WindowPtr w = wm->front; w != (WindowPtr)0; w = w->nextWindow)
+            if (w->refCon == key) back = w;   /* last match in z-order == backmost */
+        if (back == (WindowPtr)0) break;      /* defensive; `count` already guards */
+        SelectWindow(wm, back);
+    }
+}
+
+/* --------------------------------------------------------------------------
  * FlairProcess_register -- caller-storage registration (the O-1 host-oracle path).
  * Stamp magic + bind the owned window's demux refCon + link at the head as the
  * new foreground, demoting the previous foreground to background. It carves NO
@@ -247,12 +299,13 @@ void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
         if (*pp == app) { succ = app->nextApp; *pp = app->nextApp; }
     }
 
-    /* (5) if app was the foreground head, promote the next app: raise its front
-     * window (the deactivate/activate pair is the dispatcher's job on the live
-     * click path; on teardown we re-front + re-state the successor). */
+    /* (5) if app was the foreground head, promote the next app: raise its WHOLE
+     * window group to the front run (Sec 3.5; for a single-window successor this
+     * is one SelectWindow of its front window, identical to before). The
+     * deactivate/activate pair is the dispatcher's job on the live click path; on
+     * teardown we re-front + re-state the successor. */
     if (was_fg && succ != (FlairApp *)0) {
-        if (succ->windows != (WindowPtr)0)
-            SelectWindow(wm, succ->windows);
+        raise_group(wm, succ);
         succ->state = (uint8_t)FLAIR_APP_FG;
     }
 
@@ -355,7 +408,8 @@ static void promote_to_front(FlairProcessList *list, FlairApp *app,
  *   mouseDown: FindWindow -> part-code + WindowPtr.
  *     - inContent on a window whose owner is NOT the foreground -> CLICK-TO-
  *       ACTIVATE FIRST, in this EXACT order (the O-1 leg(c) ordering assertion):
- *         (1) SelectWindow raises the owner's window group to the z-order front;
+ *         (1) raise_group raises the owner's WHOLE window group to the z-order
+ *             front contiguous run, preserving internal order (Sec 3.5);
  *         (2) a DEACTIVATE activateEvt (active-flag CLEARED) to the OLD foreground;
  *         (3) an ACTIVATE activateEvt (active-flag SET) to the new owner;
  *         (4) promote the owner to the process-list head (old fg -> background);
@@ -396,7 +450,7 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
 
         if (owner != old_fg) {
             /* CLICK-TO-ACTIVATE (Sec 3.3 / Sec 3.5), in deterministic order. */
-            SelectWindow(wm, owner->windows);          /* (1) raise z-order      */
+            raise_group(wm, owner);                    /* (1) raise WHOLE group  */
             EventRecord deact = mk_activate(ev, old_fg ? old_fg->windows : NULL, 0);
             deliver(old_fg, &deact);                   /* (2) deactivate old fg  */
             EventRecord act = mk_activate(ev, owner->windows, 1);
