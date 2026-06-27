@@ -8315,6 +8315,114 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 	qemu-system-i386 -drive format=raw,file=$(FLAIRLIVE_INTERACTIVE_IMG) -serial stdio
 
 # ===========================================================================
+# FLAIR APP CONTRACT, BOOTED -- the FLAIRTENANTS image (ADR-0013; Wave-4 Step 4;
+# beads initech-4e35). The SAME BOOT_FLAIR_LIVE kmain but ALSO -DFLAIR_LIVE_TENANTS:
+# the pump arm hides the two canon frame doc windows, launches HELLO+NOTES as
+# co-resident tenants (FlairProcess_launch), and routes every event through the
+# SOLE Layer-5 spine flair_app_dispatch / flair_route_updates. It links the
+# IDENTICAL object set as FLAIRLIVE plus process.o + ref_tenant.o (THE ARTIFACT;
+# the App Contract dispatcher + the two reference tenants), compiled freestanding
+# with the kernel CC/flags. Its OWN main obj/elf/bin/image, so the DEFAULT boot and
+# the existing FLAIRLIVE/FLAIRSHELL/INTERACTIVE images stay byte-identical (every
+# tenant symbol is behind #ifdef FLAIR_LIVE_TENANTS; Rule 11).
+#
+# Step-4 scope: BUILD + BOOT only -- the emu O-5 app-switch GATE is wired in Step 5
+# (the orchestrator grades the screendump with tools/ppm_flair_appswitch_check).
+# NOT added to `make test` / any TEST_*_GATES here; process.o / ref_tenant.o are NOT
+# in any other KERNEL_*_OBJS.
+# ---------------------------------------------------------------------------
+# The App Contract dispatcher object (THE ARTIFACT; freestanding kernel build).
+KERNEL_PROCESS_OBJ := $(BUILD)/process.o
+$(KERNEL_PROCESS_OBJ): os/flair/process.c os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $@
+
+# The two reference tenants object (THE ARTIFACT; freestanding kernel build). Needs
+# -Ios/apps for ref_tenant.h and -Ispec for the shared demo contract.
+KERNEL_REF_TENANT_OBJ := $(BUILD)/ref_tenant.o
+$(KERNEL_REF_TENANT_OBJ): os/apps/ref_tenant.c os/apps/ref_tenant.h os/flair/process.h os/flair/window.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/flair_look.h spec/window_record.h spec/region_algebra.h spec/event_model.h spec/chrome_metrics.h spec/flair_tenants_demo.h spec/assets/color_canon.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/apps -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/apps/ref_tenant.c -o $@
+
+# Bounded (gate) FLAIRTENANTS kernel: -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS. Adds
+# -Ios/apps for ref_tenant.h + the process/ref_tenant/demo prereqs the arm includes.
+KERNEL_FLAIRTENANTS_MAIN_OBJ := $(BUILD)/kmain_flairtenants.o
+KERNEL_FLAIRTENANTS_ELF      := $(BUILD)/kernel_flairtenants.elf
+KERNEL_FLAIRTENANTS_BIN      := $(BUILD)/kernel_flairtenants.bin
+FLAIRTENANTS_IMG             := $(BUILD)/flair_tenants.img
+
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+# obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
+KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ)
+
+$(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_OBJS)
+
+$(KERNEL_FLAIRTENANTS_BIN): $(KERNEL_FLAIRTENANTS_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairtenants.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairtenants)
+
+$(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRTENANTS_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants image: %s (HELLO+NOTES co-resident; flair_app_dispatch spine @s17)\n" "$@"
+
+.PHONY: flair-tenants
+flair-tenants: $(FLAIRTENANTS_IMG)
+
+# INTERACTIVE FLAIRTENANTS kernel/image (for `run-flair-tenants`): the SAME as the
+# bounded image but ALSO -DFLAIR_LIVE_INTERACTIVE -- a VISIBLE arrow cursor + an
+# unbounded pump so the operator can click HELLO's sliver and watch it raise +
+# activate live. Its OWN main obj/image (cursor + unbounded loop wholly inside
+# #ifdef FLAIR_LIVE_INTERACTIVE); not a gate image (never halts -- cannot be
+# screendumped deterministically).
+KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
+KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
+KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
+FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
+
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ)
+
+$(KERNEL_FLAIRTENANTS_INT_ELF): $(KERNEL_FLAIRTENANTS_INT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_INT_OBJS)
+
+$(KERNEL_FLAIRTENANTS_INT_BIN): $(KERNEL_FLAIRTENANTS_INT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairtenants_int.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-interactive): %s (visible cursor + unbounded pump, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairtenants-interactive)
+
+$(FLAIRTENANTS_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRTENANTS_INT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants INTERACTIVE image: %s (visible cursor + unbounded pump)\n" "$@"
+
+# Windowed GUI run of the co-resident tenants (mirrors run-flair): click HELLO's
+# visible sliver to raise + activate it over NOTES, live, with a visible cursor.
+.PHONY: run-flair-tenants
+run-flair-tenants: $(FLAIRTENANTS_INTERACTIVE_IMG)
+	qemu-system-i386 -drive format=raw,file=$(FLAIRTENANTS_INTERACTIVE_IMG) -serial stdio
+
+# ===========================================================================
 # FO-6 (beads initech-5l5z): PS/2 mouse IRQ12 -- the mouse-enabled flair_live
 # image is the EXISTING $(FLAIRLIVE_IMG) (mouse.o is now in KERNEL_FLAIRLIVE_OBJS
 # and the BOOT_FLAIR_LIVE arm installs the IRQ12 gate + 8042 aux + dual-PIC EOI).

@@ -61,6 +61,18 @@
 #include "event.h"           /* flair_tick_advance/count (FO-4) + flair_raw_post/
                               * flair_event_init / flair_raw_ring_t (FO-5);
                               * WaitNextEvent / flair_event_set_yield (FO-7)  */
+#ifdef FLAIR_LIVE_TENANTS
+/* The FLAIR App Contract (ADR-0013; Wave-4 Step 4): the -DFLAIR_LIVE_TENANTS demo
+ * boots HELLO+NOTES as co-resident tenants on the live desktop and routes every
+ * event through the SOLE Layer-5 spine flair_app_dispatch / flair_route_updates.
+ * Pulled in ONLY for that NEW image (layered on BOOT_FLAIR_LIVE); the default boot
+ * and the existing FLAIRLIVE/FLAIRSHELL/INTERACTIVE images stay byte-identical
+ * (every tenant symbol is behind this guard; Rule 11). */
+#include "process.h"             /* FlairProcessList, FlairProcess_launch,
+                                  * flair_app_dispatch, flair_route_updates (-Ios/flair)*/
+#include "ref_tenant.h"          /* hello_procs / notes_procs (-Ios/apps)            */
+#include "flair_tenants_demo.h"  /* FLAIR_TEN_* demo layout + budget (-Ispec)        */
+#endif
 #endif
 
 /* Seafoam: ported VERBATIM from stage2.asm:42-44 (SEAFOAM_R/G/B). The pie
@@ -795,6 +807,13 @@ typedef struct flair_live_ctx {
     region_t           *comp;       /* compositor visible-region scratch (D-5)   */
     bitmap_t            off;         /* the indexed-8 offscreen (descriptor copy) */
     shell_scene_t      *scene;      /* the whole scene (heap-backed)             */
+#ifdef FLAIR_LIVE_TENANTS
+    flair_heap_t       *master;     /* the function-static FLAIR heap, exposed so
+                                     * the FLAIR_LIVE_TENANTS launch site can carve
+                                     * tenant partitions from it (ADR-0013 Sec 3.6).
+                                     * Behind the guard so the struct layout stays
+                                     * byte-identical for non-tenant builds.       */
+#endif
 } flair_live_ctx_t;
 
 /* Build + render + present the live FLAIR desktop. Returns nothing; fails loud
@@ -937,7 +956,14 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
                       ps_menus,
                       dlg, dlg_items, dlg_progress,
                       dlg_struc, dlg_cont, dlg_upd,
+#ifdef FLAIR_LIVE_TENANTS
+                      0 /* FLAIR App Contract demo: NO modal -- the two canon doc
+                         * windows are hidden by the tenant arm and the co-resident
+                         * tenants are launched on top (ADR-0013); reuses shell.c
+                         * byte-identically, only the show_modal flag differs. */);
+#else
                       1 /* show_modal -- the canon Office Space frame */);
+#endif
 
     /* --- Render the desktop in INDICES into the 8bpp offscreen (EXACTLY as the
      * host oracle does) --- */
@@ -957,6 +983,12 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
         ctx_out->comp      = comp;
         ctx_out->off       = off;
         ctx_out->scene     = scene;
+#ifdef FLAIR_LIVE_TENANTS
+        /* Expose the function-static FLAIR heap so the FLAIR_LIVE_TENANTS launch
+         * site can carve tenant partitions from it (it has static lifetime, so
+         * &heap is valid after this returns; ADR-0013 Sec 3.6). */
+        ctx_out->master    = &heap;
+#endif
     }
 }
 #endif /* BOOT_FLAIR_SHELL || BOOT_FLAIR_LIVE */
@@ -1746,8 +1778,94 @@ void kernel_main(void)
      * (test-flair-live: >=2 distinct) and FLAIR-LIVE-OK still terminates the loop.
      * Cooperative, not preemptive (BC-7): the pump holds the CPU + yields via HLT. */
     flair_live_ctx_t ctx;
+#ifdef FLAIR_LIVE_TENANTS
+    /* The FLAIR App Contract resident-app (process) list + the two reference
+     * tenants HELLO/NOTES (ADR-0013; Wave-4 Step 4). Declared here so BOTH the
+     * launch site (below FLAIR-DESKTOP) and the pump (below FLAIR-LIVE-READY)
+     * reach them; all behind FLAIR_LIVE_TENANTS so the non-tenant arms compile
+     * byte-identically. */
+    FlairProcessList ten_plist;
+    FlairApp        *ten_hello = (FlairApp *)0;
+    FlairApp        *ten_notes = (FlairApp *)0;
+#endif
     flair_desktop_run(&b, &ctx);
     serial_puts("FLAIR-DESKTOP\n");
+
+#ifdef FLAIR_LIVE_TENANTS
+    /* ===========================================================================
+     * THE FLAIR APP CONTRACT, BOOTED (ADR-0013; Wave-4 Step 4; beads initech-4e35).
+     * flair_desktop_run rendered + presented the canonical chimera scene with
+     * show_modal==0 (above). Now: hide the two canon frame doc windows so the
+     * desktop shows just the two menu bars + teal, launch HELLO + NOTES as
+     * co-resident tenants on the SAME live Window Manager / offscreen, recomposite,
+     * and present. The pump (below) routes every cooked event through the SOLE
+     * Layer-5 spine flair_app_dispatch (ADR-0006 E-D2 single spine); NO routing
+     * logic is re-implemented in kmain.
+     * ===========================================================================*/
+
+    /* (1) Hide BOTH canon frame doc windows. shell_build_scene drew the canonical
+     * chrome (reused byte-for-byte; only show_modal differs); HideWindow leaves
+     * them in the z-order but invisible, so FindWindow skips them -- no unowned-
+     * content-click panic on the now bare desktop. */
+    HideWindow(ctx.wm, &ctx.windows[0].rec);
+    HideWindow(ctx.wm, &ctx.windows[1].rec);
+
+    /* (2) Launch HELLO then NOTES (NOTES last => foreground, partially occluding
+     * HELLO -- the spec/flair_tenants_demo.h overlap that makes the drop-updateEvt
+     * mutant bite). FlairProcess_launch carves each tenant from the master FLAIR
+     * heap and runs its open() into ctx.wm / ctx.off (ADR-0013 Sec 3.2). */
+    FlairProcessList_init(&ten_plist);
+    {
+        rgn_rect_t hb, nb;   /* QuickDraw field order: top,left,bottom,right */
+        hb.top = (int16_t)FLAIR_TEN_HELLO_T; hb.left   = (int16_t)FLAIR_TEN_HELLO_L;
+        hb.bottom = (int16_t)FLAIR_TEN_HELLO_B; hb.right = (int16_t)FLAIR_TEN_HELLO_R;
+        nb.top = (int16_t)FLAIR_TEN_NOTES_T; nb.left   = (int16_t)FLAIR_TEN_NOTES_L;
+        nb.bottom = (int16_t)FLAIR_TEN_NOTES_B; nb.right = (int16_t)FLAIR_TEN_NOTES_R;
+        ten_hello = FlairProcess_launch(&ten_plist, ctx.wm, &ctx.off, ctx.master,
+                                        &hello_procs, FLAIR_TEN_HELLO_NAME, hb,
+                                        (uint32_t)FLAIR_TEN_BUDGET);
+        ten_notes = FlairProcess_launch(&ten_plist, ctx.wm, &ctx.off, ctx.master,
+                                        &notes_procs, FLAIR_TEN_NOTES_NAME, nb,
+                                        (uint32_t)FLAIR_TEN_BUDGET);
+    }
+    if (ten_hello == (FlairApp *)0 || ten_notes == (FlairApp *)0) {
+        /* Fail-loud (Rule 2): a tenant launch that could not carve its partition
+         * must not silently run a half-built desktop. */
+        serial_puts("PANIC flair-tenants: FlairProcess_launch returned NULL "
+                    "(budget/heap exhausted)\nHALTED\n");
+        for (;;) { __asm__ __volatile__("cli; hlt"); }
+    }
+
+    /* (3) Each foreground tenant shows ITS menu set in the System-7 band (the
+     * MultiFinder menu swap). Reuse the scene's two CANONICAL bars (no new chrome):
+     * NOTES (the initial foreground) keeps the canon System-7 bar shell_render drew
+     * at the top; HELLO swaps the Photoshop-exact bar in when it is raised. */
+    ten_hello->menubar = &ctx.scene->bar_photoshop;
+    ten_notes->menubar = &ctx.scene->bar_sys;
+
+    /* (4) Recomposite the offscreen: teal desktop + the two tenants' window chrome
+     * (back-to-front) + the two menu bars (shell_render; modal_up==0 => no dialog).
+     * The compositor owns chrome; the tenant CONTENT is (re)drawn next. */
+    shell_render(ctx.scene, &ctx.off);
+
+    /* (5) Repaint each tenant's content in z-order through the updateEvt spine.
+     * WindowMgr_invalidate clips the seed to each window's VISIBLE region, so the
+     * background HELLO does NOT overdraw the front NOTES in the overlap; then
+     * flair_route_updates delivers the updateEvt to each owning tenant front-to-
+     * back. Result: NOTES full content (gray), HELLO exposed sliver (white), overlap
+     * = NOTES_FILL -- the PRE app-switch state the O-5 grader expects. */
+    if (ten_hello->windows != (WindowPtr)0)
+        WindowMgr_invalidate(ctx.wm, ten_hello->windows,
+                             region_get_bbox(ten_hello->windows->contRgn));
+    if (ten_notes->windows != (WindowPtr)0)
+        WindowMgr_invalidate(ctx.wm, ten_notes->windows,
+                             region_get_bbox(ten_notes->windows->contRgn));
+    flair_route_updates(&ten_plist, ctx.wm);
+
+    /* (6) BC-4: present the co-resident tenant desktop BEFORE arming the pump. */
+    flair_desktop_present(&b, &ctx.off);
+    serial_puts("FLAIR-TENANTS-READY hello+notes co-resident; NOTES foreground\n");
+#endif
 
     /* --- FO-5: initialise the FLAIR raw ring BEFORE installing any hook ------- *
      * flair_event_init resets the ring (head=tail=0), cursor state, and the
@@ -1848,6 +1966,153 @@ void kernel_main(void)
      * + cli;hlt so the harness can screendump a STABLE post-drag frame. The budget
      * (~2.5 s) is a generous margin over the inject latency and the screendump, and
      * well within every gate timeout (test-flair-live 8000 ms; the drag gate). */
+#ifdef FLAIR_LIVE_TENANTS
+    /* --- THE FLAIR APP CONTRACT PUMP (ADR-0013; Wave-4 Step 4) ----------------- *
+     * Same cooperative WaitNextEvent time base as the FO-7/8 chrome pump, but every
+     * cooked event goes through the SOLE Layer-5 routing spine flair_app_dispatch
+     * (ADR-0006 E-D2; ADR-0013 BC-2) -- NO routing logic re-implemented here. The
+     * EXISTING chrome branch (inDrag/inGoAway/menu band) is kept VERBATIM for the
+     * chrome part-codes the dispatcher leaves to the shell. On a foreground SWITCH
+     * (click-to-activate raised a background tenant), route the newly-exposed
+     * content's updateEvt (so the raised tenant repaints its overlap -- the drop-
+     * updateEvt mutant leaves it stale), swap the foreground tenant's menubar into
+     * the System-7 band (the MultiFinder menu swap), present, and emit
+     * FLAIR-DISPATCH app=<name>. Bounded (gate) vs unbounded (FLAIR_LIVE_INTERACTIVE)
+     * exactly like the chrome pump. */
+    {
+        enum { FLAIR_TEN_TICK_BUDGET   = 250 }; /* ~2.5 s @100 Hz: inject+dump margin */
+        enum { FLAIR_TEN_TICK_ANNOUNCE = 4   }; /* announce the first 4 advances only */
+        enum { FLAIR_TEN_WNE_SLICE     = 3   }; /* WaitNextEvent sleepTicks per call   */
+        /* Menu-bar fg/bg for the foreground-tenant menu swap. The offscreen is the
+         * indexed-8 surface, so DrawMenuBar's packed value is the low-byte palette
+         * index (the test_menu.c / shell.c 8bpp convention: idx0 black ink, idx3
+         * menubar gray -- SHELL_MENU_INK_IDX / SHELL_MENU_BG_IDX). */
+        enum { FLAIR_TEN_MENU_FG_IDX = 0u, FLAIR_TEN_MENU_BG_IDX = 3u };
+        uint32_t start = flair_tick_count();
+        uint32_t last  = start;
+        uint32_t seen  = 0u;
+
+        /* A whole-bitmap GrafPort over the offscreen for the foreground-menubar
+         * swap (DrawMenuBar paints rows [0, FLAIR_MENUBAR_H) == the top System-7
+         * band). Mirrors flair_live_do_menu's port set-up. */
+        GrafPort ten_barport;
+        {
+            rgn_rect_t whole = { 0, 0, (int16_t)ctx.off.height, (int16_t)ctx.off.width };
+            ten_barport.portBits.bm     = ctx.off;
+            ten_barport.portBits.bounds = whole;
+            ten_barport.portRect        = whole;
+            ten_barport.visRgn          = (region_t *)0;
+            ten_barport.clipRgn         = (region_t *)0;
+            ten_barport.pnLoc.v = 0; ten_barport.pnLoc.h = 0;
+            ten_barport.pnSize.v = 1; ten_barport.pnSize.h = 1;
+            ten_barport.pnVis = 0;
+            ten_barport.grafProcs = (QDProcs *)0;
+        }
+
+#ifdef FLAIR_LIVE_INTERACTIVE
+        int cur_show_h = (int)(FLAIR_SCREEN_W / 2);
+        int cur_show_v = (int)(FLAIR_SCREEN_H / 2);
+        cursor_show(&ctx, &b, cur_show_h, cur_show_v);
+        for (;;) {
+#else
+        while ((flair_tick_count() - start) < (uint32_t)FLAIR_TEN_TICK_BUDGET) {
+#endif
+            EventRecord ev;
+            int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev,
+                                    (uint32_t)FLAIR_TEN_WNE_SLICE);
+
+            uint32_t now = flair_tick_count();
+            if (now != last) {
+                last = now;
+                seen++;
+                if (seen <= (uint32_t)FLAIR_TEN_TICK_ANNOUNCE) {
+                    serial_puts("FLAIR-TICK n=");
+                    serial_putu(now);
+                    serial_putc('\n');
+                }
+            }
+
+#ifdef FLAIR_LIVE_INTERACTIVE
+            {
+                int cur_moved   = ((int)ev.where.h != cur_show_h ||
+                                   (int)ev.where.v != cur_show_v);
+                int do_dispatch = (got && ev.what == (uint16_t)mouseDown);
+                if (cur_moved || do_dispatch) {
+                    cursor_hide(&ctx, &b);
+                }
+                if (!got) {
+                    if (cur_moved) {
+                        cur_show_h = (int)ev.where.h;
+                        cur_show_v = (int)ev.where.v;
+                        cursor_show(&ctx, &b, cur_show_h, cur_show_v);
+                    }
+                    continue;   /* nullEvent: track the cursor, keep pumping */
+                }
+            }
+#else
+            if (!got) {
+                continue;   /* timeout / nullEvent: keep ticking to the budget */
+            }
+#endif
+
+            /* Cooked-event marker (FO-5/6 reconciliation). */
+            flair_live_emit_evt(&ev);
+
+            /* THE SOLE ROUTING CALL (ADR-0006 E-D2 / ADR-0013 BC-2 single spine).
+             * inContent click-to-activate (raise group + activate pair + deliver)
+             * lives entirely inside flair_app_dispatch; chrome part-codes are left
+             * to the shell branch below (the dispatcher returns early for them). */
+            FlairApp *ten_prev_fg = ten_plist.head;
+            flair_app_dispatch(&ten_plist, ctx.wm, &ev);
+
+            /* The EXISTING chrome branch, VERBATIM, for the chrome part-codes the
+             * dispatcher does not own (inDrag/inGoAway/the menu-bar band). */
+            if (ev.what == (uint16_t)mouseDown) {
+                WindowPtr w = (WindowPtr)0;
+                flair_part_code_t pc = FindWindow(ctx.wm, ev.where, &w);
+                if (pc == inDrag && w != (WindowPtr)0) {
+                    flair_live_do_drag(&ctx, &b, w, ev.where);
+                } else if (pc == inGoAway && w != (WindowPtr)0) {
+                    flair_live_do_close(&ctx, &b, w);
+                } else if (ev.where.v >= 0 &&
+                           ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
+                    flair_live_do_menu(&ctx, &b, &ctx.scene->bar_sys, ev.where);
+                }
+            }
+
+            /* POST-ACTIVATION: a click-to-activate switched the foreground tenant.
+             * Repaint the raised tenant's newly-exposed content (the updateEvt
+             * route), swap its menubar into the System-7 band, present, announce.
+             * NOTE: flair_route_updates MUST run AFTER it is seeded and is NOT
+             * preceded by desktop_paint_damage on the SAME updateRgn -- desktop.c
+             * desktop_paint_damage validates (clears) every updateRgn at its tail
+             * (desktop.c:233), so it runs FIRST (to service any raise exposure of
+             * the desktop/chrome) and the content seed+route comes after it. */
+            if (ten_plist.head != (FlairApp *)0 && ten_plist.head != ten_prev_fg) {
+                desktop_paint_damage(ctx.wm, &ctx.off, ctx.comp);
+                if (ten_plist.head->windows != (WindowPtr)0) {
+                    WindowMgr_invalidate(ctx.wm, ten_plist.head->windows,
+                            region_get_bbox(ten_plist.head->windows->contRgn));
+                }
+                flair_route_updates(&ten_plist, ctx.wm);
+                DrawMenuBar(&ten_barport, ten_plist.head->menubar,
+                            (uint32_t)FLAIR_TEN_MENU_FG_IDX,
+                            (uint32_t)FLAIR_TEN_MENU_BG_IDX, (const region_t *)0);
+                flair_desktop_present(&b, &ctx.off);
+                serial_puts("FLAIR-DISPATCH app=");
+                serial_puts(ten_plist.head->name ? ten_plist.head->name : "?");
+                serial_putc('\n');
+            }
+
+#ifdef FLAIR_LIVE_INTERACTIVE
+            /* Re-show the cursor on the freshly repainted desktop, on top. */
+            cur_show_h = (int)ev.where.h;
+            cur_show_v = (int)ev.where.v;
+            cursor_show(&ctx, &b, cur_show_h, cur_show_v);
+#endif
+        }
+    }
+#else
     {
         enum { FLAIR_LIVE_TICK_BUDGET   = 250 }; /* ~2.5 s @100 Hz: inject+dump margin */
         enum { FLAIR_LIVE_TICK_ANNOUNCE = 4   }; /* announce the first 4 advances only */
@@ -1963,6 +2228,7 @@ void kernel_main(void)
 #endif
         }
     }
+#endif /* FLAIR_LIVE_TENANTS (the App Contract pump) vs the FO-7/8 chrome pump */
     serial_puts("FLAIR-LIVE-OK\n");
     for (;;) {
         __asm__ __volatile__("cli; hlt");
