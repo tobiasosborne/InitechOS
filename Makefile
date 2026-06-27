@@ -9819,6 +9819,88 @@ test-scrap-mutant: $(TEST_SCRAP_MUT_FLAVOR) $(TEST_SCRAP_MUT_NOINC) $(TEST_SCRAP
 	@if $(TEST_SCRAP_MUT_NOCLEAR) >/dev/null 2>&1; then printf '!!! test-scrap-mutant FAIL: NO_CLEAR PASSED -- the ZeroScrap oracle is decoration\n'; exit 1; else printf '>>> test-scrap-mutant: green (NO_CLEAR correctly RED -- stale flavors survive)\n'; fi
 
 # ---------------------------------------------------------------------------
+# test-textedit (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-77dj, TextEdit half):
+# the HOST oracle for FLAIR TextEdit (os/flair/textedit.{c,h}) -- the REDUCED
+# FLAIR-TERec (flat buffer + half-open [selStart,selEnd) selection + teLength +
+# just + crOnly + capped lineStarts; NOT the full IM lineStarts[0..16000]) per
+# system7-decomp textedit.md Sec 1-3. Selection clamp, TEKey insert/backspace,
+# CR + word-wrap line-breaking, and CUT/COPY/PASTE routed through the shell-owned
+# Scrap (FlairPutScrap/FlairGetScrap, FLAIR_SCRAP_TYPE_TEXT -- proving the Scrap
+# is the shared clipboard). Round-trip vs a hand-authored op/byte golden (literals
+# in the test, NOT by-construction, Law 2). Self-mutants TE_MUT_SEL_INCLUSIVE
+# (treat selection inclusive -> off-by-one), TE_MUT_PASTE_NO_DELETE (insert without
+# deleting the range), TE_MUT_LINEBREAK_OFF (miscount lines) each bite -> RED.
+# ---------------------------------------------------------------------------
+TEST_TEXTEDIT     := $(BUILD)/test_textedit
+TEST_TEXTEDIT_SRC := harness/proptest/test_textedit.c
+TEST_TEXTEDIT_MUT_SEL   := $(BUILD)/test_textedit_mutant_selinclusive
+TEST_TEXTEDIT_MUT_PASTE := $(BUILD)/test_textedit_mutant_pastenodelete
+TEST_TEXTEDIT_MUT_LINE  := $(BUILD)/test_textedit_mutant_linebreakoff
+TEST_TEXTEDIT_LINK := os/flair/textedit.c os/flair/scrap.c os/flair/heap.c
+TEST_TEXTEDIT_DEPS := os/flair/textedit.c os/flair/textedit.h os/flair/scrap.c os/flair/scrap.h \
+                     os/flair/ostype.h os/flair/heap.c os/flair/heap.h
+
+$(TEST_TEXTEDIT): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+$(TEST_TEXTEDIT_MUT_SEL): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_SEL_INCLUSIVE $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+$(TEST_TEXTEDIT_MUT_PASTE): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_PASTE_NO_DELETE $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+$(TEST_TEXTEDIT_MUT_LINE): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_LINEBREAK_OFF $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+
+test-textedit: $(TEST_TEXTEDIT)
+	@printf ">>> test-textedit: ADR-0012 D-2b / initech-77dj TextEdit (TERec) -- reduced edit record, half-open selection, CR+wrap line-breaking, cut/copy/paste via the Scrap (round-trip vs independent hand-authored golden)\n"
+	@$(TEST_TEXTEDIT)
+	@printf ">>> test-textedit: green\n"
+
+test-textedit-mutant: $(TEST_TEXTEDIT_MUT_SEL) $(TEST_TEXTEDIT_MUT_PASTE) $(TEST_TEXTEDIT_MUT_LINE)
+	@printf ">>> test-textedit-mutant: confirming SEL_INCLUSIVE + PASTE_NO_DELETE + LINEBREAK_OFF go RED (Rule 6)\n"
+	@if $(TEST_TEXTEDIT_MUT_SEL) >/dev/null 2>&1; then printf '!!! test-textedit-mutant FAIL: SEL_INCLUSIVE PASSED -- the half-open-selection oracle is decoration\n'; exit 1; else printf '>>> test-textedit-mutant: green (SEL_INCLUSIVE correctly RED)\n'; fi
+	@if $(TEST_TEXTEDIT_MUT_PASTE) >/dev/null 2>&1; then printf '!!! test-textedit-mutant FAIL: PASTE_NO_DELETE PASSED -- the replace-range oracle is decoration\n'; exit 1; else printf '>>> test-textedit-mutant: green (PASTE_NO_DELETE correctly RED)\n'; fi
+	@if $(TEST_TEXTEDIT_MUT_LINE) >/dev/null 2>&1; then printf '!!! test-textedit-mutant FAIL: LINEBREAK_OFF PASSED -- the line-break oracle is decoration\n'; exit 1; else printf '>>> test-textedit-mutant: green (LINEBREAK_OFF correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# test-list (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-77dj, List Manager half):
+# the HOST oracle for FLAIR List Manager (os/flair/list.{c,h}) -- the reduced
+# FLAIR-ListRec (Cell=flair_point_t h=col/v=row, ListBounds=rgn_rect_t of cell
+# coords, dataBounds/visible, cellSize, selFlags lOnlyOne, lastClick) per
+# system7-decomp list-manager.md Sec 1-4. Cell store round-trip + LClick hit-test
+# (local pt -> cell via rView origin + cellSize) + lOnlyOne selection. Round-trip
+# vs a hand-authored op/byte golden (literals, NOT by-construction). Self-mutants
+# LIST_MUT_CELL_INDEX_SWAP (swap col/row index), LIST_MUT_HIT_OFFBYONE (hit-test
+# off by one cell), LIST_MUT_NO_DESELECT (lOnlyOne keeps the old selection) bite.
+# ---------------------------------------------------------------------------
+TEST_LIST     := $(BUILD)/test_list
+TEST_LIST_SRC := harness/proptest/test_list.c
+TEST_LIST_MUT_SWAP  := $(BUILD)/test_list_mutant_indexswap
+TEST_LIST_MUT_HIT   := $(BUILD)/test_list_mutant_hitoffbyone
+TEST_LIST_MUT_DESEL := $(BUILD)/test_list_mutant_nodeselect
+TEST_LIST_LINK := os/flair/list.c os/flair/heap.c $(REGION_ENGINE_C)
+TEST_LIST_DEPS := os/flair/list.c os/flair/list.h os/flair/heap.c os/flair/heap.h \
+                     $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/grafport.h
+
+$(TEST_LIST): $(TEST_LIST_SRC) $(TEST_LIST_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_LIST_SRC) $(TEST_LIST_LINK)
+$(TEST_LIST_MUT_SWAP): $(TEST_LIST_SRC) $(TEST_LIST_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLIST_MUT_CELL_INDEX_SWAP $(PROCESS_INC) -o $@ $(TEST_LIST_SRC) $(TEST_LIST_LINK)
+$(TEST_LIST_MUT_HIT): $(TEST_LIST_SRC) $(TEST_LIST_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLIST_MUT_HIT_OFFBYONE $(PROCESS_INC) -o $@ $(TEST_LIST_SRC) $(TEST_LIST_LINK)
+$(TEST_LIST_MUT_DESEL): $(TEST_LIST_SRC) $(TEST_LIST_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLIST_MUT_NO_DESELECT $(PROCESS_INC) -o $@ $(TEST_LIST_SRC) $(TEST_LIST_LINK)
+
+test-list: $(TEST_LIST)
+	@printf ">>> test-list: ADR-0012 D-2b / initech-77dj List Manager (ListRec) -- cell store + LClick hit-test + lOnlyOne selection (round-trip vs independent hand-authored golden)\n"
+	@$(TEST_LIST)
+	@printf ">>> test-list: green\n"
+
+test-list-mutant: $(TEST_LIST_MUT_SWAP) $(TEST_LIST_MUT_HIT) $(TEST_LIST_MUT_DESEL)
+	@printf ">>> test-list-mutant: confirming CELL_INDEX_SWAP + HIT_OFFBYONE + NO_DESELECT go RED (Rule 6)\n"
+	@if $(TEST_LIST_MUT_SWAP) >/dev/null 2>&1; then printf '!!! test-list-mutant FAIL: CELL_INDEX_SWAP PASSED -- the (col,row) store oracle is decoration\n'; exit 1; else printf '>>> test-list-mutant: green (CELL_INDEX_SWAP correctly RED)\n'; fi
+	@if $(TEST_LIST_MUT_HIT) >/dev/null 2>&1; then printf '!!! test-list-mutant FAIL: HIT_OFFBYONE PASSED -- the hit-test oracle is decoration\n'; exit 1; else printf '>>> test-list-mutant: green (HIT_OFFBYONE correctly RED)\n'; fi
+	@if $(TEST_LIST_MUT_DESEL) >/dev/null 2>&1; then printf '!!! test-list-mutant FAIL: NO_DESELECT PASSED -- the lOnlyOne oracle is decoration\n'; exit 1; else printf '>>> test-list-mutant: green (NO_DESELECT correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
 # STANDALONE gate (NOT yet in any aggregate): test-process-activate
 # (ADR-0013 Sec 7 O-2) -- the HOST activation / z-order oracle for APP-GROUP RAISE
 # on app switch (Wave 3b). A 3-window scene with app A (2 windows A0+A1) and app B
@@ -16041,6 +16123,8 @@ TEST_UNIT_GATES := \
 	test-process-update test-process-update-mutant \
 	test-resource test-resource-mutant \
 	test-scrap test-scrap-mutant \
+	test-textedit test-textedit-mutant \
+	test-list test-list-mutant \
 	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \
