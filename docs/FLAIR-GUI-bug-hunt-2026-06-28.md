@@ -696,3 +696,324 @@ Round 2 surfaced 45 distinct, evidence-grounded defects across previously un-ins
 - **repro:** Click (center_x, top+19) in a document window -> inDrag/DragWindow instead of inContent; inspect NOTES top content row in flair_appswitch_pre.png -> 1px white stripe.
 - **related:** round-1 'tenant content rect extends into scrollbar column' is the horizontal extent; this is the vertical top boundary — distinct axis
 
+
+---
+
+# Round 3 -- SAMIR/dBASE + seed compiler + ANSI/console + region/FAT
+
+54 raw -> 48 verified REAL -> 44 deduped (1 P0, 11 P1, 32 P2). Label `gui-bughunt`.
+
+## Summary
+
+Round 3 verified 44 distinct defects across the previously-uninspected subsystems — SAMIR (xBase interpreter, .dbf/.dbt/.ndx codecs, dot-prompt nav/query/flow/mutate), the seed Pascal->x86 compiler, ANSI/console, and the region/FAT engines — after collapsing four cross-lens duplicate pairs (fn_round, CTOD, FILE(), and the ROUND oracle gap, each found independently by the samir-interp and samir-builtins lenses). The set is 1 P0 (a stack-buffer overflow in the region xmerge scratch when two maximally-dense scanlines merge), 11 P1 correctness bugs (negative ROUND truncation, CTOD calendar rollover, +2-form .dbf record reads, ndx duplicate-key delete unreachability, SKIP/LOCATE scope errors, ?/.T. logical rendering, SET DATE/CENTURY ignored, PACK leaving NDX stale, and the seed string-pool false rejection), and 32 P2s spanning latent overflows, codec/coercion corruption, and 13 explicitly mutation-unproven oracle gaps (Rule 6). None of the 44 overlap the 94 round-1/2 FLAIR/DOS findings and none touch enforced canon (SAMIR Y2K mis-aging, pie==116%, the trailing-minus, hourglass cursor).
+
+## Bugs
+
+### R3.1. [P0] region_op: per-band xmerge scratch[RGN_ROW_X_MAX=256] too small — silent stack buffer overflow when na+nb > 256
+- **bead:** initech-mswo  **subsystem:** FLAIR/region (os/flair/atkinson/region.c)
+- **evidence:** region.c:425 `int16_t scratch[RGN_ROW_X_MAX]` (256) is passed to xmerge at region.c:451; xmerge writes `out[no++]=x` (region.c:391-395) with no bound on `no`. region_normalize caps each input row to 256 entries, so an XOR/merge of two maximally-dense rows yields no<=na+nb<=512, overrunning the 256-slot stack buffer. The scratch needs 2*RGN_ROW_X_MAX, not RGN_ROW_X_MAX.
+- **expected:** scratch sized for na+nb (>=512), or xmerge checks `if (no >= cap) fail-loud` before each write.
+- **actual:** xmerge writes entries 256..511 into the next stack frame when two normalized rows together exceed 256 inversion points; stack corruption.
+- **repro:** Two regions each a single scanline of 128+ disjoint spans (256 inversion points each); region_op(&out,&A,&B,RGN_OP_XOR) overruns scratch[256..511].
+
+### R3.2. [P1] fn_round uses (int64_t) truncation-toward-zero instead of floor — wrong result for all negative non-integer inputs
+- **bead:** initech-eyig  **subsystem:** SAMIR/builtins (os/samir/core/fn_builtins.c)
+- **evidence:** fn_builtins.c:845 `rounded=(double)(int64_t)(v*scale+0.5)/scale;` and 848 (negative-dec arm) `(int64_t)(v/scale+0.5)*scale`. (int64_t) truncates toward zero. For v=-2.7,dec=0: v+0.5=-2.2, (int64_t)(-2.2)=-2 → -2.0 (should be -3.0). dec_format (rt.c:247) correctly uses the static rt_floor64 (rt.c:207-213); fn_round skips it. The comment at fn_builtins.c:818-819 falsely claims it uses 'the same idiom as dec_format'.
+- **expected:** ROUND(-2.7,0)=-3.0; ROUND(-1234,-2)=-1200.0 — both arms should use rt_floor64.
+- **actual:** ROUND(-2.7,0)=-2.0; ROUND(-27,-1)=-20.0; ROUND(-1234,-2)=-1100.0 — every negative value rounds one unit toward zero.
+- **repro:** Evaluate ROUND(-2.7,0) → -2.0 (expected -3.0).
+
+### R3.3. [P1] CTOD validates only range (dd<=31), not calendar correctness — Feb 31 / Apr 31 / non-leap Feb 29 roll over instead of returning blank date
+- **bead:** initech-9u0f  **subsystem:** SAMIR/builtins (os/samir/core/fn_builtins.c)
+- **evidence:** fn_builtins.c:517 `if (mm<1||mm>12||dd<1||dd>31||yy<1900||yy>2155)` is the only guard before jdn_from_ymd(yy,mm,dd). dd in [29..31] for short months passes; jdn_from_ymd(1990,2,31) arithmetically rolls to Mar 3 1990. No per-month day cap.
+- **expected:** CTOD('02/31/90'), CTOD('04/31/85'), CTOD('02/29/85') return blank date (JDN 0.0) — III+ returns blank for calendar-invalid input.
+- **actual:** Returns a non-zero JDN for the rolled-over date; DTOC/MONTH/DAY then propagate wrong values with no error.
+- **repro:** CTOD('02/30/90') → JDN 2447953; DTOC(...) → '03/02/90' instead of '        '.
+
+### R3.4. [P2] FILE() requires an open database cursor (need_dbcur) — always fails XBEE_NO_DATABASE(#52) when no table is in USE
+- **bead:** initech-52ph  **subsystem:** SAMIR/builtins (os/samir/core/fn_builtins.c)
+- **evidence:** fn_builtins.c:1989 `if (!need_dbcur(ctx,err)) return *err;` inside fn_file before reading ctx->dbcur->file_exists. need_dbcur (1786-1791) returns 0/XBEE_NO_DATABASE(52) when ctx->dbcur==NULL. FILE() is a PAL/environment function (system-and-database-functions.md) with no open-database prerequisite; file_exists was placed on the dbcur vtable instead of a PAL-level hook.
+- **expected:** FILE('X.DBF') returns .T./.F. by filesystem existence regardless of any USE.
+- **actual:** Returns XBEE_NO_DATABASE(#52) with ctx->dbcur==NULL, breaking the common 'check then USE' pattern.
+- **repro:** Evaluate FILE('ANY.DBF') with ctx.dbcur=NULL → rc=52.
+
+### R3.5. [P2] concat_plus/concat_minus missing XB_STR_MAX(254) guard — C+C and C-C silently produce strings exceeding the III+ limit
+- **bead:** initech-8w5e  **subsystem:** SAMIR/eval (os/samir/core/eval.c)
+- **evidence:** eval.c:148-163 (concat_plus) and 178-200 (concat_minus) compute tot=la+lb and store without checking tot>254. Every string-producing builtin guards: fn_builtins.c:1123 (REPLICATE), :264 (SPACE), :350 (STR), with `#define XB_STR_MAX 254` at fn_builtins.c:145. xb_val.u.c.len is uint16_t (>65535 truncates silently).
+- **expected:** SPACE(130)+SPACE(130) (260 bytes) should fail XBEE_SPACE_LARGE(#59) like the other string operators.
+- **actual:** Produces an arbitrary-length result bounded only by scratch_cap; no error.
+- **repro:** Evaluate SPACE(130)+SPACE(130) → rc=0, v.u.c.len=260 (expected XBEE_SPACE_LARGE).
+
+### R3.6. [P1] dbf_open_rw normalizes header_length to +1 form before reads use it — breaks every record read on +2-form files (BANK.DBF, TAX.DBF)
+- **bead:** initech-jf8p  **subsystem:** SAMIR/.dbf codec (os/samir/fs/dbf.c)
+- **evidence:** dbf.c:459 sets tbl->header_length to on-disk value; records loaded from local header_length at 581; then dbf.c:602 overwrites tbl->header_length to (DBF_HDR_SIZE+descbytes+1), one byte short for a +2 file. dbf_read_rec (735) computes rec_off from the normalized (short) header_length, lands on the extra 0x00 of the 0x0D 0x00 terminator → not 0x20/0x2A → -DBF_ERR_BAD_REC (750-757). +2 fixtures: dbf_format.h:54.
+- **expected:** dbf_read_rec on a +2-form file reads record 1 at the original header_length offset, returning the live flag and decoded fields.
+- **actual:** Seeks one byte early, reads 0x00 as delete flag, returns -DBF_ERR_BAD_REC for every record. Read-only dbf_open skips line 602 and is unaffected.
+- **repro:** dbf_open_rw(BANK.DBF); dbf_read_rec(tbl,1,out,&del) → -DBF_ERR_BAD_REC(12).
+
+### R3.7. [P1] ndx_delete_key first-match descent returns -NDX_ERR_NOTFOUND for valid (key,recno) entries in any non-leftmost duplicate-key leaf
+- **bead:** initech-0g22  **subsystem:** SAMIR/.ndx B-tree (os/samir/fs/ndx.c)
+- **evidence:** ndx.c:2287-2293 descent breaks at the FIRST separator with key>=target (identical to insert). For a bulk-built non-unique index where >kpp records share key K, delete(K,recno-in-leaf_2) descends only into leaf_1, scans, fails NOTFOUND though the entry exists in leaf_2 (reachable by ndx_inorder but unreachable by delete/seek).
+- **expected:** ndx_delete_key removes any existing (key,recno) regardless of which equal-key leaf holds it.
+- **actual:** Scans only the leftmost matching leaf; entries in later equal-key leaves are permanently undeletable; returns NOTFOUND for valid entries.
+- **repro:** ndx_build 32 records key='SMITH' (kpp=31); ndx_delete_key('SMITH',recno=32) → -NDX_ERR_NOTFOUND while ndx_inorder still visits recno=32.
+
+### R3.8. [P2] ndx_insert_key duplicate-key descent always picks leftmost matching leaf — ndx_inorder yields unsorted recno sequence within a key after a split
+- **bead:** initech-nrkx  **subsystem:** SAMIR/.ndx B-tree (os/samir/fs/ndx.c)
+- **evidence:** ndx.c:1815-1821 descent breaks on the FIRST separator with key>=new_key. After a leaf split on K-entries (left and trailing both have separator K), every subsequent insert of (K,large_recno) goes to the leftmost K-child. Trace: insert (K,33) after split lands in left leaf among (K,1)..(K,16); inorder visits ...(K,16),(K,33),(K,17)... — not ascending recno within K.
+- **expected:** Each (key,recno) placed in the leaf whose subtree range contains it; inorder monotonic by (key,recno).
+- **actual:** Late-recno entries inserted before early-recno entries during traversal; 'inorder is sorted' invariant broken for any non-unique index with a K-split followed by a K insert.
+- **repro:** Insert (K,1)..(K,31), then (K,32) (split), then (K,33); inorder shows 33 before 17-32.
+
+### R3.9. [P1] SKIP -1 from physical EOF lands at nrec-1 instead of nrec (off-by-one under-skip)
+- **bead:** initech-dmrw  **subsystem:** SAMIR/nav (os/samir/cmd/nav.c, os/samir/cmd/workarea.c)
+- **evidence:** nav.c:373-385: SKIP past last sets wa->recno=nrec then eof=1. SKIP -1 reads cur via wa_recno (nav.c:359) = raw wa->recno = nrec (workarea.c:1044-1049 returns the raw field), so next=nrec-1. The external wac_recno (881-883) correctly returns nrec+1 at EOF, but the skip path uses wa_recno. Oracle gap: test_interp_nav.c:222-224 gates this path, never tests SKIP -1 from EOF.
+- **expected:** From virtual EOF (nrec+1), SKIP -1 lands at record nrec.
+- **actual:** Lands at nrec-1 because internal recno is nrec, not the virtual nrec+1.
+- **repro:** GO BOTTOM; SKIP (to EOF); SKIP -1; RECNO() returns nrec-1.
+
+### R3.10. [P1] LOCATE NEXT n ignores the scope record-count limit — scans entire remainder to EOF
+- **bead:** initech-qw4e  **subsystem:** SAMIR/query (os/samir/cmd/query.c)
+- **evidence:** q_locate (query.c:921) parses qc.scope_n; for QS_NEXT lines 939-943 fall through to q_locate_scan without passing the limit. q_locate_scan (885) has no limit parameter; its loop (898) runs `while(!wa_eof(...))`. No LOCATE NEXT test exists in any oracle.
+- **expected:** LOCATE NEXT n FOR <cond> scans at most n records then stops regardless of match.
+- **actual:** Scans from current position all the way to EOF, ignoring n.
+- **repro:** 100-rec table at record 1; LOCATE NEXT 3 FOR <true only at 50> lands at 50 instead of not-found at record 3.
+
+### R3.11. [P1] LOCATE RECORD n FOR <cond> scans past record n when FOR is false, continuing to EOF
+- **bead:** initech-wcb7  **subsystem:** SAMIR/query (os/samir/cmd/query.c)
+- **evidence:** For QS_RECORD q_locate (query.c:935) calls wa_nav_goto(area,scope_n) then falls into q_locate_scan with start_here=1 (941). q_locate_scan loop (898) `while(!wa_eof)`; FOR false at n calls wa_nav_skip(...,1) (914) and continues to EOF. scope_n is never used as a scan bound. No LOCATE RECORD test in any oracle.
+- **expected:** LOCATE RECORD n checks only record n; FOR false → FOUND()=.F., cursor stays at n.
+- **actual:** Scans n..EOF, may match a later record and report FOUND()=.T. at the wrong position.
+- **repro:** 5-rec table, record 3 AMT=99; LOCATE RECORD 2 FOR AMT=99 lands at 3 with FOUND()=.T.
+
+### R3.12. [P1] ? / ?? renders logical XB_L as 'T'/'F' instead of '.T.'/'.F.' — oracle heresy masks the bug
+- **bead:** initech-3p9e  **subsystem:** SAMIR/query (os/samir/cmd/query.c)
+- **evidence:** q_render_val case XB_L (query.c:409-411) `q_append(...,v->u.l?"T":"F",1u)`. ? (q_question, 840) routes through the same q_render_val, so ? logicals also print T/F. Oracle test_samir_repl.c documents '-> .T.' in comments (line 29,395-407) but asserts cap_has('\nT') at line 349 — agrees with the wrong code by construction.
+- **expected:** III+ '? <logical>' prints '.T.'/'.F.'; only LIST columns use 'T'/'F'.
+- **actual:** Both ? and LIST emit 'T'/'F'; ? never produces the dotted form.
+- **repro:** ? .T. prints 'T' (expected '.T.').
+
+### R3.13. [P1] q_render_val always formats XB_D as AMERICAN MM/DD/YY, ignoring SET DATE and SET CENTURY
+- **bead:** initech-ue7y  **subsystem:** SAMIR/query (os/samir/cmd/query.c, os/samir/cmd/set.c)
+- **evidence:** query.c XB_D case (392-407) hardcodes MM/DD/YY two-digit-year byte arithmetic; neither ctx->set_date_fmt nor ctx->set_century is read (grep of query.c finds zero matches). set.c:277,300 correctly maintain those fields on xb_ctx.
+- **expected:** SET DATE BRITISH → DD/MM/YY; SET CENTURY ON → 4-digit year.
+- **actual:** All dates display MM/DD/YY two-digit-year regardless of SET DATE/CENTURY.
+- **repro:** SET DATE BRITISH; ? CTOD('01/15/93') prints '01/15/93' instead of '15/01/93'.
+
+### R3.14. [P1] PACK does not update or rebuild open NDX indexes — silently corrupts them after record renumbering
+- **bead:** initech-x87g  **subsystem:** SAMIR/mutate (os/samir/cmd/mutate.c)
+- **evidence:** m_pack (mutate.c:884-905) calls dbf_pack (renumbers survivors), dbf_flush, wa_refresh, wa_nav_reset — no NDX call. ndx.h:636 states the S5.5 contract 'After DBF DELETE/PACK, call ndx_delete_key for each deleted recno.' Open NDX B-trees keep stale physical recnos; wa_nav_reset only drops the in-memory order cache, not the on-disk tree.
+- **expected:** PACK rebuilds all open NDX files (REINDEX) after renumbering, or at minimum ndx_delete_key per deleted recno.
+- **actual:** NDX retains stale physical recnos; post-PACK SEEK/FIND return wrong records.
+- **repro:** 5-rec table, NDX on CODE; DELETE rec 2; PACK; SEEK of an old record's key returns wrong results.
+
+### R3.15. [P1] scan_string pool-wrap fires only when out==0 — valid strings falsely rejected 'too long' when the pool tail is small
+- **bead:** initech-2hg9  **subsystem:** seed/lexer (seed/lexer.c)
+- **evidence:** lexer.c:268-278: `if (out>=avail){ if (lx->strpos!=0 && out==0){ wrap } else return make_error("string literal too long") }`. The wrap to pool-start only triggers when no bytes are yet stored (out==0). If >=1 byte is stored and the tail is exhausted, the error is returned despite free space at pool start.
+- **expected:** Strings up to LEXER_STRBUF_CAP always succeed regardless of pool cursor, by wrapping before/while scanning.
+- **actual:** A string starting at strpos in (0,CAP) whose length exceeds the remaining tail is rejected even though it fits from position 0.
+- **repro:** Drive strpos to 1020 (avail=4), lex 'hello' (5 chars): 5th char hits out(4)>=avail(4) with out!=0 → false 'too long'.
+
+### R3.16. [P2] Invariant-2 file-size check overflows uint32_t for large nrec — malformed .dbf admitted as within-bounds
+- **bead:** initech-ptqc  **subsystem:** SAMIR/.dbf codec (os/samir/fs/dbf.c)
+- **evidence:** dbf.c:449 `body = header_length + nrec*(uint32_t)record_length` wraps silently (nrec uint32_t). nrec=0x80000001, rl=4 → product=4, body~36, so the check `(uint32_t)filesz < body` (450) passes for any file >=36 bytes. Same overflow at dbf.c:577 `total=nrec*rlen` undersizes the record-load buffer.
+- **expected:** Reject when nrec*record_length+header_length exceeds 2^32 with -DBF_ERR_BAD_FILESZ.
+- **actual:** Overflow makes body tiny; table opens with a wildly wrong nrec (e.g. 2,147,483,649).
+- **repro:** Header nrec=0x80000001, record_length=4, header_length=32, file>=36 bytes; dbf_open succeeds.
+
+### R3.17. [P2] coerce_and_write_field 'M' branch writes raw character bytes into the 10-byte .dbt block-pointer slot — memo pointer unreadable on re-read
+- **bead:** initech-1pd7  **subsystem:** SAMIR/.dbf codec (os/samir/fs/dbf.c)
+- **evidence:** dbf.c:1530-1543 (M case in coerce_and_write_field, called by dbf_replace) copies v->u.c.p left-justified into the 10-byte block-number field instead of appending to .dbt and storing a block number. xbase_coercion.json:94 (target M, expr C) = 'ok; memo stores text'. On re-read dbf.c:883 dec_parse(raw,10) on non-digit text → 0.0 → block_num<=0.5 → xb_u() (no memo). The code comment admits 'full .dbt integration is S2.2; here we treat M like C'.
+- **expected:** Write text to .dbt via dbt_append, store the returned block number right-justified; or leave the field untouched and fail if .dbt is unimplemented.
+- **actual:** Raw chars stored in the pointer slot; subsequent dbf_read_rec returns xb_u(), silently discarding the value.
+- **repro:** dbf_replace(memo_idx, xb_c('hello',5)); flush; read → vals[memo_idx].t==XB_U.
+
+### R3.18. [P2] coerce_and_write_field D-type writes 8 bytes unconditionally without flen guard — corrupts adjacent bytes on malformed descriptors
+- **bead:** initech-ifpd  **subsystem:** SAMIR/.dbf codec (os/samir/fs/dbf.c)
+- **evidence:** dbf.c:1499-1507 (D branch) writes dst[0..7] with i in 0..7 regardless of flen. fmt_field's D branch (985) correctly guards `i<8u && i<(uint32_t)flen`. dbf_create enforces D len==8 (1076), but dbf_open_rw copies field_len verbatim (549), so an externally-sourced .dbf with a D descriptor flen=6 + dbf_replace writes 2 bytes past the slot.
+- **expected:** Mirror fmt_field: write min(8,flen) digits then space-pad to flen.
+- **actual:** Always writes 8 bytes; for flen<8 overwrites the next field (or past the record buffer).
+- **repro:** Open_rw a .dbf with D field_len=6; dbf_replace a date; bytes at date_start+6/+7 overwritten.
+
+### R3.19. [P2] dbt_read: rt_memcpy(final_buf, work, work_len) overreads the work buffer when work_len exceeds work_cap+1 on corrupt .dbt input
+- **bead:** initech-jy6y  **subsystem:** SAMIR/.dbt codec (os/samir/fs/dbt.c)
+- **evidence:** dbt.c:542 work=alloc(work_cap+1); writes guarded by `if (work_len<work_cap)` (585,603,614) but work_len++ is unconditional. If the 0x1A 0x1A terminator lies beyond (next_free-blockno)*512 bytes, work_len exceeds work_cap+1; dbt.c:633-635 allocs work_len and rt_memcpy's work_len bytes from a work_cap+1 buffer, reading stale arena bytes past the region.
+- **expected:** Cap the copy to min(work_len,work_cap), or fail -DBT_ERR_NO_TERM when no terminator within the live block span.
+- **actual:** For corrupt overflowing memo, rt_memcpy reads beyond work into adjacent arena memory; final_buf carries stale bytes.
+- **repro:** next_free=2 (1 live block), write 513 bytes then 0x1A 0x1A; dbt_read copies 1 byte past work.
+
+### R3.20. [P2] ndx_open_impl: zero-byte file returns -NDX_ERR_IO instead of -NDX_ERR_BAD_SIZE, conflating I/O failure with size violation
+- **bead:** initech-f6q7  **subsystem:** SAMIR/.ndx open/close (os/samir/fs/ndx.c)
+- **evidence:** ndx.c:310-313 `fsize_raw=seek(...,END); if (fsize_raw<=0) return -NDX_ERR_IO;`. An empty file: seek succeeds, returns 0; 0<=0 → -NDX_ERR_IO. A 0-byte file is structurally too small (the BAD_SIZE condition two lines later). Only fsize_raw<0 is a genuine I/O error.
+- **expected:** Distinguish fsize_raw<0 (-NDX_ERR_IO) from fsize_raw==0 (-NDX_ERR_BAD_SIZE).
+- **actual:** 0-byte file returns -NDX_ERR_IO, indistinguishable from a seek failure.
+- **repro:** ndx_open on a 0-byte file → -NDX_ERR_IO (expected BAD_SIZE); a 513-byte file correctly returns BAD_SIZE.
+
+### R3.21. [P2] ndx_build: nrec*key_len key-buffer size and nrec+kpp-1 leaf count computed without overflow guards
+- **bead:** initech-xiqz  **subsystem:** SAMIR/.ndx build (os/samir/fs/ndx.c)
+- **evidence:** ndx.c:1320 `keys_bytes=nrec*(uint32_t)key_len` wraps (nrec=50,000,001, key_len=100 → 5e9 → ~705,032,804); alloc gets ~670MB, the loop at 1332 writes ~5GB, overrunning the arena. ndx.c:1347 `nleaf=(nrec+kpp-1u)/kpp` also wraps for nrec near UINT32_MAX (nleaf→0, forced to 1).
+- **expected:** Check nrec<=UINT32_MAX/key_len and nrec<=UINT32_MAX-kpp+1 before the arithmetic; else -NDX_ERR_NOROOM.
+- **actual:** Both multiplications wrap; undersized alloc → arena overrun, or a single-leaf root for billions of records.
+- **repro:** ndx_build(nrec=50000001, key_len=100): keys_bytes wraps to 705,032,804; loop writes past the buffer.
+
+### R3.22. [P2] memvar arena permanently exhausted by repeated C/M string-variable updates in DO WHILE loops
+- **bead:** initech-frei  **subsystem:** SAMIR/flow (os/samir/cmd/flow.c)
+- **evidence:** memvar_set (flow.c:308): for XB_C/XB_M, lines 343-357 always append to the bump arena (`dst=fs->arena+fs->arena_used; arena_used+=len`) without reclaiming the prior bytes at vars[slot].val.u.c.p when updating an existing var (found at 318). FLOW_MEMVAR_ARENA=16384 (55). RELEASE ALL resets arena_used (972) but RELEASE <name> (975-987) only marks live=0 without compaction.
+- **expected:** Updating an existing C/M memvar reuses/reclaims old arena bytes; arena must not grow per-update.
+- **actual:** Each STORE to an existing string var leaks arena bytes; -INTERP_ERR_NOMEM after ~ARENA/len updates.
+- **repro:** STORE SPACE(200) TO BUF; loop STORE BUF+' ' TO BUF 100x → NOMEM before iteration 82.
+
+### R3.23. [P2] scan_number: no 32-bit range check on integer literals — silent overflow (32-bit host) or unlocated NASM error (64-bit host)
+- **bead:** initech-veav  **subsystem:** seed/lexer (seed/lexer.c, seed/codegen.c)
+- **evidence:** lexer.c:217-228 `long value=0; while(is_digit) value=value*10+(...);` with no guard. On a 32-bit host `long` is 32-bit → signed overflow (UB) for literals >=2^31; codegen.c:200 emits `mov eax,%ld` with the wrong immediate. On 64-bit, values >0xFFFFFFFF are emitted and NASM rejects them in 32-bit mode with no seed source location. codegen.c:199-200 comment 'lexer/parser keep these in range' is false.
+- **expected:** A decimal literal outside the Pascal integer range produces a located seed-compiler error at the token position.
+- **actual:** 32-bit: wrong immediate emitted silently; 64-bit: deferred NASM 'value out of range' with no source location.
+- **repro:** writeln(2147483649): 32-bit emits `mov eax,-2147483647`; 64-bit emits an immediate NASM rejects.
+
+### R3.24. [P2] parse_var_section has no redeclaration check — duplicate var names emit duplicate NASM labels; codegen comment falsely claims the front end rejects them
+- **bead:** initech-p0pa  **subsystem:** seed/parser + seed/codegen (seed/parser.c, seed/codegen.c)
+- **evidence:** parser.c:327-346 pushes each AST_VARDECL with no duplicate check across decls or within a comma list. codegen.c:52-55 claims 'the front end already rejects redeclarations' (false); emit_bss (278-289) emits `v_<name>: resd 1` per name. `var x:integer; x:integer;` produces two `v_x: resd 1`; NASM errors 'symbol v_x defined twice' with no source line.
+- **expected:** Duplicate variable declaration → located parser error ('variable x already declared').
+- **actual:** Parser accepts silently; codegen emits duplicate labels; NASM fails without a Pascal source location.
+- **repro:** `program P; var x:integer; x:integer; begin end.` exits 0; nasm rejects duplicate v_x.
+
+### R3.25. [P2] Undeclared variable reference not detected — codegen emits an undefined NASM symbol with no source-level error
+- **bead:** initech-ni34  **subsystem:** seed/parser + seed/codegen (seed/parser.c, seed/codegen.c)
+- **evidence:** parser.c:124-129 (parse_factor) and 230-244 (parse_assignment) accept identifiers as AST_VARREF/AST_ASSIGN with no symbol-table lookup (none exists). codegen.c:204-207 emits `mov eax,[v_<name>]` and 255-258 `mov [v_<name>],eax` for any name; an undeclared name has no `v_<name>: resd 1` in .bss, so the link fails on undefined symbol with no Pascal location.
+- **expected:** Read/assign of an undeclared variable → located error ('variable z not declared').
+- **actual:** Codegen references [v_z]; link fails undefined v_z with no source position.
+- **repro:** `program P; begin z:=1 end.` exits 0; nasm+ld fails on undefined v_z.
+
+### R3.26. [P2] ANSI digit accumulator has no overflow cap — signed-int UB for large param values
+- **bead:** initech-5y5r  **subsystem:** ANSI/console (os/milton/ansi.c)
+- **evidence:** ansi.c:544 `st->param_current = st->param_current*10 + digit;` with param_current an int (ansi.h:169). ESC[3000000000A makes 3e9>INT_MAX → signed overflow UB. ANSI_PARAM_MAX(16) caps the param count, not magnitude (ansi.h:71-74).
+- **expected:** Accumulation saturates/clamps (e.g. 9999) per MS-DOS 3.3 Tech Ref Ch4 (large params truncated to screen dimension).
+- **actual:** Uncapped signed multiply wraps negative; CURSOR_REL delta becomes wrong/garbage with no later clamp.
+- **repro:** Feed ESC[3000000000A; accumulator overflows before 'A'; delta_row is garbage.
+
+### R3.27. [P2] Explicit param 0 for CUU/CUD/CUF/CUB not substituted with default 1 — ESC[0A moves 0 rows instead of 1
+- **bead:** initech-mybc  **subsystem:** ANSI/console (os/milton/ansi.c)
+- **evidence:** ansi.c:285/293/302/310 use ansi_param(st,0,1); ansi_param (123-130) substitutes the default only when v==ANSI_PARAM_DEFAULT(-1), so an explicit 0 returns 0. The CUP 'H' case (325-326) clamps r/c<1→1, but the four directional cases have no such guard. MS-DOS 3.3 Tech Ref Ch4: 'if n is 0 or omitted it defaults to 1.'
+- **expected:** ESC[0A emits delta_row=-1 (same as ESC[A).
+- **actual:** ESC[0A emits delta_row=0 — no movement.
+- **repro:** Feed ESC[0A; CURSOR_REL delta_row==0 (expected -1).
+
+### R3.28. [P2] SGR 8 (conceal) preserves the bright bit — concealed bright-fg text stays visible
+- **bead:** initech-0u02  **subsystem:** ANSI/console (os/milton/ansi.c)
+- **evidence:** ansi.c:218 `st->attr=(st->attr&0xF8u)|bg3;`. Mask 0xF8 keeps bit3 (bright) and clears only fg bits 2:0. bg3=(attr>>4)&0x07. attr=0x0F (bright white/black): 0x0F&0xF8=0x08 | bg3(0) = 0x08 = dark grey on black — visible. Comment at ansi.c:156 says 'set fg=bg so text is invisible' — contradicted.
+- **expected:** Mask 0xF0 so the whole fg nibble (incl. bright) equals bg → truly invisible.
+- **actual:** Bright-fg conceal renders the bright variant of the bg colour; only non-bright fg conceals correctly.
+- **repro:** attr=0x0F then ESC[8m → SET_ATTR 0x08 (expected 0x00).
+
+### R3.29. [P2] Relative cursor moves (CUU/CUD/CUF/CUB) do not update FSM row/col — DSR (ESC[6n) reports stale position
+- **bead:** initech-s7cm  **subsystem:** ANSI/console (os/milton/ansi.c, os/milton/int21.c)
+- **evidence:** ansi.c:284-311 cases A/B/C/D emit CURSOR_REL but never modify st->row/st->col; case 'n' (DSR, 397-398) carries st->row/st->col. Two contradictory comments: ansi.c:559-566 says 'apply relative deltas here so st->row/st->col stay coherent' (no code follows); 567-569 says 'relative actions leave it to the caller'. int21.c currently drops DEVICE_STATUS, so latent.
+- **expected:** Either A/B/C/D update st->row/st->col (clamped), or the DSR wiring reads the live position.
+- **actual:** st->row/st->col track only absolute escapes; ESC[3B then ESC[6n reports the pre-move row.
+- **repro:** Feed ESC[3B then ESC[6n; DEVICE_STATUS action carries row=0 not 3.
+
+### R3.30. [P2] region_op: CombineRgn(dst==src1,...) silently wrong — out reset before A_empty/B_empty are read
+- **bead:** initech-bz8f  **subsystem:** FLAIR/region GDI facade (os/flair/atkinson/region.c)
+- **evidence:** region.c:410-413 resets out (n_rows=0,is_empty=1) BEFORE 418-419 read A_empty/B_empty from A/B. When out==A, the reset zeroes A, so A_empty=1 regardless of A's content; RGN_OR then yields src2 alone, and RGN_COPY (self-union with dst==src1) early-returns empty. GDI documents dst may alias a source; no alias guard exists.
+- **expected:** Compute A_empty/B_empty from original values before resetting out; CombineRgn(dst,dst,src2,OR) yields dst∪src2.
+- **actual:** out==A path discards A's content; RGN_OR returns src2, RGN_COPY returns empty.
+- **repro:** Non-empty dst; CombineRgn(&dst,&dst,&src2,OR) → dst==src2 (original lost).
+
+### R3.31. [P2] fat12_grow_dir: locality hint fat12_find_free(cur+1) gives false NO_SPACE when all free clusters precede the directory tail
+- **bead:** initech-fov8  **subsystem:** MILTON/FAT (os/milton/fat12.c)
+- **evidence:** fat12.c:1610 `newc=fat12_find_free(vol,fat,fat_len,(uint16_t)(cur+1u))` where cur is the dir chain tail (1589-1607). fat12_find_free (1487-1506) searches `for(c=from;c<=last;c++)` and never wraps to FAT12_FIRST_DATA_CLUSTER=2. If free clusters are all below cur, it returns 0 → fat12_grow_dir returns NO_SPACE (1612-1614). fat12_mkdir (3355) correctly searches from cluster 2.
+- **expected:** Fall back to searching from FAT12_FIRST_DATA_CLUSTER when the locality hint finds nothing.
+- **actual:** Subdirectory growth fails with NO_SPACE on a non-full but fragmented volume.
+- **repro:** Fill clusters 2..50, make subdir (tail ~75), delete the big file (frees 2..50), grow the full subdir → NO_SPACE despite free clusters.
+
+### R3.32. [P2] spec/region_algebra.h: RGN_ROW_X_MAX=256 comment falsely claims it covers 640 inversion points
+- **bead:** initech-m6c1  **subsystem:** FLAIR/region spec (spec/region_algebra.h)
+- **evidence:** region_algebra.h:280-283 `/* 640px wide => 640 inversion points; this cap covers that with headroom */ #define RGN_ROW_X_MAX 256u`. 256<640. The locked spec propagates a false invariant that underpins the undersized scratch[RGN_ROW_X_MAX] at region.c:425 (the P0 overflow).
+- **expected:** RGN_ROW_X_MAX>=640, or the comment states the true constraint and that the merge scratch must be 2*RGN_ROW_X_MAX.
+- **actual:** 256 with a comment claiming 640-point coverage; arithmetically false.
+- **repro:** Read region_algebra.h:280-283: 256<640.
+
+### R3.33. [P2] FILE() oracle heresy: no-workarea test asserts the wrong #52 behavior as the pass condition
+- **bead:** initech-u5mw  **subsystem:** SAMIR/oracle (harness/diff/dbf_diff/test_xbase_fn_d.c)
+- **evidence:** test_xbase_fn_d.c:179-196 test_no_workarea iterates {RECNO,RECCOUNT,EOF,BOF,FOUND,DELETED,FIELD(1),DBF,FILE('X.DBF')} and asserts each returns XBEE_NO_DATABASE (line 190 good=(rc!=0 && ec==XBEE_NO_DATABASE)). FILE() is a PAL query that runs without an open table, so including it encodes the III+ violation as canon; fixing fn_file would turn this test RED.
+- **expected:** Exclude FILE() from the #52 list; add a test asserting FILE() works without USE.
+- **actual:** Oracle passes when FILE() returns #52 and blocks the correct fix.
+- **repro:** Fix fn_file to use a PAL vtable; make test-xbase-fn-d goes RED on the FILE('X.DBF') assertion.
+
+### R3.34. [P2] Oracle gap: ROUND oracle asserts only positive inputs — the negative (int64_t)-truncation bug is mutation-unproven (Rule 6)
+- **bead:** initech-y78r  **subsystem:** SAMIR/oracle (harness/diff/dbf_diff/test_xbase_fn_b.c)
+- **evidence:** test_xbase_fn_b.c:222-234 ROUND D-section covers only positive first args (3.14159, 3.145, 3.0, 1234, 1234/-2); lines 229-230 skip_gated the two tie cases. No negative non-tie assertion (ROUND(-2.7,0) etc.). A mutation swapping (int64_t) for floor leaves every D-section test passing.
+- **expected:** Assert at least ROUND(-2.7,0)=-3 and ROUND(-1234,-2)=-1200 with a mutation that flips negative rounding direction.
+- **actual:** No negative non-tie assertions; the fn_builtins.c:845-848 bug is undetectable by the suite.
+- **repro:** Add ok_n('ROUND(-2.7,0)',-3.0,...) — it fails on the current code.
+
+### R3.35. [P2] Oracle gap: CTOD oracle tests only out-of-range month/day, not calendar-impossible days within range
+- **bead:** initech-kn6t  **subsystem:** SAMIR/oracle (harness/diff/dbf_diff/test_xbase_fn_a.c)
+- **evidence:** test_xbase_fn_a.c:243 ok_d("CTOD('13/40/85')",0.0,...) uses mm=13, caught by the mm>12 branch — never reaches jdn_from_ymd. No test for a valid-range month with an impossible day (CTOD('02/30/85'), CTOD('04/31/85'), CTOD('02/29/85') non-leap). The missing per-month cap (fn_builtins.c:517) is mutation-unproven.
+- **expected:** Assert CTOD('02/30/85'), CTOD('04/31/85'), CTOD('02/29/85') all return blank.
+- **actual:** All asserted error cases fall into mm>12/dd>31; the rollover path survives the full oracle.
+- **repro:** Add CTOD('02/30/85')=blank — it fails on the current code.
+
+### R3.36. [P2] Oracle gap: C+C / C-C concatenation >254 bytes has zero coverage — the missing XB_STR_MAX guard is mutation-unproven (Rule 6)
+- **bead:** initech-u468  **subsystem:** SAMIR/eval oracle (harness/diff/dbf_diff/test_xbase_eval.c)
+- **evidence:** test_xbase_eval.c:204-231 concat tests use only short strings ('AB'+'CD'=4, 'AB  '-'CD'=6). No total exceeds 254; no XB_MUTATE hook exists for the absent size check in concat_plus (eval.c:148-163) / concat_minus (178-200). The SPACE/REPLICATE guards are mutation-proven but the concat path is not.
+- **expected:** Assert SPACE(130)+SPACE(130) fails XBEE_SPACE_LARGE(#59) with a perturb proving the test bites.
+- **actual:** Zero coverage of the 254-byte concat boundary.
+- **repro:** Add the SPACE(130)+SPACE(130) assertion; it passes (bug: 260-byte success) until the guard is added.
+
+### R3.37. [P2] S4.5 oracle gap: no duplicate-key leaf-split test and order_cb checks key order only (not (key,recno)) — ndx insert/delete bugs mutation-unproven
+- **bead:** initech-68ox  **subsystem:** SAMIR/.ndx oracle (harness/diff/dbf_diff/test_ndx_maintain.c)
+- **evidence:** test_ndx_maintain.c:429-436 (test_num_split) inserts kpp distinct keys + one more distinct key; no test builds >kpp records sharing one key. order_cb (123-141) flags only `ndx_key_cmp(prev,cur)>0` (strict key decrease); equal-key out-of-order recnos (cmp==0) never trip it. NDX_MUTATE_INSERT_NOSORT (23-28) bites within-leaf sort only, not cross-leaf ordering.
+- **expected:** Add a non-unique >kpp same-key build/split/insert test; order_cb must flag `cmp==0 && recno<=prev_recno`.
+- **actual:** Both ndx duplicate-key bugs pass the current oracle with exit 0.
+- **repro:** ndx_build(32 key='K'); insert (K,33); run assert_inorder with (key,recno)-aware order_cb — fails on the unmodified code.
+
+### R3.38. [P2] Oracle gap: test_lexer.c has no integer literal outside the 32-bit signed range — scan_number overflow path mutation-unproven
+- **bead:** initech-cfc5  **subsystem:** seed/lexer oracle (seed/test_lexer.c)
+- **evidence:** test_lexer.c:52-62 largest literal tested is 1000; no literal >=2^31. The `long value` accumulation overflow path (lexer.c:220-223) is unexercised; loosening accumulation fails no test.
+- **expected:** A case asserting a literal >=2^31 produces TOK_ERROR, with a mutation that makes it fail.
+- **actual:** No such test; the path is mutation-unproven (Rule 6).
+- **repro:** make test-seed passes; perturbing lexer.c:221 to drop the digit add leaves test_lexer green.
+
+### R3.39. [P2] Oracle gap: test_lexer.c never exercises scan_string pool near-capacity — the wrap-to-pool-start branch and false-rejection bug are mutation-unproven
+- **bead:** initech-99p1  **subsystem:** seed/lexer oracle (seed/test_lexer.c)
+- **evidence:** test_lexer.c:103-123 uses only short string literals; none fill the pool near LEXER_STRBUF_CAP before lexing another string. The wrap branch lexer.c:268-278 (`strpos!=0 && out==0`) is never reached; removing lines 271-274 fails no test.
+- **expected:** Sequence strings to push strpos near CAP, then assert a subsequent short string returns successfully.
+- **actual:** No such test; the wrap/near-capacity path is unproven.
+- **repro:** Comment out lexer.c:271-274; make test-seed still passes.
+
+### R3.40. [P2] Oracle gap: test_parser.c has no duplicate variable declaration test — the missing redeclaration check is mutation-unproven
+- **bead:** initech-mqwr  **subsystem:** seed/parser oracle (seed/test_parser.c)
+- **evidence:** test_parser.c:39-210 has no `var x:integer; x:integer;` or `var x,x:integer;` case. The absent redeclaration guard in parse_var_section (parser.c:327-346) is undetected; adding then deleting a check would not be caught.
+- **expected:** A test feeding a duplicate decl and asserting rc!=0 with the var name in the message.
+- **actual:** No such test; duplicates pass silently.
+- **repro:** make test-seed passes with `var x:integer; x:integer;` returning rc==0.
+
+### R3.41. [P2] Oracle gap: test_ansi.c cursor-move suite never tests explicit param 0 — ESC[0A bug mutation-unproven
+- **bead:** initech-ng8n  **subsystem:** ANSI/console oracle (os/milton/test_ansi.c)
+- **evidence:** test_ansi.c:301-366 (test_cursor_up) tests ESC[A(-1), ESC[3A(-3), ESC[15A(-15) but never ESC[0A; same gap for 0B/0C/0D. The explicit-0 path (ansi.c:285/293/302/310) is unexercised.
+- **expected:** An ESC[0A case asserting delta_row==-1 (RED on current code, GREEN after the ansi_param `v<=0→def` fix).
+- **actual:** Explicit-zero path for CUU/CUD/CUF/CUB is untested.
+- **repro:** Add ESC[0A test; it fails against the current ansi.c.
+
+### R3.42. [P2] Oracle gap: test_ansi.c SGR 8 conceal suite tests only non-bright fg — bright-fg conceal bug mutation-unproven
+- **bead:** initech-i427  **subsystem:** ANSI/console oracle (os/milton/test_ansi.c)
+- **evidence:** test_ansi.c:639-676 sets attr with no bright bit (ESC[37;42m→0x27), reverses, then conceals asserting 0x77 (correct only because bright=0). No ESC[8m test with bit3 set; the 0xF8-vs-0xF0 distinction (ansi.c:218) is never exercised.
+- **expected:** A sequence ESC[1;32;40m (0x0A) → ESC[8m expecting 0x00; current code yields 0x08.
+- **actual:** Bright-fg conceal path unproven; the never-cleared bright bit passes the full suite.
+- **repro:** Extend test_sgr_reverse_and_conceal: attr 0x0F, ESC[8m, assert 0x00 — RED against ansi.c:218.
+
+### R3.43. [P2] Oracle gap: test_ansi_wire.c never drives ESC[A/B/C/D through the wiring — the cursor_rel dispatch in ansi_apply is mutation-unproven
+- **bead:** initech-dzum  **subsystem:** ANSI/console wiring oracle (os/milton/test_ansi_wire.c)
+- **evidence:** test_ansi_wire.c:184 registers ops.cursor_rel=mock_cursor_rel; the main body (252-347) emits only ESC[2J, ESC[5;10H, ESC[31;1m, ESC[s/u — never an A/B/C/D. mock_cursor_rel (126-130) is never invoked; int21.c:570-574 ANSI_ACT_CURSOR_REL dispatch is dead code in every oracle run.
+- **expected:** A test emitting ESC[3B asserting the mock moved down 3.
+- **actual:** The CURSOR_REL action path and mock are never exercised; deleting the dispatch leaves all tests green.
+- **repro:** Add emit_str("[3B"); CHECK(g_mock.row==3) after block 3.
+
+### R3.44. [P2] Oracle gap: test_region.c MAX_ITEMS=6 never approaches RGN_ROW_X_MAX row density — the xmerge scratch overflow is mutation-unproven (Rule 6)
+- **bead:** initech-ccv9  **subsystem:** FLAIR/region oracle (harness/proptest/test_region.c)
+- **evidence:** test_region.c:158 `enum { MAX_ITEMS=6 };` caps each region to ~12 inversion points per row, far below 256. The homomorphism suite (458-479, 4000 cases/op) never produces na+nb>256, so the xmerge overflow at region.c:393-395 is never reached and no mutant exercises the `no>=cap` path.
+- **expected:** A generator producing rows approaching RGN_ROW_X_MAX entries; a mutant truncating the merge should go RED.
+- **actual:** MAX_ITEMS=6 keeps the overflow invisible to the oracle.
+- **repro:** Raise MAX_ITEMS to 130+; the generator produces 256+ entries/row and xmerge overruns scratch.
+
