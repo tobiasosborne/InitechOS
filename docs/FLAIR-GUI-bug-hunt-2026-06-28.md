@@ -360,3 +360,339 @@ The GUI is worst in two layers. (1) The compositor / App-Contract path is broken
 - **actual:** Near tick wrap (~497 days uptime at 100Hz) the guard fires on the first poll: the drag commits with zero displacement and WNE busy-spins.
 - **repro:** Set g_tick=0xFFFFFF80 before arming the pump; a drag does not move the window (guard fires before any mouse events).
 
+
+---
+
+# Round 2 -- un-inspected managers + DOS shell/loader + live pump
+
+82 raw -> 53 verified REAL -> 45 deduped (1 P0, 2 P1, 42 P2). Label `gui-bughunt`.
+
+## Summary
+
+Round 2 surfaced 45 distinct, evidence-grounded defects across previously un-inspected surface (53 raw reports deduped: 4 verifier-listed twins plus 4 near-identical merges collapsed). The most damaged un-inspected areas are COMMAND.COM (a P0 silent data-loss in COPY-onto-itself that truncates a file to zero and reports success, plus a P1 dos_read missing-Carry-Flag bug that injects garbage into TYPE/COPY/batch), the FLAIR heap allocator (multiple unguarded integer-overflow paths that return non-NULL aliasing/cap-0 blocks behind a false "overflow-safe" comment, plus a free-list-walk that violates the LIFO contract), the Control Manager (no disabled/grayed state anywhere in TestControl or any DrawControl path, teal CTRL_DESKTOP bleeding into dialog backgrounds, and silent NULL guards mislabeled "fail-loud"), and FindWindow hit-test geometry (grow/close/zoom zones all misaligned from rendered gadgets and inMenuBar never returned). Cross-cutting these is a pervasive oracle/mutation-coverage debt — blitter non-8bpp paths, window grow/zoom, heap overflow, text wide-advance, menu disabled rendering, and the MZ entry boundary are all mutation-unproven, so several of the logic bugs above sit in code the existing test suite cannot fail on.
+
+## Bugs
+
+### R2.1. [P2] Oracle gap: test_blitter.c covers no 24bpp path and no 32bpp copy-blit — surface_put_pixel 24bpp else-branch and 32bpp dword-copy are mutation-unproven
+- **bead:** initech-asci  **subsystem:** FLAIR/blitter oracle (harness/proptest/test_blitter.c)
+- **evidence:** test_blitter.c:38 claims it covers 'both surface_put_pixel branches', but surface.h:82-90 has THREE bpp branches (8bpp:82, 32bpp:84, 24bpp else:86 writing B,G,R at off+0/+1/+2). Only mk_dst8 (:164) and mk_dst32 (:196) exist; no mk_dst24. Fill covers 8bpp(:344)+32bpp(:369) but copy-blit is 8bpp-only (:380 'COPY-BLIT (8bpp)', :401 mk_dst8). The 24bpp else-branch (fill+copy) and the 32bpp copy path (copy_clipped_run->surface_put_pixel dword write, blitter.c:173) are never exercised.
+- **expected:** Oracle covers all three bpp for both fill and copy; a mutation in the 24bpp byte-order write or the 32bpp copy dword write goes RED (Rule 6).
+- **actual:** A byte-order swap in the 24bpp else-branch, or a no-op/wrong-stride in the 32bpp copy path, survives all blitter oracle cases.
+- **repro:** Swap off+0/off+2 in surface_put_pixel's 24bpp branch (or zero the 32bpp copy write); make test-blitter stays GREEN.
+
+### R2.2. [P2] fb_clear 24bpp arm computes pixel count as (lfb_pitch*lfb_height)/3 with stride-3 writes, ignoring per-scanline pitch — scrambled BGR on padded LFBs
+- **bead:** initech-gv2x  **subsystem:** FLAIR/present (os/milton/kmain.c fb_clear)
+- **evidence:** kmain.c:166 total=lfb_pitch*lfb_height; :190 pixels=total/3u; writes fb[i*3+k]=b/g/r treat the whole buffer as a flat BGR-triple array with no row stride. For a padded 24bpp LFB (pitch>width*3), row 1 starts at byte 'pitch' in the LFB but width*3 in the flat index, so every row after row 0 gets rotated BGR components (seafoam r=0x6F,g=0xA0,b=0x8E -> B=0xA0,G=0x6F on row 1). The 32bpp arm (:183-186, dwords=total>>2) is safe; flair_desktop_present (:788) correctly uses y*pitch + x*bpp.
+- **expected:** Per-row loop honoring lfb_pitch (fb[y*pitch + x*3..+2]), like flair_desktop_present.
+- **actual:** BGR triples placed at flat i*3; rows 1..N show rotated colors for any pitch>width*3.
+- **repro:** 640x480x24 VBE mode with 4-byte row padding (pitch=1924): row 0 seafoam correct, rows 1..479 wrong. Latent under QEMU/Bochs (tight pitch).
+
+### R2.3. [P2] surface_get_pixel returns raw 8bpp palette index, not the documented 0x00RRGGBB
+- **bead:** initech-5le3  **subsystem:** FLAIR/surface (os/flair/surface.h)
+- **evidence:** surface.h:95 documents the return as 0x00RRGGBB; surface.h:100-108 for bpp==8 returns (uint32_t)bm->base[off] (palette index 0..255), while 24bpp/32bpp return packed RGB. render.c:243-252 already special-cases 8bpp via render_palette_rgb(), confirming the raw return is NOT RGB. Any caller comparing surface_get_pixel to flair_palette_rgb(idx) gets 0x00000002 vs 0x008DDCDC.
+- **expected:** Consistent 0x00RRGGBB for all bpp (resolve 8bpp via flair_palette_rgb), OR document the 8bpp exception in the header.
+- **actual:** 8bpp silently returns a palette index, breaking the contract for bpp-agnostic callers.
+- **repro:** surface_get_pixel on a bpp=8 bitmap with index 2 -> 0x00000002; contract says 0x008DDCDC.
+
+### R2.4. [P2] make_offset_view: unsigned underflow of view->height (dst->height - y_top) with no bounds check — wraps to ~0xFFFFFFFF, base past buffer, defeats surface clip -> OOB framebuffer write
+- **bead:** initech-mqsn  **subsystem:** FLAIR/shell (os/flair/shell.c)
+- **evidence:** shell.c:148-153 view->base=dst->base+y_top*dst->pitch; view->height=dst->height-y_top (both uint32_t). shell_render guards only dst->height==0 (:303-307), not dst->height<=SHELL_MENUBAR2_TOP(=20). For 0<height<=20 the subtraction wraps to ~UINT32_MAX and base advances past the allocation; surface_fill_span's clip y>=bm->height (surface.c:35) never fires, so DrawMenuBar writes rows 0..19 through a base already past the framebuffer end. Safe today only because the sole runtime caller passes height=480.
+- **expected:** SHELL_PANIC (Rule 2) when dst->height < SHELL_MENUBARS_H (40) / y_top >= dst->height, before the subtraction.
+- **actual:** Silent uint32_t underflow; OOB write reachable with any small surface.
+- **repro:** shell_render with a height=10 bitmap -> make_offset_view(y_top=20) yields height=0xFFFFFFF6, base 20 rows past a 10-row buffer; DrawMenuBar writes rows 20..39 past the end.
+
+### R2.5. [P2] FindWindow grow-box hit zone is 1x1 px — gb derived from the content/struct frame gap (1px) not FLAIR_CHROME_GROW (16px)
+- **bead:** initech-cjfr  **subsystem:** FLAIR/window (os/flair/window.c FindWindow)
+- **evidence:** window.c:504 gb=s.bottom-c.bottom. With shell content rects c.bottom=b.bottom-FLAIR_CHROME_FRAME(1), so gb=1 not FLAIR_CHROME_GROW=16 (chrome_metrics.h:114). The clamped zone (:506-508) becomes the single corner pixel [s.right-1,s.right)x[s.bottom-1,s.bottom).
+- **expected:** Hit zone [s.right-FLAIR_CHROME_GROW, s.right)x[s.bottom-FLAIR_CHROME_GROW, s.bottom); gb from FLAIR_CHROME_GROW.
+- **actual:** Grow box functionally non-clickable except 1 corner pixel; other clicks fall through to inDrag/inContent.
+- **repro:** documentProc window; FindWindow at {v=s.bottom-8,h=s.right-8} -> inDrag, expected inGrow.
+- **related:** round-1 'documentProc window missing DrawGrowIcon' is the drawing bug; this is the orthogonal hit-test bug
+
+### R2.6. [P2] reaffirm_active() flips hilited but never invalidates the deactivated window — no chrome repaint on deactivation
+- **bead:** initech-v6t2  **subsystem:** FLAIR/window (os/flair/window.c reaffirm_active)
+- **evidence:** window.c:175-182 iterates and flips p->hilited but calls no WindowMgr_invalidate / seeds no updateRgn for the window whose hilited goes 1->0. Called from NewWindow(:301), HideWindow(:321), DisposeWindow(:342), ShowWindow(:354), SelectWindow(:370) — every front-window change.
+- **expected:** The deactivated window's visible region added to its updateRgn so chrome repaints in inactive state at the next damage cycle.
+- **actual:** Only the in-memory flag changes; the ex-front window keeps active-style chrome until an unrelated expose covers/re-exposes it.
+- **repro:** Two visible windows; SelectWindow the back one; the previously-front window keeps active racing-stripe pixels indefinitely.
+- **related:** round-1 'No inactive-window chrome (chrome always active)' is the drawing half; this is the damage-model half
+
+### R2.7. [P2] FindWindow never returns inMenuBar — both chimera menu bars fall through to inDesk; Photoshop-bar clicks (rows [20,40)) silently swallowed
+- **bead:** initech-n6vr  **subsystem:** FLAIR/window (os/flair/window.c FindWindow)
+- **evidence:** window.c:466-516 has no menu-bar guard; any point outside a strucRgn exits at :515 return inDesk. kmain.c:2422-2426 acknowledges this and works around v<FLAIR_MENUBAR_H (rows [0,20)), but the second bar at [20,40) (SHELL_MENUBAR2_TOP=40) has no handler.
+- **expected:** FindWindow returns inMenuBar (part 1) for v in [0, SHELL_MENUBAR2_TOP), covering both bars (IM-I).
+- **actual:** Returns inDesk; the kmain workaround partially covers [0,20) but [20,40) clicks are unhandled.
+- **repro:** FindWindow({v=10,h=320}) -> inDesk; {v=30,h=320} -> inDesk, no handler.
+
+### R2.8. [P2] FindWindow close/zoom-box hit zones are tb-sized (full title-band, ~20px) squares pinned to the structure edges — misaligned ~9px from the rendered 11px boxes; outer-frame/gap clicks wrongly fire inGoAway/inZoomIn
+- **bead:** initech-ci4o  **subsystem:** FLAIR/window+chrome (os/flair/window.c FindWindow:489-499 vs os/flair/chrome.c:362-365)
+- **evidence:** window.c:485 tb=c.top-s.top (19 or 20); :490 close test h in [s.left, s.left+tb); :497 zoom test h in [s.right-tb, s.right). chrome.c:362-364 renders close at [left+9,left+20) and zoom at [right-20,right-9), each 11px (FLAIR_CHROME_WBOX_RENDER=11; spec/chrome_metrics.h:90 WBOX_DELTA=13). So 9 spurious columns left of the close box (and right of the zoom box) fire the gadget code, the box's far column is missed, and vertically the zone covers ~19-20 rows vs the rendered 11.
+- **expected:** Close zone [left+9,left+20)x[top+4,top+15); zoom mirror at the right; gap/frame pixels return inDrag.
+- **actual:** Clicking the plain title bar near the left edge triggers go-away; near the right edge triggers zoom.
+- **repro:** FindWindow at {v=s.top+10,h=s.left} -> inGoAway (expected inDrag); {v=s.top+10,h=s.right-5} -> inZoomIn though rendered zoom box ends at right-9.
+
+### R2.9. [P2] Oracle gap: test_window.c FindWindow suite tests no inGrow or inZoomIn point — grow/zoom hit-test branches mutation-unproven (Rule 6)
+- **bead:** initech-ekde  **subsystem:** FLAIR/window oracle (harness/proptest/test_window.c)
+- **evidence:** test_window.c:399-436 covers inContent(:410), inDrag(:414), inGoAway(:418), inDesk(:422), ordering(:431,:434) — no inGrow/inZoomIn. With its s/c rects gb clamps to 1, so even an inGrow point is one pixel. Removing 'return inGrow;' at window.c:508 fails zero tests.
+- **expected:** Directed inGrow (documentProc, 16x16 corner) and inZoomIn (zoomDocProc, right title end) cases; mutating the grow branch goes RED.
+- **actual:** Grow/zoom paths fully uncovered; the 1x1 grow-box bug is invisible to the oracle.
+- **repro:** Comment out window.c:508 'return inGrow;'; make test-window stays GREEN.
+- **related:** round-1 'FlairLAddRow overflow path never exercised' — same Rule-6 category, different code path
+
+### R2.10. [P2] flair_alloc has no upper-bound size guard: huge sizes overflow flair_align_up/span arithmetic -> cap=0 or zero-advance block returned non-NULL (heap alias/corruption); the 'overflow-safe' comment is false
+- **bead:** initech-r081  **subsystem:** FLAIR/heap (os/flair/heap.c)
+- **evidence:** Only guard is heap.c:84-86 (size==0 || !flair_class_ok) — no size<=UINT32_MAX-HDR-(ALIGN-1) check, yet :30-31 comments 'overflow-safe ... passed the request-sanity check below' (no such check). (a) flair_align_up (:32-35) (n+15)&~15: for size in [0xFFFFFFF1,0xFFFFFFFF], n+15 wraps -> need=0, span=16, avail passes, blk->cap=0 (:140), used+=16 — a non-NULL ptr to a cap=0 block for a ~4GB request. (b) span (:122) 16+need: for size in [0xFFFFFFE1,0xFFFFFFF0], need=0xFFFFFFF0, span=0x100000000->0, avail check '0>avail' false -> passes, used+=0 — cursor never advances, so two consecutive allocs both write headers at base+0 and return base+16, aliasing live allocations.
+- **expected:** Return NULL (Rule 2) for any size whose aligned span overflows uint32_t; correct the false comment.
+- **actual:** Non-NULL returns with cap=0 (write-past-block) or zero-advance aliasing (two live allocs share one address; second clobbers first's header).
+- **repro:** flair_alloc(h,GENERAL,0xFFFFFFE1) twice -> same non-NULL ptr, used stays 0; flair_alloc(h,GENERAL,0xFFFFFFFF) -> non-NULL, stored cap=0 (verified by uint32_t simulation).
+
+### R2.11. [P2] Heap REUSE walks the entire class free-list instead of head-only — violates documented LIFO spec, strands undersized head blocks permanently
+- **bead:** initech-zhjo  **subsystem:** FLAIR/heap (os/flair/heap.c)
+- **evidence:** heap.h:166-168 documents head-only ('if the free-list HEAD has cap>=request, pop it'), but heap.c:95-111 is a while(blk!=0) walk with a prev pointer that unlinks the first fitting node anywhere; a too-small head is skipped and a deeper block reused, and small head blocks never return to the bump allocator. The oracle (test_flair_heap.c:168-189, Property 2) tests only a single-element free-list, so head-vs-walk divergence is never exercised.
+- **expected:** If freelist[klass]->cap>=need pop head, else fall through to BUMP; a too-small head must not trigger a deeper search.
+- **actual:** Walks all nodes and reuses any fit regardless of position.
+- **repro:** Alloc HANDLE/128, HANDLE/8; free 8 (head), free 128 -> list [8->128]; flair_alloc(HANDLE,64): spec says bump (head 8<64), code reuses the 128 block. Absent from test_flair_heap.c.
+
+### R2.12. [P2] Oracle gap: no test/mutant for the heap align_up or span integer-overflow paths — both failure modes uninstrumented (Rule 6)
+- **bead:** initech-5l5n  **subsystem:** FLAIR/heap oracle (harness/proptest/test_flair_heap.c + Makefile)
+- **evidence:** Makefile:9160-9193 defines only FLAIR_HEAP_MUTATE_NO_BOUNDS and _NO_REUSE; neither drives size>UINT32_MAX-15 (align_up overflow) or size in [0xFFFFFFE1,0xFFFFFFF0] (span overflow). test_flair_heap.c Property 0 (:133-140) tests only size==0; exhaustion (Property 4) uses 512-byte blocks. The 'two named mutants prove it BITES' claim (heap.c:17) doesn't cover overflow.
+- **expected:** A mutant + Property-0 asserts flair_alloc(h,k,UINT32_MAX)==NULL and flair_alloc(h,k,0xFFFFFFE1)==NULL, RED without the guard.
+- **actual:** Oracle stays GREEN for a build that aliases memory on any size >= 0xFFFFFFE1.
+- **repro:** Inspect Makefile:9181-9193 (only NO_BOUNDS/NO_REUSE) and test_flair_heap.c:133-141 (only size==0).
+
+### R2.13. [P2] Chrome title text: 16-row Chicago cell overflows the 15-row stripe — surface_blit knocks PIN_LIGHT bg over the bevel-shadow row at every title-character column
+- **bead:** initech-srd1  **subsystem:** FLAIR/chrome (os/flair/chrome.c:402, surface.c:76-87)
+- **evidence:** chrome.c:386 cell_h=CHICAGO_CELL_H=16 (chicago8x16.h:45); stripe_rows=15 (chrome_metrics.h:75). :402 ty=stripe_top+(15-16)/2; C truncation makes (-1)/2=0, so ty=stripe_top and the :403 guard never fires. The 16-row cell spans [stripe_top, stripe_bot] (stripe_bot=stripe_top+15, :249). surface_blit (surface.c:76-87) writes bg=knock=PIN_LIGHT (chrome.c:407, #F3F3F3) for all 16 rows including stripe_bot, overpainting BEVEL_SHADOW drawn earlier at :316-318. Validated vs s7_701_titlebar_8bpp_zoom golden (continuous bevel-lo).
+- **expected:** Clip/shift so the cell stays in [stripe_top, stripe_bot); bevel-shadow row uninterrupted. Fix: blit height min(cell_h, stripe_rows), or draw the bevel-shadow row after the title text.
+- **actual:** A near-white (idx7) band under the title text at the bevel-lo row, flanked by BEVEL_SHADOW — a 3-segment discontinuity.
+- **repro:** Any document window with a non-empty title; inspect stripe_bot under the text -> PIN_LIGHT instead of BEVEL_SHADOW.
+
+### R2.14. [P2] text_draw hardcodes cell_w=8 for Geneva 9 but advance('W')=9 — column x+8 left unpainted, stale background at every 'W' right bearing
+- **bead:** initech-n74i  **subsystem:** FLAIR/text (os/flair/text.h, spec/assets/geneva9.h)
+- **evidence:** text.h:168 cell_w=8u unconditional for FONT_GENEVA9; :170 adv=geneva9_advance_w(c); geneva9.h:117 'W'=9. surface_blit paints columns x..x+7 (8 wide), then x advances by 9; column x+8 is written by neither this glyph nor the next, retaining pre-text framebuffer content (not bg). 'W' is the only Geneva-9 advance>8.
+- **expected:** Paint the right-bearing column x+8 with bg (track paint_w=max(cell_w,adv), fill [x+cell_w,x+paint_w) with bg).
+- **actual:** Column x+8 after 'W' holds stale content; over a pinstripe a 1px dark stripe shows at every 'W' right bearing. Latent until FONT_GENEVA9 is used in OS rendering.
+- **repro:** Render 'Win' in FONT_GENEVA9 over a pinstripe; column x+8 after 'W' = background pattern, not knockout bg.
+
+### R2.15. [P2] Oracle gap: test_text.c pixel-placement test uses only advances < cell_w ('Hi') — the advance>cell_w case ('W', adv=9) is unproven (Rule 6)
+- **bead:** initech-6qln  **subsystem:** FLAIR/text oracle (harness/proptest/test_text.c)
+- **evidence:** test_text.c:243-316 renders only 'Hi' ('H' adv=7, 'i' adv=4, both <8); no character with advance>8 and it never probes column x+8 after a wide glyph, so it cannot detect the unpainted 'W' right-bearing column.
+- **expected:** Render 'Wi' (FONT_GENEVA9) and assert column x+8 is bg and the next glyph starts at x+9.
+- **actual:** Oracle is GREEN on both the buggy and a fixed build; mutation-blind for advance>cell_w.
+- **repro:** test_text.c:258 draws 'Hi' only; patching out a right-bearing fill leaves the suite GREEN.
+
+### R2.16. [P2] Geneva 9 spec comment ('baseline row 8, descenders rows 9-10') contradicts the glyph data (x-height bottoms at row 7, descenders end at row 8)
+- **bead:** initech-uct9  **subsystem:** FLAIR/text spec (spec/assets/geneva9.h)
+- **evidence:** geneva9.h:35 and :162 document baseline row 8 / descenders rows 9-10. Data: 'a'(:1159),'o'(:1369),'n','u','x','z' bottom at row 7; descenders 'g'(:1249),'y'(:1519),'p'(:1384),'q'(:1399),'j'(:1294) all have r8 ink and r9=r10=0. Actual baseline=row 7, descender extent=row 8 (1 row below).
+- **expected:** Correct the comment to 'baseline row 7; descenders reach row 8', or shift all glyphs down 1 and extend descenders to 9-10. Any consumer using the documented baseline places text 1 row too low.
+- **actual:** Locked-data inconsistency; descenders are a single pixel vs the documented 2-3 rows.
+- **repro:** Draw 'o' and 'p' with a guide at y+8 (documented baseline): 'o' bottoms at y+7 (above), 'p' barely reaches y+8.
+
+### R2.17. [P2] Chrome title text has a left-edge clamp but no right-edge clamp — long titles overrun the zoom box and right frame
+- **bead:** initech-v513  **subsystem:** FLAIR/chrome (os/flair/chrome.c:395-408)
+- **evidence:** chrome.c:395-408 clamps tx left to left+box_clear (~left+23) but has no right guard; text_draw (text.h:147-186) clips only at bm->width (full screen), not the window right edge. Zoom box at zoom_x=right-20 (:364). Title overruns when tw>w-43. 'Saving tables to disk...' (~200px Chicago) in a window narrower than ~243px overwrites the zoom cbox glyph.
+- **expected:** Clip title to [left+box_clear, right-zoom_clear) or truncate/elide; never paint over gadget boxes.
+- **actual:** Text writes tx..tx+tw clipped only at screen width, overwriting the zoom box glyph and into regions to the right.
+- **repro:** Document window, 25-char title, width <=240 -> zoom box nested-square glyph overwritten by title pixels.
+
+### R2.18. [P2] flair_draw_menu_panel renders disabled items in full black — no gray dimming
+- **bead:** initech-36pm  **subsystem:** FLAIR/menu (os/flair/menu.c flair_draw_menu_panel)
+- **evidence:** menu.c:443-461 sets row_fg=fg,row_bg=bg and overrides color only for the hilite band (:444); it->enabled is never read in the draw loop (only at :218 in MenuInfo_item_selectable). A disabled item draws via text_draw with the same black-on-white as enabled (:461).
+- **expected:** Disabled items dimmed (gray/50% stipple), per Inside Macintosh.
+- **actual:** Disabled items indistinguishable from enabled.
+- **repro:** Panel with disabled item 5 ('Revert', enabled=0), hilite != 5 -> row identical to enabled rows.
+
+### R2.19. [P2] flair_draw_menu_panel never draws cmdChar command-key equivalents — RPAD column always blank
+- **bead:** initech-iqhh  **subsystem:** FLAIR/menu (os/flair/menu.c flair_draw_menu_panel)
+- **evidence:** menu.c:454-461 reads it->mark (:456) and it->text (:461) but never it->cmdChar (cmdChar appears only at :264-266 in MenuKey). FLAIR_MENU_ITEM_RPAD=12 (menu.h:97, 'cmd-key column gap') is reserved but never written. Fixture sets cmdChars 'N','O','W','S' (test_menu.c:94-97).
+- **expected:** Cmd-symbol+letter in the right margin for items with cmdChar.
+- **actual:** RPAD column always panel background; no shortcut legend.
+- **repro:** Render a panel with cmdChar items; RPAD-zone pixels are all body bg.
+
+### R2.20. [P1] flair_menu_track fixes the menu index at click time — cross-menu drag is structurally impossible
+- **bead:** initech-rl4v  **subsystem:** FLAIR/menu (os/flair/menu.c flair_menu_track)
+- **evidence:** menu.c:297 captures mi=MenuBar_hit(bar,startPt.h) once; the tracking loop (:305-307) and release check (:318-321) always pass the original mi to MenuInfo_item_at. Dragging into another title returns -1 (outside that panel). MenuBar_hit is never re-called.
+- **expected:** Dragging into another menu title closes the current panel and opens that menu's (IM MenuSelect).
+- **actual:** Only the clicked menu can open; releasing over another title yields out_hi=-1, result 0.
+- **repro:** flair_menu_track startPt on menu 0 ('File'), pts ending inside menu 1 ('Edit') panel -> result 0, out_hi -1.
+
+### R2.21. [P2] Oracle gap: test_menu.c Property 4 has no pixel assertion on the disabled-item row — the disabled-draw path is mutation-unproven (Rule 6)
+- **bead:** initech-47qw  **subsystem:** FLAIR/menu oracle (harness/proptest/test_menu.c)
+- **evidence:** test_menu.c:388-407 checks the hilited band (item 2, idx0) and a non-disabled gutter (item 0, idx1) but samples no pixel in the disabled item 5 ('Revert', :101) row (center y~101). MENU_MUTATE_SELECT_DISABLED (menu.c:211-214) targets selectability, not rendering.
+- **expected:** A CHECK sampling the disabled row asserting the dimmed color, with a mutant subverting disabled rendering going RED.
+- **actual:** Disabled-draw path unexercised; adding dimming logic cannot be verified.
+- **repro:** Add dimming to flair_draw_menu_panel; make test-menu still passes.
+
+### R2.22. [P2] TestControl never returns 0 for a disabled control (contrlHilite==255) — grayed controls still report hits
+- **bead:** initech-ct5n  **subsystem:** FLAIR/control (os/flair/control.c TestControl)
+- **evidence:** control.c:655-660 guards only ctrl==0 || !contrlVis — no contrlHilite==255 check (control.h:174 documents 255=inactive/grayed). The part-code switch (:666-719) runs for all types; test_control.c has no disabled-state test.
+- **expected:** contrlHilite==255 returns part 0 regardless of position (IM-I p.I-329).
+- **actual:** A disabled button/checkbox/scrollbar/radio still returns inButton/inCheckBox/etc., letting TrackControl fire on grayed controls.
+- **repro:** pushButton with contrlHilite=255; TestControl inside rect -> inButton (10), expected 0.
+
+### R2.23. [P2] All five DrawControl draw paths ignore contrlHilite==255 — disabled controls render pixel-identical to active ones
+- **bead:** initech-qg22  **subsystem:** FLAIR/control (os/flair/control.c draw_push_button/check_box/radio_button/scrollbar/progress_bar)
+- **evidence:** draw_push_button (control.c:355) only checks ==inButton (:367); draw_check_box(:405)/draw_radio_button(:455) never read contrlHilite; draw_scrollbar(:514) checks inThumb/inUp/inDown only; no draw function branches on 255 (grep '255' -> zero hits in draw funcs).
+- **expected:** contrlHilite==255 draws dimmed/gray (IM-I p.I-318, MTE Ch5).
+- **actual:** Disabled controls bit-identical to active.
+- **repro:** DrawControl with contrlHilite=255 vs 0 -> identical render.
+
+### R2.24. [P2] draw_check_box and draw_radio_button never read contrlHilite — no pressed (hilited) feedback during TrackControl
+- **bead:** initech-ucch  **subsystem:** FLAIR/control (os/flair/control.c draw_check_box:400-448, draw_radio_button:455-495)
+- **evidence:** draw_push_button reads contrlHilite==inButton and inverts face/ink (control.c:367,370,385), but draw_check_box and draw_radio_button never read contrlHilite. TrackControl sets contrlHilite=initial_part=inCheckBox(11) at :743; redraws during tracking show no change.
+- **expected:** contrlHilite==inCheckBox(11) inverts the box/circle during tracking, like pushButton.
+- **actual:** Checkbox/radio are visually static under the mouse — no press feedback.
+- **repro:** checkBox with contrlHilite=11; DrawControl identical to contrlHilite=0.
+
+### R2.25. [P2] Control draw paths hardcode CTRL_DESKTOP (teal) as a parent-background stand-in — push-button corners and checkbox/radio label cells render teal inside white dialogs
+- **bead:** initech-whs3  **subsystem:** FLAIR/control (os/flair/control.c draw_push_button:379-382, draw_check_box:443, draw_radio_button:491)
+- **evidence:** draw_push_button corner pixels (control.c:379-382) use CTRL_DESKTOP (=FLAIR_PART_DESKTOP, teal) for TL/TR/BL/BR rounding; draw_check_box:439-444 and draw_radio_button:490-494 pass bg=ctrl_px(port,CTRL_DESKTOP) to text_draw as the label background, and text_draw fills per-glyph cells with bg -> teal behind each label character. Buttons/checkboxes live on white dialog backgrounds, not the desktop.
+- **expected:** Use the actual parent/container background (e.g. CTRL_WHITE) — corners erase to parent fill, labels knock to dialog bg.
+- **actual:** 4 teal corner notches on every push button, and a teal strip behind every checkbox/radio label, against white dialogs.
+- **repro:** DrawControl a pushButton and a labeled checkBox over CTRL_WHITE -> teal corner pixels and teal label cells.
+
+### R2.26. [P2] TestControl returns inButton (push-button part code) for a degenerate (too-short) scrollBar
+- **bead:** initech-44la  **subsystem:** FLAIR/control (os/flair/control.c TestControl scrollBar branch:683-685)
+- **evidence:** control.c:683-685 'if (h < 2*btn) return inButton;' — inButton=10 (control.h:122) is the pushButton code; scrollbars should return only scrollbar codes (20/21/22/23/129) or 0. Callers switching on inButton run push-button action on a scrollbar.
+- **expected:** A degenerate scrollbar returns 0 (consistent with draw_scrollbar emitting nothing).
+- **actual:** Any hit in a scrollbar with h < 2*SB_ARROW (32) returns inButton.
+- **repro:** scrollBar height=20; TestControl inside -> inButton(10), expected 0.
+
+### R2.27. [P2] draw_scrollbar (min height 50) and TestControl (min height 32) disagree — scrollbars with h in [32,49] draw nothing but report live hit regions
+- **bead:** initech-mktj  **subsystem:** FLAIR/control (os/flair/control.c draw_scrollbar:523, TestControl:683)
+- **evidence:** draw_scrollbar:523 'if (h < 2*btn + SB_THUMB_MIN + 2)' -> threshold 50, returns early (draws nothing). TestControl:683 degenerate branch triggers only h<32. For h in [32,49]: nothing drawn, but TestControl falls through to full part logic returning inUpButton/inDownButton/inPageUp/inPageDown/inThumb.
+- **expected:** TestControl and DrawControl agree on 'live'; a scrollbar that draws nothing returns 0.
+- **actual:** h=40 emits zero pixels but TestControl returns inUpButton for a top-region click -> action fires on an invisible control.
+- **repro:** scrollBar height=40; DrawControl draws nothing; TestControl at top+8 -> inUpButton(20), expected 0.
+
+### R2.28. [P2] Control Manager NULL-pointer guards are documented fail-loud (panic) but silently return — Rule 2 and the SetControlValue contract violated
+- **bead:** initech-gxo2  **subsystem:** FLAIR/control (os/flair/control.c SetControlValue:195-213 + control_init/DrawControl/TestControl/TrackControl/GetControlValue)
+- **evidence:** control.h:229-232 says SetControlValue 'panics (flair_panic/DEBUG_ASSERT) if ctrl is NULL'; control.c:197-199 just returns, labeled 'fail-loud', but there is no panic (grep flair_panic/FLAIR_PANIC/DEBUG_ASSERT in control.c -> zero hits). Same silent pattern in control_init(:170), DrawControl(:615), TestControl(:657), TrackControl(:731). GetControlValue(:218-223) returns 0 on NULL, aliasing a control at contrlMin==0.
+- **expected:** Panic on NULL (Rule 2) per the contract.
+- **actual:** Every routine no-ops/returns 0 on NULL; NULL propagates with no diagnostic, and GetControlValue cannot distinguish NULL from a min-value control.
+- **repro:** SetControlValue(NULL,50) -> silent return; GetControlValue(NULL) -> 0.
+
+### R2.29. [P2] ModalDialog's updateEvt -> DrawDialog case is unreachable — event.c WNE never synthesizes updateEvt; covered dialog regions never repaint in the modal loop
+- **bead:** initech-z0od  **subsystem:** FLAIR/dialog (os/flair/dialog.c:681-684, os/flair/event.c)
+- **evidence:** dialog.c:681-684 handles case updateEvt: DrawDialog(dp), but event.c cook_raw (:324-491) emits only keyDown/keyUp (KEYBOARD), mouseDown/mouseUp/null (MOUSE), nullEvent (TICK) — no updateEvt and no FLAIR_RAW_UPDATE kind. event_model.h:71 claims synthetic updateEvt but event.c implements none. ModalDialog uses WNE directly (:566), not a router that injects updates.
+- **expected:** WNE delivers updateEvt when covered dialog pixels are re-exposed; DrawDialog repaints.
+- **actual:** The updateEvt case is unreachable; the :683 comment is false; dialog content exposed by window movement is never repainted in the modal loop.
+- **repro:** Enter ModalDialog (sleepTicks>0); drag another window across the dialog -> exposed area not repainted.
+
+### R2.30. [P2] shell_build_scene silently clamps negative n_sys_menus to 0 and truncates >65535 via uint16 cast — Rule 2 violation, inconsistent with the n_windows panic
+- **bead:** initech-uskw  **subsystem:** FLAIR/shell (os/flair/shell.c:268)
+- **evidence:** shell.c:268 s->bar_sys.n_menus=(uint16_t)((n_sys_menus<0)?0:n_sys_menus) — negative -> 0, >65535 silently truncated. Contrast :184-186 which SHELL_PANICs on n_windows<1 || >SHELL_MAX_WINDOWS.
+- **expected:** SHELL_PANIC on negative or >UINT16_MAX n_sys_menus, like n_windows.
+- **actual:** n_sys_menus=-1 -> a 0-menu bar (Apple slot only); 70000 -> 4464 menus; no diagnostic.
+- **repro:** shell_build_scene(n_sys_menus=-1, others valid) -> no panic, bar_sys.n_menus==0.
+
+### R2.31. [P1] dos_read lacks a Carry-Flag check — read errors are returned as byte counts, emitting/writing garbage in TYPE, COPY and batch loading
+- **bead:** initech-winh  **subsystem:** MILTON/COMMAND.COM (os/milton/command.c dos_read)
+- **evidence:** command.c:1439-1448 uses plain int $0x21 with no sbb %1,%1 to capture CF, unlike dos_open(:1427), dos_creat(:1469), dos_open_mode(:1511), dos_write_h(:1491). On AH=3Fh error (CF=1, AX=error code) dos_read returns the error code as a byte count. builtin_type(:2108-2113) then dos_write(chunk,err) emits err uninitialized bytes; builtin_copy(:2334-2344) writes them to the destination; batch_load_file(:2991-2995) advances total by err.
+- **expected:** Capture CF with sbb, return 0/sentinel on error; callers break on failure.
+- **actual:** A read error (e.g. ACCESS_DENIED=5) makes TYPE print 5 stack bytes, COPY corrupt the destination, batch mis-size the script.
+- **repro:** Trigger an AH=3Fh error mid-TYPE/COPY -> garbage bytes in output/destination.
+
+### R2.32. [P2] DEL wildcard silently deletes only the first 16 matches — no diagnostic when the roster cap is exceeded
+- **bead:** initech-p4h7  **subsystem:** MILTON/COMMAND.COM (os/milton/command.c builtin_del)
+- **evidence:** command.c:2385 char roster[16][13]; the FINDNEXT loop (:2394-2403) only records if(count<16) but keeps iterating; only the 16 recorded names are unlinked (:2405-2407); no message when the cap is hit.
+- **expected:** Delete all matches, or print a truncation warning ('only 16 of N deleted').
+- **actual:** DEL *.* with 17+ files deletes 16, leaves the rest silently, returns to prompt normally.
+- **repro:** Create 20 files, DEL *.* -> 4+ survive with no error.
+
+### R2.33. [P0] COPY <file> <file> (same source and destination) truncates the file to zero bytes and reports '1 file(s) copied' — silent data loss
+- **bead:** initech-ojxn  **subsystem:** MILTON/COMMAND.COM (os/milton/command.c builtin_copy)
+- **evidence:** command.c:2321-2350: dos_open(pair.first) read-only (:2321) then dos_creat(pair.second) create/truncate (:2326) with no src==dst check. When both name the same dir entry, dos_creat truncates to 0 before any read; the dos_read loop (:2334) hits EOF immediately; both handles close and it prints '1 file(s) copied' (:2350).
+- **expected:** Detect src==dst and print 'File cannot be copied onto itself' (real DOS 3.3), or kernel sharing semantics prevent truncating an open file.
+- **actual:** COPY FOO.TXT FOO.TXT zeroes FOO.TXT and reports success; original content permanently lost.
+- **repro:** Write A:\TEST.TXT, COPY TEST.TXT TEST.TXT -> success message, then TYPE TEST.TXT is empty.
+
+### R2.34. [P2] DIR header hardcodes 'Directory of A:\' regardless of CWD
+- **bead:** initech-f2cz  **subsystem:** MILTON/COMMAND.COM (os/milton/command.c builtin_dir)
+- **evidence:** command.c:2058 prints the literal 'Directory of A:\' with no CWD interpolation; cwd_display() (used by run_external/command_repl) is never called from builtin_dir. The listing body is correct (FINDFIRST uses the implicit CWD).
+- **expected:** Compose the header from the live AH=47h CWD ('Directory of A:\SUB' after CD SUB).
+- **actual:** Header always 'Directory of A:\' however deep the CWD; it misreports the location.
+- **repro:** MD SUB, CD SUB, DIR -> header 'Directory of A:\'.
+
+### R2.35. [P2] PROMPT $D always expands to '00-00-0000' — date never fetched (AH=2Ah) before cmd_render_prompt
+- **bead:** initech-absm  **subsystem:** MILTON/COMMAND.COM (os/milton/command.c command_repl, batch_echo_line)
+- **evidence:** command.c:3531-3533 zeros pctx.year/month/day with no AH=2Ah GET DATE, while time fields are populated via dos_gettime (:3525-3530); same zeroing in batch_echo_line (:2910). cmd_render_prompt's $D case (:806-820) formats the zeros as '00-00-0000'.
+- **expected:** $D resolves to the current date via AH=2Ah (e.g. '06-28-2026'); $T already works.
+- **actual:** $D always '00-00-0000' at every REPL iteration and batch echo.
+- **repro:** PROMPT $D$P$G -> '00-00-0000A:\>'.
+
+### R2.36. [P2] MZ loader entry_off bounds check is off-by-one (`>` not `>=`) — entry == load_module_len passes, JMP target one byte past the module
+- **bead:** initech-jy7o  **subsystem:** LOADER/MZ (os/milton/loader.c)
+- **evidence:** loader.c:310 if(img.entry_off > img.load_module_len); when equal the check is false and :314 sets out->entry=PROGRAM_IMAGE+entry_off, one byte past the module. The :311 comment says 'must point INTO the loaded module'.
+- **expected:** Reject with LOADER_ERR_BAD_FORMAT; the check should be `>=`.
+- **actual:** entry_off==load_module_len passes; entry one byte past the code (uninitialized BSS/guard).
+- **repro:** InitechMZ with load_module_len=16, cs=0, ip=16 -> loader_prepare_mz returns LOADER_OK, plan.entry=PROGRAM_IMAGE+16.
+
+### R2.37. [P2] loader.h documents loader_prepare_mz as memmove-then-relocs, but the code (correctly) does relocs-then-memmove — the contract would clobber a header-resident reloc table
+- **bead:** initech-d2ub  **subsystem:** LOADER/MZ contract (os/milton/loader.h)
+- **evidence:** loader.h:158-165 lists step 3=memmove the load module down, step 4=apply relocs (with a self-contradictory '(pre-move offset)' note). loader.c:250-291 does the opposite: relocs at the original file offset first (:250-281, with a comment at :252-258 explaining a header-gap reloc table would be overwritten by a move-first), then memmove (:283-291). test_mzload.c case 1b exercises exactly a header-resident reloc table.
+- **expected:** The header should document relocs-first (at file_at+load_module_off), then memmove down.
+- **actual:** A reader re-implementing from the header would memmove first, clobbering a header-resident reloc table before fixups are read.
+- **repro:** Implement per loader.h steps 3->4; a header-resident-reloc MZ misrelocates and returns LOADER_OK.
+
+### R2.38. [P2] Baked load_program() never sets g_load_active — a baked program calling AH=4Bh EXEC nests a FAT load that clobbers g_loader_ctx and hangs the system on the outer program's exit
+- **bead:** initech-4jic  **subsystem:** LOADER/reentrancy (os/milton/loader.c)
+- **evidence:** load_program_from_fat guards on g_load_active (:1009) and sets it (:1109), but load_program() (:800-822, the baked path) calls loader_run_plan() without touching g_load_active. A baked program's AH=4Bh sees g_load_active==0, proceeds, and the nested loader_run_plan sets g_loader_ctx=&ctx_inner over the outer's; after the inner terminates g_loader_ctx=0 (:735); the outer's AH=4Ch then dereferences NULL in loader_exit_hook -> cli;hlt forever. Comment at :509-510 notes the baked path 'must keep working unchanged'.
+- **expected:** load_program() sets/clears g_load_active, or a nested-EXEC guard covers the baked path; a baked EXEC gets LOADER_ERR_BUSY.
+- **actual:** Nested EXEC corrupts g_loader_ctx and PROGRAM_IMAGE; the outer program's exit hangs (cli;hlt).
+- **repro:** Baked program issuing AH=4Bh then AH=4Ch -> hang.
+
+### R2.39. [P2] Oracle gap: test_mzload.c has no entry_off == load_module_len case — the MZ entry off-by-one boundary is mutation-unproven (Rule 6)
+- **bead:** initech-8obm  **subsystem:** LOADER/MZ oracle (os/milton/test_mzload.c)
+- **evidence:** Cases cover entry_off=0, 0x10 (both < 0x40 module), FOREIGN_MZ tag, oversized len — none with e_cs*16+e_ip == load_module_len. The bounds check (loader.c:310) uses `>`; the equal case is undetected, and the existing cases differ from the boundary only by a constant.
+- **expected:** A case with entry_off==load_module_len asserting LOADER_ERR_BAD_FORMAT, RED under a `>`-vs-`>=` mutation.
+- **actual:** Oracle passes on both correct and regressed builds; boundary unproven.
+- **repro:** Add mod_len=0x40, cs=0, ip=0x40 case -> current `>` returns LOADER_OK, corrected `>=` returns BAD_FORMAT.
+- **related:** the MZ entry_off off-by-one is the code defect; this is the distinct oracle gap
+
+### R2.40. [P2] psp.c comment claims the INT 20h trap gate is 'the loader's job (deferred)', but sysinit.c already installs it at init
+- **bead:** initech-tpwp  **subsystem:** PSP/sysinit (os/milton/psp.c:88, os/milton/sysinit.c:213)
+- **evidence:** psp.c:88 says the 0x20 trap gate is 'the LOADER's job (deferred)'; sysinit.c:213 idt_install_trap(0x20u,(void*)int20_entry) installs it at system init. mzexec_fixture.asm relies on int 0x20 working at exit.
+- **expected:** The comment should state sysinit installs INT 20h (not the loader, not deferred).
+- **actual:** The stale 'deferred' note contradicts sysinit and could lead a maintainer to add a redundant loader-side install or assume the gate is missing.
+- **repro:** Compare sysinit.c:213 (0x20u install) with psp.c:88.
+
+### R2.41. [P2] FLAIR_LIVE_TENANTS menu-bar click always dispatches to bar_sys even after a foreground switch — visible bar shows the tenant's menus but clicks drop System-7 items
+- **bead:** initech-t1rv  **subsystem:** FLAIR/menu pump (os/milton/kmain.c WNE pump)
+- **evidence:** kmain.c:2261 calls flair_live_do_menu(..., &ctx.scene->bar_sys, ...) unconditionally, but the post-activation swap (:2291-2293) paints ten_plist.head->menubar (bar_photoshop after switching to HELLO, set at :1961) into the band. MenuBar_hit/flair_draw_menu_panel/MenuInfo_item_at/MenuSelect all get the wrong MenuBar*.
+- **expected:** Dispatch passes ten_plist.head->menubar, matching the painted bar.
+- **actual:** After switching to HELLO, File/Edit clicks hit bar_sys geometry and drop System-7 items/IDs to serial.
+- **repro:** Boot FLAIR_LIVE_TENANTS; click HELLO's window to foreground it; click the menu bar -> FLAIR-MENU reports bar_sys menuID, not bar_photoshop.
+- **related:** distinct from round-1 app-switch static-bar clobber; this is post-switch click-dispatch routing
+
+### R2.42. [P2] flair_live_do_drag calls DragWindow without a prior SelectWindow — an inactive window drags while staying behind in z-order (ghost drag)
+- **bead:** initech-haaq  **subsystem:** FLAIR/compositor pump (os/milton/kmain.c flair_live_do_drag)
+- **evidence:** kmain.c:1153 DragWindow(ctx->wm,w,dh,dv) with no SelectWindow; flair_app_dispatch returns early for inDrag (process.c:540-543, no activation); DragWindow only MoveWindows (window.c:420-426); SelectWindow (window.c:357-371, relinks to front) is never called. Both pump arms (kmain.c:2390, :2415) share this. IM (MTE 6) requires SelectWindow before DragWindow for inactive windows.
+- **expected:** Clicking an inactive window's title bar raises it (SelectWindow) then drags at the front.
+- **actual:** The inactive window is dragged in place behind the foreground window; chrome repaints clipped to the occluded slice — a background ghost drag with no activation.
+- **repro:** Boot FLAIR_LIVE_*; drag HELLO's title bar (below NOTES) -> HELLO moves but stays behind NOTES, no FLAIR-DISPATCH.
+- **related:** distinct from round-1 'peer window erased from compositor after drag'
+
+### R2.43. [P2] flair_live_do_close hides the window but never updates the tenant process list — the closed foreground tenant stays at list->head and keeps receiving key events
+- **bead:** initech-8fhu  **subsystem:** FLAIR/process pump (os/milton/kmain.c flair_live_do_close)
+- **evidence:** kmain.c:1190-1200 calls HideWindow + desktop_paint_damage + flair_desktop_present and returns — no FlairProcess_terminate, no ten_plist relink, no head demotion. process.c:574-578 then delivers keyDown to list->head (still the closed, now-invisible tenant). HideWindow's reaffirm_active (window.c:321) sets a different wm active window, mismatching ten_plist.head.
+- **expected:** Close promotes the remaining visible tenant to list->head; keys route to it.
+- **actual:** Keyboard input goes to the invisible closed tenant until the user clicks the other window.
+- **repro:** Boot FLAIR_LIVE_TENANTS INTERACTIVE; close NOTES (foreground); type -> keyDown delivered to invisible NOTES, not HELLO.
+
+### R2.44. [P2] Dragging the already-foreground tenant repaints chrome but never re-seeds content updates — the moved window's interior shows stale offscreen pixels at the new position
+- **bead:** initech-5wbf  **subsystem:** FLAIR/compositor pump (os/milton/kmain.c flair_live_do_drag)
+- **evidence:** kmain.c:1153-1168: DragWindow + WindowMgr_invalidate + desktop_paint_damage (chrome only, then clears all updateRgns at desktop.c:233-236) + flair_desktop_present. The post-activation block (:2273) fires only when ten_plist.head != ten_prev_fg; dragging the foreground window leaves head unchanged (inDrag returns early, process.c:540-543), so no flair_route_updates/re-invalidate follows. The moved contRgn keeps prior offscreen content.
+- **expected:** After the drag, re-invalidate the moved window's content and route an updateEvt so the tenant repaints its fill at the new position.
+- **actual:** New title bar/frame correct but content interior shows pre-drag offscreen (teal/other window) instead of the tenant fill.
+- **repro:** Boot FLAIR_LIVE_TENANTS INTERACTIVE with NOTES foreground; drag NOTES over teal -> content shows teal instead of gray.
+- **related:** distinct from round-1 'drag erases a peer window'; this is the dragged window's own missing content
+
+### R2.45. [P2] ref_tenant.c content rect top uses the stale top+FRAME+TITLEBAR_H (=top+20) formula; chrome now draws content at top+19 — the top content row falls outside contRgn (clicks drag instead of route; 1px white seam on NOTES)
+- **bead:** initech-l0mh  **subsystem:** FLAIR/apps (os/flair/ref_tenant.c:288-289)
+- **evidence:** chrome.c:420-426 records content_top shifted up by 1 (new=top+19; old=top+1+19); ref_tenant.c:288-289 still uses bounds.top+FLAIR_CHROME_FRAME+FLAIR_CHROME_TITLEBAR_H=top+20. So contRgn.top=top+20 while chrome paints content from top+19: row top+19 is chrome-painted white but not in contRgn -> FindWindow routes it to inDrag (or inGoAway/inZoomIn in the wings); window.c:485 tb becomes 20 vs 19, amplifying the close/zoom hit-zone error by 1px; NOTES shows a 1px white seam between the black shared-frame line (top+18) and the gray fill (top+20).
+- **expected:** ref_tenant.c:289 = bounds.top + FLAIR_CHROME_TITLEBAR_H (=top+19); TITLEBAR_H already includes both frame rows (chrome_metrics.h:320-321).
+- **actual:** contRgn.top one row too low; row top+19 is a phantom title-bar row; clicking it drags the window; NOTES has a 1px white separator.
+- **repro:** Click (center_x, top+19) in a document window -> inDrag/DragWindow instead of inContent; inspect NOTES top content row in flair_appswitch_pre.png -> 1px white stripe.
+- **related:** round-1 'tenant content rect extends into scrollbar column' is the horizontal extent; this is the vertical top boundary — distinct axis
+
