@@ -462,6 +462,149 @@ int cmd_has_wildcard(const char *name)
     return 0;
 }
 
+/* cmd_same_file: 1 iff operands `a` and `b` PROVABLY name the SAME file, judged
+ * from the operand TEXT alone. This drives COPY's real-DOS-3.3 "File cannot be
+ * copied onto itself" guard (bead initech-ojxn): a false POSITIVE would refuse a
+ * legitimate copy, so the predicate NEVER reports "same" unless it can prove it;
+ * a false NEGATIVE on an exotic path form is a documented residual (follow-up
+ * bead), NOT a wrong refusal. InitechDOS is single-drive (A:) and exposes no
+ * AH=60h TRUENAME to the shell (only AH=47h GET-CWD + a CHDIR-scoped directory
+ * canon exist), so canonicalization here is text-level:
+ *   - strip a leading drive prefix "X:"; the default (no prefix) drive is 'A';
+ *     if the two drives DIFFER the operands are on different volumes -> 0;
+ *   - strip a leading ".\\" current-directory prefix;
+ *   - if NEITHER remainder has a path separator '\\' (both are bare CWD leaves),
+ *     fold each to its 11-byte 8.3 key (NAME padded to 8 + EXT padded to 3, the
+ *     on-disk FAT form) and compare -> catches case, FOO vs FOO., A:FOO vs FOO,
+ *     FOO vs .\\FOO;
+ *   - else compare the remainders VERBATIM (case already folded by the caller) ->
+ *     catches identical subdir paths (SUB\\A.TXT vs SUB\\A.TXT), but NOT
+ *     relative-vs-absolute (\\FOO vs FOO) -- the residual (follow-up bead).
+ * Ref: bead initech-ojxn; DOS 3.3 COMMAND.COM COPY same-name check. PURE. */
+#ifdef CMD_MUTATE_NO_SAMEFILE
+/* MUTANT (Rule 6; make test-command-mutant only): the same-file predicate always
+ * reports "different", so COPY's onto-itself guard never fires -> the same-file
+ * detection test goes RED, AND (in the kernel) COPY FOO.TXT FOO.TXT would
+ * dos_creat/TRUNCATE the source to zero -- the EXACT initech-ojxn data-loss
+ * regression. NEVER in a real build. */
+int cmd_same_file(const char *a, const char *b)
+{
+    (void)a;
+    (void)b;
+    return 0;
+}
+#else
+/* Skip a leading drive prefix "X:"; write the (upcased) drive letter to *drive
+ * ('A' when none is present -- the single InitechDOS volume) and return the
+ * pointer past the prefix. */
+static const char *cmd_skip_drive(const char *s, char *drive)
+{
+    if (s[0] != '\0' && s[1] == ':') {
+        *drive = cmd_upcase_char(s[0]);
+        return s + 2;
+    }
+    *drive = 'A';
+    return s;
+}
+
+/* Skip a single leading ".\\" current-directory prefix (DOS path sep is '\\'). */
+static const char *cmd_skip_dotslash(const char *s)
+{
+    if (s[0] == '.' && s[1] == '\\') {
+        return s + 2;
+    }
+    return s;
+}
+
+/* 1 if `s` contains a path separator '\\' (so it is NOT a bare CWD leaf). */
+static int cmd_has_sep(const char *s)
+{
+    for (; *s; s++) {
+        if (*s == '\\') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Fold a bare 8.3 leaf into its 11-byte on-disk key: NAME (<=8, space-padded) +
+ * EXT (<=3, space-padded), split on the FIRST '.', UPCASED (DOS is case-blind).
+ * Overlong NAME/EXT are truncated exactly as the FAT resolver stores them, so
+ * FOO, FOO. and FOO.<junk> fold identically only where the 8.3 volume would
+ * agree. `key` holds 11 bytes. */
+static void cmd_fold_83(const char *s, char key[11])
+{
+    int i = 0;
+    int k;
+
+    for (k = 0; k < 11; k++) {
+        key[k] = ' ';
+    }
+    /* NAME: up to 8 chars until '.' or end. */
+    while (s[i] != '\0' && s[i] != '.' && i < 8) {
+        key[i] = cmd_upcase_char(s[i]);
+        i++;
+    }
+    /* Swallow the tail of an overlong NAME up to the '.'. */
+    while (s[i] != '\0' && s[i] != '.') {
+        i++;
+    }
+    if (s[i] == '.') {
+        int e = 0;
+        i++;                        /* past the '.' */
+        while (s[i] != '\0' && s[i] != '.' && e < 3) {
+            key[8 + e] = cmd_upcase_char(s[i]);
+            i++;
+            e++;
+        }
+    }
+}
+
+int cmd_same_file(const char *a, const char *b)
+{
+    char da;
+    char db;
+    const char *pa;
+    const char *pb;
+    int k;
+
+    if (a == 0 || b == 0) {
+        return 0;
+    }
+    pa = cmd_skip_drive(a, &da);
+    pb = cmd_skip_drive(b, &db);
+    if (da != db) {
+        return 0;                   /* different volumes -> different files */
+    }
+    pa = cmd_skip_dotslash(pa);
+    pb = cmd_skip_dotslash(pb);
+
+    if (!cmd_has_sep(pa) && !cmd_has_sep(pb)) {
+        char ka[11];
+        char kb[11];
+        cmd_fold_83(pa, ka);
+        cmd_fold_83(pb, kb);
+        for (k = 0; k < 11; k++) {
+            if (ka[k] != kb[k]) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+    /* A separator remains: compare the remainders case-insensitively (DOS paths
+     * are case-blind). This catches identical subdir paths but does NOT resolve
+     * relative-vs-absolute -- the documented residual (follow-up bead). */
+    for (k = 0;; k++) {
+        if (cmd_upcase_char(pa[k]) != cmd_upcase_char(pb[k])) {
+            return 0;
+        }
+        if (pa[k] == '\0') {
+            return 1;
+        }
+    }
+}
+#endif
+
 /* Append `v` to out[*pos] as exactly `width` zero-padded decimal digits (DOS
  * date/time fields are fixed-width: MM, DD, HH, etc.). Truncates the high digits
  * if v exceeds the field width (callers range-validate first; defensive). */
@@ -2321,6 +2464,18 @@ static void builtin_copy(const char *arg)
     src_h = dos_open(pair.first);
     if (src_h < 0) {
         dos_print(MSG_DOS_0003 "\r\n$");        /* "File not found" */
+        return;
+    }
+    /* Same-file guard (bead initech-ojxn -- DATA-LOSS P0). The source is opened
+     * FIRST (above) so a missing source still yields "File not found" first (DOS
+     * ordering); we detect src==dst HERE, BEFORE dos_creat's create/TRUNCATE, so
+     * a COPY of a file onto itself never zeroes it. Real DOS 3.3 COMMAND.COM
+     * refuses with "File cannot be copied onto itself" (MSG-DOS-0020) then a
+     * ZERO-count footer, creating/truncating nothing. Ref: DOS 3.3 COPY. */
+    if (cmd_same_file(pair.first, pair.second)) {
+        dos_close(src_h);
+        dos_print(MSG_DOS_0020 "\r\n$");        /* "File cannot be copied onto itself" */
+        dos_print("        0 file(s) copied\r\n$");
         return;
     }
     dst_h = dos_creat(pair.second);

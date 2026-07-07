@@ -402,6 +402,7 @@ No entry shall be modified except by an approved change to this Record (§5.13).
 | MSG-DOS-0017 | `Unable to create directory` |
 | MSG-DOS-0018 | `Invalid directory` |
 | MSG-DOS-0019 | `Invalid path, not directory, or directory not empty` |
+| MSG-DOS-0020 | `File cannot be copied onto itself` |
 
 > **Amendment record (initech-mc7r, 2026-06-14).** Entries MSG-DOS-0017
 > through MSG-DOS-0019 were added to the controlled vocabulary by approved
@@ -413,6 +414,17 @@ No entry shall be modified except by an approved change to this Record (§5.13).
 > or directory not empty` (RMDIR/RD failure) — consistent with the authoring
 > method of MSG-DOS-0001..0016. A real-DOS-3.3 86Box golden may later verify
 > them verbatim (follow-up).
+
+> **Amendment record (initech-ojxn, 2026-07-07).** Entry MSG-DOS-0020 was
+> added to the controlled vocabulary by approved change to this Record
+> (§5.13 / DEC-13) to supply the period-correct COMMAND.COM COPY diagnostic
+> emitted when a file is copied onto itself. The text `File cannot be copied
+> onto itself` is MS-DOS 3.3 COMMAND.COM canon: COPY canonicalizes both
+> operands and, when they resolve to the same file, prints this line then the
+> zero-count footer (`        0 file(s) copied`) and creates/truncates
+> nothing. This closes a P0 data-loss defect (initech-ojxn) whereby
+> `COPY FOO.TXT FOO.TXT` truncated FOO.TXT to zero before any read. A
+> real-DOS-3.3 86Box golden may later verify it verbatim (follow-up).
 
 ---
 

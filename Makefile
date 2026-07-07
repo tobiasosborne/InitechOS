@@ -5528,6 +5528,12 @@ TEST_COMMAND_MUT_NOPROMPT := $(BUILD)/test_command_mutant_noprompt
 # (h) the PATH-dir loop is dropped by CMD_MUTATE_NO_PATH -> only CWD candidates
 # are emitted; PATH-dir assertions in test_path_candidates go RED (Rule 6).
 TEST_COMMAND_MUT_NOPATH := $(BUILD)/test_command_mutant_nopath
+# (i) the COPY same-file predicate cmd_same_file always returns 0
+# (CMD_MUTATE_NO_SAMEFILE) -> COPY's onto-itself guard never fires; the SAME-file
+# assertions in test_same_file go RED. In the KERNEL this is the initech-ojxn
+# DATA-LOSS regression: COPY FOO.TXT FOO.TXT would dos_creat/TRUNCATE the source
+# to zero before any read. (Rule 6; beads initech-ojxn.)
+TEST_COMMAND_MUT_NOSAMEFILE := $(BUILD)/test_command_mutant_nosamefile
 
 $(TEST_COMMAND): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -5581,6 +5587,10 @@ $(TEST_COMMAND_MUT_NOPATH): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMM
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_PATH -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
 
+$(TEST_COMMAND_MUT_NOSAMEFILE): $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS) $(TEST_COMMAND_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_NO_SAMEFILE -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_COMMAND_SRC) $(TEST_COMMAND_DEPS)
+
 .PHONY: test-command test-command-mutant
 test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: parse/upcase + built-in classify + .COM-append + DIR-line format\n"
@@ -5588,7 +5598,7 @@ test-command: $(TEST_COMMAND)
 	@printf ">>> test-command: green\n"
 
 # Mutation-proof: ALL three mutant builds MUST fail the oracle (Rule 6).
-test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD) $(TEST_COMMAND_MUT_NOSET) $(TEST_COMMAND_MUT_NOCOPY) $(TEST_COMMAND_MUT_NODEL) $(TEST_COMMAND_MUT_NOREN) $(TEST_COMMAND_MUT_NODATE) $(TEST_COMMAND_MUT_NOTIME) $(TEST_COMMAND_MUT_NOPROMPT) $(TEST_COMMAND_MUT_NOPATH)
+test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COMMAND_MUT_BADCMD) $(TEST_COMMAND_MUT_NOMDRD) $(TEST_COMMAND_MUT_NOSET) $(TEST_COMMAND_MUT_NOCOPY) $(TEST_COMMAND_MUT_NODEL) $(TEST_COMMAND_MUT_NOREN) $(TEST_COMMAND_MUT_NODATE) $(TEST_COMMAND_MUT_NOTIME) $(TEST_COMMAND_MUT_NOPROMPT) $(TEST_COMMAND_MUT_NOPATH) $(TEST_COMMAND_MUT_NOSAMEFILE)
 	@printf ">>> test-command-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_COMMAND_MUT_NOUP) >/dev/null 2>&1; then \
 		printf '!!! test-command-mutant FAIL: no-upcase mutant PASSED -- the parse/upcase test is decoration\n'; \
@@ -5661,6 +5671,12 @@ test-command-mutant: $(TEST_COMMAND_MUT_NOUP) $(TEST_COMMAND_MUT_COM) $(TEST_COM
 		exit 1; \
 	else \
 		printf '>>> test-command-mutant: green (no-path mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_COMMAND_MUT_NOSAMEFILE) >/dev/null 2>&1; then \
+		printf '!!! test-command-mutant FAIL: no-samefile mutant PASSED -- the COPY same-file guard test is decoration (initech-ojxn data-loss regression uncaught)\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-command-mutant: green (no-samefile mutant correctly RED -- the COPY onto-itself guard bites)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -6786,6 +6802,7 @@ endef
         test-fat-write-partial test-fat-write-partial-mutant \
         test-command test-command-mutant test-env test-env-mutant test-batch test-batch-mutant test-mz test-mz-mutant test-mzload test-mzload-mutant test-shell \
         test-ut6d test-ut6d-mutant \
+        test-copy-selfcopy test-copy-selfcopy-mutant \
         test-zs24-exec test-zs24-exec-mutant \
         test-panic test-spurious test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-conin-unit test-conin-mutant test-conin \
@@ -6829,7 +6846,7 @@ help:
 	@printf '  test-boot      InitechDOS banner boot gate: serial markers + banner literal vs spec/dos_banner.txt (byte-exact) + screendump banner-text check + no triple-fault. REAL. (QEMU only; tri-emulator pending initech-x0i.)\n'
 	@printf '  test-console   Host blit oracle for the LFB 8x16 text console: MSB-left glyph blit (bpp 32/24) + cursor/wrap/scroll. REAL.\n'
 	@printf '  test-assets    Asset v0: re-sample palette.json anchors vs the frame fixture + validate the Chicago strike header. REAL.\n'
-	@printf '  test-spec      InitechDOS spec-data (ADR-0003 Appendices A-D): JSON parse + 19 messages + struct size asserts + banner double-space. REAL.\n'
+	@printf '  test-spec      InitechDOS spec-data (ADR-0003 Appendices A-D): JSON parse + 20 messages + struct size asserts + banner double-space. REAL.\n'
 	@printf '  test-dosmsg    DEC-13 controlled vocabulary (initech-509.1): header==spec verbatim + referenced msgs present in shell image + no inline literals. REAL.\n'
 	@printf '  test-psp       PSP 256-byte construction oracle (initech-509.4 / App B.2): int20/seg-fields/jft/int21-entry/cmd-tail + clamp + no-overflow. REAL.\n'
 	@printf '  test-int24     INT 22/23/24 + SETVECT/GETVECT (25h/35h) + PSP-vector save/restore (initech-509.8 / DEC-10): crit_error_action A/R/F + int24 MSG-DOS-0001 + re-prompt + psp save/load round-trip + int22/23 terminate. REAL.\n'
@@ -13758,6 +13775,189 @@ test-shell: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-copy-selfcopy (beads initech-ojxn -- COPY <file> <file> is a
+# DATA-LOSS P0: dos_creat(dst) TRUNCATED the file to zero BEFORE any read, so
+# COPY FOO.TXT FOO.TXT silently destroyed FOO.TXT and still reported success.)
+# ---------------------------------------------------------------------------
+# THE no-data-loss keystone: boot the shell (TRACER_IMG) WITH a FRESH WRITABLE
+# FAT12 disk (--disk2) carrying TEST.TXT = a known canary, then inject via QMP
+# --keys (gated on SHELL-READY):  copy test.txt test.txt / type test.txt / exit.
+# The fix detects src==dst (cmd_same_file) BEFORE dos_creat and refuses like real
+# DOS 3.3 -- "File cannot be copied onto itself" (MSG-DOS-0020) + a ZERO-count
+# footer -- truncating nothing, so the subsequent TYPE still shows the canary.
+# Assert on the post-SHELL-READY REPL serial (every miss fail-loud, Law 2/Rule 2):
+#   1. NO triple-fault.
+#   2. SHELL-READY (the REPL was entered).
+#   3. "File cannot be copied onto itself" printed (MSG-DOS-0020; the guard fired).
+#   4. "0 file(s) copied" (the zero-count footer; NOT "1 file(s) copied").
+#   5. THE no-data-loss proof: TYPE (run AFTER the COPY) still emits the canary --
+#      TEST.TXT was NOT truncated.
+# It BITES: test-copy-selfcopy-mutant boots the SAME script on a shell built with
+# -DCMD_MUTATE_NO_SAMEFILE (the guard disabled) and asserts the canary VANISHES
+# (TEST.TXT truncated to zero -- the exact regression) while COPY still reports
+# "1 file(s) copied". Ref: DOS 3.3 COMMAND.COM COPY; spec/dos_messages.json
+# (MSG-DOS-0020). TRI-EMULATOR: QEMU only (like test-shell/test-ut6d; initech-x0i).
+# TEST.TXT is deliberately MULTI-CLUSTER (~640 bytes > the 512-byte FAT12 cluster,
+# so 2 clusters): the unfixed COPY frees the source chain in dos_creat, after which
+# the source read handle cannot follow the freed chain past cluster 1, so the copy
+# TRUNCATES a multi-cluster file to <=1 cluster (a single-cluster file round-trips
+# cluster-1 bytes intact and hides the loss). The HEAD marker lives in cluster 1
+# (survives truncation); the TAIL marker lives in cluster 2 at offset ~620 (LOST on
+# truncation) -- so TAIL present == file intact, TAIL absent == data loss. Kept just
+# over one cluster (not KiB) so the whole file TYPEs within the harness serial-flush
+# window while still spanning clusters. Ref: fat12.c fat12_create (fat12_free_chain).
+OJXN_HEAD    := OJXN-HEAD-CANARY
+OJXN_TAIL    := OJXN-TAIL-CANARY
+OJXN_TESTTXT := $(BUILD)/ojxn_test.txt
+OJXN_IMG     := $(BUILD)/ojxn_data.img
+OJXN_NAME    := ojxn_copyself
+OJXN_SERIAL  := $(BUILD)/$(OJXN_NAME).serial
+OJXN_REPORT  := $(BUILD)/$(OJXN_NAME).report
+# Keys (each token a key; "ret"=Enter, "spc"=space, "dot"='.'):
+#   copy test.txt test.txt <ret>  type test.txt <ret>  exit <ret>
+OJXN_KEYS := c,o,p,y,spc,t,e,s,t,dot,t,x,t,spc,t,e,s,t,dot,t,x,t,ret,t,y,p,e,spc,t,e,s,t,dot,t,x,t,ret,e,x,i,t,ret
+
+# Mutant shell (Rule 6): command.c compiled with -DCMD_MUTATE_NO_SAMEFILE so
+# cmd_same_file always returns 0 -> COPY's onto-itself guard never fires and
+# dos_creat TRUNCATES the source (the initech-ojxn data-loss regression). Built
+# into a parallel shell ELF/bin/image reusing all OTHER shell objects (only
+# command.o differs) -- exactly the test-ut6d mutant-image pattern.
+OJXN_MUT_COMMAND_OBJ := $(BUILD)/command_mut_ojxn.o
+OJXN_MUT_SHELL_ELF   := $(BUILD)/kernel_shell_mut_ojxn.elf
+OJXN_MUT_SHELL_BIN   := $(BUILD)/kernel_shell_mut_ojxn.bin
+OJXN_MUT_TRACER_IMG  := $(BUILD)/tracer_boot_mut_ojxn.img
+OJXN_MUT_NAME        := ojxn_copyself_mut
+OJXN_MUT_SERIAL      := $(BUILD)/$(OJXN_MUT_NAME).serial
+OJXN_MUT_REPORT      := $(BUILD)/$(OJXN_MUT_NAME).report
+
+$(OJXN_MUT_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
+                         spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_SAMEFILE \
+		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
+
+OJXN_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(OJXN_MUT_COMMAND_OBJ)
+
+$(OJXN_MUT_SHELL_ELF): $(OJXN_MUT_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(OJXN_MUT_SHELL_OBJS)
+
+$(OJXN_MUT_SHELL_BIN): $(OJXN_MUT_SHELL_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_mut_ojxn.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-mut-ojxn): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,shell-mut-ojxn)
+
+$(OJXN_MUT_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(OJXN_MUT_SHELL_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(OJXN_MUT_SHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> ojxn mutant image: %s (same-file guard disabled -- COPY FOO FOO truncates FOO)\n" "$@"
+
+# Re-mint a FRESH writable FAT12 disk with a MULTI-CLUSTER TEST.TXT (HEAD marker,
+# 14 filler lines to push the TAIL into cluster 2, TAIL marker). FRESH per run: the
+# mutant leg truncates TEST.TXT, so a stale copy would poison a re-run (Rule
+# 11-friendly: the disk is a build intermediate, NOT committed). A recipe fragment
+# used by both legs; the filler is deterministic (no timestamps -- Rule 11).
+define ojxn-mint-disk
+	@{ printf '$(OJXN_HEAD)\n'; \
+	   i=0; while [ $$i -lt 14 ]; do \
+	     printf 'FILLER-%02d-0123456789ABCDEF0123456789ABCDEF\n' $$i; \
+	     i=$$((i+1)); \
+	   done; \
+	   printf '$(OJXN_TAIL)\n'; } > $(OJXN_TESTTXT)
+	@dd if=/dev/zero of=$(OJXN_IMG) bs=512 count=2880 status=none
+	@mformat -i $(OJXN_IMG) -f 1440 ::
+	@mcopy -i $(OJXN_IMG) $(OJXN_TESTTXT) ::TEST.TXT
+	@printf '>>> ojxn disk: minted %s with TEST.TXT (%s bytes, multi-cluster; HEAD=%s TAIL=%s)\n' "$(OJXN_IMG)" "$$(wc -c < $(OJXN_TESTTXT))" "$(OJXN_HEAD)" "$(OJXN_TAIL)"
+endef
+
+.PHONY: test-copy-selfcopy test-copy-selfcopy-mutant
+test-copy-selfcopy: $(HARNESS_BIN) $(TRACER_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-copy-selfcopy : COPY <file> <file> no data loss\n'
+	@printf '  Ref: DOS 3.3 COMMAND.COM COPY; spec/dos_messages.json (MSG-DOS-0020). Law 2/Rule 2.\n'
+	@printf '  beads initech-ojxn (P0). Inject: copy test.txt test.txt / type test.txt / exit.\n'
+	@printf '======================================================================\n'
+	$(ojxn-mint-disk)
+	@printf 'Booting   : %s + FRESH WRITABLE disk %s (multi-cluster TEST.TXT, TAIL=%s)\n' "$(TRACER_IMG)" "$(OJXN_IMG)" "$(OJXN_TAIL)"
+	@printf 'Expecting : "File cannot be copied onto itself" + "0 file(s) copied" + TEST.TXT intact\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(OJXN_IMG)" \
+		--name "$(OJXN_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
+		--keys "$(OJXN_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(OJXN_REPORT)" || true
+	@cat "$(OJXN_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(OJXN_REPORT)"; then \
+		printf '!!! test-copy-selfcopy FAIL: TRIPLE FAULT -- the shell boot or COPY crashed\n'; exit 1; \
+	fi
+	@printf '>>> test-copy-selfcopy [1/5]: no triple-fault\n'
+	@if [ ! -s "$(OJXN_SERIAL)" ]; then \
+		printf '!!! test-copy-selfcopy FAIL: no serial captured at %s\n' "$(OJXN_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(OJXN_SERIAL)" \
+		|| { printf '!!! test-copy-selfcopy FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
+	@printf '>>> test-copy-selfcopy [2/5]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@# Scope to the REPL region (after SHELL-READY) -- the shell's own output.
+	@sed -n '/^SHELL-READY$$/,$$p' "$(OJXN_SERIAL)" | tr -d '\r' > "$(BUILD)/$(OJXN_NAME).repl"
+	@grep -qF 'File cannot be copied onto itself' "$(BUILD)/$(OJXN_NAME).repl" \
+		|| { printf '!!! test-copy-selfcopy FAIL: the onto-itself diagnostic (MSG-DOS-0020) MISSING -- the guard did not fire\n'; cat "$(BUILD)/$(OJXN_NAME).repl"; exit 1; }
+	@printf '>>> test-copy-selfcopy [3/5]: "File cannot be copied onto itself" (MSG-DOS-0020) emitted\n'
+	@grep -qF '0 file(s) copied' "$(BUILD)/$(OJXN_NAME).repl" \
+		|| { printf '!!! test-copy-selfcopy FAIL: the ZERO-count footer "0 file(s) copied" MISSING\n'; cat "$(BUILD)/$(OJXN_NAME).repl"; exit 1; }
+	@printf '>>> test-copy-selfcopy [4/5]: "0 file(s) copied" zero-count footer (nothing copied)\n'
+	@# THE no-data-loss assertion: TYPE (AFTER the COPY) still shows the TAIL marker,
+	@# which lives in the LAST cluster -- so the multi-cluster file was NOT truncated.
+	@grep -qF '$(OJXN_TAIL)' "$(BUILD)/$(OJXN_NAME).repl" \
+		|| { printf '!!! test-copy-selfcopy FAIL: DATA LOSS -- TEST.TXT TAIL marker GONE after COPY onto itself (multi-cluster truncation; root-cause the same-file guard, Rule 3)\n'; cat "$(BUILD)/$(OJXN_NAME).repl"; exit 1; }
+	@printf '>>> test-copy-selfcopy [5/5]: TEST.TXT TAIL marker intact -- multi-cluster file PRESERVED (NO DATA LOSS)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- COPY onto itself refused (MSG-DOS-0020 + zero footer), file intact (initech-ojxn)\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# Mutation proof (Rule 6): the SAME script on a -DCMD_MUTATE_NO_SAMEFILE shell must
+# DESTROY TEST.TXT (canary GONE) while COPY still reports "1 file(s) copied" and
+# the onto-itself diagnostic is ABSENT -- i.e. the gate BITES the real regression.
+test-copy-selfcopy-mutant: $(HARNESS_BIN) $(OJXN_MUT_TRACER_IMG)
+	@printf '>>> test-copy-selfcopy-mutant: confirming the no-samefile mutant DESTROYS TEST.TXT (Rule 6)\n'
+	$(ojxn-mint-disk)
+	@$(HARNESS_BIN) --disk "$(OJXN_MUT_TRACER_IMG)" --disk2 "$(OJXN_IMG)" \
+		--name "$(OJXN_MUT_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
+		--keys "$(OJXN_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(OJXN_MUT_REPORT)" || true
+	@if grep -q 'triple_fault=1' "$(OJXN_MUT_REPORT)"; then \
+		printf '!!! test-copy-selfcopy-mutant FAIL: mutant TRIPLE FAULT -- cannot attribute the loss\n'; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(OJXN_MUT_SERIAL)" \
+		|| { printf '!!! test-copy-selfcopy-mutant FAIL: mutant never entered the REPL -- RED is meaningless\n'; exit 1; }
+	@sed -n '/^SHELL-READY$$/,$$p' "$(OJXN_MUT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(OJXN_MUT_NAME).repl"
+	@# The mutant COPY ran to completion in the BUGGY path (reports success)...
+	@grep -qF '1 file(s) copied' "$(BUILD)/$(OJXN_MUT_NAME).repl" \
+		|| { printf '!!! test-copy-selfcopy-mutant FAIL: mutant COPY did not report "1 file(s) copied" -- the cycle did not run as expected\n'; cat "$(BUILD)/$(OJXN_MUT_NAME).repl"; exit 1; }
+	@# ...the onto-itself diagnostic is ABSENT (the guard is disabled)...
+	@if grep -qF 'File cannot be copied onto itself' "$(BUILD)/$(OJXN_MUT_NAME).repl"; then \
+		printf '!!! test-copy-selfcopy-mutant FAIL: the guard fired in the mutant -- CMD_MUTATE_NO_SAMEFILE not effective\n'; exit 1; \
+	fi
+	@# ...the HEAD marker (cluster 1) SURVIVES (confirms COPY genuinely ran + a
+	@# partial file remains -- so an ABSENT tail is real truncation, not a dead boot)...
+	@grep -qF '$(OJXN_HEAD)' "$(BUILD)/$(OJXN_MUT_NAME).repl" \
+		|| { printf '!!! test-copy-selfcopy-mutant FAIL: HEAD marker absent -- the mutant TYPE produced nothing; cannot attribute a clean truncation\n'; cat "$(BUILD)/$(OJXN_MUT_NAME).repl"; exit 1; }
+	@# ...and the TAIL marker (last cluster) is GONE -> the multi-cluster file was
+	@# TRUNCATED by the copy-onto-itself (data loss reproduced -- the gate BITES).
+	@if grep -qF '$(OJXN_TAIL)' "$(BUILD)/$(OJXN_MUT_NAME).repl"; then \
+		printf '!!! test-copy-selfcopy-mutant FAIL: TAIL marker still present -- the mutant did NOT truncate; the gate does not bite\n'; \
+		cat "$(BUILD)/$(OJXN_MUT_NAME).repl"; exit 1; \
+	else \
+		printf '>>> test-copy-selfcopy-mutant: green (mutant truncated TEST.TXT -- HEAD kept, TAIL GONE; the no-data-loss gate BITES)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-ut6d (beads initech-ut6d -- COMMAND.COM MD/RD/CD subdir cycle)
 # ---------------------------------------------------------------------------
 # Wire the REPL to the landed AH=39h/3Ah/3Bh/47h directory handlers (u6wa/mzxa):
@@ -14780,19 +14980,19 @@ SPEC_STRUCT_BIN := $(BUILD)/spec_dos_structs_check
 # Deterministic codegen: spec/dos_messages.json -> build/dos_messages.h (beads
 # initech-509.1). DEC-13 makes the locked JSON the single source of truth for the
 # Approved Diagnostic Message Catalogue (ADR-0003 Appendix C); this step emits a
-# self-contained C header of MSG_DOS_0001..0019 #defines so command.c never
+# self-contained C header of MSG_DOS_0001..0020 #defines so command.c never
 # hand-copies the controlled vocabulary. Inline python3 is the house pattern
 # (cf. test-spec). The loop iterates i in 1..19 EXPLICITLY (not dict order) so the
 # output is byte-deterministic (Rule 11); text is emitted VERBATIM with backslash
 # and double-quote C-escaped; ASCII-only, no timestamps, no host paths.
 $(DOS_MESSAGES_H): $(SPEC_MESSAGES) | $(BUILD)
-	@printf '>>> codegen: %s -> %s (19 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
+	@printf '>>> codegen: %s -> %s (20 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
 	@python3 -c "import json; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
 esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)); \
-ids=['MSG-DOS-%04d'%i for i in range(1,20)]; \
+ids=['MSG-DOS-%04d'%i for i in range(1,21)]; \
 missing=[k for k in ids if k not in m]; \
 assert not missing, 'spec missing message id(s) (DEC-13 controlled scope): %r'%missing; \
 [ (_ for _ in ()).throw(AssertionError('non-string/empty text for %s'%k)) for k in ids if not (isinstance(m[k],str) and m[k]) ]; \
@@ -14857,11 +15057,11 @@ print('    parsed %d cc functions; every AH exists in int21h_register.json (%d s
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
-assert len(m)==19, 'expected 19 messages, found %d'%len(m); \
-exp=set('MSG-DOS-%04d'%i for i in range(1,20)); \
-assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0019: %r'%(sorted(set(m)^exp)); \
+assert len(m)==20, 'expected 20 messages, found %d'%len(m); \
+exp=set('MSG-DOS-%04d'%i for i in range(1,21)); \
+assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0020: %r'%(sorted(set(m)^exp)); \
 [ (_ for _ in ()).throw(AssertionError('empty text for %s'%k)) for k,v in m.items() if not (isinstance(v,str) and v.strip()) ]; \
-print('    parsed 19 messages MSG-DOS-0001..0019; all non-empty')" \
+print('    parsed 20 messages MSG-DOS-0001..0020; all non-empty')" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/count/IDs/empty)\n' "$(SPEC_MESSAGES)"; exit 1; }
 	@printf '>>> test-spec [4/6]: struct size asserts compile (Appendix B)\n'
 	@printf '#include "dos_structs.h"\nint main(void){return 0;}\n' > "$(SPEC_STRUCT_TU)"
@@ -14953,9 +15153,9 @@ m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 hdr=open('$(DOS_MESSAGES_H)').read(); \
 esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)); \
 miss=[]; \
-[ miss.append('MSG-DOS-%04d'%i) for i in range(1,20) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
+[ miss.append('MSG-DOS-%04d'%i) for i in range(1,21) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
 assert not miss, 'header does NOT encode spec verbatim for: %r'%miss; \
-print('    build/dos_messages.h has all 19 #define MSG_DOS_NNNN verbatim from spec')" \
+print('    build/dos_messages.h has all 20 #define MSG_DOS_NNNN verbatim from spec')" \
 		|| { printf '!!! test-dosmsg FAIL: build/dos_messages.h diverges from spec/dos_messages.json (regen + recheck)\n'; exit 1; }
 	@printf '>>> test-dosmsg [2/3]: IMAGE PRESENCE -- referenced messages live in the shell image\n'
 	@python3 -c "import json,re,subprocess; \
@@ -14980,7 +15180,7 @@ print('    R = {%s} -- every referenced message present VERBATIM in build/kernel
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 srcs='$(DOSMSG_SRCS)'.split(); \
-texts=[m['MSG-DOS-%04d'%i] for i in range(1,20)]; \
+texts=[m['MSG-DOS-%04d'%i] for i in range(1,21)]; \
 strip=lambda s: subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout; \
 lits=lambda code: [l.encode().decode('unicode_escape') for l in re.findall(r'\"((?:[^\"\\\\]|\\\\.)*)\"', code)]; \
 hits=[(s,t) for s in srcs for t in (lambda L:[x for x in texts if x in L])(lits(strip(s)))]; \
@@ -15025,7 +15225,7 @@ open('$(BUILD)/command_mutantA.c','w').write(mut)"; \
 	python3 -c "import json,re,subprocess,sys; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-texts=[m['MSG-DOS-%04d'%i] for i in range(1,20)]; \
+texts=[m['MSG-DOS-%04d'%i] for i in range(1,21)]; \
 code=subprocess.run(['gcc','-fpreprocessed','-E','-P','$(BUILD)/command_mutantA.c'],capture_output=True,text=True).stdout; \
 lits=[l.encode().decode('unicode_escape') for l in re.findall(r'\"((?:[^\"\\\\]|\\\\.)*)\"', code)]; \
 hits=[t for t in texts if t in lits]; \
@@ -16482,6 +16682,7 @@ TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
+	test-copy-selfcopy test-copy-selfcopy-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm \
 	test-samir-boot test-samir-boot-mutant \

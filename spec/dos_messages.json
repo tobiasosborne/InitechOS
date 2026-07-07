@@ -29,6 +29,7 @@
     "MSG-DOS-0016": "Press any key to continue . . .",
     "MSG-DOS-0017": "Unable to create directory",
     "MSG-DOS-0018": "Invalid directory",
-    "MSG-DOS-0019": "Invalid path, not directory, or directory not empty"
+    "MSG-DOS-0019": "Invalid path, not directory, or directory not empty",
+    "MSG-DOS-0020": "File cannot be copied onto itself"
   }
 }

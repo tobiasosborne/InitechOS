@@ -412,6 +412,47 @@ static void test_has_wildcard(void)
     CHECK(cmd_has_wildcard("")         == 0, "wildcard: empty -> 0");
 }
 
+/* ---- COPY same-file guard (bead initech-ojxn -- DATA-LOSS P0) ----------- */
+/* Ref: cmd_same_file in command.c. It drives COPY's real-DOS-3.3 "File cannot be
+ * copied onto itself" refusal, so it must NEVER false-POSITIVE (which would
+ * reject a legitimate copy). Under -DCMD_MUTATE_NO_SAMEFILE the predicate always
+ * returns 0 -> the SAME-file cases below go RED (the guard would never fire and
+ * COPY FOO.TXT FOO.TXT would truncate FOO.TXT to zero -- the reported regression). */
+static void test_same_file(void)
+{
+    /* --- COVERED: forms that PROVABLY denote the same file -> 1. --- */
+    /* The exact bug repro: identical bare operands. */
+    CHECK(cmd_same_file("FOO.TXT", "FOO.TXT") == 1,
+          "same_file: FOO.TXT vs FOO.TXT -> SAME (the reported repro)");
+    /* Case-insensitive (DOS folds case; the predicate self-folds too). */
+    CHECK(cmd_same_file("foo.txt", "FOO.TXT") == 1,
+          "same_file: foo.txt vs FOO.TXT -> SAME (case-blind)");
+    /* 8.3 trailing-dot equivalence: FOO and FOO. are the same on-disk name. */
+    CHECK(cmd_same_file("FOO", "FOO.") == 1,
+          "same_file: FOO vs FOO. -> SAME (8.3 empty-ext)");
+    /* Leading ".\\" current-directory prefix on one operand. */
+    CHECK(cmd_same_file("FOO.TXT", ".\\FOO.TXT") == 1,
+          "same_file: FOO.TXT vs .\\FOO.TXT -> SAME (current-dir prefix)");
+    /* Default-drive prefix "A:" on one operand (single-drive system). */
+    CHECK(cmd_same_file("A:FOO.TXT", "FOO.TXT") == 1,
+          "same_file: A:FOO.TXT vs FOO.TXT -> SAME (default-drive prefix)");
+    /* Identical subdirectory paths compare equal verbatim. */
+    CHECK(cmd_same_file("SUB\\A.TXT", "SUB\\A.TXT") == 1,
+          "same_file: SUB\\A.TXT vs SUB\\A.TXT -> SAME (identical subdir path)");
+
+    /* --- MUST NOT false-POSITIVE: genuinely different files -> 0. --- */
+    CHECK(cmd_same_file("FOO.TXT", "BAR.TXT") == 0,
+          "same_file: FOO.TXT vs BAR.TXT -> DIFFERENT (name)");
+    CHECK(cmd_same_file("FOO.TXT", "FOO.BAK") == 0,
+          "same_file: FOO.TXT vs FOO.BAK -> DIFFERENT (ext)");
+    CHECK(cmd_same_file("FOO.TXT", "B:FOO.TXT") == 0,
+          "same_file: FOO.TXT vs B:FOO.TXT -> DIFFERENT (drive)");
+    CHECK(cmd_same_file("SUB\\A.TXT", "SUB\\B.TXT") == 0,
+          "same_file: SUB\\A.TXT vs SUB\\B.TXT -> DIFFERENT (subdir leaf)");
+    CHECK(cmd_same_file("SUB\\A.TXT", "OTH\\A.TXT") == 0,
+          "same_file: SUB\\A.TXT vs OTH\\A.TXT -> DIFFERENT (subdir)");
+}
+
 /* ---- DATE / TIME format builders + arg parsers ------------------------- */
 /* Ref: cmd_format_date / cmd_format_time / cmd_parse_date / cmd_parse_time. */
 static void test_date_time_format(void)
@@ -668,6 +709,7 @@ int main(void)
     test_classify_tranche_f();
     test_pair_parse();
     test_has_wildcard();
+    test_same_file();
     test_date_time_format();
     test_date_parse();
     test_time_parse();

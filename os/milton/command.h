@@ -171,6 +171,14 @@ void cmd_pair_parse(const char *arg, cmd_pair_t *out);
  * for a wildcard pattern. PURE. */
 int cmd_has_wildcard(const char *name);
 
+/* Return 1 iff operands `a` and `b` PROVABLY name the same file, judged from the
+ * operand text alone (single-drive A:; no AH=60h TRUENAME exposed to the shell).
+ * Drives COPY's real-DOS-3.3 "File cannot be copied onto itself" guard: it never
+ * false-POSITIVES (refusing a valid copy), covering identical / case / bare-name
+ * 8.3 / ".\\"-prefixed / default-drive-prefixed / identical-subdir-path forms; a
+ * relative-vs-absolute miss is a documented residual. PURE. Ref: initech-ojxn. */
+int cmd_same_file(const char *a, const char *b);
+
 /* Build the DOS "Current date is Day MM-DD-YYYY" line into out (>= 32 bytes).
  * `dow` is the day-of-week (0=Sun..6=Sat) AH=2Ah returns in AL; `year` is the
  * full year, `mon`/`day` are 1-based. Returns the formatted length. PURE
