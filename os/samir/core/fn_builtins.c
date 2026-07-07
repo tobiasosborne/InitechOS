@@ -871,8 +871,15 @@ static int fn_mod(const xb_val *args, int nargs, xb_val *out, int *err)
  *     tie-break"; ROUND(2.5,0)->3, ROUND(-2.5,0)->-2).
  *     Harbour says round-half-away-from-zero; III+ exact tie direction is
  *     [oracle-resolves] (numfn-1 GATED). The oracle asserts ONLY non-tie cases.
- *   Freestanding: uses the same add-0.5*10^-dec + (int64_t) truncation idiom
- *     as dec_format (rt.c); no libm.
+ *   Freestanding: uses the SAME add-0.5*10^-dec + rt_floor64 idiom as
+ *     dec_format (rt.c; rt.h S3) -- rt_floor64, NOT a bare (int64_t) cast.
+ *     initech-eyig: a bare (int64_t) cast TRUNCATES TOWARD ZERO, which only
+ *     coincides with floor for non-negative operands. For v<0 it rounds the
+ *     wrong way -- (int64_t)(-2.7*1+0.5) = (int64_t)(-2.2) = -2 (truncation-
+ *     toward-zero), but the ties-toward-+infinity rule this function claims
+ *     to follow requires floor(-2.2) = -3, i.e. ROUND(-2.7,0) must be -3.0,
+ *     not -2.0. rt_floor64 (rt.h) is the SAME primitive dec_format already
+ *     uses for exactly this reason; no libm.
  *   Ref: numeric-and-date-functions.md ROUND section [verified: HELP.DBS lines
  *        1307-1308 + Harbour math.txt:326-367].
  */
@@ -896,13 +903,30 @@ static int fn_round(const xb_val *args, int nargs, xb_val *out, int *err)
         for (i = 0; i < ndec; i++) scale *= 10.0;
     }
 
+#ifdef XB_MUTATE_FN_ROUND_TRUNC
+    /*
+     * MUTATION (Rule 6, initech-eyig): revert to the pre-fix bare (int64_t)
+     * truncating cast (truncates toward zero instead of flooring), so
+     * negative-operand ROUND cases go wrong again -- ROUND(-2.7,0) would
+     * return -2.0 instead of the correct -3.0. Compile with
+     * -DXB_MUTATE_FN_ROUND_TRUNC. Positive-operand cases are UNAFFECTED by
+     * this mutant (truncation == floor for v >= 0), matching the fact that
+     * the original bug never manifested on positive input.
+     */
     if (dec >= 0) {
-        /* Round to `dec` decimal places. PROVISIONAL: ties -> +inf. */
         rounded = (double)(int64_t)(v * scale + 0.5) / scale;
     } else {
-        /* Round to |dec| whole-number places (e.g. dec=-2 -> nearest 100). */
         rounded = (double)(int64_t)(v / scale + 0.5) * scale;
     }
+#else
+    if (dec >= 0) {
+        /* Round to `dec` decimal places. PROVISIONAL: ties -> +inf. */
+        rounded = (double)rt_floor64(v * scale + 0.5) / scale;
+    } else {
+        /* Round to |dec| whole-number places (e.g. dec=-2 -> nearest 100). */
+        rounded = (double)rt_floor64(v / scale + 0.5) * scale;
+    }
+#endif
     *out = xb_n(rounded);
     *err = XBEE_OK;
     return 0;

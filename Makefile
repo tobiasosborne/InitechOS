@@ -895,6 +895,9 @@ TEST_XBASE_FN_A_MUT := $(BUILD)/test_xbase_fn_a_mut
 TEST_XBASE_FN_A_MUT_CTOD := $(BUILD)/test_xbase_fn_a_mut_ctod
 TEST_XBASE_FN_B     := $(BUILD)/test_xbase_fn_b
 TEST_XBASE_FN_B_MUT := $(BUILD)/test_xbase_fn_b_mut
+# initech-eyig (P1): separate mutant binary, -DXB_MUTATE_FN_ROUND_TRUNC (reverts
+# ROUND's floor fix to the pre-fix truncating cast, distinct from the DOW mutant).
+TEST_XBASE_FN_B_MUT_ROUND := $(BUILD)/test_xbase_fn_b_mut_round
 # Remaining III+ string functions (initech-7az.12) share fn_builtins.c.
 TEST_XBASE_FN_C     := $(BUILD)/test_xbase_fn_c
 TEST_XBASE_FN_C_MUT := $(BUILD)/test_xbase_fn_c_mut
@@ -2059,6 +2062,11 @@ $(TEST_XBASE_FN_B): $(DBF_DIFF_DIR)/test_xbase_fn_b.c $(SAMIR_EVAL_SRC) $(SAMIR_
 $(TEST_XBASE_FN_B_MUT): $(DBF_DIFF_DIR)/test_xbase_fn_b.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_DOW -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_b.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+# initech-eyig (P1): ROUND floor-vs-truncate mutant -- reverts to the bare
+# (int64_t) truncating cast, so negative-operand ROUND rounds toward zero.
+$(TEST_XBASE_FN_B_MUT_ROUND): $(DBF_DIFF_DIR)/test_xbase_fn_b.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_ROUND_TRUNC -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_b.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
 
 .PHONY: test-xbase-fn-b
 test-xbase-fn-b: $(TEST_XBASE_FN_B)
@@ -2075,6 +2083,17 @@ test-xbase-fn-b-mutant: $(TEST_XBASE_FN_B_MUT)
 		printf '!!! test-xbase-fn-b-mutant FAIL: mutant PASSED -- the DOW numbering rule is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-xbase-fn-b-mutant: green (DOW shift correctly RED)\n'; \
+	fi
+
+.PHONY: test-xbase-fn-b-mutant-round
+test-xbase-fn-b-mutant-round: $(TEST_XBASE_FN_B_MUT_ROUND)
+	@printf ">>> test-xbase-fn-b-mutant-round: confirming the ROUND floor-vs-truncate mutant goes RED (Rule 6; initech-eyig)\n"
+	@$(TEST_XBASE_FN_B_MUT_ROUND) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-xbase-fn-b-mutant-round FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_XBASE_FN_B_MUT_ROUND) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-fn-b-mutant-round FAIL: mutant PASSED -- the ROUND floor rule is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-xbase-fn-b-mutant-round: green (negative-operand truncation correctly RED)\n'; \
 	fi
 
 # ---- SAMIR remaining III+ string fns: LEFT/RIGHT/STUFF/REPLICATE/AT/IS*/TRANSFORM (initech-7az.12) ----
@@ -16829,7 +16848,7 @@ TEST_UNIT_GATES := \
 	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant \
 	test-xbase-eval test-xbase-eval-mutant test-xbase-coercion test-xbase-coercion-mutant \
 	test-xbase-fn-a test-xbase-fn-a-mutant test-xbase-fn-a-mutant-ctod \
-	test-xbase-fn-b test-xbase-fn-b-mutant \
+	test-xbase-fn-b test-xbase-fn-b-mutant test-xbase-fn-b-mutant-round \
 	test-xbase-fn-c test-xbase-fn-c-mutant \
 	test-xbase-fn-d test-xbase-fn-d-mutant \
 	test-xbase-transform test-xbase-transform-mutant \

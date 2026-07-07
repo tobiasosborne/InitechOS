@@ -203,8 +203,13 @@ static int emit_digits(char *buf, int n, uint64_t val)
  * C casts double->int64_t truncate toward zero.  For x >= 0, truncation IS
  * floor.  For x < 0, truncation is ceiling, so we subtract 1 if and only
  * if the value is not already an integer.
+ *
+ * Exported (declared in rt.h) so other freestanding SAMIR engine files
+ * (fn_builtins.c fn_round -- initech-eyig) can share the SAME floor
+ * primitive dec_format uses below, instead of re-deriving (and getting
+ * wrong) their own truncating cast.
  */
-static int64_t rt_floor64(double x)
+int64_t rt_floor64(double x)
 {
     int64_t t = (int64_t)x;            /* truncate toward zero */
     if (x < 0.0 && (double)t != x) {  /* negative non-integer -> floor = t-1 */

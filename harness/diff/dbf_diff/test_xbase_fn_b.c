@@ -20,7 +20,12 @@
  * GATED DISCIPLINE (Law 1 / plan sec.7 "GATED register" / S3.6 line):
  *   The following cases are [oracle-resolves] (MINT-blocked, numfn-1..4);
  *   each prints a loud SKIP line and is NOT asserted:
- *     numfn-1: ROUND tie direction (ROUND(2.5,0), ROUND(-2.5,0))
+ *     numfn-1: ROUND tie direction, NEGATIVE case only (ROUND(-2.5,0) --
+ *       toward-+inf gives -2, away-from-zero gives -3, genuinely ambiguous
+ *       pending MINT). The POSITIVE tie ROUND(2.5,0) is NOT gated (D12,
+ *       initech-eyig): toward-+inf and away-from-zero agree on +2.5 (both
+ *       give 3), so it is asserted as a floor-fix regression guard, not a
+ *       resolution of numfn-1's negative-tie ambiguity.
  *     numfn-2: INT on negatives (INT(-3.7), INT(-3.0))
  *     numfn-3: MOD sign with negative operands; MOD(a,0) zero-divisor
  *     numfn-4: MAX/MIN on two Date args (return-type Date vs day-number)
@@ -38,6 +43,13 @@
  *   The mutation targets the SETTLED case (not a GATED cell), as required by Rule 6.
  *
  *   Mutant macro: XB_MUTATE_FN_DOW (also defined in fn_builtins.c).
+ *
+ *   Compile with -DXB_MUTATE_FN_ROUND_TRUNC (separate mutant binary; see
+ *   $(TEST_XBASE_FN_B_MUT_ROUND) / `make test-xbase-fn-b-mutant-round`) to
+ *   revert fn_round to the pre-fix bare (int64_t) truncating cast. The
+ *   D9/D10/D11 negative-operand assertions then go RED (ROUND(-2.7,0)
+ *   returns -2.0 instead of -3.0), proving the oracle catches the
+ *   initech-eyig floor-vs-truncate regression.
  *
  * -------------------------------------------------------------------------
  * Ref (Law 1):
@@ -226,8 +238,32 @@ int main(void)
     /* Negative dec: round to whole-number places (Harbour math.txt:349-351). */
     ok_n("ROUND(1234,-2)",   1200.0,  "D5: ROUND(1234,-2)=1200 [Harbour: negative dec]");
 
-    skip_gated("numfn-1", "ROUND(2.5,0): tie direction (toward-+inf vs away-from-zero) unconfirmed");
-    skip_gated("numfn-1", "ROUND(-2.5,0): same gate");
+    /*
+     * D9-D12: negative-operand FLOOR bug (initech-eyig). A bare (int64_t)
+     * cast TRUNCATES TOWARD ZERO, which only coincides with floor(v*scale+0.5)
+     * for v >= 0. dec_format (rt.c) gets this right by using rt_floor64;
+     * fn_round did not. These three inputs are deliberately non-tie (not
+     * X.5, so numfn-1's GATED tie-direction ambiguity does not apply -- see
+     * skip_gated below for the genuinely GATED tie cases) -- ONLY the
+     * floor-vs-truncate rounding direction is under test here:
+     *   ROUND(-2.7,0):   -2.7*1+0.5=-2.2, floor(-2.2)=-3            -> -3.0
+     *   ROUND(-27,-1):   -27/10+0.5=-2.2, floor(-2.2)=-3, *10       -> -30.0
+     *   ROUND(-1234,-2): -1234/100+0.5=-11.84, floor(-11.84)=-12, *100 -> -1200.0
+     * (The old truncating cast gave -2.0 / -20.0 / -1100.0 instead -- off by
+     * one scale-unit in every case, always toward zero.)
+     * Ref: rt.h rt_floor64 (same primitive dec_format already uses); Rule 3
+     * root-cause -- both the dec>=0 AND dec<0 arms of fn_round shared the bug.
+     */
+    ok_n("ROUND(-2.7,0)",    -3.0,    "D9: ROUND(-2.7,0)=-3 (floor, not trunc-toward-zero) [initech-eyig]");
+    ok_n("ROUND(-27,-1)",    -30.0,   "D10: ROUND(-27,-1)=-30 (negative-dec arm, floor) [initech-eyig]");
+    ok_n("ROUND(-1234,-2)",  -1200.0, "D11: ROUND(-1234,-2)=-1200 (negative-dec arm, floor) [initech-eyig]");
+    /* Regression guard: positive operands are UNAFFECTED by the fix (floor
+     * == truncation for v >= 0), including the positive TIE case -- both
+     * candidate tie rules (toward-+inf and away-from-zero) agree on +2.5 (the
+     * ambiguity in numfn-1 only bites the NEGATIVE tie, ROUND(-2.5,0)). */
+    ok_n("ROUND(2.5,0)",     3.0,     "D12: ROUND(2.5,0)=3 (positive tie unaffected by the floor fix) [initech-eyig]");
+
+    skip_gated("numfn-1", "ROUND(-2.5,0): tie direction (toward-+inf vs away-from-zero) unconfirmed");
 
     err_is("ROUND(1)",    XBEE_INVALID_ARG, "D6: ROUND(1) wrong arity -> #11");
     err_is("ROUND('x',1)",XBEE_MISMATCH,    "D7: ROUND non-numeric first -> #9");

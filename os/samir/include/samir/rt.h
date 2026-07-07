@@ -101,6 +101,23 @@ void ymd_from_jdn(int32_t jdn, int32_t *y, int32_t *m, int32_t *d);
 /* ---- 3. Decimal formatter / parser ---- */
 
 /*
+ * rt_floor64: floor(x) as int64_t, without <math.h>.
+ *
+ * C casts double->int64_t TRUNCATE TOWARD ZERO, which is floor only for
+ * x >= 0; for x < 0 the naive cast is ceiling, off by one whenever x is
+ * not already an integer (e.g. (int64_t)(-2.2) == -2, but floor(-2.2) ==
+ * -3). Any caller building a "scale, add 0.5, floor" round-half-up (see
+ * dec_format below) MUST use this, not a bare (int64_t) cast, or negative
+ * inputs round toward zero instead of down (initech-eyig: this was fn_round's
+ * bug in fn_builtins.c -- it re-derived the (int64_t) idiom instead of
+ * sharing this primitive).
+ *
+ * Ref: standard floor-via-truncation identity; used internally by
+ * dec_format's "ties toward +infinity" rounding rule below.
+ */
+int64_t rt_floor64(double x);
+
+/*
  * dec_format: format a double `v` as a right-justified decimal ASCII string
  * of exactly `width` characters into `out` (NOT NUL-terminated).
  *
