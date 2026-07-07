@@ -857,6 +857,7 @@ TEST_XBASE_PARSE_MUT := $(BUILD)/test_xbase_parse_mut
 SAMIR_EVAL_SRC    := $(SAMIR_DIR)/core/eval.c
 TEST_DBF_READ      := $(BUILD)/test_dbf_read
 TEST_DBF_READ_MUT  := $(BUILD)/test_dbf_read_mut
+TEST_DBF_READ_MUT2 := $(BUILD)/test_dbf_read_mut_openrw_hdrlen
 TEST_XBASE_EVAL     := $(BUILD)/test_xbase_eval
 TEST_XBASE_EVAL_MUT := $(BUILD)/test_xbase_eval_mut
 TEST_DBF_ROUNDTRIP     := $(BUILD)/test_dbf_roundtrip
@@ -1691,6 +1692,14 @@ $(TEST_DBF_READ): $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE
 $(TEST_DBF_READ_MUT): $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_RECOFF -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+# P1 initech-jf8p mutant: restores the pre-fix eager (+1-form-at-open-time)
+# header_length normalization in dbf_open_common's want_writable branch, so a
+# +2-form file (BANK.DBF/TAX.DBF) opened dbf_open_rw truncates its true
+# on-disk record offset by one byte again. Must drive test_tax_rw_plus2form /
+# test_synthetic_plus2_rw_roundtrip (in this same test file) RED (Rule 6).
+$(TEST_DBF_READ_MUT2): $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_OPENRW_EAGER_HDRLEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-read
 test-dbf-read: $(TEST_DBF_READ)
@@ -1707,6 +1716,17 @@ test-dbf-read-mutant: $(TEST_DBF_READ_MUT)
 		printf '!!! test-dbf-read-mutant FAIL: mutant PASSED -- the record offset is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-dbf-read-mutant: green (record-offset +1 correctly RED)\n'; \
+	fi
+
+.PHONY: test-dbf-read-openrw-hdrlen-mutant
+test-dbf-read-openrw-hdrlen-mutant: $(TEST_DBF_READ_MUT2)
+	@printf ">>> test-dbf-read-openrw-hdrlen-mutant: confirming the eager +1-at-open-time mutant goes RED (Rule 6; initech-jf8p)\n"
+	@$(TEST_DBF_READ_MUT2) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-dbf-read-openrw-hdrlen-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_DBF_READ_MUT2) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-dbf-read-openrw-hdrlen-mutant FAIL: mutant PASSED -- the +2-form dbf_open_rw header_length fix is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-dbf-read-openrw-hdrlen-mutant: green (eager +1-at-open-time correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-1 .dbf codec: deterministic write + round-trip (S1.4 / initech-aul.4) ----

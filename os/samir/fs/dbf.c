@@ -589,18 +589,58 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
         }
 
         /*
-         * Normalize the header geometry to the +1 (lone 0x0D) terminator form
-         * that dbf_flush ALWAYS emits, so a subsequent flush stays
-         * self-consistent: dbf_flush writes header + descriptors + ONE 0x0D
-         * + records, placing records at DBF_HDR_SIZE + 32*nfields + 1. If we
-         * kept a +2-form header_length (genuine III+ files exist: TEST1C/2C.DBF),
-         * the flushed records would no longer sit at the stored header_length and
-         * a re-open would read garbage. We already captured the records above
-         * from the original offset, so re-pointing header_length is loss-free.
-         * Ref: dbf.md sec 4 (+1/+2 forms); dbf_flush (+1 emitter); dbf_create.
+         * initech-jf8p (P1 fix): do NOT normalize tbl->header_length/term_extra
+         * to the +1 form HERE. tbl->header_length/term_extra were already set
+         * above (from the on-disk `header_length`/`hdr_extra` parsed at the top
+         * of this function) to the TRUE on-disk geometry -- +1 or +2, whichever
+         * this file genuinely uses (dbf.md sec 4; BANK/TAX are +2-form). That is
+         * exactly what dbf_read_rec needs: it ALWAYS reads a record straight
+         * from disk (read_exact on tbl->fd), never from rec_region, so its
+         * rec_off computation must match the bytes ON DISK RIGHT NOW.
+         *
+         * The bug (pre-fix): this block used to overwrite tbl->header_length to
+         * the FUTURE +1-form value (DBF_HDR_SIZE + descbytes + 1) immediately at
+         * open time, before any dbf_flush had actually rewritten the file. For a
+         * +2-form file (BANK.DBF, TAX.DBF) that made tbl->header_length ONE BYTE
+         * SHORT of the true record offset. dbf_read_rec then landed on the +2
+         * terminator's extra 0x00 padding byte, read it as the delete flag (not
+         * 0x20/0x2A), and failed loud with -DBF_ERR_BAD_REC for EVERY record --
+         * even though the records were captured correctly into rec_region just
+         * above (read from the correct, un-normalized `header_length` local).
+         * dbf_open (read-only) never runs this branch at all, which is why only
+         * the RW-USE path (7az.16) was broken -- proof the write-path
+         * normalization, not the record-decode logic, was the culprit.
+         *
+         * The line's LEGITIMATE purpose -- keeping the table self-consistent
+         * with what dbf_flush is about to write, since dbf_flush ALWAYS emits
+         * exactly one 0x0D terminator (the +1 form; dbf.md sec 4) regardless of
+         * the file's original convention -- still needs to happen, just not yet:
+         * dbf_flush itself now computes the +1-form header_length from
+         * tbl->nfields (not from tbl->header_length) and updates
+         * tbl->header_length/term_extra AFTER a successful write (see dbf_flush
+         * below). That keeps a same-handle dbf_read_rec correct both BEFORE and
+         * AFTER a flush, matching the already-locked contract in dbf.h
+         * dbf_open_rw: "normalized to the +1 ... form ON FLUSH; the records
+         * loaded here come from the original (possibly +2-form) header_length
+         * offset, so the normalization is loss-free."
+         * Ref: dbf.md sec 4 (+1/+2 forms); dbf.h dbf_open_rw contract;
+         *      dbf_flush (the +1 emitter, below); bead initech-jf8p.
+         */
+#ifdef DBF_MUTATE_OPENRW_EAGER_HDRLEN
+        /*
+         * MUTATION HOOK (Rule 6; initech-jf8p): restores the exact pre-fix bug
+         * -- eagerly normalize header_length/term_extra to the +1 form AT OPEN
+         * TIME, before any dbf_flush. For a +2-form file (BANK.DBF, TAX.DBF)
+         * this truncates the true on-disk record offset by one byte, so
+         * dbf_read_rec misreads the +2 terminator's padding 0x00 as the
+         * delete flag and fails loud with -DBF_ERR_BAD_REC for every record.
+         * Exactly the two lines the fix removed from this spot; NEVER defined
+         * in a real build. Ref: harness/diff/dbf_diff/test_dbf_read.c
+         * test_tax_rw_plus2form / test_synthetic_plus2_rw_roundtrip (must go RED).
          */
         tbl->header_length = (uint16_t)((uint32_t)DBF_HDR_SIZE + descbytes + 1u);
         tbl->term_extra    = 1u;
+#endif
     }
 
     *out = tbl;
@@ -1230,11 +1270,32 @@ int dbf_flush(dbf_table *tbl)
     int32_t   wr;
     uint32_t  fi;
     uint8_t   memo_bit;
+    uint32_t  flush_hdrlen;   /* the +1-form header_length THIS flush writes */
 
     if (!tbl)
         return -DBF_ERR_IO;
     if (!tbl->writable)
         return -DBF_ERR_IO;   /* read-only (dbf_open) table is not flushable */
+
+    /*
+     * initech-jf8p (P1 fix): dbf_flush ALWAYS lays out exactly ONE 0x0D
+     * terminator followed immediately by the record area (the "+1 form";
+     * dbf.md sec 4) -- see the terminator write below, one byte, always.
+     * That means the header_length THIS flush is about to write is a pure
+     * function of tbl->nfields, computed HERE, NOT trusted from whatever
+     * tbl->header_length currently holds. For a dbf_create()'d table the two
+     * already agree (dbf_create sets header_length with this same formula), so
+     * this is a no-op there. For a dbf_open_rw()'d table whose ORIGINAL on-disk
+     * file was +2-form (BANK.DBF, TAX.DBF), tbl->header_length still holds that
+     * true on-disk +2 value at this point (dbf_open_common no longer normalizes
+     * it early -- see the "7az.16: writable (read-write) USE path" comment
+     * above) -- so it would be WRONG to write verbatim: the file we are about
+     * to produce only has ONE terminator byte, not two.
+     * Ref: dbf.md sec 4 (+1/+2 forms); dbf.h dbf_open_rw ("normalized to the +1
+     *      ... form ON FLUSH"); dbf_create (the same formula, S1.4).
+     */
+    flush_hdrlen = (uint32_t)DBF_HDR_SIZE
+                 + (uint32_t)DBF_DESC_STRIDE * (uint32_t)tbl->nfields + 1u;
 
     /* Seek to the start; we always rewrite the whole file (TRUNC at create). */
     pos = tbl->pal->seek(tbl->pal, tbl->fd, 0, PAL_SEEK_SET);
@@ -1256,7 +1317,7 @@ int dbf_flush(dbf_table *tbl)
     hdr[DBF_HDR_MONTH_OFF] = tbl->month;
     hdr[DBF_HDR_DAY_OFF]   = tbl->day;
     wr_u32le(hdr + DBF_HDR_NREC_OFF,       tbl->nrec);
-    wr_u16le(hdr + DBF_HDR_HEADER_LEN_OFF, tbl->header_length);
+    wr_u16le(hdr + DBF_HDR_HEADER_LEN_OFF, (uint16_t)flush_hdrlen);
     wr_u16le(hdr + DBF_HDR_RECORD_LEN_OFF, tbl->record_length);
     /* hdr[0x0C..0x1F] remain 0x00 (NORMALIZE: reserved/MDX/LDID/multiuser). */
 
@@ -1314,6 +1375,21 @@ int dbf_flush(dbf_table *tbl)
     pos = tbl->pal->seek(tbl->pal, tbl->fd, 0, PAL_SEEK_SET);
     if (pos != 0)
         return -DBF_ERR_IO;
+
+    /*
+     * initech-jf8p (P1 fix): NOW -- after the whole-file rewrite above fully
+     * succeeded -- update the table's bookkeeping to match what is ACTUALLY on
+     * disk: the +1 form, always (this is line 602's original job, moved to the
+     * point where it becomes true rather than applied pre-emptively at open).
+     * A subsequent dbf_read_rec on this SAME handle (mutate.c's contract:
+     * "dbf_flush()es ... so dbf_read_rec sees the new bytes") reads straight
+     * from disk using tbl->header_length, so it must track the file we just
+     * wrote, not the file's original (possibly +2-form) layout.
+     * Ref: dbf.h dbf_open_rw "normalized to the +1 ... form ON FLUSH ...
+     *      loss-free"; dbf.c mutate.c-facing contract note above.
+     */
+    tbl->header_length = (uint16_t)flush_hdrlen;
+    tbl->term_extra    = 1u;
 
     return DBF_OK;
 }

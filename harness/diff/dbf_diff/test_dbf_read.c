@@ -611,6 +611,279 @@ static void test_bank_norec(samir_pal_t *pal, const char *base)
 }
 
 /* ============================================================
+ * TIER 0 (initech-jf8p): TAX.DBF via dbf_open_rw -- +2-form record read.
+ *
+ * TAX.DBF is a genuine +2-form III+ file: header_length=98 = 32 + 32*2 + 2
+ * (test_dbf_header.c MANIFEST TAX row: term_extra=2; dbf.md sec 4 "0x0D 0x00"
+ * terminator convention). Before the fix, dbf_open_common's want_writable
+ * branch (dbf.c ~602) truncated tbl->header_length to the +1 form (97) AT
+ * OPEN TIME, one byte short of the true on-disk record offset (98) -- even
+ * though dbf_flush had not run yet and the on-disk bytes were still genuinely
+ * +2-form. dbf_read_rec always reads from DISK (never from rec_region), so it
+ * computed rec_off=97 for record 1, landed on the +2 terminator's extra 0x00
+ * padding byte, read it as the delete flag (neither 0x20 nor 0x2A), and
+ * returned -DBF_ERR_BAD_REC for EVERY record. dbf_open (read-only) never runs
+ * this normalization and was unaffected -- proof the write-path normalization
+ * was the culprit, not the record-decode logic itself.
+ *
+ * Oracle (Law 2, independent of dbf.c): expected CODE/TITLE values come from
+ * `python3 harness/diff/dbf_diff/dbf_ref.py --records TAX.DBF`:
+ *   rec0 active CODE=1 TITLE=Business Expenses
+ *   rec8 active CODE=9 TITLE=Miscellaneous
+ * (0-indexed; our recno 1 and 9.) Never derived from dbf.c itself.
+ *
+ * We open PAL_RDWR (dbf_open_rw) but never call dbf_flush here, so the real
+ * corpus golden on disk is never rewritten (the write-back happens only if
+ * dbf_flush is called; opening PAL_RDWR alone issues no write()).
+ *
+ * Ref: dbf.md sec 4 (+1/+2 terminator forms), sec 8 Invariant 1;
+ *      os/samir/include/samir/dbf.h dbf_open_rw doc ("normalized to the +1
+ *      ... form ON FLUSH; the records loaded here come from the original
+ *      (possibly +2-form) header_length offset") -- the LOCKED contract this
+ *      fix brings dbf.c's implementation into conformance with;
+ *      spec/samir/dbf_format.h DBF_HDR_HEADER_LEN_OFF ("TRUST this; do not
+ *      assume +1 or +2"); bead initech-jf8p.
+ * ============================================================ */
+static void test_tax_rw_plus2form(samir_pal_t *pal, const char *base)
+{
+    char path[1024];
+    dbf_table *tbl = NULL;
+    xb_val out[2];
+    int deleted = -1;
+    int rc;
+    char msg[256];
+
+    join(path, sizeof(path), base, SP_PATH "/TAX.DBF");
+    if (!file_exists(path)) {
+        fprintf(stderr, "  SKIP (LOUD): golden absent: %s\n", path);
+        return;
+    }
+
+    /* --- open READ-WRITE (7az.16 path); this is the RW-USE the bug hits --- */
+    rc = dbf_open_rw(pal, path, &tbl);
+    snprintf(msg, sizeof(msg), "TAX(rw): dbf_open_rw succeeds (rc=%d)", rc);
+    CHECK(rc == DBF_OK && tbl != NULL, msg);
+    if (rc != DBF_OK || !tbl) return;
+
+    /* Confirm the fixture really is +2-form before blaming the read path
+     * (test_dbf_header.c MANIFEST TAX row: term_extra=2, header_len=98). A
+     * table opened dbf_open_rw must still report the TRUE on-disk form here
+     * -- normalization to +1 happens on flush, not on open (dbf.h contract). */
+    snprintf(msg, sizeof(msg), "TAX(rw): term_extra==2 (+2-form fixture, no premature normalize)");
+    CHECK(dbf_term_extra(tbl) == 2u, msg);
+    snprintf(msg, sizeof(msg), "TAX(rw): header_length==98 (true on-disk value, not truncated to 97)");
+    CHECK(dbf_header_length(tbl) == 98u, msg);
+
+    /* --- read recno 1 BEFORE any dbf_flush: must decode, not -DBF_ERR_BAD_REC. --- */
+    rc = dbf_read_rec(tbl, 1u, out, &deleted);
+    snprintf(msg, sizeof(msg),
+             "TAX(rw): dbf_read_rec(1) rc=%d (initech-jf8p: was -DBF_ERR_BAD_REC=%d "
+             "pre-fix, reading the +2 terminator's padding byte as the delete flag)",
+             rc, (int)DBF_ERR_BAD_REC);
+    CHECK(rc == DBF_OK, msg);
+    if (rc == DBF_OK) {
+        snprintf(msg, sizeof(msg), "TAX(rw) rec1: deleted==0 (flag 0x20 live)");
+        CHECK(deleted == 0, msg);
+        check_field_type("TAX(rw)", 1, 0, &out[0], XB_N);
+        check_field_double("TAX(rw)", 1, 0, &out[0], 1.0);
+        check_field_type("TAX(rw)", 1, 1, &out[1], XB_C);
+        check_field_c_trimmed("TAX(rw)", 1, 1, &out[1], "Business Expenses");
+    }
+
+    /* --- last record too (recno 9): CODE=9 TITLE="Miscellaneous". --- */
+    rc = dbf_read_rec(tbl, 9u, out, &deleted);
+    snprintf(msg, sizeof(msg), "TAX(rw): dbf_read_rec(9) rc=%d", rc);
+    CHECK(rc == DBF_OK, msg);
+    if (rc == DBF_OK) {
+        check_field_type("TAX(rw)", 9, 0, &out[0], XB_N);
+        check_field_double("TAX(rw)", 9, 0, &out[0], 9.0);
+        check_field_type("TAX(rw)", 9, 1, &out[1], XB_C);
+        check_field_c_trimmed("TAX(rw)", 9, 1, &out[1], "Miscellaneous");
+    }
+
+    dbf_close(tbl);
+
+    /* --- regression guard: a +1-form file via dbf_open_rw still reads fine.
+     * TOURS.DBF is +1-form (test_dbf_header.c MANIFEST term_extra=1); the fix
+     * must not disturb the (already-working) common case. --- */
+    {
+        dbf_table *t2 = NULL;
+        xb_val out2[7];
+        int del2 = -1;
+        char path2[1024];
+
+        join(path2, sizeof(path2), base, SP_PATH "/TOURS.DBF");
+        if (file_exists(path2)) {
+            rc = dbf_open_rw(pal, path2, &t2);
+            snprintf(msg, sizeof(msg), "TOURS(rw): dbf_open_rw succeeds (rc=%d)", rc);
+            CHECK(rc == DBF_OK && t2 != NULL, msg);
+            if (rc == DBF_OK && t2) {
+                snprintf(msg, sizeof(msg), "TOURS(rw): term_extra==1 (+1-form, no regression)");
+                CHECK(dbf_term_extra(t2) == 1u, msg);
+                rc = dbf_read_rec(t2, 1u, out2, &del2);
+                snprintf(msg, sizeof(msg), "TOURS(rw): dbf_read_rec(1) rc=%d (no regression)", rc);
+                CHECK(rc == DBF_OK, msg);
+                if (rc == DBF_OK)
+                    check_field_c_trimmed("TOURS(rw)", 1, 0, &out2[0], "AV10");
+                dbf_close(t2);
+            }
+        }
+    }
+}
+
+/* ============================================================
+ * TIER 0 (initech-jf8p, synthetic): hand-minted +2-form .dbf, KNOWN records,
+ * driven through the FULL dbf_open_rw -> read -> replace -> flush -> read
+ * cycle. Proves the fix keeps BOTH jobs tbl->header_length does distinct and
+ * correct:
+ *   (a) dbf_read_rec BEFORE any flush must use the TRUE on-disk (+2) offset
+ *       (the bug: it used a premature +1 normalization instead);
+ *   (b) dbf_flush's write geometry -- line 602's ORIGINAL legitimate purpose,
+ *       "dbf_flush always emits exactly one 0x0D terminator (the +1 form),
+ *       so a subsequent flush stays self-consistent" -- must still be right,
+ *       and a dbf_read_rec AFTER flush (same handle, no re-open) must track
+ *       the new +1-form layout dbf_flush just wrote.
+ *
+ * Synthetic .dbf layout (dBASE III+, +2 terminator, no memo), 1 field V C(2):
+ *   Header (32B): ver=0x03; nrec=2; hlen=66 (32+32*1+2, the +2 form); rlen=3.
+ *   Descriptor (32B): name="V"; type='C'; len=2; dec=0.
+ *   Terminator (2B): 0x0D 0x00 -- the +2 form (dbf.md sec 4).
+ *   rec1 (disk offset 66): 0x20 "AB"   rec2 (disk offset 69): 0x20 "CD"
+ * This is a HAND-AUTHORED fixture (Law 2, independent of dbf.c): the expected
+ * field values below are transcribed from the bytes we wrote, not derived
+ * from the codec under test.
+ *
+ * Ref: dbf.md sec 4 (+1/+2 terminator forms); dbf.h dbf_open_rw ("normalized
+ * ... ON FLUSH"); dbf.c dbf_flush (the +1 emitter); bead initech-jf8p.
+ * ============================================================ */
+static void test_synthetic_plus2_rw_roundtrip(samir_pal_t *pal)
+{
+    const char *tmppath = "/tmp/test_dbf_read_plus2_rw.dbf";
+    FILE *f;
+    dbf_table *tbl = NULL;
+    xb_val out[1];
+    int deleted = -1;
+    int rc;
+    char msg[256];
+
+    uint8_t hdr[32];
+    uint8_t desc[32];
+    uint8_t term[2];
+    uint8_t rec1[3];
+    uint8_t rec2[3];
+
+    memset(hdr, 0, sizeof(hdr));
+    memset(desc, 0, sizeof(desc));
+
+    /* Header (dbf.md sec 2): [0]=ver, [4-7]=nrec LE, [8-9]=hlen LE, [10-11]=rlen LE. */
+    hdr[0x00] = 0x03u;
+    hdr[0x01] = 0; hdr[0x02] = 0; hdr[0x03] = 0;
+    hdr[0x04] = 2; hdr[0x05] = 0; hdr[0x06] = 0; hdr[0x07] = 0;  /* nrec=2 */
+    hdr[0x08] = 66; hdr[0x09] = 0;   /* header_length = 66 = 32+32+2 (+2 form) */
+    hdr[0x0A] = 3;  hdr[0x0B] = 0;   /* record_length = 3 = 1(flag)+2(field) */
+
+    /* Field descriptor (dbf.md sec 4): name="V\0..."; type='C'; len=2; dec=0. */
+    desc[0x00] = 'V'; desc[0x01] = 0;
+    desc[0x0B] = 'C';
+    desc[0x10] = 2;
+    desc[0x11] = 0;
+
+    term[0] = 0x0Du; term[1] = 0x00u;   /* the +2 form: 0x0D THEN a padding 0x00 */
+
+    rec1[0] = 0x20u; rec1[1] = 'A'; rec1[2] = 'B';
+    rec2[0] = 0x20u; rec2[1] = 'C'; rec2[2] = 'D';
+
+    f = fopen(tmppath, "wb");
+    snprintf(msg, sizeof(msg), "synthetic-+2-rw: create temp file");
+    CHECK(f != NULL, msg);
+    if (!f) return;
+    fwrite(hdr, 1, 32, f);
+    fwrite(desc, 1, 32, f);
+    fwrite(term, 1, 2, f);
+    fwrite(rec1, 1, 3, f);
+    fwrite(rec2, 1, 3, f);
+    fclose(f);
+
+    /* --- dbf_open_rw + read BEFORE any flush: must see the true +2 offset --- */
+    rc = dbf_open_rw(pal, tmppath, &tbl);
+    snprintf(msg, sizeof(msg), "synthetic-+2-rw: dbf_open_rw rc=%d", rc);
+    CHECK(rc == DBF_OK && tbl != NULL, msg);
+    if (rc != DBF_OK || !tbl) { remove(tmppath); return; }
+
+    snprintf(msg, sizeof(msg), "synthetic-+2-rw: term_extra==2 before flush");
+    CHECK(dbf_term_extra(tbl) == 2u, msg);
+    snprintf(msg, sizeof(msg), "synthetic-+2-rw: header_length==66 before flush");
+    CHECK(dbf_header_length(tbl) == 66u, msg);
+
+    rc = dbf_read_rec(tbl, 1u, out, &deleted);
+    snprintf(msg, sizeof(msg),
+             "synthetic-+2-rw: dbf_read_rec(1) BEFORE flush rc=%d (initech-jf8p)", rc);
+    CHECK(rc == DBF_OK, msg);
+    if (rc == DBF_OK) {
+        CHECK(deleted == 0, "synthetic-+2-rw rec1: deleted==0");
+        check_field_type("synthetic-+2-rw", 1, 0, &out[0], XB_C);
+        check_field_c_prefix("synthetic-+2-rw", 1, 0, &out[0], "AB", 2);
+    }
+
+    rc = dbf_read_rec(tbl, 2u, out, &deleted);
+    snprintf(msg, sizeof(msg),
+             "synthetic-+2-rw: dbf_read_rec(2) BEFORE flush rc=%d", rc);
+    CHECK(rc == DBF_OK, msg);
+    if (rc == DBF_OK)
+        check_field_c_prefix("synthetic-+2-rw", 2, 0, &out[0], "CD", 2);
+
+    /* --- REPLACE rec1 -> "ZZ", flush (line 602's real job: the +1-form the
+     * flush ALWAYS emits), then read back on the SAME handle. --- */
+    {
+        xb_val v = xb_c("ZZ", 2);
+        rc = dbf_replace(tbl, 1u, 0, &v);
+        snprintf(msg, sizeof(msg), "synthetic-+2-rw: dbf_replace rc=%d", rc);
+        CHECK(rc == DBF_OK, msg);
+    }
+    rc = dbf_flush(tbl);
+    snprintf(msg, sizeof(msg), "synthetic-+2-rw: dbf_flush rc=%d", rc);
+    CHECK(rc == DBF_OK, msg);
+
+    snprintf(msg, sizeof(msg), "synthetic-+2-rw: header_length normalizes to 65 (+1) after flush");
+    CHECK(dbf_header_length(tbl) == 65u, msg);   /* 32+32+1; flush always emits +1 */
+    snprintf(msg, sizeof(msg), "synthetic-+2-rw: term_extra==1 after flush");
+    CHECK(dbf_term_extra(tbl) == 1u, msg);
+
+    rc = dbf_read_rec(tbl, 1u, out, &deleted);
+    snprintf(msg, sizeof(msg),
+             "synthetic-+2-rw: dbf_read_rec(1) AFTER flush rc=%d (sees new bytes)", rc);
+    CHECK(rc == DBF_OK, msg);
+    if (rc == DBF_OK)
+        check_field_c_prefix("synthetic-+2-rw post-flush", 1, 0, &out[0], "ZZ", 2);
+
+    dbf_close(tbl);
+
+    /* --- re-open fresh (read-only) from disk: confirm the flushed +1-form
+     * file is self-consistent and independently re-readable. --- */
+    {
+        dbf_table *t2 = NULL;
+        rc = dbf_open(pal, tmppath, &t2);
+        snprintf(msg, sizeof(msg), "synthetic-+2-rw: re-open after flush rc=%d", rc);
+        CHECK(rc == DBF_OK && t2 != NULL, msg);
+        if (rc == DBF_OK && t2) {
+            snprintf(msg, sizeof(msg), "synthetic-+2-rw: re-open term_extra==1");
+            CHECK(dbf_term_extra(t2) == 1u, msg);
+            rc = dbf_read_rec(t2, 1u, out, &deleted);
+            CHECK(rc == DBF_OK, "synthetic-+2-rw: re-open dbf_read_rec(1) rc==DBF_OK");
+            if (rc == DBF_OK)
+                check_field_c_prefix("synthetic-+2-rw re-open", 1, 0, &out[0], "ZZ", 2);
+            rc = dbf_read_rec(t2, 2u, out, &deleted);
+            CHECK(rc == DBF_OK, "synthetic-+2-rw: re-open dbf_read_rec(2) rc==DBF_OK");
+            if (rc == DBF_OK)
+                check_field_c_prefix("synthetic-+2-rw re-open", 2, 0, &out[0], "CD", 2);
+            dbf_close(t2);
+        }
+    }
+
+    remove(tmppath);
+}
+
+/* ============================================================
  * TIER 0 (synthetic): deleted-record test.
  *
  * The corpus goldens have no 0x2A-flagged records (dbf.md sec 6 note).
@@ -761,8 +1034,15 @@ int main(int argc, char **argv)
     test_tax_recs(pal, base);
     test_bank_norec(pal, base);
 
+    /* ---- Tier 0 (initech-jf8p): dbf_open_rw + +2-form record read ---- */
+    test_tax_rw_plus2form(pal, base);
+
     /* ---- Tier 0: synthetic deleted-record (always runs, no golden needed) ---- */
     test_synthetic_deleted(pal);
+
+    /* ---- Tier 0 (initech-jf8p, synthetic): hand-minted +2-form RW round-trip
+     * (always runs, no golden needed) ---- */
+    test_synthetic_plus2_rw_roundtrip(pal);
 
     pal_host_free(pal);
     return TEST_SUMMARY("test-dbf-read");
