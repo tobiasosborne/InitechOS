@@ -36,9 +36,9 @@
  * <stdint.h>/<stddef.h> + the locked headers.
  *
  * THE MUTATION SWITCHES (Rule 6): test_window.c compiles this file with
- * -DWINDOW_MUTATE_OVERPAINT and -DWINDOW_MUTATE_ZORDER to prove the oracle
- * bites. The switches are documented at their use sites; the default build
- * defines neither.
+ * -DWINDOW_MUTATE_OVERPAINT, -DWINDOW_MUTATE_ZORDER, and
+ * -DWINDOW_MUTATE_NO_DEACT_INVAL to prove the oracle bites. The switches are
+ * documented at their use sites; the default build defines none of them.
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -171,13 +171,51 @@ static void list_push_front(WindowMgr *wm, WindowPtr w)
     wm->front = w;
 }
 
-/* The frontmost VISIBLE window is active; every other window inactive. */
+/* The frontmost VISIBLE window is active; every other window inactive.
+ *
+ * Ref: bead initech-v6t2; ADR-0004 D-5. BUG (fixed here): this loop used to
+ * only flip the in-memory `hilited` flag -- a window whose hilited went
+ * 1->0 (it WAS the active window and just lost that status) never had any
+ * repaint seeded, so its active-style chrome stayed on screen until an
+ * unrelated expose happened to cover/re-expose it. FIX: on a 1->0
+ * transition, seed that window's repaint by adding its current visible
+ * region to its updateRgn, reusing the existing WindowMgr_invalidate
+ * primitive (the same accumulate-into-updateRgn idiom HideWindow/
+ * DisposeWindow use via visible_into, window.c ~314/332). `rect` is passed
+ * as region_get_bbox(p->strucRgn): a bounding rect is always a superset of
+ * strucRgn, which is always a superset of visible(p) (visible_into DIFFs
+ * strucRgn by the fronts-union), so WindowMgr_invalidate's internal SECT
+ * with visible(p) yields exactly visible(p) -- no over-invalidate. If p is
+ * hidden (visible == 0, e.g. reaffirm_active called from HideWindow after
+ * w->visible was cleared), WindowMgr_invalidate is a documented no-op
+ * ("if (!w->visible) return;"), which is correct: a hidden window owes no
+ * repaint (HideWindow/DisposeWindow already clear its updateRgn).
+ * WindowMgr_invalidate itself calls list_contains(wm, p); `p` is always
+ * still linked here because we are iterating wm->front's own list, so that
+ * check always succeeds (a DisposeWindow'd window is unlinked BEFORE this
+ * loop runs, per window.c:336, so it is never visited here at all).
+ *
+ * Only the 1->0 (deactivation) transition is seeded. The 0->1 (activation)
+ * transition is deliberately left alone: NewWindow/ShowWindow/SelectWindow
+ * document that the NEWLY-active window's own repaint is the CALLER's
+ * concern (see their doc comments in window.h -- "the caller seeds
+ * updateRgn via WindowMgr_invalidate"); blanket-seeding 0->1 here would
+ * silently paper over a caller that forgets to invalidate, which defeats
+ * that documented contract and duplicates work the caller already owns.
+ * The bug report (initech-v6t2) is specifically about the deactivation
+ * half; this is the minimal, root-cause fix for it. */
 static void reaffirm_active(WindowMgr *wm)
 {
     int seen_front = 0;
     for (WindowPtr p = wm->front; p != NULL; p = p->nextWindow) {
+        uint8_t was_hilited = p->hilited;
         if (!seen_front && p->visible) { p->hilited = 1; seen_front = 1; }
         else p->hilited = 0;
+        if (was_hilited && !p->hilited) {
+#ifndef WINDOW_MUTATE_NO_DEACT_INVAL
+            WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
+#endif
+        }
     }
 }
 

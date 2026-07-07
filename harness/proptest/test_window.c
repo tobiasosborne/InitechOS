@@ -278,6 +278,21 @@ int main(void)
                 NewWindow(&M.wm, &W[i].rec, s, c, documentKind, documentProc, 1);
             }
 
+            /* Ref: bead initech-v6t2. NewWindow's reaffirm_active now seeds a
+             * repaint on every 1->0 hilited transition (the deactivation-
+             * repaint fix), so building an n-window stack above may itself
+             * have left construction-time damage in the updateRgn of every
+             * window that lost front-window status along the way (each
+             * window but the last created). That construction damage is real
+             * and correct, but it is NOT what this property measures -- this
+             * property isolates the damage caused SPECIFICALLY by the
+             * MoveWindow call below. Validate (clear) every updateRgn first,
+             * exactly as a real event pump would between an app's earlier
+             * BeginUpdate/EndUpdate and the next operation, so `truth` (which
+             * only accounts for pixels the MOVE exposes) matches what is
+             * measured. */
+            for (int i = 0; i < n; i++) WindowMgr_validate(&W[i].rec);
+
             /* pick a window to move (any in the stack) + a random delta. */
             int mw = rnd(0, n - 1);
             rgn_rect_t os = region_get_bbox(W[mw].rec.strucRgn);
@@ -393,6 +408,122 @@ int main(void)
     }
 
     /* ======================================================================
+     * DEACTIVATION REPAINT (bead initech-v6t2; ADR-0004 D-5): reaffirm_active
+     * must SEED a repaint for the window that LOSES active status, not just
+     * flip its `hilited` flag -- otherwise the ex-front window keeps
+     * active-style chrome until an unrelated expose repaints it. Directed
+     * case first (hand-verifiable geometry), then a randomized property.
+     *
+     * MUTANT WINDOW_MUTATE_NO_DEACT_INVAL (Rule 6): reverts reaffirm_active
+     * to the original flip-only behaviour -- both checks below go RED.
+     * ====================================================================== */
+    {
+        /* Directed: w2 created first (front), then w1 created overlapping it
+         * (w1 becomes front, hilited=1) -- exactly the "w1 front, hilited=1"
+         * setup the bug report describes. SelectWindow(w2) then deactivates
+         * w1: w1->updateRgn must become non-empty and must equal w1's OWN
+         * visible region post-select -- neither under- nor over-invalidated.
+         * The expected pixels are hand-derived from the rects (Law 2: an
+         * independent ground truth, not a call into visible_into/
+         * ComputeVisible, the primitive the fix under test itself calls). */
+        static win_store_t w1, w2; static mgr_store_t M;
+        mgr_attach(&M, FRAME);
+
+        win_attach(&w2);
+        rgn_rect_t s2 = { 0, 0, 20, 24 };         /* w2 struc: y[0,20) x[0,24) */
+        rgn_rect_t c2 = { 3, 1, 19, 23 };
+        NewWindow(&M.wm, &w2.rec, s2, c2, documentKind, documentProc, 1);
+
+        win_attach(&w1);
+        rgn_rect_t s1 = { 10, 10, 30, 34 };       /* w1 struc: y[10,30) x[10,34), overlaps w2 */
+        rgn_rect_t c1 = { 13, 11, 29, 33 };
+        NewWindow(&M.wm, &w1.rec, s1, c1, documentKind, documentProc, 1);
+
+        CHECK(w1.rec.hilited == 1 && M.wm.front == &w1.rec,
+              "deactivation-repaint setup: w1 is front and hilited after creation");
+
+        SelectWindow(&M.wm, &w2.rec);             /* deactivates w1 (1->0) */
+
+        CHECK(w1.rec.hilited == 0, "deactivation-repaint setup: w1 lost hilited after SelectWindow(w2)");
+        CHECK(!region_is_empty(w1.rec.updateRgn),
+              "SelectWindow: deactivated w1's updateRgn is seeded (non-empty)");
+
+        /* A pixel in w1 NOT covered by w2 (y=25,x=15 -- below w2's y<20 band)
+         * must be in w1's updateRgn: it is genuinely visible-and-owed. */
+        CHECK(region_contains_point(w1.rec.updateRgn, 15, 25) != 0,
+              "SelectWindow: w1's updateRgn covers a pixel actually visible after deactivation");
+        /* A pixel w2 now covers (y=15,x=15 -- inside both structs, w2 is
+         * front) must NOT be in w1's updateRgn: no over-invalidate past
+         * w1's own currently-visible region. */
+        CHECK(region_contains_point(w1.rec.updateRgn, 15, 15) == 0,
+              "SelectWindow: w1's updateRgn does NOT cover a pixel w2 now occludes (no over-invalidate)");
+    }
+
+    {
+        /* Randomized: random overlapping stacks; SelectWindow a random
+         * non-front window; the OLD front window's updateRgn must equal
+         * EXACTLY its own currently-visible region, verified against the
+         * INDEPENDENT owner-grid ground truth (rasterized front-to-back
+         * ownership -- the same idiom PROPERTY 1/2 above use, Law 2: not a
+         * re-call of visible_into/ComputeVisible, the primitive under test). */
+        enum { CASES = 800, MAXW = 5 };
+        int empty_bad = 0;      /* deactivated window's updateRgn wrongly stayed empty */
+        int mismatch_bad = 0;   /* updateRgn != its own currently-visible region        */
+
+        for (int t = 0; t < CASES && !empty_bad && !mismatch_bad; t++) {
+            static win_store_t W[MAXW];
+            static mgr_store_t M;
+            mgr_attach(&M, FRAME);
+            int n = rnd(2, MAXW);
+            win_store_t *idx[MAXW];
+            for (int i = 0; i < n; i++) {
+                win_attach(&W[i]);
+                idx[i] = &W[i];
+                rgn_rect_t s, c; gen_window_rects(&s, &c);
+                NewWindow(&M.wm, &W[i].rec, s, c, documentKind, documentProc, 1);
+            }
+
+            /* NewWindow always pushes to front, so the LAST created (index
+             * n-1) is front/hilited right after the loop above. */
+            int old_front = n - 1;
+
+            /* Clear construction-time deactivation damage (same reasoning as
+             * the MoveWindow/HideWindow properties above) so the ONLY damage
+             * measured below is the one SelectWindow call under test. */
+            for (int i = 0; i < n; i++) WindowMgr_validate(&W[i].rec);
+
+            /* Pick a DIFFERENT window to select; always < old_front (== n-1),
+             * so this always causes an actual 1->0 deactivation of old_front. */
+            int sel = rnd(0, n - 2);
+
+            SelectWindow(&M.wm, &W[sel].rec);
+
+            owngrid_t after; build_owner_grid(&M.wm, idx, n, &after);
+            uint8_t truth[GW * GH];
+            for (int j = 0; j < GW * GH; j++)
+                truth[j] = (after.own[j] == (uint8_t)old_front) ? 1 : 0;
+
+            uint8_t updg[GW * GH];
+            rasterize_set(W[old_front].rec.updateRgn, updg);
+
+            int any_truth = 0;
+            for (int j = 0; j < GW * GH; j++) if (truth[j]) { any_truth = 1; break; }
+            if (any_truth) {
+                int any_upd = 0;
+                for (int j = 0; j < GW * GH; j++) if (updg[j]) { any_upd = 1; break; }
+                if (!any_upd) empty_bad = 1;
+            }
+
+            for (int j = 0; j < GW * GH; j++)
+                if (updg[j] != truth[j]) { mismatch_bad = 1; break; }
+        }
+        CHECK(!empty_bad,
+              "SelectWindow: deactivated window's updateRgn is seeded whenever it is still visible");
+        CHECK(!mismatch_bad,
+              "SelectWindow: deactivated window's updateRgn == its visible region (owner-grid truth), 800 stacks");
+    }
+
+    /* ======================================================================
      * FindWindow: front-most window containing the point, correct part-code.
      * Directed cases (deterministic geometry) + a randomized front-most check.
      * ====================================================================== */
@@ -453,6 +584,10 @@ int main(void)
                 rgn_rect_t s, c; gen_window_rects(&s, &c);
                 NewWindow(&M.wm, &W[i].rec, s, c, documentKind, documentProc, 1);
             }
+            /* Ref: bead initech-v6t2 -- see the identical note in the
+             * MoveWindow-damage property above. Clear construction-time
+             * deactivation damage before measuring HideWindow's own delta. */
+            for (int i = 0; i < n; i++) WindowMgr_validate(&W[i].rec);
             int hw = rnd(0, n - 1);
             owngrid_t before; build_owner_grid(&M.wm, idx, n, &before);
             HideWindow(&M.wm, &W[hw].rec);

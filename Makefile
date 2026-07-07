@@ -9560,6 +9560,7 @@ TEST_WINDOW     := $(BUILD)/test_window
 TEST_WINDOW_SRC := harness/proptest/test_window.c
 TEST_WINDOW_MUT_ZORDER    := $(BUILD)/test_window_mutant_zorder
 TEST_WINDOW_MUT_OVERPAINT := $(BUILD)/test_window_mutant_overpaint
+TEST_WINDOW_MUT_NO_DEACT_INVAL := $(BUILD)/test_window_mutant_no_deact_inval
 TEST_WINDOW_DEPS := os/flair/window.c os/flair/window.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h
 WINDOW_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
 WINDOW_LINK := os/flair/window.c $(REGION_ENGINE_C)
@@ -9570,6 +9571,8 @@ $(TEST_WINDOW_MUT_ZORDER): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_ZORDER $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_OVERPAINT): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_OVERPAINT $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_NO_DEACT_INVAL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_NO_DEACT_INVAL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 
 test-window: $(TEST_WINDOW)
 	@printf ">>> test-window: visible region (strucRgn DIFF fronts) + DiffRgn damage (no over-repaint, D-5) + z-order + FindWindow\n"
@@ -9578,10 +9581,11 @@ test-window: $(TEST_WINDOW)
 		|| { printf '!!! test-window FAIL: window.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-window: green\n"
 
-test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT)
-	@printf ">>> test-window-mutant: confirming both mutants go RED (Rule 6)\n"
+test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TEST_WINDOW_MUT_NO_DEACT_INVAL)
+	@printf ">>> test-window-mutant: confirming all three mutants go RED (Rule 6)\n"
 	@if $(TEST_WINDOW_MUT_ZORDER) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZORDER PASSED -- the visible-region oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZORDER correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_OVERPAINT) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: OVERPAINT PASSED -- the no-over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (OVERPAINT correctly RED)\n'; fi
+	@if $(TEST_WINDOW_MUT_NO_DEACT_INVAL) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: NO_DEACT_INVAL PASSED -- the deactivation-repaint oracle (initech-v6t2) is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (NO_DEACT_INVAL correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
