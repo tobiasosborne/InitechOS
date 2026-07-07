@@ -299,6 +299,19 @@ int main(void)
     CHECK(recover_owner(&WU.rec) == NULL,
           "scene: the UNOWNED window WU (refCon 0) is owned by NO resident app (route must tolerate it)");
 
+    /* Ref: bead initech-v6t2. NewWindow's reaffirm_active now seeds a repaint on
+     * every 1->0 hilited transition (the deactivation-repaint fix), so the cascaded
+     * NewWindow construction above left construction-time damage in the updateRgn of
+     * every window that lost front status (WU, WA1, WB0). Validate (clear) all scene
+     * windows first -- as a real event pump would between construction and the next
+     * operation -- so this test measures ONLY the explicit invalidations below
+     * (WA0/WB0/WU), not construction side-effects (assertions unchanged; baseline
+     * corrected -- the same isolation test_window.c adopts for the v6t2 behavior). */
+    WindowMgr_validate(&WU.rec);
+    WindowMgr_validate(&WA1.rec);
+    WindowMgr_validate(&WB0.rec);
+    WindowMgr_validate(&WA0.rec);
+
     /* ===== invalidate the chosen subset: WA0, WB0, WU -- NOT WA1 ===== */
     WindowMgr_invalidate(&M.wm, &WA0.rec, A0c);
     WindowMgr_invalidate(&M.wm, &WB0.rec, B0c);
