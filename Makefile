@@ -926,6 +926,8 @@ TEST_INTERP_USE_MUT  := $(BUILD)/test_interp_use_mut
 # S4.5 .ndx incremental maintenance (initech-ahu.5).
 TEST_NDX_MAINTAIN     := $(BUILD)/test_ndx_maintain
 TEST_NDX_MAINTAIN_MUT := $(BUILD)/test_ndx_maintain_mut
+# non-unique equal-key-run delete descent (initech-0g22).
+TEST_NDX_MAINTAIN_SPANMUT := $(BUILD)/test_ndx_maintain_spanmut
 # S5.2 navigation GO/SKIP/TOP/BOTTOM/EOF/BOF (initech-7az.3).
 SAMIR_NAV_SRC     := $(SAMIR_CMD_DIR)/nav.c
 TEST_INTERP_NAV      := $(BUILD)/test_interp_nav
@@ -1933,6 +1935,9 @@ $(TEST_NDX_MAINTAIN): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAM
 $(TEST_NDX_MAINTAIN_MUT): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_INSERT_NOSORT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_NDX_MAINTAIN_SPANMUT): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_DELETE_NOSPAN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-ndx-maintain
 test-ndx-maintain: $(TEST_NDX_MAINTAIN)
@@ -1949,6 +1954,17 @@ test-ndx-maintain-mutant: $(TEST_NDX_MAINTAIN_MUT)
 		printf '!!! test-ndx-maintain-mutant FAIL: mutant PASSED -- the sorted-insert invariant is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-ndx-maintain-mutant: green (no-sorted-insert correctly RED)\n'; \
+	fi
+
+.PHONY: test-ndx-maintain-span-mutant
+test-ndx-maintain-span-mutant: $(TEST_NDX_MAINTAIN_SPANMUT)
+	@printf ">>> test-ndx-maintain-span-mutant: confirming the no-equal-key-run-walk mutant goes RED (Rule 6; initech-0g22)\n"
+	@$(TEST_NDX_MAINTAIN_SPANMUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-ndx-maintain-span-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_NDX_MAINTAIN_SPANMUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-ndx-maintain-span-mutant FAIL: mutant PASSED -- the equal-key-run delete walk is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ndx-maintain-span-mutant: green (no-equal-key-run-walk correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-2 memo: .dbt III+ memo READ (S2.1 / initech-aul.6) ----
@@ -16860,7 +16876,7 @@ TEST_UNIT_GATES := \
 	test-ndx-keys test-ndx-keys-mutant \
 	test-ndx-seek test-ndx-seek-mutant \
 	test-ndx-build test-ndx-build-mutant \
-	test-ndx-maintain test-ndx-maintain-mutant \
+	test-ndx-maintain test-ndx-maintain-mutant test-ndx-maintain-span-mutant \
 	test-dbt-read test-dbt-read-mutant \
 	test-dbt-roundtrip test-dbt-roundtrip-mutant \
 	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant \

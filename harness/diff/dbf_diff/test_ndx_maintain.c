@@ -606,6 +606,120 @@ static void test_notfound(samir_pal_t *pal, const char *tmpdir)
 }
 
 /* -----------------------------------------------------------------------
+ * Test 6 (initech-0g22): NON-UNIQUE index whose equal-key run SPANS leaves.
+ *
+ * Build a char index key_len=8 over 32 records that ALL carry the same key
+ * 'SMITH   '. group_len = ceil4(8+8) = 16, kpp = 508/16 = 31, so 32 keys spill
+ * to TWO leaves: leaf 1 = recnos 1..31 (all 'SMITH'), leaf 2 = recno 32
+ * ('SMITH'). The root branch's ONLY separator is the HIGH key of leaf 1 =
+ * 'SMITH', and branch entries carry dbf_recno == 0 (ndx.md ss5 + sec.6: "No
+ * record-number tiebreak is encoded in the key; equal keys are simply
+ * adjacent"). So the separator cannot distinguish which equal-key leaf holds a
+ * given recno.
+ *
+ * ndx_delete_key('SMITH', recno=32) MUST SUCCEED: the descent has to walk the
+ * equal-key run past leaf 1 into leaf 2 (the trailing child) rather than stop
+ * at the first separator whose key >= target (which reaches leaf 1 only).
+ *
+ * RED before initech-0g22 fix: the descent breaks at the first separator with
+ * key >= target -> leaf 1 only -> scan misses (SMITH,32) -> -NDX_ERR_NOTFOUND,
+ * even though ndx_inorder still visits (SMITH,32). Independent oracle (Law 2):
+ * the expected set is hand-authored from the ndx.md duplicate-spanning
+ * invariant + ndx_inorder (a DIFFERENT code path than the delete descent), not
+ * re-derived from ndx_delete_key itself.
+ *
+ * Ref (Law 1):
+ *   - ../dbase3-decomp/specs/file-formats/ndx.md sec.5 "Duplicates
+ *     (unique_flag==0): multiple entries may share a key value; each carries its
+ *     own dbf_recno" + sec.6 "No record-number tiebreak is encoded in the key".
+ *   - os/samir/include/samir/ndx.h ndx_delete_key contract (exact key AND recno).
+ * ----------------------------------------------------------------------- */
+
+#define DUP_KL 8u   /* char key_len=8 -> group_len 16 -> kpp 31 */
+
+/* callback: set seen=1 if the traversal visits `target` recno. */
+typedef struct { uint32_t target; int seen; } find_recno_ctx;
+static int find_recno_cb(void *raw, const uint8_t *key_data, uint32_t recno)
+{
+    find_recno_ctx *c = (find_recno_ctx *)raw;
+    (void)key_data;
+    if (recno == c->target) c->seen = 1;
+    return 0;
+}
+
+static void test_nonunique_multileaf_delete(samir_pal_t *pal, const char *tmpdir)
+{
+    char ndx_path[512];
+    uint8_t smith[DUP_KL];
+    uint8_t *kptrs[32];
+    array_provider_ctx apctx;
+    ndx_index *idx = (ndx_index *)0;
+    uint32_t i;
+    int rc;
+
+    path_join(ndx_path, sizeof(ndx_path), tmpdir, "maintain_dup_span.ndx");
+
+    str_to_key(smith, "SMITH", DUP_KL);
+    for (i = 0u; i < 32u; i++) kptrs[i] = smith;   /* all 32 recs share 'SMITH' */
+    apctx.keys    = (uint8_t **)kptrs;
+    apctx.key_len = (uint16_t)DUP_KL;
+
+    rc = ndx_build(pal, ndx_path, NDX_KEY_TYPE_CHAR, (uint16_t)DUP_KL,
+                   "LASTNAME", 32u, array_provider, &apctx);
+    CHECK(rc == NDX_OK, "dup-span: build 32x'SMITH' ok");
+    if (rc != NDX_OK) return;
+
+    rc = ndx_open_rw(pal, ndx_path, &idx);
+    CHECK(rc == NDX_OK, "dup-span: ndx_open_rw ok");
+    if (rc != NDX_OK) return;
+
+    /* Geometry guard: the test is only meaningful if the equal-key run actually
+     * spills across leaves (else the descent bug cannot manifest). */
+    CHECK(ndx_keys_per_page(idx) == 31u, "dup-span: kpp == 31 (32 keys -> 2 leaves)");
+    CHECK(ndx_total_pages(idx) == 4u, "dup-span: total_pages == 4 (2 leaves + root + hdr)");
+
+    /* baseline: all 32 equal-key entries present + in order. */
+    g_checks++;
+    if (!assert_inorder(idx, 32u, "dup-span: baseline inorder (32)"))
+        g_fails++;
+
+    /* THE BUG (initech-0g22): (SMITH, recno=32) lives in the SECOND leaf. */
+    rc = ndx_delete_key(idx, smith, 32u);
+    CHECK(rc == NDX_OK, "dup-span: delete (SMITH,32) in 2nd equal-key leaf succeeds");
+
+    /* after delete: 31 keys remain and recno 32 is GONE from the tree. */
+    g_checks++;
+    if (!assert_inorder(idx, 31u, "dup-span: inorder after delete (31 left)"))
+        g_fails++;
+    {
+        find_recno_ctx fctx;
+        fctx.target = 32u; fctx.seen = 0;
+        (void)ndx_inorder(idx, find_recno_cb, &fctx);
+        CHECK(fctx.seen == 0, "dup-span: recno 32 no longer visited by ndx_inorder");
+    }
+
+    /* the FIRST-leaf path must still work (no regression). */
+    rc = ndx_delete_key(idx, smith, 1u);
+    CHECK(rc == NDX_OK, "dup-span: delete (SMITH,1) in 1st leaf succeeds");
+    g_checks++;
+    if (!assert_inorder(idx, 30u, "dup-span: inorder after 2 deletes (30 left)"))
+        g_fails++;
+    {
+        find_recno_ctx fctx;
+        fctx.target = 1u; fctx.seen = 0;
+        (void)ndx_inorder(idx, find_recno_cb, &fctx);
+        CHECK(fctx.seen == 0, "dup-span: recno 1 no longer visited after delete");
+    }
+
+    /* a recno that was never present still fails loud (NOTFOUND). */
+    rc = ndx_delete_key(idx, smith, 99u);
+    CHECK(rc == -NDX_ERR_NOTFOUND,
+          "dup-span: delete (SMITH,99) NOTFOUND (never existed)");
+
+    ndx_close(idx);
+}
+
+/* -----------------------------------------------------------------------
  * Test 5: Tier-1 corpus check (loud-skip if golden absent)
  *
  * Build a fresh CNAMES-style char index from the first N corpus records'
@@ -748,6 +862,7 @@ int main(int argc, char **argv)
     test_num_split(pal, tmpdir);
     test_readonly_guard(pal, tmpdir);
     test_notfound(pal, tmpdir);
+    test_nonunique_multileaf_delete(pal, tmpdir);   /* initech-0g22 */
     test_tier1_corpus(pal, corpus_base);
 
     pal_host_free(pal);
