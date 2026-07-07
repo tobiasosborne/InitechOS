@@ -6842,6 +6842,7 @@ endef
         test-command test-command-mutant test-env test-env-mutant test-batch test-batch-mutant test-mz test-mz-mutant test-mzload test-mzload-mutant test-shell \
         test-ut6d test-ut6d-mutant \
         test-copy-selfcopy test-copy-selfcopy-mutant \
+        test-readerr-winh test-readerr-winh-mutant \
         test-zs24-exec test-zs24-exec-mutant \
         test-panic test-spurious test-kbd test-kbd-bochs test-kbd-unit test-kbd-unit-mutant \
         test-conin-unit test-conin-mutant test-conin \
@@ -14199,6 +14200,191 @@ test-copy-selfcopy-mutant: $(HARNESS_BIN) $(OJXN_MUT_TRACER_IMG)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-readerr-winh (beads initech-winh -- dos_read lacked a Carry-
+# Flag check, so an AH=3Fh READ ERROR came back looking like a byte count.)
+# ---------------------------------------------------------------------------
+# INDEPENDENCE (Law 2): the failing read is NOT synthesized by any test harness
+# poking bytes -- it is the REAL, ground-truth-cited device contract in
+# os/milton/devices.c (dev_prn_handler, DEVCMD_READ unconditionally sets
+# DEVST_ERROR: "PRN is a write-only device; a read from it is an error" --
+# Eggebrecht, "Writing MS-DOS Device Drivers", Ch.4, cited in devices.c ~305).
+# `TYPE PRN`/`COPY PRN <dst>` are ordinary DOS commands a user could actually
+# type; AH=3Dh OPEN-by-name binds a device SFT slot for PRN (int21.c do_open,
+# beads initech-6zd9) so OPEN succeeds, then the FIRST AH=3Fh READ hits
+# dev_route_rw -> DEVST_ERROR -> CF=1, AX=0x0005 (ACCESS_DENIED) in do_read
+# (int21.c ~2880). None of that path shares one line with dos_read's `sbb`
+# fix or with builtin_type/builtin_copy's DOS_READ_ERROR check -- the oracle
+# exercises a real kernel error completion, not a value the fix computed.
+#
+# THE BUG, demonstrated (recorded during this fix, beads initech-winh): booting
+# the UNFIXED tree and injecting `type prn<ret>exit<ret>` produced NO SHELL-EXIT
+# within an 8s timeout -- because the pre-fix dos_read handed back raw AX (5,
+# the DOS error code) on every CF=1 completion, builtin_type's `got == 0u`
+# EOF check never tripped, and the loop looped forever, each turn calling
+# dos_write on its on-stack `chunk` (untouched by the failed read -- pure
+# stack garbage on the first turn) for "5 bytes". The captured serial showed a
+# literal repeating 5-byte garbage unit (`\x04\x00\x00\x00\x95` cycling) grow
+# without bound and the `exit` keys were never consumed. This gate asserts the
+# FIXED behavior: a clean single diagnostic + immediate return to the prompt.
+#
+# Assert on the post-SHELL-READY REPL serial (every miss fail-loud, Law 2/Rule 2):
+#   1. NO triple-fault.
+#   2. SHELL-READY (the REPL was entered).
+#   3. `type prn` prints the catch-all diagnostic (MSG-DOS-0002) exactly ONCE
+#      (not a repeating garbage stream -- proves the loop did NOT run twice).
+#   4. `copy prn out.txt` ALSO prints MSG-DOS-0002 (builtin_copy's own
+#      DOS_READ_ERROR check), and the OUT.TXT it created is left EMPTY (`type
+#      out.txt` yields nothing) -- proves no garbage bytes were written to disk.
+#   5. EXIT halted cleanly (SHELL-EXIT + SHELL-DONE) -- proves NEITHER builtin
+#      hung (the defining symptom of the unfixed bug).
+# It BITES: test-readerr-winh-mutant boots a shell built with
+# -DCMD_MUTATE_NO_READ_CF (dos_read's CF capture short-circuited back to a bare
+# `int $0x21`, reproducing initech-winh verbatim) and asserts SHELL-EXIT is
+# ABSENT within a short timeout -- the exact hang this fix eliminates.
+# Ref: os/milton/command.c dos_read (~1582) + builtin_type (~2273) +
+# builtin_copy (~2501) + batch_load_file (~3193); os/milton/int21.c do_read
+# (~2843) + do_open device-by-name path (~2110); os/milton/devices.c
+# dev_prn_handler (~311); spec/dos_messages.json (MSG-DOS-0002). Rule 6.
+# TRI-EMULATOR: QEMU only (like test-shell/test-copy-selfcopy; initech-x0i).
+WINH_NAME    := readerr_winh
+WINH_SERIAL  := $(BUILD)/$(WINH_NAME).serial
+WINH_REPORT  := $(BUILD)/$(WINH_NAME).report
+# Keys (each token a key; "ret"=Enter, "spc"=space, "dot"='.'):
+#   type prn<ret>  copy prn out.txt<ret>  type out.txt<ret>  exit<ret>
+WINH_KEYS := t,y,p,e,spc,p,r,n,ret,c,o,p,y,spc,p,r,n,spc,o,u,t,dot,t,x,t,ret,t,y,p,e,spc,o,u,t,dot,t,x,t,ret,e,x,i,t,ret
+
+# Mutant shell (Rule 6): command.c compiled with -DCMD_MUTATE_NO_READ_CF so
+# dos_read hands back the raw (possibly CF=1) AX unchanged -- the initech-winh
+# regression verbatim. Built into a parallel shell ELF/bin/image reusing all
+# OTHER shell objects (only command.o differs), exactly the OJXN mutant pattern.
+WINH_MUT_COMMAND_OBJ := $(BUILD)/command_mut_winh.o
+WINH_MUT_SHELL_ELF   := $(BUILD)/kernel_shell_mut_winh.elf
+WINH_MUT_SHELL_BIN   := $(BUILD)/kernel_shell_mut_winh.bin
+WINH_MUT_TRACER_IMG  := $(BUILD)/tracer_boot_mut_winh.img
+WINH_MUT_NAME        := readerr_winh_mut
+WINH_MUT_SERIAL      := $(BUILD)/$(WINH_MUT_NAME).serial
+WINH_MUT_REPORT      := $(BUILD)/$(WINH_MUT_NAME).report
+
+$(WINH_MUT_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
+                         spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_READ_CF \
+		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
+
+WINH_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(WINH_MUT_COMMAND_OBJ)
+
+$(WINH_MUT_SHELL_ELF): $(WINH_MUT_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(WINH_MUT_SHELL_OBJS)
+
+$(WINH_MUT_SHELL_BIN): $(WINH_MUT_SHELL_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_mut_winh.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-mut-winh): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,shell-mut-winh)
+
+$(WINH_MUT_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(WINH_MUT_SHELL_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(WINH_MUT_SHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> winh mutant image: %s (dos_read CF-check bypassed -- TYPE/COPY PRN must hang)\n" "$@"
+
+.PHONY: test-readerr-winh test-readerr-winh-mutant
+test-readerr-winh: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-readerr-winh : AH=3Fh READ error != a byte count\n'
+	@printf '  Ref: os/milton/devices.c dev_prn_handler; spec/dos_messages.json (MSG-DOS-0002). Law 2/Rule 2.\n'
+	@printf '  beads initech-winh (P1). Inject: type prn / copy prn out.txt / type out.txt / exit.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s + disk %s (device OPEN-by-name needs no data file)\n' "$(TRACER_IMG)" "$(FAT_EXEC_IMG)"
+	@printf 'Expecting : ONE "Bad command or file name" per PRN read, OUT.TXT left empty, clean SHELL-EXIT\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+		--name "$(WINH_NAME)" --out "$(BUILD)" --timeout-ms 10000 \
+		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(WINH_REPORT)" || true
+	@cat "$(WINH_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(WINH_REPORT)"; then \
+		printf '!!! test-readerr-winh FAIL: TRIPLE FAULT -- the shell boot or a PRN read crashed\n'; exit 1; \
+	fi
+	@printf '>>> test-readerr-winh [1/5]: no triple-fault\n'
+	@if [ ! -s "$(WINH_SERIAL)" ]; then \
+		printf '!!! test-readerr-winh FAIL: no serial captured at %s\n' "$(WINH_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(WINH_SERIAL)" \
+		|| { printf '!!! test-readerr-winh FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
+	@printf '>>> test-readerr-winh [2/5]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@sed -n '/^SHELL-READY$$/,$$p' "$(WINH_SERIAL)" | tr -d '\r' > "$(BUILD)/$(WINH_NAME).repl"
+	@# ---- exactly ONE diagnostic from `type prn` (a repeat/garbage stream would
+	@# mean the read-error loop ran more than once -- the bug is back). ----
+	@tcnt=$$(awk '/^A:\\>type prn$$/{f=1;next} /^A:\\>/{f=0} f' "$(BUILD)/$(WINH_NAME).repl" | grep -cF 'Bad command or file name'); \
+	if [ "$$tcnt" != "1" ]; then \
+		printf '!!! test-readerr-winh FAIL: `type prn` diagnostic count = %s (want 1) -- a CF=1 read is leaking through as data again\n' "$$tcnt"; \
+		cat "$(BUILD)/$(WINH_NAME).repl"; exit 1; \
+	fi
+	@printf '>>> test-readerr-winh [3/5]: `type prn` -> exactly ONE "Bad command or file name" (no garbage loop)\n'
+	@# ---- `copy prn out.txt` ALSO aborts clean, and OUT.TXT is left EMPTY. ----
+	@ccnt=$$(awk '/^A:\\>copy prn out\.txt$$/{f=1;next} /^A:\\>/{f=0} f' "$(BUILD)/$(WINH_NAME).repl" | grep -cF 'Bad command or file name'); \
+	if [ "$$ccnt" != "1" ]; then \
+		printf '!!! test-readerr-winh FAIL: `copy prn out.txt` diagnostic count = %s (want 1)\n' "$$ccnt"; \
+		cat "$(BUILD)/$(WINH_NAME).repl"; exit 1; \
+	fi
+	@# builtin_type ALWAYS emits its own trailing "\r\n" trailer (~2301) even for
+	@# a zero-byte file, so the captured block is one blank line on a clean OUT.TXT
+	@# -- strip CR/LF and require NO surviving (garbage) characters.
+	@ochars=$$(awk '/^A:\\>type out\.txt$$/{f=1;next} /^A:\\>/{f=0} f' "$(BUILD)/$(WINH_NAME).repl" | tr -d '\r\n' | wc -c | tr -d ' '); \
+	if [ "$$ochars" != "0" ]; then \
+		printf '!!! test-readerr-winh FAIL: OUT.TXT is NOT empty (%s stray byte(s) beyond TYPE'"'"'s own CRLF trailer) -- builtin_copy wrote garbage before aborting\n' "$$ochars"; \
+		cat "$(BUILD)/$(WINH_NAME).repl"; exit 1; \
+	fi
+	@printf '>>> test-readerr-winh [4/5]: `copy prn out.txt` -> ONE diagnostic, OUT.TXT left EMPTY (no garbage written to disk)\n'
+	@# ---- EXIT halted cleanly -- proves neither builtin hung (the defining bug). ----
+	@grep -q '^SHELL-EXIT$$' "$(WINH_SERIAL)" \
+		|| { printf '!!! test-readerr-winh FAIL: SHELL-EXIT missing -- a PRN read hung the shell (the initech-winh symptom)\n'; exit 1; }
+	@grep -q '^SHELL-DONE$$' "$(WINH_SERIAL)" \
+		|| { printf '!!! test-readerr-winh FAIL: SHELL-DONE missing -- the REPL did not return to the halt loop\n'; exit 1; }
+	@printf '>>> test-readerr-winh [5/5]: SHELL-EXIT + SHELL-DONE (EXIT reached -- neither builtin hung)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- AH=3Fh CF=1 aborts clean in TYPE + COPY, no garbage, no hang (initech-winh)\n'
+	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# Mutation proof (Rule 6): the SAME script on a -DCMD_MUTATE_NO_READ_CF shell
+# must HANG (never print SHELL-EXIT) inside a short timeout -- i.e. the gate
+# BITES the exact regression this fix eliminates.
+test-readerr-winh-mutant: $(HARNESS_BIN) $(WINH_MUT_TRACER_IMG) $(FAT_EXEC_IMG)
+	@printf '>>> test-readerr-winh-mutant: confirming the no-CF-check mutant HANGS on a PRN read (Rule 6)\n'
+	@$(HARNESS_BIN) --disk "$(WINH_MUT_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+		--name "$(WINH_MUT_NAME)" --out "$(BUILD)" --timeout-ms 5000 \
+		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(WINH_MUT_REPORT)" || true
+	@if grep -q 'triple_fault=1' "$(WINH_MUT_REPORT)"; then \
+		printf '!!! test-readerr-winh-mutant FAIL: mutant TRIPLE FAULT -- cannot attribute the hang\n'; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(WINH_MUT_SERIAL)" \
+		|| { printf '!!! test-readerr-winh-mutant FAIL: mutant never entered the REPL -- RED is meaningless\n'; exit 1; }
+	@# The mutant must NOT reach SHELL-EXIT -- `type prn` loops forever on the
+	@# CF=1-as-byte-count bug, so the `exit` keys are never consumed.
+	@if grep -q '^SHELL-EXIT$$' "$(WINH_MUT_SERIAL)"; then \
+		printf '!!! test-readerr-winh-mutant FAIL: mutant reached SHELL-EXIT -- CMD_MUTATE_NO_READ_CF not effective (or TYPE PRN did not hang); the gate does not bite\n'; \
+		cat "$(BUILD)/$(WINH_MUT_NAME).serial" 2>/dev/null || true; exit 1; \
+	fi
+	@# Positive evidence the mutant actually ran the buggy loop (not a dead boot):
+	@# the post-SHELL-READY serial must be substantially larger than the fixed
+	@# leg's ~40-byte "type prn\r\n" + one diagnostic -- the repeating garbage unit.
+	@sed -n '/^SHELL-READY$$/,$$p' "$(WINH_MUT_SERIAL)" > "$(BUILD)/$(WINH_MUT_NAME).repl"
+	@rlen=$$(wc -c < "$(BUILD)/$(WINH_MUT_NAME).repl" | tr -d ' '); \
+	if [ "$$rlen" -lt "500" ]; then \
+		printf '!!! test-readerr-winh-mutant FAIL: post-SHELL-READY serial only %s bytes -- no evidence the read-error loop ran (dead boot?)\n' "$$rlen"; exit 1; \
+	fi; \
+	printf '>>> test-readerr-winh-mutant: green (mutant never reached SHELL-EXIT; %s bytes of runaway output -- the CF-blind read loops forever, the gate BITES)\n' "$$rlen"
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-ut6d (beads initech-ut6d -- COMMAND.COM MD/RD/CD subdir cycle)
 # ---------------------------------------------------------------------------
 # Wire the REPL to the landed AH=39h/3Ah/3Bh/47h directory handlers (u6wa/mzxa):
@@ -16924,6 +17110,7 @@ TEST_EMU_GATES := \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-copy-selfcopy test-copy-selfcopy-mutant \
+	test-readerr-winh test-readerr-winh-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm \
 	test-samir-boot test-samir-boot-mutant \

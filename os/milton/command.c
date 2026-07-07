@@ -1578,16 +1578,58 @@ static int dos_open(const char *path)
     return (int)(ax & 0xFFFFu);
 }
 
-/* AH=3Fh READ: EBX=handle, ECX=count, EDX=buffer. Returns bytes read (0=EOF). */
+/* Sentinel returned by dos_read on a CF=1 (error) completion of AH=3Fh. Every
+ * caller in this file passes a `count` bounded well under this value (128-byte
+ * TYPE/COPY chunks, the BATCH_FILE_MAX=4096 script cap), so a genuine byte
+ * count from AH=3Fh can never collide with it -- it is unambiguously "the read
+ * failed", distinct from the legitimate got==0 EOF case. */
+#define DOS_READ_ERROR 0xFFFFFFFFu
+
+/* AH=3Fh READ: EBX=handle, ECX=count, EDX=buffer. Returns bytes read (0=EOF),
+ * or DOS_READ_ERROR on a CF=1 completion (bad handle / device fault / corrupt
+ * chain -- int21.c do_read's set_ax(f, err); cf_set(f) legs). Ref: bead
+ * initech-winh (P1) -- the sibling wrappers immediately below/above
+ * (dos_open ~1565, dos_creat ~1608, dos_write_h ~1628, dos_open_mode ~1648)
+ * all capture CF with `sbb` and refuse to hand the caller a raw AX-on-error;
+ * this one used a bare `int $0x21` with NO carry capture, so on a read error
+ * (CF=1, AX=DOS error code, e.g. 0x0005 ACCESS_DENIED for a PRN read) the
+ * error code came back looking like a byte count. Every caller here treats
+ * ANY nonzero return as "more real data, keep reading" (only `got == 0u`
+ * meant EOF) -- so a CF=1/AX=5 completion read as "5 bytes" and the caller
+ * flushed 5 bytes of whatever was sitting in its on-stack chunk buffer
+ * (uninitialized on the very first read) to the destination, then looped
+ * back for another read, which failed the SAME way -- an infinite loop
+ * spewing garbage, never reaching EOF. Confirmed via `TYPE PRN` under the
+ * QEMU harness (PRN's read handler -- os/milton/devices.c dev_prn_handler,
+ * DEVCMD_READ -- always sets DEVST_ERROR, "PRN is a write-only device; a
+ * read from it is an error", Eggebrecht "Writing MS-DOS Device Drivers"
+ * Ch.4): the unfixed build never printed SHELL-EXIT and its serial log filled
+ * with a repeating 5-byte garbage unit. */
 static uint32_t dos_read(int handle, uint8_t *buf, uint32_t count)
 {
     uint32_t ax = 0x3F00u;
+    uint32_t carry = 0;
     __asm__ __volatile__(
-        "int $0x21"
-        : "+a"(ax)
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
         : "b"((uint32_t)handle), "c"(count), "d"((uint32_t)(uintptr_t)buf)
         : "cc", "memory");
-    return ax;   /* EAX = bytes read */
+#ifdef CMD_MUTATE_NO_READ_CF
+    /* MUTANT (Rule 6; make test-readerr-winh-mutant only): pretend the CF
+     * capture above never happened -- hand the caller the raw EAX exactly as
+     * the pre-fix code did, so a read error (CF=1, AX=DOS error code) is
+     * indistinguishable from a successful short read again. Reproduces
+     * initech-winh verbatim; the oracle must go RED. NEVER define in a real
+     * build. (void) keeps -Werror=unused-variable quiet about `carry`. */
+    (void)carry;
+    return ax;
+#else
+    if (carry != 0u) {
+        return DOS_READ_ERROR;   /* CF set -- do NOT hand back AX as a count */
+    }
+    return ax;   /* EAX = bytes read (0 = EOF) */
+#endif
 }
 
 /* AH=3Eh CLOSE: EBX=handle. */
@@ -2249,6 +2291,14 @@ static void builtin_type(const char *arg)
     }
     for (;;) {
         got = dos_read(handle, chunk, sizeof(chunk));
+        if (got == DOS_READ_ERROR) {
+            /* initech-winh: a read failure is NOT a byte count -- abort
+             * rather than flush `chunk` (possibly never written this call)
+             * to stdout as if it were real file content. */
+            dos_close(handle);
+            dos_print(MSG_DOS_0002 "\r\n$");   /* catch-all diagnostic */
+            return;
+        }
         if (got == 0u) {
             break;          /* EOF */
         }
@@ -2487,6 +2537,15 @@ static void builtin_copy(const char *arg)
 
     for (;;) {
         got = dos_read(src_h, chunk, sizeof(chunk));
+        if (got == DOS_READ_ERROR) {
+            /* initech-winh: a read failure is NOT a byte count -- abort
+             * rather than writing `chunk` (possibly never written this call)
+             * to the destination as if it were real source-file data. */
+            dos_close(src_h);
+            dos_close(dst_h);
+            dos_print(MSG_DOS_0002 "\r\n$");
+            return;
+        }
         if (got == 0u) {
             break;                              /* EOF -> the copy is complete */
         }
@@ -3145,6 +3204,16 @@ static int batch_load_file(const char *path, char *buf)
         }
         got = dos_read(fh, (uint8_t *)(buf + total),
                        (uint32_t)BATCH_FILE_MAX - total);
+        if (got == DOS_READ_ERROR) {
+            /* initech-winh: a read failure is NOT a byte count -- abort the
+             * WHOLE load (like the can't-open case above) rather than advance
+             * `total` by the error code and hand run_batch a truncated buffer
+             * with a corrupt tail to interpret as script text. The `len < 0`
+             * fail-safe at both call sites (run_batch / the CALL reload) then
+             * takes the SAME path as "could not open". */
+            dos_close(fh);
+            return -1;
+        }
         if (got == 0u) {
             break;   /* EOF */
         }
