@@ -890,6 +890,9 @@ TEST_DBT_ROUNDTRIP_MUT := $(BUILD)/test_dbt_roundtrip_mut
 SAMIR_FN_SRC      := $(SAMIR_DIR)/core/fn_builtins.c
 TEST_XBASE_FN_A     := $(BUILD)/test_xbase_fn_a
 TEST_XBASE_FN_A_MUT := $(BUILD)/test_xbase_fn_a_mut
+# initech-9u0f (P1): separate mutant binary, -DXB_MUTATE_FN_CTOD_CALVALID (drops
+# the CTOD calendar day-cap, distinct from the pre-existing SUBSTR mutant above).
+TEST_XBASE_FN_A_MUT_CTOD := $(BUILD)/test_xbase_fn_a_mut_ctod
 TEST_XBASE_FN_B     := $(BUILD)/test_xbase_fn_b
 TEST_XBASE_FN_B_MUT := $(BUILD)/test_xbase_fn_b_mut
 # Remaining III+ string functions (initech-7az.12) share fn_builtins.c.
@@ -2011,6 +2014,11 @@ $(TEST_XBASE_FN_A): $(DBF_DIFF_DIR)/test_xbase_fn_a.c $(SAMIR_EVAL_SRC) $(SAMIR_
 $(TEST_XBASE_FN_A_MUT): $(DBF_DIFF_DIR)/test_xbase_fn_a.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_SUBSTR -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_a.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+# initech-9u0f (P1): CTOD calendar-validity mutant -- drops the day-cap check
+# (Feb 31 / Apr 31 / non-leap Feb 29 roll forward instead of returning blank).
+$(TEST_XBASE_FN_A_MUT_CTOD): $(DBF_DIFF_DIR)/test_xbase_fn_a.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_CTOD_CALVALID -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_a.c $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
 
 .PHONY: test-xbase-fn-a
 test-xbase-fn-a: $(TEST_XBASE_FN_A)
@@ -2027,6 +2035,17 @@ test-xbase-fn-a-mutant: $(TEST_XBASE_FN_A_MUT)
 		printf '!!! test-xbase-fn-a-mutant FAIL: mutant PASSED -- the SUBSTR 1-based rule is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-xbase-fn-a-mutant: green (SUBSTR 0-based correctly RED)\n'; \
+	fi
+
+.PHONY: test-xbase-fn-a-mutant-ctod
+test-xbase-fn-a-mutant-ctod: $(TEST_XBASE_FN_A_MUT_CTOD)
+	@printf ">>> test-xbase-fn-a-mutant-ctod: confirming the CTOD calendar-cap mutant goes RED (Rule 6; initech-9u0f)\n"
+	@$(TEST_XBASE_FN_A_MUT_CTOD) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-xbase-fn-a-mutant-ctod FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_XBASE_FN_A_MUT_CTOD) >/dev/null 2>&1; then \
+		printf '!!! test-xbase-fn-a-mutant-ctod FAIL: mutant PASSED -- the CTOD calendar-cap check is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-xbase-fn-a-mutant-ctod: green (calendar-invalid rollover correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-3 functions B (freestanding): ABS/INT/MOD/ROUND/MAX/MIN/DOW/CDOW/CMONTH (S3.6a / initech-7az.11) ----
@@ -16809,7 +16828,7 @@ TEST_UNIT_GATES := \
 	test-dbt-roundtrip test-dbt-roundtrip-mutant \
 	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant \
 	test-xbase-eval test-xbase-eval-mutant test-xbase-coercion test-xbase-coercion-mutant \
-	test-xbase-fn-a test-xbase-fn-a-mutant \
+	test-xbase-fn-a test-xbase-fn-a-mutant test-xbase-fn-a-mutant-ctod \
 	test-xbase-fn-b test-xbase-fn-b-mutant \
 	test-xbase-fn-c test-xbase-fn-c-mutant \
 	test-xbase-fn-d test-xbase-fn-d-mutant \

@@ -107,6 +107,39 @@ static int is_char(const xb_val *v) { return v->t == XB_C || v->t == XB_M; }
  * Mirrors eval.c's static date_is_blank (kept local; freestanding, no export). */
 static int fn_date_blank(double jdn) { return jdn <= 0.0; }
 
+#ifndef XB_MUTATE_FN_CTOD_CALVALID
+/*
+ * xb_is_leap_year: proleptic Gregorian leap-year rule.
+ * Ref: the same Meeus Ch.7 Gregorian formula already cited for
+ * jdn_from_ymd/ymd_from_jdn (os/samir/include/samir/rt.h S2). Divisible by 4,
+ * EXCEPT century years not divisible by 400: 1900 is NOT leap, 2000 IS leap,
+ * 2100 is NOT leap. All within the CTOD valid range 1900-2155 (rt.h).
+ *
+ * Compiled out entirely under -DXB_MUTATE_FN_CTOD_CALVALID (Rule 6 mutant;
+ * see fn_ctod_impl below) -- its only caller, xb_days_in_month, is compiled
+ * out too, so leaving this in would be an unused-function -Werror.
+ */
+static int xb_is_leap_year(int yy)
+{
+    return (yy % 4 == 0 && yy % 100 != 0) || (yy % 400 == 0);
+}
+
+/*
+ * xb_days_in_month: calendar day cap for a 1-based month in year yy.
+ * Ref: standard Gregorian calendar (same source as xb_is_leap_year above).
+ * Caller must already have range-checked mm to [1..12]; out-of-range mm
+ * returns 0 (fails any dd > 0 comparison, i.e. always calendar-invalid).
+ */
+static int xb_days_in_month(int mm, int yy)
+{
+    static const int days_tbl[13] =
+        { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    if (mm < 1 || mm > 12) return 0;
+    if (mm == 2 && xb_is_leap_year(yy)) return 29;
+    return days_tbl[mm];
+}
+#endif
+
 /* Truncate a numeric arg toward zero to an int32 (string-functions.md: non-
  * integer length/index args truncate toward zero -- the [oracle-resolves]
  * conservative choice, consistent with the C cast). */
@@ -517,6 +550,29 @@ static int fn_ctod_impl(const xb_val *args, int nargs,
         if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yy < 1900 || yy > 2155) {
             *out = xb_d(0.0); *err = XBEE_OK; return 0;
         }
+#ifndef XB_MUTATE_FN_CTOD_CALVALID
+        /*
+         * initech-9u0f: the range check above (dd in [1..31]) is necessary
+         * but NOT sufficient -- April has 30 days, February has 28 or 29.
+         * Without this cap, CTOD('02/31/90') silently rolls forward into
+         * jdn_from_ymd(1990,2,31), producing 1990-03-03 instead of the
+         * blank date. Real CTOD treats a calendar-invalid string the same
+         * as any other "improper" string -> blank date, NOT a rollover.
+         * Ref: ../dbase3-decomp/specs/functions/numeric-and-date-functions.md
+         *   lines 462-469 ("Invalid string -> blank date"; Harbour
+         *   datetime.txt:146-147 "If an improper character string is passed
+         *   to the function, an empty date value will be returned").
+         * Ref (calendar rule): xb_is_leap_year/xb_days_in_month above, same
+         *   Meeus Ch.7 Gregorian source already cited for jdn_from_ymd.
+         *
+         * MUTATION GUARD (-DXB_MUTATE_FN_CTOD_CALVALID): drop this cap,
+         * reverting to the pre-fix behavior (calendar-invalid dd rolls
+         * forward instead of returning blank). Rule 6.
+         */
+        if (dd > xb_days_in_month(mm, yy)) {
+            *out = xb_d(0.0); *err = XBEE_OK; return 0;
+        }
+#endif
         *out = xb_d((double)jdn_from_ymd(yy, mm, dd));
         *err = XBEE_OK;
         return 0;

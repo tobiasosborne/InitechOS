@@ -28,6 +28,13 @@
  *   go RED, proving the oracle catches an off-by-one in the load-bearing
  *   SUBSTR index rule (string-functions.md line 119).
  *
+ *   Compile with -DXB_MUTATE_FN_CTOD_CALVALID (separate mutant binary; see
+ *   $(TEST_XBASE_FN_A_MUT_CTOD) / `make test-xbase-fn-a-mutant-ctod`) to drop
+ *   fn_ctod_impl's calendar day-cap: CTOD('02/31/90') then rolls forward to
+ *   1990-03-03 instead of returning blank. The I8/I9/I10 assertions (section
+ *   I below) go RED, proving the oracle catches the initech-9u0f calendar-
+ *   validation gap (mm/dd range check alone is not a calendar check).
+ *
  * Compile + run (self-grade, host):
  *   cc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include -Ispec \
  *      os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c \
@@ -243,6 +250,31 @@ int main(void)
         ok_d("CTOD('13/40/85')", 0.0,     "I5: CTOD invalid m/d -> blank date");
         ok_c("DTOC(CTOD('08/05/85'))", "08/05/85", 8, "I6: DTOC mm/dd/yy 8-char");
         ok_c("DTOC(CTOD('  /  /  '))", "        ", 8, "I7: DTOC(blank) -> 8 spaces");
+
+        /*
+         * I8-I11: calendar-validity cap (initech-9u0f). The mm in [1..12] /
+         * dd in [1..31] range check alone is NOT enough -- April has 30 days,
+         * February has 28 or 29. Real CTOD treats a calendar-invalid string
+         * (Feb 31, Apr 31, a Feb 29 in a non-leap year) the same as any other
+         * "improper" string: blank date, NOT a silent JDN rollover into the
+         * next month. Ref: ../dbase3-decomp/specs/functions/
+         * numeric-and-date-functions.md lines 462-469 ("Invalid string ->
+         * blank date"; Harbour datetime.txt:146-147).
+         *
+         * Independent oracle (Law 2): the blank-date expectations (0.0) are
+         * hand-authored literals, not derived from jdn_from_ymd/fn_ctod_impl.
+         * The one VALID case (I11, a real leap day) needs a non-zero JDN;
+         * 2447221 was computed OUTSIDE this codebase (Python's proleptic-
+         * Gregorian datetime.date(1988,2,29).toordinal(), offset from the
+         * rt.h-cited minted anchor JDN(1985-08-05)=2446283) and cross-checked
+         * against the OTHER rt.h [verified] anchors (1985-09-07=2446316,
+         * 1985-09-23=2446332, 1999-12-31=2451544) before use -- not read back
+         * from jdn_from_ymd, so this does not agree "by construction".
+         */
+        ok_d("CTOD('02/31/90')", 0.0, "I8: CTOD Feb 31 (no such day) -> blank [initech-9u0f]");
+        ok_d("CTOD('04/31/85')", 0.0, "I9: CTOD Apr 31 (30-day month) -> blank [initech-9u0f]");
+        ok_d("CTOD('02/29/85')", 0.0, "I10: CTOD Feb 29 1985 (non-leap) -> blank [initech-9u0f]");
+        ok_d("CTOD('02/29/88')", 2447221.0, "I11: CTOD Feb 29 1988 (LEAP, valid) -> real JDN, not over-rejected [initech-9u0f]");
     }
 
     /* =================================================================== */
