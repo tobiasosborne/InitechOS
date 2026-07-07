@@ -175,6 +175,7 @@ void shell_build_scene(shell_scene_t *s,
                        ControlRecord *dlg_progress,
                        region_t  *dlg_struc, region_t *dlg_cont,
                        region_t  *dlg_update,
+                       region_t  *overlay_rgn,
                        int show_modal)
 {
     if (s == (shell_scene_t *)0) {
@@ -292,6 +293,45 @@ void shell_build_scene(shell_scene_t *s,
     (void)FileCopyDialog(dlg, dlg_items, dlg_progress,
                          dlg_struc, dlg_cont, dlg_update);
     s->modal_up = show_modal ? 1 : 0;
+
+    /* --- The always-on-top OVERLAY occluder (beads initech-pipa; ADR-0005 region
+     * spine). The two menu bars + (iff the modal is up) the modal FILE COPY box
+     * are painted OUTSIDE the WindowMgr z-order (by shell_render) and so are NOT
+     * damage-tracked participants. Build their union into the caller's region and
+     * install it as wm.overlay_rgn: window.c fronts_union then treats these pixels
+     * as occluding every window, so the live compositor never lets a dragged
+     * window overpaint them (defect b) NOR seafoam-erases their vacated area
+     * (defect a) -- BOTH close in the ONE shared occlusion primitive.
+     *
+     * The modal rect is the dialog's ACTUAL strucRgn bbox (what DrawDialog fills;
+     * Law 1 -- the overlay must match what is drawn), which FileCopyDialog set
+     * above. The bars span rows [0, SHELL_MENUBARS_H) full width. NULL overlay ==
+     * disabled (the fold is a no-op; the M4 host gate). */
+    s->overlay_rgn = overlay_rgn;
+    if (overlay_rgn != (region_t *)0) {
+        if (overlay_rgn->rows == (rgn_row_t *)0 ||
+            overlay_rgn->x_pool == (int16_t *)0) {
+            SHELL_PANIC("shell_build_scene: overlay region unattached");
+            return;
+        }
+        rgn_rect_t ov[2];
+        uint16_t nov = 0;
+        /* The two stacked menu bars: rows [0, SHELL_MENUBARS_H) x full width. */
+        ov[nov].top    = (int16_t)SHELL_MENUBAR1_TOP;
+        ov[nov].left   = 0;
+        ov[nov].bottom = (int16_t)SHELL_MENUBARS_H;
+        ov[nov].right  = (int16_t)SHELL_SCREEN_W;
+        nov++;
+        /* The modal FILE COPY box (its dBoxProc bounds fill opaquely), iff up. */
+        if (s->modal_up) {
+            ov[nov] = dlg_struc->bbox;   /* == the dialog strucRgn bbox           */
+            nov++;
+        }
+        region_from_rects(overlay_rgn, ov, nov);
+        s->wm.overlay_rgn = overlay_rgn;
+    } else {
+        s->wm.overlay_rgn = (region_t *)0;
+    }
 
     s->_built = 1u;
 }

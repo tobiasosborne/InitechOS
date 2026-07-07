@@ -268,6 +268,14 @@ PPM_FLAIR_DRAG_CHECK_BIN := $(BUILD)/ppm_flair_drag_check
 PPM_FLAIR_MENU_CHECK_SRC := tools/ppm_flair_menu_check.c
 PPM_FLAIR_MENU_CHECK_BIN := $(BUILD)/ppm_flair_menu_check
 
+# dc4v survival-oracle screendump grader (beads initech-dc4v/-pipa; ADR-0005 region
+# spine): grades the post-drag frame after a window is dragged ACROSS the modal +
+# menu bars and asserts those always-on-top layers SURVIVED (modal box white/black,
+# bars menubar-white, NO seafoam-erase) against the INDEPENDENT canon (flair_canon_
+# rgb + dialog.c FILECOPY_* geometry), never the render. Built like ppm_flair_drag_check.
+PPM_FLAIR_DC4V_CHECK_SRC := tools/ppm_flair_dc4v_check.c
+PPM_FLAIR_DC4V_CHECK_BIN := $(BUILD)/ppm_flair_dc4v_check
+
 # O-5 app-switch screendump grader (ADR-0013 FLAIR App Contract; Wave-4 gate O-5).
 # Grades the PRE->POST delta of the booted -DFLAIR_LIVE_TENANTS desktop (click
 # HELLO's sliver -> raise + activate HELLO over NOTES + swap its menubar) against
@@ -686,6 +694,16 @@ KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_drag.o
 KERNEL_FLAIRLIVE_MUT_DRAG_ELF      := $(BUILD)/kernel_flairlive_mut_drag.elf
 KERNEL_FLAIRLIVE_MUT_DRAG_BIN      := $(BUILD)/kernel_flairlive_mut_drag.bin
 FLAIRLIVE_MUT_DRAG_IMG             := $(BUILD)/flair_live_mut_drag.img
+# OVERLAY-ignore MUTANT flair_live kernel/image (beads initech-pipa/-dc4v; Rule 6):
+# the SAME BOOT_FLAIR_LIVE kmain (overlay_rgn IS wired + set), but window.c is
+# compiled with -DWINDOW_MUTATE_IGNORE_OVERLAY so fronts_union IGNORES the set
+# overlay -- the pre-fix compositor (a dragged window seafoam-erases / overpaints
+# the modal + menu bars). test-flair-dc4v then sees the modal ERASED -> RED. Swaps
+# ONLY window.o (its own mutant obj) so the rest of the shared FLAIR set is reused.
+KERNEL_WINDOW_MUT_OVERLAY_OBJ      := $(BUILD)/window_mut_overlay.o
+KERNEL_FLAIRLIVE_MUT_OVERLAY_ELF   := $(BUILD)/kernel_flairlive_mut_overlay.elf
+KERNEL_FLAIRLIVE_MUT_OVERLAY_BIN   := $(BUILD)/kernel_flairlive_mut_overlay.bin
+FLAIRLIVE_MUT_OVERLAY_IMG          := $(BUILD)/flair_live_mut_overlay.img
 # FO-8b menu-noop MUTANT (beads initech-5l5z; Rule 6; the HER-14 "menus do not
 # work" heresy): -DFLAIR_LIVE_MUTATE_MENU_NOOP makes the pump's inMenuBar dispatch
 # drop NO panel (FLAIR-MENU sel=0) -> ppm_flair_menu_check sees bare teal -> RED.
@@ -8278,6 +8296,36 @@ $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_
 	@dd if=$(KERNEL_FLAIRLIVE_MUT_DRAG_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-live drag-noop MUTANT image: %s (inDrag dispatch is a no-op -- the window never moves)\n" "$@"
 
+# --- OVERLAY-ignore MUTANT (beads initech-pipa/-dc4v; Rule 6). window.c built with
+# -DWINDOW_MUTATE_IGNORE_OVERLAY: fronts_union drops the wm->overlay_rgn fold, so a
+# SET overlay is ignored -> the pre-fix compositor erases/overpaints the modal +
+# menu bars on a drag. Swaps ONLY window.o (the mutant obj) into the FLAIRLIVE obj
+# set (the normal main obj still wires + sets overlay_rgn). -----------------------
+$(KERNEL_WINDOW_MUT_OVERLAY_OBJ): os/flair/window.c os/flair/window.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DWINDOW_MUTATE_IGNORE_OVERLAY $(WINDOW_INC) -c os/flair/window.c -o $@
+
+KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS := $(filter-out $(KERNEL_WINDOW_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_WINDOW_MUT_OVERLAY_OBJ)
+
+$(KERNEL_FLAIRLIVE_MUT_OVERLAY_ELF): $(KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS)
+
+$(KERNEL_FLAIRLIVE_MUT_OVERLAY_BIN): $(KERNEL_FLAIRLIVE_MUT_OVERLAY_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_mut_overlay.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-mutant-ignore-overlay): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(FLAIRLIVE_MUT_OVERLAY_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_OVERLAY_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_MUT_OVERLAY_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live overlay-ignore MUTANT image: %s (fronts_union ignores wm->overlay_rgn -- modal/bars erased on drag)\n" "$@"
+
 # --- FO-8b menu-noop MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6;
 # ADR-0006 FO-8). -DFLAIR_LIVE_MUTATE_MENU_NOOP: the pump's inMenuBar dispatch drops
 # NO panel and tracks/selects nothing (FLAIR-MENU sel=0) -> ppm_flair_menu_check
@@ -8793,6 +8841,12 @@ $(PPM_FLAIR_DRAG_CHECK_BIN): $(PPM_FLAIR_DRAG_CHECK_SRC) spec/assets/color_canon
 # Grades the dropped pull-down against the INDEPENDENT canon (flair_canon_rgb +
 # menu.h geometry), never the render. Built like ppm_flair_drag_check.
 $(PPM_FLAIR_MENU_CHECK_BIN): $(PPM_FLAIR_MENU_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+# dc4v survival-oracle screendump grader (beads initech-dc4v/-pipa). Grades the
+# post-drag modal + menu-bar SURVIVAL against the INDEPENDENT canon (flair_canon_rgb
+# + dialog.c FILECOPY_* geometry), never the render. Built like ppm_flair_drag_check.
+$(PPM_FLAIR_DC4V_CHECK_BIN): $(PPM_FLAIR_DC4V_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
 
 # O-5 app-switch screendump grader (ADR-0013; Wave-4 gate O-5). Grades the booted
@@ -11940,6 +11994,97 @@ test-flair-drag-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_DRAG_IMG) $(PPM_FLAIR_DRA
 		printf '!!! test-flair-drag-mutant FAIL: the drag-noop screendump PASSED ppm_flair_drag_check -- the gate is decoration (a static frame passed as interactive)\n'; exit 1; \
 	fi
 	@printf '>>> test-flair-drag-mutant: RED as required -- the no-op drag leaves teal at the new pos + chrome at the old; the gate BITES (Rule 6, HER-14)\n'
+	@printf '======================================================================\n'
+
+# ===========================================================================
+# REAL gate: test-flair-dc4v (beads initech-dc4v/-pipa; ADR-0005 region spine --
+# the compositor SURVIVAL oracle: dragging a window ACROSS the modal + menu bars
+# leaves them INTACT). Boots $(FLAIRLIVE_IMG) (show_modal=1 -- the ONLY scene with
+# the modal), injects the LOCKED dc4v trace (onto window 1's title bar -> button
+# down -> drag ~260 px LEFT in three <=int8 hops -> button up), and screendumps
+# AFTER the FLAIR-DRAG marker. Asserts (Law 2, INDEPENDENT canon golden):
+#   1. no triple-fault;
+#   2. FLAIR-LIVE-READY (pump armed) + FLAIR-DRAG win 1 (300,120)->(40,120);
+#   3. ppm_flair_dc4v_check: the modal FILE COPY box SURVIVES (right border black,
+#      interior white, right-half band >=80% white/black + <=5% seafoam) and the
+#      Photoshop menu bar SURVIVES (menubar-white run) -- because the initech-pipa
+#      fold folds wm->overlay_rgn into fronts_union so the always-on-top layers are
+#      never overpainted (defect b) nor seafoam-erased (defect a).
+# The SCREENDUMP is the discriminator (the overlay-ignore mutant still emits
+# FLAIR-DRAG but the modal is erased -- see test-flair-dc4v-mutant). The guest
+# cli;hlt loops after the budget, so the harness times out by design (OK = asserts).
+# ===========================================================================
+FLAIR_DC4V_NAME    := flair_dc4v
+FLAIR_DC4V_SERIAL  := $(BUILD)/$(FLAIR_DC4V_NAME).serial
+FLAIR_DC4V_REPORT  := $(BUILD)/$(FLAIR_DC4V_NAME).report
+FLAIR_DC4V_PPM     := $(BUILD)/$(FLAIR_DC4V_NAME).ppm
+# The LOCKED dc4v drag trace (ADR-0006 E-D6; Rule 11). QEMU rel->cursor is 1:1 with
+# x-positive=right and y-INVERTED; deltas are int8 (a >127 delta sets the PS/2
+# overflow bits and is DROPPED), so the -260 x drag is SPLIT into three <=int8 hops.
+# From the 320,240 center: "m80:110" lands the cursor on window 1's title bar
+# (400,130); l1 = button down @ (400,130); "m-87:0" x3 (= -261... exactly -260 via
+# -87,-87,-86) drags the cursor LEFT to (140,130); l0 = button up @ (140,130). Net
+# drag delta = (-260,0): window 1 struct (300,120) -> (40,120), sweeping the modal.
+FLAIR_DC4V_SPEC    := m80:110,l1,m-87:0,m-87:0,m-86:0,l0
+.PHONY: test-flair-dc4v
+test-flair-dc4v: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_DC4V_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-dc4v : modal + bars SURVIVE a drag across them\n'
+	@printf '  Inject the locked -260,0 drag trace -> WaitNextEvent pump -> inDrag ->\n'
+	@printf '  DragWindow + desktop_paint_damage. The pipa fold (wm->overlay_rgn in\n'
+	@printf '  fronts_union) keeps the always-on-top modal + menu bars intact.\n'
+	@printf '  beads initech-dc4v/-pipa. ADR-0005 region spine. Law 2/4.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (the WaitNextEvent pump, show_modal=1)\n' "$(FLAIRLIVE_IMG)"
+	@printf 'Expecting : FLAIR-DRAG win 1 (300,120)->(40,120) + modal/bars SURVIVE\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_DC4V_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_DC4V_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG" --timeout-ms 15000 \
+		2> "$(FLAIR_DC4V_REPORT)" || true
+	@cat "$(FLAIR_DC4V_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(FLAIR_DC4V_REPORT)"; then \
+		printf '!!! test-flair-dc4v FAIL: TRIPLE FAULT in the pump/drag boot\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-dc4v [1/4]: no triple-fault\n'
+	@grep -q '^FLAIR-LIVE-READY$$' "$(FLAIR_DC4V_SERIAL)" \
+		|| { printf '!!! test-flair-dc4v FAIL: FLAIR-LIVE-READY missing -- the pump never armed\n'; exit 1; }
+	@printf '>>> test-flair-dc4v [2/4]: FLAIR-LIVE-READY (the WaitNextEvent pump is armed)\n'
+	@grep -q '^FLAIR-DRAG win 1 (300,120)->(40,120)$$' "$(FLAIR_DC4V_SERIAL)" \
+		|| { printf '!!! test-flair-dc4v FAIL: FLAIR-DRAG win 1 (300,120)->(40,120) marker missing -- inDrag dispatch did not run / wrong delta\n'; grep '^FLAIR-' "$(FLAIR_DC4V_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-dc4v [3/4]: FLAIR-DRAG win 1 (300,120)->(40,120) (the pump swept window 1 across the modal)\n'
+	@if [ ! -s "$(FLAIR_DC4V_PPM)" ]; then printf '!!! test-flair-dc4v FAIL: no screendump captured at %s\n' "$(FLAIR_DC4V_PPM)"; exit 1; fi
+	@$(PPM_FLAIR_DC4V_CHECK_BIN) "$(FLAIR_DC4V_PPM)" \
+		|| { printf '!!! test-flair-dc4v FAIL: the screendump shows the modal/bars ERASED by the drag (the always-on-top layers are not damage-occluded; initech-pipa)\n'; exit 1; }
+	@printf '>>> test-flair-dc4v [4/4]: screendump == modal + menu bars SURVIVED the drag across them\n'
+	@printf 'VERDICT   : PASS -- the live compositor keeps the always-on-top layers intact (initech-pipa; Law 4)\n'
+	@printf '======================================================================\n'
+
+# REAL gate: test-flair-dc4v-mutant (Rule 6; the pipa pre-fix compositor). The
+# overlay-ignore image's window.c drops the wm->overlay_rgn fold, so a dragged
+# window seafoam-erases / overpaints the modal + bars. It STILL emits FLAIR-DRAG
+# (the pump ran + moved the window), so the SCREENDUMP is the discriminator:
+# ppm_flair_dc4v_check MUST go RED (the modal band reads teal). If it passed, the
+# gate would be decoration (the fix would be untested).
+.PHONY: test-flair-dc4v-mutant
+test-flair-dc4v-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_OVERLAY_IMG) $(PPM_FLAIR_DC4V_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-dc4v-mutant : Rule 6 (the gate BITES)\n'
+	@printf '  Mutant: window.c -DWINDOW_MUTATE_IGNORE_OVERLAY (fronts_union ignores\n'
+	@printf '  wm->overlay_rgn). Expect: the drag ERASES the modal -> ppm_flair_dc4v_check\n'
+	@printf '  RED (the modal right-half band reads seafoam teal). The pipa pre-fix compositor.\n'
+	@printf '======================================================================\n'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_OVERLAY_IMG)" --name flair_dc4v_mut --out "$(BUILD)" \
+		--mouse "$(FLAIR_DC4V_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_dc4v_mut.serial" \
+		|| { printf '!!! test-flair-dc4v-mutant: mutant did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
+	@if [ ! -s "$(BUILD)/flair_dc4v_mut.ppm" ]; then printf '!!! test-flair-dc4v-mutant: no screendump captured (cannot judge the mutant)\n'; exit 1; fi
+	@if $(PPM_FLAIR_DC4V_CHECK_BIN) "$(BUILD)/flair_dc4v_mut.ppm" >/dev/null 2>&1; then \
+		printf '!!! test-flair-dc4v-mutant FAIL: the overlay-ignore screendump PASSED ppm_flair_dc4v_check -- the gate is decoration (the modal-survival fix is untested)\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-dc4v-mutant: RED as required -- the drag erased the modal (the fold is compiled out); the gate BITES (Rule 6, initech-pipa)\n'
 	@printf '======================================================================\n'
 
 # ===========================================================================

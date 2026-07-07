@@ -98,6 +98,25 @@ typedef struct WindowMgr {
     region_t   *scratch_a;      /* general scratch (fronts-union)                */
     region_t   *scratch_b;      /* general scratch (the live "exposed" carrier)  */
     region_t   *scratch_c;      /* general scratch (per-step distinct out)       */
+
+    /* ALWAYS-ON-TOP OVERLAY (beads initech-pipa; ADR-0005 region spine). An
+     * OPTIONAL caller-supplied region of pixels that are drawn OVER every window
+     * by a layer OUTSIDE the WindowMgr z-order -- the desktop shell's two menu
+     * bars (rows [0,40)) and, when up, the modal FILE COPY dialog. fronts_union
+     * folds it in so every visible-region / damage computation treats the overlay
+     * as occluding: a dragged window never overpaints it (defect b) AND its pixels
+     * are never classified as newly-exposed desktop, so desktop_update never
+     * seafoam-fills over it (defect a). Both defects close in the ONE shared
+     * occlusion primitive every paint path routes through. NULL == no overlay (the
+     * host harnesses + any bare desktop): the fold is then a no-op. Caller-supplied,
+     * arena-backed, rows[]/x_pool attached; the WindowMgr owns no storage (Law 3).
+     *
+     * WINDOW_MUTATE_IGNORE_OVERLAY (Rule 6): window.c compiles the fold out so
+     * fronts_union ignores a SET overlay_rgn -- reproducing the pre-fix compositor
+     * (windows overpaint / desktop seafoam-erases the bars + modal). The EMU
+     * survival oracle (initech-dc4v, flair_live_mut_overlay.img) goes RED. NEVER
+     * define in a real build. */
+    region_t   *overlay_rgn;    /* always-on-top occluder (bars + modal); may be NULL */
 } WindowMgr;
 
 /* ===========================================================================

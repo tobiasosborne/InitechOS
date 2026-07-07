@@ -157,6 +157,15 @@ typedef struct shell_scene {
     DialogRecord *dlg;              /* caller-supplied DialogRecord storage      */
     int           modal_up;         /* 1 == the FILE COPY modal is shown (on top)*/
 
+    /* --- The always-on-top OVERLAY occluder (beads initech-pipa) ------------ *
+     * The two menu bars (rows [0,40)) + (iff modal_up) the modal FILE COPY box,
+     * built by shell_build_scene into the caller's region as union(bars[+modal])
+     * and installed as wm.overlay_rgn so the live compositor never lets a dragged
+     * window overpaint them nor seafoam-erases them (defects a+b). NULL == no
+     * overlay (the fold in window.c fronts_union is then a no-op; the M4 host gate
+     * passes NULL to keep shell_render byte-identical). */
+    region_t     *overlay_rgn;      /* caller-supplied; NULL == overlay disabled */
+
     uint8_t       _built;           /* set by shell_build_scene (Rule 2 guard)   */
 } shell_scene_t;
 
@@ -202,6 +211,14 @@ typedef struct shell_scene {
  *   dlg_items     -- DialogItem array (>= 2) for FileCopyDialog.
  *   dlg_progress  -- ControlRecord for the FILE COPY progress bar.
  *   dlg_struc/cont/update -- the dialog's three attached regions.
+ *   overlay_rgn   -- OPTIONAL caller region for the always-on-top occluder
+ *                    (beads initech-pipa). If non-NULL (attached), it is filled
+ *                    with union(bars {0,0,40,SCREEN_W} [+ the modal strucRgn bbox
+ *                    iff show_modal]) and installed as wm.overlay_rgn so the live
+ *                    compositor treats the bars + modal as occluding (no
+ *                    overpaint, no seafoam-erase on drag). NULL == overlay
+ *                    disabled (wm.overlay_rgn stays NULL; the window.c fold is a
+ *                    no-op). The M4 host gate passes NULL (byte-identical render).
  *   show_modal    -- 1 to compose the FILE COPY modal on top.
  * ------------------------------------------------------------------------- */
 void shell_build_scene(shell_scene_t *s,
@@ -219,6 +236,7 @@ void shell_build_scene(shell_scene_t *s,
                        ControlRecord *dlg_progress,
                        region_t  *dlg_struc, region_t *dlg_cont,
                        region_t  *dlg_update,
+                       region_t  *overlay_rgn,
                        int show_modal);
 
 /* ===========================================================================

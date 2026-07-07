@@ -88,6 +88,21 @@ static void rgn_accumulate(region_t *dst, const region_t *other,
  * union is always empty, so visible(W) == strucRgn(W) for every window: z-order
  * is ignored and a covered window claims its full structure. The visible-region
  * oracle (independent rasterize-and-compare) goes RED.
+ *
+ * THE ALWAYS-ON-TOP OVERLAY (beads initech-pipa; ADR-0005 region spine): after the
+ * z-order union, fold in wm->overlay_rgn (the shell's menu bars + modal, a layer
+ * ABOVE every window but OUTSIDE the WindowMgr list). Because fronts_union feeds
+ * the WHOLE damage chain (visible_into -> exposed -> distribute_exposure ->
+ * desktop_update), treating the overlay as occluding closes BOTH compositor
+ * defects at once: no window's visible region (and thus no repaint) includes the
+ * overlay -- it is never overpainted (defect b) -- AND the vacated area of a drag
+ * is never classified as exposed over the overlay, so desktop_update never
+ * seafoam-fills it (defect a). The overlay pixels are simply never written by
+ * desktop_paint_damage and survive from the initial shell_render.
+ *
+ * MUTANT WINDOW_MUTATE_IGNORE_OVERLAY (Rule 6): compile the fold out so a SET
+ * overlay_rgn is IGNORED -- the pre-fix compositor (windows overpaint / desktop
+ * seafoam-erases the bars + modal). The EMU survival oracle (initech-dc4v) RED.
  * ===========================================================================*/
 static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
 {
@@ -103,6 +118,20 @@ static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
     }
 #else
     (void)wm; (void)w;   /* z-order ignored: union-of-fronts stays empty */
+#endif
+
+#ifndef WINDOW_MUTATE_IGNORE_OVERLAY
+    /* ALIASING-CRITICAL (Rule 3): rgn_accumulate(out, overlay, UNION, sc2) does
+     * `sc2 := out UNION overlay; out := sc2`, so sc2 MUST be distinct from BOTH
+     * `out` and overlay_rgn -- the naive region_op(out, out, overlay) self-alias
+     * corrupts on OVERLAP (the exact drag-across-overlay case under test). `out`
+     * is scratch_a at every call site (visible_into passes fu==scratch_a), so sc2
+     * resolves to scratch_c (distinct); the fallback covers a scratch_c `out`.
+     * overlay_rgn is a separate arena region, never a manager scratch. */
+    if (wm->overlay_rgn != NULL && !region_is_empty(wm->overlay_rgn)) {
+        region_t *sc2 = (out == wm->scratch_c) ? wm->scratch_b : wm->scratch_c;
+        rgn_accumulate(out, wm->overlay_rgn, RGN_OP_UNION, sc2);
+    }
 #endif
 }
 
@@ -306,6 +335,10 @@ void WindowMgr_init(WindowMgr *wm, rgn_rect_t desktop_frame,
     wm->scratch_a      = scratch_a;
     wm->scratch_b      = scratch_b;
     wm->scratch_c      = scratch_c;
+    wm->overlay_rgn    = NULL;   /* no always-on-top overlay until the caller sets
+                                  * it (initech-pipa). MUST be zeroed: fronts_union
+                                  * dereferences it only when non-NULL -- an
+                                  * uninitialized pointer is UB (Rule 2). */
     region_set_empty(desktop_update);
     region_set_empty(scratch_a);
     region_set_empty(scratch_b);

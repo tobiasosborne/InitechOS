@@ -129,6 +129,11 @@ typedef struct shell_store {
     DialogItem         dlg_items[2];
     ControlRecord      dlg_progress;
     rgn_store_t        dlg_struc, dlg_cont, dlg_upd;
+
+    /* The always-on-top overlay occluder region (beads initech-pipa). Only the
+     * companion drag-survival sub-test activates it; the M4 gate scene passes NULL
+     * so shell_render stays byte-identical. */
+    rgn_store_t        overlay;
 } shell_store_t;
 
 /* The two document windows, placed per the frame: window 0 (back, upper-left)
@@ -159,8 +164,10 @@ static const char *const g_sys_titles[N_SYS_MENUS] = {
     "File", "Edit", "View", "Special"
 };
 
-/* Build the scene into the caller bundle. */
-static void build_shell(shell_store_t *S, int show_modal)
+/* Build the scene into the caller bundle. `enable_overlay` != 0 activates the
+ * always-on-top occluder (bars [+ modal]) so the companion drag-survival sub-test
+ * can exercise the live compositor path; the M4 gate passes 0 (byte-identical). */
+static void build_shell(shell_store_t *S, int show_modal, int enable_overlay)
 {
     memset(S, 0, sizeof *S);
 
@@ -203,6 +210,7 @@ static void build_shell(shell_store_t *S, int show_modal)
     store_attach(&S->dlg_struc);
     store_attach(&S->dlg_cont);
     store_attach(&S->dlg_upd);
+    store_attach(&S->overlay);
 
     rgn_rect_t frame = { 0, 0, SCRH, SCRW };
     shell_build_scene(&S->scene,
@@ -213,6 +221,7 @@ static void build_shell(shell_store_t *S, int show_modal)
                       S->ps_menus,
                       &S->dlg, S->dlg_items, &S->dlg_progress,
                       &S->dlg_struc.r, &S->dlg_cont.r, &S->dlg_upd.r,
+                      enable_overlay ? &S->overlay.r : (region_t *)0,
                       show_modal);
 }
 
@@ -256,9 +265,11 @@ int main(int argc, char **argv)
 {
     char msg[256];
 
-    /* The canonical composed scene WITH the modal up (the Office Space frame). */
+    /* The canonical composed scene WITH the modal up (the Office Space frame).
+     * enable_overlay=0: the M4 structural gate renders EXACTLY as before (the
+     * overlay fold is a no-op when wm.overlay_rgn==NULL; initech-pipa). */
     static shell_store_t S;
-    build_shell(&S, 1 /* show_modal */);
+    build_shell(&S, 1 /* show_modal */, 0 /* enable_overlay */);
 
     render_ctx_t ctx;
     int rc = init_ctx(&ctx);
@@ -516,7 +527,7 @@ int main(int argc, char **argv)
 
         /* Re-render a fresh scene into a fresh context; compare byte-for-byte. */
         static shell_store_t S2;
-        build_shell(&S2, 1);
+        build_shell(&S2, 1, 0);
         render_ctx_t ctx2;
         int rc2 = init_ctx(&ctx2);
         CHECK(rc2 == 0, "(6) second render context init");
@@ -532,6 +543,65 @@ int main(int argc, char **argv)
                 fprintf(stderr, "    (6) %d pixels differ; first at (%d,%d)\n",
                         diff, first % SCRW, first / SCRW);
             render_ctx_free(&ctx2);
+        }
+    }
+
+    /* ======================================================================
+     * 7. COMPANION (beads initech-pipa): the LIVE compositor keeps the modal
+     * INTACT when a window is DRAGGED ACROSS it. With the always-on-top overlay
+     * installed (the bars + modal folded into fronts_union), MoveWindow's damage
+     * NEVER classifies the modal as newly-exposed (no seafoam-erase, defect a) and
+     * no window's repaint includes the modal (no overpaint, defect b), so the
+     * modal survives from the initial shell_render. Drag window 1 (front) 260 px
+     * LEFT so its OLD struct {300,120,560,360} -- which overlapped the modal
+     * {140,200,500,280} -- is vacated (the pipa erase case), then minimal-repaint
+     * the damage and assert the modal is untouched. This is the FAST host proof of
+     * the fix on the SHARED window.c/desktop.c spine (no emulator); the EMU oracle
+     * initech-dc4v is the independent-golden screendump grade.
+     *
+     * MUTANT window.c -DWINDOW_MUTATE_IGNORE_OVERLAY compiles the fold out, so the
+     * modal here is seafoam-erased -> these checks go RED (Rule 6).
+     * ====================================================================== */
+    {
+        static shell_store_t S3;
+        build_shell(&S3, 1 /* show_modal */, 1 /* enable_overlay */);
+        render_ctx_t ctx3;
+        int rc3 = init_ctx(&ctx3);
+        CHECK(rc3 == 0, "(7) companion render context init");
+        if (rc3 == 0) {
+            /* Initial full composite: seafoam + windows + bars + modal on top. */
+            shell_render(&S3.scene, &ctx3.fb.bm);
+            CHECK(S3.scene.wm.overlay_rgn != (region_t *)0,
+                  "(7) always-on-top overlay occluder is installed (wm.overlay_rgn)");
+            CHECK(idx_at(&ctx3, 496, 240) == 0,
+                  "(7) pre-drag: modal right border (496,240) is black idx0");
+
+            /* Drag window 1 (the front doc window) 260 px LEFT and mirror the live
+             * pump: MoveWindow + seed the moved window's own repaint + minimal
+             * damage repaint (flair_live_do_drag idiom). */
+            WindowPtr w1 = &S3.wins[1].rec;
+            MoveWindow(&S3.scene.wm, w1, W1_L - 260, W1_T);
+            WindowMgr_invalidate(&S3.scene.wm, w1, region_get_bbox(w1->strucRgn));
+            desktop_paint_damage(&S3.scene.wm, &ctx3.fb.bm, &S3.comp.r);
+
+            /* The modal SURVIVES: right border still black, interior still white,
+             * and the vacated right-half band shows NO seafoam teal. */
+            CHECK(idx_at(&ctx3, 496, 240) == 0,
+                  "(7) post-drag: modal right border (496,240) STILL black idx0 (not erased)");
+            CHECK(idx_at(&ctx3, 450, 240) == 1,
+                  "(7) post-drag: modal interior (450,240) STILL white idx1 (not erased)");
+            int teal = 0, tot = 0;
+            for (int y = 206; y < 278; y++)
+                for (int x = 366; x < 498; x++) {
+                    tot++;
+                    if (idx_at(&ctx3, x, y) == (int)FLAIR_DESKTOP_BG_INDEX) teal++;
+                }
+            CHECK(teal * 100 <= tot * 5,
+                  "(7) post-drag: modal right-half x[366,498]y[206,278] <=5% seafoam (modal survived the drag)");
+            if (teal * 100 > tot * 5)
+                fprintf(stderr, "    (7) %d/%d modal-band pixels erased to seafoam "
+                        "-- the overlay fold is not occluding\n", teal, tot);
+            render_ctx_free(&ctx3);
         }
     }
 

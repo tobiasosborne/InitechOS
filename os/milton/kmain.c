@@ -932,6 +932,13 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
     region_t *dlg_cont  = flair_desktop_alloc_region(&heap, "dlg.contRgn");
     region_t *dlg_upd   = flair_desktop_alloc_region(&heap, "dlg.updateRgn");
 
+    /* The always-on-top OVERLAY occluder region (beads initech-pipa): the two menu
+     * bars + the modal FILE COPY box, folded into the live compositor's occlusion
+     * so a dragged window can neither overpaint them nor seafoam-erase them.
+     * shell_build_scene fills this with union(bars[+modal]) and installs it as
+     * wm.overlay_rgn. Heap-backed, attached (Law 3, no malloc). */
+    region_t *overlay  = flair_desktop_alloc_region(&heap, "wm.overlay_rgn");
+
     /* The indexed-8 offscreen the scene renders into (OD-2: 1 byte/pixel = a
      * palette index). FLAIR_CLASS_BITMAP. Tight pitch == width (no padding). */
     uint8_t *off_px =
@@ -956,6 +963,7 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
                       ps_menus,
                       dlg, dlg_items, dlg_progress,
                       dlg_struc, dlg_cont, dlg_upd,
+                      overlay,   /* always-on-top occluder (bars + modal); initech-pipa */
 #ifdef FLAIR_LIVE_TENANTS
                       0 /* FLAIR App Contract demo: NO modal -- the two canon doc
                          * windows are hidden by the tenant arm and the co-resident
