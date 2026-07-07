@@ -378,6 +378,73 @@ static void test_locate_record(samir_pal_t *pal)
     remove(path);
 }
 
+/* =====================================================================
+ * SESSION N: LOCATE NEXT n FOR <cond> scans AT MOST n records (initech-qw4e).
+ *   100-row table with the FOR predicate true ONLY at rec 50. From rec 1,
+ *   LOCATE NEXT 3 must scan only rec 1..3 and MISS (FOUND() .F.) -- it must NOT
+ *   run on to rec 50. The pre-fix code passed no limit into q_locate_scan and
+ *   looped to EOF, wrongly landing on rec 50 (FOUND .T.). A positive control
+ *   (NEXT 60, whose window covers rec 50) confirms a within-window match still
+ *   works, so the fix does not over-restrict.
+ *   Ground truth (Law 1): navigation-query-display.md L.81 "NEXT <n>  <n>
+ *   records starting at the CURRENT record".
+ * ===================================================================== */
+static void test_locate_next(samir_pal_t *pal)
+{
+    const char *path = "/tmp/test_samir_query_N.dbf";
+    const char *codes[100];
+    int amts[100], oks[100];
+    int i;
+    xb_interp *ip;
+    static char useln[160];
+
+    for (i = 0; i < 100; i++) {
+        codes[i] = "RR";
+        amts[i]  = (i == 49) ? 777 : 0;   /* AMT=777 ONLY at rec 50 (index 49) */
+        oks[i]   = 1;
+    }
+    CHECK(build_cal_table(pal, path, codes, amts, oks, 100) == 0,
+          "locN: build 100-row table (AMT=777 only at rec 50)");
+
+    /* ---- Sub-session A: the bug. NEXT 3 from rec 1 must MISS. ---- */
+    ip = xb_interp_make(pal);
+    CHECK(ip != NULL, "locN: xb_interp_make (A)");
+    if (!ip) { remove(path); return; }
+    script_reset();
+    cap_clear();
+    snprintf(useln, sizeof useln, "USE %s", path);
+    script_push(useln);
+    script_push("GO TOP");
+    script_push("LOCATE NEXT 3 FOR AMT=777");  /* window rec1..3 -> no match     */
+    script_push("? FOUND()");                  /* .F. (RED pre-fix: ran to rec50)*/
+    script_push("QUIT");
+    CHECK(samir_repl(pal, ip) == INTERP_OK, "locN: samir_repl clean exit (A)");
+    /* The definitive signal: a NEXT 3 that stops at 3 cannot have matched rec50,
+     * so FOUND() is .F. Pre-fix the unbounded scan reached rec50 -> FOUND .T.,
+     * so ".F." is absent -> RED. */
+    CHECK(cap_has("\n.F."), "locN: LOCATE NEXT 3 FOR AMT=777 -> FOUND() .F. (stopped at 3)");
+    xb_interp_free(ip);
+
+    /* ---- Sub-session B: control. NEXT 60 window covers rec 50 -> HIT. ---- */
+    ip = xb_interp_make(pal);
+    CHECK(ip != NULL, "locN: xb_interp_make (B)");
+    if (!ip) { remove(path); return; }
+    script_reset();
+    cap_clear();
+    script_push(useln);
+    script_push("GO TOP");
+    script_push("LOCATE NEXT 60 FOR AMT=777"); /* window rec1..60 includes rec50 */
+    script_push("? FOUND()");                  /* .T. */
+    script_push("? RECNO()");                  /* 50  */
+    script_push("QUIT");
+    CHECK(samir_repl(pal, ip) == INTERP_OK, "locN: samir_repl clean exit (B)");
+    CHECK(cap_has("\n.T."), "locN: LOCATE NEXT 60 FOR AMT=777 -> FOUND() .T. (rec50 in window)");
+    CHECK(cap_has("\n50"),  "locN: the NEXT 60 hit lands on rec 50 (RECNO 50)");
+    xb_interp_free(ip);
+
+    remove(path);
+}
+
 /* ===================================================================== */
 /* main                                                                   */
 /* ===================================================================== */
@@ -400,6 +467,7 @@ int main(int argc, char **argv)
     test_logical_echo(pal);
     test_date_render(pal);
     test_locate_record(pal);
+    test_locate_next(pal);
 
     pal_host_free(host);
     return TEST_SUMMARY("test-samir-query");

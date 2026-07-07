@@ -941,12 +941,20 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
  * match (sets *matched=1, leaves the pointer there) or at EOF / WHILE-false
  * (*matched=0, pointer at EOF or the stopping record). `start_here` = 1 tests the
  * current record first; 0 skips one before testing (for CONTINUE).
+ *
+ * `max_visits` bounds the number of records TESTED (not matched) -- 0 means
+ * unbounded. This is LOCATE NEXT n's scope: "NEXT <n> -- <n> records starting
+ * at the CURRENT record" (navigation-query-display.md L.81), mirroring q_walk's
+ * `visited >= limit` bound for LIST/DISPLAY NEXT n (initech-qw4e). CONTINUE
+ * passes max_visits=0 -- per the same spec (CONTINUE section) it re-applies
+ * ONLY the stored FOR, never the original LOCATE's scope/WHILE.
  */
 static int q_locate_scan(xb_interp *ip, int area, const char *forcond, int has_for,
                          const char *whilecond, int apply_while,
-                         int start_here, int *matched, int *ec)
+                         int start_here, uint32_t max_visits, int *matched, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
+    uint32_t visited = 0u;
     int rc;
 
     *matched = 0;
@@ -956,6 +964,10 @@ static int q_locate_scan(xb_interp *ip, int area, const char *forcond, int has_f
     }
 
     while (!wa_eof(env, area)) {
+        if (max_visits != 0u && visited >= max_visits)
+            break;                             /* NEXT n window exhausted: stop */
+        visited++;
+
         if (apply_while && whilecond) {
             int t = 0;
             rc = q_eval_cond(ip, whilecond, &t, ec);
@@ -1023,9 +1035,14 @@ static int q_locate(xb_interp *ip, query_state *qs, const char *args, int *ec)
             if (!t) matched = 0;
         }
     } else {
+        /* QS_NEXT bounds the scan to AT MOST scope_n records visited (initech-qw4e);
+         * QS_DEFAULT/QS_ALL/QS_REST are unbounded (0) -- they run to true EOF. The
+         * prior code passed no limit here at all, so LOCATE NEXT n scanned to EOF
+         * regardless of n. */
+        uint32_t next_limit = (kind == QS_NEXT) ? qc.scope_n : 0u;
         rc = q_locate_scan(ip, area, qc.forcond, qc.has_for,
                            qc.whilecond, qc.has_while, /*start_here=*/1,
-                           &matched, ec);
+                           next_limit, &matched, ec);
         if (rc != INTERP_OK)
             return rc;
     }
@@ -1074,13 +1091,14 @@ static int q_continue(xb_interp *ip, query_state *qs, int *ec)
     (void)wa_nav_go_top(env, area);
     rc = q_locate_scan(ip, area, qs->for_text, qs->has_for,
                        (const char *)0, /*apply_while=*/0, /*start_here=*/1,
-                       &matched, ec);
+                       /*max_visits=*/0u, &matched, ec);
 #else
     /* CONTINUE re-applies ONLY the stored FOR, from the record AFTER the current
-     * one (start_here=0 -> skip one first). NOT the WHILE, NOT the scope. */
+     * one (start_here=0 -> skip one first). NOT the WHILE, NOT the scope -- so
+     * NOT the original LOCATE's NEXT n bound either (max_visits=0, unbounded). */
     rc = q_locate_scan(ip, area, qs->for_text, qs->has_for,
                        (const char *)0, /*apply_while=*/0, /*start_here=*/0,
-                       &matched, ec);
+                       /*max_visits=*/0u, &matched, ec);
 #endif
     if (rc != INTERP_OK)
         return rc;
