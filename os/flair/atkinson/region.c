@@ -32,7 +32,10 @@
  * MUTANTS (Rule 6, -DRGN_MUTATE_*): RGN_MUTATE_NO_VRLE (skip vertical-RLE
  * collapse), RGN_MUTATE_PARITY_OFF1 (off-by-one in the rasterize/contains-point
  * parity), RGN_MUTATE_EMIT_NOCHANGE (emit x even when boolfn output did not
- * change). Each must drive test-region RED, then restore GREEN.
+ * change), RGN_MUTATE_NO_XMERGE_CAP (drop the per-band xmerge output-capacity
+ * bound -- bead initech-mswo; caught by test-region's over-cap fail-loud probe
+ * under ASAN, which sees the scratch overrun that the bound would have stopped).
+ * Each must drive test-region RED, then restore GREEN.
  *
  * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
  */
@@ -354,8 +357,23 @@ static uint16_t active_xlist(const region_t *R, int16_t y, const int16_t **xp)
 /* Per-band x-merge: walk a[] and b[] (both strictly-increasing even lists) in
  * sorted order, tracking the (inA,inB) parity state. Emit an inversion point
  * into out[] EXACTLY when boolfn(op, inA, inB) changes value. Returns the
- * out-count (always even). out must hold up to na+nb entries. */
-static uint16_t xmerge(int16_t *out, rgn_op_t op,
+ * out-count (always even). `cap` is out's capacity in int16 slots; every emit
+ * is bounds-checked against it BEFORE the write.
+ *
+ * FAIL-LOUD BOUND (Rule 2; bead initech-mswo): each input row is normalized to
+ * at most RGN_ROW_X_MAX inversion points (region_normalize, spec Sec 5), so a
+ * merge of two maximally-dense rows can emit up to na+nb == 2*RGN_ROW_X_MAX
+ * points -- TWICE the per-row cap. region_op supplies a scratch of size
+ * RGN_ROW_X_MAX (a normal-form row cannot exceed it), so a merge whose output
+ * would exceed cap is not representable as a normal-form row and MUST fail loud
+ * here instead of overrunning the caller's scratch (the pre-fix silent stack
+ * corruption). Checking `no >= cap` before each write makes the (cap+1)-th slot
+ * unreachable. This keeps region_op consistent with region_normalize, which
+ * already fail-louds a row exceeding RGN_ROW_X_MAX. Do NOT bump the locked
+ * RGN_ROW_X_MAX to dodge this (Rule 8; follow-up bead initech-44ab tracks the
+ * 256-vs-640 cap decision separately). Ref: PRD Sec 6.2; spec/region_algebra.h
+ * Sec 2 (normal form) + Sec 5 (storage caps). */
+static uint16_t xmerge(int16_t *out, uint16_t cap, rgn_op_t op,
                        const int16_t *a, uint16_t na,
                        const int16_t *b, uint16_t nb)
 {
@@ -365,6 +383,12 @@ static uint16_t xmerge(int16_t *out, rgn_op_t op,
     /* boolfn(op,0,0) is 0 for all four ops (truth tables have LSB 0); the region
      * is bounded, so we start OUTSIDE. We assert that to be safe. */
     if (prev_out != 0) { RGN_FAIL_LOUD(); return 0; }
+#ifdef RGN_MUTATE_NO_XMERGE_CAP
+    /* The per-write `no >= cap` bound below is #ifdef'd OUT for this mutant;
+     * `cap` is then never read. Mark it used so the mutant still COMPILES (it
+     * must build to go RED at runtime under ASAN -- Rule 6). */
+    (void)cap;
+#endif
 
     while (ia < na || ib < nb) {
         int16_t xa = (ia < na) ? a[ia] : 0;
@@ -386,10 +410,16 @@ static uint16_t xmerge(int16_t *out, rgn_op_t op,
         /* MUTANT: emit at EVERY boundary, even when the output did not change.
          * This produces redundant toggles (e.g. coincident A/B edges emit a
          * zero-width span) -> rasterize diverges from the pixel ground truth. */
+#ifndef RGN_MUTATE_NO_XMERGE_CAP
+        if (no >= cap) { RGN_FAIL_LOUD(); return 0; } /* bead initech-mswo */
+#endif
         out[no++] = x;
         prev_out = now;   /* keep prev_out coherent so the closing check holds */
 #else
         if (now != prev_out) {
+#ifndef RGN_MUTATE_NO_XMERGE_CAP
+            if (no >= cap) { RGN_FAIL_LOUD(); return 0; } /* bead initech-mswo */
+#endif
             out[no++] = x;
             prev_out = now;
         }
@@ -422,6 +452,10 @@ void region_op(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
     uint16_t ia = 0, ib = 0;
     int16_t prev_y = 0;
     int have_prev = 0;
+    /* Per-band merge scratch, sized to the per-row cap (spec Sec 5). xmerge is
+     * given this capacity and fail-louds (bead initech-mswo) if a merge would
+     * emit more than RGN_ROW_X_MAX points -- an over-cap row is not a normal
+     * form region_normalize could accept, so we never silently overrun this. */
     int16_t scratch[RGN_ROW_X_MAX];
 
     for (;;) {
@@ -448,7 +482,7 @@ void region_op(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
             const int16_t *ax, *bx;
             uint16_t an = active_xlist(A, prev_y, &ax);
             uint16_t bn = active_xlist(B, prev_y, &bx);
-            uint16_t no = xmerge(scratch, op, ax, an, bx, bn);
+            uint16_t no = xmerge(scratch, RGN_ROW_X_MAX, op, ax, an, bx, bn);
             region_push_row(out, prev_y, scratch, no);
         }
         prev_y = y;
@@ -463,7 +497,7 @@ void region_op(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
         const int16_t *ax, *bx;
         uint16_t an = active_xlist(A, prev_y, &ax);
         uint16_t bn = active_xlist(B, prev_y, &bx);
-        uint16_t no = xmerge(scratch, op, ax, an, bx, bn);
+        uint16_t no = xmerge(scratch, RGN_ROW_X_MAX, op, ax, an, bx, bn);
         region_push_row(out, prev_y, scratch, no);
     }
 

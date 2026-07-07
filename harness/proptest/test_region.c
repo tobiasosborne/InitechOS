@@ -41,6 +41,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>           /* fork, _exit            (the over-cap probe)   */
+#include <sys/wait.h>         /* waitpid, WIF* macros                          */
+#include <sys/resource.h>     /* setrlimit (suppress the child's core dump)    */
+#include <signal.h>           /* SIGABRT                                       */
 
 #include "region_algebra.h"   /* the LOCKED spec (-Ispec)            */
 #include "region.h"           /* the engine constructors (-Ios/flair/atkinson) */
@@ -135,6 +139,37 @@ static void store_attach(rgn_store_t *s)
     s->r.x_pool     = s->pool;
     s->r.x_pool_cap = RGN_X_POOL_CAP;
     region_set_empty(&s->r);
+}
+
+/* Build a single-scanline region with `nspans` disjoint, NON-adjacent unit
+ * spans [off + 4i, off + 4i + 1) at y=0, plus the empty closing row at y=1.
+ * The live row carries 2*nspans inversion points (<= RGN_ROW_X_MAX for the row
+ * itself to be a legal normal form). Two such regions built at offsets 0 and 2
+ * are mutually disjoint AND non-adjacent, so their XOR/UNION is the interleaved
+ * union of ALL their spans -- 2*nspans separate spans, i.e. 4*nspans inversion
+ * points on the band. With nspans = RGN_ROW_X_MAX/2 each input row is exactly at
+ * the per-row cap and the merge output is TWICE the cap -- the bead initech-mswo
+ * repro that would overrun region_op's scratch[RGN_ROW_X_MAX]. Normalized (and
+ * hence assert-normal-clean) before return. */
+static void build_dense_scanline(rgn_store_t *s, int nspans, int off)
+{
+    store_attach(s);
+    int np = 2 * nspans;
+    for (int i = 0; i < nspans; i++) {
+        s->pool[2 * i]     = (int16_t)(off + 4 * i);
+        s->pool[2 * i + 1] = (int16_t)(off + 4 * i + 1);
+    }
+    s->rows[0].y_top   = 0;
+    s->rows[0].x_count = (uint16_t)np;
+    s->rows[0].x       = &s->pool[0];
+    s->rows[1].y_top   = 1;
+    s->rows[1].x_count = 0;
+    s->rows[1].x       = &s->pool[np];
+    s->r.n_rows        = 2;
+    s->r.x_pool_used   = (uint32_t)np;
+    s->r.is_empty      = 0;
+    s->r.is_rect       = 0;
+    region_normalize(&s->r);
 }
 
 /* ===========================================================================
@@ -346,6 +381,66 @@ int main(void)
     CHECK(rgn_op_truth(RGN_OP_INTERSECT) == 0x08u, "spec: INTERSECT truth 1000b");
     CHECK(rgn_op_truth(RGN_OP_DIFF)      == 0x04u, "spec: DIFF truth 0100b");
     CHECK(rgn_op_truth(RGN_OP_XOR)       == 0x06u, "spec: XOR truth 0110b");
+
+    /* ======================================================================
+     * OVER-CAP FAIL-LOUD PROBE  (bead initech-mswo; Rule 2, Rule 6)
+     * ----------------------------------------------------------------------
+     * region_op's per-band xmerge writes into a stack scratch[RGN_ROW_X_MAX].
+     * Each input row is normalized to at most RGN_ROW_X_MAX inversion points,
+     * so an XOR of two maximally-dense rows can emit up to 2*RGN_ROW_X_MAX
+     * points -- TWICE the scratch. Pre-fix xmerge had NO bound on its write
+     * count and overran the scratch (silent stack corruption). The fix makes
+     * xmerge fail loud (RGN_FAIL_LOUD -> abort() hosted) when the output would
+     * exceed cap, BEFORE the (cap+1)-th write.
+     *
+     * We cannot call region_op on the over-cap inputs directly here: fail-loud
+     * is abort(), which would kill the whole suite. So fork a child, run the
+     * over-cap XOR there, and observe the child from the parent:
+     *   - child killed by SIGABRT  == the bound check fired (fail loud): GOOD.
+     *   - child exited 0           == xmerge RETURNED without failing loud, i.e.
+     *                                 it overran the scratch and merely got lucky
+     *                                 not to crash: the BUG is present.
+     *   - any other termination    == corruption detected by another guard
+     *                                 (e.g. ASAN's stack-buffer-overflow exit,
+     *                                 or a SIGSEGV): NOT a clean fail-loud.
+     * Only a clean SIGABRT counts as PASS. Built under -fsanitize=address (the
+     * RGN_MUTATE_NO_XMERGE_CAP mutant, Makefile test-region-mutant) the reverted
+     * bound lets the OOB write reach ASAN FIRST, which exits(1) rather than
+     * SIGABRT -- so this probe goes RED exactly when the bound is removed
+     * (mutation-proven, Rule 6). Ref: PRD Sec 6.2; spec/region_algebra.h Sec 5.
+     * ====================================================================== */
+    {
+        static rgn_store_t A, B, O;
+        const int NSPANS = (int)(RGN_ROW_X_MAX / 2);   /* 128 spans -> 256 pts */
+        build_dense_scanline(&A, NSPANS, 0);
+        build_dense_scanline(&B, NSPANS, 2);
+        CHECK(A.r.rows[0].x_count == RGN_ROW_X_MAX,
+              "over-cap probe: dense A row is exactly the per-row cap");
+        CHECK(B.r.rows[0].x_count == RGN_ROW_X_MAX,
+              "over-cap probe: dense B row is exactly the per-row cap");
+        CHECK(normal_form_holds(&A.r) && normal_form_holds(&B.r),
+              "over-cap probe: dense inputs are in normal form");
+
+        fflush(stdout); fflush(stderr);     /* don't double-flush in the child */
+        pid_t pid = fork();
+        if (pid == 0) {
+            /* child: no core dump on the abort; run the over-cap XOR. If
+             * region_op RETURNS, the write was unbounded (the pre-fix bug) --
+             * exit 0 so the parent records the miss. */
+            struct rlimit rl = { 0, 0 };
+            (void)setrlimit(RLIMIT_CORE, &rl);
+            store_attach(&O);
+            region_op(&O.r, &A.r, &B.r, RGN_OP_XOR);
+            _exit(0);
+        }
+        CHECK(pid > 0, "over-cap probe: fork() succeeded");
+        int status = 0;
+        (void)waitpid(pid, &status, 0);
+        int fail_loud = (WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
+        CHECK(fail_loud,
+              "over-cap band xmerge FAILS LOUD (SIGABRT) instead of overrunning "
+              "scratch[RGN_ROW_X_MAX] (bead initech-mswo)");
+    }
 
     /* ---- constructor smoke: empty + single rect rasterize correctly ------- */
     {

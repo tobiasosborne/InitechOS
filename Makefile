@@ -9015,6 +9015,7 @@ TEST_REGION_DEPS := $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h
 TEST_REGION_MUT_VRLE   := $(BUILD)/test_region_mutant_vrle
 TEST_REGION_MUT_PARITY := $(BUILD)/test_region_mutant_parity
 TEST_REGION_MUT_EMIT   := $(BUILD)/test_region_mutant_emit
+TEST_REGION_MUT_XCAP   := $(BUILD)/test_region_mutant_xcap
 REGION_INC := -Ispec -Ios/flair/atkinson -Iseed
 
 $(TEST_REGION): $(TEST_REGION_SRC) $(TEST_REGION_DEPS) | $(BUILD)
@@ -9057,6 +9058,24 @@ test-region-mutant: $(TEST_REGION_MUT_VRLE) $(TEST_REGION_MUT_PARITY) $(TEST_REG
 		exit 1; \
 	else \
 		printf '>>> test-region-mutant: green (EMIT_NOCHANGE mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@# NO_XMERGE_CAP (bead initech-mswo): drop the per-band xmerge output bound and
+	@# confirm the over-cap fail-loud probe goes RED. The scratch overrun is a
+	@# STACK buffer overflow, so the corruption detector is AddressSanitizer, not a
+	@# downstream guard (a plain build MASKS it: region_normalize's own cap check
+	@# aborts too, so the probe cannot tell fixed from reverted). ASAN catches the
+	@# FIRST OOB write in xmerge (exit != SIGABRT), which the probe distinguishes.
+	@# Skip-safe if ASAN is unavailable on the host (the win31-decomp skip idiom).
+	@if $(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRGN_MUTATE_NO_XMERGE_CAP -fsanitize=address \
+			$(REGION_INC) -o $(TEST_REGION_MUT_XCAP) $(TEST_REGION_SRC) $(REGION_ENGINE_C) 2>/dev/null; then \
+		if ASAN_OPTIONS=abort_on_error=0:detect_leaks=0 $(TEST_REGION_MUT_XCAP) >/dev/null 2>&1; then \
+			printf '!!! test-region-mutant FAIL: NO_XMERGE_CAP mutant PASSED -- the over-cap xmerge bound oracle is decoration (bead initech-mswo)\n'; \
+			exit 1; \
+		else \
+			printf '>>> test-region-mutant: green (NO_XMERGE_CAP mutant correctly RED under ASAN -- xmerge scratch-overrun caught)\n'; \
+		fi; \
+	else \
+		printf '>>> test-region-mutant: SKIP NO_XMERGE_CAP (ASAN unavailable -- cannot build the scratch-overrun detector)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
