@@ -1926,10 +1926,16 @@ void kernel_main(void)
     HideWindow(ctx.wm, &ctx.windows[0].rec);
     HideWindow(ctx.wm, &ctx.windows[1].rec);
 
-    /* (2) Launch HELLO then NOTES (NOTES last => foreground, partially occluding
-     * HELLO -- the spec/flair_tenants_demo.h overlap that makes the drop-updateEvt
-     * mutant bite). FlairProcess_launch carves each tenant from the master FLAIR
-     * heap and runs its open() into ctx.wm / ctx.off (ADR-0013 Sec 3.2). */
+    /* (2) Launch NOTES then HELLO (HELLO last => FOREGROUND, partially occluding
+     * NOTES -- ref bead initech-4w15). HELLO is the boot foreground so the resting
+     * scene composes the DISTINCT Office Space chimera with NO extra draw: band 1
+     * = the static System-7 shell bar, band 2 = HELLO's OWN Photoshop bar (see (3)/
+     * (4)). NOTES is the BACKGROUND tenant (jmc5 lane: NOTES == background window at
+     * boot; HELLO becomes background only AFTER the O-5 switch). The overlap NOTES
+     * exposes when RAISED is the spec/flair_tenants_demo.h probe that makes the
+     * drop-updateEvt mutant bite. FlairProcess_launch carves each tenant from the
+     * master FLAIR heap and runs its open() into ctx.wm / ctx.off (ADR-0013 Sec 3.2);
+     * the LAST launch becomes list->head == the foreground (process.c). */
     FlairProcessList_init(&ten_plist);
     {
         rgn_rect_t hb, nb;   /* QuickDraw field order: top,left,bottom,right */
@@ -1937,12 +1943,12 @@ void kernel_main(void)
         hb.bottom = (int16_t)FLAIR_TEN_HELLO_B; hb.right = (int16_t)FLAIR_TEN_HELLO_R;
         nb.top = (int16_t)FLAIR_TEN_NOTES_T; nb.left   = (int16_t)FLAIR_TEN_NOTES_L;
         nb.bottom = (int16_t)FLAIR_TEN_NOTES_B; nb.right = (int16_t)FLAIR_TEN_NOTES_R;
-        ten_hello = FlairProcess_launch(&ten_plist, ctx.wm, &ctx.off, ctx.master,
-                                        &hello_procs, FLAIR_TEN_HELLO_NAME, hb,
-                                        (uint32_t)FLAIR_TENANT_RECORDS_DEFAULT,
-                                        (uint32_t)FLAIR_TEN_BUDGET);
         ten_notes = FlairProcess_launch(&ten_plist, ctx.wm, &ctx.off, ctx.master,
                                         &notes_procs, FLAIR_TEN_NOTES_NAME, nb,
+                                        (uint32_t)FLAIR_TENANT_RECORDS_DEFAULT,
+                                        (uint32_t)FLAIR_TEN_BUDGET);
+        ten_hello = FlairProcess_launch(&ten_plist, ctx.wm, &ctx.off, ctx.master,
+                                        &hello_procs, FLAIR_TEN_HELLO_NAME, hb,
                                         (uint32_t)FLAIR_TENANT_RECORDS_DEFAULT,
                                         (uint32_t)FLAIR_TEN_BUDGET);
     }
@@ -1954,24 +1960,36 @@ void kernel_main(void)
         for (;;) { __asm__ __volatile__("cli; hlt"); }
     }
 
-    /* (3) Each foreground tenant shows ITS menu set in the System-7 band (the
-     * MultiFinder menu swap). Reuse the scene's two CANONICAL bars (no new chrome):
-     * NOTES (the initial foreground) keeps the canon System-7 bar shell_render drew
-     * at the top; HELLO swaps the Photoshop-exact bar in when it is raised. */
+    /* (3) Each tenant's OWN menu is its menubar; the live app-switch loop swaps the
+     * FOREGROUND tenant's menu into the SECOND (Photoshop-chimera) band (ref bead
+     * initech-4w15: band 1 == the SHELL-OWNED static System-7 bar, drawn ONCE by
+     * shell_render below, never repainted by the live loop). HELLO's menu IS the
+     * Photoshop bar; NOTES's menu reuses the System-7 titles (File/Edit/View/
+     * Special). Because HELLO is the boot FOREGROUND (2), shell_render's fixed
+     * band-2 composition (bar_photoshop) ALREADY equals the foreground's menu at
+     * boot -- so the resting scene is the distinct chimera with no extra draw, and
+     * the O-5 switch to NOTES makes band 2 swap Photoshop -> System-7 (observable). */
     ten_hello->menubar = &ctx.scene->bar_photoshop;
     ten_notes->menubar = &ctx.scene->bar_sys;
 
     /* (4) Recomposite the offscreen: teal desktop + the two tenants' window chrome
      * (back-to-front) + the two menu bars (shell_render; modal_up==0 => no dialog).
-     * The compositor owns chrome; the tenant CONTENT is (re)drawn next. */
+     * The compositor owns chrome; the tenant CONTENT is (re)drawn next. shell_render
+     * composes band 1 = bar_sys (System-7) and band 2 = bar_photoshop (Photoshop) --
+     * the distinct chimera. UNTOUCHED by initech-4w15 (Do NOT touch shell_render's
+     * initial draw): with HELLO the boot foreground, band 2 already equals the
+     * foreground app's menu, so NO extra boot-time band-2 draw is needed (an earlier
+     * fix attempt added one and produced two identical System-7 bars at rest -- the
+     * Law-4 regression this arrangement avoids by construction). */
     shell_render(ctx.scene, &ctx.off);
 
     /* (5) Repaint each tenant's content in z-order through the updateEvt spine.
      * WindowMgr_invalidate clips the seed to each window's VISIBLE region, so the
-     * background HELLO does NOT overdraw the front NOTES in the overlap; then
+     * background NOTES does NOT overdraw the front HELLO in the overlap; then
      * flair_route_updates delivers the updateEvt to each owning tenant front-to-
-     * back. Result: NOTES full content (gray), HELLO exposed sliver (white), overlap
-     * = NOTES_FILL -- the PRE app-switch state the O-5 grader expects. */
+     * back. Result: HELLO full content (white), NOTES exposed sliver (gray), overlap
+     * = HELLO_FILL -- the PRE app-switch state the O-5 grader expects (ref bead
+     * initech-4w15: HELLO is the boot foreground). */
     if (ten_hello->windows != (WindowPtr)0)
         WindowMgr_invalidate(ctx.wm, ten_hello->windows,
                              region_get_bbox(ten_hello->windows->contRgn));
@@ -1982,7 +2000,7 @@ void kernel_main(void)
 
     /* (6) BC-4: present the co-resident tenant desktop BEFORE arming the pump. */
     flair_desktop_present(&b, &ctx.off);
-    serial_puts("FLAIR-TENANTS-READY hello+notes co-resident; NOTES foreground\n");
+    serial_puts("FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground\n");
 
     /* (7) O-7: MOUNT the FAT volume + bind the loader so the SYSTEM HOTKEY can
      * launch SAMIR (a TEXT tenant) off --disk2. The BOOT_FLAIR_LIVE arm HALTs in
@@ -2145,9 +2163,11 @@ void kernel_main(void)
      * (click-to-activate raised a background tenant), route the newly-exposed
      * content's updateEvt (so the raised tenant repaints its overlap -- the drop-
      * updateEvt mutant leaves it stale), swap the foreground tenant's menubar into
-     * the System-7 band (the MultiFinder menu swap), present, and emit
-     * FLAIR-DISPATCH app=<name>. Bounded (gate) vs unbounded (FLAIR_LIVE_INTERACTIVE)
-     * exactly like the chrome pump. */
+     * the SECOND (Photoshop-chimera) band ONLY -- ref bead initech-4w15: the TOP
+     * System-7 band (bar_sys) is shell-owned/static and must never be repainted
+     * here -- (the MultiFinder menu swap), present, and emit FLAIR-DISPATCH
+     * app=<name>. Bounded (gate) vs unbounded (FLAIR_LIVE_INTERACTIVE) exactly
+     * like the chrome pump. */
     {
         enum { FLAIR_TEN_TICK_BUDGET   = 250 }; /* ~2.5 s @100 Hz: inject+dump margin */
         enum { FLAIR_TEN_TICK_ANNOUNCE = 4   }; /* announce the first 4 advances only */
@@ -2161,13 +2181,30 @@ void kernel_main(void)
         uint32_t last  = start;
         uint32_t seen  = 0u;
 
-        /* A whole-bitmap GrafPort over the offscreen for the foreground-menubar
-         * swap (DrawMenuBar paints rows [0, FLAIR_MENUBAR_H) == the top System-7
-         * band). Mirrors flair_live_do_menu's port set-up. */
+        /* Ref: bead initech-4w15. The TOP System-7 shell bar (bar_sys, rows
+         * [0, FLAIR_MENUBAR_H)) is SHELL-OWNED and STATIC -- shell_render draws
+         * it ONCE when the scene is built and it must NEVER be repainted again
+         * (shell.h Sec 1 "TWO STACKED MENU BARS"). The foreground-tenant menubar
+         * swap below must land ONLY on the SECOND (Photoshop-band) bar at rows
+         * [SHELL_MENUBAR2_TOP, SHELL_MENUBAR2_TOP + FLAIR_MENUBAR_H). A whole-
+         * bitmap GrafPort over the offscreen (the old code here) paints rows
+         * [0, FLAIR_MENUBAR_H) -- the bar_sys slot -- which is exactly the bug:
+         * activating a tenant clobbered the static Apple-slot bar with the
+         * newly-foreground tenant's Photoshop-style menu, collapsing both
+         * stacked bars to identical content. Fix: build the port over an
+         * OFFSET VIEW of the offscreen starting at SHELL_MENUBAR2_TOP, via the
+         * SAME make_offset_view helper shell_render uses for this exact bar
+         * (shell.h; ADR-0004 D-2 one surface module -- reused, not duplicated).
+         * DrawMenuBar into a port over this view can then ONLY land on rows
+         * [SHELL_MENUBAR2_TOP, SHELL_MENUBAR2_TOP + FLAIR_MENUBAR_H) of the real
+         * offscreen; row 0 (bar_sys) is never touched by the live loop again. */
+        bitmap_t ten_bar2_view;
         GrafPort ten_barport;
         {
-            rgn_rect_t whole = { 0, 0, (int16_t)ctx.off.height, (int16_t)ctx.off.width };
-            ten_barport.portBits.bm     = ctx.off;
+            make_offset_view(&ten_bar2_view, &ctx.off, (uint32_t)SHELL_MENUBAR2_TOP);
+            rgn_rect_t whole = { 0, 0, (int16_t)ten_bar2_view.height,
+                                 (int16_t)ten_bar2_view.width };
+            ten_barport.portBits.bm     = ten_bar2_view;
             ten_barport.portBits.bounds = whole;
             ten_barport.portRect        = whole;
             ten_barport.visRgn          = (region_t *)0;
@@ -2264,7 +2301,10 @@ void kernel_main(void)
 
             /* POST-ACTIVATION: a click-to-activate switched the foreground tenant.
              * Repaint the raised tenant's newly-exposed content (the updateEvt
-             * route), swap its menubar into the System-7 band, present, announce.
+             * route), swap its menubar into the SECOND (Photoshop-chimera) band
+             * ONLY (ten_barport is now built over an offset view starting at
+             * SHELL_MENUBAR2_TOP -- ref bead initech-4w15; the TOP System-7 band
+             * is shell-owned/static and is never touched here), present, announce.
              * NOTE: flair_route_updates MUST run AFTER it is seeded and is NOT
              * preceded by desktop_paint_damage on the SAME updateRgn -- desktop.c
              * desktop_paint_damage validates (clears) every updateRgn at its tail
@@ -2294,10 +2334,13 @@ void kernel_main(void)
 #else
                 /* MUTANT FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP (Rule 6; the O-5 tenants
                  * emu-mutant image ONLY): SKIP the foreground-tenant menubar swap.
-                 * The System-7 band keeps the OLD foreground's menu titles, so the
-                 * booted O-5 gate's MENU-BAND differential finds the title strip
-                 * UNCHANGED pre-vs-post (0 diffs) -> RED. The raise + activate still
-                 * happen (TIER-A/TIER-B stay GREEN). NEVER in a real build. */
+                 * The SECOND (Photoshop-chimera) band keeps the OLD foreground's
+                 * menu titles, so the booted O-5 gate's MENU-BAND differential finds
+                 * the band-2 title strip UNCHANGED pre-vs-post (0 diffs) -> RED. The
+                 * raise + activate still happen (TIER-A/TIER-B stay GREEN); the TOP
+                 * System-7 band (bar_sys) is unaffected either way -- it is never
+                 * written by this loop, mutant or not (initech-4w15). NEVER in a
+                 * real build. */
                 (void)ten_barport;  /* referenced (else -Werror=unused-but-set-variable) */
 #endif
                 flair_desktop_present(&b, &ctx.off);

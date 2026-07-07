@@ -3,50 +3,76 @@
  * grader (HOST, C-only). beads ADR-0013 (FLAIR App Contract); Wave-4 gate O-5.
  *
  * It takes the PRE-switch and POST-switch screendumps of the booted
- * -DFLAIR_LIVE_TENANTS desktop (two co-resident reference tenants: HELLO,
- * launched first, and NOTES, launched LAST so it is foreground and PARTIALLY
- * OCCLUDES HELLO).  The locked FLAIR_APPSWITCH_SPEC trace clicks HELLO's visible
- * sliver (the background tenant).  That single click must:
- *   - raise the HELLO group to the front (co-residency + group-raise),
+ * -DFLAIR_LIVE_TENANTS desktop (two co-resident reference tenants: NOTES,
+ * launched first, and HELLO, launched LAST so HELLO is the boot FOREGROUND and
+ * PARTIALLY OCCLUDES NOTES -- bead initech-4w15: HELLO is the Photoshop-menu app,
+ * so with HELLO foreground the resting scene is the distinct chimera: band 1
+ * System-7 + band 2 Photoshop).  The locked FLAIR_APPSWITCH_SPEC trace clicks
+ * NOTES's visible sliver (the background tenant).  That single click must:
+ *   - raise the NOTES group to the front (co-residency + group-raise),
  *   - repaint the newly-exposed overlap region via the updateEvt route, and
- *   - fire the activate/deactivate pair so HELLO becomes the active tenant and
- *     NOTES deactivates.
+ *   - fire the activate/deactivate pair so NOTES becomes the active tenant and
+ *     HELLO deactivates.
  * The PRE dump is grabbed before the click; the POST dump after the
- * FLAIR-DISPATCH app=HELLO marker.  This grader judges the PRE->POST delta.
+ * FLAIR-DISPATCH app=NOTES marker.  This grader judges the PRE->POST delta.
  *
- * THREE DIFFERENTIALS, each independently catching a distinct app-switch mutant:
+ * FIVE DIFFERENTIALS, each independently catching a distinct regression:
+ *
+ *   DISTINCT-CHIMERA -- the BOOT (resting) scene shows two DIFFERENT stacked bars
+ *     (INTRA-scene structural; beads initech-4w15, Law 4).  The iconic Office
+ *     Space image is band 1 = System-7 ("[Apple] File Edit View Special") over
+ *     band 2 = Photoshop ("File Edit Image Layer Select View Window Help").  On
+ *     the PRE (resting) scene alone, band 1's title strip and band 2's title strip
+ *     must DIFFER.  This is the leg that catches the two-identical-bars regression
+ *     (a boot that draws the same menu into both bands -- exactly the Law-4 bug an
+ *     earlier fix attempt introduced by drawing the boot-foreground's System-7
+ *     menu into band 2 when NOTES was the boot foreground).
  *
  *   TIER-A -- CO-RESIDENCY + GROUP-RAISE + updateEvt REPAINT (structural).
- *     The OVERLAP probe (FLAIR_TEN_PROBE_OVERLAP_X/Y, inside HELLO content but
- *     under NOTES pre-switch) reads NOTES_FILL in the PRE dump (NOTES on top) and
- *     HELLO_FILL in the POST dump (HELLO raised to front AND its newly-exposed
+ *     The OVERLAP probe (FLAIR_TEN_PROBE_OVERLAP_X/Y, inside NOTES content but
+ *     under HELLO pre-switch) reads HELLO_FILL in the PRE dump (HELLO on top) and
+ *     NOTES_FILL in the POST dump (NOTES raised to front AND its newly-exposed
  *     overlap content repainted).  This ONE differential proves all three: the
  *     two tenants co-exist, the clicked group rose to front, and the exposed
  *     region was repainted by the updateEvt route.  The drop-updateEvt / no-raise
- *     / ignore-refCon mutants all leave NOTES_FILL here -> RED.  (ADR-0006 E-D5
+ *     / ignore-refCon mutants all leave HELLO_FILL here -> RED.  (ADR-0006 E-D5
  *     Tier-A damage-law kind: a STRUCTURAL differential, not a single-scene read.)
  *
  *   TIER-B -- ACTIVATION reached the tenant (independent VALUE).
- *     The HELLO ACTIVE-ACCENT probe (a FLAIR_TEN_ACCENT_SIZE block at
- *     FLAIR_TEN_HELLO_ACCENT_X/Y, inside HELLO content, NOT under NOTES) reads
- *     HELLO_FILL in the PRE dump (HELLO inactive: content fill only) and
- *     FLAIR_TEN_ACTIVE_ACCENT in the POST dump (HELLO became active: the tenant
- *     painted its accent block in response to activateEvt active=1).  The
- *     skip-activate-pair mutant leaves it FILL -> RED.  NOTE (per the demo
- *     contract): the activation observable is the TENANT CONTENT ACCENT, NOT a
- *     title-bar hilite -- the renderer has no active/inactive CHROME distinction,
- *     so we do NOT probe chrome hilite.  (ADR-0006 E-D5 Tier-B independent golden
- *     kind: graded against the canon VALUE the demo header names, by recomputation
- *     from the independent canon, never by-construction.)
+ *     The NOTES ACTIVE-ACCENT probe (a FLAIR_TEN_ACCENT_SIZE block at NOTES's
+ *     content top-left, FLAIR_TEN_NOTES_ACCENT_X/Y) reads HELLO_FILL in the PRE
+ *     dump (that block is UNDER the foreground HELLO) and FLAIR_TEN_ACTIVE_ACCENT
+ *     in the POST dump (NOTES raised + became active: the tenant painted its accent
+ *     block in response to activateEvt active=1).  The skip-activate-pair mutant
+ *     leaves it NOTES_FILL -> RED.  NOTE (per the demo contract): the activation
+ *     observable is the TENANT CONTENT ACCENT, NOT a title-bar hilite -- the
+ *     renderer has no active/inactive CHROME distinction, so we do NOT probe chrome
+ *     hilite.  (ADR-0006 E-D5 Tier-B independent golden kind: graded against the
+ *     canon VALUE the demo header names, by recomputation from the independent
+ *     canon, never by-construction.)
+ *
+ *   BAR1-STATIC -- the TOP System-7 shell bar survives the switch (PRE-vs-POST
+ *     DIFFERENTIAL; beads initech-4w15).  bar_sys (rows [0,FLAIR_MENUBAR_H)) is
+ *     SHELL-OWNED: shell_render draws it ONCE when the scene is built and the
+ *     live app-switch path must NEVER repaint it.  We grade this as a
+ *     DIFFERENTIAL of the bar-1 title-strip interior: it must be BYTE-IDENTICAL
+ *     pre-vs-post (0 differing pixels beyond capture tolerance).  The Apple slot +
+ *     System-7 titles must survive the switch.  (See the trailing DEVIATIONS note
+ *     re: the row-0 mistarget bug is caught by MENU-BAND in this demo, since the
+ *     activated NOTES menu == band 1's System-7 bar.)
  *
  *   MENU-BAND swap -- the foreground app's menubar swapped in (PRE-vs-POST
- *     DIFFERENTIAL).  When HELLO becomes foreground, its menubar replaces NOTES'
- *     in the System-7 menu-bar band.  We grade this as a DIFFERENTIAL of the
- *     menu-bar title strip: the band's title region must DIFFER pre-vs-post.  The
- *     menubar-no-swap mutant leaves the band byte-identical -> 0 differing pixels
- *     -> RED.  We keep it a differential and NEVER a palette read of one scene
- *     (a static band cannot pass).  See the BAND_* probe note + the deviation
- *     callout in the trailing comment re: exact glyph columns.
+ *     DIFFERENTIAL).  When NOTES becomes foreground, its System-7 menu replaces
+ *     HELLO's Photoshop menu in the SECOND (Photoshop-chimera) menu-bar band (rows
+ *     [FLAIR_MENUBAR_H, 2*FLAIR_MENUBAR_H) -- shell.h SHELL_MENUBAR2_TOP), NOT the
+ *     top bar (see BAR1-STATIC above).  We grade this as a DIFFERENTIAL of the
+ *     bar-2 menu-bar title strip: the band's title region must DIFFER pre-vs-post
+ *     (Photoshop -> System-7).  The menubar-no-swap mutant AND the initech-4w15
+ *     row-0-mistarget bug both leave band 2 byte-identical -> 0 differing pixels
+ *     -> RED (the row-0 bug draws the swap into band 1 instead of band 2, so band 2
+ *     never changes).  We keep it a differential and NEVER a palette read of one
+ *     scene (a static band cannot pass).  See the BAND_* probe note + the
+ *     deviation callout in the trailing comment re: exact glyph columns.
  *
  * INDEPENDENT GOLDEN (Law 2; ADR-0006 E-D5; ADR-0010 / HER-02 / HER-11): every
  * expected color is flair_canon_rgb(CIDX_*) from spec/assets/color_canon.h (the
@@ -69,35 +95,53 @@
 #include "flair_tenants_demo.h"  /* -Ispec: the shared demo layout (WHERE to
                                   * probe) + canon indices; it pulls in
                                   * assets/color_canon.h (flair_canon_rgb). */
+#include "chrome_metrics.h"      /* -Ispec: FLAIR_CHROME_MENUBAR_H -- the SAME
+                                  * locked geometry os/flair/shell.h derives
+                                  * SHELL_MENUBAR1_TOP/SHELL_MENUBAR2_TOP from,
+                                  * so a fix that mistargets a different row
+                                  * range is caught, not "matched" by a new
+                                  * grader-local magic number (initech-4w15). */
 
 /* Per-channel tolerance: capture-noise only (the XRGB8888 -> P6 dump is exact;
  * canon entries differ by far more than 2/channel), mirroring the drag grader. */
 #define TOL 2
 
-/* ---- the foreground-tenant MENU-BAR TITLE STRIP probe (the band-swap leg). ----
- * The demo is 640x480 with TWO 20px bars (flair_tenants_demo.h header rationale),
- * so the System-7 menu bar occupies y[0,20) and content begins at y>=40.  We scan
- * the menu-bar title strip -- the band INTERIOR (avoid the 1px bar edges) to the
- * right of the Apple menu (titles begin at x=20, cf. ppm_flair_menu_check's
- * MenuBar_title_x) -- and count pixels that DIFFER pre-vs-post.  The band is
- * strictly y<20, well clear of the content probes (y>=88), so a content change
- * cannot leak into this leg; only the menubar title swap can move it.
+/* ---- the TWO stacked menu-bar TITLE STRIP probes (the bar1-static leg +
+ * the bar2 band-swap leg; beads initech-4w15). ----
+ * The demo is 640x480 with TWO FLAIR_CHROME_MENUBAR_H-tall bars stacked (shell.h
+ * SHELL_MENUBAR1_TOP=0 / SHELL_MENUBAR2_TOP=FLAIR_MENUBAR_H): bar 1 (the TOP,
+ * SHELL-OWNED, STATIC System-7 bar: Apple slot + File/Edit/View/Special) at
+ * y[0,FLAIR_CHROME_MENUBAR_H), bar 2 (the Photoshop-chimera band that swaps to
+ * the foreground tenant's own menu) at y[FLAIR_CHROME_MENUBAR_H,
+ * 2*FLAIR_CHROME_MENUBAR_H); content begins at y>=40.  For EACH bar we scan its
+ * title-strip INTERIOR (avoid the 1px bar edges/baseline) to the right of the
+ * Apple menu (titles begin at x=20, cf. ppm_flair_menu_check's MenuBar_title_x)
+ * and count pixels that DIFFER pre-vs-post.  Both bands are strictly y<40, well
+ * clear of the content probes (y>=88), so a content change cannot leak into
+ * either leg; only a menu-bar repaint can move them.
  *
- * DEVIATION (documented; see trailing note): the demo header does not yet name
- * menu-bar geometry, so these BAND_* coords are grader-local.  We assert the
- * coarse DIFFERENTIAL (title strip differs) rather than exact glyph columns,
- * which would be brittle against the hand-made proof pair; Step 4/5 may tighten
- * to specific columns once the real booted image exists.  BAND_MIN_DIFFS is set
- * above capture noise but far below a real glyph-strip swap. */
-#define BAND_Y0          4     /* top    of the menu-bar interior strip          */
-#define BAND_Y1          16    /* bottom of the menu-bar interior strip (y<20)   */
+ * DEVIATION (documented; see trailing note): the demo header does not name
+ * menu-bar TITLE-COLUMN geometry (X0/X1 stay grader-local), though the Y ranges
+ * are now grounded in the SAME spec/chrome_metrics.h constant the shell uses.
+ * We assert the coarse DIFFERENTIAL (title strip differs / is identical)
+ * rather than exact glyph columns, which would be brittle against the
+ * hand-made proof pair; Step 4/5 may tighten to specific columns once the real
+ * booted image exists.  BAND_MIN_DIFFS is set above capture noise but far
+ * below a real glyph-strip swap. */
+#define BAND1_Y0         (0 + 4)                              /* bar-1 interior top    */
+#define BAND1_Y1         (0 + FLAIR_CHROME_MENUBAR_H - 4)      /* bar-1 interior bottom */
+#define BAND2_Y0         (FLAIR_CHROME_MENUBAR_H + 4)          /* bar-2 interior top    */
+#define BAND2_Y1         (FLAIR_CHROME_MENUBAR_H + FLAIR_CHROME_MENUBAR_H - 4) /* bar-2 bottom */
 #define BAND_X0          24    /* right of the Apple menu (titles start at x=20) */
 #define BAND_X1          200   /* across the foreground app's menu-title strip   */
 #define BAND_MIN_DIFFS   8     /* above capture noise, below a real title swap   */
 
-/* ---- the HELLO active-accent block CENTRE (sampled inside the 12x12 block). -- */
-#define ACC_CX (FLAIR_TEN_HELLO_ACCENT_X + FLAIR_TEN_ACCENT_SIZE / 2)
-#define ACC_CY (FLAIR_TEN_HELLO_ACCENT_Y + FLAIR_TEN_ACCENT_SIZE / 2)
+/* ---- the NOTES active-accent block CENTRE (sampled inside the 12x12 block). --
+ * bead initech-4w15: the O-5 switch now activates NOTES (HELLO is the boot
+ * foreground), so TIER-B probes NOTES's accent (its content top-left, exposed
+ * only when NOTES is raised + active), not HELLO's. */
+#define ACC_CX (FLAIR_TEN_NOTES_ACCENT_X + FLAIR_TEN_ACCENT_SIZE / 2)
+#define ACC_CY (FLAIR_TEN_NOTES_ACCENT_Y + FLAIR_TEN_ACCENT_SIZE / 2)
 
 /* ---- PPM P6 reader (the ppm_flair_drag_check / ppm_flair_menu_check idiom). -- */
 typedef struct {
@@ -194,15 +238,41 @@ static void assert_idx(const Img *im, const char *scene, int x, int y,
     }
 }
 
-/* Count pixels in the menu-bar title strip that differ (beyond TOL) pre-vs-post.
- * A pure DIFFERENTIAL: no canon VALUE is read here, only the PRE<->POST delta. */
-static int band_diff_count(const Img *pre, const Img *post)
+/* Count pixels in the menu-bar title strip x[BAND_X0,BAND_X1) y[y0,y1) that
+ * differ (beyond TOL) pre-vs-post. A pure DIFFERENTIAL: no canon VALUE is read
+ * here, only the PRE<->POST delta. Parametrized by y0/y1 so the SAME routine
+ * grades both bar-1 (expect 0 diffs -- static) and bar-2 (expect >=
+ * BAND_MIN_DIFFS -- swapped) (initech-4w15). */
+static int band_diff_count(const Img *pre, const Img *post, int y0, int y1)
 {
     int diffs = 0;
-    for (int y = BAND_Y0; y < BAND_Y1; y++) {
+    for (int y = y0; y < y1; y++) {
         for (int x = BAND_X0; x < BAND_X1; x++) {
             const unsigned char *a = px(pre, x, y);
             const unsigned char *b = px(post, x, y);
+            if (abs((int)a[0] - (int)b[0]) > TOL ||
+                abs((int)a[1] - (int)b[1]) > TOL ||
+                abs((int)a[2] - (int)b[2]) > TOL) {
+                diffs++;
+            }
+        }
+    }
+    return diffs;
+}
+
+/* Count pixels that differ (beyond TOL) between TWO vertically-offset title
+ * strips of the SAME image `im`: strip A at rows [y0a, y0a+h) vs strip B at rows
+ * [y0b, y0b+h), aligned row-by-row, over x[BAND_X0, BAND_X1). Used by the
+ * DISTINCT-CHIMERA leg to assert the boot scene's band 1 (System-7) and band 2
+ * (Photoshop) are visibly DIFFERENT bars (Law 4; initech-4w15). A pure intra-
+ * scene structural differential -- no canon VALUE is read. */
+static int intra_band_diff(const Img *im, int y0a, int y0b, int h)
+{
+    int diffs = 0;
+    for (int k = 0; k < h; k++) {
+        for (int x = BAND_X0; x < BAND_X1; x++) {
+            const unsigned char *a = px(im, x, y0a + k);
+            const unsigned char *b = px(im, x, y0b + k);
             if (abs((int)a[0] - (int)b[0]) > TOL ||
                 abs((int)a[1] - (int)b[1]) > TOL ||
                 abs((int)a[2] - (int)b[2]) > TOL) {
@@ -230,57 +300,123 @@ int main(int argc, char **argv)
     }
 
     printf("ppm_flair_appswitch_check: grading the app-switch PRE->POST delta "
-           "(click HELLO sliver @(%d,%d) -> raise+activate HELLO over NOTES)\n",
-           FLAIR_TEN_HELLO_CLICK_X, FLAIR_TEN_HELLO_CLICK_Y);
+           "(click NOTES sliver @(%d,%d) -> raise+activate NOTES over HELLO)\n",
+           FLAIR_TEN_NOTES_CLICK_X, FLAIR_TEN_NOTES_CLICK_Y);
 
     /* ---- TIER-A: co-residency + group-raise + updateEvt repaint ------------- */
-    /* PRE: NOTES is on top -> the overlap probe reads NOTES_FILL. */
+    /* bead initech-4w15: HELLO is the boot foreground, so the overlap flips
+     * HELLO_FILL (pre) -> NOTES_FILL (post) as NOTES is raised over HELLO. */
+    /* PRE: HELLO is on top -> the overlap probe reads HELLO_FILL. */
     assert_idx(&pre, "PRE", FLAIR_TEN_PROBE_OVERLAP_X, FLAIR_TEN_PROBE_OVERLAP_Y,
-               FLAIR_TEN_NOTES_FILL,
-               "TIER-A: PRE overlap probe is NOTES_FILL (NOTES on top, HELLO covered)");
-    /* POST: HELLO raised + the exposed overlap repainted -> reads HELLO_FILL. */
-    assert_idx(&post, "POST", FLAIR_TEN_PROBE_OVERLAP_X, FLAIR_TEN_PROBE_OVERLAP_Y,
                FLAIR_TEN_HELLO_FILL,
-               "TIER-A: POST overlap probe is HELLO_FILL (HELLO raised + updateEvt-repainted)");
+               "TIER-A: PRE overlap probe is HELLO_FILL (HELLO on top, NOTES covered)");
+    /* POST: NOTES raised + the exposed overlap repainted -> reads NOTES_FILL. */
+    assert_idx(&post, "POST", FLAIR_TEN_PROBE_OVERLAP_X, FLAIR_TEN_PROBE_OVERLAP_Y,
+               FLAIR_TEN_NOTES_FILL,
+               "TIER-A: POST overlap probe is NOTES_FILL (NOTES raised + updateEvt-repainted)");
     if (!g_fail) {
-        printf("    TIER-A: overlap NOTES_FILL->HELLO_FILL -- co-residency + "
+        printf("    TIER-A: overlap HELLO_FILL->NOTES_FILL -- co-residency + "
                "group-raise + updateEvt repaint of the exposed region\n");
     }
 
     /* ---- TIER-B: activation reached the tenant (content accent VALUE) ------- */
-    /* PRE: HELLO inactive -> the accent block shows HELLO_FILL (no accent). */
+    /* bead initech-4w15: TIER-B probes NOTES's accent (its content top-left).
+     * PRE that block is UNDER HELLO -> reads HELLO_FILL; POST NOTES is raised +
+     * active -> the tenant painted FLAIR_TEN_ACTIVE_ACCENT there. */
+    /* PRE: NOTES accent spot covered by HELLO -> reads HELLO_FILL (no accent). */
     assert_idx(&pre, "PRE", ACC_CX, ACC_CY, FLAIR_TEN_HELLO_FILL,
-               "TIER-B: PRE HELLO accent block is HELLO_FILL (HELLO inactive)");
-    /* POST: HELLO active -> the tenant painted FLAIR_TEN_ACTIVE_ACCENT. Sample
+               "TIER-B: PRE NOTES accent block is HELLO_FILL (NOTES inactive + covered by HELLO)");
+    /* POST: NOTES active -> the tenant painted FLAIR_TEN_ACTIVE_ACCENT. Sample
      * three interior points so a lucky single pixel cannot pass the block. */
     assert_idx(&post, "POST", ACC_CX, ACC_CY, FLAIR_TEN_ACTIVE_ACCENT,
-               "TIER-B: POST HELLO accent block (centre) is the active accent");
-    assert_idx(&post, "POST", FLAIR_TEN_HELLO_ACCENT_X + 2,
-               FLAIR_TEN_HELLO_ACCENT_Y + 2, FLAIR_TEN_ACTIVE_ACCENT,
-               "TIER-B: POST HELLO accent block (top-left interior) is the active accent");
-    assert_idx(&post, "POST", FLAIR_TEN_HELLO_ACCENT_X + FLAIR_TEN_ACCENT_SIZE - 3,
-               FLAIR_TEN_HELLO_ACCENT_Y + FLAIR_TEN_ACCENT_SIZE - 3,
+               "TIER-B: POST NOTES accent block (centre) is the active accent");
+    assert_idx(&post, "POST", FLAIR_TEN_NOTES_ACCENT_X + 2,
+               FLAIR_TEN_NOTES_ACCENT_Y + 2, FLAIR_TEN_ACTIVE_ACCENT,
+               "TIER-B: POST NOTES accent block (top-left interior) is the active accent");
+    assert_idx(&post, "POST", FLAIR_TEN_NOTES_ACCENT_X + FLAIR_TEN_ACCENT_SIZE - 3,
+               FLAIR_TEN_NOTES_ACCENT_Y + FLAIR_TEN_ACCENT_SIZE - 3,
                FLAIR_TEN_ACTIVE_ACCENT,
-               "TIER-B: POST HELLO accent block (bottom-right interior) is the active accent");
+               "TIER-B: POST NOTES accent block (bottom-right interior) is the active accent");
     if (!g_fail) {
-        printf("    TIER-B: HELLO accent FILL->ACTIVE_ACCENT -- the activate/"
+        printf("    TIER-B: NOTES accent FILL->ACTIVE_ACCENT -- the activate/"
                "deactivate pair fired and reached the tenant (active=1)\n");
     }
 
-    /* ---- MENU-BAND swap: the foreground menubar title strip differs --------- */
+    /* ---- DISTINCT-CHIMERA: the BOOT scene shows two DIFFERENT stacked bars --- *
+     * Ref: bead initech-4w15; Law 4 (the Office Space chimera is the RESTING look:
+     * band 1 = System-7 "[Apple] File Edit View Special", band 2 = Photoshop
+     * "File Edit Image Layer Select View Window Help"). This is the leg that would
+     * catch the two-identical-bars regression (a boot that draws the same menu into
+     * both bands). Graded on the PRE (resting) scene ONLY: band 1's title strip and
+     * band 2's title strip must DIFFER by >= BAND_MIN_DIFFS px. (Not a canon read;
+     * a pure intra-scene structural differential -- ADR-0010.) With HELLO the boot
+     * foreground, band 2 == HELLO's Photoshop bar != band 1's System-7 bar. */
     {
-        int diffs = band_diff_count(&pre, &post);
+        int h = BAND1_Y1 - BAND1_Y0;   /* == BAND2_Y1 - BAND2_Y0 (equal strips) */
+        int diffs = intra_band_diff(&pre, BAND1_Y0, BAND2_Y0, h);
+        if (diffs < BAND_MIN_DIFFS) {
+            fprintf(stderr,
+                    "ppm_flair_appswitch_check: FAIL DISTINCT-CHIMERA -- at BOOT the "
+                    "two stacked menu bars are IDENTICAL (band 1 y[%d,%d) vs band 2 "
+                    "y[%d,%d), x[%d,%d): only %d differing px < %d): the resting scene "
+                    "is NOT the distinct System-7 + Photoshop chimera (Law-4 "
+                    "regression; initech-4w15)\n",
+                    BAND1_Y0, BAND1_Y1, BAND2_Y0, BAND2_Y1, BAND_X0, BAND_X1,
+                    diffs, BAND_MIN_DIFFS);
+            g_fail = 1;
+        } else {
+            printf("    DISTINCT-CHIMERA: at boot band 1 (System-7) and band 2 "
+                   "(Photoshop) DIFFER (%d px) -- the resting scene is the distinct "
+                   "Office Space chimera (Law 4; initech-4w15)\n", diffs);
+        }
+    }
+
+    /* ---- BAR1-STATIC: the TOP System-7 shell bar survives the switch -------- *
+     * Ref: bead initech-4w15; shell.h SHELL_MENUBAR1_TOP static-bar invariant;
+     * Law 4 (the Office Space two-bar chimera must survive an app-switch: the
+     * Apple slot + System-7 titles never vanish). bar_sys is SHELL-OWNED and
+     * drawn ONCE by shell_render; the live app-switch path must NEVER repaint
+     * it. Assert the bar-1 title-strip interior is BYTE-IDENTICAL pre-vs-post
+     * (0 differing pixels beyond capture tolerance). This is the tier the
+     * initech-4w15 bug fails: a whole-bitmap GrafPort landed the foreground-
+     * tenant's Photoshop-style menu on row 0, clobbering bar_sys. */
+    {
+        int diffs = band_diff_count(&pre, &post, BAND1_Y0, BAND1_Y1);
+        if (diffs != 0) {
+            fprintf(stderr,
+                    "ppm_flair_appswitch_check: FAIL BAR1-STATIC -- the TOP "
+                    "System-7 shell bar x[%d,%d) y[%d,%d) CHANGED pre-vs-post "
+                    "(%d differing px, expected 0): the live app-switch clobbered "
+                    "the shell-owned static bar-1 band (initech-4w15) -- the Apple "
+                    "slot / System-7 titles did NOT survive the switch\n",
+                    BAND_X0, BAND_X1, BAND1_Y0, BAND1_Y1, diffs);
+            g_fail = 1;
+        } else {
+            printf("    BAR1-STATIC: the top System-7 bar x[%d,%d) y[%d,%d) is "
+                   "BYTE-IDENTICAL pre-vs-post -- the Apple slot + System-7 "
+                   "titles survive the app-switch (bar-1 is shell-owned + "
+                   "static; initech-4w15)\n",
+                   BAND_X0, BAND_X1, BAND1_Y0, BAND1_Y1);
+        }
+    }
+
+    /* ---- MENU-BAND swap: the foreground menubar title strip differs --------- *
+     * The SECOND (Photoshop-chimera) bar, NOT the top bar (see BAR1-STATIC). */
+    {
+        int diffs = band_diff_count(&pre, &post, BAND2_Y0, BAND2_Y1);
         if (diffs < BAND_MIN_DIFFS) {
             fprintf(stderr,
                     "ppm_flair_appswitch_check: FAIL MENU-BAND -- the foreground "
-                    "menubar title strip x[%d,%d) y[%d,%d) is UNCHANGED pre-vs-post "
-                    "(%d differing px < %d): the menubar did NOT swap to HELLO\n",
-                    BAND_X0, BAND_X1, BAND_Y0, BAND_Y1, diffs, BAND_MIN_DIFFS);
+                    "menubar title strip x[%d,%d) y[%d,%d) (bar 2) is UNCHANGED "
+                    "pre-vs-post (%d differing px < %d): the menubar did NOT swap "
+                    "to NOTES (Photoshop -> System-7)\n",
+                    BAND_X0, BAND_X1, BAND2_Y0, BAND2_Y1, diffs, BAND_MIN_DIFFS);
             g_fail = 1;
         } else {
             printf("    MENU-BAND: the menu-bar title strip x[%d,%d) y[%d,%d) "
-                   "DIFFERS pre-vs-post (%d px) -- HELLO's menubar swapped in\n",
-                   BAND_X0, BAND_X1, BAND_Y0, BAND_Y1, diffs);
+                   "(bar 2) DIFFERS pre-vs-post (%d px) -- NOTES's menubar "
+                   "swapped in (Photoshop -> System-7)\n",
+                   BAND_X0, BAND_X1, BAND2_Y0, BAND2_Y1, diffs);
         }
     }
 
@@ -289,27 +425,51 @@ int main(int argc, char **argv)
 
     if (g_fail) {
         fprintf(stderr, "ppm_flair_appswitch_check: FAIL -- the click did not "
-                "raise+activate the background tenant + swap its menubar (the "
-                "FLAIR App Contract app-switch is not actually wired)\n");
+                "raise+activate the background tenant + swap its menubar without "
+                "clobbering the static top bar (the FLAIR App Contract app-switch "
+                "is not actually wired correctly)\n");
         return 1;
     }
-    printf("ppm_flair_appswitch_check: PASS -- clicking HELLO's sliver raised the "
-           "HELLO group (overlap NOTES_FILL->HELLO_FILL + updateEvt repaint), "
-           "activated it (accent FILL->ACTIVE_ACCENT), and swapped its menubar; "
-           "the booted desktop honours the O-5 app-switch contract (ADR-0013)\n");
+    printf("ppm_flair_appswitch_check: PASS -- the boot scene is the DISTINCT "
+           "chimera (band1 System-7 != band2 Photoshop); clicking NOTES's sliver "
+           "raised the NOTES group (overlap HELLO_FILL->NOTES_FILL + updateEvt "
+           "repaint), activated it (accent FILL->ACTIVE_ACCENT), left the static "
+           "top System-7 bar untouched (BAR1-STATIC), and swapped band 2 to NOTES's "
+           "menu (Photoshop -> System-7); the booted desktop honours the O-5 "
+           "app-switch contract (ADR-0013) with the distinct chimera as the resting "
+           "look and no initech-4w15 regression\n");
     return 0;
 }
 
 /*
  * DEVIATIONS / RISKS (Law 2 honesty):
- *  - MENU-BAND probe is grader-local geometry (the demo header names content
- *    rects, not menu-bar columns) and a COARSE differential (strip-differs, not
- *    exact glyph columns).  This is the deliberate brittleness trade-off for the
- *    hand-made proof pair; it bites the menubar-no-swap mutant (0 diffs) today.
- *    Step 4/5 SHOULD tighten to specific title-glyph columns once the real booted
- *    tenants image exists (and may promote BAND_* into flair_tenants_demo.h).  It
- *    stays a DIFFERENTIAL (never a one-scene palette read) under ADR-0010.
- *  - The band leg cannot distinguish "swapped to HELLO's menu" from "swapped to
- *    anything"; the TIER-A/TIER-B legs (canon VALUEs) carry the identity proof,
+ *  - DISTINCT-CHIMERA / MENU-BAND / BAR1-STATIC probe X columns are grader-local
+ *    geometry (the demo header names content rects, not menu-bar columns); the Y
+ *    ranges ARE grounded in spec/chrome_metrics.h FLAIR_CHROME_MENUBAR_H, the SAME
+ *    constant shell.h derives SHELL_MENUBAR1_TOP/SHELL_MENUBAR2_TOP from. All are
+ *    COARSE differentials (strip-differs / strip-identical, not exact glyph
+ *    columns).  Step 4/5 SHOULD tighten to specific title-glyph columns once the
+ *    real booted tenants image exists (and may promote BAND_X0/X1 into
+ *    flair_tenants_demo.h).  All stay DIFFERENTIALs (never a one-scene palette
+ *    read) under ADR-0010.
+ *  - MUTATION COVERAGE OF THE MENU-BAR LEGS (bead initech-4w15, honest):
+ *      * MENU-BAND bites the no-menubar-swap mutant AND the initech-4w15 root cause
+ *        (the row-0 mistarget draws the swap into band 1, so band 2 never changes
+ *        -> 0 diffs -> RED).  This is the load-bearing proof the fix is real.
+ *      * DISTINCT-CHIMERA bites the two-identical-bars Law-4 regression (a boot that
+ *        collapses band 2 onto band 1's System-7 menu).
+ *      * BAR1-STATIC guards "the switch never repaints band 1".  In THIS demo the
+ *        activated tenant (NOTES) carries the SAME System-7 menu as band 1, so a
+ *        row-0 mistarget writes band-1's own content back onto band 1 (a no-op) and
+ *        is caught by MENU-BAND (band 2 stale), not BAR1-STATIC.  BAR1-STATIC is
+ *        the invariant guard that a FUTURE change writing a DIFFERENT menu to band 1
+ *        would trip; it is not independently mutation-provable by the row-0 revert
+ *        in this 2-app arrangement (activating the Photoshop app -- the only menu
+ *        that differs from band 1 -- is impossible here because that app is the
+ *        boot foreground, per the Law-4 arrangement in flair_tenants_demo.h).
+ *  - The MENU-BAND leg cannot distinguish "swapped to NOTES's menu" from "swapped
+ *    to anything"; the TIER-A/TIER-B legs (canon VALUEs) carry the identity proof,
  *    so the band leg is intentionally only the swap-happened differential.
+ *    BAR1-STATIC / DISTINCT-CHIMERA are intentionally structural differentials
+ *    (no-change / bars-differ), not canon reads.
  */

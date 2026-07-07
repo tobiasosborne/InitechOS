@@ -142,10 +142,15 @@ static void make_bar_port(GrafPort *port, const bitmap_t *dst)
  * height is dst->height - y_top. DrawMenuBar into a port over this view paints
  * rows [0, MENUBAR_H) of the view == rows [y_top, y_top+MENUBAR_H) of `dst`.
  * ------------------------------------------------------------------------- */
-/* (marked unused so the SHELL_MUTATE_ONE_MENUBAR build -- which omits the second
- * bar and thus this helper's only caller -- still compiles clean under -Werror.) */
-__attribute__((unused))
-static void make_offset_view(bitmap_t *view, const bitmap_t *dst, uint32_t y_top)
+/* EXPORTED (shell.h) -- initech-4w15: the live app-switch pump (os/milton/
+ * kmain.c) reuses this SAME technique to target the SECOND bar's band for the
+ * foreground-tenant menu swap, instead of duplicating the offset-view math in
+ * kmain.c (ADR-0004 D-2 "one surface module" spirit -- one place computes
+ * "where is row Y of a sub-band", not two). No longer `static`/`unused`: it
+ * now has an external caller in every build (not just the SHELL_MUTATE_ONE_
+ * MENUBAR-less hosted test build), so the -Werror unused-function guard that
+ * motivated the attribute no longer applies. See shell.h for the contract. */
+void make_offset_view(bitmap_t *view, const bitmap_t *dst, uint32_t y_top)
 {
     *view = *dst;
     view->base   = dst->base + (uint32_t)y_top * dst->pitch;

@@ -279,8 +279,9 @@ PPM_FLAIR_APPSWITCH_CHECK_SRC := tools/ppm_flair_appswitch_check.c
 PPM_FLAIR_APPSWITCH_CHECK_BIN := $(BUILD)/ppm_flair_appswitch_check
 
 # The LOCKED O-5 app-switch input trace + capture contract (spec/flair_appswitch_
-# trace.mk, Rule 8/11): sets FLAIR_APPSWITCH_SPEC := m-85:45,m-85:45,l1,l0. Pulled
-# in here so test-flair-appswitch wires it mechanically (single source of truth).
+# trace.mk, Rule 8/11): sets FLAIR_APPSWITCH_SPEC := m70:-30,m70:-30,l1,l0 (click
+# NOTES's sliver to activate the background tenant; bead initech-4w15). Pulled in
+# here so test-flair-appswitch wires it mechanically (single source of truth).
 include spec/flair_appswitch_trace.mk
 
 # ---------------------------------------------------------------------------
@@ -8797,8 +8798,11 @@ $(PPM_FLAIR_MENU_CHECK_BIN): $(PPM_FLAIR_MENU_CHECK_SRC) spec/assets/color_canon
 # O-5 app-switch screendump grader (ADR-0013; Wave-4 gate O-5). Grades the booted
 # tenants PRE->POST delta against the INDEPENDENT canon (flair_canon_rgb + the
 # flair_tenants_demo.h probe geometry), never the render. It includes the shared
-# demo layout header (which pulls in assets/color_canon.h), so -Ispec -Ispec/assets.
-$(PPM_FLAIR_APPSWITCH_CHECK_BIN): $(PPM_FLAIR_APPSWITCH_CHECK_SRC) spec/flair_tenants_demo.h spec/assets/color_canon.h | $(BUILD)
+# demo layout header (which pulls in assets/color_canon.h) AND spec/chrome_metrics.h
+# (FLAIR_CHROME_MENUBAR_H -- initech-4w15 BAR1-STATIC/MENU-BAND band geometry, the
+# SAME locked constant shell.h derives SHELL_MENUBAR1_TOP/SHELL_MENUBAR2_TOP from),
+# so -Ispec -Ispec/assets.
+$(PPM_FLAIR_APPSWITCH_CHECK_BIN): $(PPM_FLAIR_APPSWITCH_CHECK_SRC) spec/flair_tenants_demo.h spec/assets/color_canon.h spec/chrome_metrics.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec -Ispec/assets -o $@ $<
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
@@ -12036,16 +12040,18 @@ test-flair-menu-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MENU_IMG) $(PPM_FLAIR_MEN
 # ---------------------------------------------------------------------------
 # Two deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG):
 #   PRE : no mouse; screendump after FLAIR-TENANTS-READY -> the co-resident scene
-#         BEFORE the click (NOTES on top, HELLO covered + inactive).
+#         BEFORE the click (HELLO on top, NOTES covered + inactive; the DISTINCT
+#         chimera: band 1 System-7 != band 2 Photoshop -- bead initech-4w15/Law 4).
 #   POST: inject the LOCKED $(FLAIR_APPSWITCH_SPEC) trace; screendump after
-#         FLAIR-DISPATCH app=HELLO -> HELLO raised + repainted + active + menubar
-#         swapped.
+#         FLAIR-DISPATCH app=NOTES -> NOTES raised + repainted + active + band 2
+#         menubar swapped (Photoshop -> System-7), band 1 UNCHANGED.
 # ppm_flair_appswitch_check then grades the PRE->POST delta against the INDEPENDENT
-# canon (TIER-A overlap NOTES_FILL->HELLO_FILL ; TIER-B accent FILL->ACTIVE_ACCENT ;
-# MENU-BAND title strip differs). Asserts (Law 2): no triple-fault either boot;
-# FLAIR-TENANTS-READY + FLAIR-LIVE-READY + FLAIR-DISPATCH app=HELLO on serial; both
-# screendumps written; grader PASS. The guests cli;hlt after the bounded budget, so
-# the harness times out by design (OK = the asserts). Mutation-proven by
+# canon (DISTINCT-CHIMERA band1!=band2 at boot ; TIER-A overlap HELLO_FILL->
+# NOTES_FILL ; TIER-B accent FILL->ACTIVE_ACCENT ; BAR1-STATIC band1 unchanged ;
+# MENU-BAND band2 title strip differs). Asserts (Law 2): no triple-fault either
+# boot; FLAIR-TENANTS-READY + FLAIR-LIVE-READY + FLAIR-DISPATCH app=NOTES on serial;
+# both screendumps written; grader PASS. The guests cli;hlt after the bounded
+# budget, so the harness times out by design (OK = the asserts). Mutation-proven by
 # test-flair-appswitch-mutant. The locked trace is spec/flair_appswitch_trace.mk.
 FLAIR_APPSW_PRE_NAME    := flair_appswitch_pre
 FLAIR_APPSW_POST_NAME   := flair_appswitch_post
@@ -12059,11 +12065,11 @@ FLAIR_APPSW_POST_REPORT := $(BUILD)/$(FLAIR_APPSW_POST_NAME).report
 test-flair-appswitch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_APPSWITCH_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch : THE booted App Contract (O-5)\n'
-	@printf '  Click HELLO sliver -> raise+activate HELLO over NOTES + swap its menubar.\n'
-	@printf '  Ref: ADR-0013 (FLAIR App Contract); spec/flair_appswitch_trace.mk. Law 2/4.\n'
+	@printf '  Click NOTES sliver -> raise+activate NOTES over HELLO + swap band 2 (System-7).\n'
+	@printf '  Ref: ADR-0013 (FLAIR App Contract); bead initech-4w15; spec/flair_appswitch_trace.mk. Law 2/4.\n'
 	@printf '======================================================================\n'
 	@printf 'Booting   : %s (PRE + POST captures of the co-resident tenants)\n' "$(FLAIRTENANTS_IMG)"
-	@printf 'Expecting : PRE co-resident scene + POST FLAIR-DISPATCH app=HELLO + grader PASS\n'
+	@printf 'Expecting : PRE distinct chimera + POST FLAIR-DISPATCH app=NOTES + grader PASS\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# ---- PRE: the co-resident scene before the click (no mouse). ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_APPSW_PRE_NAME)" --out "$(BUILD)" \
@@ -12072,7 +12078,7 @@ test-flair-appswitch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_APPSWITCH_C
 	@# ---- POST: inject the locked trace; dump after the dispatch marker. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_APPSW_POST_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_APPSWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-DISPATCH app=HELLO" --timeout-ms 15000 \
+		--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 \
 		2> "$(FLAIR_APPSW_POST_REPORT)" || true
 	@cat "$(FLAIR_APPSW_POST_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -12086,9 +12092,9 @@ test-flair-appswitch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_APPSWITCH_C
 		|| { printf '!!! test-flair-appswitch FAIL: FLAIR-TENANTS-READY missing in the PRE boot (the scene never composed)\n'; exit 1; }
 	@grep -q '^FLAIR-LIVE-READY$$' "$(FLAIR_APPSW_POST_SERIAL)" \
 		|| { printf '!!! test-flair-appswitch FAIL: FLAIR-LIVE-READY missing -- the pump never armed\n'; exit 1; }
-	@grep -q '^FLAIR-DISPATCH app=HELLO$$' "$(FLAIR_APPSW_POST_SERIAL)" \
-		|| { printf '!!! test-flair-appswitch FAIL: FLAIR-DISPATCH app=HELLO missing -- the click did not dispatch the switch\n'; grep '^FLAIR-' "$(FLAIR_APPSW_POST_SERIAL)" || true; exit 1; }
-	@printf '>>> test-flair-appswitch [2/4]: FLAIR-TENANTS-READY + FLAIR-LIVE-READY + FLAIR-DISPATCH app=HELLO\n'
+	@grep -q '^FLAIR-DISPATCH app=NOTES$$' "$(FLAIR_APPSW_POST_SERIAL)" \
+		|| { printf '!!! test-flair-appswitch FAIL: FLAIR-DISPATCH app=NOTES missing -- the click did not dispatch the switch\n'; grep '^FLAIR-' "$(FLAIR_APPSW_POST_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-appswitch [2/4]: FLAIR-TENANTS-READY + FLAIR-LIVE-READY + FLAIR-DISPATCH app=NOTES\n'
 	@# ---- 3. Both screendumps captured. ----
 	@if [ ! -s "$(FLAIR_APPSW_PRE_PPM)" ] || [ ! -s "$(FLAIR_APPSW_POST_PPM)" ]; then \
 		printf '!!! test-flair-appswitch FAIL: a screendump is missing (PRE %s / POST %s)\n' "$(FLAIR_APPSW_PRE_PPM)" "$(FLAIR_APPSW_POST_PPM)"; exit 1; \
@@ -12097,7 +12103,7 @@ test-flair-appswitch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_APPSWITCH_C
 	@# ---- 4. Grade the PRE->POST delta against the INDEPENDENT canon. ----
 	@$(PPM_FLAIR_APPSWITCH_CHECK_BIN) "$(FLAIR_APPSW_PRE_PPM)" "$(FLAIR_APPSW_POST_PPM)" \
 		|| { printf '!!! test-flair-appswitch FAIL: the PRE->POST delta is not a raise+activate+menubar-swap (the App Contract app-switch is not wired)\n'; exit 1; }
-	@printf '>>> test-flair-appswitch [4/4]: grader PASS (TIER-A overlap + TIER-B accent + MENU-BAND swap)\n'
+	@printf '>>> test-flair-appswitch [4/4]: grader PASS (DISTINCT-CHIMERA + TIER-A overlap + TIER-B accent + BAR1-STATIC + MENU-BAND swap)\n'
 	@printf 'VERDICT   : PASS -- clicking the background tenant RAISES + ACTIVATES it and swaps\n'
 	@printf '            its menubar; the booted FLAIR App Contract honours O-5 (ADR-0013)\n'
 	@printf '            (QEMU; Bochs boot leg = make test-flair-appswitch-bochs)\n'
@@ -12126,7 +12132,7 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name flair_appswitch_post --out "$(BUILD)" \
 		--mouse "$(FLAIR_APPSWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-DISPATCH app=HELLO" --timeout-ms 15000 >/dev/null 2>&1 || true
+		--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@if [ ! -s "$(BUILD)/flair_appswitch_pre.ppm" ]; then printf '!!! test-flair-appswitch-mutant FAIL: clean PRE screendump missing (cannot establish the baseline)\n'; exit 1; fi
 	@$(PPM_FLAIR_APPSWITCH_CHECK_BIN) "$(BUILD)/flair_appswitch_pre.ppm" "$(BUILD)/flair_appswitch_post.ppm" >/dev/null 2>&1 \
 		|| { printf '!!! test-flair-appswitch-mutant FAIL: the CLEAN image did not grade GREEN -- the baseline is broken (not a mutant)\n'; exit 1; }
@@ -12143,7 +12149,7 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 		printf '>>> mutant %s (-D%s): %s\n' "$$tag" "$$macro" "$$desc"; \
 		$(HARNESS_BIN) --disk "$$img" --name "flair_appswitch_mut_$$tag" --out "$(BUILD)" \
 			--mouse "$(FLAIR_APPSWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-			--screendump --screendump-after "FLAIR-DISPATCH app=HELLO" --timeout-ms 15000 \
+			--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 \
 			2> "$(BUILD)/flair_appswitch_mut_$$tag.report" || true; \
 		if grep -q 'triple_fault=1' "$(BUILD)/flair_appswitch_mut_$$tag.report"; then \
 			printf '!!! test-flair-appswitch-mutant FAIL: mutant %s TRIPLE-FAULTED (cannot judge the oracle)\n' "$$tag"; rc=1; continue; \

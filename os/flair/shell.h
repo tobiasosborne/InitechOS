@@ -238,4 +238,29 @@ void shell_build_scene(shell_scene_t *s,
  * ------------------------------------------------------------------------- */
 void shell_render(shell_scene_t *s, const bitmap_t *dst);
 
+/* ===========================================================================
+ * 5. make_offset_view -- the second-bar offset-bitmap trick (EXPORTED)
+ * ---------------------------------------------------------------------------
+ * Ref: bead initech-4w15. DrawMenuBar (os/flair/menu.c) always paints rows
+ * [0, FLAIR_MENUBAR_H) of the PORT'S BITMAP -- it has no notion of "the second
+ * bar". To target the SECOND (Photoshop-band) bar at rows [FLAIR_MENUBAR_H,
+ * 2*FLAIR_MENUBAR_H) of the real destination WITHOUT a second pixel path,
+ * build a sub-bitmap VIEW whose `base` points at `dst`'s row `y_top` (base +
+ * y_top*pitch) and whose height is reduced by y_top; a GrafPort built over
+ * that view and drawn into by DrawMenuBar lands at rows [y_top, y_top +
+ * FLAIR_MENUBAR_H) of `dst`. shell_render uses this for the SECOND (Photoshop)
+ * bar at build time (y_top == SHELL_MENUBAR2_TOP); the live app-switch pump
+ * (os/milton/kmain.c) MUST reuse this SAME helper for the SAME purpose (the
+ * foreground-tenant menubar swap) rather than building a whole-bitmap port
+ * that lands on row 0 -- row 0 is the SHELL-OWNED, STATIC top System-7 bar
+ * (bar_sys) and must NEVER be repainted by the live switch (initech-4w15: a
+ * whole-bitmap port there clobbered bar_sys, collapsing both stacked bars to
+ * identical Photoshop content and losing the Apple slot).
+ *
+ * `view` is caller-supplied storage (no malloc; Law 3). `dst` is the real
+ * offscreen/LFB bitmap. `y_top` is the row (in `dst`) the view's row 0 maps
+ * to -- pass SHELL_MENUBAR2_TOP to target the second bar's band.
+ * ------------------------------------------------------------------------- */
+void make_offset_view(bitmap_t *view, const bitmap_t *dst, uint32_t y_top);
+
 #endif /* INITECH_OS_FLAIR_SHELL_H */
