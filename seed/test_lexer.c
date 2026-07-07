@@ -142,6 +142,80 @@ static void test_error_unterminated_string(void)
     CHECK(t[1].kind == TOK_ERROR, "unterminated string yields ERROR");
 }
 
+/*
+ * initech-2hg9: scan_string's pool-wrap only fired when out==0 (i.e. no
+ * bytes of the CURRENT string had been written yet). If the pool cursor
+ * (lx.strpos) sits near LEXER_STRBUF_CAP with only a small tail left, and
+ * the string needs more than that tail but still fits from the start of
+ * the pool, the old code wrongly returned "string literal too long" as
+ * soon as it had written >=1 byte and hit the tail boundary.
+ *
+ * Ref: CLAUDE.md Law 2 (oracle asserts real token output, not
+ * by-construction) + Rule 1 (this test must fail RED on the unfixed
+ * scan_string before the fix lands). Lexer/Lexer.strpos/strbuf are plain
+ * struct fields (lexer.h), so the test seeds pool state directly rather
+ * than lexing thousands of throwaway strings to walk the cursor there --
+ * that keeps the oracle a direct, independent check of the wrap math
+ * itself instead of an indirect proof through unrelated lexer behavior.
+ */
+static void test_string_pool_wrap_mid_string(void)
+{
+    Lexer lx;
+    lexer_init(&lx, "'hello'", strlen("'hello'"));
+
+    /* Seed the pool cursor so only 4 bytes remain before LEXER_STRBUF_CAP:
+     * avail = CAP - strpos = 4. "hello" is 5 bytes, so the 5th byte lands
+     * exactly on the old out==0-only wrap check with out=4 (not 0). */
+    lx.strpos = LEXER_STRBUF_CAP - 4;
+
+    Token t = lexer_next(&lx);
+    CHECK(t.kind == TOK_STRING, "5-byte string must lex with a 4-byte tail");
+    CHECK(t.length == 5 && strncmp(t.lexeme, "hello", 5) == 0,
+          "wrapped string decodes correctly (no truncation/corruption)");
+}
+
+/* A string of exactly LEXER_STRBUF_CAP bytes must always fit, regardless of
+ * where the pool cursor starts (it wraps to pool-start first if needed). */
+static void test_string_pool_exact_cap(void)
+{
+    static char src[LEXER_STRBUF_CAP + 3]; /* ' + CAP bytes + ' + NUL */
+    size_t i;
+    src[0] = '\'';
+    for (i = 0; i < LEXER_STRBUF_CAP; i++)
+        src[1 + i] = 'x';
+    src[1 + LEXER_STRBUF_CAP] = '\'';
+    src[2 + LEXER_STRBUF_CAP] = '\0';
+
+    Lexer lx;
+    lexer_init(&lx, src, strlen(src));
+    lx.strpos = LEXER_STRBUF_CAP - 4; /* same tight tail as above */
+
+    Token t = lexer_next(&lx);
+    CHECK(t.kind == TOK_STRING, "exactly-CAP string must lex, not error");
+    CHECK(t.length == LEXER_STRBUF_CAP, "exactly-CAP string keeps full length");
+}
+
+/* A string of CAP+1 bytes can never fit in the pool (even from a fresh
+ * pool-start) and must still, correctly, error "too long". */
+static void test_string_pool_over_cap_still_errors(void)
+{
+    static char src[LEXER_STRBUF_CAP + 4]; /* ' + CAP+1 bytes + ' + NUL */
+    size_t i;
+    src[0] = '\'';
+    for (i = 0; i < LEXER_STRBUF_CAP + 1; i++)
+        src[1 + i] = 'x';
+    src[2 + LEXER_STRBUF_CAP] = '\'';
+    src[3 + LEXER_STRBUF_CAP] = '\0';
+
+    Lexer lx;
+    lexer_init(&lx, src, strlen(src));
+    /* Fresh pool (strpos == 0) -- the largest possible tail -- so a failure
+     * here can only be the genuine over-capacity case, not a wrap bug. */
+
+    Token t = lexer_next(&lx);
+    CHECK(t.kind == TOK_ERROR, "CAP+1 string must still error (too long)");
+}
+
 static void test_error_unterminated_comment(void)
 {
     Token t[4];
@@ -160,6 +234,9 @@ int main(void)
     test_comment_line_tracking();
     test_strings();
     test_empty_string();
+    test_string_pool_wrap_mid_string();
+    test_string_pool_exact_cap();
+    test_string_pool_over_cap_still_errors();
     test_error_bad_char();
     test_error_unterminated_string();
     test_error_unterminated_comment();

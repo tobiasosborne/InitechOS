@@ -237,8 +237,20 @@ static Token scan_string(Lexer *lx, int line, int col)
     /* On entry the opening quote is at peek(); consume it. We decode into a
      * fresh slice of the pool starting at the current write cursor, so prior
      * string tokens stay valid (see header lifetime note). The slice needs
-     * room for the decoded bytes plus a NUL; if it cannot fit in what's left
-     * of the pool, wrap the cursor to the start first. */
+     * room for the decoded bytes plus a NUL; if the TAIL of the pool (from
+     * the write cursor to LEXER_STRBUF_CAP) runs out mid-decode, we relocate
+     * the bytes already decoded for THIS string to the pool start and keep
+     * going there (initech-2hg9: the wrap used to only trigger when zero
+     * bytes of the current string had been written yet, so a string that
+     * had already stored >=1 byte before hitting the tail was wrongly
+     * rejected as "too long" even though it fit from pool start -- see
+     * seed/test_lexer.c test_string_pool_wrap_mid_string). Relocating a
+     * live in-progress slice is safe: per the header's lifetime note, an
+     * OLDER token's slice is only guaranteed valid until the pool wraps
+     * around it anyway, and this wrap is the same "cursor returns to pool
+     * start" event that already existed for the out==0 case -- we're just
+     * making it fire at the right time instead of missing it whenever
+     * out>0. */
     advance(lx);
 
     char *dst = lx->strbuf + lx->strpos;
@@ -266,12 +278,26 @@ static Token scan_string(Lexer *lx, int line, int col)
         }
 
         if (out >= avail) {
-            /* No room in the current slice. Try wrapping to the pool start
-             * once (only helps if we haven't already started at 0). */
-            if (lx->strpos != 0 && out == 0) {
-                lx->strpos = 0;
+            /* The tail from the write cursor to LEXER_STRBUF_CAP is
+             * exhausted. If we are not already decoding at the pool start,
+             * relocate the `out` bytes decoded so far for THIS string down
+             * to strbuf[0] and continue there -- a full CAP bytes are then
+             * available regardless of how much tail we started with. Only
+             * a string that still can't fit starting from pool start (i.e.
+             * we are already at pool start and still ran out) is a genuine
+             * over-capacity "too long". Guard against relocation being a
+             * same-pointer no-op memmove when we're already at start. */
+            if (dst != lx->strbuf) {
+                memmove(lx->strbuf, dst, out);
                 dst = lx->strbuf;
                 avail = LEXER_STRBUF_CAP;
+                /* Keep lx->strpos in lockstep with dst rather than leaving
+                 * it stale until the end-of-function bookkeeping (which
+                 * would still net out correctly here since strpos0 + out +
+                 * 1 is guaranteed > CAP whenever a relocation fired -- but
+                 * an explicit reset keeps the invariant local and obvious
+                 * instead of resting on that off-site arithmetic). */
+                lx->strpos = 0;
             } else {
                 return make_error("string literal too long", line, col);
             }
