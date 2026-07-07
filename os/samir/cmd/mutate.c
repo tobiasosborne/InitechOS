@@ -58,6 +58,14 @@
  *   APPEND BLANK inserts the blank record's key into every open index
  *   (ndx_insert_key). The indexes are opened ndx_open_rw by the caller (S5.5
  *   adopts the table writable -- wa_adopt_table -- with ndx_open_rw'd indexes).
+ *   PACK physically removes deleted records AND renumbers the survivors, so a
+ *   per-recno ndx_delete_key cannot restore consistency (every surviving entry
+ *   would still carry a STALE recno). m_pack therefore FULLY REINDEXES every
+ *   open .ndx from the freshly-packed table (ndx_rebuild, one call per index,
+ *   with a get_key callback that re-evaluates that index's OWN key expression
+ *   against physical record N of the packed table via wa_nav_goto + m_encode_key)
+ *   -- matching III+ "rebuilds/adjusts all open index files" on PACK
+ *   (data-definition-and-manipulation.md sec.10 [ASSIST.HLP:120]). initech-x87g.
  *
  * WRITE MODEL (the writability seam): the dbf mutation verbs require a WRITABLE
  *   table (dbf.h S1.5: writable=1, set only by dbf_create). wa_set_open opens
@@ -81,8 +89,8 @@
  *   - os/samir/include/samir/nav.h (wa_nav_go_top/goto/skip; wa_nav_reset).
  *   - os/samir/include/samir/dbf.h (dbf_replace/append_blank/delete/recall/pack/
  *     zap/flush; the assignment-coercion contract).
- *   - os/samir/include/samir/ndx.h (ndx_update_key/insert_key/key_type/key_length/
- *     key_expr -- index maintenance).
+ *   - os/samir/include/samir/ndx.h (ndx_update_key/insert_key/ndx_rebuild/
+ *     key_type/key_length/key_expr -- index maintenance).
  *   - os/samir/include/samir/dbt.h (dbt_append -- memo writes for M fields).
  *   - os/samir/include/samir/eval.h (xb_lex/xb_parse/xb_eval; XBEE_MISMATCH/
  *     XBEE_NOT_LOGICAL; the WITH/FOR/WHILE expression path).
@@ -881,11 +889,59 @@ static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int
 /* PACK / ZAP                                                              */
 /* ===================================================================== */
 
+/*
+ * m_pack_kp_ctx / m_pack_get_key: the ndx_key_provider (ndx.h) that
+ * ndx_rebuild drives once per open index during PACK's full REINDEX
+ * (initech-x87g).
+ *
+ * PACK renumbers survivors, so the ONLY correct per-index maintenance is a
+ * fresh rebuild from the packed table (ndx_rebuild), not a per-recno
+ * delete. ndx_rebuild calls get_key(user, recno, key_out, key_len) for
+ * recno = 1..nrec of the ALREADY-packed table (fs/ndx.c never evaluates
+ * expressions itself -- the DECOUPLING note in ndx.h -- so the caller, here,
+ * owns evaluating THIS index's key_expr). The callback positions the work
+ * area's cursor at the PHYSICAL record `recno` (wa_nav_goto, which is always
+ * physical regardless of master order) so wa_resolve/m_eval read the right
+ * record's fields, then renders the on-disk key bytes with m_encode_key --
+ * the exact same encoder used by REPLACE/APPEND for index maintenance.
+ *
+ * On any failure (bad GOTO or an eval/type fault) `failed` is set and the
+ * catalog code (if any) captured in `ec`, and the callback returns -1 to
+ * abort ndx_build/ndx_rebuild (fail loud; Rule 2).
+ */
+#ifndef MUTATE_PACK_NO_REINDEX   /* unused when the no-reindex mutant drops the call */
+typedef struct {
+    xb_interp  *ip;
+    wa_env     *env;
+    int         area;
+    const char *key_expr;
+    uint16_t    key_type;
+    int         failed;
+    int         ec;
+} m_pack_kp_ctx;
+
+static int m_pack_get_key(void *user, uint32_t recno,
+                          uint8_t *key_out, uint16_t key_len)
+{
+    m_pack_kp_ctx *c = (m_pack_kp_ctx *)user;
+    int rc;
+
+    rc = wa_nav_goto(c->env, c->area, recno);
+    if (rc != NAV_OK) { c->failed = 1; c->ec = 0; return -1; }
+
+    rc = m_encode_key(c->ip, c->key_expr, c->key_type, key_len, key_out, &c->ec);
+    if (rc != INTERP_OK) { c->failed = 1; return -1; }
+
+    return 0;
+}
+#endif /* !MUTATE_PACK_NO_REINDEX */
+
 static int m_pack(xb_interp *ip, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
     int area = wa_selected(env);
     dbf_table *tbl = wa_table(env, area);
+    uint32_t new_nrec;
     int rc;
 
     if (!tbl) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
@@ -897,7 +953,59 @@ static int m_pack(xb_interp *ip, int *ec)
     }
     rc = dbf_flush(tbl);
     if (rc != DBF_OK) { if (ec) *ec = M_MSG_READONLY; return -INTERP_ERR_EVAL; }
-    /* PACK rewinds to record 1 (data-definition sec 10). */
+    new_nrec = dbf_nrec(tbl);
+
+    /* Refresh the work area's nrec + record cache BEFORE reindexing: the
+     * get_key callback below drives wa_nav_goto over the FULL packed range
+     * 1..new_nrec, which wa_goto bounds-checks against the area's (still
+     * stale, pre-refresh) nrec. */
+    (void)wa_refresh(env, area, 1u);
+
+#ifndef MUTATE_PACK_NO_REINDEX
+    /* PACK renumbers survivors -- a per-deleted-recno ndx_delete_key is
+     * INSUFFICIENT (every surviving entry would still carry its OLD recno).
+     * FULLY REINDEX every open .ndx from the freshly-packed table, matching
+     * III+ "rebuilds/adjusts all open index files" on PACK. Ref:
+     * ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
+     * sec.10 [ASSIST.HLP:120]. initech-x87g. */
+    {
+        int nidx = wa_index_count(env, area);
+        int i;
+
+        for (i = 0; i < nidx; i++) {
+            ndx_index *ix = wa_index(env, area, i);
+            m_pack_kp_ctx kctx;
+
+            if (!ix) continue;
+
+            kctx.ip       = ip;
+            kctx.env      = env;
+            kctx.area     = area;
+            kctx.key_expr = ndx_key_expr(ix);
+            kctx.key_type = ndx_key_type(ix);
+            kctx.failed   = 0;
+            kctx.ec       = 0;
+
+            rc = ndx_rebuild(ix, new_nrec, m_pack_get_key, &kctx);
+            if (rc != NDX_OK) {
+                if (ec) *ec = kctx.failed ? kctx.ec : 0;
+                return -INTERP_ERR_EVAL;    /* structural index fault: fail loud */
+            }
+        }
+    }
+#else
+    /* MUTANT (Rule 6 -- -DMUTATE_PACK_NO_REINDEX): skip the open-index full
+     * REINDEX after PACK. Every open .ndx then keeps its PRE-pack recnos, so
+     * a SEEK for a renumbered survivor resolves the WRONG (or a now
+     * out-of-range/still-present deleted) record -> the oracle's post-PACK
+     * SEEK checks go RED. */
+    (void)new_nrec;
+#endif
+
+    /* PACK rewinds to record 1 (data-definition sec 10). The reindex loop
+     * above (get_key) walked the cursor across every packed record; restore
+     * the documented end position + drop the now-stale materialised nav
+     * sequence. */
     (void)wa_refresh(env, area, 1u);
     (void)wa_nav_reset(area);
     if (ec) *ec = 0;

@@ -164,6 +164,12 @@ static uint32_t ceil4(uint32_t n)
  * (opaque to callers; ndx.h only forward-declares it)
  * ----------------------------------------------------------------------- */
 
+/* Max stored .ndx path length (incl. NUL). DOS 8.3 paths are short; host
+ * factory paths (/tmp/...) fit comfortably. ndx_open fails loud if a name is
+ * longer, rather than truncate (a truncated path would rebuild the WRONG file
+ * in ndx_rebuild -- Rule 2). */
+#define NDX_PATH_MAX 256
+
 struct ndx_index {
     samir_pal_t *pal;
 
@@ -190,6 +196,12 @@ struct ndx_index {
      * ndx_insert_key / ndx_delete_key / ndx_update_key check this and return
      * -NDX_ERR_READONLY if 0 (fail loud: Rule 2). */
     int      writable;
+
+    /* The file path this index was opened from -- a private NUL-terminated
+     * copy of the `name` passed to ndx_open/ndx_open_rw. Needed by ndx_rebuild
+     * (initech-x87g), which rebuilds the file fresh via ndx_build and reopens
+     * it in place so callers keep the same ndx_index* handle. */
+    char     path[NDX_PATH_MAX];
 
     /* Arena management. */
     void    *arena_mark;      /* mark before this struct; ndx_close resets here */
@@ -412,6 +424,22 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
             idx->key_expr[expr_i] = (char)b;
         }
         idx->key_expr[expr_i] = '\0';
+    }
+
+    /* Store a private copy of the file path for ndx_rebuild (initech-x87g).
+     * Fail loud on overflow rather than truncate (Rule 2). */
+    {
+        uint32_t p = 0u;
+        while (name[p] != '\0') {
+            if (p + 1u >= (uint32_t)NDX_PATH_MAX) {
+                pal->close(pal, fd);
+                pal->reset(pal, mark);
+                return -NDX_ERR_IO;
+            }
+            idx->path[p] = name[p];
+            p++;
+        }
+        idx->path[p] = '\0';
     }
 
     *out = idx;
@@ -2435,4 +2463,88 @@ int ndx_update_key(ndx_index *idx,
     rc = ndx_delete_key(idx, old_key_data, recno);
     if (rc != NDX_OK) return rc;
     return ndx_insert_key(idx, new_key_data, recno);
+}
+
+/*
+ * ndx_rebuild: rebuild the open index IN PLACE from a fresh record set.
+ *
+ * PACK renumbers the surviving records, so their physical recnos change and a
+ * per-recno ndx_delete_key/ndx_insert_key cannot restore consistency -- every
+ * surviving entry would still carry a stale recno. The only correct maintenance
+ * is a FULL REINDEX: rebuild the whole B-tree from the freshly-packed table,
+ * exactly as dBASE III PLUS "rebuilds/adjusts all open index files" on PACK
+ * (ASSIST.HLP:120; data-definition-and-manipulation.md sec.10). initech-x87g.
+ *
+ *   idx      must be opened with ndx_open_rw (else -NDX_ERR_READONLY).
+ *   nrec     the record count of the packed table (get_key is called 1..nrec).
+ *   get_key  the key-provider (same contract as ndx_build): render record N's
+ *            on-disk key. The caller evaluates the index's OWN key expression
+ *            (ndx_key_expr) against record N of the packed table.
+ *   user     opaque context for get_key.
+ *
+ * The index's key_type / key_length / key_expr are preserved (read from the
+ * open handle). The file is rebuilt via ndx_build (which creates it PAL_TRUNC,
+ * so the geometry -- fewer/more leaves after the record-count change -- is
+ * correct and no stale trailing pages remain) and then reopened; the in-memory
+ * header fields (root_page / total_pages / ...) are refreshed so the SAME
+ * ndx_index* handle stays valid for the caller (the work area keeps its pointer).
+ *
+ * Returns NDX_OK on success; a negative ndx_err on failure. On failure the file
+ * may have been rebuilt but the handle left with fd == -1 (fail loud; the caller
+ * surfaces the error rather than seeking a half-open index).
+ *
+ * Ref (Law 1): ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
+ * sec.10 (PACK rebuilds all open index files); ndx.h S4.5 maintenance contract.
+ */
+int ndx_rebuild(ndx_index *idx, uint32_t nrec,
+                ndx_key_provider get_key, void *user)
+{
+    samir_pal_t *pal;
+    pal_fd       fd;
+    uint8_t      page0[NDX_PAGE_SIZE];
+    int          rc;
+
+    if (!idx || !get_key)
+        return -NDX_ERR_BAD_PAGE;
+    if (!idx->writable)
+        return -NDX_ERR_READONLY;
+
+    pal = idx->pal;
+
+    /* Release our handle so ndx_build can create/truncate the file cleanly. */
+    pal->close(pal, idx->fd);
+    idx->fd = (pal_fd)-1;
+
+    /* Rebuild the whole .ndx from the packed table, preserving key geometry
+     * and the verbatim key expression. */
+    rc = ndx_build(pal, idx->path,
+                   idx->key_type, idx->key_length, idx->key_expr,
+                   nrec, get_key, user);
+    if (rc != NDX_OK)
+        return rc;   /* fail loud; handle left fd == -1 */
+
+    /* Reopen the freshly-built file read-write and refresh the in-memory
+     * header so the caller's existing handle continues to resolve. */
+    fd = pal->open(pal, idx->path, PAL_RDWR);
+    if (fd < 0)
+        return -NDX_ERR_IO;
+    idx->fd = fd;
+
+    rc = seek_to(pal, fd, 0u);
+    if (rc != NDX_OK) return rc;
+    rc = read_exact(pal, fd, page0, (uint32_t)NDX_PAGE_SIZE);
+    if (rc != NDX_OK) return rc;
+
+    idx->root_page     = u32le(page0 + NDX_HDR_ROOT_PAGE_OFF);
+    idx->total_pages   = u32le(page0 + NDX_HDR_TOTAL_PAGES_OFF);
+    idx->reserved      = u32le(page0 + NDX_HDR_RESERVED_OFF);
+    idx->key_length    = u16le(page0 + NDX_HDR_KEY_LENGTH_OFF);
+    idx->keys_per_page = u16le(page0 + NDX_HDR_KEYS_PER_PAGE_OFF);
+    idx->key_type      = u16le(page0 + NDX_HDR_KEY_TYPE_OFF);
+    idx->group_length  = u16le(page0 + NDX_HDR_GROUP_LENGTH_OFF);
+    idx->dummy         = u16le(page0 + NDX_HDR_DUMMY_OFF);
+    idx->unique_flag   = u16le(page0 + NDX_HDR_UNIQUE_FLAG_OFF);
+    /* key_expr is unchanged (ndx_build wrote back idx->key_expr verbatim). */
+
+    return NDX_OK;
 }

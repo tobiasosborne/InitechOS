@@ -743,4 +743,45 @@ int ndx_update_key(ndx_index *idx,
                    const uint8_t *new_key_data,
                    uint32_t recno);
 
+/*
+ * ndx_rebuild: rebuild the open index IN PLACE from a fresh record set
+ * (initech-x87g -- PACK's full-REINDEX maintenance).
+ *
+ * PACK physically removes deleted records AND renumbers the survivors, so
+ * their recnos CHANGE. A per-recno ndx_delete_key/ndx_insert_key cannot
+ * restore consistency (every surviving entry would still carry a stale
+ * recno); the only correct maintenance is a FULL REINDEX, exactly as III+
+ * "rebuilds/adjusts all open index files" on PACK.
+ *
+ *   idx      must be opened with ndx_open_rw (else -NDX_ERR_READONLY).
+ *   nrec     the record count of the freshly-packed table (get_key is
+ *            called for recno 1..nrec, same contract as ndx_build).
+ *   get_key  the key-provider (ndx_key_provider, above): renders record N's
+ *            on-disk key bytes for THIS index's key expression (the caller
+ *            evaluates ndx_key_expr(idx) against record N of the packed
+ *            table -- fs/ndx.c does not evaluate expressions itself, per
+ *            the ndx_build DECOUPLING note above).
+ *   user     opaque context for get_key.
+ *
+ * The index's key_type / key_length / key_expr (already stored on the open
+ * handle from ndx_open_rw) are preserved verbatim and passed through to
+ * ndx_build. The underlying file is rebuilt via ndx_build (PAL_TRUNC, so
+ * leaf/root geometry for the new record count is correct -- no stale
+ * trailing pages) and then reopened in place so the SAME ndx_index* handle
+ * stays valid for the caller (the work area keeps its pointer across PACK).
+ *
+ * Returns NDX_OK (0) on success; a negative ndx_err on failure (fail loud,
+ * Rule 2). On failure the file may already have been rebuilt but the handle
+ * is left with no usable fd -- the caller must treat idx as invalid and
+ * surface the error rather than seek a half-open index.
+ *
+ * Ref (Law 1):
+ *   - ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
+ *     sec.10 (PACK: "rebuilds/adjusts all open index files so they stay
+ *     consistent" [ASSIST.HLP:120]).
+ *   - ndx_build (above) -- the rebuild primitive + its key-provider contract.
+ */
+int ndx_rebuild(ndx_index *idx, uint32_t nrec,
+                ndx_key_provider get_key, void *user);
+
 #endif /* INITECH_SAMIR_NDX_H */

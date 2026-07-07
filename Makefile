@@ -928,6 +928,9 @@ TEST_NDX_MAINTAIN     := $(BUILD)/test_ndx_maintain
 TEST_NDX_MAINTAIN_MUT := $(BUILD)/test_ndx_maintain_mut
 # non-unique equal-key-run delete descent (initech-0g22).
 TEST_NDX_MAINTAIN_SPANMUT := $(BUILD)/test_ndx_maintain_spanmut
+# PACK reindexes every open .ndx (survivors renumbered) (initech-x87g).
+TEST_NDX_PACK     := $(BUILD)/test_ndx_pack
+TEST_NDX_PACK_MUT := $(BUILD)/test_ndx_pack_mut
 # S5.2 navigation GO/SKIP/TOP/BOTTOM/EOF/BOF (initech-7az.3).
 SAMIR_NAV_SRC     := $(SAMIR_CMD_DIR)/nav.c
 TEST_INTERP_NAV      := $(BUILD)/test_interp_nav
@@ -2354,6 +2357,36 @@ test-interp-replace-mutant: $(TEST_INTERP_REPLACE_MUT)
 		printf '!!! test-interp-replace-mutant FAIL: mutant PASSED -- REPLACE scope is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-interp-replace-mutant: green (REPLACE-ignores-scope correctly RED)\n'; \
+	fi
+
+# ---- SAMIR PACK reindexes every open .ndx (survivors renumbered) (S5.5 / initech-x87g) ----
+# cmd/mutate.c m_pack: dbf_pack renumbers survivors, so open .ndx B-trees must be
+# FULLY REINDEXED (ndx_rebuild) from the freshly-packed table -- a per-recno delete
+# is insufficient. The interp-level oracle drives DELETE+PACK then SEEKs each survivor
+# to its renumbered recno. Mutant: -DMUTATE_PACK_NO_REINDEX skips the reindex -> the
+# stale-recno SEEK checks go RED.
+$(TEST_NDX_PACK): $(DBF_DIFF_DIR)/test_ndx_pack.c $(INTERP_REPLACE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_pack.c $(INTERP_REPLACE_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_NDX_PACK_MUT): $(DBF_DIFF_DIR)/test_ndx_pack.c $(INTERP_REPLACE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMUTATE_PACK_NO_REINDEX -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_pack.c $(INTERP_REPLACE_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-ndx-pack
+test-ndx-pack: $(TEST_NDX_PACK)
+	@printf ">>> test-ndx-pack: PACK full-reindexes every open .ndx; SEEK resolves renumbered survivors (S5.5)\n"
+	@$(TEST_NDX_PACK) $(DBASE3_DECOMP)
+	@printf ">>> test-ndx-pack: green\n"
+
+.PHONY: test-ndx-pack-mutant
+test-ndx-pack-mutant: $(TEST_NDX_PACK_MUT)
+	@printf ">>> test-ndx-pack-mutant: confirming the no-reindex-on-PACK mutant goes RED (Rule 6; initech-x87g)\n"
+	@$(TEST_NDX_PACK_MUT) $(DBASE3_DECOMP) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-ndx-pack-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_NDX_PACK_MUT) $(DBASE3_DECOMP) >/dev/null 2>&1; then \
+		printf '!!! test-ndx-pack-mutant FAIL: mutant PASSED -- PACK reindex is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ndx-pack-mutant: green (no-reindex-on-PACK correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-5 SET state: EXACT/DECIMALS/DATE/CENTURY/ORDER/... (S5.6 / initech-7az.7) ----
@@ -16877,6 +16910,7 @@ TEST_UNIT_GATES := \
 	test-ndx-seek test-ndx-seek-mutant \
 	test-ndx-build test-ndx-build-mutant \
 	test-ndx-maintain test-ndx-maintain-mutant test-ndx-maintain-span-mutant \
+	test-ndx-pack test-ndx-pack-mutant \
 	test-dbt-read test-dbt-read-mutant \
 	test-dbt-roundtrip test-dbt-roundtrip-mutant \
 	test-xbase-lex test-xbase-lex-mutant test-xbase-parse test-xbase-parse-mutant \
