@@ -420,6 +420,52 @@ int main(int argc, char **argv)
         }
     }
 
+    /* ---- TIER-C: the RAISED window's own structure frame survives the switch
+     * (beads initech-jmc5 / initech-qi8v; the oracle-gap fix). ROOT CAUSE (pinned
+     * by a live re-test): kmain hides the two canon frame doc windows BEFORE
+     * launching the tenants, seeding wm->desktop_update with their footprint
+     * (fd_win_bounds) via distribute_exposure. The tenants' init recomposite
+     * (shell_render -> desktop_paint_all) paints the whole desktop correctly from
+     * scratch, but -- pre-fix -- desktop_paint_all never cleared wm->desktop_update,
+     * so that stale footprint survived into the pump. The FIRST desktop_paint_damage
+     * after the switch teal-stomps whatever window chrome geometrically falls inside
+     * it, WITHOUT repainting it (the window loop only repaints windows whose
+     * updateRgn is non-empty). The RAISED window (NOTES here: SelectWindow's 0->1
+     * transition) is NOT invalidated by window.c reaffirm_active -- only the 1->0
+     * DEACTIVATE transition is (initech-v6t2). So on THIS integrated scene the
+     * ERASED window is NOTES (raised), not HELLO (deactivated -> v6t2 repaints it):
+     * empirically HELLO's frame stays CIDX_BLACK in both builds, while NOTES's
+     * right + bottom structure frame reads CIDX_DESKTOP teal on the mutant and
+     * CIDX_BLACK on the fixed build. We probe NOTES's right edge (x=NOTES_R-1) and
+     * bottom edge (y=NOTES_B-1) -- both inside fd_win_bounds -- POST-switch only (a
+     * structural invariant: the frame was never supposed to move). The mutant
+     * DESKTOP_MUTATE_NO_PAINTALL_CLEAR (desktop.c drops the fix) flips this RED.
+     * This is the leg that catches the erasure jmc5/qi8v exist for -- TIER-A/B and
+     * MENU-BAND probe CONTENT + the menu band, never the raised window's own frame,
+     * which is exactly the pixel range the stale desktop_update corrupts. Fix:
+     * desktop.c desktop_paint_all resets wm->desktop_update at its tail. Coords are
+     * grader-local (like BAND_/ACC_), kept >=10px off the corners for +/-1px chrome
+     * drift, and clear of the HELLO/NOTES overlap. Grade vs the INDEPENDENT canon
+     * (Law 2; CIDX_BLACK == the wFrameColor). ---------------------------------- */
+    assert_idx(&post, "POST", FLAIR_TEN_NOTES_R - 1, 200, CIDX_BLACK,
+               "TIER-C: POST NOTES right frame edge (upper) is CIDX_BLACK, not "
+               "desktop teal (initech-jmc5/-qi8v stale desktop_update erasure)");
+    assert_idx(&post, "POST", FLAIR_TEN_NOTES_R - 1, 300, CIDX_BLACK,
+               "TIER-C: POST NOTES right frame edge (lower) is CIDX_BLACK, not "
+               "desktop teal (initech-jmc5/-qi8v stale desktop_update erasure)");
+    assert_idx(&post, "POST", 400, FLAIR_TEN_NOTES_B - 1, CIDX_BLACK,
+               "TIER-C: POST NOTES bottom frame edge (left) is CIDX_BLACK, not "
+               "desktop teal (initech-jmc5/-qi8v stale desktop_update erasure)");
+    assert_idx(&post, "POST", 500, FLAIR_TEN_NOTES_B - 1, CIDX_BLACK,
+               "TIER-C: POST NOTES bottom frame edge (right) is CIDX_BLACK, not "
+               "desktop teal (initech-jmc5/-qi8v stale desktop_update erasure)");
+    if (!g_fail) {
+        printf("    TIER-C: the raised window's (NOTES) own structure frame (right "
+               "+ bottom edges, inside fd_win_bounds) is CIDX_BLACK post-switch, "
+               "not desktop teal -- no stale desktop_update erasure "
+               "(initech-jmc5/-qi8v)\n");
+    }
+
     free(pre.buf);
     free(post.buf);
 

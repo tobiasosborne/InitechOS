@@ -45,6 +45,22 @@
  *     computed damage union change owner: assertion (b) [differing pixels ==
  *     damage union -- NO over-repaint] goes RED (and (a) RED). This is the
  *     flicker/over-repaint bug D-5 exists to forbid.
+ *
+ * A THIRD mutant lives on desktop_paint_all (beads initech-jmc5/-qi8v; the emu O-5
+ * gate's own mutant target, not test_drag.c's):
+ *
+ *   DESKTOP_MUTATE_NO_PAINTALL_CLEAR -- desktop_paint_all does NOT reset
+ *     wm->desktop_update at its tail. A desktop_update seeded BEFORE a
+ *     desktop_paint_all (e.g. by a HideWindow the caller issued earlier, whose
+ *     footprint desktop_paint_all's from-scratch composite already rendered over
+ *     correctly) survives into the NEXT desktop_paint_damage call as stale
+ *     geometry. That call's step-1 seafoam fill then clips to that stale footprint
+ *     and teal-stomps whatever window chrome now occupies it, without repainting
+ *     it (the window loop only repaints windows with a non-empty updateRgn, and
+ *     the stomped window's chrome was never marked dirty in that same call) -- the
+ *     initech-jmc5 app-switch erasure and initech-qi8v drag erasure (same root
+ *     cause, two call sites). See desktop.h desktop_paint_all for the fix
+ *     rationale.
  */
 #include <stdint.h>
 
@@ -170,6 +186,24 @@ void desktop_paint_all(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
      * region (the chrome drawer clips to visRgn INTERSECT clipRgn; we pass
      * visible(W) as both, so the effective clip is exactly visible(W)). */
     paint_back_to_front(wm, wm->front, dst, scratch);
+
+    /* 3. RESET wm->desktop_update (beads initech-jmc5/-qi8v; desktop.h has the
+     * full rationale). A full from-scratch composite satisfies ALL pending
+     * desktop-background damage by construction -- every desktop pixel this
+     * manager owns was just repainted -- so no desktop_update seeded before this
+     * call (e.g. by a HideWindow the caller issued earlier) may survive it. If it
+     * did, the NEXT desktop_paint_damage would clip its seafoam fill to that now-
+     * meaningless stale footprint and teal-stomp whatever window chrome currently
+     * sits there without repainting it (that call's window loop only repaints
+     * windows with a non-empty updateRgn). */
+#ifndef DESKTOP_MUTATE_NO_PAINTALL_CLEAR
+    region_set_empty(wm->desktop_update);
+#else
+    /* MUTANT (Rule 6; the O-5 gate's own mutant target): do NOT clear -- restores
+     * the initech-jmc5/-qi8v erasure so the new BACKGROUND-FOOTPRINT oracle tier
+     * (tools/ppm_flair_appswitch_check.c) is proven to bite. NEVER in a real
+     * build. */
+#endif
 }
 
 void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)

@@ -8578,7 +8578,50 @@ $(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_fl
 	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
-# The 4 emu mutants that BITE the booted O-5 gate (instantiated AFTER the vars they
+# $(call flair-tenants-desktop-mutant-rules,<KNOB>,<tag>): a compositor (desktop.c)
+# mutant. Swaps ONLY desktop.o (clean kmain main obj + process.o + ref_tenant.o
+# reused -> the mutation is isolated to desktop_paint_all's stale-desktop_update
+# reset, beads initech-jmc5/-qi8v). Mirrors the FLAIRTENANTS desktop.o recipe
+# (KERNEL_DESKTOP_OBJ, DRAG_INC) so the mutant object matches the real build byte-
+# for-byte except for the one -D knob. NOTE: BOTH the prerequisite list AND the
+# recipe below spell out os/flair/desktop.c / desktop.h / atkinson/region.h and the
+# DRAG_INC include flags LITERALLY rather than via $(DESKTOP_C)/$(DESKTOP_H)/
+# $(REGION_ENGINE_H)/$(DRAG_INC) -- those variables are defined LATER in this
+# Makefile (the test-drag section), and $(eval $(call ...)) expands EVERY $(VAR)
+# reference in the template (prerequisites AND recipe alike) ONCE, IMMEDIATELY,
+# at the point this $(eval ...) call site is parsed (a single-pass eval-argument
+# expansion, unlike a plain rule's recipe, which defers to execution time) --
+# referencing a not-yet-defined variable here would silently bake in an EMPTY
+# string, the same latent hazard KERNEL_DESKTOP_OBJ's own prerequisite list
+# already has (confirmed live: an earlier attempt with $(DRAG_INC)/$(DESKTOP_C) in
+# the recipe compiled "-c -o desktop_mut_no_paintall_clear.o" with no input file).
+define flair-tenants-desktop-mutant-rules
+$(BUILD)/desktop_mut_$(2).o: os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h os/flair/flair_look.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed -D$(1) -c os/flair/desktop.c -o $$@
+
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o
+
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+
+# The 5 emu mutants that BITE the booted O-5 gate (instantiated AFTER the vars they
 # reference; $(eval) expands the bodies immediately). Each names the leg it bites:
 #   IGNORE_REFCON   (dispatcher) -> owner-recovery returns the foreground always:
 #                    no switch -> overlap stays NOTES_FILL            -> TIER-A RED
@@ -8588,10 +8631,17 @@ endef
 #                    exposed overlap not repainted                    -> TIER-A RED
 #   NO_MENUBAR_SWAP (pump)       -> skip DrawMenuBar(head->menubar):
 #                    title strip unchanged pre-vs-post (0 diffs)      -> MENU-BAND RED
+#   NO_PAINTALL_CLEAR (compositor, os/flair/desktop.c) -> desktop_paint_all does
+#                    NOT reset wm->desktop_update: the stale HideWindow footprint
+#                    from kmain's canon-frame-window hide survives into the first
+#                    desktop_paint_damage and teal-stomps HELLO's own structure
+#                    frame wherever it falls inside that stale footprint (beads
+#                    initech-jmc5/-qi8v)                              -> TIER-C RED
 $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_IGNORE_REFCON,ignore_refcon))
 $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_SKIP_ACTIVATE,skip_activate))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_DROP_UPDATE,drop_update))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP,no_menubar_swap))
+$(eval $(call flair-tenants-desktop-mutant-rules,DESKTOP_MUTATE_NO_PAINTALL_CLEAR,no_paintall_clear))
 
 # O-7 SAMIR-suspend Rule-6 MUTANT image (Wave-5; this lane). A pump (kmain.c)
 # mutant: -DFLAIR_LIVE_MUTATE_NO_REBUILD makes flair_launch_text_tenant SKIP the
@@ -12255,22 +12305,25 @@ test-flair-appswitch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_APPSWITCH_C
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-appswitch-mutant (Rule 6 -- MUTATION-PROVE the O-5 grader
-# BITES; a check that never bites is decoration). Boots 4 separate FLAIRTENANTS mutant
-# images (each one -DFLAIR_LIVE_MUTATE_* knob, all behind #ifdef so the real image is
-# byte-identical), runs the SAME PRE/POST capture + grader, and confirms the grader
-# goes RED for every one. The CLEAN image is graded GREEN first as the baseline (same
-# PRE, same grader), so the only variable is the mutation. (The 5th candidate,
-# NO_GROUP_RAISE, is HOST-COVERED -- single-window tenants make front-only == correct,
-# so it carries no emu image; see the OMISSION note at the mutant-image instantiations.)
+# BITES; a check that never bites is decoration). Boots 5 separate FLAIRTENANTS mutant
+# images (each one -DFLAIR_LIVE_MUTATE_*/-DDESKTOP_MUTATE_* knob, all behind #ifdef so
+# the real image is byte-identical), runs the SAME PRE/POST capture + grader, and
+# confirms the grader goes RED for every one. The CLEAN image is graded GREEN first as
+# the baseline (same PRE, same grader), so the only variable is the mutation. (The 6th
+# candidate, NO_GROUP_RAISE, is HOST-COVERED -- single-window tenants make front-only
+# == correct, so it carries no emu image; see the OMISSION note at the mutant-image
+# instantiations. no_paintall_clear (beads initech-jmc5/-qi8v) is the desktop.c
+# compositor mutant TIER-C exists to catch -- see tools/ppm_flair_appswitch_check.c.)
 .PHONY: test-flair-appswitch-mutant
 test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(FLAIRTENANTS_IMG) \
 	$(BUILD)/flair_tenants_mut_ignore_refcon.img \
 	$(BUILD)/flair_tenants_mut_skip_activate.img \
 	$(BUILD)/flair_tenants_mut_drop_update.img \
-	$(BUILD)/flair_tenants_mut_no_menubar_swap.img
+	$(BUILD)/flair_tenants_mut_no_menubar_swap.img \
+	$(BUILD)/flair_tenants_mut_no_paintall_clear.img
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch-mutant : Rule 6 (the gate BITES)\n'
-	@printf '  4 FLAIRTENANTS mutants, each MUST drive ppm_flair_appswitch_check RED.\n'
+	@printf '  5 FLAIRTENANTS mutants, each MUST drive ppm_flair_appswitch_check RED.\n'
 	@printf '======================================================================\n'
 	@# ---- baseline: the CLEAN image must grade GREEN (same PRE, same grader). ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name flair_appswitch_pre --out "$(BUILD)" \
@@ -12287,7 +12340,8 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 	for spec in "ignore_refcon:FLAIR_LIVE_MUTATE_IGNORE_REFCON:owner-recovery returns the foreground always -- no switch (TIER-A)" \
 	            "skip_activate:FLAIR_LIVE_MUTATE_SKIP_ACTIVATE:skip the deactivate/activate pair -- no accent (TIER-B)" \
 	            "drop_update:FLAIR_LIVE_MUTATE_DROP_UPDATE:skip flair_route_updates -- exposed overlap stale (TIER-A)" \
-	            "no_menubar_swap:FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP:skip DrawMenuBar -- band unchanged (MENU-BAND)"; do \
+	            "no_menubar_swap:FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP:skip DrawMenuBar -- band unchanged (MENU-BAND)" \
+	            "no_paintall_clear:DESKTOP_MUTATE_NO_PAINTALL_CLEAR:desktop_paint_all does not reset desktop_update -- stale HideWindow footprint teal-stomps the raised window NOTES frame (TIER-C, initech-jmc5/-qi8v)"; do \
 		tag=$${spec%%:*}; rest=$${spec#*:}; macro=$${rest%%:*}; desc=$${rest#*:}; \
 		img="$(BUILD)/flair_tenants_mut_$$tag.img"; \
 		printf '%s\n' '----------------------------------------------------------------------'; \
@@ -12312,7 +12366,7 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 	done; \
 	if [ "$$rc" != "0" ]; then exit 1; fi
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- all 4 mutants drive ppm_flair_appswitch_check RED (the gate bites; Rule 6)\n'
+	@printf 'VERDICT   : PASS -- all 5 mutants drive ppm_flair_appswitch_check RED (the gate bites; Rule 6)\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------

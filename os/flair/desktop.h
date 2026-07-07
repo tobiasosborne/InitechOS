@@ -104,6 +104,19 @@
  * hold each window's visible region; it MUST be DISTINCT from the manager's three
  * internal scratch regions and from every window's strucRgn/contRgn/updateRgn.
  *
+ * RESETS wm->desktop_update to empty at its tail (beads initech-jmc5/-qi8v): a
+ * full from-scratch composite satisfies ALL pending desktop-background damage by
+ * construction (every desktop pixel was just repainted), so a STALE desktop_update
+ * -- e.g. left behind by a HideWindow that ran before this paint and whose
+ * footprint no caller has consulted yet -- must not survive into a LATER
+ * desktop_paint_damage call. A stale desktop_update surviving desktop_paint_all
+ * makes desktop_paint_damage's step-1 seafoam fill clip to a footprint that no
+ * longer describes "the bare desktop the last paint left behind": it teal-stomps
+ * whatever now occupies that stale geometry (a window's chrome that was never
+ * re-marked dirty in that same call, so that call's window loop never repaints
+ * it) -- the initech-jmc5 (app-switch) / initech-qi8v (drag) erasure. See
+ * desktop_paint_damage below for the mutation-switch this pairs with.
+ *
  * Fail-loud (Rule 2) on a NULL manager / NULL dst / NULL or unattached scratch.
  * ------------------------------------------------------------------------- */
 void desktop_paint_all(WindowMgr *wm, const bitmap_t *dst, region_t *scratch);
