@@ -67,7 +67,10 @@ static void draw_window(GrafPort *port)
     /* No title here: this oracle grades the pinstripe/box/frame/scrollbar geometry,
      * not the title (the title element is graded by test-chrome-fidelity, lxg9). An
      * empty title draws no text, so the mid_x pinstripe probes stay valid. */
-    flair_draw_document_window(port, win_frame(), "");
+    /* hilited=1: this oracle grades the ACTIVE geometry (pinstripe/box/frame/
+     * scrollbar); the inactive appearance is graded separately by
+     * test-chrome-fidelity (beads initech-a9iq). */
+    flair_draw_document_window(port, win_frame(), "", 1);
 }
 
 /* Is pixel (x,y) CHROME (i.e. NOT the bare desktop background)? The skeleton

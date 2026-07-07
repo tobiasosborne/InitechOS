@@ -399,4 +399,45 @@
  * golden-resolves (s7_scrollbar_active.png). */
 #define FG_SB_INACTIVE_NO_THUMB 1
 
+/* ===========================================================================
+ * INACTIVE (BACKGROUND WINDOW) TITLE-BAR INTERIOR (beads initech-a9iq).
+ *
+ * Source: ../system7-decomp/specs/chrome/title-bar.md Sec 2 ("Rendered colors")
+ *   + Sec 2.1 ("Active vs inactive (the hilite split)") -- pixel-measured from
+ *   goldens/captures/s7_get_info.png, the active (SimpleText Info, left) vs
+ *   inactive (HyperCard Info, right) title bars SIDE BY SIDE in the SAME
+ *   screendump + refs/StandardWDEF_a.txt (DrawTitleBar wHilited branch,
+ *   L679-744) -- an INDEPENDENT source from chrome.c/chrome_metrics.h (Law 2).
+ *   Cross-checked against goldens/captures/s7_701hd_afterw1.png (the capture
+ *   bd issue initech-a9iq cites directly): the partially-obscured background
+ *   Finder window's title band ("m") shows NO visible horizontal racing-stripe
+ *   banding, consistent with the flat-fill finding below (that capture is
+ *   1-bit B&W, so it cannot itself distinguish white-vs-gray fill; s7_get_info
+ *   is the precise 8bpp measurement used for the actual index values here).
+ *
+ * THE MECHANISM (title-bar.md Sec 2.1 table): "an INACTIVE window gets
+ * wHiliteShadeA (gray) frame, wContentColor (white) fill, NO bevel lines, and
+ * a dimmed wHiliteShade7 title string." This golden covers the FILL only (the
+ * title-bar INTERIOR band chrome.c composes) -- the frame-line recolor
+ * (wHiliteShadeA) and the title-ink dim (wHiliteShade7) are follow-up fidelity
+ * items (see chrome.c flair_draw_document_window comment), NOT graded here.
+ *
+ * THE TELL THIS CATCHES. Before this fix, flair_draw_document_window had no
+ * hilited parameter at all and ALWAYS drew the active pinstripe + bevel
+ * interior -- background windows were pixel-identical to the frontmost one.
+ * The measurable, recolor-invariant tell: an inactive title-bar interior row
+ * must be the CONTENT/white role (idx 1), never the pinstripe LIGHT/DARK
+ * (idx 7/8) or bevel LIGHT/SHADOW (idx 2/4) roles the active interior uses.
+ *
+ * RECOLOR-INVARIANCE: graded by INDEX class only (CIDX_WHITE, idx 1) -- the
+ * same content-white role already graded elsewhere (FG_BODY_INNER_IDX), not a
+ * new color axis.
+ * ========================================================================= */
+
+/* Inactive title-bar interior fill index: FLAIR_PART_CONTENT -> CIDX_WHITE
+ * (idx 1). Ref: title-bar.md Sec 2 Rendered-colors table "inactive title fill
+ * #FFFFFF ... plain white, NO pinstripe, NO bevel" (s7_get_info.png y=28..44
+ * x=560); Sec 2.1 hilite-split table "fill: plain #FFFFFF @ y=28..44". */
+#define FG_INACTIVE_TITLE_FILL_IDX   1   /* FLAIR_PART_CONTENT -> CIDX_WHITE */
+
 #endif /* INITECH_SPEC_CHROME_FIDELITY_GOLDEN_H */

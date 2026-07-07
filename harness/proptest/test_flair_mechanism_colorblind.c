@@ -65,7 +65,9 @@ static void draw_window(GrafPort *port)
     /* A real title here EXERCISES the title path through the C-8 seam: the glyph
      * ink + knockout resolve via flair_look_pixel, so under the sentinel stub the
      * title pixels are the sentinel too (proves the title is colorblind-clean). */
-    flair_draw_document_window(port, win_frame(), "untitled");
+    /* hilited=1: the active render (byte-identical to pre-fix); the C-8 seam is
+     * exercised the same way regardless of hilited state (beads initech-a9iq). */
+    flair_draw_document_window(port, win_frame(), "untitled", 1);
 }
 
 int main(void)

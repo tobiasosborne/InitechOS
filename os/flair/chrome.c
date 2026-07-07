@@ -26,6 +26,11 @@
  *   CHROME_MUTATE_SCROLLBAR_W  -- the scrollbar drawn 15 px wide (not 16).
  * In a normal build none is defined and the chrome is correct.
  *
+ * CHROME_FID_MUT_NO_INACTIVE (Rule 6; beads initech-a9iq): ignore the `hilited`
+ * argument entirely and always render the ACTIVE pinstripe/bevel title-bar
+ * interior -- the exact bug this fix closes. test-chrome-fidelity's inactive-
+ * title leg MUST go RED under this mutant.
+ *
  * Ref: spec/chrome_metrics.h / chrome_metrics.json (LOCKED); StandardWDEF.a
  *      (WDEF constants); gui-ground-truth.md Sec 3.3/4.2 (chimera element map).
  *      CLAUDE.md Law 1/2/4, Rule 2/6/11/12.
@@ -195,11 +200,21 @@ static void cbox(GrafPort *port, int bx0, int by0, int zoom)
  * flair_draw_document_window -- the chrome composition (top to bottom).
  * ------------------------------------------------------------------------- */
 void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
-                                const char *title)
+                                const char *title, int hilited)
 {
     if (port == 0) {
         return;
     }
+#if defined(CHROME_FID_MUT_NO_INACTIVE)
+    /* MUTANT (Rule 6; beads initech-a9iq): ignore `hilited` -- always render the
+     * ACTIVE title-bar interior, reproducing the original bug (every window,
+     * including background ones, shows the racing stripe). test-chrome-fidelity's
+     * new inactive-title leg MUST go RED. */
+    (void)hilited;
+    const int hilited_draw = 1;
+#else
+    const int hilited_draw = hilited;
+#endif
     int left   = frame.left;
     int top    = frame.top;
     int right  = frame.right;
@@ -248,6 +263,13 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
     int stripe_top  = title_top + bevel_rows;    /* first of the 15 stripe rows  */
     int stripe_bot  = stripe_top + stripe_rows;  /* half-open; bevel-lo row      */
     int shared_line = stripe_bot + bevel_rows;   /* the shared bottom frame line */
+
+    /* Branch the title-bar INTERIOR on `hilited_draw` (beads initech-a9iq; Law 1:
+     * ../system7-decomp/specs/chrome/title-bar.md Sec 2.1 "Active vs inactive (the
+     * hilite split)", StandardWDEF_a.txt DrawTitleBar L679-744). hilited_draw!=0
+     * draws the ACTIVE pinstripe + 3-D bevel interior below, BYTE-IDENTICAL to the
+     * pre-fix code (pure addition, no behavior change for the active case). */
+    if (hilited_draw) {
 
     /* 1a. Top bevel HIGHLIGHT row (wLTinge0 #DADAFF -> the WL-0053 lavender->teal
      * recolor canon TEAL, FLAIR_PART_BEVEL_LIGHT, 8bpp idx 2 -- the SAME bevel-hi
@@ -317,6 +339,27 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
         cfill(port, left + fr, by, w - 2 * fr, FLAIR_PART_BEVEL_SHADOW);
     }
 #endif /* CHROME_FID_MUT_NO_BEVEL */
+
+    } else {
+        /* INACTIVE StandardWDEF title-bar interior (beads initech-a9iq).
+         * Ref: ../system7-decomp/specs/chrome/title-bar.md Sec 2/2.1 (DrawTitleBar
+         * wHilited branch, StandardWDEF_a.txt L679-744) + Sec 2 "Rendered colors"
+         * table (measured s7_get_info.png, inactive HyperCard Info window title
+         * bar: y=28..44 x=560 solid #FFFFFF -- "plain white, NO pinstripe, NO
+         * bevel"). A background window's title INTERIOR is a FLAT fill: no
+         * bevel-hi/lo rows, no 15-row racing stripe. FLAIR_PART_CONTENT
+         * (CIDX_WHITE) is the SAME canon-white role the content body below
+         * already uses -- reusing it needs no new PART and no locked spec-data
+         * change (Rule 8); it is grounded against the independently-measured
+         * golden white (title-bar.md, itself sourced from a real System-7
+         * screendump distinct from chrome.c/chrome_metrics.h), not derived from
+         * this drawer's own palette (Law 2). Fills the SAME [title_top,
+         * shared_line) span the active branch fills, so the title-band height
+         * and content_top are unchanged either way. */
+        for (int y = title_top; y < shared_line; y++) {
+            cfill(port, left + fr, y, w - 2 * fr, FLAIR_PART_CONTENT);
+        }
+    }
 
     /* 1d. The SHARED bottom frame line (black): the bottom edge of the title-bar
      * FrameRect AND the top edge of the content-body FrameRect (window-frame.md
@@ -403,8 +446,16 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
         if (ty < stripe_top) {
             ty = stripe_top;
         }
+        /* The knockout background must match whichever interior fill is actually
+         * under the glyph cell (beads initech-a9iq): PIN_LIGHT on the active
+         * pinstripe interior, CONTENT (white) on the flat inactive interior --
+         * otherwise the glyph cell paints a visibly different shade than its
+         * surroundings. Still resolved ONLY through the C-8 seam (a PART, never
+         * a literal), so test-flair-mechanism-colorblind stays green either way. */
         uint32_t ink   = flair_look_pixel(port, FLAIR_PART_TEXT);      /* seam, black */
-        uint32_t knock = flair_look_pixel(port, FLAIR_PART_PIN_LIGHT); /* seam, light */
+        uint32_t knock = flair_look_pixel(port, hilited_draw
+                                          ? FLAIR_PART_PIN_LIGHT
+                                          : FLAIR_PART_CONTENT);        /* seam        */
         text_draw(&port->portBits.bm, tx, ty, title, FONT_CHICAGO, ink, knock);
     }
 #endif /* CHROME_FID_MUT_NO_TITLE */

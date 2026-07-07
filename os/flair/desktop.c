@@ -116,7 +116,11 @@ static void paint_window_chrome(const bitmap_t *dst, WindowPtr w,
     GrafPort port;
     rgn_rect_t frame = region_get_bbox(w->strucRgn);
     make_port(&port, dst, visRgn, clipRgn);
-    flair_draw_document_window(&port, frame, w->titleHandle);
+    /* w->hilited (spec/window_record.h; set by window.c reaffirm_active on every
+     * BringToFront/SendBehind) drives the StandardWDEF active/inactive title-bar
+     * split (beads initech-a9iq) -- already in scope here, just never consumed
+     * before this fix. */
+    flair_draw_document_window(&port, frame, w->titleHandle, w->hilited);
 }
 
 /* Recursive back-to-front walk: paint the window list from the BACK (tail) toward

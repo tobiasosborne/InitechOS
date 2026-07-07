@@ -25,6 +25,15 @@
  * "period-2 alternation", so it PASSES test-chrome's period_ok and ppm_flair_check
  * leg (c). But it has NO doubled-LIGHT pairs -- so the real System-7 phase is not
  * reproduced, and NOTHING currently catches it. This oracle does.
+ *
+ * INACTIVE TITLE BAR (beads initech-a9iq). A later leg renders a SECOND window
+ * with hilited=0 (a separate render_ctx_t; the hilited=1 render and all the legs
+ * above it are untouched) and grades the title-bar INTERIOR fill against the
+ * INDEPENDENT title-bar.md Sec 2.1 "Active vs inactive (the hilite split)" golden
+ * (measured from s7_get_info.png, a screendump distinct from the one the phase
+ * golden above uses) -- never against this drawer's own hilited=1 render. A
+ * CHROME_FID_MUT_NO_INACTIVE mutant (chrome.c) ignores the hilited flag and MUST
+ * turn this leg RED (Rule 6).
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -61,7 +70,18 @@ static rgn_rect_t win_frame(void)
 
 static void draw_window(GrafPort *port)
 {
-    flair_draw_document_window(port, win_frame(), TEST_TITLE);
+    /* hilited=1: every leg above this comment grades the ACTIVE render, BYTE-
+     * IDENTICAL to before flair_draw_document_window grew the hilited param
+     * (beads initech-a9iq -- pure addition, no behavior change here). */
+    flair_draw_document_window(port, win_frame(), TEST_TITLE, 1);
+}
+
+/* The SAME window, hilited=0 (a background window) -- beads initech-a9iq. Used
+ * ONLY by the inactive-title-bar leg below, via a SEPARATE render_ctx_t so it
+ * cannot perturb any of the hilited=1 assertions above. */
+static void draw_window_inactive(GrafPort *port)
+{
+    flair_draw_document_window(port, win_frame(), TEST_TITLE, 0);
 }
 
 /* Classify a rendered title-bar row by its 8bpp shade index: 'L' light (idx 7),
@@ -819,6 +839,105 @@ int main(void)
                   "leg (16b): down-arrow box must carry >=8 PIN_DARK (idx 8) "
                   "glyph-outline pixels; zero means no glyph drawn -- old FLAIR bug; "
                   "scrollbar.md down-arrow = vertical mirror of the up-arrow glyph");
+        }
+    }
+
+    /* ====================================================================
+     * INACTIVE (BACKGROUND WINDOW) TITLE-BAR INTERIOR (beads initech-a9iq).
+     *
+     * Ground truth: ../system7-decomp/specs/chrome/title-bar.md Sec 2 (Rendered
+     * colors) + Sec 2.1 (Active vs inactive, the hilite split) -- pixel-measured
+     * from goldens/captures/s7_get_info.png, an ACTIVE/INACTIVE title bar pair in
+     * the SAME screendump, and cross-checked visually against
+     * goldens/captures/s7_701hd_afterw1.png (the capture the bd issue cites: a
+     * partially-obscured background Finder window title band with no visible
+     * racing-stripe banding). NOT derived from chrome.c/chrome_metrics.h (Law 2)
+     * and NOT the same source the phase/bevel legs above use.
+     *
+     * THE BUG THIS CLOSES: flair_draw_document_window had no hilited parameter
+     * at all, so EVERY window -- including background ones -- rendered the
+     * active pinstripe+bevel interior. A user could not tell the active window
+     * from a background one by chrome (bd initech-a9iq EVIDENCE).
+     *
+     * This renders a SECOND window via the REAL chrome.c with hilited=0, in its
+     * OWN render_ctx_t (ctx2) so it cannot perturb any hilited=1 assertion above,
+     * and asserts every row of the title-bar INTERIOR span [title_top,
+     * shared_line) is the FLAIR_PART_CONTENT white role (idx 1, the SAME
+     * recolor-invariant index class FG_BODY_INNER_IDX already grades for the
+     * content body) -- never the active pinstripe (idx 7/8) or bevel (idx 2/4)
+     * roles. ==================================================================== */
+    {
+        render_ctx_t ctx2;
+        render_boot_info_t boot2;
+        memset(&boot2, 0, sizeof boot2);
+        boot2.lfb_bpp = 8u;
+        boot2.lfb_width = 640u;
+        boot2.lfb_height = 480u;
+        int rc2 = render_ctx_init(&ctx2, &boot2);
+        CHECK(rc2 == 0, "render_ctx_init(8bpp, inactive pass) must succeed");
+        if (rc2 == 0) {
+            render_run(&ctx2, draw_window_inactive);
+
+            const int fr2          = FLAIR_CHROME_FRAME;            /* POSITIONING only */
+            const int inactive_top = WIN_TOP + fr2;                 /* title_top   */
+            const int content_top2 = WIN_TOP + FLAIR_CHROME_TITLEBAR_H;
+            const int inactive_shared = content_top2 - fr2;         /* shared_line */
+            const int scan_x = WIN_LEFT + 20;                       /* clear of the
+                                                                      * close box; the
+                                                                      * SAME column
+                                                                      * the active
+                                                                      * pin_x uses  */
+
+            int flat_ok = 1;
+            int stray_active_shade = 0;
+            for (int y = inactive_top; y < inactive_shared; y++) {
+                uint32_t idx = render_pixel_index(&ctx2, (uint32_t)scan_x, (uint32_t)y);
+                if (idx != (uint32_t)FG_INACTIVE_TITLE_FILL_IDX) {
+                    flat_ok = 0;
+                }
+                if (idx == (uint32_t)FG_STRIPE_LIGHT_IDX  ||
+                    idx == (uint32_t)FG_STRIPE_DARK_IDX   ||
+                    idx == (uint32_t)FG_TITLE_BEVEL_HI_IDX ||
+                    idx == (uint32_t)FG_TITLE_BEVEL_LO_IDX) {
+                    stray_active_shade = 1;
+                }
+            }
+            printf("test-chrome-fidelity: inactive title-bar interior rows y=%d..%d "
+                   "at x=%d -> %s (expect ALL idx%d CONTENT/white; active pinstripe/"
+                   "bevel idx 7/8/2/4 present=%s)\n",
+                   inactive_top, inactive_shared - 1, scan_x,
+                   flat_ok ? "flat" : "NOT flat", FG_INACTIVE_TITLE_FILL_IDX,
+                   stray_active_shade ? "yes" : "no");
+
+            /* (17) The inactive title-bar interior is a FLAT CONTENT/white fill --
+             * no pinstripe, no bevel -- for every row of the interior span. */
+            CHECK(flat_ok,
+                  "leg (17): a background (hilited=0) window's title-bar interior "
+                  "must be a FLAT FLAIR_PART_CONTENT fill (idx 1 = white); "
+                  "title-bar.md Sec 2 'inactive title fill #FFFFFF ... plain white, "
+                  "NO pinstripe, NO bevel' (s7_get_info.png y=28..44 x=560)");
+
+            /* (18) Never the active pinstripe/bevel shades -- the decisive tell
+             * the pre-fix code failed (every window drew the active interior). */
+            CHECK(!stray_active_shade,
+                  "leg (18): a background window's title-bar interior must NOT "
+                  "contain the active pinstripe (idx 7/8) or bevel (idx 2/4) "
+                  "shades -- this is the initech-a9iq bug: FLAIR previously drew "
+                  "the ACTIVE racing-stripe/bevel title bar unconditionally, so "
+                  "background windows were indistinguishable from the frontmost one");
+
+            /* (19) The shared frame line BELOW the interior (top of the content
+             * body) is unchanged -- still FRAME/black -- confirming the inactive
+             * branch does not disturb the surrounding geometry (same [title_top,
+             * shared_line) span the active branch fills; beads initech-a9iq). */
+            uint32_t shared_px2 = render_pixel_index(&ctx2, (uint32_t)scan_x,
+                                                      (uint32_t)inactive_shared);
+            CHECK(shared_px2 == (uint32_t)FG_TITLE_SHARED_FRAME_IDX,
+                  "leg (19): the shared frame line below an inactive title-bar "
+                  "interior must still be FLAIR_PART_FRAME (idx 0 = black) -- the "
+                  "inactive branch must not shift the title-band geometry");
+
+            render_ctx_free(&ctx2);
         }
     }
 

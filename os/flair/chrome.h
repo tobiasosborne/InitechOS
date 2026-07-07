@@ -58,8 +58,30 @@
  * the title bar in Chicago over a knocked-out light gap (System 7; beads
  * initech-lxg9). A NULL or empty title draws no text. The ink + knockout resolve
  * through the C-8 policy seam (flair_look_pixel), never a color literal.
+ *
+ * `hilited` is the WindowRecord's wHilited flag (spec/window_record.h
+ * WindowRecord.hilited; StandardWDEF_a.txt DrawTitleBar, L679-744): non-zero for
+ * the frontmost/active window, zero for a background window. The WDEF branches
+ * the title-bar INTERIOR on this flag (../system7-decomp/specs/chrome/title-bar.md
+ * Sec 2.1 "Active vs inactive (the hilite split)"): hilited!=0 draws the
+ * pinstripe + 3-D bevel exactly as before (byte-identical); hilited==0 draws a
+ * FLAT solid interior (FLAIR_PART_CONTENT white; no pinstripe, no bevel rows) --
+ * the StandardWDEF inactive appearance. The close/zoom gadgets and title text
+ * are still drawn in both states (the flat backdrop alone de-emphasizes them
+ * relative to the racing-stripe active state). Ref: beads initech-a9iq.
+ *
+ * SCOPE (Law 1 honesty): this fix covers the title-bar INTERIOR fill only. The
+ * decomp ground truth (title-bar.md Sec 2.1) also documents an inactive FRAME
+ * line recolor (wHiliteShadeA, gray, vs black) and a dimmed title-ink shade
+ * (wHiliteShade7) that this drawer does NOT yet reproduce -- both are
+ * candidate follow-up fidelity items, not graded by the initech-a9iq oracle
+ * leg. close-zoom-box.md additionally documents the gadgets being fully
+ * ABSENT (not merely dimmed) on a real System-7 inactive title bar; this
+ * drawer keeps them present per the bd initech-a9iq EXPECTED text
+ * ("de-emphasized gadgets"), a deliberate, narrower scope than strict
+ * System-7 accuracy -- also a follow-up fidelity candidate.
  * ------------------------------------------------------------------------- */
 void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
-                                const char *title);
+                                const char *title, int hilited);
 
 #endif /* INITECH_OS_FLAIR_CHROME_H */
