@@ -291,8 +291,11 @@ static void q_append_uint_rj(char *buf, uint32_t *pos, uint32_t cap,
  *         own dec_count is not known here, so we render with 0 decimals for an
  *         integral value and up to a small precision otherwise.
  *   D   : YYYYMMDD/AMERICAN -- we render MM/DD/YY (SET DATE AMERICAN default).
- *   L   : "T" / "F" (LIST column form; ? prints .T./.F. but the oracle asserts
- *         on field values, so we use the LIST "T"/"F" form here uniformly).
+ *   L   : ".T." / ".F." for ? / ?? (the dotted echo form); bare "T" / "F" for
+ *         LIST/DISPLAY columns -- selected by the `logical_dotted` argument.
+ *         Ref (Law 1): ../dbase3-decomp/specs/commands/navigation-query-display.md
+ *         L.803 "? ... logicals as .T./.F." (dotted echo) vs L.689 "logical
+ *         fields print as T/F" (bare LIST/DISPLAY column).
  *   U   : blank (an unset value renders empty).
  *
  * SET DECIMALS scope (numeric-and-string-formatting.md line 33, HELP.DBS:1413-1416
@@ -337,7 +340,7 @@ static void q_append_uint_rj(char *buf, uint32_t *pos, uint32_t cap,
  *   Rule 2 note: a NULL ctx here means the interpreter was not initialized).
  */
 static void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
-                         const xb_val *v, const xb_ctx *ctx)
+                         const xb_val *v, const xb_ctx *ctx, int logical_dotted)
 {
     switch (v->t) {
     case XB_C:
@@ -407,7 +410,15 @@ static void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
         break;
     }
     case XB_L:
-        q_append(buf, pos, cap, v->u.l ? "T" : "F", 1u);
+        /* Two DISTINCT III+ presentation rules (Law 1 -- corpus):
+         *   logical_dotted (? / ??):  echo ".T." / ".F." (dotted)  [nav-query L.803]
+         *   else (LIST/DISPLAY col):  print bare "T" / "F"         [nav-query L.689]
+         * The prior code emitted bare T/F on BOTH paths -- the Law-2 heresy the
+         * test_samir_repl.c oracle agreed with by construction (initech-3p9e). */
+        if (logical_dotted)
+            q_append(buf, pos, cap, v->u.l ? ".T." : ".F.", 3u);
+        else
+            q_append(buf, pos, cap, v->u.l ? "T" : "F", 1u);
         break;
     case XB_U:
     default:
@@ -689,7 +700,8 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             rc = q_eval(ip, expr, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
-            q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip));
+            q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip),
+                         /*logical_dotted=*/0);   /* LIST/DISPLAY column: bare T/F */
         }
         if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
     } else {
@@ -706,7 +718,8 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             rc = q_eval(ip, f->name, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
-            q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip));
+            q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip),
+                         /*logical_dotted=*/0);   /* LIST/DISPLAY column: bare T/F */
         }
     }
 
@@ -857,7 +870,8 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
         rc = q_eval(ip, expr, &v, ec);
         if (rc != INTERP_OK)
             return rc;
-        q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip));
+        q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip),
+                     /*logical_dotted=*/1);   /* ? / ?? echo: dotted .T./.F. */
     }
     if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
 

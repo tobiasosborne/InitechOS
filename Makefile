@@ -960,6 +960,9 @@ TEST_INTERP_PROC_MUT := $(BUILD)/test_interp_proc_mut
 SAMIR_MAIN_SRC    := $(SAMIR_DIR)/samir_main.c
 TEST_SAMIR_REPL     := $(BUILD)/test_samir_repl
 TEST_SAMIR_REPL_MUT := $(BUILD)/test_samir_repl_mut
+# S5.4 query/display oracle -- logical echo, SET DATE/CENTURY, bounded LOCATE
+# (initech-3p9e / ue7y / wcb7 / qw4e). Independent hand-authored corpus literals.
+TEST_SAMIR_QUERY    := $(BUILD)/test_samir_query
 # Writable USE: dbf_open_rw + wa_set_open_rw (initech-7az.16).
 TEST_USE_RW      := $(BUILD)/test_use_rw
 TEST_USE_RW_MUT  := $(BUILD)/test_use_rw_mut
@@ -2558,6 +2561,21 @@ test-samir-repl-mutant: $(TEST_SAMIR_REPL_MUT)
 	else \
 		printf '>>> test-samir-repl-mutant: green (REPLACE-unregistered correctly RED)\n'; \
 	fi
+
+# ---- SAMIR query/display oracle (query.c): logical echo + SET DATE/CENTURY +
+#      bounded LOCATE scopes (initech-3p9e / ue7y / wcb7 / qw4e) ----
+# Drives samir_repl over the capturing PAL like test-samir-repl, but grades ONLY
+# against HAND-AUTHORED III+ corpus literals (../dbase3-decomp), never re-derived
+# from the code under test -- the Law-2 fix for the T/F-by-construction heresy.
+$(TEST_SAMIR_QUERY): $(DBF_DIFF_DIR)/test_samir_query.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_samir_query.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-samir-query
+test-samir-query: $(TEST_SAMIR_QUERY)
+	@printf ">>> test-samir-query: query.c logical echo (.T./.F. vs T/F) + SET DATE/CENTURY + LOCATE RECORD/NEXT\n"
+	@$(TEST_SAMIR_QUERY) $(DBASE3_DECOMP)
+	@printf ">>> test-samir-query: green\n"
 
 # ---- SAMIR writable USE: dbf_open_rw + wa_set_open_rw (initech-7az.16) ----
 # dbf_open_rw opens an EXISTING .dbf PAL_RDWR (shared parse path with dbf_open) so

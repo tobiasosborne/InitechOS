@@ -342,11 +342,16 @@ static void test_session_convergence(samir_pal_t *pal)
     CHECK(cap_has("       1 AAA"), "conv: LIST shows recno 1 / AAA (ro table)");
     CHECK(cap_has("       2 BBB"), "conv: LIST shows recno 2 / BBB");
     CHECK(cap_has("       3 CCC"), "conv: LIST shows recno 3 / CCC");
-    /* LOCATE FOR AMT=200 matched -> ? FOUND() renders the logical "T" (the engine
-     * prints LIST/? logicals as T/F, not .T./.F.). A match here proves the
-     * REPL's USE + LOCATE + FOUND convergence on the ro table. (We assert on the
-     * transcript, NOT post-session wa state, because QUIT closes every area.) */
-    CHECK(cap_has("\nT"), "conv: ? FOUND() shows T after LOCATE matched AMT=200");
+    /* LOCATE FOR AMT=200 matched -> ? FOUND() echoes the logical as ".T." (the
+     * ?/?? echo form is DOTTED per III+ -- NOT bare T/F, which is the LIST/DISPLAY
+     * COLUMN form). A match here proves the REPL's USE + LOCATE + FOUND convergence
+     * on the ro table. (We assert on the transcript, NOT post-session wa state,
+     * because QUIT closes every area.)
+     * Ref (Law 1): ../dbase3-decomp/specs/commands/navigation-query-display.md
+     *   L.803 "? ... logicals as .T./.F." -- the dotted ?/?? echo. The prior
+     *   "\nT" assertion agreed with a WRONG code path BY CONSTRUCTION (Law-2
+     *   heresy: it graded T/F against a q_render_val that also emitted T/F). */
+    CHECK(cap_has("\n.T."), "conv: ? FOUND() echoes .T. after LOCATE matched AMT=200");
     /* REPLACE wrote 'ZZ' into the writable area-1 record 1 -> ? CODE shows it.
      * This transcript check is the mutation-proof bite point: with
      * -DREPL_MUTATE_NO_MUTATE_MODULE the REPLACE verb is unrecognized (#16) and
@@ -400,11 +405,13 @@ static void test_session_set_exact(samir_pal_t *pal)
     rc = samir_repl(pal, ip);
     snprintf(msg,sizeof msg,"exact: samir_repl rc=%d",rc);
     CHECK(rc == INTERP_OK, msg);
-    /* Logicals render as T/F (engine LIST/? form). EXACT OFF gives 'AB'='A' true,
-     * EXACT ON gives false. Both a "T" and an "F" value (each after the ?'s
-     * leading NL) must appear, proving SET EXACT changed the comparison. */
-    CHECK(cap_has("\nT"), "exact: EXACT OFF -> 'AB'='A' is T (begins-with)");
-    CHECK(cap_has("\nF"), "exact: SET EXACT ON -> 'AB'='A' is F (full match)");
+    /* ? echoes logicals DOTTED (.T./.F.) per III+ (navigation-query-display.md
+     * L.803). EXACT OFF gives 'AB'='A' true, EXACT ON gives false. Both a ".T."
+     * and a ".F." value (each after the ?'s leading NL) must appear, proving SET
+     * EXACT changed the comparison. (Prior "\nT"/"\nF" were the Law-2 heresy:
+     * grading against q_render_val's own wrong bare-T/F output.) */
+    CHECK(cap_has("\n.T."), "exact: EXACT OFF -> 'AB'='A' echoes .T. (begins-with)");
+    CHECK(cap_has("\n.F."), "exact: SET EXACT ON -> 'AB'='A' echoes .F. (full match)");
 
     xb_interp_free(ip);
 }
