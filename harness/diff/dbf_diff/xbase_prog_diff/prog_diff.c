@@ -379,23 +379,30 @@ static const char *skip_use_line(const char *prg)
 
 #ifdef PROGDIFF_MUTATE_SWAP_EQ_GOLDEN
 /*
- * swap_eq_lines: in a normalized exact.out (lines "", "T", "F", "F", "T"), swap
- * line index 1 ('Smith'='S' -> T) with line index 2 ('S'='Smith' -> F) IN PLACE.
- * Only compiled for the mutant build. Operates on the single-char value lines the
- * authored golden uses (T/F), so a one-byte swap suffices; defensively it finds
- * the 2nd and 3rd '\n'-delimited lines and exchanges their first byte.
+ * swap_eq_lines: in a normalized exact.out (lines "", ".T.", ".F.", ".F.", ".T."),
+ * swap line index 1 ('Smith'='S' -> .T.) with line index 2 ('S'='Smith' -> .F.)
+ * IN PLACE. Only compiled for the mutant build. The ?/?? echo renders logicals in
+ * the DOTTED form ".T."/".F." (initech-3p9e), so the distinguishing byte is NOT
+ * at line offset 0 (both start with '.'); we locate the actual 'T'/'F' value char
+ * within each of the two lines and exchange those, which perturbs the real
+ * =-direction expectation regardless of dotted-vs-bare rendering (so the mutant
+ * still BITES after the 3p9e golden correction; Rule 6).
  */
 static void swap_eq_lines(char *s)
 {
-    char *l1, *l2, *nl;
+    char *l1, *l2, *nl, *p1, *p2;
     nl = strchr(s, '\n');            /* end of line 0 (the leading empty line) */
     if (!nl) return;
-    l1 = nl + 1;                     /* start of line 1 (T) */
+    l1 = nl + 1;                     /* start of line 1 (.T.) */
     nl = strchr(l1, '\n');
     if (!nl) return;
-    l2 = nl + 1;                     /* start of line 2 (F) */
-    if (l1[0] != '\0' && l2[0] != '\0') {
-        char t = l1[0]; l1[0] = l2[0]; l2[0] = t;
+    l2 = nl + 1;                     /* start of line 2 (.F.) */
+    for (p1 = l1; *p1 && *p1 != '\n'; p1++)
+        if (*p1 == 'T' || *p1 == 'F') break;
+    for (p2 = l2; *p2 && *p2 != '\n'; p2++)
+        if (*p2 == 'T' || *p2 == 'F') break;
+    if ((*p1 == 'T' || *p1 == 'F') && (*p2 == 'T' || *p2 == 'F')) {
+        char t = *p1; *p1 = *p2; *p2 = t;
     }
 }
 #endif
