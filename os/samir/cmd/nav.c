@@ -358,6 +358,32 @@ int wa_nav_skip(wa_env *env, int area, int32_t n)
     nrec   = wa_nrec(env, area);
     cur    = wa_recno(env, area);
 
+    /*
+     * initech-dmrw (P1 fix): at EOF, dBASE's user-visible RECNO() is the
+     * VIRTUAL past-end position RECCOUNT()+1, not whatever raw physical
+     * recno nav happens to have parked the cursor on (Ref: ../dbase3-decomp
+     * specs/functions/system-and-database-functions.md RECNO() -- "When the
+     * pointer is past the last record (EOF() is .T.), RECNO() returns
+     * RECCOUNT()+1"). The physical-order EOF branch below cannot store
+     * nrec+1 into wa->recno directly -- wa_goto's contract is recno in
+     * [1,nrec] (workarea.h wa_goto) -- so it parks the raw cursor at nrec
+     * and sets eof via wa_nav_set_eof. wa_recno() (workarea.c, the raw
+     * accessor) then reads that raw nrec back, NOT the virtual nrec+1 that
+     * wac_recno (workarea.c wac_recno, the actual RECNO() built-in's cursor
+     * hook) already normalizes to whenever wa->eof is set. A subsequent
+     * SKIP must compute relative to that SAME virtual position, matching
+     * wac_recno, or a backward SKIP from EOF lands one record too early
+     * (initech-dmrw: SKIP -1 from EOF landed on nrec-1 instead of nrec).
+     * Index order does not need this adjustment: its ord_pos already stores
+     * the virtual seq_len position directly on reaching EOF (see the
+     * index-order branch below), so it has no analogous raw/virtual split.
+     * Oracle: harness/diff/dbf_diff/test_interp_nav.c tier0 "initech-dmrw"
+     * block (GO BOTTOM; SKIP to EOF; SKIP -1; RECNO()==nrec via the
+     * evaluator, independent of this file's own wa_recno()).
+     */
+    if (wa_eof(env, area))
+        cur = nrec + 1u;
+
     if (nrec == 0u)
         return NAV_OK;          /* empty table stays at EOF */
 

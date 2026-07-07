@@ -42,6 +42,22 @@
  *   - Exact error-vs-silent of SKIP at EOF/BOF.
  *   - GO to a record hidden by SET DELETED/FILTER (S5.6).
  *
+ * initech-dmrw (P1, fixed here): SKIP -1 FROM THE VIRTUAL EOF POSITION.
+ *   GO BOTTOM + SKIP (past last) reaches EOF; RECNO() there is the VIRTUAL
+ *   nrec+1 (RECCOUNT()+1 -- ../dbase3-decomp specs/functions/system-and-
+ *   database-functions.md RECNO()). nav.c's own physical-order EOF path
+ *   cannot store nrec+1 in wa->recno directly (wa_goto's contract is recno in
+ *   [1,nrec]; workarea.h wa_goto), so it parks the raw cursor at nrec and
+ *   sets eof via wa_nav_set_eof -- wa_recno() (the raw accessor) then reads
+ *   nrec, not the virtual nrec+1 that wac_recno (workarea.c ~870-884, the
+ *   actual RECNO() built-in's cursor hook) already normalizes to. The bug:
+ *   wa_nav_skip's SKIP -n arithmetic read that RAW nrec via wa_recno()
+ *   instead of the virtual nrec+1, so "SKIP -1 from EOF" computed nrec-1
+ *   instead of nrec -- one record short. Tested below by evaluating RECNO()
+ *   THROUGH the interpreter (xb_interp_eval_str), an independent read of the
+ *   same public built-in a real xBase program calls -- not a value re-derived
+ *   from nav.c's internal wa_recno() (CLAUDE.md Law 2).
+ *
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Ref (Law 1):
@@ -49,6 +65,11 @@
  *   - os/samir/include/samir/nav.h    (wa_nav_go_top / go_bottom / goto / skip).
  *   - os/samir/include/samir/workarea.h (wa_recno / wa_eof / wa_bof / wa_is_open).
  *   - os/samir/include/samir/ndx.h    (ndx_inorder -- the index reference walk).
+ *   - ../dbase3-decomp specs/functions/system-and-database-functions.md
+ *     RECNO() ("When the pointer is past the last record (EOF() is .T.),
+ *     RECNO() returns RECCOUNT()+1").
+ *   - ../dbase3-decomp specs/commands/navigation-query-display.md sec 3 truth
+ *     table ("SKIP past last | EOF; RECNO=RECCOUNT+1").
  *   - Corpus ground truth (byte-verified 2026-06-17):
  *       CLIENTS.DBF nrec=49; NAMES.NDX key_type=0 (char), 49 entries.
  *         (NAMES.NDX == CNAMES.NDX in key content; CNAMES.NDX has corrupt trailing
@@ -101,6 +122,26 @@ static int file_exists(const char *path)
     FILE *f = fopen(path, "rb");
     if (f) { fclose(f); return 1; }
     return 0;
+}
+
+/*
+ * eval_n: assert RECNO() (or any numeric expr) THROUGH the evaluator
+ * (xb_interp_eval_str -> lexer/parser/eval -> fn_recno -> ctx->dbcur->recno,
+ * i.e. workarea.c's wac_recno). This is deliberately NOT wa_recno() -- it is
+ * an independent read of the same public built-in a real xBase program calls
+ * (CLAUDE.md Law 2: not a value re-derived from nav.c). Mirrors
+ * test_xbase_fn_d.c's eval_n.
+ */
+static int eval_n(xb_interp *ip, const char *s, double want, const char *msg)
+{
+    xb_val v; int ec = 0;
+    int rc = xb_interp_eval_str(ip, s, (uint32_t)strlen(s), &v, &ec);
+    int good = (rc == INTERP_OK && ec == 0 && v.t == XB_N && v.u.n == want);
+    char m[256];
+    snprintf(m, sizeof(m), "%s (rc=%d ec=%d t=%d n=%g want %g)", msg, rc, ec,
+             (int)v.t, (v.t == XB_N ? v.u.n : 0.0), want);
+    CHECK(good, m);
+    return good;
 }
 
 #define SP_PATH "goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities"
@@ -218,6 +259,49 @@ static void test_physical_nav(samir_pal_t *pal)
     snprintf(msg, sizeof(msg), "tier0: SKIP past last -> EOF=1 (got %d)", wa_eof(env, 1));
     CHECK(wa_eof(env, 1) == 1, msg);
     CHECK(wa_bof(env, 1) == 0, "tier0: SKIP past last -> BOF=0");
+
+    /*
+     * initech-dmrw: SKIP -1 FROM THE VIRTUAL EOF POSITION.
+     * Ground truth (independent of nav.c -- ../dbase3-decomp specs/functions/
+     * system-and-database-functions.md RECNO(): "When the pointer is past
+     * the last record (EOF() is .T.), RECNO() returns RECCOUNT()+1"): at
+     * EOF, RECNO() == RECCOUNT()+1 == 6 for this 5-rec table. From THAT
+     * virtual position, SKIP -1 retreats ONE record to RECCOUNT() == 5 --
+     * not RECCOUNT()-1 == 4. Checked via RECNO() through the evaluator
+     * (eval_n -> xb_interp_eval_str), which reads workarea.c's wac_recno
+     * (already correct/independent of nav.c), NOT wa_recno() (nav.c's own
+     * accessor, re-derived from the same internal state under test) --
+     * CLAUDE.md Law 2 ("assert RECNO() vs hand-authored III+ expected, not
+     * values re-derived from nav.c").
+     */
+    eval_n(ip, "RECNO()", 6.0,
+           "tier0: RECNO()==RECCOUNT()+1 (==6) at EOF (dbase3-decomp RECNO())");
+    rc = wa_nav_skip(env, 1, -1);
+    CHECK(rc == NAV_OK, "tier0: SKIP -1 from EOF rc");
+    snprintf(msg, sizeof(msg), "tier0: SKIP -1 from EOF -> RECNO=5 (got %u)", wa_recno(env, 1));
+    CHECK(wa_recno(env, 1) == 5u, msg);
+    eval_n(ip, "RECNO()", 5.0,
+           "tier0: initech-dmrw -- SKIP -1 from EOF -> RECNO()==5, not 4");
+    CHECK(wa_eof(env, 1) == 0, "tier0: SKIP -1 from EOF clears EOF (landed on a valid record)");
+    CHECK(wa_bof(env, 1) == 0, "tier0: SKIP -1 from EOF -> BOF=0");
+
+    /*
+     * No-regression companions (still within scope of the same GO
+     * BOTTOM/SKIP walk): SKIP +1 forward from the landed record re-enters
+     * EOF; a plain in-bounds SKIP -1 (not at EOF) is unaffected by the fix.
+     */
+    rc = wa_nav_skip(env, 1, 1);
+    CHECK(rc == NAV_OK, "tier0: SKIP +1 from 5 (back toward EOF) rc");
+    CHECK(wa_eof(env, 1) == 1, "tier0: SKIP +1 from 5 -> EOF again");
+
+    rc = wa_nav_goto(env, 1, 3u);
+    CHECK(rc == NAV_OK, "tier0: GOTO 3 (in-bounds SKIP -1 regression setup) rc");
+    rc = wa_nav_skip(env, 1, -1);
+    snprintf(msg, sizeof(msg), "tier0: in-bounds SKIP -1 from 3 -> RECNO=2 (got %u)", wa_recno(env, 1));
+    CHECK(rc == NAV_OK, "tier0: in-bounds SKIP -1 rc");
+    CHECK(wa_recno(env, 1) == 2u, msg);
+    CHECK(wa_eof(env, 1) == 0, "tier0: in-bounds SKIP -1 -> eof=0");
+    CHECK(wa_bof(env, 1) == 0, "tier0: in-bounds SKIP -1 -> bof=0");
 
     /* GATED (loud-skip): exact SKIP-at-EOF behavior -- not asserted. */
     fprintf(stderr,
