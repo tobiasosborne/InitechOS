@@ -393,19 +393,65 @@ static void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
         break;
     }
     case XB_D: {
-        /* JDN -> MM/DD/YY (SET DATE AMERICAN, the III+ default, CENTURY OFF). */
+        /* Render the Date per SET DATE (ctx->set_date_fmt) + SET CENTURY
+         * (ctx->set_century). The stored value is a format-independent day
+         * number; SET DATE governs only field ORDER + SEPARATOR, SET CENTURY
+         * only the year WIDTH (2 vs 4 digits). Mirrors DTOC (fn_builtins.c) so
+         * `?`/LIST and DTOC agree, exactly as III+ requires. The prior code
+         * hardcoded AMERICAN mm/dd/yy CENTURY-OFF and read NEITHER field
+         * (initech-ue7y).
+         * Ref (Law 1): ../dbase3-decomp/specs/runtime/dates-and-century.md
+         *   "The six III+ formats" (order/separator table) + "SET CENTURY ON/OFF"
+         *   (2- vs 4-digit year; display format is not part of the value). */
         int32_t y, m, d;
-        char dt[9];
+        char dt[10];
         int k = 0;
+        unsigned fmt = (ctx != (const xb_ctx *)0) ? ctx->set_date_fmt
+                                                  : XB_DATE_AMERICAN;
+        int century = (ctx != (const xb_ctx *)0) ? (ctx->set_century != 0) : 0;
+        char sep;
+        int year_first, day_first;
         ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
-        dt[k++] = (char)('0' + (m / 10) % 10);
-        dt[k++] = (char)('0' + m % 10);
-        dt[k++] = '/';
-        dt[k++] = (char)('0' + (d / 10) % 10);
-        dt[k++] = (char)('0' + d % 10);
-        dt[k++] = '/';
-        dt[k++] = (char)('0' + (y / 10) % 10);
-        dt[k++] = (char)('0' + y % 10);
+        switch (fmt) {
+        case XB_DATE_ANSI:    sep = '.'; year_first = 1; day_first = 0; break; /* YY.MM.DD */
+        case XB_DATE_JAPAN:   sep = '/'; year_first = 1; day_first = 0; break; /* YY/MM/DD */
+        case XB_DATE_BRITISH:                                                  /* DD/MM/YY */
+        case XB_DATE_FRENCH:  sep = '/'; year_first = 0; day_first = 1; break; /* DD/MM/YY */
+        case XB_DATE_ITALIAN: sep = '-'; year_first = 0; day_first = 1; break; /* DD-MM-YY */
+        case XB_DATE_GERMAN:  sep = '.'; year_first = 0; day_first = 1; break; /* DD.MM.YY */
+        case XB_DATE_USA:     sep = '-'; year_first = 0; day_first = 0; break; /* MM-DD-YY */
+        case XB_DATE_AMERICAN:
+        default:              sep = '/'; year_first = 0; day_first = 0; break; /* MM/DD/YY */
+        }
+        if (year_first) {
+            if (century) {
+                dt[k++] = (char)('0' + (y / 1000) % 10);
+                dt[k++] = (char)('0' + (y / 100) % 10);
+            }
+            dt[k++] = (char)('0' + (y / 10) % 10);
+            dt[k++] = (char)('0' + y % 10);
+            dt[k++] = sep;
+            dt[k++] = (char)('0' + (m / 10) % 10);
+            dt[k++] = (char)('0' + m % 10);
+            dt[k++] = sep;
+            dt[k++] = (char)('0' + (d / 10) % 10);
+            dt[k++] = (char)('0' + d % 10);
+        } else {
+            int f0 = day_first ? d : m;    /* leading field: day (BRITISH...) or month */
+            int f1 = day_first ? m : d;
+            dt[k++] = (char)('0' + (f0 / 10) % 10);
+            dt[k++] = (char)('0' + f0 % 10);
+            dt[k++] = sep;
+            dt[k++] = (char)('0' + (f1 / 10) % 10);
+            dt[k++] = (char)('0' + f1 % 10);
+            dt[k++] = sep;
+            if (century) {
+                dt[k++] = (char)('0' + (y / 1000) % 10);
+                dt[k++] = (char)('0' + (y / 100) % 10);
+            }
+            dt[k++] = (char)('0' + (y / 10) % 10);
+            dt[k++] = (char)('0' + y % 10);
+        }
         q_append(buf, pos, cap, dt, (uint32_t)k);
         break;
     }

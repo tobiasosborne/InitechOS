@@ -197,6 +197,30 @@ static int build_cal_table(samir_pal_t *pal, const char *path,
     return 0;
 }
 
+/* Build a one-row table TAG C(1) + DT D(8); the Date is a FIXED stored value
+ * (format-independent YYYYMMDD on disk) so switching SET DATE cannot fulfill the
+ * render assertion by construction (Law 2). Returns 0 or -1. */
+static int build_date_table(samir_pal_t *pal, const char *path,
+                            int y, int m, int d)
+{
+    dbf_field_spec fs[2];
+    dbf_table *tbl = NULL;
+    xb_val r[2];
+    int rc;
+
+    fs[0].name = "TAG"; fs[0].type = 'C'; fs[0].field_len = 1; fs[0].dec = 0;
+    fs[1].name = "DT";  fs[1].type = 'D'; fs[1].field_len = 8; fs[1].dec = 0;
+
+    rc = dbf_create(pal, path, fs, 2, &tbl);
+    if (rc != DBF_OK || !tbl) return -1;
+    r[0] = xb_c("X", 1);
+    r[1] = xb_d((double)jdn_from_ymd(y, m, d));
+    if (dbf_append_rec(tbl, r, 0) != DBF_OK) { dbf_close(tbl); return -1; }
+    if (dbf_flush(tbl) != DBF_OK) { dbf_close(tbl); return -1; }
+    dbf_close(tbl);
+    return 0;
+}
+
 /* =====================================================================
  * SESSION L: the logical-echo distinction (initech-3p9e).
  *   ? / ?? echo logicals DOTTED (.T./.F.);  LIST columns are BARE (T/F).
@@ -246,6 +270,59 @@ static void test_logical_echo(samir_pal_t *pal)
     remove(path);
 }
 
+/* =====================================================================
+ * SESSION D: SET DATE / SET CENTURY govern ?/LIST Date rendering (initech-ue7y).
+ *   The stored Date is 2 Mar 1985 (JDN, format-independent). Each SET DATE /
+ *   SET CENTURY setting must reorder / reseparate / rewiden the SAME value.
+ *   Expected literals are HAND-AUTHORED from the corpus "six III+ formats"
+ *   table (Law 2 independence): AMERICAN 03/02/85, BRITISH 02/03/85, GERMAN
+ *   02.03.85, ANSI 85.03.02, BRITISH+CENTURY 02/03/1985.
+ * ===================================================================== */
+static void test_date_render(samir_pal_t *pal)
+{
+    const char *path = "/tmp/test_samir_query_D.dbf";
+    xb_interp *ip;
+    static char useln[160];
+
+    /* 2 Mar 1985 -- the exact example row in dates-and-century.md's format table. */
+    CHECK(build_date_table(pal, path, 1985, 3, 2) == 0,
+          "date: build TAG/DT table (DT = 1985-03-02)");
+
+    ip = xb_interp_make(pal);
+    CHECK(ip != NULL, "date: xb_interp_make");
+    if (!ip) { remove(path); return; }
+
+    script_reset();
+    cap_clear();
+    snprintf(useln, sizeof useln, "USE %s", path);
+    script_push(useln);
+    script_push("SET DATE AMERICAN");
+    script_push("? DT");               /* 03/02/85  (control: default format)   */
+    script_push("SET DATE BRITISH");
+    script_push("? DT");               /* 02/03/85  (RED pre-fix: still 03/02/85)*/
+    script_push("SET DATE GERMAN");
+    script_push("? DT");               /* 02.03.85  (RED pre-fix)                */
+    script_push("SET DATE ANSI");
+    script_push("? DT");               /* 85.03.02  (RED pre-fix)                */
+    script_push("SET DATE BRITISH");
+    script_push("SET CENTURY ON");
+    script_push("? DT");               /* 02/03/1985 (RED pre-fix: 2-digit year) */
+    script_push("QUIT");
+
+    CHECK(samir_repl(pal, ip) == INTERP_OK, "date: samir_repl clean exit");
+
+    /* Hand-authored III+ corpus literals (dates-and-century.md "The six III+
+     * formats" table, example 2 Mar 1985); all five are mutually non-substring. */
+    CHECK(cap_has("03/02/85"),  "date: AMERICAN mm/dd/yy -> 03/02/85 [corpus]");
+    CHECK(cap_has("02/03/85"),  "date: BRITISH  dd/mm/yy -> 02/03/85 [corpus]");
+    CHECK(cap_has("02.03.85"),  "date: GERMAN   dd.mm.yy -> 02.03.85 [corpus]");
+    CHECK(cap_has("85.03.02"),  "date: ANSI     yy.mm.dd -> 85.03.02 [corpus]");
+    CHECK(cap_has("02/03/1985"),"date: BRITISH + CENTURY ON -> 02/03/1985 [corpus]");
+
+    xb_interp_free(ip);
+    remove(path);
+}
+
 /* ===================================================================== */
 /* main                                                                   */
 /* ===================================================================== */
@@ -266,6 +343,7 @@ int main(int argc, char **argv)
     pal = cap_pal_make(host);
 
     test_logical_echo(pal);
+    test_date_render(pal);
 
     pal_host_free(host);
     return TEST_SUMMARY("test-samir-query");
