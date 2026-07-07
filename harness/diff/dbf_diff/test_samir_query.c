@@ -323,6 +323,61 @@ static void test_date_render(samir_pal_t *pal)
     remove(path);
 }
 
+/* =====================================================================
+ * SESSION R: LOCATE RECORD n FOR <cond> tests ONLY record n (initech-wcb7).
+ *   RECORD n is a SINGLE-record scope. Table of 5 rows with AMT=99 ONLY at
+ *   rec 3. LOCATE RECORD 2 FOR AMT=99 must MISS (rec2 AMT!=99): FOUND() .F.,
+ *   cursor stays at rec 2. The pre-fix code scanned rec2..EOF and wrongly
+ *   landed on rec 3 (FOUND .T.). A positive control (RECORD 3) confirms a real
+ *   single-record hit still works.
+ *   Ground truth (Law 1): navigation-query-display.md L.80 "RECORD <n>  A
+ *   single record" + L.124 evaluation order (RECORD n IS the start record).
+ * ===================================================================== */
+static void test_locate_record(samir_pal_t *pal)
+{
+    const char *path = "/tmp/test_samir_query_R.dbf";
+    static const char *code[5] = { "R1", "R2", "R3", "R4", "R5" };
+    static const int   amt[5]  = { 10, 20, 99, 40, 50 };   /* AMT=99 ONLY at rec3 */
+    static const int   ok[5]   = { 1, 1, 1, 1, 1 };
+    xb_interp *ip;
+    static char useln[160];
+
+    CHECK(build_cal_table(pal, path, code, amt, ok, 5) == 0,
+          "locR: build 5-row table (AMT=99 only at rec3)");
+
+    ip = xb_interp_make(pal);
+    CHECK(ip != NULL, "locR: xb_interp_make");
+    if (!ip) { remove(path); return; }
+
+    script_reset();
+    cap_clear();
+    snprintf(useln, sizeof useln, "USE %s", path);
+    script_push(useln);
+    /* RECORD 2 scope: test ONLY rec2 (AMT=20). MISS. */
+    script_push("LOCATE RECORD 2 FOR AMT=99");
+    script_push("? FOUND()");          /* .F. (RED pre-fix: wrongly .T.)        */
+    script_push("? RECNO()");          /* 2   (RED pre-fix: wrongly 3)          */
+    /* Positive control: RECORD 3 scope hits (AMT=99 at rec3). */
+    script_push("LOCATE RECORD 3 FOR AMT=99");
+    script_push("? FOUND()");          /* .T. */
+    script_push("? RECNO()");          /* 3   */
+    script_push("QUIT");
+
+    CHECK(samir_repl(pal, ip) == INTERP_OK, "locR: samir_repl clean exit");
+
+    /* RED signals (pre-fix these are absent because RECORD 2 wrongly matched
+     * rec3 -> FOUND .T., RECNO 3). Hand-reasoned from the single-record scope
+     * rule; independent of q_locate's internals. */
+    CHECK(cap_has("\n.F."), "locR: LOCATE RECORD 2 FOR AMT=99 -> FOUND() .F. [single-rec scope]");
+    CHECK(cap_has("\n2"),   "locR: cursor STAYS at rec 2 on the miss (RECNO 2)");
+    /* Positive control (guard both pre/post): RECORD 3 is a genuine hit. */
+    CHECK(cap_has("\n.T."), "locR: LOCATE RECORD 3 FOR AMT=99 -> FOUND() .T.");
+    CHECK(cap_has("\n3"),   "locR: the RECORD 3 hit lands on rec 3 (RECNO 3)");
+
+    xb_interp_free(ip);
+    remove(path);
+}
+
 /* ===================================================================== */
 /* main                                                                   */
 /* ===================================================================== */
@@ -344,6 +399,7 @@ int main(int argc, char **argv)
 
     test_logical_echo(pal);
     test_date_render(pal);
+    test_locate_record(pal);
 
     pal_host_free(host);
     return TEST_SUMMARY("test-samir-query");

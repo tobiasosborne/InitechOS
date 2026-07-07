@@ -984,6 +984,7 @@ static int q_locate(xb_interp *ip, query_state *qs, const char *args, int *ec)
     int area = wa_selected(env);
     query_clauses qc;
     int matched = 0, rc, kind;
+    int record_scope = 0;   /* RECORD n: single-record scope (cursor stays at n) */
 
     if (q_split_clauses(args, &qc) != 0) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
 
@@ -995,14 +996,39 @@ static int q_locate(xb_interp *ip, query_state *qs, const char *args, int *ec)
     } else if (kind == QS_RECORD) {
         rc = wa_nav_goto(env, area, qc.scope_n);
         if (rc != NAV_OK) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        record_scope = 1;
     }
     /* QS_REST / QS_NEXT scan from the current record. */
 
-    rc = q_locate_scan(ip, area, qc.forcond, qc.has_for,
-                       qc.whilecond, qc.has_while, /*start_here=*/1,
-                       &matched, ec);
-    if (rc != INTERP_OK)
-        return rc;
+    if (record_scope) {
+        /* RECORD n is a SINGLE-record scope: test ONLY record n. FOR/WHILE false
+         * -> no match, FOUND() .F., and the cursor STAYS on n (a bounded scope
+         * that never ran off the end is NOT at EOF). Mirrors q_walk's
+         * single-record handling. The prior code fell into q_locate_scan with
+         * start_here=1 and scanned n..EOF (initech-wcb7).
+         * Ref (Law 1): ../dbase3-decomp/specs/commands/navigation-query-display.md
+         *   L.80 "RECORD <n>  A single record" + L.124 evaluation order (with an
+         *   explicit RECORD n, the start record IS that record). */
+        matched = 1;
+        if (qc.has_while) {
+            int t = 0;
+            rc = q_eval_cond(ip, qc.whilecond, &t, ec);
+            if (rc != INTERP_OK) return rc;
+            if (!t) matched = 0;
+        }
+        if (matched && qc.has_for) {
+            int t = 0;
+            rc = q_eval_cond(ip, qc.forcond, &t, ec);
+            if (rc != INTERP_OK) return rc;
+            if (!t) matched = 0;
+        }
+    } else {
+        rc = q_locate_scan(ip, area, qc.forcond, qc.has_for,
+                           qc.whilecond, qc.has_while, /*start_here=*/1,
+                           &matched, ec);
+        if (rc != INTERP_OK)
+            return rc;
+    }
 
     /* Remember the FOR for CONTINUE (FOR-only -- NOT the WHILE or scope). */
     qs->have_locate = 1;
@@ -1015,9 +1041,11 @@ static int q_locate(xb_interp *ip, query_state *qs, const char *args, int *ec)
         qs->for_text[(i < Q_MAX_FORLEN) ? i : Q_MAX_FORLEN] = '\0';
     }
 
-    /* FOUND() / EOF() per the match. */
+    /* FOUND() / EOF() per the match. A single-record RECORD n scope that missed
+     * leaves the cursor on n (NOT EOF); every other scope that exhausted to the
+     * bottom is at EOF. */
     wa_set_found(env, area, matched);
-    if (!matched)
+    if (!matched && !record_scope)
         wa_nav_set_eof(env, area, 1);          /* exhausted scope -> EOF */
 
     if (ec) *ec = 0;
