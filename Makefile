@@ -14177,9 +14177,18 @@ OJXN_MUT_NAME        := ojxn_copyself_mut
 OJXN_MUT_SERIAL      := $(BUILD)/$(OJXN_MUT_NAME).serial
 OJXN_MUT_REPORT      := $(BUILD)/$(OJXN_MUT_NAME).report
 
+# initech-winh interaction (WL-0068): builtin_copy now has a SECOND line of defense
+# against copy-onto-itself data loss -- dos_read's Carry-Flag check (initech-winh)
+# turns the corrupt same-file read into DOS_READ_ERROR and aborts the copy, so with
+# ONLY the same-file guard removed the ojxn regression is MASKED (correct defense in
+# depth) and the mutant cannot reproduce the data loss. To keep this mutant isolating
+# the ojxn same-file guard, we disable BOTH backstops here (-DCMD_MUTATE_NO_READ_CF
+# too) so the ORIGINAL truncate-then-report-success path is restored and the gate
+# bites. The winh backstop keeps its OWN independent proof (test-readerr-winh-mutant).
 $(OJXN_MUT_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
                          spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_SAMEFILE \
+		-DCMD_MUTATE_NO_READ_CF \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 OJXN_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(OJXN_MUT_COMMAND_OBJ)
