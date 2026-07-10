@@ -78,6 +78,7 @@ static uint16_t g_arena_seg_base;     /* base_linear >> 4 */
 static void bind_psp(uint32_t alloc_end_linear)
 {
     psp_params_t params;
+    params.parent_jft = 0;   /* no parent -> CON defaults (bsy.9) */
     params.alloc_end_linear  = alloc_end_linear;
     params.env_linear        = 0u;
     params.parent_psp_linear = 0u;

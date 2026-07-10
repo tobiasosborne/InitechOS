@@ -212,6 +212,7 @@ static psp_t g_test_psp;
 static void bind_standard_process(void)
 {
     psp_params_t params;
+    params.parent_jft = 0;   /* no parent -> CON defaults (bsy.9) */
     params.alloc_end_linear  = 0x00070000u;
     params.env_linear        = 0u;
     params.parent_psp_linear = 0u;

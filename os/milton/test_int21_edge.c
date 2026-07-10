@@ -24,14 +24,19 @@
  *       uint16 to 0xFFFF (the corruption beads initech-00x flagged). The
  *       ref_count-no-underflow oracle goes RED.
  *
- * NULL/!valid EDX policy (CLAUDE.md Rule 2 / beads initech-tzq): we feed NULL EDX
- * ONLY to handlers that ACTUALLY guard it (do_open guards `path==0`, do_setdta
- * never dereferences EDX). do_read / do_write do NOT guard a NULL/garbage data
- * pointer once the handle is valid -- feeding them NULL with a VALID handle and a
- * non-zero count would memcpy through NULL and fault the test, so we DO NOT. The
- * invalid-handle leg returns BEFORE EDX is touched, so the NULL-EDX-on-bad-handle
- * tests below are safe and exercise the real early-out. The latent NULL-deref gap
- * is recorded in StructuredOutput.findings for initech-tzq.
+ * NULL/!valid EDX policy (CLAUDE.md Rule 2 / beads initech-tzq, CLOSED): do_read
+ * and do_write BOTH validate EDX via the shared `user_buf_ok` guard (do_write's
+ * guard runs right after the handle lookup; do_read's DEVICE-branch guards
+ * before dev_route_rw/the CON cooked-line copy, and its FILE-branch guard runs
+ * right before the backend read) before any handle-valid path touches the
+ * buffer -- NULL/out-of-arena/wrapped EDX returns CF=1, AX=0x0009
+ * (INT21_ERR_INVALID_MEMORY) instead of faulting (ADR-0003 DEC-14). We still
+ * feed NULL EDX only to handlers whose guard placement this suite has verified
+ * (do_open's `path==0` check, do_setdta's no-deref, and do_read/do_write's
+ * user_buf_ok) so each NULL-EDX case here exercises a real, live guard rather
+ * than assuming one. The invalid-handle leg returns BEFORE EDX is touched, so
+ * the NULL-EDX-on-bad-handle tests below are safe and exercise the real
+ * early-out too. (audit 2026-07-09, initech-msol)
  */
 
 #include <stdint.h>
@@ -54,6 +59,7 @@ static psp_t g_test_psp;
 static void bind_standard_process(void)
 {
     psp_params_t params;
+    params.parent_jft = 0;   /* no parent -> CON defaults (bsy.9) */
     params.alloc_end_linear  = 0x00070000u;
     params.env_linear        = 0u;
     params.parent_psp_linear = 0u;

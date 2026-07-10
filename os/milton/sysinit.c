@@ -154,6 +154,7 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
         kp.parent_psp_linear = 0u;
         kp.cmd_tail          = (const char *)0;
         kp.cmd_tail_len      = 0u;
+        kp.parent_jft        = 0;   /* boot PSP: NO parent -> the CON defaults (bsy.9) */
         (void)psp_build(kernel_psp, &kp);
     }
     int21_set_psp(kernel_psp);

@@ -225,6 +225,7 @@ static int run_seed(uint64_t seed, uint32_t target_len)
         params.parent_psp_linear = 0x00010000u;
         params.cmd_tail          = legs[li].tail;
         params.cmd_tail_len      = legs[li].len;
+        params.parent_jft        = 0;   /* no parent -> CON defaults (bsy.9) */
 
         uint32_t dropped = psp_build(&gp.psp, &params);
 

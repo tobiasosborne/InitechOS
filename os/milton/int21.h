@@ -146,6 +146,13 @@ void int21_set_exit(int21_exit_fn fn);
 struct psp;
 void int21_set_psp(struct psp *psp);
 
+/* int21_get_psp -- the CURRENTLY-bound process PSP (beads initech-bsy.9). The
+ * loader calls this at EXEC time, BEFORE int21_set_psp(child), to snapshot the
+ * PARENT's Job File Table for inheritance: an AH=4Bh EXEC child gets a COPY of the
+ * parent's handle table (MS-DOS 3.3 PRM), so a `>`-redirected stdout is carried
+ * into the child. Returns NULL when no PSP is bound. */
+struct psp *int21_get_psp(void);
+
 /* ---- CWD seam (beads initech-mzxa; ti8 Layer 2, READ side) ----------------
  * The current working directory the file/find functions resolve a RELATIVE path
  * from (AH=47h GET CURRENT DIR reports it). It is a file-static in int21.c (NOT

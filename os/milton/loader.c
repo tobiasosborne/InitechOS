@@ -120,6 +120,11 @@ static loader_status_t loader_prepare_core(const uint8_t *image,
     out->params.parent_psp_linear = 0u;                 /* no parent PSP yet (Sec 2.5) */
     out->params.cmd_tail          = cmd_tail;           /* may be NULL (no args) */
     out->params.cmd_tail_len      = cmd_tail_len;
+    /* JFT inheritance (beads initech-bsy.9): the PURE prep is parent-agnostic
+     * (it has no live PSP), so default to the CON standard handles (NULL). The
+     * kernel loader_run_plan overrides this from g_cur_psp->jft at EXEC time --
+     * exactly the pattern loader_decide_env uses for env inheritance. */
+    out->params.parent_jft        = 0;
 
     /* Compute the AH=48h heap-arena window DISJOINT from the loaded program (beads
      * initech-1q4u; ADR-0009 DEC-04). The arena starts paragraph-rounded ABOVE the
@@ -442,6 +447,7 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
 
 #include "idt.h"          /* idt_get_gate / idt_install_trap -- live IDT vectors */
 #include "io.h"           /* inb / outb -- the foreign-MZ panic serial dump (dtw.2) */
+#include "sft.h"          /* sft_inherit -- bump refcount for inherited handles (bsy.9) */
 
 /* ------------------------------------------------------------------------ *
  * Live IDT vector read/write for INT 22h/23h/24h (beads initech-509.8).
@@ -661,10 +667,26 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
     }
     plan.params.env_linear = env_dec.env_linear;
 
+    /* JFT inheritance (beads initech-bsy.9; MS-DOS 3.3 AH=4Bh; ADR-0003 DEC-06):
+     * the EXEC child inherits a COPY of the PARENT process's Job File Table. The
+     * parent is the CURRENTLY-bound PSP (g_cur_psp) -- at a shell EXEC that is the
+     * shell's PSP, whose jft[1] a `>`-DUP2 has repointed at the redirect file. We
+     * thread its jft into the PSP params so psp_build copies all 20 handles; a
+     * NULL parent (nothing bound) falls back to the CON defaults. This MUST be
+     * read BEFORE int21_set_psp(plan.psp_addr) below rebinds g_cur_psp to the
+     * child. Without it the child's handle 1 is reset to CON and external-command
+     * output redirect (GREET.COM > OUT.TXT) is lost. */
+    {
+        psp_t *parent = (psp_t *)int21_get_psp();
+        plan.params.parent_jft = parent ? parent->jft : (const uint8_t *)0;
+    }
+
     /* Build the PSP at PROGRAM_BASE (psp_build, beads initech-509.4). A clamp
      * (non-zero return) means the command tail was too long; that is a loud
      * caller bug for a baked program but not fatal -- the tail is clamped, never
-     * overflowed. We ignore the count here (the baked program has no tail). */
+     * overflowed. We ignore the count here (the baked program has no tail).
+     * psp_build now ALSO copies the inherited parent JFT (bsy.9) when parent_jft
+     * is non-NULL, else it lays the CON defaults. */
     (void)psp_build((psp_t *)(uintptr_t)plan.psp_addr, &plan.params);
 
     /* Save the PARENT's (kernel's) live INT 22h/23h/24h vectors into the child
@@ -685,6 +707,18 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * we return (kmain, alongside the exit-hook restore). The program's JFT is
      * the standard predefined set psp_build just laid down. */
     int21_set_psp((struct psp *)(uintptr_t)plan.psp_addr);
+
+    /* Bump the SFT refcount for each handle the child just INHERITED from the
+     * parent JFT (beads initech-bsy.9). psp_build copied the parent's table into
+     * the child, so the child now holds an ADDITIONAL reference to every open
+     * FILE/open-device slot the parent had (e.g. the `>`-redirect file). The
+     * child's exit (do_terminate -> sft_close_process) will RELEASE exactly those,
+     * so this bump keeps the count balanced: without it the child's exit would
+     * over-free the slot out from under the parent, and the shell's post-EXEC
+     * dos_dup2(saved,1)/dos_close would then fail loud on a freed SFT entry.
+     * Resident CON/AUX/PRN slots 0..3 are shared/refcount-fixed and are NOT bumped
+     * (sft_inherit skips them), mirroring sft_close_process. */
+    sft_inherit((psp_t *)(uintptr_t)plan.psp_addr);
 
     /* Bind the MCB heap arena to the window DISJOINT from this loaded program
      * (beads initech-1q4u; ADR-0009 DEC-04). The arena starts ABOVE the loaded

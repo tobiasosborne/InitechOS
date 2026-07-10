@@ -21,6 +21,11 @@
  *                                assertion goes RED.
  *   -DPSP_MUTATE_CMDTAIL_LEN   : the cmd_tail count byte is written off-by-one
  *                                (copy+1) -> the tail-length assertion goes RED.
+ *   -DPSP_MUT_NO_JFT_INHERIT   : restore the OLD hard-reset -- psp_build ignores
+ *                                params.parent_jft and ALWAYS lays the CON
+ *                                defaults. Case 5 (child inherits parent JFT)
+ *                                goes RED (child jft[1] == CON, not the file
+ *                                slot). This is the bug initech-bsy.9 fixes.
  * A mutant that PASSES means the oracle is decoration.
  */
 
@@ -62,6 +67,7 @@ static void run_build(guarded_psp_t *g, const char *tail, uint32_t taillen,
     params.parent_psp_linear = P_PARENT;
     params.cmd_tail          = tail;
     params.cmd_tail_len      = taillen;
+    params.parent_jft        = 0;   /* no parent -> the CON defaults (cases 1-4) */
     uint32_t dropped = psp_build(&g->psp, &params);
     if (dropped_out) {
         *dropped_out = dropped;
@@ -211,6 +217,67 @@ int main(void)
               "guard byte must be untouched -- NO write past offset 0xFF");
         /* The static fields must still be correct after a clamped tail. */
         check_static_fields(p);
+    }
+
+    /* ---- Case 5: EXEC child inherits a COPY of the parent JFT (bsy.9) ------
+     * MS-DOS 3.3 AH=4Bh: the child gets a COPY of the parent's whole handle
+     * table. When the shell has DUP2'd stdout (handle 1) onto a redirect file
+     * (SFT slot 7, say) for `GREET.COM > OUT.TXT`, the child's handle 1 MUST
+     * inherit that file slot -- NOT be reset to CON (slot 1). Before the fix,
+     * psp_build hard-reset jft[1]=0x01 (CON) regardless of the parent, so the
+     * child wrote to the screen and OUT.TXT stayed empty. This case builds a
+     * "parent" JFT with a redirected stdout + an extra open file handle and
+     * asserts the child inherits the WHOLE table byte-for-byte.
+     * Ref: MS-DOS 3.3 PRM (handle inheritance on EXEC); ADR-0003 DEC-06. */
+    {
+        /* A parent JFT: stdin=CON(0), stdout REDIRECTED to file slot 7,
+         * stderr=CON(1), aux=2, prn=3, handle 5 = the open redirect file (slot 7
+         * too, as run_with_redirect leaves dos_creat's handle open), handle 6 =
+         * the saved CON-out (slot 1, the DUP of handle 1), rest 0xFF. */
+        uint8_t parent[20];
+        for (int i = 0; i < 20; i++) parent[i] = 0xFF;
+        parent[0] = 0x00;   /* stdin  -> CON in   (slot 0) */
+        parent[1] = 0x07;   /* stdout -> REDIRECT file (slot 7) -- the `>` DUP2  */
+        parent[2] = 0x01;   /* stderr -> CON out  (slot 1) */
+        parent[3] = 0x02;   /* aux    -> slot 2 */
+        parent[4] = 0x03;   /* prn    -> slot 3 */
+        parent[5] = 0x07;   /* the open redirect file handle (slot 7) */
+        parent[6] = 0x01;   /* the saved CON-out DUP (slot 1) */
+
+        guarded_psp_t g;
+        g.guard = GUARD_MAGIC;
+        psp_params_t params;
+        params.alloc_end_linear  = P_ALLOC_END;
+        params.env_linear        = P_ENV;
+        params.parent_psp_linear = P_PARENT;
+        params.cmd_tail          = "";
+        params.cmd_tail_len      = 0;
+        params.parent_jft        = parent;   /* <- the child inherits THIS table */
+        (void)psp_build(&g.psp, &params);
+        const psp_t *p = &g.psp;
+
+        /* THE discriminating assertion: the child's stdout (handle 1) inherits
+         * the parent's REDIRECT file slot, NOT the CON reset. Pre-fix this reads
+         * 0x01 (CON) and the case is RED -- exactly the bug. */
+        CHECK(p->jft[1] == 0x07,
+              "child jft[1] (stdout) must INHERIT the parent's redirect file "
+              "slot 7, not be reset to CON (bsy.9; MS-DOS 3.3 AH=4Bh EXEC copies "
+              "the parent JFT)");
+        /* The whole 20-entry table is copied byte-for-byte. */
+        int all_inherited = 1;
+        for (int i = 0; i < 20; i++) {
+            if (p->jft[i] != parent[i]) all_inherited = 0;
+        }
+        CHECK(all_inherited,
+              "child JFT must be a byte-for-byte COPY of the parent JFT "
+              "(all 20 entries; DEC-06 20-entry table)");
+        /* Everything ELSE psp_build lays must still be correct with a parent. */
+        CHECK(p->int20[0] == 0xCD && p->int20[1] == 0x20,
+              "int20 must still be CD 20 with an inherited JFT");
+        CHECK(p->parent_psp == EXP_PARENT,
+              "parent_psp must still be set with an inherited JFT");
+        CHECK(g.guard == GUARD_MAGIC,
+              "guard byte untouched -- inheritance must not overflow the PSP");
     }
 
     return TEST_SUMMARY("test_psp");

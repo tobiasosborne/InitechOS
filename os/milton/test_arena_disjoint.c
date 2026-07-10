@@ -89,6 +89,7 @@ static uint16_t g_psp_seg;
 static void bind_psp(void)
 {
     psp_params_t params;
+    params.parent_jft = 0;   /* no parent -> CON defaults (bsy.9) */
     params.alloc_end_linear  = PROGRAM_ALLOC_END;
     params.env_linear        = ENV_BLOCK;
     params.parent_psp_linear = 0u;

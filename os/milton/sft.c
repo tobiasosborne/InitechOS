@@ -17,12 +17,14 @@
  * manipulation over g_sft[] and the caller-supplied psp->jft[] -- so it is a
  * fully host-unit-testable module, exactly like psp.c.
  *
- * SINGLE-PROCESS NOTE (milestone scope): ref_count tracks JFT references within
- * the current process. SFT teardown / re-init on process EXIT (so a second
- * program starts with a clean device table) is deferred to the multi-process
- * milestone; sft_init() is called once at SYSINIT. The cooperative single-
- * program model (CLAUDE.md "Cooperative, not preemptive") makes this correct
- * for the current release.
+ * PER-PROCESS TEARDOWN NOTE: ref_count tracks JFT references within the
+ * current process. sft_init() runs once at SYSINIT to give the FILE-kind
+ * table a clean starting state; per-process teardown on EXIT is handled by
+ * sft_close_process() (below), which int21.c's do_terminate calls on every
+ * terminate path (4Ch / 00h / INT 20h / AH=31h KEEP-to-parent, all of which
+ * route through do_terminate) BEFORE control leaves, so a second program
+ * always starts with a clean device table -- this is implemented and wired,
+ * not deferred. (audit 2026-07-09, initech-msol)
  */
 
 #include "sft.h"
@@ -325,6 +327,56 @@ void sft_close_process(psp_t *psp)
          * in-emulator oracle goes RED. NEVER define in a real build. */
         sft_release(idx);
         psp->jft[h] = JFT_CLOSED;
+#endif
+    }
+}
+
+/* Bump the SFT refcount for every handle an EXEC child inherited (beads
+ * initech-bsy.9). See sft.h for the full contract + the symmetry argument with
+ * sft_close_process. This is the EXACT structural mirror of sft_close_process:
+ * it walks the child JFT and touches only the process-owned slots
+ * (index >= SFT_FIRST_FILE) -- incrementing where the exit path decrements --
+ * so the inherit/release pair is balanced and the shared SFT slot count stays
+ * honest across the parent<->child EXEC boundary.
+ * Ref: MS-DOS 3.3 PRM AH=4Bh (handle-table inheritance); sft_close_process. */
+void sft_inherit(psp_t *child)
+{
+    if (child == 0) {
+        return; /* no child -> nothing inherited */
+    }
+
+    for (uint8_t h = 0; h < (uint8_t)JFT_MAX_ENTRIES; h++) {
+        uint8_t idx = child->jft[h];
+        if (idx == JFT_CLOSED) {
+            continue; /* closed/unused handle -- nothing references a slot */
+        }
+
+        /* A JFT entry that is neither 0xFF nor an in-range index of a LIVE slot
+         * is corruption -- fail loud (Rule 2; mirrors sft_close_process). An
+         * inherited handle MUST reference a slot the parent actually had open. */
+        if (idx >= SFT_MAX_ENTRIES || g_sft[idx].kind == SFT_KIND_FREE) {
+            SFT_FAIL_LOUD();
+            return; /* not reached */
+        }
+
+        /* Resident device slots 0..3 (CON/AUX/PRN) are shared + refcount-fixed by
+         * sft_init and are NEVER released per-process (sft_close_process skips
+         * index < SFT_FIRST_FILE) -- so do NOT bump them (a bump would leak the
+         * count forever). Only the process-owned slots (>= SFT_FIRST_FILE: files
+         * and OPEN-by-name devices), which sft_close_process WILL release on the
+         * child's exit, get the matching bump here. */
+        if (idx < (uint8_t)SFT_FIRST_FILE) {
+            continue; /* resident CON/AUX/PRN device slot -- shared, not counted */
+        }
+
+#ifndef SFT_MUTATE_NO_INHERIT_REFCOUNT
+        /* Rule-6 mutant target (SFT_MUTATE_NO_INHERIT_REFCOUNT): WITHOUT this bump
+         * the child's exit (sft_close_process) OVER-FREES the inherited slot out
+         * from under the parent -- the parent's next dos_dup2(saved,1)/dos_close
+         * then hits a freed SFT entry and panics (fail loud). The bsy.9 redirect
+         * emu gate goes RED (triple-fault / missing GREETINGS). NEVER in a real
+         * build. */
+        g_sft[idx].ref_count++;
 #endif
     }
 }

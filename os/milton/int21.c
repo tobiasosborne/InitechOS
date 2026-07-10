@@ -276,6 +276,11 @@ void int21_irqtest_bump_find(void)
 void int21_set_sink(int21_sink_fn sink) { g_sink = sink; }
 void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
 void int21_set_psp(struct psp *psp)     { g_cur_psp = (psp_t *)psp; }
+/* The CURRENTLY-bound process PSP (beads initech-bsy.9). The loader reads this at
+ * EXEC time -- BEFORE it rebinds to the child -- to snapshot the PARENT's JFT for
+ * inheritance (an EXEC child gets a COPY of the parent's handle table; MS-DOS 3.3
+ * AH=4Bh). NULL when nothing is bound. */
+struct psp *int21_get_psp(void)         { return (struct psp *)g_cur_psp; }
 void int21_set_file_backend(const int21_file_backend_t *backend) { g_file = backend; }
 
 /* Bind the INT 25h/26h absolute-disk block-device seam (ADR-0003 DEC-15, beads

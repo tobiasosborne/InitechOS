@@ -79,6 +79,27 @@ typedef struct psp_params {
      * Ref Sec 2.11. */
     const char *cmd_tail;
     uint32_t    cmd_tail_len;
+
+    /* JFT inheritance (beads initech-bsy.9). Pointer to the PARENT process's
+     * 20-byte Job File Table (psp_t.jft, offset 0x18) the child inherits a COPY
+     * of, per MS-DOS 3.3 EXEC semantics: the AH=4Bh child gets a COPY of the
+     * parent's whole handle table (all 20 entries -- ADR-0003 DEC-06's 20-entry
+     * JFT), so an open/redirected handle the parent holds (e.g. a `>`-DUP2'd
+     * stdout -> a file SFT slot) is carried into the child. That is what makes
+     * EXTERNAL-command output redirection (`GREET.COM > OUT.TXT`) work: the child's
+     * handle 1 must point at the parent's redirect file, not be reset to CON.
+     *   NULL (0)  => NO parent (the boot-time / kernel-context shell PSP): lay the
+     *               predefined CON standard handles (jft[0..4]={0,1,1,2,3}; 5..19
+     *               = 0xFF). This is the byte-identical historical default.
+     *   non-NULL  => copy ALL 20 entries from *parent_jft into the child JFT.
+     * The LOADER sets this from g_cur_psp->jft at EXEC time (loader_run_plan,
+     * kernel-only); every OTHER caller (boot PSP, host unit tests) leaves it 0 to
+     * get the CON defaults. psp.c performs ONLY the byte copy -- the SFT refcount
+     * bump for the inherited open handles is the loader's job (sft_inherit), since
+     * psp.c is deliberately SFT-independent (pure + host-testable).
+     * Ref: MS-DOS 3.3 Programmer's Reference (handle inheritance on AH=4Bh EXEC);
+     *      ADR-0003 DEC-06 (20-entry JFT); sft.c (the refcount interaction). */
+    const uint8_t *parent_jft;
 } psp_params_t;
 
 /* Offsets of the three saved-vector slots WITHIN psp_t.saved_vectors[12]

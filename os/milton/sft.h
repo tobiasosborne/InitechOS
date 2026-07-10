@@ -206,4 +206,28 @@ uint16_t sft_dup2(psp_t *psp, uint8_t src, uint8_t dst);
  * Ref: DOS 3.3 process terminate (handle table closed); beads initech-6hk. */
 void sft_close_process(psp_t *psp);
 
+/* Bump the SFT refcount for every handle an EXEC child INHERITED from its parent
+ * (beads initech-bsy.9). psp_build copied the parent's whole JFT into the child
+ * (MS-DOS 3.3 AH=4Bh: the child gets a COPY of the parent's handle table), so the
+ * child now holds an ADDITIONAL reference to every SFT slot the parent had open.
+ * This walks the (already-copied) CHILD JFT and increments ref_count for each
+ * entry pointing at a PROCESS-OWNED slot (index >= SFT_FIRST_FILE: files and
+ * open-by-name devices) -- EXACTLY the slots sft_close_process releases on the
+ * child's exit. That symmetry is load-bearing: without the bump, the child's exit
+ * over-frees the shared slot out from under the parent (the parent's next
+ * dos_dup2/dos_close would then fail loud on a freed SFT entry).
+ *
+ * The resident device slots 0..3 (CON/AUX/PRN) are shared, refcount-FIXED at
+ * sft_init, and NEVER released per-process (sft_close_process skips
+ * index < SFT_FIRST_FILE), so they are NOT bumped here -- bumping them would leak.
+ * Inherited jft[1] == a `>`-DUP2'd file slot (>= SFT_FIRST_FILE) IS bumped: that
+ * is what lets EXTERNAL-command output redirect survive the child's exit.
+ *
+ * psp == NULL is a no-op. Fails LOUD on a corrupt JFT entry (neither 0xFF nor an
+ * in-range index of a live slot), mirroring sft_close_process (Rule 2). Called by
+ * the loader right after psp_build + int21_set_psp(child) (loader.c
+ * loader_run_plan). Ref: MS-DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-06; beads
+ * initech-bsy.9; sft_close_process (the symmetric release). */
+void sft_inherit(psp_t *child);
+
 #endif /* INITECH_SFT_H */

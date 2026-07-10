@@ -137,14 +137,42 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
      * IN FULL per DEC-06 + the design stance (ADR-0003 Sec 5.5). Entries 5..19 =
      * 0xFF (unused/closed -- the real-DOS sentinel). The SFT backing for these
      * slots is established by sft_init (sft.c, initech-509.3).
-     * Ref: Sec 2.6; dos_structs.h:97; ADR-0003 DEC-06; sft.h SFT_SLOT_*. */
-    psp->jft[0] = 0x00;
-    psp->jft[1] = 0x01;
-    psp->jft[2] = 0x01;
-    psp->jft[3] = 0x02;
-    psp->jft[4] = 0x03;
-    for (uint32_t i = 5; i < 20; i++) {
-        psp->jft[i] = 0xFF;
+     *
+     * JFT INHERITANCE (beads initech-bsy.9): when params->parent_jft is non-NULL
+     * the child inherits a COPY of the parent's whole 20-entry JFT instead of the
+     * CON defaults -- authentic MS-DOS 3.3 AH=4Bh EXEC (the child gets a COPY of
+     * the parent's handle table). This carries a `>`-redirected stdout (the shell
+     * DUP2'd handle 1 onto a file SFT slot) into the child so EXTERNAL-command
+     * output redirect works. The LOADER passes g_cur_psp->jft here at EXEC; the
+     * boot-time kernel PSP + every host test pass NULL for the CON defaults. The
+     * SFT refcount bump for the inherited open handles is the LOADER's job
+     * (sft_inherit) -- psp.c stays SFT-independent (pure + host-testable).
+     * Ref: Sec 2.6; dos_structs.h:97; ADR-0003 DEC-06; MS-DOS 3.3 PRM AH=4Bh;
+     *      sft.h SFT_SLOT_*. */
+#ifndef PSP_MUT_NO_JFT_INHERIT
+    if (params->parent_jft != 0) {
+        /* Inherit a byte-for-byte copy of the parent's 20-entry handle table. */
+        for (uint32_t i = 0; i < 20; i++) {
+            psp->jft[i] = params->parent_jft[i];
+        }
+    } else
+#else
+    /* Rule-6 mutant (make test-psp-mutant / the bsy.9 emu mutant): RESTORE the
+     * old hard-reset -- IGNORE params->parent_jft and ALWAYS lay the CON defaults,
+     * disabling inheritance. test_psp Case 5 (host) + the redirect emu gate both
+     * go RED, proving the inheritance path is load-bearing. NEVER in a real build. */
+#endif
+    {
+        /* NO parent (boot-time kernel/shell PSP): the FIVE predefined standard
+         * handles (DEC-06) then 0xFF x15 (unused/closed). */
+        psp->jft[0] = 0x00;
+        psp->jft[1] = 0x01;
+        psp->jft[2] = 0x01;
+        psp->jft[3] = 0x02;
+        psp->jft[4] = 0x03;
+        for (uint32_t i = 5; i < 20; i++) {
+            psp->jft[i] = 0xFF;
+        }
     }
 
     /* --- 2Ch env_seg: environment-block segment. ---------------------------

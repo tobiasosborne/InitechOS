@@ -23,6 +23,10 @@
  *                                   ref_count assertion goes RED.
  *   -DSFT_MUTATE_DUP2_NO_RELEASE  : DUP2 forgets to release the old target ->
  *                                   the released-slot assertion goes RED.
+ *   -DSFT_MUTATE_NO_INHERIT_REFCOUNT (bsy.9): sft_inherit skips the ref_count
+ *                                   bump, so the child's exit OVER-FREES the
+ *                                   inherited file slot -> the "file slot
+ *                                   survives the child exit" assertion goes RED.
  * A mutant that PASSES means the oracle is decoration.
  */
 
@@ -45,6 +49,7 @@ static void fresh_process(psp_t *p)
     params.parent_psp_linear = 0u;
     params.cmd_tail          = (const char *)0;
     params.cmd_tail_len      = 0u;
+    params.parent_jft        = 0;   /* no parent -> CON defaults (bsy.9) */
     (void)psp_build(p, &params);
     sft_init();
 }
@@ -231,6 +236,70 @@ int main(void)
         /* DUP2 onto a CLOSED destination (handle 7): no release, just alias. */
         CHECK(sft_dup2(&p, 1, 7) == SFT_OK, "DUP2 onto a closed dst succeeds");
         CHECK(p.jft[7] == p.jft[1], "DUP2 aliases the closed dst to the source slot");
+    }
+
+    /* ============ sft_inherit: EXEC child inherits parent JFT (bsy.9) ====== *
+     * Models the `GREET.COM > OUT.TXT` flow end-to-end at the SFT layer: the
+     * PARENT (shell) has DUP2'd stdout onto a redirect file AND still holds the
+     * open file handle; the child inherits a COPY of the parent JFT (psp_build)
+     * and sft_inherit bumps the shared file slot; on the child's exit
+     * sft_close_process releases exactly the bumped references, so the file slot
+     * SURVIVES for the parent (no over-free). This is THE refcount interaction
+     * initech-bsy.9 must get right.
+     * MUTATION (SFT_MUTATE_NO_INHERIT_REFCOUNT): sft_inherit skips the bump, so the
+     * child's exit over-frees the file slot (kind -> FREE) and the survive-check
+     * below goes RED. */
+    {
+        psp_t parent;
+        fresh_process(&parent);
+
+        /* Parent redirect state: open a file at slot 4; the shell's dos_creat
+         * handle (6) references it AND stdout (handle 1) is DUP2'd onto it. So the
+         * file slot has TWO parent references (jft[1] + jft[6]). */
+        uint8_t fslot = sft_alloc();
+        CHECK(fslot == SFT_FIRST_FILE, "redirect file opens at SFT slot 4");
+        memset(&g_sft[fslot], 0, sizeof(g_sft[fslot]));
+        g_sft[fslot].kind      = SFT_KIND_FILE;
+        g_sft[fslot].open_mode = SFT_MODE_WRITE;
+        g_sft[fslot].ref_count = 1u;         /* the open file handle (jft[6]) */
+        parent.jft[6] = fslot;
+        CHECK(sft_dup2(&parent, 6, 1) == SFT_OK, "parent DUP2(file -> stdout)");
+        CHECK(parent.jft[1] == fslot, "parent stdout redirected to the file slot");
+        CHECK(g_sft[fslot].ref_count == 2u,
+              "file slot has 2 parent refs (jft[1] stdout + jft[6] open handle)");
+
+        /* The child inherits a COPY of the parent's whole JFT (psp_build does the
+         * byte copy in the kernel; here we copy directly to isolate sft_inherit). */
+        psp_t child;
+        memcpy(&child, &parent, sizeof(child));
+
+        /* CON-out is now referenced by stderr (jft[2]) only: the DUP2 above moved
+         * stdout off it (2 -> 1). Capture it to prove sft_inherit leaves resident
+         * device slots UNTOUCHED. */
+        uint16_t con_before = g_sft[SFT_SLOT_CON_OUT].ref_count;
+
+        sft_inherit(&child);
+        /* Both child jft[1] and jft[6] reference fslot (>= SFT_FIRST_FILE) -> +2.
+         * Device slots (jft[0],2,3,4) are index < 4 -> NOT bumped. */
+        CHECK(g_sft[fslot].ref_count == 4u,
+              "sft_inherit bumps the file slot once per inherited file handle "
+              "(2 parent + 2 child = 4)");
+        CHECK(g_sft[SFT_SLOT_CON_OUT].ref_count == con_before,
+              "sft_inherit does NOT bump the resident CON-out device slot "
+              "(inherited stderr jft[2] < SFT_FIRST_FILE) -- shared, refcount-fixed");
+
+        /* The child terminates: sft_close_process releases the child's own file
+         * handles (jft[1], jft[6]) -- exactly the 2 sft_inherit bumped. */
+        sft_close_process(&child);
+        CHECK(g_sft[fslot].ref_count == 2u,
+              "after child exit the file slot returns to the parent's 2 refs "
+              "(inherit +2 / close -2 is balanced)");
+        CHECK(g_sft[fslot].kind == SFT_KIND_FILE,
+              "the file slot SURVIVES the child's exit (NOT over-freed) -- the "
+              "parent's redirected stdout + open handle remain valid (bsy.9)");
+        CHECK(sft_from_handle(&parent, 1) != 0 &&
+              sft_from_handle(&parent, 1)->kind == SFT_KIND_FILE,
+              "parent stdout still resolves to the live file slot after child exit");
     }
 
     return TEST_SUMMARY("test_sft");
