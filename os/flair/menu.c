@@ -30,6 +30,11 @@
  *   MENU_MUTATE_SELECT_DISABLED-- allow selecting a DISABLED item / divider in
  *                                 the tracking loop. => the selectability oracle
  *                                 goes RED.
+ *   MENU_MUT_NO_REHIT          -- freeze the tracked menu index at the click
+ *                                 (do NOT re-hit the bar per tracked point) --
+ *                                 the ORIGINAL initech-rl4v bug: cross-menu
+ *                                 drag is structurally impossible. => the
+ *                                 PROPERTY 3c cross-menu-drag oracle goes RED.
  *
  * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
  */
@@ -277,9 +282,21 @@ uint32_t MenuKey(const MenuBar *bar, char ch)
  * flair_menu_track -- the deterministic pull-down tracking primitive.
  *
  * Hit the bar at startPt; if no title, return 0. Otherwise track through pts[]
- * (the cursor sequence after the click; the LAST point is the release). The
- * hilited item follows the cursor (MenuInfo_item_at). On release, return the
- * selection IFF the released item is selectable, else 0.
+ * (the cursor sequence after the click; the LAST point is the release).
+ *
+ * Ref: Inside Macintosh Vol I "Menu Manager" MenuSelect -- while the button is
+ * down, the title CURRENTLY under the cursor is the one dropped: dragging out
+ * of the clicked title into a different one CLOSES the old pull-down and OPENS
+ * the new one; releasing inside a panel selects that menu's item (docs/
+ * research/gui-ground-truth.md Sec 3.2). So the tracked menu index is re-hit
+ * from the bar EVERY tracked point whose y is still within the bar band
+ * [0, FLAIR_MENUBAR_H) -- a hit on a DIFFERENT title switches the tracked
+ * menu; a point below the bar (in a panel) tracks the item within whichever
+ * menu is CURRENTLY open (initech-rl4v: menu.c used to capture mi ONCE at the
+ * click and never re-hit, making cross-menu drag structurally impossible).
+ * The hilited item follows the cursor (MenuInfo_item_at) against the
+ * currently-tracked menu. On release, return the selection IFF the released
+ * item (in the FINAL tracked menu) is selectable, else 0.
  * -------------------------------------------------------------------------- */
 uint32_t flair_menu_track(const MenuBar *bar,
                           flair_point_t startPt,
@@ -298,18 +315,31 @@ uint32_t flair_menu_track(const MenuBar *bar,
     if (mi < 0)
         return 0;                       /* clicked outside any title          */
 
-    const MenuInfo *m = &bar->menus[mi];
     int hi = -1;
 
-    /* Track the cursor: each point updates the hilited item under it. */
+    /* Track the cursor: each point may switch the open menu (if it is in the
+     * bar band and over a DIFFERENT title) and always updates the hilited
+     * item against whichever menu is currently tracked. */
     for (int p = 0; p < n_pts; p++) {
+#if defined(MENU_MUT_NO_REHIT) && MENU_MUT_NO_REHIT
+        /* NAMED MUTANT (Rule 6): freeze mi at the click -- the ORIGINAL
+         * initech-rl4v bug. Never re-hit the bar, so a cross-menu drag can
+         * never switch the tracked menu. */
+#else
+        if (pts[p].v >= 0 && pts[p].v < (int)FLAIR_MENUBAR_H) {
+            int nb = MenuBar_hit(bar, (int)pts[p].h);
+            if (nb >= 0)
+                mi = nb;                /* a different title -> switch open menu */
+        }
+#endif
         hi = MenuInfo_item_at(bar, mi, (int)pts[p].h, (int)pts[p].v);
     }
 
     if (out_hi)
-        *out_hi = hi;
+        *out_hi = hi;                   /* the FINAL tracked menu's item        */
 
-    /* The selection is the item under the RELEASE point (the last pts entry).
+    /* The selection is the item under the RELEASE point (the last pts entry),
+     * evaluated against the FINAL tracked menu (mi, after any re-hits above).
      * If there were no tracking points, the release is the click itself (still
      * on the title, not on any item) -> nothing chosen. */
     if (n_pts <= 0)
@@ -322,7 +352,6 @@ uint32_t flair_menu_track(const MenuBar *bar,
     if (!MenuInfo_item_selectable(bar, mi, rel))
         return 0;                       /* disabled / divider: not selectable  */
 
-    (void)m;
     return MenuResult(bar->menus[mi].menuID, (uint16_t)(rel + 1)); /* 1-based  */
 }
 

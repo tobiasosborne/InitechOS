@@ -268,11 +268,22 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
  *                LAST point in the array is the RELEASE point. May be NULL/0.
  *   n_pts     -- length of pts[].
  *   out_hi    -- (optional, may be NULL) receives the final hilited item index
- *                (0-based) the tracking ended on, or -1 if none (for the drawer).
+ *                (0-based) the tracking ended on -- against whichever menu is
+ *                CURRENTLY tracked at that point -- or -1 if none (for the
+ *                drawer).
  *
- * Returns the IM result word (menuID<<16 | item-1based), or 0 if:
+ * CROSS-MENU DRAG (initech-rl4v; Inside Macintosh Vol I "Menu Manager"
+ * MenuSelect): the tracked menu is NOT fixed at startPt. Every point in pts[]
+ * whose y is still within the bar band re-hits the bar; landing on a
+ * DIFFERENT title switches the tracked menu (closes the old pull-down, opens
+ * the new one). A point below the bar tracks the item within whichever menu
+ * is currently open. So out_hi and the returned result are always relative to
+ * the FINAL tracked menu -- which may differ from the one under startPt.
+ *
+ * Returns the IM result word (menuID<<16 | item-1based) for the FINAL tracked
+ * menu, or 0 if:
  *   - startPt is not on a menu title (no menu dropped), OR
- *   - the release point is outside any item row, OR
+ *   - the release point is outside any item row (of the final tracked menu), OR
  *   - the release point lands on a DISABLED item or a DIVIDER (not selectable).
  *
  * Deterministic: the same (bar, startPt, pts) yields the same result every run.

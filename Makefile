@@ -10491,6 +10491,7 @@ TEST_MENU     := $(BUILD)/test_menu
 TEST_MENU_SRC := harness/proptest/test_menu.c
 TEST_MENU_MUT_FW := $(BUILD)/test_menu_mutant_fixedwidth
 TEST_MENU_MUT_SD := $(BUILD)/test_menu_mutant_selectdisabled
+TEST_MENU_MUT_NR := $(BUILD)/test_menu_mutant_norehit
 TEST_MENU_DEPS := os/flair/menu.c os/flair/menu.h os/flair/text.c os/flair/text.h \
                   os/flair/blitter.c os/flair/blitter.h os/flair/surface.c os/flair/surface.h \
                   os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
@@ -10508,6 +10509,8 @@ $(TEST_MENU_MUT_FW): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUTATE_FIXED_WIDTH=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
 $(TEST_MENU_MUT_SD): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUTATE_SELECT_DISABLED=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+$(TEST_MENU_MUT_NR): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_NO_REHIT=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
 
 test-menu: $(TEST_MENU)
 	@printf ">>> test-menu: proportional bar layout + canon Photoshop bar (Law 4) + MenuSelect tracking + MenuKey + rendered panel\n"
@@ -10516,10 +10519,11 @@ test-menu: $(TEST_MENU)
 		|| { printf '!!! test-menu FAIL: menu.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-menu: green\n"
 
-test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD)
-	@printf ">>> test-menu-mutant: confirming both mutants go RED (Rule 6)\n"
+test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR)
+	@printf ">>> test-menu-mutant: confirming all three mutants go RED (Rule 6)\n"
 	@if $(TEST_MENU_MUT_FW) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: FIXED_WIDTH PASSED -- the proportional-layout oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (FIXED_WIDTH correctly RED)\n'; fi
 	@if $(TEST_MENU_MUT_SD) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: SELECT_DISABLED PASSED -- the selectability oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (SELECT_DISABLED correctly RED)\n'; fi
+	@if $(TEST_MENU_MUT_NR) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: NO_REHIT PASSED -- the cross-menu-drag oracle is decoration (initech-rl4v)\n'; exit 1; else printf '>>> test-menu-mutant: green (NO_REHIT correctly RED, initech-rl4v)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-control (beads initech-8h9) -- FLAIR Control Manager. Buttons,

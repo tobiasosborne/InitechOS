@@ -308,6 +308,90 @@ int main(int argc, char **argv)
     }
 
     /* ======================================================================
+     * PROPERTY 3c: CROSS-MENU DRAG (initech-rl4v).  Inside Macintosh Vol I
+     * "Menu Manager" MenuSelect: while the mouse is down, whichever title is
+     * CURRENTLY under the cursor is the one dropped -- dragging out of the
+     * clicked title into a different one closes the old pull-down and opens
+     * the new one; releasing inside a panel selects THAT menu's item (docs/
+     * research/gui-ground-truth.md Sec 3.2, "Inside Macintosh: Macintosh
+     * Toolbox Essentials" Menu Manager citation). Before this fix, menu.c:297
+     * captured `mi = MenuBar_hit(bar, startPt.h)` ONCE and the tracking loop /
+     * release check (menu.c:305-307, :318-321) always re-used that frozen mi
+     * -- MenuBar_hit was never called again, so a cross-menu drag was
+     * structurally impossible (initech-rl4v bead evidence, verbatim repro
+     * below).
+     * ====================================================================== */
+    {
+        int mi0 = 0;   /* 'File' -- the menu FIRST clicked                    */
+        int mi1 = 1;   /* 'Edit' -- the menu dragged INTO                     */
+
+        int t0x = indep_title_x(&g_bar, mi0) +
+                  indep_title_w(g_bar.menus[mi0].title) / 2;
+        int t1x = indep_title_x(&g_bar, mi1) +
+                  indep_title_w(g_bar.menus[mi1].title) / 2;
+
+        flair_point_t click0 = { (int16_t)(FLAIR_MENUBAR_H / 2), (int16_t)t0x };
+
+        rgn_rect_t panel0 = MenuInfo_panel_rect(&g_bar, mi0);
+        rgn_rect_t panel1 = MenuInfo_panel_rect(&g_bar, mi1);
+        /* The canon bar's per-menu item sets are IDENTICAL (build_canon_bar),
+         * so both panels share one width; since panel1 drops directly under
+         * title1 (strictly right of title0), panel1.left > panel0.left --
+         * there is a distinguishing x that lands in panel0 but not panel1.
+         * Assert the fixture assumption holds so this oracle cannot silently
+         * degrade into a no-op. */
+        CHECK(panel1.left > panel0.left,
+              "fixture: panel1 starts strictly right of panel0 (distinguishing x exists)");
+
+        int row2_top = FLAIR_MENUBAR_H + FLAIR_MENU_PANEL_FRAME +
+                       2 * FLAIR_MENU_ITEM_H;             /* item index 2 row  */
+        int row2_y    = row2_top + FLAIR_MENU_ITEM_H / 2;
+        int panel1_px = (panel1.left + panel1.right) / 2;
+
+        /* (i) Drag from title0 into title1 (still in the bar band, no panel
+         * entered yet) -- this must SWITCH the tracked menu to mi1 and close
+         * mi0's panel. Probe with a point at panel0's own x (but an item-row
+         * y): if the switch happened, that x is OUTSIDE panel1 -> -1. If mi
+         * stayed frozen at mi0 (the bug), that point is squarely inside
+         * panel0's own item row 2 and resolves to a valid (wrong) item -- so
+         * this probe DISTINGUISHES fixed from buggy behavior. */
+        {
+            flair_point_t probe[2] = {
+                { (int16_t)(FLAIR_MENUBAR_H / 2), (int16_t)t1x },  /* enter menu1 title */
+                { (int16_t)row2_y,                (int16_t)panel0.left } /* menu0's old x */
+            };
+            int hi = -99;
+            uint32_t r = flair_menu_track(&g_bar, click0, probe, 2, &hi);
+            CHECK(hi == -1,
+                  "dragging into menu1's title CLOSES menu0's panel (old panel-space is dead, initech-rl4v)");
+            CHECK(r == 0,
+                  "no selection while merely hovering the switched-to title (initech-rl4v)");
+        }
+
+        /* (ii) Continue the drag: title0 -> title1 -> menu1's own panel ->
+         * release on item index 2. The result MUST be menu1's item, not 0 and
+         * not menu0's (the bead's verbatim repro: "flair_menu_track startPt on
+         * menu 0 ('File'), pts ending inside menu 1 ('Edit') panel -> result
+         * 0, out_hi -1" -- this asserts the FIXED contract instead). */
+        {
+            flair_point_t seq[3] = {
+                { (int16_t)(FLAIR_MENUBAR_H / 2), (int16_t)t1x },      /* enter menu1 title */
+                { (int16_t)(row2_top + 1),        (int16_t)panel1_px },/* hover item 2      */
+                { (int16_t)row2_y,                (int16_t)panel1_px } /* release item 2    */
+            };
+            int hi = -99;
+            uint32_t r = flair_menu_track(&g_bar, click0, seq, 3, &hi);
+            uint32_t want = MenuResult(g_bar.menus[mi1].menuID, 3); /* item idx2 -> 1based 3 */
+            CHECK(r == want,
+                  "cross-menu drag: click File, drag into Edit's panel, release item 3 -> Edit's result (initech-rl4v)");
+            CHECK(MenuResultID(r) == g_bar.menus[mi1].menuID,
+                  "cross-menu drag: result menuID is the FINAL (dragged-to) menu, not the clicked one");
+            CHECK(hi == 2,
+                  "cross-menu drag: out_hi is the item index in the FINAL menu's panel");
+        }
+    }
+
+    /* ======================================================================
      * PROPERTY 3b: MenuKey -- command-key equivalents pack the right result.
      * ====================================================================== */
     {
