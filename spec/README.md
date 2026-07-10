@@ -25,11 +25,12 @@ Authored (locked):
 - `assets/` — palette, glyph strikes, icon sprites (PRD §6.4, §10).
 - `dos_structs.h` / `find_data.h` / `memory_map.h` /
   `int21h_calling_convention.json` / … — the MILTON (InitechDOS) contracts.
-
-Planned contents (create as the milestones land):
-
-- `hardware.json` — the PRD §5 hardware contract.
-- `xbase_coercion.json` — the PRD §6.6 type-coercion table.
+- `hardware.json` — the PRD §5 hardware contract (ADR-0009 DEC-07); consumed
+  by `test-hardware-spec` / `test-hardware-spec-mutant`, mutation-proven.
+- `samir/xbase_coercion.json` — the PRD §6.6 type-coercion table; consumed by
+  `os/samir/core/eval.c` and graded by `test-xbase-eval`, `dbf_coerce_fuzz`,
+  and the other `harness/diff/dbf_diff/` xBase oracles, mutation-proven.
+  (Both ratified; audit 2026-07-09, initech-msol.)
 
 Changing locked spec-data is a deliberate act with a beads issue + a
 worklog note, **never** a silent edit to make one test pass (CLAUDE.md

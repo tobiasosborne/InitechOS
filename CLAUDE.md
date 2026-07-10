@@ -313,8 +313,10 @@ you catch yourself about to do one, stop and re-check the cited reference.
 > (C) targets is `i686-elf` cross-compilation (ADR-0002). The *interim*
 > toolchain — accepted, time-limited, per CDR-0001 — is the host compiler
 > in freestanding mode: `CC = gcc -m32 -ffreestanding -nostdlib` (+ `nasm`
-> + `ld`). Repoint `CC_KERNEL` to the `i686-elf` cross-toolchain once the
-> dev environment moves to a more capable device; CDR-0001 closes then.
+> + `ld`). Repoint the Makefile's `KERNEL_CC` to the `i686-elf` cross-toolchain
+> once the dev environment moves to a more capable device; CDR-0001 closes
+> then. (audit 2026-07-09, initech-msol: the Makefile variable is
+> `KERNEL_CC`, not `CC_KERNEL`.)
 
 ```bash
 # Toolchain / emulators (one-time, Ubuntu):
@@ -393,7 +395,10 @@ initech-os/
 │   └── assets/              palette, glyph strikes, icon sprites
 ├── seed/                    C seed cross-compiler (Pascal -> x86); genesis of Turbo Initech, not the OS bootstrap
 ├── harness/                 C oracle + emulator drivers
-│   ├── emu/                 qemu.c, bochs.c, box86.c
+│   ├── emu/                 qemu.c, qemu_main.c, bochs.c, bochs_main.c
+│   │                        (86Box driver PLANNED -- NOT YET BUILT, no box86.c
+│   │                        yet; tracked as initech-x0i. audit 2026-07-09,
+│   │                        initech-msol)
 │   ├── ssim.c               per-window fidelity guide (PLANNED -- NOT YET BUILT; `make ssim` is a stub)
 │   ├── diff/                fat_diff, dbf_diff, compiler_diff
 │   └── proptest/            region property suite + shrinker

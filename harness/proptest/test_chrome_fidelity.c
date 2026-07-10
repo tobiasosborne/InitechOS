@@ -5,9 +5,10 @@
  *        by-construction -- the expected pattern comes from the INDEPENDENT
  *        ../system7-decomp golden, spec/chrome_fidelity_golden.h, never from
  *        chrome_metrics.h which chrome.c renders FROM), Law 4 (look like the
- *        frame), Rule 1 (Red->Green: this oracle is RED on today's chrome.c, by
- *        design -- it pins a real fidelity bug), Rule 6 (mutation-proven once the
- *        render is fixed GREEN), Rule 11 (deterministic), Rule 12 (ASCII).
+ *        frame), Rule 1 (Red->Green: this oracle pinned a real fidelity bug in
+ *        chrome.c and is GREEN now that the phase-lock fix landed), Rule 6
+ *        (mutation-proven via CHROME_FID_MUT_PHASE reverting to the
+ *        free-running fill), Rule 11 (deterministic), Rule 12 (ASCII).
  *
  * WHAT IT GRADES (first increment): the title-bar pinstripe PHASE. It drives the
  * REAL artifact drawer os/flair/chrome.c through the host render skeleton (the same
@@ -20,11 +21,15 @@
  * vs dark idx 8), which are invariant under the Initech teal recolor (graded
  * separately by test-color-canon). This oracle never touches the teal/lavender axis.
  *
- * WHY IT IS RED TODAY (the gap this closes). chrome.c free-runs the period-2 fill
- * from the title-bar top (phase = (y - title_top) % 2 -> L,D,L,D,...). That is also
- * "period-2 alternation", so it PASSES test-chrome's period_ok and ppm_flair_check
- * leg (c). But it has NO doubled-LIGHT pairs -- so the real System-7 phase is not
- * reproduced, and NOTHING currently catches it. This oracle does.
+ * THE GAP THIS CLOSED (history, not current state). chrome.c used to free-run
+ * the period-2 fill from the title-bar top (phase = (y - title_top) % 2 ->
+ * L,D,L,D,...). That is also "period-2 alternation", so it PASSED test-chrome's
+ * period_ok and ppm_flair_check leg (c) while having NO doubled-LIGHT pairs --
+ * so the real System-7 phase was not reproduced, and nothing caught it. This
+ * oracle did: chrome.c now phase-locks LIGHT to both stripe-band edges (see
+ * os/flair/chrome.c's non-mutant fill), reproducing the golden's
+ * doubled-light-pairs signature, and this gate is GREEN in TEST_UNIT_GATES.
+ * (audit 2026-07-09, initech-msol)
  *
  * INACTIVE TITLE BAR (beads initech-a9iq). A later leg renders a SECOND window
  * with hilited=0 (a separate render_ctx_t; the hilited=1 render and all the legs
