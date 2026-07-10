@@ -6993,6 +6993,7 @@ endef
         test-chrome test-chrome-mutant \
         test-chrome-fidelity test-chrome-fidelity-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
+        test-seed-mutant test-seed-codegen-mutant \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-redir test-redir-mutant test-int24 test-int24-mutant \
         test-vect test-absdisk-emu test-psp test-psp-mutant \
@@ -7047,6 +7048,8 @@ help:
 	@printf '  test-compiler  Turbo Initech vs Free Pascal on the shared corpus.\n'
 	@printf '  test-seed      Seed front-end unit tests (lexer + parser). REAL: fails non-zero on any check.\n'
 	@printf '  test-seed-codegen  Seed codegen end-to-end: compile .pas, boot ELF in QEMU, assert exact serial. REAL.\n'
+	@printf '  test-seed-mutant   Rule-6 proof: -DSEED_MUT_PARSE_ADD_AS_MUL (OP_ADD->OP_MUL) makes test_parser correctly RED. REAL. beads initech-tf3c.\n'
+	@printf '  test-seed-codegen-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_MUL_AS_ADD (imul->add) makes the R=14 precedence corpus correctly RED. REAL (QEMU). beads initech-tf3c.\n'
 	@printf '  test-harness   QEMU oracle harness self-test: serial marker caught on good fixture, triple-fault caught on bad. REAL.\n'
 	@printf '  test-tracer-boot   Real MBR->stage2->32-bit/flat->VESA LFB boot: assert serial stage markers + no triple-fault + banner rendered on the seafoam desktop (ppm_text_check). REAL.\n'
 	@printf '  test-boot      InitechDOS banner boot gate: serial markers + banner literal vs spec/dos_banner.txt (byte-exact) + screendump banner-text check + no triple-fault. REAL. (QEMU only; tri-emulator pending initech-x0i.)\n'
@@ -11588,7 +11591,8 @@ $(BUILD)/seed_arith_%.elf: $(ARITH_DIR)/%.pas $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_
 ARITH_ELVES := $(BUILD)/seed_arith_precedence.elf \
                $(BUILD)/seed_arith_parens.elf \
                $(BUILD)/seed_arith_divmod.elf \
-               $(BUILD)/seed_arith_negative.elf
+               $(BUILD)/seed_arith_negative.elf \
+               $(BUILD)/seed_arith_negative_divmod.elf
 
 test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@printf ">>> test-seed-codegen: SMOKE -- expect serial marker '%s'\n" "$(SEED_SMOKE_MARKER)"
@@ -11611,7 +11615,69 @@ test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_negative.elf" --expect "N=-5" \
 		--name seed_neg --timeout-ms 5000 \
 		|| { printf "!!! test-seed-codegen FAIL: 0 - 5 did not print N=-5\n"; exit 1; }
+	@printf ">>> test-seed-codegen: ARITH negative div/mod -- expect 'A=-3 B=-2 C=-3 D=2 E=3 F=-2' (beads initech-tf3c)\n"
+	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_negative_divmod.elf" --expect "A=-3 B=-2 C=-3 D=2 E=3 F=-2" \
+		--name seed_neg_divmod --timeout-ms 5000 \
+		|| { printf "!!! test-seed-codegen FAIL: negative-operand div/mod did not print A=-3 B=-2 C=-3 D=2 E=3 F=-2\n"; exit 1; }
 	@printf ">>> test-seed-codegen: all green (smoke marker + arithmetic exact-output checks)\n"
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-seed-mutant / test-seed-codegen-mutant (beads initech-tf3c)
+# ---------------------------------------------------------------------------
+# Rule 6: initech-znb's mutation proofs (OP_ADD->OP_MUL in the parsed IR;
+# imul->add in codegen emission) were one-off manual perturbations, never a
+# repeatable target -- unlike every other graded subsystem in this Makefile.
+# These two gates restore each perturbation behind a compile-time
+# -DSEED_MUT_* hook (seed/parser.c, seed/codegen.c) and assert the mutant
+# build FAILS its own corpus (the "if mutant PASSES then FAIL loud" idiom
+# used throughout, e.g. test-xbase-fn-b-mutant-round).
+#
+# test-seed-mutant: front-end/IR mutant. -DSEED_MUT_PARSE_ADD_AS_MUL makes
+# the parser build a '+' AST_BINOP node with op=OP_MUL. test_parser's
+# test_precedence_mul_over_add (and 2 related checks) must go RED.
+SEED_TEST_PARSER_MUT := $(BUILD)/test_parser_mut
+
+$(SEED_TEST_PARSER_MUT): seed/test_parser.c $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSEED_MUT_PARSE_ADD_AS_MUL -Iseed -o $@ seed/test_parser.c $(SEED_LIB_SRC)
+
+.PHONY: test-seed-mutant
+test-seed-mutant: $(SEED_TEST_PARSER_MUT)
+	@printf ">>> test-seed-mutant: confirming the OP_ADD->OP_MUL parser mutant goes RED (Rule 6; initech-znb/initech-tf3c)\n"
+	@$(SEED_TEST_PARSER_MUT) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-seed-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(SEED_TEST_PARSER_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-seed-mutant FAIL: mutant PASSED -- the +/* precedence distinction is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-mutant: green (OP_ADD->OP_MUL correctly RED)\n'; \
+	fi
+
+# test-seed-codegen-mutant: codegen/emission mutant. -DSEED_MUT_CODEGEN_MUL_AS_ADD
+# makes '*' emit `add` instead of `imul`. Build a SEPARATE mutant compiler
+# binary (initechc_mut) so the real $(SEED_BIN) used by every other gate is
+# never contaminated, compile the EXISTING precedence.pas fixture through it
+# (2 + 3 * 4 needs a real multiply to print R=14), and assert the QEMU
+# harness fails to find "R=14" (the mutant actually emits R=9).
+SEED_BIN_MUT := $(BUILD)/initechc_mut
+
+$(SEED_BIN_MUT): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_CODEGEN_MUL_AS_ADD -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+SEED_ARITH_PRECEDENCE_MUT_ELF := $(BUILD)/seed_arith_precedence_mut.elf
+
+$(SEED_ARITH_PRECEDENCE_MUT_ELF): $(ARITH_DIR)/precedence.pas $(SEED_BIN_MUT) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT) --emit-asm -o $(BUILD)/seed_arith_precedence_mut.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_precedence_mut.s -o $(BUILD)/seed_arith_precedence_mut.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(BUILD)/seed_arith_precedence_mut.o
+
+.PHONY: test-seed-codegen-mutant
+test-seed-codegen-mutant: $(HARNESS_BIN) $(SEED_ARITH_PRECEDENCE_MUT_ELF)
+	@printf ">>> test-seed-codegen-mutant: confirming the imul->add MUL-emission mutant goes RED (Rule 6; initech-znb/initech-tf3c)\n"
+	@if $(HARNESS_BIN) --kernel "$(SEED_ARITH_PRECEDENCE_MUT_ELF)" --expect "R=14" \
+		--name seed_prec_mut --timeout-ms 5000 >/dev/null 2>&1; then \
+		printf '!!! test-seed-codegen-mutant FAIL: mutant PASSED -- imul vs add for * is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-codegen-mutant: green (2 + 3 * 4 correctly failed to print R=14 under the add-for-imul mutant)\n'; \
+	fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-harness (beads initech-f2s)
@@ -17074,7 +17140,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-assets test-spec test-dosmsg \
+	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \

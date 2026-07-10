@@ -41,13 +41,18 @@
  *   mod cdq ; idiv ecx -> remainder in edx ; mov eax, edx   (Pascal `mod`)
  *   unary -  neg eax
  *
- *   Pascal `div`/`mod` are integer division. The Step-A subset only forms
- *   non-negative operands in the gate corpus, but x86 `idiv` is signed and
+ *   Pascal `div`/`mod` are integer division. x86 `idiv` is signed and
  *   TRUNCATES TOWARD ZERO, which matches ISO-Pascal `div` for operands of the
  *   same sign and is the Turbo-Pascal behaviour. (`mod` follows the sign of
- *   the dividend on x86; that, too, is Turbo-Pascal's `mod`. Negative-operand
- *   semantics are documented here but not exercised by the seed gate, which
- *   only divides non-negative values.)
+ *   the dividend on x86; that, too, is Turbo-Pascal's `mod`.) Negative-operand
+ *   semantics are now exercised end-to-end by
+ *   seed/examples/arith/negative_divmod.pas (beads initech-tf3c): `cdq` +
+ *   `idiv` needs no sign-correction because the x86 instruction's native
+ *   trunc-toward-zero quotient / dividend-signed remainder IS Turbo Pascal's
+ *   div/mod, so this codegen was correct by construction the whole time --
+ *   the gap Rule 6 flagged was test coverage, not a latent bug (confirmed by
+ *   running the fixture: differential golden green, no codegen change
+ *   needed).
  *
  * VARIABLES: each `integer` var gets a zero-initialised 4-byte slot in .bss
  * labelled `v_<name>` (names are case-insensitive Pascal idents; we lower-case
@@ -172,7 +177,18 @@ static void gen_binop(Cg *cg, const AstNode *e)
         fprintf(o, "    sub eax, ecx\n");
         break;
     case OP_MUL:
+#ifdef SEED_MUT_CODEGEN_MUL_AS_ADD
+        /* MUTATION HOOK (Rule 6; beads initech-tf3c, restoring the
+         * initech-znb one-off manual "imul->add" perturbation as a
+         * repeatable gate). Compile with -DSEED_MUT_CODEGEN_MUL_AS_ADD to
+         * emit `add` where `*` should emit `imul`: `2 + 3 * 4` then computes
+         * 2 + (3 + 4) = 9 instead of R=14, and `(2 + 3) * 4` computes
+         * (2+3)+4 = 9 instead of R=20. test-seed-codegen-mutant asserts this
+         * makes the arith corpus's exact-serial expectation go RED. */
+        fprintf(o, "    add eax, ecx\n");
+#else
         fprintf(o, "    imul eax, ecx\n");
+#endif
         break;
     case OP_DIV:
         fprintf(o, "    cdq\n");          /* sign-extend eax into edx:eax */
