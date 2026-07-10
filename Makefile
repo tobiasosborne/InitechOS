@@ -7001,12 +7001,12 @@ help:
 	@printf '\n'
 	@printf 'Build:\n'
 	@printf '  factory        Build the seed cross-compiler + factory tools (C). REAL: compiles the smoke stub.\n'
-	@printf '  image          Build a bootable image with the seed compiler -> %s/initech.img.\n' "$(BUILD)"
+	@printf '  image          Build the flagship boot image -> %s/initech.img (alias of FLAIRTENANTS: FLAIR desktop + HELLO/NOTES tenants).\n' "$(BUILD)"
 	@printf '  clean          Remove build artifacts under %s/.\n' "$(BUILD)"
 	@printf '\n'
 	@printf 'Run / boot:\n'
-	@printf '  run            Dev-loop boot in QEMU (serial + gdb stub + screendump).\n'
-	@printf '  run-bochs      Accuracy boot in Bochs (real->protected transition checking).\n'
+	@printf '  run            Dev-loop boot of %s/initech.img in QEMU (-s gdb stub + serial stdio + guest-error/reset log; headless).\n' "$(BUILD)"
+	@printf '  run-bochs      Accuracy boot of %s/initech.img in Bochs (real->protected transition checking).\n' "$(BUILD)"
 	@printf '  smoke          M0.5 tracer-bullet heartbeat. REAL gate: boot seed ELF in QEMU, assert serial marker + no triple-fault + no hang.\n'
 	@printf '\n'
 	@printf 'Oracles (per-subsystem differential / property suites):\n'
@@ -9186,30 +9186,72 @@ $(BUILD):
 	@mkdir -p $(BUILD)
 
 # ---------------------------------------------------------------------------
-# Stub targets (land them per PRD Sec 11 milestones)
+# THE FLAGSHIP IMAGE: build/initech.img (beads initech-7s1z; audit-2026-07).
 # ---------------------------------------------------------------------------
-image:
-	$(call stub,image,M1)
+# `image:` used to be an M1 stub (`$(call stub,image,M1)`) and `run:` fell
+# back to the serial_hello fixture -- both predate every full MBR->stage2->
+# kernel image this Makefile now builds, stranding the CLAUDE.md-documented
+# `make image`/`make run` workflow on a fixture instead of the real OS.
+#
+# The FULLEST current OS experience is FLAIRTENANTS_IMG ($(BUILD)/flair_tenants.img,
+# defined above): the hardened BOOT_FLAIR_LIVE desktop (every WL-0067 P0/P1
+# compositor/chrome fix) hosting the App Contract's two co-resident tenants
+# (HELLO + NOTES) through the SOLE flair_app_dispatch/flair_route_updates
+# spine (ADR-0013) -- graded by test-flair-appswitch (+ -mutant, + -bochs;
+# ADR-0013 Wave-4 gate O-5) and exercised alongside SAMIR/dBASE by
+# test-flair-samir-suspend. It is BOUNDED (halts on FLAIR-LIVE-OK, Rule 11)
+# and reproducible, unlike its sibling FLAIRTENANTS_INTERACTIVE_IMG
+# ($(BUILD)/flair_tenants_interactive.img, `make run-flair-tenants`), whose
+# unbounded operator loop never halts/screendumps deterministically -- the
+# wrong shape for a default `image`/`run` pair.
+#
+# `image:` is a REAL dependency on the existing pipeline (a `cp` alias), not a
+# duplicated recipe -- FLAIRTENANTS_IMG's own rule (and every gate that boots
+# it) is untouched.
+INITECH_IMG := $(BUILD)/initech.img
+
+$(INITECH_IMG): $(FLAIRTENANTS_IMG) | $(BUILD)
+	cp $(FLAIRTENANTS_IMG) $@
+	@printf ">>> image: %s (flagship alias of %s -- FLAIR desktop + HELLO/NOTES co-resident tenants)\n" "$@" "$(FLAIRTENANTS_IMG)"
+
+image: $(INITECH_IMG)
 
 # ---------------------------------------------------------------------------
 # REAL action target: run
 # ---------------------------------------------------------------------------
-# Dev-loop boot via the harness. Boots $(BUILD)/initech.img if it exists,
-# else the serial_hello fixture, echoing captured serial to stdout. This is
-# an ACTION target (it asserts nothing) -- a non-zero exit here just reflects
-# the guest's verdict, which is informative, not a gate. PRD Sec 8 / CLAUDE.md
-# "Build & test".
-run: $(HARNESS_BIN) $(SERIAL_HELLO_ELF)
-	@if [ -f "$(BUILD)/initech.img" ]; then \
-		printf ">>> run: booting %s/initech.img via harness (serial -> stdout)\n" "$(BUILD)"; \
-		$(HARNESS_BIN) --disk "$(BUILD)/initech.img" --name initech --serial-stdout || true; \
-	else \
-		printf ">>> run: no %s/initech.img yet -- booting serial_hello fixture (serial -> stdout)\n" "$(BUILD)"; \
-		$(HARNESS_BIN) --kernel "$(SERIAL_HELLO_ELF)" --expect "$(HARNESS_MARKER)" --name run_fixture --serial-stdout || true; \
-	fi
+# Dev-loop boot of the flagship image (build/initech.img) directly under QEMU
+# with the CLAUDE.md-documented flags. This is an ACTION target (it asserts
+# nothing) -- a non-zero exit here just reflects the guest's verdict, which is
+# informative, not a gate. PRD Sec 8 / CLAUDE.md "Build & test".
+#   -display none                 headless (agent/CI-safe -- no host X/GTK/
+#                                  SDL needed; matches the harness's own
+#                                  `-display none` choice, harness/emu/qemu.c)
+#   -s                            gdb stub on :1234 (attach with
+#                                  `gdb -ex 'target remote :1234'`)
+#   -serial stdio                 serial console -> this terminal
+#   -d int,guest_errors,cpu_reset  triple-fault / guest-error log -> stderr
+# Deliberately OMITS `-S` (CPU-halted-at-reset): with it the guest never
+# executes a single instruction until a debugger attaches and sends
+# `continue`, so a bare `make run` would print nothing on serial and hang
+# forever -- useless for "watch the OS boot". `-s` alone still exposes the
+# gdb stub for anyone who wants to attach; add `-S` by hand
+# (`make run QEMU_EXTRA=-S`) to also halt at reset.
+QEMU_EXTRA ?=
+run: $(INITECH_IMG)
+	qemu-system-i386 -display none -drive format=raw,file=$(INITECH_IMG) \
+		-s -serial stdio -d int,guest_errors,cpu_reset $(QEMU_EXTRA)
 
-run-bochs:
-	$(call stub,run-bochs,M1)
+# ---------------------------------------------------------------------------
+# REAL action target: run-bochs
+# ---------------------------------------------------------------------------
+# Accuracy boot of the SAME flagship image under Bochs (real->protected
+# transition checking, Rule 5). Bochs has no simple interactive CLI wrapper in
+# this repo the way qemu-system-i386 is used above; every other Bochs leg in
+# this Makefile drives Bochs through the C oracle harness (harness/emu/bochs.c
+# / bochs_main.c), so this reuses that SAME binary -- just without an
+# --expect assertion (an action target, not a gate).
+run-bochs: $(BOCHS_BIN) $(INITECH_IMG)
+	$(BOCHS_BIN) --disk "$(INITECH_IMG)" --serial-stdout
 
 # ---------------------------------------------------------------------------
 # REAL gate: smoke (beads initech-f8v.1 -- the M0.5 tracer-bullet heartbeat)

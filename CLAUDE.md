@@ -328,13 +328,20 @@ sudo apt install qemu-system-i386 bochs make nasm mtools
 # Build the factory tools and the seed cross-compiler (C):
 make factory          # seed = genesis of Turbo Initech (Pascal), not the OS bootstrap
 
-# Build a bootable image — C OS via the factory cross-toolchain (on host):
+# Build the flagship bootable image — C OS via the factory cross-toolchain
+# (on host). build/initech.img is an alias of FLAIRTENANTS_IMG, the fullest
+# current OS experience: the hardened FLAIR desktop (WL-0067 GUI fix arc)
+# hosting the App Contract's HELLO+NOTES co-resident tenants (ADR-0013),
+# graded by `make test-flair-appswitch` (+ -mutant, + -bochs):
 make image            # -> build/initech.img  (CC = i686-elf target / interim host gcc, CDR-0001)
 
-# Dev-loop boot in QEMU with serial + gdb stub + screendump wired:
-make run              # QEMU -s -S -serial stdio -d int,guest_errors,cpu_reset
+# Dev-loop boot of build/initech.img in QEMU, headless, serial + gdb stub:
+make run              # QEMU -display none -s -serial stdio -d int,guest_errors,cpu_reset
+                       # (omits -S — a bare -S halts the guest at reset with no
+                       # serial output until a debugger attaches; add it by hand
+                       # via `make run QEMU_EXTRA=-S` for step-from-boot debugging)
 
-# Accuracy boot in Bochs (real->protected transition checking):
+# Accuracy boot of the SAME image in Bochs (real->protected transition checking):
 make run-bochs
 
 # Run a subsystem oracle (examples):
