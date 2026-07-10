@@ -32,9 +32,27 @@
  * infinity, NaN, and round-half-to-even. It is intentionally compact and
  * auditable; correctness is established by the differential proof oracle, which
  * fuzzes every helper against the host's hardware double over thousands of
- * random + edge-case inputs (Law 2 -- the oracle is the truth).
+ * random + edge-case inputs (Law 2 -- the oracle is the truth). NOT a dBASE-
+ * specific dialect: SAMIR's numeric type is plain IEEE-754 binary64 end to
+ * end (no divergence from host double for compat reasons), so the host's
+ * hardware double is the correct AND ONLY reference for every helper class
+ * below (add/sub/mul/div/compare/int-conversions) -- there is no "documented
+ * dBASE semantics" fallback needed (audit: initech-quke).
  *
  * Reproducible (Rule 11): no globals, no timestamps, pure functions. ASCII (12).
+ *
+ * MUTATION hooks (CLAUDE.md Rule 6; audit: initech-quke):
+ *   SOFTFP_MUT_ROUND -- df_round_pack's round-half-to-even tie-break becomes
+ *                        "always round up on a set round bit" (drops the
+ *                        sticky/LSB-parity check). Breaks round-half-to-even
+ *                        at exact tie boundaries (e.g. 1.0 + 2^-53 boundary
+ *                        cases in the NORMAL path) -- the differential
+ *                        oracle (test_samir_softfp, compiled WITHOUT
+ *                        -DSOFTFP_MUTANT so the host-double reference stays
+ *                        correct) must go RED. This is the STRONGER
+ *                        implementation-side mutation form (vs. the
+ *                        pre-existing test-side reference corruption under
+ *                        -DSOFTFP_MUTANT); see test_samir_softfp.c header.
  */
 
 #include <stdint.h>
@@ -191,8 +209,17 @@ static uint64_t df_round_pack(int sign, int exp, uint64_t sig,
     uint64_t mant = sig >> 10;                       /* 53 bits, hidden at bit 52 */
     uint64_t round_bit = (sig >> 9) & 1ULL;
     uint64_t sticky = ((sig & 0x1FFULL) ? 1ULL : 0ULL) | extra_sticky;
+#ifdef SOFTFP_MUT_ROUND
+    /* MUTANT (Rule 6): always round up on a set round bit -- drops the
+     * round-half-to-even tie-break (sticky-or-LSB-parity check). Wrong at
+     * exact tie boundaries; must turn test_samir_softfp RED. */
+    (void)sticky;
+    if (round_bit)
+        mant++;
+#else
     if (round_bit && (sticky || (mant & 1ULL)))
         mant++;
+#endif
     if (mant & (1ULL << 53)) {                       /* hidden-bit overflow */
         mant >>= 1;
         biased++;

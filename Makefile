@@ -6208,12 +6208,14 @@ test-batch-exec-mutant: $(TEST_BATCH_EXEC_MUT_NOT) $(TEST_BATCH_EXEC_MUT_FOR)
 # ansi.c is pure + I/O-free; test_ansi.c #includes it DIRECTLY (same TU trick
 # as test_batch.c). The CON wiring is a separate (deferred) bead.
 # Mutation builds (Rule 6): PARAM_ACCUM -> multi-digit params wrong;
-# SGR_COLOR -> ANSI-to-CGA colour swap bypassed.
+# SGR_COLOR -> ANSI-to-CGA colour swap bypassed; NO_CLAMP (audit initech-quke)
+# -> out-of-range CUP/HVP no longer clamped to the screen bounds.
 TEST_ANSI             := $(BUILD)/test_ansi
 TEST_ANSI_SRC         := $(MILTON_DIR)/test_ansi.c
 TEST_ANSI_HDRS        := $(MILTON_DIR)/ansi.h $(MILTON_DIR)/ansi.c
 TEST_ANSI_MUT_PARAM   := $(BUILD)/test_ansi_mutant_paramaccum
 TEST_ANSI_MUT_SGR     := $(BUILD)/test_ansi_mutant_sgrcolor
+TEST_ANSI_MUT_CLAMP   := $(BUILD)/test_ansi_mutant_noclamp
 
 $(TEST_ANSI): $(TEST_ANSI_SRC) $(TEST_ANSI_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(MILTON_DIR) -Iseed -o $@ $(TEST_ANSI_SRC)
@@ -6226,20 +6228,27 @@ $(TEST_ANSI_MUT_SGR): $(TEST_ANSI_SRC) $(TEST_ANSI_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DANSI_MUTATE_SGR_COLOR \
 		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_ANSI_SRC)
 
+$(TEST_ANSI_MUT_CLAMP): $(TEST_ANSI_SRC) $(TEST_ANSI_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DANSI_MUTATE_NO_CLAMP \
+		-I$(MILTON_DIR) -Iseed -o $@ $(TEST_ANSI_SRC)
+
 .PHONY: test-ansi test-ansi-mutant
 test-ansi: $(TEST_ANSI)
-	@printf ">>> test-ansi: CSI parser + cursor + erase + SGR + save/restore\n"
+	@printf ">>> test-ansi: CSI parser + cursor + erase + SGR + save/restore + edge-clamp + mid-seq garbage\n"
 	@$(TEST_ANSI)
 	@printf ">>> test-ansi: green\n"
 
-test-ansi-mutant: $(TEST_ANSI_MUT_PARAM) $(TEST_ANSI_MUT_SGR)
-	@printf ">>> test-ansi-mutant: confirming both mutants go RED (Rule 6)\n"
+test-ansi-mutant: $(TEST_ANSI_MUT_PARAM) $(TEST_ANSI_MUT_SGR) $(TEST_ANSI_MUT_CLAMP)
+	@printf ">>> test-ansi-mutant: confirming all three mutants go RED (Rule 6)\n"
 	@if $(TEST_ANSI_MUT_PARAM) >/dev/null 2>&1; then \
 		printf '!!! test-ansi-mutant FAIL: param-accum mutant PASSED -- the multi-digit param test is decoration\n'; exit 1; \
 	else printf '>>> test-ansi-mutant: green (param-accum mutant correctly RED)\n'; fi
 	@if $(TEST_ANSI_MUT_SGR) >/dev/null 2>&1; then \
 		printf '!!! test-ansi-mutant FAIL: sgr-color mutant PASSED -- the ANSI-to-CGA colour test is decoration\n'; exit 1; \
 	else printf '>>> test-ansi-mutant: green (sgr-color mutant correctly RED -- the oracle bites)\n'; fi
+	@if $(TEST_ANSI_MUT_CLAMP) >/dev/null 2>&1; then \
+		printf '!!! test-ansi-mutant FAIL: no-clamp mutant PASSED -- the cursor-edge-clamp test is decoration\n'; exit 1; \
+	else printf '>>> test-ansi-mutant: green (no-clamp mutant correctly RED -- the oracle bites)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-keep (beads initech-bo40 -- INT 21h AH=31h KEEP / TSR)
@@ -7109,7 +7118,7 @@ help:
 	@printf '  test-kbd-unit  PS/2 keyboard + PIT pure logic (initech-3rs): ring (full/wrap) + scancode set 1 -> ASCII (+shift/caps) + PIT divisor math. REAL.\n'
 	@printf '  test-kbd       Keyboard IRQ1 end-to-end (initech-3rs/43b): first sti, QMP --keys "d,i,r" injected, echoed back via IRQ1; triple_fault=0. REAL (QEMU).\n'
 	@printf '  test-kbd-bochs Bochs leg of test-kbd (Rule 5): boots the echo image under Bochs; currently BLOCKED at ERR-VBE (pre-existing boot/VBE gap initech-x0i).\n'
-	@printf '  test-boot-bochs  BOCHS leg of the boot gate (initech-564): boots the tracer under Bochs (legacy BIOS + LGPL vgabios), asserts the stage2 mode-0x13 fallback fired + the SAME kernel markers as QEMU + no triple-fault. SERIAL-only (Bochs RFB cannot display mode 0x13). REAL. ~45s; env-specific, not in default `make test`.\n'
+	@printf '  test-boot-bochs  BOCHS leg of the boot gate (initech-564): boots the tracer under Bochs (legacy BIOS + LGPL vgabios), asserts the stage2 mode-0x13 fallback fired + the SAME kernel markers as QEMU + no triple-fault. SERIAL-only (Bochs RFB cannot display mode 0x13). REAL. ~45s; IN the default `make test` vector (initech-in2g); LOUD FAIL if bochs is missing, SKIP_BOCHS=1 to opt out.\n'
 	@printf '  test           Run the whole gate vector (PRD Sec 8).\n'
 	@printf '\n'
 	@printf 'Self-host certificate (M8 finale):\n'
@@ -11879,8 +11888,12 @@ test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 #   * Bochs RFB cannot DISPLAY mode 0x13, so this gate asserts on SERIAL +
 #     no-triple-fault ONLY (no screendump). The OS render is proven elsewhere
 #     (test-console host oracle + the QEMU screendump).
-#   * Needs the env's Bochs (legacy BIOS + LGPL vgabios); NOT in the default
-#     `make test` yet (env-specific + ~45s). Run explicitly or via test-tri.
+#   * Needs the env's Bochs (legacy BIOS + LGPL vgabios); promoted into the
+#     default `make test` vector (initech-in2g, ~45s): CLAUDE.md's apt-install
+#     line lists bochs as a required base tool, so a missing binary is a LOUD
+#     FAIL here (Law 2 -- a skipped oracle is worse than a red one), not a
+#     silent skip. SKIP_BOCHS=1 is the documented, shouting opt-out for a box
+#     that genuinely has no Bochs (see CLAUDE.md Build & test).
 BOCHS_BOOT_NAME   := bochsboot
 BOCHS_BOOT_REPORT := $(BUILD)/$(BOCHS_BOOT_NAME).report.txt
 BOCHS_BOOT_SERIAL := $(BUILD)/$(BOCHS_BOOT_NAME).serial
@@ -11890,6 +11903,11 @@ test-boot-bochs: $(BOCHS_BIN) $(TRACER_IMG)
 	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). beads initech-564 / initech-x0i\n'
 	@printf '  Bochs: legacy BIOS + LGPL vgabios + pentium; stage2 mode-0x13 fallback.\n'
 	@printf '======================================================================\n'
+	@if [ "$(SKIP_BOCHS)" = "1" ]; then \
+		printf '!!! test-boot-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg of the tri-emulator boot gate (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'; \
+		exit 0; \
+	fi
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-boot-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
 	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(TRACER_IMG)"
 	@printf 'Expecting : VBE-ENOMODE + VGA13 (fallback) then the SAME kernel markers as QEMU\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -12186,8 +12204,10 @@ test-flair-desktop-mutant: $(HARNESS_BIN) $(PPM_FLAIR_CHECK_BIN) \
 # initech-2gva (committee ruling re30.3-chair: KEEP the path; a stage2 0x101
 # (640x480x8) VBE fallback + an oracle leg that REACHES this wrapper land there,
 # sequenced before the M4/86Box period-authenticity sign-off). SERIAL-only (Bochs RFB cannot show
-# mode 0x13 + no QMP screendump). Env-specific (needs Bochs) + ~45s; a SEPARATE
-# target, NOT in the default `make test` (like test-boot-bochs).
+# mode 0x13 + no QMP screendump). Env-specific (needs Bochs) + ~45s; promoted
+# into the default `make test` vector alongside test-boot-bochs (initech-in2g).
+# Missing bochs is a LOUD FAIL (Law 2); SKIP_BOCHS=1 is the documented,
+# shouting opt-out (CLAUDE.md Build & test).
 FLAIR_BOCHS_NAME   := flair_desktop_bochs
 FLAIR_BOCHS_REPORT := $(BUILD)/$(FLAIR_BOCHS_NAME).report.txt
 FLAIR_BOCHS_SERIAL := $(BUILD)/$(FLAIR_BOCHS_NAME).serial
@@ -12200,6 +12220,11 @@ test-flair-desktop-bochs: $(BOCHS_BIN) $(FLAIRSHELL_IMG)
 	@printf '  The 640x480 desktop cannot fit 320x200, so kmain FAILS LOUD (Rule 2);\n'
 	@printf '  the leg proves the shared boot/heap milestones + that the guard fires.\n'
 	@printf '======================================================================\n'
+	@if [ "$(SKIP_BOCHS)" = "1" ]; then \
+		printf '!!! test-flair-desktop-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'; \
+		exit 0; \
+	fi
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-desktop-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
 	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRSHELL_IMG)"
 	@printf 'Expecting : VGA13 (320x200 fallback) + shared kernel markers + the\n'
 	@printf '            "LFB smaller than 640x480" fail-loud guard, no triple-fault\n'
@@ -12848,7 +12873,10 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 # boot chain + the FLAIR heap gate IDENTICALLY to QEMU, then the 640x480 guard fires
 # correctly under the 320x200 fallback (no triple-fault). The app-switch behaviour
 # itself is graded on QEMU (test-flair-appswitch). SERIAL-only; env-specific (needs
-# Bochs); a SEPARATE target, NOT in the default make test (like test-flair-live-bochs).
+# Bochs); promoted into the default `make test` vector alongside test-boot-bochs
+# (initech-in2g). Missing bochs is a LOUD FAIL (Law 2); SKIP_BOCHS=1 is the
+# documented, shouting opt-out (CLAUDE.md Build & test). (test-flair-live-bochs
+# remains a SEPARATE target, out of scope for this promotion.)
 FLAIR_APPSW_BOCHS_NAME   := flair_appswitch_bochs
 FLAIR_APPSW_BOCHS_REPORT := $(BUILD)/$(FLAIR_APPSW_BOCHS_NAME).report.txt
 FLAIR_APPSW_BOCHS_SERIAL := $(BUILD)/$(FLAIR_APPSW_BOCHS_NAME).serial
@@ -12863,6 +12891,11 @@ test-flair-appswitch-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG)
 	@printf '  (No mouse injection on Bochs -> boot leg only; the app-switch is graded on\n'
 	@printf '  QEMU by test-flair-appswitch.)\n'
 	@printf '======================================================================\n'
+	@if [ "$(SKIP_BOCHS)" = "1" ]; then \
+		printf '!!! test-flair-appswitch-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'; \
+		exit 0; \
+	fi
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-appswitch-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
 	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRTENANTS_IMG)"
 	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
 	@printf '            guard (PANIC + HALTED), no triple-fault\n'
@@ -16281,6 +16314,19 @@ test-samir-softfp-mutant: $(TEST_SAMIR_SOFTFP_MUT)
 	@if $(TEST_SAMIR_SOFTFP_MUT) >/dev/null 2>&1; then printf '!!! test-samir-softfp-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; \
 	else printf '>>> test-samir-softfp-mutant: green (mutant correctly RED)\n'; fi
 
+# --- test-samir-softfp-implmutant (audit initech-quke; Rule 6 STRONGER form):
+#     perturbs softfp.c's OWN round-to-nearest-even branch (-DSOFTFP_MUT_ROUND)
+#     rather than corrupting the test's reference. Test binary is compiled
+#     WITHOUT -DSOFTFP_MUTANT (host-double reference stays correct); only
+#     softfp.c is mutated. Must go RED. ---
+TEST_SAMIR_SOFTFP_IMPLMUT := $(BUILD)/test_samir_softfp_implmutant
+$(TEST_SAMIR_SOFTFP_IMPLMUT): $(DBF_DIFF_DIR)/test_samir_softfp.c $(SAMIR_SOFTFP_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSOFTFP_MUT_ROUND -Iseed -o $@ $(DBF_DIFF_DIR)/test_samir_softfp.c $(SAMIR_SOFTFP_SRC)
+.PHONY: test-samir-softfp-implmutant
+test-samir-softfp-implmutant: $(TEST_SAMIR_SOFTFP_IMPLMUT)
+	@if $(TEST_SAMIR_SOFTFP_IMPLMUT) >/dev/null 2>&1; then printf '!!! test-samir-softfp-implmutant FAIL: round-tie mutant PASSED -- oracle is decoration\n'; exit 1; \
+	else printf '>>> test-samir-softfp-implmutant: green (SOFTFP_MUT_ROUND correctly RED -- implementation-side mutant, oracle bites)\n'; fi
+
 # --- SAMIR.COM: the Milton-bound flat .COM (ADR-0009 DEC-01/02/03/05/06).
 #     Soft-float, one-interp profile (FLOW_MAX_REGISTRY=1), org 0x40100 via
 #     samir.ld, BSS (.bss NOLOAD) zeroed at runtime by samir_crt0. ---
@@ -17248,7 +17294,7 @@ TEST_UNIT_GATES := \
 	test-loader-big test-loader-big-mutant \
 	test-hardware-spec test-hardware-spec-mutant \
 	test-flair-heap-ram test-flair-heap-ram-mutant \
-	test-samir-softfp test-samir-softfp-mutant \
+	test-samir-softfp test-samir-softfp-mutant test-samir-softfp-implmutant \
 	test-samir \
 	test-dbf-header test-dbf-header-mutant test-dbf-fields test-dbf-fields-mutant \
 	test-dbf-read test-dbf-read-mutant test-dbf-read-openrw-hdrlen-mutant test-dbf-roundtrip test-dbf-roundtrip-mutant \
@@ -18259,7 +18305,7 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 	@printf '>>> test-more-filter-mutant: green (lossy-passthrough mutant correctly RED -- round-trip != input, the full byte forward is load-bearing)\n'
 
 TEST_EMU_GATES := \
-	test-harness test-tracer-boot test-boot test-program test-fs test-type \
+	test-harness test-tracer-boot test-boot-bochs test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-copy-selfcopy test-copy-selfcopy-mutant \
@@ -18278,14 +18324,14 @@ TEST_EMU_GATES := \
 	test-sort-filter test-sort-filter-mutant \
 	test-find-filter test-find-filter-mutant \
 	test-more-filter test-more-filter-mutant \
-	test-flair-desktop test-flair-desktop-mutant \
+	test-flair-desktop test-flair-desktop-mutant test-flair-desktop-bochs \
 	test-flair-live test-flair-live-mutant \
 	test-flair-key test-flair-key-mutant \
 	test-flair-mouse test-flair-mouse-mutant \
 	test-flair-drag test-flair-drag-mutant \
 	test-flair-dc4v test-flair-dc4v-mutant \
 	test-flair-menu test-flair-menu-mutant \
-	test-flair-appswitch test-flair-appswitch-mutant \
+	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant
 
 test-unit:

@@ -26,6 +26,13 @@
  *   ANSI_MUTATE_SGR_COLOR    -- ANSI_TO_CGA[] lookup is bypassed; raw ANSI
  *                               colour index (0..7) is used directly as CGA
  *                               nibble -> bright-red attribute test goes RED.
+ *   ANSI_MUTATE_NO_CLAMP     -- (audit initech-quke) the ESC[<r>;<c>H / 'f'
+ *                               handler stops clamping the 0-based row/col to
+ *                               [0,rows-1]/[0,cols_wide-1] before emitting
+ *                               ANSI_ACT_MOVE_CURSOR -- an out-of-range CUP/HVP
+ *                               (e.g. ESC[999;999H on a 25x80 screen) would
+ *                               emit a cursor position off the visible grid
+ *                               -> the edge-clamp oracle goes RED.
  */
 
 #include "ansi.h"
@@ -326,8 +333,19 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
             if (r < 1) r = 1;
             if (c < 1) c = 1;
             a.kind = ANSI_ACT_MOVE_CURSOR;
+#ifdef ANSI_MUTATE_NO_CLAMP
+            /* MUTANT (Rule 6): widen the clamp bounds to a no-op range -- an
+             * out-of-range CUP/HVP (e.g. ESC[999;999H on a 25x80 screen)
+             * emits a position off the visible grid. Calls ansi_clamp() with
+             * bounds that never bind, so the helper stays referenced but the
+             * screen-size bound is effectively skipped. Must turn the
+             * cursor-clamp oracle RED. */
+            a.row  = ansi_clamp(r - 1, -2147483647, 2147483647);
+            a.col  = ansi_clamp(c - 1, -2147483647, 2147483647);
+#else
             a.row  = ansi_clamp(r - 1, 0, st->rows - 1);
             a.col  = ansi_clamp(c - 1, 0, st->cols_wide - 1);
+#endif
             /* Update FSM cursor so save/restore tracks absolute position. */
             st->row = a.row;
             st->col = a.col;

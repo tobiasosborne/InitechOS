@@ -21,6 +21,9 @@
  *   -DANSI_MUTATE_SGR_COLOR    : CGA nibble = raw ANSI index (no lookup swap);
  *                                the bright-red SGR and multi-param SGR tests
  *                                go RED (red nibble is 1, not 4).
+ *   -DANSI_MUTATE_NO_CLAMP     : (audit initech-quke) ESC[<r>;<c>H / 'f' stops
+ *                                clamping to the screen bounds; the cursor-
+ *                                clamp test (ESC[999;999H on 25x80) goes RED.
  *
  * When compiled with any mutant flag this binary MUST exit non-zero.
  * The clean build MUST exit 0 and print "<n> checks, 0 failures".
@@ -572,6 +575,147 @@ static void test_malformed_sequence(void)
 }
 
 /* ===========================================================================
+ * test_cursor_clamp
+ *
+ * ESC[<r>;<c>H / 'f' must CLAMP the resulting 0-based row/col to the screen
+ * bounds passed to ansi_init(rows, cols) -- an out-of-range CUP/HVP must not
+ * emit a MOVE_CURSOR position off the visible grid (audit initech-quke: this
+ * was the ansi_clamp() call in ansi.c's 'H'/'f' handler, previously wired but
+ * never exercised by any oracle).
+ * Ref: MS-DOS 3.3 Technical Reference Ch 4 "CUP"/"HVP" (silent on
+ * out-of-range; RBIL ANSI.SYS notes real DOS ANSI.SYS clamps to the current
+ * screen dimensions rather than scrolling or erroring).
+ * Mutation proof: with ANSI_MUTATE_NO_CLAMP the clamp is skipped, so
+ * ESC[999;999H would report row=998, col=998 instead of clamping to
+ * row=rows-1, col=cols-1 -- RED.
+ * =========================================================================*/
+static void test_cursor_clamp(void)
+{
+    ansi_state_t st;
+    action_log_t log;
+
+    /* 25x80 screen; ESC[999;999H must clamp to row=24, col=79. */
+    ansi_init(&st, 25, 80);
+    log_reset(&log);
+    const uint8_t over[] = {
+        0x1Bu, '[', '9', '9', '9', ';', '9', '9', '9', 'H'
+    };
+    feed_bytes(&st, over, (int)sizeof(over), &log);
+    const ansi_action_t *a = find_action(&log, ANSI_ACT_MOVE_CURSOR, 0);
+    CHECK(a != 0, "ESC[999;999H: MOVE_CURSOR action present");
+    if (a) {
+        CHECK(a->row == 24,
+              "ESC[999;999H: row clamped to 24 (rows-1) "
+              "(RED under ANSI_MUTATE_NO_CLAMP)");
+        CHECK(a->col == 79,
+              "ESC[999;999H: col clamped to 79 (cols_wide-1) "
+              "(RED under ANSI_MUTATE_NO_CLAMP)");
+    }
+    /* FSM's own st.row/st.col must also reflect the clamped position (so a
+     * subsequent ESC[s captures the clamped, not the raw, position). */
+    CHECK(st.row == 24, "ESC[999;999H: st.row == 24 after clamp");
+    CHECK(st.col == 79, "ESC[999;999H: st.col == 79 after clamp");
+
+    /* 'f' synonym: same clamp must apply. */
+    ansi_init(&st, 25, 80);
+    log_reset(&log);
+    const uint8_t overf[] = {
+        0x1Bu, '[', '5', '0', '0', ';', '2', '0', '0', 'f'
+    };
+    feed_bytes(&st, overf, (int)sizeof(overf), &log);
+    a = find_action(&log, ANSI_ACT_MOVE_CURSOR, 0);
+    CHECK(a != 0, "ESC[500;200f: MOVE_CURSOR action present");
+    if (a) {
+        CHECK(a->row == 24, "ESC[500;200f: row clamped to 24");
+        CHECK(a->col == 79, "ESC[500;200f: col clamped to 79");
+    }
+
+    /* A small screen (1x1) exercises the clamp at the tightest bound. */
+    ansi_init(&st, 1, 1);
+    log_reset(&log);
+    const uint8_t tiny[] = { 0x1Bu, '[', '5', ';', '5', 'H' };
+    feed_bytes(&st, tiny, (int)sizeof(tiny), &log);
+    a = find_action(&log, ANSI_ACT_MOVE_CURSOR, 0);
+    CHECK(a != 0, "1x1 screen ESC[5;5H: MOVE_CURSOR action present");
+    if (a) {
+        CHECK(a->row == 0, "1x1 screen: row clamped to 0");
+        CHECK(a->col == 0, "1x1 screen: col clamped to 0");
+    }
+}
+
+/* ===========================================================================
+ * test_intermediate_bytes
+ *
+ * ECMA-48 Sec 5.4: a CSI sequence is ESC '[' P* I* F, where P (parameter
+ * bytes, 0x30..0x3F) includes the digits/';' we special-case PLUS other
+ * bytes (':' '<' '=' '>' '?' etc.) that ansi.c does not special-case, and I
+ * (intermediate bytes, 0x20..0x2F) are bytes DOS ANSI.SYS never emits but a
+ * hostile/garbled stream could send. ansi.c's CSI_PARAM "else" branch (not
+ * digit, not ';', not final, not ESC) must absorb such a byte and stay in
+ * CSI_PARAM WITHOUT disturbing the digit accumulator that follows -- e.g. a
+ * DEC-private-mode-shaped "ESC[?2J" must still parse the "2" and dispatch as
+ * ESC[2J. Previously ungraded (audit initech-quke): "mid-sequence garbage"
+ * was covered only for malformed FINAL bytes and bare-ESC, not garbage
+ * BETWEEN the CSI introducer and the first digit.
+ * Ref: RBIL ANSI.SYS -- DOS 3.x only recognises 7-bit ESC '[' sequences;
+ * unrecognised parameter/intermediate bytes are absorbed, not erred.
+ * =========================================================================*/
+static void test_intermediate_bytes(void)
+{
+    ansi_state_t st;
+    action_log_t log;
+
+    /* "?" (0x3F) before the digit: ESC[?2J must still erase whole screen,
+     * proving the leading '?' does not perturb the param accumulator. */
+    ansi_init(&st, 25, 80);
+    log_reset(&log);
+    const uint8_t q2j[] = { 0x1Bu, '[', '?', '2', 'J' };
+    feed_bytes(&st, q2j, (int)sizeof(q2j), &log);
+    const ansi_action_t *a = find_action(&log, ANSI_ACT_ERASE_DISPLAY, 0);
+    CHECK(a != 0, "ESC[?2J: ERASE_DISPLAY action present despite leading '?'");
+    if (a) {
+        CHECK(a->erase_mode == 2,
+              "ESC[?2J: erase_mode == 2 (leading '?' absorbed, not a digit)");
+    }
+    CHECK(st.fsm == ANSI_ST_GROUND, "ESC[?2J: FSM returns to GROUND");
+
+    /* True ECMA-48 intermediate byte (0x20 SPACE) between digit and final:
+     * "ESC[2 J" -- the space is absorbed, "2" still reaches the accumulator,
+     * 'J' still dispatches as the final byte. */
+    ansi_init(&st, 25, 80);
+    log_reset(&log);
+    const uint8_t sp[] = { 0x1Bu, '[', '2', ' ', 'J' };
+    feed_bytes(&st, sp, (int)sizeof(sp), &log);
+    a = find_action(&log, ANSI_ACT_ERASE_DISPLAY, 0);
+    CHECK(a != 0, "ESC[2 J: ERASE_DISPLAY action present despite embedded space");
+    if (a) {
+        CHECK(a->erase_mode == 2, "ESC[2 J: erase_mode == 2 (space absorbed)");
+    }
+    CHECK(st.fsm == ANSI_ST_GROUND, "ESC[2 J: FSM returns to GROUND");
+
+    /* Garbage-only CSI body (no digits, no recognised final): must not
+     * crash and must return to GROUND with zero actions. */
+    ansi_init(&st, 25, 80);
+    log_reset(&log);
+    const uint8_t garbage[] = { 0x1Bu, '[', '#', '<', '=', '~' };
+    feed_bytes(&st, garbage, (int)sizeof(garbage), &log);
+    CHECK(st.fsm == ANSI_ST_GROUND,
+          "ESC[#<=~ (all garbage, '~' final): FSM returns to GROUND");
+
+    /* After absorbing garbage-only input, the FSM must still parse a fresh,
+     * well-formed sequence correctly (no residual corruption). */
+    log_reset(&log);
+    const uint8_t clean[] = { 0x1Bu, '[', '3', 'A' };
+    feed_bytes(&st, clean, (int)sizeof(clean), &log);
+    a = find_action(&log, ANSI_ACT_CURSOR_REL, 0);
+    CHECK(a != 0, "post-garbage ESC[3A: CURSOR_REL action present");
+    if (a) {
+        CHECK(a->delta_row == -3,
+              "post-garbage ESC[3A: delta_row == -3 (state not corrupted)");
+    }
+}
+
+/* ===========================================================================
  * test_erase_line
  *
  * ESC[K (default 0) -> erase to end of line.
@@ -814,6 +958,8 @@ int main(void)
     test_save_restore_cursor();
     test_plain_passthrough();
     test_malformed_sequence();
+    test_cursor_clamp();
+    test_intermediate_bytes();
     test_erase_line();
     test_device_status_report();
     test_sgr_reverse_and_conceal();
