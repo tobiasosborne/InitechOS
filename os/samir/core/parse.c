@@ -383,12 +383,32 @@ static int32_t parse_pow(xb_parser *p)
 /* mul_expr := pow_expr ( (*|/) pow_expr )*          left-associative         */
 /* ======================================================================== */
 
+/*
+ * MUTATION HOOK (Rule 6; initech-0k2d): -DPARSE_MUTATE_ADDMUL_SWAP swaps the
+ * operator classes parse_mul and parse_add each fold at their level, so '+'/'-'
+ * become the TIGHTER-binding pair and '*'/'/ ' the LOOSER one -- a classic
+ * precedence bug. The recursive-descent CALL structure (mul still calls pow;
+ * add still calls mul) is untouched, so the grammar stays complete (no
+ * leftover tokens / parse error): only which operator SET each level's while()
+ * loop consumes is perturbed. `2 + 3 * 4` then folds as (2+3)*4 = 20 instead of
+ * 14 (xbase_prog_diff/corpus/expr.prg line 1; golden/expr.out line 2), while a
+ * parenthesized `(2 + 3) * 4` is unaffected (parens re-enter the full ladder).
+ * Exactly two perturbed conditions (mirror image of each other).
+ */
+#ifdef PARSE_MUTATE_ADDMUL_SWAP
+#define PARSE_MUL_OP(t)  ((t) == XBT_PLUS || (t) == XBT_MINUS)
+#define PARSE_ADD_OP(t)  ((t) == XBT_STAR || (t) == XBT_SLASH)
+#else
+#define PARSE_MUL_OP(t)  ((t) == XBT_STAR || (t) == XBT_SLASH)
+#define PARSE_ADD_OP(t)  ((t) == XBT_PLUS || (t) == XBT_MINUS)
+#endif
+
 static int32_t parse_mul(xb_parser *p)
 {
     int32_t left = parse_pow(p);
     if (left < 0) return -1;
 
-    while (cur(p)->type == XBT_STAR || cur(p)->type == XBT_SLASH) {
+    while (PARSE_MUL_OP(cur(p)->type)) {
         xb_token_type op = cur(p)->type;
         uint32_t off = cur(p)->offset;
         int32_t right, node;
@@ -415,7 +435,7 @@ static int32_t parse_add(xb_parser *p)
     int32_t left = parse_mul(p);
     if (left < 0) return -1;
 
-    while (cur(p)->type == XBT_PLUS || cur(p)->type == XBT_MINUS) {
+    while (PARSE_ADD_OP(cur(p)->type)) {
         xb_token_type op = cur(p)->type;
         uint32_t off = cur(p)->offset;
         int32_t right, node;

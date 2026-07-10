@@ -316,6 +316,22 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
         return -INTERP_ERR_SYNTAX;
 
     slot = memvar_find(fs, name);
+#ifdef PROC_MUTATE_ASSIGN_SHADOW_OUTER
+    /* MUTANT (Rule 6 -- -DPROC_MUTATE_ASSIGN_SHADOW_OUTER; initech-0k2d): an
+     * assignment "<name> = <expr>" (or STORE ... TO) to a var VISIBLE from an
+     * OUTER scope level (a caller's PUBLIC, e.g. proc.prg's `PUBLIC R` read
+     * inside PROCEDURE DOUBLE) wrongly falls through to the "not visible"
+     * branch below and allocates a fresh SHADOWING auto-private at the
+     * current level instead of updating the outer var in place
+     * (memory-variables.md sec 3.1 rule 1: "STORE/= to a VISIBLE var modifies
+     * it"). The outer PUBLIC R then reads back unchanged after RETURN:
+     * golden/proc.out line 2 ("42") and line 3 ("47") both go RED. Exactly
+     * one perturbed branch (does not touch same-level assignment, so
+     * flow.prg's top-level X/I/N/J memvars -- all created and used at
+     * cur_level==0 -- are unaffected). */
+    if (slot >= 0 && fs->vars[slot].level != fs->cur_level)
+        slot = -1;
+#endif
     if (slot < 0) {
         /* reuse a released slot if any, else extend. */
         for (i = 0; i < fs->nvars; i++) {
@@ -1042,6 +1058,20 @@ static int run_if(flow_prog *fp, int start, int endif, int *next,
         if (rc != INTERP_OK)
             return rc;
     }
+
+#ifdef FLOW_MUTATE_IF_INVERT
+    /* MUTANT (Rule 6 -- -DFLOW_MUTATE_IF_INVERT; initech-0k2d): invert the
+     * evaluated guard, so IF takes the ELSE branch and vice versa (and a
+     * guardless-ELSE IF wrongly runs its body when the guard is FALSE). A
+     * "loop/IF branch inversion" (plan S6.4 flow.out cluster): flow.prg's
+     * leading `IF X > 5 ... ELSE ? 'SMALL' ENDIF` (X=3, guard false) then
+     * prints 'BIG' instead of 'SMALL' (golden/flow.out line 2), and the
+     * `IF J=2 LOOP` / `IF J=4 EXIT` guards inside the trailing DO WHILE .T.
+     * loop invert too (LOOP fires on J=1 before the "?" line runs; EXIT fires
+     * on J=2), so the loop's "1"/"3" lines vanish entirely. Exactly one
+     * perturbed value; no crash, no infinite loop (EXIT still terminates). */
+    truth = !truth;
+#endif
 
     else_at = find_top_level(fp, start + 1, endif, LK_ELSE, LK_OTHER, LK_OTHER);
 

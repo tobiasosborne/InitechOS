@@ -975,6 +975,15 @@ TEST_USE_RW_MUT  := $(BUILD)/test_use_rw_mut
 PROG_DIFF_DIR     := $(DBF_DIFF_DIR)/xbase_prog_diff
 TEST_DBASE_DIFF     := $(BUILD)/prog_diff
 TEST_DBASE_DIFF_MUT := $(BUILD)/prog_diff_mut
+# initech-0k2d: one mutant leg PER corpus golden (Rule 6 -- exact.out was the
+# only one with a demonstrated mutant; the WL-0068 bljs heresy showed an
+# unproven golden can silently encode the same bug as the code under test).
+TEST_DBASE_DIFF_MUT_EXPR   := $(BUILD)/prog_diff_mut_expr
+TEST_DBASE_DIFF_MUT_FLOW   := $(BUILD)/prog_diff_mut_flow
+TEST_DBASE_DIFF_MUT_FUNCS  := $(BUILD)/prog_diff_mut_funcs
+TEST_DBASE_DIFF_MUT_MUTATE := $(BUILD)/prog_diff_mut_mutate
+TEST_DBASE_DIFF_MUT_PROC   := $(BUILD)/prog_diff_mut_proc
+TEST_DBASE_DIFF_MUT_QUERY  := $(BUILD)/prog_diff_mut_query
 BLOCKDEV_FILE_SRC := $(FAT_DIFF_DIR)/blockdev_file.c
 FAT12_FIXTURE_DIR := $(FAT_DIFF_DIR)/fixtures
 FAT12_FIXTURES    := $(FAT12_FIXTURE_DIR)/hello.txt \
@@ -11382,6 +11391,34 @@ $(TEST_DBASE_DIFF_MUT): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PA
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROGDIFF_MUTATE_SWAP_EQ_GOLDEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
 
+# ---- initech-0k2d: the SIX per-golden ENGINE mutants (expr/flow/funcs/mutate/
+# proc/query) -- each rebuilds the REAL os/samir engine with ONE -D perturbation
+# (three reused from the existing unit-oracle mutation library: XB_MUTATE_FN_SUBSTR,
+# MUTATE_REPLACE_NO_SCOPE, NAV_MUTATE_SKIP; three new, added to os/samir alongside
+# their unit-test siblings: PARSE_MUTATE_ADDMUL_SWAP, FLOW_MUTATE_IF_INVERT,
+# PROC_MUTATE_ASSIGN_SHADOW_OUTER). Unlike PROGDIFF_MUTATE_SWAP_EQ_GOLDEN (which
+# perturbs the GRADER's expectation), these perturb the ENGINE the grader links
+# read-only -- proving each golden bites a real interpreter divergence, not just
+# the harness's own strcmp.
+$(TEST_DBASE_DIFF_MUT_EXPR): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPARSE_MUTATE_ADDMUL_SWAP -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBASE_DIFF_MUT_FLOW): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLOW_MUTATE_IF_INVERT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBASE_DIFF_MUT_FUNCS): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_SUBSTR -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBASE_DIFF_MUT_MUTATE): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMUTATE_REPLACE_NO_SCOPE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBASE_DIFF_MUT_PROC): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUTATE_ASSIGN_SHADOW_OUTER -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBASE_DIFF_MUT_QUERY): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNAV_MUTATE_SKIP -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
+
 .PHONY: test-dbase-diff
 test-dbase-diff: $(TEST_DBASE_DIFF)
 	@printf ">>> test-dbase-diff: xBase .prg program differential (stdout + result .dbf vs authored goldens; gate 100%%) (S6.4)\n"
@@ -11399,10 +11436,37 @@ test-dbase-diff-mutant: $(TEST_DBASE_DIFF_MUT)
 		printf '>>> test-dbase-diff-mutant: green (=-direction swap correctly RED)\n'; \
 	fi
 
+# ---------------------------------------------------------------------------
+# initech-0k2d: the SIX per-golden corpus mutants (expr/flow/funcs/mutate/proc/
+# query.out) -- Rule 6 in full: exact.out was the only prog_diff golden with a
+# demonstrated mutant; this proves the other six ALSO bite a real ENGINE
+# divergence (not the grader-side golden-swap exact.out uses). Each mutant
+# rebuilds the engine with its own -D and MUST turn xbase-prog-diff RED; a
+# mutant that PASSES means that golden is decoration (Law 2 / the bljs heresy).
+.PHONY: test-dbase-diff-mutants
+test-dbase-diff-mutants: $(TEST_DBASE_DIFF_MUT_EXPR) $(TEST_DBASE_DIFF_MUT_FLOW) \
+                         $(TEST_DBASE_DIFF_MUT_FUNCS) $(TEST_DBASE_DIFF_MUT_MUTATE) \
+                         $(TEST_DBASE_DIFF_MUT_PROC) $(TEST_DBASE_DIFF_MUT_QUERY)
+	@printf '>>> test-dbase-diff-mutants: confirming all SIX xbase_prog_diff corpus mutants go RED (Rule 6; initech-0k2d)\n'
+	@for m in expr:$(TEST_DBASE_DIFF_MUT_EXPR) flow:$(TEST_DBASE_DIFF_MUT_FLOW) \
+	          funcs:$(TEST_DBASE_DIFF_MUT_FUNCS) mutate:$(TEST_DBASE_DIFF_MUT_MUTATE) \
+	          proc:$(TEST_DBASE_DIFF_MUT_PROC) query:$(TEST_DBASE_DIFF_MUT_QUERY); do \
+		name=$${m%%:*}; bin=$${m#*:}; \
+		"$$bin" "$(DBASE3_DECOMP)" "$(PROG_DIFF_DIR)" 2>/dev/null | grep -q 'checks,' \
+			|| { printf '!!! test-dbase-diff-mutants FAIL: %s produced no TEST_SUMMARY -- harness dead, RED is meaningless\n' "$$name"; exit 1; }; \
+		if "$$bin" "$(DBASE3_DECOMP)" "$(PROG_DIFF_DIR)" >/dev/null 2>&1; then \
+			printf '!!! test-dbase-diff-mutants FAIL: %s.out PASSED under mutation -- that golden is decoration\n' "$$name"; exit 1; \
+		else \
+			printf '>>> test-dbase-diff-mutants: green (%s.out correctly RED -- its corpus program bites)\n' "$$name"; \
+		fi; \
+	done
+	@printf '>>> test-dbase-diff-mutants: green (ALL SIX corpus goldens mutation-proven)\n'
+
 # M6 InitechBase differential milestone -- GREEN now that S6.3 (round-trip) + S6.4
 # (program diff) exist (was a stub_fail; plan: test-dbase goes green at S6.3/S6.4).
 .PHONY: test-dbase
-test-dbase: test-dbase-roundtrip test-dbase-roundtrip-mutant test-dbase-diff test-dbase-diff-mutant
+test-dbase: test-dbase-roundtrip test-dbase-roundtrip-mutant test-dbase-diff test-dbase-diff-mutant \
+            test-dbase-diff-mutants
 	@printf '>>> test-dbase: M6 InitechBase differential GREEN -- round-trip + program diff (100%%)\n'
 
 test-compiler:
@@ -17023,7 +17087,7 @@ TEST_UNIT_GATES := \
 	test-samir-repl test-samir-repl-mutant test-samir-query \
 	test-use-rw test-use-rw-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant \
-	test-dbase-diff test-dbase-diff-mutant
+	test-dbase-diff test-dbase-diff-mutant test-dbase-diff-mutants
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 # ---------------------------------------------------------------------------
