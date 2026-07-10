@@ -899,6 +899,11 @@ TEST_NDX_SEEK_MUT   := $(BUILD)/test_ndx_seek_mut
 # extraction, but fs/ndx.c stays decoupled (key-provider callback).
 TEST_NDX_BUILD      := $(BUILD)/test_ndx_build
 TEST_NDX_BUILD_MUT  := $(BUILD)/test_ndx_build_mut
+# initech-h5vg: multi-level (3+ level) bulk build past the 2-level ceiling.
+# Structural oracle (no 3-level golden exists -- corpus-OPEN; grades ndx.md ss5
+# invariants). Codec-only link (synthetic key provider; no evaluator/dbf).
+TEST_NDX_ML         := $(BUILD)/test_ndx_multilevel
+TEST_NDX_ML_MUT     := $(BUILD)/test_ndx_multilevel_mut
 # S2.1 .dbt III+ memo read (initech-aul.6); S2.2 write/round-trip (initech-aul.7).
 SAMIR_DBT_SRC     := $(SAMIR_DIR)/fs/dbt.c
 TEST_DBT_READ       := $(BUILD)/test_dbt_read
@@ -1974,6 +1979,41 @@ test-ndx-build-mutant: $(TEST_NDX_BUILD_MUT)
 		printf '!!! test-ndx-build-mutant FAIL: mutant PASSED -- the leaf packing is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-ndx-build-mutant: green (50/50 split correctly RED)\n'; \
+	fi
+
+# ---- SAMIR Phase-4 index: MULTI-LEVEL bulk build (3+ levels; initech-h5vg) ----
+# ndx_build past the old 2-level ceiling: nested branch levels (balanced fanout,
+# cap = kpp+1 children/node, root written last). key_length 20 -> kpp 18, nrec 343
+# -> 20 leaves -> a genuine 3-level tree (24 pages). STRUCTURAL oracle: no minted
+# 3-level golden exists (the "BIGXA"/ndx-B5 mint is unminted), so it grades the
+# ndx.md ss5 FORMAT INVARIANTS (ascending in-order; branch sep = HIGH key of its
+# subtree; balanced depth; N seps/N+1 children; SEEK across all levels) + asserts
+# the scoped-out incremental insert/delete FAIL LOUD (NDX_ERR_NOROOM) on 3-level
+# trees. Codec-only link (synthetic key provider). Mutant -DNDX_MUTATE_NO_ROOT_SPLIT
+# reverts to the 2-level ceiling -> build fails PAGE_OVF -> RED.
+TEST_NDX_ML_ENG := $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC)
+$(TEST_NDX_ML): $(DBF_DIFF_DIR)/test_ndx_multilevel.c $(TEST_NDX_ML_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_multilevel.c $(TEST_NDX_ML_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_NDX_ML_MUT): $(DBF_DIFF_DIR)/test_ndx_multilevel.c $(TEST_NDX_ML_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_NO_ROOT_SPLIT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
+		-o $@ $(DBF_DIFF_DIR)/test_ndx_multilevel.c $(TEST_NDX_ML_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-ndx-multilevel
+test-ndx-multilevel: $(TEST_NDX_ML)
+	@printf ">>> test-ndx-multilevel: 3-level bulk build past the 2-level ceiling (structural: HIGH-key seps + balanced depth + SEEK; initech-h5vg)\n"
+	@$(TEST_NDX_ML)
+	@printf ">>> test-ndx-multilevel: green\n"
+
+.PHONY: test-ndx-multilevel-mutant
+test-ndx-multilevel-mutant: $(TEST_NDX_ML_MUT)
+	@printf ">>> test-ndx-multilevel-mutant: 2-level-ceiling revert (-DNDX_MUTATE_NO_ROOT_SPLIT) must go RED (Rule 6; initech-h5vg)\n"
+	@$(TEST_NDX_ML_MUT) 2>/dev/null | grep -q 'checks,' \
+		|| { printf '!!! test-ndx-multilevel-mutant FAIL: no TEST_SUMMARY -- harness dead, RED is meaningless\n'; exit 1; }
+	@if $(TEST_NDX_ML_MUT) >/dev/null 2>&1; then \
+		printf '!!! test-ndx-multilevel-mutant FAIL: mutant PASSED -- multi-level build is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-ndx-multilevel-mutant: green (2-level ceiling revert correctly RED)\n'; \
 	fi
 
 # ---- SAMIR Phase-4 index: incremental maintenance (S4.5 / initech-ahu.5) ----
@@ -11897,16 +11937,26 @@ test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 BOCHS_BOOT_NAME   := bochsboot
 BOCHS_BOOT_REPORT := $(BUILD)/$(BOCHS_BOOT_NAME).report.txt
 BOCHS_BOOT_SERIAL := $(BUILD)/$(BOCHS_BOOT_NAME).serial
+# NOTE (Make mechanics): the SKIP_BOCHS branch is a Make-level `ifeq`, not a
+# shell-level `if...exit 0`. A shell `exit 0` inside one recipe LINE only ends
+# THAT line's subshell -- Make treats it as success and runs the NEXT recipe
+# line regardless, so a shell-level early-return does NOT skip the rest of a
+# multi-line recipe. `ifeq` is evaluated at parse time and swaps in a whole
+# different (short) recipe, which actually skips the Bochs invocation.
+ifeq ($(SKIP_BOCHS),1)
+test-boot-bochs:
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-boot-bochs : BOCHS leg of the boot gate\n'
+	@printf '======================================================================\n'
+	@printf '!!! test-boot-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg of the tri-emulator boot gate (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
+	@printf '======================================================================\n'
+else
 test-boot-bochs: $(BOCHS_BIN) $(TRACER_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-boot-bochs : BOCHS leg of the boot gate\n'
 	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). beads initech-564 / initech-x0i\n'
 	@printf '  Bochs: legacy BIOS + LGPL vgabios + pentium; stage2 mode-0x13 fallback.\n'
 	@printf '======================================================================\n'
-	@if [ "$(SKIP_BOCHS)" = "1" ]; then \
-		printf '!!! test-boot-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg of the tri-emulator boot gate (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'; \
-		exit 0; \
-	fi
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-boot-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
 	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(TRACER_IMG)"
 	@printf 'Expecting : VBE-ENOMODE + VGA13 (fallback) then the SAME kernel markers as QEMU\n'
@@ -11949,6 +11999,7 @@ test-boot-bochs: $(BOCHS_BIN) $(TRACER_IMG)
 	@printf 'VERDICT   : PASS -- tracer booted under Bochs via the mode-0x13 fallback,\n'
 	@printf '            reached the same kernel milestones as QEMU, no triple-fault\n'
 	@printf '======================================================================\n'
+endif
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-boot (beads initech-bea -- the InitechDOS banner milestone)
@@ -12212,6 +12263,17 @@ FLAIR_BOCHS_NAME   := flair_desktop_bochs
 FLAIR_BOCHS_REPORT := $(BUILD)/$(FLAIR_BOCHS_NAME).report.txt
 FLAIR_BOCHS_SERIAL := $(BUILD)/$(FLAIR_BOCHS_NAME).serial
 .PHONY: test-flair-desktop-bochs
+# See test-boot-bochs above for why SKIP_BOCHS is a Make-level `ifeq`, not a
+# shell-level `if...exit 0` (a shell exit 0 mid-recipe does not skip later
+# recipe lines under Make).
+ifeq ($(SKIP_BOCHS),1)
+test-flair-desktop-bochs:
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-bochs : BOCHS leg (FLAIR desktop)\n'
+	@printf '======================================================================\n'
+	@printf '!!! test-flair-desktop-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
+	@printf '======================================================================\n'
+else
 test-flair-desktop-bochs: $(BOCHS_BIN) $(FLAIRSHELL_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-bochs : BOCHS leg (FLAIR desktop)\n'
@@ -12220,10 +12282,6 @@ test-flair-desktop-bochs: $(BOCHS_BIN) $(FLAIRSHELL_IMG)
 	@printf '  The 640x480 desktop cannot fit 320x200, so kmain FAILS LOUD (Rule 2);\n'
 	@printf '  the leg proves the shared boot/heap milestones + that the guard fires.\n'
 	@printf '======================================================================\n'
-	@if [ "$(SKIP_BOCHS)" = "1" ]; then \
-		printf '!!! test-flair-desktop-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'; \
-		exit 0; \
-	fi
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-desktop-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
 	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRSHELL_IMG)"
 	@printf 'Expecting : VGA13 (320x200 fallback) + shared kernel markers + the\n'
@@ -12276,6 +12334,7 @@ test-flair-desktop-bochs: $(BOCHS_BIN) $(FLAIRSHELL_IMG)
 	@printf '            present) is QEMU-only -- Bochs has no 640x480 LFB; the 8bpp DAC\n'
 	@printf '            present path is unreachable in-tree (tracked: bead initech-2gva).\n'
 	@printf '======================================================================\n'
+endif
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-live (beads initech-5l5z FO-4 -- the PIT tick lane of the
@@ -12881,6 +12940,17 @@ FLAIR_APPSW_BOCHS_NAME   := flair_appswitch_bochs
 FLAIR_APPSW_BOCHS_REPORT := $(BUILD)/$(FLAIR_APPSW_BOCHS_NAME).report.txt
 FLAIR_APPSW_BOCHS_SERIAL := $(BUILD)/$(FLAIR_APPSW_BOCHS_NAME).serial
 .PHONY: test-flair-appswitch-bochs
+# See test-boot-bochs above for why SKIP_BOCHS is a Make-level `ifeq`, not a
+# shell-level `if...exit 0` (a shell exit 0 mid-recipe does not skip later
+# recipe lines under Make).
+ifeq ($(SKIP_BOCHS),1)
+test-flair-appswitch-bochs:
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch-bochs : BOCHS leg (App Contract)\n'
+	@printf '======================================================================\n'
+	@printf '!!! test-flair-appswitch-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
+	@printf '======================================================================\n'
+else
 test-flair-appswitch-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch-bochs : BOCHS leg (App Contract)\n'
@@ -12891,10 +12961,6 @@ test-flair-appswitch-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG)
 	@printf '  (No mouse injection on Bochs -> boot leg only; the app-switch is graded on\n'
 	@printf '  QEMU by test-flair-appswitch.)\n'
 	@printf '======================================================================\n'
-	@if [ "$(SKIP_BOCHS)" = "1" ]; then \
-		printf '!!! test-flair-appswitch-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'; \
-		exit 0; \
-	fi
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-appswitch-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
 	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRTENANTS_IMG)"
 	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
@@ -12940,6 +13006,7 @@ test-flair-appswitch-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG)
 	@printf '            NOTE: FLAIR-TENANTS-READY + the app-switch are QEMU-only (Bochs has\n'
 	@printf '            no 640x480 LFB + no QMP mouse injection); graded by test-flair-appswitch.\n'
 	@printf '======================================================================\n'
+endif
 
 # ===========================================================================
 # REAL gate: test-flair-samir-suspend (ADR-0013 Wave-5 gate O-7 -- THE booted
@@ -17303,6 +17370,7 @@ TEST_UNIT_GATES := \
 	test-ndx-keys test-ndx-keys-mutant \
 	test-ndx-seek test-ndx-seek-mutant \
 	test-ndx-build test-ndx-build-mutant \
+	test-ndx-multilevel test-ndx-multilevel-mutant \
 	test-ndx-maintain test-ndx-maintain-mutant test-ndx-maintain-span-mutant \
 	test-ndx-pack test-ndx-pack-mutant \
 	test-dbt-read test-dbt-read-mutant \
