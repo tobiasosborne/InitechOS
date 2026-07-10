@@ -6437,6 +6437,10 @@ KERNEL_PSP_C  := $(MILTON_DIR)/psp.c
 # PASSES means the oracle is decoration.
 TEST_PSP_MUT_INT20 := $(BUILD)/test_psp_mutant_int20
 TEST_PSP_MUT_TAIL  := $(BUILD)/test_psp_mutant_tail
+# (c) beads initech-bsy.9: -DPSP_MUT_NO_JFT_INHERIT restores the OLD hard-reset
+# (psp_build ignores parent_jft, always CON) so test_psp Case 5 (child inherits
+# parent JFT) goes RED -- proving the inheritance path is load-bearing.
+TEST_PSP_MUT_JFT   := $(BUILD)/test_psp_mutant_jft
 
 $(TEST_PSP): $(TEST_PSP_SRC) $(KERNEL_PSP_C) $(MILTON_DIR)/psp.h spec/dos_structs.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
@@ -6450,15 +6454,19 @@ $(TEST_PSP_MUT_TAIL): $(TEST_PSP_SRC) $(KERNEL_PSP_C) $(MILTON_DIR)/psp.h spec/d
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPSP_MUTATE_CMDTAIL_LEN -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_PSP_SRC) $(KERNEL_PSP_C)
 
+$(TEST_PSP_MUT_JFT): $(TEST_PSP_SRC) $(KERNEL_PSP_C) $(MILTON_DIR)/psp.h spec/dos_structs.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPSP_MUT_NO_JFT_INHERIT -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_PSP_SRC) $(KERNEL_PSP_C)
+
 .PHONY: test-psp test-psp-mutant
 test-psp: $(TEST_PSP)
 	@printf ">>> test-psp: PSP 256-byte construction (int20/segs/jft/int21-entry/cmd-tail) + clamp + no-overflow\n"
 	@$(TEST_PSP)
 	@printf ">>> test-psp: green\n"
 
-# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
-test-psp-mutant: $(TEST_PSP_MUT_INT20) $(TEST_PSP_MUT_TAIL)
-	@printf ">>> test-psp-mutant: confirming both mutants go RED (Rule 6)\n"
+# Mutation-proof: ALL mutant builds MUST fail the oracle (Rule 6).
+test-psp-mutant: $(TEST_PSP_MUT_INT20) $(TEST_PSP_MUT_TAIL) $(TEST_PSP_MUT_JFT)
+	@printf ">>> test-psp-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_PSP_MUT_INT20) >/dev/null 2>&1; then \
 		printf '!!! test-psp-mutant FAIL: int20 mutant PASSED -- the int20 test is decoration\n'; \
 		exit 1; \
@@ -6470,6 +6478,12 @@ test-psp-mutant: $(TEST_PSP_MUT_INT20) $(TEST_PSP_MUT_TAIL)
 		exit 1; \
 	else \
 		printf '>>> test-psp-mutant: green (cmd-tail-len mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_PSP_MUT_JFT) >/dev/null 2>&1; then \
+		printf '!!! test-psp-mutant FAIL: no-JFT-inherit mutant PASSED -- the child-inherits-parent-JFT test is decoration (bsy.9)\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-psp-mutant: green (no-JFT-inherit mutant correctly RED -- the JFT inheritance oracle bites; bsy.9)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -6491,6 +6505,10 @@ TEST_SFT_HDRS := $(MILTON_DIR)/sft.h $(MILTON_DIR)/psp.h spec/dos_structs.h
 # (a) DUP omits the ref_count++ ; (b) DUP2 omits the old-target release.
 TEST_SFT_MUT_DUP   := $(BUILD)/test_sft_mutant_dup
 TEST_SFT_MUT_DUP2  := $(BUILD)/test_sft_mutant_dup2
+# (c) beads initech-bsy.9: sft_inherit omits the inherited-handle ref_count bump
+# -> the child's exit over-frees the inherited file slot -> the "survives child
+# exit" assertion goes RED.
+TEST_SFT_MUT_INH   := $(BUILD)/test_sft_mutant_inherit
 
 $(TEST_SFT): $(TEST_SFT_SRC) $(TEST_SFT_DEPS) $(TEST_SFT_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
@@ -6504,15 +6522,19 @@ $(TEST_SFT_MUT_DUP2): $(TEST_SFT_SRC) $(TEST_SFT_DEPS) $(TEST_SFT_HDRS) | $(BUIL
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSFT_MUTATE_DUP2_NO_RELEASE -Ispec -I$(MILTON_DIR) -Iseed \
 		-o $@ $(TEST_SFT_SRC) $(TEST_SFT_DEPS)
 
+$(TEST_SFT_MUT_INH): $(TEST_SFT_SRC) $(TEST_SFT_DEPS) $(TEST_SFT_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSFT_MUTATE_NO_INHERIT_REFCOUNT -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_SFT_SRC) $(TEST_SFT_DEPS)
+
 .PHONY: test-sft test-sft-mutant
 test-sft: $(TEST_SFT)
 	@printf ">>> test-sft: JFT->SFT handle layer + predefined handles 0-4 + DUP/DUP2 (initech-509.3)\n"
 	@$(TEST_SFT)
 	@printf ">>> test-sft: green\n"
 
-# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
-test-sft-mutant: $(TEST_SFT_MUT_DUP) $(TEST_SFT_MUT_DUP2)
-	@printf ">>> test-sft-mutant: confirming both mutants go RED (Rule 6)\n"
+# Mutation-proof: ALL mutant builds MUST fail the oracle (Rule 6).
+test-sft-mutant: $(TEST_SFT_MUT_DUP) $(TEST_SFT_MUT_DUP2) $(TEST_SFT_MUT_INH)
+	@printf ">>> test-sft-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_SFT_MUT_DUP) >/dev/null 2>&1; then \
 		printf '!!! test-sft-mutant FAIL: DUP-no-refcount mutant PASSED -- the ref_count test is decoration\n'; \
 		exit 1; \
@@ -6524,6 +6546,12 @@ test-sft-mutant: $(TEST_SFT_MUT_DUP) $(TEST_SFT_MUT_DUP2)
 		exit 1; \
 	else \
 		printf '>>> test-sft-mutant: green (DUP2-no-release mutant correctly RED -- the oracle bites)\n'; \
+	fi
+	@if $(TEST_SFT_MUT_INH) >/dev/null 2>&1; then \
+		printf '!!! test-sft-mutant FAIL: no-inherit-refcount mutant PASSED -- the JFT-inheritance refcount test is decoration (bsy.9)\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-sft-mutant: green (no-inherit-refcount mutant correctly RED -- the inherit/close symmetry bites; bsy.9)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -7097,27 +7125,35 @@ $(KERNEL_SURFACE_OBJ): $(KERNEL_SURFACE_C) os/flair/surface.h | $(BUILD)
 # Manager's REAL gate (test-region/-flair-heap/-event/-window/-blitter/-chrome/
 # -text/-menu/-control/-dialog/-drag/-flair-shell): the SAME source, the SAME
 # $(KERNEL_CC) $(KERNEL_CFLAGS) <Manager>_INC invocation that compiles clean
-# under -ffreestanding -nostdlib. Each <Manager>_INC is defined later in the file
-# (deferred recipe expansion -- they are all set by the time any recipe runs).
+# under -ffreestanding -nostdlib. Each <Manager>_INC is used ONLY in the RECIPE
+# (the indented command line below), which Make expands at recipe-run time --
+# by then every <Manager>_INC is set, regardless of where in the file it's
+# defined. PREREQUISITES are different: Make expands a prerequisite list
+# immediately at parse time, so a prereq that names a variable defined LATER
+# in the file (e.g. $(REGION_ENGINE_C), defined further down) expands to
+# EMPTY right here -- the source/header silently drops out of the dependency
+# list and an edit to it will not trigger a rebuild (initech-6vr1). That is
+# why these prereq lists use LITERAL paths (matching the menu/control/dialog
+# idiom below), not the not-yet-defined *_C/*_H variables.
 # NO -ffunction-sections/--gc-sections in KERNEL_CFLAGS, so every object is kept
 # in the .elf (the window-size question is real). Reproducible: deterministic
 # source ordering, no timestamps (Rule 11).
-$(KERNEL_REGION_OBJ): $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h | $(BUILD)
+$(KERNEL_REGION_OBJ): os/flair/atkinson/region.c os/flair/atkinson/region.h spec/region_algebra.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(REGION_INC) -c $(REGION_ENGINE_C) -o $@
 
-$(KERNEL_HEAP_OBJ): $(FLAIR_HEAP_C) $(FLAIR_HEAP_H) | $(BUILD)
+$(KERNEL_HEAP_OBJ): os/flair/heap.c os/flair/heap.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_HEAP_INC) -c $(FLAIR_HEAP_C) -o $@
 
 $(KERNEL_EVENT_OBJ): os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(EVENT_INC) -c os/flair/event.c -o $@
 
-$(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+$(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $@
 
-$(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h $(REGION_ENGINE_H) os/flair/surface.h spec/region_algebra.h | $(BUILD)
+$(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/region.h os/flair/surface.h spec/region_algebra.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(BLITTER_INC) -c os/flair/blitter.c -o $@
 
-$(KERNEL_CHROME_OBJ): $(CHROME_DRAWER_C) $(CHROME_DRAWER_H) $(SPEC_CHROME_METRICS_H) spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_CHROME_OBJ): os/flair/chrome.c os/flair/chrome.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $@
 
 $(KERNEL_TEXT_OBJ): os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/assets/chicago8x16.h os/flair/surface.h | $(BUILD)
@@ -7135,14 +7171,14 @@ $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics
 $(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
 
-$(KERNEL_DESKTOP_OBJ): $(DESKTOP_C) $(DESKTOP_H) os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
+$(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(DRAG_INC) -c $(DESKTOP_C) -o $@
 
 # The C-8 policy seam (beads initech-6bq2). Freestanding-safe; reads color_canon.h.
 $(KERNEL_FLAIRLOOK_OBJ): $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/assets/color_canon.h os/flair/surface.h spec/grafport.h spec/imaging.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(FLAIRLOOK_C) -o $@
 
-$(KERNEL_FLAIR_SHELL_OBJ): $(SHELL_C) $(SHELL_H) os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_FLAIR_SHELL_OBJ): os/flair/shell.c os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(SHELL_INC) -c $(SHELL_C) -o $@
 
 # Text console (beads initech-yqb): the SAME console.c the host blit oracle
@@ -7698,7 +7734,7 @@ $(KERNEL_MEMTEST_MUT_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNE
 
 KERNEL_MEMTEST_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
-                    $(KERNEL_MEMTEST_MUT_INT21_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
+                    $(KERNEL_MEMTEST_MUT_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
@@ -8053,7 +8089,7 @@ $(KERNEL_IRQSTORM_MUTA_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/test_prog.h $(K
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_IRQSTORM_MUTA_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MUTA_MAIN_OBJ) \
-                    $(KERNEL_INT21_SEAM_OBJ) $(KERNEL_PIT_MUT_SCRIBBLE_OBJ)
+                    $(KERNEL_INT21_SEAM_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PIT_MUT_SCRIBBLE_OBJ)
 
 $(KERNEL_IRQSTORM_MUTA_ELF): $(KERNEL_IRQSTORM_MUTA_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_MUTA_OBJS)
@@ -8427,7 +8463,7 @@ $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_
 # SET overlay is ignored -> the pre-fix compositor erases/overpaints the modal +
 # menu bars on a drag. Swaps ONLY window.o (the mutant obj) into the FLAIRLIVE obj
 # set (the normal main obj still wires + sets overlay_rgn). -----------------------
-$(KERNEL_WINDOW_MUT_OVERLAY_OBJ): os/flair/window.c os/flair/window.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+$(KERNEL_WINDOW_MUT_OVERLAY_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DWINDOW_MUTATE_IGNORE_OVERLAY $(WINDOW_INC) -c os/flair/window.c -o $@
 
 KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS := $(filter-out $(KERNEL_WINDOW_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_WINDOW_MUT_OVERLAY_OBJ)
@@ -10189,6 +10225,49 @@ test-list-mutant: $(TEST_LIST_MUT_SWAP) $(TEST_LIST_MUT_HIT) $(TEST_LIST_MUT_DES
 	@if $(TEST_LIST_MUT_SWAP) >/dev/null 2>&1; then printf '!!! test-list-mutant FAIL: CELL_INDEX_SWAP PASSED -- the (col,row) store oracle is decoration\n'; exit 1; else printf '>>> test-list-mutant: green (CELL_INDEX_SWAP correctly RED)\n'; fi
 	@if $(TEST_LIST_MUT_HIT) >/dev/null 2>&1; then printf '!!! test-list-mutant FAIL: HIT_OFFBYONE PASSED -- the hit-test oracle is decoration\n'; exit 1; else printf '>>> test-list-mutant: green (HIT_OFFBYONE correctly RED)\n'; fi
 	@if $(TEST_LIST_MUT_DESEL) >/dev/null 2>&1; then printf '!!! test-list-mutant FAIL: NO_DESELECT PASSED -- the lOnlyOne oracle is decoration\n'; exit 1; else printf '>>> test-list-mutant: green (NO_DESELECT correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# test-stdfile (FLAIR Phase 4.5 / initech-gymo, Standard File navigate/select
+# first cut): the HOST oracle for os/flair/stdfile.{c,h} (SFGetFile) -- the
+# Inside Macintosh Standard File Package navigate/select/return logic (open at
+# root, click/select, folder-on-Open navigates + does not confirm, file-on-Open
+# confirms, Cancel never confirms, up pops one path component), built ON the
+# real List Manager (os/flair/list.c) -- no second list type, no FAT I/O (the
+# directory is a provider callback; the oracle injects a hand-authored fixture,
+# never reading expectations back from the SUT -- Law 2). Round-trip vs a
+# hand-authored op/literal golden (test_stdfile.c). Self-mutants
+# SF_MUT_RETURN_WRONG_CELL (doOpen ignores the real selection), SF_MUT_NO_NAVIGATE
+# (navigate does not re-enumerate), SF_MUT_CANCEL_GOOD (Cancel sets good=1) bite.
+# ---------------------------------------------------------------------------
+TEST_STDFILE     := $(BUILD)/test_stdfile
+TEST_STDFILE_SRC := harness/proptest/test_stdfile.c
+TEST_STDFILE_MUT_CELL   := $(BUILD)/test_stdfile_mutant_wrongcell
+TEST_STDFILE_MUT_NAV    := $(BUILD)/test_stdfile_mutant_nonavigate
+TEST_STDFILE_MUT_CANCEL := $(BUILD)/test_stdfile_mutant_cancelgood
+TEST_STDFILE_LINK := os/flair/stdfile.c os/flair/list.c os/flair/heap.c $(REGION_ENGINE_C)
+TEST_STDFILE_DEPS := os/flair/stdfile.c os/flair/stdfile.h \
+                     os/flair/list.c os/flair/list.h os/flair/heap.c os/flair/heap.h \
+                     $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/grafport.h
+
+$(TEST_STDFILE): $(TEST_STDFILE_SRC) $(TEST_STDFILE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_STDFILE_SRC) $(TEST_STDFILE_LINK)
+$(TEST_STDFILE_MUT_CELL): $(TEST_STDFILE_SRC) $(TEST_STDFILE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSF_MUT_RETURN_WRONG_CELL $(PROCESS_INC) -o $@ $(TEST_STDFILE_SRC) $(TEST_STDFILE_LINK)
+$(TEST_STDFILE_MUT_NAV): $(TEST_STDFILE_SRC) $(TEST_STDFILE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSF_MUT_NO_NAVIGATE $(PROCESS_INC) -o $@ $(TEST_STDFILE_SRC) $(TEST_STDFILE_LINK)
+$(TEST_STDFILE_MUT_CANCEL): $(TEST_STDFILE_SRC) $(TEST_STDFILE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSF_MUT_CANCEL_GOOD $(PROCESS_INC) -o $@ $(TEST_STDFILE_SRC) $(TEST_STDFILE_LINK)
+
+test-stdfile: $(TEST_STDFILE)
+	@printf ">>> test-stdfile: FLAIR Phase 4.5 / initech-gymo Standard File (SFGetFile) -- navigate/select/return over the real List Manager (round-trip vs independent hand-authored golden)\n"
+	@$(TEST_STDFILE)
+	@printf ">>> test-stdfile: green\n"
+
+test-stdfile-mutant: $(TEST_STDFILE_MUT_CELL) $(TEST_STDFILE_MUT_NAV) $(TEST_STDFILE_MUT_CANCEL)
+	@printf ">>> test-stdfile-mutant: confirming RETURN_WRONG_CELL + NO_NAVIGATE + CANCEL_GOOD go RED (Rule 6)\n"
+	@if $(TEST_STDFILE_MUT_CELL) >/dev/null 2>&1; then printf '!!! test-stdfile-mutant FAIL: SF_MUT_RETURN_WRONG_CELL PASSED -- the doOpen selection oracle is decoration\n'; exit 1; else printf '>>> test-stdfile-mutant: green (SF_MUT_RETURN_WRONG_CELL correctly RED)\n'; fi
+	@if $(TEST_STDFILE_MUT_NAV) >/dev/null 2>&1; then printf '!!! test-stdfile-mutant FAIL: SF_MUT_NO_NAVIGATE PASSED -- the folder re-enumeration oracle is decoration\n'; exit 1; else printf '>>> test-stdfile-mutant: green (SF_MUT_NO_NAVIGATE correctly RED)\n'; fi
+	@if $(TEST_STDFILE_MUT_CANCEL) >/dev/null 2>&1; then printf '!!! test-stdfile-mutant FAIL: SF_MUT_CANCEL_GOOD PASSED -- the Cancel-never-confirms oracle is decoration\n'; exit 1; else printf '>>> test-stdfile-mutant: green (SF_MUT_CANCEL_GOOD correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # STANDALONE gate (NOT yet in any aggregate): test-process-activate
@@ -16853,8 +16932,8 @@ test-samir-canon-salami-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DOTRUNC
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
 	test-fat12-mkdir test-m0bp test-m0bp-rollback test-fat-fault-rollback \
-	test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc \
-	test-fat-partial test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
+	test-fat12-subdir test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc \
+	test-fat-partial test-fat-write test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-redir test-er3h test-int24 \
@@ -16880,7 +16959,7 @@ TEST_UNIT_GATES := \
 	test-window test-window-mutant test-event test-event-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
 	test-interact test-interact-mutant \
-	test-process test-process-mutant \
+	test-process test-process-mutant test-process-mutant-build \
 	test-process-teardown test-process-teardown-mutant \
 	test-process-budget test-process-budget-mutant \
 	test-process-activate test-process-activate-mutant \
@@ -16889,6 +16968,7 @@ TEST_UNIT_GATES := \
 	test-scrap test-scrap-mutant \
 	test-textedit test-textedit-mutant \
 	test-list test-list-mutant \
+	test-stdfile test-stdfile-mutant \
 	test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
 	test-dialog test-dialog-mutant \
 	test-chrome test-chrome-mutant \
@@ -16912,7 +16992,7 @@ TEST_UNIT_GATES := \
 	test-samir-softfp test-samir-softfp-mutant \
 	test-samir \
 	test-dbf-header test-dbf-header-mutant test-dbf-fields test-dbf-fields-mutant \
-	test-dbf-read test-dbf-read-mutant test-dbf-roundtrip test-dbf-roundtrip-mutant \
+	test-dbf-read test-dbf-read-mutant test-dbf-read-openrw-hdrlen-mutant test-dbf-roundtrip test-dbf-roundtrip-mutant \
 	test-dbf-mutate test-dbf-mutate-mutant \
 	test-ndx-parse test-ndx-parse-mutant \
 	test-ndx-keys test-ndx-keys-mutant \
@@ -16940,7 +17020,7 @@ TEST_UNIT_GATES := \
 	test-interp-proc test-interp-proc-mutant \
 	test-canon-y2k test-canon-y2k-mutant \
 	test-canon-salami test-canon-salami-mutant \
-	test-samir-repl test-samir-repl-mutant \
+	test-samir-repl test-samir-repl-mutant test-samir-query \
 	test-use-rw test-use-rw-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant \
 	test-dbase-diff test-dbase-diff-mutant
@@ -17220,25 +17300,168 @@ test-hsct-redir-mutant: $(HARNESS_BIN) $(HSCT_REDIR_TRACER_MUT_IMG) $(HSCT_REDIR
 	fi
 	@printf '>>> test-hsct-redir-mutant: green (redir-bypass mutant correctly RED -- RZZHELLO count != 2, the redirect driver is load-bearing)\n'
 
+# ---------------------------------------------------------------------------
+# REAL emu gate: test-bsy9-redir (beads initech-bsy.9 -- EXTERNAL .COM output
+# redirection via child-PSP-inherits-parent-JFT, end-to-end on the emulated 386)
+# ---------------------------------------------------------------------------
+# The sibling of test-hsct-redir, but for an EXTERNAL EXEC child instead of a
+# shell builtin. test-hsct-redir proved `ECHO ... > FILE` (a builtin) redirects;
+# this proves `GREET.COM > FILE` (a real .COM loaded from FAT + EXEC'd) redirects,
+# which requires the loader to thread the parent's DUP2'd JFT into the child PSP
+# (psp_build parent_jft copy + sft_inherit refcount bump). AUTOEXEC.BAT:
+#   GREET.COM> GOUT.TXT     (>) redirect -- GREETINGS goes to the FILE, NOT screen
+#   TYPE GOUT.TXT           prints GREETINGS  (proves GOUT.TXT received the bytes)
+#   TYPE GOUT.TXT           prints GREETINGS again (a 2nd read of the same file)
+# The discriminating assertion: GREETINGS appears EXACTLY TWICE (once per TYPE),
+# and ZERO times directly from the redirected EXEC. If the child did NOT inherit
+# the parent JFT (the pre-bsy.9 bug / the PSP_MUT_NO_JFT_INHERIT mutant), GREET's
+# handle 1 is reset to CON -> GREETINGS leaks to the screen ONCE during the EXEC
+# and GOUT.TXT stays empty, so both TYPEs print nothing -> count == 1, not 2.
+# Ref: MS-DOS 3.3 PRM AH=4Bh (handle inheritance on EXEC); ADR-0003 DEC-06;
+#      prereqs hsct (the redirect driver brackets EXEC) + k36g + o0td.
+BSY9_REDIR_IMG      := $(BUILD)/bsy9_redir.img
+BSY9_REDIR_MUT_IMG  := $(BUILD)/bsy9_redir_mut.img
+BSY9_REDIR_NAME     := bsy9_redir
+BSY9_REDIR_MUT_NAME := bsy9_redir_mut
+BSY9_REDIR_SERIAL   := $(BUILD)/$(BSY9_REDIR_NAME).serial
+BSY9_REDIR_MUT_SERIAL := $(BUILD)/$(BSY9_REDIR_MUT_NAME).serial
+BSY9_REDIR_REPORT   := $(BUILD)/$(BSY9_REDIR_NAME).report
+BSY9_REDIR_MUT_REPORT := $(BUILD)/$(BSY9_REDIR_MUT_NAME).report
+BSY9_REDIR_BAT      := $(FAT12_FIXTURE_DIR)/autoexec_bsy9.bat
+
+# Mint a fresh writable FAT12 floppy with AUTOEXEC.BAT (the redirect script) AND
+# GREET.COM (the .COM that gets EXEC'd + redirected). GOUT.TXT is CREATED by the
+# redirect at runtime, so it is NOT placed on the disk.
+define bsy9-redir-mint-disk
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(BSY9_REDIR_BAT) ::AUTOEXEC.BAT
+	@mcopy -i $(1) $(GREET_PROG_BIN) ::GREET.COM
+endef
+
+.PHONY: test-bsy9-redir test-bsy9-redir-mutant
+test-bsy9-redir: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(BSY9_REDIR_BAT)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-bsy9-redir : EXTERNAL .COM `>` OUTPUT redirect\n'
+	@printf '  beads initech-bsy.9. AUTOEXEC.BAT: GREET.COM> GOUT.TXT ; TYPE GOUT.TXT (x2).\n'
+	@printf '  Proves an EXEC child inherits the parent JFT so its stdout redirects to\n'
+	@printf '  the file (GREETINGS to GOUT.TXT, not the screen). Prereqs hsct+k36g+o0td.\n'
+	@printf '======================================================================\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-bsy9-redir FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-bsy9-redir FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	$(call bsy9-redir-mint-disk,$(BSY9_REDIR_IMG))
+	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script + GREET.COM)\n' "$(TRACER_IMG)" "$(BSY9_REDIR_IMG)"
+	@printf 'Expecting : GREETINGS twice (2 TYPEs of GOUT.TXT), then clean EXIT\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(BSY9_REDIR_IMG)" \
+		--name "$(BSY9_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(BSY9_REDIR_REPORT)" || true
+	@cat "$(BSY9_REDIR_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(BSY9_REDIR_REPORT)"; then \
+		printf '!!! test-bsy9-redir FAIL: TRIPLE FAULT -- EXEC redirect crashed (root-cause the JFT-inherit / sft_inherit refcount path, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-bsy9-redir [1/4]: no triple-fault\n'
+	@if [ ! -s "$(BSY9_REDIR_SERIAL)" ]; then \
+		printf '!!! test-bsy9-redir FAIL: no serial captured at %s\n' "$(BSY9_REDIR_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(BSY9_REDIR_SERIAL)" \
+		|| { printf '!!! test-bsy9-redir FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
+	@printf '>>> test-bsy9-redir [2/4]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@sed -n '/^SHELL-READY$$/,$$p' "$(BSY9_REDIR_SERIAL)" | tr -d '\r' > "$(BUILD)/$(BSY9_REDIR_NAME).repl"
+	@gcnt=$$(grep -oF 'GREETINGS' "$(BUILD)/$(BSY9_REDIR_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$gcnt" != "2" ]; then \
+		printf '!!! test-bsy9-redir FAIL: GREETINGS seen %s time(s), expected EXACTLY 2 (one per TYPE of GOUT.TXT).  count==1 means the EXEC child printed to SCREEN and GOUT.TXT is empty; the child did NOT inherit the parent JFT (root-cause psp_build parent_jft copy / loader_run_plan / sft_inherit, Rule 3)\n' "$$gcnt"; \
+		exit 1; \
+	fi
+	@printf '>>> test-bsy9-redir [3/4]: GREETINGS appears EXACTLY twice -- `GREET.COM > GOUT.TXT` REDIRECTED (the EXEC child inherited the parent`s redirected stdout; it did NOT leak to screen)\n'
+	@grep -q '^SHELL-EXIT$$' "$(BSY9_REDIR_SERIAL)" \
+		|| { printf '!!! test-bsy9-redir FAIL: SHELL-EXIT missing -- the post-AUTOEXEC interactive EXIT did not run (handle 1 may not have been restored to CON after the child, or a refcount over-free panicked)\n'; exit 1; }
+	@printf '>>> test-bsy9-redir [4/4]: post-redirect `exit` reached the REPL + halted cleanly (handle 1 restored to CON; no SFT over-free)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- external `GREET.COM > file` really redirects on the 386\n'
+	@printf '            (child inherits parent JFT; QEMU only, tri-emulator pending initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ----- Mutant kernel for test-bsy9-redir-mutant (Rule 6) -----
+# psp.c compiled with -DPSP_MUT_NO_JFT_INHERIT: psp_build IGNORES params.parent_jft
+# and always lays the CON defaults -- the pre-bsy.9 hard-reset. The EXEC child's
+# handle 1 is CON, so GREET's GREETINGS leaks to the screen ONCE during the EXEC
+# and GOUT.TXT stays empty -> GREETINGS count == 1, not 2 -> the gate goes RED.
+# Object-swap idiom (mirrors the hsct-redir-mutant kernel): recompile ONLY psp.o
+# with the mutant define and relink the shell kernel with it in place of the real
+# psp.o.
+BSY9_PSP_MUT_OBJ        := $(BUILD)/psp_mut_no_jft_inherit.o
+BSY9_SHELL_MUT_ELF      := $(BUILD)/kernel_shell_mut_no_jft_inherit.elf
+BSY9_SHELL_MUT_BIN      := $(BUILD)/kernel_shell_mut_no_jft_inherit.bin
+BSY9_REDIR_TRACER_MUT_IMG := $(BUILD)/tracer_boot_mut_no_jft_inherit.img
+
+$(BSY9_PSP_MUT_OBJ): $(KERNEL_PSP_C) $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DPSP_MUT_NO_JFT_INHERIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_PSP_C) -o $@
+
+BSY9_SHELL_MUT_OBJS := $(filter-out $(KERNEL_PSP_OBJ),$(KERNEL_SHELL_OBJS)) $(BSY9_PSP_MUT_OBJ)
+
+$(BSY9_SHELL_MUT_ELF): $(BSY9_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY9_SHELL_MUT_OBJS)
+
+$(BSY9_SHELL_MUT_BIN): $(BSY9_SHELL_MUT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_mut_no_jft_inherit.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-mut-no-jft-inherit): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,shell-mut-no-jft-inherit)
+
+$(BSY9_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY9_SHELL_MUT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BSY9_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> bsy9-redir mutant image: %s (JFT inheritance DISABLED -- GREETINGS must leak / GOUT.TXT empty)\n" "$@"
+
+test-bsy9-redir-mutant: $(HARNESS_BIN) $(BSY9_REDIR_TRACER_MUT_IMG) $(GREET_PROG_BIN) $(BSY9_REDIR_BAT)
+	@printf '>>> test-bsy9-redir-mutant: confirming the NO-JFT-INHERIT mutant goes RED (Rule 6)\n'
+	$(call bsy9-redir-mint-disk,$(BSY9_REDIR_MUT_IMG))
+	@$(HARNESS_BIN) --disk "$(BSY9_REDIR_TRACER_MUT_IMG)" --disk2 "$(BSY9_REDIR_MUT_IMG)" \
+		--name "$(BSY9_REDIR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(BSY9_REDIR_MUT_REPORT)" || true
+	@if [ ! -s "$(BSY9_REDIR_MUT_SERIAL)" ]; then \
+		printf '!!! test-bsy9-redir-mutant FAIL: no serial from the mutant boot\n'; exit 1; \
+	fi
+	@sed -n '/^SHELL-READY$$/,$$p' "$(BSY9_REDIR_MUT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(BSY9_REDIR_MUT_NAME).repl"
+	@gcnt=$$(grep -oF 'GREETINGS' "$(BUILD)/$(BSY9_REDIR_MUT_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$gcnt" = "2" ]; then \
+		printf '!!! test-bsy9-redir-mutant FAIL: GREETINGS seen 2x under PSP_MUT_NO_JFT_INHERIT -- the redirect would pass even with JFT inheritance dead; the emu gate is decoration\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-bsy9-redir-mutant: green (no-JFT-inherit mutant correctly RED -- GREETINGS count != 2, the JFT inheritance is load-bearing for external EXEC redirect)\n'
+
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
-	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-fatwrite test-multiopen test-exit-handles \
+	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-copy-selfcopy test-copy-selfcopy-mutant \
 	test-readerr-winh test-readerr-winh-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
-	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm \
+	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm test-int21-irqstorm-mutant \
 	test-samir-boot test-samir-boot-mutant \
 	test-samir-write test-samir-write-mutant \
 	test-samir-canon-y2k test-samir-canon-y2k-mutant \
 	test-samir-canon-salami test-samir-canon-salami-mutant \
 	test-autoexec test-autoexec-mutant \
 	test-hsct-redir test-hsct-redir-mutant \
+	test-bsy9-redir test-bsy9-redir-mutant \
 	test-flair-desktop test-flair-desktop-mutant \
 	test-flair-live test-flair-live-mutant \
 	test-flair-key test-flair-key-mutant \
 	test-flair-mouse test-flair-mouse-mutant \
 	test-flair-drag test-flair-drag-mutant \
+	test-flair-dc4v test-flair-dc4v-mutant \
 	test-flair-menu test-flair-menu-mutant \
 	test-flair-appswitch test-flair-appswitch-mutant \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant

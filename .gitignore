@@ -47,6 +47,11 @@ fixtures/*.jpeg
 *~
 .DS_Store
 
+# --- Agent runtime state (ephemeral; never tracked) ---
+.claude/worktrees/
+.claude/checkpoints/
+.claude/mailbox/
+
 # --- Beads / Dolt files (added by bd init) ---
 .dolt/
 *.db
