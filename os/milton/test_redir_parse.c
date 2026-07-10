@@ -21,6 +21,10 @@
  *                                    never set, CMD_REDIR_IN never returned), so
  *                                    the `<` input-redirect assertions go RED
  *                                    (beads initech-bsy.7).
+ *   -DCMD_MUTATE_PIPE_NO_SPLIT     : cmd_pipe_split collapses the whole line into
+ *                                    ONE stage (the `|` scan is skipped), so the
+ *                                    multi-stage pipe assertions go RED
+ *                                    (beads initech-bsy.8).
  */
 
 #include <stdint.h>
@@ -360,6 +364,131 @@ static void test_combined(void)
     CHECK_STR_EQ(clean, "find x", "combined (<...>>): clean == 'find x'");
 }
 
+/* --- PIPE splitting (beads initech-bsy.8) -------------------------------- */
+static void test_pipe_split(void)
+{
+    cmd_pipeline_t pl;
+
+    /* No pipe: one stage == the trimmed line. */
+    int n = cmd_pipe_split("dir", &pl);
+    CHECK(n == 1, "no-pipe: nstages == 1");
+    CHECK(pl.nstages == 1, "no-pipe: struct nstages == 1");
+    CHECK_STR_EQ(pl.stage[0], "dir", "no-pipe: stage[0] == 'dir'");
+
+    /* Canonical spaced two-stage: "dir | sort". */
+    n = cmd_pipe_split("dir | sort", &pl);
+    CHECK(n == 2, "spaced: nstages == 2");
+    CHECK_STR_EQ(pl.stage[0], "dir", "spaced: stage[0] == 'dir'");
+    CHECK_STR_EQ(pl.stage[1], "sort", "spaced: stage[1] == 'sort'");
+
+    /* No-space form: "dir|sort". */
+    n = cmd_pipe_split("dir|sort", &pl);
+    CHECK(n == 2, "no-space: nstages == 2");
+    CHECK_STR_EQ(pl.stage[0], "dir", "no-space: stage[0] == 'dir'");
+    CHECK_STR_EQ(pl.stage[1], "sort", "no-space: stage[1] == 'sort'");
+
+    /* Left-hug: "dir| sort". */
+    n = cmd_pipe_split("dir| sort", &pl);
+    CHECK(n == 2, "left-hug: nstages == 2");
+    CHECK_STR_EQ(pl.stage[0], "dir", "left-hug: stage[0] == 'dir'");
+    CHECK_STR_EQ(pl.stage[1], "sort", "left-hug: stage[1] == 'sort'");
+
+    /* Right-hug: "dir |sort". */
+    n = cmd_pipe_split("dir |sort", &pl);
+    CHECK(n == 2, "right-hug: nstages == 2");
+    CHECK_STR_EQ(pl.stage[0], "dir", "right-hug: stage[0] == 'dir'");
+    CHECK_STR_EQ(pl.stage[1], "sort", "right-hug: stage[1] == 'sort'");
+
+    /* Three stages: "type x | find y | sort". */
+    n = cmd_pipe_split("type x | find y | sort", &pl);
+    CHECK(n == 3, "three: nstages == 3");
+    CHECK_STR_EQ(pl.stage[0], "type x", "three: stage[0] == 'type x'");
+    CHECK_STR_EQ(pl.stage[1], "find y", "three: stage[1] == 'find y'");
+    CHECK_STR_EQ(pl.stage[2], "sort", "three: stage[2] == 'sort'");
+
+    /* Leading/trailing whitespace trimmed on the outer line + per stage. */
+    n = cmd_pipe_split("  dir  |  sort  ", &pl);
+    CHECK(n == 2, "outer-ws: nstages == 2");
+    CHECK_STR_EQ(pl.stage[0], "dir", "outer-ws: stage[0] trimmed to 'dir'");
+    CHECK_STR_EQ(pl.stage[1], "sort", "outer-ws: stage[1] trimmed to 'sort'");
+
+    /* Multi-arg command preserved inside a stage. */
+    n = cmd_pipe_split("type a.txt b.txt | sort", &pl);
+    CHECK(n == 2, "multi-arg: nstages == 2");
+    CHECK_STR_EQ(pl.stage[0], "type a.txt b.txt",
+                 "multi-arg: stage[0] keeps BOTH args");
+    CHECK_STR_EQ(pl.stage[1], "sort", "multi-arg: stage[1] == 'sort'");
+
+    /* The splitter leaves each stage's OWN redirects INTACT (cmd_redir_parse
+     * peels them per stage later): "sort < in | more > out". */
+    n = cmd_pipe_split("sort < in | more > out", &pl);
+    CHECK(n == 2, "redir-in-stage: nstages == 2");
+    CHECK_STR_EQ(pl.stage[0], "sort < in",
+                 "redir-in-stage: stage[0] keeps its '< in'");
+    CHECK_STR_EQ(pl.stage[1], "more > out",
+                 "redir-in-stage: stage[1] keeps its '> out'");
+}
+
+/* --- PIPE edge cases ----------------------------------------------------- */
+static void test_pipe_edges(void)
+{
+    cmd_pipeline_t pl;
+
+    /* Empty line -> one empty stage (dispatch runs it as a no-op). */
+    int n = cmd_pipe_split("", &pl);
+    CHECK(n == 1, "empty: nstages == 1");
+    CHECK_STR_EQ(pl.stage[0], "", "empty: stage[0] == ''");
+
+    /* NULL line must not crash and yields one empty stage. */
+    n = cmd_pipe_split(0, &pl);
+    CHECK(n == 1, "NULL: nstages == 1");
+    CHECK_STR_EQ(pl.stage[0], "", "NULL: stage[0] == ''");
+
+    /* Trailing pipe: "dir |" -> stage[1] empty (degenerate consumer). */
+    n = cmd_pipe_split("dir |", &pl);
+    CHECK(n == 2, "trailing-pipe: nstages == 2");
+    CHECK_STR_EQ(pl.stage[0], "dir", "trailing-pipe: stage[0] == 'dir'");
+    CHECK_STR_EQ(pl.stage[1], "", "trailing-pipe: stage[1] == '' (empty)");
+
+    /* Leading pipe: "| sort" -> stage[0] empty (degenerate producer). */
+    n = cmd_pipe_split("| sort", &pl);
+    CHECK(n == 2, "leading-pipe: nstages == 2");
+    CHECK_STR_EQ(pl.stage[0], "", "leading-pipe: stage[0] == '' (empty)");
+    CHECK_STR_EQ(pl.stage[1], "sort", "leading-pipe: stage[1] == 'sort'");
+
+    /* Double pipe: "a || b" -> three stages with an empty middle. */
+    n = cmd_pipe_split("a || b", &pl);
+    CHECK(n == 3, "double-pipe: nstages == 3");
+    CHECK_STR_EQ(pl.stage[0], "a", "double-pipe: stage[0] == 'a'");
+    CHECK_STR_EQ(pl.stage[1], "", "double-pipe: stage[1] == '' (empty middle)");
+    CHECK_STR_EQ(pl.stage[2], "b", "double-pipe: stage[2] == 'b'");
+}
+
+/* --- PIPE bounds (Rule 2: never overflow, always ASCIIZ) ----------------- */
+static void test_pipe_bounds(void)
+{
+    cmd_pipeline_t pl;
+    int i;
+
+    /* A long, many-stage line: every produced stage must be NUL-terminated
+     * within CMD_LINE_MAX and the count clamped to CMD_PIPE_MAX_STAGES. */
+    const char *line =
+        "aaaa | bbbb | cccc | dddd | eeee | ffff | gggg | hhhh | iiii | jjjj";
+    int n = cmd_pipe_split(line, &pl);
+    CHECK(n >= 1 && n <= CMD_PIPE_MAX_STAGES,
+          "bounds: nstages within [1, CMD_PIPE_MAX_STAGES]");
+    CHECK(n == CMD_PIPE_MAX_STAGES,
+          "bounds: 10 pipes clamp to CMD_PIPE_MAX_STAGES stages");
+    for (i = 0; i < n; i++) {
+        CHECK(memchr(pl.stage[i], '\0', CMD_LINE_MAX) != 0,
+              "bounds: each stage NUL-terminated within CMD_LINE_MAX");
+    }
+    /* The final stage folds the remainder verbatim (embedded '|' preserved),
+     * so no byte is lost when the stage cap is exceeded. */
+    CHECK(strchr(pl.stage[CMD_PIPE_MAX_STAGES - 1], '|') != 0,
+          "bounds: overflow remainder (incl '|') folded into the last stage");
+}
+
 int main(void)
 {
     test_no_redirect();
@@ -370,5 +499,8 @@ int main(void)
     test_bounds();
     test_input();
     test_combined();
+    test_pipe_split();
+    test_pipe_edges();
+    test_pipe_bounds();
     return TEST_SUMMARY("test_redir_parse");
 }

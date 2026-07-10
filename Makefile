@@ -5866,6 +5866,9 @@ TEST_REDIR_PARSE_HDRS := $(MILTON_DIR)/command.h $(MILTON_DIR)/env.h spec/dos_st
 TEST_REDIR_PARSE_MUT_NOAPP := $(BUILD)/test_redir_parse_mutant_noappend
 TEST_REDIR_PARSE_MUT_KEEP  := $(BUILD)/test_redir_parse_mutant_keeptarget
 TEST_REDIR_PARSE_MUT_NOLT  := $(BUILD)/test_redir_parse_mutant_nolt
+# (d) PIPE_NO_SPLIT: cmd_pipe_split collapses the whole line into ONE stage (the
+# `|` scan is skipped) -> the multi-stage pipe checks go RED (beads initech-bsy.8).
+TEST_REDIR_PARSE_MUT_NOPIPE := $(BUILD)/test_redir_parse_mutant_nopipe
 
 $(TEST_REDIR_PARSE): $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS) $(TEST_REDIR_PARSE_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -5883,14 +5886,18 @@ $(TEST_REDIR_PARSE_MUT_NOLT): $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS) $
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_REDIR_NO_LT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS)
 
+$(TEST_REDIR_PARSE_MUT_NOPIPE): $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS) $(TEST_REDIR_PARSE_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_PIPE_NO_SPLIT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS)
+
 .PHONY: test-redir-parse test-redir-parse-mutant
 test-redir-parse: $(TEST_REDIR_PARSE)
 	@printf ">>> test-redir-parse: cmd_redir_parse -- '>' truncate / '>>' append / target+clean extraction / no-redir passthrough / last-wins / bound guards (beads initech-hsct)\n"
 	@$(TEST_REDIR_PARSE)
 	@printf ">>> test-redir-parse: green\n"
 
-# Mutation-proof: ALL THREE mutant builds MUST fail the oracle (Rule 6).
-test-redir-parse-mutant: $(TEST_REDIR_PARSE_MUT_NOAPP) $(TEST_REDIR_PARSE_MUT_KEEP) $(TEST_REDIR_PARSE_MUT_NOLT)
+# Mutation-proof: ALL FOUR mutant builds MUST fail the oracle (Rule 6).
+test-redir-parse-mutant: $(TEST_REDIR_PARSE_MUT_NOAPP) $(TEST_REDIR_PARSE_MUT_KEEP) $(TEST_REDIR_PARSE_MUT_NOLT) $(TEST_REDIR_PARSE_MUT_NOPIPE)
 	@printf ">>> test-redir-parse-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_REDIR_PARSE_MUT_NOAPP) >/dev/null 2>&1; then \
 		printf '!!! test-redir-parse-mutant FAIL: no-append mutant PASSED -- the >>-append parse test is decoration\n'; \
@@ -5909,6 +5916,12 @@ test-redir-parse-mutant: $(TEST_REDIR_PARSE_MUT_NOAPP) $(TEST_REDIR_PARSE_MUT_KE
 		exit 1; \
 	else \
 		printf '>>> test-redir-parse-mutant: green (no-LT mutant correctly RED -- the `<` input-redirect parse bites; bsy.7)\n'; \
+	fi
+	@if $(TEST_REDIR_PARSE_MUT_NOPIPE) >/dev/null 2>&1; then \
+		printf '!!! test-redir-parse-mutant FAIL: no-split mutant PASSED -- the multi-stage `|` pipe parse test is decoration (bsy.8)\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-redir-parse-mutant: green (no-split mutant correctly RED -- the `|` pipe-split parse bites; bsy.8)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -17809,6 +17822,158 @@ test-bsy7-redir-mutant: $(HARNESS_BIN) $(BSY7_REDIR_TRACER_MUT_IMG) $(GOBBLE_PRO
 	fi
 	@printf '>>> test-bsy7-redir-mutant: green (no-LT mutant correctly RED -- GOBBLED42 count != 1, the `<` parse is load-bearing for INPUT redirect)\n'
 
+# ---------------------------------------------------------------------------
+# REAL emu gate: test-bsy8-pipe (beads initech-bsy.8 -- the `|` PIPE operator as
+# an authentic DOS 3.3 temp-file pipe, end-to-end on the emulated 386)
+# ---------------------------------------------------------------------------
+# Composes the two proven halves: `GREET.COM > temp` (bsy.9 OUTPUT redirect of an
+# EXEC child) feeding `GOBBLE.COM < temp` (bsy.7 INPUT redirect). AUTOEXEC.BAT:
+#   GREET.COM | GOBBLE.COM     the pipe -- GREET's stdout -> PIPE1.$$$; GOBBLE's
+#                              stdin <- PIPE1.$$$; then the temp is DELETED
+#   TYPE PIPE1.$$$             proves the temp is GONE after the pipeline
+# GREET writes "GREETINGS FROM A:GREET.COM" to handle 1, which the pipe repoints
+# at the temp file (NOT serial); GOBBLE reads the temp from handle 0 and echoes it
+# to serial framed by GOBBLE-BEGIN/GOBBLE-END. The discriminating assertion:
+# GREETINGS appears EXACTLY ONCE on serial -- and ONLY because it flowed through
+# the temp into GOBBLE's stdin (GREET's own copy went to the temp, not the screen).
+# With the consumer's stdin NOT repointed (CMD_MUTATE_PIPE_NO_STDIN) GOBBLE reads
+# the keyboard, GREETINGS never reaches serial -> the gate RED. And `TYPE PIPE1.$$$`
+# printing "File not found" proves the intermediate was deleted (DOS pipe cleanup).
+# Ref: MS-DOS 3.3 Tech Ref Ch.6 (the `.$$$` temp-file pipe); prereqs bsy.7 + bsy.9
+#      + hsct (the redirect driver the pipe executor composes).
+BSY8_PIPE_IMG      := $(BUILD)/bsy8_pipe.img
+BSY8_PIPE_MUT_IMG  := $(BUILD)/bsy8_pipe_mut.img
+BSY8_PIPE_NAME     := bsy8_pipe
+BSY8_PIPE_MUT_NAME := bsy8_pipe_mut
+BSY8_PIPE_SERIAL   := $(BUILD)/$(BSY8_PIPE_NAME).serial
+BSY8_PIPE_MUT_SERIAL := $(BUILD)/$(BSY8_PIPE_MUT_NAME).serial
+BSY8_PIPE_REPORT   := $(BUILD)/$(BSY8_PIPE_NAME).report
+BSY8_PIPE_MUT_REPORT := $(BUILD)/$(BSY8_PIPE_MUT_NAME).report
+BSY8_PIPE_BAT      := $(FAT12_FIXTURE_DIR)/autoexec_bsy8.bat
+
+# Mint a fresh writable FAT12 floppy with AUTOEXEC.BAT (the pipe script), GREET.COM
+# (the producer) and GOBBLE.COM (the consumer). No GIN.TXT: the pipe temp IS the
+# input the consumer reads.
+define bsy8-pipe-mint-disk
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(BSY8_PIPE_BAT) ::AUTOEXEC.BAT
+	@mcopy -i $(1) $(GREET_PROG_BIN) ::GREET.COM
+	@mcopy -i $(1) $(GOBBLE_PROG_BIN) ::GOBBLE.COM
+endef
+
+.PHONY: test-bsy8-pipe test-bsy8-pipe-mutant
+test-bsy8-pipe: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(GOBBLE_PROG_BIN) $(BSY8_PIPE_BAT)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-bsy8-pipe : the `|` PIPE (DOS temp-file pipe)\n'
+	@printf '  beads initech-bsy.8. AUTOEXEC.BAT: GREET.COM | GOBBLE.COM ; TYPE PIPE1.$$$$$$.\n'
+	@printf '  Proves GREET`s stdout flows through a temp file into GOBBLE`s stdin, GOBBLE\n'
+	@printf '  echoes it to serial, and the temp is DELETED afterward (TYPE -> File not found).\n'
+	@printf '  Prereqs bsy.7+bsy.9+hsct.\n'
+	@printf '======================================================================\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-bsy8-pipe FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-bsy8-pipe FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	$(call bsy8-pipe-mint-disk,$(BSY8_PIPE_IMG))
+	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT pipe script + GREET.COM + GOBBLE.COM)\n' "$(TRACER_IMG)" "$(BSY8_PIPE_IMG)"
+	@printf 'Expecting : GOBBLE-BEGIN once, GREETINGS once (via the temp pipe), "File not found" (temp gone), clean EXIT\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(BSY8_PIPE_IMG)" \
+		--name "$(BSY8_PIPE_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(BSY8_PIPE_REPORT)" || true
+	@cat "$(BSY8_PIPE_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(BSY8_PIPE_REPORT)"; then \
+		printf '!!! test-bsy8-pipe FAIL: TRIPLE FAULT -- the pipe crashed (root-cause the temp create/dup2/JFT-inherit path, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-bsy8-pipe [1/6]: no triple-fault\n'
+	@if [ ! -s "$(BSY8_PIPE_SERIAL)" ]; then \
+		printf '!!! test-bsy8-pipe FAIL: no serial captured at %s\n' "$(BSY8_PIPE_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(BSY8_PIPE_SERIAL)" \
+		|| { printf '!!! test-bsy8-pipe FAIL: SHELL-READY missing -- the REPL was never entered (the pipe may have hung; check the consumer stdin path)\n'; exit 1; }
+	@printf '>>> test-bsy8-pipe [2/6]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@sed -n '/^SHELL-READY$$/,$$p' "$(BSY8_PIPE_SERIAL)" | tr -d '\r' > "$(BUILD)/$(BSY8_PIPE_NAME).repl"
+	@bcnt=$$(grep -oF 'GOBBLE-BEGIN' "$(BUILD)/$(BSY8_PIPE_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$bcnt" != "1" ]; then \
+		printf '!!! test-bsy8-pipe FAIL: GOBBLE-BEGIN seen %s time(s), expected EXACTLY 1.  count==0 means the consumer stage of the pipe never ran (root-cause run_pipeline stage dispatch, Rule 3)\n' "$$bcnt"; \
+		exit 1; \
+	fi
+	@printf '>>> test-bsy8-pipe [3/6]: GOBBLE-BEGIN appears EXACTLY once (the consumer stage ran)\n'
+	@gcnt=$$(grep -oF 'GREETINGS' "$(BUILD)/$(BSY8_PIPE_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$gcnt" != "1" ]; then \
+		printf '!!! test-bsy8-pipe FAIL: GREETINGS seen %s time(s), expected EXACTLY 1 (echoed once from the redirected stdin via the temp pipe).  count==0 means the pipe did NOT feed GREET`s stdout into GOBBLE`s stdin (root-cause the temp create + dup2(temp,1) on the producer OR dup2(temp,0) on the consumer, Rule 3); count>1 means GREET also leaked to screen (producer stdout not repointed at the temp)\n' "$$gcnt"; \
+		exit 1; \
+	fi
+	@printf '>>> test-bsy8-pipe [4/6]: GREETINGS appears EXACTLY once -- `GREET.COM | GOBBLE.COM` piped GREET`s stdout through the temp into GOBBLE`s stdin (the temp-file pipe works)\n'
+	@grep -qF 'File not found' "$(BUILD)/$(BSY8_PIPE_NAME).repl" \
+		|| { printf '!!! test-bsy8-pipe FAIL: "File not found" missing -- `TYPE PIPE1.$$$$$$` did NOT report the temp gone; the pipe intermediate was not deleted after the pipeline (root-cause the run_pipeline cleanup/dos_unlink path, Rule 3)\n'; exit 1; }
+	@printf '>>> test-bsy8-pipe [5/6]: `TYPE PIPE1.$$$$$$` printed "File not found" -- the pipe temp was DELETED after the pipeline (authentic DOS 3.3 cleanup; MS-DOS 3.3 Tech Ref Ch.6)\n'
+	@grep -q '^SHELL-EXIT$$' "$(BSY8_PIPE_SERIAL)" \
+		|| { printf '!!! test-bsy8-pipe FAIL: SHELL-EXIT missing -- the post-AUTOEXEC interactive EXIT did not run (handle 0/1 may not have been restored to CON after the pipeline, or a refcount over-free panicked)\n'; exit 1; }
+	@printf '>>> test-bsy8-pipe [6/6]: post-pipe `exit` reached the REPL + halted cleanly (handles restored to CON; no SFT over-free)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- `GREET.COM | GOBBLE.COM` really pipes via a DOS temp file on the 386\n'
+	@printf '            (temp created, fed, and deleted; QEMU only, tri-emulator pending initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ----- Mutant kernel for test-bsy8-pipe-mutant (Rule 6) -----
+# command.c compiled with -DCMD_MUTATE_PIPE_NO_STDIN: run_pipeline never repoints
+# the consumer stage's stdin (handle 0) at the previous temp, so GOBBLE reads the
+# keyboard instead of the pipe, GREETINGS never reaches serial, and the count==1
+# assertion goes RED. Same object-swap idiom as the bsy7-redir-mutant kernel
+# (recompile ONLY command.o).
+BSY8_PIPE_COMMAND_MUT_OBJ := $(BUILD)/command_mut_nostdin.o
+BSY8_PIPE_SHELL_MUT_ELF   := $(BUILD)/kernel_shell_mut_nostdin.elf
+BSY8_PIPE_SHELL_MUT_BIN   := $(BUILD)/kernel_shell_mut_nostdin.bin
+BSY8_PIPE_TRACER_MUT_IMG  := $(BUILD)/tracer_boot_mut_nostdin.img
+
+$(BSY8_PIPE_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/batch.h \
+                               spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_PIPE_NO_STDIN \
+		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
+
+BSY8_PIPE_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BSY8_PIPE_COMMAND_MUT_OBJ)
+
+$(BSY8_PIPE_SHELL_MUT_ELF): $(BSY8_PIPE_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY8_PIPE_SHELL_MUT_OBJS)
+
+$(BSY8_PIPE_SHELL_MUT_BIN): $(BSY8_PIPE_SHELL_MUT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_mut_nostdin.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-mut-nostdin): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,shell-mut-nostdin)
+
+$(BSY8_PIPE_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY8_PIPE_SHELL_MUT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BSY8_PIPE_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> bsy8-pipe mutant image: %s (consumer STDIN repoint DISABLED -- GOBBLE reads keyboard / GREETINGS absent)\n" "$@"
+
+test-bsy8-pipe-mutant: $(HARNESS_BIN) $(BSY8_PIPE_TRACER_MUT_IMG) $(GREET_PROG_BIN) $(GOBBLE_PROG_BIN) $(BSY8_PIPE_BAT)
+	@printf '>>> test-bsy8-pipe-mutant: confirming the NO-STDIN (consumer stdin not repointed) mutant goes RED (Rule 6)\n'
+	$(call bsy8-pipe-mint-disk,$(BSY8_PIPE_MUT_IMG))
+	@$(HARNESS_BIN) --disk "$(BSY8_PIPE_TRACER_MUT_IMG)" --disk2 "$(BSY8_PIPE_MUT_IMG)" \
+		--name "$(BSY8_PIPE_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(BSY8_PIPE_MUT_REPORT)" || true
+	@if [ ! -s "$(BSY8_PIPE_MUT_SERIAL)" ]; then \
+		printf '!!! test-bsy8-pipe-mutant FAIL: no serial from the mutant boot\n'; exit 1; \
+	fi
+	@sed -n '/^SHELL-READY$$/,$$p' "$(BSY8_PIPE_MUT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(BSY8_PIPE_MUT_NAME).repl"
+	@gcnt=$$(grep -oF 'GREETINGS' "$(BUILD)/$(BSY8_PIPE_MUT_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$gcnt" = "1" ]; then \
+		printf '!!! test-bsy8-pipe-mutant FAIL: GREETINGS seen 1x under CMD_MUTATE_PIPE_NO_STDIN -- the pipe would pass even with the consumer stdin repoint dead; the emu gate is decoration\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-bsy8-pipe-mutant: green (no-stdin mutant correctly RED -- GREETINGS count != 1, the consumer stdin repoint is load-bearing for the pipe)\n'
+
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
@@ -17825,6 +17990,7 @@ TEST_EMU_GATES := \
 	test-hsct-redir test-hsct-redir-mutant \
 	test-bsy9-redir test-bsy9-redir-mutant \
 	test-bsy7-redir test-bsy7-redir-mutant \
+	test-bsy8-pipe test-bsy8-pipe-mutant \
 	test-flair-desktop test-flair-desktop-mutant \
 	test-flair-live test-flair-live-mutant \
 	test-flair-key test-flair-key-mutant \

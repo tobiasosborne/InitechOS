@@ -1508,6 +1508,91 @@ int cmd_redir_parse(const char *line,
 #endif
 }
 
+/* cmd_pipe_split: split `line` on the `|` PIPE operator into ordered stages.
+ * See command.h for the full citation + semantics block (beads initech-bsy.8).
+ *
+ * Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6 (`a | b` is a TEMP-FILE pipe; the
+ *   shell has no quoting so every `|` is a separator; `a | b | c` composes
+ *   left-to-right).  Pure: no asm, no I/O -- host-testable in test_redir_parse.c.
+ *
+ * Implementation: one left-to-right scan.  We emit a stage each time we hit a
+ * `|` (copying the span since the last cut, whitespace-trimmed) until either the
+ * line ends or we reach CMD_PIPE_MAX_STAGES-1 stages; the FINAL stage swallows
+ * the entire remaining tail verbatim (embedded `|` preserved -- bounded + no
+ * lost byte, Rule 2).  Each copy is clamped to CMD_LINE_MAX and NUL-terminated. */
+int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
+{
+    if (out == 0) {
+        return 0;
+    }
+
+    out->nstages = 0;
+
+    if (line == 0) {
+        out->stage[0][0] = '\0';
+        out->nstages = 1;
+        return 1;
+    }
+
+    uint32_t seg_start = 0;   /* index of the first char of the current stage span */
+    uint32_t i = 0;
+    for (;;) {
+        int at_end = (line[i] == '\0');
+
+#ifdef CMD_MUTATE_PIPE_NO_SPLIT
+        /* MUTANT (Rule 6; beads initech-bsy.8): never treat `|` as a separator,
+         * so the whole line collapses into ONE stage -- the multi-stage parse
+         * assertions + the GREET|GOBBLE emu gate go RED.  NEVER in a real build. */
+        int is_sep = 0;
+#else
+        int is_sep = (line[i] == '|');
+#endif
+
+        /* Cut a stage at a `|` OR at end-of-line -- UNLESS this is the last slot
+         * we may fill, in which case we keep scanning so the remainder (any
+         * embedded `|` included) folds into the final stage span. */
+        int last_slot = (out->nstages == CMD_PIPE_MAX_STAGES - 1);
+
+        if (at_end || (is_sep && !last_slot)) {
+            /* Trim leading whitespace of [seg_start, i). */
+            uint32_t s = seg_start;
+            uint32_t e = i;
+            while (s < e && redir_is_space(line[s])) {
+                s++;
+            }
+            /* Trim trailing whitespace. */
+            while (e > s && redir_is_space(line[e - 1u])) {
+                e--;
+            }
+            /* Copy [s, e) into the current stage, clamped + NUL-terminated. */
+            char *dst = out->stage[out->nstages];
+            uint32_t k = 0;
+            while (s < e && k + 1u < (uint32_t)CMD_LINE_MAX) {
+                dst[k] = line[s];
+                k++;
+                s++;
+            }
+            dst[k] = '\0';
+            out->nstages++;
+
+            if (at_end) {
+                break;
+            }
+            seg_start = i + 1u;   /* next stage starts after the `|` */
+        }
+
+        i++;
+    }
+
+    /* A line that is all whitespace / empty still yields exactly one ("") stage. */
+    if (out->nstages == 0) {
+        out->stage[0][0] = '\0';
+        out->nstages = 1;
+    }
+
+    return out->nstages;
+}
+
 /* ===========================================================================
  * The REPL (kernel-only). Everything below dogfoods the INT 21h API via real
  * `int $0x21` calls -- the authentic COMMAND.COM design + proof the OS API is a
@@ -3173,6 +3258,187 @@ static int run_with_redirect(const char *line)
     return rc;
 }
 
+/* ---- PIPE executor (beads initech-bsy.8) ---------------------------------
+ * Authentic DOS 3.3 implements `a | b` as a TEMP-FILE pipe (MS-DOS 3.3 Tech Ref
+ * Ch.6): COMMAND.COM runs `a` with stdout redirected to a temporary file, then
+ * runs `b` with stdin from that file, then DELETES the temp.  `a | b | c`
+ * composes left-to-right (each interior stage feeds the next via its own temp).
+ *
+ * We COMPOSE the proven redirect machinery rather than duplicate it: for each
+ * stage we bracket run_with_redirect (which peels the stage's OWN `<`/`>`/`>>`
+ * and restores per-invocation) with an OUTER stdin (from the previous stage's
+ * temp) and an OUTER stdout (to this stage's temp).  Because the OUTER handles
+ * are set up BEFORE run_with_redirect and torn down AFTER, and the stage's own
+ * redirects nest INSIDE, DOS precedence falls out for free: an explicit `a > f`
+ * inside a piped stage wins for handle 1 (the temp stays empty) exactly as real
+ * DOS does.  For `a < in | b > out` the `< in` is stage 0's own redirect and the
+ * `> out` is the last stage's own redirect -- both handled by cmd_redir_parse
+ * inside their stage; the pipe only supplies the inter-stage temps.
+ *
+ * STAGE-FAILURE semantics (CITED): DOS pipes do NOT check a stage's exit code --
+ * `a` is always run to completion (writing the temp), then `b` is always run on
+ * whatever the temp contains, even if `a` failed (MS-DOS 3.3 Tech Ref Ch.6: the
+ * pipe is a straight temp-file substitution, not a conditional).  So a failing
+ * left stage still feeds its PARTIAL temp to the right stage; we never short-
+ * circuit on a stage's return except for a mid-pipeline EXIT builtin (rc==1),
+ * which tears the shell down (ASSUMED: `exit` inside a pipe is degenerate; we
+ * stop the pipeline but still delete every temp).
+ *
+ * TEMP-FILE NAME SCHEME: real MS-DOS COMMAND.COM writes pipe intermediates to a
+ * file with the DOS ".$$$" TEMPORARY extension (the ".$$$" convention is DOS-
+ * wide; MS-DOS 3.3 Tech Ref Ch.6).  DOS 3.3 predates the TEMP-environment
+ * placement of later versions, so the intermediate lands in the CURRENT
+ * directory of the default drive (single-drive A: here).  We name successive
+ * intermediates PIPE1.$$$ .. PIPE7.$$$.
+ *   CITED : the ".$$$" temporary extension + current-drive-root placement.
+ *   ASSUMED: the exact "PIPEn" stem (the real 3.3 stem is not byte-documented).
+ *
+ * FAIL-LOUD (Rule 2): a temp-file CREATE failure (disk full) prints the DOS
+ * "Insufficient disk space" diagnostic (MSG-DOS-0005), deletes any temps already
+ * made, and aborts the pipeline -- never runs a stage with a bogus stdout.
+ *
+ * MUTATION hook (Rule 6): CMD_MUTATE_PIPE_NO_STDIN drops the OUTER stdin repoint
+ * for stages 2..n, so a consumer reads the KEYBOARD instead of the pipe -- the
+ * GREET|GOBBLE emu gate goes RED (GREETINGS never flows through the temp).
+ * NEVER in a real build. */
+
+/* Fill `buf` (>= 10 bytes) with the pipe-temp name for intermediate `idx`
+ * (0-based): "PIPE" <1..8> ".$$$".  idx is bounded by CMD_PIPE_MAX_STAGES-2, so
+ * the digit is always a single character. */
+static void pipe_temp_name(int idx, char *buf)
+{
+    buf[0] = 'P';
+    buf[1] = 'I';
+    buf[2] = 'P';
+    buf[3] = 'E';
+    buf[4] = (char)('1' + idx);   /* PIPE1.. (idx 0-based) */
+    buf[5] = '.';
+    buf[6] = '$';
+    buf[7] = '$';
+    buf[8] = '$';
+    buf[9] = '\0';
+}
+
+/* Execute a multi-stage pipeline.  Returns 1 iff a stage issued EXIT (tear the
+ * REPL down), else 0.  Deletes every temp on EVERY path (Rule 2). */
+static int run_pipeline(cmd_pipeline_t *pl)
+{
+    char tname[CMD_PIPE_MAX_STAGES][12];   /* tname[i] = temp AFTER stage i     */
+    int  created[CMD_PIPE_MAX_STAGES];     /* 1 iff we created (must delete) it  */
+    int  rc = 0;
+    int  i;
+
+    for (i = 0; i < CMD_PIPE_MAX_STAGES; i++) {
+        created[i] = 0;
+    }
+
+    for (i = 0; i < pl->nstages; i++) {
+        int is_first = (i == 0);
+        int is_last  = (i == pl->nstages - 1);
+
+        int out_h = -1, out_saved = -1;   /* OUTER stdout -> temp[i]            */
+        int in_h  = -1, in_saved  = -1;   /* OUTER stdin  <- temp[i-1]          */
+
+        /* ---- OUTER stdout: an interior/producer stage writes to temp[i] ---- */
+        if (!is_last) {
+            pipe_temp_name(i, tname[i]);
+            out_h = dos_creat(tname[i]);
+            if (out_h < 0) {
+                /* Disk full / cannot create the intermediate -> fail loud. */
+                dos_print(MSG_DOS_0005 "\r\n$");   /* "Insufficient disk space" */
+                goto cleanup;
+            }
+            created[i] = 1;
+            out_saved = dos_dup(1);
+            if (out_saved < 0) {
+                dos_close(out_h);
+                dos_print(MSG_DOS_0002 "\r\n$");    /* "Bad command or file name" */
+                goto cleanup;
+            }
+            if (dos_dup2(out_h, 1) < 0) {
+                dos_close(out_saved);
+                dos_close(out_h);
+                dos_print(MSG_DOS_0002 "\r\n$");
+                goto cleanup;
+            }
+        }
+
+        /* ---- OUTER stdin: a consumer stage reads from temp[i-1] ---- */
+#ifndef CMD_MUTATE_PIPE_NO_STDIN
+        if (!is_first) {
+            in_h = dos_open(tname[i - 1]);   /* AH=3Dh AL=00 read the intermediate */
+            if (in_h >= 0) {
+                in_saved = dos_dup(0);
+                if (in_saved >= 0) {
+                    if (dos_dup2(in_h, 0) < 0) {
+                        dos_close(in_saved);
+                        in_saved = -1;
+                        dos_close(in_h);
+                        in_h = -1;
+                    }
+                } else {
+                    dos_close(in_h);
+                    in_h = -1;
+                }
+            }
+        }
+#else
+        /* MUTANT: the consumer never gets its stdin repointed at the temp, so it
+         * reads the keyboard -- the piped data never flows (gate RED). */
+        (void)is_first;
+#endif
+
+        /* ---- run the stage; its OWN `<`/`>`/`>>` are peeled INSIDE (nested) ---- */
+        rc = run_with_redirect(pl->stage[i]);
+
+        /* ---- tear down the OUTER handles (stdin first, then stdout) ---- */
+        if (in_saved >= 0) {
+            dos_dup2(in_saved, 0);
+            dos_close(in_saved);
+        }
+        if (in_h >= 0) {
+            dos_close(in_h);
+        }
+        if (out_saved >= 0) {
+            dos_dup2(out_saved, 1);
+            dos_close(out_saved);
+        }
+        if (out_h >= 0) {
+            dos_close(out_h);
+        }
+
+        if (rc == 1) {   /* EXIT issued mid-pipeline: stop, still clean temps */
+            break;
+        }
+    }
+
+cleanup:
+    /* Delete every intermediate on EVERY path (incl. disk-full abort + EXIT).
+     * Authentic DOS removes the pipe temp(s) when the pipeline finishes. */
+    for (i = 0; i < CMD_PIPE_MAX_STAGES; i++) {
+        if (created[i]) {
+            (void)dos_unlink(tname[i]);
+        }
+    }
+    return rc;
+}
+
+/* Top-level command-line entry: split on `|`, run the pipeline if there is one,
+ * else fall through to the proven single-command redirect driver UNCHANGED (the
+ * no-pipe path is byte-identical to before -- run_with_redirect on the RAW line).
+ * All the shell's user-command call sites (the REPL + every .BAT dispatch leg)
+ * route through here so pipes work everywhere redirects do. */
+static int run_pipeline_or_redirect(const char *line)
+{
+    cmd_pipeline_t pl;
+
+    int n = cmd_pipe_split(line, &pl);
+    if (n <= 1) {
+        return run_with_redirect(line);   /* no `|` -> unchanged behaviour */
+    }
+    return run_pipeline(&pl);
+}
+
 /* ---- the .BAT interpreter (beads initech-xw1) ----------------------------
  * run_batch reads a whole .BAT file into a buffer, splits it on CR/LF, and
  * interprets each line per DOS 3.3 batch semantics (MS-DOS 3.3 Tech Ref Ch.3):
@@ -3517,7 +3783,7 @@ static void run_batch(const char *path, const char *const argv[], int argc)
                                 }
                             }
                             echo_line[w] = '\0';
-                            (void)run_with_redirect(echo_line);
+                            (void)run_pipeline_or_redirect(echo_line);
                         } else {
                             dos_puts_raw(expanded);
                             dos_print("\r\n$");
@@ -3572,7 +3838,7 @@ static void run_batch(const char *path, const char *const argv[], int argc)
                              * so `IF ... ECHO x > log` redirects.  An EXIT inside
                              * it sets g_shell_exit, which the loop checks at the
                              * bottom to tear down. */
-                            (void)run_with_redirect(cond);
+                            (void)run_pipeline_or_redirect(cond);
                         }
                     }
                 }
@@ -3612,7 +3878,7 @@ static void run_batch(const char *path, const char *const argv[], int argc)
                                     /* FOR-body via the redirect driver so
                                      * `FOR ... DO ECHO %X > log` redirects
                                      * (initech-hsct). */
-                                    (void)run_with_redirect(cmd);
+                                    (void)run_pipeline_or_redirect(cmd);
                                 }
                             }
                         }
@@ -3720,7 +3986,7 @@ static void run_batch(const char *path, const char *const argv[], int argc)
                     /* Plain batch command via the redirect driver (initech-hsct)
                      * so `ECHO HELLO > OUT.TXT` / `DIR >> log` in a .BAT (incl.
                      * AUTOEXEC.BAT) repoint stdout around the command. */
-                    (void)run_with_redirect(expanded);
+                    (void)run_pipeline_or_redirect(expanded);
                 }
                 break;
             }
@@ -3910,12 +4176,13 @@ void command_repl(void)
         read_line(line);
 
         /* Dispatch through the SHARED path the .BAT interpreter also uses
-         * (beads initech-xw1), via the OUTPUT-redirection driver (initech-hsct)
-         * so `echo HELLO > FILE.TXT` / `dir >> log` repoint stdout around the
-         * command.  A no-redirect line passes straight through to dispatch_line.
-         * A return value of 1 means EXIT was typed (print already emitted); tear
-         * the REPL down. */
-        if (run_with_redirect(line)) {
+         * (beads initech-xw1), via the PIPE + I/O-redirection driver: pipes
+         * (`a | b`, initech-bsy.8) split into temp-file stages, and each stage's
+         * `>`/`>>`/`<` (initech-hsct + bsy.7) repoint its stdout/stdin.  A plain
+         * line with neither passes straight through to dispatch_line.  A return
+         * value of 1 means EXIT was issued (print already emitted); tear the REPL
+         * down. */
+        if (run_pipeline_or_redirect(line)) {
             return;
         }
     }

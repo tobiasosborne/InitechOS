@@ -331,6 +331,46 @@ int cmd_redir_parse(const char *line,
                     int *append_out,
                     char *in_target_out, uint32_t in_target_cap);
 
+/* ---- Pipe splitter (PURE, host-testable) ----------------------------------
+ * cmd_pipe_split: split a command line on the `|` PIPE operator into an ordered
+ * list of stages, LEFT to RIGHT.  A stage is the verbatim (whitespace-trimmed)
+ * text between two `|` separators; each stage's OWN `<`/`>`/`>>` redirects are
+ * left INTACT inside it for cmd_redir_parse to peel per stage (the splitter is a
+ * layer ABOVE cmd_redir_parse -- it never touches redirect operators).  No I/O,
+ * no asm: the SAME TU compiles HOSTED for test_redir_parse.c.
+ *
+ * Ref: DOS 3.3 COMMAND.COM pipes (MS-DOS 3.3 Tech Ref Ch.6): `a | b` is a
+ *   TEMP-FILE pipe -- COMMAND.COM runs `a` with stdout to a temporary file, then
+ *   runs `b` with stdin from that file, then deletes the temp; `a | b | c`
+ *   composes left-to-right.  The shell has NO quoting, so every `|` is a
+ *   separator.  beads initech-bsy.8 (this increment; deferred from initech-hsct).
+ *
+ * SEMANTICS:
+ *   - nstages == 1 with stage[0] == the trimmed line when there is no `|` (incl.
+ *     a NULL or empty line -> nstages 1, stage[0] == "").
+ *   - Each `|` starts a new stage; the text on each side is trimmed of leading/
+ *     trailing whitespace.  A degenerate empty side (`dir |`, `| sort`, `a||b`)
+ *     yields an empty ("") stage -- the driver runs it as a no-op producer/
+ *     consumer (authentic: DOS pipes an empty command to an empty temp).
+ *   - At most CMD_PIPE_MAX_STAGES stages are produced; a line with more `|`
+ *     separators folds the entire remainder (embedded `|` included) into the
+ *     final stage verbatim -- bounded + safe, never a lost byte (Rule 2).
+ *
+ * Returns the stage count (>= 1).  Rule 2: every stage copy is bounded by
+ * CMD_LINE_MAX and NUL-terminated within the buffer, never written past the end.
+ *
+ * MUTATION hook (Rule 6): CMD_MUTATE_PIPE_NO_SPLIT collapses the whole line into
+ * ONE stage (the `|` scan is skipped) -- the multi-stage parse assertions + the
+ * GREET|GOBBLE emu gate both go RED.  NEVER in a real build. */
+#define CMD_PIPE_MAX_STAGES 8
+
+typedef struct cmd_pipeline {
+    int  nstages;                                 /* 1 .. CMD_PIPE_MAX_STAGES     */
+    char stage[CMD_PIPE_MAX_STAGES][CMD_LINE_MAX]; /* each trimmed stage, ASCIIZ  */
+} cmd_pipeline_t;
+
+int cmd_pipe_split(const char *line, cmd_pipeline_t *out);
+
 /* ---- The REPL (kernel-only; compiled out of the host build) --------------- */
 /* COMMAND_KERNEL_REPL is defined for the kernel command.o; the kmain BOOT_SHELL
  * object also needs the declaration, so BOOT_SHELL implies it for the header. */
