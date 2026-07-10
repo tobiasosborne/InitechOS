@@ -17,10 +17,13 @@
  *   LEG M -- THE MODAL SURVIVES.  The dragged window's OLD struct {300,120,560,360}
  *     overlapped the modal {140,200,500,280}; after the ~260 px LEFT drag the
  *     modal's right half is VACATED.  Post-fix it is untouched from shell_render:
- *       - the dBoxProc right border (496,240) reads canon idx0 black;
+ *       - the moveable-titled modal's right frame (499,240) reads canon idx0
+ *         black (was the dBoxProc 7px border's (496,240) before initech-zvo6;
+ *         the modal chrome is now a pinstripe title bar + a PLAIN 1px frame);
  *       - the modal interior / progress bar (450,240) reads canon idx1 white;
- *       - the right-half band x[366,498] y[206,278] is >=80% canon white/black
- *         (the modal box + text + progress bar) and <=5% canon teal.
+ *       - the right-half band x[366,498] y[220,278] (below the 19px title band
+ *         -- was y[206,278] under the old 7px-border layout) is >=80% canon
+ *         white/black (the modal box + text + progress bar) and <=5% canon teal.
  *     Pre-fix the whole band was seafoam-ERASED -> ~100% teal -> LEG M goes RED.
  *
  *   LEG B -- THE PHOTOSHOP MENU BAR SURVIVES.  A run across the second (Photoshop)
@@ -35,8 +38,10 @@
  * expected colors are the canon flair_canon_rgb(idx) values (spec/assets/
  * color_canon.h) -- the SAME independently-decomp-graded canon test-color-canon
  * vouches for -- NEVER the render source flair_palette_rgb, NEVER preview.webp.
- * The modal geometry (dBoxProc 7px border; bounds {140,200,500,280}) comes from
- * os/flair/dialog.c FILECOPY_* + the drag delta, NOT from the artifact's render.
+ * The modal geometry (moveable-titled movableDBoxProc chrome, beads
+ * initech-zvo6; bounds {140,200,500,280}) comes from os/flair/dialog.c
+ * FILECOPY_* + spec/chrome_metrics.h + the drag delta, NOT from the artifact's
+ * render.
  *
  * Usage: ppm_flair_dc4v_check <screendump.ppm>
  * Exit 0 = PASS; non-zero = a named FAIL (the assertion + sampled-vs-expected RGB).
@@ -67,15 +72,22 @@
  * it from being seafoam-erased. Probe the RIGHT half only (defect a, the empirically
  * -proven erase case): all coords are x in [360,500) y in [200,280). */
 #define MODAL_R        500
-#define MODAL_RB_X     496   /* right border column (x in [493,500) black band)  */
+#define MODAL_RB_X     499   /* right frame column (the PLAIN 1px frame; was
+                              * 496 -- inside the OLD 7px black band -- before
+                              * initech-zvo6's moveable-titled chrome)          */
 #define MODAL_MID_Y    240
-#define MODAL_INT_X    450   /* interior / progress bar (white at value 0)        */
+#define MODAL_INT_X    450   /* interior / progress bar (white content)           */
 
 /* the right-half survival band (entirely inside the modal AND inside the vacated
- * seafoam-erase zone x[360,560)y[120,360) of the pre-fix build). */
+ * seafoam-erase zone x[360,560)y[120,360) of the pre-fix build). BAND_Y0 starts
+ * BELOW the 19px pinstripe title band (content_top = DT+TITLEBAR_H = 219; was
+ * 206 under the old 7px-border layout, where content began at DT+7=207) so the
+ * >=80% white/black check isn't diluted by legitimate non-white/black pinstripe
+ * (idx7/8) / bevel (idx2/4) pixels in the title band -- those are NOT erased
+ * teal either way, but they are also not "white/black chrome". */
 #define BAND_X0        366
 #define BAND_X1        498
-#define BAND_Y0        206
+#define BAND_Y0        220
 #define BAND_Y1        278
 
 /* the Photoshop (second) bar run: y=30 is rows [20,40); x[70,350] crosses titles. */
@@ -176,7 +188,7 @@ int main(int argc, char **argv)
 
     /* ---- LEG M: THE MODAL SURVIVES the drag across it. --------------------- */
     assert_idx(MODAL_RB_X, MODAL_MID_Y, CIDX_FRAME,
-               "LEG M: modal right border (496,240) is canon idx0 black (not erased)");
+               "LEG M: modal right frame (499,240) is canon idx0 black (not erased)");
     assert_idx(MODAL_INT_X, MODAL_MID_Y, CIDX_WHITE,
                "LEG M: modal interior (450,240) is canon idx1 white (not erased)");
     {

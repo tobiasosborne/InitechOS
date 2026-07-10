@@ -197,14 +197,28 @@ static void cbox(GrafPort *port, int bx0, int by0, int zoom)
 #endif /* !CHROME_FID_MUT_BOX_GEOM */
 
 /* ---------------------------------------------------------------------------
- * flair_draw_document_window -- the chrome composition (top to bottom).
+ * draw_titlebar_band -- the SHARED title-bar band composition: bevel-hi row +
+ * the 15-row phase-locked pinstripe (or the flat inactive fill) + bevel-lo row
+ * + the shared bottom frame line + the centered Chicago title text. This is
+ * the EXACT code flair_draw_document_window has always run for its title band
+ * (byte-identical extraction, no behavior change for that caller); it is now
+ * also the ONE title-bar renderer flair_draw_movable_dbox_chrome (movableDBoxProc,
+ * beads initech-zvo6) reuses, per CLAUDE.md "do not hand-roll new chrome" --
+ * a second title bar would be a second, un-audited pixel path.
+ *
+ * `right` bounds the interior span (the band fills [left+fr, right-fr)); the
+ * caller supplies `left`/`top`/`right` in port-local coordinates. Returns
+ * `shared_line`, the y of the shared bottom frame line, so the caller can
+ * derive content_top = shared_line + FLAIR_CHROME_FRAME.
+ *
+ * Ref: ../system7-decomp/specs/chrome/title-bar.md (documentProc geometry);
+ *      ../system7-decomp/specs/chrome/wdef-variant-geometry.md Sec 4 (the
+ *      movableDBoxProc golden s7_about.png: "identical to documentProc"
+ *      bevel/pinstripe shades and geometry).
  * ------------------------------------------------------------------------- */
-void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
-                                const char *title, int hilited)
+static int draw_titlebar_band(GrafPort *port, int left, int top, int right,
+                              const char *title, int hilited)
 {
-    if (port == 0) {
-        return;
-    }
 #if defined(CHROME_FID_MUT_NO_INACTIVE)
     /* MUTANT (Rule 6; beads initech-a9iq): ignore `hilited` -- always render the
      * ACTIVE title-bar interior, reproducing the original bug (every window,
@@ -215,22 +229,7 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
 #else
     const int hilited_draw = hilited;
 #endif
-    int left   = frame.left;
-    int top    = frame.top;
-    int right  = frame.right;
-    int bottom = frame.bottom;
     int w = right - left;
-    int h = bottom - top;
-
-    /* The window must be big enough to hold its own chrome (title bar + frame +
-     * a row of content + the scrollbar width). Otherwise no-op (fail-soft; the
-     * Window Manager sizes the window, Rule 2 -- never draw garbage). */
-    int min_h = FLAIR_CHROME_TITLEBAR_H + 2 * FLAIR_CHROME_FRAME + 2;
-    int min_w = FLAIR_CHROME_SCROLLBAR_W + 2 * FLAIR_CHROME_FRAME + 2;
-    if (w < min_w || h < min_h) {
-        return;
-    }
-
     const int fr = FLAIR_CHROME_FRAME;           /* 1 px frame                  */
 
     /* The title-bar INTERIOR sits just inside the top frame line (drawn by the
@@ -368,6 +367,95 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
      * 5).  C-8 seam (FLAIR_PART_FRAME = wFrameColor = black). */
     cfill(port, left + fr, shared_line, w - 2 * fr, FLAIR_PART_FRAME);
 
+    /* 1e. Title text: the window's name, drawn CENTERED in the title bar in
+     * Chicago over a KNOCKED-OUT light gap. System 7 suppresses the racing stripe
+     * under the centered title and draws black Chicago glyphs there (golden
+     * s7_doc_window.png: a centered #F3F3F3 gap with #000000 glyphs;
+     * ../system7-decomp/specs/chrome/title-bar.md Sec 3). surface_blit writes the
+     * glyph-cell background OPAQUELY, so drawing the title with bg = the pinstripe
+     * LIGHT shade paints the knockout panel AND the text in one pass. Both the ink
+     * and the knockout resolve through the C-8 policy seam (flair_look_pixel) --
+     * NEVER a color literal -- so test-flair-mechanism-colorblind stays green
+     * (beads initech-lxg9). The centering indent is clamped right of the close box
+     * (WDEF reserves the go-away box; title-bar.md "indent x=left+32"). MOVED
+     * here (was section "2.5", after the close/zoom boxes) as part of the
+     * initech-zvo6 extraction: text placement is independent of whether the
+     * caller draws close/zoom gadgets (box_clear reserves the space regardless;
+     * flair_draw_movable_dbox_chrome never draws a close box but keeps the SAME
+     * clear margin, matching the caller's own reserved layout). Pixel output for
+     * flair_draw_document_window is UNCHANGED (text and boxes never overlap). */
+#if defined(CHROME_FID_MUT_NO_TITLE)
+    /* MUTANT (Rule 6; beads initech-lxg9): skip the title render -> a blank title
+     * bar. test-chrome-fidelity's title-ink + knockout legs MUST go RED. */
+    (void)title;
+#else
+    if (title != 0 && title[0] != '\0') {
+        int cell_h = text_cell_height(FONT_CHICAGO);
+        int tw     = text_measure(FONT_CHICAGO, title);
+        /* Clamp the centered title right of the close box: the close box left edge
+         * is struct.left + 9 and it renders FLAIR_CHROME_WBOX_RENDER (11) px wide,
+         * so its right edge is left+9+11 = left+20; +3 px gap = left+23.  Recomputed
+         * from the NEW close-box geometry (close-zoom-box.md; was fr+3+WBOX_DELTA+2
+         * for the old 13px box at inset fr+3). */
+        int box_clear = 9 + FLAIR_CHROME_WBOX_RENDER + 3;     /* right of close box */
+        int tx = left + fr + (w - 2 * fr - tw) / 2;           /* centered          */
+        if (tx < left + box_clear) {
+            tx = left + box_clear;
+        }
+        /* Center the title in the 15-row STRIPE band (not the whole title band):
+         * the knockout panel is drawn with bg = PIN_LIGHT, so the glyph cells must
+         * land on the pinstripe rows -- NOT over the bevel-hi/bevel-lo or the shared
+         * frame line.  Ref: title-bar.md Sec 3; beads initech-92li recomposition. */
+        int ty = stripe_top + (stripe_rows - cell_h) / 2;     /* vertical center   */
+        if (ty < stripe_top) {
+            ty = stripe_top;
+        }
+        /* The knockout background must match whichever interior fill is actually
+         * under the glyph cell (beads initech-a9iq): PIN_LIGHT on the active
+         * pinstripe interior, CONTENT (white) on the flat inactive interior --
+         * otherwise the glyph cell paints a visibly different shade than its
+         * surroundings. Still resolved ONLY through the C-8 seam (a PART, never
+         * a literal), so test-flair-mechanism-colorblind stays green either way. */
+        uint32_t ink   = flair_look_pixel(port, FLAIR_PART_TEXT);      /* seam, black */
+        uint32_t knock = flair_look_pixel(port, hilited_draw
+                                          ? FLAIR_PART_PIN_LIGHT
+                                          : FLAIR_PART_CONTENT);        /* seam        */
+        text_draw(&port->portBits.bm, tx, ty, title, FONT_CHICAGO, ink, knock);
+    }
+#endif /* CHROME_FID_MUT_NO_TITLE */
+
+    return shared_line;
+}
+
+/* ---------------------------------------------------------------------------
+ * flair_draw_document_window -- the chrome composition (top to bottom).
+ * ------------------------------------------------------------------------- */
+void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
+                                const char *title, int hilited)
+{
+    if (port == 0) {
+        return;
+    }
+    int left   = frame.left;
+    int top    = frame.top;
+    int right  = frame.right;
+    int bottom = frame.bottom;
+    int w = right - left;
+    int h = bottom - top;
+
+    /* The window must be big enough to hold its own chrome (title bar + frame +
+     * a row of content + the scrollbar width). Otherwise no-op (fail-soft; the
+     * Window Manager sizes the window, Rule 2 -- never draw garbage). */
+    int min_h = FLAIR_CHROME_TITLEBAR_H + 2 * FLAIR_CHROME_FRAME + 2;
+    int min_w = FLAIR_CHROME_SCROLLBAR_W + 2 * FLAIR_CHROME_FRAME + 2;
+    if (w < min_w || h < min_h) {
+        return;
+    }
+
+    const int fr = FLAIR_CHROME_FRAME;           /* 1 px frame                  */
+
+    int shared_line = draw_titlebar_band(port, left, top, right, title, hilited);
+
     /* 2. Close box (top-left) and zoom box (top-right): each a double-beveled
      * 11x11 gadget (NOT a flat 1px frame, NOT 13x13).  Geometry from
      * ../system7-decomp/specs/chrome/close-zoom-box.md:
@@ -408,57 +496,6 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
         cbox(port, zoom_x,  box_top, 1);         /* zoom box  (nested-square)    */
 #endif
     }
-
-    /* 2.5 Title text: the window's name, drawn CENTERED in the title bar in
-     * Chicago over a KNOCKED-OUT light gap. System 7 suppresses the racing stripe
-     * under the centered title and draws black Chicago glyphs there (golden
-     * s7_doc_window.png: a centered #F3F3F3 gap with #000000 glyphs;
-     * ../system7-decomp/specs/chrome/title-bar.md Sec 3). surface_blit writes the
-     * glyph-cell background OPAQUELY, so drawing the title with bg = the pinstripe
-     * LIGHT shade paints the knockout panel AND the text in one pass. Both the ink
-     * and the knockout resolve through the C-8 policy seam (flair_look_pixel) --
-     * NEVER a color literal -- so test-flair-mechanism-colorblind stays green
-     * (beads initech-lxg9). The centering indent is clamped right of the close box
-     * (WDEF reserves the go-away box; title-bar.md "indent x=left+32"). */
-#if defined(CHROME_FID_MUT_NO_TITLE)
-    /* MUTANT (Rule 6; beads initech-lxg9): skip the title render -> a blank title
-     * bar. test-chrome-fidelity's title-ink + knockout legs MUST go RED. */
-    (void)title;
-#else
-    if (title != 0 && title[0] != '\0') {
-        int cell_h = text_cell_height(FONT_CHICAGO);
-        int tw     = text_measure(FONT_CHICAGO, title);
-        /* Clamp the centered title right of the close box: the close box left edge
-         * is struct.left + 9 and it renders FLAIR_CHROME_WBOX_RENDER (11) px wide,
-         * so its right edge is left+9+11 = left+20; +3 px gap = left+23.  Recomputed
-         * from the NEW close-box geometry (close-zoom-box.md; was fr+3+WBOX_DELTA+2
-         * for the old 13px box at inset fr+3). */
-        int box_clear = 9 + FLAIR_CHROME_WBOX_RENDER + 3;     /* right of close box */
-        int tx = left + fr + (w - 2 * fr - tw) / 2;           /* centered          */
-        if (tx < left + box_clear) {
-            tx = left + box_clear;
-        }
-        /* Center the title in the 15-row STRIPE band (not the whole title band):
-         * the knockout panel is drawn with bg = PIN_LIGHT, so the glyph cells must
-         * land on the pinstripe rows -- NOT over the bevel-hi/bevel-lo or the shared
-         * frame line.  Ref: title-bar.md Sec 3; beads initech-92li recomposition. */
-        int ty = stripe_top + (stripe_rows - cell_h) / 2;     /* vertical center   */
-        if (ty < stripe_top) {
-            ty = stripe_top;
-        }
-        /* The knockout background must match whichever interior fill is actually
-         * under the glyph cell (beads initech-a9iq): PIN_LIGHT on the active
-         * pinstripe interior, CONTENT (white) on the flat inactive interior --
-         * otherwise the glyph cell paints a visibly different shade than its
-         * surroundings. Still resolved ONLY through the C-8 seam (a PART, never
-         * a literal), so test-flair-mechanism-colorblind stays green either way. */
-        uint32_t ink   = flair_look_pixel(port, FLAIR_PART_TEXT);      /* seam, black */
-        uint32_t knock = flair_look_pixel(port, hilited_draw
-                                          ? FLAIR_PART_PIN_LIGHT
-                                          : FLAIR_PART_CONTENT);        /* seam        */
-        text_draw(&port->portBits.bm, tx, ty, title, FONT_CHICAGO, ink, knock);
-    }
-#endif /* CHROME_FID_MUT_NO_TITLE */
 
     /* 3. The content area: white body below the title bar, inside the frame and
      * to the left of the scrollbar. Drawn before the scrollbar so the scrollbar
@@ -724,4 +761,84 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
      * includes (right, bottom) -- written twice is fine (same pixel, same color). */
     crect(port, left + 1, bottom, right + 1, bottom + 1, FLAIR_PART_FRAME);
 #endif
+}
+
+/* ---------------------------------------------------------------------------
+ * flair_draw_movable_dbox_chrome -- movableDBoxProc (5) chrome: a moveable
+ * TITLED modal dialog box (beads initech-zvo6; Law 4).
+ *
+ * Ref (Law 1, all LOCAL):
+ *   ../system7-decomp/specs/toolbox/window-manager.md line 173:
+ *     "movableDBoxProc | 5 | movable modal dialog box (title bar, no
+ *      grow/zoom)" [verified: A+B, refs/IM_Tb_TypesOfWindows.txt (MTE Ch 4
+ *      Table 4-1) + refs/StandardWDEF_a.txt `dboxWithTitle EQU 5`].
+ *   ../system7-decomp/specs/chrome/wdef-variant-geometry.md Sec 1 (variant
+ *     catalog: movableDBoxProc = title bar yes(pinstripe), close/zoom/grow
+ *     all "no (forced off)") + Sec 4 (the RENDERED golden s7_about.png -- a
+ *     real System 7 movable-modal/title-bar window -- shows a PLAIN 1px frame
+ *     around a pinstripe title bar "identical to documentProc" geometry/
+ *     shades, NOT the WDEF assembly's theoretical 7px-fancy-border+title
+ *     combination; the doc flags that combination as itself golden-resolves
+ *     and unconfirmed by any capture). This drawer follows the CONFIRMED
+ *     rendered golden (1px frame), which also matches THIS bug's own Law-4
+ *     citation (initech-zvo6: "thin 1px document-style frame").
+ *
+ * CHROME (do NOT hand-roll a new pixel path -- reuses draw_titlebar_band,
+ * the SAME title-bar composition flair_draw_document_window uses):
+ *   - the title-bar band (bevel-hi + 15-row phase-locked pinstripe + bevel-lo
+ *     + the shared frame line + centered Chicago title text), ALWAYS drawn
+ *     hilited (the FILE COPY modal is always the topmost, frontmost overlay
+ *     per shell.c's z-order -- ADR-0004 D-5 -- so there is no inactive state
+ *     to render);
+ *   - a PLAIN 1 px frame around the WHOLE window (FLAIR_CHROME_FRAME),
+ *     drawn LAST so it is never painted over -- same convention as
+ *     flair_draw_document_window section 5.
+ * DELIBERATELY ABSENT (per the variant catalog "forced off" / "no"):
+ *   - NO close box, NO zoom box (goAwayFlag forced off at wNew for this
+ *     variant; wdef-variant-geometry.md Sec 1 "close: no (forced off)").
+ *   - NO grow box, NO scrollbar (not a scrollable document; the FILE COPY
+ *     modal has no scrollable content).
+ *   - NO drop shadow (wdef-variant-geometry.md Sec 5: shadow is ONLY the
+ *     varCode-AND-3==0 documentProc style; movableDBoxProc is varCode-AND-3
+ *     ==1, "none").
+ *
+ * The caller (os/flair/dialog.c DrawDialog) is responsible for the CONTENT
+ * fill (the dialog's white body + its items); this function draws ONLY the
+ * band + the outer frame, matching the division of labor DrawDialog already
+ * uses for the classic dBoxProc path (DrawDialog fills content, then draws
+ * the border).
+ * ------------------------------------------------------------------------- */
+void flair_draw_movable_dbox_chrome(GrafPort *port, rgn_rect_t frame,
+                                    const char *title)
+{
+    if (port == 0) {
+        return;
+    }
+    int left   = frame.left;
+    int top    = frame.top;
+    int right  = frame.right;
+    int bottom = frame.bottom;
+    int w = right - left;
+    int h = bottom - top;
+
+    /* Must be big enough to hold the title band + the 1px frame on all sides
+     * (fail-soft no-op otherwise; Rule 2 -- never draw garbage). No scrollbar
+     * width requirement (unlike flair_draw_document_window): this variant
+     * never draws one. */
+    int min_h = FLAIR_CHROME_TITLEBAR_H + 2 * FLAIR_CHROME_FRAME + 2;
+    int min_w = 2 * FLAIR_CHROME_FRAME + 2;
+    if (w < min_w || h < min_h) {
+        return;
+    }
+
+    /* The title-bar band, ALWAYS hilited=1 (see file comment above). Return
+     * value (the shared frame line y) is not needed here: the caller
+     * (DrawDialog) derives content_top from FLAIR_CHROME_TITLEBAR_H directly,
+     * the same public constant this band's geometry is locked to. */
+    (void)draw_titlebar_band(port, left, top, right, title, 1);
+
+    /* The plain 1px outer frame -- drawn LAST so it is never painted over by
+     * the caller's content fill (which is inset by FLAIR_CHROME_FRAME on all
+     * sides, so it never touches this outermost ring anyway). */
+    cframe(port, left, top, right, bottom, FLAIR_PART_FRAME);
 }

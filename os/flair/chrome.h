@@ -84,4 +84,35 @@
 void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
                                 const char *title, int hilited);
 
+/* ---------------------------------------------------------------------------
+ * flair_draw_movable_dbox_chrome -- draw one System-7 movableDBoxProc (5)
+ * window's chrome: a moveable TITLED modal dialog box (beads initech-zvo6).
+ *
+ * Draws into `port` over the rectangle `frame`, composed of:
+ *   - the SAME title-bar band flair_draw_document_window draws (pinstripe +
+ *     bevel + shared frame line + centered Chicago `title`), reusing the
+ *     shared internal composer -- NOT a hand-rolled second chrome path;
+ *   - a PLAIN 1 px frame around the whole window (FLAIR_CHROME_FRAME).
+ *
+ * Deliberately OMITS (per MTE Table 4-1 / the movableDBoxProc variant, which
+ * forces these off): close box, zoom box, grow box, scrollbar, drop shadow.
+ * The caller is responsible for the dialog's own content fill; this function
+ * draws ONLY the band + the outer frame (mirrors DrawDialog's existing
+ * dBoxProc division of labor: caller fills content, this draws the border).
+ *
+ * `title` is drawn ALWAYS-HILITED (this variant's window is always the
+ * frontmost overlay when drawn -- ADR-0004 D-5 -- so there is no inactive
+ * state). A NULL or empty title draws no text (same contract as
+ * flair_draw_document_window).
+ *
+ * Ref: ../system7-decomp/specs/toolbox/window-manager.md line 173
+ *      ("movableDBoxProc | 5 | movable modal dialog box (title bar, no
+ *      grow/zoom)"); ../system7-decomp/specs/chrome/wdef-variant-geometry.md
+ *      Sec 1 (variant catalog) + Sec 4 (the RENDERED s7_about.png golden:
+ *      plain 1px frame + documentProc-identical title band, no close/zoom/
+ *      grow); spec/window_record.h (movableDBoxProc = 5); CLAUDE.md Law 1/2/4.
+ * ------------------------------------------------------------------------- */
+void flair_draw_movable_dbox_chrome(GrafPort *port, rgn_rect_t frame,
+                                    const char *title);
+
 #endif /* INITECH_OS_FLAIR_CHROME_H */

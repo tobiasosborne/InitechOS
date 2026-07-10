@@ -269,7 +269,9 @@ static void test_filecopy_layout(void)
              FLAIR_CANON_FILECOPY_MSG, item1_text);
     CHECK(strcmp(item1_text, FLAIR_CANON_FILECOPY_MSG) == 0, msg);
 
-    /* Item 2: ctrlItem with progressBar, value=0, max=100. */
+    /* Item 2: ctrlItem with progressBar, canon value, max=100.
+     * MUTATION: DIALOG_MUTATE_PROGRESS_ZERO reverts to the old bug (value=0)
+     * -> RED (Law 4, beads initech-a90f). */
     flair_dialog_item_type_t type2;
     rgn_rect_t               rect2;
     GetDialogItem(dp, 2, &type2, &rect2);
@@ -281,19 +283,39 @@ static void test_filecopy_layout(void)
                  (int)progressBar, (int)dp->items[1].ctrl->contrlType);
         CHECK(dp->items[1].ctrl->contrlType == progressBar, msg);
 
-        CHECK(dp->items[1].ctrl->contrlValue == 0,
-              "FILE COPY progress bar initial value must be 0");
+        snprintf(msg, sizeof msg,
+                 "FILE COPY progress bar initial value must be "
+                 "FLAIR_CANON_FILECOPY_PROGRESS (%d; ~65-70%% per bug-hunt #25, "
+                 "initech-a90f), got %d",
+                 FLAIR_CANON_FILECOPY_PROGRESS, (int)dp->items[1].ctrl->contrlValue);
+        CHECK(dp->items[1].ctrl->contrlValue == FLAIR_CANON_FILECOPY_PROGRESS, msg);
+        CHECK(dp->items[1].ctrl->contrlValue != 0,
+              "FILE COPY progress bar initial value must NOT be 0 (initech-a90f "
+              "the old bug: value=0 renders zero fill)");
         CHECK(dp->items[1].ctrl->contrlMax == 100,
               "FILE COPY progress bar max must be 100");
         CHECK(dp->items[1].ctrl->contrlMin == 0,
               "FILE COPY progress bar min must be 0");
     }
 
-    /* Dialog window kind is dialogKind, variant is dBoxProc. */
+    /* Dialog window kind is dialogKind; variant is movableDBoxProc (the
+     * moveable titled modal, beads initech-zvo6) -- NOT dBoxProc (the old
+     * titleless 7px-border box). MUTATION: DIALOG_MUTATE_TITLELESS_MODAL
+     * reverts to dBoxProc -> RED (Law 4). */
     CHECK(dp->window.windowKind == (int16_t)dialogKind,
           "FILE COPY dialog windowKind must be dialogKind=2");
-    CHECK(dp->window.windowDefProcVariant == (int16_t)dBoxProc,
-          "FILE COPY dialog windowDefProcVariant must be dBoxProc=1");
+    snprintf(msg, sizeof msg,
+             "FILE COPY dialog windowDefProcVariant must be movableDBoxProc=5 "
+             "(the moveable titled modal, initech-zvo6), got %d",
+             (int)dp->window.windowDefProcVariant);
+    CHECK(dp->window.windowDefProcVariant == (int16_t)movableDBoxProc, msg);
+
+    /* The window title is the byte-exact canon "FILE COPY" (Law 4). */
+    snprintf(msg, sizeof msg,
+             "FILE COPY dialog title must be EXACTLY '%.32s' (Law 4 canon), "
+             "got '%.64s'",
+             FLAIR_CANON_FILECOPY_TITLE, dp->window.titleHandle);
+    CHECK(strcmp(dp->window.titleHandle, FLAIR_CANON_FILECOPY_TITLE) == 0, msg);
 
     /* Bounds: the canonical 360x80 box (per FileCopyDialog layout). */
     CHECK(dp->window.port.portRect.left   == 140 &&
@@ -609,6 +631,20 @@ static void draw_filecopy_dialog(GrafPort *port)
     DrawDialog(dp);
 }
 
+/* ===========================================================================
+ * PROPERTY 3 -- DRAW: the FILE COPY modal renders the MOVEABLE TITLED chrome
+ * (beads initech-zvo6): a pinstripe title bar + a PLAIN 1-px frame -- NOT the
+ * old titleless dBoxProc 7-px solid border. Dialog bounds: top=200, left=140,
+ * right=500, bottom=280. Title band geometry (chrome_metrics.h):
+ *   y=200            outer top frame line          -> DLG_BLACK (0)
+ *   y=201            bevel-hi                       -> idx 2 (CIDX_DESKTOP)
+ *   y=202..216       15-row pinstripe                -> idx 7 or 8
+ *   y=217            bevel-lo                        -> idx 4 (CIDX_TITLE_INK)
+ *   y=218            shared frame line                -> DLG_BLACK (0)
+ *   y=219.. (=top+FLAIR_CHROME_TITLEBAR_H) content    -> DLG_WHITE (1)
+ * MUTATION: DIALOG_MUTATE_TITLELESS_MODAL reverts to the OLD titleless
+ * dBoxProc box (thick 7px border, no title bar) -> these checks go RED.
+ * ===========================================================================*/
 static void test_draw_filecopy(void)
 {
     render_ctx_t ctx;
@@ -620,79 +656,155 @@ static void test_draw_filecopy(void)
 
     char msg[300];
 
-    /* Dialog bounds: top=200, left=140, right=500, bottom=280.
-     * Border width: FLAIR_CHROME_DIALOG_BORDER = 7 px (DLG_BLACK = 0).
-     *
-     * (a) Border check: the first 7 rows/columns from each edge are BLACK.
-     *
-     * Check: top border interior row at y=200+3=203, x=200 (center of dialog):
-     *   -> must be DLG_BLACK (palette index 0). */
+    /* (a) Title bar band present: bevel-hi (y=201) is idx 2, NOT black/white.
+     * Probed at x=145: comfortably left of the title-text clamp (left+23=163,
+     * close-zoom-box.md clearance), so never inside the text knockout. */
     snprintf(msg, sizeof msg,
-             "top border at (x=200,y=203) [3 rows below top=200] must be DLG_BLACK (0), got %u",
-             (unsigned)pidx(&ctx, 200u, 203u));
-    CHECK(pidx(&ctx, 200u, 203u) == 0u, msg);
+             "title bevel-hi row (x=145,y=201) must be idx 2 (CIDX_DESKTOP "
+             "bevel-light), got %u -- proves a title bar is drawn (initech-zvo6)",
+             (unsigned)pidx(&ctx, 145u, 201u));
+    CHECK(pidx(&ctx, 145u, 201u) == 2u, msg);
 
-    /* Left border at x=140+3=143, y=240 (center of dialog height). */
-    snprintf(msg, sizeof msg,
-             "left border at (x=143,y=240) [3 cols right of left=140] must be DLG_BLACK (0), got %u",
-             (unsigned)pidx(&ctx, 143u, 240u));
-    CHECK(pidx(&ctx, 143u, 240u) == 0u, msg);
+    /* (b) The pinstripe band (y=202..216) contains BOTH light (7) and dark (8)
+     * shades -- proves it is NOT the old solid-black 7px border (which would
+     * read idx 0 for every one of these rows). Probed at x=145 (left of the
+     * title-text knockout, which would otherwise mask the alternation). */
+    {
+        int saw_light = 0, saw_dark = 0;
+        for (unsigned y = 202u; y <= 216u; y++) {
+            uint32_t v = pidx(&ctx, 145u, y);
+            if (v == 7u) { saw_light = 1; }
+            if (v == 8u) { saw_dark  = 1; }
+        }
+        CHECK(saw_light && saw_dark,
+              "title bar pinstripe rows (x=145,y=202..216) must show BOTH idx7 "
+              "(light) and idx8 (dark) -- proves a pinstripe title bar, not "
+              "a solid black border (initech-zvo6)");
+    }
 
-    /* Right border at x=500-4=496, y=240. */
+    /* (c) The shared frame line (y=218, the bottom of the title band) is black.
+     * Probed at x=145 (left of the title-text knockout). */
     snprintf(msg, sizeof msg,
-             "right border at (x=496,y=240) [4 cols left of right=500] must be DLG_BLACK (0), got %u",
-             (unsigned)pidx(&ctx, 496u, 240u));
-    CHECK(pidx(&ctx, 496u, 240u) == 0u, msg);
+             "title band shared frame line (x=145,y=218) must be DLG_BLACK (0), "
+             "got %u", (unsigned)pidx(&ctx, 145u, 218u));
+    CHECK(pidx(&ctx, 145u, 218u) == 0u, msg);
 
-    /* Bottom border at y=280-4=276, x=200. */
-    snprintf(msg, sizeof msg,
-             "bottom border at (x=200,y=276) [4 rows above bottom=280] must be DLG_BLACK (0), got %u",
-             (unsigned)pidx(&ctx, 200u, 276u));
-    CHECK(pidx(&ctx, 200u, 276u) == 0u, msg);
+    /* (d) 'FILE COPY' title text is RENDERED: a CIDX_TITLE_INK (idx 4) pixel
+     * appears somewhere in the pinstripe band (y=202..216) -- idx 4 never
+     * otherwise appears there (only 7/8), so its presence proves ink, not
+     * just a knockout gap. Scanning stops BEFORE y=217 (the bevel-lo row,
+     * which is idx 4 by construction and would be a false positive). */
+    {
+        int saw_ink = 0;
+        for (int x = 140; x < 500 && !saw_ink; x++) {
+            for (unsigned y = 202u; y <= 216u; y++) {
+                if (pidx(&ctx, (uint32_t)x, y) == 4u) { saw_ink = 1; break; }
+            }
+        }
+        CHECK(saw_ink,
+              "FILE COPY title text must be RENDERED as ink (idx 4) somewhere "
+              "in the pinstripe band (initech-zvo6)");
+    }
 
-    /* (b) Content interior: pixel at border+1 inside must be DLG_WHITE (1).
-     * The content starts at top+border = 200+7=207, left+border = 140+7=147.
-     * Check: (x=147, y=207) -> DLG_WHITE (1).
-     *
-     * MUTATION CHECK (DIALOG_MUTATE_BORDER = 8 px):
-     *   With the mutant, the border covers 8 rows: top..top+7. So the pixel
-     *   at y=207 (= top+7) would still be BLACK (inside the 8-px border),
-     *   making this check fail -> oracle goes RED.
-     *   With correct 7-px border, y=207 (= top+7) is the first WHITE row
-     *   (border covers [top, top+7) = [200, 207), content starts at 207). */
+    /* (e) The frame is PLAIN 1-px, NOT the old 7px dBoxProc border: the pixel
+     * ONE column inside the left edge (x=141), at a CONTENT row (y=240, well
+     * below the 19px title band), is WHITE -- under the old 7px border this
+     * pixel (x=140+1) would still be solid BLACK (border spans x=140..146).
+     * MUTATION: DIALOG_MUTATE_TITLELESS_MODAL reverts to the 7px border ->
+     * this pixel goes BLACK -> RED. */
     snprintf(msg, sizeof msg,
-             "content interior at (x=147,y=207) [border+0=7 rows from top] must be "
+             "content just inside the LEFT frame (x=141,y=240) must be "
+             "DLG_WHITE (1) -- proves a 1px frame, not the old 7px dBoxProc "
+             "border (initech-zvo6), got %u",
+             (unsigned)pidx(&ctx, 141u, 240u));
+    CHECK(pidx(&ctx, 141u, 240u) == 1u, msg);
+
+    /* Symmetric check on the right edge (x=498, one col inside x=499). */
+    snprintf(msg, sizeof msg,
+             "content just inside the RIGHT frame (x=498,y=240) must be "
              "DLG_WHITE (1), got %u",
-             (unsigned)pidx(&ctx, 147u, 207u));
-    CHECK(pidx(&ctx, 147u, 207u) == 1u, msg);
+             (unsigned)pidx(&ctx, 498u, 240u));
+    CHECK(pidx(&ctx, 498u, 240u) == 1u, msg);
 
-    /* (c) Progress bar item rect: top=200+36=236, left=140+14=154, right=140+346=486, bottom=200+56=256.
-     * Progress bar at value=0: no fill; inner region should be DLG_WHITE (1).
-     * Border of progress bar at x=154, y=246 (center height) -> DLG_BLACK (0). */
+    /* The outermost columns/rows themselves are still the frame ink (black). */
     snprintf(msg, sizeof msg,
-             "progress bar left border (x=154,y=246) must be DLG_BLACK (0), got %u",
-             (unsigned)pidx(&ctx, 154u, 246u));
-    CHECK(pidx(&ctx, 154u, 246u) == 0u, msg);
+             "outer left frame column (x=140,y=240) must be DLG_BLACK (0), got %u",
+             (unsigned)pidx(&ctx, 140u, 240u));
+    CHECK(pidx(&ctx, 140u, 240u) == 0u, msg);
+    snprintf(msg, sizeof msg,
+             "outer bottom frame row (x=300,y=279) must be DLG_BLACK (0), got %u",
+             (unsigned)pidx(&ctx, 300u, 279u));
+    CHECK(pidx(&ctx, 300u, 279u) == 0u, msg);
 
-    /* Progress bar interior at value=0: x=160, y=246 -> DLG_WHITE (1). */
+    /* (f) Progress bar: item rect left=154, top=249, right=486, bottom=269
+     * (re-based below the 19px title band; was top=236/bottom=256 under the
+     * old 7px-border layout). inner_w = (486-154)-2 = 330; at
+     * FLAIR_CANON_FILECOPY_PROGRESS (68), filled_px = 330*68/100 = 224
+     * (integer division), so x in [155, 155+224)=[155,379) reads CTRL_ACCENT
+     * (idx 5, navy blue "solid blue fill"); x >= 379 (still inside the bar)
+     * reads white (idx 1). MUTATION: DIALOG_MUTATE_PROGRESS_ZERO reverts
+     * value to 0 -> filled_px=0 -> the fill-side check goes RED (Law 4,
+     * initech-a90f). */
     snprintf(msg, sizeof msg,
-             "progress bar interior at value=0 (x=160,y=246) must be DLG_WHITE (1), got %u",
-             (unsigned)pidx(&ctx, 160u, 246u));
-    CHECK(pidx(&ctx, 160u, 246u) == 1u, msg);
+             "progress bar left border (x=154,y=259) must be DLG_BLACK (0), got %u",
+             (unsigned)pidx(&ctx, 154u, 259u));
+    CHECK(pidx(&ctx, 154u, 259u) == 0u, msg);
+
+    snprintf(msg, sizeof msg,
+             "progress bar FILL at (x=160,y=259) must be idx 5 (CTRL_ACCENT "
+             "navy blue) -- proves a non-zero fill (initech-a90f), got %u",
+             (unsigned)pidx(&ctx, 160u, 259u));
+    CHECK(pidx(&ctx, 160u, 259u) == 5u, msg);
+
+    snprintf(msg, sizeof msg,
+             "progress bar UNFILLED remainder at (x=400,y=259) must be "
+             "DLG_WHITE (1), got %u",
+             (unsigned)pidx(&ctx, 400u, 259u));
+    CHECK(pidx(&ctx, 400u, 259u) == 1u, msg);
 
     render_ctx_free(&ctx);
 }
 
 /* ===========================================================================
- * PROPERTY 3b -- DRAW: verify the border-frame pixel at position (border-1)
- * is BLACK and (border) is WHITE, proving FLAIR_CHROME_DIALOG_BORDER=7.
+ * PROPERTY 3b -- DRAW: a GENERIC dBoxProc dialog (built directly via
+ * NewDialog, NOT FileCopyDialog) still gets the classic 7-px solid border --
+ * verifying that the movableDBoxProc upgrade in FileCopyDialog (initech-zvo6)
+ * did NOT change the default chrome every OTHER dialog gets. This is also the
+ * DIALOG_MUTATE_BORDER mutant's target (unaffected by the FILE COPY chrome
+ * change, since it lives in the dBoxProc branch of DrawDialog).
  *
- * This is an INDEPENDENT structural check that does NOT rely on a single
- * y-coordinate arithmetic calculation -- it samples a swept range.
- *
- * For the top border: pixels at y in [top, top+bw) should all be BLACK;
- * pixels at y = top+bw should be WHITE.
+ * Sweep: pixels at y in [top, top+bw) should all be BLACK; y = top+bw WHITE.
  * ===========================================================================*/
+static void draw_generic_dbox_dialog(GrafPort *port)
+{
+    static DialogRecord  s_dr;
+    static DialogItem    s_items[1];
+    static ControlRecord s_ctrl;
+    static rgn_store_t   s_sruc, s_scont, s_supd;
+
+    rgn_store_init(&s_sruc);
+    rgn_store_init(&s_scont);
+    rgn_store_init(&s_supd);
+
+    rgn_rect_t bounds;
+    bounds.top = 200; bounds.left = 140; bounds.bottom = 280; bounds.right = 500;
+    rgn_rect_t r1;
+    r1.top = 236; r1.left = 154; r1.bottom = 256; r1.right = 486;
+    control_init(&s_ctrl, progressBar, r1, 50, 0, 100, 1, "");
+    s_items[0].type = ctrlItem; s_items[0].rect = r1;
+    s_items[0].text = 0; s_items[0].ctrl = &s_ctrl; s_items[0].enabled = 0;
+    s_items[0]._pad[0] = s_items[0]._pad[1] = s_items[0]._pad[2] = 0;
+
+    DialogPtr dp = NewDialog(&s_dr, bounds, "", s_items, 1u, 0u, 0u, 0,
+                             &s_sruc.r, &s_scont.r, &s_supd.r);
+    if (!dp) {
+        return;
+    }
+    dp->window.port = *port;
+    dp->window.port.portRect = dp->window.strucRgn->bbox;
+    DrawDialog(dp);
+}
+
 static void test_draw_border_sweep(void)
 {
     render_ctx_t ctx;
@@ -700,7 +812,7 @@ static void test_draw_border_sweep(void)
     CHECK(rc == 0, "render_ctx_init(8bpp) for border sweep test must succeed");
     if (rc != 0) { return; }
 
-    render_run(&ctx, draw_filecopy_dialog);
+    render_run(&ctx, draw_generic_dbox_dialog);
 
     char msg[300];
     int bw = FLAIR_CHROME_DIALOG_BORDER;  /* 7 */

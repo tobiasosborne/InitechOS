@@ -20,13 +20,27 @@
  *                                 items as enabled; oracle must go RED.
  *   DIALOG_MUTATE_FILECOPY_MSG -- FileCopyDialog uses a different (wrong)
  *                                 message string; oracle must go RED (Law 4).
+ *   DIALOG_MUTATE_TITLELESS_MODAL -- FileCopyDialog reverts to the OLD
+ *                                 titleless dBoxProc chrome (thick 7px
+ *                                 border, no title bar) instead of the
+ *                                 moveable titled modal; oracle must go RED
+ *                                 (Law 4, beads initech-zvo6).
+ *   DIALOG_MUTATE_PROGRESS_ZERO -- FileCopyDialog reverts the progress bar's
+ *                                 initial value to 0 (the old bug) instead of
+ *                                 FLAIR_CANON_FILECOPY_PROGRESS; oracle must
+ *                                 go RED (Law 4, beads initech-a90f).
  *
  * DRAW MODEL:
- *   The dBoxProc border is a solid FLAIR_CHROME_DIALOG_BORDER (7)-px filled
- *   band around the content rect (the outer ring). Inside the border, items
- *   are drawn in order: statText via text_draw (Chicago), ctrlItem via
- *   DrawControl. All drawing flows through the dialog's GrafPort and is
- *   clipped to visRgn INTERSECT clipRgn (ADR-0004 D-1/D-2 invariant).
+ *   dBoxProc dialogs (the NewDialog default): a solid FLAIR_CHROME_DIALOG_
+ *   BORDER (7)-px filled band around the content rect (the outer ring).
+ *   movableDBoxProc dialogs (the FILE COPY modal; beads initech-zvo6): a
+ *   pinstripe title bar + a PLAIN 1-px frame (os/flair/chrome.h
+ *   flair_draw_movable_dbox_chrome -- the SAME title-bar composer
+ *   flair_draw_document_window uses; NOT a hand-rolled second chrome path).
+ *   Inside either border, items are drawn in order: statText via text_draw
+ *   (Chicago), ctrlItem via DrawControl. All drawing flows through the
+ *   dialog's GrafPort and is clipped to visRgn INTERSECT clipRgn (ADR-0004
+ *   D-1/D-2 invariant).
  *
  * MODALDIALOG LOOP MODEL (ADR-0004 D-6 cooperative):
  *   Drains flair_raw_ring via WaitNextEvent in task context. Returns itemHit
@@ -51,6 +65,7 @@
 #include "surface.h"          /* surface_fill_span (-Ios/flair)               */
 #include "blitter.h"          /* blitter_fill_rect_clipped (-Ios/flair)       */
 #include "text.h"             /* text_draw / text_measure / FONT_CHICAGO       */
+#include "chrome.h"           /* flair_draw_movable_dbox_chrome (-Ios/flair)   */
 #include "chrome_metrics.h"   /* FLAIR_CHROME_DIALOG_BORDER (-Ispec)           */
 #include "region_algebra.h"   /* region_contains_point (-Ispec)               */
 #include "event_model.h"      /* flair_event_what_t, EventRecord (-Ispec)      */
@@ -353,21 +368,40 @@ void DrawDialog(DialogPtr dp)
     int top    = (int)bounds.top;
     int right  = (int)bounds.right;
     int bottom = (int)bounds.bottom;
-    int bw     = DLG_BORDER_W;
 
-    /* --- Fill dialog background (inside the border frame). */
-    crect_dlg(port, left + bw, top + bw, right - bw, bottom - bw, DLG_WHITE);
+    if (dp->window.windowDefProcVariant == (int16_t)movableDBoxProc) {
+        /* --- movableDBoxProc: the moveable titled modal (beads initech-zvo6).
+         * A pinstripe title bar + a PLAIN 1-px frame, via chrome.c's SHARED
+         * title-bar composer (the same one flair_draw_document_window uses --
+         * "do not hand-roll new chrome"). Content fill FIRST (below the title
+         * band, inside the 1px frame), THEN the chrome draw (band + outer
+         * frame) on top -- mirrors the dBoxProc division of labor below
+         * (fill content, then draw the border). */
+        int fr = FLAIR_CHROME_FRAME;                      /* 1 px            */
+        int content_top = top + FLAIR_CHROME_TITLEBAR_H;  /* 19 px band      */
 
-    /* --- Draw the dBoxProc 7-px border frame (solid black bands).
-     * Ref: WDEF dBoxBorderSize EQU 7; StandardWDEF.a; chrome_metrics.h.
-     * Top band: [left, right) x [top, top+bw)
-     * Bottom band: [left, right) x [bottom-bw, bottom)
-     * Left band:  [left, left+bw) x [top, bottom)
-     * Right band: [right-bw, right) x [top, bottom) */
-    crect_dlg(port, left,       top,        right,       top + bw,    DLG_BLACK);
-    crect_dlg(port, left,       bottom - bw, right,       bottom,      DLG_BLACK);
-    crect_dlg(port, left,       top,        left + bw,   bottom,      DLG_BLACK);
-    crect_dlg(port, right - bw, top,        right,       bottom,      DLG_BLACK);
+        crect_dlg(port, left + fr, content_top, right - fr, bottom - fr,
+                  DLG_WHITE);
+        flair_draw_movable_dbox_chrome(port, bounds, dp->window.titleHandle);
+    } else {
+        /* --- dBoxProc (the NewDialog default; every other/generic dialog):
+         * the classic solid FLAIR_CHROME_DIALOG_BORDER (7)-px border frame.
+         * Ref: WDEF dBoxBorderSize EQU 7; StandardWDEF.a; chrome_metrics.h. */
+        int bw = DLG_BORDER_W;
+
+        /* Fill dialog background (inside the border frame). */
+        crect_dlg(port, left + bw, top + bw, right - bw, bottom - bw, DLG_WHITE);
+
+        /* Draw the dBoxProc 7-px border frame (solid black bands).
+         * Top band: [left, right) x [top, top+bw)
+         * Bottom band: [left, right) x [bottom-bw, bottom)
+         * Left band:  [left, left+bw) x [top, bottom)
+         * Right band: [right-bw, right) x [top, bottom) */
+        crect_dlg(port, left,       top,        right,       top + bw,    DLG_BLACK);
+        crect_dlg(port, left,       bottom - bw, right,       bottom,      DLG_BLACK);
+        crect_dlg(port, left,       top,        left + bw,   bottom,      DLG_BLACK);
+        crect_dlg(port, right - bw, top,        right,       bottom,      DLG_BLACK);
+    }
 
     /* --- Draw each item. */
     uint16_t n = dp->itemCount;
@@ -698,9 +732,9 @@ void ModalDialog(DialogPtr         dp,
  * Layout (canonical position for 640x480 desktop):
  *   bounds:      left=140, top=200, right=500, bottom=280  (360 x 80 px)
  *   Item 1 (statText): "Saving tables to disk..."
- *     rect: left=14, top=12, right=346, bottom=28  (inside border)
+ *     rect: left=14, top=25, right=346, bottom=41  (below the title band)
  *   Item 2 (ctrlItem/progressBar): 0..100
- *     rect: left=14, top=36, right=346, bottom=56  (inside border)
+ *     rect: left=14, top=49, right=346, bottom=69  (below the title band)
  *
  * Ref: PRD Sec 6.5 / Appendix A -- the canon FILE COPY box dimensions and
  *      message string from the Office Space reference frame (Law 4).
@@ -716,11 +750,17 @@ void ModalDialog(DialogPtr         dp,
 #define FILECOPY_RIGHT   500
 #define FILECOPY_BOTTOM  280
 
-/* Item rects in dialog-local coordinates (measured from dialog top-left). */
-#define FILECOPY_TEXT_TOP     12
-#define FILECOPY_TEXT_BOTTOM  28
-#define FILECOPY_BAR_TOP      36
-#define FILECOPY_BAR_BOTTOM   56
+/* Item rects in dialog-local coordinates (measured from dialog top-left).
+ * FLAIR_CHROME_TITLEBAR_H (19 px; spec/chrome_metrics.h) precedes the content
+ * area now that the modal is the moveable titled chrome (movableDBoxProc,
+ * beads initech-zvo6) instead of the old dBoxProc 7-px border -- these
+ * offsets were shifted down to clear the title band (were 12/28/36/56 under
+ * the old 7px-border layout; the same 16px text-row height and 8px/20px
+ * gaps/bar-height are preserved, just re-based off the taller title band). */
+#define FILECOPY_TEXT_TOP     25
+#define FILECOPY_TEXT_BOTTOM  41
+#define FILECOPY_BAR_TOP      49
+#define FILECOPY_BAR_BOTTOM   69
 #define FILECOPY_ITEM_LEFT    14
 #define FILECOPY_ITEM_RIGHT   346
 
@@ -783,10 +823,22 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
     bar_rect.right  = (int16_t)(FILECOPY_LEFT + FILECOPY_ITEM_RIGHT);
     bar_rect.bottom = (int16_t)(FILECOPY_TOP  + FILECOPY_BAR_BOTTOM);
 
+    /* --- Canon progress bar initial value (beads initech-a90f, Law 4).
+     * DIALOG_MUTATE_PROGRESS_ZERO: reverts to the old bug (value=0, which
+     * ctrl_progress_fill_px renders as NO fill at all) -> oracle must go RED. */
+#if defined(DIALOG_MUTATE_PROGRESS_ZERO) && DIALOG_MUTATE_PROGRESS_ZERO
+    const int16_t canon_progress = 0;   /* NAMED MUTANT: the old bug */
+#else
+    /* Ref: dialog.h FLAIR_CANON_FILECOPY_PROGRESS (docs/FLAIR-GUI-bug-hunt-
+     * 2026-06-28.md #25: "preview.png reference shows the bar ~65-70% filled
+     * solid blue"; canon = the documented midpoint, 68). */
+    const int16_t canon_progress = (int16_t)FLAIR_CANON_FILECOPY_PROGRESS;
+#endif
+
     control_init(ctrlStorage,
                  progressBar,
                  bar_rect,
-                 0    /* initial value = 0 */,
+                 canon_progress /* initial value: FLAIR_CANON_FILECOPY_PROGRESS */,
                  0    /* min */,
                  100  /* max */,
                  1    /* vis */,
@@ -801,14 +853,39 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
     itemStorage[1]._pad[1] = 0;
     itemStorage[1]._pad[2] = 0;
 
-    /* --- Initialize the DialogRecord (no WindowMgr for standalone). */
+    /* --- The moveable titled modal window (beads initech-zvo6, Law 4).
+     * DIALOG_MUTATE_TITLELESS_MODAL: reverts to the OLD titleless dBoxProc
+     * chrome (empty title, NewDialog's default dBoxProc variant left as-is)
+     * -> oracle must go RED. */
+#if defined(DIALOG_MUTATE_TITLELESS_MODAL) && DIALOG_MUTATE_TITLELESS_MODAL
+    static const char *canon_title = "";   /* NAMED MUTANT: the old bug */
+#else
+    /* Ref: dialog.h FLAIR_CANON_FILECOPY_TITLE ("FILE COPY"; PRD Appendix A). */
+    static const char *canon_title = FLAIR_CANON_FILECOPY_TITLE;
+#endif
+
+    /* --- Initialize the DialogRecord (no WindowMgr for standalone). NewDialog
+     * always sets windowDefProcVariant = dBoxProc (the correct default for
+     * every OTHER/generic dialog); FileCopyDialog upgrades it below because
+     * the FILE COPY modal specifically is the moveable-titled reference. */
     DialogPtr dp = NewDialog(storage, bounds,
-                             "" /* no title for dBoxProc dialog */,
+                             canon_title,
                              itemStorage, 2u,
                              0u /* no default item */,
                              0u /* no cancel item */,
                              0  /* no WindowMgr */,
                              strucRgn, contRgn, updateRgn);
+
+#if !(defined(DIALOG_MUTATE_TITLELESS_MODAL) && DIALOG_MUTATE_TITLELESS_MODAL)
+    /* Upgrade to movableDBoxProc (5; MTE Table 4-1; ../system7-decomp/specs/
+     * toolbox/window-manager.md line 173 "movable modal dialog box (title
+     * bar, no grow/zoom)"). DrawDialog dispatches on this field to draw the
+     * pinstripe title bar + plain 1px frame instead of the 7px dBoxProc
+     * border (os/flair/chrome.h flair_draw_movable_dbox_chrome). */
+    if (dp) {
+        dp->window.windowDefProcVariant = (int16_t)movableDBoxProc;
+    }
+#endif
 
     return dp;
 }

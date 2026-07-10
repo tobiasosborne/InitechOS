@@ -69,7 +69,8 @@
 
 #include "grafport.h"         /* GrafPort, flair_point_t (-Ispec)            */
 #include "region_algebra.h"   /* rgn_rect_t (-Ispec)                         */
-#include "window_record.h"    /* WindowRecord, dBoxProc, dialogKind (-Ispec) */
+#include "window_record.h"    /* WindowRecord, dBoxProc, movableDBoxProc,
+                                 dialogKind (-Ispec)                          */
 #include "chrome_metrics.h"   /* FLAIR_CHROME_DIALOG_BORDER = 7 (-Ispec)     */
 #include "window.h"           /* WindowMgr, NewWindow, DisposeWindow          */
 #include "control.h"          /* ControlRecord, DrawControl, TrackControl     */
@@ -88,6 +89,39 @@
  * ===========================================================================*/
 #define FLAIR_CANON_FILECOPY_MSG "Saving tables to disk..."
 /* Ref: PRD Sec 6.5 / Appendix A -- Office Space frame canon; do NOT paraphrase */
+
+/* ---------------------------------------------------------------------------
+ * 1a. CANONICAL FILE COPY TITLE (Law 4 -- beads initech-zvo6)
+ * ---------------------------------------------------------------------------
+ * The FILE COPY modal's window title, drawn in its moveable titled chrome
+ * (movableDBoxProc; spec/window_record.h; os/flair/chrome.h
+ * flair_draw_movable_dbox_chrome). Byte-exact per PRD Appendix A's frame tell
+ * "FILE COPY: 'Saving tables to disk...' + progress bar" -- the dialog's NAME
+ * as it appears in the reference frame, distinct from FLAIR_CANON_FILECOPY_MSG
+ * (the statText body). The oracle (test_dialog.c DIALOG_MUTATE_TITLELESS_MODAL)
+ * asserts this title is present and rendered.
+ * ===========================================================================*/
+#define FLAIR_CANON_FILECOPY_TITLE "FILE COPY"
+/* Ref: PRD Appendix A "FILE COPY: ... + progress bar"; do NOT paraphrase */
+
+/* ---------------------------------------------------------------------------
+ * 1b. CANONICAL FILE COPY PROGRESS VALUE (Law 4 -- beads initech-a90f)
+ * ---------------------------------------------------------------------------
+ * FileCopyDialog previously initialized the progress bar control at value=0,
+ * which never renders any blue fill (control.c ctrl_progress_fill_px returns 0
+ * for v<=0) -- a Law-4 miss vs the reference frame, which shows the bar
+ * ~65-70% filled.
+ *
+ * Ref: docs/FLAIR-GUI-bug-hunt-2026-06-28.md #25 (initech-a90f evidence):
+ *   "preview.png reference shows the bar ~65-70% filled solid blue."
+ * Canon = the documented range's MIDPOINT: (65 + 70) / 2 = 67.5, rounded to
+ * the nearest integer (round-half-up) = 68. This is a deliberate choice of a
+ * single representative value from a range the source itself gives as
+ * approximate ("~65-70%") -- not a re-measurement; if a tighter golden is
+ * minted later (a real screendump pixel-count), replace this constant and its
+ * citation together (Rule 8).
+ * ===========================================================================*/
+#define FLAIR_CANON_FILECOPY_PROGRESS 68
 
 /* ===========================================================================
  * 2. DIALOG ITEM TYPES  (verbatim IM-I / MTE names)
@@ -282,8 +316,13 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm);
 /* --------------------------------------------------------------------------
  * DrawDialog -- draw the dialog frame and all items into the dialog's port.
  *
- * Draws the dBoxProc 7-px solid border frame (FLAIR_CHROME_DIALOG_BORDER)
- * around the content rect, then draws each item in the item list:
+ * Dispatches on the dialog window's windowDefProcVariant:
+ *   dBoxProc (1, the default for all NewDialog callers): the classic 7-px
+ *     solid border frame (FLAIR_CHROME_DIALOG_BORDER), unchanged.
+ *   movableDBoxProc (5, the FILE COPY modal; beads initech-zvo6): a pinstripe
+ *     title bar + a PLAIN 1-px frame via os/flair/chrome.h
+ *     flair_draw_movable_dbox_chrome (NOT the 7-px border).
+ * Then draws each item in the item list:
  *   statText  -> text_draw (Chicago font, left-aligned within item rect).
  *   editText  -> text_draw (the current editBuf content) + cursor.
  *   ctrlItem  -> DrawControl(dp->window.port, item->ctrl).
@@ -414,17 +453,22 @@ void SetDialogItemText(DialogPtr dp, uint16_t itemIndex, const char *text);
  * DialogItems) and `ctrlStorage` (at least 1 ControlRecord for the progress
  * bar) with the pre-configured FILE COPY layout:
  *   Item 1: statText, FLAIR_CANON_FILECOPY_MSG, enabled=0 (display only).
- *   Item 2: ctrlItem, progressBar (contrlValue=0, contrlMax=100), enabled=0.
+ *   Item 2: ctrlItem, progressBar (contrlValue=FLAIR_CANON_FILECOPY_PROGRESS,
+ *           contrlMax=100), enabled=0.
  *
  * Dialog bounds are set to the canonical FILE COPY box size and position
- * (centered, 360x80 px, top-left at (140, 200) on a 640x480 screen).
- * The dBoxProc 7-px border frame (FLAIR_CHROME_DIALOG_BORDER) is applied
- * by DrawDialog as for all dBoxProc dialogs.
+ * (centered, 360x80 px, top-left at (140, 200) on a 640x480 screen). The
+ * window is a MOVEABLE TITLED modal: windowDefProcVariant = movableDBoxProc
+ * (5), title = FLAIR_CANON_FILECOPY_TITLE ("FILE COPY"), drawn by DrawDialog
+ * via os/flair/chrome.h flair_draw_movable_dbox_chrome (a pinstripe title
+ * bar + a PLAIN 1 px frame -- NOT the dBoxProc 7-px solid border; beads
+ * initech-zvo6).
  *
  * Returns the initialized DialogPtr (= storage).
  *
  * Ref: PRD Sec 6.5 / Appendix A/B (the canon FILE COPY box, Law 4).
- *      FLAIR_CANON_FILECOPY_MSG (Section 1 above).
+ *      FLAIR_CANON_FILECOPY_MSG, FLAIR_CANON_FILECOPY_TITLE,
+ *      FLAIR_CANON_FILECOPY_PROGRESS (Section 1/1a/1b above).
  * -------------------------------------------------------------------------- */
 DialogPtr FileCopyDialog(DialogRecord  *storage,
                          DialogItem    *itemStorage,
@@ -456,6 +500,11 @@ _Static_assert(FLAIR_CHROME_DIALOG_BORDER == 7,
 _Static_assert(dBoxProc == 1,
                "dBoxProc must be 1 (MTE Table 4-1; spec/window_record.h)");
 
+/* movableDBoxProc variant code must be 5 (MTE Table 4-1; beads initech-zvo6). */
+_Static_assert(movableDBoxProc == 5,
+               "movableDBoxProc must be 5 (MTE Table 4-1; spec/window_record.h; "
+               "../system7-decomp/specs/toolbox/window-manager.md line 173)");
+
 /* dialogKind must be 2 (IM-I p. I-270). */
 _Static_assert(dialogKind == 2,
                "dialogKind must be 2 (IM-I p. I-270; spec/window_record.h)");
@@ -463,5 +512,18 @@ _Static_assert(dialogKind == 2,
 /* FLAIR_CANON_FILECOPY_MSG must be a non-empty string literal. */
 _Static_assert(sizeof(FLAIR_CANON_FILECOPY_MSG) > 1u,
                "FLAIR_CANON_FILECOPY_MSG must be non-empty (Law 4 canon)");
+
+/* FLAIR_CANON_FILECOPY_TITLE must be a non-empty string literal. */
+_Static_assert(sizeof(FLAIR_CANON_FILECOPY_TITLE) > 1u,
+               "FLAIR_CANON_FILECOPY_TITLE must be non-empty (Law 4 canon)");
+
+/* FLAIR_CANON_FILECOPY_PROGRESS must stay within the documented "~65-70%"
+ * range (docs/FLAIR-GUI-bug-hunt-2026-06-28.md #25) and within [0,100]. If a
+ * future golden pins a tighter value outside this band, update this bound
+ * and its citation TOGETHER (Rule 8 -- a deliberate act, not a silent widen). */
+_Static_assert(FLAIR_CANON_FILECOPY_PROGRESS >= 65 &&
+               FLAIR_CANON_FILECOPY_PROGRESS <= 70,
+               "FLAIR_CANON_FILECOPY_PROGRESS must stay within the documented "
+               "65-70% range (bug-hunt doc #25; initech-a90f)");
 
 #endif /* INITECH_OS_FLAIR_DIALOG_H */

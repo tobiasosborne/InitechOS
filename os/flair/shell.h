@@ -29,10 +29,14 @@
  *     Mac System-7-style bars (Chicago 12, 20 px each; GetMBarHeight).
  *   - One or two System-7 documentProc WINDOWS (z-ordered, titled, with the
  *     pinstripe title bar + 1 px frame + 16 px scrollbar) placed per the frame.
- *   - The modal FILE COPY DIALOG on top (the comedic centerpiece): the dBoxProc
- *     7-px border box, the byte-exact FLAIR_CANON_FILECOPY_MSG, and a progress
- *     bar -- centered on the 640x480 desktop and ON TOP of (occluding) the
- *     windows behind it (correct z-order / clip).
+ *   - The modal FILE COPY DIALOG on top (the comedic centerpiece): the
+ *     moveable TITLED modal (movableDBoxProc; a pinstripe title bar reading
+ *     FLAIR_CANON_FILECOPY_TITLE + a PLAIN 1-px frame -- NOT the old dBoxProc
+ *     7-px solid border; beads initech-zvo6), the byte-exact
+ *     FLAIR_CANON_FILECOPY_MSG, and a progress bar at a non-zero canon fill
+ *     (FLAIR_CANON_FILECOPY_PROGRESS; beads initech-a90f) -- centered on the
+ *     640x480 desktop and ON TOP of (occluding) the windows behind it
+ *     (correct z-order / clip).
  *
  * THE Z-ORDER (back to front -- the painter's algorithm; ADR-0004 D-5):
  *   1. seafoam desktop      (bottom)

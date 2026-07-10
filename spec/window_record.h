@@ -190,15 +190,33 @@ typedef enum flair_part_code {
  * code in os/flair consults the variant stored in each WindowRecord.
  *
  * Verbatim values (MTE Table 4-1 / IM-I p. I-273, "Window Definition ID"):
- *   documentProc  = 0:  Standard document window (title bar, close, zoom, grow)
- *   dBoxProc      = 1:  Dialog box with shadow (the standard dialog box)
- *   plainDBox     = 2:  Plain dialog box (no shadow, no title)
- *   altDBoxProc   = 3:  Alert box (slightly thinner border than dBoxProc)
- *   noGrowDocProc = 4:  Document window without grow box
- *   zoomDocProc   = 8:  Document window with zoom box (same chrome as
- *                        documentProc on most WDEF implementations; zoom
- *                        box + grow box present)
- *   zoomNoGrow    = 12: Document window with zoom box but no grow box
+ *   documentProc    = 0:  Standard document window (title bar, close, zoom, grow)
+ *   dBoxProc        = 1:  Dialog box with shadow (the standard dialog box)
+ *   plainDBox       = 2:  Plain dialog box (no shadow, no title)
+ *   altDBoxProc     = 3:  Alert box (slightly thinner border than dBoxProc)
+ *   noGrowDocProc   = 4:  Document window without grow box
+ *   movableDBoxProc = 5:  Movable modal dialog box (title bar, NO grow/zoom;
+ *                          goAwayFlag forced off). MTE Table 4-1 (same table
+ *                          as the entries above -- this repo's original
+ *                          transcription of the table skipped this row, a
+ *                          source gap now closed). INDEPENDENTLY confirmed
+ *                          local (Law 1): ../system7-decomp/specs/toolbox/
+ *                          window-manager.md line 173 "movableDBoxProc | 5 |
+ *                          movable modal dialog box (title bar, no grow/
+ *                          zoom)" [verified: A+B, refs/IM_Tb_TypesOfWindows.txt
+ *                          + refs/StandardWDEF_a.txt `dboxWithTitle EQU 5`];
+ *                          ../system7-decomp/specs/chrome/wdef-variant-
+ *                          geometry.md Sec 1/4 (the RENDERED golden
+ *                          s7_about.png shows a PLAIN 1px frame + pinstripe
+ *                          title bar identical to documentProc's, no close/
+ *                          zoom/grow -- the FLAIR chrome this variant selects,
+ *                          os/flair/chrome.h flair_draw_movable_dbox_chrome).
+ *                          FLAIR consumer: os/flair/dialog.c FileCopyDialog
+ *                          (beads initech-zvo6).
+ *   zoomDocProc     = 8:  Document window with zoom box (same chrome as
+ *                          documentProc on most WDEF implementations; zoom
+ *                          box + grow box present)
+ *   zoomNoGrow      = 12: Document window with zoom box but no grow box
  *
  * NOTE: the windowDefProc stored in WindowRecord is the full 16-bit definition
  * ID (WDEF resource ID * 16 + variant). For the standard Mac WDEF (resource
@@ -206,22 +224,26 @@ typedef enum flair_part_code {
  * WDEF is always resource 0, so the definition IDs below ARE the variant codes.
  * ===========================================================================*/
 
-#define FLAIR_WDEF_DOCUMENT_PROC   0   /* documentProc  = 0  (MTE Table 4-1) */
-#define FLAIR_WDEF_DBOX_PROC       1   /* dBoxProc      = 1  (MTE Table 4-1) */
-#define FLAIR_WDEF_PLAIN_DBOX      2   /* plainDBox     = 2  (MTE Table 4-1) */
-#define FLAIR_WDEF_ALT_DBOX_PROC   3   /* altDBoxProc   = 3  (MTE Table 4-1) */
-#define FLAIR_WDEF_NO_GROW_DOC     4   /* noGrowDocProc = 4  (MTE Table 4-1) */
-#define FLAIR_WDEF_ZOOM_DOC_PROC   8   /* zoomDocProc   = 8  (MTE Table 4-1) */
-#define FLAIR_WDEF_ZOOM_NO_GROW   12   /* zoomNoGrow    = 12 (MTE Table 4-1) */
+#define FLAIR_WDEF_DOCUMENT_PROC     0   /* documentProc    = 0  (MTE Table 4-1) */
+#define FLAIR_WDEF_DBOX_PROC         1   /* dBoxProc        = 1  (MTE Table 4-1) */
+#define FLAIR_WDEF_PLAIN_DBOX        2   /* plainDBox       = 2  (MTE Table 4-1) */
+#define FLAIR_WDEF_ALT_DBOX_PROC     3   /* altDBoxProc     = 3  (MTE Table 4-1) */
+#define FLAIR_WDEF_NO_GROW_DOC       4   /* noGrowDocProc   = 4  (MTE Table 4-1) */
+#define FLAIR_WDEF_MOVABLE_DBOX      5   /* movableDBoxProc = 5  (MTE Table 4-1;
+                                           * ../system7-decomp/specs/toolbox/
+                                           * window-manager.md line 173)          */
+#define FLAIR_WDEF_ZOOM_DOC_PROC     8   /* zoomDocProc     = 8  (MTE Table 4-1) */
+#define FLAIR_WDEF_ZOOM_NO_GROW     12   /* zoomNoGrow      = 12 (MTE Table 4-1) */
 
 /* Aliases for verbatim IM names. */
-#define documentProc  FLAIR_WDEF_DOCUMENT_PROC
-#define dBoxProc      FLAIR_WDEF_DBOX_PROC
-#define plainDBox     FLAIR_WDEF_PLAIN_DBOX
-#define altDBoxProc   FLAIR_WDEF_ALT_DBOX_PROC
-#define noGrowDocProc FLAIR_WDEF_NO_GROW_DOC
-#define zoomDocProc   FLAIR_WDEF_ZOOM_DOC_PROC
-#define zoomNoGrow    FLAIR_WDEF_ZOOM_NO_GROW
+#define documentProc    FLAIR_WDEF_DOCUMENT_PROC
+#define dBoxProc        FLAIR_WDEF_DBOX_PROC
+#define plainDBox       FLAIR_WDEF_PLAIN_DBOX
+#define altDBoxProc     FLAIR_WDEF_ALT_DBOX_PROC
+#define noGrowDocProc   FLAIR_WDEF_NO_GROW_DOC
+#define movableDBoxProc FLAIR_WDEF_MOVABLE_DBOX
+#define zoomDocProc     FLAIR_WDEF_ZOOM_DOC_PROC
+#define zoomNoGrow      FLAIR_WDEF_ZOOM_NO_GROW
 
 /* ===========================================================================
  * 4. WindowRecord -- the window descriptor (verbatim field names)
@@ -433,6 +455,8 @@ _Static_assert(dBoxProc      == 1,  "dBoxProc=1 (MTE Table 4-1)");
 _Static_assert(plainDBox     == 2,  "plainDBox=2 (MTE Table 4-1)");
 _Static_assert(altDBoxProc   == 3,  "altDBoxProc=3 (MTE Table 4-1)");
 _Static_assert(noGrowDocProc == 4,  "noGrowDocProc=4 (MTE Table 4-1)");
+_Static_assert(movableDBoxProc == 5, "movableDBoxProc=5 (MTE Table 4-1; "
+               "../system7-decomp/specs/toolbox/window-manager.md line 173)");
 _Static_assert(zoomDocProc   == 8,  "zoomDocProc=8 (MTE Table 4-1)");
 _Static_assert(zoomNoGrow    == 12, "zoomNoGrow=12 (MTE Table 4-1)");
 

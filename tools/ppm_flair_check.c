@@ -72,13 +72,17 @@
  *       outside it is bare teal (frame is exactly 1 px); the body just below
  *       the title bar is window white (idx 1). test_shell.c assertion (3).
  *
- *   (d) MODAL FILE COPY -- the centered dBoxProc box's thick black (idx 0) border
- *       on all four sides, white (idx 1) interior just inside the 7 px border, the
- *       "Saving tables to disk..." text ink band (a non-white pixel inside the
- *       text rect), AND it OCCLUDES the windows (z-order): a probe point inside
- *       the modal border that ALSO lies over document window 0 reads the modal's
- *       BLACK border, and a modal-interior probe over window 0 reads modal WHITE
- *       -- NOT window content. test_shell.c assertions (4) + (5).
+ *   (d) MODAL FILE COPY -- the MOVEABLE TITLED modal (movableDBoxProc; beads
+ *       initech-zvo6): a pinstripe title bar (bevel-hi idx2, 15-row pinstripe
+ *       idx7/idx8 alternation, bevel-lo idx4, shared frame line idx0) over the
+ *       top 19 px, then a PLAIN 1-px frame (idx0) around the whole box -- NOT
+ *       the old dBoxProc 7-px solid border; the "Saving tables to disk..."
+ *       text ink band (a non-white pixel inside the text rect); the progress
+ *       bar with a NON-ZERO canon fill (idx5 navy; beads initech-a90f, was a
+ *       zero-fill bug); AND it OCCLUDES the windows (z-order): a probe point
+ *       on the modal's frame that ALSO lies over document window 0 reads the
+ *       modal's BLACK frame, and a modal-interior probe over window 0 reads
+ *       modal WHITE -- NOT window content. test_shell.c assertions (4) + (5).
  *
  * The expected colors are the flair_canon_rgb(idx) values (color_canon.h,
  * -Ispec/assets), the now-INDEPENDENTLY-graded canon (NOT the render source); the
@@ -140,12 +144,15 @@ enum { SCRW = 640, SCRH = 480 };
 #define W0_R 360
 
 /* The centered FILE COPY modal: {dl,dt,dr,db} = {140,200,500,280} (centered on
- * 640x480), dBoxProc border = 7 px. */
+ * 640x480). MOVEABLE TITLED chrome (movableDBoxProc; beads initech-zvo6): a
+ * pinstripe title bar over the top TITLEBAR_H (19) px + a PLAIN 1-px frame
+ * (FRAME) -- NOT the old dBoxProc 7-px solid border. Progress bar canon value
+ * FLAIR_CANON_FILECOPY_PROGRESS (68; ~65-70% per bug-hunt #25, initech-a90f). */
 #define DL 140
 #define DT 200
 #define DR 500
 #define DB 280
-#define DBORDER     7
+#define FILECOPY_CANON_PROGRESS  68
 
 /* The Apple-slot density tell: the System-7 band's x in [0,20) is a filled ink
  * square (the Apple menu slot); the Photoshop band has no such slot. Calibrated:
@@ -358,9 +365,12 @@ static int her02_demo(void)
     }
 
     /* (3) STRUCTURE STAYS GREEN: z-order occlusion is a pixel-vs-pixel relation
-     * (the modal border ink occludes the window behind it), value-free. */
+     * (the modal frame ink occludes the window behind it), value-free.
+     * x=140 is the modal's plain 1px LEFT frame column (was x=143, inside the
+     * OLD 7px dBoxProc border band, before initech-zvo6's moveable-titled
+     * chrome). */
     {
-        int border_black = is_rgb(143, 240, IDX(0));   /* modal border on top */
+        int border_black = is_rgb(140, 240, IDX(0));   /* modal frame on top */
         int interior_wht = is_rgb(160, 240, IDX(1));   /* modal interior on top */
         if (!(border_black && interior_wht)) {
             fprintf(stderr, "ppm_flair_check[HER02-DEMO]: UNEXPECTED -- z-order "
@@ -590,6 +600,21 @@ int main(int argc, char **argv)
          * interrupt the stripe run (beads initech-lxg9). */
         const int pin_x = W1_L + 24;                  /* 324 */
         const int body_row = (content_top + (W1_B - FRAME)) / 2;
+        /* body_row (y=249) lands inside the x[140,500) y[200,280) region where
+         * window 1 {300,120,560,360} genuinely OVERLAPS the FILE COPY modal
+         * {140,200,500,280} -- the "clear of the modal" comment above was
+         * already geometrically false for x in [300,500); it only read
+         * correctly by COINCIDENCE (both window1's body and the OLD dBoxProc
+         * modal's unfilled-at-value=0 progress-bar interior were white there).
+         * initech-a90f's canon non-zero progress value repositioned the bar's
+         * rows (FILECOPY_BAR_TOP=49 -> absolute y=249) so its 1px top border
+         * now lands EXACTLY on this y -- exposing the pre-existing coincidence.
+         * Fix: probe the window-1 body-white leg at an x GENUINELY clear of the
+         * modal (body_x, right of the modal's x<500 but still inside window 1's
+         * content, left of its 16px scrollbar at ~543) instead of mid_x (430,
+         * inside the modal's x-range). The frame/teal legs below already probe
+         * near W1_R (560, clear of the modal in x) so they are unaffected. */
+        const int body_x = W1_R - 20;                  /* 540; clear of modal x<500 */
 
         /* The pinstripe INTERIOR must be a two-shade STRIPE (every row is shade 7 or
          * 8, both appear, with >=1 adjacent change). Scanned over the 15-row band
@@ -662,7 +687,7 @@ int main(int argc, char **argv)
          * initech-92li; window-frame.md Sec 2a). */
         assert_idx(mid_x, content_top, 1,
                    "(c) front window first content row below the title band is white body (title height exact)");
-        assert_idx(mid_x, body_row, 1,
+        assert_idx(body_x, body_row, 1,
                    "(c) front window body fill is window white");
 
         /* Frame: exactly 1 px. The right frame column is painted (non-desktop);
@@ -707,23 +732,46 @@ int main(int argc, char **argv)
             g_fail = 1;
         }
         const int cy = (DT + DB) / 2;  /* 240 */
-        const int cx = (DL + DR) / 2;  /* 320 */
 
-        /* The 7-px dBoxProc border is black on all four sides. */
-        assert_idx(DL + 3, cy, 0, "(d) modal left border is black (dBoxProc 7 px)");
-        assert_idx(DR - 4, cy, 0, "(d) modal right border is black (dBoxProc 7 px)");
-        assert_idx(cx, DT + 3, 0, "(d) modal top border is black (dBoxProc 7 px)");
-        assert_idx(cx, DB - 4, 0, "(d) modal bottom border is black (dBoxProc 7 px)");
+        /* Title bar band present (probed at x=DL+5=145, left of the title-text
+         * clamp so never inside the knockout): bevel-hi (idx2), pinstripe
+         * alternation (idx7/idx8 both present), shared frame line (idx0).
+         * Beads initech-zvo6 -- the moveable titled modal, not a solid border. */
+        assert_idx(DL + 5, DT + 1, 2,
+                   "(d) modal title bevel-hi (x=145,y=201) is idx2 (initech-zvo6)");
+        {
+            int saw_light = 0, saw_dark = 0;
+            for (int y = DT + 2; y <= DT + 16; y++) {
+                if (is_rgb(DL + 5, y, IDX(7))) { saw_light = 1; }
+                if (is_rgb(DL + 5, y, IDX(8))) { saw_dark  = 1; }
+            }
+            if (!(saw_light && saw_dark)) {
+                fprintf(stderr,
+                        "ppm_flair_check: FAIL (d) modal title pinstripe "
+                        "(x=145,y=202..216) must show BOTH idx7/idx8 -- a "
+                        "pinstripe title bar, not a solid border (initech-zvo6)\n");
+                g_fail = 1;
+            }
+        }
+        assert_idx(DL + 5, DT + 18, 0,
+                   "(d) modal title band shared frame line (x=145,y=218) is black");
 
-        /* First content row just inside the 7-px border is white (idx 1) -> the
-         * border is EXACTLY 7 px. */
-        assert_idx(cx, DT + DBORDER, 1,
-                   "(d) modal interior just inside the 7 px border is white");
+        /* The frame is PLAIN 1-px, NOT the old 7px dBoxProc border: content
+         * just inside the left/right edges, at a row below the 19px title
+         * band, is white; the outermost columns are still black. */
+        assert_idx(DL + FRAME, cy, 1,
+                   "(d) modal content just inside the LEFT frame is white "
+                   "(1px frame, not 7px border; initech-zvo6)");
+        assert_idx(DR - FRAME - 1, cy, 1,
+                   "(d) modal content just inside the RIGHT frame is white (initech-zvo6)");
+        assert_idx(DL, cy, 0, "(d) modal outer LEFT frame column is black");
+        assert_idx(DR - 1, cy, 0, "(d) modal outer RIGHT frame column is black");
 
         /* The "Saving tables to disk..." static text is RENDERED as ink: the text
-         * rect (left=154, top=212, 16 px tall) contains a non-white pixel. */
+         * rect (left=154, top=225 -- below the 19px title band, was top=212
+         * under the old 7px-border layout) contains a non-white pixel. */
         {
-            int tx0 = 154, ty0 = 212;
+            int tx0 = 154, ty0 = 225;
             int text_ink = 0;
             for (int x = tx0; x < tx0 + 300 && !text_ink; x++)
                 for (int y = ty0; y < ty0 + 16; y++)
@@ -736,24 +784,31 @@ int main(int argc, char **argv)
             }
         }
 
-        /* The progress bar (left=154, top=236, right=486, bottom=256): its left
-         * border is black and its interior (value 0) is white. */
-        assert_idx(154, 246, 0, "(d) progress bar left border is painted (black)");
-        assert_idx(300, 246, 1, "(d) progress bar interior (value 0) is white");
+        /* The progress bar (left=154, top=249, right=486, bottom=269 -- re-based
+         * below the title band, was top=236/bottom=256): left border black, a
+         * NON-ZERO solid-blue fill (idx5, CTRL_ACCENT navy) at the canon value
+         * FILECOPY_CANON_PROGRESS (68), and white for the unfilled remainder.
+         * Beads initech-a90f -- the old bug rendered value=0 (zero fill). */
+        assert_idx(154, 259, 0, "(d) progress bar left border is painted (black)");
+        assert_idx(160, 259, 5,
+                   "(d) progress bar FILL (x=160,y=259) is idx5 CTRL_ACCENT navy "
+                   "-- a non-zero fill (initech-a90f)");
+        assert_idx(400, 259, 1,
+                   "(d) progress bar unfilled remainder (x=400,y=259) is white");
 
-        /* Z-ORDER: the modal occludes the windows. Probe (143,240) lies BOTH
-         * inside the modal's 7-px LEFT border (x in [140,147)) AND inside window 0
-         * (x in [60,360), y in [80,300)). Correct z-order -> modal BLACK border. */
-        int in_modal_border = (143 >= DL && 143 < DL + DBORDER && 240 >= DT && 240 < DB);
-        int in_window0      = (143 >= W0_L && 143 < W0_R && 240 >= W0_T && 240 < W0_B);
-        if (!(in_modal_border && in_window0)) {
+        /* Z-ORDER: the modal occludes the windows. Probe (140,240) lies BOTH
+         * ON the modal's plain 1-px LEFT frame column AND inside window 0
+         * (x in [60,360), y in [80,300)). Correct z-order -> modal BLACK frame. */
+        int in_modal_frame = (140 >= DL && 140 < DL + FRAME && 240 >= DT && 240 < DB);
+        int in_window0      = (140 >= W0_L && 140 < W0_R && 240 >= W0_T && 240 < W0_B);
+        if (!(in_modal_frame && in_window0)) {
             fprintf(stderr,
-                    "ppm_flair_check: FAIL (d) z-order probe (143,240) is not over "
-                    "BOTH the modal border and window 0 (test would be vacuous)\n");
+                    "ppm_flair_check: FAIL (d) z-order probe (140,240) is not over "
+                    "BOTH the modal frame and window 0 (test would be vacuous)\n");
             g_fail = 1;
         }
-        assert_idx(143, 240, 0,
-                   "(d) modal OCCLUDES the window behind it -- modal black border on top (z-order)");
+        assert_idx(140, 240, 0,
+                   "(d) modal OCCLUDES the window behind it -- modal black frame on top (z-order)");
         assert_idx(160, 240, 1,
                    "(d) modal interior occludes the window behind it (modal white on top)");
     }

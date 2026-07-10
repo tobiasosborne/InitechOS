@@ -33,11 +33,14 @@
  *      string is asserted byte-EXACT against menu_canon.h (Law 4 canon chimera).
  *   3. WINDOW CHROME present -- the front window's pinstripe title bar (period 2
  *      alternation), the 1 px frame, and the 16 px scrollbar, vs chrome_metrics.
- *   4. The FILE COPY MODAL present + CENTERED: the dBoxProc 7-px border box at
- *      the canonical centered bounds, the byte-exact "Saving tables to disk..."
- *      static text painted as ink, and the progress bar.
+ *   4. The FILE COPY MODAL present + CENTERED: the MOVEABLE TITLED modal
+ *      (movableDBoxProc; a pinstripe title bar + a PLAIN 1-px frame -- NOT the
+ *      old dBoxProc 7-px border; beads initech-zvo6) at the canonical centered
+ *      bounds, the byte-exact "Saving tables to disk..." static text painted
+ *      as ink, and the progress bar with a non-zero canon fill (beads
+ *      initech-a90f).
  *   5. The MODAL is ON TOP -- a probe point that lies BOTH inside the modal's
- *      solid border AND inside a document window reads the MODAL's pixel (the
+ *      frame AND inside a document window reads the MODAL's pixel (the
  *      modal occludes the window: z-order / clip correct).
  *   6. DETERMINISM -- two renders of the same scene are byte-identical (Rule 11).
  *
@@ -430,31 +433,61 @@ int main(int argc, char **argv)
     /* ======================================================================
      * 4. The FILE COPY MODAL present + CENTERED + the byte-exact canon text +
      * the progress bar. The dialog is at the canonical bounds {140,200,500,280}
-     * (centered on 640x480: center (320,240); 360x80). The dBoxProc border is
-     * FLAIR_CHROME_DIALOG_BORDER (7) px of black (idx 0); inside is white (idx 1).
+     * (centered on 640x480: center (320,240); 360x80). The chrome is the
+     * MOVEABLE TITLED modal (movableDBoxProc; beads initech-zvo6): a pinstripe
+     * title bar (bevel-hi idx2, 15-row pinstripe idx7/8, bevel-lo idx4, shared
+     * frame line idx0) over rows [dt, dt+FLAIR_CHROME_TITLEBAR_H), then a
+     * PLAIN 1-px frame (idx0) around the whole box -- NOT the old dBoxProc
+     * 7-px solid border.
      * ====================================================================== */
     {
         const int dl = 140, dt = 200, dr = 500, db = 280;
-        const int bw = FLAIR_CHROME_DIALOG_BORDER;  /* 7 */
+        const int fr = FLAIR_CHROME_FRAME;               /* 1 px            */
 
         /* Centered: the box center is the screen center. */
         CHECK((dl + dr) / 2 == SCRW / 2 && (dt + db) / 2 == SCRH / 2,
               "(4) FILE COPY box is centered on the 640x480 desktop");
 
-        /* The 7-px border band is black on all four sides. */
-        CHECK(idx_at(&ctx, dl + 3, 240) == 0,
-              "(4) FILE COPY left border (x=143) is black (dBoxProc 7 px)");
-        CHECK(idx_at(&ctx, dr - 4, 240) == 0,
-              "(4) FILE COPY right border (x=496) is black (dBoxProc 7 px)");
-        CHECK(idx_at(&ctx, 320, dt + 3) == 0,
-              "(4) FILE COPY top border (y=203) is black (dBoxProc 7 px)");
-        CHECK(idx_at(&ctx, 320, db - 4) == 0,
-              "(4) FILE COPY bottom border (y=276) is black (dBoxProc 7 px)");
+        /* Title bar band present (probed at x=dl+5=145, left of the title-text
+         * clamp so never inside the knockout): bevel-hi (idx2), pinstripe
+         * alternation (idx7/idx8 both present), shared frame line (idx0). */
+        CHECK(idx_at(&ctx, dl + 5, dt + 1) == 2,
+              "(4) FILE COPY title bevel-hi (x=145,y=201) is idx2 (initech-zvo6)");
+        {
+            int saw_light = 0, saw_dark = 0;
+            for (int y = dt + 2; y <= dt + 16; y++) {
+                int v = idx_at(&ctx, dl + 5, y);
+                if (v == 7) { saw_light = 1; }
+                if (v == 8) { saw_dark  = 1; }
+            }
+            CHECK(saw_light && saw_dark,
+                  "(4) FILE COPY title pinstripe (x=145,y=202..216) shows BOTH "
+                  "idx7/idx8 -- a pinstripe title bar, not a solid border "
+                  "(initech-zvo6)");
+        }
+        CHECK(idx_at(&ctx, dl + 5, dt + 18) == 0,
+              "(4) FILE COPY title band shared frame line (x=145,y=218) is black");
 
-        /* The first content row after the 7-px border is white (idx 1) -- proves
-         * the border is EXACTLY 7 px (the 8th row in is content). */
-        CHECK(idx_at(&ctx, 320, dt + bw) == 1,
-              "(4) FILE COPY content interior just inside the 7 px border is white");
+        /* The frame is PLAIN 1-px: one column inside the left/right edges, at
+         * a CONTENT row (y=240, below the 19px title band), is WHITE -- under
+         * the OLD 7px dBoxProc border this would still be solid BLACK.
+         * SHELL_MUTATE_NO_MODAL / SHELL_MUTATE_MODAL_BEHIND do not affect this
+         * (they are dialog-presence/z-order mutants, not chrome mutants); this
+         * leg's own mutation coverage is DIALOG_MUTATE_TITLELESS_MODAL in
+         * test-dialog (Rule 6 scoping: the chrome defect lives in dialog.c). */
+        CHECK(idx_at(&ctx, dl + fr, 240) == 1,
+              "(4) FILE COPY content just inside the LEFT frame (x=141,y=240) "
+              "is white -- proves a 1px frame, not the old 7px border "
+              "(initech-zvo6)");
+        CHECK(idx_at(&ctx, dr - fr - 1, 240) == 1,
+              "(4) FILE COPY content just inside the RIGHT frame (x=498,y=240) "
+              "is white (initech-zvo6)");
+        CHECK(idx_at(&ctx, dl, 240) == 0,
+              "(4) FILE COPY outer LEFT frame column (x=140,y=240) is black");
+        CHECK(idx_at(&ctx, dr - 1, 240) == 0,
+              "(4) FILE COPY outer RIGHT frame column (x=499,y=240) is black");
+        CHECK(idx_at(&ctx, 320, db - 1) == 0,
+              "(4) FILE COPY outer BOTTOM frame row (x=320,y=279) is black");
 
         /* The byte-EXACT canon string "Saving tables to disk..." is the dialog's
          * static text item (Law 4). Assert it on the BUILT dialog (byte-exact). */
@@ -465,12 +498,22 @@ int main(int argc, char **argv)
                  FLAIR_CANON_FILECOPY_MSG);
         CHECK(strcmp(buf, FLAIR_CANON_FILECOPY_MSG) == 0, msg);
 
-        /* And it is RENDERED: the static-text item rect (left=154, top=212) has
-         * painted text ink within the text band -- proves the modal's text is
-         * drawn, not just stored. DrawDialog draws statText with DLG_TEXT_INK
-         * (index 4; the title-ink shade, dialog.c) on the white (idx 1) body, so
-         * "text ink" here is "a non-body pixel inside the text band". */
-        int tx0 = 154, ty0 = 212;
+        /* The window TITLE is the byte-EXACT canon "FILE COPY" (Law 4,
+         * initech-zvo6). */
+        snprintf(msg, sizeof msg,
+                 "(4) FILE COPY window title byte-EXACT '%s' (Law 4 canon)",
+                 FLAIR_CANON_FILECOPY_TITLE);
+        CHECK(strcmp(S.scene.dlg->window.titleHandle,
+                     FLAIR_CANON_FILECOPY_TITLE) == 0, msg);
+
+        /* And the statText body is RENDERED: the static-text item rect
+         * (left=154, top=225 -- re-based below the 19px title band, was
+         * top=212 under the old 7px-border layout) has painted text ink
+         * within the text band -- proves the modal's text is drawn, not just
+         * stored. DrawDialog draws statText with DLG_TEXT_INK (index 4; the
+         * title-ink shade, dialog.c) on the white (idx 1) body, so "text ink"
+         * here is "a non-body pixel inside the text band". */
+        int tx0 = 154, ty0 = 225;
         int tw  = text_measure(FONT_CHICAGO, FLAIR_CANON_FILECOPY_MSG);
         int text_ink = 0;
         for (int x = tx0; x < tx0 + tw && !text_ink; x++)
@@ -481,39 +524,55 @@ int main(int argc, char **argv)
         CHECK(text_ink,
               "(4) FILE COPY 'Saving tables to disk...' text is RENDERED as ink");
 
-        /* The progress bar item is a progressBar control (value 0, max 100), and
-         * its rendered border (black) + interior (white at value 0) are present.
-         * bar_rect: left=154, top=236, right=486, bottom=256. */
+        /* The progress bar item is a progressBar control at the CANON non-zero
+         * value (beads initech-a90f), and its rendered border (black) + a
+         * NON-ZERO solid-blue fill (idx 5, CTRL_ACCENT navy) are present.
+         * bar_rect: left=154, top=249, right=486, bottom=269 (re-based below
+         * the title band; was top=236/bottom=256 under the old layout).
+         * SHELL/DIALOG_MUTATE_PROGRESS_ZERO reverts to value=0 -> the fill
+         * check goes RED (this leg's own mutation coverage is
+         * DIALOG_MUTATE_PROGRESS_ZERO in test-dialog). */
         CHECK(S.scene.dlg->items[1].ctrl != 0 &&
               S.scene.dlg->items[1].ctrl->contrlType == progressBar &&
               S.scene.dlg->items[1].ctrl->contrlMax == 100,
-              "(4) FILE COPY item 2 is a progressBar (value 0..100)");
-        CHECK(idx_at(&ctx, 154, 246) == 0,
+              "(4) FILE COPY item 2 is a progressBar (0..100)");
+        snprintf(msg, sizeof msg,
+                 "(4) FILE COPY progress bar initial value must be "
+                 "FLAIR_CANON_FILECOPY_PROGRESS (%d), got %d (initech-a90f)",
+                 FLAIR_CANON_FILECOPY_PROGRESS,
+                 (int)S.scene.dlg->items[1].ctrl->contrlValue);
+        CHECK(S.scene.dlg->items[1].ctrl->contrlValue ==
+              FLAIR_CANON_FILECOPY_PROGRESS, msg);
+        CHECK(idx_at(&ctx, 154, 259) == 0,
               "(4) FILE COPY progress bar left border is painted (black)");
-        CHECK(idx_at(&ctx, 160, 246) == 1,
-              "(4) FILE COPY progress bar interior (value 0) is white");
+        CHECK(idx_at(&ctx, 160, 259) == 5,
+              "(4) FILE COPY progress bar FILL (x=160,y=259) is idx5 "
+              "CTRL_ACCENT navy -- a non-zero fill (initech-a90f)");
+        CHECK(idx_at(&ctx, 400, 259) == 1,
+              "(4) FILE COPY progress bar unfilled remainder (x=400,y=259) "
+              "is white");
     }
 
     /* ======================================================================
-     * 5. The MODAL is ON TOP (z-order / clip correct). The probe point (143,240)
-     * lies BOTH inside the modal's solid 7-px LEFT border (x in [140,147)) AND
+     * 5. The MODAL is ON TOP (z-order / clip correct). The probe point
+     * (140,240) lies BOTH on the modal's plain 1-px LEFT frame column AND
      * inside document window 0 (x in [60,360), y in [80,300)). With correct
      * z-order the modal occludes the window -> the pixel is the modal's BLACK
-     * border (idx 0). SHELL_MUTATE_MODAL_BEHIND / SHELL_MUTATE_NO_MODAL make the
+     * frame (idx 0). SHELL_MUTATE_MODAL_BEHIND / SHELL_MUTATE_NO_MODAL make the
      * window show through here instead (white body / chrome) -> RED.
      * ====================================================================== */
     {
-        /* Confirm the probe is geometrically over BOTH the modal border and the
+        /* Confirm the probe is geometrically over BOTH the modal frame and the
          * window (the check is meaningful, not vacuous). */
-        int in_modal_border = (143 >= 140 && 143 < 147 && 240 >= 200 && 240 < 280);
-        int in_window0 = (143 >= W0_L && 143 < W0_R && 240 >= W0_T && 240 < W0_B);
-        CHECK(in_modal_border && in_window0,
-              "(5) probe (143,240) is over BOTH the modal border and window 0 (meaningful)");
-        CHECK(idx_at(&ctx, 143, 240) == 0,
-              "(5) the modal OCCLUDES the window behind it -- modal border on top (z-order)");
+        int in_modal_frame = (140 >= 140 && 140 < 141 && 240 >= 200 && 240 < 280);
+        int in_window0 = (140 >= W0_L && 140 < W0_R && 240 >= W0_T && 240 < W0_B);
+        CHECK(in_modal_frame && in_window0,
+              "(5) probe (140,240) is over BOTH the modal frame and window 0 (meaningful)");
+        CHECK(idx_at(&ctx, 140, 240) == 0,
+              "(5) the modal OCCLUDES the window behind it -- modal frame on top (z-order)");
 
         /* A second probe inside the modal's WHITE interior, also over window 0:
-         * (160, 240). x in [147,493) interior; over window 0. Reads modal white. */
+         * (160, 240). x in [141,499) interior; over window 0. Reads modal white. */
         CHECK(idx_at(&ctx, 160, 240) == 1,
               "(5) the modal interior occludes the window behind it (modal on top)");
     }
@@ -573,8 +632,10 @@ int main(int argc, char **argv)
             shell_render(&S3.scene, &ctx3.fb.bm);
             CHECK(S3.scene.wm.overlay_rgn != (region_t *)0,
                   "(7) always-on-top overlay occluder is installed (wm.overlay_rgn)");
-            CHECK(idx_at(&ctx3, 496, 240) == 0,
-                  "(7) pre-drag: modal right border (496,240) is black idx0");
+            /* Right frame column is now x=499 (dr-1; the PLAIN 1px frame, was
+             * x=496 under the old 7px dBoxProc border, initech-zvo6). */
+            CHECK(idx_at(&ctx3, 499, 240) == 0,
+                  "(7) pre-drag: modal right frame (499,240) is black idx0");
 
             /* Drag window 1 (the front doc window) 260 px LEFT and mirror the live
              * pump: MoveWindow + seed the moved window's own repaint + minimal
@@ -584,10 +645,10 @@ int main(int argc, char **argv)
             WindowMgr_invalidate(&S3.scene.wm, w1, region_get_bbox(w1->strucRgn));
             desktop_paint_damage(&S3.scene.wm, &ctx3.fb.bm, &S3.comp.r);
 
-            /* The modal SURVIVES: right border still black, interior still white,
+            /* The modal SURVIVES: right frame still black, interior still white,
              * and the vacated right-half band shows NO seafoam teal. */
-            CHECK(idx_at(&ctx3, 496, 240) == 0,
-                  "(7) post-drag: modal right border (496,240) STILL black idx0 (not erased)");
+            CHECK(idx_at(&ctx3, 499, 240) == 0,
+                  "(7) post-drag: modal right frame (499,240) STILL black idx0 (not erased)");
             CHECK(idx_at(&ctx3, 450, 240) == 1,
                   "(7) post-drag: modal interior (450,240) STILL white idx1 (not erased)");
             int teal = 0, tot = 0;

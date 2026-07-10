@@ -10651,16 +10651,22 @@ test-flair-shell-mutant: $(TEST_SHELL_MUT_ONEBAR) $(TEST_SHELL_MUT_NOMODAL) $(TE
 # cancel; statText/disabled NOT returned), DRAW (render 8bpp, assert border/
 # content/progress-bar pixels).
 # Mutants: BORDER (wrong border width), HIT_STATIC (return statText), FILECOPY_MSG
-# (alter canon string -- Law 4 required). All three MUST drive oracle RED (Rule 6).
+# (alter canon string -- Law 4 required), TITLELESS_MODAL (revert the FILE COPY
+# modal to the old titleless dBoxProc chrome, initech-zvo6), PROGRESS_ZERO
+# (revert the progress bar's initial value to 0, initech-a90f). All MUST drive
+# oracle RED (Rule 6).
 # Ref: ADR-0004 D-3; spec/chrome_metrics.h FLAIR_CHROME_DIALOG_BORDER=7;
-#      spec/window_record.h dBoxProc=1, dialogKind=2;
-#      FLAIR_CANON_FILECOPY_MSG (Law 4, must not be paraphrased).
+#      spec/window_record.h dBoxProc=1, movableDBoxProc=5, dialogKind=2;
+#      FLAIR_CANON_FILECOPY_MSG / FLAIR_CANON_FILECOPY_TITLE (Law 4, must not
+#      be paraphrased).
 # ---------------------------------------------------------------------------
 TEST_DIALOG     := $(BUILD)/test_dialog
 TEST_DIALOG_SRC := harness/proptest/test_dialog.c
 TEST_DIALOG_MUT_BORDER  := $(BUILD)/test_dialog_mutant_border
 TEST_DIALOG_MUT_STATIC  := $(BUILD)/test_dialog_mutant_hit_static
 TEST_DIALOG_MUT_FILECOPY := $(BUILD)/test_dialog_mutant_filecopy_msg
+TEST_DIALOG_MUT_TITLELESS := $(BUILD)/test_dialog_mutant_titleless_modal
+TEST_DIALOG_MUT_PROGZERO  := $(BUILD)/test_dialog_mutant_progress_zero
 TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
                     os/flair/control.c os/flair/control.h \
                     os/flair/text.c os/flair/text.h \
@@ -10686,6 +10692,10 @@ $(TEST_DIALOG_MUT_STATIC): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_HIT_STATIC=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
 $(TEST_DIALOG_MUT_FILECOPY): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_FILECOPY_MSG=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+$(TEST_DIALOG_MUT_TITLELESS): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_TITLELESS_MODAL=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+$(TEST_DIALOG_MUT_PROGZERO): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_PROGRESS_ZERO=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
 
 test-dialog: $(TEST_DIALOG)
 	@printf ">>> test-dialog: LAYOUT (border=7px, item rects, FILE COPY canon byte-exact) + MODALDIALOG event routing + DRAW 8bpp (D-3; Law 4)\n"
@@ -10695,8 +10705,8 @@ test-dialog: $(TEST_DIALOG)
 		|| { printf '!!! test-dialog FAIL: dialog.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-dialog: green\n"
 
-test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY)
-	@printf ">>> test-dialog-mutant: confirming all three mutants go RED (Rule 6; Law 4 for FILECOPY_MSG)\n"
+test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO)
+	@printf ">>> test-dialog-mutant: confirming all five mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
 	@if $(TEST_DIALOG_MUT_BORDER) >/dev/null 2>&1; then \
 		printf '!!! test-dialog-mutant FAIL: BORDER mutant PASSED -- the border-width oracle is decoration\n'; exit 1; \
 	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_BORDER correctly RED)\n'; fi
@@ -10706,6 +10716,12 @@ test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_D
 	@if $(TEST_DIALOG_MUT_FILECOPY) >/dev/null 2>&1; then \
 		printf '!!! test-dialog-mutant FAIL: FILECOPY_MSG mutant PASSED -- the canon-string oracle is decoration (Law 4 violated)\n'; exit 1; \
 	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_FILECOPY_MSG correctly RED -- Law 4 oracle bites)\n'; fi
+	@if $(TEST_DIALOG_MUT_TITLELESS) >/dev/null 2>&1; then \
+		printf '!!! test-dialog-mutant FAIL: TITLELESS_MODAL mutant PASSED -- the moveable-titled-modal oracle is decoration (initech-zvo6)\n'; exit 1; \
+	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_TITLELESS_MODAL correctly RED -- Law 4 oracle bites)\n'; fi
+	@if $(TEST_DIALOG_MUT_PROGZERO) >/dev/null 2>&1; then \
+		printf '!!! test-dialog-mutant FAIL: PROGRESS_ZERO mutant PASSED -- the progress-bar-fill oracle is decoration (initech-a90f)\n'; exit 1; \
+	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_PROGRESS_ZERO correctly RED -- Law 4 oracle bites)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
