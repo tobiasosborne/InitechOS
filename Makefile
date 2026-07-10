@@ -421,6 +421,20 @@ GREET_PROG_BIN   := $(BUILD)/greet_program.bin
 # GOBBLE.COM; proves a `<` INPUT redirect re-points an EXEC child's stdin at a file.
 GOBBLE_PROG_ASM  := $(KERNEL_DIR)/gobble_program.asm
 GOBBLE_PROG_BIN  := $(BUILD)/gobble_program.bin
+# Classic DOS filters (beads initech-m0dc): SORT / FIND / MORE. Each a flat .COM
+# (org 0x40100, nasm -f bin), NOT baked into the kernel; mcopy'd onto a FAT12
+# data disk and loaded BY NAME. Each also has a MUTANT build (nasm -D<macro>)
+# used by its emu-gate mutant leg (Rule 6): SORT comparator reversed, FIND match
+# inverted, MORE passthrough made lossy.
+SORT_PROG_ASM    := $(KERNEL_DIR)/sort_program.asm
+SORT_PROG_BIN    := $(BUILD)/sort_program.bin
+SORT_PROG_MUT_BIN := $(BUILD)/sort_program_mut.bin
+FIND_PROG_ASM    := $(KERNEL_DIR)/find_program.asm
+FIND_PROG_BIN    := $(BUILD)/find_program.bin
+FIND_PROG_MUT_BIN := $(BUILD)/find_program_mut.bin
+MORE_PROG_ASM    := $(KERNEL_DIR)/more_program.asm
+MORE_PROG_BIN    := $(BUILD)/more_program.bin
+MORE_PROG_MUT_BIN := $(BUILD)/more_program_mut.bin
 KERNEL_ISR_ASM   := $(KERNEL_DIR)/isr.asm
 KERNEL_START_OBJ := $(BUILD)/kstart.o
 KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
@@ -1394,6 +1408,22 @@ $(GREET_PROG_BIN): $(GREET_PROG_ASM) | $(BUILD)
 # beads initech-bsy.7 (the `<` INPUT-redirect emu-gate program).
 $(GOBBLE_PROG_BIN): $(GOBBLE_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
+
+# Classic DOS filters SORT / FIND / MORE (beads initech-m0dc). nasm -f bin is
+# deterministic (Rule 11). The *_mut.bin variants add a single -D mutation used
+# by the emu-gate mutant legs (Rule 6).
+$(SORT_PROG_BIN): $(SORT_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+$(SORT_PROG_MUT_BIN): $(SORT_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin -DSORT_MUTATE_REVERSE $< -o $@
+$(FIND_PROG_BIN): $(FIND_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+$(FIND_PROG_MUT_BIN): $(FIND_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin -DFIND_MUTATE_INVERT $< -o $@
+$(MORE_PROG_BIN): $(MORE_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+$(MORE_PROG_MUT_BIN): $(MORE_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin -DMORE_MUTATE_DROP $< -o $@
 
 # FAT12 EXEC disk for the in-emulator FAT-sourced-load oracle (beads initech-saw).
 # A SEPARATE 1.44 MB volume carrying GREET.COM (the .COM loaded BY NAME). Kept
@@ -17974,6 +18004,260 @@ test-bsy8-pipe-mutant: $(HARNESS_BIN) $(BSY8_PIPE_TRACER_MUT_IMG) $(GREET_PROG_B
 	fi
 	@printf '>>> test-bsy8-pipe-mutant: green (no-stdin mutant correctly RED -- GREETINGS count != 1, the consumer stdin repoint is load-bearing for the pipe)\n'
 
+# ===========================================================================
+# Classic DOS filters SORT / FIND / MORE (beads initech-m0dc)
+# ===========================================================================
+# Each filter ships as a flat .COM loaded BY NAME from a FAT12 data disk (the
+# GREET/GOBBLE idiom), and is gated end-to-end on the emulated 386 through the
+# proven redirection/pipe machinery (bsy.7 `<`, bsy.8 `|`, bsy.9 EXEC JFT
+# inherit). Each gate DIFFs the filter's serial output against an INDEPENDENT
+# hand-authored golden (Law 2), and each has a MUTANT leg (Rule 6) that boots the
+# SAME kernel with a deliberately-broken build of the filter .COM and asserts the
+# gate goes RED -- if the mutant PASSES, the gate is decoration and we fail loud.
+
+# --- SORT: `SORT < IN` ascending + `SORT /R < IN` descending -----------------
+# The fixture mixes lowercase (apple, mango) and uppercase (Banana, Cherry,
+# Zebra) so a naive byte-wise sort and the case-insensitive collation DISAGREE;
+# the gate therefore bites on the collation, not merely on "looks sorted".
+# Ref: MS-DOS 3.3 User's Guide "SORT"; prereqs bsy.7 (`<`) + o0td (loader).
+SORT_IMG        := $(BUILD)/sort_filter.img
+SORT_MUT_IMG    := $(BUILD)/sort_filter_mut.img
+SORT_FNAME      := sort_filter
+SORT_MUT_FNAME  := sort_filter_mut
+SORT_SERIAL     := $(BUILD)/$(SORT_FNAME).serial
+SORT_MUT_SERIAL := $(BUILD)/$(SORT_MUT_FNAME).serial
+SORT_REPORT     := $(BUILD)/$(SORT_FNAME).report
+SORT_MUT_REPORT := $(BUILD)/$(SORT_MUT_FNAME).report
+SORT_BAT        := $(FAT12_FIXTURE_DIR)/autoexec_sort.bat
+SORT_IN         := $(FAT12_FIXTURE_DIR)/sort_in.txt
+SORT_GOLD_A     := $(FAT12_FIXTURE_DIR)/sort_expected_a.txt
+SORT_GOLD_R     := $(FAT12_FIXTURE_DIR)/sort_expected_r.txt
+
+# $(1)=image path, $(2)=SORT.COM binary to plant (real or mutant).
+define sort-filter-mint-disk
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(SORT_BAT) ::AUTOEXEC.BAT
+	@mcopy -i $(1) $(2) ::SORT.COM
+	@mcopy -i $(1) $(SORT_IN) ::SIN.TXT
+endef
+
+.PHONY: test-sort-filter test-sort-filter-mutant
+test-sort-filter: $(HARNESS_BIN) $(TRACER_IMG) $(SORT_PROG_BIN) $(SORT_BAT) $(SORT_IN) $(SORT_GOLD_A) $(SORT_GOLD_R)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-sort-filter : the SORT filter (initech-m0dc)\n'
+	@printf '  AUTOEXEC.BAT: SORT < SIN.TXT (ascending) ; SORT /R < SIN.TXT (descending).\n'
+	@printf '  DIFFs each ECHO-bracketed block on serial against an independent golden.\n'
+	@printf '======================================================================\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-sort-filter FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-sort-filter FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	$(call sort-filter-mint-disk,$(SORT_IMG),$(SORT_PROG_BIN))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SORT_IMG)" \
+		--name "$(SORT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(SORT_REPORT)" || true
+	@cat "$(SORT_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(SORT_REPORT)"; then \
+		printf '!!! test-sort-filter FAIL: TRIPLE FAULT -- SORT crashed (root-cause the read/split/sort path, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-sort-filter [1/5]: no triple-fault\n'
+	@if [ ! -s "$(SORT_SERIAL)" ]; then printf '!!! test-sort-filter FAIL: no serial captured at %s\n' "$(SORT_SERIAL)"; exit 1; fi
+	@grep -q '^SHELL-READY$$' "$(SORT_SERIAL)" || { printf '!!! test-sort-filter FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
+	@printf '>>> test-sort-filter [2/5]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@sed -n '/^SHELL-READY$$/,$$p' "$(SORT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(SORT_FNAME).repl"
+	@awk '/^SORT-A-BEGIN$$/{f=1;next} /^SORT-A-END$$/{f=0} f' "$(BUILD)/$(SORT_FNAME).repl" > "$(BUILD)/$(SORT_FNAME).got_a"
+	@awk '/^SORT-R-BEGIN$$/{f=1;next} /^SORT-R-END$$/{f=0} f' "$(BUILD)/$(SORT_FNAME).repl" > "$(BUILD)/$(SORT_FNAME).got_r"
+	@diff "$(SORT_GOLD_A)" "$(BUILD)/$(SORT_FNAME).got_a" \
+		|| { printf '!!! test-sort-filter FAIL: ascending output != golden (case-insensitive collation wrong, or SORT did not run / read stdin; root-cause compare_lines / the `<` stdin repoint, Rule 3)\n'; exit 1; }
+	@printf '>>> test-sort-filter [3/5]: `SORT < SIN.TXT` ascending == golden (case-insensitive collation correct)\n'
+	@diff "$(SORT_GOLD_R)" "$(BUILD)/$(SORT_FNAME).got_r" \
+		|| { printf '!!! test-sort-filter FAIL: `/R` output != reverse golden (the /R switch was not honored; root-cause the tail parse + rflag, Rule 3)\n'; exit 1; }
+	@printf '>>> test-sort-filter [4/5]: `SORT /R < SIN.TXT` descending == golden (the /R switch reverses)\n'
+	@grep -q '^SHELL-EXIT$$' "$(SORT_SERIAL)" || { printf '!!! test-sort-filter FAIL: SHELL-EXIT missing -- the post-AUTOEXEC EXIT did not run (handle 0 not restored, or a panic)\n'; exit 1; }
+	@printf '>>> test-sort-filter [5/5]: post-filter `exit` reached the REPL + halted cleanly\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- SORT really sorts stdin (case-insensitive + /R) on the 386 (QEMU only)\n'
+	@printf '======================================================================\n'
+
+test-sort-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SORT_PROG_MUT_BIN) $(SORT_BAT) $(SORT_IN) $(SORT_GOLD_A)
+	@printf '>>> test-sort-filter-mutant: confirming the REVERSED-comparator mutant goes RED (Rule 6)\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-sort-filter-mutant FAIL: mtools not found\n'; exit 1; }
+	$(call sort-filter-mint-disk,$(SORT_MUT_IMG),$(SORT_PROG_MUT_BIN))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SORT_MUT_IMG)" \
+		--name "$(SORT_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(SORT_MUT_REPORT)" || true
+	@if [ ! -s "$(SORT_MUT_SERIAL)" ]; then printf '!!! test-sort-filter-mutant FAIL: no serial from the mutant boot\n'; exit 1; fi
+	@sed -n '/^SHELL-READY$$/,$$p' "$(SORT_MUT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(SORT_MUT_FNAME).repl"
+	@awk '/^SORT-A-BEGIN$$/{f=1;next} /^SORT-A-END$$/{f=0} f' "$(BUILD)/$(SORT_MUT_FNAME).repl" > "$(BUILD)/$(SORT_MUT_FNAME).got_a"
+	@if diff -q "$(SORT_GOLD_A)" "$(BUILD)/$(SORT_MUT_FNAME).got_a" >/dev/null 2>&1; then \
+		printf '!!! test-sort-filter-mutant FAIL: ascending output MATCHED the golden under SORT_MUTATE_REVERSE -- the gate would pass even with the comparator flipped; it is decoration\n'; exit 1; \
+	fi
+	@printf '>>> test-sort-filter-mutant: green (reversed-comparator mutant correctly RED -- ascending block != golden, the collation is load-bearing)\n'
+
+# --- FIND: `TYPE FIN.TXT | FIND "needle"` + `... | FIND /V "needle"` ----------
+# Case-SENSITIVE match by default: FIN.TXT includes an uppercase "NEEDLE" line
+# that must NOT match the lowercase needle -- so the gate bites on case, not just
+# on substring presence. /V prints the complementary set. Ref: MS-DOS 3.3 User's
+# Guide "FIND"; prereqs bsy.8 (`|`) + the cmd-tail passing (initech-456).
+FIND_IMG        := $(BUILD)/find_filter.img
+FIND_MUT_IMG    := $(BUILD)/find_filter_mut.img
+FIND_FNAME      := find_filter
+FIND_MUT_FNAME  := find_filter_mut
+FIND_SERIAL     := $(BUILD)/$(FIND_FNAME).serial
+FIND_MUT_SERIAL := $(BUILD)/$(FIND_MUT_FNAME).serial
+FIND_REPORT     := $(BUILD)/$(FIND_FNAME).report
+FIND_MUT_REPORT := $(BUILD)/$(FIND_MUT_FNAME).report
+FIND_BAT        := $(FAT12_FIXTURE_DIR)/autoexec_find.bat
+FIND_IN         := $(FAT12_FIXTURE_DIR)/find_in.txt
+FIND_GOLD       := $(FAT12_FIXTURE_DIR)/find_expected.txt
+FIND_GOLD_V     := $(FAT12_FIXTURE_DIR)/find_expected_v.txt
+
+define find-filter-mint-disk
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(FIND_BAT) ::AUTOEXEC.BAT
+	@mcopy -i $(1) $(2) ::FIND.COM
+	@mcopy -i $(1) $(FIND_IN) ::FIN.TXT
+endef
+
+.PHONY: test-find-filter test-find-filter-mutant
+test-find-filter: $(HARNESS_BIN) $(TRACER_IMG) $(FIND_PROG_BIN) $(FIND_BAT) $(FIND_IN) $(FIND_GOLD) $(FIND_GOLD_V)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-find-filter : the FIND filter (initech-m0dc)\n'
+	@printf '  AUTOEXEC.BAT: TYPE FIN.TXT | FIND "needle" ; ... | FIND /V "needle".\n'
+	@printf '  DIFFs the matched / inverted line sets on serial against independent goldens.\n'
+	@printf '======================================================================\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-find-filter FAIL: mtools `mformat` not found (apt install mtools).\n'; exit 1; }
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-find-filter FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	$(call find-filter-mint-disk,$(FIND_IMG),$(FIND_PROG_BIN))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FIND_IMG)" \
+		--name "$(FIND_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(FIND_REPORT)" || true
+	@cat "$(FIND_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(FIND_REPORT)"; then \
+		printf '!!! test-find-filter FAIL: TRIPLE FAULT -- FIND crashed (root-cause tail parse / substring scan, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-find-filter [1/5]: no triple-fault\n'
+	@if [ ! -s "$(FIND_SERIAL)" ]; then printf '!!! test-find-filter FAIL: no serial captured\n'; exit 1; fi
+	@grep -q '^SHELL-READY$$' "$(FIND_SERIAL)" || { printf '!!! test-find-filter FAIL: SHELL-READY missing\n'; exit 1; }
+	@printf '>>> test-find-filter [2/5]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@sed -n '/^SHELL-READY$$/,$$p' "$(FIND_SERIAL)" | tr -d '\r' > "$(BUILD)/$(FIND_FNAME).repl"
+	@awk '/^FIND-BEGIN$$/{f=1;next} /^FIND-END$$/{f=0} f' "$(BUILD)/$(FIND_FNAME).repl" > "$(BUILD)/$(FIND_FNAME).got"
+	@awk '/^FINDV-BEGIN$$/{f=1;next} /^FINDV-END$$/{f=0} f' "$(BUILD)/$(FIND_FNAME).repl" > "$(BUILD)/$(FIND_FNAME).got_v"
+	@diff "$(FIND_GOLD)" "$(BUILD)/$(FIND_FNAME).got" \
+		|| { printf '!!! test-find-filter FAIL: matched-line set != golden (case-sensitivity wrong, or the quoted string / pipe stdin not read; root-cause line_contains / the cmd-tail parse, Rule 3)\n'; exit 1; }
+	@printf '>>> test-find-filter [3/5]: `FIND "needle"` matched exactly the golden lines (case-sensitive; uppercase NEEDLE excluded)\n'
+	@diff "$(FIND_GOLD_V)" "$(BUILD)/$(FIND_FNAME).got_v" \
+		|| { printf '!!! test-find-filter FAIL: /V (invert) set != golden (the /V switch was not honored; root-cause the F_V flag path, Rule 3)\n'; exit 1; }
+	@printf '>>> test-find-filter [4/5]: `FIND /V "needle"` emitted exactly the complementary lines\n'
+	@grep -q '^SHELL-EXIT$$' "$(FIND_SERIAL)" || { printf '!!! test-find-filter FAIL: SHELL-EXIT missing\n'; exit 1; }
+	@printf '>>> test-find-filter [5/5]: post-filter `exit` reached the REPL + halted cleanly\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- FIND really filters piped stdin by a case-sensitive literal on the 386 (QEMU only)\n'
+	@printf '======================================================================\n'
+
+test-find-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(FIND_PROG_MUT_BIN) $(FIND_BAT) $(FIND_IN) $(FIND_GOLD)
+	@printf '>>> test-find-filter-mutant: confirming the INVERTED-match mutant goes RED (Rule 6)\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-find-filter-mutant FAIL: mtools not found\n'; exit 1; }
+	$(call find-filter-mint-disk,$(FIND_MUT_IMG),$(FIND_PROG_MUT_BIN))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FIND_MUT_IMG)" \
+		--name "$(FIND_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(FIND_MUT_REPORT)" || true
+	@if [ ! -s "$(FIND_MUT_SERIAL)" ]; then printf '!!! test-find-filter-mutant FAIL: no serial from the mutant boot\n'; exit 1; fi
+	@sed -n '/^SHELL-READY$$/,$$p' "$(FIND_MUT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(FIND_MUT_FNAME).repl"
+	@awk '/^FIND-BEGIN$$/{f=1;next} /^FIND-END$$/{f=0} f' "$(BUILD)/$(FIND_MUT_FNAME).repl" > "$(BUILD)/$(FIND_MUT_FNAME).got"
+	@if diff -q "$(FIND_GOLD)" "$(BUILD)/$(FIND_MUT_FNAME).got" >/dev/null 2>&1; then \
+		printf '!!! test-find-filter-mutant FAIL: matched set MATCHED the golden under FIND_MUTATE_INVERT -- the gate would pass even with the match sense flipped; it is decoration\n'; exit 1; \
+	fi
+	@printf '>>> test-find-filter-mutant: green (inverted-match mutant correctly RED -- matched set != golden, the match sense is load-bearing)\n'
+
+# --- MORE: `MORE < MIN.TXT > MOUT.TXT` (stdout is a FILE -> passthrough) -------
+# MORE queries AH=44h AL=00 on handle 1; a FILE handle (bit15 clear) -> no pager,
+# pass stdin through verbatim.  We drive it as `MORE < MIN.TXT > MOUT.TXT` (both
+# redirects on MORE) so its input is EXACTLY MIN.TXT (no TYPE-appended CRLF) and
+# its output lands in MOUT.TXT byte-for-byte; the oracle then reads MOUT.TXT back
+# OUT of the (writable, non-snapshot) disk image with `mtype` and DIFFs it against
+# MIN.TXT -- an independent, byte-exact golden with zero TYPE confound.
+# MIN.TXT is 30 lines (> the 24-line screenful): a MORE that FAILED to detect the
+# file stdout and paginated instead would keywait after line 24 and hang the
+# headless boot (no SHELL-EXIT) -- so a PASS also proves the device fork fired.
+# Ref: MS-DOS 3.3 PRM INT 21h Fn 44h (AL=00 device-info, bit15 ISDEV); User's
+# Guide "MORE"; prereqs bsy.7 (`<`) + bsy.9 (`>`) + ro6c (IOCTL get-device-info).
+MORE_IMG        := $(BUILD)/more_filter.img
+MORE_MUT_IMG    := $(BUILD)/more_filter_mut.img
+MORE_FNAME      := more_filter
+MORE_MUT_FNAME  := more_filter_mut
+MORE_SERIAL     := $(BUILD)/$(MORE_FNAME).serial
+MORE_MUT_SERIAL := $(BUILD)/$(MORE_MUT_FNAME).serial
+MORE_REPORT     := $(BUILD)/$(MORE_FNAME).report
+MORE_MUT_REPORT := $(BUILD)/$(MORE_MUT_FNAME).report
+MORE_BAT        := $(FAT12_FIXTURE_DIR)/autoexec_more.bat
+MORE_IN         := $(FAT12_FIXTURE_DIR)/more_in.txt
+
+define more-filter-mint-disk
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(MORE_BAT) ::AUTOEXEC.BAT
+	@mcopy -i $(1) $(2) ::MORE.COM
+	@mcopy -i $(1) $(MORE_IN) ::MIN.TXT
+endef
+
+.PHONY: test-more-filter test-more-filter-mutant
+test-more-filter: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_BIN) $(MORE_BAT) $(MORE_IN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-more-filter : the MORE filter (initech-m0dc)\n'
+	@printf '  AUTOEXEC.BAT: MORE < MIN.TXT > MOUT.TXT  (stdin + stdout both redirected).\n'
+	@printf '  stdout is a FILE (AH=44h AL=00 bit15 clear) -> MORE passes through verbatim;\n'
+	@printf '  MOUT.TXT (read back from the image) must equal MIN.TXT byte-for-byte.\n'
+	@printf '======================================================================\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-more-filter FAIL: mtools `mformat` not found (apt install mtools).\n'; exit 1; }
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-more-filter FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	@command -v mtype   >/dev/null 2>&1 || { printf '!!! test-more-filter FAIL: mtools `mtype` not found.\n'; exit 1; }
+	$(call more-filter-mint-disk,$(MORE_IMG),$(MORE_PROG_BIN))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(MORE_IMG)" \
+		--name "$(MORE_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(MORE_REPORT)" || true
+	@cat "$(MORE_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(MORE_REPORT)"; then \
+		printf '!!! test-more-filter FAIL: TRIPLE FAULT -- MORE crashed (root-cause the IOCTL/passthrough path, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-more-filter [1/4]: no triple-fault\n'
+	@if [ ! -s "$(MORE_SERIAL)" ]; then printf '!!! test-more-filter FAIL: no serial captured\n'; exit 1; fi
+	@grep -q '^SHELL-READY$$' "$(MORE_SERIAL)" || { printf '!!! test-more-filter FAIL: SHELL-READY missing\n'; exit 1; }
+	@printf '>>> test-more-filter [2/4]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@mtype -i "$(MORE_IMG)" ::MOUT.TXT 2>/dev/null | tr -d '\r' > "$(BUILD)/$(MORE_FNAME).got" \
+		|| { printf '!!! test-more-filter FAIL: MOUT.TXT not present on the image -- MORE never wrote its stdout (root-cause the passthrough / `>` redirect, Rule 3)\n'; exit 1; }
+	@diff "$(MORE_IN)" "$(BUILD)/$(MORE_FNAME).got" \
+		|| { printf '!!! test-more-filter FAIL: MOUT.TXT != MIN.TXT (MORE dropped/garbled bytes, or did not detect the file stdout; root-cause the AH=44h device fork / passthrough copy, Rule 3)\n'; exit 1; }
+	@printf '>>> test-more-filter [3/4]: `MORE < MIN.TXT > MOUT.TXT` passed 30 lines through verbatim (file stdout -> no pager keywait)\n'
+	@grep -q '^SHELL-EXIT$$' "$(MORE_SERIAL)" || { printf '!!! test-more-filter FAIL: SHELL-EXIT missing -- MORE may have paginated a file stdout and blocked on a keywait past line 24 (device fork broken)\n'; exit 1; }
+	@printf '>>> test-more-filter [4/4]: post-filter `exit` reached the REPL + halted cleanly (no pager keywait -> file stdout was detected)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- MORE detects a file stdout and passes input through on the 386 (QEMU only)\n'
+	@printf '======================================================================\n'
+
+test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MORE_BAT) $(MORE_IN)
+	@printf '>>> test-more-filter-mutant: confirming the LOSSY-passthrough mutant goes RED (Rule 6)\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-more-filter-mutant FAIL: mtools not found\n'; exit 1; }
+	$(call more-filter-mint-disk,$(MORE_MUT_IMG),$(MORE_PROG_MUT_BIN))
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(MORE_MUT_IMG)" \
+		--name "$(MORE_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(MORE_MUT_REPORT)" || true
+	@if [ ! -s "$(MORE_MUT_SERIAL)" ]; then printf '!!! test-more-filter-mutant FAIL: no serial from the mutant boot\n'; exit 1; fi
+	@mtype -i "$(MORE_MUT_IMG)" ::MOUT.TXT 2>/dev/null | tr -d '\r' > "$(BUILD)/$(MORE_MUT_FNAME).got" || true
+	@if diff -q "$(MORE_IN)" "$(BUILD)/$(MORE_MUT_FNAME).got" >/dev/null 2>&1; then \
+		printf '!!! test-more-filter-mutant FAIL: MOUT.TXT MATCHED the input under MORE_MUTATE_DROP -- the gate would pass even with lossy passthrough; it is decoration\n'; exit 1; \
+	fi
+	@printf '>>> test-more-filter-mutant: green (lossy-passthrough mutant correctly RED -- round-trip != input, the full byte forward is load-bearing)\n'
+
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
@@ -17991,6 +18275,9 @@ TEST_EMU_GATES := \
 	test-bsy9-redir test-bsy9-redir-mutant \
 	test-bsy7-redir test-bsy7-redir-mutant \
 	test-bsy8-pipe test-bsy8-pipe-mutant \
+	test-sort-filter test-sort-filter-mutant \
+	test-find-filter test-find-filter-mutant \
+	test-more-filter test-more-filter-mutant \
 	test-flair-desktop test-flair-desktop-mutant \
 	test-flair-live test-flair-live-mutant \
 	test-flair-key test-flair-key-mutant \

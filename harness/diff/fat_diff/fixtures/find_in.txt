@@ -1,0 +1,6 @@
+the needle is here
+a haystack line
+NEEDLE uppercase
+another needle line
+nothing to see
+final needle

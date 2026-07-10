@@ -1,0 +1,3 @@
+a haystack line
+NEEDLE uppercase
+nothing to see
