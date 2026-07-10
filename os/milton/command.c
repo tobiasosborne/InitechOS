@@ -1303,23 +1303,35 @@ static int redir_is_space(char c)
     return c == ' ' || c == '\t';
 }
 
-int cmd_redir_parse(const char *line,
-                    char *clean_out, uint32_t clean_cap,
-                    char *target_out, uint32_t target_cap,
-                    int *append_out)
+/* Strip ONE redirection operator (`opch` == '>' or '<') off `line`.  This is the
+ * generic engine cmd_redir_parse runs twice -- once for OUTPUT '>' (allow_append
+ * = 1, so `>>` sets *append_out), once for INPUT '<' (allow_append = 0; there is
+ * no `<<`).  It reproduces the original hsct single-`>` split byte-for-byte when
+ * called with opch='>' -- the OUTPUT parse oracle is unchanged.
+ *
+ *   - Scans left to right; the LAST `opch` operator wins.
+ *   - The TARGET token is the next whitespace-delimited run after the operator,
+ *     stopping at EITHER redirect char ('>' or '<') so a combined `cmd<in>out`
+ *     splits cleanly regardless of order.
+ *   - `clean_out` = prefix [0,op_at) + suffix after the target, whitespace-tidied.
+ *   - Returns 1 iff `opch` was present (target_out valid), else 0 (clean_out is a
+ *     clamped copy of `line`, target_out == "").
+ *
+ * Rule 2: every write is bounded by its cap; NUL-terminated within the buffer,
+ * never past the end.  The mutation hooks below are the SAME ones the hsct oracle
+ * proves bite (they act on whichever pass is running; the parse-mutant tests use
+ * `>` lines). */
+static int redir_strip_one(const char *line, char opch, int allow_append,
+                           char *clean_out, uint32_t clean_cap,
+                           char *target_out, uint32_t target_cap,
+                           int *append_out)
 {
-    /* Defensive defaults so every early return leaves the outputs well-formed
-     * (Rule 2 -- a caller must never read uninitialized clean/target). */
     if (append_out != 0) {
         *append_out = 0;
     }
     if (target_out != 0 && target_cap > 0u) {
         target_out[0] = '\0';
     }
-
-    /* Helper: copy `src` into clean_out clamped to clean_cap (always NUL-term).
-     * Used for the no-redirect passthrough and the rebuilt clean line. */
-    /* (inlined below; no nested functions in C) */
 
     if (line == 0) {
         if (clean_out != 0 && clean_cap > 0u) {
@@ -1328,18 +1340,18 @@ int cmd_redir_parse(const char *line,
         return 0;
     }
 
-    /* Pass 1: find the LAST '>' operator. op_at = index of the FIRST '>' of the
-     * winning operator; op_len = 1 (`>`) or 2 (`>>`). */
+    /* Find the LAST `opch` operator. op_at = index of the FIRST char of the
+     * winning operator; op_len = 1, or 2 for a `>>` when allow_append. */
     int op_at = -1;
     int op_len = 0;
     {
         uint32_t i = 0;
         while (line[i] != '\0') {
-            if (line[i] == '>') {
+            if (line[i] == opch) {
                 op_at = (int)i;
-                if (line[i + 1u] == '>') {
+                if (allow_append && line[i + 1u] == opch) {
                     op_len = 2;
-                    i += 2u;     /* consume both '>' so a later lone '>' wins fresh */
+                    i += 2u;     /* consume both so a later lone op wins fresh */
                 } else {
                     op_len = 1;
                     i += 1u;
@@ -1351,7 +1363,7 @@ int cmd_redir_parse(const char *line,
     }
 
     if (op_at < 0) {
-        /* No redirect: clean_out is a clamped copy of line; target empty. */
+        /* Operator absent: clean_out is a clamped copy of line; target empty. */
         uint32_t j = 0;
         if (clean_out != 0 && clean_cap > 0u) {
             while (line[j] != '\0' && j + 1u < clean_cap) {
@@ -1364,7 +1376,7 @@ int cmd_redir_parse(const char *line,
     }
 
 #ifdef CMD_MUTATE_REDIR_NO_APPEND
-    /* MUTANT: force every operator to single '>' (truncate) -- the append flag
+    /* MUTANT: force every operator to single width (truncate) -- the append flag
      * is never set; the `>>` oracle case goes RED.  NEVER in a real build. */
     op_len = 1;
 #endif
@@ -1374,7 +1386,7 @@ int cmd_redir_parse(const char *line,
     }
 
     /* Locate the target token: skip whitespace after the operator, then take a
-     * run of non-whitespace.  tgt_start/tgt_end are [start, end) into line. */
+     * run of non-whitespace, stopping at EITHER redirect char. */
     uint32_t after = (uint32_t)op_at + (uint32_t)op_len;
     while (line[after] != '\0' && redir_is_space(line[after])) {
         after++;
@@ -1382,7 +1394,7 @@ int cmd_redir_parse(const char *line,
     uint32_t tgt_start = after;
     uint32_t tgt_end = tgt_start;
     while (line[tgt_end] != '\0' && !redir_is_space(line[tgt_end]) &&
-           line[tgt_end] != '>') {
+           line[tgt_end] != '>' && line[tgt_end] != '<') {
         tgt_end++;
     }
 
@@ -1400,26 +1412,21 @@ int cmd_redir_parse(const char *line,
 
     /* Rebuild clean_out = prefix [0, op_at) + suffix [tgt_end, end), with one
      * separating space inserted only when both sides have non-space content, and
-     * the whole result whitespace-trimmed at both ends.  We build into clean_out
-     * directly with bound checks at every byte (Rule 2). */
+     * the whole result whitespace-trimmed at both ends (Rule 2, bounded). */
     if (clean_out != 0 && clean_cap > 0u) {
         uint32_t w = 0;
 
-        /* Emit prefix [0, op_at), trimming its trailing whitespace as we go is
-         * easier to do AFTER: emit raw then trim.  Emit prefix bytes. */
         {
             uint32_t p = 0;
             while (p < (uint32_t)op_at && w + 1u < clean_cap) {
                 clean_out[w++] = line[p++];
             }
         }
-        /* Trim trailing whitespace of the prefix already in clean_out. */
         while (w > 0u && redir_is_space(clean_out[w - 1u])) {
             w--;
         }
         uint32_t prefix_len = w;
 
-        /* Find where the suffix's non-space content begins. */
         uint32_t suf = tgt_end;
         while (line[suf] != '\0' && redir_is_space(line[suf])) {
             suf++;
@@ -1432,19 +1439,14 @@ int cmd_redir_parse(const char *line,
         suf = tgt_start;
 #endif
 
-        /* If there is suffix content AND we already wrote a non-empty prefix,
-         * insert a single separating space. */
         if (line[suf] != '\0' && prefix_len > 0u && w + 1u < clean_cap) {
             clean_out[w++] = ' ';
         }
 
-        /* Emit the suffix verbatim (it may itself contain interior spaces; those
-         * are part of the command's args and are preserved). */
         while (line[suf] != '\0' && w + 1u < clean_cap) {
             clean_out[w++] = line[suf++];
         }
 
-        /* Trim any trailing whitespace of the whole result. */
         while (w > 0u && redir_is_space(clean_out[w - 1u])) {
             w--;
         }
@@ -1452,6 +1454,58 @@ int cmd_redir_parse(const char *line,
     }
 
     return 1;
+}
+
+int cmd_redir_parse(const char *line,
+                    char *clean_out, uint32_t clean_cap,
+                    char *target_out, uint32_t target_cap,
+                    int *append_out,
+                    char *in_target_out, uint32_t in_target_cap)
+{
+    /* Two independent passes (beads initech-bsy.7).  PASS 1 strips the OUTPUT
+     * `>`/`>>` operator+target into `target_out` and produces an intermediate
+     * clean line in `tmp`.  PASS 2 strips the INPUT `<` operator+target from that
+     * intermediate into `in_target_out`, producing the final `clean_out`.  Doing
+     * OUTPUT first means `cmd < in > out` and `cmd > out < in` BOTH resolve: the
+     * '>' target scan stops at the '<' (and vice-versa), so neither pass swallows
+     * the other's operator.  The intermediate is bounded by CMD_LINE_MAX -- the
+     * shell's hard line cap (command.h); a real command line never exceeds it. */
+    char tmp[CMD_LINE_MAX];
+
+    /* Defensive default so an early/absent-input return leaves in_target well
+     * formed (Rule 2). */
+    if (in_target_out != 0 && in_target_cap > 0u) {
+        in_target_out[0] = '\0';
+    }
+
+    int out_has = redir_strip_one(line, '>', 1 /*allow_append*/,
+                                  tmp, (uint32_t)sizeof(tmp),
+                                  target_out, target_cap, append_out);
+
+#ifdef CMD_MUTATE_REDIR_NO_LT
+    /* MUTANT (Rule 6; beads initech-bsy.7): drop the `<` INPUT scan entirely --
+     * clean_out is just the OUTPUT-stripped line, in_target stays empty, and
+     * CMD_REDIR_IN is never returned.  The `<` parse oracle + the GOBBLE emu gate
+     * both go RED (the child reads the keyboard, not the file).  NEVER in a real
+     * build. */
+    {
+        uint32_t j = 0;
+        if (clean_out != 0 && clean_cap > 0u) {
+            while (tmp[j] != '\0' && j + 1u < clean_cap) {
+                clean_out[j] = tmp[j];
+                j++;
+            }
+            clean_out[j] = '\0';
+        }
+    }
+    return out_has ? CMD_REDIR_OUT : 0;
+#else
+    int in_has = redir_strip_one(tmp, '<', 0 /*no `<<`*/,
+                                 clean_out, clean_cap,
+                                 in_target_out, in_target_cap, 0 /*no append*/);
+
+    return (out_has ? CMD_REDIR_OUT : 0) | (in_has ? CMD_REDIR_IN : 0);
+#endif
 }
 
 /* ===========================================================================
@@ -2903,55 +2957,39 @@ static int dispatch_line(const char *line)
     return 0;
 }
 
-/* ---- OUTPUT redirection driver (beads initech-hsct) ----------------------
- * run_with_redirect wraps dispatch_line: it parses `>`/`>>` off the line, opens
- * the target file, DUP2's it onto stdout (handle 1), dispatches the CLEAN line,
- * then RESTORES handle 1 to CON on EVERY path.  BUILTINS (echo/dir/type/ver/...)
- * emit via AH=09h/02h/06h -> stdout_emit -> the redirectable handle 1 (k36g), so
- * their output goes to the file -- this is the canonical `echo HELLO > FILE.TXT`
- * case, proven end-to-end by the test-hsct-redir emu gate.
+/* ---- OUTPUT redirect + dispatch (beads initech-hsct) ---------------------
+ * run_output_and_dispatch owns the `>`/`>>` half: it opens the OUTPUT target,
+ * DUP2's it onto stdout (handle 1), dispatches the CLEAN line, then RESTORES
+ * handle 1 to CON on EVERY path.  When out_has==0 (an INPUT-only line, e.g.
+ * `SORT < IN`) it just dispatches `clean` with stdout untouched.  Factored out of
+ * run_with_redirect so the INPUT (`<`) wrapper can bracket it without disturbing
+ * this proven OUTPUT logic (the test-hsct-redir + test-bsy9-redir gates).
  *
- * EXTERNAL .COM EXEC redirect is NOT yet delivered: the loader's psp_build
- * (psp.c) HARD-RESETS the child JFT slot 1 to CON (jft[1]=0x01) and carries no
- * JFT-inheritance param, so an EXEC child's handle 1 points at CON regardless of
- * the parent's DUP2 -- its output is NOT captured.  This driver already brackets
- * the EXEC dispatch correctly (save/dup2/dispatch/restore); when the loader
- * learns to inherit the parent JFT (the EXEC-child-JFT-inheritance follow-up
- * bead), external EXEC redirect will work here with ZERO driver changes.  Until
- * then this increment scopes to builtins (Law 1/Law 2: surfaced, not papered).
+ * `raw_line` is the ORIGINAL command line, dispatched verbatim ONLY under the
+ * CMD_MUTATE_REDIR_BYPASS mutant (which runs the command unredirected).  `clean`
+ * is the fully-stripped command dispatched in a real build.
+ *
+ * BUILTINS emit via AH=09h/02h/06h -> stdout_emit -> the redirectable handle 1
+ * (k36g); an EXTERNAL .COM EXEC child inherits the parent JFT (beads bsy.9) so
+ * ITS handle 1 also lands in the file -- proven by test-bsy9-redir.
  *
  * Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6 (the shell DUP2's stdout around the
  *   command); spec/int21h_calling_convention.json (AH=3Ch/3Dh/3Eh/42h/45h/46h).
- *   k36g (CON output routed through handle 1) + o0td (kernel-window room) are the
- *   prerequisites that make `echo HELLO > file` actually redirect.
- *
- * Returns dispatch_line's return code (1 = EXIT) so EXIT-through-redirect still
- * tears the shell down.  On a target-open failure: prints a DOS-style diagnostic
- * to CON and does NOT run the command (authentic DOS aborts the line; Rule 2
- * fail-loud -- never silently run unredirected).
  *
  * MUTATION hooks (Rule 6):
- *   CMD_MUTATE_REDIR_NO_RESTORE -- leave handle 1 pointing at the file after the
- *     dispatch (skip the restore), so a SECOND redirected command (or the next
- *     prompt) would write to the wrong place -- the emu gate's "post-redirect
- *     output returns to CON" assertion goes RED.
- *   CMD_MUTATE_REDIR_BYPASS -- restore handle 1 to CON *before* dispatching, and
- *     dispatch the RAW line, so `ECHO X > FILE` runs UNREDIRECTED (X leaks to
- *     CON, the file gets nothing) -- the emu gate's RZZHELLO-count==2 assertion
- *     goes RED.  Note: the file is still opened + DUP2'd + closed here, so every
- *     dos_* handle helper stays referenced under the mutant build (no dead-code
- *     warning); only the dispatch target + restore order change.
+ *   CMD_MUTATE_REDIR_NO_RESTORE -- skip the restore, leaving handle 1 on the file.
+ *   CMD_MUTATE_REDIR_BYPASS     -- restore CON *before* dispatching + dispatch the
+ *     RAW line, so `ECHO X > FILE` runs UNREDIRECTED (test-hsct-redir goes RED).
  * Both NEVER in a real build. */
-static int run_with_redirect(const char *line)
+static int run_output_and_dispatch(const char *raw_line, const char *clean,
+                                   const char *target, int append, int out_has)
 {
-    char clean[CMD_LINE_MAX];
-    char target[CMD_LINE_MAX];
-    int  append = 0;
-
-    int has = cmd_redir_parse(line, clean, (uint32_t)sizeof(clean),
-                              target, (uint32_t)sizeof(target), &append);
-    if (!has) {
-        return dispatch_line(line);     /* no redirect -> unchanged behaviour */
+#ifndef CMD_MUTATE_REDIR_BYPASS
+    (void)raw_line;   /* only the BYPASS mutant dispatches the RAW line */
+#endif
+    if (!out_has) {
+        /* INPUT-only line: stdout stays on CON; just run the clean command. */
+        return dispatch_line(clean);
     }
 
     /* A redirect with no target (e.g. "echo hi >") is a syntax error in DOS.
@@ -3009,15 +3047,15 @@ static int run_with_redirect(const char *line)
      * The emu gate's RZZHELLO-count==2 assertion goes RED.  NEVER in a real
      * build. */
     dos_dup2(saved, 1);
-    int rc = dispatch_line(line);
+    int rc = dispatch_line(raw_line);
     dos_close(saved);
     dos_close(file_h);
     return rc;
 #else
     /* Dispatch the cleaned command.  Builtins emit via stdout_emit -> handle 1
-     * -> the file (k36g).  An external EXEC child runs under its OWN PSP/JFT
-     * (psp_build resets jft[1]=CON), so it does NOT yet redirect -- see the
-     * function header.  rc==1 means EXIT was issued (we still restore). */
+     * -> the file (k36g).  An external EXEC child inherits the parent JFT (bsy.9)
+     * so its handle 1 also lands in the file.  rc==1 means EXIT was issued (we
+     * still restore). */
     int rc = dispatch_line(clean);
 
 #ifndef CMD_MUTATE_REDIR_NO_RESTORE
@@ -3034,6 +3072,105 @@ static int run_with_redirect(const char *line)
 
     return rc;
 #endif /* CMD_MUTATE_REDIR_BYPASS */
+}
+
+/* ---- I/O redirection driver (beads initech-hsct `>`/`>>` + initech-bsy.7 `<`)
+ * run_with_redirect wraps dispatch_line with BOTH stdin and stdout redirection:
+ * it parses `>`/`>>`/`<` off the line, sets up the INPUT redirect (open the
+ * source READ-only via AH=3Dh, save handle 0 via AH=45h DUP, force handle 0 onto
+ * the file via AH=46h DUP2), runs the OUTPUT+dispatch layer on the CLEAN line,
+ * then RESTORES handle 0 to CON on EVERY path (and closes the source).
+ *
+ * The nesting is symmetric: handle 0 is set up FIRST (outer) and torn down LAST;
+ * handle 1 is set up + torn down INSIDE run_output_and_dispatch (inner).  So on
+ * every exit -- syntax error, open failure, dispatch, EXIT, EXEC-child return --
+ * both handles return to CON and both file handles are closed (no JFT/SFT leak).
+ *
+ * WHO READS handle 0:  an EXTERNAL .COM EXEC child inherits the parent JFT (beads
+ * bsy.9), so a child that reads stdin via AH=3Fh handle 0 (e.g. GOBBLE.COM, the
+ * SORT/MORE/FIND filters once initech-m0dc lands) reads the FILE -- proven by the
+ * test-bsy7-redir emu gate.  The REPL's own line reader uses AH=0Ah, which in
+ * this kernel reads the keyboard device directly (NOT via the JFT handle 0), so a
+ * transient `<` redirect never disturbs the interactive prompt; the handle-0
+ * restore is nonetheless done for correctness (no leaked file/SFT handle).
+ *
+ * Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6 (the shell opens the `<` file and
+ *   DUP2's it onto handle 0; a failed open -> "File not found", command NOT run);
+ *   spec/int21h_calling_convention.json (AH=3Dh/3Eh/45h/46h).  Prereq: bsy.9
+ *   (child inherits parent JFT) makes the EXEC-child `<` redirect actually flow.
+ *
+ * Returns run_output_and_dispatch's return code (1 = EXIT).  On an input-open
+ * failure: prints the DOS "File not found" diagnostic and does NOT run the
+ * command (Rule 2 fail-loud -- never silently run with the wrong stdin).
+ *
+ * MUTATION hook (Rule 6): CMD_MUTATE_REDIR_NO_LT (in cmd_redir_parse) drops the
+ * `<` parse so the child reads the keyboard, not the file -- the test-bsy7-redir
+ * emu gate + the host `<` parse oracle both go RED.  NEVER in a real build. */
+static int run_with_redirect(const char *line)
+{
+    char clean[CMD_LINE_MAX];
+    char target[CMD_LINE_MAX];
+    char in_target[CMD_LINE_MAX];
+    int  append = 0;
+
+    int has = cmd_redir_parse(line, clean, (uint32_t)sizeof(clean),
+                              target, (uint32_t)sizeof(target), &append,
+                              in_target, (uint32_t)sizeof(in_target));
+    if (!has) {
+        return dispatch_line(line);     /* no redirect -> unchanged behaviour */
+    }
+
+    int out_has = (has & CMD_REDIR_OUT) != 0;
+    int in_has  = (has & CMD_REDIR_IN) != 0;
+
+    /* ---- INPUT (`<`) setup: open READ, save handle 0, DUP2 the file onto 0 ---- */
+    int in_fh = -1;
+    int in_saved = -1;
+    if (in_has) {
+        /* `cmd <` with no source is a DOS syntax error (Required parameter). */
+        if (in_target[0] == '\0') {
+            dos_print(MSG_DOS_0011 "\r\n$");        /* "Required parameter missing" */
+            return 0;
+        }
+        /* AH=3Dh AL=00 OPEN-for-READ.  A nonexistent source is the DOS 3.3
+         * behaviour: print "File not found" and do NOT run the command. */
+        in_fh = dos_open(in_target);
+        if (in_fh < 0) {
+            dos_print(MSG_DOS_0003 "\r\n$");        /* "File not found" */
+            return 0;
+        }
+        /* Save the current stdin (handle 0) so we can restore CON afterward. */
+        in_saved = dos_dup(0);
+        if (in_saved < 0) {
+            dos_close(in_fh);
+            dos_print(MSG_DOS_0002 "\r\n$");        /* "Bad command or file name" */
+            return 0;
+        }
+        /* Force handle 0 onto the source file.  On failure, tear down cleanly and
+         * do NOT run the command with the wrong stdin (Rule 2). */
+        if (dos_dup2(in_fh, 0) < 0) {
+            dos_close(in_saved);
+            dos_close(in_fh);
+            dos_print(MSG_DOS_0002 "\r\n$");        /* "Bad command or file name" */
+            return 0;
+        }
+    }
+
+    /* ---- OUTPUT (`>`/`>>`) + dispatch of the CLEAN line (inner layer) ---- */
+    int rc = run_output_and_dispatch(line, clean, target, append, out_has);
+
+    /* ---- INPUT restore on EVERY path (including EXIT / EXEC-child return) ---- */
+    if (in_has) {
+        /* The EXEC child cannot clobber the parent's `in_saved`: it lives in the
+         * PARENT's JFT and the child runs under its own per-process JFT (bsy.9),
+         * restored to the parent on return -- dos_dup2(in_saved,0) repoints
+         * handle 0 back at CON's SFT entry. */
+        dos_dup2(in_saved, 0);
+        dos_close(in_saved);
+        dos_close(in_fh);
+    }
+
+    return rc;
 }
 
 /* ---- the .BAT interpreter (beads initech-xw1) ----------------------------

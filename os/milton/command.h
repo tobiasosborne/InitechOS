@@ -289,36 +289,47 @@ typedef struct {
 int cmd_path_candidates(const char *word, const char *path_value,
                         const char *cwd, cmd_path_iter_t *out);
 
-/* ---- OUTPUT redirection parser (PURE, host-testable) ----------------------
- * cmd_redir_parse: scan `line` for a `>` (create/truncate) or `>>` (append)
- * STDOUT redirection operator and split it off.  No I/O, no asm -- the SAME TU
- * compiles HOSTED for test_redir_parse.c.
+/* ---- I/O redirection parser (PURE, host-testable) -------------------------
+ * cmd_redir_parse: scan `line` for a `>` (create/truncate) / `>>` (append)
+ * STDOUT redirection operator AND a `<` STDIN redirection operator, and split
+ * them off.  No I/O, no asm -- the SAME TU compiles HOSTED for
+ * test_redir_parse.c.
  *
  * Ref: DOS 3.3 COMMAND.COM redirection (MS-DOS 3.3 Tech Ref Ch.6): the shell
- *   strips `> file` / `>> file` from the command line, DUP2's the file onto
- *   handle 1 (stdout) around the command, and the command runs with its output
- *   going to the file.  `<` (stdin) and `|` (pipe) are DEFERRED (beads
- *   initech-hsct OUTPUT increment; follow-ups for `<` and `|`).
+ *   strips `> file` / `>> file` / `< file` from the command line, DUP2's the
+ *   file onto handle 1 (stdout) or handle 0 (stdin) around the command, and the
+ *   command runs with its I/O going to/from the file.  `|` (pipe) is DEFERRED
+ *   (beads initech-bsy.8).  OUTPUT `>`/`>>` landed with initech-hsct; INPUT `<`
+ *   is initech-bsy.7 (this increment).
  *
  * SEMANTICS (kept deliberately simple -- this shell has no quoting):
- *   - Scan left to right; the LAST `>`/`>>` operator wins (DOS: a later
- *     redirect of the same stream supersedes the earlier; we keep the last).
- *   - `>>` (two adjacent '>') is APPEND; a single `>` is CREATE/TRUNCATE.
- *   - The TARGET is the next whitespace-delimited token after the operator
- *     (works for `cmd>file`, `cmd > file`, `cmd >> file`, `cmd>>file`).
- *   - `clean_out` receives the line with the operator+target removed and the
- *     surrounding whitespace tidied (single internal runs collapse at the cut;
- *     trailing space trimmed) -- this is what gets dispatched.
- *   - Returns 1 if a redirect was found (clean_out/target_out/append_out set),
- *     else 0 (clean_out == a copy of `line`, target_out == "", append_out == 0).
+ *   - Two independent scans.  For EACH of `>` and `<`, the LAST operator wins
+ *     (DOS: a later redirect of the same stream supersedes the earlier).
+ *   - `>>` (two adjacent '>') is APPEND; a single `>` is CREATE/TRUNCATE.  `<`
+ *     has no `<<` form (a `<<` is two lone `<`, the last wins).
+ *   - The TARGET is the next whitespace-delimited token after the operator,
+ *     stopping at the next redirect char too (so `cmd<in>out`, `cmd < in > out`,
+ *     `cmd > out < in` all split into command / out-target / in-target cleanly).
+ *   - `clean_out` receives the line with BOTH operator+target spans removed and
+ *     the surrounding whitespace tidied (the OUTPUT span is stripped first, then
+ *     the INPUT span from the intermediate) -- this is what gets dispatched.
+ *   - Return value is a BITMASK: CMD_REDIR_OUT (0x1) set iff a `>`/`>>` was
+ *     found (target_out/append_out valid), CMD_REDIR_IN (0x2) set iff a `<` was
+ *     found (in_target_out valid).  0 means no redirect (clean_out == a copy of
+ *     `line`, both targets == "", append_out == 0).  An OUTPUT-only line returns
+ *     exactly 1, preserving the pre-bsy.7 has_redirect==1 contract.
  *
- * Rule 2 (fail loud / never overflow): every write to clean_out/target_out is
- * bounded by clean_cap/target_cap; on a would-overflow the output is clamped
+ * Rule 2 (fail loud / never overflow): every write to clean_out/target_out/
+ * in_target_out is bounded by its cap; on a would-overflow the output is clamped
  * (NUL-terminated within the buffer), never written past the end. */
+#define CMD_REDIR_OUT  0x1   /* a `>` / `>>` STDOUT redirect was parsed */
+#define CMD_REDIR_IN   0x2   /* a `<` STDIN redirect was parsed          */
+
 int cmd_redir_parse(const char *line,
                     char *clean_out, uint32_t clean_cap,
                     char *target_out, uint32_t target_cap,
-                    int *append_out);
+                    int *append_out,
+                    char *in_target_out, uint32_t in_target_cap);
 
 /* ---- The REPL (kernel-only; compiled out of the host build) --------------- */
 /* COMMAND_KERNEL_REPL is defined for the kernel command.o; the kmain BOOT_SHELL

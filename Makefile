@@ -415,6 +415,12 @@ ABSDISK_PROG_BLOB_C := $(BUILD)/absdisk_prog_blob.c
 # It prints "GREETINGS FROM A:GREET.COM" via AH=09h and exits rc=7.
 GREET_PROG_ASM   := $(KERNEL_DIR)/greet_program.asm
 GREET_PROG_BIN   := $(BUILD)/greet_program.bin
+# GOBBLE program (beads initech-bsy.7): the stdin-side sibling of GREET.COM. A
+# flat .COM that READS handle 0 (AH=3Fh) to EOF and echoes it to handle 1 (AH=40h)
+# bracketed by GOBBLE-BEGIN/GOBBLE-END. mcopy'd onto the FAT12 data disk as
+# GOBBLE.COM; proves a `<` INPUT redirect re-points an EXEC child's stdin at a file.
+GOBBLE_PROG_ASM  := $(KERNEL_DIR)/gobble_program.asm
+GOBBLE_PROG_BIN  := $(BUILD)/gobble_program.bin
 KERNEL_ISR_ASM   := $(KERNEL_DIR)/isr.asm
 KERNEL_START_OBJ := $(BUILD)/kstart.o
 KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
@@ -1382,6 +1388,11 @@ $(FAT_DATA_IMG): $(FAT12_FIXTURES) | $(BUILD)
 
 # Assemble the GREET .COM (org 0x40100; nasm -f bin is deterministic, Rule 11).
 $(GREET_PROG_BIN): $(GREET_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+# Assemble the GOBBLE .COM (org 0x40100; nasm -f bin is deterministic, Rule 11).
+# beads initech-bsy.7 (the `<` INPUT-redirect emu-gate program).
+$(GOBBLE_PROG_BIN): $(GOBBLE_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
 
 # FAT12 EXEC disk for the in-emulator FAT-sourced-load oracle (beads initech-saw).
@@ -5849,9 +5860,12 @@ TEST_REDIR_PARSE_HDRS := $(MILTON_DIR)/command.h $(MILTON_DIR)/env.h spec/dos_st
 # `make test-redir-parse-mutant` proves the oracle BITES. (a) NO_APPEND: `>>` is
 # treated as `>` (truncate) so the append flag never sets -> the >>-append checks
 # go RED; (b) KEEP_TARGET: the target token is left in clean_out -> the
-# clean-command checks go RED.
+# clean-command checks go RED; (c) NO_LT: the `<` INPUT scan is dropped (in_target
+# never set, CMD_REDIR_IN never returned) -> the `<` input-redirect checks go RED
+# (beads initech-bsy.7).
 TEST_REDIR_PARSE_MUT_NOAPP := $(BUILD)/test_redir_parse_mutant_noappend
 TEST_REDIR_PARSE_MUT_KEEP  := $(BUILD)/test_redir_parse_mutant_keeptarget
+TEST_REDIR_PARSE_MUT_NOLT  := $(BUILD)/test_redir_parse_mutant_nolt
 
 $(TEST_REDIR_PARSE): $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS) $(TEST_REDIR_PARSE_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
@@ -5865,15 +5879,19 @@ $(TEST_REDIR_PARSE_MUT_KEEP): $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS) $
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_REDIR_KEEP_TARGET -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS)
 
+$(TEST_REDIR_PARSE_MUT_NOLT): $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS) $(TEST_REDIR_PARSE_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCMD_MUTATE_REDIR_NO_LT -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_REDIR_PARSE_SRC) $(TEST_REDIR_PARSE_DEPS)
+
 .PHONY: test-redir-parse test-redir-parse-mutant
 test-redir-parse: $(TEST_REDIR_PARSE)
 	@printf ">>> test-redir-parse: cmd_redir_parse -- '>' truncate / '>>' append / target+clean extraction / no-redir passthrough / last-wins / bound guards (beads initech-hsct)\n"
 	@$(TEST_REDIR_PARSE)
 	@printf ">>> test-redir-parse: green\n"
 
-# Mutation-proof: BOTH mutant builds MUST fail the oracle (Rule 6).
-test-redir-parse-mutant: $(TEST_REDIR_PARSE_MUT_NOAPP) $(TEST_REDIR_PARSE_MUT_KEEP)
-	@printf ">>> test-redir-parse-mutant: confirming both mutants go RED (Rule 6)\n"
+# Mutation-proof: ALL THREE mutant builds MUST fail the oracle (Rule 6).
+test-redir-parse-mutant: $(TEST_REDIR_PARSE_MUT_NOAPP) $(TEST_REDIR_PARSE_MUT_KEEP) $(TEST_REDIR_PARSE_MUT_NOLT)
+	@printf ">>> test-redir-parse-mutant: confirming all mutants go RED (Rule 6)\n"
 	@if $(TEST_REDIR_PARSE_MUT_NOAPP) >/dev/null 2>&1; then \
 		printf '!!! test-redir-parse-mutant FAIL: no-append mutant PASSED -- the >>-append parse test is decoration\n'; \
 		exit 1; \
@@ -5885,6 +5903,12 @@ test-redir-parse-mutant: $(TEST_REDIR_PARSE_MUT_NOAPP) $(TEST_REDIR_PARSE_MUT_KE
 		exit 1; \
 	else \
 		printf '>>> test-redir-parse-mutant: green (keep-target mutant correctly RED -- the clean-command parse bites)\n'; \
+	fi
+	@if $(TEST_REDIR_PARSE_MUT_NOLT) >/dev/null 2>&1; then \
+		printf '!!! test-redir-parse-mutant FAIL: no-LT mutant PASSED -- the `<` input-redirect parse test is decoration (bsy.7)\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-redir-parse-mutant: green (no-LT mutant correctly RED -- the `<` input-redirect parse bites; bsy.7)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -17551,6 +17575,158 @@ test-bsy9-redir-mutant: $(HARNESS_BIN) $(BSY9_REDIR_TRACER_MUT_IMG) $(GREET_PROG
 	fi
 	@printf '>>> test-bsy9-redir-mutant: green (no-JFT-inherit mutant correctly RED -- GREETINGS count != 2, the JFT inheritance is load-bearing for external EXEC redirect)\n'
 
+# ---------------------------------------------------------------------------
+# REAL emu gate: test-bsy7-redir (beads initech-bsy.7 -- INPUT `<` redirection
+# for an EXTERNAL EXEC child, end-to-end on the emulated 386)
+# ---------------------------------------------------------------------------
+# The stdin-side sibling of test-bsy9-redir (which proved `GREET.COM > FILE`).
+# This proves `GOBBLE.COM < GIN.TXT` re-points the EXEC child's STDIN (handle 0)
+# at a file: the driver opens GIN.TXT (AH=3Dh read), DUP2's it onto handle 0, and
+# the child -- inheriting the parent JFT (bsy.9) -- reads it via AH=3Fh handle 0
+# and echoes it to handle 1 (serial). AUTOEXEC.BAT:
+#   GOBBLE.COM < GIN.TXT     (<) redirect -- GOBBLE reads GIN.TXT from stdin
+# GIN.TXT holds the marker GOBBLED42-VIA-STDIN; GOBBLE frames its echo with
+# GOBBLE-BEGIN / GOBBLE-END. The discriminating assertion: the file marker
+# GOBBLED42 appears EXACTLY ONCE on serial (echoed from the redirected stdin). If
+# `<` were NOT parsed (the CMD_MUTATE_REDIR_NO_LT mutant), GOBBLE's handle 0 is
+# the keyboard, GIN.TXT is never read, and the marker is ABSENT -> the gate RED.
+# Ref: MS-DOS 3.3 Tech Ref Ch.6 (the shell opens the `<` file + DUP2's onto handle
+#      0; a failed open -> "File not found", command NOT run); prereqs bsy.9 (child
+#      inherits parent JFT) + hsct (the redirect driver brackets EXEC) + o0td.
+BSY7_REDIR_IMG      := $(BUILD)/bsy7_redir.img
+BSY7_REDIR_MUT_IMG  := $(BUILD)/bsy7_redir_mut.img
+BSY7_REDIR_NAME     := bsy7_redir
+BSY7_REDIR_MUT_NAME := bsy7_redir_mut
+BSY7_REDIR_SERIAL   := $(BUILD)/$(BSY7_REDIR_NAME).serial
+BSY7_REDIR_MUT_SERIAL := $(BUILD)/$(BSY7_REDIR_MUT_NAME).serial
+BSY7_REDIR_REPORT   := $(BUILD)/$(BSY7_REDIR_NAME).report
+BSY7_REDIR_MUT_REPORT := $(BUILD)/$(BSY7_REDIR_MUT_NAME).report
+BSY7_REDIR_BAT      := $(FAT12_FIXTURE_DIR)/autoexec_bsy7.bat
+BSY7_REDIR_IN       := $(FAT12_FIXTURE_DIR)/gobble_in.txt
+
+# Mint a fresh writable FAT12 floppy with AUTOEXEC.BAT (the redirect script),
+# GOBBLE.COM (the .COM that reads stdin), and GIN.TXT (the input the `<` feeds it).
+define bsy7-redir-mint-disk
+	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
+	@mformat -i $(1) -f 1440 ::
+	@mcopy -i $(1) $(BSY7_REDIR_BAT) ::AUTOEXEC.BAT
+	@mcopy -i $(1) $(GOBBLE_PROG_BIN) ::GOBBLE.COM
+	@mcopy -i $(1) $(BSY7_REDIR_IN) ::GIN.TXT
+endef
+
+.PHONY: test-bsy7-redir test-bsy7-redir-mutant
+test-bsy7-redir: $(HARNESS_BIN) $(TRACER_IMG) $(GOBBLE_PROG_BIN) $(BSY7_REDIR_BAT) $(BSY7_REDIR_IN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-bsy7-redir : EXTERNAL .COM `<` INPUT redirect\n'
+	@printf '  beads initech-bsy.7. AUTOEXEC.BAT: GOBBLE.COM < GIN.TXT ; GOBBLE.COM < NOPE.TXT.\n'
+	@printf '  Proves the shell opens GIN.TXT + DUP2s it onto handle 0 so the EXEC\n'
+	@printf '  child reads the FILE from stdin (not the keyboard); and that a `<` on a\n'
+	@printf '  MISSING source prints "File not found" + does NOT run the command (DOS 3.3).\n'
+	@printf '  Prereqs bsy.9+hsct.\n'
+	@printf '======================================================================\n'
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-bsy7-redir FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-bsy7-redir FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	$(call bsy7-redir-mint-disk,$(BSY7_REDIR_IMG))
+	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script + GOBBLE.COM + GIN.TXT)\n' "$(TRACER_IMG)" "$(BSY7_REDIR_IMG)"
+	@printf 'Expecting : GOBBLE-BEGIN once, GOBBLED42 once (echoed from stdin), "File not found", then clean EXIT\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(BSY7_REDIR_IMG)" \
+		--name "$(BSY7_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(BSY7_REDIR_REPORT)" || true
+	@cat "$(BSY7_REDIR_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(BSY7_REDIR_REPORT)"; then \
+		printf '!!! test-bsy7-redir FAIL: TRIPLE FAULT -- INPUT redirect crashed (root-cause the dup2/JFT-inherit path, Rule 3)\n'; exit 1; \
+	fi
+	@printf '>>> test-bsy7-redir [1/6]: no triple-fault\n'
+	@if [ ! -s "$(BSY7_REDIR_SERIAL)" ]; then \
+		printf '!!! test-bsy7-redir FAIL: no serial captured at %s\n' "$(BSY7_REDIR_SERIAL)"; exit 1; \
+	fi
+	@grep -q '^SHELL-READY$$' "$(BSY7_REDIR_SERIAL)" \
+		|| { printf '!!! test-bsy7-redir FAIL: SHELL-READY missing -- the REPL was never entered\n'; exit 1; }
+	@printf '>>> test-bsy7-redir [2/6]: SHELL-READY (COMMAND.COM REPL entered)\n'
+	@sed -n '/^SHELL-READY$$/,$$p' "$(BSY7_REDIR_SERIAL)" | tr -d '\r' > "$(BUILD)/$(BSY7_REDIR_NAME).repl"
+	@bcnt=$$(grep -oF 'GOBBLE-BEGIN' "$(BUILD)/$(BSY7_REDIR_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$bcnt" != "1" ]; then \
+		printf '!!! test-bsy7-redir FAIL: GOBBLE-BEGIN seen %s time(s), expected EXACTLY 1.  count==0 means GOBBLE.COM never ran; count==2 means the MISSING-source `< NOPE.TXT` line WRONGLY ran GOBBLE instead of aborting with "File not found" (root-cause the input-open fail-loud path, Rule 3)\n' "$$bcnt"; \
+		exit 1; \
+	fi
+	@printf '>>> test-bsy7-redir [3/6]: GOBBLE-BEGIN appears EXACTLY once (GOBBLE.COM ran for the valid source; the missing-source line did NOT run it)\n'
+	@gcnt=$$(grep -oF 'GOBBLED42' "$(BUILD)/$(BSY7_REDIR_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$gcnt" != "1" ]; then \
+		printf '!!! test-bsy7-redir FAIL: GOBBLED42 seen %s time(s), expected EXACTLY 1 (echoed once from the redirected stdin).  count==0 means GOBBLE read the KEYBOARD, not GIN.TXT; the `<` redirect did NOT re-point handle 0 (root-cause cmd_redir_parse `<` / dos_open+dup2(0) / child JFT-inherit of handle 0, Rule 3)\n' "$$gcnt"; \
+		exit 1; \
+	fi
+	@printf '>>> test-bsy7-redir [4/6]: GOBBLED42 appears EXACTLY once -- `GOBBLE.COM < GIN.TXT` fed the FILE to stdin (the EXEC child read handle 0 = GIN.TXT, not the keyboard)\n'
+	@grep -qF 'File not found' "$(BUILD)/$(BSY7_REDIR_NAME).repl" \
+		|| { printf '!!! test-bsy7-redir FAIL: "File not found" missing -- `GOBBLE.COM < NOPE.TXT` on a nonexistent source did not print the DOS 3.3 diagnostic (root-cause the dos_open<0 fail-loud path in run_with_redirect, Rule 3)\n'; exit 1; }
+	@printf '>>> test-bsy7-redir [5/6]: `GOBBLE.COM < NOPE.TXT` (missing source) printed "File not found" + did NOT run the command (authentic DOS 3.3; MS-DOS 3.3 Tech Ref Ch.6)\n'
+	@grep -q '^SHELL-EXIT$$' "$(BSY7_REDIR_SERIAL)" \
+		|| { printf '!!! test-bsy7-redir FAIL: SHELL-EXIT missing -- the post-AUTOEXEC interactive EXIT did not run (handle 0 may not have been restored to CON after the child, or a refcount over-free panicked)\n'; exit 1; }
+	@printf '>>> test-bsy7-redir [6/6]: post-redirect `exit` reached the REPL + halted cleanly (handle 0 restored to CON; no SFT over-free)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- external `GOBBLE.COM < file` really redirects stdin on the 386\n'
+	@printf '            (child inherits parent JFT; QEMU only, tri-emulator pending initech-x0i)\n'
+	@printf '======================================================================\n'
+
+# ----- Mutant kernel for test-bsy7-redir-mutant (Rule 6) -----
+# command.c compiled with -DCMD_MUTATE_REDIR_NO_LT: cmd_redir_parse drops the `<`
+# INPUT scan, so run_with_redirect never sets up the stdin redirect and dispatches
+# the RAW line. GOBBLE's handle 0 stays the keyboard, GIN.TXT is never read, and
+# GOBBLED42 never reaches serial -> the count==1 assertion goes RED. Same
+# object-swap idiom as the hsct-redir-mutant kernel (recompile ONLY command.o).
+BSY7_REDIR_COMMAND_MUT_OBJ := $(BUILD)/command_mut_nolt.o
+BSY7_REDIR_SHELL_MUT_ELF   := $(BUILD)/kernel_shell_mut_nolt.elf
+BSY7_REDIR_SHELL_MUT_BIN   := $(BUILD)/kernel_shell_mut_nolt.bin
+BSY7_REDIR_TRACER_MUT_IMG  := $(BUILD)/tracer_boot_mut_nolt.img
+
+$(BSY7_REDIR_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/batch.h \
+                               spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_NO_LT \
+		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
+
+BSY7_REDIR_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BSY7_REDIR_COMMAND_MUT_OBJ)
+
+$(BSY7_REDIR_SHELL_MUT_ELF): $(BSY7_REDIR_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY7_REDIR_SHELL_MUT_OBJS)
+
+$(BSY7_REDIR_SHELL_MUT_BIN): $(BSY7_REDIR_SHELL_MUT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_shell_mut_nolt.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(shell-mut-nolt): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,shell-mut-nolt)
+
+$(BSY7_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY7_REDIR_SHELL_MUT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BSY7_REDIR_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> bsy7-redir mutant image: %s (LT-parse DISABLED -- GOBBLE reads keyboard / GOBBLED42 absent)\n" "$@"
+
+test-bsy7-redir-mutant: $(HARNESS_BIN) $(BSY7_REDIR_TRACER_MUT_IMG) $(GOBBLE_PROG_BIN) $(BSY7_REDIR_BAT) $(BSY7_REDIR_IN)
+	@printf '>>> test-bsy7-redir-mutant: confirming the NO-LT (`<` parse dropped) mutant goes RED (Rule 6)\n'
+	$(call bsy7-redir-mint-disk,$(BSY7_REDIR_MUT_IMG))
+	@$(HARNESS_BIN) --disk "$(BSY7_REDIR_TRACER_MUT_IMG)" --disk2 "$(BSY7_REDIR_MUT_IMG)" \
+		--name "$(BSY7_REDIR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		2> "$(BSY7_REDIR_MUT_REPORT)" || true
+	@if [ ! -s "$(BSY7_REDIR_MUT_SERIAL)" ]; then \
+		printf '!!! test-bsy7-redir-mutant FAIL: no serial from the mutant boot\n'; exit 1; \
+	fi
+	@sed -n '/^SHELL-READY$$/,$$p' "$(BSY7_REDIR_MUT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(BSY7_REDIR_MUT_NAME).repl"
+	@gcnt=$$(grep -oF 'GOBBLED42' "$(BUILD)/$(BSY7_REDIR_MUT_NAME).repl" | wc -l | tr -d ' '); \
+	if [ "$$gcnt" = "1" ]; then \
+		printf '!!! test-bsy7-redir-mutant FAIL: GOBBLED42 seen 1x under CMD_MUTATE_REDIR_NO_LT -- the `<` redirect would pass even with the parse dead; the emu gate is decoration\n'; \
+		exit 1; \
+	fi
+	@printf '>>> test-bsy7-redir-mutant: green (no-LT mutant correctly RED -- GOBBLED42 count != 1, the `<` parse is load-bearing for INPUT redirect)\n'
+
 TEST_EMU_GATES := \
 	test-harness test-tracer-boot test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
@@ -17566,6 +17742,7 @@ TEST_EMU_GATES := \
 	test-autoexec test-autoexec-mutant \
 	test-hsct-redir test-hsct-redir-mutant \
 	test-bsy9-redir test-bsy9-redir-mutant \
+	test-bsy7-redir test-bsy7-redir-mutant \
 	test-flair-desktop test-flair-desktop-mutant \
 	test-flair-live test-flair-live-mutant \
 	test-flair-key test-flair-key-mutant \

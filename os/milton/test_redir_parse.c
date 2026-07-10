@@ -17,6 +17,10 @@
  *                                    `>>`-append assertions go RED.
  *   -DCMD_MUTATE_REDIR_KEEP_TARGET : the target token is left IN clean_out, so
  *                                    the cleaned-command assertions go RED.
+ *   -DCMD_MUTATE_REDIR_NO_LT       : the `<` INPUT scan is dropped (in_target
+ *                                    never set, CMD_REDIR_IN never returned), so
+ *                                    the `<` input-redirect assertions go RED
+ *                                    (beads initech-bsy.7).
  */
 
 #include <stdint.h>
@@ -28,10 +32,23 @@
 TEST_HARNESS();
 
 /* Convenience wrapper: run the parser with generous buffers and surface the
- * three outputs.  Returns the has_redirect flag. */
+ * OUTPUT outputs.  The `<` input target is captured into a throwaway buffer the
+ * OUTPUT-focused tests ignore.  Returns the redirect bitmask (CMD_REDIR_OUT |
+ * CMD_REDIR_IN). */
 static int run_redir(const char *line, char *clean, char *target, int *append)
 {
-    return cmd_redir_parse(line, clean, 128u, target, 128u, append);
+    static char in_throwaway[128];
+    return cmd_redir_parse(line, clean, 128u, target, 128u, append,
+                           in_throwaway, 128u);
+}
+
+/* Full wrapper surfacing BOTH the output and the input targets (beads
+ * initech-bsy.7 `<` INPUT redirection).  Returns the redirect bitmask. */
+static int run_redir2(const char *line, char *clean, char *target, int *append,
+                      char *in_target)
+{
+    return cmd_redir_parse(line, clean, 128u, target, 128u, append,
+                           in_target, 128u);
 }
 
 /* --- no-redirect passthrough -------------------------------------------- */
@@ -180,7 +197,8 @@ static void test_edges(void)
     CHECK_STR_EQ(clean, "", "leading '>': clean empty");
 
     /* NULL line must not crash and reports no redirect. */
-    has = cmd_redir_parse(0, clean, 128u, target, 128u, &append);
+    char in_tgt_e[128];
+    has = cmd_redir_parse(0, clean, 128u, target, 128u, &append, in_tgt_e, 128u);
     CHECK(has == 0, "NULL line: has_redirect == 0");
     CHECK_STR_EQ(clean, "", "NULL line: clean empty");
 }
@@ -202,10 +220,13 @@ static void test_bounds(void)
      * boundary. We pass cap=8 explicitly. */
     char clean_guard[16];
     char target_guard[16];
+    char in_guard[16];
     memset(clean_guard, 0x7E, sizeof(clean_guard));
     memset(target_guard, 0x7E, sizeof(target_guard));
+    memset(in_guard, 0x7E, sizeof(in_guard));
 
-    int has = cmd_redir_parse(line, clean_guard, 8u, target_guard, 8u, &append);
+    int has = cmd_redir_parse(line, clean_guard, 8u, target_guard, 8u, &append,
+                              in_guard, 8u);
     CHECK(has == 1, "bounds: has_redirect == 1");
     /* clean_guard[0..7] must be a valid ASCIIZ string (NUL within [0,8)). */
     CHECK(memchr(clean_guard, '\0', 8) != 0, "bounds: clean NUL within cap");
@@ -219,7 +240,7 @@ static void test_bounds(void)
     /* Same for the no-redirect passthrough clamp. */
     memset(clean_guard, 0x7E, sizeof(clean_guard));
     has = cmd_redir_parse("a_very_long_command_with_no_redirect_at_all",
-                          clean_guard, 8u, target, 8u, &append);
+                          clean_guard, 8u, target, 8u, &append, in_guard, 8u);
     CHECK(has == 0, "bounds: no-redirect long line -> has_redirect == 0");
     CHECK(memchr(clean_guard, '\0', 8) != 0,
           "bounds: no-redirect clean NUL within cap");
@@ -229,12 +250,114 @@ static void test_bounds(void)
     /* Tiny target buffer truncation: target longer than cap. */
     char tgt2[4];
     memset(tgt2, 0x7E, sizeof(tgt2));
-    has = cmd_redir_parse("x > abcdefgh", clean, 128u, tgt2, 4u, &append);
+    has = cmd_redir_parse("x > abcdefgh", clean, 128u, tgt2, 4u, &append,
+                          in_guard, 8u);
     CHECK(has == 1, "bounds: tiny target buf -> has_redirect == 1");
     CHECK(strncmp(tgt2, "abc", 3) == 0, "bounds: target truncated to 'abc'");
     CHECK(tgt2[3] == '\0', "bounds: truncated target NUL at cap-1");
 
+    /* Tiny INPUT-target buffer truncation + no overflow past its cap. */
+    char in2[4];
+    memset(in2, 0x7E, sizeof(in2));
+    char in2_guard[8];
+    memset(in2_guard, 0x7E, sizeof(in2_guard));
+    memcpy(in2_guard, in2, 4);
+    has = cmd_redir_parse("x < abcdefgh", clean, 128u, target, 128u, &append,
+                          in2_guard, 4u);
+    CHECK((has & CMD_REDIR_IN) != 0, "bounds: tiny in-target buf -> CMD_REDIR_IN set");
+    CHECK(strncmp(in2_guard, "abc", 3) == 0, "bounds: in_target truncated to 'abc'");
+    CHECK(in2_guard[3] == '\0', "bounds: truncated in_target NUL at cap-1");
+    CHECK((unsigned char)in2_guard[4] == 0x7E,
+          "bounds: no write past in_target_out cap");
+
     (void)clean;
+}
+
+/* --- INPUT `<` redirection (beads initech-bsy.7) ------------------------- */
+static void test_input(void)
+{
+    char clean[128];
+    char target[128];    /* OUTPUT target (must stay empty for input-only) */
+    char in_tgt[128];
+    int  append = 9;
+
+    /* Spaced form: "sort < in.txt" (the canonical case). */
+    int has = run_redir2("sort < in.txt", clean, target, &append, in_tgt);
+    CHECK((has & CMD_REDIR_IN) != 0, "'<' (spaced): CMD_REDIR_IN set");
+    CHECK((has & CMD_REDIR_OUT) == 0, "'<' (spaced): CMD_REDIR_OUT clear (input only)");
+    CHECK(has == CMD_REDIR_IN, "'<' (spaced): bitmask == CMD_REDIR_IN exactly");
+    CHECK_STR_EQ(in_tgt, "in.txt", "'<' (spaced): in_target == in.txt");
+    CHECK_STR_EQ(target, "", "'<' (spaced): OUTPUT target empty");
+    CHECK_STR_EQ(clean, "sort", "'<' (spaced): clean == 'sort'");
+    CHECK(append == 0, "'<' (spaced): append cleared to 0");
+
+    /* No-space form: "gobble<data.dat". */
+    has = run_redir2("gobble<data.dat", clean, target, &append, in_tgt);
+    CHECK((has & CMD_REDIR_IN) != 0, "'<' (no-space): CMD_REDIR_IN set");
+    CHECK_STR_EQ(in_tgt, "data.dat", "'<' (no-space): in_target == data.dat");
+    CHECK_STR_EQ(clean, "gobble", "'<' (no-space): clean == 'gobble'");
+
+    /* Operator hugging the command, spaced target: "more< file". */
+    has = run_redir2("more< file", clean, target, &append, in_tgt);
+    CHECK((has & CMD_REDIR_IN) != 0, "'<' (cmd-hug): CMD_REDIR_IN set");
+    CHECK_STR_EQ(in_tgt, "file", "'<' (cmd-hug): in_target == file");
+    CHECK_STR_EQ(clean, "more", "'<' (cmd-hug): clean == 'more'");
+
+    /* A command with args + input redirect: "find abc < in". */
+    has = run_redir2("find abc < in", clean, target, &append, in_tgt);
+    CHECK((has & CMD_REDIR_IN) != 0, "'<' (args): CMD_REDIR_IN set");
+    CHECK_STR_EQ(in_tgt, "in", "'<' (args): in_target == in");
+    CHECK_STR_EQ(clean, "find abc", "'<' (args): clean keeps the arg");
+
+    /* Last `<` wins (DOS: a later stdin redirect supersedes). */
+    has = run_redir2("sort < a < b", clean, target, &append, in_tgt);
+    CHECK((has & CMD_REDIR_IN) != 0, "two '<': CMD_REDIR_IN set");
+    CHECK_STR_EQ(in_tgt, "b", "two '<': last in_target wins (b)");
+
+    /* No target: "sort <".  CMD_REDIR_IN set but in_target empty (the driver
+     * treats this as a DOS "Required parameter missing"). */
+    has = run_redir2("sort <", clean, target, &append, in_tgt);
+    CHECK((has & CMD_REDIR_IN) != 0, "no in-target: CMD_REDIR_IN set (operator present)");
+    CHECK_STR_EQ(in_tgt, "", "no in-target: in_target empty (driver aborts the line)");
+    CHECK_STR_EQ(clean, "sort", "no in-target: clean keeps the command");
+
+    /* A plain OUTPUT redirect must NOT set CMD_REDIR_IN (regression guard). */
+    has = run_redir2("echo hi > out", clean, target, &append, in_tgt);
+    CHECK((has & CMD_REDIR_IN) == 0, "'>' only: CMD_REDIR_IN clear");
+    CHECK_STR_EQ(in_tgt, "", "'>' only: in_target empty");
+    CHECK(has == CMD_REDIR_OUT, "'>' only: bitmask == CMD_REDIR_OUT (== 1, legacy contract)");
+}
+
+/* --- COMBINED `<` and `>` on one line (both orderings) ------------------- */
+static void test_combined(void)
+{
+    char clean[128];
+    char target[128];
+    char in_tgt[128];
+    int  append = 0;
+
+    /* Input then output: "sort < in.txt > out.txt". */
+    int has = run_redir2("sort < in.txt > out.txt", clean, target, &append, in_tgt);
+    CHECK(has == (CMD_REDIR_IN | CMD_REDIR_OUT), "combined (< then >): both bits set");
+    CHECK_STR_EQ(in_tgt, "in.txt", "combined (< then >): in_target == in.txt");
+    CHECK_STR_EQ(target, "out.txt", "combined (< then >): out target == out.txt");
+    CHECK(append == 0, "combined (< then >): append == 0 (truncate)");
+    CHECK_STR_EQ(clean, "sort", "combined (< then >): clean == 'sort'");
+
+    /* Output then input: "sort > out.txt < in.txt". */
+    has = run_redir2("sort > out.txt < in.txt", clean, target, &append, in_tgt);
+    CHECK(has == (CMD_REDIR_IN | CMD_REDIR_OUT), "combined (> then <): both bits set");
+    CHECK_STR_EQ(in_tgt, "in.txt", "combined (> then <): in_target == in.txt");
+    CHECK_STR_EQ(target, "out.txt", "combined (> then <): out target == out.txt");
+    CHECK_STR_EQ(clean, "sort", "combined (> then <): clean == 'sort'");
+
+    /* Append + input, no spaces: "find x<in>>log". */
+    has = run_redir2("find x<in>>log", clean, target, &append, in_tgt);
+    CHECK(has == (CMD_REDIR_IN | CMD_REDIR_OUT), "combined (<...>>): both bits set");
+    CHECK_STR_EQ(in_tgt, "in", "combined (<...>>): in_target == in");
+    CHECK_STR_EQ(target, "log", "combined (<...>>): out target == log");
+    CHECK(append == 1, "combined (<...>>): append == 1 (>> is append)");
+    CHECK_STR_EQ(clean, "find x", "combined (<...>>): clean == 'find x'");
 }
 
 int main(void)
@@ -245,5 +368,7 @@ int main(void)
     test_last_wins();
     test_edges();
     test_bounds();
+    test_input();
+    test_combined();
     return TEST_SUMMARY("test_redir_parse");
 }
