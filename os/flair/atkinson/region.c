@@ -360,19 +360,37 @@ static uint16_t active_xlist(const region_t *R, int16_t y, const int16_t **xp)
  * out-count (always even). `cap` is out's capacity in int16 slots; every emit
  * is bounds-checked against it BEFORE the write.
  *
- * FAIL-LOUD BOUND (Rule 2; bead initech-mswo): each input row is normalized to
- * at most RGN_ROW_X_MAX inversion points (region_normalize, spec Sec 5), so a
- * merge of two maximally-dense rows can emit up to na+nb == 2*RGN_ROW_X_MAX
- * points -- TWICE the per-row cap. region_op supplies a scratch of size
- * RGN_ROW_X_MAX (a normal-form row cannot exceed it), so a merge whose output
- * would exceed cap is not representable as a normal-form row and MUST fail loud
- * here instead of overrunning the caller's scratch (the pre-fix silent stack
- * corruption). Checking `no >= cap` before each write makes the (cap+1)-th slot
- * unreachable. This keeps region_op consistent with region_normalize, which
- * already fail-louds a row exceeding RGN_ROW_X_MAX. Do NOT bump the locked
- * RGN_ROW_X_MAX to dodge this (Rule 8; follow-up bead initech-44ab tracks the
- * 256-vs-640 cap decision separately). Ref: PRD Sec 6.2; spec/region_algebra.h
- * Sec 2 (normal form) + Sec 5 (storage caps). */
+ * THE PROVEN PER-BAND BOUND (initech-44ab RIDER 2, committee 2026-07-10 --
+ * this RESOLVES the old 256-vs-640 cap question this comment used to defer):
+ * one loop iteration consumes ONE DISTINCT x position -- a coincident A/B
+ * edge is consumed in a single step (the take_a = take_b = 1 branch below),
+ * toggling BOTH parities at one x -- and each iteration emits AT MOST one
+ * point (only on a boolfn output change; a coincident double-toggle whose
+ * output does not change emits NOTHING). Therefore
+ *   out_count <= |distinct x in a UNION b|,
+ * NOT the loose na+nb (which double-counts coincident edges and cancelled
+ * toggles). Both input rows draw their coordinates from the same locked
+ * [0,640] domain (ADR-0004 OD-3, 640x480 native), whose maximum even
+ * inversion-point count is 640 ({0,1,...,639} = 320 unit spans), so a single
+ * band's merged output is DOMAIN-BOUNDED: out_count <= 640 == RGN_ROW_X_MAX.
+ * region_op's scratch[RGN_ROW_X_MAX] therefore provably suffices for every
+ * domain-respecting pair of normal-form rows -- at the pre-44ab cap (256) that
+ * claim was FALSE and realizable (bead initech-mswo), which is why the cap was
+ * raised to EXACTLY the domain bound as a deliberate Rule-8 locked-spec change
+ * (initech-44ab; spec/region_algebra.h Sec 5 "two distinct bounds" carries the
+ * same derivation; ADR-0005 Sec 3.5 amendment).
+ *
+ * FAIL-LOUD BOUND (Rule 2; bead initech-mswo -- the check STAYS): the engine
+ * does not clamp coordinates to the domain, so out-of-domain or malformed
+ * inputs could still emit more; checking `no >= cap` before each write makes
+ * the (cap+1)-th slot unreachable -- fail loud, never the pre-mswo silent
+ * stack overrun. Consistent with region_normalize, which already fail-louds a
+ * row exceeding RGN_ROW_X_MAX. Ref: PRD Sec 6.2; spec/region_algebra.h Sec 2
+ * (normal form) + Sec 5 (storage caps + the two-bounds note). */
+_Static_assert(RGN_ROW_X_MAX == 640u,
+               "region_op's per-band scratch bound == the OD-3 640px domain "
+               "bound; revisit the RIDER-2 derivation above if this moves "
+               "(initech-44ab)");
 static uint16_t xmerge(int16_t *out, uint16_t cap, rgn_op_t op,
                        const int16_t *a, uint16_t na,
                        const int16_t *b, uint16_t nb)
@@ -452,10 +470,14 @@ void region_op(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
     uint16_t ia = 0, ib = 0;
     int16_t prev_y = 0;
     int have_prev = 0;
-    /* Per-band merge scratch, sized to the per-row cap (spec Sec 5). xmerge is
-     * given this capacity and fail-louds (bead initech-mswo) if a merge would
-     * emit more than RGN_ROW_X_MAX points -- an over-cap row is not a normal
-     * form region_normalize could accept, so we never silently overrun this. */
+    /* Per-band merge scratch, sized to the PROVEN per-band bound (initech-44ab
+     * RIDER 2; spec Sec 5 two-bounds note): RGN_ROW_X_MAX == 640 is exactly
+     * the [0,640] OD-3 domain bound on a band merge's output -- xmerge
+     * collapses coincident edges at emit, so out <= distinct x positions <=
+     * 640 (see xmerge's banner + its _Static_assert). xmerge fail-louds (bead
+     * initech-mswo) on anything more (out-of-domain/malformed inputs), so this
+     * is never silently overrun. 1280 B of stack at the 640 cap -- audited
+     * against the 64 KiB kernel stack (the working-set banner below). */
     int16_t scratch[RGN_ROW_X_MAX];
 
     for (;;) {
@@ -523,30 +545,169 @@ void region_complement(region_t *out, const region_t *A, rgn_rect_t frame)
 }
 
 /* ===========================================================================
+ * THE WORKING SET (DUAL-MODE) + the fail-loud in-use guard
+ * (bead initech-44ab RIDER 3 + ROUND 3, committee 2026-07-11).
+ *
+ * Pre-44ab, region_from_rects carved THREE full working regions (acc/one/tmp:
+ * 3 x region_t + 3 x rows[RGN_ROWS_CAP] + 3 x pool[RGN_X_POOL_CAP]) from its
+ * stack frame, and each query helper (region_rect_fully_in / _overlaps /
+ * region_intersects) carved one more. The initech-44ab kernel-stack audit
+ * showed that at the post-44ab caps (RGN_ROW_X_MAX=640, RGN_X_POOL_CAP=2048)
+ * this breaks the committee's stack ceilings, so the working regions moved
+ * OFF the stack into a file-scope working set behind a fail-loud in-use guard
+ * (a nested acquire is a reentrancy bug -- cooperative FLAIR has exactly ONE
+ * region call in flight at a time, and the ISRs never call the engine; Rule 2).
+ *
+ * WHY DUAL-MODE (ROUND 3): a plain static value array (round 2) cost 18.4 KiB
+ * of kernel .bss and busted the LARGEST kernel variant's link -- kernel_shell
+ * (COMMAND.COM + full FLAIR) exceeded the _kernel_end < PROGRAM_BASE (0x40000)
+ * ld ASSERT by 8340 B (the guard did its job). The engine stays HEAP-AGNOSTIC:
+ *   HOSTED (__STDC_HOSTED__): the working set is a static value array (the C
+ *     runtime zeroes BSS; the property suite needs no init call).
+ *   FREESTANDING: g_rgn_ws holds BOUND POINTERS (8 B of .bss instead of
+ *     18.4 KiB); kmain.c allocates the two backing slots from the FLAIR heap
+ *     (FLAIR_CLASS_REGION, ADR-0004 DEC-03 -- the flair_desktop_alloc_region
+ *     idiom; allocation failure -> flair_desktop_oom, boot-time fail-loud) and
+ *     binds them via region_engine_bind_ws(). BOOT ORDER IS LOAD-BEARING:
+ *       flair_heap_init -> region_engine_bind_ws -> region_engine_reset ->
+ *       shell_build_scene (the first Toolbox region call).
+ *     rgn_ws_acquire fail-louds on unbound/NULL slots (tweak W1) -- a naive
+ *     pointer swap would otherwise crash silently pre-init.
+ * The slot shape (rgn_ws_slot_t) is exposed in region.h (tweak W3) so kmain.c
+ * sizes the heap blocks with sizeof, never hand-computed byte math.
+ *
+ * SLOT MAP (tweak W2): TWO full-cap slots only. from_rects' acc -> slot 0,
+ * tmp -> slot 1 (both ACCUMULATE, so they must be full-size); its single-rect
+ * scratch 'one' needs just 2 rows + 2 x-slots and lives on the stack (the
+ * region_complement pattern -- ~24 B). The query helpers' result region shares
+ * slot 0 with acc (they never run concurrently -- the guard proves it).
+ *
+ * KERNEL STACK AUDIT (initech-44ab RIDER 3; -m32 sizes: rgn_row_t = 8 B,
+ * region_t = 32 B, int16 = 2 B; caps RGN_ROWS_CAP=256, RGN_X_POOL_CAP=2048,
+ * RGN_ROW_X_MAX=640). The kernel stack is kstart.asm's esp = 0x0009FFFC,
+ * region [0x90000, 0xA0000) = 64 KiB, ONE stack shared with the IRQ handlers.
+ * Cap-sized stack arrays, POST-44ab:
+ *   region_op        scratch[RGN_ROW_X_MAX] = 1280 B  (stack; small -- stays)
+ *   region_normalize tmp[RGN_ROW_X_MAX]     = 1280 B  (stack; small -- stays)
+ *   region_from_rects                       = ~150 B  (WAS 18528 B = 18.1 KiB
+ *                                             at the new caps -- the single
+ *                                             > 8 KiB/frame offender; acc/tmp
+ *                                             now in the working set, 'one'
+ *                                             is the 2/2 stack pattern)
+ *   region_rect_fully_in/_overlaps/
+ *     region_intersects                     = ~90 B   (WAS ~6228 B each at the
+ *                                             new caps; currently DEAD CODE in
+ *                                             the shipped kernel -- no os/
+ *                                             caller -- converted anyway for
+ *                                             consistency)
+ *   region_complement                       = ~52 B   (never cap-sized)
+ * Deepest region-engine chain (shell.c/window.c -> region_op ->
+ * region_normalize): 1280 + 1280 + small = ~2.6 KiB, well inside the
+ * committee's 16 KiB region-engine ceiling. Working-set footprint: 2 x
+ * sizeof(rgn_ws_slot_t) = 2 x 6144 = 12288 B -- FLAIR heap in the kernel,
+ * hosted .bss in the suite.
+ *
+ * BSS WARNING (tweak T3): kstart.asm does NOT zero .bss, so g_rgn_ws_in_use
+ * (and, freestanding, the slot pointers) CANNOT be assumed 0 at boot. kmain.c
+ * binds then calls region_engine_reset() before the first Toolbox region call
+ * (the flair_heap_init explicit-init discipline); without it a garbage flag
+ * would false-panic the very first boot-time region_from_rects. Hosted test
+ * binaries get zeroed BSS from the C runtime.
+ *
+ * GUARD DISCIPLINE (tweak T1): acquire ONLY immediately before the first touch
+ * of the working set -- every argument-validation / bbox-reject early return
+ * happens BEFORE the acquire -- and release on the ONE exit path of the
+ * guarded section, so no return can leak the flag.
+ * ===========================================================================*/
+
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__
+/* HOSTED: static value slots, statically bound (round 3: "g_rgn_ws stays a
+ * static value array; no hosted test changes"). */
+static rgn_ws_slot_t  g_rgn_ws_store[2];
+static rgn_ws_slot_t *g_rgn_ws[2] = { &g_rgn_ws_store[0], &g_rgn_ws_store[1] };
+#else
+/* FREESTANDING: bound pointers only -- the backing lives on the FLAIR heap
+ * (kmain.c allocates + binds; see the banner). Unbound until
+ * region_engine_bind_ws(); rgn_ws_acquire fail-louds on NULL (W1). */
+static rgn_ws_slot_t *g_rgn_ws[2];
+#endif
+static uint8_t g_rgn_ws_in_use;        /* NOT trusted at boot -- see T3 above  */
+
+static void rgn_ws_acquire(void)
+{
+    /* W1: unbound slots are a boot-order bug (bind must precede the first
+     * Toolbox region call) -- fail loud, never a silent wild-pointer write.
+     * Statically true in the hosted build; load-bearing freestanding. */
+    if (g_rgn_ws[0] == 0 || g_rgn_ws[1] == 0) { RGN_FAIL_LOUD(); return; }
+    if (g_rgn_ws_in_use) { RGN_FAIL_LOUD(); return; }  /* nested acquire */
+    g_rgn_ws_in_use = 1;
+}
+
+static void rgn_ws_release(void)
+{
+    g_rgn_ws_in_use = 0;
+}
+
+/* Attach region header `r` to working-set slot `slot` (canonical empty). */
+static void rgn_ws_attach(region_t *r, rgn_ws_slot_t *slot)
+{
+    rgn_zero(r, sizeof *r);
+    r->rows       = slot->rows;
+    r->cap_rows   = RGN_ROWS_CAP;
+    r->x_pool     = slot->pool;
+    r->x_pool_cap = RGN_X_POOL_CAP;
+    region_set_empty(r);
+}
+
+#if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
+/* FREESTANDING ONLY (round 3): bind the two FLAIR-heap-backed slots. Distinct,
+ * non-NULL; called by kmain.c strictly BEFORE region_engine_reset() and the
+ * first Toolbox region call. Not compiled hosted (the suite's slots are
+ * statically bound). */
+void region_engine_bind_ws(rgn_ws_slot_t *slot_a, rgn_ws_slot_t *slot_b)
+{
+    if (slot_a == 0 || slot_b == 0 || slot_a == slot_b) { RGN_FAIL_LOUD(); return; }
+    g_rgn_ws[0] = slot_a;
+    g_rgn_ws[1] = slot_b;
+}
+#endif
+
+/* Explicit engine init (spec Sec 6; tweaks T3 + round 3): clear the working-
+ * set guard ONLY -- allocation/binding is deliberately NOT folded in (the
+ * committee kept this signature universal across both modes). MUST run once
+ * at kernel startup, AFTER region_engine_bind_ws and BEFORE the first Toolbox
+ * region call, because kstart.asm does not zero .bss. */
+void region_engine_reset(void)
+{
+    g_rgn_ws_in_use = 0;
+}
+
+/* ===========================================================================
  * region_from_rects -- union of n rects (repeated union; normalized).
  * ===========================================================================*/
 void region_from_rects(region_t *r, const rgn_rect_t *rects, uint16_t n)
 {
     if (r == 0) { RGN_FAIL_LOUD(); return; }
     region_set_empty(r);
-    if (n == 0 || rects == 0) return;
+    if (n == 0 || rects == 0) return;   /* pre-acquire: cannot leak the guard */
 
-    /* Accumulate into r using a scratch pair of regions backed by the SAME
-     * caps as r (the caller sized r for the result). We need two working
-     * regions; carve them from local fixed storage (bounded by the caps). */
-    static const uint16_t RC = RGN_ROWS_CAP;
-    static const uint32_t XC = RGN_X_POOL_CAP;
+    /* Accumulate into r via the working set (initech-44ab RIDER 3 + round 3:
+     * the old stack triple was 18.1 KiB at the post-44ab caps -- see the audit
+     * banner above). acc (slot 0) holds the running union; tmp (slot 1) the
+     * step result -- both accumulate, so both are full-cap slots. one holds
+     * ONE rect: 2 rows + 2 x-slots on the stack (the region_complement
+     * pattern; tweak W2). Acquire HERE (first touch), release at the ONE exit. */
+    rgn_ws_acquire();
+    region_t acc, one, tmp;             /* 32 B headers; big storage is bound */
+    rgn_row_t one_rows[2];
+    int16_t   one_pool[2];
+    rgn_ws_attach(&acc, g_rgn_ws[0]);
+    rgn_ws_attach(&tmp, g_rgn_ws[1]);
+    rgn_zero(&one, sizeof one);
+    one.rows = one_rows; one.cap_rows = 2;
+    one.x_pool = one_pool; one.x_pool_cap = 2;
+    region_set_empty(&one);
 
-    /* acc holds the running union; one holds the current rect; tmp the result. */
-    region_t acc, one, tmp;
-    rgn_row_t acc_rows[RGN_ROWS_CAP], one_rows[RGN_ROWS_CAP], tmp_rows[RGN_ROWS_CAP];
-    int16_t   acc_pool[RGN_X_POOL_CAP], one_pool[RGN_X_POOL_CAP], tmp_pool[RGN_X_POOL_CAP];
-
-    rgn_zero(&acc, sizeof acc); acc.rows = acc_rows; acc.cap_rows = RC; acc.x_pool = acc_pool; acc.x_pool_cap = XC;
-    rgn_zero(&one, sizeof one); one.rows = one_rows; one.cap_rows = RC; one.x_pool = one_pool; one.x_pool_cap = XC;
-    rgn_zero(&tmp, sizeof tmp); tmp.rows = tmp_rows; tmp.cap_rows = RC; tmp.x_pool = tmp_pool; tmp.x_pool_cap = XC;
-
-    region_set_empty(&acc);
     for (uint16_t i = 0; i < n; i++) {
         region_set_rect(&one, rects[i]);
         region_op(&tmp, &acc, &one, RGN_OP_UNION);
@@ -555,6 +716,7 @@ void region_from_rects(region_t *r, const rgn_rect_t *rects, uint16_t n)
     }
     /* copy acc -> r */
     region_op(r, &acc, &acc, RGN_OP_UNION);
+    rgn_ws_release();
 }
 
 /* ===========================================================================
@@ -621,15 +783,22 @@ int region_rect_fully_in(const region_t *r, rgn_rect_t rect)
     /* bbox reject */
     if (rect.left < r->bbox.left || rect.right > r->bbox.right ||
         rect.top < r->bbox.top || rect.bottom > r->bbox.bottom) return 0;
-    /* rect DIFF r == empty  <=>  every pixel of rect is in r */
+    /* rect DIFF r == empty  <=>  every pixel of rect is in r. The DIFF result
+     * needs full caps -> static slot 0 (initech-44ab RIDER 3; was ~6.1 KiB of
+     * stack at the new caps -- dead code in the shipped kernel today, T4 --
+     * converted for consistency). Guard acquired at first static touch, ONE
+     * guarded exit (T1). The 2-slot rect region stays on the stack (24 B). */
     region_t rr, df;
-    rgn_row_t rr_rows[2], df_rows[RGN_ROWS_CAP];
-    int16_t   rr_pool[2], df_pool[RGN_X_POOL_CAP];
+    rgn_row_t rr_rows[2];
+    int16_t   rr_pool[2];
     rgn_zero(&rr, sizeof rr); rr.rows = rr_rows; rr.cap_rows = 2; rr.x_pool = rr_pool; rr.x_pool_cap = 2;
-    rgn_zero(&df, sizeof df); df.rows = df_rows; df.cap_rows = RGN_ROWS_CAP; df.x_pool = df_pool; df.x_pool_cap = RGN_X_POOL_CAP;
+    rgn_ws_acquire();
+    rgn_ws_attach(&df, g_rgn_ws[0]);
     region_set_rect(&rr, rect);
     region_op(&df, &rr, r, RGN_OP_DIFF);
-    return region_is_empty(&df);
+    int ret = region_is_empty(&df);
+    rgn_ws_release();
+    return ret;
 }
 
 /* OVERLAP: 1 iff `rect` and `r` share at least one pixel (the documented
@@ -643,15 +812,20 @@ int region_rect_overlaps(const region_t *r, rgn_rect_t rect)
     /* bbox reject (rect vs r->bbox, half-open) */
     if (rect.right <= r->bbox.left || r->bbox.right <= rect.left ||
         rect.bottom <= r->bbox.top || r->bbox.bottom <= rect.top) return 0;
-    /* rect INTERSECT r non-empty <=> they share a pixel */
+    /* rect INTERSECT r non-empty <=> they share a pixel. Static slot 0 for the
+     * INTERSECT result (initech-44ab RIDER 3; dead code in the shipped kernel
+     * today, T4). Acquire at first static touch, ONE guarded exit (T1). */
     region_t rr, in;
-    rgn_row_t rr_rows[2], in_rows[RGN_ROWS_CAP];
-    int16_t   rr_pool[2], in_pool[RGN_X_POOL_CAP];
+    rgn_row_t rr_rows[2];
+    int16_t   rr_pool[2];
     rgn_zero(&rr, sizeof rr); rr.rows = rr_rows; rr.cap_rows = 2; rr.x_pool = rr_pool; rr.x_pool_cap = 2;
-    rgn_zero(&in, sizeof in); in.rows = in_rows; in.cap_rows = RGN_ROWS_CAP; in.x_pool = in_pool; in.x_pool_cap = RGN_X_POOL_CAP;
+    rgn_ws_acquire();
+    rgn_ws_attach(&in, g_rgn_ws[0]);
     region_set_rect(&rr, rect);
     region_op(&in, &rr, r, RGN_OP_INTERSECT);
-    return region_is_empty(&in) ? 0 : 1;
+    int ret = region_is_empty(&in) ? 0 : 1;
+    rgn_ws_release();
+    return ret;
 }
 
 int region_intersects(const region_t *A, const region_t *B)
@@ -660,12 +834,16 @@ int region_intersects(const region_t *A, const region_t *B)
     /* bbox reject */
     if (A->bbox.right <= B->bbox.left || B->bbox.right <= A->bbox.left ||
         A->bbox.bottom <= B->bbox.top || B->bbox.bottom <= A->bbox.top) return 0;
+    /* Static slot 0 for the INTERSECT result (initech-44ab RIDER 3; dead code
+     * in the shipped kernel today, T4). Acquire at first static touch, ONE
+     * guarded exit (T1) -- the bbox rejects above are pre-acquire. */
     region_t df;
-    rgn_row_t df_rows[RGN_ROWS_CAP];
-    int16_t   df_pool[RGN_X_POOL_CAP];
-    rgn_zero(&df, sizeof df); df.rows = df_rows; df.cap_rows = RGN_ROWS_CAP; df.x_pool = df_pool; df.x_pool_cap = RGN_X_POOL_CAP;
+    rgn_ws_acquire();
+    rgn_ws_attach(&df, g_rgn_ws[0]);
     region_op(&df, A, B, RGN_OP_INTERSECT);
-    return region_is_empty(&df) ? 0 : 1;
+    int ret = region_is_empty(&df) ? 0 : 1;
+    rgn_ws_release();
+    return ret;
 }
 
 /* ===========================================================================
@@ -764,3 +942,22 @@ int RectInRegion(const region_t *rgn, rgn_rect_t rect)
     return region_rect_overlaps(rgn, rect);
 #endif
 }
+
+/* ===========================================================================
+ * 9. HOSTED-ONLY TEST HOOK (factory-facing; NEVER compiled freestanding)
+ * ===========================================================================*/
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__
+/* Rule-6 probe: prove the working-set in-use guard BITES. Acquires the guard
+ * as if an engine call were in flight, then calls region_from_rects -- whose
+ * nested rgn_ws_acquire MUST fail loud (hosted: abort()). On a correct engine
+ * this NEVER RETURNS; returning at all means the guard is decoration.
+ * test_region.c calls this from a fork()ed CHILD and asserts the child dies by
+ * SIGABRT (the over-cap probe idiom) -- and, per the committee's verification
+ * round, the parent NEVER forks while itself inside a guarded call. */
+void region_engine_probe_nested_acquire(region_t *scratch)
+{
+    rgn_ws_acquire();
+    rgn_rect_t rc = { 0, 0, 1, 1 };                 /* top,left,bottom,right */
+    region_from_rects(scratch, &rc, 1);             /* nested acquire -> abort */
+}
+#endif

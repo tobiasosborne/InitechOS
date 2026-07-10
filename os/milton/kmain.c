@@ -54,6 +54,8 @@
 #include "heap.h"            /* flair_heap_t, flair_alloc (-Ios/flair)        */
 #include "surface.h"         /* bitmap_t, surface_put_pixel (-Ios/flair)      */
 #include "region_algebra.h"  /* region_t, RGN_ROWS_CAP/RGN_X_POOL_CAP (-Ispec)*/
+#include "region.h"          /* rgn_ws_slot_t + region_engine_bind_ws (bead
+                              * initech-44ab round 3; -Ios/flair/atkinson)    */
 #include "shell.h"           /* shell_scene_t, shell_build_scene/render       */
 #include "desktop.h"         /* desktop_paint_damage (FO-7 minimal repaint)   */
 #include "menu_canon.h"      /* FLAIR_CANON_PHOTOSHOP_MENU_COUNT (-Ispec/assets)*/
@@ -851,6 +853,25 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
      * backed by real RAM (FLAIR-HEAP-OK). */
     static flair_heap_t heap;   /* tiny bookkeeping struct; no buffer embedded */
     flair_heap_init(&heap, (void *)(uintptr_t)FLAIR_HEAP_BASE, FLAIR_HEAP_SIZE);
+
+    /* ATKINSON engine explicit init (bead initech-44ab rounds 2-3, committee
+     * 2026-07-11; the flair_heap_init discipline). The engine's from_rects /
+     * query-helper working set is HEAP-BACKED in the freestanding build (a
+     * static array busted kernel_shell's _kernel_end < PROGRAM_BASE window by
+     * 8340 B): allocate the two full-cap slots from the FLAIR heap (the
+     * flair_desktop_alloc_region idiom -- FLAIR_CLASS_REGION, fail-loud OOM),
+     * BIND them, THEN clear the in-use guard. Order is load-bearing (kstart
+     * does NOT zero .bss): bind -> reset -> shell_build_scene (the first
+     * Toolbox region call); rgn_ws_acquire fail-louds if unbound (W1). */
+    rgn_ws_slot_t *rgn_ws_a =
+        (rgn_ws_slot_t *)flair_alloc(&heap, FLAIR_CLASS_REGION,
+                                     (uint32_t)sizeof(rgn_ws_slot_t));
+    rgn_ws_slot_t *rgn_ws_b =
+        (rgn_ws_slot_t *)flair_alloc(&heap, FLAIR_CLASS_REGION,
+                                     (uint32_t)sizeof(rgn_ws_slot_t));
+    if (!rgn_ws_a || !rgn_ws_b) { flair_desktop_oom("region engine working set"); }
+    region_engine_bind_ws(rgn_ws_a, rgn_ws_b);
+    region_engine_reset();
 
     /* --- The whole scene, allocated from the FLAIR heap (Law 3; bead 5dr8) --- */
     shell_scene_t *scene =

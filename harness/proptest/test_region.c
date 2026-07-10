@@ -192,6 +192,86 @@ static void build_dense_scanline(rgn_store_t *s, int nspans, int off)
 }
 
 /* ===========================================================================
+ * The WIDE (640px, OD-3 full-domain) deterministic oracle -- initech-44ab
+ * RIDER 4. A 640-wide, 2-tall bitmap ground truth, SEPARATE from the small
+ * GW x GH windowed crop above: a full-width dense scanline (320 disjoint
+ * spans = 640 inversion points) is the exact worst case the 44ab cap raise
+ * (RGN_ROW_X_MAX 256 -> 640 == the [0,640] domain bound) exists to represent,
+ * and it cannot fit the GW=48 crop. DETERMINISTIC -- a handful of fixed
+ * cases, NOT part of the fuzzed loops (committee rider 4). Coordinates are
+ * absolute [0,640) x [0,WH); no window translation.
+ * ===========================================================================*/
+enum { WW = 640, WH = 2 };
+typedef struct wbitmap { uint8_t px[WW * WH]; } wbitmap_t;
+
+static void wbm_clear(wbitmap_t *b) { memset(b->px, 0, sizeof b->px); }
+
+/* Wide ground-truth rasterizer -- same row-driven span-paint as rasterize()
+ * above (independent of region_contains_point), on the 640-wide grid. */
+static void w_rasterize(const region_t *r, wbitmap_t *out)
+{
+    wbm_clear(out);
+    if (r->is_empty || r->n_rows == 0) return;
+    for (uint16_t i = 0; i < r->n_rows; i++) {
+        int y0 = r->rows[i].y_top;
+        int y1 = (i + 1 < r->n_rows) ? r->rows[i + 1].y_top : y0;
+        if (r->rows[i].x_count == 0) continue;
+        for (int y = y0; y < y1; y++) {
+            if (y < 0 || y >= WH) continue;
+            for (uint16_t k = 0; k + 1 < r->rows[i].x_count; k += 2)
+                for (int x = r->rows[i].x[k]; x < r->rows[i].x[k + 1]; x++)
+                    if (x >= 0 && x < WW) out->px[y * WW + x] = 1;
+        }
+    }
+}
+
+static void wbm_op(wbitmap_t *out, const wbitmap_t *A, const wbitmap_t *B, rgn_op_t op)
+{
+    for (int i = 0; i < WW * WH; i++) {
+        int a = A->px[i] ? 1 : 0, b = B->px[i] ? 1 : 0, o = 0;
+        switch (op) {
+            case RGN_OP_UNION:     o = a | b;        break;
+            case RGN_OP_INTERSECT: o = a & b;        break;
+            case RGN_OP_DIFF:      o = a & (b ^ 1);  break;
+            case RGN_OP_XOR:       o = a ^ b;        break;
+        }
+        out->px[i] = (uint8_t)o;
+    }
+}
+
+static int wbm_equal(const wbitmap_t *A, const wbitmap_t *B)
+{
+    return memcmp(A->px, B->px, sizeof A->px) == 0;
+}
+
+/* A full-width "comb": 320 disjoint unit spans [2i+off, 2i+off+1) on the band
+ * y in [0,2), plus the closing row -- EXACTLY 640 == RGN_ROW_X_MAX inversion
+ * points on one row, every coordinate inside the locked [0,640] OD-3 domain
+ * (off=0 -> even columns; off=1 -> odd columns; the two are disjoint and
+ * their union is the full-width rect). Normalized before return: this IS the
+ * rider-4b at-cap boundary case -- a row with exactly RGN_ROW_X_MAX points
+ * must round-trip region_normalize without fail-loud. */
+static void build_wide_comb(rgn_store_t *s, int off)
+{
+    store_attach(s);
+    for (int i = 0; i < 320; i++) {
+        s->pool[2 * i]     = (int16_t)(2 * i + off);
+        s->pool[2 * i + 1] = (int16_t)(2 * i + off + 1);
+    }
+    s->rows[0].y_top   = 0;
+    s->rows[0].x_count = 640;
+    s->rows[0].x       = &s->pool[0];
+    s->rows[1].y_top   = 2;
+    s->rows[1].x_count = 0;
+    s->rows[1].x       = &s->pool[640];
+    s->r.n_rows        = 2;
+    s->r.x_pool_used   = 640;
+    s->r.is_empty      = 0;
+    s->r.is_rect       = 0;
+    region_normalize(&s->r);
+}
+
+/* ===========================================================================
  * The generators (Rule 11: a seeded LCG so failures are reproducible).
  * ===========================================================================*/
 static uint32_t g_seed = 0x1234567u;
@@ -501,7 +581,9 @@ int main(void)
      * ====================================================================== */
     {
         static rgn_store_t A, B, O;
-        const int NSPANS = (int)(RGN_ROW_X_MAX / 2);   /* 128 spans -> 256 pts */
+        /* cap/2 spans -> exactly-at-cap rows (320 spans -> 640 pts at the
+         * post-44ab cap of 640); their XOR wants 2*cap pts -> over-cap. */
+        const int NSPANS = (int)(RGN_ROW_X_MAX / 2);
         build_dense_scanline(&A, NSPANS, 0);
         build_dense_scanline(&B, NSPANS, 2);
         CHECK(A.r.rows[0].x_count == RGN_ROW_X_MAX,
@@ -530,6 +612,161 @@ int main(void)
         CHECK(fail_loud,
               "over-cap band xmerge FAILS LOUD (SIGABRT) instead of overrunning "
               "scratch[RGN_ROW_X_MAX] (bead initech-mswo)");
+    }
+
+    /* ======================================================================
+     * T2 (initech-44ab follow-up, committee 2026-07-11): region_from_rects'
+     * n==0 / NULL-rects early return happens BEFORE the static working-set
+     * guard is acquired -- call each TWICE in a row (a leaked guard would
+     * false-panic the second call), then prove real calls + all three query
+     * helpers still cycle the guard cleanly.
+     * ====================================================================== */
+    {
+        static rgn_store_t S;
+        rgn_rect_t rc0 = { 0, 0, 4, 4 };            /* top,left,bottom,right */
+        store_attach(&S);
+        region_from_rects(&S.r, (const rgn_rect_t *)0, 3);
+        CHECK(region_is_empty(&S.r), "from_rects(NULL rects) -> empty (1st call)");
+        region_from_rects(&S.r, (const rgn_rect_t *)0, 3);
+        CHECK(region_is_empty(&S.r), "from_rects(NULL rects) -> empty (2nd call; no guard leak)");
+        region_from_rects(&S.r, &rc0, 0);
+        CHECK(region_is_empty(&S.r), "from_rects(n==0) -> empty (1st call)");
+        region_from_rects(&S.r, &rc0, 0);
+        CHECK(region_is_empty(&S.r), "from_rects(n==0) -> empty (2nd call; no guard leak)");
+        /* real work right after the empty-arg calls: the guard must be free,
+         * and each guarded helper must release it for the next one. */
+        region_from_rects(&S.r, &rc0, 1);
+        CHECK(!region_is_empty(&S.r) && S.r.is_rect,
+              "from_rects does real work after the empty-arg calls (guard free)");
+        region_from_rects(&S.r, &rc0, 1);
+        CHECK(region_rect_fully_in(&S.r, rc0) == 1,
+              "rect_fully_in right after from_rects (guard cycled)");
+        CHECK(region_rect_overlaps(&S.r, rc0) == 1,
+              "rect_overlaps right after rect_fully_in (guard cycled)");
+        CHECK(region_intersects(&S.r, &S.r) == 1,
+              "region_intersects right after rect_overlaps (guard cycled)");
+    }
+
+    /* ======================================================================
+     * THE IN-USE GUARD BITES (Rule 6; initech-44ab follow-up): a NESTED
+     * working-set acquire must FAIL LOUD. Fork a child -- the parent is NOT
+     * inside any guarded call at fork time (committee verification round) --
+     * and have it run the hosted-only probe hook: acquire the guard, then
+     * call region_from_rects, whose nested acquire must abort(). Only a clean
+     * SIGABRT counts; a child that EXITS 0 means the probe RETURNED, i.e. the
+     * guard is decoration.
+     * ====================================================================== */
+    {
+        static rgn_store_t S;
+        fflush(stdout); fflush(stderr);
+        pid_t pid = fork();
+        if (pid == 0) {
+            struct rlimit rl = { 0, 0 };
+            (void)setrlimit(RLIMIT_CORE, &rl);
+            store_attach(&S);
+            region_engine_reset();                  /* known-clear guard */
+            region_engine_probe_nested_acquire(&S.r);
+            _exit(0);                               /* returned == guard dead */
+        }
+        CHECK(pid > 0, "guard probe: fork() succeeded");
+        int status = 0;
+        (void)waitpid(pid, &status, 0);
+        CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT,
+              "nested working-set acquire FAILS LOUD (SIGABRT) -- the in-use "
+              "guard bites (initech-44ab)");
+    }
+
+    /* ======================================================================
+     * WIDE 640px DETERMINISTIC LEG (initech-44ab RIDER 4) -- the full OD-3
+     * domain, pixel-exact against the independent 640-wide bitmap oracle.
+     *  (a) at-cap boundary: a row with EXACTLY RGN_ROW_X_MAX == 640 inversion
+     *      points (320 disjoint unit spans across [0,640)) round-trips
+     *      region_normalize AND region_op without fail-loud;
+     *  (b) full-width homomorphism: all 4 ops over the dense comb pair (A =
+     *      even columns, B = odd columns) and over (full-rect, A), graded
+     *      PIXEL-EXACT on the 640-wide grid;
+     *  (c) the collapse case: A UNION B == the full-width rect -- 1280 input
+     *      points collapse to 2 output points (coincident-edge emit logic);
+     *  (d) the at-cap OUTPUT case: F DIFF A == B -- a merge whose output row
+     *      is exactly at the 640 cap.
+     * The cap+2 over-cap side stays covered by the fail-loud probe above.
+     * Deterministic; NOT part of the fuzzed loops (committee rider 4).
+     * ====================================================================== */
+    {
+        static rgn_store_t A, B, F, O;
+        static wbitmap_t wa, wb, wf, wexp, wgot, ta, tb;
+
+        build_wide_comb(&A, 0);                     /* even columns */
+        CHECK(A.r.n_rows == 2 && A.r.rows[0].x_count == RGN_ROW_X_MAX,
+              "wide comb A: exactly RGN_ROW_X_MAX points round-trips "
+              "region_normalize (at-cap boundary, rider 4b)");
+        CHECK(normal_form_holds(&A.r), "wide comb A is in normal form");
+        build_wide_comb(&B, 1);                     /* odd columns  */
+        CHECK(B.r.rows[0].x_count == RGN_ROW_X_MAX,
+              "wide comb B: exactly RGN_ROW_X_MAX points round-trips normalize");
+        store_attach(&F);
+        rgn_rect_t frect = { 0, 0, (int16_t)WH, (int16_t)WW };
+        region_set_rect(&F.r, frect);               /* the full-width rect */
+
+        /* Independent pixel ground truth painted from the GENERATING FORMULA
+         * (not via the regions): even / odd columns on rows [0,2). */
+        wbm_clear(&ta); wbm_clear(&tb);
+        for (int y = 0; y < WH; y++)
+            for (int i = 0; i < 320; i++) {
+                ta.px[y * WW + 2 * i]     = 1;
+                tb.px[y * WW + 2 * i + 1] = 1;
+            }
+        w_rasterize(&A.r, &wa);
+        w_rasterize(&B.r, &wb);
+        w_rasterize(&F.r, &wf);
+        CHECK(wbm_equal(&wa, &ta), "wide comb A rasterizes to the even columns");
+        CHECK(wbm_equal(&wb, &tb), "wide comb B rasterizes to the odd columns");
+
+        /* (b) homomorphism, all 4 ops, pixel-exact, on (A,B) and (F,A). */
+        int hom_bad = 0, nf_bad = 0;
+        for (int op_i = 0; op_i < 4; op_i++) {
+            store_attach(&O);
+            region_op(&O.r, &A.r, &B.r, OPS[op_i]);
+            if (!normal_form_holds(&O.r)) nf_bad = 1;
+            w_rasterize(&O.r, &wgot);
+            wbm_op(&wexp, &wa, &wb, OPS[op_i]);
+            if (!wbm_equal(&wgot, &wexp)) hom_bad = 1;
+
+            store_attach(&O);
+            region_op(&O.r, &F.r, &A.r, OPS[op_i]);
+            if (!normal_form_holds(&O.r)) nf_bad = 1;
+            w_rasterize(&O.r, &wgot);
+            wbm_op(&wexp, &wf, &wa, OPS[op_i]);
+            if (!wbm_equal(&wgot, &wexp)) hom_bad = 1;
+        }
+        CHECK(!hom_bad, "wide 640px homomorphism: all 4 ops on (A,B) and "
+                        "(full,A), pixel-exact (rider 4a)");
+        CHECK(!nf_bad, "wide 640px op outputs are all in normal form");
+
+        /* (a) at-cap round-trip through region_op: A self-union == A. */
+        store_attach(&O);
+        region_op(&O.r, &A.r, &A.r, RGN_OP_UNION);
+        CHECK(region_equal(&O.r, &A.r) &&
+              O.r.rows[0].x_count == RGN_ROW_X_MAX,
+              "at-cap row (640 pts) round-trips region_op+normalize "
+              "(self-union identity; the 44ab acceptance case)");
+
+        /* (c) the collapse case: A UNION B == the full-width rect (1280
+         * candidate emit positions collapse to 2 -- coincident-edge logic). */
+        store_attach(&O);
+        region_op(&O.r, &A.r, &B.r, RGN_OP_UNION);
+        CHECK(region_equal(&O.r, &F.r) && O.r.is_rect,
+              "full-width union: 320+320 interleaved unit spans collapse to "
+              "the single [0,640) span (2 points)");
+
+        /* (d) the at-cap OUTPUT case: F DIFF A == B (merge output row is
+         * exactly at the 640 cap -- the largest legal xmerge emission). */
+        store_attach(&O);
+        region_op(&O.r, &F.r, &A.r, RGN_OP_DIFF);
+        CHECK(region_equal(&O.r, &B.r) &&
+              O.r.rows[0].x_count == RGN_ROW_X_MAX,
+              "full DIFF evens == odds: merge emits an exactly-at-cap row "
+              "(640 pts) without fail-loud");
     }
 
     /* ---- constructor smoke: empty + single rect rasterize correctly ------- */
@@ -697,8 +934,8 @@ int main(void)
      * HIGH-N STRESS (initech-xi7x item 4): same homomorphism oracle, but with
      * gen_spec_stress() (20..64 items) instead of gen_spec() (1..6 items) --
      * MAX_ITEMS=6 alone never pushes a region past a handful of rows, so the
-     * multi-row / x_pool-heavy merge paths (well below RGN_ROWS_CAP=256 /
-     * RGN_X_POOL_CAP=1024, spec/region_algebra.h Sec 5) go untested at scale.
+     * multi-row / x_pool-heavy merge paths (well below RGN_ROWS_CAP /
+     * RGN_X_POOL_CAP, spec/region_algebra.h Sec 5) go untested at scale.
      * Iteration count kept modest (150/op) so this stays cheap.
      * ====================================================================== */
     {

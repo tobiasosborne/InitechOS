@@ -257,14 +257,44 @@ static inline uint8_t rgn_op_truth(rgn_op_t op)
  * Fixed per-region caps sized for the common case (rects, chrome, single
  * windows, and the frame's worst window count). A region whose normal form
  * needs more rows or x-entries than these caps is a FAIL-LOUD panic, never a
- * silent truncation. A merge's output AND scratch are bounded a priori:
- *   rows_out <= rowsA + rowsB + 2   (each input band boundary can appear once,
- *                                    plus the opening and closing rows)
- *   x_out    <= xA + xB             (the merge never invents inversion points;
- *                                    a changed-output emit is at an existing
- *                                    A-edge or B-edge)
- * so an op into a region with RGN_ROWS_CAP/RGN_X_POOL_CAP sized to the inputs
- * cannot overflow if the inputs themselves are within caps.
+ * silent truncation.
+ *
+ * TWO DISTINCT BOUNDS -- do NOT conflate them (bead initech-mswo finding,
+ * resolved by initech-44ab, committee 2026-07-10). ONE DOES NOT FOLLOW FROM
+ * THE OTHER:
+ *
+ *   (I) THE POOL BOUND (whole-region op output; a-priori):
+ *         rows_out       <= rowsA + rowsB + 2   (each input band boundary can
+ *                                                appear once, plus the opening
+ *                                                and closing rows)
+ *         x_pool_used(out) <= x_pool_used(A) + x_pool_used(B)
+ *       because the merge never invents inversion points -- a changed-output
+ *       emit sits at an existing A-edge or B-edge -- and region_normalize only
+ *       ever DROPS rows. So an op into a region whose RGN_ROWS_CAP /
+ *       RGN_X_POOL_CAP cover the SUM of its inputs cannot overflow the pool.
+ *
+ *   (II) THE PER-ROW / PER-BAND BOUND (the xmerge scratch; the DOMAIN
+ *       argument -- initech-44ab RIDER 2, proven in region.c xmerge):
+ *       a single band's merged output is bounded by the number of DISTINCT x
+ *       positions used by the two input rows -- xmerge consumes a coincident
+ *       A/B edge in ONE step and emits at most one point per distinct
+ *       position, and a double-toggle whose boolfn output does not change
+ *       emits NOTHING -- so
+ *         band_out <= |distinct x in rowA union rowB|,
+ *       NOT the loose na+nb (which double-counts coincident edges and
+ *       cancelled toggles). Both rows draw their coordinates from the same
+ *       locked [0,640] domain (ADR-0004 OD-3, 640x480 native), whose maximum
+ *       even inversion-point count is 640 ({0,1,...,639} = 320 unit spans).
+ *       Hence band_out <= 640 == RGN_ROW_X_MAX: at this value the "a merge's
+ *       scratch cannot overflow" claim is TRUE for domain-respecting inputs.
+ *
+ *   Bound (I) says nothing per-band (a whole pool's worth of points could sit
+ *   on one row), and bound (II) says nothing about totals across rows; the
+ *   per-row cap is justified by the DOMAIN argument alone. At the pre-44ab
+ *   value (RGN_ROW_X_MAX = 256 < 640) the old claim was FALSE and realizable
+ *   (initech-mswo: the XOR of two legal at-cap rows wants > 256 points, and a
+ *   legitimate full-width scanline is unrepresentable); the engine correctly
+ *   fail-louded, but on regions the spec prose promised to cover.
  *
  * Sizing rationale (the frame, PRD Appendix A): the reference desktop shows on
  * the order of a half-dozen overlapping windows plus chrome; a window's update
@@ -272,14 +302,36 @@ static inline uint8_t rgn_op_truth(rgn_op_t op)
  * below are generous headroom over that worst case while remaining static-
  * arena-friendly. They are LOCKED (Rule 8): raising them is a deliberate act
  * with a beads issue + worklog note, motivated by a concrete region that needs
- * the room, never a silent bump to make one test pass. */
+ * the room, never a silent bump to make one test pass.
+ *   Deliberate Rule-8 change history: RGN_ROW_X_MAX 256 -> 640 and
+ *   RGN_X_POOL_CAP 1024 -> 2048 by bead initech-44ab (unanimous committee,
+ *   2026-07-10; ADR-0005 Sec 3.5 amendment). RGN_ROWS_CAP unchanged. */
 #define RGN_ROWS_CAP      256u   /* max live rows (incl. closing row) per region */
-#define RGN_X_POOL_CAP   1024u   /* max int16 inversion-point slots per region   */
+#define RGN_X_POOL_CAP   2048u   /* max int16 inversion-point slots per region.
+                                  * Raised 1024 -> 2048 (initech-44ab, committee
+                                  * 2026-07-10, in the same act as RGN_ROW_X_MAX
+                                  * 256 -> 640): one maximally dense row is now
+                                  * 640 slots, and 640 + ~100 typical rows *
+                                  * ~4 pts ~= 1040 already exceeded the old
+                                  * 1024 -- a single dense row could starve the
+                                  * pool for the rest of the region.           */
 
-/* A single scanline cannot have more inversion points than this (used to size
- * the per-band x-merge scratch). 640px wide => at most 320 disjoint spans =>
- * 640 inversion points; this cap covers that with headroom. */
-#define RGN_ROW_X_MAX     256u
+/* A single scanline cannot have more inversion points than this (it also sizes
+ * the per-band x-merge scratch in region_op and the row scratch in
+ * region_normalize). EXACTLY the OD-3 coordinate-domain bound: 640px wide =>
+ * at most 320 disjoint spans => 640 inversion points -- AND (initech-44ab
+ * RIDER 2, the two-bounds note above) a band MERGE's output is bounded by the
+ * same domain, so 640 covers every domain-respecting merge as well as every
+ * normal-form row. Raised 256 -> 640 (the pre-44ab value contradicted its own
+ * stated worst case) by bead initech-44ab, committee 2026-07-10. */
+#define RGN_ROW_X_MAX     640u
+
+/* The cap IS the domain bound, exactly -- not headroom, not a guess. A change
+ * to the OD-3 640px domain (ADR-0004) or to this cap must revisit the RIDER-2
+ * derivation in region.c's xmerge banner (initech-44ab). */
+_Static_assert(RGN_ROW_X_MAX == 640u,
+               "RGN_ROW_X_MAX == the OD-3 640px coordinate-domain bound "
+               "(initech-44ab; see Sec 5 two-bounds note)");
 
 /* ===========================================================================
  * 6. THE ENGINE API  (os/flair/atkinson .c sources -- authored in a later stage)
@@ -292,6 +344,27 @@ static inline uint8_t rgn_op_truth(rgn_op_t op)
  * dst regions carry their own rows[]/x_pool storage (arena/static-backed); the
  * engine writes INTO that storage and FAILS LOUD if a cap is exceeded.
  * ===========================================================================*/
+
+/* --- 6z (bead initech-44ab rounds 2-3, committee 2026-07-11): lifecycle ----*/
+
+/* Explicit engine init: clear the working-set in-use guard (guard-clear ONLY;
+ * allocation/binding is deliberately separate). The initech-44ab kernel-stack
+ * audit moved region_from_rects' and the query helpers' working regions off
+ * the stack into a guarded file-scope working set in region.c (a nested
+ * acquire FAILS LOUD -- the engine is cooperative, never reentrant). The
+ * working set is DUAL-MODE (round 3: a static array busted the largest
+ * kernel's _kernel_end < PROGRAM_BASE link window): hosted builds carry two
+ * static slots; freestanding kernels allocate two rgn_ws_slot_t blocks from
+ * the FLAIR heap (FLAIR_CLASS_REGION, ADR-0004 DEC-03) and bind them via the
+ * freestanding-only region_engine_bind_ws (declared in os/flair/atkinson/
+ * region.h with the slot type -- engine plumbing, not algebra contract).
+ * kstart.asm does NOT zero .bss, so neither the guard flag nor the slot
+ * pointers can be assumed 0 at boot: the kernel MUST bind, then call this
+ * once, before the first Toolbox region call (kmain.c, next to
+ * flair_heap_init -- the explicit-init discipline; order: flair_heap_init ->
+ * bind_ws -> reset -> shell_build_scene). Hosted suites get zeroed BSS from
+ * the C runtime; calling this anyway is harmless. */
+void region_engine_reset(void);
 
 /* --- 6a (bead initech-jmo): rep + normalize-on-construction ----------------*/
 
