@@ -62,19 +62,38 @@ TEST_HARNESS();
  * ===========================================================================*/
 enum { GW = 48, GH = 40 };       /* grid width/height (pixels)            */
 
+/* initech-xi7x: the grid is a small LOCAL CROP, not the origin. rgn_rect_t
+ * fields are int16 (spec/region_algebra.h Sec 4: "no upper bound beyond
+ * int16 and the storage caps" -- 640x480 there is the operator's NATIVE-
+ * RESOLUTION convention, not a domain restriction), and window.c DragWindow
+ * applies unclamped int16 deltas (MoveWindow: `(int16_t)(s.left + dh)`, no
+ * clamp) -- so live desktop regions routinely carry negative bboxes (every
+ * top-left drag) and can reach near INT16_MIN/INT16_MAX. A GWxGH bitmap
+ * cannot cover the full int16 plane (65536x65536 cells is infeasible), so
+ * instead the crop TRANSLATES: g_win_ox/g_win_oy is the ABSOLUTE (int16-
+ * domain) top-left the crop currently represents, and every bitmap helper
+ * below takes ABSOLUTE coordinates and translates internally. gen_spec()
+ * (below) only ever emits coordinates inside the CURRENT window, so nothing
+ * of interest falls outside the crop -- this is an honest extension of the
+ * oracle (rasterize over a translated window), never a clamp on the input
+ * domain. new_window() (below gen_spec) is what moves the crop. */
+static int32_t g_win_ox = 0, g_win_oy = 0;
+
 typedef struct bitmap { uint8_t px[GW * GH]; } bitmap_t;
 
 static void bm_clear(bitmap_t *b) { memset(b->px, 0, sizeof b->px); }
 
 static int bm_get(const bitmap_t *b, int x, int y)
 {
-    if (x < 0 || x >= GW || y < 0 || y >= GH) return 0;
-    return b->px[y * GW + x] ? 1 : 0;
+    int gx = x - g_win_ox, gy = y - g_win_oy;
+    if (gx < 0 || gx >= GW || gy < 0 || gy >= GH) return 0;
+    return b->px[gy * GW + gx] ? 1 : 0;
 }
 static void bm_set(bitmap_t *b, int x, int y, int v)
 {
-    if (x < 0 || x >= GW || y < 0 || y >= GH) return;
-    b->px[y * GW + x] = (uint8_t)(v ? 1 : 0);
+    int gx = x - g_win_ox, gy = y - g_win_oy;
+    if (gx < 0 || gx >= GW || gy < 0 || gy >= GH) return;
+    b->px[gy * GW + gx] = (uint8_t)(v ? 1 : 0);
 }
 
 /* Ground-truth rasterizer driven straight off the region rows/x-lists -- this
@@ -90,7 +109,7 @@ static void rasterize(const region_t *r, bitmap_t *out)
         int y1 = (i + 1 < r->n_rows) ? r->rows[i + 1].y_top : y0; /* closing row */
         if (r->rows[i].x_count == 0) continue;                   /* empty/closing */
         for (int y = y0; y < y1; y++) {
-            if (y < 0 || y >= GH) continue;
+            if (y - g_win_oy < 0 || y - g_win_oy >= GH) continue; /* outside crop */
             for (uint16_t k = 0; k + 1 < r->rows[i].x_count; k += 2) {
                 int xa = r->rows[i].x[k];
                 int xb = r->rows[i].x[k + 1];
@@ -189,32 +208,98 @@ static int rnd(int lo, int hi)   /* inclusive [lo,hi] */
 
 /* --- A "spec" for a random region: either a union of rects, OR a raw set of
  *     scanline spans. Both serialize to a region AND to a ground-truth bitmap,
- *     and both are SHRINKABLE (the shrinker bisects the list of items). --- */
-enum { MAX_ITEMS = 6 };
+ *     and both are SHRINKABLE (the shrinker bisects the list of items). ---
+ * MAX_ITEMS (6) sizes the DEFAULT generator (gen_spec, below) so the primary
+ * 4000-case-per-op homomorphism loop stays cheap. STRESS_MAX_ITEMS (64) sizes
+ * the array itself so gen_spec_stress() (below new_window()) can push item
+ * counts toward RGN_ROWS_CAP (256, spec/region_algebra.h Sec 5) -- MAX_ITEMS=6
+ * alone never exercises the engine's multi-row / x_pool-heavy code paths
+ * (initech-xi7x). Every item's coordinates are relative to the CURRENT window
+ * (g_win_ox/g_win_oy, set by new_window()) -- item generation is factored into
+ * gen_item() so both generators share one windowed coordinate rule. */
+enum { MAX_ITEMS = 6, STRESS_MAX_ITEMS = 64 };
 typedef struct rgn_spec {
     int  is_raw;                 /* 0 = rects, 1 = raw scanline spans          */
     int  n;                      /* item count                                 */
     /* rect items: [top,left,bottom,right]; raw items: [y, x0, x1, _] (one span
      * on scanline y, columns [x0,x1)). A raw spec is a *bag* of single spans;
      * overlapping/adjacent spans on the same row exercise the normalizer. */
-    int  it[MAX_ITEMS][4];
+    int  it[STRESS_MAX_ITEMS][4];
 } rgn_spec_t;
+
+/* Fill item `i` of `s` with a coordinate ABSOLUTE to the current window
+ * (g_win_ox/g_win_oy) but window-LOCAL in range -- so every generated
+ * rgn_rect_t field is a valid, in-window int16 regardless of where
+ * new_window() last placed the crop (near 0, straddling 0, or near an
+ * INT16_MIN/INT16_MAX edge; see new_window()). */
+static void gen_item(rgn_spec_t *s, int i)
+{
+    if (!s->is_raw) {
+        int t = g_win_oy + rnd(0, GH - 1), l = g_win_ox + rnd(0, GW - 1);
+        int b = g_win_oy + rnd(0, GH),     r = g_win_ox + rnd(0, GW);
+        s->it[i][0] = t; s->it[i][1] = l; s->it[i][2] = b; s->it[i][3] = r;
+    } else {
+        int y  = g_win_oy + rnd(0, GH - 1);
+        int x0 = g_win_ox + rnd(0, GW - 1);
+        int x1 = g_win_ox + rnd(0, GW);
+        s->it[i][0] = y; s->it[i][1] = x0; s->it[i][2] = x1; s->it[i][3] = 0;
+    }
+}
 
 static void gen_spec(rgn_spec_t *s)
 {
     s->is_raw = rnd(0, 1);
     s->n = rnd(1, MAX_ITEMS);
-    for (int i = 0; i < s->n; i++) {
-        if (!s->is_raw) {
-            int t = rnd(0, GH - 1), l = rnd(0, GW - 1);
-            int b = rnd(0, GH),     r = rnd(0, GW);
-            s->it[i][0] = t; s->it[i][1] = l; s->it[i][2] = b; s->it[i][3] = r;
-        } else {
-            int y  = rnd(0, GH - 1);
-            int x0 = rnd(0, GW - 1);
-            int x1 = rnd(0, GW);
-            s->it[i][0] = y; s->it[i][1] = x0; s->it[i][2] = x1; s->it[i][3] = 0;
-        }
+    for (int i = 0; i < s->n; i++) gen_item(s, i);
+}
+
+/* High-n stress generator (initech-xi7x item 4): item counts pushed toward
+ * RGN_ROWS_CAP so the multi-row/x_pool merge paths get exercised at scale,
+ * not just the MAX_ITEMS<=6 default. Same windowed coordinate rule. 64 raw
+ * 1-row items union to at most ~2*64=128 live rows (well under the 256 cap;
+ * each union step is A-union-A idempotent-copy so rows track the ACCUMULATED
+ * disjoint-span count, not a doubling recursion -- see spec_to_region). */
+static void gen_spec_stress(rgn_spec_t *s)
+{
+    s->is_raw = rnd(0, 1);
+    s->n = rnd(20, STRESS_MAX_ITEMS);
+    for (int i = 0; i < s->n; i++) gen_item(s, i);
+}
+
+/* Move the crop (initech-xi7x): pick a new ABSOLUTE window origin, seeded off
+ * the SAME LCG as everything else (Rule 11 -- a failing case stays
+ * reproducible from g_seed alone). Four bands, each landing every generated
+ * coordinate on a valid int16 (checked below):
+ *   0: legacy small-nonneg [0,GW)x[0,GH) -- the ORIGINAL generator's entire
+ *      domain pre-initech-xi7x; kept live for regression continuity.
+ *   1: straddling zero (mixed negative/positive) -- e.g. a window dragged
+ *      just past the desktop origin; the task's suggested [-48,48) shape.
+ *   2: near INT16_MIN -- window low edge can touch INT16_MIN exactly
+ *      (oy + 0 == INT16_MIN) without underflow.
+ *   3: near INT16_MAX -- symmetric high edge, window high edge can touch
+ *      INT16_MAX exactly (oy + GH == INT16_MAX) without overflow.
+ * Band 2/3 bounds are picked so g_win_o{x,y} + [0,GW]/[0,GH] never leaves
+ * [INT16_MIN, INT16_MAX] -- gen_item()'s widest item field is o + rnd(0,GW)
+ * (rect right/bottom), so the arithmetic below is exact, not a margin guess. */
+static void new_window(void)
+{
+    switch (rnd(0, 3)) {
+        case 0:
+            g_win_ox = 0;
+            g_win_oy = 0;
+            break;
+        case 1:
+            g_win_ox = rnd(-(GW / 2), GW / 2);
+            g_win_oy = rnd(-(GH / 2), GH / 2);
+            break;
+        case 2:
+            g_win_ox = rnd(INT16_MIN, INT16_MIN + 8);
+            g_win_oy = rnd(INT16_MIN, INT16_MIN + 8);
+            break;
+        case 3:
+            g_win_ox = rnd(INT16_MAX - GW - 8, INT16_MAX - GW);
+            g_win_oy = rnd(INT16_MAX - GH - 8, INT16_MAX - GH);
+            break;
     }
 }
 
@@ -317,14 +402,19 @@ static void shrink(rgn_spec_t *A, rgn_spec_t *B, rgn_op_t op, fails_fn fails)
                 if (fails(&a2, &b2, op)) { *S = cand; progress = 1; i--; }
             }
         }
-        /* 2. clamp each coord toward 0 while it still fails. */
+        /* 2. clamp each coord toward 0 while it still fails. BIDIRECTIONAL
+         *    (initech-xi7x): coordinates can now be negative (or near
+         *    INT16_MIN), and the original decrement-only loop could never
+         *    shrink those -- it would leave a deeply negative counterexample
+         *    coordinate untouched. Step toward 0 from whichever side. */
         for (int w = 0; w < 2; w++) {
             rgn_spec_t *S = which[w];
             for (int i = 0; i < S->n; i++)
                 for (int c = 0; c < 4; c++) {
-                    while (S->it[i][c] > 0) {
+                    int dir = (S->it[i][c] > 0) ? -1 : (S->it[i][c] < 0) ? 1 : 0;
+                    while (dir != 0 && S->it[i][c] != 0) {
                         rgn_spec_t cand = *S;
-                        cand.it[i][c]--;
+                        cand.it[i][c] += dir;
                         rgn_spec_t a2 = *A, b2 = *B;
                         if (w == 0) a2 = cand; else b2 = cand;
                         if (fails(&a2, &b2, op)) { *S = cand; progress = 1; }
@@ -467,6 +557,27 @@ int main(void)
         rgn_rect_t er = { 5, 30, 20, 7 };
         region_set_rect(&S.r, er);
         CHECK(region_is_empty(&S.r), "degenerate rect (r<=l) -> empty region");
+
+        /* initech-xi7x smoke: a rect with an ENTIRELY NEGATIVE bbox rasterizes
+         * correctly -- direct check that the oracle's grid/bitmap does not
+         * silently assume an origin-(0,0) region (the gap this issue closes).
+         * The window is moved to cover [-30,18)x[-30,10) so the rect's pixels
+         * fall inside the crop. */
+        g_win_ox = -30; g_win_oy = -30;
+        store_attach(&S);
+        rgn_rect_t nr = { -20, -25, -5, -3 };   /* top,left,bottom,right, all < 0 */
+        region_set_rect(&S.r, nr);
+        CHECK(normal_form_holds(&S.r), "negative-bbox rect is normal-form");
+        rasterize(&S.r, &bm);
+        bm_clear(&expect);
+        for (int y = -20; y < -5; y++) for (int x = -25; x < -3; x++) bm_set(&expect, x, y, 1);
+        CHECK(bm_equal(&bm, &expect),
+              "negative-bbox rect rasterizes to its [l,r)x[t,b) pixels (grid is NOT origin-locked)");
+        CHECK(region_contains_point(&S.r, (int16_t)-10, (int16_t)-10) != 0,
+              "region_contains_point true inside a negative-bbox rect");
+        CHECK(region_contains_point(&S.r, (int16_t)10, (int16_t)10) == 0,
+              "region_contains_point false outside a negative-bbox rect");
+        g_win_ox = 0; g_win_oy = 0;   /* restore default window for what follows */
     }
 
     /* ---- construction fidelity: a region built from a spec rasterizes EXACTLY
@@ -477,6 +588,7 @@ int main(void)
         rgn_spec_t s;
         int mism = 0;
         for (int t = 0; t < 500 && !mism; t++) {
+            new_window();
             gen_spec(&s);
             spec_to_region(&s, &S);
             rasterize(&S.r, &fromrgn);
@@ -492,11 +604,12 @@ int main(void)
         rgn_spec_t s;
         int mism = 0;
         for (int t = 0; t < 200 && !mism; t++) {
+            new_window();
             gen_spec(&s);
             spec_to_region(&s, &S);
             rasterize(&S.r, &bm);
-            for (int y = 0; y < GH && !mism; y++)
-                for (int x = 0; x < GW; x++) {
+            for (int y = g_win_oy; y < g_win_oy + GH && !mism; y++)
+                for (int x = g_win_ox; x < g_win_ox + GW; x++) {
                     int want = bm_get(&bm, x, y);
                     int got  = region_contains_point(&S.r, (int16_t)x, (int16_t)y) ? 1 : 0;
                     if (want != got) { mism = 1; break; }
@@ -510,6 +623,7 @@ int main(void)
     {
         int inter_bad = 0, rir_bad = 0, ovl_bad = 0;
         for (int t = 0; t < 800 && !inter_bad && !rir_bad && !ovl_bad; t++) {
+            new_window();
             rgn_spec_t sA, sB; gen_spec(&sA); gen_spec(&sB);
             static rgn_store_t SA, SB; bitmap_t bA, bB;
             spec_to_region(&sA, &SA); spec_to_region(&sB, &SB);
@@ -520,9 +634,13 @@ int main(void)
             if (region_intersects(&SA.r, &SB.r) != share) inter_bad = 1;
 
             /* region_rect_fully_in (CONTAINMENT): a random rect is fully inside A
-             * iff EVERY one of its pixels is set in A's bitmap. */
-            int top = rnd(0, GH - 1), left = rnd(0, GW - 1);
-            int bot = rnd(top + 1, GH), right = rnd(left + 1, GW);
+             * iff EVERY one of its pixels is set in A's bitmap. Generated in the
+             * SAME window as A/B (grid-local, then translated) so it lands where
+             * A/B's pixels actually are, including negative/near-INT16 windows. */
+            int topL = rnd(0, GH - 1), leftL = rnd(0, GW - 1);
+            int botL = rnd(topL + 1, GH), rightL = rnd(leftL + 1, GW);
+            int top = g_win_oy + topL, left = g_win_ox + leftL;
+            int bot = g_win_oy + botL, right = g_win_ox + rightL;
             int all_in = 1;
             for (int y = top; y < bot && all_in; y++)
                 for (int x = left; x < right; x++)
@@ -555,6 +673,7 @@ int main(void)
         for (int op_i = 0; op_i < 4 && !failed; op_i++) {
             rgn_op_t op = OPS[op_i];
             for (int t = 0; t < CASES; t++) {
+                new_window();
                 rgn_spec_t sA, sB;
                 gen_spec(&sA);
                 gen_spec(&sB);
@@ -575,12 +694,47 @@ int main(void)
     }
 
     /* ======================================================================
+     * HIGH-N STRESS (initech-xi7x item 4): same homomorphism oracle, but with
+     * gen_spec_stress() (20..64 items) instead of gen_spec() (1..6 items) --
+     * MAX_ITEMS=6 alone never pushes a region past a handful of rows, so the
+     * multi-row / x_pool-heavy merge paths (well below RGN_ROWS_CAP=256 /
+     * RGN_X_POOL_CAP=1024, spec/region_algebra.h Sec 5) go untested at scale.
+     * Iteration count kept modest (150/op) so this stays cheap.
+     * ====================================================================== */
+    {
+        enum { STRESS_CASES = 150 };
+        int failed = 0;
+        for (int op_i = 0; op_i < 4 && !failed; op_i++) {
+            rgn_op_t op = OPS[op_i];
+            for (int t = 0; t < STRESS_CASES; t++) {
+                new_window();
+                rgn_spec_t sA, sB;
+                gen_spec_stress(&sA);
+                gen_spec_stress(&sB);
+                if (hom_fails(&sA, &sB, op)) {
+                    fprintf(stderr, "  HIGH-N STRESS HOMOMORPHISM FAIL op=%s; shrinking...\n",
+                            OPNAME[op_i]);
+                    shrink(&sA, &sB, op, hom_fails);
+                    print_spec("A", &sA);
+                    print_spec("B", &sB);
+                    CHECK(0, "high-n stress homomorphism: rasterize(A OP B) == raster(A) OP raster(B)");
+                    failed = 1;
+                    break;
+                }
+            }
+            if (!failed)
+                CHECK(1, "high-n stress homomorphism holds for op (150 high-n random pairs)");
+        }
+    }
+
+    /* ======================================================================
      * The region produced by EVERY op is in normal form, and its bbox is the
      * tight bounding box of its pixels; region_assert_normal agrees.
      * ====================================================================== */
     {
         int nf_bad = 0, bbox_bad = 0, assert_bad = 0;
         for (int t = 0; t < 1500 && !nf_bad && !bbox_bad; t++) {
+            new_window();
             rgn_spec_t sA, sB; gen_spec(&sA); gen_spec(&sB);
             static rgn_store_t SA, SB, SO; bitmap_t bm;
             spec_to_region(&sA, &SA); spec_to_region(&sB, &SB);
@@ -590,9 +744,12 @@ int main(void)
                 if (!normal_form_holds(&SO.r)) { nf_bad = 1; break; }
                 if (!region_assert_normal(&SO.r)) { assert_bad = 1; break; }
                 rasterize(&SO.r, &bm);
-                /* tight bbox of bm */
-                int minx = GW, miny = GH, maxx = -1, maxy = -1, any = 0;
-                for (int y = 0; y < GH; y++) for (int x = 0; x < GW; x++)
+                /* tight bbox of bm, in ABSOLUTE (window-translated) coords; wide
+                 * sentinels (not GW/GH/-1) since the window may sit near
+                 * INT16_MIN/INT16_MAX. */
+                int minx = 1 << 30, miny = 1 << 30, maxx = -(1 << 30), maxy = -(1 << 30), any = 0;
+                for (int y = g_win_oy; y < g_win_oy + GH; y++)
+                    for (int x = g_win_ox; x < g_win_ox + GW; x++)
                     if (bm_get(&bm, x, y)) {
                         any = 1;
                         if (x < minx) minx = x;
@@ -621,6 +778,7 @@ int main(void)
     {
         int bad = 0;
         for (int t = 0; t < 1500 && !bad; t++) {
+            new_window();
             rgn_spec_t sA, sB; gen_spec(&sA); gen_spec(&sB);
             static rgn_store_t SA, SB, SO; spec_to_region(&sA, &SA); spec_to_region(&sB, &SB);
             store_attach(&SO);
@@ -652,8 +810,16 @@ int main(void)
     {
         int comm = 0, assoc = 0, demorgan = 0, selfd = 0, selfx = 0,
             compl_ = 0, fastpath = 0, eqsym = 0;
-        rgn_rect_t FRAME = { 0, 0, GH, GW };   /* the explicit complement frame */
         for (int t = 0; t < 1500; t++) {
+            new_window();
+            /* the explicit complement frame -- MUST track the window: the
+             * "A UNION comp(A,frame) == frame" identity below only holds when
+             * A is WITHIN frame, and gen_spec() bounds every coordinate to the
+             * current window, whatever new_window() picked (initech-xi7x: this
+             * used to be a fixed {0,0,GH,GW} outside the loop, which silently
+             * assumed the legacy origin-0 generator). */
+            rgn_rect_t FRAME = { (int16_t)g_win_oy, (int16_t)g_win_ox,
+                                  (int16_t)(g_win_oy + GH), (int16_t)(g_win_ox + GW) };
             rgn_spec_t sA, sB, sC; gen_spec(&sA); gen_spec(&sB); gen_spec(&sC);
             static rgn_store_t SA, SB, SC, X, Y, Z, W;
             spec_to_region(&sA, &SA); spec_to_region(&sB, &SB); spec_to_region(&sC, &SC);
@@ -711,10 +877,23 @@ int main(void)
         }
 
         /* rect-fast-path == general-path: a single-rect region built by
-         * set_rect must EQUAL the same rect built via from_rects (general). */
+         * set_rect must EQUAL the same rect built via from_rects (general).
+         * Purely structural (region_equal, no bitmap) -- no grid/window needed,
+         * so this can sample the FULL int16 domain directly, no crop-follow
+         * required (initech-xi7x): odd t samples top/left/bot/right anywhere
+         * in [INT16_MIN, INT16_MAX], even t keeps the legacy small-nonneg
+         * range for regression continuity. */
         for (int t = 0; t < 500; t++) {
-            int top = rnd(0, GH - 1), left = rnd(0, GW - 1);
-            int bot = rnd(top + 1, GH), right = rnd(left + 1, GW);
+            int top, left, bot, right;
+            if (t & 1) {
+                top  = rnd(INT16_MIN, INT16_MAX - 1);
+                left = rnd(INT16_MIN, INT16_MAX - 1);
+                bot   = rnd(top + 1, INT16_MAX);
+                right = rnd(left + 1, INT16_MAX);
+            } else {
+                top = rnd(0, GH - 1); left = rnd(0, GW - 1);
+                bot = rnd(top + 1, GH); right = rnd(left + 1, GW);
+            }
             rgn_rect_t rc = { (int16_t)top, (int16_t)left, (int16_t)bot, (int16_t)right };
             static rgn_store_t F, G;
             store_attach(&F); region_set_rect(&F.r, rc);
