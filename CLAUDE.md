@@ -324,6 +324,12 @@ sudo apt install qemu-system-i386 bochs make nasm mtools
 # Target OS toolchain is i686-elf (ADR-0002); interim is host gcc -m32
 # -ffreestanding -nostdlib per CDR-0001 until the dev device is upgraded.
 # 86Box + a period VGA BIOS for authenticity/golden minting — see docs.
+# bochs is a base requirement (line above), so `make test` runs the Bochs
+# legs of the boot / FLAIR-desktop / FLAIR-appswitch gates (test-boot-bochs,
+# test-flair-desktop-bochs, test-flair-appswitch-bochs) by default and FAILS
+# LOUD if bochs is missing (Law 2 — a skipped oracle is worse than a red
+# one). SKIP_BOCHS=1 is the one documented, shouting opt-out for a box that
+# genuinely has no Bochs (initech-in2g).
 
 # Build the factory tools and the seed cross-compiler (C):
 make factory          # seed = genesis of Turbo Initech (Pascal), not the OS bootstrap
