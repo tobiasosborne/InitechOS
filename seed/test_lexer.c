@@ -78,6 +78,51 @@ static void test_operators(void)
     CHECK(t[9].kind == TOK_STAR, "*");
 }
 
+/* B1 (beads initech-f0uc): the six relational operators. '=' is never
+ * confused with ':=' (TOK_ASSIGN is scanned entirely under the ':' case,
+ * see lexer.c) -- a bare '=' always lexes as TOK_EQ. */
+static void test_relational_operators(void)
+{
+    Token t[16];
+    int n = lex_all("= <> < <= > >=", t, 16);
+    CHECK(n == 7, "six relational tokens + EOF");
+    CHECK(t[0].kind == TOK_EQ, "= -> TOK_EQ");
+    CHECK(t[1].kind == TOK_NE, "<> -> TOK_NE");
+    CHECK(t[2].kind == TOK_LT, "< -> TOK_LT");
+    CHECK(t[3].kind == TOK_LE, "<= -> TOK_LE");
+    CHECK(t[4].kind == TOK_GT, "> -> TOK_GT");
+    CHECK(t[5].kind == TOK_GE, ">= -> TOK_GE");
+}
+
+/* '=' must never be swallowed into an assignment: distinct from ':=' both
+ * lexically (different leading character) and by kind. */
+static void test_eq_not_confused_with_assign(void)
+{
+    Token t[8];
+    int n = lex_all("x := y = z", t, 8);
+    CHECK(n == 6, "ident := ident = ident + EOF");
+    CHECK(t[0].kind == TOK_IDENT, "x");
+    CHECK(t[1].kind == TOK_ASSIGN, ":= is TOK_ASSIGN");
+    CHECK(t[2].kind == TOK_IDENT, "y");
+    CHECK(t[3].kind == TOK_EQ, "= is TOK_EQ, not TOK_ASSIGN");
+    CHECK(t[4].kind == TOK_IDENT, "z");
+}
+
+/* B1 keywords: boolean type + and/or/not + true/false (reserved keywords in
+ * this subset -- see the token.h DECISION note). */
+static void test_boolean_keywords(void)
+{
+    Token t[16];
+    int n = lex_all("boolean And Or NOT True False", t, 16);
+    CHECK(n == 7, "six boolean-family keyword tokens + EOF");
+    CHECK(t[0].kind == TOK_KW_BOOLEAN, "boolean -> KW_BOOLEAN");
+    CHECK(t[1].kind == TOK_KW_AND, "And -> KW_AND (case-insensitive)");
+    CHECK(t[2].kind == TOK_KW_OR, "Or -> KW_OR (case-insensitive)");
+    CHECK(t[3].kind == TOK_KW_NOT, "NOT -> KW_NOT (case-insensitive)");
+    CHECK(t[4].kind == TOK_KW_TRUE, "True -> KW_TRUE (case-insensitive)");
+    CHECK(t[5].kind == TOK_KW_FALSE, "False -> KW_FALSE (case-insensitive)");
+}
+
 static void test_comments(void)
 {
     Token t[8];
@@ -230,6 +275,9 @@ int main(void)
     test_keywords_case_insensitive();
     test_idents_and_numbers();
     test_operators();
+    test_relational_operators();
+    test_eq_not_confused_with_assign();
+    test_boolean_keywords();
     test_comments();
     test_comment_line_tracking();
     test_strings();

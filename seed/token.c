@@ -23,6 +23,12 @@ const char *token_kind_name(TokenKind kind)
     case TOK_KW_MOD:     return "KW_MOD";
     case TOK_KW_WRITE:   return "KW_WRITE";
     case TOK_KW_WRITELN: return "KW_WRITELN";
+    case TOK_KW_BOOLEAN: return "KW_BOOLEAN";
+    case TOK_KW_AND:     return "KW_AND";
+    case TOK_KW_OR:      return "KW_OR";
+    case TOK_KW_NOT:     return "KW_NOT";
+    case TOK_KW_TRUE:    return "KW_TRUE";
+    case TOK_KW_FALSE:   return "KW_FALSE";
     case TOK_SEMI:       return "SEMI";
     case TOK_DOT:        return "DOT";
     case TOK_COMMA:      return "COMMA";
@@ -33,6 +39,12 @@ const char *token_kind_name(TokenKind kind)
     case TOK_PLUS:       return "PLUS";
     case TOK_MINUS:      return "MINUS";
     case TOK_STAR:       return "STAR";
+    case TOK_EQ:         return "EQ";
+    case TOK_NE:         return "NE";
+    case TOK_LT:         return "LT";
+    case TOK_LE:         return "LE";
+    case TOK_GT:         return "GT";
+    case TOK_GE:         return "GE";
     }
     return "?";
 }

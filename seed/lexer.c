@@ -198,6 +198,16 @@ static TokenKind keyword_kind(const char *s, size_t n)
     if (strcmp(buf, "mod") == 0)     return TOK_KW_MOD;
     if (strcmp(buf, "write") == 0)   return TOK_KW_WRITE;
     if (strcmp(buf, "writeln") == 0) return TOK_KW_WRITELN;
+    /* B1 (beads initech-f0uc): boolean type + and/or/not + true/false.
+     * true/false are RESERVED KEYWORDS in this subset -- see the token.h
+     * DECISION note (a deliberate divergence from ISO/TP predefined-constant
+     * treatment, for minimality per ADR-0007 DEC-02/DR-2). */
+    if (strcmp(buf, "boolean") == 0) return TOK_KW_BOOLEAN;
+    if (strcmp(buf, "and") == 0)     return TOK_KW_AND;
+    if (strcmp(buf, "or") == 0)      return TOK_KW_OR;
+    if (strcmp(buf, "not") == 0)     return TOK_KW_NOT;
+    if (strcmp(buf, "true") == 0)    return TOK_KW_TRUE;
+    if (strcmp(buf, "false") == 0)   return TOK_KW_FALSE;
     return TOK_IDENT;
 }
 
@@ -353,6 +363,30 @@ Token lexer_next(Lexer *lx)
             return make_simple(TOK_ASSIGN, lx->src + lx->pos - 2, 2, line, col);
         }
         return make_simple(TOK_COLON, lx->src + lx->pos - 1, 1, line, col);
+    /* B1 relational operators (beads initech-f0uc). '=' is ALWAYS equality
+     * in this subset -- Pascal ':=' (assignment) is a distinct two-char
+     * token already handled above under ':', so a lone '=' can never be
+     * confused with it (the lexer never needs to "disambiguate" '=' vs
+     * ':=' -- they simply start on different characters). */
+    case '=': advance(lx); return make_simple(TOK_EQ, lx->src + lx->pos - 1, 1, line, col);
+    case '<':
+        advance(lx);
+        if (peek(lx) == '>') {
+            advance(lx);
+            return make_simple(TOK_NE, lx->src + lx->pos - 2, 2, line, col);
+        }
+        if (peek(lx) == '=') {
+            advance(lx);
+            return make_simple(TOK_LE, lx->src + lx->pos - 2, 2, line, col);
+        }
+        return make_simple(TOK_LT, lx->src + lx->pos - 1, 1, line, col);
+    case '>':
+        advance(lx);
+        if (peek(lx) == '=') {
+            advance(lx);
+            return make_simple(TOK_GE, lx->src + lx->pos - 2, 2, line, col);
+        }
+        return make_simple(TOK_GT, lx->src + lx->pos - 1, 1, line, col);
     default:
         break;
     }

@@ -20,11 +20,27 @@
  *   - EAX = working register. EDX is clobbered by idiv (sign extension).
  *   - div/mod via `cdq` + `idiv ecx` (signed, truncates toward zero for the
  *     non-negative operands in this subset; documented in codegen.c).
- *   - Integer variables get named 4-byte slots in .bss (label v_<name>).
+ *   - B1 (beads initech-f0uc): relational ops via cmp+setcc+movzx (0/1 in
+ *     EAX); and/or are bitwise `and`/`or` on already-0/1 values; not is
+ *     `xor eax, 1`. COMPLETE evaluation (ADR-0007 DEC-03): every binop,
+ *     including and/or, shares ONE branch-free code path that always
+ *     evaluates both operands -- see the codegen.c file header.
+ *   - Integer/boolean variables get named 4-byte slots in .bss (v_<name>).
  *   - String literals get labelled byte arrays in .rodata.
  *   - write/writeln call runtime helpers (serial_puts / serial_put_int);
- *     writeln appends a trailing newline (0x0A).
+ *     writeln appends a trailing newline (0x0A). A boolean write/writeln
+ *     argument prints "TRUE"/"FALSE" (Turbo Pascal semantics) via
+ *     serial_puts, selected at runtime from the value in EAX.
  * ----------------------------------------------------------------------------
+ *
+ * CONTRACT (B1): codegen_emit requires `program` to have already been
+ * type-checked by seed/typecheck.c (typecheck_program, called by the driver
+ * after a successful parse and before codegen_emit) -- specifically, every
+ * write/writeln expression argument's `type` field (ast.h) must be
+ * populated so gen_write can choose integer vs boolean printing. Calling
+ * codegen_emit on an AST that skipped typechecking is safe only for
+ * programs with no boolean write/writeln arguments (an unset AST_TY_UNKNOWN
+ * type falls through to the integer print path, never boolean).
  *
  * The emitted module defines a single global `pas_main` (the program body),
  * which the runtime (seed/rt/start.asm) calls after stack setup. The runtime

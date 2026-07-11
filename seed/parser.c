@@ -93,12 +93,28 @@ static int expect(Parser *p, TokenKind k, const char *what)
 static AstNode *parse_block(Parser *p);
 static AstNode *parse_statement(Parser *p);
 static AstNode *parse_expr(Parser *p);
+static AstNode *parse_simple_expr(Parser *p);
 static AstNode *parse_term(Parser *p);
 static AstNode *parse_factor(Parser *p);
 
 /* ------------------------------------------------------------------ */
 /* Expressions                                                        */
 /* ------------------------------------------------------------------ */
+/*
+ * B1 (beads initech-f0uc; ADR-0007 DEC-02) reshapes this from a single
+ * additive/multiplicative ladder into the full ISO 7185 / Turbo Pascal
+ * precedence ladder:
+ *
+ *   parse_expr        expression   -- relational, LOWEST, non-chaining
+ *   parse_simple_expr  simple-expr  -- + - or  (left-assoc)
+ *   parse_term         term         -- * div mod and  (left-assoc)
+ *   parse_factor       factor       -- unary - / not / primary, HIGHEST
+ *
+ * 'and' is a MULTIPLYING operator (same level as * div mod); 'or' is an
+ * ADDING operator (same level as + -). This is exactly the ISO 7185 Sec
+ * 6.7.2 grammar (simple-expression = term {adding-operator term}; term =
+ * factor {multiplying-operator factor}), which Turbo Pascal also follows.
+ */
 static AstNode *parse_factor(Parser *p)
 {
     if (p->failed)
@@ -113,6 +129,28 @@ static AstNode *parse_factor(Parser *p)
         AstNode *n = ast_new(p->arena, AST_UNOP, line, col);
         n->as.unop.op = OP_NEG;
         n->as.unop.operand = operand;
+        return n;
+    }
+    if (check(p, TOK_KW_NOT)) {
+        advance(p);
+        AstNode *operand = parse_factor(p);
+        if (p->failed)
+            return NULL;
+        AstNode *n = ast_new(p->arena, AST_UNOP, line, col);
+        n->as.unop.op = OP_NOT;
+        n->as.unop.operand = operand;
+        return n;
+    }
+    if (check(p, TOK_KW_TRUE)) {
+        AstNode *n = ast_new(p->arena, AST_BOOLLIT, line, col);
+        n->as.boollit.value = 1;
+        advance(p);
+        return n;
+    }
+    if (check(p, TOK_KW_FALSE)) {
+        AstNode *n = ast_new(p->arena, AST_BOOLLIT, line, col);
+        n->as.boollit.value = 0;
+        advance(p);
         return n;
     }
     if (check(p, TOK_INT)) {
@@ -130,13 +168,13 @@ static AstNode *parse_factor(Parser *p)
     }
     if (check(p, TOK_LPAREN)) {
         advance(p);
-        AstNode *inner = parse_expr(p);
+        AstNode *inner = parse_expr(p);  /* full expression, incl. relational */
         if (!expect(p, TOK_RPAREN, "')'"))
             return NULL;
         return inner;
     }
 
-    fail_at(p, line, col, "expected an integer expression");
+    fail_at(p, line, col, "expected an expression");
     return NULL;
 }
 
@@ -145,10 +183,11 @@ static AstNode *parse_term(Parser *p)
     AstNode *lhs = parse_factor(p);
     while (!p->failed
            && (check(p, TOK_STAR) || check(p, TOK_KW_DIV)
-               || check(p, TOK_KW_MOD))) {
+               || check(p, TOK_KW_MOD) || check(p, TOK_KW_AND))) {
         int line = p->cur.line, col = p->cur.col;
         AstOp op = check(p, TOK_STAR) ? OP_MUL
-                 : check(p, TOK_KW_DIV) ? OP_DIV : OP_MOD;
+                 : check(p, TOK_KW_DIV) ? OP_DIV
+                 : check(p, TOK_KW_MOD) ? OP_MOD : OP_AND;
         advance(p);
         AstNode *rhs = parse_factor(p);
         if (p->failed)
@@ -162,10 +201,11 @@ static AstNode *parse_term(Parser *p)
     return p->failed ? NULL : lhs;
 }
 
-static AstNode *parse_expr(Parser *p)
+static AstNode *parse_simple_expr(Parser *p)
 {
     AstNode *lhs = parse_term(p);
-    while (!p->failed && (check(p, TOK_PLUS) || check(p, TOK_MINUS))) {
+    while (!p->failed
+           && (check(p, TOK_PLUS) || check(p, TOK_MINUS) || check(p, TOK_KW_OR))) {
         int line = p->cur.line, col = p->cur.col;
 #ifdef SEED_MUT_PARSE_ADD_AS_MUL
         /* MUTATION HOOK (Rule 6; beads initech-tf3c, restoring the
@@ -174,10 +214,13 @@ static AstNode *parse_expr(Parser *p)
          * build a '+' AST_BINOP node with op=OP_MUL instead of OP_ADD.
          * test-seed-mutant asserts this makes
          * test_precedence_mul_over_add's AST S-expression check ("(+ (int 1)
-         * (* (int 2) (int 3)))") go RED. */
-        AstOp op = check(p, TOK_PLUS) ? OP_MUL : OP_SUB;
+         * (* (int 2) (int 3)))") go RED. Scoped to '+' only -- '-'/'or' are
+         * unaffected by this historical mutant. */
+        AstOp op = check(p, TOK_PLUS) ? OP_MUL
+                 : check(p, TOK_MINUS) ? OP_SUB : OP_OR;
 #else
-        AstOp op = check(p, TOK_PLUS) ? OP_ADD : OP_SUB;
+        AstOp op = check(p, TOK_PLUS) ? OP_ADD
+                 : check(p, TOK_MINUS) ? OP_SUB : OP_OR;
 #endif
         advance(p);
         AstNode *rhs = parse_term(p);
@@ -190,6 +233,67 @@ static AstNode *parse_expr(Parser *p)
         lhs = n;
     }
     return p->failed ? NULL : lhs;
+}
+
+static int check_relop(const Parser *p)
+{
+    return check(p, TOK_EQ) || check(p, TOK_NE) || check(p, TOK_LT)
+        || check(p, TOK_LE) || check(p, TOK_GT) || check(p, TOK_GE);
+}
+
+static AstOp relop_to_ast_op(TokenKind k)
+{
+    switch (k) {
+    case TOK_EQ: return OP_EQ;
+    case TOK_NE: return OP_NE;
+    case TOK_LT: return OP_LT;
+    case TOK_LE: return OP_LE;
+    case TOK_GT: return OP_GT;
+    default:     return OP_GE; /* TOK_GE, the only remaining case reachable
+                                * via check_relop's contract; never reached
+                                * for any other token. */
+    }
+}
+
+/*
+ * expression = simple-expr [ relational-op simple-expr ] ;
+ *
+ * Pascal relations do NOT chain: after the optional single relational
+ * operator, seeing ANOTHER one immediately (e.g. "a < b = c") is a syntax
+ * error, not "= c" silently trailing. We fail loud with a specific,
+ * located diagnostic rather than falling through to the generic "expected
+ * ';' but found '='" message a caller would otherwise produce -- Rule 2
+ * (fail fast, fail loud) applied to a genuinely common Pascal-newcomer
+ * mistake.
+ */
+static AstNode *parse_expr(Parser *p)
+{
+    AstNode *lhs = parse_simple_expr(p);
+    if (p->failed)
+        return NULL;
+    if (!check_relop(p))
+        return lhs; /* no relational operator: pass through unchanged */
+
+    int line = p->cur.line, col = p->cur.col;
+    AstOp op = relop_to_ast_op(p->cur.kind);
+    advance(p);
+    AstNode *rhs = parse_simple_expr(p);
+    if (p->failed)
+        return NULL;
+
+    AstNode *n = ast_new(p->arena, AST_BINOP, line, col);
+    n->as.binop.op = op;
+    n->as.binop.lhs = lhs;
+    n->as.binop.rhs = rhs;
+
+    if (check_relop(p)) {
+        fail_at(p, p->cur.line, p->cur.col,
+                "relational operators do not chain in Pascal "
+                "('a op b op c' is not valid; parenthesize and combine "
+                "with 'and'/'or' instead)");
+        return NULL;
+    }
+    return n;
 }
 
 /* ------------------------------------------------------------------ */
@@ -303,8 +407,9 @@ static AstNode *parse_block(Parser *p)
 /* ------------------------------------------------------------------ */
 /* Declarations                                                       */
 /* ------------------------------------------------------------------ */
-/* Parse "name { , name } : integer" into one AST_VARDECL. The trailing ';' is
- * consumed by the caller (the var-section loop). */
+/* Parse "name { , name } : integer" (or ": boolean", B1 beads initech-f0uc)
+ * into one AST_VARDECL. The trailing ';' is consumed by the caller (the
+ * var-section loop). */
 static AstNode *parse_one_vardecl(Parser *p)
 {
     int line = p->cur.line, col = p->cur.col;
@@ -329,8 +434,17 @@ static AstNode *parse_one_vardecl(Parser *p)
     }
     if (!expect(p, TOK_COLON, "':'"))
         return NULL;
-    if (!expect(p, TOK_KW_INTEGER, "'integer'"))
+    if (check(p, TOK_KW_INTEGER)) {
+        vd->as.vardecl.vtype = AST_TY_INTEGER;
+        advance(p);
+    } else if (check(p, TOK_KW_BOOLEAN)) {
+        vd->as.vardecl.vtype = AST_TY_BOOLEAN;
+        advance(p);
+    } else {
+        fail_at(p, p->cur.line, p->cur.col,
+                "expected 'integer' or 'boolean'");
         return NULL;
+    }
     return vd;
 }
 

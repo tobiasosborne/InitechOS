@@ -156,6 +156,25 @@ const char *ast_op_name(AstOp op)
     case OP_DIV: return "div";
     case OP_MOD: return "mod";
     case OP_NEG: return "neg";
+    case OP_EQ:  return "=";
+    case OP_NE:  return "<>";
+    case OP_LT:  return "<";
+    case OP_LE:  return "<=";
+    case OP_GT:  return ">";
+    case OP_GE:  return ">=";
+    case OP_AND: return "and";
+    case OP_OR:  return "or";
+    case OP_NOT: return "not";
+    }
+    return "?";
+}
+
+const char *ast_vartype_name(AstVarType t)
+{
+    switch (t) {
+    case AST_TY_UNKNOWN: return "?";
+    case AST_TY_INTEGER: return "integer";
+    case AST_TY_BOOLEAN: return "boolean";
     }
     return "?";
 }
@@ -204,7 +223,7 @@ static void dump(const AstNode *n, FILE *fp)
         for (size_t i = 0; i < n->as.vardecl.names.count; i++) {
             fputc(' ', fp);
             dump(n->as.vardecl.names.items[i], fp);
-            fputs(":integer", fp);
+            fprintf(fp, ":%s", ast_vartype_name(n->as.vardecl.vtype));
         }
         fputc(')', fp);
         break;
@@ -244,6 +263,9 @@ static void dump(const AstNode *n, FILE *fp)
         break;
     case AST_INTLIT:
         fprintf(fp, "(int %ld)", n->as.intlit.value);
+        break;
+    case AST_BOOLLIT:
+        fprintf(fp, "(bool %s)", n->as.boollit.value ? "true" : "false");
         break;
     case AST_STRLIT:
         fputs("(str ", fp);

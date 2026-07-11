@@ -15,6 +15,14 @@
  * to stdout or to a file given with -o. The "parse OK"/AST-dump behaviour is
  * unchanged in the default mode.
  *
+ * B1 (beads initech-f0uc; ADR-0007 DEC-02): a successful parse now always
+ * runs typecheck_program (seed/typecheck.c) before either the AST dump or
+ * codegen_emit -- a type error is reported and treated exactly like a
+ * syntax error (located message to stderr, exit 1), in BOTH modes. This
+ * keeps the pipeline a strict lex -> parse -> typecheck -> codegen ladder
+ * and guarantees codegen's per-expression `type` annotations are always
+ * populated (see codegen.h's contract note).
+ *
  * ASCII-clean (Rule 12). No timestamps / nondeterminism (Rule 11).
  */
 #include <stdio.h>
@@ -23,6 +31,7 @@
 
 #include "ast.h"
 #include "parser.h"
+#include "typecheck.h"
 #include "codegen.h"
 
 /* Slurp an entire stream into a malloc'd buffer. Returns 0 on success and sets
@@ -124,6 +133,15 @@ int main(int argc, char **argv)
     if (rc != 0) {
         fprintf(stderr, "%s:%d:%d: error: %s\n",
                 path ? path : "<stdin>", r.line, r.col, r.error);
+        ast_arena_free(&arena);
+        free(src);
+        return 1;
+    }
+
+    TypeCheckResult tc;
+    if (typecheck_program(r.ast, &tc) != 0) {
+        fprintf(stderr, "%s:%d:%d: error: %s\n",
+                path ? path : "<stdin>", tc.line, tc.col, tc.error);
         ast_arena_free(&arena);
         free(src);
         return 1;

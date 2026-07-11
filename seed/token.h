@@ -10,6 +10,18 @@
  * Keywords/tokens for if/while/for/procedure/record/pointer are deliberately
  * NOT present yet -- later steps grow the set. See parser.h for the grammar.
  *
+ * B1 addition (beads initech-f0uc; ADR-0007 DEC-02): the six relational
+ * operators, and the `boolean`/`and`/`or`/`not`/`true`/`false` keywords.
+ * DECISION (report per the bead): ISO 7185 / Turbo Pascal treat True and
+ * False as predefined CONSTANT identifiers of type Boolean, not reserved
+ * words -- a real TP program could (unusually) declare a variable named
+ * `true` and shadow the constant. This seed's minimal subset treats
+ * true/false as RESERVED KEYWORDS instead: identifier-shadowing of a
+ * predefined constant is exactly the kind of TP7-parity complexity ADR-0007
+ * DEC-02 says to avoid (DR-2, minimality) and Turbo Initech's own source
+ * does not need it. Documented here as a deliberate, minor divergence from
+ * strict ISO/TP lexical rules, not an oversight.
+ *
  * Pascal is case-insensitive: keywords and identifiers are matched
  * case-insensitively by the lexer. The Token stores the source lexeme verbatim
  * (a span into the source buffer); semantic comparison is done case-folded.
@@ -38,6 +50,13 @@ typedef enum {
     TOK_KW_MOD,
     TOK_KW_WRITE,
     TOK_KW_WRITELN,
+    /* B1 keywords (beads initech-f0uc) */
+    TOK_KW_BOOLEAN,
+    TOK_KW_AND,
+    TOK_KW_OR,
+    TOK_KW_NOT,
+    TOK_KW_TRUE,
+    TOK_KW_FALSE,
 
     /* punctuation / operators */
     TOK_SEMI,       /* ; */
@@ -49,7 +68,15 @@ typedef enum {
     TOK_RPAREN,     /* ) */
     TOK_PLUS,       /* + */
     TOK_MINUS,      /* - */
-    TOK_STAR        /* * */
+    TOK_STAR,       /* * */
+    /* B1 relational operators (beads initech-f0uc). '=' is EQUALITY here
+     * (never confused with TOK_ASSIGN ':='); '<>' is NOT-EQUAL. */
+    TOK_EQ,         /* = */
+    TOK_NE,         /* <> */
+    TOK_LT,         /* < */
+    TOK_LE,         /* <= */
+    TOK_GT,         /* > */
+    TOK_GE          /* >= */
 } TokenKind;
 
 /*

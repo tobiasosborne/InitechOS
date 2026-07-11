@@ -9,23 +9,43 @@
  *
  *   program      = "program" ident ";" [ var-section ] block "." ;
  *   var-section  = "var" var-decl ";" { var-decl ";" } ;
- *   var-decl     = ident { "," ident } ":" "integer" ;
+ *   var-decl     = ident { "," ident } ":" ("integer" | "boolean") ;
  *   block        = "begin" [ stmt { ";" stmt } ] "end" ;
  *   stmt         = assignment | block | write-stmt | (* empty *) ;
  *   assignment   = ident ":=" expr ;
  *   write-stmt   = ("write" | "writeln") "(" [ write-args ] ")" ;
  *   write-args   = write-arg { "," write-arg } ;
  *   write-arg    = string | expr ;
- *   expr         = term { ("+" | "-") term } ;            (* left-assoc *)
- *   term         = factor { ("*" | "div" | "mod") factor };(* left-assoc *)
- *   factor       = integer | ident | "(" expr ")" | "-" factor ;
+ *   expr         = simple-expr [ relational-op simple-expr ] ;
+ *   relational-op = "=" | "<>" | "<" | "<=" | ">" | ">=" ;
+ *   simple-expr  = term { ("+" | "-" | "or") term } ;      (* left-assoc *)
+ *   term         = factor { ("*" | "div" | "mod" | "and") factor };(* left-assoc *)
+ *   factor       = integer | boolean-lit | ident | "(" expr ")"
+ *                | "-" factor | "not" factor ;
+ *   boolean-lit  = "true" | "false" ;
  *
- * Precedence (lowest to highest): +/-  <  * div mod  <  unary -  <  primary.
+ * Precedence (B1, beads initech-f0uc; ISO 7185 / Turbo Pascal canonical
+ * order -- ADR-0007 DEC-02, "Relational operators ... a boolean type, and
+ * and/or/not"), LOWEST to HIGHEST:
+ *   relational (= <> < <= > >=)   <   or, +, -   <   and, *, div, mod   <
+ *   unary - / not   <   primary
+ * i.e. 'and' joins the MULTIPLYING operators (same level as * div mod);
+ * 'or' joins the ADDING operators (same level as + -); relational is the
+ * OUTERMOST (lowest-precedence) level and is NON-CHAINING: `expr` parses
+ * AT MOST one relational operator -- "a < b = c" is a syntax error (Pascal
+ * relations do not chain; parenthesize + combine with and/or instead), and
+ * the parser fails loud with a located, specific diagnostic rather than a
+ * generic "expected ..." message (see parse_expr in parser.c).
  * "writeln" with an empty arg list (writeln) and with "()" are both accepted.
  *
+ * TYPE CHECKING is a SEPARATE pass (seed/typecheck.c), run by the driver
+ * after a successful parse and before codegen -- it is not part of this
+ * grammar. See typecheck.h for the rules (assignment/operator/write-arg
+ * type agreement).
+ *
  * DEFERRED (later steps, intentionally not parsed): if/then/else, while, for,
- * repeat, case, procedures/functions, const sections, types beyond integer,
- * boolean/relational/logical operators, records, pointers, arrays, real.
+ * repeat, case, procedures/functions, const sections, char/real types,
+ * records, pointers, arrays.
  *
  * Error-handling strategy (DECIDED, consistent with the lexer): the parser is
  * single-error. On the first syntax (or lexical) fault it records a located

@@ -39,7 +39,7 @@ SMOKE_BIN := $(BUILD)/factory_smoke
 # Seed cross-compiler front end (seed/, beads initech-znb). The driver links
 # every seed/*.c that is NOT a test_*.c; the test binaries link the same
 # library sources minus initechc.c (which owns main()).
-SEED_LIB_SRC  := seed/token.c seed/lexer.c seed/ast.c seed/parser.c seed/codegen.c
+SEED_LIB_SRC  := seed/token.c seed/lexer.c seed/ast.c seed/parser.c seed/typecheck.c seed/codegen.c
 SEED_DRV_SRC  := seed/initechc.c
 SEED_BIN      := $(BUILD)/initechc
 
@@ -7103,7 +7103,7 @@ endef
         test-chrome test-chrome-mutant \
         test-chrome-fidelity test-chrome-fidelity-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
-        test-seed-mutant test-seed-codegen-mutant \
+        test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-redir test-redir-mutant test-int24 test-int24-mutant \
         test-vect test-absdisk-emu test-psp test-psp-mutant \
@@ -7160,6 +7160,7 @@ help:
 	@printf '  test-seed-codegen  Seed codegen end-to-end: compile .pas, boot ELF in QEMU, assert exact serial. REAL.\n'
 	@printf '  test-seed-mutant   Rule-6 proof: -DSEED_MUT_PARSE_ADD_AS_MUL (OP_ADD->OP_MUL) makes test_parser correctly RED. REAL. beads initech-tf3c.\n'
 	@printf '  test-seed-codegen-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_MUL_AS_ADD (imul->add) makes the R=14 precedence corpus correctly RED. REAL (QEMU). beads initech-tf3c.\n'
+	@printf '  test-seed-bool-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_SETL_AS_SETG (setl<->setg flip) makes bool.pas correctly RED. REAL (QEMU). beads initech-f0uc, ADR-0007 DEC-03.\n'
 	@printf '  test-harness   QEMU oracle harness self-test: serial marker caught on good fixture, triple-fault caught on bad. REAL.\n'
 	@printf '  test-tracer-boot   Real MBR->stage2->32-bit/flat->VESA LFB boot: assert serial stage markers + no triple-fault + banner rendered on the seafoam desktop (ppm_text_check). REAL.\n'
 	@printf '  test-boot      InitechDOS banner boot gate: serial markers + banner literal vs spec/dos_banner.txt (byte-exact) + screendump banner-text check + no triple-fault. REAL. (QEMU only; tri-emulator pending initech-x0i.)\n'
@@ -11848,6 +11849,12 @@ $(SEED_TEST_PARSER): seed/test_parser.c $(SEED_LIB_SRC) | $(BUILD)
 # build/seed_arith_<name>.elf is built from seed/examples/arith/<name>.pas.
 ARITH_DIR := seed/examples/arith
 
+# B1 (beads initech-f0uc): bool.pas's full hand-computed exact-serial golden
+# (see the fixture's header comment for the derivation of every TAG). One
+# long substring keeps the --expect match unambiguous, same idiom as the
+# other arith fixtures' "TAG=value" markers.
+SEED_BOOL_EXPECT := EQT=TRUE EQF=FALSE NET=TRUE NEF=FALSE LTT=TRUE LTF=FALSE LET=TRUE LEF=FALSE GTT=TRUE GTF=FALSE GET=TRUE GEF=FALSE ANDTT=TRUE ANDTF=FALSE ANDFF=FALSE ORTT=TRUE ORTF=TRUE ORFF=FALSE NOTT=FALSE NOTF=TRUE DM1=TRUE DM2=TRUE DM3=FALSE DM4=FALSE PARITH1=TRUE PARITH2=FALSE PAND=TRUE PNOT=FALSE PREL=FALSE
+
 $(BUILD)/seed_arith_%.elf: $(ARITH_DIR)/%.pas $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
 	$(SEED_BIN) --emit-asm -o $(BUILD)/seed_arith_$*.s $<
 	$(NASM) -f elf32 $(BUILD)/seed_arith_$*.s -o $(BUILD)/seed_arith_$*.o
@@ -11857,7 +11864,8 @@ ARITH_ELVES := $(BUILD)/seed_arith_precedence.elf \
                $(BUILD)/seed_arith_parens.elf \
                $(BUILD)/seed_arith_divmod.elf \
                $(BUILD)/seed_arith_negative.elf \
-               $(BUILD)/seed_arith_negative_divmod.elf
+               $(BUILD)/seed_arith_negative_divmod.elf \
+               $(BUILD)/seed_arith_bool.elf
 
 test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@printf ">>> test-seed-codegen: SMOKE -- expect serial marker '%s'\n" "$(SEED_SMOKE_MARKER)"
@@ -11884,6 +11892,18 @@ test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_negative_divmod.elf" --expect "A=-3 B=-2 C=-3 D=2 E=3 F=-2" \
 		--name seed_neg_divmod --timeout-ms 5000 \
 		|| { printf "!!! test-seed-codegen FAIL: negative-operand div/mod did not print A=-3 B=-2 C=-3 D=2 E=3 F=-2\n"; exit 1; }
+	@printf ">>> test-seed-codegen: BOOL -- relational + boolean + and/or/not, hand-computed truth table (beads initech-f0uc)\n"
+	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_bool.elf" --expect "$(SEED_BOOL_EXPECT)" \
+		--name seed_bool --timeout-ms 5000 \
+		|| { printf "!!! test-seed-codegen FAIL: bool.pas did not print the full hand-computed truth-table golden\n"; exit 1; }
+	@printf ">>> test-seed-codegen: BOOL complete-evaluation structural proof -- gen_binop (the ONE shared\n"
+	@printf "    code path for every binop, incl. and/or -- ADR-0007 DEC-03) must never emit a jump\n"
+	@printf "    mnemonic, so no branch could ever skip evaluating an operand.\n"
+	@if awk '/^static void gen_binop/,/^}/' seed/codegen.c | grep -qE '\bj[a-z]+\b'; then \
+		printf "!!! test-seed-codegen FAIL: gen_binop contains a jump instruction -- complete-eval structural guarantee violated\n"; exit 1; \
+	else \
+		printf ">>> test-seed-codegen: green (gen_binop is branch-free -- complete evaluation is structural, not incidental)\n"; \
+	fi
 	@printf ">>> test-seed-codegen: all green (smoke marker + arithmetic exact-output checks)\n"
 
 # ---------------------------------------------------------------------------
@@ -11942,6 +11962,40 @@ test-seed-codegen-mutant: $(HARNESS_BIN) $(SEED_ARITH_PRECEDENCE_MUT_ELF)
 		printf '!!! test-seed-codegen-mutant FAIL: mutant PASSED -- imul vs add for * is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-seed-codegen-mutant: green (2 + 3 * 4 correctly failed to print R=14 under the add-for-imul mutant)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-seed-bool-mutant (beads initech-f0uc; ADR-0007 DEC-03's
+# named oracle: "a Rule-6 mutant that flips setl/setg in the relational
+# codegen")
+# ---------------------------------------------------------------------------
+# -DSEED_MUT_CODEGEN_SETL_AS_SETG swaps setl<->setg in gen_binop's OP_LT/
+# OP_GT cases (seed/codegen.c), so e.g. "3 < 5" wrongly evaluates FALSE and
+# "5 > 3" wrongly evaluates FALSE. Build a SEPARATE mutant compiler binary
+# (initechc_mut_bool, mirroring initechc_mut above) so $(SEED_BIN) is never
+# contaminated, compile the EXISTING bool.pas fixture through it, and assert
+# the QEMU harness fails to find the full hand-computed golden (several
+# LTx/GTx/PARITHx tags flip under the mutant -- see bool.pas's header).
+SEED_BIN_MUT_BOOL := $(BUILD)/initechc_mut_bool
+
+$(SEED_BIN_MUT_BOOL): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_CODEGEN_SETL_AS_SETG -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+SEED_ARITH_BOOL_MUT_ELF := $(BUILD)/seed_arith_bool_mut.elf
+
+$(SEED_ARITH_BOOL_MUT_ELF): $(ARITH_DIR)/bool.pas $(SEED_BIN_MUT_BOOL) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT_BOOL) --emit-asm -o $(BUILD)/seed_arith_bool_mut.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_bool_mut.s -o $(BUILD)/seed_arith_bool_mut.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(BUILD)/seed_arith_bool_mut.o
+
+.PHONY: test-seed-bool-mutant
+test-seed-bool-mutant: $(HARNESS_BIN) $(SEED_ARITH_BOOL_MUT_ELF)
+	@printf ">>> test-seed-bool-mutant: confirming the setl/setg-flip relational mutant goes RED (Rule 6; ADR-0007 DEC-03, beads initech-f0uc)\n"
+	@if $(HARNESS_BIN) --kernel "$(SEED_ARITH_BOOL_MUT_ELF)" --expect "$(SEED_BOOL_EXPECT)" \
+		--name seed_bool_mut --timeout-ms 5000 >/dev/null 2>&1; then \
+		printf '!!! test-seed-bool-mutant FAIL: mutant PASSED -- the setl/setg distinction is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-bool-mutant: green (bool.pas correctly failed to reproduce its golden under the setl/setg-flip mutant)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -17576,7 +17630,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-assets test-spec test-dosmsg \
+	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \

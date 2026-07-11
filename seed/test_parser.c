@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include "test_assert.h"
 #include "parser.h"
+#include "typecheck.h"
 
 TEST_HARNESS();
 
@@ -34,6 +35,37 @@ static int parse_to_str(const char *src, char *buf, size_t cap)
     }
     ast_arena_free(&arena);
     return rc;
+}
+
+/* Parse THEN typecheck `src` (B1, beads initech-f0uc). Returns 0 iff both
+ * succeed. On success `buf` gets the AST dump (proving typecheck doesn't
+ * mutate the tree shape); on a parse OR type error, `buf` gets the located
+ * message with a "PARSE" or "TYPE" tag so callers can tell which stage
+ * failed. */
+static int check_to_str(const char *src, char *buf, size_t cap)
+{
+    AstArena arena;
+    ParseResult r;
+    int rc;
+    ast_arena_init(&arena);
+    rc = parse_program(src, strlen(src), &arena, &r);
+    if (rc != 0) {
+        snprintf(buf, cap, "PARSE_ERR@%d:%d %s", r.line, r.col, r.error);
+        ast_arena_free(&arena);
+        return rc;
+    }
+    TypeCheckResult tc;
+    rc = typecheck_program(r.ast, &tc);
+    if (rc != 0) {
+        snprintf(buf, cap, "TYPE_ERR@%d:%d %s", tc.line, tc.col, tc.error);
+        ast_arena_free(&arena);
+        return rc;
+    }
+    FILE *fp = fmemopen(buf, cap, "w");
+    ast_dump(r.ast, fp);
+    fclose(fp);
+    ast_arena_free(&arena);
+    return 0;
 }
 
 static void test_minimal_program(void)
@@ -193,6 +225,186 @@ static void test_err_lexical_propagates(void)
     CHECK(rc != 0, "lexical error surfaces through the parser");
 }
 
+/* ------------------------------------------------------------------ */
+/* B1 (beads initech-f0uc; ADR-0007 DEC-02/DEC-03): relational + boolean +
+ * and/or/not, and the precedence reshape.                             */
+/* ------------------------------------------------------------------ */
+static void test_boolean_var_decl_and_literals(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var p, q : boolean;\n"
+        "begin p := true; q := false end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "boolean var-decl + true/false literals parse");
+    CHECK_STR_EQ(buf,
+        "(program P "
+        "(var (varref p):boolean (varref q):boolean) "
+        "(block (assign p (bool true)) (assign q (bool false))))",
+        "boolean var-decl dumps :boolean; true/false dump as (bool ..)");
+}
+
+static void test_relational_all_six(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var a, b : integer;\n"
+        "begin writeln(a = b); writeln(a <> b); writeln(a < b); "
+        "writeln(a <= b); writeln(a > b); writeln(a >= b) end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "all six relational operators parse");
+    CHECK_STR_EQ(buf,
+        "(program P "
+        "(var (varref a):integer (varref b):integer) "
+        "(block "
+        "(writeln (= (varref a) (varref b))) "
+        "(writeln (<> (varref a) (varref b))) "
+        "(writeln (< (varref a) (varref b))) "
+        "(writeln (<= (varref a) (varref b))) "
+        "(writeln (> (varref a) (varref b))) "
+        "(writeln (>= (varref a) (varref b)))))",
+        "each relational op dumps with its own operator name");
+}
+
+/* 'and' joins the MULTIPLYING operators (same level as * div mod): "a and b
+ * or c" must parse as (a and b) or c, i.e. 'and' binds tighter than 'or',
+ * exactly mirroring '*' binding tighter than '+' (test_precedence_mul_
+ * over_add above). */
+static void test_and_binds_like_mul(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var a, b, c : boolean;\n"
+        "begin writeln(a and b or c) end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "a and b or c parses");
+    CHECK_STR_EQ(buf,
+        "(program P "
+        "(var (varref a):boolean (varref b):boolean (varref c):boolean) "
+        "(block (writeln (or (and (varref a) (varref b)) (varref c)))))",
+        "'and' binds tighter than 'or' (mul-class vs add-class)");
+}
+
+/* 'not' binds tighter than 'and': "not a and b" is (not a) and b, exactly
+ * as unary '-' binds tighter than '+'/'*' for arithmetic. */
+static void test_not_binds_tighter_than_and(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var a, b : boolean;\n"
+        "begin writeln(not a and b) end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "not a and b parses");
+    CHECK_STR_EQ(buf,
+        "(program P "
+        "(var (varref a):boolean (varref b):boolean) "
+        "(block (writeln (and (not (varref a)) (varref b)))))",
+        "'not' binds tighter than 'and'");
+}
+
+/* Relational is the OUTERMOST (lowest-precedence) level: "1 + 2 < 2 * 2"
+ * must parse as (1+2) < (2*2), never e.g. 1 + (2 < 2) * 2. */
+static void test_relational_is_lowest_precedence(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; begin writeln(1 + 2 < 2 * 2) end.", buf, sizeof buf);
+    CHECK(rc == 0, "1 + 2 < 2 * 2 parses");
+    CHECK_STR_EQ(buf,
+        "(program P (block "
+        "(writeln (< (+ (int 1) (int 2)) (* (int 2) (int 2))))))",
+        "relational is outermost: arithmetic fully groups on each side");
+}
+
+/* Pascal relations do not chain: "a < b = c" must be a located syntax
+ * error, not silently parse as ((a<b)=c) or (a<(b=c)). */
+static void test_relational_chaining_is_error(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var a, b, c : integer;\n"
+        "begin writeln(a < b = c) end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "'a < b = c' is a syntax error (relations don't chain)");
+    CHECK(strstr(buf, "ERR@") != NULL, "error carries a location");
+    CHECK(strstr(buf, "chain") != NULL,
+          "diagnostic specifically names the chaining problem, not a "
+          "generic 'expected token' message");
+}
+
+/* ------------------------------------------------------------------ */
+/* B1 typecheck (seed/typecheck.c): minimal sound type discipline.     */
+/* ------------------------------------------------------------------ */
+static void test_typecheck_ok_program(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var a : integer; p : boolean;\n"
+        "begin a := 3; p := a < 5; writeln(p) end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "a well-typed B1 program passes typecheck");
+    CHECK_STR_EQ(buf,
+        "(program P "
+        "(var (varref a):integer) (var (varref p):boolean) "
+        "(block (assign a (int 3)) (assign p (< (varref a) (int 5))) "
+        "(writeln (varref p))))",
+        "typecheck does not alter the AST dump shape");
+}
+
+static void test_typecheck_assign_type_mismatch(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var a : integer;\n"
+        "begin a := true end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "assigning a boolean literal to an integer var is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+    CHECK(strstr(buf, "mismatch") != NULL, "diagnostic names the mismatch");
+}
+
+static void test_typecheck_and_requires_boolean(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var p : boolean;\n"
+        "begin p := 1 and 2 end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "'and' on integer operands is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+}
+
+static void test_typecheck_relational_operand_mismatch(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var a : integer; p : boolean;\n"
+        "begin p := (a = true) end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "comparing integer to boolean is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+}
+
+static void test_typecheck_undeclared_variable(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; begin writeln(x) end.", buf, sizeof buf);
+    CHECK(rc != 0, "referencing an undeclared variable is a type error");
+    CHECK(strstr(buf, "undeclared") != NULL, "diagnostic names the problem");
+}
+
+static void test_typecheck_duplicate_declaration(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var a : integer; a : boolean;\n"
+        "begin a := true end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "redeclaring a variable name is a type error");
+    CHECK(strstr(buf, "duplicate") != NULL, "diagnostic names the problem");
+}
+
 int main(void)
 {
     test_minimal_program();
@@ -207,5 +419,17 @@ int main(void)
     test_err_missing_semi();
     test_err_missing_end_dot();
     test_err_lexical_propagates();
+    test_boolean_var_decl_and_literals();
+    test_relational_all_six();
+    test_and_binds_like_mul();
+    test_not_binds_tighter_than_and();
+    test_relational_is_lowest_precedence();
+    test_relational_chaining_is_error();
+    test_typecheck_ok_program();
+    test_typecheck_assign_type_mismatch();
+    test_typecheck_and_requires_boolean();
+    test_typecheck_relational_operand_mismatch();
+    test_typecheck_undeclared_variable();
+    test_typecheck_duplicate_declaration();
     return TEST_SUMMARY("test_parser");
 }
