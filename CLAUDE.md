@@ -31,7 +31,7 @@ OS), and CDR-0001 (interim toolchain deviation).
    (`FLAIR`), and the bundled apps for the current release are written
    in **C** (ADR-0002), targeting freestanding x86. **Pascal** is the
    language of **Turbo Initech** — the resident, self-hosting compiler
-   and in-universe North Star (ADR-0007, pending) — and of the user
+   and in-universe North Star (ADR-0007, ratified 2026-07-11) — and of the user
    programs Turbo Initech compiles. The whole OS stays period-authentic;
    nothing 2026 leaks into it.
 2. **The factory** — everything that builds and *judges* the artifact,

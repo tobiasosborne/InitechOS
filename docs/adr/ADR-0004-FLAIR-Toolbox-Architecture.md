@@ -352,7 +352,7 @@ DEFER (unanimous). Cross-emulator framebuffer agreement runs now against wired Q
 - ADR-0002 — Toolchain / implementation language (C) / executable format.
 - ADR-0003 — InitechDOS base OS (MILTON), incl. the MCB arena (OQ-1) and `console.c` (the surface module's origin, D-2); Amendments DEC-04a (INT 21h convention), DEC-14 (user-pointer validation).
 - **ADR-0005 — ATKINSON Region Engine** (companion, RATIFIED 2026-06-19, DEC-02): layer 2 of this stack; the locked `spec/region_algebra.h`.
-- ADR-0007 — Turbo Initech (pending); a FLAIR tenant, not part of FLAIR.
+- ADR-0007 — Turbo Initech (ratified 2026-07-11); a FLAIR tenant, not part of FLAIR.
 - CDR-0001 — interim toolchain deviation.
 - PRD §2 (non-goals: cooperative, no isolation), §3 (fidelity bar / SSIM guide), §4 (architecture), §6.2 (region engine), §6.3 (Toolbox + oracle), §6.4 (fonts/assets), §6.5 (apps / FILE COPY), §8 (oracle infra / gate vector), §9 (swarm discipline), §12 (Toolbox-sprawl risk), §15 (cooperative DECIDED), Appendix A (the frame), Appendix B (comedic constants / panic).
 - Locked spec-data: `spec/region_algebra.h`, `spec/chrome_metrics.json`, `spec/assets/`.

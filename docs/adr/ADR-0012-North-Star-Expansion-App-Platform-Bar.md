@@ -25,7 +25,7 @@
 | Next Scheduled Review | Upon first Phase-4.5 deliverable, per RECORDS-POL-002 |
 | Supersedes | (none -- amends PRD Sec 1 Vision in place) |
 | Superseded By | (none) |
-| Related Documents | InitechOS-PRD.md Sec 1 (Vision & North Star) + Sec 2 (Goals/Non-Goals); ADR-0013 (FLAIR App Contract); ADR-0004 (FLAIR Toolbox Architecture); ADR-0001 (386+, 32-bit flat); ADR-0003 (InitechDOS base OS) + Amendment DEC-08a (InitechMZ flat loader); ADR-0007 (Turbo Initech, pending); docs/plans/FLAIR-implementation-plan.md; spec/win95ism_guardrails.md |
+| Related Documents | InitechOS-PRD.md Sec 1 (Vision & North Star) + Sec 2 (Goals/Non-Goals); ADR-0013 (FLAIR App Contract); ADR-0004 (FLAIR Toolbox Architecture); ADR-0001 (386+, 32-bit flat); ADR-0003 (InitechDOS base OS) + Amendment DEC-08a (InitechMZ flat loader); ADR-0007 (Turbo Initech, ratified 2026-07-11); docs/plans/FLAIR-implementation-plan.md; spec/win95ism_guardrails.md |
 | Related Issues | beads initech-4e35 (Phase 4 App Contract), the new Phase-4.5 "Platform Services" epic + children filed by this decision, initech-t4hp (Phase 6 hosting) |
 | Retention | 7 years following decommission, per RECORDS-SCHED-014 |
 | Distribution | OEA; Platform Engineering; Presentation Layer Section (FLAIR); QA; Change Advisory Board; Records Management (Archive Annex B) |
@@ -186,7 +186,7 @@ Where the platform bar conflicts with **Law 4 fidelity** (PRD Sec 1.1 / Sec 3) o
 | **ADR-0004 (FLAIR Toolbox Architecture)** | The Toolbox stack the platform bar builds on; mechanism/policy + era-layering already support the bar. |
 | **ADR-0001 (386+, 32-bit flat)** | Source of the D-3a v8086 non-goal. |
 | **ADR-0003 + DEC-08a (InitechDOS / InitechMZ)** | The loader/executable substrate; the honesty boundary behind D-3a. |
-| **ADR-0007 (Turbo Initech, pending)** | The self-host finale (Sec 1.2) that D-5 holds above the platform bar. |
+| **ADR-0007 (Turbo Initech, ratified 2026-07-11)** | The self-host finale (Sec 1.2) that D-5 holds above the platform bar. |
 | **docs/plans/FLAIR-implementation-plan.md** | Receives the Phase-4.5 insertion (D-2b) and the ADR-0010->ADR-0013 App-Contract correction (D-2a). |
 | **spec/win95ism_guardrails.md** | The era-ceiling enforcement behind D-4. |
 

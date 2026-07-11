@@ -75,7 +75,7 @@ The following are expressly out of scope of this Amendment:
 
 - The complete INT 21h function register (governed by ADR-0003 Appendix A, which is unchanged).
 - The program-loading mechanism, memory arena, PSP construction, and all other architectural elements addressed under ADR-0003 §5.
-- The ring-3 privilege transition for Turbo Initech user programs (ADR-0007, pending); see Consequence C-4 below.
+- The ring-3 privilege transition for Turbo Initech user programs (ADR-0007, ratified 2026-07-11; ring-3 remains a future milestone); see Consequence C-4 below.
 - The keyboard device driver and IRQ1 handler implementation; those are deferred to the applicable device-driver milestone.
 
 ### 1.4 Additional Defined Terms
@@ -173,7 +173,7 @@ The distinction between the two gate types is IF behavior on entry: an interrupt
 
 The current release of InitechOS operates in a ring-0-only model (ADR-0003 DEC-02; no ring-3 privilege transition). Applications and the kernel share CPL=0. A software INT instruction requires that the CPL be less than or equal to the gate's DPL; with both caller and gate at ring-0, DPL=0 is therefore exactly correct. A DPL=3 gate would not fail on a ring-0 caller, but it is unnecessary and would permit ring-3 code — which does not yet exist — to invoke the gate, which would be a latent privilege issue. DPL=0 is conservative and correct for the current release.
 
-When ring-3 support is introduced for Turbo Initech user programs (ADR-0007, pending), the DPL of the INT 21h gate **must** be upgraded to DPL=3 before any ring-3 program issues `INT 0x21`. A ring-3 program calling `INT 0x21` into a DPL=0 gate generates a #GP (General Protection Fault), which would surface as a cascading exception and a `PC LOAD LETTER` panic — a correct but unwanted outcome. This upgrade is a forward obligation recorded in §5 (Consequence C-4).
+When ring-3 support is introduced for Turbo Initech user programs (ADR-0007, ratified 2026-07-11; ring-3 remains a future milestone), the DPL of the INT 21h gate **must** be upgraded to DPL=3 before any ring-3 program issues `INT 0x21`. A ring-3 program calling `INT 0x21` into a DPL=0 gate generates a #GP (General Protection Fault), which would surface as a cascading exception and a `PC LOAD LETTER` panic — a correct but unwanted outcome. This upgrade is a forward obligation recorded in §5 (Consequence C-4).
 
 ### 4.3 PIC Remap Base Selection — The IRQ1/INT 21h Collision (DEC-04a.2)
 
@@ -205,7 +205,7 @@ The Period-Authenticity reviewer confirmed, without required change, that the li
 
 ### 5.2 Forward Obligations
 
-**C-4 — DPL=0 to DPL=3 upgrade required before ring-3 programs issue INT 21h.** When ring-3 privilege-level support is introduced for Turbo Initech user programs (ADR-0007, pending), the INT 21h IDT gate DPL **must** be upgraded to DPL=3. A ring-3 program calling `INT 0x21` into a DPL=0 gate generates a #GP. This upgrade shall be tracked as a dependency of the ring-3 milestone and must be ratified by a further amendment. It is not optional. The Technical/Correctness reviewer flagged this obligation explicitly.
+**C-4 — DPL=0 to DPL=3 upgrade required before ring-3 programs issue INT 21h.** When ring-3 privilege-level support is introduced for Turbo Initech user programs (ADR-0007, ratified 2026-07-11; ring-3 remains a future milestone), the INT 21h IDT gate DPL **must** be upgraded to DPL=3. A ring-3 program calling `INT 0x21` into a DPL=0 gate generates a #GP. This upgrade shall be tracked as a dependency of the ring-3 milestone and must be ratified by a further amendment. It is not optional. The Technical/Correctness reviewer flagged this obligation explicitly.
 
 **C-5 — Reentrancy discipline when IRQs are unmasked.** The current implementation operates with all IRQs masked. When IRQ0 (PIT timer) or IRQ1 (keyboard) are later unmasked for device-driver use, the INT 21h dispatcher must be audited for reentrancy: either CLI/STI pairs at entry/exit of the dispatcher to prevent hardware IRQ delivery during syscall processing, or a semaphore-based in-dispatcher lock. The trap-gate choice (DEC-04a.1) leaves IF enabled on entry; this is correct and intentional, but it means the dispatcher is immediately exposed to hardware IRQ delivery once any IRQ is unmasked. The Technical/Correctness reviewer flagged this obligation explicitly. Resolution shall be selected and ratified at the time of the first IRQ-unmasking milestone.
 
@@ -263,7 +263,7 @@ During ARB committee review (Technical/Correctness reviewer, 2026-06-08), a defe
 
 - ADR-0003 (OEA-ADR-0003) — InitechDOS Base Operating System Personality and Resident Kernel Architecture. *(Accepted; this Amendment refines DEC-04 thereof.)*
 - CDR-0001 (OEA-CDR-0001) — Interim Implementation Toolchain Deviation. *(Accepted; unaffected by this Amendment.)*
-- ADR-0007 — Turbo Initech Self-Hosting Compiler. *(Pending; ring-3 DPL obligation, Consequence C-4, is a dependency.)*
+- ADR-0007 — Turbo Initech Self-Hosting Compiler. *(Ratified 2026-07-11; ring-3 DPL obligation, Consequence C-4, is a dependency of a future ring-3 milestone.)*
 - beads initech-1f9 — Ratification tracking issue for DEC-04a.
 - beads initech-509.5 — Implementation milestone for the INT 21h dispatcher and console subset.
 - `spec/int21h_calling_convention.json` — Locked calling-convention spec-data ratified herein.

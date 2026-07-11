@@ -70,7 +70,7 @@ The following are expressly out of scope of this Record and are, where applicabl
 - Execution of genuine third-party 16-bit real-mode executables (the "DOS Compatibility Subsystem"), which is deferred pending a future ADR and is **not** required for the current release (see §2 and ADR-0001 §6).
 - The graphical environment (the "Toolbox"), addressed under ADR-0004 (pending).
 - The database application ("InitechBase"), addressed under ADR-0006 (pending).
-- The self-hosting compiler ("Turbo Initech"), addressed under ADR-0007 (pending).
+- The self-hosting compiler ("Turbo Initech"), addressed under ADR-0007 (ratified 2026-07-11; filed as `docs/adr/ADR-0007-Turbo-Initech-Self-Hosting-Pascal-Compiler.md`).
 - Procurement of fulfilment packaging, retail cartons, foam inserts, and printed manuals, which is the responsibility of the Documentation & Fulfilment workstream and is tracked separately.
 
 ### 1.3 Intended Audience
@@ -120,7 +120,7 @@ The Decision was informed by the following drivers, which are enumerated for com
 2. **DR-2 — Verifiability.** The Base OS shall be amenable to automated conformance verification via the Emulation Conformance Harness (the "ECH," §7).
 3. **DR-3 — Period Plausibility.** The Base OS shall be consistent with software of the stated period and shall not exhibit anachronistic capability.
 4. **DR-4 — Build Tractability.** The architecture shall be realizable by the automated implementation function (the "Programme Build Capability") within the bounds of available oracles.
-5. **DR-5 — Continuity with North Star.** The architecture shall not preclude the eventual self-hosting compilation objective (ADR-0007, pending).
+5. **DR-5 — Continuity with North Star.** The architecture shall not preclude the eventual self-hosting compilation objective (ADR-0007, ratified 2026-07-11; filed as `docs/adr/ADR-0007-Turbo-Initech-Self-Hosting-Pascal-Compiler.md`).
 6. **DR-6 — Experiential Conformance (NFR-7).** The Base OS shall, at all times and without exception, present an experience of comprehensive, uniform, and dependable tedium consistent with enterprise software of the stated period.
 
 ---
@@ -284,7 +284,7 @@ Non-conformances shall be raised, triaged, and dispositioned in the ordinary cou
 - ADR-0002 — Toolchain, Implementation Language, and Executable Format. *(Accepted.)*
 - ADR-0004 — Graphical Toolbox and Region Engine. *(Pending.)*
 - ADR-0006 — InitechBase Database Application. *(Pending.)*
-- ADR-0007 — Turbo Initech Self-Hosting Compiler. *(Pending.)*
+- ADR-0007 — Turbo Initech Self-Hosting Compiler. *(Ratified 2026-07-11: `docs/adr/ADR-0007-Turbo-Initech-Self-Hosting-Pascal-Compiler.md`.)*
 - RR-0003 — Programme Risk Register, InitechDOS section.
 - INITECH-STD-0042 — Corporate Standard for the Authoring of Architecture Decision Records.
 - RECORDS-POL-002 — Document Review and Retention Policy.
