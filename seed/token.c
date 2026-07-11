@@ -29,6 +29,16 @@ const char *token_kind_name(TokenKind kind)
     case TOK_KW_NOT:     return "KW_NOT";
     case TOK_KW_TRUE:    return "KW_TRUE";
     case TOK_KW_FALSE:   return "KW_FALSE";
+    case TOK_KW_IF:      return "KW_IF";
+    case TOK_KW_THEN:    return "KW_THEN";
+    case TOK_KW_ELSE:    return "KW_ELSE";
+    case TOK_KW_WHILE:   return "KW_WHILE";
+    case TOK_KW_DO:      return "KW_DO";
+    case TOK_KW_FOR:     return "KW_FOR";
+    case TOK_KW_TO:      return "KW_TO";
+    case TOK_KW_DOWNTO:  return "KW_DOWNTO";
+    case TOK_KW_REPEAT:  return "KW_REPEAT";
+    case TOK_KW_UNTIL:   return "KW_UNTIL";
     case TOK_SEMI:       return "SEMI";
     case TOK_DOT:        return "DOT";
     case TOK_COMMA:      return "COMMA";

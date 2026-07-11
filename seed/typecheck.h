@@ -32,6 +32,13 @@
  *     never type-checked as expressions) must resolve to integer or
  *     boolean -- codegen picks the print routine from the checked type
  *     (see typecheck_program's contract below and seed/codegen.c gen_write).
+ *   - (B2, beads initech-80iw) 'if'/'while' conditions must be boolean.
+ *     'for'/'repeat' get the same discipline for free: the parser desugars
+ *     both to assign/while/binop/unop(not) nodes before typecheck ever
+ *     runs, so a for-loop's bounds go through ordinary assignment type
+ *     checking (forcing integer) and a repeat's guard goes through ordinary
+ *     'not' checking (forcing boolean) -- see seed/parser.c's desugar
+ *     comments and ADR-0007 DEC-02.
  *
  * This is intentionally NOT full Pascal type inference (no subranges, no
  * char/real/records/arrays -- those are out of scope for B1 per the DEC-02

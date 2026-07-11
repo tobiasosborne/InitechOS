@@ -294,6 +294,42 @@ static void check_stmt(Tc *tc, AstNode *n)
             }
         }
         return;
+    /* B2 (beads initech-80iw; ADR-0007 DEC-02). if/while are the only new
+     * statement kinds -- for/repeat are desugared by the parser into
+     * assign/while/block/not nodes BEFORE typecheck ever runs, so their
+     * "guard must be boolean" (repeat, via the desugared 'not') and
+     * "bounds must be integer" (for, via the desugared assignments and the
+     * relational guard) requirements are enforced by the ordinary
+     * AST_ASSIGN/AST_BINOP/AST_UNOP rules above -- no extra cases needed. */
+    case AST_IF: {
+        AstNode *cond = n->as.ifstmt.cond;
+        AstVarType ct = check_expr(tc, cond);
+        if (tc->failed)
+            return;
+        if (ct != AST_TY_BOOLEAN) {
+            fail_at(tc, cond->line, cond->col,
+                    "'if' condition must be boolean");
+            return;
+        }
+        check_stmt(tc, n->as.ifstmt.then_stmt);
+        if (tc->failed)
+            return;
+        check_stmt(tc, n->as.ifstmt.else_stmt);
+        return;
+    }
+    case AST_WHILE: {
+        AstNode *cond = n->as.whilestmt.cond;
+        AstVarType ct = check_expr(tc, cond);
+        if (tc->failed)
+            return;
+        if (ct != AST_TY_BOOLEAN) {
+            fail_at(tc, cond->line, cond->col,
+                    "'while' condition must be boolean");
+            return;
+        }
+        check_stmt(tc, n->as.whilestmt.body);
+        return;
+    }
     default:
         fail_at(tc, n->line, n->col,
                 "internal: unexpected statement node in typecheck");

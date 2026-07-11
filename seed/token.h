@@ -22,6 +22,14 @@
  * does not need it. Documented here as a deliberate, minor divergence from
  * strict ISO/TP lexical rules, not an oversight.
  *
+ * B2 addition (beads initech-80iw; ADR-0007 DEC-02 "if/then/else, while/do
+ * as primitive control flow", "for/repeat/case ... pure sugar"): the
+ * if/then/else and while/do keywords (primitive), plus for/to/downto and
+ * repeat/until (sugar, desugared entirely in seed/parser.c -- see
+ * parser.h's grammar comment). `case` is NOT implemented (optional per
+ * ADR-0007 DEC-02's own text; the if-chain idiom already covers it, and B2's
+ * bead explicitly lists it as "optional/absent").
+ *
  * Pascal is case-insensitive: keywords and identifiers are matched
  * case-insensitively by the lexer. The Token stores the source lexeme verbatim
  * (a span into the source buffer); semantic comparison is done case-folded.
@@ -57,6 +65,18 @@ typedef enum {
     TOK_KW_NOT,
     TOK_KW_TRUE,
     TOK_KW_FALSE,
+    /* B2 keywords (beads initech-80iw): primitive control flow (if/then/
+     * else, while/do) plus the for/to/downto/repeat/until sugar family. */
+    TOK_KW_IF,
+    TOK_KW_THEN,
+    TOK_KW_ELSE,
+    TOK_KW_WHILE,
+    TOK_KW_DO,
+    TOK_KW_FOR,
+    TOK_KW_TO,
+    TOK_KW_DOWNTO,
+    TOK_KW_REPEAT,
+    TOK_KW_UNTIL,
 
     /* punctuation / operators */
     TOK_SEMI,       /* ; */

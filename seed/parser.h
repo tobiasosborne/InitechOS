@@ -11,11 +11,45 @@
  *   var-section  = "var" var-decl ";" { var-decl ";" } ;
  *   var-decl     = ident { "," ident } ":" ("integer" | "boolean") ;
  *   block        = "begin" [ stmt { ";" stmt } ] "end" ;
- *   stmt         = assignment | block | write-stmt | (* empty *) ;
+ *   stmt         = assignment | block | write-stmt | if-stmt | while-stmt
+ *                | for-stmt | repeat-stmt | (* empty *) ;
  *   assignment   = ident ":=" expr ;
  *   write-stmt   = ("write" | "writeln") "(" [ write-args ] ")" ;
  *   write-args   = write-arg { "," write-arg } ;
  *   write-arg    = string | expr ;
+ *
+ *   B2 (beads initech-80iw; ADR-0007 DEC-02) control flow. if/while are
+ *   PRIMITIVE; for/repeat are SUGAR, desugared entirely at parse time (see
+ *   parser.c) into if/while/assign/block -- codegen never sees a for/repeat
+ *   node. `case` is not implemented (optional per DEC-02's own text).
+ *
+ *   if-stmt      = "if" expr "then" stmt [ "else" stmt ] ;
+ *     Dangling-else binds to the NEAREST unmatched "if" (standard: a plain
+ *     recursive-descent parse_if checks for a trailing "else" immediately
+ *     after parsing its own then-branch, before returning to any enclosing
+ *     if's else-check, so the else is consumed by the innermost if that
+ *     doesn't already have one -- ISO 7185 / Turbo Pascal canonical
+ *     resolution, not a special rule this grammar has to state).
+ *   while-stmt   = "while" expr "do" stmt ;
+ *   for-stmt     = "for" ident ":=" expr ( "to" | "downto" ) expr "do" stmt ;
+ *     `ident` MUST already be a declared `integer` variable (the for-stmt
+ *     does not declare it). Both bound expressions are evaluated EXACTLY
+ *     ONCE, before the loop starts (ISO 7185 Sec 6.8.3.9 / Turbo Pascal
+ *     Language Guide "for statement": ", the values of the initial-value
+ *     and final-value expressions are IMPLEMENTATION-evaluated once, at
+ *     entry to the loop" -- a for-stmt is desugared here to an explicit
+ *     once-evaluated hidden limit variable specifically so the bound
+ *     survives even if the loop body reassigns a variable the bound
+ *     expression referenced (see control.pas's FORONCE tag for the fixture
+ *     that pins this down). The loop-control variable's value once the loop
+ *     terminates NORMALLY is left FORMALLY UNDEFINED by both ISO 7185 and
+ *     Turbo Pascal -- no fixture in this repo may depend on it.
+ *   repeat-stmt  = "repeat" stmt-seq "until" expr ;
+ *     stmt-seq     = stmt { ";" stmt } ;   (* NOTE: no begin/end wrapper *)
+ *     The body executes AT LEAST once (it runs, then the guard is tested);
+ *     desugars to "the body, once, followed by a while-not-guard loop
+ *     whose body is the same statement sequence" (see parser.c).
+ *
  *   expr         = simple-expr [ relational-op simple-expr ] ;
  *   relational-op = "=" | "<>" | "<" | "<=" | ">" | ">=" ;
  *   simple-expr  = term { ("+" | "-" | "or") term } ;      (* left-assoc *)
@@ -41,11 +75,12 @@
  * TYPE CHECKING is a SEPARATE pass (seed/typecheck.c), run by the driver
  * after a successful parse and before codegen -- it is not part of this
  * grammar. See typecheck.h for the rules (assignment/operator/write-arg
- * type agreement).
+ * type agreement; B2 adds: if/while/repeat guards must be boolean, for-loop
+ * bounds must be integer -- enforced for free by desugaring into ordinary
+ * assign/relational/while nodes that already carry those rules).
  *
- * DEFERRED (later steps, intentionally not parsed): if/then/else, while, for,
- * repeat, case, procedures/functions, const sections, char/real types,
- * records, pointers, arrays.
+ * DEFERRED (later steps, intentionally not parsed): case, procedures/
+ * functions, const sections, char/real types, records, pointers, arrays.
  *
  * Error-handling strategy (DECIDED, consistent with the lexer): the parser is
  * single-error. On the first syntax (or lexical) fault it records a located

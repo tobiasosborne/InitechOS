@@ -7104,6 +7104,7 @@ endef
         test-chrome-fidelity test-chrome-fidelity-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant \
+        test-seed-control-mutant \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-redir test-redir-mutant test-int24 test-int24-mutant \
         test-vect test-absdisk-emu test-psp test-psp-mutant \
@@ -7161,6 +7162,7 @@ help:
 	@printf '  test-seed-mutant   Rule-6 proof: -DSEED_MUT_PARSE_ADD_AS_MUL (OP_ADD->OP_MUL) makes test_parser correctly RED. REAL. beads initech-tf3c.\n'
 	@printf '  test-seed-codegen-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_MUL_AS_ADD (imul->add) makes the R=14 precedence corpus correctly RED. REAL (QEMU). beads initech-tf3c.\n'
 	@printf '  test-seed-bool-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_SETL_AS_SETG (setl<->setg flip) makes bool.pas correctly RED. REAL (QEMU). beads initech-f0uc, ADR-0007 DEC-03.\n'
+	@printf '  test-seed-control-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_BRANCH_INVERT (jz->jnz on if/while guards) makes control.pas correctly RED. REAL (QEMU). beads initech-80iw, ADR-0007 DEC-02/DEC-04.\n'
 	@printf '  test-harness   QEMU oracle harness self-test: serial marker caught on good fixture, triple-fault caught on bad. REAL.\n'
 	@printf '  test-tracer-boot   Real MBR->stage2->32-bit/flat->VESA LFB boot: assert serial stage markers + no triple-fault + banner rendered on the seafoam desktop (ppm_text_check). REAL.\n'
 	@printf '  test-boot      InitechDOS banner boot gate: serial markers + banner literal vs spec/dos_banner.txt (byte-exact) + screendump banner-text check + no triple-fault. REAL. (QEMU only; tri-emulator pending initech-x0i.)\n'
@@ -11855,6 +11857,11 @@ ARITH_DIR := seed/examples/arith
 # other arith fixtures' "TAG=value" markers.
 SEED_BOOL_EXPECT := EQT=TRUE EQF=FALSE NET=TRUE NEF=FALSE LTT=TRUE LTF=FALSE LET=TRUE LEF=FALSE GTT=TRUE GTF=FALSE GET=TRUE GEF=FALSE ANDTT=TRUE ANDTF=FALSE ANDFF=FALSE ORTT=TRUE ORTF=TRUE ORFF=FALSE NOTT=FALSE NOTF=TRUE DM1=TRUE DM2=TRUE DM3=FALSE DM4=FALSE PARITH1=TRUE PARITH2=FALSE PAND=TRUE PNOT=FALSE PREL=FALSE
 
+# B2 (beads initech-80iw): control.pas's full hand-computed exact-serial golden
+# (see the fixture's header comment for the derivation of every TAG) -- if/
+# while (primitive) + for/repeat (sugar, desugared in seed/parser.c).
+SEED_CONTROL_EXPECT := SUM=15 IF1=LT IF2=LE DE=Y NEST=18 FORTO=10 FORDOWN=10 FORONCE=3 REPEAT=6
+
 $(BUILD)/seed_arith_%.elf: $(ARITH_DIR)/%.pas $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
 	$(SEED_BIN) --emit-asm -o $(BUILD)/seed_arith_$*.s $<
 	$(NASM) -f elf32 $(BUILD)/seed_arith_$*.s -o $(BUILD)/seed_arith_$*.o
@@ -11865,7 +11872,8 @@ ARITH_ELVES := $(BUILD)/seed_arith_precedence.elf \
                $(BUILD)/seed_arith_divmod.elf \
                $(BUILD)/seed_arith_negative.elf \
                $(BUILD)/seed_arith_negative_divmod.elf \
-               $(BUILD)/seed_arith_bool.elf
+               $(BUILD)/seed_arith_bool.elf \
+               $(BUILD)/seed_arith_control.elf
 
 test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@printf ">>> test-seed-codegen: SMOKE -- expect serial marker '%s'\n" "$(SEED_SMOKE_MARKER)"
@@ -11896,6 +11904,10 @@ test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_bool.elf" --expect "$(SEED_BOOL_EXPECT)" \
 		--name seed_bool --timeout-ms 5000 \
 		|| { printf "!!! test-seed-codegen FAIL: bool.pas did not print the full hand-computed truth-table golden\n"; exit 1; }
+	@printf ">>> test-seed-codegen: CONTROL -- if/while (+for/repeat sugar), hand-computed golden (beads initech-80iw)\n"
+	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_control.elf" --expect "$(SEED_CONTROL_EXPECT)" \
+		--name seed_control --timeout-ms 5000 \
+		|| { printf "!!! test-seed-codegen FAIL: control.pas did not print the full hand-computed golden\n"; exit 1; }
 	@printf ">>> test-seed-codegen: BOOL complete-evaluation structural proof -- gen_binop (the ONE shared\n"
 	@printf "    code path for every binop, incl. and/or -- ADR-0007 DEC-03) must never emit a jump\n"
 	@printf "    mnemonic, so no branch could ever skip evaluating an operand.\n"
@@ -11996,6 +12008,40 @@ test-seed-bool-mutant: $(HARNESS_BIN) $(SEED_ARITH_BOOL_MUT_ELF)
 		printf '!!! test-seed-bool-mutant FAIL: mutant PASSED -- the setl/setg distinction is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-seed-bool-mutant: green (bool.pas correctly failed to reproduce its golden under the setl/setg-flip mutant)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-seed-control-mutant (beads initech-80iw; ADR-0007 DEC-02/
+# DEC-04 / DEC-07's per-family mutation obligation for B2)
+# ---------------------------------------------------------------------------
+# -DSEED_MUT_CODEGEN_BRANCH_INVERT flips every if/while guard's `jz` to
+# `jnz` in seed/codegen.c (see guard_jump_mnemonic), inverting every
+# control-flow decision: an if's then/else swap, and a while loop that
+# should stop keeps looping (and vice versa). Build a SEPARATE mutant
+# compiler binary (initechc_mut_ctrl, mirroring initechc_mut_bool above) so
+# $(SEED_BIN) is never contaminated, compile the EXISTING control.pas
+# fixture through it, and assert the QEMU harness fails to find the full
+# hand-computed golden.
+SEED_BIN_MUT_CTRL := $(BUILD)/initechc_mut_ctrl
+
+$(SEED_BIN_MUT_CTRL): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_CODEGEN_BRANCH_INVERT -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+SEED_ARITH_CONTROL_MUT_ELF := $(BUILD)/seed_arith_control_mut.elf
+
+$(SEED_ARITH_CONTROL_MUT_ELF): $(ARITH_DIR)/control.pas $(SEED_BIN_MUT_CTRL) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT_CTRL) --emit-asm -o $(BUILD)/seed_arith_control_mut.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_control_mut.s -o $(BUILD)/seed_arith_control_mut.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(BUILD)/seed_arith_control_mut.o
+
+.PHONY: test-seed-control-mutant
+test-seed-control-mutant: $(HARNESS_BIN) $(SEED_ARITH_CONTROL_MUT_ELF)
+	@printf ">>> test-seed-control-mutant: confirming the jz->jnz branch-invert mutant goes RED (Rule 6; ADR-0007 DEC-02/DEC-04, beads initech-80iw)\n"
+	@if $(HARNESS_BIN) --kernel "$(SEED_ARITH_CONTROL_MUT_ELF)" --expect "$(SEED_CONTROL_EXPECT)" \
+		--name seed_control_mut --timeout-ms 5000 >/dev/null 2>&1; then \
+		printf '!!! test-seed-control-mutant FAIL: mutant PASSED -- the if/while guard-jump direction is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-control-mutant: green (control.pas correctly failed to reproduce its golden under the jz->jnz branch-invert mutant)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -17630,7 +17676,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-assets test-spec test-dosmsg \
+	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \

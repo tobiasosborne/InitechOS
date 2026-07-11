@@ -106,6 +106,55 @@
  * Determinism (Rule 11): no timestamps, labels are ordinal, output is a pure
  * function of the AST -> the same source always yields byte-identical asm.
  * ============================================================================
+ *
+ * B2 (beads initech-80iw; ADR-0007 DEC-02/DEC-04) -- if/while control flow:
+ *
+ *   if <cond> then S1 [else S2]:
+ *     <eval cond -> eax>
+ *     test eax, eax
+ *     jz .Lelse_N        (or .Lendif_N directly if there is no 'else')
+ *     <gen S1>
+ *     jmp .Lendif_N      (only emitted when an 'else' exists)
+ *     .Lelse_N:
+ *     <gen S2>
+ *     .Lendif_N:
+ *
+ *   while <cond> do S:
+ *     .Lwhile_top_N:
+ *     <eval cond -> eax>
+ *     test eax, eax
+ *     jz .Lwhile_end_N
+ *     <gen S>
+ *     jmp .Lwhile_top_N
+ *     .Lwhile_end_N:
+ *
+ * `for`/`repeat` are SUGAR (ADR-0007 DEC-02) and are desugared entirely in
+ * seed/parser.c into if/while/assign/block/not nodes -- this file never sees
+ * a "for" or "repeat" AST node and needed NO new codegen machinery for them,
+ * exactly as the ADR requires.
+ *
+ * ORDINAL LABELS, ONE THREADED COUNTER (DEC-04, binding): `Cg.lbl_count` is
+ * the ONE shared counter for every local ordinal label this file emits --
+ * the boolean TRUE/FALSE print labels (B1, `.Lbtrue_N`/`.Lbfalse_N`/
+ * `.Lbdone_N`) AND the new if/while labels (B2, `.Lelse_N`/`.Lendif_N`/
+ * `.Lwhile_top_N`/`.Lwhile_end_N`) draw from the SAME counter, incremented
+ * once per node as gen_stmt/gen_write walks the AST in source order, in the
+ * ONE emission pass -- never re-derived by a second walk. This is the exact
+ * mechanism DEC-04 names as the anti-pattern-avoider (contrasted with the
+ * .rodata string-label scheme just above, which re-walks and re-derives).
+ *
+ * CONDITIONAL JUMPS OFF THE B1 BOOLEAN (DEC-04's other binding point): every
+ * guard (if/while) evaluates its condition exactly like any other boolean
+ * expression -- gen_expr leaves 0/1 in eax (B1) -- then `test eax, eax` /
+ * `jz` branches off it. There is no separate "condition compilation" path;
+ * control flow is a thin, uniform layer on top of the B1 boolean.
+ *
+ * MUTATION HOOK (Rule 6; beads initech-80iw): SEED_MUT_CODEGEN_BRANCH_INVERT
+ * flips every guard's `jz` to `jnz` (see guard_jump_mnemonic below), which
+ * inverts if/while decisions (an if's then/else swap; a while that should
+ * stop keeps looping and vice versa). test-seed-control-mutant asserts this
+ * makes control.pas's exact-serial golden go RED.
+ * ============================================================================
  */
 #include "codegen.h"
 
@@ -116,13 +165,19 @@
 typedef struct {
     FILE *out;
     int   str_count;      /* next .rodata string label ordinal */
-    int   bool_lbl_count; /* next local-label ordinal for boolean printing
-                           * (B1, beads initech-f0uc) -- ONE shared counter,
-                           * threaded through emission in source order, never
-                           * re-derived by a second walk (ADR-0007 DEC-04's
-                           * determinism mechanism, applied here at seed
-                           * scale even though DEC-04 itself binds the
-                           * resident compiler, not the seed). */
+    int   lbl_count;      /* next local-label ordinal -- ONE counter shared by
+                           * EVERY local label this file emits: the B1
+                           * boolean-print labels (beads initech-f0uc,
+                           * `.Lbtrue_N`/`.Lbfalse_N`/`.Lbdone_N`) AND the B2
+                           * if/while control-flow labels (beads initech-80iw,
+                           * `.Lelse_N`/`.Lendif_N`/`.Lwhile_top_N`/
+                           * `.Lwhile_end_N`). Threaded through emission in
+                           * source order, never re-derived by a second walk
+                           * (ADR-0007 DEC-04's determinism mechanism,
+                           * applied here at seed scale even though DEC-04
+                           * itself binds the resident compiler, not the
+                           * seed). Renamed from `bool_lbl_count` at B2 to
+                           * reflect that it is no longer boolean-print-only. */
     /* Collected .rodata string defs are emitted inline as encountered into a
      * deferred buffer is unnecessary: we emit .text and .rodata in separate
      * passes. To keep a single AST walk we instead emit strings to .rodata at
@@ -188,6 +243,22 @@ static void rodata_walk(Cg *cg, const AstNode *n)
         break;
     case AST_ASSIGN:
         /* assignment value is an integer expr -- no string literals there */
+        break;
+    /* B2 (beads initech-80iw): if/while bodies can contain write/writeln
+     * with string args (control.pas's IF1/IF2/DE tags do exactly this), so
+     * this pass MUST recurse into them in the SAME order gen_stmt's .text
+     * pass will -- else a string literal inside a branch/loop body would
+     * never reach .rodata and codegen would emit a reference to a label
+     * that was never defined. Conditions themselves are never walked here:
+     * a condition is an expression context and this subset's expressions
+     * never contain string literals (write/writeln args are the only place
+     * a bare string literal is legal -- see parser.c's parse_write). */
+    case AST_IF:
+        rodata_walk(cg, n->as.ifstmt.then_stmt);
+        rodata_walk(cg, n->as.ifstmt.else_stmt);
+        break;
+    case AST_WHILE:
+        rodata_walk(cg, n->as.whilestmt.body);
         break;
     default:
         break;
@@ -363,7 +434,7 @@ static void gen_write(Cg *cg, const AstNode *n, int *str_idx)
              * seed/typecheck.c, which the driver runs before codegen_emit
              * -- see codegen.h's updated contract note. */
             gen_expr(cg, arg);                 /* value -> eax (0 or 1) */
-            int lbl = cg->bool_lbl_count++;
+            int lbl = cg->lbl_count++;
             fprintf(o, "    test eax, eax\n");
             fprintf(o, "    jz .Lbfalse_%d\n", lbl);
             fprintf(o, "    mov eax, str_bool_true\n");
@@ -381,6 +452,25 @@ static void gen_write(Cg *cg, const AstNode *n, int *str_idx)
         fprintf(o, "    mov al, 10\n");          /* '\n' */
         fprintf(o, "    call serial_putc\n");
     }
+}
+
+/*
+ * SEED_MUT_CODEGEN_BRANCH_INVERT (Rule 6; beads initech-80iw, ADR-0007
+ * DEC-07's per-family mutation obligation). Compile with
+ * -DSEED_MUT_CODEGEN_BRANCH_INVERT to flip every if/while guard's `jz` to
+ * `jnz`: an if's then/else branches swap, and a while loop that should stop
+ * keeps looping (and one that should keep looping stops immediately).
+ * test-seed-control-mutant asserts this makes control.pas's exact-serial
+ * golden go RED -- mirrors SEED_MUT_CODEGEN_SETL_AS_SETG's shape in
+ * gen_binop above, scoped to control-flow guards instead of relational ops.
+ */
+static const char *guard_jump_mnemonic(void)
+{
+#ifdef SEED_MUT_CODEGEN_BRANCH_INVERT
+    return "jnz";
+#else
+    return "jz";
+#endif
 }
 
 static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
@@ -401,6 +491,44 @@ static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
     case AST_WRITELN:
         gen_write(cg, n, str_idx);
         break;
+    /* B2 (beads initech-80iw; ADR-0007 DEC-02/DEC-04). ONE shared ordinal
+     * counter (cg->lbl_count) picks each node's label suffix here, in this
+     * single emission walk -- see the file-header comment. Guards branch
+     * off the B1 boolean the same way gen_write's boolean-print path does:
+     * gen_expr leaves 0/1 in eax, then `test eax, eax` / a conditional jump
+     * (guard_jump_mnemonic -- jz normally, jnz under the Rule-6 mutant). */
+    case AST_IF: {
+        int lbl = cg->lbl_count++;
+        gen_expr(cg, n->as.ifstmt.cond);          /* cond -> eax */
+        fprintf(o, "    test eax, eax\n");
+        if (n->as.ifstmt.else_stmt) {
+            fprintf(o, "    %s .Lelse_%d\n", guard_jump_mnemonic(), lbl);
+            if (n->as.ifstmt.then_stmt)
+                gen_stmt(cg, n->as.ifstmt.then_stmt, str_idx);
+            fprintf(o, "    jmp .Lendif_%d\n", lbl);
+            fprintf(o, ".Lelse_%d:\n", lbl);
+            gen_stmt(cg, n->as.ifstmt.else_stmt, str_idx);
+            fprintf(o, ".Lendif_%d:\n", lbl);
+        } else {
+            fprintf(o, "    %s .Lendif_%d\n", guard_jump_mnemonic(), lbl);
+            if (n->as.ifstmt.then_stmt)
+                gen_stmt(cg, n->as.ifstmt.then_stmt, str_idx);
+            fprintf(o, ".Lendif_%d:\n", lbl);
+        }
+        break;
+    }
+    case AST_WHILE: {
+        int lbl = cg->lbl_count++;
+        fprintf(o, ".Lwhile_top_%d:\n", lbl);
+        gen_expr(cg, n->as.whilestmt.cond);        /* cond -> eax */
+        fprintf(o, "    test eax, eax\n");
+        fprintf(o, "    %s .Lwhile_end_%d\n", guard_jump_mnemonic(), lbl);
+        if (n->as.whilestmt.body)
+            gen_stmt(cg, n->as.whilestmt.body, str_idx);
+        fprintf(o, "    jmp .Lwhile_top_%d\n", lbl);
+        fprintf(o, ".Lwhile_end_%d:\n", lbl);
+        break;
+    }
     default:
         cg_ice("unexpected statement node", n);
         break;
@@ -442,7 +570,7 @@ int codegen_emit(const AstNode *program, FILE *out)
     Cg cg;
     cg.out = out;
     cg.str_count = 0;
-    cg.bool_lbl_count = 0;
+    cg.lbl_count = 0;
 
     /* File banner (deterministic; cites the PRD per Law 1). */
     fprintf(out,

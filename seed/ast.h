@@ -32,6 +32,15 @@
  * write/writeln args. AST_VARDECL's `vtype` is set directly by the parser
  * (the declared type keyword is already consumed there); it is distinct from
  * the generic per-expression `type` field.
+ *
+ * B2 addition (beads initech-80iw; ADR-0007 DEC-02): AST_IF and AST_WHILE
+ * are the only new NODE KINDS -- the two PRIMITIVE control-flow statements.
+ * `for`/`repeat` are sugar (ADR-0007 DEC-02's own text): seed/parser.c
+ * desugars them entirely at parse time into AST_ASSIGN/AST_WHILE/AST_BLOCK/
+ * AST_UNOP(NOT) nodes that already exist, so codegen never sees a "for" or
+ * "repeat" node and needs no new machinery for them (the ADR's explicit
+ * point: sugar "desugar[s] to the primitive forms ... rather than requiring
+ * new codegen machinery"). `case` is not implemented (optional per DEC-02).
  */
 #ifndef SEED_AST_H
 #define SEED_AST_H
@@ -76,6 +85,12 @@ typedef enum {
     AST_VARDECL,   /* one "name1, name2 : integer;" (or ":boolean") group */
     AST_BLOCK,     /* begin <stmt>* end -- a compound statement */
     AST_ASSIGN,    /* <name> := <expr> */
+    /* B2 (beads initech-80iw): the two primitive control-flow statements.
+     * for/repeat are sugar, desugared to these + AST_BLOCK/AST_ASSIGN/
+     * AST_UNOP(NOT) at parse time -- see parser.c and this header's B2
+     * comment above. */
+    AST_IF,        /* if <cond> then <then_stmt> [else <else_stmt>] */
+    AST_WHILE,     /* while <cond> do <body> */
     AST_WRITE,     /* write(<arg>*)   -- is_newline == 0 */
     AST_WRITELN,   /* writeln(<arg>*) -- is_newline == 1 (shared node kind) */
     AST_BINOP,     /* <lhs> <op> <rhs> */
@@ -134,6 +149,9 @@ struct AstNode {
         struct { AstList names; /* AST_VARREF nodes */ AstVarType vtype; } vardecl;
         struct { AstList stmts; } block;
         struct { char *name; AstNode *value; } assign;
+        /* B2: else_stmt is NULL when there is no 'else' clause. */
+        struct { AstNode *cond; AstNode *then_stmt; AstNode *else_stmt; } ifstmt;
+        struct { AstNode *cond; AstNode *body; } whilestmt;
         struct { AstList args; int is_newline; } write;
         struct { AstOp op; AstNode *lhs; AstNode *rhs; } binop;
         struct { AstOp op; AstNode *operand; } unop;

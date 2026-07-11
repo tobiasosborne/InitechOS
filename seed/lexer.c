@@ -208,6 +208,18 @@ static TokenKind keyword_kind(const char *s, size_t n)
     if (strcmp(buf, "not") == 0)     return TOK_KW_NOT;
     if (strcmp(buf, "true") == 0)    return TOK_KW_TRUE;
     if (strcmp(buf, "false") == 0)   return TOK_KW_FALSE;
+    /* B2 (beads initech-80iw): if/then/else/while/do (primitive) plus
+     * for/to/downto/repeat/until (sugar, desugared in parser.c). */
+    if (strcmp(buf, "if") == 0)      return TOK_KW_IF;
+    if (strcmp(buf, "then") == 0)    return TOK_KW_THEN;
+    if (strcmp(buf, "else") == 0)    return TOK_KW_ELSE;
+    if (strcmp(buf, "while") == 0)   return TOK_KW_WHILE;
+    if (strcmp(buf, "do") == 0)      return TOK_KW_DO;
+    if (strcmp(buf, "for") == 0)     return TOK_KW_FOR;
+    if (strcmp(buf, "to") == 0)      return TOK_KW_TO;
+    if (strcmp(buf, "downto") == 0)  return TOK_KW_DOWNTO;
+    if (strcmp(buf, "repeat") == 0)  return TOK_KW_REPEAT;
+    if (strcmp(buf, "until") == 0)   return TOK_KW_UNTIL;
     return TOK_IDENT;
 }
 

@@ -240,6 +240,24 @@ static void dump(const AstNode *n, FILE *fp)
         dump(n->as.assign.value, fp);
         fputc(')', fp);
         break;
+    case AST_IF:
+        fputs("(if ", fp);
+        dump(n->as.ifstmt.cond, fp);
+        fputc(' ', fp);
+        dump(n->as.ifstmt.then_stmt, fp);
+        if (n->as.ifstmt.else_stmt) {
+            fputc(' ', fp);
+            dump(n->as.ifstmt.else_stmt, fp);
+        }
+        fputc(')', fp);
+        break;
+    case AST_WHILE:
+        fputs("(while ", fp);
+        dump(n->as.whilestmt.cond, fp);
+        fputc(' ', fp);
+        dump(n->as.whilestmt.body, fp);
+        fputc(')', fp);
+        break;
     case AST_WRITE:
     case AST_WRITELN:
         fputs(n->as.write.is_newline ? "(writeln" : "(write", fp);

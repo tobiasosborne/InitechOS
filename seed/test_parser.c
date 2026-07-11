@@ -405,6 +405,196 @@ static void test_typecheck_duplicate_declaration(void)
     CHECK(strstr(buf, "duplicate") != NULL, "diagnostic names the problem");
 }
 
+/* ------------------------------------------------------------------ */
+/* B2 (beads initech-80iw; ADR-0007 DEC-02): if/while/for/repeat        */
+/* ------------------------------------------------------------------ */
+static void test_if_else_ast(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var a : integer;\n"
+        "begin if a = 1 then a := 2 else a := 3 end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "if/then/else parses");
+    CHECK_STR_EQ(buf,
+        "(program P (var (varref a):integer) "
+        "(block (if (= (varref a) (int 1)) (assign a (int 2)) "
+        "(assign a (int 3)))))",
+        "if/then/else AST shape");
+}
+
+static void test_if_no_else_ast(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var a : integer;\n"
+        "begin if a = 1 then a := 2 end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "if with no else parses");
+    CHECK_STR_EQ(buf,
+        "(program P (var (varref a):integer) "
+        "(block (if (= (varref a) (int 1)) (assign a (int 2)))))",
+        "if with no else has no trailing else_stmt in the dump");
+}
+
+/* Dangling-else: must bind to the NEAREST unmatched 'if' -- the inner if's
+ * else, not the outer's (parser.h's grammar comment; ISO 7185 / Turbo
+ * Pascal canonical resolution). If this ever bound to the OUTER if instead,
+ * the dump would show the else attached to the wrong (if ...) node -- a
+ * real, structural difference, not a coincidence. */
+static void test_dangling_else_binds_nearest_ast(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var a, b : integer;\n"
+        "begin if a = 1 then if b = 2 then a := 3 else a := 4 end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "nested if with dangling else parses");
+    CHECK_STR_EQ(buf,
+        "(program P (var (varref a):integer (varref b):integer) "
+        "(block (if (= (varref a) (int 1)) "
+        "(if (= (varref b) (int 2)) (assign a (int 3)) (assign a (int 4))))))",
+        "dangling else binds to the nearest (inner) if, not the outer");
+}
+
+static void test_while_ast(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var i : integer;\n"
+        "begin while i < 10 do i := i + 1 end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "while/do parses");
+    CHECK_STR_EQ(buf,
+        "(program P (var (varref i):integer) "
+        "(block (while (< (varref i) (int 10)) "
+        "(assign i (+ (varref i) (int 1))))))",
+        "while AST shape");
+}
+
+/* for .. to: SUGAR (ADR-0007 DEC-02) desugared entirely at parse time into
+ * "v := e1; <limit> := e2; while v <= limit do begin S; v := v+1 end" (see
+ * parser.c's parse_for). The synthesized limit variable ("__forlim_1") is
+ * appended to the program's decls AFTER the user's own var-section -- this
+ * test pins that exact desugared shape down so a future refactor of the
+ * desugar can't silently change the once-evaluated-bound structure. */
+static void test_for_to_desugars_to_while(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var i, x : integer;\n"
+        "begin for i := 1 to 5 do x := x + i end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "for .. to parses");
+    CHECK_STR_EQ(buf,
+        "(program P (var (varref i):integer (varref x):integer) "
+        "(var (varref __forlim_1):integer) "
+        "(block (block (assign i (int 1)) (assign __forlim_1 (int 5)) "
+        "(while (<= (varref i) (varref __forlim_1)) "
+        "(block (assign x (+ (varref x) (varref i))) "
+        "(assign i (+ (varref i) (int 1))))))))",
+        "for .. to desugars to a once-evaluated-limit while loop");
+}
+
+/* for .. downto: guard is ">=" and the step is "v - 1" (mirrors the 'to'
+ * case with the two swaps DEC-02's dialect pinning calls for). */
+static void test_for_downto_desugars_to_while(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var i, x : integer;\n"
+        "begin for i := 5 downto 1 do x := x + i end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "for .. downto parses");
+    CHECK_STR_EQ(buf,
+        "(program P (var (varref i):integer (varref x):integer) "
+        "(var (varref __forlim_1):integer) "
+        "(block (block (assign i (int 5)) (assign __forlim_1 (int 1)) "
+        "(while (>= (varref i) (varref __forlim_1)) "
+        "(block (assign x (+ (varref x) (varref i))) "
+        "(assign i (- (varref i) (int 1))))))))",
+        "for .. downto uses >= and a decrementing step");
+}
+
+/* repeat-until: SUGAR, desugars to "the body block, once, followed by a
+ * while-not-guard loop over the SAME (shared) body block" (see parser.c's
+ * parse_repeat) -- runs at least once, guard tested AFTER the body. */
+static void test_repeat_until_desugars_to_while(void)
+{
+    char buf[2048];
+    int rc = parse_to_str(
+        "program P; var i, s : integer;\n"
+        "begin i := 1; s := 0; "
+        "repeat s := s + i; i := i + 1 until i > 3 end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "repeat/until parses");
+    CHECK_STR_EQ(buf,
+        "(program P (var (varref i):integer (varref s):integer) "
+        "(block (assign i (int 1)) (assign s (int 0)) "
+        "(block (block (assign s (+ (varref s) (varref i))) "
+        "(assign i (+ (varref i) (int 1)))) "
+        "(while (not (> (varref i) (int 3))) "
+        "(block (assign s (+ (varref s) (varref i))) "
+        "(assign i (+ (varref i) (int 1))))))))",
+        "repeat/until runs the body once inline then loops on 'not guard'");
+}
+
+static void test_typecheck_if_requires_boolean(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var a : integer;\n"
+        "begin if a then a := 1 end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "an integer 'if' condition is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+    CHECK(strstr(buf, "'if' condition must be boolean") != NULL,
+          "diagnostic names the problem");
+}
+
+static void test_typecheck_while_requires_boolean(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var i : integer;\n"
+        "begin while i do i := i + 1 end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "an integer 'while' condition is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+    CHECK(strstr(buf, "'while' condition must be boolean") != NULL,
+          "diagnostic names the problem");
+}
+
+/* repeat's guard must be boolean too -- enforced for free by the desugared
+ * 'not' (check_unop already requires a boolean operand), so the located
+ * diagnostic is 'not's, not a repeat-specific message (see typecheck.h's
+ * B2 note). */
+static void test_typecheck_repeat_guard_requires_boolean(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var i : integer;\n"
+        "begin repeat i := i + 1 until i end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "an integer repeat-guard is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+    CHECK(strstr(buf, "'not' requires a boolean operand") != NULL,
+          "diagnostic surfaces via the desugared 'not' check");
+}
+
+/* for-bounds must be integer -- enforced for free by the desugared
+ * assignment (v := e1 requires e1's type to match v's declared type). */
+static void test_typecheck_for_bound_requires_integer(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var i : integer; done : boolean;\n"
+        "begin for i := 1 to done do i := i end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "a boolean for-loop bound is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+}
+
 int main(void)
 {
     test_minimal_program();
@@ -431,5 +621,16 @@ int main(void)
     test_typecheck_relational_operand_mismatch();
     test_typecheck_undeclared_variable();
     test_typecheck_duplicate_declaration();
+    test_if_else_ast();
+    test_if_no_else_ast();
+    test_dangling_else_binds_nearest_ast();
+    test_while_ast();
+    test_for_to_desugars_to_while();
+    test_for_downto_desugars_to_while();
+    test_repeat_until_desugars_to_while();
+    test_typecheck_if_requires_boolean();
+    test_typecheck_while_requires_boolean();
+    test_typecheck_repeat_guard_requires_boolean();
+    test_typecheck_for_bound_requires_integer();
     return TEST_SUMMARY("test_parser");
 }
