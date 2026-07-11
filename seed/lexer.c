@@ -239,6 +239,9 @@ static TokenKind keyword_kind(const char *s, size_t n)
      * for the same minimality reason as every other keyword above. */
     if (strcmp(buf, "array") == 0)     return TOK_KW_ARRAY;
     if (strcmp(buf, "of") == 0)        return TOK_KW_OF;
+    /* B6 (beads initech-rug7): a `type` section naming `record` types. */
+    if (strcmp(buf, "type") == 0)      return TOK_KW_TYPE;
+    if (strcmp(buf, "record") == 0)    return TOK_KW_RECORD;
     return TOK_IDENT;
 }
 

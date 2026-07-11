@@ -47,6 +47,21 @@
  * though DEC-04 itself binds the resident compiler, not the seed). */
 #define PARSER_MAX_CONSTS 256
 #define PARSER_CONST_NAME_CAP 128
+/* B6 (beads initech-rug7): the parser's own RECORD-TYPE-NAME registry. Only
+ * EXISTENCE (a name -> "yes, this is a declared record type") is tracked
+ * here -- enough to disambiguate an identifier as a type name wherever a
+ * var-decl/param/array-element TYPE is expected (parse_type_name below).
+ * Full field validation (names, per-field types, layout) is typecheck.c's
+ * job (mirrors how parse_array_bound only needs "is this const registered"
+ * at parse time, while the array's actual bounds-use is validated later).
+ * Record type names live in their OWN namespace in this subset -- NOT
+ * cross-checked against var/const/proc names (DECISION, report: a minor,
+ * deliberate divergence from strict ISO Pascal's single flat identifier
+ * namespace; colliding a type name with a variable name is confusing style
+ * but is not a documented self-host need to reject via cross-namespace
+ * collision detection, and checking it would require reordering this
+ * parser's single forward pass against typecheck's separate symbol table). */
+#define PARSER_MAX_RECTYPES 64
 /* B4 (beads initech-63ce): while a procedure/function BODY is being parsed,
  * its parameter and local names SHADOW any same-named program-level const so
  * that a reference resolves to the parameter/local, not the folded const
@@ -93,6 +108,13 @@ typedef struct {
     /* B3 (beads initech-7mo3): the const table (see above). */
     ParserConst consts[PARSER_MAX_CONSTS];
     int         nconsts;
+    /* B6 (beads initech-rug7): the record-TYPE-name registry (see above).
+     * Global only -- there is no local `type` section in this subset,
+     * mirroring the B3 const-section's local-declaration deferral, so this
+     * is never saved/restored around a routine body the way the const-shadow
+     * set is. */
+    char        rectypes[PARSER_MAX_RECTYPES][PARSER_CONST_NAME_CAP];
+    int         nrectypes;
     /* B4 (beads initech-63ce): the const-shadow set (see PARSER_MAX_SHADOW).
      * Names (case-folded) of the params/locals of the proc/func body
      * currently being parsed; parse_factor skips const folding for any name
@@ -171,6 +193,15 @@ static int const_find(const Parser *p, const char *name_lc)
     return -1;
 }
 
+/* B6 (beads initech-rug7): is this case-folded name a declared record type? */
+static int rectype_find(const Parser *p, const char *name_lc)
+{
+    for (int i = 0; i < p->nrectypes; i++)
+        if (strcmp(p->rectypes[i], name_lc) == 0)
+            return i;
+    return -1;
+}
+
 /* B4 (beads initech-63ce): is this case-folded name a param/local of the
  * proc/func body currently being parsed (and therefore shadowing any const)? */
 static int shadow_find(const Parser *p, const char *name_lc)
@@ -236,6 +267,11 @@ static AstNode *parse_proc_or_func(Parser *p);
 static void     parse_var_section(Parser *p, AstList *decls);
 /* B5 (beads initech-54uu): array indexing. */
 static AstNode *parse_index(Parser *p, char *name, int line, int col);
+/* B6 (beads initech-rug7): a `type` section of named record types, and the
+ * shared scalar-or-record-name TYPE parser used by var-decls/params/array
+ * element types. */
+static void     parse_type_section(Parser *p, AstList *decls);
+static int      parse_type_name(Parser *p, AstVarType *out, char **out_rectype);
 
 /* ------------------------------------------------------------------ */
 /* Expressions                                                        */
@@ -391,11 +427,39 @@ static AstNode *parse_factor(Parser *p)
         /* B5 (beads initech-54uu): `name[expr]` is an array-element r-value.
          * A const can never reach here (the const-fold branch above already
          * returned), so this is unambiguously an array reference. */
+        AstNode *desig;
         if (check(p, TOK_LBRACKET))
-            return parse_index(p, name, line, col);
-        AstNode *n = ast_new(p->arena, AST_VARREF, line, col);
-        n->as.varref.name = name;
-        return n;
+            desig = parse_index(p, name, line, col);
+        else {
+            desig = ast_new(p->arena, AST_VARREF, line, col);
+            desig->as.varref.name = name;
+        }
+        if (p->failed)
+            return NULL;
+        /* B6 (beads initech-rug7; ADR-0007 DEC-02 "field access"): an
+         * OPTIONAL trailing ".field" makes this a FIELD access -- `name.f`
+         * or `name[expr].f`. ONE level only (fields are scalar-only, no
+         * record-of-record nesting -- ast.h's B6 AST_FIELD comment); a
+         * second consecutive '.' surfaces as an ordinary syntax/type error
+         * downstream (there is no field-of-a-field designator to build). */
+        if (check(p, TOK_DOT)) {
+            int fline = p->cur.line, fcol = p->cur.col;
+            advance(p); /* '.' */
+            if (!check(p, TOK_IDENT)) {
+                fail_at(p, p->cur.line, p->cur.col,
+                        "expected a field name after '.'");
+                return NULL;
+            }
+            char *field = ast_arena_strndup(p->arena, p->cur.lexeme,
+                                            p->cur.length);
+            advance(p);
+            AstNode *fn = ast_new(p->arena, AST_FIELD, fline, fcol);
+            fn->as.field.base = desig;
+            fn->as.field.field = field;
+            fn->as.field.field_index = -1; /* resolved by typecheck.c */
+            return fn;
+        }
+        return desig;
     }
     if (check(p, TOK_LPAREN)) {
         advance(p);
@@ -587,6 +651,17 @@ static AstNode *parse_write(Parser *p, int is_newline)
  * and ':=' makes this an INDEXED (array-element) assignment target --
  * `name[index] := expr`. Reuses AST_ASSIGN (its `index` field is NULL for
  * every plain scalar assignment, non-NULL here) -- see ast.h's B5 comment.
+ *
+ * B6 (beads initech-rug7): an optional ".field" AFTER the identifier/index
+ * makes this a FIELD assignment -- `name.field := expr` or
+ * `name[index].field := expr` -- reusing AST_ASSIGN's new `field`/
+ * `field_index` members (see ast.h's B6 comment) rather than a sibling
+ * statement kind, mirroring how the B5 indexed case reused `index`. When
+ * NEITHER `index` NOR `field` is present and the target resolves (at
+ * typecheck) to a RECORD-typed variable, `name := expr` is a WHOLE-RECORD
+ * assignment (`r1 := r2`) -- typecheck.c sets `rec_fields` in that case; the
+ * parser does not need to know the target's type to build the right AST
+ * shape, only whether a `.field` followed.
  */
 static AstNode *parse_assignment(Parser *p)
 {
@@ -604,6 +679,17 @@ static AstNode *parse_assignment(Parser *p)
         if (!expect(p, TOK_RBRACKET, "']' after an array index"))
             return NULL;
     }
+    char *field = NULL;
+    if (check(p, TOK_DOT)) {
+        advance(p); /* '.' */
+        if (!check(p, TOK_IDENT)) {
+            fail_at(p, p->cur.line, p->cur.col,
+                    "expected a field name after '.'");
+            return NULL;
+        }
+        field = ast_arena_strndup(p->arena, p->cur.lexeme, p->cur.length);
+        advance(p);
+    }
     if (!expect(p, TOK_ASSIGN, "':='"))
         return NULL;
     AstNode *value = parse_expr(p);
@@ -612,6 +698,9 @@ static AstNode *parse_assignment(Parser *p)
     AstNode *n = ast_new(p->arena, AST_ASSIGN, line, col);
     n->as.assign.name = name;
     n->as.assign.index = index;
+    n->as.assign.field = field;
+    n->as.assign.field_index = -1;
+    n->as.assign.rec_fields = 0;
     n->as.assign.value = value;
     return n;
 }
@@ -1071,14 +1160,53 @@ static int parse_array_bound(Parser *p, long *out)
 }
 
 /*
+ * B6 (beads initech-rug7; ADR-0007 DEC-02 "records ... arrays of records").
+ * type-name = "integer" | "boolean" | "char" | record-type-ident ;
+ *
+ * The SHARED "what type is this" parser used everywhere a var-decl,
+ * parameter, or array ELEMENT type is expected: the three scalar keywords,
+ * or the name of an ALREADY-DECLARED `type ... = record ... end;` (this
+ * parser's own rectypes registry -- see its comment near PARSER_MAX_RECTYPES
+ * above). A record type name is therefore usable only AFTER its `type`
+ * declaration has been parsed (single-pass, declare-before-use -- the same
+ * discipline `const` already uses for array bounds). Returns 1 on success
+ * (with *out and *out_rectype set; *out_rectype is NULL for a scalar type, an
+ * arena-owned original-spelling name for a record type), 0 with a located
+ * error otherwise.
+ */
+static int parse_type_name(Parser *p, AstVarType *out, char **out_rectype)
+{
+    *out_rectype = NULL;
+    if (check(p, TOK_KW_INTEGER)) { *out = AST_TY_INTEGER; advance(p); return 1; }
+    if (check(p, TOK_KW_BOOLEAN)) { *out = AST_TY_BOOLEAN; advance(p); return 1; }
+    if (check(p, TOK_KW_CHAR))    { *out = AST_TY_CHAR;    advance(p); return 1; }
+    if (check(p, TOK_IDENT)) {
+        char lc[PARSER_CONST_NAME_CAP];
+        lower_span(lc, sizeof(lc), p->cur.lexeme, p->cur.length);
+        if (rectype_find(p, lc) >= 0) {
+            *out = AST_TY_RECORD;
+            *out_rectype = ast_arena_strndup(p->arena, p->cur.lexeme,
+                                             p->cur.length);
+            advance(p);
+            return 1;
+        }
+    }
+    fail_at(p, p->cur.line, p->cur.col,
+            "expected 'integer', 'boolean', 'char', or a declared record "
+            "type name");
+    return 0;
+}
+
+/*
  * array-type = "array" "[" array-bound ".." array-bound "]" "of"
- *              ("integer" | "boolean" | "char") ;   (B5, beads initech-54uu)
+ *              type-name ;   (B5, beads initech-54uu; B6 extends the element
+ *              type to also allow a record type name, beads initech-rug7)
  *
  * The current token is 'array' on entry. `lo <= hi` is enforced HERE, at
  * parse/fold time (Rule 2 -- fail loud, never a codegen-time surprise).
  */
 static int parse_array_type(Parser *p, long *out_lo, long *out_hi,
-                            AstVarType *out_elem)
+                            AstVarType *out_elem, char **out_elem_rectype)
 {
     advance(p); /* 'array' */
     if (!expect(p, TOK_LBRACKET, "'[' after 'array'"))
@@ -1101,24 +1229,13 @@ static int parse_array_type(Parser *p, long *out_lo, long *out_hi,
     if (!expect(p, TOK_KW_OF, "'of' after an array bound"))
         return 0;
     AstVarType elem;
-    if (check(p, TOK_KW_INTEGER)) {
-        elem = AST_TY_INTEGER;
-        advance(p);
-    } else if (check(p, TOK_KW_BOOLEAN)) {
-        elem = AST_TY_BOOLEAN;
-        advance(p);
-    } else if (check(p, TOK_KW_CHAR)) {
-        elem = AST_TY_CHAR;
-        advance(p);
-    } else {
-        fail_at(p, p->cur.line, p->cur.col,
-                "expected 'integer', 'boolean', or 'char' as the array "
-                "element type");
+    char *elem_rectype;
+    if (!parse_type_name(p, &elem, &elem_rectype))
         return 0;
-    }
     *out_lo = lo;
     *out_hi = hi;
     *out_elem = elem;
+    *out_elem_rectype = elem_rectype;
     return 1;
 }
 
@@ -1153,29 +1270,29 @@ static AstNode *parse_one_vardecl(Parser *p)
     if (!expect(p, TOK_COLON, "':'"))
         return NULL;
     if (check(p, TOK_KW_ARRAY)) {
-        /* B5 (beads initech-54uu; ADR-0007 DEC-02 "static arrays"). */
+        /* B5 (beads initech-54uu; ADR-0007 DEC-02 "static arrays"). B6
+         * (beads initech-rug7): the element type may now also be a record
+         * type name (array-of-record). */
         long lo, hi;
         AstVarType elem;
-        if (!parse_array_type(p, &lo, &hi, &elem))
+        char *elem_rectype;
+        if (!parse_array_type(p, &lo, &hi, &elem, &elem_rectype))
             return NULL;
         vd->as.vardecl.is_array = 1;
         vd->as.vardecl.lo = lo;
         vd->as.vardecl.hi = hi;
         vd->as.vardecl.vtype = elem;
-    } else if (check(p, TOK_KW_INTEGER)) {
-        vd->as.vardecl.vtype = AST_TY_INTEGER;
-        advance(p);
-    } else if (check(p, TOK_KW_BOOLEAN)) {
-        vd->as.vardecl.vtype = AST_TY_BOOLEAN;
-        advance(p);
-    } else if (check(p, TOK_KW_CHAR)) {
-        /* B3 (beads initech-7mo3; ADR-0007 DEC-02 "char"). */
-        vd->as.vardecl.vtype = AST_TY_CHAR;
-        advance(p);
+        vd->as.vardecl.rectype = elem_rectype;
     } else {
-        fail_at(p, p->cur.line, p->cur.col,
-                "expected 'integer', 'boolean', 'char', or 'array'");
-        return NULL;
+        /* B6 (beads initech-rug7): a scalar type keyword OR a declared
+         * record type name (`r: Token;`) -- parse_type_name is the shared
+         * "what type is this" parser (see its comment above). */
+        AstVarType t;
+        char *rt;
+        if (!parse_type_name(p, &t, &rt))
+            return NULL;
+        vd->as.vardecl.vtype = t;
+        vd->as.vardecl.rectype = rt;
     }
     return vd;
 }
@@ -1320,6 +1437,130 @@ static void parse_var_section(Parser *p, AstList *decls)
 }
 
 /* ------------------------------------------------------------------ */
+/* B6 (beads initech-rug7): `type` sections of named record types      */
+/* ------------------------------------------------------------------ */
+/*
+ * type-section = "type" type-decl ";" { type-decl ";" } ;
+ * type-decl    = ident "=" record-type ;
+ * record-type  = "record" field-list "end" ;
+ * field-list   = field-group { ";" field-group } [ ";" ] ;
+ * field-group  = ident { "," ident } ":" ("integer" | "boolean" | "char") ;
+ *
+ * `record` is the ONLY type-constructor in this subset (ADR-0007 DEC-02's
+ * own text; see ast.h's B6 AST_TYPEDECL comment for the "why a `type`
+ * section, why record-only" design note). A field's type is SCALAR ONLY --
+ * no nested records, no array-typed fields (parse_type_name is deliberately
+ * NOT used for a field's type: only the three bare scalar keywords are
+ * accepted here). Global (top-level) ONLY -- there is no local `type`
+ * section, mirroring the B3 const-section's local-declaration deferral
+ * (parse_proc_or_func never calls this). `type`/`const`/`var` sections may
+ * repeat and interleave in any order, exactly like const/var already do
+ * (parse_program_root's top-level loop) -- so a var-decl referencing a
+ * record type is valid the moment that type's declaration has been parsed
+ * (single-pass declare-before-use, the same discipline array bounds use for
+ * const references).
+ */
+static void parse_type_section(Parser *p, AstList *decls)
+{
+    if (!check(p, TOK_KW_TYPE))
+        return;
+    advance(p); /* 'type' */
+
+    for (;;) {
+        if (!check(p, TOK_IDENT)) {
+            fail_at(p, p->cur.line, p->cur.col,
+                    "expected a type name after 'type'");
+            return;
+        }
+        int line = p->cur.line, col = p->cur.col;
+        char *name = ast_arena_strndup(p->arena, p->cur.lexeme, p->cur.length);
+        char name_lc[PARSER_CONST_NAME_CAP];
+        lower_span(name_lc, sizeof(name_lc), p->cur.lexeme, p->cur.length);
+        advance(p);
+
+        if (!expect(p, TOK_EQ, "'=' in a type declaration"))
+            return;
+        if (!expect(p, TOK_KW_RECORD,
+                    "'record' (the only type-constructor in this subset)"))
+            return;
+
+        AstNode *td = ast_new(p->arena, AST_TYPEDECL, line, col);
+        td->as.typedecl.name = name;
+        ast_list_init(&td->as.typedecl.fields);
+
+        while (!check(p, TOK_KW_END) && !p->failed) {
+            AstNode *fg = ast_new(p->arena, AST_VARDECL, p->cur.line,
+                                  p->cur.col);
+            ast_list_init(&fg->as.vardecl.names);
+            for (;;) {
+                if (!check(p, TOK_IDENT)) {
+                    fail_at(p, p->cur.line, p->cur.col,
+                            "expected a field name");
+                    return;
+                }
+                AstNode *ref = ast_new(p->arena, AST_VARREF, p->cur.line,
+                                       p->cur.col);
+                ref->as.varref.name = ast_arena_strndup(p->arena,
+                                                        p->cur.lexeme,
+                                                        p->cur.length);
+                ast_list_push(p->arena, &fg->as.vardecl.names, ref);
+                advance(p);
+                if (check(p, TOK_COMMA)) {
+                    advance(p);
+                    continue;
+                }
+                break;
+            }
+            if (!expect(p, TOK_COLON, "':' in a field declaration"))
+                return;
+            AstVarType ft;
+            if (check(p, TOK_KW_INTEGER)) {
+                ft = AST_TY_INTEGER;
+                advance(p);
+            } else if (check(p, TOK_KW_BOOLEAN)) {
+                ft = AST_TY_BOOLEAN;
+                advance(p);
+            } else if (check(p, TOK_KW_CHAR)) {
+                ft = AST_TY_CHAR;
+                advance(p);
+            } else {
+                fail_at(p, p->cur.line, p->cur.col,
+                        "expected 'integer', 'boolean', or 'char' (record "
+                        "fields are scalar-only in this subset -- no nested "
+                        "records or array-typed fields)");
+                return;
+            }
+            fg->as.vardecl.vtype = ft;
+            fg->as.vardecl.is_array = 0;
+            fg->as.vardecl.rectype = NULL;
+            ast_list_push(p->arena, &td->as.typedecl.fields, fg);
+            if (!expect(p, TOK_SEMI, "';' after a field declaration"))
+                return;
+        }
+        if (!expect(p, TOK_KW_END, "'end' to close a record type"))
+            return;
+
+        if (p->nrectypes >= PARSER_MAX_RECTYPES) {
+            fail_at(p, line, col,
+                    "too many record type declarations "
+                    "(PARSER_MAX_RECTYPES exceeded)");
+            return;
+        }
+        snprintf(p->rectypes[p->nrectypes], PARSER_CONST_NAME_CAP, "%s",
+                 name_lc);
+        p->nrectypes++;
+
+        ast_list_push(p->arena, decls, td);
+
+        if (!expect(p, TOK_SEMI, "';' after a type declaration"))
+            return;
+        if (check(p, TOK_IDENT))
+            continue; /* another type-decl in the same `type` section */
+        break;
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* B4 (beads initech-63ce): procedures / functions / calls             */
 /* ------------------------------------------------------------------ */
 /* Parse one scalar type keyword (integer / boolean / char). Shared by the
@@ -1379,11 +1620,31 @@ static void parse_param_list(Parser *p, AstList *params)
         }
         if (!expect(p, TOK_COLON, "':' in a parameter group"))
             return;
+        /* B6 (beads initech-rug7; ADR-0007 DEC-02 "records ... field
+         * access"): a parameter's type may now also be a declared record
+         * type name. DECISION (report, ADR silent -- the bead's own "decide
+         * minimal, record" point): a VALUE (non-`var`) parameter of record
+         * type is REJECTED LOUDLY here, at parse time -- Turbo Pascal would
+         * copy the whole record on every call (expensive, and this seed's
+         * own self-host source can always use `var` instead); only a `var`
+         * parameter of record type is supported (the record's address is
+         * passed -- needed for symbol-table-style helpers that mutate a
+         * caller's record in place). See ast.h's B6 AST_TYPEDECL comment. */
         AstVarType t;
-        if (!parse_type_kw(p, &t))
+        char *rt;
+        if (!parse_type_name(p, &t, &rt))
             return;
-        for (size_t i = group_start; i < params->count; i++)
+        if (t == AST_TY_RECORD && !is_var) {
+            fail_at(p, p->cur.line, p->cur.col,
+                    "value parameter of record type is not supported in "
+                    "this subset (Turbo Pascal would copy the whole record "
+                    "on every call; pass it as a `var` parameter instead)");
+            return;
+        }
+        for (size_t i = group_start; i < params->count; i++) {
             params->items[i]->as.param.ptype = t;
+            params->items[i]->as.param.rectype = rt;
+        }
         if (check(p, TOK_SEMI)) { /* another parameter group */
             advance(p);
             continue;
@@ -1562,15 +1823,19 @@ static AstNode *parse_program_root(Parser *p)
      * "implement at least const-then-var"; this seed goes past that floor
      * and accepts REPEATED, INTERLEAVED const/var sections, because the
      * extra generality costs nothing beyond a "which section keyword is
-     * next" loop (there is no type-section to support yet -- no enums/
-     * records/arrays are in the B3 scope) and it matches full TP dialect
-     * behaviour rather than an artificially narrower one.
+     * next" loop and it matches full TP dialect behaviour rather than an
+     * artificially narrower one. B6 (beads initech-rug7) adds `type`
+     * sections to this same repeated/interleaved loop -- a var-decl
+     * referencing a record type just needs that type's `type` section to
+     * have been parsed EARLIER in this same single forward pass.
      */
     for (;;) {
         if (check(p, TOK_KW_CONST)) {
             parse_const_section(p, &prog->as.program.decls);
         } else if (check(p, TOK_KW_VAR)) {
             parse_var_section(p, &prog->as.program.decls);
+        } else if (check(p, TOK_KW_TYPE)) {
+            parse_type_section(p, &prog->as.program.decls);
         } else if (check(p, TOK_KW_PROCEDURE) || check(p, TOK_KW_FUNCTION)) {
             /* B4 (beads initech-63ce): top-level procedure/function
              * declarations follow the const/var sections (TP declaration
@@ -1618,6 +1883,7 @@ int parse_program(const char *src, size_t len, AstArena *arena,
     p.top_decls = NULL;   /* set by parse_program_root before any "for" can be reached */
     p.synth_count = 0;
     p.nconsts = 0;        /* B3 (beads initech-7mo3): the const table starts empty */
+    p.nrectypes = 0;      /* B6 (beads initech-rug7): the record-type registry starts empty */
     p.nshadow = 0;        /* B4 (beads initech-63ce): no active routine scope yet */
     advance(&p); /* prime lookahead */
 

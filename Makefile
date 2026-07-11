@@ -7106,6 +7106,7 @@ endef
         test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant \
         test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant \
         test-seed-array-mutant \
+        test-seed-record-mutant \
         test-seed-fpc-diff \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-redir test-redir-mutant test-int24 test-int24-mutant \
@@ -7168,6 +7169,7 @@ help:
 	@printf '  test-seed-char-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_CHR_OFF1 (chr(i) computes (i&0xFF)+1) makes char.pas correctly RED. REAL (QEMU). beads initech-7mo3, ADR-0007 DEC-02/DEC-07.\n'
 	@printf '  test-seed-func-mutant  Rule-6 proof (B4 CODEGEN PIVOT): BOTH deep-bug mutants make func.pas correctly RED -- FRAME_OFF4 (frame-offset arithmetic) + VARPARAM_COPY (var-param aliasing). REAL (QEMU). beads initech-63ce, ADR-0007 DEC-02/DEC-07.\n'
 	@printf '  test-seed-array-mutant  Rule-6 proof (B5 static arrays): BOTH deep-bug mutants make array.pas correctly RED -- STRIDE (element stride *2 instead of *4) + ARRAY_LO_SKIP (the lo-offset subtraction omitted). REAL (QEMU). beads initech-54uu, ADR-0007 DEC-02/DEC-07.\n'
+	@printf '  test-seed-record-mutant  Rule-6 proof (B6 records): BOTH deep-bug mutants make record.pas correctly RED -- FIELD_OFF4 (every field offset shifted +4) + REC_STRIDE (array-of-record stride = field-count-1 slots). REAL (QEMU). beads initech-rug7, ADR-0007 DEC-02/DEC-07.\n'
 	@printf '  test-seed-fpc-diff  DEC-07 Rung 2: Turbo Initech seed vs Free Pascal, byte-exact stdout diff on the shared-subset corpus. REAL when fpc installed; FAILS LOUD (not skipped) when fpc is absent. beads initech-63ce, ADR-0007 Sec 4.7.\n'
 	@printf '  test-seed-repro  Reproducible-build gate: the FULL seed corpus, compiled twice (initechc->nasm->ld) into separate scratch dirs, is byte-identical (.s+.o+.elf sha256). REAL. bead initech-3yv, ADR-0007 FO-5/DEC-06.\n'
 	@printf '  test-seed-repro-mutant  Rule-6 proof: -DSEED_MUT_NONDET (getpid()-seeded dead .rodata symbol -- GENUINE nondeterminism) makes test-seed-repro correctly RED, while leaving bool.pas single-run behavior untouched. REAL. bead initech-3yv, ADR-0007 FO-5.\n'
@@ -11890,6 +11892,14 @@ SEED_FUNC_EXPECT := FACT5=120 SUMTO=15 EVEN7=FALSE ODD7=TRUE SWAPA=8 SWAPB=3 ALI
 # elements as `var`-parameter arguments, and a function-call index expression.
 SEED_ARRAY_EXPECT := FILLSUM=55 SUM=15 REV=54321 NESTED=4 BSUM=510 CSUM=10 FLAGSUM=2 SCANPOS=4
 
+# B6 (beads initech-rug7): record.pas's full hand-computed exact-serial golden
+# (see the fixture's header comment for the derivation of every TAG) --
+# records + field access (pack/unpack, `var`-parameter of record type, whole-
+# record assignment, array-of-record fill/scan with B2 loops, a direct
+# nested arr[i].field l/r-value, and a LOCAL scalar record + LOCAL
+# array-of-record on one frame), deterministic field layout.
+SEED_RECORD_EXPECT := LOCALREC=607 KIND=42 CH=X OK=TRUE BKIND=43 BOK=FALSE T2KIND=43 T2CH=X TKIND=43 T2KIND2=999 NESTED=1010 SUMKIND=1150 FIRSTOK=2 SCANCH=C
+
 $(BUILD)/seed_arith_%.elf: $(ARITH_DIR)/%.pas $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
 	$(SEED_BIN) --emit-asm -o $(BUILD)/seed_arith_$*.s $<
 	$(NASM) -f elf32 $(BUILD)/seed_arith_$*.s -o $(BUILD)/seed_arith_$*.o
@@ -11904,7 +11914,8 @@ ARITH_ELVES := $(BUILD)/seed_arith_precedence.elf \
                $(BUILD)/seed_arith_control.elf \
                $(BUILD)/seed_arith_char.elf \
                $(BUILD)/seed_arith_func.elf \
-               $(BUILD)/seed_arith_array.elf
+               $(BUILD)/seed_arith_array.elf \
+               $(BUILD)/seed_arith_record.elf
 
 test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@printf ">>> test-seed-codegen: SMOKE -- expect serial marker '%s'\n" "$(SEED_SMOKE_MARKER)"
@@ -11951,6 +11962,10 @@ test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_array.elf" --expect "$(SEED_ARRAY_EXPECT)" \
 		--name seed_array --timeout-ms 5000 \
 		|| { printf "!!! test-seed-codegen FAIL: array.pas did not print the full hand-computed golden\n"; exit 1; }
+	@printf ">>> test-seed-codegen: RECORD -- named record types (type/record), field access, arrays of records, deterministic layout, var-param/whole-record-assignment of record type (beads initech-rug7)\n"
+	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_record.elf" --expect "$(SEED_RECORD_EXPECT)" \
+		--name seed_record --timeout-ms 5000 \
+		|| { printf "!!! test-seed-codegen FAIL: record.pas did not print the full hand-computed golden\n"; exit 1; }
 	@printf ">>> test-seed-codegen: BOOL complete-evaluation structural proof -- gen_binop (the ONE shared\n"
 	@printf "    code path for every binop, incl. and/or -- ADR-0007 DEC-03) must never emit a jump\n"
 	@printf "    mnemonic, so no branch could ever skip evaluating an operand.\n"
@@ -12239,6 +12254,66 @@ test-seed-array-mutant: $(HARNESS_BIN) $(SEED_ARITH_ARRAY_MUT_STRIDE_ELF) $(SEED
 	@printf ">>> test-seed-array-mutant: all green (both B5 deep-bug loci mutation-proven)\n"
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-seed-record-mutant (beads initech-rug7; ADR-0007 DEC-02/
+# DEC-07's per-family mutation obligation for B6 -- the committee's own named
+# deep-bug locus: field-offset/padding math, and its composition with B5's
+# array-element stride when the element type IS a record).
+# ---------------------------------------------------------------------------
+# BOTH legs run against the SAME record.pas exact-serial golden, each through
+# a SEPARATE mutant compiler binary (so $(SEED_BIN) is never contaminated):
+#   (a) -DSEED_MUT_CODEGEN_FIELD_OFF4 shifts EVERY field's byte offset 4
+#       bytes too high (cg_field_offset), so field 0 reads/writes field 1's
+#       slot (and the LAST field reads/writes one dword past the record) --
+#       every KIND/CH/OK/BKIND/... tag in record.pas is corrupted.
+#   (b) -DSEED_MUT_CODEGEN_REC_STRIDE under-counts the array-of-record
+#       element stride by one FIELD (4*(fieldcount-1) instead of
+#       4*fieldcount) -- record.pas's `toks: array[1..5] of Token` (3 fields)
+#       is what this bites (SUMKIND/FIRSTOK/SCANCH/NESTED all break, since
+#       every element after toks[1] straddles the wrong bytes).
+# Each leg asserts the mutant FAILS to reproduce record.pas's golden (the "if
+# mutant PASSES then FAIL loud" idiom used throughout).
+SEED_BIN_MUT_REC_FIELDOFF4 := $(BUILD)/initechc_mut_rec_fieldoff4
+SEED_BIN_MUT_REC_STRIDE    := $(BUILD)/initechc_mut_rec_stride
+
+$(SEED_BIN_MUT_REC_FIELDOFF4): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_CODEGEN_FIELD_OFF4 -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+$(SEED_BIN_MUT_REC_STRIDE): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_CODEGEN_REC_STRIDE -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+SEED_ARITH_RECORD_MUT_FIELDOFF4_ELF := $(BUILD)/seed_arith_record_mut_fieldoff4.elf
+SEED_ARITH_RECORD_MUT_STRIDE_ELF    := $(BUILD)/seed_arith_record_mut_stride.elf
+
+$(SEED_ARITH_RECORD_MUT_FIELDOFF4_ELF): $(ARITH_DIR)/record.pas $(SEED_BIN_MUT_REC_FIELDOFF4) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT_REC_FIELDOFF4) --emit-asm -o $(BUILD)/seed_arith_record_mut_fieldoff4.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_record_mut_fieldoff4.s -o $(BUILD)/seed_arith_record_mut_fieldoff4.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(BUILD)/seed_arith_record_mut_fieldoff4.o
+
+$(SEED_ARITH_RECORD_MUT_STRIDE_ELF): $(ARITH_DIR)/record.pas $(SEED_BIN_MUT_REC_STRIDE) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT_REC_STRIDE) --emit-asm -o $(BUILD)/seed_arith_record_mut_stride.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_record_mut_stride.s -o $(BUILD)/seed_arith_record_mut_stride.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(BUILD)/seed_arith_record_mut_stride.o
+
+.PHONY: test-seed-record-mutant
+test-seed-record-mutant: $(HARNESS_BIN) $(SEED_ARITH_RECORD_MUT_FIELDOFF4_ELF) $(SEED_ARITH_RECORD_MUT_STRIDE_ELF)
+	@printf ">>> test-seed-record-mutant: confirming BOTH B6 deep-bug legs go RED (Rule 6; ADR-0007 DEC-02/DEC-07, beads initech-rug7)\n"
+	@printf ">>> test-seed-record-mutant: leg (a) FIELD_OFF4 -- every field offset shifted +4 bytes (the committee's own named locus)\n"
+	@if $(HARNESS_BIN) --kernel "$(SEED_ARITH_RECORD_MUT_FIELDOFF4_ELF)" --expect "$(SEED_RECORD_EXPECT)" \
+		--name seed_record_mut_fieldoff4 --timeout-ms 5000 >/dev/null 2>&1; then \
+		printf '!!! test-seed-record-mutant FAIL: FIELD_OFF4 mutant PASSED -- the deterministic field-offset layout is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-record-mutant: leg (a) green (record.pas correctly failed under the +4 field-offset mutant)\n'; \
+	fi
+	@printf ">>> test-seed-record-mutant: leg (b) REC_STRIDE -- array-of-record element stride = field-count-1 slots\n"
+	@if $(HARNESS_BIN) --kernel "$(SEED_ARITH_RECORD_MUT_STRIDE_ELF)" --expect "$(SEED_RECORD_EXPECT)" \
+		--name seed_record_mut_stride --timeout-ms 5000 >/dev/null 2>&1; then \
+		printf '!!! test-seed-record-mutant FAIL: REC_STRIDE mutant PASSED -- the array-of-record element stride is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-record-mutant: leg (b) green (record.pas correctly failed under the field-count-1 stride mutant)\n'; \
+	fi
+	@printf ">>> test-seed-record-mutant: all green (both B6 deep-bug loci mutation-proven)\n"
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-seed-fpc-diff (beads initech-63ce; ADR-0007 DEC-07 Rung 2)
 # ---------------------------------------------------------------------------
 # THE Free Pascal differential, stood up at the codegen pivot (B4) per the
@@ -12354,6 +12429,7 @@ SEED_REPRO_CORPUS := seed/examples/hello.pas seed/examples/smoke.pas \
                       $(ARITH_DIR)/bool.pas $(ARITH_DIR)/char.pas \
                       $(ARITH_DIR)/control.pas $(ARITH_DIR)/divmod.pas \
                       $(ARITH_DIR)/func.pas $(ARITH_DIR)/array.pas \
+                      $(ARITH_DIR)/record.pas \
                       $(ARITH_DIR)/negative.pas $(ARITH_DIR)/negative_divmod.pas \
                       $(ARITH_DIR)/parens.pas $(ARITH_DIR)/precedence.pas
 
@@ -18103,7 +18179,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
+	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \

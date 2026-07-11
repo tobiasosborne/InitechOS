@@ -294,6 +294,12 @@
  * "collected once, consulted throughout emission" shape). Fixed capacity,
  * fail-loud on overflow (Rule 2) -- same discipline as CG_MAX_PROCS. */
 #define CG_MAX_GLOBAL_ARRAYS 64
+/* B6 (beads initech-rug7): the record-TYPE table (name -> field COUNT only --
+ * codegen never needs field NAMES, since typecheck.c already resolved every
+ * field access to a 0-based `field_index` on the AST; codegen only needs each
+ * record type's SIZE, for frame-slot/.bss sizing and the array-of-record
+ * element STRIDE). Same fixed-capacity, fail-loud discipline. */
+#define CG_MAX_RECTYPES 32
 
 typedef enum {
     CG_GLOBAL,    /* not resolved in a routine scope -> .bss v_<name> */
@@ -315,6 +321,14 @@ typedef struct {
      * inclusive bounds, valid iff is_array. */
     int    is_array;
     long   lo, hi;
+    /* B6 (beads initech-rug7): 0 for a scalar entry; the record type's FIELD
+     * COUNT for a record-typed entry (a `var` parameter of record type, or a
+     * LOCAL that is a scalar record or an array-of-record). When is_array is
+     * ALSO set, this is the array's ELEMENT word-count (the stride divisor
+     * -- see gen_elem_addr/gen_index_byteoff's "elem_words" parameter);
+     * when is_array is 0, this is the scalar record's own size in dwords
+     * (used by gen_field_addr/gen_record_copy, never by array addressing). */
+    int    rec_fields;
 } CgScopeEnt;
 
 typedef struct {
@@ -337,7 +351,18 @@ typedef struct {
 typedef struct {
     char name[CG_NAME_CAP];
     long lo, hi;
+    /* B6 (beads initech-rug7): 0 for a scalar-element array; the record
+     * type's field count (the element word-count / stride divisor) for an
+     * array-of-record. */
+    int  rec_fields;
 } CgGlobalArr;
+
+/* B6 (beads initech-rug7): one record TYPE's size, keyed by its case-folded
+ * name (see CG_MAX_RECTYPES's comment above). */
+typedef struct {
+    char name[CG_NAME_CAP];
+    int  nfields;
+} CgRecordType;
 
 typedef struct {
     FILE *out;
@@ -351,6 +376,9 @@ typedef struct {
     /* B5 (beads initech-54uu): the global array table (see CgGlobalArr). */
     CgGlobalArr    garr[CG_MAX_GLOBAL_ARRAYS];
     int            ngarr;
+    /* B6 (beads initech-rug7): the record-type table (see CgRecordType). */
+    CgRecordType   rectypes[CG_MAX_RECTYPES];
+    int            nrectypes;
     int   lbl_count;      /* next local-label ordinal -- ONE counter shared by
                            * EVERY local label this file emits: the B1
                            * boolean-print labels (beads initech-f0uc,
@@ -371,8 +399,12 @@ typedef struct {
      * first pass to emit .rodata strings, then a second pass for .text. */
 } Cg;
 
-/* ---- fatal (Rule 2): internal AST contract violation, never user input ---- */
-static void cg_ice(const char *what, const AstNode *n)
+/* ---- fatal (Rule 2): internal AST contract violation, never user input ----
+ * _Noreturn (C11): lets the compiler prove control never falls through here,
+ * silencing "maybe uninitialized" false positives at call sites that declare
+ * a local, branch to cg_ice() in the "should never happen" arm, and use the
+ * local afterward (B6, beads initech-rug7, e.g. gen_field_base_designator). */
+static _Noreturn void cg_ice(const char *what, const AstNode *n)
 {
     fprintf(stderr,
             "initechc: codegen ICE: %s (kind=%d at %d:%d)\n",
@@ -420,6 +452,32 @@ static int cg_local_offset(int slot)
     return -(4 * slot);
 #else
     return -(4 * (slot + 1));
+#endif
+}
+
+/*
+ * B6 (beads initech-rug7; ADR-0007 DEC-02/DEC-04 "records ... deterministic
+ * field layout"): field k of a record lives at byte offset cg_field_offset(k)
+ * from the record's base address (the ONE choke point every field-address
+ * computation in this file routes through -- gen_field_addr, gen_record_copy
+ * -- so the SEED_MUT_CODEGEN_FIELD_OFF4 mutation hook perturbs EVERY field
+ * access uniformly, mirroring cg_local_offset's own FRAME_OFF4 shape above).
+ * Layout rule (binding, ast.h's B6 comment): fields occupy CONSECUTIVE
+ * uniform 4-byte slots in DECLARATION ORDER -- field k is at 4*k.
+ */
+static int cg_field_offset(int field_index)
+{
+#ifdef SEED_MUT_CODEGEN_FIELD_OFF4
+    /* MUTATION HOOK (Rule 6; beads initech-rug7, ADR-0007 DEC-07's
+     * per-family mutation obligation for B6 -- the committee's own named
+     * deep-bug locus: "every field offset shifted +4"). Compile with
+     * -DSEED_MUT_CODEGEN_FIELD_OFF4 to shift EVERY field's byte offset 4
+     * bytes too high, so a record's field 0 reads/writes field 1's slot
+     * (and its LAST field reads/writes one dword past the record entirely).
+     * test-seed-record-mutant asserts record.pas goes RED. */
+    return 4 * field_index + 4;
+#else
+    return 4 * field_index;
 #endif
 }
 
@@ -487,6 +545,22 @@ static const CgGlobalArr *cg_global_arr_find(const Cg *cg, const char *name)
         if (strcmp(cg->garr[i].name, lc) == 0)
             return &cg->garr[i];
     return NULL;
+}
+
+/* B6 (beads initech-rug7): a record type's FIELD COUNT (= its size in
+ * dwords, Rule 11's "sizeof(record) = 4 * field-count" layout rule -- see
+ * ast.h's B6 comment), by name. Fails loud (should never happen for a
+ * well-typed program -- typecheck.c already validated every rectype
+ * reference against a real `type` declaration). */
+static int cg_rectype_fields(const Cg *cg, const char *name)
+{
+    char lc[CG_NAME_CAP];
+    cg_lower(lc, sizeof(lc), name);
+    for (int i = 0; i < cg->nrectypes; i++)
+        if (strcmp(cg->rectypes[i].name, lc) == 0)
+            return cg->rectypes[i].nfields;
+    cg_ice("unknown record type name in codegen (should be caught by "
+           "typecheck)", NULL);
 }
 
 /* ----- .rodata string pass: assign ordinal labels to each string arg ----- */
@@ -570,6 +644,14 @@ static void gen_call(Cg *cg, const AstNode *call);
 static void gen_addr_of(Cg *cg, const AstNode *arg);
 /* B5 (beads initech-54uu). */
 static void gen_elem_addr(Cg *cg, const char *name, const AstNode *idxexpr);
+/* B6 (beads initech-rug7). */
+static void gen_field_base_designator(const AstNode *base, const char **out_name,
+                                      const AstNode **out_idx);
+static void gen_field_addr(Cg *cg, const char *name, const AstNode *idxexpr,
+                          int field_index);
+static void gen_record_copy(Cg *cg, const char *dst_name,
+                            const AstNode *dst_idx, const char *src_name,
+                            const AstNode *src_idx, int rec_fields);
 
 /*
  * B5 (beads initech-54uu; ADR-0007 DEC-02/DEC-04 "static arrays"; codegen:
@@ -626,7 +708,17 @@ static void gen_elem_addr(Cg *cg, const char *name, const AstNode *idxexpr);
  *     exactly as it corrupts a scalar local's -- no special-casing needed
  *     for the mutant to bite here too).
  */
-static void gen_index_byteoff(Cg *cg, const AstNode *idxexpr, long lo)
+/*
+ * B6 (beads initech-rug7; ADR-0007 DEC-02 "arrays of records ... deterministic
+ * field layout"): `elem_words` generalizes the B5 hardcoded 4-byte stride to
+ * `4 * elem_words` -- 1 for a scalar array (the pre-B6 stride, unchanged), or
+ * a record type's FIELD COUNT for an array-of-record (the DEEP-BUG
+ * intersection the bead names: B5's "base + (index-lo)*stride" formula
+ * composes UNCHANGED with B6's per-record size, just fed a bigger stride --
+ * see ast.h's B6 layout-rule comment).
+ */
+static void gen_index_byteoff(Cg *cg, const AstNode *idxexpr, long lo,
+                              int elem_words)
 {
     FILE *o = cg->out;
     gen_expr(cg, idxexpr);           /* index value -> eax */
@@ -653,12 +745,29 @@ static void gen_index_byteoff(Cg *cg, const AstNode *idxexpr, long lo)
      * uniform 4-byte stride, so EVERY indexed read/write/var-param address
      * lands on the wrong element (or straddles two elements) for any index
      * other than 0. test-seed-array-mutant asserts array.pas goes RED. */
+    (void)elem_words;
     fprintf(o, "    imul eax, 2\n");
+#elif defined(SEED_MUT_CODEGEN_REC_STRIDE)
+    /* MUTATION HOOK (Rule 6; beads initech-rug7, ADR-0007 DEC-07's
+     * per-family mutation obligation for B6 -- the bead's own named "array-
+     * of-record stride = field-count-1 slots" deep-bug leg). Compile with
+     * -DSEED_MUT_CODEGEN_REC_STRIDE to under-count the stride by one FIELD
+     * (4*(elem_words-1) instead of 4*elem_words). Only meaningfully wrong
+     * for a RECORD element (elem_words > 1) -- record.pas's array-of-record
+     * fixture (toks: array[...] of Token, 3 fields) is what this bites;
+     * test-seed-record-mutant asserts it goes RED. */
+    fprintf(o, "    imul eax, %d\n", 4 * (elem_words - 1));
 #else
-    fprintf(o, "    imul eax, 4\n");   /* stride: uniform 4-byte slot */
+    fprintf(o, "    imul eax, %d\n", 4 * elem_words); /* stride: uniform
+                                                        * 4-byte slot(s) */
 #endif
 }
 
+/* B6 (beads initech-rug7): `field_words` (0 for a scalar array element, or
+ * the record's field count for an array-of-record -- 0 is treated as "1
+ * element word", the pre-B6 stride) is resolved HERE, from the local scope
+ * / global array table, so every gen_elem_addr caller stays unchanged (its
+ * signature is the SAME as before B6). */
 static void gen_elem_addr(Cg *cg, const char *name, const AstNode *idxexpr)
 {
     FILE *o = cg->out;
@@ -666,7 +775,8 @@ static void gen_elem_addr(Cg *cg, const char *name, const AstNode *idxexpr)
     if (se) {
         if (!se->is_array)
             cg_ice("indexed access to a non-array local", idxexpr);
-        gen_index_byteoff(cg, idxexpr, se->lo);   /* eax = byte offset */
+        int elem_words = se->rec_fields > 0 ? se->rec_fields : 1;
+        gen_index_byteoff(cg, idxexpr, se->lo, elem_words); /* eax = byte offset */
         fprintf(o, "    mov edx, eax\n");         /* edx = byte offset */
         fprintf(o, "    lea eax, ");
         cg_ebp(o, se->offset);                    /* eax = &element[lo] */
@@ -675,11 +785,162 @@ static void gen_elem_addr(Cg *cg, const char *name, const AstNode *idxexpr)
         const CgGlobalArr *ga = cg_global_arr_find(cg, name);
         if (!ga)
             cg_ice("indexed access to an unknown/non-array global", idxexpr);
-        gen_index_byteoff(cg, idxexpr, ga->lo);   /* eax = byte offset */
+        int elem_words = ga->rec_fields > 0 ? ga->rec_fields : 1;
+        gen_index_byteoff(cg, idxexpr, ga->lo, elem_words); /* eax = byte offset */
         fprintf(o, "    mov edx, eax\n");         /* edx = byte offset */
         fprintf(o, "    mov eax, v_");
         emit_var_label(o, name);                  /* eax = &v_name[0] */
         fprintf(o, "\n    add eax, edx\n");
+    }
+}
+
+/*
+ * ============================================================================
+ * B6 (beads initech-rug7; ADR-0007 DEC-02 "records (record ... end), field
+ * access, arrays of records, with a deterministic field layout") -- record
+ * field addressing.
+ *
+ * DETERMINISTIC LAYOUT RULE (Rule 11, ast.h's B6 comment has the full story):
+ * fields sit in CONSECUTIVE UNIFORM 4-byte slots in DECLARATION ORDER; field
+ * k is at byte offset cg_field_offset(k) = 4*k from the record's BASE
+ * address. sizeof(record) = 4 * field-count. An array-of-record ELEMENT uses
+ * the record's TOTAL SIZE as its STRIDE (gen_index_byteoff's `elem_words`
+ * parameter, above) -- the bead's own "deep-bug intersection" of B5's
+ * per-element addressing composing with B6's per-field addressing.
+ *
+ * gen_designator_base_addr computes the BASE address (= field 0's address)
+ * of a plain designator: `name` (a scalar OR record variable) or
+ * `name[idxexpr]` (one array element, scalar or record) -- reusing
+ * gen_elem_addr for the indexed case (which ALREADY normalizes local-vs-
+ * global addressing via its own sub/add split, so the element address it
+ * leaves in eax behaves like a plain ascending base from here on: a further
+ * field offset is ALWAYS a plain ADD on top of an indexed base, regardless of
+ * whether the array itself is local or global).
+ *
+ * gen_field_addr computes the address of ONE FIELD of `name`/`name[idxexpr]`:
+ * the base, then cg_field_offset(field_index) -- ADDED for a global or an
+ * indexed base (gen_elem_addr already normalized those to ascending
+ * addresses), SUBTRACTED for a bare LOCAL scalar-record designator (frame
+ * slots grow to MORE NEGATIVE addresses as the field index increases, the
+ * IDENTICAL "[ebp-...] offset math" gen_elem_addr's own LOCAL branch already
+ * uses for array elements -- see cg_build_scope's record-local slot
+ * allocation). A `var` parameter of record type is NOT "local" in this sense
+ * -- its frame slot holds a POINTER whose VALUE is the record's own
+ * (ascending) base address, so field access through it ADDS, exactly like a
+ * global.
+ *
+ * gen_record_copy implements WHOLE-RECORD assignment (`r1 := r2` or
+ * `arr[i] := r`) as a fully UNROLLED, compile-time member-wise word copy --
+ * field count is always a compile-time constant here, so no runtime loop or
+ * extra ordinal label is needed (deterministic, Rule 11; DECISION, report:
+ * simpler and just as fast as a labelled loop for the small field counts
+ * this subset's own records have).
+ * ============================================================================
+ */
+
+/* Unpack a field-access BASE (always AST_VARREF or AST_INDEX -- fields are
+ * scalar-only, so a base is never itself an AST_FIELD, ast.h's B6 note) into
+ * a (name, optional index expression) pair -- the SAME shape AST_ASSIGN's own
+ * `name`/`index` members already use, so gen_field_addr/gen_record_copy have
+ * ONE designator representation regardless of whether it came from an
+ * AST_FIELD's base or an AST_ASSIGN's target/value. */
+static void gen_field_base_designator(const AstNode *base, const char **out_name,
+                                      const AstNode **out_idx)
+{
+    if (base->kind == AST_VARREF) {
+        *out_name = base->as.varref.name;
+        *out_idx = NULL;
+        return;
+    }
+    if (base->kind == AST_INDEX) {
+        *out_name = base->as.arrayindex.name;
+        *out_idx = base->as.arrayindex.index;
+        return;
+    }
+    cg_ice("field access base is not a variable or array element", base);
+}
+
+/* Address of the designator `name` (idxexpr == NULL) or `name[idxexpr]`
+ * (idxexpr non-NULL) -- field 0 / the record's own base address. Shared by
+ * gen_field_addr and gen_record_copy. */
+static void gen_designator_base_addr(Cg *cg, const char *name,
+                                     const AstNode *idxexpr)
+{
+    if (idxexpr) {
+        gen_elem_addr(cg, name, idxexpr);
+        return;
+    }
+    FILE *o = cg->out;
+    const CgScopeEnt *se = cg_resolve(cg, name);
+    if (se) {
+        if (se->kind == CG_VARPARAM) {
+            /* The frame slot holds the caller's record's address already --
+             * forward it unchanged (do NOT take its own address). */
+            fprintf(o, "    mov eax, ");
+            cg_ebp(o, se->offset);
+            fprintf(o, "\n");
+        } else {
+            fprintf(o, "    lea eax, ");
+            cg_ebp(o, se->offset);
+            fprintf(o, "\n");
+        }
+    } else {
+        fprintf(o, "    mov eax, v_");
+        emit_var_label(o, name);
+        fprintf(o, "\n");
+    }
+}
+
+/* Is `name` (with NO index -- idxexpr NULL) a LOCAL frame-resident designator
+ * whose fields SUBTRACT the field offset (frame slots grow down), as opposed
+ * to a global label or a `var`-parameter's forwarded (ascending) pointer,
+ * which ADD it? An INDEXED base is never "local" in this sense -- gen_elem_addr
+ * already normalized it to an ascending address. */
+static int gen_designator_is_local_frame(Cg *cg, const char *name,
+                                         const AstNode *idxexpr)
+{
+    if (idxexpr)
+        return 0;
+    const CgScopeEnt *se = cg_resolve(cg, name);
+    return se && se->kind != CG_VARPARAM;
+}
+
+/* Address of field `field_index` of designator `name`/`name[idxexpr]` -> eax. */
+static void gen_field_addr(Cg *cg, const char *name, const AstNode *idxexpr,
+                          int field_index)
+{
+    int local = gen_designator_is_local_frame(cg, name, idxexpr);
+    gen_designator_base_addr(cg, name, idxexpr);
+    int off = cg_field_offset(field_index);
+    if (off == 0)
+        return;
+    if (local)
+        fprintf(cg->out, "    sub eax, %d\n", off);
+    else
+        fprintf(cg->out, "    add eax, %d\n", off);
+}
+
+/* WHOLE-RECORD assignment: copy `rec_fields` fields, one at a time, from
+ * src_name[src_idx?] to dst_name[dst_idx?]. Fully unrolled (field count is a
+ * compile-time constant) -- deterministic, no runtime loop/label. Each
+ * field's address is recomputed fresh for both sides (mirrors this file's
+ * existing "never cache an address across a sub-computation that might
+ * clobber eax/ecx/edx" discipline, e.g. gen_stmt's indexed-assignment spill)
+ * rather than hoisting the base once, keeping the code simple and safe under
+ * the FIELD_OFF4 mutant (which must perturb EVERY field, including field 0,
+ * uniformly -- see cg_field_offset). */
+static void gen_record_copy(Cg *cg, const char *dst_name,
+                            const AstNode *dst_idx, const char *src_name,
+                            const AstNode *src_idx, int rec_fields)
+{
+    FILE *o = cg->out;
+    for (int k = 0; k < rec_fields; k++) {
+        gen_field_addr(cg, src_name, src_idx, k);   /* &src.field[k] -> eax */
+        fprintf(o, "    mov eax, [eax]\n");         /* load value -> eax */
+        fprintf(o, "    push eax\n");               /* spill value */
+        gen_field_addr(cg, dst_name, dst_idx, k);    /* &dst.field[k] -> eax */
+        fprintf(o, "    pop ecx\n");
+        fprintf(o, "    mov [eax], ecx\n");
     }
 }
 
@@ -850,6 +1111,17 @@ static void gen_expr(Cg *cg, const AstNode *e)
         gen_elem_addr(cg, e->as.arrayindex.name, e->as.arrayindex.index);
         fprintf(o, "    mov eax, [eax]\n");
         break;
+    /* B6 (beads initech-rug7): `base.field` as an r-value -- compute the
+     * FIELD address (gen_field_addr, the ONE shared field-address path) then
+     * dereference it, mirroring AST_INDEX just above. */
+    case AST_FIELD: {
+        const char *fname;
+        const AstNode *fidx;
+        gen_field_base_designator(e->as.field.base, &fname, &fidx);
+        gen_field_addr(cg, fname, fidx, e->as.field.field_index);
+        fprintf(o, "    mov eax, [eax]\n");
+        break;
+    }
     case AST_BINOP:
         gen_binop(cg, e);
         break;
@@ -991,6 +1263,35 @@ static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
             gen_stmt(cg, n->as.block.stmts.items[i], str_idx);
         break;
     case AST_ASSIGN: {
+        /* B6 (beads initech-rug7): a FIELD assignment -- `name.field := v`
+         * or `name[index].field := v` -- computes the FIELD ADDRESS first
+         * and spills it, exactly like the B5 indexed-scalar case just below
+         * (a `call` inside the value or index expression is free to clobber
+         * eax/ecx/edx, cdecl caller-saved). Checked FIRST since `field` and
+         * `index` may BOTH be set. */
+        if (n->as.assign.field) {
+            gen_field_addr(cg, n->as.assign.name, n->as.assign.index,
+                          n->as.assign.field_index);
+            fprintf(o, "    push eax\n");        /* spill &field */
+            gen_expr(cg, n->as.assign.value);    /* value -> eax */
+            fprintf(o, "    pop edx\n");          /* edx = &field */
+            fprintf(o, "    mov [edx], eax\n");
+            break;
+        }
+        /* B6: a WHOLE-RECORD assignment -- `r1 := r2` (index NULL) or
+         * `arr[i] := r` (index non-NULL, an array-of-record element) --
+         * rec_fields > 0 (set by typecheck.c) marks it. The VALUE side is
+         * always a plain designator too (AST_VARREF or AST_INDEX -- no
+         * record-valued general expressions exist in this subset), unpacked
+         * the same way an AST_FIELD's base is. */
+        if (n->as.assign.rec_fields > 0) {
+            const char *src_name;
+            const AstNode *src_idx;
+            gen_field_base_designator(n->as.assign.value, &src_name, &src_idx);
+            gen_record_copy(cg, n->as.assign.name, n->as.assign.index,
+                            src_name, src_idx, n->as.assign.rec_fields);
+            break;
+        }
         /* B5 (beads initech-54uu): an INDEXED target (`name[index] :=
          * value`) computes the ELEMENT ADDRESS FIRST and spills it to the
          * STACK (push) before evaluating the value expression -- the value
@@ -1086,39 +1387,35 @@ static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
 
 /* ---------------- B4 (beads initech-63ce): calls + routine emission ------- */
 
-/* Emit the ADDRESS of a variable (or, B5, an array ELEMENT) argument into
- * eax (for a `var` parameter). A plain-variable argument is an AST_VARREF
- * (typecheck guaranteed it is a plain variable): a global -> its label
- * address; a value param/local/result -> lea of its frame slot; a var
- * parameter -> its stored pointer forwarded unchanged. B5 (beads
- * initech-54uu): an AST_INDEX argument (`a[i]`, typecheck guaranteed `a` is
- * a real array) passes THAT ELEMENT's address -- gen_elem_addr is the exact
- * same address computation an indexed l-value/r-value uses, reused here. */
+/* Emit the ADDRESS of a variable (or, B5, an array ELEMENT; or, B6, a whole
+ * RECORD or one FIELD) argument into eax (for a `var` parameter). A
+ * plain-variable argument is an AST_VARREF (typecheck guaranteed it is a
+ * plain variable, scalar OR record): a global -> its label address; a value
+ * param/local/result -> lea of its frame slot; a var parameter -> its stored
+ * pointer forwarded unchanged (gen_designator_base_addr, shared with the B6
+ * field-addressing helpers above -- SAME address computation, no
+ * duplication). B5 (beads initech-54uu): an AST_INDEX argument (`a[i]`,
+ * typecheck guaranteed `a` is a real array) passes THAT ELEMENT's address --
+ * gen_elem_addr is the exact same address computation an indexed l-value/
+ * r-value uses, reused here. B6 (beads initech-rug7): an AST_FIELD argument
+ * (`r.f`/`arr[i].f`) passes that FIELD's address -- gen_field_addr, the same
+ * path an indexed/plain field l-value uses. */
 static void gen_addr_of(Cg *cg, const AstNode *arg)
 {
-    FILE *o = cg->out;
     if (arg->kind == AST_INDEX) {
         gen_elem_addr(cg, arg->as.arrayindex.name, arg->as.arrayindex.index);
         return;
     }
+    if (arg->kind == AST_FIELD) {
+        const char *fname;
+        const AstNode *fidx;
+        gen_field_base_designator(arg->as.field.base, &fname, &fidx);
+        gen_field_addr(cg, fname, fidx, arg->as.field.field_index);
+        return;
+    }
     if (arg->kind != AST_VARREF)
         cg_ice("var-parameter argument is not a variable", arg);
-    const CgScopeEnt *se = cg_resolve(cg, arg->as.varref.name);
-    if (!se) {
-        /* Address of a global .bss slot: a bare label is its address. */
-        fprintf(o, "    mov eax, v_");
-        emit_var_label(o, arg->as.varref.name);
-        fprintf(o, "\n");
-    } else if (se->kind == CG_VARPARAM) {
-        /* Forward the existing pointer (do NOT take its address). */
-        fprintf(o, "    mov eax, ");
-        cg_ebp(o, se->offset);
-        fprintf(o, "\n");
-    } else {
-        fprintf(o, "    lea eax, ");
-        cg_ebp(o, se->offset);
-        fprintf(o, "\n");
-    }
+    gen_designator_base_addr(cg, arg->as.varref.name, NULL);
 }
 
 /* Emit a call. Arguments are pushed RIGHT-TO-LEFT (cdecl); a value parameter
@@ -1161,8 +1458,20 @@ static void gen_call(Cg *cg, const AstNode *call)
  * cg_local_offset(slot + j) = offset - 4*j (the [ebp-...] offset math this
  * composes with: cg_local_offset's linear form, INCLUDING under the
  * FRAME_OFF4 mutant, keeps that relationship exact -- see gen_elem_addr).
- * `slot` advances by N instead of 1 for an array local. */
-static void cg_build_scope(CgScope *sc, const AstNode *pf)
+ * `slot` advances by N instead of 1 for an array local.
+ *
+ * B6 (beads initech-rug7): a LOCAL RECORD (scalar, `rec_fields` slots) or a
+ * LOCAL ARRAY-OF-RECORD (`rec_fields * (hi-lo+1)` slots -- the per-element
+ * word count is `rec_fields`, composing directly with the array-of-N formula
+ * above) likewise occupies CONTIGUOUS frame slots; `e->rec_fields` records
+ * the field count (0 for a scalar, non-record entry) so gen_elem_addr's
+ * array-of-record stride and gen_field_addr's field offset can both resolve
+ * it later purely from the scope table, with no second AST walk. A `var`
+ * parameter of record type needs NO extra frame slots (its ONE slot holds a
+ * pointer, exactly like a scalar var parameter) -- only `rec_fields` is set,
+ * for gen_field_addr's benefit (see `cg` now being passed in, needed to
+ * resolve a record TYPE NAME to its field count via cg_rectype_fields). */
+static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
 {
     sc->n = 0;
     sc->frame_slots = 0;
@@ -1178,6 +1487,8 @@ static void cg_build_scope(CgScope *sc, const AstNode *pf)
         e->offset = cg_param_offset((int)i);
         e->is_array = 0; /* array parameters are out of scope (ast.h B5) */
         e->lo = e->hi = 0;
+        e->rec_fields = pn->as.param.rectype
+                      ? cg_rectype_fields(cg, pn->as.param.rectype) : 0;
     }
 
     int slot = 0;
@@ -1190,11 +1501,15 @@ static void cg_build_scope(CgScope *sc, const AstNode *pf)
         e->offset = cg_local_offset(slot++);
         e->is_array = 0; /* a function result is always scalar */
         e->lo = e->hi = 0;
+        e->rec_fields = 0; /* record function results are out of scope */
     }
     for (size_t i = 0; i < pf->as.procfunc.decls.count; i++) {
         const AstNode *vd = pf->as.procfunc.decls.items[i];
         if (vd->kind != AST_VARDECL)
             cg_ice("non-vardecl in routine locals", vd);
+        int rec_fields = vd->as.vardecl.rectype
+                        ? cg_rectype_fields(cg, vd->as.vardecl.rectype) : 0;
+        int elem_words = rec_fields > 0 ? rec_fields : 1;
         for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {
             const AstNode *vr = vd->as.vardecl.names.items[j];
             if (sc->n >= CG_MAX_SCOPE)
@@ -1202,6 +1517,7 @@ static void cg_build_scope(CgScope *sc, const AstNode *pf)
             CgScopeEnt *e = &sc->ent[sc->n++];
             cg_lower(e->name, sizeof(e->name), vr->as.varref.name);
             e->kind = CG_LOCAL;
+            e->rec_fields = rec_fields;
             if (vd->as.vardecl.is_array) {
                 long lo = vd->as.vardecl.lo, hi = vd->as.vardecl.hi;
                 long count = hi - lo + 1;
@@ -1209,11 +1525,12 @@ static void cg_build_scope(CgScope *sc, const AstNode *pf)
                 e->lo = lo;
                 e->hi = hi;
                 e->offset = cg_local_offset(slot); /* element 0 (index lo) */
-                slot += (int)count;
+                slot += (int)count * elem_words;
             } else {
                 e->is_array = 0;
                 e->lo = e->hi = 0;
-                e->offset = cg_local_offset(slot++);
+                e->offset = cg_local_offset(slot); /* field 0 (scalar: itself) */
+                slot += elem_words;
             }
         }
     }
@@ -1229,7 +1546,7 @@ static void emit_proc(Cg *cg, const AstNode *pf, int *str_idx)
         return;
 
     CgScope sc;
-    cg_build_scope(&sc, pf);
+    cg_build_scope(cg, &sc, pf);
 
     fprintf(o, "pf_");
     emit_var_label(o, pf->as.procfunc.name);
@@ -1278,8 +1595,18 @@ static void emit_bss(Cg *cg, const AstNode *program)
          * Skip them here exactly as const-decls are skipped. */
         if (vd->kind == AST_PROCDECL || vd->kind == AST_FUNCDECL)
             continue;
+        /* B6 (beads initech-rug7): a `type` declaration carries no .bss slot
+         * either -- skip it exactly as const/proc decls are skipped. */
+        if (vd->kind == AST_TYPEDECL)
+            continue;
         if (vd->kind != AST_VARDECL)
             cg_ice("non-vardecl in program decls", vd);
+        /* B6 (beads initech-rug7): a RECORD-typed global's per-ELEMENT word
+         * count is its record type's field count (1 for a scalar,
+         * non-record global -- the pre-B6 case, unchanged). */
+        int rec_fields = vd->as.vardecl.rectype
+                        ? cg_rectype_fields(cg, vd->as.vardecl.rectype) : 0;
+        int elem_words = rec_fields > 0 ? rec_fields : 1;
         for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {
             const AstNode *vr = vd->as.vardecl.names.items[j];
             if (vr->kind != AST_VARREF)
@@ -1289,12 +1616,14 @@ static void emit_bss(Cg *cg, const AstNode *program)
             /* B5 (beads initech-54uu): a GLOBAL array is a SIZED .bss block
              * of (hi-lo+1) uniform 4-byte slots (resd N) instead of the
              * scalar resd 1 -- the array's element 0 (index lo) is the
-             * label's address itself, exactly like a scalar's slot. */
+             * label's address itself, exactly like a scalar's slot. B6
+             * (beads initech-rug7): each element/the scalar itself now
+             * occupies `elem_words` dwords instead of always 1. */
             if (vd->as.vardecl.is_array) {
                 long count = vd->as.vardecl.hi - vd->as.vardecl.lo + 1;
-                fprintf(o, ": resd %ld\n", count);
+                fprintf(o, ": resd %ld\n", count * elem_words);
             } else {
-                fprintf(o, ": resd 1\n");
+                fprintf(o, ": resd %d\n", elem_words);
             }
         }
     }
@@ -1314,18 +1643,47 @@ int codegen_emit(const AstNode *program, FILE *out)
     cg.lbl_count = 0;
     cg.nproc = 0;
     cg.ngarr = 0;
+    cg.nrectypes = 0;
     cg.scope = NULL;
+
+    /* B6 (beads initech-rug7): build the RECORD-TYPE table (name -> field
+     * COUNT) from every top-level AST_TYPEDECL, BEFORE the global-array
+     * table below (which may need a record type's field count for an
+     * array-of-record's element word-count) and before emit_bss/.text
+     * (which need it for frame-slot/.bss sizing and stride). A record
+     * type's field count is the SUM of each field-GROUP's name count
+     * (flattened declaration order -- ast.h's B6 layout-rule comment: "kind,
+     * x: integer; ch: char;" is two groups but three fields). */
+    for (size_t i = 0; i < program->as.program.decls.count; i++) {
+        const AstNode *td = program->as.program.decls.items[i];
+        if (td->kind != AST_TYPEDECL)
+            continue;
+        if (cg.nrectypes >= CG_MAX_RECTYPES) {
+            fprintf(stderr, "initechc: codegen: too many record types\n");
+            return 1;
+        }
+        CgRecordType *rt = &cg.rectypes[cg.nrectypes++];
+        cg_lower(rt->name, sizeof(rt->name), td->as.typedecl.name);
+        rt->nfields = 0;
+        for (size_t g = 0; g < td->as.typedecl.fields.count; g++) {
+            const AstNode *fg = td->as.typedecl.fields.items[g];
+            rt->nfields += (int)fg->as.vardecl.names.count;
+        }
+    }
 
     /* B5 (beads initech-54uu): build the GLOBAL array table (name -> bounds)
      * from every top-level AST_VARDECL group with is_array set, BEFORE
      * emit_bss/.text so gen_elem_addr can resolve a global array's `lo`
      * bound the moment it is reached during either pass. Mirrors the
      * routine-table build just below (collected once, consulted
-     * throughout). */
+     * throughout). B6 (beads initech-rug7): also records the element's
+     * record-type field count (0 for a scalar-element array, unchanged). */
     for (size_t i = 0; i < program->as.program.decls.count; i++) {
         const AstNode *vd = program->as.program.decls.items[i];
         if (vd->kind != AST_VARDECL || !vd->as.vardecl.is_array)
             continue;
+        int rec_fields = vd->as.vardecl.rectype
+                        ? cg_rectype_fields(&cg, vd->as.vardecl.rectype) : 0;
         for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {
             const AstNode *vr = vd->as.vardecl.names.items[j];
             if (cg.ngarr >= CG_MAX_GLOBAL_ARRAYS) {
@@ -1336,6 +1694,7 @@ int codegen_emit(const AstNode *program, FILE *out)
             cg_lower(ga->name, sizeof(ga->name), vr->as.varref.name);
             ga->lo = vd->as.vardecl.lo;
             ga->hi = vd->as.vardecl.hi;
+            ga->rec_fields = rec_fields;
         }
     }
 

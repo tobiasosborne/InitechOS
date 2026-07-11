@@ -80,11 +80,37 @@
  *         `forward` declaration's defining occurrence must repeat an
  *         identical signature, and every `forward` must be defined.
  *
+ *   - (B6, beads initech-rug7; ADR-0007 DEC-02 "records (record ... end),
+ *     field access, arrays of records, with a deterministic field layout")
+ *     additions:
+ *       * A Pass 0 (collect_types, run BEFORE collect_decls/collect_procs)
+ *         builds a name -> flattened-field-list table for every top-level
+ *         `type NAME = record ... end;` declaration; fields are in
+ *         DECLARATION ORDER (Rule 11's deterministic-layout spirit) and are
+ *         SCALAR ONLY (no nested records, no array-typed fields).
+ *       * `base.field` (base a plain record variable or an array-of-record
+ *         element) resolves the field by name (case-insensitive) against
+ *         its base's record type; an unknown field is a checked, fail-loud
+ *         error. Field assignment (`r.f := v` / `arr[i].f := v`) requires
+ *         the value's type to match the field's declared type exactly.
+ *       * Whole-record assignment (`r1 := r2`) requires BOTH sides to be the
+ *         SAME record type BY NAME (never by structural layout -- two
+ *         different record types sharing a field shape are not
+ *         interchangeable).
+ *       * Record COMPARISON (`=`, `<>`, `<`, ...) is REJECTED, explicitly
+ *         and loudly -- Turbo Pascal does not define relational operators on
+ *         records either.
+ *       * A `var` parameter of record type is supported (the record's
+ *         address is passed); a VALUE parameter of record type is rejected
+ *         at PARSE time (parser.c), not here -- Turbo Pascal would copy the
+ *         whole record on every call, which this subset avoids.
+ *
  * This is intentionally NOT full Pascal type inference (no subranges, no
- * real/records/arrays -- those are out of scope for B1-B4 per the DEC-02
- * subset table) -- just enough soundness that a boolean (or now char) can
- * never silently flow where an integer is expected (or vice versa), and
- * every write knows which print routine to call.
+ * reals, no pointers/heap -- those are out of scope per the DEC-02 subset
+ * table; records ARE in scope as of B6, scalar-fields-only) -- just enough
+ * soundness that a boolean (or now char, or a record's field) can never
+ * silently flow where a different type is expected, and every write knows
+ * which print routine to call.
  *
  * CONTRACT: typecheck_program must be run (and must succeed) exactly once,
  * after a successful parse_program() and before codegen_emit(). It mutates

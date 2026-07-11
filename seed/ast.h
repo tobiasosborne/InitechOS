@@ -120,7 +120,24 @@ typedef enum {
     /* B3 (beads initech-7mo3; ADR-0007 DEC-02 "char"). char is a DISTINCT
      * scalar type -- no implicit coercion to/from integer; ord()/chr() are
      * the only bridges (see typecheck.c). */
-    AST_TY_CHAR
+    AST_TY_CHAR,
+    /* B6 (beads initech-rug7; ADR-0007 DEC-02 "records (record ... end),
+     * field access, arrays of records, with a deterministic field layout").
+     * A NAMED record type declared in a top-level `type` section (AST_TYPEDECL
+     * below) -- the ONLY type-constructor in this subset (DECISION, report:
+     * the ADR/plan do not mention a `type` section explicitly; a named
+     * record type is the natural, minimal carrier since the compiler's own
+     * future source needs NAMED record types (Token, Symbol, AstNode) and an
+     * array-of-record var only needs to NAME its element record -- see
+     * parser.h's B6 grammar note). Anonymous inline records in a var-section
+     * (TP allows `var r: record ... end;`) are DELIBERATELY NOT supported --
+     * minimality; every record var/param/array-element names a `type`
+     * section's record. WHEREVER a node's static type is AST_TY_RECORD, a
+     * companion field (this struct's own `rectype` for expression nodes;
+     * `vardecl.rectype` / `param.rectype` for declarations) names WHICH
+     * record type, case-preserved-original-spelling, arena-owned -- see this
+     * header's AST_TYPEDECL/AST_FIELD comments below. */
+    AST_TY_RECORD
 } AstVarType;
 
 /* Human-readable name for a semantic type (diagnostics, dumps). */
@@ -267,7 +284,86 @@ typedef enum {
      *   silent truncation or wraparound"). Recorded here so a future reader
      *   does not mistake the omission for an oversight.
      */
-    AST_INDEX
+    AST_INDEX,
+    /*
+     * B6 (beads initech-rug7; ADR-0007 DEC-02 "records (record ... end),
+     * field access, arrays of records, with a deterministic field layout").
+     *
+     *   AST_TYPEDECL: one "type NAME = record f1,f2:T1; f3:T2; end;"
+     *     declaration (a top-level-only `type` section, mirroring the B3
+     *     const-section's local-declaration deferral -- ast.h's B3 comment).
+     *     `fields` holds AST_VARDECL-SHAPED field-GROUP nodes (same "name
+     *     list + one shared vtype" shape parse_one_vardecl already builds for
+     *     an ordinary var-decl group -- reused rather than inventing a
+     *     parallel node shape). DECISION (report, minimality): a field's type
+     *     is SCALAR ONLY (integer/boolean/char) -- no nested records, no
+     *     array-typed fields, enforced by the PARSER (parse_type_section
+     *     only accepts the three scalar keywords for a field's type, never
+     *     `array`/a record-type name). This keeps "sizeof(record) = 4 *
+     *     field-count" a flat, uniform fact with no recursive layout
+     *     question -- the compiler's own Token/Symbol/AstNode records
+     *     (integer/char/boolean fields) need nothing more.
+     *
+     *   AST_FIELD: `base.field` -- a field access used as an r-value
+     *     expression (check_expr), as an l-value TARGET (reusing AST_ASSIGN's
+     *     new `field`/`field_index` members below, exactly as AST_INDEX's
+     *     l-value case reuses AST_ASSIGN's `index` rather than adding a
+     *     sibling statement kind), or as a `var`-parameter call argument (its
+     *     field's ADDRESS is passed -- codegen.c's gen_addr_of). `base` is
+     *     ALWAYS AST_VARREF (a plain record variable) or AST_INDEX (one
+     *     element of an array-of-record) -- NEVER another AST_FIELD, because
+     *     a field's type is always scalar (no record-of-record in this
+     *     subset, see AST_TYPEDECL's note above), so nesting stops at depth
+     *     1. `field_index` is the field's 0-based DECLARATION-ORDER index
+     *     within its record type, resolved by seed/typecheck.c and consumed
+     *     by codegen (mirrors this header's generic per-expression `type`
+     *     field: computed once by typecheck, never re-derived by codegen).
+     *
+     * LAYOUT RULE (binding, Rule 11 / ADR-0007 DEC-04's documented-
+     * deterministic-layout spirit, applied to records): fields occupy
+     * CONSECUTIVE UNIFORM 4-byte slots in DECLARATION ORDER -- field k is at
+     * byte offset 4*k from the record's base address, and
+     * sizeof(record) = 4 * field-count. This is the IDENTICAL "one
+     * zero-extended dword per scalar, no packing" convention B1
+     * (booleans)/B3 (chars)/B5 (array elements) already use, extended one
+     * level: NO padding, NO per-field-type width, and (the bead's own
+     * "deep-bug intersection") a record ELEMENT inside an array-of-record
+     * uses the record's TOTAL SIZE (4*field-count) as the element STRIDE --
+     * gen_elem_addr's existing "base + (index-lo)*stride" formula (B5)
+     * composes UNCHANGED, just fed a bigger stride; a field access on top of
+     * that adds a further fixed 4*field_index (see seed/codegen.c's
+     * gen_field_addr). See seed/codegen.c's file-header comment for the
+     * full worked addressing story and both this bead's mutation hooks
+     * (SEED_MUT_CODEGEN_FIELD_OFF4, SEED_MUT_CODEGEN_REC_STRIDE).
+     *
+     * SCOPE DECISIONS (report):
+     *   - Anonymous inline records (`var r: record ... end;`, TP allows this)
+     *     are NOT supported -- minimality; every record names a `type`.
+     *   - Value (non-`var`) parameters of RECORD type are REJECTED LOUDLY
+     *     (parse time, seed/parser.c's parse_param_list) -- TP would copy the
+     *     whole record on every call, which is expensive and unnecessary
+     *     here since the self-host source can always use `var`. `var`
+     *     parameters of record type ARE supported (the record's address is
+     *     passed) -- needed for symbol-table-style helpers that mutate a
+     *     caller's record in place.
+     *   - Function RESULTS of record type are NOT supported (out of scope;
+     *     no self-host need identified, and returning an aggregate through
+     *     EAX alone does not generalize the way a scalar result does).
+     *   - Whole-record ASSIGNMENT (`r1 := r2`, TP allows it) IS supported,
+     *     for two designators of the IDENTICAL named record type (checked by
+     *     TYPE NAME, not structural layout -- two different record types
+     *     with the same field shape are NOT assignment-compatible).
+     *     Implemented as a fully UNROLLED, compile-time member-wise word
+     *     copy (field count is always a compile-time constant here, so no
+     *     runtime loop/label is needed -- deterministic, Rule 11) -- see
+     *     AST_ASSIGN's `rec_fields` member below and codegen.c's
+     *     gen_record_copy.
+     *   - Record COMPARISON (`=`, `<>`, ...) is REJECTED LOUDLY
+     *     (seed/typecheck.c check_binop) -- Turbo Pascal does not define
+     *     relational operators on records either.
+     */
+    AST_TYPEDECL,
+    AST_FIELD
 } AstKind;
 
 typedef enum {
@@ -330,6 +426,14 @@ struct AstNode {
             AstVarType vtype;
             int        is_array;
             long       lo, hi;
+            /* B6 (beads initech-rug7): non-NULL iff vtype == AST_TY_RECORD --
+             * names WHICH record type (arena-owned, original spelling; the
+             * parser only accepts an already-registered `type` name here, so
+             * this always resolves). When is_array is ALSO set, this is the
+             * ARRAY ELEMENT's record type (array-of-record); when is_array is
+             * 0, this is the scalar variable's own record type. NULL for
+             * every scalar (non-record) vardecl. */
+            char      *rectype;
         } vardecl;
         /* B3: name + declared type only -- no value (folded away, see the
          * header's B3 comment). */
@@ -338,8 +442,28 @@ struct AstNode {
         /* B5 (beads initech-54uu): `index` is NULL for an ordinary scalar
          * assignment (every pre-B5 use); non-NULL means `name[index] :=
          * value` -- an indexed (array-element) assignment. See this
-         * header's B5 AST_INDEX comment above. */
-        struct { char *name; AstNode *index; AstNode *value; } assign;
+         * header's B5 AST_INDEX comment above.
+         *
+         * B6 (beads initech-rug7): `field` is NULL for every non-field
+         * assignment (scalar or whole-array-element); non-NULL means
+         * `name[index?].field := value` -- a FIELD assignment (index may
+         * additionally be NULL for `name.field := value` or non-NULL for
+         * `name[index].field := value`, composing with the array case).
+         * `field_index` is the field's resolved 0-based declaration-order
+         * index (set by typecheck.c), meaningful iff `field` is non-NULL.
+         * `rec_fields` is 0 for every ordinary (scalar or field) assignment
+         * and > 0 (the record type's field count) for a WHOLE-RECORD
+         * assignment (`r1 := r2` or `arr[i] := r`, `field` NULL, `value` a
+         * plain record-typed designator) -- set by typecheck.c, consumed by
+         * codegen.c's gen_record_copy (a fully unrolled member-wise copy). */
+        struct {
+            char    *name;
+            AstNode *index;
+            char    *field;
+            int      field_index;
+            int      rec_fields;
+            AstNode *value;
+        } assign;
         /* B2: else_stmt is NULL when there is no 'else' clause. */
         struct { AstNode *cond; AstNode *then_stmt; AstNode *else_stmt; } ifstmt;
         struct { AstNode *cond; AstNode *body; } whilestmt;
@@ -354,8 +478,13 @@ struct AstNode {
         /* B4 (beads initech-63ce). */
         /* One formal parameter. is_var==1 for a `var` (by-reference)
          * parameter (the frame slot holds an ADDRESS), 0 for a value
-         * parameter (the frame slot holds a copy). */
-        struct { char *name; AstVarType ptype; int is_var; } param;
+         * parameter (the frame slot holds a copy).
+         * B6 (beads initech-rug7): `rectype` is non-NULL iff ptype ==
+         * AST_TY_RECORD (names which record type). A value (is_var==0)
+         * parameter of record type is REJECTED LOUDLY at parse time
+         * (parser.c's parse_param_list) -- this field is therefore only ever
+         * non-NULL in practice on a `var` parameter (is_var==1). */
+        struct { char *name; AstVarType ptype; int is_var; char *rectype; } param;
         /* A procedure (has_result==0) or function (has_result==1)
          * declaration. `params` holds AST_PARAM nodes left-to-right; `decls`
          * holds local AST_VARDECL groups; `body` is the AST_BLOCK (NULL for a
@@ -381,6 +510,20 @@ struct AstNode {
          * ast.h's generic per-expression field, to the array's element
          * type). See this header's B5 AST_INDEX comment above. */
         struct { char *name; AstNode *index; } arrayindex;
+        /* B6 (beads initech-rug7): one "type NAME = record ... end;"
+         * declaration. `fields` holds AST_VARDECL-shaped field-GROUP nodes
+         * (scalar-only vtype; is_array/rectype always 0/NULL on a field
+         * group -- see this header's B6 AST_TYPEDECL comment above). */
+        struct { char *name; AstList fields; } typedecl;
+        /* B6 (beads initech-rug7): `base.field` as an r-value expression (or,
+         * via AST_ASSIGN's own `field`/`field_index`, an l-value/var-param
+         * address target -- this node kind itself is only ever built for the
+         * R-VALUE/argument position; see parser.c). `base` is AST_VARREF or
+         * AST_INDEX (never AST_FIELD -- fields are scalar-only, no nesting).
+         * `field_index` is resolved by typecheck.c (0-based declaration
+         * order within the base's record type); this node's generic `type`
+         * (ast.h, above) is the FIELD's scalar type once typechecked. */
+        struct { AstNode *base; char *field; int field_index; } field;
     } as;
 };
 

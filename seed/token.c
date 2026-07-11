@@ -48,6 +48,8 @@ const char *token_kind_name(TokenKind kind)
     case TOK_KW_FORWARD:   return "KW_FORWARD";
     case TOK_KW_ARRAY:   return "KW_ARRAY";
     case TOK_KW_OF:      return "KW_OF";
+    case TOK_KW_TYPE:    return "KW_TYPE";
+    case TOK_KW_RECORD:  return "KW_RECORD";
     case TOK_SEMI:       return "SEMI";
     case TOK_DOT:        return "DOT";
     case TOK_COMMA:      return "COMMA";

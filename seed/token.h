@@ -113,6 +113,12 @@ typedef enum {
     /* B5 keywords (beads initech-54uu): static arrays. */
     TOK_KW_ARRAY,
     TOK_KW_OF,
+    /* B6 keywords (beads initech-rug7; ADR-0007 DEC-02 "records (record ...
+     * end), field access, arrays of records"): a `type` section naming
+     * `record` types -- the ONLY type-constructor in this subset (no
+     * enum/set/pointer/array type-names -- see ast.h's B6 note). */
+    TOK_KW_TYPE,
+    TOK_KW_RECORD,
 
     /* punctuation / operators */
     TOK_SEMI,       /* ; */

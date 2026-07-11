@@ -178,6 +178,7 @@ const char *ast_vartype_name(AstVarType t)
     case AST_TY_INTEGER: return "integer";
     case AST_TY_BOOLEAN: return "boolean";
     case AST_TY_CHAR:    return "char";
+    case AST_TY_RECORD:  return "record";
     }
     return "?";
 }
@@ -227,12 +228,17 @@ static void dump(const AstNode *n, FILE *fp)
             fputc(' ', fp);
             dump(n->as.vardecl.names.items[i], fp);
             /* B5 (beads initech-54uu): an array group dumps its bounds +
-             * element type instead of a bare scalar type. */
+             * element type instead of a bare scalar type. B6 (beads
+             * initech-rug7): a RECORD-typed group (scalar or array element)
+             * dumps the record type NAME instead of the bare "record" tag,
+             * so the S-expression distinguishes two different record types. */
+            const char *tyname = n->as.vardecl.rectype ? n->as.vardecl.rectype
+                                : ast_vartype_name(n->as.vardecl.vtype);
             if (n->as.vardecl.is_array)
                 fprintf(fp, ":array[%ld..%ld] of %s", n->as.vardecl.lo,
-                        n->as.vardecl.hi, ast_vartype_name(n->as.vardecl.vtype));
+                        n->as.vardecl.hi, tyname);
             else
-                fprintf(fp, ":%s", ast_vartype_name(n->as.vardecl.vtype));
+                fprintf(fp, ":%s", tyname);
         }
         fputc(')', fp);
         break;
@@ -251,8 +257,30 @@ static void dump(const AstNode *n, FILE *fp)
     case AST_ASSIGN:
         /* B5 (beads initech-54uu): an indexed assignment dumps the index
          * expression too, so the S-expression contract distinguishes
-         * "a := v" from "a[i] := v". */
-        if (n->as.assign.index) {
+         * "a := v" from "a[i] := v". B6 (beads initech-rug7): a FIELD
+         * assignment additionally dumps ".field"; a WHOLE-RECORD assignment
+         * (rec_fields > 0) is tagged "assign-record" so the contract
+         * distinguishes it from an ordinary scalar/indexed assignment. */
+        if (n->as.assign.field) {
+            if (n->as.assign.index) {
+                fprintf(fp, "(assign-index-field %s ", n->as.assign.name);
+                dump(n->as.assign.index, fp);
+                fprintf(fp, " %s ", n->as.assign.field);
+            } else {
+                fprintf(fp, "(assign-field %s %s ", n->as.assign.name,
+                        n->as.assign.field);
+            }
+            dump(n->as.assign.value, fp);
+        } else if (n->as.assign.rec_fields > 0) {
+            if (n->as.assign.index) {
+                fprintf(fp, "(assign-record-index %s ", n->as.assign.name);
+                dump(n->as.assign.index, fp);
+                fputc(' ', fp);
+            } else {
+                fprintf(fp, "(assign-record %s ", n->as.assign.name);
+            }
+            dump(n->as.assign.value, fp);
+        } else if (n->as.assign.index) {
             fprintf(fp, "(assign-index %s ", n->as.assign.name);
             dump(n->as.assign.index, fp);
             fputc(' ', fp);
@@ -322,7 +350,9 @@ static void dump(const AstNode *n, FILE *fp)
     /* B4 (beads initech-63ce). */
     case AST_PARAM:
         fprintf(fp, "(param %s%s:%s)", n->as.param.is_var ? "var " : "",
-                n->as.param.name, ast_vartype_name(n->as.param.ptype));
+                n->as.param.name,
+                n->as.param.rectype ? n->as.param.rectype
+                                    : ast_vartype_name(n->as.param.ptype));
         break;
     case AST_PROCDECL:
     case AST_FUNCDECL:
@@ -364,6 +394,20 @@ static void dump(const AstNode *n, FILE *fp)
         fprintf(fp, "(index %s ", n->as.arrayindex.name);
         dump(n->as.arrayindex.index, fp);
         fputc(')', fp);
+        break;
+    /* B6 (beads initech-rug7). */
+    case AST_TYPEDECL:
+        fprintf(fp, "(type %s (fields", n->as.typedecl.name);
+        for (size_t i = 0; i < n->as.typedecl.fields.count; i++) {
+            fputc(' ', fp);
+            dump(n->as.typedecl.fields.items[i], fp);
+        }
+        fputs("))", fp);
+        break;
+    case AST_FIELD:
+        fputs("(field ", fp);
+        dump(n->as.field.base, fp);
+        fprintf(fp, " %s)", n->as.field.field);
         break;
     }
 }

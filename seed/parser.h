@@ -179,12 +179,51 @@
  * bounds must be integer -- enforced for free by desugaring into ordinary
  * assign/relational/while nodes that already carry those rules).
  *
+ * B6 (beads initech-rug7; ADR-0007 DEC-02 "records (record ... end), field
+ * access, arrays of records, with a deterministic field layout") -- named
+ * record types, via a `type` section:
+ *
+ *   type-section = "type" type-decl ";" { type-decl ";" } ;
+ *   type-decl    = ident "=" record-type ;
+ *   record-type  = "record" field-list "end" ;
+ *   field-list   = field-group { ";" field-group } [ ";" ] ;
+ *   field-group  = ident { "," ident } ":" ("integer"|"boolean"|"char") ;
+ *     `record` is the ONLY type-constructor in this subset (ADR-0007 DEC-02's
+ *     own text). A field's type is SCALAR ONLY -- no nested records, no
+ *     array-typed fields (see seed/ast.h's B6 AST_TYPEDECL comment for the
+ *     full design note, incl. why a `type` section rather than anonymous
+ *     inline records). `type`/`const`/`var` sections may repeat and
+ *     interleave in any order (parse_program_root), same as const/var
+ *     already do; a var-decl/param/array-element referencing a record type
+ *     name just needs that type declared EARLIER in the same source
+ *     (single-pass declare-before-use). Global (top-level) ONLY -- no local
+ *     `type` section, mirroring the B3 const-section's local deferral.
+ *   var-type (extended) = ... | record-type-ident ;
+ *     A var-decl/parameter/array-element type may now also be an
+ *     already-declared record type name (parse_type_name, shared by all
+ *     three positions). A value (non-`var`) PARAMETER of record type is
+ *     REJECTED LOUDLY at parse time (parser.c's parse_param_list) -- only a
+ *     `var` parameter of record type is supported (the record's address is
+ *     passed).
+ *   designator (extended) = ident [ "[" expr "]" ] [ "." ident ] ;
+ *     A trailing ".field" (parse_factor's TOK_IDENT branch; parse_assignment
+ *     for an l-value target) makes a plain variable or one array element a
+ *     FIELD access -- `r.f`, `arr[i].f`. ONE level only (fields are
+ *     scalar-only, so there is no field-of-a-field designator to parse).
+ *     `r1 := r2` (no index, no field, target resolves to a record type at
+ *     typecheck) is a WHOLE-RECORD assignment; `r.f := v` / `arr[i].f := v`
+ *     are FIELD assignments -- both reuse AST_ASSIGN (ast.h's B6 comment)
+ *     rather than adding sibling statement kinds. Record COMPARISON (`=`,
+ *     `<>`, ...) is rejected loudly by typecheck.c, not this grammar.
+ *
  * DEFERRED (later steps, intentionally not parsed): case, real type,
- * records, pointers, typed consts, general string expressions,
- * lexically-nested routines, local const sections, the `Result`
- * pseudo-variable, multi-dimensional/array-of-array arrays, array-typed
- * parameters (B5, beads initech-54uu -- see the array-type grammar note
- * above for the full DECISION list).
+ * pointers, typed consts, general string expressions, lexically-nested
+ * routines, local const/type sections, the `Result` pseudo-variable,
+ * multi-dimensional/array-of-array arrays, array-typed parameters (B5, beads
+ * initech-54uu -- see the array-type grammar note above for the full
+ * DECISION list), anonymous inline records, record-of-record/array-typed
+ * record fields, record-typed function results, value parameters of record
+ * type (B6, beads initech-rug7 -- see seed/ast.h's B6 AST_TYPEDECL comment).
  *
  * Error-handling strategy (DECIDED, consistent with the lexer): the parser is
  * single-error. On the first syntax (or lexical) fault it records a located

@@ -39,6 +39,12 @@
 #define TC_MAX_PROCS   128
 #define TC_MAX_PARAMS   32
 #define TC_MAX_LOCALS   64
+/* B6 (beads initech-rug7): fixed-capacity, fail-loud-on-overflow tables for
+ * record TYPES and their fields -- the same "no hashing, insertion-ordered,
+ * deterministic" discipline every other table in this file already uses
+ * (ADR-0007 DEC-04 spirit). */
+#define TC_MAX_RECTYPES      32
+#define TC_MAX_RECORD_FIELDS 32
 
 typedef struct {
     char       name[TC_SYM_NAME_CAP]; /* case-folded (lower) declared name */
@@ -55,6 +61,13 @@ typedef struct {
      * so is_array and is_const are never both set. */
     int        is_array;
     long       lo, hi;
+    /* B6 (beads initech-rug7): 1 if `type` (or, for an array, the ELEMENT
+     * type) is AST_TY_RECORD; `rectype` then names WHICH record type
+     * (case-folded, looked up in Tc.rectypes). A record is never a const
+     * (B3's const grammar is scalar-only) so is_record and is_const are
+     * never both set. */
+    int        is_record;
+    char       rectype[TC_SYM_NAME_CAP];
 } TcSym;
 
 /* B4 (beads initech-63ce): one entry in a routine's local scope. `kind`
@@ -80,6 +93,14 @@ typedef struct {
      * declared inclusive bounds. */
     int         is_array;
     long        lo, hi;
+    /* B6 (beads initech-rug7): 1 iff `type` (or, for an array, the ELEMENT
+     * type) is AST_TY_RECORD; `rectype` names which record type. Valid on a
+     * TC_KIND_LOCAL (scalar or array-of-record) or a TC_KIND_VARPARAM (a
+     * `var` parameter of record type, address-passed) -- never on
+     * TC_KIND_VALPARAM (rejected at parse time) or TC_KIND_RESULT (record
+     * results are out of scope, ast.h's B6 note). */
+    int         is_record;
+    char        rectype[TC_SYM_NAME_CAP];
 } TcLocal;
 
 /* B4: one procedure/function signature. Params are flattened (one entry per
@@ -93,11 +114,40 @@ typedef struct {
         char       name[TC_SYM_NAME_CAP];
         AstVarType type;
         int        is_var;
+        /* B6 (beads initech-rug7): non-empty iff type == AST_TY_RECORD
+         * (names which record type). Only ever set on a `var` parameter --
+         * a value parameter of record type is rejected at parse time. */
+        int        is_record;
+        char       rectype[TC_SYM_NAME_CAP];
     } params[TC_MAX_PARAMS];
     int        nparams;
     int        is_defined;
     int        line, col; /* of the (first) declaration, for diagnostics */
 } TcProc;
+
+/* B6 (beads initech-rug7): one field of a record type -- a case-folded name
+ * plus its SCALAR type (integer/boolean/char only -- ast.h's B6 AST_TYPEDECL
+ * comment: no nested records, no array-typed fields, enforced by the parser
+ * already, re-asserted nowhere further here since the parser's contract is
+ * trusted the same way array bound lo<=hi is). */
+typedef struct {
+    char       name[TC_SYM_NAME_CAP];
+    AstVarType type;
+} TcField;
+
+/* One named record type: fields in DECLARATION ORDER (flattened across
+ * field-groups -- "kind, x: integer; ch: char;" is TWO groups but THREE
+ * fields, field_index 0/1/2 respectively) -- see ast.h's B6 layout-rule
+ * comment ("fields ... consecutive uniform 4-byte slots in DECLARATION
+ * ORDER"). `nfields` is this record type's SIZE in dwords
+ * (sizeof(record) = 4 * nfields) -- consumed by codegen.c for frame-slot/
+ * .bss sizing and the array-of-record element STRIDE. */
+typedef struct {
+    char    name[TC_SYM_NAME_CAP];
+    TcField fields[TC_MAX_RECORD_FIELDS];
+    int     nfields;
+    int     line, col; /* of the `type` declaration, for diagnostics */
+} TcRecType;
 
 typedef struct {
     TcSym syms[TC_MAX_SYMBOLS];   /* program-level vars + consts (globals) */
@@ -105,6 +155,13 @@ typedef struct {
 
     TcProc procs[TC_MAX_PROCS];   /* B4: routine signatures */
     int    nprocs;
+
+    /* B6 (beads initech-rug7): every declared record TYPE (name -> flattened
+     * field list), collected by collect_types BEFORE collect_decls/
+     * collect_procs run (a var/param/array-element can name a record type,
+     * so its field list must already be known). */
+    TcRecType rectypes[TC_MAX_RECTYPES];
+    int       nrectypes;
 
     /* B4: the local scope of the routine body currently being checked.
      * nlocal == 0 (and in_routine == 0) while checking the main program
@@ -171,6 +228,28 @@ static int proc_find(const Tc *tc, const char *name_lc)
     return -1;
 }
 
+/* B6 (beads initech-rug7): find a record TYPE by (case-folded) name. -1 if
+ * not declared (should not happen for a well-typed program -- the parser's
+ * own registry already gated every rectype-name USE against a real prior
+ * declaration; a miss here is an internal contract break). */
+static int rectype_find(const Tc *tc, const char *name_lc)
+{
+    for (int i = 0; i < tc->nrectypes; i++)
+        if (strcmp(tc->rectypes[i].name, name_lc) == 0)
+            return i;
+    return -1;
+}
+
+/* Find a FIELD by (case-folded) name within one record type. -1 if unknown
+ * (a real, checked, fail-loud user error -- "unknown field"). */
+static int rectype_field_find(const TcRecType *rt, const char *field_lc)
+{
+    for (int i = 0; i < rt->nfields; i++)
+        if (strcmp(rt->fields[i].name, field_lc) == 0)
+            return i;
+    return -1;
+}
+
 /*
  * B4: resolve a name to its type, checking the active routine's local scope
  * FIRST (so a param/local/result shadows a global), then globals. Returns the
@@ -189,10 +268,20 @@ static int proc_find(const Tc *tc, const char *name_lc)
  * pre-B5 call sites) must check *out_is_array themselves and reject a bare
  * array reference with their own located diagnostic -- this function does
  * not decide whether an array hit is an error, only reports the fact.
+ *
+ * B6 (beads initech-rug7): also reports whether the resolved TYPE (*out_type
+ * -- the scalar type, OR the array's element type when *out_is_array) is a
+ * RECORD (*out_is_record) and, when it is, WHICH record type
+ * (*out_rectype_lc, a case-folded name into a caller-owned buffer of at
+ * least TC_SYM_NAME_CAP bytes). Exactly like *out_is_array, this function
+ * only REPORTS the fact -- callers decide whether a record hit is legal in
+ * their context (e.g. check_expr's AST_VARREF case allows a bare record var
+ * as a value; a plain scalar array name is instead rejected there).
  */
 static int resolve_name(const Tc *tc, const char *name_lc,
                         AstVarType *out_type, int *out_is_lvalue,
-                        int *out_is_array, long *out_lo, long *out_hi)
+                        int *out_is_array, long *out_lo, long *out_hi,
+                        int *out_is_record, char *out_rectype_lc)
 {
     int li = local_find(tc, name_lc);
     if (li >= 0) {
@@ -201,6 +290,8 @@ static int resolve_name(const Tc *tc, const char *name_lc,
         *out_is_array = tc->local[li].is_array;
         *out_lo = tc->local[li].lo;
         *out_hi = tc->local[li].hi;
+        *out_is_record = tc->local[li].is_record;
+        snprintf(out_rectype_lc, TC_SYM_NAME_CAP, "%s", tc->local[li].rectype);
         return 1;
     }
     int si = sym_find(tc, name_lc);
@@ -210,9 +301,90 @@ static int resolve_name(const Tc *tc, const char *name_lc,
         *out_is_array = tc->syms[si].is_array;
         *out_lo = tc->syms[si].lo;
         *out_hi = tc->syms[si].hi;
+        *out_is_record = tc->syms[si].is_record;
+        snprintf(out_rectype_lc, TC_SYM_NAME_CAP, "%s", tc->syms[si].rectype);
         return 1;
     }
     return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* B6 (beads initech-rug7): Pass 0 -- collect record TYPES               */
+/* ------------------------------------------------------------------ */
+/* Runs BEFORE collect_decls/collect_procs: a var/param/array-element may
+ * name a record type, so the full record-type table (name -> flattened
+ * field list) must exist before anything else is resolved. Record type
+ * names live in their OWN namespace (not cross-checked against var/const/
+ * proc names in this subset -- DECISION, report, mirrors parser.c's own
+ * rectype registry, which makes the identical simplifying choice). */
+static void collect_types(Tc *tc, const AstList *decls)
+{
+    for (size_t i = 0; i < decls->count && !tc->failed; i++) {
+        const AstNode *td = decls->items[i];
+        if (td->kind != AST_TYPEDECL)
+            continue;
+
+        char lc[TC_SYM_NAME_CAP];
+        lower_copy(lc, sizeof(lc), td->as.typedecl.name);
+        if (rectype_find(tc, lc) >= 0) {
+            char msg[TYPECHECK_ERRMSG_CAP];
+            snprintf(msg, sizeof(msg), "duplicate record type declaration: %s",
+                     td->as.typedecl.name);
+            fail_at(tc, td->line, td->col, msg);
+            return;
+        }
+        if (tc->nrectypes >= TC_MAX_RECTYPES) {
+            fail_at(tc, td->line, td->col,
+                    "too many record type declarations "
+                    "(TC_MAX_RECTYPES exceeded)");
+            return;
+        }
+        TcRecType *rt = &tc->rectypes[tc->nrectypes];
+        lower_copy(rt->name, sizeof(rt->name), td->as.typedecl.name);
+        rt->nfields = 0;
+        rt->line = td->line;
+        rt->col = td->col;
+
+        for (size_t g = 0; g < td->as.typedecl.fields.count && !tc->failed;
+             g++) {
+            const AstNode *fg = td->as.typedecl.fields.items[g];
+            if (fg->kind != AST_VARDECL) {
+                fail_at(tc, fg->line, fg->col,
+                        "internal: non-vardecl field group in a record type "
+                        "(typecheck)");
+                return;
+            }
+            for (size_t j = 0; j < fg->as.vardecl.names.count && !tc->failed;
+                 j++) {
+                const AstNode *fr = fg->as.vardecl.names.items[j];
+                char flc[TC_SYM_NAME_CAP];
+                lower_copy(flc, sizeof(flc), fr->as.varref.name);
+                if (rectype_field_find(rt, flc) >= 0) {
+                    char msg[TYPECHECK_ERRMSG_CAP];
+                    snprintf(msg, sizeof(msg),
+                             "duplicate field '%s' in record type '%s'",
+                             fr->as.varref.name, td->as.typedecl.name);
+                    fail_at(tc, fr->line, fr->col, msg);
+                    return;
+                }
+                if (rt->nfields >= TC_MAX_RECORD_FIELDS) {
+                    char msg[TYPECHECK_ERRMSG_CAP];
+                    snprintf(msg, sizeof(msg),
+                             "too many fields in record type '%s' "
+                             "(TC_MAX_RECORD_FIELDS exceeded)",
+                             td->as.typedecl.name);
+                    fail_at(tc, fr->line, fr->col, msg);
+                    return;
+                }
+                lower_copy(rt->fields[rt->nfields].name,
+                           sizeof(rt->fields[rt->nfields].name),
+                           fr->as.varref.name);
+                rt->fields[rt->nfields].type = fg->as.vardecl.vtype;
+                rt->nfields++;
+            }
+        }
+        tc->nrectypes++;
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -255,6 +427,8 @@ static void collect_decls(Tc *tc, const AstList *decls)
             tc->syms[tc->nsyms].is_array = 0; /* B3 consts are scalar-only */
             tc->syms[tc->nsyms].lo = 0;
             tc->syms[tc->nsyms].hi = 0;
+            tc->syms[tc->nsyms].is_record = 0; /* B3 consts are scalar-only */
+            tc->syms[tc->nsyms].rectype[0] = '\0';
             tc->nsyms++;
             continue;
         }
@@ -263,6 +437,12 @@ static void collect_decls(Tc *tc, const AstList *decls)
          * the SAME decls list (see parser.c) but are collected separately by
          * collect_procs; skip them in the globals pass. */
         if (vd->kind == AST_PROCDECL || vd->kind == AST_FUNCDECL)
+            continue;
+
+        /* B6 (beads initech-rug7): `type` declarations were already fully
+         * collected by collect_types (Pass 0, run before this pass); skip
+         * them here exactly as const/proc decls are skipped. */
+        if (vd->kind == AST_TYPEDECL)
             continue;
 
         if (vd->kind != AST_VARDECL) {
@@ -306,6 +486,26 @@ static void collect_decls(Tc *tc, const AstList *decls)
             tc->syms[tc->nsyms].is_array = vd->as.vardecl.is_array;
             tc->syms[tc->nsyms].lo = vd->as.vardecl.lo;
             tc->syms[tc->nsyms].hi = vd->as.vardecl.hi;
+            /* B6 (beads initech-rug7): a RECORD-typed global (scalar or
+             * array-of-record) names its record type; the parser's own
+             * rectype registry already gated `rectype` to a real prior
+             * `type` declaration, so rectype_find below should never miss --
+             * a miss is an internal contract break, not a user error. */
+            if (vd->as.vardecl.vtype == AST_TY_RECORD) {
+                tc->syms[tc->nsyms].is_record = 1;
+                lower_copy(tc->syms[tc->nsyms].rectype,
+                           sizeof(tc->syms[tc->nsyms].rectype),
+                           vd->as.vardecl.rectype);
+                if (rectype_find(tc, tc->syms[tc->nsyms].rectype) < 0) {
+                    fail_at(tc, vr->line, vr->col,
+                            "internal: unknown record type in vardecl "
+                            "(typecheck)");
+                    return;
+                }
+            } else {
+                tc->syms[tc->nsyms].is_record = 0;
+                tc->syms[tc->nsyms].rectype[0] = '\0';
+            }
             tc->nsyms++;
         }
     }
@@ -355,6 +555,33 @@ static int flatten_signature(Tc *tc, const AstNode *pf, TcProc *out)
                    sizeof(out->params[out->nparams].name), pn->as.param.name);
         out->params[out->nparams].type = pn->as.param.ptype;
         out->params[out->nparams].is_var = pn->as.param.is_var;
+        /* B6 (beads initech-rug7): a RECORD-typed parameter names its record
+         * type. DEFENSIVE re-assertion (Rule 2 -- an internal contract
+         * break, never a user error): parser.c's parse_param_list already
+         * rejects a value (non-`var`) parameter of record type at parse
+         * time, so `ptype == AST_TY_RECORD && !is_var` reaching here would
+         * mean the parser/typecheck contract broke, not a real source bug. */
+        if (pn->as.param.ptype == AST_TY_RECORD) {
+            if (!pn->as.param.is_var) {
+                fail_at(tc, pn->line, pn->col,
+                        "internal: value parameter of record type reached "
+                        "typecheck (parser should have rejected this)");
+                return 0;
+            }
+            out->params[out->nparams].is_record = 1;
+            lower_copy(out->params[out->nparams].rectype,
+                       sizeof(out->params[out->nparams].rectype),
+                       pn->as.param.rectype);
+            if (rectype_find(tc, out->params[out->nparams].rectype) < 0) {
+                fail_at(tc, pn->line, pn->col,
+                        "internal: unknown record type in parameter "
+                        "(typecheck)");
+                return 0;
+            }
+        } else {
+            out->params[out->nparams].is_record = 0;
+            out->params[out->nparams].rectype[0] = '\0';
+        }
         out->nparams++;
     }
     return 1;
@@ -376,6 +603,12 @@ static int signatures_match(const TcProc *a, const TcProc *b)
         if (a->params[i].type != b->params[i].type)
             return 0;
         if (a->params[i].is_var != b->params[i].is_var)
+            return 0;
+        /* B6 (beads initech-rug7): two RECORD-typed parameters must name the
+         * SAME record type -- two different record types both tagged
+         * AST_TY_RECORD are not the same parameter shape. */
+        if (a->params[i].type == AST_TY_RECORD
+            && strcmp(a->params[i].rectype, b->params[i].rectype) != 0)
             return 0;
     }
     return 1;
@@ -453,6 +686,50 @@ static void collect_procs(Tc *tc, const AstList *decls)
 /* ------------------------------------------------------------------ */
 static AstVarType check_expr(Tc *tc, AstNode *e);
 
+/*
+ * B6 (beads initech-rug7): like check_expr, but ALSO reports the record TYPE
+ * NAME (case-folded, into `out_rectype_lc` -- a caller-owned buffer of at
+ * least TC_SYM_NAME_CAP bytes, set to "" when the result is not a record)
+ * when the expression's checked type is AST_TY_RECORD. Used ONLY at the
+ * handful of call sites that need to know WHICH record type -- AST_FIELD's
+ * base, a whole-record ASSIGNMENT's value, and a `var`-parameter CALL
+ * argument -- since a record-typed EXPRESSION can only ever be an AST_VARREF
+ * (a plain record variable) or an AST_INDEX (an array-of-record element) in
+ * this subset (no record-returning functions, no record fields that are
+ * themselves records -- ast.h's B6 AST_TYPEDECL comment). Re-resolves the
+ * designator's name via a SEPARATE (cheap, linear-scan) resolve_name call
+ * rather than threading a new out-parameter through check_expr's own dozen
+ * pre-existing call sites -- report: minimal footprint over exhaustive
+ * signature-plumbing, since only these two node kinds ever yield RECORD.
+ */
+static AstVarType check_expr_recinfo(Tc *tc, AstNode *e, char *out_rectype_lc,
+                                     size_t cap)
+{
+    AstVarType t = check_expr(tc, e);
+    if (cap > 0)
+        out_rectype_lc[0] = '\0';
+    if (tc->failed || t != AST_TY_RECORD)
+        return t;
+    const char *name = NULL;
+    if (e->kind == AST_VARREF)
+        name = e->as.varref.name;
+    else if (e->kind == AST_INDEX)
+        name = e->as.arrayindex.name;
+    if (!name)
+        return t; /* unreachable: only VARREF/INDEX ever check_expr to RECORD */
+    char lc[TC_SYM_NAME_CAP];
+    lower_copy(lc, sizeof(lc), name);
+    AstVarType rt;
+    int is_lvalue, is_array, is_record;
+    long lo, hi;
+    char rectype[TC_SYM_NAME_CAP];
+    if (resolve_name(tc, lc, &rt, &is_lvalue, &is_array, &lo, &hi, &is_record,
+                     rectype)
+        && is_record)
+        snprintf(out_rectype_lc, cap, "%s", rectype);
+    return t;
+}
+
 /* B4: check one call node against the callee's signature. `want_value` is 1
  * in an expression context (the callee must be a FUNCTION and the call yields
  * its result type) and 0 in a statement context (the callee must be a
@@ -513,18 +790,33 @@ static AstVarType check_call(Tc *tc, AstNode *call, int want_value)
          * reference parameters are out of scope in this subset (ast.h's B5
          * DECISION note); resolving a plain AST_VARREF to an array name is
          * therefore rejected below, not silently accepted as "the array's
-         * address". */
+         * address".
+         *
+         * B6 (beads initech-rug7): a bare AST_VARREF resolving to a whole
+         * RECORD variable IS a valid var-parameter argument (its base
+         * address is passed -- needed for symbol-table-style helpers that
+         * mutate a caller's record in place); is_lvalue is NOT zeroed for
+         * that case (only for a bare ARRAY name). A single FIELD
+         * (`r.f`/`arr[i].f`, AST_FIELD) is ALSO valid -- a field of a real
+         * record is always a scalar lvalue; its own base/field validity is
+         * checked by the check_expr call below (which gives a field-specific
+         * diagnostic, e.g. "unknown field", on failure -- better than this
+         * generic var-param message). */
         if (pr->params[i].is_var) {
             AstVarType at = AST_TY_UNKNOWN;
             int is_lvalue = 0;
             int resolved = 0;
             int is_array = 0;
             long lo = 0, hi = 0;
+            int is_record = 0;
+            char rectype[TC_SYM_NAME_CAP];
+            rectype[0] = '\0';
             if (arg->kind == AST_VARREF) {
                 char alc[TC_SYM_NAME_CAP];
                 lower_copy(alc, sizeof(alc), arg->as.varref.name);
                 resolved = resolve_name(tc, alc, &at, &is_lvalue,
-                                        &is_array, &lo, &hi);
+                                        &is_array, &lo, &hi, &is_record,
+                                        rectype);
                 if (resolved && is_array)
                     is_lvalue = 0; /* a bare array name is not a scalar lvalue */
             } else if (arg->kind == AST_INDEX) {
@@ -532,22 +824,29 @@ static AstVarType check_call(Tc *tc, AstNode *call, int want_value)
                 lower_copy(alc, sizeof(alc), arg->as.arrayindex.name);
                 int base_is_lvalue = 0;
                 resolved = resolve_name(tc, alc, &at, &base_is_lvalue,
-                                        &is_array, &lo, &hi);
+                                        &is_array, &lo, &hi, &is_record,
+                                        rectype);
                 is_lvalue = resolved && is_array; /* an element of a REAL array */
+            } else if (arg->kind == AST_FIELD) {
+                resolved = 1;
+                is_lvalue = 1;
             }
             if (!resolved || !is_lvalue) {
                 char msg[TYPECHECK_ERRMSG_CAP];
                 snprintf(msg, sizeof(msg),
                          "argument %d of %s is a `var` parameter and requires "
-                         "a variable or array element (not a literal, "
-                         "constant, whole array, or expression)",
+                         "a variable, array element, or field (not a "
+                         "literal, constant, whole array, or expression)",
                          i + 1, call->as.call.name);
                 fail_at(tc, arg->line, arg->col, msg);
                 return AST_TY_UNKNOWN;
             }
-            arg->type = at; /* annotate so codegen knows its type */
+            if (arg->kind != AST_FIELD)
+                arg->type = at; /* annotate so codegen knows its type */
         }
-        AstVarType at = check_expr(tc, arg);
+        char arg_rectype[TC_SYM_NAME_CAP];
+        AstVarType at = check_expr_recinfo(tc, arg, arg_rectype,
+                                           sizeof(arg_rectype));
         if (tc->failed)
             return AST_TY_UNKNOWN;
         if (at != pr->params[i].type) {
@@ -556,6 +855,29 @@ static AstVarType check_call(Tc *tc, AstNode *call, int want_value)
                      "argument %d of %s has type %s but parameter expects %s",
                      i + 1, call->as.call.name, ast_vartype_name(at),
                      ast_vartype_name(pr->params[i].type));
+            fail_at(tc, arg->line, arg->col, msg);
+            return AST_TY_UNKNOWN;
+        }
+        /* B6 (beads initech-rug7): for a RECORD-typed argument/parameter,
+         * also require the SAME record type NAME -- two different record
+         * types that happen to share a field layout are NOT interchangeable
+         * (this subset checks record compatibility by name, never by
+         * structural layout). */
+        if (at == AST_TY_RECORD
+            && strcmp(arg_rectype, pr->params[i].rectype) != 0) {
+            /* A larger local buffer than TYPECHECK_ERRMSG_CAP (report: GCC's
+             * -Wformat-truncation can see the fixed TC_SYM_NAME_CAP bounds of
+             * both %s-record-type-name arguments and, combined with the
+             * unbounded call->as.call.name, cannot prove 256 bytes always
+             * suffices; fail_at's own snprintf into the final located
+             * diagnostic already truncates safely, so this is purely a
+             * silence-the-static-worst-case buffer, not a real overflow). */
+            char msg[400];
+            snprintf(msg, sizeof(msg),
+                     "argument %d of %s is record type '%s' but parameter "
+                     "expects record type '%s'",
+                     i + 1, call->as.call.name, arg_rectype,
+                     pr->params[i].rectype);
             fail_at(tc, arg->line, arg->col, msg);
             return AST_TY_UNKNOWN;
         }
@@ -599,7 +921,24 @@ static AstVarType check_binop(Tc *tc, AstNode *e)
          * free -- the rule is already generic ("both sides the same
          * type"), so char==char / char<char / etc. Just Work the moment
          * AST_TY_CHAR exists as a real type; no relational-specific change
-         * was needed beyond this diagnostic wording. */
+         * was needed beyond this diagnostic wording.
+         *
+         * B6 (beads initech-rug7): record COMPARISON is REJECTED LOUDLY,
+         * explicitly, BEFORE the generic "both sides the same type" check
+         * below -- Turbo Pascal does not define '='/'<>'/etc. on records
+         * either. This guard is load-bearing, not decoration: without it,
+         * two operands of the IDENTICAL record type would satisfy
+         * `lt == rt` (both AST_TY_RECORD) and fall through to the generic
+         * same-type acceptance, silently permitting record `=` -- exactly
+         * the deep bug the task calls out ("no record comparisons"). */
+        if (lt == AST_TY_RECORD || rt == AST_TY_RECORD) {
+            fail_at(tc, e->line, e->col,
+                    "record types cannot be compared with relational "
+                    "operators in this subset (Turbo Pascal does not define "
+                    "'=' on records either; compare individual fields "
+                    "instead)");
+            return AST_TY_UNKNOWN;
+        }
         if (lt == AST_TY_UNKNOWN || rt == AST_TY_UNKNOWN || lt != rt) {
             fail_at(tc, e->line, e->col,
                     "relational operands must be the same type "
@@ -706,7 +1045,10 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
         int is_lvalue;
         int is_array;
         long lo, hi;
-        if (!resolve_name(tc, lc, &t, &is_lvalue, &is_array, &lo, &hi)) {
+        int is_record;
+        char rectype[TC_SYM_NAME_CAP];
+        if (!resolve_name(tc, lc, &t, &is_lvalue, &is_array, &lo, &hi,
+                          &is_record, rectype)) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg), "undeclared variable: %s",
                      e->as.varref.name);
@@ -714,10 +1056,15 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
             return AST_TY_UNKNOWN;
         }
         (void)lo; (void)hi; /* a bare-name reference never needs the bounds */
+        (void)is_record; (void)rectype; /* codegen re-derives sizing itself */
         /* B5 (beads initech-54uu): a bare array name is not a value in this
          * subset -- whole-array use (read, write, pass-by-value/reference)
          * is out of scope; the only legal use of an array is indexed
-         * (AST_INDEX, handled below). */
+         * (AST_INDEX, handled below). B6 (beads initech-rug7): a bare RECORD
+         * name IS a legal value here (unlike an array) -- it is the base
+         * designator for a field access, a whole-record assignment's RHS, or
+         * a `var`-parameter argument; nothing about a plain record reference
+         * needs rejecting. */
         if (is_array) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg),
@@ -737,7 +1084,10 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
         AstVarType elem;
         int is_lvalue, is_array;
         long lo, hi;
-        if (!resolve_name(tc, lc, &elem, &is_lvalue, &is_array, &lo, &hi)) {
+        int is_record;
+        char rectype[TC_SYM_NAME_CAP];
+        if (!resolve_name(tc, lc, &elem, &is_lvalue, &is_array, &lo, &hi,
+                          &is_record, rectype)) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg), "undeclared variable: %s",
                      e->as.arrayindex.name);
@@ -745,6 +1095,7 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
             return AST_TY_UNKNOWN;
         }
         (void)is_lvalue; (void)lo; (void)hi; /* codegen re-resolves bounds */
+        (void)is_record; (void)rectype; /* codegen re-derives sizing itself */
         if (!is_array) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg),
@@ -762,7 +1113,48 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
                     "array index must be an integer expression");
             return AST_TY_UNKNOWN;
         }
+        /* B6 (beads initech-rug7): elem may now be AST_TY_RECORD (an
+         * array-of-record element) -- no special handling needed here
+         * beyond passing it through: an element used bare (no `.field`) is
+         * the whole-record-element value, legal as a designator exactly
+         * like a plain record var (see AST_VARREF above). */
         e->type = elem;
+        return e->type;
+    }
+    /* B6 (beads initech-rug7; ADR-0007 DEC-02 "field access"): `base.field`
+     * as an r-value. `base` is always AST_VARREF or AST_INDEX (never
+     * AST_FIELD -- fields are scalar-only, ast.h's B6 note). */
+    case AST_FIELD: {
+        char rectype_lc[TC_SYM_NAME_CAP];
+        AstVarType bt = check_expr_recinfo(tc, e->as.field.base, rectype_lc,
+                                           sizeof(rectype_lc));
+        if (tc->failed)
+            return AST_TY_UNKNOWN;
+        if (bt != AST_TY_RECORD) {
+            fail_at(tc, e->line, e->col,
+                    "'.' field access requires a record variable or "
+                    "array-of-record element");
+            return AST_TY_UNKNOWN;
+        }
+        int rti = rectype_find(tc, rectype_lc);
+        if (rti < 0) {
+            fail_at(tc, e->line, e->col,
+                    "internal: unknown record type in field access "
+                    "(typecheck)");
+            return AST_TY_UNKNOWN;
+        }
+        char flc[TC_SYM_NAME_CAP];
+        lower_copy(flc, sizeof(flc), e->as.field.field);
+        int fi = rectype_field_find(&tc->rectypes[rti], flc);
+        if (fi < 0) {
+            char msg[TYPECHECK_ERRMSG_CAP];
+            snprintf(msg, sizeof(msg), "unknown field '%s' in record type "
+                     "'%s'", e->as.field.field, tc->rectypes[rti].name);
+            fail_at(tc, e->line, e->col, msg);
+            return AST_TY_UNKNOWN;
+        }
+        e->as.field.field_index = fi;
+        e->type = tc->rectypes[rti].fields[fi].type;
         return e->type;
     }
     case AST_CALL:
@@ -801,18 +1193,108 @@ static void check_stmt(Tc *tc, AstNode *n)
         int is_lvalue;
         int is_array;
         long lo, hi;
-        if (!resolve_name(tc, lc, &vt, &is_lvalue, &is_array, &lo, &hi)) {
+        int is_record;
+        char rectype[TC_SYM_NAME_CAP];
+        if (!resolve_name(tc, lc, &vt, &is_lvalue, &is_array, &lo, &hi,
+                          &is_record, rectype)) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg), "undeclared variable: %s",
                      n->as.assign.name);
             fail_at(tc, n->line, n->col, msg);
             return;
         }
+
+        /* B6 (beads initech-rug7): a FIELD assignment -- `name.field := v`
+         * (index NULL) or `name[index].field := v` (index non-NULL,
+         * composing the array case) -- checked FIRST since it takes over
+         * the "how is the base validated" question entirely from the
+         * ordinary index/bare-name paths below. */
+        if (n->as.assign.field) {
+            AstVarType base_type = vt;
+            int base_is_record = is_record;
+            char base_rectype[TC_SYM_NAME_CAP];
+            snprintf(base_rectype, sizeof(base_rectype), "%s", rectype);
+            if (n->as.assign.index) {
+                if (!is_array) {
+                    char msg[TYPECHECK_ERRMSG_CAP];
+                    snprintf(msg, sizeof(msg),
+                             "'%s' is not an array (indexed field assignment "
+                             "requires an array-of-record variable)",
+                             n->as.assign.name);
+                    fail_at(tc, n->line, n->col, msg);
+                    return;
+                }
+                AstVarType it = check_expr(tc, n->as.assign.index);
+                if (tc->failed)
+                    return;
+                if (it != AST_TY_INTEGER) {
+                    fail_at(tc, n->as.assign.index->line,
+                            n->as.assign.index->col,
+                            "array index must be an integer expression");
+                    return;
+                }
+                /* base_type/base_is_record/base_rectype already describe
+                 * the ARRAY's ELEMENT (resolve_name's "reuse type for the
+                 * element" convention) -- unchanged from the vt/is_record/
+                 * rectype captured above. */
+            } else if (is_array) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg),
+                         "array '%s' needs an index before '.field' "
+                         "(expected %s[expr].field)",
+                         n->as.assign.name, n->as.assign.name);
+                fail_at(tc, n->line, n->col, msg);
+                return;
+            }
+            if (!base_is_record || base_type != AST_TY_RECORD) {
+                fail_at(tc, n->line, n->col,
+                        "'.' field access requires a record variable or "
+                        "array-of-record element");
+                return;
+            }
+            int rti = rectype_find(tc, base_rectype);
+            if (rti < 0) {
+                fail_at(tc, n->line, n->col,
+                        "internal: unknown record type in field assignment "
+                        "(typecheck)");
+                return;
+            }
+            char flc[TC_SYM_NAME_CAP];
+            lower_copy(flc, sizeof(flc), n->as.assign.field);
+            int fi = rectype_field_find(&tc->rectypes[rti], flc);
+            if (fi < 0) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg),
+                         "unknown field '%s' in record type '%s'",
+                         n->as.assign.field, tc->rectypes[rti].name);
+                fail_at(tc, n->line, n->col, msg);
+                return;
+            }
+            n->as.assign.field_index = fi;
+            AstVarType ft = tc->rectypes[rti].fields[fi].type;
+            AstVarType vvt = check_expr(tc, n->as.assign.value);
+            if (tc->failed)
+                return;
+            if (vvt != ft) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg),
+                         "type mismatch in field assignment to %s.%s: "
+                         "expected %s, got %s (no implicit coercion in this "
+                         "subset)",
+                         n->as.assign.name, n->as.assign.field,
+                         ast_vartype_name(ft), ast_vartype_name(vvt));
+                fail_at(tc, n->line, n->col, msg);
+            }
+            return;
+        }
+
         /* B5 (beads initech-54uu): an INDEXED target (`name[index] := v`)
          * takes a DIFFERENT path from a plain scalar assignment -- the name
          * must be a real array, the index must be integer, and the value
          * must match the ELEMENT type (vt, from resolve_name's "reuse type
-         * for the element" convention). */
+         * for the element" convention). B6 (beads initech-rug7): when the
+         * ELEMENT type is a record, this is a WHOLE-RECORD ELEMENT
+         * assignment (`toks[i] := t`) instead of an ordinary scalar one. */
         if (n->as.assign.index) {
             if (!is_array) {
                 char msg[TYPECHECK_ERRMSG_CAP];
@@ -829,6 +1311,28 @@ static void check_stmt(Tc *tc, AstNode *n)
             if (it != AST_TY_INTEGER) {
                 fail_at(tc, n->as.assign.index->line, n->as.assign.index->col,
                         "array index must be an integer expression");
+                return;
+            }
+            if (vt == AST_TY_RECORD) {
+                char value_rectype[TC_SYM_NAME_CAP];
+                AstVarType vvt = check_expr_recinfo(tc, n->as.assign.value,
+                                                    value_rectype,
+                                                    sizeof(value_rectype));
+                if (tc->failed)
+                    return;
+                if (vvt != AST_TY_RECORD
+                    || strcmp(value_rectype, rectype) != 0) {
+                    char msg[TYPECHECK_ERRMSG_CAP];
+                    snprintf(msg, sizeof(msg),
+                             "type mismatch in whole-record assignment to "
+                             "%s[...]: expected record type '%s'",
+                             n->as.assign.name, rectype);
+                    fail_at(tc, n->line, n->col, msg);
+                    return;
+                }
+                int rti = rectype_find(tc, rectype);
+                n->as.assign.rec_fields = (rti >= 0)
+                                         ? tc->rectypes[rti].nfields : 0;
                 return;
             }
             AstVarType vvt = check_expr(tc, n->as.assign.value);
@@ -856,6 +1360,38 @@ static void check_stmt(Tc *tc, AstNode *n)
                      "requires an index: %s[expr] := ...)",
                      n->as.assign.name, n->as.assign.name);
             fail_at(tc, n->line, n->col, msg);
+            return;
+        }
+        /* B6 (beads initech-rug7): a bare RECORD-typed target -- WHOLE-RECORD
+         * assignment (`r1 := r2`). Checked by TYPE NAME, not structural
+         * layout (two different record types with the same field shape are
+         * NOT assignment-compatible). */
+        if (vt == AST_TY_RECORD) {
+            if (!is_lvalue) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg), "cannot assign to a constant: %s",
+                         n->as.assign.name);
+                fail_at(tc, n->line, n->col, msg);
+                return;
+            }
+            char value_rectype[TC_SYM_NAME_CAP];
+            AstVarType vvt = check_expr_recinfo(tc, n->as.assign.value,
+                                                value_rectype,
+                                                sizeof(value_rectype));
+            if (tc->failed)
+                return;
+            if (vvt != AST_TY_RECORD || strcmp(value_rectype, rectype) != 0) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg),
+                         "type mismatch in whole-record assignment to %s: "
+                         "expected record type '%s'",
+                         n->as.assign.name, rectype);
+                fail_at(tc, n->line, n->col, msg);
+                return;
+            }
+            int rti = rectype_find(tc, rectype);
+            n->as.assign.rec_fields = (rti >= 0) ? tc->rectypes[rti].nfields
+                                                 : 0;
             return;
         }
         /* B3 (beads initech-7mo3): a const shares the var namespace but may
@@ -959,10 +1495,14 @@ static void check_stmt(Tc *tc, AstNode *n)
  * overflow (Rule 2). A local may freely shadow a global (not checked here).
  * B5 (beads initech-54uu): is_array/lo/hi are 0 for every non-array entry
  * (params and the result are never arrays -- ast.h's B5 DECISION note); a
- * LOCAL array passes its declared bounds through. */
+ * LOCAL array passes its declared bounds through.
+ * B6 (beads initech-rug7): `rectype` (arena-owned, or NULL for a scalar
+ * entry) names a record type -- valid for a `var` parameter or a local
+ * (scalar or array-of-record); never for a value parameter (rejected at
+ * parse time) or the function result (record results out of scope). */
 static void add_local(Tc *tc, int line, int col, const char *name_lc,
                       AstVarType type, TcLocalKind kind, const char *what,
-                      int is_array, long lo, long hi)
+                      int is_array, long lo, long hi, const char *rectype)
 {
     if (tc->failed)
         return;
@@ -986,6 +1526,20 @@ static void add_local(Tc *tc, int line, int col, const char *name_lc,
     tc->local[tc->nlocal].is_array = is_array;
     tc->local[tc->nlocal].lo = lo;
     tc->local[tc->nlocal].hi = hi;
+    if (type == AST_TY_RECORD && rectype) {
+        tc->local[tc->nlocal].is_record = 1;
+        lower_copy(tc->local[tc->nlocal].rectype,
+                   sizeof(tc->local[tc->nlocal].rectype), rectype);
+        if (rectype_find(tc, tc->local[tc->nlocal].rectype) < 0) {
+            fail_at(tc, line, col,
+                    "internal: unknown record type in local scope "
+                    "(typecheck)");
+            return;
+        }
+    } else {
+        tc->local[tc->nlocal].is_record = 0;
+        tc->local[tc->nlocal].rectype[0] = '\0';
+    }
     tc->nlocal++;
 }
 
@@ -1006,7 +1560,7 @@ static void check_routine(Tc *tc, const AstNode *pf)
         lower_copy(plc, sizeof(plc), pn->as.param.name);
         add_local(tc, pn->line, pn->col, plc, pn->as.param.ptype,
                   pn->as.param.is_var ? TC_KIND_VARPARAM : TC_KIND_VALPARAM,
-                  "parameter", /*is_array=*/0, 0, 0);
+                  "parameter", /*is_array=*/0, 0, 0, pn->as.param.rectype);
     }
 
     if (!tc->failed && pf->as.procfunc.has_result) {
@@ -1014,7 +1568,7 @@ static void check_routine(Tc *tc, const AstNode *pf)
         lower_copy(rlc, sizeof(rlc), pf->as.procfunc.name);
         add_local(tc, pf->line, pf->col, rlc, pf->as.procfunc.rettype,
                   TC_KIND_RESULT, "name (a parameter shadows the result)",
-                  /*is_array=*/0, 0, 0);
+                  /*is_array=*/0, 0, 0, /*rectype=*/NULL);
     }
 
     for (size_t i = 0; i < pf->as.procfunc.decls.count && !tc->failed; i++) {
@@ -1035,7 +1589,7 @@ static void check_routine(Tc *tc, const AstNode *pf)
             add_local(tc, vr->line, vr->col, vlc, vd->as.vardecl.vtype,
                       TC_KIND_LOCAL, "local variable",
                       vd->as.vardecl.is_array, vd->as.vardecl.lo,
-                      vd->as.vardecl.hi);
+                      vd->as.vardecl.hi, vd->as.vardecl.rectype);
         }
     }
 
@@ -1063,11 +1617,17 @@ int typecheck_program(AstNode *program, TypeCheckResult *out)
         return 1;
     }
 
-    /* Globals first, then routine signatures (so a routine body -- checked
-     * next -- can see every global and can call any routine, including ones
-     * declared later, which is why mutual recursion needs the `forward`
-     * declaration to register the signature ahead of the call site). */
-    collect_decls(&tc, &program->as.program.decls);
+    /* B6 (beads initech-rug7): record TYPES first (Pass 0) -- a var/param/
+     * array-element declaration can name a record type, so the full
+     * name->fields table must exist before collect_decls resolves any of
+     * them. Then globals, then routine signatures (so a routine body --
+     * checked next -- can see every global and can call any routine,
+     * including ones declared later, which is why mutual recursion needs
+     * the `forward` declaration to register the signature ahead of the call
+     * site). */
+    collect_types(&tc, &program->as.program.decls);
+    if (!tc.failed)
+        collect_decls(&tc, &program->as.program.decls);
     if (!tc.failed)
         collect_procs(&tc, &program->as.program.decls);
 
