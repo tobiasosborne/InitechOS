@@ -1272,6 +1272,29 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * initech-rmsr) stays open: the drop draws with clip=NULL (the panel spans free
  * desktop below the bar), noted for the rmsr follow-on.
  *
+ * CROSS-MENU DRAG LIVE REDRAW (beads initech-9op1; found during initech-rl4v):
+ * menu.c's flair_menu_track re-hits the bar EVERY tracked point whose y is still
+ * in the bar band [0, FLAIR_MENUBAR_H) (initech-rl4v), so MenuSelect's FINAL
+ * result already reflects a cross-menu drag correctly. But this live loop used to
+ * capture `mi` ONCE from the initial click and never re-hit it while re-hiliting
+ * (MenuInfo_item_at(bar, mi, ...)) every tick -- so the ON-SCREEN drop lagged: the
+ * originally-clicked menu's panel stayed visible while the cursor was over a
+ * DIFFERENT title, and the persistent final frame could show the WRONG menu's
+ * panel open even though `sel` was correct. Fixed by mirroring menu.c's bar-band
+ * re-hit rule HERE, per tick: a tracked point still in the bar band may switch
+ * `mi` to a different title. On a title SWITCH, the old panel is erased via the
+ * EXISTING whole-scene restore path (shell_render -- the SAME call that composes
+ * the initial frame; it draws no panel, so it cleanly wipes whatever panel sits
+ * on top, with NO new drawing path invented), then the new menu's panel is
+ * dropped + item-hilited exactly as before. The final MenuSelect call is
+ * UNCHANGED -- it already re-derives its own tracked menu from (where0, pts)
+ * independently, so its result was never wrong; only the live/final DRAW lagged.
+ *
+ * KMAIN_MUT_MENU_NO_REHIT (Rule 6; initech-9op1): freezes `mi` at the click in
+ * THIS loop -- the ORIGINAL bug this issue tracks. Never re-hit, so the on-screen
+ * panel/hilite never follows a cross-menu drag (even though MenuSelect's result
+ * is still correct). NEVER define in a real build.
+ *
  * FLAIR_LIVE_MUTATE_MENU_NOOP (Rule 6; the HER-14 "menus do not work" heresy):
  * the dispatch does NOT drop a panel and does NOT track/select -- it only emits
  * the marker with sel=0. The desktop under the title stays bare teal, so
@@ -1320,6 +1343,7 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
      * idiom). Bounded by a tick guard (Rule 11) in case mouseUp never arrives. */
     flair_point_t pts[FLAIR_MENU_TRACK_MAX];
     int n = 0;
+    int last_mi = mi;   /* the menu whose panel is CURRENTLY on screen (the drop) */
     int last_hi = -1;
     uint32_t guard = flair_tick_count() + 150u;   /* ~1.5 s bound */
     for (;;) {
@@ -1338,12 +1362,40 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
                 pts[FLAIR_MENU_TRACK_MAX - 1] = mev.where;
             }
         }
+        /* initech-9op1: re-hit the bar per tick, mirroring flair_menu_track's
+         * bar-band re-hit rule (menu.c, initech-rl4v) -- a tracked point still in
+         * the bar band [0, FLAIR_MENUBAR_H) may be over a DIFFERENT title, which
+         * switches the LIVE tracked menu. Without this the live drop/hilite is
+         * frozen on the originally-clicked menu for the whole drag. */
+#if !defined(KMAIN_MUT_MENU_NO_REHIT)
+        if (mev.where.v >= 0 && mev.where.v < (int)FLAIR_MENUBAR_H) {
+            int nb = MenuBar_hit(bar, (int)mev.where.h);
+            if (nb >= 0) {
+                mi = nb;
+            }
+        }
+#else
+        /* NAMED MUTANT (Rule 6; initech-9op1): freeze mi at the click -- the
+         * ORIGINAL bug. Never re-hit, so a cross-menu drag can never switch the
+         * LIVE tracked panel (MenuSelect's own result is unaffected -- it
+         * re-derives its tracked menu independently from where0/pts). */
+#endif
         int hi = MenuInfo_item_at(bar, mi, (int)mev.where.h, (int)mev.where.v);
-        if (hi != last_hi) {
+        if (mi != last_mi || hi != last_hi) {
+            if (mi != last_mi) {
+                /* Title switched: erase the OLD menu's panel via the EXISTING
+                 * whole-scene restore path (shell_render -- byte-identical to the
+                 * call that composed the initial frame; it repaints desktop +
+                 * both bars + windows + modal from scratch and draws no panel, so
+                 * it cleanly wipes whatever panel is on top). No new drawing path
+                 * is invented (initech-9op1). */
+                shell_render(ctx->scene, &ctx->off);
+            }
             flair_draw_menu_panel(&port, bar, mi, hi,
                                   FLAIR_MENU_PANEL_FG_IDX, FLAIR_MENU_PANEL_BG_IDX,
                                   (const region_t *)0);
             flair_desktop_present(bi, &ctx->off);
+            last_mi = mi;
             last_hi = hi;
         }
         if (got && mev.what == (uint16_t)mouseUp) {

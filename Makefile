@@ -268,6 +268,13 @@ PPM_FLAIR_DRAG_CHECK_BIN := $(BUILD)/ppm_flair_drag_check
 PPM_FLAIR_MENU_CHECK_SRC := tools/ppm_flair_menu_check.c
 PPM_FLAIR_MENU_CHECK_BIN := $(BUILD)/ppm_flair_menu_check
 
+# CROSS-MENU DRAG live-redraw oracle screendump grader (beads initech-9op1; found
+# during initech-rl4v): grades that the live per-tick drop FOLLOWS a cross-menu
+# drag (File's panel erased + Edit's dropped), not just MenuSelect's final result.
+# Built like ppm_flair_menu_check.
+PPM_FLAIR_MENU_CROSSDRAG_CHECK_SRC := tools/ppm_flair_menu_crossdrag_check.c
+PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN := $(BUILD)/ppm_flair_menu_crossdrag_check
+
 # dc4v survival-oracle screendump grader (beads initech-dc4v/-pipa; ADR-0005 region
 # spine): grades the post-drag frame after a window is dragged ACROSS the modal +
 # menu bars and asserts those always-on-top layers SURVIVED (modal box white/black,
@@ -731,6 +738,16 @@ KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_menu.o
 KERNEL_FLAIRLIVE_MUT_MENU_ELF      := $(BUILD)/kernel_flairlive_mut_menu.elf
 KERNEL_FLAIRLIVE_MUT_MENU_BIN      := $(BUILD)/kernel_flairlive_mut_menu.bin
 FLAIRLIVE_MUT_MENU_IMG             := $(BUILD)/flair_live_mut_menu.img
+# CROSS-MENU DRAG no-rehit MUTANT (beads initech-9op1; Rule 6): the SAME
+# BOOT_FLAIR_LIVE kmain but with -DKMAIN_MUT_MENU_NO_REHIT: flair_live_do_menu's
+# per-tick loop freezes `mi` at the click (the ORIGINAL initech-9op1 bug) --
+# MenuSelect's own final result is still correct, but the live drop never follows
+# a cross-menu drag -> ppm_flair_menu_crossdrag_check sees the stale "File" panel
+# (never erased) and no "Edit" panel (never dropped) -> RED.
+KERNEL_FLAIRLIVE_MUT_NOREHIT_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_norehit.o
+KERNEL_FLAIRLIVE_MUT_NOREHIT_ELF      := $(BUILD)/kernel_flairlive_mut_norehit.elf
+KERNEL_FLAIRLIVE_MUT_NOREHIT_BIN      := $(BUILD)/kernel_flairlive_mut_norehit.bin
+FLAIRLIVE_MUT_NOREHIT_IMG             := $(BUILD)/flair_live_mut_norehit.img
 # INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on):
 # the SAME BOOT_FLAIR_LIVE kmain but compiled ALSO with -DFLAIR_LIVE_INTERACTIVE,
 # which (a) composites the LOCKED FLAIR_CURSOR_ARROW (a save-under, dirty-rect
@@ -8647,6 +8664,36 @@ $(FLAIRLIVE_MUT_MENU_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MENU_
 	@dd if=$(KERNEL_FLAIRLIVE_MUT_MENU_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-live menu-noop MUTANT image: %s (inMenuBar dispatch drops no panel -- FLAIR-MENU sel=0)\n" "$@"
 
+# --- CROSS-MENU DRAG no-rehit MUTANT flair_live kernel/image (beads initech-9op1;
+# Rule 6). -DKMAIN_MUT_MENU_NO_REHIT freezes `mi` in flair_live_do_menu's per-tick
+# loop at the click -- MenuSelect's own result is unaffected, but the live drop
+# never follows a cross-menu drag -> ppm_flair_menu_crossdrag_check RED. Exact
+# mirror of the FLAIRLIVE_MUT_MENU obj/elf/bin/img rules. ---------------------
+$(KERNEL_FLAIRLIVE_MUT_NOREHIT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h os/flair/event.h os/flair/window.h os/flair/desktop.h os/flair/menu.h os/flair/shell.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DKMAIN_MUT_MENU_NO_REHIT -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FLAIRLIVE_MUT_NOREHIT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_NOREHIT_MAIN_OBJ)
+
+$(KERNEL_FLAIRLIVE_MUT_NOREHIT_ELF): $(KERNEL_FLAIRLIVE_MUT_NOREHIT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_NOREHIT_OBJS)
+
+$(KERNEL_FLAIRLIVE_MUT_NOREHIT_BIN): $(KERNEL_FLAIRLIVE_MUT_NOREHIT_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_mut_norehit.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-mutant-norehit): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+
+$(FLAIRLIVE_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_NOREHIT_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_MUT_NOREHIT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live cross-menu no-rehit MUTANT image: %s (flair_live_do_menu freezes mi at the click -- the live drop never follows a cross-menu drag)\n" "$@"
+
 # --- INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on)
 # Same BOOT_FLAIR_LIVE kmain but ALSO -DFLAIR_LIVE_INTERACTIVE: a VISIBLE software
 # mouse cursor (the LOCKED FLAIR_CURSOR_ARROW save-under overlay) + an UNBOUNDED
@@ -9181,6 +9228,12 @@ $(PPM_FLAIR_DRAG_CHECK_BIN): $(PPM_FLAIR_DRAG_CHECK_SRC) spec/assets/color_canon
 # Grades the dropped pull-down against the INDEPENDENT canon (flair_canon_rgb +
 # menu.h geometry), never the render. Built like ppm_flair_drag_check.
 $(PPM_FLAIR_MENU_CHECK_BIN): $(PPM_FLAIR_MENU_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+# CROSS-MENU DRAG live-redraw oracle screendump grader (beads initech-9op1).
+# Grades File-erased + Edit-dropped against the INDEPENDENT canon (flair_canon_rgb
+# + menu.h geometry), never the render. Built like ppm_flair_menu_check.
+$(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN): $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
 
 # dc4v survival-oracle screendump grader (beads initech-dc4v/-pipa). Grades the
@@ -12778,6 +12831,105 @@ test-flair-menu-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MENU_IMG) $(PPM_FLAIR_MEN
 		printf '!!! test-flair-menu-mutant FAIL: the menu-noop screendump PASSED ppm_flair_menu_check -- the gate is decoration (no panel passed as a dropped menu)\n'; exit 1; \
 	fi
 	@printf '>>> test-flair-menu-mutant: RED as required -- the no-drop dispatch leaves bare teal where the panel should be; the gate BITES (Rule 6, HER-14)\n'
+	@printf '======================================================================\n'
+
+# ===========================================================================
+# REAL gate: test-flair-menu-crossdrag (beads initech-9op1; found during
+# initech-rl4v). Proves the LIVE per-tick drop follows a cross-menu drag, not
+# just MenuSelect's final result. Boots $(FLAIRLIVE_IMG) (the SAME image as
+# test-flair-menu -- no new kernel needed for the real leg), injects a locked
+# trace that clicks the System-7 "File" title, drags SIDEWAYS along the bar band
+# onto "Edit", and releases there (still in the bar band, never entering either
+# panel's item rows), then screendumps after the FINAL "FLAIR-MENU menu=" marker
+# (the panel persists, drag-analogous -- same idiom as test-flair-menu). Asserts
+# (Law 2, INDEPENDENT golden):
+#   1. no triple-fault;
+#   2. FLAIR-LIVE-READY (pump armed) + FLAIR-MENU-DROP menu=128 (File dropped
+#      first) + FLAIR-MENU menu=128 item=0 (sel=0x00000000) (released on Edit's
+#      title, not an item row -- nothing selected; the logged "menu=" is always
+#      the ORIGINALLY-clicked menu's ID, a pre-existing kmain.c log quirk, not
+#      what this gate grades);
+#   3. ppm_flair_menu_crossdrag_check: File's panel ERASED (bare teal again) +
+#      Edit's panel DROPPED (black frame + BTNFACE body) where bare teal was.
+# Mutation-proven by test-flair-menu-crossdrag-mutant (KMAIN_MUT_MENU_NO_REHIT).
+# ===========================================================================
+FLAIR_MENU_CROSSDRAG_NAME    := flair_menu_crossdrag
+FLAIR_MENU_CROSSDRAG_SERIAL  := $(BUILD)/$(FLAIR_MENU_CROSSDRAG_NAME).serial
+FLAIR_MENU_CROSSDRAG_REPORT  := $(BUILD)/$(FLAIR_MENU_CROSSDRAG_NAME).report
+FLAIR_MENU_CROSSDRAG_PPM     := $(BUILD)/$(FLAIR_MENU_CROSSDRAG_NAME).ppm
+# The LOCKED cross-menu trace (beads initech-9op1). Reuses the FLAIR_MENU_SPEC's
+# EXACT first four tokens (the three <=int8 hops + l1) so the click still lands on
+# (30,10) inside "File" (menu 0) and the SAME "FLAIR-MENU-DROP menu=128" fires.
+# Then "m59:0" moves +59 h / +0 v -- PURELY SIDEWAYS, staying at v=10 (inside the
+# bar band [0,20)) -- from x=30 to x=89, landing mid-"Edit" title (menu 1;
+# MenuBar_title_x(bar_sys,1)=66, width 46, mid=89): still in the bar band, so
+# MenuInfo_item_at returns -1 (no item row) at every tracked point. "l0" releases
+# there: MenuSelect's own final tracked menu (re-derived from where0/pts, menu.c
+# initech-rl4v) is Edit, but the release is on the title (not a row) -> sel=0.
+FLAIR_MENU_CROSSDRAG_SPEC   := m-97:77,m-97:77,m-96:76,l1,m59:0,l0
+.PHONY: test-flair-menu-crossdrag
+test-flair-menu-crossdrag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-menu-crossdrag : cross-menu drag live redraw (initech-9op1)\n'
+	@printf '  Inject the locked cross-menu trace -> WaitNextEvent pump -> inMenuBar band\n'
+	@printf '  -> click File -> drag sideways onto Edit -> release. The ON-SCREEN drop\n'
+	@printf '  must follow the drag (File erased, Edit dropped), not just MenuSelect.\n'
+	@printf '  beads initech-9op1 (found during initech-rl4v). Law 2/4.\n'
+	@printf '======================================================================\n'
+	@printf 'Booting   : %s (the WaitNextEvent pump)\n' "$(FLAIRLIVE_IMG)"
+	@printf 'Expecting : FLAIR-MENU-DROP menu=128, then FLAIR-MENU menu=128 item=0 (sel=0x00000000)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_MENU_CROSSDRAG_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_MENU_CROSSDRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 \
+		2> "$(FLAIR_MENU_CROSSDRAG_REPORT)" || true
+	@cat "$(FLAIR_MENU_CROSSDRAG_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@if grep -q 'triple_fault=1' "$(FLAIR_MENU_CROSSDRAG_REPORT)"; then \
+		printf '!!! test-flair-menu-crossdrag FAIL: TRIPLE FAULT in the pump/menu boot\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-menu-crossdrag [1/4]: no triple-fault\n'
+	@grep -q '^FLAIR-LIVE-READY$$' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" \
+		|| { printf '!!! test-flair-menu-crossdrag FAIL: FLAIR-LIVE-READY missing -- the pump never armed\n'; exit 1; }
+	@printf '>>> test-flair-menu-crossdrag [2/4]: FLAIR-LIVE-READY (the WaitNextEvent pump is armed)\n'
+	@grep -q '^FLAIR-MENU-DROP menu=128$$' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" \
+		|| { printf '!!! test-flair-menu-crossdrag FAIL: FLAIR-MENU-DROP menu=128 missing -- the inMenuBar dispatch did not drop File\n'; grep '^FLAIR-' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" || true; exit 1; }
+	@grep -q '^FLAIR-MENU menu=128 item=0 (sel=0x00000000)$$' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" \
+		|| { printf '!!! test-flair-menu-crossdrag FAIL: FLAIR-MENU menu=128 item=0 (sel=0x00000000) missing -- release-on-title did not yield sel=0\n'; grep '^FLAIR-' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-menu-crossdrag [3/4]: FLAIR-MENU-DROP + FLAIR-MENU menu=128 item=0 (sel=0x00000000) (dropped File, released on Edit'"'"'s title)\n'
+	@if [ ! -s "$(FLAIR_MENU_CROSSDRAG_PPM)" ]; then printf '!!! test-flair-menu-crossdrag FAIL: no screendump captured at %s\n' "$(FLAIR_MENU_CROSSDRAG_PPM)"; exit 1; fi
+	@$(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN) "$(FLAIR_MENU_CROSSDRAG_PPM)" \
+		|| { printf '!!! test-flair-menu-crossdrag FAIL: the screendump does not show File erased + Edit dropped (the live on-screen menu lags the drag; initech-9op1)\n'; exit 1; }
+	@printf '>>> test-flair-menu-crossdrag [4/4]: screendump == File erased (bare teal) + Edit dropped (frame + BTNFACE body)\n'
+	@printf 'VERDICT   : PASS -- the live menu drop FOLLOWS a cross-menu drag (Law 4; initech-9op1)\n'
+	@printf '======================================================================\n'
+
+# REAL gate: test-flair-menu-crossdrag-mutant (Rule 6; beads initech-9op1). The
+# KMAIN_MUT_MENU_NO_REHIT image freezes `mi` at the click in flair_live_do_menu's
+# per-tick loop -- the ORIGINAL bug: File's panel is NEVER erased and Edit's is
+# NEVER dropped, even though MenuSelect's own final result is unaffected. The
+# SCREENDUMP is the discriminator: ppm_flair_menu_crossdrag_check MUST go RED
+# (File's stale panel still showing black frame where LEG A expects teal again;
+# Edit's footprint still bare teal/white where LEG B/C expect frame/BTNFACE). If
+# it passed, the gate would be decoration.
+.PHONY: test-flair-menu-crossdrag-mutant
+test-flair-menu-crossdrag-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_NOREHIT_IMG) $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-menu-crossdrag-mutant : Rule 6 (the gate BITES)\n'
+	@printf '  Mutant: -DKMAIN_MUT_MENU_NO_REHIT (flair_live_do_menu freezes mi at the click).\n'
+	@printf '  Expect: File'"'"'s stale panel never erased + Edit'"'"'s panel never dropped ->\n'
+	@printf '  ppm_flair_menu_crossdrag_check RED. The direct initech-9op1 frozen-mi mutant.\n'
+	@printf '======================================================================\n'
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_NOREHIT_IMG)" --name flair_menu_crossdrag_mut --out "$(BUILD)" \
+		--mouse "$(FLAIR_MENU_CROSSDRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_menu_crossdrag_mut.serial" \
+		|| { printf '!!! test-flair-menu-crossdrag-mutant: mutant did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
+	@if [ ! -s "$(BUILD)/flair_menu_crossdrag_mut.ppm" ]; then printf '!!! test-flair-menu-crossdrag-mutant: no screendump captured (cannot judge the mutant)\n'; exit 1; fi
+	@if $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN) "$(BUILD)/flair_menu_crossdrag_mut.ppm" >/dev/null 2>&1; then \
+		printf '!!! test-flair-menu-crossdrag-mutant FAIL: the frozen-mi screendump PASSED ppm_flair_menu_crossdrag_check -- the gate is decoration\n'; exit 1; \
+	fi
+	@printf '>>> test-flair-menu-crossdrag-mutant: RED as required -- the frozen-mi dispatch leaves File'"'"'s stale panel up and never drops Edit'"'"'s; the gate BITES (Rule 6, initech-9op1)\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -18403,6 +18555,7 @@ TEST_EMU_GATES := \
 	test-flair-drag test-flair-drag-mutant \
 	test-flair-dc4v test-flair-dc4v-mutant \
 	test-flair-menu test-flair-menu-mutant \
+	test-flair-menu-crossdrag test-flair-menu-crossdrag-mutant \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant
 
