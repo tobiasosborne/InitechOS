@@ -220,6 +220,12 @@ static TokenKind keyword_kind(const char *s, size_t n)
     if (strcmp(buf, "downto") == 0)  return TOK_KW_DOWNTO;
     if (strcmp(buf, "repeat") == 0)  return TOK_KW_REPEAT;
     if (strcmp(buf, "until") == 0)   return TOK_KW_UNTIL;
+    /* B3 (beads initech-7mo3): const/char, plus ord/chr reserved as
+     * built-in-function keywords (see token.h's B3 DECISION note). */
+    if (strcmp(buf, "const") == 0)   return TOK_KW_CONST;
+    if (strcmp(buf, "char") == 0)    return TOK_KW_CHAR;
+    if (strcmp(buf, "ord") == 0)     return TOK_KW_ORD;
+    if (strcmp(buf, "chr") == 0)     return TOK_KW_CHR;
     return TOK_IDENT;
 }
 

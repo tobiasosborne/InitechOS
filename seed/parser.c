@@ -28,8 +28,48 @@
 #include "parser.h"
 #include "lexer.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+
+/* ------------------------------------------------------------------ */
+/* B3 (beads initech-7mo3): the parser's own const table.              */
+/* ------------------------------------------------------------------ */
+/* FOLDING (front-end, no runtime storage -- see ast.h's B3 comment and
+ * parse_const_section below). Every "const NAME = <literal>;" registers one
+ * entry here (case-insensitive name, declared type, raw ordinal value);
+ * parse_factor's TOK_IDENT branch consults this table BEFORE ever building
+ * an AST_VARREF, so a const reference becomes a fresh literal node at each
+ * use site and never reaches codegen as a variable read. Small fixed-
+ * capacity array (consistent with typecheck.c's own TC_MAX_SYMBOLS choice
+ * for the same "no hashing, insertion-ordered, fail-loud on overflow"
+ * reasons -- Rule 2, and ADR-0007 DEC-04's determinism discipline even
+ * though DEC-04 itself binds the resident compiler, not the seed). */
+#define PARSER_MAX_CONSTS 256
+#define PARSER_CONST_NAME_CAP 128
+
+typedef struct {
+    char       name_lc[PARSER_CONST_NAME_CAP]; /* case-folded (lower) name */
+    AstVarType ctype;
+    long       value; /* raw ordinal: the int value, or 0/1 (boolean), or
+                        * 0..255 (char) -- interpreted per ctype when
+                        * folding at a use site. */
+} ParserConst;
+
+/* Case-fold a SPAN (not necessarily NUL-terminated -- a raw TOK_IDENT lexeme
+ * is a span into the source buffer, see token.h) into a NUL-terminated
+ * lower-case buffer, truncated at cap-1 bytes. Mirrors typecheck.c's
+ * lower_copy, but takes an explicit length instead of assuming a
+ * NUL-terminated C string, since a use-site identifier hasn't been
+ * arena-strndup'd yet at the point parse_factor needs to check the const
+ * table (see the TOK_IDENT branch below). */
+static void lower_span(char *dst, size_t cap, const char *src, size_t n)
+{
+    size_t i = 0;
+    for (; i < n && i + 1 < cap; i++)
+        dst[i] = (char)tolower((unsigned char)src[i]);
+    dst[i] = '\0';
+}
 
 /* ------------------------------------------------------------------ */
 /* Parser state                                                       */
@@ -42,6 +82,9 @@ typedef struct {
     char      errmsg[PARSE_ERRMSG_CAP];
     int       errline;
     int       errcol;
+    /* B3 (beads initech-7mo3): the const table (see above). */
+    ParserConst consts[PARSER_MAX_CONSTS];
+    int         nconsts;
     /* B2 (beads initech-80iw): the program's top-level var-decl list, set
      * once by parse_program_root before the block is parsed, so a nested
      * "for" statement (however deeply it's nested in begin/end/if/while) can
@@ -103,6 +146,35 @@ static int expect(Parser *p, TokenKind k, const char *what)
     }
     advance(p);
     return 1;
+}
+
+/* Look up a case-folded name in the const table; -1 if not a const. */
+static int const_find(const Parser *p, const char *name_lc)
+{
+    for (int i = 0; i < p->nconsts; i++)
+        if (strcmp(p->consts[i].name_lc, name_lc) == 0)
+            return i;
+    return -1;
+}
+
+/* Register one const declaration (B3, beads initech-7mo3). Overflow is a
+ * located, fail-loud diagnostic (Rule 2), never silent truncation -- see
+ * parse_const_section's header comment on why a DUPLICATE name is
+ * deliberately NOT rejected here (typecheck.c's collect_decls is the single
+ * authority for the one-declaration rule, across const AND var names). */
+static void const_register(Parser *p, int line, int col,
+                            const char *name_lc, AstVarType ctype, long value)
+{
+    if (p->nconsts >= PARSER_MAX_CONSTS) {
+        fail_at(p, line, col,
+                "too many const declarations (PARSER_MAX_CONSTS exceeded)");
+        return;
+    }
+    snprintf(p->consts[p->nconsts].name_lc, PARSER_CONST_NAME_CAP,
+             "%s", name_lc);
+    p->consts[p->nconsts].ctype = ctype;
+    p->consts[p->nconsts].value = value;
+    p->nconsts++;
 }
 
 /* ------------------------------------------------------------------ */
@@ -177,6 +249,53 @@ static AstNode *parse_factor(Parser *p)
         advance(p);
         return n;
     }
+    /*
+     * B3 (beads initech-7mo3; ADR-0007 DEC-02 "char"). DISAMBIGUATION
+     * DECISION (see ast.h's B3 comment for the full citation): a TOK_STRING
+     * reached here (an EXPRESSION context) must be exactly one character --
+     * that is what makes it a char CONSTANT rather than a string. A
+     * write/writeln string argument never reaches this path (parse_write
+     * special-cases TOK_STRING before calling parse_expr at all), so this
+     * length check can never reject a legitimate multi-character write
+     * string -- only a genuine attempt to use a string as an expression
+     * value, which this subset does not support (fixed/ShortString strings
+     * land at B7).
+     */
+    if (check(p, TOK_STRING)) {
+        if (p->cur.length != 1) {
+            fail_at(p, line, col,
+                    "a string literal used as an expression value must be "
+                    "exactly one character (a char constant, e.g. 'A'); "
+                    "this subset has no string-typed expressions yet "
+                    "(only write/writeln string arguments may be longer)");
+            return NULL;
+        }
+        AstNode *n = ast_new(p->arena, AST_CHARLIT, line, col);
+        n->as.charlit.value = (unsigned char)p->cur.lexeme[0];
+        advance(p);
+        return n;
+    }
+    /* B3: ord(expr) / chr(expr), reserved keywords, each parsing a single
+     * parenthesized argument -- see token.h's B3 note on why these are
+     * keywords rather than ordinary calls (no function-call syntax yet). */
+    if (check(p, TOK_KW_ORD) || check(p, TOK_KW_CHR)) {
+        AstOp op = check(p, TOK_KW_ORD) ? OP_ORD : OP_CHR;
+        const char *what = (op == OP_ORD) ? "ord" : "chr";
+        advance(p);
+        char msg[64];
+        snprintf(msg, sizeof(msg), "'(' after '%s'", what);
+        if (!expect(p, TOK_LPAREN, msg))
+            return NULL;
+        AstNode *operand = parse_expr(p);
+        if (p->failed)
+            return NULL;
+        if (!expect(p, TOK_RPAREN, "')'"))
+            return NULL;
+        AstNode *n = ast_new(p->arena, AST_UNOP, line, col);
+        n->as.unop.op = op;
+        n->as.unop.operand = operand;
+        return n;
+    }
     if (check(p, TOK_INT)) {
         AstNode *n = ast_new(p->arena, AST_INTLIT, line, col);
         n->as.intlit.value = p->cur.ivalue;
@@ -184,6 +303,37 @@ static AstNode *parse_factor(Parser *p)
         return n;
     }
     if (check(p, TOK_IDENT)) {
+        /* B3: a const-table hit folds directly to a fresh literal node at
+         * THIS use site (no runtime storage) -- see this file's ParserConst
+         * comment and ast.h's B3 note. Only reached if the identifier is
+         * NOT a const; ordinary variables fall through to AST_VARREF
+         * exactly as before B3. */
+        char lc[PARSER_CONST_NAME_CAP];
+        lower_span(lc, sizeof(lc), p->cur.lexeme, p->cur.length);
+        int cidx = const_find(p, lc);
+        if (cidx >= 0) {
+            AstNode *n;
+            switch (p->consts[cidx].ctype) {
+            case AST_TY_INTEGER:
+                n = ast_new(p->arena, AST_INTLIT, line, col);
+                n->as.intlit.value = p->consts[cidx].value;
+                break;
+            case AST_TY_CHAR:
+                n = ast_new(p->arena, AST_CHARLIT, line, col);
+                n->as.charlit.value = (int)p->consts[cidx].value;
+                break;
+            case AST_TY_BOOLEAN:
+                n = ast_new(p->arena, AST_BOOLLIT, line, col);
+                n->as.boollit.value = (int)p->consts[cidx].value;
+                break;
+            default:
+                fail_at(p, line, col,
+                        "internal: const table entry has an invalid type");
+                return NULL;
+            }
+            advance(p);
+            return n;
+        }
         AstNode *n = ast_new(p->arena, AST_VARREF, line, col);
         n->as.varref.name = ast_arena_strndup(p->arena, p->cur.lexeme,
                                               p->cur.length);
@@ -767,12 +917,133 @@ static AstNode *parse_one_vardecl(Parser *p)
     } else if (check(p, TOK_KW_BOOLEAN)) {
         vd->as.vardecl.vtype = AST_TY_BOOLEAN;
         advance(p);
+    } else if (check(p, TOK_KW_CHAR)) {
+        /* B3 (beads initech-7mo3; ADR-0007 DEC-02 "char"). */
+        vd->as.vardecl.vtype = AST_TY_CHAR;
+        advance(p);
     } else {
         fail_at(p, p->cur.line, p->cur.col,
-                "expected 'integer' or 'boolean'");
+                "expected 'integer', 'boolean', or 'char'");
         return NULL;
     }
     return vd;
+}
+
+/*
+ * B3 (beads initech-7mo3; ADR-0007 DEC-02 "const declarations"):
+ *
+ *   const-section = "const" const-decl ";" { const-decl ";" } ;
+ *   const-decl    = ident "=" const-literal ;
+ *   const-literal = [ "-" ] integer | char-literal | "true" | "false" ;
+ *
+ * DECISION (report): const-decls use a bare "=" (ISO 7185 Sec 6.3 / Turbo
+ * Pascal Language Guide "Constant declarations": "identifier = constant"),
+ * never ":=" -- there is no lexical ambiguity (':=' is scanned as one token
+ * starting with ':', exactly like the B1 note on '=' vs ':=' for relational
+ * ops). Only LITERAL values are accepted (no const-referencing-const, no
+ * general constant-expression evaluator) -- the ADR's subset table asks
+ * only for "const declarations"; typed consts (Turbo Pascal's
+ * `const X : T = value`, which is really a pre-initialized variable) are
+ * explicitly OUT of scope per the bead.
+ *
+ * FOLDING (front-end, no runtime storage -- ast.h's B3 comment has the full
+ * story): each decl is registered in the parser's OWN const table
+ * (const_register) as it is parsed; every later identifier reference that
+ * matches folds to a fresh literal node at that use site (parse_factor's
+ * TOK_IDENT branch) instead of ever becoming an AST_VARREF. An
+ * AST_CONSTDECL (name + type only, no value) is still appended to `decls`
+ * so typecheck.c can enforce the same case-insensitive one-declaration rule
+ * across const AND var names.
+ *
+ * DUPLICATE NAMES: this parser-level table does not itself reject a
+ * duplicate const name -- see const_register's comment; typecheck.c's
+ * collect_decls is the single authority that rejects it (a "duplicate
+ * variable declaration" error), so a duplicate can never silently produce a
+ * working binary.
+ */
+static void parse_const_section(Parser *p, AstList *decls)
+{
+    if (!check(p, TOK_KW_CONST))
+        return;
+    advance(p); /* 'const' */
+
+    for (;;) {
+        if (!check(p, TOK_IDENT)) {
+            fail_at(p, p->cur.line, p->cur.col,
+                    "expected a constant name after 'const'");
+            return;
+        }
+        int line = p->cur.line, col = p->cur.col;
+        char *name = ast_arena_strndup(p->arena, p->cur.lexeme, p->cur.length);
+        advance(p);
+
+        if (!expect(p, TOK_EQ, "'=' in const declaration"))
+            return;
+
+        AstVarType ctype;
+        long value;
+        if (check(p, TOK_MINUS)) {
+            /* Only integers may be negated -- a negative char/boolean
+             * constant is not meaningful in this subset. */
+            advance(p);
+            if (!check(p, TOK_INT)) {
+                fail_at(p, p->cur.line, p->cur.col,
+                        "expected an integer after unary '-' in a const "
+                        "declaration");
+                return;
+            }
+            value = -(long)p->cur.ivalue;
+            ctype = AST_TY_INTEGER;
+            advance(p);
+        } else if (check(p, TOK_INT)) {
+            value = p->cur.ivalue;
+            ctype = AST_TY_INTEGER;
+            advance(p);
+        } else if (check(p, TOK_KW_TRUE)) {
+            value = 1;
+            ctype = AST_TY_BOOLEAN;
+            advance(p);
+        } else if (check(p, TOK_KW_FALSE)) {
+            value = 0;
+            ctype = AST_TY_BOOLEAN;
+            advance(p);
+        } else if (check(p, TOK_STRING)) {
+            /* Same one-character disambiguation rule as parse_factor's
+             * expression-context char literal -- see ast.h's B3 comment. */
+            if (p->cur.length != 1) {
+                fail_at(p, p->cur.line, p->cur.col,
+                        "a const char value must be exactly one character "
+                        "(e.g. 'A'); this subset has no string-typed "
+                        "constants yet");
+                return;
+            }
+            value = (unsigned char)p->cur.lexeme[0];
+            ctype = AST_TY_CHAR;
+            advance(p);
+        } else {
+            fail_at(p, p->cur.line, p->cur.col,
+                    "expected an integer, char, or boolean literal after "
+                    "'=' (typed consts are not in this subset)");
+            return;
+        }
+
+        char lc[PARSER_CONST_NAME_CAP];
+        lower_span(lc, sizeof(lc), name, strlen(name));
+        const_register(p, line, col, lc, ctype, value);
+        if (p->failed)
+            return;
+
+        AstNode *cd = ast_new(p->arena, AST_CONSTDECL, line, col);
+        cd->as.constdecl.name = name;
+        cd->as.constdecl.ctype = ctype;
+        ast_list_push(p->arena, decls, cd);
+
+        if (!expect(p, TOK_SEMI, "';'"))
+            return;
+        if (check(p, TOK_IDENT))
+            continue; /* another const-decl in the same section */
+        break;
+    }
 }
 
 /* Parse an optional var-section, appending each decl group to `decls`. */
@@ -824,9 +1095,29 @@ static AstNode *parse_program_root(Parser *p)
      * nesting depth) -- see synth_intvar / the Parser struct comment. */
     p->top_decls = &prog->as.program.decls;
 
-    parse_var_section(p, &prog->as.program.decls);
-    if (p->failed)
-        return NULL;
+    /*
+     * B3 (beads initech-7mo3; ADR-0007 DEC-02 "const declarations").
+     * DECISION (report): Turbo Pascal / ISO 7185 allow const/var/type
+     * sections to repeat and interleave in ANY order ("const ... ; var
+     * ... ; const ... ;" is legal TP). The bead's floor requirement is only
+     * "implement at least const-then-var"; this seed goes past that floor
+     * and accepts REPEATED, INTERLEAVED const/var sections, because the
+     * extra generality costs nothing beyond a "which section keyword is
+     * next" loop (there is no type-section to support yet -- no enums/
+     * records/arrays are in the B3 scope) and it matches full TP dialect
+     * behaviour rather than an artificially narrower one.
+     */
+    for (;;) {
+        if (check(p, TOK_KW_CONST)) {
+            parse_const_section(p, &prog->as.program.decls);
+        } else if (check(p, TOK_KW_VAR)) {
+            parse_var_section(p, &prog->as.program.decls);
+        } else {
+            break;
+        }
+        if (p->failed)
+            return NULL;
+    }
 
     prog->as.program.block = parse_block(p);
     if (p->failed)
@@ -856,6 +1147,7 @@ int parse_program(const char *src, size_t len, AstArena *arena,
     p.errcol = 0;
     p.top_decls = NULL;   /* set by parse_program_root before any "for" can be reached */
     p.synth_count = 0;
+    p.nconsts = 0;        /* B3 (beads initech-7mo3): the const table starts empty */
     advance(&p); /* prime lookahead */
 
     AstNode *root = parse_program_root(&p);

@@ -7,9 +7,10 @@
  *
  * GRAMMAR IMPLEMENTED (EBNF). Keywords/identifiers are case-insensitive.
  *
- *   program      = "program" ident ";" [ var-section ] block "." ;
+ *   program      = "program" ident ";" { const-section | var-section }
+ *                  block "." ;
  *   var-section  = "var" var-decl ";" { var-decl ";" } ;
- *   var-decl     = ident { "," ident } ":" ("integer" | "boolean") ;
+ *   var-decl     = ident { "," ident } ":" ("integer" | "boolean" | "char") ;
  *   block        = "begin" [ stmt { ";" stmt } ] "end" ;
  *   stmt         = assignment | block | write-stmt | if-stmt | while-stmt
  *                | for-stmt | repeat-stmt | (* empty *) ;
@@ -54,9 +55,44 @@
  *   relational-op = "=" | "<>" | "<" | "<=" | ">" | ">=" ;
  *   simple-expr  = term { ("+" | "-" | "or") term } ;      (* left-assoc *)
  *   term         = factor { ("*" | "div" | "mod" | "and") factor };(* left-assoc *)
- *   factor       = integer | boolean-lit | ident | "(" expr ")"
- *                | "-" factor | "not" factor ;
+ *   factor       = integer | boolean-lit | char-lit | ident
+ *                | "ord" "(" expr ")" | "chr" "(" expr ")"
+ *                | "(" expr ")" | "-" factor | "not" factor ;
  *   boolean-lit  = "true" | "false" ;
+ *   char-lit     = "'" any-one-character "'" ;
+ *
+ *   B3 (beads initech-7mo3; ADR-0007 DEC-02 "const declarations", "char,
+ *   ord, chr") additions:
+ *
+ *   const-section = "const" const-decl ";" { const-decl ";" } ;
+ *   const-decl    = ident "=" const-literal ;
+ *   const-literal = [ "-" ] integer | char-lit | "true" | "false" ;
+ *     const/var sections may REPEAT and INTERLEAVE in any order (DECISION,
+ *     report: goes past the bead's stated floor of "at least
+ *     const-then-var" -- see parser.c's parse_program_root comment for the
+ *     citation). const-decls fold to a literal AST node at every USE SITE,
+ *     front-end only -- no runtime storage, no .bss slot (see ast.h's B3
+ *     comment and seed/codegen.c's emit_bss).
+ *
+ *   char-lit DISAMBIGUATION (DECISION, report -- ast.h's B3 comment has the
+ *   full citation): the lexer already lexes '...' as one TOK_STRING kind
+ *   for every quoted literal, used in TWO different grammar positions:
+ *   write-arg (parsed directly by parse_write, unconditionally a string of
+ *   whatever length) and factor / const-literal (an EXPRESSION-context use,
+ *   which must be exactly one character to be a valid char-lit -- a 0- or
+ *   multi-character '...' token reaching factor/const-literal is a located
+ *   syntax error, since this subset has no string-typed expressions yet).
+ *   This is Turbo Pascal's own rule: a length-1 quoted literal is
+ *   Char-typed wherever a Char is expected.
+ *
+ *   ord(expr) / chr(expr): RESERVED keywords (this subset has no general
+ *   function-call syntax yet -- B4 introduces procedures/functions), each
+ *   parsing one parenthesized argument. ord() accepts char, boolean, or
+ *   integer (Ord is total over every ordinal type this subset has -- TP
+ *   allows ord(anInteger) as the identity); chr() accepts only integer,
+ *   yielding char (TRUNCATED to 8 bits if out of 0..255 -- Borland Turbo
+ *   Pascal default {$R-}, no range-check trap; see seed/codegen.c). See
+ *   typecheck.h for the exact rules.
  *
  * Precedence (B1, beads initech-f0uc; ISO 7185 / Turbo Pascal canonical
  * order -- ADR-0007 DEC-02, "Relational operators ... a boolean type, and
@@ -80,7 +116,8 @@
  * assign/relational/while nodes that already carry those rules).
  *
  * DEFERRED (later steps, intentionally not parsed): case, procedures/
- * functions, const sections, char/real types, records, pointers, arrays.
+ * functions, real type, records, pointers, arrays, typed consts, general
+ * string expressions.
  *
  * Error-handling strategy (DECIDED, consistent with the lexer): the parser is
  * single-error. On the first syntax (or lexical) fault it records a located

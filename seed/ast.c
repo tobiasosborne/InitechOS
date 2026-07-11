@@ -165,6 +165,8 @@ const char *ast_op_name(AstOp op)
     case OP_AND: return "and";
     case OP_OR:  return "or";
     case OP_NOT: return "not";
+    case OP_ORD: return "ord";
+    case OP_CHR: return "chr";
     }
     return "?";
 }
@@ -175,6 +177,7 @@ const char *ast_vartype_name(AstVarType t)
     case AST_TY_UNKNOWN: return "?";
     case AST_TY_INTEGER: return "integer";
     case AST_TY_BOOLEAN: return "boolean";
+    case AST_TY_CHAR:    return "char";
     }
     return "?";
 }
@@ -226,6 +229,10 @@ static void dump(const AstNode *n, FILE *fp)
             fprintf(fp, ":%s", ast_vartype_name(n->as.vardecl.vtype));
         }
         fputc(')', fp);
+        break;
+    case AST_CONSTDECL:
+        fprintf(fp, "(const %s:%s)", n->as.constdecl.name,
+                ast_vartype_name(n->as.constdecl.ctype));
         break;
     case AST_BLOCK:
         fputs("(block", fp);
@@ -284,6 +291,9 @@ static void dump(const AstNode *n, FILE *fp)
         break;
     case AST_BOOLLIT:
         fprintf(fp, "(bool %s)", n->as.boollit.value ? "true" : "false");
+        break;
+    case AST_CHARLIT:
+        fprintf(fp, "(char %d)", n->as.charlit.value);
         break;
     case AST_STRLIT:
         fputs("(str ", fp);

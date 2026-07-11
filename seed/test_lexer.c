@@ -123,6 +123,19 @@ static void test_boolean_keywords(void)
     CHECK(t[5].kind == TOK_KW_FALSE, "False -> KW_FALSE (case-insensitive)");
 }
 
+/* B3 (beads initech-7mo3): const/char, plus ord/chr reserved as built-in-
+ * function keywords (see token.h's B3 DECISION note). */
+static void test_char_b3_keywords(void)
+{
+    Token t[16];
+    int n = lex_all("Const CHAR Ord chr", t, 16);
+    CHECK(n == 5, "four B3 keyword tokens + EOF");
+    CHECK(t[0].kind == TOK_KW_CONST, "Const -> KW_CONST (case-insensitive)");
+    CHECK(t[1].kind == TOK_KW_CHAR, "CHAR -> KW_CHAR (case-insensitive)");
+    CHECK(t[2].kind == TOK_KW_ORD, "Ord -> KW_ORD (case-insensitive)");
+    CHECK(t[3].kind == TOK_KW_CHR, "chr -> KW_CHR");
+}
+
 static void test_comments(void)
 {
     Token t[8];
@@ -278,6 +291,7 @@ int main(void)
     test_relational_operators();
     test_eq_not_confused_with_assign();
     test_boolean_keywords();
+    test_char_b3_keywords();
     test_comments();
     test_comment_line_tracking();
     test_strings();

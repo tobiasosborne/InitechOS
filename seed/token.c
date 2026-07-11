@@ -39,6 +39,10 @@ const char *token_kind_name(TokenKind kind)
     case TOK_KW_DOWNTO:  return "KW_DOWNTO";
     case TOK_KW_REPEAT:  return "KW_REPEAT";
     case TOK_KW_UNTIL:   return "KW_UNTIL";
+    case TOK_KW_CONST:   return "KW_CONST";
+    case TOK_KW_CHAR:    return "KW_CHAR";
+    case TOK_KW_ORD:     return "KW_ORD";
+    case TOK_KW_CHR:     return "KW_CHR";
     case TOK_SEMI:       return "SEMI";
     case TOK_DOT:        return "DOT";
     case TOK_COMMA:      return "COMMA";

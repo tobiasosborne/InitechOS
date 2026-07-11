@@ -155,6 +155,41 @@
  * stop keeps looping and vice versa). test-seed-control-mutant asserts this
  * makes control.pas's exact-serial golden go RED.
  * ============================================================================
+ *
+ * B3 (beads initech-7mo3; ADR-0007 DEC-02 "const declarations", "char, ord,
+ * chr") -- const folding, char, ord/chr:
+ *
+ *   CONST FOLDING is entirely a FRONT-END concern (seed/parser.c): every
+ *   const use is replaced by a fresh literal AST node (AST_INTLIT/
+ *   AST_CHARLIT/AST_BOOLLIT) at parse time, so codegen NEVER sees an
+ *   AST_CONSTDECL reference and NEVER emits a .bss slot for a const
+ *   (emit_bss explicitly skips AST_CONSTDECL nodes) -- "front-end FOLD to
+ *   literals at use sites, no runtime storage" per the bead.
+ *
+ *   char = a BYTE, ZERO-EXTENDED in eax and in its .bss slot (a plain 4-byte
+ *   `resd 1`, exactly like integer/boolean -- one uniform slot width for
+ *   every scalar in this subset, DECISION: simpler than mixed-width memory
+ *   access for a compiler this size, and every char-producing operation
+ *   (a char literal, chr()) already keeps the value in 0..255, so no
+ *   mid-expression masking is needed anywhere except inside chr() itself).
+ *
+ *   ord(x) / chr(x): both AST_UNOP (OP_ORD / OP_CHR), both VALUE NO-OPS at
+ *   the bit level -- ord() only changes typecheck's static type (char/
+ *   boolean/integer are already the same zero-extended eax representation);
+ *   chr() emits exactly one instruction, `and eax, 0xFF`, which TRUNCATES an
+ *   out-of-range operand to its low byte rather than trapping (Borland
+ *   Turbo Pascal 7.0 Language Guide, "Chr": out-of-range under the default
+ *   {$R-} truncates; this compiler has no range-check trap mechanism at
+ *   all, so truncation is the only sound, deterministic choice -- Rule 11).
+ *   write/writeln of a char calls serial_putc directly (the raw byte), never
+ *   serial_put_int (that would print the char's decimal ORD) and never the
+ *   TRUE/FALSE boolean path.
+ *
+ *   MUTATION HOOK (Rule 6; beads initech-7mo3): SEED_MUT_CODEGEN_CHR_OFF1
+ *   makes chr(i) compute (i & 0xFF) + 1 instead of i & 0xFF (see gen_expr's
+ *   OP_CHR case). test-seed-char-mutant asserts this makes char.pas's
+ *   exact-serial golden go RED.
+ * ============================================================================
  */
 #include "codegen.h"
 
@@ -366,6 +401,12 @@ static void gen_binop(Cg *cg, const AstNode *e)
     case OP_NOT:
         cg_ice("OP_NOT in binop position", e);
         break;
+    case OP_ORD:
+        cg_ice("OP_ORD in binop position", e);
+        break;
+    case OP_CHR:
+        cg_ice("OP_CHR in binop position", e);
+        break;
     default:
         cg_ice("unknown binop", e);
         break;
@@ -386,6 +427,18 @@ static void gen_expr(Cg *cg, const AstNode *e)
          * relational/and/or/not result also uses. */
         fprintf(o, "    mov eax, %d\n", e->as.boollit.value ? 1 : 0);
         break;
+    case AST_CHARLIT:
+        /* B3 (beads initech-7mo3; ADR-0007 DEC-02 "char"). DECISION: a char
+         * is a BYTE, represented ZERO-EXTENDED in the 32-bit eax register
+         * (and, for a char variable, in a full 4-byte .bss slot -- see
+         * emit_bss) -- the same uniform stack-machine convention every
+         * other scalar in this subset already uses (integer, boolean), so
+         * there is no mixed-width memory access or partial-register-stall
+         * special-casing anywhere in codegen. The literal's value is
+         * already guaranteed 0..255 by the lexer/parser (a char literal is
+         * one raw source byte), so no masking is needed here. */
+        fprintf(o, "    mov eax, %d\n", e->as.charlit.value);
+        break;
     case AST_VARREF:
         fprintf(o, "    mov eax, [v_");
         emit_var_label(o, e->as.varref.name);
@@ -405,6 +458,45 @@ static void gen_expr(Cg *cg, const AstNode *e)
              * consistent with the complete-evaluation / no-jump discipline
              * documented at the top of this file. */
             fprintf(o, "    xor eax, 1\n");
+            break;
+        /* B3 (beads initech-7mo3; ADR-0007 DEC-02 "ord, chr"). */
+        case OP_ORD:
+            /* VALUE NO-OP (report per the bead): char, boolean, and integer
+             * already share ONE zero-extended representation in eax (B1's
+             * boolean 0/1; B3's char is likewise zero-extended, never
+             * sign-extended -- see AST_CHARLIT above and the .bss slot note
+             * in emit_bss). ord() therefore changes only the STATIC type
+             * the rest of codegen/typecheck reasons about; it emits no
+             * instruction of its own. (A "sign-extend the byte" mutant --
+             * ORD_SIGNEXT, cited as an alternative Rule-6 hook in the bead
+             * -- would be independently observable exactly because this
+             * path emits nothing today: any instruction added here that
+             * treated the byte as signed would be a real, detectable
+             * divergence for a char whose value is >= 128.) */
+            break;
+        case OP_CHR:
+            /* DECISION (report): chr(i) TRUNCATES the operand to 8 bits
+             * when i is outside 0..255, rather than trapping. Borland
+             * Turbo Pascal 7.0 Language Guide, "Chr": "If X is not in the
+             * range 0..255, a runtime error occurs if range checking is on
+             * ({$R+}); otherwise the low byte of X is used" -- and {$R-}
+             * (range checking OFF) is Turbo Pascal's DEFAULT compiler
+             * state. This subset implements no runtime range-check
+             * machinery at all (there is no trap/exception mechanism in
+             * this compiler yet), so truncation is not just the default
+             * TP behaviour but the only sound, deterministic choice
+             * available (Rule 11 -- a pure function of the input bits,
+             * no runtime decision needed). */
+            fprintf(o, "    and eax, 0xFF\n");
+#ifdef SEED_MUT_CODEGEN_CHR_OFF1
+            /* MUTATION HOOK (Rule 6; beads initech-7mo3, ADR-0007 DEC-07's
+             * per-family mutation obligation for B3). Compile with
+             * -DSEED_MUT_CODEGEN_CHR_OFF1 to make chr(i) compute
+             * (i & 0xFF) + 1 instead of i & 0xFF -- e.g. chr(65) wrongly
+             * yields 'B' instead of 'A'. test-seed-char-mutant asserts this
+             * makes char.pas's exact-serial golden go RED. */
+            fprintf(o, "    add eax, 1\n");
+#endif
             break;
         default:
             cg_ice("unknown unop", e);
@@ -443,6 +535,17 @@ static void gen_write(Cg *cg, const AstNode *n, int *str_idx)
             fprintf(o, "    mov eax, str_bool_false\n");
             fprintf(o, ".Lbdone_%d:\n", lbl);
             fprintf(o, "    call serial_puts\n");
+        } else if (arg->type == AST_TY_CHAR) {
+            /* B3 (beads initech-7mo3; ADR-0007 DEC-02 "char"). write/
+             * writeln of a char emits the RAW BYTE via serial_putc -- never
+             * decimal formatting (that would be printing the char's ORD,
+             * which is a different, explicit operation) and never the
+             * TRUE/FALSE boolean path above. arg's value is already
+             * zero-extended 0..255 in eax (see AST_CHARLIT / OP_CHR), so AL
+             * already holds the exact byte serial_putc's ABI expects
+             * ("In: AL = byte", seed/rt/start.asm). */
+            gen_expr(cg, arg);                 /* value -> eax (al = byte) */
+            fprintf(o, "    call serial_putc\n");
         } else {
             gen_expr(cg, arg);                 /* value -> eax */
             fprintf(o, "    call serial_put_int\n");
@@ -546,6 +649,15 @@ static void emit_bss(Cg *cg, const AstNode *program)
     fprintf(o, "align 4\n");
     for (size_t i = 0; i < decls->count; i++) {
         const AstNode *vd = decls->items[i];
+        /* B3 (beads initech-7mo3): a const-decl gets NO .bss slot at all --
+         * "front-end FOLD to literals at use sites (no runtime storage)"
+         * per the bead. Every const use was already replaced by a literal
+         * AST node at parse time (seed/parser.c's parse_factor), so an
+         * AST_CONSTDECL reaching here carries no codegen obligation
+         * whatsoever; skip it rather than treating it as the internal
+         * contract violation a non-vardecl/non-constdecl node would be. */
+        if (vd->kind == AST_CONSTDECL)
+            continue;
         if (vd->kind != AST_VARDECL)
             cg_ice("non-vardecl in program decls", vd);
         for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {

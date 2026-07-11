@@ -595,6 +595,192 @@ static void test_typecheck_for_bound_requires_integer(void)
     CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
 }
 
+/* ------------------------------------------------------------------ */
+/* B3 (beads initech-7mo3; ADR-0007 DEC-02): const + char + ord/chr.    */
+/* ------------------------------------------------------------------ */
+
+/* const-decls FOLD to a literal AST node at every use site (front-end,
+ * no runtime storage) -- the dump shows an AST_CONSTDECL entry (name+type
+ * only) but the use site itself is a plain literal, never an AST_VARREF
+ * for the const's name. */
+static void test_const_decl_folds_to_literal(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; const K = 10; var x : integer;\n"
+        "begin x := K + 1 end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "const decl + use parses");
+    CHECK_STR_EQ(buf,
+        "(program P "
+        "(const K:integer) (var (varref x):integer) "
+        "(block (assign x (+ (int 10) (int 1)))))",
+        "const use folds to (int 10), never (varref K)");
+}
+
+/* Negative int const, char const, and boolean consts -- each folds to its
+ * own literal kind. */
+static void test_const_decl_negative_char_bool(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; const N = -5; L = 'A'; F = true;\n"
+        "var x : integer; c : char; b : boolean;\n"
+        "begin x := N; c := L; b := F end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "negative/char/bool const decls parse");
+    CHECK_STR_EQ(buf,
+        "(program P "
+        "(const N:integer) (const L:char) (const F:boolean) "
+        "(var (varref x):integer) (var (varref c):char) "
+        "(var (varref b):boolean) "
+        "(block (assign x (int -5)) (assign c (char 65)) "
+        "(assign b (bool true))))",
+        "each const kind folds to its matching literal node");
+}
+
+/* const/var sections may repeat and interleave in any order (DECISION,
+ * report -- parser.c's parse_program_root comment). */
+static void test_const_var_sections_interleave(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var x : integer; const K = 3; var y : integer;\n"
+        "begin x := K; y := x end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "interleaved var/const/var sections parse");
+    CHECK_STR_EQ(buf,
+        "(program P "
+        "(var (varref x):integer) (const K:integer) "
+        "(var (varref y):integer) "
+        "(block (assign x (int 3)) (assign y (varref x))))",
+        "decls list preserves section order, const use still folds");
+}
+
+static void test_char_var_decl_and_literal(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var c : char;\n"
+        "begin c := 'A' end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "char var-decl + char literal parse");
+    CHECK_STR_EQ(buf,
+        "(program P (var (varref c):char) "
+        "(block (assign c (char 65))))",
+        "char var-decl dumps :char; char literal dumps as (char <byte>)");
+}
+
+static void test_ord_chr_ast_shape(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var c : char; n : integer;\n"
+        "begin n := ord(c); c := chr(n) end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "ord(c) / chr(n) parse");
+    CHECK_STR_EQ(buf,
+        "(program P (var (varref c):char) (var (varref n):integer) "
+        "(block (assign n (ord (varref c))) (assign c (chr (varref n)))))",
+        "ord/chr dump as unary nodes, reusing the AST_UNOP shape");
+}
+
+/* DISAMBIGUATION (ast.h's B3 comment): a TOK_STRING reached from an
+ * EXPRESSION context must be exactly one character; a multi-character
+ * quoted literal there is a syntax error, not a silently-accepted string
+ * expression (this subset has no string-typed expressions yet). */
+static void test_multichar_string_in_expr_is_error(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var c : char;\n"
+        "begin c := 'AB' end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "a multi-character quoted literal in expr context is a "
+                   "syntax error");
+    CHECK(strstr(buf, "ERR@") != NULL, "error carries a location");
+    CHECK(strstr(buf, "one character") != NULL,
+          "diagnostic names the one-character rule, not a generic message");
+}
+
+static void test_typecheck_const_assign_is_error(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; const K = 1;\n"
+        "begin K := 2 end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "assigning to a const target is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+    CHECK(strstr(buf, "cannot assign to a constant") != NULL,
+          "diagnostic names the problem");
+}
+
+static void test_typecheck_const_var_collision(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; const K = 1; var K : integer;\n"
+        "begin K := 2 end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "a const/var name collision is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+    CHECK(strstr(buf, "duplicate") != NULL, "diagnostic names the problem");
+}
+
+static void test_typecheck_char_no_implicit_coercion(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var x : integer;\n"
+        "begin x := 'A' end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "assigning a char literal to an integer var is a type "
+                   "error (no implicit coercion)");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+    CHECK(strstr(buf, "mismatch") != NULL, "diagnostic names the mismatch");
+}
+
+static void test_typecheck_char_relational_ok(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var c : char; p : boolean;\n"
+        "begin c := 'A'; p := c = 'A' end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "comparing two chars typechecks and yields boolean");
+    CHECK_STR_EQ(buf,
+        "(program P (var (varref c):char) (var (varref p):boolean) "
+        "(block (assign c (char 65)) (assign p (= (varref c) (char 65)))))",
+        "typecheck does not alter the AST dump shape for char comparisons");
+}
+
+static void test_typecheck_chr_requires_integer(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var c : char; p : boolean;\n"
+        "begin p := true; c := chr(p) end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "chr() on a boolean operand is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+    CHECK(strstr(buf, "'chr' requires an integer operand") != NULL,
+          "diagnostic names the problem");
+}
+
+static void test_typecheck_ord_accepts_char_bool_int(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var c : char; n1, n2, n3 : integer; b : boolean;\n"
+        "begin c := 'A'; b := true; n1 := ord(c); n2 := ord(b); "
+        "n3 := ord(5) end.",
+        buf, sizeof buf);
+    CHECK(rc == 0,
+          "ord() accepts char, boolean, AND integer operands (TOTAL over "
+          "every ordinal type this subset has)");
+}
+
 int main(void)
 {
     test_minimal_program();
@@ -632,5 +818,17 @@ int main(void)
     test_typecheck_while_requires_boolean();
     test_typecheck_repeat_guard_requires_boolean();
     test_typecheck_for_bound_requires_integer();
+    test_const_decl_folds_to_literal();
+    test_const_decl_negative_char_bool();
+    test_const_var_sections_interleave();
+    test_char_var_decl_and_literal();
+    test_ord_chr_ast_shape();
+    test_multichar_string_in_expr_is_error();
+    test_typecheck_const_assign_is_error();
+    test_typecheck_const_var_collision();
+    test_typecheck_char_no_implicit_coercion();
+    test_typecheck_char_relational_ok();
+    test_typecheck_chr_requires_integer();
+    test_typecheck_ord_accepts_char_bool_int();
     return TEST_SUMMARY("test_parser");
 }

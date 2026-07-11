@@ -41,6 +41,51 @@
  * "repeat" node and needs no new machinery for them (the ADR's explicit
  * point: sugar "desugar[s] to the primitive forms ... rather than requiring
  * new codegen machinery"). `case` is not implemented (optional per DEC-02).
+ *
+ * B3 addition (beads initech-7mo3; ADR-0007 DEC-02 "const declarations",
+ * "char, ord, chr"):
+ *   - AST_CONSTDECL: one "NAME = <literal>;" const declaration. Unlike
+ *     AST_VARDECL (which names a LIST of variables sharing one .bss slot
+ *     per name), a const-decl names exactly ONE constant and carries no
+ *     runtime value at all -- the value is folded into a fresh literal AST
+ *     node (AST_INTLIT/AST_CHARLIT/AST_BOOLLIT) at every USE SITE by
+ *     seed/parser.c (see parse_const_section / parse_factor's TOK_IDENT
+ *     branch), so codegen never emits a .bss slot for a const (seed/
+ *     codegen.c emit_bss skips AST_CONSTDECL nodes) -- "front-end FOLD to
+ *     literals at use sites, no runtime storage" per the bead. The node
+ *     still appears in AST_PROGRAM's decls list purely so
+ *     seed/typecheck.c's collect_decls can enforce the SAME
+ *     case-insensitive one-declaration rule across const AND var names in
+ *     one flat namespace (a const can collide with a var, or with another
+ *     const, exactly like two colliding var-decls today).
+ *   - AST_CHARLIT: a char literal, e.g. 'A'. DISAMBIGUATION (DECISION,
+ *     report): the lexer already lexes '...' as TOK_STRING for every
+ *     quoted literal regardless of length (write/writeln string args
+ *     included). This subset's minimal sound rule: a TOK_STRING token
+ *     reached from an EXPRESSION context (parse_factor -- assignments,
+ *     conditions, const values, ord/chr arguments, operands of relational
+ *     ops, etc.) must be exactly ONE character, and becomes an
+ *     AST_CHARLIT; a TOK_STRING reached from a write/writeln ARGUMENT
+ *     position (parsed directly by parse_write, which special-cases
+ *     TOK_STRING before ever calling parse_expr) becomes an AST_STRLIT of
+ *     whatever length it has, unconditionally, exactly as before B3. This
+ *     mirrors real Turbo Pascal: a length-1 '...' literal is Char-typed
+ *     wherever a Char is expected (ISO 7185 Sec 6.1.7 / Turbo Pascal
+ *     Language Guide: "a string-literal enclosed in one pair of quotes
+ *     that specifies a single character... is of type Char"), while
+ *     `write`/`writeln` treat ANY quoted literal as its string form.
+ *     A zero- or multi-character '...' token reaching parse_factor is a
+ *     located syntax error (this subset has no general string EXPRESSION
+ *     type yet -- fixed/ShortString strings land at B7).
+ *   - OP_ORD / OP_CHR (AstOp, below): ord()/chr() reuse AST_UNOP (one
+ *     operand, one result) rather than a general function-call AST kind --
+ *     this subset has no user-callable functions yet (B4 introduces
+ *     procedures/functions); ord/chr are recognized as RESERVED KEYWORDS by
+ *     the parser (see token.h's B3 note), each parsing "( expr )" directly.
+ *     Both are VALUE NO-OPS at codegen (char/boolean/integer already share
+ *     one zero-extended 0..255-or-32-bit representation in eax -- B1); see
+ *     seed/codegen.c's OP_ORD/OP_CHR cases for chr()'s 8-bit-truncation
+ *     DECISION (out-of-range chr() truncates, it does not trap).
  */
 #ifndef SEED_AST_H
 #define SEED_AST_H
@@ -71,7 +116,11 @@ void  ast_arena_free(AstArena *a);                   /* frees the whole tree */
 typedef enum {
     AST_TY_UNKNOWN = 0,
     AST_TY_INTEGER,
-    AST_TY_BOOLEAN
+    AST_TY_BOOLEAN,
+    /* B3 (beads initech-7mo3; ADR-0007 DEC-02 "char"). char is a DISTINCT
+     * scalar type -- no implicit coercion to/from integer; ord()/chr() are
+     * the only bridges (see typecheck.c). */
+    AST_TY_CHAR
 } AstVarType;
 
 /* Human-readable name for a semantic type (diagnostics, dumps). */
@@ -83,6 +132,10 @@ const char *ast_vartype_name(AstVarType t);
 typedef enum {
     AST_PROGRAM,   /* program <name>; <block> . */
     AST_VARDECL,   /* one "name1, name2 : integer;" (or ":boolean") group */
+    /* B3 (beads initech-7mo3): one "NAME = <literal>;" const declaration.
+     * Folded away by codegen (no .bss slot); kept only for typecheck's
+     * one-declaration-rule bookkeeping -- see this header's B3 comment. */
+    AST_CONSTDECL,
     AST_BLOCK,     /* begin <stmt>* end -- a compound statement */
     AST_ASSIGN,    /* <name> := <expr> */
     /* B2 (beads initech-80iw): the two primitive control-flow statements.
@@ -97,6 +150,7 @@ typedef enum {
     AST_UNOP,      /* <op> <operand>  (unary minus, 'not') */
     AST_INTLIT,    /* integer literal */
     AST_BOOLLIT,   /* 'true' / 'false' literal (B1) */
+    AST_CHARLIT,   /* char literal, e.g. 'A' (B3; see this header's note) */
     AST_STRLIT,    /* string literal (write/writeln args only) */
     AST_VARREF     /* reference to a variable by name */
 } AstKind;
@@ -118,7 +172,11 @@ typedef enum {
     OP_GE,    /* >= */
     OP_AND,   /* and */
     OP_OR,    /* or */
-    OP_NOT    /* not (unary) */
+    OP_NOT,   /* not (unary) */
+    /* B3 (beads initech-7mo3): ord()/chr(), both unary (AST_UNOP). Value
+     * no-ops at codegen -- see seed/codegen.c. */
+    OP_ORD,   /* ord(x): char|boolean|integer -> integer */
+    OP_CHR    /* chr(x): integer -> char (truncates to 8 bits) */
 } AstOp;
 
 typedef struct AstNode AstNode;
@@ -143,10 +201,13 @@ struct AstNode {
     AstVarType type;
     union {
         struct { char *name; AstList decls; AstNode *block; } program;
-        /* vtype: the DECLARED type of this group ("integer"/"boolean"),
-         * set by the parser when it consumes the type keyword -- distinct
-         * from the generic per-expression `type` field above. */
+        /* vtype: the DECLARED type of this group ("integer"/"boolean"/
+         * "char"), set by the parser when it consumes the type keyword --
+         * distinct from the generic per-expression `type` field above. */
         struct { AstList names; /* AST_VARREF nodes */ AstVarType vtype; } vardecl;
+        /* B3: name + declared type only -- no value (folded away, see the
+         * header's B3 comment). */
+        struct { char *name; AstVarType ctype; } constdecl;
         struct { AstList stmts; } block;
         struct { char *name; AstNode *value; } assign;
         /* B2: else_stmt is NULL when there is no 'else' clause. */
@@ -157,6 +218,7 @@ struct AstNode {
         struct { AstOp op; AstNode *operand; } unop;
         struct { long value; } intlit;
         struct { int value; } boollit;                 /* 0 or 1 (B1) */
+        struct { int value; } charlit;                 /* 0..255 byte (B3) */
         struct { char *text; size_t length; } strlit; /* decoded, NUL-term */
         struct { char *name; } varref;
     } as;

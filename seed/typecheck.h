@@ -20,17 +20,20 @@
  *     must resolve to a declared name; there is no implicit declaration.
  *   - Assignment (:=) requires the right-hand expression's type to match
  *     the left-hand variable's declared type EXACTLY -- no implicit
- *     integer<->boolean coercion (there is no `ord()` yet; that lands at
- *     B3, ADR-0007 DEC-07 B-chain).
+ *     integer<->char<->boolean coercion; `ord()`/`chr()` (B3, beads
+ *     initech-7mo3) are the only explicit bridges between integer and
+ *     char/boolean.
  *   - Relational operators (= <> < <= > >=) require BOTH operands to be
- *     the SAME type (both integer or both boolean) and yield boolean.
- *     (This subset has no other comparable type yet -- char arrives at B3.)
+ *     the SAME type (integer, boolean, or -- as of B3 -- char) and yield
+ *     boolean.
  *   - and/or/not require boolean operand(s) and yield boolean.
  *   - + - * div mod (and unary -) require integer operand(s) and yield
- *     integer.
+ *     integer. (char is deliberately NOT arithmetic: no char+char,
+ *     char+int, etc. -- only ord()/chr() move a value between char and
+ *     integer, and relational ops compare two chars.)
  *   - A write/writeln expression argument (string args are exempt; they are
- *     never type-checked as expressions) must resolve to integer or
- *     boolean -- codegen picks the print routine from the checked type
+ *     never type-checked as expressions) must resolve to integer, boolean,
+ *     or char -- codegen picks the print routine from the checked type
  *     (see typecheck_program's contract below and seed/codegen.c gen_write).
  *   - (B2, beads initech-80iw) 'if'/'while' conditions must be boolean.
  *     'for'/'repeat' get the same discipline for free: the parser desugars
@@ -39,12 +42,28 @@
  *     checking (forcing integer) and a repeat's guard goes through ordinary
  *     'not' checking (forcing boolean) -- see seed/parser.c's desugar
  *     comments and ADR-0007 DEC-02.
+ *   - (B3, beads initech-7mo3; ADR-0007 DEC-02 "const declarations", "char,
+ *     ord, chr") additions:
+ *       * const names resolve through the SAME flat, case-insensitive,
+ *         one-declaration symbol table as var names (a const/var name
+ *         collision, or a duplicate const, is the identical "duplicate
+ *         variable declaration" diagnostic); a const may never be an
+ *         assignment TARGET ("cannot assign to a constant").
+ *       * char is a type DISTINCT from integer -- no implicit coercion in
+ *         either direction.
+ *       * ord(x) requires x : char | boolean | integer, yields integer
+ *         (TOTAL over every ordinal type this subset has; ord(boolean) is
+ *         IMPLEMENTED -- Turbo Pascal allows it, giving 0/1 -- see
+ *         check_unop's OP_ORD case for the DECISION note).
+ *       * chr(x) requires x : integer, yields char (see seed/codegen.c's
+ *         OP_CHR case for the out-of-range TRUNCATION decision -- this
+ *         module only enforces the operand TYPE, not its runtime range).
  *
  * This is intentionally NOT full Pascal type inference (no subranges, no
- * char/real/records/arrays -- those are out of scope for B1 per the DEC-02
- * subset table) -- just enough soundness that a boolean can never silently
- * flow where an integer is expected (or vice versa), and every write knows
- * which print routine to call.
+ * real/records/arrays -- those are out of scope for B1-B3 per the DEC-02
+ * subset table) -- just enough soundness that a boolean (or now char) can
+ * never silently flow where an integer is expected (or vice versa), and
+ * every write knows which print routine to call.
  *
  * CONTRACT: typecheck_program must be run (and must succeed) exactly once,
  * after a successful parse_program() and before codegen_emit(). It mutates

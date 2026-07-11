@@ -30,6 +30,17 @@
  * ADR-0007 DEC-02's own text; the if-chain idiom already covers it, and B2's
  * bead explicitly lists it as "optional/absent").
  *
+ * B3 addition (beads initech-7mo3; ADR-0007 DEC-02 "const declarations",
+ * "char, ord, chr"): the `const` and `char` keywords, plus `ord`/`chr` as
+ * RESERVED KEYWORDS (not ordinary identifiers that happen to name a
+ * built-in function -- this subset has no general function-call syntax yet,
+ * B4 lands that; ord/chr are recognized directly by the parser, mirroring
+ * how true/false were made reserved at B1 for the same minimality reason,
+ * ADR-0007 DEC-02/DR-2). A real TP program could declare a variable or
+ * procedure named `ord`/`chr`/`const`/`char`; this seed's minimal subset
+ * does not need that flexibility and reserving the words avoids a whole
+ * class of shadowing complexity for zero self-host cost.
+ *
  * Pascal is case-insensitive: keywords and identifiers are matched
  * case-insensitively by the lexer. The Token stores the source lexeme verbatim
  * (a span into the source buffer); semantic comparison is done case-folded.
@@ -77,6 +88,12 @@ typedef enum {
     TOK_KW_DOWNTO,
     TOK_KW_REPEAT,
     TOK_KW_UNTIL,
+    /* B3 keywords (beads initech-7mo3): const declarations, the char type,
+     * and ord/chr (reserved -- see the header comment above). */
+    TOK_KW_CONST,
+    TOK_KW_CHAR,
+    TOK_KW_ORD,
+    TOK_KW_CHR,
 
     /* punctuation / operators */
     TOK_SEMI,       /* ; */

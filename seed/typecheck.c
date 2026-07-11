@@ -36,6 +36,11 @@
 typedef struct {
     char       name[TC_SYM_NAME_CAP]; /* case-folded (lower) declared name */
     AstVarType type;
+    /* B3 (beads initech-7mo3): 1 if this name was declared `const`, 0 if
+     * `var`. const and var share ONE flat, case-insensitive namespace (the
+     * same one-declaration rule) -- see collect_decls -- and is_const is
+     * how check_stmt's AST_ASSIGN case rejects "assign to a constant". */
+    int        is_const;
 } TcSym;
 
 typedef struct {
@@ -88,9 +93,44 @@ static void collect_decls(Tc *tc, const AstList *decls)
 {
     for (size_t i = 0; i < decls->count && !tc->failed; i++) {
         const AstNode *vd = decls->items[i];
+
+        /* B3 (beads initech-7mo3): a const-decl contributes exactly ONE
+         * name (unlike AST_VARDECL, which names a whole list). It shares
+         * the SAME case-insensitive one-declaration rule as vars (this is
+         * the requirement typecheck.h's B3 contract states): a const
+         * colliding with an existing var name -- or with another const --
+         * is the identical "duplicate variable declaration" diagnostic
+         * used for two colliding var-decls. */
+        if (vd->kind == AST_CONSTDECL) {
+            char lc[TC_SYM_NAME_CAP];
+            lower_copy(lc, sizeof(lc), vd->as.constdecl.name);
+            if (sym_find(tc, lc) >= 0) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg),
+                         "duplicate variable declaration: %s",
+                         vd->as.constdecl.name);
+                fail_at(tc, vd->line, vd->col, msg);
+                return;
+            }
+            if (tc->nsyms >= TC_MAX_SYMBOLS) {
+                fail_at(tc, vd->line, vd->col,
+                        "too many variable declarations "
+                        "(TC_MAX_SYMBOLS exceeded)");
+                return;
+            }
+            lower_copy(tc->syms[tc->nsyms].name,
+                       sizeof(tc->syms[tc->nsyms].name),
+                       vd->as.constdecl.name);
+            tc->syms[tc->nsyms].type = vd->as.constdecl.ctype;
+            tc->syms[tc->nsyms].is_const = 1;
+            tc->nsyms++;
+            continue;
+        }
+
         if (vd->kind != AST_VARDECL) {
             fail_at(tc, vd->line, vd->col,
-                    "internal: non-vardecl in program decls (typecheck)");
+                    "internal: non-vardecl/constdecl in program decls "
+                    "(typecheck)");
             return;
         }
         for (size_t j = 0; j < vd->as.vardecl.names.count && !tc->failed; j++) {
@@ -120,6 +160,7 @@ static void collect_decls(Tc *tc, const AstList *decls)
                        sizeof(tc->syms[tc->nsyms].name),
                        vr->as.varref.name);
             tc->syms[tc->nsyms].type = vd->as.vardecl.vtype;
+            tc->syms[tc->nsyms].is_const = 0;
             tc->nsyms++;
         }
     }
@@ -157,15 +198,20 @@ static AstVarType check_binop(Tc *tc, AstNode *e)
         e->type = AST_TY_BOOLEAN;
         return e->type;
     case OP_EQ: case OP_NE: case OP_LT: case OP_LE: case OP_GT: case OP_GE:
+        /* B3 (beads initech-7mo3): char joins integer/boolean here for
+         * free -- the rule is already generic ("both sides the same
+         * type"), so char==char / char<char / etc. Just Work the moment
+         * AST_TY_CHAR exists as a real type; no relational-specific change
+         * was needed beyond this diagnostic wording. */
         if (lt == AST_TY_UNKNOWN || rt == AST_TY_UNKNOWN || lt != rt) {
             fail_at(tc, e->line, e->col,
                     "relational operands must be the same type "
-                    "(both integer or both boolean)");
+                    "(both integer, both boolean, or both char)");
             return AST_TY_UNKNOWN;
         }
         e->type = AST_TY_BOOLEAN;
         return e->type;
-    case OP_NEG: case OP_NOT:
+    case OP_NEG: case OP_NOT: case OP_ORD: case OP_CHR:
         fail_at(tc, e->line, e->col,
                 "internal: unary operator reached check_binop");
         return AST_TY_UNKNOWN;
@@ -197,6 +243,39 @@ static AstVarType check_unop(Tc *tc, AstNode *e)
         }
         e->type = AST_TY_BOOLEAN;
         return e->type;
+    /* B3 (beads initech-7mo3; ADR-0007 DEC-02 "ord, chr"). */
+    case OP_ORD:
+        /* DECISION (report): ord() is TOTAL over every ordinal type this
+         * subset has -- char, boolean, AND integer. ord(anInteger) is the
+         * identity (real Pascal: Integer already IS an ordinal type, so
+         * Ord(anInteger) = anInteger -- Borland Turbo Pascal 7.0 Language
+         * Guide, "Ord": "Ord returns a value of type Longint that is the
+         * ordinal number of X" for any ordinal X). ord(boolean) is
+         * IMPLEMENTED, not rejected (report per the bead): TP allows it and
+         * gives 0/1, and the runtime already represents boolean as 0/1 in
+         * eax (B1), so ord(boolean) costs zero extra codegen -- exactly the
+         * same "value no-op" as ord(char)/ord(integer) (see codegen.c's
+         * OP_ORD case). */
+        if (t != AST_TY_CHAR && t != AST_TY_BOOLEAN && t != AST_TY_INTEGER) {
+            fail_at(tc, e->line, e->col,
+                    "'ord' requires a char, boolean, or integer operand");
+            return AST_TY_UNKNOWN;
+        }
+        e->type = AST_TY_INTEGER;
+        return e->type;
+    case OP_CHR:
+        /* chr() is defined only on an integer argument (ISO 7185 / Turbo
+         * Pascal; there is no chr(char) or chr(boolean)). Out-of-range
+         * (0..255) behaviour: see codegen.c's OP_CHR case for the 8-bit
+         * TRUNCATION decision -- this pass only enforces the operand type,
+         * not the range (a compile-time-unknown value can't be range-
+         * checked here anyway; only a runtime concern). */
+        if (t != AST_TY_INTEGER) {
+            fail_at(tc, e->line, e->col, "'chr' requires an integer operand");
+            return AST_TY_UNKNOWN;
+        }
+        e->type = AST_TY_CHAR;
+        return e->type;
     default:
         fail_at(tc, e->line, e->col, "internal: unknown unary operator");
         return AST_TY_UNKNOWN;
@@ -214,6 +293,10 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
         return e->type;
     case AST_BOOLLIT:
         e->type = AST_TY_BOOLEAN;
+        return e->type;
+    case AST_CHARLIT:
+        /* B3 (beads initech-7mo3). */
+        e->type = AST_TY_CHAR;
         return e->type;
     case AST_VARREF: {
         char lc[TC_SYM_NAME_CAP];
@@ -262,6 +345,16 @@ static void check_stmt(Tc *tc, AstNode *n)
             fail_at(tc, n->line, n->col, msg);
             return;
         }
+        /* B3 (beads initech-7mo3): a const shares the var namespace but may
+         * never be an assignment TARGET -- "cannot assign to a constant" is
+         * the same diagnostic real Pascal compilers give. */
+        if (tc->syms[idx].is_const) {
+            char msg[TYPECHECK_ERRMSG_CAP];
+            snprintf(msg, sizeof(msg), "cannot assign to a constant: %s",
+                     n->as.assign.name);
+            fail_at(tc, n->line, n->col, msg);
+            return;
+        }
         AstVarType vt = tc->syms[idx].type;
         AstVarType et = check_expr(tc, n->as.assign.value);
         if (tc->failed)
@@ -286,10 +379,15 @@ static void check_stmt(Tc *tc, AstNode *n)
             AstVarType t = check_expr(tc, arg);
             if (tc->failed)
                 return;
-            if (t != AST_TY_INTEGER && t != AST_TY_BOOLEAN) {
+            /* B3 (beads initech-7mo3): char joins integer/boolean as a
+             * valid write/writeln expression-argument type -- codegen's
+             * gen_write picks the byte-emitting path (serial_putc) for it,
+             * never decimal formatting. */
+            if (t != AST_TY_INTEGER && t != AST_TY_BOOLEAN
+                && t != AST_TY_CHAR) {
                 fail_at(tc, arg->line, arg->col,
-                        "write/writeln argument must be integer or "
-                        "boolean");
+                        "write/writeln argument must be integer, boolean, "
+                        "or char");
                 return;
             }
         }
