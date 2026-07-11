@@ -221,9 +221,112 @@
 #include <unistd.h>
 #endif
 
+/* ============================================================================
+ * B4 (beads initech-63ce; ADR-0007 DEC-02/DEC-04) -- THE CODEGEN PIVOT:
+ * procedures/functions, real cdecl stack frames, value + var parameters,
+ * recursion, forward/mutual recursion. Before B4 every variable was a static
+ * .bss slot and there were no calls; B4 stands up the frame model below.
+ *
+ * CALLING CONVENTION (DECISION, report): cdecl.
+ *   - The caller pushes arguments RIGHT-TO-LEFT, so the FIRST (leftmost)
+ *     parameter ends up at the LOWEST address [ebp+8] and parameter i at
+ *     [ebp+8+4i] (cg_param_offset). The caller cleans the stack after the
+ *     call ("add esp, 4*nargs"). Right-to-left is the conventional cdecl
+ *     order and keeps parameter i at the clean offset [ebp+8+4i]; it is a
+ *     FIXED order, so codegen output stays a pure function of the AST
+ *     (Rule 11 / DEC-04 determinism).
+ *   - The result of a function is returned in EAX (consistent with the
+ *     existing expression stack machine, where EAX is the working/result
+ *     register).
+ *   - EBP is the frame pointer and the ONLY callee-saved register this seed
+ *     touches (push/pop in the prologue/epilogue). EAX/ECX/EDX are
+ *     caller-saved scratch, exactly as the pre-B4 expression code already
+ *     assumed; the seed never uses EBX/ESI/EDI in emitted program code, so
+ *     there is nothing else to preserve across a call. Because every
+ *     intermediate expression value is spilled to the DATA STACK (push eax),
+ *     not held in a register, a `call` appearing mid-expression cannot
+ *     clobber a live value -- the spilled operands sit safely below the
+ *     callee's balanced frame.
+ *
+ * FRAME LAYOUT (a routine `pf_<name>`):
+ *       [ebp + 8 + 4*(n-1)]  last parameter
+ *       ...
+ *       [ebp + 8]            first parameter
+ *       [ebp + 4]            return address
+ *       [ebp + 0]            saved ebp            <- ebp
+ *       [ebp - 4]            slot 0 (function result, or first local)
+ *       [ebp - 8]            slot 1
+ *       ...
+ *   Prologue: push ebp / mov ebp,esp / sub esp, 4*num_slots.
+ *   Epilogue: (functions) mov eax,[result slot] / leave / ret.
+ *   Locals + the function result live on the frame ([ebp-4k], cg_local_offset);
+ *   GLOBALS (program-level vars) stay in .bss (v_<name>) exactly as before --
+ *   only routine params/locals/result are frame-resident.
+ *
+ * VAR PARAMETERS (the DEEP-BUG locus, Rule 3): a `var` parameter's frame slot
+ * holds the ADDRESS of the caller's variable. A read loads the pointer then
+ * DEREFERENCES it ("mov eax,[ebp+off] / mov eax,[eax]"); a write loads the
+ * pointer then stores THROUGH it ("mov edx,[ebp+off] / mov [edx],eax"). This
+ * happens FRESH on EVERY access -- the stack machine never caches a value in
+ * a register across statements, so a var parameter aliasing a global is read
+ * back correctly every time (no staleness). At a call site, a var-parameter
+ * ARGUMENT contributes an ADDRESS (cg_gen_addr_of), not a value.
+ *
+ * MUTATION HOOKS (Rule 6; ADR-0007 DEC-07's per-family obligation for B4):
+ *   SEED_MUT_CODEGEN_FRAME_OFF4  -- shifts every local/result slot 4 bytes
+ *       too shallow (cg_local_offset), so slot 0 lands on the saved-ebp word
+ *       [ebp+0]; a function writing its result then corrupts its own frame
+ *       link and the frame math is wrong for every routine with a
+ *       local/result. test-seed-func-mutant asserts func.pas goes RED.
+ *   SEED_MUT_CODEGEN_VARPARAM_COPY -- forces every parameter's by-reference
+ *       flag to 0 (cg_param_is_var), degrading `var` parameters to value
+ *       copies uniformly (call site pushes a value; callee reads/writes the
+ *       slot directly with no deref). The aliasing/swap clauses of func.pas
+ *       then fail (a global modified "through" the param stays unchanged).
+ *       test-seed-func-mutant asserts func.pas goes RED.
+ * ============================================================================
+ */
+#define CG_NAME_CAP    128
+#define CG_MAX_PARAMS   32
+#define CG_MAX_SCOPE    (CG_MAX_PARAMS + 64) /* params + result + locals */
+#define CG_MAX_PROCS   128
+
+typedef enum {
+    CG_GLOBAL,    /* not resolved in a routine scope -> .bss v_<name> */
+    CG_VALPARAM,  /* value parameter: [ebp + offset] holds a copy */
+    CG_VARPARAM,  /* var parameter:   [ebp + offset] holds an ADDRESS */
+    CG_LOCAL,     /* local variable:  [ebp + offset] (offset < 0) */
+    CG_RESULT     /* function result: [ebp + offset] (offset < 0) */
+} CgKind;
+
+typedef struct {
+    char   name[CG_NAME_CAP]; /* case-folded */
+    CgKind kind;
+    int    offset;            /* ebp displacement (signed) */
+} CgScopeEnt;
+
+typedef struct {
+    CgScopeEnt ent[CG_MAX_SCOPE];
+    int        n;
+    int        frame_slots;   /* result + locals; frame size = 4*frame_slots */
+} CgScope;
+
+typedef struct {
+    char name[CG_NAME_CAP];   /* case-folded routine name */
+    int  nparams;
+    int  is_var[CG_MAX_PARAMS];
+    int  has_result;
+} CgProc;
+
 typedef struct {
     FILE *out;
     int   str_count;      /* next .rodata string label ordinal */
+    /* B4 (beads initech-63ce): the routine table (for call codegen) and the
+     * ACTIVE routine's scope (NULL while emitting pas_main -- there, every
+     * name is a global). */
+    CgProc         proctab[CG_MAX_PROCS];
+    int            nproc;
+    const CgScope *scope;
     int   lbl_count;      /* next local-label ordinal -- ONE counter shared by
                            * EVERY local label this file emits: the B1
                            * boolean-print labels (beads initech-f0uc,
@@ -261,6 +364,93 @@ static void emit_var_label(FILE *out, const char *name)
         fputc((char)tolower((unsigned char)*p), out);
 }
 
+/* ---------------- B4 (beads initech-63ce): frame model helpers ------------ */
+
+/* Case-fold a name into `dst` (NUL-terminated, truncated at cap-1). Mirrors
+ * emit_var_label's lowering, but into a buffer for table lookups. */
+static void cg_lower(char *dst, size_t cap, const char *src)
+{
+    size_t i = 0;
+    for (; src[i] && i + 1 < cap; i++)
+        dst[i] = (char)tolower((unsigned char)src[i]);
+    dst[i] = '\0';
+}
+
+/* Parameter i (0-based, left-to-right) lives at [ebp + 8 + 4i] (cdecl,
+ * right-to-left push -- see the file-header frame model). */
+static int cg_param_offset(int i)
+{
+    return 8 + 4 * i;
+}
+
+/* Local/result slot k (0-based; slot 0 is the function result if any, then
+ * locals in declaration order) lives at [ebp - 4*(k+1)]. */
+static int cg_local_offset(int slot)
+{
+#ifdef SEED_MUT_CODEGEN_FRAME_OFF4
+    /* MUTATION HOOK (Rule 6; beads initech-63ce, ADR-0007 DEC-07 B4 "frame
+     * offsets" deep-bug locus): shift every local/result 4 bytes too shallow,
+     * so slot 0 lands on the saved-ebp word [ebp+0] and a function writing
+     * its result corrupts its own frame link. test-seed-func-mutant asserts
+     * func.pas goes RED. */
+    return -(4 * slot);
+#else
+    return -(4 * (slot + 1));
+#endif
+}
+
+/* A parameter's effective by-reference flag. The VARPARAM_COPY mutant forces
+ * it to 0 everywhere (scope + call table), degrading `var` to a value copy
+ * consistently. */
+static int cg_param_is_var(int declared_is_var)
+{
+#ifdef SEED_MUT_CODEGEN_VARPARAM_COPY
+    /* MUTATION HOOK (Rule 6; beads initech-63ce, ADR-0007 DEC-07 B4
+     * "var-param aliasing" deep-bug locus). test-seed-func-mutant asserts
+     * func.pas goes RED. */
+    (void)declared_is_var;
+    return 0;
+#else
+    return declared_is_var;
+#endif
+}
+
+/* Resolve a name in the ACTIVE routine scope; NULL means "not a param/local/
+ * result" -> a program global (v_<name> in .bss). Always NULL when emitting
+ * pas_main (cg->scope == NULL). */
+static const CgScopeEnt *cg_resolve(const Cg *cg, const char *name)
+{
+    if (!cg->scope)
+        return NULL;
+    char lc[CG_NAME_CAP];
+    cg_lower(lc, sizeof(lc), name);
+    for (int i = 0; i < cg->scope->n; i++)
+        if (strcmp(cg->scope->ent[i].name, lc) == 0)
+            return &cg->scope->ent[i];
+    return NULL;
+}
+
+/* Emit an "[ebp<+/->N]" memory operand for a signed ebp displacement. */
+static void cg_ebp(FILE *o, int off)
+{
+    if (off < 0)
+        fprintf(o, "[ebp-%d]", -off);
+    else
+        fprintf(o, "[ebp+%d]", off);
+}
+
+/* Find a routine in the call table by name; NULL if absent (never happens
+ * for a well-typed program -- typecheck rejects a call to an unknown name). */
+static const CgProc *cg_proc_find(const Cg *cg, const char *name)
+{
+    char lc[CG_NAME_CAP];
+    cg_lower(lc, sizeof(lc), name);
+    for (int i = 0; i < cg->nproc; i++)
+        if (strcmp(cg->proctab[i].name, lc) == 0)
+            return &cg->proctab[i];
+    return NULL;
+}
+
 /* ----- .rodata string pass: assign ordinal labels to each string arg ----- */
 /* We walk write/writeln args in source order and emit each string literal as a
  * labelled byte array. To map a string node to its label in the .text pass we
@@ -286,6 +476,16 @@ static void rodata_walk(Cg *cg, const AstNode *n)
         return;
     switch (n->kind) {
     case AST_PROGRAM:
+        /* B4 (beads initech-63ce): string literals can appear in ROUTINE
+         * bodies too, so walk each defining routine's body in source order
+         * FIRST, then the main block -- the SAME order the .text pass emits
+         * them, so str_<n> ordinals match between the two passes. */
+        for (size_t i = 0; i < n->as.program.decls.count; i++) {
+            const AstNode *d = n->as.program.decls.items[i];
+            if ((d->kind == AST_PROCDECL || d->kind == AST_FUNCDECL)
+                && !d->as.procfunc.is_forward)
+                rodata_walk(cg, d->as.procfunc.body);
+        }
         rodata_walk(cg, n->as.program.block);
         break;
     case AST_BLOCK:
@@ -327,6 +527,9 @@ static void rodata_walk(Cg *cg, const AstNode *n)
 /* ----------------------------- .text pass ----------------------------- */
 
 static void gen_expr(Cg *cg, const AstNode *e);
+/* B4 (beads initech-63ce). */
+static void gen_call(Cg *cg, const AstNode *call);
+static void gen_addr_of(Cg *cg, const AstNode *arg);
 
 static void gen_binop(Cg *cg, const AstNode *e)
 {
@@ -463,10 +666,30 @@ static void gen_expr(Cg *cg, const AstNode *e)
          * one raw source byte), so no masking is needed here. */
         fprintf(o, "    mov eax, %d\n", e->as.charlit.value);
         break;
-    case AST_VARREF:
-        fprintf(o, "    mov eax, [v_");
-        emit_var_label(o, e->as.varref.name);
-        fprintf(o, "]\n");
+    case AST_VARREF: {
+        /* B4 (beads initech-63ce): resolve in the active routine scope. A
+         * global (or any name while emitting pas_main) reads its .bss slot; a
+         * param/local/result reads its frame slot; a var parameter loads the
+         * pointer and DEREFERENCES it (fresh every time -- no staleness). */
+        const CgScopeEnt *se = cg_resolve(cg, e->as.varref.name);
+        if (!se) {
+            fprintf(o, "    mov eax, [v_");
+            emit_var_label(o, e->as.varref.name);
+            fprintf(o, "]\n");
+        } else if (se->kind == CG_VARPARAM) {
+            fprintf(o, "    mov eax, ");
+            cg_ebp(o, se->offset);
+            fprintf(o, "\n    mov eax, [eax]\n");
+        } else {
+            fprintf(o, "    mov eax, ");
+            cg_ebp(o, se->offset);
+            fprintf(o, "\n");
+        }
+        break;
+    }
+    case AST_CALL:
+        /* B4: a function call used as an expression value (result -> eax). */
+        gen_call(cg, e);
         break;
     case AST_BINOP:
         gen_binop(cg, e);
@@ -608,11 +831,35 @@ static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
         for (size_t i = 0; i < n->as.block.stmts.count; i++)
             gen_stmt(cg, n->as.block.stmts.items[i], str_idx);
         break;
-    case AST_ASSIGN:
+    case AST_ASSIGN: {
+        /* B4 (beads initech-63ce): resolve the target in the active routine
+         * scope. A global (or any name in pas_main) stores to its .bss slot;
+         * a value param/local/result stores to its frame slot; a var
+         * parameter stores THROUGH its pointer (loaded fresh -- no
+         * staleness). The value is evaluated first (into eax); for the var-
+         * parameter case edx then holds the pointer (edx is free after the
+         * expression completes). */
+        const CgScopeEnt *se = cg_resolve(cg, n->as.assign.name);
         gen_expr(cg, n->as.assign.value);       /* value -> eax */
-        fprintf(o, "    mov [v_");
-        emit_var_label(o, n->as.assign.name);
-        fprintf(o, "], eax\n");
+        if (!se) {
+            fprintf(o, "    mov [v_");
+            emit_var_label(o, n->as.assign.name);
+            fprintf(o, "], eax\n");
+        } else if (se->kind == CG_VARPARAM) {
+            fprintf(o, "    mov edx, ");
+            cg_ebp(o, se->offset);
+            fprintf(o, "\n    mov [edx], eax\n");
+        } else {
+            fprintf(o, "    mov ");
+            cg_ebp(o, se->offset);
+            fprintf(o, ", eax\n");
+        }
+        break;
+    }
+    case AST_CALL:
+        /* B4: a procedure call used as a statement (result, if any, ignored
+         * -- typecheck already forbids discarding a function result). */
+        gen_call(cg, n);
         break;
     case AST_WRITE:
     case AST_WRITELN:
@@ -662,6 +909,142 @@ static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
     }
 }
 
+/* ---------------- B4 (beads initech-63ce): calls + routine emission ------- */
+
+/* Emit the ADDRESS of a variable argument into eax (for a `var` parameter).
+ * The argument is an AST_VARREF (typecheck guaranteed it is a plain variable).
+ * A global -> its label address; a value param/local/result -> lea of its
+ * frame slot; a var parameter -> its stored pointer forwarded unchanged. */
+static void gen_addr_of(Cg *cg, const AstNode *arg)
+{
+    FILE *o = cg->out;
+    if (arg->kind != AST_VARREF)
+        cg_ice("var-parameter argument is not a variable", arg);
+    const CgScopeEnt *se = cg_resolve(cg, arg->as.varref.name);
+    if (!se) {
+        /* Address of a global .bss slot: a bare label is its address. */
+        fprintf(o, "    mov eax, v_");
+        emit_var_label(o, arg->as.varref.name);
+        fprintf(o, "\n");
+    } else if (se->kind == CG_VARPARAM) {
+        /* Forward the existing pointer (do NOT take its address). */
+        fprintf(o, "    mov eax, ");
+        cg_ebp(o, se->offset);
+        fprintf(o, "\n");
+    } else {
+        fprintf(o, "    lea eax, ");
+        cg_ebp(o, se->offset);
+        fprintf(o, "\n");
+    }
+}
+
+/* Emit a call. Arguments are pushed RIGHT-TO-LEFT (cdecl); a value parameter
+ * contributes its evaluated value, a var parameter contributes an address.
+ * The caller cleans the stack (add esp, 4*nargs). The result (functions) is
+ * left in eax. */
+static void gen_call(Cg *cg, const AstNode *call)
+{
+    FILE *o = cg->out;
+    const CgProc *pr = cg_proc_find(cg, call->as.call.name);
+    if (!pr)
+        cg_ice("call to unknown routine (should be caught by typecheck)", call);
+    int n = (int)call->as.call.args.count;
+    if (n != pr->nparams)
+        cg_ice("call arity mismatch (should be caught by typecheck)", call);
+
+    for (int i = n - 1; i >= 0; i--) {
+        const AstNode *arg = call->as.call.args.items[i];
+        if (pr->is_var[i])
+            gen_addr_of(cg, arg);       /* address -> eax */
+        else
+            gen_expr(cg, arg);          /* value   -> eax */
+        fprintf(o, "    push eax\n");
+    }
+    fprintf(o, "    call pf_");
+    emit_var_label(o, call->as.call.name);
+    fprintf(o, "\n");
+    if (n > 0)
+        fprintf(o, "    add esp, %d\n", 4 * n);
+}
+
+/* Count a routine's frame slots (result + local variables) and build its
+ * scope table (params first, at +offsets; then result + locals, at
+ * -offsets). */
+static void cg_build_scope(CgScope *sc, const AstNode *pf)
+{
+    sc->n = 0;
+    sc->frame_slots = 0;
+
+    for (size_t i = 0; i < pf->as.procfunc.params.count; i++) {
+        const AstNode *pn = pf->as.procfunc.params.items[i];
+        if (sc->n >= CG_MAX_SCOPE)
+            cg_ice("routine scope overflow (params)", pn);
+        CgScopeEnt *e = &sc->ent[sc->n++];
+        cg_lower(e->name, sizeof(e->name), pn->as.param.name);
+        e->kind = cg_param_is_var(pn->as.param.is_var) ? CG_VARPARAM
+                                                        : CG_VALPARAM;
+        e->offset = cg_param_offset((int)i);
+    }
+
+    int slot = 0;
+    if (pf->as.procfunc.has_result) {
+        if (sc->n >= CG_MAX_SCOPE)
+            cg_ice("routine scope overflow (result)", pf);
+        CgScopeEnt *e = &sc->ent[sc->n++];
+        cg_lower(e->name, sizeof(e->name), pf->as.procfunc.name);
+        e->kind = CG_RESULT;
+        e->offset = cg_local_offset(slot++);
+    }
+    for (size_t i = 0; i < pf->as.procfunc.decls.count; i++) {
+        const AstNode *vd = pf->as.procfunc.decls.items[i];
+        if (vd->kind != AST_VARDECL)
+            cg_ice("non-vardecl in routine locals", vd);
+        for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {
+            const AstNode *vr = vd->as.vardecl.names.items[j];
+            if (sc->n >= CG_MAX_SCOPE)
+                cg_ice("routine scope overflow (locals)", vr);
+            CgScopeEnt *e = &sc->ent[sc->n++];
+            cg_lower(e->name, sizeof(e->name), vr->as.varref.name);
+            e->kind = CG_LOCAL;
+            e->offset = cg_local_offset(slot++);
+        }
+    }
+    sc->frame_slots = slot;
+}
+
+/* Emit one procedure/function as `pf_<name>` with a cdecl prologue/epilogue.
+ * A forward declaration has no body and emits nothing. */
+static void emit_proc(Cg *cg, const AstNode *pf, int *str_idx)
+{
+    FILE *o = cg->out;
+    if (pf->as.procfunc.is_forward)
+        return;
+
+    CgScope sc;
+    cg_build_scope(&sc, pf);
+
+    fprintf(o, "pf_");
+    emit_var_label(o, pf->as.procfunc.name);
+    fprintf(o, ":\n");
+    fprintf(o, "    push ebp\n");
+    fprintf(o, "    mov ebp, esp\n");
+    if (sc.frame_slots > 0)
+        fprintf(o, "    sub esp, %d\n", 4 * sc.frame_slots);
+
+    cg->scope = &sc;
+    gen_stmt(cg, pf->as.procfunc.body, str_idx);
+    cg->scope = NULL;
+
+    if (pf->as.procfunc.has_result) {
+        /* Load the result slot (slot 0) into eax for the return value. */
+        fprintf(o, "    mov eax, ");
+        cg_ebp(o, cg_local_offset(0));
+        fprintf(o, "\n");
+    }
+    fprintf(o, "    leave\n");
+    fprintf(o, "    ret\n");
+}
+
 /* Collect declared variable names (AST_VARREF leaves under vardecls). */
 static void emit_bss(Cg *cg, const AstNode *program)
 {
@@ -681,6 +1064,11 @@ static void emit_bss(Cg *cg, const AstNode *program)
          * whatsoever; skip it rather than treating it as the internal
          * contract violation a non-vardecl/non-constdecl node would be. */
         if (vd->kind == AST_CONSTDECL)
+            continue;
+        /* B4 (beads initech-63ce): procedure/function decls carry no .bss
+         * slot -- their params/locals/result are frame-resident (emit_proc).
+         * Skip them here exactly as const-decls are skipped. */
+        if (vd->kind == AST_PROCDECL || vd->kind == AST_FUNCDECL)
             continue;
         if (vd->kind != AST_VARDECL)
             cg_ice("non-vardecl in program decls", vd);
@@ -707,6 +1095,37 @@ int codegen_emit(const AstNode *program, FILE *out)
     cg.out = out;
     cg.str_count = 0;
     cg.lbl_count = 0;
+    cg.nproc = 0;
+    cg.scope = NULL;
+
+    /* B4 (beads initech-63ce): build the routine call table (name -> arity +
+     * per-parameter by-reference flags + result-ness) from every proc/func
+     * declaration. A forward declaration and its defining occurrence share
+     * one identical signature, so dedup by name (the first seen wins; both
+     * carry the same is_var flags). */
+    for (size_t i = 0; i < program->as.program.decls.count; i++) {
+        const AstNode *d = program->as.program.decls.items[i];
+        if (d->kind != AST_PROCDECL && d->kind != AST_FUNCDECL)
+            continue;
+        if (cg_proc_find(&cg, d->as.procfunc.name))
+            continue; /* already registered (forward + defining) */
+        if (cg.nproc >= CG_MAX_PROCS) {
+            fprintf(stderr, "initechc: codegen: too many routines\n");
+            return 1;
+        }
+        CgProc *pr = &cg.proctab[cg.nproc++];
+        cg_lower(pr->name, sizeof(pr->name), d->as.procfunc.name);
+        pr->has_result = d->as.procfunc.has_result;
+        pr->nparams = (int)d->as.procfunc.params.count;
+        if (pr->nparams > CG_MAX_PARAMS) {
+            fprintf(stderr, "initechc: codegen: too many parameters\n");
+            return 1;
+        }
+        for (int k = 0; k < pr->nparams; k++) {
+            const AstNode *pn = d->as.procfunc.params.items[k];
+            pr->is_var[k] = cg_param_is_var(pn->as.param.is_var);
+        }
+    }
 
     /* File banner (deterministic; cites the PRD per Law 1). */
     fprintf(out,
@@ -747,14 +1166,27 @@ int codegen_emit(const AstNode *program, FILE *out)
     /* .bss: variable slots. */
     emit_bss(&cg, program);
 
-    /* .text: the program body as pas_main. */
+    /* .text: routines first (source order), then the program body as
+     * pas_main. The ONE str_idx counter threads across routines THEN main in
+     * the SAME order the .rodata pass walked them (see rodata_walk's
+     * AST_PROGRAM case), so str_<n> ordinals line up. The ONE lbl_count
+     * (cg.lbl_count) likewise continues across every routine and pas_main --
+     * DEC-04's single threaded label counter, now spanning routines too. */
     fprintf(out, "section .text\n");
+
+    int str_idx = 0;
+    for (size_t i = 0; i < program->as.program.decls.count; i++) {
+        const AstNode *d = program->as.program.decls.items[i];
+        if (d->kind == AST_PROCDECL || d->kind == AST_FUNCDECL)
+            emit_proc(&cg, d, &str_idx);
+    }
+
     fprintf(out, "global pas_main\n");
     fprintf(out, "pas_main:\n");
     fprintf(out, "    push ebp\n");
     fprintf(out, "    mov ebp, esp\n");
 
-    int str_idx = 0;
+    cg.scope = NULL; /* pas_main: globals only */
     gen_stmt(&cg, program->as.program.block, &str_idx);
 
     fprintf(out, "    leave\n");

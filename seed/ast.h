@@ -152,7 +152,57 @@ typedef enum {
     AST_BOOLLIT,   /* 'true' / 'false' literal (B1) */
     AST_CHARLIT,   /* char literal, e.g. 'A' (B3; see this header's note) */
     AST_STRLIT,    /* string literal (write/writeln args only) */
-    AST_VARREF     /* reference to a variable by name */
+    AST_VARREF,    /* reference to a variable by name */
+    /* B4 (beads initech-63ce; ADR-0007 DEC-02 "procedures/functions: nested
+     * scopes, both value and var parameters, recursion, results", plus the
+     * `forward` directive per the DEC-02 ratification amendment) -- THE
+     * CODEGEN PIVOT. Four new node kinds; the frame model + calling
+     * convention are documented at the top of seed/codegen.c.
+     *   AST_PROCDECL / AST_FUNCDECL: a top-level (flat, NOT lexically
+     *     nested -- see the DECISION note below) procedure or function
+     *     declaration. Both use the `procfunc` union member. A function
+     *     (AST_FUNCDECL) additionally carries a result type and returns via
+     *     the `name := expr` assignment (the ISO 7185 / Turbo Pascal
+     *     result-variable idiom; the TP7 `Result` pseudo-variable is NOT in
+     *     this subset -- see the DECISION note below).
+     *   AST_PARAM: one formal parameter (name, type, by-ref flag). Parameter
+     *     groups like "(a, b: integer)" are FLATTENED into one AST_PARAM per
+     *     name at parse time so each parameter owns a deterministic frame
+     *     offset [ebp+8+4i] (codegen.c).
+     *   AST_CALL: a call by name with an argument list. Used BOTH as an
+     *     expression (a function call -- its `type` field is the callee's
+     *     result type) and as a statement (a procedure call). Whether an
+     *     argument is passed by value or by address is decided at the call
+     *     site from the CALLEE's signature (typecheck resolves it; codegen
+     *     emits an address for a var parameter, a value for a value
+     *     parameter).
+     *
+     * DECISION (report, ADR ambiguity): ADR-0007 DEC-02 says "nested
+     * scopes". This subset reads that as "each procedure/function introduces
+     * its OWN scope over its parameters + locals, with the program-level
+     * globals visible" -- NOT lexically-nested procedure DECLARATIONS with
+     * uplevel/non-local addressing (a static link or display). The ADR never
+     * specifies static-link/display machinery, DEC-04 favours "small and
+     * sufficient" single-pass stack-machine codegen, and a self-hosting
+     * compiler is expressible with flat top-level routines + globals. So
+     * procedures/functions are TOP-LEVEL only; a routine's body sees its own
+     * params/locals (which may shadow a global) and the program globals.
+     *
+     * DECISION (report, ADR silent): a function returns its result ONLY via
+     * assignment to the function name (`Fact := ...`); the TP7 extended-
+     * syntax `Result` pseudo-variable is NOT implemented (the ADR is silent;
+     * name-assignment is the ISO 7185 / TP7-default form -- minimal).
+     *
+     * DECISION (report): a call ALWAYS uses parentheses (`Foo(args)`); a
+     * bare identifier is ALWAYS a variable/const/function-result reference.
+     * This removes the "bare function name = call vs result variable"
+     * ambiguity Pascal otherwise has for param-less routines, for zero
+     * self-host cost (mirrors true/false/ord/chr being reserved at B1/B3 for
+     * the same minimality reason, ADR-0007 DEC-02/DR-2). */
+    AST_PROCDECL,
+    AST_FUNCDECL,
+    AST_PARAM,
+    AST_CALL
 } AstKind;
 
 typedef enum {
@@ -221,6 +271,30 @@ struct AstNode {
         struct { int value; } charlit;                 /* 0..255 byte (B3) */
         struct { char *text; size_t length; } strlit; /* decoded, NUL-term */
         struct { char *name; } varref;
+        /* B4 (beads initech-63ce). */
+        /* One formal parameter. is_var==1 for a `var` (by-reference)
+         * parameter (the frame slot holds an ADDRESS), 0 for a value
+         * parameter (the frame slot holds a copy). */
+        struct { char *name; AstVarType ptype; int is_var; } param;
+        /* A procedure (has_result==0) or function (has_result==1)
+         * declaration. `params` holds AST_PARAM nodes left-to-right; `decls`
+         * holds local AST_VARDECL groups; `body` is the AST_BLOCK (NULL for a
+         * `forward` declaration -- is_forward==1). `rettype` is the function
+         * result type (unused when has_result==0). */
+        struct {
+            char      *name;
+            AstList    params;
+            int        has_result;
+            AstVarType rettype;
+            AstList    decls;
+            AstNode   *body;
+            int        is_forward;
+        } procfunc;
+        /* A call by name. `args` holds the argument expressions in source
+         * (left-to-right) order; codegen pushes them right-to-left (cdecl).
+         * Used as an expression (function call; `type` = result type) or as
+         * a statement (procedure call). */
+        struct { char *name; AstList args; } call;
     } as;
 };
 

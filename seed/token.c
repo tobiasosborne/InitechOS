@@ -43,6 +43,9 @@ const char *token_kind_name(TokenKind kind)
     case TOK_KW_CHAR:    return "KW_CHAR";
     case TOK_KW_ORD:     return "KW_ORD";
     case TOK_KW_CHR:     return "KW_CHR";
+    case TOK_KW_PROCEDURE: return "KW_PROCEDURE";
+    case TOK_KW_FUNCTION:  return "KW_FUNCTION";
+    case TOK_KW_FORWARD:   return "KW_FORWARD";
     case TOK_SEMI:       return "SEMI";
     case TOK_DOT:        return "DOT";
     case TOK_COMMA:      return "COMMA";

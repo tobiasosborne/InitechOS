@@ -94,6 +94,13 @@ typedef enum {
     TOK_KW_CHAR,
     TOK_KW_ORD,
     TOK_KW_CHR,
+    /* B4 keywords (beads initech-63ce): procedure/function declarations and
+     * the `forward` directive (ADR-0007 DEC-02 + the ratification amendment
+     * that made `forward` a required directive). Reserved words in this
+     * subset (see lexer.c's B4 note). */
+    TOK_KW_PROCEDURE,
+    TOK_KW_FUNCTION,
+    TOK_KW_FORWARD,
 
     /* punctuation / operators */
     TOK_SEMI,       /* ; */

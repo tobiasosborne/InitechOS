@@ -7104,7 +7104,8 @@ endef
         test-chrome-fidelity test-chrome-fidelity-mutant \
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant \
-        test-seed-control-mutant test-seed-char-mutant \
+        test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant \
+        test-seed-fpc-diff \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-redir test-redir-mutant test-int24 test-int24-mutant \
         test-vect test-absdisk-emu test-psp test-psp-mutant \
@@ -7164,6 +7165,8 @@ help:
 	@printf '  test-seed-bool-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_SETL_AS_SETG (setl<->setg flip) makes bool.pas correctly RED. REAL (QEMU). beads initech-f0uc, ADR-0007 DEC-03.\n'
 	@printf '  test-seed-control-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_BRANCH_INVERT (jz->jnz on if/while guards) makes control.pas correctly RED. REAL (QEMU). beads initech-80iw, ADR-0007 DEC-02/DEC-04.\n'
 	@printf '  test-seed-char-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_CHR_OFF1 (chr(i) computes (i&0xFF)+1) makes char.pas correctly RED. REAL (QEMU). beads initech-7mo3, ADR-0007 DEC-02/DEC-07.\n'
+	@printf '  test-seed-func-mutant  Rule-6 proof (B4 CODEGEN PIVOT): BOTH deep-bug mutants make func.pas correctly RED -- FRAME_OFF4 (frame-offset arithmetic) + VARPARAM_COPY (var-param aliasing). REAL (QEMU). beads initech-63ce, ADR-0007 DEC-02/DEC-07.\n'
+	@printf '  test-seed-fpc-diff  DEC-07 Rung 2: Turbo Initech seed vs Free Pascal, byte-exact stdout diff on the shared-subset corpus. REAL when fpc installed; FAILS LOUD (not skipped) when fpc is absent. beads initech-63ce, ADR-0007 Sec 4.7.\n'
 	@printf '  test-seed-repro  Reproducible-build gate: the FULL seed corpus, compiled twice (initechc->nasm->ld) into separate scratch dirs, is byte-identical (.s+.o+.elf sha256). REAL. bead initech-3yv, ADR-0007 FO-5/DEC-06.\n'
 	@printf '  test-seed-repro-mutant  Rule-6 proof: -DSEED_MUT_NONDET (getpid()-seeded dead .rodata symbol -- GENUINE nondeterminism) makes test-seed-repro correctly RED, while leaving bool.pas single-run behavior untouched. REAL. bead initech-3yv, ADR-0007 FO-5.\n'
 	@printf '  test-harness   QEMU oracle harness self-test: serial marker caught on good fixture, triple-fault caught on bad. REAL.\n'
@@ -11871,6 +11874,13 @@ SEED_CONTROL_EXPECT := SUM=15 IF1=LT IF2=LE DE=Y NEST=18 FORTO=10 FORDOWN=10 FOR
 # literals, ord/chr, char comparisons driving if/while.
 SEED_CHAR_EXPECT := ORDA=65 CHRA=A ORDCHR65=66 CHRORDB=B CHRWRAP=A CONSTUSE=11 NEGC=-1 CHRCONST=A BOOLCONSTT=TRUE BOOLCONSTF=FALSE CMPIF=EQ CMPLT=LT SCAN=5 ORDBOOLT=1 ORDBOOLF=0 WCH=Z
 
+# B4 (beads initech-63ce): func.pas's full hand-computed exact-serial golden
+# (see the fixture's header comment for the derivation of every TAG) --
+# procedures/functions, cdecl stack frames, value + var parameters,
+# recursion, forward/mutual recursion, and function-call composition. THE
+# CODEGEN PIVOT (first real frames + calls).
+SEED_FUNC_EXPECT := FACT5=120 SUMTO=15 EVEN7=FALSE ODD7=TRUE SWAPA=8 SWAPB=3 ALIASG=41 ALIASG2=42 VALINDEP=5 COMPOSE=10
+
 $(BUILD)/seed_arith_%.elf: $(ARITH_DIR)/%.pas $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
 	$(SEED_BIN) --emit-asm -o $(BUILD)/seed_arith_$*.s $<
 	$(NASM) -f elf32 $(BUILD)/seed_arith_$*.s -o $(BUILD)/seed_arith_$*.o
@@ -11883,7 +11893,8 @@ ARITH_ELVES := $(BUILD)/seed_arith_precedence.elf \
                $(BUILD)/seed_arith_negative_divmod.elf \
                $(BUILD)/seed_arith_bool.elf \
                $(BUILD)/seed_arith_control.elf \
-               $(BUILD)/seed_arith_char.elf
+               $(BUILD)/seed_arith_char.elf \
+               $(BUILD)/seed_arith_func.elf
 
 test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@printf ">>> test-seed-codegen: SMOKE -- expect serial marker '%s'\n" "$(SEED_SMOKE_MARKER)"
@@ -11922,6 +11933,10 @@ test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_char.elf" --expect "$(SEED_CHAR_EXPECT)" \
 		--name seed_char --timeout-ms 5000 \
 		|| { printf "!!! test-seed-codegen FAIL: char.pas did not print the full hand-computed golden\n"; exit 1; }
+	@printf ">>> test-seed-codegen: FUNC -- procedures/functions + stack frames + value/var params + recursion + forward (beads initech-63ce)\n"
+	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_func.elf" --expect "$(SEED_FUNC_EXPECT)" \
+		--name seed_func --timeout-ms 5000 \
+		|| { printf "!!! test-seed-codegen FAIL: func.pas did not print the full hand-computed golden\n"; exit 1; }
 	@printf ">>> test-seed-codegen: BOOL complete-evaluation structural proof -- gen_binop (the ONE shared\n"
 	@printf "    code path for every binop, incl. and/or -- ADR-0007 DEC-03) must never emit a jump\n"
 	@printf "    mnemonic, so no branch could ever skip evaluating an operand.\n"
@@ -12093,6 +12108,144 @@ test-seed-char-mutant: $(HARNESS_BIN) $(SEED_ARITH_CHAR_MUT_ELF)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-seed-func-mutant (beads initech-63ce; ADR-0007 DEC-02/
+# DEC-07's per-family mutation obligation for B4 -- THE CODEGEN PIVOT, whose
+# TWO deep-bug loci the committee flagged for HARD mutation-proofing:
+# var-param aliasing and frame-offset arithmetic).
+# ---------------------------------------------------------------------------
+# BOTH legs run against the SAME func.pas exact-serial golden, each through a
+# SEPARATE mutant compiler binary (so $(SEED_BIN) is never contaminated):
+#   (a) -DSEED_MUT_CODEGEN_FRAME_OFF4 shifts every local/result frame slot 4
+#       bytes too shallow (seed/codegen.c cg_local_offset), so slot 0 lands on
+#       the saved-ebp word and a function writing its result corrupts its own
+#       frame link -- FACT5/SUMTO/etc. all break.
+#   (b) -DSEED_MUT_CODEGEN_VARPARAM_COPY forces every parameter's by-reference
+#       flag to 0 (seed/codegen.c cg_param_is_var), degrading `var` parameters
+#       to value copies uniformly -- the swap/aliasing clauses fail (a global
+#       modified "through" a var param stays unchanged: SWAPA=3, ALIASG=40).
+# Each leg asserts the mutant FAILS to reproduce func.pas's golden (the "if
+# mutant PASSES then FAIL loud" idiom used throughout).
+SEED_BIN_MUT_FRAME := $(BUILD)/initechc_mut_frame
+
+$(SEED_BIN_MUT_FRAME): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_CODEGEN_FRAME_OFF4 -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+SEED_BIN_MUT_VARPARAM := $(BUILD)/initechc_mut_varparam
+
+$(SEED_BIN_MUT_VARPARAM): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_CODEGEN_VARPARAM_COPY -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+SEED_ARITH_FUNC_MUT_FRAME_ELF := $(BUILD)/seed_arith_func_mut_frame.elf
+
+$(SEED_ARITH_FUNC_MUT_FRAME_ELF): $(ARITH_DIR)/func.pas $(SEED_BIN_MUT_FRAME) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT_FRAME) --emit-asm -o $(BUILD)/seed_arith_func_mut_frame.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_func_mut_frame.s -o $(BUILD)/seed_arith_func_mut_frame.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(BUILD)/seed_arith_func_mut_frame.o
+
+SEED_ARITH_FUNC_MUT_VARPARAM_ELF := $(BUILD)/seed_arith_func_mut_varparam.elf
+
+$(SEED_ARITH_FUNC_MUT_VARPARAM_ELF): $(ARITH_DIR)/func.pas $(SEED_BIN_MUT_VARPARAM) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT_VARPARAM) --emit-asm -o $(BUILD)/seed_arith_func_mut_varparam.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_func_mut_varparam.s -o $(BUILD)/seed_arith_func_mut_varparam.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(BUILD)/seed_arith_func_mut_varparam.o
+
+.PHONY: test-seed-func-mutant
+test-seed-func-mutant: $(HARNESS_BIN) $(SEED_ARITH_FUNC_MUT_FRAME_ELF) $(SEED_ARITH_FUNC_MUT_VARPARAM_ELF)
+	@printf ">>> test-seed-func-mutant: confirming BOTH B4 deep-bug mutants go RED (Rule 6; ADR-0007 DEC-02/DEC-07, beads initech-63ce)\n"
+	@printf ">>> test-seed-func-mutant: leg (a) FRAME_OFF4 -- locals/result slots off by +4 (frame-offset locus)\n"
+	@if $(HARNESS_BIN) --kernel "$(SEED_ARITH_FUNC_MUT_FRAME_ELF)" --expect "$(SEED_FUNC_EXPECT)" \
+		--name seed_func_mut_frame --timeout-ms 5000 >/dev/null 2>&1; then \
+		printf '!!! test-seed-func-mutant FAIL: FRAME_OFF4 mutant PASSED -- frame-offset arithmetic is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-func-mutant: leg (a) green (func.pas correctly failed under the +4 frame-offset mutant)\n'; \
+	fi
+	@printf ">>> test-seed-func-mutant: leg (b) VARPARAM_COPY -- var params degrade to value copies (aliasing locus)\n"
+	@if $(HARNESS_BIN) --kernel "$(SEED_ARITH_FUNC_MUT_VARPARAM_ELF)" --expect "$(SEED_FUNC_EXPECT)" \
+		--name seed_func_mut_varparam --timeout-ms 5000 >/dev/null 2>&1; then \
+		printf '!!! test-seed-func-mutant FAIL: VARPARAM_COPY mutant PASSED -- var-parameter by-reference semantics is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-func-mutant: leg (b) green (func.pas correctly failed under the var->value-copy mutant)\n'; \
+	fi
+	@printf ">>> test-seed-func-mutant: all green (both B4 deep-bug loci mutation-proven)\n"
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-seed-fpc-diff (beads initech-63ce; ADR-0007 DEC-07 Rung 2)
+# ---------------------------------------------------------------------------
+# THE Free Pascal differential, stood up at the codegen pivot (B4) per the
+# oracle ladder (ADR-0007 Sec 4.7 Rung 2): compile a SHARED-SUBSET corpus with
+# BOTH Turbo Initech's seed AND `fpc`, run both binaries, and diff stdout
+# byte-exact. From B4 onward every family gets an fpc-differential fixture
+# alongside its hand-computed exact-serial fallback (Rung 1).
+#
+# fpc INVOCATION: the fixture source carries a {$B+} / {$BOOLEVAL ON}
+# directive (the portable, in-source form the ADR pins in DEC-02) so fpc uses
+# COMPLETE boolean evaluation, matching DEC-03 -- run at fpc's short-circuit
+# default the differential would diff a deliberate semantics divergence, not a
+# codegen bug (ADR-0007 Sec 4.2 note 2).
+#
+# SHARED-CORPUS BOUNDARY (documented exclusions): the differential only admits
+# constructs whose TEXTUAL output is IDENTICAL between the seed's serial RTL
+# and fpc's writeln. The seed writes booleans as "TRUE"/"FALSE" and integers
+# as plain decimal via its serial helpers (seed/rt/start.asm), matching fpc's
+# default writeln for boolean (TRUE/FALSE, uppercase) and integer (no leading
+# space when written with write(x), unlike writeln(x:field)). EXCLUDED from
+# the shared corpus: any width/precision-formatted writeln (x:n), real numbers
+# (not in the subset), and char/string edge cases where CP437 vs the host
+# console could differ. The B4 func corpus (func_shared.pas) is written to
+# stay inside this identical-output envelope.
+#
+# fpc AVAILABILITY: this gate is REAL only when `fpc` is installed. When fpc is
+# ABSENT it FAILS LOUD (a skipped oracle is worse than a red one -- Law 2): it
+# prints exactly what is missing and exits non-zero, rather than fake-passing.
+# The seed half is always verified (Rung 1 covers func.pas already); this gate
+# adds the independent fpc leg the moment fpc is available.
+SEED_FPC_DIR := seed/examples/fpc
+SEED_FPC_SHARED := $(SEED_FPC_DIR)/func_shared.pas
+# The shared corpus prints ONE line; both compilers must emit exactly this
+# (plus a trailing newline). Used as the seed self-check marker when fpc is
+# absent, and cross-checked against fpc's real stdout when fpc is present.
+SEED_FPC_SHARED_EXPECT := 120 TRUE FALSE 2 1
+
+.PHONY: test-seed-fpc-diff
+test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) $(HARNESS_BIN)
+	@printf ">>> test-seed-fpc-diff: DEC-07 Rung 2 -- Turbo Initech seed vs Free Pascal, byte-exact stdout diff on the shared-subset corpus (beads initech-63ce, ADR-0007 Sec 4.7)\n"
+	@if ! command -v fpc >/dev/null 2>&1; then \
+		printf '!!! test-seed-fpc-diff FAIL (loud, not skipped -- Law 2): `fpc` (Free Pascal Compiler) is NOT installed in this environment.\n'; \
+		printf '    The DEC-07 Rung 2 differential requires fpc to mint the INDEPENDENT golden. Install it (apt install fpc) to make this gate green.\n'; \
+		printf '    Verified WITHOUT fpc: the seed compiles+runs the shared corpus and its serial output matches the hand-derived expectation (Rung 1 fallback below).\n'; \
+		printf '    Seed-side self-check on %s:\n' "$(SEED_FPC_SHARED)"; \
+		$(SEED_BIN) --emit-asm -o $(BUILD)/seed_fpc_shared.s $(SEED_FPC_SHARED) \
+			|| { printf '    !!! seed failed to compile the shared corpus\n'; exit 1; }; \
+		$(NASM) -f elf32 $(BUILD)/seed_fpc_shared.s -o $(BUILD)/seed_fpc_shared.o; \
+		$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(BUILD)/seed_fpc_shared.elf $(SEED_RT_OBJ) $(BUILD)/seed_fpc_shared.o 2>/dev/null; \
+		$(HARNESS_BIN) --kernel "$(BUILD)/seed_fpc_shared.elf" --expect "$(SEED_FPC_SHARED_EXPECT)" \
+			--name seed_fpc_shared --timeout-ms 5000 \
+			|| { printf '    !!! seed serial output did not match the shared-corpus expectation\n'; exit 1; }; \
+		printf '    (seed self-check green; the fpc leg is BLOCKED on fpc being installed -- gate is RED by design until then)\n'; \
+		exit 1; \
+	fi; \
+	printf '>>> test-seed-fpc-diff: fpc found (%s)\n' "$$(fpc -iV 2>/dev/null)"; \
+	rm -rf $(BUILD)/fpc_diff; mkdir -p $(BUILD)/fpc_diff; \
+	cp $(SEED_FPC_SHARED) $(BUILD)/fpc_diff/shared.pas; \
+	fpc -B -O- -v0 -FE$(BUILD)/fpc_diff -o$(BUILD)/fpc_diff/shared_fpc $(BUILD)/fpc_diff/shared.pas >/dev/null 2>&1 \
+		|| { printf '!!! test-seed-fpc-diff FAIL: fpc could not compile the shared corpus\n'; exit 1; }; \
+	$(BUILD)/fpc_diff/shared_fpc > $(BUILD)/fpc_diff/out_fpc.txt 2>&1 \
+		|| { printf '!!! test-seed-fpc-diff FAIL: the fpc-built program exited non-zero\n'; exit 1; }; \
+	$(SEED_BIN) --emit-asm -o $(BUILD)/fpc_diff/shared_seed.s $(SEED_FPC_SHARED) \
+		|| { printf '!!! test-seed-fpc-diff FAIL: seed could not compile the shared corpus\n'; exit 1; }; \
+	$(NASM) -f elf32 $(BUILD)/fpc_diff/shared_seed.s -o $(BUILD)/fpc_diff/shared_seed.o; \
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(BUILD)/fpc_diff/shared_seed.elf $(SEED_RT_OBJ) $(BUILD)/fpc_diff/shared_seed.o 2>/dev/null; \
+	$(HARNESS_BIN) --kernel "$(BUILD)/fpc_diff/shared_seed.elf" --serial-stdout \
+		--name seed_fpc_diff --timeout-ms 5000 2>/dev/null > $(BUILD)/fpc_diff/out_seed.txt || true; \
+	if diff -u $(BUILD)/fpc_diff/out_fpc.txt $(BUILD)/fpc_diff/out_seed.txt >/dev/null 2>&1; then \
+		printf '>>> test-seed-fpc-diff: green -- seed and fpc produce byte-identical stdout on the shared corpus\n'; \
+	else \
+		printf '!!! test-seed-fpc-diff FAIL: seed vs fpc stdout DIFFERS on the shared corpus:\n'; \
+		diff -u $(BUILD)/fpc_diff/out_fpc.txt $(BUILD)/fpc_diff/out_seed.txt || true; \
+		exit 1; \
+	fi
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-seed-repro / test-seed-repro-mutant (bead initech-3yv;
 # ADR-0007 Sec 4.6 DEC-06 / Sec 7 FO-5 -- the DEC-06 precondition, wired in
 # the ratified test-kernel-repro pattern: Makefile:16663 -- build twice,
@@ -12130,6 +12283,7 @@ test-seed-char-mutant: $(HARNESS_BIN) $(SEED_ARITH_CHAR_MUT_ELF)
 SEED_REPRO_CORPUS := seed/examples/hello.pas seed/examples/smoke.pas \
                       $(ARITH_DIR)/bool.pas $(ARITH_DIR)/char.pas \
                       $(ARITH_DIR)/control.pas $(ARITH_DIR)/divmod.pas \
+                      $(ARITH_DIR)/func.pas \
                       $(ARITH_DIR)/negative.pas $(ARITH_DIR)/negative_divmod.pas \
                       $(ARITH_DIR)/parens.pas $(ARITH_DIR)/precedence.pas
 
@@ -17879,7 +18033,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
+	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \

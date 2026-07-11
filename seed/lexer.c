@@ -226,6 +226,15 @@ static TokenKind keyword_kind(const char *s, size_t n)
     if (strcmp(buf, "char") == 0)    return TOK_KW_CHAR;
     if (strcmp(buf, "ord") == 0)     return TOK_KW_ORD;
     if (strcmp(buf, "chr") == 0)     return TOK_KW_CHR;
+    /* B4 (beads initech-63ce): procedure/function declarations + the
+     * `forward` directive (ADR-0007 DEC-02 + its ratification amendment).
+     * `forward` is a directive rather than a fully reserved word in ISO/TP
+     * (it is contextual), but this subset reserves it -- the same
+     * minimality choice made for true/false/ord/chr, and Turbo Initech's own
+     * source never needs an identifier named `forward`. */
+    if (strcmp(buf, "procedure") == 0) return TOK_KW_PROCEDURE;
+    if (strcmp(buf, "function") == 0)  return TOK_KW_FUNCTION;
+    if (strcmp(buf, "forward") == 0)   return TOK_KW_FORWARD;
     return TOK_IDENT;
 }
 

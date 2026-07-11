@@ -47,6 +47,14 @@
  * though DEC-04 itself binds the resident compiler, not the seed). */
 #define PARSER_MAX_CONSTS 256
 #define PARSER_CONST_NAME_CAP 128
+/* B4 (beads initech-63ce): while a procedure/function BODY is being parsed,
+ * its parameter and local names SHADOW any same-named program-level const so
+ * that a reference resolves to the parameter/local, not the folded const
+ * literal (const folding is a PARSE-TIME rewrite -- see parse_factor -- so
+ * shadowing must be known at parse time, unlike var shadowing which is
+ * resolved later by name-lookup in typecheck/codegen). The shadow set is a
+ * simple save/restore stack over this array (see parse_proc_or_func). */
+#define PARSER_MAX_SHADOW 128
 
 typedef struct {
     char       name_lc[PARSER_CONST_NAME_CAP]; /* case-folded (lower) name */
@@ -85,6 +93,12 @@ typedef struct {
     /* B3 (beads initech-7mo3): the const table (see above). */
     ParserConst consts[PARSER_MAX_CONSTS];
     int         nconsts;
+    /* B4 (beads initech-63ce): the const-shadow set (see PARSER_MAX_SHADOW).
+     * Names (case-folded) of the params/locals of the proc/func body
+     * currently being parsed; parse_factor skips const folding for any name
+     * in this set. Empty (nshadow==0) at program-body level. */
+    char        shadow[PARSER_MAX_SHADOW][PARSER_CONST_NAME_CAP];
+    int         nshadow;
     /* B2 (beads initech-80iw): the program's top-level var-decl list, set
      * once by parse_program_root before the block is parsed, so a nested
      * "for" statement (however deeply it's nested in begin/end/if/while) can
@@ -157,6 +171,30 @@ static int const_find(const Parser *p, const char *name_lc)
     return -1;
 }
 
+/* B4 (beads initech-63ce): is this case-folded name a param/local of the
+ * proc/func body currently being parsed (and therefore shadowing any const)? */
+static int shadow_find(const Parser *p, const char *name_lc)
+{
+    for (int i = 0; i < p->nshadow; i++)
+        if (strcmp(p->shadow[i], name_lc) == 0)
+            return 1;
+    return 0;
+}
+
+/* Push one case-folded name onto the shadow set (Rule 2: fail loud on
+ * overflow rather than silently un-shadowing a name). */
+static void shadow_push(Parser *p, int line, int col, const char *name_lc)
+{
+    if (p->nshadow >= PARSER_MAX_SHADOW) {
+        fail_at(p, line, col,
+                "too many parameters/locals in one routine "
+                "(PARSER_MAX_SHADOW exceeded)");
+        return;
+    }
+    snprintf(p->shadow[p->nshadow], PARSER_CONST_NAME_CAP, "%s", name_lc);
+    p->nshadow++;
+}
+
 /* Register one const declaration (B3, beads initech-7mo3). Overflow is a
  * located, fail-loud diagnostic (Rule 2), never silent truncation -- see
  * parse_const_section's header comment on why a DUPLICATE name is
@@ -192,6 +230,10 @@ static AstNode *parse_if(Parser *p);
 static AstNode *parse_while(Parser *p);
 static AstNode *parse_for(Parser *p);
 static AstNode *parse_repeat(Parser *p);
+/* B4 (beads initech-63ce): calls and proc/func declarations. */
+static AstNode *parse_call(Parser *p, char *name, int line, int col);
+static AstNode *parse_proc_or_func(Parser *p);
+static void     parse_var_section(Parser *p, AstList *decls);
 
 /* ------------------------------------------------------------------ */
 /* Expressions                                                        */
@@ -307,11 +349,13 @@ static AstNode *parse_factor(Parser *p)
          * THIS use site (no runtime storage) -- see this file's ParserConst
          * comment and ast.h's B3 note. Only reached if the identifier is
          * NOT a const; ordinary variables fall through to AST_VARREF
-         * exactly as before B3. */
+         * exactly as before B3. B4 (beads initech-63ce): a name that is a
+         * param/local of the routine body currently being parsed SHADOWS a
+         * same-named const and must NOT fold (see shadow_find). */
         char lc[PARSER_CONST_NAME_CAP];
         lower_span(lc, sizeof(lc), p->cur.lexeme, p->cur.length);
         int cidx = const_find(p, lc);
-        if (cidx >= 0) {
+        if (cidx >= 0 && !shadow_find(p, lc)) {
             AstNode *n;
             switch (p->consts[cidx].ctype) {
             case AST_TY_INTEGER:
@@ -334,10 +378,16 @@ static AstNode *parse_factor(Parser *p)
             advance(p);
             return n;
         }
-        AstNode *n = ast_new(p->arena, AST_VARREF, line, col);
-        n->as.varref.name = ast_arena_strndup(p->arena, p->cur.lexeme,
-                                              p->cur.length);
+        /* B4 (beads initech-63ce): an identifier followed by '(' is a
+         * FUNCTION CALL (calls always use parens in this subset -- see
+         * ast.h's B4 DECISION note); otherwise it is an ordinary variable
+         * (or function-result) reference. */
+        char *name = ast_arena_strndup(p->arena, p->cur.lexeme, p->cur.length);
         advance(p);
+        if (check(p, TOK_LPAREN))
+            return parse_call(p, name, line, col);
+        AstNode *n = ast_new(p->arena, AST_VARREF, line, col);
+        n->as.varref.name = name;
         return n;
     }
     if (check(p, TOK_LPAREN)) {
@@ -516,11 +566,23 @@ static AstNode *parse_write(Parser *p, int is_newline)
     return n;
 }
 
+/*
+ * A statement that begins with an identifier is EITHER an assignment
+ * (`name := expr`) OR a procedure call (`name(args)` -- B4, beads
+ * initech-63ce). We read the identifier, then disambiguate on the next
+ * token: '(' -> a call statement (routed to parse_call, which builds the
+ * same AST_CALL node a function call in an expression would); otherwise a
+ * ':=' assignment. Assignment to a function name inside its own body writes
+ * the function RESULT (the target resolves to the result variable in
+ * typecheck/codegen -- see ast.h's B4 note).
+ */
 static AstNode *parse_assignment(Parser *p)
 {
     int line = p->cur.line, col = p->cur.col;
     char *name = ast_arena_strndup(p->arena, p->cur.lexeme, p->cur.length);
     advance(p); /* ident */
+    if (check(p, TOK_LPAREN))
+        return parse_call(p, name, line, col); /* procedure call statement */
     if (!expect(p, TOK_ASSIGN, "':='"))
         return NULL;
     AstNode *value = parse_expr(p);
@@ -529,6 +591,43 @@ static AstNode *parse_assignment(Parser *p)
     AstNode *n = ast_new(p->arena, AST_ASSIGN, line, col);
     n->as.assign.name = name;
     n->as.assign.value = value;
+    return n;
+}
+
+/*
+ * call = ident "(" [ expr { "," expr } ] ")" ;   (B4, beads initech-63ce)
+ *
+ * `name` is already arena-owned and the current token is the '('. Builds an
+ * AST_CALL whether the call is a function call in an expression or a
+ * procedure call as a statement -- typecheck decides which is legal from the
+ * callee's signature (a function must be called in an expression; a
+ * procedure only as a statement -- ast.h's B4 note). Whether each argument
+ * is passed by value or by address is likewise a callee-signature decision
+ * made in typecheck/codegen, NOT here (the argument is always parsed as an
+ * ordinary expression; a `var` parameter additionally requires its argument
+ * to be a plain variable, enforced in typecheck.c).
+ */
+static AstNode *parse_call(Parser *p, char *name, int line, int col)
+{
+    advance(p); /* '(' */
+    AstNode *n = ast_new(p->arena, AST_CALL, line, col);
+    n->as.call.name = name;
+    ast_list_init(&n->as.call.args);
+    if (!check(p, TOK_RPAREN)) {
+        for (;;) {
+            AstNode *arg = parse_expr(p);
+            if (p->failed)
+                return NULL;
+            ast_list_push(p->arena, &n->as.call.args, arg);
+            if (check(p, TOK_COMMA)) {
+                advance(p);
+                continue;
+            }
+            break;
+        }
+    }
+    if (!expect(p, TOK_RPAREN, "')'"))
+        return NULL;
     return n;
 }
 
@@ -1069,6 +1168,214 @@ static void parse_var_section(Parser *p, AstList *decls)
 }
 
 /* ------------------------------------------------------------------ */
+/* B4 (beads initech-63ce): procedures / functions / calls             */
+/* ------------------------------------------------------------------ */
+/* Parse one scalar type keyword (integer / boolean / char). Shared by the
+ * parameter list and the function result type. Returns 1 on success (and
+ * consumes the keyword), 0 with a located error on anything else. */
+static int parse_type_kw(Parser *p, AstVarType *out)
+{
+    if (check(p, TOK_KW_INTEGER)) { *out = AST_TY_INTEGER; advance(p); return 1; }
+    if (check(p, TOK_KW_BOOLEAN)) { *out = AST_TY_BOOLEAN; advance(p); return 1; }
+    if (check(p, TOK_KW_CHAR))    { *out = AST_TY_CHAR;    advance(p); return 1; }
+    fail_at(p, p->cur.line, p->cur.col,
+            "expected 'integer', 'boolean', or 'char'");
+    return 0;
+}
+
+/*
+ * param-list  = "(" [ param-group { ";" param-group } ] ")" ;
+ * param-group = [ "var" ] ident { "," ident } ":" type ;
+ *
+ * Each name in a group becomes ONE AST_PARAM (the group is FLATTENED) so
+ * every parameter owns a deterministic frame offset [ebp+8+4i] in codegen.
+ * A `var` prefix marks the whole group by-reference. The current token is
+ * the '(' on entry.
+ */
+static void parse_param_list(Parser *p, AstList *params)
+{
+    advance(p); /* '(' */
+    if (check(p, TOK_RPAREN)) { /* an explicit empty () -- accepted */
+        advance(p);
+        return;
+    }
+    for (;;) {
+        int is_var = 0;
+        if (check(p, TOK_KW_VAR)) {
+            is_var = 1;
+            advance(p);
+        }
+        size_t group_start = params->count;
+        for (;;) {
+            if (!check(p, TOK_IDENT)) {
+                fail_at(p, p->cur.line, p->cur.col,
+                        "expected a parameter name");
+                return;
+            }
+            AstNode *pn = ast_new(p->arena, AST_PARAM, p->cur.line, p->cur.col);
+            pn->as.param.name = ast_arena_strndup(p->arena, p->cur.lexeme,
+                                                  p->cur.length);
+            pn->as.param.is_var = is_var;
+            pn->as.param.ptype = AST_TY_UNKNOWN; /* backfilled after ':' */
+            ast_list_push(p->arena, params, pn);
+            advance(p);
+            if (check(p, TOK_COMMA)) {
+                advance(p);
+                continue;
+            }
+            break;
+        }
+        if (!expect(p, TOK_COLON, "':' in a parameter group"))
+            return;
+        AstVarType t;
+        if (!parse_type_kw(p, &t))
+            return;
+        for (size_t i = group_start; i < params->count; i++)
+            params->items[i]->as.param.ptype = t;
+        if (check(p, TOK_SEMI)) { /* another parameter group */
+            advance(p);
+            continue;
+        }
+        break;
+    }
+    expect(p, TOK_RPAREN, "')' after the parameter list");
+}
+
+/*
+ * proc-or-func = ("procedure" ident [param-list] ";"
+ *               | "function"  ident [param-list] ":" type ";")
+ *                ( "forward" ";" | [var-section] block ";" ) ;
+ *
+ * TOP-LEVEL (flat) only -- see ast.h's B4 DECISION note: a routine has its
+ * own scope over its params + locals (which may shadow a global) plus the
+ * program globals; lexically-nested procedure declarations with uplevel
+ * addressing are NOT in this subset.
+ *
+ * `forward` (ADR-0007 DEC-02 ratification amendment): a forward declaration
+ * carries the full signature and no body; the defining occurrence later must
+ * REPEAT an identical signature (validated in typecheck.c -- this is the
+ * FPC-compatible form; the TP shorthand of omitting the repeated header is
+ * not in this subset). Enables mutual recursion.
+ *
+ * SCOPE DECISION (report): while the body is parsed, the routine's params and
+ * locals are pushed on the const-shadow set (parse_factor won't fold a
+ * same-named const to a literal), and p->top_decls points at the routine's
+ * OWN decls so a `for`-loop's synthesized limit variable lands as a LOCAL
+ * (frame-resident, hence re-entrant under recursion), not a program global.
+ * LOCAL `const` sections are DEFERRED in this subset (only local `var`); a
+ * global const remains usable inside a routine body.
+ */
+static AstNode *parse_proc_or_func(Parser *p)
+{
+    int line = p->cur.line, col = p->cur.col;
+    int is_func = check(p, TOK_KW_FUNCTION);
+    advance(p); /* 'procedure' | 'function' */
+
+    if (!check(p, TOK_IDENT)) {
+        fail_at(p, p->cur.line, p->cur.col,
+                "expected a procedure/function name");
+        return NULL;
+    }
+    char *name = ast_arena_strndup(p->arena, p->cur.lexeme, p->cur.length);
+    advance(p);
+
+    AstNode *pf = ast_new(p->arena, is_func ? AST_FUNCDECL : AST_PROCDECL,
+                          line, col);
+    pf->as.procfunc.name = name;
+    pf->as.procfunc.has_result = is_func;
+    pf->as.procfunc.rettype = AST_TY_UNKNOWN;
+    pf->as.procfunc.body = NULL;
+    pf->as.procfunc.is_forward = 0;
+    ast_list_init(&pf->as.procfunc.params);
+    ast_list_init(&pf->as.procfunc.decls);
+
+    if (check(p, TOK_LPAREN))
+        parse_param_list(p, &pf->as.procfunc.params);
+    if (p->failed)
+        return NULL;
+
+    if (is_func) {
+        if (!expect(p, TOK_COLON, "':' before the function result type"))
+            return NULL;
+        AstVarType rt;
+        if (!parse_type_kw(p, &rt))
+            return NULL;
+        pf->as.procfunc.rettype = rt;
+    }
+
+    if (!expect(p, TOK_SEMI, "';' after the routine header"))
+        return NULL;
+
+    if (check(p, TOK_KW_FORWARD)) {
+        advance(p);
+        pf->as.procfunc.is_forward = 1;
+        if (!expect(p, TOK_SEMI, "';' after 'forward'"))
+            return NULL;
+        return pf;
+    }
+
+    /* Defining occurrence. Enter the routine's parse-time scope. */
+    int saved_shadow = p->nshadow;
+    AstList *saved_top = p->top_decls;
+    p->top_decls = &pf->as.procfunc.decls;
+
+    for (size_t i = 0; i < pf->as.procfunc.params.count; i++) {
+        AstNode *pn = pf->as.procfunc.params.items[i];
+        char plc[PARSER_CONST_NAME_CAP];
+        lower_span(plc, sizeof(plc), pn->as.param.name,
+                   strlen(pn->as.param.name));
+        shadow_push(p, pn->line, pn->col, plc);
+    }
+    if (is_func) {
+        /* the function name denotes a writable RESULT variable in its body */
+        char flc[PARSER_CONST_NAME_CAP];
+        lower_span(flc, sizeof(flc), name, strlen(name));
+        shadow_push(p, line, col, flc);
+    }
+
+    /* Local declarations (var only; const deferred). */
+    parse_var_section(p, &pf->as.procfunc.decls);
+    if (p->failed) {
+        p->nshadow = saved_shadow;
+        p->top_decls = saved_top;
+        return NULL;
+    }
+    for (size_t i = 0; i < pf->as.procfunc.decls.count; i++) {
+        AstNode *vd = pf->as.procfunc.decls.items[i];
+        if (vd->kind != AST_VARDECL)
+            continue;
+        for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {
+            AstNode *vr = vd->as.vardecl.names.items[j];
+            char vlc[PARSER_CONST_NAME_CAP];
+            lower_span(vlc, sizeof(vlc), vr->as.varref.name,
+                       strlen(vr->as.varref.name));
+            shadow_push(p, vr->line, vr->col, vlc);
+        }
+    }
+    if (p->failed) {
+        p->nshadow = saved_shadow;
+        p->top_decls = saved_top;
+        return NULL;
+    }
+
+    pf->as.procfunc.body = parse_block(p);
+    if (p->failed) {
+        p->nshadow = saved_shadow;
+        p->top_decls = saved_top;
+        return NULL;
+    }
+    if (!expect(p, TOK_SEMI, "';' after the routine body")) {
+        p->nshadow = saved_shadow;
+        p->top_decls = saved_top;
+        return NULL;
+    }
+
+    p->nshadow = saved_shadow;
+    p->top_decls = saved_top;
+    return pf;
+}
+
+/* ------------------------------------------------------------------ */
 /* Program                                                            */
 /* ------------------------------------------------------------------ */
 static AstNode *parse_program_root(Parser *p)
@@ -1112,6 +1419,17 @@ static AstNode *parse_program_root(Parser *p)
             parse_const_section(p, &prog->as.program.decls);
         } else if (check(p, TOK_KW_VAR)) {
             parse_var_section(p, &prog->as.program.decls);
+        } else if (check(p, TOK_KW_PROCEDURE) || check(p, TOK_KW_FUNCTION)) {
+            /* B4 (beads initech-63ce): top-level procedure/function
+             * declarations follow the const/var sections (TP declaration
+             * order). Each is appended to program.decls in source order --
+             * the same list globals live in; codegen/typecheck filter by
+             * node kind (emit_bss skips them, a dedicated proc pass emits
+             * them, exactly as AST_CONSTDECL is skipped at B3). */
+            AstNode *pf = parse_proc_or_func(p);
+            if (p->failed)
+                return NULL;
+            ast_list_push(p->arena, &prog->as.program.decls, pf);
         } else {
             break;
         }
@@ -1148,6 +1466,7 @@ int parse_program(const char *src, size_t len, AstArena *arena,
     p.top_decls = NULL;   /* set by parse_program_root before any "for" can be reached */
     p.synth_count = 0;
     p.nconsts = 0;        /* B3 (beads initech-7mo3): the const table starts empty */
+    p.nshadow = 0;        /* B4 (beads initech-63ce): no active routine scope yet */
     advance(&p); /* prime lookahead */
 
     AstNode *root = parse_program_root(&p);

@@ -303,6 +303,46 @@ static void dump(const AstNode *n, FILE *fp)
     case AST_VARREF:
         fprintf(fp, "(varref %s)", n->as.varref.name);
         break;
+    /* B4 (beads initech-63ce). */
+    case AST_PARAM:
+        fprintf(fp, "(param %s%s:%s)", n->as.param.is_var ? "var " : "",
+                n->as.param.name, ast_vartype_name(n->as.param.ptype));
+        break;
+    case AST_PROCDECL:
+    case AST_FUNCDECL:
+        if (n->as.procfunc.has_result)
+            fprintf(fp, "(func %s:%s", n->as.procfunc.name,
+                    ast_vartype_name(n->as.procfunc.rettype));
+        else
+            fprintf(fp, "(proc %s", n->as.procfunc.name);
+        fputs(" (params", fp);
+        for (size_t i = 0; i < n->as.procfunc.params.count; i++) {
+            fputc(' ', fp);
+            dump(n->as.procfunc.params.items[i], fp);
+        }
+        fputc(')', fp);
+        fputs(" (decls", fp);
+        for (size_t i = 0; i < n->as.procfunc.decls.count; i++) {
+            fputc(' ', fp);
+            dump(n->as.procfunc.decls.items[i], fp);
+        }
+        fputc(')', fp);
+        if (n->as.procfunc.is_forward) {
+            fputs(" forward", fp);
+        } else {
+            fputc(' ', fp);
+            dump(n->as.procfunc.body, fp);
+        }
+        fputc(')', fp);
+        break;
+    case AST_CALL:
+        fprintf(fp, "(call %s", n->as.call.name);
+        for (size_t i = 0; i < n->as.call.args.count; i++) {
+            fputc(' ', fp);
+            dump(n->as.call.args.items[i], fp);
+        }
+        fputc(')', fp);
+        break;
     }
 }
 

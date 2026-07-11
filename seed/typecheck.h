@@ -59,8 +59,29 @@
  *         OP_CHR case for the out-of-range TRUNCATION decision -- this
  *         module only enforces the operand TYPE, not its runtime range).
  *
+ *   - (B4, beads initech-63ce; ADR-0007 DEC-02 "procedures/functions: nested
+ *     scopes, both value and var parameters, recursion, results", + the
+ *     `forward` directive) additions:
+ *       * Each procedure/function has its OWN local scope (params + locals,
+ *         and for a function its result variable), resolved BEFORE the
+ *         program globals; a local may shadow a global. Duplicate names
+ *         WITHIN a routine's scope are rejected; shadowing a global is not.
+ *       * A call is checked against the callee's signature: arity must
+ *         match, each argument's type must match the parameter's type, and a
+ *         `var` (by-reference) parameter's argument must be a plain VARIABLE
+ *         (an lvalue: a global/local/param/result var -- never a constant,
+ *         literal, or expression). A function call in an expression types as
+ *         the function's result type; a procedure is callable only as a
+ *         statement (a function's result may not be discarded in this
+ *         subset), and a bare (parenthesis-free) identifier is never a call.
+ *       * A function returns via assignment to its own name (the result
+ *         variable); the result variable is readable and writable inside the
+ *         body. Direct and (via `forward`) mutual recursion are supported; a
+ *         `forward` declaration's defining occurrence must repeat an
+ *         identical signature, and every `forward` must be defined.
+ *
  * This is intentionally NOT full Pascal type inference (no subranges, no
- * real/records/arrays -- those are out of scope for B1-B3 per the DEC-02
+ * real/records/arrays -- those are out of scope for B1-B4 per the DEC-02
  * subset table) -- just enough soundness that a boolean (or now char) can
  * never silently flow where an integer is expected (or vice versa), and
  * every write knows which print routine to call.

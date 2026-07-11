@@ -7,14 +7,37 @@
  *
  * GRAMMAR IMPLEMENTED (EBNF). Keywords/identifiers are case-insensitive.
  *
- *   program      = "program" ident ";" { const-section | var-section }
- *                  block "." ;
+ *   program      = "program" ident ";"
+ *                  { const-section | var-section | proc-or-func } block "." ;
  *   var-section  = "var" var-decl ";" { var-decl ";" } ;
  *   var-decl     = ident { "," ident } ":" ("integer" | "boolean" | "char") ;
  *   block        = "begin" [ stmt { ";" stmt } ] "end" ;
- *   stmt         = assignment | block | write-stmt | if-stmt | while-stmt
- *                | for-stmt | repeat-stmt | (* empty *) ;
+ *   stmt         = assignment | call | block | write-stmt | if-stmt
+ *                | while-stmt | for-stmt | repeat-stmt | (* empty *) ;
  *   assignment   = ident ":=" expr ;
+ *
+ *   B4 (beads initech-63ce; ADR-0007 DEC-02 "procedures/functions: nested
+ *   scopes, both value and var parameters, recursion, results" + the
+ *   `forward` directive) -- THE CODEGEN PIVOT. TOP-LEVEL (flat) routines
+ *   only; see ast.h's B4 DECISION note (a routine has its own scope over its
+ *   params + locals plus the program globals; NOT lexically-nested
+ *   declarations with uplevel addressing). A function returns via assignment
+ *   to its own name (no `Result` pseudo-variable). A call ALWAYS uses
+ *   parentheses (a bare identifier is never a call); a var-parameter argument
+ *   must be a plain variable (enforced in typecheck.c). Local `const`
+ *   sections are DEFERRED (only local `var`); a global const is usable inside
+ *   a routine body, and a param/local shadows a same-named const.
+ *
+ *   proc-or-func = ("procedure" ident [ param-list ] ";"
+ *                 | "function"  ident [ param-list ] ":" type ";")
+ *                  ( "forward" ";" | [ var-section ] block ";" ) ;
+ *   param-list   = "(" [ param-group { ";" param-group } ] ")" ;
+ *   param-group  = [ "var" ] ident { "," ident } ":" type ;
+ *   type         = "integer" | "boolean" | "char" ;
+ *   call         = ident "(" [ expr { "," expr } ] ")" ;
+ *     A `forward` declaration carries the full signature and no body; the
+ *     defining occurrence must repeat an IDENTICAL signature (the FPC-
+ *     compatible form; typecheck.c validates it). Enables mutual recursion.
  *   write-stmt   = ("write" | "writeln") "(" [ write-args ] ")" ;
  *   write-args   = write-arg { "," write-arg } ;
  *   write-arg    = string | expr ;
@@ -55,7 +78,7 @@
  *   relational-op = "=" | "<>" | "<" | "<=" | ">" | ">=" ;
  *   simple-expr  = term { ("+" | "-" | "or") term } ;      (* left-assoc *)
  *   term         = factor { ("*" | "div" | "mod" | "and") factor };(* left-assoc *)
- *   factor       = integer | boolean-lit | char-lit | ident
+ *   factor       = integer | boolean-lit | char-lit | ident | call
  *                | "ord" "(" expr ")" | "chr" "(" expr ")"
  *                | "(" expr ")" | "-" factor | "not" factor ;
  *   boolean-lit  = "true" | "false" ;
@@ -85,8 +108,8 @@
  *   This is Turbo Pascal's own rule: a length-1 quoted literal is
  *   Char-typed wherever a Char is expected.
  *
- *   ord(expr) / chr(expr): RESERVED keywords (this subset has no general
- *   function-call syntax yet -- B4 introduces procedures/functions), each
+ *   ord(expr) / chr(expr): RESERVED keywords (they predate the general
+ *   function-call syntax B4 added and stay reserved for minimality), each
  *   parsing one parenthesized argument. ord() accepts char, boolean, or
  *   integer (Ord is total over every ordinal type this subset has -- TP
  *   allows ord(anInteger) as the identity); chr() accepts only integer,
@@ -115,9 +138,10 @@
  * bounds must be integer -- enforced for free by desugaring into ordinary
  * assign/relational/while nodes that already carry those rules).
  *
- * DEFERRED (later steps, intentionally not parsed): case, procedures/
- * functions, real type, records, pointers, arrays, typed consts, general
- * string expressions.
+ * DEFERRED (later steps, intentionally not parsed): case, real type,
+ * records, pointers, arrays, typed consts, general string expressions,
+ * lexically-nested routines, local const sections, the `Result`
+ * pseudo-variable.
  *
  * Error-handling strategy (DECIDED, consistent with the lexer): the parser is
  * single-error. On the first syntax (or lexical) fault it records a located
