@@ -222,9 +222,18 @@ void mouse_irq_handler(void)
             int8_t   dy = (int8_t)g_pkt[2];   /* signed PS/2 Y delta (+ = up)    */
             uint8_t  buttons = (uint8_t)(b0 & PKT_BTN_MASK);
             if (g_mouse_event_hook) {
-                /* RAW deltas (ADR-0004 D-4: the ISR posts raw; the WaitNextEvent
-                 * pump cooks deltas->cursor + the screen-coordinate Y flip in
-                 * task context, FO-7 / spec/event_model.h Sec 5). */
+                /* RAW PS/2 deltas, UN-FLIPPED (ADR-0004 D-4: the ISR posts
+                 * raw; it does no cooking). dy is still "+ = up" PS/2
+                 * convention here. The HOOK (the producer, e.g.
+                 * flair_live_mouse_post/mouse_pack_raw_payload,
+                 * os/milton/mouse_pack.h) MUST perform the PS/2->screen Y
+                 * flip BEFORE the value enters the SPSC ring
+                 * (spec/event_model.h Sec 5, LOCKED contract). The
+                 * WaitNextEvent pump (cook_raw, os/flair/event.c) only
+                 * ACCUMULATES an already-flipped delta into the cursor
+                 * (g_cursor_v += dy) -- it does NOT flip anything itself.
+                 * initech-rgt8: this comment previously said the PUMP does
+                 * the flip, which was wrong and matched the bug it hid. */
                 g_mouse_event_hook((int)dx, (int)dy, buttons);
             }
         }

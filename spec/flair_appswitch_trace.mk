@@ -30,7 +30,9 @@
 # raises its group to front, repaints the exposed overlap (updateEvt), fires the
 # activate/deactivate pair, swaps band 2's menubar (System-7 <- Photoshop), and
 # emits "FLAIR-DISPATCH app=NOTES".
-FLAIR_APPSWITCH_SPEC := m70:-30,m70:-30,l1,l0
+# REBASELINED initech-rgt8 2026-07-11: dy signs flipped to screen-down-positive
+# (the prior trace was authored against the inverted mouse producer).
+FLAIR_APPSWITCH_SPEC := m70:30,m70:30,l1,l0
 
 # ---------------------------------------------------------------------------
 # WHAT THE HARNESS MUST CAPTURE (two deterministic runs of the SAME reproducible

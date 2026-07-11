@@ -7096,6 +7096,7 @@ endef
         test-blitter test-blitter-mutant test-text test-text-mutant \
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-window test-window-mutant test-event test-event-mutant \
+        test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
         test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
         test-dialog test-dialog-mutant \
@@ -8481,7 +8482,7 @@ $(FLAIRSHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRSHELL_BIN) | $(BUILD)
 # kmain compiled with -DBOOT_FLAIR_LIVE. Same source + same FLAIR object set as
 # FLAIRSHELL (event.o supplies flair_tick_advance/flair_tick_count). Adds the
 # os/flair/event.h prereq the FLAIR-live arm includes. ADR-0006 FO-4.
-$(KERNEL_FLAIRLIVE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # The FLAIR-live kernel links the IDENTICAL object set as FLAIRSHELL, swapping
@@ -8578,7 +8579,7 @@ $(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BI
 # NOTHING (the window stays put) -> test-flair-drag's screendump sees bare teal at
 # the new pos + chrome still at the old -> RED. The direct HER-14 static-frame
 # mutant. Mirrors the FLAIRLIVE_MUT_KBD obj/elf/bin/img rules. -----------------
-$(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h os/flair/event.h os/flair/window.h os/flair/desktop.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/desktop.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_DRAG_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_MUT_DRAG_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ)
@@ -8639,7 +8640,7 @@ $(FLAIRLIVE_MUT_OVERLAY_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_OV
 # sees bare teal where the dropped panel would be -> RED. The HER-14 "menus do not
 # work" heresy mutant. Exact mirror of the FLAIRLIVE_MUT_DRAG obj/elf/bin/img rules
 # (the mut-obj prereqs add os/flair/menu.h os/flair/shell.h). -----------------
-$(KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h os/flair/event.h os/flair/window.h os/flair/desktop.h os/flair/menu.h os/flair/shell.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/desktop.h os/flair/menu.h os/flair/shell.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_MENU_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_MUT_MENU_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ)
@@ -8700,7 +8701,7 @@ $(FLAIRLIVE_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_NO
 # pump (for(;;), runs until power-off). Adds the spec/assets/cursors.h prereq the
 # interactive arm includes. Mirrors the FLAIRLIVE main-obj rule; swaps ONLY the
 # main obj so the shared FLAIR/kernel object set is reused. ----------------------
-$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
@@ -8767,7 +8768,7 @@ KERNEL_FLAIRTENANTS_ELF      := $(BUILD)/kernel_flairtenants.elf
 KERNEL_FLAIRTENANTS_BIN      := $(BUILD)/kernel_flairtenants.bin
 FLAIRTENANTS_IMG             := $(BUILD)/flair_tenants.img
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
@@ -8808,7 +8809,7 @@ KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
 KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
-$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ)
@@ -8890,7 +8891,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -9020,7 +9021,7 @@ KERNEL_FLAIRLIVE_MUT_EOI_BIN        := $(BUILD)/kernel_flairlive_mut_eoi.bin
 FLAIRLIVE_MUT_EOI_IMG               := $(BUILD)/flair_live_mut_eoi.img
 
 # (1) no-mouse-hook mutant: swap ONLY the main obj (the kbd/tick hooks stay).
-$(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h os/flair/event.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ)
@@ -9100,15 +9101,19 @@ test-flair-mouse: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
 	@if [ ! -s "$(FLAIR_MOUSE_SERIAL)" ]; then printf '!!! test-flair-mouse FAIL: no serial captured\n'; exit 1; fi
 	@grep -q '^FLAIR-HOOK-SET$$' "$(FLAIR_MOUSE_SERIAL)" \
 		|| { printf '!!! test-flair-mouse FAIL: FLAIR-HOOK-SET missing -- mouse_init/IRQ12-gate path not reached\n'; exit 1; }
-	@# THE no-wedge + cook proof: the spec moves the cursor (+20,+20 in cursor
-	@# coords -> 340,220 from the 320,240 center) THEN clicks. WaitNextEvent cooks
+	@# THE no-wedge + cook proof: the spec moves the cursor (+20 right, +20 DOWN
+	@# in screen coords -> 340,260 from the 320,240 center; harness m-dy is
+	@# screen-down-positive, the producer flips PS/2 wire dy per the LOCKED
+	@# event_model.h Sec 5 contract -- rebaselined by initech-rgt8: the old
+	@# 340,220 golden had BAKED IN the producer inversion) THEN clicks.
+	@# WaitNextEvent cooks
 	@# the moves into the cursor (mouse moves => nullEvent, the cursor still
 	@# advances) and delivers the mouseDown at the ADVANCED cursor. That can only
 	@# happen if MULTIPLE IRQ12 packets fired (each move = 3 bytes) -- i.e. the
 	@# dual-PIC EOI re-armed the slave 8259A after every byte (no wedge).
-	@grep -q '^FLAIR-EVT what=1 where=340,220 ' "$(FLAIR_MOUSE_SERIAL)" \
-		|| { printf '!!! test-flair-mouse FAIL: cooked mouseDown at the ADVANCED cursor (FLAIR-EVT what=1 where=340,220) not on serial -- the injected moves did not cook into the cursor AND/OR the dual-PIC EOI WEDGED (no IRQ12 re-arm)\n'; grep '^FLAIR-EVT ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; }
-	@printf '>>> test-flair-mouse [2/3]: cooked mouseDown where=340,220 -- moves cooked into the cursor; multiple IRQ12 packets fired (dual-PIC EOI did NOT wedge)\n'
+	@grep -q '^FLAIR-EVT what=1 where=340,260 ' "$(FLAIR_MOUSE_SERIAL)" \
+		|| { printf '!!! test-flair-mouse FAIL: cooked mouseDown at the ADVANCED cursor (FLAIR-EVT what=1 where=340,260) not on serial -- the injected moves did not cook into the cursor AND/OR the dual-PIC EOI WEDGED (no IRQ12 re-arm)\n'; grep '^FLAIR-EVT ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-mouse [2/3]: cooked mouseDown where=340,260 -- moves cooked into the cursor; multiple IRQ12 packets fired (dual-PIC EOI did NOT wedge)\n'
 	@grep -q '^FLAIR-EVT what=2 ' "$(FLAIR_MOUSE_SERIAL)" \
 		|| { printf '!!! test-flair-mouse FAIL: cooked mouseUp (FLAIR-EVT what=2) not on serial -- the button-up IRQ12 packet did not fire\n'; grep '^FLAIR-EVT ' "$(FLAIR_MOUSE_SERIAL)" || true; exit 1; }
 	@printf '>>> test-flair-mouse [3/3]: cooked mouseUp (a further IRQ12 packet) -- WaitNextEvent cook path LIVE\n'
@@ -10608,6 +10613,51 @@ test-event-mutant: $(TEST_EVENT_MUT_DROP) $(TEST_EVENT_MUT_WHERE)
 	@printf ">>> test-event-mutant: confirming both mutants go RED (Rule 6)\n"
 	@if $(TEST_EVENT_MUT_DROP) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: DROP_SYNTH PASSED -- the synthesis oracle is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (DROP_SYNTH correctly RED)\n'; fi
 	@if $(TEST_EVENT_MUT_WHERE) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: STALE_WHERE PASSED -- the cursor-tracking oracle is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (STALE_WHERE correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-mouse-producer (beads initech-8f5p; blocks initech-rgt8) --
+# the INDEPENDENT physical-direction oracle. Unlike test-event (which
+# MANUFACTURES the FLAIR_RAW_MOUSE payload directly and re-derives the
+# expected `where` from cook_raw's own "+=" rule -- the HER-02 by-construction
+# heresy on the sign axis, ADR-0010), this gate constructs a RAW PS/2 wire
+# packet, decodes it exactly as the real ISR does (os/milton/mouse.c:220-222,
+# cited not linked -- the decode needs privileged inb() and cannot run
+# un-privileged on a host process), feeds it through the REAL producer pack
+# function (os/milton/mouse_pack.h: mouse_pack_raw_payload, the exact function
+# os/milton/kmain.c's flair_live_mouse_post calls), posts into the REAL SPSC
+# ring, drains via the REAL cook_raw (os/flair/event.c), and asserts the
+# GROUND-TRUTH physical expectation (physical-up -> screen v DECREASES) --
+# never cook_raw's internal formula. EVENT_MUTATE_FLIP_SIGN (in
+# mouse_pack.h) reproduces the ORIGINAL initech-rgt8 polarity bug bit-for-bit
+# and MUST drive this gate RED, while test-event (oblivious to the producer)
+# MUST stay GREEN under the same flag -- that contrast is the independence
+# proof (initech-8f5p acceptance criteria).
+# ---------------------------------------------------------------------------
+TEST_MOUSE_PRODUCER     := $(BUILD)/test_mouse_producer
+TEST_MOUSE_PRODUCER_SRC := harness/proptest/test_mouse_producer.c
+TEST_MOUSE_PRODUCER_MUT_FLIPSIGN := $(BUILD)/test_mouse_producer_mutant_flipsign
+TEST_MOUSE_PRODUCER_DEPS := os/flair/event.c os/flair/event.h spec/event_model.h \
+                            spec/grafport.h os/milton/mouse_pack.h os/milton/mouse.c
+MOUSE_PRODUCER_INC := -Ios/flair -Ios/milton -Ispec -Iseed
+
+$(TEST_MOUSE_PRODUCER): $(TEST_MOUSE_PRODUCER_SRC) $(TEST_MOUSE_PRODUCER_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(MOUSE_PRODUCER_INC) -o $@ $(TEST_MOUSE_PRODUCER_SRC) os/flair/event.c
+$(TEST_MOUSE_PRODUCER_MUT_FLIPSIGN): $(TEST_MOUSE_PRODUCER_SRC) $(TEST_MOUSE_PRODUCER_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_FLIP_SIGN $(MOUSE_PRODUCER_INC) -o $@ $(TEST_MOUSE_PRODUCER_SRC) os/flair/event.c
+
+test-mouse-producer: $(TEST_MOUSE_PRODUCER)
+	@printf ">>> test-mouse-producer: INDEPENDENT physical-direction oracle (raw PS/2 wire -> real producer pack -> real ring -> real cook_raw; physical-up must DECREASE screen v; initech-8f5p)\n"
+	@$(TEST_MOUSE_PRODUCER)
+	@printf ">>> test-mouse-producer: green\n"
+
+test-mouse-producer-mutant: $(TEST_MOUSE_PRODUCER_MUT_FLIPSIGN) $(TEST_EVENT)
+	@printf ">>> test-mouse-producer-mutant: confirming EVENT_MUTATE_FLIP_SIGN goes RED (Rule 6) AND confirming the independence contrast (old test-event oracle stays GREEN under the SAME flag -- it never touches the producer)\n"
+	@if $(TEST_MOUSE_PRODUCER_MUT_FLIPSIGN) >/dev/null 2>&1; then printf '!!! test-mouse-producer-mutant FAIL: FLIP_SIGN PASSED -- the physical-direction oracle is decoration\n'; exit 1; else printf '>>> test-mouse-producer-mutant: green (FLIP_SIGN correctly RED)\n'; fi
+	@if $(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_FLIP_SIGN -Ios/flair -Ispec -Iseed -o $(BUILD)/test_event_flipsign_noop harness/proptest/test_event.c os/flair/event.c && $(BUILD)/test_event_flipsign_noop >/dev/null 2>&1; then \
+		printf '>>> test-mouse-producer-mutant: green (independence contrast confirmed: test-event stays GREEN under -DEVENT_MUTATE_FLIP_SIGN -- it is blind to the producer, exactly the HER-02 gap this ticket closes)\n'; \
+	else \
+		printf '!!! test-mouse-producer-mutant FAIL: test-event went RED (or failed to build) under -DEVENT_MUTATE_FLIP_SIGN -- the independence contrast is broken (test-event should be UNAFFECTED by a producer-only mutant)\n'; exit 1; \
+	fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-drag (beads initech-87a; ADR-0004 AM-8 / D-5) -- the M3
@@ -12586,11 +12636,17 @@ FLAIR_DRAG_SERIAL  := $(BUILD)/$(FLAIR_DRAG_NAME).serial
 FLAIR_DRAG_REPORT  := $(BUILD)/$(FLAIR_DRAG_NAME).report
 FLAIR_DRAG_PPM     := $(BUILD)/$(FLAIR_DRAG_NAME).ppm
 # The LOCKED drag trace (ADR-0006 E-D6; Rule 11). QEMU rel->cursor is 1:1 with
-# x-positive=right and y-INVERTED (rel +y -> cursor up): from the 320,240 center,
-# "m80:110" lands the cursor on window 1's title bar (400,130); l1 = button down;
-# "m40:-30" drags (+40 cursor x, +30 cursor y) to 440,160; l0 = button up. Net
-# drag delta = (+40,+30): window 1 struct (300,120) -> (340,150).
-FLAIR_DRAG_SPEC    := m80:110,l1,m40:-30,l0
+# x-positive=right and y-positive=DOWN (screen coords): the harness m-dy is
+# screen-down-positive; the producer flips PS/2 wire dy per the LOCKED
+# event_model.h Sec 5 contract. REBASELINED by initech-rgt8: the previous
+# trace (m80:110 ... m40:-30) was authored against the INVERTED producer
+# (its own comment said "rel +y -> cursor up") and baked the bug into the
+# golden. From the 320,240 center, "m80:-110" lands the cursor on window 1's
+# title bar (400,130); l1 = button down; "m40:30" drags (+40,+30 screen) to
+# 440,160; l0 = button up. Net drag delta = (+40,+30): window 1 struct
+# (300,120) -> (340,150) -- the EXPECTED result is unchanged; only the
+# injection coords now speak physical truth.
+FLAIR_DRAG_SPEC    := m80:-110,l1,m40:30,l0
 .PHONY: test-flair-drag
 test-flair-drag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_DRAG_CHECK_BIN)
 	@printf '======================================================================\n'
@@ -12676,11 +12732,12 @@ FLAIR_DC4V_PPM     := $(BUILD)/$(FLAIR_DC4V_NAME).ppm
 # The LOCKED dc4v drag trace (ADR-0006 E-D6; Rule 11). QEMU rel->cursor is 1:1 with
 # x-positive=right and y-INVERTED; deltas are int8 (a >127 delta sets the PS/2
 # overflow bits and is DROPPED), so the -260 x drag is SPLIT into three <=int8 hops.
-# From the 320,240 center: "m80:110" lands the cursor on window 1's title bar
+# From the 320,240 center: "m80:-110" (screen-up; rebaselined initech-rgt8,
+# the old m80:110 was authored against the inverted producer) lands on window 1's title bar
 # (400,130); l1 = button down @ (400,130); "m-87:0" x3 (= -261... exactly -260 via
 # -87,-87,-86) drags the cursor LEFT to (140,130); l0 = button up @ (140,130). Net
 # drag delta = (-260,0): window 1 struct (300,120) -> (40,120), sweeping the modal.
-FLAIR_DC4V_SPEC    := m80:110,l1,m-87:0,m-87:0,m-86:0,l0
+FLAIR_DC4V_SPEC    := m80:-110,l1,m-87:0,m-87:0,m-86:0,l0
 .PHONY: test-flair-dc4v
 test-flair-dc4v: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_DC4V_CHECK_BIN)
 	@printf '======================================================================\n'
@@ -12768,9 +12825,10 @@ FLAIR_MENU_PPM     := $(BUILD)/$(FLAIR_MENU_NAME).ppm
 # delta sets the PS/2 overflow bits and is DROPPED), so the large move from the
 # 320,240 center to the menu bar is SPLIT into three <=int8 hops: "m-97:77" x3
 # lands the cursor on the System-7 "File" title (30,10); l1 = button down -> DROP;
-# "m15:-35" tracks down into the panel's "Quit" row (45,45); l0 = button up ->
+# "m15:35" tracks down into the panel's "Quit" row (45,45) (dy signs
+# rebaselined by initech-rgt8 -- screen-down-positive now); l0 = button up ->
 # MenuSelect chooses item 2 (Quit) = (128<<16|2) = 0x00800002.
-FLAIR_MENU_SPEC    := m-97:77,m-97:77,m-96:76,l1,m15:-35,l0
+FLAIR_MENU_SPEC    := m-97:-77,m-97:-77,m-96:-76,l1,m15:35,l0
 .PHONY: test-flair-menu
 test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
 	@printf '======================================================================\n'
@@ -12866,7 +12924,7 @@ FLAIR_MENU_CROSSDRAG_PPM     := $(BUILD)/$(FLAIR_MENU_CROSSDRAG_NAME).ppm
 # MenuInfo_item_at returns -1 (no item row) at every tracked point. "l0" releases
 # there: MenuSelect's own final tracked menu (re-derived from where0/pts, menu.c
 # initech-rl4v) is Edit, but the release is on the title (not a row) -> sel=0.
-FLAIR_MENU_CROSSDRAG_SPEC   := m-97:77,m-97:77,m-96:76,l1,m59:0,l0
+FLAIR_MENU_CROSSDRAG_SPEC   := m-97:-77,m-97:-77,m-96:-76,l1,m59:0,l0
 .PHONY: test-flair-menu-crossdrag
 test-flair-menu-crossdrag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN)
 	@printf '======================================================================\n'
@@ -17485,6 +17543,7 @@ TEST_UNIT_GATES := \
 	test-blitter test-blitter-mutant test-text test-text-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-window test-window-mutant test-event test-event-mutant \
+        test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
 	test-interact test-interact-mutant \
 	test-process test-process-mutant test-process-mutant-build \

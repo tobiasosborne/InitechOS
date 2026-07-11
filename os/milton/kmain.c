@@ -37,6 +37,7 @@
 #include "fileio_fat.h"  /* bind the FAT12 file backend into int21 (509.5) */
 #include "kbd.h"         /* PS/2 keyboard IRQ1 driver (initech-3rs) */
 #include "mouse.h"       /* PS/2 mouse IRQ12 driver (initech-5l5z FO-6) */
+#include "mouse_pack.h"  /* PS/2->screen dy flip (initech-8f5p FIX for initech-rgt8) */
 #include "pit.h"         /* 8254 PIT IRQ0 tick (initech-3rs) */
 #include "rtc.h"         /* MC146818 RTC clock source (initech-yv9) */
 #include "command.h"     /* COMMAND.COM REPL (initech-7pc); BOOT_SHELL only */
@@ -1069,8 +1070,21 @@ static void flair_live_kbd_post(uint8_t sc)
  * and BEFORE the dual-PIC EOI) with the signed deltas + button bits. Posts ONE
  * FLAIR_RAW_MOUSE event into the SAME g_flair_kbd_ring the kbd path feeds (the
  * one SPSC raw ring; spec/event_model.h Sec 5 payload layout: buttons in bits
- * 0..7, signed dX in 8..15, signed dY in 16..23). ISR-enqueue-only minimum
- * (ADR-0004 D-4): a single flair_raw_post() call; no Toolbox, no alloc, no I/O.
+ * 0..7, signed dX in 8..15, signed dY in 16..23 -- Y ALREADY flipped from PS/2
+ * "+up" to screen "down-positive" by mouse_pack_raw_payload, per the LOCKED
+ * spec contract). ISR-enqueue-only minimum (ADR-0004 D-4): decode + one pure
+ * pack call + one flair_raw_post() call; no Toolbox, no alloc, no I/O beyond
+ * the caller's own inb()/outb() (mouse.c).
+ *
+ * FIX (initech-8f5p, resolves initech-rgt8): this call site used to pack the
+ * RAW, un-flipped PS/2 dy straight into bits 16..23, violating
+ * spec/event_model.h Sec 5 ("Y axis inverted from PS/2 convention to
+ * screen-down-positive") -- physical-up silently moved the cursor/window
+ * DOWN. mouse_pack_raw_payload() (os/milton/mouse_pack.h) now performs that
+ * flip; the independent physical-direction host oracle
+ * (harness/proptest/test_mouse_producer.c) is RED against the old inline
+ * formula and GREEN against this call, and the EVENT_MUTATE_FLIP_SIGN mutant
+ * (which reproduces the old bug bit-for-bit) drives it RED again.
  *
  * __attribute__((unused)): the FLAIR_LIVE_MUTATE_NO_MOUSE_HOOK Rule-6 mutant
  * compiles out the SOLE call site (mouse_set_event_hook(flair_live_mouse_post),
@@ -1082,9 +1096,7 @@ static void flair_live_mouse_post(int dx, int dy, uint8_t buttons)
     flair_raw_event_t raw;
     raw.kind    = (uint32_t)FLAIR_RAW_MOUSE;     /* FLAIR_RAW_MOUSE=1 */
     raw.tick    = flair_tick_count();            /* PIT tick count at IRQ time */
-    raw.payload = (uint32_t)(buttons & 0x07u)               /* bits 0..7 buttons */
-                | (((uint32_t)((uint8_t)(int8_t)dx)) << 8)  /* bits 8..15 dX     */
-                | (((uint32_t)((uint8_t)(int8_t)dy)) << 16);/* bits 16..23 dY    */
+    raw.payload = mouse_pack_raw_payload(dx, dy, buttons);  /* mouse_pack.h */
     (void)flair_raw_post(&g_flair_kbd_ring, &raw);
 }
 
