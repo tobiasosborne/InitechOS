@@ -7164,6 +7164,8 @@ help:
 	@printf '  test-seed-bool-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_SETL_AS_SETG (setl<->setg flip) makes bool.pas correctly RED. REAL (QEMU). beads initech-f0uc, ADR-0007 DEC-03.\n'
 	@printf '  test-seed-control-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_BRANCH_INVERT (jz->jnz on if/while guards) makes control.pas correctly RED. REAL (QEMU). beads initech-80iw, ADR-0007 DEC-02/DEC-04.\n'
 	@printf '  test-seed-char-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_CHR_OFF1 (chr(i) computes (i&0xFF)+1) makes char.pas correctly RED. REAL (QEMU). beads initech-7mo3, ADR-0007 DEC-02/DEC-07.\n'
+	@printf '  test-seed-repro  Reproducible-build gate: the FULL seed corpus, compiled twice (initechc->nasm->ld) into separate scratch dirs, is byte-identical (.s+.o+.elf sha256). REAL. bead initech-3yv, ADR-0007 FO-5/DEC-06.\n'
+	@printf '  test-seed-repro-mutant  Rule-6 proof: -DSEED_MUT_NONDET (getpid()-seeded dead .rodata symbol -- GENUINE nondeterminism) makes test-seed-repro correctly RED, while leaving bool.pas single-run behavior untouched. REAL. bead initech-3yv, ADR-0007 FO-5.\n'
 	@printf '  test-harness   QEMU oracle harness self-test: serial marker caught on good fixture, triple-fault caught on bad. REAL.\n'
 	@printf '  test-tracer-boot   Real MBR->stage2->32-bit/flat->VESA LFB boot: assert serial stage markers + no triple-fault + banner rendered on the seafoam desktop (ppm_text_check). REAL.\n'
 	@printf '  test-boot      InitechDOS banner boot gate: serial markers + banner literal vs spec/dos_banner.txt (byte-exact) + screendump banner-text check + no triple-fault. REAL. (QEMU only; tri-emulator pending initech-x0i.)\n'
@@ -12088,6 +12090,161 @@ test-seed-char-mutant: $(HARNESS_BIN) $(SEED_ARITH_CHAR_MUT_ELF)
 		printf '!!! test-seed-char-mutant FAIL: mutant PASSED -- chr() 8-bit truncation value is decoration\n'; exit 1; \
 	else \
 		printf '>>> test-seed-char-mutant: green (char.pas correctly failed to reproduce its golden under the chr(i)+1 off-by-one mutant)\n'; \
+	fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-seed-repro / test-seed-repro-mutant (bead initech-3yv;
+# ADR-0007 Sec 4.6 DEC-06 / Sec 7 FO-5 -- the DEC-06 precondition, wired in
+# the ratified test-kernel-repro pattern: Makefile:16663 -- build twice,
+# sha256-diff, mutation-proven)
+# ---------------------------------------------------------------------------
+# ADR-0007 Sec 4.6: "K2 == K3 is only a meaningful proof under reproducible
+# builds ... This precondition is wired, not aspirational ... a
+# test-seed-repro / test-tps-repro gate in the proven test-kernel-repro
+# pattern (build twice, sha256-diff the binaries, mutation-proven) MUST exist
+# before B4 (initech-63ce) closes -- see FO-5."
+#
+# SCOPE DECISION (Law 1 -- cite the boundary, do not assume it): two layers
+# exist in "the seed build":
+#   (a) $(SEED_BIN) itself -- initechc.o -> initechc, a HOST cc invocation.
+#   (b) $(SEED_BIN)'s EMITTED artifacts -- .pas -> .s (initechc --emit-asm)
+#       -> .o (nasm) -> ELF (ld) -- for every seed/examples fixture.
+# This gate binds ONLY to layer (b). DEC-04's binding language is "codegen
+# OUTPUT must be byte-reproducible" (ADR-0007 Sec 4.4) -- the compiler's
+# emission, not the host toolchain that builds the compiler. $(SEED_BIN) is a
+# FACTORY tool (CLAUDE.md "the factory"; CDR-0001's accepted interim
+# host-gcc toolchain), never the artifact, and making an arbitrary host gcc
+# invocation byte-reproducible (SOURCE_DATE_EPOCH, -frandom-seed, embedded
+# -g compile-directory paths, etc.) is a materially bigger, orthogonal
+# undertaking that neither DEC-04 nor the K2==K3 certificate (which is about
+# Turbo Initech reproducing ITSELF, not about gcc reproducing initechc)
+# actually requires. This gate therefore builds $(SEED_BIN) ONCE via its
+# existing rule and reuses that SAME binary for both scratch-dir passes --
+# isolating exactly the DEC-04 question: does the SAME initechc, given the
+# SAME .pas input, emit byte-identical .s/.o/.elf every time it runs? If
+# layer (a) ever needs its own gate, that is a separate bead, not this one.
+#
+# Full current corpus (every seed/examples fixture, incl. bool/control/char
+# -- ARITH_DIR and its members are defined above at the test-seed-codegen
+# section).
+SEED_REPRO_CORPUS := seed/examples/hello.pas seed/examples/smoke.pas \
+                      $(ARITH_DIR)/bool.pas $(ARITH_DIR)/char.pas \
+                      $(ARITH_DIR)/control.pas $(ARITH_DIR)/divmod.pas \
+                      $(ARITH_DIR)/negative.pas $(ARITH_DIR)/negative_divmod.pas \
+                      $(ARITH_DIR)/parens.pas $(ARITH_DIR)/precedence.pas
+
+SEED_REPRO_A := $(BUILD)/seed_repro_a
+SEED_REPRO_B := $(BUILD)/seed_repro_b
+
+# NASM GOTCHA (found empirically running this gate -- Law 2, the oracle is
+# the truth): nasm embeds the EXACT input-path string it was invoked with as
+# an ELF STT_FILE .symtab entry, unconditionally, even with no -g. If build A
+# and build B assemble via "nasm .../seed_repro_a/x.s -o .../seed_repro_a/x.o"
+# and "nasm .../seed_repro_b/x.s -o .../seed_repro_b/x.o" respectively, the
+# two scratch-dir NAMES leak into the .o's symbol table and the diff goes
+# red for a reason that has NOTHING to do with initechc's codegen
+# determinism -- a false positive manufactured by the gate's OWN directory
+# naming, not a real nondeterminism finding. Fixed by `cd`-ing into each
+# scratch dir and invoking nasm with a bare relative filename (identical
+# string in both builds) so the embedded FILE symbol matches; ld and
+# initechc's own emission were unaffected (verified: the .s pass was already
+# byte-identical before this fix, and the .o mismatch disappeared entirely
+# once nasm's invocation argument was normalized).
+.PHONY: test-seed-repro
+test-seed-repro: $(SEED_BIN) $(SEED_RT_OBJ)
+	@printf ">>> test-seed-repro: seed pipeline (initechc --emit-asm -> nasm -> ld) byte-identical across two independent scratch-dir builds (Rule 11; ADR-0007 Sec 4.6/Sec 7 FO-5, bead initech-3yv)\n"
+	@rm -rf $(SEED_REPRO_A) $(SEED_REPRO_B); mkdir -p $(SEED_REPRO_A) $(SEED_REPRO_B)
+	@n=0; h=0; \
+	 for f in $(SEED_REPRO_CORPUS); do \
+		name=$$(basename "$$f" .pas); \
+		n=$$((n+1)); \
+		$(SEED_BIN) --emit-asm -o $(SEED_REPRO_A)/$$name.s "$$f" \
+			|| { printf '!!! test-seed-repro FAIL: initechc failed on %s (build A)\n' "$$f"; exit 1; }; \
+		$(SEED_BIN) --emit-asm -o $(SEED_REPRO_B)/$$name.s "$$f" \
+			|| { printf '!!! test-seed-repro FAIL: initechc failed on %s (build B)\n' "$$f"; exit 1; }; \
+		(cd $(SEED_REPRO_A) && $(NASM) -f elf32 $$name.s -o $$name.o) \
+			|| { printf '!!! test-seed-repro FAIL: nasm failed on %s.s (build A)\n' "$$name"; exit 1; }; \
+		(cd $(SEED_REPRO_B) && $(NASM) -f elf32 $$name.s -o $$name.o) \
+			|| { printf '!!! test-seed-repro FAIL: nasm failed on %s.s (build B)\n' "$$name"; exit 1; }; \
+		$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(SEED_REPRO_A)/$$name.elf $(SEED_RT_OBJ) $(SEED_REPRO_A)/$$name.o 2>/dev/null \
+			|| { printf '!!! test-seed-repro FAIL: ld failed on %s.o (build A)\n' "$$name"; exit 1; }; \
+		$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(SEED_REPRO_B)/$$name.elf $(SEED_RT_OBJ) $(SEED_REPRO_B)/$$name.o 2>/dev/null \
+			|| { printf '!!! test-seed-repro FAIL: ld failed on %s.o (build B)\n' "$$name"; exit 1; }; \
+		for stage in s o elf; do \
+			ha=$$(sha256sum < $(SEED_REPRO_A)/$$name.$$stage | cut -d' ' -f1); \
+			hb=$$(sha256sum < $(SEED_REPRO_B)/$$name.$$stage | cut -d' ' -f1); \
+			h=$$((h+1)); \
+			if [ "$$ha" != "$$hb" ]; then \
+				printf '!!! test-seed-repro FAIL: %s.%s is NOT reproducible (fixture %s, stage %s)\n' "$$name" "$$stage" "$$f" "$$stage"; \
+				printf '    build A sha256 = %s\n    build B sha256 = %s\n' "$$ha" "$$hb"; \
+				printf '    nondeterminism in the seed pipeline breaks the DEC-06 K2==K3 precondition (ADR-0007 FO-5).\n'; \
+				exit 1; \
+			fi; \
+		done; \
+	 done; \
+	 printf '>>> test-seed-repro: green -- %s corpus fixtures, %s hashes (.s+.o+.elf per fixture), byte-identical across two independent builds\n' "$$n" "$$h"
+
+# Mutation-proof (Rule 6): test-seed-repro's discriminating mechanism is a
+# sha256 byte-comparison of two independently-built .s/.o/.elf sets. Unlike
+# test-kernel-repro-mutant (which cannot inject real kernel nondeterminism
+# without polluting the shipped artifact, so it proves the comparison bites
+# on an appended byte in a saved COPY), the seed's codegen IS the thing under
+# test, so we inject GENUINE, non-fake nondeterminism straight into codegen
+# emission: seed/codegen.c's -DSEED_MUT_NONDET hook (see its file-header
+# comment) emits an UNREFERENCED .rodata byte-array symbol
+# (seed_mut_nondet_pid) carrying getpid(2) of the compiling initechc
+# process -- a real OS-assigned value that differs between two separate
+# process invocations essentially every time, never re-derived from the
+# emission itself, and NOT a hand-flipped constant. Builds a SEPARATE mutant
+# compiler binary (initechc_mut_nondet) so $(SEED_BIN) is never
+# contaminated, runs ONE representative fixture (bool.pas -- already the B1
+# hand-computed exact-serial golden, so this ALSO re-confirms the mutant
+# left single-run behavior untouched) through the same double-build-and-hash
+# steps, and asserts: (1) the .s DIFFERS between the two builds (the
+# nondeterminism actually manifested -- not a silently-skipped no-op), (2)
+# the .o and .elf ALSO differ (the dead symbol reaches every downstream
+# stage, so test-seed-repro's mismatch is not confined to the .s text), and
+# (3) bool.pas's QEMU golden STILL holds under the mutant (SEED_MUT_NONDET
+# perturbs bytes only, never semantics -- Rule 6's other half: a mutant that
+# breaks existing gates by accident proves nothing about THIS gate).
+SEED_BIN_MUT_NONDET := $(BUILD)/initechc_mut_nondet
+
+$(SEED_BIN_MUT_NONDET): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_NONDET -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+SEED_REPRO_MUT_A := $(BUILD)/seed_repro_mut_a
+SEED_REPRO_MUT_B := $(BUILD)/seed_repro_mut_b
+
+.PHONY: test-seed-repro-mutant
+test-seed-repro-mutant: $(SEED_BIN_MUT_NONDET) $(SEED_RT_OBJ) $(HARNESS_BIN)
+	@printf ">>> test-seed-repro-mutant: confirming SEED_MUT_NONDET (genuine getpid()-seeded emission) makes the reproducible-build diff go RED (Rule 6; bead initech-3yv, ADR-0007 FO-5)\n"
+	@rm -rf $(SEED_REPRO_MUT_A) $(SEED_REPRO_MUT_B); mkdir -p $(SEED_REPRO_MUT_A) $(SEED_REPRO_MUT_B)
+	@$(SEED_BIN_MUT_NONDET) --emit-asm -o $(SEED_REPRO_MUT_A)/bool.s $(ARITH_DIR)/bool.pas
+	@$(SEED_BIN_MUT_NONDET) --emit-asm -o $(SEED_REPRO_MUT_B)/bool.s $(ARITH_DIR)/bool.pas
+	@(cd $(SEED_REPRO_MUT_A) && $(NASM) -f elf32 bool.s -o bool.o)
+	@(cd $(SEED_REPRO_MUT_B) && $(NASM) -f elf32 bool.s -o bool.o)
+	@$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(SEED_REPRO_MUT_A)/bool.elf $(SEED_RT_OBJ) $(SEED_REPRO_MUT_A)/bool.o 2>/dev/null
+	@$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(SEED_REPRO_MUT_B)/bool.elf $(SEED_RT_OBJ) $(SEED_REPRO_MUT_B)/bool.o 2>/dev/null
+	@sa=$$(sha256sum < $(SEED_REPRO_MUT_A)/bool.s | cut -d' ' -f1); \
+	 sb=$$(sha256sum < $(SEED_REPRO_MUT_B)/bool.s | cut -d' ' -f1); \
+	 if [ "$$sa" = "$$sb" ]; then \
+		printf '!!! test-seed-repro-mutant FAIL: SEED_MUT_NONDET produced an IDENTICAL .s across two runs -- getpid() nondeterminism did not manifest (PID reuse? a no-op hook?) -- this mutant proves nothing\n'; \
+		exit 1; \
+	 fi; \
+	 printf '>>> test-seed-repro-mutant: .s differs across the two builds (sha256 %s vs %s) -- genuine process-to-process nondeterminism confirmed\n' "$$sa" "$$sb"
+	@oa=$$(sha256sum < $(SEED_REPRO_MUT_A)/bool.o | cut -d' ' -f1); \
+	 ob=$$(sha256sum < $(SEED_REPRO_MUT_B)/bool.o | cut -d' ' -f1); \
+	 ea=$$(sha256sum < $(SEED_REPRO_MUT_A)/bool.elf | cut -d' ' -f1); \
+	 eb=$$(sha256sum < $(SEED_REPRO_MUT_B)/bool.elf | cut -d' ' -f1); \
+	 if [ "$$oa" = "$$ob" ] || [ "$$ea" = "$$eb" ]; then \
+		printf '!!! test-seed-repro-mutant FAIL: .s differed but .o/.elf did NOT -- the injected symbol never reached the linked artifact, so test-seed-repro would only ever catch this at the .s stage\n'; exit 1; \
+	 fi; \
+	 printf '>>> test-seed-repro-mutant: .o and .elf ALSO differ -- the injected dead symbol reaches every downstream stage, so test-seed-repro correctly fails loud at every one\n'
+	@if $(HARNESS_BIN) --kernel "$(SEED_REPRO_MUT_A)/bool.elf" --expect "$(SEED_BOOL_EXPECT)" \
+		--name seed_repro_mut_bool --timeout-ms 5000 >/dev/null 2>&1; then \
+		printf '>>> test-seed-repro-mutant: green (SEED_MUT_NONDET is dead-data-only -- bool.pas single-run golden still holds; the reproducible-build diff correctly goes RED)\n'; \
+	else \
+		printf '!!! test-seed-repro-mutant FAIL: SEED_MUT_NONDET broke bool.pas single-run behavior -- this mutant must perturb BYTES only, never semantics (Rule 6)\n'; exit 1; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -17722,7 +17879,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-assets test-spec test-dosmsg \
+	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \

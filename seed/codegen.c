@@ -190,12 +190,36 @@
  *   OP_CHR case). test-seed-char-mutant asserts this makes char.pas's
  *   exact-serial golden go RED.
  * ============================================================================
+ *
+ * MUTATION HOOK (Rule 6; bead initech-3yv, ADR-0007 FO-5/DEC-06): SEED_MUT_NONDET
+ * injects GENUINE process-to-process nondeterminism into the emitted .rodata
+ * (see codegen_emit) -- an unreferenced byte-array symbol whose 4 bytes
+ * encode getpid(2) of the compiling initechc process. This is not a
+ * hand-flipped constant: two separate invocations of the SAME initechc
+ * binary on the IDENTICAL .pas input get DIFFERENT PIDs from the kernel
+ * essentially every time (real OS-assigned state, never read back from the
+ * emission itself, and NOT reproducible by re-running with the same
+ * arguments -- exactly the class of "looks-plausible but isn't reproducible"
+ * bug Rule 11 exists to catch, e.g. an accidental build-id/timestamp byte
+ * leaking into an emitted artifact). The symbol is NEVER referenced by any
+ * jump, load, or write/writeln argument -- it is dead data as far as
+ * pas_main's control flow and the runtime ABI are concerned, so program
+ * BEHAVIOR (and every other SEED_MUT_* / test-seed-codegen single-run gate)
+ * is completely unaffected; only the .s/.o/.elf BYTES (never semantics)
+ * become build-to-build nondeterministic. test-seed-repro-mutant asserts
+ * this makes the reproducible-build gate (test-seed-repro) go RED.
+ * ============================================================================
  */
 #include "codegen.h"
 
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef SEED_MUT_NONDET
+#include <sys/types.h>
+#include <unistd.h>
+#endif
 
 typedef struct {
     FILE *out;
@@ -706,6 +730,17 @@ int codegen_emit(const AstNode *program, FILE *out)
     fprintf(out, "section .rodata\n");
     fprintf(out, "str_bool_true: db 84,82,85,69,0\n");   /* "TRUE" */
     fprintf(out, "str_bool_false: db 70,65,76,83,69,0\n"); /* "FALSE" */
+#ifdef SEED_MUT_NONDET
+    /* MUTATION HOOK (Rule 6; bead initech-3yv, ADR-0007 FO-5): see the file
+     * header comment. Dead data, never referenced -- perturbs .s/.o/.elf
+     * bytes only, never pas_main's behavior. */
+    {
+        unsigned long mut_pid = (unsigned long)getpid();
+        fprintf(out, "seed_mut_nondet_pid: db %lu,%lu,%lu,%lu,0\n",
+                (mut_pid >> 24) & 0xFFUL, (mut_pid >> 16) & 0xFFUL,
+                (mut_pid >> 8) & 0xFFUL, mut_pid & 0xFFUL);
+    }
+#endif
     rodata_walk(&cg, program);
     fprintf(out, "\n");
 
