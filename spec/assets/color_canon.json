@@ -77,6 +77,26 @@
       "was_preview_sample": "#8A8A93 (REVOKED)" }
   ],
 
+  "ramp_named_indices_note": "Rule-8 documented EXTENSION MECHANISM (beads initech-hv7u): flair_canon_rgb ALREADY computes a deterministic gray ramp for idx>=9 -- (idx<<16)|(idx<<8)|idx (color_canon.h flair_canon_rgb, the idx>=9 branch). A neutral gray (R==G==B) is therefore representable EXACTLY by naming its own index -- NO new 9-entry table slot, NO generator schema change to the color_canon[9][3] array. This is NOT a new mechanism: spec/flair_skins.h FLAIR_GRAY_IDX_808080 / FLAIR_CANON_GRAY_RGB already uses this exact idiom for the win31 btnshadow gray. The rows below are the SAME idiom, promoted into the generated header as named CIDX_* constants (not hand-typed in a consumer) so they carry a versioned Rule-8 citation the same as an indexed entry.",
+
+  "ramp_named_indices": [
+    { "idx": 119, "name": "CIDX_HILITE_FRAME",
+      "role": "inactive (background) title-bar frame line -- StandardWDEF wHiliteShadeA",
+      "rgb": "#777777", "rgb_bytes": [119, 119, 119],
+      "heritage": "system7-quickdraw",
+      "wctb_part": "none (WDEF hilite-shade-table entry, not a wctb resource part)",
+      "source_golden": "$(SYSTEM7_DECOMP)/specs/chrome/title-bar.md Sec 2 (Rendered colors) + Sec 2.1 (Active vs inactive hilite split) -- inactive frame #777777 @ s7_get_info.png y=27,45 x=327; StandardWDEF_a.txt DrawTitleBar wHilited branch L679-744",
+      "graded_by": "live-diff vs title-bar.md rendered-golden inactive-frame row (LEG E, TOL=0), harness/proptest/test_color_canon.c. Resolves via the EXISTING idx>=9 deterministic gray ramp (flair_canon_rgb) -- #777777 has R=G=B=119 so it needs NO new table slot, only this named, cited index (Rule 8 deliberate act; beads initech-hv7u)." },
+
+    { "idx": 165, "name": "CIDX_HILITE_TEXT",
+      "role": "inactive (background) title text ink, dimmed -- StandardWDEF wHiliteShade7",
+      "rgb": "#A5A5A5", "rgb_bytes": [165, 165, 165],
+      "heritage": "system7-quickdraw",
+      "wctb_part": "none (WDEF hilite-shade-table entry, not a wctb resource part)",
+      "source_golden": "$(SYSTEM7_DECOMP)/specs/chrome/title-bar.md Sec 2 (Rendered colors) + Sec 2.1 (Active vs inactive hilite split) -- inactive title text #A5A5A5 @ s7_get_info.png y=37 x=388; StandardWDEF_a.txt DrawTitleBar wHilited branch L679-744",
+      "graded_by": "live-diff vs title-bar.md rendered-golden inactive-title-text row (LEG E, TOL=0), harness/proptest/test_color_canon.c. Resolves via the EXISTING idx>=9 deterministic gray ramp (flair_canon_rgb) -- #A5A5A5 has R=G=B=165 so it needs NO new table slot, only this named, cited index (Rule 8 deliberate act; beads initech-hv7u)." }
+  ],
+
   "derived_rows": [
     { "name": "bevel_light", "role": "title/dialog 3-D bevel + groove HIGHLIGHT (the WL-0053 lavender->teal swap)",
       "rgb": "#8DDCDC", "rgb_bytes": [141, 220, 220],

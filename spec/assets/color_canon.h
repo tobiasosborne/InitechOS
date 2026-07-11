@@ -87,6 +87,24 @@ _Static_assert(sizeof(color_canon) == 27, "9 x 3 canon bytes");
 #define INITECH_CANON_BEVEL_SHADOW_RGB       0x4E9BA3u
 
 /* ---------------------------------------------------------------------------
+ * Named ramp indices -- the idx>=9 gray-ramp EXTENSION (Rule 8; NOT a new
+ * 9-entry table slot). Each constant below names an index >= 9 whose
+ * (idx<<16)|(idx<<8)|idx value ALREADY equals the cited decomp golden RGB
+ * (a neutral gray, R==G==B) via flair_canon_rgb's existing idx>=9 branch
+ * below. Same idiom as spec/flair_skins.h FLAIR_GRAY_IDX_808080 /
+ * FLAIR_CANON_GRAY_RGB (win31 btnshadow) -- promoted here so each carries a
+ * versioned per-row decomp citation. See color_canon.json
+ * "ramp_named_indices" for the source_golden/graded_by text per row.
+ */
+#define CIDX_HILITE_FRAME    119   /* #777777 via the idx>=9 ramp */
+#define CIDX_HILITE_TEXT     165   /* #A5A5A5 via the idx>=9 ramp */
+
+_Static_assert(((uint32_t)CIDX_HILITE_FRAME << 16 | (uint32_t)CIDX_HILITE_FRAME << 8 | (uint32_t)CIDX_HILITE_FRAME) == 0x777777u,
+               "CIDX_HILITE_FRAME ramp-index formula == #777777 (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_HILITE_TEXT << 16 | (uint32_t)CIDX_HILITE_TEXT << 8 | (uint32_t)CIDX_HILITE_TEXT) == 0xA5A5A5u,
+               "CIDX_HILITE_TEXT ramp-index formula == #A5A5A5 (color_canon.json ramp_named_indices)");
+
+/* ---------------------------------------------------------------------------
  * wctb part<->index crosswalk (comments only; for consumers and the oracle).
  *
  * idx0  CIDX_BLACK      part1  wFrameColor         system7-quickdraw

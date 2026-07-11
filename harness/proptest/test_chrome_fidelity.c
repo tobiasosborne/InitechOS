@@ -932,15 +932,134 @@ int main(void)
                   "background windows were indistinguishable from the frontmost one");
 
             /* (19) The shared frame line BELOW the interior (top of the content
-             * body) is unchanged -- still FRAME/black -- confirming the inactive
-             * branch does not disturb the surrounding geometry (same [title_top,
-             * shared_line) span the active branch fills; beads initech-a9iq). */
+             * body) DOES NOT shift POSITION (same [title_top, shared_line) span
+             * the active branch fills; beads initech-a9iq) but its COLOR hilite-
+             * splits (beads initech-hv7u, DECLARED update of the a9iq-era
+             * expectation): title-bar.md Sec 2.1 "bottom frame ... #777777 @
+             * y=45" -- an inactive window's shared frame line is GRAY
+             * (FLAIR_PART_HILITE_FRAME), not the active BLACK (FLAIR_PART_FRAME).
+             * The a9iq leg encoded the OLD, now-known-wrong "still black"
+             * expectation (a9iq fixed only the FILL, not this line); this
+             * corrects it against the independent title-bar.md golden (Law 2). */
             uint32_t shared_px2 = render_pixel_index(&ctx2, (uint32_t)scan_x,
                                                       (uint32_t)inactive_shared);
-            CHECK(shared_px2 == (uint32_t)FG_TITLE_SHARED_FRAME_IDX,
+            CHECK(shared_px2 == (uint32_t)FG_HILITE_FRAME_IDX,
                   "leg (19): the shared frame line below an inactive title-bar "
-                  "interior must still be FLAIR_PART_FRAME (idx 0 = black) -- the "
-                  "inactive branch must not shift the title-band geometry");
+                  "interior must be FLAIR_PART_HILITE_FRAME (idx 119 = dimmed gray "
+                  "#777777, wHiliteShadeA), NOT the active FLAIR_PART_FRAME (idx 0 "
+                  "black) -- title-bar.md Sec 2.1 'bottom frame ... #777777 @ y=45'; "
+                  "DECLARED correction of the a9iq-era expectation that this line "
+                  "stayed black (a9iq fixed only the flat-white FILL)");
+
+            /* ================================================================
+             * (20) INACTIVE TOP FRAME LINE (beads initech-hv7u).
+             *
+             * The window's own TOP edge (row = WIN_TOP, the very first row of
+             * the window) is the SAME physical line title-bar.md calls the
+             * title band's own "top frame" -- it hilite-splits the SAME way:
+             * title-bar.md Sec 2.1 "top frame ... #777777 @ y=27". Before this
+             * fix the outer cframe() painted this row unconditionally black
+             * regardless of `hilited`.
+             * ================================================================ */
+            uint32_t top_px2 = render_pixel_index(&ctx2, (uint32_t)scan_x,
+                                                   (uint32_t)WIN_TOP);
+            printf("test-chrome-fidelity: inactive window top frame line y=%d x=%d "
+                   "-> idx=%u (expect FG_HILITE_FRAME_IDX=%d gray, NOT idx 0 black)\n",
+                   WIN_TOP, scan_x, top_px2, FG_HILITE_FRAME_IDX);
+            CHECK(top_px2 == (uint32_t)FG_HILITE_FRAME_IDX,
+                  "leg (20): an inactive window's own TOP frame line (the same "
+                  "physical line as the title band's top frame) must be "
+                  "FLAIR_PART_HILITE_FRAME (idx 119 = #777777), NOT the active "
+                  "FLAIR_PART_FRAME (idx 0 = black) -- title-bar.md Sec 2.1 'top "
+                  "frame ... #777777 @ y=27'");
+
+            /* ================================================================
+             * (21)/(22) INACTIVE TITLE TEXT DIM (beads initech-hv7u).
+             *
+             * title-bar.md Sec 2.1 "title text ... gray #A5A5A5" (inactive) vs
+             * "black #000000" (active). Scan the SAME centered title region the
+             * active title legs (5)/(6) use, on the INACTIVE render: the dimmed
+             * ink (idx 165) must be present and the ACTIVE black ink (idx 4)
+             * must be ABSENT (an inactive title never draws the active ink).
+             * ================================================================ */
+            {
+                const int cy0 = inactive_top + 2;
+                const int cy1 = inactive_top + FLAIR_CHROME_TITLEBAR_H - 2 - fr2;
+                const int cx0 = mid_x - 24;
+                const int cx1 = mid_x + 24;
+                int dim_px = 0, black_px = 0;
+                for (int y = cy0; y < cy1; y++) {
+                    for (int x = cx0; x < cx1; x++) {
+                        uint32_t idx2 = render_pixel_index(&ctx2, (uint32_t)x, (uint32_t)y);
+                        if (idx2 == (uint32_t)FG_HILITE_TEXT_IDX) dim_px++;
+                        if (idx2 == (uint32_t)FG_TITLE_INK_IDX)   black_px++;
+                    }
+                }
+                printf("test-chrome-fidelity: inactive centered title region "
+                       "[x %d..%d] dim-ink(idx%d)=%d black-ink(idx%d)=%d\n",
+                       cx0, cx1, FG_HILITE_TEXT_IDX, dim_px, FG_TITLE_INK_IDX, black_px);
+
+                CHECK(dim_px >= 8,
+                      "leg (21): an inactive window's title text must be drawn in "
+                      "the DIMMED gray ink (FLAIR_PART_HILITE_TEXT, idx 165 = "
+                      "#A5A5A5); title-bar.md Sec 2.1 'title text ... gray #A5A5A5' "
+                      "-- a blank or wrongly-inked inactive title bar is WRONG");
+                CHECK(black_px == 0,
+                      "leg (22): an inactive window's title text must NEVER use the "
+                      "ACTIVE black ink (FLAIR_PART_TEXT, idx 4); title-bar.md Sec "
+                      "2.1 draws the inactive title in dimmed gray, never black");
+            }
+
+            /* ================================================================
+             * (23)/(24) INACTIVE CLOSE/ZOOM GADGETS ABSENT (beads initech-hv7u).
+             *
+             * close-zoom-box.md Mechanism: "Boxes are drawn ONLY when the window
+             * is hilited (active) ... the inactive title bar has no boxes."
+             * Scan the SAME close/zoom box rects the active box legs (9)-(12)
+             * use, on the INACTIVE render: ZERO tonal-role (dark/bevel/face)
+             * pixels must appear -- the a9iq bd wording ("de-emphasized
+             * (still-present)") is exactly the bug this closes.
+             * ================================================================ */
+            {
+                const int wbox_delta2 =
+                    (FLAIR_CHROME_TITLEBAR_H - FLAIR_CHROME_WBOX_DELTA) / 2;
+                const int box_top2 = WIN_TOP + wbox_delta2 + 1;
+                const int box_sz2  = FG_BOX_RENDER_SIZE;
+                const int close_l2 = WIN_LEFT  + FG_CLOSE_BOX_LEFT_OFF;
+                const int zoom_l2  = WIN_RIGHT - FG_ZOOM_BOX_RIGHT_OFF;
+                int gadget_px = 0;
+
+                for (int y = box_top2; y < box_top2 + box_sz2; y++) {
+                    for (int x = close_l2; x < close_l2 + box_sz2; x++) {
+                        uint32_t idx2 = render_pixel_index(&ctx2, (uint32_t)x, (uint32_t)y);
+                        if (idx2 == (uint32_t)FG_BOX_DARK_IDX  ||
+                            idx2 == (uint32_t)FG_BOX_BEVEL_IDX ||
+                            idx2 == (uint32_t)FG_BOX_FACE_IDX) {
+                            gadget_px++;
+                        }
+                    }
+                }
+                for (int y = box_top2; y < box_top2 + box_sz2; y++) {
+                    for (int x = zoom_l2; x < zoom_l2 + box_sz2; x++) {
+                        uint32_t idx2 = render_pixel_index(&ctx2, (uint32_t)x, (uint32_t)y);
+                        if (idx2 == (uint32_t)FG_BOX_DARK_IDX  ||
+                            idx2 == (uint32_t)FG_BOX_BEVEL_IDX ||
+                            idx2 == (uint32_t)FG_BOX_FACE_IDX) {
+                            gadget_px++;
+                        }
+                    }
+                }
+                printf("test-chrome-fidelity: inactive close/zoom box rects "
+                       "gadget-tonal-role px=%d (expect 0; a9iq left them present)\n",
+                       gadget_px);
+
+                CHECK(gadget_px == 0,
+                      "leg (23)/(24): an inactive title bar must carry NO close/"
+                      "zoom gadget -- ZERO dark/bevel/face tonal-role pixels in "
+                      "either box rect; close-zoom-box.md Mechanism 'the inactive "
+                      "title bar has no boxes'; a9iq had left them present "
+                      "('de-emphasized (still-present)')");
+            }
 
             render_ctx_free(&ctx2);
         }

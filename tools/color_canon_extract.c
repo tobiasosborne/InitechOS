@@ -128,6 +128,7 @@ static int read_rgb_bytes(const char *p, const char *end,
 
 #define CANON_N   9   /* exactly 9 indexed entries, idx 0..8 */
 #define DERIVED_N 2   /* exactly 2 derived rows               */
+#define RAMP_N    2   /* exactly 2 named idx>=9 ramp indices  */
 
 typedef struct {
     int  idx;
@@ -140,6 +141,17 @@ typedef struct {
     char name[64];
     int  r, g, b;
 } derived_t;
+
+/* A named idx>=9 gray-ramp index (Rule-8 extension; beads initech-hv7u): a
+ * neutral gray (R==G==B==idx) needs NO new 9-entry table slot -- it already
+ * resolves through flair_canon_rgb's documented idx>=9 branch. Parsed from
+ * color_canon.json "ramp_named_indices" so each constant still carries a
+ * versioned, cited provenance (color_canon.json, not hand-typed in a consumer). */
+typedef struct {
+    char name[64];
+    int  idx;
+    int  r, g, b;
+} ramp_t;
 
 /* ---- Parse the "entries" array ------------------------------------------- */
 
@@ -341,6 +353,110 @@ static int parse_derived(const char *json, derived_t drv[DERIVED_N])
     return 0;
 }
 
+/* ---- Parse the "ramp_named_indices" array ---------------------------------
+ * Each row: { "idx": N, "name": "CIDX_...", "rgb_bytes": [r,g,b] }.  N must be
+ * >= 9 (below the fixed table) and r==g==b==N (the row must be REPRESENTABLE
+ * by the idx>=9 ramp formula (idx<<16)|(idx<<8)|idx -- otherwise it does not
+ * belong here; it would need a real 9-entry table slot instead).  Fails loud
+ * on any violation so a future mis-entry cannot silently drift (Rule 8). */
+static int parse_ramp(const char *json, ramp_t ramp[RAMP_N])
+{
+    const char *end = json + strlen(json);
+
+    const char *rp = find_key(json, end, "ramp_named_indices");
+    if (!rp) {
+        fprintf(stderr, "color_canon_extract: no \"ramp_named_indices\" key in JSON\n");
+        return -1;
+    }
+    const char *p = rp;
+    while (p < end && *p != '[') p++;
+    if (p >= end) {
+        fprintf(stderr, "color_canon_extract: \"ramp_named_indices\" has no array\n");
+        return -1;
+    }
+    p++;
+
+    int parsed = 0;
+    while (parsed < RAMP_N) {
+        while (p < end && *p != '{' && *p != ']') p++;
+        if (p >= end || *p == ']') break;
+        const char *obj_start = p;
+        p++;
+        const char *obj_end = p;
+        while (obj_end < end && *obj_end != '}') obj_end++;
+        if (obj_end >= end) {
+            fprintf(stderr, "color_canon_extract: unterminated ramp_named_indices object\n");
+            return -1;
+        }
+
+        /* idx */
+        const char *kidx = find_key(obj_start, obj_end + 1, "idx");
+        if (!kidx) {
+            fprintf(stderr, "color_canon_extract: ramp_named_indices entry missing \"idx\"\n");
+            return -1;
+        }
+        long idx;
+        if (read_int_after_colon(kidx, obj_end + 1, &idx)) {
+            fprintf(stderr, "color_canon_extract: cannot parse ramp \"idx\"\n");
+            return -1;
+        }
+        if (idx < 9 || idx > 255) {
+            fprintf(stderr,
+                    "color_canon_extract: ramp idx %ld out of range 9..255\n", idx);
+            return -1;
+        }
+
+        /* name */
+        const char *kname = find_key(obj_start, obj_end + 1, "name");
+        if (!kname) {
+            fprintf(stderr,
+                    "color_canon_extract: ramp entry idx=%ld missing \"name\"\n", idx);
+            return -1;
+        }
+        if (next_string(&kname, obj_end + 1,
+                        ramp[parsed].name, sizeof ramp[parsed].name)) {
+            fprintf(stderr,
+                    "color_canon_extract: cannot read name for ramp idx=%ld\n", idx);
+            return -1;
+        }
+
+        /* rgb_bytes -- must equal (idx,idx,idx): the ramp formula, not a
+         * hand-typed color (this is the self-consistency guard, Rule 8). */
+        const char *krb = find_key(obj_start, obj_end + 1, "rgb_bytes");
+        if (!krb) {
+            fprintf(stderr,
+                    "color_canon_extract: ramp entry idx=%ld missing \"rgb_bytes\"\n", idx);
+            return -1;
+        }
+        if (read_rgb_bytes(krb, obj_end + 1,
+                           &ramp[parsed].r, &ramp[parsed].g, &ramp[parsed].b)) {
+            fprintf(stderr, "color_canon_extract: bad rgb_bytes for ramp idx=%ld\n", idx);
+            return -1;
+        }
+        if (ramp[parsed].r != (int)idx || ramp[parsed].g != (int)idx ||
+            ramp[parsed].b != (int)idx) {
+            fprintf(stderr,
+                    "color_canon_extract: ramp entry \"%s\" idx=%ld rgb_bytes (%d,%d,%d) "
+                    "!= (idx,idx,idx) -- not representable by the idx>=9 gray ramp; "
+                    "this row needs a real 9-entry table slot, not a ramp name\n",
+                    ramp[parsed].name, idx, ramp[parsed].r, ramp[parsed].g, ramp[parsed].b);
+            return -1;
+        }
+
+        ramp[parsed].idx = (int)idx;
+        parsed++;
+        p = obj_end + 1;
+    }
+
+    if (parsed != RAMP_N) {
+        fprintf(stderr,
+                "color_canon_extract: expected %d ramp_named_indices, parsed %d\n",
+                RAMP_N, parsed);
+        return -1;
+    }
+    return 0;
+}
+
 /* ---- Parse a top-level string field -------------------------------------- */
 
 static int parse_top_string(const char *json, const char *key,
@@ -380,6 +496,7 @@ static void upcase(const char *src, char *dst, size_t cap)
 
 static void emit_header(const entry_t tbl[CANON_N],
                         const derived_t drv[DERIVED_N],
+                        const ramp_t ramp[RAMP_N],
                         const char *canon_version)
 {
     int i;
@@ -482,6 +599,33 @@ static void emit_header(const entry_t tbl[CANON_N],
     }
     printf("\n");
 
+    /* ---- Named idx>=9 gray-ramp indices (Rule-8 extension; beads initech-hv7u) ---- */
+    printf("/* ---------------------------------------------------------------------------\n");
+    printf(" * Named ramp indices -- the idx>=9 gray-ramp EXTENSION (Rule 8; NOT a new\n");
+    printf(" * 9-entry table slot). Each constant below names an index >= 9 whose\n");
+    printf(" * (idx<<16)|(idx<<8)|idx value ALREADY equals the cited decomp golden RGB\n");
+    printf(" * (a neutral gray, R==G==B) via flair_canon_rgb's existing idx>=9 branch\n");
+    printf(" * below. Same idiom as spec/flair_skins.h FLAIR_GRAY_IDX_808080 /\n");
+    printf(" * FLAIR_CANON_GRAY_RGB (win31 btnshadow) -- promoted here so each carries a\n");
+    printf(" * versioned per-row decomp citation. See color_canon.json\n");
+    printf(" * \"ramp_named_indices\" for the source_golden/graded_by text per row.\n");
+    printf(" */\n");
+    for (i = 0; i < RAMP_N; i++) {
+        const ramp_t *rr = &ramp[i];
+        printf("#define %-20s %d   /* #%02X%02X%02X via the idx>=9 ramp */\n",
+               rr->name, rr->idx, rr->r, rr->g, rr->b);
+    }
+    printf("\n");
+    for (i = 0; i < RAMP_N; i++) {
+        const ramp_t *rr = &ramp[i];
+        printf("_Static_assert(((uint32_t)%s << 16 | (uint32_t)%s << 8 | (uint32_t)%s) "
+               "== 0x%02X%02X%02Xu,\n", rr->name, rr->name, rr->name, rr->r, rr->g, rr->b);
+        printf("               \"%s ramp-index formula == #%02X%02X%02X "
+               "(color_canon.json ramp_named_indices)\");\n",
+               rr->name, rr->r, rr->g, rr->b);
+    }
+    printf("\n");
+
     /* ---- wctb part<->index crosswalk comment ---- */
     printf("/* ---------------------------------------------------------------------------\n");
     printf(" * wctb part<->index crosswalk (comments only; for consumers and the oracle).\n");
@@ -567,9 +711,13 @@ int main(int argc, char **argv)
     derived_t drv[DERIVED_N];
     if (parse_derived(json, drv)) { free(json); return 1; }
 
+    /* Parse the 2 named idx>=9 gray-ramp indices (Rule-8 extension). */
+    ramp_t ramp[RAMP_N];
+    if (parse_ramp(json, ramp)) { free(json); return 1; }
+
     free(json);
 
     /* All parsing succeeded -- emit the header to stdout. */
-    emit_header(tbl, drv, canon_version);
+    emit_header(tbl, drv, ramp, canon_version);
     return 0;
 }

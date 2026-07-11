@@ -72,6 +72,17 @@
  *     -DCANON_MUTATE_WHITE  idx1 -> #FEFEFE                    => LEG A RED
  *     -DCANON_MUTATE_PIN    idx7 -> #FFFFFF (wctb endpoint,    => LEG C RED
  *                                  NOT the rendered shade)
+ *     -DCANON_MUTATE_HILITE CIDX_HILITE_FRAME -> #000000       => LEG E RED
+ *                           (black relapse; beads initech-hv7u)
+ *
+ * LEG E (beads initech-hv7u): CIDX_HILITE_FRAME (idx 119, #777777) /
+ *   CIDX_HILITE_TEXT (idx 165, #A5A5A5) -- the two named idx>=9 gray-ramp
+ *   indices added for the inactive-window StandardWDEF hilite split
+ *   (wHiliteShadeA frame / wHiliteShade7 title ink).  Expected RGB is PARSED
+ *   FROM title-bar.md's "Rendered colors" table (the SAME golden file LEG C
+ *   already reads, an INDEPENDENT source from color_canon.json).  Grades both
+ *   the resolved RGB AND that each index is >= 9 (so it resolves via the
+ *   documented idx>=9 ramp, adding ZERO new 9-entry table slot).
  *
  * LOUD-SKIP: each leg resolves its golden by macro priority and LOUD-SKIPS that
  *   leg (prints the exact missing path) if absent -- NEVER silent-passes -- and
@@ -106,6 +117,9 @@ static unsigned long canon_val(unsigned idx)
 #ifdef CANON_MUTATE_PIN
     if (idx == CIDX_PIN_LIGHT) v = 0xFFFFFFuL; /* wctb part7 endpoint, not the
                                                   rendered #F3F3F3 dither shade */
+#endif
+#ifdef CANON_MUTATE_HILITE
+    if (idx == CIDX_HILITE_FRAME) v = 0x000000uL; /* black relapse (initech-hv7u) */
 #endif
     return v;
 }
@@ -188,6 +202,14 @@ static int g_skipped = 0;  /* rows NOT graded because a golden was absent */
 #  define LEG_C_PATH SYSTEM7_DECOMP "/specs/chrome/pinstripe.md"
 #else
 #  define LEG_C_PATH "../system7-decomp/specs/chrome/pinstripe.md"
+#endif
+
+#ifdef FLAIR_TITLEBAR_GOLDEN_PATH
+#  define LEG_E_PATH FLAIR_TITLEBAR_GOLDEN_PATH
+#elif defined(SYSTEM7_DECOMP)
+#  define LEG_E_PATH SYSTEM7_DECOMP "/specs/chrome/title-bar.md"
+#else
+#  define LEG_E_PATH "../system7-decomp/specs/chrome/title-bar.md"
 #endif
 
 static void loud_skip(const char *leg, const char *path, const char *override)
@@ -424,6 +446,74 @@ static void leg_c_pinstripe(void)
 }
 
 /* ===========================================================================
+ * LEG E -- title-bar.md rendered inactive-hilite rows (System-7), TOL=0.
+ * Expected RGB is PARSED FROM THE MARKDOWN GOLDEN "Rendered colors" table rows
+ *   "| inactive frame | `#777777` | ... |" and
+ *   "| inactive title text | `#A5A5A5` | ... |".
+ *   CIDX_HILITE_FRAME <- the #777777 'inactive frame' row (wHiliteShadeA)
+ *   CIDX_HILITE_TEXT  <- the #A5A5A5 'inactive title text' row (wHiliteShade7)
+ * beads initech-hv7u: the inactive-window title-frame + title-ink dim.
+ * =========================================================================== */
+
+/* Scan title-bar.md for the first line containing literal substring `label`
+ * that also carries a `#RRGGBB` hex; returns 1 if found, 0 if not, -1 if the
+ * file is absent. Simpler than pinstripe_lookup's tag-boundary logic because
+ * these labels are multi-word phrases ("inactive frame", "inactive title
+ * text") that do not collide with other prose in this file. */
+static int titlebar_lookup(const char *path, const char *label, unsigned long *out)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    char line[1024];
+    int found = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (!strstr(line, label)) continue;
+        const char *hash = strchr(line, '#');
+        if (!hash) continue;
+        unsigned r, g, b;
+        if (sscanf(hash, "#%2x%2x%2x", &r, &g, &b) != 3) continue;
+        *out = ((unsigned long)r << 16) | ((unsigned long)g << 8) | (unsigned long)b;
+        found = 1;
+        break;
+    }
+    fclose(f);
+    return found;
+}
+
+static void leg_e_hilite(void)
+{
+    printf("LEG E -- title-bar.md rendered inactive-hilite rows (System-7), TOL=0  "
+           "[golden: %s]\n", LEG_E_PATH);
+
+    unsigned long frame_gray = 0, text_gray = 0;
+    int rf = titlebar_lookup(LEG_E_PATH, "inactive frame", &frame_gray);
+    if (rf == -1) { loud_skip("LEG E (title-bar)", LEG_E_PATH, "FLAIR_TITLEBAR_GOLDEN_PATH"); return; }
+    int rt = titlebar_lookup(LEG_E_PATH, "inactive title text", &text_gray);
+
+    if (rf != 1 || rt != 1) {
+        g_graded++; g_fails++;
+        printf("  FAIL LEG E: could not parse inactive frame (%d) / inactive title "
+               "text (%d) rows from title-bar.md\n", rf, rt);
+        return;
+    }
+    printf("  parsed title-bar.md: inactive frame=#%06lX  inactive title text=#%06lX\n",
+           frame_gray, text_gray);
+
+    GRADE("CIDX_HILITE_FRAME vs title-bar.md inactive-frame row (wHiliteShadeA)",
+          frame_gray, canon_val(CIDX_HILITE_FRAME));
+    GRADE("CIDX_HILITE_TEXT vs title-bar.md inactive-title-text row (wHiliteShade7)",
+          text_gray, canon_val(CIDX_HILITE_TEXT));
+
+    /* Self-consistency guardrail (Rule 8): both named indices must actually be
+     * >= 9 -- i.e. resolve via the documented idx>=9 gray ramp, NOT a
+     * hand-typed 0..8 table slot. This is the whole point of the extension. */
+    ASSERT_TRUE("CIDX_HILITE_FRAME is a ramp index (>= 9), not a 0..8 table slot",
+                CIDX_HILITE_FRAME >= 9);
+    ASSERT_TRUE("CIDX_HILITE_TEXT is a ramp index (>= 9), not a 0..8 table slot",
+                CIDX_HILITE_TEXT >= 9);
+}
+
+/* ===========================================================================
  * LEG D -- AUTHORED (Initech identity; NO external decomp golden).
  * idx2 teal #8DDCDC + bevel_light #8DDCDC + bevel_shadow #4E9BA3 are operator
  * WL-0053 injections (VIC-20 cyan).  No upstream golden exists, so this leg is
@@ -497,13 +587,14 @@ int main(void)
 {
     printf("test-color-canon: starting (FLAIR color VALUE oracle; ADR-0010 CD-2)\n");
     printf("  value-under-test: spec/assets/color_canon.h (flair_canon_rgb / color_canon[])\n");
-    printf("  expected values:  INDEPENDENT decomp goldens (A wctb / B win31 / C pinstripe)\n");
+    printf("  expected values:  INDEPENDENT decomp goldens (A wctb / B win31 / C pinstripe / E title-bar)\n");
     printf("                    + LEG D authored locked-constant (no external golden)\n\n");
 
     leg_a_wctb();        printf("\n");
     leg_b_win31();       printf("\n");
     leg_c_pinstripe();   printf("\n");
     leg_d_authored();    printf("\n");
+    leg_e_hilite();      printf("\n");
 
     printf("test-color-canon: %d graded, %d failures, %d rows NOT graded (goldens absent), %s\n",
            g_graded, g_fails, g_skipped, g_fails == 0 ? "green" : "RED");

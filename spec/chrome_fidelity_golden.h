@@ -417,10 +417,10 @@
  *
  * THE MECHANISM (title-bar.md Sec 2.1 table): "an INACTIVE window gets
  * wHiliteShadeA (gray) frame, wContentColor (white) fill, NO bevel lines, and
- * a dimmed wHiliteShade7 title string." This golden covers the FILL only (the
- * title-bar INTERIOR band chrome.c composes) -- the frame-line recolor
- * (wHiliteShadeA) and the title-ink dim (wHiliteShade7) are follow-up fidelity
- * items (see chrome.c flair_draw_document_window comment), NOT graded here.
+ * a dimmed wHiliteShade7 title string." This golden originally covered the
+ * FILL only; the frame-line recolor (wHiliteShadeA) and the title-ink dim
+ * (wHiliteShade7) were follow-up fidelity items -- CLOSED below (beads
+ * initech-hv7u): FG_HILITE_FRAME_IDX / FG_HILITE_TEXT_IDX.
  *
  * THE TELL THIS CATCHES. Before this fix, flair_draw_document_window had no
  * hilited parameter at all and ALWAYS drew the active pinstripe + bevel
@@ -439,5 +439,63 @@
  * #FFFFFF ... plain white, NO pinstripe, NO bevel" (s7_get_info.png y=28..44
  * x=560); Sec 2.1 hilite-split table "fill: plain #FFFFFF @ y=28..44". */
 #define FG_INACTIVE_TITLE_FILL_IDX   1   /* FLAIR_PART_CONTENT -> CIDX_WHITE */
+
+/* ===========================================================================
+ * INACTIVE TITLE-BAR FRAME + TEXT DIM + GADGET ABSENCE (beads initech-hv7u).
+ *
+ * Follow-up to initech-a9iq (the flat-white FILL above). Source:
+ *   ../system7-decomp/specs/chrome/title-bar.md Sec 2 (Rendered colors) +
+ *   Sec 2.1 (Active vs inactive hilite split) -- pixel-measured from
+ *   goldens/captures/s7_get_info.png (SAME screendump the FILL golden above
+ *   uses, an INDEPENDENT source from chrome.c/chrome_metrics.h; Law 2) +
+ *   ../system7-decomp/specs/chrome/close-zoom-box.md Mechanism ("Boxes are
+ *   drawn ONLY when the window is hilited (active) ... the inactive title bar
+ *   has no boxes" [documented: WDEF @ 932-948]).
+ *
+ * THE MECHANISM (title-bar.md Sec 2.1 table, the three remaining columns):
+ *   - top frame:    #000000 @ y=41 (active)  vs  #777777 @ y=27 (inactive)
+ *   - bottom frame:  #000000 @ y=59 (active)  vs  #777777 @ y=45 (inactive)
+ *   - title text:    #000000        (active)  vs  #A5A5A5        (inactive)
+ * Close-zoom-box.md: the close/zoom gadgets render ONLY on the active title
+ * bar; an inactive title bar has neither.
+ *
+ * THE TELL THIS CATCHES. Before this fix (a9iq had fixed only the FILL), an
+ * inactive window still drew: the title's own top + shared frame lines in
+ * BLACK (idx 0, the active role), the title text in BLACK ink (idx 4, the
+ * active role), and the close/zoom gadgets PRESENT (the a9iq bd wording
+ * "de-emphasized (still-present)") -- so a background window was still only
+ * subtly different from the frontmost one. The measurable, recolor-invariant
+ * tells: (a) the top/shared frame lines are a DISTINCT gray role (neither
+ * black idx0 nor any active bevel/pinstripe idx), (b) the title ink is a
+ * DISTINCT dim-gray role (neither black idx4 nor absent), (c) ZERO gadget
+ * tonal-role pixels (dark/bevel/face) appear in the close/zoom box rects.
+ *
+ * RECOLOR-INVARIANCE / C-8. FLAIR_PART_HILITE_FRAME / FLAIR_PART_HILITE_TEXT
+ * resolve through the SAME ONE policy seam (flair_look_pixel) as every other
+ * PART; their canon INDEX is a named idx>=9 gray-ramp slot (color_canon.h
+ * CIDX_HILITE_FRAME=119 / CIDX_HILITE_TEXT=165; color_canon.json
+ * "ramp_named_indices" -- Rule 8), so at 8bpp they render as their OWN index,
+ * never aliasing idx 0/1/2/4/6/7/8. This oracle grades the INDEX identity
+ * (idx 119 / idx 165), not the RGB -- that exact-hex mapping is
+ * test-color-canon's job (LEG E), out of scope here.
+ * ========================================================================= */
+
+/* Inactive title-bar top/shared frame line index: FLAIR_PART_HILITE_FRAME ->
+ * CIDX_HILITE_FRAME (idx 119, resolves to #777777 via the idx>=9 gray ramp).
+ * Ref: title-bar.md Sec 2 "inactive frame #777777 ... gray frame (not black)
+ * for inactive" (s7_get_info.png y=27,45 x=327); Sec 2.1 hilite-split table. */
+#define FG_HILITE_FRAME_IDX   119   /* FLAIR_PART_HILITE_FRAME -> CIDX_HILITE_FRAME */
+
+/* Inactive title text ink index: FLAIR_PART_HILITE_TEXT -> CIDX_HILITE_TEXT
+ * (idx 165, resolves to #A5A5A5 via the idx>=9 gray ramp).
+ * Ref: title-bar.md Sec 2 "inactive title text #A5A5A5 ... grayed-out title
+ * string" (s7_get_info.png y=37 x=388); Sec 2.1 hilite-split table. */
+#define FG_HILITE_TEXT_IDX    165   /* FLAIR_PART_HILITE_TEXT -> CIDX_HILITE_TEXT */
+
+/* Inactive title bar carries NO close/zoom gadgets: zero tonal-role pixels
+ * (FG_BOX_DARK_IDX / FG_BOX_BEVEL_IDX / FG_BOX_FACE_IDX) anywhere in either
+ * gadget rect. Ref: close-zoom-box.md Mechanism "the inactive title bar has
+ * no boxes". */
+#define FG_INACTIVE_NO_GADGETS   1
 
 #endif /* INITECH_SPEC_CHROME_FIDELITY_GOLDEN_H */

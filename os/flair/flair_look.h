@@ -65,6 +65,10 @@ typedef enum {
     FLAIR_PART_PIN_DARK,      /* pinstripe dark shade        -> CIDX_PIN_DARK (8) */
     FLAIR_PART_BEVEL_LIGHT,   /* title bevel light (teal)    -> bevel_light row  */
     FLAIR_PART_BEVEL_SHADOW,  /* title bevel shadow          -> bevel_shadow row */
+    FLAIR_PART_HILITE_FRAME,  /* inactive title frame (gray) -> CIDX_HILITE_FRAME
+                               * (idx>=9 ramp, #777777; beads initech-hv7u)      */
+    FLAIR_PART_HILITE_TEXT,   /* inactive title ink (dimmed) -> CIDX_HILITE_TEXT
+                               * (idx>=9 ramp, #A5A5A5; beads initech-hv7u)      */
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 

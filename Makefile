@@ -9865,6 +9865,9 @@ TEST_CHROME_FID_MUT_BOX := $(BUILD)/test_chrome_fidelity_mutant_boxgeom
 TEST_CHROME_FID_MUT_SBF := $(BUILD)/test_chrome_fidelity_mutant_scrollflat
 TEST_CHROME_FID_MUT_BVL := $(BUILD)/test_chrome_fidelity_mutant_nobevel
 TEST_CHROME_FID_MUT_INA := $(BUILD)/test_chrome_fidelity_mutant_noinactive
+TEST_CHROME_FID_MUT_IBF := $(BUILD)/test_chrome_fidelity_mutant_inactiveblackframe
+TEST_CHROME_FID_MUT_IBT := $(BUILD)/test_chrome_fidelity_mutant_inactivebrighttitle
+TEST_CHROME_FID_MUT_IKG := $(BUILD)/test_chrome_fidelity_mutant_keepgadgets
 
 $(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
@@ -9916,14 +9919,36 @@ $(TEST_CHROME_FID_MUT_INA): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NO_INACTIVE $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
+# CHROME_FID_MUT_INACTIVE_BLACK_FRAME (beads initech-hv7u, Rule 6): the inactive
+# window's own top + shared title frame lines stay black instead of dimming to
+# FLAIR_PART_HILITE_FRAME (#777777). test-chrome-fidelity legs (19)/(20) MUST go RED.
+$(TEST_CHROME_FID_MUT_IBF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_INACTIVE_BLACK_FRAME $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+# CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE (beads initech-hv7u, Rule 6): the inactive
+# window's title ink stays active black instead of dimming to
+# FLAIR_PART_HILITE_TEXT (#A5A5A5). test-chrome-fidelity legs (21)/(22) MUST go RED.
+$(TEST_CHROME_FID_MUT_IBT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_INACTIVE_BRIGHT_TITLE $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+# CHROME_FID_MUT_KEEP_GADGETS (beads initech-hv7u, Rule 6): the close/zoom
+# gadgets draw even when the window is inactive (a9iq's residual
+# "de-emphasized (still-present)" bug). test-chrome-fidelity leg (23)/(24) MUST
+# go RED.
+$(TEST_CHROME_FID_MUT_IKG): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_KEEP_GADGETS $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
 .PHONY: test-chrome-fidelity test-chrome-fidelity-mutant
 test-chrome-fidelity: $(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: System-7 window-chrome fidelity vs the INDEPENDENT ../system7-decomp golden (Law 2, NOT by-construction)\n'
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA)
-	@printf '>>> test-chrome-fidelity-mutant: confirming the phase + title + shadow + box-geom + scrollflat + no-bevel + no-inactive mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG)
+	@printf '>>> test-chrome-fidelity-mutant: confirming the phase + title + shadow + box-geom + scrollflat + no-bevel + no-inactive + inactive-black-frame + inactive-bright-title + keep-gadgets mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
 		exit 1; \
@@ -9965,6 +9990,24 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 		exit 1; \
 	else \
 		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_NO_INACTIVE correctly RED -- the always-active title bar is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_IBF) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_INACTIVE_BLACK_FRAME PASSED -- the inactive frame-recolor legs are decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_INACTIVE_BLACK_FRAME correctly RED -- the black-frame-on-inactive bug is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_IBT) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE PASSED -- the inactive title-dim legs are decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE correctly RED -- the bright-title-on-inactive bug is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_IKG) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_KEEP_GADGETS PASSED -- the inactive gadget-absence leg is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_KEEP_GADGETS correctly RED -- the still-present gadgets on inactive are caught)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -11036,18 +11079,22 @@ test-clut-mutant: $(TEST_CLUT_MUT)
 # REAL gate: test-color-canon (beads initech-mwpw -- ADR-0010 CD-2, ORACLE-FIRST).
 # THE FLAIR color VALUE oracle: grades the GENERATED spec/assets/color_canon.h
 # against INDEPENDENT decomp goldens (NEVER by construction -- the heresy HER-02
-# this re-ratification exists to kill). 4 legs: A=wctb_0_System_753.bin binary
+# this re-ratification exists to kill). 5 legs: A=wctb_0_System_753.bin binary
 # (idx0/1/3/4), B=win31 default-colors-cross-check.txt (idx5 navy #000080 w/ the
 # depth-trap, idx6 #C0C0C0), C=pinstripe.md rendered rows (idx7/idx8), D=AUTHORED
 # teal (idx2 #8DDCDC + bevels; no external golden -- locked-constant + the
-# seafoam-relapse mutant, P4 honesty). Per-leg LOUD-SKIP if a sibling golden is
-# absent (never silent-pass). SYSTEM7_DECOMP/WIN31_DECOMP already declared.
+# seafoam-relapse mutant, P4 honesty), E=title-bar.md inactive-hilite rows
+# (CIDX_HILITE_FRAME #777777 / CIDX_HILITE_TEXT #A5A5A5, beads initech-hv7u --
+# named idx>=9 gray-ramp indices, NOT a new 9-entry table slot). Per-leg
+# LOUD-SKIP if a sibling golden is absent (never silent-pass). SYSTEM7_DECOMP/
+# WIN31_DECOMP already declared.
 # ---------------------------------------------------------------------------
 TEST_COLOR_CANON           := $(BUILD)/test_color_canon
 TEST_COLOR_CANON_MUT_TEAL  := $(BUILD)/test_color_canon_mut_teal
 TEST_COLOR_CANON_MUT_NAVY  := $(BUILD)/test_color_canon_mut_navy
 TEST_COLOR_CANON_MUT_WHITE := $(BUILD)/test_color_canon_mut_white
 TEST_COLOR_CANON_MUT_PIN   := $(BUILD)/test_color_canon_mut_pin
+TEST_COLOR_CANON_MUT_HIL   := $(BUILD)/test_color_canon_mut_hilite
 COLOR_CANON_ORACLE_DEF     := -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\" -DWIN31_DECOMP=\"$(WIN31_DECOMP)\"
 
 $(TEST_COLOR_CANON): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
@@ -11060,18 +11107,21 @@ $(TEST_COLOR_CANON_MUT_WHITE): harness/proptest/test_color_canon.c $(COLOR_CANON
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_WHITE -o $@ $<
 $(TEST_COLOR_CANON_MUT_PIN): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_PIN -o $@ $<
+$(TEST_COLOR_CANON_MUT_HIL): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_HILITE -o $@ $<
 
 test-color-canon: $(TEST_COLOR_CANON)
-	@printf ">>> test-color-canon: FLAIR color VALUE oracle -- 4 legs vs INDEPENDENT decomp goldens (A wctb / B win31 / C pinstripe / D authored-teal); NOT by construction (ADR-0010)\n"
+	@printf ">>> test-color-canon: FLAIR color VALUE oracle -- 5 legs vs INDEPENDENT decomp goldens (A wctb / B win31 / C pinstripe / D authored-teal / E title-bar inactive-hilite); NOT by construction (ADR-0010)\n"
 	@$(TEST_COLOR_CANON)
 	@printf ">>> test-color-canon: green\n"
 
-test-color-canon-mutant: $(TEST_COLOR_CANON_MUT_TEAL) $(TEST_COLOR_CANON_MUT_NAVY) $(TEST_COLOR_CANON_MUT_WHITE) $(TEST_COLOR_CANON_MUT_PIN)
-	@printf ">>> test-color-canon-mutant: confirming all 4 VALUE mutants go RED (Rule 6; the INDEPENDENT golden catches a wrong canon value)\n"
+test-color-canon-mutant: $(TEST_COLOR_CANON_MUT_TEAL) $(TEST_COLOR_CANON_MUT_NAVY) $(TEST_COLOR_CANON_MUT_WHITE) $(TEST_COLOR_CANON_MUT_PIN) $(TEST_COLOR_CANON_MUT_HIL)
+	@printf ">>> test-color-canon-mutant: confirming all 5 VALUE mutants go RED (Rule 6; the INDEPENDENT golden catches a wrong canon value)\n"
 	@if $(TEST_COLOR_CANON_MUT_TEAL) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_TEAL PASSED -- the authored-teal datum is not gated (seafoam relapse slips past)\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_TEAL correctly RED -- LEG D seafoam-relapse caught)\n'; fi
 	@if $(TEST_COLOR_CANON_MUT_NAVY) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_NAVY PASSED -- the win31 depth-trap is swamped (#0000AA accepted)\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_NAVY correctly RED -- LEG B depth-trap tight)\n'; fi
 	@if $(TEST_COLOR_CANON_MUT_WHITE) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_WHITE PASSED -- the wctb binary golden is decoration\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_WHITE correctly RED -- LEG A wctb bites)\n'; fi
 	@if $(TEST_COLOR_CANON_MUT_PIN) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_PIN PASSED -- the pinstripe.md golden is decoration\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_PIN correctly RED -- LEG C pinstripe bites)\n'; fi
+	@if $(TEST_COLOR_CANON_MUT_HIL) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_HILITE PASSED -- the title-bar.md inactive-hilite golden is decoration\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_HILITE correctly RED -- LEG E title-bar bites)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gates: test-mech-policy + test-flair-mechanism-colorblind (beads

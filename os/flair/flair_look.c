@@ -20,6 +20,15 @@
  * (INITECH_CANON_BEVEL_*_RGB) -- the canon authority's constants, not a
  * hand-typed color and not a switch.
  *
+ * FLAIR_PART_HILITE_FRAME / FLAIR_PART_HILITE_TEXT (beads initech-hv7u): the
+ * inactive-window StandardWDEF wHiliteShadeA/wHiliteShade7 grays. These are
+ * ORDINARY indexed rows (derived=0), NOT the derived-bevel special case --
+ * their canon index (CIDX_HILITE_FRAME=119 / CIDX_HILITE_TEXT=165) is a named
+ * idx>=9 gray-ramp slot (color_canon.h; color_canon.json "ramp_named_indices"),
+ * so flair_canon_rgb(idx) already returns the exact cited #777777/#A5A5A5 with
+ * zero special-casing here.
+ *
+
  * Freestanding-safe (Law 3).  ASCII-clean (Rule 12).  Deterministic (Rule 11).
  *
  * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.1 (C-8), Sec 3.3 (ARB-3), Sec 3.4
@@ -62,7 +71,9 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* FLAIR_PART_PIN_LIGHT    */ { CIDX_PIN_LIGHT,  0u, 0u },
     /* FLAIR_PART_PIN_DARK     */ { CIDX_PIN_DARK,   0u, 0u },
     /* FLAIR_PART_BEVEL_LIGHT  */ { 0u, 1u, INITECH_CANON_BEVEL_LIGHT_RGB },
-    /* FLAIR_PART_BEVEL_SHADOW */ { 0u, 1u, INITECH_CANON_BEVEL_SHADOW_RGB }
+    /* FLAIR_PART_BEVEL_SHADOW */ { 0u, 1u, INITECH_CANON_BEVEL_SHADOW_RGB },
+    /* FLAIR_PART_HILITE_FRAME */ { CIDX_HILITE_FRAME, 0u, 0u },
+    /* FLAIR_PART_HILITE_TEXT  */ { CIDX_HILITE_TEXT,  0u, 0u }
 };
 
 /* ---------------------------------------------------------------------------

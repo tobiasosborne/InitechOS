@@ -31,6 +31,17 @@
  * interior -- the exact bug this fix closes. test-chrome-fidelity's inactive-
  * title leg MUST go RED under this mutant.
  *
+ * INACTIVE CHROME MUTANTS (Rule 6; beads initech-hv7u): three more named
+ * mutants covering the REST of the inactive StandardWDEF hilite split (a9iq
+ * fixed only the flat-white FILL; these close the frame/text/gadget residue):
+ *   CHROME_FID_MUT_INACTIVE_BLACK_FRAME  -- the inactive top + shared title
+ *     frame lines stay black instead of dimming to FLAIR_PART_HILITE_FRAME.
+ *   CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE -- the inactive title ink stays the
+ *     active black instead of dimming to FLAIR_PART_HILITE_TEXT.
+ *   CHROME_FID_MUT_KEEP_GADGETS -- the close/zoom gadgets draw even when
+ *     inactive (they must be ABSENT; close-zoom-box.md Mechanism).
+ * Each MUST turn its corresponding test-chrome-fidelity leg RED.
+ *
  * Ref: spec/chrome_metrics.h / chrome_metrics.json (LOCKED); StandardWDEF.a
  *      (WDEF constants); gui-ground-truth.md Sec 3.3/4.2 (chimera element map).
  *      CLAUDE.md Law 1/2/4, Rule 2/6/11/12.
@@ -360,12 +371,31 @@ static int draw_titlebar_band(GrafPort *port, int left, int top, int right,
         }
     }
 
-    /* 1d. The SHARED bottom frame line (black): the bottom edge of the title-bar
+    /* 1d. The SHARED bottom frame line: the bottom edge of the title-bar
      * FrameRect AND the top edge of the content-body FrameRect (window-frame.md
-     * Sec 2a golden y=182 #000000 "the shared line").  Spans the inner width;
-     * the outer left/right frame columns are drawn by the outer cframe (section
-     * 5).  C-8 seam (FLAIR_PART_FRAME = wFrameColor = black). */
+     * Sec 2a golden y=182 #000000 "the shared line" -- ACTIVE case).  Spans the
+     * inner width; the outer left/right frame columns are drawn by the outer
+     * cframe (section 5).
+     *
+     * INACTIVE HILITE SPLIT (beads initech-hv7u; Law 1: title-bar.md Sec 2/2.1,
+     * "an INACTIVE window gets wHiliteShadeA (gray) frame"; measured
+     * s7_get_info.png y=45 x=327 = #777777, NOT black). This line is the SAME
+     * physical line title-bar.md calls the title band's own "bottom frame" --
+     * it dims to the SAME gray role the window's own TOP frame line dims to
+     * (section 5 below); both resolve through FLAIR_PART_HILITE_FRAME, never a
+     * literal (C-8 seam).  a9iq's fill-only fix left this line black
+     * unconditionally (the a9iq bd wording flagged this as a follow-up item;
+     * this closes it). */
+#if defined(CHROME_FID_MUT_INACTIVE_BLACK_FRAME)
+    /* MUTANT (Rule 6; beads initech-hv7u): revert the shared frame line to
+     * ALWAYS black, ignoring hilited_draw -- the residual a9iq bug this fix
+     * closes (frame stayed black on an inactive window). test-chrome-fidelity's
+     * inactive shared-frame leg MUST go RED. */
     cfill(port, left + fr, shared_line, w - 2 * fr, FLAIR_PART_FRAME);
+#else
+    cfill(port, left + fr, shared_line, w - 2 * fr,
+          hilited_draw ? FLAIR_PART_FRAME : FLAIR_PART_HILITE_FRAME);
+#endif
 
     /* 1e. Title text: the window's name, drawn CENTERED in the title bar in
      * Chicago over a KNOCKED-OUT light gap. System 7 suppresses the racing stripe
@@ -415,8 +445,23 @@ static int draw_titlebar_band(GrafPort *port, int left, int top, int right,
          * pinstripe interior, CONTENT (white) on the flat inactive interior --
          * otherwise the glyph cell paints a visibly different shade than its
          * surroundings. Still resolved ONLY through the C-8 seam (a PART, never
-         * a literal), so test-flair-mechanism-colorblind stays green either way. */
+         * a literal), so test-flair-mechanism-colorblind stays green either way.
+         *
+         * TITLE INK DIM (beads initech-hv7u; Law 1: title-bar.md Sec 2/2.1,
+         * "a dimmed wHiliteShade7 title string"; measured s7_get_info.png y=37
+         * x=388 = #A5A5A5, NOT black). An inactive window's title draws in the
+         * dimmed gray ink, never the active black wTextColor -- resolved
+         * through the SAME C-8 seam, never a literal. */
+#if defined(CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE)
+        /* MUTANT (Rule 6; beads initech-hv7u): keep the title ink BLACK even
+         * when inactive -- the residual a9iq bug this fix closes.
+         * test-chrome-fidelity's inactive title-dim leg MUST go RED. */
         uint32_t ink   = flair_look_pixel(port, FLAIR_PART_TEXT);      /* seam, black */
+#else
+        uint32_t ink   = flair_look_pixel(port, hilited_draw
+                                          ? FLAIR_PART_TEXT
+                                          : FLAIR_PART_HILITE_TEXT);    /* seam        */
+#endif
         uint32_t knock = flair_look_pixel(port, hilited_draw
                                           ? FLAIR_PART_PIN_LIGHT
                                           : FLAIR_PART_CONTENT);        /* seam        */
@@ -488,12 +533,35 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
             int zx1 = right - margin;
             cframe(port, zx1 - box, by0, zx1, by0 + box, FLAIR_PART_FRAME);
         }
+#elif defined(CHROME_FID_MUT_KEEP_GADGETS)
+        /* MUTANT (Rule 6; beads initech-hv7u): draw the close/zoom gadgets
+         * UNCONDITIONALLY, ignoring `hilited` -- the a9iq residual bug (the
+         * bd wording "de-emphasized (still-present)") this fix closes: per
+         * ../system7-decomp/specs/chrome/close-zoom-box.md "Boxes are drawn
+         * ONLY when the window is hilited (active) ... the inactive title bar
+         * has no boxes." test-chrome-fidelity's inactive gadget-absence leg
+         * MUST go RED. */
+        {
+            int box_top = top + wbox_delta + 1;
+            int close_x = left + 9;
+            int zoom_x  = right - 20;
+            cbox(port, close_x, box_top, 0);
+            cbox(port, zoom_x,  box_top, 1);
+        }
 #else
-        int box_top = top + wbox_delta + 1;      /* struct.top + wBoxDelta + 1   */
-        int close_x = left + 9;                  /* struct.left + 9 (PlotGoAway) */
-        int zoom_x  = right - 20;                /* struct.right - 20 (PlotZoom) */
-        cbox(port, close_x, box_top, 0);         /* close box (no glyph)         */
-        cbox(port, zoom_x,  box_top, 1);         /* zoom box  (nested-square)    */
+        /* Close/zoom gadgets are drawn ONLY on an ACTIVE (hilited) title bar
+         * (beads initech-hv7u; Law 1: close-zoom-box.md Mechanism "Boxes are
+         * drawn ONLY when the window is hilited (active) and the corresponding
+         * flag is set ... the inactive title bar has no boxes" [documented:
+         * WDEF @ 932-948]). a9iq had kept them present on inactive windows
+         * ("de-emphasized (still-present)"); this closes that residual. */
+        if (hilited) {
+            int box_top = top + wbox_delta + 1;      /* struct.top + wBoxDelta + 1   */
+            int close_x = left + 9;                  /* struct.left + 9 (PlotGoAway) */
+            int zoom_x  = right - 20;                /* struct.right - 20 (PlotZoom) */
+            cbox(port, close_x, box_top, 0);         /* close box (no glyph)         */
+            cbox(port, zoom_x,  box_top, 1);         /* zoom box  (nested-square)    */
+        }
 #endif
     }
 
@@ -725,7 +793,41 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
      * that the outer 1 px frame line is missing. */
     (void)fr;
 #else
+    /* The window's own TOP edge (row `top`) is the SAME physical line
+     * title-bar.md calls the title band's own "top frame" (y=164 in the
+     * golden, the very first row of the window) -- so it hilite-splits the
+     * SAME way the shared bottom-of-title-band line does (draw_titlebar_band,
+     * section 1d): black when active, FLAIR_PART_HILITE_FRAME gray (#777777,
+     * wHiliteShadeA) when inactive (beads initech-hv7u; Law 1: title-bar.md
+     * Sec 2/2.1, measured s7_get_info.png y=27 x=327).  The window's OTHER
+     * three sides (left/right/bottom of the content body) are NOT documented
+     * to hilite-split (window-frame.md has no inactive variant for the body
+     * FrameRect) and stay black always.
+     *
+     * Drawing the top edge FIRST (full width, including its corners) then the
+     * left/right columns STARTING ONE ROW BELOW `top` keeps the ACTIVE render
+     * byte-identical to the prior single cframe() call (same part, same
+     * pixels, just reordered) while letting the INACTIVE render recolor only
+     * that one line. */
+#if defined(CHROME_FID_MUT_INACTIVE_BLACK_FRAME)
+    /* MUTANT (Rule 6; beads initech-hv7u): the window's own top frame line
+     * stays ALWAYS black, ignoring `hilited` -- the residual a9iq bug this fix
+     * closes. test-chrome-fidelity's inactive top-frame leg MUST go RED. */
     cframe(port, left, top, right, bottom, FLAIR_PART_FRAME);     /* outer 1 px */
+#else
+    {
+        int top_frame_part = hilited ? FLAIR_PART_FRAME : FLAIR_PART_HILITE_FRAME;
+        cfill(port, left, top, w, top_frame_part);            /* top edge     */
+        cfill(port, left, bottom - 1, w, FLAIR_PART_FRAME);   /* bottom edge  */
+        for (int y = top + 1; y < bottom; y++) {
+            /* start one row below `top`: row `top` is already fully painted
+             * by the top-edge fill above (including its corners) -- do not
+             * repaint it black here. */
+            cfill(port, left,     y, 1, FLAIR_PART_FRAME);    /* left edge    */
+            cfill(port, right - 1, y, 1, FLAIR_PART_FRAME);   /* right edge   */
+        }
+    }
+#endif
     /* Body groove INTENTIONALLY ABSENT (fidelity fix, initech-54nw):
      * the inner groove is title-bar-only (window-frame.md Sec 2a / Sec 1;
      * StandardWDEF_a.txt L567-570 body = one _FrameRect, L709-744 bevel
