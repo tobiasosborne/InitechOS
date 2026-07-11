@@ -58,13 +58,15 @@
  *   (b) TWO MENU BARS -- band [0,20) is the System-7 bar, band [20,40) is the
  *       Photoshop bar. Both bands paint the menubar fill (idx 3) at a far-
  *       right non-title x AND a black (idx 0) baseline; both carry TITLE INK
- *       (idx 0) glyphs. THE CHIMERA TELL: the System-7 band has a dense Apple
- *       slot at x in [0,20) (a filled ink square, >= APPLE_INK_MIN px) while the
- *       Photoshop band does NOT (no Apple slot); AND the Photoshop band carries
- *       title ink far to the right (x in [240,260)) where the System-7 band -- a
- *       short "File Edit View Special" -- has none. A ONE-bar render leaves the
- *       Photoshop band as bare desktop (no fill, no ink) -> RED. test_shell.c
- *       assertion (2).
+ *       (idx 0) glyphs. THE CHIMERA TELL: the System-7 band has Apple-menu-slot
+ *       ink at x in [0,20) well above APPLE_INK_MIN (the hand-authored
+ *       apple-with-bite glyph, spec/assets/apple_glyph.h -- initech-yx4v; NOT a
+ *       filled square, but still far denser than the Photoshop band's incidental
+ *       glyph bleed) while the Photoshop band does NOT (no Apple slot at all);
+ *       AND the Photoshop band carries title ink far to the right (x in
+ *       [240,260)) where the System-7 band -- a short "File Edit View Special"
+ *       -- has none. A ONE-bar render leaves the Photoshop band as bare desktop
+ *       (no fill, no ink) -> RED. test_shell.c assertion (2).
  *
  *   (c) WINDOW CHROME -- the front window's pinstripe title bar ALTERNATES with
  *       period 2 between idx 7 (#F3F3F3) and idx 8 (#969696) at adjacent y; the
@@ -154,11 +156,18 @@ enum { SCRW = 640, SCRH = 480 };
 #define DB 280
 #define FILECOPY_CANON_PROGRESS  68
 
-/* The Apple-slot density tell: the System-7 band's x in [0,20) is a filled ink
- * square (the Apple menu slot); the Photoshop band has no such slot. Calibrated:
- * System-7 band0 x[0,20) inks ~240 px; Photoshop band1 x[0,20) inks ~39 (glyphs
- * only). Threshold splits them with a wide margin. */
-#define APPLE_INK_MIN   150
+/* The Apple-slot density tell: the System-7 band's x in [0,20) carries the
+ * hand-authored apple-with-bite glyph (spec/assets/apple_glyph.h -- initech-
+ * yx4v; NOT the old solid-square bug); the Photoshop band has no Apple slot at
+ * all. Calibrated against the live render (build/desktop_scene.ppm):
+ * System-7 band0 x[0,20) inks == 94 px (the glyph's own ink count, apple_
+ * glyph.h APPLE_GLYPH_ROWS -- test_menu.c's PROPERTY 5 asserts the render
+ * reproduces this exactly); Photoshop band1 x[0,20) inks ~39 (incidental title-
+ * glyph bleed only, no Apple slot). The threshold sits at the midpoint with a
+ * margin of ~25-30 px on each side -- narrower than the old 150-vs-(240,39)
+ * split because a real glyph is sparser than a filled square, but the ordering
+ * relation (sys >> ps) still holds with room to spare. */
+#define APPLE_INK_MIN   65
 
 /* Title-ink presence threshold per probed column block (16x20 cell-ish). The
  * Photoshop bar's title ink must reach the far-right column block [240,260)

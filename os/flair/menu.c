@@ -3,12 +3,16 @@
  *
  * beads: initech-n3e ("FLAIR Menu Manager: pull-down menus + the menu bar,
  *        Photoshop-exact"). FLAIR Layer 3 Manager (ADR-0004 D-3).
+ *        initech-yx4v ("Apple menu slot rendered as a solid black filled
+ *        square, not an apple glyph") -- fixed by spec/assets/apple_glyph.h.
  *
  * Ref:   ADR-0004 D-3 (MenuInfo + the Photoshop-exact bar + MenuSelect ->
  *          (menuID<<16|item)); D-1/D-2 (draw THROUGH a GrafPort clipped by an
  *          ATKINSON region; one surface module, no second pixel path); D-7
  *          (proportional text -- text_measure = sum of per-glyph advances).
  *        spec/assets/menu_canon.h (the FROZEN canon string; USED, NOT re-authored).
+ *        spec/assets/apple_glyph.h (the hand-authored Apple-menu glyph strike;
+ *          initech-yx4v; back-checked against the system7-decomp captures).
  *        spec/chrome_metrics.h (FLAIR_CHROME_MENUBAR_H = 20).
  *        os/flair/text.h (text_measure / text_draw), os/flair/blitter.h
  *          (blitter_fill_rect_clipped), os/flair/surface.h (the ONE writer).
@@ -35,11 +39,18 @@
  *                                 the ORIGINAL initech-rl4v bug: cross-menu
  *                                 drag is structurally impossible. => the
  *                                 PROPERTY 3c cross-menu-drag oracle goes RED.
+ *   MENU_MUT_APPLE_SQUARE      -- paint the Apple slot as a SOLID FILLED
+ *                                 RECTANGLE instead of the apple_glyph.h masked
+ *                                 blit -- the ORIGINAL initech-yx4v bug. =>
+ *                                 the APPLE GLYPH property oracle goes RED
+ *                                 (ink ratio, bite notch, leaf-above-body).
  *
  * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
  */
 
 #include "menu.h"
+#include "apple_glyph.h"        /* APPLE_GLYPH_ROWS -- hand-authored strike
+                                 * (-Ispec/assets); initech-yx4v            */
 
 /* The fixed-width fallback used ONLY by the MENU_MUTATE_FIXED_WIDTH mutant.
  * Chosen distinct from any proportional title width so the mutant misplaces the
@@ -364,10 +375,13 @@ uint32_t MenuSelect(const MenuBar *bar, flair_point_t startPt,
 /* --------------------------------------------------------------------------
  * DrawMenuBar -- paint the 20px bar across the top of the port's bitmap.
  *
- * Fills the bar background (clipped), draws the Apple glyph slot (a filled cell
- * with a contrasting square so the canon apple slot is visibly present), then
- * each title via text_draw(FONT_CHICAGO) at its proportional x. Bounds/clip are
- * delegated to blitter_fill_rect_clipped and text_draw->surface_blit (Rule 2).
+ * Fills the bar background (clipped), draws the Apple glyph slot (a MASKED
+ * blit of the hand-authored apple-with-bite silhouette, spec/assets/
+ * apple_glyph.h: ink pixels painted in `fg`, background pixels of the slot
+ * left UNTOUCHED so the bar fill shows through -- initech-yx4v; this replaced
+ * a solid filled square), then each title via text_draw(FONT_CHICAGO) at its
+ * proportional x. Bounds/clip are delegated to blitter_fill_rect_clipped and
+ * text_draw->surface_blit (Rule 2).
  * -------------------------------------------------------------------------- */
 void DrawMenuBar(GrafPort *port, const MenuBar *bar,
                  uint32_t fg, uint32_t bg, const region_t *clip)
@@ -391,14 +405,38 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
     baseline.right = (int16_t)bm->width;
     blitter_fill_rect_clipped(bm, baseline, fg, clip);
 
-    /* Apple-menu glyph slot at the far left (filled square, ink-on-bg). */
+    /* Apple-menu glyph slot at the far left: a masked blit of the hand-authored
+     * apple-with-bite glyph (spec/assets/apple_glyph.h), ink-on-bar. The slot
+     * rect is EXACTLY APPLE_GLYPH_W x APPLE_GLYPH_H (16x15) -- the glyph fills
+     * the whole slot envelope, so no separate centering offset is needed. */
     if (bar->has_apple) {
         rgn_rect_t apple;
         apple.top = (int16_t)(FLAIR_MENU_TITLE_VPAD);
         apple.left = (int16_t)(FLAIR_MENU_TITLE_VPAD);
         apple.bottom = (int16_t)(FLAIR_MENUBAR_H - FLAIR_MENU_TITLE_VPAD - 1);
         apple.right = (int16_t)(FLAIR_MENU_APPLE_W - FLAIR_MENU_TITLE_VPAD);
+
+#if defined(MENU_MUT_APPLE_SQUARE) && MENU_MUT_APPLE_SQUARE
+        /* NAMED MUTANT (Rule 6): the ORIGINAL initech-yx4v bug -- a solid
+         * filled square instead of the apple glyph. The APPLE GLYPH property
+         * oracle in test_menu.c (ink ratio, bite notch, leaf-above-body) MUST
+         * go RED under this build. */
         blitter_fill_rect_clipped(bm, apple, fg, clip);
+#else
+        for (int gy = 0; gy < APPLE_GLYPH_H; gy++) {
+            uint16_t bits = APPLE_GLYPH_ROWS[gy];
+            for (int gx = 0; gx < APPLE_GLYPH_W; gx++) {
+                if (bits & (uint16_t)(0x8000u >> gx)) {
+                    rgn_rect_t px;
+                    px.top    = (int16_t)(apple.top + gy);
+                    px.left   = (int16_t)(apple.left + gx);
+                    px.bottom = (int16_t)(px.top + 1);
+                    px.right  = (int16_t)(px.left + 1);
+                    blitter_fill_rect_clipped(bm, px, fg, clip);
+                }
+            }
+        }
+#endif
     }
 
     /* Each title at its proportional x (text_draw clips internally). */

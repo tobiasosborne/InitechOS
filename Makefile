@@ -7290,7 +7290,7 @@ $(KERNEL_TEXT_OBJ): os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/a
 # menu/control/dialog: their freestanding compile-checks use a LITERAL include
 # set (-Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets), NOT the *_INC used
 # for the hosted gate (which adds -Iharness/render -Iseed). Mirror the literal.
-$(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h spec/assets/menu_canon.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h spec/assets/geneva9.h | $(BUILD)
+$(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h spec/assets/geneva9.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
 
 $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
@@ -10611,13 +10611,14 @@ TEST_MENU_SRC := harness/proptest/test_menu.c
 TEST_MENU_MUT_FW := $(BUILD)/test_menu_mutant_fixedwidth
 TEST_MENU_MUT_SD := $(BUILD)/test_menu_mutant_selectdisabled
 TEST_MENU_MUT_NR := $(BUILD)/test_menu_mutant_norehit
+TEST_MENU_MUT_AS := $(BUILD)/test_menu_mutant_applesquare
 TEST_MENU_DEPS := os/flair/menu.c os/flair/menu.h os/flair/text.c os/flair/text.h \
                   os/flair/blitter.c os/flair/blitter.h os/flair/surface.c os/flair/surface.h \
                   os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                   $(RENDER_SKEL_C) $(RENDER_SKEL_H) \
                   spec/assets/menu_canon.h spec/chrome_metrics.h \
                   spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h \
-                  spec/assets/chicago8x16.h spec/assets/geneva9.h
+                  spec/assets/chicago8x16.h spec/assets/geneva9.h spec/assets/apple_glyph.h
 MENU_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 MENU_LINK := os/flair/menu.c os/flair/text.c os/flair/blitter.c os/flair/surface.c \
              $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c
@@ -10630,19 +10631,22 @@ $(TEST_MENU_MUT_SD): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUTATE_SELECT_DISABLED=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
 $(TEST_MENU_MUT_NR): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_NO_REHIT=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+$(TEST_MENU_MUT_AS): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_APPLE_SQUARE=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
 
 test-menu: $(TEST_MENU)
-	@printf ">>> test-menu: proportional bar layout + canon Photoshop bar (Law 4) + MenuSelect tracking + MenuKey + rendered panel\n"
+	@printf ">>> test-menu: proportional bar layout + canon Photoshop bar (Law 4) + MenuSelect tracking + MenuKey + rendered panel + Apple glyph (initech-yx4v)\n"
 	@$(TEST_MENU) $(BUILD)/menu_window.ppm
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $(BUILD)/menu_freestanding.o \
 		|| { printf '!!! test-menu FAIL: menu.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-menu: green\n"
 
-test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR)
-	@printf ">>> test-menu-mutant: confirming all three mutants go RED (Rule 6)\n"
+test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR) $(TEST_MENU_MUT_AS)
+	@printf ">>> test-menu-mutant: confirming all four mutants go RED (Rule 6)\n"
 	@if $(TEST_MENU_MUT_FW) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: FIXED_WIDTH PASSED -- the proportional-layout oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (FIXED_WIDTH correctly RED)\n'; fi
 	@if $(TEST_MENU_MUT_SD) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: SELECT_DISABLED PASSED -- the selectability oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (SELECT_DISABLED correctly RED)\n'; fi
 	@if $(TEST_MENU_MUT_NR) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: NO_REHIT PASSED -- the cross-menu-drag oracle is decoration (initech-rl4v)\n'; exit 1; else printf '>>> test-menu-mutant: green (NO_REHIT correctly RED, initech-rl4v)\n'; fi
+	@if $(TEST_MENU_MUT_AS) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: APPLE_SQUARE PASSED -- the Apple-glyph oracle is decoration (initech-yx4v)\n'; exit 1; else printf '>>> test-menu-mutant: green (APPLE_SQUARE correctly RED, initech-yx4v)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-control (beads initech-8h9) -- FLAIR Control Manager. Buttons,
@@ -10704,7 +10708,7 @@ SHELL_DEPS := $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_H) $(SHELL_LINK) \
               os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h \
               os/flair/heap.h os/flair/text.h os/flair/event.h $(RENDER_SKEL_H) \
               $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h \
-              spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h
+              spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/assets/palette.h
 
 # Instantiate the LIVE flair_desktop MUTANT kernel/image rules (defined ~line
 # 8011) HERE, after SHELL_C / SHELL_H / SHELL_INC / REGION_ENGINE_H exist (the
