@@ -48,6 +48,13 @@ typedef struct {
      * same one-declaration rule) -- see collect_decls -- and is_const is
      * how check_stmt's AST_ASSIGN case rejects "assign to a constant". */
     int        is_const;
+    /* B5 (beads initech-54uu): 1 if this GLOBAL is a static array. When set,
+     * `type` holds the array's ELEMENT type (reused, same convention as
+     * ast.h's AST_VARDECL.vtype) and lo/hi are its declared inclusive
+     * bounds. An array is never a const (B3's const grammar is scalar-only)
+     * so is_array and is_const are never both set. */
+    int        is_array;
+    long       lo, hi;
 } TcSym;
 
 /* B4 (beads initech-63ce): one entry in a routine's local scope. `kind`
@@ -67,6 +74,12 @@ typedef struct {
     char        name[TC_SYM_NAME_CAP];
     AstVarType  type;
     TcLocalKind kind;
+    /* B5 (beads initech-54uu): 1 iff this LOCAL (always TC_KIND_LOCAL --
+     * array parameters/results are out of scope, see ast.h's B5 DECISION
+     * note) is a static array; `type` is then its ELEMENT type and lo/hi its
+     * declared inclusive bounds. */
+    int         is_array;
+    long        lo, hi;
 } TcLocal;
 
 /* B4: one procedure/function signature. Params are flattened (one entry per
@@ -167,20 +180,36 @@ static int proc_find(const Tc *tc, const char *name_lc)
  * words the diagnostic for its context). A local is always an lvalue (no
  * local consts in this subset); a global var is an lvalue, a global const is
  * not.
+ *
+ * B5 (beads initech-54uu): also reports whether the resolved name is a
+ * static ARRAY (*out_is_array) and, when it is, its declared bounds
+ * (*out_lo and *out_hi). For an array, *out_type is the ELEMENT type (same
+ * "reuse the type field" convention as ast.h's AST_VARDECL.vtype and this
+ * file's TcSym/TcLocal). Callers that only handle SCALAR names (the
+ * pre-B5 call sites) must check *out_is_array themselves and reject a bare
+ * array reference with their own located diagnostic -- this function does
+ * not decide whether an array hit is an error, only reports the fact.
  */
 static int resolve_name(const Tc *tc, const char *name_lc,
-                        AstVarType *out_type, int *out_is_lvalue)
+                        AstVarType *out_type, int *out_is_lvalue,
+                        int *out_is_array, long *out_lo, long *out_hi)
 {
     int li = local_find(tc, name_lc);
     if (li >= 0) {
         *out_type = tc->local[li].type;
         *out_is_lvalue = 1; /* every local (param/local/result) is writable */
+        *out_is_array = tc->local[li].is_array;
+        *out_lo = tc->local[li].lo;
+        *out_hi = tc->local[li].hi;
         return 1;
     }
     int si = sym_find(tc, name_lc);
     if (si >= 0) {
         *out_type = tc->syms[si].type;
         *out_is_lvalue = !tc->syms[si].is_const;
+        *out_is_array = tc->syms[si].is_array;
+        *out_lo = tc->syms[si].lo;
+        *out_hi = tc->syms[si].hi;
         return 1;
     }
     return 0;
@@ -223,6 +252,9 @@ static void collect_decls(Tc *tc, const AstList *decls)
                        vd->as.constdecl.name);
             tc->syms[tc->nsyms].type = vd->as.constdecl.ctype;
             tc->syms[tc->nsyms].is_const = 1;
+            tc->syms[tc->nsyms].is_array = 0; /* B3 consts are scalar-only */
+            tc->syms[tc->nsyms].lo = 0;
+            tc->syms[tc->nsyms].hi = 0;
             tc->nsyms++;
             continue;
         }
@@ -265,8 +297,15 @@ static void collect_decls(Tc *tc, const AstList *decls)
             lower_copy(tc->syms[tc->nsyms].name,
                        sizeof(tc->syms[tc->nsyms].name),
                        vr->as.varref.name);
+            /* B5 (beads initech-54uu): vd->as.vardecl.vtype already holds
+             * the ELEMENT type when is_array is set (parser.c's
+             * parse_one_vardecl) -- the same "reuse vtype" convention this
+             * struct's own comment documents. */
             tc->syms[tc->nsyms].type = vd->as.vardecl.vtype;
             tc->syms[tc->nsyms].is_const = 0;
+            tc->syms[tc->nsyms].is_array = vd->as.vardecl.is_array;
+            tc->syms[tc->nsyms].lo = vd->as.vardecl.lo;
+            tc->syms[tc->nsyms].hi = vd->as.vardecl.hi;
             tc->nsyms++;
         }
     }
@@ -465,26 +504,48 @@ static AstVarType check_call(Tc *tc, AstNode *call, int want_value)
          * lvalue) -- never a literal, constant, or compound expression. Check
          * this BEFORE type-checking the arg so the diagnostic is specific
          * (the DEEP-BUG locus: a var-param argument that is not a variable
-         * would otherwise silently take the address of a temporary). */
+         * would otherwise silently take the address of a temporary).
+         *
+         * B5 (beads initech-54uu): a single INDEXED ARRAY ELEMENT (`a[i]`,
+         * AST_INDEX) is ALSO a valid var-parameter argument -- its ELEMENT
+         * address is passed (codegen.c's gen_addr_of/gen_elem_addr). A bare
+         * ARRAY NAME (no index) is NOT valid here -- whole-array-by-
+         * reference parameters are out of scope in this subset (ast.h's B5
+         * DECISION note); resolving a plain AST_VARREF to an array name is
+         * therefore rejected below, not silently accepted as "the array's
+         * address". */
         if (pr->params[i].is_var) {
-            AstVarType at;
+            AstVarType at = AST_TY_UNKNOWN;
             int is_lvalue = 0;
             int resolved = 0;
+            int is_array = 0;
+            long lo = 0, hi = 0;
             if (arg->kind == AST_VARREF) {
                 char alc[TC_SYM_NAME_CAP];
                 lower_copy(alc, sizeof(alc), arg->as.varref.name);
-                resolved = resolve_name(tc, alc, &at, &is_lvalue);
+                resolved = resolve_name(tc, alc, &at, &is_lvalue,
+                                        &is_array, &lo, &hi);
+                if (resolved && is_array)
+                    is_lvalue = 0; /* a bare array name is not a scalar lvalue */
+            } else if (arg->kind == AST_INDEX) {
+                char alc[TC_SYM_NAME_CAP];
+                lower_copy(alc, sizeof(alc), arg->as.arrayindex.name);
+                int base_is_lvalue = 0;
+                resolved = resolve_name(tc, alc, &at, &base_is_lvalue,
+                                        &is_array, &lo, &hi);
+                is_lvalue = resolved && is_array; /* an element of a REAL array */
             }
-            if (arg->kind != AST_VARREF || !resolved || !is_lvalue) {
+            if (!resolved || !is_lvalue) {
                 char msg[TYPECHECK_ERRMSG_CAP];
                 snprintf(msg, sizeof(msg),
                          "argument %d of %s is a `var` parameter and requires "
-                         "a variable (not a literal, constant, or expression)",
+                         "a variable or array element (not a literal, "
+                         "constant, whole array, or expression)",
                          i + 1, call->as.call.name);
                 fail_at(tc, arg->line, arg->col, msg);
                 return AST_TY_UNKNOWN;
             }
-            arg->type = at; /* annotate the VARREF so codegen knows its type */
+            arg->type = at; /* annotate so codegen knows its type */
         }
         AstVarType at = check_expr(tc, arg);
         if (tc->failed)
@@ -643,14 +704,65 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
         lower_copy(lc, sizeof(lc), e->as.varref.name);
         AstVarType t;
         int is_lvalue;
-        if (!resolve_name(tc, lc, &t, &is_lvalue)) {
+        int is_array;
+        long lo, hi;
+        if (!resolve_name(tc, lc, &t, &is_lvalue, &is_array, &lo, &hi)) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg), "undeclared variable: %s",
                      e->as.varref.name);
             fail_at(tc, e->line, e->col, msg);
             return AST_TY_UNKNOWN;
         }
+        (void)lo; (void)hi; /* a bare-name reference never needs the bounds */
+        /* B5 (beads initech-54uu): a bare array name is not a value in this
+         * subset -- whole-array use (read, write, pass-by-value/reference)
+         * is out of scope; the only legal use of an array is indexed
+         * (AST_INDEX, handled below). */
+        if (is_array) {
+            char msg[TYPECHECK_ERRMSG_CAP];
+            snprintf(msg, sizeof(msg),
+                     "array '%s' used without an index (expected %s[expr])",
+                     e->as.varref.name, e->as.varref.name);
+            fail_at(tc, e->line, e->col, msg);
+            return AST_TY_UNKNOWN;
+        }
         e->type = t;
+        return e->type;
+    }
+    /* B5 (beads initech-54uu; ADR-0007 DEC-02 "static arrays ... indexed as
+     * both l-value and r-value"): `name[index]` as an r-value. */
+    case AST_INDEX: {
+        char lc[TC_SYM_NAME_CAP];
+        lower_copy(lc, sizeof(lc), e->as.arrayindex.name);
+        AstVarType elem;
+        int is_lvalue, is_array;
+        long lo, hi;
+        if (!resolve_name(tc, lc, &elem, &is_lvalue, &is_array, &lo, &hi)) {
+            char msg[TYPECHECK_ERRMSG_CAP];
+            snprintf(msg, sizeof(msg), "undeclared variable: %s",
+                     e->as.arrayindex.name);
+            fail_at(tc, e->line, e->col, msg);
+            return AST_TY_UNKNOWN;
+        }
+        (void)is_lvalue; (void)lo; (void)hi; /* codegen re-resolves bounds */
+        if (!is_array) {
+            char msg[TYPECHECK_ERRMSG_CAP];
+            snprintf(msg, sizeof(msg),
+                     "'%s' is not an array (only array variables may be "
+                     "indexed)", e->as.arrayindex.name);
+            fail_at(tc, e->line, e->col, msg);
+            return AST_TY_UNKNOWN;
+        }
+        AstVarType it = check_expr(tc, e->as.arrayindex.index);
+        if (tc->failed)
+            return AST_TY_UNKNOWN;
+        if (it != AST_TY_INTEGER) {
+            fail_at(tc, e->as.arrayindex.index->line,
+                    e->as.arrayindex.index->col,
+                    "array index must be an integer expression");
+            return AST_TY_UNKNOWN;
+        }
+        e->type = elem;
         return e->type;
     }
     case AST_CALL:
@@ -687,10 +799,62 @@ static void check_stmt(Tc *tc, AstNode *n)
         lower_copy(lc, sizeof(lc), n->as.assign.name);
         AstVarType vt;
         int is_lvalue;
-        if (!resolve_name(tc, lc, &vt, &is_lvalue)) {
+        int is_array;
+        long lo, hi;
+        if (!resolve_name(tc, lc, &vt, &is_lvalue, &is_array, &lo, &hi)) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg), "undeclared variable: %s",
                      n->as.assign.name);
+            fail_at(tc, n->line, n->col, msg);
+            return;
+        }
+        /* B5 (beads initech-54uu): an INDEXED target (`name[index] := v`)
+         * takes a DIFFERENT path from a plain scalar assignment -- the name
+         * must be a real array, the index must be integer, and the value
+         * must match the ELEMENT type (vt, from resolve_name's "reuse type
+         * for the element" convention). */
+        if (n->as.assign.index) {
+            if (!is_array) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg),
+                         "'%s' is not an array (indexed assignment requires "
+                         "an array variable)", n->as.assign.name);
+                fail_at(tc, n->line, n->col, msg);
+                return;
+            }
+            (void)lo; (void)hi; /* codegen re-resolves bounds for addressing */
+            AstVarType it = check_expr(tc, n->as.assign.index);
+            if (tc->failed)
+                return;
+            if (it != AST_TY_INTEGER) {
+                fail_at(tc, n->as.assign.index->line, n->as.assign.index->col,
+                        "array index must be an integer expression");
+                return;
+            }
+            AstVarType vvt = check_expr(tc, n->as.assign.value);
+            if (tc->failed)
+                return;
+            if (vvt != vt) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg),
+                         "type mismatch in indexed assignment to %s: "
+                         "expected %s, got %s (no implicit coercion in this "
+                         "subset)",
+                         n->as.assign.name, ast_vartype_name(vt),
+                         ast_vartype_name(vvt));
+                fail_at(tc, n->line, n->col, msg);
+            }
+            return;
+        }
+        /* B5: a bare array name is never a valid SCALAR assignment target --
+         * whole-array assignment is out of scope in this subset (see ast.h's
+         * B5 DECISION note). */
+        if (is_array) {
+            char msg[TYPECHECK_ERRMSG_CAP];
+            snprintf(msg, sizeof(msg),
+                     "cannot assign to array '%s' as a whole (this subset "
+                     "requires an index: %s[expr] := ...)",
+                     n->as.assign.name, n->as.assign.name);
             fail_at(tc, n->line, n->col, msg);
             return;
         }
@@ -792,9 +956,13 @@ static void check_stmt(Tc *tc, AstNode *n)
 /* ------------------------------------------------------------------ */
 /* Add one entry to the active local scope, rejecting a duplicate WITHIN the
  * routine (a param/local/result colliding with another) and capacity
- * overflow (Rule 2). A local may freely shadow a global (not checked here). */
+ * overflow (Rule 2). A local may freely shadow a global (not checked here).
+ * B5 (beads initech-54uu): is_array/lo/hi are 0 for every non-array entry
+ * (params and the result are never arrays -- ast.h's B5 DECISION note); a
+ * LOCAL array passes its declared bounds through. */
 static void add_local(Tc *tc, int line, int col, const char *name_lc,
-                      AstVarType type, TcLocalKind kind, const char *what)
+                      AstVarType type, TcLocalKind kind, const char *what,
+                      int is_array, long lo, long hi)
 {
     if (tc->failed)
         return;
@@ -815,6 +983,9 @@ static void add_local(Tc *tc, int line, int col, const char *name_lc,
                sizeof(tc->local[tc->nlocal].name), name_lc);
     tc->local[tc->nlocal].type = type;
     tc->local[tc->nlocal].kind = kind;
+    tc->local[tc->nlocal].is_array = is_array;
+    tc->local[tc->nlocal].lo = lo;
+    tc->local[tc->nlocal].hi = hi;
     tc->nlocal++;
 }
 
@@ -835,14 +1006,15 @@ static void check_routine(Tc *tc, const AstNode *pf)
         lower_copy(plc, sizeof(plc), pn->as.param.name);
         add_local(tc, pn->line, pn->col, plc, pn->as.param.ptype,
                   pn->as.param.is_var ? TC_KIND_VARPARAM : TC_KIND_VALPARAM,
-                  "parameter");
+                  "parameter", /*is_array=*/0, 0, 0);
     }
 
     if (!tc->failed && pf->as.procfunc.has_result) {
         char rlc[TC_SYM_NAME_CAP];
         lower_copy(rlc, sizeof(rlc), pf->as.procfunc.name);
         add_local(tc, pf->line, pf->col, rlc, pf->as.procfunc.rettype,
-                  TC_KIND_RESULT, "name (a parameter shadows the result)");
+                  TC_KIND_RESULT, "name (a parameter shadows the result)",
+                  /*is_array=*/0, 0, 0);
     }
 
     for (size_t i = 0; i < pf->as.procfunc.decls.count && !tc->failed; i++) {
@@ -856,8 +1028,14 @@ static void check_routine(Tc *tc, const AstNode *pf)
             const AstNode *vr = vd->as.vardecl.names.items[j];
             char vlc[TC_SYM_NAME_CAP];
             lower_copy(vlc, sizeof(vlc), vr->as.varref.name);
+            /* B5 (beads initech-54uu): a LOCAL array (frame-resident --
+             * codegen.c's cg_build_scope allocates it a contiguous run of
+             * frame slots). vd->as.vardecl.vtype already holds the ELEMENT
+             * type when is_array is set (parser.c). */
             add_local(tc, vr->line, vr->col, vlc, vd->as.vardecl.vtype,
-                      TC_KIND_LOCAL, "local variable");
+                      TC_KIND_LOCAL, "local variable",
+                      vd->as.vardecl.is_array, vd->as.vardecl.lo,
+                      vd->as.vardecl.hi);
         }
     }
 

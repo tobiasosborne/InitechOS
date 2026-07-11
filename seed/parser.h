@@ -10,11 +10,47 @@
  *   program      = "program" ident ";"
  *                  { const-section | var-section | proc-or-func } block "." ;
  *   var-section  = "var" var-decl ";" { var-decl ";" } ;
- *   var-decl     = ident { "," ident } ":" ("integer" | "boolean" | "char") ;
+ *   var-decl     = ident { "," ident } ":" var-type ;
+ *   var-type     = "integer" | "boolean" | "char" | array-type ;
+ *
+ *   B5 (beads initech-54uu; ADR-0007 DEC-02 "static arrays (array[lo..hi] of
+ *   T), indexed as both l-value and r-value") -- static arrays, in BOTH
+ *   global (var-section) and LOCAL (a routine's own var-section) position --
+ *   parse_one_vardecl is the ONE function both paths share, so this is not
+ *   two grammars.
+ *
+ *   array-type   = "array" "[" array-bound ".." array-bound "]" "of"
+ *                  ("integer" | "boolean" | "char") ;
+ *   array-bound  = [ "-" ] integer | ident ;
+ *     Bounds are PARSE-TIME CONSTANTS ONLY (an integer literal, optionally
+ *     negated, or an already-registered `const` INTEGER name -- see
+ *     parse_array_bound) -- never a general expression, since a static
+ *     array's extent must be known for frame-slot/. bss sizing. `lo <= hi`
+ *     is enforced HERE, at parse time (fail loud, Rule 2), not left as a
+ *     codegen surprise.
+ *   index-expr   = ident "[" expr "]" ;
+ *     Used as an EXPRESSION (r-value; see `factor` below) or as an
+ *     assignment TARGET (l-value; see `assignment` below, which now allows
+ *     an optional "[" expr "]" between the identifier and ":="). The index
+ *     expression is any INTEGER expression, including a nested call
+ *     (`a[Compute(i)]`).
+ *   DECISION (report, ADR silent): NO multi-dimensional arrays (one
+ *   dimension only -- ADR-0007 DEC-02's own text asks only for
+ *   "array[lo..hi] of T"); NO array-typed parameters (whole-array by value
+ *   or by reference) -- only ONE INDEXED ELEMENT may be passed as a `var`
+ *   parameter argument (its address is passed); NO runtime bounds checking
+ *   (Turbo Pascal's own {$R-} default -- see ast.h's B5 AST_INDEX comment
+ *   for the full rationale and the Rule-2 tension this creates, mitigated by
+ *   a SOURCE discipline: fixed-capacity arrays + explicit guards, not a
+ *   compiler feature).
  *   block        = "begin" [ stmt { ";" stmt } ] "end" ;
  *   stmt         = assignment | call | block | write-stmt | if-stmt
  *                | while-stmt | for-stmt | repeat-stmt | (* empty *) ;
- *   assignment   = ident ":=" expr ;
+ *   assignment   = ident [ "[" expr "]" ] ":=" expr ;
+ *     The optional "[" expr "]" (B5, beads initech-54uu) makes the target an
+ *     indexed array-element assignment; `ident` must resolve to a declared
+ *     array (typecheck.c). Reuses AST_ASSIGN with an optional `index` field
+ *     rather than a new statement kind (see ast.h's B5 comment).
  *
  *   B4 (beads initech-63ce; ADR-0007 DEC-02 "procedures/functions: nested
  *   scopes, both value and var parameters, recursion, results" + the
@@ -79,8 +115,13 @@
  *   simple-expr  = term { ("+" | "-" | "or") term } ;      (* left-assoc *)
  *   term         = factor { ("*" | "div" | "mod" | "and") factor };(* left-assoc *)
  *   factor       = integer | boolean-lit | char-lit | ident | call
+ *                | index-expr
  *                | "ord" "(" expr ")" | "chr" "(" expr ")"
  *                | "(" expr ")" | "-" factor | "not" factor ;
+ *     index-expr (B5, beads initech-54uu) is `ident "[" expr "]"`, checked
+ *     AFTER the const-fold and call-parenthesis checks in parse_factor's
+ *     TOK_IDENT branch (a const can never be an array in this subset, so the
+ *     ordering never mis-parses a const use as an index).
  *   boolean-lit  = "true" | "false" ;
  *   char-lit     = "'" any-one-character "'" ;
  *
@@ -139,9 +180,11 @@
  * assign/relational/while nodes that already carry those rules).
  *
  * DEFERRED (later steps, intentionally not parsed): case, real type,
- * records, pointers, arrays, typed consts, general string expressions,
+ * records, pointers, typed consts, general string expressions,
  * lexically-nested routines, local const sections, the `Result`
- * pseudo-variable.
+ * pseudo-variable, multi-dimensional/array-of-array arrays, array-typed
+ * parameters (B5, beads initech-54uu -- see the array-type grammar note
+ * above for the full DECISION list).
  *
  * Error-handling strategy (DECIDED, consistent with the lexer): the parser is
  * single-error. On the first syntax (or lexical) fault it records a located

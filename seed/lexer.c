@@ -235,6 +235,10 @@ static TokenKind keyword_kind(const char *s, size_t n)
     if (strcmp(buf, "procedure") == 0) return TOK_KW_PROCEDURE;
     if (strcmp(buf, "function") == 0)  return TOK_KW_FUNCTION;
     if (strcmp(buf, "forward") == 0)   return TOK_KW_FORWARD;
+    /* B5 (beads initech-54uu): static arrays -- `array` and `of`, reserved
+     * for the same minimality reason as every other keyword above. */
+    if (strcmp(buf, "array") == 0)     return TOK_KW_ARRAY;
+    if (strcmp(buf, "of") == 0)        return TOK_KW_OF;
     return TOK_IDENT;
 }
 
@@ -376,10 +380,22 @@ Token lexer_next(Lexer *lx)
     /* Single- and two-char punctuation. */
     switch (c) {
     case ';': advance(lx); return make_simple(TOK_SEMI, lx->src + lx->pos - 1, 1, line, col);
-    case '.': advance(lx); return make_simple(TOK_DOT, lx->src + lx->pos - 1, 1, line, col);
+    /* B5 (beads initech-54uu): '.' is either the lone program-terminator DOT
+     * ("end.") or the first half of the ".." array-bound range token --
+     * disambiguated by peeking for a second '.', exactly like ':'/':=' below. */
+    case '.':
+        advance(lx);
+        if (peek(lx) == '.') {
+            advance(lx);
+            return make_simple(TOK_DOTDOT, lx->src + lx->pos - 2, 2, line, col);
+        }
+        return make_simple(TOK_DOT, lx->src + lx->pos - 1, 1, line, col);
     case ',': advance(lx); return make_simple(TOK_COMMA, lx->src + lx->pos - 1, 1, line, col);
     case '(': advance(lx); return make_simple(TOK_LPAREN, lx->src + lx->pos - 1, 1, line, col);
     case ')': advance(lx); return make_simple(TOK_RPAREN, lx->src + lx->pos - 1, 1, line, col);
+    /* B5 (beads initech-54uu): array indexing brackets. */
+    case '[': advance(lx); return make_simple(TOK_LBRACKET, lx->src + lx->pos - 1, 1, line, col);
+    case ']': advance(lx); return make_simple(TOK_RBRACKET, lx->src + lx->pos - 1, 1, line, col);
     case '+': advance(lx); return make_simple(TOK_PLUS, lx->src + lx->pos - 1, 1, line, col);
     case '-': advance(lx); return make_simple(TOK_MINUS, lx->src + lx->pos - 1, 1, line, col);
     case '*': advance(lx); return make_simple(TOK_STAR, lx->src + lx->pos - 1, 1, line, col);

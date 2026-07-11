@@ -202,7 +202,72 @@ typedef enum {
     AST_PROCDECL,
     AST_FUNCDECL,
     AST_PARAM,
-    AST_CALL
+    AST_CALL,
+    /*
+     * B5 (beads initech-54uu; ADR-0007 DEC-02 "static arrays (array[lo..hi]
+     * of T), indexed as both l-value and r-value"):
+     *   AST_INDEX: `name[index]` used as an EXPRESSION (r-value) -- reading
+     *     an array element, or as a `var`-parameter call argument (its
+     *     ELEMENT address is passed -- codegen.c's gen_addr_of/
+     *     gen_elem_addr). `name` must resolve to a declared ARRAY (a global
+     *     .bss block or a frame-resident local -- see AST_VARDECL's
+     *     `is_array`/`lo`/`hi` fields below); `index` is any INTEGER
+     *     expression, including a nested call (`a[Compute(i)]`).
+     *
+     *   INDEXED ASSIGNMENT (l-value) reuses AST_ASSIGN rather than adding a
+     *   sibling node kind: `as.assign.index` is NULL for an ordinary scalar
+     *   assignment (`name := value`, every pre-B5 use) and non-NULL for an
+     *   indexed one (`name[index] := value`) -- every existing AST_ASSIGN
+     *   call site just gains an `if (index) ... else ...` branch instead of
+     *   a whole new statement kind.
+     *
+     *   DECISION (report, ADR silent -- the bead's own "decide minimal,
+     *   record" point): arrays are NOT first-class parameter types here --
+     *   no "var arr: array[1..N] of integer" parameter form (whole-array by
+     *   reference or by value). AST_PARAM's `ptype` stays the pre-B5 SCALAR
+     *   AstVarType. What IS supported (required by "indexed as ... l-value",
+     *   composed with B4's var parameters): passing ONE INDEXED ELEMENT
+     *   (`a[i]`) as a `var` parameter argument -- that passes the element's
+     *   ADDRESS (AST_INDEX reused as a call argument; typecheck.c's
+     *   check_call var-param branch; codegen.c's gen_addr_of). Rationale:
+     *   this seed's own routines are flat + operate on globals (B4's
+     *   DECISION note above), so a self-hosting compiler never NEEDS to pass
+     *   a whole symbol-table array by reference -- it references the global
+     *   array directly, or passes one element. Full array parameters
+     *   (bounds would need to travel with the argument, or be erased
+     *   Pascal-open-array style) are a materially bigger feature, deferred
+     *   past B5, not silently absorbed.
+     *
+     *   DECISION (report): multi-dimensional arrays (`array[1..3,1..3] of
+     *   T` or arrays-of-arrays) are NOT implemented. ADR-0007 DEC-02 asks
+     *   only for "static arrays (array[lo..hi] of T)" -- one dimension --
+     *   and docs/plans/TPS-M7-subset-plan.md's B6 note ("arrays-of-arrays
+     *   arrive implicitly via records-of-arrays if needed") places any
+     *   nested-container need at B6 (records), not here. This seed's own
+     *   bootstrap needs (symbol tables, source buffers -- the bead's own
+     *   oracle framing) are naturally one-dimensional. Left OUT, not
+     *   silently absorbed -- revisit only if B6/B7 genuinely need it.
+     *
+     *   DECISION (report, ADR silent -- Turbo Pascal's own default): NO
+     *   runtime bounds checking. Real Turbo Pascal range-checks only under
+     *   {$R+}; {$R-} (no checking) is the DEFAULT -- the same precedent this
+     *   subset already used for chr()'s out-of-range TRUNCATION (codegen.c's
+     *   OP_CHR case, cited to the Borland Turbo Pascal 7.0 Language Guide).
+     *   TENSION WITH RULE 2 (recorded, not resolved away): an out-of-range
+     *   index is a SILENT out-of-bounds memory access -- in this compiler's
+     *   own self-hosted future use, a bad symbol-table index would corrupt
+     *   an adjacent frame slot or .bss variable with no diagnostic. The
+     *   mitigation is a SOURCE DISCIPLINE, not a codegen feature (mirrors
+     *   DEC-03's nested-if idiom): self-host-critical Pascal (Turbo
+     *   Initech's own source, B9) must use FIXED-CAPACITY arrays sized by
+     *   named limit constants plus EXPLICIT guards before every index --
+     *   the identical discipline ADR-0007 DEC-02's ratification amendment
+     *   already mandates for the compiler's own internal collections
+     *   ("capacity overflow is a Rule-2 fail-loud diagnostic ... never a
+     *   silent truncation or wraparound"). Recorded here so a future reader
+     *   does not mistake the omission for an oversight.
+     */
+    AST_INDEX
 } AstKind;
 
 typedef enum {
@@ -253,13 +318,28 @@ struct AstNode {
         struct { char *name; AstList decls; AstNode *block; } program;
         /* vtype: the DECLARED type of this group ("integer"/"boolean"/
          * "char"), set by the parser when it consumes the type keyword --
-         * distinct from the generic per-expression `type` field above. */
-        struct { AstList names; /* AST_VARREF nodes */ AstVarType vtype; } vardecl;
+         * distinct from the generic per-expression `type` field above.
+         * B5 (beads initech-54uu): when is_array is set, `vtype` holds the
+         * array's ELEMENT type (reused rather than a new field -- one fewer
+         * thing to keep in sync) and lo/hi are the declared inclusive
+         * bounds (lo <= hi enforced at parse time, parser.c's
+         * parse_array_type). is_array == 0 (the ast_new memset default) is
+         * every pre-B5 scalar vardecl; lo/hi are unused (0) in that case. */
+        struct {
+            AstList    names; /* AST_VARREF nodes */
+            AstVarType vtype;
+            int        is_array;
+            long       lo, hi;
+        } vardecl;
         /* B3: name + declared type only -- no value (folded away, see the
          * header's B3 comment). */
         struct { char *name; AstVarType ctype; } constdecl;
         struct { AstList stmts; } block;
-        struct { char *name; AstNode *value; } assign;
+        /* B5 (beads initech-54uu): `index` is NULL for an ordinary scalar
+         * assignment (every pre-B5 use); non-NULL means `name[index] :=
+         * value` -- an indexed (array-element) assignment. See this
+         * header's B5 AST_INDEX comment above. */
+        struct { char *name; AstNode *index; AstNode *value; } assign;
         /* B2: else_stmt is NULL when there is no 'else' clause. */
         struct { AstNode *cond; AstNode *then_stmt; AstNode *else_stmt; } ifstmt;
         struct { AstNode *cond; AstNode *body; } whilestmt;
@@ -295,6 +375,12 @@ struct AstNode {
          * Used as an expression (function call; `type` = result type) or as
          * a statement (procedure call). */
         struct { char *name; AstList args; } call;
+        /* B5 (beads initech-54uu): `name[index]` as an EXPRESSION (r-value)
+         * or a `var`-parameter call argument. `name` must resolve to a
+         * declared array (checked by typecheck.c, which also sets `type`,
+         * ast.h's generic per-expression field, to the array's element
+         * type). See this header's B5 AST_INDEX comment above. */
+        struct { char *name; AstNode *index; } arrayindex;
     } as;
 };
 

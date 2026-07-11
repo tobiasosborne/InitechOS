@@ -41,6 +41,15 @@
  * does not need that flexibility and reserving the words avoids a whole
  * class of shadowing complexity for zero self-host cost.
  *
+ * B5 addition (beads initech-54uu; ADR-0007 DEC-02 "static arrays
+ * (array[lo..hi] of T), indexed as both l-value and r-value"): the `array`
+ * and `of` keywords (reserved, same minimality rationale as above), plus
+ * `[`/`]` for indexing and a two-character `..` range token (TOK_DOTDOT) for
+ * an array bound's "lo..hi" range -- lexed the same way `:=` is: the first
+ * `.` is scanned, then the lexer peeks for a SECOND `.` before deciding
+ * TOK_DOTDOT vs plain TOK_DOT (the "end." program terminator), mirroring
+ * the `:`/`:=` two-char disambiguation already in this lexer.
+ *
  * Pascal is case-insensitive: keywords and identifiers are matched
  * case-insensitively by the lexer. The Token stores the source lexeme verbatim
  * (a span into the source buffer); semantic comparison is done case-folded.
@@ -101,6 +110,9 @@ typedef enum {
     TOK_KW_PROCEDURE,
     TOK_KW_FUNCTION,
     TOK_KW_FORWARD,
+    /* B5 keywords (beads initech-54uu): static arrays. */
+    TOK_KW_ARRAY,
+    TOK_KW_OF,
 
     /* punctuation / operators */
     TOK_SEMI,       /* ; */
@@ -120,7 +132,11 @@ typedef enum {
     TOK_LT,         /* < */
     TOK_LE,         /* <= */
     TOK_GT,         /* > */
-    TOK_GE          /* >= */
+    TOK_GE,         /* >= */
+    /* B5 punctuation (beads initech-54uu): array indexing + the range token. */
+    TOK_LBRACKET,   /* [ */
+    TOK_RBRACKET,   /* ] */
+    TOK_DOTDOT      /* .. */
 } TokenKind;
 
 /*

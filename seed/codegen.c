@@ -290,6 +290,10 @@
 #define CG_MAX_PARAMS   32
 #define CG_MAX_SCOPE    (CG_MAX_PARAMS + 64) /* params + result + locals */
 #define CG_MAX_PROCS   128
+/* B5 (beads initech-54uu): the GLOBAL array table (parallel to CgProc's
+ * "collected once, consulted throughout emission" shape). Fixed capacity,
+ * fail-loud on overflow (Rule 2) -- same discipline as CG_MAX_PROCS. */
+#define CG_MAX_GLOBAL_ARRAYS 64
 
 typedef enum {
     CG_GLOBAL,    /* not resolved in a routine scope -> .bss v_<name> */
@@ -302,7 +306,15 @@ typedef enum {
 typedef struct {
     char   name[CG_NAME_CAP]; /* case-folded */
     CgKind kind;
-    int    offset;            /* ebp displacement (signed) */
+    int    offset;            /* ebp displacement (signed). For an array
+                               * local (is_array), the offset of ELEMENT 0
+                               * (index `lo`) -- see gen_elem_addr. */
+    /* B5 (beads initech-54uu): 1 iff this LOCAL is a static array (params
+     * and the result are never arrays, ast.h's B5 DECISION note -- always 0
+     * for CG_VALPARAM/CG_VARPARAM/CG_RESULT). lo/hi are its declared
+     * inclusive bounds, valid iff is_array. */
+    int    is_array;
+    long   lo, hi;
 } CgScopeEnt;
 
 typedef struct {
@@ -318,6 +330,15 @@ typedef struct {
     int  has_result;
 } CgProc;
 
+/* B5 (beads initech-54uu): one GLOBAL array's bounds, keyed by its
+ * case-folded name -- consulted by gen_expr/gen_stmt/gen_addr_of (via
+ * gen_elem_addr) whenever an indexed reference resolves OUTSIDE the active
+ * routine scope (cg_resolve returns NULL), i.e. is a program-level global. */
+typedef struct {
+    char name[CG_NAME_CAP];
+    long lo, hi;
+} CgGlobalArr;
+
 typedef struct {
     FILE *out;
     int   str_count;      /* next .rodata string label ordinal */
@@ -327,6 +348,9 @@ typedef struct {
     CgProc         proctab[CG_MAX_PROCS];
     int            nproc;
     const CgScope *scope;
+    /* B5 (beads initech-54uu): the global array table (see CgGlobalArr). */
+    CgGlobalArr    garr[CG_MAX_GLOBAL_ARRAYS];
+    int            ngarr;
     int   lbl_count;      /* next local-label ordinal -- ONE counter shared by
                            * EVERY local label this file emits: the B1
                            * boolean-print labels (beads initech-f0uc,
@@ -451,6 +475,20 @@ static const CgProc *cg_proc_find(const Cg *cg, const char *name)
     return NULL;
 }
 
+/* B5 (beads initech-54uu): find a GLOBAL array in the array table by name;
+ * NULL if absent (never happens for a well-typed program targeting a name
+ * that cg_resolve already reported as "not in the active routine scope" --
+ * typecheck guarantees an indexed reference resolves to SOME array). */
+static const CgGlobalArr *cg_global_arr_find(const Cg *cg, const char *name)
+{
+    char lc[CG_NAME_CAP];
+    cg_lower(lc, sizeof(lc), name);
+    for (int i = 0; i < cg->ngarr; i++)
+        if (strcmp(cg->garr[i].name, lc) == 0)
+            return &cg->garr[i];
+    return NULL;
+}
+
 /* ----- .rodata string pass: assign ordinal labels to each string arg ----- */
 /* We walk write/writeln args in source order and emit each string literal as a
  * labelled byte array. To map a string node to its label in the .text pass we
@@ -530,6 +568,120 @@ static void gen_expr(Cg *cg, const AstNode *e);
 /* B4 (beads initech-63ce). */
 static void gen_call(Cg *cg, const AstNode *call);
 static void gen_addr_of(Cg *cg, const AstNode *arg);
+/* B5 (beads initech-54uu). */
+static void gen_elem_addr(Cg *cg, const char *name, const AstNode *idxexpr);
+
+/*
+ * B5 (beads initech-54uu; ADR-0007 DEC-02/DEC-04 "static arrays"; codegen:
+ * base + (index - lo) * stride) -- element addressing.
+ *
+ * gen_elem_addr emits the ELEMENT ADDRESS of `name[idxexpr]` into EAX. It is
+ * the ONE shared address-computation path for every array use: an r-value
+ * read (gen_expr's AST_INDEX case, which then dereferences the address),
+ * an l-value store (gen_stmt's AST_ASSIGN case, indexed target), and a
+ * `var`-parameter call argument (gen_addr_of, which just needs the address,
+ * no dereference) -- so the base+offset arithmetic is written exactly once.
+ *
+ * STRIDE (DECISION, report -- the bead's own "decide now, record" point):
+ * EVERY element occupies a UNIFORM 4-byte slot, regardless of element type
+ * (integer, boolean, OR char) -- the identical "one zero-extended dword per
+ * scalar" convention this seed has used since B1 (booleans) and B3 (chars,
+ * see codegen.c's file-header AST_CHARLIT note: "one uniform slot width for
+ * every scalar in this subset"). A char ARRAY therefore does NOT pack one
+ * byte per element here; it costs 4x the memory a byte-packed array would.
+ * Rationale: (1) ONE stride constant (4) for every element type means one
+ * address-computation path with no per-type dispatch -- simpler codegen,
+ * and self-host-sufficient (the bead's own oracle framing -- symbol tables,
+ * source buffers -- needs correctness, not density, to reach the K2==K3
+ * fixed point); (2) it is the ALREADY-established seed convention, so
+ * introducing a second (byte) stride HERE would be the actual divergence,
+ * not the other way around. FORWARD-LOOKING NOTE (recorded now, per the
+ * bead's explicit ask to "think one step ahead" toward B7 strings): B7's
+ * fixed/ShortString type will almost certainly want a BYTE-PACKED
+ * length-prefixed representation (a ShortString's whole point is compact,
+ * Pascal-compatible storage) -- this seed's design intends for B7 to define
+ * its OWN dedicated string representation and codegen path (a new AST kind
+ * with its own layout), NOT to reuse "array of char" with a byte stride
+ * bolted on after the fact. If a future bead instead chooses to model
+ * ShortString as a byte-packed "array[0..N] of char" reusing THIS feature,
+ * that is a considered amendment (a second, byte-addressed stride variant),
+ * not an oversight -- flag it explicitly rather than silently special-
+ * casing char here.
+ *
+ * ADDRESSING FORMULA: element address = base + (index - lo) * stride.
+ *   GLOBAL array `name` (a .bss block labelled v_<name>, resd (hi-lo+1)):
+ *     base = the label's address (a bare "mov eax, v_name", the same
+ *     convention gen_addr_of already uses for a global's address-of).
+ *   LOCAL array (frame-resident, cg_build_scope): base = [ebp + se->offset],
+ *     where se->offset is the ebp displacement of ELEMENT 0 (index lo).
+ *     Because cg_local_offset's slots grow MORE NEGATIVE as the slot number
+ *     increases (cg_build_scope allocates element j at slot+j), the
+ *     relationship is `offset(element j) = se->offset - 4*j`, so the local
+ *     case SUBTRACTS the byte offset from the element-0 address rather than
+ *     adding it (see the two branches below) -- this is the "[ebp-...]
+ *     offset math" the bead flags as composing with B4's deep-bug locus:
+ *     it reuses cg_local_offset's EXACT linear form (including under the
+ *     SEED_MUT_CODEGEN_FRAME_OFF4 mutant, which shifts the whole family
+ *     uniformly and therefore still corrupts an array local's addressing
+ *     exactly as it corrupts a scalar local's -- no special-casing needed
+ *     for the mutant to bite here too).
+ */
+static void gen_index_byteoff(Cg *cg, const AstNode *idxexpr, long lo)
+{
+    FILE *o = cg->out;
+    gen_expr(cg, idxexpr);           /* index value -> eax */
+#ifdef SEED_MUT_CODEGEN_ARRAY_LO_SKIP
+    /* MUTATION HOOK (Rule 6; beads initech-54uu, ADR-0007 DEC-07's
+     * per-family mutation obligation for B5 -- the cheap second leg for the
+     * lo-offset half of "base + (index - lo) * stride"). Compile with
+     * -DSEED_MUT_CODEGEN_ARRAY_LO_SKIP to OMIT the "- lo" step entirely
+     * (every array is addressed as if lo were always 0), so any array whose
+     * declared lower bound is NON-ZERO is indexed off-by-`lo` elements --
+     * array.pas's a[]/c[]/local_arr[]/letters[]/flags[] all have a non-zero
+     * lo (only b's lo=0 is unaffected by this particular leg), so this
+     * bites broadly. test-seed-array-mutant asserts array.pas goes RED
+     * under this leg too. */
+    (void)lo;
+#else
+    if (lo != 0)
+        fprintf(o, "    sub eax, %ld\n", lo);  /* zero-based: (index - lo) */
+#endif
+#ifdef SEED_MUT_CODEGEN_STRIDE
+    /* MUTATION HOOK (Rule 6; beads initech-54uu, ADR-0007 DEC-07's
+     * per-family mutation obligation for B5). Compile with
+     * -DSEED_MUT_CODEGEN_STRIDE to multiply by 2 instead of the correct
+     * uniform 4-byte stride, so EVERY indexed read/write/var-param address
+     * lands on the wrong element (or straddles two elements) for any index
+     * other than 0. test-seed-array-mutant asserts array.pas goes RED. */
+    fprintf(o, "    imul eax, 2\n");
+#else
+    fprintf(o, "    imul eax, 4\n");   /* stride: uniform 4-byte slot */
+#endif
+}
+
+static void gen_elem_addr(Cg *cg, const char *name, const AstNode *idxexpr)
+{
+    FILE *o = cg->out;
+    const CgScopeEnt *se = cg_resolve(cg, name);
+    if (se) {
+        if (!se->is_array)
+            cg_ice("indexed access to a non-array local", idxexpr);
+        gen_index_byteoff(cg, idxexpr, se->lo);   /* eax = byte offset */
+        fprintf(o, "    mov edx, eax\n");         /* edx = byte offset */
+        fprintf(o, "    lea eax, ");
+        cg_ebp(o, se->offset);                    /* eax = &element[lo] */
+        fprintf(o, "\n    sub eax, edx\n");        /* local slots grow down */
+    } else {
+        const CgGlobalArr *ga = cg_global_arr_find(cg, name);
+        if (!ga)
+            cg_ice("indexed access to an unknown/non-array global", idxexpr);
+        gen_index_byteoff(cg, idxexpr, ga->lo);   /* eax = byte offset */
+        fprintf(o, "    mov edx, eax\n");         /* edx = byte offset */
+        fprintf(o, "    mov eax, v_");
+        emit_var_label(o, name);                  /* eax = &v_name[0] */
+        fprintf(o, "\n    add eax, edx\n");
+    }
+}
 
 static void gen_binop(Cg *cg, const AstNode *e)
 {
@@ -691,6 +843,13 @@ static void gen_expr(Cg *cg, const AstNode *e)
         /* B4: a function call used as an expression value (result -> eax). */
         gen_call(cg, e);
         break;
+    /* B5 (beads initech-54uu): `name[index]` as an r-value -- compute the
+     * element ADDRESS (gen_elem_addr, the ONE shared address path) then
+     * dereference it. */
+    case AST_INDEX:
+        gen_elem_addr(cg, e->as.arrayindex.name, e->as.arrayindex.index);
+        fprintf(o, "    mov eax, [eax]\n");
+        break;
     case AST_BINOP:
         gen_binop(cg, e);
         break;
@@ -832,6 +991,22 @@ static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
             gen_stmt(cg, n->as.block.stmts.items[i], str_idx);
         break;
     case AST_ASSIGN: {
+        /* B5 (beads initech-54uu): an INDEXED target (`name[index] :=
+         * value`) computes the ELEMENT ADDRESS FIRST and spills it to the
+         * STACK (push) before evaluating the value expression -- the value
+         * (or the index expression itself, inside gen_elem_addr) may contain
+         * a call, which is free to clobber eax/ecx/edx (cdecl, caller-saved)
+         * and would corrupt an address left in any of those registers. This
+         * mirrors gen_binop's own lhs-spill discipline (push eax before
+         * evaluating the rhs) applied to an address instead of a value. */
+        if (n->as.assign.index) {
+            gen_elem_addr(cg, n->as.assign.name, n->as.assign.index);
+            fprintf(o, "    push eax\n");        /* spill &element */
+            gen_expr(cg, n->as.assign.value);    /* value -> eax */
+            fprintf(o, "    pop edx\n");          /* edx = &element */
+            fprintf(o, "    mov [edx], eax\n");
+            break;
+        }
         /* B4 (beads initech-63ce): resolve the target in the active routine
          * scope. A global (or any name in pas_main) stores to its .bss slot;
          * a value param/local/result stores to its frame slot; a var
@@ -911,13 +1086,21 @@ static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
 
 /* ---------------- B4 (beads initech-63ce): calls + routine emission ------- */
 
-/* Emit the ADDRESS of a variable argument into eax (for a `var` parameter).
- * The argument is an AST_VARREF (typecheck guaranteed it is a plain variable).
- * A global -> its label address; a value param/local/result -> lea of its
- * frame slot; a var parameter -> its stored pointer forwarded unchanged. */
+/* Emit the ADDRESS of a variable (or, B5, an array ELEMENT) argument into
+ * eax (for a `var` parameter). A plain-variable argument is an AST_VARREF
+ * (typecheck guaranteed it is a plain variable): a global -> its label
+ * address; a value param/local/result -> lea of its frame slot; a var
+ * parameter -> its stored pointer forwarded unchanged. B5 (beads
+ * initech-54uu): an AST_INDEX argument (`a[i]`, typecheck guaranteed `a` is
+ * a real array) passes THAT ELEMENT's address -- gen_elem_addr is the exact
+ * same address computation an indexed l-value/r-value uses, reused here. */
 static void gen_addr_of(Cg *cg, const AstNode *arg)
 {
     FILE *o = cg->out;
+    if (arg->kind == AST_INDEX) {
+        gen_elem_addr(cg, arg->as.arrayindex.name, arg->as.arrayindex.index);
+        return;
+    }
     if (arg->kind != AST_VARREF)
         cg_ice("var-parameter argument is not a variable", arg);
     const CgScopeEnt *se = cg_resolve(cg, arg->as.varref.name);
@@ -969,7 +1152,16 @@ static void gen_call(Cg *cg, const AstNode *call)
 
 /* Count a routine's frame slots (result + local variables) and build its
  * scope table (params first, at +offsets; then result + locals, at
- * -offsets). */
+ * -offsets).
+ *
+ * B5 (beads initech-54uu): a LOCAL ARRAY of N = hi-lo+1 elements occupies N
+ * CONTIGUOUS frame slots (the "extend the frame-slot allocator" the bead
+ * names) -- its scope entry's `offset` is cg_local_offset(slot) for the
+ * FIRST slot (element index `lo`); element j (0-based from lo) then lives at
+ * cg_local_offset(slot + j) = offset - 4*j (the [ebp-...] offset math this
+ * composes with: cg_local_offset's linear form, INCLUDING under the
+ * FRAME_OFF4 mutant, keeps that relationship exact -- see gen_elem_addr).
+ * `slot` advances by N instead of 1 for an array local. */
 static void cg_build_scope(CgScope *sc, const AstNode *pf)
 {
     sc->n = 0;
@@ -984,6 +1176,8 @@ static void cg_build_scope(CgScope *sc, const AstNode *pf)
         e->kind = cg_param_is_var(pn->as.param.is_var) ? CG_VARPARAM
                                                         : CG_VALPARAM;
         e->offset = cg_param_offset((int)i);
+        e->is_array = 0; /* array parameters are out of scope (ast.h B5) */
+        e->lo = e->hi = 0;
     }
 
     int slot = 0;
@@ -994,6 +1188,8 @@ static void cg_build_scope(CgScope *sc, const AstNode *pf)
         cg_lower(e->name, sizeof(e->name), pf->as.procfunc.name);
         e->kind = CG_RESULT;
         e->offset = cg_local_offset(slot++);
+        e->is_array = 0; /* a function result is always scalar */
+        e->lo = e->hi = 0;
     }
     for (size_t i = 0; i < pf->as.procfunc.decls.count; i++) {
         const AstNode *vd = pf->as.procfunc.decls.items[i];
@@ -1006,7 +1202,19 @@ static void cg_build_scope(CgScope *sc, const AstNode *pf)
             CgScopeEnt *e = &sc->ent[sc->n++];
             cg_lower(e->name, sizeof(e->name), vr->as.varref.name);
             e->kind = CG_LOCAL;
-            e->offset = cg_local_offset(slot++);
+            if (vd->as.vardecl.is_array) {
+                long lo = vd->as.vardecl.lo, hi = vd->as.vardecl.hi;
+                long count = hi - lo + 1;
+                e->is_array = 1;
+                e->lo = lo;
+                e->hi = hi;
+                e->offset = cg_local_offset(slot); /* element 0 (index lo) */
+                slot += (int)count;
+            } else {
+                e->is_array = 0;
+                e->lo = e->hi = 0;
+                e->offset = cg_local_offset(slot++);
+            }
         }
     }
     sc->frame_slots = slot;
@@ -1078,7 +1286,16 @@ static void emit_bss(Cg *cg, const AstNode *program)
                 cg_ice("non-varref in vardecl names", vr);
             fprintf(o, "v_");
             emit_var_label(o, vr->as.varref.name);
-            fprintf(o, ": resd 1\n");
+            /* B5 (beads initech-54uu): a GLOBAL array is a SIZED .bss block
+             * of (hi-lo+1) uniform 4-byte slots (resd N) instead of the
+             * scalar resd 1 -- the array's element 0 (index lo) is the
+             * label's address itself, exactly like a scalar's slot. */
+            if (vd->as.vardecl.is_array) {
+                long count = vd->as.vardecl.hi - vd->as.vardecl.lo + 1;
+                fprintf(o, ": resd %ld\n", count);
+            } else {
+                fprintf(o, ": resd 1\n");
+            }
         }
     }
     fprintf(o, "\n");
@@ -1096,7 +1313,31 @@ int codegen_emit(const AstNode *program, FILE *out)
     cg.str_count = 0;
     cg.lbl_count = 0;
     cg.nproc = 0;
+    cg.ngarr = 0;
     cg.scope = NULL;
+
+    /* B5 (beads initech-54uu): build the GLOBAL array table (name -> bounds)
+     * from every top-level AST_VARDECL group with is_array set, BEFORE
+     * emit_bss/.text so gen_elem_addr can resolve a global array's `lo`
+     * bound the moment it is reached during either pass. Mirrors the
+     * routine-table build just below (collected once, consulted
+     * throughout). */
+    for (size_t i = 0; i < program->as.program.decls.count; i++) {
+        const AstNode *vd = program->as.program.decls.items[i];
+        if (vd->kind != AST_VARDECL || !vd->as.vardecl.is_array)
+            continue;
+        for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {
+            const AstNode *vr = vd->as.vardecl.names.items[j];
+            if (cg.ngarr >= CG_MAX_GLOBAL_ARRAYS) {
+                fprintf(stderr, "initechc: codegen: too many global arrays\n");
+                return 1;
+            }
+            CgGlobalArr *ga = &cg.garr[cg.ngarr++];
+            cg_lower(ga->name, sizeof(ga->name), vr->as.varref.name);
+            ga->lo = vd->as.vardecl.lo;
+            ga->hi = vd->as.vardecl.hi;
+        }
+    }
 
     /* B4 (beads initech-63ce): build the routine call table (name -> arity +
      * per-parameter by-reference flags + result-ness) from every proc/func

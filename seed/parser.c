@@ -234,6 +234,8 @@ static AstNode *parse_repeat(Parser *p);
 static AstNode *parse_call(Parser *p, char *name, int line, int col);
 static AstNode *parse_proc_or_func(Parser *p);
 static void     parse_var_section(Parser *p, AstList *decls);
+/* B5 (beads initech-54uu): array indexing. */
+static AstNode *parse_index(Parser *p, char *name, int line, int col);
 
 /* ------------------------------------------------------------------ */
 /* Expressions                                                        */
@@ -386,6 +388,11 @@ static AstNode *parse_factor(Parser *p)
         advance(p);
         if (check(p, TOK_LPAREN))
             return parse_call(p, name, line, col);
+        /* B5 (beads initech-54uu): `name[expr]` is an array-element r-value.
+         * A const can never reach here (the const-fold branch above already
+         * returned), so this is unambiguously an array reference. */
+        if (check(p, TOK_LBRACKET))
+            return parse_index(p, name, line, col);
         AstNode *n = ast_new(p->arena, AST_VARREF, line, col);
         n->as.varref.name = name;
         return n;
@@ -575,6 +582,11 @@ static AstNode *parse_write(Parser *p, int is_newline)
  * ':=' assignment. Assignment to a function name inside its own body writes
  * the function RESULT (the target resolves to the result variable in
  * typecheck/codegen -- see ast.h's B4 note).
+ *
+ * B5 (beads initech-54uu): an optional "[" expr "]" between the identifier
+ * and ':=' makes this an INDEXED (array-element) assignment target --
+ * `name[index] := expr`. Reuses AST_ASSIGN (its `index` field is NULL for
+ * every plain scalar assignment, non-NULL here) -- see ast.h's B5 comment.
  */
 static AstNode *parse_assignment(Parser *p)
 {
@@ -583,6 +595,15 @@ static AstNode *parse_assignment(Parser *p)
     advance(p); /* ident */
     if (check(p, TOK_LPAREN))
         return parse_call(p, name, line, col); /* procedure call statement */
+    AstNode *index = NULL;
+    if (check(p, TOK_LBRACKET)) {
+        advance(p); /* '[' */
+        index = parse_expr(p);
+        if (p->failed)
+            return NULL;
+        if (!expect(p, TOK_RBRACKET, "']' after an array index"))
+            return NULL;
+    }
     if (!expect(p, TOK_ASSIGN, "':='"))
         return NULL;
     AstNode *value = parse_expr(p);
@@ -590,6 +611,7 @@ static AstNode *parse_assignment(Parser *p)
         return NULL;
     AstNode *n = ast_new(p->arena, AST_ASSIGN, line, col);
     n->as.assign.name = name;
+    n->as.assign.index = index;
     n->as.assign.value = value;
     return n;
 }
@@ -628,6 +650,30 @@ static AstNode *parse_call(Parser *p, char *name, int line, int col)
     }
     if (!expect(p, TOK_RPAREN, "')'"))
         return NULL;
+    return n;
+}
+
+/*
+ * index-expr = ident "[" expr "]" ;   (B5, beads initech-54uu)
+ *
+ * `name` is already arena-owned and the current token is the '['. Builds an
+ * AST_INDEX used as an r-value (an ordinary expression) or as a `var`
+ * call-argument (typecheck.c's check_call resolves the latter; codegen.c's
+ * gen_addr_of passes the element's ADDRESS in that case). The index
+ * expression may be arbitrarily complex (a nested call, another index,
+ * etc.) -- typecheck enforces only that it is INTEGER-typed.
+ */
+static AstNode *parse_index(Parser *p, char *name, int line, int col)
+{
+    advance(p); /* '[' */
+    AstNode *idx = parse_expr(p);
+    if (p->failed)
+        return NULL;
+    if (!expect(p, TOK_RBRACKET, "']' after an array index"))
+        return NULL;
+    AstNode *n = ast_new(p->arena, AST_INDEX, line, col);
+    n->as.arrayindex.name = name;
+    n->as.arrayindex.index = idx;
     return n;
 }
 
@@ -983,9 +1029,105 @@ static AstNode *parse_block(Parser *p)
 /* ------------------------------------------------------------------ */
 /* Declarations                                                       */
 /* ------------------------------------------------------------------ */
-/* Parse "name { , name } : integer" (or ": boolean", B1 beads initech-f0uc)
- * into one AST_VARDECL. The trailing ';' is consumed by the caller (the
- * var-section loop). */
+/*
+ * array-bound = [ "-" ] integer | ident ;   (B5, beads initech-54uu)
+ *
+ * A static array's bound is a PARSE-TIME CONSTANT ONLY: an (optionally
+ * negated) integer literal, or the name of an already-registered `const`
+ * INTEGER (parser.c's own const table -- see the ParserConst comment near
+ * the top of this file). NEVER a general expression -- a static array's
+ * extent must be known here, for frame-slot/.bss sizing (codegen.c). A
+ * negated const reference (`-SIZE`) is not supported (report: minor, no
+ * self-host need identified). Returns 1 on success (with *out set), 0 with
+ * a located error otherwise.
+ */
+static int parse_array_bound(Parser *p, long *out)
+{
+    int neg = 0;
+    if (check(p, TOK_MINUS)) {
+        neg = 1;
+        advance(p);
+    }
+    if (check(p, TOK_INT)) {
+        long v = p->cur.ivalue;
+        advance(p);
+        *out = neg ? -v : v;
+        return 1;
+    }
+    if (!neg && check(p, TOK_IDENT)) {
+        char lc[PARSER_CONST_NAME_CAP];
+        lower_span(lc, sizeof(lc), p->cur.lexeme, p->cur.length);
+        int cidx = const_find(p, lc);
+        if (cidx >= 0 && p->consts[cidx].ctype == AST_TY_INTEGER) {
+            *out = p->consts[cidx].value;
+            advance(p);
+            return 1;
+        }
+    }
+    fail_at(p, p->cur.line, p->cur.col,
+            "expected an integer literal or an integer constant for an "
+            "array bound");
+    return 0;
+}
+
+/*
+ * array-type = "array" "[" array-bound ".." array-bound "]" "of"
+ *              ("integer" | "boolean" | "char") ;   (B5, beads initech-54uu)
+ *
+ * The current token is 'array' on entry. `lo <= hi` is enforced HERE, at
+ * parse/fold time (Rule 2 -- fail loud, never a codegen-time surprise).
+ */
+static int parse_array_type(Parser *p, long *out_lo, long *out_hi,
+                            AstVarType *out_elem)
+{
+    advance(p); /* 'array' */
+    if (!expect(p, TOK_LBRACKET, "'[' after 'array'"))
+        return 0;
+    long lo, hi;
+    if (!parse_array_bound(p, &lo))
+        return 0;
+    if (!expect(p, TOK_DOTDOT, "'..' in an array bound"))
+        return 0;
+    if (!parse_array_bound(p, &hi))
+        return 0;
+    if (!expect(p, TOK_RBRACKET, "']' after an array bound"))
+        return 0;
+    if (lo > hi) {
+        fail_at(p, p->cur.line, p->cur.col,
+                "array lower bound must be <= upper bound "
+                "(lo <= hi, ADR-0007 DEC-02)");
+        return 0;
+    }
+    if (!expect(p, TOK_KW_OF, "'of' after an array bound"))
+        return 0;
+    AstVarType elem;
+    if (check(p, TOK_KW_INTEGER)) {
+        elem = AST_TY_INTEGER;
+        advance(p);
+    } else if (check(p, TOK_KW_BOOLEAN)) {
+        elem = AST_TY_BOOLEAN;
+        advance(p);
+    } else if (check(p, TOK_KW_CHAR)) {
+        elem = AST_TY_CHAR;
+        advance(p);
+    } else {
+        fail_at(p, p->cur.line, p->cur.col,
+                "expected 'integer', 'boolean', or 'char' as the array "
+                "element type");
+        return 0;
+    }
+    *out_lo = lo;
+    *out_hi = hi;
+    *out_elem = elem;
+    return 1;
+}
+
+/* Parse "name { , name } : integer" (or ": boolean", B1 beads initech-f0uc,
+ * or ": array[lo..hi] of T", B5 beads initech-54uu) into one AST_VARDECL.
+ * The trailing ';' is consumed by the caller (the var-section loop). This
+ * ONE function serves BOTH global (program-level) and LOCAL (a routine's own
+ * var-section, parse_proc_or_func) declarations -- so a local array works
+ * exactly like a global one, through the identical parse path. */
 static AstNode *parse_one_vardecl(Parser *p)
 {
     int line = p->cur.line, col = p->cur.col;
@@ -1010,7 +1152,17 @@ static AstNode *parse_one_vardecl(Parser *p)
     }
     if (!expect(p, TOK_COLON, "':'"))
         return NULL;
-    if (check(p, TOK_KW_INTEGER)) {
+    if (check(p, TOK_KW_ARRAY)) {
+        /* B5 (beads initech-54uu; ADR-0007 DEC-02 "static arrays"). */
+        long lo, hi;
+        AstVarType elem;
+        if (!parse_array_type(p, &lo, &hi, &elem))
+            return NULL;
+        vd->as.vardecl.is_array = 1;
+        vd->as.vardecl.lo = lo;
+        vd->as.vardecl.hi = hi;
+        vd->as.vardecl.vtype = elem;
+    } else if (check(p, TOK_KW_INTEGER)) {
         vd->as.vardecl.vtype = AST_TY_INTEGER;
         advance(p);
     } else if (check(p, TOK_KW_BOOLEAN)) {
@@ -1022,7 +1174,7 @@ static AstNode *parse_one_vardecl(Parser *p)
         advance(p);
     } else {
         fail_at(p, p->cur.line, p->cur.col,
-                "expected 'integer', 'boolean', or 'char'");
+                "expected 'integer', 'boolean', 'char', or 'array'");
         return NULL;
     }
     return vd;

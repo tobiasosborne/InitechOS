@@ -7105,6 +7105,7 @@ endef
         test-fat test-dbase test-compiler test-seed test-seed-codegen \
         test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant \
         test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant \
+        test-seed-array-mutant \
         test-seed-fpc-diff \
         test-harness test-tracer-boot test-boot test-console test-idt \
         test-idt-mutant test-int21 test-int21-mutant test-redir test-redir-mutant test-int24 test-int24-mutant \
@@ -7166,6 +7167,7 @@ help:
 	@printf '  test-seed-control-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_BRANCH_INVERT (jz->jnz on if/while guards) makes control.pas correctly RED. REAL (QEMU). beads initech-80iw, ADR-0007 DEC-02/DEC-04.\n'
 	@printf '  test-seed-char-mutant  Rule-6 proof: -DSEED_MUT_CODEGEN_CHR_OFF1 (chr(i) computes (i&0xFF)+1) makes char.pas correctly RED. REAL (QEMU). beads initech-7mo3, ADR-0007 DEC-02/DEC-07.\n'
 	@printf '  test-seed-func-mutant  Rule-6 proof (B4 CODEGEN PIVOT): BOTH deep-bug mutants make func.pas correctly RED -- FRAME_OFF4 (frame-offset arithmetic) + VARPARAM_COPY (var-param aliasing). REAL (QEMU). beads initech-63ce, ADR-0007 DEC-02/DEC-07.\n'
+	@printf '  test-seed-array-mutant  Rule-6 proof (B5 static arrays): BOTH deep-bug mutants make array.pas correctly RED -- STRIDE (element stride *2 instead of *4) + ARRAY_LO_SKIP (the lo-offset subtraction omitted). REAL (QEMU). beads initech-54uu, ADR-0007 DEC-02/DEC-07.\n'
 	@printf '  test-seed-fpc-diff  DEC-07 Rung 2: Turbo Initech seed vs Free Pascal, byte-exact stdout diff on the shared-subset corpus. REAL when fpc installed; FAILS LOUD (not skipped) when fpc is absent. beads initech-63ce, ADR-0007 Sec 4.7.\n'
 	@printf '  test-seed-repro  Reproducible-build gate: the FULL seed corpus, compiled twice (initechc->nasm->ld) into separate scratch dirs, is byte-identical (.s+.o+.elf sha256). REAL. bead initech-3yv, ADR-0007 FO-5/DEC-06.\n'
 	@printf '  test-seed-repro-mutant  Rule-6 proof: -DSEED_MUT_NONDET (getpid()-seeded dead .rodata symbol -- GENUINE nondeterminism) makes test-seed-repro correctly RED, while leaving bool.pas single-run behavior untouched. REAL. bead initech-3yv, ADR-0007 FO-5.\n'
@@ -11881,6 +11883,13 @@ SEED_CHAR_EXPECT := ORDA=65 CHRA=A ORDCHR65=66 CHRORDB=B CHRWRAP=A CONSTUSE=11 N
 # CODEGEN PIVOT (first real frames + calls).
 SEED_FUNC_EXPECT := FACT5=120 SUMTO=15 EVEN7=FALSE ODD7=TRUE SWAPA=8 SWAPB=3 ALIASG=41 ALIASG2=42 VALINDEP=5 COMPOSE=10
 
+# B5 (beads initech-54uu): array.pas's full hand-computed exact-serial golden
+# (see the fixture's header comment for the derivation of every TAG) --
+# static arrays (global const-folded bound, global lo=0, global negative lo,
+# a LOCAL array, a boolean array, a char array), indexed l/r-value, indexed
+# elements as `var`-parameter arguments, and a function-call index expression.
+SEED_ARRAY_EXPECT := FILLSUM=55 SUM=15 REV=54321 NESTED=4 BSUM=510 CSUM=10 FLAGSUM=2 SCANPOS=4
+
 $(BUILD)/seed_arith_%.elf: $(ARITH_DIR)/%.pas $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
 	$(SEED_BIN) --emit-asm -o $(BUILD)/seed_arith_$*.s $<
 	$(NASM) -f elf32 $(BUILD)/seed_arith_$*.s -o $(BUILD)/seed_arith_$*.o
@@ -11894,7 +11903,8 @@ ARITH_ELVES := $(BUILD)/seed_arith_precedence.elf \
                $(BUILD)/seed_arith_bool.elf \
                $(BUILD)/seed_arith_control.elf \
                $(BUILD)/seed_arith_char.elf \
-               $(BUILD)/seed_arith_func.elf
+               $(BUILD)/seed_arith_func.elf \
+               $(BUILD)/seed_arith_array.elf
 
 test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@printf ">>> test-seed-codegen: SMOKE -- expect serial marker '%s'\n" "$(SEED_SMOKE_MARKER)"
@@ -11937,6 +11947,10 @@ test-seed-codegen: $(HARNESS_BIN) $(SEED_SMOKE_ELF) $(ARITH_ELVES)
 	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_func.elf" --expect "$(SEED_FUNC_EXPECT)" \
 		--name seed_func --timeout-ms 5000 \
 		|| { printf "!!! test-seed-codegen FAIL: func.pas did not print the full hand-computed golden\n"; exit 1; }
+	@printf ">>> test-seed-codegen: ARRAY -- static arrays (global/local, const-folded bound, lo=0, negative lo, boolean/char element types) + indexed l/r-value + indexed var-param args (beads initech-54uu)\n"
+	@$(HARNESS_BIN) --kernel "$(BUILD)/seed_arith_array.elf" --expect "$(SEED_ARRAY_EXPECT)" \
+		--name seed_array --timeout-ms 5000 \
+		|| { printf "!!! test-seed-codegen FAIL: array.pas did not print the full hand-computed golden\n"; exit 1; }
 	@printf ">>> test-seed-codegen: BOOL complete-evaluation structural proof -- gen_binop (the ONE shared\n"
 	@printf "    code path for every binop, incl. and/or -- ADR-0007 DEC-03) must never emit a jump\n"
 	@printf "    mnemonic, so no branch could ever skip evaluating an operand.\n"
@@ -12169,6 +12183,62 @@ test-seed-func-mutant: $(HARNESS_BIN) $(SEED_ARITH_FUNC_MUT_FRAME_ELF) $(SEED_AR
 	@printf ">>> test-seed-func-mutant: all green (both B4 deep-bug loci mutation-proven)\n"
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-seed-array-mutant (beads initech-54uu; ADR-0007 DEC-02/
+# DEC-07's per-family mutation obligation for B5 -- the "element stride
+# wrong" deep-bug locus the bead itself names, plus a cheap second leg for
+# the lo-offset half of "base + (index - lo) * stride").
+# ---------------------------------------------------------------------------
+# BOTH legs run against the SAME array.pas exact-serial golden, each through a
+# SEPARATE mutant compiler binary (so $(SEED_BIN) is never contaminated):
+#   (a) -DSEED_MUT_CODEGEN_STRIDE multiplies the zero-based index by 2
+#       instead of the correct uniform 4-byte stride, so every indexed
+#       read/write/var-param address is wrong for any index other than 0.
+#   (b) -DSEED_MUT_CODEGEN_ARRAY_LO_SKIP omits the "- lo" step entirely
+#       (every array addressed as if lo were always 0), corrupting every
+#       array whose declared lower bound is non-zero (a/c/local_arr/
+#       letters/flags -- only b's lo=0 survives this leg unaffected).
+SEED_BIN_MUT_ARR_STRIDE := $(BUILD)/initechc_mut_arr_stride
+SEED_BIN_MUT_ARR_LOSKIP := $(BUILD)/initechc_mut_arr_loskip
+
+$(SEED_BIN_MUT_ARR_STRIDE): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_CODEGEN_STRIDE -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+$(SEED_BIN_MUT_ARR_LOSKIP): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_CODEGEN_ARRAY_LO_SKIP -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+SEED_ARITH_ARRAY_MUT_STRIDE_ELF := $(BUILD)/seed_arith_array_mut_stride.elf
+SEED_ARITH_ARRAY_MUT_LOSKIP_ELF := $(BUILD)/seed_arith_array_mut_loskip.elf
+
+$(SEED_ARITH_ARRAY_MUT_STRIDE_ELF): $(ARITH_DIR)/array.pas $(SEED_BIN_MUT_ARR_STRIDE) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT_ARR_STRIDE) --emit-asm -o $(BUILD)/seed_arith_array_mut_stride.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_array_mut_stride.s -o $(BUILD)/seed_arith_array_mut_stride.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(BUILD)/seed_arith_array_mut_stride.o
+
+$(SEED_ARITH_ARRAY_MUT_LOSKIP_ELF): $(ARITH_DIR)/array.pas $(SEED_BIN_MUT_ARR_LOSKIP) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT_ARR_LOSKIP) --emit-asm -o $(BUILD)/seed_arith_array_mut_loskip.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_array_mut_loskip.s -o $(BUILD)/seed_arith_array_mut_loskip.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(BUILD)/seed_arith_array_mut_loskip.o
+
+.PHONY: test-seed-array-mutant
+test-seed-array-mutant: $(HARNESS_BIN) $(SEED_ARITH_ARRAY_MUT_STRIDE_ELF) $(SEED_ARITH_ARRAY_MUT_LOSKIP_ELF)
+	@printf ">>> test-seed-array-mutant: confirming BOTH B5 deep-bug legs go RED (Rule 6; ADR-0007 DEC-02/DEC-07, beads initech-54uu)\n"
+	@printf ">>> test-seed-array-mutant: leg (a) STRIDE -- element stride *2 instead of *4 (the bead's own named mutant)\n"
+	@if $(HARNESS_BIN) --kernel "$(SEED_ARITH_ARRAY_MUT_STRIDE_ELF)" --expect "$(SEED_ARRAY_EXPECT)" \
+		--name seed_array_mut_stride --timeout-ms 5000 >/dev/null 2>&1; then \
+		printf '!!! test-seed-array-mutant FAIL: STRIDE mutant PASSED -- the uniform 4-byte element stride is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-array-mutant: leg (a) green (array.pas correctly failed under the *2-stride mutant)\n'; \
+	fi
+	@printf ">>> test-seed-array-mutant: leg (b) LO_SKIP -- the (index - lo) subtraction is omitted\n"
+	@if $(HARNESS_BIN) --kernel "$(SEED_ARITH_ARRAY_MUT_LOSKIP_ELF)" --expect "$(SEED_ARRAY_EXPECT)" \
+		--name seed_array_mut_loskip --timeout-ms 5000 >/dev/null 2>&1; then \
+		printf '!!! test-seed-array-mutant FAIL: LO_SKIP mutant PASSED -- the lo-offset subtraction is decoration\n'; exit 1; \
+	else \
+		printf '>>> test-seed-array-mutant: leg (b) green (array.pas correctly failed under the lo-skip mutant)\n'; \
+	fi
+	@printf ">>> test-seed-array-mutant: all green (both B5 deep-bug loci mutation-proven)\n"
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-seed-fpc-diff (beads initech-63ce; ADR-0007 DEC-07 Rung 2)
 # ---------------------------------------------------------------------------
 # THE Free Pascal differential, stood up at the codegen pivot (B4) per the
@@ -12283,7 +12353,7 @@ test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) $(HARNESS_BIN)
 SEED_REPRO_CORPUS := seed/examples/hello.pas seed/examples/smoke.pas \
                       $(ARITH_DIR)/bool.pas $(ARITH_DIR)/char.pas \
                       $(ARITH_DIR)/control.pas $(ARITH_DIR)/divmod.pas \
-                      $(ARITH_DIR)/func.pas \
+                      $(ARITH_DIR)/func.pas $(ARITH_DIR)/array.pas \
                       $(ARITH_DIR)/negative.pas $(ARITH_DIR)/negative_divmod.pas \
                       $(ARITH_DIR)/parens.pas $(ARITH_DIR)/precedence.pas
 
@@ -18033,7 +18103,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
+	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \

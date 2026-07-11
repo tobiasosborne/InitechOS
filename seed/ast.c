@@ -226,7 +226,13 @@ static void dump(const AstNode *n, FILE *fp)
         for (size_t i = 0; i < n->as.vardecl.names.count; i++) {
             fputc(' ', fp);
             dump(n->as.vardecl.names.items[i], fp);
-            fprintf(fp, ":%s", ast_vartype_name(n->as.vardecl.vtype));
+            /* B5 (beads initech-54uu): an array group dumps its bounds +
+             * element type instead of a bare scalar type. */
+            if (n->as.vardecl.is_array)
+                fprintf(fp, ":array[%ld..%ld] of %s", n->as.vardecl.lo,
+                        n->as.vardecl.hi, ast_vartype_name(n->as.vardecl.vtype));
+            else
+                fprintf(fp, ":%s", ast_vartype_name(n->as.vardecl.vtype));
         }
         fputc(')', fp);
         break;
@@ -243,8 +249,18 @@ static void dump(const AstNode *n, FILE *fp)
         fputc(')', fp);
         break;
     case AST_ASSIGN:
-        fprintf(fp, "(assign %s ", n->as.assign.name);
-        dump(n->as.assign.value, fp);
+        /* B5 (beads initech-54uu): an indexed assignment dumps the index
+         * expression too, so the S-expression contract distinguishes
+         * "a := v" from "a[i] := v". */
+        if (n->as.assign.index) {
+            fprintf(fp, "(assign-index %s ", n->as.assign.name);
+            dump(n->as.assign.index, fp);
+            fputc(' ', fp);
+            dump(n->as.assign.value, fp);
+        } else {
+            fprintf(fp, "(assign %s ", n->as.assign.name);
+            dump(n->as.assign.value, fp);
+        }
         fputc(')', fp);
         break;
     case AST_IF:
@@ -341,6 +357,12 @@ static void dump(const AstNode *n, FILE *fp)
             fputc(' ', fp);
             dump(n->as.call.args.items[i], fp);
         }
+        fputc(')', fp);
+        break;
+    /* B5 (beads initech-54uu). */
+    case AST_INDEX:
+        fprintf(fp, "(index %s ", n->as.arrayindex.name);
+        dump(n->as.arrayindex.index, fp);
         fputc(')', fp);
         break;
     }
