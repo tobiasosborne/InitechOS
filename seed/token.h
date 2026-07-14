@@ -119,6 +119,16 @@ typedef enum {
      * enum/set/pointer/array type-names -- see ast.h's B6 note). */
     TOK_KW_TYPE,
     TOK_KW_RECORD,
+    /* B7 keywords (beads initech-39k2; ADR-0007 DEC-02 "minimal fixed/
+     * ShortString-style strings (length/index/compare/concat)"): the `string`
+     * type keyword and `length` (a reserved built-in, exactly like ord/chr at
+     * B3 -- this subset has no general function-call name resolution for
+     * built-ins, so `length` is recognized directly by the parser). Reserving
+     * both is the same minimality choice made for true/false/ord/chr/array/of
+     * (ADR-0007 DEC-02/DR-2); Turbo Initech's own source never needs an
+     * identifier named `string`/`length`. */
+    TOK_KW_STRING,
+    TOK_KW_LENGTH,
 
     /* punctuation / operators */
     TOK_SEMI,       /* ; */

@@ -77,6 +77,13 @@ typedef struct {
     long       value; /* raw ordinal: the int value, or 0/1 (boolean), or
                         * 0..255 (char) -- interpreted per ctype when
                         * folding at a use site. */
+    /* B7 (beads initech-39k2): for a STRING const (ctype == AST_TY_STRING),
+     * the arena-owned decoded text + its length; each use site folds to a
+     * fresh AST_STRLIT of this text (the B3 const-fold precedent extended to
+     * strings -- ast.h's B7 block). NULL/0 for a scalar const. '' is a legal
+     * value (text != NULL, textlen == 0). */
+    char      *text;
+    size_t     textlen;
 } ParserConst;
 
 /* Case-fold a SPAN (not necessarily NUL-terminated -- a raw TOK_IDENT lexeme
@@ -243,6 +250,11 @@ static void const_register(Parser *p, int line, int col,
              "%s", name_lc);
     p->consts[p->nconsts].ctype = ctype;
     p->consts[p->nconsts].value = value;
+    /* B7 (beads initech-39k2): scalar const -- no folded text (a string const
+     * backfills these two fields on the just-registered entry in
+     * parse_const_section). */
+    p->consts[p->nconsts].text = NULL;
+    p->consts[p->nconsts].textlen = 0;
     p->nconsts++;
 }
 
@@ -271,7 +283,10 @@ static AstNode *parse_index(Parser *p, char *name, int line, int col);
  * shared scalar-or-record-name TYPE parser used by var-decls/params/array
  * element types. */
 static void     parse_type_section(Parser *p, AstList *decls);
-static int      parse_type_name(Parser *p, AstVarType *out, char **out_rectype);
+/* B7 (beads initech-39k2): *out_strcap is the ShortString capacity when *out
+ * is AST_TY_STRING (255 for bare `string`, 1..255 for `string[N]`), else 0. */
+static int      parse_type_name(Parser *p, AstVarType *out, char **out_rectype,
+                                int *out_strcap);
 
 /* ------------------------------------------------------------------ */
 /* Expressions                                                        */
@@ -342,16 +357,22 @@ static AstNode *parse_factor(Parser *p)
      * land at B7).
      */
     if (check(p, TOK_STRING)) {
-        if (p->cur.length != 1) {
-            fail_at(p, line, col,
-                    "a string literal used as an expression value must be "
-                    "exactly one character (a char constant, e.g. 'A'); "
-                    "this subset has no string-typed expressions yet "
-                    "(only write/writeln string arguments may be longer)");
-            return NULL;
+        /* B3: a length-1 '...' in EXPRESSION context is a CHAR literal. B7
+         * (beads initech-39k2; D7): a multi-char OR empty '...' is now a
+         * STRING-typed r-value (an AST_STRLIT), revising the B3 "one char
+         * only" error path. '' (length 0) is the empty string. typecheck.c
+         * assigns AST_STRLIT the type AST_TY_STRING; codegen emits it as a
+         * length-prefixed .rodata blob (strlit_<n>). */
+        if (p->cur.length == 1) {
+            AstNode *n = ast_new(p->arena, AST_CHARLIT, line, col);
+            n->as.charlit.value = (unsigned char)p->cur.lexeme[0];
+            advance(p);
+            return n;
         }
-        AstNode *n = ast_new(p->arena, AST_CHARLIT, line, col);
-        n->as.charlit.value = (unsigned char)p->cur.lexeme[0];
+        AstNode *n = ast_new(p->arena, AST_STRLIT, line, col);
+        n->as.strlit.text = ast_arena_strndup(p->arena, p->cur.lexeme,
+                                              p->cur.length);
+        n->as.strlit.length = p->cur.length;
         advance(p);
         return n;
     }
@@ -373,6 +394,25 @@ static AstNode *parse_factor(Parser *p)
             return NULL;
         AstNode *n = ast_new(p->arena, AST_UNOP, line, col);
         n->as.unop.op = op;
+        n->as.unop.operand = operand;
+        return n;
+    }
+    /* B7 (beads initech-39k2; ADR-0007 DEC-02 "length"): length(expr) -> a
+     * unary AST_UNOP OP_LENGTH, a reserved built-in parsing one parenthesized
+     * argument -- the exact shape as ord/chr above (see token.h's B7 note).
+     * typecheck.c requires a string-typed argument; codegen emits an inline
+     * `movzx eax, byte [base]` (the length prefix). Result integer. */
+    if (check(p, TOK_KW_LENGTH)) {
+        advance(p);
+        if (!expect(p, TOK_LPAREN, "'(' after 'length'"))
+            return NULL;
+        AstNode *operand = parse_expr(p);
+        if (p->failed)
+            return NULL;
+        if (!expect(p, TOK_RPAREN, "')'"))
+            return NULL;
+        AstNode *n = ast_new(p->arena, AST_UNOP, line, col);
+        n->as.unop.op = OP_LENGTH;
         n->as.unop.operand = operand;
         return n;
     }
@@ -407,6 +447,14 @@ static AstNode *parse_factor(Parser *p)
             case AST_TY_BOOLEAN:
                 n = ast_new(p->arena, AST_BOOLLIT, line, col);
                 n->as.boollit.value = (int)p->consts[cidx].value;
+                break;
+            /* B7 (beads initech-39k2): a STRING const folds to a fresh
+             * AST_STRLIT of its stored text at THIS use site (the same
+             * front-end fold as scalar consts -- ast.h's B3/B7 note). */
+            case AST_TY_STRING:
+                n = ast_new(p->arena, AST_STRLIT, line, col);
+                n->as.strlit.text = p->consts[cidx].text;
+                n->as.strlit.length = p->consts[cidx].textlen;
                 break;
             default:
                 fail_at(p, line, col,
@@ -1174,12 +1222,40 @@ static int parse_array_bound(Parser *p, long *out)
  * arena-owned original-spelling name for a record type), 0 with a located
  * error otherwise.
  */
-static int parse_type_name(Parser *p, AstVarType *out, char **out_rectype)
+static int parse_type_name(Parser *p, AstVarType *out, char **out_rectype,
+                           int *out_strcap)
 {
     *out_rectype = NULL;
+    *out_strcap = 0;
     if (check(p, TOK_KW_INTEGER)) { *out = AST_TY_INTEGER; advance(p); return 1; }
     if (check(p, TOK_KW_BOOLEAN)) { *out = AST_TY_BOOLEAN; advance(p); return 1; }
     if (check(p, TOK_KW_CHAR))    { *out = AST_TY_CHAR;    advance(p); return 1; }
+    /* B7 (beads initech-39k2; ADR-0007 DEC-02 "fixed/ShortString strings"):
+     * `string` (= string[255]) or `string[N]` with 1 <= N <= 255. N is an
+     * integer LITERAL or a folded integer const (parse_array_bound is reused
+     * for exactly that "literal-or-integer-const" grammar). Out-of-range N is
+     * a located parse error (Rule 2). */
+    if (check(p, TOK_KW_STRING)) {
+        int scline = p->cur.line, sccol = p->cur.col;
+        advance(p); /* 'string' */
+        long cap = 255;
+        if (check(p, TOK_LBRACKET)) {
+            advance(p); /* '[' */
+            if (!parse_array_bound(p, &cap))
+                return 0;
+            if (!expect(p, TOK_RBRACKET, "']' after a string capacity"))
+                return 0;
+            if (cap < 1 || cap > 255) {
+                fail_at(p, scline, sccol,
+                        "string capacity must be in 1..255 "
+                        "(string[N], ADR-0007 DEC-02 ShortString)");
+                return 0;
+            }
+        }
+        *out = AST_TY_STRING;
+        *out_strcap = (int)cap;
+        return 1;
+    }
     if (check(p, TOK_IDENT)) {
         char lc[PARSER_CONST_NAME_CAP];
         lower_span(lc, sizeof(lc), p->cur.lexeme, p->cur.length);
@@ -1192,8 +1268,8 @@ static int parse_type_name(Parser *p, AstVarType *out, char **out_rectype)
         }
     }
     fail_at(p, p->cur.line, p->cur.col,
-            "expected 'integer', 'boolean', 'char', or a declared record "
-            "type name");
+            "expected 'integer', 'boolean', 'char', 'string', or a declared "
+            "record type name");
     return 0;
 }
 
@@ -1230,8 +1306,19 @@ static int parse_array_type(Parser *p, long *out_lo, long *out_hi,
         return 0;
     AstVarType elem;
     char *elem_rectype;
-    if (!parse_type_name(p, &elem, &elem_rectype))
+    int elem_strcap;
+    if (!parse_type_name(p, &elem, &elem_rectype, &elem_strcap))
         return 0;
+    /* B7 (beads initech-39k2): array-of-string is OUT of this subset (D1 --
+     * a named, deferred rejection; see ast.h's B7 array-of-string-deferral
+     * note on the char-pool + offset alternative Turbo Initech's symbol table
+     * uses instead). Reject LOUDLY, naming the construct. */
+    if (elem == AST_TY_STRING) {
+        fail_at(p, p->cur.line, p->cur.col,
+                "array-of-string (array[..] of string[N]) is not supported "
+                "in this subset (deferred past B7; ADR-0007 DEC-02)");
+        return 0;
+    }
     *out_lo = lo;
     *out_hi = hi;
     *out_elem = elem;
@@ -1286,13 +1373,17 @@ static AstNode *parse_one_vardecl(Parser *p)
     } else {
         /* B6 (beads initech-rug7): a scalar type keyword OR a declared
          * record type name (`r: Token;`) -- parse_type_name is the shared
-         * "what type is this" parser (see its comment above). */
+         * "what type is this" parser (see its comment above). B7 (beads
+         * initech-39k2): also `string`/`string[N]` (parse_type_name returns
+         * the capacity in `sc`). */
         AstVarType t;
         char *rt;
-        if (!parse_type_name(p, &t, &rt))
+        int sc;
+        if (!parse_type_name(p, &t, &rt, &sc))
             return NULL;
         vd->as.vardecl.vtype = t;
         vd->as.vardecl.rectype = rt;
+        vd->as.vardecl.strcap = sc;
     }
     return vd;
 }
@@ -1350,6 +1441,9 @@ static void parse_const_section(Parser *p, AstList *decls)
 
         AstVarType ctype;
         long value;
+        /* B7 (beads initech-39k2): a STRING const carries decoded text (D1). */
+        char  *ctext = NULL;
+        size_t ctextlen = 0;
         if (check(p, TOK_MINUS)) {
             /* Only integers may be negated -- a negative char/boolean
              * constant is not meaningful in this subset. */
@@ -1377,16 +1471,20 @@ static void parse_const_section(Parser *p, AstList *decls)
             advance(p);
         } else if (check(p, TOK_STRING)) {
             /* Same one-character disambiguation rule as parse_factor's
-             * expression-context char literal -- see ast.h's B3 comment. */
-            if (p->cur.length != 1) {
-                fail_at(p, p->cur.line, p->cur.col,
-                        "a const char value must be exactly one character "
-                        "(e.g. 'A'); this subset has no string-typed "
-                        "constants yet");
-                return;
+             * expression-context literal (ast.h's B3/B7 note): a length-1
+             * '...' is a CHAR const; B7 (beads initech-39k2) makes a
+             * multi-char OR empty '...' a STRING const (folded to an
+             * AST_STRLIT at each use site -- '' is legal, textlen 0). */
+            if (p->cur.length == 1) {
+                value = (unsigned char)p->cur.lexeme[0];
+                ctype = AST_TY_CHAR;
+            } else {
+                ctext = ast_arena_strndup(p->arena, p->cur.lexeme,
+                                          p->cur.length);
+                ctextlen = p->cur.length;
+                value = 0;
+                ctype = AST_TY_STRING;
             }
-            value = (unsigned char)p->cur.lexeme[0];
-            ctype = AST_TY_CHAR;
             advance(p);
         } else {
             fail_at(p, p->cur.line, p->cur.col,
@@ -1400,6 +1498,12 @@ static void parse_const_section(Parser *p, AstList *decls)
         const_register(p, line, col, lc, ctype, value);
         if (p->failed)
             return;
+        /* B7 (beads initech-39k2): backfill the just-registered entry's folded
+         * text for a string const (const_register null-inits it for scalars). */
+        if (ctype == AST_TY_STRING) {
+            p->consts[p->nconsts - 1].text = ctext;
+            p->consts[p->nconsts - 1].textlen = ctextlen;
+        }
 
         AstNode *cd = ast_new(p->arena, AST_CONSTDECL, line, col);
         cd->as.constdecl.name = name;
@@ -1523,6 +1627,15 @@ static void parse_type_section(Parser *p, AstList *decls)
             } else if (check(p, TOK_KW_CHAR)) {
                 ft = AST_TY_CHAR;
                 advance(p);
+            } else if (check(p, TOK_KW_STRING)) {
+                /* B7 (beads initech-39k2; D1): a string RECORD FIELD is
+                 * rejected, naming the construct (fields are scalar-only --
+                 * a ShortString field would make the flat "sizeof = 4 *
+                 * field-count" layout non-uniform). */
+                fail_at(p, p->cur.line, p->cur.col,
+                        "string record fields are not supported in this subset "
+                        "(record fields are scalar integer/boolean/char only)");
+                return;
             } else {
                 fail_at(p, p->cur.line, p->cur.col,
                         "expected 'integer', 'boolean', or 'char' (record "
@@ -1571,6 +1684,16 @@ static int parse_type_kw(Parser *p, AstVarType *out)
     if (check(p, TOK_KW_INTEGER)) { *out = AST_TY_INTEGER; advance(p); return 1; }
     if (check(p, TOK_KW_BOOLEAN)) { *out = AST_TY_BOOLEAN; advance(p); return 1; }
     if (check(p, TOK_KW_CHAR))    { *out = AST_TY_CHAR;    advance(p); return 1; }
+    /* B7 (beads initech-39k2; D6): a string FUNCTION RESULT is rejected
+     * (the B6 record-result precedent -- an aggregate result does not
+     * generalize through EAX). The self-host idiom is IntToStr-style:
+     * `procedure P(...; var s: string)`. Named rejection. */
+    if (check(p, TOK_KW_STRING)) {
+        fail_at(p, p->cur.line, p->cur.col,
+                "string function results are not supported in this subset "
+                "(return a value through a `var string` parameter instead)");
+        return 0;
+    }
     fail_at(p, p->cur.line, p->cur.col,
             "expected 'integer', 'boolean', or 'char'");
     return 0;
@@ -1632,7 +1755,8 @@ static void parse_param_list(Parser *p, AstList *params)
          * caller's record in place). See ast.h's B6 AST_TYPEDECL comment. */
         AstVarType t;
         char *rt;
-        if (!parse_type_name(p, &t, &rt))
+        int sc;
+        if (!parse_type_name(p, &t, &rt, &sc))
             return;
         if (t == AST_TY_RECORD && !is_var) {
             fail_at(p, p->cur.line, p->cur.col,
@@ -1641,9 +1765,30 @@ static void parse_param_list(Parser *p, AstList *params)
                     "on every call; pass it as a `var` parameter instead)");
             return;
         }
+        /* B7 (beads initech-39k2; D6): a VALUE string parameter is rejected
+         * (it preserves the uniform one-dword [ebp+8+4i] param layout -- a
+         * string is passed only by ADDRESS), and a `var` string formal MUST be
+         * the bare `string` (cap 255): a `string[N<255]` var formal is rejected
+         * (TP var-param type identity -- the caller's argument is a cap-255
+         * string). Each message names the construct. */
+        if (t == AST_TY_STRING && !is_var) {
+            fail_at(p, p->cur.line, p->cur.col,
+                    "value parameter of string type is not supported in this "
+                    "subset (a string is passed only by address; use a `var "
+                    "string` parameter instead)");
+            return;
+        }
+        if (t == AST_TY_STRING && is_var && sc != 255) {
+            fail_at(p, p->cur.line, p->cur.col,
+                    "a `var string` parameter formal must be the bare `string` "
+                    "(capacity 255); `string[N<255]` var formals are not "
+                    "supported (the caller's argument is a cap-255 string)");
+            return;
+        }
         for (size_t i = group_start; i < params->count; i++) {
             params->items[i]->as.param.ptype = t;
             params->items[i]->as.param.rectype = rt;
+            params->items[i]->as.param.strcap = sc;
         }
         if (check(p, TOK_SEMI)) { /* another parameter group */
             advance(p);

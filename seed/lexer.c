@@ -242,6 +242,10 @@ static TokenKind keyword_kind(const char *s, size_t n)
     /* B6 (beads initech-rug7): a `type` section naming `record` types. */
     if (strcmp(buf, "type") == 0)      return TOK_KW_TYPE;
     if (strcmp(buf, "record") == 0)    return TOK_KW_RECORD;
+    /* B7 (beads initech-39k2): the `string` type keyword + `length` reserved
+     * built-in (see token.h's B7 note on why both are reserved words). */
+    if (strcmp(buf, "string") == 0)    return TOK_KW_STRING;
+    if (strcmp(buf, "length") == 0)    return TOK_KW_LENGTH;
     return TOK_IDENT;
 }
 

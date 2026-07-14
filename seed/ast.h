@@ -137,7 +137,13 @@ typedef enum {
      * `vardecl.rectype` / `param.rectype` for declarations) names WHICH
      * record type, case-preserved-original-spelling, arena-owned -- see this
      * header's AST_TYPEDECL/AST_FIELD comments below. */
-    AST_TY_RECORD
+    AST_TY_RECORD,
+    /* B7 (beads initech-39k2; ADR-0007 DEC-02 "minimal fixed/ShortString-style
+     * strings (length/index/compare/concat) -- NOT dynamic/heap strings").
+     * A fixed-capacity Turbo-Pascal ShortString: `string` (= string[255]) or
+     * `string[N]`, 1 <= N <= 255. See this header's B7 block below for the
+     * layout rule, the coercion table, the rejections, and the named idioms. */
+    AST_TY_STRING
 } AstVarType;
 
 /* Human-readable name for a semantic type (diagnostics, dumps). */
@@ -366,6 +372,136 @@ typedef enum {
     AST_FIELD
 } AstKind;
 
+/*
+ * ============================================================================
+ * B7 -- fixed/ShortString strings (beads initech-39k2; B7 committee 2026-07-14
+ * (3 seats + chair synthesis), bead initech-39k2; ADR-0007 DEC-02 "minimal
+ * fixed/ShortString-style strings (length/index/compare/concat) -- NOT
+ * dynamic/heap strings", DEC-04 deterministic codegen, DEC-05 "the RTL stays
+ * byte/block I/O only ... integer-to-decimal-string is hand-written in-subset
+ * Pascal (div/mod + chr + concatenation)").
+ *
+ * TYPE SURFACE (D1). `string` (= string[255]) and `string[N]`, 1 <= N <= 255
+ * (N an integer literal or a folded integer const; out of range = a located
+ * parse error). Allowed as: GLOBAL vars, frame-resident LOCALS, and `var`
+ * parameters (the formal must be the BARE `string`, cap 255 -- see D6). String
+ * CONST declarations (`const Msg = 'text';`) are supported: they fold to a
+ * string literal at each use site (the B3 const-fold precedent; the parser's
+ * const table gains a text slot). '' as a const or literal value is legal.
+ *
+ * REJECTED LOUDLY (parse/typecheck, B6 precedent -- each message NAMES the
+ * construct): array-of-string (`array[..] of string[N]`), string RECORD
+ * fields, VALUE string parameters, string FUNCTION results, a `string[N<255]`
+ * VAR formal, and string as an array element type anywhere.
+ *
+ * ARRAY-OF-STRING DEFERRAL (D1, named consequence): array-of-string is NOT in
+ * this subset. Turbo Initech's symbol-table NAMES therefore use the char-pool
+ * + integer-offset idiom (ADR-0007 DEC-02's own static index-arena idiom) OR a
+ * follow-up bead adds array-of-string before B9 -- decided at B9 sizing, not
+ * here.
+ *
+ * REPRESENTATION (D2, the binding layout rule). A TP ShortString: byte 0 = the
+ * current length (unsigned 0..N), bytes 1..N = content, bytes N+1..W-1 =
+ * padding never read. W = round4(N+1) = ((N+1)+3)/4*4 bytes (string[255] ->
+ * 256B; string[3] -> 4B; string[8] -> 12B). Every string designator (global,
+ * local, `var`-param deref) yields an ASCENDING byte pointer to byte 0;
+ * capacity is ALWAYS a compile-time immediate from the declared type -- there
+ * is NO runtime capacity field.
+ *   - GLOBAL: `v_<name>: resb W` in .bss (align 4 held -- W is a dword
+ *     multiple); zero-init .bss => an empty string.
+ *   - LOCAL: W/4 CONTIGUOUS frame dword slots; the designator's base is the
+ *     LOWEST address of the block, byte i at base+i (ascending, exactly like a
+ *     global). For W=4 this reduces to the existing scalar cg_local_offset.
+ *     NOTE (DECISION): this deliberately DIFFERS from B5's array-local
+ *     element-0-at-highest-address convention -- strings are byte-addressed
+ *     through the intrinsics, so every storage class shares ONE flat ascending
+ *     pointer model. LOCAL string SAFETY (DECISION, a small TP divergence,
+ *     differential-invisible): the routine prologue zeroes each local string's
+ *     length byte, so length()/write of an unassigned local is a well-defined
+ *     empty string (Rule 2 spirit); fixtures still always assign before
+ *     reading, so the divergence is documented, not exercised.
+ *
+ * ASSIGNMENT + INDEXING (D5).
+ *   - `s := <string-or-char rhs>`: silent truncation to the compile-time
+ *     cap(dst). Whole-string := is the ONLY aggregate string op.
+ *   - `s[i]`: 1-based; address = base + i (byte 0 is the length prefix, so NO
+ *     -1 adjustment). Read = `movzx eax, byte [base+i]` (a char r-value);
+ *     write `s[i] := <char>` = `mov [base+i], al` and does NOT touch the
+ *     length byte. NO bounds check ({$R-}, the B5 precedent) -- s[0]/s[>len]
+ *     is UNCHECKED. RULE-2 TENSION (recorded verbatim, the B5 pattern): an
+ *     out-of-range string index is a SILENT out-of-bounds byte access with no
+ *     diagnostic; the mitigation is a SOURCE DISCIPLINE (index only within
+ *     1..length before every s[i]), not a codegen feature -- the identical
+ *     discipline ADR-0007 DEC-02's amendment mandates for the compiler's own
+ *     collections. Recorded so a future reader does not mistake the omission
+ *     for an oversight.
+ *   - AST reuse (HIGHEST-RISK overload, flagged): a string byte read reuses
+ *     AST_INDEX (with arrayindex.is_string) and a string byte write reuses
+ *     AST_ASSIGN's `index` (with assign.strcap>0), disambiguated from arrays
+ *     by the base designator's TYPE at typecheck. A mix-up would byte-load an
+ *     array or dword-load a string, so string.pas covers BOTH array[i] and
+ *     s[i] in one program (the IDXA cross-talk guard).
+ *
+ * COERCION TABLE (D7, binding).
+ *   - Multi-char '...' in EXPRESSION context: a string-typed r-value (revises
+ *     the B3 "one char only" error -- see AST_CHARLIT's B3 note). Emitted as a
+ *     length-prefixed .rodata blob (strlit_<n>), a DISTINCT label family from
+ *     the NUL-terminated write-literal str_<n>, BOTH drawing ordinals from the
+ *     ONE shared counter/walk order (DEC-04's anti-pattern note; the existing
+ *     write-literal emission stays byte-identical).
+ *   - '' : legal ONLY in string contexts (empty string, len 0); still a
+ *     located error in char context (fpc rejects char := '').
+ *   - Single-char '...': stays CHAR (B3). A char is materialized into a len-1
+ *     string in EXACTLY three contexts: (1) assignment RHS to a string
+ *     l-value; (2) a concat operand when the OTHER operand is string-typed;
+ *     (3) a comparison operand when the OTHER operand is string-typed. Nowhere
+ *     else (never a var-arg).
+ *   - `+` = concat IFF >= 1 operand is string-typed (typecheck overloads
+ *     OP_ADD; gen_binop dispatches on operand type). char + char (no string
+ *     operand) = a LOCATED type error -- a deliberate TP/fpc divergence (fpc
+ *     concatenates); the fpc fixture keeps >= 1 string operand in every concat.
+ *   - Relops: the string path IFF >= 1 operand is string-typed (the char side
+ *     coerces); both-char stays the existing B1/B3 ordinal compare.
+ *   - integer <-> string: NO bridge, both directions located errors (DEC-05).
+ *   - string -> char: REJECTED (`c := s` illegal even if len 1); a char comes
+ *     from a string only via s[i].
+ *   - concat intermediate truncates at 255 silently.
+ *
+ * length() (D9): `length` is a RESERVED keyword (ord/chr B3 precedent),
+ * parsed as length(expr) -> AST_UNOP OP_LENGTH; the argument must be
+ * string-typed; codegen emits an inline `movzx eax, byte [base]`. Result
+ * integer. setlength is OUT; s[0]-as-length-API is unsanctioned.
+ *
+ * PARAMS + RESULTS + IDIOMS (D6). `var string` params are IN (the bare
+ * `string` cap-255 formal only; the address passes, the callee derefs -- the
+ * B4 var-param model). Value string params, string function results, and a
+ * `string[N<255]` var formal are all rejected loudly. Named idioms (for the
+ * self-host source): stage-then-pass a literal (`tmp := 'begin'; P(tmp)`), and
+ * IntToStr as `procedure IntToStr(v: integer; var s: string)` built via
+ * `s := chr(d) + s` (keeps DEC-05's in-subset int-to-decimal-string sentence
+ * expressible without an RTL service).
+ *
+ * TEMPORARIES (D4, the deep-bug locus) + THE CHAIR'S CORRECTION. Concat/
+ * coercion/compare materialize into FRAME-RESIDENT temporaries (256 bytes = 64
+ * dwords each, allocated AFTER locals; a deterministic per-routine source-
+ * order pre-walk assigns each site a temp INDEX, reset per statement; the
+ * routine reserves max-live-count temps -- pas_main gets its own temp region
+ * too). In-place LEFT-DEEP accumulation uses ONE temp (a+b+c => T0:=a;
+ * T0+=b; T0+=c). A RIGHT-NESTED operand a+(b+c) forces a SECOND
+ * simultaneously-live temp (T0:=a; T1:=b; T1+=c; T0+=T1). THE CHAIR'S
+ * CORRECTION (binding): in THIS subset NO string temp is ever live across a
+ * call (string results are rejected and a concat is never a var-arg, so no
+ * call occurs inside a string expression), so the temp-lifetime deep bug is
+ * TWO-LIVE-TEMPS-IN-ONE-STATEMENT (right-nested concat), NOT clobber-across-
+ * recursion; string.pas's RNEST clause is that load-bearing bite (a recursive
+ * clause is belt, not the bite). ALIASING (s := s + 'x'; s := 'a' + s): the
+ * RHS is evaluated FULLY into a temp, then copied to dst with cap(dst) -- dst
+ * is never written while it is a live source. `s := <char/lit>` with NO concat
+ * may store len + byte(s) inline (the fast path). See codegen.c's B7 header
+ * for the intrinsic ABI, the full temp model, and the worked sequence.
+ * ============================================================================
+ */
+
 typedef enum {
     OP_ADD,   /* + */
     OP_SUB,   /* - */
@@ -387,7 +523,12 @@ typedef enum {
     /* B3 (beads initech-7mo3): ord()/chr(), both unary (AST_UNOP). Value
      * no-ops at codegen -- see seed/codegen.c. */
     OP_ORD,   /* ord(x): char|boolean|integer -> integer */
-    OP_CHR    /* chr(x): integer -> char (truncates to 8 bits) */
+    OP_CHR,   /* chr(x): integer -> char (truncates to 8 bits) */
+    /* B7 (beads initech-39k2): length(s): string -> integer. Unary
+     * (AST_UNOP), a reserved keyword like ord/chr (see token.h's B7 note);
+     * codegen emits an inline `movzx eax, byte [base]` reading the
+     * ShortString's length prefix -- no intrinsic. */
+    OP_LENGTH
 } AstOp;
 
 typedef struct AstNode AstNode;
@@ -410,8 +551,26 @@ struct AstNode {
      * AST_TY_UNKNOWN until typecheck runs (B1, beads initech-f0uc). Unused
      * (stays AST_TY_UNKNOWN) on non-expression node kinds. */
     AstVarType type;
+    /* B7 (beads initech-39k2): the frame-resident string-TEMPORARY index this
+     * string-materializing expression node evaluates into, assigned by
+     * codegen.c's deterministic per-routine pre-walk (plan_string_temps) in
+     * source order and read back during emission -- the ONE numeric source
+     * for a temp's frame slot, so the SEED_MUT_CODEGEN_STR_TEMP_CLOBBER mutant
+     * (collapse every string temp to index 0) has a single choke point. Set
+     * ONLY on a concat node (AST_BINOP OP_ADD, string) and on a char-coercion
+     * operand that materializes a len-1 string; -1 (unused) everywhere else,
+     * including a plain string designator/literal (which needs no temp). See
+     * codegen.c's B7 header for the temp model + the worked s := a + (b + c)
+     * sequence. */
+    int str_temp;
     union {
-        struct { char *name; AstList decls; AstNode *block; } program;
+        /* B7 (beads initech-39k2): `uses_strings` is set by seed/typecheck.c
+         * (during its existing walk -- no new pass) iff the program references
+         * any string type; codegen.c reads it to decide whether to emit the
+         * fixed __str_* intrinsic prelude at all, so a stringless program's
+         * emitted .s stays BYTE-IDENTICAL to pre-B7 (the repro corpus's
+         * byte-identity guard). A pure function of the AST (deterministic). */
+        struct { char *name; AstList decls; AstNode *block; int uses_strings; } program;
         /* vtype: the DECLARED type of this group ("integer"/"boolean"/
          * "char"), set by the parser when it consumes the type keyword --
          * distinct from the generic per-expression `type` field above.
@@ -434,6 +593,12 @@ struct AstNode {
              * 0, this is the scalar variable's own record type. NULL for
              * every scalar (non-record) vardecl. */
             char      *rectype;
+            /* B7 (beads initech-39k2): the declared ShortString CAPACITY (N,
+             * 1..255) when vtype == AST_TY_STRING, else 0. `string` folds to
+             * strcap == 255. A string vardecl is never an array (array-of-
+             * string is rejected loudly at parse time -- ast.h's B7 block),
+             * so is_array and strcap are never both set. */
+            int        strcap;
         } vardecl;
         /* B3: name + declared type only -- no value (folded away, see the
          * header's B3 comment). */
@@ -455,13 +620,24 @@ struct AstNode {
          * and > 0 (the record type's field count) for a WHOLE-RECORD
          * assignment (`r1 := r2` or `arr[i] := r`, `field` NULL, `value` a
          * plain record-typed designator) -- set by typecheck.c, consumed by
-         * codegen.c's gen_record_copy (a fully unrolled member-wise copy). */
+         * codegen.c's gen_record_copy (a fully unrolled member-wise copy).
+         *
+         * B7 (beads initech-39k2): `strcap` is 0 for every non-string target
+         * and > 0 (the target's declared ShortString capacity, 1..255) when
+         * `name` resolves to a string variable/`var` parameter -- set by
+         * typecheck.c, consumed by codegen.c to route the assignment through
+         * the string path. `index` NULL => a WHOLE-string assign (`s := rhs`,
+         * silent truncation to `strcap`); `index` non-NULL => an s[i] BYTE
+         * write (`s[i] := <char>`, no length change, `strcap` only marks that
+         * `s` is a string). `field` is always NULL for a string target
+         * (records have no string fields in this subset). */
         struct {
             char    *name;
             AstNode *index;
             char    *field;
             int      field_index;
             int      rec_fields;
+            int      strcap;
             AstNode *value;
         } assign;
         /* B2: else_stmt is NULL when there is no 'else' clause. */
@@ -473,7 +649,14 @@ struct AstNode {
         struct { long value; } intlit;
         struct { int value; } boollit;                 /* 0 or 1 (B1) */
         struct { int value; } charlit;                 /* 0..255 byte (B3) */
-        struct { char *text; size_t length; } strlit; /* decoded, NUL-term */
+        /* B7 (beads initech-39k2): `lit_ord` is the .rodata ordinal assigned
+         * to THIS literal by codegen.c's single rodata pass (the ONE shared
+         * str_count counter, DEC-04) and STORED here, so the .text pass reads
+         * it directly rather than re-deriving it in a second walk (no
+         * divergence risk). A write-argument literal emits `str_<ord>` (NUL-
+         * terminated, the pre-B7 shape -- byte-identical); an EXPRESSION-
+         * context literal emits `strlit_<ord>` (length-prefixed). */
+        struct { char *text; size_t length; int lit_ord; } strlit; /* decoded */
         struct { char *name; } varref;
         /* B4 (beads initech-63ce). */
         /* One formal parameter. is_var==1 for a `var` (by-reference)
@@ -484,7 +667,13 @@ struct AstNode {
          * parameter of record type is REJECTED LOUDLY at parse time
          * (parser.c's parse_param_list) -- this field is therefore only ever
          * non-NULL in practice on a `var` parameter (is_var==1). */
-        struct { char *name; AstVarType ptype; int is_var; char *rectype; } param;
+        /* B7 (beads initech-39k2): `strcap` is the ShortString capacity (255)
+         * when ptype == AST_TY_STRING, else 0. Only a `var` parameter may be
+         * string-typed and its formal MUST be the bare `string` (cap 255) --
+         * a value string parameter and a `string[N<255]` var formal are both
+         * rejected loudly at parse time (parser.c's parse_param_list;
+         * ast.h's B7 block). */
+        struct { char *name; AstVarType ptype; int is_var; char *rectype; int strcap; } param;
         /* A procedure (has_result==0) or function (has_result==1)
          * declaration. `params` holds AST_PARAM nodes left-to-right; `decls`
          * holds local AST_VARDECL groups; `body` is the AST_BLOCK (NULL for a
@@ -509,7 +698,14 @@ struct AstNode {
          * declared array (checked by typecheck.c, which also sets `type`,
          * ast.h's generic per-expression field, to the array's element
          * type). See this header's B5 AST_INDEX comment above. */
-        struct { char *name; AstNode *index; } arrayindex;
+        /* B7 (beads initech-39k2): `is_string` is 1 iff `name` resolves to a
+         * STRING (not an array) -- then `name[index]` is a 1-based BYTE read
+         * (a char r-value, `movzx eax, byte [base+index]`), NOT an array
+         * element load. Set by typecheck.c (which disambiguates array-vs-
+         * string from the base designator's type -- ast.h's B7 block flags
+         * this AST_INDEX/assign-index reuse as the highest-risk overload).
+         * 0 for every ordinary array index. */
+        struct { char *name; AstNode *index; int is_string; } arrayindex;
         /* B6 (beads initech-rug7): one "type NAME = record ... end;"
          * declaration. `fields` holds AST_VARDECL-shaped field-GROUP nodes
          * (scalar-only vtype; is_array/rectype always 0/NULL on a field

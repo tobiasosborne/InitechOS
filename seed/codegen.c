@@ -286,7 +286,78 @@
  *       test-seed-func-mutant asserts func.pas goes RED.
  * ============================================================================
  */
+/*
+ * ============================================================================
+ * B7 (beads initech-39k2; B7 committee 2026-07-14 (3 seats + chair synthesis),
+ * bead initech-39k2; ADR-0007 DEC-02 "minimal fixed/ShortString-style strings
+ * (length/index/compare/concat)", DEC-04 deterministic codegen, DEC-05 "the
+ * RTL stays byte/block I/O only") -- fixed/ShortString strings + frame-resident
+ * temporaries.
+ *
+ * REPRESENTATION (ast.h's B7 block has the full layout rule). A ShortString is
+ * byte 0 = length, bytes 1..N = content, W = round4(N+1) bytes. A GLOBAL is a
+ * .bss `resb W`; a LOCAL is W/4 contiguous frame dwords whose designator base
+ * is the block's LOWEST address (byte i at base+i, ascending -- deliberately
+ * UNLIKE B5's array-local element-0-at-highest convention, so every storage
+ * class shares one flat ascending pointer). A `var string` parameter's frame
+ * slot holds the caller's byte-0 POINTER. Capacity is ALWAYS a compile-time
+ * immediate (assign.strcap for a target; 255 for the concat intermediate);
+ * there is NO runtime cap field.
+ *
+ * INTRINSIC ABI (DEC-05: NOT the RTL -- start.asm is untouched; codegen emits a
+ * fixed __str_* prelude in .text IFF program.uses_strings, so a stringless
+ * program's .s is byte-identical to pre-B7). Fixed internal labels in the
+ * start.asm .next/.done local-label style; the DEC-04 threaded ordinal counter
+ * is NOT consumed by intrinsics. 386-safe only (movzx / branch-min / rep
+ * movsb/cmpsb; NO cmov). Each helper GUARDS len=0 and clobbers only caller-
+ * saved-equivalent registers (eax/ecx/edx/esi/edi); it preserves ebx/ebp/esp,
+ * so a temp address computed via lea from ebp survives every call.
+ *   __str_assign (edi=&dst, esi=&src, ecx=cap): n=min(len src, cap); copy n
+ *      content bytes; dst[0]=n. Silent truncation (TP/fpc).
+ *   __str_concat (edi=&dst, esi=&src): append src content to dst, clamping the
+ *      dst length at 255 (the ShortString intermediate cap); never wraps.
+ *   __str_cmp (esi=&a, edi=&b): eax = -1/0/+1. Unsigned bytewise over the
+ *      min-length prefix; first differing byte decides; prefix-equal => the
+ *      shorter compares LESS (length tiebreak).
+ *   __str_write (esi=&s): read length, loop content bytes through the EXISTING
+ *      serial_putc (never serial_puts -- a ShortString may contain 0x00).
+ * length() is emitted INLINE (`movzx eax, byte [base]`), no intrinsic.
+ *
+ * TEMPORARIES (D4, the deep-bug locus + the chair's correction). Concat/
+ * coercion/compare materialize into FRAME temporaries of CG_STR_TEMP_DWORDS (64
+ * dwords = 256 bytes) each, allocated AFTER a routine's locals. A deterministic
+ * per-routine source-order pre-walk (plan_string_temps) stamps each
+ * materializing node's str_temp INDEX, RESET per statement, and sizes the
+ * routine's temp region to the max-live count; pas_main gets its own temp
+ * region (globals stay .bss). LEFT-DEEP a+b+c reuses ONE accumulator temp
+ * (in-place accumulation); a RIGHT-NESTED a+(b+c) forces a SECOND
+ * simultaneously-live temp. THE CHAIR'S CORRECTION (binding): no string temp is
+ * ever live across a call in this subset, so the temp-lifetime bug is
+ * TWO-LIVE-TEMPS-IN-ONE-STATEMENT (right-nested concat), NOT clobber-across-
+ * recursion.
+ *
+ * WORKED SEQUENCE -- s := a + (b + c)  (a,b,c string designators; s cap Cs):
+ *   ; RHS concat node C=(+ a (+ b c)); planner: C->str_temp=T0, (b+c)->str_temp=T1
+ *   ; -- init accumulator T0 with the leftmost leaf a:
+ *   mov eax, a_addr / mov esi, eax / lea edi, [T0] / mov ecx, 255 / call __str_assign
+ *   ; -- append the RIGHT operand (b+c), materialized into T1 first:
+ *   mov eax, b_addr / mov esi, eax / lea edi, [T1] / mov ecx, 255 / call __str_assign
+ *   mov eax, c_addr / mov esi, eax / lea edi, [T1] / call __str_concat   ; T1 = b+c
+ *   lea eax, [T1]   / mov esi, eax / lea edi, [T0] / call __str_concat   ; T0 += T1
+ *   ; -- store the fully-evaluated RHS into s with truncation:
+ *   lea eax, [T0]   / mov esi, eax / <dst base -> edi> / mov ecx, Cs / call __str_assign
+ * Under SEED_MUT_CODEGEN_STR_TEMP_CLOBBER (every str_temp forced to 0) T1==T0,
+ * so evaluating (b+c) OVERWRITES a's copy in T0 and the golden RNEST tag flips
+ * -- the load-bearing bite (string.pas RNEST). Under
+ * SEED_MUT_CODEGEN_STR_CMP_NOLEN, __str_cmp drops the length tiebreak so
+ * 'ab' = 'abc' is wrongly TRUE (string.pas EQF).
+ * ============================================================================
+ */
 #define CG_NAME_CAP    128
+/* B7 (beads initech-39k2): one string TEMPORARY is 64 dwords (256 bytes) --
+ * enough for a full string[255] ShortString intermediate (cap-255 accumulator).
+ * A routine reserves max-live-temps of these AFTER its locals/result. */
+#define CG_STR_TEMP_DWORDS 64
 #define CG_MAX_PARAMS   32
 #define CG_MAX_SCOPE    (CG_MAX_PARAMS + 64) /* params + result + locals */
 #define CG_MAX_PROCS   128
@@ -329,6 +400,12 @@ typedef struct {
      * when is_array is 0, this is the scalar record's own size in dwords
      * (used by gen_field_addr/gen_record_copy, never by array addressing). */
     int    rec_fields;
+    /* B7 (beads initech-39k2): the ShortString capacity (1..255) for a string
+     * LOCAL or a `var string` parameter (always 255 for the latter), else 0.
+     * For a string local, `offset` is byte 0 (the block's LOWEST address);
+     * for a `var string` parameter, the slot holds the caller's byte-0
+     * pointer (CG_VARPARAM). strcap>0 marks a string entry. */
+    int    strcap;
 } CgScopeEnt;
 
 typedef struct {
@@ -366,7 +443,20 @@ typedef struct {
 
 typedef struct {
     FILE *out;
-    int   str_count;      /* next .rodata string label ordinal */
+    int   str_count;      /* next .rodata write-literal (str_<n>) ordinal */
+    /* B7 (beads initech-39k2): a SEPARATE ordinal for EXPRESSION-context string
+     * literals (strlit_<n>, length-prefixed) -- assigned in the ONE rodata
+     * walk and STORED on each AST_STRLIT node's lit_ord (the .text pass reads
+     * it, never re-derives it, so there is no second divergent walk). The
+     * write-literal str_count sequence is left byte-identical to pre-B7. */
+    int   strlit_count;
+    /* B7: program.uses_strings (typecheck's verdict) -- the __str_* intrinsic
+     * prelude + string machinery are emitted only when set. */
+    int   uses_strings;
+    /* B7: the routine currently being emitted -- its frame_slots (0 for
+     * pas_main), so string-temp addressing can place temps AFTER the locals.
+     * Set in emit_proc / the pas_main emission, read by cg_str_temp_ebp. */
+    int   cur_frame_slots;
     /* B4 (beads initech-63ce): the routine table (for call codegen) and the
      * ACTIVE routine's scope (NULL while emitting pas_main -- there, every
      * name is a global). */
@@ -563,12 +653,25 @@ static int cg_rectype_fields(const Cg *cg, const char *name)
            "typecheck)", NULL);
 }
 
-/* ----- .rodata string pass: assign ordinal labels to each string arg ----- */
-/* We walk write/writeln args in source order and emit each string literal as a
- * labelled byte array. To map a string node to its label in the .text pass we
- * re-walk in the SAME order and re-derive the ordinal -- deterministic. */
+/* ----- .rodata string pass: assign ordinal labels to each string literal --- */
+/*
+ * Two label families, each with its OWN ordinal counter, in ONE source-order
+ * walk (no second re-walk -- DEC-04):
+ *   - WRITE-argument bare literals -> `str_<n>` (NUL-terminated), str_count.
+ *     UNCHANGED from pre-B7; the .text pass (gen_write) re-derives the ordinal
+ *     by counting write-literals in the same order, so pre-B7 output stays
+ *     byte-identical.
+ *   - B7 (beads initech-39k2) EXPRESSION-context literals -> `strlit_<n>`
+ *     (length-prefixed, `db len, bytes`), strlit_count, with the ordinal
+ *     STORED on the node (lit_ord) so the .text pass reads it directly (no
+ *     re-derivation, so no divergence). Reached via rodata_walk_expr, which
+ *     descends assignment values, conditions, call args, and non-literal write
+ *     args -- pre-B7 programs have no such literals, so this emits nothing and
+ *     the str_<n> sequence is untouched.
+ */
 
-static void rodata_walk(Cg *cg, const AstNode *n);
+static void rodata_walk(Cg *cg, AstNode *n);
+static void rodata_walk_expr(Cg *cg, AstNode *e);
 
 static void rodata_emit_string(Cg *cg, const AstNode *s)
 {
@@ -582,7 +685,53 @@ static void rodata_emit_string(Cg *cg, const AstNode *s)
     fprintf(o, "0\n");
 }
 
-static void rodata_walk(Cg *cg, const AstNode *n)
+/* B7 (beads initech-39k2): a length-prefixed .rodata blob for an expression-
+ * context string literal, its ordinal stored on the node. */
+static void rodata_emit_strlit(Cg *cg, AstNode *s)
+{
+    FILE *o = cg->out;
+    int idx = cg->strlit_count++;
+    s->as.strlit.lit_ord = idx;
+    fprintf(o, "strlit_%d:\n", idx);
+    fprintf(o, "    db %zu", s->as.strlit.length);   /* length prefix (0..255) */
+    for (size_t i = 0; i < s->as.strlit.length; i++)
+        fprintf(o, ",%u", (unsigned char)s->as.strlit.text[i]);
+    fprintf(o, "\n");
+}
+
+/* Descend an EXPRESSION, emitting strlit_<n> for every AST_STRLIT reached
+ * (B7). Pre-B7 expressions contain no AST_STRLIT, so this is inert for them. */
+static void rodata_walk_expr(Cg *cg, AstNode *e)
+{
+    if (!e)
+        return;
+    switch (e->kind) {
+    case AST_STRLIT:
+        rodata_emit_strlit(cg, e);
+        break;
+    case AST_BINOP:
+        rodata_walk_expr(cg, e->as.binop.lhs);
+        rodata_walk_expr(cg, e->as.binop.rhs);
+        break;
+    case AST_UNOP:
+        rodata_walk_expr(cg, e->as.unop.operand);
+        break;
+    case AST_INDEX:
+        rodata_walk_expr(cg, e->as.arrayindex.index);
+        break;
+    case AST_FIELD:
+        rodata_walk_expr(cg, e->as.field.base);
+        break;
+    case AST_CALL:
+        for (size_t i = 0; i < e->as.call.args.count; i++)
+            rodata_walk_expr(cg, e->as.call.args.items[i]);
+        break;
+    default:
+        break; /* leaves (int/char/bool/varref) hold no string literal */
+    }
+}
+
+static void rodata_walk(Cg *cg, AstNode *n)
 {
     if (!n)
         return;
@@ -593,7 +742,7 @@ static void rodata_walk(Cg *cg, const AstNode *n)
          * FIRST, then the main block -- the SAME order the .text pass emits
          * them, so str_<n> ordinals match between the two passes. */
         for (size_t i = 0; i < n->as.program.decls.count; i++) {
-            const AstNode *d = n->as.program.decls.items[i];
+            AstNode *d = n->as.program.decls.items[i];
             if ((d->kind == AST_PROCDECL || d->kind == AST_FUNCDECL)
                 && !d->as.procfunc.is_forward)
                 rodata_walk(cg, d->as.procfunc.body);
@@ -609,27 +758,38 @@ static void rodata_walk(Cg *cg, const AstNode *n)
         for (size_t i = 0; i < n->as.write.args.count; i++) {
             AstNode *arg = n->as.write.args.items[i];
             if (arg->kind == AST_STRLIT)
-                rodata_emit_string(cg, arg);
+                rodata_emit_string(cg, arg);   /* a bare write literal (str_) */
+            else
+                rodata_walk_expr(cg, arg);     /* B7: an expression arg */
         }
         break;
     case AST_ASSIGN:
-        /* assignment value is an integer expr -- no string literals there */
+        /* B7 (beads initech-39k2): an assignment value (and a string index)
+         * may now contain string literals (`s := 'x' + s`, `s[i] := ...`). */
+        rodata_walk_expr(cg, n->as.assign.index);
+        rodata_walk_expr(cg, n->as.assign.value);
         break;
     /* B2 (beads initech-80iw): if/while bodies can contain write/writeln
      * with string args (control.pas's IF1/IF2/DE tags do exactly this), so
      * this pass MUST recurse into them in the SAME order gen_stmt's .text
-     * pass will -- else a string literal inside a branch/loop body would
-     * never reach .rodata and codegen would emit a reference to a label
-     * that was never defined. Conditions themselves are never walked here:
-     * a condition is an expression context and this subset's expressions
-     * never contain string literals (write/writeln args are the only place
-     * a bare string literal is legal -- see parser.c's parse_write). */
+     * pass will. B7 (beads initech-39k2): the CONDITION is now also walked as
+     * an expression -- a string compare in a guard (`if s1 = s2 ...`) may
+     * carry a coerced-char or literal operand needing a strlit_<n> blob. */
     case AST_IF:
+        rodata_walk_expr(cg, n->as.ifstmt.cond);
         rodata_walk(cg, n->as.ifstmt.then_stmt);
         rodata_walk(cg, n->as.ifstmt.else_stmt);
         break;
     case AST_WHILE:
+        rodata_walk_expr(cg, n->as.whilestmt.cond);
         rodata_walk(cg, n->as.whilestmt.body);
+        break;
+    case AST_CALL:
+        /* B7 (beads initech-39k2): a procedure-call statement's args (a
+         * stage-then-pass literal is a `var` arg -- a designator -- but a value
+         * arg could embed a string literal via a compare/ord). */
+        for (size_t i = 0; i < n->as.call.args.count; i++)
+            rodata_walk_expr(cg, n->as.call.args.items[i]);
         break;
     default:
         break;
@@ -652,6 +812,11 @@ static void gen_field_addr(Cg *cg, const char *name, const AstNode *idxexpr,
 static void gen_record_copy(Cg *cg, const char *dst_name,
                             const AstNode *dst_idx, const char *src_name,
                             const AstNode *src_idx, int rec_fields);
+/* B7 (beads initech-39k2): string materialization + addressing. */
+static void gen_str_value(Cg *cg, const AstNode *e);   /* byte-0 addr -> eax */
+static void emit_concat_into(Cg *cg, const AstNode *e);/* concat -> e->str_temp */
+static void gen_str_base_addr(Cg *cg, const char *name);/* designator base -> eax */
+static void gen_str_compare(Cg *cg, const AstNode *e); /* string relop -> 0/1 eax */
 
 /*
  * B5 (beads initech-54uu; ADR-0007 DEC-02/DEC-04 "static arrays"; codegen:
@@ -944,9 +1109,198 @@ static void gen_record_copy(Cg *cg, const char *dst_name,
     }
 }
 
+/*
+ * ============================================================================
+ * B7 (beads initech-39k2) -- string materialization, addressing, temporaries.
+ * See this file's B7 header block for the layout rule, the intrinsic ABI, the
+ * temp model, and the worked s := a + (b + c) sequence.
+ * ============================================================================
+ */
+
+/* Byte-0 ebp displacement of string TEMPORARY k in the routine currently being
+ * emitted: the temps sit AFTER the routine's locals/result (cur_frame_slots
+ * dwords), each CG_STR_TEMP_DWORDS wide, and the designator base is the block's
+ * LOWEST address (= its highest slot number, so byte i ascends toward ebp). */
+static int cg_str_temp_offset(const Cg *cg, int k)
+{
+    return cg_local_offset(cg->cur_frame_slots + (k + 1) * CG_STR_TEMP_DWORDS
+                           - 1);
+}
+
+/* Emit "lea <reg>, [ebp-N]" for string temp k's byte 0. */
+static void cg_emit_temp_lea(Cg *cg, const char *reg, int k)
+{
+    fprintf(cg->out, "    lea %s, ", reg);
+    cg_ebp(cg->out, cg_str_temp_offset(cg, k));
+    fprintf(cg->out, "\n");
+}
+
+/* Byte-0 address of a string DESIGNATOR `name` -> eax. A `var string`
+ * parameter's frame slot holds the caller's byte-0 POINTER (forward it); a
+ * string LOCAL's offset is byte 0 (its block's lowest address) so `lea`;
+ * a global string is `v_<name>` (byte 0). */
+static void gen_str_base_addr(Cg *cg, const char *name)
+{
+    FILE *o = cg->out;
+    const CgScopeEnt *se = cg_resolve(cg, name);
+    if (se) {
+        if (se->kind == CG_VARPARAM) {
+            fprintf(o, "    mov eax, ");
+            cg_ebp(o, se->offset);
+            fprintf(o, "\n");
+        } else {
+            fprintf(o, "    lea eax, ");
+            cg_ebp(o, se->offset);
+            fprintf(o, "\n");
+        }
+    } else {
+        fprintf(o, "    mov eax, v_");
+        emit_var_label(o, name);
+        fprintf(o, "\n");
+    }
+}
+
+/*
+ * gen_str_value: leave the byte-0 ADDRESS of expression `e`'s string value in
+ * eax, MATERIALIZING into e->str_temp when needed. The four cases:
+ *   - AST_STRLIT (expression literal): its .rodata label `strlit_<ord>`.
+ *   - string designator (AST_VARREF): its own storage address.
+ *   - concat (AST_BINOP OP_ADD, string): emit_concat_into e->str_temp, addr it.
+ *   - char coercion (e->type == CHAR): materialize a len-1 string into
+ *     e->str_temp (byte 0 = 1, byte 1 = the char). See ast.h's B7 coercion
+ *     table (contexts 1-3).
+ */
+static void gen_str_value(Cg *cg, const AstNode *e)
+{
+    FILE *o = cg->out;
+    if (e->kind == AST_STRLIT) {
+        fprintf(o, "    mov eax, strlit_%d\n", e->as.strlit.lit_ord);
+        return;
+    }
+    if (e->kind == AST_VARREF && e->type == AST_TY_STRING) {
+        gen_str_base_addr(cg, e->as.varref.name);
+        return;
+    }
+    if (e->kind == AST_BINOP && e->as.binop.op == OP_ADD
+        && e->type == AST_TY_STRING) {
+        emit_concat_into(cg, e);
+        cg_emit_temp_lea(cg, "eax", e->str_temp);
+        return;
+    }
+    if (e->type == AST_TY_CHAR) {
+        gen_expr(cg, e);                       /* al = char byte */
+        cg_emit_temp_lea(cg, "edx", e->str_temp);
+        fprintf(o, "    mov byte [edx], 1\n");
+        fprintf(o, "    mov [edx+1], al\n");
+        fprintf(o, "    mov eax, edx\n");
+        return;
+    }
+    cg_ice("non-string expression reached string-value materialization", e);
+}
+
+/*
+ * emit_concat_into: materialize concat `e` into its accumulator temp
+ * e->str_temp, in-place. The LEFT spine shares the accumulator (left-deep chains
+ * cost ONE temp); the RIGHT operand is materialized (into ITS temp, if it is a
+ * concat/char) then appended -- a right-nested a+(b+c) is thus the two-live-
+ * temps case the STR_TEMP_CLOBBER mutant collapses. The leftmost leaf
+ * INITIALIZES the accumulator (a char inline, a designator/literal via a cap-255
+ * __str_assign); every subsequent operand is a __str_concat.
+ */
+static void emit_concat_into(Cg *cg, const AstNode *e)
+{
+    FILE *o = cg->out;
+    int t = e->str_temp;
+    const AstNode *lhs = e->as.binop.lhs;
+    const AstNode *rhs = e->as.binop.rhs;
+
+    if (lhs->kind == AST_BINOP && lhs->as.binop.op == OP_ADD
+        && lhs->type == AST_TY_STRING) {
+        emit_concat_into(cg, lhs);            /* lhs->str_temp == t (planner) */
+    } else if (lhs->type == AST_TY_CHAR) {
+        gen_expr(cg, lhs);                    /* al = char */
+        cg_emit_temp_lea(cg, "edx", t);
+        fprintf(o, "    mov byte [edx], 1\n");
+        fprintf(o, "    mov [edx+1], al\n");
+    } else {
+        gen_str_value(cg, lhs);               /* eax = src addr (designator/lit) */
+        fprintf(o, "    mov esi, eax\n");
+        cg_emit_temp_lea(cg, "edi", t);
+        fprintf(o, "    mov ecx, 255\n");
+        fprintf(o, "    call __str_assign\n");
+    }
+
+    gen_str_value(cg, rhs);                   /* eax = rhs addr (materialized) */
+    fprintf(o, "    mov esi, eax\n");
+    cg_emit_temp_lea(cg, "edi", t);
+    fprintf(o, "    call __str_concat\n");
+}
+
+/*
+ * gen_str_compare: a string relop `lhs op rhs` (>= 1 string operand; the char
+ * side coerces). Materialize lhs (spill its addr), materialize rhs into a
+ * DISTINCT temp (the planner gives rhs a higher temp base so lhs survives),
+ * call __str_cmp (eax = -1/0/+1), then the EXACT B1 relational tail
+ * (`cmp eax, 0` + setcc + movzx). The existing SETL_AS_SETG mutant thereby also
+ * perturbs string </> (incidental cross-coverage, D8); the string mutant
+ * (STR_CMP_NOLEN) targets __str_cmp's BODY instead.
+ */
+static void gen_str_compare(Cg *cg, const AstNode *e)
+{
+    FILE *o = cg->out;
+    gen_str_value(cg, e->as.binop.lhs);       /* eax = lhs addr */
+    fprintf(o, "    push eax\n");
+    gen_str_value(cg, e->as.binop.rhs);       /* eax = rhs addr */
+    fprintf(o, "    mov edi, eax\n");
+    fprintf(o, "    pop esi\n");
+    fprintf(o, "    call __str_cmp\n");
+    fprintf(o, "    cmp eax, 0\n");
+    switch (e->as.binop.op) {
+    case OP_EQ: fprintf(o, "    sete al\n"); break;
+    case OP_NE: fprintf(o, "    setne al\n"); break;
+    case OP_LE: fprintf(o, "    setle al\n"); break;
+    case OP_GE: fprintf(o, "    setge al\n"); break;
+    case OP_LT:
+#ifdef SEED_MUT_CODEGEN_SETL_AS_SETG
+        fprintf(o, "    setg al\n");
+#else
+        fprintf(o, "    setl al\n");
+#endif
+        break;
+    case OP_GT:
+#ifdef SEED_MUT_CODEGEN_SETL_AS_SETG
+        fprintf(o, "    setl al\n");
+#else
+        fprintf(o, "    setg al\n");
+#endif
+        break;
+    default:
+        cg_ice("non-relational operator in gen_str_compare", e);
+    }
+    fprintf(o, "    movzx eax, al\n");
+}
+
 static void gen_binop(Cg *cg, const AstNode *e)
 {
     FILE *o = cg->out;
+    /* B7 (beads initech-39k2; D7/D8): a relop with a string operand is a
+     * string compare (0/1 in eax), not the integer stack-machine path below.
+     * A string CONCAT never reaches gen_binop -- string VALUES route through
+     * gen_str_value, so a concat here is an internal contract break. */
+    {
+        AstOp op = e->as.binop.op;
+        int lstr = (e->as.binop.lhs->type == AST_TY_STRING);
+        int rstr = (e->as.binop.rhs->type == AST_TY_STRING);
+        if ((lstr || rstr)
+            && (op == OP_EQ || op == OP_NE || op == OP_LT || op == OP_LE
+                || op == OP_GT || op == OP_GE)) {
+            gen_str_compare(cg, e);
+            return;
+        }
+        if (op == OP_ADD && (lstr || rstr))
+            cg_ice("string concat reached gen_binop (should route through "
+                   "gen_str_value)", e);
+    }
     gen_expr(cg, e->as.binop.lhs);     /* lhs -> eax */
     fprintf(o, "    push eax\n");       /* spill lhs */
     gen_expr(cg, e->as.binop.rhs);     /* rhs -> eax */
@@ -1108,6 +1462,18 @@ static void gen_expr(Cg *cg, const AstNode *e)
      * element ADDRESS (gen_elem_addr, the ONE shared address path) then
      * dereference it. */
     case AST_INDEX:
+        /* B7 (beads initech-39k2; D5): a STRING s[i] is a 1-based BYTE read (a
+         * char r-value) -- address = base + i (byte 0 is the length prefix, so
+         * no -1), movzx to zero-extend. The base is spilled before the index
+         * expression evaluates (it may call). NOT an array dword load. */
+        if (e->as.arrayindex.is_string) {
+            gen_str_base_addr(cg, e->as.arrayindex.name);   /* eax = base */
+            fprintf(o, "    push eax\n");
+            gen_expr(cg, e->as.arrayindex.index);           /* eax = i */
+            fprintf(o, "    pop edx\n");                     /* edx = base */
+            fprintf(o, "    movzx eax, byte [edx+eax]\n");   /* base + i */
+            break;
+        }
         gen_elem_addr(cg, e->as.arrayindex.name, e->as.arrayindex.index);
         fprintf(o, "    mov eax, [eax]\n");
         break;
@@ -1126,6 +1492,16 @@ static void gen_expr(Cg *cg, const AstNode *e)
         gen_binop(cg, e);
         break;
     case AST_UNOP:
+        /* B7 (beads initech-39k2; D9): length(s) is emitted INLINE -- the
+         * ShortString length prefix at byte 0, zero-extended. The operand is
+         * a string VALUE (routed through gen_str_value, NOT gen_expr, since a
+         * string is an address not an int), so this is handled BEFORE the
+         * generic gen_expr(operand) below. */
+        if (e->as.unop.op == OP_LENGTH) {
+            gen_str_value(cg, e->as.unop.operand);   /* eax = string base addr */
+            fprintf(o, "    movzx eax, byte [eax]\n");
+            break;
+        }
         gen_expr(cg, e->as.unop.operand);
         switch (e->as.unop.op) {
         case OP_NEG:
@@ -1224,6 +1600,15 @@ static void gen_write(Cg *cg, const AstNode *n, int *str_idx)
              * ("In: AL = byte", seed/rt/start.asm). */
             gen_expr(cg, arg);                 /* value -> eax (al = byte) */
             fprintf(o, "    call serial_putc\n");
+        } else if (arg->type == AST_TY_STRING) {
+            /* B7 (beads initech-39k2): a STRING expression arg (a string var or
+             * a concat -- never a bare write literal, which is AST_STRLIT and
+             * took the serial_puts path above) is written via __str_write,
+             * which loops its content bytes through serial_putc (a ShortString
+             * may contain 0x00, so it must NEVER route through serial_puts). */
+            gen_str_value(cg, arg);            /* eax = string base addr */
+            fprintf(o, "    mov esi, eax\n");
+            fprintf(o, "    call __str_write\n");
         } else {
             gen_expr(cg, arg);                 /* value -> eax */
             fprintf(o, "    call serial_put_int\n");
@@ -1263,6 +1648,45 @@ static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
             gen_stmt(cg, n->as.block.stmts.items[i], str_idx);
         break;
     case AST_ASSIGN: {
+        /* B7 (beads initech-39k2; D5): a STRING target -- handled FIRST
+         * (assign.strcap>0, stamped by typecheck). `index` non-NULL is an
+         * s[i] BYTE write (`s[i] := <char>`, no length change); `index` NULL
+         * is a WHOLE-string assign with silent truncation to strcap. A bare
+         * char RHS uses the inline fast path (store len 1 + the byte, D4);
+         * anything else materializes the RHS FULLY into a temp/addr, then
+         * __str_assign copies it to dst (NEVER writing dst while it is a live
+         * source -- the aliasing rule). */
+        if (n->as.assign.strcap > 0) {
+            if (n->as.assign.index) {
+                gen_str_base_addr(cg, n->as.assign.name);  /* eax = base */
+                fprintf(o, "    push eax\n");
+                gen_expr(cg, n->as.assign.index);          /* eax = i */
+                fprintf(o, "    pop edx\n");
+                fprintf(o, "    add edx, eax\n");          /* edx = base + i */
+                fprintf(o, "    push edx\n");
+                gen_expr(cg, n->as.assign.value);          /* al = char */
+                fprintf(o, "    pop edx\n");
+                fprintf(o, "    mov [edx], al\n");         /* byte; no length */
+                break;
+            }
+            if (n->as.assign.value->type == AST_TY_CHAR) {
+                /* fast path: s := <char> is an inline len-1 store. */
+                gen_str_base_addr(cg, n->as.assign.name);  /* eax = dst base */
+                fprintf(o, "    push eax\n");
+                gen_expr(cg, n->as.assign.value);          /* al = char */
+                fprintf(o, "    pop edx\n");
+                fprintf(o, "    mov byte [edx], 1\n");
+                fprintf(o, "    mov [edx+1], al\n");
+                break;
+            }
+            gen_str_value(cg, n->as.assign.value);         /* eax = src addr */
+            fprintf(o, "    mov esi, eax\n");
+            gen_str_base_addr(cg, n->as.assign.name);      /* eax = dst base */
+            fprintf(o, "    mov edi, eax\n");
+            fprintf(o, "    mov ecx, %d\n", n->as.assign.strcap);
+            fprintf(o, "    call __str_assign\n");
+            break;
+        }
         /* B6 (beads initech-rug7): a FIELD assignment -- `name.field := v`
          * or `name[index].field := v` -- computes the FIELD ADDRESS first
          * and spills it, exactly like the B5 indexed-scalar case just below
@@ -1471,6 +1895,196 @@ static void gen_call(Cg *cg, const AstNode *call)
  * pointer, exactly like a scalar var parameter) -- only `rec_fields` is set,
  * for gen_field_addr's benefit (see `cg` now being passed in, needed to
  * resolve a record TYPE NAME to its field count via cg_rectype_fields). */
+/*
+ * ============================================================================
+ * B7 (beads initech-39k2) -- the string-TEMPORARY pre-walk (D4). A pure
+ * function of the AST (DEC-04 deterministic): per ROUTINE, walk statements in
+ * source order and stamp each string-materializing node's str_temp INDEX,
+ * RESET per statement; the routine reserves max-live-count temps. In-place
+ * LEFT-DEEP accumulation shares one temp; a RIGHT-NESTED operand gets a fresh
+ * simultaneously-live temp. The mutant SEED_MUT_CODEGEN_STR_TEMP_CLOBBER forces
+ * EVERY index to 0 (collapse-to-one) at the single allocation choke point
+ * below -- string.pas's right-nested RNEST clause then corrupts.
+ * ============================================================================
+ */
+
+/* The single temp-index allocation choke point (the CLOBBER mutant's locus). */
+static int str_temp_alloc(int requested)
+{
+#ifdef SEED_MUT_CODEGEN_STR_TEMP_CLOBBER
+    /* MUTATION HOOK (Rule 6; beads initech-39k2, D10 (i)): collapse every
+     * string temporary to index 0, so a right-nested concat a+(b+c) evaluates
+     * (b+c) into the SAME temp holding a's copy. test-seed-string-mutant
+     * asserts string.pas's RNEST tag goes RED. */
+    (void)requested;
+    return 0;
+#else
+    return requested;
+#endif
+}
+
+/* Does `e`, used as a STRING value, need a temporary? A plain designator or a
+ * .rodata literal does not; a concat or a coerced char does. */
+static int str_materializes(const AstNode *e)
+{
+    if (e->kind == AST_STRLIT)
+        return 0;
+    if (e->kind == AST_VARREF && e->type == AST_TY_STRING)
+        return 0;
+    return 1;
+}
+
+static int plan_str(AstNode *e, int b);
+
+/* Walk a NON-string-context expression `e` for EMBEDDED string materializations
+ * (a string compare buried in a boolean/integer expression, e.g. an `if`
+ * condition). Returns the highest temp index used, or b-1 if none. */
+static int plan_val(AstNode *e, int b)
+{
+    if (!e)
+        return b - 1;
+    switch (e->kind) {
+    case AST_INDEX:
+        /* string s[i] or array a[i]: the index is an integer expression. */
+        return plan_val(e->as.arrayindex.index, b);
+    case AST_UNOP:
+        return plan_val(e->as.unop.operand, b);
+    case AST_CALL: {
+        int hi = b - 1;
+        for (size_t i = 0; i < e->as.call.args.count; i++) {
+            int m = plan_val(e->as.call.args.items[i], b); /* args sequential */
+            if (m > hi) hi = m;
+        }
+        return hi;
+    }
+    case AST_BINOP: {
+        AstOp op = e->as.binop.op;
+        AstNode *l = e->as.binop.lhs, *r = e->as.binop.rhs;
+        if ((op == OP_EQ || op == OP_NE || op == OP_LT || op == OP_LE
+             || op == OP_GT || op == OP_GE)
+            && (l->type == AST_TY_STRING || r->type == AST_TY_STRING)) {
+            /* a string compare: lhs and rhs are SIMULTANEOUSLY live for
+             * __str_cmp, so rhs's temps sit ABOVE lhs's. */
+            int hl = plan_str(l, b);
+            int hr = plan_str(r, hl + 1);
+            return hr;
+        }
+        int hl = plan_val(l, b);
+        int hr = plan_val(r, b); /* sequential (lhs spilled to the data stack) */
+        return (hl > hr) ? hl : hr;
+    }
+    default:
+        return b - 1; /* leaves + AST_FIELD: no string temp */
+    }
+}
+
+/* Plan a STRING-context expression `e`, materialized into temp `b` if it
+ * materializes. Returns the highest temp index used, or b-1 if none. */
+static int plan_str(AstNode *e, int b)
+{
+    if (!str_materializes(e))
+        return b - 1;                         /* designator / .rodata literal */
+    if (e->kind == AST_BINOP && e->as.binop.op == OP_ADD
+        && e->type == AST_TY_STRING) {
+        e->str_temp = str_temp_alloc(b);      /* accumulator */
+        int hi = b;
+        AstNode *lhs = e->as.binop.lhs;
+        AstNode *rhs = e->as.binop.rhs;
+        if (lhs->kind == AST_BINOP && lhs->as.binop.op == OP_ADD
+            && lhs->type == AST_TY_STRING) {
+            int m = plan_str(lhs, b);         /* left spine shares accumulator */
+            if (m > hi) hi = m;
+        }
+        /* a leftmost char/designator/literal initializes the accumulator with
+         * no extra temp. */
+        if (str_materializes(rhs)) {
+            int m = plan_str(rhs, b + 1);     /* fresh simultaneously-live temp */
+            if (m > hi) hi = m;
+        }
+        return hi;
+    }
+    /* a coerced char: materialize a len-1 string into temp b. Its own value
+     * computation (rare embedded compares) reuses temps from b (dead before
+     * the coercion store). */
+    e->str_temp = str_temp_alloc(b);
+    int m = plan_val(e, b);
+    return (m > b) ? m : b;
+}
+
+/* Track a statement's max simultaneously-live temp count. */
+static void plan_track(int hi, int *maxtemps)
+{
+    if (hi + 1 > *maxtemps)
+        *maxtemps = hi + 1;
+}
+
+/* Walk one statement, RESETTING the temp base to 0 for each top-level string-
+ * context expression (they evaluate sequentially, so each may reuse temp 0). */
+static void plan_stmt(AstNode *n, int *maxtemps)
+{
+    if (!n)
+        return;
+    switch (n->kind) {
+    case AST_BLOCK:
+        for (size_t i = 0; i < n->as.block.stmts.count; i++)
+            plan_stmt(n->as.block.stmts.items[i], maxtemps);
+        return;
+    case AST_ASSIGN:
+        if (n->as.assign.strcap > 0) {                     /* string target */
+            if (n->as.assign.index) {
+                plan_track(plan_val(n->as.assign.index, 0), maxtemps);
+                plan_track(plan_val(n->as.assign.value, 0), maxtemps);
+            } else if (n->as.assign.value->type == AST_TY_CHAR) {
+                plan_track(plan_val(n->as.assign.value, 0), maxtemps);
+            } else if (str_materializes(n->as.assign.value)) {
+                plan_track(plan_str(n->as.assign.value, 0), maxtemps);
+            }
+            return;
+        }
+        if (n->as.assign.rec_fields > 0)
+            return;                                        /* record copy */
+        if (n->as.assign.index)
+            plan_track(plan_val(n->as.assign.index, 0), maxtemps);
+        plan_track(plan_val(n->as.assign.value, 0), maxtemps);
+        return;
+    case AST_IF:
+        plan_track(plan_val(n->as.ifstmt.cond, 0), maxtemps);
+        plan_stmt(n->as.ifstmt.then_stmt, maxtemps);
+        plan_stmt(n->as.ifstmt.else_stmt, maxtemps);
+        return;
+    case AST_WHILE:
+        plan_track(plan_val(n->as.whilestmt.cond, 0), maxtemps);
+        plan_stmt(n->as.whilestmt.body, maxtemps);
+        return;
+    case AST_WRITE:
+    case AST_WRITELN:
+        for (size_t i = 0; i < n->as.write.args.count; i++) {
+            AstNode *arg = n->as.write.args.items[i];
+            if (arg->kind == AST_STRLIT)
+                continue;                                  /* write literal */
+            if (arg->type == AST_TY_STRING)
+                plan_track(plan_str(arg, 0), maxtemps);
+            else
+                plan_track(plan_val(arg, 0), maxtemps);
+        }
+        return;
+    case AST_CALL:
+        for (size_t i = 0; i < n->as.call.args.count; i++)
+            plan_track(plan_val(n->as.call.args.items[i], 0), maxtemps);
+        return;
+    default:
+        return;
+    }
+}
+
+/* Reserve max-live string temps for a routine body (0 if it uses none). */
+static int plan_string_temps(AstNode *body)
+{
+    int maxtemps = 0;
+    plan_stmt(body, &maxtemps);
+    return maxtemps;
+}
+
 static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
 {
     sc->n = 0;
@@ -1489,6 +2103,10 @@ static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
         e->lo = e->hi = 0;
         e->rec_fields = pn->as.param.rectype
                       ? cg_rectype_fields(cg, pn->as.param.rectype) : 0;
+        /* B7 (beads initech-39k2): a `var string` parameter (always cap 255)
+         * -- its ONE slot holds the caller's byte-0 pointer (CG_VARPARAM). */
+        e->strcap = (pn->as.param.ptype == AST_TY_STRING)
+                  ? pn->as.param.strcap : 0;
     }
 
     int slot = 0;
@@ -1502,6 +2120,7 @@ static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
         e->is_array = 0; /* a function result is always scalar */
         e->lo = e->hi = 0;
         e->rec_fields = 0; /* record function results are out of scope */
+        e->strcap = 0;     /* string function results are out of scope (B7) */
     }
     for (size_t i = 0; i < pf->as.procfunc.decls.count; i++) {
         const AstNode *vd = pf->as.procfunc.decls.items[i];
@@ -1510,6 +2129,14 @@ static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
         int rec_fields = vd->as.vardecl.rectype
                         ? cg_rectype_fields(cg, vd->as.vardecl.rectype) : 0;
         int elem_words = rec_fields > 0 ? rec_fields : 1;
+        /* B7 (beads initech-39k2): a LOCAL string occupies W/4 contiguous frame
+         * dwords (W = round4(cap+1)); its designator base is the block's LOWEST
+         * address (highest slot number), so byte i ascends toward ebp -- see
+         * ast.h's B7 layout note (deliberately unlike B5's array-local
+         * convention). */
+        int strcap = (vd->as.vardecl.vtype == AST_TY_STRING)
+                   ? vd->as.vardecl.strcap : 0;
+        int strwords = strcap > 0 ? (strcap + 4) / 4 : 0;
         for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {
             const AstNode *vr = vd->as.vardecl.names.items[j];
             if (sc->n >= CG_MAX_SCOPE)
@@ -1518,7 +2145,14 @@ static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
             cg_lower(e->name, sizeof(e->name), vr->as.varref.name);
             e->kind = CG_LOCAL;
             e->rec_fields = rec_fields;
-            if (vd->as.vardecl.is_array) {
+            e->strcap = strcap;
+            if (strcap > 0) {
+                e->is_array = 0;
+                e->lo = e->hi = 0;
+                /* byte 0 = the block's LOWEST address = its highest slot. */
+                e->offset = cg_local_offset(slot + strwords - 1);
+                slot += strwords;
+            } else if (vd->as.vardecl.is_array) {
                 long lo = vd->as.vardecl.lo, hi = vd->as.vardecl.hi;
                 long count = hi - lo + 1;
                 e->is_array = 1;
@@ -1548,13 +2182,36 @@ static void emit_proc(Cg *cg, const AstNode *pf, int *str_idx)
     CgScope sc;
     cg_build_scope(cg, &sc, pf);
 
+    /* B7 (beads initech-39k2): reserve max-live string temporaries AFTER this
+     * routine's locals/result. The cast drops const on a genuinely-mutable
+     * arena node so the pre-walk can stamp str_temp (like typecheck's own
+     * annotations). A stringless program plans 0 temps, so `sub esp` and the
+     * prologue below stay byte-identical to pre-B7. */
+    int max_temps = cg->uses_strings
+                  ? plan_string_temps((AstNode *)pf->as.procfunc.body) : 0;
+    int total_slots = sc.frame_slots + max_temps * CG_STR_TEMP_DWORDS;
+    cg->cur_frame_slots = sc.frame_slots;
+
     fprintf(o, "pf_");
     emit_var_label(o, pf->as.procfunc.name);
     fprintf(o, ":\n");
     fprintf(o, "    push ebp\n");
     fprintf(o, "    mov ebp, esp\n");
-    if (sc.frame_slots > 0)
-        fprintf(o, "    sub esp, %d\n", 4 * sc.frame_slots);
+    if (total_slots > 0)
+        fprintf(o, "    sub esp, %d\n", 4 * total_slots);
+
+    /* B7 (beads initech-39k2): zero each LOCAL string's length byte so
+     * length()/write of an unassigned local is a well-defined empty string
+     * (Rule 2 spirit; a small differential-invisible TP divergence -- fixtures
+     * always assign before reading). A `var string` parameter aliases the
+     * caller's (already-initialized) string, so it is NOT zeroed. */
+    for (int i = 0; i < sc.n; i++) {
+        if (sc.ent[i].strcap > 0 && sc.ent[i].kind == CG_LOCAL) {
+            fprintf(o, "    mov byte ");
+            cg_ebp(o, sc.ent[i].offset);
+            fprintf(o, ", 0\n");
+        }
+    }
 
     cg->scope = &sc;
     gen_stmt(cg, pf->as.procfunc.body, str_idx);
@@ -1607,6 +2264,11 @@ static void emit_bss(Cg *cg, const AstNode *program)
         int rec_fields = vd->as.vardecl.rectype
                         ? cg_rectype_fields(cg, vd->as.vardecl.rectype) : 0;
         int elem_words = rec_fields > 0 ? rec_fields : 1;
+        /* B7 (beads initech-39k2): a GLOBAL string is a `resb W` block, W =
+         * round4(cap+1) (a dword multiple, so align 4 holds). Zero-init .bss
+         * gives byte 0 = 0 = an empty string. */
+        int strcap = (vd->as.vardecl.vtype == AST_TY_STRING)
+                   ? vd->as.vardecl.strcap : 0;
         for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {
             const AstNode *vr = vd->as.vardecl.names.items[j];
             if (vr->kind != AST_VARREF)
@@ -1619,7 +2281,9 @@ static void emit_bss(Cg *cg, const AstNode *program)
              * label's address itself, exactly like a scalar's slot. B6
              * (beads initech-rug7): each element/the scalar itself now
              * occupies `elem_words` dwords instead of always 1. */
-            if (vd->as.vardecl.is_array) {
+            if (strcap > 0) {
+                fprintf(o, ": resb %d\n", ((strcap + 4) / 4) * 4);
+            } else if (vd->as.vardecl.is_array) {
                 long count = vd->as.vardecl.hi - vd->as.vardecl.lo + 1;
                 fprintf(o, ": resd %ld\n", count * elem_words);
             } else {
@@ -1630,7 +2294,138 @@ static void emit_bss(Cg *cg, const AstNode *program)
     fprintf(o, "\n");
 }
 
-int codegen_emit(const AstNode *program, FILE *out)
+/*
+ * ============================================================================
+ * B7 (beads initech-39k2) -- the fixed __str_* intrinsic prelude (DEC-05: NOT
+ * the RTL; start.asm is untouched). Emitted ONCE into .text, ONLY when the
+ * program uses strings, in a fixed order with fixed internal labels (the
+ * start.asm .next/.done local-label style; each helper's `.xxx` labels attach
+ * to its own non-local __str_* label, so they never collide with each other or
+ * with pas_main's `.L*` labels). 386-safe only (movzx / branch-min / rep
+ * movsb/cmpsb; NO cmov). Every helper GUARDS len=0, returns via `ret`, clobbers
+ * only eax/ecx/edx/esi/edi, and preserves ebx/ebp/esp (so a temp address in a
+ * caller's register -- always recomputed via lea from ebp anyway -- survives).
+ * The ABI is documented in this file's B7 header block.
+ * ============================================================================
+ */
+static void emit_str_intrinsics(FILE *o)
+{
+    /* __str_assign: edi=&dst, esi=&src, ecx=cap(dst). n=min(len src, cap);
+     * copy n content bytes; dst[0]=n. Silent truncation. */
+    fprintf(o,
+        "__str_assign:\n"
+        "    movzx eax, byte [esi]\n"      /* len(src) */
+        "    cmp eax, ecx\n"
+        "    jbe .len_ok\n"
+        "    mov eax, ecx\n"               /* clamp to cap */
+        ".len_ok:\n"
+        "    mov [edi], al\n"              /* dst[0] = n */
+        "    mov ecx, eax\n"              /* count = n */
+        "    inc esi\n"
+        "    inc edi\n"
+        "    rep movsb\n"                  /* copy n bytes (guards n==0) */
+        "    ret\n");
+
+    /* __str_concat: edi=&dst, esi=&src. Append src content to dst, clamping the
+     * new length at 255 (ShortString intermediate cap). */
+    fprintf(o,
+        "__str_concat:\n"
+        "    movzx eax, byte [edi]\n"      /* dstlen */
+        "    movzx ecx, byte [esi]\n"      /* srclen */
+        "    mov edx, 255\n"
+        "    sub edx, eax\n"               /* navail = 255 - dstlen */
+        "    cmp ecx, edx\n"
+        "    jbe .n_ok\n"
+        "    mov ecx, edx\n"               /* n = min(srclen, navail) */
+        ".n_ok:\n"
+        "    lea edx, [edi+eax+1]\n"       /* dest = dst + 1 + dstlen */
+        "    add eax, ecx\n"               /* new dstlen */
+        "    mov [edi], al\n"              /* store new length */
+        "    inc esi\n"                    /* src content */
+        "    mov edi, edx\n"               /* dest start */
+        "    rep movsb\n"                  /* copy n bytes (guards n==0) */
+        "    ret\n");
+
+    /* __str_cmp: esi=&a, edi=&b -> eax = -1/0/+1. Unsigned bytewise over the
+     * min-length prefix; a prefix-equal pair decides on length (shorter < ). */
+    fprintf(o,
+        "__str_cmp:\n"
+        "    movzx eax, byte [esi]\n"      /* lenA */
+        "    movzx edx, byte [edi]\n"      /* lenB */
+        "    mov ecx, eax\n"               /* ecx = min(lenA,lenB) */
+        "    cmp edx, ecx\n"
+        "    jae .have_min\n"
+        "    mov ecx, edx\n"
+        ".have_min:\n"
+        "    push eax\n"                   /* save lenA */
+        "    push edx\n"                   /* save lenB */
+        "    inc esi\n"
+        "    inc edi\n"
+        ".cmp_loop:\n"
+        "    test ecx, ecx\n"
+        "    jz .prefix_equal\n"
+        "    mov al, [esi]\n"
+        "    mov dl, [edi]\n"
+        "    cmp al, dl\n"
+        "    jb .a_less\n"
+        "    ja .a_greater\n"
+        "    inc esi\n"
+        "    inc edi\n"
+        "    dec ecx\n"
+        "    jmp .cmp_loop\n"
+        ".a_less:\n"
+        "    add esp, 8\n"                 /* discard saved lengths */
+        "    mov eax, -1\n"
+        "    ret\n"
+        ".a_greater:\n"
+        "    add esp, 8\n"
+        "    mov eax, 1\n"
+        "    ret\n"
+        ".prefix_equal:\n"
+        "    pop edx\n"                    /* lenB */
+        "    pop eax\n");                  /* lenA */
+#ifdef SEED_MUT_CODEGEN_STR_CMP_NOLEN
+    /* MUTATION HOOK (Rule 6; beads initech-39k2, D10 (ii)): drop the length
+     * tiebreak, so a prefix-equal pair is wrongly EQUAL ('ab' = 'abc' TRUE).
+     * test-seed-string-mutant asserts string.pas's EQF tag goes RED. */
+    fprintf(o,
+        "    mov eax, 0\n"
+        "    ret\n");
+#else
+    fprintf(o,
+        "    cmp eax, edx\n"
+        "    jb .len_less\n"
+        "    ja .len_greater\n"
+        "    mov eax, 0\n"
+        "    ret\n"
+        ".len_less:\n"
+        "    mov eax, -1\n"
+        "    ret\n"
+        ".len_greater:\n"
+        "    mov eax, 1\n"
+        "    ret\n");
+#endif
+
+    /* __str_write: esi=&s. Loop the content bytes through serial_putc (never
+     * serial_puts -- a ShortString may contain 0x00). serial_putc clobbers
+     * only DX, so esi/ecx survive the call. */
+    fprintf(o,
+        "__str_write:\n"
+        "    movzx ecx, byte [esi]\n"      /* len */
+        "    inc esi\n"                    /* content */
+        ".w_loop:\n"
+        "    test ecx, ecx\n"
+        "    jz .w_done\n"
+        "    mov al, [esi]\n"
+        "    call serial_putc\n"
+        "    inc esi\n"
+        "    dec ecx\n"
+        "    jmp .w_loop\n"
+        ".w_done:\n"
+        "    ret\n");
+}
+
+int codegen_emit(AstNode *program, FILE *out)
 {
     if (!program || program->kind != AST_PROGRAM) {
         fprintf(stderr, "initechc: codegen: root is not a program\n");
@@ -1645,6 +2440,10 @@ int codegen_emit(const AstNode *program, FILE *out)
     cg.ngarr = 0;
     cg.nrectypes = 0;
     cg.scope = NULL;
+    /* B7 (beads initech-39k2). */
+    cg.strlit_count = 0;
+    cg.uses_strings = program->as.program.uses_strings;
+    cg.cur_frame_slots = 0;
 
     /* B6 (beads initech-rug7): build the RECORD-TYPE table (name -> field
      * COUNT) from every top-level AST_TYPEDECL, BEFORE the global-array
@@ -1774,6 +2573,13 @@ int codegen_emit(const AstNode *program, FILE *out)
      * DEC-04's single threaded label counter, now spanning routines too. */
     fprintf(out, "section .text\n");
 
+    /* B7 (beads initech-39k2): the __str_* intrinsic prelude, emitted ONCE
+     * before any routine, ONLY when the program uses strings -- a stringless
+     * program's .text is byte-identical to pre-B7 (the repro byte-identity
+     * guard). */
+    if (cg.uses_strings)
+        emit_str_intrinsics(out);
+
     int str_idx = 0;
     for (size_t i = 0; i < program->as.program.decls.count; i++) {
         const AstNode *d = program->as.program.decls.items[i];
@@ -1785,6 +2591,17 @@ int codegen_emit(const AstNode *program, FILE *out)
     fprintf(out, "pas_main:\n");
     fprintf(out, "    push ebp\n");
     fprintf(out, "    mov ebp, esp\n");
+
+    /* B7 (beads initech-39k2): pas_main's main-body string TEMPORARIES live in
+     * its own frame (globals stay in .bss; only temps are frame-resident).
+     * frame_slots is 0 for pas_main, so the temp region starts right below
+     * ebp. A stringless program plans 0 temps -> no `sub esp` -> byte-identical
+     * to pre-B7. `leave` reclaims the region on return. */
+    int main_temps = cg.uses_strings
+                   ? plan_string_temps(program->as.program.block) : 0;
+    cg.cur_frame_slots = 0;
+    if (main_temps > 0)
+        fprintf(out, "    sub esp, %d\n", 4 * main_temps * CG_STR_TEMP_DWORDS);
 
     cg.scope = NULL; /* pas_main: globals only */
     gen_stmt(&cg, program->as.program.block, &str_idx);

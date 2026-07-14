@@ -121,6 +121,11 @@ AstNode *ast_new(AstArena *a, AstKind kind, int line, int col)
     n->kind = kind;
     n->line = line;
     n->col = col;
+    /* B7 (beads initech-39k2): -1 = "no string temporary assigned" (the memset
+     * default 0 is a valid temp index, so the unused sentinel must be set
+     * explicitly). The codegen pre-walk overwrites this for every string-
+     * materializing node it visits. */
+    n->str_temp = -1;
     return n;
 }
 
@@ -167,6 +172,7 @@ const char *ast_op_name(AstOp op)
     case OP_NOT: return "not";
     case OP_ORD: return "ord";
     case OP_CHR: return "chr";
+    case OP_LENGTH: return "length"; /* B7 (beads initech-39k2) */
     }
     return "?";
 }
@@ -179,6 +185,7 @@ const char *ast_vartype_name(AstVarType t)
     case AST_TY_BOOLEAN: return "boolean";
     case AST_TY_CHAR:    return "char";
     case AST_TY_RECORD:  return "record";
+    case AST_TY_STRING:  return "string"; /* B7 (beads initech-39k2) */
     }
     return "?";
 }
@@ -237,6 +244,9 @@ static void dump(const AstNode *n, FILE *fp)
             if (n->as.vardecl.is_array)
                 fprintf(fp, ":array[%ld..%ld] of %s", n->as.vardecl.lo,
                         n->as.vardecl.hi, tyname);
+            else if (n->as.vardecl.vtype == AST_TY_STRING)
+                /* B7 (beads initech-39k2): a string var dumps its capacity. */
+                fprintf(fp, ":string[%d]", n->as.vardecl.strcap);
             else
                 fprintf(fp, ":%s", tyname);
         }
@@ -349,10 +359,17 @@ static void dump(const AstNode *n, FILE *fp)
         break;
     /* B4 (beads initech-63ce). */
     case AST_PARAM:
-        fprintf(fp, "(param %s%s:%s)", n->as.param.is_var ? "var " : "",
-                n->as.param.name,
-                n->as.param.rectype ? n->as.param.rectype
-                                    : ast_vartype_name(n->as.param.ptype));
+        /* B7 (beads initech-39k2): a `var string` parameter dumps its
+         * capacity (always 255 -- the bare-string-only formal rule). */
+        if (n->as.param.ptype == AST_TY_STRING)
+            fprintf(fp, "(param %s%s:string[%d])",
+                    n->as.param.is_var ? "var " : "", n->as.param.name,
+                    n->as.param.strcap);
+        else
+            fprintf(fp, "(param %s%s:%s)", n->as.param.is_var ? "var " : "",
+                    n->as.param.name,
+                    n->as.param.rectype ? n->as.param.rectype
+                                        : ast_vartype_name(n->as.param.ptype));
         break;
     case AST_PROCDECL:
     case AST_FUNCDECL:

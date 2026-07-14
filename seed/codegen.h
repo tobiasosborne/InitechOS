@@ -59,7 +59,13 @@
  * reports to stderr). Aborts loudly (Rule 2) only on an internal invariant
  * violation (an unexpected node kind), which would indicate a front-end/AST
  * contract break, never user input.
+ *
+ * B7 (beads initech-39k2): `program` is non-const -- codegen's single rodata
+ * pass stamps each string literal's `lit_ord` and the per-routine temp pre-walk
+ * stamps each string-materializing node's `str_temp` (the same "annotate the
+ * mutable AST" model typecheck already uses). Requires program.uses_strings to
+ * have been set by typecheck (it gates the __str_* intrinsic prelude).
  */
-int codegen_emit(const AstNode *program, FILE *out);
+int codegen_emit(AstNode *program, FILE *out);
 
 #endif /* SEED_CODEGEN_H */

@@ -685,22 +685,32 @@ static void test_ord_chr_ast_shape(void)
         "ord/chr dump as unary nodes, reusing the AST_UNOP shape");
 }
 
-/* DISAMBIGUATION (ast.h's B3 comment): a TOK_STRING reached from an
- * EXPRESSION context must be exactly one character; a multi-character
- * quoted literal there is a syntax error, not a silently-accepted string
- * expression (this subset has no string-typed expressions yet). */
-static void test_multichar_string_in_expr_is_error(void)
+/* DISAMBIGUATION (ast.h's B3/B7 comments): a length-1 '...' in EXPRESSION
+ * context is a CHAR; B7 (beads initech-39k2) revises the old "one char only"
+ * rule so a MULTI-CHAR (or empty) '...' there is now a STRING-typed r-value
+ * (an AST_STRLIT), not a syntax error. A char := <multi-char string> is thus a
+ * TYPE error (char := string), not a parse error. */
+static void test_multichar_string_in_expr_is_string(void)
 {
     char buf[1024];
     int rc = parse_to_str(
+        "program P; var s : string;\n"
+        "begin s := 'AB' end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "a multi-character quoted literal in expr context PARSES "
+                   "as a string literal (B7)");
+    CHECK(strstr(buf, "(str \"AB\")") != NULL,
+          "the multi-char literal dumps as a string node, not a char");
+
+    /* Assigning that string literal to a CHAR var is now a TYPE error (the
+     * error moved from the parser to typecheck at B7). */
+    rc = check_to_str(
         "program P; var c : char;\n"
         "begin c := 'AB' end.",
         buf, sizeof buf);
-    CHECK(rc != 0, "a multi-character quoted literal in expr context is a "
-                   "syntax error");
-    CHECK(strstr(buf, "ERR@") != NULL, "error carries a location");
-    CHECK(strstr(buf, "one character") != NULL,
-          "diagnostic names the one-character rule, not a generic message");
+    CHECK(rc != 0, "char := <multi-char string> is a type error");
+    CHECK(strstr(buf, "TYPE_ERR@") != NULL, "error is tagged as a type error");
+    CHECK(strstr(buf, "mismatch") != NULL, "diagnostic names the mismatch");
 }
 
 static void test_typecheck_const_assign_is_error(void)
@@ -823,7 +833,7 @@ int main(void)
     test_const_var_sections_interleave();
     test_char_var_decl_and_literal();
     test_ord_chr_ast_shape();
-    test_multichar_string_in_expr_is_error();
+    test_multichar_string_in_expr_is_string();
     test_typecheck_const_assign_is_error();
     test_typecheck_const_var_collision();
     test_typecheck_char_no_implicit_coercion();

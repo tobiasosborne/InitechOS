@@ -68,6 +68,11 @@ typedef struct {
      * never both set. */
     int        is_record;
     char       rectype[TC_SYM_NAME_CAP];
+    /* B7 (beads initech-39k2): the declared ShortString capacity (1..255) when
+     * `type` is AST_TY_STRING, else 0. `string` folds to 255. Consumed by
+     * check_stmt to stamp assign.strcap (codegen's string-assign cap + string-
+     * target marker). */
+    int        strcap;
 } TcSym;
 
 /* B4 (beads initech-63ce): one entry in a routine's local scope. `kind`
@@ -101,6 +106,10 @@ typedef struct {
      * results are out of scope, ast.h's B6 note). */
     int         is_record;
     char        rectype[TC_SYM_NAME_CAP];
+    /* B7 (beads initech-39k2): the ShortString capacity when `type` is
+     * AST_TY_STRING (255 for a `var string` parameter -- the only string
+     * param form -- or 1..255 for a local string), else 0. */
+    int         strcap;
 } TcLocal;
 
 /* B4: one procedure/function signature. Params are flattened (one entry per
@@ -119,6 +128,9 @@ typedef struct {
          * a value parameter of record type is rejected at parse time. */
         int        is_record;
         char       rectype[TC_SYM_NAME_CAP];
+        /* B7 (beads initech-39k2): the ShortString capacity (255) when a `var`
+         * parameter is string-typed, else 0. */
+        int        strcap;
     } params[TC_MAX_PARAMS];
     int        nparams;
     int        is_defined;
@@ -169,6 +181,14 @@ typedef struct {
     TcLocal local[TC_MAX_PARAMS + TC_MAX_LOCALS];
     int     nlocal;
     int     in_routine;
+
+    /* B7 (beads initech-39k2): set to 1 the moment any string type appears
+     * (a string var/const/param/local declaration or an AST_STRLIT expression)
+     * during this existing walk -- NO new pass. Copied to
+     * program->as.program.uses_strings so codegen emits the __str_* intrinsic
+     * prelude iff the program actually uses strings (the byte-identity guard
+     * for pre-B7 fixtures). */
+    int   uses_strings;
 
     int   failed;
     char  errmsg[TYPECHECK_ERRMSG_CAP];
@@ -278,10 +298,14 @@ static int rectype_field_find(const TcRecType *rt, const char *field_lc)
  * their context (e.g. check_expr's AST_VARREF case allows a bare record var
  * as a value; a plain scalar array name is instead rejected there).
  */
+/* B7 (beads initech-39k2): `out_strcap` receives the resolved name's declared
+ * ShortString capacity (0 when it is not a string), so callers can stamp
+ * assign.strcap and validate a `var string` argument's cap-255 identity. */
 static int resolve_name(const Tc *tc, const char *name_lc,
                         AstVarType *out_type, int *out_is_lvalue,
                         int *out_is_array, long *out_lo, long *out_hi,
-                        int *out_is_record, char *out_rectype_lc)
+                        int *out_is_record, char *out_rectype_lc,
+                        int *out_strcap)
 {
     int li = local_find(tc, name_lc);
     if (li >= 0) {
@@ -292,6 +316,7 @@ static int resolve_name(const Tc *tc, const char *name_lc,
         *out_hi = tc->local[li].hi;
         *out_is_record = tc->local[li].is_record;
         snprintf(out_rectype_lc, TC_SYM_NAME_CAP, "%s", tc->local[li].rectype);
+        *out_strcap = tc->local[li].strcap;
         return 1;
     }
     int si = sym_find(tc, name_lc);
@@ -303,6 +328,7 @@ static int resolve_name(const Tc *tc, const char *name_lc,
         *out_hi = tc->syms[si].hi;
         *out_is_record = tc->syms[si].is_record;
         snprintf(out_rectype_lc, TC_SYM_NAME_CAP, "%s", tc->syms[si].rectype);
+        *out_strcap = tc->syms[si].strcap;
         return 1;
     }
     return 0;
@@ -429,6 +455,10 @@ static void collect_decls(Tc *tc, const AstList *decls)
             tc->syms[tc->nsyms].hi = 0;
             tc->syms[tc->nsyms].is_record = 0; /* B3 consts are scalar-only */
             tc->syms[tc->nsyms].rectype[0] = '\0';
+            /* B7 (beads initech-39k2): a STRING const (folded to a literal at
+             * use sites) still marks the program as using strings. */
+            if (vd->as.constdecl.ctype == AST_TY_STRING)
+                tc->uses_strings = 1;
             tc->nsyms++;
             continue;
         }
@@ -506,6 +536,13 @@ static void collect_decls(Tc *tc, const AstList *decls)
                 tc->syms[tc->nsyms].is_record = 0;
                 tc->syms[tc->nsyms].rectype[0] = '\0';
             }
+            /* B7 (beads initech-39k2): a string global carries its declared
+             * capacity; any string type appearing marks the program as
+             * using strings (codegen's intrinsic-prelude gate). */
+            if (vd->as.vardecl.vtype == AST_TY_STRING) {
+                tc->syms[tc->nsyms].strcap = vd->as.vardecl.strcap;
+                tc->uses_strings = 1;
+            }
             tc->nsyms++;
         }
     }
@@ -581,6 +618,13 @@ static int flatten_signature(Tc *tc, const AstNode *pf, TcProc *out)
         } else {
             out->params[out->nparams].is_record = 0;
             out->params[out->nparams].rectype[0] = '\0';
+        }
+        /* B7 (beads initech-39k2): a `var string` parameter (always cap 255 --
+         * parser.c rejects any other string formal) carries its capacity;
+         * seeing it marks the program as using strings. */
+        if (pn->as.param.ptype == AST_TY_STRING) {
+            out->params[out->nparams].strcap = pn->as.param.strcap;
+            tc->uses_strings = 1;
         }
         out->nparams++;
     }
@@ -720,11 +764,11 @@ static AstVarType check_expr_recinfo(Tc *tc, AstNode *e, char *out_rectype_lc,
     char lc[TC_SYM_NAME_CAP];
     lower_copy(lc, sizeof(lc), name);
     AstVarType rt;
-    int is_lvalue, is_array, is_record;
+    int is_lvalue, is_array, is_record, strcap;
     long lo, hi;
     char rectype[TC_SYM_NAME_CAP];
     if (resolve_name(tc, lc, &rt, &is_lvalue, &is_array, &lo, &hi, &is_record,
-                     rectype)
+                     rectype, &strcap)
         && is_record)
         snprintf(out_rectype_lc, cap, "%s", rectype);
     return t;
@@ -809,6 +853,7 @@ static AstVarType check_call(Tc *tc, AstNode *call, int want_value)
             int is_array = 0;
             long lo = 0, hi = 0;
             int is_record = 0;
+            int arg_strcap = 0;
             char rectype[TC_SYM_NAME_CAP];
             rectype[0] = '\0';
             if (arg->kind == AST_VARREF) {
@@ -816,7 +861,7 @@ static AstVarType check_call(Tc *tc, AstNode *call, int want_value)
                 lower_copy(alc, sizeof(alc), arg->as.varref.name);
                 resolved = resolve_name(tc, alc, &at, &is_lvalue,
                                         &is_array, &lo, &hi, &is_record,
-                                        rectype);
+                                        rectype, &arg_strcap);
                 if (resolved && is_array)
                     is_lvalue = 0; /* a bare array name is not a scalar lvalue */
             } else if (arg->kind == AST_INDEX) {
@@ -825,7 +870,7 @@ static AstVarType check_call(Tc *tc, AstNode *call, int want_value)
                 int base_is_lvalue = 0;
                 resolved = resolve_name(tc, alc, &at, &base_is_lvalue,
                                         &is_array, &lo, &hi, &is_record,
-                                        rectype);
+                                        rectype, &arg_strcap);
                 is_lvalue = resolved && is_array; /* an element of a REAL array */
             } else if (arg->kind == AST_FIELD) {
                 resolved = 1;
@@ -838,6 +883,21 @@ static AstVarType check_call(Tc *tc, AstNode *call, int want_value)
                          "a variable, array element, or field (not a "
                          "literal, constant, whole array, or expression)",
                          i + 1, call->as.call.name);
+                fail_at(tc, arg->line, arg->col, msg);
+                return AST_TY_UNKNOWN;
+            }
+            /* B7 (beads initech-39k2; D6): a `var string` formal (always cap
+             * 255) binds ONLY to a cap-255 string designator -- passing a
+             * `string[N<255]` by var would let the callee write up to 255
+             * bytes into an N-byte buffer (TP var-param type identity). */
+            if (pr->params[i].type == AST_TY_STRING && at == AST_TY_STRING
+                && arg_strcap != 255) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg),
+                         "argument %d of %s binds a string[%d] to a `var "
+                         "string` parameter, but only a cap-255 `string` may "
+                         "be passed by var (TP var-param type identity)",
+                         i + 1, call->as.call.name, arg_strcap);
                 fail_at(tc, arg->line, arg->col, msg);
                 return AST_TY_UNKNOWN;
             }
@@ -898,7 +958,29 @@ static AstVarType check_binop(Tc *tc, AstNode *e)
         return AST_TY_UNKNOWN;
 
     switch (e->as.binop.op) {
-    case OP_ADD: case OP_SUB: case OP_MUL: case OP_DIV: case OP_MOD:
+    case OP_ADD:
+        /* B7 (beads initech-39k2; D7): `+` is CONCAT iff >= 1 operand is
+         * string-typed (the other operand may be a char, coerced to a len-1
+         * string); the result is a string. char + char (NO string operand)
+         * falls through to the arithmetic path below and is a located type
+         * error -- a deliberate TP/fpc divergence (fpc would concatenate two
+         * chars; this subset does not). */
+        if (lt == AST_TY_STRING || rt == AST_TY_STRING) {
+            int lok = (lt == AST_TY_STRING || lt == AST_TY_CHAR);
+            int rok = (rt == AST_TY_STRING || rt == AST_TY_CHAR);
+            if (!lok || !rok) {
+                fail_at(tc, e->line, e->col,
+                        "'+' concat operands must both be string or char "
+                        "(no implicit coercion from integer/boolean)");
+                return AST_TY_UNKNOWN;
+            }
+            tc->uses_strings = 1;
+            e->type = AST_TY_STRING;
+            return e->type;
+        }
+        /* FALLTHROUGH to arithmetic. */
+        /* fall through */
+    case OP_SUB: case OP_MUL: case OP_DIV: case OP_MOD:
         if (lt != AST_TY_INTEGER || rt != AST_TY_INTEGER) {
             fail_at(tc, e->line, e->col,
                     "arithmetic operator requires integer operands");
@@ -939,6 +1021,24 @@ static AstVarType check_binop(Tc *tc, AstNode *e)
                     "instead)");
             return AST_TY_UNKNOWN;
         }
+        /* B7 (beads initech-39k2; D7/D8): a relop is a STRING compare iff >= 1
+         * operand is string-typed (the char side coerces to a len-1 string);
+         * result boolean. Both-char stays the existing ordinal compare below.
+         * __str_cmp does an unsigned bytewise compare with the shorter string
+         * ordering before the longer when one is a prefix of the other. */
+        if (lt == AST_TY_STRING || rt == AST_TY_STRING) {
+            int lok = (lt == AST_TY_STRING || lt == AST_TY_CHAR);
+            int rok = (rt == AST_TY_STRING || rt == AST_TY_CHAR);
+            if (!lok || !rok) {
+                fail_at(tc, e->line, e->col,
+                        "string comparison operands must both be string or "
+                        "char (no implicit coercion from integer/boolean)");
+                return AST_TY_UNKNOWN;
+            }
+            tc->uses_strings = 1;
+            e->type = AST_TY_BOOLEAN;
+            return e->type;
+        }
         if (lt == AST_TY_UNKNOWN || rt == AST_TY_UNKNOWN || lt != rt) {
             fail_at(tc, e->line, e->col,
                     "relational operands must be the same type "
@@ -947,7 +1047,7 @@ static AstVarType check_binop(Tc *tc, AstNode *e)
         }
         e->type = AST_TY_BOOLEAN;
         return e->type;
-    case OP_NEG: case OP_NOT: case OP_ORD: case OP_CHR:
+    case OP_NEG: case OP_NOT: case OP_ORD: case OP_CHR: case OP_LENGTH:
         fail_at(tc, e->line, e->col,
                 "internal: unary operator reached check_binop");
         return AST_TY_UNKNOWN;
@@ -1012,6 +1112,17 @@ static AstVarType check_unop(Tc *tc, AstNode *e)
         }
         e->type = AST_TY_CHAR;
         return e->type;
+    /* B7 (beads initech-39k2; ADR-0007 DEC-02 "length"): length(s) requires a
+     * string argument; the result is an integer (the ShortString length
+     * prefix, 0..255). */
+    case OP_LENGTH:
+        if (t != AST_TY_STRING) {
+            fail_at(tc, e->line, e->col,
+                    "'length' requires a string operand");
+            return AST_TY_UNKNOWN;
+        }
+        e->type = AST_TY_INTEGER;
+        return e->type;
     default:
         fail_at(tc, e->line, e->col, "internal: unknown unary operator");
         return AST_TY_UNKNOWN;
@@ -1046,9 +1157,10 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
         int is_array;
         long lo, hi;
         int is_record;
+        int strcap;
         char rectype[TC_SYM_NAME_CAP];
         if (!resolve_name(tc, lc, &t, &is_lvalue, &is_array, &lo, &hi,
-                          &is_record, rectype)) {
+                          &is_record, rectype, &strcap)) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg), "undeclared variable: %s",
                      e->as.varref.name);
@@ -1057,6 +1169,7 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
         }
         (void)lo; (void)hi; /* a bare-name reference never needs the bounds */
         (void)is_record; (void)rectype; /* codegen re-derives sizing itself */
+        (void)strcap;                   /* a bare string value needs no cap */
         /* B5 (beads initech-54uu): a bare array name is not a value in this
          * subset -- whole-array use (read, write, pass-by-value/reference)
          * is out of scope; the only legal use of an array is indexed
@@ -1085,9 +1198,10 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
         int is_lvalue, is_array;
         long lo, hi;
         int is_record;
+        int strcap;
         char rectype[TC_SYM_NAME_CAP];
         if (!resolve_name(tc, lc, &elem, &is_lvalue, &is_array, &lo, &hi,
-                          &is_record, rectype)) {
+                          &is_record, rectype, &strcap)) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg), "undeclared variable: %s",
                      e->as.arrayindex.name);
@@ -1096,6 +1210,27 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
         }
         (void)is_lvalue; (void)lo; (void)hi; /* codegen re-resolves bounds */
         (void)is_record; (void)rectype; /* codegen re-derives sizing itself */
+        /* B7 (beads initech-39k2; D5): `s[i]` on a STRING is a 1-based BYTE
+         * read (a char r-value), NOT an array element. Disambiguated here by
+         * the base designator's TYPE (the highest-risk AST_INDEX reuse --
+         * ast.h's B7 block); the index must be integer, s[i] is char-typed,
+         * and arrayindex.is_string is set so codegen byte-loads instead of
+         * dword-loading. NO bounds check ({$R-}). */
+        if (elem == AST_TY_STRING) {
+            (void)strcap;
+            AstVarType sit = check_expr(tc, e->as.arrayindex.index);
+            if (tc->failed)
+                return AST_TY_UNKNOWN;
+            if (sit != AST_TY_INTEGER) {
+                fail_at(tc, e->as.arrayindex.index->line,
+                        e->as.arrayindex.index->col,
+                        "string index must be an integer expression");
+                return AST_TY_UNKNOWN;
+            }
+            e->as.arrayindex.is_string = 1;
+            e->type = AST_TY_CHAR;
+            return e->type;
+        }
         if (!is_array) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg),
@@ -1157,6 +1292,14 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
         e->type = tc->rectypes[rti].fields[fi].type;
         return e->type;
     }
+    /* B7 (beads initech-39k2; D7): a multi-char or empty '...' reached in an
+     * EXPRESSION context (parse_factor built an AST_STRLIT, or a string const
+     * folded to one) is a string-typed r-value. (A write-argument bare literal
+     * is skipped in check_stmt's WRITE case and never reaches here.) */
+    case AST_STRLIT:
+        tc->uses_strings = 1;
+        e->type = AST_TY_STRING;
+        return e->type;
     case AST_CALL:
         /* B4: a function call used as an expression value. */
         return check_call(tc, e, /*want_value=*/1);
@@ -1194,13 +1337,71 @@ static void check_stmt(Tc *tc, AstNode *n)
         int is_array;
         long lo, hi;
         int is_record;
+        int strcap;
         char rectype[TC_SYM_NAME_CAP];
         if (!resolve_name(tc, lc, &vt, &is_lvalue, &is_array, &lo, &hi,
-                          &is_record, rectype)) {
+                          &is_record, rectype, &strcap)) {
             char msg[TYPECHECK_ERRMSG_CAP];
             snprintf(msg, sizeof(msg), "undeclared variable: %s",
                      n->as.assign.name);
             fail_at(tc, n->line, n->col, msg);
+            return;
+        }
+
+        /* B7 (beads initech-39k2; D5): a STRING target -- handled FIRST (it
+         * takes over the "how is the target validated" question from the
+         * field/index/record/scalar paths below). `strcap>0` stamped on the
+         * assign node is codegen's string-target marker AND the truncation
+         * cap. `index` NULL => a WHOLE-string assign (`s := <string|char>`,
+         * silent truncation to strcap); `index` non-NULL => an s[i] BYTE write
+         * (`s[i] := <char>`, no length change). A string has no fields. */
+        if (vt == AST_TY_STRING) {
+            if (n->as.assign.field) {
+                fail_at(tc, n->line, n->col,
+                        "'.field' cannot be applied to a string "
+                        "(strings have no fields in this subset)");
+                return;
+            }
+            if (!is_lvalue) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg), "cannot assign to a constant: %s",
+                         n->as.assign.name);
+                fail_at(tc, n->line, n->col, msg);
+                return;
+            }
+            if (n->as.assign.index) {
+                AstVarType it = check_expr(tc, n->as.assign.index);
+                if (tc->failed)
+                    return;
+                if (it != AST_TY_INTEGER) {
+                    fail_at(tc, n->as.assign.index->line,
+                            n->as.assign.index->col,
+                            "string index must be an integer expression");
+                    return;
+                }
+                AstVarType vvt = check_expr(tc, n->as.assign.value);
+                if (tc->failed)
+                    return;
+                if (vvt != AST_TY_CHAR) {
+                    fail_at(tc, n->line, n->col,
+                            "s[i] := <expr>: the right side must be a char "
+                            "(a string element is a single byte)");
+                    return;
+                }
+                n->as.assign.strcap = strcap;
+                return;
+            }
+            AstVarType vvt = check_expr(tc, n->as.assign.value);
+            if (tc->failed)
+                return;
+            if (vvt != AST_TY_STRING && vvt != AST_TY_CHAR) {
+                fail_at(tc, n->line, n->col,
+                        "string assignment: the right side must be a string "
+                        "or a char (no implicit coercion from integer/"
+                        "boolean)");
+                return;
+            }
+            n->as.assign.strcap = strcap;
             return;
         }
 
@@ -1435,11 +1636,15 @@ static void check_stmt(Tc *tc, AstNode *n)
              * valid write/writeln expression-argument type -- codegen's
              * gen_write picks the byte-emitting path (serial_putc) for it,
              * never decimal formatting. */
+            /* B7 (beads initech-39k2): a STRING expression argument (a string
+             * variable or a concat) is written via __str_write; a bare quoted
+             * write LITERAL keeps the pre-B7 serial_puts path (skipped above
+             * as AST_STRLIT). */
             if (t != AST_TY_INTEGER && t != AST_TY_BOOLEAN
-                && t != AST_TY_CHAR) {
+                && t != AST_TY_CHAR && t != AST_TY_STRING) {
                 fail_at(tc, arg->line, arg->col,
                         "write/writeln argument must be integer, boolean, "
-                        "or char");
+                        "char, or string");
                 return;
             }
         }
@@ -1502,7 +1707,8 @@ static void check_stmt(Tc *tc, AstNode *n)
  * parse time) or the function result (record results out of scope). */
 static void add_local(Tc *tc, int line, int col, const char *name_lc,
                       AstVarType type, TcLocalKind kind, const char *what,
-                      int is_array, long lo, long hi, const char *rectype)
+                      int is_array, long lo, long hi, const char *rectype,
+                      int strcap)
 {
     if (tc->failed)
         return;
@@ -1540,6 +1746,11 @@ static void add_local(Tc *tc, int line, int col, const char *name_lc,
         tc->local[tc->nlocal].is_record = 0;
         tc->local[tc->nlocal].rectype[0] = '\0';
     }
+    /* B7 (beads initech-39k2): a string local/`var` parameter carries its
+     * capacity; seeing one marks the program as using strings. */
+    tc->local[tc->nlocal].strcap = (type == AST_TY_STRING) ? strcap : 0;
+    if (type == AST_TY_STRING)
+        tc->uses_strings = 1;
     tc->nlocal++;
 }
 
@@ -1560,7 +1771,8 @@ static void check_routine(Tc *tc, const AstNode *pf)
         lower_copy(plc, sizeof(plc), pn->as.param.name);
         add_local(tc, pn->line, pn->col, plc, pn->as.param.ptype,
                   pn->as.param.is_var ? TC_KIND_VARPARAM : TC_KIND_VALPARAM,
-                  "parameter", /*is_array=*/0, 0, 0, pn->as.param.rectype);
+                  "parameter", /*is_array=*/0, 0, 0, pn->as.param.rectype,
+                  pn->as.param.strcap);
     }
 
     if (!tc->failed && pf->as.procfunc.has_result) {
@@ -1568,7 +1780,7 @@ static void check_routine(Tc *tc, const AstNode *pf)
         lower_copy(rlc, sizeof(rlc), pf->as.procfunc.name);
         add_local(tc, pf->line, pf->col, rlc, pf->as.procfunc.rettype,
                   TC_KIND_RESULT, "name (a parameter shadows the result)",
-                  /*is_array=*/0, 0, 0, /*rectype=*/NULL);
+                  /*is_array=*/0, 0, 0, /*rectype=*/NULL, /*strcap=*/0);
     }
 
     for (size_t i = 0; i < pf->as.procfunc.decls.count && !tc->failed; i++) {
@@ -1589,7 +1801,8 @@ static void check_routine(Tc *tc, const AstNode *pf)
             add_local(tc, vr->line, vr->col, vlc, vd->as.vardecl.vtype,
                       TC_KIND_LOCAL, "local variable",
                       vd->as.vardecl.is_array, vd->as.vardecl.lo,
-                      vd->as.vardecl.hi, vd->as.vardecl.rectype);
+                      vd->as.vardecl.hi, vd->as.vardecl.rectype,
+                      vd->as.vardecl.strcap);
         }
     }
 
@@ -1664,6 +1877,12 @@ int typecheck_program(AstNode *program, TypeCheckResult *out)
         out->col = tc.errcol;
         return 1;
     }
+
+    /* B7 (beads initech-39k2): hand codegen the "does this program use
+     * strings?" verdict computed during the walk above (no new pass), so it
+     * emits the __str_* intrinsic prelude only when needed -- keeping a
+     * stringless program's .s byte-identical to pre-B7. */
+    program->as.program.uses_strings = tc.uses_strings;
 
     out->ok = 1;
     out->error[0] = '\0';
