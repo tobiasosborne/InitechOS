@@ -438,8 +438,12 @@ int main(int argc, char **argv)
      * right + bottom structure frame reads CIDX_DESKTOP teal on the mutant and
      * CIDX_BLACK on the fixed build. We probe NOTES's right edge (x=NOTES_R-1) and
      * bottom edge (y=NOTES_B-1) -- both inside fd_win_bounds -- POST-switch only (a
-     * structural invariant: the frame was never supposed to move). The mutant
-     * DESKTOP_MUTATE_NO_PAINTALL_CLEAR (desktop.c drops the fix) flips this RED.
+     * structural invariant: the frame was never supposed to move). MUTATION-PROOF
+     * MOVED HOST-SIDE (2026-07-31 Wave A): the DESKTOP_MUTATE_NO_PAINTALL_CLEAR
+     * emu image used to flip this RED, but the DQ3 activation seed (initech-rqz5)
+     * now repaints the raised window's full chrome in the same dispatch, healing
+     * the stomp in the 2-tenant scene -- the knob is proven by test_drag.c leg (e)
+     * (test-drag-mutant) instead, and this tier remains a live invariant check.
      * This is the leg that catches the erasure jmc5/qi8v exist for -- TIER-A/B and
      * MENU-BAND probe CONTENT + the menu band, never the raised window's own frame,
      * which is exactly the pixel range the stale desktop_update corrupts. Fix:

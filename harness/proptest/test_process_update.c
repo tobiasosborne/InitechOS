@@ -28,16 +28,22 @@
  *   owned window -- proves it gets nothing).
  *
  * THE EXPECTED GOLDEN (hand-authored; ADR-0013 Sec 3.3 "updateEvt -> each damaged
- *   window's owning app, background apps included"):
+ *   window's owning app, background apps included"; validation contract per
+ *   initech-gofc / epic initech-av7s DQ1, ratified 2026-07-31):
  *     flair_route_updates walks the z-order front-to-back and for each VISIBLE
- *     window with NON-EMPTY damage routes ONE updateEvt to its owner, then validates:
+ *     window with NON-EMPTY damage routes ONE updateEvt to its owner (if any),
+ *     then validates EVERY walked window:
  *       WA0 (owner A, dirty)  -> A.event(updateEvt, msg=WA0); validate WA0
  *       WB0 (owner B, dirty)  -> B.event(updateEvt, msg=WB0); validate WB0
  *       WA1 (owner A, CLEAN)  -> skipped (no damage)            -> no delivery
- *       WU  (UNOWNED, dirty)  -> skipped (no owner, NO PANIC)   -> no delivery, NOT validated
- *     => log == [ (A,updateEvt,WA0), (B,updateEvt,WB0) ] exactly; WA0/WB0 updateRgn
- *        now EMPTY (validate ran); WA1 stayed empty; WU STILL non-empty (tolerated +
- *        skipped -- the shell repaints its own furniture).
+ *       WU  (UNOWNED, dirty)  -> NO delivery (no owner, NO PANIC) but VALIDATED:
+ *                                under the DQ2 pump order the compositor's chrome
+ *                                phase already serviced it (chrome IS an unowned
+ *                                window's full paint), so the route clears it
+ *                                rather than leaving furniture damage pending
+ *                                forever (the pre-DQ1 skip)
+ *     => log == [ (A,updateEvt,WA0), (B,updateEvt,WB0) ] exactly; WA0/WB0/WU
+ *        updateRgn now EMPTY (validate ran); WA1 stayed empty.
  *
  * MUTATION-PROVEN (Rule 6; self-mutation -- the test_interact / test_process
  *   convention; the mutants perturb the INDEPENDENT EXPECTED side, NOT the router):
@@ -47,11 +53,12 @@
  *       so the leg-0 routing assertion goes RED. Proves the update reaches the
  *       refCon-demuxed OWNER, not some other app.
  *
- *     UPDATE_MUT_SKIP_VALIDATE -- the EXPECTED post-route state leaves a routed
- *       window's updateRgn NON-EMPTY (i.e. validate was "skipped"). The correct
- *       router calls WindowMgr_validate after delivery, so the routed-window-now-
- *       empty assertion goes RED. Proves the damage is actually cleared (no infinite
- *       updateEvt storm).
+ *     UPDATE_MUT_SKIP_VALIDATE -- the EXPECTED post-route state leaves a walked
+ *       window's updateRgn NON-EMPTY (i.e. validate was "skipped") -- for the
+ *       routed WA0 AND for the unowned WU (the DQ1 unconditional validate). The
+ *       correct router validates every walked window, so both emptiness
+ *       assertions go RED. Proves the damage is actually cleared (no infinite
+ *       updateEvt storm, no immortal furniture damage).
  *
  * Ref: ADR-0013 Sec 3.1 (tenant ABI + binding rule / refCon demux), Sec 3.3
  *      (updateEvt routing in task context); spec/window_record.h Sec 4
@@ -329,7 +336,7 @@ int main(void)
 
     /* INDEPENDENT expected golden (hand-authored; never read from the router). */
     int exp_app_wa0     = A_ID;   /* WA0 is owned by app A (binding rule)            */
-    int exp_routed_empty = 1;     /* a routed window's damage is cleared (validate)  */
+    int exp_routed_empty = 1;     /* a walked window's damage is cleared (validate)  */
 #ifdef UPDATE_MUT_WRONG_OWNER
     exp_app_wa0 = B_ID;           /* self-mutation: EXPECT WA0 routed to the WRONG app */
 #endif
@@ -357,16 +364,24 @@ int main(void)
               "route: the non-invalidated owned window (WA1) and the UNOWNED window (WU) got NO delivery");
     }
 
-    /* --- post-route damage state: routed windows validated; unowned tolerated --- */
+    /* --- post-route damage state: EVERY walked window validated (initech-gofc /
+     * DQ1, ratified 2026-07-31): owned windows after the delivery attempt, and
+     * the UNOWNED WU too -- under the pump-order contract the compositor's
+     * chrome phase already serviced it (the chrome IS an unowned window's full
+     * paint), so the route records it serviced rather than leaving damage
+     * pending forever (the pre-DQ1 skip made every later minimal repaint
+     * re-walk the same stale furniture damage). WU still gets NO delivery
+     * (asserted on the log above) and NO panic -- tolerance is about delivery,
+     * not bookkeeping. --- */
     CHECK(upd_empty(&WA0.rec) == exp_routed_empty,
           "route: WA0's updateRgn is now EMPTY (WindowMgr_validate ran after delivery)");
     CHECK(upd_empty(&WB0.rec) == 1,
           "route: WB0's updateRgn is now EMPTY (validate ran)");
     CHECK(upd_empty(&WA1.rec) == 1,
           "route: WA1 (never invalidated) stayed EMPTY");
-    CHECK(upd_empty(&WU.rec) == 0,
-          "route: the UNOWNED window WU was TOLERATED (no panic) and SKIPPED -- its updateRgn is "
-          "untouched (the shell repaints its own furniture; unlike content-click fail-loud)");
+    CHECK(upd_empty(&WU.rec) == exp_routed_empty,
+          "route: the UNOWNED window WU was TOLERATED (no delivery, no panic) and VALIDATED -- "
+          "the pump's chrome phase serviced it, so the route clears it (DQ1, initech-gofc)");
 
     return TEST_SUMMARY("test-process-update");
 }

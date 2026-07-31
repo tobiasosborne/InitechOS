@@ -131,7 +131,10 @@ typedef struct tenant_priv {
     const bitmap_t      *surface;   /* offscreen the tenant draws into (lp->surface) */
     WindowMgr           *wm;        /* the shell Window Manager (lp->wm)             */
     WindowPtr            win;       /* this tenant's window (refCon-bound to self)   */
-    rgn_rect_t           content;   /* content rect, global coords                   */
+    rgn_rect_t           content;   /* BOOT-time content rect, global coords -- the
+                                     * graded-accent offset reference ONLY; live
+                                     * geometry comes from content_rect(p) (the
+                                     * window's contRgn; bead initech-vtdo)         */
     int                  active;    /* foreground/active (activateEvt active-flag)    */
     int                  toggled;   /* mouseDown content-marker toggle               */
     const tenant_cfg_t  *cfg;       /* this tenant's static demo descriptor          */
@@ -194,28 +197,50 @@ static void draw_block(const tenant_priv_t *p, rgn_rect_t r, uint8_t cidx,
     blitter_fill_rect_clipped(p->surface, r, demo_px(p->surface, cidx), clip);
 }
 
-/* accent_rect -- the active-accent block (FLAIR_TEN_ACCENT_SIZE square). HELLO
- * uses the GRADED demo probe location (FLAIR_TEN_HELLO_ACCENT_*); NOTES (not
- * graded) places it at its content top-left. */
+/* content_rect -- the window's CURRENT content rectangle, read off the LIVE
+ * contRgn (a rect region, so its bbox IS the rect; MoveWindow keeps it
+ * current). Every drawn rect derives from THIS, never from the open-time
+ * snapshot p->content (bead initech-vtdo: the cached rect made a moved tenant
+ * reconstruct its content at the OLD position forever -- the updateEvt clip
+ * was live but the drawn rects were stale, so the moved window's newly-arrived
+ * strip stayed WDEF white; caught by test-flair-solid leg B). p->content is
+ * kept ONLY as the boot-time reference the graded accent offset is computed
+ * against. */
+static rgn_rect_t content_rect(const tenant_priv_t *p)
+{
+    return region_get_bbox(p->win->contRgn);
+}
+
+/* accent_rect -- the active-accent block (FLAIR_TEN_ACCENT_SIZE square),
+ * anchored to the LIVE content rect (initech-vtdo). HELLO uses the GRADED demo
+ * probe location (FLAIR_TEN_HELLO_ACCENT_*, absolute at the BOOT position) --
+ * carried as an offset from the boot content origin so the boot frame is
+ * bit-identical to the pre-fix render (the O-5 grader's probes) and the block
+ * MOVES with the window afterwards. NOTES (not graded) sits at the live
+ * content top-left. */
 static rgn_rect_t accent_rect(const tenant_priv_t *p)
 {
-    int16_t left = p->cfg->accent_graded ? p->cfg->accent_x : p->content.left;
-    int16_t top  = p->cfg->accent_graded ? p->cfg->accent_y : p->content.top;
+    rgn_rect_t c = content_rect(p);
+    int16_t dx = p->cfg->accent_graded
+                     ? (int16_t)(p->cfg->accent_x - p->content.left) : (int16_t)0;
+    int16_t dy = p->cfg->accent_graded
+                     ? (int16_t)(p->cfg->accent_y - p->content.top)  : (int16_t)0;
+    int16_t left = (int16_t)(c.left + dx);
+    int16_t top  = (int16_t)(c.top  + dy);
     return mk_rect(left, top,
                    (int16_t)(left + FLAIR_TEN_ACCENT_SIZE),
                    (int16_t)(top  + FLAIR_TEN_ACCENT_SIZE));
 }
 
 /* marker_rect -- the mouseDown click marker (FLAIR_TEN_ACCENT_SIZE square),
- * centered in the content so it never collides with the accent block (content
- * top-left) or the overlap probe. Not graded; proves click routing reached
- * the right tenant. */
+ * centered in the LIVE content (initech-vtdo) so it never collides with the
+ * accent block (content top-left) or the overlap probe. Not graded; proves
+ * click routing reached the right tenant. */
 static rgn_rect_t marker_rect(const tenant_priv_t *p)
 {
-    int16_t cx = (int16_t)(p->content.left +
-                           (p->content.right - p->content.left) / 2);
-    int16_t cy = (int16_t)(p->content.top +
-                           (p->content.bottom - p->content.top) / 2);
+    rgn_rect_t c = content_rect(p);
+    int16_t cx = (int16_t)(c.left + (c.right - c.left) / 2);
+    int16_t cy = (int16_t)(c.top  + (c.bottom - c.top) / 2);
     int16_t left = (int16_t)(cx - FLAIR_TEN_ACCENT_SIZE / 2);
     int16_t top  = (int16_t)(cy - FLAIR_TEN_ACCENT_SIZE / 2);
     return mk_rect(left, top,
@@ -227,10 +252,11 @@ static rgn_rect_t marker_rect(const tenant_priv_t *p)
  * background, then the accent block (only when active), then the marker (only
  * when toggled), in painter's order. Used for the initial paint (open()) and
  * the updateEvt exposure repaint -- so an exposure never loses the accent/marker
- * state (Rule 3: a partial repaint that drops state is a latent bug). */
+ * state (Rule 3: a partial repaint that drops state is a latent bug). All rects
+ * derive from the LIVE window position (initech-vtdo). */
 static void paint_content(const tenant_priv_t *p, const region_t *clip)
 {
-    draw_block(p, p->content, p->cfg->fill_idx, clip);
+    draw_block(p, content_rect(p), p->cfg->fill_idx, clip);
     if (p->active)
         draw_block(p, accent_rect(p), p->cfg->accent_idx, clip);
     if (p->toggled)
@@ -344,8 +370,11 @@ static void event_common(FlairApp *self, const EventRecord *ev)
         return;
 
     case activateEvt: {
-        /* activation observable = the CONTENT accent (not title-bar hilite -- the
-         * renderer draws no active/inactive chrome distinction; fka6 verifier fix). */
+        /* activation observable = the CONTENT accent. (A stale note here used to
+         * claim the renderer draws no active/inactive chrome distinction -- that
+         * predated the a9iq/hv7u inactive-WDEF work and the rqz5 activation
+         * seed; title-bar hilite IS drawn by the compositor now. The accent
+         * remains the TENANT-side observable the O-5 TIER-B grader probes.) */
         rgn_rect_t a = accent_rect(p);
         p->active = ((ev->modifiers & FLAIR_EVT_MOD_ACTIVE_FLAG) != 0u) ? 1 : 0;
         draw_block(p, a, p->cfg->fill_idx, p->win->contRgn);    /* erase old accent  */

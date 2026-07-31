@@ -816,6 +816,13 @@ typedef struct flair_live_ctx {
                                      * tenant partitions from it (ADR-0013 Sec 3.6).
                                      * Behind the guard so the struct layout stays
                                      * byte-identical for non-tenant builds.       */
+    FlairProcessList   *plist;      /* the resident-app list, armed by the launch
+                                     * site AFTER the tenants exist (NULL until
+                                     * then) so the drag/close dispatches can run
+                                     * the DQ2 content phase (flair_route_updates)
+                                     * instead of destroying tenant-owed damage
+                                     * (initech-gofc). Behind the guard: same
+                                     * layout argument as `master`.               */
 #endif
 } flair_live_ctx_t;
 
@@ -999,6 +1006,16 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
      * host oracle does) --- */
     shell_render(scene, &off);
 
+    /* The from-scratch composite serviced ALL pending damage by construction --
+     * including the activation seeds NewWindow now leaves behind (initech-rqz5 /
+     * DQ3: each window that became front during shell_build_scene seeded its own
+     * updateRgn). Validate explicitly (DQ1: whoever painted from scratch clears
+     * the books) so the live pump starts with a clean damage ledger and its
+     * first minimal repaint touches ONLY genuinely new damage. Pixel output is
+     * unchanged (bookkeeping only), so the static screendump gate is unaffected
+     * (Rule 11). */
+    desktop_validate_all(&scene->wm);
+
     /* --- PRESENT the offscreen onto the live LFB (8 -> DAC+copy; 24/32 -> convert) --- */
     flair_desktop_present(bi, &off);
 
@@ -1018,6 +1035,7 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
          * site can carve tenant partitions from it (it has static lifetime, so
          * &heap is valid after this returns; ADR-0013 Sec 3.6). */
         ctx_out->master    = &heap;
+        ctx_out->plist     = (FlairProcessList *)0;   /* armed by the launch site */
 #endif
     }
 }
@@ -1149,6 +1167,36 @@ static int flair_live_window_index(const flair_live_ctx_t *ctx, WindowPtr w)
     return -1;
 }
 
+/* The DQ2 CONTENT phase of a damaging chrome dispatch (drag/close) -- beads
+ * initech-gofc; epic initech-av7s DQ1/DQ2 (ratified 2026-07-31). Runs AFTER
+ * desktop_paint_damage (the chrome phase) and BEFORE the present: deliver the
+ * tenant-owed content damage via the updateEvt spine, which validates every
+ * window it walks; when no tenant list is armed (a non-tenant scene, or the
+ * pre-launch window), no app will ever repaint -- the chrome IS the full paint
+ * -- so validate explicitly instead. This was THE root of the WL-0075
+ * white-hole family: the old flow validated ALL updateRgns inside
+ * desktop_paint_damage, destroying the content damage before any updateEvt,
+ * and routed only on a foreground switch. */
+static void flair_live_content_phase(flair_live_ctx_t *ctx)
+{
+#ifdef FLAIR_LIVE_TENANTS
+# ifndef FLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME
+    if (ctx->plist != (FlairProcessList *)0) {
+        flair_route_updates(ctx->plist, ctx->wm);
+        return;
+    }
+# else
+    /* MUTANT (Rule 6; test-flair-solid legs A/B; beads initech-gofc): SKIP the
+     * content route on the chrome dispatches and fall through to the blanket
+     * validate -- the pre-fix WM update contract, byte-restored (damage
+     * destroyed undelivered). A closed-over expose and a dragged window then
+     * keep the WDEF blank-white content, so solid_check legs A and B go RED.
+     * NEVER in a real build. */
+# endif
+#endif
+    desktop_validate_all(ctx->wm);
+}
+
 /* FO-7 inDrag dispatch: track the live drag, then move + minimal-repaint + present.
  *
  * The net drag delta is the cursor displacement from button-down (where0) to
@@ -1204,8 +1252,10 @@ static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
     (void)dh; (void)dv;
 #endif
 
-    /* D-5 minimal repaint of the damage, then PRESENT to the live LFB. */
+    /* DQ2 pump order: chrome (D-5 minimal repaint) -> content (route/validate)
+     * -> PRESENT to the live LFB. */
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_live_content_phase(ctx);
     flair_desktop_present(bi, &ctx->off);
 
     after = region_get_bbox(w->strucRgn);
@@ -1233,7 +1283,9 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
 {
     int wid = flair_live_window_index(ctx, w);
     HideWindow(ctx->wm, w);
+    /* DQ2 pump order: chrome -> content -> present (see flair_live_content_phase). */
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_live_content_phase(ctx);
     flair_desktop_present(bi, &ctx->off);
     serial_puts("FLAIR-CLOSE win ");
     serial_puti((int32_t)wid);
@@ -2052,6 +2104,9 @@ void kernel_main(void)
                     "(budget/heap exhausted)\nHALTED\n");
         for (;;) { __asm__ __volatile__("cli; hlt"); }
     }
+    /* ARM the DQ2 content phase: from here on the drag/close dispatches route
+     * tenant-owed content damage instead of validating it away (initech-gofc). */
+    ctx.plist = &ten_plist;
 
     /* (3) Each tenant's OWN menu is its menubar; the live app-switch loop swaps the
      * FOREGROUND tenant's menu into the SECOND (Photoshop-chimera) band (ref bead
@@ -2075,6 +2130,21 @@ void kernel_main(void)
      * fix attempt added one and produced two identical System-7 bars at rest -- the
      * Law-4 regression this arrangement avoids by construction). */
     shell_render(ctx.scene, &ctx.off);
+
+    /* (4b) DQ1: the from-scratch composite serviced ALL pending damage --
+     * including the STALE launch-time seeds. Between the two FlairProcess_launch
+     * calls NOTES was briefly the FRONT window, so its 0->1 activation seed
+     * (initech-rqz5) covered its FULL structure; HELLO then launched on top,
+     * making that pending damage a superset of what NOTES still owns. The
+     * updateEvt paint path clips to contRgn INTERSECT updateRgn (ref_tenant.c)
+     * and TRUSTS updateRgn to be within the window's visible region, so routing
+     * that stale seed would let background NOTES stomp foreground HELLO's
+     * overlap (caught live by test-flair-appswitch TIER-A when this validate
+     * was missing). A scene build is not a pump cycle; the composite + this
+     * validate close it, and the explicit per-tenant seeds below (clipped to
+     * CURRENT visibility by WindowMgr_invalidate) rebuild exactly the content
+     * damage that is really owed. */
+    desktop_validate_all(ctx.wm);
 
     /* (5) Repaint each tenant's content in z-order through the updateEvt spine.
      * WindowMgr_invalidate clips the seed to each window's VISIBLE region, so the
@@ -2393,32 +2463,35 @@ void kernel_main(void)
             }
 
             /* POST-ACTIVATION: a click-to-activate switched the foreground tenant.
-             * Repaint the raised tenant's newly-exposed content (the updateEvt
-             * route), swap its menubar into the SECOND (Photoshop-chimera) band
-             * ONLY (ten_barport is now built over an offset view starting at
+             * DQ2/DQ3 (beads initech-gofc/-rqz5, ratified 2026-07-31): the
+             * dispatch's SelectWindow already seeded BOTH sides of the switch via
+             * reaffirm_active -- the raised tenant's full strucRgn (the 0->1
+             * activation seed: chrome + content + the previously-covered part)
+             * and the demoted tenant's visible region (1->0). So the pump order
+             * here is the standard damaging-dispatch cycle: chrome phase
+             * (desktop_paint_damage draws both windows' WDEF with the new
+             * hilited state, full-width active/inactive title bars), content
+             * phase (flair_route_updates delivers the updateEvts, then
+             * validates), menubar swap into the SECOND (Photoshop-chimera) band
+             * ONLY (ten_barport is built over an offset view starting at
              * SHELL_MENUBAR2_TOP -- ref bead initech-4w15; the TOP System-7 band
-             * is shell-owned/static and is never touched here), present, announce.
-             * NOTE: flair_route_updates MUST run AFTER it is seeded and is NOT
-             * preceded by desktop_paint_damage on the SAME updateRgn -- desktop.c
-             * desktop_paint_damage validates (clears) every updateRgn at its tail
-             * (desktop.c:233), so it runs FIRST (to service any raise exposure of
-             * the desktop/chrome) and the content seed+route comes after it. */
+             * is shell-owned/static and is never touched here), present,
+             * announce. The old explicit contRgn re-seed is GONE: strucRgn is a
+             * superset of contRgn, and hand-seeding here was exactly the
+             * masking-tape the rqz5 root fix removes. */
             if (ten_plist.head != (FlairApp *)0 && ten_plist.head != ten_prev_fg) {
                 desktop_paint_damage(ctx.wm, &ctx.off, ctx.comp);
-                if (ten_plist.head->windows != (WindowPtr)0) {
-                    WindowMgr_invalidate(ctx.wm, ten_plist.head->windows,
-                            region_get_bbox(ten_plist.head->windows->contRgn));
-                }
 #ifndef FLAIR_LIVE_MUTATE_DROP_UPDATE
                 flair_route_updates(&ten_plist, ctx.wm);
 #else
                 /* MUTANT FLAIR_LIVE_MUTATE_DROP_UPDATE (Rule 6; the O-5 tenants
                  * emu-mutant image ONLY): SKIP the updateEvt route after the switch.
-                 * The raised tenant is never handed its updateEvt, so it never
-                 * repaints the newly-exposed overlap -- the exposed region keeps the
-                 * OLD foreground's content colour -> the booted O-5 gate's TIER-A
-                 * overlap probe stays NOTES_FILL (RED). The switch + menubar swap
-                 * still happen (FLAIR-DISPATCH still fires). NEVER in a real build. */
+                 * The raised tenant is never handed its updateEvt, so its content
+                 * stays the WDEF blank white the chrome phase painted across the
+                 * activation-seeded region -- the booted O-5 gate's TIER-A overlap
+                 * probe reads WDEF white, not the required NOTES_FILL (RED). The
+                 * switch + menubar swap still happen (FLAIR-DISPATCH still fires).
+                 * NEVER in a real build. */
 #endif
 #ifndef FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP
                 DrawMenuBar(&ten_barport, ten_plist.head->menubar,

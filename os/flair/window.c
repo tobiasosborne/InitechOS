@@ -224,15 +224,26 @@ static void list_push_front(WindowMgr *wm, WindowPtr w)
  * check always succeeds (a DisposeWindow'd window is unlinked BEFORE this
  * loop runs, per window.c:336, so it is never visited here at all).
  *
- * Only the 1->0 (deactivation) transition is seeded. The 0->1 (activation)
- * transition is deliberately left alone: NewWindow/ShowWindow/SelectWindow
- * document that the NEWLY-active window's own repaint is the CALLER's
- * concern (see their doc comments in window.h -- "the caller seeds
- * updateRgn via WindowMgr_invalidate"); blanket-seeding 0->1 here would
- * silently paper over a caller that forgets to invalidate, which defeats
- * that documented contract and duplicates work the caller already owns.
- * The bug report (initech-v6t2) is specifically about the deactivation
- * half; this is the minimal, root-cause fix for it. */
+ * BOTH transitions are seeded (bead initech-rqz5; epic initech-av7s DQ3,
+ * ratified 2026-07-31). The 1->0 (deactivation) half is the original
+ * initech-v6t2 fix. The 0->1 (activation) half was originally left to the
+ * caller ("the caller seeds updateRgn via WindowMgr_invalidate") -- and the
+ * 2026-07-21 drive battery proved every live caller forgot: newly-active
+ * windows kept flat inactive title bars (s02/s08), exposed strips painted
+ * HALF-active bars (s05), and raise generated no self-exposure repaint at
+ * all (SelectWindow's old "the caller seeds that if desired"). Seeding
+ * 0->1 here makes activation chrome a WINDOW-MANAGER invariant, not a
+ * per-call-site convention: the seed is the strucRgn bbox, SECTed down to
+ * visible(p) by WindowMgr_invalidate exactly as the 1->0 half, and it
+ * subsumes the raise-exposure seed on the click-to-front path (raise
+ * implies activation there). Callers that ALSO invalidate (a moved window's
+ * self-repaint) stay correct -- updateRgn accumulation is a union.
+ *
+ * MUTANT WINDOW_MUTATE_NO_ACTIVATE_INVAL (Rule 6; the initech-rqz5 bug
+ * restored): suppresses ONLY the 0->1 seed -- newly-active windows keep
+ * whatever chrome/content pixels they had. Bites the host activation
+ * checks in test_window.c and the emu test-flair-solid leg C. NEVER in a
+ * real build. */
 static void reaffirm_active(WindowMgr *wm)
 {
     int seen_front = 0;
@@ -242,6 +253,10 @@ static void reaffirm_active(WindowMgr *wm)
         else p->hilited = 0;
         if (was_hilited && !p->hilited) {
 #ifndef WINDOW_MUTATE_NO_DEACT_INVAL
+            WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
+#endif
+        } else if (!was_hilited && p->hilited) {
+#ifndef WINDOW_MUTATE_NO_ACTIVATE_INVAL
             WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
 #endif
         }
@@ -419,9 +434,13 @@ void ShowWindow(WindowMgr *wm, WindowPtr w)
     if (!list_contains(wm, w)) WIN_PANIC("ShowWindow: not in list");
     if (w->visible) return;
     w->visible = 1;
-    /* The newly-shown window owes a full repaint of its visible region; the
-     * caller seeds updateRgn via WindowMgr_invalidate. Covering windows behind
-     * it are unaffected (showing covers, it does not expose). */
+    /* The newly-shown window owes a full repaint of its visible region. If the
+     * show ACTIVATES it (it is the front-most visible window), reaffirm_active's
+     * 0->1 branch seeds that repaint (initech-rqz5 / DQ3). If it re-appears as a
+     * BACKGROUND window (an active window still sits in front of it), no hilited
+     * transition fires and the caller still seeds updateRgn via
+     * WindowMgr_invalidate. Covering windows behind it are unaffected (showing
+     * covers, it does not expose). */
     reaffirm_active(wm);
 }
 
@@ -433,10 +452,12 @@ void SelectWindow(WindowMgr *wm, WindowPtr w)
         list_unlink(wm, w);
         list_push_front(wm, w);
         /* Raising a window NEVER exposes another window (it only covers more),
-         * so no exposure damage is generated. The raised window may itself need
-         * to repaint the part of it that was previously covered; the caller
-         * seeds that via WindowMgr_invalidate(w, ...) if desired. D-5 exposure
-         * is for move/hide/dispose, not raise. */
+         * so no D-5 exposure damage is generated for the windows behind it.
+         * The raised window's OWN repaint (the previously-covered part + the
+         * active-chrome flip) is seeded by reaffirm_active's 0->1 branch below
+         * (bead initech-rqz5 / DQ3): raising a non-front window always flips
+         * its hilited 0->1, and the seed is its full post-raise visible
+         * region. D-5 exposure remains move/hide/dispose-only. */
     }
     reaffirm_active(wm);
 }

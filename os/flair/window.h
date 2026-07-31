@@ -150,11 +150,13 @@ void WindowMgr_init(WindowMgr *wm, rgn_rect_t desktop_frame,
  *
  * `w` and its three regions (strucRgn/contRgn/updateRgn) must be caller-supplied
  * with pools attached (the region engine never mallocs). strucRgn := bounds,
- * contRgn := content, updateRgn := empty. The previously-front window is deactivated
- * (hilited=0); `w` becomes active (hilited=1). The newly-covered area of the
- * windows behind `w` is NOT damaged (they were already behind nothing new that
- * exposes them); only the new window itself needs its first full paint, which
- * the caller drives by seeding updateRgn (see WindowMgr_invalidate). */
+ * contRgn := content, updateRgn := empty on entry. The previously-front window
+ * is deactivated (hilited=0, deactivation repaint seeded); `w` becomes active
+ * (hilited=1) and its first full paint is SEEDED by the activation transition
+ * (initech-rqz5 / DQ3): on return `w`'s updateRgn holds its visible region --
+ * a compositor/route pass (or an explicit from-scratch paint + validate)
+ * services it. The newly-covered area of the windows behind `w` is NOT damaged
+ * (covering exposes nothing). */
 void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content,
                int16_t wKind, int16_t wVariant, uint8_t goAway);
 
@@ -169,14 +171,18 @@ void DisposeWindow(WindowMgr *wm, WindowPtr w);
 /* SelectWindow -- bring `w` to the FRONT of the z-order and make it active.
  * Windows that `w` newly covers are unaffected (covering damages nothing); the
  * windows `w` USED to be behind are unchanged. The previously-front window is
- * deactivated; `w` is activated. If `w` was already front, this is a no-op
- * beyond re-affirming activation. (Bringing a window forward never EXPOSES a
- * window -- exposure happens on hide/dispose/move, not on raise.) */
+ * deactivated (repaint seeded); `w` is activated and its OWN repaint -- the
+ * previously-covered part plus the active-chrome flip -- is seeded by the 0->1
+ * activation transition (initech-rqz5 / DQ3). If `w` was already front, this
+ * is a no-op beyond re-affirming activation. (Bringing a window forward never
+ * EXPOSES a window -- exposure happens on hide/dispose/move, not on raise.) */
 void SelectWindow(WindowMgr *wm, WindowPtr w);
 
 /* ShowWindow -- make a hidden window visible (it was excluded from the z-order
  * paint). Covering windows behind it are unaffected; `w` itself needs a full
- * paint (caller seeds updateRgn via WindowMgr_invalidate). */
+ * paint. If the show ACTIVATES `w` (front-most visible), the 0->1 transition
+ * seeds it (initech-rqz5 / DQ3); a re-shown BACKGROUND window is still the
+ * caller's seed (WindowMgr_invalidate) -- no hilited transition fires. */
 void ShowWindow(WindowMgr *wm, WindowPtr w);
 
 /* HideWindow -- make `w` invisible. Everything `w` was covering is EXPOSED:

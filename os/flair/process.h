@@ -333,12 +333,18 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
  *
  * TOLERANCE (the distinction from content-click dispatch): a damaged window with
  * NO owning resident app -- the shell's own frame/desktop furniture, which is
- * unowned -- is SKIPPED without panicking and WITHOUT validating (the shell drives
- * its own furniture repaint). owner_of_window (content dispatch) instead PANICS on
- * an unowned hit, because a content click on an ownerless window IS a bug; an
- * unowned window merely carrying damage is NOT. Called by the live kmain pump each
- * iteration after the input event is dispatched; graded by the host O-5 oracle
- * (harness/proptest/test_process_update.c). */
+ * unowned -- gets NO delivery but no panic. owner_of_window (content dispatch)
+ * instead PANICS on an unowned hit, because a content click on an ownerless
+ * window IS a bug; an unowned window merely carrying damage is NOT.
+ *
+ * VALIDATION (initech-gofc / DQ1, ratified 2026-07-31; absorbs initech-0zxp):
+ * EVERY damaged visible window walked is validated, owned or not -- this is the
+ * pump's CONTENT phase, and it runs after desktop_paint_damage's chrome phase
+ * has already painted the WDEF for every damaged window, which for unowned
+ * furniture and eventless owners IS the full paint. See os/flair/desktop.h for
+ * the full pump-order contract. Called by the live kmain pump on every damaging
+ * dispatch (drag/close/switch); graded by the host O-5 oracle
+ * (harness/proptest/test_process_update.c) + the emu test-flair-solid legs. */
 void flair_route_updates(FlairProcessList *list, WindowMgr *wm);
 
 #endif /* INITECH_OS_FLAIR_PROCESS_H */

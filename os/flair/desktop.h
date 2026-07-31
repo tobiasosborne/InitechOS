@@ -122,15 +122,26 @@
 void desktop_paint_all(WindowMgr *wm, const bitmap_t *dst, region_t *scratch);
 
 /* ---------------------------------------------------------------------------
- * desktop_paint_damage -- the D-5 MINIMAL-REPAINT compositor.
+ * desktop_paint_damage -- the D-5 MINIMAL-REPAINT compositor (CHROME phase).
  *
  * Repaints ONLY damaged pixels:
  *   - the desktop background is re-filled with seafoam clipped to the manager's
  *     desktop update region (the bare-desktop pixels the moved window vacated),
  *   - each VISIBLE window with a NON-EMPTY updateRgn has its chrome redrawn,
  *     clipped to visible(W) INTERSECT updateRgn.
- * After painting, every updateRgn the compositor consumed (each window's + the
- * desktop's) is VALIDATED (cleared) -- the BeginUpdate/EndUpdate analogue.
+ *
+ * VALIDATION CONTRACT (beads initech-gofc; epic initech-av7s DQ1/DQ2, ratified
+ * 2026-07-31): this painter clears ONLY wm->desktop_update (which it fully
+ * serviced). Each window's updateRgn is LEFT PENDING, because this painter
+ * draws WDEF chrome only -- the window's CONTENT is still owed to its owning
+ * app. The pump's damaging-dispatch order is
+ *     WM-op -> desktop_paint_damage (chrome)
+ *           -> flair_route_updates (content; validates)  [tenant scenes]
+ *              or desktop_validate_all                   [no app will repaint]
+ *           -> present.
+ * The OLD tail validation destroyed tenant-owed content damage before any
+ * updateEvt was delivered -- the WL-0075 white-hole family (drive scenarios
+ * s04/s05/s08/s11/s15).
  *
  * This is the headline drag-gate property (ADR-0004 D-5 / AM-8): it touches ONLY
  * damaged pixels, so the chrome is unchanged outside the damaged area and there is
@@ -139,5 +150,21 @@ void desktop_paint_all(WindowMgr *wm, const bitmap_t *dst, region_t *scratch);
  * Fail-loud (Rule 2) on a NULL manager / NULL dst / NULL or unattached scratch.
  * ------------------------------------------------------------------------- */
 void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch);
+
+/* ---------------------------------------------------------------------------
+ * desktop_validate_all -- clear EVERY window's updateRgn + the desktop update.
+ *
+ * The explicit "damage serviced" bookkeeping for pumps/scenes where no app will
+ * deliver content on top of the chrome (DQ1): after a from-scratch composite
+ * (shell_render/desktop_paint_all leaves construction/activation seeds pending),
+ * or after desktop_paint_damage in a scene with no tenant list. In a tenants
+ * scene, flair_route_updates is the validating content phase instead -- calling
+ * BOTH in one cycle is harmless (validate is idempotent) but the route must run
+ * FIRST if it runs at all, else the content damage is destroyed undelivered
+ * (the exact initech-gofc bug).
+ *
+ * Fail-loud (Rule 2) on a NULL manager.
+ * ------------------------------------------------------------------------- */
+void desktop_validate_all(WindowMgr *wm);
 
 #endif /* INITECH_OS_FLAIR_DESKTOP_H */

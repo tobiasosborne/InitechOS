@@ -266,10 +266,36 @@ void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
 #endif
     }
 
-    /* 3. VALIDATE (clear) every updateRgn the compositor consumed -- the
-     * BeginUpdate/EndUpdate analogue. The desktop update is cleared too. */
+    /* 3. Clear ONLY the desktop-background damage -- this painter fully serviced
+     * it in step 1 (no tenant ever paints the bare desktop, so ownership stays
+     * here). The WINDOW updateRgns are deliberately LEFT PENDING (beads
+     * initech-gofc; epic initech-av7s DQ1, ratified 2026-07-31): this painter
+     * draws WDEF CHROME only -- the CONTENT inside each damaged window is still
+     * owed to its owning app, and validating here destroyed that damage before
+     * any updateEvt could be delivered (the WL-0075 white-hole family). The
+     * pump's content phase clears them: flair_route_updates (deliver, then
+     * validate) in a tenants scene, or desktop_validate_all when no app will
+     * ever repaint (the chrome IS the full paint). */
+    region_set_empty(wm->desktop_update);
+}
+
+void desktop_validate_all(WindowMgr *wm)
+{
+    if (wm == NULL) {
+        DESK_PANIC("desktop_validate_all: NULL");
+    }
     for (WindowPtr w = wm->front; w != NULL; w = w->nextWindow) {
         WindowMgr_validate(w);
     }
+#ifndef DESKTOP_MUTATE_NO_PAINTALL_CLEAR
     region_set_empty(wm->desktop_update);
+#else
+    /* MUTANT (Rule 6; shared knob with desktop_paint_all above): the stale-
+     * desktop_update mutation must defeat BOTH books-closing paths -- the
+     * paint_all tail reset AND this explicit validate -- or the second one
+     * masks it and the TIER-C oracle grades a mutant that cannot occur (the
+     * winh x ojxn double-backstop lesson, WL-0068). Window validation stays
+     * LIVE either way: the mutation models ONLY the jmc5/qi8v stale-desktop
+     * footprint. NEVER in a real build. */
+#endif
 }

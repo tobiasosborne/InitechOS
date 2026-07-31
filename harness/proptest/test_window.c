@@ -408,14 +408,20 @@ int main(void)
     }
 
     /* ======================================================================
-     * DEACTIVATION REPAINT (bead initech-v6t2; ADR-0004 D-5): reaffirm_active
-     * must SEED a repaint for the window that LOSES active status, not just
-     * flip its `hilited` flag -- otherwise the ex-front window keeps
-     * active-style chrome until an unrelated expose repaints it. Directed
-     * case first (hand-verifiable geometry), then a randomized property.
+     * ACTIVATION-TRANSITION REPAINT (beads initech-v6t2 + initech-rqz5;
+     * ADR-0004 D-5; epic initech-av7s DQ3, ratified 2026-07-31):
+     * reaffirm_active must SEED a repaint on BOTH hilited transitions --
+     * 1->0 (the window LOSING active status repaints its chrome inactive;
+     * the v6t2 half) AND 0->1 (the window GAINING active status repaints
+     * its chrome active + the part a raise just uncovered; the rqz5 half --
+     * without it newly-active windows keep flat inactive title bars and
+     * raise exposes stale pixels). Directed case first (hand-verifiable
+     * geometry), then randomized properties for each half.
      *
-     * MUTANT WINDOW_MUTATE_NO_DEACT_INVAL (Rule 6): reverts reaffirm_active
-     * to the original flip-only behaviour -- both checks below go RED.
+     * MUTANT WINDOW_MUTATE_NO_DEACT_INVAL (Rule 6): suppresses ONLY the 1->0
+     * seed -- the deactivation checks below go RED.
+     * MUTANT WINDOW_MUTATE_NO_ACTIVATE_INVAL (Rule 6): suppresses ONLY the
+     * 0->1 seed -- the activation checks below go RED.
      * ====================================================================== */
     {
         /* Directed: w2 created first (front), then w1 created overlapping it
@@ -442,7 +448,14 @@ int main(void)
         CHECK(w1.rec.hilited == 1 && M.wm.front == &w1.rec,
               "deactivation-repaint setup: w1 is front and hilited after creation");
 
-        SelectWindow(&M.wm, &w2.rec);             /* deactivates w1 (1->0) */
+        /* Clear construction-time transition damage (each NewWindow seeded the
+         * new front's activation AND the old front's deactivation, initech-rqz5
+         * / v6t2) so the deltas measured below come from the ONE SelectWindow
+         * call under test -- the same isolation the randomized properties use. */
+        WindowMgr_validate(&w1.rec);
+        WindowMgr_validate(&w2.rec);
+
+        SelectWindow(&M.wm, &w2.rec);             /* deactivates w1 (1->0), activates w2 (0->1) */
 
         CHECK(w1.rec.hilited == 0, "deactivation-repaint setup: w1 lost hilited after SelectWindow(w2)");
         CHECK(!region_is_empty(w1.rec.updateRgn),
@@ -457,6 +470,23 @@ int main(void)
          * w1's own currently-visible region. */
         CHECK(region_contains_point(w1.rec.updateRgn, 15, 15) == 0,
               "SelectWindow: w1's updateRgn does NOT cover a pixel w2 now occludes (no over-invalidate)");
+
+        /* --- the ACTIVATION half (initech-rqz5): the raised w2 (0->1) is
+         * seeded with its own post-raise visible region -- the previously-
+         * occluded overlap it must now repaint plus the active-chrome flip. */
+        CHECK(w2.rec.hilited == 1 && M.wm.front == &w2.rec,
+              "activation-repaint setup: w2 is front and hilited after SelectWindow(w2)");
+        CHECK(!region_is_empty(w2.rec.updateRgn),
+              "SelectWindow: newly-activated w2's updateRgn is seeded (0->1, initech-rqz5)");
+        /* The overlap pixel (y=15,x=15) was covered by w1 before the raise and
+         * is w2's own visible pixel after it -- it MUST be in w2's seed (the
+         * raise-exposure the old code never generated). */
+        CHECK(region_contains_point(w2.rec.updateRgn, 15, 15) != 0,
+              "SelectWindow: w2's updateRgn covers the previously-occluded overlap pixel (raise exposure)");
+        /* (y=25,x=15) is OUTSIDE w2's structure (below its y<20 band) -- the
+         * seed must not leak past w2's own visible region. */
+        CHECK(region_contains_point(w2.rec.updateRgn, 15, 25) == 0,
+              "SelectWindow: w2's updateRgn does NOT leak outside its structure (no over-invalidate)");
     }
 
     {
@@ -523,6 +553,67 @@ int main(void)
               "SelectWindow: deactivated window's updateRgn == its visible region (owner-grid truth), 800 stacks");
     }
 
+    {
+        /* Randomized ACTIVATION property (initech-rqz5 / DQ3): the RAISED
+         * window's updateRgn must equal EXACTLY its own post-raise visible
+         * region -- verified against the INDEPENDENT owner-grid ground truth
+         * (Law 2: the same rasterized front-to-back ownership idiom as the
+         * deactivation property above, not a re-call of the primitive under
+         * test). The raised window is front, so its visible region is its
+         * whole in-frame structure; the seed must cover all of it (the
+         * previously-occluded part included) and nothing more. */
+        enum { CASES = 800, MAXW = 5 };
+        int empty_bad = 0;      /* raised window's updateRgn wrongly stayed empty */
+        int mismatch_bad = 0;   /* updateRgn != its own post-raise visible region */
+
+        for (int t = 0; t < CASES && !empty_bad && !mismatch_bad; t++) {
+            static win_store_t W[MAXW];
+            static mgr_store_t M;
+            mgr_attach(&M, FRAME);
+            int n = rnd(2, MAXW);
+            win_store_t *idx[MAXW];
+            for (int i = 0; i < n; i++) {
+                win_attach(&W[i]);
+                idx[i] = &W[i];
+                rgn_rect_t s, c; gen_window_rects(&s, &c);
+                NewWindow(&M.wm, &W[i].rec, s, c, documentKind, documentProc, 1);
+            }
+
+            /* Clear construction-time transition damage so the ONLY damage
+             * measured is the one SelectWindow call under test. */
+            for (int i = 0; i < n; i++) WindowMgr_validate(&W[i].rec);
+
+            /* Raise a window that is NOT currently front (index n-1 is front
+             * after the creation loop), so the select is a real 0->1. */
+            int sel = rnd(0, n - 2);
+
+            SelectWindow(&M.wm, &W[sel].rec);
+
+            owngrid_t after; build_owner_grid(&M.wm, idx, n, &after);
+            uint8_t truth[GW * GH];
+            for (int j = 0; j < GW * GH; j++)
+                truth[j] = (after.own[j] == (uint8_t)sel) ? 1 : 0;
+
+            uint8_t updg[GW * GH];
+            rasterize_set(W[sel].rec.updateRgn, updg);
+
+            int any_truth = 0;
+            for (int j = 0; j < GW * GH; j++) if (truth[j]) { any_truth = 1; break; }
+            if (any_truth) {
+                int any_upd = 0;
+                for (int j = 0; j < GW * GH; j++) if (updg[j]) { any_upd = 1; break; }
+                if (!any_upd) empty_bad = 1;
+            }
+
+            for (int j = 0; j < GW * GH; j++)
+                if (updg[j] != truth[j]) { mismatch_bad = 1; break; }
+        }
+        CHECK(!empty_bad,
+              "SelectWindow: raised window's updateRgn is seeded (0->1 activation, initech-rqz5)");
+        CHECK(!mismatch_bad,
+              "SelectWindow: raised window's updateRgn == its post-raise visible region (owner-grid truth), 800 stacks");
+    }
+
     /* ======================================================================
      * FindWindow: front-most window containing the point, correct part-code.
      * Directed cases (deterministic geometry) + a randomized front-most check.
@@ -567,8 +658,13 @@ int main(void)
     }
 
     /* ======================================================================
-     * HideWindow exposure: hiding the front window exposes exactly what it
-     * owned (independent owner-grid before/after); damage is complete + sound.
+     * HideWindow exposure: hiding a window damages exactly what it owned
+     * (independent owner-grid before/after) -- PLUS, when the hidden window
+     * was the ACTIVE one, the newly-activated successor's whole post-hide
+     * visible region (the 0->1 activation seed, initech-rqz5 / DQ3: the
+     * successor owes an active-chrome repaint across its full width, not
+     * just the exposed strip -- the WL-0075 s05 half-active-bar bug).
+     * Damage is complete + sound against that union.
      * ====================================================================== */
     {
         enum { CASES = 600, MAXW = 4 };
@@ -584,18 +680,33 @@ int main(void)
                 rgn_rect_t s, c; gen_window_rects(&s, &c);
                 NewWindow(&M.wm, &W[i].rec, s, c, documentKind, documentProc, 1);
             }
-            /* Ref: bead initech-v6t2 -- see the identical note in the
-             * MoveWindow-damage property above. Clear construction-time
-             * deactivation damage before measuring HideWindow's own delta. */
+            /* Ref: beads initech-v6t2/-rqz5 -- clear construction-time
+             * transition damage (both hilited halves) before measuring
+             * HideWindow's own delta. */
             for (int i = 0; i < n; i++) WindowMgr_validate(&W[i].rec);
             int hw = rnd(0, n - 1);
+            int hw_was_active = (W[hw].rec.hilited != 0);
             owngrid_t before; build_owner_grid(&M.wm, idx, n, &before);
             HideWindow(&M.wm, &W[hw].rec);
             owngrid_t after; build_owner_grid(&M.wm, idx, n, &after);
 
+            /* The independent expected golden: the hidden window's owned
+             * pixels, UNION the successor's post-hide visible region iff the
+             * hide flipped the active window (DQ3). The successor is read off
+             * the hilited flags -- window.c's own state, but the EXPECTED
+             * pixel set for it comes from the after owner-grid, never from
+             * the updateRgn under test. */
             uint8_t truth[GW * GH];
             for (int j = 0; j < GW * GH; j++)
                 truth[j] = (before.own[j] == (uint8_t)hw) ? 1 : 0;
+            if (hw_was_active) {
+                int nf = -1;
+                for (int i = 0; i < n; i++)
+                    if (i != hw && W[i].rec.hilited) { nf = i; break; }
+                if (nf >= 0)
+                    for (int j = 0; j < GW * GH; j++)
+                        if (after.own[j] == (uint8_t)nf) truth[j] = 1;
+            }
 
             uint8_t dmg[GW * GH]; memset(dmg, 0, sizeof dmg);
             for (int i = 0; i < n; i++) {
@@ -608,9 +719,8 @@ int main(void)
 
             for (int j = 0; j < GW * GH; j++)
                 if (truth[j] != dmg[j]) { bad = 1; break; }
-            (void)after;
         }
-        CHECK(!bad, "HideWindow damage == exactly the hidden window's owned pixels");
+        CHECK(!bad, "HideWindow damage == the hidden window's owned pixels + the successor's activation seed (DQ3)");
     }
 
     return TEST_SUMMARY("test_window");

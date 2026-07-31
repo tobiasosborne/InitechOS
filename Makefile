@@ -299,6 +299,21 @@ PPM_FLAIR_APPSWITCH_CHECK_BIN := $(BUILD)/ppm_flair_appswitch_check
 # here so test-flair-appswitch wires it mechanically (single source of truth).
 include spec/flair_appswitch_trace.mk
 
+# ppm_flair_solid_check -- the FLAIR live-desktop SOLIDITY grader (epic
+# initech-av7s; beads initech-gofc legs A/B, initech-rqz5 leg C; WL-0075).
+# Grades ONE post-trace screendump per leg against the INDEPENDENT canon
+# (flair_canon_rgb, ADR-0010 -- never the renderer's palette): A close-expose
+# content, B drag-preserves-content, C activation chrome. argv = <A|B|C>
+# dump.ppm. Shares the demo layout header, so -Ispec -Ispec/assets.
+PPM_FLAIR_SOLID_CHECK_SRC := tools/ppm_flair_solid_check.c
+PPM_FLAIR_SOLID_CHECK_BIN := $(BUILD)/ppm_flair_solid_check
+
+# The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
+# FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
+# (leg B: O-5 activate NOTES then title-drag it (-60,+60)), FLAIR_SOLID_SWITCH_
+# SPEC (leg C: the O-5 switch trace verbatim).
+include spec/flair_solid_traces.mk
+
 # ---------------------------------------------------------------------------
 # Flat C kernel (os/milton, beads initech-d00; ADR-0003 DEC-08)
 # ---------------------------------------------------------------------------
@@ -8984,17 +8999,73 @@ endef
 #                    exposed overlap not repainted                    -> TIER-A RED
 #   NO_MENUBAR_SWAP (pump)       -> skip DrawMenuBar(head->menubar):
 #                    title strip unchanged pre-vs-post (0 diffs)      -> MENU-BAND RED
-#   NO_PAINTALL_CLEAR (compositor, os/flair/desktop.c) -> desktop_paint_all does
-#                    NOT reset wm->desktop_update: the stale HideWindow footprint
-#                    from kmain's canon-frame-window hide survives into the first
-#                    desktop_paint_damage and teal-stomps HELLO's own structure
-#                    frame wherever it falls inside that stale footprint (beads
-#                    initech-jmc5/-qi8v)                              -> TIER-C RED
+# $(call flair-tenants-window-mutant-rules,<KNOB>,<tag>): a Window-Manager
+# (window.c) mutant. Swaps ONLY window.o (clean kmain main obj + process.o +
+# ref_tenant.o + desktop.o reused -> the mutation is isolated to the window.c
+# verbs). Include flags + prereqs are spelled LITERALLY, not via $(WINDOW_INC)
+# -- that variable is defined AFTER this template's $(eval) call site and would
+# bake in an EMPTY string (the same immediate-expansion hazard the desktop
+# template above documents).
+define flair-tenants-window-mutant-rules
+$(BUILD)/window_mut_$(2).o: os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(1) -Ispec -Ios/flair -Ios/flair/atkinson -Iseed -c os/flair/window.c -o $$@
+
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_WINDOW_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_WINDOW_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o
+
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants SOLIDITY MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+
 $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_IGNORE_REFCON,ignore_refcon))
 $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_SKIP_ACTIVATE,skip_activate))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_DROP_UPDATE,drop_update))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP,no_menubar_swap))
-$(eval $(call flair-tenants-desktop-mutant-rules,DESKTOP_MUTATE_NO_PAINTALL_CLEAR,no_paintall_clear))
+
+# SOLIDITY-gate mutants (epic initech-av7s; test-flair-solid-mutant):
+#   NO_ROUTE_ON_CHROME (pump)     -> flair_live_content_phase skips the route on
+#                    the drag/close dispatches and blanket-validates instead --
+#                    the pre-DQ1 WM update contract byte-restored: content
+#                    damage destroyed undelivered, the window keeps WDEF blank
+#                    white                                 -> solid legs A+B RED
+#   NO_ACTIVATE_INVAL (window.c)  -> reaffirm_active's 0->1 activation seed
+#                    suppressed (initech-rqz5 restored): the raised window gets
+#                    no chrome/content repaint seed        -> solid leg C RED
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME,no_route_on_chrome))
+$(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUTATE_NO_ACTIVATE_INVAL,no_activate_inval))
+
+# OMISSION (Rule 6 / Law 2 honesty; 2026-07-31 Wave A, epic initech-av7s): the
+# DESKTOP_MUTATE_NO_PAINTALL_CLEAR emu mutant (stale wm->desktop_update surviving
+# a full composite; beads initech-jmc5/-qi8v) NO LONGER bites the booted O-5
+# gate and its image is retired. Root cause of the un-bite: the DQ3 activation
+# seed (initech-rqz5, window.c reaffirm_active 0->1) makes every app-switch
+# repaint BOTH tenants' full chrome, so the stale-footprint teal-stomp is
+# structurally healed within the same dispatch in the 2-tenant scene -- a
+# passing "mutant" would be decoration. The class needs a window that is
+# NEITHER activated NOR damaged in the stomping repaint; it is HOST-COVERED by
+# test_drag.c leg (e) (3-window directed case: hide a ghost, a window ARRIVES
+# on the stale footprint, damage only a bystander -> the arriver is stomped)
+# via $(TEST_DRAG_MUT_NOPAINTALLCLEAR) in test-drag-mutant, where the ONE knob
+# also defeats desktop_validate_all's books-close (winh x ojxn double-backstop
+# lesson). The TIER-C oracle tier in ppm_flair_appswitch_check REMAINS as a
+# live invariant check (raised frame intact); only its mutation-proof moved
+# host-side. The flair-tenants-desktop-mutant-rules template above stays for
+# future desktop.c emu mutants.
 
 # O-7 SAMIR-suspend Rule-6 MUTANT image (Wave-5; this lane). A pump (kmain.c)
 # mutant: -DFLAIR_LIVE_MUTATE_NO_REBUILD makes flair_launch_text_tenant SKIP the
@@ -9270,6 +9341,9 @@ $(PPM_FLAIR_DC4V_CHECK_BIN): $(PPM_FLAIR_DC4V_CHECK_SRC) spec/assets/color_canon
 # SAME locked constant shell.h derives SHELL_MENUBAR1_TOP/SHELL_MENUBAR2_TOP from),
 # so -Ispec -Ispec/assets.
 $(PPM_FLAIR_APPSWITCH_CHECK_BIN): $(PPM_FLAIR_APPSWITCH_CHECK_SRC) spec/flair_tenants_demo.h spec/assets/color_canon.h spec/chrome_metrics.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec -Ispec/assets -o $@ $<
+
+$(PPM_FLAIR_SOLID_CHECK_BIN): $(PPM_FLAIR_SOLID_CHECK_SRC) spec/flair_tenants_demo.h spec/assets/color_canon.h spec/chrome_metrics.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec -Ispec/assets -o $@ $<
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
@@ -10150,6 +10224,7 @@ TEST_WINDOW_SRC := harness/proptest/test_window.c
 TEST_WINDOW_MUT_ZORDER    := $(BUILD)/test_window_mutant_zorder
 TEST_WINDOW_MUT_OVERPAINT := $(BUILD)/test_window_mutant_overpaint
 TEST_WINDOW_MUT_NO_DEACT_INVAL := $(BUILD)/test_window_mutant_no_deact_inval
+TEST_WINDOW_MUT_NO_ACTIVATE_INVAL := $(BUILD)/test_window_mutant_no_activate_inval
 TEST_WINDOW_DEPS := os/flair/window.c os/flair/window.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h
 WINDOW_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
 WINDOW_LINK := os/flair/window.c $(REGION_ENGINE_C)
@@ -10162,6 +10237,8 @@ $(TEST_WINDOW_MUT_OVERPAINT): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_OVERPAINT $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_NO_DEACT_INVAL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_NO_DEACT_INVAL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_NO_ACTIVATE_INVAL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 
 test-window: $(TEST_WINDOW)
 	@printf ">>> test-window: visible region (strucRgn DIFF fronts) + DiffRgn damage (no over-repaint, D-5) + z-order + FindWindow\n"
@@ -10170,11 +10247,12 @@ test-window: $(TEST_WINDOW)
 		|| { printf '!!! test-window FAIL: window.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-window: green\n"
 
-test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TEST_WINDOW_MUT_NO_DEACT_INVAL)
-	@printf ">>> test-window-mutant: confirming all three mutants go RED (Rule 6)\n"
+test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TEST_WINDOW_MUT_NO_DEACT_INVAL) $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL)
+	@printf ">>> test-window-mutant: confirming all four mutants go RED (Rule 6)\n"
 	@if $(TEST_WINDOW_MUT_ZORDER) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZORDER PASSED -- the visible-region oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZORDER correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_OVERPAINT) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: OVERPAINT PASSED -- the no-over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (OVERPAINT correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_NO_DEACT_INVAL) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: NO_DEACT_INVAL PASSED -- the deactivation-repaint oracle (initech-v6t2) is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (NO_DEACT_INVAL correctly RED)\n'; fi
+	@if $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: NO_ACTIVATE_INVAL PASSED -- the activation-repaint oracle (initech-rqz5) is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (NO_ACTIVATE_INVAL correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -10732,6 +10810,7 @@ DESKTOP_C          := os/flair/desktop.c
 DESKTOP_H          := os/flair/desktop.h
 TEST_DRAG_MUT_SKIP   := $(BUILD)/test_drag_mutant_skip
 TEST_DRAG_MUT_NOCLIP := $(BUILD)/test_drag_mutant_noclip
+TEST_DRAG_MUT_NOPAINTALLCLEAR := $(BUILD)/test_drag_mutant_nopaintallclear
 DRAG_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 DRAG_LINK := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c $(REGION_ENGINE_C) \
              os/flair/window.c os/flair/event.c os/flair/blitter.c $(CHROME_DRAWER_C) $(FLAIRLOOK_C)
@@ -10748,6 +10827,8 @@ $(TEST_DRAG_MUT_SKIP): $(DRAG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDRAG_MUTATE_SKIP_EXPOSED $(DRAG_INC) -o $@ $(TEST_DRAG_SRC) $(DESKTOP_C) $(DRAG_LINK)
 $(TEST_DRAG_MUT_NOCLIP): $(DRAG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDRAG_MUTATE_NO_CLIP $(DRAG_INC) -o $@ $(TEST_DRAG_SRC) $(DESKTOP_C) $(DRAG_LINK)
+$(TEST_DRAG_MUT_NOPAINTALLCLEAR): $(DRAG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDESKTOP_MUTATE_NO_PAINTALL_CLEAR $(DRAG_INC) -o $@ $(TEST_DRAG_SRC) $(DESKTOP_C) $(DRAG_LINK)
 
 test-drag: $(TEST_DRAG)
 	@printf ">>> test-drag: window drags w/ correct DiffRgn update regions, no over-repaint, chrome unchanged outside damage (D-5/AM-8)\n"
@@ -10756,10 +10837,11 @@ test-drag: $(TEST_DRAG)
 		|| { printf '!!! test-drag FAIL: desktop.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-drag: green (wrote $(BUILD)/drag_before.ppm + $(BUILD)/drag_after.ppm)\n"
 
-test-drag-mutant: $(TEST_DRAG_MUT_SKIP) $(TEST_DRAG_MUT_NOCLIP)
-	@printf ">>> test-drag-mutant: confirming both mutants go RED (Rule 6)\n"
+test-drag-mutant: $(TEST_DRAG_MUT_SKIP) $(TEST_DRAG_MUT_NOCLIP) $(TEST_DRAG_MUT_NOPAINTALLCLEAR)
+	@printf ">>> test-drag-mutant: confirming all three mutants go RED (Rule 6)\n"
 	@if $(TEST_DRAG_MUT_SKIP) >/dev/null 2>&1; then printf '!!! test-drag-mutant FAIL: SKIP_EXPOSED PASSED -- the no-over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-drag-mutant: green (SKIP_EXPOSED correctly RED)\n'; fi
 	@if $(TEST_DRAG_MUT_NOCLIP) >/dev/null 2>&1; then printf '!!! test-drag-mutant FAIL: NO_CLIP PASSED -- the clip/over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-drag-mutant: green (NO_CLIP correctly RED)\n'; fi
+	@if $(TEST_DRAG_MUT_NOPAINTALLCLEAR) >/dev/null 2>&1; then printf '!!! test-drag-mutant FAIL: NO_PAINTALL_CLEAR PASSED -- the stale-desktop_update oracle (initech-jmc5/-qi8v leg (e)) is decoration\n'; exit 1; else printf '>>> test-drag-mutant: green (NO_PAINTALL_CLEAR correctly RED -- the stale-stomp host proof bites, initech-jmc5/-qi8v)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-menu (beads initech-n3e) -- FLAIR Menu Manager. Proportional
@@ -13809,25 +13891,28 @@ test-flair-appswitch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_APPSWITCH_C
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-appswitch-mutant (Rule 6 -- MUTATION-PROVE the O-5 grader
-# BITES; a check that never bites is decoration). Boots 5 separate FLAIRTENANTS mutant
-# images (each one -DFLAIR_LIVE_MUTATE_*/-DDESKTOP_MUTATE_* knob, all behind #ifdef so
-# the real image is byte-identical), runs the SAME PRE/POST capture + grader, and
-# confirms the grader goes RED for every one. The CLEAN image is graded GREEN first as
-# the baseline (same PRE, same grader), so the only variable is the mutation. (The 6th
-# candidate, NO_GROUP_RAISE, is HOST-COVERED -- single-window tenants make front-only
-# == correct, so it carries no emu image; see the OMISSION note at the mutant-image
-# instantiations. no_paintall_clear (beads initech-jmc5/-qi8v) is the desktop.c
-# compositor mutant TIER-C exists to catch -- see tools/ppm_flair_appswitch_check.c.)
+# BITES; a check that never bites is decoration). Boots 4 separate FLAIRTENANTS mutant
+# images (each one -DFLAIR_LIVE_MUTATE_* knob, all behind #ifdef so the real image is
+# byte-identical), runs the SAME PRE/POST capture + grader, and confirms the grader
+# goes RED for every one. The CLEAN image is graded GREEN first as the baseline (same
+# PRE, same grader), so the only variable is the mutation. (Two candidates are
+# HOST-COVERED and carry no emu image -- see the OMISSION notes at the mutant-image
+# instantiations: NO_GROUP_RAISE (single-window tenants make front-only == correct)
+# and, since 2026-07-31 Wave A, DESKTOP_MUTATE_NO_PAINTALL_CLEAR (the DQ3 activation
+# seed heals the stale-footprint stomp in the 2-tenant switch; the class is proven by
+# test_drag.c leg (e) in test-drag-mutant). TIER-C itself remains a live invariant
+# check in ppm_flair_appswitch_check.)
 .PHONY: test-flair-appswitch-mutant
 test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(FLAIRTENANTS_IMG) \
 	$(BUILD)/flair_tenants_mut_ignore_refcon.img \
 	$(BUILD)/flair_tenants_mut_skip_activate.img \
 	$(BUILD)/flair_tenants_mut_drop_update.img \
-	$(BUILD)/flair_tenants_mut_no_menubar_swap.img \
-	$(BUILD)/flair_tenants_mut_no_paintall_clear.img
+	$(BUILD)/flair_tenants_mut_no_menubar_swap.img
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch-mutant : Rule 6 (the gate BITES)\n'
-	@printf '  5 FLAIRTENANTS mutants, each MUST drive ppm_flair_appswitch_check RED.\n'
+	@printf '  4 FLAIRTENANTS mutants, each MUST drive ppm_flair_appswitch_check RED\n'
+	@printf '  (no_paintall_clear retired to the HOST proof -- see the OMISSION note\n'
+	@printf '  at the mutant-image instantiations; test_drag.c leg (e)).\n'
 	@printf '======================================================================\n'
 	@# ---- baseline: the CLEAN image must grade GREEN (same PRE, same grader). ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name flair_appswitch_pre --out "$(BUILD)" \
@@ -13844,8 +13929,7 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 	for spec in "ignore_refcon:FLAIR_LIVE_MUTATE_IGNORE_REFCON:owner-recovery returns the foreground always -- no switch (TIER-A)" \
 	            "skip_activate:FLAIR_LIVE_MUTATE_SKIP_ACTIVATE:skip the deactivate/activate pair -- no accent (TIER-B)" \
 	            "drop_update:FLAIR_LIVE_MUTATE_DROP_UPDATE:skip flair_route_updates -- exposed overlap stale (TIER-A)" \
-	            "no_menubar_swap:FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP:skip DrawMenuBar -- band unchanged (MENU-BAND)" \
-	            "no_paintall_clear:DESKTOP_MUTATE_NO_PAINTALL_CLEAR:desktop_paint_all does not reset desktop_update -- stale HideWindow footprint teal-stomps the raised window NOTES frame (TIER-C, initech-jmc5/-qi8v)"; do \
+	            "no_menubar_swap:FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP:skip DrawMenuBar -- band unchanged (MENU-BAND)"; do \
 		tag=$${spec%%:*}; rest=$${spec#*:}; macro=$${rest%%:*}; desc=$${rest#*:}; \
 		img="$(BUILD)/flair_tenants_mut_$$tag.img"; \
 		printf '%s\n' '----------------------------------------------------------------------'; \
@@ -13870,7 +13954,8 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 	done; \
 	if [ "$$rc" != "0" ]; then exit 1; fi
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- all 5 mutants drive ppm_flair_appswitch_check RED (the gate bites; Rule 6)\n'
+	@printf 'VERDICT   : PASS -- all 4 mutants drive ppm_flair_appswitch_check RED (the gate bites; Rule 6;\n'
+	@printf '            no_paintall_clear is host-proven in test-drag-mutant leg (e))\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -13963,6 +14048,159 @@ test-flair-appswitch-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG)
 	@printf '            no 640x480 LFB + no QMP mouse injection); graded by test-flair-appswitch.\n'
 	@printf '======================================================================\n'
 endif
+
+# ===========================================================================
+# REAL gate: test-flair-solid (epic initech-av7s; beads initech-gofc/-rqz5;
+# WL-0075 -- THE FLAIR live-desktop SOLIDITY oracle: the one repaint contract
+# (chrome phase -> content phase -> present) holds under close, drag and
+# app-switch on the booted 386).
+# ---------------------------------------------------------------------------
+# Three deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG), one
+# LOCKED trace (spec/flair_solid_traces.mk) + one marker-gated screendump each,
+# graded by ppm_flair_solid_check against the INDEPENDENT canon (ADR-0010):
+#   A CLOSE-EXPOSE : click HELLO's go-away; dump after FLAIR-CLOSE. The exposed
+#     NOTES overlap must read NOTES_FILL (the owner repainted via the updateEvt
+#     route), NOT WDEF blank white (the pre-DQ1 destroyed-damage hole) and NOT
+#     stale HELLO_FILL.
+#   B DRAG-CONTENT : O-5 activate NOTES, then title-drag it (-60,+60); dump
+#     after FLAIR-DRAG. The moved window's content interior must read
+#     NOTES_FILL at the NEW position (the drag dispatch routes content, not
+#     just WDEF chrome).
+#   C ACTIVATION   : the O-5 switch trace verbatim; dump after FLAIR-DISPATCH.
+#     NOTES's title band ACTIVE (pinstriped) across its FULL width including
+#     the previously-occluded left segment; HELLO's flat inactive; no stale
+#     HELLO edge crossing NOTES's title band (the rqz5 0->1 seed).
+# Asserts (Law 2): no triple-fault; the leg's serial marker; a dump; grader
+# PASS. Rule 5: this gate shares $(FLAIRTENANTS_IMG) with test-flair-appswitch,
+# whose -bochs leg already proves the image's Bochs boot differential (the
+# 640x480 fail-loud guard under the 320x200 fallback) -- a separate solid-bochs
+# leg would re-prove the identical pre-tenants path, so none is added.
+# Mutation-proven by test-flair-solid-mutant (per-leg mutants, DQ9).
+FLAIR_SOLID_A_NAME := flair_solid_close
+FLAIR_SOLID_B_NAME := flair_solid_drag
+FLAIR_SOLID_C_NAME := flair_solid_switch
+.PHONY: test-flair-solid
+test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-solid : the live-desktop SOLIDITY contract\n'
+	@printf '  A close-expose content / B drag preserves content / C activation chrome.\n'
+	@printf '  Ref: epic initech-av7s (DQ1-DQ3, DQ9); spec/flair_solid_traces.mk. Law 2/4.\n'
+	@printf '======================================================================\n'
+	@# ---- leg A: close HELLO -> the exposed NOTES overlap is repainted content ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_CLOSE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 \
+		2> "$(BUILD)/$(FLAIR_SOLID_A_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_A_NAME).report"; then printf '!!! test-flair-solid FAIL: leg A TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-CLOSE win' "$(BUILD)/$(FLAIR_SOLID_A_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg A FLAIR-CLOSE marker missing (the go-away click never dispatched)\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_A_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_A_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg A screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_SOLID_CHECK_BIN) A "$(BUILD)/$(FLAIR_SOLID_A_NAME).ppm" \
+		|| { printf '!!! test-flair-solid FAIL: leg A -- the close-exposed NOTES overlap is NOT repainted content (the white-hole family; initech-gofc)\n'; exit 1; }
+	@printf '>>> test-flair-solid [A]: close-expose content repainted (no white hole)\n'
+	@# ---- leg B: activate NOTES then drag it -- content survives the move ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_B_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_DRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 \
+		2> "$(BUILD)/$(FLAIR_SOLID_B_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_B_NAME).report"; then printf '!!! test-flair-solid FAIL: leg B TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-DISPATCH app=NOTES$$' "$(BUILD)/$(FLAIR_SOLID_B_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg B precondition -- the activating switch never dispatched\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_B_NAME).serial" || true; exit 1; }
+	@grep -q '^FLAIR-DRAG win' "$(BUILD)/$(FLAIR_SOLID_B_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg B FLAIR-DRAG marker missing (the title drag never dispatched)\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_B_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_B_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg B screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_SOLID_CHECK_BIN) B "$(BUILD)/$(FLAIR_SOLID_B_NAME).ppm" \
+		|| { printf '!!! test-flair-solid FAIL: leg B -- dragged NOTES content wiped to WDEF white (initech-gofc)\n'; exit 1; }
+	@printf '>>> test-flair-solid [B]: drag preserves tenant content at the new position\n'
+	@# ---- leg C: the O-5 switch -- activation chrome full-width, no stale band ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_C_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_SWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 \
+		2> "$(BUILD)/$(FLAIR_SOLID_C_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_C_NAME).report"; then printf '!!! test-flair-solid FAIL: leg C TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-DISPATCH app=NOTES$$' "$(BUILD)/$(FLAIR_SOLID_C_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg C FLAIR-DISPATCH app=NOTES missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_C_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_C_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg C screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_SOLID_CHECK_BIN) C "$(BUILD)/$(FLAIR_SOLID_C_NAME).ppm" \
+		|| { printf '!!! test-flair-solid FAIL: leg C -- activation chrome wrong (flat/half-active title or stale band; initech-rqz5)\n'; exit 1; }
+	@printf '>>> test-flair-solid [C]: activation chrome full-width active + flat inactive + no stale band\n'
+	@printf 'VERDICT   : PASS -- the live desktop honours the ONE repaint contract under\n'
+	@printf '            close/drag/switch (chrome -> content -> present; epic initech-av7s)\n'
+	@printf '======================================================================\n'
+
+# REAL gate: test-flair-solid-mutant (Rule 6; DQ9 -- per-leg mutants). The CLEAN
+# image is graded GREEN on all three legs first (the baseline), then each mutant
+# image re-runs ONLY the legs it must break:
+#   no_route_on_chrome (-DFLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME, pump): the
+#     drag/close content phase blanket-validates instead of routing -- legs A
+#     AND B MUST go RED (the exact pre-fix white-hole contract).
+#   no_activate_inval (-DWINDOW_MUTATE_NO_ACTIVATE_INVAL, window.c): the 0->1
+#     activation seed is suppressed -- leg C MUST go RED (flat/stale title).
+.PHONY: test-flair-solid-mutant
+test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENANTS_IMG) \
+	$(BUILD)/flair_tenants_mut_no_route_on_chrome.img \
+	$(BUILD)/flair_tenants_mut_no_activate_inval.img
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-solid-mutant : Rule 6 (the gate BITES)\n'
+	@printf '  no_route_on_chrome MUST break legs A+B; no_activate_inval MUST break leg C.\n'
+	@printf '======================================================================\n'
+	@# ---- baseline: the CLEAN image grades GREEN on all three legs. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_CLOSE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_B_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_DRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 >/dev/null 2>&1 || true
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_C_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_SWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@for leg in A:$(FLAIR_SOLID_A_NAME) B:$(FLAIR_SOLID_B_NAME) C:$(FLAIR_SOLID_C_NAME); do \
+		l=$${leg%%:*}; n=$${leg#*:}; \
+		if [ ! -s "$(BUILD)/$$n.ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: clean leg %s produced no screendump (no baseline)\n' "$$l"; exit 1; fi; \
+		$(PPM_FLAIR_SOLID_CHECK_BIN) $$l "$(BUILD)/$$n.ppm" >/dev/null 2>&1 \
+			|| { printf '!!! test-flair-solid-mutant FAIL: the CLEAN image did not grade GREEN on leg %s -- the baseline is broken\n' "$$l"; exit 1; }; \
+	done
+	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on legs A+B+C\n'
+	@# ---- no_route_on_chrome: legs A and B MUST go RED. ('|'-delimited fields:
+	@# the mouse specs themselves contain ':'.) ----
+	@rc=0; \
+	for leg in "A|$(FLAIR_SOLID_CLOSE_SPEC)|FLAIR-CLOSE win|15000" "B|$(FLAIR_SOLID_DRAG_SPEC)|FLAIR-DRAG win|20000"; do \
+		l=$${leg%%|*}; rest=$${leg#*|}; spec=$${rest%%|*}; rest=$${rest#*|}; marker=$${rest%%|*}; tmo=$${rest#*|}; \
+		$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_route_on_chrome.img" \
+			--name "flair_solid_mut_route_$$l" --out "$(BUILD)" \
+			--mouse "$$spec" --keys-after "FLAIR-LIVE-READY" \
+			--screendump --screendump-after "$$marker" --timeout-ms "$$tmo" \
+			2> "$(BUILD)/flair_solid_mut_route_$$l.report" || true; \
+		if grep -q 'triple_fault=1' "$(BUILD)/flair_solid_mut_route_$$l.report"; then \
+			printf '!!! test-flair-solid-mutant FAIL: no_route_on_chrome leg %s TRIPLE-FAULTED (cannot judge)\n' "$$l"; rc=1; continue; \
+		fi; \
+		if [ ! -s "$(BUILD)/flair_solid_mut_route_$$l.ppm" ]; then \
+			printf '!!! test-flair-solid-mutant FAIL: no_route_on_chrome leg %s produced no screendump\n' "$$l"; rc=1; continue; \
+		fi; \
+		if $(PPM_FLAIR_SOLID_CHECK_BIN) $$l "$(BUILD)/flair_solid_mut_route_$$l.ppm" > "$(BUILD)/flair_solid_mut_route_$$l.chk" 2>&1; then \
+			printf '!!! test-flair-solid-mutant FAIL: leg %s oracle is DECORATION -- no_route_on_chrome PASSED it\n' "$$l"; rc=1; \
+		else \
+			printf '>>> no_route_on_chrome leg %s correctly RED:\n' "$$l"; \
+			grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_route_$$l.chk" | sed 's/^/      /'; \
+		fi; \
+	done; \
+	if [ "$$rc" != "0" ]; then exit 1; fi
+	@# ---- no_activate_inval: leg C MUST go RED. ----
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_activate_inval.img" \
+		--name flair_solid_mut_actinval_C --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_SWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 \
+		2> "$(BUILD)/flair_solid_mut_actinval_C.report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_solid_mut_actinval_C.report"; then printf '!!! test-flair-solid-mutant FAIL: no_activate_inval TRIPLE-FAULTED (cannot judge)\n'; exit 1; fi
+	@if [ ! -s "$(BUILD)/flair_solid_mut_actinval_C.ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: no_activate_inval produced no screendump\n'; exit 1; fi
+	@if $(PPM_FLAIR_SOLID_CHECK_BIN) C "$(BUILD)/flair_solid_mut_actinval_C.ppm" > "$(BUILD)/flair_solid_mut_actinval_C.chk" 2>&1; then \
+		printf '!!! test-flair-solid-mutant FAIL: the leg C oracle is DECORATION -- no_activate_inval PASSED it\n'; exit 1; \
+	else \
+		printf '>>> no_activate_inval leg C correctly RED:\n'; \
+		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_actinval_C.chk" | sed 's/^/      /'; \
+	fi
+	@printf 'VERDICT   : PASS -- both solidity mutants drive their legs RED (the gate bites; Rule 6)\n'
+	@printf '======================================================================\n'
 
 # ===========================================================================
 # REAL gate: test-flair-samir-suspend (ADR-0013 Wave-5 gate O-7 -- THE booted
@@ -19358,6 +19596,7 @@ TEST_EMU_GATES := \
 	test-flair-menu test-flair-menu-mutant \
 	test-flair-menu-crossdrag test-flair-menu-crossdrag-mutant \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
+	test-flair-solid test-flair-solid-mutant \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant
 
 test-unit:

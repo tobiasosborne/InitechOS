@@ -644,6 +644,10 @@ int main(int argc, char **argv)
             MoveWindow(&S3.scene.wm, w1, W1_L - 260, W1_T);
             WindowMgr_invalidate(&S3.scene.wm, w1, region_get_bbox(w1->strucRgn));
             desktop_paint_damage(&S3.scene.wm, &ctx3.fb.bm, &S3.comp.r);
+            /* DQ1: the compositor no longer validates window updateRgns; this
+             * ownerless host scene closes the cycle explicitly (the live
+             * non-tenant pump's content phase). */
+            desktop_validate_all(&S3.scene.wm);
 
             /* The modal SURVIVES: right frame still black, interior still white,
              * and the vacated right-half band shows NO seafoam teal. */

@@ -368,8 +368,13 @@ int main(int argc, char **argv)
     static mgr_store_t M;
     build_scene(&M, W, idx);
 
-    /* --- FRAME 0: full paint -> snapshot + PPM (Law 4). --- */
+    /* --- FRAME 0: full paint -> snapshot + PPM (Law 4). The from-scratch
+     * composite serviced ALL pending damage (including the construction-time
+     * activation/deactivation seeds reaffirm_active leaves behind, initech-rqz5
+     * / v6t2), so validate explicitly -- the DQ1 non-tenant idiom -- and the
+     * drag loop below measures ONLY the damage each MoveWindow step creates. */
     desktop_paint_all(&M.wm, &ctx.fb.bm, &M.comp.r);
+    desktop_validate_all(&M.wm);
     static snap_t frame0;
     snapshot(&ctx, &frame0);
 
@@ -463,8 +468,13 @@ int main(int argc, char **argv)
         }
         for (int j = 0; j < SCRW * SCRH; j++) if (dmg[j]) cum_dmg[j] = 1;
 
-        /* --- the D-5 minimal repaint (the code under test). --- */
+        /* --- the D-5 minimal repaint (the code under test), then the explicit
+         * validate that closes the pump cycle (DQ1: the compositor no longer
+         * clears window updateRgns itself -- in this ownerless host scene the
+         * chrome IS the full paint, so desktop_validate_all is the content
+         * phase, exactly the live non-tenant pump's idiom). --- */
         desktop_paint_damage(&M.wm, &ctx.fb.bm, &M.comp.r);
+        desktop_validate_all(&M.wm);
 
         snapshot(&ctx, &after_step);
 
@@ -594,6 +604,99 @@ int main(int argc, char **argv)
      * (d) CHROME GEOMETRY on the MOVED window at its final position.
      * ====================================================================== */
     assert_chrome_geometry(&ctx, fF);
+
+    /* ======================================================================
+     * (e) STALE-desktop_update STOMP of an UNINVOLVED window (beads
+     * initech-jmc5/-qi8v; the DESKTOP_MUTATE_NO_PAINTALL_CLEAR host proof).
+     *
+     * The invariant: desktop_paint_all AND desktop_validate_all both reset
+     * wm->desktop_update, so a footprint seeded by a HideWindow BEFORE a
+     * from-scratch composite can never leak into a LATER minimal repaint.
+     * If it does leak (the mutant), desktop_paint_damage's step-1 seafoam
+     * fill clips to the stale footprint and teal-stomps whatever now sits
+     * there -- and the stomp becomes VISIBLE exactly when the stomped window
+     * carries no damage of its own that cycle (nothing repaints it).
+     *
+     * This host case moved here from the emulator O-5 mutant vector
+     * (2026-07-31, Wave A): the DQ3 activation seed (initech-rqz5) repaints
+     * BOTH tenants' full chrome on every app-switch, so in the 2-tenant
+     * booted scene the stomp is structurally healed within the same
+     * dispatch and the emu mutant stopped biting. The class needs the
+     * EXACT original shape: a window that ARRIVES on the stale footprint
+     * AFTER the hide (the tenant-launch pattern) and carries no damage in
+     * the stomping repaint. NOTE desktop_paint_damage's own tail clears
+     * desktop_update (unguarded -- that clear is not the mutation target),
+     * so the stomp must land in the FIRST minimal repaint after the
+     * composite. Three windows, directed geometry, deterministic:
+     *
+     *   ghost   {100,100,200,220}  created FIRST (background -- hiding it
+     *                              changes no activation), hidden -> its
+     *                              whole struct goes to desktop_update
+     *                              (nothing overlaps it at hide time);
+     *   bystander {300,300,380,420} far corner (takes the cycle-2 damage);
+     *   arriver {110,110,190,230}  created AFTER the hide, ON the ghost
+     *                              footprint (the launch-onto-stale-
+     *                              footprint pattern).
+     *
+     * The composite: paint_all + validate_all close the books (REAL) or
+     * leak the ghost footprint (MUTANT -- ONE knob defeats both paths;
+     * winh x ojxn double-backstop lesson). Then damage ONLY the
+     * bystander's corner and minimal-repaint. REAL: the arriver is
+     * untouched. MUTANT: step 1 teal-stomps the ghost footprint straight
+     * across the undamaged arriver's body and nothing repaints it -> the
+     * probe inside (arriver struct intersect ghost footprint) reads
+     * desktop teal instead of content white -> RED.
+     * ====================================================================== */
+    {
+        render_ctx_t ctx4;
+        int rc4 = render_ctx_init(&ctx4, &boot);
+        CHECK(rc4 == 0, "(e) stale-stomp render context init");
+        if (rc4 == 0) {
+            static win_store_t GW_, BW_, AW_;
+            static mgr_store_t M4;
+            rgn_rect_t s, c;
+            mgr_attach(&M4, FRAME);
+            win_attach(&GW_);
+            make_rects(100, 100, 200, 220, &s, &c);
+            NewWindow(&M4.wm, &GW_.rec, s, c, documentKind, documentProc, 1);
+            win_attach(&BW_);
+            make_rects(300, 300, 380, 420, &s, &c);
+            NewWindow(&M4.wm, &BW_.rec, s, c, documentKind, documentProc, 1);
+
+            /* Hide the (background) ghost: its whole struct -> desktop_update
+             * (no other window overlaps it; no activation change -- the
+             * bystander stays front, so no DQ3 seed confounds the footprint). */
+            HideWindow(&M4.wm, &GW_.rec);
+
+            /* The arriver lands ON the stale footprint AFTER the hide -- the
+             * tenant-launch pattern that made jmc5/qi8v visible live. */
+            win_attach(&AW_);
+            make_rects(110, 110, 190, 230, &s, &c);
+            NewWindow(&M4.wm, &AW_.rec, s, c, documentKind, documentProc, 1);
+
+            /* The from-scratch composite + the explicit books-close (DQ1). */
+            desktop_paint_all(&M4.wm, &ctx4.fb.bm, &M4.comp.r);
+            desktop_validate_all(&M4.wm);
+
+            /* Meaningfulness: the probe (150,150) sits in the arriver's
+             * content AND inside the ghost's old footprint. */
+            CHECK(idx_at(&ctx4, 150, 150) == 1,
+                  "(e) setup: probe (150,150) is the arriver's white content after the composite");
+
+            /* Damage ONLY the bystander's corner; the FIRST minimal repaint
+             * after the composite. */
+            {
+                rgn_rect_t tiny = { 310, 310, 320, 330 };
+                WindowMgr_invalidate(&M4.wm, &BW_.rec, tiny);
+            }
+            desktop_paint_damage(&M4.wm, &ctx4.fb.bm, &M4.comp.r);
+            desktop_validate_all(&M4.wm);
+
+            CHECK(idx_at(&ctx4, 150, 150) != (int)FLAIR_DESKTOP_BG_INDEX,
+                  "(e) the UNINVOLVED arriver survives the repaint -- no stale desktop_update teal-stomp (jmc5/qi8v)");
+            render_ctx_free(&ctx4);
+        }
+    }
 
     /* --- PPMs for the orchestrator's visual audit (Law 4). --- */
     {

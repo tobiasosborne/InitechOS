@@ -609,19 +609,33 @@ static FlairApp *owner_of_window_tolerant(FlairProcessList *list, WindowPtr w)
 }
 
 /* --------------------------------------------------------------------------
- * flair_route_updates -- route pending window damage to owning tenants (Sec 3.3).
+ * flair_route_updates -- route pending window damage to owning tenants (Sec 3.3)
+ * and VALIDATE every damaged window it walks: the pump's CONTENT phase.
  *
  * One forward pass over the z-order. For each VISIBLE window with a NON-EMPTY
- * updateRgn: synthesize one updateEvt, recover the owner (tolerant), deliver, then
- * validate (clear the damage). Unowned damaged windows are skipped (no delivery,
- * no validate -- the shell repaints its own furniture). WindowMgr_validate only
- * sets updateRgn empty (it does NOT mutate the z-order list), so a single forward
- * nextWindow walk is safe -- unlike terminate's DisposeWindow loop, which re-scans.
+ * updateRgn: recover the owner (tolerant), synthesize + deliver one updateEvt if
+ * the owner can receive it, then validate (clear the damage) UNCONDITIONALLY.
+ *
+ * VALIDATION CONTRACT (beads initech-gofc, absorbing initech-0zxp; epic
+ * initech-av7s DQ1/DQ2, ratified 2026-07-31): under the pump order
+ * (WM-op -> desktop_paint_damage(chrome) -> HERE -> present), by the time this
+ * walk runs the compositor has already painted every damaged window's WDEF
+ * chrome. For an UNOWNED (shell furniture) window and for an owned-but-eventless
+ * app, that chrome IS the full paint -- so the damage is serviced and is
+ * validated here rather than left pending forever (the old unowned skip made
+ * every later minimal repaint re-walk the same stale damage; the old
+ * validate-only-after-delivery idea, initech-0zxp, dissolves for the same
+ * reason: validation records "serviced by this pump cycle", not "delivered").
+ * WindowMgr_validate only sets updateRgn empty (it does NOT mutate the z-order
+ * list), so a single forward nextWindow walk is safe -- unlike terminate's
+ * DisposeWindow loop, which re-scans.
  *
  * Ref: ADR-0013 Sec 3.3 (updateEvt -> each damaged window's owning app, background
  *      apps included), Sec 3.1 (refCon demux); window.h (WindowMgr_validate,
- *      the updateRgn damage model); spec/event_model.h (updateEvt, the WindowPtr
- *      in `message`, MTE Ch 2). CLAUDE.md Law 2, Rule 2, Rule 11.
+ *      the updateRgn damage model); os/flair/desktop.h (desktop_paint_damage /
+ *      desktop_validate_all -- the chrome phase + the no-tenant analogue);
+ *      spec/event_model.h (updateEvt, the WindowPtr in `message`, MTE Ch 2).
+ *      CLAUDE.md Law 2, Rule 2, Rule 11.
  * -------------------------------------------------------------------------- */
 void flair_route_updates(FlairProcessList *list, WindowMgr *wm)
 {
@@ -634,16 +648,16 @@ void flair_route_updates(FlairProcessList *list, WindowMgr *wm)
         if (region_is_empty(w->updateRgn)) continue;   /* no damage outstanding     */
 
         /* Recover the owning tenant by the binding rule -- TOLERANT: an unowned
-         * (shell furniture) window is skipped here, NOT panicked (the distinction
+         * (shell furniture) window gets no delivery, NOT a panic (the distinction
          * from owner_of_window's content-click fail-loud). */
         FlairApp *owner = owner_of_window_tolerant(list, w);
-        if (owner == (FlairApp *)0) continue;      /* shell furniture -> shell paints*/
 
         /* Synthesize ONE updateEvt for this window and deliver to its owner. The
          * window identity goes in message ((uint32_t)(uintptr_t)w, MTE Ch 2 -- exact
          * on flat-32, truncated-but-stable on host-64); where/when best-effort 0
          * (deterministic, Rule 11). */
-        if (owner->procs != (const FlairAppProcs *)0 &&
+        if (owner != (FlairApp *)0 &&
+            owner->procs != (const FlairAppProcs *)0 &&
             owner->procs->event != (void (*)(FlairApp *, const EventRecord *))0) {
             EventRecord ev;
             proc_zero(&ev, (uint32_t)sizeof ev);
@@ -652,9 +666,9 @@ void flair_route_updates(FlairProcessList *list, WindowMgr *wm)
             owner->procs->event(owner, &ev);
         }
 
-        /* Clear the damage (the pump's EndUpdate). Only for OWNED windows -- the
-         * unowned skip above never reaches here, so shell furniture keeps its
-         * updateRgn for the shell to service. */
+        /* Clear the damage (the pump's EndUpdate) -- for EVERY walked window,
+         * owned or not (DQ1: the compositor's chrome pass already serviced the
+         * unowned/eventless ones; see the header contract above). */
         WindowMgr_validate(w);
     }
 }
