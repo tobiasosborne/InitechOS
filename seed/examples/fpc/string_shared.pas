@@ -1,11 +1,16 @@
-{$B+}{$H-}
+{$MODE DELPHI}{$B+}{$H-}
 { string_shared.pas -- DEC-07 Rung 2 SHARED-SUBSET corpus for B7 strings
   (beads initech-39k2; ADR-0007 Sec 4.7 Rung 2). Compiled by BOTH Turbo
   Initech's seed AND Free Pascal (`fpc`); test-seed-fpc-diff asserts their
   stdout is BYTE-IDENTICAL.
 
-  Line 1 carries BOTH directives (harmless brace comments to the seed, which
+  Line 1 carries THREE directives (harmless brace comments to the seed, which
   treats any brace-delimited region as an ordinary comment):
+    the dollar-MODE-DELPHI directive -- pins fpc's `integer` to 32-BIT signed
+      per ADR-0007 DEC-02 dialect pin 1 (fpc's DEFAULT mode is 16-bit; the
+      B5 backfill array_shared.pas exposed the latent divergence). It comes
+      FIRST (a mode directive must) and resets boolean-eval/string state, so
+      the two pins below follow it.
     the dollar-B-plus directive -- COMPLETE boolean evaluation (BOOLEVAL ON),
       so fpc matches ADR-0007 DEC-03 like the seed does.
     the dollar-H-minus directive -- PIN fpc's ShortString semantics explicitly

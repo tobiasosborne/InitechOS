@@ -320,7 +320,12 @@ you catch yourself about to do one, stop and re-check the cited reference.
 
 ```bash
 # Toolchain / emulators (one-time, Ubuntu):
-sudo apt install qemu-system-i386 bochs make nasm mtools
+sudo apt install qemu-system-i386 bochs make nasm mtools fpc
+# fpc (Free Pascal) is a base requirement since 2026-08-01 (initech-altq): it
+# mints the INDEPENDENT golden for the DEC-07 Rung-2 seed differential
+# (test-seed-fpc-diff, IN the default `make test` vector). Missing fpc FAILS
+# LOUD; SKIP_FPC=1 is the one documented, shouting opt-out (same pattern as
+# SKIP_BOCHS below).
 # Target OS toolchain is i686-elf (ADR-0002); interim is host gcc -m32
 # -ffreestanding -nostdlib per CDR-0001 until the dev device is upgraded.
 # 86Box + a period VGA BIOS for authenticity/golden minting — see docs.

@@ -7187,7 +7187,7 @@ help:
 	@printf '  test-seed-array-mutant  Rule-6 proof (B5 static arrays): BOTH deep-bug mutants make array.pas correctly RED -- STRIDE (element stride *2 instead of *4) + ARRAY_LO_SKIP (the lo-offset subtraction omitted). REAL (QEMU). beads initech-54uu, ADR-0007 DEC-02/DEC-07.\n'
 	@printf '  test-seed-record-mutant  Rule-6 proof (B6 records): BOTH deep-bug mutants make record.pas correctly RED -- FIELD_OFF4 (every field offset shifted +4) + REC_STRIDE (array-of-record stride = field-count-1 slots). REAL (QEMU). beads initech-rug7, ADR-0007 DEC-02/DEC-07.\n'
 	@printf '  test-seed-string-mutant  Rule-6 proof (B7 strings): BOTH deep-bug mutants make string.pas correctly RED -- STR_TEMP_CLOBBER (every string temp collapsed to index 0, flipping the right-nested-concat RNEST tag) + STR_CMP_NOLEN (__str_cmp drops the prefix-equal length tiebreak, flipping EQF). REAL (QEMU). beads initech-39k2, ADR-0007 DEC-02/DEC-07.\n'
-	@printf '  test-seed-fpc-diff  DEC-07 Rung 2: Turbo Initech seed vs Free Pascal, byte-exact stdout diff on the shared-subset corpus. REAL when fpc installed; FAILS LOUD (not skipped) when fpc is absent. beads initech-63ce, ADR-0007 Sec 4.7.\n'
+	@printf '  test-seed-fpc-diff  DEC-07 Rung 2: Turbo Initech seed vs Free Pascal, byte-exact stdout diff on the shared-subset corpus (B4 func + B5 array + B6 record + B7 string). REAL; IN the default `make test` vector (initech-altq); FAILS LOUD when fpc is absent, SKIP_FPC=1 to opt out (shouting). beads initech-63ce/-4yvg/-altq, ADR-0007 Sec 4.7.\n'
 	@printf '  test-seed-repro  Reproducible-build gate: the FULL seed corpus, compiled twice (initechc->nasm->ld) into separate scratch dirs, is byte-identical (.s+.o+.elf sha256). REAL. bead initech-3yv, ADR-0007 FO-5/DEC-06.\n'
 	@printf '  test-seed-repro-mutant  Rule-6 proof: -DSEED_MUT_NONDET (getpid()-seeded dead .rodata symbol -- GENUINE nondeterminism) makes test-seed-repro correctly RED, while leaving bool.pas single-run behavior untouched. REAL. bead initech-3yv, ADR-0007 FO-5.\n'
 	@printf '  test-harness   QEMU oracle harness self-test: serial marker caught on good fixture, triple-fault caught on bad. REAL.\n'
@@ -12507,14 +12507,38 @@ SEED_FPC_DIR := seed/examples/fpc
 # B7 (beads initech-39k2): the shared corpus is now a LIST looped per-file (the
 # SEED_REPRO_CORPUS for-loop idiom), each entry `name=expected-stdout-line`:
 #   func_shared   -- B4 recursion/mutual-recursion/var-param swap (120 TRUE ...)
+#   array_shared  -- B5 backfill (beads initech-4yvg): const-bound global fill/
+#                    sum, var-param swap of INDEXED elements, function-call
+#                    index, lower-bound-0 + NEGATIVE-lower-bound rebase,
+#                    boolean array, frame-resident local array.
+#   record_shared -- B6 backfill (beads initech-4yvg): named record, field
+#                    r/w, var-param record mutation, whole-record COPY
+#                    semantics, array-of-record nested l/r-value. (The two
+#                    compilers' record LAYOUTS differ by design -- the
+#                    differential grades observable stdout, not bytes.)
 #   string_shared -- B7 concat/length/index/compare, ShortStrings pinned {$H-}.
 # Each single-quoted pair survives the shell for-loop verbatim (the expected
 # lines contain spaces). Each fixture prints ONE line; both compilers must emit
 # exactly it (plus a trailing newline) -- the expected line doubles as the
 # seed-side Rung-1 fallback marker when fpc is absent, and is cross-checked
 # against fpc's real stdout when fpc is present.
-SEED_FPC_CORPUS := 'func_shared=120 TRUE FALSE 2 1' 'string_shared=Hello, World! 13 H EQ LT'
+SEED_FPC_CORPUS := 'func_shared=120 TRUE FALSE 2 1' \
+                   'array_shared=SUM=15 REV=54321 NESTED=2 BSUM=510 CSUM=20 F1=TRUE F2=FALSE LSUM=45' \
+                   'record_shared=KIND=7 VAL=40 OK=FALSE BKIND=17 BOK=TRUE T2KIND=99 TKIND=17 T2VAL=12 KSUM=118' \
+                   'string_shared=Hello, World! 13 H EQ LT'
 
+# fpc INSTALLED on the dev box 2026-08-01 (operator; beads initech-altq):
+# test-seed-fpc-diff is now IN the default TEST_UNIT_GATES vector,
+# Bochs-precedent-style (initech-in2g): default-ON, LOUD FAIL when fpc is
+# absent (the recipe's own command -v check below), and SKIP_FPC=1 as the ONE
+# documented, shouting opt-out for a box that genuinely cannot have fpc. A
+# silent skip is forbidden (Law 2 -- a skipped oracle is worse than a red
+# one). Same Make-level `ifeq` mechanics as SKIP_BOCHS (see test-boot-bochs).
+ifeq ($(SKIP_FPC),1)
+.PHONY: test-seed-fpc-diff
+test-seed-fpc-diff:
+	@printf '!!! test-seed-fpc-diff SKIPPED (SKIP_FPC=1 opt-out) -- the DEC-07 Rung-2 Free Pascal differential (ADR-0007 Sec 4.7) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_FPC and re-run before trusting this gate.\n'
+else
 .PHONY: test-seed-fpc-diff
 test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) $(HARNESS_BIN)
 	@printf ">>> test-seed-fpc-diff: DEC-07 Rung 2 -- Turbo Initech seed vs Free Pascal, byte-exact stdout diff on the shared-subset corpus (beads initech-63ce/initech-39k2, ADR-0007 Sec 4.7)\n"
@@ -12560,6 +12584,7 @@ test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) $(HARNESS_BIN)
 		fi; \
 	done; \
 	printf '>>> test-seed-fpc-diff: all green -- seed and fpc produce byte-identical stdout on the shared corpus\n'
+endif
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-seed-repro / test-seed-repro-mutant (bead initech-3yv;
@@ -18506,7 +18531,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
+	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \

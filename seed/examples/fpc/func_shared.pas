@@ -1,14 +1,17 @@
-{$B+}
+{$MODE DELPHI}{$B+}
 { func_shared.pas -- DEC-07 Rung 2 SHARED-SUBSET corpus (beads initech-63ce;
   ADR-0007 Sec 4.7 Rung 2). Compiled by BOTH Turbo Initech's seed AND Free
   Pascal (`fpc`); test-seed-fpc-diff asserts their stdout is BYTE-IDENTICAL.
 
-  The leading dollar-B-plus directive on line 1 is a Free Pascal compiler
-  directive turning on COMPLETE boolean evaluation (BOOLEVAL ON), so fpc
-  implements ADR-0007 DEC-03's semantics like the seed does. The seed treats a
-  brace-delimited region as an ordinary comment, so the directive is a
-  harmless no-op on the seed side (and this program uses only simple guards
-  anyway).
+  Line 1 directives (the seed treats a brace-delimited region as an ordinary
+  comment, so both are harmless no-ops on the seed side): dollar-MODE-DELPHI
+  pins fpc's `integer` to 32-BIT signed per ADR-0007 DEC-02 dialect pin 1 --
+  fpc's DEFAULT mode makes `integer` 16-bit, a latent divergence the B5
+  backfill fixture exposed (array_shared.pas has the story); dollar-B-plus
+  (AFTER the mode directive, which resets boolean-eval state) turns on
+  COMPLETE boolean evaluation (BOOLEVAL ON), so fpc implements ADR-0007
+  DEC-03's semantics like the seed does (this program uses only simple
+  guards anyway).
 
   SHARED-OUTPUT ENVELOPE (documented in the Makefile's test-seed-fpc-diff
   header): this program emits ONLY values whose textual form is identical
