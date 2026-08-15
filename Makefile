@@ -300,10 +300,12 @@ PPM_FLAIR_APPSWITCH_CHECK_BIN := $(BUILD)/ppm_flair_appswitch_check
 include spec/flair_appswitch_trace.mk
 
 # ppm_flair_solid_check -- the FLAIR live-desktop SOLIDITY grader (epic
-# initech-av7s; beads initech-gofc legs A/B, initech-rqz5 leg C; WL-0075).
+# initech-av7s; beads initech-gofc legs A/B, initech-rqz5 leg C, initech-r8r7
+# leg G; WL-0075).
 # Grades ONE post-trace screendump per leg against the INDEPENDENT canon
 # (flair_canon_rgb, ADR-0010 -- never the renderer's palette): A close-expose
-# content, B drag-preserves-content, C activation chrome. argv = <A|B|C>
+# content, B drag-preserves-content, C activation chrome, G drag clamp. argv =
+# <A|B|C|G>
 # dump.ppm. Shares the demo layout header, so -Ispec -Ispec/assets.
 PPM_FLAIR_SOLID_CHECK_SRC := tools/ppm_flair_solid_check.c
 PPM_FLAIR_SOLID_CHECK_BIN := $(BUILD)/ppm_flair_solid_check
@@ -311,7 +313,8 @@ PPM_FLAIR_SOLID_CHECK_BIN := $(BUILD)/ppm_flair_solid_check
 # The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
 # (leg B: O-5 activate NOTES then title-drag it (-60,+60)), FLAIR_SOLID_SWITCH_
-# SPEC (leg C: the O-5 switch trace verbatim).
+# SPEC (leg C: the O-5 switch trace verbatim), FLAIR_SOLID_CLAMP_SPEC (leg G:
+# O-5 activate NOTES then title-drag toward (5,5), forcing the DQ6 clamp).
 include spec/flair_solid_traces.mk
 
 # ---------------------------------------------------------------------------
@@ -9046,7 +9049,11 @@ $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP
 #   NO_ACTIVATE_INVAL (window.c)  -> reaffirm_active's 0->1 activation seed
 #                    suppressed (initech-rqz5 restored): the raised window gets
 #                    no chrome/content repaint seed        -> solid leg C RED
+#   NO_DRAG_CLAMP (pump)          -> skip only the DQ6 proposed-delta clamp:
+#                    NOTES lands at (-185,-5), under both menu bars
+#                                                            -> solid leg G RED
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME,no_route_on_chrome))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_DRAG_CLAMP,no_drag_clamp))
 $(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUTATE_NO_ACTIVATE_INVAL,no_activate_inval))
 
 # OMISSION (Rule 6 / Law 2 honesty; 2026-07-31 Wave A, epic initech-av7s): the
@@ -14080,7 +14087,7 @@ endif
 # (chrome phase -> content phase -> present) holds under close, drag and
 # app-switch on the booted 386).
 # ---------------------------------------------------------------------------
-# Three deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG), one
+# Four deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG), one
 # LOCKED trace (spec/flair_solid_traces.mk) + one marker-gated screendump each,
 # graded by ppm_flair_solid_check against the INDEPENDENT canon (ADR-0010):
 #   A CLOSE-EXPOSE : click HELLO's go-away; dump after FLAIR-CLOSE. The exposed
@@ -14095,6 +14102,10 @@ endif
 #     NOTES's title band ACTIVE (pinstriped) across its FULL width including
 #     the previously-occluded left segment; HELLO's flat inactive; no stale
 #     HELLO edge crossing NOTES's title band (the rqz5 0->1 seed).
+#   G DRAG-CLAMP   : O-5 activate NOTES, grab its title at (450,130), then drag
+#     to (5,5); dump after FLAIR-DRAG. The proposed struct (-185,-5) is clamped
+#     to (-185,40), leaving the full title band below menu band 2 and 115 px of
+#     its width on-screen (initech-r8r7 / DQ6).
 # Asserts (Law 2): no triple-fault; the leg's serial marker; a dump; grader
 # PASS. Rule 5: this gate shares $(FLAIRTENANTS_IMG) with test-flair-appswitch,
 # whose -bochs leg already proves the image's Bochs boot differential (the
@@ -14104,12 +14115,13 @@ endif
 FLAIR_SOLID_A_NAME := flair_solid_close
 FLAIR_SOLID_B_NAME := flair_solid_drag
 FLAIR_SOLID_C_NAME := flair_solid_switch
+FLAIR_SOLID_G_NAME := flair_solid_clamp
 .PHONY: test-flair-solid
 test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-solid : the live-desktop SOLIDITY contract\n'
-	@printf '  A close-expose content / B drag preserves content / C activation chrome.\n'
-	@printf '  Ref: epic initech-av7s (DQ1-DQ3, DQ9); spec/flair_solid_traces.mk. Law 2/4.\n'
+	@printf '  A close-expose / B drag-content / C activation / G drag-clamp.\n'
+	@printf '  Ref: epic initech-av7s (DQ1-DQ3, DQ6, DQ9); spec/flair_solid_traces.mk. Law 2/4.\n'
 	@printf '======================================================================\n'
 	@# ---- leg A: close HELLO -> the exposed NOTES overlap is repainted content ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
@@ -14149,27 +14161,46 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) C "$(BUILD)/$(FLAIR_SOLID_C_NAME).ppm" \
 		|| { printf '!!! test-flair-solid FAIL: leg C -- activation chrome wrong (flat/half-active title or stale band; initech-rqz5)\n'; exit 1; }
 	@printf '>>> test-flair-solid [C]: activation chrome full-width active + flat inactive + no stale band\n'
+	@# ---- leg G: drag toward (5,5) -- title band stays reachable below band 2 ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_G_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_CLAMP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 \
+		2> "$(BUILD)/$(FLAIR_SOLID_G_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_G_NAME).report"; then printf '!!! test-flair-solid FAIL: leg G TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-DISPATCH app=NOTES$$' "$(BUILD)/$(FLAIR_SOLID_G_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg G precondition -- the activating switch never dispatched\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_G_NAME).serial" || true; exit 1; }
+	@# Grab (450,130)->release (5,5) = (-445,-125); NOTES (260,120) proposes
+	@# (-185,-5), then DQ6 clamps top to 2*FLAIR_CHROME_MENUBAR_H = 40.
+	@grep -q '^FLAIR-DRAG win -1 (260,120)->(-185,40)$$' "$(BUILD)/$(FLAIR_SOLID_G_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg G expected clamped FLAIR-DRAG (-185,40) marker missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_G_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_G_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg G screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_SOLID_CHECK_BIN) G "$(BUILD)/$(FLAIR_SOLID_G_NAME).ppm" \
+		|| { printf '!!! test-flair-solid FAIL: leg G -- dragged NOTES title band is not reachable below menu band 2 (initech-r8r7)\n'; exit 1; }
+	@printf '>>> test-flair-solid [G]: drag clamp keeps the full title band reachable at (-185,40)\n'
 	@printf 'VERDICT   : PASS -- the live desktop honours the ONE repaint contract under\n'
-	@printf '            close/drag/switch (chrome -> content -> present; epic initech-av7s)\n'
+	@printf '            close/drag/switch and the DQ6 drag policy keeps titles reachable.\n'
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-solid-mutant (Rule 6; DQ9 -- per-leg mutants). The CLEAN
-# image is graded GREEN on all three legs first (the baseline), then each mutant
+# image is graded GREEN on all four legs first (the baseline), then each mutant
 # image re-runs ONLY the legs it must break:
 #   no_route_on_chrome (-DFLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME, pump): the
 #     drag/close content phase blanket-validates instead of routing -- legs A
 #     AND B MUST go RED (the exact pre-fix white-hole contract).
 #   no_activate_inval (-DWINDOW_MUTATE_NO_ACTIVATE_INVAL, window.c): the 0->1
 #     activation seed is suppressed -- leg C MUST go RED (flat/stale title).
+#   no_drag_clamp (-DFLAIR_LIVE_MUTATE_NO_DRAG_CLAMP, pump): only the DQ6 clamp
+#     is suppressed -- leg G MUST go RED (title remains under both menu bars).
 .PHONY: test-flair-solid-mutant
 test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENANTS_IMG) \
 	$(BUILD)/flair_tenants_mut_no_route_on_chrome.img \
-	$(BUILD)/flair_tenants_mut_no_activate_inval.img
+	$(BUILD)/flair_tenants_mut_no_activate_inval.img \
+	$(BUILD)/flair_tenants_mut_no_drag_clamp.img
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-solid-mutant : Rule 6 (the gate BITES)\n'
-	@printf '  no_route_on_chrome MUST break legs A+B; no_activate_inval MUST break leg C.\n'
+	@printf '  no_route_on_chrome MUST break A+B; no_activate_inval C; no_drag_clamp G.\n'
 	@printf '======================================================================\n'
-	@# ---- baseline: the CLEAN image grades GREEN on all three legs. ----
+	@# ---- baseline: the CLEAN image grades GREEN on all four legs. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLOSE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 >/dev/null 2>&1 || true
@@ -14179,13 +14210,16 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_C_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_SWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 >/dev/null 2>&1 || true
-	@for leg in A:$(FLAIR_SOLID_A_NAME) B:$(FLAIR_SOLID_B_NAME) C:$(FLAIR_SOLID_C_NAME); do \
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_G_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_CLAMP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 >/dev/null 2>&1 || true
+	@for leg in A:$(FLAIR_SOLID_A_NAME) B:$(FLAIR_SOLID_B_NAME) C:$(FLAIR_SOLID_C_NAME) G:$(FLAIR_SOLID_G_NAME); do \
 		l=$${leg%%:*}; n=$${leg#*:}; \
 		if [ ! -s "$(BUILD)/$$n.ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: clean leg %s produced no screendump (no baseline)\n' "$$l"; exit 1; fi; \
 		$(PPM_FLAIR_SOLID_CHECK_BIN) $$l "$(BUILD)/$$n.ppm" >/dev/null 2>&1 \
 			|| { printf '!!! test-flair-solid-mutant FAIL: the CLEAN image did not grade GREEN on leg %s -- the baseline is broken\n' "$$l"; exit 1; }; \
 	done
-	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on legs A+B+C\n'
+	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on legs A+B+C+G\n'
 	@# ---- no_route_on_chrome: legs A and B MUST go RED. ('|'-delimited fields:
 	@# the mouse specs themselves contain ':'.) ----
 	@rc=0; \
@@ -14224,7 +14258,21 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 		printf '>>> no_activate_inval leg C correctly RED:\n'; \
 		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_actinval_C.chk" | sed 's/^/      /'; \
 	fi
-	@printf 'VERDICT   : PASS -- both solidity mutants drive their legs RED (the gate bites; Rule 6)\n'
+	@# ---- no_drag_clamp: leg G MUST go RED. ----
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_drag_clamp.img" \
+		--name flair_solid_mut_dragclamp_G --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_CLAMP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 \
+		2> "$(BUILD)/flair_solid_mut_dragclamp_G.report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_solid_mut_dragclamp_G.report"; then printf '!!! test-flair-solid-mutant FAIL: no_drag_clamp TRIPLE-FAULTED (cannot judge)\n'; exit 1; fi
+	@if [ ! -s "$(BUILD)/flair_solid_mut_dragclamp_G.ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: no_drag_clamp produced no screendump\n'; exit 1; fi
+	@if $(PPM_FLAIR_SOLID_CHECK_BIN) G "$(BUILD)/flair_solid_mut_dragclamp_G.ppm" > "$(BUILD)/flair_solid_mut_dragclamp_G.chk" 2>&1; then \
+		printf '!!! test-flair-solid-mutant FAIL: the leg G oracle is DECORATION -- no_drag_clamp PASSED it\n'; exit 1; \
+	else \
+		printf '>>> no_drag_clamp leg G correctly RED:\n'; \
+		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_dragclamp_G.chk" | sed 's/^/      /'; \
+	fi
+	@printf 'VERDICT   : PASS -- all three solidity mutants drive their legs RED (the gate bites; Rule 6)\n'
 	@printf '======================================================================\n'
 
 # ===========================================================================
@@ -14251,7 +14299,8 @@ RECORD_SPEC_solid_close  = $(FLAIR_SOLID_CLOSE_SPEC)
 RECORD_SPEC_solid_drag   = $(FLAIR_SOLID_DRAG_SPEC)
 RECORD_SPEC_solid_switch = $(FLAIR_SOLID_SWITCH_SPEC)
 RECORD_SPEC_appswitch    = $(FLAIR_APPSWITCH_SPEC)
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch
+RECORD_SPEC_solid_clamp  = $(FLAIR_SOLID_CLAMP_SPEC)
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -14259,7 +14308,7 @@ RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch
 # Reuses the kmain-variant template; "mut_" in the artifact name is the
 # template's naming -- this knob widens a demo bound, it mutates NO behavior
 # the oracles grade (the default image stays byte-identical, budget 250).
-$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000,record))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000 -DFLAIR_LIVE_DRAG_TRACK_TICKS=3000,record))
 FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 
 .PHONY: record-flair

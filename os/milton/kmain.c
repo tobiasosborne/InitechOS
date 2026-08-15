@@ -1197,6 +1197,40 @@ static void flair_live_content_phase(flair_live_ctx_t *ctx)
     desktop_validate_all(ctx->wm);
 }
 
+#ifndef FLAIR_LIVE_MUTATE_NO_DRAG_CLAMP
+/* DQ6 drag policy (bead initech-r8r7): Inside Macintosh, Macintosh Toolbox
+ * Essentials, Window Manager Reference gives DragWindow a global boundsRect
+ * limiting the drag region; period samples inset it by 4 px to keep a reachable
+ * title strip. FLAIR applies equivalent policy HERE in the live pump, not in
+ * window.c's unconstrained movement mechanism: the complete
+ * FLAIR_CHROME_TITLEBAR_H band stays below menu band 2
+ * and inside the desktop vertically, while at least four title pixels remain.
+ * SHELL_MENUBAR2_TOP + FLAIR_MENUBAR_H is the named bottom of band 2. */
+#define FLAIR_LIVE_DRAG_REACH_PX  4
+static void flair_live_clamp_drag(const flair_live_ctx_t *ctx, WindowPtr w,
+                                  int16_t *dh, int16_t *dv)
+{
+    rgn_rect_t s = region_get_bbox(w->strucRgn);
+    rgn_rect_t frame = ctx->wm->desktop_frame;
+    int32_t width = (int32_t)s.right - (int32_t)s.left;
+    int32_t left = (int32_t)s.left + (int32_t)*dh;
+    int32_t top = (int32_t)s.top + (int32_t)*dv;
+    int32_t min_left = (int32_t)frame.left + FLAIR_LIVE_DRAG_REACH_PX - width;
+    int32_t max_left = (int32_t)frame.right - FLAIR_LIVE_DRAG_REACH_PX;
+    int32_t min_top = (int32_t)SHELL_MENUBAR2_TOP + (int32_t)FLAIR_MENUBAR_H;
+    int32_t max_top = (int32_t)frame.bottom - (int32_t)FLAIR_CHROME_TITLEBAR_H;
+
+    if (min_top < (int32_t)frame.top) min_top = (int32_t)frame.top;
+    if (left < min_left) left = min_left;
+    if (left > max_left) left = max_left;
+    if (top < min_top) top = min_top;
+    if (top > max_top) top = max_top;
+
+    *dh = (int16_t)(left - (int32_t)s.left);
+    *dv = (int16_t)(top - (int32_t)s.top);
+}
+#endif
+
 /* FO-7 inDrag dispatch: track the live drag, then move + minimal-repaint + present.
  *
  * The net drag delta is the cursor displacement from button-down (where0) to
@@ -1215,7 +1249,14 @@ static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
 {
     EventRecord up;
     flair_point_t where1 = where0;
-    uint32_t guard = flair_tick_count() + 150u;   /* bounded drag wait (~1.5 s) */
+/* Bounded drag wait: -D-overridable like the tick budgets (initech-l9cd) --
+ * record-mode per-frame dumps stretch a modal drag past 1.5 s, completing the
+ * drag EARLY (3 of 5 moves: the clamp clip's first honest catch). Default 150
+ * stays byte-identical; the RECORD image widens it with the live budget. */
+#ifndef FLAIR_LIVE_DRAG_TRACK_TICKS
+#define FLAIR_LIVE_DRAG_TRACK_TICKS 150u              /* ~1.5 s @100 Hz */
+#endif
+    uint32_t guard = flair_tick_count() + FLAIR_LIVE_DRAG_TRACK_TICKS;
     rgn_rect_t before, after;
     int16_t dh, dv;
     int wid;
@@ -1235,6 +1276,13 @@ static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
 
     dh = (int16_t)(where1.h - where0.h);
     dv = (int16_t)(where1.v - where0.v);
+
+#ifndef FLAIR_LIVE_MUTATE_NO_DRAG_CLAMP
+    flair_live_clamp_drag(ctx, w, &dh, &dv);
+#else
+    /* Rule-6 mutant: disable exactly the DQ6 pump-policy clamp, restoring the
+     * mouse-unrecoverable under-menu/off-screen drag. NEVER in a real build. */
+#endif
 
     before = region_get_bbox(w->strucRgn);
 #ifndef FLAIR_LIVE_MUTATE_DRAG_NOOP

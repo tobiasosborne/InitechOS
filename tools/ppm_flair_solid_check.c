@@ -2,7 +2,8 @@
  * ppm_flair_solid_check.c -- the FLAIR live-desktop SOLIDITY oracle's
  * screendump grader (HOST, C-only). Epic initech-av7s; beads initech-gofc
  * (leg A/B: the WM update contract -- tenant content survives expose/drag),
- * initech-rqz5 (leg C: activation repaints chrome).
+ * initech-rqz5 (leg C: activation repaints chrome), and initech-r8r7
+ * (leg G: the live-pump DragWindow policy keeps the title band reachable).
  *
  * The 2026-07-21 first-person drive battery (WL shard TBD) proved the live
  * tenants desktop degrades monotonically: the compositor repaints CHROME only
@@ -37,7 +38,13 @@
  *       no stale vertical black run (HELLO's old right-edge frame) may cross
  *       NOTES's title band at x = HELLO right edge - 1.
  *
- * Usage: ppm_flair_solid_check <A|B|C> <dump.ppm>
+ *   G <post_clamp.ppm>  -- DRAG CLAMP. After activating NOTES, the locked
+ *       trace grabs its title at (450,130) and releases at (5,5). The proposed
+ *       struct (-185,-5) must be clamped to (-185,40): the complete title band
+ *       begins immediately below the two menu bars and at least the classic
+ *       four-pixel horizontal reachable strip remains on-screen.
+ *
+ * Usage: ppm_flair_solid_check <A|B|C|G> <dump.ppm>
  * Exit 0 = PASS; non-zero = a named FAIL (assertion + sampled-vs-expected).
  *
  * ASCII-clean (Rule 12). Deterministic (Rule 11): probe geometry derives from
@@ -268,12 +275,109 @@ static int leg_C(const Img *im)
     return bad;
 }
 
+/* ================= leg G: live-pump drag clamp ======================== */
+/* Independent expected geometry for the LOCKED leg-G trace:
+ * title grab (450,130) -> release (5,5) gives delta (-445,-125);
+ * NOTES struct (260,120) would become (-185,-5). The two locked
+ * FLAIR_CHROME_MENUBAR_H bands clamp top to 40. Horizontal reachability follows
+ * the period sample's four-pixel DragWindow boundsRect inset; the proposed left
+ * already leaves 115 px visible, so it remains -185. These are trace/spec
+ * computations, never observations of FLAIR's render (Law 2; initech-r8r7). */
+#define SOLID_G_GRAB_X          450
+#define SOLID_G_GRAB_Y          130
+#define SOLID_G_RELEASE_X       5
+#define SOLID_G_RELEASE_Y       5
+#define SOLID_G_DRAG_DH         (SOLID_G_RELEASE_X - SOLID_G_GRAB_X)
+#define SOLID_G_DRAG_DV         (SOLID_G_RELEASE_Y - SOLID_G_GRAB_Y)
+#define SOLID_G_NOTES_W         (FLAIR_TEN_NOTES_R - FLAIR_TEN_NOTES_L)
+#define SOLID_G_PROPOSED_L      (FLAIR_TEN_NOTES_L + SOLID_G_DRAG_DH)
+#define SOLID_G_PROPOSED_T      (FLAIR_TEN_NOTES_T + SOLID_G_DRAG_DV)
+#define SOLID_G_NOTES_L         SOLID_G_PROPOSED_L
+#define SOLID_G_NOTES_T         (2 * FLAIR_CHROME_MENUBAR_H)
+#define SOLID_G_NOTES_R         (SOLID_G_NOTES_L + SOLID_G_NOTES_W)
+#define SOLID_G_IM_DRAG_MARGIN  4
+
+static int leg_G(const Img *im)
+{
+    int bad = 0;
+    int visible_l = SOLID_G_NOTES_L < 0 ? 0 : SOLID_G_NOTES_L;
+    int visible_r = SOLID_G_NOTES_R > im->w ? im->w : SOLID_G_NOTES_R;
+    static const int xs[2] = { SOLID_G_IM_DRAG_MARGIN,
+                               SOLID_G_NOTES_R - 40 };
+
+    if (SOLID_G_PROPOSED_T >= SOLID_G_NOTES_T) {
+        fprintf(stderr,
+                "FAIL leg G: trace is not a vertical clamp case "
+                "(proposed top=%d clamp top=%d)\n",
+                SOLID_G_PROPOSED_T, SOLID_G_NOTES_T);
+        bad = 1;
+    }
+    if (SOLID_G_NOTES_T < 2 * FLAIR_CHROME_MENUBAR_H ||
+        SOLID_G_NOTES_T + FLAIR_CHROME_TITLEBAR_H > im->h) {
+        fprintf(stderr,
+                "FAIL leg G: expected title band [%d,%d) is outside the "
+                "reachable vertical desktop [%d,%d)\n",
+                SOLID_G_NOTES_T,
+                SOLID_G_NOTES_T + FLAIR_CHROME_TITLEBAR_H,
+                2 * FLAIR_CHROME_MENUBAR_H, im->h);
+        bad = 1;
+    }
+    if (visible_r - visible_l < SOLID_G_IM_DRAG_MARGIN) {
+        fprintf(stderr,
+                "FAIL leg G: expected horizontal title reach is only %d px "
+                "(minimum %d px)\n",
+                visible_r - visible_l, SOLID_G_IM_DRAG_MARGIN);
+        bad = 1;
+    }
+
+    /* The active stripe at the independently-computed y=40 proves that the
+     * title, rather than content exposed below an overlay-hidden title, begins
+     * immediately below menu band 2. Both columns avoid title text/gadgets. */
+    for (int i = 0; i < 2; i++) {
+        int sl, sd, so;
+        scan_col(im, xs[i], STRIPE_Y0(SOLID_G_NOTES_T),
+                 STRIPE_Y1(SOLID_G_NOTES_T),
+                 CIDX_PIN_LIGHT, CIDX_PIN_DARK, &sl, &sd, &so);
+        if (sl == 0 || sd == 0) {
+            fprintf(stderr,
+                    "FAIL leg G: reachable NOTES title x=%d missing at "
+                    "clamped band [%d,%d) (pin_light=%d pin_dark=%d other=%d)\n",
+                    xs[i], SOLID_G_NOTES_T,
+                    SOLID_G_NOTES_T + FLAIR_CHROME_TITLEBAR_H,
+                    sl, sd, so);
+            bad = 1;
+        }
+    }
+
+    /* Both frame lines are visible at their locked rows, proving the complete
+     * FLAIR_CHROME_TITLEBAR_H band (not only an interior stripe sample) lies
+     * below the half-open menu bands [0,2*FLAIR_CHROME_MENUBAR_H). */
+    bad |= probe_is(im, SOLID_G_IM_DRAG_MARGIN, SOLID_G_NOTES_T,
+                    CIDX_BLACK, "leg G reachable NOTES title top frame");
+    bad |= probe_is(im, SOLID_G_IM_DRAG_MARGIN,
+                    SOLID_G_NOTES_T + FLAIR_CHROME_TITLEBAR_H - 1,
+                    CIDX_BLACK, "leg G reachable NOTES title bottom frame");
+
+    /* Lock the visible right edge as a screendump counterpart to the exact
+     * serial coordinate tooth: right-1 is the window frame; right is desktop.
+     * At y=top+3 HELLO has not begun yet (HELLO top comes from the spec header). */
+    bad |= probe_is(im, SOLID_G_NOTES_R - 1, SOLID_G_NOTES_T + 3,
+                    CIDX_BLACK, "leg G visible NOTES right frame");
+    bad |= probe_is(im, SOLID_G_NOTES_R, SOLID_G_NOTES_T + 3,
+                    CIDX_DESKTOP, "leg G pixel beyond NOTES right frame");
+
+    if (!bad)
+        printf("solid G PASS: NOTES title band reachable at struct (-185,40) "
+               "with 115 px on-screen\n");
+    return bad;
+}
+
 int main(int argc, char **argv)
 {
     Img im;
     int rc;
     if (argc != 3 || strlen(argv[1]) != 1) {
-        fprintf(stderr, "usage: ppm_flair_solid_check <A|B|C> <dump.ppm>\n");
+        fprintf(stderr, "usage: ppm_flair_solid_check <A|B|C|G> <dump.ppm>\n");
         return 2;
     }
     if (read_ppm(argv[2], &im)) return 2;
@@ -281,6 +385,7 @@ int main(int argc, char **argv)
     case 'A': rc = leg_A(&im); break;
     case 'B': rc = leg_B(&im); break;
     case 'C': rc = leg_C(&im); break;
+    case 'G': rc = leg_G(&im); break;
     default:
         fprintf(stderr, "solid_check: unknown leg '%s'\n", argv[1]);
         rc = 2;
