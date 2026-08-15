@@ -119,6 +119,21 @@ typedef struct {
      * hang). NULL => legacy immediate-dump behaviour. */
     const char *screendump_after; /* serial marker to wait for, or NULL.     */
 
+    /* Interaction VIDEO record mode (beads initech-l9cd). When true, the
+     * harness dumps ONE framebuffer PPM per injected input event (keys and
+     * mouse), plus an initial frame after the keys_after ready marker and a
+     * final frame after the last event settles, into
+     *   <output_dir>/<name>_frame_%05d.ppm
+     * The frame sequence is the raw material for the ffmpeg-encoded clip
+     * (make record-flair). Determinism posture (Rule 11): the input trace is
+     * locked spec-data and each event is followed by a record_settle_ms drain
+     * before its frame is grabbed, so the sequence is event-synchronized, not
+     * wall-clock-sampled; the reproducibility check (record-flair-repro)
+     * verifies byte-identical output empirically. Requires QMP (implied). */
+    bool record_frames;        /* per-event PPM frame dumps on/off.           */
+    int  record_settle_ms;     /* paint-settle drain before each frame grab;
+                                  <=0 => default 120 ms.                      */
+
     /* Pinned RTC base (beads initech-yv9). When non-NULL, the harness passes
      * `-rtc base=<rtc_base>` to QEMU so the guest's emulated MC146818 RTC starts
      * at a FIXED, KNOWN wall-clock instant instead of host time. REQUIRED for the
@@ -169,6 +184,9 @@ typedef struct {
     int  mouse_events_sent;    /* count of QMP input-send-event mouse events
                                   issued (beads initech-5l5z FO-6); 0 if
                                   mouse_spec was NULL.                        */
+    int  frames_taken;         /* count of record-mode frame PPMs dumped
+                                  (beads initech-l9cd); 0 unless
+                                  cfg->record_frames.                         */
 
     bool ok;                   /* overall verdict (see above).              */
 } QemuResult;

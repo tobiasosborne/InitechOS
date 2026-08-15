@@ -9419,7 +9419,7 @@ $(SEED_BIN): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
 
 # QEMU oracle harness CLI: library + main, one translation unit each.
-$(HARNESS_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) | $(BUILD)
+$(HARNESS_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
 
 # Bochs oracle harness CLI (beads initech-564): library + main.
@@ -14226,6 +14226,75 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	fi
 	@printf 'VERDICT   : PASS -- both solidity mutants drive their legs RED (the gate bites; Rule 6)\n'
 	@printf '======================================================================\n'
+
+# ===========================================================================
+# record-flair (beads initech-l9cd): deterministic GUI-interaction VIDEO
+# capture. Replays a LOCKED input trace (Rule 8/11 -- the SAME specs the emu
+# gates use) against $(FLAIRTENANTS_IMG) in record mode (one PPM frame per
+# injected event + initial/final frames), then encodes BOTH a GIF (palettegen/
+# paletteuse stats_mode=diff -- crisp on the static indexed-8 desktop) and an
+# MP4 (libx264 yuv420p) with ffmpeg bitexact flags + metadata stripped so the
+# outputs carry no timestamps (Rule 11). DEV AID + Law-4 evidence channel, not
+# a default-vector gate; `record-flair-repro` is the empirical byte-identical
+# check (same SCRIPT -> identical sha256s).
+#   usage: make record-flair SCRIPT=solid_drag
+#          make record-flair-repro SCRIPT=solid_drag
+RECORD_CLIPS_DIR := $(BUILD)/clips
+RECORD_FPS       := 4
+RECORD_SPEC_solid_close  = $(FLAIR_SOLID_CLOSE_SPEC)
+RECORD_SPEC_solid_drag   = $(FLAIR_SOLID_DRAG_SPEC)
+RECORD_SPEC_solid_switch = $(FLAIR_SOLID_SWITCH_SPEC)
+RECORD_SPEC_appswitch    = $(FLAIR_APPSWITCH_SPEC)
+RECORD_SPEC_drag         = $(FLAIR_DRAG_SPEC)
+RECORD_SPEC_dc4v         = $(FLAIR_DC4V_SPEC)
+RECORD_SPEC_menu         = $(FLAIR_MENU_SPEC)
+RECORD_SPEC_crossdrag    = $(FLAIR_MENU_CROSSDRAG_SPEC)
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch drag dc4v menu crossdrag
+
+.PHONY: record-flair
+record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_IMG)
+	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
+	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
+	@command -v ffmpeg >/dev/null || { printf '!!! record-flair: ffmpeg not installed (the ONE extra dependency; sudo apt install ffmpeg)\n'; exit 2; }
+	@mkdir -p "$(RECORD_CLIPS_DIR)"
+	@printf '>>> record-flair [%s]: capturing per-event frames (trace: %s)\n' "$(SCRIPT)" "$(RECORD_SPEC_$(SCRIPT))"
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
+		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
+		--record --timeout-ms 30000 \
+		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
+	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
+	@n=$$(ls "$(RECORD_CLIPS_DIR)"/rec_$(SCRIPT)_frame_*.ppm 2>/dev/null | wc -l); \
+		if [ "$$n" -lt 3 ]; then printf '!!! record-flair: only %s frames captured (expected >= initial+events+final)\n' "$$n"; exit 1; fi; \
+		printf '>>> record-flair [%s]: %s frames captured\n' "$(SCRIPT)" "$$n"
+	@ffmpeg -hide_banner -loglevel error -y -framerate $(RECORD_FPS) \
+		-i "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT)_frame_%05d.ppm" \
+		-vf "split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=none" \
+		-fflags +bitexact "$(RECORD_CLIPS_DIR)/$(SCRIPT).gif"
+	@ffmpeg -hide_banner -loglevel error -y -framerate $(RECORD_FPS) \
+		-i "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT)_frame_%05d.ppm" \
+		-c:v libx264 -preset veryslow -qp 0 -pix_fmt yuv420p \
+		-fflags +bitexact -flags:v +bitexact -map_metadata -1 \
+		"$(RECORD_CLIPS_DIR)/$(SCRIPT).mp4"
+	@printf '>>> record-flair [%s]: clips ready\n' "$(SCRIPT)"
+	@ls -la "$(RECORD_CLIPS_DIR)/$(SCRIPT).gif" "$(RECORD_CLIPS_DIR)/$(SCRIPT).mp4"
+
+# Reproducibility check (Rule 11, empirical): capture the SAME SCRIPT twice and
+# require byte-identical GIF+MP4. A drift here means a frame raced its paint
+# settle -- raise --record-settle-ms (or investigate), never ship a flaky clip
+# pipeline as "deterministic".
+.PHONY: record-flair-repro
+record-flair-repro: $(HARNESS_BIN) $(FLAIRTENANTS_IMG)
+	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair-repro SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
+	@$(MAKE) --no-print-directory record-flair SCRIPT=$(SCRIPT) >/dev/null
+	@sha256sum "$(RECORD_CLIPS_DIR)/$(SCRIPT).gif" "$(RECORD_CLIPS_DIR)/$(SCRIPT).mp4" > "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.1"
+	@$(MAKE) --no-print-directory record-flair SCRIPT=$(SCRIPT) >/dev/null
+	@sha256sum "$(RECORD_CLIPS_DIR)/$(SCRIPT).gif" "$(RECORD_CLIPS_DIR)/$(SCRIPT).mp4" > "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.2"
+	@if cmp -s "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.1" "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.2"; then \
+		printf '>>> record-flair-repro [%s]: PASS -- two captures byte-identical\n' "$(SCRIPT)"; \
+	else \
+		printf '!!! record-flair-repro [%s]: FAIL -- captures differ (frame raced its settle?)\n' "$(SCRIPT)"; \
+		diff "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.1" "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.2" || true; exit 1; \
+	fi
 
 # ===========================================================================
 # REAL gate: test-flair-samir-suspend (ADR-0013 Wave-5 gate O-7 -- THE booted

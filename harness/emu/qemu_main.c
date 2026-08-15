@@ -47,6 +47,13 @@ static void usage(const char *argv0)
         "                     wait for MARK on serial before the --screendump\n"
         "                     grab (the guest signals paint-complete); the\n"
         "                     wall-clock timeout stays the hard backstop\n"
+        "  --record           dump one PPM frame per injected input event\n"
+        "                     (plus an initial and a final frame) to\n"
+        "                     <out>/<name>_frame_%%05d.ppm -- the raw material\n"
+        "                     for the ffmpeg clip (make record-flair)\n"
+        "  --record-settle-ms N\n"
+        "                     paint-settle drain before each frame grab\n"
+        "                     (default 120)\n"
         "  --rtc-base ISO     pin the guest RTC to a fixed instant via\n"
         "                     `-rtc base=ISO` (e.g. 2026-06-09T12:34:56) so the\n"
         "                     clock oracle is deterministic\n"
@@ -100,6 +107,11 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--screendump-after") == 0) {
             NEED_ARG();
             cfg.screendump_after = argv[++i];
+        } else if (strcmp(a, "--record") == 0) {
+            cfg.record_frames = true;
+        } else if (strcmp(a, "--record-settle-ms") == 0) {
+            NEED_ARG();
+            cfg.record_settle_ms = atoi(argv[++i]);
         } else if (strcmp(a, "--rtc-base") == 0) {
             NEED_ARG();
             cfg.rtc_base = argv[++i];
@@ -153,6 +165,7 @@ int main(int argc, char **argv)
         "[harness] serial_len=%zu marker_found=%d (expect=%s)\n"
         "[harness] triple_fault=%d cpu_reset=%d guest_errors=%d\n"
         "[harness] keys_sent=%d mouse_events_sent=%d screendump_taken=%d path=%s\n"
+        "[harness] frames_taken=%d\n"
         "[harness] OK=%d\n",
         res.launched, res.timed_out, res.exit_code, res.term_signal,
         res.serial_len, res.marker_found,
@@ -160,6 +173,7 @@ int main(int argc, char **argv)
         res.triple_fault, res.cpu_reset_count, res.guest_errors,
         res.keys_sent, res.mouse_events_sent, res.screendump_taken,
         res.screendump_taken ? res.screendump_path : "(none)",
+        res.frames_taken,
         res.ok);
 
     int rc = res.ok ? 0 : 1;

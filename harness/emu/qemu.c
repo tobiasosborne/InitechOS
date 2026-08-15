@@ -223,6 +223,70 @@ static void qmp_drain(int fd, int budget_ms)
 }
 
 /* ------------------------------------------------------------------ */
+/* Record mode: per-event frame dumps (beads initech-l9cd)             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * RecordCtx -- the state for interaction-video frame capture. When non-NULL
+ * in the inject loops below, every successfully injected input event is
+ * followed by a paint-settle drain and ONE QMP screendump into
+ * <dir>/<name>_frame_%05d.ppm. The counter makes the sequence ffmpeg-ready
+ * (frame_%05d). NULL ctx == record mode off (zero overhead on every
+ * existing gate).
+ */
+typedef struct {
+    int fd;                /* the handshaked QMP socket                     */
+    const char *dir;       /* output dir (cfg->output_dir)                  */
+    const char *name;      /* run label (cfg->name)                         */
+    int settle_ms;         /* paint-settle drain before each grab           */
+    int count;             /* frames dumped so far                          */
+} RecordCtx;
+
+/* Issue one QMP screendump to path over an already-handshaked fd. Shared by
+ * the record-mode frame grabs and the legacy single --screendump. Returns 0
+ * on a successful send (file existence is the caller's check). */
+static int qmp_do_screendump(int fd, const char *path)
+{
+    char cmd[QEMU_PATH_MAX + 64];
+    int n = snprintf(cmd, sizeof(cmd),
+                     "{\"execute\":\"screendump\",\"arguments\":"
+                     "{\"filename\":\"%s\"}}\n", path);
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        return -1;
+    }
+    if (qmp_send(fd, cmd) != 0) {
+        return -1;
+    }
+    qmp_drain(fd, 300);
+    return 0;
+}
+
+/* Grab the next record-mode frame: settle-drain (the guest finishes painting
+ * the event we just injected), then dump frame_%05d.ppm. Silent no-op when
+ * rec is NULL. A failed dump is LOUD (Law 2) but does not abort the run --
+ * the encode step will fail honestly on the missing frame. */
+static void record_frame(RecordCtx *rec)
+{
+    if (!rec) {
+        return;
+    }
+    qmp_drain(rec->fd, rec->settle_ms);
+    char path[QEMU_PATH_MAX];
+    int n = snprintf(path, sizeof(path), "%s/%s_frame_%05d.ppm",
+                     rec->dir, rec->name, rec->count);
+    if (n < 0 || (size_t)n >= sizeof(path)) {
+        fprintf(stderr, "[harness] record: frame path too long (skipped)\n");
+        return;
+    }
+    if (qmp_do_screendump(rec->fd, path) == 0) {
+        rec->count++;
+    } else {
+        fprintf(stderr, "[harness] record: frame %d dump FAILED\n",
+                rec->count);
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* QMP keystroke injection (beads initech-43b)                         */
 /* ------------------------------------------------------------------ */
 
@@ -300,7 +364,8 @@ static int qmp_send_key(int fd, const char *qcode)
  * loud about a silently-ignored key). Returns the number of keys sent; *bad is
  * set to the count of unrecognized tokens.
  */
-static int qmp_inject_keys(int fd, const char *keys_spec, int *bad)
+static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
+                           RecordCtx *rec)
 {
     int sent = 0;
     int unknown = 0;
@@ -341,6 +406,8 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad)
             /* Drain any QMP reply + give the guest a beat to take the IRQ1
              * before the next key (keeps the injection deterministic). */
             qmp_drain(fd, 30);
+            /* Record mode (initech-l9cd): one frame per injected event. */
+            record_frame(rec);
         }
     }
     if (bad) {
@@ -405,7 +472,7 @@ static int qmp_mouse_button(int fd, const char *button, int down)
  * number of events sent. The gate injects >=2 so the dual-PIC-EOI no-wedge
  * property is assertable (a second distinct FLAIR-MOUSE line proves the slave
  * EOI re-armed the line). */
-static int qmp_inject_mouse(int fd, const char *mouse_spec)
+static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec)
 {
     int sent = 0;
     char buf[256];
@@ -457,6 +524,8 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec)
              * (one per PS/2 packet byte) before the next event, so each event's
              * FLAIR-MOUSE line lands deterministically. */
             qmp_drain(fd, 40);
+            /* Record mode (initech-l9cd): one frame per injected event. */
+            record_frame(rec);
         } else {
             fprintf(stderr, "[harness] --mouse: unknown token '%s' (skipped)\n",
                     tok);
@@ -510,13 +579,18 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
                        const char *keys_spec, const char *keys_after,
                        const char *mouse_spec,
                        const char *screendump_after, int screendump_budget_ms,
-                       const char *serial_path, int *keys_sent, int *mouse_sent)
+                       const char *serial_path, int *keys_sent, int *mouse_sent,
+                       const char *record_dir, const char *record_name,
+                       int record_settle_ms, int *frames_taken)
 {
     if (keys_sent) {
         *keys_sent = 0;
     }
     if (mouse_sent) {
         *mouse_sent = 0;
+    }
+    if (frames_taken) {
+        *frames_taken = 0;
     }
     int fd = -1;
     long long deadline = mono_ms() + 3000;
@@ -571,6 +645,18 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
     {
         int want_keys  = (keys_spec  && keys_spec[0]  != '\0');
         int want_mouse = (mouse_spec && mouse_spec[0] != '\0');
+        /* Record mode (beads initech-l9cd): a stack RecordCtx threaded through
+         * the inject loops; rec == NULL keeps every existing gate untouched. */
+        RecordCtx rec_store;
+        RecordCtx *rec = NULL;
+        if (record_dir && record_name) {
+            rec_store.fd = fd;
+            rec_store.dir = record_dir;
+            rec_store.name = record_name;
+            rec_store.settle_ms = record_settle_ms > 0 ? record_settle_ms : 120;
+            rec_store.count = 0;
+            rec = &rec_store;
+        }
         if (want_keys || want_mouse) {
             if (keys_after && keys_after[0] != '\0') {
                 if (!wait_for_serial_marker(serial_path, keys_after, 4000)) {
@@ -581,15 +667,17 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
             } else {
                 sleep_ms(500);
             }
+            /* Frame 0: the pre-interaction desktop (post ready-marker). */
+            record_frame(rec);
             if (want_keys) {
                 int bad = 0;
-                int sent = qmp_inject_keys(fd, keys_spec, &bad);
+                int sent = qmp_inject_keys(fd, keys_spec, &bad, rec);
                 if (keys_sent) {
                     *keys_sent = sent;
                 }
             }
             if (want_mouse) {
-                int msent = qmp_inject_mouse(fd, mouse_spec);
+                int msent = qmp_inject_mouse(fd, mouse_spec, rec);
                 if (mouse_sent) {
                     *mouse_sent = msent;
                 }
@@ -597,6 +685,11 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
             /* Let the last event's IRQ + the guest's serial echo flush before we
              * (optionally) screendump and quit. */
             qmp_drain(fd, 100);
+            /* Final frame: the settled end state of the interaction. */
+            record_frame(rec);
+        }
+        if (rec && frames_taken) {
+            *frames_taken = rec->count;
         }
     }
 
@@ -629,19 +722,11 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
                 qmp_drain(fd, 150);
             }
         }
-        char cmd[QEMU_PATH_MAX + 64];
-        int n = snprintf(cmd, sizeof(cmd),
-                         "{\"execute\":\"screendump\",\"arguments\":"
-                         "{\"filename\":\"%s\"}}\n", ppm_path);
-        if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        if (qmp_do_screendump(fd, ppm_path) != 0) {
             close(fd);
             return -1;
         }
-        if (qmp_send(fd, cmd) != 0) {
-            close(fd);
-            return -1;
-        }
-        qmp_drain(fd, 500);
+        qmp_drain(fd, 200);
     }
 
     /* 5. quit cleanly so the guest does not have to be killed. */
@@ -843,6 +928,20 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
     unlink(out->log_path);
     unlink(out->screendump_path);
     unlink(sock_path);
+    /* Record mode (initech-l9cd): also purge stale frame PPMs -- a shorter
+     * re-run must never leave a previous run's tail frames in the sequence
+     * (the same false-green class as a stale serial capture). Frames are
+     * contiguous from 0, so delete until the first missing index (bounded). */
+    if (cfg->record_frames) {
+        for (int fi = 0; fi < 100000; fi++) {
+            char fp[QEMU_PATH_MAX];
+            int fn = snprintf(fp, sizeof(fp), "%s/%s_frame_%05d.ppm",
+                              dir, name, fi);
+            if (fn < 0 || (size_t)fn >= sizeof(fp) || unlink(fp) != 0) {
+                break;
+            }
+        }
+    }
 
     char *argv[MAX_ARGV];
     if (build_argv(cfg, argv, out->serial_path, out->log_path, sock_path)
@@ -895,6 +994,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         }
         int sent = 0;
         int msent = 0;
+        int frames = 0;
         if (qmp_session(sock_path, ppm,
                         want_keys ? cfg->keys_spec : NULL,
                         (want_keys || want_mouse) ? cfg->keys_after : NULL,
@@ -902,9 +1002,13 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
                         cfg->enable_qmp_screendump ? cfg->screendump_after
                                                    : NULL,
                         sd_budget,
-                        out->serial_path, &sent, &msent) == 0) {
+                        out->serial_path, &sent, &msent,
+                        cfg->record_frames ? dir : NULL,
+                        cfg->record_frames ? name : NULL,
+                        cfg->record_settle_ms, &frames) == 0) {
             out->keys_sent = sent;
             out->mouse_events_sent = msent;
+            out->frames_taken = frames;
             if (cfg->enable_qmp_screendump) {
                 struct stat st;
                 if (stat(out->screendump_path, &st) == 0 && st.st_size > 0) {
