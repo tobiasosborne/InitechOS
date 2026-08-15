@@ -1197,6 +1197,73 @@ static void flair_live_content_phase(flair_live_ctx_t *ctx)
     desktop_validate_all(ctx->wm);
 }
 
+/* DQ5 title-click policy for the NON-TENANT pump (bead initech-haaq): Inside
+ * Macintosh, Macintosh Toolbox Essentials, Event Manager MTE 6 requires a title
+ * mouseDown on a non-head window to SelectWindow BEFORE DragWindow. Tenant
+ * builds instead take the App Contract's sole flair_app_dispatch switch spine,
+ * which raises exactly once via process.c switch_foreground/raise_group. */
+#ifndef FLAIR_LIVE_TENANTS
+static void flair_live_raise_drag_target(flair_live_ctx_t *ctx, WindowPtr w)
+{
+    if (ctx->wm->front != w) SelectWindow(ctx->wm, w);
+}
+#endif
+
+#ifdef FLAIR_LIVE_TENANTS
+/* The foreground tenant menu uses the indexed-8 shell bar convention. Kept at
+ * file scope because the ONE factored switch-finisher below owns every switch,
+ * including DQ5 title activation and the existing O-5 content-click path. */
+#define FLAIR_TEN_MENU_FG_IDX  0u
+#define FLAIR_TEN_MENU_BG_IDX  3u
+
+/* The ONE post-activation path, factored from the existing O-5 content-click
+ * block so DQ5 title activation reuses it bit-for-bit in behavior: chrome,
+ * content/updateEvt routing, band-2 menubar swap, present, then the serial
+ * dispatch marker. A title drag calls this BEFORE flair_live_do_drag, locking
+ * the required FLAIR-DISPATCH -> FLAIR-DRAG order. */
+static void flair_live_finish_tenant_switch(flair_live_ctx_t *ctx,
+                                            const boot_info_t *bi,
+                                            FlairProcessList *list,
+                                            FlairApp *prev_fg,
+                                            GrafPort *barport)
+{
+    if (list->head == (FlairApp *)0 || list->head == prev_fg) return;
+
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+#ifndef FLAIR_LIVE_MUTATE_DROP_UPDATE
+    flair_route_updates(list, ctx->wm);
+#else
+    /* MUTANT FLAIR_LIVE_MUTATE_DROP_UPDATE (Rule 6; the O-5 tenants
+     * emu-mutant image ONLY): SKIP the updateEvt route after the switch.
+     * The raised tenant is never handed its updateEvt, so its content
+     * stays the WDEF blank white the chrome phase painted across the
+     * activation-seeded region -- the booted O-5 gate's TIER-A overlap
+     * probe reads WDEF white, not the required NOTES_FILL (RED). The
+     * switch + menubar swap still happen (FLAIR-DISPATCH still fires).
+     * NEVER in a real build. */
+#endif
+#ifndef FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP
+    DrawMenuBar(barport, list->head->menubar,
+                (uint32_t)FLAIR_TEN_MENU_FG_IDX,
+                (uint32_t)FLAIR_TEN_MENU_BG_IDX, (const region_t *)0);
+#else
+    /* MUTANT FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP (Rule 6; the O-5 tenants
+     * emu-mutant image ONLY): SKIP the foreground-tenant menubar swap.
+     * The SECOND (Photoshop-chimera) band keeps the OLD foreground's
+     * menu titles, so the booted O-5 gate's MENU-BAND differential finds
+     * the band-2 title strip UNCHANGED pre-vs-post (0 diffs) -> RED. The
+     * raise + activate still happen (TIER-A/TIER-B stay GREEN); the TOP
+     * System-7 band is never written here (initech-4w15). NEVER in a
+     * real build. */
+    (void)barport;
+#endif
+    flair_desktop_present(bi, &ctx->off);
+    serial_puts("FLAIR-DISPATCH app=");
+    serial_puts(list->head->name ? list->head->name : "?");
+    serial_putc('\n');
+}
+#endif
+
 #ifndef FLAIR_LIVE_MUTATE_NO_DRAG_CLAMP
 /* DQ6 drag policy (bead initech-r8r7): Inside Macintosh, Macintosh Toolbox
  * Essentials, Window Manager Reference gives DragWindow a global boundsRect
@@ -2369,9 +2436,10 @@ void kernel_main(void)
      * Same cooperative WaitNextEvent time base as the FO-7/8 chrome pump, but every
      * cooked event goes through the SOLE Layer-5 routing spine flair_app_dispatch
      * (ADR-0006 E-D2; ADR-0013 BC-2) -- NO routing logic re-implemented here. The
-     * EXISTING chrome branch (inDrag/inGoAway/menu band) is kept VERBATIM for the
-     * chrome part-codes the dispatcher leaves to the shell. On a foreground SWITCH
-     * (click-to-activate raised a background tenant), route the newly-exposed
+     * EXISTING chrome verbs (inDrag/inGoAway/menu band) remain shell-owned; DQ5
+     * routes a non-head inDrag through that SAME dispatcher switch spine before
+     * calling DragWindow. On a foreground SWITCH (content or title activation),
+     * route the newly-exposed
      * content's updateEvt (so the raised tenant repaints its overlap -- the drop-
      * updateEvt mutant leaves it stale), swap the foreground tenant's menubar into
      * the SECOND (Photoshop-chimera) band ONLY -- ref bead initech-4w15: the TOP
@@ -2389,11 +2457,6 @@ void kernel_main(void)
 #endif
         enum { FLAIR_TEN_TICK_ANNOUNCE = 4   }; /* announce the first 4 advances only */
         enum { FLAIR_TEN_WNE_SLICE     = 3   }; /* WaitNextEvent sleepTicks per call   */
-        /* Menu-bar fg/bg for the foreground-tenant menu swap. The offscreen is the
-         * indexed-8 surface, so DrawMenuBar's packed value is the low-byte palette
-         * index (the test_menu.c / shell.c 8bpp convention: idx0 black ink, idx3
-         * menubar gray -- SHELL_MENU_INK_IDX / SHELL_MENU_BG_IDX). */
-        enum { FLAIR_TEN_MENU_FG_IDX = 0u, FLAIR_TEN_MENU_BG_IDX = 3u };
         uint32_t start = flair_tick_count();
         uint32_t last  = start;
         uint32_t seen  = 0u;
@@ -2494,27 +2557,22 @@ void kernel_main(void)
                 continue;
             }
 
-            /* THE SOLE ROUTING CALL (ADR-0006 E-D2 / ADR-0013 BC-2 single spine).
+            /* Resolve the physical chrome target against the original z-order.
+             * flair_app_dispatch independently demuxes the same ORIGINAL event;
+             * this cached hit is only for the shell verb after switch finishing. */
+            WindowPtr chrome_w = (WindowPtr)0;
+            flair_part_code_t chrome_pc = inDesk;
+            if (ev.what == (uint16_t)mouseDown) {
+                chrome_pc = FindWindow(ctx.wm, ev.where, &chrome_w);
+            }
+
+            /* THE ROUTING SPINE (ADR-0006 E-D2 / ADR-0013 BC-2 single spine).
              * inContent click-to-activate (raise group + activate pair + deliver)
-             * lives entirely inside flair_app_dispatch; chrome part-codes are left
-             * to the shell branch below (the dispatcher returns early for them). */
+             * lives entirely inside flair_app_dispatch. DQ5 is handled by this
+             * ORIGINAL call's real inDrag arm without delivering mouseDown; the
+             * physical chrome verb remains in the shell branch below. */
             FlairApp *ten_prev_fg = ten_plist.head;
             flair_app_dispatch(&ten_plist, ctx.wm, &ev);
-
-            /* The EXISTING chrome branch, VERBATIM, for the chrome part-codes the
-             * dispatcher does not own (inDrag/inGoAway/the menu-bar band). */
-            if (ev.what == (uint16_t)mouseDown) {
-                WindowPtr w = (WindowPtr)0;
-                flair_part_code_t pc = FindWindow(ctx.wm, ev.where, &w);
-                if (pc == inDrag && w != (WindowPtr)0) {
-                    flair_live_do_drag(&ctx, &b, w, ev.where);
-                } else if (pc == inGoAway && w != (WindowPtr)0) {
-                    flair_live_do_close(&ctx, &b, w);
-                } else if (ev.where.v >= 0 &&
-                           ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
-                    flair_live_do_menu(&ctx, &b, &ctx.scene->bar_sys, ev.where);
-                }
-            }
 
             /* POST-ACTIVATION: a click-to-activate switched the foreground tenant.
              * DQ2/DQ3 (beads initech-gofc/-rqz5, ratified 2026-07-31): the
@@ -2533,40 +2591,20 @@ void kernel_main(void)
              * announce. The old explicit contRgn re-seed is GONE: strucRgn is a
              * superset of contRgn, and hand-seeding here was exactly the
              * masking-tape the rqz5 root fix removes. */
-            if (ten_plist.head != (FlairApp *)0 && ten_plist.head != ten_prev_fg) {
-                desktop_paint_damage(ctx.wm, &ctx.off, ctx.comp);
-#ifndef FLAIR_LIVE_MUTATE_DROP_UPDATE
-                flair_route_updates(&ten_plist, ctx.wm);
-#else
-                /* MUTANT FLAIR_LIVE_MUTATE_DROP_UPDATE (Rule 6; the O-5 tenants
-                 * emu-mutant image ONLY): SKIP the updateEvt route after the switch.
-                 * The raised tenant is never handed its updateEvt, so its content
-                 * stays the WDEF blank white the chrome phase painted across the
-                 * activation-seeded region -- the booted O-5 gate's TIER-A overlap
-                 * probe reads WDEF white, not the required NOTES_FILL (RED). The
-                 * switch + menubar swap still happen (FLAIR-DISPATCH still fires).
-                 * NEVER in a real build. */
-#endif
-#ifndef FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP
-                DrawMenuBar(&ten_barport, ten_plist.head->menubar,
-                            (uint32_t)FLAIR_TEN_MENU_FG_IDX,
-                            (uint32_t)FLAIR_TEN_MENU_BG_IDX, (const region_t *)0);
-#else
-                /* MUTANT FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP (Rule 6; the O-5 tenants
-                 * emu-mutant image ONLY): SKIP the foreground-tenant menubar swap.
-                 * The SECOND (Photoshop-chimera) band keeps the OLD foreground's
-                 * menu titles, so the booted O-5 gate's MENU-BAND differential finds
-                 * the band-2 title strip UNCHANGED pre-vs-post (0 diffs) -> RED. The
-                 * raise + activate still happen (TIER-A/TIER-B stay GREEN); the TOP
-                 * System-7 band (bar_sys) is unaffected either way -- it is never
-                 * written by this loop, mutant or not (initech-4w15). NEVER in a
-                 * real build. */
-                (void)ten_barport;  /* referenced (else -Werror=unused-but-set-variable) */
-#endif
-                flair_desktop_present(&b, &ctx.off);
-                serial_puts("FLAIR-DISPATCH app=");
-                serial_puts(ten_plist.head->name ? ten_plist.head->name : "?");
-                serial_putc('\n');
+            flair_live_finish_tenant_switch(&ctx, &b, &ten_plist,
+                                            ten_prev_fg, &ten_barport);
+
+            /* Shell-owned chrome verbs run only AFTER any DQ5 foreground switch
+             * has completed and emitted FLAIR-DISPATCH. */
+            if (ev.what == (uint16_t)mouseDown) {
+                if (chrome_pc == inDrag && chrome_w != (WindowPtr)0) {
+                    flair_live_do_drag(&ctx, &b, chrome_w, ev.where);
+                } else if (chrome_pc == inGoAway && chrome_w != (WindowPtr)0) {
+                    flair_live_do_close(&ctx, &b, chrome_w);
+                } else if (ev.where.v >= 0 &&
+                           ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
+                    flair_live_do_menu(&ctx, &b, &ctx.scene->bar_sys, ev.where);
+                }
             }
 
 #ifdef FLAIR_LIVE_INTERACTIVE
@@ -2656,6 +2694,7 @@ void kernel_main(void)
                     WindowPtr w = (WindowPtr)0;
                     flair_part_code_t pc = FindWindow(ctx.wm, ev.where, &w);
                     if (pc == inDrag && w != (WindowPtr)0) {
+                        flair_live_raise_drag_target(&ctx, w);
                         flair_live_do_drag(&ctx, &b, w, ev.where);
                     } else if (pc == inGoAway && w != (WindowPtr)0) {
                         flair_live_do_close(&ctx, &b, w);
@@ -2681,6 +2720,7 @@ void kernel_main(void)
                 WindowPtr w = (WindowPtr)0;
                 flair_part_code_t pc = FindWindow(ctx.wm, ev.where, &w);
                 if (pc == inDrag && w != (WindowPtr)0) {
+                    flair_live_raise_drag_target(&ctx, w);
                     flair_live_do_drag(&ctx, &b, w, ev.where);
                 } else if (pc == inGoAway && w != (WindowPtr)0) {
                     flair_live_do_close(&ctx, &b, w);

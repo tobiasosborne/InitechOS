@@ -9,7 +9,7 @@
 # producer convention); every component int8-safe (|c| <= 100 here).
 # Geometry: spec/flair_tenants_demo.h (HELLO struct 60,60..360,260 with go-away
 # box at ~(69..80, 64..75); NOTES struct 260,120..560,340, visible title
-# x >= 360).  Grader: tools/ppm_flair_solid_check.c (legs A/B/C/G).
+# x >= 360).  Grader: tools/ppm_flair_solid_check.c (legs A/B/C/G/H).
 #
 # Leg A -- CLOSE-EXPOSE CONTENT.  Click HELLO's go-away box at (74,70):
 #   delta from centre = (-246,-170), split m-100:-100, m-100:-70, m-46:0;
@@ -43,3 +43,14 @@ FLAIR_SOLID_SWITCH_SPEC := m70:30,m70:30,l1,l0
 # Inside-Macintosh 4 px reachability margin). Grader leg G and the serial tooth
 # in test-flair-solid independently lock that result (bead initech-r8r7).
 FLAIR_SOLID_CLAMP_SPEC := m100:60,m40:0,l1,l0,m-10:-100,m0:-70,l1,m-100:-100,m-100:-25,m-100:0,m-100:0,m-45:0,l0
+
+# Leg H -- RAISE ON TITLE CLICK. From the screen centre (320,240), move
+# DIRECTLY to NOTES's visible title segment at (450,130): delta (+130,-110),
+# split into int8-safe packets (+100,-100),(+30,-10). Press there with NO prior
+# content-activation click, drag (-60,+60), and release. The title mouseDown on
+# background NOTES must take the existing content-click foreground-switch path
+# FIRST (FLAIR-DISPATCH app=NOTES), then drag NOTES from struct (260,120) to
+# (260-60,120+60)=(200,180), in front and active. Grader leg H independently
+# locks the new geometry, active full-width title, and NOTES-over-HELLO overlap
+# result (bead initech-haaq; DQ5).
+FLAIR_SOLID_RAISE_SPEC := m100:-100,m30:-10,l1,m-60:60,l0

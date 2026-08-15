@@ -301,11 +301,11 @@ include spec/flair_appswitch_trace.mk
 
 # ppm_flair_solid_check -- the FLAIR live-desktop SOLIDITY grader (epic
 # initech-av7s; beads initech-gofc legs A/B, initech-rqz5 leg C, initech-r8r7
-# leg G; WL-0075).
+# leg G, initech-haaq leg H; WL-0075).
 # Grades ONE post-trace screendump per leg against the INDEPENDENT canon
 # (flair_canon_rgb, ADR-0010 -- never the renderer's palette): A close-expose
-# content, B drag-preserves-content, C activation chrome, G drag clamp. argv =
-# <A|B|C|G>
+# content, B drag-preserves-content, C activation chrome, G drag clamp, H title
+# click raises before drag. argv = <A|B|C|G|H>
 # dump.ppm. Shares the demo layout header, so -Ispec -Ispec/assets.
 PPM_FLAIR_SOLID_CHECK_SRC := tools/ppm_flair_solid_check.c
 PPM_FLAIR_SOLID_CHECK_BIN := $(BUILD)/ppm_flair_solid_check
@@ -314,7 +314,8 @@ PPM_FLAIR_SOLID_CHECK_BIN := $(BUILD)/ppm_flair_solid_check
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
 # (leg B: O-5 activate NOTES then title-drag it (-60,+60)), FLAIR_SOLID_SWITCH_
 # SPEC (leg C: the O-5 switch trace verbatim), FLAIR_SOLID_CLAMP_SPEC (leg G:
-# O-5 activate NOTES then title-drag toward (5,5), forcing the DQ6 clamp).
+# O-5 activate NOTES then title-drag toward (5,5), forcing the DQ6 clamp), and
+# FLAIR_SOLID_RAISE_SPEC (leg H: direct background-title press, then drag).
 include spec/flair_solid_traces.mk
 
 # ---------------------------------------------------------------------------
@@ -9052,8 +9053,11 @@ $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP
 #   NO_DRAG_CLAMP (pump)          -> skip only the DQ6 proposed-delta clamp:
 #                    NOTES lands at (-185,-5), under both menu bars
 #                                                            -> solid leg G RED
+#   NO_RAISE_ON_TITLE (dispatcher)-> suppress only DQ5 title-click switching:
+#                    NOTES ghost-drags behind active HELLO     -> solid leg H RED
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME,no_route_on_chrome))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_DRAG_CLAMP,no_drag_clamp))
+$(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE,no_raise_on_title))
 $(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUTATE_NO_ACTIVATE_INVAL,no_activate_inval))
 
 # OMISSION (Rule 6 / Law 2 honesty; 2026-07-31 Wave A, epic initech-av7s): the
@@ -14087,7 +14091,7 @@ endif
 # (chrome phase -> content phase -> present) holds under close, drag and
 # app-switch on the booted 386).
 # ---------------------------------------------------------------------------
-# Four deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG), one
+# Five deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG), one
 # LOCKED trace (spec/flair_solid_traces.mk) + one marker-gated screendump each,
 # graded by ppm_flair_solid_check against the INDEPENDENT canon (ADR-0010):
 #   A CLOSE-EXPOSE : click HELLO's go-away; dump after FLAIR-CLOSE. The exposed
@@ -14106,6 +14110,10 @@ endif
 #     to (5,5); dump after FLAIR-DRAG. The proposed struct (-185,-5) is clamped
 #     to (-185,40), leaving the full title band below menu band 2 and 115 px of
 #     its width on-screen (initech-r8r7 / DQ6).
+#   H TITLE-RAISE  : from centre, press the visible background NOTES title at
+#     (450,130) with NO prior content activation, then drag (-60,+60); dump after
+#     FLAIR-DRAG. FLAIR-DISPATCH app=NOTES must precede the exact move marker
+#     (260,120)->(200,180), and NOTES must be active/in-front (initech-haaq / DQ5).
 # Asserts (Law 2): no triple-fault; the leg's serial marker; a dump; grader
 # PASS. Rule 5: this gate shares $(FLAIRTENANTS_IMG) with test-flair-appswitch,
 # whose -bochs leg already proves the image's Bochs boot differential (the
@@ -14116,12 +14124,13 @@ FLAIR_SOLID_A_NAME := flair_solid_close
 FLAIR_SOLID_B_NAME := flair_solid_drag
 FLAIR_SOLID_C_NAME := flair_solid_switch
 FLAIR_SOLID_G_NAME := flair_solid_clamp
+FLAIR_SOLID_H_NAME := flair_solid_raise
 .PHONY: test-flair-solid
 test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-solid : the live-desktop SOLIDITY contract\n'
-	@printf '  A close-expose / B drag-content / C activation / G drag-clamp.\n'
-	@printf '  Ref: epic initech-av7s (DQ1-DQ3, DQ6, DQ9); spec/flair_solid_traces.mk. Law 2/4.\n'
+	@printf '  A close-expose / B drag-content / C activation / G drag-clamp / H title-raise.\n'
+	@printf '  Ref: epic initech-av7s (DQ1-DQ3, DQ5-DQ6, DQ9); spec/flair_solid_traces.mk. Law 2/4.\n'
 	@printf '======================================================================\n'
 	@# ---- leg A: close HELLO -> the exposed NOTES overlap is repainted content ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
@@ -14177,12 +14186,26 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) G "$(BUILD)/$(FLAIR_SOLID_G_NAME).ppm" \
 		|| { printf '!!! test-flair-solid FAIL: leg G -- dragged NOTES title band is not reachable below menu band 2 (initech-r8r7)\n'; exit 1; }
 	@printf '>>> test-flair-solid [G]: drag clamp keeps the full title band reachable at (-185,40)\n'
+	@# ---- leg H: background title press -- switch first, then drag at the front ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_H_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_RAISE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 \
+		2> "$(BUILD)/$(FLAIR_SOLID_H_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_H_NAME).report"; then printf '!!! test-flair-solid FAIL: leg H TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-DRAG win -1 (260,120)->(200,180)$$' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg H exact FLAIR-DRAG (200,180) marker missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" || true; exit 1; }
+	@awk '/^FLAIR-DISPATCH app=NOTES$$/ && !d { d=NR } /^FLAIR-DRAG win -1 \(260,120\)->\(200,180\)$$/ && !g { g=NR } END { exit !(d && g && d < g) }' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg H requires FLAIR-DISPATCH app=NOTES BEFORE the exact FLAIR-DRAG marker\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_H_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg H screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_SOLID_CHECK_BIN) H "$(BUILD)/$(FLAIR_SOLID_H_NAME).ppm" \
+		|| { printf '!!! test-flair-solid FAIL: leg H -- NOTES did not raise/activate before its title drag (initech-haaq)\n'; exit 1; }
+	@printf '>>> test-flair-solid [H]: background title click switches to NOTES, then drags it in front to (200,180)\n'
 	@printf 'VERDICT   : PASS -- the live desktop honours the ONE repaint contract under\n'
-	@printf '            close/drag/switch and the DQ6 drag policy keeps titles reachable.\n'
+	@printf '            close/drag/switch; DQ5 raises on title and DQ6 keeps titles reachable.\n'
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-solid-mutant (Rule 6; DQ9 -- per-leg mutants). The CLEAN
-# image is graded GREEN on all four legs first (the baseline), then each mutant
+# image is graded GREEN on all five legs first (the baseline), then each mutant
 # image re-runs ONLY the legs it must break:
 #   no_route_on_chrome (-DFLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME, pump): the
 #     drag/close content phase blanket-validates instead of routing -- legs A
@@ -14191,16 +14214,19 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 #     activation seed is suppressed -- leg C MUST go RED (flat/stale title).
 #   no_drag_clamp (-DFLAIR_LIVE_MUTATE_NO_DRAG_CLAMP, pump): only the DQ6 clamp
 #     is suppressed -- leg G MUST go RED (title remains under both menu bars).
+#   no_raise_on_title (-DFLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE, dispatcher): only
+#     the DQ5 inDrag switch arm is suppressed -- leg H MUST go RED (ghost drag).
 .PHONY: test-flair-solid-mutant
 test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENANTS_IMG) \
 	$(BUILD)/flair_tenants_mut_no_route_on_chrome.img \
 	$(BUILD)/flair_tenants_mut_no_activate_inval.img \
-	$(BUILD)/flair_tenants_mut_no_drag_clamp.img
+	$(BUILD)/flair_tenants_mut_no_drag_clamp.img \
+	$(BUILD)/flair_tenants_mut_no_raise_on_title.img
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-solid-mutant : Rule 6 (the gate BITES)\n'
-	@printf '  no_route_on_chrome MUST break A+B; no_activate_inval C; no_drag_clamp G.\n'
+	@printf '  no_route_on_chrome MUST break A+B; no_activate_inval C; no_drag_clamp G; no_raise_on_title H.\n'
 	@printf '======================================================================\n'
-	@# ---- baseline: the CLEAN image grades GREEN on all four legs. ----
+	@# ---- baseline: the CLEAN image grades GREEN on all five legs. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLOSE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 >/dev/null 2>&1 || true
@@ -14213,13 +14239,16 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_G_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLAMP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 >/dev/null 2>&1 || true
-	@for leg in A:$(FLAIR_SOLID_A_NAME) B:$(FLAIR_SOLID_B_NAME) C:$(FLAIR_SOLID_C_NAME) G:$(FLAIR_SOLID_G_NAME); do \
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_H_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_RAISE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 >/dev/null 2>&1 || true
+	@for leg in A:$(FLAIR_SOLID_A_NAME) B:$(FLAIR_SOLID_B_NAME) C:$(FLAIR_SOLID_C_NAME) G:$(FLAIR_SOLID_G_NAME) H:$(FLAIR_SOLID_H_NAME); do \
 		l=$${leg%%:*}; n=$${leg#*:}; \
 		if [ ! -s "$(BUILD)/$$n.ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: clean leg %s produced no screendump (no baseline)\n' "$$l"; exit 1; fi; \
 		$(PPM_FLAIR_SOLID_CHECK_BIN) $$l "$(BUILD)/$$n.ppm" >/dev/null 2>&1 \
 			|| { printf '!!! test-flair-solid-mutant FAIL: the CLEAN image did not grade GREEN on leg %s -- the baseline is broken\n' "$$l"; exit 1; }; \
 	done
-	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on legs A+B+C+G\n'
+	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on legs A+B+C+G+H\n'
 	@# ---- no_route_on_chrome: legs A and B MUST go RED. ('|'-delimited fields:
 	@# the mouse specs themselves contain ':'.) ----
 	@rc=0; \
@@ -14272,7 +14301,21 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 		printf '>>> no_drag_clamp leg G correctly RED:\n'; \
 		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_dragclamp_G.chk" | sed 's/^/      /'; \
 	fi
-	@printf 'VERDICT   : PASS -- all three solidity mutants drive their legs RED (the gate bites; Rule 6)\n'
+	@# ---- no_raise_on_title: leg H MUST go RED. ----
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_raise_on_title.img" \
+		--name flair_solid_mut_title_raise_H --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_RAISE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 \
+		2> "$(BUILD)/flair_solid_mut_title_raise_H.report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_solid_mut_title_raise_H.report"; then printf '!!! test-flair-solid-mutant FAIL: no_raise_on_title TRIPLE-FAULTED (cannot judge)\n'; exit 1; fi
+	@if [ ! -s "$(BUILD)/flair_solid_mut_title_raise_H.ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: no_raise_on_title produced no screendump\n'; exit 1; fi
+	@if $(PPM_FLAIR_SOLID_CHECK_BIN) H "$(BUILD)/flair_solid_mut_title_raise_H.ppm" > "$(BUILD)/flair_solid_mut_title_raise_H.chk" 2>&1; then \
+		printf '!!! test-flair-solid-mutant FAIL: the leg H oracle is DECORATION -- no_raise_on_title PASSED it\n'; exit 1; \
+	else \
+		printf '>>> no_raise_on_title leg H correctly RED:\n'; \
+		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_title_raise_H.chk" | sed 's/^/      /'; \
+	fi
+	@printf 'VERDICT   : PASS -- all four solidity mutants drive their legs RED (the gate bites; Rule 6)\n'
 	@printf '======================================================================\n'
 
 # ===========================================================================
@@ -14300,7 +14343,8 @@ RECORD_SPEC_solid_drag   = $(FLAIR_SOLID_DRAG_SPEC)
 RECORD_SPEC_solid_switch = $(FLAIR_SOLID_SWITCH_SPEC)
 RECORD_SPEC_appswitch    = $(FLAIR_APPSWITCH_SPEC)
 RECORD_SPEC_solid_clamp  = $(FLAIR_SOLID_CLAMP_SPEC)
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp
+RECORD_SPEC_solid_raise  = $(FLAIR_SOLID_RAISE_SPEC)
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the

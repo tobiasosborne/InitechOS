@@ -423,13 +423,13 @@ void FlairProcess_kill(FlairProcessList *list, WindowMgr *wm,
  * (FLAIR_APP_MAGIC) is the fail-loud integrity tag (BC-3): a tenant that scribbled
  * its own refCon, or an unowned/foreign window, never mis-routes silently.
  *
- * A content click on an unowned window is a bug -> fail loud (Rule 2).
+ * A content/title hit on an unowned window is a bug -> fail loud (Rule 2).
  * Ref: ADR-0013 Sec 3.1 (the binding rule / demux key, w->refCon =
  *      (int32_t)(uintptr_t)self), the Wave-2 orchestrator owner-recovery ruling.
  * -------------------------------------------------------------------------- */
 static FlairApp *owner_of_window(FlairProcessList *list, WindowPtr w)
 {
-    if (w == NULL) PROC_PANIC("dispatch: NULL hit window for inContent");
+    if (w == NULL) PROC_PANIC("dispatch: NULL hit tenant window");
 #ifdef FLAIR_LIVE_MUTATE_IGNORE_REFCON
     /* MUTANT FLAIR_LIVE_MUTATE_IGNORE_REFCON (Rule 6; the O-5 tenants emu-mutant
      * image ONLY): IGNORE the refCon binding rule and always return the FOREGROUND
@@ -446,7 +446,7 @@ static FlairApp *owner_of_window(FlairProcessList *list, WindowPtr w)
             (int32_t)(uintptr_t)a == w->refCon)
             return a;
     }
-    PROC_PANIC("dispatch: inContent on a window owned by no resident app");
+    PROC_PANIC("dispatch: hit window owned by no resident app");
     return NULL;   /* unreachable (PROC_PANIC does not return) */
 #endif
 }
@@ -495,6 +495,36 @@ static void promote_to_front(FlairProcessList *list, FlairApp *app,
         old_fg->state = (uint8_t)FLAIR_APP_BG;
 }
 
+/* The ONE foreground-switch sequence for content and title activation
+ * (ADR-0013 Sec 3.3/3.5; DQ5 bead initech-haaq). Keeping all four ordered
+ * steps here prevents the shell-owned inDrag arm from growing a second,
+ * subtly-different activation path. The caller decides whether the driving
+ * mouseDown is content (deliver after this returns) or title chrome (return
+ * without delivery). */
+static void switch_foreground(FlairProcessList *list, WindowMgr *wm,
+                              const EventRecord *ev, FlairApp *owner,
+                              FlairApp *old_fg)
+{
+    raise_group(wm, owner);                         /* (1) raise WHOLE group  */
+#ifndef FLAIR_LIVE_MUTATE_SKIP_ACTIVATE
+    EventRecord deact = mk_activate(ev, old_fg ? old_fg->windows : NULL, 0);
+    deliver(old_fg, &deact);                        /* (2) deactivate old fg  */
+    EventRecord act = mk_activate(ev, owner->windows, 1);
+    deliver(owner, &act);                           /* (3) activate new fg    */
+#else
+    /* MUTANT FLAIR_LIVE_MUTATE_SKIP_ACTIVATE (Rule 6; the O-5 tenants
+     * emu-mutant image ONLY): SKIP the deactivate/activate pair. The group
+     * still raises (1) and is still promoted (4), so the booted O-5 gate's
+     * TIER-A overlap repaint + MENU-BAND swap stay GREEN -- but the raised
+     * tenant never receives activateEvt active=1, so it never paints its
+     * content accent -> the gate's TIER-B accent probe stays FILL (RED).
+     * Isolates the activation leg. NEVER define in a real build. */
+    (void)ev;
+    (void)mk_activate;   /* keep referenced (else -Werror=unused-function) */
+#endif
+    promote_to_front(list, owner, old_fg);          /* (4) relink process list*/
+}
+
 /* --------------------------------------------------------------------------
  * flair_app_dispatch -- the single Layer-5 dispatcher (ADR-0013 Sec 3.3, BC-2).
  *
@@ -515,11 +545,13 @@ static void promote_to_front(FlairProcessList *list, FlairApp *app,
  *       pair is EXACTLY two records, deactivate THEN activate (Rule 11).
  *     - inContent on the already-foreground owner -> just deliver the mouseDown
  *       (no spurious activate pair; the other app stays silent -- leg(a)).
- *     - inDrag / inGoAway / inGrow are SHELL-OWNED chrome verbs (the title bar
- *       belongs to the Window Manager, the DefWindowProc analogue), and inDesk /
- *       the menu-bar band are shell/Menu-Manager surfaces: this dispatcher does
- *       NOTHING for them here. kmain (Wave 4) drives DragWindow/DisposeWindow/
- *       grow + MenuSelect. The O-1 oracle only drives inContent + keyDown.
+ *     - inDrag remains a SHELL-OWNED physical chrome verb, but a non-foreground
+ *       resident owner first takes the EXACT four-step switch above. The title
+ *       mouseDown is NEVER delivered to the tenant (O-1 leg(e)); kmain observes
+ *       the changed list head, completes repaint/menubar policy, then DragWindow.
+ *       An already-foreground owner's inDrag is a pure no-op here (leg(d)).
+ *     - inGoAway / inGrow remain shell-owned with no dispatcher action, and
+ *       inDesk / the menu-bar band are shell/Menu-Manager surfaces.
  *   keyDown/autoKey: delivered to the FOREGROUND app (list->head) ONLY -- in
  *     System 7 the active (front) window IS keyboard focus, never the window
  *     under the cursor (leg(b)).
@@ -537,8 +569,8 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
         WindowPtr w = NULL;
         flair_part_code_t part = FindWindow(wm, ev->where, &w);
 
-        if (part != inContent || w == NULL) {
-            /* inDrag/inGoAway/inGrow are shell-owned chrome verbs; inDesk and the
+        if ((part != inContent && part != inDrag) || w == NULL) {
+            /* inGoAway/inGrow are shell-owned chrome verbs; inDesk and the
              * menu-bar band are shell/Menu surfaces. No app routing here. */
             return;
         }
@@ -547,25 +579,21 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
         FlairApp *old_fg = list->head;
 
         if (owner != old_fg) {
-            /* CLICK-TO-ACTIVATE (Sec 3.3 / Sec 3.5), in deterministic order. */
-            raise_group(wm, owner);                    /* (1) raise WHOLE group  */
-#ifndef FLAIR_LIVE_MUTATE_SKIP_ACTIVATE
-            EventRecord deact = mk_activate(ev, old_fg ? old_fg->windows : NULL, 0);
-            deliver(old_fg, &deact);                   /* (2) deactivate old fg  */
-            EventRecord act = mk_activate(ev, owner->windows, 1);
-            deliver(owner, &act);                      /* (3) activate new fg    */
+            /* DQ5 mutant restores only the pre-fix background-title no-op. The
+             * content-click switch remains fully live in the same build. */
+#ifndef FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE
+            switch_foreground(list, wm, ev, owner, old_fg);
 #else
-            /* MUTANT FLAIR_LIVE_MUTATE_SKIP_ACTIVATE (Rule 6; the O-5 tenants
-             * emu-mutant image ONLY): SKIP the deactivate/activate pair. The group
-             * still raises (1) and is still promoted (4), so the booted O-5 gate's
-             * TIER-A overlap repaint + MENU-BAND swap stay GREEN -- but the raised
-             * tenant never receives activateEvt active=1, so it never paints its
-             * content accent -> the gate's TIER-B accent probe stays FILL (RED).
-             * Isolates the activation leg. NEVER define in a real build. */
-            (void)mk_activate;   /* keep referenced (else -Werror=unused-function) */
+            if (part != inDrag)
+                switch_foreground(list, wm, ev, owner, old_fg);
 #endif
-            promote_to_front(list, owner, old_fg);     /* (4) relink process list*/
         }
+
+        /* Title chrome is shell-owned: activation may have happened above, but
+         * the mouseDown NEVER crosses into tenant content. kmain still performs
+         * the physical DragWindow after its post-switch paint/present phase. */
+        if (part == inDrag) return;
+
         /* THEN the original mouseDown to the (now-foreground) owner. */
         deliver(owner, ev);
         return;

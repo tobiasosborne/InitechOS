@@ -2,8 +2,9 @@
  * ppm_flair_solid_check.c -- the FLAIR live-desktop SOLIDITY oracle's
  * screendump grader (HOST, C-only). Epic initech-av7s; beads initech-gofc
  * (leg A/B: the WM update contract -- tenant content survives expose/drag),
- * initech-rqz5 (leg C: activation repaints chrome), and initech-r8r7
- * (leg G: the live-pump DragWindow policy keeps the title band reachable).
+ * initech-rqz5 (leg C: activation repaints chrome), initech-r8r7
+ * (leg G: the live-pump DragWindow policy keeps the title band reachable),
+ * and initech-haaq (leg H: title mouseDown raises before dragging).
  *
  * The 2026-07-21 first-person drive battery (WL shard TBD) proved the live
  * tenants desktop degrades monotonically: the compositor repaints CHROME only
@@ -44,7 +45,13 @@
  *       begins immediately below the two menu bars and at least the classic
  *       four-pixel horizontal reachable strip remains on-screen.
  *
- * Usage: ppm_flair_solid_check <A|B|C|G> <dump.ppm>
+ *   H <post_raise_drag.ppm> -- RAISE ON TITLE CLICK. With NO prior content
+ *       activation click, press NOTES's visible background title segment and
+ *       drag it to struct (200,180). NOTES must land with content intact,
+ *       active title stripes across its full width, and in front of HELLO at
+ *       their old overlap.
+ *
+ * Usage: ppm_flair_solid_check <A|B|C|G|H> <dump.ppm>
  * Exit 0 = PASS; non-zero = a named FAIL (assertion + sampled-vs-expected).
  *
  * ASCII-clean (Rule 12). Deterministic (Rule 11): probe geometry derives from
@@ -156,6 +163,46 @@ static void scan_col(const Img *im, int x, int y0, int y1,
     }
 }
 
+/* Shared leg-B/H content probes: offsets are relative to the independently
+ * computed post-drag NOTES structure rect. They avoid the top-left active
+ * accent and the centre mouseDown marker. */
+static int probe_notes_content(const Img *im, int left, int top,
+                               const char *what)
+{
+    static const int dx[4] = { 40, 80, 220, 260 };
+    static const int dy[4] = { 50, 80, 150, 190 };
+    int bad = 0;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            bad |= probe_is(im, left + dx[i], top + dy[j],
+                            FLAIR_TEN_NOTES_FILL, what);
+    return bad;
+}
+
+/* Shared leg-C/H active-title probe: left/middle/right columns avoid the
+ * close box, title text knockout, and zoom box. The left column is in the
+ * segment that HELLO occluded at the boot geometry. */
+static int probe_notes_active_title(const Img *im, int left, int top, int right,
+                                    const char *leg)
+{
+    int xs[3] = { left + 40, left + 190, right - 40 };
+    int bad = 0;
+    for (int i = 0; i < 3; i++) {
+        int sl, sd, so;
+        scan_col(im, xs[i], STRIPE_Y0(top), STRIPE_Y1(top),
+                 CIDX_PIN_LIGHT, CIDX_PIN_DARK, &sl, &sd, &so);
+        if (sl == 0 || sd == 0) {
+            fprintf(stderr,
+                    "FAIL %s: NOTES title x=%d stripes not ACTIVE "
+                    "(pin_light rows=%d pin_dark rows=%d other=%d) -- "
+                    "newly-active window kept inactive/occluded chrome\n",
+                    leg, xs[i], sl, sd, so);
+            bad = 1;
+        }
+    }
+    return bad;
+}
+
 /* ================= leg A: close-expose content ========================= */
 static int leg_A(const Img *im)
 {
@@ -178,20 +225,16 @@ static int leg_A(const Img *im)
 /* The locked leg-B trace drags NOTES by its title bar with delta (-60,+60):
  * struct (260,120)->(200,180). Mirror of the trace in
  * spec/flair_solid_traces.mk -- keep in sync. */
-#define SOLID_B_NOTES_L  (FLAIR_TEN_NOTES_L - 60)
-#define SOLID_B_NOTES_T  (FLAIR_TEN_NOTES_T + 60)
+#define SOLID_B_DRAG_DH  (-60)
+#define SOLID_B_DRAG_DV  60
+#define SOLID_B_NOTES_L  (FLAIR_TEN_NOTES_L + SOLID_B_DRAG_DH)
+#define SOLID_B_NOTES_T  (FLAIR_TEN_NOTES_T + SOLID_B_DRAG_DV)
 static int leg_B(const Img *im)
 {
     /* Content interior at the NEW position, clear of the accent block (top-
      * left + ~16px) and the centre marker block (content centre +-8). */
-    int cl = SOLID_B_NOTES_L, ct = SOLID_B_NOTES_T;
-    static const int dx[4] = { 40, 80, 220, 260 };
-    static const int dy[4] = { 50, 80, 150, 190 };
-    int bad = 0;
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
-            bad |= probe_is(im, cl + dx[i], ct + dy[j], FLAIR_TEN_NOTES_FILL,
-                            "leg B drag-preserved NOTES content");
+    int bad = probe_notes_content(im, SOLID_B_NOTES_L, SOLID_B_NOTES_T,
+                                  "leg B drag-preserved NOTES content");
     if (!bad)
         printf("solid B PASS: dragged NOTES content reads NOTES_FILL at the new rect\n");
     return bad;
@@ -205,25 +248,9 @@ static int leg_C(const Img *im)
     /* (i) NOTES title band ACTIVE across full width: pinstripe alternation at
      * left (previously occluded), mid, right columns. Columns avoid the
      * close box (left+9..left+20) and zoom box (right-20..right-9). */
-    {
-        static const int xs[3] = { FLAIR_TEN_NOTES_L + 40,        /* 300 */
-                                   FLAIR_TEN_NOTES_L + 190,       /* 450 */
-                                   FLAIR_TEN_NOTES_R - 40 };      /* 520 */
-        for (int i = 0; i < 3; i++) {
-            int sl, sd, so;
-            scan_col(im, xs[i], STRIPE_Y0(FLAIR_TEN_NOTES_T),
-                     STRIPE_Y1(FLAIR_TEN_NOTES_T),
-                     CIDX_PIN_LIGHT, CIDX_PIN_DARK, &sl, &sd, &so);
-            if (sl == 0 || sd == 0) {
-                fprintf(stderr,
-                        "FAIL leg C: NOTES title x=%d stripes not ACTIVE "
-                        "(pin_light rows=%d pin_dark rows=%d other=%d) -- "
-                        "newly-active window kept inactive chrome\n",
-                        xs[i], sl, sd, so);
-                bad = 1;
-            }
-        }
-    }
+    bad |= probe_notes_active_title(im, FLAIR_TEN_NOTES_L,
+                                    FLAIR_TEN_NOTES_T, FLAIR_TEN_NOTES_R,
+                                    "leg C");
 
     /* (ii) HELLO title band flat INACTIVE white (no pinstripe). */
     {
@@ -372,12 +399,104 @@ static int leg_G(const Img *im)
     return bad;
 }
 
+/* ================= leg H: raise on title click ======================== */
+/* Independent expected geometry for the LOCKED leg-H trace. The cursor starts
+ * at (320,240), moves directly by (+100,-100),(+30,-10) to the visible NOTES
+ * title point (450,130), then drags (-60,+60) and releases at (390,190).
+ * Therefore NOTES must move from (260,120) to (200,180), exactly the same final
+ * structure origin as leg B but without leg B's prior content-activation click.
+ * These values are trace/spec arithmetic, never renderer observations. */
+#define SOLID_H_START_X          320
+#define SOLID_H_START_Y          240
+#define SOLID_H_GRAB_X           (SOLID_H_START_X + 100 + 30)
+#define SOLID_H_GRAB_Y           (SOLID_H_START_Y - 100 - 10)
+#define SOLID_H_RELEASE_X        (SOLID_H_GRAB_X - 60)
+#define SOLID_H_RELEASE_Y        (SOLID_H_GRAB_Y + 60)
+#define SOLID_H_DRAG_DH          (SOLID_H_RELEASE_X - SOLID_H_GRAB_X)
+#define SOLID_H_DRAG_DV          (SOLID_H_RELEASE_Y - SOLID_H_GRAB_Y)
+#define SOLID_H_NOTES_L          (FLAIR_TEN_NOTES_L + SOLID_H_DRAG_DH)
+#define SOLID_H_NOTES_T          (FLAIR_TEN_NOTES_T + SOLID_H_DRAG_DV)
+#define SOLID_H_NOTES_R          (SOLID_H_NOTES_L + \
+                                  (FLAIR_TEN_NOTES_R - FLAIR_TEN_NOTES_L))
+#define SOLID_H_NOTES_B          (SOLID_H_NOTES_T + \
+                                  (FLAIR_TEN_NOTES_B - FLAIR_TEN_NOTES_T))
+#define SOLID_H_CONTENT_L        (SOLID_H_NOTES_L + FLAIR_CHROME_FRAME)
+#define SOLID_H_CONTENT_T        (SOLID_H_NOTES_T + FLAIR_CHROME_FRAME + \
+                                  FLAIR_CHROME_TITLEBAR_H)
+#define SOLID_H_CONTENT_R        (SOLID_H_NOTES_R - FLAIR_CHROME_FRAME)
+#define SOLID_H_CONTENT_B        (SOLID_H_NOTES_B - FLAIR_CHROME_FRAME)
+
+static int leg_H(const Img *im)
+{
+    int bad = 0;
+
+    /* The leg-H and leg-B traces intentionally have the same (-60,+60) drag.
+     * Keep their independent arithmetic tied before reusing the B/H content
+     * probe helper at the common expected origin (200,180). */
+    if (SOLID_H_GRAB_X != 450 || SOLID_H_GRAB_Y != 130 ||
+        SOLID_H_NOTES_L != SOLID_B_NOTES_L ||
+        SOLID_H_NOTES_T != SOLID_B_NOTES_T) {
+        fprintf(stderr,
+                "FAIL leg H: locked trace arithmetic drifted "
+                "(grab=%d,%d H=%d,%d B=%d,%d)\n",
+                SOLID_H_GRAB_X, SOLID_H_GRAB_Y,
+                SOLID_H_NOTES_L, SOLID_H_NOTES_T,
+                SOLID_B_NOTES_L, SOLID_B_NOTES_T);
+        bad = 1;
+    }
+
+    /* (a) The moved tenant still owns and repaints its content at (200,180),
+     * using the exact leg-B probe offsets that avoid accent/marker blocks. */
+    bad |= probe_notes_content(im, SOLID_H_NOTES_L, SOLID_H_NOTES_T,
+                               "leg H raised-drag NOTES content");
+
+    /* (b1) NOTES is ACTIVE across the FULL moved title width. The left sample
+     * is the relative title segment that was occluded by HELLO before the raise. */
+    bad |= probe_notes_active_title(im, SOLID_H_NOTES_L, SOLID_H_NOTES_T,
+                                    SOLID_H_NOTES_R, "leg H");
+
+    /* (b2) NOTES is IN FRONT at the old HELLO/NOTES overlap. Intersect the
+     * locked old overlap [260,360)x[120,260) with moved NOTES content
+     * [201,499)x[200,399) => [260,360)x[200,260), then probe its interior
+     * quartiles. Every pixel must be NOTES_FILL, never HELLO_FILL. */
+    {
+        int l = FLAIR_TEN_OVERLAP_L > SOLID_H_CONTENT_L
+                    ? FLAIR_TEN_OVERLAP_L : SOLID_H_CONTENT_L;
+        int t = FLAIR_TEN_OVERLAP_T > SOLID_H_CONTENT_T
+                    ? FLAIR_TEN_OVERLAP_T : SOLID_H_CONTENT_T;
+        int r = FLAIR_TEN_OVERLAP_R < SOLID_H_CONTENT_R
+                    ? FLAIR_TEN_OVERLAP_R : SOLID_H_CONTENT_R;
+        int b = FLAIR_TEN_OVERLAP_B < SOLID_H_CONTENT_B
+                    ? FLAIR_TEN_OVERLAP_B : SOLID_H_CONTENT_B;
+        if (l >= r || t >= b) {
+            fprintf(stderr,
+                    "FAIL leg H: old overlap has no moved NOTES content "
+                    "intersection ([%d,%d)x[%d,%d))\n", l, r, t, b);
+            bad = 1;
+        } else {
+            for (int i = 1; i <= 3; i++) {
+                int x = l + i * (r - l) / 4;
+                for (int j = 1; j <= 3; j++) {
+                    int y = t + j * (b - t) / 4;
+                    bad |= probe_is(im, x, y, FLAIR_TEN_NOTES_FILL,
+                                    "leg H NOTES in front at old overlap");
+                }
+            }
+        }
+    }
+
+    if (!bad)
+        printf("solid H PASS: title click raised active NOTES, then dragged it "
+               "to struct (200,180) in front of HELLO\n");
+    return bad;
+}
+
 int main(int argc, char **argv)
 {
     Img im;
     int rc;
     if (argc != 3 || strlen(argv[1]) != 1) {
-        fprintf(stderr, "usage: ppm_flair_solid_check <A|B|C|G> <dump.ppm>\n");
+        fprintf(stderr, "usage: ppm_flair_solid_check <A|B|C|G|H> <dump.ppm>\n");
         return 2;
     }
     if (read_ppm(argv[2], &im)) return 2;
@@ -386,6 +505,7 @@ int main(int argc, char **argv)
     case 'B': rc = leg_B(&im); break;
     case 'C': rc = leg_C(&im); break;
     case 'G': rc = leg_G(&im); break;
+    case 'H': rc = leg_H(&im); break;
     default:
         fprintf(stderr, "solid_check: unknown leg '%s'\n", argv[1]);
         rc = 2;

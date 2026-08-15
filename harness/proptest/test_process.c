@@ -32,6 +32,11 @@
  *       deactivate (A.event activateEvt, active-flag=0) THEN one activate
  *       (B.event activateEvt, active-flag=1), in that order, THEN B.event(
  *       mouseDown). The full ordered log is asserted.
+ *   (d) mouseDown inDrag over foreground B -> shell-owned chrome no-op: no
+ *       delivered records, no promotion, no z-order change.
+ *   (e) mouseDown inDrag over background A -> title-click activation: EXACTLY
+ *       one deactivate to B THEN one activate to A, promotion + raise, and NO
+ *       delivered mouseDown (a title drag is never a content click).
  *
  * MUTATION-PROVEN (Rule 6; self-mutation -- the test_interact convention). The
  * mutants perturb the INDEPENDENT EXPECTED golden (NOT the dispatcher), each so
@@ -282,6 +287,9 @@ int main(void)
           "scene: the B-content probe (v20,h64) genuinely lies in B's content");
     CHECK(!rect_contains(As, 64, 20) && !rect_contains(Bs, 20, 20),
           "scene: A and B are disjoint at the probe points (z-order cannot confound)");
+    CHECK(rect_contains(As, 20, 9) && !rect_contains(Ac, 20, 9) &&
+          rect_contains(Bs, 64, 9) && !rect_contains(Bc, 64, 9),
+          "scene: the A/B title probes lie in structure but outside content");
     CHECK(plist.head == &appA,
           "scene: A is the foreground head, B is background (launch ordering)");
 
@@ -341,6 +349,40 @@ int main(void)
     /* foreground switched after the background click (independent end-state). */
     CHECK(plist.head == &appB,
           "leg(c): after the background click, B is promoted to the foreground head");
+
+    /* ===== leg (d): mouseDown inDrag over FOREGROUND B -> pure no-op ===== */
+    {
+        int before = g_log_n;
+        EventRecord ev_d = mk_event(mouseDown, /*v*/9, /*h*/64, 0);
+        flair_app_dispatch(&plist, &M.wm, &ev_d);
+        CHECK(g_log_n == before,
+              "leg(d): inDrag on foreground B delivers no tenant records");
+        CHECK(plist.head == &appB && M.wm.front == &WB.rec,
+              "leg(d): foreground-title inDrag changes neither app head nor z-order");
+    }
+
+    /* ===== leg (e): mouseDown inDrag over BACKGROUND A -> switch, no click ===== */
+    {
+        int before = g_log_n;
+        int mouse_deliveries = 0;
+        EventRecord ev_e = mk_event(mouseDown, /*v*/9, /*h*/20, 0);
+        flair_app_dispatch(&plist, &M.wm, &ev_e);
+
+        CHECK(g_log_n == before + 2,
+              "leg(e): background-title switch emits exactly two records (activate pair only)");
+        CHECK(g_log_n >= before + 1 &&
+              entry_match(&g_log[before], B_ID, activateEvt, 0, 0, 0),
+              "leg(e): FIRST a deactivate to old-foreground B");
+        CHECK(g_log_n >= before + 2 &&
+              entry_match(&g_log[before + 1], A_ID, activateEvt, 1, 0, 0),
+              "leg(e): THEN an activate to new-foreground A");
+        for (int i = before; i < g_log_n; i++)
+            if (g_log[i].what == mouseDown) mouse_deliveries++;
+        CHECK(mouse_deliveries == 0,
+              "leg(e): title activation delivers ZERO content mouseDown records");
+        CHECK(plist.head == &appA && M.wm.front == &WA.rec,
+              "leg(e): background-title switch promotes A and raises its window once");
+    }
 
     return TEST_SUMMARY("test-process");
 }
