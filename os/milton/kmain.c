@@ -2332,7 +2332,13 @@ void kernel_main(void)
      * app=<name>. Bounded (gate) vs unbounded (FLAIR_LIVE_INTERACTIVE) exactly
      * like the chrome pump. */
     {
-        enum { FLAIR_TEN_TICK_BUDGET   = 250 }; /* ~2.5 s @100 Hz: inject+dump margin */
+/* The tick budget is -D-overridable (beads initech-l9cd): record-flair's
+ * per-frame settle+dump overhead needs a longer live window, so the RECORD
+ * image variant builds with -DFLAIR_TEN_TICK_BUDGET=<bigger>. The DEFAULT
+ * (all gates, the shipped image) stays 250 and compiles byte-identically. */
+#ifndef FLAIR_TEN_TICK_BUDGET
+#define FLAIR_TEN_TICK_BUDGET   250   /* ~2.5 s @100 Hz: inject+dump margin */
+#endif
         enum { FLAIR_TEN_TICK_ANNOUNCE = 4   }; /* announce the first 4 advances only */
         enum { FLAIR_TEN_WNE_SLICE     = 3   }; /* WaitNextEvent sleepTicks per call   */
         /* Menu-bar fg/bg for the foreground-tenant menu swap. The offscreen is the
@@ -2525,7 +2531,12 @@ void kernel_main(void)
     }
 #else
     {
-        enum { FLAIR_LIVE_TICK_BUDGET   = 250 }; /* ~2.5 s @100 Hz: inject+dump margin */
+/* -D-overridable exactly like FLAIR_TEN_TICK_BUDGET above (beads initech-l9cd):
+ * the RECORD image variant widens the live window; the default stays 250 and
+ * compiles byte-identically. */
+#ifndef FLAIR_LIVE_TICK_BUDGET
+#define FLAIR_LIVE_TICK_BUDGET   250  /* ~2.5 s @100 Hz: inject+dump margin */
+#endif
         enum { FLAIR_LIVE_TICK_ANNOUNCE = 4   }; /* announce the first 4 advances only */
         enum { FLAIR_LIVE_WNE_SLICE     = 3   }; /* WaitNextEvent sleepTicks per call   */
         uint32_t start = flair_tick_count();

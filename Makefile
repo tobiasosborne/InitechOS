@@ -14241,26 +14241,37 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 #          make record-flair-repro SCRIPT=solid_drag
 RECORD_CLIPS_DIR := $(BUILD)/clips
 RECORD_FPS       := 4
+# Script map: TENANTS-image traces only for now (the flagship desktop the
+# System 8 epic validates on). The flairlive-image traces (drag/menu/
+# crossdrag/dc4v) need a flairlive record variant -- follow-up initech-zwo8;
+# recording them against the tenants image would replay coordinates authored
+# for a DIFFERENT scene (a semantically-wrong clip that LOOKS fine -- the
+# exact false-evidence class Law 2 exists to kill).
 RECORD_SPEC_solid_close  = $(FLAIR_SOLID_CLOSE_SPEC)
 RECORD_SPEC_solid_drag   = $(FLAIR_SOLID_DRAG_SPEC)
 RECORD_SPEC_solid_switch = $(FLAIR_SOLID_SWITCH_SPEC)
 RECORD_SPEC_appswitch    = $(FLAIR_APPSWITCH_SPEC)
-RECORD_SPEC_drag         = $(FLAIR_DRAG_SPEC)
-RECORD_SPEC_dc4v         = $(FLAIR_DC4V_SPEC)
-RECORD_SPEC_menu         = $(FLAIR_MENU_SPEC)
-RECORD_SPEC_crossdrag    = $(FLAIR_MENU_CROSSDRAG_SPEC)
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch drag dc4v menu crossdrag
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch
+
+# The RECORD image: the SAME flair_tenants build with ONLY the live-window
+# tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
+# per-frame settle+dump overhead fits inside the guest pump's bounded life.
+# Reuses the kmain-variant template; "mut_" in the artifact name is the
+# template's naming -- this knob widens a demo bound, it mutates NO behavior
+# the oracles grade (the default image stays byte-identical, budget 250).
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000,record))
+FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 
 .PHONY: record-flair
-record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_IMG)
+record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG)
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
 	@command -v ffmpeg >/dev/null || { printf '!!! record-flair: ffmpeg not installed (the ONE extra dependency; sudo apt install ffmpeg)\n'; exit 2; }
 	@mkdir -p "$(RECORD_CLIPS_DIR)"
 	@printf '>>> record-flair [%s]: capturing per-event frames (trace: %s)\n' "$(SCRIPT)" "$(RECORD_SPEC_$(SCRIPT))"
-	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_RECORD_IMG)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
 		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
-		--record --timeout-ms 30000 \
+		--record --timeout-ms 45000 \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
 	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
 	@n=$$(ls "$(RECORD_CLIPS_DIR)"/rec_$(SCRIPT)_frame_*.ppm 2>/dev/null | wc -l); \
