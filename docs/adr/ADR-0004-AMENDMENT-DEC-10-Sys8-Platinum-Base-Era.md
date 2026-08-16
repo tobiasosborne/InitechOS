@@ -16,7 +16,7 @@
 | Document ID | OEA-ADR-0004-A2 |
 | Title | ADR-0004 Amendment DEC-10: The Platinum Base Era (`ERA_SYS8_PLATINUM` as the FLAIR base chrome era) |
 | Version | 0.1 |
-| Status | **DRAFT -- NOT RATIFIED.** Pending (a) the minted Mac OS 8.1 goldens (beads `initech-kd60` -> `initech-slwi` -> `initech-4lmg`) and (b) operator ratification. NO value in this document may be treated as locked spec-data until both conditions are met. |
+| Status | **RATIFIED (operator, 2026-08-16).** Both ratification conditions met: (a) the Mac OS 8.1 goldens are minted (`initech-kd60`/`slwi`/`4lmg` closed, WL-0078) and (b) the operator ratified, ruling OQ-2 directly: "lavender->teal is canon." OQ dispositions in Sec 6; Platinum values bind via `../system7-decomp/specs/sys8/` (sampled domain -- see the OQ-2/OQ-3 resolutions). |
 | Classification | Internal Use Only |
 | Information Sensitivity | Tier 2 (Non-Public, Non-Regulated) |
 | Document Owner | Office of Enterprise Architecture |
@@ -34,12 +34,13 @@
 | Rev | Date | Author | Description of Change | Reviewed By |
 |---|---|---|---|---|
 | 0.1 | 2026-08-15 | Drafted per operator ruling (beads `initech-s97h`) | Initial DRAFT recording the operator's Law-4 frame ruling (the frame is Mac OS 8 Platinum), the base-era flip, the Initech-identity invariants, the TODO_GOLDEN discipline, the Rule-8 mechanics, the default-selector analysis, and the video-validation directive. **Contains no Platinum pixel values** -- every Platinum datum is `TODO_GOLDEN` pending the mint. | -- (pending) |
+| 1.0 | 2026-08-16 | Ratification pass (beads `initech-s97h`, WL-0078) | RATIFIED. Goldens minted (WL-0078); operator ruled OQ-2 ("lavender->teal is canon"); all nine OQs dispositioned in Sec 6 (mint evidence resolved OQ-3/4/8; recommendations ratified for OQ-1/5/7/9; OQ-6 deferred with SSIM). Value-domain rule added: canon values enter in the SAMPLED (screen) domain, matching the existing canon; the specs' nominal 0x11-ladder column is provenance, never a canon source. | Operator (T. Osborne) |
 
 ### Approval & Sign-Off Matrix
 
 | Role | Name | Disposition | Date |
 |---|---|---|---|
-| Operator (Law-4 judge) | T. Osborne (Operator) | **RULED** the frame chrome is Mac OS 8 Platinum, 2026-08-15 (after extensive research). Ratification of THIS document pending. | 2026-08-15 |
+| Operator (Law-4 judge) | T. Osborne (Operator) | **RULED** the frame chrome is Mac OS 8 Platinum, 2026-08-15 (after extensive research). **RATIFIED** this document 2026-08-16, ruling OQ-2 directly: "lavender->teal is canon." ARB seat review waived -- direct operator ratification per the WL-0053 precedent (the operator is the human Law-4 judge and outranks the committee process). | 2026-08-16 |
 | Author / Drafter | STAPLER Programme (beads `initech-s97h`) | Submitted as DRAFT | 2026-08-15 |
 | ARB Reviewer -- Period Authenticity | S. Nagheenanajar (Engineering, Heritage Conformance) | Pending | -- |
 | ARB Reviewer -- Technical Correctness | M. Bolton (Senior Engineer, Platform) | Pending | -- |
@@ -641,7 +642,50 @@ the golden corpora present; and loud-skipping (never silent-passing) when they a
 
 ---
 
-## 6. Open questions (must be closed before or at ratification)
+## 6. Open questions -- ALL DISPOSITIONED AT RATIFICATION (2026-08-16)
+
+> Ratification record. Sources: the operator's direct ruling (OQ-2), the WL-0078
+> mint evidence (`initech-slwi`/`4lmg` close reasons + `specs/sys8/`), and the
+> DRAFT recommendations ratified where marked. The original question texts are
+> preserved below; each carries its RESOLUTION.
+>
+> - **OQ-1 RESOLVED (recommendation ratified):** the canon goes `era: multi` with
+>   per-row era tags; the Platinum layer accretes as era-tagged rows. Owner: `initech-3knt`.
+> - **OQ-2 RESOLVED (OPERATOR, 2026-08-16: "lavender->teal is canon"):** the WL-0053
+>   substitution rule carries into Platinum unchanged and applies exactly where real
+>   Platinum is lavender-tinged -- the measured accent IS lavender (`clut` 208: scroll
+>   thumb, menu-title highlight, accent ramps) and every such value becomes same-hue
+>   Initech teal. The NEUTRAL Platinum gray ramp is not lavender and is NOT substituted:
+>   it stays neutral gray. Teal remains the desktop + accent identity.
+> - **OQ-3 RESOLVED (by the mint):** Platinum chrome is neutral grays (formula-coverable
+>   via `flair_canon_rgb(idx>=9)` / `FLAIR_CANON_GRAY_RGB`) plus the lavender accent,
+>   which maps to the EXISTING teal canon rows. No new non-neutral canon index is
+>   required. **Value-domain rule (binding):** canon values enter in the SAMPLED
+>   (screen) domain -- the domain the existing canon (`#969696`, `#F3F3F3`, ...) was
+>   minted in -- with the specs' nominal 0x11-ladder column as provenance only. A
+>   mixed-domain canon is the gamma trap `4lmg` proved out.
+> - **OQ-4 RESOLVED (by the mint):** minted from 8.1 (last 68k release); the era row is
+>   documented `ERA_SYS8_PLATINUM (Mac OS 8.0/8.1 Appearance; minted 8.1)`. No 8.0/8.1
+>   chrome difference was observed in the minted elements; if one surfaces later it is a
+>   new golden question, not a silent edit (Rule 8).
+> - **OQ-5 RESOLVED (recommendation ratified):** Platinum is the sole shipped default;
+>   `ERA_SYS7_0_1` remains a compile-time heritage row. An in-product Appearance switcher
+>   is a non-goal of this arc (filable later as its own feature).
+> - **OQ-6 STANDS AS WRITTEN:** no action until `harness/ssim.c` is built; the crops
+>   re-anchor to `s8_*` then. Recorded so the Sys7 crops are not silently inherited.
+> - **OQ-7 RESOLVED (recommendation ratified):** Route 2 now -- re-key the base
+>   constants; the registry stays the graded VIEW. Route 1 (thread the era axis into
+>   `flair_look`/`chrome.c`) is a funded follow-up to be filed at `3knt` close.
+> - **OQ-8 RESOLVED (by the mint -- the gamma proof):** all 160 sampled colors across
+>   the nine 8.1 captures map bijectively onto the System-7 ROM `clut_8_rom.bin` under
+>   one 16-level mapping: the 8-bit device CLUT is CONFIRMED unchanged under Mac OS 8.1.
+>   `spec/assets/clut.json` values stand; only its era annotation widens.
+> - **OQ-9 RESOLVED (minimal):** numeric part codes are unchanged; the Appearance-era
+>   names become documented in-target ALIASES in `spec/control_record.h`'s commentary
+>   (a `3knt` doc note), with no code rename. The contradiction with the new base is
+>   thereby removed without a layout or API change.
+
+### Original question texts (preserved)
 
 - **OQ-1 -- the canon module's era tag.** `spec/assets/color_canon.json` carries top-level
   `era: system7.0-7.1`. Does it become `multi` with a per-row `era` (DRAFT recommendation,
@@ -684,17 +728,18 @@ the golden corpora present; and loud-skipping (never silent-passing) when they a
 
 ## 7. Status and ratification conditions
 
-**DRAFT.** This Amendment binds nothing until BOTH:
+**RATIFIED (operator, 2026-08-16).** Both conditions were met before ratification:
 
 1. **The goldens are minted** -- `initech-kd60` -> `initech-slwi` -> `initech-4lmg`
-   complete, so that ratification is not a promise to invent values later (Law 1: ground
-   truth before code); and
-2. **The operator ratifies** this document, closing OQ-1 and OQ-2 in the process.
+   closed (WL-0078); every Platinum value binds via `../system7-decomp/specs/sys8/`
+   (Law 1: ground truth before code); and
+2. **The operator ratified**, ruling OQ-2 directly ("lavender->teal is canon"); all
+   nine OQs are dispositioned in Sec 6.
 
-Until then: no edit to `spec/flair_skins.h`, `spec/assets/color_canon.json`,
-`spec/chrome_fidelity_golden.h`, `spec/chrome_metrics.h`, or any FLAIR gate is authorised
-by this document. The operator's 2026-08-15 **ruling** stands regardless of this
-document's status; what is DRAFT is the recorded mechanism, not the ruling.
+Edits to `spec/flair_skins.h`, `spec/assets/color_canon.json`,
+`spec/chrome_fidelity_golden.h`, `spec/chrome_metrics.h`, and the FLAIR gate re-keys are
+NOW AUTHORISED, scoped exactly by Sec 3.5/Sec 4 and executed under `initech-3knt` ->
+`initech-i3si` (oracle-first, every re-keyed gate re-mutation-proven, video-validated).
 
 ---
 
@@ -714,5 +759,5 @@ document's status; what is DRAFT is the recorded mechanism, not the ruling.
 
 ---
 
-*End of ADR-0004 Amendment DEC-10. **DRAFT -- NOT RATIFIED.** Pending the minted Mac OS 8.1
-goldens and operator ratification. Controlled Document; verify revision before use.*
+*End of ADR-0004 Amendment DEC-10. **RATIFIED (operator, 2026-08-16), Rev 1.0.**
+Controlled Document; verify revision before use.*
