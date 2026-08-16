@@ -9946,14 +9946,9 @@ test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHR
 # FLAIR window chrome against the INDEPENDENT ../system7-decomp pixel-measured
 # golden (spec/chrome_fidelity_golden.h), NOT against chrome_metrics.h (which
 # chrome.c renders from -- that is the HER-02 by-construction trap; CLAUDE.md
-# Law 2). First increment: the title-bar pinstripe PHASE (the System-7 patAlign
-# mod-8 doubled-LIGHT pairs). Landed RED on the free-running period-2 render, then
-# GREEN once chrome.c was phase-locked; the strict-period-2 assertions it
-# contradicted (test_chrome.c, test_shell.c, ppm_flair_check leg c + the HER-02
-# demo) were operator-ratified for amendment to phase-AGNOSTIC "striped" checks,
-# so this fidelity oracle solely owns the phase truth. Reuses the test-chrome link
-# set + host render skeleton. Mutation-proven by CHROME_FID_MUT_PHASE (revert to
-# the free-running fill -> RED).
+# Law 2). Route-2 Platinum re-key: ADR-0004-AMENDMENT-DEC-10 Sec 4 and the
+# sampled sys8 window-chrome/scrollbar specifications. Reuses the test-chrome
+# link set + host render skeleton. All fourteen tells are mutation-proven.
 # ---------------------------------------------------------------------------
 TEST_CHROME_FID     := $(BUILD)/test_chrome_fidelity
 TEST_CHROME_FID_SRC := harness/proptest/test_chrome_fidelity.c
@@ -9968,6 +9963,10 @@ TEST_CHROME_FID_MUT_INA := $(BUILD)/test_chrome_fidelity_mutant_noinactive
 TEST_CHROME_FID_MUT_IBF := $(BUILD)/test_chrome_fidelity_mutant_inactiveblackframe
 TEST_CHROME_FID_MUT_IBT := $(BUILD)/test_chrome_fidelity_mutant_inactivebrighttitle
 TEST_CHROME_FID_MUT_IKG := $(BUILD)/test_chrome_fidelity_mutant_keepgadgets
+TEST_CHROME_FID_MUT_COL := $(BUILD)/test_chrome_fidelity_mutant_collapse
+TEST_CHROME_FID_MUT_RMP := $(BUILD)/test_chrome_fidelity_mutant_ramp
+TEST_CHROME_FID_MUT_NTC := $(BUILD)/test_chrome_fidelity_mutant_notch
+TEST_CHROME_FID_MUT_BDB := $(BUILD)/test_chrome_fidelity_mutant_bodybar
 
 $(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
@@ -10041,19 +10040,37 @@ $(TEST_CHROME_FID_MUT_IKG): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_KEEP_GADGETS $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
+# Platinum-only tells added by DEC-10 Sec 4: third widget, diagonal ramp,
+# two-pixel shadow notch, and the four-pixel raised body rail.
+$(TEST_CHROME_FID_MUT_COL): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_COLLAPSE $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT_RMP): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_RAMP $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT_NTC): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NOTCH $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT_BDB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_BODYBAR $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
 .PHONY: test-chrome-fidelity test-chrome-fidelity-mutant
 test-chrome-fidelity: $(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: System-7 window-chrome fidelity vs the INDEPENDENT ../system7-decomp golden (Law 2, NOT by-construction)\n'
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG)
-	@printf '>>> test-chrome-fidelity-mutant: confirming the phase + title + shadow + box-geom + scrollflat + no-bevel + no-inactive + inactive-black-frame + inactive-bright-title + keep-gadgets mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB)
+	@printf '>>> test-chrome-fidelity-mutant: confirming all fourteen Platinum chrome mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
 		exit 1; \
 	else \
-		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_PHASE correctly RED -- the free-running period-2 fill is caught)\n'; \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_PHASE correctly RED -- the dark-first 12-row stripe field is caught)\n'; \
 	fi
 	@if $(TEST_CHROME_FID_MUT_TTL) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_NO_TITLE PASSED -- the title-ink/knockout oracle is decoration\n'; \
@@ -10071,7 +10088,7 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_BOX_GEOM PASSED -- the close/zoom box legs are decoration\n'; \
 		exit 1; \
 	else \
-		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_BOX_GEOM correctly RED -- the flat 13px no-bevel box is caught)\n'; \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_BOX_GEOM correctly RED -- the flat two-widget geometry is caught)\n'; \
 	fi
 	@if $(TEST_CHROME_FID_MUT_SBF) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_SCROLL_FLAT PASSED -- the scrollbar oracle legs are decoration\n'; \
@@ -10083,7 +10100,7 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_NO_BEVEL PASSED -- the title-bar bevel + 15-row leg is decoration\n'; \
 		exit 1; \
 	else \
-		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_NO_BEVEL correctly RED -- the all-stripe no-bevel band is caught)\n'; \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_NO_BEVEL correctly RED -- the missing 22-row face/highlight/shadow profile is caught)\n'; \
 	fi
 	@if $(TEST_CHROME_FID_MUT_INA) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_NO_INACTIVE PASSED -- the inactive-title-bar leg is decoration\n'; \
@@ -10108,6 +10125,30 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 		exit 1; \
 	else \
 		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_KEEP_GADGETS correctly RED -- the still-present gadgets on inactive are caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_COL) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_COLLAPSE PASSED -- the third-widget oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_COLLAPSE correctly RED -- the missing rightmost collapse widget is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_RMP) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_RAMP PASSED -- the widget-ramp oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_RAMP correctly RED -- the flattened seven-rung diagonal ramp is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_NTC) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_NOTCH PASSED -- the shadow-notch oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_NOTCH correctly RED -- the one-pixel near-corner shadow start is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_BDB) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_BODYBAR PASSED -- the raised-body-rail oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_BODYBAR correctly RED -- the single-line body frame is caught)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------

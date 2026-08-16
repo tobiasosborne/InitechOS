@@ -13,14 +13,14 @@
  *        (ASCII-clean), Law 3 (factory is C). PRD Sec 1/6.3/6.5/Appendix A.
  *
  * WHAT THIS IS (and is NOT): this is the STRUCTURE / screendump oracle ONLY. It
- * grades the GEOMETRY, TOPOLOGY, Z-ORDER and PERIOD-2 ALTERNATION of the composed
+ * grades the GEOMETRY, TOPOLOGY, Z-ORDER and title-band row relations of the composed
  * Office Space chimera desktop as PRESENTED to the live LFB (build/flair_desktop
  * .img, kmain -DBOOT_FLAIR_SHELL) and captured as a QEMU 32bpp screendump (a P6
  * PPM). It is NEVER the color VALUE oracle -- promoting it to one would rebirth
  * HER-01/HER-02 (ADR-0010 BC-2). The color VALUE authority is the SEPARATE,
  * INDEPENDENT oracle test-color-canon (harness/proptest/test_color_canon.c),
- * which grades flair_canon_rgb(idx) against the System-7 / Win-3.1 DECOMP
- * goldens (wctb binary / win31 WIN.INI text / pinstripe.md), NOT by construction.
+ * which grades flair_canon_rgb(idx) against the System-7 / Win-3.1 / sys8
+ * DECOMP goldens, NOT by construction.
  *
  * THE HER-02 RE-KEY (ADR-0010 CD-5, what changed and WHY it is now honest):
  * the predecessor of this file computed its "expected" RGB from flair_palette_rgb
@@ -39,7 +39,7 @@
  * this oracle reads the same switch the renderer reads.)
  *
  * The structural probes here grade RELATIONS that are INVARIANT to the exact RGB
- * (ink-density ordering, period-2 alternation index relation, frame-vs-neighbor,
+ * (ink-density ordering, strict stripe alternation, frame-vs-neighbor,
  * z-order occlusion); the few absolute-color ANCHORs that remain (e.g. "this bare
  * corner reads the desktop color") are checked against the decomp-graded canon,
  * so a wrong scene still reads wrong and the gate BITES. The +/-2 tolerance is
@@ -68,16 +68,16 @@
  *       -- has none. A ONE-bar render leaves the Photoshop band as bare desktop
  *       (no fill, no ink) -> RED. test_shell.c assertion (2).
  *
- *   (c) WINDOW CHROME -- the front window's pinstripe title bar ALTERNATES with
- *       period 2 between idx 7 (#F3F3F3) and idx 8 (#969696) at adjacent y; the
- *       1 px right frame column is painted (non-desktop) and the pixel just
- *       outside it is bare teal (frame is exactly 1 px); the body just below
- *       the title bar is window white (idx 1). test_shell.c assertion (3).
+ *   (c) WINDOW CHROME -- the front window has the exact Platinum 22-row title
+ *       profile: black, white, two face rows, 12 strict light-first alternating
+ *       stripe rows (white / CIDX_PLAT_STRIPE_DARK), four face rows, shadow,
+ *       black. The right body edge carries the measured 4-px raised bar between
+ *       its two black lines, and the body starts below row 21. DEC-10 Sec 4;
+ *       sys8/window-chrome.md Sec 2.1, 2.2, and 4. test_shell.c assertion (3).
  *
  *   (d) MODAL FILE COPY -- the MOVEABLE TITLED modal (movableDBoxProc; beads
- *       initech-zvo6): a pinstripe title bar (bevel-hi idx2, 15-row pinstripe
- *       idx7/idx8 alternation, bevel-lo idx4, shared frame line idx0) over the
- *       top 19 px, then a PLAIN 1-px frame (idx0) around the whole box -- NOT
+ *       initech-zvo6): the same exact Platinum 22-row title profile as a document
+ *       window, then a PLAIN 1-px frame (idx0) around the whole box -- NOT
  *       the old dBoxProc 7-px solid border; the "Saving tables to disk..."
  *       text ink band (a non-white pixel inside the text rect); the progress
  *       bar with a NON-ZERO canon fill (idx5 navy; beads initech-a90f, was a
@@ -117,26 +117,27 @@ enum { SCRW = 640, SCRH = 480 };
 
 /* Menu bars: each FLAIR_MENUBAR_H = 20 px. Band 0 = System-7 [0,20); band 1 =
  * Photoshop [20,40). (Hardcoded as 20 to keep the tool freestanding-header-free
- * beyond color_canon.h; test-chrome locks FLAIR_MENUBAR_H == 20 vs the JSON.) */
+ * beyond color_canon.h; test-chrome locks FLAIR_MENUBAR_H == 20 vs the JSON.)
+ * DEC-10 Sec 4 audit: sys8/menus.md Sec 1.1 verifies 20 px is era-stable; the
+ * two deliberately different chimera bars and Apple-density tell remain. */
 #define MENUBAR_H   20
 
 /* Front document window 1 (lower-right; fully visible, clear of the modal):
- * T120 L300 B360 R560 (test_shell.c W1_*). 1 px frame, 19 px title bar. */
+ * T120 L300 B360 R560 (test_shell.c W1_*).
+ *
+ * DEC-10 Sec 4 + sys8/window-chrome.md Sec 2.1/2.2/4: Platinum has a 22-row
+ * title band, its 12 stripe rows start at T+4, and a 4-px raised body bar sits
+ * between the outer and inner black lines. These values stay hardcoded here to
+ * preserve this grader's independent, freestanding posture. */
 #define W1_T 120
 #define W1_L 300
 #define W1_B 360
 #define W1_R 560
 #define FRAME       1
-#define TITLEBAR_H  19
-
-/* Title-bar BAND decomposition (beads initech-92li; window-frame.md Sec 2a): the
- * 19-px band is top-frame(1) + bevel-hi(1) + 15 pinstripe + bevel-lo(1) +
- * shared-frame(1).  The pinstripe interior the (c) leg scans is the 15-row band,
- * NOT the whole TITLEBAR_H -- the bevel-hi (idx 2)/bevel-lo (idx 4)/shared-frame
- * (idx 0) rows are NOT pinstripe shades.  (Hardcoded to mirror spec/chrome_metrics.h
- * FLAIR_CHROME_TITLE_BEVEL_ROWS/STRIPE_ROWS; test-chrome locks them vs the JSON.) */
-#define TITLE_BEVEL_ROWS  1
-#define TITLE_STRIPE_ROWS 15
+#define TITLEBAR_H             22
+#define TITLE_STRIPE_TOP_OFF    4
+#define TITLE_STRIPE_ROWS      12
+#define BODY_BAR_ROWS           4
 
 /* Back document window 0 (upper-left; overlapped by the centered modal):
  * T80 L60 B300 R360 (test_shell.c W0_*) -- used for the z-order occlusion probe. */
@@ -146,8 +147,8 @@ enum { SCRW = 640, SCRH = 480 };
 #define W0_R 360
 
 /* The centered FILE COPY modal: {dl,dt,dr,db} = {140,200,500,280} (centered on
- * 640x480). MOVEABLE TITLED chrome (movableDBoxProc; beads initech-zvo6): a
- * pinstripe title bar over the top TITLEBAR_H (19) px + a PLAIN 1-px frame
+ * 640x480). MOVEABLE TITLED chrome (movableDBoxProc; beads initech-zvo6): the
+ * Platinum title profile over the top TITLEBAR_H (22) px + a PLAIN 1-px frame
  * (FRAME) -- NOT the old dBoxProc 7-px solid border. Progress bar canon value
  * FLAIR_CANON_FILECOPY_PROGRESS (68; ~65-70% per bug-hunt #25, initech-a90f). */
 #define DL 140
@@ -260,6 +261,45 @@ static void assert_idx(int x, int y, int idx, const char *what)
     }
 }
 
+/* Exact Platinum title-band cross-section at a clear (non-widget/non-text)
+ * column. This is the DEC-10 Sec 4 replacement for the removed System-7
+ * 19-row/15-stripe tell. Values and row roles: sys8/window-chrome.md Sec 2.1;
+ * strict white-first/dark-last alternation: Sec 2.2. The expected indices are
+ * independent color-canon roles, never derived from chrome_metrics.h. */
+static int platinum_title_profile(int x, int top, const char *leg)
+{
+    static const int expected[TITLEBAR_H] = {
+        CIDX_BLACK,
+        CIDX_WHITE,
+        CIDX_PLAT_FRAME_FACE, CIDX_PLAT_FRAME_FACE,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_PLAT_FRAME_FACE, CIDX_PLAT_FRAME_FACE,
+        CIDX_PLAT_FRAME_FACE, CIDX_PLAT_FRAME_FACE,
+        CIDX_PLAT_FRAME_SHADOW,
+        CIDX_BLACK
+    };
+    int bad = 0;
+
+    for (int dy = 0; dy < TITLEBAR_H; dy++) {
+        if (!is_rgb(x, top + dy, IDX(expected[dy]))) {
+            const unsigned char *p = at(x, top + dy);
+            fprintf(stderr,
+                    "ppm_flair_check: FAIL %s Platinum title profile row T+%d "
+                    "at (%d,%d): sampled #%02X%02X%02X, expected idx %d #%06X\n",
+                    leg, dy, x, top + dy, p[0], p[1], p[2], expected[dy],
+                    IDX(expected[dy]));
+            bad = 1;
+        }
+    }
+    if (bad) g_fail = 1;
+    return bad;
+}
+
 #ifdef PPM_FLAIR_HER02_DEMO
 /* ===========================================================================
  * THE HER-02 DEMONSTRATION (ADR-0010 CD-5 / Sec 6.2; the bead asks for it).
@@ -269,7 +309,7 @@ static void assert_idx(int x, int y, int idx, const char *what)
  * mechanically visible -- it proves WHERE the color value authority now lives:
  *
  *   - ppm_flair_check is VALUE-BLIND on STRUCTURE. The pure-RELATION probes
- *     (period-2 pinstripe alternation, Apple-slot ink-density ORDERING, the
+ *     (strict Platinum stripe alternation, Apple-slot ink-density ORDERING, the
  *     two-bar far-right ink ORDERING, z-order occlusion) compare pixels to
  *     OTHER pixels, never to an absolute canon RGB. So a canon-VALUE mutation
  *     (teal #8DDCDC -> seafoam #6FA08E, exactly CANON_MUTATE_TEAL) is INVISIBLE
@@ -295,13 +335,13 @@ static void assert_idx(int x, int y, int idx, const char *what)
  * It exits 0 on the expected outcome (relations blind + anchor sensitive),
  * non-zero if either claim is violated.
  * =========================================================================== */
-static int her02_classify_pin(int x, int y)
+static int her02_classify_stripe(int x, int y)
 {
-    /* Value-FREE classification: which pinstripe shade is this row? -1 if
-     * neither. Reads the two canon shades (the REAL canon, not perturbed) only
-     * to bucket the pixel; the assertion downstream is a pure index RELATION. */
-    if (is_rgb(x, y, IDX(7))) return 7;
-    if (is_rgb(x, y, IDX(8))) return 8;
+    /* Value-FREE classification: which Platinum stripe role is this row? -1 if
+     * neither. sys8/window-chrome.md Sec 2.2 (DEC-10 Sec 4): light is canon
+     * white and dark is CIDX_PLAT_STRIPE_DARK. */
+    if (is_rgb(x, y, IDX(CIDX_WHITE))) return 0;
+    if (is_rgb(x, y, IDX(CIDX_PLAT_STRIPE_DARK))) return 1;
     return -1;
 }
 
@@ -318,41 +358,32 @@ static int her02_demo(void)
     printf("    perturbing the EXPECTED desktop value teal #%06X -> seafoam "
            "#%06X (== CANON_MUTATE_TEAL)\n", true_teal, her02_desktop_seafoam);
 
-    /* (1) STRUCTURE STAYS GREEN: the phase-locked pinstripe RELATION -- a pure
-     * relation over pixel classifications, never reading the desktop color. The
-     * System-7 racing stripe is phase-locked (doubled-LIGHT pairs at the band
-     * edges; chrome.c + ../system7-decomp pinstripe.md), so the value-blind facts
-     * are: every title row is shade 7 or 8, both shades appear, and >=1 adjacent
-     * EQUAL-row pair exists (the phase lock). (A strict period-2 relation would be
-     * WRONG now -- the real stripe has doubled rows.) */
+    /* (1) STRUCTURE STAYS GREEN: the Platinum stripe RELATION -- a pure relation
+     * over pixel classifications, never reading the desktop color. DEC-10 Sec 4
+     * + sys8/window-chrome.md Sec 2.2 replace the System-7 phase-lock signature:
+     * exactly 12 rows alternate strictly, light first and dark last, with NO
+     * adjacent-equal pair. */
     {
-        /* Scan the 15-row pinstripe INTERIOR band only (between the two bevel rows;
-         * beads initech-92li): bevel-hi (idx 2)/bevel-lo (idx 4)/shared-frame
-         * (idx 0) are NOT pinstripe shades. */
-        const int stripe_top = (W1_T + FRAME) + TITLE_BEVEL_ROWS;   /* 122 */
-        const int stripe_bot = stripe_top + TITLE_STRIPE_ROWS;       /* 137 */
-        /* Scan a CLEAR pinstripe column (right of the close box, LEFT of the
+        const int stripe_top = W1_T + TITLE_STRIPE_TOP_OFF;
+        const int stripe_bot = stripe_top + TITLE_STRIPE_ROWS;
+        /* Scan a CLEAR stripe column (right of the close box, LEFT of the
          * centered title) so the title knockout/glyphs do not break the relation
          * (the title sits at the bar center now; beads initech-lxg9). */
         const int pin_x = W1_L + 24;
-        int shade_ok = 1, saw_light = 0, saw_dark = 0, doubled = 0, prev = -2;
+        int relation_ok = 1;
         for (int y = stripe_top; y < stripe_bot; y++) {
-            int s = her02_classify_pin(pin_x, y);
-            if (s < 0) shade_ok = 0;
-            if (s == 7) saw_light = 1;
-            if (s == 8) saw_dark = 1;
-            if (y > stripe_top && s == prev) doubled = 1;
-            prev = s;
+            int s = her02_classify_stripe(pin_x, y);
+            int want = (y - stripe_top) & 1;
+            if (s != want) relation_ok = 0;
         }
-        if (!(shade_ok && saw_light && saw_dark && doubled)) {
-            fprintf(stderr, "ppm_flair_check[HER02-DEMO]: UNEXPECTED -- pinstripe "
-                    "RELATION not green on the real desktop (shade=%d light=%d "
-                    "dark=%d doubled=%d)\n",
-                    shade_ok, saw_light, saw_dark, doubled);
+        if (!relation_ok) {
+            fprintf(stderr, "ppm_flair_check[HER02-DEMO]: UNEXPECTED -- Platinum "
+                    "12-row light-first/no-doubled stripe RELATION not green on "
+                    "the real desktop\n");
             demo_fail = 1;
         } else {
-            printf("    [blind] phase-locked pinstripe relation (two shades + "
-                   "doubled-light pair): GREEN under the seafoam value "
+            printf("    [blind] Platinum stripe relation (12 rows, light-first, "
+                   "strict alternation): GREEN under the seafoam value "
                    "perturbation (relation, not RGB)\n");
         }
     }
@@ -499,8 +530,10 @@ int main(int argc, char **argv)
 
     printf("ppm_flair_check: %ldx%ld P6, tol +/-%d -- expected indices: "
            "desktop=#%06X menubar=#%06X white=#%06X ink=#%06X "
-           "pinstripe L=#%06X D=#%06X\n",
-           w, h, TOL, IDX(2), IDX(3), IDX(1), IDX(0), IDX(7), IDX(8));
+           "Platinum stripe L=#%06X D=#%06X\n",
+           w, h, TOL, IDX(CIDX_DESKTOP), IDX(CIDX_MENUBAR),
+           IDX(CIDX_WHITE), IDX(CIDX_BLACK), IDX(CIDX_WHITE),
+           IDX(CIDX_PLAT_STRIPE_DARK));
 
     /* ======================================================================
      * (a) TEAL DESKTOP -- bare-desktop sample points, every one clear of the
@@ -593,75 +626,38 @@ int main(int argc, char **argv)
      * (c) WINDOW CHROME (front window 1). test_shell.c assertion (3).
      * ====================================================================== */
     {
-        const int title_top = W1_T + FRAME;          /* 121 = bevel-hi interior row */
-        /* The 15-row pinstripe interior band (between the two bevel rows; beads
-         * initech-92li). stripe_top = title_top + bevel-hi(1) = 122; stripe_bot
-         * (half-open) = 122 + 15 = 137. window-frame.md Sec 2a y=166..180. */
-        const int stripe_top = title_top + TITLE_BEVEL_ROWS;     /* 122 */
-        const int stripe_bot = stripe_top + TITLE_STRIPE_ROWS;   /* 137 (half-open) */
-        /* content_top: white body begins one row below the shared frame line, at
-         * W1_T + TITLEBAR_H = 139 (beads initech-92li; old was title_top+TITLEBAR_H
-         * = 140).  The shared black frame line is at W1_T+TITLEBAR_H-1 = 138. */
-        const int content_top = W1_T + TITLEBAR_H;    /* 139 */
+        /* DEC-10 Sec 4 + sys8/window-chrome.md Sec 2.1/2.2: T is the top
+         * frame row; stripes occupy T+4..T+15 and the content begins after the
+         * bottom frame row T+21. */
+        const int stripe_top = W1_T + TITLE_STRIPE_TOP_OFF;
+        const int stripe_bot = stripe_top + TITLE_STRIPE_ROWS;
+        const int content_top = W1_T + TITLEBAR_H;
         const int mid_x = (W1_L + W1_R) / 2;          /* 430 = the centered title  */
-        /* The stripe is scanned at a clear column -- right of the close box and LEFT
+        /* The profile is scanned at a clear column -- right of the close box and LEFT
          * of the centered title ("untitled-2"), so the title knockout/glyphs do not
          * interrupt the stripe run (beads initech-lxg9). */
         const int pin_x = W1_L + 24;                  /* 324 */
         const int body_row = (content_top + (W1_B - FRAME)) / 2;
-        /* body_row (y=249) lands inside the x[140,500) y[200,280) region where
-         * window 1 {300,120,560,360} genuinely OVERLAPS the FILE COPY modal
-         * {140,200,500,280} -- the "clear of the modal" comment above was
-         * already geometrically false for x in [300,500); it only read
-         * correctly by COINCIDENCE (both window1's body and the OLD dBoxProc
-         * modal's unfilled-at-value=0 progress-bar interior were white there).
-         * initech-a90f's canon non-zero progress value repositioned the bar's
-         * rows (FILECOPY_BAR_TOP=49 -> absolute y=249) so its 1px top border
-         * now lands EXACTLY on this y -- exposing the pre-existing coincidence.
-         * Fix: probe the window-1 body-white leg at an x GENUINELY clear of the
-         * modal (body_x, right of the modal's x<500 but still inside window 1's
-         * content, left of its 16px scrollbar at ~543) instead of mid_x (430,
-         * inside the modal's x-range). The frame/teal legs below already probe
-         * near W1_R (560, clear of the modal in x) so they are unaffected. */
-        const int body_x = W1_R - 20;                  /* 540; clear of modal x<500 */
+        const int inner_line = W1_R - FRAME - BODY_BAR_ROWS - FRAME;
+        /* x=530 is right of the modal (x<500), left of the vertical gutter
+         * (x>=539), and inside the Platinum content area. The former x=540
+         * probe became the disabled scrollbar trough after the 4-px body bar
+         * moved the gutter inward. Measured first in build/flair_desktop.ppm. */
+        const int body_x = W1_R - 30;
 
-        /* The pinstripe INTERIOR must be a two-shade STRIPE (every row is shade 7 or
-         * 8, both appear, with >=1 adjacent change). Scanned over the 15-row band
-         * [stripe_top, stripe_bot) ONLY -- the bevel-hi (idx 2)/bevel-lo (idx 4)/
-         * shared-frame (idx 0) rows are NOT pinstripe shades (beads initech-92li;
-         * window-frame.md Sec 2a/2b).  The specific System-7 racing-stripe PHASE
-         * (the patAlign mod-8 doubled-LIGHT pairs) and the exactly-15-row interior
-         * bounded by the bevel rows are graded against the INDEPENDENT
-         * ../system7-decomp golden by test-chrome-fidelity (beads initech-hmll/92li),
-         * NOT here. This leg grades STRUCTURE; the fidelity oracle grades phase. */
-        int shade_ok = 1, saw_light = 0, saw_dark = 0, striped = 0, prev = -1;
-        for (int y = stripe_top; y < stripe_bot; y++) {
-            int s;
-            if      (is_rgb(pin_x, y, IDX(7))) s = 7;
-            else if (is_rgb(pin_x, y, IDX(8))) s = 8;
-            else { s = -1; shade_ok = 0; }
-            if (s == 7) saw_light = 1;
-            if (s == 8) saw_dark = 1;
-            if (y > stripe_top && s != prev) striped = 1;
-            prev = s;
+        if (!platinum_title_profile(pin_x, W1_T, "(c) front-window")) {
+            printf("    (c) Platinum title profile at x=%d: 22 rows, 12 strict "
+                   "white/#%06X stripes, light-first/dark-last\n",
+                   pin_x, IDX(CIDX_PLAT_STRIPE_DARK));
         }
-        if (!shade_ok) {
-            fprintf(stderr,
-                    "ppm_flair_check: FAIL (c) front window pinstripe interior at x=%d "
-                    "is not the pinstripe shade pair (idx 7 #%06X / idx 8 #%06X)\n",
-                    pin_x, IDX(7), IDX(8));
-            g_fail = 1;
-        }
-        if (!(saw_light && saw_dark && striped)) {
-            fprintf(stderr,
-                    "ppm_flair_check: FAIL (c) front window title bar at x=%d is not a "
-                    "two-shade pinstripe (light=%d dark=%d striped=%d)\n",
-                    pin_x, saw_light, saw_dark, striped);
-            g_fail = 1;
-        }
-        printf("    (c) pinstripe at x=%d: %s (idx7 #%06X / idx8 #%06X)\n",
-               pin_x, (saw_light && saw_dark && striped) ? "two-shade stripe" : "BAD",
-               IDX(7), IDX(8));
+
+        /* The centered title knocks both stripe parities out to frame-face 218.
+         * Probe rows T+4/T+5 before the glyph band begins. DEC-10 Sec 4;
+         * sys8/window-chrome.md Sec 2.3. */
+        assert_idx(mid_x, stripe_top, CIDX_PLAT_FRAME_FACE,
+                   "(c) active title light-row gap fill is Platinum frame face");
+        assert_idx(mid_x, stripe_top + 1, CIDX_PLAT_FRAME_FACE,
+                   "(c) active title dark-row gap fill is Platinum frame face");
 
         /* TITLE (beads initech-lxg9): the window name is drawn CENTERED in Chicago
          * over a knocked-out light gap. Live-screendump tripwire: assert FIGURE ink
@@ -670,12 +666,11 @@ int main(int argc, char **argv)
          * graded host-side by test-chrome-fidelity.) */
         {
             int title_ink = 0;
-            /* Scan the 15-row pinstripe interior (where the centered title is drawn
-             * over the PIN_LIGHT knockout; beads initech-92li). The bevel/shared
-             * rows carry no title ink. */
+            /* Scan the 12-row stripe field where the centered title is drawn over
+             * the frame-face gap. sys8/window-chrome.md Sec 2.3. */
             for (int y = stripe_top; y < stripe_bot; y++) {
                 for (int x = mid_x - 24; x < mid_x + 24; x++) {
-                    if (is_rgb(x, y, IDX(4))) title_ink++;
+                    if (is_rgb(x, y, IDX(CIDX_BLACK))) title_ink++;
                 }
             }
             if (title_ink < 8) {
@@ -686,23 +681,19 @@ int main(int argc, char **argv)
                         mid_x - 24, mid_x + 24, title_ink);
                 g_fail = 1;
             }
-            printf("    (c) title ink (idx4 black) in centered region: %d px\n",
+            printf("    (c) active title ink (black) in centered region: %d px\n",
                    title_ink);
         }
 
-        /* The row just below the title BAND (content_top = W1_T+TITLEBAR_H) is the
-         * white body (idx 1) -> the title band is EXACTLY TITLEBAR_H tall, and the
-         * white content begins one row below the shared frame line (beads
-         * initech-92li; window-frame.md Sec 2a). */
-        assert_idx(mid_x, content_top, 1,
+        /* Row T+22 is content, proving the title profile stops after T+21. */
+        assert_idx(mid_x, content_top, CIDX_WHITE,
                    "(c) front window first content row below the title band is white body (title height exact)");
-        assert_idx(body_x, body_row, 1,
+        assert_idx(body_x, body_row, CIDX_WHITE,
                    "(c) front window body fill is window white");
 
-        /* Frame: exactly 1 px. The right frame column is painted (non-desktop);
-         * the pixel just outside is bare teal. (Value-free RELATION: the frame
-         * pixel must DIFFER from the desktop color and the neighbor must MATCH
-         * it -- a topology test, not an RGB grade.)
+        /* Platinum right body edge, inside -> outside: inner black, white,
+         * face, face, shadow, outer black. The adjacent content-inset pixel is
+         * CIDX_PLAT_WELL. DEC-10 Sec 4 + sys8/window-chrome.md Sec 4.
          *
          * LIVE-SHADOW NOTE (beads initech-54nw + follow-up initech-9d0e; Law 1
          * honesty). The documentProc 1px drop shadow at offset (1,1) IS emitted by
@@ -710,22 +701,30 @@ int main(int argc, char **argv)
          * UNCLIPPED port). It does NOT appear on the booted desktop here because
          * the live compositor clips each window's chrome to its strucRgn
          * (desktop.c:223) and strucRgn == the window bounds -- it does NOT yet
-         * include the shadow band (real System 7 CalcDoc: struct = content + frame
-         * + shadow band; window-frame.md Sec 1). The drawer's frame rect is itself
+         * include the shadow band (Platinum still has the +1 shadow with a 2-px
+         * near-corner notch; sys8/window-chrome.md Sec 1). The drawer's frame rect is itself
          * bbox(strucRgn) (desktop.c:117), so widening strucRgn to render the shadow
          * live also shifts the frame -- the fix must DECOUPLE the drawer rect from
          * the clip (the region-layer follow-up initech-7sd2). So x=W1_R is
          * genuinely bare teal on the booted desktop today; this assertion stays
          * TRUE to the current render (Law 2: do not assert a pixel the OS does not
          * paint). */
-        if (is_rgb(W1_R - 1, body_row, IDX(2))) {
-            fprintf(stderr,
-                    "ppm_flair_check: FAIL (c) front window right frame column "
-                    "(x=%d) reads bare teal -- the frame is not painted\n", W1_R - 1);
-            g_fail = 1;
-        }
-        assert_idx(W1_R, body_row, 2,
-                   "(c) pixel just right of the 1 px frame is bare teal "
+        assert_idx(inner_line - 1, body_row, CIDX_PLAT_WELL,
+                   "(c) right content inset is Platinum well shadow");
+        assert_idx(inner_line, body_row, CIDX_BLACK,
+                   "(c) right body inner line is black");
+        assert_idx(inner_line + 1, body_row, CIDX_WHITE,
+                   "(c) right raised body bar starts with white");
+        assert_idx(inner_line + 2, body_row, CIDX_PLAT_FRAME_FACE,
+                   "(c) right raised body bar face row 1");
+        assert_idx(inner_line + 3, body_row, CIDX_PLAT_FRAME_FACE,
+                   "(c) right raised body bar face row 2");
+        assert_idx(inner_line + 4, body_row, CIDX_PLAT_FRAME_SHADOW,
+                   "(c) right raised body bar ends with frame shadow");
+        assert_idx(W1_R - 1, body_row, CIDX_BLACK,
+                   "(c) right body outer line is black");
+        assert_idx(W1_R, body_row, CIDX_DESKTOP,
+                   "(c) pixel just right of the outer frame is bare teal "
                    "(the drop shadow is clipped by strucRgn live -- initech-9d0e)");
     }
 
@@ -742,31 +741,20 @@ int main(int argc, char **argv)
         }
         const int cy = (DT + DB) / 2;  /* 240 */
 
-        /* Title bar band present (probed at x=DL+5=145, left of the title-text
-         * clamp so never inside the knockout): bevel-hi (idx2), pinstripe
-         * alternation (idx7/idx8 both present), shared frame line (idx0).
-         * Beads initech-zvo6 -- the moveable titled modal, not a solid border. */
-        assert_idx(DL + 5, DT + 1, 2,
-                   "(d) modal title bevel-hi (x=145,y=201) is idx2 (initech-zvo6)");
-        {
-            int saw_light = 0, saw_dark = 0;
-            for (int y = DT + 2; y <= DT + 16; y++) {
-                if (is_rgb(DL + 5, y, IDX(7))) { saw_light = 1; }
-                if (is_rgb(DL + 5, y, IDX(8))) { saw_dark  = 1; }
-            }
-            if (!(saw_light && saw_dark)) {
-                fprintf(stderr,
-                        "ppm_flair_check: FAIL (d) modal title pinstripe "
-                        "(x=145,y=202..216) must show BOTH idx7/idx8 -- a "
-                        "pinstripe title bar, not a solid border (initech-zvo6)\n");
-                g_fail = 1;
-            }
+        /* DEC-10 Sec 4 requires movableDBoxProc to use the same Platinum band.
+         * x=DL+5 is clear of its centred title. Measured in the supplied dump
+         * before encoding; sys8/window-chrome.md Sec 2.1/2.2. */
+        if (!platinum_title_profile(DL + 5, DT, "(d) FILE COPY modal")) {
+            printf("    (d) modal Platinum title profile: 22 rows, 12 strict "
+                   "white/#%06X stripes, light-first/dark-last\n",
+                   IDX(CIDX_PLAT_STRIPE_DARK));
         }
-        assert_idx(DL + 5, DT + 18, 0,
-                   "(d) modal title band shared frame line (x=145,y=218) is black");
+        assert_idx((DL + DR) / 2, DT + TITLE_STRIPE_TOP_OFF,
+                   CIDX_PLAT_FRAME_FACE,
+                   "(d) modal active-title gap fill is Platinum frame face");
 
         /* The frame is PLAIN 1-px, NOT the old 7px dBoxProc border: content
-         * just inside the left/right edges, at a row below the 19px title
+         * just inside the left/right edges, at a row below the 22px title
          * band, is white; the outermost columns are still black. */
         assert_idx(DL + FRAME, cy, 1,
                    "(d) modal content just inside the LEFT frame is white "
@@ -777,7 +765,7 @@ int main(int argc, char **argv)
         assert_idx(DR - 1, cy, 0, "(d) modal outer RIGHT frame column is black");
 
         /* The "Saving tables to disk..." static text is RENDERED as ink: the text
-         * rect (left=154, top=225 -- below the 19px title band, was top=212
+         * rect (left=154, top=225 -- below the 22px title band, was top=212
          * under the old 7px-border layout) contains a non-white pixel. */
         {
             int tx0 = 154, ty0 = 225;

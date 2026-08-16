@@ -1,4 +1,4 @@
-/* test_chrome.c -- the FLAIR chrome structural oracle (THE ORACLE; D-8 hard gate).
+/* test_chrome.c -- the FLAIR Platinum chrome structural oracle (D-8 hard gate).
  *
  * beads: initech-k8o5.8 (first rendered System-7 window chrome + test-chrome).
  * Ref:   ADR-0004 D-8 ("test-chrome | hard pass/fail | Chrome renders match
@@ -15,12 +15,11 @@
  * window into BOTH an 8bpp (OD-2) and a 32bpp offscreen and STRUCTURALLY ASSERTS
  * the rendered pixels against chrome_metrics v1:
  *
- *   - the title-bar band occupies rows [frame, frame+TITLEBAR_H) and shows
- *     pinstripe ALTERNATION at PINSTRIPE_PERIOD (2),
+ *   - the title-bar band has the exact 22-row Platinum profile,
  *   - the window frame is exactly FRAME (1) px,
  *   - the vertical scrollbar occupies a SCROLLBAR_W (16) px-wide column on the
  *     right,
- *   - the close box and zoom box are present at the expected corners.
+ *   - close, zoom, and collapse widgets are present at the measured offsets.
  *
  * Plus the STEP-1 .h<->.json CONSISTENCY tooth lives in the Makefile gate
  * (python3 parses chrome_metrics.json and diffs each #define) so spec/
@@ -40,6 +39,7 @@
 #include "render.h"             /* the host render skeleton (-Iharness/render) */
 #include "chrome.h"             /* flair_draw_document_window (-Ios/flair)     */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_* (-Ispec)                     */
+#include "color_canon.h"        /* named sampled Platinum canon indices         */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 
 TEST_HARNESS();
@@ -96,6 +96,32 @@ static uint32_t shade_index(const render_ctx_t *ctx, int x, int y)
     return render_pixel_index(ctx, (uint32_t)x, (uint32_t)y);
 }
 
+/* By-construction row classifier for this structural oracle. The independent
+ * value oracle remains test-chrome-fidelity. Re-key authority:
+ * ADR-0004-AMENDMENT-DEC-10 Sec 4; sampled geometry/classes:
+ * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
+static uint32_t platinum_title_row_index(int row)
+{
+    if (row == 0 || row == FLAIR_CHROME_TITLEBAR_H - 1) {
+        return CIDX_BLACK;
+    }
+    if (row == 1) {
+        return CIDX_WHITE;
+    }
+    if (row < FLAIR_CHROME_TITLE_STRIPE_TOP_OFF) {
+        return CIDX_PLAT_FRAME_FACE;
+    }
+    if (row < FLAIR_CHROME_TITLE_STRIPE_TOP_OFF +
+              FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS) {
+        return ((row - FLAIR_CHROME_TITLE_STRIPE_TOP_OFF) & 1)
+               ? CIDX_PLAT_STRIPE_DARK : CIDX_WHITE;
+    }
+    if (row < FLAIR_CHROME_TITLEBAR_H - 2) {
+        return CIDX_PLAT_FRAME_FACE;
+    }
+    return CIDX_PLAT_FRAME_SHADOW;
+}
+
 /* ===========================================================================
  * The structural assertions, run against one rendered context.
  * `bpp_tag` is a label for failure messages. `idx_mode` is 1 for the 8bpp pass
@@ -104,14 +130,13 @@ static uint32_t shade_index(const render_ctx_t *ctx, int x, int y)
 static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
 {
     const int fr = FLAIR_CHROME_FRAME;
-    /* The 19-px title BAND is now decomposed (beads initech-92li; window-frame.md
-     * Sec 2a): top-frame(1, y=WIN_TOP) + bevel-hi(1) + 15 pinstripe + bevel-lo(1) +
-     * shared-frame(1).  title_top is the first INTERIOR row (the bevel-hi), the
-     * pinstripe runs [stripe_top, stripe_bot), and the white content body begins
-     * one row below the shared frame line at content_top = WIN_TOP + TITLEBAR_H. */
-    const int title_top  = WIN_TOP + fr;                              /* bevel-hi */
-    const int stripe_top = title_top + FLAIR_CHROME_TITLE_BEVEL_ROWS; /* 15-stripe top */
-    const int stripe_bot = stripe_top + FLAIR_CHROME_TITLE_STRIPE_ROWS; /* half-open */
+    /* Platinum Route-2 re-key: 22 rows are K,H,2 face,12 stripe,4 face,S,K.
+     * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and
+     * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
+    const int title_top = WIN_TOP + fr;
+    const int stripe_top = WIN_TOP + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF;
+    const int stripe_bot = stripe_top +
+                           FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS;
     /* content_top: white body start (one row below the shared frame line). */
     const int title_content_top = WIN_TOP + FLAIR_CHROME_TITLEBAR_H;
     /* A column well inside the title bar, clear of the close/zoom boxes (those
@@ -149,16 +174,8 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
      * scan the 15-row pinstripe band (beads initech-92li recomposition). */
     const int pin_x = WIN_LEFT + 20;
 
-    /* --- 2. The title-bar band occupies rows [WIN_TOP, WIN_TOP+TITLEBAR_H) ---
-     * decomposed top-frame + bevel-hi + 15 stripe + bevel-lo + shared-frame.
-     *
-     * NOTE (beads initech-92li): is_painted treats RENDER_DESKTOP_INDEX (idx 2 =
-     * CIDX_DESKTOP) as "blank", and the bevel-hi row resolves to FLAIR_PART_BEVEL_
-     * LIGHT -> canon teal idx 2 (the WL-0053 lavender->teal recolor ALIASES the
-     * desktop index by design; chrome_fidelity_golden.h FG_BOX_BEVEL_IDX note).
-     * So we probe the first PINSTRIPE row (idx 7/8, unambiguously painted) for the
-     * "band is painted" tooth; the bevel-row CLASS is graded by the recolor-
-     * invariant index legs in test-chrome-fidelity, not by is_painted here. */
+    /* --- 2. The title-bar band occupies exactly 22 rows --------------------
+     * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and window-chrome.md Sec 2.1. */
     snprintf(msg, sizeof msg,
              "[%s] title-bar first pinstripe row (y=%d) must be painted",
              bpp_tag, stripe_top);
@@ -171,39 +188,37 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
              bpp_tag, title_content_top - 1);
     CHECK(is_painted(ctx, mid_x, title_content_top - 1), msg);
 
-    /* The row just BELOW the title BAND is the WHITE content body, not the
-     * pinstripe band. For 8bpp the content is index CIDX_WHITE (1); the pinstripe
-     * is index 7/8. This asserts the band height is EXACTLY TITLEBAR_H: if the
-     * title bar were 1 px too tall (CHROME_MUTATE_TITLEBAR_H), this row would be
-     * a pinstripe shade (the stripe ran 16 rows, pushing content down 1), not the
-     * body. window-frame.md Sec 2a: white content begins one row below the shared
-     * frame line at content_top = WIN_TOP + TITLEBAR_H. */
+    /* The exact row classifier is stronger than the retained System-7
+     * two-shade-only check and catches a centered/symmetric stripe field too.
+     * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and window-chrome.md Sec 2.1-2.2. */
     if (idx_mode) {
+        int profile_ok = 1;
+        for (int row = 0; row < FLAIR_CHROME_TITLEBAR_H; row++) {
+            profile_ok = profile_ok &&
+                shade_index(ctx, pin_x, WIN_TOP + row) ==
+                    platinum_title_row_index(row);
+        }
+        snprintf(msg, sizeof msg,
+                 "[%s] title band must match the exact 22-row Platinum profile",
+                 bpp_tag);
+        CHECK(profile_ok, msg);
+
+        /* The row below the measured band is content. This is the decisive
+         * height-mutant tooth. Ref: DEC-10 Sec 4; window-chrome.md Sec 2.1. */
         uint32_t below = shade_index(ctx, mid_x, title_content_top);
         snprintf(msg, sizeof msg,
                  "[%s] row below title band (y=%d) must be content body (idx %d), "
-                 "not a pinstripe shade -- title band must be exactly %d",
-                 bpp_tag, title_content_top, 1, FLAIR_CHROME_TITLEBAR_H);
-        CHECK(below == 1u, msg);
-
-        /* And it must NOT be either pinstripe shade index (the decisive tooth
-         * for the title-bar-height mutant). */
-        snprintf(msg, sizeof msg,
-                 "[%s] row below title band must NOT be pinstripe light/dark "
-                 "(idx %d/%d) -- catches a too-tall title bar",
-                 bpp_tag, FLAIR_CHROME_TITLE_SHADE_LIGHT,
-                 FLAIR_CHROME_TITLE_SHADE_DARK);
-        CHECK(below != (uint32_t)FLAIR_CHROME_TITLE_SHADE_LIGHT &&
-              below != (uint32_t)FLAIR_CHROME_TITLE_SHADE_DARK, msg);
+                 "after the exact %d-row band",
+                 bpp_tag, title_content_top, CIDX_WHITE,
+                 FLAIR_CHROME_TITLEBAR_H);
+        CHECK(below == CIDX_WHITE, msg);
     }
 
-    /* --- 3. Pinstripe is a two-shade STRIPE over the 15-row interior (phase
-     * owned elsewhere) --------------------------------------------------------
-     * The pinstripe interior [stripe_top, stripe_bot) is filled with the two WDEF
-     * shades (wTitleBarLight 7 / wTitleBarDark 8) as a horizontal stripe. This
+    /* --- 3. Pinstripe is a two-shade STRIPE over the 12-row interior -------
+     * The pinstripe interior [stripe_top,stripe_bot) uses the sampled Platinum
+     * white/150 classes. This
      * oracle asserts only that it IS a two-shade stripe -- NOT a specific phase.
-     * The System-7 racing-stripe PHASE (the patAlign mod-8 doubled-LIGHT pairs)
-     * and the exactly-15-row interior bounded by the bevel rows are graded against
+     * The exact Platinum phase and exactly-12-row interior are graded against
      * the INDEPENDENT ../system7-decomp golden by test-chrome-fidelity (beads
      * initech-hmll/92li, Law 2).  Scanned at a clear column (pin_x) so the
      * centered title knockout does not interrupt the run. */
@@ -218,7 +233,7 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
             prev = s;
         }
         snprintf(msg, sizeof msg,
-                 "[%s] pinstripe interior must show BOTH WDEF shades (light %d + dark %d)",
+                 "[%s] pinstripe interior must show BOTH Platinum shades (light %d + dark %d)",
                  bpp_tag, FLAIR_CHROME_TITLE_SHADE_LIGHT,
                  FLAIR_CHROME_TITLE_SHADE_DARK);
         CHECK(saw_light && saw_dark, msg);
@@ -241,22 +256,20 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
         CHECK(striped, msg);
     }
 
-    /* --- 4. The vertical scrollbar is a SCROLLBAR_W (16) px column on right -- */
-    /* The scrollbar runs the content height, inside the right frame. Its left
-     * gutter edge is a black divider; the column to its left (still in content)
-     * up to the right frame is the scrollbar. We assert the column WIDTH: count
-     * painted columns from the inner-right edge leftward on a content row that
-     * is NOT inside an arrow button (mid-height of the content). */
+    /* --- 4. The vertical scrollbar is a 16-pixel Platinum band ------------
+     * It terminates at the inner body line, inside the four-pixel raised rail.
+     * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4,
+     * ../system7-decomp/specs/sys8/scrollbars.md Sec 1 and
+     * ../system7-decomp/specs/sys8/window-chrome.md Sec 4. */
     {
-        int content_top = title_content_top;        /* WIN_TOP + TITLEBAR_H (92li) */
+        int content_top = title_content_top;
         int content_bot = WIN_BOTTOM - fr;
-        int row = (content_top + content_bot) / 2;   /* between the arrow buttons*/
-        int inner_right = WIN_RIGHT - fr;            /* first col inside R frame */
+        int row = (content_top + content_bot) / 2;
+        int sb_right_exclusive = WIN_RIGHT - fr - FLAIR_CHROME_BODY_BAR;
 
-        /* The scrollbar control occupies [inner_right - SCROLLBAR_W, inner_right).
-         * Assert the divider/track is present at the expected left edge and the
-         * content just LEFT of the scrollbar is white body (idx 1 on 8bpp). */
-        int sb_left = inner_right - FLAIR_CHROME_SCROLLBAR_W;
+        /* The control is the exact half-open band
+         * [sb_right_exclusive-16,sb_right_exclusive). */
+        int sb_left = sb_right_exclusive - FLAIR_CHROME_SCROLLBAR_W;
 
         /* The scrollbar's left gutter divider (black) sits at sb_left. */
         snprintf(msg, sizeof msg,
@@ -265,74 +278,85 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
         CHECK(is_painted(ctx, sb_left, row), msg);
 
         if (idx_mode) {
-            /* Just LEFT of the scrollbar is the white content body (idx 1) --
-             * proves the scrollbar starts at exactly SCROLLBAR_W from the inner
-             * right edge. If the scrollbar were 15 px wide
+            /* Just left is content; the band starts with a black divider and
+             * ends with the black inner-body line. If the band were 15 px wide
              * (CHROME_MUTATE_SCROLLBAR_W), sb_left would be body, not divider:
-             * this is the decisive scrollbar-width tooth. */
+             * this is the decisive width tooth. Ref: DEC-10 Sec 4;
+             * scrollbars.md Sec 1; window-chrome.md Sec 4. */
             uint32_t at_sb_left = shade_index(ctx, sb_left, row);
             snprintf(msg, sizeof msg,
                      "[%s] scrollbar must be EXACTLY %d px: column at -%d is the "
                      "divider (idx %d), not the white body (idx 1)",
                      bpp_tag, FLAIR_CHROME_SCROLLBAR_W,
-                     FLAIR_CHROME_SCROLLBAR_W, 0);
-            CHECK(at_sb_left == 0u, msg);   /* divider is CIDX_BLACK (0) */
+                     FLAIR_CHROME_SCROLLBAR_W, CIDX_BLACK);
+            CHECK(at_sb_left == CIDX_BLACK, msg);
 
             uint32_t left_of_sb = shade_index(ctx, sb_left - 1, row);
             snprintf(msg, sizeof msg,
                      "[%s] content just left of the %d px scrollbar must be the "
-                     "white body (idx 1)", bpp_tag, FLAIR_CHROME_SCROLLBAR_W);
-            CHECK(left_of_sb == 1u, msg);
+                     "white body (idx %d)", bpp_tag,
+                     FLAIR_CHROME_SCROLLBAR_W, CIDX_WHITE);
+            CHECK(left_of_sb == CIDX_WHITE, msg);
+
+            snprintf(msg, sizeof msg,
+                     "[%s] disabled Platinum track interior must be trough idx %d",
+                     bpp_tag, CIDX_PLAT_TROUGH);
+            CHECK(shade_index(ctx, sb_left + 1, row) == CIDX_PLAT_TROUGH,
+                  msg);
         }
 
-        /* The scrollbar track fills toward the inner right edge: the column at
-         * inner_right-1 (just inside the right frame) is painted (track/arrow). */
+        /* The final column is the inner body line, not the outer frame rail. */
         snprintf(msg, sizeof msg,
-                 "[%s] scrollbar must reach the inner right edge", bpp_tag);
-        CHECK(is_painted(ctx, inner_right - 1, row), msg);
+                 "[%s] scrollbar must reach its inner-body-line boundary",
+                 bpp_tag);
+        CHECK(is_painted(ctx, sb_right_exclusive - 1, row), msg);
     }
 
-    /* --- 5. Close box (top-left) and zoom box (top-right) present ----------- */
-    /* Each is a double-beveled FLAIR_CHROME_WBOX_RENDER (11x11) gadget, NOT a flat
-     * 13px frame.  Geometry amended to the rendered close-zoom-box.md ground truth
-     * (beads initech-ts3t; strengthening toward the golden, Law 2):
-     *   box top = WIN_TOP + wBoxDelta + 1, wBoxDelta=(titleHgt-13)/2 (WDEF @1705-1707);
-     *   close box LEFT edge = WIN_LEFT + 9 (PlotGoAway @1675-1678);
-     *   zoom box  LEFT edge = WIN_RIGHT - 20 (PlotZoom @1682-1693).
-     * The box top-left corner is the dark OUTLINE (close-zoom-box.md golden
-     * x=361,y=168 = #545487 dark frame -> the dark figure role; 8bpp idx 4).
-     * (The exact bevel/role structure is graded by test-chrome-fidelity; here we
-     * pin the geometry: the box corners are painted at the NEW offsets.) */
+    /* --- 5. Three Platinum title widgets at measured inclusive-R offsets ---
+     * This replaces the retained two-widget System-7 check with the stronger
+     * three-widget/edge-class relation. Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4
+     * and ../system7-decomp/specs/sys8/window-chrome.md Sec 3.1-3.2. */
     {
-        int wbox_delta = (FLAIR_CHROME_TITLEBAR_H - FLAIR_CHROME_WBOX_DELTA) / 2;
-        if (wbox_delta < 0) {
-            wbox_delta = 0;
-        }
-        int by0 = WIN_TOP + wbox_delta + 1;  /* box top edge (struct.top+wBoxDelta+1) */
+        int ri = WIN_RIGHT - 1;
+        int by0 = WIN_TOP + FLAIR_CHROME_WIDGET_TOP_OFF;
 
-        /* close box top-left corner is painted (its dark outline). */
-        int cx0 = WIN_LEFT + 9;              /* struct.left + 9 (close-zoom-box.md) */
+        int cx0 = WIN_LEFT + FLAIR_CHROME_CLOSE_LEFT_OFF;
         snprintf(msg, sizeof msg,
-                 "[%s] close box (top-left, struct.left+9) must be present", bpp_tag);
+                 "[%s] close widget at struct.left+%d must be present",
+                 bpp_tag, FLAIR_CHROME_CLOSE_LEFT_OFF);
         CHECK(is_painted(ctx, cx0, by0), msg);
         if (idx_mode) {
-            /* the dark outline role at the corner (recolor-invariant, 8bpp idx 4). */
             snprintf(msg, sizeof msg,
-                     "[%s] close box top-left corner must be the dark outline "
-                     "(idx 4; close-zoom-box.md x=361,y=168 #545487)", bpp_tag);
-            CHECK(shade_index(ctx, cx0, by0) == 4u, msg);
+                     "[%s] close top/left edge must be Platinum widget-edge idx %d",
+                     bpp_tag, CIDX_PLAT_WIDGET_EDGE);
+            CHECK(shade_index(ctx, cx0, by0) == CIDX_PLAT_WIDGET_EDGE,
+                  msg);
         }
 
-        /* zoom box top-left corner is painted (its dark outline). */
-        int zx0 = WIN_RIGHT - 20;            /* struct.right - 20 (close-zoom-box.md) */
+        int zx0 = ri - FLAIR_CHROME_ZOOM_RIGHT_OFF;
         snprintf(msg, sizeof msg,
-                 "[%s] zoom box (top-left, struct.right-20) must be present", bpp_tag);
+                 "[%s] zoom widget at inclusive-R-%d must be present",
+                 bpp_tag, FLAIR_CHROME_ZOOM_RIGHT_OFF);
         CHECK(is_painted(ctx, zx0, by0), msg);
         if (idx_mode) {
             snprintf(msg, sizeof msg,
-                     "[%s] zoom box top-left corner must be the dark outline "
-                     "(idx 4; close-zoom-box.md zoom left = right-20)", bpp_tag);
-            CHECK(shade_index(ctx, zx0, by0) == 4u, msg);
+                     "[%s] zoom top/left edge must be Platinum widget-edge idx %d",
+                     bpp_tag, CIDX_PLAT_WIDGET_EDGE);
+            CHECK(shade_index(ctx, zx0, by0) == CIDX_PLAT_WIDGET_EDGE,
+                  msg);
+        }
+
+        int kx0 = ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF;
+        snprintf(msg, sizeof msg,
+                 "[%s] collapse widget at inclusive-R-%d must be present and rightmost",
+                 bpp_tag, FLAIR_CHROME_COLLAPSE_RIGHT_OFF);
+        CHECK(is_painted(ctx, kx0, by0) && kx0 > zx0, msg);
+        if (idx_mode) {
+            snprintf(msg, sizeof msg,
+                     "[%s] collapse top/left edge must be Platinum widget-edge idx %d",
+                     bpp_tag, CIDX_PLAT_WIDGET_EDGE);
+            CHECK(shade_index(ctx, kx0, by0) == CIDX_PLAT_WIDGET_EDGE,
+                  msg);
         }
     }
 }

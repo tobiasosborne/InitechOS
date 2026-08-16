@@ -44,10 +44,11 @@
  *     dump (that block is UNDER the foreground HELLO) and FLAIR_TEN_ACTIVE_ACCENT
  *     in the POST dump (NOTES raised + became active: the tenant painted its accent
  *     block in response to activateEvt active=1).  The skip-activate-pair mutant
- *     leaves it NOTES_FILL -> RED.  NOTE (per the demo contract): the activation
- *     observable is the TENANT CONTENT ACCENT, NOT a title-bar hilite -- the
- *     renderer has no active/inactive CHROME distinction, so we do NOT probe chrome
- *     hilite.  (ADR-0006 E-D5 Tier-B independent golden kind: graded against the
+ *     leaves it NOTES_FILL -> RED. NOTE (per the demo contract): this activation
+ *     observable remains the TENANT CONTENT ACCENT, independently of the now-real
+ *     Platinum active/inactive title delta. The latter is graded by
+ *     ppm_flair_solid_check leg C. DEC-10 Sec 4 + sys8/window-chrome.md Sec 6.
+ *     (ADR-0006 E-D5 Tier-B independent golden kind: graded against the
  *     canon VALUE the demo header names, by recomputation from the independent
  *     canon, never by-construction.)
  *
@@ -449,8 +450,11 @@ int main(int argc, char **argv)
      * which is exactly the pixel range the stale desktop_update corrupts. Fix:
      * desktop.c desktop_paint_all resets wm->desktop_update at its tail. Coords are
      * grader-local (like BAND_/ACC_), kept >=10px off the corners for +/-1px chrome
-     * drift, and clear of the HELLO/NOTES overlap. Grade vs the INDEPENDENT canon
-     * (Law 2; CIDX_BLACK == the wFrameColor). ---------------------------------- */
+     * drift, and clear of the HELLO/NOTES overlap. Under Platinum an ACTIVE
+     * structure outline is still black; inactive outlines are idx119. Thus this
+     * post-switch raised-NOTES probe is re-attributed, not value-coincident:
+     * DEC-10 Sec 4 + sys8/window-chrome.md Sec 6. Grade vs the INDEPENDENT canon
+     * (Law 2; CIDX_BLACK is the active structure-frame role). ------------------ */
     assert_idx(&post, "POST", FLAIR_TEN_NOTES_R - 1, 200, CIDX_BLACK,
                "TIER-C: POST NOTES right frame edge (upper) is CIDX_BLACK, not "
                "desktop teal (initech-jmc5/-qi8v stale desktop_update erasure)");

@@ -54,8 +54,9 @@
  *          bit-exact match restricted to the vacated set (an independent owner-grid
  *          before/after identifies the vacated pixels).
  *
- *      (d) CHROME GEOMETRY at the new position matches chrome_metrics v1 (title bar
- *          19, frame 1, scrollbar 16) on the MOVED window -- the test_chrome
+ *      (d) CHROME GEOMETRY at the new position matches the Platinum base row
+ *          (22-row band, frame 1, scrollbar 16 inside the raised body rail) --
+ *          the test_chrome
  *          structural idea, re-run on the dragged window's final frame.
  *
  *   4. WRITE build/drag_before.ppm + build/drag_after.ppm for the orchestrator's
@@ -82,6 +83,7 @@
 #include "event_model.h"        /* flair_raw_event_t, what codes, masks          */
 #include "desktop.h"            /* the compositor UNDER TEST (-Ios/flair)        */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_* (-Ispec)                       */
+#include "color_canon.h"        /* named sampled Platinum canon indices          */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)      */
 
 TEST_HARNESS();
@@ -281,33 +283,41 @@ static int idx_at(const render_ctx_t *ctx, int x, int y)
     return (int)(render_pixel_index(ctx, (uint32_t)x, (uint32_t)y) & 0xFFu);
 }
 
+/* Strict Platinum profile used by the moved-window structural tooth.
+ * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and
+ * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
+static int drag_title_row_index(int row)
+{
+    if (row == 0 || row == FLAIR_CHROME_TITLEBAR_H - 1) return CIDX_BLACK;
+    if (row == 1) return CIDX_WHITE;
+    if (row < FLAIR_CHROME_TITLE_STRIPE_TOP_OFF) return CIDX_PLAT_FRAME_FACE;
+    if (row < FLAIR_CHROME_TITLE_STRIPE_TOP_OFF +
+              FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS) {
+        return ((row - FLAIR_CHROME_TITLE_STRIPE_TOP_OFF) & 1)
+               ? CIDX_PLAT_STRIPE_DARK : CIDX_WHITE;
+    }
+    if (row < FLAIR_CHROME_TITLEBAR_H - 2) return CIDX_PLAT_FRAME_FACE;
+    return CIDX_PLAT_FRAME_SHADOW;
+}
+
 static void assert_chrome_geometry(render_ctx_t *ctx, rgn_rect_t f)
 {
     const int fr = FLAIR_CHROME_FRAME;
-    const int title_top = f.top + fr;
-    const int title_bot = title_top + FLAIR_CHROME_TITLEBAR_H;
+    const int title_bot = f.top + FLAIR_CHROME_TITLEBAR_H;
     const int mid_x = (f.left + f.right) / 2;
+    const int pin_x = f.left + 20;
     char msg[160];
 
-    /* Title bar: a two-shade pinstripe STRIPE, then the white body just below
-     * (proves height EXACTLY TITLEBAR_H). The System-7 racing-stripe PHASE (the
-     * patAlign mod-8 doubled-LIGHT pairs) is graded against the INDEPENDENT decomp
-     * golden by test-chrome-fidelity (beads initech-hmll), NOT by a strict period-2
-     * check -- the real phase-locked stripe is not strict period-2 (it has doubled
-     * rows), so that check accepted the free-running L,D,L,D bug. */
-    int saw_light = 0, saw_dark = 0, striped = 0, prev = -1;
-    for (int k = 0; k < FLAIR_CHROME_TITLEBAR_H; k++) {
-        int s = idx_at(ctx, mid_x, title_top + k);
-        if (s == FLAIR_CHROME_TITLE_SHADE_LIGHT) saw_light = 1;
-        if (s == FLAIR_CHROME_TITLE_SHADE_DARK)  saw_dark = 1;
-        if (k > 0 && s != prev) striped = 1;
-        prev = s;
+    /* Replace the old two-shade-only check with the strictly stronger complete
+     * row profile. Ref: DEC-10 Sec 4; window-chrome.md Sec 2.1-2.2. */
+    int profile_ok = 1;
+    for (int row = 0; row < FLAIR_CHROME_TITLEBAR_H; row++) {
+        profile_ok = profile_ok &&
+            idx_at(ctx, pin_x, f.top + row) == drag_title_row_index(row);
     }
     snprintf(msg, sizeof msg,
-             "(d) moved window: title bar shows both WDEF shades (light 7 + dark 8)");
-    CHECK(saw_light && saw_dark, msg);
-    snprintf(msg, sizeof msg, "(d) moved window: title-bar pinstripe is STRIPED");
-    CHECK(striped, msg);
+             "(d) moved window: title band matches exact 22-row Platinum profile");
+    CHECK(profile_ok, msg);
 
     int below = idx_at(ctx, mid_x, title_bot);
     snprintf(msg, sizeof msg,
@@ -321,12 +331,15 @@ static void assert_chrome_geometry(render_ctx_t *ctx, rgn_rect_t f)
     int content_top = title_bot;
     int content_bot = f.bottom - fr;
     int row = (content_top + content_bot) / 2;
-    int inner_right = f.right - fr;
     CHECK(idx_at(ctx, f.right - 1, row) != (int)FLAIR_DESKTOP_BG_INDEX,
           "(d) moved window: right frame column is painted");
     CHECK(idx_at(ctx, f.right, row) == (int)FLAIR_DESKTOP_BG_INDEX,
           "(d) moved window: pixel just right of the frame is bare seafoam (frame 1 px)");
-    int sb_left = inner_right - FLAIR_CHROME_SCROLLBAR_W;
+    /* The 16-pixel band ends at the inner line inside the four-pixel rail.
+     * Ref: DEC-10 Sec 4; sys8/scrollbars.md Sec 1 and
+     * sys8/window-chrome.md Sec 4. */
+    int sb_right_exclusive = f.right - fr - FLAIR_CHROME_BODY_BAR;
+    int sb_left = sb_right_exclusive - FLAIR_CHROME_SCROLLBAR_W;
     snprintf(msg, sizeof msg,
              "(d) moved window: scrollbar EXACTLY %d px -- divider (idx 0) at -%d",
              FLAIR_CHROME_SCROLLBAR_W, FLAIR_CHROME_SCROLLBAR_W);

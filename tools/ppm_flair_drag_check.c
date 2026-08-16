@@ -8,15 +8,14 @@
  * THE TWO DIFFERENTIALS (each independently catches the HER-14 drag-noop mutant,
  * the "static frame dressed as interactive" heresy; ADR-0006 M1 / BC-9):
  *
- *   LEG A -- CHROME AT THE NEW POSITION.  The window's System-7 title-bar chrome
+ *   LEG A -- CHROME AT THE NEW POSITION.  The window's Platinum title-bar chrome
  *     is now at the SHIFTED rect {T150 L340 B390 R600}.  We grade the chrome
  *     GEOMETRY at the shifted coords (a WDEF-scan at the new position; ADR-0006
- *     E-D5 Tier-B): the new struct TOP-frame row (y=150) is idx0 frame ink; the
- *     19px title band's 15-row pinstripe interior (y[152,167)) at a CLEAN column
- *     (x=560, right of the centered title text) is the period-2 phase-locked
- *     System-7 racing stripe -- every row is shade idx7 (#F3F3F3) or idx8
- *     (#969696), BOTH shades appear, and >=1 adjacent-equal (phase-lock) pair
- *     exists; and the content just below (y=170) is idx1 window white.  This
+ *     E-D5 Tier-B): the new struct TOP-frame row (y=150) is black; the 22-row
+ *     profile contains the 12-row stripe field y[154,166), strictly alternating
+ *     white / CIDX_PLAT_STRIPE_DARK, light first and dark last with no doubled
+ *     pair; and the content just below (y=172) is white. DEC-10 Sec 4 +
+ *     sys8/window-chrome.md Sec 2.1/2.2. This
  *     column was BARE TEAL before the drag (x=560 is the OLD window's right edge,
  *     just outside its half-open [300,560) struct), so a window that did NOT move
  *     leaves teal here and LEG A goes RED.
@@ -34,10 +33,10 @@
  * INDEPENDENT GOLDEN (Law 2; ADR-0006 E-D5/BC-5): the expected colors are the
  * canon flair_canon_rgb(idx) values (spec/assets/color_canon.h), the SAME
  * independently-decomp-graded canon test-color-canon vouches for -- never the
- * render source flair_palette_rgb, never preview.webp.  The pinstripe SHADES and
- * the title-bar GEOMETRY (19px band / 1px frame / 15 stripe rows) come from
- * spec/chrome_metrics.h, the System-7 decomp listing -- NOT from the artifact's
- * render.  The load-bearing assertions are GEOMETRIC differentials (chrome at the
+ * render source flair_palette_rgb, never preview.webp. The Platinum title-band
+ * values and geometry are hardcoded from sys8/window-chrome.md Sec 2.1/2.2,
+ * independently of chrome_metrics.h and the artifact render (Law 2). The
+ * load-bearing assertions are GEOMETRIC differentials (chrome at the
  * SHIFTED rect; teal at the VACATED rect) that flip under the drag-noop mutant.
  *
  * Usage: ppm_flair_drag_check <screendump.ppm>
@@ -57,27 +56,23 @@
  * canon entries differ by far more than 2/channel), mirroring ppm_flair_check. */
 #define TOL 2
 
-/* ---- canon palette indices (spec/assets; the values are flair_canon_rgb) ---- */
-#define CIDX_FRAME     0   /* black frame / ink                 */
-#define CIDX_WHITE     1   /* window/content white              */
-#define CIDX_TEAL      2   /* Initech teal #8DDCDC (desktop bg)  */
-#define CIDX_PIN_LIGHT 7   /* pinstripe light #F3F3F3           */
-#define CIDX_PIN_DARK  8   /* pinstripe dark  #969696           */
-
 /* ---- the post-drag geometry (test_shell.c W1 + the locked (+40,+30) delta). --
  * Old W1 struct: T120 L300 B360 R560.  New W1 struct: T150 L340 B390 R600.
- * Title band = 19px; frame = 1px; pinstripe interior = 15 rows (chrome_metrics). */
+ * DEC-10 Sec 4 + sys8/window-chrome.md Sec 2.1/2.2: title band = 22px,
+ * stripe field = T+4..T+15 (12 rows). Hardcoded to preserve independence. */
 #define NEW_T      150
 #define NEW_L      340
 #define NEW_R      600
-/* a CLEAN pinstripe column: right of the centered title text, left of the new
+#define TITLEBAR_H  22
+#define STRIPE_OFF   4
+#define STRIPE_ROWS 12
+/* a CLEAN stripe column: right of the centered title text, left of the new
  * right frame (x=599), and == the OLD window's right edge (560) so it was bare
  * teal pre-drag -- the LEG-A differential anchor. */
 #define PIN_X      560
-/* pinstripe interior band at the new position: top-frame(1) + bevel-hi(1) = +2,
- * then 15 stripe rows -> y[NEW_T+2, NEW_T+2+15) = [152,167). */
-#define STRIPE_TOP (NEW_T + 2)
-#define STRIPE_BOT (STRIPE_TOP + 15)
+/* Exact Platinum stripe interval, half-open. */
+#define STRIPE_TOP (NEW_T + STRIPE_OFF)
+#define STRIPE_BOT (STRIPE_TOP + STRIPE_ROWS)
 
 /* ---- PPM P6 reader (the ppm_flair_check invariant). ---------------------- */
 static unsigned char *g_buf;
@@ -121,14 +116,6 @@ static int is_rgb(int x, int y, unsigned int rgb)
            abs((int)p[2] - b) <= TOL;
 }
 
-/* classify pixel (x,y) as pinstripe shade 7 (light) or 8 (dark), else -1. */
-static int classify_pin(int x, int y)
-{
-    if (is_rgb(x, y, IDX(CIDX_PIN_LIGHT))) return 7;
-    if (is_rgb(x, y, IDX(CIDX_PIN_DARK)))  return 8;
-    return -1;
-}
-
 static int g_fail = 0;
 
 static void assert_idx(int x, int y, int idx, const char *what)
@@ -143,6 +130,42 @@ static void assert_idx(int x, int y, int idx, const char *what)
                 what, x, y, p[0], p[1], p[2], p[0], p[1], p[2], idx, e, TOL);
         g_fail = 1;
     }
+}
+
+/* Exact DEC-10 Sec 4 Platinum title cross-section. Row roles and values are
+ * independently hardcoded from sys8/window-chrome.md Sec 2.1/2.2. */
+static int assert_platinum_title_profile(int x)
+{
+    static const int expected[TITLEBAR_H] = {
+        CIDX_BLACK,
+        CIDX_WHITE,
+        CIDX_PLAT_FRAME_FACE, CIDX_PLAT_FRAME_FACE,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_WHITE, CIDX_PLAT_STRIPE_DARK,
+        CIDX_PLAT_FRAME_FACE, CIDX_PLAT_FRAME_FACE,
+        CIDX_PLAT_FRAME_FACE, CIDX_PLAT_FRAME_FACE,
+        CIDX_PLAT_FRAME_SHADOW,
+        CIDX_BLACK
+    };
+    int bad = 0;
+    for (int dy = 0; dy < TITLEBAR_H; dy++) {
+        if (!is_rgb(x, NEW_T + dy, IDX(expected[dy]))) {
+            const unsigned char *p = at(x, NEW_T + dy);
+            fprintf(stderr,
+                    "ppm_flair_drag_check: FAIL LEG A -- Platinum title row "
+                    "T+%d at (%d,%d) sampled #%02X%02X%02X, expected idx %d "
+                    "#%06X\n",
+                    dy, x, NEW_T + dy, p[0], p[1], p[2], expected[dy],
+                    IDX(expected[dy]));
+            bad = 1;
+        }
+    }
+    if (bad) g_fail = 1;
+    return bad;
 }
 
 int main(int argc, char **argv)
@@ -174,47 +197,20 @@ int main(int argc, char **argv)
            "(W1 (300,120)->(340,150), the locked +40,+30 trace)\n");
 
     /* ---- LEG A: CHROME AT THE NEW POSITION (the WDEF-scan at shifted coords) -- */
-    /* A1: the new struct top-frame row is idx0 frame ink. */
-    assert_idx(PIN_X, NEW_T, CIDX_FRAME,
-               "LEG A: new title-bar TOP frame (y=NEW_T) is idx0 frame ink");
-    /* A2: the 15-row pinstripe interior at a clean column is the System-7 racing
-     *     stripe: every row shade 7/8, both shades present, a phase-lock pair. */
-    {
-        int shade_ok = 1, saw_light = 0, saw_dark = 0, doubled = 0, prev = -2;
-        for (int y = STRIPE_TOP; y < STRIPE_BOT; y++) {
-            int s = classify_pin(PIN_X, y);
-            if (s < 0) {
-                shade_ok = 0;
-                const unsigned char *p = at(PIN_X, y);
-                fprintf(stderr, "    LEG A: (%d,%d) not a pinstripe shade: "
-                        "RGB(%d,%d,%d)\n", PIN_X, y, p[0], p[1], p[2]);
-            }
-            if (s == 7) saw_light = 1;
-            if (s == 8) saw_dark = 1;
-            if (y > STRIPE_TOP && s == prev && s >= 0) doubled = 1;
-            prev = s;
-        }
-        if (!(shade_ok && saw_light && saw_dark && doubled)) {
-            fprintf(stderr, "ppm_flair_drag_check: FAIL LEG A -- new-position "
-                    "pinstripe NOT present at x=%d, y[%d,%d) "
-                    "(shade_ok=%d light=%d dark=%d phaselock=%d): the window chrome "
-                    "did NOT move here (drag-noop?)\n",
-                    PIN_X, STRIPE_TOP, STRIPE_BOT, shade_ok, saw_light, saw_dark, doubled);
-            g_fail = 1;
-        } else {
-            printf("    LEG A: System-7 pinstripe chrome IS at the NEW position "
-                   "(x=%d, y[%d,%d); period-2 phase-locked, both shades)\n",
-                   PIN_X, STRIPE_TOP, STRIPE_BOT);
-        }
+    if (!assert_platinum_title_profile(PIN_X)) {
+        printf("    LEG A: Platinum chrome IS at the NEW position (x=%d): "
+               "22-row profile + y[%d,%d) light-first strict stripe relation\n",
+               PIN_X, STRIPE_TOP, STRIPE_BOT);
     }
-    /* A3: the content just below the new title band is idx1 window white. */
-    assert_idx(PIN_X, NEW_T + 20, CIDX_WHITE,
-               "LEG A: content below the new title band (y=NEW_T+20) is idx1 white");
+    /* T+22 is the first content row, so a 19-row band cannot pass by merely
+     * painting some alternating pixels. sys8/window-chrome.md Sec 2.1. */
+    assert_idx(PIN_X, NEW_T + TITLEBAR_H, CIDX_WHITE,
+               "LEG A: content below the 22-row Platinum title band is white");
 
     /* ---- LEG B: THE VACATED AREA READS BARE TEAL (the D-5 damage law) -------- */
-    assert_idx(450, 130, CIDX_TEAL,
+    assert_idx(450, 130, CIDX_DESKTOP,
                "LEG B: vacated old-title point (450,130) is bare idx2 teal");
-    assert_idx(520, 130, CIDX_TEAL,
+    assert_idx(520, 130, CIDX_DESKTOP,
                "LEG B: vacated old-title point (520,130) is bare idx2 teal");
     if (!g_fail) {
         printf("    LEG B: the vacated old-title area reads bare Initech teal "
@@ -222,7 +218,7 @@ int main(int argc, char **argv)
     }
 
     /* ---- LEG C: a bare-desktop corner sanity anchor ------------------------- */
-    assert_idx(20, 460, CIDX_TEAL,
+    assert_idx(20, 460, CIDX_DESKTOP,
                "LEG C: bare-desktop corner (20,460) is idx2 teal");
 
     free(g_buf);

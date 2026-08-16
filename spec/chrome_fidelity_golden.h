@@ -1,501 +1,261 @@
 /*
- * spec/chrome_fidelity_golden.h -- INDEPENDENT System-7 window-chrome golden.
+ * spec/chrome_fidelity_golden.h -- INDEPENDENT Mac OS 8.1 Platinum golden.
  *
- * beads: initech-hmll (FLAIR window-chrome FIDELITY oracle). Ref: CLAUDE.md Law 2
- *        ("the oracle is the truth"; "an oracle that computes its expected values
- *        from the SAME source the artifact renders from is NOT an oracle" -- the
- *        HER-02 by-construction heresy), Law 4 ("look like the frame"), Law 1
- *        (ground truth: every datum cites a local source), Rule 8 (locked
- *        spec-data), Rule 11 (deterministic), Rule 12 (ASCII).
+ * Route-2 re-key: ADR-0004-AMENDMENT-DEC-10 Sec 4 / OQ-7, beads
+ * initech-3knt.  Values are pixel-measured in ../system7-decomp and are never
+ * derived from chrome_metrics.h, which the renderer consumes (Law 2 / HER-02).
+ * Every Platinum color class is in the SAMPLED framebuffer domain established
+ * by sys8/platinum-palette.md Sec 1 and Sec 2.
  *
- * WHY THIS EXISTS / WHAT IT IS NOT.
- *   The existing chrome oracles grade FLAIR against itself: test-chrome asserts
- *   the rendered pixels match the #defines in spec/chrome_metrics.h -- the SAME
- *   header chrome.c renders FROM (a STRUCTURAL compare, not SSIM; ADR-0004 D-8) --
- *   and ppm_flair_check asserts a period-2 ALTERNATION whose probe geometry mirrors
- *   test_shell.c's own scene. Neither grades FLAIR's window APPEARANCE against the
- *   REAL System 7. So a window that looks nothing like System 7 but uses the right
- *   palette indices and metric numbers passes every gate.
- *
- *   This header is the missing INDEPENDENT golden: it encodes the System-7 chrome
- *   structure as PIXEL-MEASURED from real System 7 screendumps in the sister
- *   ground-truth repo ../system7-decomp (the goldens/captures PNG screendumps),
- *   distilled in ../system7-decomp/specs/chrome (the .md specs). NOT derived from
- *   chrome_metrics.h /
- *   chrome_metrics.json -- that is the whole point (Law 2). chrome.c renders from
- *   chrome_metrics.h; the fidelity oracle grades the render against THIS, a source
- *   distinct from the render.
- *
- * RECOLOR-INVARIANCE (mechanism vs policy; ADR-0004-AMENDMENT-DEC-09 C-8).
- *   FLAIR deliberately recolors the desktop and the System-7 lavender bevels to the
- *   Initech teal canon -- that COLOR POLICY is graded by test-color-canon and is
- *   OUT OF SCOPE here. This golden encodes only MECHANISM: geometry, pattern,
- *   phase, and shade-RELATIONS (light-vs-dark-vs-frame), every one of which survives
- *   any monochrome-preserving recolor. So the data below is keyed to System-7 shade
- *   INDICES (the wctb id=0 anchors) and structural row classes, never to teal/
- *   lavender RGBs.
- *
- * STATUS: this is the FIRST increment (the title-bar pinstripe PHASE element).
- *   Further elements (close/zoom box geometry, scrollbar arrow/separator structure,
- *   drop shadow, grow box, title text knockout) accrete here as their oracle legs
- *   land -- each cited to its ../system7-decomp/specs/chrome .md source.
+ * The former System-7 golden remains compiled below under FG_SYS7_* names
+ * (BC-10.10); no era datum is deleted or hidden behind a disabled block.
  */
 #ifndef INITECH_SPEC_CHROME_FIDELITY_GOLDEN_H
 #define INITECH_SPEC_CHROME_FIDELITY_GOLDEN_H
 
-/* ===========================================================================
- * TITLE-BAR PINSTRIPE PHASE (the "racing stripe").
+#include <stdint.h>
+
+/* -------------------------------------------------------------------------
+ * PLATINUM TITLE BAND.
+ * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1 and Sec 2.2.
+ * Legend: K=black frame, H=white highlight, F=frame face, L=white stripe,
+ * D=dark stripe, S=frame shadow.  The 12 stripe rows start L and end D;
+ * face rows are asymmetric (2 above, 4 below).
+ */
+#define FG_TITLE_BAND_ROWS       22
+#define FG_TITLE_BAND_PROFILE    "KHFFLDLDLDLDLDLDFFFFSK"
+#define FG_TITLE_STRIPE_TOP_OFF   4
+#define FG_TITLE_STRIPE_ROWS     12
+#define FG_TITLE_FACE_ABOVE       2
+#define FG_TITLE_FACE_BELOW       4
+#define FG_FRAME_IDX              0
+#define FG_WHITE_IDX              1
+#define FG_TITLE_INK_IDX          4
+#define FG_TITLE_FRAME_FACE_IDX 218
+#define FG_TITLE_STRIPE_LIGHT_IDX FG_WHITE_IDX
+#define FG_TITLE_STRIPE_DARK_IDX 150
+#define FG_TITLE_FRAME_SHADOW_IDX 179
+
+/* Active title text is centered black; the stripe knockout is frame-face.
+ * Ref: window-chrome.md Sec 2.3. */
+#define FG_TITLE_CENTERED          1
+#define FG_TITLE_KNOCKOUT_IDX    218
+
+/* -------------------------------------------------------------------------
+ * PLATINUM WIDGETS.
+ * Placement and 12+1 footprint: window-chrome.md Sec 3.1.
+ * Anatomy and diagonal ramp: Sec 3.2. Glyphs: Sec 3.3.
+ */
+#define FG_WIDGET_COUNT_ACTIVE        3
+#define FG_BOX_RENDER_SIZE           12
+#define FG_BOX_OUTER_HIGHLIGHT        1
+#define FG_BOX_FOOTPRINT             13
+#define FG_CLOSE_BOX_LEFT_OFF         4
+#define FG_ZOOM_BOX_RIGHT_OFF        32
+#define FG_COLLAPSE_BOX_RIGHT_OFF    16
+#define FG_BOX_TOP_OFF                4
+#define FG_BOX_EDGE_IDX             165
+#define FG_BOX_RING_IDX              63
+#define FG_BOX_OUTER_HIGHLIGHT_IDX    1
+#define FG_BOX_INTERIOR_SIZE          9
+#define FG_BOX_RAMP_FACE_SIZE         7
+#define FG_BOX_RAMP_RUNGS             7
+#define FG_BOX_RAMP_PX_PER_STEP       2
+
+/* Exact sampled rung values from window-chrome.md Sec 3.2.  The INDEX-class
+ * array uses FLAIR's existing white role (idx 1) for sampled rung 255, as
+ * required by the policy seam; it resolves to the same sampled white. */
+static const uint8_t FG_BOX_RAMP_SAMPLED[FG_BOX_RAMP_RUNGS] = {
+    179, 192, 205, 218, 231, 243, 255
+};
+static const uint8_t FG_BOX_RAMP_IDX[FG_BOX_RAMP_RUNGS] = {
+    179, 192, 205, 218, 231, 243, FG_WHITE_IDX
+};
+
+/* Close has no glyph. Zoom is a six-pixel right+bottom edge. Collapse has two
+ * full-interior rows and occupies the rightmost slot.
+ * Ref: window-chrome.md Sec 3.3. */
+#define FG_CLOSE_HAS_GLYPH            0
+#define FG_ZOOM_GLYPH_EDGE            6
+#define FG_COLLAPSE_GLYPH_ROW_0       3
+#define FG_COLLAPSE_GLYPH_ROW_1       5
+#define FG_COLLAPSE_RIGHTMOST         1
+
+/* -------------------------------------------------------------------------
+ * PLATINUM BODY FRAME + CONTENT INSET.
+ * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 4.
+ */
+#define FG_BODY_BAR_ROWS              4
+static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
+    FG_WHITE_IDX, 218, 218, 179
+};
+#define FG_BODY_INNER_LINE_IDX        0
+#define FG_BODY_HAS_RAISED_BAR        1
+#define FG_CONTENT_INSET              1
+#define FG_CONTENT_INSET_HI_IDX       1
+#define FG_CONTENT_INSET_SHADOW_IDX 192
+
+/* -------------------------------------------------------------------------
+ * PLATINUM DROP SHADOW.
+ * Active black, inactive frame-gray, (+1,+1), two-pixel near-corner notch.
+ * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 1.
+ */
+#define FG_SHADOW_INK_IDX             0
+#define FG_SHADOW_OFFSET              1
+#define FG_SHADOW_NOTCH               2
+#define FG_INACTIVE_SHADOW_IDX      119
+
+/* -------------------------------------------------------------------------
+ * PLATINUM SCROLLBARS.
+ * Geometry: scrollbars.md Sec 1. ENABLED: Sec 2. DISABLED: Sec 3.
+ * HOLLOW: Sec 4. State summary: Sec 5.
  *
- * Source: ../system7-decomp/specs/chrome/pinstripe.md (pixel-measured from
- *         ../system7-decomp/goldens/captures/s7_doc_window.png, active doc window,
- *         column x=450, rows y=164..182) + refs/StandardWDEF_a.txt
- *         (HilitePattern dc.w $FF00 x4 @2206; patAlign origin-mod-8 phase lock
- *         @891-894; wTitleBarLight=7 / wTitleBarDark=8 @77-78).
- *
- * THE MECHANISM. The active title interior is _FillRect'd with the 1-bpp pattern
- * HilitePattern = $FF00,$FF00,$FF00,$FF00 -- 8 rows of {all-ones, all-zeros}, i.e.
- * a PERIOD-2 HORIZONTAL stripe. Crucially the WDEF sets patAlign to the window's
- * STRUCTURE ORIGIN mod 8 BEFORE filling, phase-locking the stripe to the window so
- * it does not crawl as the window moves. That phase lock lands a LIGHT row at BOTH
- * interior boundaries, producing DOUBLED-LIGHT row pairs at the top and bottom of
- * the stripe band -- the measured pattern, top-to-bottom over the 15-row interior:
- *
- *     L L D L D L D L D L D L D L L      (9 light, 6 dark)
- *
- * (pinstripe.md Geometry table + the y=165..181 scan: y=166/167 both #F3F3F3,
- *  alternating to y=179/180 both #F3F3F3; bevel rows #DADAFF @165 / #B3B3DA @181
- *  bound the interior and are NOT stripes.)
- *
- * THE TELL THIS CATCHES. A naive renderer free-runs the period-2 fill from the
- * title-bar TOP -- L,D,L,D,... -- which is ALSO "period-2 alternation" and so PASSES
- * the existing test-chrome period_ok + ppm_flair_check leg (c). But it has NO two
- * adjacent equal rows, so it lacks the phase-locked doubled-LIGHT pairs. That is the
- * measurable, recolor-invariant phase bug this golden pins.
+ * Scene choice: flair_draw_document_window has no content-range input and the
+ * active skeleton window requests no thumb, matching the DISABLED Finder
+ * capture s8_doc_window_active (Sec 3). The hilited=0 skeleton window matches
+ * HOLLOW s8_doc_window_inactive (Sec 4). ENABLED constants remain locked for
+ * the later stateful control leg but are not guessed into this scene.
+ */
+#define FG_SB_BAND                    16
+#define FG_SB_INTERIOR                14
+#define FG_SB_ARROW_TILE              16
+#define FG_SB_SEPARATOR_ROWS           1
+#define FG_SB_THUMB_MIN               15
+
+#define FG_SB_DISABLED_TROUGH_IDX    243
+#define FG_SB_DISABLED_ARROW_IDX     165
+#define FG_SB_DISABLED_SEPARATOR_IDX 119
+#define FG_SB_DISABLED_NO_THUMB        1
+
+#define FG_SB_ENABLED_FRAME_IDX        0
+#define FG_SB_ENABLED_TILE_FACE_IDX  231
+#define FG_SB_ENABLED_TILE_HI_IDX      1
+#define FG_SB_ENABLED_TILE_SHADOW_IDX 205
+#define FG_SB_ENABLED_GLYPH_IDX        0
+#define FG_SB_ENABLED_WELL_IDX       192
+#define FG_SB_ENABLED_WELL_SHADOW0_IDX 150
+#define FG_SB_ENABLED_WELL_SHADOW1_IDX 165
+#define FG_SB_ENABLED_THUMB_LIGHT_IDX  2
+#define FG_SB_ENABLED_THUMB_SHADOW_IDX 4
+
+#define FG_SB_HOLLOW_TROUGH_IDX      243
+#define FG_SB_HOLLOW_FRAME_IDX       119
+#define FG_SB_HOLLOW_NOTHING_ELSE      1
+
+/* -------------------------------------------------------------------------
+ * PLATINUM INACTIVE DELTA.
+ * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 6 and
+ * scrollbars.md Sec 4.  Explicit era change: System-7 inactive title fill was
+ * white; Platinum is sampled face index 231.
+ */
+#define FG_INACTIVE_TITLE_FILL_IDX   231
+#define FG_INACTIVE_FRAME_IDX        119
+#define FG_INACTIVE_TEXT_IDX         135
+#define FG_INACTIVE_NO_STRIPES         1
+#define FG_INACTIVE_NO_BEVEL           1
+#define FG_INACTIVE_NO_GADGETS         1
+#define FG_INACTIVE_GROW_FILL_IDX     231
+
+/* -------------------------------------------------------------------------
+ * PLATINUM GROW BOX.
+ * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 5.
+ */
+#define FG_GROW_CELL                  18
+#define FG_GROW_FILL_IDX             218
+#define FG_GROW_HIGHLIGHT_IDX          1
+#define FG_GROW_GRIP_LINES             3
+#define FG_GROW_GRIP_PITCH             4
+#define FG_GROW_GRIP_LEAD_IDX           1
+#define FG_GROW_GRIP_TRAIL_IDX        150
+#define FG_GROW_GRIP_TERMINATOR_IDX   192
+#define FG_GROW_ACTIVE_ONLY             1
+
+/* Exact sampled x=461..478, y=296..310 cell profile. W=white lead/highlight,
+ * d=frame-face fill, g=dark trail, c=well-color terminator.
+ * Ref: window-chrome.md Sec 5, machine transcription below the metric table. */
+#define FG_GROW_PROFILE_ROWS           15
+#define FG_GROW_PROFILE_COLS           18
+#define FG_GROW_PROFILE \
+    "WWWWWWWWWWWWWWWWdd" \
+    "Wddddddddddddddddd" \
+    "Wddddddddddddddddd" \
+    "WdddddddWWdddddddd" \
+    "WddddddWdgdddddddd" \
+    "WdddddWdgdWWdddddd" \
+    "WddddWdgdWdgdddddd" \
+    "WdddWdgdWdgdWWdddd" \
+    "WddWdgdWdgdWdgdddd" \
+    "WddcgdWdgdWdgddddd" \
+    "WddddWdgdWdgdddddd" \
+    "WddddcgdWdgddddddd" \
+    "WddddddWdgdddddddd" \
+    "Wddddddcgddddddddd" \
+    "Wddddddddddddddddd"
+
+/* =========================================================================
+ * RETAINED SYSTEM-7 GOLDEN (BC-10.10).
  * ========================================================================= */
+/* Stripe classes, exact 15-row phase signature, and counts.
+ * Original citation: ../system7-decomp/specs/chrome/pinstripe.md Geometry,
+ * s7_doc_window.png x=450 y=166..180, plus StandardWDEF_a.txt @77-78 and
+ * patAlign @891-894. */
+#define FG_SYS7_STRIPE_LIGHT_IDX             7
+#define FG_SYS7_STRIPE_DARK_IDX              8
+#define FG_SYS7_TITLE_INTERIOR_PATTERN       "LLDLDLDLDLDLDLL"
+#define FG_SYS7_TITLE_INTERIOR_ROWS          15
+#define FG_SYS7_TITLE_INTERIOR_LIGHT_N        9
+#define FG_SYS7_TITLE_INTERIOR_DARK_N         6
+#define FG_SYS7_PHASE_DOUBLED_LIGHT_AT_EDGES  1
 
-/* System-7 wctb id=0 shade-index anchors for the stripe (decomp-sourced; NOT from
- * chrome_metrics.h). Used to CLASSIFY a rendered row as light/dark; the EXPECTED
- * pattern (below) is the independent golden. Ref: pinstripe.md FLAIR mapping +
- * StandardWDEF_a.txt @77-78; re/mint-results-006.md (wctb id=0). */
-#define FG_STRIPE_LIGHT_IDX   7   /* wTitleBarLight -> rendered #F3F3F3 (idx 7) */
-#define FG_STRIPE_DARK_IDX    8   /* wTitleBarDark  -> rendered #969696 (idx 8) */
+/* Title bevel and shared line.
+ * Original citation: ../system7-decomp/specs/chrome/window-frame.md Sec 2a
+ * and Sec 2b, and pinstripe.md Geometry. */
+#define FG_SYS7_TITLE_BEVEL_HI_IDX            2
+#define FG_SYS7_TITLE_BEVEL_LO_IDX            4
+#define FG_SYS7_TITLE_SHARED_FRAME_IDX        0
 
-/* The measured 15-row title-INTERIOR stripe pattern, top-to-bottom. 'L'=light row
- * (idx 7), 'D'=dark row (idx 8). The doubled-light pairs at index [0,1] and
- * [13,14] are the patAlign mod-8 phase-lock signature. */
-#define FG_TITLE_INTERIOR_PATTERN  "LLDLDLDLDLDLDLL"
-#define FG_TITLE_INTERIOR_ROWS     15   /* strlen(FG_TITLE_INTERIOR_PATTERN)   */
-#define FG_TITLE_INTERIOR_LIGHT_N   9   /* count('L')                          */
-#define FG_TITLE_INTERIOR_DARK_N    6   /* count('D')                          */
+/* Shadow and single-line body.
+ * Original citation: ../system7-decomp/specs/chrome/window-frame.md Sec 1,
+ * Sec 2a, and Sec 4; StandardWDEF_a.txt L515 and L578-594. */
+#define FG_SYS7_SHADOW_INK_IDX                0
+#define FG_SYS7_SHADOW_OFFSET                 1
+#define FG_SYS7_BODY_NO_GROOVE                1
+#define FG_SYS7_BODY_INNER_IDX                1
 
-/* The phase-lock SIGNATURE the oracle asserts (recolor-invariant, and absent from
- * any free-running alternation):
- *   - the stripe run BEGINS with a doubled-LIGHT pair (interior rows 0,1 = L,L),
- *   - the stripe run ENDS   with a doubled-LIGHT pair (interior rows 13,14 = L,L),
- *   - therefore >=1 pair of adjacent equal rows exists (a free-running L,D,L,D...
- *     has zero). */
-#define FG_PHASE_DOUBLED_LIGHT_AT_EDGES  1
+/* Active title text and knockout.
+ * Original citation: ../system7-decomp/specs/chrome/title-bar.md Sec 3 and
+ * pinstripe.md, s7_doc_window.png title-gap scan. */
+#define FG_SYS7_TITLE_INK_IDX                 4
+#define FG_SYS7_TITLE_KNOCKOUT_IDX            7
 
-/* ===========================================================================
- * TITLE-BAR BEVEL ROWS + EXACTLY-15-ROW INTERIOR (beads initech-92li).
- *
- * Source: ../system7-decomp/specs/chrome/window-frame.md Sec 2a (the x=400
- *   vertical scan, top frame at y=164) + Sec 2b (the bevel "groove") +
- *   pinstripe.md Geometry ("title interior height 15 px y=166..180; bevel rows 1
- *   px top + 1 px bottom") + refs/StandardWDEF_a.txt L709-744 (the wLTinge0 top/
- *   left highlight _Line and wLTinge4 bottom/right shadow _Line, drawn 1px inside
- *   the title FrameRect after _InsetRect OneOne, only when wHilited).
- *
- * THE MECHANISM (window-frame.md Sec 2a, x=400 vertical scan):
- *     y=164  #000000  top window frame (black)
- *     y=165  #DADAFF  bevel-hi highlight (wLTinge0)      -- NOT a stripe
- *     y=166..180       15 pinstripe rows (FG_TITLE_INTERIOR_PATTERN)
- *     y=181  #B3B3DA  bevel-lo shadow (wLTinge4)         -- NOT a stripe
- *     y=182  #000000  the SHARED frame line (bottom of the title FrameRect AND
- *                     top of the content-body FrameRect)
- *   So the pinstripe run is bounded ABOVE by the bevel-hi row and BELOW by the
- *   bevel-lo row, and the contiguous LIGHT/DARK run is EXACTLY 15.
- *
- * THE TELL THIS CATCHES. FLAIR previously drew 19 ALL-stripe rows with NO bevel
- * rows (the contiguous L/D run was the full band, > 15, with no distinct bevel
- * row-class bounding it).  The measurable, recolor-invariant tells: (a) the
- * contiguous stripe run is EXACTLY 15 rows, (b) the row immediately ABOVE it is
- * the bevel-hi role (idx 2), and (c) the row immediately BELOW it is the bevel-lo
- * role (idx 4) -- a DISTINCT 3rd/4th row-class, neither L (idx 7) nor D (idx 8).
- *
- * RECOLOR-INVARIANCE: graded by INDEX class only.  bevel-hi #DADAFF (wLTinge0) ->
- *   FLAIR_PART_BEVEL_LIGHT canon TEAL -> 8bpp idx 2 (the SAME WL-0053 lavender->
- *   teal recolor the close/zoom box bevel uses, beads initech-ts3t); bevel-lo
- *   #B3B3DA (wLTinge4) -> FLAIR_PART_BEVEL_SHADOW canon teal-dark -> 8bpp idx 4.
- *   The exact #DADAFF/#B3B3DA -> teal canon values are test-color-canon's job,
- *   OUT OF SCOPE here.  These are the same idx 2 / idx 4 classes FG_BOX_BEVEL_IDX
- *   / FG_BOX_DARK_IDX already pin for the box gadget.
- * ========================================================================= */
+/* Close/zoom geometry and anatomy.
+ * Original citation: ../system7-decomp/specs/chrome/close-zoom-box.md Geometry
+ * and Rendered colors; StandardWDEF_a.txt @1675-1707. */
+#define FG_SYS7_BOX_RENDER_SIZE              11
+#define FG_SYS7_CLOSE_BOX_LEFT_OFF            9
+#define FG_SYS7_ZOOM_BOX_RIGHT_OFF           20
+#define FG_SYS7_BOX_MIN_TONAL_ROLES           3
+#define FG_SYS7_BOX_DARK_IDX                  4
+#define FG_SYS7_BOX_BEVEL_IDX                 2
+#define FG_SYS7_BOX_FACE_IDX                  6
+#define FG_SYS7_ZOOM_HAS_NESTED_GLYPH         1
 
-/* The bevel HIGHLIGHT row (wLTinge0 #DADAFF) classifies as FLAIR_PART_BEVEL_LIGHT
- * -> 8bpp idx 2.  Ref: window-frame.md Sec 2b golden y=165 #DADAFF; the WL-0053
- * lavender->teal canon (== FG_BOX_BEVEL_IDX). */
-#define FG_TITLE_BEVEL_HI_IDX   2   /* bevel-hi -> BEVEL_LIGHT canon teal, 8bpp idx 2 */
+/* Inactive/no-thumb scrollbar classes and arrow minimum.
+ * Original citation: ../system7-decomp/specs/chrome/scrollbar.md Geometry,
+ * Rendered colors, and arrow-glyph shape; StandardWDEF_a.txt @73/@1310-1338. */
+#define FG_SYS7_SB_OUTER_EDGE_IDX             0
+#define FG_SYS7_SB_SEPARATOR_IDX              8
+#define FG_SYS7_SB_FACE_IDX                   7
+#define FG_SYS7_SB_GLYPH_IDX                  8
+#define FG_SYS7_SB_GLYPH_MIN_PX               8
+#define FG_SYS7_SB_INACTIVE_NO_THUMB           1
 
-/* The bevel SHADOW row (wLTinge4 #B3B3DA) classifies as FLAIR_PART_BEVEL_SHADOW
- * -> 8bpp idx 4.  Ref: window-frame.md Sec 2b golden y=181 #B3B3DA; the canon
- * teal-dark recolor (== FG_BOX_DARK_IDX). */
-#define FG_TITLE_BEVEL_LO_IDX   4   /* bevel-lo -> BEVEL_SHADOW canon teal-dark, idx 4 */
-
-/* The SHARED frame line below the bevel-lo (golden y=182 #000000) classifies as
- * FLAIR_PART_FRAME -> 8bpp idx 0 (== FG_SHADOW_INK_IDX).  Ref: window-frame.md
- * Sec 2a "the shared line: bottom of the title-bar FrameRect AND top of the
- * content-body FrameRect". */
-#define FG_TITLE_SHARED_FRAME_IDX  0   /* shared frame line -> CIDX_BLACK (idx 0) */
-
-/* ===========================================================================
- * WINDOW DROP SHADOW + BODY SINGLE-LINE FRAME.
- *
- * Source: ../system7-decomp/specs/chrome/window-frame.md Sec 1 (native-px
- *   geometry), Sec 2a (horizontal scan y=300 proves single-line body frame),
- *   Sec 4 (shadow clipped in s7_doc_window.png; golden-resolves: s7_get_info.png
- *   for the on-screen right edge) + refs/StandardWDEF_a.txt L515 (drop-shadow
- *   factor D4 = OneOne = (1,1) for documentProc varCode 0) + L578-594 (the
- *   L-shape paint: MoveTo(right,top+shadow); LineTo(right,bottom);
- *   LineTo(left+shadow,bottom) in wFrameColor = black).
- *
- * THE MECHANISM (WDEF; StandardWDEF_a.txt).
- *   L515: `move.l OneOne,D4` -- the shadow factor for documentProc (varCode 0)
- *   is (1,1): offset 1 px right, 1 px down.  L578-594: the shadow L is painted
- *   with _PenSize = D4 (1x1) and wFrameColor (black, idx 0):
- *     down the RIGHT column just OUTSIDE the window frame (x = right+0, i.e.
- *     right through right+shadow-1 = right+0 -- one column, at x = right, from
- *     y = top+shadow = top+1 to y = bottom inclusive), and
- *     across the BOTTOM row just OUTSIDE the window frame (y = bottom, from
- *     x = left+shadow = left+1 to x = right+shadow-1 = right+0).
- *   In half-open [left,right) x [top,bottom) coordinate space (the window
- *   occupies [left,right) x [top,bottom)):
- *     shadow column: x = right,   y in [top+1, bottom+1)   (down right edge)
- *     shadow row:    y = bottom,   x in [left+1, right+1)   (across bottom)
- *   The top-right corner (right, top) and bottom-left corner (left, bottom) are
- *   NOT shadowed (the L misses them by the +1 offset).
- *
- * BODY EDGE IS SINGLE-LINE (window-frame.md Sec 2a).
- *   Horizontal scan at y=300 (a content row, below the title bar):
- *     x=352 = black (#000000) -- the 1px outer frame line.
- *     x=353 = white (#FFFFFF) -- CONTENT begins IMMEDIATELY; NO second ink line.
- *   This matches the WDEF: the body is ONE _FrameRect; the lavender bevel _Lines
- *   (wLTinge0/wLTinge4) are drawn only on the TITLE-BAR interior.  Any inner
- *   groove running down the body left/right/bottom edges is a FIDELITY BUG.
- *
- * RECOLOR-INVARIANCE: shade RELATIONS only -- shadow ink = FRAME (black, idx 0);
- *   body inner pixel = CONTENT (white, idx 1).  No RGB literals.
- * ========================================================================= */
-
-/* Shadow ink index (wFrameColor = black = CIDX_BLACK).
- * Ref: window-frame.md Sec 1 / Sec 3 (wFrameColor -- frame/content fore); NOT
- * from chrome_metrics.h. */
-#define FG_SHADOW_INK_IDX    0   /* wFrameColor -> CIDX_BLACK (idx 0) */
-
-/* Shadow offset: (1,1) -- 1 px to the right, 1 px down.
- * Ref: refs/StandardWDEF_a.txt L515 `move.l OneOne,D4` for varCode 0 documentProc. */
-#define FG_SHADOW_OFFSET     1   /* 1 px at (1,1): documentProc only (varCode 0) */
-
-/* Body-no-groove fact: on a content row (below the title bar), the pixel one
- * column INSIDE the outer left frame is CONTENT (white, idx 1) -- NOT a second
- * inked groove line.  Ref: window-frame.md Sec 2a horizontal scan y=300. */
-#define FG_BODY_NO_GROOVE    1   /* 1 = inner pixel is CONTENT, not a groove */
-
-/* Content body pixel index (the one column inside the outer frame on a content
- * row must be this).  Ref: window-frame.md Sec 2a x=353 = white = CIDX_WHITE. */
-#define FG_BODY_INNER_IDX    1   /* CIDX_WHITE (idx 1) */
-
-/* ===========================================================================
- * TITLE TEXT + KNOCKOUT (the centered window name).
- *
- * Source: ../system7-decomp/specs/chrome/title-bar.md Sec 3 + pinstripe.md.
- *   The window title is drawn CENTERED in the bar in Chicago, black (wTextColor
- *   #000000), with the racing stripe SUPPRESSED under it -- a centered LIGHT
- *   (#F3F3F3) knockout gap with black glyphs (golden s7_doc_window.png: the
- *   "System7_5_3" glyph run on a #F3F3F3 gap; pinstripe.md y=168 horizontal scan:
- *   the dark row is broken by the centered title gap #F3F3F3 at x=519..618). The
- *   centering indent clamps right of the go-away box (title-bar.md x=left+32).
- *
- * Two recolor-invariant structural facts (graded by INDEX class, not RGB):
- *   (a) FIGURE ink (wTextColor; FLAIR CIDX_TITLE_INK = idx 4) appears in the
- *       centered title region -- the glyphs are drawn (not a blank bar).
- *   (b) under the centered title the DARK stripe (idx 8) is SUPPRESSED to the
- *       light knockout panel -- ZERO dark pixels in the centered title cell rows.
- * ========================================================================= */
-#define FG_TITLE_INK_IDX        4   /* wTextColor -> CIDX_TITLE_INK (idx 4, black) */
-#define FG_TITLE_KNOCKOUT_IDX   7   /* the suppressed-stripe gap -> light (idx 7)  */
-
-/* ===========================================================================
- * CLOSE / ZOOM BOX (the title-bar goAway + zoom gadgets).
- *
- * Source: ../system7-decomp/specs/chrome/close-zoom-box.md (pixel-measured from
- *   ../system7-decomp/goldens/captures/s7_doc_window.png close box x=361..371,
- *   y=168..178; s7_scrollbar_active.png zoom box x=393..403, y=31..41) +
- *   refs/StandardWDEF_a.txt (PlotGoAway left+=9 @1675-1678; PlotZoom
- *   left:=right-20 @1682-1693; dest top = struct.top + wBoxDelta + 1 @1705-1707;
- *   box-height derivation (titleHgt-13)/2 @344-346; PlotZoom nested-square glyph
- *   @1695).
- *
- * THE MECHANISM. The active title bar carries two small 3-D beveled square
- * gadgets: the CLOSE (goAway) box on the LEFT, the ZOOM box on the RIGHT.  Each
- * RENDERS 11x11 (the WDEF derives a 13 px box but the CopyBits dest is inset and
- * the lavender bevel sits inside the dark frame -- LAW 2, the golden wins).  The
- * close box left edge is struct.left + 9; the zoom box left edge is
- * struct.right - 20.  The box top is struct.top + wBoxDelta + 1 where
- * wBoxDelta = (titleHgt-13)/2 (= 3 for the 19 px bar), i.e. box top = frame_top + 4.
- *
- * Each gadget is a DOUBLE-BEVELED square (close-zoom-box.md ASCII diagram):
- *   dark OUTER top/left frame, an inner lavender bevel HIGHLIGHT just inside
- *   top/left, an inner-right + inner-bottom DARK ring, a lavender bottom/right,
- *   and a 7x7 GRAY recessed face.  At least THREE distinct tonal roles
- *   (dark outline / light bevel / gray face) in that arrangement.  The ZOOM box
- *   additionally carries the inner nested-square "little dude" glyph (dark figure
- *   inside the face); the CLOSE box interior is plain gray (no glyph).
- *
- * THE TELL THIS CATCHES. FLAIR previously drew both boxes as a FLAT 1px frame,
- * 13x13, inset fr+3 (=4) from each corner -- wrong size, wrong offsets, NO bevel
- * (one tonal role, not three), and the zoom box identical to the close box (no
- * glyph).  The measurable, recolor-invariant tells are: size (11 not 13), the +9
- * / -20 offsets, the >=3 tonal roles per box, and the zoom box's extra interior
- * dark structure vs the close box.
- *
- * RECOLOR-INVARIANCE: graded by INDEX class + relations only.  The dark outline
- * is the dark bevel-SHADOW role (FLAIR_PART_BEVEL_SHADOW -> 8bpp idx 4); the bevel
- * highlight is the canon TEAL bevel-LIGHT role (FLAIR_PART_BEVEL_LIGHT -> 8bpp
- * idx 2 = CIDX_DESKTOP -- the WL-0053 lavender->teal recolor of the wLTinge0
- * #DADAFF bevel); the face is the GRAY control role (idx 6, #C0C0C0).  No RGB
- * literals; the exact #545487/#DADAFF/#C0C0C0 -> teal canon values are
- * test-color-canon's job, OUT OF SCOPE here.
- * ========================================================================= */
-
-/* The rendered gadget size: 11x11 (whole gadget incl bevel).  NOT the WDEF 13 px
- * derivation.  Ref: close-zoom-box.md Geometry (golden 11x11). */
-#define FG_BOX_RENDER_SIZE   11
-
-/* Horizontal offsets from the window struct frame.  Close box LEFT edge =
- * struct.left + 9 (PlotGoAway 'moveq #9,D1' WDEF @1675-1678); zoom box LEFT edge =
- * struct.right - 20 (PlotZoom 'left:=right; moveq #-20,D1' WDEF @1682-1693).
- * Ref: close-zoom-box.md FLAIR mapping (close X = struct.left+9; zoom X = struct.right-20). */
-#define FG_CLOSE_BOX_LEFT_OFF    9    /* struct.left + 9  -> close box left edge */
-#define FG_ZOOM_BOX_RIGHT_OFF   20    /* struct.right - 20 -> zoom box left edge */
-
-/* The double-bevel exhibits >=3 distinct tonal roles per box (dark outline vs
- * light bevel vs gray face).  A flat 1px frame has ONE.  Ref: close-zoom-box.md
- * ASCII bevel diagram (D dark / ^ lavender / g gray). */
-#define FG_BOX_MIN_TONAL_ROLES   3
-
-/* Recolor-invariant tonal-role index classes for the box gadget (System-7 shade
- * roles, mapped to the FLAIR canon INDEX the recolor-invariant role resolves to in
- * 8bpp; NOT teal/lavender RGBs).  Ref: close-zoom-box.md Rendered colors table +
- * the WL-0053 lavender->teal canon (color_canon.h):
- *   dark outline #545487 -> BEVEL_SHADOW canon teal-dark #4E9BA3 -> 8bpp idx 4;
- *   bevel highlight #DADAFF -> BEVEL_LIGHT canon teal #8DDCDC -> 8bpp idx 2;
- *   gray face #C0C0C0 -> the GRAY control role -> idx 6. */
-#define FG_BOX_DARK_IDX     4    /* dark outline -> BEVEL_SHADOW teal-dark, 8bpp idx 4 */
-#define FG_BOX_BEVEL_IDX    2    /* bevel highlight -> BEVEL_LIGHT canon teal, 8bpp idx 2 */
-#define FG_BOX_FACE_IDX     6    /* 7x7 recessed gray face (#C0C0C0 control role)  */
-
-/* The ZOOM box carries an inner nested-square glyph (extra interior dark figure)
- * that the CLOSE box lacks: the zoom box has STRICTLY MORE interior dark pixels in
- * the face region than the close box.  Ref: close-zoom-box.md (PlotZoom nested-
- * square glyph @1695; "the zoom box would carry the nested-square 'little dude'
- * glyph ... the close box interior carries no glyph"). */
-#define FG_ZOOM_HAS_NESTED_GLYPH   1
-
-/* ===========================================================================
- * VERTICAL SCROLLBAR (inactive, no thumb).
- *
- * Source: ../system7-decomp/specs/chrome/scrollbar.md (pixel-measured from
- *   ../system7-decomp/goldens/captures/s7_about.png, right gutter of the
- *   "About This Macintosh" window, x=494..509, y=159..217) +
- *   refs/StandardWDEF_a.txt (scrollBarSize EQU 16 @73; WDEF gutter-divider
- *   lines @1330-1338 + @1310-1318).
- *
- * GEOMETRY (scrollbar.md Geometry table).
- *   Total band width: 16 px (scrollBarSize; x=494..509 in the golden).
- *   Structure left-to-right: 1 px black gutter-DIVIDER (WDEF draws this
- *   vertical line, @1332), 14 px interior (drawable track + arrows), 1 px
- *   black window-FRAME line (shared with window-frame.md).
- *   Up-arrow box: 16 px square (top edge BLACK, box face y=160..173, lower
- *   separator GRAY #969696 at y=174).
- *   Down-arrow box: symmetric at the bottom (upper separator GRAY #969696 at
- *   y=202, box face y=203..216, bottom edge BLACK at y=217).
- *   Page track: the stretch between the two separator lines (y=175..201 in
- *   the golden; varies with window height).
- *
- * RENDERED COLORS (scrollbar.md "Rendered colors" table + Law-2 note).
- *   All fills are SOLID (NO dither, NO #969696 sub-pixels in the track --
- *   verified x=495..508, y=176..200 uniformly #F3F3F3 in the golden).
- *
- *   element                   | hex     | idx (8bpp) | FLAIR_PART
- *   --------------------------+---------+------------+---------------------
- *   outer box edges + divider | #000000 | 0          | FLAIR_PART_FRAME
- *   inner box/track separators| #969696 | 8          | FLAIR_PART_PIN_DARK
- *   arrow-box face + page track| #F3F3F3| 7          | FLAIR_PART_PIN_LIGHT
- *   arrow-glyph outline       | #969696 | 8          | FLAIR_PART_PIN_DARK
- *
- * NOTE: the #F3F3F3/#969696 pair is "the same light/dark RGBs seen in the
- * title-bar pinstripe" (scrollbar.md Rendered colors).  They are the
- * PINSTRIPE shades (idx 7/8), NOT the lavender bevel roles (idx 2/4).
- *
- * ARROW GLYPH (scrollbar.md arrow-glyph shape section, inactive rendering).
- *   Each arrow box (14 px wide interior) carries a hollow-outlined triangle-
- *   on-stem glyph in #969696 (FLAIR_PART_PIN_DARK, idx 8) on a #F3F3F3
- *   face.  The up-arrow apex is ~3 px from the box top; the down-arrow is
- *   the vertical mirror.  The inactive bar dimmed arrows are gray outlines
- *   (NOT solid black -- that is the ACTIVE/enabled state, golden-resolves).
- *   Minimum PIN_DARK pixels per arrow box (interior, excluding outer edge):
- *   the glyph outline spans roughly 10 rows x ~4 columns = ~14 pixels;
- *   we assert >= 8 to be tolerant of exact anchor pixel shifts.
- *
- * INACTIVE BAR: no thumb (the "About This Macintosh" window does not
- * overflow its content; the active-bar thumb + dithered track are a
- * separate golden (s7_scrollbar_active.png) and are deferred to the Control
- * Manager CDEF implementation (not the WDEF chrome; golden-resolves for the
- * active state).
- *
- * SEPARATOR TOPOLOGY (the key fidelity bug).
- *   The two rows between the arrow boxes and the track (y=174 and y=202 in
- *   the golden) are SOLID #969696 (PIN_DARK, idx 8) -- NOT black (FRAME,
- *   idx 0).  The outer top (y=159) and bottom (y=217) box-edge rows ARE
- *   solid black (FRAME, idx 0).  FLAIR previously drew all four edges of
- *   each arrow box with cframe(..., FLAIR_PART_FRAME) -- making both the
- *   outer edges AND the inner separator the same black, which is WRONG.
- *
- * RECOLOR-INVARIANCE.
- *   All graded by INDEX CLASS (idx 0/7/8), not by RGB.  The gray/near-white
- *   pair is invariant under the Initech teal recolor (which only touches the
- *   lavender bevel roles, not the pinstripe roles; test-color-canon's job).
- * ========================================================================= */
-
-/* Outer edge ink (top + bottom outer rows of each arrow box = window-frame
- * black = CIDX_BLACK).  Ref: scrollbar.md Geometry + Rendered colors
- * (x=494,x=509 col y=159..217; rows y=159 & y=217 = #000000). */
-#define FG_SB_OUTER_EDGE_IDX    0   /* FLAIR_PART_FRAME -> CIDX_BLACK (idx 0) */
-
-/* Inner separator ink (the two rows between an arrow box and the page track).
- * Ref: scrollbar.md Rendered colors (rows y=174 & y=202 = solid #969696 =
- * NOT black; "inactive-dimmed separator lines"). */
-#define FG_SB_SEPARATOR_IDX     8   /* FLAIR_PART_PIN_DARK -> CIDX_PIN_DARK (idx 8) */
-
-/* Arrow-box face + page-track fill (SOLID, no dither).
- * Ref: scrollbar.md Rendered colors + Law-2 note ("the empty page track and
- * arrow-box faces are SOLID #F3F3F3; no dither"). */
-#define FG_SB_FACE_IDX          7   /* FLAIR_PART_PIN_LIGHT -> CIDX_PIN_LIGHT (idx 7) */
-
-/* Arrow glyph ink (hollow triangle-on-stem outline, INACTIVE/dimmed = gray).
- * Same shade as the inner separator.
- * Ref: scrollbar.md "arrow glyph (up/down triangle) #969696 (150) outline". */
-#define FG_SB_GLYPH_IDX         8   /* FLAIR_PART_PIN_DARK -> CIDX_PIN_DARK (idx 8) */
-
-/* Minimum PIN_DARK glyph pixels per arrow box (the inactive outlined triangle
- * spans ~10 rows x ~4 cols; we require >=8 to tolerate pixel-exact anchor
- * shifts while still catching a box with NO glyph at all).
- * Ref: scrollbar.md arrow-glyph shape ASCII diagram. */
-#define FG_SB_GLYPH_MIN_PX      8
-
-/* Inactive bar carries NO thumb.
- * Ref: scrollbar.md Geometry ("INACTIVE (no-thumb)"); active thumb is
- * golden-resolves (s7_scrollbar_active.png). */
-#define FG_SB_INACTIVE_NO_THUMB 1
-
-/* ===========================================================================
- * INACTIVE (BACKGROUND WINDOW) TITLE-BAR INTERIOR (beads initech-a9iq).
- *
- * Source: ../system7-decomp/specs/chrome/title-bar.md Sec 2 ("Rendered colors")
- *   + Sec 2.1 ("Active vs inactive (the hilite split)") -- pixel-measured from
- *   goldens/captures/s7_get_info.png, the active (SimpleText Info, left) vs
- *   inactive (HyperCard Info, right) title bars SIDE BY SIDE in the SAME
- *   screendump + refs/StandardWDEF_a.txt (DrawTitleBar wHilited branch,
- *   L679-744) -- an INDEPENDENT source from chrome.c/chrome_metrics.h (Law 2).
- *   Cross-checked against goldens/captures/s7_701hd_afterw1.png (the capture
- *   bd issue initech-a9iq cites directly): the partially-obscured background
- *   Finder window's title band ("m") shows NO visible horizontal racing-stripe
- *   banding, consistent with the flat-fill finding below (that capture is
- *   1-bit B&W, so it cannot itself distinguish white-vs-gray fill; s7_get_info
- *   is the precise 8bpp measurement used for the actual index values here).
- *
- * THE MECHANISM (title-bar.md Sec 2.1 table): "an INACTIVE window gets
- * wHiliteShadeA (gray) frame, wContentColor (white) fill, NO bevel lines, and
- * a dimmed wHiliteShade7 title string." This golden originally covered the
- * FILL only; the frame-line recolor (wHiliteShadeA) and the title-ink dim
- * (wHiliteShade7) were follow-up fidelity items -- CLOSED below (beads
- * initech-hv7u): FG_HILITE_FRAME_IDX / FG_HILITE_TEXT_IDX.
- *
- * THE TELL THIS CATCHES. Before this fix, flair_draw_document_window had no
- * hilited parameter at all and ALWAYS drew the active pinstripe + bevel
- * interior -- background windows were pixel-identical to the frontmost one.
- * The measurable, recolor-invariant tell: an inactive title-bar interior row
- * must be the CONTENT/white role (idx 1), never the pinstripe LIGHT/DARK
- * (idx 7/8) or bevel LIGHT/SHADOW (idx 2/4) roles the active interior uses.
- *
- * RECOLOR-INVARIANCE: graded by INDEX class only (CIDX_WHITE, idx 1) -- the
- * same content-white role already graded elsewhere (FG_BODY_INNER_IDX), not a
- * new color axis.
- * ========================================================================= */
-
-/* Inactive title-bar interior fill index: FLAIR_PART_CONTENT -> CIDX_WHITE
- * (idx 1). Ref: title-bar.md Sec 2 Rendered-colors table "inactive title fill
- * #FFFFFF ... plain white, NO pinstripe, NO bevel" (s7_get_info.png y=28..44
- * x=560); Sec 2.1 hilite-split table "fill: plain #FFFFFF @ y=28..44". */
-#define FG_INACTIVE_TITLE_FILL_IDX   1   /* FLAIR_PART_CONTENT -> CIDX_WHITE */
-
-/* ===========================================================================
- * INACTIVE TITLE-BAR FRAME + TEXT DIM + GADGET ABSENCE (beads initech-hv7u).
- *
- * Follow-up to initech-a9iq (the flat-white FILL above). Source:
- *   ../system7-decomp/specs/chrome/title-bar.md Sec 2 (Rendered colors) +
- *   Sec 2.1 (Active vs inactive hilite split) -- pixel-measured from
- *   goldens/captures/s7_get_info.png (SAME screendump the FILL golden above
- *   uses, an INDEPENDENT source from chrome.c/chrome_metrics.h; Law 2) +
- *   ../system7-decomp/specs/chrome/close-zoom-box.md Mechanism ("Boxes are
- *   drawn ONLY when the window is hilited (active) ... the inactive title bar
- *   has no boxes" [documented: WDEF @ 932-948]).
- *
- * THE MECHANISM (title-bar.md Sec 2.1 table, the three remaining columns):
- *   - top frame:    #000000 @ y=41 (active)  vs  #777777 @ y=27 (inactive)
- *   - bottom frame:  #000000 @ y=59 (active)  vs  #777777 @ y=45 (inactive)
- *   - title text:    #000000        (active)  vs  #A5A5A5        (inactive)
- * Close-zoom-box.md: the close/zoom gadgets render ONLY on the active title
- * bar; an inactive title bar has neither.
- *
- * THE TELL THIS CATCHES. Before this fix (a9iq had fixed only the FILL), an
- * inactive window still drew: the title's own top + shared frame lines in
- * BLACK (idx 0, the active role), the title text in BLACK ink (idx 4, the
- * active role), and the close/zoom gadgets PRESENT (the a9iq bd wording
- * "de-emphasized (still-present)") -- so a background window was still only
- * subtly different from the frontmost one. The measurable, recolor-invariant
- * tells: (a) the top/shared frame lines are a DISTINCT gray role (neither
- * black idx0 nor any active bevel/pinstripe idx), (b) the title ink is a
- * DISTINCT dim-gray role (neither black idx4 nor absent), (c) ZERO gadget
- * tonal-role pixels (dark/bevel/face) appear in the close/zoom box rects.
- *
- * RECOLOR-INVARIANCE / C-8. FLAIR_PART_HILITE_FRAME / FLAIR_PART_HILITE_TEXT
- * resolve through the SAME ONE policy seam (flair_look_pixel) as every other
- * PART; their canon INDEX is a named idx>=9 gray-ramp slot (color_canon.h
- * CIDX_HILITE_FRAME=119 / CIDX_HILITE_TEXT=165; color_canon.json
- * "ramp_named_indices" -- Rule 8), so at 8bpp they render as their OWN index,
- * never aliasing idx 0/1/2/4/6/7/8. This oracle grades the INDEX identity
- * (idx 119 / idx 165), not the RGB -- that exact-hex mapping is
- * test-color-canon's job (LEG E), out of scope here.
- * ========================================================================= */
-
-/* Inactive title-bar top/shared frame line index: FLAIR_PART_HILITE_FRAME ->
- * CIDX_HILITE_FRAME (idx 119, resolves to #777777 via the idx>=9 gray ramp).
- * Ref: title-bar.md Sec 2 "inactive frame #777777 ... gray frame (not black)
- * for inactive" (s7_get_info.png y=27,45 x=327); Sec 2.1 hilite-split table. */
-#define FG_HILITE_FRAME_IDX   119   /* FLAIR_PART_HILITE_FRAME -> CIDX_HILITE_FRAME */
-
-/* Inactive title text ink index: FLAIR_PART_HILITE_TEXT -> CIDX_HILITE_TEXT
- * (idx 165, resolves to #A5A5A5 via the idx>=9 gray ramp).
- * Ref: title-bar.md Sec 2 "inactive title text #A5A5A5 ... grayed-out title
- * string" (s7_get_info.png y=37 x=388); Sec 2.1 hilite-split table. */
-#define FG_HILITE_TEXT_IDX    165   /* FLAIR_PART_HILITE_TEXT -> CIDX_HILITE_TEXT */
-
-/* Inactive title bar carries NO close/zoom gadgets: zero tonal-role pixels
- * (FG_BOX_DARK_IDX / FG_BOX_BEVEL_IDX / FG_BOX_FACE_IDX) anywhere in either
- * gadget rect. Ref: close-zoom-box.md Mechanism "the inactive title bar has
- * no boxes". */
-#define FG_INACTIVE_NO_GADGETS   1
+/* Inactive title delta and gadget absence.
+ * Original citation: ../system7-decomp/specs/chrome/title-bar.md Sec 2 and
+ * Sec 2.1, plus close-zoom-box.md Mechanism. */
+#define FG_SYS7_INACTIVE_TITLE_FILL_IDX        1
+#define FG_SYS7_HILITE_FRAME_IDX             119
+#define FG_SYS7_HILITE_TEXT_IDX              165
+#define FG_SYS7_INACTIVE_NO_GADGETS            1
 
 #endif /* INITECH_SPEC_CHROME_FIDELITY_GOLDEN_H */

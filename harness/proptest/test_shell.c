@@ -14,7 +14,7 @@
  *        dialog,window,chrome,blitter,surface,control,text}.c (composed).
  *        spec/assets/menu_canon.h (the FROZEN canon string -- asserted byte-
  *        exact, Law 4). os/flair/dialog.h (FLAIR_CANON_FILECOPY_MSG, byte-exact).
- *        spec/chrome_metrics.h (FLAIR_CHROME_* -- title bar 19, frame 1,
+ *        spec/chrome_metrics.h (FLAIR_CHROME_* -- title bar 22, frame 1,
  *        scrollbar 16, menubar 20). harness/render/render.h (host skeleton; the
  *        dual-compile path that runs the SAME freestanding shell.c on a host
  *        offscreen, AM-1 geometry parameter). harness/proptest/test_drag.c +
@@ -31,8 +31,8 @@
  *      the System-7 bar at rows [0,20), the Photoshop bar at rows [20,40), each
  *      with a painted baseline + bar fill + title ink. The Photoshop bar's title
  *      string is asserted byte-EXACT against menu_canon.h (Law 4 canon chimera).
- *   3. WINDOW CHROME present -- the front window's pinstripe title bar (period 2
- *      alternation), the 1 px frame, and the 16 px scrollbar, vs chrome_metrics.
+ *   3. WINDOW CHROME present -- the front window's exact Platinum title profile,
+ *      the 1 px outer frame, raised body rail, and 16 px scrollbar.
  *   4. The FILE COPY MODAL present + CENTERED: the MOVEABLE TITLED modal
  *      (movableDBoxProc; a pinstripe title bar + a PLAIN 1-px frame -- NOT the
  *      old dBoxProc 7-px border; beads initech-zvo6) at the canonical centered
@@ -69,10 +69,28 @@
 #include "menu_canon.h"         /* FROZEN Photoshop canon string (-Ispec/assets)*/
 #include "dialog.h"             /* FLAIR_CANON_FILECOPY_MSG (-Ios/flair)       */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_* (-Ispec)                     */
+#include "color_canon.h"        /* named sampled Platinum canon indices         */
 #include "palette.h"            /* INITECH_DESKTOP_BG_RGB (-Ispec/assets)      */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 
 TEST_HARNESS();
+
+/* Strict Platinum title classifier for the composed-shell structural legs.
+ * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and
+ * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
+static int shell_title_row_index(int row)
+{
+    if (row == 0 || row == FLAIR_CHROME_TITLEBAR_H - 1) return CIDX_BLACK;
+    if (row == 1) return CIDX_WHITE;
+    if (row < FLAIR_CHROME_TITLE_STRIPE_TOP_OFF) return CIDX_PLAT_FRAME_FACE;
+    if (row < FLAIR_CHROME_TITLE_STRIPE_TOP_OFF +
+              FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS) {
+        return ((row - FLAIR_CHROME_TITLE_STRIPE_TOP_OFF) & 1)
+               ? CIDX_PLAT_STRIPE_DARK : CIDX_WHITE;
+    }
+    if (row < FLAIR_CHROME_TITLEBAR_H - 2) return CIDX_PLAT_FRAME_FACE;
+    return CIDX_PLAT_FRAME_SHADOW;
+}
 
 /* The native port (ADR-0004 OD-3). The offscreen IS the screen, so global coords
  * == port-local coords == offscreen pixel coords. */
@@ -370,38 +388,29 @@ int main(int argc, char **argv)
 
     /* ======================================================================
      * 3. WINDOW CHROME present (the front window 1, lower-right, clear of the
-     * modal): pinstripe title bar (period 2), the 1 px frame, the 16 px
+     * modal): exact Platinum title band, outer frame/raised rail, and 16 px
      * scrollbar -- vs chrome_metrics. Window 1 is fully visible (front, and its
      * right/bottom edges land over bare desktop, right of the modal x<500).
      * ====================================================================== */
     {
         const int fr = FLAIR_CHROME_FRAME;
-        const int title_top = W1_T + fr;
-        const int title_bot = title_top + FLAIR_CHROME_TITLEBAR_H;
+        const int title_bot = W1_T + FLAIR_CHROME_TITLEBAR_H;
         const int mid_x = (W1_L + W1_R) / 2;
         /* The pinstripe is scanned at a clear column -- right of the close box and
          * LEFT of the centered window title ("untitled-2"), so the title knockout/
          * glyphs do not interrupt the stripe run (beads initech-lxg9). */
         const int pin_x = W1_L + 24;
 
-        /* Title-bar pinstripe is STRIPED with the two WDEF shades (7/8). The
-         * specific System-7 PHASE (the patAlign mod-8 doubled-LIGHT pairs) is NOT
-         * asserted here -- it is graded against the INDEPENDENT decomp golden by
-         * test-chrome-fidelity (beads initech-hmll). The previous strict-period-2
-         * check was WRONG: the real phase-locked stripe is not strict period-2, so
-         * it accepted the free-running L,D,L,D bug and would reject the correct
-         * render. */
-        int saw_light = 0, saw_dark = 0, striped = 0, prev = -1;
-        for (int k = 0; k < FLAIR_CHROME_TITLEBAR_H; k++) {
-            int s = idx_at(&ctx, pin_x, title_top + k);
-            if (s == FLAIR_CHROME_TITLE_SHADE_LIGHT) saw_light = 1;
-            if (s == FLAIR_CHROME_TITLE_SHADE_DARK)  saw_dark = 1;
-            if (k > 0 && s != prev) striped = 1;
-            prev = s;
+        /* Replace the old two-shade-only check with the stronger full profile.
+         * Ref: DEC-10 Sec 4; sys8/window-chrome.md Sec 2.1-2.2. */
+        int profile_ok = 1;
+        for (int row = 0; row < FLAIR_CHROME_TITLEBAR_H; row++) {
+            profile_ok = profile_ok &&
+                idx_at(&ctx, pin_x, W1_T + row) ==
+                    shell_title_row_index(row);
         }
-        CHECK(saw_light && saw_dark,
-              "(3) front window title bar shows both WDEF shades (light 7 + dark 8)");
-        CHECK(striped, "(3) front window title-bar pinstripe is STRIPED");
+        CHECK(profile_ok,
+              "(3) front window title matches exact 22-row Platinum profile");
 
         /* The row just below the title bar is the white body (idx 1) -- proves
          * the title bar is EXACTLY FLAIR_CHROME_TITLEBAR_H tall. */
@@ -418,10 +427,11 @@ int main(int argc, char **argv)
         CHECK(idx_at(&ctx, W1_R, row) == (int)FLAIR_DESKTOP_BG_INDEX,
               "(3) pixel just right of the frame is bare seafoam (frame 1 px)");
 
-        /* Scrollbar: EXACTLY 16 px. The scrollbar's left divider (ink, idx 0)
-         * sits at inner_right - 16; the content just left of it is body (idx 1). */
-        int inner_right = W1_R - fr;
-        int sb_left = inner_right - FLAIR_CHROME_SCROLLBAR_W;
+        /* The 16-pixel band ends at the inner line inside the raised rail.
+         * Ref: DEC-10 Sec 4; sys8/scrollbars.md Sec 1 and
+         * sys8/window-chrome.md Sec 4. */
+        int sb_right_exclusive = W1_R - fr - FLAIR_CHROME_BODY_BAR;
+        int sb_left = sb_right_exclusive - FLAIR_CHROME_SCROLLBAR_W;
         snprintf(msg, sizeof msg,
                  "(3) front window scrollbar EXACTLY %d px -- divider (idx 0) at -%d",
                  FLAIR_CHROME_SCROLLBAR_W, FLAIR_CHROME_SCROLLBAR_W);
@@ -434,9 +444,8 @@ int main(int argc, char **argv)
      * 4. The FILE COPY MODAL present + CENTERED + the byte-exact canon text +
      * the progress bar. The dialog is at the canonical bounds {140,200,500,280}
      * (centered on 640x480: center (320,240); 360x80). The chrome is the
-     * MOVEABLE TITLED modal (movableDBoxProc; beads initech-zvo6): a pinstripe
-     * title bar (bevel-hi idx2, 15-row pinstripe idx7/8, bevel-lo idx4, shared
-     * frame line idx0) over rows [dt, dt+FLAIR_CHROME_TITLEBAR_H), then a
+     * MOVEABLE TITLED modal (movableDBoxProc; beads initech-zvo6): the exact
+     * Platinum 22-row title profile over [dt,dt+FLAIR_CHROME_TITLEBAR_H), then a
      * PLAIN 1-px frame (idx0) around the whole box -- NOT the old dBoxProc
      * 7-px solid border.
      * ====================================================================== */
@@ -448,28 +457,21 @@ int main(int argc, char **argv)
         CHECK((dl + dr) / 2 == SCRW / 2 && (dt + db) / 2 == SCRH / 2,
               "(4) FILE COPY box is centered on the 640x480 desktop");
 
-        /* Title bar band present (probed at x=dl+5=145, left of the title-text
-         * clamp so never inside the knockout): bevel-hi (idx2), pinstripe
-         * alternation (idx7/idx8 both present), shared frame line (idx0). */
-        CHECK(idx_at(&ctx, dl + 5, dt + 1) == 2,
-              "(4) FILE COPY title bevel-hi (x=145,y=201) is idx2 (initech-zvo6)");
+        /* Full-profile replacement for the retained bevel/stripe/shared-line
+         * triplet. Ref: DEC-10 Sec 4; sys8/window-chrome.md Sec 2.1-2.2. */
         {
-            int saw_light = 0, saw_dark = 0;
-            for (int y = dt + 2; y <= dt + 16; y++) {
-                int v = idx_at(&ctx, dl + 5, y);
-                if (v == 7) { saw_light = 1; }
-                if (v == 8) { saw_dark  = 1; }
+            int profile_ok = 1;
+            for (int row = 0; row < FLAIR_CHROME_TITLEBAR_H; row++) {
+                profile_ok = profile_ok &&
+                    idx_at(&ctx, dl + 5, dt + row) ==
+                        shell_title_row_index(row);
             }
-            CHECK(saw_light && saw_dark,
-                  "(4) FILE COPY title pinstripe (x=145,y=202..216) shows BOTH "
-                  "idx7/idx8 -- a pinstripe title bar, not a solid border "
-                  "(initech-zvo6)");
+            CHECK(profile_ok,
+                  "(4) FILE COPY title matches exact 22-row Platinum profile");
         }
-        CHECK(idx_at(&ctx, dl + 5, dt + 18) == 0,
-              "(4) FILE COPY title band shared frame line (x=145,y=218) is black");
 
         /* The frame is PLAIN 1-px: one column inside the left/right edges, at
-         * a CONTENT row (y=240, below the 19px title band), is WHITE -- under
+         * a CONTENT row (y=240, below the 22px title band), is WHITE -- under
          * the OLD 7px dBoxProc border this would still be solid BLACK.
          * SHELL_MUTATE_NO_MODAL / SHELL_MUTATE_MODAL_BEHIND do not affect this
          * (they are dialog-presence/z-order mutants, not chrome mutants); this
@@ -507,7 +509,7 @@ int main(int argc, char **argv)
                      FLAIR_CANON_FILECOPY_TITLE) == 0, msg);
 
         /* And the statText body is RENDERED: the static-text item rect
-         * (left=154, top=225 -- re-based below the 19px title band, was
+         * (left=154, top=225 -- below the Platinum title band, was
          * top=212 under the old 7px-border layout) has painted text ink
          * within the text band -- proves the modal's text is drawn, not just
          * stored. DrawDialog draws statText with DLG_TEXT_INK (index 4; the

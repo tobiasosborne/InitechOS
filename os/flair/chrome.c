@@ -1,68 +1,23 @@
 /*
- * os/flair/chrome.c -- the FLAIR System-7 window chrome drawer (THE ARTIFACT).
+ * os/flair/chrome.c -- Platinum window chrome mechanism.
  *
- * beads: initech-k8o5.8. See chrome.h for the contract + Law-3 separation.
- *
- * Freestanding artifact code: draws one System-7 documentProc window's chrome
- * through a GrafPort, clipping every pixel to visRgn INTERSECT clipRgn (D-1/D-2),
- * writing ONLY via the ONE surface module (os/flair/surface.h). Dimensions are
- * the LOCKED native constants from spec/chrome_metrics.h (== chrome_metrics.json).
- *
- * COLOR MODEL (C-8; ADR-0004-AMENDMENT-DEC-09 Sec 3.1/3.3). chrome.c is a
- * DECORATION policy: it keeps the System-7 window GEOMETRY but names NO color.
- * It names a wctb-keyed PART (FLAIR_PART_*) and resolves PART -> destination
- * pixel ONLY through the ONE policy seam flair_look_pixel(port, PART)
- * (os/flair/flair_look.h).  The seam is the single site that turns an index
- * into a color (via flair_canon_rgb over the locked color_canon.h) and
- * device-quantizes for the port depth.  This TU ships ZERO 0xRRGGBB literal,
- * ZERO INITECH_*_RGB, ZERO index->RGB switch -- the C-8 cut-line (constraint
- * C-8).  The PART enum keys on the wctb namespace so the seam KEY matches the
- * golden KEY (the value oracle diffs key-for-key; ADR-0010).
- *
- * MUTATION HOOKS (Rule 6; FO-2/AM-3): three named mutants compiled via -D, each
- * a single deliberate defect that test-chrome must catch:
- *   CHROME_MUTATE_TITLEBAR_H   -- title bar drawn 1 px too tall.
- *   CHROME_MUTATE_NO_FRAME     -- the 1 px window frame is skipped.
- *   CHROME_MUTATE_SCROLLBAR_W  -- the scrollbar drawn 15 px wide (not 16).
- * In a normal build none is defined and the chrome is correct.
- *
- * CHROME_FID_MUT_NO_INACTIVE (Rule 6; beads initech-a9iq): ignore the `hilited`
- * argument entirely and always render the ACTIVE pinstripe/bevel title-bar
- * interior -- the exact bug this fix closes. test-chrome-fidelity's inactive-
- * title leg MUST go RED under this mutant.
- *
- * INACTIVE CHROME MUTANTS (Rule 6; beads initech-hv7u): three more named
- * mutants covering the REST of the inactive StandardWDEF hilite split (a9iq
- * fixed only the flat-white FILL; these close the frame/text/gadget residue):
- *   CHROME_FID_MUT_INACTIVE_BLACK_FRAME  -- the inactive top + shared title
- *     frame lines stay black instead of dimming to FLAIR_PART_HILITE_FRAME.
- *   CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE -- the inactive title ink stays the
- *     active black instead of dimming to FLAIR_PART_HILITE_TEXT.
- *   CHROME_FID_MUT_KEEP_GADGETS -- the close/zoom gadgets draw even when
- *     inactive (they must be ABSENT; close-zoom-box.md Mechanism).
- * Each MUST turn its corresponding test-chrome-fidelity leg RED.
- *
- * Ref: spec/chrome_metrics.h / chrome_metrics.json (LOCKED); StandardWDEF.a
- *      (WDEF constants); gui-ground-truth.md Sec 3.3/4.2 (chimera element map).
- *      CLAUDE.md Law 1/2/4, Rule 2/6/11/12.
+ * The renderer owns geometry only. Every color role crosses the C-8 policy
+ * seam as a FLAIR_PART_* key; this file contains no palette table and no era
+ * selection. Geometry is the sampled Mac OS 8.1 base-era contract in
+ * ../system7-decomp/specs/sys8/window-chrome.md Sec 1-6 and scrollbars.md
+ * Sec 1-5, selected by ADR-0004-AMENDMENT-DEC-10 Sec 4 / OQ-7.
  */
 
 #include <stdint.h>
 
 #include "chrome.h"
-#include "surface.h"            /* surface_fill_span (-Ios/flair)             */
-#include "chrome_metrics.h"     /* FLAIR_CHROME_* (-Ispec)                    */
-#include "region_algebra.h"     /* region_contains_point (-Ispec)            */
-#include "flair_look.h"         /* flair_look_pixel + FLAIR_PART_* (the seam) */
-#include "text.h"               /* text_draw/measure/cell_height (inline)     */
+#include "surface.h"
+#include "chrome_metrics.h"
+#include "region_algebra.h"
+#include "flair_look.h"
+#include "text.h"
 
-/* ---------------------------------------------------------------------------
- * clip_in -- is port-local pixel (x,y) inside visRgn INTERSECT clipRgn?
- *
- * The load-bearing clip rule (D-1/D-2): NO pixel is written outside the
- * intersection of the visible region (Window Manager) and the application clip.
- * A NULL clipRgn means "no additional clip" (full visRgn), per grafport.h.
- * ------------------------------------------------------------------------- */
+/* True when a port-local pixel is in visRgn INTERSECT clipRgn. */
 static int clip_in(const GrafPort *port, int x, int y)
 {
     if (x < 0 || y < 0) {
@@ -79,22 +34,16 @@ static int clip_in(const GrafPort *port, int x, int y)
     return 1;
 }
 
-/* ---------------------------------------------------------------------------
- * cfill -- fill the half-open span [x, x+w) on row y with the color of PART
- * `part`, clipped to visRgn INTERSECT clipRgn, writing only through the surface
- * module.  The PART -> destination pixel resolution is the ONE policy seam
- * (flair_look_pixel; C-8): chrome.c names a PART, never a color.
- *
- * Walks the span, batching maximal in-clip runs into single surface_fill_span
- * calls. The surface module additionally clips to the bitmap bounds (Rule 2).
- * ------------------------------------------------------------------------- */
+/* Fill the clipped half-open span [x,x+w) through the single color seam. */
 static void cfill(GrafPort *port, int x, int y, int w, int part)
 {
+    uint32_t px;
+    int run_start = -1;
+
     if (w <= 0) {
         return;
     }
-    uint32_t px = flair_look_pixel(port, part);     /* the ONE color seam (C-8) */
-    int run_start = -1;
+    px = flair_look_pixel(port, part);
     for (int i = 0; i <= w; i++) {
         int cx = x + i;
         int in = (i < w) ? clip_in(port, cx, y) : 0;
@@ -109,7 +58,6 @@ static void cfill(GrafPort *port, int x, int y, int w, int part)
     }
 }
 
-/* Fill a solid rectangle [x0,x1) x [y0,y1) with PART `part`. */
 static void crect(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 {
     for (int y = y0; y < y1; y++) {
@@ -117,830 +65,568 @@ static void crect(GrafPort *port, int x0, int y0, int x1, int y1, int part)
     }
 }
 
-/* Frame (1 px hollow outline) of [x0,x1) x [y0,y1) with PART `part`. */
 static void cframe(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 {
     if (x1 <= x0 || y1 <= y0) {
         return;
     }
-    cfill(port, x0, y0,     x1 - x0, part);         /* top edge    */
-    cfill(port, x0, y1 - 1, x1 - x0, part);         /* bottom edge */
+    cfill(port, x0, y0, x1 - x0, part);
+    cfill(port, x0, y1 - 1, x1 - x0, part);
     for (int y = y0; y < y1; y++) {
-        cfill(port, x0,     y, 1, part);            /* left edge   */
-        cfill(port, x1 - 1, y, 1, part);            /* right edge  */
+        cfill(port, x0, y, 1, part);
+        cfill(port, x1 - 1, y, 1, part);
     }
 }
 
-/* ---------------------------------------------------------------------------
- * cbox -- draw one close/zoom title-bar gadget: a double-beveled 11x11 square at
- * top-left (bx0, by0) (half-open extent [bx0, bx0+11) x [by0, by0+11)).
- *
- * Ref: ../system7-decomp/specs/chrome/close-zoom-box.md (ASCII bevel diagram +
- *   Rendered colors).  The gadget reads (golden s7_doc_window.png x=361..371,
- *   y=168..178) as a 3-D double bevel (lavender bevel INSIDE the dark frame):
- *     row 0  : D D D D D D D D D D D    -- top dark OUTER frame
- *     row 1  : D ^ ^ ^ ^ ^ ^ ^ ^ ^ ^   -- inner lavender bevel highlight (top)
- *     rows2-8: D ^ g g g g g g g D ^    -- col0 D, col1 ^, 7x7 gray FACE, col9 D
- *                                          (inner-right dark), col10 ^ (lavender)
- *     row 9  : D ^ D D D D D D D D ^    -- inner-bottom dark ring
- *     row 10 : D ^ ^ ^ ^ ^ ^ ^ ^ ^ ^   -- bottom lavender bevel
- *   D = dark outline (#545487, the wDTingeF/wFrameColor dark tinge),
- *   ^ = lavender bevel highlight (#DADAFF, the wLTinge0 light tinge),
- *   g = 7x7 recessed gray face (#C0C0C0).
- *
- * MECHANISM/POLICY (C-8): every pixel resolves through the flair_look_pixel seam
- * by PART, never a color literal.  The recolor-invariant tonal roles map:
- *   dark outline -> FLAIR_PART_BEVEL_SHADOW (canon teal-dark; 8bpp idx 4),
- *   lavender bevel -> FLAIR_PART_BEVEL_LIGHT (canon TEAL, the WL-0053 lavender->teal
- *                     recolor of the wLTinge0 #DADAFF bevel; 8bpp idx 2),
- *   gray face -> FLAIR_PART_BTNFACE (#C0C0C0 control face; 8bpp idx 6).
- * If `zoom` is non-zero the box additionally carries the inner nested-square
- * "little dude" glyph (PlotZoom, close-zoom-box.md WDEF @1695); the close box
- * (zoom == 0) leaves the face plain gray.
- *
- * Defined only when the box is drawn the real way: the CHROME_FID_MUT_BOX_GEOM
- * mutant (Rule 6) reverts to the old flat cframe path and never calls cbox, so it
- * is compiled out there to keep -Werror=unused-function clean.
- * ------------------------------------------------------------------------- */
+enum {
+    PLAT_WIDGET_CLOSE = 0,
+    PLAT_WIDGET_ZOOM,
+    PLAT_WIDGET_COLLAPSE
+};
+
+/* Platinum 12x12 widget plus the one-pixel right/bottom highlight.
+ * Ref: window-chrome.md Sec 3.1-3.3. The seven ramp roles are the sampled
+ * diagonal sequence documented at Sec 3.2 and reuse existing policy parts. */
 #if !defined(CHROME_FID_MUT_BOX_GEOM)
-static void cbox(GrafPort *port, int bx0, int by0, int zoom)
+static void draw_platinum_widget(GrafPort *port, int bx, int by, int kind)
 {
-    const int sz = FLAIR_CHROME_WBOX_RENDER;     /* 11 px (close-zoom-box.md)   */
-    const int dark  = FLAIR_PART_BEVEL_SHADOW;   /* dark outline #545487 -> canon teal-dark */
-    const int bevel = FLAIR_PART_BEVEL_LIGHT;    /* lavender bevel #DADAFF -> canon TEAL
-                                                  * (WL-0053 lavender->teal; NOT pinstripe
-                                                  * near-white -- same lavender role as the
-                                                  * title bevel, beads initech-92li). */
-    const int face  = FLAIR_PART_BTNFACE;        /* 7x7 gray face (#C0C0C0)     */
-    int bx1 = bx0 + sz;                          /* half-open right (exclusive) */
-    int by1 = by0 + sz;                          /* half-open bottom (exclusive)*/
-    int last = sz - 1;                           /* col/row index 10            */
+    const int box = FLAIR_CHROME_WIDGET_BOX;
+    const int interior = FLAIR_CHROME_WIDGET_INTERIOR;
+#if !defined(CHROME_FID_MUT_RAMP)
+    static const int ramp_part[FLAIR_CHROME_WIDGET_RAMP_RUNGS] = {
+        FLAIR_PART_PLAT_FRAME_SHADOW,
+        FLAIR_PART_PLAT_WELL,
+        FLAIR_PART_PLAT_TILE_SHADOW,
+        FLAIR_PART_PLAT_FRAME_FACE,
+        FLAIR_PART_PLAT_FACE,
+        FLAIR_PART_PLAT_TROUGH,
+        FLAIR_PART_CONTENT
+    };
+#endif
 
-    /* Fill the whole gadget with the lavender bevel first; the dark frame, gray
-     * face and inner-dark ring overwrite from there (matches the WDEF erase +
-     * tinge order). */
-    crect(port, bx0, by0, bx1, by1, bevel);
+    crect(port, bx, by, bx + box, by + box, FLAIR_PART_PLAT_FRAME_FACE);
+    cfill(port, bx, by, box, FLAIR_PART_PLAT_WIDGET_EDGE);
+    for (int y = by; y < by + box; y++) {
+        cfill(port, bx, y, 1, FLAIR_PART_PLAT_WIDGET_EDGE);
+    }
+    cframe(port, bx + 1, by + 1, bx + box, by + box,
+           FLAIR_PART_PLAT_DARK_RING);
 
-    /* row 0: top dark OUTER frame (all 11 columns). */
-    cfill(port, bx0, by0, sz, dark);
-    /* col 0: left dark OUTER frame (all 11 rows). */
-    for (int y = by0; y < by1; y++) {
-        cfill(port, bx0, y, 1, dark);
+    crect(port, bx + 2, by + 2, bx + 2 + interior, by + 2 + interior,
+          FLAIR_PART_PLAT_FRAME_FACE);
+    cfill(port, bx + 2, by + 2, interior, FLAIR_PART_PLAT_FRAME_FACE);
+    for (int y = by + 2; y < by + 2 + interior; y++) {
+        cfill(port, bx + 2, y, 1, FLAIR_PART_PLAT_FRAME_FACE);
     }
-    /* the 7x7 recessed gray FACE: cols [2..8], rows [2..8] (inset 2 from edges). */
-    crect(port, bx0 + 2, by0 + 2, bx0 + sz - 2, by0 + sz - 2, face);
-    /* inner-RIGHT dark ring: col (sz-2)=9, rows [2 .. sz-2)=2..8. */
-    for (int y = by0 + 2; y < by1 - 2; y++) {
-        cfill(port, bx0 + last - 1, y, 1, dark);
+    cfill(port, bx + 2, by + 2 + interior - 1, interior,
+          FLAIR_PART_PLAT_WIDGET_EDGE);
+    for (int y = by + 2; y < by + 2 + interior; y++) {
+        cfill(port, bx + 2 + interior - 1, y, 1,
+              FLAIR_PART_PLAT_WIDGET_EDGE);
     }
-    /* inner-BOTTOM dark ring: row (sz-2)=9, cols [2 .. sz-2)=2..8. */
-    cfill(port, bx0 + 2, by0 + last - 1, sz - 4, dark);
+    cfill(port, bx + 2, by + 2, 1, FLAIR_PART_CONTENT);
 
-    if (zoom) {
-        /* The nested-square glyph: a small dark square centred in the 7x7 face
-         * (PlotZoom "little dude", close-zoom-box.md WDEF @1695).  A hollow 3x3
-         * dark frame at the face centre -- extra interior dark figure the close
-         * box lacks.  Centre of the 11x11 box is (sz/2, sz/2) = (5,5); the glyph
-         * frame spans cols [4..6], rows [4..6]. */
-        cframe(port, bx0 + 4, by0 + 4, bx0 + 7, by0 + 7, dark);
+    for (int dy = 1; dy <= FLAIR_CHROME_WIDGET_RAMP_FACE; dy++) {
+        for (int dx = 1; dx <= FLAIR_CHROME_WIDGET_RAMP_FACE; dx++) {
+#if defined(CHROME_FID_MUT_RAMP)
+            int part = FLAIR_PART_PLAT_FRAME_FACE;
+#else
+            int rung = (dx + dy - 2) /
+                       FLAIR_CHROME_WIDGET_RAMP_PX_PER_STEP;
+            int part = ramp_part[rung];
+#endif
+            cfill(port, bx + 2 + dx, by + 2 + dy, 1, part);
+        }
     }
+
+    if (kind == PLAT_WIDGET_ZOOM) {
+        for (int d = 0; d < FLAIR_CHROME_ZOOM_GLYPH_EDGE; d++) {
+            cfill(port, bx + 2 + 5, by + 2 + d, 1,
+                  FLAIR_PART_PLAT_DARK_RING);
+            cfill(port, bx + 2 + d, by + 2 + 5, 1,
+                  FLAIR_PART_PLAT_DARK_RING);
+        }
+    } else if (kind == PLAT_WIDGET_COLLAPSE) {
+        cfill(port, bx + 2,
+              by + 2 + FLAIR_CHROME_COLLAPSE_GLYPH_ROW_0,
+              interior, FLAIR_PART_PLAT_DARK_RING);
+        cfill(port, bx + 2,
+              by + 2 + FLAIR_CHROME_COLLAPSE_GLYPH_ROW_1,
+              interior, FLAIR_PART_PLAT_DARK_RING);
+    }
+
+    for (int y = by + 1; y <= by + box; y++) {
+        cfill(port, bx + box, y, 1, FLAIR_PART_CONTENT);
+    }
+    cfill(port, bx + 1, by + box, box, FLAIR_PART_CONTENT);
 }
-#endif /* !CHROME_FID_MUT_BOX_GEOM */
+#endif
 
-/* ---------------------------------------------------------------------------
- * draw_titlebar_band -- the SHARED title-bar band composition: bevel-hi row +
- * the 15-row phase-locked pinstripe (or the flat inactive fill) + bevel-lo row
- * + the shared bottom frame line + the centered Chicago title text. This is
- * the EXACT code flair_draw_document_window has always run for its title band
- * (byte-identical extraction, no behavior change for that caller); it is now
- * also the ONE title-bar renderer flair_draw_movable_dbox_chrome (movableDBoxProc,
- * beads initech-zvo6) reuses, per CLAUDE.md "do not hand-roll new chrome" --
- * a second title bar would be a second, un-audited pixel path.
- *
- * `right` bounds the interior span (the band fills [left+fr, right-fr)); the
- * caller supplies `left`/`top`/`right` in port-local coordinates. Returns
- * `shared_line`, the y of the shared bottom frame line, so the caller can
- * derive content_top = shared_line + FLAIR_CHROME_FRAME.
- *
- * Ref: ../system7-decomp/specs/chrome/title-bar.md (documentProc geometry);
- *      ../system7-decomp/specs/chrome/wdef-variant-geometry.md Sec 4 (the
- *      movableDBoxProc golden s7_about.png: "identical to documentProc"
- *      bevel/pinstripe shades and geometry).
- * ------------------------------------------------------------------------- */
+/* Shared Platinum title-band renderer. The exact sampled row profile is:
+ * frame, highlight, two face, twelve alternating stripes, four face, shadow,
+ * frame. Ref: window-chrome.md Sec 2.1-2.3. */
 static int draw_titlebar_band(GrafPort *port, int left, int top, int right,
                               const char *title, int hilited)
 {
-#if defined(CHROME_FID_MUT_NO_INACTIVE)
-    /* MUTANT (Rule 6; beads initech-a9iq): ignore `hilited` -- always render the
-     * ACTIVE title-bar interior, reproducing the original bug (every window,
-     * including background ones, shows the racing stripe). test-chrome-fidelity's
-     * new inactive-title leg MUST go RED. */
-    (void)hilited;
-    const int hilited_draw = 1;
-#else
-    const int hilited_draw = hilited;
-#endif
+    int active = hilited;
+    int shared_line = top + FLAIR_CHROME_TITLEBAR_H - 1;
     int w = right - left;
-    const int fr = FLAIR_CHROME_FRAME;           /* 1 px frame                  */
 
-    /* The title-bar INTERIOR sits just inside the top frame line (drawn by the
-     * outer cframe in section 5 at y=top).  title_top is the first INTERIOR row
-     * (the top bevel highlight), NOT the top frame line.
-     *
-     * BAND DECOMPOSITION (../system7-decomp/specs/chrome/window-frame.md Sec 2a,
-     * the x=400 vertical scan, top frame at y=164):
-     *   y=164 top frame (black)                       -> y=top      (outer cframe)
-     *   y=165 bevel-hi  #DADAFF (wLTinge0)             -> y=title_top      (BEVEL_LIGHT)
-     *   y=166..180 = 15 pinstripe rows                 -> [title_top+1, +16)
-     *   y=181 bevel-lo  #B3B3DA (wLTinge4)             -> y=title_top+16   (BEVEL_SHADOW)
-     *   y=182 SHARED frame line (black; bottom of the title FrameRect AND top of
-     *         the content-body FrameRect)              -> y=title_top+17   (FRAME)
-     * So the 19-px title band (FLAIR_CHROME_TITLEBAR_H) = top-frame(1) +
-     * bevel-hi(1) + 15 stripe + bevel-lo(1) + shared-frame(1) = 19, and the white
-     * content begins one row below the shared line at content_top = top+TITLEBAR_H
-     * (beads initech-92li; window-frame.md Sec 2a/2b + pinstripe.md y=165..181). */
-    const int bevel_rows  = FLAIR_CHROME_TITLE_BEVEL_ROWS;   /* 1 (each edge)    */
+#if defined(CHROME_FID_MUT_NO_INACTIVE)
+    active = 1;
+#endif
 #if defined(CHROME_MUTATE_TITLEBAR_H)
-    /* MUTANT: title bar 1 px too tall (FO-2/AM-3). test-chrome must catch this:
-     * the stripe band runs one scanline past the locked 15 px, pushing the shared
-     * frame line + the content body one row past the locked 19 px band. */
-    const int stripe_rows = FLAIR_CHROME_TITLE_STRIPE_ROWS + 1;
-#else
-    const int stripe_rows = FLAIR_CHROME_TITLE_STRIPE_ROWS;  /* 15 (golden)      */
+    shared_line++;
 #endif
 
-    int title_top   = top + fr;                  /* first interior row (bevel-hi)*/
-    int stripe_top  = title_top + bevel_rows;    /* first of the 15 stripe rows  */
-    int stripe_bot  = stripe_top + stripe_rows;  /* half-open; bevel-lo row      */
-    int shared_line = stripe_bot + bevel_rows;   /* the shared bottom frame line */
-
-    /* Branch the title-bar INTERIOR on `hilited_draw` (beads initech-a9iq; Law 1:
-     * ../system7-decomp/specs/chrome/title-bar.md Sec 2.1 "Active vs inactive (the
-     * hilite split)", StandardWDEF_a.txt DrawTitleBar L679-744). hilited_draw!=0
-     * draws the ACTIVE pinstripe + 3-D bevel interior below, BYTE-IDENTICAL to the
-     * pre-fix code (pure addition, no behavior change for the active case). */
-    if (hilited_draw) {
-
-    /* 1a. Top bevel HIGHLIGHT row (wLTinge0 #DADAFF -> the WL-0053 lavender->teal
-     * recolor canon TEAL, FLAIR_PART_BEVEL_LIGHT, 8bpp idx 2 -- the SAME bevel-hi
-     * role the close/zoom box uses, beads initech-ts3t; window-frame.md Sec 2b
-     * golden y=165 #DADAFF).  Spans the inner width (inside the left/right frame
-     * lines).  C-8 seam: a PART, never a color. */
+    if (active) {
 #if defined(CHROME_FID_MUT_NO_BEVEL)
-    /* MUTANT (Rule 6; beads initech-92li): SKIP the two bevel rows -- revert to the
-     * old all-stripe interior (the full [title_top, shared_line) band -- bevel-hi +
-     * 15 stripe + bevel-lo, = 17 rows -- ALL filled as pinstripe, no BEVEL_LIGHT /
-     * BEVEL_SHADOW edge rows).  The contiguous L/D stripe run is then 17, NOT the
-     * golden 15, AND there is no bevel-hi (idx 2) above / bevel-lo (idx 4) below it,
-     * so test-chrome-fidelity's NEW bevel + 15-row leg MUST go RED. */
-    {
-        int interior_rows = stripe_rows + 2 * bevel_rows;   /* 17 */
-        for (int y = title_top; y < shared_line; y++) {
-            int k = y - title_top;               /* 0 .. interior_rows-1         */
-            int light = (k <= 1) || (k >= interior_rows - 2) ||
-                        ((k % FLAIR_CHROME_PINSTRIPE_PERIOD) == 1);
-            int shade = light ? FLAIR_PART_PIN_LIGHT : FLAIR_PART_PIN_DARK;
-            cfill(port, left + fr, y, w - 2 * fr, shade);
+        for (int y = top + 1; y < shared_line; y++) {
+            int part = ((y - top) & 1) ? FLAIR_PART_CONTENT
+                                       : FLAIR_PART_PLAT_STRIPE_DARK;
+            cfill(port, left + 1, y, w - 2, part);
         }
-    }
 #else
-    for (int by = title_top; by < stripe_top; by++) {
-        cfill(port, left + fr, by, w - 2 * fr, FLAIR_PART_BEVEL_LIGHT);
-    }
-
-    /* 1b. The 15-row phase-locked pinstripe (the System-7 "racing stripe") --
-     * the period-2 horizontal stripe (HilitePattern $FF00) PHASE-LOCKED to the
-     * window structure so a LIGHT row lands at BOTH stripe-band edges, yielding
-     * the doubled-LIGHT row pairs the golden shows
-     * (../system7-decomp/specs/chrome/pinstripe.md, golden s7_doc_window.png
-     * column x=450: interior y=166/167 both light .. y=179/180 both light;
-     * the exactly-15-row interior = FG_TITLE_INTERIOR_PATTERN "LLDLDLDLDLDLDLL").
-     * A free-running period-2 fill anchored to the band top (L,D,L,D...) is WRONG
-     * -- it has NO doubled-light pairs, yet still satisfies a naive "period-2
-     * alternation" check; graded against the INDEPENDENT decomp golden by
-     * test-chrome-fidelity (beads initech-hmll/92li, Law 2). The stripe run is now
-     * bounded ABOVE by the bevel-hi row and BELOW by the bevel-lo row, so the
-     * contiguous L/D run is EXACTLY 15.  Shade indices are the WDEF wTitleBarLight
-     * (7) / wTitleBarDark (8). */
-    for (int y = stripe_top; y < stripe_bot; y++) {
-        int j = y - stripe_top;                  /* 0 .. stripe_rows-1           */
+        cfill(port, left + 1, top + 1, w - 2, FLAIR_PART_CONTENT);
+        crect(port, left + 1, top + 2, right - 1, top + 4,
+              FLAIR_PART_PLAT_FRAME_FACE);
+        for (int row = 0; row < FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS; row++) {
 #if defined(CHROME_FID_MUT_PHASE)
-        /* MUTANT (Rule 6; beads initech-hmll): revert to the free-running period-2
-         * fill anchored to the stripe top -- no phase lock, no doubled-light pairs.
-         * test-chrome-fidelity MUST go RED. */
-        int light = ((j % FLAIR_CHROME_PINSTRIPE_PERIOD) == 0);
+            int light = (row & 1) != 0;
 #else
-        /* Phase lock: LIGHT at both stripe-band edges (the top pair j<=1 and the
-         * bottom pair j>=stripe_rows-2) and on the odd interior rows; DARK on the
-         * even interior rows -- reproducing the golden's doubled-light-pairs
-         * signature "LLDLDLDLDLDLDLL" over the exactly-15-row run. */
-        int light = (j <= 1) || (j >= stripe_rows - 2) ||
-                    ((j % FLAIR_CHROME_PINSTRIPE_PERIOD) == 1);
+            int light = (row & 1) == 0;
 #endif
-        int shade = light ? FLAIR_PART_PIN_LIGHT : FLAIR_PART_PIN_DARK;
-        cfill(port, left + fr, y, w - 2 * fr, shade);
-    }
-
-    /* 1c. Bottom bevel SHADOW row (wLTinge4 #B3B3DA -> the canon teal-dark
-     * recolor, FLAIR_PART_BEVEL_SHADOW, 8bpp idx 4 -- the SAME bevel-lo role the
-     * close/zoom box dark outline uses; window-frame.md Sec 2b golden y=181
-     * #B3B3DA). */
-    for (int by = stripe_bot; by < shared_line; by++) {
-        cfill(port, left + fr, by, w - 2 * fr, FLAIR_PART_BEVEL_SHADOW);
-    }
-#endif /* CHROME_FID_MUT_NO_BEVEL */
-
-    } else {
-        /* INACTIVE StandardWDEF title-bar interior (beads initech-a9iq).
-         * Ref: ../system7-decomp/specs/chrome/title-bar.md Sec 2/2.1 (DrawTitleBar
-         * wHilited branch, StandardWDEF_a.txt L679-744) + Sec 2 "Rendered colors"
-         * table (measured s7_get_info.png, inactive HyperCard Info window title
-         * bar: y=28..44 x=560 solid #FFFFFF -- "plain white, NO pinstripe, NO
-         * bevel"). A background window's title INTERIOR is a FLAT fill: no
-         * bevel-hi/lo rows, no 15-row racing stripe. FLAIR_PART_CONTENT
-         * (CIDX_WHITE) is the SAME canon-white role the content body below
-         * already uses -- reusing it needs no new PART and no locked spec-data
-         * change (Rule 8); it is grounded against the independently-measured
-         * golden white (title-bar.md, itself sourced from a real System-7
-         * screendump distinct from chrome.c/chrome_metrics.h), not derived from
-         * this drawer's own palette (Law 2). Fills the SAME [title_top,
-         * shared_line) span the active branch fills, so the title-band height
-         * and content_top are unchanged either way. */
-        for (int y = title_top; y < shared_line; y++) {
-            cfill(port, left + fr, y, w - 2 * fr, FLAIR_PART_CONTENT);
+            cfill(port, left + 1,
+                  top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF + row,
+                  w - 2,
+                  light ? FLAIR_PART_CONTENT : FLAIR_PART_PLAT_STRIPE_DARK);
         }
+        crect(port, left + 1, top + 16, right - 1, top + 20,
+              FLAIR_PART_PLAT_FRAME_FACE);
+        cfill(port, left + 1, top + 20, w - 2,
+              FLAIR_PART_PLAT_FRAME_SHADOW);
+#if defined(CHROME_MUTATE_TITLEBAR_H)
+        cfill(port, left + 1, top + 21, w - 2,
+              FLAIR_PART_PLAT_FRAME_FACE);
+#endif
+#endif
+    } else {
+        crect(port, left + 1, top + 1, right - 1, shared_line,
+              FLAIR_PART_PLAT_FACE);
     }
 
-    /* 1d. The SHARED bottom frame line: the bottom edge of the title-bar
-     * FrameRect AND the top edge of the content-body FrameRect (window-frame.md
-     * Sec 2a golden y=182 #000000 "the shared line" -- ACTIVE case).  Spans the
-     * inner width; the outer left/right frame columns are drawn by the outer
-     * cframe (section 5).
-     *
-     * INACTIVE HILITE SPLIT (beads initech-hv7u; Law 1: title-bar.md Sec 2/2.1,
-     * "an INACTIVE window gets wHiliteShadeA (gray) frame"; measured
-     * s7_get_info.png y=45 x=327 = #777777, NOT black). This line is the SAME
-     * physical line title-bar.md calls the title band's own "bottom frame" --
-     * it dims to the SAME gray role the window's own TOP frame line dims to
-     * (section 5 below); both resolve through FLAIR_PART_HILITE_FRAME, never a
-     * literal (C-8 seam).  a9iq's fill-only fix left this line black
-     * unconditionally (the a9iq bd wording flagged this as a follow-up item;
-     * this closes it). */
 #if defined(CHROME_FID_MUT_INACTIVE_BLACK_FRAME)
-    /* MUTANT (Rule 6; beads initech-hv7u): revert the shared frame line to
-     * ALWAYS black, ignoring hilited_draw -- the residual a9iq bug this fix
-     * closes (frame stayed black on an inactive window). test-chrome-fidelity's
-     * inactive shared-frame leg MUST go RED. */
-    cfill(port, left + fr, shared_line, w - 2 * fr, FLAIR_PART_FRAME);
+    cfill(port, left + 1, shared_line, w - 2, FLAIR_PART_FRAME);
 #else
-    cfill(port, left + fr, shared_line, w - 2 * fr,
-          hilited_draw ? FLAIR_PART_FRAME : FLAIR_PART_HILITE_FRAME);
+    cfill(port, left + 1, shared_line, w - 2,
+          active ? FLAIR_PART_FRAME : FLAIR_PART_PLAT_INACTIVE_FRAME);
 #endif
 
-    /* 1e. Title text: the window's name, drawn CENTERED in the title bar in
-     * Chicago over a KNOCKED-OUT light gap. System 7 suppresses the racing stripe
-     * under the centered title and draws black Chicago glyphs there (golden
-     * s7_doc_window.png: a centered #F3F3F3 gap with #000000 glyphs;
-     * ../system7-decomp/specs/chrome/title-bar.md Sec 3). surface_blit writes the
-     * glyph-cell background OPAQUELY, so drawing the title with bg = the pinstripe
-     * LIGHT shade paints the knockout panel AND the text in one pass. Both the ink
-     * and the knockout resolve through the C-8 policy seam (flair_look_pixel) --
-     * NEVER a color literal -- so test-flair-mechanism-colorblind stays green
-     * (beads initech-lxg9). The centering indent is clamped right of the close box
-     * (WDEF reserves the go-away box; title-bar.md "indent x=left+32"). MOVED
-     * here (was section "2.5", after the close/zoom boxes) as part of the
-     * initech-zvo6 extraction: text placement is independent of whether the
-     * caller draws close/zoom gadgets (box_clear reserves the space regardless;
-     * flair_draw_movable_dbox_chrome never draws a close box but keeps the SAME
-     * clear margin, matching the caller's own reserved layout). Pixel output for
-     * flair_draw_document_window is UNCHANGED (text and boxes never overlap). */
 #if defined(CHROME_FID_MUT_NO_TITLE)
-    /* MUTANT (Rule 6; beads initech-lxg9): skip the title render -> a blank title
-     * bar. test-chrome-fidelity's title-ink + knockout legs MUST go RED. */
     (void)title;
 #else
     if (title != 0 && title[0] != '\0') {
-        int cell_h = text_cell_height(FONT_CHICAGO);
-        int tw     = text_measure(FONT_CHICAGO, title);
-        /* Clamp the centered title right of the close box: the close box left edge
-         * is struct.left + 9 and it renders FLAIR_CHROME_WBOX_RENDER (11) px wide,
-         * so its right edge is left+9+11 = left+20; +3 px gap = left+23.  Recomputed
-         * from the NEW close-box geometry (close-zoom-box.md; was fr+3+WBOX_DELTA+2
-         * for the old 13px box at inset fr+3). */
-        int box_clear = 9 + FLAIR_CHROME_WBOX_RENDER + 3;     /* right of close box */
-        int tx = left + fr + (w - 2 * fr - tw) / 2;           /* centered          */
-        if (tx < left + box_clear) {
-            tx = left + box_clear;
-        }
-        /* Center the title in the 15-row STRIPE band (not the whole title band):
-         * the knockout panel is drawn with bg = PIN_LIGHT, so the glyph cells must
-         * land on the pinstripe rows -- NOT over the bevel-hi/bevel-lo or the shared
-         * frame line.  Ref: title-bar.md Sec 3; beads initech-92li recomposition. */
-        int ty = stripe_top + (stripe_rows - cell_h) / 2;     /* vertical center   */
-        if (ty < stripe_top) {
-            ty = stripe_top;
-        }
-        /* The knockout background must match whichever interior fill is actually
-         * under the glyph cell (beads initech-a9iq): PIN_LIGHT on the active
-         * pinstripe interior, CONTENT (white) on the flat inactive interior --
-         * otherwise the glyph cell paints a visibly different shade than its
-         * surroundings. Still resolved ONLY through the C-8 seam (a PART, never
-         * a literal), so test-flair-mechanism-colorblind stays green either way.
-         *
-         * TITLE INK DIM (beads initech-hv7u; Law 1: title-bar.md Sec 2/2.1,
-         * "a dimmed wHiliteShade7 title string"; measured s7_get_info.png y=37
-         * x=388 = #A5A5A5, NOT black). An inactive window's title draws in the
-         * dimmed gray ink, never the active black wTextColor -- resolved
-         * through the SAME C-8 seam, never a literal. */
-#if defined(CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE)
-        /* MUTANT (Rule 6; beads initech-hv7u): keep the title ink BLACK even
-         * when inactive -- the residual a9iq bug this fix closes.
-         * test-chrome-fidelity's inactive title-dim leg MUST go RED. */
-        uint32_t ink   = flair_look_pixel(port, FLAIR_PART_TEXT);      /* seam, black */
-#else
-        uint32_t ink   = flair_look_pixel(port, hilited_draw
-                                          ? FLAIR_PART_TEXT
-                                          : FLAIR_PART_HILITE_TEXT);    /* seam        */
-#endif
-        uint32_t knock = flair_look_pixel(port, hilited_draw
-                                          ? FLAIR_PART_PIN_LIGHT
-                                          : FLAIR_PART_CONTENT);        /* seam        */
-        text_draw(&port->portBits.bm, tx, ty, title, FONT_CHICAGO, ink, knock);
-    }
-#endif /* CHROME_FID_MUT_NO_TITLE */
+        int tw = text_measure(FONT_CHICAGO, title);
+        int tx = left + (w - tw) / 2;
+        int ty = top + FLAIR_CHROME_WIDGET_TOP_OFF;
+        int ink_part;
 
+#if defined(CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE)
+        ink_part = FLAIR_PART_TEXT;
+#else
+        ink_part = active ? FLAIR_PART_TEXT : FLAIR_PART_PLAT_INACTIVE_TEXT;
+#endif
+        text_draw(&port->portBits.bm, tx, ty, title, FONT_CHICAGO,
+                  flair_look_pixel(port, ink_part),
+                  flair_look_pixel(port, active
+                                   ? FLAIR_PART_PLAT_FRAME_FACE
+                                   : FLAIR_PART_PLAT_FACE));
+    }
+#endif
     return shared_line;
 }
 
-/* ---------------------------------------------------------------------------
- * flair_draw_document_window -- the chrome composition (top to bottom).
- * ------------------------------------------------------------------------- */
+#if !defined(CHROME_FID_MUT_SCROLL_FLAT)
+static void draw_up_triangle(GrafPort *port, int cx, int top, int part)
+{
+    for (int row = 0; row < 4; row++) {
+        int width = 2 + 2 * row;
+        cfill(port, cx - width / 2, top + row, width, part);
+    }
+}
+
+static void draw_down_triangle(GrafPort *port, int cx, int top, int part)
+{
+    for (int row = 0; row < 4; row++) {
+        int width = 8 - 2 * row;
+        cfill(port, cx - width / 2, top + row, width, part);
+    }
+}
+
+static void draw_left_triangle(GrafPort *port, int left, int cy, int part)
+{
+    for (int col = 0; col < 4; col++) {
+        int height = 2 + 2 * col;
+        for (int y = cy - height / 2; y < cy + height / 2; y++) {
+            cfill(port, left + col, y, 1, part);
+        }
+    }
+}
+
+static void draw_right_triangle(GrafPort *port, int left, int cy, int part)
+{
+    for (int col = 0; col < 4; col++) {
+        int height = 8 - 2 * col;
+        for (int y = cy - height / 2; y < cy + height / 2; y++) {
+            cfill(port, left + col, y, 1, part);
+        }
+    }
+}
+#endif
+
+/* Disabled active bars use a flat trough, dim arrows/separators, and no thumb.
+ * Inactive bars are hollow: trough plus inactive frame only.
+ * Ref: scrollbars.md Sec 1, Sec 3, and Sec 4. */
+static void draw_vertical_scrollbar(GrafPort *port, int left, int top,
+                                    int right, int bottom, int active)
+{
+#if defined(CHROME_FID_MUT_SCROLL_FLAT)
+    (void)active;
+    crect(port, left, top, right + 1, bottom, FLAIR_PART_BTNFACE);
+    cframe(port, left, top, right + 1, bottom, FLAIR_PART_FRAME);
+    return;
+#else
+    int frame_part = active ? FLAIR_PART_FRAME
+                            : FLAIR_PART_PLAT_INACTIVE_FRAME;
+    int interior_right = active ? right - 1 : right;
+    crect(port, left + 1, top + 1, interior_right, bottom - 1,
+          FLAIR_PART_PLAT_TROUGH);
+    for (int y = top; y < bottom; y++) {
+        cfill(port, left, y, 1, frame_part);
+        cfill(port, right, y, 1, frame_part);
+    }
+    cfill(port, left, top, right - left + 1, frame_part);
+    cfill(port, left, bottom - 1, right - left + 1, frame_part);
+
+    if (active && bottom - top >= 2 * FLAIR_CHROME_SCROLL_ARROW_TILE) {
+        int top_sep = top + FLAIR_CHROME_SCROLL_ARROW_TILE - 1;
+        int bottom_sep = bottom - FLAIR_CHROME_SCROLL_ARROW_TILE;
+        int cx = (left + right) / 2;
+        cfill(port, left + 1, top_sep, right - left - 1,
+              FLAIR_PART_PLAT_INACTIVE_FRAME);
+        cfill(port, left + 1, bottom_sep, right - left - 1,
+              FLAIR_PART_PLAT_INACTIVE_FRAME);
+        draw_up_triangle(port, cx, top + 5, FLAIR_PART_PLAT_WIDGET_EDGE);
+        draw_down_triangle(port, cx, bottom - 9,
+                           FLAIR_PART_PLAT_WIDGET_EDGE);
+    }
+#endif
+}
+
+static void draw_horizontal_scrollbar(GrafPort *port, int left, int top,
+                                      int right, int bottom, int active)
+{
+#if defined(CHROME_FID_MUT_SCROLL_FLAT)
+    (void)active;
+    crect(port, left, top, right, bottom + 1, FLAIR_PART_BTNFACE);
+    cframe(port, left, top, right, bottom + 1, FLAIR_PART_FRAME);
+    return;
+#else
+    int frame_part = active ? FLAIR_PART_FRAME
+                            : FLAIR_PART_PLAT_INACTIVE_FRAME;
+    int interior_bottom = active ? bottom - 1 : bottom;
+    crect(port, left + 1, top + 1, right - 1, interior_bottom,
+          FLAIR_PART_PLAT_TROUGH);
+    cfill(port, left, top, right - left, frame_part);
+    cfill(port, left, bottom, right - left, frame_part);
+    for (int y = top; y <= bottom; y++) {
+        cfill(port, left, y, 1, frame_part);
+        cfill(port, right - 1, y, 1, frame_part);
+    }
+
+    if (active && right - left >= 2 * FLAIR_CHROME_SCROLL_ARROW_TILE) {
+        int left_sep = left + FLAIR_CHROME_SCROLL_ARROW_TILE - 1;
+        int right_sep = right - FLAIR_CHROME_SCROLL_ARROW_TILE;
+        int cy = (top + bottom) / 2;
+        for (int y = top + 1; y < bottom; y++) {
+            cfill(port, left_sep, y, 1, FLAIR_PART_PLAT_INACTIVE_FRAME);
+            cfill(port, right_sep, y, 1, FLAIR_PART_PLAT_INACTIVE_FRAME);
+        }
+        draw_left_triangle(port, left + 5, cy,
+                           FLAIR_PART_PLAT_WIDGET_EDGE);
+        draw_right_triangle(port, right - 9, cy,
+                            FLAIR_PART_PLAT_WIDGET_EDGE);
+    }
+#endif
+}
+
+/* Active 18x18 grow cell and exact three-line grip transcription.
+ * Ref: window-chrome.md Sec 5. Inactive is the flat Sec 6 face. */
+static void draw_grow_box(GrafPort *port, int gx, int gy, int active)
+{
+    const int cell = FLAIR_CHROME_GROW;
+
+    crect(port, gx, gy, gx + cell, gy + cell,
+          active ? FLAIR_PART_PLAT_FRAME_FACE : FLAIR_PART_PLAT_FACE);
+    if (!active) {
+        return;
+    }
+
+    cfill(port, gx, gy, cell - 2, FLAIR_PART_CONTENT);
+    for (int y = gy; y < gy + cell - 2; y++) {
+        cfill(port, gx, y, 1, FLAIR_PART_CONTENT);
+    }
+
+    for (int line = 0; line < FLAIR_CHROME_GROW_GRIP_LINES; line++) {
+        int start_row = 3 + 2 * line;
+        int start_x = 8 + 2 * line;
+        cfill(port, gx + start_x, gy + start_row, 2, FLAIR_PART_CONTENT);
+        for (int step = 1; step <= 5; step++) {
+            cfill(port, gx + start_x - step, gy + start_row + step,
+                  1, FLAIR_PART_CONTENT);
+            cfill(port, gx + start_x - step + 2, gy + start_row + step,
+                  1, FLAIR_PART_PLAT_STRIPE_DARK);
+        }
+        cfill(port, gx + start_x - 5, gy + start_row + 6,
+              1, FLAIR_PART_PLAT_WELL);
+        cfill(port, gx + start_x - 4, gy + start_row + 6,
+              1, FLAIR_PART_PLAT_STRIPE_DARK);
+    }
+}
+
+/* Four-pixel raised rail between outer and inner lines, plus content inset.
+ * Ref: window-chrome.md Sec 4. */
+static void draw_body_structure(GrafPort *port, int left, int shared_line,
+                                int right, int bottom, int active,
+                                int frame_part)
+{
+#if defined(CHROME_FID_MUT_BODYBAR)
+    (void)port;
+    (void)left;
+    (void)shared_line;
+    (void)right;
+    (void)bottom;
+    (void)active;
+    (void)frame_part;
+#else
+    int bi = bottom - 1;
+
+    for (int y = shared_line + 1; y < bi; y++) {
+        if (active) {
+            cfill(port, left + 1, y, 1, FLAIR_PART_CONTENT);
+            cfill(port, left + 2, y, 2, FLAIR_PART_PLAT_FRAME_FACE);
+            cfill(port, left + 4, y, 1, FLAIR_PART_PLAT_FRAME_SHADOW);
+            cfill(port, right - 5, y, 1, FLAIR_PART_CONTENT);
+            cfill(port, right - 4, y, 2, FLAIR_PART_PLAT_FRAME_FACE);
+            cfill(port, right - 2, y, 1, FLAIR_PART_PLAT_FRAME_SHADOW);
+        } else {
+            cfill(port, left + 1, y, FLAIR_CHROME_BODY_BAR,
+                  FLAIR_PART_PLAT_FACE);
+            cfill(port, right - 5, y, FLAIR_CHROME_BODY_BAR,
+                  FLAIR_PART_PLAT_FACE);
+        }
+    }
+
+    if (active) {
+        cfill(port, left + 1, bi - 4, right - left - 2,
+              FLAIR_PART_CONTENT);
+        cfill(port, left + 1, bi - 3, right - left - 2,
+              FLAIR_PART_PLAT_FRAME_FACE);
+        cfill(port, left + 1, bi - 2, right - left - 2,
+              FLAIR_PART_PLAT_FRAME_FACE);
+        cfill(port, left + 1, bi - 1, right - left - 2,
+              FLAIR_PART_PLAT_FRAME_SHADOW);
+    } else {
+        crect(port, left + 1, bi - 4, right - 1, bi,
+              FLAIR_PART_PLAT_FACE);
+    }
+
+    for (int y = shared_line; y <= bi - 4; y++) {
+        cfill(port, left + 5, y, 1, frame_part);
+        cfill(port, right - 6, y, 1, frame_part);
+    }
+    cfill(port, left + 5, bi - 5, right - left - 10, frame_part);
+
+    cfill(port, left + 6, shared_line + 1, right - left - 12,
+          FLAIR_PART_CONTENT);
+    for (int y = shared_line + 1; y <= bi - 6; y++) {
+        cfill(port, left + 6, y, 1, FLAIR_PART_CONTENT);
+        cfill(port, right - 7, y, 1, FLAIR_PART_PLAT_WELL);
+    }
+    cfill(port, left + 6, bi - 6, right - left - 12,
+          FLAIR_PART_PLAT_WELL);
+#endif
+}
+
 void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
                                 const char *title, int hilited)
 {
+    int left;
+    int top;
+    int right;
+    int bottom;
+    int w;
+    int h;
+    int active;
+    int shared_line;
+    int frame_part;
+    int content_left;
+    int content_top;
+    int content_right;
+    int content_bottom;
+    int ri;
+    int bi;
+    int grow_x;
+    int grow_y;
+    int sb_left;
+
     if (port == 0) {
         return;
     }
-    int left   = frame.left;
-    int top    = frame.top;
-    int right  = frame.right;
-    int bottom = frame.bottom;
-    int w = right - left;
-    int h = bottom - top;
-
-    /* The window must be big enough to hold its own chrome (title bar + frame +
-     * a row of content + the scrollbar width). Otherwise no-op (fail-soft; the
-     * Window Manager sizes the window, Rule 2 -- never draw garbage). */
-    int min_h = FLAIR_CHROME_TITLEBAR_H + 2 * FLAIR_CHROME_FRAME + 2;
-    int min_w = FLAIR_CHROME_SCROLLBAR_W + 2 * FLAIR_CHROME_FRAME + 2;
-    if (w < min_w || h < min_h) {
+    left = frame.left;
+    top = frame.top;
+    right = frame.right;
+    bottom = frame.bottom;
+    w = right - left;
+    h = bottom - top;
+    if (w < 2 * FLAIR_CHROME_GROW + 2 ||
+        h < FLAIR_CHROME_TITLEBAR_H + FLAIR_CHROME_GROW + 2) {
         return;
     }
 
-    const int fr = FLAIR_CHROME_FRAME;           /* 1 px frame                  */
-
-    int shared_line = draw_titlebar_band(port, left, top, right, title, hilited);
-
-    /* 2. Close box (top-left) and zoom box (top-right): each a double-beveled
-     * 11x11 gadget (NOT a flat 1px frame, NOT 13x13).  Geometry from
-     * ../system7-decomp/specs/chrome/close-zoom-box.md:
-     *   - the gadget RENDERS FLAIR_CHROME_WBOX_RENDER (11) px square (the WDEF
-     *     derives 13 but the bevel sits INSIDE the dark frame; LAW 2 golden wins);
-     *   - close box LEFT edge = struct.left + 9 (PlotGoAway 'moveq #9,D1' @1675-1678);
-     *   - zoom box  LEFT edge = struct.right - 20 (PlotZoom 'left:=right-20' @1682-1693);
-     *   - box TOP = struct.top + wBoxDelta + 1, wBoxDelta = (titleHgt-13)/2 = 3
-     *     (so box top = frame_top + 4; WDEF @1705-1707).  `top` is the outer frame
-     *     top (struct.top); title_top = top + fr.
-     * The zoom box additionally carries the nested-square glyph; the close box
-     * does not (cbox `zoom` flag). */
-    {
-        int wbox_delta = (FLAIR_CHROME_TITLEBAR_H - FLAIR_CHROME_WBOX_DELTA) / 2;
-        if (wbox_delta < 0) {
-            wbox_delta = 0;
-        }
-#if defined(CHROME_FID_MUT_BOX_GEOM)
-        /* MUTANT (Rule 6; beads initech-ts3t): revert to the OLD flat 1px 13x13
-         * box at inset fr+3 with NO bevel and NO zoom glyph (zoom == close).
-         * test-chrome-fidelity's box legs (9)/(10)/(11)/(12) MUST go RED:
-         * wrong size (13 not 11), wrong offset (fr+3 not +9/-20), one tonal role
-         * (flat frame), and zoom identical to close (no nested-square glyph). */
-        {
-            int box = FLAIR_CHROME_WBOX_DELTA;   /* 13 px */
-            int by0 = (top + fr) + wbox_delta;   /* old centering (title_top+vpad) */
-            int margin = fr + 3;                 /* old inset */
-            int cx0 = left + margin;
-            cframe(port, cx0, by0, cx0 + box, by0 + box, FLAIR_PART_FRAME);
-            int zx1 = right - margin;
-            cframe(port, zx1 - box, by0, zx1, by0 + box, FLAIR_PART_FRAME);
-        }
-#elif defined(CHROME_FID_MUT_KEEP_GADGETS)
-        /* MUTANT (Rule 6; beads initech-hv7u): draw the close/zoom gadgets
-         * UNCONDITIONALLY, ignoring `hilited` -- the a9iq residual bug (the
-         * bd wording "de-emphasized (still-present)") this fix closes: per
-         * ../system7-decomp/specs/chrome/close-zoom-box.md "Boxes are drawn
-         * ONLY when the window is hilited (active) ... the inactive title bar
-         * has no boxes." test-chrome-fidelity's inactive gadget-absence leg
-         * MUST go RED. */
-        {
-            int box_top = top + wbox_delta + 1;
-            int close_x = left + 9;
-            int zoom_x  = right - 20;
-            cbox(port, close_x, box_top, 0);
-            cbox(port, zoom_x,  box_top, 1);
-        }
-#else
-        /* Close/zoom gadgets are drawn ONLY on an ACTIVE (hilited) title bar
-         * (beads initech-hv7u; Law 1: close-zoom-box.md Mechanism "Boxes are
-         * drawn ONLY when the window is hilited (active) and the corresponding
-         * flag is set ... the inactive title bar has no boxes" [documented:
-         * WDEF @ 932-948]). a9iq had kept them present on inactive windows
-         * ("de-emphasized (still-present)"); this closes that residual. */
-        if (hilited) {
-            int box_top = top + wbox_delta + 1;      /* struct.top + wBoxDelta + 1   */
-            int close_x = left + 9;                  /* struct.left + 9 (PlotGoAway) */
-            int zoom_x  = right - 20;                /* struct.right - 20 (PlotZoom) */
-            cbox(port, close_x, box_top, 0);         /* close box (no glyph)         */
-            cbox(port, zoom_x,  box_top, 1);         /* zoom box  (nested-square)    */
-        }
+    active = hilited;
+#if defined(CHROME_FID_MUT_NO_INACTIVE)
+    active = 1;
 #endif
+    shared_line = draw_titlebar_band(port, left, top, right, title, active);
+    frame_part = active ? FLAIR_PART_FRAME
+                        : FLAIR_PART_PLAT_INACTIVE_FRAME;
+#if defined(CHROME_FID_MUT_INACTIVE_BLACK_FRAME)
+    if (!active) {
+        frame_part = FLAIR_PART_FRAME;
     }
+#endif
 
-    /* 3. The content area: white body below the title bar, inside the frame and
-     * to the left of the scrollbar. Drawn before the scrollbar so the scrollbar
-     * sits on top of (overlaps) the right content edge by 1 px frame (Toolbox
-     * 15-vs-16; gui-ground-truth.md Sec 3.4).
-     *
-     * The white body begins ONE row below the shared frame line (window-frame.md
-     * Sec 2a: the shared black line at golden y=182 is the content-body FrameRect
-     * top; the white content begins at y=183 = content_top).  In the canonical
-     * (non-mutant) build content_top = top + FLAIR_CHROME_TITLEBAR_H (the 19-px
-     * title band -- top-frame + interior + shared-frame -- precedes the body).
-     * The recomposition shifted content_top UP by 1 vs the old all-stripe band
-     * (old content_top = title_top + TITLEBAR_H = top + 1 + 19; new = top + 19),
-     * because the golden's 19-row band is measured INCLUSIVE of both frame lines.
-     * beads initech-92li. */
-    int content_top = shared_line + fr;          /* one row below the shared line*/
-    int content_bot = bottom - fr;               /* above the bottom frame      */
-    int content_left = left + fr;
-    int content_right = right - fr;
-    crect(port, content_left, content_top, content_right, content_bot,
+#if defined(CHROME_FID_MUT_BODYBAR)
+    content_left = left + 1;
+    content_right = right - 1;
+    content_bottom = bottom - 1;
+#else
+    content_left = left + 6;
+    content_right = right - 6;
+    content_bottom = bottom - 6;
+#endif
+    content_top = shared_line + 1;
+    crect(port, content_left, content_top, content_right, content_bottom,
           FLAIR_PART_CONTENT);
 
+    draw_body_structure(port, left, shared_line, right, bottom,
+                        active, frame_part);
+
 #if defined(FLAIR_COLORBLIND_MUTANT)
-    /* NAMED MUTANT (Rule 6; ADR-0004-AMENDMENT-DEC-09 Sec 3.10 #2): a
-     * resurrected color in a decoration draw -- one span written with a color
-     * COMPUTED straight to the surface, BYPASSING the C-8 policy seam
-     * (flair_look_pixel).  The value is computed (no bare color literal token)
-     * precisely so the SOURCE scanner (test-mech-policy) cannot see it -- this
-     * is exactly the obfuscated/computed-literal case that the BEHAVIORAL
-     * colorblind oracle exists to catch: it renders non-sentinel pixels and
-     * test-flair-mechanism-colorblind MUST go RED.  Default builds never define
-     * this; it is a host-oracle-only perturbation, never shipped. */
+    /* Named behavioral mutant: bypass the policy seam with a computed value.
+     * Default builds do not compile this oracle-only perturbation. */
     {
-        uint32_t orange = ((uint32_t)0xFFu << 16) | ((uint32_t)0x88u << 8); /* != sentinel */
+        uint32_t orange = ((uint32_t)0xFFu << 16) |
+                          ((uint32_t)0x88u << 8);
         surface_fill_span(&port->portBits.bm,
                           (uint32_t)content_left, (uint32_t)content_top,
                           (uint32_t)(content_right - content_left), orange);
     }
 #endif
 
-    /* 4. Vertical scrollbar on the right: FLAIR_CHROME_SCROLLBAR_W (16) px wide,
-     * running the height of the content area.  Inactive (no thumb) per the golden
-     * (s7_about.png, right gutter x=494..509 y=159..217; scrollbar.md).
-     *
-     * STRUCTURE (scrollbar.md Geometry + Rendered colors; Law 2 golden wins):
-     *   - 1 px black gutter-divider at sb_left (WDEF @1332; FLAIR_PART_FRAME idx 0)
-     *   - 14 px interior: track + arrow boxes (x in (sb_left, sb_right))
-     *   - 1 px black right window-frame (drawn in section 5; shared line)
-     *
-     *   Arrow boxes: top square + bottom square, each sb_w (16) px tall.
-     *   - Entire band (track + boxes) filled PIN_LIGHT (idx 7, #F3F3F3) as base.
-     *   - Gutter-divider column (x=sb_left): FRAME/black for full height.
-     *   - Up-arrow box: outer TOP edge (y=sb_top) = FRAME black (idx 0).
-     *     Inner lower separator (y=sb_top+sb_w-1) = PIN_DARK gray (idx 8, #969696).
-     *     The remaining edges (left col=divider, right col=frame) are already
-     *     handled by the divider line and the window frame (section 5).
-     *   - Down-arrow box: inner upper separator (y=sb_bot-sb_w) = PIN_DARK (idx 8).
-     *     Outer BOTTOM edge (y=sb_bot-1) = FRAME black (idx 0).
-     *
-     *   Arrow GLYPHS (inactive/dimmed = gray outline; scrollbar.md ASCII diagram):
-     *   Up arrow: a hollow triangle-on-stem in PIN_DARK (idx 8).  Interior is
-     *     sb_w-2 cols wide (inside outer left/right lines).  The glyph spans ~10
-     *     rows with apex ~3 px from the box top; two vertical shaft strokes close
-     *     with a base bar.  Using the 14-px interior (cols relative to int_left):
-     *
-     *       row+2  (apex):        ......mm......   col 6,7
-     *       row+3:                .....m..m.....   col 5,8
-     *       row+4:                ....m....m....   col 4,9
-     *       row+5:                ...m......m...   col 3,10
-     *       row+6:                ..m........m..   col 2,11
-     *       row+7 (barbs):        .mmmm....mmmm.   col 1-4,9-12
-     *       row+8:                ....m....m....   col 4,9
-     *       row+9:                ....m....m....   col 4,9
-     *       row+10:               ....m....m....   col 4,9
-     *       row+11 (base):        ....mmmmmm....   col 4-9
-     *
-     *   Down arrow: vertical mirror (apex near bottom of box).
-     *   All rendered through FLAIR_PART_PIN_DARK (the C-8 seam; no color literal).
-     *   Inactive bar carries NO thumb (golden-resolves: active thumb = CDEF).
-     *
-     * RECOLOR-INVARIANCE: FLAIR_PART_FRAME (idx 0), FLAIR_PART_PIN_LIGHT (idx 7),
-     * FLAIR_PART_PIN_DARK (idx 8) only -- zero color literals (C-8 seam).
-     *
-     * Ref: ../system7-decomp/specs/chrome/scrollbar.md (golden s7_about.png;
-     *   Geometry + Rendered colors + arrow-glyph shape); CLAUDE.md Law 1/2/4;
-     *   beads initech-jh7m. */
+    ri = right - 1;
+    bi = bottom - 1;
+    grow_x = ri - 19;
+    grow_y = bi - 19;
+    sb_left = ri - 20;
 #if defined(CHROME_MUTATE_SCROLLBAR_W)
-    /* MUTANT: scrollbar 15 px wide, not 16 (FO-2/AM-3). test-chrome must catch
-     * that the scrollbar column is one pixel too narrow. */
-    int sb_w = FLAIR_CHROME_SCROLLBAR_W - 1;
-#else
-    int sb_w = FLAIR_CHROME_SCROLLBAR_W;         /* 16 px (WDEF scrollBarSize)  */
+    sb_left++;
 #endif
-    int sb_right = right - fr;                    /* inside the right frame line */
-    int sb_left  = sb_right - sb_w;
-    int sb_top   = content_top;
-    int sb_bot   = content_bot;
-    if (sb_left > content_left) {
-#if defined(CHROME_FID_MUT_SCROLL_FLAT)
-        /* MUTANT (Rule 6; beads initech-jh7m): revert to the OLD render --
-         * BTNFACE track (idx 6, wrong), all-black cframe edges (inner separators
-         * black not gray), no arrow glyphs (empty boxes).
-         * test-chrome-fidelity legs (14)/(15)/(16) MUST go RED. */
-        crect(port, sb_left, sb_top, sb_right, sb_bot, FLAIR_PART_BTNFACE);
-        for (int y = sb_top; y < sb_bot; y++) {
-            cfill(port, sb_left, y, 1, FLAIR_PART_FRAME);
-        }
-        {
-            int btn = sb_w;
-            if (sb_top + btn <= sb_bot) {
-                cframe(port, sb_left, sb_top, sb_right, sb_top + btn, FLAIR_PART_FRAME);
-            }
-            if (sb_bot - btn >= sb_top) {
-                cframe(port, sb_left, sb_bot - btn, sb_right, sb_bot, FLAIR_PART_FRAME);
-            }
-        }
+    draw_vertical_scrollbar(port, sb_left, shared_line + 1,
+                            ri - 5, grow_y, active);
+    draw_horizontal_scrollbar(port, left + 5, bi - 20,
+                              grow_x, bi - 5, active);
+    draw_grow_box(port, grow_x, grow_y, active);
+
+    if (active
+#if defined(CHROME_FID_MUT_KEEP_GADGETS)
+        || !active
+#endif
+       ) {
+        int by = top + FLAIR_CHROME_WIDGET_TOP_OFF;
+#if defined(CHROME_FID_MUT_BOX_GEOM)
+        int old_box = FLAIR_CHROME_SYS7_WBOX_DELTA;
+        cframe(port, left + 4, by, left + 4 + old_box, by + old_box,
+               FLAIR_PART_FRAME);
+        cframe(port, ri - 20, by, ri - 20 + old_box, by + old_box,
+               FLAIR_PART_FRAME);
 #else
-        /* --- STEP 1: fill the whole scrollbar band PIN_LIGHT (track + box faces). */
-        crect(port, sb_left, sb_top, sb_right, sb_bot, FLAIR_PART_PIN_LIGHT);
-
-        /* --- STEP 2: gutter-divider column (x=sb_left) = FRAME/black for full
-         * height. (StandardWDEF_a.txt @1330-1338; scrollbar.md Geometry.) */
-        for (int y = sb_top; y < sb_bot; y++) {
-            cfill(port, sb_left, y, 1, FLAIR_PART_FRAME);
-        }
-
-        /* --- STEP 3: up-arrow box separators + outer edge.
-         * Outer top edge (row y=sb_top): FRAME black.
-         * Inner lower separator (row y=sb_top+sb_w-1): PIN_DARK gray.
-         * Ref: scrollbar.md Geometry "y=159 black / y=174 gray". */
-        if (sb_top + sb_w <= sb_bot) {
-            /* outer top edge of up-arrow box */
-            cfill(port, sb_left, sb_top, sb_w, FLAIR_PART_FRAME);
-            /* inner lower separator (between up-arrow box and track) */
-            cfill(port, sb_left, sb_top + sb_w - 1, sb_w, FLAIR_PART_PIN_DARK);
-        }
-
-        /* --- STEP 4: down-arrow box separators + outer edge.
-         * Inner upper separator (row y=sb_bot-sb_w): PIN_DARK gray.
-         * Outer bottom edge (row y=sb_bot-1): FRAME black.
-         * Ref: scrollbar.md Geometry "y=202 gray / y=217 black". */
-        if (sb_bot - sb_w >= sb_top) {
-            /* inner upper separator (between track and down-arrow box) */
-            cfill(port, sb_left, sb_bot - sb_w, sb_w, FLAIR_PART_PIN_DARK);
-            /* outer bottom edge of down-arrow box */
-            cfill(port, sb_left, sb_bot - 1, sb_w, FLAIR_PART_FRAME);
-        }
-
-        /* --- STEP 5: arrow glyphs (inactive/dimmed, PIN_DARK gray outline).
-         * Table-driven to minimise compiled code size.  Each glyph row is encoded
-         * as two span descriptors {x_off, width} relative to int_left (sb_left+1).
-         * A row with two separate spans uses both entries; a solid span has the
-         * second entry start past the interior (terminator: x2=99).
-         * Ref: scrollbar.md arrow-glyph shape ASCII (INACTIVE hollow outline;
-         * 14-col interior x=0..13 relative to int_left). */
-        {
-            /* Glyph row table for the UP-arrow (top-down, rows 1..10 inside box).
-             * Each entry: { x1_off, w1, x2_off, w2 } where x2_off>=14 => no 2nd span.
-             *   row 1: apex   col 6..7    (1 span, w=2)
-             *   row 2:        col 5, 8    (2 spans, w=1 each)
-             *   row 3:        col 4, 9
-             *   row 4:        col 3, 10
-             *   row 5:        col 2, 11
-             *   row 6: barbs  col 1..4, col 9..12  (2 spans)
-             *   row 7: shaft  col 4, 9
-             *   row 8: shaft  col 4, 9
-             *   row 9: shaft  col 4, 9
-             *   row10: base   col 4..9   (1 span, w=6) */
-            static const signed char up_glyph[10][4] = {
-                { 6, 2, 99, 0 },   /* row 1: apex */
-                { 5, 1,  8, 1 },   /* row 2 */
-                { 4, 1,  9, 1 },   /* row 3 */
-                { 3, 1, 10, 1 },   /* row 4 */
-                { 2, 1, 11, 1 },   /* row 5 */
-                { 1, 4,  9, 4 },   /* row 6: barbs */
-                { 4, 1,  9, 1 },   /* row 7: shaft */
-                { 4, 1,  9, 1 },   /* row 8: shaft */
-                { 4, 1,  9, 1 },   /* row 9: shaft */
-                { 4, 6, 99, 0 }    /* row10: base */
-            };
-            /* Down-arrow is the vertical mirror: read up_glyph in reverse. */
-            if (sb_top + sb_w <= sb_bot) {
-                int il = sb_left + 1;
-                int gy = sb_top + 1;          /* first interior row of up-arrow box */
-                for (int k = 0; k < 10; k++) {
-                    int y2 = gy + 1 + k;      /* row+1 .. row+10 */
-                    cfill(port, il + up_glyph[k][0], y2, up_glyph[k][1],
-                          FLAIR_PART_PIN_DARK);
-                    if (up_glyph[k][2] < 14) {
-                        cfill(port, il + up_glyph[k][2], y2, up_glyph[k][3],
-                              FLAIR_PART_PIN_DARK);
-                    }
-                }
-            }
-            if (sb_bot - sb_w >= sb_top) {
-                int il = sb_left + 1;
-                int dy = sb_bot - sb_w + 1;   /* first interior row of down-arrow box */
-                for (int k = 0; k < 10; k++) {
-                    /* mirror: row k of down = row (9-k) of up */
-                    int mk = 9 - k;
-                    int y2 = dy + k;
-                    cfill(port, il + up_glyph[mk][0], y2, up_glyph[mk][1],
-                          FLAIR_PART_PIN_DARK);
-                    if (up_glyph[mk][2] < 14) {
-                        cfill(port, il + up_glyph[mk][2], y2, up_glyph[mk][3],
-                              FLAIR_PART_PIN_DARK);
-                    }
-                }
-            }
-        }
-#endif /* CHROME_FID_MUT_SCROLL_FLAT */
+        draw_platinum_widget(port,
+                             left + FLAIR_CHROME_CLOSE_LEFT_OFF,
+                             by, PLAT_WIDGET_CLOSE);
+        draw_platinum_widget(port,
+                             ri - FLAIR_CHROME_ZOOM_RIGHT_OFF,
+                             by, PLAT_WIDGET_ZOOM);
+#if !defined(CHROME_FID_MUT_COLLAPSE)
+        draw_platinum_widget(port,
+                             ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
+                             by, PLAT_WIDGET_COLLAPSE);
+#endif
+#endif
     }
 
-    /* 5. The window frame: 1 px black outer frame around the whole window.
-     * Drawn LAST so it is never painted over by the body/scrollbar.
-     *
-     * FIDELITY NOTE (beads initech-54nw; Law 4): per window-frame.md Sec 2a
-     * (../system7-decomp/specs/chrome/window-frame.md) the body edge is a
-     * SINGLE 1px _FrameRect -- horizontal scan y=300: x=352 = black, x=353 =
-     * white content, NO second groove line.  The lavender bevel _Lines
-     * (wLTinge0/wLTinge4) are TITLE-BAR-ONLY (StandardWDEF_a.txt L709-744).
-     * The inner-groove loop that previously ran down the body left/right/bottom
-     * was a fidelity bug and has been removed.  The title-bar bevel is a
-     * separate element (beads initech-92li; out of scope here). */
-#if defined(CHROME_MUTATE_NO_FRAME)
-    /* MUTANT: skip the window frame entirely (FO-2/AM-3). test-chrome must catch
-     * that the outer 1 px frame line is missing. */
-    (void)fr;
-#else
-    /* The window's own TOP edge (row `top`) is the SAME physical line
-     * title-bar.md calls the title band's own "top frame" (y=164 in the
-     * golden, the very first row of the window) -- so it hilite-splits the
-     * SAME way the shared bottom-of-title-band line does (draw_titlebar_band,
-     * section 1d): black when active, FLAIR_PART_HILITE_FRAME gray (#777777,
-     * wHiliteShadeA) when inactive (beads initech-hv7u; Law 1: title-bar.md
-     * Sec 2/2.1, measured s7_get_info.png y=27 x=327).  The window's OTHER
-     * three sides (left/right/bottom of the content body) are NOT documented
-     * to hilite-split (window-frame.md has no inactive variant for the body
-     * FrameRect) and stay black always.
-     *
-     * Drawing the top edge FIRST (full width, including its corners) then the
-     * left/right columns STARTING ONE ROW BELOW `top` keeps the ACTIVE render
-     * byte-identical to the prior single cframe() call (same part, same
-     * pixels, just reordered) while letting the INACTIVE render recolor only
-     * that one line. */
-#if defined(CHROME_FID_MUT_INACTIVE_BLACK_FRAME)
-    /* MUTANT (Rule 6; beads initech-hv7u): the window's own top frame line
-     * stays ALWAYS black, ignoring `hilited` -- the residual a9iq bug this fix
-     * closes. test-chrome-fidelity's inactive top-frame leg MUST go RED. */
-    cframe(port, left, top, right, bottom, FLAIR_PART_FRAME);     /* outer 1 px */
-#else
+#if !defined(CHROME_MUTATE_NO_FRAME)
+    cfill(port, left, top, w, frame_part);
+    cfill(port, left, bi, w, frame_part);
+    for (int y = top; y < bottom; y++) {
+        cfill(port, left, y, 1, frame_part);
+        cfill(port, ri, y, 1, frame_part);
+    }
+#endif
+
+#if !defined(CHROME_FID_MUT_NO_SHADOW)
     {
-        int top_frame_part = hilited ? FLAIR_PART_FRAME : FLAIR_PART_HILITE_FRAME;
-        cfill(port, left, top, w, top_frame_part);            /* top edge     */
-        cfill(port, left, bottom - 1, w, FLAIR_PART_FRAME);   /* bottom edge  */
-        for (int y = top + 1; y < bottom; y++) {
-            /* start one row below `top`: row `top` is already fully painted
-             * by the top-edge fill above (including its corners) -- do not
-             * repaint it black here. */
-            cfill(port, left,     y, 1, FLAIR_PART_FRAME);    /* left edge    */
-            cfill(port, right - 1, y, 1, FLAIR_PART_FRAME);   /* right edge   */
-        }
-    }
-#endif
-    /* Body groove INTENTIONALLY ABSENT (fidelity fix, initech-54nw):
-     * the inner groove is title-bar-only (window-frame.md Sec 2a / Sec 1;
-     * StandardWDEF_a.txt L567-570 body = one _FrameRect, L709-744 bevel
-     * _Lines = title-bar interior only).  No body inner-left/inner-right
-     * columns or inner-bottom groove line.  Title-bar bevel is beads initech-92li. */
-#endif
-
-    /* 6. Drop shadow: documentProc varCode 0 shadow factor = (1,1) px
-     * (StandardWDEF_a.txt L515: `move.l OneOne,D4`).  The WDEF paints an L:
-     *   MoveTo(right, top+shadow); LineTo(right, bottom);   -- down the right
-     *   LineTo(left+shadow, bottom);                        -- across the bottom
-     * (StandardWDEF_a.txt L578-594), in wFrameColor = black = FLAIR_PART_FRAME.
-     * In our half-open [left,right) x [top,bottom) coordinate space:
-     *   shadow column: x=right,   y in [top+1, bottom+1)   (one px right of frame)
-     *   shadow row:    y=bottom,   x in [left+1, right+1)   (one px below frame)
-     * The top-right corner (x=right, y=top) and bottom-left corner (x=left,
-     * y=bottom) are NOT part of the L (offset +1 misses them -- WDEF geometry).
-     *
-     * Drawn via C-8 seam (FLAIR_PART_FRAME -- wFrameColor = black).  NEVER a
-     * raw color literal (constraint C-8; ADR-0004-AMENDMENT-DEC-09 Sec 3.1).
-     * Ref: window-frame.md Sec 1 / Sec 4; StandardWDEF_a.txt L515/L578-594.
-     * Golden-resolves: s7_get_info.png on-screen right edge (Sec 4).
-     * Mutation probe: CHROME_FID_MUT_NO_SHADOW (beads initech-54nw, Rule 6). */
-#if defined(CHROME_FID_MUT_NO_SHADOW)
-    /* MUTANT (Rule 6; beads initech-54nw): skip the drop-shadow draw entirely.
-     * test-chrome-fidelity leg (7) MUST go RED. */
-    (void)h;
+#if defined(CHROME_FID_MUT_NOTCH)
+        int notch = 1;
 #else
-    /* Shadow column: x=right, y in [top+1, bottom+1). */
-    crect(port, right, top + 1, right + 1, bottom + 1, FLAIR_PART_FRAME);
-    /* Shadow row: y=bottom, x in [left+1, right+1).
-     * The column above already writes (right, bottom), so the row [left+1, right+1)
-     * includes (right, bottom) -- written twice is fine (same pixel, same color). */
-    crect(port, left + 1, bottom, right + 1, bottom + 1, FLAIR_PART_FRAME);
+        int notch = FLAIR_CHROME_SHADOW_NOTCH;
+#endif
+        for (int y = top + notch; y <= bottom; y++) {
+            cfill(port, right, y, 1, frame_part);
+        }
+        cfill(port, left + notch, bottom, right - left - notch + 1,
+              frame_part);
+    }
 #endif
 }
 
-/* ---------------------------------------------------------------------------
- * flair_draw_movable_dbox_chrome -- movableDBoxProc (5) chrome: a moveable
- * TITLED modal dialog box (beads initech-zvo6; Law 4).
- *
- * Ref (Law 1, all LOCAL):
- *   ../system7-decomp/specs/toolbox/window-manager.md line 173:
- *     "movableDBoxProc | 5 | movable modal dialog box (title bar, no
- *      grow/zoom)" [verified: A+B, refs/IM_Tb_TypesOfWindows.txt (MTE Ch 4
- *      Table 4-1) + refs/StandardWDEF_a.txt `dboxWithTitle EQU 5`].
- *   ../system7-decomp/specs/chrome/wdef-variant-geometry.md Sec 1 (variant
- *     catalog: movableDBoxProc = title bar yes(pinstripe), close/zoom/grow
- *     all "no (forced off)") + Sec 4 (the RENDERED golden s7_about.png -- a
- *     real System 7 movable-modal/title-bar window -- shows a PLAIN 1px frame
- *     around a pinstripe title bar "identical to documentProc" geometry/
- *     shades, NOT the WDEF assembly's theoretical 7px-fancy-border+title
- *     combination; the doc flags that combination as itself golden-resolves
- *     and unconfirmed by any capture). This drawer follows the CONFIRMED
- *     rendered golden (1px frame), which also matches THIS bug's own Law-4
- *     citation (initech-zvo6: "thin 1px document-style frame").
- *
- * CHROME (do NOT hand-roll a new pixel path -- reuses draw_titlebar_band,
- * the SAME title-bar composition flair_draw_document_window uses):
- *   - the title-bar band (bevel-hi + 15-row phase-locked pinstripe + bevel-lo
- *     + the shared frame line + centered Chicago title text), ALWAYS drawn
- *     hilited (the FILE COPY modal is always the topmost, frontmost overlay
- *     per shell.c's z-order -- ADR-0004 D-5 -- so there is no inactive state
- *     to render);
- *   - a PLAIN 1 px frame around the WHOLE window (FLAIR_CHROME_FRAME),
- *     drawn LAST so it is never painted over -- same convention as
- *     flair_draw_document_window section 5.
- * DELIBERATELY ABSENT (per the variant catalog "forced off" / "no"):
- *   - NO close box, NO zoom box (goAwayFlag forced off at wNew for this
- *     variant; wdef-variant-geometry.md Sec 1 "close: no (forced off)").
- *   - NO grow box, NO scrollbar (not a scrollable document; the FILE COPY
- *     modal has no scrollable content).
- *   - NO drop shadow (wdef-variant-geometry.md Sec 5: shadow is ONLY the
- *     varCode-AND-3==0 documentProc style; movableDBoxProc is varCode-AND-3
- *     ==1, "none").
- *
- * The caller (os/flair/dialog.c DrawDialog) is responsible for the CONTENT
- * fill (the dialog's white body + its items); this function draws ONLY the
- * band + the outer frame, matching the division of labor DrawDialog already
- * uses for the classic dBoxProc path (DrawDialog fills content, then draws
- * the border).
- * ------------------------------------------------------------------------- */
+/* movableDBoxProc shares the Platinum title-band mechanism. Its untitled body
+ * remains the caller-owned dialog face; this entry point only draws the band
+ * and the one-pixel structure frame. Ref: window-chrome.md Sec 2. */
 void flair_draw_movable_dbox_chrome(GrafPort *port, rgn_rect_t frame,
                                     const char *title)
 {
+    int left;
+    int top;
+    int right;
+    int bottom;
+    int w;
+    int h;
+
     if (port == 0) {
         return;
     }
-    int left   = frame.left;
-    int top    = frame.top;
-    int right  = frame.right;
-    int bottom = frame.bottom;
-    int w = right - left;
-    int h = bottom - top;
-
-    /* Must be big enough to hold the title band + the 1px frame on all sides
-     * (fail-soft no-op otherwise; Rule 2 -- never draw garbage). No scrollbar
-     * width requirement (unlike flair_draw_document_window): this variant
-     * never draws one. */
-    int min_h = FLAIR_CHROME_TITLEBAR_H + 2 * FLAIR_CHROME_FRAME + 2;
-    int min_w = 2 * FLAIR_CHROME_FRAME + 2;
-    if (w < min_w || h < min_h) {
+    left = frame.left;
+    top = frame.top;
+    right = frame.right;
+    bottom = frame.bottom;
+    w = right - left;
+    h = bottom - top;
+    if (w < 3 || h < FLAIR_CHROME_TITLEBAR_H + 2) {
         return;
     }
 
-    /* The title-bar band, ALWAYS hilited=1 (see file comment above). Return
-     * value (the shared frame line y) is not needed here: the caller
-     * (DrawDialog) derives content_top from FLAIR_CHROME_TITLEBAR_H directly,
-     * the same public constant this band's geometry is locked to. */
     (void)draw_titlebar_band(port, left, top, right, title, 1);
-
-    /* The plain 1px outer frame -- drawn LAST so it is never painted over by
-     * the caller's content fill (which is inset by FLAIR_CHROME_FRAME on all
-     * sides, so it never touches this outermost ring anyway). */
     cframe(port, left, top, right, bottom, FLAIR_PART_FRAME);
 }

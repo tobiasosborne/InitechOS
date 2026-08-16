@@ -19,9 +19,9 @@
  *     modal's right half is VACATED.  Post-fix it is untouched from shell_render:
  *       - the moveable-titled modal's right frame (499,240) reads canon idx0
  *         black (was the dBoxProc 7px border's (496,240) before initech-zvo6;
- *         the modal chrome is now a pinstripe title bar + a PLAIN 1px frame);
+ *         the modal chrome is now the Platinum 22-row title band + a PLAIN 1px frame);
  *       - the modal interior / progress bar (450,240) reads canon idx1 white;
- *       - the right-half band x[366,498] y[220,278] (below the 19px title band
+ *       - the right-half band x[366,498] y[222,278] (below the 22px title band
  *         -- was y[206,278] under the old 7px-border layout) is >=80% canon
  *         white/black (the modal box + text + progress bar) and <=5% canon teal.
  *     Pre-fix the whole band was seafoam-ERASED -> ~100% teal -> LEG M goes RED.
@@ -40,8 +40,8 @@
  * vouches for -- NEVER the render source flair_palette_rgb, NEVER preview.webp.
  * The modal geometry (moveable-titled movableDBoxProc chrome, beads
  * initech-zvo6; bounds {140,200,500,280}) comes from os/flair/dialog.c
- * FILECOPY_* + spec/chrome_metrics.h + the drag delta, NOT from the artifact's
- * render.
+ * FILECOPY_* + sys8/window-chrome.md Sec 2.1 + the drag delta, NOT from the
+ * artifact's render.
  *
  * Usage: ppm_flair_dc4v_check <screendump.ppm>
  * Exit 0 = PASS; non-zero = a named FAIL (the assertion + sampled-vs-expected RGB).
@@ -67,7 +67,7 @@
 #define CIDX_MENUBAR   3   /* menu-bar white #FFFFFF             */
 
 /* ---- the post-drag modal geometry (dialog.c FILECOPY_* -- INDEPENDENT of the
- * render). Bounds {left=140, top=200, right=500, bottom=280}; dBoxProc border 7px.
+ * render). Bounds {left=140, top=200, right=500, bottom=280}; movableDBoxProc frame 1px.
  * The ~260 px LEFT drag (W1 300->40) vacates the modal's right half; the fix keeps
  * it from being seafoam-erased. Probe the RIGHT half only (defect a, the empirically
  * -proven erase case): all coords are x in [360,500) y in [200,280). */
@@ -80,14 +80,14 @@
 
 /* the right-half survival band (entirely inside the modal AND inside the vacated
  * seafoam-erase zone x[360,560)y[120,360) of the pre-fix build). BAND_Y0 starts
- * BELOW the 19px pinstripe title band (content_top = DT+TITLEBAR_H = 219; was
- * 206 under the old 7px-border layout, where content began at DT+7=207) so the
- * >=80% white/black check isn't diluted by legitimate non-white/black pinstripe
- * (idx7/8) / bevel (idx2/4) pixels in the title band -- those are NOT erased
- * teal either way, but they are also not "white/black chrome". */
+ * BELOW the Platinum 22-row title band (content_top = DT+22 = 222). DEC-10
+ * Sec 4 + sys8/window-chrome.md Sec 2.1/2.2 replace the old 19-row exclusion;
+ * the new coordinate was measured against build/flair_dc4v.ppm before encoding.
+ * This keeps the >=80% white/black survival relation clear of legitimate face,
+ * stripe, and shadow rows in the title band. */
 #define BAND_X0        366
 #define BAND_X1        498
-#define BAND_Y0        220
+#define BAND_Y0        222
 #define BAND_Y1        278
 
 /* the Photoshop (second) bar run: y=30 is rows [20,40); x[70,350] crosses titles. */

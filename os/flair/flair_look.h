@@ -69,8 +69,33 @@ typedef enum {
                                * (idx>=9 ramp, #777777; beads initech-hv7u)      */
     FLAIR_PART_HILITE_TEXT,   /* inactive title ink (dimmed) -> CIDX_HILITE_TEXT
                                * (idx>=9 ramp, #A5A5A5; beads initech-hv7u)      */
+    /* Platinum rows append only: existing PART ordinals stay frozen.
+     * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
+    FLAIR_PART_PLAT_STRIPE_DARK,    /* title dark stripe                         */
+    FLAIR_PART_PLAT_FRAME_FACE,     /* frame-bar face / title gap / grow fill    */
+    FLAIR_PART_PLAT_FACE,           /* inactive + dialog/menu face               */
+    FLAIR_PART_PLAT_FRAME_SHADOW,   /* active frame-bar shadow                    */
+    FLAIR_PART_PLAT_WIDGET_EDGE,    /* widget edge and interior shadow            */
+    FLAIR_PART_PLAT_DARK_RING,      /* widget ring and glyphs                     */
+    FLAIR_PART_PLAT_INACTIVE_FRAME, /* inactive frames and shadow                 */
+    FLAIR_PART_PLAT_INACTIVE_TEXT,  /* inactive title ink                         */
+    FLAIR_PART_PLAT_TROUGH,         /* disabled/hollow scrollbar trough           */
+    FLAIR_PART_PLAT_WELL,           /* enabled scrollbar page well                */
+    FLAIR_PART_PLAT_TILE_SHADOW,    /* enabled arrow-tile shadow                  */
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
+
+/* Platinum composition policy:
+ * - Chrome white/highlights reuse FLAIR_PART_CONTENT (window-chrome.md Sec 2.1,
+ *   Sec 3.2, Sec 4, Sec 5; scrollbars.md Sec 2.2).
+ * - The widget 7-rung diagonal ramp reuses FRAME_SHADOW, WELL, TILE_SHADOW,
+ *   FRAME_FACE, FACE, TROUGH, then CONTENT-white in that order
+ *   (window-chrome.md Sec 3.2); no extra PART is required.
+ * - The real Platinum Lavender thumb is the OQ-2 authored substitution and
+ *   reuses FLAIR_PART_BEVEL_LIGHT / FLAIR_PART_BEVEL_SHADOW as the two-tone
+ *   Initech-teal pair (ADR-0004-AMENDMENT-DEC-10 Sec 3.2 / P4;
+ *   scrollbars.md Sec 2.4 records the source accent).
+ */
 
 /* ---------------------------------------------------------------------------
  * flair_look_pixel_depth(bpp, PART) -- resolve a PART to the destination pixel

@@ -73,7 +73,31 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* FLAIR_PART_BEVEL_LIGHT  */ { 0u, 1u, INITECH_CANON_BEVEL_LIGHT_RGB },
     /* FLAIR_PART_BEVEL_SHADOW */ { 0u, 1u, INITECH_CANON_BEVEL_SHADOW_RGB },
     /* FLAIR_PART_HILITE_FRAME */ { CIDX_HILITE_FRAME, 0u, 0u },
-    /* FLAIR_PART_HILITE_TEXT  */ { CIDX_HILITE_TEXT,  0u, 0u }
+    /* FLAIR_PART_HILITE_TEXT  */ { CIDX_HILITE_TEXT,  0u, 0u },
+    /* Platinum sampled mappings; every row is a named canon index from
+     * platinum-palette.md Sec 2. */
+    /* STRIPE_DARK: window-chrome.md Sec 2.2. */
+    { CIDX_PLAT_STRIPE_DARK,    0u, 0u },
+    /* FRAME_FACE: window-chrome.md Sec 2.1, Sec 4, Sec 5. */
+    { CIDX_PLAT_FRAME_FACE,     0u, 0u },
+    /* FACE: window-chrome.md Sec 6; scrollbars.md Sec 2.2. */
+    { CIDX_PLAT_FACE,           0u, 0u },
+    /* FRAME_SHADOW: window-chrome.md Sec 2.1 and Sec 4. */
+    { CIDX_PLAT_FRAME_SHADOW,   0u, 0u },
+    /* WIDGET_EDGE: window-chrome.md Sec 3.2; scrollbars.md Sec 3. */
+    { CIDX_PLAT_WIDGET_EDGE,    0u, 0u },
+    /* DARK_RING: window-chrome.md Sec 3.2 and Sec 3.3. */
+    { CIDX_PLAT_DARK_RING,      0u, 0u },
+    /* INACTIVE_FRAME: window-chrome.md Sec 1 and Sec 6; scrollbars.md Sec 4. */
+    { CIDX_PLAT_INACTIVE_FRAME, 0u, 0u },
+    /* INACTIVE_TEXT: window-chrome.md Sec 6. */
+    { CIDX_PLAT_INACTIVE_TEXT,  0u, 0u },
+    /* TROUGH: scrollbars.md Sec 3 and Sec 4. */
+    { CIDX_PLAT_TROUGH,         0u, 0u },
+    /* WELL: scrollbars.md Sec 2.3; window-chrome.md Sec 4 and Sec 5. */
+    { CIDX_PLAT_WELL,           0u, 0u },
+    /* TILE_SHADOW: scrollbars.md Sec 2.2. */
+    { CIDX_PLAT_TILE_SHADOW,    0u, 0u }
 };
 
 /* ---------------------------------------------------------------------------

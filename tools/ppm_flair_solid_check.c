@@ -32,10 +32,12 @@
  *
  *   C <post_switch.ppm> -- ACTIVATION CHROME. After the locked O-5 switch
  *       trace (activate background NOTES), (i) NOTES's title band must show
- *       ACTIVE chrome across its FULL width -- pinstripe alternation (both
- *       PIN_LIGHT and PIN_DARK present in the stripe rows) at left/mid/right
+ *       ACTIVE Platinum chrome across its FULL width -- the exact 12-row
+ *       light-first, strictly alternating white / CIDX_PLAT_STRIPE_DARK field
+ *       at left/mid/right
  *       columns, including the previously-occluded left segment; (ii) HELLO's
- *       title band must be flat inactive CONTENT white (no pinstripe); (iii)
+ *       title band must be flat inactive CIDX_PLAT_FACE (no stripes/bevel);
+ *       (iii)
  *       no stale vertical black run (HELLO's old right-edge frame) may cross
  *       NOTES's title band at x = HELLO right edge - 1.
  *
@@ -138,29 +140,52 @@ static int probe_is(const Img *im, int x, int y, unsigned char cidx,
     return 0;
 }
 
-/* ---- shared title-band geometry (chrome.c documentProc layout):
- * title_top = top+1, stripe rows [top+2, top+2+FLAIR_CHROME_TITLE_STRIPE_ROWS).
- * We scan the stripe interior one row in from each end. */
-#define STRIPE_Y0(top)  ((top) + 3)
-#define STRIPE_Y1(top)  ((top) + 2 + FLAIR_CHROME_TITLE_STRIPE_ROWS - 2)
+/* ---- shared Platinum title-band geometry. DEC-10 Sec 4 +
+ * sys8/window-chrome.md Sec 2.1/2.2: T is the top frame row and the exact
+ * 12-row stripe field is [T+4,T+16), white first and dark last. Use the new
+ * B1 names, not the retained System-7 compatibility aliases. */
+#define STRIPE_Y0(top)  ((top) + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF)
+#define STRIPE_Y1(top)  (STRIPE_Y0(top) + FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS)
 
-/* Column stack scan: does [y0,y1] at x contain a pixel near canon(a) AND one
- * near canon(b)? (pinstripe present).  Or all near canon(a)? (flat). */
-static void scan_col(const Img *im, int x, int y0, int y1,
-                     unsigned char a, unsigned char b,
-                     int *saw_a, int *saw_b, int *saw_other)
+/* Exact Platinum stripe relation at a clear title column. DEC-10 Sec 4 +
+ * sys8/window-chrome.md Sec 2.2: all 12 rows are present, white first, dark
+ * last, and every adjacent pair differs. */
+static int probe_platinum_stripe_col(const Img *im, int x, int top,
+                                     const char *leg)
 {
-    int ar, ag, ab_, br, bg, bb;
-    canon(a, &ar, &ag, &ab_);
-    canon(b, &br, &bg, &bb);
-    *saw_a = *saw_b = *saw_other = 0;
-    for (int y = y0; y <= y1; y++) {
-        int r, g, bl;
-        px(im, x, y, &r, &g, &bl);
-        if (near3(r, g, bl, ar, ag, ab_))      (*saw_a)++;
-        else if (near3(r, g, bl, br, bg, bb))  (*saw_b)++;
-        else                                    (*saw_other)++;
+    int mismatches = 0;
+    int first_y = 0, first_r = 0, first_g = 0, first_b = 0;
+    int first_er = 0, first_eg = 0, first_eb = 0;
+    int lr, lg, lb, dr, dg, db;
+    canon(CIDX_WHITE, &lr, &lg, &lb);
+    canon(CIDX_PLAT_STRIPE_DARK, &dr, &dg, &db);
+
+    for (int y = STRIPE_Y0(top); y < STRIPE_Y1(top); y++) {
+        int r, g, b;
+        int rel = y - STRIPE_Y0(top);
+        int er = (rel & 1) ? dr : lr;
+        int eg = (rel & 1) ? dg : lg;
+        int eb = (rel & 1) ? db : lb;
+        px(im, x, y, &r, &g, &b);
+        if (!near3(r, g, b, er, eg, eb)) {
+            if (mismatches == 0) {
+                first_y = y;
+                first_r = r; first_g = g; first_b = b;
+                first_er = er; first_eg = eg; first_eb = eb;
+            }
+            mismatches++;
+        }
     }
+    if (mismatches) {
+        fprintf(stderr,
+                "FAIL %s: Platinum title x=%d has %d/12 wrong stripe rows; "
+                "first T+%d sampled #%02X%02X%02X expected #%02X%02X%02X -- "
+                "light-first strict relation broken\n",
+                leg, x, mismatches, first_y - top,
+                first_r, first_g, first_b, first_er, first_eg, first_eb);
+        return 1;
+    }
+    return 0;
 }
 
 /* Shared leg-B/H content probes: offsets are relative to the independently
@@ -179,27 +204,17 @@ static int probe_notes_content(const Img *im, int left, int top,
     return bad;
 }
 
-/* Shared leg-C/H active-title probe: left/middle/right columns avoid the
- * close box, title text knockout, and zoom box. The left column is in the
- * segment that HELLO occluded at the boot geometry. */
+/* Shared active-title probe: left/middle/right columns avoid Platinum close
+ * (L+4), right-hand zoom/collapse (R-32/R-16), and the title-text gap. The
+ * left column is in the segment HELLO occluded at boot. DEC-10 Sec 4 +
+ * sys8/window-chrome.md Sec 2.2/3.1. */
 static int probe_notes_active_title(const Img *im, int left, int top, int right,
                                     const char *leg)
 {
     int xs[3] = { left + 40, left + 190, right - 40 };
     int bad = 0;
-    for (int i = 0; i < 3; i++) {
-        int sl, sd, so;
-        scan_col(im, xs[i], STRIPE_Y0(top), STRIPE_Y1(top),
-                 CIDX_PIN_LIGHT, CIDX_PIN_DARK, &sl, &sd, &so);
-        if (sl == 0 || sd == 0) {
-            fprintf(stderr,
-                    "FAIL %s: NOTES title x=%d stripes not ACTIVE "
-                    "(pin_light rows=%d pin_dark rows=%d other=%d) -- "
-                    "newly-active window kept inactive/occluded chrome\n",
-                    leg, xs[i], sl, sd, so);
-            bad = 1;
-        }
-    }
+    for (int i = 0; i < 3; i++)
+        bad |= probe_platinum_stripe_col(im, xs[i], top, leg);
     return bad;
 }
 
@@ -245,30 +260,26 @@ static int leg_C(const Img *im)
 {
     int bad = 0;
 
-    /* (i) NOTES title band ACTIVE across full width: pinstripe alternation at
-     * left (previously occluded), mid, right columns. Columns avoid the
-     * close box (left+9..left+20) and zoom box (right-20..right-9). */
+    /* (i) NOTES title band ACTIVE across full width: exact Platinum stripe
+     * relation at left (previously occluded), mid, right columns. DEC-10 Sec 4
+     * + sys8/window-chrome.md Sec 2.2/3.1. */
     bad |= probe_notes_active_title(im, FLAIR_TEN_NOTES_L,
                                     FLAIR_TEN_NOTES_T, FLAIR_TEN_NOTES_R,
                                     "leg C");
 
-    /* (ii) HELLO title band flat INACTIVE white (no pinstripe). */
+    /* (ii) HELLO title interior is flat inactive CIDX_PLAT_FACE for all 20
+     * rows between its CIDX_PLAT_INACTIVE_FRAME lines. There are no stripes or
+     * bevel. DEC-10 Sec 4 + sys8/window-chrome.md Sec 6. Columns avoid the
+     * centered title-ink run. */
     {
         static const int xs[3] = { FLAIR_TEN_HELLO_L + 40,        /* 100 */
-                                   FLAIR_TEN_HELLO_L + 140,       /* 200 */
+                                   FLAIR_TEN_HELLO_L + 80,        /* 140 */
                                    FLAIR_TEN_HELLO_R - 40 };      /* 320 */
         for (int i = 0; i < 3; i++) {
-            int sw, sd, so;
-            scan_col(im, xs[i], STRIPE_Y0(FLAIR_TEN_HELLO_T),
-                     STRIPE_Y1(FLAIR_TEN_HELLO_T),
-                     CIDX_WHITE, CIDX_PIN_DARK, &sw, &sd, &so);
-            if (sd != 0 || so != 0) {
-                fprintf(stderr,
-                        "FAIL leg C: HELLO title x=%d not flat inactive white "
-                        "(white=%d pin_dark=%d other=%d)\n",
-                        xs[i], sw, sd, so);
-                bad = 1;
-            }
+            for (int y = FLAIR_TEN_HELLO_T + 1;
+                 y < FLAIR_TEN_HELLO_T + FLAIR_CHROME_TITLEBAR_H - 1; y++)
+                bad |= probe_is(im, xs[i], y, CIDX_PLAT_FACE,
+                                "leg C HELLO flat inactive Platinum title fill");
         }
     }
 
@@ -297,8 +308,8 @@ static int leg_C(const Img *im)
     }
 
     if (!bad)
-        printf("solid C PASS: activation chrome correct (NOTES active full-width, "
-               "HELLO flat, no stale band)\n");
+        printf("solid C PASS: activation chrome correct (NOTES exact Platinum "
+               "stripes full-width, HELLO flat idx231, no stale band)\n");
     return bad;
 }
 
@@ -357,24 +368,12 @@ static int leg_G(const Img *im)
         bad = 1;
     }
 
-    /* The active stripe at the independently-computed y=40 proves that the
+    /* The exact Platinum stripe relation at independently-computed y=40 proves that the
      * title, rather than content exposed below an overlay-hidden title, begins
-     * immediately below menu band 2. Both columns avoid title text/gadgets. */
-    for (int i = 0; i < 2; i++) {
-        int sl, sd, so;
-        scan_col(im, xs[i], STRIPE_Y0(SOLID_G_NOTES_T),
-                 STRIPE_Y1(SOLID_G_NOTES_T),
-                 CIDX_PIN_LIGHT, CIDX_PIN_DARK, &sl, &sd, &so);
-        if (sl == 0 || sd == 0) {
-            fprintf(stderr,
-                    "FAIL leg G: reachable NOTES title x=%d missing at "
-                    "clamped band [%d,%d) (pin_light=%d pin_dark=%d other=%d)\n",
-                    xs[i], SOLID_G_NOTES_T,
-                    SOLID_G_NOTES_T + FLAIR_CHROME_TITLEBAR_H,
-                    sl, sd, so);
-            bad = 1;
-        }
-    }
+     * immediately below menu band 2. Both columns avoid title text/gadgets.
+     * DEC-10 Sec 4 + sys8/window-chrome.md Sec 2.1/2.2. */
+    for (int i = 0; i < 2; i++)
+        bad |= probe_platinum_stripe_col(im, xs[i], SOLID_G_NOTES_T, "leg G");
 
     /* Both frame lines are visible at their locked rows, proving the complete
      * FLAIR_CHROME_TITLEBAR_H band (not only an interior stripe sample) lies

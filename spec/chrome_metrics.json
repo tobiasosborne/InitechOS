@@ -18,7 +18,7 @@
     "                   implied scale 1.26x, not the naive 1456/640=2.28x).",
     "                   Keep for traceability only; do NOT use as oracle datums.",
     "                   Ref: docs/research/gui-ground-truth.md Sec 3.4.",
-    "  native        -- System 7.0/7.1 color chrome constants, source-cited.",
+    "  native        -- Route-2 Platinum base plus retained era-tagged peers.",
     "                   These drive test-chrome (ADR-0004 D-8, FO-2/AM-3).",
     "                   Every value is a per-value object {value, unit, source, note}.",
     "  golden_resolves -- metrics that CANNOT be sourced from WDEF/IM and need",
@@ -45,10 +45,17 @@
     "  ../win31-decomp/specs/chrome/system-metrics.md (verified DOSBox-X goldens).",
     "  Provenance note: values cited from the ../system7-decomp and ../win31-decomp",
     "  goldens corpora; pixel values resolved from those corpora goldens (not from",
-    "  a first-hand fetch of refs/ into this repo -- refs/ was not persisted here)."
+    "  a first-hand fetch of refs/ into this repo -- refs/ was not persisted here).",
+    "",
+    "schema_version 4 = Route-2 Platinum base re-key (initech-3knt B1).",
+    "  Ref: ADR-0004-AMENDMENT-DEC-10 Sec 3.6.1 / Sec 4, OQ-7.",
+    "  Platinum values use the SAMPLED framebuffer domain only; nominal values",
+    "  remain provenance. Ref: ../system7-decomp/specs/sys8/platinum-palette.md",
+    "  Sec 1 (gamma table) and Sec 2 (sampled ramp). System-7 values remain",
+    "  compiled and visible under era-tagged keys (BC-10.10)."
   ],
-  "schema_version": 3,
-  "target_system": "Apple System 7.0/7.1 color chrome (WDEF minColorDepth=8 satisfied by ADR-0004 OD-2 indexed-8 640x480)",
+  "schema_version": 4,
+  "target_system": "Mac OS 8.1 System 8 Platinum base; System 7.0/7.1 and Win31 heritage entries retained",
   "source_fixture": "spec/assets/preview.webp",
   "source_dims": { "w": 1456, "h": 819 },
 
@@ -110,23 +117,56 @@
     "menubar_height": {
       "value": 20,
       "unit": "px",
+      "era": "system7.0-7.1 (retained; outside the Route-2 window-chrome re-key)",
       "source": "https://developer.apple.com/library/archive/documentation/mac/Toolbox/Toolbox-128.html",
       "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
       "note": "GetMBarHeight returns 20 px for Roman script. v0 frame_pixels value was 19 (CRT photo measurement -- superseded by this native constant per gui-ground-truth.md Sec 3.4 resolution)."
     },
 
     "titlebar_height_std": {
+      "value": 22,
+      "unit": "px",
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 2.1",
+      "corpus_golden": "s8_doc_window_active y=70..91 plus three independent window cross-checks",
+      "note": "Title band is 22 rows frame-to-frame inclusive: frame, highlight, 2 face, 12 stripes, 4 face, shadow, frame."
+    },
+
+    "sys7_titlebar_height_std": {
       "value": 19,
       "unit": "px",
+      "era": "system7.0-7.1",
       "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
-      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
       "wdef_constant": "minTitleH EQU 19",
-      "note": "Standard documentProc title bar height (without small icon). v0 frame_pixels value was 24 -- the 24/19 ratio (1.26x) proves the photo is not a linear upscale of the 640x480 buffer; do NOT back-compute native values from frame pixels (gui-ground-truth.md Sec 3.4)."
+      "note": "Retained System-7 standard documentProc title height (BC-10.10)."
+    },
+
+    "platinum_titlebar_profile": {
+      "frame_top_rows": 1,
+      "highlight_rows": 1,
+      "face_above_rows": 2,
+      "stripe_top_offset": 4,
+      "stripe_rows": 12,
+      "face_below_rows": 4,
+      "shadow_rows": 1,
+      "frame_bottom_rows": 1,
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 2.1",
+      "note": "Top-to-bottom row profile sums to 22; the 2/4 face-row asymmetry is measured and binding."
+    },
+
+    "sys7_titlebar_profile": {
+      "bevel_rows_each": 1,
+      "stripe_rows": 15,
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/window-frame.md Sec 2a and pinstripe.md Geometry",
+      "note": "Retained System-7 1+15+1 title interior decomposition (BC-10.10)."
     },
 
     "titlebar_height_with_icon": {
       "value": 21,
       "unit": "px",
+      "era": "system7.0-7.1",
       "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
       "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
       "wdef_constant": "minTitleHIcon EQU 21",
@@ -136,41 +176,59 @@
     "scrollbar_width": {
       "value": 16,
       "unit": "px",
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/scrollbars.md Sec 1",
+      "corpus_golden": "s8_doc_window_active vertical x=460..475 and horizontal y=295..310",
+      "note": "Total band is 16 px including two one-pixel bounding lines; interior is 14 px."
+    },
+
+    "sys7_scrollbar_width": {
+      "value": 16,
+      "unit": "px",
+      "era": "system7.0-7.1",
       "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
-      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
       "wdef_constant": "scrollBarSize EQU 16",
-      "source_toolbox": "https://developer.apple.com/library/archive/documentation/mac/pdf/MacintoshToolboxEssentials.pdf",
-      "toolbox_ref": "Toolbox-313 kScrollbarWidth; Toolbox-303 '15-pixel-deep region'",
-      "toolbox_fetch_status": "BRIEF-SOURCED (PDF binary; pending local text extraction)",
-      "note": "The scrollbar control rect is 16 px wide. The right 1 px overlaps the 1 px window frame, so the control presents 15 px of ADDED width past the content area. Use 16 px for the rendered scrollbar control rect. The 15-vs-16 discrepancy is one pixel of frame overlap, not a contradiction (gui-ground-truth.md Sec 3.4)."
+      "note": "Retained System-7 scrollbar width (BC-10.10)."
     },
 
     "window_frame": {
       "value": 1,
       "unit": "px",
-      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
-      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19 (FrameRect inset + frame drawing code)",
-      "source_toolbox": "https://developer.apple.com/library/archive/documentation/mac/pdf/MacintoshToolboxEssentials.pdf",
-      "toolbox_ref": "Toolbox-313 '1-pixel-wide window frame'",
-      "toolbox_fetch_status": "BRIEF-SOURCED (PDF binary; pending local text extraction)",
-      "note": "Classic Mac double-line frame: 1 px outer line + 1 px inner groove. The v0 frame_pixels value was 2 -- this is actually consistent: the photo captured the combined visual width of both lines."
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 4",
+      "note": "One-pixel outer and inner black lines enclose the four-pixel raised body bar."
+    },
+
+    "sys7_window_frame": {
+      "value": 1,
+      "unit": "px",
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/window-frame.md Sec 2a",
+      "note": "Retained System-7 single-line document body frame (BC-10.10)."
     },
 
     "grow_box_size": {
+      "value": 18,
+      "unit": "px",
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 5",
+      "corpus_golden": "s8_doc_window_active x=461..478 y=296..313",
+      "note": "Platinum grow cell is 18x18 with three grip lines at four-pixel pitch."
+    },
+
+    "sys7_grow_box_size": {
       "value": 16,
       "unit": "px",
-      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
-      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19 (grow box computed from scrollBarSize)",
-      "source_toolbox": "https://developer.apple.com/library/archive/documentation/mac/pdf/MacintoshToolboxEssentials.pdf",
-      "toolbox_ref": "Toolbox-313 (same listing as kScrollbarWidth)",
-      "toolbox_fetch_status": "BRIEF-SOURCED (PDF binary; pending local text extraction)",
-      "note": "16x16 px square in the bottom-right corner. The WDEF positions it using scrollBarSize-2 (14 px) inset from the content rect edges, creating a 2 px overlap with each scrollbar. The rendered fill pattern (2D hash) is golden-resolves -- needs screendump."
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/grow-box.md Geometry",
+      "note": "Retained System-7 grow box size (BC-10.10)."
     },
 
     "close_zoom_box_frame_delta": {
       "value": 13,
       "rendered_px": 11,
       "unit": "px",
+      "era": "system7.0-7.1",
       "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
       "fetch_status": "FIRST-HAND VERIFIED 2026-06-19; rendered_px golden-resolved 2026-06-25 (initech-ts3t)",
       "rendered_source": "../system7-decomp/specs/chrome/close-zoom-box.md Geometry table (golden s7_doc_window.png close box x=361..371, y=168..178 = 11x11 whole gadget incl bevel; x=360/372 and y=167/179 are pinstripe #F3F3F3, NOT box)",
@@ -178,9 +236,78 @@
       "note": "value=13 is the WDEF vertical-gap derivation (wBoxDelta = (titleHeight-13)/2 centers the box). rendered_px=11 is the visible gadget size in the golden (close-zoom-box.md, LAW 2: the golden wins over the WDEF derivation). Horizontal: close box left = struct.left + 9 (PlotGoAway 'moveq #9,D1' WDEF @1675-1678); zoom box left = struct.right - 20 (PlotZoom 'left := right; moveq #-20,D1' WDEF @1682-1693). Box top = struct.top + wBoxDelta + 1 (WDEF @1705-1707). The gadget is a double-beveled 3-D square: dark outer top/left frame + inner lavender bevel highlight + inner-right/inner-bottom dark + lavender bottom/right + 7x7 gray face; the ZOOM box additionally carries the nested-square 'little dude' glyph, the CLOSE box does not."
     },
 
+    "platinum_widget_geometry": {
+      "count": 3,
+      "box_size": 12,
+      "outer_highlight": 1,
+      "footprint": 13,
+      "top_offset": 4,
+      "close_left_offset": 4,
+      "zoom_right_offset": 32,
+      "collapse_right_offset": 16,
+      "interior_size": 9,
+      "ramp_face_size": 7,
+      "ramp_rungs": 7,
+      "ramp_pixels_per_step": 2,
+      "zoom_glyph_edge": 6,
+      "collapse_rows": [3, 5],
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 3.1, Sec 3.2, Sec 3.3",
+      "note": "Close is left; zoom then collapse are right; collapse is rightmost."
+    },
+
+    "platinum_body_frame": {
+      "outer_line": 1,
+      "raised_bar": 4,
+      "bar_face_rows": 2,
+      "inner_line": 1,
+      "content_inset": 1,
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 4",
+      "note": "Raised bar outside-to-inside is white, face, face, frame-shadow; content inset is white top/left and well bottom/right."
+    },
+
+    "platinum_shadow_notch": {
+      "value": 2,
+      "unit": "px",
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 1",
+      "note": "Right shadow column begins at struct.top+2 and bottom shadow row begins at struct.left+2."
+    },
+
+    "sys7_shadow_notch": {
+      "value": 0,
+      "unit": "px",
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/window-frame.md Sec 1",
+      "note": "Retained no-Platinum-notch era marker; System-7 uses its own +1 shadow geometry."
+    },
+
+    "platinum_scrollbar_state_metrics": {
+      "interior_width": 14,
+      "arrow_tile": 16,
+      "separator": 1,
+      "thumb_min": 15,
+      "well_shadow_rows": 2,
+      "well_fill_rows": 10,
+      "well_light_rows": 2,
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/scrollbars.md Sec 1 and Sec 2.3",
+      "note": "Metrics cover ENABLED, DISABLED, and HOLLOW state anatomy."
+    },
+
+    "platinum_grow_grip": {
+      "lines": 3,
+      "pitch": 4,
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 5",
+      "note": "Three diagonal grip lines, each with white lead, dark trail, and well-color terminator."
+    },
+
     "dialog_dboxproc_border": {
       "value": 7,
       "unit": "px",
+      "era": "system7.0-7.1",
       "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
       "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
       "wdef_constant": "dBoxBorderSize EQU 7",
@@ -190,15 +317,24 @@
     "drop_shadow_documentproc": {
       "value": 1,
       "unit": "px",
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 1",
+      "note": "Platinum shadow is one-pixel ink at offset (+1,+1), with a two-pixel near-corner notch."
+    },
+
+    "sys7_drop_shadow_documentproc": {
+      "value": 1,
+      "unit": "px",
+      "era": "system7.0-7.1",
       "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
-      "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
       "wdef_code": "move.l OneOne,D4 ; varCode=0 (documentProc) -> shadow 1,1",
-      "note": "documentProc (varCode=0) drop shadow is 1 px at offset (1,1). WDEF code: 'move.l OneOne,D4 / tst.w varCodeReg / beq.s @1'. Other variants: dBoxProc without title (varCode=1) uses 2x2 shadow; some variants use no shadow."
+      "note": "Retained System-7 documentProc shadow offset; no Platinum two-pixel notch (BC-10.10)."
     },
 
     "small_icon_in_title": {
       "value": 20,
       "unit": "px",
+      "era": "system7.0-7.1",
       "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
       "fetch_status": "FIRST-HAND VERIFIED 2026-06-19",
       "wdef_constant": "IconSize EQU 20",
@@ -208,18 +344,36 @@
     "pinstripe_period": {
       "value": 2,
       "unit": "px",
-      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
-      "fetch_status": "BRIEF-SOURCED from community CSS recreation + v0 frame measurement (gui-ground-truth.md Sec 3.3); consistent with WDEF wTitleBarLight/wTitleBarDark shade index pairs (FIRST-HAND VERIFIED -- WDEF defines wTitleBarLight EQU 7 and wTitleBarDark EQU 8 as the alternating shade indices)",
-      "note": "1 dark + 1 light alternating scanline pattern; total period = 2 px. The WDEF source confirms the light/dark pairing via wTitleBarLight EQU 7 / wTitleBarDark EQU 8 (first-hand verified). The exact RGB values for those shade indices (stored in the wctb resource ID -4096) are golden-resolves -- they cannot be derived from WDEF alone and need a real System 7 screendump with wctb resource extraction via ResEdit."
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 2.2",
+      "note": "Twelve one-pixel rows alternate light/dark, starting light and ending dark."
+    },
+
+    "sys7_pinstripe_period": {
+      "value": 2,
+      "unit": "px",
+      "era": "system7.0-7.1",
+      "source": "../system7-decomp/specs/chrome/pinstripe.md Geometry",
+      "note": "Retained System-7 period for the phase-locked 15-row LLD...LL field (BC-10.10)."
     },
 
     "titlebar_shade_indices": {
+      "wTitleBarLight": 1,
+      "wTitleBarDark": 150,
+      "unit": "canon-index",
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 2.2; platinum-palette.md Sec 1 and Sec 2",
+      "note": "Legacy child-key spellings are retained for the header/JSON consumer. Values are Platinum canon indices: CONTENT white idx1 and sampled dark-stripe idx150, not System-7 wctb indices."
+    },
+
+    "sys7_titlebar_shade_indices": {
       "wTitleBarLight": 7,
       "wTitleBarDark": 8,
       "unit": "wctb-index",
-      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html",
+      "era": "system7.0-7.1",
+      "source": "https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html; ../system7-decomp/specs/chrome/pinstripe.md",
       "fetch_status": "cited; values match documented System-7 constants",
-      "note": "WDEF constants wTitleBarLight EQU 7 and wTitleBarDark EQU 8 are the indices into the wctb (window color table) resource ID -4096 for the alternating pinstripe shades. The wctb id=0 (full 7.0.1 distribution + 7.5.3, byte-identical) carries wTitleBarLight (idx 7) = #FFFFFF and wTitleBarDark (idx 8) = #000000, confirming the stripe gray is a DITHER of those two anchors -- not a palette entry. See native.pinstripe_light_rgb / native.pinstripe_dark_rgb for the rendered values. Ref: ../system7-decomp/specs/chrome/pinstripe.md; re/mint-results-006.md [verified: wctb_0_System_colorHD.bin == wctb_0_System_753.bin]"
+      "note": "Retained WDEF wTitleBarLight/wTitleBarDark indices for the System-7 phase-locked stripe field (BC-10.10)."
     },
 
     "pinstripe_light_rgb": {
@@ -390,6 +544,87 @@
       "corpus_golden": "goldens/captures/s7_scrollbar_active.png; same 2:1 dither sample (mint-004 2026-06-20)",
       "era_stability": "verified: golden goldens/captures/s7_scrollbar_active.png; era 7.5.3; cite re/mint-results-004.md sec 2",
       "note": "Rendered RGB of the DARK element (1/3) of the active scrollbar track gutter dither. Same shade as the pinstripe dark row (#969696) -- they share the wTitleBarDark family. Ref: scrollbar.md Sec 'Active scroll bar'; re/mint-results-004.md sec 2."
+    },
+
+    "platinum_pinstripe_light_rgb": {
+      "value": "#FFFFFF",
+      "rgb": [255, 255, 255],
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 2.2; platinum-palette.md Sec 1 and Sec 2",
+      "corpus_golden": "s8_doc_window_active y=74 x=86..238",
+      "note": "SAMPLED-domain light stripe and three-dimensional highlight."
+    },
+
+    "platinum_pinstripe_dark_rgb": {
+      "value": "#969696",
+      "rgb": [150, 150, 150],
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 2.2; platinum-palette.md Sec 1 and Sec 2",
+      "corpus_golden": "s8_doc_window_active y=75 x=87..239",
+      "note": "SAMPLED-domain dark stripe."
+    },
+
+    "platinum_frame_face_rgb": {
+      "value": "#DADADA",
+      "rgb": [218, 218, 218],
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 2.1 and Sec 4; platinum-palette.md Sec 1 and Sec 2",
+      "corpus_golden": "s8_doc_window_active y=72,73,86..89 x=120",
+      "note": "SAMPLED-domain active frame-bar face, title gap, and grow fill."
+    },
+
+    "platinum_frame_shadow_rgb": {
+      "value": "#B3B3B3",
+      "rgb": [179, 179, 179],
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 2.1 and Sec 4; platinum-palette.md Sec 1 and Sec 2",
+      "corpus_golden": "s8_doc_window_active y=90 x=120 and body border",
+      "note": "SAMPLED-domain active frame-bar shadow."
+    },
+
+    "platinum_widget_edge_rgb": {
+      "value": "#A5A5A5",
+      "rgb": [165, 165, 165],
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 3.2; platinum-palette.md Sec 1 and Sec 2",
+      "corpus_golden": "s8_doc_window_active close box row y=74 x=69..80",
+      "note": "SAMPLED-domain widget top/left edge and interior shadow."
+    },
+
+    "platinum_widget_ring_rgb": {
+      "value": "#3F3F3F",
+      "rgb": [63, 63, 63],
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 3.2 and Sec 3.3; platinum-palette.md Sec 1 and Sec 2",
+      "corpus_golden": "s8_doc_window_active close box y=75 x=70..80",
+      "note": "SAMPLED-domain widget ring and glyph ink."
+    },
+
+    "platinum_inactive_frame_rgb": {
+      "value": "#777777",
+      "rgb": [119, 119, 119],
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 1 and Sec 6; platinum-palette.md Sec 1 and Sec 2",
+      "corpus_golden": "s8_doc_window_inactive struct lines and shadow",
+      "note": "SAMPLED-domain inactive frame lines and shadow."
+    },
+
+    "platinum_inactive_fill_rgb": {
+      "value": "#E7E7E7",
+      "rgb": [231, 231, 231],
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 6; platinum-palette.md Sec 1 and Sec 2",
+      "corpus_golden": "s8_doc_window_inactive title y=30..49 x=120",
+      "note": "SAMPLED-domain inactive title, body-bar, and grow fill."
+    },
+
+    "platinum_inactive_ink_rgb": {
+      "value": "#878787",
+      "rgb": [135, 135, 135],
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 6; platinum-palette.md Sec 1 and Sec 2",
+      "corpus_golden": "s8_doc_window_inactive title y=40 x=142..196",
+      "note": "SAMPLED-domain inactive title ink."
     },
 
     "win31_sm_cycaption": {

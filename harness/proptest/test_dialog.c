@@ -66,6 +66,7 @@
 #include "dialog.h"             /* the Dialog Manager under test (-Ios/flair)  */
 #include "control.h"            /* ControlRecord, progressBar (-Ios/flair)     */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_DIALOG_BORDER (-Ispec)         */
+#include "color_canon.h"        /* named sampled Platinum canon indices         */
 #include "text.h"               /* text_measure, FONT_CHICAGO (-Ios/flair)     */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 
@@ -73,6 +74,23 @@
 #include "region.h"             /* rgn_store_t + helpers (-Ios/flair/atkinson) */
 
 TEST_HARNESS();
+
+/* Strict movable-title classifier for the Platinum Route-2 base row.
+ * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and
+ * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
+static uint32_t dialog_title_row_index(int row)
+{
+    if (row == 0 || row == FLAIR_CHROME_TITLEBAR_H - 1) return CIDX_BLACK;
+    if (row == 1) return CIDX_WHITE;
+    if (row < FLAIR_CHROME_TITLE_STRIPE_TOP_OFF) return CIDX_PLAT_FRAME_FACE;
+    if (row < FLAIR_CHROME_TITLE_STRIPE_TOP_OFF +
+              FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS) {
+        return ((row - FLAIR_CHROME_TITLE_STRIPE_TOP_OFF) & 1)
+               ? CIDX_PLAT_STRIPE_DARK : CIDX_WHITE;
+    }
+    if (row < FLAIR_CHROME_TITLEBAR_H - 2) return CIDX_PLAT_FRAME_FACE;
+    return CIDX_PLAT_FRAME_SHADOW;
+}
 
 /* ===========================================================================
  * Seeded LCG (Rule 11 -- deterministic; mirrors test_control.c / test_window.c)
@@ -633,15 +651,13 @@ static void draw_filecopy_dialog(GrafPort *port)
 
 /* ===========================================================================
  * PROPERTY 3 -- DRAW: the FILE COPY modal renders the MOVEABLE TITLED chrome
- * (beads initech-zvo6): a pinstripe title bar + a PLAIN 1-px frame -- NOT the
+ * (beads initech-zvo6): a Platinum title bar + a PLAIN 1-px frame -- NOT the
  * old titleless dBoxProc 7-px solid border. Dialog bounds: top=200, left=140,
  * right=500, bottom=280. Title band geometry (chrome_metrics.h):
- *   y=200            outer top frame line          -> DLG_BLACK (0)
- *   y=201            bevel-hi                       -> idx 2 (CIDX_DESKTOP)
- *   y=202..216       15-row pinstripe                -> idx 7 or 8
- *   y=217            bevel-lo                        -> idx 4 (CIDX_TITLE_INK)
- *   y=218            shared frame line                -> DLG_BLACK (0)
- *   y=219.. (=top+FLAIR_CHROME_TITLEBAR_H) content    -> DLG_WHITE (1)
+ *   y=200..221       K,H,2 face,12 stripes,4 face,S,K
+ *   y=222..          content                          -> DLG_WHITE (1)
+ * Re-key authority: ADR-0004-AMENDMENT-DEC-10 Sec 4; sampled rows:
+ * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2.
  * MUTATION: DIALOG_MUTATE_TITLELESS_MODAL reverts to the OLD titleless
  * dBoxProc box (thick 7px border, no title bar) -> these checks go RED.
  * ===========================================================================*/
@@ -656,48 +672,28 @@ static void test_draw_filecopy(void)
 
     char msg[300];
 
-    /* (a) Title bar band present: bevel-hi (y=201) is idx 2, NOT black/white.
-     * Probed at x=145: comfortably left of the title-text clamp (left+23=163,
-     * close-zoom-box.md clearance), so never inside the text knockout. */
-    snprintf(msg, sizeof msg,
-             "title bevel-hi row (x=145,y=201) must be idx 2 (CIDX_DESKTOP "
-             "bevel-light), got %u -- proves a title bar is drawn (initech-zvo6)",
-             (unsigned)pidx(&ctx, 145u, 201u));
-    CHECK(pidx(&ctx, 145u, 201u) == 2u, msg);
-
-    /* (b) The pinstripe band (y=202..216) contains BOTH light (7) and dark (8)
-     * shades -- proves it is NOT the old solid-black 7px border (which would
-     * read idx 0 for every one of these rows). Probed at x=145 (left of the
-     * title-text knockout, which would otherwise mask the alternation). */
+    /* (a-c) Replace the retained bevel/stripe/shared-line checks with the
+     * strictly stronger exact 22-row profile at a clear x. Ref: DEC-10 Sec 4;
+     * sys8/window-chrome.md Sec 2.1-2.2. */
     {
-        int saw_light = 0, saw_dark = 0;
-        for (unsigned y = 202u; y <= 216u; y++) {
-            uint32_t v = pidx(&ctx, 145u, y);
-            if (v == 7u) { saw_light = 1; }
-            if (v == 8u) { saw_dark  = 1; }
+        int profile_ok = 1;
+        for (int row = 0; row < FLAIR_CHROME_TITLEBAR_H; row++) {
+            profile_ok = profile_ok &&
+                pidx(&ctx, 145u, (uint32_t)(200 + row)) ==
+                    dialog_title_row_index(row);
         }
-        CHECK(saw_light && saw_dark,
-              "title bar pinstripe rows (x=145,y=202..216) must show BOTH idx7 "
-              "(light) and idx8 (dark) -- proves a pinstripe title bar, not "
-              "a solid black border (initech-zvo6)");
+        CHECK(profile_ok,
+              "FILE COPY title must match exact 22-row Platinum profile");
     }
 
-    /* (c) The shared frame line (y=218, the bottom of the title band) is black.
-     * Probed at x=145 (left of the title-text knockout). */
-    snprintf(msg, sizeof msg,
-             "title band shared frame line (x=145,y=218) must be DLG_BLACK (0), "
-             "got %u", (unsigned)pidx(&ctx, 145u, 218u));
-    CHECK(pidx(&ctx, 145u, 218u) == 0u, msg);
-
     /* (d) 'FILE COPY' title text is RENDERED: a CIDX_TITLE_INK (idx 4) pixel
-     * appears somewhere in the pinstripe band (y=202..216) -- idx 4 never
-     * otherwise appears there (only 7/8), so its presence proves ink, not
-     * just a knockout gap. Scanning stops BEFORE y=217 (the bevel-lo row,
-     * which is idx 4 by construction and would be a false positive). */
+     * appears inside the text-cell rows. The Platinum band contains no other
+     * idx4 class, so its presence proves ink, not only the idx218 gap.
+     * Ref: DEC-10 Sec 4; sys8/window-chrome.md Sec 2.3. */
     {
         int saw_ink = 0;
         for (int x = 140; x < 500 && !saw_ink; x++) {
-            for (unsigned y = 202u; y <= 216u; y++) {
+            for (unsigned y = 204u; y < 220u; y++) {
                 if (pidx(&ctx, (uint32_t)x, y) == 4u) { saw_ink = 1; break; }
             }
         }
@@ -708,7 +704,7 @@ static void test_draw_filecopy(void)
 
     /* (e) The frame is PLAIN 1-px, NOT the old 7px dBoxProc border: the pixel
      * ONE column inside the left edge (x=141), at a CONTENT row (y=240, well
-     * below the 19px title band), is WHITE -- under the old 7px border this
+     * below the 22px title band), is WHITE -- under the old 7px border this
      * pixel (x=140+1) would still be solid BLACK (border spans x=140..146).
      * MUTATION: DIALOG_MUTATE_TITLELESS_MODAL reverts to the 7px border ->
      * this pixel goes BLACK -> RED. */
@@ -737,7 +733,7 @@ static void test_draw_filecopy(void)
     CHECK(pidx(&ctx, 300u, 279u) == 0u, msg);
 
     /* (f) Progress bar: item rect left=154, top=249, right=486, bottom=269
-     * (re-based below the 19px title band; was top=236/bottom=256 under the
+     * (below the Platinum title band; was top=236/bottom=256 under the
      * old 7px-border layout). inner_w = (486-154)-2 = 330; at
      * FLAIR_CANON_FILECOPY_PROGRESS (68), filled_px = 330*68/100 = 224
      * (integer division), so x in [155, 155+224)=[155,379) reads CTRL_ACCENT
