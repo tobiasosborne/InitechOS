@@ -17,6 +17,10 @@
  * only the public op NAMES, mode codes, and Rect field order are carried, from
  * both heritages, for period authenticity.
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. ATKINSON remains a
+ * neutral engine; the System 7 QuickDraw and Win 3.1 GDI names below are peer
+ * retained-heritage facades, not competing base-era claims (BC-10.10).
+ *
  * Source / Law 1 citations (all local):
  *   PRD Sec 6.2 -- a region is a pixel set R in Z^2, represented per scanline by
  *     a sorted list of INVERSION POINTS x0 < x1 < ... at which membership

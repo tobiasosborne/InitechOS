@@ -7,8 +7,8 @@
  *   ctSize=255). Extracted as:
  *     ../system7-decomp/goldens/resources/clut_8_rom.bin (2056 bytes)
  *   Ref: system7-decomp/specs/resources/clut-pltt-format.md Secs 2 and 4.
- *   Era: system7.0-7.1 [inferred: era-stable Mac II (1987) through 7.1;
- *        Law 3 era-tag: see spec/assets/clut.json "era" field].
+ *   Era: system7.0-7.1 + system8-platinum-8.1 [confirmed unchanged by the OQ-8
+ *        gamma proof; Law 3 era-tag: see spec/assets/clut.json "era" field].
  *
  * Downsampling: 8-bpp = high byte of 16-bit RGBColor (val >> 8).
  *   E.g. stored 0xFFFF -> 0xFF; 0xCCCC -> 0xCC; 0x3333 -> 0x33.
@@ -28,8 +28,9 @@
  *   [255]:      Black = {0,0,0}
  *
  * palette.* (spec/assets/palette.h) is the 7-color frame-sampled canon +
- * SEAFOAM. clut.* is the full System-7 ROM table. They COEXIST; do NOT
- * merge or edit either to match the other.
+ * SEAFOAM. clut.* is the full ROM-derived table, confirmed unchanged through
+ * Mac OS 8.1 by ADR-0004-AMENDMENT-DEC-10 OQ-8. They COEXIST; do NOT merge or
+ * edit either to match the other.
  *
  * Nearest CLUT indices for spec/assets/palette.json frame colors:
  *   desktop_bg_frame_v0 (115,105,108)   -> CLUT[129] #666666
@@ -54,7 +55,7 @@
  * Encoding: [index][0]=R, [index][1]=G, [index][2]=B, each 0..255.
  * Ref: spec/assets/clut.json (the JSON mirror of this table; see that file
  * for the full entry-by-entry listing with hex strings).
- * era: system7.0-7.1
+ * era: system7.0-7.1 + system8-platinum-8.1 (OQ-8: values unchanged)
  */
 static const unsigned char flair_clut8[256][3] = {
     {0xFF,0xFF,0xFF}, {0xFF,0xFF,0xCC}, {0xFF,0xFF,0x99}, {0xFF,0xFF,0x66}, {0xFF,0xFF,0x33}, {0xFF,0xFF,0x00}, {0xFF,0xCC,0xFF}, {0xFF,0xCC,0xCC},

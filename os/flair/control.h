@@ -3,6 +3,11 @@
  *
  * beads: initech-8h9 ("FLAIR Control Manager: buttons, scrollbars, progress bar").
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the
+ * standalone push/check/radio faces below remain explicit System 7 heritage
+ * renderings until their Appearance-era face is independently minted. Record
+ * and part-code semantics are unchanged (DEC-10 OQ-9).
+ *
  * Ref: ADR-0004 D-3 ("Control Manager -- ControlRecord {value/min/max,
  *        contrlHilite, contrlRect}; part-codes inButton, inCheckBox,
  *        inUpButton/inDownButton/inPageUp/inPageDown/inThumb. Buttons,

@@ -3,6 +3,10 @@
  *
  * beads: (Dialog Manager: ModalDialog, FILE COPY box, item lists)
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The movable modal
+ * delegates its title band to the Platinum chrome mechanism; retained dialog
+ * manager semantics and dBoxProc geometry remain explicitly heritage-tagged.
+ *
  * Freestanding artifact code. Implements the Dialog Manager (FLAIR Layer 3,
  * ADR-0004 D-3): the modal FILE COPY box (Law 4 canon, PRD Sec 6.5), item
  * list management, dBoxProc 7-px border frame drawing, ModalDialog cooperative
@@ -34,7 +38,7 @@
  *   dBoxProc dialogs (the NewDialog default): a solid FLAIR_CHROME_DIALOG_
  *   BORDER (7)-px filled band around the content rect (the outer ring).
  *   movableDBoxProc dialogs (the FILE COPY modal; beads initech-zvo6): a
- *   pinstripe title bar + a PLAIN 1-px frame (os/flair/chrome.h
+ *   Platinum title band + a PLAIN 1-px frame (os/flair/chrome.h
  *   flair_draw_movable_dbox_chrome -- the SAME title-bar composer
  *   flair_draw_document_window uses; NOT a hand-rolled second chrome path).
  *   Inside either border, items are drawn in order: statText via text_draw

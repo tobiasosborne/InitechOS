@@ -123,7 +123,7 @@ static void make_port(GrafPort *port, const bitmap_t *dst,
     port->grafProcs = (QDProcs *)0;
 }
 
-/* Draw one window's System-7 chrome clipped to (visRgn INTERSECT clipRgn). The
+/* Draw one window's Platinum chrome clipped to (visRgn INTERSECT clipRgn). The
  * chrome geometry comes from the window's structure bounding box (global coords;
  * the offscreen IS the screen, so port-local == global). */
 static void paint_window_chrome(const bitmap_t *dst, WindowPtr w,

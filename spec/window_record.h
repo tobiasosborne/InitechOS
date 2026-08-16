@@ -8,6 +8,11 @@
  * kind constants, and the windowDefProc variant codes -- all verbatim from
  * Inside Macintosh (ADR-0004 D-3).
  *
+ * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum (DEC-10) BASE.
+ * These record layouts and numeric part/variant codes are unchanged from the
+ * retained System 7.0/7.1 heritage contract; BC-10.10 preserves those source
+ * tags without making System 7 the default appearance.
+ *
  * SOURCE CITATIONS (Law 1 -- all local or free Apple developer archive):
  *
  *   Inside Macintosh: Macintosh Toolbox Essentials (1992) [MTE; free Apple

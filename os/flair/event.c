@@ -2,6 +2,8 @@
  * os/flair/event.c -- FLAIR Event Manager: Layer 4 cooperative event core.
  *
  * beads: initech-8b7 (FLAIR Event Manager: WaitNextEvent + SPSC ring).
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE; the unchanged
+ * WaitNextEvent/EventRecord contract is retained Toolbox heritage (BC-10.10).
  * Ref:   ADR-0004 D-4 (ISR enqueue-only; EventRecord synthesis in task context).
  * Ref:   ADR-0004 D-6 (cooperative, non-preemptive WaitNextEvent on PIT tick).
  * Ref:   ADR-0004 D-8 (test-event oracle: recorded raw trace -> deterministic

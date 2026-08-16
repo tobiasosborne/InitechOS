@@ -3,7 +3,9 @@
  *
  * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.3 -- "the Toolbox layer").
  * beads: initech-dh5k.6 (P1-6: drawing_ops.h + compile oracle).
- * era: system7.0-7.1 (Law 3; operator decision 2026-06-20).
+ * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum (DEC-10) BASE.
+ * The QuickDraw verb contract is unchanged from the retained System 7.0/7.1
+ * heritage API; its section-level source tags remain under BC-10.10.
  *
  * This header locks the VERB LAYER CONTRACT that the FLAIR blitter and
  * Toolbox Managers are written against.  It does NOT provide an

@@ -21,6 +21,11 @@
  *      ... Do NOT 'correct' it to match any real Photoshop version").
  *      PRD Sec 1, Appendix A (the canon frame / the Office Space prop).
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the
+ * Platinum menu-bar face is not shipped in this arc; the current bar remains
+ * an explicit System 7 heritage rendering, while this frozen Photoshop string
+ * remains invariant under DEC-10 Sec 3.3.3.
+ *
  * =========================================================================
  * CANON WARNING -- READ BEFORE ANY EDIT
  * =========================================================================
@@ -31,7 +36,8 @@
  *   "File Edit Image Layer Select View Window Help"
  *
  * This is the deliberate chimera inconsistency from the Office Space prop:
- * the menu is Mac-located (System 7 style, Chicago 12 in the Mac menu bar)
+ * the menu is Mac-located (the currently retained System 7 heritage face,
+ * Chicago 12 in the Mac menu bar)
  * but carries a Photoshop-style item set. It is HISTORICALLY IMPOSSIBLE as
  * a single real Photoshop version:
  *   - Photoshop 3.0 for Mac (Sept 1994) was the FIRST version with a "Layer"
@@ -77,7 +83,8 @@
  * The complete InitechPaint menu bar as a single space-delimited string.
  * This is the FROZEN canon string (ADR-0004 D-3 / AM-4; beads initech-zaqj).
  *
- * Used for: display in the Mac System-7-style menu bar for InitechPaint;
+ * Used for: display in the retained Mac System-7-style menu bar for
+ * InitechPaint (TODO_GOLDEN: Platinum menu face deferred this arc);
  * asserted byte-for-byte by the canon oracle (D-8, initech-k8o5.10).
  *
  * DO NOT MODIFY. DO NOT "CORRECT" TO A REAL PHOTOSHOP VERSION.

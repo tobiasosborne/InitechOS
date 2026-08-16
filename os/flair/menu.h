@@ -7,6 +7,11 @@
  *        the proportional-text bar layout, the click-to-drop pull-down tracking,
  *        and MenuSelect / MenuKey returning the (menuID<<16 | item) packing.
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: this
+ * module's menu-bar face remains the explicit System 7 heritage rendering in
+ * this arc; the Platinum face has not shipped. MenuInfo semantics and the
+ * frozen Photoshop bar remain invariant.
+ *
  * Ref:   ADR-0004 D-3 ("Menu Manager -- MenuInfo (menu ID, title, items with
  *          mark/style/cmd-char); the menu bar including the Photoshop-exact bar
  *          for InitechPaint ('File Edit Image Layer Select View Window Help' --

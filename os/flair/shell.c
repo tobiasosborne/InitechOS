@@ -19,6 +19,10 @@
  *   2. the TWO STACKED MENU BARS        (DrawMenuBar; above the windows)
  *   3. the modal FILE COPY DIALOG       (DrawDialog; LAST -- occludes the rest)
  *
+ * ERA AXIS: window chrome is the Mac OS 8 Platinum (DEC-10) BASE.
+ * TODO_GOLDEN: the two menu bars retain their System 7 heritage face in this
+ * arc; the Platinum menu-bar face is not claimed shipped.
+ *
  * THE SECOND-BAR OFFSET-BITMAP TRICK (ADR-0004 D-2 -- still the ONE surface
  * module): DrawMenuBar (os/flair/menu.c) hardcodes the bar at rows [0, 20) of
  * the port's bitmap. To stack the SECOND (Photoshop) bar at rows [20, 40) of the
@@ -33,7 +37,8 @@
  * NAMED MUTATION SWITCHES (Rule 6): test_shell.c compiles this file with named
  * mutants to prove the M4 gate bites. The default build defines none.
  *
- *   SHELL_MUTATE_ONE_MENUBAR -- shell_render draws ONLY the first (System-7)
+ *   SHELL_MUTATE_ONE_MENUBAR -- shell_render draws ONLY the first (retained
+ *     System-7)
  *     menu bar and SKIPS the second (Photoshop) bar. The "two stacked menu bars"
  *     chimera (the canon tell) collapses to one -> the Photoshop-bar band reads
  *     as bare desktop and the byte-exact canon-string assertion fails: the M4
@@ -112,7 +117,7 @@ static uint32_t shell_menu_bg(const bitmap_t *dst)
  * Build a GrafPort over `dst` (whole-bitmap port; the menu bar draws at the top
  * FLAIR_MENUBAR_H rows). visRgn/clipRgn are NULL == no additional clip (the bar
  * spans the full width; the surface module enforces the bitmap bounds). This is
- * the port the FIRST (System-7) bar draws into.
+ * the port the FIRST retained System-7 bar draws into.
  * ------------------------------------------------------------------------- */
 static void make_bar_port(GrafPort *port, const bitmap_t *dst)
 {
@@ -269,10 +274,10 @@ void shell_build_scene(shell_scene_t *s,
         w->rec.titleHandle[k] = '\0';
     }
 
-    /* --- The TOP System-7 menu bar (Apple glyph + the caller's menus). */
+    /* --- The TOP retained System-7 menu bar (Apple glyph + caller menus). */
     s->bar_sys.menus     = sys_menus;
     s->bar_sys.n_menus   = (uint16_t)((n_sys_menus < 0) ? 0 : n_sys_menus);
-    s->bar_sys.has_apple = 1;   /* the System-7 bar carries the Apple-menu slot */
+    s->bar_sys.has_apple = 1;   /* retained bar carries the Apple-menu slot */
 
     /* --- The Photoshop-EXACT bar: the titles are SET from the FROZEN canon
      * (menu_canon.h; AM-4 -- NOT re-authored). The caller supplies the MenuInfo
@@ -375,7 +380,7 @@ void shell_render(shell_scene_t *s, const bitmap_t *dst)
     desktop_paint_all(&s->wm, dst, s->comp_scratch);
 
     /* 2. The TWO STACKED MENU BARS (the chimera), above the windows. Both via
-     * DrawMenuBar (os/flair/menu.c) -- the ONE surface module. The System-7 bar
+     * DrawMenuBar (os/flair/menu.c) -- the ONE surface module. The retained bar
      * draws into a whole-bitmap port (rows [0, MENUBAR_H)); the Photoshop bar
      * draws into an OFFSET sub-bitmap view starting at row MENUBAR_H, so it lands
      * at rows [MENUBAR_H, 2*MENUBAR_H) of the real offscreen. */
@@ -383,7 +388,7 @@ void shell_render(shell_scene_t *s, const bitmap_t *dst)
         uint32_t fg = shell_menu_fg(dst);
         uint32_t bg = shell_menu_bg(dst);
 
-        /* Bar 1: the TOP System-7 bar at rows [0, MENUBAR_H). */
+        /* Bar 1: retained System-7 bar at rows [0, MENUBAR_H). */
         GrafPort p1;
         make_bar_port(&p1, dst);
         DrawMenuBar(&p1, &s->bar_sys, fg, bg, (const region_t *)0);

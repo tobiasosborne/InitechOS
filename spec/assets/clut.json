@@ -5,8 +5,8 @@
     "  'clut' ID 8 '8BitStd', 256-entry device CLUT (ctSeed=8, ctFlags=0x8000, ctSize=255).",
     "  Extracted as ../system7-decomp/goldens/resources/clut_8_rom.bin (2056 bytes).",
     "  Ref: system7-decomp/specs/resources/clut-pltt-format.md Secs 2, 4.",
-    "  Era: System 7.0/7.1 [inferred: era-stable from Mac II (1987) through 7.1;",
-    "       confirm by Basilisk II gDevice dump on 7.0.1 image per spec Sec 7].",
+    "  Era: System 7.0 through Mac OS 8.1; OQ-8 gamma proof confirms this",
+    "       ROM-derived CLUT is unchanged in the minted Mac OS 8.1 captures.",
     "Downsampling: 8-bit per channel = high byte of the stored 16-bit RGBColor field",
     "  (e.g. 0xFFFF -> 0xFF; 0xCCCC -> 0xCC; 0x3333 -> 0x33).",
     "Cross-checks (all verified from ROM bytes):",
@@ -18,12 +18,12 @@
     "  indices 215-224 = R-only ramp; 225-234 = G-only ramp; 235-244 = B-only ramp;",
     "  245-254 = gray ramp; all ramps use {238,221,187,170,136,119,85,68,34,17}.",
     "DO NOT copy clut_8_rom.bin into this repo -- only the derived 8-bit values are here.",
-    "era: system7.0-7.1"
+    "era: system7.0-7.1 + system8-platinum-8.1 (confirmed unchanged)"
   ],
   "schema_version": 1,
   "source": "Quadra 650 ROM (F1ACAD13, 1993-02), clut ID 8 '8BitStd', offset 0x072F90",
   "source_file": "../system7-decomp/goldens/resources/clut_8_rom.bin",
-  "era": "system7.0-7.1",
+  "era": "system7.0-7.1 + system8-platinum-8.1 (confirmed unchanged)",
   "ct_seed": 8,
   "ct_flags": "0x8000",
   "ct_size": 255,
@@ -58,7 +58,8 @@
     "_comment": [
       "Nearest CLUT index for each spec/assets/palette.json entry (Euclidean RGB distance).",
       "palette.* is the frame-sampled canon (7 measured + SEAFOAM); clut.* is the full",
-      "System-7 ROM table. These two COEXIST -- do NOT edit palette.*.",
+      "ROM-derived table, confirmed unchanged through Mac OS 8.1 by DEC-10 OQ-8.",
+      "These two COEXIST -- do NOT edit palette.*.",
       "The frame-sampled values are CRT-photo-lifted and do not land on cube vertices,",
       "hence nearest-index distances are non-zero."
     ],

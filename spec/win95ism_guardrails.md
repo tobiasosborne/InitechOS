@@ -9,7 +9,8 @@ in FLAIR's chimera chrome. Adopted from
 adversarially-verified win31-decomp boundary catalog). Every item below is a
 Win 95 (or later) addition that must NEVER appear in a FLAIR spec file, header
 constant, or rendered chimera. The chimera is Win 3.1 FLAT 2-D ACCENTS on a
-System 7.0/7.1 BASE -- never Win 95.
+Mac OS 8 Platinum (DEC-10) BASE -- never Win 95. System 7 remains a retained
+heritage era (ADR-0004-AMENDMENT-DEC-10 Sec 4 and BC-10.10).
 
 **Ground truth source:**
 `../win31-decomp/specs/chrome/cross-version-guardrails.md` Sec 2 + Sec 3.
@@ -23,10 +24,10 @@ boundary comment; COLOR_3DLIGHT index 22 = #DFDFDF first-hand confirmation).
 Phase 1 (P1-7); `spec/CANON-MANIFEST.md` row for
 `../win31-decomp/specs/chrome/cross-version-guardrails.md`.
 
-**Era axis:** See `docs/plans/FLAIR-implementation-plan.md` Sec 1 "Era axis" --
-System 7.0/7.1 BASE now; System 8 / Platinum era-delta LATER (additive only,
-never by mutating these locked 3.1-era constants). The Win 3.1 accent layer is
-likewise era-tagged; Win 95 and later are OUTSIDE the era window.
+**Era axis:** ADR-0004-AMENDMENT-DEC-10 Sec 4 makes Mac OS 8 Platinum the BASE;
+System 7.0/7.1 remains retained heritage under the unchanged BC-10.10 tagging
+rule. The locked Win 3.1 accent constants remain additive and era-tagged; Win 95
+and later are OUTSIDE the era window.
 
 **This is a LOCKED spec-data file (CLAUDE.md Rule 8).** Changing it is a
 deliberate act requiring an issue + worklog note. Items are strengthened (new

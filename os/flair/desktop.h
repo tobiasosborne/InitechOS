@@ -1,11 +1,12 @@
 /*
  * os/flair/desktop.h -- the FLAIR desktop compositor / repaint glue (THE ARTIFACT).
  *
- * beads: initech-87a ("Draw a System-7 window and drag it with correct clipping")
+ * beads: initech-87a (original drag capstone), re-keyed to the Mac OS 8
+ *        Platinum (DEC-10) BASE while System 7 remains retained heritage
  *        -- the M3 drag-gate capstone. ADR-0004 AM-8: the earliest human-verifiable
  *        Law-4 fidelity moment. This module is the COMPOSITOR that ties the FLAIR
  *        Managers (Window Manager z-order + DiffRgn damage) to the ONE surface
- *        (via the region-clipped blitter + the System-7 chrome drawer) so a window
+ *        (via the region-clipped blitter + the Platinum chrome drawer) so a window
  *        drags across the desktop with correct update regions, NO over-repaint, and
  *        the chrome unchanged outside the damaged area (ADR-0004 D-5).
  *
@@ -13,7 +14,7 @@
  * It owns NO pixel path of its own -- every pixel is written through the
  * region-clipped blitter (os/flair/blitter.h: blitter_fill_rect_clipped, which
  * calls ONLY the ONE surface module) for the desktop background and through the
- * System-7 chrome drawer (os/flair/chrome.h: flair_draw_document_window, which
+ * Platinum chrome drawer (os/flair/chrome.h: flair_draw_document_window, which
  * also writes ONLY through the surface module, clipped to visRgn INTERSECT clipRgn)
  * for each window's chrome. There is NO second pixel path (ADR-0004 D-2 / C-2).
  *
@@ -97,7 +98,7 @@
  * desktop_paint_all -- the FULL initial paint.
  *
  * Fills the desktop background (seafoam) over the manager's desktop_frame, then
- * draws every VISIBLE window's System-7 chrome BACK-to-FRONT, each clipped to its
+ * draws every VISIBLE window's Platinum chrome BACK-to-FRONT, each clipped to its
  * own visible region (strucRgn DIFF union-of-fronts; the part not obscured by
  * windows in front). `dst` is the destination bitmap (LFB or offscreen). `scratch`
  * is a caller-supplied, attached (rows[]/x_pool) region the compositor uses to

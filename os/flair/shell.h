@@ -19,16 +19,20 @@
  * THE COMPOSED FRAME (Law 4 -- "look like the frame"; the Office Space
  * "Saving tables to disk..." still, PRD Sec 1 / Appendix A):
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the
+ * Platinum menu-bar face is not shipped in this arc; both bars below retain
+ * their System 7 heritage face explicitly. Window chrome is Platinum.
+ *
  *   - The SEAFOAM desktop background (INITECH_DESKTOP_BG_RGB, OD-4).
  *   - The "two stacked menu bars" chimera (gui-ground-truth.md Sec 4;
- *     chimera_element_map.json elements 7/8/9): the TOP System-7 menu bar
+ *     chimera_element_map.json elements 7/8/9): the TOP retained System-7 menu bar
  *     (Apple glyph + File/Edit/View/Special) at rows [0,20), AND the
  *     Photoshop-EXACT bar (the FROZEN canon string menu_canon.h:
  *     "File Edit Image Layer Select View Window Help" -- element 9, the canon
  *     chimera tell, AM-4) stacked directly below at rows [20,40). Both are real
- *     Mac System-7-style bars (Chicago 12, 20 px each; GetMBarHeight).
- *   - One or two System-7 documentProc WINDOWS (z-ordered, titled, with the
- *     pinstripe title bar + 1 px frame + 16 px scrollbar) placed per the frame.
+ *     retained Mac System-7-style bars (Chicago 12, 20 px; GetMBarHeight).
+ *   - One or two Mac OS 8 Platinum document windows (z-ordered, titled, with
+ *     the DEC-10 title/body chrome and 16 px scrollbar) placed per the frame.
  *   - The modal FILE COPY DIALOG on top (the comedic centerpiece): the
  *     moveable TITLED modal (movableDBoxProc; a pinstripe title bar reading
  *     FLAIR_CANON_FILECOPY_TITLE + a PLAIN 1-px frame -- NOT the old dBoxProc
@@ -92,15 +96,17 @@
  * ---------------------------------------------------------------------------
  * The native desktop is 640x480 indexed-8 (ADR-0004 OD-2 / OD-3). The two menu
  * bars are each FLAIR_MENUBAR_H (20 px; GetMBarHeight) tall and stacked: the
- * System-7 bar occupies rows [0,20) and the Photoshop bar rows [20,40). The
+ * retained System-7 bar occupies rows [0,20) and the Photoshop bar rows
+ * [20,40). The
  * windows are placed in the working area below the second bar.
  * ===========================================================================*/
 #define SHELL_SCREEN_W            640
 #define SHELL_SCREEN_H            480
 
 /* The two stacked menu bars (the chimera; gui-ground-truth.md Sec 4). The top
- * (System-7) bar's TOP is row 0; the Photoshop bar's TOP is FLAIR_MENUBAR_H. */
-#define SHELL_MENUBAR1_TOP        0                     /* System-7 bar top     */
+ * retained System-7 bar's TOP is row 0; the Photoshop bar's TOP is
+ * FLAIR_MENUBAR_H. */
+#define SHELL_MENUBAR1_TOP        0                     /* retained bar top      */
 #define SHELL_MENUBAR2_TOP        FLAIR_MENUBAR_H       /* Photoshop bar top    */
 #define SHELL_MENUBARS_H          (2 * FLAIR_MENUBAR_H) /* both bars: 40 px     */
 
@@ -154,7 +160,7 @@ typedef struct shell_scene {
     int           n_windows;        /* number of document windows (<= SHELL_MAX) */
 
     /* --- The two stacked menu bars (the chimera) --------------------------- */
-    MenuBar       bar_sys;          /* TOP System-7 bar (Apple + File/Edit/...)  */
+    MenuBar       bar_sys;          /* TOP retained bar (Apple + File/Edit/...) */
     MenuBar       bar_photoshop;    /* Photoshop-exact bar (the canon string)    */
 
     /* --- The modal FILE COPY dialog (the comedic centerpiece) -------------- */
@@ -205,8 +211,8 @@ typedef struct shell_scene {
  *   n_windows     -- number of document windows to install.
  *   win_bounds    -- array of n_windows structure rects (global coords).
  *   win_titles    -- array of n_windows titles (ASCII; may be "").
- *   sys_menus     -- MenuInfo array for the System-7 bar (caller-supplied items).
- *   n_sys_menus   -- number of System-7 menus.
+ *   sys_menus     -- MenuInfo array for the retained heritage bar.
+ *   n_sys_menus   -- number of retained heritage menus.
  *   ps_menus      -- MenuInfo array for the Photoshop bar; titles are SET by the
  *                    shell from the frozen menu_canon.h canon (the caller need
  *                    only supply the item lists). MUST have at least
@@ -249,7 +255,7 @@ void shell_build_scene(shell_scene_t *s,
  * Paints, back to front (the painter's algorithm; ADR-0004 D-5 z-order):
  *   1. the seafoam desktop background + every visible window's chrome
  *      (desktop_paint_all),
- *   2. the TWO STACKED MENU BARS (DrawMenuBar; the System-7 bar at rows
+ *   2. the TWO STACKED MENU BARS (DrawMenuBar; the retained System-7 bar at rows
  *      [0,20), the Photoshop canon bar at rows [20,40) -- above the windows),
  *   3. the modal FILE COPY DIALOG on top (DrawDialog) IFF the scene's modal is
  *      up -- drawn LAST so it occludes the windows + bars behind it (z-order).
@@ -274,7 +280,7 @@ void shell_render(shell_scene_t *s, const bitmap_t *dst);
  * bar at build time (y_top == SHELL_MENUBAR2_TOP); the live app-switch pump
  * (os/milton/kmain.c) MUST reuse this SAME helper for the SAME purpose (the
  * foreground-tenant menubar swap) rather than building a whole-bitmap port
- * that lands on row 0 -- row 0 is the SHELL-OWNED, STATIC top System-7 bar
+ * that lands on row 0 -- row 0 is the SHELL-OWNED, STATIC retained heritage bar
  * (bar_sys) and must NEVER be repainted by the live switch (initech-4w15: a
  * whole-bitmap port there clobbered bar_sys, collapsing both stacked bars to
  * identical Photoshop content and losing the Apple slot).

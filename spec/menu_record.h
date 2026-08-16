@@ -10,9 +10,9 @@
  * bit-assignment convention, the mark/style constant catalogs, the MDEF
  * message constants, and the MenuSelect / MenuKey result-word packing.
  *
- * ERA TAG: era=system7.0-7.1 (the System 7.0/7.1 BASE; a future System-8
- * Platinum layer may accrete additive era-deltas without a base rewrite;
- * Sec 1 era axis, FLAIR implementation plan 2026-06-20).
+ * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum (DEC-10) BASE.
+ * This unchanged MenuInfo layout is retained from the System 7.0/7.1 heritage
+ * contract; its source tags remain visible under BC-10.10.
  *
  * SOURCE CITATIONS (Law 1 -- all local or free Apple developer archive):
  *
@@ -95,12 +95,13 @@
 /* ===========================================================================
  * 0. ERA ANNOTATION
  * ---------------------------------------------------------------------------
- * This spec locks the System 7.0/7.1 BASE layer.
- * A future era-delta file (e.g. spec/menu_record_platinum.h) may override
- * individual values additively.  Do not remove this tag.
+ * Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. This compiled string names
+ * the unchanged heritage layout locked by this header; it is not the default-
+ * appearance selector and is deliberately not rewritten by this prose sweep.
+ * Do not remove its provenance tag (BC-10.10).
  *
- * Ref: FLAIR implementation plan Sec 1 era axis (2026-06-20);
- *      ../system7-decomp/specs/toolbox/menu-manager.md (the BASE source).
+ * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and BC-10.10;
+ *      ../system7-decomp/specs/toolbox/menu-manager.md (heritage source).
  * ===========================================================================*/
 #define FLAIR_MENU_RECORD_ERA "system7.0-7.1"   /* era=system7.0-7.1 */
 

@@ -2,8 +2,9 @@
  * spec/dialog_record.h -- FLAIR Dialog Manager: the LOCKED contract.
  *
  * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.5 -- "the Dialog Manager").
- * era=system7.0-7.1 (operator decision 2026-06-20; System 8 Platinum accretes
- * later as an additive layer; see docs/plans/FLAIR-implementation-plan.md Sec 1).
+ * ERA AXIS: era=system8-platinum is the Mac OS 8 Platinum (DEC-10) BASE.
+ * The unchanged DialogRecord/DITL constants retain their System 7.0/7.1
+ * source tags as heritage provenance under BC-10.10.
  * beads: initech-dh5k.3 (P1-3: spec/dialog_record.h + oracle).
  *
  * This header locks the DialogRecord layout invariants, the DITL item-type byte
@@ -13,7 +14,7 @@
  *
  * SOURCE CITATIONS (Law 1 -- local corpus is authority):
  *
- *   ../system7-decomp/specs/toolbox/dialog-manager.md (BASE; primary authority):
+ *   ../system7-decomp/specs/toolbox/dialog-manager.md (heritage layout authority):
  *     Sec 1: DialogRecord verbatim Pascal layout (window@0, items, textH,
  *       editField, editOpen, aDefItem); windowKind=dialogKind(2) inside window.
  *     Sec 2: DITL item-type byte catalog (userItem=0, helpItem=1, ctrlItem=4,

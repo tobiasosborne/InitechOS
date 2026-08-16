@@ -6,6 +6,10 @@
  *        initech-yx4v ("Apple menu slot rendered as a solid black filled
  *        square, not an apple glyph") -- fixed by spec/assets/apple_glyph.h.
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the
+ * drawing path here still renders the retained System 7 menu-bar face; the
+ * Platinum menu face is deferred, while the canon strings remain unchanged.
+ *
  * Ref:   ADR-0004 D-3 (MenuInfo + the Photoshop-exact bar + MenuSelect ->
  *          (menuID<<16|item)); D-1/D-2 (draw THROUGH a GrafPort clipped by an
  *          ATKINSON region; one surface module, no second pixel path); D-7

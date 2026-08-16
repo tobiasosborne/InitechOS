@@ -8,13 +8,13 @@
 
 ## 0. TL;DR
 
-A bootable, period-plausible operating system for **emulated 386+ PCs**: a **DOS 3.3 personality** fused with a **System 7 Toolbox** — the exact chimera visible in the *Office Space* "Saving tables to disk…" frame (Macintosh window chrome, DOS drive letters, a Windows hourglass). It really boots. The windows really work. It ships a **dBASE-compatible database that really runs**.
+A bootable, period-plausible operating system for **emulated 386+ PCs**: a **DOS 3.3 personality** fused with a **Mac OS 8 Platinum (DEC-10) Toolbox** -- with System 7 retained as a heritage era -- matching the exact chimera visible in the *Office Space* "Saving tables to disk..." frame (Macintosh window chrome, DOS drive letters, a Windows hourglass). It really boots. The windows really work. It ships a **dBASE-compatible database that really runs**.
 
 **North star:** a Borland-style single-pass **Pascal compiler** (`Turbo Initech`) with an integrated Turbo-Vision IDE that is **self-hosting** and can **recompile itself — and the Pascal programs it compiles — from inside the OS**. (The OS itself is C, per ADR-0002, and is rebuilt by the factory cross-toolchain.)
 
 It is built by an **agent swarm whose fitness function is the emulator itself**: debug and error signals come from QEMU/Bochs/86Box; success is measured by boot milestones, pixel-fidelity against the film stills, and differential conformance against real period software.
 
-**The whole point (acceptance test):** a person who used early-90s Mac and DOS software boots InitechOS and *cannot immediately tell it isn't a real period product* — down to the **Initech-teal (`#8DDCDC`) desktop and the System-7 decomp-golden chrome palette** (WL-0053; supersedes the earlier seafoam render), the Chicago and Geneva bitmaps, the folder icons, and the pie chart whose slices sum to 116%.
+**The whole point (acceptance test):** a person who used early-90s Mac and DOS software boots InitechOS and *cannot immediately tell it isn't a real period product* -- down to the **Initech-teal (`#8DDCDC`) desktop and the Mac OS 8 Platinum decomp-golden chrome palette** (ADR-0004-AMENDMENT-DEC-10 Sec 4; WL-0053 still governs the teal and supersedes the earlier seafoam render), the Chicago and Geneva bitmaps, the folder icons, and the pie chart whose slices sum to 116%.
 
 ---
 
@@ -38,7 +38,7 @@ Four commitments, in priority order.
 
 - Boots on emulated 386/486 from a disk image; no host OS underneath.
 - DOS 3.3 personality: FAT12/16, `INT 21h`-style API, program loader, command shell.
-- System-7-style Toolbox: region-based graphics, windows, menus, controls, events, dialogs, resources.
+- Mac OS 8 Platinum (DEC-10) Toolbox: region-based graphics, windows, menus, controls, events, dialogs, resources; System 7 remains a retained heritage era.
 - A dBASE III+/IV-compatible database app (`InitechBase`) with real `.dbf`/index I/O and a working xBase interpreter.
 - A self-hosting single-pass Pascal compiler (`Turbo Initech`) with a resident Turbo-Vision IDE.
 - Asset-level authenticity: Chicago/Geneva bitmaps, icons, palette, chrome metrics — extracted from the film.
@@ -246,7 +246,7 @@ Sequenced per the agreed principle: **the compiler is the finale, not the founda
 | **M0** | Foundations | C build+emulator harness; seed cross-toolchain emits freestanding x86; QEMU boot + serial + QMP screendump wired; asset-extraction v0 (palette + a few glyphs). A freestanding binary prints over serial. (NOTE: the SSIM harness named here is **PLANNED, not yet built** -- `make ssim` is a stub, `harness/ssim.c` absent; when built it grades against the decomp rendered goldens, never `preview.webp`. ADR-0010 / Revocation Record HER-11.) **M0.5 — Tracer Bullet & Smoke Test (the first real deliverable):** a thin thread through *every* layer that actually runs — seed compiler → boot → 32-bit protected/flat → VESA LFB → minimal region/blit → one Chicago glyph → QEMU screendump → SSIM/serial oracle — using *real* (minimal) implementations, not throwaway stubs, plus a repeatable `make smoke` heartbeat. The bullet flying is the **gate that unblocks fleshing out M1–M8**; until it's green, no thick subsystem work starts. |
 | **M1** | Boot to text | MBR → stage2 → 32-bit protected/flat → VESA LFB → 80×25 console (ROM font blit) → `InitechDOS 3.3` banner. Boots identically in QEMU/Bochs/86Box. |
 | **M2** | DOS personality | FAT12/16 read, program loader, `INT 21h` API, shell. `DIR`, `TYPE`, run a baked program from `A:`. |
-| **M3** | ATKINSON + GUI primitives | Region engine (C property suite green — homomorphism, normal-form, algebra identities), blitting, Chicago/Geneva fonts, hourglass cursor. Draw a System-7 window, drag it with correct clipping. |
+| **M3** | ATKINSON + GUI primitives | Region engine (C property suite green -- homomorphism, normal-form, algebra identities), blitting, Chicago/Geneva fonts, hourglass cursor. Draw a Mac OS 8 Platinum (DEC-10) window, drag it with correct clipping. |
 | **M4** | Toolbox | Window/Menu/Control/Event/Dialog managers; desktop; live pull-down menus (incl. Photoshop-exact). Reproduce the frame's *chrome* at target SSIM. |
 | **M5** | Desktop apps | InitechCalc + File Manager + InitechPaint + FILE COPY dialog. **Reproduce the entire reference frame as a live, interactive arrangement that looks and feels like the film clip** — windows draggable, menus live, per-window SSIM reported as a fidelity guide. |
 | **M6** | InitechBase | `.dbf`/`.mdx` I/O, xBase interpreter, `@SAY/GET` forms, in a text-console window. Differential suite vs real dBASE IV green; interoperable round-trips (real dBASE reads what we write, meaningful bytes diffed). [Reconciled: ADR-0008 -- M6 is dBASE III PLUS 1.1 only; IV/.mdx deferred to a post-M6 epic.] |

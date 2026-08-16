@@ -4,6 +4,8 @@
  * beads: initech-77dj (FLAIR Phase 4.5 -- the TextEdit half). REDUCED first cut
  *        (committee ruling wf_00931e9e); see textedit.h for the full contract +
  *        the deferred-full-TERec note.
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE; this unchanged
+ * TextEdit semantic core remains retained Toolbox heritage (BC-10.10).
  * Ref:   ../system7-decomp/specs/toolbox/textedit.md -- Sec 2 (half-open
  *        [selStart,selEnd) selection), Sec 4 (CR-delimited + crOnly<0 + word-wrap
  *        line layout; lineStarts/nLines), Sec 6 (TEKey/TECut/TECopy/TEPaste/

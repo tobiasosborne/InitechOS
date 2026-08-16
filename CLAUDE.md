@@ -10,8 +10,9 @@ faster than you think; that's why they're numbered.
 ## What this is
 
 **InitechOS is a bootable, period-plausible operating system for emulated
-386+ PCs** — a DOS-3.3 personality (`MILTON`) fused with a System-7-style
-Toolbox (`FLAIR`), the exact chimera in the *Office Space* "Saving tables
+386+ PCs** -- a DOS-3.3 personality (`MILTON`) fused with a Mac OS 8 Platinum
+(DEC-10) Toolbox (`FLAIR`), with System 7 retained as a heritage era, and the
+exact chimera in the *Office Space* "Saving tables
 to disk…" frame. It really boots, the windows really work, it ships a
 dBASE-compatible database that really runs, and the north star is a
 self-hosting Borland-style Pascal compiler (`Turbo Initech`, `TPS`) that

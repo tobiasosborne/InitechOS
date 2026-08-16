@@ -3,6 +3,8 @@
  * dispatcher (THE ARTIFACT). WAVE-1 (ORACLE-FIRST) increment.
  *
  * beads: the FLAIR App Contract epic initech-4e35 (ADR-0013, RATIFIED).
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE; cited System 7
+ * activation/focus behavior is retained Toolbox heritage, not a base claim.
  *
  * STATUS (Law 2, oracle-first):
  *   - FlairProcess_register is the thin caller-storage registrar (no arena, no

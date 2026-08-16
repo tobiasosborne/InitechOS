@@ -8,6 +8,9 @@
  *        half-open selection + CR/word-wrap line breaking + cut/copy/paste
  *        against the shell-owned Scrap), explicitly capped and labelled.
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The unchanged TERec
+ * field and editing semantics are retained Toolbox heritage under BC-10.10.
+ *
  * GROUND TRUTH (Law 1):
  *   ../system7-decomp/specs/toolbox/textedit.md -- the VERBATIM TERec layout
  *   and semantics. This header mirrors the IM field NAMES (Sec 1), the

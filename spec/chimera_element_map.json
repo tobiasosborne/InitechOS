@@ -16,11 +16,14 @@
     "  data field -- it is referenced by bead ID and ADR-0004 D-3 to prevent",
     "  independent drift. The canon oracle (ADR-0004 D-8) gates those frozen bytes.",
     "",
-    "origin values: 'mac-system7' | 'win31-accent' | 'chimera-intentional'",
-    "  mac-system7       -- standard System 7.0/7.1 chrome element",
+    "origin values: 'mac-system8-platinum' | 'win31-accent' | 'chimera-intentional'",
+    "  mac-system8-platinum -- Mac OS 8 Platinum BASE element (DEC-10)",
     "  win31-accent      -- Windows 3.1 flat 2-D accent (NOT Win95 CTL3D)",
     "  chimera-intentional -- deliberate anachronism / impossible combination;",
-    "                        FROZEN by canon oracle; do NOT 'correct'"
+    "                        FROZEN by canon oracle; do NOT 'correct'",
+    "DEC-10 Sec 4 re-tags BASE elements only; Win31 and intentional rows stand.",
+    "TODO_GOLDEN: elements 7/8 still render the retained System 7 menu-bar face;",
+    "  the Platinum menu face is deferred and is not claimed shipped here."
   ],
   "schema_version": 2,
   "schema_version_note": "v2 (2026-06-21, beads initech-v94x.1): P0-a Law-3 fix -- win31_accent_colors.highlight changed from #dfdfdf (Win95 COLOR_3DLIGHT, forbidden) to #ffffff (Win 3.1 COLOR_BTNHIGHLIGHT). Rule 8 deliberate act. Ref: ../win31-decomp/specs/chrome/cross-version-guardrails.md Sec 2.2 + ../win31-decomp/specs/chrome/button-bevel.md Sec 1.",
@@ -57,57 +60,57 @@
     {
       "id": 1,
       "element": "Pinstripe title bar",
-      "origin": "mac-system7",
+      "origin": "mac-system8-platinum",
       "rendering": "Alternating 1 px light/dark scanlines, 19 px tall (minTitleH) or 21 px with small icon (minTitleHIcon). Chicago 12 white centered text. Shade indices wTitleBarLight=7 and wTitleBarDark=8 (wctb resource ID -4096); exact RGB values are golden-resolves (beads pvo4).",
       "source": "StandardWDEF.a (minTitleH EQU 19, minTitleHIcon EQU 21, wTitleBarLight EQU 7, wTitleBarDark EQU 8) -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html"
     },
     {
       "id": 2,
       "element": "Close box (top-left, goAway box)",
-      "origin": "mac-system7",
+      "origin": "mac-system8-platinum",
       "rendering": "13 px tall frame square (WBoxDelta calculation: (titleHeight-13)/2 for vertical centering), hollow, 1 px border, positioned ~8 px from left edge of title bar. Rendered interior appearance is golden-resolves (beads pvo4).",
       "source": "StandardWDEF.a (WBoxDelta = (titleHeight-13)/2; hit zone 'sub.w #13,D0 / add.w #11,D0') -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html"
     },
     {
       "id": 3,
       "element": "Zoom box (top-right)",
-      "origin": "mac-system7",
+      "origin": "mac-system8-platinum",
       "rendering": "Same vertical dimensions and centering as close box (uses WBoxDelta). Positioned ~20 px from right edge of title bar (WDEF hit zone: -19 to -9 from right = 10 px wide, ~20 px from right). Rendered interior appearance is golden-resolves (beads pvo4).",
       "source": "StandardWDEF.a (PlotZoom code; hit zone cmp.w #-19,D0 / cmp.w #-9,D0) -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html"
     },
     {
       "id": 4,
       "element": "Vertical scrollbar",
-      "origin": "mac-system7",
+      "origin": "mac-system8-platinum",
       "rendering": "16 px wide control rect (scrollBarSize EQU 16). Right 1 px overlaps the 1 px window frame, presenting 15 px of added width past the content area. Contains arrow buttons at top/bottom, pattern-fill track, and thumb. Arrow and thumb rendering details are golden-resolves (beads pvo4).",
       "source": "StandardWDEF.a (scrollBarSize EQU 16) -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html; brief-corroborated by Inside Macintosh Toolbox Essentials Toolbox-313 kScrollbarWidth"
     },
     {
       "id": 5,
       "element": "Window frame",
-      "origin": "mac-system7",
+      "origin": "mac-system8-platinum",
       "rendering": "1 px outer line + 1 px inner groove = classic Mac double-line frame (visually 2 px wide, not the Win 3.1 2-layer beveled border). documentProc drop shadow is 1 px at offset (1,1).",
       "source": "StandardWDEF.a (FrameRect inset, shadow: 'move.l OneOne,D4 / tst.w varCodeReg / beq.s @1') -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html; brief-corroborated by Inside Macintosh Toolbox Essentials Toolbox-313 '1-pixel-wide window frame'"
     },
     {
       "id": 6,
       "element": "Grow box (bottom-right)",
-      "origin": "mac-system7",
+      "origin": "mac-system8-platinum",
       "rendering": "16x16 px square at bottom-right corner, inset scrollBarSize-2 (14 px) from content rect edges (2 px overlap with each scrollbar). Exact fill pattern (2D hash / hatching) is golden-resolves (beads pvo4).",
       "source": "StandardWDEF.a (grow box: 'sub.w #scrollBarSize-2,top(rectReg)'; scrollBarSize EQU 16) -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/samplecode/System_7.0_WDEF/Listings/StandardWDEF_a.html; brief-corroborated by Inside Macintosh Toolbox Essentials Toolbox-313"
     },
     {
       "id": 7,
       "element": "Menu bar",
-      "origin": "mac-system7",
-      "rendering": "Solid fill, Chicago 12 pt, 20 px tall (GetMBarHeight, Roman script). The specific fill color at indexed-8 depth is governed by spec/assets/palette.json (menubar_bg) pending FO-3 reconciliation (beads initech-ch81).",
+      "origin": "mac-system8-platinum",
+      "rendering": "TODO_GOLDEN: the Platinum menu-bar face is deferred this arc. The shipped retained-heritage face is a solid fill, Chicago 12 pt, 20 px tall (GetMBarHeight, Roman script). The specific fill color at indexed-8 depth is governed by spec/assets/palette.json (menubar_bg) pending FO-3 reconciliation (beads initech-ch81).",
       "source": "GetMBarHeight -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/documentation/mac/Toolbox/Toolbox-128.html"
     },
     {
       "id": 8,
       "element": "Apple-menu glyph (left of bar)",
-      "origin": "mac-system7",
-      "rendering": "The Apple logo (solid apple silhouette) rendered in Chicago 12 as a special glyph character (0x14 in Mac Roman encoding). Leftmost item in the menu bar. Clean-room glyph is hand-authored in spec/assets/chicago8x16.h.",
+      "origin": "mac-system8-platinum",
+      "rendering": "TODO_GOLDEN: the Platinum menu-bar face is deferred this arc. In the shipped retained-heritage bar, the Apple logo (solid apple silhouette) is rendered in Chicago 12 as a special glyph character (0x14 in Mac Roman encoding). It is the leftmost item in the menu bar. The clean-room glyph is hand-authored in spec/assets/chicago8x16.h.",
       "source": "docs/research/gui-ground-truth.md Sec 4.2; ADR-0004 D-3. Chicago 12 Apple glyph: Mac Roman 0x14, hand-authored in spec/assets/chicago8x16.h (CLAUDE.md hallucination-risk: glyphs are hand-authored, not pixel-extracted from the frame)."
     },
     {

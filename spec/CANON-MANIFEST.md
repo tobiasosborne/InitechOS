@@ -9,18 +9,21 @@ one-line reason. Drift is mechanically detectable: a corpus spec with no row her
 a gap; a row whose destination file does not exist is a build item.
 
 **Ground-truth sources:**
-- `../system7-decomp/INDEX.md` -- System 7.0/7.1 BASE (43 specs authored + verified)
+- `../system7-decomp/specs/sys8/` -- Mac OS 8 Platinum BASE (DEC-10; minted 8.1)
+- `../system7-decomp/INDEX.md` -- System 7.0/7.1 retained heritage (43 specs authored + verified)
 - `../win31-decomp/INDEX.md` -- Windows 3.1 flat ACCENTS (45 specs authored + verified)
 
 **Governing plan:** `docs/plans/FLAIR-implementation-plan.md` Phase 1 (P1-7).
-**Governing ADRs:** ADR-0004 (FLAIR Toolbox), ADR-0005 (ATKINSON region engine).
+**Governing ADRs:** ADR-0004 (FLAIR Toolbox), ADR-0004-AMENDMENT-DEC-10
+(Platinum base era), ADR-0005 (ATKINSON region engine).
 **Win95-ism guard:** `spec/win95ism_guardrails.md` (adopted from
 `../win31-decomp/specs/chrome/cross-version-guardrails.md` Sec 3).
 
 **Era tagging rule (Sec 1 era axis, 2026-06-20 operator ruling):** every spec/
 header and os/flair source that carries chrome metrics, color tables, WDEF geometry,
-or title-bar rendering logic carries an `era` tag so a future `../system8-decomp`
-or `platinum/` layer lands without a base rewrite.
+or title-bar rendering logic carries an `era` tag. Mac OS 8 Platinum (DEC-10) is
+the BASE; System 7 remains retained heritage. The tagging rule itself survives
+verbatim under ADR-0004-AMENDMENT-DEC-10 BC-10.10.
 
 **Coverage (verified):**
 - system7-decomp: 43 specs total -- ALL 43 mapped below (9 chrome + 9 quickdraw +

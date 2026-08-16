@@ -1,10 +1,14 @@
 /*
  * os/flair/resource.h -- the FLAIR Resource Manager (the artifact).
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The resource-fork
+ * addressing model is retained Toolbox heritage and remains era-stable here.
+ *
  * A clean-room reader for a REAL big-endian Macintosh resource-fork SUBSET:
  * parse the documented on-disk fork structure and do type + ID lookup. FLAIR
- * does NOT ship a runtime Resource Manager (System 7 boots its windows/menus
- * programmatically); this builds the *addressing model* the era used, parsing
+ * does NOT ship a runtime Resource Manager (the retained heritage implementation
+ * builds windows/menus programmatically); this builds the addressing model,
+ * parsing
  * the actual on-disk format so a hand-authored fork goes in and the resource
  * bytes the tenant authored come back out.
  *

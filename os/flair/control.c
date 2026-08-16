@@ -5,6 +5,10 @@
  *        bar"). See control.h for the full contract, Law-3 separation, and
  *        verbatim Inside Macintosh source citations.
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the
+ * standalone push/check/radio routines remain explicit System 7 heritage
+ * faces in this arc; no Platinum control face is claimed shipped here.
+ *
  * Freestanding artifact code: draws push buttons, check boxes, radio buttons,
  * vertical scrollbars, and the FILE COPY progress bar into a GrafPort, writing
  * ONLY through the surface module + blitter (ADR-0004 D-2/C-2: no second pixel

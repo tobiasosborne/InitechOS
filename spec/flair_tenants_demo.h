@@ -12,6 +12,11 @@
  * never by-construction, never preview.webp. ADR-0013 + amendment bead initech-fka6;
  * Wave-4 committee wf_8a917ec8-514.
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the two
+ * menu bands in this demo deliberately retain their System 7 heritage face in
+ * this arc; the Platinum menu-bar face has not shipped. Their canonical strings
+ * and app-switch behavior remain unchanged (DEC-10 Sec 3.3.3).
+ *
  * Layout rationale (640x480, two 20px bars => content area y >= 40):
  * HELLO is launched LAST => foreground => drawn ON TOP, and it PARTIALLY OCCLUDES
  * NOTES. So a click on NOTES's visible sliver raises NOTES, which EXPOSES the

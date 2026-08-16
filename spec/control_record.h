@@ -15,11 +15,10 @@
  *       ../win31-decomp/specs/chrome/button-bevel.md
  *       ../win31-decomp/specs/user/button-control.md
  *
- * ERA AXIS (operator, 2026-06-20): System 7.0/7.1 is the BASE built now.
- * A System 8 Platinum layer accretes later as additive era-deltas WITHOUT
- * rewriting the base. Every constant below carries an era= tag so the future
- * layer can override additively. The Win 3.1 accent is tagged era=win31
- * (a confined chimera element, not the base layer).
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the BASE. System 7.0/7.1 remains
+ * retained heritage, and every constant below keeps its era= provenance tag
+ * under the unchanged BC-10.10 tagging rule. The Win 3.1 accent remains tagged
+ * era=win31 (a confined chimera element, not the base layer).
  *
  * SOURCE CITATIONS (Law 1 -- cite local or cached source; do NOT guess):
  *
@@ -42,11 +41,13 @@
  *       (local verbatim cache; refs/im-toolbox/im-toolbox-records-verbatim.md;
  *       MacTech Vol.03.04; dev.os9.ca Toolbox-317; dev.os9.ca ControlMgrRef).
  *
- *   ERA DELTA (Law 3): System 7.5+/Appearance Manager renames part-codes as
- *     kControlButtonPart, kControlIndicatorPart, etc. (same numeric values).
- *     These renames are NOT in the System 7.0/7.1 target; they are recorded
- *     only as a delta. Applies: kControlNoPart=0 (post-7.1 spelling).
- *     Source: ../system7-decomp/specs/toolbox/control-manager.md Sec 2.
+ *   APPEARANCE-ERA IN-TARGET ALIASES (DEC-10 OQ-9): the System 7.5+ /
+ *     Appearance Manager names kControlNoPart, kControlButtonPart, and
+ *     kControlIndicatorPart are accepted aliases for the unchanged numeric
+ *     part codes (0, the button-family parts, and 129 respectively). The C
+ *     constants retain their original spellings; no code rename or value
+ *     change is implied. Source: ../system7-decomp/specs/toolbox/
+ *     control-manager.md Sec 2; ADR-0004-AMENDMENT-DEC-10 OQ-9.
  *
  *   Win 3.1 flat push-button accent (chimera element 10; era=win31):
  *     ../win31-decomp/specs/chrome/button-bevel.md -- pixel render order,
@@ -229,7 +230,7 @@
  *   Source of truth: ../win31-decomp/specs/chrome/button-bevel.md (the pixel
  *   render order + exact color roles, verified against w31_run_dialog.png) and
  *   ../win31-decomp/specs/user/button-control.md (BS_PUSHBUTTON flat render,
- *   COLOR_* index table). This is NOT the System 7 base; it is a win31 accent.
+ *   COLOR_* index table). This is a win31 accent, never the FLAIR base era.
  *
  * RENDER ORDER (normal, unpushed BS_PUSHBUTTON; era=win31):
  *   Step 1: 1px black outer outline (COLOR_WINDOWFRAME = #000000).

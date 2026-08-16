@@ -8,6 +8,9 @@
  *        endian-NEUTRAL constructor macro live in ONE header to dodge a
  *        ResType/OSType redefinition collision between scrap.h and resource.h.
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. OSType is an
+ * era-stable Toolbox key retained unchanged from the System 7 heritage API.
+ *
  * WHAT THIS IS (Law 1):
  *   Classic Mac OS keys every resource (Resource Manager) and every clipboard
  *   flavor (Scrap Manager) by a 4-character ASCII code packed big-endian into a

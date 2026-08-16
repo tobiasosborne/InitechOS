@@ -14,6 +14,11 @@
  *        no timestamps); Rule 12 (ASCII-clean; this file is bit-pattern data
  *        with ASCII-art comments only).
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE, but the menu-bar
+ * Platinum face is not shipped in this arc. TODO_GOLDEN: this hand-authored
+ * glyph remains in the explicit System 7 heritage bar until that face lands;
+ * the locked strike bytes do not change (BC-10.10).
+ *
  * PROVENANCE (Law 1 honesty) -- READ BEFORE ANY EDIT:
  *
  * The bit pattern below was HAND-AUTHORED, row by row, to match the classic

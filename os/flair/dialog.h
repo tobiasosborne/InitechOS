@@ -3,6 +3,11 @@
  *
  * beads: (Dialog Manager: ModalDialog, FILE COPY box, item lists)
  *
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The movable FILE
+ * COPY title band uses the Platinum chrome composer; unchanged DialogRecord,
+ * DITL, and dBoxProc semantics retain their Inside Macintosh heritage tags
+ * under BC-10.10.
+ *
  * Ref: ADR-0004 D-3 ("Dialog Manager -- DialogRecord + item lists;
  *        ModalDialog; the modal FILE COPY box ('Saving tables to disk...',
  *        the comedic centerpiece, PRD Sec 6.5 / Appendix B).");
