@@ -106,11 +106,12 @@ all GUI changes have regenerable video clips + eyeballed frames.
 
 ## Pointers
 
-- Next agent: **the epic is blocked on the operator ratifying DEC-10**
-  (docs/adr/ADR-0004-AMENDMENT-DEC-10-Sys8-Platinum-Base-Era.md, esp. OQ-2:
-  teal accent vs the measured Platinum lavender clut-208). Then `3knt`
-  (skin rows + oracle re-key from specs/sys8/) -> `i3si` (chrome.c Platinum,
-  video-validated). Era-independent Wave B lanes (b3hl DQ7 menu restore,
-  t1rv/7tjp DQ8 band-2 dispatch) remain good codex fodder meanwhile.
+- **POST-SCRIPT (same session): DEC-10 IS RATIFIED** (operator 2026-08-16,
+  "lavender->teal is canon"; commit 6de3320; s97h CLOSED, all 9 OQs
+  dispositioned in ADR Sec 6). The epic is fully unblocked: `3knt` -> `i3si`
+  land together in one certificate (re-keyed oracles are RED until chrome.c
+  renders Platinum). The cold-start brief lives in the HANDOFF's NEXT AGENT
+  block. Era-independent Wave B lanes (b3hl DQ7, t1rv/7tjp DQ8) remain good
+  codex fodder meanwhile.
 - Ground truth: ../system7-decomp/specs/sys8/ + goldens/captures/s8_*.png
   (gitignored, regenerable via the mint; boot81.img + pristine backup exist).
