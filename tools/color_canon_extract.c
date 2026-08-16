@@ -128,7 +128,9 @@ static int read_rgb_bytes(const char *p, const char *end,
 
 #define CANON_N   9   /* exactly 9 indexed entries, idx 0..8 */
 #define DERIVED_N 2   /* exactly 2 derived rows               */
-#define RAMP_N    2   /* exactly 2 named idx>=9 ramp indices  */
+/* DEC-10 Sec 3.5.3 / initech-3knt: 2 retained SYS7 names + 11 appended
+ * Platinum sampled-domain names; exact count remains a fail-loud invariant. */
+#define RAMP_N   13   /* exactly 13 named idx>=9 ramp indices */
 
 typedef struct {
     int  idx;
@@ -711,7 +713,7 @@ int main(int argc, char **argv)
     derived_t drv[DERIVED_N];
     if (parse_derived(json, drv)) { free(json); return 1; }
 
-    /* Parse the 2 named idx>=9 gray-ramp indices (Rule-8 extension). */
+    /* Parse the exact 13 named idx>=9 gray-ramp indices (DEC-10/initech-3knt). */
     ramp_t ramp[RAMP_N];
     if (parse_ramp(json, ramp)) { free(json); return 1; }
 

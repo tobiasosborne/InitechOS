@@ -98,11 +98,44 @@ _Static_assert(sizeof(color_canon) == 27, "9 x 3 canon bytes");
  */
 #define CIDX_HILITE_FRAME    119   /* #777777 via the idx>=9 ramp */
 #define CIDX_HILITE_TEXT     165   /* #A5A5A5 via the idx>=9 ramp */
+#define CIDX_PLAT_STRIPE_DARK 150   /* #969696 via the idx>=9 ramp */
+#define CIDX_PLAT_FRAME_FACE 218   /* #DADADA via the idx>=9 ramp */
+#define CIDX_PLAT_FACE       231   /* #E7E7E7 via the idx>=9 ramp */
+#define CIDX_PLAT_FRAME_SHADOW 179   /* #B3B3B3 via the idx>=9 ramp */
+#define CIDX_PLAT_WIDGET_EDGE 165   /* #A5A5A5 via the idx>=9 ramp */
+#define CIDX_PLAT_DARK_RING  63   /* #3F3F3F via the idx>=9 ramp */
+#define CIDX_PLAT_INACTIVE_FRAME 119   /* #777777 via the idx>=9 ramp */
+#define CIDX_PLAT_INACTIVE_TEXT 135   /* #878787 via the idx>=9 ramp */
+#define CIDX_PLAT_TROUGH     243   /* #F3F3F3 via the idx>=9 ramp */
+#define CIDX_PLAT_WELL       192   /* #C0C0C0 via the idx>=9 ramp */
+#define CIDX_PLAT_TILE_SHADOW 205   /* #CDCDCD via the idx>=9 ramp */
 
 _Static_assert(((uint32_t)CIDX_HILITE_FRAME << 16 | (uint32_t)CIDX_HILITE_FRAME << 8 | (uint32_t)CIDX_HILITE_FRAME) == 0x777777u,
                "CIDX_HILITE_FRAME ramp-index formula == #777777 (color_canon.json ramp_named_indices)");
 _Static_assert(((uint32_t)CIDX_HILITE_TEXT << 16 | (uint32_t)CIDX_HILITE_TEXT << 8 | (uint32_t)CIDX_HILITE_TEXT) == 0xA5A5A5u,
                "CIDX_HILITE_TEXT ramp-index formula == #A5A5A5 (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_STRIPE_DARK << 16 | (uint32_t)CIDX_PLAT_STRIPE_DARK << 8 | (uint32_t)CIDX_PLAT_STRIPE_DARK) == 0x969696u,
+               "CIDX_PLAT_STRIPE_DARK ramp-index formula == #969696 (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_FRAME_FACE << 16 | (uint32_t)CIDX_PLAT_FRAME_FACE << 8 | (uint32_t)CIDX_PLAT_FRAME_FACE) == 0xDADADAu,
+               "CIDX_PLAT_FRAME_FACE ramp-index formula == #DADADA (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_FACE << 16 | (uint32_t)CIDX_PLAT_FACE << 8 | (uint32_t)CIDX_PLAT_FACE) == 0xE7E7E7u,
+               "CIDX_PLAT_FACE ramp-index formula == #E7E7E7 (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_FRAME_SHADOW << 16 | (uint32_t)CIDX_PLAT_FRAME_SHADOW << 8 | (uint32_t)CIDX_PLAT_FRAME_SHADOW) == 0xB3B3B3u,
+               "CIDX_PLAT_FRAME_SHADOW ramp-index formula == #B3B3B3 (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_WIDGET_EDGE << 16 | (uint32_t)CIDX_PLAT_WIDGET_EDGE << 8 | (uint32_t)CIDX_PLAT_WIDGET_EDGE) == 0xA5A5A5u,
+               "CIDX_PLAT_WIDGET_EDGE ramp-index formula == #A5A5A5 (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_DARK_RING << 16 | (uint32_t)CIDX_PLAT_DARK_RING << 8 | (uint32_t)CIDX_PLAT_DARK_RING) == 0x3F3F3Fu,
+               "CIDX_PLAT_DARK_RING ramp-index formula == #3F3F3F (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_INACTIVE_FRAME << 16 | (uint32_t)CIDX_PLAT_INACTIVE_FRAME << 8 | (uint32_t)CIDX_PLAT_INACTIVE_FRAME) == 0x777777u,
+               "CIDX_PLAT_INACTIVE_FRAME ramp-index formula == #777777 (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_INACTIVE_TEXT << 16 | (uint32_t)CIDX_PLAT_INACTIVE_TEXT << 8 | (uint32_t)CIDX_PLAT_INACTIVE_TEXT) == 0x878787u,
+               "CIDX_PLAT_INACTIVE_TEXT ramp-index formula == #878787 (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_TROUGH << 16 | (uint32_t)CIDX_PLAT_TROUGH << 8 | (uint32_t)CIDX_PLAT_TROUGH) == 0xF3F3F3u,
+               "CIDX_PLAT_TROUGH ramp-index formula == #F3F3F3 (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_WELL << 16 | (uint32_t)CIDX_PLAT_WELL << 8 | (uint32_t)CIDX_PLAT_WELL) == 0xC0C0C0u,
+               "CIDX_PLAT_WELL ramp-index formula == #C0C0C0 (color_canon.json ramp_named_indices)");
+_Static_assert(((uint32_t)CIDX_PLAT_TILE_SHADOW << 16 | (uint32_t)CIDX_PLAT_TILE_SHADOW << 8 | (uint32_t)CIDX_PLAT_TILE_SHADOW) == 0xCDCDCDu,
+               "CIDX_PLAT_TILE_SHADOW ramp-index formula == #CDCDCD (color_canon.json ramp_named_indices)");
 
 /* ---------------------------------------------------------------------------
  * wctb part<->index crosswalk (comments only; for consumers and the oracle).

@@ -1,8 +1,9 @@
 /*
  * test_color_canon.c -- THE single FLAIR color VALUE oracle (test-color-canon).
  *
- * beads: initech-mwpw (epic initech-qipc step 3). ADR-0010 CD-2 (the one value
- *   oracle, 4 legs A/B/C/D + named VALUE mutants). era=system7.0-7.1 / win31.
+ * beads: initech-mwpw (epic initech-qipc step 3) + initech-3knt (DEC-10
+ *   Platinum accretion). ADR-0010 CD-2 (the one value oracle, 6 legs A-F +
+ *   named VALUE mutants). era=multi per ADR-0004-AMENDMENT-DEC-10 Sec 3.5.3.
  *
  * PURPOSE: grade the GENERATED color canon (spec/assets/color_canon.h --
  *   flair_canon_rgb(idx) + color_canon[9][3] + INITECH_CANON_*_RGB) against
@@ -23,6 +24,9 @@
  *     LEG D  authored -- NO external golden exists; gated by a locked authored
  *            constant stated literally here + octant bound + same-hue lock +
  *            VALUE mutants.  NEVER claimed decomp-sourced (P4 honesty).
+ *     LEG E  expected = hex parsed from title-bar.md rendered-color rows
+ *     LEG F  expected = FIRST-column sampled hex parsed from the independently
+ *            minted sys8/platinum-palette.md Sec 2 role rows (TOL=0)
  *   No leg recomputes its expected value from flair_canon_rgb / color_canon.json
  *   and compares it to itself (that would be by-construction; the whole point of
  *   this oracle is to extinguish that).
@@ -48,6 +52,10 @@
  *   LEG D: AUTHORED (no upstream decomp golden).  idx2 teal #8DDCDC +
  *     bevel_light #8DDCDC + bevel_shadow #4E9BA3 -- Initech-identity injections
  *     (operator WL-0053).  color_canon.json grading_contract.authored_exception.
+ *   LEG F: $(SYSTEM7_DECOMP)/specs/sys8/platinum-palette.md Sec 2 (sampled
+ *     gray-ramp table + capture coordinates) and Sec 3 (Lavender clut 208
+ *     provenance). ADR-0004-AMENDMENT-DEC-10 Sec 3.5.3 / OQ-2 / OQ-3:
+ *     canon takes the SAMPLED screen-domain values; nominal is provenance only.
  *   color_canon.h (the LOCKED generated header under test); color_canon.json
  *     (the locked source it is generated from; consulted ONLY for which idx maps
  *     to which golden slot -- the crosswalk -- never for an expected RGB value).
@@ -74,6 +82,8 @@
  *                                  NOT the rendered shade)
  *     -DCANON_MUTATE_HILITE CIDX_HILITE_FRAME -> #000000       => LEG E RED
  *                           (black relapse; beads initech-hv7u)
+ *     -DCANON_MUTATE_PLAT   CIDX_PLAT_STRIPE_DARK -> ramp idx119
+ *                           #777777 (nominal-domain gamma trap) => LEG F RED
  *
  * LEG E (beads initech-hv7u): CIDX_HILITE_FRAME (idx 119, #777777) /
  *   CIDX_HILITE_TEXT (idx 165, #A5A5A5) -- the two named idx>=9 gray-ramp
@@ -120,6 +130,13 @@ static unsigned long canon_val(unsigned idx)
 #endif
 #ifdef CANON_MUTATE_HILITE
     if (idx == CIDX_HILITE_FRAME) v = 0x000000uL; /* black relapse (initech-hv7u) */
+#endif
+#ifdef CANON_MUTATE_PLAT
+    if (idx == CIDX_PLAT_STRIPE_DARK) {
+        /* idx119/#777777 is the NOMINAL-domain value for the same Platinum
+         * rung: the exact sampled-vs-nominal gamma trap OQ-3 names. */
+        v = (unsigned long)flair_canon_rgb((unsigned char)CIDX_HILITE_FRAME);
+    }
 #endif
     return v;
 }
@@ -212,12 +229,29 @@ static int g_skipped = 0;  /* rows NOT graded because a golden was absent */
 #  define LEG_E_PATH "../system7-decomp/specs/chrome/title-bar.md"
 #endif
 
+#ifdef FLAIR_PLAT_GOLDEN_PATH
+#  define LEG_F_PATH FLAIR_PLAT_GOLDEN_PATH
+#elif defined(SYSTEM7_DECOMP)
+#  define LEG_F_PATH SYSTEM7_DECOMP "/specs/sys8/platinum-palette.md"
+#else
+#  define LEG_F_PATH "../system7-decomp/specs/sys8/platinum-palette.md"
+#endif
+
 static void loud_skip(const char *leg, const char *path, const char *override)
 {
     g_skipped++;
     printf("  LOUD-SKIP %s -- golden absent: %s\n", leg, path);
     printf("    (gitignored; pass -D%s=... or set the decomp macro in the Makefile)\n",
            override);
+}
+
+static void loud_skip_rows(const char *leg, const char *path,
+                           const char *override, int rows)
+{
+    g_skipped += rows;
+    printf("  LOUD-SKIP %s -- golden absent: %s\n", leg, path);
+    printf("    (%d rows NOT graded; pass -D%s=... or set the decomp macro in the Makefile)\n",
+           rows, override);
 }
 
 /* big-endian u16 from a byte buffer (wctb is 68k byte order). */
@@ -514,6 +548,131 @@ static void leg_e_hilite(void)
 }
 
 /* ===========================================================================
+ * LEG F -- platinum-palette.md Sec 2 gray-ramp roles (System 8), TOL=0.
+ * Expected RGB is the FIRST (sampled) column parsed from the independently
+ * minted palette table. The nominal 0x11 ladder is provenance only: using it
+ * here would be the DEC-10 OQ-3 gamma trap. The role anchors below are unique
+ * within Sec 2 and keep the crosswalk independent from color_canon.*.
+ *
+ * Sec 3 is also parsed for the literal "clut 208" + "Lavender" provenance.
+ * Per OQ-2 that accent maps to the EXISTING teal canon rows, still graded by
+ * LEG D; LEG F deliberately adds no non-neutral value grade or canon index.
+ * =========================================================================== */
+
+typedef struct {
+    const char *name;
+    const char *anchor;
+    unsigned idx;
+} platinum_grade_t;
+
+/* Scan only Sec 2 for a table row containing anchor, then parse the FIRST
+ * #RRGGBB on that row (the sampled column). Returns 1 found, 0 malformed/missing
+ * anchor, -1 file absent. */
+static int platinum_lookup(const char *path, const char *anchor,
+                           unsigned long *out)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    char line[2048];
+    int in_sec2 = 0;
+    int found = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (strncmp(line, "## 2.", 5) == 0) {
+            in_sec2 = 1;
+            continue;
+        }
+        if (in_sec2 && strncmp(line, "## 3.", 5) == 0) break;
+        if (!in_sec2 || !strstr(line, anchor)) continue;
+        const char *hash = strchr(line, '#');
+        unsigned r, g, b;
+        if (!hash || sscanf(hash, "#%2x%2x%2x", &r, &g, &b) != 3) continue;
+        *out = ((unsigned long)r << 16) |
+               ((unsigned long)g << 8) | (unsigned long)b;
+        found = 1;
+        break;
+    }
+    fclose(f);
+    return found;
+}
+
+/* Sec 3's code block contains the independently extracted accent identity:
+ * clut 208 "Lavender". Require both literal tokens on the same line. */
+static int platinum_accent_is_lavender(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    char line[2048];
+    int in_sec3 = 0;
+    int found = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (strncmp(line, "## 3.", 5) == 0) {
+            in_sec3 = 1;
+            continue;
+        }
+        if (in_sec3 && strncmp(line, "## 4.", 5) == 0) break;
+        if (in_sec3 && strstr(line, "clut 208") && strstr(line, "Lavender")) {
+            found = 1;
+            break;
+        }
+    }
+    fclose(f);
+    return found;
+}
+
+static void leg_f_platinum(void)
+{
+    static const platinum_grade_t rows[] = {
+        { "CIDX_PLAT_STRIPE_DARK",    "title-bar DARK stripe",                 CIDX_PLAT_STRIPE_DARK },
+        { "CIDX_PLAT_FRAME_FACE",     "ACTIVE window frame-bar face",          CIDX_PLAT_FRAME_FACE },
+        { "CIDX_PLAT_FACE",           "INACTIVE window title bar",             CIDX_PLAT_FACE },
+        { "CIDX_PLAT_FRAME_SHADOW",   "ACTIVE frame-bar shadow",               CIDX_PLAT_FRAME_SHADOW },
+        { "CIDX_PLAT_WIDGET_EDGE",    "widget top + left edge",                CIDX_PLAT_WIDGET_EDGE },
+        { "CIDX_PLAT_DARK_RING",      "widget dark ring",                      CIDX_PLAT_DARK_RING },
+        { "CIDX_PLAT_INACTIVE_FRAME", "INACTIVE window: every frame line",     CIDX_PLAT_INACTIVE_FRAME },
+        { "CIDX_PLAT_INACTIVE_TEXT",  "INACTIVE title text ink",               CIDX_PLAT_INACTIVE_TEXT },
+        { "CIDX_PLAT_TROUGH",         "DISABLED + HOLLOW scroll-bar trough",   CIDX_PLAT_TROUGH },
+        { "CIDX_PLAT_WELL",           "enabled scroll-bar page-well fill",     CIDX_PLAT_WELL },
+        { "CIDX_PLAT_TILE_SHADOW",    "enabled scroll-arrow tile shadow",      CIDX_PLAT_TILE_SHADOW }
+    };
+    const int row_n = (int)(sizeof(rows) / sizeof(rows[0]));
+    unsigned long expected = 0;
+    int r = platinum_lookup(LEG_F_PATH, rows[0].anchor, &expected);
+
+    printf("LEG F -- platinum-palette.md Sec 2 sampled gray ramp (System 8), TOL=0  "
+           "[golden: %s]\n", LEG_F_PATH);
+    if (r == -1) {
+        loud_skip_rows("LEG F (Platinum)", LEG_F_PATH,
+                       "FLAIR_PLAT_GOLDEN_PATH", row_n);
+        return;
+    }
+
+    int i;
+    for (i = 0; i < row_n; i++) {
+        if (i != 0)
+            r = platinum_lookup(LEG_F_PATH, rows[i].anchor, &expected);
+        if (r != 1) {
+            g_graded++;
+            g_fails++;
+            printf("  FAIL %s: could not parse sampled RGB from Sec 2 anchor \"%s\"\n",
+                   rows[i].name, rows[i].anchor);
+            continue;
+        }
+        GRADE(rows[i].name, expected, canon_val(rows[i].idx));
+    }
+
+    r = platinum_accent_is_lavender(LEG_F_PATH);
+    g_graded++;
+    if (r != 1) {
+        g_fails++;
+        printf("  FAIL LEG F accent provenance: Sec 3 lacks literal clut 208 + Lavender\n");
+    } else {
+        printf("  PASS LEG F accent provenance: Sec 3 identifies Lavender clut 208\n");
+        printf("  NOTE OQ-2: Lavender maps to the EXISTING teal canon rows; "
+               "their value remains graded by LEG D (no new accent index).\n");
+    }
+}
+
+/* ===========================================================================
  * LEG D -- AUTHORED (Initech identity; NO external decomp golden).
  * idx2 teal #8DDCDC + bevel_light #8DDCDC + bevel_shadow #4E9BA3 are operator
  * WL-0053 injections (VIC-20 cyan).  No upstream golden exists, so this leg is
@@ -585,9 +744,10 @@ static void leg_d_authored(void)
 /* =========================================================================== */
 int main(void)
 {
-    printf("test-color-canon: starting (FLAIR color VALUE oracle; ADR-0010 CD-2)\n");
+    printf("test-color-canon: starting (FLAIR color VALUE oracle; 6 legs A-F; "
+           "era=multi; ADR-0010 CD-2 + DEC-10 Sec 3.5.3)\n");
     printf("  value-under-test: spec/assets/color_canon.h (flair_canon_rgb / color_canon[])\n");
-    printf("  expected values:  INDEPENDENT decomp goldens (A wctb / B win31 / C pinstripe / E title-bar)\n");
+    printf("  expected values:  INDEPENDENT decomp goldens (A wctb / B win31 / C pinstripe / E title-bar / F Platinum)\n");
     printf("                    + LEG D authored locked-constant (no external golden)\n\n");
 
     leg_a_wctb();        printf("\n");
@@ -595,6 +755,7 @@ int main(void)
     leg_c_pinstripe();   printf("\n");
     leg_d_authored();    printf("\n");
     leg_e_hilite();      printf("\n");
+    leg_f_platinum();    printf("\n");
 
     printf("test-color-canon: %d graded, %d failures, %d rows NOT graded (goldens absent), %s\n",
            g_graded, g_fails, g_skipped, g_fails == 0 ? "green" : "RED");

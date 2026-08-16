@@ -81,12 +81,6 @@
  * index, exactly as the other slots carry a CIDX_*. */
 #define FLAIR_GRAY_IDX_808080  0x80u
 
-/* Platinum neutral grays are canon indices in the SAMPLED screen domain.
- * Ref: DEC-10 Sec 6 OQ-3 value-domain rule; ../system7-decomp/specs/sys8/
- * platinum-palette.md Sec 1-2 (nominal ladder is provenance only). */
-#define FLAIR_GRAY_IDX_PLAT_FACE    0xE7u
-#define FLAIR_GRAY_IDX_PLAT_SHADOW  0xA5u
-
 /* ---------------------------------------------------------------------------
  * era_id -- the heritage ERA axis. Platinum is the BASE per DEC-10 D-10.1;
  * System 7 remains a locked heritage row per D-10.2. The enum integers stay
@@ -224,17 +218,14 @@ static const flair_skin_t flair_skin_registry[] = {
         /* menubar: sampled #E7E7E7 face (nominal #DDDDDD is provenance).
          * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2;
          * ../system7-decomp/specs/sys8/menus.md Sec 1.1. */
-        { FLAIR_GRAY_IDX_PLAT_FACE,
-          FLAIR_CANON_GRAY_RGB(FLAIR_GRAY_IDX_PLAT_FACE) },
+        { CIDX_PLAT_FACE, FLAIR_CANON_GRAY_RGB(CIDX_PLAT_FACE) },
         /* btnface: sampled #E7E7E7 dialog/control/push-button face.
          * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
-        { FLAIR_GRAY_IDX_PLAT_FACE,
-          FLAIR_CANON_GRAY_RGB(FLAIR_GRAY_IDX_PLAT_FACE) },
+        { CIDX_PLAT_FACE, FLAIR_CANON_GRAY_RGB(CIDX_PLAT_FACE) },
         /* btnshadow: sampled #A5A5A5 widget edge/interior shadow; nominal
          * #888888 is provenance only.
          * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
-        { FLAIR_GRAY_IDX_PLAT_SHADOW,
-          FLAIR_CANON_GRAY_RGB(FLAIR_GRAY_IDX_PLAT_SHADOW) },
+        { CIDX_PLAT_WIDGET_EDGE, FLAIR_CANON_GRAY_RGB(CIDX_PLAT_WIDGET_EDGE) },
         /* btnhilight: every Platinum 3-D highlight is #FFFFFF.
          * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
         { CIDX_WHITE, INITECH_CANON_WHITE_RGB },
