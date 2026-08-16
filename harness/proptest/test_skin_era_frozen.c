@@ -1,10 +1,12 @@
 /*
  * test_skin_era_frozen.c -- the ACCRETION digest oracle (test-skin-era-frozen).
  *
- * beads: initech-m6qx (re-flair STEP 6); epic initech-qipc step 6.
- * Ref:   ADR-0006 Sec 4.6 (test-skin-era-frozen -- the accretion guardrail: a
+ * beads: initech-3knt (DEC-10 Sec 3.5.2 oracle re-key).
+ * Ref:   ADR-0004-AMENDMENT-DEC-10 Sec 3.5.2 (the Platinum row-count,
+ *        default-selector, and locked-row digest obligations). ADR-0006 Sec
+ *        4.6 (test-skin-era-frozen -- the accretion guardrail: a
  *        frozen-row digest-of-fields over the LOCKED ERA_SYS7_0_1 + ERA_WIN31
- *        registry rows; ERA_SYS8_PLATINUM must stay zero-rows). ADR-0004-
+ *        registry rows). ADR-0004-
  *        AMENDMENT-DEC-09 Sec 3.7 D-9 P5 (accretion = APPEND, never MUTATE a
  *        locked base row). CLAUDE.md Law 2, Rule 6 (mutation-proven), Rule 11.
  *
@@ -13,10 +15,10 @@
  * ERA_WIN31/GDI, every color slot (idx + rgb) and every scalar field -- and
  * asserts it equals the COMMITTED expected digest below. Mutating ANY base-row
  * field changes the digest -> RED. This mechanically enforces the additive-only
- * accretion rule: a later ERA_SYS8_PLATINUM commit may APPEND rows (which this
- * digest, computed over ONLY the two base rows, ignores) but must NOT mutate a
- * locked base-row field. It also asserts ERA_SYS8_PLATINUM still has ZERO rows
- * (the registry holds exactly the two base rows today).
+ * accretion rule: DEC-10 may APPEND the ERA_SYS8_PLATINUM row (which this
+ * digest, computed over ONLY the two locked rows, ignores) but must NOT mutate
+ * a locked base-row field. It separately asserts the exact three-row registry,
+ * the sole ERA_SYS8_PLATINUM row, and the explicit Platinum default selector.
  *
  * WHY IT IS NOT BY-CONSTRUCTION (Law 2). The EXPECTED side is a frozen constant
  * (SKIN_FROZEN_DIGEST) committed once. The VALUE-UNDER-TEST is the live
@@ -30,10 +32,10 @@
  * paths. The stream order is the field order of feed_row() below and is part of
  * the contract; changing the field set or order is a deliberate re-pin.
  *
- * MUTATION PROOF (Rule 6): built with -DSKIN_FROZEN_MUTANT, ONE base-row field
- * (the System-7 desktop slot rgb) is perturbed by one count before hashing ->
- * the live digest diverges from SKIN_FROZEN_DIGEST -> RED. Restore by dropping
- * the -D. (We mutate a LOCAL copy fed to the hash, never the locked header.)
+ * MUTATION PROOF (Rule 6): -DSKIN_FROZEN_MUTANT perturbs the System-7 desktop
+ * slot rgb; -DSKIN_FROZEN_MUTANT_BASEROW perturbs its caption-navy rgb. Each
+ * changes only a LOCAL copy before hashing, and each MUST make the pinned
+ * digest go RED after the Platinum re-key.
  *
  * COMPUTING / RE-PINNING THE DIGEST. The expected digest is the value this same
  * program prints on its "live_digest=0x........" line in a NON-mutant build. To
@@ -46,7 +48,8 @@
  *   gcc -std=c11 -Wall -Wextra -Werror -Ispec -Ispec/assets \
  *       harness/proptest/test_skin_era_frozen.c -o build/test_skin_era_frozen \
  *       && build/test_skin_era_frozen
- *   Mutant:  add -DSKIN_FROZEN_MUTANT  (MUST exit non-zero / RED).
+ *   Mutants: add -DSKIN_FROZEN_MUTANT or -DSKIN_FROZEN_MUTANT_BASEROW
+ *            (each MUST exit non-zero / RED).
  *
  * ASCII-clean (Rule 12). Deterministic / no timestamps (Rule 11).
  */
@@ -116,26 +119,52 @@ int main(void)
 {
     int fails = 0, checks = 0;
 
-    /* The two LOCKED base rows are exactly the registry today (zero Platinum
-     * rows). Assert that invariant first -- a stray row would shift the digest
-     * AND violate "ERA_SYS8_PLATINUM has zero rows". */
+    /* DEC-10 Sec 3.5.2 / initech-3knt: exactly two locked heritage rows plus
+     * the one Platinum base row. The exact count makes a stray fourth row RED. */
     checks++;
-    if (FLAIR_SKIN_REGISTRY_COUNT != 2u) {
+    if (FLAIR_SKIN_REGISTRY_COUNT != 3u) {
         fails++;
-        printf("FAIL registry row count = %u (expected 2: SYS7 base + WIN31 peer; "
-               "ERA_SYS8_PLATINUM must have ZERO rows)\n",
+        printf("FAIL registry row count = %u (expected 3: SYS7 heritage + "
+               "WIN31 peer + Platinum base)\n",
                (unsigned)FLAIR_SKIN_REGISTRY_COUNT);
     }
-    /* No row may carry the RESERVED ERA_SYS8_PLATINUM era today. */
+    /* DEC-10 Sec 3.5.2: exactly ONE row carries ERA_SYS8_PLATINUM, and it is
+     * precisely the row returned by the Platinum/QuickDraw key resolver. */
     {
         uint16_t i;
+        uint16_t platinum_rows = 0u;
+        const flair_skin_t *platinum =
+            flair_skin_resolve(ERA_SYS8_PLATINUM, HERITAGE_QUICKDRAW);
         for (i = 0; i < FLAIR_SKIN_REGISTRY_COUNT; i++) {
-            checks++;
             if ((int)flair_skin_registry[i].era == ERA_SYS8_PLATINUM) {
-                fails++;
-                printf("FAIL row %u carries ERA_SYS8_PLATINUM (reserved -- must be ZERO rows)\n",
-                       (unsigned)i);
+                platinum_rows++;
+                checks++;
+                if (&flair_skin_registry[i] != platinum) {
+                    fails++;
+                    printf("FAIL Platinum row %u is not the key-resolved row\n",
+                           (unsigned)i);
+                }
             }
+        }
+        checks++;
+        if (platinum_rows != 1u) {
+            fails++;
+            printf("FAIL ERA_SYS8_PLATINUM row count = %u (expected exactly 1)\n",
+                   (unsigned)platinum_rows);
+        }
+    }
+
+    /* DEC-10 D-10.1: the explicit default selector mechanically resolves to
+     * the Platinum/QuickDraw row, independent of enum and registry ordering. */
+    {
+        const flair_skin_t *selected =
+            flair_skin_resolve(FLAIR_DEFAULT_ERA, FLAIR_DEFAULT_HERITAGE);
+        const flair_skin_t *platinum =
+            flair_skin_resolve(ERA_SYS8_PLATINUM, HERITAGE_QUICKDRAW);
+        checks++;
+        if (selected != platinum) {
+            fails++;
+            printf("FAIL explicit default selector does not resolve Platinum\n");
         }
     }
 
@@ -150,6 +179,12 @@ int main(void)
         /* Perturb ONE base-row field by one count (a LOCAL copy) so the digest
          * diverges from the pin and the assert bites (Rule 6). */
         base.desktop.rgb ^= 0x000001u;
+#endif
+
+#ifdef SKIN_FROZEN_MUTANT_BASEROW
+        /* DEC-10 Sec 3.5.2 / Rule 6: perturb a DIFFERENT System-7 field on the
+         * LOCAL copy, proving the frozen digest still bites after the re-key. */
+        base.caption_navy.rgb ^= 0x000001u;
 #endif
 
         h = feed_row(h, &base);

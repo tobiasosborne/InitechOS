@@ -7109,7 +7109,7 @@ endef
         test-region-gdi test-region-gdi-mutant \
         gen-color-canon test-color-canon-gen test-color-canon test-color-canon-mutant \
         test-mech-policy test-mech-policy-mutant test-flair-mechanism-colorblind test-flair-mechanism-colorblind-mutant \
-        test-skin-teal test-skin-teal-mutant test-skin-era-frozen test-skin-era-frozen-mutant check-win95isms check-win95isms-mutant \
+        test-skin-teal test-skin-teal-mutant test-skin-teal-mutant-plat test-skin-era-frozen test-skin-era-frozen-mutant test-skin-era-frozen-mutant-baserow check-win95isms check-win95isms-mutant \
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
         test-blitter test-blitter-mutant test-text test-text-mutant \
@@ -11291,8 +11291,10 @@ test-flair-mechanism-colorblind-mutant: $(TEST_COLORBLIND_MUT)
 # ---------------------------------------------------------------------------
 TEST_SKIN_TEAL        := $(BUILD)/test_skin_teal
 TEST_SKIN_TEAL_MUT    := $(BUILD)/test_skin_teal_mutant
+TEST_SKIN_TEAL_MUT2   := $(BUILD)/test_skin_teal_mutant_plat
 TEST_SKIN_FROZEN      := $(BUILD)/test_skin_era_frozen
 TEST_SKIN_FROZEN_MUT  := $(BUILD)/test_skin_era_frozen_mutant
+TEST_SKIN_FROZEN_MUT2 := $(BUILD)/test_skin_era_frozen_mutant_baserow
 CHECK_WIN95ISMS       := $(BUILD)/check_win95isms
 CHECK_WIN95ISMS_MUT   := $(BUILD)/check_win95isms_mutant
 SKIN_INC := -Ispec -Ispec/assets
@@ -11302,10 +11304,14 @@ $(TEST_SKIN_TEAL): harness/proptest/test_skin_teal.c $(SKIN_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SKIN_INC) -o $@ $<
 $(TEST_SKIN_TEAL_MUT): harness/proptest/test_skin_teal.c $(SKIN_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) -DSKIN_TEAL_MUTANT $(SKIN_INC) -o $@ $<
+$(TEST_SKIN_TEAL_MUT2): harness/proptest/test_skin_teal.c $(SKIN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -DSKIN_TEAL_MUTANT_PLAT $(SKIN_INC) -o $@ $<
 $(TEST_SKIN_FROZEN): harness/proptest/test_skin_era_frozen.c $(SKIN_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SKIN_INC) -o $@ $<
 $(TEST_SKIN_FROZEN_MUT): harness/proptest/test_skin_era_frozen.c $(SKIN_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) -DSKIN_FROZEN_MUTANT $(SKIN_INC) -o $@ $<
+$(TEST_SKIN_FROZEN_MUT2): harness/proptest/test_skin_era_frozen.c $(SKIN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -DSKIN_FROZEN_MUTANT_BASEROW $(SKIN_INC) -o $@ $<
 $(CHECK_WIN95ISMS): harness/proptest/check_win95isms.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -o $@ $<
 $(CHECK_WIN95ISMS_MUT): harness/proptest/check_win95isms.c | $(BUILD)
@@ -11317,12 +11323,16 @@ test-skin-teal: $(TEST_SKIN_TEAL)
 	@printf ">>> test-skin-teal: green\n"
 test-skin-teal-mutant: $(TEST_SKIN_TEAL_MUT)
 	@if $(TEST_SKIN_TEAL_MUT) >/dev/null 2>&1; then printf '!!! test-skin-teal-mutant FAIL: a slot drifting from the canon was NOT caught\n'; exit 1; else printf '>>> test-skin-teal-mutant: green (a canon-drifted slot correctly RED)\n'; fi
+test-skin-teal-mutant-plat: $(TEST_SKIN_TEAL_MUT2)
+	@if $(TEST_SKIN_TEAL_MUT2) >/dev/null 2>&1; then printf '!!! test-skin-teal-mutant-plat FAIL: a Platinum teal slot drifting from the canon was NOT caught\n'; exit 1; else printf '>>> test-skin-teal-mutant-plat: green (a Platinum canon-drifted slot correctly RED)\n'; fi
 test-skin-era-frozen: $(TEST_SKIN_FROZEN)
 	@printf ">>> test-skin-era-frozen: accretion digest over the LOCKED base rows (append, never mutate)\n"
 	@$(TEST_SKIN_FROZEN)
 	@printf ">>> test-skin-era-frozen: green\n"
 test-skin-era-frozen-mutant: $(TEST_SKIN_FROZEN_MUT)
 	@if $(TEST_SKIN_FROZEN_MUT) >/dev/null 2>&1; then printf '!!! test-skin-era-frozen-mutant FAIL: a mutated base-row field did NOT change the digest\n'; exit 1; else printf '>>> test-skin-era-frozen-mutant: green (a mutated base row correctly RED)\n'; fi
+test-skin-era-frozen-mutant-baserow: $(TEST_SKIN_FROZEN_MUT2)
+	@if $(TEST_SKIN_FROZEN_MUT2) >/dev/null 2>&1; then printf '!!! test-skin-era-frozen-mutant-baserow FAIL: a second mutated base-row field did NOT change the digest\n'; exit 1; else printf '>>> test-skin-era-frozen-mutant-baserow: green (a second mutated base row correctly RED)\n'; fi
 check-win95isms: $(CHECK_WIN95ISMS)
 	@printf ">>> check-win95isms: grep gate -- NO #DFDFDF / COLOR_3DLIGHT Win95-ism in the FLAIR color sources\n"
 	@$(CHECK_WIN95ISMS)
@@ -18711,7 +18721,7 @@ TEST_UNIT_GATES := \
 	test-color-canon-gen test-color-canon test-color-canon-mutant \
 	test-mech-policy test-mech-policy-mutant \
 	test-flair-mechanism-colorblind test-flair-mechanism-colorblind-mutant \
-	test-skin-teal test-skin-teal-mutant test-skin-era-frozen test-skin-era-frozen-mutant \
+	test-skin-teal test-skin-teal-mutant test-skin-teal-mutant-plat test-skin-era-frozen test-skin-era-frozen-mutant test-skin-era-frozen-mutant-baserow \
 	check-win95isms check-win95isms-mutant \
 	test-flair-heap test-flair-heap-mutant \
 	test-flair-headers test-flair-headers-mutant \
