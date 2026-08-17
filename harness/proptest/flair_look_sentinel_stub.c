@@ -8,7 +8,7 @@
  *
  * This stub REPLACES the real flair_look resolver (os/flair/flair_look.c) at
  * link time for the colorblind oracle.  It makes the ONE policy seam
- * (flair_look_pixel / flair_look_pixel_depth) return a SENTINEL for EVERY PART:
+ * (including flair_look_pixel_for_skin) return a SENTINEL for EVERY PART:
  *   32bpp -> magenta 0x00FF00FF  (the sentinel color)
  *   8bpp  -> a sentinel palette index (FLAIR_LOOK_SENTINEL_IDX)
  *
@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 #include "flair_look.h"        /* the seam signatures we override (-Ios/flair)  */
+#include "flair_skins.h"       /* complete row + default resolver (-Ispec)      */
 #include "surface.h"           /* surface_pack_rgb (-Ios/flair)                 */
 
 /* The 32bpp sentinel color (magenta) and the 8bpp sentinel index. */
@@ -44,4 +45,16 @@ uint32_t flair_look_pixel(const GrafPort *port, int part)
 {
     uint32_t bpp = (port != 0) ? port->portBits.bm.bpp : 32u;
     return flair_look_pixel_depth(bpp, part);
+}
+
+const flair_skin_t *flair_look_default_skin(void)
+{
+    return flair_skin_default();
+}
+
+uint32_t flair_look_pixel_for_skin(const GrafPort *port,
+                                   const flair_skin_t *skin, int part)
+{
+    (void)skin;
+    return flair_look_pixel(port, part);
 }

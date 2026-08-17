@@ -35,6 +35,7 @@
 
 #include "grafport.h"           /* GrafPort (-Ispec)                          */
 #include "region_algebra.h"     /* rgn_rect_t (-Ispec)                        */
+#include "flair_look.h"         /* opaque flair_skin_t policy datum            */
 
 /* ---------------------------------------------------------------------------
  * flair_draw_document_window -- draw one Platinum document window's chrome.
@@ -54,6 +55,10 @@
  * window smaller than the chrome it must hold is a no-op (fail-soft, the caller
  * is responsible for a sane frame -- the Window Manager sizes it).
  *
+ * `skin` is the caller-selected D-9 data row. The mechanism never inspects its
+ * era tag; it passes the pointer beside `port` to flair_look, where matching
+ * named color slots are resolved. Desktop setup supplies flair_skin_default().
+ *
  * `title` is the window's name (the WindowRecord titleHandle), drawn CENTERED in
  * the title bar in Chicago over a Platinum frame-face gap. A NULL or empty
  * title draws no text. Ink and gap resolve through the C-8 policy seam
@@ -65,7 +70,8 @@
  * widgets, hollow bars, and a flat grow box. Ref: window-chrome.md Sec 6 and
  * scrollbars.md Sec 4.
  * ------------------------------------------------------------------------- */
-void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
+void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
+                                rgn_rect_t frame,
                                 const char *title, int hilited);
 
 /* ---------------------------------------------------------------------------
@@ -87,6 +93,7 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
  * frontmost overlay when drawn -- ADR-0004 D-5 -- so there is no inactive
  * state). A NULL or empty title draws no text (same contract as
  * flair_draw_document_window).
+ * `skin` has the same explicit D-9 data-row contract as the document entry.
  *
  * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 2 (title band);
  *      ../system7-decomp/specs/toolbox/window-manager.md line 173
@@ -96,7 +103,8 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
  *      under BC-10.10); spec/window_record.h (movableDBoxProc = 5);
  *      CLAUDE.md Law 1/2/4.
  * ------------------------------------------------------------------------- */
-void flair_draw_movable_dbox_chrome(GrafPort *port, rgn_rect_t frame,
+void flair_draw_movable_dbox_chrome(GrafPort *port, const flair_skin_t *skin,
+                                    rgn_rect_t frame,
                                     const char *title);
 
 #endif /* INITECH_OS_FLAIR_CHROME_H */

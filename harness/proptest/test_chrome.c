@@ -38,6 +38,7 @@
 
 #include "render.h"             /* the host render skeleton (-Iharness/render) */
 #include "chrome.h"             /* flair_draw_document_window (-Ios/flair)     */
+#include "flair_look.h"         /* flair_look_default_skin (-Ios/flair)         */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_* (-Ispec)                     */
 #include "color_canon.h"        /* named sampled Platinum canon indices         */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
@@ -70,7 +71,8 @@ static void draw_window(GrafPort *port)
     /* hilited=1: this oracle grades the ACTIVE geometry (pinstripe/box/frame/
      * scrollbar); the inactive appearance is graded separately by
      * test-chrome-fidelity (beads initech-a9iq). */
-    flair_draw_document_window(port, win_frame(), "", 1);
+    flair_draw_document_window(port, flair_look_default_skin(),
+                               win_frame(), "", 1);
 }
 
 /* Is pixel (x,y) CHROME (i.e. NOT the bare desktop background)? The skeleton

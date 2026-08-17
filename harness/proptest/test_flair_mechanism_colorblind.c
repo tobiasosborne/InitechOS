@@ -67,7 +67,8 @@ static void draw_window(GrafPort *port)
      * title pixels are the sentinel too (proves the title is colorblind-clean). */
     /* hilited=1: the active render (byte-identical to pre-fix); the C-8 seam is
      * exercised the same way regardless of hilited state (beads initech-a9iq). */
-    flair_draw_document_window(port, win_frame(), "untitled", 1);
+    flair_draw_document_window(port, flair_look_default_skin(),
+                               win_frame(), "untitled", 1);
 }
 
 int main(void)

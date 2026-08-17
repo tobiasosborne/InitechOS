@@ -34,8 +34,9 @@ static int clip_in(const GrafPort *port, int x, int y)
     return 1;
 }
 
-/* Fill the clipped half-open span [x,x+w) through the single color seam. */
-static void cfill(GrafPort *port, int x, int y, int w, int part)
+/* Fill the clipped half-open span [x,x+w) through the explicit D-9 data seam. */
+static void chrome_cfill(GrafPort *port, const flair_skin_t *skin,
+                         int x, int y, int w, int part)
 {
     uint32_t px;
     int run_start = -1;
@@ -43,7 +44,7 @@ static void cfill(GrafPort *port, int x, int y, int w, int part)
     if (w <= 0) {
         return;
     }
-    px = flair_look_pixel(port, part);
+    px = flair_look_pixel_for_skin(port, skin, part);
     for (int i = 0; i <= w; i++) {
         int cx = x + i;
         int in = (i < w) ? clip_in(port, cx, y) : 0;
@@ -58,25 +59,37 @@ static void cfill(GrafPort *port, int x, int y, int w, int part)
     }
 }
 
-static void crect(GrafPort *port, int x0, int y0, int x1, int y1, int part)
+static void chrome_crect(GrafPort *port, const flair_skin_t *skin,
+                         int x0, int y0, int x1, int y1, int part)
 {
     for (int y = y0; y < y1; y++) {
-        cfill(port, x0, y, x1 - x0, part);
+        chrome_cfill(port, skin, x0, y, x1 - x0, part);
     }
 }
 
-static void cframe(GrafPort *port, int x0, int y0, int x1, int y1, int part)
+static void chrome_cframe(GrafPort *port, const flair_skin_t *skin,
+                          int x0, int y0, int x1, int y1, int part)
 {
     if (x1 <= x0 || y1 <= y0) {
         return;
     }
-    cfill(port, x0, y0, x1 - x0, part);
-    cfill(port, x0, y1 - 1, x1 - x0, part);
+    chrome_cfill(port, skin, x0, y0, x1 - x0, part);
+    chrome_cfill(port, skin, x0, y1 - 1, x1 - x0, part);
     for (int y = y0; y < y1; y++) {
-        cfill(port, x0, y, 1, part);
-        cfill(port, x1 - 1, y, 1, part);
+        chrome_cfill(port, skin, x0, y, 1, part);
+        chrome_cfill(port, skin, x1 - 1, y, 1, part);
     }
 }
+
+/* Every composer below carries a parameter named `skin`. These wrappers keep
+ * the geometry call sites naming only palette PARTs while making the pointer
+ * an explicit per-call datum beside the GrafPort. */
+#define cfill(port, x, y, w, part) \
+    chrome_cfill((port), skin, (x), (y), (w), (part))
+#define crect(port, x0, y0, x1, y1, part) \
+    chrome_crect((port), skin, (x0), (y0), (x1), (y1), (part))
+#define cframe(port, x0, y0, x1, y1, part) \
+    chrome_cframe((port), skin, (x0), (y0), (x1), (y1), (part))
 
 enum {
     PLAT_WIDGET_CLOSE = 0,
@@ -88,7 +101,8 @@ enum {
  * Ref: window-chrome.md Sec 3.1-3.3. The seven ramp roles are the sampled
  * diagonal sequence documented at Sec 3.2 and reuse existing policy parts. */
 #if !defined(CHROME_FID_MUT_BOX_GEOM)
-static void draw_platinum_widget(GrafPort *port, int bx, int by, int kind)
+static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
+                                 int bx, int by, int kind)
 {
     const int box = FLAIR_CHROME_WIDGET_BOX;
     const int interior = FLAIR_CHROME_WIDGET_INTERIOR;
@@ -165,7 +179,8 @@ static void draw_platinum_widget(GrafPort *port, int bx, int by, int kind)
 /* Shared Platinum title-band renderer. The exact sampled row profile is:
  * frame, highlight, two face, twelve alternating stripes, four face, shadow,
  * frame. Ref: window-chrome.md Sec 2.1-2.3. */
-static int draw_titlebar_band(GrafPort *port, int left, int top, int right,
+static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
+                              int left, int top, int right,
                               const char *title, int hilited)
 {
     int active = hilited;
@@ -237,17 +252,19 @@ static int draw_titlebar_band(GrafPort *port, int left, int top, int right,
         ink_part = active ? FLAIR_PART_TEXT : FLAIR_PART_PLAT_INACTIVE_TEXT;
 #endif
         text_draw(&port->portBits.bm, tx, ty, title, FONT_CHICAGO,
-                  flair_look_pixel(port, ink_part),
-                  flair_look_pixel(port, active
-                                   ? FLAIR_PART_PLAT_FRAME_FACE
-                                   : FLAIR_PART_PLAT_FACE));
+                  flair_look_pixel_for_skin(port, skin, ink_part),
+                  flair_look_pixel_for_skin(port, skin,
+                                            active
+                                            ? FLAIR_PART_PLAT_FRAME_FACE
+                                            : FLAIR_PART_PLAT_FACE));
     }
 #endif
     return shared_line;
 }
 
 #if !defined(CHROME_FID_MUT_SCROLL_FLAT)
-static void draw_up_triangle(GrafPort *port, int cx, int top, int part)
+static void draw_up_triangle(GrafPort *port, const flair_skin_t *skin,
+                             int cx, int top, int part)
 {
     for (int row = 0; row < 4; row++) {
         int width = 2 + 2 * row;
@@ -255,7 +272,8 @@ static void draw_up_triangle(GrafPort *port, int cx, int top, int part)
     }
 }
 
-static void draw_down_triangle(GrafPort *port, int cx, int top, int part)
+static void draw_down_triangle(GrafPort *port, const flair_skin_t *skin,
+                               int cx, int top, int part)
 {
     for (int row = 0; row < 4; row++) {
         int width = 8 - 2 * row;
@@ -263,7 +281,8 @@ static void draw_down_triangle(GrafPort *port, int cx, int top, int part)
     }
 }
 
-static void draw_left_triangle(GrafPort *port, int left, int cy, int part)
+static void draw_left_triangle(GrafPort *port, const flair_skin_t *skin,
+                               int left, int cy, int part)
 {
     for (int col = 0; col < 4; col++) {
         int height = 2 + 2 * col;
@@ -273,7 +292,8 @@ static void draw_left_triangle(GrafPort *port, int left, int cy, int part)
     }
 }
 
-static void draw_right_triangle(GrafPort *port, int left, int cy, int part)
+static void draw_right_triangle(GrafPort *port, const flair_skin_t *skin,
+                                int left, int cy, int part)
 {
     for (int col = 0; col < 4; col++) {
         int height = 8 - 2 * col;
@@ -287,8 +307,9 @@ static void draw_right_triangle(GrafPort *port, int left, int cy, int part)
 /* Disabled active bars use a flat trough, dim arrows/separators, and no thumb.
  * Inactive bars are hollow: trough plus inactive frame only.
  * Ref: scrollbars.md Sec 1, Sec 3, and Sec 4. */
-static void draw_vertical_scrollbar(GrafPort *port, int left, int top,
-                                    int right, int bottom, int active)
+static void draw_vertical_scrollbar(GrafPort *port, const flair_skin_t *skin,
+                                    int left, int top, int right, int bottom,
+                                    int active)
 {
 #if defined(CHROME_FID_MUT_SCROLL_FLAT)
     (void)active;
@@ -316,15 +337,17 @@ static void draw_vertical_scrollbar(GrafPort *port, int left, int top,
               FLAIR_PART_PLAT_INACTIVE_FRAME);
         cfill(port, left + 1, bottom_sep, right - left - 1,
               FLAIR_PART_PLAT_INACTIVE_FRAME);
-        draw_up_triangle(port, cx, top + 5, FLAIR_PART_PLAT_WIDGET_EDGE);
-        draw_down_triangle(port, cx, bottom - 9,
+        draw_up_triangle(port, skin, cx, top + 5,
+                         FLAIR_PART_PLAT_WIDGET_EDGE);
+        draw_down_triangle(port, skin, cx, bottom - 9,
                            FLAIR_PART_PLAT_WIDGET_EDGE);
     }
 #endif
 }
 
-static void draw_horizontal_scrollbar(GrafPort *port, int left, int top,
-                                      int right, int bottom, int active)
+static void draw_horizontal_scrollbar(GrafPort *port, const flair_skin_t *skin,
+                                      int left, int top, int right, int bottom,
+                                      int active)
 {
 #if defined(CHROME_FID_MUT_SCROLL_FLAT)
     (void)active;
@@ -352,9 +375,9 @@ static void draw_horizontal_scrollbar(GrafPort *port, int left, int top,
             cfill(port, left_sep, y, 1, FLAIR_PART_PLAT_INACTIVE_FRAME);
             cfill(port, right_sep, y, 1, FLAIR_PART_PLAT_INACTIVE_FRAME);
         }
-        draw_left_triangle(port, left + 5, cy,
+        draw_left_triangle(port, skin, left + 5, cy,
                            FLAIR_PART_PLAT_WIDGET_EDGE);
-        draw_right_triangle(port, right - 9, cy,
+        draw_right_triangle(port, skin, right - 9, cy,
                             FLAIR_PART_PLAT_WIDGET_EDGE);
     }
 #endif
@@ -362,7 +385,8 @@ static void draw_horizontal_scrollbar(GrafPort *port, int left, int top,
 
 /* Active 18x18 grow cell and exact three-line grip transcription.
  * Ref: window-chrome.md Sec 5. Inactive is the flat Sec 6 face. */
-static void draw_grow_box(GrafPort *port, int gx, int gy, int active)
+static void draw_grow_box(GrafPort *port, const flair_skin_t *skin,
+                          int gx, int gy, int active)
 {
     const int cell = FLAIR_CHROME_GROW;
 
@@ -396,12 +420,13 @@ static void draw_grow_box(GrafPort *port, int gx, int gy, int active)
 
 /* Four-pixel raised rail between outer and inner lines, plus content inset.
  * Ref: window-chrome.md Sec 4. */
-static void draw_body_structure(GrafPort *port, int left, int shared_line,
-                                int right, int bottom, int active,
-                                int frame_part)
+static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
+                                int left, int shared_line, int right, int bottom,
+                                int active, int frame_part)
 {
 #if defined(CHROME_FID_MUT_BODYBAR)
     (void)port;
+    (void)skin;
     (void)left;
     (void)shared_line;
     (void)right;
@@ -458,7 +483,8 @@ static void draw_body_structure(GrafPort *port, int left, int shared_line,
 #endif
 }
 
-void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
+void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
+                                rgn_rect_t frame,
                                 const char *title, int hilited)
 {
     int left;
@@ -480,7 +506,7 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
     int grow_y;
     int sb_left;
 
-    if (port == 0) {
+    if (port == 0 || skin == (const flair_skin_t *)0) {
         return;
     }
     left = frame.left;
@@ -498,7 +524,7 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
 #if defined(CHROME_FID_MUT_NO_INACTIVE)
     active = 1;
 #endif
-    shared_line = draw_titlebar_band(port, left, top, right, title, active);
+    shared_line = draw_titlebar_band(port, skin, left, top, right, title, active);
     frame_part = active ? FLAIR_PART_FRAME
                         : FLAIR_PART_PLAT_INACTIVE_FRAME;
 #if defined(CHROME_FID_MUT_INACTIVE_BLACK_FRAME)
@@ -520,7 +546,7 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
     crect(port, content_left, content_top, content_right, content_bottom,
           FLAIR_PART_CONTENT);
 
-    draw_body_structure(port, left, shared_line, right, bottom,
+    draw_body_structure(port, skin, left, shared_line, right, bottom,
                         active, frame_part);
 
 #if defined(FLAIR_COLORBLIND_MUTANT)
@@ -543,11 +569,11 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
 #if defined(CHROME_MUTATE_SCROLLBAR_W)
     sb_left++;
 #endif
-    draw_vertical_scrollbar(port, sb_left, shared_line + 1,
+    draw_vertical_scrollbar(port, skin, sb_left, shared_line + 1,
                             ri - 5, grow_y, active);
-    draw_horizontal_scrollbar(port, left + 5, bi - 20,
+    draw_horizontal_scrollbar(port, skin, left + 5, bi - 20,
                               grow_x, bi - 5, active);
-    draw_grow_box(port, grow_x, grow_y, active);
+    draw_grow_box(port, skin, grow_x, grow_y, active);
 
     if (active
 #if defined(CHROME_FID_MUT_KEEP_GADGETS)
@@ -562,14 +588,14 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
         cframe(port, ri - 20, by, ri - 20 + old_box, by + old_box,
                FLAIR_PART_FRAME);
 #else
-        draw_platinum_widget(port,
+        draw_platinum_widget(port, skin,
                              left + FLAIR_CHROME_CLOSE_LEFT_OFF,
                              by, PLAT_WIDGET_CLOSE);
-        draw_platinum_widget(port,
+        draw_platinum_widget(port, skin,
                              ri - FLAIR_CHROME_ZOOM_RIGHT_OFF,
                              by, PLAT_WIDGET_ZOOM);
 #if !defined(CHROME_FID_MUT_COLLAPSE)
-        draw_platinum_widget(port,
+        draw_platinum_widget(port, skin,
                              ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
                              by, PLAT_WIDGET_COLLAPSE);
 #endif
@@ -604,7 +630,8 @@ void flair_draw_document_window(GrafPort *port, rgn_rect_t frame,
 /* movableDBoxProc shares the Platinum title-band mechanism. Its untitled body
  * remains the caller-owned dialog face; this entry point only draws the band
  * and the one-pixel structure frame. Ref: window-chrome.md Sec 2. */
-void flair_draw_movable_dbox_chrome(GrafPort *port, rgn_rect_t frame,
+void flair_draw_movable_dbox_chrome(GrafPort *port, const flair_skin_t *skin,
+                                    rgn_rect_t frame,
                                     const char *title)
 {
     int left;
@@ -614,7 +641,7 @@ void flair_draw_movable_dbox_chrome(GrafPort *port, rgn_rect_t frame,
     int w;
     int h;
 
-    if (port == 0) {
+    if (port == 0 || skin == (const flair_skin_t *)0) {
         return;
     }
     left = frame.left;
@@ -627,6 +654,6 @@ void flair_draw_movable_dbox_chrome(GrafPort *port, rgn_rect_t frame,
         return;
     }
 
-    (void)draw_titlebar_band(port, left, top, right, title, 1);
+    (void)draw_titlebar_band(port, skin, left, top, right, title, 1);
     cframe(port, left, top, right, bottom, FLAIR_PART_FRAME);
 }

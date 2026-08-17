@@ -18,6 +18,7 @@
 
 #include "render.h"
 #include "chrome.h"
+#include "flair_look.h"
 #include "chrome_fidelity_golden.h"
 #include "test_assert.h"
 
@@ -44,12 +45,14 @@ static rgn_rect_t win_frame(void)
 
 static void draw_active(GrafPort *port)
 {
-    flair_draw_document_window(port, win_frame(), TEST_TITLE, 1);
+    flair_draw_document_window(port, flair_look_default_skin(),
+                               win_frame(), TEST_TITLE, 1);
 }
 
 static void draw_inactive(GrafPort *port)
 {
-    flair_draw_document_window(port, win_frame(), TEST_TITLE, 0);
+    flair_draw_document_window(port, flair_look_default_skin(),
+                               win_frame(), TEST_TITLE, 0);
 }
 
 static uint32_t px(const render_ctx_t *ctx, int x, int y)

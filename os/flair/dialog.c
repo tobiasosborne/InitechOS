@@ -386,7 +386,8 @@ void DrawDialog(DialogPtr dp)
 
         crect_dlg(port, left + fr, content_top, right - fr, bottom - fr,
                   DLG_WHITE);
-        flair_draw_movable_dbox_chrome(port, bounds, dp->window.titleHandle);
+        flair_draw_movable_dbox_chrome(port, flair_look_default_skin(),
+                                       bounds, dp->window.titleHandle);
     } else {
         /* --- dBoxProc (the NewDialog default; every other/generic dialog):
          * the classic solid FLAIR_CHROME_DIALOG_BORDER (7)-px border frame.

@@ -9,23 +9,22 @@
  * palette PART (a wctb-keyed semantic role) and converts PART -> destination
  * pixel ONLY through flair_look_pixel(port, PART) -- the single policy seam.
  *
- * ARB-3 (Sec 3.3): flair_look_pixel is a RESOLVER ON TOP of flair_canon_rgb,
- * NOT a second color table.  It maps a PART to a canon INDEX via a static
- * const PART->idx map (PURE DATA), then calls flair_canon_rgb(idx) -- the ONE
- * locked color authority (spec/assets/color_canon.h) -- and device-quantizes
- * for the port depth.  It owns ZERO 0xRRGGBB literal and ZERO index->RGB
- * switch.  This resolver TU and the device CLUT (spec/assets/clut.h) are the
- * ONLY two sites in the OS permitted to turn an index into a color.
+ * ARB-3 (Sec 3.3): flair_look is a RESOLVER ON TOP of flair_canon_rgb, NOT a
+ * second color table. Its base map is PART->canon INDEX pure data. The D-9
+ * chrome entry additionally reads same-valued named slots from the selected
+ * flair_skin_t registry row; the remaining composition roles keep their named
+ * palette indices. This TU owns ZERO hand-typed color value and ZERO era
+ * switch. It and the device CLUT are the only OS sites permitted to resolve an
+ * index or policy slot into a destination pixel.
  *
  * DEPTH QUANTIZE (mirrors chrome.c chrome_px's existing logic):
  *   8bpp  -> the palette index byte (surface writes the low byte).
  *   else  -> surface_pack_rgb(bpp,0,0,0) | flair_canon_rgb(idx)  (0x00RRGGBB).
  *
- * Two entry points share ONE resolution core:
- *   flair_look_pixel(port, PART)        -- the GrafPort-keyed seam (decoration).
- *   flair_look_pixel_depth(bpp, PART)   -- the bitmap-only seam (the desktop
- *                                          compositor fills a bitmap_t with no
- *                                          GrafPort; same one resolution core).
+ * The default entry points remain for bitmap-only and non-chrome consumers.
+ * Chrome additionally threads a const flair_skin_t * into
+ * flair_look_pixel_for_skin: D-9 era selection is DATA at the policy seam,
+ * never a switch(era) in mechanism code.
  *
  * Freestanding-safe (Law 3): <stdint.h> + the locked spec headers only; no
  * libc, no malloc.  Dual-compiles under kernel flags and hosted.
@@ -42,6 +41,11 @@
 #include <stdint.h>
 
 #include "grafport.h"          /* GrafPort (the policy seam surface)            */
+
+/* Opaque here so including the policy API does not instantiate the header-only
+ * registry in every mechanism TU. The complete data-only row lives in
+ * spec/flair_skins.h and is consumed by flair_look.c. */
+typedef struct flair_skin flair_skin_t;
 
 /* ---------------------------------------------------------------------------
  * FLAIR_PART -- the wctb-keyed PART namespace (ADR-0004-AMENDMENT-DEC-09
@@ -107,6 +111,17 @@ typedef enum {
  * else  -> surface_pack_rgb(bpp,0,0,0) | flair_canon_rgb(idx)  (0x00RRGGBB).
  * ------------------------------------------------------------------------- */
 uint32_t flair_look_pixel_depth(uint32_t bpp, int part);
+
+/* Resolve the default policy row once at a drawing-context boundary. The named
+ * mutant deliberately selects retained SYS7 so the independent Platinum
+ * fidelity oracle proves this pointer reaches pixels (Rule 6). */
+const flair_skin_t *flair_look_default_skin(void);
+
+/* Explicit D-9 era-data seam used by chrome. Only roles carried by the row at
+ * the same default value are read from skin; the remaining composition roles
+ * stay named palette indices (C-8). */
+uint32_t flair_look_pixel_for_skin(const GrafPort *port,
+                                   const flair_skin_t *skin, int part);
 
 /* ---------------------------------------------------------------------------
  * flair_look_pixel(port, PART) -- the GrafPort-keyed policy seam (ARB-3).

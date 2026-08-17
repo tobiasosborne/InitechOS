@@ -7336,7 +7336,7 @@ $(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/regi
 $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/region.h os/flair/surface.h spec/region_algebra.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(BLITTER_INC) -c os/flair/blitter.c -o $@
 
-$(KERNEL_CHROME_OBJ): os/flair/chrome.c os/flair/chrome.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_CHROME_OBJ): os/flair/chrome.c os/flair/chrome.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $@
 
 $(KERNEL_TEXT_OBJ): os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/assets/chicago8x16.h os/flair/surface.h | $(BUILD)
@@ -7351,14 +7351,14 @@ $(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h spec/assets/menu_canon.h spe
 $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 
-$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
+$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
 
 $(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(DRAG_INC) -c $(DESKTOP_C) -o $@
 
 # The C-8 policy seam (beads initech-6bq2). Freestanding-safe; reads color_canon.h.
-$(KERNEL_FLAIRLOOK_OBJ): $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/assets/color_canon.h os/flair/surface.h spec/grafport.h spec/imaging.h | $(BUILD)
+$(KERNEL_FLAIRLOOK_OBJ): $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/flair_skins.h spec/assets/color_canon.h os/flair/surface.h spec/grafport.h spec/imaging.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(FLAIRLOOK_C) -o $@
 
 $(KERNEL_FLAIR_SHELL_OBJ): os/flair/shell.c os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
@@ -9880,7 +9880,8 @@ CHROME_DEPS      := $(CHROME_DRAWER_C) $(CHROME_DRAWER_H) $(RENDER_SKEL_C) \
                     os/flair/heap.c os/flair/heap.h \
                     $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                     spec/grafport.h spec/imaging.h spec/region_algebra.h \
-                    spec/assets/palette.h
+                    spec/flair_skins.h spec/assets/palette.h \
+                    os/flair/flair_look.c os/flair/flair_look.h
 # Link set shared by the gate + every mutant (the artifact chrome.c is varied by
 # -D per mutant; everything else is the same REAL code).
 CHROME_LINK      := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c \
@@ -9966,7 +9967,8 @@ test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHR
 # chrome.c renders from -- that is the HER-02 by-construction trap; CLAUDE.md
 # Law 2). Route-2 Platinum re-key: ADR-0004-AMENDMENT-DEC-10 Sec 4 and the
 # sampled sys8 window-chrome/scrollbar specifications. Reuses the test-chrome
-# link set + host render skeleton. All fourteen tells are mutation-proven.
+# link set + host render skeleton. Fourteen look/geometry mutants plus the
+# Route-1 wrong-era mutant are mutation-proven.
 # ---------------------------------------------------------------------------
 TEST_CHROME_FID     := $(BUILD)/test_chrome_fidelity
 TEST_CHROME_FID_SRC := harness/proptest/test_chrome_fidelity.c
@@ -9985,6 +9987,7 @@ TEST_CHROME_FID_MUT_COL := $(BUILD)/test_chrome_fidelity_mutant_collapse
 TEST_CHROME_FID_MUT_RMP := $(BUILD)/test_chrome_fidelity_mutant_ramp
 TEST_CHROME_FID_MUT_NTC := $(BUILD)/test_chrome_fidelity_mutant_notch
 TEST_CHROME_FID_MUT_BDB := $(BUILD)/test_chrome_fidelity_mutant_bodybar
+TEST_CHROME_FID_MUT_SKIN := $(BUILD)/test_chrome_fidelity_mutant_wrongera
 
 $(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
@@ -10076,14 +10079,31 @@ $(TEST_CHROME_FID_MUT_BDB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_BODYBAR $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
+# FLAIR_MUT_SKIN_WRONG_ERA (beads initech-chd4, Rule 6): resolve the live
+# chrome policy pointer to the retained SYS7 row instead of the Platinum
+# default. The existing Platinum fidelity legs MUST go RED, proving that the
+# era row is load-bearing in the pixel path rather than an oracle-only view.
+$(TEST_CHROME_FID_MUT_SKIN): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_MUT_SKIN_WRONG_ERA $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
 .PHONY: test-chrome-fidelity test-chrome-fidelity-mutant
 test-chrome-fidelity: $(TEST_CHROME_FID)
+	@printf '>>> test-chrome-fidelity [callers]: STRUCTURAL -- live os/ default skin reaches the total resolver\n'
+	@if ! grep -Eq 'return[[:space:]]+flair_skin_default\(\);' os/flair/flair_look.c; then \
+		printf '!!! test-chrome-fidelity FAIL: flair_skin_default has no live os/ policy caller (DEC-10 Sec 5.3 Law-2 smell)\n'; \
+		exit 1; \
+	fi
+	@awk '/flair_skin_default\(void\)/,/^}/' spec/flair_skins.h | \
+		grep -q 'flair_skin_resolve(FLAIR_DEFAULT_ERA, FLAIR_DEFAULT_HERITAGE)' \
+		|| { printf '!!! test-chrome-fidelity FAIL: the live default no longer routes through flair_skin_resolve\n'; exit 1; }
+	@printf '    flair_look_default_skin -> flair_skin_default -> flair_skin_resolve is live under os/\n'
 	@printf '>>> test-chrome-fidelity: System-7 window-chrome fidelity vs the INDEPENDENT ../system7-decomp golden (Law 2, NOT by-construction)\n'
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB)
-	@printf '>>> test-chrome-fidelity-mutant: confirming all fourteen Platinum chrome mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN)
+	@printf '>>> test-chrome-fidelity-mutant: confirming all fifteen Platinum chrome mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
 		exit 1; \
@@ -10167,6 +10187,12 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 		exit 1; \
 	else \
 		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_BODYBAR correctly RED -- the single-line body frame is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_SKIN) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: FLAIR_MUT_SKIN_WRONG_ERA PASSED -- the era pointer is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (FLAIR_MUT_SKIN_WRONG_ERA correctly RED -- retained SYS7 row values are caught)\n'; \
 	fi
 
 # ---------------------------------------------------------------------------

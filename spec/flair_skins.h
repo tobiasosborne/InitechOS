@@ -121,13 +121,16 @@ typedef struct {
  * tags. NO function pointers, NO draw code (the TYPE prevents the engine fork,
  * D-9). The mechanism consumes skin-> fields as a PARAMETER; it NEVER branches
  * on era_id/heritage_id and NEVER names a literal RGB.
+ * The `struct flair_skin` tag exists only so artifact headers can forward-
+ * declare this data row without instantiating the header-only registry; it
+ * changes no field, layout, digest input, or locked value.
  *
  * The color slots cover the decoration roles the chimera needs across both
  * skins; a slot a given era does not distinguish is filled from the canon role
  * that era DOES use (e.g. the System-7 row's btnshadow/btnhilight fall back to
  * the canon pinstripe/bevel shades -- still by-inclusion, never a literal).
  * ------------------------------------------------------------------------- */
-typedef struct {
+typedef struct flair_skin {
     /* --- era/heritage tags (the registry KEY). --- */
     uint16_t era;        /* era_id      */
     uint16_t heritage;   /* heritage_id */
