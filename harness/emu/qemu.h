@@ -112,11 +112,17 @@ typedef struct {
      * blank and the ppm gate goes RED non-deterministically. If this marker is
      * non-NULL, the harness WAITS for the substring on the serial capture
      * (the guest signals paint-complete) BEFORE screendumping, removing the race
-     * for guests that DO paint, just slower under load. The wall-clock timeout
-     * remains the hard backstop: if the marker never appears within budget the
-     * harness screendumps anyway (best-effort), so a guest that truly never
-     * painted still fails HONESTLY (Law 2 -- fail loud, never false-green nor
-     * hang). NULL => legacy immediate-dump behaviour. */
+     * for guests that DO paint, just slower under load. For the HELD-STATE
+     * markers only (FLAIR-MENU-DROP/XDROP) it instead checks between injected
+     * events, so the frame is captured before the next token changes the
+     * state; every OTHER marker keeps the legacy end-of-injection wait+dump
+     * (gates like test-samir-boot pass a marker already on serial before
+     * injection and rely on the dump landing after all keys).
+     * The wall-clock timeout remains the hard backstop: if the marker never
+     * appears within budget the harness DOES NOT screendump. The gate's
+     * required-file check then fails loud, rather than grading an unrelated
+     * best-effort frame that can mask a missing behavioral milestone (bead
+     * initech-b3hl; Law 2). NULL => legacy immediate-dump behaviour. */
     const char *screendump_after; /* serial marker to wait for, or NULL.     */
 
     /* Interaction VIDEO record mode (beads initech-l9cd). When true, the

@@ -35,8 +35,10 @@
  *
  *  4. DRAW.  Render the bar + an open menu into a host offscreen via the render
  *     skeleton and assert: the bar background occupies rows [0,20); the title
- *     text pixels land inside the title slot; the dropped panel rect matches the
- *     layout; the hilited item band is painted where the layout says.
+ *     text pixels land inside the title slot; the dropped panel's COMPLETE
+ *     painted extent below the bar equals MenuInfo_panel_rect exactly; the
+ *     hilited item band is painted where the layout says. The exact-extent tooth
+ *     locks the geometry helper used by live damage restoration to the drawer.
  *
  *  5. APPLE GLYPH (initech-yx4v).  The Apple slot renders the hand-authored
  *     apple_glyph.h strike, NOT a solid filled square: rendered ink count in
@@ -474,6 +476,39 @@ int main(int argc, char **argv)
             rgn_rect_t panel = MenuInfo_panel_rect(&g_bar, OPEN_MI);
             CHECK(panel.right > panel.left && panel.bottom > panel.top,
                   "open menu panel rect is non-empty");
+
+            /* The panel is the ONLY drawing below the menu bar in this host
+             * scene. Scan every pixel there and independently recover the
+             * non-desktop bounding box; it must equal the helper rect on all
+             * four edges. This is stronger than corner probes: if the drawer
+             * grows or shrinks on any side while MenuInfo_panel_rect stays
+             * fixed (or vice versa), the restore footprint would drift and
+             * this tooth goes RED (beads initech-b3hl/-j0vt). */
+            {
+                int found = 0;
+                int min_x = (int)boot.lfb_width;
+                int min_y = (int)boot.lfb_height;
+                int max_x = -1;
+                int max_y = -1;
+                for (int y = FLAIR_MENUBAR_H; y < (int)boot.lfb_height; y++) {
+                    for (int x = 0; x < (int)boot.lfb_width; x++) {
+                        if (render_pixel_index(&ctx, (uint32_t)x, (uint32_t)y) ==
+                            (uint32_t)RENDER_DESKTOP_INDEX)
+                            continue;
+                        found = 1;
+                        if (x < min_x) min_x = x;
+                        if (x > max_x) max_x = x;
+                        if (y < min_y) min_y = y;
+                        if (y > max_y) max_y = y;
+                    }
+                }
+                CHECK(found,
+                      "drawn panel has a non-empty painted extent below the bar");
+                CHECK(found && min_x == panel.left && min_y == panel.top &&
+                      max_x + 1 == panel.right && max_y + 1 == panel.bottom,
+                      "drawn panel painted extent == MenuInfo_panel_rect exactly "
+                      "(restore geometry cannot drift)");
+            }
             /* panel top-left frame corner is ink. */
             CHECK(render_pixel_index(&ctx, (uint32_t)panel.left,
                                      (uint32_t)panel.top) == 0u,

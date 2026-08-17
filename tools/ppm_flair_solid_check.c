@@ -5,7 +5,8 @@
  * initech-rqz5 (leg C: activation repaints chrome), initech-r8r7
  * (leg G: the live-pump DragWindow policy keeps the title band reachable),
  * initech-haaq (leg H: title mouseDown raises before dragging), and
- * initech-t1rv (leg E: band 2 drops the active tenant's menu).
+ * initech-t1rv (leg E: band 2 drops the active tenant's menu), and
+ * initech-b3hl/-j0vt (leg D: menu cancel restores the whole frame exactly).
  *
  * The 2026-07-21 first-person drive battery (WL shard TBD) proved the live
  * tenants desktop degrades monotonically: the compositor repaints CHROME only
@@ -42,12 +43,19 @@
  *       no stale vertical black run (HELLO's old right-edge frame) may cross
  *       NOTES's title band at x = HELLO right edge - 1.
  *
+ *   D <pre.ppm> <post_cancel.ppm> -- MENU CANCEL RESTORE. PRE is a no-input
+ *       boot captured after FLAIR-LIVE-OK. POST crosses Photoshop File -> Edit
+ *       while held, releases in the bar (sel=0), and is captured after the
+ *       same marker. The decoded P6 pixel buffers must be byte-identical over
+ *       the whole frame (TOL=0): neither a panel nor a shell-render content
+ *       wipe may survive the DQ2 restore cycle.
+ *
  *   E <post_menu2.ppm> -- BAND-2 ACTIVE-TENANT MENU. With HELLO foreground,
- *       press Photoshop File in the second menu band and select item 2. The
- *       persistent panel must cover the formerly-teal rows immediately below
- *       band 2 with canon BTNFACE body gray plus a black top frame. The serial
- *       half of the gate independently requires menuID 256, distinguishing the
- *       active Photoshop bar from bar_sys (menuID 128).
+ *       press Photoshop File in the second menu band. The DROP-time held panel
+ *       must cover the formerly-teal rows immediately below band 2 with canon
+ *       BTNFACE body gray plus a black top frame. The serial half of the gate
+ *       independently requires menuID 256 and the later item-2 selection,
+ *       distinguishing the active Photoshop bar from bar_sys (menuID 128).
  *
  *   G <post_clamp.ppm>  -- DRAG CLAMP. After activating NOTES, the locked
  *       trace grabs its title at (450,130) and releases at (5,5). The proposed
@@ -62,6 +70,7 @@
  *       their old overlap.
  *
  * Usage: ppm_flair_solid_check <A|B|C|E|G|H> <dump.ppm>
+ *        ppm_flair_solid_check D <pre.ppm> <post.ppm>
  * Exit 0 = PASS; non-zero = a named FAIL (assertion + sampled-vs-expected).
  *
  * ASCII-clean (Rule 12). Deterministic (Rule 11): probe geometry derives from
@@ -322,6 +331,44 @@ static int leg_C(const Img *im)
     return bad;
 }
 
+/* ================= leg D: menu cancel restores byte-exact ============= */
+static int leg_D(const Img *pre, const Img *post)
+{
+    size_t n;
+
+    if (pre->w != post->w || pre->h != post->h) {
+        fprintf(stderr,
+                "FAIL leg D: PRE is %dx%d but POST is %dx%d -- frames cannot "
+                "be byte-identical\n",
+                pre->w, pre->h, post->w, post->h);
+        return 1;
+    }
+
+    n = (size_t)pre->w * (size_t)pre->h * 3u;
+    if (memcmp(pre->buf, post->buf, n) != 0) {
+        size_t off;
+        for (off = 0u; off < n && pre->buf[off] == post->buf[off]; off++) { }
+        {
+            size_t pix = off / 3u;
+            int x = (int)(pix % (size_t)pre->w);
+            int y = (int)(pix / (size_t)pre->w);
+            const unsigned char *a = pre->buf + pix * 3u;
+            const unsigned char *b = post->buf + pix * 3u;
+            fprintf(stderr,
+                    "FAIL leg D: PRE != POST at first differing pixel (%d,%d): "
+                    "PRE #%02X%02X%02X POST #%02X%02X%02X -- menu cancel did "
+                    "not restore the whole tenant frame byte-exact (TOL=0; "
+                    "panel persistence or shell-render content wipe)\n",
+                    x, y, a[0], a[1], a[2], b[0], b[1], b[2]);
+        }
+        return 1;
+    }
+
+    printf("solid D PASS: menu cross-title cancel restored the whole frame "
+           "byte-identical (TOL=0)\n");
+    return 0;
+}
+
 /* ================= leg E: active tenant's band-2 menu ================= */
 /* Independent screen placement for the locked leg-E drop. The Menu Manager
  * assumes its bar begins at local y=0, so its panel begins at local
@@ -545,9 +592,24 @@ int main(int argc, char **argv)
 {
     Img im;
     int rc;
-    if (argc != 3 || strlen(argv[1]) != 1) {
-        fprintf(stderr, "usage: ppm_flair_solid_check <A|B|C|E|G|H> <dump.ppm>\n");
+    if (argc < 2 || strlen(argv[1]) != 1 ||
+        (argv[1][0] == 'D' ? argc != 4 : argc != 3)) {
+        fprintf(stderr,
+                "usage: ppm_flair_solid_check <A|B|C|E|G|H> <dump.ppm>\n"
+                "       ppm_flair_solid_check D <pre.ppm> <post.ppm>\n");
         return 2;
+    }
+    if (argv[1][0] == 'D') {
+        Img post;
+        if (read_ppm(argv[2], &im)) return 2;
+        if (read_ppm(argv[3], &post)) {
+            free(im.buf);
+            return 2;
+        }
+        rc = leg_D(&im, &post);
+        free(post.buf);
+        free(im.buf);
+        return rc;
     }
     if (read_ppm(argv[2], &im)) return 2;
     switch (argv[1][0]) {

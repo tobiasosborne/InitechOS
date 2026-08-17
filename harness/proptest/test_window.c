@@ -38,10 +38,15 @@
  *     region (a window never repaints another's pixels) and that no two damage
  *     sets overlap (no double-count).
  *
- *  3. z-order invariants: front/back ordering preserved across Select/Move;
+ *  3. COMPOSITOR-LAYER INVALIDATE. WindowMgr_invalidate_desktop partitions an
+ *     arbitrary clipped rectangle exactly once among the frontmost visible
+ *     window owners and the remaining bare desktop. This is the damage entry
+ *     used to remove temporary menu panels (beads initech-b3hl/-j0vt).
+ *
+ *  4. z-order invariants: front/back ordering preserved across Select/Move;
  *     SelectWindow brings to front + activates exactly one window.
  *
- *  4. FindWindow returns the front-most window containing the point with the
+ *  5. FindWindow returns the front-most window containing the point with the
  *     right part-code (inContent / inDrag / inGoAway / inDesk).
  *
  * MUTANTS (Rule 6), each driven RED by the Makefile gate:
@@ -365,6 +370,82 @@ int main(void)
         CHECK(!overpaint_bad, "MoveWindow damage marks NO unchanged pixel dirty (no over-repaint)");
         CHECK(!ownership_bad, "each window's damage lies within its own structure");
         CHECK(!overlap_bad,   "window/desktop damage sets are pairwise disjoint (no double-count)");
+    }
+
+    /* ======================================================================
+     * PROPERTY 3: COMPOSITOR-LAYER INVALIDATE (beads initech-b3hl/-j0vt).
+     * An arbitrary screen rect painted above the ordinary WindowMgr scene is
+     * removed by invalidating every pixel under it. The expected partition is
+     * independent owner-grid truth: each in-frame rect pixel belongs exactly
+     * once to its frontmost window, or to desktop damage when OWNER_NONE.
+     * ====================================================================== */
+    {
+        enum { CASES = 1000, MAXW = 5 };
+        int complete_bad = 0;
+        int overpaint_bad = 0;
+        int owner_bad = 0;
+        int double_bad = 0;
+
+        for (int t = 0; t < CASES && !complete_bad && !overpaint_bad &&
+                        !owner_bad && !double_bad; t++) {
+            static win_store_t W[MAXW];
+            static mgr_store_t M;
+            mgr_attach(&M, FRAME);
+            int n = rnd(1, MAXW);
+            win_store_t *idx[MAXW];
+            for (int i = 0; i < n; i++) {
+                win_attach(&W[i]);
+                idx[i] = &W[i];
+                rgn_rect_t s, c;
+                gen_window_rects(&s, &c);
+                NewWindow(&M.wm, &W[i].rec, s, c,
+                          documentKind, documentProc, 1);
+            }
+            for (int i = 0; i < n; i++) WindowMgr_validate(&W[i].rec);
+
+            owngrid_t owners;
+            build_owner_grid(&M.wm, idx, n, &owners);
+
+            rgn_rect_t inval;
+            inval.top = (int16_t)rnd(-6, GH - 1);
+            inval.left = (int16_t)rnd(-6, GW - 1);
+            inval.bottom = (int16_t)rnd(inval.top + 1, GH + 6);
+            inval.right = (int16_t)rnd(inval.left + 1, GW + 6);
+            WindowMgr_invalidate_desktop(&M.wm, inval);
+
+            uint8_t wdmg[MAXW][GW * GH];
+            for (int i = 0; i < n; i++)
+                rasterize_set(W[i].rec.updateRgn, wdmg[i]);
+            uint8_t ddmg[GW * GH];
+            rasterize_set(M.wm.desktop_update, ddmg);
+
+            for (int y = 0; y < GH; y++) {
+                for (int x = 0; x < GW; x++) {
+                    int j = y * GW + x;
+                    int want = y >= inval.top && y < inval.bottom &&
+                               x >= inval.left && x < inval.right;
+                    int count = ddmg[j] ? 1 : 0;
+                    for (int i = 0; i < n; i++) {
+                        if (wdmg[i][j]) {
+                            count++;
+                            if (owners.own[j] != (uint8_t)i) owner_bad = 1;
+                        }
+                    }
+                    if (ddmg[j] && owners.own[j] != OWNER_NONE) owner_bad = 1;
+                    if (want && count == 0) complete_bad = 1;
+                    if (!want && count != 0) overpaint_bad = 1;
+                    if (count > 1) double_bad = 1;
+                }
+            }
+        }
+        CHECK(!complete_bad,
+              "WindowMgr_invalidate_desktop covers every clipped rect pixel");
+        CHECK(!overpaint_bad,
+              "WindowMgr_invalidate_desktop marks no pixel outside the rect");
+        CHECK(!owner_bad,
+              "WindowMgr_invalidate_desktop assigns each pixel to its frontmost owner or desktop");
+        CHECK(!double_bad,
+              "WindowMgr_invalidate_desktop partitions damage without double-counting");
     }
 
     /* ======================================================================

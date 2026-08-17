@@ -9,7 +9,7 @@
 # producer convention); every component int8-safe (|c| <= 100 here).
 # Geometry: spec/flair_tenants_demo.h (HELLO struct 60,60..360,260 with go-away
 # box at ~(69..80, 64..75); NOTES struct 260,120..560,340, visible title
-# x >= 360).  Grader: tools/ppm_flair_solid_check.c (legs A/B/C/E/G/H).
+# x >= 360).  Grader: tools/ppm_flair_solid_check.c (legs A/B/C/D/E/G/H).
 #
 # Leg A -- CLOSE-EXPOSE CONTENT.  Click HELLO's go-away box at (74,70):
 #   delta from centre = (-246,-170), split m-100:-100, m-100:-70, m-46:0;
@@ -33,6 +33,20 @@ FLAIR_SOLID_DRAG_SPEC  := m100:60,m40:0,l1,l0,m-10:-100,m0:-70,l1,m-60:60,l0
 # NOTES's title band.
 FLAIR_SOLID_SWITCH_SPEC := m70:30,m70:30,l1,l0
 
+# Leg D -- MENU CANCEL RESTORE (beads initech-b3hl/-j0vt; DQ2). HELLO is
+# foreground from boot, so band 2 owns its Photoshop bar. Reuse leg E's exact
+# int8-safe route from (320,240) to File at (30,30): (-100,-100),(-100,-100),
+# (-90,-10). Press to drop File (menuID 256), then move (+30,0) within band 2
+# to (60,30). Photoshop has no Apple slot; File is x[0,46), so x=60 is inside
+# the DIFFERENT Edit title x[46,92) (menuID 257). This forces the cross-title
+# old-panel erase while the button remains held. Release
+# there, still in the bar (band-2-local y=10), so no item row is under the
+# release and MenuSelect returns sel=0 (cancel). The solid gate captures a
+# no-input PRE boot and this POST boot only after FLAIR-LIVE-OK; byte-equality
+# therefore requires both the mid-track File erase and the track-end Edit erase
+# to restore the exact tenant-owned frame through the DQ2 damage spine.
+FLAIR_SOLID_MENUCANCEL_SPEC := m-100:-100,m-100:-100,m-90:-10,l1,m30:0,l0
+
 # Leg E -- BAND-2 ACTIVE-TENANT MENU. HELLO is foreground from boot, so band 2
 # owns its Photoshop bar (File menuID 256). From cursor start (320,240), move to
 # File at (30,30): delta (-290,-210), split into int8-safe packets
@@ -40,8 +54,8 @@ FLAIR_SOLID_SWITCH_SPEC := m70:30,m70:30,l1,l0
 # In band-2-local coordinates (subtract SHELL_MENUBAR2_TOP=20), release is
 # (45,45): the panel starts at local y=20, its 1px frame ends at y=21, item 1 is
 # [21,37), and item 2 is [37,53), so y=45 selects Photoshop File item 2. Every
-# packet component has |c| <= 100. The trace stays inside ONE menu (no
-# cross-menu drag), keeping menu restore beads initech-b3hl/-j0vt out of scope.
+# packet component has |c| <= 100. The trace stays inside ONE menu; leg D owns
+# the cross-title and track-end restore contract for beads initech-b3hl/-j0vt.
 FLAIR_SOLID_MENU2_SPEC := m-100:-100,m-100:-100,m-90:-10,l1,m15:35,l0
 
 # Leg G -- DRAG CLAMP. First activate NOTES at (460,300), then grab its title

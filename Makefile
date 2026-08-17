@@ -262,9 +262,9 @@ PPM_FLAIR_DRAG_CHECK_SRC := tools/ppm_flair_drag_check.c
 PPM_FLAIR_DRAG_CHECK_BIN := $(BUILD)/ppm_flair_drag_check
 
 # FO-8b menu-oracle screendump grader (beads initech-5l5z FO-8b; ADR-0004 D-3 /
-# ADR-0006 FO-8): grades the dropped System-7 "File" pull-down (black frame + the
-# BTNFACE-gray body + the selected "Quit" hilite band where bare teal/menubar-white
-# was) against the INDEPENDENT canon, never the render. Built like ppm_flair_check.
+# ADR-0006 FO-8): grades the held System-7 "File" pull-down at DROP time (black
+# frame + unhilited BTNFACE-gray rows where bare teal/menubar-white was) against
+# the INDEPENDENT canon, never the render. Built like ppm_flair_check.
 PPM_FLAIR_MENU_CHECK_SRC := tools/ppm_flair_menu_check.c
 PPM_FLAIR_MENU_CHECK_BIN := $(BUILD)/ppm_flair_menu_check
 
@@ -9065,8 +9065,14 @@ $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_NOTES_BAR_SYS,notes_bar
 #                    band 2 never drops a menu                  -> solid leg E RED
 #   MENU2_BAR_SYS (pump)          -> band 2 drops bar_sys instead of the active
 #                    tenant bar: pixels pass but menuID is 128  -> solid leg E RED
+#   MENU_NO_RESTORE (pump)        -> skip the track-end panel damage restore:
+#                    cancel leaves Edit dropped                  -> solid leg D RED
+#   MENU_RESTORE_SHELLRENDER      -> restore old/end panels via shell_render
+#                    without routing tenant content: WDEF wipe   -> solid leg D RED
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME,no_route_on_chrome))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_DRAG_CLAMP,no_drag_clamp))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_MENU_NO_RESTORE,menu_no_restore))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_MENU_RESTORE_SHELLRENDER,menu_restore_shell))
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_MENU2_DEAD,menu2_dead))
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_MENU2_BAR_SYS,menu2_bar_sys))
 $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE,no_raise_on_title))
@@ -13736,17 +13742,18 @@ test-flair-dc4v-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_OVERLAY_IMG) $(PPM_FLAIR_
 # FO-8 -- inMenuBar -> MenuSelect; THE "working menus" oracle, Law 4).
 # Boots $(FLAIRLIVE_IMG) (the WaitNextEvent pump), injects the LOCKED menu trace
 # (move onto the System-7 "File" title -> button down -> DROP -> track into the
-# panel's "Quit" row -> button up -> MenuSelect item 2), and screendumps AFTER the
-# FLAIR-MENU marker (the panel persists, drag-analogous). Asserts (Law 2, INDEPENDENT
-# golden):
+# panel's "Quit" row -> button up -> MenuSelect item 2), and screendumps AT the
+# FLAIR-MENU-DROP marker while the button is held and no item is hilited yet.
+# The gesture then continues and its final selection marker is still required.
+# Asserts (Law 2, INDEPENDENT golden):
 #   1. no triple-fault;
 #   2. FLAIR-LIVE-READY (pump armed) + FLAIR-MENU-DROP (panel dropped) +
 #      FLAIR-MENU menu=128 item=2 (sel=0x00800002) (MenuSelect chose "Quit");
-#   3. ppm_flair_menu_check: the 1px black panel frame + the BTNFACE-gray body + the
-#      selected "Quit" hilite band where bare teal / menubar-white was.
-# The SCREENDUMP is the discriminator (the menu-noop mutant emits FLAIR-MENU sel=0
-# and drops NO panel -- see test-flair-menu-mutant). The guest cli;hlt loops after
-# the budget, so the harness times out by design (OK = the asserts).
+#   3. ppm_flair_menu_check: the 1px black panel frame + BTNFACE-gray item rows,
+#      including an unhilited Quit row, where bare teal / menubar-white was.
+# The DROP-gated SCREENDUMP is the discriminator without bending the live track-
+# end behavior (bead initech-b3hl; Law 2). The menu-noop mutant emits no DROP,
+# so no dump is captured and the gate fails loud (test-flair-menu-mutant).
 # ===========================================================================
 FLAIR_MENU_NAME    := flair_menu
 FLAIR_MENU_SERIAL  := $(BUILD)/$(FLAIR_MENU_NAME).serial
@@ -13771,11 +13778,11 @@ test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
 	@printf '  FO-8b. ADR-0004 D-3 / ADR-0006 FO-8. Law 2/4.\n'
 	@printf '======================================================================\n'
 	@printf 'Booting   : %s (the WaitNextEvent pump)\n' "$(FLAIRLIVE_IMG)"
-	@printf 'Expecting : FLAIR-MENU menu=128 item=2 (sel=0x00800002) + dropped panel\n'
+	@printf 'Expecting : held DROP frame + FLAIR-MENU menu=128 item=2 (sel=0x00800002)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_MENU_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 \
+		--screendump --screendump-after "FLAIR-MENU-DROP" --timeout-ms 15000 \
 		2> "$(FLAIR_MENU_REPORT)" || true
 	@cat "$(FLAIR_MENU_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -13793,34 +13800,32 @@ test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
 	@printf '>>> test-flair-menu [3/4]: FLAIR-MENU-DROP + FLAIR-MENU menu=128 item=2 (sel=0x00800002) (the pump dropped + selected)\n'
 	@if [ ! -s "$(FLAIR_MENU_PPM)" ]; then printf '!!! test-flair-menu FAIL: no screendump captured at %s\n' "$(FLAIR_MENU_PPM)"; exit 1; fi
 	@$(PPM_FLAIR_MENU_CHECK_BIN) "$(FLAIR_MENU_PPM)" \
-		|| { printf '!!! test-flair-menu FAIL: the screendump does not show the dropped pull-down (black frame + body + hilite) where bare teal was (the menus do not actually work)\n'; exit 1; }
-	@printf '>>> test-flair-menu [4/4]: screendump == dropped panel (frame + BTNFACE body + Quit hilite) over the previously-teal desktop\n'
+		|| { printf '!!! test-flair-menu FAIL: the DROP screendump does not show the held pull-down (black frame + unhilited BTNFACE body) where bare teal was\n'; exit 1; }
+	@printf '>>> test-flair-menu [4/4]: DROP screendump == held panel (frame + unhilited BTNFACE rows) over the previously-teal desktop\n'
 	@printf 'VERDICT   : PASS -- the booted FLAIR desktop has WORKING MENUS (Law 4)\n'
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-menu-mutant (Rule 6; ADR-0006 FO-8 -- the HER-14 "menus do
-# not work" heresy). The menu-noop image's inMenuBar dispatch drops NO panel, so the
-# desktop under the title stays bare teal. It STILL emits FLAIR-MENU (sel=0), so the
-# SCREENDUMP is the discriminator: ppm_flair_menu_check MUST go RED (teal where the
-# panel + hilite + body should be). If it passed, the gate would be decoration.
+# not work" heresy). The menu-noop image's inMenuBar dispatch emits NO DROP marker,
+# so the DROP-gated harness captures NO screendump. The real gate's explicit
+# missing-dump assertion therefore goes RED before pixels can be graded. This is
+# the faithful failure axis after removing the persistent-panel oracle wart.
 .PHONY: test-flair-menu-mutant
 test-flair-menu-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MENU_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-menu-mutant : Rule 6 (the gate BITES)\n'
 	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_MENU_NOOP (the inMenuBar dispatch drops no panel).\n'
-	@printf '  Expect: no panel -> ppm_flair_menu_check RED (teal where the frame/body/hilite\n'
-	@printf '  should be). The direct HER-14 "menus do not work" mutant.\n'
+	@printf '  Expect: no DROP marker -> no marker-gated dump -> the real gate fails loud.\n'
+	@printf '  The direct HER-14 "menus do not work" mutant.\n'
 	@printf '======================================================================\n'
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_MENU_IMG)" --name flair_menu_mut --out "$(BUILD)" \
 		--mouse "$(FLAIR_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 >/dev/null 2>&1 || true
+		--screendump --screendump-after "FLAIR-MENU-DROP" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_menu_mut.serial" \
 		|| { printf '!!! test-flair-menu-mutant: mutant did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
-	@if [ ! -s "$(BUILD)/flair_menu_mut.ppm" ]; then printf '!!! test-flair-menu-mutant: no screendump captured (cannot judge the mutant)\n'; exit 1; fi
-	@if $(PPM_FLAIR_MENU_CHECK_BIN) "$(BUILD)/flair_menu_mut.ppm" >/dev/null 2>&1; then \
-		printf '!!! test-flair-menu-mutant FAIL: the menu-noop screendump PASSED ppm_flair_menu_check -- the gate is decoration (no panel passed as a dropped menu)\n'; exit 1; \
-	fi
-	@printf '>>> test-flair-menu-mutant: RED as required -- the no-drop dispatch leaves bare teal where the panel should be; the gate BITES (Rule 6, HER-14)\n'
+	@if grep -q '^FLAIR-MENU-DROP ' "$(BUILD)/flair_menu_mut.serial"; then printf '!!! test-flair-menu-mutant FAIL: the menu-noop mutant unexpectedly emitted DROP\n'; exit 1; fi
+	@if [ -s "$(BUILD)/flair_menu_mut.ppm" ]; then printf '!!! test-flair-menu-mutant FAIL: a DROP-gated screendump exists without a DROP marker -- harness contract broken\n'; exit 1; fi
+	@printf '>>> test-flair-menu-mutant: RED as required -- DROP marker and dump are both absent; test-flair-menu fails loud on its missing DROP/dump checks (Rule 6, HER-14)\n'
 	@printf '======================================================================\n'
 
 # ===========================================================================
@@ -13830,12 +13835,14 @@ test-flair-menu-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MENU_IMG) $(PPM_FLAIR_MEN
 # test-flair-menu -- no new kernel needed for the real leg), injects a locked
 # trace that clicks the System-7 "File" title, drags SIDEWAYS along the bar band
 # onto "Edit", and releases there (still in the bar band, never entering either
-# panel's item rows), then screendumps after the FINAL "FLAIR-MENU menu=" marker
-# (the panel persists, drag-analogous -- same idiom as test-flair-menu). Asserts
+# panel's item rows), then screendumps at the FLAIR-MENU-XDROP marker emitted
+# immediately after the cross-title redraw, while the button is still held.
+# Asserts
 # (Law 2, INDEPENDENT golden):
 #   1. no triple-fault;
 #   2. FLAIR-LIVE-READY (pump armed) + FLAIR-MENU-DROP menu=128 (File dropped
-#      first) + FLAIR-MENU menu=128 item=0 (sel=0x00000000) (released on Edit's
+#      first) + FLAIR-MENU-XDROP menu=129 (Edit redrawn mid-track) + the final
+#      FLAIR-MENU menu=128 item=0 (sel=0x00000000) (released on Edit's
 #      title, not an item row -- nothing selected; the logged "menu=" is always
 #      the ORIGINALLY-clicked menu's ID, a pre-existing kmain.c log quirk, not
 #      what this gate grades);
@@ -13867,11 +13874,11 @@ test-flair-menu-crossdrag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CROS
 	@printf '  beads initech-9op1 (found during initech-rl4v). Law 2/4.\n'
 	@printf '======================================================================\n'
 	@printf 'Booting   : %s (the WaitNextEvent pump)\n' "$(FLAIRLIVE_IMG)"
-	@printf 'Expecting : FLAIR-MENU-DROP menu=128, then FLAIR-MENU menu=128 item=0 (sel=0x00000000)\n'
+	@printf 'Expecting : DROP menu=128 -> XDROP menu=129 -> final sel=0 cancel\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_MENU_CROSSDRAG_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_MENU_CROSSDRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 \
+		--screendump --screendump-after "FLAIR-MENU-XDROP" --timeout-ms 15000 \
 		2> "$(FLAIR_MENU_CROSSDRAG_REPORT)" || true
 	@cat "$(FLAIR_MENU_CROSSDRAG_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -13884,9 +13891,11 @@ test-flair-menu-crossdrag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CROS
 	@printf '>>> test-flair-menu-crossdrag [2/4]: FLAIR-LIVE-READY (the WaitNextEvent pump is armed)\n'
 	@grep -q '^FLAIR-MENU-DROP menu=128$$' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" \
 		|| { printf '!!! test-flair-menu-crossdrag FAIL: FLAIR-MENU-DROP menu=128 missing -- the inMenuBar dispatch did not drop File\n'; grep '^FLAIR-' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" || true; exit 1; }
+	@grep -q '^FLAIR-MENU-XDROP menu=129$$' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" \
+		|| { printf '!!! test-flair-menu-crossdrag FAIL: FLAIR-MENU-XDROP menu=129 missing -- the held drop did not redraw on Edit\n'; grep '^FLAIR-' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" || true; exit 1; }
 	@grep -q '^FLAIR-MENU menu=128 item=0 (sel=0x00000000)$$' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" \
 		|| { printf '!!! test-flair-menu-crossdrag FAIL: FLAIR-MENU menu=128 item=0 (sel=0x00000000) missing -- release-on-title did not yield sel=0\n'; grep '^FLAIR-' "$(FLAIR_MENU_CROSSDRAG_SERIAL)" || true; exit 1; }
-	@printf '>>> test-flair-menu-crossdrag [3/4]: FLAIR-MENU-DROP + FLAIR-MENU menu=128 item=0 (sel=0x00000000) (dropped File, released on Edit'"'"'s title)\n'
+	@printf '>>> test-flair-menu-crossdrag [3/4]: DROP File + XDROP Edit mid-track + final sel=0 on Edit'"'"'s title\n'
 	@if [ ! -s "$(FLAIR_MENU_CROSSDRAG_PPM)" ]; then printf '!!! test-flair-menu-crossdrag FAIL: no screendump captured at %s\n' "$(FLAIR_MENU_CROSSDRAG_PPM)"; exit 1; fi
 	@$(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN) "$(FLAIR_MENU_CROSSDRAG_PPM)" \
 		|| { printf '!!! test-flair-menu-crossdrag FAIL: the screendump does not show File erased + Edit dropped (the live on-screen menu lags the drag; initech-9op1)\n'; exit 1; }
@@ -13896,30 +13905,26 @@ test-flair-menu-crossdrag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CROS
 
 # REAL gate: test-flair-menu-crossdrag-mutant (Rule 6; beads initech-9op1). The
 # KMAIN_MUT_MENU_NO_REHIT image freezes `mi` at the click in flair_live_do_menu's
-# per-tick loop -- the ORIGINAL bug: File's panel is NEVER erased and Edit's is
-# NEVER dropped, even though MenuSelect's own final result is unaffected. The
-# SCREENDUMP is the discriminator: ppm_flair_menu_crossdrag_check MUST go RED
-# (File's stale panel still showing black frame where LEG A expects teal again;
-# Edit's footprint still bare teal/white where LEG B/C expect frame/BTNFACE). If
-# it passed, the gate would be decoration.
+# per-tick loop -- the ORIGINAL bug: File's panel is NEVER erased, Edit's is
+# NEVER dropped, and therefore no FLAIR-MENU-XDROP marker is emitted. The real
+# gate fails loud on the missing marker/dump; a capture cannot be forged from the
+# final closed frame after track-end restoration.
 .PHONY: test-flair-menu-crossdrag-mutant
 test-flair-menu-crossdrag-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_NOREHIT_IMG) $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-menu-crossdrag-mutant : Rule 6 (the gate BITES)\n'
 	@printf '  Mutant: -DKMAIN_MUT_MENU_NO_REHIT (flair_live_do_menu freezes mi at the click).\n'
-	@printf '  Expect: File'"'"'s stale panel never erased + Edit'"'"'s panel never dropped ->\n'
-	@printf '  ppm_flair_menu_crossdrag_check RED. The direct initech-9op1 frozen-mi mutant.\n'
+	@printf '  Expect: File never switches to Edit -> no XDROP marker/dump -> RED.\n'
+	@printf '  The direct initech-9op1 frozen-mi mutant.\n'
 	@printf '======================================================================\n'
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_NOREHIT_IMG)" --name flair_menu_crossdrag_mut --out "$(BUILD)" \
 		--mouse "$(FLAIR_MENU_CROSSDRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 >/dev/null 2>&1 || true
+		--screendump --screendump-after "FLAIR-MENU-XDROP" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_menu_crossdrag_mut.serial" \
 		|| { printf '!!! test-flair-menu-crossdrag-mutant: mutant did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
-	@if [ ! -s "$(BUILD)/flair_menu_crossdrag_mut.ppm" ]; then printf '!!! test-flair-menu-crossdrag-mutant: no screendump captured (cannot judge the mutant)\n'; exit 1; fi
-	@if $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN) "$(BUILD)/flair_menu_crossdrag_mut.ppm" >/dev/null 2>&1; then \
-		printf '!!! test-flair-menu-crossdrag-mutant FAIL: the frozen-mi screendump PASSED ppm_flair_menu_crossdrag_check -- the gate is decoration\n'; exit 1; \
-	fi
-	@printf '>>> test-flair-menu-crossdrag-mutant: RED as required -- the frozen-mi dispatch leaves File'"'"'s stale panel up and never drops Edit'"'"'s; the gate BITES (Rule 6, initech-9op1)\n'
+	@if grep -q '^FLAIR-MENU-XDROP ' "$(BUILD)/flair_menu_crossdrag_mut.serial"; then printf '!!! test-flair-menu-crossdrag-mutant FAIL: frozen-mi unexpectedly emitted XDROP\n'; exit 1; fi
+	@if [ -s "$(BUILD)/flair_menu_crossdrag_mut.ppm" ]; then printf '!!! test-flair-menu-crossdrag-mutant FAIL: an XDROP-gated dump exists without XDROP -- harness contract broken\n'; exit 1; fi
+	@printf '>>> test-flair-menu-crossdrag-mutant: RED as required -- XDROP marker and dump are absent; the crossdrag gate fails loud (Rule 6, initech-9op1)\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -14053,7 +14058,12 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 			printf '!!! test-flair-appswitch-mutant FAIL: mutant %s TRIPLE-FAULTED (cannot judge the oracle)\n' "$$tag"; rc=1; continue; \
 		fi; \
 		if [ ! -s "$(BUILD)/flair_appswitch_mut_$$tag.ppm" ]; then \
-			printf '!!! test-flair-appswitch-mutant FAIL: mutant %s produced no screendump\n' "$$tag"; rc=1; continue; \
+			if grep -q 'FLAIR-DISPATCH app=NOTES' "$(BUILD)/flair_appswitch_mut_$$tag.serial" 2>/dev/null; then \
+				printf '!!! test-flair-appswitch-mutant FAIL: mutant %s produced no screendump despite FLAIR-DISPATCH (harness fault, not a mutant kill)\n' "$$tag"; rc=1; \
+			else \
+				printf '>>> mutant %s correctly RED: FLAIR-DISPATCH app=NOTES never fired, so the b3hl-era\n' "$$tag"; \
+				printf '      marker-gated harness took NO dump (the strictly-louder missing-marker path)\n'; \
+			fi; continue; \
 		fi; \
 		if $(PPM_FLAIR_APPSWITCH_CHECK_BIN) "$(BUILD)/flair_appswitch_pre.ppm" "$(BUILD)/flair_appswitch_mut_$$tag.ppm" > "$(BUILD)/flair_appswitch_mut_$$tag.chk" 2>&1; then \
 			printf '!!! test-flair-appswitch-mutant FAIL: the %s oracle is DECORATION -- mutant %s PASSED ppm_flair_appswitch_check\n' "$$macro" "$$tag"; \
@@ -14166,9 +14176,9 @@ endif
 # (chrome phase -> content phase -> present) holds under close, drag and
 # app-switch on the booted 386).
 # ---------------------------------------------------------------------------
-# Six deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG), one
-# LOCKED trace (spec/flair_solid_traces.mk) + one marker-gated screendump each,
-# graded by ppm_flair_solid_check against the INDEPENDENT canon (ADR-0010):
+# Seven legs over eight deterministic boots of the SAME reproducible
+# $(FLAIRTENANTS_IMG), using LOCKED traces from spec/flair_solid_traces.mk and
+# marker-gated screendumps, graded by ppm_flair_solid_check:
 #   A CLOSE-EXPOSE : click HELLO's go-away; dump after FLAIR-CLOSE. The exposed
 #     NOTES overlap must read NOTES_FILL (the owner repainted via the updateEvt
 #     route), NOT WDEF blank white (the pre-DQ1 destroyed-damage hole) and NOT
@@ -14181,8 +14191,14 @@ endif
 #     NOTES's title band ACTIVE (pinstriped) across its FULL width including
 #     the previously-occluded left segment; HELLO's flat inactive; no stale
 #     HELLO edge crossing NOTES's title band (the rqz5 0->1 seed).
+#   D MENU-CANCEL  : PRE boots with no input; POST drops band-2 Photoshop File,
+#     crosses while held to Edit, and releases in the bar for sel=0. Both dump
+#     after FLAIR-LIVE-OK. The whole decoded frame must be BYTE-IDENTICAL
+#     (TOL=0), proving both old-panel mid-track erase and track-end close use the
+#     DQ2 damage/content/present spine without shell_render wiping tenant content
+#     (beads initech-b3hl/-j0vt).
 #   E BAND-2 MENU  : with boot-foreground HELLO active, click its Photoshop File
-#     title in band 2 and select item 2; dump after the final FLAIR-MENU marker.
+#     title in band 2 and select item 2; dump at FLAIR-MENU-DROP while held.
 #     The panel must begin below band 2 at y=40, and serial must identify the
 #     active tenant's menuID 256 rather than bar_sys's menuID 128 (initech-t1rv).
 #   G DRAG-CLAMP   : O-5 activate NOTES, grab its title at (450,130), then drag
@@ -14202,6 +14218,8 @@ endif
 FLAIR_SOLID_A_NAME := flair_solid_close
 FLAIR_SOLID_B_NAME := flair_solid_drag
 FLAIR_SOLID_C_NAME := flair_solid_switch
+FLAIR_SOLID_D_PRE_NAME  := flair_solid_menucancel_pre
+FLAIR_SOLID_D_POST_NAME := flair_solid_menucancel_post
 FLAIR_SOLID_E_NAME := flair_solid_menu2
 FLAIR_SOLID_G_NAME := flair_solid_clamp
 FLAIR_SOLID_H_NAME := flair_solid_raise
@@ -14209,8 +14227,8 @@ FLAIR_SOLID_H_NAME := flair_solid_raise
 test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-solid : the live-desktop SOLIDITY contract\n'
-	@printf '  A close-expose / B drag-content / C activation / E band-2 menu / G drag-clamp / H title-raise.\n'
-	@printf '  Ref: epic initech-av7s (DQ1-DQ3, DQ5-DQ6, DQ9); spec/flair_solid_traces.mk. Law 2/4.\n'
+	@printf '  A close / B drag / C activate / D menu-cancel restore / E held band-2 menu / G clamp / H raise.\n'
+	@printf '  Ref: epic initech-av7s (DQ1-DQ3, DQ5-DQ6, DQ9); initech-b3hl/-j0vt; locked solid traces.\n'
 	@printf '======================================================================\n'
 	@# ---- leg A: close HELLO -> the exposed NOTES overlap is repainted content ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
@@ -14250,10 +14268,31 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) C "$(BUILD)/$(FLAIR_SOLID_C_NAME).ppm" \
 		|| { printf '!!! test-flair-solid FAIL: leg C -- activation chrome wrong (flat/half-active title or stale band; initech-rqz5)\n'; exit 1; }
 	@printf '>>> test-flair-solid [C]: activation chrome full-width active + flat inactive + no stale band\n'
+	@# ---- leg D: held File -> Edit -> release in bar; PRE == restored POST ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_D_PRE_NAME)" --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 \
+		2> "$(BUILD)/$(FLAIR_SOLID_D_PRE_NAME).report" || true
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_D_POST_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_MENUCANCEL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 \
+		2> "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_D_PRE_NAME).report" "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).report"; then printf '!!! test-flair-solid FAIL: leg D TRIPLE FAULT in PRE or POST\n'; exit 1; fi
+	@grep -q '^FLAIR-LIVE-OK$$' "$(BUILD)/$(FLAIR_SOLID_D_PRE_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg D PRE FLAIR-LIVE-OK missing\n'; exit 1; }
+	@grep -q '^FLAIR-MENU-DROP menu=256$$' "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg D FLAIR-MENU-DROP menu=256 missing -- band-2 File did not drop\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).serial" || true; exit 1; }
+	@grep -q '^FLAIR-MENU-XDROP menu=257$$' "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg D FLAIR-MENU-XDROP menu=257 missing -- held File did not cross-redraw to Edit\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).serial" || true; exit 1; }
+	@grep -q '^FLAIR-MENU menu=256 item=0 (sel=0x00000000)$$' "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg D final sel=0 cancel marker missing -- release was not in the bar\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_D_PRE_NAME).ppm" ] || [ ! -s "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg D PRE or POST screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_SOLID_CHECK_BIN) D "$(BUILD)/$(FLAIR_SOLID_D_PRE_NAME).ppm" "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).ppm" \
+		|| { printf '!!! test-flair-solid FAIL: leg D PRE != POST -- menu cancel left a panel or shell-render wiped tenant content (initech-b3hl/-j0vt)\n'; exit 1; }
+	@printf '>>> test-flair-solid [D]: cross-title cancel restored the whole frame byte-identical (TOL=0)\n'
 	@# ---- leg E: HELLO active -> Photoshop File drops from band 2 at y=40 ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_E_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 \
+		--screendump --screendump-after "FLAIR-MENU-DROP menu=256" --timeout-ms 15000 \
 		2> "$(BUILD)/$(FLAIR_SOLID_E_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_E_NAME).report"; then printf '!!! test-flair-solid FAIL: leg E TRIPLE FAULT\n'; exit 1; fi
 	@grep -q '^FLAIR-MENU-DROP menu=256$$' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" \
@@ -14299,7 +14338,7 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-solid-mutant (Rule 6; DQ9 -- per-leg mutants). The CLEAN
-# image is graded GREEN on all six legs first (the baseline), then each mutant
+# image is graded GREEN on all seven legs first (the baseline), then each mutant
 # image re-runs ONLY the legs it must break:
 #   no_route_on_chrome (-DFLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME, pump): the
 #     drag/close content phase blanket-validates instead of routing -- legs A
@@ -14314,19 +14353,26 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 #     test -- leg E's y=40 panel probes remain teal and no menu marker is emitted.
 #   menu2_bar_sys (-DKMAIN_MUT_MENU2_BAR_SYS, pump): band 2 drops at y=40, so
 #     leg E pixels remain GREEN, but the routing tooth is menu=128, not menu=256.
+#   menu_no_restore (-DKMAIN_MUT_MENU_NO_RESTORE, pump): skip only the track-end
+#     panel erase -- the original b3hl wart; leg D POST retains Edit -> RED.
+#   menu_restore_shell (-DKMAIN_MUT_MENU_RESTORE_SHELLRENDER, pump): cross-title
+#     and track-end erase use shell_render without the tenant content route --
+#     panels close, but NOTES/HELLO content is WDEF white; leg D TOL=0 -> RED.
 .PHONY: test-flair-solid-mutant
 test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENANTS_IMG) \
 	$(BUILD)/flair_tenants_mut_no_route_on_chrome.img \
 	$(BUILD)/flair_tenants_mut_no_activate_inval.img \
+	$(BUILD)/flair_tenants_mut_menu_no_restore.img \
+	$(BUILD)/flair_tenants_mut_menu_restore_shell.img \
 	$(BUILD)/flair_tenants_mut_menu2_dead.img \
 	$(BUILD)/flair_tenants_mut_menu2_bar_sys.img \
 	$(BUILD)/flair_tenants_mut_no_drag_clamp.img \
 	$(BUILD)/flair_tenants_mut_no_raise_on_title.img
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-solid-mutant : Rule 6 (the gate BITES)\n'
-	@printf '  no_route_on_chrome MUST break A+B; no_activate_inval C; menu2_dead/menu2_bar_sys E; no_drag_clamp G; no_raise_on_title H.\n'
+	@printf '  no_route_on_chrome breaks A+B; no_activate_inval C; menu restore mutants D; menu2 mutants E; clamp G; raise H.\n'
 	@printf '======================================================================\n'
-	@# ---- baseline: the CLEAN image grades GREEN on all six legs. ----
+	@# ---- baseline: the CLEAN image grades GREEN on all seven legs. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLOSE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 >/dev/null 2>&1 || true
@@ -14336,9 +14382,14 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_C_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_SWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_D_PRE_NAME)" --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_D_POST_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_MENUCANCEL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_E_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 >/dev/null 2>&1 || true
+		--screendump --screendump-after "FLAIR-MENU-DROP menu=256" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_G_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLAMP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 >/dev/null 2>&1 || true
@@ -14351,9 +14402,16 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 		$(PPM_FLAIR_SOLID_CHECK_BIN) $$l "$(BUILD)/$$n.ppm" >/dev/null 2>&1 \
 			|| { printf '!!! test-flair-solid-mutant FAIL: the CLEAN image did not grade GREEN on leg %s -- the baseline is broken\n' "$$l"; exit 1; }; \
 	done
+	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_D_PRE_NAME).ppm" ] || [ ! -s "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: clean leg D PRE/POST dump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_SOLID_CHECK_BIN) D "$(BUILD)/$(FLAIR_SOLID_D_PRE_NAME).ppm" "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).ppm" >/dev/null 2>&1 \
+		|| { printf '!!! test-flair-solid-mutant FAIL: the CLEAN image did not grade GREEN on leg D -- baseline restore is broken\n'; exit 1; }
+	@grep -q '^FLAIR-MENU-DROP menu=256$$' "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).serial" \
+		&& grep -q '^FLAIR-MENU-XDROP menu=257$$' "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).serial" \
+		&& grep -q '^FLAIR-MENU menu=256 item=0 (sel=0x00000000)$$' "$(BUILD)/$(FLAIR_SOLID_D_POST_NAME).serial" \
+		|| { printf '!!! test-flair-solid-mutant FAIL: clean leg D lacks the DROP/XDROP/cancel serial baseline\n'; exit 1; }
 	@grep -q '^FLAIR-MENU-DROP menu=256$$' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" \
 		|| { printf '!!! test-flair-solid-mutant FAIL: clean leg E lacks the menu=256 routing baseline\n'; exit 1; }
-	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on legs A+B+C+E+G+H\n'
+	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on legs A+B+C+D+E+G+H\n'
 	@# ---- no_route_on_chrome: legs A and B MUST go RED. ('|'-delimited fields:
 	@# the mouse specs themselves contain ':'.) ----
 	@rc=0; \
@@ -14392,6 +14450,36 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 		printf '>>> no_activate_inval leg C correctly RED:\n'; \
 		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_actinval_C.chk" | sed 's/^/      /'; \
 	fi
+	@# ---- menu restore mutants: leg D PRE == POST MUST go RED. ----
+	@rc=0; \
+	for spec in "menu_no_restore:track-end restore skipped -- Edit panel persists" \
+	            "menu_restore_shell:shell_render erase ran without tenant content route -- WDEF white wipe"; do \
+		tag=$${spec%%:*}; desc=$${spec#*:}; \
+		$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_$$tag.img" \
+			--name "flair_solid_mut_$${tag}_D" --out "$(BUILD)" \
+			--mouse "$(FLAIR_SOLID_MENUCANCEL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+			--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 \
+			2> "$(BUILD)/flair_solid_mut_$${tag}_D.report" || true; \
+		if grep -q 'triple_fault=1' "$(BUILD)/flair_solid_mut_$${tag}_D.report"; then \
+			printf '!!! test-flair-solid-mutant FAIL: %s leg D TRIPLE-FAULTED (cannot judge)\n' "$$tag"; rc=1; continue; \
+		fi; \
+		if ! grep -q '^FLAIR-MENU-DROP menu=256$$' "$(BUILD)/flair_solid_mut_$${tag}_D.serial" || \
+		   ! grep -q '^FLAIR-MENU-XDROP menu=257$$' "$(BUILD)/flair_solid_mut_$${tag}_D.serial" || \
+		   ! grep -q '^FLAIR-MENU menu=256 item=0 (sel=0x00000000)$$' "$(BUILD)/flair_solid_mut_$${tag}_D.serial"; then \
+			printf '!!! test-flair-solid-mutant FAIL: %s did not complete the comparable DROP/XDROP/cancel trace\n' "$$tag"; rc=1; continue; \
+		fi; \
+		if [ ! -s "$(BUILD)/flair_solid_mut_$${tag}_D.ppm" ]; then \
+			printf '!!! test-flair-solid-mutant FAIL: %s leg D produced no POST dump\n' "$$tag"; rc=1; continue; \
+		fi; \
+		if $(PPM_FLAIR_SOLID_CHECK_BIN) D "$(BUILD)/$(FLAIR_SOLID_D_PRE_NAME).ppm" \
+		   "$(BUILD)/flair_solid_mut_$${tag}_D.ppm" > "$(BUILD)/flair_solid_mut_$${tag}_D.chk" 2>&1; then \
+			printf '!!! test-flair-solid-mutant FAIL: leg D oracle is DECORATION -- %s PASSED (%s)\n' "$$tag" "$$desc"; rc=1; \
+		else \
+			printf '>>> %s leg D correctly RED -- %s:\n' "$$tag" "$$desc"; \
+			grep -m1 'FAIL leg D' "$(BUILD)/flair_solid_mut_$${tag}_D.chk" | sed 's/^/      /'; \
+		fi; \
+	done; \
+	if [ "$$rc" != "0" ]; then exit 1; fi
 	@# ---- menu2_dead: leg E pixels + marker MUST go RED. Capture at LIVE-OK
 	@# because the faithful dead-band mutant emits no FLAIR-MENU marker. ----
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_menu2_dead.img" \
@@ -14412,7 +14500,7 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_menu2_bar_sys.img" \
 		--name flair_solid_mut_menu2_bar_sys_E --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 \
+		--screendump --screendump-after "FLAIR-MENU-DROP" --timeout-ms 15000 \
 		2> "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.report"; then printf '!!! test-flair-solid-mutant FAIL: menu2_bar_sys TRIPLE-FAULTED (cannot judge)\n'; exit 1; fi
 	@if [ ! -s "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: menu2_bar_sys produced no screendump\n'; exit 1; fi
@@ -14455,7 +14543,7 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 		printf '>>> no_raise_on_title leg H correctly RED:\n'; \
 		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_title_raise_H.chk" | sed 's/^/      /'; \
 	fi
-	@printf 'VERDICT   : PASS -- all six solidity mutants drive their legs RED (the gate bites; Rule 6)\n'
+	@printf 'VERDICT   : PASS -- all eight solidity mutants drive their legs RED (the gate bites; Rule 6)\n'
 	@printf '======================================================================\n'
 
 # ===========================================================================
@@ -14485,7 +14573,8 @@ RECORD_SPEC_appswitch    = $(FLAIR_APPSWITCH_SPEC)
 RECORD_SPEC_solid_clamp  = $(FLAIR_SOLID_CLAMP_SPEC)
 RECORD_SPEC_solid_raise  = $(FLAIR_SOLID_RAISE_SPEC)
 RECORD_SPEC_solid_menu2  = $(FLAIR_SOLID_MENU2_SPEC)
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2
+RECORD_SPEC_solid_menucancel = $(FLAIR_SOLID_MENUCANCEL_SPEC)
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the

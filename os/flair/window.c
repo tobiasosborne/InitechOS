@@ -543,6 +543,28 @@ void WindowMgr_invalidate(WindowMgr *wm, WindowPtr w, rgn_rect_t rect)
     rgn_accumulate(w->updateRgn, product, RGN_OP_UNION, wm->scratch_a);
 }
 
+void WindowMgr_invalidate_desktop(WindowMgr *wm, rgn_rect_t rect)
+{
+    if (wm == NULL) WIN_PANIC("invalidate_desktop: NULL");
+
+    /* damage := region(rect) INTERSECT desktop_frame. scratch_b is the
+     * exposure carrier expected by distribute_exposure; scratch_a/scratch_c
+     * are free for its front-to-back owner partition after this intersection. */
+    region_t *rr = wm->scratch_a;
+    region_t *frame = wm->scratch_c;
+    region_t *damage = wm->scratch_b;
+    region_set_rect(rr, rect);
+    region_set_rect(frame, wm->desktop_frame);
+    region_op(damage, rr, frame, RGN_OP_INTERSECT);
+
+    /* A compositor-layer drawing obscures whichever ordinary owner was below
+     * it. Treat removing that drawing as fresh exposure with no departing
+     * WindowRecord: each visible window claims its frontmost portion; whatever
+     * remains is bare-desktop damage. DQ2 then repaints chrome and routes the
+     * still-pending window updateRgns to their content owners. */
+    distribute_exposure(wm, (WindowPtr)0, damage);
+}
+
 void WindowMgr_validate(WindowPtr w)
 {
     if (w == NULL) WIN_PANIC("validate: NULL");

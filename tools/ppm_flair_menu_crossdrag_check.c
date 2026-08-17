@@ -8,12 +8,13 @@
  * correct, the ON-SCREEN drop lagged: the originally-clicked menu's panel stayed
  * visible while the cursor was over a DIFFERENT title.
  *
- * This grades the screendump of the booted BOOT_FLAIR_LIVE desktop AFTER the
- * locked CROSS-MENU trace: click the System-7 "File" title (menu 0), DROP, then
- * drag SIDEWAYS along the bar band onto the "Edit" title (menu 1) -- staying in
- * the bar band the whole time (never entering either panel's item rows) -- and
- * release there. Fixed behaviour: "File"'s panel is ERASED and "Edit"'s panel is
- * DROPPED (no item hilited, since the release lands on the title, not a row).
+ * This grades the screendump of the booted BOOT_FLAIR_LIVE desktop AT the
+ * FLAIR-MENU-XDROP marker during the locked CROSS-MENU trace: click the
+ * System-7 "File" title (menu 0), DROP, then drag SIDEWAYS along the bar band
+ * onto the "Edit" title (menu 1), staying in the bar band the whole time. Fixed
+ * behaviour at that mid-track marker: "File"'s panel is ERASED and "Edit"'s
+ * panel is DROPPED with no item hilited. The later release remains in the title
+ * bar and the Makefile independently requires the final sel=0 marker.
  * Buggy (frozen-mi) behaviour: "File"'s panel STAYS on screen and "Edit"'s is
  * never drawn.
  *
@@ -183,9 +184,9 @@ int main(int argc, char **argv)
     }
     fclose(f);
 
-    printf("ppm_flair_menu_crossdrag_check: grading the cross-menu drag "
-           "(click File, drag along the bar into Edit, release on Edit's "
-           "title) -- File's panel {T20 L20 B54 R90} must be ERASED and "
+    printf("ppm_flair_menu_crossdrag_check: grading the cross-menu XDROP "
+           "(click File, drag along the bar into Edit while held) -- File's "
+           "panel {T20 L20 B54 R90} must be ERASED and "
            "Edit's panel {T20 L66 B54 R136} must be DROPPED (initech-9op1)\n");
 
     /* ---- LEG A: "File" panel ERASED (black frame -> teal again) ------------ */

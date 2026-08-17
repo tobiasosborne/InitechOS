@@ -275,6 +275,16 @@ void ComputeVisible(const WindowMgr *wm, const WindowPtr w, region_t *out);
  * (e.g. the whole content on first show). Uses the manager scratch. */
 void WindowMgr_invalidate(WindowMgr *wm, WindowPtr w, rgn_rect_t rect);
 
+/* WindowMgr_invalidate_desktop -- invalidate an arbitrary screen rectangle
+ * painted above the WindowMgr composition (for example a dropped menu panel).
+ * The rectangle is clipped to desktop_frame, then every pixel is assigned to
+ * its frontmost visible window's updateRgn or, if no window owns it, to
+ * desktop_update. The subsequent DQ2 cycle (desktop_paint_damage -> owner
+ * content route -> present) therefore reconstructs the exact composited scene;
+ * this is not a bare-background fill and must not be replaced by shell_render.
+ * Uses the manager scratch regions. Ref: beads initech-b3hl/-j0vt. */
+void WindowMgr_invalidate_desktop(WindowMgr *wm, rgn_rect_t rect);
+
 /* BeginUpdate / EndUpdate analogue: clear W's updateRgn after the app has
  * repainted it (the pump's EndUpdate). Sets updateRgn := empty. */
 void WindowMgr_validate(WindowPtr w);

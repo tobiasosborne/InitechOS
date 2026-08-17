@@ -1463,24 +1463,27 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * 4's "draggable arrangement with WORKING MENUS"): MenuBar_hit the title, draw the
  * dropped panel into the offscreen + present, TRACK the cursor (bounded; the
  * test_drag re-enter-WaitNextEvent-until-mouseUp idiom) re-hiliting the item under
- * it, then MenuSelect the (menuID<<16|item) result and leave the chosen menu
- * visibly OPEN as the demo's final interactive frame.
+ * it, then MenuSelect the (menuID<<16|item) result and CLOSE the panel through
+ * the DQ2 damage spine.
  *
  * BC-1 single spine: this is THIN source/sink glue around the already-built,
  * host-mutation-proven menu.c verbs (MenuBar_hit / flair_draw_menu_panel /
  * MenuInfo_item_at / MenuSelect; test_menu.c) and the present the initial frame
  * uses -- NO menu geometry is re-implemented here.
  *
- * PERSISTENT, drag-analogous (ADR-0006 BC-4): the selected menu stays DROPPED as
- * the final frame so the post-trace screendump grades the live drop, EXACTLY as
- * the live drag leaves the window at its NEW position (the drag does not snap the
- * window back; the menu does not snap shut before the dump). The
- * desktop_paint_damage menu CLOSE (invalidate the panel rect -> D-5 minimal
- * repaint -> present) is the documented follow-on close path; running it before
- * the screendump would ERASE the very panel the oracle asserts (Law 2), so it is
- * not run in this bounded demo. The GDI-facade CombineRgn panel clip (FO-D2-8 /
- * initech-rmsr) stays open: the drop draws with clip=NULL (the panel spans free
- * desktop below the bar), noted for the rmsr follow-on.
+ * RESTORE CONTRACT (beads initech-b3hl/-j0vt; epic initech-av7s DQ2): a dropped
+ * panel is temporary compositor-layer ink. On every title switch, invalidate the
+ * OLD MenuInfo_panel_rect (translated from bar-local to screen y), repaint damage
+ * chrome, route tenant-owned content, draw the NEW panel, then present. On every
+ * track end -- cancel AND selection -- invalidate the CURRENT panel and run the
+ * exact DQ2 order desktop_paint_damage -> flair_live_content_phase -> present.
+ * If a band-1 panel covered the persistent band-2 overlay, its intersecting
+ * slice is redrawn by DrawMenuBar after the owner content phase and before that
+ * same present; the rest of the footprint remains damage-spine-only.
+ * No shell_render belongs in the real menu path: it draws tenant WDEF chrome but
+ * not tenant content, which turns HELLO/NOTES interiors white. The menu oracles
+ * capture at FLAIR-MENU-DROP / FLAIR-MENU-XDROP while the button is held, so the
+ * artifact no longer carries an oracle-shaped persistent-panel wart (Law 2).
  *
  * CROSS-MENU DRAG LIVE REDRAW (beads initech-9op1; found during initech-rl4v):
  * menu.c's flair_menu_track re-hits the bar EVERY tracked point whose y is still
@@ -1489,13 +1492,10 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * capture `mi` ONCE from the initial click and never re-hit it while re-hiliting
  * (MenuInfo_item_at(bar, mi, ...)) every tick -- so the ON-SCREEN drop lagged: the
  * originally-clicked menu's panel stayed visible while the cursor was over a
- * DIFFERENT title, and the persistent final frame could show the WRONG menu's
- * panel open even though `sel` was correct. Fixed by mirroring menu.c's bar-band
+ * DIFFERENT title. Fixed by mirroring menu.c's bar-band
  * re-hit rule HERE, per tick: a tracked point still in the bar band may switch
- * `mi` to a different title. On a title SWITCH, the old panel is erased via the
- * EXISTING whole-scene restore path (shell_render -- the SAME call that composes
- * the initial frame; it draws no panel, so it cleanly wipes whatever panel sits
- * on top, with NO new drawing path invented), then the new menu's panel is
+ * `mi` to a different title. On a title SWITCH, the old panel is erased through
+ * the same damage/content spine used at track end, then the new menu's panel is
  * dropped + item-hilited exactly as before. The final MenuSelect call is
  * UNCHANGED -- it already re-derives its own tracked menu from (where0, pts)
  * independently, so its result was never wrong; only the live/final DRAW lagged.
@@ -1507,9 +1507,82 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
  *
  * FLAIR_LIVE_MUTATE_MENU_NOOP (Rule 6; the HER-14 "menus do not work" heresy):
  * the dispatch does NOT drop a panel and does NOT track/select -- it only emits
- * the marker with sel=0. The desktop under the title stays bare teal, so
- * ppm_flair_menu_check sees teal (RED) and the sel=0 marker proves nothing was
+ * the marker with sel=0. No FLAIR-MENU-DROP marker means the marker-gated menu
+ * oracle captures no PPM and fails loud; the sel=0 marker proves nothing was
  * chosen. NEVER define in a real build. */
+#ifndef FLAIR_LIVE_MUTATE_MENU_NOOP
+static void flair_live_init_menu_port(GrafPort *port, const bitmap_t *view)
+{
+    rgn_rect_t whole = { 0, 0, (int16_t)view->height,
+                         (int16_t)view->width };
+    port->portBits.bm = *view;
+    port->portBits.bounds = whole;
+    port->portRect = whole;
+    port->visRgn = (region_t *)0;
+    port->clipRgn = (region_t *)0;
+    port->pnLoc.v = 0; port->pnLoc.h = 0;
+    port->pnSize.v = 1; port->pnSize.h = 1;
+    port->pnVis = 0;
+    port->grafProcs = (QDProcs *)0;
+}
+
+static void flair_live_erase_menu_panel(flair_live_ctx_t *ctx,
+                                        const MenuBar *bar, int mi,
+                                        uint32_t y_top)
+{
+    rgn_rect_t panel = MenuInfo_panel_rect(bar, mi);
+    panel.top = (int16_t)(panel.top + (int16_t)y_top);
+    panel.bottom = (int16_t)(panel.bottom + (int16_t)y_top);
+
+#if defined(KMAIN_MUT_MENU_RESTORE_SHELLRENDER)
+    /* NAMED MUTANT (Rule 6; initech-j0vt): byte-restore the bad whole-scene
+     * erase for BOTH cross-title and track-end closes. shell_render paints
+     * tenant WDEF chrome with white content and this mutant deliberately runs
+     * NO flair_live_content_phase, so solid leg D's PRE/POST equality goes RED.
+     * Kept in this helper so no shell_render call exists in do_menu_at itself. */
+    shell_render(ctx->scene, &ctx->off);
+    (void)panel;
+#else
+    WindowMgr_invalidate_desktop(ctx->wm, panel);
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_live_content_phase(ctx);
+
+    /* A band-1 panel spans screen y>=20 and therefore temporarily covers the
+     * persistent second menu bar at y[20,40). That bar is an overlay outside
+     * WindowMgr ownership, so the DQ2 owner route correctly cannot reconstruct
+     * it. Redraw ONLY the panel-overlap slice from the current band-2 owner;
+     * everything below y=40 remains restored exclusively by the damage spine.
+     * This is still a menu-verb repaint, never a whole-scene shell_render. */
+    if (y_top == 0u && panel.top < (int16_t)(2 * FLAIR_MENUBAR_H) &&
+        panel.bottom > (int16_t)FLAIR_MENUBAR_H) {
+        MenuBar *under_bar = &ctx->scene->bar_photoshop;
+#ifdef FLAIR_LIVE_TENANTS
+        if (ctx->plist != (FlairProcessList *)0 &&
+            ctx->plist->head != (FlairApp *)0 &&
+            ctx->plist->head->menubar != (MenuBar *)0) {
+            under_bar = ctx->plist->head->menubar;
+        }
+#endif
+        bitmap_t bar_view;
+        GrafPort bar_port;
+        rgn_rect_t clip;
+        make_offset_view(&bar_view, &ctx->off,
+                         (uint32_t)FLAIR_MENUBAR_H);
+        flair_live_init_menu_port(&bar_port, &bar_view);
+        clip.top = 0;
+        clip.left = panel.left;
+        clip.bottom = (int16_t)(panel.bottom - FLAIR_MENUBAR_H);
+        if (clip.bottom > (int16_t)FLAIR_MENUBAR_H)
+            clip.bottom = (int16_t)FLAIR_MENUBAR_H;
+        clip.right = panel.right;
+        region_set_rect(ctx->comp, clip);
+        DrawMenuBar(&bar_port, under_bar, 0u, 3u, ctx->comp);
+        region_set_empty(ctx->comp);
+    }
+#endif
+}
+#endif
+
 static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                   MenuBar *bar, flair_point_t where0,
                                   uint32_t y_top)
@@ -1538,17 +1611,7 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
     bitmap_t panel_view;
     make_offset_view(&panel_view, &ctx->off, y_top);
     GrafPort port;
-    rgn_rect_t whole = { 0, 0, (int16_t)panel_view.height,
-                         (int16_t)panel_view.width };
-    port.portBits.bm     = panel_view;
-    port.portBits.bounds = whole;
-    port.portRect        = whole;
-    port.visRgn          = (region_t *)0;
-    port.clipRgn         = (region_t *)0;
-    port.pnLoc.v = 0; port.pnLoc.h = 0;
-    port.pnSize.v = 1; port.pnSize.h = 1;
-    port.pnVis = 0;
-    port.grafProcs = (QDProcs *)0;
+    flair_live_init_menu_port(&port, &panel_view);
 
     /* DROP: draw the dropped panel (no hilite yet) + present -- the menu is down. */
     flair_draw_menu_panel(&port, bar, mi, -1,
@@ -1609,18 +1672,19 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                   (int)menu_where.v);
         if (mi != last_mi || hi != last_hi) {
             if (mi != last_mi) {
-                /* Title switched: erase the OLD menu's panel via the EXISTING
-                 * whole-scene restore path (shell_render -- byte-identical to the
-                 * call that composed the initial frame; it repaints desktop +
-                 * both bars + windows + modal from scratch and draws no panel, so
-                 * it cleanly wipes whatever panel is on top). No new drawing path
-                 * is invented (initech-9op1). */
-                shell_render(ctx->scene, &ctx->off);
+                /* Title switched: restore the OLD panel footprint through DQ2,
+                 * then draw and present the NEW held panel (b3hl/j0vt). */
+                flair_live_erase_menu_panel(ctx, bar, last_mi, y_top);
             }
             flair_draw_menu_panel(&port, bar, mi, hi,
                                   FLAIR_MENU_PANEL_FG_IDX, FLAIR_MENU_PANEL_BG_IDX,
                                   (const region_t *)0);
             flair_desktop_present(bi, &ctx->off);
+            if (mi != last_mi) {
+                serial_puts("FLAIR-MENU-XDROP menu=");
+                serial_puti((int32_t)bar->menus[mi].menuID);
+                serial_putc('\n');
+            }
             last_mi = mi;
             last_hi = hi;
         }
@@ -1633,15 +1697,18 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
     }
 
     /* SELECT: the IM (menuID<<16|item) result from the tracked sequence (the
-     * release is pts[n-1]). Leave the chosen item hilited as the persistent final
-     * frame; if nothing was chosen, keep the last tracked hilite. */
+     * release is pts[n-1]). The live loop already drew the release-point hilite;
+     * close that current panel for both selection and cancel through DQ2. */
     uint32_t sel = MenuSelect(bar, menu_where0, pts, n);
     int sel_item = (int)MenuResultItem(sel);
-    int sel_hi   = (sel_item > 0) ? (sel_item - 1) : last_hi;
-    flair_draw_menu_panel(&port, bar, mi, sel_hi,
-                          FLAIR_MENU_PANEL_FG_IDX, FLAIR_MENU_PANEL_BG_IDX,
-                          (const region_t *)0);
+#ifndef KMAIN_MUT_MENU_NO_RESTORE
+    flair_live_erase_menu_panel(ctx, bar, last_mi, y_top);
     flair_desktop_present(bi, &ctx->off);
+#else
+    /* NAMED MUTANT (Rule 6; initech-b3hl): the ORIGINAL wart -- skip only the
+     * track-end restore, so the current panel/hilite persists after mouseUp.
+     * Cross-title damage restore stays live, isolating leg D's end-close axis. */
+#endif
 
     serial_puts("FLAIR-MENU menu=");
     serial_puti((int32_t)menuID);
@@ -1652,8 +1719,8 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puts(")\n");
 #else
     /* HER-14 MENU-NOOP mutant: no drop, no track, no select -- only the marker
-     * with sel=0. The desktop under the title stays bare teal (ppm RED) and sel=0
-     * proves nothing was chosen. NEVER define in a real build. */
+     * with sel=0. With no DROP marker the harness captures no PPM, so the real
+     * gate's missing-marker/dump checks go RED. NEVER define in a real build. */
     serial_puts("FLAIR-MENU menu=");
     serial_puti((int32_t)menuID);
     serial_puts(" item=0 (sel=0x00000000)\n");

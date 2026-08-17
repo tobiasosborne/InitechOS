@@ -2,10 +2,12 @@
  * ppm_flair_menu_check.c -- the FO-8b EMU menu oracle's screendump grader (HOST,
  * C-only). beads initech-5l5z FO-8b (ADR-0004 D-3 / ADR-0006 FO-8 -- inMenuBar ->
  * MenuSelect). It grades the screendump of the booted BOOT_FLAIR_LIVE desktop
- * AFTER the locked trace dropped the System-7 "File" pull-down live and selected
- * item 2 ("Quit"): the pump's flair_live_do_menu DROPPED the panel, TRACKED the
- * cursor into the panel, MenuSelect'd "Quit", and left the menu visibly OPEN as
- * the persistent final frame (drag-analogous; ADR-0006 BC-4).
+ * AT the FLAIR-MENU-DROP marker: the pump has drawn and presented the System-7
+ * "File" pull-down while the button is held, before tracking has hilited an item.
+ * The serial half of the gate independently follows the completed gesture and
+ * requires MenuSelect item 2 ("Quit"). This mid-track capture keeps the oracle
+ * structural without requiring the live artifact to leave a menu open after
+ * mouseUp (bead initech-b3hl; CLAUDE.md Law 2).
  *
  * THE DIFFERENTIAL (each leg independently catches the HER-14 "menus do not work"
  * heresy mutant FLAIR_LIVE_MUTATE_MENU_NOOP, which emits FLAIR-MENU sel=0 but
@@ -19,11 +21,10 @@
  *     above the windows at y>=60) -- bare Initech teal (idx2 #8DDCDC) pre-drop.
  *     A menu that did NOT drop leaves teal here and LEG A goes RED.
  *
- *   LEG B -- THE SELECTED ITEM's HILITE BAND is painted.  "Quit" (item 2, the
- *     panel's second row, y[37,53)) is the selection, drawn as an INVERTED black
- *     band (idx0).  We sample the band at the mark column (x=28) and the right
- *     pad (x=84) -- clear of the gray-on-black "Quit" glyphs (text x[37,77)).
- *     Both were bare teal pre-drop; a no-drop mutant leaves teal -> LEG B RED.
+ *   LEG B -- THE UNHILITED SECOND-ROW BODY is painted. At DROP time no tracking
+ *     point has hilited "Quit" yet, so its row y[37,53) remains BTNFACE gray.
+ *     We sample the mark column (x=28) and right pad (x=84), clear of the glyphs.
+ *     Both were bare teal pre-drop; a no-drop path leaves teal -> LEG B RED.
  *
  *   LEG C -- THE BTNFACE-GRAY PANEL BODY fill is present.  The un-hilited first
  *     row ("About", y[21,37)) shows the canon BTNFACE-gray body (idx6 #C0C0C0).
@@ -166,8 +167,9 @@ int main(int argc, char **argv)
     }
     fclose(f);
 
-    printf("ppm_flair_menu_check: grading the dropped System-7 'File' pull-down "
-           "(selection 'Quit' = item 2; panel {T20 L20 B54 R90})\n");
+    printf("ppm_flair_menu_check: grading the held System-7 'File' pull-down "
+           "at FLAIR-MENU-DROP (no item hilited yet; panel "
+           "{T20 L20 B54 R90})\n");
 
     /* ---- LEG A: THE 1px BLACK PANEL FRAME where bare teal was (teal->black) -- */
     assert_idx(PANEL_L, QUIT_Y, CIDX_FRAME,
@@ -183,14 +185,16 @@ int main(int argc, char **argv)
                "was (the pull-down dropped below the menu bar)\n");
     }
 
-    /* ---- LEG B: THE SELECTED 'Quit' HILITE BAND is painted (teal->black) ----- */
-    assert_idx(MARK_X, QUIT_Y, CIDX_FRAME,
-               "LEG B: 'Quit' selected hilite band (mark column) is idx0 black");
-    assert_idx(RPAD_X, QUIT_Y, CIDX_FRAME,
-               "LEG B: 'Quit' selected hilite band (right pad) is idx0 black");
+    /* ---- LEG B: THE UNHILITED 'Quit' BODY is painted (teal->gray) ----------- */
+    assert_idx(MARK_X, QUIT_Y, CIDX_BTNFACE,
+               "LEG B: held-panel 'Quit' row mark column is idx6 BTNFACE gray "
+               "before tracking hilites an item");
+    assert_idx(RPAD_X, QUIT_Y, CIDX_BTNFACE,
+               "LEG B: held-panel 'Quit' row right pad is idx6 BTNFACE gray "
+               "before tracking hilites an item");
     if (!g_fail) {
-        printf("    LEG B: the selected item's inverted hilite band is painted "
-               "where bare teal was (MenuSelect chose item 2 'Quit')\n");
+        printf("    LEG B: the held panel's second-row body is BTNFACE gray "
+               "where bare teal was (no premature hilite at DROP)\n");
     }
 
     /* ---- LEG C: THE BTNFACE-GRAY PANEL BODY fill (menubar-white -> gray) ----- */
@@ -209,12 +213,12 @@ int main(int argc, char **argv)
     free(g_buf);
     if (g_fail) {
         fprintf(stderr, "ppm_flair_menu_check: FAIL -- the live menu did not drop "
-                "a pull-down with the selected item hilited where bare teal was "
+                "an unhilited held pull-down where bare teal was "
                 "(Law 4: the menus do not actually work)\n");
         return 1;
     }
     printf("ppm_flair_menu_check: PASS -- the System-7 'File' pull-down DROPPED "
-           "live (black frame + BTNFACE body + 'Quit' hilite band) over the "
+           "live while held (black frame + BTNFACE body, no premature hilite) over the "
            "previously-teal desktop; the booted desktop has WORKING MENUS "
            "(FO-8b; ADR-0004 D-3 / ADR-0006 FO-8)\n");
     return 0;

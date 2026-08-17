@@ -286,6 +286,87 @@ static void record_frame(RecordCtx *rec)
     }
 }
 
+/* A marker-gated single-frame capture that can fire BETWEEN injected events.
+ * This is load-bearing for held-state oracles such as FLAIR-MENU-DROP/XDROP:
+ * waiting until the whole mouse trace has been sent would observe mouseUp's
+ * restored frame, not the marker's held panel (bead initech-b3hl; Law 2). */
+typedef struct {
+    int fd;
+    const char *path;
+    const char *marker;
+    const char *serial_path;
+    int attempted;
+    int taken;
+    int midtrack;   /* 1 == a held-state marker (DROP/XDROP): capture BETWEEN
+                     * events. 0 == every other marker: keep the legacy
+                     * end-of-injection wait+dump semantics -- gates like
+                     * test-samir-boot pass a marker (SHELL-READY) that is
+                     * ALREADY on serial before injection starts and rely on
+                     * the dump landing AFTER all keys (their comment says so);
+                     * a between-events grab there dumps after key 1 and
+                     * grades a pre-LIST frame (caught 2026-08-18, cert red). */
+} CaptureCtx;
+
+static int capture_marker_seen(const CaptureCtx *cap)
+{
+    size_t len = 0;
+    char *txt;
+    int seen;
+    if (!cap || !cap->marker || cap->marker[0] == '\0') return 0;
+    txt = read_file(cap->serial_path, &len);
+    if (!txt) return 0;
+    seen = strstr(txt, cap->marker) != NULL;
+    free(txt);
+    (void)len;
+    return seen;
+}
+
+static void capture_take(CaptureCtx *cap)
+{
+    if (!cap || cap->attempted) return;
+    cap->attempted = 1;
+    qmp_drain(cap->fd, 150);
+    if (qmp_do_screendump(cap->fd, cap->path) == 0) {
+        cap->taken = 1;
+    } else {
+        fprintf(stderr,
+                "[harness] marker-gated screendump for '%s' FAILED\n",
+                cap->marker);
+    }
+}
+
+static void capture_if_seen(CaptureCtx *cap)
+{
+    if (cap && cap->midtrack && !cap->attempted && capture_marker_seen(cap))
+        capture_take(cap);
+}
+
+static void capture_wait_after_event(CaptureCtx *cap, int budget_ms)
+{
+    long long deadline;
+    if (!cap || cap->attempted) return;
+    deadline = mono_ms() + budget_ms;
+    while (mono_ms() < deadline) {
+        if (capture_marker_seen(cap)) {
+            capture_take(cap);
+            return;
+        }
+        sleep_ms(10);
+    }
+}
+
+static int capture_is_menu_drop(const CaptureCtx *cap)
+{
+    return cap && cap->marker &&
+           strstr(cap->marker, "FLAIR-MENU-DROP") != NULL;
+}
+
+static int capture_is_menu_xdrop(const CaptureCtx *cap)
+{
+    return cap && cap->marker &&
+           strstr(cap->marker, "FLAIR-MENU-XDROP") != NULL;
+}
+
 /* ------------------------------------------------------------------ */
 /* QMP keystroke injection (beads initech-43b)                         */
 /* ------------------------------------------------------------------ */
@@ -365,7 +446,7 @@ static int qmp_send_key(int fd, const char *qcode)
  * set to the count of unrecognized tokens.
  */
 static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
-                           RecordCtx *rec)
+                           RecordCtx *rec, CaptureCtx *cap)
 {
     int sent = 0;
     int unknown = 0;
@@ -406,6 +487,7 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
             /* Drain any QMP reply + give the guest a beat to take the IRQ1
              * before the next key (keeps the injection deterministic). */
             qmp_drain(fd, 30);
+            capture_if_seen(cap);
             /* Record mode (initech-l9cd): one frame per injected event. */
             record_frame(rec);
         }
@@ -471,10 +553,13 @@ static int qmp_mouse_button(int fd, const char *button, int down)
  * Unknown tokens are skipped with a stderr note (Law 2: loud). Returns the
  * number of events sent. The gate injects >=2 so the dual-PIC-EOI no-wedge
  * property is assertable (a second distinct FLAIR-MOUSE line proves the slave
- * EOI re-armed the line). */
-static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec)
+ * EOI re-armed the line). cap, when armed, may take the one marker-gated frame
+ * between tokens so held-state pixels cannot race with mouseUp. */
+static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
+                            CaptureCtx *cap)
 {
     int sent = 0;
+    int left_down = 0;
     char buf[256];
     size_t L = strlen(mouse_spec);
     if (L >= sizeof(buf)) {
@@ -499,6 +584,8 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec)
             continue;
         }
         int ok = 0;
+        int is_move = 0;
+        int is_left_down = 0;
         if (tok[0] == 'm') {
             /* "m<dx>:<dy>" -- a relative move. */
             int dx = 0, dy = 0;
@@ -508,6 +595,7 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec)
                 dy = atoi(colon + 1);
                 if (qmp_mouse_move(fd, dx, dy) == 0) {
                     ok = 1;
+                    is_move = 1;
                 }
             }
         } else if ((tok[0] == 'l' || tok[0] == 'r' || tok[0] == 'M') &&
@@ -516,6 +604,10 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec)
                             : (tok[0] == 'r') ? "right" : "middle";
             if (qmp_mouse_button(fd, btn, tok[1] == '1') == 0) {
                 ok = 1;
+                if (tok[0] == 'l') {
+                    left_down = tok[1] == '1';
+                    is_left_down = left_down;
+                }
             }
         }
         if (ok) {
@@ -524,6 +616,18 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec)
              * (one per PS/2 packet byte) before the next event, so each event's
              * FLAIR-MOUSE line lands deterministically. */
             qmp_drain(fd, 40);
+            /* A DROP is emitted in response to left-button-down; an XDROP is
+             * emitted in response to a move while that button remains held.
+             * Wait at precisely those event boundaries so the screenshot is
+             * taken before the next token can change/close the panel. The
+             * bounded wait is below the live menu tracker's 1.5 s guard. */
+            if (capture_is_menu_drop(cap) && is_left_down) {
+                capture_wait_after_event(cap, 750);
+            } else if (capture_is_menu_xdrop(cap) && is_move && left_down) {
+                capture_wait_after_event(cap, 750);
+            } else {
+                capture_if_seen(cap);
+            }
             /* Record mode (initech-l9cd): one frame per injected event. */
             record_frame(rec);
         } else {
@@ -570,10 +674,11 @@ static int wait_for_serial_marker(const char *serial_path, const char *marker,
  *
  * Generalized for beads initech-43b: it now also injects keystrokes. After the
  * capabilities handshake it optionally (1) waits for keys_after on the serial
- * capture (else a fixed delay), (2) injects keys_spec via QMP send-key, then
- * (3) screendumps if ppm_path != NULL, then quits. ppm_path may be NULL (keys
- * only); keys_spec may be NULL (screendump only) -- at least one is set by the
- * caller. *keys_sent (if non-NULL) receives the count of keys injected.
+ * capture (else a fixed delay), (2) injects keys_spec via QMP send-key, taking
+ * a marker-gated frame between events when requested, then (3) performs any
+ * still-pending screendump and quits. ppm_path may be NULL (keys only);
+ * keys_spec may be NULL (screendump only) -- at least one is set by the caller.
+ * *keys_sent (if non-NULL) receives the count of keys injected.
  */
 static int qmp_session(const char *sock_path, const char *ppm_path,
                        const char *keys_spec, const char *keys_after,
@@ -635,6 +740,20 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
     }
     qmp_drain(fd, 300);
 
+    CaptureCtx cap_store;
+    CaptureCtx *cap = NULL;
+    if (ppm_path && screendump_after && screendump_after[0] != '\0') {
+        cap_store.fd = fd;
+        cap_store.path = ppm_path;
+        cap_store.marker = screendump_after;
+        cap_store.serial_path = serial_path;
+        cap_store.attempted = 0;
+        cap_store.taken = 0;
+        cap_store.midtrack = capture_is_menu_drop(&cap_store) ||
+                             capture_is_menu_xdrop(&cap_store);
+        cap = &cap_store;
+    }
+
     /* 3. input injection (keystrokes: beads initech-43b; relative mouse: beads
      * initech-5l5z FO-6). Trigger timing: if keys_after is set, WAIT for that
      * substring on the serial capture ONCE (the guest tells us it is ready --
@@ -671,13 +790,13 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
             record_frame(rec);
             if (want_keys) {
                 int bad = 0;
-                int sent = qmp_inject_keys(fd, keys_spec, &bad, rec);
+                int sent = qmp_inject_keys(fd, keys_spec, &bad, rec, cap);
                 if (keys_sent) {
                     *keys_sent = sent;
                 }
             }
             if (want_mouse) {
-                int msent = qmp_inject_mouse(fd, mouse_spec, rec);
+                int msent = qmp_inject_mouse(fd, mouse_spec, rec, cap);
                 if (mouse_sent) {
                     *mouse_sent = msent;
                 }
@@ -703,30 +822,46 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
          * the pixels the ppm gate asserts on are already blitted. The budget is
          * tied to the wall-clock timeout, so a loaded host simply waits longer.
          *
-         * CRITICAL (Law 2 -- fail loud, never hang, never false-green): this is
-         * a BEST-EFFORT wait. If the marker never appears within budget we fall
-         * THROUGH and screendump anyway, so a guest that truly never painted
-         * produces a blank framebuffer and the ppm check fails HONESTLY (a real
-         * RED). The wait only removes the race for guests that DO paint, just
-         * slower under load. After the marker is seen, a brief qmp_drain lets the
-         * final blit settle before the grab. */
+         * CRITICAL (Law 2 -- fail loud, never hang, never false-green): an
+         * explicit marker is a capture precondition. If it never appears, do
+         * NOT dump an unrelated later frame; leave the PPM absent so the gate's
+         * missing-dump assertion is the deterministic RED. After the marker is
+         * seen, a brief qmp_drain lets the final blit settle before the grab. */
+        int capture_ready = (cap == NULL || !cap->attempted);
         if (screendump_after && screendump_after[0] != '\0') {
+            int midtrack = capture_is_menu_drop(cap) || capture_is_menu_xdrop(cap);
             int budget = screendump_budget_ms > 0 ? screendump_budget_ms : 4000;
-            if (!wait_for_serial_marker(serial_path, screendump_after, budget)) {
+            if (cap && cap->taken) {
+                capture_ready = 0;  /* already captured between input events */
+            } else if (midtrack) {
+                /* A late grab would observe a later mouse state (often the
+                 * correctly closed menu) and falsely claim to represent DROP.
+                 * Leave the PPM absent so the gate fails loud instead. */
+                fprintf(stderr,
+                        "[harness] --screendump-after marker '%s' was not "
+                        "captured at its input-event boundary; no late "
+                        "screendump captured\n",
+                        screendump_after);
+                capture_ready = 0;
+            } else if (!wait_for_serial_marker(serial_path, screendump_after,
+                                               budget)) {
                 fprintf(stderr,
                         "[harness] --screendump-after marker '%s' not seen "
-                        "before deadline; screendumping anyway (best-effort)\n",
+                        "before deadline; no screendump captured\n",
                         screendump_after);
+                capture_ready = 0;
             } else {
                 /* Marker seen: let the blit fully settle before grabbing. */
                 qmp_drain(fd, 150);
             }
         }
-        if (qmp_do_screendump(fd, ppm_path) != 0) {
-            close(fd);
-            return -1;
+        if (capture_ready) {
+            if (qmp_do_screendump(fd, ppm_path) != 0) {
+                close(fd);
+                return -1;
+            }
+            qmp_drain(fd, 200);
         }
-        qmp_drain(fd, 200);
     }
 
     /* 5. quit cleanly so the guest does not have to be killed. */
