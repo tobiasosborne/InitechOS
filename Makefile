@@ -14647,12 +14647,20 @@ record-flair-repro: $(HARNESS_BIN) $(FLAIRTENANTS_IMG)
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair-repro SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@$(MAKE) --no-print-directory record-flair SCRIPT=$(SCRIPT) >/dev/null
 	@sha256sum "$(RECORD_CLIPS_DIR)/$(SCRIPT).gif" "$(RECORD_CLIPS_DIR)/$(SCRIPT).mp4" > "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.1"
+	@# Preserve capture 1 BEFORE capture 2 overwrites it, so a FAIL keeps both
+	@# sets diffable (the 2026-08-17 solid_switch flake destroyed its own
+	@# evidence -- beads initech-zwo8; Law 2: a red gate must keep its exhibits).
+	@rm -rf "$(RECORD_CLIPS_DIR)/$(SCRIPT).run1"; mkdir -p "$(RECORD_CLIPS_DIR)/$(SCRIPT).run1"
+	@cp "$(RECORD_CLIPS_DIR)/$(SCRIPT).gif" "$(RECORD_CLIPS_DIR)/$(SCRIPT).mp4" \
+		"$(RECORD_CLIPS_DIR)"/rec_$(SCRIPT)_frame_*.ppm "$(RECORD_CLIPS_DIR)/$(SCRIPT).run1/"
 	@$(MAKE) --no-print-directory record-flair SCRIPT=$(SCRIPT) >/dev/null
 	@sha256sum "$(RECORD_CLIPS_DIR)/$(SCRIPT).gif" "$(RECORD_CLIPS_DIR)/$(SCRIPT).mp4" > "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.2"
 	@if cmp -s "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.1" "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.2"; then \
+		rm -rf "$(RECORD_CLIPS_DIR)/$(SCRIPT).run1"; \
 		printf '>>> record-flair-repro [%s]: PASS -- two captures byte-identical\n' "$(SCRIPT)"; \
 	else \
 		printf '!!! record-flair-repro [%s]: FAIL -- captures differ (frame raced its settle?)\n' "$(SCRIPT)"; \
+		printf '    capture 1 preserved at %s (frames + clips); capture 2 is the live files -- diff the frame PPMs to find the racing frame\n' "$(RECORD_CLIPS_DIR)/$(SCRIPT).run1"; \
 		diff "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.1" "$(RECORD_CLIPS_DIR)/$(SCRIPT).sha.2" || true; exit 1; \
 	fi
 
