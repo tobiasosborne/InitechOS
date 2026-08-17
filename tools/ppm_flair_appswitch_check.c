@@ -16,7 +16,7 @@
  * The PRE dump is grabbed before the click; the POST dump after the
  * FLAIR-DISPATCH app=NOTES marker.  This grader judges the PRE->POST delta.
  *
- * FIVE DIFFERENTIALS, each independently catching a distinct regression:
+ * SIX DIFFERENTIALS, each independently catching a distinct regression:
  *
  *   DISTINCT-CHIMERA -- the BOOT (resting) scene shows two DIFFERENT stacked bars
  *     (INTRA-scene structural; beads initech-4w15, Law 4).  The iconic Office
@@ -27,6 +27,13 @@
  *     (a boot that draws the same menu into both bands -- exactly the Law-4 bug an
  *     earlier fix attempt introduced by drawing the boot-foreground's System-7
  *     menu into band 2 when NOTES was the boot foreground).
+ *
+ *   POST-DISTINCT -- after switch-to-NOTES the two stacked bars still DIFFER
+ *     (POST-only intra-scene structural; bead initech-7tjp, Law 4). NOTES owns a
+ *     no-Apple SimpleText-flavored bar, so band 2 must not duplicate the shell's
+ *     System-7 bar or its Apple slot. KMAIN_MUT_NOTES_BAR_SYS restores the
+ *     original shared bar_sys assignment, making both POST title strips pixel-
+ *     identical -> RED.
  *
  *   TIER-A -- CO-RESIDENCY + GROUP-RAISE + updateEvt REPAINT (structural).
  *     The OVERLAP probe (FLAIR_TEN_PROBE_OVERLAP_X/Y, inside NOTES content but
@@ -59,16 +66,15 @@
  *     DIFFERENTIAL of the bar-1 title-strip interior: it must be BYTE-IDENTICAL
  *     pre-vs-post (0 differing pixels beyond capture tolerance).  The Apple slot +
  *     System-7 titles must survive the switch.  (See the trailing DEVIATIONS note
- *     re: the row-0 mistarget bug is caught by MENU-BAND in this demo, since the
- *     activated NOTES menu == band 1's System-7 bar.)
+ *     re: the row-0 mistarget bug is caught by MENU-BAND in this demo.)
  *
  *   MENU-BAND swap -- the foreground app's menubar swapped in (PRE-vs-POST
- *     DIFFERENTIAL).  When NOTES becomes foreground, its System-7 menu replaces
+ *     DIFFERENTIAL).  When NOTES becomes foreground, its own menu replaces
  *     HELLO's Photoshop menu in the SECOND (Photoshop-chimera) menu-bar band (rows
  *     [FLAIR_MENUBAR_H, 2*FLAIR_MENUBAR_H) -- shell.h SHELL_MENUBAR2_TOP), NOT the
  *     top bar (see BAR1-STATIC above).  We grade this as a DIFFERENTIAL of the
  *     bar-2 menu-bar title strip: the band's title region must DIFFER pre-vs-post
- *     (Photoshop -> System-7).  The menubar-no-swap mutant AND the initech-4w15
+ *     (Photoshop -> NOTES).  The menubar-no-swap mutant AND the initech-4w15
  *     row-0-mistarget bug both leave band 2 byte-identical -> 0 differing pixels
  *     -> RED (the row-0 bug draws the swap into band 1 instead of band 2, so band 2
  *     never changes).  We keep it a differential and NEVER a palette read of one
@@ -372,6 +378,36 @@ int main(int argc, char **argv)
         }
     }
 
+    /* ---- POST-DISTINCT: NOTES leaves the stacked bars visibly DIFFERENT ----- *
+     * Ref: bead initech-7tjp; PRD Sec 1.1 / Sec 3 / Sec 6.3 and Law 4. After
+     * NOTES becomes foreground, band 2 must be NOTES's own no-Apple SimpleText-
+     * flavored bar, not the shell-owned System-7 bar_sys already present in band
+     * 1. Grade the POST scene alone with the same structural differential as
+     * DISTINCT-CHIMERA: the aligned title strips must differ by at least
+     * BAND_MIN_DIFFS pixels. The KMAIN_MUT_NOTES_BAR_SYS mutant restores the
+     * original shared-object assignment, making both POST strips pixel-identical
+     * and proving this leg RED (Rule 6). */
+    {
+        int h = BAND1_Y1 - BAND1_Y0;   /* == BAND2_Y1 - BAND2_Y0 (equal strips) */
+        int diffs = intra_band_diff(&post, BAND1_Y0, BAND2_Y0, h);
+        if (diffs < BAND_MIN_DIFFS) {
+            fprintf(stderr,
+                    "ppm_flair_appswitch_check: FAIL POST-DISTINCT -- after "
+                    "switch-to-NOTES the two stacked menu bars are IDENTICAL "
+                    "(band 1 y[%d,%d) vs band 2 y[%d,%d), x[%d,%d): only %d "
+                    "differing px < %d): NOTES reused the shell-owned System-7 "
+                    "bar_sys / Apple slot instead of its distinct no-Apple bar "
+                    "(Law-4 regression; initech-7tjp)\n",
+                    BAND1_Y0, BAND1_Y1, BAND2_Y0, BAND2_Y1, BAND_X0, BAND_X1,
+                    diffs, BAND_MIN_DIFFS);
+            g_fail = 1;
+        } else {
+            printf("    POST-DISTINCT: after switch-to-NOTES band 1 (System-7) "
+                   "and band 2 (NOTES, no Apple slot) DIFFER (%d px) -- NOTES "
+                   "owns a distinct menu bar (Law 4; initech-7tjp)\n", diffs);
+        }
+    }
+
     /* ---- BAR1-STATIC: the TOP System-7 shell bar survives the switch -------- *
      * Ref: bead initech-4w15; shell.h SHELL_MENUBAR1_TOP static-bar invariant;
      * Law 4 (the Office Space two-bar chimera must survive an app-switch: the
@@ -410,13 +446,13 @@ int main(int argc, char **argv)
                     "ppm_flair_appswitch_check: FAIL MENU-BAND -- the foreground "
                     "menubar title strip x[%d,%d) y[%d,%d) (bar 2) is UNCHANGED "
                     "pre-vs-post (%d differing px < %d): the menubar did NOT swap "
-                    "to NOTES (Photoshop -> System-7)\n",
+                    "to NOTES (Photoshop -> NOTES)\n",
                     BAND_X0, BAND_X1, BAND2_Y0, BAND2_Y1, diffs, BAND_MIN_DIFFS);
             g_fail = 1;
         } else {
             printf("    MENU-BAND: the menu-bar title strip x[%d,%d) y[%d,%d) "
                    "(bar 2) DIFFERS pre-vs-post (%d px) -- NOTES's menubar "
-                   "swapped in (Photoshop -> System-7)\n",
+                   "swapped in (Photoshop -> NOTES)\n",
                    BAND_X0, BAND_X1, BAND2_Y0, BAND2_Y1, diffs);
         }
     }
@@ -480,8 +516,8 @@ int main(int argc, char **argv)
     if (g_fail) {
         fprintf(stderr, "ppm_flair_appswitch_check: FAIL -- the click did not "
                 "raise+activate the background tenant + swap its menubar without "
-                "clobbering the static top bar (the FLAIR App Contract app-switch "
-                "is not actually wired correctly)\n");
+                "clobbering or duplicating the static top bar (the FLAIR App "
+                "Contract app-switch is not actually wired correctly)\n");
         return 1;
     }
     printf("ppm_flair_appswitch_check: PASS -- the boot scene is the DISTINCT "
@@ -489,9 +525,10 @@ int main(int argc, char **argv)
            "raised the NOTES group (overlap HELLO_FILL->NOTES_FILL + updateEvt "
            "repaint), activated it (accent FILL->ACTIVE_ACCENT), left the static "
            "top System-7 bar untouched (BAR1-STATIC), and swapped band 2 to NOTES's "
-           "menu (Photoshop -> System-7); the booted desktop honours the O-5 "
-           "app-switch contract (ADR-0013) with the distinct chimera as the resting "
-           "look and no initech-4w15 regression\n");
+           "distinct no-Apple menu (Photoshop -> NOTES; POST-DISTINCT); the booted "
+           "desktop honours the O-5 app-switch contract (ADR-0013) with distinct "
+           "stacked bars both before and after the switch and no initech-4w15 / "
+           "initech-7tjp regression\n");
     return 0;
 }
 
@@ -512,15 +549,14 @@ int main(int argc, char **argv)
  *        -> 0 diffs -> RED).  This is the load-bearing proof the fix is real.
  *      * DISTINCT-CHIMERA bites the two-identical-bars Law-4 regression (a boot that
  *        collapses band 2 onto band 1's System-7 menu).
- *      * BAR1-STATIC guards "the switch never repaints band 1".  In THIS demo the
- *        activated tenant (NOTES) carries the SAME System-7 menu as band 1, so a
- *        row-0 mistarget writes band-1's own content back onto band 1 (a no-op) and
- *        is caught by MENU-BAND (band 2 stale), not BAR1-STATIC.  BAR1-STATIC is
- *        the invariant guard that a FUTURE change writing a DIFFERENT menu to band 1
- *        would trip; it is not independently mutation-provable by the row-0 revert
- *        in this 2-app arrangement (activating the Photoshop app -- the only menu
- *        that differs from band 1 -- is impossible here because that app is the
- *        boot foreground, per the Law-4 arrangement in flair_tenants_demo.h).
+ *      * POST-DISTINCT bites KMAIN_MUT_NOTES_BAR_SYS (bead initech-7tjp): the
+ *        original shared-object assignment makes post-switch band 2 identical to
+ *        band 1, including the duplicate Apple slot.
+ *      * BAR1-STATIC guards "the switch never repaints band 1". NOTES now carries
+ *        a menu distinct from band 1, so the initech-4w15 row-0 mistarget would
+ *        change band 1 as well as leave band 2 stale; BAR1-STATIC and MENU-BAND
+ *        would both go RED. There is no dedicated row-0 mutant image; the named
+ *        NOTES_BAR_SYS mutant proves POST-DISTINCT independently.
  *  - The MENU-BAND leg cannot distinguish "swapped to NOTES's menu" from "swapped
  *    to anything"; the TIER-A/TIER-B legs (canon VALUEs) carry the identity proof,
  *    so the band leg is intentionally only the swap-happened differential.

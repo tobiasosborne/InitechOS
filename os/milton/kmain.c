@@ -75,6 +75,37 @@
                                   * flair_app_dispatch, flair_route_updates (-Ios/flair)*/
 #include "ref_tenant.h"          /* hello_procs / notes_procs (-Ios/apps)            */
 #include "flair_tenants_demo.h"  /* FLAIR_TEN_* demo layout + budget (-Ispec)        */
+
+/* NOTES owns a static-lifetime SimpleText-flavored menu fixture. Ref: bead
+ * initech-7tjp; spec/flair_tenants_demo.h (titles/items/ID range); PRD Sec 1.1 /
+ * Sec 3 / Sec 6.3. Band 2 must remain distinct from the shell-owned System-7
+ * bar after NOTES activates, including no duplicate Apple slot (Law 4). */
+static const MenuItem flair_ten_notes_file_items[] = {
+    { FLAIR_TEN_NOTES_ITEM_NEW,  0, 'N', 0, 1, 0 },
+    { FLAIR_TEN_NOTES_ITEM_OPEN, 0, 'O', 0, 1, 0 },
+    { FLAIR_TEN_NOTES_ITEM_SAVE, 0, 'S', 0, 1, 0 },
+    { FLAIR_TEN_NOTES_ITEM_QUIT, 0, 'Q', 0, 1, 0 }
+};
+static const MenuItem flair_ten_notes_edit_items[] = {
+    { FLAIR_TEN_NOTES_ITEM_UNDO,  0, 'Z', 0, 1, 0 },
+    { FLAIR_TEN_NOTES_ITEM_CUT,   0, 'X', 0, 1, 0 },
+    { FLAIR_TEN_NOTES_ITEM_COPY,  0, 'C', 0, 1, 0 },
+    { FLAIR_TEN_NOTES_ITEM_PASTE, 0, 'V', 0, 1, 0 }
+};
+static const MenuItem flair_ten_notes_notes_items[] = {
+    { FLAIR_TEN_NOTES_ITEM_ABOUT, 0, 0, 0, 1, 0 }
+};
+static MenuInfo flair_ten_notes_menus[FLAIR_TEN_NOTES_MENU_COUNT] = {
+    { (int16_t)(FLAIR_TEN_NOTES_MENU_ID_BASE + 0),
+      FLAIR_TEN_NOTES_MENU_FILE_TITLE, flair_ten_notes_file_items, 4, 0 },
+    { (int16_t)(FLAIR_TEN_NOTES_MENU_ID_BASE + 1),
+      FLAIR_TEN_NOTES_MENU_EDIT_TITLE, flair_ten_notes_edit_items, 4, 0 },
+    { (int16_t)(FLAIR_TEN_NOTES_MENU_ID_BASE + 2),
+      FLAIR_TEN_NOTES_MENU_NOTES_TITLE, flair_ten_notes_notes_items, 1, 0 }
+};
+static MenuBar flair_ten_notes_bar __attribute__((unused)) = {
+    flair_ten_notes_menus, FLAIR_TEN_NOTES_MENU_COUNT, 0
+};
 #endif
 #endif
 
@@ -2224,16 +2255,24 @@ void kernel_main(void)
     ctx.plist = &ten_plist;
 
     /* (3) Each tenant's OWN menu is its menubar; the live app-switch loop swaps the
-     * FOREGROUND tenant's menu into the SECOND (Photoshop-chimera) band (ref bead
-     * initech-4w15: band 1 == the SHELL-OWNED static System-7 bar, drawn ONCE by
-     * shell_render below, never repainted by the live loop). HELLO's menu IS the
-     * Photoshop bar; NOTES's menu reuses the System-7 titles (File/Edit/View/
-     * Special). Because HELLO is the boot FOREGROUND (2), shell_render's fixed
-     * band-2 composition (bar_photoshop) ALREADY equals the foreground's menu at
-     * boot -- so the resting scene is the distinct chimera with no extra draw, and
-     * the O-5 switch to NOTES makes band 2 swap Photoshop -> System-7 (observable). */
+     * FOREGROUND tenant's menu into the SECOND (Photoshop-chimera) band (ref beads
+     * initech-4w15 / initech-7tjp: band 1 == the SHELL-OWNED static System-7 bar,
+     * drawn ONCE by shell_render below, never repainted by the live loop). HELLO's
+     * menu IS the Photoshop bar; NOTES owns the no-Apple File/Edit/Notes fixture
+     * above. Because HELLO is the boot FOREGROUND (2), shell_render's fixed band-2
+     * composition (bar_photoshop) ALREADY equals the foreground's menu at boot --
+     * so the resting scene stays the distinct chimera with no extra draw, and the
+     * O-5 switch makes band 2 swap Photoshop -> NOTES while remaining distinct
+     * from band 1 (PRD Sec 1.1 / Sec 3 / Sec 6.3; Law 4). */
     ten_hello->menubar = &ctx.scene->bar_photoshop;
+#ifdef KMAIN_MUT_NOTES_BAR_SYS
+    /* NAMED MUTANT (Rule 6; bead initech-7tjp): restore the ORIGINAL bug by
+     * sharing bar_sys with band 1. After NOTES activates, band 2 duplicates the
+     * System-7 titles and Apple slot, so POST-DISTINCT must go RED. */
     ten_notes->menubar = &ctx.scene->bar_sys;
+#else
+    ten_notes->menubar = &flair_ten_notes_bar;
+#endif
 
     /* (4) Recomposite the offscreen: teal desktop + the two tenants' window chrome
      * (back-to-front) + the two menu bars (shell_render; modal_up==0 => no dialog).

@@ -285,7 +285,7 @@ PPM_FLAIR_DC4V_CHECK_BIN := $(BUILD)/ppm_flair_dc4v_check
 
 # O-5 app-switch screendump grader (ADR-0013 FLAIR App Contract; Wave-4 gate O-5).
 # Grades the PRE->POST delta of the booted -DFLAIR_LIVE_TENANTS desktop (click
-# HELLO's sliver -> raise + activate HELLO over NOTES + swap its menubar) against
+# NOTES's sliver -> raise + activate NOTES over HELLO + swap its menubar) against
 # the INDEPENDENT canon (flair_canon_rgb + the spec/flair_tenants_demo.h probe
 # geometry), never the render. argv = pre.ppm post.ppm. It includes the shared
 # demo layout header (spec/flair_tenants_demo.h -> assets/color_canon.h), so it is
@@ -8879,11 +8879,11 @@ run-flair-tenants: $(FLAIRTENANTS_INTERACTIVE_IMG)
 # O-5 APP-SWITCH Rule-6 MUTANT images (ADR-0013; Wave-4 Step 5; beads initech-4e35)
 # ---------------------------------------------------------------------------
 # Each mutant is a SEPARATE flair_tenants image whose dispatcher (os/flair/process.c)
-# OR pump (os/milton/kmain.c) is built with ONE -DFLAIR_LIVE_MUTATE_* knob (all behind
+# OR pump (os/milton/kmain.c) is built with ONE named mutation knob (all behind
 # #ifdef, so the DEFAULT build is byte-identical -- proven by cmp). test-flair-appswitch-
 # mutant boots each, runs the SAME PRE/POST capture + grader, and asserts the grader
-# goes RED (Rule 6: a check that never bites is decoration). The 5th candidate knob,
-# NO_GROUP_RAISE, is HOST-COVERED (see the OMISSION note at the instantiations) and
+# goes RED (Rule 6: a check that never bites is decoration). The NO_GROUP_RAISE
+# candidate knob is HOST-COVERED (see the OMISSION note at the instantiations) and
 # carries no emu image.
 #
 # Two templates: a process.c (dispatcher) mutant swaps ONLY process.o (the clean
@@ -9003,6 +9003,8 @@ endef
 #                    exposed overlap not repainted                    -> TIER-A RED
 #   NO_MENUBAR_SWAP (pump)       -> skip DrawMenuBar(head->menubar):
 #                    title strip unchanged pre-vs-post (0 diffs)      -> MENU-BAND RED
+#   NOTES_BAR_SYS    (pump)       -> restore NOTES's original bar_sys assignment:
+#                    post-switch stacked bars are identical       -> POST-DISTINCT RED
 # $(call flair-tenants-window-mutant-rules,<KNOB>,<tag>): a Window-Manager
 # (window.c) mutant. Swaps ONLY window.o (clean kmain main obj + process.o +
 # ref_tenant.o + desktop.o reused -> the mutation is isolated to the window.c
@@ -9040,6 +9042,7 @@ $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_IGNORE_REFCON,ig
 $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_SKIP_ACTIVATE,skip_activate))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_DROP_UPDATE,drop_update))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP,no_menubar_swap))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_NOTES_BAR_SYS,notes_bar_sys))
 
 # SOLIDITY-gate mutants (epic initech-av7s; test-flair-solid-mutant):
 #   NO_ROUTE_ON_CHROME (pump)     -> flair_live_content_phase skips the route on
@@ -9096,7 +9099,7 @@ $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_REBUILD,no_r
 # It is HOST-COVERED by test-process-activate-mutant's ACTIVATE_MUT_RAISE_FRONT_ONLY
 # leg (harness/proptest/test_process_activate.c), which proves whole-group raise over a
 # MULTI-window app where front-only diverges. So NO emu image is built for it here; the
-# four above are the ones that bite the booted O-5 gate.
+# five above are the ones that bite the booted O-5 gate.
 
 # ===========================================================================
 # FO-6 (beads initech-5l5z): PS/2 mouse IRQ12 -- the mouse-enabled flair_live
@@ -13921,11 +13924,12 @@ test-flair-menu-crossdrag-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_NOREHIT_IMG) $(
 #         chimera: band 1 System-7 != band 2 Photoshop -- bead initech-4w15/Law 4).
 #   POST: inject the LOCKED $(FLAIR_APPSWITCH_SPEC) trace; screendump after
 #         FLAIR-DISPATCH app=NOTES -> NOTES raised + repainted + active + band 2
-#         menubar swapped (Photoshop -> System-7), band 1 UNCHANGED.
+#         menubar swapped (Photoshop -> NOTES), band 1 UNCHANGED and distinct.
 # ppm_flair_appswitch_check then grades the PRE->POST delta against the INDEPENDENT
 # canon (DISTINCT-CHIMERA band1!=band2 at boot ; TIER-A overlap HELLO_FILL->
 # NOTES_FILL ; TIER-B accent FILL->ACTIVE_ACCENT ; BAR1-STATIC band1 unchanged ;
-# MENU-BAND band2 title strip differs). Asserts (Law 2): no triple-fault either
+# MENU-BAND band2 title strip differs ; POST-DISTINCT post band1!=band2). Asserts
+# (Law 2): no triple-fault either
 # boot; FLAIR-TENANTS-READY + FLAIR-LIVE-READY + FLAIR-DISPATCH app=NOTES on serial;
 # both screendumps written; grader PASS. The guests cli;hlt after the bounded
 # budget, so the harness times out by design (OK = the asserts). Mutation-proven by
@@ -13942,8 +13946,8 @@ FLAIR_APPSW_POST_REPORT := $(BUILD)/$(FLAIR_APPSW_POST_NAME).report
 test-flair-appswitch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_APPSWITCH_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch : THE booted App Contract (O-5)\n'
-	@printf '  Click NOTES sliver -> raise+activate NOTES over HELLO + swap band 2 (System-7).\n'
-	@printf '  Ref: ADR-0013 (FLAIR App Contract); bead initech-4w15; spec/flair_appswitch_trace.mk. Law 2/4.\n'
+	@printf '  Click NOTES sliver -> raise+activate NOTES over HELLO + swap band 2 (File/Edit/Notes; no Apple).\n'
+	@printf '  Ref: ADR-0013 (FLAIR App Contract); beads initech-4w15 / initech-7tjp; spec/flair_appswitch_trace.mk. Law 2/4.\n'
 	@printf '======================================================================\n'
 	@printf 'Booting   : %s (PRE + POST captures of the co-resident tenants)\n' "$(FLAIRTENANTS_IMG)"
 	@printf 'Expecting : PRE distinct chimera + POST FLAIR-DISPATCH app=NOTES + grader PASS\n'
@@ -13980,14 +13984,14 @@ test-flair-appswitch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_APPSWITCH_C
 	@# ---- 4. Grade the PRE->POST delta against the INDEPENDENT canon. ----
 	@$(PPM_FLAIR_APPSWITCH_CHECK_BIN) "$(FLAIR_APPSW_PRE_PPM)" "$(FLAIR_APPSW_POST_PPM)" \
 		|| { printf '!!! test-flair-appswitch FAIL: the PRE->POST delta is not a raise+activate+menubar-swap (the App Contract app-switch is not wired)\n'; exit 1; }
-	@printf '>>> test-flair-appswitch [4/4]: grader PASS (DISTINCT-CHIMERA + TIER-A overlap + TIER-B accent + BAR1-STATIC + MENU-BAND swap)\n'
+	@printf '>>> test-flair-appswitch [4/4]: grader PASS (DISTINCT-CHIMERA + POST-DISTINCT + TIER-A overlap + TIER-B accent + BAR1-STATIC + MENU-BAND swap)\n'
 	@printf 'VERDICT   : PASS -- clicking the background tenant RAISES + ACTIVATES it and swaps\n'
 	@printf '            its menubar; the booted FLAIR App Contract honours O-5 (ADR-0013)\n'
 	@printf '            (QEMU; Bochs boot leg = make test-flair-appswitch-bochs)\n'
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-appswitch-mutant (Rule 6 -- MUTATION-PROVE the O-5 grader
-# BITES; a check that never bites is decoration). Boots 4 separate FLAIRTENANTS mutant
+# BITES; a check that never bites is decoration). Boots 5 separate FLAIRTENANTS mutant
 # images (each one -DFLAIR_LIVE_MUTATE_* knob, all behind #ifdef so the real image is
 # byte-identical), runs the SAME PRE/POST capture + grader, and confirms the grader
 # goes RED for every one. The CLEAN image is graded GREEN first as the baseline (same
@@ -14003,10 +14007,11 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 	$(BUILD)/flair_tenants_mut_ignore_refcon.img \
 	$(BUILD)/flair_tenants_mut_skip_activate.img \
 	$(BUILD)/flair_tenants_mut_drop_update.img \
-	$(BUILD)/flair_tenants_mut_no_menubar_swap.img
+	$(BUILD)/flair_tenants_mut_no_menubar_swap.img \
+	$(BUILD)/flair_tenants_mut_notes_bar_sys.img
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-appswitch-mutant : Rule 6 (the gate BITES)\n'
-	@printf '  4 FLAIRTENANTS mutants, each MUST drive ppm_flair_appswitch_check RED\n'
+	@printf '  5 FLAIRTENANTS mutants, each MUST drive ppm_flair_appswitch_check RED\n'
 	@printf '  (no_paintall_clear retired to the HOST proof -- see the OMISSION note\n'
 	@printf '  at the mutant-image instantiations; test_drag.c leg (e)).\n'
 	@printf '======================================================================\n'
@@ -14025,7 +14030,8 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 	for spec in "ignore_refcon:FLAIR_LIVE_MUTATE_IGNORE_REFCON:owner-recovery returns the foreground always -- no switch (TIER-A)" \
 	            "skip_activate:FLAIR_LIVE_MUTATE_SKIP_ACTIVATE:skip the deactivate/activate pair -- no accent (TIER-B)" \
 	            "drop_update:FLAIR_LIVE_MUTATE_DROP_UPDATE:skip flair_route_updates -- exposed overlap stale (TIER-A)" \
-	            "no_menubar_swap:FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP:skip DrawMenuBar -- band unchanged (MENU-BAND)"; do \
+	            "no_menubar_swap:FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP:skip DrawMenuBar -- band unchanged (MENU-BAND)" \
+	            "notes_bar_sys:KMAIN_MUT_NOTES_BAR_SYS:restore NOTES to bar_sys -- post bars identical (POST-DISTINCT)"; do \
 		tag=$${spec%%:*}; rest=$${spec#*:}; macro=$${rest%%:*}; desc=$${rest#*:}; \
 		img="$(BUILD)/flair_tenants_mut_$$tag.img"; \
 		printf '%s\n' '----------------------------------------------------------------------'; \
@@ -14050,7 +14056,7 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 	done; \
 	if [ "$$rc" != "0" ]; then exit 1; fi
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- all 4 mutants drive ppm_flair_appswitch_check RED (the gate bites; Rule 6;\n'
+	@printf 'VERDICT   : PASS -- all 5 mutants drive ppm_flair_appswitch_check RED (the gate bites; Rule 6;\n'
 	@printf '            no_paintall_clear is host-proven in test-drag-mutant leg (e))\n'
 	@printf '======================================================================\n'
 

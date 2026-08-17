@@ -14,8 +14,9 @@
  *
  * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the two
  * menu bands in this demo deliberately retain their System 7 heritage face in
- * this arc; the Platinum menu-bar face has not shipped. Their canonical strings
- * and app-switch behavior remain unchanged (DEC-10 Sec 3.3.3).
+ * this arc; the Platinum menu-bar face has not shipped. The boot strings and
+ * composition remain unchanged; NOTES's tenant-owned band-2 fixture is specified
+ * below (DEC-10 Sec 3.3.3; bead initech-7tjp).
  *
  * Layout rationale (640x480, two 20px bars => content area y >= 40):
  * HELLO is launched LAST => foreground => drawn ON TOP, and it PARTIALLY OCCLUDES
@@ -31,14 +32,14 @@
  * Window Help"). Band 2 reflects the ACTIVE app's own menu (the MultiFinder
  * swap); HELLO's menu IS the Photoshop bar, so with HELLO foreground the resting
  * scene is the distinct chimera with NO extra draw. The O-5 switch then ACTIVATES
- * NOTES (a System-7-menu app), so band 2 swaps Photoshop -> System-7: an
- * observable, mutation-provable transition (the no-menubar-swap mutant leaves
- * band 2 unchanged -> RED). Activating HELLO instead would be a no-op in band 2
- * (already Photoshop) AND would require NOTES(System-7) foreground at boot, whose
- * menu == band 1 => two identical stacked bars => Law-4 violation. Hence HELLO
- * foreground + activate-NOTES is the only 2-app arrangement that keeps (i) band 1
- * static, (ii) the band-2 swap observable, and (iii) the distinct chimera as the
- * RESTING look all at once.
+ * NOTES, so band 2 swaps Photoshop -> NOTES's File/Edit/Notes bar: an observable,
+ * mutation-provable transition (the no-menubar-swap mutant leaves band 2 unchanged
+ * -> RED). Activating HELLO instead would be a no-op in band 2
+ * (already Photoshop). HELLO therefore remains the boot foreground and the fixed
+ * shell_render composition remains untouched. When NOTES is activated, its own
+ * no-Apple SimpleText-flavored bar replaces Photoshop in band 2, so the swap stays
+ * observable without duplicating band 1 (bead initech-7tjp; PRD Sec 1.1 / Sec 3 /
+ * Sec 6.3; Law 4).
  */
 #ifndef FLAIR_TENANTS_DEMO_H
 #define FLAIR_TENANTS_DEMO_H
@@ -54,6 +55,28 @@
  *     O-5 serial marker is "FLAIR-DISPATCH app=<name>"). --- */
 #define FLAIR_TEN_HELLO_NAME   "HELLO"
 #define FLAIR_TEN_NOTES_NAME   "NOTES"
+
+/* --- NOTES-owned SimpleText-flavored menu fixture (bead initech-7tjp).
+ *     PRD Sec 1.1 / Sec 3 / Sec 6.3: band 2 reflects the active tenant but must
+ *     remain visually distinct from the shell-owned System-7 bar in band 1.
+ *     NOTES therefore owns File/Edit/Notes with NO Apple slot. IDs 384..386 are
+ *     disjoint from shell.c's System-7 128..131 and Photoshop 256..263 ranges.
+ *     Named strings keep the period-plausible demo fixture in its shared spec
+ *     header; kmain.c supplies only the static MenuBar/MenuInfo storage. --- */
+#define FLAIR_TEN_NOTES_MENU_COUNT       3
+#define FLAIR_TEN_NOTES_MENU_ID_BASE     384
+#define FLAIR_TEN_NOTES_MENU_FILE_TITLE  "File"
+#define FLAIR_TEN_NOTES_MENU_EDIT_TITLE  "Edit"
+#define FLAIR_TEN_NOTES_MENU_NOTES_TITLE "Notes"
+#define FLAIR_TEN_NOTES_ITEM_NEW         "New"
+#define FLAIR_TEN_NOTES_ITEM_OPEN        "Open"
+#define FLAIR_TEN_NOTES_ITEM_SAVE        "Save"
+#define FLAIR_TEN_NOTES_ITEM_QUIT        "Quit"
+#define FLAIR_TEN_NOTES_ITEM_UNDO        "Undo"
+#define FLAIR_TEN_NOTES_ITEM_CUT         "Cut"
+#define FLAIR_TEN_NOTES_ITEM_COPY        "Copy"
+#define FLAIR_TEN_NOTES_ITEM_PASTE       "Paste"
+#define FLAIR_TEN_NOTES_ITEM_ABOUT       "About Notes"
 
 /* --- Structure-rect bounds (left,top,right,bottom), half-open, global coords.
  *     HELLO: 60,60 .. 360,260 (300x200).  NOTES: 260,120 .. 560,340 (300x220).
