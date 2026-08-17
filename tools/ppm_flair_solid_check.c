@@ -4,7 +4,8 @@
  * (leg A/B: the WM update contract -- tenant content survives expose/drag),
  * initech-rqz5 (leg C: activation repaints chrome), initech-r8r7
  * (leg G: the live-pump DragWindow policy keeps the title band reachable),
- * and initech-haaq (leg H: title mouseDown raises before dragging).
+ * initech-haaq (leg H: title mouseDown raises before dragging), and
+ * initech-t1rv (leg E: band 2 drops the active tenant's menu).
  *
  * The 2026-07-21 first-person drive battery (WL shard TBD) proved the live
  * tenants desktop degrades monotonically: the compositor repaints CHROME only
@@ -41,6 +42,13 @@
  *       no stale vertical black run (HELLO's old right-edge frame) may cross
  *       NOTES's title band at x = HELLO right edge - 1.
  *
+ *   E <post_menu2.ppm> -- BAND-2 ACTIVE-TENANT MENU. With HELLO foreground,
+ *       press Photoshop File in the second menu band and select item 2. The
+ *       persistent panel must cover the formerly-teal rows immediately below
+ *       band 2 with canon BTNFACE body gray plus a black top frame. The serial
+ *       half of the gate independently requires menuID 256, distinguishing the
+ *       active Photoshop bar from bar_sys (menuID 128).
+ *
  *   G <post_clamp.ppm>  -- DRAG CLAMP. After activating NOTES, the locked
  *       trace grabs its title at (450,130) and releases at (5,5). The proposed
  *       struct (-185,-5) must be clamped to (-185,40): the complete title band
@@ -53,7 +61,7 @@
  *       active title stripes across its full width, and in front of HELLO at
  *       their old overlap.
  *
- * Usage: ppm_flair_solid_check <A|B|C|G|H> <dump.ppm>
+ * Usage: ppm_flair_solid_check <A|B|C|E|G|H> <dump.ppm>
  * Exit 0 = PASS; non-zero = a named FAIL (assertion + sampled-vs-expected).
  *
  * ASCII-clean (Rule 12). Deterministic (Rule 11): probe geometry derives from
@@ -66,6 +74,7 @@
 
 #include "flair_tenants_demo.h"   /* -Ispec: tenant rects + fills + canon      */
 #include "chrome_metrics.h"       /* -Ispec: FLAIR_CHROME_* title geometry     */
+#include "menu.h"                 /* -Ios/flair: shared panel geometry constants */
 
 #define TOL 2   /* per-channel capture tolerance, mirroring the drag grader */
 
@@ -313,6 +322,48 @@ static int leg_C(const Img *im)
     return bad;
 }
 
+/* ================= leg E: active tenant's band-2 menu ================= */
+/* Independent screen placement for the locked leg-E drop. The Menu Manager
+ * assumes its bar begins at local y=0, so its panel begins at local
+ * FLAIR_MENUBAR_H. Band 2 begins one shared menubar height down; therefore the
+ * screen panel top is 2*FLAIR_CHROME_MENUBAR_H == 40. The x probes lie in the
+ * overlap of both possible File panels: Photoshop begins at x=0 (no Apple
+ * slot), while the incorrect bar_sys begins at x=FLAIR_MENU_APPLE_W == 20.
+ * At the first item's glyph rows 0 and 1, Chicago cells are blank, so these
+ * points read panel BG for either bar. Thus pixels prove DROP+OFFSET, while the
+ * Makefile's menu=256 tooth alone proves ROUTING (Law 2; initech-t1rv).
+ * Shared chrome/menu constants are used wherever they exist (Rule 11). */
+#define SOLID_E_BAND2_TOP       FLAIR_CHROME_MENUBAR_H
+#define SOLID_E_PANEL_TOP       (SOLID_E_BAND2_TOP + FLAIR_MENUBAR_H)
+#define SOLID_E_FIRST_ROW_TOP   (SOLID_E_PANEL_TOP + FLAIR_MENU_PANEL_FRAME)
+#define SOLID_E_COMMON_X0       (FLAIR_MENU_APPLE_W + \
+                                  FLAIR_MENU_PANEL_FRAME + 4)
+#define SOLID_E_COMMON_X1       (2 * FLAIR_MENU_APPLE_W + \
+                                  FLAIR_MENU_TITLE_PAD)
+
+static int leg_E(const Img *im)
+{
+    int bad = 0;
+
+    /* The top frame overwrites teal at y=40. This x is inside both the clean
+     * Photoshop panel and the bar_sys mutant's shifted panel. */
+    bad |= probe_is(im, SOLID_E_COMMON_X0, SOLID_E_PANEL_TOP,
+                    CIDX_BLACK, "leg E band-2 menu black top frame");
+
+    /* Two independent BTNFACE body probes immediately below the frame. Before
+     * the drop these screen points are teal; after either possible File panel
+     * drops they are gray. Glyph rows 0/1 are blank in the Chicago fixture. */
+    bad |= probe_is(im, SOLID_E_COMMON_X0, SOLID_E_FIRST_ROW_TOP,
+                    CIDX_CONTROL, "leg E band-2 menu BTNFACE body row 0");
+    bad |= probe_is(im, SOLID_E_COMMON_X1, SOLID_E_FIRST_ROW_TOP + 1,
+                    CIDX_CONTROL, "leg E band-2 menu BTNFACE body row 1");
+
+    if (!bad)
+        printf("solid E PASS: band-2 File panel begins at y=40 "
+               "(black frame + BTNFACE body)\n");
+    return bad;
+}
+
 /* ================= leg G: live-pump drag clamp ======================== */
 /* Independent expected geometry for the LOCKED leg-G trace:
  * title grab (450,130) -> release (5,5) gives delta (-445,-125);
@@ -495,7 +546,7 @@ int main(int argc, char **argv)
     Img im;
     int rc;
     if (argc != 3 || strlen(argv[1]) != 1) {
-        fprintf(stderr, "usage: ppm_flair_solid_check <A|B|C|G|H> <dump.ppm>\n");
+        fprintf(stderr, "usage: ppm_flair_solid_check <A|B|C|E|G|H> <dump.ppm>\n");
         return 2;
     }
     if (read_ppm(argv[2], &im)) return 2;
@@ -503,6 +554,7 @@ int main(int argc, char **argv)
     case 'A': rc = leg_A(&im); break;
     case 'B': rc = leg_B(&im); break;
     case 'C': rc = leg_C(&im); break;
+    case 'E': rc = leg_E(&im); break;
     case 'G': rc = leg_G(&im); break;
     case 'H': rc = leg_H(&im); break;
     default:

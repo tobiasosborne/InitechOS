@@ -1510,13 +1510,21 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * the marker with sel=0. The desktop under the title stays bare teal, so
  * ppm_flair_menu_check sees teal (RED) and the sel=0 marker proves nothing was
  * chosen. NEVER define in a real build. */
-static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                               MenuBar *bar, flair_point_t where0)
+static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                  MenuBar *bar, flair_point_t where0,
+                                  uint32_t y_top)
 {
     int mi = MenuBar_hit(bar, (int)where0.h);
     int16_t menuID = (mi >= 0) ? bar->menus[mi].menuID : (int16_t)0;
 
 #ifndef FLAIR_LIVE_MUTATE_MENU_NOOP
+    /* Menu Manager geometry is local to a bar at y=0. For stacked band 2,
+     * translate screen points into the offset view before every menu verb;
+     * serial events remain in original screen coordinates. Ref: the existing
+     * make_offset_view band-2 swap idiom below (initech-4w15/-t1rv). */
+    flair_point_t menu_where0 = where0;
+    menu_where0.v = (int16_t)(menu_where0.v - (int16_t)y_top);
+
     if (mi < 0) {
         /* In the bar but not on a title (Apple slot / past the last title): no
          * menu drops. Emit the marker with sel=0 so the gate can tell. */
@@ -1524,11 +1532,15 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
         return;
     }
 
-    /* A whole-bitmap GrafPort over the offscreen (mirrors shell.c make_bar_port;
-     * flair_draw_menu_panel reads only port->portBits.bm + the supplied clip). */
+    /* A GrafPort over the y-offset offscreen view. make_offset_view reduces the
+     * view height by y_top, so a band-2 panel cannot address past the real
+     * framebuffer end; present still blits the WHOLE ctx->off. */
+    bitmap_t panel_view;
+    make_offset_view(&panel_view, &ctx->off, y_top);
     GrafPort port;
-    rgn_rect_t whole = { 0, 0, (int16_t)ctx->off.height, (int16_t)ctx->off.width };
-    port.portBits.bm     = ctx->off;
+    rgn_rect_t whole = { 0, 0, (int16_t)panel_view.height,
+                         (int16_t)panel_view.width };
+    port.portBits.bm     = panel_view;
     port.portBits.bounds = whole;
     port.portRect        = whole;
     port.visRgn          = (region_t *)0;
@@ -1562,14 +1574,17 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
         if (got) {
             flair_live_emit_evt(&mev);
         }
+        flair_point_t menu_where = mev.where;
+        menu_where.v = (int16_t)(menu_where.v - (int16_t)y_top);
         /* Append the cursor point, dedup consecutive identical; when full, keep
          * the most recent in the last slot so the RELEASE point is always pts[n-1]
          * for MenuSelect (deterministic selection, Rule 11). */
-        if (n == 0 || pts[n - 1].h != mev.where.h || pts[n - 1].v != mev.where.v) {
+        if (n == 0 || pts[n - 1].h != menu_where.h ||
+            pts[n - 1].v != menu_where.v) {
             if (n < FLAIR_MENU_TRACK_MAX) {
-                pts[n++] = mev.where;
+                pts[n++] = menu_where;
             } else {
-                pts[FLAIR_MENU_TRACK_MAX - 1] = mev.where;
+                pts[FLAIR_MENU_TRACK_MAX - 1] = menu_where;
             }
         }
         /* initech-9op1: re-hit the bar per tick, mirroring flair_menu_track's
@@ -1578,8 +1593,8 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
          * switches the LIVE tracked menu. Without this the live drop/hilite is
          * frozen on the originally-clicked menu for the whole drag. */
 #if !defined(KMAIN_MUT_MENU_NO_REHIT)
-        if (mev.where.v >= 0 && mev.where.v < (int)FLAIR_MENUBAR_H) {
-            int nb = MenuBar_hit(bar, (int)mev.where.h);
+        if (menu_where.v >= 0 && menu_where.v < (int)FLAIR_MENUBAR_H) {
+            int nb = MenuBar_hit(bar, (int)menu_where.h);
             if (nb >= 0) {
                 mi = nb;
             }
@@ -1590,7 +1605,8 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
          * LIVE tracked panel (MenuSelect's own result is unaffected -- it
          * re-derives its tracked menu independently from where0/pts). */
 #endif
-        int hi = MenuInfo_item_at(bar, mi, (int)mev.where.h, (int)mev.where.v);
+        int hi = MenuInfo_item_at(bar, mi, (int)menu_where.h,
+                                  (int)menu_where.v);
         if (mi != last_mi || hi != last_hi) {
             if (mi != last_mi) {
                 /* Title switched: erase the OLD menu's panel via the EXISTING
@@ -1619,7 +1635,7 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
     /* SELECT: the IM (menuID<<16|item) result from the tracked sequence (the
      * release is pts[n-1]). Leave the chosen item hilited as the persistent final
      * frame; if nothing was chosen, keep the last tracked hilite. */
-    uint32_t sel = MenuSelect(bar, where0, pts, n);
+    uint32_t sel = MenuSelect(bar, menu_where0, pts, n);
     int sel_item = (int)MenuResultItem(sel);
     int sel_hi   = (sel_item > 0) ? (sel_item - 1) : last_hi;
     flair_draw_menu_panel(&port, bar, mi, sel_hi,
@@ -1641,8 +1657,16 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puts("FLAIR-MENU menu=");
     serial_puti((int32_t)menuID);
     serial_puts(" item=0 (sel=0x00000000)\n");
-    (void)ctx; (void)bi;
+    (void)ctx; (void)bi; (void)y_top;
 #endif
+}
+
+/* The retained FO-7/8 single-bar pump remains a y=0 client. Keep its two call
+ * sites unchanged; only the tenants pump calls flair_live_do_menu_at for band 2. */
+static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               MenuBar *bar, flair_point_t where0)
+{
+    flair_live_do_menu_at(ctx, bi, bar, where0, 0u);
 }
 
 /* ===========================================================================
@@ -2643,6 +2667,30 @@ void kernel_main(void)
                 } else if (ev.where.v >= 0 &&
                            ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
                     flair_live_do_menu(&ctx, &b, &ctx.scene->bar_sys, ev.where);
+#if !defined(KMAIN_MUT_MENU2_DEAD)
+                } else if (ev.where.v >= (int16_t)SHELL_MENUBAR2_TOP &&
+                           ev.where.v < (int16_t)(SHELL_MENUBAR2_TOP +
+                                                  FLAIR_MENUBAR_H)) {
+                    /* Band 2 is the foreground tenant's bar, drawn through the
+                     * ten_barport offset-view idiom above. Route the SAME way:
+                     * active process-list head -> its own menubar, then give the
+                     * menu helper the band top so all menu geometry stays y=0
+                     * local while the panel lands below screen y=40.
+                     *
+                     * KMAIN_MUT_MENU2_BAR_SYS (Rule 6; initech-t1rv) restores
+                     * the latent wrong-bar bug: a panel drops, but its serial
+                     * menuID is bar_sys 128 rather than Photoshop 256. */
+#if defined(KMAIN_MUT_MENU2_BAR_SYS)
+                    MenuBar *menu2_bar = &ctx.scene->bar_sys;
+#else
+                    MenuBar *menu2_bar = ten_plist.head->menubar;
+#endif
+                    flair_live_do_menu_at(&ctx, &b, menu2_bar, ev.where,
+                                          (uint32_t)SHELL_MENUBAR2_TOP);
+#else
+                    /* NAMED MUTANT (Rule 6; initech-t1rv): restore the original
+                     * y<FLAIR_MENUBAR_H-only test, leaving band 2 dead. */
+#endif
                 }
             }
 

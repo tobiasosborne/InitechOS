@@ -301,21 +301,24 @@ include spec/flair_appswitch_trace.mk
 
 # ppm_flair_solid_check -- the FLAIR live-desktop SOLIDITY grader (epic
 # initech-av7s; beads initech-gofc legs A/B, initech-rqz5 leg C, initech-r8r7
-# leg G, initech-haaq leg H; WL-0075).
+# leg G, initech-haaq leg H, initech-t1rv leg E; WL-0075).
 # Grades ONE post-trace screendump per leg against the INDEPENDENT canon
 # (flair_canon_rgb, ADR-0010 -- never the renderer's palette): A close-expose
-# content, B drag-preserves-content, C activation chrome, G drag clamp, H title
-# click raises before drag. argv = <A|B|C|G|H>
-# dump.ppm. Shares the demo layout header, so -Ispec -Ispec/assets.
+# content, B drag-preserves-content, C activation chrome, E active-tenant band-2
+# menu drop, G drag clamp, H title click raises before drag.
+# argv = <A|B|C|E|G|H> dump.ppm. Shares the demo layout + Menu Manager geometry,
+# so -Ispec -Ispec/assets -Ios/flair.
 PPM_FLAIR_SOLID_CHECK_SRC := tools/ppm_flair_solid_check.c
 PPM_FLAIR_SOLID_CHECK_BIN := $(BUILD)/ppm_flair_solid_check
 
 # The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
 # (leg B: O-5 activate NOTES then title-drag it (-60,+60)), FLAIR_SOLID_SWITCH_
-# SPEC (leg C: the O-5 switch trace verbatim), FLAIR_SOLID_CLAMP_SPEC (leg G:
-# O-5 activate NOTES then title-drag toward (5,5), forcing the DQ6 clamp), and
-# FLAIR_SOLID_RAISE_SPEC (leg H: direct background-title press, then drag).
+# SPEC (leg C: the O-5 switch trace verbatim), FLAIR_SOLID_MENU2_SPEC (leg E:
+# click HELLO's Photoshop File menu in band 2 and select item 2), FLAIR_SOLID_
+# CLAMP_SPEC (leg G: O-5 activate NOTES then title-drag toward (5,5), forcing
+# the DQ6 clamp), and FLAIR_SOLID_RAISE_SPEC (leg H: direct background-title
+# press, then drag).
 include spec/flair_solid_traces.mk
 
 # ---------------------------------------------------------------------------
@@ -9058,8 +9061,14 @@ $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_NOTES_BAR_SYS,notes_bar
 #                                                            -> solid leg G RED
 #   NO_RAISE_ON_TITLE (dispatcher)-> suppress only DQ5 title-click switching:
 #                    NOTES ghost-drags behind active HELLO     -> solid leg H RED
+#   MENU2_DEAD (pump)             -> restore the original y<20-only band test:
+#                    band 2 never drops a menu                  -> solid leg E RED
+#   MENU2_BAR_SYS (pump)          -> band 2 drops bar_sys instead of the active
+#                    tenant bar: pixels pass but menuID is 128  -> solid leg E RED
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME,no_route_on_chrome))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_DRAG_CLAMP,no_drag_clamp))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_MENU2_DEAD,menu2_dead))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_MENU2_BAR_SYS,menu2_bar_sys))
 $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE,no_raise_on_title))
 $(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUTATE_NO_ACTIVATE_INVAL,no_activate_inval))
 
@@ -9357,8 +9366,8 @@ $(PPM_FLAIR_DC4V_CHECK_BIN): $(PPM_FLAIR_DC4V_CHECK_SRC) spec/assets/color_canon
 $(PPM_FLAIR_APPSWITCH_CHECK_BIN): $(PPM_FLAIR_APPSWITCH_CHECK_SRC) spec/flair_tenants_demo.h spec/assets/color_canon.h spec/chrome_metrics.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec -Ispec/assets -o $@ $<
 
-$(PPM_FLAIR_SOLID_CHECK_BIN): $(PPM_FLAIR_SOLID_CHECK_SRC) spec/flair_tenants_demo.h spec/assets/color_canon.h spec/chrome_metrics.h | $(BUILD)
-	$(CC) $(CFLAGS) -Ispec -Ispec/assets -o $@ $<
+$(PPM_FLAIR_SOLID_CHECK_BIN): $(PPM_FLAIR_SOLID_CHECK_SRC) spec/flair_tenants_demo.h spec/assets/color_canon.h spec/chrome_metrics.h os/flair/menu.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec -Ispec/assets -Ios/flair -o $@ $<
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
 # probes are value-BLIND (a teal->seafoam value perturbation leaves the period-2
@@ -14157,7 +14166,7 @@ endif
 # (chrome phase -> content phase -> present) holds under close, drag and
 # app-switch on the booted 386).
 # ---------------------------------------------------------------------------
-# Five deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG), one
+# Six deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG), one
 # LOCKED trace (spec/flair_solid_traces.mk) + one marker-gated screendump each,
 # graded by ppm_flair_solid_check against the INDEPENDENT canon (ADR-0010):
 #   A CLOSE-EXPOSE : click HELLO's go-away; dump after FLAIR-CLOSE. The exposed
@@ -14172,6 +14181,10 @@ endif
 #     NOTES's title band ACTIVE (pinstriped) across its FULL width including
 #     the previously-occluded left segment; HELLO's flat inactive; no stale
 #     HELLO edge crossing NOTES's title band (the rqz5 0->1 seed).
+#   E BAND-2 MENU  : with boot-foreground HELLO active, click its Photoshop File
+#     title in band 2 and select item 2; dump after the final FLAIR-MENU marker.
+#     The panel must begin below band 2 at y=40, and serial must identify the
+#     active tenant's menuID 256 rather than bar_sys's menuID 128 (initech-t1rv).
 #   G DRAG-CLAMP   : O-5 activate NOTES, grab its title at (450,130), then drag
 #     to (5,5); dump after FLAIR-DRAG. The proposed struct (-185,-5) is clamped
 #     to (-185,40), leaving the full title band below menu band 2 and 115 px of
@@ -14189,13 +14202,14 @@ endif
 FLAIR_SOLID_A_NAME := flair_solid_close
 FLAIR_SOLID_B_NAME := flair_solid_drag
 FLAIR_SOLID_C_NAME := flair_solid_switch
+FLAIR_SOLID_E_NAME := flair_solid_menu2
 FLAIR_SOLID_G_NAME := flair_solid_clamp
 FLAIR_SOLID_H_NAME := flair_solid_raise
 .PHONY: test-flair-solid
 test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-solid : the live-desktop SOLIDITY contract\n'
-	@printf '  A close-expose / B drag-content / C activation / G drag-clamp / H title-raise.\n'
+	@printf '  A close-expose / B drag-content / C activation / E band-2 menu / G drag-clamp / H title-raise.\n'
 	@printf '  Ref: epic initech-av7s (DQ1-DQ3, DQ5-DQ6, DQ9); spec/flair_solid_traces.mk. Law 2/4.\n'
 	@printf '======================================================================\n'
 	@# ---- leg A: close HELLO -> the exposed NOTES overlap is repainted content ----
@@ -14236,6 +14250,20 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) C "$(BUILD)/$(FLAIR_SOLID_C_NAME).ppm" \
 		|| { printf '!!! test-flair-solid FAIL: leg C -- activation chrome wrong (flat/half-active title or stale band; initech-rqz5)\n'; exit 1; }
 	@printf '>>> test-flair-solid [C]: activation chrome full-width active + flat inactive + no stale band\n'
+	@# ---- leg E: HELLO active -> Photoshop File drops from band 2 at y=40 ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_E_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 \
+		2> "$(BUILD)/$(FLAIR_SOLID_E_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_E_NAME).report"; then printf '!!! test-flair-solid FAIL: leg E TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-MENU-DROP menu=256$$' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg E FLAIR-MENU-DROP menu=256 missing -- band 2 did not route to active HELLO/Photoshop\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" || true; exit 1; }
+	@grep -q '^FLAIR-MENU menu=256 item=2 (sel=0x01000002)$$' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg E Photoshop File item 2 selection marker missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_E_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg E screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_SOLID_CHECK_BIN) E "$(BUILD)/$(FLAIR_SOLID_E_NAME).ppm" \
+		|| { printf '!!! test-flair-solid FAIL: leg E -- active tenant File panel did not drop below band 2 (initech-t1rv)\n'; exit 1; }
+	@printf '>>> test-flair-solid [E]: band 2 drops HELLO/Photoshop menuID 256 below y=40\n'
 	@# ---- leg G: drag toward (5,5) -- title band stays reachable below band 2 ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_G_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLAMP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -14267,11 +14295,11 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 		|| { printf '!!! test-flair-solid FAIL: leg H -- NOTES did not raise/activate before its title drag (initech-haaq)\n'; exit 1; }
 	@printf '>>> test-flair-solid [H]: background title click switches to NOTES, then drags it in front to (200,180)\n'
 	@printf 'VERDICT   : PASS -- the live desktop honours the ONE repaint contract under\n'
-	@printf '            close/drag/switch; DQ5 raises on title and DQ6 keeps titles reachable.\n'
+	@printf '            close/drag/switch/menu; DQ5 raises on title and DQ6 keeps titles reachable.\n'
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-solid-mutant (Rule 6; DQ9 -- per-leg mutants). The CLEAN
-# image is graded GREEN on all five legs first (the baseline), then each mutant
+# image is graded GREEN on all six legs first (the baseline), then each mutant
 # image re-runs ONLY the legs it must break:
 #   no_route_on_chrome (-DFLAIR_LIVE_MUTATE_NO_ROUTE_ON_CHROME, pump): the
 #     drag/close content phase blanket-validates instead of routing -- legs A
@@ -14282,17 +14310,23 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 #     is suppressed -- leg G MUST go RED (title remains under both menu bars).
 #   no_raise_on_title (-DFLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE, dispatcher): only
 #     the DQ5 inDrag switch arm is suppressed -- leg H MUST go RED (ghost drag).
+#   menu2_dead (-DKMAIN_MUT_MENU2_DEAD, pump): restore the original y<20-only
+#     test -- leg E's y=40 panel probes remain teal and no menu marker is emitted.
+#   menu2_bar_sys (-DKMAIN_MUT_MENU2_BAR_SYS, pump): band 2 drops at y=40, so
+#     leg E pixels remain GREEN, but the routing tooth is menu=128, not menu=256.
 .PHONY: test-flair-solid-mutant
 test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENANTS_IMG) \
 	$(BUILD)/flair_tenants_mut_no_route_on_chrome.img \
 	$(BUILD)/flair_tenants_mut_no_activate_inval.img \
+	$(BUILD)/flair_tenants_mut_menu2_dead.img \
+	$(BUILD)/flair_tenants_mut_menu2_bar_sys.img \
 	$(BUILD)/flair_tenants_mut_no_drag_clamp.img \
 	$(BUILD)/flair_tenants_mut_no_raise_on_title.img
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-solid-mutant : Rule 6 (the gate BITES)\n'
-	@printf '  no_route_on_chrome MUST break A+B; no_activate_inval C; no_drag_clamp G; no_raise_on_title H.\n'
+	@printf '  no_route_on_chrome MUST break A+B; no_activate_inval C; menu2_dead/menu2_bar_sys E; no_drag_clamp G; no_raise_on_title H.\n'
 	@printf '======================================================================\n'
-	@# ---- baseline: the CLEAN image grades GREEN on all five legs. ----
+	@# ---- baseline: the CLEAN image grades GREEN on all six legs. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLOSE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 >/dev/null 2>&1 || true
@@ -14302,19 +14336,24 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_C_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_SWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_E_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_G_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLAMP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 >/dev/null 2>&1 || true
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_SOLID_H_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_RAISE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 >/dev/null 2>&1 || true
-	@for leg in A:$(FLAIR_SOLID_A_NAME) B:$(FLAIR_SOLID_B_NAME) C:$(FLAIR_SOLID_C_NAME) G:$(FLAIR_SOLID_G_NAME) H:$(FLAIR_SOLID_H_NAME); do \
+	@for leg in A:$(FLAIR_SOLID_A_NAME) B:$(FLAIR_SOLID_B_NAME) C:$(FLAIR_SOLID_C_NAME) E:$(FLAIR_SOLID_E_NAME) G:$(FLAIR_SOLID_G_NAME) H:$(FLAIR_SOLID_H_NAME); do \
 		l=$${leg%%:*}; n=$${leg#*:}; \
 		if [ ! -s "$(BUILD)/$$n.ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: clean leg %s produced no screendump (no baseline)\n' "$$l"; exit 1; fi; \
 		$(PPM_FLAIR_SOLID_CHECK_BIN) $$l "$(BUILD)/$$n.ppm" >/dev/null 2>&1 \
 			|| { printf '!!! test-flair-solid-mutant FAIL: the CLEAN image did not grade GREEN on leg %s -- the baseline is broken\n' "$$l"; exit 1; }; \
 	done
-	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on legs A+B+C+G+H\n'
+	@grep -q '^FLAIR-MENU-DROP menu=256$$' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" \
+		|| { printf '!!! test-flair-solid-mutant FAIL: clean leg E lacks the menu=256 routing baseline\n'; exit 1; }
+	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on legs A+B+C+E+G+H\n'
 	@# ---- no_route_on_chrome: legs A and B MUST go RED. ('|'-delimited fields:
 	@# the mouse specs themselves contain ':'.) ----
 	@rc=0; \
@@ -14353,6 +14392,41 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 		printf '>>> no_activate_inval leg C correctly RED:\n'; \
 		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_actinval_C.chk" | sed 's/^/      /'; \
 	fi
+	@# ---- menu2_dead: leg E pixels + marker MUST go RED. Capture at LIVE-OK
+	@# because the faithful dead-band mutant emits no FLAIR-MENU marker. ----
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_menu2_dead.img" \
+		--name flair_solid_mut_menu2_dead_E --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 \
+		2> "$(BUILD)/flair_solid_mut_menu2_dead_E.report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_solid_mut_menu2_dead_E.report"; then printf '!!! test-flair-solid-mutant FAIL: menu2_dead TRIPLE-FAULTED (cannot judge)\n'; exit 1; fi
+	@if grep -q '^FLAIR-MENU-DROP ' "$(BUILD)/flair_solid_mut_menu2_dead_E.serial"; then printf '!!! test-flair-solid-mutant FAIL: menu2_dead is not faithful -- it unexpectedly dropped a menu\n'; exit 1; fi
+	@if [ ! -s "$(BUILD)/flair_solid_mut_menu2_dead_E.ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: menu2_dead produced no LIVE-OK screendump\n'; exit 1; fi
+	@if $(PPM_FLAIR_SOLID_CHECK_BIN) E "$(BUILD)/flair_solid_mut_menu2_dead_E.ppm" > "$(BUILD)/flair_solid_mut_menu2_dead_E.chk" 2>&1; then \
+		printf '!!! test-flair-solid-mutant FAIL: the leg E pixel oracle is DECORATION -- menu2_dead PASSED it\n'; exit 1; \
+	else \
+		printf '>>> menu2_dead leg E correctly RED (no drop marker; teal remains):\n'; \
+		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_menu2_dead_E.chk" | sed 's/^/      /'; \
+	fi
+	@# ---- menu2_bar_sys: panel pixels stay GREEN, but menu=256 tooth MUST RED. ----
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_menu2_bar_sys.img" \
+		--name flair_solid_mut_menu2_bar_sys_E --out "$(BUILD)" \
+		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-MENU menu=" --timeout-ms 15000 \
+		2> "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.report"; then printf '!!! test-flair-solid-mutant FAIL: menu2_bar_sys TRIPLE-FAULTED (cannot judge)\n'; exit 1; fi
+	@if [ ! -s "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.ppm" ]; then printf '!!! test-flair-solid-mutant FAIL: menu2_bar_sys produced no screendump\n'; exit 1; fi
+	@$(PPM_FLAIR_SOLID_CHECK_BIN) E "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.ppm" >/dev/null 2>&1 \
+		|| { printf '!!! test-flair-solid-mutant FAIL: menu2_bar_sys did not drop a panel at y=40 -- wrong failure axis\n'; exit 1; }
+	@if grep -q '^FLAIR-MENU-DROP menu=256$$' "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.serial"; then \
+		printf '!!! test-flair-solid-mutant FAIL: the leg E routing tooth is DECORATION -- menu2_bar_sys still emitted menu=256\n'; exit 1; \
+	elif ! grep -q '^FLAIR-MENU-DROP menu=128$$' "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.serial"; then \
+		printf '!!! test-flair-solid-mutant FAIL: menu2_bar_sys lacks the expected menu=128 proof -- wrong failure axis\n'; grep '^FLAIR-' "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.serial" || true; exit 1; \
+	elif ! grep -q '^FLAIR-MENU menu=128 item=2 (sel=0x00800002)$$' "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.serial"; then \
+		printf '!!! test-flair-solid-mutant FAIL: menu2_bar_sys did not complete File item 2 selection\n'; grep '^FLAIR-' "$(BUILD)/flair_solid_mut_menu2_bar_sys_E.serial" || true; exit 1; \
+	else \
+		printf '>>> menu2_bar_sys leg E routing tooth correctly RED: panel dropped, but serial says menu=128 (expected 256)\n'; \
+	fi
 	@# ---- no_drag_clamp: leg G MUST go RED. ----
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_drag_clamp.img" \
 		--name flair_solid_mut_dragclamp_G --out "$(BUILD)" \
@@ -14381,7 +14455,7 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 		printf '>>> no_raise_on_title leg H correctly RED:\n'; \
 		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_title_raise_H.chk" | sed 's/^/      /'; \
 	fi
-	@printf 'VERDICT   : PASS -- all four solidity mutants drive their legs RED (the gate bites; Rule 6)\n'
+	@printf 'VERDICT   : PASS -- all six solidity mutants drive their legs RED (the gate bites; Rule 6)\n'
 	@printf '======================================================================\n'
 
 # ===========================================================================
@@ -14410,7 +14484,8 @@ RECORD_SPEC_solid_switch = $(FLAIR_SOLID_SWITCH_SPEC)
 RECORD_SPEC_appswitch    = $(FLAIR_APPSWITCH_SPEC)
 RECORD_SPEC_solid_clamp  = $(FLAIR_SOLID_CLAMP_SPEC)
 RECORD_SPEC_solid_raise  = $(FLAIR_SOLID_RAISE_SPEC)
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise
+RECORD_SPEC_solid_menu2  = $(FLAIR_SOLID_MENU2_SPEC)
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the

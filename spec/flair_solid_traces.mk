@@ -9,7 +9,7 @@
 # producer convention); every component int8-safe (|c| <= 100 here).
 # Geometry: spec/flair_tenants_demo.h (HELLO struct 60,60..360,260 with go-away
 # box at ~(69..80, 64..75); NOTES struct 260,120..560,340, visible title
-# x >= 360).  Grader: tools/ppm_flair_solid_check.c (legs A/B/C/G/H).
+# x >= 360).  Grader: tools/ppm_flair_solid_check.c (legs A/B/C/E/G/H).
 #
 # Leg A -- CLOSE-EXPOSE CONTENT.  Click HELLO's go-away box at (74,70):
 #   delta from centre = (-246,-170), split m-100:-100, m-100:-70, m-46:0;
@@ -32,6 +32,17 @@ FLAIR_SOLID_DRAG_SPEC  := m100:60,m40:0,l1,l0,m-10:-100,m0:-70,l1,m-60:60,l0
 # its full width, HELLO's flat inactive, and no stale HELLO edge inside
 # NOTES's title band.
 FLAIR_SOLID_SWITCH_SPEC := m70:30,m70:30,l1,l0
+
+# Leg E -- BAND-2 ACTIVE-TENANT MENU. HELLO is foreground from boot, so band 2
+# owns its Photoshop bar (File menuID 256). From cursor start (320,240), move to
+# File at (30,30): delta (-290,-210), split into int8-safe packets
+# (-100,-100),(-100,-100),(-90,-10). Press, then move (+15,+35) to (45,65).
+# In band-2-local coordinates (subtract SHELL_MENUBAR2_TOP=20), release is
+# (45,45): the panel starts at local y=20, its 1px frame ends at y=21, item 1 is
+# [21,37), and item 2 is [37,53), so y=45 selects Photoshop File item 2. Every
+# packet component has |c| <= 100. The trace stays inside ONE menu (no
+# cross-menu drag), keeping menu restore beads initech-b3hl/-j0vt out of scope.
+FLAIR_SOLID_MENU2_SPEC := m-100:-100,m-100:-100,m-90:-10,l1,m15:35,l0
 
 # Leg G -- DRAG CLAMP. First activate NOTES at (460,300), then grab its title
 # bar at (450,130), exactly as leg B. Drag the cursor to the on-screen waypoint
