@@ -122,6 +122,29 @@ test_menu.
   `solid_switch`/`appswitch` clips show the distinct File/Edit/Notes band-2
   after switch. All clips in `build/clips/`.
 
+## Postscript (same sitting, 2026-08-18): `initech-chd4` — Route 1 lands
+
+The DEC-10 OQ-7 funded follow-up landed as a fourth serial slice (commit
+`d1ac218`): the era axis is DATA at the policy seam. `flair_look` gained a
+pure-data PART->skin-slot offset map + `flair_look_pixel_for_skin`; chrome.c
+threads `const flair_skin_t*` beside the GrafPort (documented macro wrappers,
+geometry call sites untouched); desktop/dialog source the row via
+`flair_look_default_skin()` — the registry's FIRST os/ callers, closing the
+DEC-10 Sec 5.3 Law-2 smell. Look-neutral proven (host render byte-identical,
+zero re-keys, exact-profile emu gates, clip eyeball); `FLAIR_MUT_SKIN_WRONG_ERA`
+(SYS7 row into the live pointer) is the 15th fidelity mutant, RED on exactly
+the five slot-fed legs. `spec/flair_skins.h` touched only to name the struct
+tag (Rule 8 deliberate act; digest unchanged). Certificate: `make clean &&
+make test` ALL GREEN 324 host + 85 emu.
+
+Operational note (recorded as bd memory
+`codex-exec-cross-session-kill-trap-2026-08`): cross-session forensics with the
+rk-campaign-D orchestrator confirmed to the second that a fresh `codex exec`
+dispatch SIGKILLs OTHER sessions' running codex children (~20-30 s after
+attach; the newcomer is spared). Codex windows are now SERIALIZED between
+sessions via SendMessage coordination; rk will ship a host-wide lockfile as
+the durable fix — gate dispatches on it once it exists.
+
 ## Pointers
 
 - Beads closed: `7tjp`, `t1rv`, `b3hl`, `j0vt`. Filed/updated: `e7qc` (dBASE-Mac
