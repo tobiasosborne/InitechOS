@@ -1,0 +1,73 @@
+TPS-LEX-BEGIN
+KW program
+IDENT mixed_main
+SEMI
+KW const
+KW type
+KW var
+KW begin
+KW end
+KW integer
+KW div
+KW mod
+KW write
+KW writeln
+KW boolean
+KW and
+KW or
+KW not
+KW true
+KW false
+KW if
+KW then
+KW else
+KW while
+KW do
+KW for
+KW to
+KW downto
+KW repeat
+KW until
+KW case
+KW of
+KW procedure
+KW function
+KW forward
+KW array
+KW record
+KW char
+KW ord
+KW chr
+KW string
+KW length
+KW file
+KW procedure
+IDENT mixed_id
+IDENT _second
+SEMI
+INTEGER 0
+INTEGER 42
+INTEGER 2147483647
+STRING 4 105 116 39 115
+STRING 0
+SEMI
+DOT
+DOTDOT
+COMMA
+COLON
+ASSIGN
+LPAREN
+RPAREN
+LBRACKET
+RBRACKET
+PLUS
+MINUS
+STAR
+EQ
+NE
+LT
+LE
+GT
+GE
+EOF
+TPS-LEX-END

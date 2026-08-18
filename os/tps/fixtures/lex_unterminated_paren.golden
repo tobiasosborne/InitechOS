@@ -1,0 +1,4 @@
+TPS-LEX-BEGIN
+IDENT x
+TPS-LEX-ERROR pos=3 line=1 col=3 unterminated paren-star comment
+TPS-LEX-END

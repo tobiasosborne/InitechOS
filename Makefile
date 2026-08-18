@@ -7200,6 +7200,10 @@ help:
 	@printf '  test-seed-string-mutant  Rule-6 proof (B7 strings): BOTH deep-bug mutants make string.pas correctly RED -- STR_TEMP_CLOBBER (every string temp collapsed to index 0, flipping the right-nested-concat RNEST tag) + STR_CMP_NOLEN (__str_cmp drops the prefix-equal length tiebreak, flipping EQF). REAL (QEMU). beads initech-39k2, ADR-0007 DEC-02/DEC-07.\n'
 	@printf '  test-seed-fileio-build  B8 host-native build/static-contract gate: clean + SHORT_WRITE + WRONG_HANDLE seed ELFs assemble/link and select distinct hand-assembled RTL entries. NOT the runtime Rule-6 RED proof; that requires the orchestrator-owned seed-on-InitechDOS leg. beads initech-ogxv.\n'
 	@printf '  test-seed-fileio-fpc  B8 host Free Pascal oracle: file_shared.pas writes/reads 9 bytes and emits the hand-computed stdout exactly; seed on-InitechDOS comparison is orchestrator-owed. beads initech-ogxv.\n'
+	@printf '  test-tps-lex-fpc  B9.1 host oracle: fpc-built Turbo Initech lexer vs hand-computed token/error goldens + deterministic self-lex smoke. beads initech-6m52.\n'
+	@printf '  test-tps-lex-build  B9.1 host build gate: the seed compiles tps.pas and the same program object links as bare-metal ELF and InitechDOS TPS.COM. beads initech-6m52.\n'
+	@printf '  test-tps-lex-mutant  B9.1 Rule-6 source mutants: identifier case-fold and doubled-quote decoding both compile, run, and go RED on the host golden for the named wrong value.\n'
+	@printf '  test-tps-lex-os  B9.1 on-InitechDOS two-level differential: seed-built TPS.COM serial dump == fpc-built tps stdout for one TPSIN.PAS. EMULATOR; deliberately outside TEST_EMU_GATES pending orchestrator proof.\n'
 	@printf '  test-seed-fpc-diff  DEC-07 Rung 2: seed vs Free Pascal for B4-B7 via direct-QEMU ELFs; B8 file_shared host-fpc + seed build included, with seed-on-InitechDOS execution explicitly orchestrator-owed. IN default `make test`; FAILS LOUD when fpc is absent.\n'
 	@printf '  test-seed-repro  Reproducible-build gate: the FULL seed corpus, compiled twice (initechc->nasm->ld) into separate scratch dirs, is byte-identical (.s+.o+.elf sha256). REAL. bead initech-3yv, ADR-0007 FO-5/DEC-06.\n'
 	@printf '  test-seed-repro-mutant  Rule-6 proof: -DSEED_MUT_NONDET (getpid()-seeded dead .rodata symbol -- GENUINE nondeterminism) makes test-seed-repro correctly RED, while leaving bool.pas single-run behavior untouched. REAL. bead initech-3yv, ADR-0007 FO-5.\n'
@@ -12800,6 +12804,225 @@ test-seed-fileio-os-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SEED_FILEIO_MUT_SHORT
 	done; \
 	if [ "$$rc" != "0" ]; then exit 1; fi
 	@printf '>>> test-seed-fileio-os-mutant: green (both B8 mutants bite on metal)\n'
+
+# ---------------------------------------------------------------------------
+# B9.1: THE TURBO INITECH LEXER (os/tps/ is born; beads initech-6m52)
+# ---------------------------------------------------------------------------
+# Ref: docs/plans/TPS-M7-subset-plan.md Sec 3/Sec 5; ADR-0007 DEC-02
+# (32-bit integer, complete boolean evaluation, case-insensitive identifiers),
+# DEC-04 (deterministic char-pool/index-arena storage), DEC-05 (thin file RTL),
+# DEC-07 (independent golden -> fpc -> seed-on-InitechDOS ladder).
+#
+# The HOST golden is hand-computed in os/tps/fixtures/lex_basic.golden. fpc
+# compiles the LEXER, not the fixture; the fixture is merely TPSIN.PAS data.
+# Thus the expected stream is independent of the implementation (Law 2).
+# CR removal is gate-only: seed Writeln and Linux fpc both emit LF today, while
+# this normalization keeps the byte oracle portable without splitting the
+# Pascal artifact's one output path. See os/tps/LEXER-DUMP.md.
+TPS_DIR                       := os/tps
+TPS_LEX_SRC                   := $(TPS_DIR)/tps.pas
+TPS_LEX_FIXTURE_DIR           := $(TPS_DIR)/fixtures
+TPS_LEX_BASIC                 := $(TPS_LEX_FIXTURE_DIR)/lex_basic.pas
+TPS_LEX_BASIC_GOLDEN          := $(TPS_LEX_FIXTURE_DIR)/lex_basic.golden
+TPS_LEX_ERROR_CASES           := lex_badchar lex_unterminated_string lex_unterminated_brace lex_unterminated_paren
+TPS_LEX_BUILD_DIR             := $(BUILD)/tps_lex
+TPS_LEX_FPC_BIN               := $(TPS_LEX_BUILD_DIR)/tps_fpc
+TPS_LEX_FPC_BASIC_OUT         := $(TPS_LEX_BUILD_DIR)/lex_basic.out
+TPS_LEX_MUT_CASE_SRC          := $(TPS_LEX_BUILD_DIR)/tps_mut_casefold.pas
+TPS_LEX_MUT_STRESC_SRC        := $(TPS_LEX_BUILD_DIR)/tps_mut_stresc.pas
+TPS_LEX_MUT_CASE_BIN          := $(TPS_LEX_BUILD_DIR)/tps_mut_casefold
+TPS_LEX_MUT_STRESC_BIN        := $(TPS_LEX_BUILD_DIR)/tps_mut_stresc
+TPS_LEX_SEED_ASM              := $(TPS_LEX_BUILD_DIR)/tps_seed.s
+TPS_LEX_SEED_OBJ              := $(TPS_LEX_BUILD_DIR)/tps_seed.o
+TPS_LEX_SEED_BARE_ELF         := $(TPS_LEX_BUILD_DIR)/tps_seed_bare.elf
+TPS_LEX_SEED_DOS_ELF          := $(TPS_LEX_BUILD_DIR)/tps_seed_dos.elf
+TPS_LEX_COM                   := $(TPS_LEX_BUILD_DIR)/TPS.COM
+TPS_LEX_IMG                   := $(BUILD)/tps_lex.img
+TPS_LEX_OS_KEYS               := t,p,s,ret
+
+$(TPS_LEX_BUILD_DIR): | $(BUILD)
+	@mkdir -p $@
+
+$(TPS_LEX_FPC_BIN): $(TPS_LEX_SRC) | $(TPS_LEX_BUILD_DIR)
+	@command -v fpc >/dev/null 2>&1 \
+		|| { printf '!!! test-tps-lex-fpc FAIL: fpc is not installed\n'; exit 1; }
+	@fpc -B -O- -v0 -FU$(TPS_LEX_BUILD_DIR) -FE$(TPS_LEX_BUILD_DIR) -o$@ $< >/dev/null \
+		|| { printf '!!! test-tps-lex-fpc FAIL: fpc rejected %s\n' "$<"; exit 1; }
+
+$(TPS_LEX_FPC_BASIC_OUT): $(TPS_LEX_FPC_BIN) $(TPS_LEX_BASIC) | $(TPS_LEX_BUILD_DIR)
+	@rm -rf $(TPS_LEX_BUILD_DIR)/run_basic
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/run_basic
+	@cp -f $(TPS_LEX_BASIC) $(TPS_LEX_BUILD_DIR)/run_basic/TPSIN.PAS
+	@cd $(TPS_LEX_BUILD_DIR)/run_basic && ../tps_fpc > ../lex_basic.raw \
+		|| { printf '!!! test-tps-lex-fpc FAIL: fpc-built lexer exited non-zero on lex_basic\n'; exit 1; }
+	@tr -d '\r' < $(TPS_LEX_BUILD_DIR)/lex_basic.raw > $@
+
+.PHONY: test-tps-lex-fpc
+test-tps-lex-fpc: $(TPS_LEX_FPC_BASIC_OUT)
+	@printf '>>> test-tps-lex-fpc: hand-computed full-surface golden\n'
+	@diff -u $(TPS_LEX_BASIC_GOLDEN) $(TPS_LEX_FPC_BASIC_OUT) \
+		|| { printf '!!! test-tps-lex-fpc FAIL: lex_basic token dump differs\n'; exit 1; }
+	@printf '>>> test-tps-lex-fpc: bad-character + unterminated string/comment goldens\n'
+	@for name in $(TPS_LEX_ERROR_CASES); do \
+		run=$(TPS_LEX_BUILD_DIR)/run_$$name; \
+		rm -rf "$$run"; mkdir -p "$$run"; \
+		cp -f $(TPS_LEX_FIXTURE_DIR)/$$name.pas "$$run/TPSIN.PAS"; \
+		(cd "$$run" && ../tps_fpc > ../$$name.raw) \
+			|| { printf '!!! test-tps-lex-fpc FAIL: lexer process failed on %s\n' "$$name"; exit 1; }; \
+		tr -d '\r' < $(TPS_LEX_BUILD_DIR)/$$name.raw > $(TPS_LEX_BUILD_DIR)/$$name.out; \
+		diff -u $(TPS_LEX_FIXTURE_DIR)/$$name.golden $(TPS_LEX_BUILD_DIR)/$$name.out \
+			|| { printf '!!! test-tps-lex-fpc FAIL: %s error stream differs\n' "$$name"; exit 1; }; \
+	done
+	@printf '>>> test-tps-lex-fpc: deterministic non-empty self-lex (tps.pas reads itself)\n'
+	@for run in self_a self_b; do \
+		dir=$(TPS_LEX_BUILD_DIR)/run_$$run; \
+		rm -rf "$$dir"; mkdir -p "$$dir"; \
+		cp -f $(TPS_LEX_SRC) "$$dir/TPSIN.PAS"; \
+		(cd "$$dir" && ../tps_fpc > ../$$run.raw) \
+			|| { printf '!!! test-tps-lex-fpc FAIL: self-lex process failed (%s)\n' "$$run"; exit 1; }; \
+		tr -d '\r' < $(TPS_LEX_BUILD_DIR)/$$run.raw > $(TPS_LEX_BUILD_DIR)/$$run.out; \
+	done
+	@cmp -s $(TPS_LEX_BUILD_DIR)/self_a.out $(TPS_LEX_BUILD_DIR)/self_b.out \
+		|| { printf '!!! test-tps-lex-fpc FAIL: two self-lex dumps differ (nondeterministic)\n'; exit 1; }
+	@test "$$(grep -c '^TPS-LEX-BEGIN$$' $(TPS_LEX_BUILD_DIR)/self_a.out)" -eq 1 \
+		&& test "$$(grep -c '^TPS-LEX-END$$' $(TPS_LEX_BUILD_DIR)/self_a.out)" -eq 1 \
+		&& test "$$(grep -c '^EOF$$' $(TPS_LEX_BUILD_DIR)/self_a.out)" -eq 1 \
+		|| { printf '!!! test-tps-lex-fpc FAIL: self-lex is empty or markers/EOF are not singular\n'; exit 1; }
+	@! grep -q '^TPS-LEX-ERROR' $(TPS_LEX_BUILD_DIR)/self_a.out \
+		|| { printf '!!! test-tps-lex-fpc FAIL: self-lex emitted TPS-LEX-ERROR\n'; exit 1; }
+	@printf '>>> test-tps-lex-fpc: green (independent golden + four error goldens + deterministic self-lex)\n'
+
+# Mutated-source pattern: the seed subset has no Pascal preprocessor. Each sed
+# is line-anchored, preceded by an exact one-match assertion, and followed by a
+# changed-source assertion. A zero-match edit is a loud failure, never a
+# decoration mutant (Rule 6).
+$(TPS_LEX_MUT_CASE_SRC): $(TPS_LEX_SRC) | $(TPS_LEX_BUILD_DIR)
+	@test "$$(grep -Fc '    TokText[I] := LowerAscii(TokText[I]); { TPS_LEX_MUT_CASEFOLD }' $<)" -eq 1 \
+		|| { printf '!!! CASEFOLD mutant anchor must match exactly once\n'; exit 1; }
+	@sed 's@^    TokText\[I\] := LowerAscii(TokText\[I\]); { TPS_LEX_MUT_CASEFOLD }$$@    TokText[I] := TokText[I]; { TPS_LEX_MUT_CASEFOLD }@' $< > $@
+	@! cmp -s $< $@ || { printf '!!! CASEFOLD mutant sed was a no-op\n'; exit 1; }
+
+$(TPS_LEX_MUT_STRESC_SRC): $(TPS_LEX_SRC) | $(TPS_LEX_BUILD_DIR)
+	@test "$$(grep -Fc '  EscapeQuoteCode = 39; { TPS_LEX_MUT_STRESC }' $<)" -eq 1 \
+		|| { printf '!!! STRESC mutant anchor must match exactly once\n'; exit 1; }
+	@sed 's@^  EscapeQuoteCode = 39; { TPS_LEX_MUT_STRESC }$$@  EscapeQuoteCode = 33; { TPS_LEX_MUT_STRESC }@' $< > $@
+	@! cmp -s $< $@ || { printf '!!! STRESC mutant sed was a no-op\n'; exit 1; }
+
+$(TPS_LEX_MUT_CASE_BIN): $(TPS_LEX_MUT_CASE_SRC) | $(TPS_LEX_BUILD_DIR)
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/mut_case_units
+	@fpc -B -O- -v0 -FU$(TPS_LEX_BUILD_DIR)/mut_case_units -FE$(TPS_LEX_BUILD_DIR) -o$@ $< >/dev/null \
+		|| { printf '!!! test-tps-lex-mutant FAIL: CASEFOLD mutant did not compile\n'; exit 1; }
+
+$(TPS_LEX_MUT_STRESC_BIN): $(TPS_LEX_MUT_STRESC_SRC) | $(TPS_LEX_BUILD_DIR)
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/mut_stresc_units
+	@fpc -B -O- -v0 -FU$(TPS_LEX_BUILD_DIR)/mut_stresc_units -FE$(TPS_LEX_BUILD_DIR) -o$@ $< >/dev/null \
+		|| { printf '!!! test-tps-lex-mutant FAIL: STRESC mutant did not compile\n'; exit 1; }
+
+.PHONY: test-tps-lex-mutant
+test-tps-lex-mutant: $(TPS_LEX_FPC_BASIC_OUT) $(TPS_LEX_MUT_CASE_BIN) $(TPS_LEX_MUT_STRESC_BIN)
+	@printf '>>> test-tps-lex-mutant: CASEFOLD must emit a mixed-case IDENT, not crash/error\n'
+	@rm -rf $(TPS_LEX_BUILD_DIR)/run_mut_case
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/run_mut_case
+	@cp -f $(TPS_LEX_BASIC) $(TPS_LEX_BUILD_DIR)/run_mut_case/TPSIN.PAS
+	@cd $(TPS_LEX_BUILD_DIR)/run_mut_case && ../tps_mut_casefold > ../mut_case.raw \
+		|| { printf '!!! CASEFOLD mutant crashed/exited non-zero\n'; exit 1; }
+	@tr -d '\r' < $(TPS_LEX_BUILD_DIR)/mut_case.raw > $(TPS_LEX_BUILD_DIR)/mut_case.out
+	@! grep -q '^TPS-LEX-ERROR' $(TPS_LEX_BUILD_DIR)/mut_case.out \
+		|| { printf '!!! CASEFOLD mutant errored instead of producing wrong values\n'; exit 1; }
+	@grep -q '^IDENT MiXeD_Id$$' $(TPS_LEX_BUILD_DIR)/mut_case.out \
+		|| { printf '!!! CASEFOLD mutant did not fail for the named canonicalization reason\n'; exit 1; }
+	@if diff -q $(TPS_LEX_BASIC_GOLDEN) $(TPS_LEX_BUILD_DIR)/mut_case.out >/dev/null 2>&1; then \
+		printf '!!! CASEFOLD mutant PASSED -- the canonical-identifier golden is decoration\n'; exit 1; fi
+	@printf '>>> test-tps-lex-mutant: STRESC must decode doubled quote as byte 33, not crash/error\n'
+	@rm -rf $(TPS_LEX_BUILD_DIR)/run_mut_stresc
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/run_mut_stresc
+	@cp -f $(TPS_LEX_BASIC) $(TPS_LEX_BUILD_DIR)/run_mut_stresc/TPSIN.PAS
+	@cd $(TPS_LEX_BUILD_DIR)/run_mut_stresc && ../tps_mut_stresc > ../mut_stresc.raw \
+		|| { printf '!!! STRESC mutant crashed/exited non-zero\n'; exit 1; }
+	@tr -d '\r' < $(TPS_LEX_BUILD_DIR)/mut_stresc.raw > $(TPS_LEX_BUILD_DIR)/mut_stresc.out
+	@! grep -q '^TPS-LEX-ERROR' $(TPS_LEX_BUILD_DIR)/mut_stresc.out \
+		|| { printf '!!! STRESC mutant errored instead of producing wrong values\n'; exit 1; }
+	@grep -q '^STRING 4 105 116 33 115$$' $(TPS_LEX_BUILD_DIR)/mut_stresc.out \
+		|| { printf '!!! STRESC mutant did not fail for the named doubled-quote reason\n'; exit 1; }
+	@if diff -q $(TPS_LEX_BASIC_GOLDEN) $(TPS_LEX_BUILD_DIR)/mut_stresc.out >/dev/null 2>&1; then \
+		printf '!!! STRESC mutant PASSED -- the doubled-quote golden is decoration\n'; exit 1; fi
+	@printf '>>> test-tps-lex-mutant: green (both source mutants compile and go RED for the right wrong value)\n'
+
+# The seed compiles ONE program body. Link that same .o against BOTH established
+# runtime targets: bare Multiboot ELF is a link-check only (its INT-21h calls
+# cannot execute there), while start_dos/seed_dos.ld yields TPS.COM.
+$(TPS_LEX_SEED_ASM): $(TPS_LEX_SRC) $(SEED_BIN) | $(TPS_LEX_BUILD_DIR)
+	@$(SEED_BIN) --emit-asm -o $@ $< \
+		|| { printf '!!! test-tps-lex-build FAIL: seed rejected %s (TPS source bug unless a DEC-02 pin diverged)\n' "$<"; exit 1; }
+
+$(TPS_LEX_SEED_OBJ): $(TPS_LEX_SEED_ASM) | $(TPS_LEX_BUILD_DIR)
+	@$(NASM) -f elf32 $< -o $@
+
+$(TPS_LEX_SEED_BARE_ELF): $(TPS_LEX_SEED_OBJ) $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_RT_LD)
+	@$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(TPS_LEX_SEED_OBJ)
+
+$(TPS_LEX_SEED_DOS_ELF): $(TPS_LEX_SEED_OBJ) $(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_DOS_LD)
+	@$(LD) -m elf_i386 -T $(SEED_DOS_LD) -o $@ $(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(TPS_LEX_SEED_OBJ)
+
+$(TPS_LEX_COM): $(TPS_LEX_SEED_DOS_ELF)
+	@$(OBJCOPY) -O binary $< $@
+	@printf '>>> TPS.COM: %s bytes (seed-compiled B9.1 lexer, flat .COM @0x40100)\n' "$$(stat -c%s $@)"
+
+.PHONY: test-tps-lex-build
+test-tps-lex-build: $(TPS_LEX_SEED_BARE_ELF) $(TPS_LEX_COM)
+	@test -s $(TPS_LEX_SEED_BARE_ELF) && test -s $(TPS_LEX_COM) \
+		|| { printf '!!! test-tps-lex-build FAIL: an output artifact is empty\n'; exit 1; }
+	@grep -q '^v_sourcewords: resd 10240$$' $(TPS_LEX_SEED_ASM) \
+		|| { printf '!!! test-tps-lex-build FAIL: source is not the fixed packed SOURCE_MAX static array\n'; exit 1; }
+	@grep -q 'call rtl_file_blockread$$' $(TPS_LEX_SEED_ASM) \
+		|| { printf '!!! test-tps-lex-build FAIL: tps.pas does not call the B8 BlockRead RTL\n'; exit 1; }
+	@$(NM) $(TPS_LEX_SEED_DOS_ELF) | grep -q ' __bss_end$$' \
+		|| { printf '!!! test-tps-lex-build FAIL: DOS link lacks the crt0 BSS boundary\n'; exit 1; }
+	@bss_start_hex=$$($(NM) -n $(TPS_LEX_SEED_DOS_ELF) | awk '$$3 == "__bss_start" { print $$1 }'); \
+		bss_end_hex=$$($(NM) -n $(TPS_LEX_SEED_DOS_ELF) | awk '$$3 == "__bss_end" { print $$1 }'); \
+		test -n "$$bss_start_hex" && test -n "$$bss_end_hex" \
+			|| { printf '!!! test-tps-lex-build FAIL: could not locate BSS boundaries\n'; exit 1; }; \
+		bss_start=$$((0x$$bss_start_hex)); bss_end=$$((0x$$bss_end_hex)); \
+		bss_size=$$((bss_end-bss_start)); \
+		test "$$bss_size" -le $$((0x10000)) \
+			|| { printf '!!! test-tps-lex-build FAIL: static BSS exceeds PROGRAM_BSS_RESERVE (size=%s, reserve=65536)\n' "$$bss_size"; exit 1; }; \
+		test "$$bss_end" -lt $$((0x6f000)) \
+			|| { printf '!!! test-tps-lex-build FAIL: static TPS image/BSS reaches env block (end=0x%s, ceiling=0x6f000)\n' "$$bss_end_hex"; exit 1; }; \
+		printf '>>> test-tps-lex-build: DOS BSS=%s bytes <= reserve; end=0x%s below env 0x6f000\n' "$$bss_size" "$$bss_end_hex"
+	@printf '>>> test-tps-lex-build: green (seed compile + bare ELF link + DOS TPS.COM link)\n'
+
+$(TPS_LEX_IMG): $(TPS_LEX_COM) $(TPS_LEX_BASIC) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(TPS_LEX_COM) ::TPS.COM
+	@mcopy -i $@ $(TPS_LEX_BASIC) ::TPSIN.PAS
+
+# EMULATOR GATE -- wired for the orchestrator, deliberately NOT in
+# TEST_EMU_GATES until first-person proof. Anchors are exact because the shell
+# DIR/command echo can contain TPS.COM/TPSIN.PAS; never grep a bare TPS name.
+.PHONY: test-tps-lex-os
+test-tps-lex-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_LEX_IMG) $(TPS_LEX_FPC_BASIC_OUT)
+	@printf '>>> test-tps-lex-os: seed-built TPS.COM on InitechDOS == fpc-built TPS stdout\n'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_LEX_IMG)" \
+		--name tps_lex_os --out "$(BUILD)" --timeout-ms 30000 \
+		--keys "$(TPS_LEX_OS_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(TPS_LEX_BUILD_DIR)/os.report" || true
+	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/os.report"; then \
+		printf '!!! test-tps-lex-os FAIL: TPS.COM triple-faulted\n'; exit 1; fi
+	@grep -q '^SHELL-READY$$' $(BUILD)/tps_lex_os.serial \
+		|| { printf '!!! test-tps-lex-os FAIL: SHELL-READY missing\n'; exit 1; }
+	@if grep -q 'FILEIO-ERROR' $(BUILD)/tps_lex_os.serial; then \
+		printf '!!! test-tps-lex-os FAIL: B8 RTL error:\n'; grep 'FILEIO-ERROR' $(BUILD)/tps_lex_os.serial; exit 1; fi
+	@tr -d '\r' < $(BUILD)/tps_lex_os.serial > $(TPS_LEX_BUILD_DIR)/os.normalized
+	@test "$$(grep -c '^TPS-LEX-BEGIN$$' $(TPS_LEX_BUILD_DIR)/os.normalized)" -eq 1 \
+		&& test "$$(grep -c '^TPS-LEX-END$$' $(TPS_LEX_BUILD_DIR)/os.normalized)" -eq 1 \
+		|| { printf '!!! test-tps-lex-os FAIL: anchored dump markers are missing/non-singular\n'; exit 1; }
+	@sed -n '/^TPS-LEX-BEGIN$$/,/^TPS-LEX-END$$/p' $(TPS_LEX_BUILD_DIR)/os.normalized > $(TPS_LEX_BUILD_DIR)/os.dump
+	@! grep -q '^TPS-LEX-ERROR' $(TPS_LEX_BUILD_DIR)/os.dump \
+		|| { printf '!!! test-tps-lex-os FAIL: TPS.COM emitted a lexer error\n'; exit 1; }
+	@diff -u $(TPS_LEX_FPC_BASIC_OUT) $(TPS_LEX_BUILD_DIR)/os.dump \
+		|| { printf '!!! test-tps-lex-os FAIL: seed/InitechDOS dump differs from fpc stdout\n'; exit 1; }
+	@printf '>>> test-tps-lex-os: green (two-level differential byte-identical)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-seed-fpc-diff (beads initech-63ce; ADR-0007 DEC-07 Rung 2)
@@ -19196,7 +19419,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fileio-build test-seed-fileio-fpc test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
+	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fileio-build test-seed-fileio-fpc test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-tps-lex-fpc test-tps-lex-build test-tps-lex-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \
@@ -20267,6 +20490,7 @@ TEST_EMU_GATES := \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm test-int21-irqstorm-mutant \
 	test-samir-boot test-samir-boot-mutant \
 	test-seed-fileio-os test-seed-fileio-os-mutant \
+	test-tps-lex-os \
 	test-samir-write test-samir-write-mutant \
 	test-samir-canon-y2k test-samir-canon-y2k-mutant \
 	test-samir-canon-salami test-samir-canon-salami-mutant \

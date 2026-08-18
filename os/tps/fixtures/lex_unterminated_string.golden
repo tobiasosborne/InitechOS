@@ -1,0 +1,4 @@
+TPS-LEX-BEGIN
+KW program
+TPS-LEX-ERROR pos=9 line=1 col=9 unterminated string
+TPS-LEX-END

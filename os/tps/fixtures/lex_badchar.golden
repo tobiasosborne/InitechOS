@@ -1,0 +1,4 @@
+TPS-LEX-BEGIN
+IDENT abc
+TPS-LEX-ERROR pos=5 line=1 col=5 bad character code=64
+TPS-LEX-END
