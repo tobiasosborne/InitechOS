@@ -143,7 +143,13 @@ typedef enum {
      * A fixed-capacity Turbo-Pascal ShortString: `string` (= string[255]) or
      * `string[N]`, 1 <= N <= 255. See this header's B7 block below for the
      * layout rule, the coercion table, the rejections, and the named idioms. */
-    AST_TY_STRING
+    AST_TY_STRING,
+    /* B8 (beads initech-ogxv; ADR-0007 DEC-02/DEC-05): a thin UNTYPED file
+     * object. It is storage-only: no file expressions, assignments, arrays,
+     * params/results, record fields, typed-file element machinery, or Text.
+     * The only legal uses are the built-in statement calls assign/reset/
+     * rewrite/blockread/blockwrite, checked specially in typecheck.c. */
+    AST_TY_FILE
 } AstVarType;
 
 /* Human-readable name for a semantic type (diagnostics, dumps). */
@@ -570,7 +576,15 @@ struct AstNode {
          * fixed __str_* intrinsic prelude at all, so a stringless program's
          * emitted .s stays BYTE-IDENTICAL to pre-B7 (the repro corpus's
          * byte-identity guard). A pure function of the AST (deterministic). */
-        struct { char *name; AstList decls; AstNode *block; int uses_strings; } program;
+        struct {
+            char *name;
+            AstList decls;
+            AstNode *block;
+            int uses_strings;
+            /* B8: set by typecheck only when a file-I/O builtin call is
+             * present. Codegen emits RTL externs only for such a program. */
+            int uses_fileio;
+        } program;
         /* vtype: the DECLARED type of this group ("integer"/"boolean"/
          * "char"), set by the parser when it consumes the type keyword --
          * distinct from the generic per-expression `type` field above.

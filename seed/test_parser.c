@@ -791,6 +791,62 @@ static void test_typecheck_ord_accepts_char_bool_int(void)
           "every ordinal type this subset has)");
 }
 
+/* ------------------------------------------------------------------ */
+/* B8 (beads initech-ogxv): thin untyped-file surface + loud fences.    */
+/* ------------------------------------------------------------------ */
+static void test_fileio_builtin_surface_ok(void)
+{
+    char buf[4096];
+    int rc = check_to_str(
+        "program P; var f:file; s:string[3]; n:integer; "
+        "begin s := 'abc'; Assign(f, 'X'); Rewrite(f, 1); "
+        "BlockWrite(f, s[1], 3, n); Reset(f); "
+        "BlockRead(f, s[1], 3, n) end.",
+        buf, sizeof buf);
+    CHECK(rc == 0, "B8 Assign/Rewrite/BlockWrite/Reset/BlockRead typecheck");
+    CHECK(strstr(buf, ":file") != NULL, "file declaration is represented");
+    CHECK(strstr(buf, "(call Assign") != NULL,
+          "file verbs reuse the ordinary AST_CALL shape");
+}
+
+static void test_fileio_file_is_storage_only(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var f:file; begin writeln(f) end.", buf, sizeof buf);
+    CHECK(rc != 0, "a file variable is not an expression value");
+    CHECK(strstr(buf, "storage-only") != NULL,
+          "file-expression rejection names the storage-only boundary");
+}
+
+static void test_fileio_rejects_dword_strided_array_buffer(void)
+{
+    char buf[1024];
+    int rc = check_to_str(
+        "program P; var f:file; a:array[0..3] of char; n:integer; "
+        "begin BlockRead(f, a[0], 4, n) end.", buf, sizeof buf);
+    CHECK(rc != 0, "BlockRead rejects a dword-strided char array buffer");
+    CHECK(strstr(buf, "ShortString byte designator") != NULL,
+          "buffer diagnostic names the required contiguous representation");
+}
+
+static void test_fileio_rejects_container_and_param_scope(void)
+{
+    char buf[1024];
+    int rc = parse_to_str(
+        "program P; var a:array[0..1] of file; begin end.", buf, sizeof buf);
+    CHECK(rc != 0, "array-of-file is outside the B8 subset");
+    CHECK(strstr(buf, "array-of-file") != NULL,
+          "container rejection names array-of-file");
+
+    rc = parse_to_str(
+        "program P; procedure Q(var f:file); begin end; begin end.",
+        buf, sizeof buf);
+    CHECK(rc != 0, "file parameters are outside the B8 subset");
+    CHECK(strstr(buf, "file parameters") != NULL,
+          "parameter rejection names the thin-file boundary");
+}
+
 int main(void)
 {
     test_minimal_program();
@@ -840,5 +896,9 @@ int main(void)
     test_typecheck_char_relational_ok();
     test_typecheck_chr_requires_integer();
     test_typecheck_ord_accepts_char_bool_int();
+    test_fileio_builtin_surface_ok();
+    test_fileio_file_is_storage_only();
+    test_fileio_rejects_dword_strided_array_buffer();
+    test_fileio_rejects_container_and_param_scope();
     return TEST_SUMMARY("test_parser");
 }

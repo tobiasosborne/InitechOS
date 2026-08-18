@@ -190,6 +190,11 @@ typedef struct {
      * for pre-B7 fixtures). */
     int   uses_strings;
 
+    /* B8 (beads initech-ogxv): set only by a validated call to one of the
+     * five thin file-I/O builtins. Declarations alone do not pull RTL externs
+     * into emitted assembly. */
+    int   uses_fileio;
+
     int   failed;
     char  errmsg[TYPECHECK_ERRMSG_CAP];
     int   errline;
@@ -219,6 +224,25 @@ static void lower_copy(char *dst, size_t cap, const char *src)
     for (; src[i] != '\0' && i + 1 < cap; i++)
         dst[i] = (char)tolower((unsigned char)src[i]);
     dst[i] = '\0';
+}
+
+typedef enum {
+    FILEBI_NONE = 0,
+    FILEBI_ASSIGN,
+    FILEBI_RESET,
+    FILEBI_REWRITE,
+    FILEBI_BLOCKREAD,
+    FILEBI_BLOCKWRITE
+} FileBuiltin;
+
+static FileBuiltin file_builtin_kind(const char *name_lc)
+{
+    if (strcmp(name_lc, "assign") == 0)     return FILEBI_ASSIGN;
+    if (strcmp(name_lc, "reset") == 0)      return FILEBI_RESET;
+    if (strcmp(name_lc, "rewrite") == 0)    return FILEBI_REWRITE;
+    if (strcmp(name_lc, "blockread") == 0)  return FILEBI_BLOCKREAD;
+    if (strcmp(name_lc, "blockwrite") == 0) return FILEBI_BLOCKWRITE;
+    return FILEBI_NONE;
 }
 
 static int sym_find(const Tc *tc, const char *name_lc)
@@ -431,6 +455,14 @@ static void collect_decls(Tc *tc, const AstList *decls)
         if (vd->kind == AST_CONSTDECL) {
             char lc[TC_SYM_NAME_CAP];
             lower_copy(lc, sizeof(lc), vd->as.constdecl.name);
+            if (file_builtin_kind(lc) != FILEBI_NONE) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg),
+                         "variable/constant name collides with a file-I/O "
+                         "builtin: %s", vd->as.constdecl.name);
+                fail_at(tc, vd->line, vd->col, msg);
+                return;
+            }
             if (sym_find(tc, lc) >= 0) {
                 char msg[TYPECHECK_ERRMSG_CAP];
                 snprintf(msg, sizeof(msg),
@@ -490,6 +522,14 @@ static void collect_decls(Tc *tc, const AstList *decls)
             }
             char lc[TC_SYM_NAME_CAP];
             lower_copy(lc, sizeof(lc), vr->as.varref.name);
+            if (file_builtin_kind(lc) != FILEBI_NONE) {
+                char msg[TYPECHECK_ERRMSG_CAP];
+                snprintf(msg, sizeof(msg),
+                         "variable/constant name collides with a file-I/O "
+                         "builtin: %s", vr->as.varref.name);
+                fail_at(tc, vr->line, vr->col, msg);
+                return;
+            }
             if (sym_find(tc, lc) >= 0) {
                 char msg[TYPECHECK_ERRMSG_CAP];
                 snprintf(msg, sizeof(msg),
@@ -670,6 +710,18 @@ static void collect_procs(Tc *tc, const AstList *decls)
         if (!flatten_signature(tc, pf, &sig))
             return;
 
+        /* B8: these names are the fixed thin-RTL surface. Allowing a user
+         * declaration with the same case-folded name would make every call
+         * resolve to the builtin while the declaration remained dead. */
+        if (file_builtin_kind(sig.name) != FILEBI_NONE) {
+            char msg[TYPECHECK_ERRMSG_CAP];
+            snprintf(msg, sizeof(msg),
+                     "procedure/function name collides with a file-I/O "
+                     "builtin: %s", pf->as.procfunc.name);
+            fail_at(tc, pf->line, pf->col, msg);
+            return;
+        }
+
         /* A routine name may not collide with a program-level var/const
          * (they would be indistinguishable at a bare-identifier use site). */
         if (sym_find(tc, sig.name) >= 0) {
@@ -774,6 +826,187 @@ static AstVarType check_expr_recinfo(Tc *tc, AstNode *e, char *out_rectype_lc,
     return t;
 }
 
+/* B8 (beads initech-ogxv; ADR-0007 DEC-05): the five thin file-I/O calls are
+ * predefined statement procedures, not user-declared routines. Their AST is
+ * still AST_CALL, but their signatures include storage-only FILE values and a
+ * contiguous ShortString byte designator, which the general B4 scalar-call
+ * checker deliberately cannot express. Keep the exceptional surface here,
+ * in one exact-name dispatcher, so no typed-file/Text machinery leaks in. */
+static int check_file_designator(Tc *tc, AstNode *arg, const char *verb)
+{
+    if (arg->kind != AST_VARREF) {
+        char msg[TYPECHECK_ERRMSG_CAP];
+        snprintf(msg, sizeof(msg),
+                 "%s argument 1 must be a file variable", verb);
+        fail_at(tc, arg->line, arg->col, msg);
+        return 0;
+    }
+    char lc[TC_SYM_NAME_CAP];
+    lower_copy(lc, sizeof(lc), arg->as.varref.name);
+    AstVarType t;
+    int is_lvalue, is_array, is_record, strcap;
+    long lo, hi;
+    char rectype[TC_SYM_NAME_CAP];
+    if (!resolve_name(tc, lc, &t, &is_lvalue, &is_array, &lo, &hi,
+                      &is_record, rectype, &strcap)
+        || !is_lvalue || is_array || t != AST_TY_FILE) {
+        char msg[TYPECHECK_ERRMSG_CAP];
+        snprintf(msg, sizeof(msg),
+                 "%s argument 1 must be a declared file variable", verb);
+        fail_at(tc, arg->line, arg->col, msg);
+        return 0;
+    }
+    arg->type = AST_TY_FILE;
+    return 1;
+}
+
+static int check_integer_lvalue(Tc *tc, AstNode *arg, const char *verb)
+{
+    if (arg->kind != AST_VARREF) {
+        char msg[TYPECHECK_ERRMSG_CAP];
+        snprintf(msg, sizeof(msg),
+                 "%s actual-count argument must be an integer variable",
+                 verb);
+        fail_at(tc, arg->line, arg->col, msg);
+        return 0;
+    }
+    char lc[TC_SYM_NAME_CAP];
+    lower_copy(lc, sizeof(lc), arg->as.varref.name);
+    AstVarType t;
+    int is_lvalue, is_array, is_record, strcap;
+    long lo, hi;
+    char rectype[TC_SYM_NAME_CAP];
+    if (!resolve_name(tc, lc, &t, &is_lvalue, &is_array, &lo, &hi,
+                      &is_record, rectype, &strcap)
+        || !is_lvalue || is_array || t != AST_TY_INTEGER) {
+        char msg[TYPECHECK_ERRMSG_CAP];
+        snprintf(msg, sizeof(msg),
+                 "%s actual-count argument must be an integer variable",
+                 verb);
+        fail_at(tc, arg->line, arg->col, msg);
+        return 0;
+    }
+    arg->type = AST_TY_INTEGER;
+    return 1;
+}
+
+static int check_file_buffer(Tc *tc, AstNode *arg, const char *verb)
+{
+    /* A ShortString byte (s[i]) is contiguous with the following content
+     * bytes. Existing array-of-char storage is dword-strided, so accepting an
+     * array element here would make AH=3Fh/40h silently read padding/corrupt
+     * neighbors. Reject that representation mismatch loudly. */
+    AstVarType t = check_expr(tc, arg);
+    if (tc->failed)
+        return 0;
+    if (arg->kind != AST_INDEX || !arg->as.arrayindex.is_string
+        || t != AST_TY_CHAR) {
+        char msg[TYPECHECK_ERRMSG_CAP];
+        snprintf(msg, sizeof(msg),
+                 "%s buffer must be a ShortString byte designator (s[index])",
+                 verb);
+        fail_at(tc, arg->line, arg->col, msg);
+        return 0;
+    }
+
+    /* Re-resolve the base to ensure it is writable. BlockWrite only reads it,
+     * but the same concrete designator contract on both verbs keeps the ABI
+     * small and BlockRead can never target a folded constant. */
+    char lc[TC_SYM_NAME_CAP];
+    lower_copy(lc, sizeof(lc), arg->as.arrayindex.name);
+    AstVarType bt;
+    int is_lvalue, is_array, is_record, strcap;
+    long lo, hi;
+    char rectype[TC_SYM_NAME_CAP];
+    if (!resolve_name(tc, lc, &bt, &is_lvalue, &is_array, &lo, &hi,
+                      &is_record, rectype, &strcap)
+        || !is_lvalue || is_array || bt != AST_TY_STRING) {
+        char msg[TYPECHECK_ERRMSG_CAP];
+        snprintf(msg, sizeof(msg),
+                 "%s buffer must belong to a writable ShortString variable",
+                 verb);
+        fail_at(tc, arg->line, arg->col, msg);
+        return 0;
+    }
+    return 1;
+}
+
+static AstVarType check_file_builtin(Tc *tc, AstNode *call,
+                                     FileBuiltin bi, int want_value)
+{
+    const char *verb = call->as.call.name;
+    size_t n = call->as.call.args.count;
+    if (want_value) {
+        char msg[TYPECHECK_ERRMSG_CAP];
+        snprintf(msg, sizeof(msg),
+                 "%s is a file-I/O procedure and has no result", verb);
+        fail_at(tc, call->line, call->col, msg);
+        return AST_TY_UNKNOWN;
+    }
+
+    if ((bi == FILEBI_ASSIGN && n != 2)
+        || ((bi == FILEBI_RESET || bi == FILEBI_REWRITE)
+            && n != 1 && n != 2)
+        || ((bi == FILEBI_BLOCKREAD || bi == FILEBI_BLOCKWRITE) && n != 4)) {
+        char msg[TYPECHECK_ERRMSG_CAP];
+        if (bi == FILEBI_ASSIGN)
+            snprintf(msg, sizeof(msg), "%s expects 2 arguments", verb);
+        else if (bi == FILEBI_RESET || bi == FILEBI_REWRITE)
+            snprintf(msg, sizeof(msg), "%s expects 1 or 2 arguments", verb);
+        else
+            snprintf(msg, sizeof(msg), "%s expects 4 arguments", verb);
+        fail_at(tc, call->line, call->col, msg);
+        return AST_TY_UNKNOWN;
+    }
+
+    if (!check_file_designator(tc, call->as.call.args.items[0], verb))
+        return AST_TY_UNKNOWN;
+
+    if (bi == FILEBI_ASSIGN) {
+        AstVarType nt = check_expr(tc, call->as.call.args.items[1]);
+        if (tc->failed)
+            return AST_TY_UNKNOWN;
+        if (nt != AST_TY_STRING && nt != AST_TY_CHAR) {
+            fail_at(tc, call->as.call.args.items[1]->line,
+                    call->as.call.args.items[1]->col,
+                    "assign filename must be a string or char");
+            return AST_TY_UNKNOWN;
+        }
+        /* A char filename is materialized through the B7 ShortString helper. */
+        tc->uses_strings = 1;
+    } else if (bi == FILEBI_RESET || bi == FILEBI_REWRITE) {
+        if (n == 2) {
+            AstVarType rt = check_expr(tc, call->as.call.args.items[1]);
+            if (tc->failed)
+                return AST_TY_UNKNOWN;
+            if (rt != AST_TY_INTEGER) {
+                fail_at(tc, call->as.call.args.items[1]->line,
+                        call->as.call.args.items[1]->col,
+                        "reset/rewrite record size must be integer (B8 only "
+                        "supports the byte size 1)");
+                return AST_TY_UNKNOWN;
+            }
+        }
+    } else {
+        if (!check_file_buffer(tc, call->as.call.args.items[1], verb))
+            return AST_TY_UNKNOWN;
+        AstVarType ct = check_expr(tc, call->as.call.args.items[2]);
+        if (tc->failed)
+            return AST_TY_UNKNOWN;
+        if (ct != AST_TY_INTEGER) {
+            fail_at(tc, call->as.call.args.items[2]->line,
+                    call->as.call.args.items[2]->col,
+                    "blockread/blockwrite byte count must be integer");
+            return AST_TY_UNKNOWN;
+        }
+        if (!check_integer_lvalue(tc, call->as.call.args.items[3], verb))
+            return AST_TY_UNKNOWN;
+    }
+
+    tc->uses_fileio = 1;
+    return AST_TY_UNKNOWN;
+}
+
 /* B4: check one call node against the callee's signature. `want_value` is 1
  * in an expression context (the callee must be a FUNCTION and the call yields
  * its result type) and 0 in a statement context (the callee must be a
@@ -783,6 +1016,9 @@ static AstVarType check_call(Tc *tc, AstNode *call, int want_value)
 {
     char lc[TC_SYM_NAME_CAP];
     lower_copy(lc, sizeof(lc), call->as.call.name);
+    FileBuiltin bi = file_builtin_kind(lc);
+    if (bi != FILEBI_NONE)
+        return check_file_builtin(tc, call, bi, want_value);
     int idx = proc_find(tc, lc);
     if (idx < 0) {
         char msg[TYPECHECK_ERRMSG_CAP];
@@ -1186,6 +1422,12 @@ static AstVarType check_expr(Tc *tc, AstNode *e)
             fail_at(tc, e->line, e->col, msg);
             return AST_TY_UNKNOWN;
         }
+        if (t == AST_TY_FILE) {
+            fail_at(tc, e->line, e->col,
+                    "file variables are storage-only and may be used only "
+                    "with assign/reset/rewrite/blockread/blockwrite");
+            return AST_TY_UNKNOWN;
+        }
         e->type = t;
         return e->type;
     }
@@ -1345,6 +1587,13 @@ static void check_stmt(Tc *tc, AstNode *n)
             snprintf(msg, sizeof(msg), "undeclared variable: %s",
                      n->as.assign.name);
             fail_at(tc, n->line, n->col, msg);
+            return;
+        }
+
+        if (vt == AST_TY_FILE) {
+            fail_at(tc, n->line, n->col,
+                    "file variables cannot be assigned; use assign/reset/"
+                    "rewrite and blockread/blockwrite");
             return;
         }
 
@@ -1712,6 +1961,14 @@ static void add_local(Tc *tc, int line, int col, const char *name_lc,
 {
     if (tc->failed)
         return;
+    if (file_builtin_kind(name_lc) != FILEBI_NONE) {
+        char msg[TYPECHECK_ERRMSG_CAP];
+        snprintf(msg, sizeof(msg),
+                 "%s collides with a file-I/O builtin in a routine scope: %s",
+                 what, name_lc);
+        fail_at(tc, line, col, msg);
+        return;
+    }
     if (local_find(tc, name_lc) >= 0) {
         char msg[TYPECHECK_ERRMSG_CAP];
         snprintf(msg, sizeof(msg),
@@ -1883,6 +2140,9 @@ int typecheck_program(AstNode *program, TypeCheckResult *out)
      * emits the __str_* intrinsic prelude only when needed -- keeping a
      * stringless program's .s byte-identical to pre-B7. */
     program->as.program.uses_strings = tc.uses_strings;
+    /* B8 (beads initech-ogxv): same deterministic verdict pattern as B7's
+     * uses_strings, but for the external hand-assembled file RTL. */
+    program->as.program.uses_fileio = tc.uses_fileio;
 
     out->ok = 1;
     out->error[0] = '\0';

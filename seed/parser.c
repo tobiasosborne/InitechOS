@@ -1230,6 +1230,7 @@ static int parse_type_name(Parser *p, AstVarType *out, char **out_rectype,
     if (check(p, TOK_KW_INTEGER)) { *out = AST_TY_INTEGER; advance(p); return 1; }
     if (check(p, TOK_KW_BOOLEAN)) { *out = AST_TY_BOOLEAN; advance(p); return 1; }
     if (check(p, TOK_KW_CHAR))    { *out = AST_TY_CHAR;    advance(p); return 1; }
+    if (check(p, TOK_KW_FILE))    { *out = AST_TY_FILE;    advance(p); return 1; }
     /* B7 (beads initech-39k2; ADR-0007 DEC-02 "fixed/ShortString strings"):
      * `string` (= string[255]) or `string[N]` with 1 <= N <= 255. N is an
      * integer LITERAL or a folded integer const (parse_array_bound is reused
@@ -1268,7 +1269,7 @@ static int parse_type_name(Parser *p, AstVarType *out, char **out_rectype,
         }
     }
     fail_at(p, p->cur.line, p->cur.col,
-            "expected 'integer', 'boolean', 'char', 'string', or a declared "
+            "expected 'integer', 'boolean', 'char', 'string', 'file', or a declared "
             "record type name");
     return 0;
 }
@@ -1317,6 +1318,12 @@ static int parse_array_type(Parser *p, long *out_lo, long *out_hi,
         fail_at(p, p->cur.line, p->cur.col,
                 "array-of-string (array[..] of string[N]) is not supported "
                 "in this subset (deferred past B7; ADR-0007 DEC-02)");
+        return 0;
+    }
+    if (elem == AST_TY_FILE) {
+        fail_at(p, p->cur.line, p->cur.col,
+                "array-of-file is not supported in the thin B8 file-I/O "
+                "subset (typed/container file machinery is out of scope)");
         return 0;
     }
     *out_lo = lo;
@@ -1636,6 +1643,11 @@ static void parse_type_section(Parser *p, AstList *decls)
                         "string record fields are not supported in this subset "
                         "(record fields are scalar integer/boolean/char only)");
                 return;
+            } else if (check(p, TOK_KW_FILE)) {
+                fail_at(p, p->cur.line, p->cur.col,
+                        "file record fields are not supported in the thin B8 "
+                        "file-I/O subset (file objects are standalone vars)");
+                return;
             } else {
                 fail_at(p, p->cur.line, p->cur.col,
                         "expected 'integer', 'boolean', or 'char' (record "
@@ -1692,6 +1704,12 @@ static int parse_type_kw(Parser *p, AstVarType *out)
         fail_at(p, p->cur.line, p->cur.col,
                 "string function results are not supported in this subset "
                 "(return a value through a `var string` parameter instead)");
+        return 0;
+    }
+    if (check(p, TOK_KW_FILE)) {
+        fail_at(p, p->cur.line, p->cur.col,
+                "file function results are not supported in the thin B8 "
+                "file-I/O subset");
         return 0;
     }
     fail_at(p, p->cur.line, p->cur.col,
@@ -1783,6 +1801,12 @@ static void parse_param_list(Parser *p, AstList *params)
                     "a `var string` parameter formal must be the bare `string` "
                     "(capacity 255); `string[N<255]` var formals are not "
                     "supported (the caller's argument is a cap-255 string)");
+            return;
+        }
+        if (t == AST_TY_FILE) {
+            fail_at(p, p->cur.line, p->cur.col,
+                    "file parameters are not supported in the thin B8 "
+                    "file-I/O subset (use a file variable directly)");
             return;
         }
         for (size_t i = group_start; i < params->count; i++) {

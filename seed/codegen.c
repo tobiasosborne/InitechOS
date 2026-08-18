@@ -221,6 +221,10 @@
 #include <unistd.h>
 #endif
 
+#if defined(SEED_MUT_FILEIO_SHORT_WRITE) && defined(SEED_MUT_FILEIO_WRONG_HANDLE)
+#error "build one B8 FILEIO mutant at a time"
+#endif
+
 /* ============================================================================
  * B4 (beads initech-63ce; ADR-0007 DEC-02/DEC-04) -- THE CODEGEN PIVOT:
  * procedures/functions, real cdecl stack frames, value + var parameters,
@@ -358,6 +362,9 @@
  * enough for a full string[255] ShortString intermediate (cap-255 accumulator).
  * A routine reserves max-live-temps of these AFTER its locals/result. */
 #define CG_STR_TEMP_DWORDS 64
+/* B8 (beads initech-ogxv): one file object is a 32-bit live handle followed
+ * by a 256-byte ASCIIZ filename buffer. Static/frame storage only, no heap. */
+#define CG_FILE_DWORDS 65
 #define CG_MAX_PARAMS   32
 #define CG_MAX_SCOPE    (CG_MAX_PARAMS + 64) /* params + result + locals */
 #define CG_MAX_PROCS   128
@@ -406,6 +413,9 @@ typedef struct {
      * for a `var string` parameter, the slot holds the caller's byte-0
      * pointer (CG_VARPARAM). strcap>0 marks a string entry. */
     int    strcap;
+    /* B8: a frame-resident file object's `offset` is its LOWEST address,
+     * exactly like a local ShortString base. File parameters are rejected. */
+    int    is_file;
 } CgScopeEnt;
 
 typedef struct {
@@ -453,6 +463,9 @@ typedef struct {
     /* B7: program.uses_strings (typecheck's verdict) -- the __str_* intrinsic
      * prelude + string machinery are emitted only when set. */
     int   uses_strings;
+    /* B8: validated file-I/O builtin call present. Controls RTL externs and
+     * nothing else, preserving fileless assembly byte-for-byte. */
+    int   uses_fileio;
     /* B7: the routine currently being emitted -- its frame_slots (0 for
      * pas_main), so string-temp addressing can place temps AFTER the locals.
      * Set in emit_proc / the pas_main emission, read by cg_str_temp_ebp. */
@@ -520,6 +533,27 @@ static void cg_lower(char *dst, size_t cap, const char *src)
     for (; src[i] && i + 1 < cap; i++)
         dst[i] = (char)tolower((unsigned char)src[i]);
     dst[i] = '\0';
+}
+
+typedef enum {
+    CG_FILEBI_NONE = 0,
+    CG_FILEBI_ASSIGN,
+    CG_FILEBI_RESET,
+    CG_FILEBI_REWRITE,
+    CG_FILEBI_BLOCKREAD,
+    CG_FILEBI_BLOCKWRITE
+} CgFileBuiltin;
+
+static CgFileBuiltin cg_file_builtin_kind(const char *name)
+{
+    char lc[CG_NAME_CAP];
+    cg_lower(lc, sizeof(lc), name);
+    if (strcmp(lc, "assign") == 0)     return CG_FILEBI_ASSIGN;
+    if (strcmp(lc, "reset") == 0)      return CG_FILEBI_RESET;
+    if (strcmp(lc, "rewrite") == 0)    return CG_FILEBI_REWRITE;
+    if (strcmp(lc, "blockread") == 0)  return CG_FILEBI_BLOCKREAD;
+    if (strcmp(lc, "blockwrite") == 0) return CG_FILEBI_BLOCKWRITE;
+    return CG_FILEBI_NONE;
 }
 
 /* Parameter i (0-based, left-to-right) lives at [ebp + 8 + 4i] (cdecl,
@@ -1842,6 +1876,92 @@ static void gen_addr_of(Cg *cg, const AstNode *arg)
     gen_designator_base_addr(cg, arg->as.varref.name, NULL);
 }
 
+/* B8: byte address of a ShortString content designator s[index] -> eax. The
+ * typechecker guarantees this is a STRING index, never a dword-strided array
+ * element. The index expression may call, so spill the base on the data stack. */
+static void gen_file_buffer_addr(Cg *cg, const AstNode *arg)
+{
+    if (arg->kind != AST_INDEX || !arg->as.arrayindex.is_string)
+        cg_ice("file buffer is not a ShortString byte designator", arg);
+    gen_str_base_addr(cg, arg->as.arrayindex.name);
+    fprintf(cg->out, "    push eax\n");
+    gen_expr(cg, arg->as.arrayindex.index);
+    fprintf(cg->out, "    pop edx\n");
+    fprintf(cg->out, "    add eax, edx\n");
+}
+
+/* B8 thin file-I/O builtins -> the hand-assembled seed/rt/fileio.asm RTL
+ * (a separately-linked object following start.asm's convention).
+ * All helpers use cdecl and preserve ebx/esi/edi/ebp. The runtime owns the
+ * exact INT-21h register ABI and fail-loud CF path; codegen only supplies
+ * addresses/values. */
+static void gen_file_call(Cg *cg, const AstNode *call, CgFileBuiltin bi)
+{
+    FILE *o = cg->out;
+    const AstNode *filearg = call->as.call.args.items[0];
+
+    switch (bi) {
+    case CG_FILEBI_ASSIGN:
+        /* rtl_file_assign(file*, ShortString*): right-to-left cdecl pushes. */
+        gen_str_value(cg, call->as.call.args.items[1]);
+        fprintf(o, "    push eax\n");
+        gen_designator_base_addr(cg, filearg->as.varref.name, NULL);
+        fprintf(o, "    push eax\n");
+        fprintf(o, "    call rtl_file_assign\n");
+        fprintf(o, "    add esp, 8\n");
+        return;
+    case CG_FILEBI_RESET:
+    case CG_FILEBI_REWRITE:
+        /* Optional record size defaults to 1; the RTL rejects any other
+         * runtime value loudly because B8 is byte-oriented only. */
+        if (call->as.call.args.count == 2)
+            gen_expr(cg, call->as.call.args.items[1]);
+        else
+            fprintf(o, "    mov eax, 1\n");
+        fprintf(o, "    push eax\n");
+        gen_designator_base_addr(cg, filearg->as.varref.name, NULL);
+        fprintf(o, "    push eax\n");
+        fprintf(o, "    call %s\n",
+                bi == CG_FILEBI_RESET ? "rtl_file_reset" : "rtl_file_rewrite");
+        fprintf(o, "    add esp, 8\n");
+        return;
+    case CG_FILEBI_BLOCKREAD:
+    case CG_FILEBI_BLOCKWRITE: {
+        /* rtl_file_block*(file*, byte*, count, actual*). */
+        const AstNode *actual = call->as.call.args.items[3];
+        gen_designator_base_addr(cg, actual->as.varref.name, NULL);
+        fprintf(o, "    push eax\n");
+        gen_expr(cg, call->as.call.args.items[2]);
+        fprintf(o, "    push eax\n");
+        gen_file_buffer_addr(cg, call->as.call.args.items[1]);
+        fprintf(o, "    push eax\n");
+        gen_designator_base_addr(cg, filearg->as.varref.name, NULL);
+        fprintf(o, "    push eax\n");
+        if (bi == CG_FILEBI_BLOCKREAD) {
+            fprintf(o, "    call rtl_file_blockread\n");
+        } else {
+#ifdef SEED_MUT_FILEIO_SHORT_WRITE
+            /* Rule-6 mutant: runtime requests one byte fewer but reports the
+             * original count, silently dropping the tail. The read-back
+             * content/count goes wrong without a crash. */
+            fprintf(o, "    call rtl_file_blockwrite_short\n");
+#elif defined(SEED_MUT_FILEIO_WRONG_HANDLE)
+            /* Rule-6 mutant: runtime writes through the next JFT handle. The
+             * fixture deliberately keeps that handle valid+writable. */
+            fprintf(o, "    call rtl_file_blockwrite_wrong_handle\n");
+#else
+            fprintf(o, "    call rtl_file_blockwrite\n");
+#endif
+        }
+        fprintf(o, "    add esp, 16\n");
+        return;
+    }
+    case CG_FILEBI_NONE:
+        break;
+    }
+    cg_ice("unknown file-I/O builtin", call);
+}
+
 /* Emit a call. Arguments are pushed RIGHT-TO-LEFT (cdecl); a value parameter
  * contributes its evaluated value, a var parameter contributes an address.
  * The caller cleans the stack (add esp, 4*nargs). The result (functions) is
@@ -1849,6 +1969,11 @@ static void gen_addr_of(Cg *cg, const AstNode *arg)
 static void gen_call(Cg *cg, const AstNode *call)
 {
     FILE *o = cg->out;
+    CgFileBuiltin bi = cg_file_builtin_kind(call->as.call.name);
+    if (bi != CG_FILEBI_NONE) {
+        gen_file_call(cg, call, bi);
+        return;
+    }
     const CgProc *pr = cg_proc_find(cg, call->as.call.name);
     if (!pr)
         cg_ice("call to unknown routine (should be caught by typecheck)", call);
@@ -2069,8 +2194,19 @@ static void plan_stmt(AstNode *n, int *maxtemps)
         }
         return;
     case AST_CALL:
-        for (size_t i = 0; i < n->as.call.args.count; i++)
-            plan_track(plan_val(n->as.call.args.items[i], 0), maxtemps);
+        for (size_t i = 0; i < n->as.call.args.count; i++) {
+            AstNode *arg = n->as.call.args.items[i];
+            /* B8 assign() accepts a string expression (or coerced char)
+             * filename. Existing user calls only accept `var string`
+             * designators, for which plan_str is a no-op. */
+            if (arg->type == AST_TY_STRING
+                || (arg->type == AST_TY_CHAR
+                    && cg_file_builtin_kind(n->as.call.name)
+                       == CG_FILEBI_ASSIGN))
+                plan_track(plan_str(arg, 0), maxtemps);
+            else
+                plan_track(plan_val(arg, 0), maxtemps);
+        }
         return;
     default:
         return;
@@ -2107,6 +2243,7 @@ static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
          * -- its ONE slot holds the caller's byte-0 pointer (CG_VARPARAM). */
         e->strcap = (pn->as.param.ptype == AST_TY_STRING)
                   ? pn->as.param.strcap : 0;
+        e->is_file = 0; /* file parameters are rejected by parser.c */
     }
 
     int slot = 0;
@@ -2121,6 +2258,7 @@ static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
         e->lo = e->hi = 0;
         e->rec_fields = 0; /* record function results are out of scope */
         e->strcap = 0;     /* string function results are out of scope (B7) */
+        e->is_file = 0;    /* file function results are out of scope (B8) */
     }
     for (size_t i = 0; i < pf->as.procfunc.decls.count; i++) {
         const AstNode *vd = pf->as.procfunc.decls.items[i];
@@ -2137,6 +2275,7 @@ static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
         int strcap = (vd->as.vardecl.vtype == AST_TY_STRING)
                    ? vd->as.vardecl.strcap : 0;
         int strwords = strcap > 0 ? (strcap + 4) / 4 : 0;
+        int is_file = (vd->as.vardecl.vtype == AST_TY_FILE);
         for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {
             const AstNode *vr = vd->as.vardecl.names.items[j];
             if (sc->n >= CG_MAX_SCOPE)
@@ -2146,12 +2285,19 @@ static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
             e->kind = CG_LOCAL;
             e->rec_fields = rec_fields;
             e->strcap = strcap;
+            e->is_file = is_file;
             if (strcap > 0) {
                 e->is_array = 0;
                 e->lo = e->hi = 0;
                 /* byte 0 = the block's LOWEST address = its highest slot. */
                 e->offset = cg_local_offset(slot + strwords - 1);
                 slot += strwords;
+            } else if (is_file) {
+                e->is_array = 0;
+                e->lo = e->hi = 0;
+                /* Lowest address of the 260-byte ascending file object. */
+                e->offset = cg_local_offset(slot + CG_FILE_DWORDS - 1);
+                slot += CG_FILE_DWORDS;
             } else if (vd->as.vardecl.is_array) {
                 long lo = vd->as.vardecl.lo, hi = vd->as.vardecl.hi;
                 long count = hi - lo + 1;
@@ -2209,6 +2355,16 @@ static void emit_proc(Cg *cg, const AstNode *pf, int *str_idx)
         if (sc.ent[i].strcap > 0 && sc.ent[i].kind == CG_LOCAL) {
             fprintf(o, "    mov byte ");
             cg_ebp(o, sc.ent[i].offset);
+            fprintf(o, ", 0\n");
+        }
+        if (sc.ent[i].is_file && sc.ent[i].kind == CG_LOCAL) {
+            /* handle=0 (closed/unassigned), filename[0]=NUL. Assign will
+             * populate the ASCIIZ path before reset/rewrite. */
+            fprintf(o, "    mov dword ");
+            cg_ebp(o, sc.ent[i].offset);
+            fprintf(o, ", 0\n");
+            fprintf(o, "    mov byte ");
+            cg_ebp(o, sc.ent[i].offset + 4);
             fprintf(o, ", 0\n");
         }
     }
@@ -2269,6 +2425,7 @@ static void emit_bss(Cg *cg, const AstNode *program)
          * gives byte 0 = 0 = an empty string. */
         int strcap = (vd->as.vardecl.vtype == AST_TY_STRING)
                    ? vd->as.vardecl.strcap : 0;
+        int is_file = (vd->as.vardecl.vtype == AST_TY_FILE);
         for (size_t j = 0; j < vd->as.vardecl.names.count; j++) {
             const AstNode *vr = vd->as.vardecl.names.items[j];
             if (vr->kind != AST_VARREF)
@@ -2283,6 +2440,8 @@ static void emit_bss(Cg *cg, const AstNode *program)
              * occupies `elem_words` dwords instead of always 1. */
             if (strcap > 0) {
                 fprintf(o, ": resb %d\n", ((strcap + 4) / 4) * 4);
+            } else if (is_file) {
+                fprintf(o, ": resd %d\n", CG_FILE_DWORDS);
             } else if (vd->as.vardecl.is_array) {
                 long count = vd->as.vardecl.hi - vd->as.vardecl.lo + 1;
                 fprintf(o, ": resd %ld\n", count * elem_words);
@@ -2443,6 +2602,7 @@ int codegen_emit(AstNode *program, FILE *out)
     /* B7 (beads initech-39k2). */
     cg.strlit_count = 0;
     cg.uses_strings = program->as.program.uses_strings;
+    cg.uses_fileio = program->as.program.uses_fileio;
     cg.cur_frame_slots = 0;
 
     /* B6 (beads initech-rug7): build the RECORD-TYPE table (name -> field
@@ -2538,7 +2698,23 @@ int codegen_emit(AstNode *program, FILE *out)
     /* externs: runtime serial helpers. */
     fprintf(out, "extern serial_putc\n");
     fprintf(out, "extern serial_puts\n");
-    fprintf(out, "extern serial_put_int\n\n");
+    fprintf(out, "extern serial_put_int\n");
+    /* B8: keep every fileless program byte-identical by emitting no file RTL
+     * names unless typecheck saw a validated file-I/O builtin call. */
+    if (cg.uses_fileio) {
+        fprintf(out, "extern rtl_file_assign\n");
+        fprintf(out, "extern rtl_file_reset\n");
+        fprintf(out, "extern rtl_file_rewrite\n");
+        fprintf(out, "extern rtl_file_blockread\n");
+#ifdef SEED_MUT_FILEIO_SHORT_WRITE
+        fprintf(out, "extern rtl_file_blockwrite_short\n");
+#elif defined(SEED_MUT_FILEIO_WRONG_HANDLE)
+        fprintf(out, "extern rtl_file_blockwrite_wrong_handle\n");
+#else
+        fprintf(out, "extern rtl_file_blockwrite\n");
+#endif
+    }
+    fprintf(out, "\n");
 
     /* .rodata: string literals, in source order, plus the two fixed boolean
      * print constants (B1, beads initech-f0uc). These are emitted

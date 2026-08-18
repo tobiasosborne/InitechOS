@@ -51,6 +51,10 @@ SEED_RT_DIR  := seed/rt
 SEED_RT_ASM  := $(SEED_RT_DIR)/start.asm
 SEED_RT_LD   := $(SEED_RT_DIR)/seed.ld
 SEED_RT_OBJ  := $(BUILD)/seed_rt.o
+# B8 file RTL is a separate object and is linked only when the emitted .s
+# references it (fileless runtime artifacts remain pre-B8 byte-identical).
+SEED_FILEIO_RT_ASM := $(SEED_RT_DIR)/fileio.asm
+SEED_FILEIO_RT_OBJ := $(BUILD)/seed_fileio_rt.o
 
 # Canonical end-to-end smoke program and its built ELF.
 SEED_SMOKE_PAS := seed/examples/smoke.pas
@@ -7194,7 +7198,9 @@ help:
 	@printf '  test-seed-array-mutant  Rule-6 proof (B5 static arrays): BOTH deep-bug mutants make array.pas correctly RED -- STRIDE (element stride *2 instead of *4) + ARRAY_LO_SKIP (the lo-offset subtraction omitted). REAL (QEMU). beads initech-54uu, ADR-0007 DEC-02/DEC-07.\n'
 	@printf '  test-seed-record-mutant  Rule-6 proof (B6 records): BOTH deep-bug mutants make record.pas correctly RED -- FIELD_OFF4 (every field offset shifted +4) + REC_STRIDE (array-of-record stride = field-count-1 slots). REAL (QEMU). beads initech-rug7, ADR-0007 DEC-02/DEC-07.\n'
 	@printf '  test-seed-string-mutant  Rule-6 proof (B7 strings): BOTH deep-bug mutants make string.pas correctly RED -- STR_TEMP_CLOBBER (every string temp collapsed to index 0, flipping the right-nested-concat RNEST tag) + STR_CMP_NOLEN (__str_cmp drops the prefix-equal length tiebreak, flipping EQF). REAL (QEMU). beads initech-39k2, ADR-0007 DEC-02/DEC-07.\n'
-	@printf '  test-seed-fpc-diff  DEC-07 Rung 2: Turbo Initech seed vs Free Pascal, byte-exact stdout diff on the shared-subset corpus (B4 func + B5 array + B6 record + B7 string). REAL; IN the default `make test` vector (initech-altq); FAILS LOUD when fpc is absent, SKIP_FPC=1 to opt out (shouting). beads initech-63ce/-4yvg/-altq, ADR-0007 Sec 4.7.\n'
+	@printf '  test-seed-fileio-build  B8 host-native build/static-contract gate: clean + SHORT_WRITE + WRONG_HANDLE seed ELFs assemble/link and select distinct hand-assembled RTL entries. NOT the runtime Rule-6 RED proof; that requires the orchestrator-owned seed-on-InitechDOS leg. beads initech-ogxv.\n'
+	@printf '  test-seed-fileio-fpc  B8 host Free Pascal oracle: file_shared.pas writes/reads 9 bytes and emits the hand-computed stdout exactly; seed on-InitechDOS comparison is orchestrator-owed. beads initech-ogxv.\n'
+	@printf '  test-seed-fpc-diff  DEC-07 Rung 2: seed vs Free Pascal for B4-B7 via direct-QEMU ELFs; B8 file_shared host-fpc + seed build included, with seed-on-InitechDOS execution explicitly orchestrator-owed. IN default `make test`; FAILS LOUD when fpc is absent.\n'
 	@printf '  test-seed-repro  Reproducible-build gate: the FULL seed corpus, compiled twice (initechc->nasm->ld) into separate scratch dirs, is byte-identical (.s+.o+.elf sha256). REAL. bead initech-3yv, ADR-0007 FO-5/DEC-06.\n'
 	@printf '  test-seed-repro-mutant  Rule-6 proof: -DSEED_MUT_NONDET (getpid()-seeded dead .rodata symbol -- GENUINE nondeterminism) makes test-seed-repro correctly RED, while leaving bool.pas single-run behavior untouched. REAL. bead initech-3yv, ADR-0007 FO-5.\n'
 	@printf '  test-harness   QEMU oracle harness self-test: serial marker caught on good fixture, triple-fault caught on bad. REAL.\n'
@@ -9466,8 +9472,12 @@ $(BUILD)/%.elf: $(FIXTURE_DIR)/%.asm $(FIXTURE_LD) | $(BUILD)
 # ---------------------------------------------------------------------------
 # Compile a .pas through the full chain: initechc --emit-asm -> nasm -felf32
 # -> ld -T seed/rt/seed.ld, linking the freestanding runtime. The runtime
-# object is shared by every seed binary.
+# entry/serial object is shared by every seed binary; optional family RTL
+# objects (B8 fileio) are added only by their exact fixture/program rules.
 $(SEED_RT_OBJ): $(SEED_RT_ASM) | $(BUILD)
+	$(NASM) -f elf32 $< -o $@
+
+$(SEED_FILEIO_RT_OBJ): $(SEED_FILEIO_RT_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
 # Pattern: build/seed_<name>.elf from seed/examples/<name>.pas.
@@ -12109,10 +12119,23 @@ SEED_RECORD_EXPECT := LOCALREC=607 KIND=42 CH=X OK=TRUE BKIND=43 BOK=FALSE T2KIN
 # param mutation through a call.
 SEED_STRING_EXPECT := LEN0=0 CONSTSTR=Hi TRUNC=abc TLEN=3 LDEEP=abcdef RNEST=ghijkl CCAT=abcd SELFA=abc PRE=aZ EQ=TRUE EQF=FALSE NE=TRUE LTP=TRUE LTB=TRUE LE=TRUE GT=TRUE GE=TRUE CMPCH=TRUE LENV=3 LENP=3 IDXR=Y IDXW=WYZ IDXA=77 RECUR=321 MUT=go!
 
+# B8 (beads initech-ogxv): fileio.pas's hand-computed stdout. The fixture
+# opens TARGET then SINK so WRONG_HANDLE's `handle+1` remains a valid writable
+# JFT entry; SHORT_WRITE and WRONG_HANDLE therefore fail on read counts/content,
+# never on a crash, once the seed-on-InitechDOS runner exists.
+SEED_FILEIO_EXPECT := FILEIO W1=1 WB=8 R1=1 RB=8 DATA=NORTHSTAR
+SEED_FILEIO_ELF := $(BUILD)/seed_arith_fileio.elf
+
 $(BUILD)/seed_arith_%.elf: $(ARITH_DIR)/%.pas $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
 	$(SEED_BIN) --emit-asm -o $(BUILD)/seed_arith_$*.s $<
 	$(NASM) -f elf32 $(BUILD)/seed_arith_$*.s -o $(BUILD)/seed_arith_$*.o
 	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(BUILD)/seed_arith_$*.o
+
+# B8 exact override: only a file-I/O program links the optional INT-21h RTL.
+$(SEED_FILEIO_ELF): $(ARITH_DIR)/fileio.pas $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN) --emit-asm -o $(BUILD)/seed_arith_fileio.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_fileio.s -o $(BUILD)/seed_arith_fileio.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(BUILD)/seed_arith_fileio.o
 
 ARITH_ELVES := $(BUILD)/seed_arith_precedence.elf \
                $(BUILD)/seed_arith_parens.elf \
@@ -12588,6 +12611,197 @@ test-seed-string-mutant: $(HARNESS_BIN) $(SEED_ARITH_STRING_MUT_CLOBBER_ELF) $(S
 	@printf ">>> test-seed-string-mutant: all green (both B7 deep-bug loci mutation-proven)\n"
 
 # ---------------------------------------------------------------------------
+# B8 host-native build/static-contract + host Free Pascal oracle
+# ---------------------------------------------------------------------------
+# NO seed-on-InitechDOS runner exists in-tree (audited for initech-ogxv). The
+# existing seed exact-output/family-mutant/fpc-diff executions all boot a
+# Multiboot seed ELF directly through qemu_harness; that environment has no
+# InitechDOS IDT/INT-21h dispatcher, so it CANNOT execute this RTL. Per the B8
+# lane brief, do not invent an emulator harness here. These two default host
+# gates prove everything that is genuinely host-native; the clean-control +
+# both runtime mutant REDs remain an explicitly orchestrator-owned on-OS leg.
+SEED_BIN_MUT_FILEIO_SHORT := $(BUILD)/initechc_mut_fileio_short
+SEED_BIN_MUT_FILEIO_WRONG := $(BUILD)/initechc_mut_fileio_wrong_handle
+
+$(SEED_BIN_MUT_FILEIO_SHORT): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_FILEIO_SHORT_WRITE -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+$(SEED_BIN_MUT_FILEIO_WRONG): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -DSEED_MUT_FILEIO_WRONG_HANDLE -Iseed -o $@ $(SEED_DRV_SRC) $(SEED_LIB_SRC)
+
+SEED_FILEIO_MUT_SHORT_ELF := $(BUILD)/seed_arith_fileio_mut_short.elf
+SEED_FILEIO_MUT_WRONG_ELF := $(BUILD)/seed_arith_fileio_mut_wrong_handle.elf
+
+$(SEED_FILEIO_MUT_SHORT_ELF): $(ARITH_DIR)/fileio.pas $(SEED_BIN_MUT_FILEIO_SHORT) $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT_FILEIO_SHORT) --emit-asm -o $(BUILD)/seed_arith_fileio_mut_short.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_fileio_mut_short.s -o $(BUILD)/seed_arith_fileio_mut_short.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(BUILD)/seed_arith_fileio_mut_short.o
+
+$(SEED_FILEIO_MUT_WRONG_ELF): $(ARITH_DIR)/fileio.pas $(SEED_BIN_MUT_FILEIO_WRONG) $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_RT_LD) | $(BUILD)
+	$(SEED_BIN_MUT_FILEIO_WRONG) --emit-asm -o $(BUILD)/seed_arith_fileio_mut_wrong_handle.s $<
+	$(NASM) -f elf32 $(BUILD)/seed_arith_fileio_mut_wrong_handle.s -o $(BUILD)/seed_arith_fileio_mut_wrong_handle.o
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(BUILD)/seed_arith_fileio_mut_wrong_handle.o
+
+.PHONY: test-seed-fileio-build
+test-seed-fileio-build: $(SEED_FILEIO_ELF) $(SEED_FILEIO_MUT_SHORT_ELF) $(SEED_FILEIO_MUT_WRONG_ELF)
+	@printf '>>> test-seed-fileio-build: host-native compile/assemble/link + distinct B8 RTL call-site contract\n'
+	@test "$$(grep -c 'call rtl_file_blockwrite$$' $(BUILD)/seed_arith_fileio.s)" -eq 2 \
+		|| { printf '!!! clean fileio.s does not call rtl_file_blockwrite exactly twice\n'; exit 1; }
+	@test "$$(grep -c 'call rtl_file_blockwrite_short$$' $(BUILD)/seed_arith_fileio_mut_short.s)" -eq 2 \
+		|| { printf '!!! SHORT_WRITE fileio.s does not call its mutant RTL entry exactly twice\n'; exit 1; }
+	@test "$$(grep -c 'call rtl_file_blockwrite_wrong_handle$$' $(BUILD)/seed_arith_fileio_mut_wrong_handle.s)" -eq 2 \
+		|| { printf '!!! WRONG_HANDLE fileio.s does not call its mutant RTL entry exactly twice\n'; exit 1; }
+	@grep -q '^v_targetfile: resd 65$$' $(BUILD)/seed_arith_fileio.s \
+		|| { printf '!!! file object is not the fixed 260-byte static-arena layout\n'; exit 1; }
+	@grep -q '^    sub esp, 260$$' $(BUILD)/seed_arith_fileio.s \
+		|| { printf '!!! local file object is not a fixed 260-byte frame allocation\n'; exit 1; }
+	@grep -q '^    mov dword \[ebp-260\], 0$$' $(BUILD)/seed_arith_fileio.s \
+		|| { printf '!!! local file handle is not initialized closed\n'; exit 1; }
+	@grep -q '^    mov byte \[ebp-256\], 0$$' $(BUILD)/seed_arith_fileio.s \
+		|| { printf '!!! local file filename buffer is not initialized empty\n'; exit 1; }
+	@grep -q '^    call pf_exerciselocalfile$$' $(BUILD)/seed_arith_fileio.s \
+		|| { printf '!!! local file procedure is not called by the fixture\n'; exit 1; }
+	@for fn in rtl_file_assign rtl_file_reset rtl_file_rewrite rtl_file_blockread rtl_file_blockwrite rtl_file_blockwrite_short rtl_file_blockwrite_wrong_handle; do \
+		nm $(SEED_FILEIO_RT_OBJ) | grep -q " $$fn$$" \
+			|| { printf '!!! seed RTL object is missing %s\n' "$$fn"; exit 1; }; \
+	done
+	@if nm $(SEED_RT_OBJ) | grep -q 'rtl_file_'; then \
+		printf '!!! always-linked start.asm object contains B8 file RTL (fileless link identity broken)\n'; exit 1; \
+	fi
+	@printf '>>> test-seed-fileio-build: green (clean + both named mutant artifacts built; runtime RED proof remains on-OS)\n'
+
+SEED_FPC_FILEIO_DIR := $(BUILD)/fpc_fileio
+
+.PHONY: test-seed-fileio-fpc
+test-seed-fileio-fpc: seed/examples/fpc/file_shared.pas
+	@printf '>>> test-seed-fileio-fpc: host Free Pascal byte/content round-trip oracle\n'
+	@command -v fpc >/dev/null 2>&1 \
+		|| { printf '!!! test-seed-fileio-fpc FAIL: fpc is not installed\n'; exit 1; }
+	@mkdir -p $(SEED_FPC_FILEIO_DIR)
+	@cp -f $< $(SEED_FPC_FILEIO_DIR)/file_shared.pas
+	@fpc -B -O- -v0 -FE$(SEED_FPC_FILEIO_DIR) -o$(SEED_FPC_FILEIO_DIR)/file_shared_fpc $(SEED_FPC_FILEIO_DIR)/file_shared.pas >/dev/null 2>&1 \
+		|| { printf '!!! test-seed-fileio-fpc FAIL: fpc could not compile file_shared.pas\n'; exit 1; }
+	@out=$$(cd $(SEED_FPC_FILEIO_DIR) && ./file_shared_fpc) \
+		|| { printf '!!! test-seed-fileio-fpc FAIL: fpc-built fixture exited non-zero\n'; exit 1; }; \
+	 test "$$out" = "$(SEED_FILEIO_EXPECT)" \
+		|| { printf '!!! test-seed-fileio-fpc FAIL: stdout differs\nexpected: %s\nactual:   %s\n' "$(SEED_FILEIO_EXPECT)" "$$out"; exit 1; }
+	@printf 'NORTHSTAR' | cmp -s - $(SEED_FPC_FILEIO_DIR)/B8FILE.BIN \
+		|| { printf '!!! test-seed-fileio-fpc FAIL: B8FILE.BIN did not round-trip NORTHSTAR byte-exact\n'; exit 1; }
+	@test "$$(wc -c < $(SEED_FPC_FILEIO_DIR)/B8SINK.BIN | tr -d ' ')" -eq 0 \
+		|| { printf '!!! test-seed-fileio-fpc FAIL: clean control wrote bytes to the sink file\n'; exit 1; }
+	@test "$$(wc -c < $(SEED_FPC_FILEIO_DIR)/B8LOCAL.BIN | tr -d ' ')" -eq 0 \
+		|| { printf '!!! test-seed-fileio-fpc FAIL: local-file procedure did not create an empty file\n'; exit 1; }
+	@printf '>>> test-seed-fileio-fpc: green -- %s; file content=NORTHSTAR (9 bytes), sink=0 bytes\n' "$(SEED_FILEIO_EXPECT)"
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-seed-fileio-os (beads initech-ogxv; ADR-0007 DEC-05) -- B8's
+# ON-InitechDOS oracle: the seed-compiled fileio.pas runs INSIDE InitechOS.
+# ---------------------------------------------------------------------------
+# The seed's existing emu legs (test-seed-codegen) boot bare-metal Multiboot
+# ELFs -- no INT-21h dispatcher exists there, so B8's file I/O CANNOT run on
+# that harness. This gate instead follows THE SAMIR PRECEDENT end-to-end
+# (test-samir-boot; ADR-0009 DEC-08): link the SAME compiled program body
+# against the InitechDOS runtime pair (seed/rt/start_dos.asm + seed_dos.ld --
+# flat .COM at PROGRAM_IMAGE 0x40100, entry-first, NOLOAD-.bss zeroed by the
+# stub, INT 21h AH=4Ch exit), objcopy to FILEIO.COM, mint a FAT12 data disk,
+# boot the COMMAND.COM shell kernel (TRACER_IMG) with it on --disk2, type
+# `fileio<ret>` gated on SHELL-READY, and assert the hand-computed exact
+# serial line. The mutant leg boots the SHORT_WRITE / WRONG_HANDLE compiler
+# mutants' .COMs and requires WRONG VALUES (clean marker absent, program
+# still terminates; no crash) -- Rule 6 RED-for-the-right-reason on metal.
+SEED_DOS_RT_ASM := seed/rt/start_dos.asm
+SEED_DOS_RT_OBJ := $(BUILD)/seed_rt_dos.o
+SEED_DOS_LD     := seed/rt/seed_dos.ld
+SEED_FILEIO_COM           := $(BUILD)/FILEIO.COM
+SEED_FILEIO_MUT_SHORT_COM := $(BUILD)/FILEIO_MUT_SHORT.COM
+SEED_FILEIO_MUT_WRONG_COM := $(BUILD)/FILEIO_MUT_WRONG.COM
+SEED_FILEIO_IMG           := $(BUILD)/seed_fileio.img
+SEED_FILEIO_MUT_SHORT_IMG := $(BUILD)/seed_fileio_mut_short.img
+SEED_FILEIO_MUT_WRONG_IMG := $(BUILD)/seed_fileio_mut_wrong.img
+SEED_FILEIO_OS_KEYS := f,i,l,e,i,o,ret
+
+$(SEED_DOS_RT_OBJ): $(SEED_DOS_RT_ASM) | $(BUILD)
+	$(NASM) -f elf32 $< -o $@
+
+# The .COMs reuse the ALREADY-COMPILED program objects (the same bytes the
+# host build gate proved) -- only the runtime pair differs (two runtime
+# targets, one program body).
+$(SEED_FILEIO_COM): $(SEED_FILEIO_ELF) $(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_DOS_LD)
+	@$(LD) -m elf_i386 -T $(SEED_DOS_LD) -o $(BUILD)/seed_fileio_dos.elf \
+		$(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(BUILD)/seed_arith_fileio.o
+	@$(OBJCOPY) -O binary $(BUILD)/seed_fileio_dos.elf $@
+	@printf '>>> FILEIO.COM: %s bytes (flat .COM @0x40100, seed-compiled B8 fixture)\n' "$$(stat -c%s $@)"
+
+$(SEED_FILEIO_MUT_SHORT_COM): $(SEED_FILEIO_MUT_SHORT_ELF) $(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_DOS_LD)
+	@$(LD) -m elf_i386 -T $(SEED_DOS_LD) -o $(BUILD)/seed_fileio_dos_mut_short.elf \
+		$(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(BUILD)/seed_arith_fileio_mut_short.o
+	@$(OBJCOPY) -O binary $(BUILD)/seed_fileio_dos_mut_short.elf $@
+
+$(SEED_FILEIO_MUT_WRONG_COM): $(SEED_FILEIO_MUT_WRONG_ELF) $(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_DOS_LD)
+	@$(LD) -m elf_i386 -T $(SEED_DOS_LD) -o $(BUILD)/seed_fileio_dos_mut_wrong.elf \
+		$(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(BUILD)/seed_arith_fileio_mut_wrong_handle.o
+	@$(OBJCOPY) -O binary $(BUILD)/seed_fileio_dos_mut_wrong.elf $@
+
+$(SEED_FILEIO_IMG): $(SEED_FILEIO_COM) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(SEED_FILEIO_COM) ::FILEIO.COM
+$(SEED_FILEIO_MUT_SHORT_IMG): $(SEED_FILEIO_MUT_SHORT_COM) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(SEED_FILEIO_MUT_SHORT_COM) ::FILEIO.COM
+$(SEED_FILEIO_MUT_WRONG_IMG): $(SEED_FILEIO_MUT_WRONG_COM) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(SEED_FILEIO_MUT_WRONG_COM) ::FILEIO.COM
+
+.PHONY: test-seed-fileio-os
+test-seed-fileio-os: $(HARNESS_BIN) $(TRACER_IMG) $(SEED_FILEIO_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-seed-fileio-os : B8 file I/O ON InitechDOS\n'
+	@printf '  Ref: beads initech-ogxv; ADR-0007 DEC-05/DEC-07; the samir-boot precedent.\n'
+	@printf '======================================================================\n'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SEED_FILEIO_IMG)" \
+		--name seed_fileio_os --out "$(BUILD)" --timeout-ms 30000 \
+		--keys "$(SEED_FILEIO_OS_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(BUILD)/seed_fileio_os.report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/seed_fileio_os.report"; then \
+		printf '!!! test-seed-fileio-os FAIL: TRIPLE FAULT running FILEIO.COM\n'; exit 1; fi
+	@grep -q '^SHELL-READY$$' "$(BUILD)/seed_fileio_os.serial" \
+		|| { printf '!!! test-seed-fileio-os FAIL: SHELL-READY missing\n'; exit 1; }
+	@if grep -q 'FILEIO-ERROR' "$(BUILD)/seed_fileio_os.serial"; then \
+		printf '!!! test-seed-fileio-os FAIL: the RTL hit a CF error path:\n'; \
+		grep 'FILEIO-ERROR' "$(BUILD)/seed_fileio_os.serial"; exit 1; fi
+	@grep -qF '$(SEED_FILEIO_EXPECT)' "$(BUILD)/seed_fileio_os.serial" \
+		|| { printf '!!! test-seed-fileio-os FAIL: exact FILEIO line missing on serial\nexpected: %s\ngot:\n' "$(SEED_FILEIO_EXPECT)"; \
+		     grep '^FILEIO W1=' "$(BUILD)/seed_fileio_os.serial" || printf '  (no FILEIO result line at all)\n'; exit 1; }
+	@printf 'VERDICT   : PASS -- seed-compiled fileio.pas ran ON InitechDOS: %s\n' "$(SEED_FILEIO_EXPECT)"
+	@printf '======================================================================\n'
+
+.PHONY: test-seed-fileio-os-mutant
+test-seed-fileio-os-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SEED_FILEIO_MUT_SHORT_IMG) $(SEED_FILEIO_MUT_WRONG_IMG)
+	@printf '>>> test-seed-fileio-os-mutant: Rule 6 -- both compiler mutants must yield WRONG VALUES on metal\n'
+	@rc=0; \
+	for spec in "short:$(SEED_FILEIO_MUT_SHORT_IMG):SHORT_WRITE drops tail bytes" \
+	            "wrong:$(SEED_FILEIO_MUT_WRONG_IMG):WRONG_HANDLE writes to the next live handle"; do \
+		tag=$${spec%%:*}; rest=$${spec#*:}; img=$${rest%%:*}; desc=$${rest#*:}; \
+		$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$$img" \
+			--name "seed_fileio_os_mut_$$tag" --out "$(BUILD)" --timeout-ms 30000 \
+			--keys "$(SEED_FILEIO_OS_KEYS)" --keys-after "SHELL-READY" \
+			2> "$(BUILD)/seed_fileio_os_mut_$$tag.report" || true; \
+		if grep -q 'triple_fault=1' "$(BUILD)/seed_fileio_os_mut_$$tag.report"; then \
+			printf '!!! test-seed-fileio-os-mutant FAIL: %s TRIPLE-FAULTED (crash, not wrong values)\n' "$$tag"; rc=1; continue; fi; \
+		if grep -qF '$(SEED_FILEIO_EXPECT)' "$(BUILD)/seed_fileio_os_mut_$$tag.serial"; then \
+			printf '!!! test-seed-fileio-os-mutant FAIL: %s printed the CLEAN line -- the oracle is decoration (%s)\n' "$$tag" "$$desc"; rc=1; continue; fi; \
+		if ! grep -q '^FILEIO W1=' "$(BUILD)/seed_fileio_os_mut_$$tag.serial"; then \
+			printf '!!! test-seed-fileio-os-mutant FAIL: %s produced NO FILEIO result line (did not run to completion; cannot judge wrong-values). NB: match the ^FILEIO W1= marker, NEVER bare "FILEIO" -- the shell DIR listing echoes FILEIO.COM\n' "$$tag"; rc=1; continue; fi; \
+		printf '>>> mutant %s correctly RED (wrong values, no crash): ' "$$tag"; \
+		grep -m1 '^FILEIO W1=' "$(BUILD)/seed_fileio_os_mut_$$tag.serial"; \
+	done; \
+	if [ "$$rc" != "0" ]; then exit 1; fi
+	@printf '>>> test-seed-fileio-os-mutant: green (both B8 mutants bite on metal)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-seed-fpc-diff (beads initech-63ce; ADR-0007 DEC-07 Rung 2)
 # ---------------------------------------------------------------------------
 # THE Free Pascal differential, stood up at the codegen pivot (B4) per the
@@ -12632,15 +12846,20 @@ SEED_FPC_DIR := seed/examples/fpc
 #                    compilers' record LAYOUTS differ by design -- the
 #                    differential grades observable stdout, not bytes.)
 #   string_shared -- B7 concat/length/index/compare, ShortStrings pinned {$H-}.
+#   file_shared   -- B8 byte/block round-trip. Its fpc half is host-native;
+#                    the seed half requires InitechDOS and therefore is NOT
+#                    sent through the direct-Multiboot QEMU subset below.
 # Each single-quoted pair survives the shell for-loop verbatim (the expected
 # lines contain spaces). Each fixture prints ONE line; both compilers must emit
 # exactly it (plus a trailing newline) -- the expected line doubles as the
 # seed-side Rung-1 fallback marker when fpc is absent, and is cross-checked
 # against fpc's real stdout when fpc is present.
-SEED_FPC_CORPUS := 'func_shared=120 TRUE FALSE 2 1' \
-                   'array_shared=SUM=15 REV=54321 NESTED=2 BSUM=510 CSUM=20 F1=TRUE F2=FALSE LSUM=45' \
-                   'record_shared=KIND=7 VAL=40 OK=FALSE BKIND=17 BOK=TRUE T2KIND=99 TKIND=17 T2VAL=12 KSUM=118' \
-                   'string_shared=Hello, World! 13 H EQ LT'
+SEED_FPC_EMU_CORPUS := 'func_shared=120 TRUE FALSE 2 1' \
+                       'array_shared=SUM=15 REV=54321 NESTED=2 BSUM=510 CSUM=20 F1=TRUE F2=FALSE LSUM=45' \
+                       'record_shared=KIND=7 VAL=40 OK=FALSE BKIND=17 BOK=TRUE T2KIND=99 TKIND=17 T2VAL=12 KSUM=118' \
+                       'string_shared=Hello, World! 13 H EQ LT'
+SEED_FPC_CORPUS := $(SEED_FPC_EMU_CORPUS) \
+                   'file_shared=$(SEED_FILEIO_EXPECT)'
 
 # fpc INSTALLED on the dev box 2026-08-01 (operator; beads initech-altq):
 # test-seed-fpc-diff is now IN the default TEST_UNIT_GATES vector,
@@ -12655,13 +12874,13 @@ test-seed-fpc-diff:
 	@printf '!!! test-seed-fpc-diff SKIPPED (SKIP_FPC=1 opt-out) -- the DEC-07 Rung-2 Free Pascal differential (ADR-0007 Sec 4.7) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_FPC and re-run before trusting this gate.\n'
 else
 .PHONY: test-seed-fpc-diff
-test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) $(HARNESS_BIN)
+test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(SEED_RT_LD) $(HARNESS_BIN)
 	@printf ">>> test-seed-fpc-diff: DEC-07 Rung 2 -- Turbo Initech seed vs Free Pascal, byte-exact stdout diff on the shared-subset corpus (beads initech-63ce/initech-39k2, ADR-0007 Sec 4.7)\n"
 	@if ! command -v fpc >/dev/null 2>&1; then \
 		printf '!!! test-seed-fpc-diff FAIL (loud, not skipped -- Law 2): `fpc` (Free Pascal Compiler) is NOT installed in this environment.\n'; \
 		printf '    The DEC-07 Rung 2 differential requires fpc to mint the INDEPENDENT golden. Install it (apt install fpc) to make this gate green.\n'; \
 		printf '    Verified WITHOUT fpc: the seed compiles+runs each shared fixture and its serial output matches the hand-derived expectation (Rung 1 fallback below).\n'; \
-		for pair in $(SEED_FPC_CORPUS); do \
+		for pair in $(SEED_FPC_EMU_CORPUS); do \
 			name=$${pair%%=*}; expect=$${pair#*=}; \
 			printf '    Seed-side self-check on %s/%s.pas (expect "%s"):\n' "$(SEED_FPC_DIR)" "$$name" "$$expect"; \
 			$(SEED_BIN) --emit-asm -o $(BUILD)/seed_fpc_$$name.s $(SEED_FPC_DIR)/$$name.pas \
@@ -12677,7 +12896,7 @@ test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) $(HARNESS_BIN)
 	fi; \
 	printf '>>> test-seed-fpc-diff: fpc found (%s)\n' "$$(fpc -iV 2>/dev/null)"; \
 	rm -rf $(BUILD)/fpc_diff; mkdir -p $(BUILD)/fpc_diff; \
-	for pair in $(SEED_FPC_CORPUS); do \
+	for pair in $(SEED_FPC_EMU_CORPUS); do \
 		name=$${pair%%=*}; \
 		cp $(SEED_FPC_DIR)/$$name.pas $(BUILD)/fpc_diff/$$name.pas; \
 		fpc -B -O- -v0 -FE$(BUILD)/fpc_diff -o$(BUILD)/fpc_diff/$${name}_fpc $(BUILD)/fpc_diff/$$name.pas >/dev/null 2>&1 \
@@ -12698,7 +12917,13 @@ test-seed-fpc-diff: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_RT_LD) $(HARNESS_BIN)
 			exit 1; \
 		fi; \
 	done; \
-	printf '>>> test-seed-fpc-diff: all green -- seed and fpc produce byte-identical stdout on the shared corpus\n'
+	$(MAKE) --no-print-directory test-seed-fileio-fpc; \
+	$(SEED_BIN) --emit-asm -o $(BUILD)/fpc_diff/file_shared_seed.s $(SEED_FPC_DIR)/file_shared.pas \
+		|| { printf '!!! test-seed-fpc-diff FAIL: seed could not compile file_shared\n'; exit 1; }; \
+	$(NASM) -f elf32 $(BUILD)/fpc_diff/file_shared_seed.s -o $(BUILD)/fpc_diff/file_shared_seed.o; \
+	$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(BUILD)/fpc_diff/file_shared_seed.elf $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(BUILD)/fpc_diff/file_shared_seed.o 2>/dev/null; \
+	printf '>>> test-seed-fpc-diff: green -- four direct-QEMU seed/fpc diffs + file_shared fpc host round-trip + seed compile/link\n'; \
+	printf '!!! test-seed-fpc-diff B8 NOTICE: file_shared seed execution/diff is NOT graded here; it requires the orchestrator-owned seed-on-InitechDOS leg (no such runner exists in-tree).\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -12741,6 +12966,7 @@ SEED_REPRO_CORPUS := seed/examples/hello.pas seed/examples/smoke.pas \
                       $(ARITH_DIR)/control.pas $(ARITH_DIR)/divmod.pas \
                       $(ARITH_DIR)/func.pas $(ARITH_DIR)/array.pas \
                       $(ARITH_DIR)/record.pas $(ARITH_DIR)/string.pas \
+                      $(ARITH_DIR)/fileio.pas \
                       $(ARITH_DIR)/negative.pas $(ARITH_DIR)/negative_divmod.pas \
                       $(ARITH_DIR)/parens.pas $(ARITH_DIR)/precedence.pas
 
@@ -12762,12 +12988,14 @@ SEED_REPRO_B := $(BUILD)/seed_repro_b
 # byte-identical before this fix, and the .o mismatch disappeared entirely
 # once nasm's invocation argument was normalized).
 .PHONY: test-seed-repro
-test-seed-repro: $(SEED_BIN) $(SEED_RT_OBJ)
+test-seed-repro: $(SEED_BIN) $(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ)
 	@printf ">>> test-seed-repro: seed pipeline (initechc --emit-asm -> nasm -> ld) byte-identical across two independent scratch-dir builds (Rule 11; ADR-0007 Sec 4.6/Sec 7 FO-5, bead initech-3yv)\n"
 	@rm -rf $(SEED_REPRO_A) $(SEED_REPRO_B); mkdir -p $(SEED_REPRO_A) $(SEED_REPRO_B)
 	@n=0; h=0; \
 	 for f in $(SEED_REPRO_CORPUS); do \
 		name=$$(basename "$$f" .pas); \
+		rt_objs="$(SEED_RT_OBJ)"; \
+		if [ "$$name" = fileio ]; then rt_objs="$$rt_objs $(SEED_FILEIO_RT_OBJ)"; fi; \
 		n=$$((n+1)); \
 		$(SEED_BIN) --emit-asm -o $(SEED_REPRO_A)/$$name.s "$$f" \
 			|| { printf '!!! test-seed-repro FAIL: initechc failed on %s (build A)\n' "$$f"; exit 1; }; \
@@ -12777,9 +13005,9 @@ test-seed-repro: $(SEED_BIN) $(SEED_RT_OBJ)
 			|| { printf '!!! test-seed-repro FAIL: nasm failed on %s.s (build A)\n' "$$name"; exit 1; }; \
 		(cd $(SEED_REPRO_B) && $(NASM) -f elf32 $$name.s -o $$name.o) \
 			|| { printf '!!! test-seed-repro FAIL: nasm failed on %s.s (build B)\n' "$$name"; exit 1; }; \
-		$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(SEED_REPRO_A)/$$name.elf $(SEED_RT_OBJ) $(SEED_REPRO_A)/$$name.o 2>/dev/null \
+		$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(SEED_REPRO_A)/$$name.elf $$rt_objs $(SEED_REPRO_A)/$$name.o 2>/dev/null \
 			|| { printf '!!! test-seed-repro FAIL: ld failed on %s.o (build A)\n' "$$name"; exit 1; }; \
-		$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(SEED_REPRO_B)/$$name.elf $(SEED_RT_OBJ) $(SEED_REPRO_B)/$$name.o 2>/dev/null \
+		$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(SEED_REPRO_B)/$$name.elf $$rt_objs $(SEED_REPRO_B)/$$name.o 2>/dev/null \
 			|| { printf '!!! test-seed-repro FAIL: ld failed on %s.o (build B)\n' "$$name"; exit 1; }; \
 		for stage in s o elf; do \
 			ha=$$(sha256sum < $(SEED_REPRO_A)/$$name.$$stage | cut -d' ' -f1); \
@@ -18968,7 +19196,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
+	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fileio-build test-seed-fileio-fpc test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \
@@ -20038,6 +20266,7 @@ TEST_EMU_GATES := \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm test-int21-irqstorm-mutant \
 	test-samir-boot test-samir-boot-mutant \
+	test-seed-fileio-os test-seed-fileio-os-mutant \
 	test-samir-write test-samir-write-mutant \
 	test-samir-canon-y2k test-samir-canon-y2k-mutant \
 	test-samir-canon-salami test-samir-canon-salami-mutant \

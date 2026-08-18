@@ -129,6 +129,10 @@ typedef enum {
      * identifier named `string`/`length`. */
     TOK_KW_STRING,
     TOK_KW_LENGTH,
+    /* B8 (beads initech-ogxv; ADR-0007 DEC-05): untyped file variables.
+     * The I/O verbs remain ordinary, case-insensitive call names so the AST
+     * reuses AST_CALL; only the storage-bearing `file` type is reserved. */
+    TOK_KW_FILE,
 
     /* punctuation / operators */
     TOK_SEMI,       /* ; */

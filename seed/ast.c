@@ -186,6 +186,7 @@ const char *ast_vartype_name(AstVarType t)
     case AST_TY_CHAR:    return "char";
     case AST_TY_RECORD:  return "record";
     case AST_TY_STRING:  return "string"; /* B7 (beads initech-39k2) */
+    case AST_TY_FILE:    return "file";   /* B8 (beads initech-ogxv) */
     }
     return "?";
 }

@@ -246,6 +246,9 @@ static TokenKind keyword_kind(const char *s, size_t n)
      * built-in (see token.h's B7 note on why both are reserved words). */
     if (strcmp(buf, "string") == 0)    return TOK_KW_STRING;
     if (strcmp(buf, "length") == 0)    return TOK_KW_LENGTH;
+    /* B8 (beads initech-ogxv): storage-bearing untyped file type. The five
+     * I/O verbs are ordinary identifiers parsed as AST_CALL nodes. */
+    if (strcmp(buf, "file") == 0)      return TOK_KW_FILE;
     return TOK_IDENT;
 }
 

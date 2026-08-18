@@ -216,6 +216,15 @@
  *     rather than adding sibling statement kinds. Record COMPARISON (`=`,
  *     `<>`, ...) is rejected loudly by typecheck.c, not this grammar.
  *
+ * B8 (beads initech-ogxv; ADR-0007 DEC-05) adds the standalone `file` type.
+ * The exact procedure-call surface is Assign(file,string), Reset(file[,1]),
+ * Rewrite(file[,1]), BlockRead(file,string[index],count,actual), and
+ * BlockWrite with the same four arguments. These names remain ordinary
+ * case-insensitive AST_CALL identifiers and are resolved as builtins by the
+ * typechecker. A count of 1 is byte I/O; a larger count is block I/O through
+ * the same verb. File arrays/fields/params/results and typed/Text files are
+ * outside the subset and receive named errors.
+ *
  * DEFERRED (later steps, intentionally not parsed): case, real type,
  * pointers, typed consts, general string expressions, lexically-nested
  * routines, local const/type sections, the `Result` pseudo-variable,

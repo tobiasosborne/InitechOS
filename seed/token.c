@@ -52,6 +52,7 @@ const char *token_kind_name(TokenKind kind)
     case TOK_KW_RECORD:  return "KW_RECORD";
     case TOK_KW_STRING:  return "KW_STRING";  /* B7 (beads initech-39k2) */
     case TOK_KW_LENGTH:  return "KW_LENGTH";  /* B7 (beads initech-39k2) */
+    case TOK_KW_FILE:    return "KW_FILE";    /* B8 (beads initech-ogxv) */
     case TOK_SEMI:       return "SEMI";
     case TOK_DOT:        return "DOT";
     case TOK_COMMA:      return "COMMA";

@@ -105,9 +105,23 @@
  *         at PARSE time (parser.c), not here -- Turbo Pascal would copy the
  *         whole record on every call, which this subset avoids.
  *
+ *   - (B8, beads initech-ogxv; ADR-0007 DEC-05) thin untyped files:
+ *       * `file` is storage-only. It is legal only as a standalone global or
+ *         local variable and as argument 1 of Assign/Reset/Rewrite/
+ *         BlockRead/BlockWrite; it is never an expression value.
+ *       * Reset/Rewrite accept an optional integer record size, but the RTL
+ *         accepts only 1 at runtime. BlockRead/BlockWrite require a
+ *         ShortString byte designator, integer byte count, and writable
+ *         integer actual-count variable. Count 1 is the byte operation;
+ *         larger counts use the same block operation (no extra verbs).
+ *       * File arrays/record fields/parameters/results and Text/typed-file
+ *         machinery are rejected loudly. The five builtin names share the
+ *         case-insensitive identifier namespace and may not be redeclared.
+ *
  * This is intentionally NOT full Pascal type inference (no subranges, no
  * reals, no pointers/heap -- those are out of scope per the DEC-02 subset
- * table; records ARE in scope as of B6, scalar-fields-only) -- just enough
+ * table; records ARE in scope as of B6, scalar-fields-only; thin untyped
+ * files ARE in scope as of B8) -- just enough
  * soundness that a boolean (or now char, or a record's field) can never
  * silently flow where a different type is expected, and every write knows
  * which print routine to call.
