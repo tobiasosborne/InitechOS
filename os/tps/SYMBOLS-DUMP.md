@@ -3,9 +3,9 @@
 
 # Turbo Initech Symbol Table Dump Interface
 
-**Document owner:** Platform Engineering / Compiler Systems  
-**Control bead:** `initech-6m52`, B9.3  
-**Status:** Implemented oracle interface and B9.4 code-generation paper trail  
+**Document owner:** Platform Engineering / Compiler Systems
+**Control bead:** `initech-6m52`, B9.4
+**Status:** Implemented oracle interface and code-generation layout contract
 **Character set:** ASCII
 
 ## 1. Purpose and authority
@@ -112,13 +112,15 @@ layout; they are not addresses from the current checker process.
 
 ## 6. Fixed budgets and failure policy
 
-The B9.3 implementation provides 704 symbol rows, 480 interned names, and
-4,816 character-pool bytes. Header and call signatures allow 32 parameters,
-matching `seed/typecheck.c`'s `TC_MAX_PARAMS`. Every overflow stops at the
-first located `TPS-TYPE-ERROR`; truncation and wraparound are forbidden.
+The B9.4 implementation provides 1,024 symbol rows, 704 interned names, and
+6,144 character-pool bytes. Header and call signatures allow 32 parameters,
+matching `seed/typecheck.c`'s `TC_MAX_PARAMS`. The row/name/pool ceilings were
+raised only far enough for the generator to compile its own grown source.
+Every overflow stops at the first located error; truncation and wraparound are
+forbidden.
 
 The rolling two-ShortString input window preserves exact source bytes and
-locations across all three driver passes. B9.2's `SourceWords[0..20479]`
+locations across all four driver passes. B9.2's `SourceWords[0..20479]`
 whole-source allocation is retired, returning 81,920 bytes of static BSS. The
 structural build assertion now proves the rolling-window routines and the
 absence of `v_sourcewords`; no lexer/parser golden or bracket output is re-keyed.
@@ -131,3 +133,7 @@ the unchanged syntax-trace pass. The semantic compatibility rules match the
 seed, but a TPS call to a routine declared later requires an explicit prior
 `forward`; the seed's precollection can see that later header. This divergence
 is architectural and recorded, not an invented language rule.
+
+The fourth pass rebuilds these tables while emitting x86. The controlled
+register, frame, section, RTL, label, and fixture contracts are recorded in
+`CODEGEN.md`.

@@ -7212,6 +7212,10 @@ help:
 	@printf '  test-tps-type-build  B9.3 seed compile + bare/DOS links + deliberate soft BSS budget and unchanged hard arena ceiling.\n'
 	@printf '  test-tps-type-mutant  B9.3 Rule-6 source mutants: duplicate acceptance emits an extra row; dropped assignment compatibility loses a required error.\n'
 	@printf '  test-tps-type-os  B9.3 on-InitechDOS two-level differential over the full lex+parse+type triple bracket. EMULATOR; orchestrator-owned.\n'
+	@printf '  test-tps-gen-fpc  B9.4 host oracle: tiny + thirteen copied fixtures + TPS self-source emit twice byte-identically, NASM assemble, both runtime links, and direct fpc hand-golden execution.\n'
+	@printf '  test-tps-gen-build  B9.4 seed compile + bare/DOS links + 72 KiB soft BSS reserve and unchanged 0x6f000 hard ceiling.\n'
+	@printf '  test-tps-gen-mutant  B9.4 Rule-6: LABELS fails NASM on duplicates; OFFBYONE emits assembled wrong frame offsets for the emulator execution rail.\n'
+	@printf '  test-tps-gen-os  B9.4 TPS.COM generates TPSOUT.S on InitechDOS, host assembles/links it, then TPS/seed/fpc behavior agrees exactly. EMULATOR; orchestrator-owned.\n'
 	@printf '  test-seed-fpc-diff  DEC-07 Rung 2: seed vs Free Pascal for B4-B7 via direct-QEMU ELFs; B8 file_shared host-fpc + seed build included, with seed-on-InitechDOS execution explicitly orchestrator-owed. IN default `make test`; FAILS LOUD when fpc is absent.\n'
 	@printf '  test-seed-repro  Reproducible-build gate: the FULL seed corpus, compiled twice (initechc->nasm->ld) into separate scratch dirs, is byte-identical (.s+.o+.elf sha256). REAL. bead initech-3yv, ADR-0007 FO-5/DEC-06.\n'
 	@printf '  test-seed-repro-mutant  Rule-6 proof: -DSEED_MUT_NONDET (getpid()-seeded dead .rodata symbol -- GENUINE nondeterminism) makes test-seed-repro correctly RED, while leaving bool.pas single-run behavior untouched. REAL. bead initech-3yv, ADR-0007 FO-5.\n'
@@ -12871,6 +12875,42 @@ TPS_TYPE_MUT_DUP_BIN          := $(TPS_LEX_BUILD_DIR)/tps_mut_type_dupok
 TPS_TYPE_MUT_ASSIGN_BIN       := $(TPS_LEX_BUILD_DIR)/tps_mut_type_assign
 TPS_TYPE_IMG                  := $(BUILD)/tps_type.img
 TPS_TYPE_OS_KEYS              := t,p,s,ret
+TPS_GEN_TINY                  := $(TPS_LEX_FIXTURE_DIR)/gen_tiny.pas
+TPS_GEN_TINY_EXPECT           := TINY=10
+TPS_GEN_FPC_TINY_ASM          := $(TPS_LEX_BUILD_DIR)/gen_tiny_tps.s
+TPS_GEN_FPC_TINY_OBJ          := $(TPS_LEX_BUILD_DIR)/gen_tiny_tps.o
+TPS_GEN_FPC_TINY_BARE_ELF     := $(TPS_LEX_BUILD_DIR)/gen_tiny_tps_bare.elf
+TPS_GEN_FPC_TINY_DOS_ELF      := $(TPS_LEX_BUILD_DIR)/gen_tiny_tps_dos.elf
+TPS_GEN_CORPUS                := 'gen_func_shared=120 TRUE FALSE 2 1' \
+                                 'gen_array_shared=SUM=15 REV=54321 NESTED=2 BSUM=510 CSUM=20 F1=TRUE F2=FALSE LSUM=45' \
+                                 'gen_record_shared=KIND=7 VAL=40 OK=FALSE BKIND=17 BOK=TRUE T2KIND=99 TKIND=17 T2VAL=12 KSUM=118' \
+                                 'gen_string_shared=Hello, World! 13 H EQ LT' \
+                                 'gen_file_shared=$(SEED_FILEIO_EXPECT)' \
+                                 'gen_bool_deep=$(SEED_BOOL_EXPECT)' \
+                                 'gen_control_deep=$(SEED_CONTROL_EXPECT)' \
+                                 'gen_char_deep=$(SEED_CHAR_EXPECT)' \
+                                 'gen_func_deep=$(SEED_FUNC_EXPECT)' \
+                                 'gen_array_deep=$(SEED_ARRAY_EXPECT)' \
+                                 'gen_record_deep=$(SEED_RECORD_EXPECT)' \
+                                 'gen_string_deep=$(SEED_STRING_EXPECT)' \
+                                 'gen_fileio_deep=$(SEED_FILEIO_EXPECT)'
+TPS_GEN_MUT_OFF_SRC           := $(TPS_LEX_BUILD_DIR)/tps_mut_gen_offbyone.pas
+TPS_GEN_MUT_LABEL_SRC         := $(TPS_LEX_BUILD_DIR)/tps_mut_gen_labels.pas
+TPS_GEN_MUT_OFF_BIN           := $(TPS_LEX_BUILD_DIR)/tps_mut_gen_offbyone
+TPS_GEN_MUT_LABEL_BIN         := $(TPS_LEX_BUILD_DIR)/tps_mut_gen_labels
+TPS_GEN_IMG                   := $(BUILD)/tps_gen.img
+TPS_GEN_OS_KEYS               := t,p,s,ret
+TPS_GEN_OS_ASM                := $(TPS_LEX_BUILD_DIR)/gen_os_tiny.s
+TPS_GEN_OS_OBJ                := $(TPS_LEX_BUILD_DIR)/gen_os_tiny.o
+TPS_GEN_OS_BARE_ELF           := $(TPS_LEX_BUILD_DIR)/gen_os_tiny_bare.elf
+TPS_GEN_OS_DOS_ELF            := $(TPS_LEX_BUILD_DIR)/gen_os_tiny_dos.elf
+TPS_GEN_OS_COM                := $(TPS_LEX_BUILD_DIR)/TINY.COM
+TPS_GEN_SEED_ASM              := $(TPS_LEX_BUILD_DIR)/gen_seed_tiny.s
+TPS_GEN_SEED_OBJ              := $(TPS_LEX_BUILD_DIR)/gen_seed_tiny.o
+TPS_GEN_SEED_DOS_ELF          := $(TPS_LEX_BUILD_DIR)/gen_seed_tiny_dos.elf
+TPS_GEN_SEED_COM              := $(TPS_LEX_BUILD_DIR)/STINY.COM
+TPS_GEN_MUT_IMG               := $(BUILD)/tps_gen_mut.img
+TPS_GEN_MUT_COM               := $(TPS_LEX_BUILD_DIR)/MTINY.COM
 
 $(TPS_LEX_BUILD_DIR): | $(BUILD)
 	@mkdir -p $@
@@ -13012,7 +13052,7 @@ $(TPS_LEX_SEED_DOS_ELF): $(TPS_LEX_SEED_OBJ) $(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT
 
 $(TPS_LEX_COM): $(TPS_LEX_SEED_DOS_ELF)
 	@$(OBJCOPY) -O binary $< $@
-	@printf '>>> TPS.COM: %s bytes (seed-compiled B9.3 lexer+parser+typecheck, flat .COM @0x40100)\n' "$$(stat -c%s $@)"
+	@printf '>>> TPS.COM: %s bytes (seed-compiled B9.4 lexer+parser+typecheck+codegen, flat .COM @0x40100)\n' "$$(stat -c%s $@)"
 
 .PHONY: test-tps-lex-build
 test-tps-lex-build: $(TPS_LEX_SEED_BARE_ELF) $(TPS_LEX_COM)
@@ -13028,9 +13068,9 @@ test-tps-lex-build: $(TPS_LEX_SEED_BARE_ELF) $(TPS_LEX_COM)
 		|| { printf '!!! test-tps-lex-build FAIL: tps.pas does not call the B8 BlockRead RTL\n'; exit 1; }
 	@$(NM) $(TPS_LEX_SEED_DOS_ELF) | grep -q ' __bss_end$$' \
 		|| { printf '!!! test-tps-lex-build FAIL: DOS link lacks the crt0 BSS boundary\n'; exit 1; }
-	@# initech-6m52 BSS resolution: B9.3 retires B9.2's 80 KiB whole-source
-	@# arena in favor of two 256-byte rolling windows. The type tables therefore
-	@# fit back under the original 64 KiB soft reserve. The
+	@# initech-6m52 BSS resolution: B9.3 retired B9.2's 80 KiB whole-source
+	@# arena. B9.4 spends 6 KiB of that returned budget on the 1024-row table
+	@# and packed generator state, under a documented 72 KiB soft reserve. The
 	@# load-bearing 0x6f000 arena-ceiling assertion below remains unchanged.
 	@bss_start_hex=$$($(NM) -n $(TPS_LEX_SEED_DOS_ELF) | awk '$$3 == "__bss_start" { print $$1 }'); \
 		bss_end_hex=$$($(NM) -n $(TPS_LEX_SEED_DOS_ELF) | awk '$$3 == "__bss_end" { print $$1 }'); \
@@ -13038,11 +13078,11 @@ test-tps-lex-build: $(TPS_LEX_SEED_BARE_ELF) $(TPS_LEX_COM)
 			|| { printf '!!! test-tps-lex-build FAIL: could not locate BSS boundaries\n'; exit 1; }; \
 		bss_start=$$((0x$$bss_start_hex)); bss_end=$$((0x$$bss_end_hex)); \
 		bss_size=$$((bss_end-bss_start)); \
-		test "$$bss_size" -le $$((0x10000)) \
-			|| { printf '!!! test-tps-lex-build FAIL: static BSS exceeds B9.3 soft reserve (size=%s, reserve=65536)\n' "$$bss_size"; exit 1; }; \
+		test "$$bss_size" -le $$((0x12000)) \
+			|| { printf '!!! test-tps-lex-build FAIL: static BSS exceeds B9.4 soft reserve (size=%s, reserve=73728)\n' "$$bss_size"; exit 1; }; \
 		test "$$bss_end" -lt $$((0x6f000)) \
 			|| { printf '!!! test-tps-lex-build FAIL: static TPS image/BSS reaches env block (end=0x%s, ceiling=0x6f000)\n' "$$bss_end_hex"; exit 1; }; \
-		printf '>>> test-tps-lex-build: DOS BSS=%s bytes <= B9.3 soft reserve 65536; end=0x%s below env 0x6f000\n' "$$bss_size" "$$bss_end_hex"
+		printf '>>> test-tps-lex-build: DOS BSS=%s bytes <= B9.4 soft reserve 73728; end=0x%s below env 0x6f000\n' "$$bss_size" "$$bss_end_hex"
 	@printf '>>> test-tps-lex-build: green (seed compile + bare ELF link + DOS TPS.COM link)\n'
 
 $(TPS_LEX_IMG): $(TPS_LEX_COM) $(TPS_LEX_BASIC) | $(BUILD)
@@ -13376,8 +13416,8 @@ test-tps-type-mutant: test-tps-type-fpc $(TPS_TYPE_MUT_DUP_BIN) $(TPS_TYPE_MUT_A
 
 .PHONY: test-tps-type-build
 test-tps-type-build: test-tps-lex-build
-	@grep -q '^v_symnameoffset: resd 704$$' $(TPS_LEX_SEED_ASM) \
-		|| { printf '!!! test-tps-type-build FAIL: seed output lacks the documented 704-entry symbol arena\n'; exit 1; }
+	@grep -q '^v_symnameoffset: resd 1024$$' $(TPS_LEX_SEED_ASM) \
+		|| { printf '!!! test-tps-type-build FAIL: seed output lacks the documented B9.4 1024-entry symbol arena\n'; exit 1; }
 	@grep -q '^pf_runtypechecker:' $(TPS_LEX_SEED_ASM) \
 		|| { printf '!!! test-tps-type-build FAIL: seed output lacks the check-as-you-parse type driver\n'; exit 1; }
 	@test -s $(TPS_LEX_SEED_BARE_ELF) && test -s $(TPS_LEX_COM) \
@@ -13415,6 +13455,270 @@ test-tps-type-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_TYPE_IMG) $(TPS_TYPE_FPC_FU
 	@diff -u $(TPS_TYPE_FPC_FULL_OUT) $(TPS_LEX_BUILD_DIR)/type_os.full \
 		|| { printf '!!! test-tps-type-os FAIL: full seed/InitechDOS triple bracket differs from fpc\n'; exit 1; }
 	@printf '>>> test-tps-type-os: green (two-level full triple-bracket differential byte-identical)\n'
+
+# ---------------------------------------------------------------------------
+# B9.4 code-generation oracle, execution-independent host portion.
+# ---------------------------------------------------------------------------
+# The target compiler writes only fixed-name TPSOUT.S. Host execution of its
+# freestanding output is deliberately not attempted here: both runtime pairs
+# are link-checked, while fpc directly executes the SAME Pascal fixture against
+# its hand-computed stdout. The orchestrator-owned test-tps-gen-os below owns
+# execution of TPS-emitted code on InitechDOS.
+$(TPS_GEN_FPC_TINY_ASM): $(TPS_LEX_FPC_BIN) $(TPS_GEN_TINY) | $(TPS_LEX_BUILD_DIR)
+	@rm -rf $(TPS_LEX_BUILD_DIR)/run_gen_tiny_a $(TPS_LEX_BUILD_DIR)/run_gen_tiny_b
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/run_gen_tiny_a $(TPS_LEX_BUILD_DIR)/run_gen_tiny_b
+	@cp -f $(TPS_GEN_TINY) $(TPS_LEX_BUILD_DIR)/run_gen_tiny_a/TPSIN.PAS
+	@cp -f $(TPS_GEN_TINY) $(TPS_LEX_BUILD_DIR)/run_gen_tiny_b/TPSIN.PAS
+	@cd $(TPS_LEX_BUILD_DIR)/run_gen_tiny_a && ../tps_fpc > ../gen_tiny_a.raw
+	@cd $(TPS_LEX_BUILD_DIR)/run_gen_tiny_b && ../tps_fpc > ../gen_tiny_b.raw
+	@test "$$(grep -c '^TPS-GEN-BEGIN$$' $(TPS_LEX_BUILD_DIR)/gen_tiny_a.raw)" -eq 1 \
+		&& test "$$(grep -c '^TPS-GEN-END$$' $(TPS_LEX_BUILD_DIR)/gen_tiny_a.raw)" -eq 1 \
+		|| { printf '!!! test-tps-gen-fpc FAIL: fourth generation bracket missing/non-singular\n'; exit 1; }
+	@test -s $(TPS_LEX_BUILD_DIR)/run_gen_tiny_a/TPSOUT.S \
+		|| { printf '!!! test-tps-gen-fpc FAIL: fixed-name TPSOUT.S missing/empty\n'; exit 1; }
+	@cmp -s $(TPS_LEX_BUILD_DIR)/run_gen_tiny_a/TPSOUT.S $(TPS_LEX_BUILD_DIR)/run_gen_tiny_b/TPSOUT.S \
+		|| { printf '!!! test-tps-gen-fpc FAIL: two generations differ byte-for-byte\n'; exit 1; }
+	@cp -f $(TPS_LEX_BUILD_DIR)/run_gen_tiny_a/TPSOUT.S $@
+
+$(TPS_GEN_FPC_TINY_OBJ): $(TPS_GEN_FPC_TINY_ASM)
+	@$(NASM) -f elf32 $< -o $@
+
+$(TPS_GEN_FPC_TINY_BARE_ELF): $(TPS_GEN_FPC_TINY_OBJ) $(SEED_RT_OBJ) $(SEED_RT_LD)
+	@$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $@ $(SEED_RT_OBJ) $(TPS_GEN_FPC_TINY_OBJ)
+
+$(TPS_GEN_FPC_TINY_DOS_ELF): $(TPS_GEN_FPC_TINY_OBJ) $(SEED_DOS_RT_OBJ) $(SEED_DOS_LD)
+	@$(LD) -m elf_i386 -T $(SEED_DOS_LD) -o $@ $(SEED_DOS_RT_OBJ) $(TPS_GEN_FPC_TINY_OBJ)
+
+.PHONY: test-tps-gen-fpc
+test-tps-gen-fpc: $(TPS_GEN_FPC_TINY_BARE_ELF) $(TPS_GEN_FPC_TINY_DOS_ELF)
+	@rm -rf $(TPS_LEX_BUILD_DIR)/run_gen_tiny_fpc
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/run_gen_tiny_fpc
+	@cp -f $(TPS_GEN_TINY) $(TPS_LEX_BUILD_DIR)/run_gen_tiny_fpc/gen_tiny.pas
+	@fpc -B -O- -v0 -FU$(TPS_LEX_BUILD_DIR)/run_gen_tiny_fpc \
+		-FE$(TPS_LEX_BUILD_DIR)/run_gen_tiny_fpc -ogen_tiny_fpc \
+		$(TPS_LEX_BUILD_DIR)/run_gen_tiny_fpc/gen_tiny.pas >/dev/null
+	@$(TPS_LEX_BUILD_DIR)/run_gen_tiny_fpc/gen_tiny_fpc > $(TPS_LEX_BUILD_DIR)/gen_tiny_fpc.out
+	@printf '%s\n' '$(TPS_GEN_TINY_EXPECT)' > $(TPS_LEX_BUILD_DIR)/gen_tiny.golden
+	@diff -u $(TPS_LEX_BUILD_DIR)/gen_tiny.golden $(TPS_LEX_BUILD_DIR)/gen_tiny_fpc.out \
+		|| { printf '!!! test-tps-gen-fpc FAIL: fpc stdout differs from hand-computed tiny golden\n'; exit 1; }
+	@printf '>>> test-tps-gen-fpc: thirteen copied fixtures -- TPS emit twice, assemble/link both targets, fpc executes against hand goldens\n'
+	@for pair in $(TPS_GEN_CORPUS); do \
+		name=$${pair%%=*}; expect=$${pair#*=}; fixture=$(TPS_LEX_FIXTURE_DIR)/$$name.pas; \
+		for pass in a b; do \
+			run=$(TPS_LEX_BUILD_DIR)/run_$${name}_$$pass; \
+			rm -rf "$$run"; mkdir -p "$$run"; \
+			cp -f "$$fixture" "$$run/TPSIN.PAS"; \
+			(cd "$$run" && ../tps_fpc > ../$${name}_$$pass.raw) \
+				|| { printf '!!! test-tps-gen-fpc FAIL: TPS failed on %s pass %s\n' "$$name" "$$pass"; exit 1; }; \
+			test "$$(grep -c '^TPS-GEN-BEGIN$$' $(TPS_LEX_BUILD_DIR)/$${name}_$$pass.raw)" -eq 1 \
+				&& test "$$(grep -c '^TPS-GEN-END$$' $(TPS_LEX_BUILD_DIR)/$${name}_$$pass.raw)" -eq 1 \
+				&& test "$$(grep -c '^TPS-GEN-OK bytes=[0-9][0-9]* labels=[0-9][0-9]*$$' $(TPS_LEX_BUILD_DIR)/$${name}_$$pass.raw)" -eq 1 \
+				&& ! grep -q '^TPS-GEN-ERROR' $(TPS_LEX_BUILD_DIR)/$${name}_$$pass.raw \
+				&& test -s "$$run/TPSOUT.S" \
+				|| { printf '!!! test-tps-gen-fpc FAIL: %s pass %s lacks a clean fourth bracket/TPSOUT.S\n' "$$name" "$$pass"; exit 1; }; \
+		done; \
+		cmp -s $(TPS_LEX_BUILD_DIR)/run_$${name}_a/TPSOUT.S $(TPS_LEX_BUILD_DIR)/run_$${name}_b/TPSOUT.S \
+			|| { printf '!!! test-tps-gen-fpc FAIL: %s TPSOUT.S is nondeterministic\n' "$$name"; exit 1; }; \
+		cp -f $(TPS_LEX_BUILD_DIR)/run_$${name}_a/TPSOUT.S $(TPS_LEX_BUILD_DIR)/$${name}_tps.s; \
+		$(NASM) -f elf32 $(TPS_LEX_BUILD_DIR)/$${name}_tps.s -o $(TPS_LEX_BUILD_DIR)/$${name}_tps.o \
+			|| { printf '!!! test-tps-gen-fpc FAIL: nasm rejected %s TPS output\n' "$$name"; exit 1; }; \
+		$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(TPS_LEX_BUILD_DIR)/$${name}_tps_bare.elf \
+			$(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(TPS_LEX_BUILD_DIR)/$${name}_tps.o; \
+		$(LD) -m elf_i386 -T $(SEED_DOS_LD) -o $(TPS_LEX_BUILD_DIR)/$${name}_tps_dos.elf \
+			$(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(TPS_LEX_BUILD_DIR)/$${name}_tps.o; \
+		fpcdir=$(TPS_LEX_BUILD_DIR)/run_$${name}_fpc; \
+		rm -rf "$$fpcdir"; mkdir -p "$$fpcdir"; \
+		cp -f "$$fixture" "$$fpcdir/$$name.pas"; \
+		fpc -B -O- -v0 -FU"$$fpcdir" -FE"$$fpcdir" -o$${name}_fpc "$$fpcdir/$$name.pas" >/dev/null \
+			|| { printf '!!! test-tps-gen-fpc FAIL: fpc rejected copied fixture %s\n' "$$name"; exit 1; }; \
+		(cd "$$fpcdir" && ./$${name}_fpc > stdout.txt) \
+			|| { printf '!!! test-tps-gen-fpc FAIL: fpc fixture %s exited non-zero\n' "$$name"; exit 1; }; \
+		printf '%s\n' "$$expect" > "$$fpcdir/golden.txt"; \
+		diff -u "$$fpcdir/golden.txt" "$$fpcdir/stdout.txt" \
+			|| { printf '!!! test-tps-gen-fpc FAIL: fpc stdout differs from hand golden for %s\n' "$$name"; exit 1; }; \
+		printf '>>> test-tps-gen-fpc: green -- %s deterministic + both links; fpc stdout exact\n' "$$name"; \
+	done
+	@printf '>>> test-tps-gen-fpc: TPS generates itself twice, byte-identically, and both runtime pairs link\n'
+	@for pass in a b; do \
+		run=$(TPS_LEX_BUILD_DIR)/run_gen_self_$$pass; \
+		rm -rf "$$run"; mkdir -p "$$run"; \
+		cp -f $(TPS_LEX_SRC) "$$run/TPSIN.PAS"; \
+		(cd "$$run" && ../tps_fpc > ../gen_self_$$pass.raw) \
+			|| { printf '!!! test-tps-gen-fpc FAIL: TPS self-generation pass %s failed\n' "$$pass"; exit 1; }; \
+		grep -q '^TPS-GEN-OK bytes=[0-9][0-9]* labels=[0-9][0-9]*$$' $(TPS_LEX_BUILD_DIR)/gen_self_$$pass.raw \
+			&& test -s "$$run/TPSOUT.S" \
+			|| { printf '!!! test-tps-gen-fpc FAIL: TPS self-generation pass %s incomplete\n' "$$pass"; exit 1; }; \
+	done
+	@cmp -s $(TPS_LEX_BUILD_DIR)/run_gen_self_a/TPSOUT.S $(TPS_LEX_BUILD_DIR)/run_gen_self_b/TPSOUT.S \
+		|| { printf '!!! test-tps-gen-fpc FAIL: TPS self-generated assembly differs\n'; exit 1; }
+	@cp -f $(TPS_LEX_BUILD_DIR)/run_gen_self_a/TPSOUT.S $(TPS_LEX_BUILD_DIR)/gen_self_tps.s
+	@$(NASM) -f elf32 $(TPS_LEX_BUILD_DIR)/gen_self_tps.s -o $(TPS_LEX_BUILD_DIR)/gen_self_tps.o
+	@$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(TPS_LEX_BUILD_DIR)/gen_self_tps_bare.elf \
+		$(SEED_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(TPS_LEX_BUILD_DIR)/gen_self_tps.o
+	@$(LD) -m elf_i386 -T $(SEED_DOS_LD) -o $(TPS_LEX_BUILD_DIR)/gen_self_tps_dos.elf \
+		$(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT_OBJ) $(TPS_LEX_BUILD_DIR)/gen_self_tps.o
+	@bss_end_hex=$$($(NM) -n $(TPS_LEX_BUILD_DIR)/gen_self_tps_dos.elf | awk '$$3 == "__bss_end" { print $$1 }'); \
+		test -n "$$bss_end_hex" && test $$((0x$$bss_end_hex)) -lt $$((0x6f000)) \
+			|| { printf '!!! test-tps-gen-fpc FAIL: TPS-generated self image reaches 0x6f000 (end=0x%s)\n' "$$bss_end_hex"; exit 1; }; \
+		printf '>>> test-tps-gen-fpc: self output=%s bytes, linked DOS end=0x%s below 0x6f000\n' \
+			"$$(stat -c%s $(TPS_LEX_BUILD_DIR)/gen_self_tps.s)" "$$bss_end_hex"
+	@printf '>>> test-tps-gen-fpc: green (tiny + thirteen copied fixtures + deterministic self-assembly; both links; independent fpc execution goldens)\n'
+
+.PHONY: test-tps-gen-build
+test-tps-gen-build: test-tps-lex-build
+	@grep -q '^pf_runcodegenerator:' $(TPS_LEX_SEED_ASM) \
+		|| { printf '!!! test-tps-gen-build FAIL: seed output lacks fourth pass\n'; exit 1; }
+	@grep -q 'call rtl_file_blockwrite$$' $(TPS_LEX_SEED_ASM) \
+		|| { printf '!!! test-tps-gen-build FAIL: TPS does not write TPSOUT.S through B8 BlockWrite\n'; exit 1; }
+	@grep -q "Assign(OutputFile, 'TPSOUT.S')" $(TPS_LEX_SRC) \
+		|| { printf '!!! test-tps-gen-build FAIL: fixed TPSOUT.S surface drifted\n'; exit 1; }
+	@printf '>>> test-tps-gen-build: green (seed compile + both links + B9.4 BSS/hard-ceiling discipline)\n'
+
+# Double-guarded Rule-6 source mutants. OFFBYONE shifts only parameter frame
+# slots one dword (tiny executes as a wrong value on the orchestrator rail).
+# LABELS makes each while reuse the current ordinal; gen_tiny's adjacent while
+# statements then emit duplicate local labels and NASM fails loudly on host.
+$(TPS_GEN_MUT_OFF_SRC): $(TPS_LEX_SRC) | $(TPS_LEX_BUILD_DIR)
+	@test "$$(grep -Fc '    GenFrameOffset := SymOffset[Index] { TPS_GEN_MUT_OFFBYONE }' $<)" -eq 1 \
+		|| { printf '!!! TPS_GEN_MUT_OFFBYONE anchor must match exactly once\n'; exit 1; }
+	@sed 's@^    GenFrameOffset := SymOffset\[Index\] { TPS_GEN_MUT_OFFBYONE }$$@    GenFrameOffset := SymOffset[Index] + 4 { TPS_GEN_MUT_OFFBYONE }@' $< > $@
+	@! cmp -s $< $@ || { printf '!!! TPS_GEN_MUT_OFFBYONE sed was a no-op\n'; exit 1; }
+
+$(TPS_GEN_MUT_LABEL_SRC): $(TPS_LEX_SRC) | $(TPS_LEX_BUILD_DIR)
+	@test "$$(grep -Fc '    LabelNumber := GenNewLabel(); { TPS_GEN_MUT_LABELS }' $<)" -eq 1 \
+		|| { printf '!!! TPS_GEN_MUT_LABELS anchor must match exactly once\n'; exit 1; }
+	@sed 's@^    LabelNumber := GenNewLabel(); { TPS_GEN_MUT_LABELS }$$@    LabelNumber := GenData[3]; { TPS_GEN_MUT_LABELS }@' $< > $@
+	@! cmp -s $< $@ || { printf '!!! TPS_GEN_MUT_LABELS sed was a no-op\n'; exit 1; }
+
+$(TPS_GEN_MUT_OFF_BIN): $(TPS_GEN_MUT_OFF_SRC) | $(TPS_LEX_BUILD_DIR)
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/mut_gen_off_units
+	@fpc -B -O- -v0 -FU$(TPS_LEX_BUILD_DIR)/mut_gen_off_units -FE$(TPS_LEX_BUILD_DIR) -o$@ $< >/dev/null
+
+$(TPS_GEN_MUT_LABEL_BIN): $(TPS_GEN_MUT_LABEL_SRC) | $(TPS_LEX_BUILD_DIR)
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/mut_gen_label_units
+	@fpc -B -O- -v0 -FU$(TPS_LEX_BUILD_DIR)/mut_gen_label_units -FE$(TPS_LEX_BUILD_DIR) -o$@ $< >/dev/null
+
+.PHONY: test-tps-gen-mutant
+test-tps-gen-mutant: test-tps-gen-fpc $(TPS_GEN_MUT_OFF_BIN) $(TPS_GEN_MUT_LABEL_BIN)
+	@for spec in off:tps_mut_gen_offbyone labels:tps_mut_gen_labels; do \
+		tag=$${spec%%:*}; bin=$${spec#*:}; run=$(TPS_LEX_BUILD_DIR)/run_gen_mut_$$tag; \
+		rm -rf "$$run"; mkdir -p "$$run"; cp -f $(TPS_GEN_TINY) "$$run/TPSIN.PAS"; \
+		(cd "$$run" && ../$$bin > ../gen_mut_$$tag.raw) \
+			|| { printf '!!! test-tps-gen-mutant FAIL: %s compiler failed before emission\n' "$$tag"; exit 1; }; \
+		grep -q '^TPS-GEN-OK ' $(TPS_LEX_BUILD_DIR)/gen_mut_$$tag.raw && test -s "$$run/TPSOUT.S" \
+			|| { printf '!!! test-tps-gen-mutant FAIL: %s did not reach a clean (but mutant) emit\n' "$$tag"; exit 1; }; \
+	done
+	@printf '>>> test-tps-gen-mutant: LABELS must fail NASM for duplicate labels\n'
+	@if $(NASM) -f elf32 $(TPS_LEX_BUILD_DIR)/run_gen_mut_labels/TPSOUT.S \
+		-o $(TPS_LEX_BUILD_DIR)/gen_mut_labels.o >$(TPS_LEX_BUILD_DIR)/gen_mut_labels.nasm 2>&1; then \
+		printf '!!! TPS_GEN_MUT_LABELS PASSED assembly -- label oracle is decoration\n'; exit 1; fi
+	@grep -qi 'inconsistently redefined\|redefined' $(TPS_LEX_BUILD_DIR)/gen_mut_labels.nasm \
+		|| { printf '!!! TPS_GEN_MUT_LABELS failed NASM for the wrong reason\n'; cat $(TPS_LEX_BUILD_DIR)/gen_mut_labels.nasm; exit 1; }
+	@printf '>>> test-tps-gen-mutant: OFFBYONE assembles/links but differs at parameter offsets; execution RED is orchestrator-owned\n'
+	@$(NASM) -f elf32 $(TPS_LEX_BUILD_DIR)/run_gen_mut_off/TPSOUT.S -o $(TPS_LEX_BUILD_DIR)/gen_mut_off.o
+	@$(LD) -m elf_i386 -T $(SEED_DOS_LD) -o $(TPS_LEX_BUILD_DIR)/gen_mut_off_dos.elf \
+		$(SEED_DOS_RT_OBJ) $(TPS_LEX_BUILD_DIR)/gen_mut_off.o
+	@! cmp -s $(TPS_GEN_FPC_TINY_ASM) $(TPS_LEX_BUILD_DIR)/run_gen_mut_off/TPSOUT.S \
+		|| { printf '!!! TPS_GEN_MUT_OFFBYONE did not perturb emitted bytes\n'; exit 1; }
+	@grep -q 'lea eax, \[ebp+16\]' $(TPS_LEX_BUILD_DIR)/run_gen_mut_off/TPSOUT.S \
+		|| { printf '!!! TPS_GEN_MUT_OFFBYONE did not expose the one-dword parameter shift\n'; exit 1; }
+	@printf '>>> test-tps-gen-mutant: green (LABELS host-RED at NASM; OFFBYONE assembled wrong-code artifact flagged for test-tps-gen-os execution RED)\n'
+
+$(TPS_GEN_IMG): $(TPS_LEX_COM) $(TPS_GEN_TINY) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(TPS_LEX_COM) ::TPS.COM
+	@mcopy -i $@ $(TPS_GEN_TINY) ::TPSIN.PAS
+
+$(TPS_GEN_SEED_ASM): $(TPS_GEN_TINY) $(SEED_BIN) | $(TPS_LEX_BUILD_DIR)
+	@$(SEED_BIN) --emit-asm -o $@ $<
+
+$(TPS_GEN_SEED_OBJ): $(TPS_GEN_SEED_ASM)
+	@$(NASM) -f elf32 $< -o $@
+
+$(TPS_GEN_SEED_DOS_ELF): $(TPS_GEN_SEED_OBJ) $(SEED_DOS_RT_OBJ) $(SEED_DOS_LD)
+	@$(LD) -m elf_i386 -T $(SEED_DOS_LD) -o $@ $(SEED_DOS_RT_OBJ) $(TPS_GEN_SEED_OBJ)
+
+$(TPS_GEN_SEED_COM): $(TPS_GEN_SEED_DOS_ELF)
+	@$(OBJCOPY) -O binary $< $@
+
+# Orchestrator-owned execution differential. Leg 1 runs seed-built TPS.COM on
+# InitechDOS and mcopy's its generated TPSOUT.S off FAT. The host assembles and
+# links that exact file for both runtime targets. Leg 2 boots its TINY.COM and
+# checks the hand-computed line. Leg 3 boots the seed-compiled SAME Pascal
+# fixture and requires the identical line; test-tps-gen-fpc supplies the third,
+# independent host-fpc agreement. Assembly text is intentionally never diffed.
+.PHONY: test-tps-gen-os
+test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(TRACER_IMG) $(TPS_GEN_IMG) $(TPS_GEN_SEED_COM)
+	@printf '>>> test-tps-gen-os: TPS.COM generates TPSOUT.S on InitechDOS\n'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
+		--name tps_gen_compile --out "$(BUILD)" --timeout-ms 120000 \
+		--keys "$(TPS_GEN_OS_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(TPS_LEX_BUILD_DIR)/gen_os_compile.report" || true
+	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/gen_os_compile.report"; then \
+		printf '!!! test-tps-gen-os FAIL: TPS.COM triple-faulted while generating\n'; exit 1; fi
+	@tr -d '\r' < $(BUILD)/tps_gen_compile.serial > $(TPS_LEX_BUILD_DIR)/gen_os_compile.normalized
+	@grep -q '^TPS-GEN-OK bytes=[0-9][0-9]* labels=[0-9][0-9]*$$' $(TPS_LEX_BUILD_DIR)/gen_os_compile.normalized \
+		|| { printf '!!! test-tps-gen-os FAIL: clean fourth-pass completion missing\n'; exit 1; }
+	@if grep -q 'TPS-GEN-ERROR\|FILEIO-ERROR' $(BUILD)/tps_gen_compile.serial; then \
+		printf '!!! test-tps-gen-os FAIL: generator/file RTL error\n'; exit 1; fi
+	@mcopy -i $(TPS_GEN_IMG) ::TPSOUT.S $(TPS_GEN_OS_ASM) \
+		|| { printf '!!! test-tps-gen-os FAIL: TPSOUT.S was not persisted to FAT\n'; exit 1; }
+	@test -s $(TPS_GEN_OS_ASM) \
+		|| { printf '!!! test-tps-gen-os FAIL: extracted TPSOUT.S is empty\n'; exit 1; }
+	@$(NASM) -f elf32 $(TPS_GEN_OS_ASM) -o $(TPS_GEN_OS_OBJ)
+	@$(LD) -m elf_i386 -T $(SEED_RT_LD) -o $(TPS_GEN_OS_BARE_ELF) \
+		$(SEED_RT_OBJ) $(TPS_GEN_OS_OBJ)
+	@$(LD) -m elf_i386 -T $(SEED_DOS_LD) -o $(TPS_GEN_OS_DOS_ELF) \
+		$(SEED_DOS_RT_OBJ) $(TPS_GEN_OS_OBJ)
+	@$(OBJCOPY) -O binary $(TPS_GEN_OS_DOS_ELF) $(TPS_GEN_OS_COM)
+	@mcopy -o -i $(TPS_GEN_IMG) $(TPS_GEN_OS_COM) ::TINY.COM
+	@printf '>>> test-tps-gen-os: execute TPS-generated TINY.COM on the same OS\n'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
+		--name tps_gen_execute --out "$(BUILD)" --timeout-ms 30000 \
+		--keys "t,i,n,y,ret" --keys-after "SHELL-READY" \
+		2> "$(TPS_LEX_BUILD_DIR)/gen_os_execute.report" || true
+	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/gen_os_execute.report"; then \
+		printf '!!! test-tps-gen-os FAIL: TPS-generated program triple-faulted\n'; exit 1; fi
+	@tr -d '\r' < $(BUILD)/tps_gen_execute.serial > $(TPS_LEX_BUILD_DIR)/gen_os_execute.normalized
+	@test "$$(grep -c '^$(TPS_GEN_TINY_EXPECT)$$' $(TPS_LEX_BUILD_DIR)/gen_os_execute.normalized)" -eq 1 \
+		|| { printf '!!! test-tps-gen-os FAIL: TPS-generated execution output is not exact\n'; exit 1; }
+	@mcopy -o -i $(TPS_GEN_IMG) $(TPS_GEN_SEED_COM) ::STINY.COM
+	@printf '>>> test-tps-gen-os: execute seed-compiled fixture for three-way behavioral agreement\n'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
+		--name tps_gen_seed_execute --out "$(BUILD)" --timeout-ms 30000 \
+		--keys "s,t,i,n,y,ret" --keys-after "SHELL-READY" \
+		2> "$(TPS_LEX_BUILD_DIR)/gen_os_seed_execute.report" || true
+	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/gen_os_seed_execute.report"; then \
+		printf '!!! test-tps-gen-os FAIL: seed fixture triple-faulted\n'; exit 1; fi
+	@tr -d '\r' < $(BUILD)/tps_gen_seed_execute.serial > $(TPS_LEX_BUILD_DIR)/gen_os_seed_execute.normalized
+	@test "$$(grep -c '^$(TPS_GEN_TINY_EXPECT)$$' $(TPS_LEX_BUILD_DIR)/gen_os_seed_execute.normalized)" -eq 1 \
+		|| { printf '!!! test-tps-gen-os FAIL: seed execution differs from hand/TPS/fpc behavior\n'; exit 1; }
+	@printf '>>> test-tps-gen-os: green (TPS-on-OS emit -> both links -> on-OS execution; seed == TPS == fpc behavior)\n'
+
+$(TPS_GEN_MUT_COM): test-tps-gen-mutant $(SEED_DOS_RT_OBJ) $(SEED_DOS_LD)
+	@$(OBJCOPY) -O binary $(TPS_LEX_BUILD_DIR)/gen_mut_off_dos.elf $@
+
+$(TPS_GEN_MUT_IMG): $(TPS_GEN_MUT_COM) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(TPS_GEN_MUT_COM) ::MTINY.COM
+
+.PHONY: test-tps-gen-os-mutant
+test-tps-gen-os-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_GEN_MUT_IMG)
+	@printf '>>> test-tps-gen-os-mutant: OFFBYONE must execute to a WRONG TINY value, without crash\n'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_MUT_IMG)" \
+		--name tps_gen_mut_execute --out "$(BUILD)" --timeout-ms 30000 \
+		--keys "m,t,i,n,y,ret" --keys-after "SHELL-READY" \
+		2> "$(TPS_LEX_BUILD_DIR)/gen_os_mut_execute.report" || true
+	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/gen_os_mut_execute.report"; then \
+		printf '!!! test-tps-gen-os-mutant FAIL: OFFBYONE crashed instead of returning wrong values\n'; exit 1; fi
+	@tr -d '\r' < $(BUILD)/tps_gen_mut_execute.serial > $(TPS_LEX_BUILD_DIR)/gen_os_mut_execute.normalized
+	@if grep -q '^$(TPS_GEN_TINY_EXPECT)$$' $(TPS_LEX_BUILD_DIR)/gen_os_mut_execute.normalized; then \
+		printf '!!! TPS_GEN_MUT_OFFBYONE printed the clean golden -- execution oracle is decoration\n'; exit 1; fi
+	@grep -q '^TINY=' $(TPS_LEX_BUILD_DIR)/gen_os_mut_execute.normalized \
+		|| { printf '!!! TPS_GEN_MUT_OFFBYONE did not run to a wrong TINY value\n'; exit 1; }
+	@printf '>>> test-tps-gen-os-mutant: green (one-word parameter shift executes WRONG VALUE, no crash)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-seed-fpc-diff (beads initech-63ce; ADR-0007 DEC-07 Rung 2)
@@ -19811,7 +20115,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-		test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fileio-build test-seed-fileio-fpc test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-tps-lex-fpc test-tps-lex-build test-tps-lex-mutant test-tps-parse-fpc test-tps-parse-build test-tps-parse-mutant test-tps-type-fpc test-tps-type-build test-tps-type-mutant test-assets test-spec test-dosmsg \
+		test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fileio-build test-seed-fileio-fpc test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-tps-lex-fpc test-tps-lex-build test-tps-lex-mutant test-tps-parse-fpc test-tps-parse-build test-tps-parse-mutant test-tps-type-fpc test-tps-type-build test-tps-type-mutant test-tps-gen-fpc test-tps-gen-build test-tps-gen-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \
@@ -20882,7 +21186,7 @@ TEST_EMU_GATES := \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm test-int21-irqstorm-mutant \
 	test-samir-boot test-samir-boot-mutant \
 		test-seed-fileio-os test-seed-fileio-os-mutant \
-		test-tps-lex-os test-tps-parse-os test-tps-type-os \
+		test-tps-lex-os test-tps-parse-os test-tps-type-os test-tps-gen-os test-tps-gen-os-mutant \
 	test-samir-write test-samir-write-mutant \
 	test-samir-canon-y2k test-samir-canon-y2k-mutant \
 	test-samir-canon-salami test-samir-canon-salami-mutant \

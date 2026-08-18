@@ -1,6 +1,6 @@
 {$MODE DELPHI}{$B+}{$H-}
 {
-  tps.pas -- Turbo Initech single-file bootstrap, B9.3 typecheck slice.
+  tps.pas -- Turbo Initech single-file bootstrap, B9.4 x86 codegen slice.
 
   Ref: docs/plans/TPS-M7-subset-plan.md Sec 3 and Sec 5; ADR-0007
   DEC-02, DEC-04, DEC-05, and DEC-07; beads initech-6m52 and
@@ -65,18 +65,18 @@
 program TurboInitech;
 
 const
-  SourceMax = 131072;
-  PoolMax = 4816;
-  NameMax = 480;
+  SourceMax = 262144;
+  PoolMax = 6144;
+  NameMax = 704;
   ChunkMax = 255;
   EscapeQuoteCode = 39; { TPS_LEX_MUT_STRESC }
 
-  { B9.3 fixed arenas. Nine integer columns x 704 symbols = 25,344 bytes;
-    header/argument/name scratch adds 1,920 bytes. Retiring B9.2's 81,920-byte
-    whole-source arena pays for these tables: total static BSS is budgeted
-    below 64 KiB. The hard 0x6F000 image-arena ceiling remains authoritative
-    (bead initech-6m52). }
-  SymbolMax = 704;
+  { B9.4 fixed arenas. Nine integer columns x 1,024 symbols = 36,864 bytes;
+    header/argument/name scratch remains fixed. Retiring B9.2's 81,920-byte
+    whole-source arena pays for these tables. B9.4 raises the row ceiling for
+    the generator's own helpers; the hard 0x6F000 image-arena ceiling remains
+    authoritative (bead initech-6m52). }
+  SymbolMax = 1024;
   HeaderParamMax = 32;
   PendingNameMax = 32;
 
@@ -287,7 +287,24 @@ var
   PendingIdentOffset, PendingIdentLength, PendingIdentLine, PendingIdentCol: integer;
   ParsedFieldOffset, ParsedFieldLength, ParsedFieldLine, ParsedFieldCol: integer;
 
+  { B9.4 code generator. Assembly is buffered into one ShortString and written
+    through the B8 byte-file surface to the fixed name TPSOUT.S. Generation is
+    a fourth check-as-you-parse pass: the semantic tables are rebuilt while
+    the same parser emits stack-machine x86. }
+  OutputFile: file;
+  OutputChunk, GenText: string;
+  OutputActual: integer;
+  { GenData: 1 reserved, 2 bytes, 3 labels, 4 section, 5 expr-temp.
+    GenFlags: 1 mode, 2 failed, 3 strings, 4 file-I/O, 5 want-address.
+    Packing state into two arrays preserves the seed's TC_MAX_SYMBOLS budget. }
+  GenData: array[1..5] of integer;
+  GenFlags: array[1..5] of boolean;
+  ArgTemp: array[1..HeaderParamMax] of integer;
+
 procedure FailLex(Code, P, L, C, Detail: integer); forward;
+procedure GenFail(L, C, Code: integer); forward;
+function PoolLengthAt(NameOffset: integer): integer; forward;
+procedure GenEmitGlobal(Index: integer); forward;
 
 function SourceGet(P: integer): char;
 var
@@ -448,7 +465,9 @@ end;
 
 procedure FailLex(Code, P, L, C, Detail: integer);
 begin
-  if not HadError then
+  if GenFlags[1] then
+    GenFail(L, C, 300 + Code)
+  else if not HadError then
   begin
     HadError := true;
     Write('TPS-LEX-ERROR pos=', P, ' line=', L, ' col=', C);
@@ -588,6 +607,125 @@ begin
       Text := Text + PoolChars[Offset + I];
       I := I + 1
     end
+  end
+end;
+
+procedure GenFail(L, C, Code: integer);
+begin
+  if not GenFlags[2] then
+  begin
+    GenFlags[2] := true;
+    ParseFailed := true;
+    TypeFailed := true;
+    Write('TPS-GEN-ERROR line=', L, ' col=', C, ' ');
+    if Code = 1 then Writeln('output short write')
+    else if Code = 2 then Writeln('invalid symbol storage')
+    else if Code = 3 then Writeln('invalid expression storage')
+    else if Code = 4 then Writeln('call stack invariant')
+    else Writeln('internal invariant code=', Code)
+  end
+end;
+
+procedure GenFlush();
+var
+  Need: integer;
+begin
+  Need := Length(OutputChunk);
+  if Need > 0 then
+  begin
+    BlockWrite(OutputFile, OutputChunk[1], Need, OutputActual);
+    if OutputActual <> Need then
+      GenFail(TokLine, TokCol, 1)
+    else
+      GenData[2] := GenData[2] + OutputActual;
+    OutputChunk := ''
+  end
+end;
+
+procedure GenChar(C: char);
+var
+  N: integer;
+begin
+  if not GenFlags[2] then
+  begin
+    if Length(OutputChunk) = 255 then GenFlush();
+    if not GenFlags[2] then
+    begin
+      N := Length(OutputChunk);
+      OutputChunk[N + 1] := C;
+      OutputChunk[0] := Chr(N + 1)
+    end
+  end
+end;
+
+procedure GenPut(var Text: string);
+var
+  I: integer;
+begin
+  I := 1;
+  while I <= Length(Text) do
+  begin
+    GenChar(Text[I]);
+    I := I + 1
+  end
+end;
+
+procedure GenInt(Value: integer);
+var
+  Digits: array[1..12] of char;
+  Count, N, D, I: integer;
+begin
+  if Value = 0 then
+    GenChar('0')
+  else
+  begin
+    N := Value;
+    if N < 0 then
+    begin
+      GenChar('-');
+      N := -N
+    end;
+    Count := 0;
+    while N > 0 do
+    begin
+      D := N mod 10;
+      Count := Count + 1;
+      Digits[Count] := Chr(Ord('0') + D);
+      N := N div 10
+    end;
+    I := Count;
+    while I > 0 do
+    begin
+      GenChar(Digits[I]);
+      I := I - 1
+    end
+  end
+end;
+
+procedure GenLine(var Text: string);
+begin
+  GenPut(Text);
+  GenChar(Chr(10))
+end;
+
+function GenNewLabel(): integer;
+begin
+  GenNewLabel := GenData[3];
+  GenData[3] := GenData[3] + 1
+end;
+
+procedure GenSetSection(SectionId: integer);
+begin
+  if GenData[4] <> SectionId then
+  begin
+    if SectionId = 1 then begin GenText := 'section .rodata'; GenLine(GenText) end
+    else if SectionId = 2 then
+    begin
+      begin GenText := 'section .bss'; GenLine(GenText) end;
+      begin GenText := 'align 4'; GenLine(GenText) end
+    end
+    else if SectionId = 3 then begin GenText := 'section .text'; GenLine(GenText) end;
+    GenData[4] := SectionId
   end
 end;
 
@@ -1240,7 +1378,9 @@ end;
 
 procedure FailParse(Expected: integer);
 begin
-  if not ParseFailed then
+  if GenFlags[1] then
+    GenFail(TokLine, TokCol, 200 + Expected)
+  else if not ParseFailed then
   begin
     ParseFailed := true;
     Write('TPS-PARSE-ERROR pos=', TokPos, ' line=', TokLine,
@@ -1311,7 +1451,9 @@ end;
 
 procedure FailType(Code, L, C, NameOffset, NameLength, A, B: integer);
 begin
-  if not TypeFailed then
+  if GenFlags[1] then
+    GenFail(L, C, 100 + Code)
+  else if not TypeFailed then
   begin
     TypeFailed := true;
     ParseFailed := true;
@@ -1566,6 +1708,7 @@ begin
                              ActiveRoutine, RecordIndex, LoValue, HiValue,
                              OffsetValue, SizeValue, L, C);
     if TypeFailed then NewIndex := 0
+    else if ActiveRoutine = 0 then GenEmitGlobal(NewIndex)
   end
 end;
 
@@ -1657,7 +1800,8 @@ begin
   LastExprRecord := 0;
   LastExprStrCap := 0;
   LastExprForm := 0;
-  LastExprLvalue := false
+  LastExprLvalue := false;
+  GenData[5] := 0
 end;
 
 procedure MarkComputed(TypeId: integer);
@@ -1667,7 +1811,8 @@ begin
   LastExprRecord := 0;
   LastExprStrCap := 0;
   LastExprForm := 0;
-  LastExprLvalue := false
+  LastExprLvalue := false;
+  GenData[5] := 0
 end;
 
 function RoutineParamAt(RoutineIndex, Ordinal: integer): integer;
@@ -2064,6 +2209,405 @@ begin
   end
 end;
 
+function GenFrameOffset(Index: integer): integer;
+begin
+  GenFrameOffset := SymOffset[Index];
+  if (SymKind[Index] = SkValueParam) or (SymKind[Index] = SkVarParam) then
+    GenFrameOffset := SymOffset[Index] { TPS_GEN_MUT_OFFBYONE }
+end;
+
+procedure GenEbp(Index: integer);
+var
+  OffsetValue: integer;
+begin
+  OffsetValue := GenFrameOffset(Index);
+  begin GenText := '[ebp'; GenPut(GenText) end;
+  if OffsetValue >= 0 then GenChar('+');
+  GenInt(OffsetValue);
+  GenChar(']')
+end;
+
+procedure GenDesignatorAddress(Index: integer);
+begin
+  if Index <= 0 then
+    GenFail(TokLine, TokCol, 2)
+  else if SymScope[Index] = 0 then
+  begin
+    begin GenText := '    mov eax, v_'; GenPut(GenText) end;
+    PoolGet(SymNameOffset[Index], PoolLengthAt(SymNameOffset[Index]), DumpText);
+    GenPut(DumpText);
+    GenChar(Chr(10))
+  end
+  else if SymKind[Index] = SkVarParam then
+  begin
+    begin GenText := '    mov eax, '; GenPut(GenText) end;
+    GenEbp(Index);
+    GenChar(Chr(10))
+  end
+  else
+  begin
+    begin GenText := '    lea eax, '; GenPut(GenText) end;
+    GenEbp(Index);
+    GenChar(Chr(10))
+  end
+end;
+
+procedure GenApplyIndex(Index, BaseType: integer);
+var
+  Stride: integer;
+begin
+  begin GenText := '    mov ecx, eax'; GenLine(GenText) end;
+  begin GenText := '    pop eax'; GenLine(GenText) end;
+  if BaseType = TyString then
+    begin GenText := '    add eax, ecx'; GenLine(GenText) end
+  else
+  begin
+    if SymLo[Index] <> 0 then
+    begin
+      begin GenText := '    sub ecx, '; GenPut(GenText) end;
+      GenInt(SymLo[Index]);
+      GenChar(Chr(10))
+    end;
+    Stride := 4;
+    if SymType[Index] = TyRecord then Stride := SymSize[SymRef[Index]];
+    begin GenText := '    imul ecx, '; GenPut(GenText) end;
+    GenInt(Stride);
+    GenChar(Chr(10));
+    if SymKind[Index] = SkLocalArray then
+      begin GenText := '    sub eax, ecx'; GenLine(GenText) end
+    else
+      begin GenText := '    add eax, ecx'; GenLine(GenText) end
+  end
+end;
+
+procedure GenApplyField(BaseIndex, FieldIndex: integer; HadIndex: boolean);
+var
+  OffsetValue: integer;
+begin
+  OffsetValue := SymOffset[FieldIndex];
+  if OffsetValue <> 0 then
+  begin
+    if (SymKind[BaseIndex] = SkLocalArray) or
+       ((SymScope[BaseIndex] > 0) and
+        (SymKind[BaseIndex] <> SkVarParam) and
+        (SymKind[BaseIndex] <> SkValueParam) and (not HadIndex)) then
+      begin GenText := '    sub eax, '; GenPut(GenText) end
+    else
+      begin GenText := '    add eax, '; GenPut(GenText) end;
+    GenInt(OffsetValue);
+    GenChar(Chr(10))
+  end
+end;
+
+procedure GenEmitGlobal(Index: integer);
+begin
+  if GenFlags[1] then
+  begin
+    GenSetSection(2);
+    begin GenText := 'v_'; GenPut(GenText) end;
+    PoolGet(SymNameOffset[Index], PoolLengthAt(SymNameOffset[Index]), DumpText);
+    GenPut(DumpText);
+    if SymType[Index] = TyString then
+    begin
+      begin GenText := ': resb '; GenPut(GenText) end;
+      GenInt(SymSize[Index])
+    end
+    else if SymType[Index] = TyFile then
+    begin
+      begin GenText := ': resd '; GenPut(GenText) end;
+      GenInt(SymSize[Index] div 4)
+    end
+    else
+    begin
+      begin GenText := ': resd '; GenPut(GenText) end;
+      GenInt(SymSize[Index] div 4)
+    end;
+    GenChar(Chr(10))
+  end
+end;
+
+procedure GenInlineString(var Text: string; ShortForm: boolean);
+var
+  LabelNumber, I: integer;
+begin
+  LabelNumber := GenNewLabel();
+  begin GenText := '    jmp '; GenPut(GenText) end;
+  begin GenText := '.Lstr_after_'; GenPut(GenText); GenInt(LabelNumber) end;
+  GenChar(Chr(10));
+  begin GenText := '.Lstr_'; GenPut(GenText); GenInt(LabelNumber) end;
+  begin GenText := ': db '; GenPut(GenText) end;
+  if ShortForm then
+    GenInt(Length(Text));
+  I := 1;
+  while I <= Length(Text) do
+  begin
+    if ShortForm then GenChar(',');
+    GenInt(Ord(Text[I]));
+    if not ShortForm then GenChar(',');
+    I := I + 1
+  end;
+  if not ShortForm then GenInt(0);
+  GenChar(Chr(10));
+  begin GenText := '.Lstr_after_'; GenPut(GenText); GenInt(LabelNumber) end;
+  begin GenText := ':'; GenPut(GenText) end;
+  GenChar(Chr(10));
+  begin GenText := '    mov eax, '; GenPut(GenText) end;
+  begin GenText := '.Lstr_'; GenPut(GenText); GenInt(LabelNumber) end;
+  GenChar(Chr(10))
+end;
+
+procedure GenCoerceChar(var TempBytes: integer);
+begin
+  begin GenText := '    sub esp, 4'; GenLine(GenText) end;
+  begin GenText := '    mov byte [esp], 1'; GenLine(GenText) end;
+  begin GenText := '    mov byte [esp+1], al'; GenLine(GenText) end;
+  begin GenText := '    mov eax, esp'; GenLine(GenText) end;
+  TempBytes := TempBytes + 4;
+  GenFlags[3] := true
+end;
+
+procedure GenConcat(LeftTemp, RightTemp: integer);
+var
+  Total: integer;
+begin
+  begin GenText := '    push eax'; GenLine(GenText) end;
+  begin GenText := '    sub esp, 256'; GenLine(GenText) end;
+  begin GenText := '    mov esi, [esp+'; GenPut(GenText) end;
+  GenInt(260 + RightTemp);
+  begin GenText := ']'; GenPut(GenText) end;
+  GenChar(Chr(10));
+  begin GenText := '    mov edi, esp'; GenLine(GenText) end;
+  begin GenText := '    mov ecx, 255'; GenLine(GenText) end;
+  begin GenText := '    call __str_assign'; GenLine(GenText) end;
+  begin GenText := '    mov esi, [esp+256]'; GenLine(GenText) end;
+  begin GenText := '    mov edi, esp'; GenLine(GenText) end;
+  begin GenText := '    call __str_concat'; GenLine(GenText) end;
+  begin GenText := '    mov eax, esp'; GenLine(GenText) end;
+  Total := LeftTemp + 4 + RightTemp + 4 + 256;
+  GenData[5] := Total;
+  GenFlags[3] := true
+end;
+
+procedure GenStringCompare(OperatorKind, LeftTemp, RightTemp: integer);
+var
+  Total: integer;
+begin
+  begin GenText := '    push eax'; GenLine(GenText) end;
+  begin GenText := '    mov esi, [esp+'; GenPut(GenText) end;
+  GenInt(4 + RightTemp);
+  begin GenText := ']'; GenPut(GenText) end;
+  GenChar(Chr(10));
+  begin GenText := '    mov edi, [esp]'; GenLine(GenText) end;
+  begin GenText := '    call __str_cmp'; GenLine(GenText) end;
+  Total := LeftTemp + 4 + RightTemp + 4;
+  begin GenText := '    add esp, '; GenPut(GenText) end;
+  GenInt(Total);
+  GenChar(Chr(10));
+  begin GenText := '    cmp eax, 0'; GenLine(GenText) end;
+  if OperatorKind = TkEq then begin GenText := '    sete al'; GenLine(GenText) end
+  else if OperatorKind = TkNe then begin GenText := '    setne al'; GenLine(GenText) end
+  else if OperatorKind = TkLt then begin GenText := '    setl al'; GenLine(GenText) end
+  else if OperatorKind = TkLe then begin GenText := '    setle al'; GenLine(GenText) end
+  else if OperatorKind = TkGt then begin GenText := '    setg al'; GenLine(GenText) end
+  else if OperatorKind = TkGe then begin GenText := '    setge al'; GenLine(GenText) end
+  else GenFail(TokLine, TokCol, 3);
+  begin GenText := '    movzx eax, al'; GenLine(GenText) end;
+  GenData[5] := 0;
+  GenFlags[3] := true
+end;
+
+procedure GenScalarBinary(OperatorKind: integer);
+begin
+  begin GenText := '    mov ecx, eax'; GenLine(GenText) end;
+  begin GenText := '    pop eax'; GenLine(GenText) end;
+  if OperatorKind = TkPlus then begin GenText := '    add eax, ecx'; GenLine(GenText) end
+  else if OperatorKind = TkMinus then begin GenText := '    sub eax, ecx'; GenLine(GenText) end
+  else if OperatorKind = TkStar then begin GenText := '    imul eax, ecx'; GenLine(GenText) end
+  else if OperatorKind = TkDiv then
+  begin
+    begin GenText := '    cdq'; GenLine(GenText) end;
+    begin GenText := '    idiv ecx'; GenLine(GenText) end
+  end
+  else if OperatorKind = TkMod then
+  begin
+    begin GenText := '    cdq'; GenLine(GenText) end;
+    begin GenText := '    idiv ecx'; GenLine(GenText) end;
+    begin GenText := '    mov eax, edx'; GenLine(GenText) end
+  end
+  else if OperatorKind = TkAnd then begin GenText := '    and eax, ecx'; GenLine(GenText) end
+  else if OperatorKind = TkOr then begin GenText := '    or eax, ecx'; GenLine(GenText) end
+  else
+  begin
+    begin GenText := '    cmp eax, ecx'; GenLine(GenText) end;
+    if OperatorKind = TkEq then begin GenText := '    sete al'; GenLine(GenText) end
+    else if OperatorKind = TkNe then begin GenText := '    setne al'; GenLine(GenText) end
+    else if OperatorKind = TkLt then begin GenText := '    setl al'; GenLine(GenText) end
+    else if OperatorKind = TkLe then begin GenText := '    setle al'; GenLine(GenText) end
+    else if OperatorKind = TkGt then begin GenText := '    setg al'; GenLine(GenText) end
+    else if OperatorKind = TkGe then begin GenText := '    setge al'; GenLine(GenText) end
+    else GenFail(TokLine, TokCol, 3);
+    begin GenText := '    movzx eax, al'; GenLine(GenText) end
+  end;
+  GenData[5] := 0
+end;
+
+procedure GenStringIntrinsics();
+begin
+  GenSetSection(3);
+  begin GenText := '__str_assign:'; GenLine(GenText) end;
+  begin GenText := '    movzx eax, byte [esi]'; GenLine(GenText) end;
+  begin GenText := '    cmp eax, ecx'; GenLine(GenText) end;
+  begin GenText := '    jbe .len_ok'; GenLine(GenText) end;
+  begin GenText := '    mov eax, ecx'; GenLine(GenText) end;
+  begin GenText := '.len_ok:'; GenLine(GenText) end;
+  begin GenText := '    mov [edi], al'; GenLine(GenText) end;
+  begin GenText := '    mov ecx, eax'; GenLine(GenText) end;
+  begin GenText := '    inc esi'; GenLine(GenText) end;
+  begin GenText := '    inc edi'; GenLine(GenText) end;
+  begin GenText := '    rep movsb'; GenLine(GenText) end;
+  begin GenText := '    ret'; GenLine(GenText) end;
+  begin GenText := '__str_concat:'; GenLine(GenText) end;
+  begin GenText := '    movzx eax, byte [edi]'; GenLine(GenText) end;
+  begin GenText := '    movzx ecx, byte [esi]'; GenLine(GenText) end;
+  begin GenText := '    mov edx, 255'; GenLine(GenText) end;
+  begin GenText := '    sub edx, eax'; GenLine(GenText) end;
+  begin GenText := '    cmp ecx, edx'; GenLine(GenText) end;
+  begin GenText := '    jbe .n_ok'; GenLine(GenText) end;
+  begin GenText := '    mov ecx, edx'; GenLine(GenText) end;
+  begin GenText := '.n_ok:'; GenLine(GenText) end;
+  begin GenText := '    lea edx, [edi+eax+1]'; GenLine(GenText) end;
+  begin GenText := '    add eax, ecx'; GenLine(GenText) end;
+  begin GenText := '    mov [edi], al'; GenLine(GenText) end;
+  begin GenText := '    inc esi'; GenLine(GenText) end;
+  begin GenText := '    mov edi, edx'; GenLine(GenText) end;
+  begin GenText := '    rep movsb'; GenLine(GenText) end;
+  begin GenText := '    ret'; GenLine(GenText) end;
+  begin GenText := '__str_cmp:'; GenLine(GenText) end;
+  begin GenText := '    movzx eax, byte [esi]'; GenLine(GenText) end;
+  begin GenText := '    movzx edx, byte [edi]'; GenLine(GenText) end;
+  begin GenText := '    mov ecx, eax'; GenLine(GenText) end;
+  begin GenText := '    cmp edx, ecx'; GenLine(GenText) end;
+  begin GenText := '    jae .have_min'; GenLine(GenText) end;
+  begin GenText := '    mov ecx, edx'; GenLine(GenText) end;
+  begin GenText := '.have_min:'; GenLine(GenText) end;
+  begin GenText := '    push eax'; GenLine(GenText) end;
+  begin GenText := '    push edx'; GenLine(GenText) end;
+  begin GenText := '    inc esi'; GenLine(GenText) end;
+  begin GenText := '    inc edi'; GenLine(GenText) end;
+  begin GenText := '.cmp_loop:'; GenLine(GenText) end;
+  begin GenText := '    test ecx, ecx'; GenLine(GenText) end;
+  begin GenText := '    jz .prefix_equal'; GenLine(GenText) end;
+  begin GenText := '    mov al, [esi]'; GenLine(GenText) end;
+  begin GenText := '    mov dl, [edi]'; GenLine(GenText) end;
+  begin GenText := '    cmp al, dl'; GenLine(GenText) end;
+  begin GenText := '    jb .a_less'; GenLine(GenText) end;
+  begin GenText := '    ja .a_greater'; GenLine(GenText) end;
+  begin GenText := '    inc esi'; GenLine(GenText) end;
+  begin GenText := '    inc edi'; GenLine(GenText) end;
+  begin GenText := '    dec ecx'; GenLine(GenText) end;
+  begin GenText := '    jmp .cmp_loop'; GenLine(GenText) end;
+  begin GenText := '.a_less:'; GenLine(GenText) end;
+  begin GenText := '    add esp, 8'; GenLine(GenText) end;
+  begin GenText := '    mov eax, -1'; GenLine(GenText) end;
+  begin GenText := '    ret'; GenLine(GenText) end;
+  begin GenText := '.a_greater:'; GenLine(GenText) end;
+  begin GenText := '    add esp, 8'; GenLine(GenText) end;
+  begin GenText := '    mov eax, 1'; GenLine(GenText) end;
+  begin GenText := '    ret'; GenLine(GenText) end;
+  begin GenText := '.prefix_equal:'; GenLine(GenText) end;
+  begin GenText := '    pop edx'; GenLine(GenText) end;
+  begin GenText := '    pop eax'; GenLine(GenText) end;
+  begin GenText := '    cmp eax, edx'; GenLine(GenText) end;
+  begin GenText := '    jb .len_less'; GenLine(GenText) end;
+  begin GenText := '    ja .len_greater'; GenLine(GenText) end;
+  begin GenText := '    mov eax, 0'; GenLine(GenText) end;
+  begin GenText := '    ret'; GenLine(GenText) end;
+  begin GenText := '.len_less:'; GenLine(GenText) end;
+  begin GenText := '    mov eax, -1'; GenLine(GenText) end;
+  begin GenText := '    ret'; GenLine(GenText) end;
+  begin GenText := '.len_greater:'; GenLine(GenText) end;
+  begin GenText := '    mov eax, 1'; GenLine(GenText) end;
+  begin GenText := '    ret'; GenLine(GenText) end;
+  begin GenText := '__str_write:'; GenLine(GenText) end;
+  begin GenText := '    movzx ecx, byte [esi]'; GenLine(GenText) end;
+  begin GenText := '    inc esi'; GenLine(GenText) end;
+  begin GenText := '.w_loop:'; GenLine(GenText) end;
+  begin GenText := '    test ecx, ecx'; GenLine(GenText) end;
+  begin GenText := '    jz .w_done'; GenLine(GenText) end;
+  begin GenText := '    mov al, [esi]'; GenLine(GenText) end;
+  begin GenText := '    call serial_putc'; GenLine(GenText) end;
+  begin GenText := '    inc esi'; GenLine(GenText) end;
+  begin GenText := '    dec ecx'; GenLine(GenText) end;
+  begin GenText := '    jmp .w_loop'; GenLine(GenText) end;
+  begin GenText := '.w_done:'; GenLine(GenText) end;
+  begin GenText := '    ret'; GenLine(GenText) end
+end;
+
+procedure GenEmitCall(CallNameOffset, CallNameLength, Builtin: integer);
+var
+  Offsets: array[1..HeaderParamMax] of integer;
+  I, Duplicates, OriginalBytes, CleanupBytes, RoutineIndex: integer;
+begin
+  OriginalBytes := 0;
+  I := ArgCount;
+  while I >= 1 do
+  begin
+    Offsets[I] := OriginalBytes;
+    OriginalBytes := OriginalBytes + 4 + ArgTemp[I];
+    I := I - 1
+  end;
+
+  Duplicates := 0;
+  if ((Builtin = 2) or (Builtin = 3)) and (ArgCount = 1) then
+  begin
+    begin GenText := '    push dword 1'; GenLine(GenText) end;
+    Duplicates := 1
+  end;
+  I := ArgCount;
+  while I >= 1 do
+  begin
+    begin GenText := '    mov eax, [esp+'; GenPut(GenText) end;
+    GenInt(Offsets[I] + Duplicates * 4);
+    begin GenText := ']'; GenPut(GenText) end;
+    GenChar(Chr(10));
+    begin GenText := '    push eax'; GenLine(GenText) end;
+    Duplicates := Duplicates + 1;
+    I := I - 1
+  end;
+
+  if Builtin <> 0 then
+  begin
+    GenFlags[4] := true;
+    if Builtin = 1 then begin GenText := '    call rtl_file_assign'; GenLine(GenText) end
+    else if Builtin = 2 then begin GenText := '    call rtl_file_reset'; GenLine(GenText) end
+    else if Builtin = 3 then begin GenText := '    call rtl_file_rewrite'; GenLine(GenText) end
+    else if Builtin = 4 then begin GenText := '    call rtl_file_blockread'; GenLine(GenText) end
+    else if Builtin = 5 then begin GenText := '    call rtl_file_blockwrite'; GenLine(GenText) end
+    else GenFail(TokLine, TokCol, 4)
+  end
+  else
+  begin
+    RoutineIndex := FindRoutine(CallNameOffset, CallNameLength);
+    if RoutineIndex = 0 then
+      GenFail(TokLine, TokCol, 4)
+    else
+    begin
+      begin GenText := '    call pf_'; GenPut(GenText) end;
+      PoolGet(SymNameOffset[RoutineIndex],
+              PoolLengthAt(SymNameOffset[RoutineIndex]), DumpText);
+      GenPut(DumpText);
+      GenChar(Chr(10))
+    end
+  end;
+  CleanupBytes := OriginalBytes + Duplicates * 4;
+  if CleanupBytes > 0 then
+  begin
+    begin GenText := '    add esp, '; GenPut(GenText) end;
+    GenInt(CleanupBytes);
+    GenChar(Chr(10))
+  end
+end;
+
 procedure ParseExpression(); forward;
 procedure ParseStatement(); forward;
 procedure ParseBlock(); forward;
@@ -2210,9 +2754,11 @@ var
   Done: boolean;
   StartLine, StartCol, CallNameOffset, CallNameLength: integer;
   CallNameLine, CallNameCol, OuterArgCount, OuterFileBuiltin, I: integer;
+  Builtin, RoutineIndex, ParamIndex, ThisTemp: integer;
   SavedArgType, SavedArgLvalue, SavedArgForm, SavedArgSym: array[1..HeaderParamMax] of integer;
   SavedArgLine, SavedArgCol: array[1..HeaderParamMax] of integer;
-  ThisWantsValue: boolean;
+  SavedArgTemp: array[1..HeaderParamMax] of integer;
+  ThisWantsValue, SavedWantAddress: boolean;
 begin
   TraceEnter(PrCall);
   CallNameOffset := PendingIdentOffset;
@@ -2231,12 +2777,17 @@ begin
     SavedArgSym[I] := ArgSym[I];
     SavedArgLine[I] := ArgLine[I];
     SavedArgCol[I] := ArgCol[I];
+    SavedArgTemp[I] := ArgTemp[I];
     I := I + 1
   end;
   ArgCount := 0;
   ParsingFileBuiltin := 0;
   if TypeMode then
     ParsingFileBuiltin := FileBuiltinId(CallNameOffset, CallNameLength);
+  Builtin := ParsingFileBuiltin;
+  RoutineIndex := 0;
+  if Builtin = 0 then
+    RoutineIndex := FindRoutine(CallNameOffset, CallNameLength);
   if not ParseFailed then ExpectToken(TkLParen, TkLParen);
   if not ParseFailed then
   begin
@@ -2247,7 +2798,29 @@ begin
       begin
         StartLine := TokLine;
         StartCol := TokCol;
+        SavedWantAddress := GenFlags[5];
+        GenFlags[5] := false;
+        if GenFlags[1] then
+        begin
+          I := ArgCount + 1;
+          if Builtin <> 0 then
+          begin
+            if I = 1 then GenFlags[5] := true
+            else if ((Builtin = 4) or (Builtin = 5)) and
+                    ((I = 2) or (I = 4)) then
+              GenFlags[5] := true
+          end
+          else if RoutineIndex > 0 then
+          begin
+            ParamIndex := RoutineParamAt(RoutineIndex, I);
+            if ParamIndex > 0 then
+              if SymKind[ParamIndex] = SkVarParam then
+                GenFlags[5] := true
+          end
+        end;
         ParseExpression();
+        GenFlags[5] := SavedWantAddress;
+        ThisTemp := GenData[5];
         if not ParseFailed then
           if TypeMode then
           begin
@@ -2264,6 +2837,14 @@ begin
               ArgLine[ArgCount] := StartLine;
               ArgCol[ArgCount] := StartCol
             end
+          end;
+        if not ParseFailed then
+          if GenFlags[1] then
+          begin
+            if (Builtin = 1) and (ArgCount = 2) then
+              if LastExprType = TyChar then GenCoerceChar(ThisTemp);
+            ArgTemp[ArgCount] := ThisTemp;
+            begin GenText := '    push eax'; GenLine(GenText) end
           end;
         if ParseFailed then
           Done := true
@@ -2283,7 +2864,10 @@ begin
       PendingIdentLine := CallNameLine;
       PendingIdentCol := CallNameCol;
       CallWantsValue := ThisWantsValue;
-      ValidateParsedCall()
+      ValidateParsedCall();
+      if not ParseFailed then
+        if GenFlags[1] then
+          GenEmitCall(CallNameOffset, CallNameLength, Builtin)
     end;
   ArgCount := OuterArgCount;
   I := 1;
@@ -2295,6 +2879,7 @@ begin
     ArgSym[I] := SavedArgSym[I];
     ArgLine[I] := SavedArgLine[I];
     ArgCol[I] := SavedArgCol[I];
+    ArgTemp[I] := SavedArgTemp[I];
     I := I + 1
   end;
   ParsingFileBuiltin := OuterFileBuiltin;
@@ -2332,8 +2917,9 @@ end;
 procedure ParseFactor();
 var
   OpLine, OpCol, Found, BaseType, BaseSym, BaseRecord, BaseStrCap: integer;
-  IndexType, FieldIndex: integer;
-  BaseLvalue: boolean;
+  IndexType, FieldIndex, LiteralValue, OperandTemp: integer;
+  BaseLvalue, BaseWasString, HadIndex, SavedWantAddress: boolean;
+  LiteralText: string;
 begin
   TraceEnter(PrFactor);
   if TypeMode then ResetLastExpression();
@@ -2345,6 +2931,7 @@ begin
       OpCol := TokCol;
       NextToken();
       ParseFactor();
+      OperandTemp := GenData[5];
       if not ParseFailed then
         if TypeMode then
         begin
@@ -2352,6 +2939,12 @@ begin
             FailType(TeRule, OpLine, OpCol, 0, 0, 0, 0)
           else
             MarkComputed(TyInteger)
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then
+        begin
+          begin GenText := '    neg eax'; GenLine(GenText) end;
+          GenData[5] := OperandTemp
         end
     end
     else if TokKind = TkNot then
@@ -2360,6 +2953,7 @@ begin
       OpCol := TokCol;
       NextToken();
       ParseFactor();
+      OperandTemp := GenData[5];
       if not ParseFailed then
         if TypeMode then
         begin
@@ -2367,29 +2961,59 @@ begin
             FailType(TeRule, OpLine, OpCol, 0, 0, 0, 0)
           else
             MarkComputed(TyBoolean)
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then
+        begin
+          begin GenText := '    xor eax, 1'; GenLine(GenText) end;
+          GenData[5] := OperandTemp
         end
     end
     else if TokKind = TkTrue then
     begin
       if TypeMode then MarkComputed(TyBoolean);
+      if GenFlags[1] then begin GenText := '    mov eax, 1'; GenLine(GenText) end;
       NextToken()
     end
     else if TokKind = TkFalse then
     begin
       if TypeMode then MarkComputed(TyBoolean);
+      if GenFlags[1] then begin GenText := '    mov eax, 0'; GenLine(GenText) end;
       NextToken()
     end
     else if TokKind = TkInteger then
     begin
+      LiteralValue := TokValue;
       if TypeMode then MarkComputed(TyInteger);
+      if GenFlags[1] then
+      begin
+        begin GenText := '    mov eax, '; GenPut(GenText) end;
+        GenInt(LiteralValue);
+        GenChar(Chr(10))
+      end;
       NextToken()
     end
     else if TokKind = TkString then
     begin
+      LiteralText := TokText;
       if TypeMode then
       begin
         if TokLength = 1 then MarkComputed(TyChar)
         else MarkComputed(TyString)
+      end;
+      if GenFlags[1] then
+      begin
+        if TokLength = 1 then
+        begin
+          begin GenText := '    mov eax, '; GenPut(GenText) end;
+          GenInt(Ord(TokText[1]));
+          GenChar(Chr(10))
+        end
+        else
+        begin
+          GenInlineString(LiteralText, true);
+          GenFlags[3] := true
+        end
       end;
       NextToken()
     end
@@ -2400,6 +3024,7 @@ begin
       NextToken();
       if not ParseFailed then ExpectToken(TkLParen, TkLParen);
       if not ParseFailed then ParseExpression();
+      OperandTemp := GenData[5];
       if not ParseFailed then ExpectToken(TkRParen, TkRParen);
       if not ParseFailed then
         if TypeMode then
@@ -2409,7 +3034,9 @@ begin
             FailType(TeRule, OpLine, OpCol, 0, 0, 0, 0)
           else
             MarkComputed(TyInteger)
-        end
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then GenData[5] := OperandTemp
     end
     else if TokKind = TkChr then
     begin
@@ -2418,6 +3045,7 @@ begin
       NextToken();
       if not ParseFailed then ExpectToken(TkLParen, TkLParen);
       if not ParseFailed then ParseExpression();
+      OperandTemp := GenData[5];
       if not ParseFailed then ExpectToken(TkRParen, TkRParen);
       if not ParseFailed then
         if TypeMode then
@@ -2426,6 +3054,12 @@ begin
             FailType(TeRule, OpLine, OpCol, 0, 0, 0, 0)
           else
             MarkComputed(TyChar)
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then
+        begin
+          begin GenText := '    and eax, 0xFF'; GenLine(GenText) end;
+          GenData[5] := OperandTemp
         end
     end
     else if TokKind = TkLength then
@@ -2435,6 +3069,7 @@ begin
       NextToken();
       if not ParseFailed then ExpectToken(TkLParen, TkLParen);
       if not ParseFailed then ParseExpression();
+      OperandTemp := GenData[5];
       if not ParseFailed then ExpectToken(TkRParen, TkRParen);
       if not ParseFailed then
         if TypeMode then
@@ -2443,6 +3078,18 @@ begin
             FailType(TeRule, OpLine, OpCol, 0, 0, 0, 0)
           else
             MarkComputed(TyInteger)
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then
+        begin
+          begin GenText := '    movzx eax, byte [eax]'; GenLine(GenText) end;
+          if OperandTemp > 0 then
+          begin
+            begin GenText := '    add esp, '; GenPut(GenText) end;
+            GenInt(OperandTemp);
+            GenChar(Chr(10))
+          end;
+          GenData[5] := 0
         end
     end
     else if TokKind = TkIdent then
@@ -2482,6 +3129,29 @@ begin
           end
         end;
         if not ParseFailed then
+          if GenFlags[1] then
+          begin
+            if SymKind[Found] = SkConst then
+            begin
+              if SymType[Found] = TyString then
+              begin
+                PoolGet(SymRef[Found], SymSize[Found], LiteralText);
+                GenInlineString(LiteralText, true);
+                GenFlags[3] := true
+              end
+              else
+              begin
+                begin GenText := '    mov eax, '; GenPut(GenText) end;
+                GenInt(SymRef[Found]);
+                GenChar(Chr(10))
+              end
+            end
+            else
+              GenDesignatorAddress(Found)
+          end;
+        BaseWasString := false;
+        HadIndex := false;
+        if not ParseFailed then
           if TokKind = TkLBracket then
           begin
             BaseType := LastExprType;
@@ -2489,7 +3159,15 @@ begin
             BaseRecord := LastExprRecord;
             BaseStrCap := LastExprStrCap;
             BaseLvalue := LastExprLvalue;
+            BaseWasString := BaseType = TyString;
+            HadIndex := true;
+            if GenFlags[1] then begin GenText := '    push eax'; GenLine(GenText) end;
+            SavedWantAddress := GenFlags[5];
+            GenFlags[5] := false;
             ParseIndexSuffix();
+            GenFlags[5] := SavedWantAddress;
+            if not ParseFailed then
+              if GenFlags[1] then GenApplyIndex(BaseSym, BaseType);
             if not ParseFailed then
               if TypeMode then
               begin
@@ -2529,6 +3207,13 @@ begin
             BaseSym := LastExprSym;
             BaseLvalue := LastExprLvalue;
             ParseFieldSuffix();
+            if not ParseFailed then
+              if GenFlags[1] then
+              begin
+                FieldIndex := FindRecordField(BaseRecord, ParsedFieldOffset,
+                                              ParsedFieldLength);
+                GenApplyField(BaseSym, FieldIndex, HadIndex)
+              end;
             if not ParseFailed then
               if TypeMode then
               begin
@@ -2570,6 +3255,23 @@ begin
                     FailType(TeRule, PendingIdentLine, PendingIdentCol,
                              PendingIdentOffset, PendingIdentLength, 0, 0)
           end
+        ;
+        if not ParseFailed then
+          if GenFlags[1] then
+            if SymKind[Found] <> SkConst then
+              if not GenFlags[5] then
+              begin
+                if LastExprType = TyChar then
+                begin
+                  if BaseWasString and HadIndex then
+                    begin GenText := '    movzx eax, byte [eax]'; GenLine(GenText) end
+                  else
+                    begin GenText := '    mov eax, [eax]'; GenLine(GenText) end
+                end
+                else if (LastExprType = TyInteger) or
+                        (LastExprType = TyBoolean) then
+                  begin GenText := '    mov eax, [eax]'; GenLine(GenText) end
+              end
       end
     end
     else if TokKind = TkLParen then
@@ -2598,7 +3300,7 @@ end;
 procedure ParseTerm();
 var
   Done: boolean;
-  LeftType, OperatorKind, OperatorLine, OperatorCol: integer;
+  LeftType, OperatorKind, OperatorLine, OperatorCol, LeftTemp: integer;
 begin
   TraceEnter(PrTerm);
   ParseFactor();
@@ -2610,6 +3312,8 @@ begin
       OperatorKind := TokKind;
       OperatorLine := TokLine;
       OperatorCol := TokCol;
+      LeftTemp := GenData[5];
+      if GenFlags[1] then begin GenText := '    push eax'; GenLine(GenText) end;
       NextToken();
       ParseFactor();
       if not ParseFailed then
@@ -2619,7 +3323,9 @@ begin
             FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
           else
             MarkComputed(TyInteger)
-        end
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then GenScalarBinary(OperatorKind)
     end
     else if TokKind = TkDiv then
     begin
@@ -2627,6 +3333,8 @@ begin
       OperatorKind := TokKind;
       OperatorLine := TokLine;
       OperatorCol := TokCol;
+      LeftTemp := GenData[5];
+      if GenFlags[1] then begin GenText := '    push eax'; GenLine(GenText) end;
       NextToken();
       ParseFactor();
       if not ParseFailed then
@@ -2636,7 +3344,9 @@ begin
             FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
           else
             MarkComputed(TyInteger)
-        end
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then GenScalarBinary(OperatorKind)
     end
     else if TokKind = TkMod then
     begin
@@ -2644,6 +3354,8 @@ begin
       OperatorKind := TokKind;
       OperatorLine := TokLine;
       OperatorCol := TokCol;
+      LeftTemp := GenData[5];
+      if GenFlags[1] then begin GenText := '    push eax'; GenLine(GenText) end;
       NextToken();
       ParseFactor();
       if not ParseFailed then
@@ -2653,7 +3365,9 @@ begin
             FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
           else
             MarkComputed(TyInteger)
-        end
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then GenScalarBinary(OperatorKind)
     end
     else if TokKind = TkAnd then
     begin
@@ -2661,6 +3375,8 @@ begin
       OperatorKind := TokKind;
       OperatorLine := TokLine;
       OperatorCol := TokCol;
+      LeftTemp := GenData[5];
+      if GenFlags[1] then begin GenText := '    push eax'; GenLine(GenText) end;
       NextToken();
       ParseFactor();
       if not ParseFailed then
@@ -2670,7 +3386,9 @@ begin
             FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
           else
             MarkComputed(TyBoolean)
-        end
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then GenScalarBinary(OperatorKind)
     end
     else
       Done := true;
@@ -2682,7 +3400,8 @@ end;
 procedure ParseSimpleExpression();
 var
   Done: boolean;
-  LeftType, OperatorKind, OperatorLine, OperatorCol: integer;
+  LeftType, RightType, OperatorKind, OperatorLine, OperatorCol: integer;
+  LeftTemp, RightTemp: integer;
   LeftIsText, RightIsText: boolean;
 begin
   TraceEnter(PrSimpleExpression);
@@ -2696,8 +3415,16 @@ begin
       OperatorKind := TokKind;
       OperatorLine := TokLine;
       OperatorCol := TokCol;
+      LeftTemp := GenData[5];
+      if GenFlags[1] then
+      begin
+        if LeftType = TyChar then GenCoerceChar(LeftTemp);
+        begin GenText := '    push eax'; GenLine(GenText) end
+      end;
       NextToken();
       ParseTerm();
+      RightType := LastExprType;
+      RightTemp := GenData[5];
       if not ParseFailed then
         if TypeMode then
         begin
@@ -2718,6 +3445,17 @@ begin
             FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
           else
             MarkComputed(TyInteger)
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then
+        begin
+          if (LeftType = TyString) or (RightType = TyString) then
+          begin
+            if RightType = TyChar then GenCoerceChar(RightTemp);
+            GenConcat(LeftTemp, RightTemp)
+          end
+          else
+            GenScalarBinary(OperatorKind)
         end
     end
     else if TokKind = TkMinus then
@@ -2726,6 +3464,8 @@ begin
       OperatorKind := TokKind;
       OperatorLine := TokLine;
       OperatorCol := TokCol;
+      LeftTemp := GenData[5];
+      if GenFlags[1] then begin GenText := '    push eax'; GenLine(GenText) end;
       NextToken();
       ParseTerm();
       if not ParseFailed then
@@ -2735,7 +3475,9 @@ begin
             FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
           else
             MarkComputed(TyInteger)
-        end
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then GenScalarBinary(OperatorKind)
     end
     else if TokKind = TkOr then
     begin
@@ -2743,6 +3485,8 @@ begin
       OperatorKind := TokKind;
       OperatorLine := TokLine;
       OperatorCol := TokCol;
+      LeftTemp := GenData[5];
+      if GenFlags[1] then begin GenText := '    push eax'; GenLine(GenText) end;
       NextToken();
       ParseTerm();
       if not ParseFailed then
@@ -2752,7 +3496,9 @@ begin
             FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
           else
             MarkComputed(TyBoolean)
-        end
+        end;
+      if not ParseFailed then
+        if GenFlags[1] then GenScalarBinary(OperatorKind)
     end
     else
       Done := true;
@@ -2763,7 +3509,8 @@ end;
 
 procedure ParseExpression();
 var
-  LeftType, OperatorLine, OperatorCol: integer;
+  LeftType, RightType, OperatorKind, OperatorLine, OperatorCol: integer;
+  LeftTemp, RightTemp: integer;
   LeftIsText, RightIsText: boolean;
 begin
   TraceEnter(PrExpression);
@@ -2773,10 +3520,15 @@ begin
     if IsRelationalOperator() then
     begin
       LeftType := LastExprType;
+      LeftTemp := GenData[5];
+      OperatorKind := TokKind;
       OperatorLine := TokLine;
       OperatorCol := TokCol;
+      if GenFlags[1] then begin GenText := '    push eax'; GenLine(GenText) end;
       NextToken();
       ParseSimpleExpression();
+      RightType := LastExprType;
+      RightTemp := GenData[5];
       if not ParseFailed then
         if TypeMode then
         begin
@@ -2801,6 +3553,35 @@ begin
             MarkComputed(TyBoolean)
         end;
       if not ParseFailed then
+        if GenFlags[1] then
+        begin
+          if (LeftType = TyString) or (RightType = TyString) then
+          begin
+            if (LeftType = TyChar) and (RightType = TyString) then
+            begin
+              begin GenText := '    sub esp, 4'; GenLine(GenText) end;
+              begin GenText := '    mov ecx, [esp+'; GenPut(GenText) end;
+              GenInt(4 + RightTemp);
+              begin GenText := ']'; GenPut(GenText) end;
+              GenChar(Chr(10));
+              begin GenText := '    mov byte [esp], 1'; GenLine(GenText) end;
+              begin GenText := '    mov byte [esp+1], cl'; GenLine(GenText) end;
+              begin GenText := '    mov ecx, esp'; GenLine(GenText) end;
+              begin GenText := '    mov [esp+'; GenPut(GenText) end;
+              GenInt(4 + RightTemp);
+              begin GenText := '], ecx'; GenPut(GenText) end;
+              GenChar(Chr(10));
+              RightTemp := RightTemp + 4;
+              GenFlags[3] := true
+            end;
+            if (RightType = TyChar) and (LeftType = TyString) then
+              GenCoerceChar(RightTemp);
+            GenStringCompare(OperatorKind, LeftTemp, RightTemp)
+          end
+          else
+            GenScalarBinary(OperatorKind)
+        end;
+      if not ParseFailed then
         if IsRelationalOperator() then
           FailParse(ExpNoChainedRelation)
     end
@@ -2811,7 +3592,9 @@ end;
 procedure ParseAssignment();
 var
   TargetSym, TargetType, TargetRecord, TargetForm, ValueType, ValueRecord: integer;
-  TargetLvalue, WholeString: boolean;
+  ValueTemp, FieldIndex, I, OffsetValue: integer;
+  TargetLvalue, WholeString, TargetHadIndex, TargetDescending: boolean;
+  SourceDescending, SavedWantAddress: boolean;
 begin
   TraceEnter(PrAssignment);
   TargetSym := 0;
@@ -2820,6 +3603,8 @@ begin
   TargetForm := 1;
   TargetLvalue := false;
   WholeString := false;
+  TargetHadIndex := false;
+  TargetDescending := false;
   if TypeMode then
   begin
     TargetSym := ResolveName(PendingIdentOffset, PendingIdentLength);
@@ -2840,9 +3625,18 @@ begin
     end
   end;
   if not ParseFailed then
+    if GenFlags[1] then GenDesignatorAddress(TargetSym);
+  if not ParseFailed then
     if TokKind = TkLBracket then
     begin
+      TargetHadIndex := true;
+      if GenFlags[1] then begin GenText := '    push eax'; GenLine(GenText) end;
+      SavedWantAddress := GenFlags[5];
+      GenFlags[5] := false;
       ParseIndexSuffix();
+      GenFlags[5] := SavedWantAddress;
+      if not ParseFailed then
+        if GenFlags[1] then GenApplyIndex(TargetSym, TargetType);
       if not ParseFailed then
         if TypeMode then
         begin
@@ -2867,6 +3661,13 @@ begin
     if TokKind = TkDot then
     begin
       ParseFieldSuffix();
+      if not ParseFailed then
+        if GenFlags[1] then
+        begin
+          FieldIndex := FindRecordField(TargetRecord, ParsedFieldOffset,
+                                        ParsedFieldLength);
+          GenApplyField(TargetSym, FieldIndex, TargetHadIndex)
+        end;
       if not ParseFailed then
         if TypeMode then
         begin
@@ -2896,13 +3697,32 @@ begin
          (TargetForm = 1) then
         FailType(TeRule, PendingIdentLine, PendingIdentCol,
                  PendingIdentOffset, PendingIdentLength, 0, 0);
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      TargetDescending := SymKind[TargetSym] = SkLocalArray;
+      if not TargetDescending then
+        TargetDescending := (SymScope[TargetSym] > 0) and
+                            (SymKind[TargetSym] <> SkVarParam) and
+                            (SymKind[TargetSym] <> SkValueParam) and
+                            (not TargetHadIndex);
+      begin GenText := '    push eax'; GenLine(GenText) end
+    end;
   if not ParseFailed then ExpectToken(TkAssign, TkAssign);
   WholeString := false;
   if not ParseFailed then
     if TypeMode then
       if SymType[TargetSym] = TyString then
         if TargetForm = 1 then WholeString := true;
+  SavedWantAddress := GenFlags[5];
+  if GenFlags[1] then
+  begin
+    GenFlags[5] := false;
+    if TargetType = TyRecord then GenFlags[5] := true
+  end;
   if not ParseFailed then ParseExpression();
+  GenFlags[5] := SavedWantAddress;
+  ValueTemp := GenData[5];
   if not ParseFailed then
     if TypeMode then
     begin
@@ -2927,6 +3747,76 @@ begin
       if ValueType <> TargetType then begin { TPS_TYPE_MUT_ASSIGN }
         FailType(TeAssignMismatch, PendingIdentLine, PendingIdentCol,
                  PendingIdentOffset, PendingIdentLength, TargetType, ValueType)
+      end
+    end;
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      if WholeString then
+      begin
+        if LastExprType = TyChar then
+        begin
+          begin GenText := '    pop edx'; GenLine(GenText) end;
+          begin GenText := '    mov byte [edx], 1'; GenLine(GenText) end;
+          begin GenText := '    mov [edx+1], al'; GenLine(GenText) end
+        end
+        else
+        begin
+          begin GenText := '    mov esi, eax'; GenLine(GenText) end;
+          begin GenText := '    mov edi, [esp+'; GenPut(GenText) end;
+          GenInt(ValueTemp);
+          begin GenText := ']'; GenPut(GenText) end;
+          GenChar(Chr(10));
+          begin GenText := '    mov ecx, '; GenPut(GenText) end;
+          GenInt(SymHi[TargetSym]);
+          GenChar(Chr(10));
+          begin GenText := '    call __str_assign'; GenLine(GenText) end;
+          begin GenText := '    add esp, '; GenPut(GenText) end;
+          GenInt(ValueTemp + 4);
+          GenChar(Chr(10));
+          GenFlags[3] := true
+        end
+      end
+      else if TargetType = TyRecord then
+      begin
+        SourceDescending := SymKind[LastExprSym] = SkLocalArray;
+        if not SourceDescending then
+          SourceDescending := (SymScope[LastExprSym] > 0) and
+                              (SymKind[LastExprSym] <> SkVarParam) and
+                              (SymKind[LastExprSym] <> SkValueParam) and
+                              (LastExprForm = 1);
+        begin GenText := '    mov edx, [esp]'; GenLine(GenText) end;
+        I := 0;
+        while I < SymSize[TargetRecord] div 4 do
+        begin
+          OffsetValue := I * 4;
+          begin GenText := '    mov ecx, [eax'; GenPut(GenText) end;
+          if OffsetValue > 0 then
+          begin
+            if SourceDescending then GenChar('-') else GenChar('+');
+            GenInt(OffsetValue)
+          end;
+          begin GenText := ']'; GenPut(GenText) end;
+          GenChar(Chr(10));
+          begin GenText := '    mov [edx'; GenPut(GenText) end;
+          if OffsetValue > 0 then
+          begin
+            if TargetDescending then GenChar('-') else GenChar('+');
+            GenInt(OffsetValue)
+          end;
+          begin GenText := '], ecx'; GenPut(GenText) end;
+          GenChar(Chr(10));
+          I := I + 1
+        end;
+        begin GenText := '    add esp, 4'; GenLine(GenText) end
+      end
+      else
+      begin
+        begin GenText := '    pop edx'; GenLine(GenText) end;
+        if (SymType[TargetSym] = TyString) and (TargetForm = 2) then
+          begin GenText := '    mov [edx], al'; GenLine(GenText) end
+        else
+          begin GenText := '    mov [edx], eax'; GenLine(GenText) end
       end
     end;
   if not ParseFailed then TraceExit(PrAssignment)
@@ -2956,14 +3846,28 @@ begin
 end;
 
 procedure ParseWriteArg();
+var
+  LiteralText: string;
+  ValueType, ValueTemp, LabelNumber: integer;
 begin
   TraceEnter(PrWriteArg);
   if not ParseFailed then
   begin
-    if TokKind = TkString then NextToken()
+    if TokKind = TkString then
+    begin
+      LiteralText := TokText;
+      if GenFlags[1] then
+      begin
+        GenInlineString(LiteralText, false);
+        begin GenText := '    call serial_puts'; GenLine(GenText) end
+      end;
+      NextToken()
+    end
     else
     begin
       ParseExpression();
+      ValueType := LastExprType;
+      ValueTemp := GenData[5];
       if not ParseFailed then
         if TypeMode then
           if (LastExprType <> TyInteger) and
@@ -2971,6 +3875,47 @@ begin
              (LastExprType <> TyChar) and
              (LastExprType <> TyString) then
             FailType(TeRule, TokLine, TokCol, 0, 0, 0, 0)
+      ;
+      if not ParseFailed then
+        if GenFlags[1] then
+        begin
+          if ValueType = TyBoolean then
+          begin
+            LabelNumber := GenNewLabel();
+            begin GenText := '    test eax, eax'; GenLine(GenText) end;
+            begin GenText := '    jz '; GenPut(GenText) end;
+            begin GenText := '.Lbfalse_'; GenPut(GenText); GenInt(LabelNumber) end;
+            GenChar(Chr(10));
+            begin GenText := '    mov eax, str_bool_true'; GenLine(GenText) end;
+            begin GenText := '    jmp '; GenPut(GenText) end;
+            begin GenText := '.Lbdone_'; GenPut(GenText); GenInt(LabelNumber) end;
+            GenChar(Chr(10));
+            begin GenText := '.Lbfalse_'; GenPut(GenText); GenInt(LabelNumber) end;
+            begin GenText := ':'; GenPut(GenText) end;
+            GenChar(Chr(10));
+            begin GenText := '    mov eax, str_bool_false'; GenLine(GenText) end;
+            begin GenText := '.Lbdone_'; GenPut(GenText); GenInt(LabelNumber) end;
+            begin GenText := ':'; GenPut(GenText) end;
+            GenChar(Chr(10));
+            begin GenText := '    call serial_puts'; GenLine(GenText) end
+          end
+          else if ValueType = TyChar then
+            begin GenText := '    call serial_putc'; GenLine(GenText) end
+          else if ValueType = TyString then
+          begin
+            begin GenText := '    mov esi, eax'; GenLine(GenText) end;
+            begin GenText := '    call __str_write'; GenLine(GenText) end;
+            if ValueTemp > 0 then
+            begin
+              begin GenText := '    add esp, '; GenPut(GenText) end;
+              GenInt(ValueTemp);
+              GenChar(Chr(10))
+            end;
+            GenFlags[3] := true
+          end
+          else
+            begin GenText := '    call serial_put_int'; GenLine(GenText) end
+        end
     end
   end;
   if not ParseFailed then TraceExit(PrWriteArg)
@@ -2979,8 +3924,10 @@ end;
 procedure ParseWrite();
 var
   Done: boolean;
+  IsNewline: boolean;
 begin
   TraceEnter(PrWrite);
+  IsNewline := TokKind = TkWriteln;
   if not ParseFailed then NextToken();
   if not ParseFailed then
   begin
@@ -3004,14 +3951,23 @@ begin
       if not ParseFailed then ExpectToken(TkRParen, TkRParen)
     end
   end;
+  if not ParseFailed then
+    if GenFlags[1] then
+      if IsNewline then
+      begin
+        begin GenText := '    mov al, 10'; GenLine(GenText) end;
+        begin GenText := '    call serial_putc'; GenLine(GenText) end
+      end;
   if not ParseFailed then TraceExit(PrWrite)
 end;
 
 procedure ParseIf();
 var
-  ConditionType, ConditionLine, ConditionCol: integer;
+  ConditionType, ConditionLine, ConditionCol, LabelNumber: integer;
 begin
   TraceEnter(PrIf);
+  LabelNumber := 0;
+  if GenFlags[1] then LabelNumber := GenNewLabel();
   ParseIfDepth := ParseIfDepth + 1;
   if not ParseFailed then ExpectToken(TkIf, TkIf);
   ConditionLine := TokLine;
@@ -3022,8 +3978,26 @@ begin
     if TypeMode then
       if ConditionType <> TyBoolean then
         FailType(TeRule, ConditionLine, ConditionCol, 0, 0, 0, 0);
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      begin GenText := '    test eax, eax'; GenLine(GenText) end;
+      begin GenText := '    jz '; GenPut(GenText) end;
+      begin GenText := '.Lelse_'; GenPut(GenText); GenInt(LabelNumber) end;
+      GenChar(Chr(10))
+    end;
   if not ParseFailed then ExpectToken(TkThen, TkThen);
   if not ParseFailed then ParseStatement();
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      begin GenText := '    jmp '; GenPut(GenText) end;
+      begin GenText := '.Lendif_'; GenPut(GenText); GenInt(LabelNumber) end;
+      GenChar(Chr(10));
+      begin GenText := '.Lelse_'; GenPut(GenText); GenInt(LabelNumber) end;
+      begin GenText := ':'; GenPut(GenText) end;
+      GenChar(Chr(10))
+    end;
   if not ParseFailed then
   begin
     if TokKind = TkElse then begin { TPS_PARSE_MUT_ELSE }
@@ -3033,15 +4007,30 @@ begin
       if not ParseFailed then TraceExit(PrElseClause)
     end
   end;
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      begin GenText := '.Lendif_'; GenPut(GenText); GenInt(LabelNumber) end;
+      begin GenText := ':'; GenPut(GenText) end;
+      GenChar(Chr(10))
+    end;
   ParseIfDepth := ParseIfDepth - 1;
   if not ParseFailed then TraceExit(PrIf)
 end;
 
 procedure ParseWhile();
 var
-  ConditionType, ConditionLine, ConditionCol: integer;
+  ConditionType, ConditionLine, ConditionCol, LabelNumber: integer;
 begin
   TraceEnter(PrWhile);
+  LabelNumber := 0;
+  if GenFlags[1] then
+  begin
+    LabelNumber := GenNewLabel(); { TPS_GEN_MUT_LABELS }
+    begin GenText := '.Lwhile_top_'; GenPut(GenText); GenInt(LabelNumber) end;
+    begin GenText := ':'; GenPut(GenText) end;
+    GenChar(Chr(10))
+  end;
   if not ParseFailed then ExpectToken(TkWhile, TkWhile);
   ConditionLine := TokLine;
   ConditionCol := TokCol;
@@ -3051,16 +4040,36 @@ begin
     if TypeMode then
       if ConditionType <> TyBoolean then
         FailType(TeRule, ConditionLine, ConditionCol, 0, 0, 0, 0);
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      begin GenText := '    test eax, eax'; GenLine(GenText) end;
+      begin GenText := '    jz '; GenPut(GenText) end;
+      begin GenText := '.Lwhile_end_'; GenPut(GenText); GenInt(LabelNumber) end;
+      GenChar(Chr(10))
+    end;
   if not ParseFailed then ExpectToken(TkDo, TkDo);
   if not ParseFailed then ParseStatement();
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      begin GenText := '    jmp '; GenPut(GenText) end;
+      begin GenText := '.Lwhile_top_'; GenPut(GenText); GenInt(LabelNumber) end;
+      GenChar(Chr(10));
+      begin GenText := '.Lwhile_end_'; GenPut(GenText); GenInt(LabelNumber) end;
+      begin GenText := ':'; GenPut(GenText) end;
+      GenChar(Chr(10))
+    end;
   if not ParseFailed then TraceExit(PrWhile)
 end;
 
 procedure ParseFor();
 var
   ControlOffset, ControlLength, ControlLine, ControlCol, ControlSym: integer;
+  Direction, LabelNumber: integer;
 begin
   TraceEnter(PrFor);
+  ControlSym := 0;
   if not ParseFailed then ExpectToken(TkFor, TkFor);
   if not ParseFailed then
   begin
@@ -3099,9 +4108,18 @@ begin
         FailType(TeRule, ControlLine, ControlCol, ControlOffset,
                  ControlLength, 0, 0);
   if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      begin GenText := '    push eax'; GenLine(GenText) end;
+      GenDesignatorAddress(ControlSym);
+      begin GenText := '    pop ecx'; GenLine(GenText) end;
+      begin GenText := '    mov [eax], ecx'; GenLine(GenText) end
+    end;
+  Direction := 0;
+  if not ParseFailed then
   begin
-    if TokKind = TkTo then NextToken()
-    else if TokKind = TkDownto then NextToken()
+    if TokKind = TkTo then begin Direction := 1; NextToken() end
+    else if TokKind = TkDownto then begin Direction := -1; NextToken() end
     else FailParse(ExpToOrDownto)
   end;
   if not ParseFailed then ParseExpression();
@@ -3110,17 +4128,55 @@ begin
       if LastExprType <> TyInteger then
         FailType(TeRule, ControlLine, ControlCol, ControlOffset,
                  ControlLength, 0, 0);
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      begin GenText := '    push eax'; GenLine(GenText) end;
+      LabelNumber := GenNewLabel();
+      begin GenText := '.Lfor_top_'; GenPut(GenText); GenInt(LabelNumber) end;
+      begin GenText := ':'; GenPut(GenText) end;
+      GenChar(Chr(10));
+      GenDesignatorAddress(ControlSym);
+      begin GenText := '    mov eax, [eax]'; GenLine(GenText) end;
+      begin GenText := '    cmp eax, [esp]'; GenLine(GenText) end;
+      if Direction = 1 then begin GenText := '    jg '; GenPut(GenText) end
+      else begin GenText := '    jl '; GenPut(GenText) end;
+      begin GenText := '.Lfor_end_'; GenPut(GenText); GenInt(LabelNumber) end;
+      GenChar(Chr(10))
+    end;
   if not ParseFailed then ExpectToken(TkDo, TkDo);
   if not ParseFailed then ParseStatement();
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      GenDesignatorAddress(ControlSym);
+      if Direction = 1 then begin GenText := '    add dword [eax], 1'; GenLine(GenText) end
+      else begin GenText := '    sub dword [eax], 1'; GenLine(GenText) end;
+      begin GenText := '    jmp '; GenPut(GenText) end;
+      begin GenText := '.Lfor_top_'; GenPut(GenText); GenInt(LabelNumber) end;
+      GenChar(Chr(10));
+      begin GenText := '.Lfor_end_'; GenPut(GenText); GenInt(LabelNumber) end;
+      begin GenText := ':'; GenPut(GenText) end;
+      GenChar(Chr(10));
+      begin GenText := '    add esp, 4'; GenLine(GenText) end
+    end;
   if not ParseFailed then TraceExit(PrFor)
 end;
 
 procedure ParseRepeat();
 var
   Done: boolean;
-  ConditionLine, ConditionCol: integer;
+  ConditionLine, ConditionCol, LabelNumber: integer;
 begin
   TraceEnter(PrRepeat);
+  LabelNumber := 0;
+  if GenFlags[1] then
+  begin
+    LabelNumber := GenNewLabel();
+    begin GenText := '.Lrepeat_top_'; GenPut(GenText); GenInt(LabelNumber) end;
+    begin GenText := ':'; GenPut(GenText) end;
+    GenChar(Chr(10))
+  end;
   if not ParseFailed then ExpectToken(TkRepeat, TkRepeat);
   Done := ParseFailed;
   if not Done then
@@ -3143,6 +4199,14 @@ begin
     if TypeMode then
       if LastExprType <> TyBoolean then
         FailType(TeRule, ConditionLine, ConditionCol, 0, 0, 0, 0);
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      begin GenText := '    test eax, eax'; GenLine(GenText) end;
+      begin GenText := '    jz '; GenPut(GenText) end;
+      begin GenText := '.Lrepeat_top_'; GenPut(GenText); GenInt(LabelNumber) end;
+      GenChar(Chr(10))
+    end;
   if not ParseFailed then TraceExit(PrRepeat)
 end;
 
@@ -3220,7 +4284,10 @@ begin
         ParsedConstValue := Ord(TokText[1])
       end
       else
+      begin
         ParsedType := TyString;
+        if GenFlags[1] then ParsedConstValue := PoolAdd(TokText)
+      end;
       NextToken()
     end
     else if TokKind = TkTrue then
@@ -3618,6 +4685,7 @@ end;
 procedure ParseRoutine(IsFunction: boolean);
 var
   Production, NameOffset, NameLength, NameLine, NameCol, RoutineIndex: integer;
+  I: integer;
   IsForward: boolean;
 begin
   Production := PrRoutineProcedure;
@@ -3671,8 +4739,69 @@ begin
         if IsFunction then LocalSlots := 1
       end;
       if TokKind = TkVar then ParseVarSection();
+      if not ParseFailed then
+        if GenFlags[1] then
+        begin
+          GenSetSection(3);
+          begin GenText := 'pf_'; GenPut(GenText) end;
+          PoolGet(SymNameOffset[RoutineIndex],
+                  PoolLengthAt(SymNameOffset[RoutineIndex]), DumpText);
+          GenPut(DumpText);
+          begin GenText := ':'; GenPut(GenText) end;
+          GenChar(Chr(10));
+          begin GenText := '    push ebp'; GenLine(GenText) end;
+          begin GenText := '    mov ebp, esp'; GenLine(GenText) end;
+          if LocalSlots > 0 then
+          begin
+            begin GenText := '    sub esp, '; GenPut(GenText) end;
+            GenInt(LocalSlots * 4);
+            GenChar(Chr(10))
+          end;
+          I := 1;
+          while I <= SymCount do
+          begin
+            if SymScope[I] = RoutineIndex then
+              if SymKind[I] = SkLocal then
+              begin
+                if SymType[I] = TyString then
+                begin
+                  begin GenText := '    mov byte '; GenPut(GenText) end;
+                  GenEbp(I);
+                  begin GenText := ', 0'; GenPut(GenText) end;
+                  GenChar(Chr(10))
+                end
+                else if SymType[I] = TyFile then
+                begin
+                  begin GenText := '    mov dword '; GenPut(GenText) end;
+                  GenEbp(I);
+                  begin GenText := ', 0'; GenPut(GenText) end;
+                  GenChar(Chr(10));
+                  begin GenText := '    mov byte [ebp'; GenPut(GenText) end;
+                  if GenFrameOffset(I) + 4 >= 0 then GenChar('+');
+                  GenInt(GenFrameOffset(I) + 4);
+                  begin GenText := '], 0'; GenPut(GenText) end;
+                  GenChar(Chr(10))
+                end
+              end;
+            I := I + 1
+          end
+        end;
       if not ParseFailed then ParseBlock();
       if not ParseFailed then ExpectToken(TkSemi, TkSemi);
+      if not ParseFailed then
+        if GenFlags[1] then
+        begin
+          if IsFunction then
+          begin
+            begin GenText := '    mov eax, '; GenPut(GenText) end;
+            I := FindLocal(NameOffset, NameLength);
+            GenEbp(I);
+            GenChar(Chr(10))
+          end;
+          begin GenText := '    leave'; GenLine(GenText) end;
+          begin GenText := '    ret'; GenLine(GenText) end;
+          begin GenText := ''; GenLine(GenText) end
+        end;
       if TypeMode then
       begin
         if RoutineIndex > 0 then SymSize[RoutineIndex] := LocalSlots * 4;
@@ -3707,7 +4836,23 @@ begin
     else Done := true;
     if ParseFailed then Done := true
   end;
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      GenSetSection(3);
+      begin GenText := 'global pas_main'; GenLine(GenText) end;
+      begin GenText := 'pas_main:'; GenLine(GenText) end;
+      begin GenText := '    push ebp'; GenLine(GenText) end;
+      begin GenText := '    mov ebp, esp'; GenLine(GenText) end
+    end;
   if not ParseFailed then ParseBlock();
+  if not ParseFailed then
+    if GenFlags[1] then
+    begin
+      begin GenText := '    leave'; GenLine(GenText) end;
+      begin GenText := '    ret'; GenLine(GenText) end;
+      begin GenText := ''; GenLine(GenText) end
+    end;
   if not ParseFailed then ExpectToken(TkDot, TkDot);
   if not ParseFailed then
     if TokKind <> TkEof then FailParse(TkEof);
@@ -3768,6 +4913,79 @@ begin
   TypeMode := false
 end;
 
+procedure RunCodeGenerator();
+begin
+  ReadInput();
+  ScanPos := 1;
+  ScanLine := 1;
+  ScanCol := 1;
+  PoolUsed := 0;
+  PoolCount := 0;
+  ParseFailed := false;
+  ParseIfDepth := 0;
+  TypeFailed := false;
+  TypeMode := true;
+  GenFlags[1] := true;
+  EmitParseTrace := false;
+  SymCount := 0;
+  GlobalBytes := 0;
+  ActiveRoutine := 0;
+  LocalSlots := 0;
+  CurrentRecord := 0;
+  HeaderCount := 0;
+  PendingNameCount := 0;
+  ArgCount := 0;
+  ParsingFileBuiltin := 0;
+  GenFlags[5] := false;
+  ResetLastExpression();
+  OutputChunk := '';
+  GenData[2] := 0;
+  GenData[3] := 0;
+  GenData[4] := 0;
+  GenFlags[2] := false;
+  GenFlags[3] := false;
+  GenFlags[4] := false;
+  Assign(OutputFile, 'TPSOUT.S');
+  Rewrite(OutputFile, 1);
+  begin GenText := '; Generated by Turbo Initech (TPS B9.4).'; GenLine(GenText) end;
+  begin GenText := '; Ref: ADR-0007 DEC-04/DEC-05; deterministic stack-machine x86.'; GenLine(GenText) end;
+  begin GenText := 'bits 32'; GenLine(GenText) end;
+  begin GenText := ''; GenLine(GenText) end;
+  begin GenText := 'extern serial_putc'; GenLine(GenText) end;
+  begin GenText := 'extern serial_puts'; GenLine(GenText) end;
+  begin GenText := 'extern serial_put_int'; GenLine(GenText) end;
+  begin GenText := ''; GenLine(GenText) end;
+  GenSetSection(1);
+  begin GenText := 'str_bool_true: db 84,82,85,69,0'; GenLine(GenText) end;
+  begin GenText := 'str_bool_false: db 70,65,76,83,69,0'; GenLine(GenText) end;
+  begin GenText := ''; GenLine(GenText) end;
+  GenSetSection(2);
+  NextToken();
+  if not HadError then ParseProgram();
+  if not GenFlags[2] then
+    if not TypeFailed then
+      if not ParseFailed then
+      begin
+        if GenFlags[4] then
+        begin
+          begin GenText := 'extern rtl_file_assign'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_file_reset'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_file_rewrite'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_file_blockread'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_file_blockwrite'; GenLine(GenText) end
+        end;
+        if GenFlags[3] then GenStringIntrinsics();
+        GenFlush()
+      end;
+  if not GenFlags[2] then
+    if not TypeFailed then
+      if not ParseFailed then
+        Writeln('TPS-GEN-OK bytes=', GenData[2],
+                ' labels=', GenData[3]);
+  GenFlags[1] := false;
+  TypeMode := false
+end;
+
 begin
   HadError := false;
   Writeln('TPS-LEX-BEGIN');
@@ -3788,5 +5006,15 @@ begin
     Writeln('TPS-TYPE-SKIP parser-error')
   else
     RunTypeChecker();
-  Writeln('TPS-TYPE-END')
+  Writeln('TPS-TYPE-END');
+  Writeln('TPS-GEN-BEGIN');
+  if HadError then
+    Writeln('TPS-GEN-SKIP lexer-error')
+  else if not SyntaxClean then
+    Writeln('TPS-GEN-SKIP parser-error')
+  else if TypeFailed then
+    Writeln('TPS-GEN-SKIP type-error')
+  else
+    RunCodeGenerator();
+  Writeln('TPS-GEN-END')
 end.
