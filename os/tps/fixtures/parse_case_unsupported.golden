@@ -1,0 +1,1 @@
+TPS-PARSE-ERROR pos=50 line=4 col=3 expected=KW_END found=KW_CASE

@@ -10,6 +10,13 @@ TPS-LEX-BEGIN
 TPS-LEX-END
 ```
 
+Since B9.2 the driver then resets the lexer over the retained source and emits
+the separately bracketed parser trace specified by `PARSER-TRACE.md`. The
+lexer payload and its golden files are unchanged. Lexer gates extract the
+single anchored `TPS-LEX-BEGIN`/`TPS-LEX-END` region before diffing; this is a
+neutral-to-stronger harness re-key because it additionally rejects missing or
+duplicate markers while preserving the byte-exact B9.1 token oracle.
+
 There is one line per token between the markers:
 
 - `KW name` for a reserved word, with its canonical lower-case spelling.

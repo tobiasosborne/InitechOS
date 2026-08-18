@@ -1,0 +1,1 @@
+TPS-PARSE-ERROR pos=31 line=3 col=3 expected=KW_END found=KW_VAR

@@ -1,0 +1,3 @@
+program MissingSemi
+begin
+end.

@@ -7203,7 +7203,11 @@ help:
 	@printf '  test-tps-lex-fpc  B9.1 host oracle: fpc-built Turbo Initech lexer vs hand-computed token/error goldens + deterministic self-lex smoke. beads initech-6m52.\n'
 	@printf '  test-tps-lex-build  B9.1 host build gate: the seed compiles tps.pas and the same program object links as bare-metal ELF and InitechDOS TPS.COM. beads initech-6m52.\n'
 	@printf '  test-tps-lex-mutant  B9.1 Rule-6 source mutants: identifier case-fold and doubled-quote decoding both compile, run, and go RED on the host golden for the named wrong value.\n'
-	@printf '  test-tps-lex-os  B9.1 on-InitechDOS two-level differential: seed-built TPS.COM serial dump == fpc-built tps stdout for one TPSIN.PAS. EMULATOR; deliberately outside TEST_EMU_GATES pending orchestrator proof.\n'
+	@printf '  test-tps-lex-os  B9.1 on-InitechDOS two-level differential: seed-built TPS.COM serial dump == fpc-built tps stdout for one TPSIN.PAS. EMULATOR; in TEST_EMU_GATES.\n'
+	@printf '  test-tps-parse-fpc  B9.2 host parser oracle: hand-computed grammar-rich trace + five located errors + deterministic TPS self-parse. beads initech-6m52.\n'
+	@printf '  test-tps-parse-build  B9.2 seed/fpc build and link gate with the soft BSS reserve plus load-bearing 0x6f000 arena ceiling.\n'
+	@printf '  test-tps-parse-mutant  B9.2 Rule-6 source mutants: precedence and dangling-else binding both stay valid but emit the wrong parse trace.\n'
+	@printf '  test-tps-parse-os  B9.2 on-InitechDOS two-level differential: seed-built TPS.COM parse trace == fpc-built trace. EMULATOR; orchestrator-owned.\n'
 	@printf '  test-seed-fpc-diff  DEC-07 Rung 2: seed vs Free Pascal for B4-B7 via direct-QEMU ELFs; B8 file_shared host-fpc + seed build included, with seed-on-InitechDOS execution explicitly orchestrator-owed. IN default `make test`; FAILS LOUD when fpc is absent.\n'
 	@printf '  test-seed-repro  Reproducible-build gate: the FULL seed corpus, compiled twice (initechc->nasm->ld) into separate scratch dirs, is byte-identical (.s+.o+.elf sha256). REAL. bead initech-3yv, ADR-0007 FO-5/DEC-06.\n'
 	@printf '  test-seed-repro-mutant  Rule-6 proof: -DSEED_MUT_NONDET (getpid()-seeded dead .rodata symbol -- GENUINE nondeterminism) makes test-seed-repro correctly RED, while leaving bool.pas single-run behavior untouched. REAL. bead initech-3yv, ADR-0007 FO-5.\n'
@@ -12839,6 +12843,18 @@ TPS_LEX_SEED_DOS_ELF          := $(TPS_LEX_BUILD_DIR)/tps_seed_dos.elf
 TPS_LEX_COM                   := $(TPS_LEX_BUILD_DIR)/TPS.COM
 TPS_LEX_IMG                   := $(BUILD)/tps_lex.img
 TPS_LEX_OS_KEYS               := t,p,s,ret
+TPS_PARSE_RICH                := $(TPS_LEX_FIXTURE_DIR)/parse_rich.pas
+TPS_PARSE_RICH_GOLDEN         := $(TPS_LEX_FIXTURE_DIR)/parse_rich.golden
+TPS_PARSE_ERROR_CASES         := parse_missing_semi parse_unbalanced_end parse_bad_factor parse_misplaced_var parse_case_unsupported
+TPS_PARSE_FPC_RICH_OUT        := $(TPS_LEX_BUILD_DIR)/parse_rich.out
+TPS_PARSE_MUT_PREC_FIXTURE    := $(TPS_LEX_FIXTURE_DIR)/parse_mut_precedence.pas
+TPS_PARSE_MUT_ELSE_FIXTURE    := $(TPS_LEX_FIXTURE_DIR)/parse_mut_else.pas
+TPS_PARSE_MUT_PREC_SRC        := $(TPS_LEX_BUILD_DIR)/tps_mut_precedence.pas
+TPS_PARSE_MUT_ELSE_SRC        := $(TPS_LEX_BUILD_DIR)/tps_mut_else.pas
+TPS_PARSE_MUT_PREC_BIN        := $(TPS_LEX_BUILD_DIR)/tps_mut_precedence
+TPS_PARSE_MUT_ELSE_BIN        := $(TPS_LEX_BUILD_DIR)/tps_mut_else
+TPS_PARSE_IMG                 := $(BUILD)/tps_parse.img
+TPS_PARSE_OS_KEYS             := t,p,s,ret
 
 $(TPS_LEX_BUILD_DIR): | $(BUILD)
 	@mkdir -p $@
@@ -12855,7 +12871,11 @@ $(TPS_LEX_FPC_BASIC_OUT): $(TPS_LEX_FPC_BIN) $(TPS_LEX_BASIC) | $(TPS_LEX_BUILD_
 	@cp -f $(TPS_LEX_BASIC) $(TPS_LEX_BUILD_DIR)/run_basic/TPSIN.PAS
 	@cd $(TPS_LEX_BUILD_DIR)/run_basic && ../tps_fpc > ../lex_basic.raw \
 		|| { printf '!!! test-tps-lex-fpc FAIL: fpc-built lexer exited non-zero on lex_basic\n'; exit 1; }
-	@tr -d '\r' < $(TPS_LEX_BUILD_DIR)/lex_basic.raw > $@
+	@tr -d '\r' < $(TPS_LEX_BUILD_DIR)/lex_basic.raw > $(TPS_LEX_BUILD_DIR)/lex_basic.normalized
+	@test "$$(grep -c '^TPS-LEX-BEGIN$$' $(TPS_LEX_BUILD_DIR)/lex_basic.normalized)" -eq 1 \
+		&& test "$$(grep -c '^TPS-LEX-END$$' $(TPS_LEX_BUILD_DIR)/lex_basic.normalized)" -eq 1 \
+		|| { printf '!!! test-tps-lex-fpc FAIL: lex_basic markers are missing/non-singular\n'; exit 1; }
+	@sed -n '/^TPS-LEX-BEGIN$$/,/^TPS-LEX-END$$/p' $(TPS_LEX_BUILD_DIR)/lex_basic.normalized > $@
 
 .PHONY: test-tps-lex-fpc
 test-tps-lex-fpc: $(TPS_LEX_FPC_BASIC_OUT)
@@ -12869,7 +12889,11 @@ test-tps-lex-fpc: $(TPS_LEX_FPC_BASIC_OUT)
 		cp -f $(TPS_LEX_FIXTURE_DIR)/$$name.pas "$$run/TPSIN.PAS"; \
 		(cd "$$run" && ../tps_fpc > ../$$name.raw) \
 			|| { printf '!!! test-tps-lex-fpc FAIL: lexer process failed on %s\n' "$$name"; exit 1; }; \
-		tr -d '\r' < $(TPS_LEX_BUILD_DIR)/$$name.raw > $(TPS_LEX_BUILD_DIR)/$$name.out; \
+		tr -d '\r' < $(TPS_LEX_BUILD_DIR)/$$name.raw > $(TPS_LEX_BUILD_DIR)/$$name.normalized; \
+		test "$$(grep -c '^TPS-LEX-BEGIN$$' $(TPS_LEX_BUILD_DIR)/$$name.normalized)" -eq 1 \
+			&& test "$$(grep -c '^TPS-LEX-END$$' $(TPS_LEX_BUILD_DIR)/$$name.normalized)" -eq 1 \
+			|| { printf '!!! test-tps-lex-fpc FAIL: %s lexer markers missing/non-singular\n' "$$name"; exit 1; }; \
+		sed -n '/^TPS-LEX-BEGIN$$/,/^TPS-LEX-END$$/p' $(TPS_LEX_BUILD_DIR)/$$name.normalized > $(TPS_LEX_BUILD_DIR)/$$name.out; \
 		diff -u $(TPS_LEX_FIXTURE_DIR)/$$name.golden $(TPS_LEX_BUILD_DIR)/$$name.out \
 			|| { printf '!!! test-tps-lex-fpc FAIL: %s error stream differs\n' "$$name"; exit 1; }; \
 	done
@@ -12880,7 +12904,11 @@ test-tps-lex-fpc: $(TPS_LEX_FPC_BASIC_OUT)
 		cp -f $(TPS_LEX_SRC) "$$dir/TPSIN.PAS"; \
 		(cd "$$dir" && ../tps_fpc > ../$$run.raw) \
 			|| { printf '!!! test-tps-lex-fpc FAIL: self-lex process failed (%s)\n' "$$run"; exit 1; }; \
-		tr -d '\r' < $(TPS_LEX_BUILD_DIR)/$$run.raw > $(TPS_LEX_BUILD_DIR)/$$run.out; \
+		tr -d '\r' < $(TPS_LEX_BUILD_DIR)/$$run.raw > $(TPS_LEX_BUILD_DIR)/$$run.normalized; \
+		test "$$(grep -c '^TPS-LEX-BEGIN$$' $(TPS_LEX_BUILD_DIR)/$$run.normalized)" -eq 1 \
+			&& test "$$(grep -c '^TPS-LEX-END$$' $(TPS_LEX_BUILD_DIR)/$$run.normalized)" -eq 1 \
+			|| { printf '!!! test-tps-lex-fpc FAIL: self-lex markers missing/non-singular (%s)\n' "$$run"; exit 1; }; \
+		sed -n '/^TPS-LEX-BEGIN$$/,/^TPS-LEX-END$$/p' $(TPS_LEX_BUILD_DIR)/$$run.normalized > $(TPS_LEX_BUILD_DIR)/$$run.out; \
 	done
 	@cmp -s $(TPS_LEX_BUILD_DIR)/self_a.out $(TPS_LEX_BUILD_DIR)/self_b.out \
 		|| { printf '!!! test-tps-lex-fpc FAIL: two self-lex dumps differ (nondeterministic)\n'; exit 1; }
@@ -12926,7 +12954,8 @@ test-tps-lex-mutant: $(TPS_LEX_FPC_BASIC_OUT) $(TPS_LEX_MUT_CASE_BIN) $(TPS_LEX_
 	@cp -f $(TPS_LEX_BASIC) $(TPS_LEX_BUILD_DIR)/run_mut_case/TPSIN.PAS
 	@cd $(TPS_LEX_BUILD_DIR)/run_mut_case && ../tps_mut_casefold > ../mut_case.raw \
 		|| { printf '!!! CASEFOLD mutant crashed/exited non-zero\n'; exit 1; }
-	@tr -d '\r' < $(TPS_LEX_BUILD_DIR)/mut_case.raw > $(TPS_LEX_BUILD_DIR)/mut_case.out
+	@tr -d '\r' < $(TPS_LEX_BUILD_DIR)/mut_case.raw > $(TPS_LEX_BUILD_DIR)/mut_case.normalized
+	@sed -n '/^TPS-LEX-BEGIN$$/,/^TPS-LEX-END$$/p' $(TPS_LEX_BUILD_DIR)/mut_case.normalized > $(TPS_LEX_BUILD_DIR)/mut_case.out
 	@! grep -q '^TPS-LEX-ERROR' $(TPS_LEX_BUILD_DIR)/mut_case.out \
 		|| { printf '!!! CASEFOLD mutant errored instead of producing wrong values\n'; exit 1; }
 	@grep -q '^IDENT MiXeD_Id$$' $(TPS_LEX_BUILD_DIR)/mut_case.out \
@@ -12939,7 +12968,8 @@ test-tps-lex-mutant: $(TPS_LEX_FPC_BASIC_OUT) $(TPS_LEX_MUT_CASE_BIN) $(TPS_LEX_
 	@cp -f $(TPS_LEX_BASIC) $(TPS_LEX_BUILD_DIR)/run_mut_stresc/TPSIN.PAS
 	@cd $(TPS_LEX_BUILD_DIR)/run_mut_stresc && ../tps_mut_stresc > ../mut_stresc.raw \
 		|| { printf '!!! STRESC mutant crashed/exited non-zero\n'; exit 1; }
-	@tr -d '\r' < $(TPS_LEX_BUILD_DIR)/mut_stresc.raw > $(TPS_LEX_BUILD_DIR)/mut_stresc.out
+	@tr -d '\r' < $(TPS_LEX_BUILD_DIR)/mut_stresc.raw > $(TPS_LEX_BUILD_DIR)/mut_stresc.normalized
+	@sed -n '/^TPS-LEX-BEGIN$$/,/^TPS-LEX-END$$/p' $(TPS_LEX_BUILD_DIR)/mut_stresc.normalized > $(TPS_LEX_BUILD_DIR)/mut_stresc.out
 	@! grep -q '^TPS-LEX-ERROR' $(TPS_LEX_BUILD_DIR)/mut_stresc.out \
 		|| { printf '!!! STRESC mutant errored instead of producing wrong values\n'; exit 1; }
 	@grep -q '^STRING 4 105 116 33 115$$' $(TPS_LEX_BUILD_DIR)/mut_stresc.out \
@@ -12966,29 +12996,32 @@ $(TPS_LEX_SEED_DOS_ELF): $(TPS_LEX_SEED_OBJ) $(SEED_DOS_RT_OBJ) $(SEED_FILEIO_RT
 
 $(TPS_LEX_COM): $(TPS_LEX_SEED_DOS_ELF)
 	@$(OBJCOPY) -O binary $< $@
-	@printf '>>> TPS.COM: %s bytes (seed-compiled B9.1 lexer, flat .COM @0x40100)\n' "$$(stat -c%s $@)"
+	@printf '>>> TPS.COM: %s bytes (seed-compiled B9.2 lexer+parser, flat .COM @0x40100)\n' "$$(stat -c%s $@)"
 
 .PHONY: test-tps-lex-build
 test-tps-lex-build: $(TPS_LEX_SEED_BARE_ELF) $(TPS_LEX_COM)
 	@test -s $(TPS_LEX_SEED_BARE_ELF) && test -s $(TPS_LEX_COM) \
 		|| { printf '!!! test-tps-lex-build FAIL: an output artifact is empty\n'; exit 1; }
-	@grep -q '^v_sourcewords: resd 10240$$' $(TPS_LEX_SEED_ASM) \
+	@grep -q '^v_sourcewords: resd 20480$$' $(TPS_LEX_SEED_ASM) \
 		|| { printf '!!! test-tps-lex-build FAIL: source is not the fixed packed SOURCE_MAX static array\n'; exit 1; }
 	@grep -q 'call rtl_file_blockread$$' $(TPS_LEX_SEED_ASM) \
 		|| { printf '!!! test-tps-lex-build FAIL: tps.pas does not call the B8 BlockRead RTL\n'; exit 1; }
 	@$(NM) $(TPS_LEX_SEED_DOS_ELF) | grep -q ' __bss_end$$' \
 		|| { printf '!!! test-tps-lex-build FAIL: DOS link lacks the crt0 BSS boundary\n'; exit 1; }
+	@# initech-6m52 BSS resolution: 64 KiB was a soft per-slice budget; B9.2's
+	@# larger self-source buffer deliberately raises it to 128 KiB. The
+	@# load-bearing 0x6f000 arena-ceiling assertion below remains unchanged.
 	@bss_start_hex=$$($(NM) -n $(TPS_LEX_SEED_DOS_ELF) | awk '$$3 == "__bss_start" { print $$1 }'); \
 		bss_end_hex=$$($(NM) -n $(TPS_LEX_SEED_DOS_ELF) | awk '$$3 == "__bss_end" { print $$1 }'); \
 		test -n "$$bss_start_hex" && test -n "$$bss_end_hex" \
 			|| { printf '!!! test-tps-lex-build FAIL: could not locate BSS boundaries\n'; exit 1; }; \
 		bss_start=$$((0x$$bss_start_hex)); bss_end=$$((0x$$bss_end_hex)); \
 		bss_size=$$((bss_end-bss_start)); \
-		test "$$bss_size" -le $$((0x10000)) \
-			|| { printf '!!! test-tps-lex-build FAIL: static BSS exceeds PROGRAM_BSS_RESERVE (size=%s, reserve=65536)\n' "$$bss_size"; exit 1; }; \
+		test "$$bss_size" -le $$((0x20000)) \
+			|| { printf '!!! test-tps-lex-build FAIL: static BSS exceeds B9.2 soft reserve (size=%s, reserve=131072)\n' "$$bss_size"; exit 1; }; \
 		test "$$bss_end" -lt $$((0x6f000)) \
 			|| { printf '!!! test-tps-lex-build FAIL: static TPS image/BSS reaches env block (end=0x%s, ceiling=0x6f000)\n' "$$bss_end_hex"; exit 1; }; \
-		printf '>>> test-tps-lex-build: DOS BSS=%s bytes <= reserve; end=0x%s below env 0x6f000\n' "$$bss_size" "$$bss_end_hex"
+		printf '>>> test-tps-lex-build: DOS BSS=%s bytes <= B9.2 soft reserve 131072; end=0x%s below env 0x6f000\n' "$$bss_size" "$$bss_end_hex"
 	@printf '>>> test-tps-lex-build: green (seed compile + bare ELF link + DOS TPS.COM link)\n'
 
 $(TPS_LEX_IMG): $(TPS_LEX_COM) $(TPS_LEX_BASIC) | $(BUILD)
@@ -12997,8 +13030,8 @@ $(TPS_LEX_IMG): $(TPS_LEX_COM) $(TPS_LEX_BASIC) | $(BUILD)
 	@mcopy -i $@ $(TPS_LEX_COM) ::TPS.COM
 	@mcopy -i $@ $(TPS_LEX_BASIC) ::TPSIN.PAS
 
-# EMULATOR GATE -- wired for the orchestrator, deliberately NOT in
-# TEST_EMU_GATES until first-person proof. Anchors are exact because the shell
+# EMULATOR GATE -- wired in TEST_EMU_GATES after B9.1 first-person proof.
+# Anchors are exact because the shell
 # DIR/command echo can contain TPS.COM/TPSIN.PAS; never grep a bare TPS name.
 .PHONY: test-tps-lex-os
 test-tps-lex-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_LEX_IMG) $(TPS_LEX_FPC_BASIC_OUT)
@@ -13023,6 +13056,184 @@ test-tps-lex-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_LEX_IMG) $(TPS_LEX_FPC_BASIC
 	@diff -u $(TPS_LEX_FPC_BASIC_OUT) $(TPS_LEX_BUILD_DIR)/os.dump \
 		|| { printf '!!! test-tps-lex-os FAIL: seed/InitechDOS dump differs from fpc stdout\n'; exit 1; }
 	@printf '>>> test-tps-lex-os: green (two-level differential byte-identical)\n'
+
+# ---------------------------------------------------------------------------
+# REAL B9.2 parser oracles (bead initech-6m52).
+# ---------------------------------------------------------------------------
+# The grammar-rich expected trace is HAND-COMPUTED from seed/parser.c, not
+# captured from TPS. Error goldens contain only the one located error line so
+# a partial trace cannot obscure which first fault was selected. The fixture
+# also carries the seed's documented case divergence as a fifth negative.
+$(TPS_PARSE_FPC_RICH_OUT): $(TPS_LEX_FPC_BIN) $(TPS_PARSE_RICH) | $(TPS_LEX_BUILD_DIR)
+	@rm -rf $(TPS_LEX_BUILD_DIR)/run_parse_rich
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/run_parse_rich
+	@cp -f $(TPS_PARSE_RICH) $(TPS_LEX_BUILD_DIR)/run_parse_rich/TPSIN.PAS
+	@cd $(TPS_LEX_BUILD_DIR)/run_parse_rich && ../tps_fpc > ../parse_rich.raw \
+		|| { printf '!!! test-tps-parse-fpc FAIL: fpc-built TPS exited non-zero on parse_rich\n'; exit 1; }
+	@tr -d '\r' < $(TPS_LEX_BUILD_DIR)/parse_rich.raw > $(TPS_LEX_BUILD_DIR)/parse_rich.normalized
+	@test "$$(grep -c '^TPS-PARSE-BEGIN$$' $(TPS_LEX_BUILD_DIR)/parse_rich.normalized)" -eq 1 \
+		&& test "$$(grep -c '^TPS-PARSE-END$$' $(TPS_LEX_BUILD_DIR)/parse_rich.normalized)" -eq 1 \
+		|| { printf '!!! test-tps-parse-fpc FAIL: parse markers are missing/non-singular\n'; exit 1; }
+	@sed -n '/^TPS-PARSE-BEGIN$$/,/^TPS-PARSE-END$$/p' $(TPS_LEX_BUILD_DIR)/parse_rich.normalized > $@
+	@! grep -q '^TPS-PARSE-ERROR' $@ \
+		|| { printf '!!! test-tps-parse-fpc FAIL: grammar-rich fixture emitted a parser error\n'; exit 1; }
+	@test "$$(grep -c '^TPS-PARSE-OK$$' $@)" -eq 1 \
+		|| { printf '!!! test-tps-parse-fpc FAIL: grammar-rich fixture did not accept exactly once\n'; exit 1; }
+
+.PHONY: test-tps-parse-fpc
+test-tps-parse-fpc: $(TPS_PARSE_FPC_RICH_OUT)
+	@printf '>>> test-tps-parse-fpc: hand-computed grammar-rich production trace\n'
+	@diff -u $(TPS_PARSE_RICH_GOLDEN) $(TPS_PARSE_FPC_RICH_OUT) \
+		|| { printf '!!! test-tps-parse-fpc FAIL: grammar-rich parse trace differs\n'; exit 1; }
+	@printf '>>> test-tps-parse-fpc: four required located errors + explicit seed case divergence\n'
+	@for name in $(TPS_PARSE_ERROR_CASES); do \
+		run=$(TPS_LEX_BUILD_DIR)/run_$$name; \
+		rm -rf "$$run"; mkdir -p "$$run"; \
+		cp -f $(TPS_LEX_FIXTURE_DIR)/$$name.pas "$$run/TPSIN.PAS"; \
+		(cd "$$run" && ../tps_fpc > ../$$name.raw) \
+			|| { printf '!!! test-tps-parse-fpc FAIL: TPS process failed on %s\n' "$$name"; exit 1; }; \
+		tr -d '\r' < $(TPS_LEX_BUILD_DIR)/$$name.raw > $(TPS_LEX_BUILD_DIR)/$$name.normalized; \
+		test "$$(grep -c '^TPS-PARSE-BEGIN$$' $(TPS_LEX_BUILD_DIR)/$$name.normalized)" -eq 1 \
+			&& test "$$(grep -c '^TPS-PARSE-END$$' $(TPS_LEX_BUILD_DIR)/$$name.normalized)" -eq 1 \
+			|| { printf '!!! test-tps-parse-fpc FAIL: %s parse markers missing/non-singular\n' "$$name"; exit 1; }; \
+		grep '^TPS-PARSE-ERROR' $(TPS_LEX_BUILD_DIR)/$$name.normalized > $(TPS_LEX_BUILD_DIR)/$$name.error; \
+		test "$$(wc -l < $(TPS_LEX_BUILD_DIR)/$$name.error)" -eq 1 \
+			|| { printf '!!! test-tps-parse-fpc FAIL: %s did not emit exactly one parse error\n' "$$name"; exit 1; }; \
+		diff -u $(TPS_LEX_FIXTURE_DIR)/$$name.golden $(TPS_LEX_BUILD_DIR)/$$name.error \
+			|| { printf '!!! test-tps-parse-fpc FAIL: %s located error differs\n' "$$name"; exit 1; }; \
+	done
+	@printf '>>> test-tps-parse-fpc: TPS parses itself to EOF twice with one deterministic trace\n'
+	@for run in parse_self_a parse_self_b; do \
+		dir=$(TPS_LEX_BUILD_DIR)/run_$$run; \
+		rm -rf "$$dir"; mkdir -p "$$dir"; \
+		cp -f $(TPS_LEX_SRC) "$$dir/TPSIN.PAS"; \
+		(cd "$$dir" && ../tps_fpc > ../$$run.raw) \
+			|| { printf '!!! test-tps-parse-fpc FAIL: TPS self-parse process failed (%s)\n' "$$run"; exit 1; }; \
+		tr -d '\r' < $(TPS_LEX_BUILD_DIR)/$$run.raw > $(TPS_LEX_BUILD_DIR)/$$run.normalized; \
+		test "$$(grep -c '^TPS-PARSE-BEGIN$$' $(TPS_LEX_BUILD_DIR)/$$run.normalized)" -eq 1 \
+			&& test "$$(grep -c '^TPS-PARSE-END$$' $(TPS_LEX_BUILD_DIR)/$$run.normalized)" -eq 1 \
+			|| { printf '!!! test-tps-parse-fpc FAIL: self-parse markers missing/non-singular (%s)\n' "$$run"; exit 1; }; \
+		sed -n '/^TPS-PARSE-BEGIN$$/,/^TPS-PARSE-END$$/p' $(TPS_LEX_BUILD_DIR)/$$run.normalized > $(TPS_LEX_BUILD_DIR)/$$run.out; \
+		! grep -q '^TPS-PARSE-ERROR' $(TPS_LEX_BUILD_DIR)/$$run.out \
+			|| { printf '!!! test-tps-parse-fpc FAIL: self-parse emitted TPS-PARSE-ERROR (%s)\n' "$$run"; exit 1; }; \
+		test "$$(grep -c '^TPS-PARSE-OK$$' $(TPS_LEX_BUILD_DIR)/$$run.out)" -eq 1 \
+			|| { printf '!!! test-tps-parse-fpc FAIL: self-parse did not reach EOF (%s)\n' "$$run"; exit 1; }; \
+	done
+	@cmp -s $(TPS_LEX_BUILD_DIR)/parse_self_a.out $(TPS_LEX_BUILD_DIR)/parse_self_b.out \
+		|| { printf '!!! test-tps-parse-fpc FAIL: two TPS self-parse traces differ\n'; exit 1; }
+	@printf '>>> test-tps-parse-fpc: green (independent trace + five errors + deterministic self-parse tooth)\n'
+
+# Double-guarded source mutants: one exact anchor, an anchored sed, then a
+# changed-source assertion. Both mutants must still ACCEPT their valid input;
+# their RED signal is a wrong production trace, never a syntax/build failure.
+$(TPS_PARSE_MUT_PREC_SRC): $(TPS_LEX_SRC) | $(TPS_LEX_BUILD_DIR)
+	@test "$$(grep -Fc '    if TokKind = TkStar then begin { TPS_PARSE_MUT_PRECEDENCE }' $<)" -eq 1 \
+		|| { printf '!!! PRECEDENCE mutant anchor must match exactly once\n'; exit 1; }
+	@sed 's@^    if TokKind = TkStar then begin { TPS_PARSE_MUT_PRECEDENCE }$$@    if TokKind = TkPlus then begin { TPS_PARSE_MUT_PRECEDENCE }@' $< > $@
+	@! cmp -s $< $@ || { printf '!!! PRECEDENCE mutant sed was a no-op\n'; exit 1; }
+
+$(TPS_PARSE_MUT_ELSE_SRC): $(TPS_LEX_SRC) | $(TPS_LEX_BUILD_DIR)
+	@test "$$(grep -Fc '    if TokKind = TkElse then begin { TPS_PARSE_MUT_ELSE }' $<)" -eq 1 \
+		|| { printf '!!! ELSE mutant anchor must match exactly once\n'; exit 1; }
+	@sed 's@^    if TokKind = TkElse then begin { TPS_PARSE_MUT_ELSE }$$@    if (TokKind = TkElse) and (ParseIfDepth = 1) then begin { TPS_PARSE_MUT_ELSE }@' $< > $@
+	@! cmp -s $< $@ || { printf '!!! ELSE mutant sed was a no-op\n'; exit 1; }
+
+$(TPS_PARSE_MUT_PREC_BIN): $(TPS_PARSE_MUT_PREC_SRC) | $(TPS_LEX_BUILD_DIR)
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/mut_parse_prec_units
+	@fpc -B -O- -v0 -FU$(TPS_LEX_BUILD_DIR)/mut_parse_prec_units -FE$(TPS_LEX_BUILD_DIR) -o$@ $< >/dev/null \
+		|| { printf '!!! test-tps-parse-mutant FAIL: PRECEDENCE mutant did not compile\n'; exit 1; }
+
+$(TPS_PARSE_MUT_ELSE_BIN): $(TPS_PARSE_MUT_ELSE_SRC) | $(TPS_LEX_BUILD_DIR)
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/mut_parse_else_units
+	@fpc -B -O- -v0 -FU$(TPS_LEX_BUILD_DIR)/mut_parse_else_units -FE$(TPS_LEX_BUILD_DIR) -o$@ $< >/dev/null \
+		|| { printf '!!! test-tps-parse-mutant FAIL: ELSE mutant did not compile\n'; exit 1; }
+
+.PHONY: test-tps-parse-mutant
+test-tps-parse-mutant: $(TPS_LEX_FPC_BIN) $(TPS_PARSE_MUT_PREC_BIN) $(TPS_PARSE_MUT_ELSE_BIN)
+	@printf '>>> test-tps-parse-mutant: PRECEDENCE moves plus into term -- valid input, wrong nesting trace\n'
+	@rm -rf $(TPS_LEX_BUILD_DIR)/run_parse_prec_base $(TPS_LEX_BUILD_DIR)/run_parse_prec_mut
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/run_parse_prec_base $(TPS_LEX_BUILD_DIR)/run_parse_prec_mut
+	@cp -f $(TPS_PARSE_MUT_PREC_FIXTURE) $(TPS_LEX_BUILD_DIR)/run_parse_prec_base/TPSIN.PAS
+	@cp -f $(TPS_PARSE_MUT_PREC_FIXTURE) $(TPS_LEX_BUILD_DIR)/run_parse_prec_mut/TPSIN.PAS
+	@cd $(TPS_LEX_BUILD_DIR)/run_parse_prec_base && ../tps_fpc > ../parse_prec_base.raw
+	@cd $(TPS_LEX_BUILD_DIR)/run_parse_prec_mut && ../tps_mut_precedence > ../parse_prec_mut.raw
+	@for who in base mut; do \
+		tr -d '\r' < $(TPS_LEX_BUILD_DIR)/parse_prec_$$who.raw > $(TPS_LEX_BUILD_DIR)/parse_prec_$$who.normalized; \
+		sed -n '/^TPS-PARSE-BEGIN$$/,/^TPS-PARSE-END$$/p' $(TPS_LEX_BUILD_DIR)/parse_prec_$$who.normalized > $(TPS_LEX_BUILD_DIR)/parse_prec_$$who.out; \
+		! grep -q '^TPS-PARSE-ERROR' $(TPS_LEX_BUILD_DIR)/parse_prec_$$who.out \
+			&& test "$$(grep -c '^TPS-PARSE-OK$$' $(TPS_LEX_BUILD_DIR)/parse_prec_$$who.out)" -eq 1 \
+			|| { printf '!!! PRECEDENCE %s run errored instead of producing a valid trace\n' "$$who"; exit 1; }; \
+	done
+	@test "$$(grep -c '^ENTER term L4$$' $(TPS_LEX_BUILD_DIR)/parse_prec_base.out)" -eq 2 \
+		&& test "$$(grep -c '^ENTER term L4$$' $(TPS_LEX_BUILD_DIR)/parse_prec_mut.out)" -eq 1 \
+		|| { printf '!!! PRECEDENCE mutant failed for the wrong reason (expected 2 -> 1 term entries on L4)\n'; exit 1; }
+	@! cmp -s $(TPS_LEX_BUILD_DIR)/parse_prec_base.out $(TPS_LEX_BUILD_DIR)/parse_prec_mut.out \
+		|| { printf '!!! PRECEDENCE mutant PASSED -- the expression trace is decoration\n'; exit 1; }
+	@printf '>>> test-tps-parse-mutant: ELSE binds dangling else to outer if -- valid input, wrong event order\n'
+	@rm -rf $(TPS_LEX_BUILD_DIR)/run_parse_else_base $(TPS_LEX_BUILD_DIR)/run_parse_else_mut
+	@mkdir -p $(TPS_LEX_BUILD_DIR)/run_parse_else_base $(TPS_LEX_BUILD_DIR)/run_parse_else_mut
+	@cp -f $(TPS_PARSE_MUT_ELSE_FIXTURE) $(TPS_LEX_BUILD_DIR)/run_parse_else_base/TPSIN.PAS
+	@cp -f $(TPS_PARSE_MUT_ELSE_FIXTURE) $(TPS_LEX_BUILD_DIR)/run_parse_else_mut/TPSIN.PAS
+	@cd $(TPS_LEX_BUILD_DIR)/run_parse_else_base && ../tps_fpc > ../parse_else_base.raw
+	@cd $(TPS_LEX_BUILD_DIR)/run_parse_else_mut && ../tps_mut_else > ../parse_else_mut.raw
+	@for who in base mut; do \
+		tr -d '\r' < $(TPS_LEX_BUILD_DIR)/parse_else_$$who.raw > $(TPS_LEX_BUILD_DIR)/parse_else_$$who.normalized; \
+		sed -n '/^TPS-PARSE-BEGIN$$/,/^TPS-PARSE-END$$/p' $(TPS_LEX_BUILD_DIR)/parse_else_$$who.normalized > $(TPS_LEX_BUILD_DIR)/parse_else_$$who.out; \
+		! grep -q '^TPS-PARSE-ERROR' $(TPS_LEX_BUILD_DIR)/parse_else_$$who.out \
+			&& test "$$(grep -c '^TPS-PARSE-OK$$' $(TPS_LEX_BUILD_DIR)/parse_else_$$who.out)" -eq 1 \
+			|| { printf '!!! ELSE %s run errored instead of producing a valid trace\n' "$$who"; exit 1; }; \
+	done
+	@base_else=$$(grep -n '^ENTER else-clause L6$$' $(TPS_LEX_BUILD_DIR)/parse_else_base.out | cut -d: -f1); \
+		base_exit=$$(grep -n '^EXIT stmt-if L7$$' $(TPS_LEX_BUILD_DIR)/parse_else_base.out | head -1 | cut -d: -f1); \
+		mut_else=$$(grep -n '^ENTER else-clause L6$$' $(TPS_LEX_BUILD_DIR)/parse_else_mut.out | cut -d: -f1); \
+		mut_exit=$$(grep -n '^EXIT stmt-if L6$$' $(TPS_LEX_BUILD_DIR)/parse_else_mut.out | head -1 | cut -d: -f1); \
+		test -n "$$base_else" && test -n "$$base_exit" && test "$$base_else" -lt "$$base_exit" \
+			&& test -n "$$mut_else" && test -n "$$mut_exit" && test "$$mut_exit" -lt "$$mut_else" \
+			|| { printf '!!! ELSE mutant failed for the wrong reason (nearest-if event order did not invert)\n'; exit 1; }
+	@! cmp -s $(TPS_LEX_BUILD_DIR)/parse_else_base.out $(TPS_LEX_BUILD_DIR)/parse_else_mut.out \
+		|| { printf '!!! ELSE mutant PASSED -- the dangling-else trace is decoration\n'; exit 1; }
+	@printf '>>> test-tps-parse-mutant: green (both valid-input mutants emit the named wrong trace)\n'
+
+.PHONY: test-tps-parse-build
+test-tps-parse-build: test-tps-lex-build
+	@grep -q '^pf_parseprogram:' $(TPS_LEX_SEED_ASM) \
+		|| { printf '!!! test-tps-parse-build FAIL: seed output lacks the recursive-descent parser\n'; exit 1; }
+	@test -s $(TPS_LEX_SEED_BARE_ELF) && test -s $(TPS_LEX_COM) \
+		|| { printf '!!! test-tps-parse-build FAIL: a linked parser artifact is empty\n'; exit 1; }
+	@printf '>>> test-tps-parse-build: green (seed compile + both links + BSS/arena checks)\n'
+
+$(TPS_PARSE_IMG): $(TPS_LEX_COM) $(TPS_PARSE_RICH) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(TPS_LEX_COM) ::TPS.COM
+	@mcopy -i $@ $(TPS_PARSE_RICH) ::TPSIN.PAS
+
+# Orchestrator-owned on-OS leg. Exact anchored brackets avoid the B8 DIR-listing
+# grep trap: TPS.COM/TPSIN.PAS names echoed by the shell are not evidence that
+# the parser ran. Only the singular TPS-PARSE-BEGIN/END region is compared.
+.PHONY: test-tps-parse-os
+test-tps-parse-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_PARSE_IMG) $(TPS_PARSE_FPC_RICH_OUT)
+	@printf '>>> test-tps-parse-os: seed-built TPS.COM parse trace on InitechDOS == fpc-built TPS trace\n'
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_PARSE_IMG)" \
+		--name tps_parse_os --out "$(BUILD)" --timeout-ms 30000 \
+		--keys "$(TPS_PARSE_OS_KEYS)" --keys-after "SHELL-READY" \
+		2> "$(TPS_LEX_BUILD_DIR)/parse_os.report" || true
+	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/parse_os.report"; then \
+		printf '!!! test-tps-parse-os FAIL: TPS.COM triple-faulted\n'; exit 1; fi
+	@grep -q '^SHELL-READY$$' $(BUILD)/tps_parse_os.serial \
+		|| { printf '!!! test-tps-parse-os FAIL: SHELL-READY missing\n'; exit 1; }
+	@if grep -q 'FILEIO-ERROR' $(BUILD)/tps_parse_os.serial; then \
+		printf '!!! test-tps-parse-os FAIL: B8 RTL error:\n'; grep 'FILEIO-ERROR' $(BUILD)/tps_parse_os.serial; exit 1; fi
+	@tr -d '\r' < $(BUILD)/tps_parse_os.serial > $(TPS_LEX_BUILD_DIR)/parse_os.normalized
+	@test "$$(grep -c '^TPS-PARSE-BEGIN$$' $(TPS_LEX_BUILD_DIR)/parse_os.normalized)" -eq 1 \
+		&& test "$$(grep -c '^TPS-PARSE-END$$' $(TPS_LEX_BUILD_DIR)/parse_os.normalized)" -eq 1 \
+		|| { printf '!!! test-tps-parse-os FAIL: anchored parse markers are missing/non-singular\n'; exit 1; }
+	@sed -n '/^TPS-PARSE-BEGIN$$/,/^TPS-PARSE-END$$/p' $(TPS_LEX_BUILD_DIR)/parse_os.normalized > $(TPS_LEX_BUILD_DIR)/parse_os.dump
+	@! grep -q '^TPS-PARSE-ERROR' $(TPS_LEX_BUILD_DIR)/parse_os.dump \
+		|| { printf '!!! test-tps-parse-os FAIL: TPS.COM emitted a parser error\n'; exit 1; }
+	@diff -u $(TPS_PARSE_FPC_RICH_OUT) $(TPS_LEX_BUILD_DIR)/parse_os.dump \
+		|| { printf '!!! test-tps-parse-os FAIL: seed/InitechDOS parse trace differs from fpc trace\n'; exit 1; }
+	@printf '>>> test-tps-parse-os: green (two-level parse differential byte-identical)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-seed-fpc-diff (beads initech-63ce; ADR-0007 DEC-07 Rung 2)
@@ -19419,7 +19630,7 @@ TEST_UNIT_GATES := \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
-	test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fileio-build test-seed-fileio-fpc test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-tps-lex-fpc test-tps-lex-build test-tps-lex-mutant test-assets test-spec test-dosmsg \
+		test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fileio-build test-seed-fileio-fpc test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-tps-lex-fpc test-tps-lex-build test-tps-lex-mutant test-tps-parse-fpc test-tps-parse-build test-tps-parse-mutant test-assets test-spec test-dosmsg \
 	test-dosmsg-mutant \
 	test-region test-region-mutant \
 	test-region-gdi test-region-gdi-mutant \
@@ -20489,8 +20700,8 @@ TEST_EMU_GATES := \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm test-int21-irqstorm-mutant \
 	test-samir-boot test-samir-boot-mutant \
-	test-seed-fileio-os test-seed-fileio-os-mutant \
-	test-tps-lex-os \
+		test-seed-fileio-os test-seed-fileio-os-mutant \
+		test-tps-lex-os test-tps-parse-os \
 	test-samir-write test-samir-write-mutant \
 	test-samir-canon-y2k test-samir-canon-y2k-mutant \
 	test-samir-canon-salami test-samir-canon-salami-mutant \
