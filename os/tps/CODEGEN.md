@@ -4,9 +4,9 @@
 # Turbo Initech x86 Emission Contract
 
 **Document owner:** Platform Engineering / Compiler Systems
-**Control bead:** `initech-6m52`, B9.4
-**Status:** Implemented; host/link oracles green; on-OS execution oracles
-wired for orchestrator execution
+**Control bead:** `initech-6m52`, B9.4-B9.5
+**Status:** Implemented; real 17-fixture host corpus green; all-fixture on-OS
+execution differential wired for orchestrator execution
 **Character set:** ASCII
 
 ## 1. Authority and phase structure
@@ -84,6 +84,11 @@ arguments, and any string materialization bytes in one deterministic cleanup.
 fixture's two-parameter sum then executes to a wrong value on the orchestrator
 rail without requiring an assembly failure.
 
+`TPS_GEN_MUT_VARPARAM` changes only assignment destinations for `var`
+parameters: reads still dereference the caller address, while stores target
+the callee parameter slot. The registered `gen_func_deep` aliasing clauses
+then leave caller variables unchanged and make the execution differential red.
+
 ## 5. Strings and file RTL
 
 ShortStrings retain the B7 representation: byte 0 is length and bytes 1..N
@@ -126,24 +131,16 @@ produce duplicate labels and NASM rejects the file.
 
 ## 7. Fixture register
 
-The host gate uses the following independent expectations:
+`CORPUS.md` is the controlled 17-fixture registry, DOS-name map, coverage
+matrix, rate contract, and Rule-6 record. Every Pascal source carries the
+derivation of its sibling hand-computed `.golden`. For every row, TPS emits,
+assembles, and links twice byte-identically for both `seed.ld` and
+`seed_dos.ld`; FPC executes the same source and must match the independent
+golden. `test-compiler-os` owns generated-code execution for all rows.
 
-- `gen_tiny.pas`: authored B9.4 tooth, hand result `TINY=10`.
-- `gen_{func,array,record,string,file}_shared.pas`: byte-for-byte copies of
-  the seed/FPC shared corpus. `gen_func_shared` already contains its required
-  `IsEven` forward; no forward was added to any shared copy.
-- `gen_{bool,control,char,func,array,record,string,fileio}_deep.pas`: copies
-  of the seed hand-golden fixtures. Their only local amendment is the leading
-  FPC dialect pin `MODE DELPHI`, complete booleans, and ShortStrings. Both
-  function sources already contain every required forward; no forward was
-  added.
-- `tps.pas`: self-source compile/assemble/link tooth over the whole accepted
-  implementation surface.
-
-For every fixture, TPS emits twice byte-identically, NASM assembles the result,
-and both `seed.ld` and `seed_dos.ld` links succeed. FPC compiles and executes
-the same source against the hand-computed seed golden. Generated-code execution
-is deliberately reserved for `test-tps-gen-os`.
+`tps.pas` remains a separate self-source compile/assemble/link tooth over the
+whole accepted implementation surface; it has no behavior golden and is not
+counted in the 17-fixture differential rate.
 
 ## 8. Hand-checked tiny excerpt
 
@@ -174,15 +171,16 @@ calls `pf_addpair`, and removes 16 bytes (two originals plus two cdecl words).
 
 ## 9. Budget and execution status
 
-The seed-built B9.4 compiler is 89,519 bytes as a flat `.COM`; static BSS is
-71,704 bytes, and linked end `0x676c8` remains below `0x6f000`. The
-TPS-generated self assembly is 764,500 bytes of text; its linked DOS image
-ends at `0x6d224`, leaving 7,644 bytes. The 72 KiB BSS soft reserve and the
-unchanged hard image ceiling are both enforced mechanically.
+With the B9.5 assignment-mutation seam, the seed-built compiler is 89,591
+bytes as a flat `.COM`; static BSS remains 71,704 bytes, and linked end
+`0x67710` remains below `0x6f000`. The TPS-generated self assembly is 765,205
+bytes of text; its linked DOS image ends at `0x6d27c`, leaving 7,556 bytes.
+The 72 KiB BSS soft reserve and unchanged hard image ceiling remain enforced.
+This thin margin is still the M8 watch item, not a B9.5 optimization target.
 
-No emulator was run in the B9.4 lane. Consequently, generated behavior for
-the full corpus, the on-OS compiler/file round trip, recursion under emitted
-frames, deep string temporaries, local array-of-record access, and the
-OFFBYONE wrong-value mutant remain wired but unexecuted here. The host-proven
-claims are deterministic generation, assembly, both links, direct FPC golden
-execution, self-source generation, and both Rule-6 failure axes.
+No emulator was run in the B9.5 lane. Host-proven claims are all 17 FPC
+executions against hand goldens, twice-byte-identical TPS assembly/object/bare
+ELF/DOS ELF per row, self-source generation and both links, and buildable
+OFFBYONE/VARPARAM wrong-code artifacts. The all-row InitechDOS execution rate
+and both semantic mutation bites are wired in `test-compiler-os` and
+`test-compiler-os-mutant` for orchestrator certification.

@@ -32,9 +32,11 @@ The Programme's discipline is sound: the failures found are almost all
 *meta*-failures — oracles that exist but never run, prerequisites that
 parse empty, documentation that lags the tree — rather than incorrect
 shipped code. This is what Laws 1–4 predict would slip through, and it is
-what this plan corrects. The least-started axis is the North Star itself:
-`os/tps/` is empty, the seed speaks integer-only Pascal with no control
-flow, and `test-compiler`/`selfhost`/`ddc` are honest stubs.
+what this plan corrects. At audit time the least-started axis was the North
+Star: `os/tps/` was empty and all three compiler milestones were placeholders.
+As of B9.5, Turbo Initech implements the accepted B1-B8 subset and
+`test-compiler` is a real 17-fixture FPC/TPS corpus gate; only the M8
+`selfhost` and `ddc` certificates remain placeholders.
 
 ## 3. The Plan
 

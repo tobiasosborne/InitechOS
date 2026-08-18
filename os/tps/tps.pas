@@ -2252,6 +2252,19 @@ begin
   end
 end;
 
+{ Assignment destinations have a named seam for the B9.5 semantic mutation
+  proof. The clean path is deliberately identical to every other designator
+  address. TPS_GEN_MUT_VARPARAM changes only a var-parameter assignment
+  destination to the callee's parameter slot, so reads still observe the
+  caller but writes update a dead local copy instead of the caller address. }
+procedure GenAssignmentAddress(Index: integer);
+begin
+  if SymKind[Index] = SkVarParam then
+    GenDesignatorAddress(Index) { TPS_GEN_MUT_VARPARAM }
+  else
+    GenDesignatorAddress(Index)
+end;
+
 procedure GenApplyIndex(Index, BaseType: integer);
 var
   Stride: integer;
@@ -3625,7 +3638,7 @@ begin
     end
   end;
   if not ParseFailed then
-    if GenFlags[1] then GenDesignatorAddress(TargetSym);
+    if GenFlags[1] then GenAssignmentAddress(TargetSym);
   if not ParseFailed then
     if TokKind = TkLBracket then
     begin

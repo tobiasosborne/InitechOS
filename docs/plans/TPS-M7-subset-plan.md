@@ -10,12 +10,14 @@
 
 ## 1. Grounding
 
-`make test-compiler` / `selfhost` / `ddc` are honest `stub_fail`s (Makefile
-:11653/:18444/:18447); there is ZERO Free Pascal integration in-tree today.
-The seed's fixtures are hand-computed exact-serial goldens through the QEMU
-harness (`--expect`); `seed/examples/arith/negative_divmod.pas` is the
-canonical shape. Free Pascal becomes a real oracle only once the subset can
-share a runnable corpus — a sized step below (B9, first stood up at B4).
+At plan issue, `test-compiler`, `selfhost`, and `ddc` were deliberate failing
+placeholders and there was no Free Pascal integration. B9.5 has now discharged
+the first of those obligations: `make test-compiler` is the real 17-fixture
+host corpus gate and `test-compiler-os` is its all-fixture InitechDOS execution
+differential (`differential_pass_rate` gates at 100%). `selfhost` and `ddc`
+remain honest M8 placeholders and are intentionally untouched. The corpus
+register and independent hand goldens live in `os/tps/CORPUS.md` and
+`os/tps/fixtures/`.
 
 ## 2. The seed's CURRENT subset (verified, cited)
 
@@ -55,7 +57,7 @@ assembled).
 | B6 | records + field access; deterministic layout | M-L | field-offset math |
 | B7 | fixed/ShortString strings | M-L | temporary lifetime |
 | B8 | file-I/O RTL (INT-21h) + static-arena convention | M | — |
-| B9 | author Turbo Initech in the subset (os/tps/); test-compiler becomes a REAL fpc corpus gate; closes M7 | L | — |
+| B9 | DELIVERED B9.1-B9.5: Turbo Initech in `os/tps/`; real FPC corpus gate + all-fixture InitechDOS execution rail; closes M7 after orchestrator execution certification | L | corpus OFFBYONE + VARPARAM |
 | B10 | scope guard: deferred families recorded, post-fixpoint only | P4 | — |
 
 M8 (epic ls4): resident port + K2==K3 + DDC — depends on B9.

@@ -61,7 +61,10 @@
          OUTERMOST (lowest-precedence) level, so this is (u or v) = w
          = T = F                                                = F.
          (If relational wrongly bound tighter than 'or': u or (v = w)
-          = T or (F=F) = T or T = T -- DIFFERENT.)
+         = T or (F=F) = T or T = T -- DIFFERENT.)
+
+  Expected exact stdout (the four sections above, in emission order):
+    EQT=TRUE EQF=FALSE NET=TRUE NEF=FALSE LTT=TRUE LTF=FALSE LET=TRUE LEF=FALSE GTT=TRUE GTF=FALSE GET=TRUE GEF=FALSE ANDTT=TRUE ANDTF=FALSE ANDFF=FALSE ORTT=TRUE ORTF=TRUE ORFF=FALSE NOTT=FALSE NOTF=TRUE DM1=TRUE DM2=TRUE DM3=FALSE DM4=FALSE PARITH1=TRUE PARITH2=FALSE PAND=TRUE PNOT=FALSE PREL=FALSE
 }
 program BoolFixture;
 var a, b : integer;

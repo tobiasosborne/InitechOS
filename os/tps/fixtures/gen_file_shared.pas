@@ -2,7 +2,12 @@
 { DEC-07 Rung-2 shared fixture for B8 (beads initech-ogxv).
   The observable is stdout; the file content is also proved by writing and
   reading it back in this same program. Record size 1 pins BlockRead and
-  BlockWrite counts to bytes under Free Pascal. }
+  BlockWrite counts to bytes under Free Pascal.
+
+  Golden provenance: HAND-COMPUTED from the nine-byte NORTHSTAR payload and
+  four requested transfer counts, not FPC-minted.
+  Expected exact stdout:
+    FILEIO W1=1 WB=8 R1=1 RB=8 DATA=NORTHSTAR }
 program FileShared;
 var
   TargetFile, SinkFile: file;

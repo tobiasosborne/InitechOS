@@ -1,0 +1,52 @@
+@ECHO OFF
+ECHO TPS-CORPUS-BEGIN gen_tiny
+CTINY.COM
+ECHO TPS-CORPUS-END gen_tiny
+ECHO TPS-CORPUS-BEGIN gen_bool_deep
+CBOOL.COM
+ECHO TPS-CORPUS-END gen_bool_deep
+ECHO TPS-CORPUS-BEGIN gen_control_deep
+CCTRL.COM
+ECHO TPS-CORPUS-END gen_control_deep
+ECHO TPS-CORPUS-BEGIN gen_char_deep
+CCHAR.COM
+ECHO TPS-CORPUS-END gen_char_deep
+ECHO TPS-CORPUS-BEGIN gen_func_shared
+CFUNCS.COM
+ECHO TPS-CORPUS-END gen_func_shared
+ECHO TPS-CORPUS-BEGIN gen_func_deep
+CFUNC.COM
+ECHO TPS-CORPUS-END gen_func_deep
+ECHO TPS-CORPUS-BEGIN gen_recursion_depth
+CDEPTH.COM
+ECHO TPS-CORPUS-END gen_recursion_depth
+ECHO TPS-CORPUS-BEGIN gen_array_shared
+CARRAYS.COM
+ECHO TPS-CORPUS-END gen_array_shared
+ECHO TPS-CORPUS-BEGIN gen_array_deep
+CARRAY.COM
+ECHO TPS-CORPUS-END gen_array_deep
+ECHO TPS-CORPUS-BEGIN gen_record_shared
+CRECS.COM
+ECHO TPS-CORPUS-END gen_record_shared
+ECHO TPS-CORPUS-BEGIN gen_record_deep
+CRECORD.COM
+ECHO TPS-CORPUS-END gen_record_deep
+ECHO TPS-CORPUS-BEGIN gen_local_record_array
+CLRECORD.COM
+ECHO TPS-CORPUS-END gen_local_record_array
+ECHO TPS-CORPUS-BEGIN gen_string_shared
+CSTRS.COM
+ECHO TPS-CORPUS-END gen_string_shared
+ECHO TPS-CORPUS-BEGIN gen_string_deep
+CSTRING.COM
+ECHO TPS-CORPUS-END gen_string_deep
+ECHO TPS-CORPUS-BEGIN gen_string_temporaries
+CSTRTEMP.COM
+ECHO TPS-CORPUS-END gen_string_temporaries
+ECHO TPS-CORPUS-BEGIN gen_file_shared
+CFILES.COM
+ECHO TPS-CORPUS-END gen_file_shared
+ECHO TPS-CORPUS-BEGIN gen_fileio_deep
+CFILEIO.COM
+ECHO TPS-CORPUS-END gen_fileio_deep

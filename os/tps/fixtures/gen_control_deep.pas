@@ -51,6 +51,9 @@
   8. repeat-until (body is a statement LIST, no begin/end): sum of 1..3,
      tested AFTER the body (so it always runs at least once).
        REPEAT = 1+2+3 = 6
+
+  Expected exact stdout:
+    SUM=15 IF1=LT IF2=LE DE=Y NEST=18 FORTO=10 FORDOWN=10 FORONCE=3 REPEAT=6
 }
 program ControlFixture;
 var

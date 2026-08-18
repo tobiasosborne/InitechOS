@@ -59,6 +59,9 @@
 
   7. write(char) emits the RAW BYTE, never decimal or TRUE/FALSE:
        WCH = chr(90) printed literally as 'Z', not "90".
+
+  Expected exact stdout:
+    ORDA=65 CHRA=A ORDCHR65=66 CHRORDB=B CHRWRAP=A CONSTUSE=11 NEGC=-1 CHRCONST=A BOOLCONSTT=TRUE BOOLCONSTF=FALSE CMPIF=EQ CMPLT=LT SCAN=5 ORDBOOLT=1 ORDBOOLF=0 WCH=Z
 }
 program CharFixture;
 const
