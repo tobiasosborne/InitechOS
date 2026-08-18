@@ -1,0 +1,30 @@
+TPS-TYPE-BEGIN
+SCOPE global bytes=312
+SYM kind=const name=lo type=integer value=-1
+SYM kind=const name=hi type=integer value=2
+SYM kind=const name=letter type=char value=81
+SYM kind=const name=flag type=boolean value=1
+SYM kind=const name=msg type=string value-length=2
+SYM kind=type name=pair type=record fields=3 size=12
+FIELD owner=pair index=0 name=left type=integer offset=0 size=4
+FIELD owner=pair index=1 name=right type=integer offset=4 size=4
+FIELD owner=pair index=2 name=ok type=boolean offset=8 size=4
+SYM kind=var name=count type=integer offset=0 size=4
+SYM kind=var name=ready type=boolean offset=4 size=4
+SYM kind=var name=ch type=char offset=8 size=4
+SYM kind=var name=name type=string[8] offset=12 size=12
+SYM kind=var name=datafile type=file offset=24 size=260
+SYM kind=var name=grid type=integer array=-1..2 offset=284 size=16
+SYM kind=var name=p type=pair offset=300 size=12
+SYM kind=procedure name=swap type=none params=2 state=defined frame=4
+SYM kind=function name=isready type=boolean params=1 state=defined frame=8
+SCOPE routine name=swap frame=4
+SYM kind=var-param name=x type=integer offset=8 size=4
+SYM kind=var-param name=y type=integer offset=12 size=4
+SYM kind=local name=temp type=integer offset=-4 size=4
+SCOPE routine name=isready frame=8
+SYM kind=value-param name=v type=integer offset=8 size=4
+SYM kind=result name=isready type=boolean offset=-4 size=4
+SYM kind=local name=temp type=integer offset=-8 size=4
+TPS-TYPE-OK
+TPS-TYPE-END

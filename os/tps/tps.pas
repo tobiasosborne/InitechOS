@@ -1,22 +1,46 @@
 {$MODE DELPHI}{$B+}{$H-}
 {
-  tps.pas -- Turbo Initech single-file bootstrap, B9.2 parser slice.
+  tps.pas -- Turbo Initech single-file bootstrap, B9.3 typecheck slice.
 
   Ref: docs/plans/TPS-M7-subset-plan.md Sec 3 and Sec 5; ADR-0007
   DEC-02, DEC-04, DEC-05, and DEC-07; beads initech-6m52 and
   initech-lh83. Pascal lives here by CLAUDE.md Law 3.
 
-  Input is the fixed B8 filename TPSIN.PAS. BlockRead fills a ShortString
-  staging block because the seed stores array-of-char elements four bytes
-  apart. Bytes are packed three per integer in the fixed SourceWords array,
-  keeping the whole static BSS inside the DOS runtime reserve. Overflow is
-  loud. Identifiers are canonical lower-case and live in one global
-  PoolChars array with integer offset and length tables. No array of string.
+  Input is the fixed B8 filename TPSIN.PAS. A two-ShortString rolling window
+  supplies exact bytes to the monotonic lexer and is reopened for each driver
+  pass; this lets TPS check its grown source without enlarging BSS. The B9.2
+  SourceWords arena is retired; the build gate now proves the rolling window
+  and the absence of that dead 80 KiB reservation. Overflow is loud.
+  Identifiers are canonical lower-case and live in one global PoolChars array.
 
-  Dump protocols are specified in LEXER-DUMP.md and PARSER-TRACE.md. The
-  driver emits the unchanged lexer bracket, resets the one-token lexer, and
-  then emits a recursive-descent production trace. No token buffer, AST, or
-  symbol table exists in B9.2.
+  Dump protocols are specified in LEXER-DUMP.md, PARSER-TRACE.md, and
+  SYMBOLS-DUMP.md. The driver emits the unchanged lexer bracket, resets for
+  the unchanged syntax-only recursive-descent trace, then resets once more
+  for an AST-free semantic parse and deterministic symbol dump.
+
+  PHASE DIVERGENCE (deliberate): seed/typecheck.c parses to an AST, collects
+  declarations, then checks that AST (lines 10-23 and 2076-2127). TPS owns no
+  AST by design. Its third driver pass mirrors the seed's semantic rules while
+  checking expressions/statements as they are parsed. This is the plan's
+  sanctioned single-pass architecture; it changes phase structure, not the
+  type compatibility rules. A call to a later routine therefore needs an
+  explicit prior forward in TPS, while the seed's collect_procs-before-bodies
+  structure can already see every later header (seed/typecheck.c:2090-2108).
+
+  SEMANTIC REFERENCE MAP (rules mirrored, phase structure excepted above):
+    - insertion-ordered globals/local-first lookup and duplicate policy:
+      seed/typecheck.c:248-358,443-589,1944-2071;
+    - routine signatures, forwards, result variables, and call/var-parameter
+      rules: seed/typecheck.c:598-778,1015-1185,2014-2127;
+    - B7 char/string coercion table and ordinal operators:
+      seed/typecheck.c:1189-1365;
+    - array/string indexing and named-record scalar fields:
+      seed/typecheck.c:1368-1557;
+    - exact scalar, string/char, field, indexed, and named-record assignment:
+      seed/typecheck.c:1560-1868;
+    - B8 storage-only file surface: seed/typecheck.c:829-1007,1425-1429,
+      1593-1597; type/bound forms enforced by seed/parser.c:1170-1333,
+      scalar-only record fields by seed/parser.c:1554-1665.
 
   Lexer dump:
     TPS-LEX-BEGIN
@@ -41,11 +65,50 @@
 program TurboInitech;
 
 const
-  SourceMax = 61440;
-  PoolMax = 4096;
-  NameMax = 512;
+  SourceMax = 131072;
+  PoolMax = 4816;
+  NameMax = 480;
   ChunkMax = 255;
   EscapeQuoteCode = 39; { TPS_LEX_MUT_STRESC }
+
+  { B9.3 fixed arenas. Nine integer columns x 704 symbols = 25,344 bytes;
+    header/argument/name scratch adds 1,920 bytes. Retiring B9.2's 81,920-byte
+    whole-source arena pays for these tables: total static BSS is budgeted
+    below 64 KiB. The hard 0x6F000 image-arena ceiling remains authoritative
+    (bead initech-6m52). }
+  SymbolMax = 704;
+  HeaderParamMax = 32;
+  PendingNameMax = 32;
+
+  TyUnknown = 0;
+  TyInteger = 1;
+  TyBoolean = 2;
+  TyChar = 3;
+  TyString = 4;
+  TyRecord = 5;
+  TyFile = 6;
+  TyNone = 7;
+
+  SkConst = 1;
+  SkType = 2;
+  SkField = 3;
+  SkVar = 4;
+  SkArray = 5;
+  SkProcedure = 6;
+  SkFunction = 7;
+  SkValueParam = 8;
+  SkVarParam = 9;
+  SkResult = 10;
+  SkLocal = 11;
+  SkLocalArray = 12;
+
+  TeDuplicate = 1;
+  TeUnknownType = 2;
+  TeAssignMismatch = 3;
+  TeVarParam = 4;
+  TeBoundForm = 5;
+  TeFileAssign = 6;
+  TeRule = 7;
 
   TkNone = -1;
   TkEof = 0;
@@ -177,9 +240,10 @@ const
 
 var
   InputFile: file;
-  ReadChunk: string;
-  SourceWords: array[0..20479] of integer;
+  ReadChunk, NextChunk: string;
   SourceLen, ScanPos, ScanLine, ScanCol: integer;
+  ChunkBase, ChunkLen, NextChunkLen: integer;
+  StreamEof: boolean;
 
   PoolChars: array[1..PoolMax] of char;
   PoolOffset, PoolLength: array[1..NameMax] of integer;
@@ -191,49 +255,105 @@ var
   HadError, ParseFailed: boolean;
   ParseIfDepth: integer;
 
-function SourcePower(P: integer): integer;
-var
-  Slot: integer;
-begin
-  Slot := (P - 1) mod 3;
-  SourcePower := 1;
-  if Slot = 1 then
-    SourcePower := 256
-  else if Slot = 2 then
-    SourcePower := 65536
-end;
+  EmitParseTrace, TypeMode, TypeFailed, SyntaxClean: boolean;
+  SymNameOffset: array[1..SymbolMax] of integer;
+  SymKind, SymType, SymScope, SymRef: array[1..SymbolMax] of integer;
+  SymLo, SymHi, SymOffset, SymSize: array[1..SymbolMax] of integer;
+  SymCount, GlobalBytes, ActiveRoutine, LocalSlots: integer;
+
+  PendingNameOffset: array[1..PendingNameMax] of integer;
+  PendingNameLine, PendingNameCol: array[1..PendingNameMax] of integer;
+  PendingNameCount: integer;
+
+  HeaderNameOffset: array[1..HeaderParamMax] of integer;
+  HeaderType, HeaderKind, HeaderRef: array[1..HeaderParamMax] of integer;
+  HeaderLine, HeaderCol: array[1..HeaderParamMax] of integer;
+  HeaderCount: integer;
+
+  ArgType, ArgLvalue, ArgForm, ArgSym: array[1..HeaderParamMax] of integer;
+  ArgLine, ArgCol: array[1..HeaderParamMax] of integer;
+  ArgCount, ParsingFileBuiltin: integer;
+  CallWantsValue: boolean;
+
+  ParsedType, ParsedRef, ParsedStrCap: integer;
+  ParsedLo, ParsedHi, ParsedBound: integer;
+  ParsedIsArray: boolean;
+  ParsedConstValue, ParsedConstLen: integer;
+  CurrentRecord: integer;
+
+  LastExprType, LastExprSym, LastExprRecord, LastExprStrCap: integer;
+  LastExprForm: integer;
+  LastExprLvalue: boolean;
+  PendingIdentOffset, PendingIdentLength, PendingIdentLine, PendingIdentCol: integer;
+  ParsedFieldOffset, ParsedFieldLength, ParsedFieldLine, ParsedFieldCol: integer;
+
+procedure FailLex(Code, P, L, C, Detail: integer); forward;
 
 function SourceGet(P: integer): char;
 var
-  WordIndex, Power: integer;
+  Index: integer;
+  Valid: boolean;
 begin
-  WordIndex := (P - 1) div 3;
-  Power := SourcePower(P);
-  SourceGet := Chr((SourceWords[WordIndex] div Power) mod 256)
+  SourceGet := Chr(0);
+  Valid := P >= ChunkBase;
+  if Valid then
+    if P <= ChunkBase + ChunkLen - 1 then
+    begin
+      Index := P - ChunkBase + 1;
+      SourceGet := ReadChunk[Index]
+    end
+    else
+    begin
+      Valid := P >= ChunkBase + ChunkLen;
+      if Valid then
+        if P <= ChunkBase + ChunkLen + NextChunkLen - 1 then
+        begin
+          Index := P - (ChunkBase + ChunkLen) + 1;
+          SourceGet := NextChunk[Index]
+        end
+    end
 end;
 
-procedure SourcePut(P: integer; C: char);
-var
-  WordIndex, Slot, Power, NextPower: integer;
-  OldValue, LowerPart, UpperPart: integer;
+procedure ReadStreamBlock(var Text: string; var Got: integer);
 begin
-  WordIndex := (P - 1) div 3;
-  Slot := (P - 1) mod 3;
-  Power := SourcePower(P);
-  OldValue := SourceWords[WordIndex];
-  LowerPart := OldValue mod Power;
-  UpperPart := 0;
-  if Slot < 2 then
+  Text := '';
+  BlockRead(InputFile, Text[1], ChunkMax, Got);
+  Text[0] := Chr(Got);
+  if SourceLen + Got > SourceMax then
   begin
-    NextPower := Power * 256;
-    UpperPart := (OldValue div NextPower) * NextPower
-  end;
-  SourceWords[WordIndex] := LowerPart + Ord(C) * Power + UpperPart
+    FailLex(ErrSourceFull, SourceMax + 1, 0, 0, SourceMax);
+    Got := 0;
+    Text := ''
+  end
+  else
+    SourceLen := SourceLen + Got
+end;
+
+procedure AdvanceSourceWindow();
+var
+  Got: integer;
+begin
+  if ScanPos > ChunkBase + ChunkLen - 1 then
+    if ChunkLen > 0 then
+    begin
+      ChunkBase := ChunkBase + ChunkLen;
+      ReadChunk := NextChunk;
+      ChunkLen := NextChunkLen;
+      NextChunk := '';
+      NextChunkLen := 0;
+      if not StreamEof then
+      begin
+        ReadStreamBlock(NextChunk, Got);
+        NextChunkLen := Got;
+        if Got = 0 then StreamEof := true
+      end
+    end
 end;
 
 function AtEnd(): boolean;
 begin
-  AtEnd := ScanPos > SourceLen
+  AdvanceSourceWindow();
+  AtEnd := ChunkLen = 0
 end;
 
 function PeekChar(): char;
@@ -926,38 +1046,23 @@ end;
 
 procedure ReadInput();
 var
-  Got, I: integer;
-  Reading: boolean;
+  Got: integer;
 begin
   SourceLen := 0;
   Assign(InputFile, 'TPSIN.PAS');
   Reset(InputFile, 1);
-  Reading := true;
-  while Reading do
+  ChunkBase := 1;
+  ChunkLen := 0;
+  NextChunkLen := 0;
+  StreamEof := false;
+  ReadStreamBlock(ReadChunk, Got);
+  ChunkLen := Got;
+  if Got = 0 then StreamEof := true;
+  if not StreamEof then
   begin
-    ReadChunk := '';
-    BlockRead(InputFile, ReadChunk[1], ChunkMax, Got);
-    ReadChunk[0] := Chr(Got);
-    if Got = 0 then
-      Reading := false
-    else
-    begin
-      if SourceLen + Got > SourceMax then
-      begin
-        FailLex(ErrSourceFull, SourceMax + 1, 0, 0, SourceMax);
-        Reading := false
-      end
-      else
-      begin
-        I := 1;
-        while I <= Got do
-        begin
-          SourcePut(SourceLen + I, ReadChunk[I]);
-          I := I + 1
-        end;
-        SourceLen := SourceLen + Got
-      end
-    end
+    ReadStreamBlock(NextChunk, Got);
+    NextChunkLen := Got;
+    if Got = 0 then StreamEof := true
   end
 end;
 
@@ -1115,16 +1220,22 @@ end;
 
 procedure TraceEnter(Code: integer);
 begin
-  Write('ENTER ');
-  WriteProductionName(Code);
-  Writeln(' L', TokLine)
+  if EmitParseTrace then
+  begin
+    Write('ENTER ');
+    WriteProductionName(Code);
+    Writeln(' L', TokLine)
+  end
 end;
 
 procedure TraceExit(Code: integer);
 begin
-  Write('EXIT ');
-  WriteProductionName(Code);
-  Writeln(' L', TokLine)
+  if EmitParseTrace then
+  begin
+    Write('EXIT ');
+    WriteProductionName(Code);
+    Writeln(' L', TokLine)
+  end
 end;
 
 procedure FailParse(Expected: integer);
@@ -1152,6 +1263,807 @@ begin
   end
 end;
 
+procedure WriteNameAt(NameOffset, NameLength: integer);
+begin
+  PoolGet(NameOffset, NameLength, DumpText);
+  if not HadError then Write(DumpText)
+end;
+
+function PoolLengthAt(NameOffset: integer): integer;
+var
+  I, Found: integer;
+begin
+  I := 1;
+  Found := 0;
+  while I <= PoolCount do
+  begin
+    if Found = 0 then
+      if PoolOffset[I] = NameOffset then Found := PoolLength[I];
+    I := I + 1
+  end;
+  PoolLengthAt := Found
+end;
+
+procedure WriteSymbolName(Index: integer);
+begin
+  WriteNameAt(SymNameOffset[Index], PoolLengthAt(SymNameOffset[Index]))
+end;
+
+procedure WriteTypeName(TypeId, RecordIndex, StrCap: integer);
+begin
+  if TypeId = TyInteger then Write('integer')
+  else if TypeId = TyBoolean then Write('boolean')
+  else if TypeId = TyChar then Write('char')
+  else if TypeId = TyString then
+  begin
+    Write('string');
+    if StrCap <> 255 then Write('[', StrCap, ']')
+  end
+  else if TypeId = TyRecord then
+  begin
+    if RecordIndex > 0 then WriteSymbolName(RecordIndex)
+    else Write('record')
+  end
+  else if TypeId = TyFile then Write('file')
+  else if TypeId = TyNone then Write('none')
+  else Write('unknown')
+end;
+
+procedure FailType(Code, L, C, NameOffset, NameLength, A, B: integer);
+begin
+  if not TypeFailed then
+  begin
+    TypeFailed := true;
+    ParseFailed := true;
+    Write('TPS-TYPE-ERROR line=', L, ' col=', C, ' ');
+    if Code = TeDuplicate then
+    begin
+      Write('duplicate identifier: ');
+      WriteNameAt(NameOffset, NameLength)
+    end
+    else if Code = TeUnknownType then
+    begin
+      Write('unknown type: ');
+      WriteNameAt(NameOffset, NameLength)
+    end
+    else if Code = TeAssignMismatch then
+    begin
+      Write('type mismatch in assignment: expected ');
+      WriteTypeName(A, 0, 255);
+      Write(' got ');
+      WriteTypeName(B, 0, 255)
+    end
+    else if Code = TeVarParam then
+    begin
+      Write('var parameter requires a variable: argument ', A, ' of ');
+      WriteNameAt(NameOffset, NameLength)
+    end
+    else if Code = TeBoundForm then
+      Write('array bound requires an integer literal or integer constant')
+    else if Code = TeFileAssign then
+      Write('file variables cannot be assigned')
+    else if Code = TeRule then
+      Write('semantic rule violation')
+    else
+      Write('unknown semantic failure code=', Code);
+    Writeln()
+  end
+end;
+
+function NamesEqual(AOffset, ALength, BOffset, BLength: integer): boolean;
+var
+  I: integer;
+  Same: boolean;
+begin
+  Same := ALength = BLength;
+  I := 0;
+  while I < ALength do
+  begin
+    if Same then
+      if PoolChars[AOffset + I] <> PoolChars[BOffset + I] then Same := false;
+    I := I + 1
+  end;
+  NamesEqual := Same
+end;
+
+function SymbolNameEqual(Index, NameOffset, NameLength: integer): boolean;
+begin
+  SymbolNameEqual := NamesEqual(SymNameOffset[Index],
+                                PoolLengthAt(SymNameOffset[Index]),
+                                NameOffset, NameLength)
+end;
+
+function IsDataKind(Kind: integer): boolean;
+begin
+  IsDataKind := false;
+  if Kind = SkConst then IsDataKind := true
+  else if Kind = SkVar then IsDataKind := true
+  else if Kind = SkArray then IsDataKind := true
+end;
+
+function FindGlobalData(NameOffset, NameLength: integer): integer;
+var
+  I, Found: integer;
+begin
+  Found := 0;
+  I := 1;
+  while I <= SymCount do
+  begin
+    if Found = 0 then
+      if SymScope[I] = 0 then
+        if IsDataKind(SymKind[I]) then
+          if SymbolNameEqual(I, NameOffset, NameLength) then Found := I;
+    I := I + 1
+  end;
+  FindGlobalData := Found
+end;
+
+function FindRoutine(NameOffset, NameLength: integer): integer;
+var
+  I, Found: integer;
+begin
+  Found := 0;
+  I := 1;
+  while I <= SymCount do
+  begin
+    if Found = 0 then
+      if SymScope[I] = 0 then
+        if (SymKind[I] = SkProcedure) or (SymKind[I] = SkFunction) then
+          if SymbolNameEqual(I, NameOffset, NameLength) then Found := I;
+    I := I + 1
+  end;
+  FindRoutine := Found
+end;
+
+function FindRecordType(NameOffset, NameLength: integer): integer;
+var
+  I, Found: integer;
+begin
+  Found := 0;
+  I := 1;
+  while I <= SymCount do
+  begin
+    if Found = 0 then
+      if SymKind[I] = SkType then
+        if SymbolNameEqual(I, NameOffset, NameLength) then Found := I;
+    I := I + 1
+  end;
+  FindRecordType := Found
+end;
+
+function FindLocal(NameOffset, NameLength: integer): integer;
+var
+  I, Found: integer;
+begin
+  Found := 0;
+  I := 1;
+  while I <= SymCount do
+  begin
+    if Found = 0 then
+      if ActiveRoutine <> 0 then
+        if SymScope[I] = ActiveRoutine then
+          if SymbolNameEqual(I, NameOffset, NameLength) then Found := I;
+    I := I + 1
+  end;
+  FindLocal := Found
+end;
+
+function ResolveName(NameOffset, NameLength: integer): integer;
+var
+  Found: integer;
+begin
+  Found := FindLocal(NameOffset, NameLength);
+  if Found = 0 then Found := FindGlobalData(NameOffset, NameLength);
+  ResolveName := Found
+end;
+
+function NameIsFileBuiltin(NameOffset, NameLength: integer): boolean;
+begin
+  PoolGet(NameOffset, NameLength, DumpText);
+  NameIsFileBuiltin := false;
+  if DumpText = 'assign' then NameIsFileBuiltin := true
+  else if DumpText = 'reset' then NameIsFileBuiltin := true
+  else if DumpText = 'rewrite' then NameIsFileBuiltin := true
+  else if DumpText = 'blockread' then NameIsFileBuiltin := true
+  else if DumpText = 'blockwrite' then NameIsFileBuiltin := true
+end;
+
+function FileBuiltinId(NameOffset, NameLength: integer): integer;
+begin
+  PoolGet(NameOffset, NameLength, DumpText);
+  FileBuiltinId := 0;
+  if DumpText = 'assign' then FileBuiltinId := 1
+  else if DumpText = 'reset' then FileBuiltinId := 2
+  else if DumpText = 'rewrite' then FileBuiltinId := 3
+  else if DumpText = 'blockread' then FileBuiltinId := 4
+  else if DumpText = 'blockwrite' then FileBuiltinId := 5
+end;
+
+function AddRawSymbol(NameOffset, NameLength, Kind, TypeId, Scope,
+                      RefValue, LoValue, HiValue, OffsetValue,
+                      SizeValue, L, C: integer): integer;
+begin
+  AddRawSymbol := 0;
+  if SymCount >= SymbolMax then
+    FailType(TeRule, L, C, NameOffset, NameLength, 0, 0)
+  else
+  begin
+    SymCount := SymCount + 1;
+    SymNameOffset[SymCount] := NameOffset;
+    SymKind[SymCount] := Kind;
+    SymType[SymCount] := TypeId;
+    SymScope[SymCount] := Scope;
+    SymRef[SymCount] := RefValue;
+    SymLo[SymCount] := LoValue;
+    SymHi[SymCount] := HiValue;
+    SymOffset[SymCount] := OffsetValue;
+    SymSize[SymCount] := SizeValue;
+    AddRawSymbol := SymCount
+  end
+end;
+
+function TypeStorageSize(TypeId, RecordIndex, StrCap: integer): integer;
+var
+  N: integer;
+begin
+  N := 4;
+  if TypeId = TyRecord then N := SymSize[RecordIndex]
+  else if TypeId = TyString then N := ((StrCap + 1 + 3) div 4) * 4
+  else if TypeId = TyFile then N := 260;
+  TypeStorageSize := N
+end;
+
+procedure AddDataSymbol(NameOffset, NameLength, L, C, TypeId, RecordIndex,
+                        StrCap, LoValue, HiValue: integer; IsArray: boolean);
+var
+  Existing, Kind, Count, SizeValue, OffsetValue, NewIndex: integer;
+begin
+  Existing := 0;
+  if ActiveRoutine = 0 then
+  begin
+    Existing := FindGlobalData(NameOffset, NameLength);
+    if Existing = 0 then Existing := FindRoutine(NameOffset, NameLength)
+  end
+  else
+    Existing := FindLocal(NameOffset, NameLength);
+  if Existing <> 0 then begin { TPS_TYPE_MUT_DUPOK }
+    FailType(TeDuplicate, L, C, NameOffset, NameLength, 0, 0)
+  end
+  else if NameIsFileBuiltin(NameOffset, NameLength) then
+    FailType(TeRule, L, C, NameOffset, NameLength, 0, 0)
+  else
+  begin
+    if not IsArray then
+    begin
+      LoValue := 0;
+      HiValue := 0;
+      if TypeId = TyString then HiValue := StrCap
+    end;
+    Kind := SkVar;
+    if ActiveRoutine <> 0 then Kind := SkLocal;
+    if IsArray then
+    begin
+      Kind := SkArray;
+      if ActiveRoutine <> 0 then Kind := SkLocalArray
+    end;
+    Count := 1;
+    if IsArray then Count := HiValue - LoValue + 1;
+    SizeValue := TypeStorageSize(TypeId, RecordIndex, StrCap) * Count;
+    if ActiveRoutine = 0 then
+    begin
+      OffsetValue := GlobalBytes;
+      GlobalBytes := GlobalBytes + SizeValue
+    end
+    else
+    begin
+      Count := SizeValue div 4;
+      OffsetValue := -(4 * (LocalSlots + 1));
+      if TypeId = TyString then OffsetValue := -(4 * (LocalSlots + Count))
+      else if TypeId = TyFile then OffsetValue := -(4 * (LocalSlots + Count));
+      LocalSlots := LocalSlots + Count
+    end;
+    NewIndex := AddRawSymbol(NameOffset, NameLength, Kind, TypeId,
+                             ActiveRoutine, RecordIndex, LoValue, HiValue,
+                             OffsetValue, SizeValue, L, C);
+    if TypeFailed then NewIndex := 0
+  end
+end;
+
+procedure AddConstSymbol(NameOffset, NameLength, L, C, TypeId,
+                         Value, TextLength: integer);
+var
+  Existing, NewIndex: integer;
+begin
+  Existing := FindGlobalData(NameOffset, NameLength);
+  if Existing = 0 then Existing := FindRoutine(NameOffset, NameLength);
+  if Existing <> 0 then
+    FailType(TeDuplicate, L, C, NameOffset, NameLength, 0, 0)
+  else if NameIsFileBuiltin(NameOffset, NameLength) then
+    FailType(TeRule, L, C, NameOffset, NameLength, 0, 0)
+  else
+  begin
+    NewIndex := AddRawSymbol(NameOffset, NameLength, SkConst, TypeId, 0,
+                             Value, 0, 0, 0, TextLength, L, C);
+    if TypeFailed then NewIndex := 0
+  end
+end;
+
+function AddRecordType(NameOffset, NameLength, L, C: integer): integer;
+var
+  Existing: integer;
+begin
+  AddRecordType := 0;
+  Existing := FindRecordType(NameOffset, NameLength);
+  if Existing <> 0 then
+    FailType(TeDuplicate, L, C, NameOffset, NameLength, 0, 0)
+  else
+    AddRecordType := AddRawSymbol(NameOffset, NameLength, SkType, TyRecord,
+                                  0, 0, 0, 0, 0, 0, L, C)
+end;
+
+procedure AddRecordField(NameOffset, NameLength, L, C, TypeId: integer);
+var
+  I, Existing, FieldIndex, NewIndex: integer;
+begin
+  Existing := 0;
+  I := 1;
+  while I <= SymCount do
+  begin
+    if Existing = 0 then
+      if SymKind[I] = SkField then
+        if SymScope[I] = -CurrentRecord then
+          if SymbolNameEqual(I, NameOffset, NameLength) then Existing := I;
+    I := I + 1
+  end;
+  if Existing <> 0 then
+    FailType(TeRule, L, C, NameOffset, NameLength, 0, 0)
+  else
+  begin
+    FieldIndex := SymLo[CurrentRecord];
+    NewIndex := AddRawSymbol(NameOffset, NameLength, SkField, TypeId,
+                             -CurrentRecord, FieldIndex, 0, 0,
+                             FieldIndex * 4, 4, L, C);
+    if not TypeFailed then
+    begin
+      SymLo[CurrentRecord] := FieldIndex + 1;
+      SymSize[CurrentRecord] := (FieldIndex + 1) * 4
+    end
+    else
+      NewIndex := 0
+  end
+end;
+
+function FindRecordField(RecordIndex, NameOffset, NameLength: integer): integer;
+var
+  I, Found: integer;
+begin
+  Found := 0;
+  I := 1;
+  while I <= SymCount do
+  begin
+    if Found = 0 then
+      if SymKind[I] = SkField then
+        if SymScope[I] = -RecordIndex then
+          if SymbolNameEqual(I, NameOffset, NameLength) then Found := I;
+    I := I + 1
+  end;
+  FindRecordField := Found
+end;
+
+procedure ResetLastExpression();
+begin
+  LastExprType := TyUnknown;
+  LastExprSym := 0;
+  LastExprRecord := 0;
+  LastExprStrCap := 0;
+  LastExprForm := 0;
+  LastExprLvalue := false
+end;
+
+procedure MarkComputed(TypeId: integer);
+begin
+  LastExprType := TypeId;
+  LastExprSym := 0;
+  LastExprRecord := 0;
+  LastExprStrCap := 0;
+  LastExprForm := 0;
+  LastExprLvalue := false
+end;
+
+function RoutineParamAt(RoutineIndex, Ordinal: integer): integer;
+var
+  I, Seen, Found: integer;
+begin
+  I := 1;
+  Seen := 0;
+  Found := 0;
+  while I <= SymCount do
+  begin
+    if Found = 0 then
+      if SymScope[I] = RoutineIndex then
+        if (SymKind[I] = SkValueParam) or (SymKind[I] = SkVarParam) then
+        begin
+          Seen := Seen + 1;
+          if Seen = Ordinal then Found := I
+        end;
+    I := I + 1
+  end;
+  RoutineParamAt := Found
+end;
+
+procedure ValidateParsedCall();
+var
+  Builtin, RoutineIndex, ParamIndex, I: integer;
+begin
+  Builtin := FileBuiltinId(PendingIdentOffset, PendingIdentLength);
+  if Builtin <> 0 then
+  begin
+    if CallWantsValue then
+      FailType(TeRule, PendingIdentLine, PendingIdentCol,
+               PendingIdentOffset, PendingIdentLength, 0, 0)
+    else
+    begin
+      if Builtin = 1 then
+      begin
+        if ArgCount <> 2 then
+          FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                   PendingIdentOffset, PendingIdentLength, 0, 0)
+      end
+      else if (Builtin = 2) or (Builtin = 3) then
+      begin
+        if (ArgCount <> 1) and (ArgCount <> 2) then
+          FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                   PendingIdentOffset, PendingIdentLength, 0, 0)
+      end
+      else if ArgCount <> 4 then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                 PendingIdentOffset, PendingIdentLength, 0, 0);
+      if not ParseFailed then
+      begin
+        if ArgCount < 1 then
+          FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                   PendingIdentOffset, PendingIdentLength, 0, 0)
+        else if ArgType[1] <> TyFile then
+          FailType(TeRule, ArgLine[1], ArgCol[1], 0, 0, 0, 0)
+        else if ArgLvalue[1] = 0 then
+          FailType(TeRule, ArgLine[1], ArgCol[1], 0, 0, 0, 0)
+        else if ArgForm[1] <> 1 then
+          FailType(TeRule, ArgLine[1], ArgCol[1], 0, 0, 0, 0)
+      end;
+      if not ParseFailed then
+      begin
+        if Builtin = 1 then
+        begin
+          if (ArgType[2] <> TyString) and (ArgType[2] <> TyChar) then
+            FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
+        end
+        else if (Builtin = 2) or (Builtin = 3) then
+        begin
+          if ArgCount = 2 then
+            if ArgType[2] <> TyInteger then
+              FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
+        end
+        else
+        begin
+          if ArgForm[2] <> 2 then
+            FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
+          else if ArgType[2] <> TyChar then
+            FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
+          else if ArgSym[2] = 0 then
+            FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
+          else if SymType[ArgSym[2]] <> TyString then
+            FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
+          else if ArgLvalue[2] = 0 then
+            FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0);
+          if not ParseFailed then
+            if ArgType[3] <> TyInteger then
+              FailType(TeRule, ArgLine[3], ArgCol[3], 0, 0, 0, 0);
+          if not ParseFailed then
+            if (ArgType[4] <> TyInteger) or (ArgLvalue[4] = 0) or
+               (ArgForm[4] <> 1) then
+              FailType(TeRule, ArgLine[4], ArgCol[4], 0, 0, 0, 0)
+        end
+      end
+    end;
+    MarkComputed(TyUnknown)
+  end
+  else
+  begin
+    RoutineIndex := FindRoutine(PendingIdentOffset, PendingIdentLength);
+    if RoutineIndex = 0 then
+      FailType(TeRule, PendingIdentLine, PendingIdentCol,
+               PendingIdentOffset, PendingIdentLength, 0, 0)
+    else
+    begin
+      if CallWantsValue then
+      begin
+        if SymKind[RoutineIndex] <> SkFunction then
+          FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                   PendingIdentOffset, PendingIdentLength, 0, 0)
+      end
+      else if SymKind[RoutineIndex] <> SkProcedure then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                 PendingIdentOffset, PendingIdentLength, 0, 0);
+      if not ParseFailed then
+        if ArgCount <> SymLo[RoutineIndex] then
+          FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                   PendingIdentOffset, PendingIdentLength, 0, 0);
+      I := 1;
+      while I <= ArgCount do
+      begin
+        if not ParseFailed then
+        begin
+          ParamIndex := RoutineParamAt(RoutineIndex, I);
+          if SymKind[ParamIndex] = SkVarParam then
+            if ArgLvalue[I] = 0 then
+              FailType(TeVarParam, ArgLine[I], ArgCol[I], PendingIdentOffset,
+                       PendingIdentLength, I, 0);
+          if not ParseFailed then
+            if ArgType[I] <> SymType[ParamIndex] then
+              FailType(TeRule, ArgLine[I], ArgCol[I], PendingIdentOffset,
+                       PendingIdentLength, I, 0);
+          if not ParseFailed then
+            if SymType[ParamIndex] = TyRecord then
+              if ArgSym[I] > 0 then
+              begin
+                if SymRef[ArgSym[I]] <> SymRef[ParamIndex] then
+                  FailType(TeRule, ArgLine[I], ArgCol[I],
+                           PendingIdentOffset, PendingIdentLength, I, 0)
+              end
+              else
+                FailType(TeRule, ArgLine[I], ArgCol[I],
+                         PendingIdentOffset, PendingIdentLength, I, 0);
+          if not ParseFailed then
+            if SymKind[ParamIndex] = SkVarParam then
+              if SymType[ParamIndex] = TyString then
+                if ArgSym[I] > 0 then
+                begin
+                  if SymHi[ArgSym[I]] <> 255 then
+                    FailType(TeRule, ArgLine[I], ArgCol[I],
+                             PendingIdentOffset, PendingIdentLength, I, 0)
+                end
+        end;
+        I := I + 1
+      end;
+      if not ParseFailed then
+      begin
+        if SymKind[RoutineIndex] = SkFunction then
+          MarkComputed(SymType[RoutineIndex])
+        else
+          MarkComputed(TyUnknown)
+      end
+    end
+  end
+end;
+
+function RegisterRoutine(NameOffset, NameLength, L, C: integer;
+                         IsFunction, IsForward: boolean): integer;
+var
+  Existing, DataHit, Kind, I, P, NewIndex, ResultIndex, ParamCap: integer;
+  Matches: boolean;
+begin
+  RegisterRoutine := 0;
+  DataHit := FindGlobalData(NameOffset, NameLength);
+  if DataHit <> 0 then
+    FailType(TeDuplicate, L, C, NameOffset, NameLength, 0, 0)
+  else if NameIsFileBuiltin(NameOffset, NameLength) then
+    FailType(TeRule, L, C, NameOffset, NameLength, 0, 0)
+  else
+  begin
+    Existing := FindRoutine(NameOffset, NameLength);
+    if Existing = 0 then
+    begin
+      Kind := SkProcedure;
+      if IsFunction then Kind := SkFunction;
+      NewIndex := AddRawSymbol(NameOffset, NameLength, Kind, ParsedType, 0,
+                               0, HeaderCount, 0, L * 1000 + C, 0, L, C);
+      if not TypeFailed then
+      begin
+        SymHi[NewIndex] := 0;
+        if not IsForward then SymHi[NewIndex] := 1;
+        I := 1;
+        while I <= HeaderCount do
+        begin
+          ParamCap := 0;
+          if HeaderType[I] = TyString then ParamCap := 255;
+          P := AddRawSymbol(HeaderNameOffset[I],
+                            PoolLengthAt(HeaderNameOffset[I]),
+                            HeaderKind[I], HeaderType[I], NewIndex,
+                            HeaderRef[I], 0, ParamCap, 8 + 4 * (I - 1),
+                            4, HeaderLine[I], HeaderCol[I]);
+          if I = 1 then SymRef[NewIndex] := P;
+          I := I + 1
+        end;
+        if not TypeFailed then
+          if IsFunction then
+          begin
+            Matches := true;
+            I := 1;
+            while I <= HeaderCount do
+            begin
+              if NamesEqual(HeaderNameOffset[I],
+                            PoolLengthAt(HeaderNameOffset[I]),
+                            NameOffset, NameLength) then Matches := false;
+              I := I + 1
+            end;
+            if not Matches then
+              FailType(TeDuplicate, L, C, NameOffset, NameLength, 0, 0)
+            else
+            begin
+              ActiveRoutine := NewIndex;
+              ResultIndex := AddRawSymbol(NameOffset, NameLength, SkResult,
+                                          ParsedType, NewIndex, 0, 0, 0,
+                                          -4, 4, L, C);
+              ActiveRoutine := 0;
+              if TypeFailed then ResultIndex := 0
+            end
+          end;
+        RegisterRoutine := NewIndex
+      end
+    end
+    else
+    begin
+      Matches := true;
+      if IsForward then Matches := false;
+      if SymHi[Existing] <> 0 then Matches := false;
+      if IsFunction then
+      begin
+        if SymKind[Existing] <> SkFunction then Matches := false
+      end
+      else if SymKind[Existing] <> SkProcedure then Matches := false;
+      if SymType[Existing] <> ParsedType then Matches := false;
+      if SymLo[Existing] <> HeaderCount then Matches := false;
+      I := 1;
+      while I <= HeaderCount do
+      begin
+        P := RoutineParamAt(Existing, I);
+        if P = 0 then Matches := false
+        else
+        begin
+          if SymKind[P] <> HeaderKind[I] then Matches := false;
+          if SymType[P] <> HeaderType[I] then Matches := false;
+          if SymRef[P] <> HeaderRef[I] then Matches := false
+        end;
+        I := I + 1
+      end;
+      if not Matches then
+        FailType(TeRule, L, C, NameOffset, NameLength, 0, 0)
+      else
+      begin
+        SymHi[Existing] := 1;
+        I := 1;
+        while I <= HeaderCount do
+        begin
+          P := RoutineParamAt(Existing, I);
+          SymNameOffset[P] := HeaderNameOffset[I];
+          I := I + 1
+        end;
+        RegisterRoutine := Existing
+      end
+    end
+  end
+end;
+
+procedure DumpOneDataSymbol(Index: integer);
+begin
+  Write('SYM kind=');
+  if SymKind[Index] = SkConst then Write('const')
+  else if SymKind[Index] = SkVar then Write('var')
+  else if SymKind[Index] = SkArray then Write('var')
+  else if SymKind[Index] = SkProcedure then Write('procedure')
+  else if SymKind[Index] = SkFunction then Write('function')
+  else if SymKind[Index] = SkValueParam then Write('value-param')
+  else if SymKind[Index] = SkVarParam then Write('var-param')
+  else if SymKind[Index] = SkResult then Write('result')
+  else if SymKind[Index] = SkLocal then Write('local')
+  else if SymKind[Index] = SkLocalArray then Write('local')
+  else Write('unknown');
+  Write(' name=');
+  WriteSymbolName(Index);
+  Write(' type=');
+  if SymKind[Index] = SkConst then
+    WriteTypeName(SymType[Index], 0, 255)
+  else
+    WriteTypeName(SymType[Index], SymRef[Index], SymHi[Index]);
+  if SymKind[Index] = SkConst then
+  begin
+    if SymType[Index] = TyString then Write(' value-length=', SymSize[Index])
+    else Write(' value=', SymRef[Index])
+  end
+  else if (SymKind[Index] = SkProcedure) or (SymKind[Index] = SkFunction) then
+  begin
+    Write(' params=', SymLo[Index], ' state=');
+    if SymHi[Index] = 1 then Write('defined') else Write('forward');
+    Write(' frame=', SymSize[Index])
+  end
+  else
+  begin
+    if (SymKind[Index] = SkArray) or (SymKind[Index] = SkLocalArray) then
+      Write(' array=', SymLo[Index], '..', SymHi[Index]);
+    Write(' offset=', SymOffset[Index], ' size=', SymSize[Index])
+  end;
+  Writeln()
+end;
+
+procedure DumpSymbols();
+var
+  I, J: integer;
+begin
+  Writeln('SCOPE global bytes=', GlobalBytes);
+  I := 1;
+  while I <= SymCount do
+  begin
+    if SymScope[I] = 0 then
+    begin
+      if SymKind[I] = SkType then
+      begin
+        Write('SYM kind=type name=');
+        WriteSymbolName(I);
+        Writeln(' type=record fields=', SymLo[I], ' size=', SymSize[I]);
+        J := 1;
+        while J <= SymCount do
+        begin
+          if SymKind[J] = SkField then
+            if SymScope[J] = -I then
+            begin
+              Write('FIELD owner=');
+              WriteSymbolName(I);
+              Write(' index=', SymRef[J], ' name=');
+              WriteSymbolName(J);
+              Write(' type=');
+              WriteTypeName(SymType[J], 0, 0);
+              Writeln(' offset=', SymOffset[J], ' size=', SymSize[J])
+            end;
+          J := J + 1
+        end
+      end
+      else
+        DumpOneDataSymbol(I)
+    end;
+    I := I + 1
+  end;
+  I := 1;
+  while I <= SymCount do
+  begin
+    if SymScope[I] = 0 then
+      if (SymKind[I] = SkProcedure) or (SymKind[I] = SkFunction) then
+      begin
+        Write('SCOPE routine name=');
+        WriteSymbolName(I);
+        Writeln(' frame=', SymSize[I]);
+        J := 1;
+        while J <= SymCount do
+        begin
+          if SymScope[J] = I then DumpOneDataSymbol(J);
+          J := J + 1
+        end
+      end;
+    I := I + 1
+  end
+end;
+
+procedure CheckUnresolvedForwards();
+var
+  I, PackedLoc, L, C: integer;
+begin
+  I := 1;
+  while I <= SymCount do
+  begin
+    if not ParseFailed then
+      if SymScope[I] = 0 then
+        if (SymKind[I] = SkProcedure) or (SymKind[I] = SkFunction) then
+          if SymHi[I] = 0 then
+          begin
+            PackedLoc := SymOffset[I];
+            L := PackedLoc div 1000;
+            C := PackedLoc mod 1000;
+            FailType(TeRule, L, C, SymNameOffset[I],
+                     PoolLengthAt(SymNameOffset[I]), 0, 0)
+          end;
+    I := I + 1
+  end
+end;
+
 procedure ParseExpression(); forward;
 procedure ParseStatement(); forward;
 procedure ParseBlock(); forward;
@@ -1159,9 +2071,15 @@ procedure ParseBlock(); forward;
 procedure ParseArrayBound();
 var
   Negative: boolean;
+  BoundLine, BoundCol, BoundOffset, BoundLength, Found: integer;
 begin
   TraceEnter(PrArrayBound);
   Negative := false;
+  ParsedBound := 0;
+  BoundLine := TokLine;
+  BoundCol := TokCol;
+  BoundOffset := TokOffset;
+  BoundLength := TokLength;
   if not ParseFailed then
   begin
     if TokKind = TkMinus then
@@ -1170,37 +2088,98 @@ begin
       NextToken()
     end;
     if TokKind = TkInteger then
+    begin
+      ParsedBound := TokValue;
+      if Negative then ParsedBound := -ParsedBound;
       NextToken()
+    end
     else if not Negative then
     begin
       if TokKind = TkIdent then
-        NextToken()
+      begin
+        if TypeMode then
+        begin
+          Found := FindGlobalData(TokOffset, TokLength);
+          if Found = 0 then
+            FailType(TeBoundForm, TokLine, TokCol, TokOffset, TokLength, 0, 0)
+          else if SymKind[Found] <> SkConst then
+            FailType(TeBoundForm, TokLine, TokCol, TokOffset, TokLength, 0, 0)
+          else if SymType[Found] <> TyInteger then
+            FailType(TeBoundForm, TokLine, TokCol, TokOffset, TokLength, 0, 0)
+          else
+            ParsedBound := SymRef[Found]
+        end;
+        if not ParseFailed then NextToken()
+      end
+      else
+      begin
+        if TypeMode then
+          FailType(TeBoundForm, BoundLine, BoundCol, BoundOffset, BoundLength, 0, 0)
+        else
+          FailParse(ExpArrayBound)
+      end
+    end
+    else
+    begin
+      if TypeMode then
+        FailType(TeBoundForm, BoundLine, BoundCol, BoundOffset, BoundLength, 0, 0)
       else
         FailParse(ExpArrayBound)
     end
-    else
-      FailParse(ExpArrayBound)
   end;
   if not ParseFailed then TraceExit(PrArrayBound)
 end;
 
 procedure ParseTypeName();
+var
+  TypeLine, TypeCol, TypeOffset, TypeLength, RecordIndex: integer;
 begin
   TraceEnter(PrTypeName);
+  ParsedType := TyUnknown;
+  ParsedRef := 0;
+  ParsedStrCap := 0;
+  TypeLine := TokLine;
+  TypeCol := TokCol;
+  TypeOffset := TokOffset;
+  TypeLength := TokLength;
   if not ParseFailed then
   begin
-    if TokKind = TkIntegerType then NextToken()
-    else if TokKind = TkBoolean then NextToken()
-    else if TokKind = TkChar then NextToken()
-    else if TokKind = TkFile then NextToken()
-    else if TokKind = TkIdent then NextToken()
+    if TokKind = TkIntegerType then begin ParsedType := TyInteger; NextToken() end
+    else if TokKind = TkBoolean then begin ParsedType := TyBoolean; NextToken() end
+    else if TokKind = TkChar then begin ParsedType := TyChar; NextToken() end
+    else if TokKind = TkFile then begin ParsedType := TyFile; NextToken() end
+    else if TokKind = TkIdent then
+    begin
+      if TypeMode then
+      begin
+        RecordIndex := FindRecordType(TokOffset, TokLength);
+        if RecordIndex = 0 then
+          FailType(TeUnknownType, TokLine, TokCol, TokOffset, TokLength, 0, 0)
+        else
+        begin
+          ParsedType := TyRecord;
+          ParsedRef := RecordIndex
+        end
+      end;
+      if not ParseFailed then NextToken()
+    end
     else if TokKind = TkStringType then
     begin
+      ParsedType := TyString;
+      ParsedStrCap := 255;
       NextToken();
       if TokKind = TkLBracket then
       begin
         NextToken();
         ParseArrayBound();
+        if not ParseFailed then
+        begin
+          ParsedStrCap := ParsedBound;
+          if TypeMode then
+            if (ParsedStrCap < 1) or (ParsedStrCap > 255) then
+              FailType(TeRule, TypeLine, TypeCol, TypeOffset,
+                       TypeLength, 0, 0)
+        end;
         if not ParseFailed then ExpectToken(TkRBracket, TkRBracket)
       end
     end
@@ -1213,11 +2192,14 @@ end;
 procedure ParseResultType();
 begin
   TraceEnter(PrResultType);
+  ParsedType := TyUnknown;
+  ParsedRef := 0;
+  ParsedStrCap := 0;
   if not ParseFailed then
   begin
-    if TokKind = TkIntegerType then NextToken()
-    else if TokKind = TkBoolean then NextToken()
-    else if TokKind = TkChar then NextToken()
+    if TokKind = TkIntegerType then begin ParsedType := TyInteger; NextToken() end
+    else if TokKind = TkBoolean then begin ParsedType := TyBoolean; NextToken() end
+    else if TokKind = TkChar then begin ParsedType := TyChar; NextToken() end
     else FailParse(ExpResultType)
   end;
   if not ParseFailed then TraceExit(PrResultType)
@@ -1226,8 +2208,35 @@ end;
 procedure ParseCall();
 var
   Done: boolean;
+  StartLine, StartCol, CallNameOffset, CallNameLength: integer;
+  CallNameLine, CallNameCol, OuterArgCount, OuterFileBuiltin, I: integer;
+  SavedArgType, SavedArgLvalue, SavedArgForm, SavedArgSym: array[1..HeaderParamMax] of integer;
+  SavedArgLine, SavedArgCol: array[1..HeaderParamMax] of integer;
+  ThisWantsValue: boolean;
 begin
   TraceEnter(PrCall);
+  CallNameOffset := PendingIdentOffset;
+  CallNameLength := PendingIdentLength;
+  CallNameLine := PendingIdentLine;
+  CallNameCol := PendingIdentCol;
+  ThisWantsValue := CallWantsValue;
+  OuterArgCount := ArgCount;
+  OuterFileBuiltin := ParsingFileBuiltin;
+  I := 1;
+  while I <= OuterArgCount do
+  begin
+    SavedArgType[I] := ArgType[I];
+    SavedArgLvalue[I] := ArgLvalue[I];
+    SavedArgForm[I] := ArgForm[I];
+    SavedArgSym[I] := ArgSym[I];
+    SavedArgLine[I] := ArgLine[I];
+    SavedArgCol[I] := ArgCol[I];
+    I := I + 1
+  end;
+  ArgCount := 0;
+  ParsingFileBuiltin := 0;
+  if TypeMode then
+    ParsingFileBuiltin := FileBuiltinId(CallNameOffset, CallNameLength);
   if not ParseFailed then ExpectToken(TkLParen, TkLParen);
   if not ParseFailed then
   begin
@@ -1236,7 +2245,26 @@ begin
       Done := false;
       while not Done do
       begin
+        StartLine := TokLine;
+        StartCol := TokCol;
         ParseExpression();
+        if not ParseFailed then
+          if TypeMode then
+          begin
+            if ArgCount >= HeaderParamMax then
+              FailType(TeRule, StartLine, StartCol, 0, 0, 0, 0)
+            else
+            begin
+              ArgCount := ArgCount + 1;
+              ArgType[ArgCount] := LastExprType;
+              ArgLvalue[ArgCount] := 0;
+              if LastExprLvalue then ArgLvalue[ArgCount] := 1;
+              ArgForm[ArgCount] := LastExprForm;
+              ArgSym[ArgCount] := LastExprSym;
+              ArgLine[ArgCount] := StartLine;
+              ArgCol[ArgCount] := StartCol
+            end
+          end;
         if ParseFailed then
           Done := true
         else if TokKind = TkComma then
@@ -1247,6 +2275,29 @@ begin
     end
   end;
   if not ParseFailed then ExpectToken(TkRParen, TkRParen);
+  if not ParseFailed then
+    if TypeMode then
+    begin
+      PendingIdentOffset := CallNameOffset;
+      PendingIdentLength := CallNameLength;
+      PendingIdentLine := CallNameLine;
+      PendingIdentCol := CallNameCol;
+      CallWantsValue := ThisWantsValue;
+      ValidateParsedCall()
+    end;
+  ArgCount := OuterArgCount;
+  I := 1;
+  while I <= OuterArgCount do
+  begin
+    ArgType[I] := SavedArgType[I];
+    ArgLvalue[I] := SavedArgLvalue[I];
+    ArgForm[I] := SavedArgForm[I];
+    ArgSym[I] := SavedArgSym[I];
+    ArgLine[I] := SavedArgLine[I];
+    ArgCol[I] := SavedArgCol[I];
+    I := I + 1
+  end;
+  ParsingFileBuiltin := OuterFileBuiltin;
   if not ParseFailed then TraceExit(PrCall)
 end;
 
@@ -1265,61 +2316,260 @@ begin
   if not ParseFailed then ExpectToken(TkDot, TkDot);
   if not ParseFailed then
   begin
-    if TokKind = TkIdent then NextToken()
+    if TokKind = TkIdent then
+    begin
+      ParsedFieldOffset := TokOffset;
+      ParsedFieldLength := TokLength;
+      ParsedFieldLine := TokLine;
+      ParsedFieldCol := TokCol;
+      NextToken()
+    end
     else FailParse(ExpFieldName)
   end;
   if not ParseFailed then TraceExit(PrFieldSuffix)
 end;
 
 procedure ParseFactor();
+var
+  OpLine, OpCol, Found, BaseType, BaseSym, BaseRecord, BaseStrCap: integer;
+  IndexType, FieldIndex: integer;
+  BaseLvalue: boolean;
 begin
   TraceEnter(PrFactor);
+  if TypeMode then ResetLastExpression();
   if not ParseFailed then
   begin
     if TokKind = TkMinus then
     begin
+      OpLine := TokLine;
+      OpCol := TokCol;
       NextToken();
-      ParseFactor()
+      ParseFactor();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if LastExprType <> TyInteger then
+            FailType(TeRule, OpLine, OpCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyInteger)
+        end
     end
     else if TokKind = TkNot then
     begin
+      OpLine := TokLine;
+      OpCol := TokCol;
       NextToken();
-      ParseFactor()
+      ParseFactor();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if LastExprType <> TyBoolean then
+            FailType(TeRule, OpLine, OpCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyBoolean)
+        end
     end
-    else if TokKind = TkTrue then NextToken()
-    else if TokKind = TkFalse then NextToken()
-    else if TokKind = TkInteger then NextToken()
-    else if TokKind = TkString then NextToken()
+    else if TokKind = TkTrue then
+    begin
+      if TypeMode then MarkComputed(TyBoolean);
+      NextToken()
+    end
+    else if TokKind = TkFalse then
+    begin
+      if TypeMode then MarkComputed(TyBoolean);
+      NextToken()
+    end
+    else if TokKind = TkInteger then
+    begin
+      if TypeMode then MarkComputed(TyInteger);
+      NextToken()
+    end
+    else if TokKind = TkString then
+    begin
+      if TypeMode then
+      begin
+        if TokLength = 1 then MarkComputed(TyChar)
+        else MarkComputed(TyString)
+      end;
+      NextToken()
+    end
     else if TokKind = TkOrd then
     begin
+      OpLine := TokLine;
+      OpCol := TokCol;
       NextToken();
       if not ParseFailed then ExpectToken(TkLParen, TkLParen);
       if not ParseFailed then ParseExpression();
-      if not ParseFailed then ExpectToken(TkRParen, TkRParen)
+      if not ParseFailed then ExpectToken(TkRParen, TkRParen);
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if (LastExprType <> TyInteger) and (LastExprType <> TyBoolean) and
+             (LastExprType <> TyChar) then
+            FailType(TeRule, OpLine, OpCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyInteger)
+        end
     end
     else if TokKind = TkChr then
     begin
+      OpLine := TokLine;
+      OpCol := TokCol;
       NextToken();
       if not ParseFailed then ExpectToken(TkLParen, TkLParen);
       if not ParseFailed then ParseExpression();
-      if not ParseFailed then ExpectToken(TkRParen, TkRParen)
+      if not ParseFailed then ExpectToken(TkRParen, TkRParen);
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if LastExprType <> TyInteger then
+            FailType(TeRule, OpLine, OpCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyChar)
+        end
     end
     else if TokKind = TkLength then
     begin
+      OpLine := TokLine;
+      OpCol := TokCol;
       NextToken();
       if not ParseFailed then ExpectToken(TkLParen, TkLParen);
       if not ParseFailed then ParseExpression();
-      if not ParseFailed then ExpectToken(TkRParen, TkRParen)
+      if not ParseFailed then ExpectToken(TkRParen, TkRParen);
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if LastExprType <> TyString then
+            FailType(TeRule, OpLine, OpCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyInteger)
+        end
     end
     else if TokKind = TkIdent then
     begin
+      PendingIdentOffset := TokOffset;
+      PendingIdentLength := TokLength;
+      PendingIdentLine := TokLine;
+      PendingIdentCol := TokCol;
       NextToken();
-      if TokKind = TkLParen then ParseCall()
+      if TokKind = TkLParen then
+      begin
+        CallWantsValue := true;
+        ParseCall()
+      end
       else
       begin
-        if TokKind = TkLBracket then ParseIndexSuffix();
+        Found := 0;
+        if TypeMode then
+        begin
+          Found := ResolveName(PendingIdentOffset, PendingIdentLength);
+          if Found = 0 then
+            FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                     PendingIdentOffset, PendingIdentLength, 0, 0)
+          else
+          begin
+            LastExprType := SymType[Found];
+            LastExprSym := Found;
+            LastExprRecord := SymRef[Found];
+            LastExprStrCap := 0;
+            if SymType[Found] = TyString then
+            begin
+              LastExprStrCap := SymHi[Found];
+              if SymKind[Found] = SkConst then LastExprStrCap := 255
+            end;
+            LastExprForm := 1;
+            LastExprLvalue := SymKind[Found] <> SkConst
+          end
+        end;
         if not ParseFailed then
-          if TokKind = TkDot then ParseFieldSuffix()
+          if TokKind = TkLBracket then
+          begin
+            BaseType := LastExprType;
+            BaseSym := LastExprSym;
+            BaseRecord := LastExprRecord;
+            BaseStrCap := LastExprStrCap;
+            BaseLvalue := LastExprLvalue;
+            ParseIndexSuffix();
+            if not ParseFailed then
+              if TypeMode then
+              begin
+                IndexType := LastExprType;
+                if IndexType <> TyInteger then
+                  FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                           PendingIdentOffset, PendingIdentLength, 0, 0)
+                else if BaseType = TyString then
+                begin
+                  LastExprType := TyChar;
+                  LastExprRecord := 0;
+                  LastExprStrCap := BaseStrCap;
+                  LastExprSym := BaseSym;
+                  LastExprLvalue := BaseLvalue;
+                  LastExprForm := 2
+                end
+                else if (SymKind[BaseSym] = SkArray) or
+                        (SymKind[BaseSym] = SkLocalArray) then
+                begin
+                  LastExprType := BaseType;
+                  LastExprRecord := BaseRecord;
+                  LastExprStrCap := 0;
+                  LastExprSym := BaseSym;
+                  LastExprLvalue := BaseLvalue;
+                  LastExprForm := 2
+                end
+                else
+                  FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                           PendingIdentOffset, PendingIdentLength, 0, 0)
+              end
+          end;
+        if not ParseFailed then
+          if TokKind = TkDot then
+          begin
+            BaseType := LastExprType;
+            BaseRecord := LastExprRecord;
+            BaseSym := LastExprSym;
+            BaseLvalue := LastExprLvalue;
+            ParseFieldSuffix();
+            if not ParseFailed then
+              if TypeMode then
+              begin
+                if BaseType <> TyRecord then
+                  FailType(TeRule, ParsedFieldLine, ParsedFieldCol,
+                           ParsedFieldOffset, ParsedFieldLength, 0, 0)
+                else
+                begin
+                  FieldIndex := FindRecordField(BaseRecord, ParsedFieldOffset,
+                                                ParsedFieldLength);
+                  if FieldIndex = 0 then
+                    FailType(TeRule, ParsedFieldLine, ParsedFieldCol,
+                             ParsedFieldOffset, ParsedFieldLength, 0, 0)
+                  else
+                  begin
+                    LastExprType := SymType[FieldIndex];
+                    LastExprRecord := 0;
+                    LastExprStrCap := 0;
+                    LastExprSym := BaseSym;
+                    LastExprLvalue := BaseLvalue;
+                    LastExprForm := 3
+                  end
+                end
+              end
+          end;
+        if not ParseFailed then
+          if TypeMode then
+          begin
+            if (SymKind[Found] = SkArray) or (SymKind[Found] = SkLocalArray) then
+            begin
+              if LastExprForm = 1 then
+                FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                         PendingIdentOffset, PendingIdentLength, 0, 0)
+            end;
+            if not ParseFailed then
+              if SymType[Found] = TyFile then
+                if LastExprForm = 1 then
+                  if not ((ParsingFileBuiltin <> 0) and (ArgCount = 0)) then
+                    FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                             PendingIdentOffset, PendingIdentLength, 0, 0)
+          end
       end
     end
     else if TokKind = TkLParen then
@@ -1348,6 +2598,7 @@ end;
 procedure ParseTerm();
 var
   Done: boolean;
+  LeftType, OperatorKind, OperatorLine, OperatorCol: integer;
 begin
   TraceEnter(PrTerm);
   ParseFactor();
@@ -1355,23 +2606,71 @@ begin
   while not Done do
   begin
     if TokKind = TkStar then begin { TPS_PARSE_MUT_PRECEDENCE }
+      LeftType := LastExprType;
+      OperatorKind := TokKind;
+      OperatorLine := TokLine;
+      OperatorCol := TokCol;
       NextToken();
-      ParseFactor()
+      ParseFactor();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if (LeftType <> TyInteger) or (LastExprType <> TyInteger) then
+            FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyInteger)
+        end
     end
     else if TokKind = TkDiv then
     begin
+      LeftType := LastExprType;
+      OperatorKind := TokKind;
+      OperatorLine := TokLine;
+      OperatorCol := TokCol;
       NextToken();
-      ParseFactor()
+      ParseFactor();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if (LeftType <> TyInteger) or (LastExprType <> TyInteger) then
+            FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyInteger)
+        end
     end
     else if TokKind = TkMod then
     begin
+      LeftType := LastExprType;
+      OperatorKind := TokKind;
+      OperatorLine := TokLine;
+      OperatorCol := TokCol;
       NextToken();
-      ParseFactor()
+      ParseFactor();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if (LeftType <> TyInteger) or (LastExprType <> TyInteger) then
+            FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyInteger)
+        end
     end
     else if TokKind = TkAnd then
     begin
+      LeftType := LastExprType;
+      OperatorKind := TokKind;
+      OperatorLine := TokLine;
+      OperatorCol := TokCol;
       NextToken();
-      ParseFactor()
+      ParseFactor();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if (LeftType <> TyBoolean) or (LastExprType <> TyBoolean) then
+            FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyBoolean)
+        end
     end
     else
       Done := true;
@@ -1383,6 +2682,8 @@ end;
 procedure ParseSimpleExpression();
 var
   Done: boolean;
+  LeftType, OperatorKind, OperatorLine, OperatorCol: integer;
+  LeftIsText, RightIsText: boolean;
 begin
   TraceEnter(PrSimpleExpression);
   ParseTerm();
@@ -1391,18 +2692,67 @@ begin
   begin
     if TokKind = TkPlus then
     begin
+      LeftType := LastExprType;
+      OperatorKind := TokKind;
+      OperatorLine := TokLine;
+      OperatorCol := TokCol;
       NextToken();
-      ParseTerm()
+      ParseTerm();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if (LeftType = TyString) or (LastExprType = TyString) then
+          begin
+            LeftIsText := (LeftType = TyString) or (LeftType = TyChar);
+            RightIsText := (LastExprType = TyString) or
+                           (LastExprType = TyChar);
+            if LeftIsText then
+            begin
+              if RightIsText then MarkComputed(TyString)
+              else FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+            end
+            else
+              FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          end
+          else if (LeftType <> TyInteger) or (LastExprType <> TyInteger) then
+            FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyInteger)
+        end
     end
     else if TokKind = TkMinus then
     begin
+      LeftType := LastExprType;
+      OperatorKind := TokKind;
+      OperatorLine := TokLine;
+      OperatorCol := TokCol;
       NextToken();
-      ParseTerm()
+      ParseTerm();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if (LeftType <> TyInteger) or (LastExprType <> TyInteger) then
+            FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyInteger)
+        end
     end
     else if TokKind = TkOr then
     begin
+      LeftType := LastExprType;
+      OperatorKind := TokKind;
+      OperatorLine := TokLine;
+      OperatorCol := TokCol;
       NextToken();
-      ParseTerm()
+      ParseTerm();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if (LeftType <> TyBoolean) or (LastExprType <> TyBoolean) then
+            FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyBoolean)
+        end
     end
     else
       Done := true;
@@ -1412,6 +2762,9 @@ begin
 end;
 
 procedure ParseExpression();
+var
+  LeftType, OperatorLine, OperatorCol: integer;
+  LeftIsText, RightIsText: boolean;
 begin
   TraceEnter(PrExpression);
   ParseSimpleExpression();
@@ -1419,8 +2772,34 @@ begin
   begin
     if IsRelationalOperator() then
     begin
+      LeftType := LastExprType;
+      OperatorLine := TokLine;
+      OperatorCol := TokCol;
       NextToken();
       ParseSimpleExpression();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if (LeftType = TyRecord) or (LastExprType = TyRecord) then
+            FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          else if (LeftType = TyString) or (LastExprType = TyString) then
+          begin
+            LeftIsText := (LeftType = TyString) or (LeftType = TyChar);
+            RightIsText := (LastExprType = TyString) or
+                           (LastExprType = TyChar);
+            if LeftIsText then
+            begin
+              if RightIsText then MarkComputed(TyBoolean)
+              else FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+            end
+            else
+              FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          end
+          else if LeftType <> LastExprType then
+            FailType(TeRule, OperatorLine, OperatorCol, 0, 0, 0, 0)
+          else
+            MarkComputed(TyBoolean)
+        end;
       if not ParseFailed then
         if IsRelationalOperator() then
           FailParse(ExpNoChainedRelation)
@@ -1430,24 +2809,147 @@ begin
 end;
 
 procedure ParseAssignment();
+var
+  TargetSym, TargetType, TargetRecord, TargetForm, ValueType, ValueRecord: integer;
+  TargetLvalue, WholeString: boolean;
 begin
   TraceEnter(PrAssignment);
+  TargetSym := 0;
+  TargetType := TyUnknown;
+  TargetRecord := 0;
+  TargetForm := 1;
+  TargetLvalue := false;
+  WholeString := false;
+  if TypeMode then
+  begin
+    TargetSym := ResolveName(PendingIdentOffset, PendingIdentLength);
+    if TargetSym = 0 then
+      FailType(TeRule, PendingIdentLine, PendingIdentCol,
+               PendingIdentOffset, PendingIdentLength, 0, 0)
+    else
+    begin
+      TargetType := SymType[TargetSym];
+      TargetRecord := SymRef[TargetSym];
+      TargetLvalue := SymKind[TargetSym] <> SkConst;
+      if TargetType = TyFile then
+        FailType(TeFileAssign, PendingIdentLine, PendingIdentCol,
+                 PendingIdentOffset, PendingIdentLength, 0, 0)
+      else if not TargetLvalue then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                 PendingIdentOffset, PendingIdentLength, 0, 0)
+    end
+  end;
   if not ParseFailed then
-    if TokKind = TkLBracket then ParseIndexSuffix();
+    if TokKind = TkLBracket then
+    begin
+      ParseIndexSuffix();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if LastExprType <> TyInteger then
+            FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                     PendingIdentOffset, PendingIdentLength, 0, 0)
+          else if TargetType = TyString then
+          begin
+            TargetType := TyChar;
+            TargetRecord := 0;
+            TargetForm := 2
+          end
+          else if (SymKind[TargetSym] = SkArray) or
+                  (SymKind[TargetSym] = SkLocalArray) then
+            TargetForm := 2
+          else
+            FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                     PendingIdentOffset, PendingIdentLength, 0, 0)
+        end
+    end;
   if not ParseFailed then
-    if TokKind = TkDot then ParseFieldSuffix();
+    if TokKind = TkDot then
+    begin
+      ParseFieldSuffix();
+      if not ParseFailed then
+        if TypeMode then
+        begin
+          if TargetType <> TyRecord then
+            FailType(TeRule, ParsedFieldLine, ParsedFieldCol,
+                     ParsedFieldOffset, ParsedFieldLength, 0, 0)
+          else
+          begin
+            ValueRecord := FindRecordField(TargetRecord, ParsedFieldOffset,
+                                           ParsedFieldLength);
+            if ValueRecord = 0 then
+              FailType(TeRule, ParsedFieldLine, ParsedFieldCol,
+                       ParsedFieldOffset, ParsedFieldLength, 0, 0)
+            else
+            begin
+              TargetType := SymType[ValueRecord];
+              TargetRecord := 0;
+              TargetForm := 3
+            end
+          end
+        end
+    end;
+  if not ParseFailed then
+    if TypeMode then
+      if ((SymKind[TargetSym] = SkArray) or
+          (SymKind[TargetSym] = SkLocalArray)) and
+         (TargetForm = 1) then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                 PendingIdentOffset, PendingIdentLength, 0, 0);
   if not ParseFailed then ExpectToken(TkAssign, TkAssign);
+  WholeString := false;
+  if not ParseFailed then
+    if TypeMode then
+      if SymType[TargetSym] = TyString then
+        if TargetForm = 1 then WholeString := true;
   if not ParseFailed then ParseExpression();
+  if not ParseFailed then
+    if TypeMode then
+    begin
+      ValueType := LastExprType;
+      ValueRecord := LastExprRecord;
+      if WholeString then
+      begin
+        if (ValueType <> TyString) and (ValueType <> TyChar) then
+          FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                   PendingIdentOffset, PendingIdentLength, 0, 0)
+      end
+      else if TargetType = TyRecord then
+      begin
+        if ValueType <> TyRecord then
+          FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                   PendingIdentOffset, PendingIdentLength, 0, 0)
+        else if ValueRecord <> TargetRecord then
+          FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                   PendingIdentOffset, PendingIdentLength, 0, 0)
+      end
+      else
+      if ValueType <> TargetType then begin { TPS_TYPE_MUT_ASSIGN }
+        FailType(TeAssignMismatch, PendingIdentLine, PendingIdentCol,
+                 PendingIdentOffset, PendingIdentLength, TargetType, ValueType)
+      end
+    end;
   if not ParseFailed then TraceExit(PrAssignment)
 end;
 
 procedure ParseIdentStatement();
 begin
   TraceEnter(PrIdentStatement);
-  if not ParseFailed then ExpectToken(TkIdent, TkIdent);
   if not ParseFailed then
   begin
-    if TokKind = TkLParen then ParseCall()
+    PendingIdentOffset := TokOffset;
+    PendingIdentLength := TokLength;
+    PendingIdentLine := TokLine;
+    PendingIdentCol := TokCol;
+    ExpectToken(TkIdent, TkIdent)
+  end;
+  if not ParseFailed then
+  begin
+    if TokKind = TkLParen then
+    begin
+      CallWantsValue := false;
+      ParseCall()
+    end
     else ParseAssignment()
   end;
   if not ParseFailed then TraceExit(PrIdentStatement)
@@ -1459,7 +2961,17 @@ begin
   if not ParseFailed then
   begin
     if TokKind = TkString then NextToken()
-    else ParseExpression()
+    else
+    begin
+      ParseExpression();
+      if not ParseFailed then
+        if TypeMode then
+          if (LastExprType <> TyInteger) and
+             (LastExprType <> TyBoolean) and
+             (LastExprType <> TyChar) and
+             (LastExprType <> TyString) then
+            FailType(TeRule, TokLine, TokCol, 0, 0, 0, 0)
+    end
   end;
   if not ParseFailed then TraceExit(PrWriteArg)
 end;
@@ -1496,11 +3008,20 @@ begin
 end;
 
 procedure ParseIf();
+var
+  ConditionType, ConditionLine, ConditionCol: integer;
 begin
   TraceEnter(PrIf);
   ParseIfDepth := ParseIfDepth + 1;
   if not ParseFailed then ExpectToken(TkIf, TkIf);
+  ConditionLine := TokLine;
+  ConditionCol := TokCol;
   if not ParseFailed then ParseExpression();
+  ConditionType := LastExprType;
+  if not ParseFailed then
+    if TypeMode then
+      if ConditionType <> TyBoolean then
+        FailType(TeRule, ConditionLine, ConditionCol, 0, 0, 0, 0);
   if not ParseFailed then ExpectToken(TkThen, TkThen);
   if not ParseFailed then ParseStatement();
   if not ParseFailed then
@@ -1517,26 +3038,66 @@ begin
 end;
 
 procedure ParseWhile();
+var
+  ConditionType, ConditionLine, ConditionCol: integer;
 begin
   TraceEnter(PrWhile);
   if not ParseFailed then ExpectToken(TkWhile, TkWhile);
+  ConditionLine := TokLine;
+  ConditionCol := TokCol;
   if not ParseFailed then ParseExpression();
+  ConditionType := LastExprType;
+  if not ParseFailed then
+    if TypeMode then
+      if ConditionType <> TyBoolean then
+        FailType(TeRule, ConditionLine, ConditionCol, 0, 0, 0, 0);
   if not ParseFailed then ExpectToken(TkDo, TkDo);
   if not ParseFailed then ParseStatement();
   if not ParseFailed then TraceExit(PrWhile)
 end;
 
 procedure ParseFor();
+var
+  ControlOffset, ControlLength, ControlLine, ControlCol, ControlSym: integer;
 begin
   TraceEnter(PrFor);
   if not ParseFailed then ExpectToken(TkFor, TkFor);
   if not ParseFailed then
   begin
-    if TokKind = TkIdent then NextToken()
+    ControlOffset := TokOffset;
+    ControlLength := TokLength;
+    ControlLine := TokLine;
+    ControlCol := TokCol;
+    if TokKind = TkIdent then
+    begin
+      if TypeMode then
+      begin
+        ControlSym := ResolveName(ControlOffset, ControlLength);
+        if ControlSym = 0 then
+          FailType(TeRule, ControlLine, ControlCol, ControlOffset,
+                   ControlLength, 0, 0)
+        else if SymType[ControlSym] <> TyInteger then
+          FailType(TeRule, ControlLine, ControlCol, ControlOffset,
+                   ControlLength, 0, 0)
+        else if SymKind[ControlSym] = SkConst then
+          FailType(TeRule, ControlLine, ControlCol, ControlOffset,
+                   ControlLength, 0, 0)
+        else if (SymKind[ControlSym] = SkArray) or
+                (SymKind[ControlSym] = SkLocalArray) then
+          FailType(TeRule, ControlLine, ControlCol, ControlOffset,
+                   ControlLength, 0, 0)
+      end;
+      if not ParseFailed then NextToken()
+    end
     else FailParse(ExpVarName)
   end;
   if not ParseFailed then ExpectToken(TkAssign, TkAssign);
   if not ParseFailed then ParseExpression();
+  if not ParseFailed then
+    if TypeMode then
+      if LastExprType <> TyInteger then
+        FailType(TeRule, ControlLine, ControlCol, ControlOffset,
+                 ControlLength, 0, 0);
   if not ParseFailed then
   begin
     if TokKind = TkTo then NextToken()
@@ -1544,6 +3105,11 @@ begin
     else FailParse(ExpToOrDownto)
   end;
   if not ParseFailed then ParseExpression();
+  if not ParseFailed then
+    if TypeMode then
+      if LastExprType <> TyInteger then
+        FailType(TeRule, ControlLine, ControlCol, ControlOffset,
+                 ControlLength, 0, 0);
   if not ParseFailed then ExpectToken(TkDo, TkDo);
   if not ParseFailed then ParseStatement();
   if not ParseFailed then TraceExit(PrFor)
@@ -1552,6 +3118,7 @@ end;
 procedure ParseRepeat();
 var
   Done: boolean;
+  ConditionLine, ConditionCol: integer;
 begin
   TraceEnter(PrRepeat);
   if not ParseFailed then ExpectToken(TkRepeat, TkRepeat);
@@ -1569,7 +3136,13 @@ begin
       Done := true
   end;
   if not ParseFailed then ExpectToken(TkUntil, TkUntil);
+  ConditionLine := TokLine;
+  ConditionCol := TokCol;
   if not ParseFailed then ParseExpression();
+  if not ParseFailed then
+    if TypeMode then
+      if LastExprType <> TyBoolean then
+        FailType(TeRule, ConditionLine, ConditionCol, 0, 0, 0, 0);
   if not ParseFailed then TraceExit(PrRepeat)
 end;
 
@@ -1616,18 +3189,52 @@ end;
 procedure ParseConstLiteral();
 begin
   TraceEnter(PrConstLiteral);
+  ParsedType := TyUnknown;
+  ParsedConstValue := 0;
+  ParsedConstLen := 0;
   if not ParseFailed then
   begin
     if TokKind = TkMinus then
     begin
       NextToken();
-      if TokKind = TkInteger then NextToken()
+      if TokKind = TkInteger then
+      begin
+        ParsedType := TyInteger;
+        ParsedConstValue := -TokValue;
+        NextToken()
+      end
       else FailParse(ExpConstLiteral)
     end
-    else if TokKind = TkInteger then NextToken()
-    else if TokKind = TkString then NextToken()
-    else if TokKind = TkTrue then NextToken()
-    else if TokKind = TkFalse then NextToken()
+    else if TokKind = TkInteger then
+    begin
+      ParsedType := TyInteger;
+      ParsedConstValue := TokValue;
+      NextToken()
+    end
+    else if TokKind = TkString then
+    begin
+      ParsedConstLen := TokLength;
+      if TokLength = 1 then
+      begin
+        ParsedType := TyChar;
+        ParsedConstValue := Ord(TokText[1])
+      end
+      else
+        ParsedType := TyString;
+      NextToken()
+    end
+    else if TokKind = TkTrue then
+    begin
+      ParsedType := TyBoolean;
+      ParsedConstValue := 1;
+      NextToken()
+    end
+    else if TokKind = TkFalse then
+    begin
+      ParsedType := TyBoolean;
+      ParsedConstValue := 0;
+      NextToken()
+    end
     else FailParse(ExpConstLiteral)
   end;
   if not ParseFailed then TraceExit(PrConstLiteral)
@@ -1636,6 +3243,7 @@ end;
 procedure ParseConstSection();
 var
   Done: boolean;
+  NameOffset, NameLength, NameLine, NameCol: integer;
 begin
   TraceEnter(PrConstSection);
   if not ParseFailed then ExpectToken(TkConst, TkConst);
@@ -1643,10 +3251,18 @@ begin
   while not Done do
   begin
     TraceEnter(PrConstDecl);
+    NameOffset := TokOffset;
+    NameLength := TokLength;
+    NameLine := TokLine;
+    NameCol := TokCol;
     if TokKind = TkIdent then NextToken()
     else FailParse(ExpConstLiteral);
     if not ParseFailed then ExpectToken(TkEq, TkEq);
     if not ParseFailed then ParseConstLiteral();
+    if not ParseFailed then
+      if TypeMode then
+        AddConstSymbol(NameOffset, NameLength, NameLine, NameCol, ParsedType,
+                       ParsedConstValue, ParsedConstLen);
     if not ParseFailed then ExpectToken(TkSemi, TkSemi);
     if not ParseFailed then TraceExit(PrConstDecl);
     if ParseFailed then Done := true
@@ -1658,6 +3274,7 @@ end;
 procedure ParseRecordType();
 var
   Done, NamesDone: boolean;
+  FieldType, I: integer;
 begin
   TraceEnter(PrRecordType);
   if not ParseFailed then ExpectToken(TkRecord, TkRecord);
@@ -1667,10 +3284,26 @@ begin
   while not Done do
   begin
     TraceEnter(PrFieldGroup);
+    PendingNameCount := 0;
     NamesDone := false;
     while not NamesDone do
     begin
-      if TokKind = TkIdent then NextToken()
+      if TokKind = TkIdent then
+      begin
+        if TypeMode then
+        begin
+          if PendingNameCount >= PendingNameMax then
+            FailType(TeRule, TokLine, TokCol, TokOffset, TokLength, 0, 0)
+          else
+          begin
+            PendingNameCount := PendingNameCount + 1;
+            PendingNameOffset[PendingNameCount] := TokOffset;
+            PendingNameLine[PendingNameCount] := TokLine;
+            PendingNameCol[PendingNameCount] := TokCol
+          end
+        end;
+        if not ParseFailed then NextToken()
+      end
       else FailParse(ExpFieldName);
       if ParseFailed then
         NamesDone := true
@@ -1682,11 +3315,24 @@ begin
     if not ParseFailed then ExpectToken(TkColon, TkColon);
     if not ParseFailed then
     begin
-      if TokKind = TkIntegerType then NextToken()
-      else if TokKind = TkBoolean then NextToken()
-      else if TokKind = TkChar then NextToken()
+      FieldType := TyUnknown;
+      if TokKind = TkIntegerType then begin FieldType := TyInteger; NextToken() end
+      else if TokKind = TkBoolean then begin FieldType := TyBoolean; NextToken() end
+      else if TokKind = TkChar then begin FieldType := TyChar; NextToken() end
       else FailParse(ExpTypeName)
     end;
+    if not ParseFailed then
+      if TypeMode then
+      begin
+        I := 1;
+        while I <= PendingNameCount do
+        begin
+          AddRecordField(PendingNameOffset[I],
+                         PoolLengthAt(PendingNameOffset[I]),
+                         PendingNameLine[I], PendingNameCol[I], FieldType);
+          I := I + 1
+        end
+      end;
     if not ParseFailed then ExpectToken(TkSemi, TkSemi);
     if not ParseFailed then TraceExit(PrFieldGroup);
     if ParseFailed then Done := true
@@ -1699,6 +3345,7 @@ end;
 procedure ParseTypeSection();
 var
   Done: boolean;
+  NameOffset, NameLength, NameLine, NameCol: integer;
 begin
   TraceEnter(PrTypeSection);
   if not ParseFailed then ExpectToken(TkType, TkType);
@@ -1706,12 +3353,22 @@ begin
   while not Done do
   begin
     TraceEnter(PrTypeDecl);
-    if TokKind = TkIdent then NextToken()
+    NameOffset := TokOffset;
+    NameLength := TokLength;
+    NameLine := TokLine;
+    NameCol := TokCol;
+    if TokKind = TkIdent then
+    begin
+      if TypeMode then
+        CurrentRecord := AddRecordType(NameOffset, NameLength, NameLine, NameCol);
+      if not ParseFailed then NextToken()
+    end
     else FailParse(ExpTypeName);
     if not ParseFailed then ExpectToken(TkEq, TkEq);
     if not ParseFailed then ParseRecordType();
     if not ParseFailed then ExpectToken(TkSemi, TkSemi);
     if not ParseFailed then TraceExit(PrTypeDecl);
+    CurrentRecord := 0;
     if ParseFailed then Done := true
     else if TokKind <> TkIdent then Done := true
   end;
@@ -1719,28 +3376,62 @@ begin
 end;
 
 procedure ParseArrayType();
+var
+  LowBound, HighBound: integer;
 begin
   TraceEnter(PrArrayType);
+  ParsedIsArray := true;
   if not ParseFailed then ExpectToken(TkArray, TkArray);
   if not ParseFailed then ExpectToken(TkLBracket, TkLBracket);
   if not ParseFailed then ParseArrayBound();
+  LowBound := ParsedBound;
   if not ParseFailed then ExpectToken(TkDotDot, TkDotDot);
   if not ParseFailed then ParseArrayBound();
+  HighBound := ParsedBound;
   if not ParseFailed then ExpectToken(TkRBracket, TkRBracket);
+  if not ParseFailed then
+    if TypeMode then
+      if LowBound > HighBound then
+        FailType(TeRule, TokLine, TokCol, 0, 0, 0, 0);
   if not ParseFailed then ExpectToken(TkOf, TkOf);
   if not ParseFailed then ParseTypeName();
+  ParsedLo := LowBound;
+  ParsedHi := HighBound;
+  ParsedIsArray := true;
+  if not ParseFailed then
+    if TypeMode then
+      if (ParsedType = TyString) or (ParsedType = TyFile) then
+        FailType(TeRule, TokLine, TokCol, 0, 0, 0, 0);
   if not ParseFailed then TraceExit(PrArrayType)
 end;
 
 procedure ParseVarDecl();
 var
   Done: boolean;
+  I: integer;
 begin
   TraceEnter(PrVarDecl);
+  PendingNameCount := 0;
+  ParsedIsArray := false;
   Done := false;
   while not Done do
   begin
-    if TokKind = TkIdent then NextToken()
+    if TokKind = TkIdent then
+    begin
+      if TypeMode then
+      begin
+        if PendingNameCount >= PendingNameMax then
+          FailType(TeRule, TokLine, TokCol, TokOffset, TokLength, 0, 0)
+        else
+        begin
+          PendingNameCount := PendingNameCount + 1;
+          PendingNameOffset[PendingNameCount] := TokOffset;
+          PendingNameLine[PendingNameCount] := TokLine;
+          PendingNameCol[PendingNameCount] := TokCol
+        end
+      end;
+      if not ParseFailed then NextToken()
+    end
     else FailParse(ExpVarName);
     if ParseFailed then
       Done := true
@@ -1753,8 +3444,26 @@ begin
   if not ParseFailed then
   begin
     if TokKind = TkArray then ParseArrayType()
-    else ParseTypeName()
+    else
+    begin
+      ParsedIsArray := false;
+      ParseTypeName()
+    end
   end;
+  if not ParseFailed then
+    if TypeMode then
+    begin
+      I := 1;
+      while I <= PendingNameCount do
+      begin
+        AddDataSymbol(PendingNameOffset[I],
+                      PoolLengthAt(PendingNameOffset[I]),
+                      PendingNameLine[I], PendingNameCol[I], ParsedType,
+                      ParsedRef, ParsedStrCap, ParsedLo, ParsedHi,
+                      ParsedIsArray);
+        I := I + 1
+      end
+    end;
   if not ParseFailed then TraceExit(PrVarDecl)
 end;
 
@@ -1777,15 +3486,37 @@ end;
 
 procedure ParseParamGroup();
 var
-  Done: boolean;
+  Done, IsVarParam, DuplicateName: boolean;
+  I, J, ParamKind: integer;
 begin
   TraceEnter(PrParamGroup);
+  IsVarParam := false;
   if not ParseFailed then
-    if TokKind = TkVar then NextToken();
+    if TokKind = TkVar then
+    begin
+      IsVarParam := true;
+      NextToken()
+    end;
+  PendingNameCount := 0;
   Done := false;
   while not Done do
   begin
-    if TokKind = TkIdent then NextToken()
+    if TokKind = TkIdent then
+    begin
+      if TypeMode then
+      begin
+        if PendingNameCount >= PendingNameMax then
+          FailType(TeRule, TokLine, TokCol, TokOffset, TokLength, 0, 0)
+        else
+        begin
+          PendingNameCount := PendingNameCount + 1;
+          PendingNameOffset[PendingNameCount] := TokOffset;
+          PendingNameLine[PendingNameCount] := TokLine;
+          PendingNameCol[PendingNameCount] := TokCol
+        end
+      end;
+      if not ParseFailed then NextToken()
+    end
     else FailParse(ExpParamName);
     if ParseFailed then
       Done := true
@@ -1796,6 +3527,68 @@ begin
   end;
   if not ParseFailed then ExpectToken(TkColon, TkColon);
   if not ParseFailed then ParseTypeName();
+  if not ParseFailed then
+    if TypeMode then
+    begin
+      if ParsedType = TyRecord then
+        if not IsVarParam then
+          FailType(TeRule, TokLine, TokCol, 0, 0, 0, 0);
+      if not ParseFailed then
+        if ParsedType = TyString then
+        begin
+          if not IsVarParam then
+            FailType(TeRule, TokLine, TokCol, 0, 0, 0, 0)
+          else if ParsedStrCap <> 255 then
+            FailType(TeRule, TokLine, TokCol, 0, 0, 0, 0)
+        end;
+      if not ParseFailed then
+        if ParsedType = TyFile then
+          FailType(TeRule, TokLine, TokCol, 0, 0, 0, 0);
+      I := 1;
+      while I <= PendingNameCount do
+      begin
+        if not ParseFailed then
+        begin
+          DuplicateName := false;
+          J := 1;
+          while J <= HeaderCount do
+          begin
+            if NamesEqual(HeaderNameOffset[J],
+                          PoolLengthAt(HeaderNameOffset[J]),
+                          PendingNameOffset[I],
+                          PoolLengthAt(PendingNameOffset[I])) then
+              DuplicateName := true;
+            J := J + 1
+          end;
+          if DuplicateName then
+            FailType(TeDuplicate, PendingNameLine[I], PendingNameCol[I],
+                     PendingNameOffset[I],
+                     PoolLengthAt(PendingNameOffset[I]), 0, 0)
+          else if NameIsFileBuiltin(PendingNameOffset[I],
+                                    PoolLengthAt(PendingNameOffset[I])) then
+            FailType(TeRule, PendingNameLine[I], PendingNameCol[I],
+                     PendingNameOffset[I],
+                     PoolLengthAt(PendingNameOffset[I]), 0, 0)
+          else if HeaderCount >= HeaderParamMax then
+            FailType(TeRule, PendingNameLine[I], PendingNameCol[I],
+                     PendingNameOffset[I],
+                     PoolLengthAt(PendingNameOffset[I]), 0, 0)
+          else
+          begin
+            HeaderCount := HeaderCount + 1;
+            HeaderNameOffset[HeaderCount] := PendingNameOffset[I];
+            HeaderType[HeaderCount] := ParsedType;
+            ParamKind := SkValueParam;
+            if IsVarParam then ParamKind := SkVarParam;
+            HeaderKind[HeaderCount] := ParamKind;
+            HeaderRef[HeaderCount] := ParsedRef;
+            HeaderLine[HeaderCount] := PendingNameLine[I];
+            HeaderCol[HeaderCount] := PendingNameCol[I]
+          end
+        end;
+        I := I + 1
+      end
+    end;
   if not ParseFailed then TraceExit(PrParamGroup)
 end;
 
@@ -1824,14 +3617,21 @@ end;
 
 procedure ParseRoutine(IsFunction: boolean);
 var
-  Production: integer;
+  Production, NameOffset, NameLength, NameLine, NameCol, RoutineIndex: integer;
+  IsForward: boolean;
 begin
   Production := PrRoutineProcedure;
   if IsFunction then Production := PrRoutineFunction;
   TraceEnter(Production);
+  HeaderCount := 0;
+  ParsedType := TyNone;
   if not ParseFailed then NextToken();
   if not ParseFailed then
   begin
+    NameOffset := TokOffset;
+    NameLength := TokLength;
+    NameLine := TokLine;
+    NameCol := TokCol;
     if TokKind = TkIdent then NextToken()
     else FailParse(ExpRoutineName)
   end;
@@ -1845,19 +3645,40 @@ begin
       if not ParseFailed then ParseResultType()
     end
   end;
+  if not IsFunction then ParsedType := TyNone;
   if not ParseFailed then ExpectToken(TkSemi, TkSemi);
+  IsForward := false;
+  if not ParseFailed then
+    if TokKind = TkForward then IsForward := true;
+  RoutineIndex := 0;
+  if not ParseFailed then
+    if TypeMode then
+      RoutineIndex := RegisterRoutine(NameOffset, NameLength, NameLine,
+                                      NameCol, IsFunction, IsForward);
   if not ParseFailed then
   begin
-    if TokKind = TkForward then
+    if IsForward then
     begin
       NextToken();
       ExpectToken(TkSemi, TkSemi)
     end
     else
     begin
+      if TypeMode then
+      begin
+        ActiveRoutine := RoutineIndex;
+        LocalSlots := 0;
+        if IsFunction then LocalSlots := 1
+      end;
       if TokKind = TkVar then ParseVarSection();
       if not ParseFailed then ParseBlock();
-      if not ParseFailed then ExpectToken(TkSemi, TkSemi)
+      if not ParseFailed then ExpectToken(TkSemi, TkSemi);
+      if TypeMode then
+      begin
+        if RoutineIndex > 0 then SymSize[RoutineIndex] := LocalSlots * 4;
+        ActiveRoutine := 0;
+        LocalSlots := 0
+      end
     end
   end;
   if not ParseFailed then TraceExit(Production)
@@ -1890,11 +3711,14 @@ begin
   if not ParseFailed then ExpectToken(TkDot, TkDot);
   if not ParseFailed then
     if TokKind <> TkEof then FailParse(TkEof);
+  if not ParseFailed then
+    if TypeMode then CheckUnresolvedForwards();
   if not ParseFailed then TraceExit(PrProgram)
 end;
 
 procedure RunParser();
 begin
+  ReadInput();
   ScanPos := 1;
   ScanLine := 1;
   ScanCol := 1;
@@ -1902,10 +3726,46 @@ begin
   PoolCount := 0;
   ParseFailed := false;
   ParseIfDepth := 0;
+  TypeMode := false;
+  EmitParseTrace := true;
   NextToken();
   if not HadError then ParseProgram();
   if not ParseFailed then
     if not HadError then Writeln('TPS-PARSE-OK')
+end;
+
+procedure RunTypeChecker();
+begin
+  ReadInput();
+  ScanPos := 1;
+  ScanLine := 1;
+  ScanCol := 1;
+  PoolUsed := 0;
+  PoolCount := 0;
+  ParseFailed := false;
+  ParseIfDepth := 0;
+  TypeFailed := false;
+  TypeMode := true;
+  EmitParseTrace := false;
+  SymCount := 0;
+  GlobalBytes := 0;
+  ActiveRoutine := 0;
+  LocalSlots := 0;
+  CurrentRecord := 0;
+  HeaderCount := 0;
+  PendingNameCount := 0;
+  ArgCount := 0;
+  ParsingFileBuiltin := 0;
+  ResetLastExpression();
+  NextToken();
+  if not HadError then ParseProgram();
+  if not TypeFailed then
+    if not ParseFailed then
+    begin
+      DumpSymbols();
+      Writeln('TPS-TYPE-OK')
+    end;
+  TypeMode := false
 end;
 
 begin
@@ -1919,5 +3779,14 @@ begin
     Writeln('TPS-PARSE-SKIP lexer-error')
   else
     RunParser();
-  Writeln('TPS-PARSE-END')
+  Writeln('TPS-PARSE-END');
+  SyntaxClean := not ParseFailed;
+  Writeln('TPS-TYPE-BEGIN');
+  if HadError then
+    Writeln('TPS-TYPE-SKIP lexer-error')
+  else if not SyntaxClean then
+    Writeln('TPS-TYPE-SKIP parser-error')
+  else
+    RunTypeChecker();
+  Writeln('TPS-TYPE-END')
 end.
