@@ -40,6 +40,15 @@
  * Ref: window-chrome.md Sec 2.3. */
 #define FG_TITLE_CENTERED          1
 #define FG_TITLE_KNOCKOUT_IDX    218
+#define FG_TITLE_GAP_PAD_LEFT       6
+#define FG_TITLE_GAP_PAD_RIGHT      5
+#define FG_TITLE_DARK_GAP_SHIFT     1
+#define FG_TITLE_TEXT_TOP_OFF       4
+#define FG_TITLE_RUN_LEFT_OFF      21
+#define FG_TITLE_RUN_RIGHT_OFF     38
+#define FG_TITLE_FIXED_TEXT       "TITLE"
+#define FG_TITLE_TRUNC_SOURCE     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+#define FG_TITLE_TRUNC_EXPECTED   "ABCDEFG."
 
 /* -------------------------------------------------------------------------
  * PLATINUM WIDGETS.

@@ -1251,8 +1251,18 @@ static void flair_live_cursor_track(const EventRecord *ev)
     serial_putc('\n');
 }
 
-/* Map a hit WindowPtr back to its document-window store index (or -1). For the
- * FLAIR-DRAG marker only (the modal/dialog window is not in this store). */
+/* Map a hit WindowPtr to the stable serial-marker ID for this scene.
+ *
+ * Marker ABI (kept byte-for-byte apart from the numeric repair):
+ *   FLAIR-DRAG win <id> (<old-left>,<old-top>)->(<new-left>,<new-top>)
+ *   FLAIR-CLOSE win <id>
+ *
+ * The canonical shell store keeps its historical array IDs so locked
+ * FLAIRLIVE traces do not re-key. Tenant windows are not in that store (the
+ * initech-883x root cause), so the fallback scans the REAL WindowMgr list via
+ * its host-graded helper. Hidden records remain linked; unlinked records alone
+ * return -1. The drag/close callers capture the ID while `w` is still linked.
+ * Ref: os/flair/window.h WindowMgr_window_index; beads initech-883x. */
 static int flair_live_window_index(const flair_live_ctx_t *ctx, WindowPtr w)
 {
     int i;
@@ -1261,7 +1271,7 @@ static int flair_live_window_index(const flair_live_ctx_t *ctx, WindowPtr w)
             return i;
         }
     }
-    return -1;
+    return WindowMgr_window_index(ctx->wm, w);
 }
 
 /* The DQ2 CONTENT phase of a damaging chrome dispatch (drag/close) -- beads

@@ -22,8 +22,10 @@
  *     (strucRgn / contRgn / updateRgn + a clip scratch, each rows[]/x_pool attached)
  *     from self->arena; compute the structure bounds for THIS tenant from
  *     spec/flair_tenants_demo.h and the content rect by the documentProc chrome inset
- *     (the shell.c convention: 1px frame + 19px title bar); NewWindow(lp->wm, ...); set
- *     w->refCon = (int32_t)(uintptr_t)self (the Sec 3.1 binding / demux rule); stash
+ *     (the shell.c convention: frame + Platinum title bar); NewWindow(lp->wm,
+ *     ...); SetWTitle(lp->wm, ..., HELLO/NOTES) through the kernel-held D2-3
+ *     seam; set w->refCon = (int32_t)(uintptr_t)self (the Sec 3.1 binding /
+ *     demux rule); stash
  *     lp->surface / lp->wm / content in the private state; do the INITIAL content FILL
  *     on lp->surface over the content rect, clipped to the content region.
  *
@@ -103,6 +105,7 @@ typedef struct ten_rgn {
  * spec/flair_tenants_demo.h so the tenants match that locked layout EXACTLY.
  * ------------------------------------------------------------------------- */
 typedef struct tenant_cfg {
+    const char *title;       /* kernel-held WindowRecord title via SetWTitle       */
     uint8_t  fill_idx;       /* content FILL canon index (FLAIR_TEN_*_FILL)         */
     uint8_t  accent_idx;     /* active-accent canon index (FLAIR_TEN_ACTIVE_ACCENT) */
     int16_t  bnd_l, bnd_t, bnd_r, bnd_b;  /* structure bounds (demo l,t,r,b)        */
@@ -111,11 +114,13 @@ typedef struct tenant_cfg {
 } tenant_cfg_t;
 
 static const tenant_cfg_t HELLO_CFG = {
+    FLAIR_TEN_HELLO_NAME,
     (uint8_t)FLAIR_TEN_HELLO_FILL, (uint8_t)FLAIR_TEN_ACTIVE_ACCENT,
     FLAIR_TEN_HELLO_L, FLAIR_TEN_HELLO_T, FLAIR_TEN_HELLO_R, FLAIR_TEN_HELLO_B,
     1, FLAIR_TEN_HELLO_ACCENT_X, FLAIR_TEN_HELLO_ACCENT_Y
 };
 static const tenant_cfg_t NOTES_CFG = {
+    FLAIR_TEN_NOTES_NAME,
     (uint8_t)FLAIR_TEN_NOTES_FILL, (uint8_t)FLAIR_TEN_ACTIVE_ACCENT,
     FLAIR_TEN_NOTES_L, FLAIR_TEN_NOTES_T, FLAIR_TEN_NOTES_R, FLAIR_TEN_NOTES_B,
     0, 0, 0   /* NOTES has no graded accent probe -> accent at content top-left      */
@@ -326,6 +331,7 @@ static int open_common(FlairApp *self, const FlairLaunchParams *lp,
 
     NewWindow(lp->wm, rec, bounds, content,
               (int16_t)documentKind, (int16_t)documentProc, 1 /* goAway */);
+    SetWTitle(lp->wm, rec, cfg->title);
 
     /* the binding / demux rule (ADR-0013 Sec 3.1): FindWindow -> refCon -> FlairApp*. */
     rec->refCon = (int32_t)(uintptr_t)self;

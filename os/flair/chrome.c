@@ -16,6 +16,7 @@
 #include "region_algebra.h"
 #include "flair_look.h"
 #include "text.h"
+#include "window_record.h"  /* FLAIR_WINDOW_TITLE_MAX: kernel-held title seam */
 
 /* True when a port-local pixel is in visRgn INTERSECT clipRgn. */
 static int clip_in(const GrafPort *port, int x, int y)
@@ -176,12 +177,105 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
 }
 #endif
 
+typedef struct title_layout {
+    char text[FLAIR_WINDOW_TITLE_MAX];
+    int x;
+    int width;
+    int gap_left;
+    int gap_right;
+} title_layout_t;
+
+static void chicago_ink_bounds(const char *text, int width,
+                               int *ink_left, int *ink_right)
+{
+    int lo = width;
+    int hi = -1;
+    for (int i = 0; text[i] != '\0'; i++) {
+        const unsigned char *glyph = chicago8x16_glyph((unsigned char)text[i]);
+        for (int row = 0; row < CHICAGO_CELL_H; row++) {
+            for (int col = 0; col < CHICAGO_CELL_W; col++) {
+                if ((glyph[row] & (unsigned char)(0x80u >> col)) != 0u) {
+                    int x = i * CHICAGO_CELL_W + col;
+                    if (x < lo) lo = x;
+                    if (x > hi) hi = x;
+                }
+            }
+        }
+    }
+    if (hi < lo) {
+        lo = 0;
+        hi = width - 1;
+    }
+    *ink_left = lo;
+    *ink_right = hi + 1;
+}
+
+/* Fit a Chicago title into the measured stripe run while keeping it centered
+ * on the WHOLE title bar (window-chrome.md Sec 2.3: "centred in the bar").
+ * The widget-side limits come from the measured stripe extents between the
+ * close and zoom clusters (Sec 2.2 / Sec 3.1).  Overlong titles are truncated
+ * at a whole-cell boundary and the final visible cell becomes one period.  This
+ * is the recorded R0.2 simplification for System's condensation/truncation: no
+ * synthetic ellipsis glyph and no font condensation. */
+static int title_layout_make(title_layout_t *out, const char *title,
+                             int left, int right,
+                             int safe_left, int safe_right)
+{
+    int n = 0;
+    int shown;
+    int source_truncated;
+
+    if (out == 0 || title == 0 || title[0] == '\0') {
+        return 0;
+    }
+    while (title[n] != '\0' && n < (int)FLAIR_WINDOW_TITLE_MAX - 1) {
+        n++;
+    }
+    source_truncated = title[n] != '\0';
+    shown = n;
+    while (shown > 0) {
+        int ink_left;
+        int ink_right;
+        for (int i = 0; i < shown; i++) {
+            out->text[i] = title[i];
+        }
+        if (source_truncated || shown < n) {
+            out->text[shown - 1] = FLAIR_CHROME_TITLE_TRUNC_MARKER;
+        }
+        out->text[shown] = '\0';
+        int width = text_measure(FONT_CHICAGO, out->text);
+        int x = left + ((right - left) - width) / 2;
+        chicago_ink_bounds(out->text, width, &ink_left, &ink_right);
+        int gap_left = x + ink_left - FLAIR_CHROME_TITLE_GAP_PAD_LEFT;
+        int gap_right = x + ink_right + FLAIR_CHROME_TITLE_GAP_PAD_RIGHT;
+        if (gap_left >= safe_left && gap_right <= safe_right) {
+            out->x = x;
+            out->width = width;
+            out->gap_left = gap_left;
+            out->gap_right = gap_right;
+            break;
+        }
+        shown--;
+    }
+    if (shown == 0) {
+        return 0;
+    }
+#if defined(CHROME_FID_MUT_CENTER_OFF)
+    /* Rule-6 R0.2 mutant: displace the entire centered title treatment +7px. */
+    out->x += 7;
+    out->gap_left += 7;
+    out->gap_right += 7;
+#endif
+    return 1;
+}
+
 /* Shared Platinum title-band renderer. The exact sampled row profile is:
  * frame, highlight, two face, twelve alternating stripes, four face, shadow,
  * frame. Ref: window-chrome.md Sec 2.1-2.3. */
 static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
                               int left, int top, int right,
-                              const char *title, int hilited)
+                              const char *title, int hilited,
+                              int title_safe_left, int title_safe_right)
 {
     int active = hilited;
     int shared_line = top + FLAIR_CHROME_TITLEBAR_H - 1;
@@ -237,28 +331,45 @@ static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
           active ? FLAIR_PART_FRAME : FLAIR_PART_PLAT_INACTIVE_FRAME);
 #endif
 
-#if defined(CHROME_FID_MUT_NO_TITLE)
-    (void)title;
-#else
-    if (title != 0 && title[0] != '\0') {
-        int tw = text_measure(FONT_CHICAGO, title);
-        int tx = left + (w - tw) / 2;
-        int ty = top + FLAIR_CHROME_WIDGET_TOP_OFF;
-        int ink_part;
+    {
+        title_layout_t layout;
+        if (title_layout_make(&layout, title, left, right,
+                              title_safe_left, title_safe_right)) {
+            int ty = top + FLAIR_CHROME_TITLE_TEXT_TOP_OFF;
+            int ink_part;
+
+            if (active) {
+                int gap_w = layout.gap_right - layout.gap_left;
+                for (int row = 0;
+                     row < FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS; row++) {
+                    int shift = (row & 1)
+                                    ? FLAIR_CHROME_TITLE_DARK_GAP_SHIFT : 0;
+                    cfill(port, layout.gap_left + shift,
+                          top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF + row,
+                          gap_w, FLAIR_PART_PLAT_FRAME_FACE);
+                }
+            }
 
 #if defined(CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE)
-        ink_part = FLAIR_PART_TEXT;
+            ink_part = FLAIR_PART_TEXT;
 #else
-        ink_part = active ? FLAIR_PART_TEXT : FLAIR_PART_PLAT_INACTIVE_TEXT;
+            ink_part = active ? FLAIR_PART_TEXT
+                              : FLAIR_PART_PLAT_INACTIVE_TEXT;
 #endif
-        text_draw(&port->portBits.bm, tx, ty, title, FONT_CHICAGO,
-                  flair_look_pixel_for_skin(port, skin, ink_part),
-                  flair_look_pixel_for_skin(port, skin,
-                                            active
-                                            ? FLAIR_PART_PLAT_FRAME_FACE
-                                            : FLAIR_PART_PLAT_FACE));
+#if !defined(CHROME_FID_MUT_TITLE_BLANK) && !defined(CHROME_FID_MUT_NO_TITLE)
+            text_draw(&port->portBits.bm, layout.x, ty, layout.text,
+                      FONT_CHICAGO,
+                      flair_look_pixel_for_skin(port, skin, ink_part),
+                      flair_look_pixel_for_skin(
+                          port, skin,
+                          active ? FLAIR_PART_PLAT_FRAME_FACE
+                                 : FLAIR_PART_PLAT_FACE));
+#else
+            (void)ty;
+            (void)ink_part;
+#endif
+        }
     }
-#endif
     return shared_line;
 }
 
@@ -524,7 +635,10 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
 #if defined(CHROME_FID_MUT_NO_INACTIVE)
     active = 1;
 #endif
-    shared_line = draw_titlebar_band(port, skin, left, top, right, title, active);
+    shared_line = draw_titlebar_band(
+        port, skin, left, top, right, title, active,
+        left + FLAIR_CHROME_TITLE_RUN_LEFT_OFF,
+        right - FLAIR_CHROME_TITLE_RUN_RIGHT_OFF);
     frame_part = active ? FLAIR_PART_FRAME
                         : FLAIR_PART_PLAT_INACTIVE_FRAME;
 #if defined(CHROME_FID_MUT_INACTIVE_BLACK_FRAME)
@@ -654,6 +768,8 @@ void flair_draw_movable_dbox_chrome(GrafPort *port, const flair_skin_t *skin,
         return;
     }
 
-    (void)draw_titlebar_band(port, skin, left, top, right, title, 1);
+    (void)draw_titlebar_band(
+        port, skin, left, top, right, title, 1,
+        left + 1, right - 1);
     cframe(port, left, top, right, bottom, FLAIR_PART_FRAME);
 }

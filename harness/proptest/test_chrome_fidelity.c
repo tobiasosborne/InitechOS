@@ -1,11 +1,10 @@
 /*
- * test_chrome_fidelity.c -- Platinum chrome fidelity oracle (B1 RED).
+ * test_chrome_fidelity.c -- Platinum chrome fidelity oracle.
  *
  * This grades the real os/flair/chrome.c render against the independent
  * sys8 golden encoded in spec/chrome_fidelity_golden.h. Expected values never
- * come from chrome_metrics.h (Law 2 / HER-02). The current renderer is still
- * System 7, so B1 intentionally runs RED for the Platinum differences; Phase
- * B2 makes these same legs green.
+ * come from chrome_metrics.h (Law 2 / HER-02). The live renderer is Platinum;
+ * every leg is green and its named implementation mutants must run red.
  *
  * Ground truth: ../system7-decomp/specs/sys8/window-chrome.md Sec 1-6,
  * ../system7-decomp/specs/sys8/scrollbars.md Sec 1-5, and
@@ -20,6 +19,7 @@
 #include "chrome.h"
 #include "flair_look.h"
 #include "chrome_fidelity_golden.h"
+#include "chicago8x16.h"
 #include "test_assert.h"
 
 TEST_HARNESS();
@@ -28,10 +28,14 @@ enum {
     WIN_LEFT = 40,
     WIN_TOP = 30,
     WIN_RIGHT = 360,
-    WIN_BOTTOM = 300
+    WIN_BOTTOM = 300,
+    TRUNC_LEFT = 400,
+    TRUNC_TOP = 30,
+    TRUNC_RIGHT = 550,
+    TRUNC_BOTTOM = 220
 };
 
-#define TEST_TITLE "untitled"
+#define TEST_TITLE FG_TITLE_FIXED_TEXT
 
 static rgn_rect_t win_frame(void)
 {
@@ -53,6 +57,22 @@ static void draw_inactive(GrafPort *port)
 {
     flair_draw_document_window(port, flair_look_default_skin(),
                                win_frame(), TEST_TITLE, 0);
+}
+
+static rgn_rect_t trunc_frame(void)
+{
+    rgn_rect_t r;
+    r.top = TRUNC_TOP;
+    r.left = TRUNC_LEFT;
+    r.bottom = TRUNC_BOTTOM;
+    r.right = TRUNC_RIGHT;
+    return r;
+}
+
+static void draw_truncated(GrafPort *port)
+{
+    flair_draw_document_window(port, flair_look_default_skin(),
+                               trunc_frame(), FG_TITLE_TRUNC_SOURCE, 1);
 }
 
 static uint32_t px(const render_ctx_t *ctx, int x, int y)
@@ -85,6 +105,95 @@ static uint32_t title_class_idx(char c)
     case 'S': return FG_TITLE_FRAME_SHADOW_IDX;
     default:  return 0xFFFFFFFFu;
     }
+}
+
+static void golden_chicago_ink_bounds(const char *text,
+                                      int *ink_left, int *ink_right)
+{
+    int width = (int)strlen(text) * CHICAGO_CELL_W;
+    int lo = width;
+    int hi = -1;
+    for (int i = 0; text[i] != '\0'; i++) {
+        const unsigned char *glyph = chicago8x16_glyph((unsigned char)text[i]);
+        for (int row = 0; row < CHICAGO_CELL_H; row++) {
+            for (int col = 0; col < CHICAGO_CELL_W; col++) {
+                if ((glyph[row] & (unsigned char)(0x80u >> col)) != 0u) {
+                    int x = i * CHICAGO_CELL_W + col;
+                    if (x < lo) lo = x;
+                    if (x > hi) hi = x;
+                }
+            }
+        }
+    }
+    if (hi < lo) {
+        lo = 0;
+        hi = width - 1;
+    }
+    *ink_left = lo;
+    *ink_right = hi + 1;
+}
+
+/* Independent TITLE bitmap oracle.  Geometry comes only from the sampled
+ * golden constants above; glyph pixels are composed directly from the locked
+ * Chicago strike bytes (MSB is the leftmost pixel).  This path deliberately
+ * calls neither text_draw/text_measure nor any chrome.c layout helper.
+ * Ref: window-chrome.md Sec 2.2/2.3 and PRD Sec 6.4. */
+static uint32_t expected_title_idx(int x, int y, rgn_rect_t frame,
+                                   const char *shown, int tx, int active)
+{
+    int row = y - frame.top;
+    uint32_t base;
+    int text_row = row - FG_TITLE_TEXT_TOP_OFF;
+    int text_x = x - tx;
+    int text_len = (int)strlen(shown);
+    int ink_left;
+    int ink_right;
+    golden_chicago_ink_bounds(shown, &ink_left, &ink_right);
+
+    if (active) {
+        base = title_class_idx(FG_TITLE_BAND_PROFILE[row]);
+        if (row >= FG_TITLE_STRIPE_TOP_OFF &&
+            row < FG_TITLE_STRIPE_TOP_OFF + FG_TITLE_STRIPE_ROWS) {
+            int stripe_row = row - FG_TITLE_STRIPE_TOP_OFF;
+            int shift = (stripe_row & 1) ? FG_TITLE_DARK_GAP_SHIFT : 0;
+            int gap_l = tx + ink_left - FG_TITLE_GAP_PAD_LEFT + shift;
+            int gap_r = tx + ink_right + FG_TITLE_GAP_PAD_RIGHT + shift;
+            if (x >= gap_l && x < gap_r) {
+                base = FG_TITLE_KNOCKOUT_IDX;
+            }
+        }
+    } else {
+        base = (row == 0 || row == FG_TITLE_BAND_ROWS - 1)
+                   ? FG_INACTIVE_FRAME_IDX : FG_INACTIVE_TITLE_FILL_IDX;
+    }
+
+    if (text_row >= 0 && text_row < CHICAGO_CELL_H && text_x >= 0 &&
+        text_x < text_len * CHICAGO_CELL_W) {
+        int ci = text_x / CHICAGO_CELL_W;
+        int col = text_x % CHICAGO_CELL_W;
+        const unsigned char *glyph = chicago8x16_glyph((unsigned char)shown[ci]);
+        if ((glyph[text_row] & (unsigned char)(0x80u >> col)) != 0u) {
+            return active ? FG_TITLE_INK_IDX : FG_INACTIVE_TEXT_IDX;
+        }
+        return active ? FG_TITLE_KNOCKOUT_IDX : FG_INACTIVE_TITLE_FILL_IDX;
+    }
+    return base;
+}
+
+static int title_bitmap_matches(const render_ctx_t *ctx, rgn_rect_t frame,
+                                const char *shown, int tx, int active)
+{
+    int x0 = frame.left + FG_TITLE_RUN_LEFT_OFF;
+    int x1 = frame.right - FG_TITLE_RUN_RIGHT_OFF;
+    for (int y = frame.top; y < frame.top + FG_TITLE_BAND_ROWS; y++) {
+        for (int x = x0; x < x1; x++) {
+            if (px(ctx, x, y) != expected_title_idx(x, y, frame,
+                                                    shown, tx, active)) {
+                return 0;
+            }
+        }
+    }
+    return 1;
 }
 
 static int widget_shell_ok(const render_ctx_t *ctx, int bx, int by)
@@ -136,6 +245,7 @@ int main(void)
     render_boot_info_t boot;
     render_ctx_t active;
     render_ctx_t inactive;
+    render_ctx_t trunc;
     memset(&boot, 0, sizeof boot);
     boot.lfb_bpp = 8u;
     boot.lfb_width = 640u;
@@ -167,19 +277,26 @@ int main(void)
           "12 stripes start light/end dark and face rows are 2 above/4 below "
           "(window-chrome.md Sec 2.1/2.2)");
 
-    /* TITLE TEXT: active black centered ink over frame-face gap.
-     * Ref: window-chrome.md Sec 2.3. _NO_TITLE bites ink and knockout. */
+    /* TITLE: exact expected bitmap from the independent Chicago strike path.
+     * The fixed 5-cell run is x=180..219; visible ink is x=181..218, so the
+     * sampled 6/5 gap is x=175..223 on light rows and +1 on dark rows.
+     * TITLE_BLANK and CENTER_OFF both RED.
+     * Ref: window-chrome.md Sec 2.2/2.3. */
+    const int title_tx = WIN_LEFT +
+        ((WIN_RIGHT - WIN_LEFT) - (int)strlen(TEST_TITLE) * CHICAGO_CELL_W) / 2;
     int title_ink = count_idx(&active, mid_x - 40, WIN_TOP + 4,
                               mid_x + 40, WIN_TOP + 21,
                               FG_TITLE_INK_IDX);
     int title_gap = count_idx(&active, mid_x - 40, WIN_TOP + 4,
                               mid_x + 40, WIN_TOP + 21,
                               FG_TITLE_KNOCKOUT_IDX);
-    int title_ok = title_ink >= 8 && title_gap >= 24;
+    int title_ok = title_tx == 180 && title_ink >= 8 && title_gap >= 24 &&
+                   title_bitmap_matches(&active, win_frame(), TEST_TITLE,
+                                        title_tx, 1);
     CHECK(title_ok,
-          "leg TITLE: centered active ink must be black and its knockout gap must "
-          "be Platinum frame-face idx218, not the System-7 light-stripe role "
-          "(window-chrome.md Sec 2.3)");
+          "leg TITLE: fixed Chicago strike bitmap must occupy centered x=180..219 "
+          "with black ink and the sampled idx218 6/5 gap (+1 on dark rows) "
+          "(window-chrome.md Sec 2.2/2.3)");
 
     /* SHADOW: (+1,+1) black L with two-pixel near-corner notch.
      * Ref: window-chrome.md Sec 1. _NO_SHADOW and new _NOTCH bite here. */
@@ -360,11 +477,34 @@ int main(void)
     int inactive_black = count_idx(&inactive, mid_x - 40, WIN_TOP + 4,
                                    mid_x + 40, WIN_TOP + 21,
                                    FG_TITLE_INK_IDX);
-    int inactive_text_ok = inactive_dim >= 8 && inactive_black == 0;
+    int inactive_text_ok = inactive_dim >= 8 && inactive_black == 0 &&
+                           title_bitmap_matches(&inactive, win_frame(),
+                                                TEST_TITLE, title_tx, 0);
     CHECK(inactive_text_ok,
           "leg INACTIVE-TEXT: background title ink must be idx135 and never active "
           "black; retained System-7 dim ink idx165 is wrong "
           "(window-chrome.md Sec 6)");
+
+    /* TRUNCATION: the 150px frame has a sampled safe title run [421,512).
+     * Only eight Chicago cells fit once the 6/5 gap is included, so the fixed
+     * source becomes "ABCDEFG." at centered x=443.  This records the R0.2
+     * simplification: whole-character truncation plus one period, no font
+     * condensation. */
+    rc = render_ctx_init(&trunc, &boot);
+    CHECK(rc == 0, "truncation 8bpp render context must initialize");
+    int trunc_ok = 0;
+    if (rc == 0) {
+        int trunc_tx = TRUNC_LEFT +
+            ((TRUNC_RIGHT - TRUNC_LEFT) -
+             (int)strlen(FG_TITLE_TRUNC_EXPECTED) * CHICAGO_CELL_W) / 2;
+        render_run(&trunc, draw_truncated);
+        trunc_ok = trunc_tx == 443 &&
+                   title_bitmap_matches(&trunc, trunc_frame(),
+                                        FG_TITLE_TRUNC_EXPECTED, trunc_tx, 1);
+    }
+    CHECK(trunc_ok,
+          "leg TITLE-TRUNC: overlong title must become centered 'ABCDEFG.' "
+          "inside the measured widget-safe run (plain truncation simplification)");
 
     /* No inactive widgets. _KEEP_GADGETS bites this retained relation.
      * Ref: window-chrome.md Sec 6. */
@@ -412,11 +552,12 @@ int main(void)
           "(scrollbars.md Sec 4; window-chrome.md Sec 5/Sec 6)");
 
     /* Keep the acceptance tail self-contained: one line per Platinum leg. */
-    printf("B1 Platinum leg inventory (current System-7 renderer is expected RED):\n");
+    printf("Platinum chrome fidelity leg inventory:\n");
 #define LEG_STATUS(name, ok, why) \
     printf("  %-24s %s -- %s\n", name, (ok) ? "PASS" : "RED", why)
     LEG_STATUS("BAND", band_ok, "22-row profile / 12 light-first stripes / 2+4 face");
     LEG_STATUS("TITLE", title_ok, "black centered ink over idx218 gap");
+    LEG_STATUS("TITLE-TRUNC", trunc_ok, "whole cells plus one terminal period");
     LEG_STATUS("SHADOW-NOTCH", shadow_ok, "(+1,+1) black L with 2px notch");
     LEG_STATUS("BODYBAR", body_ok, "four-pixel raised body bar plus inset");
     LEG_STATUS("WIDGETS", widget_ok, "three 12+1 widgets at Platinum offsets");
@@ -432,6 +573,7 @@ int main(void)
     LEG_STATUS("HOLLOW/GROW-INACTIVE", hollow_ok, "hollow bar and flat idx231 grow");
 #undef LEG_STATUS
 
+    if (rc == 0) render_ctx_free(&trunc);
     render_ctx_free(&inactive);
     render_ctx_free(&active);
     return TEST_SUMMARY("test-chrome-fidelity");

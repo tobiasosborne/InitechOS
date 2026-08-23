@@ -264,14 +264,8 @@ void shell_build_scene(shell_scene_t *s,
         NewWindow(&s->wm, &w->rec, b, c,
                   (int16_t)documentKind, (int16_t)documentProc, 1 /* goAway */);
 
-        /* Copy the title into the WindowRecord (NewWindow leaves it ""). */
-        const char *t = win_titles[i] ? win_titles[i] : "";
-        int k = 0;
-        while (t[k] != '\0' && k < (int)(FLAIR_WINDOW_TITLE_MAX - 1u)) {
-            w->rec.titleHandle[k] = t[k];
-            k++;
-        }
-        w->rec.titleHandle[k] = '\0';
+        /* The ONE kernel-held title seam (D2-3 / future FLAIR_SETWTITLE). */
+        SetWTitle(&s->wm, &w->rec, win_titles[i]);
     }
 
     /* --- The TOP retained System-7 menu bar (Apple glyph + caller menus). */

@@ -45,6 +45,7 @@
 
 #include "region_algebra.h"   /* the LOCKED region contract (-Ispec)             */
 #include "window.h"           /* the Window Manager API (-Ios/flair)             */
+#include "chrome_metrics.h"    /* SetWTitle title-band invalidation height         */
 
 /* ---------------------------------------------------------------------------
  * Fail-loud (dual fail-loud, mirroring the region engine: panic in-kernel /
@@ -183,6 +184,16 @@ static int list_contains(const WindowMgr *wm, const WindowPtr w)
     for (WindowPtr p = wm->front; p != NULL; p = p->nextWindow)
         if (p == w) return 1;
     return 0;
+}
+
+int WindowMgr_window_index(const WindowMgr *wm, const WindowPtr w)
+{
+    int index = 0;
+    if (wm == NULL || w == NULL) return -1;
+    for (WindowPtr p = wm->front; p != NULL; p = p->nextWindow, index++) {
+        if (p == w) return index;
+    }
+    return -1;
 }
 
 static void list_unlink(WindowMgr *wm, WindowPtr w)
@@ -382,9 +393,36 @@ void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content
     w->titleHandle[0]       = '\0';   /* empty title until SetWTitle/caller sets it
                                        * (NewWindow leaves "" per IM-I; required now
                                        * that the chrome drawer renders the title) */
+    w->titleWidth           = 0;
 
     list_push_front(wm, w);
     reaffirm_active(wm);
+}
+
+void SetWTitle(WindowMgr *wm, WindowPtr w, const char *title)
+{
+    int n = 0;
+    rgn_rect_t title_band;
+
+    if (w == NULL) WIN_PANIC("SetWTitle: NULL window");
+    if (wm != NULL && !list_contains(wm, w)) {
+        WIN_PANIC("SetWTitle: window not in manager list");
+    }
+    if (title == NULL) title = "";
+    while (title[n] != '\0' && n < (int)FLAIR_WINDOW_TITLE_MAX - 1) {
+        w->titleHandle[n] = title[n];
+        n++;
+    }
+    w->titleHandle[n] = '\0';
+    w->titleWidth = (int16_t)(n * FLAIR_CHROME_TITLE_CELL_W);
+
+    if (wm == NULL || !w->visible) return;
+    title_band = region_get_bbox(w->strucRgn);
+    title_band.bottom = (int16_t)(title_band.top + FLAIR_CHROME_TITLEBAR_H);
+    if (title_band.bottom > region_get_bbox(w->strucRgn).bottom) {
+        title_band.bottom = region_get_bbox(w->strucRgn).bottom;
+    }
+    WindowMgr_invalidate(wm, w, title_band);
 }
 
 void HideWindow(WindowMgr *wm, WindowPtr w)

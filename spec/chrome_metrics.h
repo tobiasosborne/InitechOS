@@ -36,6 +36,23 @@
 #define FLAIR_CHROME_TITLE_SHADOW_ROWS       1
 #define FLAIR_CHROME_TITLE_FRAME_BOTTOM_ROWS 1
 
+/* Platinum title text and stripe-knockout geometry.  The active title remains
+ * centered on the whole bar; these offsets bound the centered run between the
+ * close cluster and the first right-hand (zoom) cluster.  Dark stripe rows
+ * shift the equal-width knockout one pixel right, matching the measured field
+ * phase.  The current product font is Chicago per PRD Sec 6.4 / the R0.2 lane
+ * ruling; Charcoal remains a recorded era substitution.
+ * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 2.2, Sec 2.3,
+ * Sec 3.1 (SAMPLED domain). */
+#define FLAIR_CHROME_TITLE_GAP_PAD_LEFT        6
+#define FLAIR_CHROME_TITLE_GAP_PAD_RIGHT       5
+#define FLAIR_CHROME_TITLE_DARK_GAP_SHIFT      1
+#define FLAIR_CHROME_TITLE_TEXT_TOP_OFF        4
+#define FLAIR_CHROME_TITLE_CELL_W               8
+#define FLAIR_CHROME_TITLE_RUN_LEFT_OFF       21
+#define FLAIR_CHROME_TITLE_RUN_RIGHT_OFF      38
+#define FLAIR_CHROME_TITLE_TRUNC_MARKER       '.'
+
 /* Platinum widgets: 12x12 dark box plus white right/bottom outer highlight.
  * R is the inclusive structure-right coordinate in the measured rule.
  * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 3.1. */

@@ -218,6 +218,66 @@ int main(void)
     rgn_rect_t FRAME = { 0, 0, GH, GW };
 
     /* ======================================================================
+     * R0.2/R0.4 directed seam oracle: the ONE kernel-held title setter and
+     * the real-list serial identity used by live FLAIR markers.
+     *
+     * NewWindow pushes W0,W1,W2 to produce [W2,W1,W0]. Hide preserves that
+     * list; Dispose compacts it; Select reflects the new z-order. This is an
+     * independent literal golden, not a second traversal of nextWindow.
+     * Ref: D2-3; beads initech-vfd8 / initech-883x.
+     * ====================================================================== */
+    {
+        static win_store_t W[3];
+        static mgr_store_t M;
+        rgn_rect_t s[3] = {
+            { 2,  2, 25, 24 },
+            { 4, 12, 29, 36 },
+            { 1, 20, 26, 46 }
+        };
+        rgn_rect_t c[3] = {
+            { 5,  3, 24, 23 },
+            { 7, 13, 28, 35 },
+            { 4, 21, 25, 45 }
+        };
+        mgr_attach(&M, FRAME);
+        for (int i = 0; i < 3; i++) {
+            win_attach(&W[i]);
+            NewWindow(&M.wm, &W[i].rec, s[i], c[i],
+                      documentKind, documentProc, 1);
+        }
+
+        CHECK(WindowMgr_window_index(&M.wm, &W[2].rec) == 0 &&
+              WindowMgr_window_index(&M.wm, &W[1].rec) == 1 &&
+              WindowMgr_window_index(&M.wm, &W[0].rec) == 2,
+              "window id: three-window scene is indexed front-to-back [W2,W1,W0]");
+
+        WindowMgr_validate(&W[2].rec);
+        SetWTitle(&M.wm, &W[2].rec, "HELLO");
+        CHECK(strcmp(W[2].rec.titleHandle, "HELLO") == 0 &&
+              W[2].rec.titleWidth == 5 * 8 &&
+              !region_is_empty(W[2].rec.updateRgn),
+              "SetWTitle: one kernel-held setter copies, measures Chicago, and invalidates");
+
+        HideWindow(&M.wm, &W[1].rec);
+        CHECK(WindowMgr_window_index(&M.wm, &W[2].rec) == 0 &&
+              WindowMgr_window_index(&M.wm, &W[1].rec) == 1 &&
+              WindowMgr_window_index(&M.wm, &W[0].rec) == 2,
+              "window id: hide churn preserves list indices (hidden records stay linked)");
+
+        DisposeWindow(&M.wm, &W[1].rec);
+        CHECK(WindowMgr_window_index(&M.wm, &W[1].rec) == -1 &&
+              WindowMgr_window_index(&M.wm, &W[2].rec) == 0 &&
+              WindowMgr_window_index(&M.wm, &W[0].rec) == 1,
+              "window id: dispose returns -1 for removed record and compacts suffix");
+
+        SelectWindow(&M.wm, &W[0].rec);
+        CHECK(WindowMgr_window_index(&M.wm, &W[0].rec) == 0 &&
+              WindowMgr_window_index(&M.wm, &W[2].rec) == 1 &&
+              WindowMgr_window_index(NULL, &W[0].rec) == -1,
+              "window id: select reflects deterministic z-order; NULL manager is -1");
+    }
+
+    /* ======================================================================
      * PROPERTY 1: VISIBLE-REGION correctness, random window stacks.
      * ComputeVisible(W) rasterized == the owner-set of W (independent grid).
      * ====================================================================== */

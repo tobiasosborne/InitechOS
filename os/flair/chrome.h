@@ -59,10 +59,14 @@
  * era tag; it passes the pointer beside `port` to flair_look, where matching
  * named color slots are resolved. Desktop setup supplies flair_skin_default().
  *
- * `title` is the window's name (the WindowRecord titleHandle), drawn CENTERED in
- * the title bar in Chicago over a Platinum frame-face gap. A NULL or empty
- * title draws no text. Ink and gap resolve through the C-8 policy seam
- * (flair_look_pixel), never a color literal.
+ * `title` is the window's name (the kernel-held WindowRecord titleHandle),
+ * drawn CENTERED on the whole title bar in Chicago and constrained between the
+ * widget clusters. Active ink is black over the sampled frame-face stripe gap
+ * (6px left / 5px right, shifted +1 on dark rows); inactive ink is sampled
+ * #878787 over the flat #E7E7E7 band. Overlong titles truncate at whole Chicago
+ * cells and end in one period (the recorded no-condensation simplification).
+ * A NULL or empty title draws no text. Ink and gap resolve through the C-8
+ * policy seam (flair_look_pixel), never a color literal.
  *
  * `hilited` is the WindowRecord's wHilited flag: non-zero selects the active
  * striped band, widgets, disabled bars, and grow grip. Zero selects the full

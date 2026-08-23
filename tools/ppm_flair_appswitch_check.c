@@ -228,6 +228,43 @@ static int is_rgb(const Img *im, int x, int y, unsigned int rgb)
 
 static int g_fail = 0;
 
+static int count_idx_rect(const Img *im, int x0, int y0, int x1, int y1,
+                          int idx)
+{
+    int n = 0;
+    for (int y = y0; y < y1; y++) {
+        for (int x = x0; x < x1; x++) {
+            if (is_rgb(im, x, y, IDX(idx))) n++;
+        }
+    }
+    return n;
+}
+
+/* R0.2 live title tooth. The exact Chicago bitmap/layout is host-graded by
+ * test-chrome-fidelity; this emu leg proves the two tenant create paths feed
+ * their kernel-held WindowRecord titles into that WDEF and that activation
+ * swaps black/#878787 ink. Central interior scans avoid all frame/widget ink.
+ * Ref: window-chrome.md Sec 2.3/Sec 6; beads initech-vfd8. */
+static void assert_tenant_title_ink(const Img *im, const char *scene,
+                                    int left, int top, int right,
+                                    int idx, const char *title)
+{
+    int cx = (left + right) / 2;
+    int n = count_idx_rect(im, cx - 24,
+                           top + FLAIR_CHROME_TITLE_TEXT_TOP_OFF,
+                           cx + 24,
+                           top + FLAIR_CHROME_TITLE_TEXT_TOP_OFF + 16,
+                           idx);
+    if (n < 8) {
+        fprintf(stderr,
+                "ppm_flair_appswitch_check: FAIL TITLE [%s] -- %s centered "
+                "title has %d expected-ink pixels (need >=8, idx %d/#%06X); "
+                "tenant title is blank or has the wrong active state\n",
+                scene, title, n, idx, IDX(idx));
+        g_fail = 1;
+    }
+}
+
 /* Assert pixel (x,y) of `scene` (im) is canon index `idx`. Records a fail +
  * prints sampled-vs-expected RGB on mismatch (the drag-grader idiom). */
 static void assert_idx(const Img *im, const char *scene, int x, int y,
@@ -309,6 +346,24 @@ int main(int argc, char **argv)
     printf("ppm_flair_appswitch_check: grading the app-switch PRE->POST delta "
            "(click NOTES sliver @(%d,%d) -> raise+activate NOTES over HELLO)\n",
            FLAIR_TEN_NOTES_CLICK_X, FLAIR_TEN_NOTES_CLICK_Y);
+
+    /* ---- TITLE: both tenant create paths + active/inactive treatment -------- */
+    assert_tenant_title_ink(&pre, "PRE", FLAIR_TEN_HELLO_L,
+                            FLAIR_TEN_HELLO_T, FLAIR_TEN_HELLO_R,
+                            CIDX_BLACK, FLAIR_TEN_HELLO_NAME);
+    assert_tenant_title_ink(&pre, "PRE", FLAIR_TEN_NOTES_L,
+                            FLAIR_TEN_NOTES_T, FLAIR_TEN_NOTES_R,
+                            CIDX_PLAT_INACTIVE_TEXT, FLAIR_TEN_NOTES_NAME);
+    assert_tenant_title_ink(&post, "POST", FLAIR_TEN_HELLO_L,
+                            FLAIR_TEN_HELLO_T, FLAIR_TEN_HELLO_R,
+                            CIDX_PLAT_INACTIVE_TEXT, FLAIR_TEN_HELLO_NAME);
+    assert_tenant_title_ink(&post, "POST", FLAIR_TEN_NOTES_L,
+                            FLAIR_TEN_NOTES_T, FLAIR_TEN_NOTES_R,
+                            CIDX_BLACK, FLAIR_TEN_NOTES_NAME);
+    if (!g_fail) {
+        printf("    TITLE: HELLO/NOTES centered title ink exists and swaps "
+               "black/#878787 with activation (initech-vfd8)\n");
+    }
 
     /* ---- TIER-A: co-residency + group-raise + updateEvt repaint ------------- */
     /* bead initech-4w15: HELLO is the boot foreground, so the overlap flips
@@ -526,7 +581,8 @@ int main(int argc, char **argv)
            "repaint), activated it (accent FILL->ACTIVE_ACCENT), left the static "
            "top System-7 bar untouched (BAR1-STATIC), and swapped band 2 to NOTES's "
            "distinct no-Apple menu (Photoshop -> NOTES; POST-DISTINCT); the booted "
-           "desktop honours the O-5 app-switch contract (ADR-0013) with distinct "
+           "desktop renders HELLO/NOTES titles in both activation states and "
+           "honours the O-5 app-switch contract (ADR-0013) with distinct "
            "stacked bars both before and after the switch and no initech-4w15 / "
            "initech-7tjp regression\n");
     return 0;

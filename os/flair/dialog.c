@@ -291,10 +291,9 @@ DialogPtr NewDialog(DialogRecord   *storage,
         wr->port.portRect = bounds;
     }
 
-    /* Copy title. */
-    flair_strlcpy_dlg(wr->titleHandle,
-                      title ? title : "",
-                      (uint32_t)FLAIR_WINDOW_TITLE_MAX);
+    /* The ONE kernel-held title seam (D2-3 / future FLAIR_SETWTITLE).  wm may
+     * be NULL for the documented standalone Dialog Manager construction. */
+    SetWTitle(wm, wr, title);
 
     return storage;
 }

@@ -155,6 +155,20 @@
       "note": "Top-to-bottom row profile sums to 22; the 2/4 face-row asymmetry is measured and binding."
     },
 
+    "platinum_title_text_layout": {
+      "gap_padding_left": 6,
+      "gap_padding_right": 5,
+      "dark_gap_shift": 1,
+      "text_top_offset": 4,
+      "chicago_cell_width": 8,
+      "run_left_offset": 21,
+      "run_right_offset": 38,
+      "truncation_marker": ".",
+      "era": "system8-platinum geometry with the PRD Sec 6.4 Chicago strike substitution",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 2.2, Sec 2.3, Sec 3.1; PRD Sec 6.4",
+      "note": "Sampled title gap is 6px left/5px right and shifts +1 on dark stripe rows. The safe run spans the measured stripe field between the close and zoom clusters. Text stays centered on the whole title bar. Plain whole-character truncation ends in one period; no Charcoal condensation is attempted in this release."
+    },
+
     "sys7_titlebar_profile": {
       "bevel_rows_each": 1,
       "stripe_rows": 15,

@@ -7360,7 +7360,7 @@ $(KERNEL_EVENT_OBJ): os/flair/event.c os/flair/event.h spec/event_model.h spec/g
 $(KERNEL_CURSOR_OBJ): os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ispec/assets -c os/flair/cursor.c -o $@
 
-$(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+$(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $@
 
 $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/region.h os/flair/surface.h spec/region_algebra.h | $(BUILD)
@@ -8676,7 +8676,7 @@ $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_
 # SET overlay is ignored -> the pre-fix compositor erases/overpaints the modal +
 # menu bars on a drag. Swaps ONLY window.o (the mutant obj) into the FLAIRLIVE obj
 # set (the normal main obj still wires + sets overlay_rgn). -----------------------
-$(KERNEL_WINDOW_MUT_OVERLAY_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+$(KERNEL_WINDOW_MUT_OVERLAY_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DWINDOW_MUTATE_IGNORE_OVERLAY $(WINDOW_INC) -c os/flair/window.c -o $@
 
 KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS := $(filter-out $(KERNEL_WINDOW_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_WINDOW_MUT_OVERLAY_OBJ)
@@ -9049,7 +9049,7 @@ endef
 # bake in an EMPTY string (the same immediate-expansion hazard the desktop
 # template above documents).
 define flair-tenants-window-mutant-rules
-$(BUILD)/window_mut_$(2).o: os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+$(BUILD)/window_mut_$(2).o: os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(1) -Ispec -Ios/flair -Ios/flair/atkinson -Iseed -c os/flair/window.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_WINDOW_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -9953,6 +9953,7 @@ TEST_CHROME_SRC  := harness/proptest/test_chrome.c
 CHROME_DEPS      := $(CHROME_DRAWER_C) $(CHROME_DRAWER_H) $(RENDER_SKEL_C) \
                     $(RENDER_SKEL_H) $(SPEC_CHROME_METRICS_H) \
                     os/flair/surface.c os/flair/surface.h \
+                    os/flair/text.h spec/assets/chicago8x16.h \
                     os/flair/heap.c os/flair/heap.h \
                     $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                     spec/grafport.h spec/imaging.h spec/region_algebra.h \
@@ -9992,6 +9993,13 @@ nat=d['native']; \
 hdr=open('$(SPEC_CHROME_METRICS_H)').read(); \
 pairs=[('FLAIR_CHROME_MENUBAR_H',nat['menubar_height']['value']), \
 ('FLAIR_CHROME_TITLEBAR_H',nat['titlebar_height_std']['value']), \
+('FLAIR_CHROME_TITLE_GAP_PAD_LEFT',nat['platinum_title_text_layout']['gap_padding_left']), \
+('FLAIR_CHROME_TITLE_GAP_PAD_RIGHT',nat['platinum_title_text_layout']['gap_padding_right']), \
+('FLAIR_CHROME_TITLE_DARK_GAP_SHIFT',nat['platinum_title_text_layout']['dark_gap_shift']), \
+('FLAIR_CHROME_TITLE_TEXT_TOP_OFF',nat['platinum_title_text_layout']['text_top_offset']), \
+('FLAIR_CHROME_TITLE_CELL_W',nat['platinum_title_text_layout']['chicago_cell_width']), \
+('FLAIR_CHROME_TITLE_RUN_LEFT_OFF',nat['platinum_title_text_layout']['run_left_offset']), \
+('FLAIR_CHROME_TITLE_RUN_RIGHT_OFF',nat['platinum_title_text_layout']['run_right_offset']), \
 ('FLAIR_CHROME_SCROLLBAR_W',nat['scrollbar_width']['value']), \
 ('FLAIR_CHROME_FRAME',nat['window_frame']['value']), \
 ('FLAIR_CHROME_DIALOG_BORDER',nat['dialog_dboxproc_border']['value']), \
@@ -10007,7 +10015,7 @@ bad=[]; \
 assert not bad, 'chrome_metrics.h DRIFTED from chrome_metrics.json: %r'%bad; \
 print('    all %d chrome #defines == spec/chrome_metrics.json native values'%len(pairs))" \
 		|| { printf '!!! test-chrome FAIL: spec/chrome_metrics.h diverges from the LOCKED spec/chrome_metrics.json (Rule 8)\n'; exit 1; }
-	@printf '>>> test-chrome [2/3]: STRUCTURAL -- System-7 window chrome vs chrome_metrics v1 (8bpp + 32bpp)\n'
+	@printf '>>> test-chrome [2/3]: STRUCTURAL -- Platinum window chrome vs chrome_metrics v4 (8bpp + 32bpp)\n'
 	@$(TEST_CHROME) $(BUILD)/chrome_window.ppm
 	@printf '>>> test-chrome [3/3]: ARTIFACT FREESTANDING -- chrome.c compiles under kernel flags\n'
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $(BUILD)/chrome_freestanding.o \
@@ -10043,7 +10051,7 @@ test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHR
 # chrome.c renders from -- that is the HER-02 by-construction trap; CLAUDE.md
 # Law 2). Route-2 Platinum re-key: ADR-0004-AMENDMENT-DEC-10 Sec 4 and the
 # sampled sys8 window-chrome/scrollbar specifications. Reuses the test-chrome
-# link set + host render skeleton. Fourteen look/geometry mutants plus the
+# link set + host render skeleton. Fifteen look/geometry mutants plus the
 # Route-1 wrong-era mutant are mutation-proven.
 # ---------------------------------------------------------------------------
 TEST_CHROME_FID     := $(BUILD)/test_chrome_fidelity
@@ -10051,6 +10059,7 @@ TEST_CHROME_FID_SRC := harness/proptest/test_chrome_fidelity.c
 CHROME_FID_GOLDEN_H := spec/chrome_fidelity_golden.h
 TEST_CHROME_FID_MUT     := $(BUILD)/test_chrome_fidelity_mutant_phase
 TEST_CHROME_FID_MUT_TTL := $(BUILD)/test_chrome_fidelity_mutant_notitle
+TEST_CHROME_FID_MUT_CTR := $(BUILD)/test_chrome_fidelity_mutant_centeroff
 TEST_CHROME_FID_MUT_SHA := $(BUILD)/test_chrome_fidelity_mutant_noshadow
 TEST_CHROME_FID_MUT_BOX := $(BUILD)/test_chrome_fidelity_mutant_boxgeom
 TEST_CHROME_FID_MUT_SBF := $(BUILD)/test_chrome_fidelity_mutant_scrollflat
@@ -10074,7 +10083,11 @@ $(TEST_CHROME_FID_MUT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDE
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
 $(TEST_CHROME_FID_MUT_TTL): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NO_TITLE $(CHROME_INC) \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_TITLE_BLANK $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT_CTR): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_CENTER_OFF $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
 # CHROME_FID_MUT_NO_SHADOW (beads initech-54nw, Rule 6): skip the drop shadow.
@@ -10174,12 +10187,12 @@ test-chrome-fidelity: $(TEST_CHROME_FID)
 		grep -q 'flair_skin_resolve(FLAIR_DEFAULT_ERA, FLAIR_DEFAULT_HERITAGE)' \
 		|| { printf '!!! test-chrome-fidelity FAIL: the live default no longer routes through flair_skin_resolve\n'; exit 1; }
 	@printf '    flair_look_default_skin -> flair_skin_default -> flair_skin_resolve is live under os/\n'
-	@printf '>>> test-chrome-fidelity: System-7 window-chrome fidelity vs the INDEPENDENT ../system7-decomp golden (Law 2, NOT by-construction)\n'
+	@printf '>>> test-chrome-fidelity: Platinum window-chrome fidelity vs the INDEPENDENT ../system7-decomp golden (Law 2, NOT by-construction)\n'
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN)
-	@printf '>>> test-chrome-fidelity-mutant: confirming all fifteen Platinum chrome mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN)
+	@printf '>>> test-chrome-fidelity-mutant: confirming all sixteen Platinum chrome mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
 		exit 1; \
@@ -10187,10 +10200,16 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_PHASE correctly RED -- the dark-first 12-row stripe field is caught)\n'; \
 	fi
 	@if $(TEST_CHROME_FID_MUT_TTL) >/dev/null 2>&1; then \
-		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_NO_TITLE PASSED -- the title-ink/knockout oracle is decoration\n'; \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_TITLE_BLANK PASSED -- the title bitmap oracle is decoration\n'; \
 		exit 1; \
 	else \
-		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_NO_TITLE correctly RED -- the blank title bar is caught)\n'; \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_TITLE_BLANK correctly RED -- skipped DrawString is caught)\n'; \
+	fi
+	@if $(TEST_CHROME_FID_MUT_CTR) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_CENTER_OFF PASSED -- the centered-x oracle is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_CENTER_OFF correctly RED -- the +7px title displacement is caught)\n'; \
 	fi
 	@if $(TEST_CHROME_FID_MUT_SHA) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_NO_SHADOW PASSED -- the shadow leg is decoration\n'; \
@@ -10431,7 +10450,7 @@ TEST_WINDOW_MUT_ZORDER    := $(BUILD)/test_window_mutant_zorder
 TEST_WINDOW_MUT_OVERPAINT := $(BUILD)/test_window_mutant_overpaint
 TEST_WINDOW_MUT_NO_DEACT_INVAL := $(BUILD)/test_window_mutant_no_deact_inval
 TEST_WINDOW_MUT_NO_ACTIVATE_INVAL := $(BUILD)/test_window_mutant_no_activate_inval
-TEST_WINDOW_DEPS := os/flair/window.c os/flair/window.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h
+TEST_WINDOW_DEPS := os/flair/window.c os/flair/window.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h
 WINDOW_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
 WINDOW_LINK := os/flair/window.c $(REGION_ENGINE_C)
 
@@ -15645,8 +15664,8 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 \
 		2> "$(BUILD)/$(FLAIR_SOLID_A_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_A_NAME).report"; then printf '!!! test-flair-solid FAIL: leg A TRIPLE FAULT\n'; exit 1; fi
-	@grep -q '^FLAIR-CLOSE win' "$(BUILD)/$(FLAIR_SOLID_A_NAME).serial" \
-		|| { printf '!!! test-flair-solid FAIL: leg A FLAIR-CLOSE marker missing (the go-away click never dispatched)\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_A_NAME).serial" || true; exit 1; }
+	@grep -q '^FLAIR-CLOSE win 0$$' "$(BUILD)/$(FLAIR_SOLID_A_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg A exact FLAIR-CLOSE win 0 marker missing (tenant identity/dispatch failed)\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_A_NAME).serial" || true; exit 1; }
 	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_A_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg A screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) A "$(BUILD)/$(FLAIR_SOLID_A_NAME).ppm" \
 		|| { printf '!!! test-flair-solid FAIL: leg A -- the close-exposed NOTES overlap is NOT repainted content (the white-hole family; initech-gofc)\n'; exit 1; }
@@ -15659,8 +15678,8 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_B_NAME).report"; then printf '!!! test-flair-solid FAIL: leg B TRIPLE FAULT\n'; exit 1; fi
 	@grep -q '^FLAIR-DISPATCH app=NOTES$$' "$(BUILD)/$(FLAIR_SOLID_B_NAME).serial" \
 		|| { printf '!!! test-flair-solid FAIL: leg B precondition -- the activating switch never dispatched\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_B_NAME).serial" || true; exit 1; }
-	@grep -q '^FLAIR-DRAG win' "$(BUILD)/$(FLAIR_SOLID_B_NAME).serial" \
-		|| { printf '!!! test-flair-solid FAIL: leg B FLAIR-DRAG marker missing (the title drag never dispatched)\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_B_NAME).serial" || true; exit 1; }
+	@grep -q '^FLAIR-DRAG win 0 (260,120)->(200,180)$$' "$(BUILD)/$(FLAIR_SOLID_B_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg B exact FLAIR-DRAG win 0 marker missing (tenant identity/title drag failed)\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_B_NAME).serial" || true; exit 1; }
 	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_B_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg B screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) B "$(BUILD)/$(FLAIR_SOLID_B_NAME).ppm" \
 		|| { printf '!!! test-flair-solid FAIL: leg B -- dragged NOTES content wiped to WDEF white (initech-gofc)\n'; exit 1; }
@@ -15722,8 +15741,8 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 		|| { printf '!!! test-flair-solid FAIL: leg G precondition -- the activating switch never dispatched\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_G_NAME).serial" || true; exit 1; }
 	@# Grab (450,130)->release (5,5) = (-445,-125); NOTES (260,120) proposes
 	@# (-185,-5), then DQ6 clamps top to 2*FLAIR_CHROME_MENUBAR_H = 40.
-	@grep -q '^FLAIR-DRAG win -1 (260,120)->(-185,40)$$' "$(BUILD)/$(FLAIR_SOLID_G_NAME).serial" \
-		|| { printf '!!! test-flair-solid FAIL: leg G expected clamped FLAIR-DRAG (-185,40) marker missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_G_NAME).serial" || true; exit 1; }
+	@grep -q '^FLAIR-DRAG win 0 (260,120)->(-185,40)$$' "$(BUILD)/$(FLAIR_SOLID_G_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg G expected clamped FLAIR-DRAG win 0 (-185,40) marker missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_G_NAME).serial" || true; exit 1; }
 	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_G_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg G screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) G "$(BUILD)/$(FLAIR_SOLID_G_NAME).ppm" \
 		|| { printf '!!! test-flair-solid FAIL: leg G -- dragged NOTES title band is not reachable below menu band 2 (initech-r8r7)\n'; exit 1; }
@@ -15734,9 +15753,9 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 \
 		2> "$(BUILD)/$(FLAIR_SOLID_H_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_H_NAME).report"; then printf '!!! test-flair-solid FAIL: leg H TRIPLE FAULT\n'; exit 1; fi
-	@grep -q '^FLAIR-DRAG win -1 (260,120)->(200,180)$$' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" \
-		|| { printf '!!! test-flair-solid FAIL: leg H exact FLAIR-DRAG (200,180) marker missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" || true; exit 1; }
-	@awk '/^FLAIR-DISPATCH app=NOTES$$/ && !d { d=NR } /^FLAIR-DRAG win -1 \(260,120\)->\(200,180\)$$/ && !g { g=NR } END { exit !(d && g && d < g) }' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" \
+	@grep -q '^FLAIR-DRAG win 0 (260,120)->(200,180)$$' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg H exact FLAIR-DRAG win 0 (200,180) marker missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" || true; exit 1; }
+	@awk '/^FLAIR-DISPATCH app=NOTES$$/ && !d { d=NR } /^FLAIR-DRAG win 0 \(260,120\)->\(200,180\)$$/ && !g { g=NR } END { exit !(d && g && d < g) }' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" \
 		|| { printf '!!! test-flair-solid FAIL: leg H requires FLAIR-DISPATCH app=NOTES BEFORE the exact FLAIR-DRAG marker\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_H_NAME).serial" || true; exit 1; }
 	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_H_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg H screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) H "$(BUILD)/$(FLAIR_SOLID_H_NAME).ppm" \

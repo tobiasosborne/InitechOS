@@ -160,6 +160,18 @@ void WindowMgr_init(WindowMgr *wm, rgn_rect_t desktop_frame,
 void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content,
                int16_t wKind, int16_t wVariant, uint8_t goAway);
 
+/* SetWTitle -- the ONE write seam for the kernel-owned inline title buffer.
+ * Copies an ASCIZ title into WindowRecord.titleHandle, always terminates it,
+ * updates titleWidth from the Chicago strike metrics, and invalidates the
+ * title band when `wm` is non-NULL.  A NULL title means "".  `wm` may be NULL
+ * only while constructing an unlinked standalone record (Dialog Manager host
+ * use); linked/live callers pass the owning manager so a future
+ * FLAIR_SETWTITLE trap targets this exact storage + repaint seam.
+ *
+ * Ref: docs/design/GUI-remediation-D1-D2-D3-design.md D2-3; PRD Sec 6.4;
+ * spec/window_record.h titleHandle/titleWidth. */
+void SetWTitle(WindowMgr *wm, WindowPtr w, const char *title);
+
 /* DisposeWindow -- remove `w` from the list and DAMAGE everything it exposes:
  * for every window that was (partly) under `w`, accumulate the area `w`'s
  * structure covered (intersected with that window's now-visible region) into
@@ -288,5 +300,19 @@ void WindowMgr_invalidate_desktop(WindowMgr *wm, rgn_rect_t rect);
 /* BeginUpdate / EndUpdate analogue: clear W's updateRgn after the app has
  * repainted it (the pump's EndUpdate). Sets updateRgn := empty. */
 void WindowMgr_validate(WindowPtr w);
+
+/* WindowMgr_window_index -- zero-based position in the REAL WindowMgr list,
+ * including hidden windows (HideWindow preserves list membership).  Returns
+ * -1 for NULL or an unlinked/disposed record.  Indices are deterministic for
+ * a given list: hide keeps them stable; dispose compacts the suffix; select
+ * reflects the new z-order.
+ *
+ * Live serial ABI consumer (os/milton/kmain.c):
+ *   FLAIR-DRAG win <id> (<old-left>,<old-top>)->(<new-left>,<new-top>)
+ *   FLAIR-CLOSE win <id>
+ * The shell's legacy store IDs remain primary; tenant records missing from
+ * that store use this real-list index, so a linked tenant never reports -1.
+ * Ref: beads initech-883x; window.h list invariant above. */
+int WindowMgr_window_index(const WindowMgr *wm, const WindowPtr w);
 
 #endif /* INITECH_OS_FLAIR_WINDOW_H */
