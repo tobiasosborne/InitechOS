@@ -174,7 +174,7 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
     /* A clear pinstripe column: right of the close box and LEFT of the centered
      * title, so the title knockout/glyphs do not interrupt the stripe run when we
      * scan the 15-row pinstripe band (beads initech-92li recomposition). */
-    const int pin_x = WIN_LEFT + 20;
+    const int pin_x = WIN_LEFT + FLAIR_CHROME_TITLE_RUN_LEFT_OFF + 2;
 
     /* --- 2. The title-bar band occupies exactly 22 rows --------------------
      * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and window-chrome.md Sec 2.1. */

@@ -483,12 +483,14 @@ static int leg_G(const Img *im)
                     CIDX_BLACK, "leg G reachable NOTES title bottom frame");
 
     /* Lock the visible right edge as a screendump counterpart to the exact
-     * serial coordinate tooth: right-1 is the window frame; right is desktop.
+     * serial coordinate tooth: right-1 is frame, right is shadow, right+1 desktop.
      * At y=top+3 HELLO has not begun yet (HELLO top comes from the spec header). */
     bad |= probe_is(im, SOLID_G_NOTES_R - 1, SOLID_G_NOTES_T + 3,
                     CIDX_BLACK, "leg G visible NOTES right frame");
     bad |= probe_is(im, SOLID_G_NOTES_R, SOLID_G_NOTES_T + 3,
-                    CIDX_DESKTOP, "leg G pixel beyond NOTES right frame");
+                    CIDX_BLACK, "leg G visible NOTES right shadow");
+    bad |= probe_is(im, SOLID_G_NOTES_R + 1, SOLID_G_NOTES_T + 3,
+                    CIDX_DESKTOP, "leg G pixel beyond NOTES shadow");
 
     if (!bad)
         printf("solid G PASS: NOTES title band reachable at struct (-185,40) "

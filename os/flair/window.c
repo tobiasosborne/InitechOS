@@ -36,9 +36,9 @@
  * <stdint.h>/<stddef.h> + the locked headers.
  *
  * THE MUTATION SWITCHES (Rule 6): test_window.c compiles this file with
- * -DWINDOW_MUTATE_OVERPAINT, -DWINDOW_MUTATE_ZORDER, and
- * -DWINDOW_MUTATE_NO_DEACT_INVAL to prove the oracle bites. The switches are
- * documented at their use sites; the default build defines none of them.
+ * -DWINDOW_MUTATE_OVERPAINT/-DWINDOW_MUTATE_ZORDER and the activation plus
+ * CHROME_FID_MUT_* CalcDoc restorations to prove the oracle bites. The switches
+ * are documented at their use sites; the default build defines none of them.
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -78,6 +78,86 @@ static void rgn_accumulate(region_t *dst, const region_t *other,
 {
     region_op(scratch, dst, other, op);
     rgn_copy(dst, scratch);
+}
+
+/* The Platinum document structure is the frame UNION its exact notched shadow
+ * L. The shadow is part of strucRgn so z-order, exposure, and move damage own
+ * the same pixels the WDEF draws. Ref: sys8/window-chrome.md Sec 1 and the
+ * CalcDoc finding in docs/FLAIR-solidity-drive-2026-07-21.md Sec 4. */
+static int document_variant(int16_t variant)
+{
+    return variant == documentProc || variant == noGrowDocProc ||
+           variant == zoomDocProc || variant == zoomNoGrow;
+}
+
+static region_t *structure_scratch(WindowMgr *wm, rgn_rect_t frame,
+                                   int16_t variant)
+{
+    region_t *a = wm->scratch_a;
+    region_set_rect(a, frame);
+#if !defined(CHROME_FID_MUT_SHADOW_CLIPPED)
+    if (document_variant(variant)) {
+        region_t *b = wm->scratch_b;
+        region_t *c = wm->scratch_c;
+        rgn_rect_t shadow;
+
+        if (frame.right == INT16_MAX || frame.bottom == INT16_MAX) {
+            WIN_PANIC("document shadow coordinate overflow");
+        }
+        shadow.top = (int16_t)(frame.top + FLAIR_CHROME_SHADOW_NOTCH);
+        shadow.left = frame.right;
+        shadow.bottom = (int16_t)(frame.bottom + FLAIR_CHROME_SHADOW_OFFSET);
+        shadow.right = (int16_t)(frame.right + FLAIR_CHROME_SHADOW_OFFSET);
+        region_set_rect(b, shadow);
+        region_op(c, a, b, RGN_OP_UNION);
+
+        shadow.top = frame.bottom;
+        shadow.left = (int16_t)(frame.left + FLAIR_CHROME_SHADOW_NOTCH);
+        shadow.bottom = (int16_t)(frame.bottom + FLAIR_CHROME_SHADOW_OFFSET);
+        shadow.right = (int16_t)(frame.right + FLAIR_CHROME_SHADOW_OFFSET);
+        region_set_rect(b, shadow);
+        region_op(a, c, b, RGN_OP_UNION);
+    }
+#else
+    /* Rule-6 mutant (initech-9d0e): restore frame-only strucRgn clipping. */
+    (void)document_variant(variant);
+#endif
+    return a;
+}
+
+rgn_rect_t WindowFrameRect(const WindowPtr w)
+{
+    rgn_rect_t frame;
+    if (w == NULL || w->strucRgn == NULL) WIN_PANIC("WindowFrameRect: NULL");
+    frame = region_get_bbox(w->strucRgn);
+#if !defined(CHROME_FID_MUT_SHADOW_CLIPPED)
+    if (document_variant(w->windowDefProcVariant) && !region_is_empty(w->strucRgn)) {
+        frame.right = (int16_t)(frame.right - FLAIR_CHROME_SHADOW_OFFSET);
+        frame.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_SHADOW_OFFSET);
+    }
+#endif
+    return frame;
+}
+
+rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
+{
+    rgn_rect_t content;
+#if defined(CHROME_FID_MUT_CONTENT_TOP_STALE)
+    content.top = (int16_t)(frame.top + FLAIR_CHROME_FRAME +
+                            FLAIR_CHROME_TITLEBAR_H);
+#else
+    content.top = (int16_t)(frame.top + FLAIR_CHROME_TITLEBAR_H);
+#endif
+    content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME);
+    content.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_FRAME);
+#if defined(CHROME_FID_MUT_CONTENT_OVER_SCROLL)
+    content.right = (int16_t)(frame.right - FLAIR_CHROME_FRAME);
+#else
+    content.right = (int16_t)(frame.right - FLAIR_CHROME_FRAME -
+                              FLAIR_CHROME_BODY_BAR -
+                              FLAIR_CHROME_SCROLLBAR_W);
+#endif
+    return content;
 }
 
 /* ===========================================================================
@@ -381,7 +461,7 @@ void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content
         w->updateRgn->rows == NULL)
         WIN_PANIC("NewWindow: window region pools unattached");
 
-    region_set_rect(w->strucRgn, bounds);
+    rgn_copy(w->strucRgn, structure_scratch(wm, bounds, wVariant));
     region_set_rect(w->contRgn, content);
     region_set_empty(w->updateRgn);
 
@@ -397,6 +477,13 @@ void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content
 
     list_push_front(wm, w);
     reaffirm_active(wm);
+}
+
+void NewDocumentWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t frame,
+                       int16_t wKind, uint8_t goAway)
+{
+    NewWindow(wm, w, frame, CalcDocContentRect(frame),
+              wKind, (int16_t)documentProc, goAway);
 }
 
 void SetWTitle(WindowMgr *wm, WindowPtr w, const char *title)
@@ -417,10 +504,10 @@ void SetWTitle(WindowMgr *wm, WindowPtr w, const char *title)
     w->titleWidth = (int16_t)(n * FLAIR_CHROME_TITLE_CELL_W);
 
     if (wm == NULL || !w->visible) return;
-    title_band = region_get_bbox(w->strucRgn);
+    title_band = WindowFrameRect(w);
     title_band.bottom = (int16_t)(title_band.top + FLAIR_CHROME_TITLEBAR_H);
-    if (title_band.bottom > region_get_bbox(w->strucRgn).bottom) {
-        title_band.bottom = region_get_bbox(w->strucRgn).bottom;
+    if (title_band.bottom > WindowFrameRect(w).bottom) {
+        title_band.bottom = WindowFrameRect(w).bottom;
     }
     WindowMgr_invalidate(wm, w, title_band);
 }
@@ -509,7 +596,7 @@ void MoveWindow(WindowMgr *wm, WindowPtr w, int16_t newLeft, int16_t newTop)
     if (wm == NULL || w == NULL) WIN_PANIC("MoveWindow: NULL");
     if (!list_contains(wm, w)) WIN_PANIC("MoveWindow: not in list");
 
-    rgn_rect_t s = region_get_bbox(w->strucRgn);
+    rgn_rect_t s = WindowFrameRect(w);
     rgn_rect_t c = region_get_bbox(w->contRgn);
     int16_t dh = (int16_t)(newLeft - s.left);
     int16_t dv = (int16_t)(newTop  - s.top);
@@ -529,8 +616,7 @@ void MoveWindow(WindowMgr *wm, WindowPtr w, int16_t newLeft, int16_t newTop)
     rgn_rect_t nc = { (int16_t)(c.top + dv), (int16_t)(c.left + dh),
                       (int16_t)(c.bottom + dv), (int16_t)(c.right + dh) };
     {
-        region_t *nsr = wm->scratch_a;
-        region_set_rect(nsr, ns);
+        region_t *nsr = structure_scratch(wm, ns, w->windowDefProcVariant);
         region_op(wm->scratch_b, exposed, nsr, RGN_OP_DIFF);  /* out distinct */
         rgn_copy(exposed, wm->scratch_b);                     /* exposed shrinks */
     }
@@ -540,7 +626,8 @@ void MoveWindow(WindowMgr *wm, WindowPtr w, int16_t newLeft, int16_t newTop)
      * distribute_exposure consumes `exposed`, after which updateRgn is cleared.
      * The moved window's OWN repaint is the caller's concern; D-5 / the oracle
      * is about the OTHER windows + the desktop. */
-    region_set_rect(w->strucRgn, ns);
+    rgn_copy(w->strucRgn,
+             structure_scratch(wm, ns, w->windowDefProcVariant));
     region_set_rect(w->contRgn, nc);
 
     distribute_exposure(wm, w, exposed);
@@ -551,7 +638,7 @@ void DragWindow(WindowMgr *wm, WindowPtr w, int16_t dh, int16_t dv)
 {
     if (wm == NULL || w == NULL) WIN_PANIC("DragWindow: NULL");
     if (!list_contains(wm, w)) WIN_PANIC("DragWindow: not in list");
-    rgn_rect_t s = region_get_bbox(w->strucRgn);
+    rgn_rect_t s = WindowFrameRect(w);
     MoveWindow(wm, w, (int16_t)(s.left + dh), (int16_t)(s.top + dv));
 }
 
@@ -632,7 +719,7 @@ flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
             return inContent;
 
         /* chrome: derive the box bands from the struc/content bounding rects. */
-        rgn_rect_t s = region_get_bbox(p->strucRgn);
+        rgn_rect_t s = WindowFrameRect(p);
         rgn_rect_t c = region_get_bbox(p->contRgn);
         int16_t tb = (int16_t)(c.top - s.top);     /* title-bar band height */
         if (tb < 1) tb = 1;

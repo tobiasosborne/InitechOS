@@ -13,7 +13,8 @@
  * window list and maintains, for every window, the three regions the rest of the
  * Toolbox rides on:
  *
- *   strucRgn  -- the whole window frame (chrome + content + title bar).
+ *   strucRgn  -- the whole WDEF structure (frame/chrome/content plus the exact
+ *                document shadow band where the variant has one).
  *   contRgn   -- the content area (inside the chrome).
  *   updateRgn -- the damaged area still owing a repaint (the DiffRgn payoff).
  *
@@ -36,8 +37,9 @@
  *
  * NO MALLOC (Law 3, freestanding; ADR-0004 DEC-03 FLAIR heap): the Window
  * Manager owns no storage. Like the region engine, EVERY region is caller-
- * supplied from the FLAIR arena: NewWindow takes the WindowRecord AND four
- * region_t's (strucRgn / contRgn / updateRgn + a scratch region) with their
+ * supplied from the FLAIR arena: NewWindow takes the WindowRecord and its three
+ * region_t's (strucRgn / contRgn / updateRgn), while WindowMgr owns three
+ * scratch regions, all with their
  * rows[]/x_pool pools already attached. A cap overflow inside the algebra FAILS
  * LOUD in the engine (Rule 2). The desktop's damage is delivered through a
  * caller-supplied desktop updateRgn the same way.
@@ -140,7 +142,9 @@ void WindowMgr_init(WindowMgr *wm, rgn_rect_t desktop_frame,
 
 /* NewWindow -- install `w` at the FRONT of the z-order list and activate it.
  *
- *   bounds    -- the window's outer (structure) rectangle in global coords.
+ *   bounds    -- the window's outer FRAME rectangle in global coords. For a
+ *                document WDEF, strucRgn also includes the sampled (+1,+1)
+ *                shadow band outside this rectangle.
  *   content   -- the content rectangle (inside the chrome) in global coords;
  *                must be within `bounds`. (window.c computes the chrome bands
  *                between them for FindWindow; see Section 4.)
@@ -149,8 +153,9 @@ void WindowMgr_init(WindowMgr *wm, rgn_rect_t desktop_frame,
  *   goAway    -- 1 if the window has a close box.
  *
  * `w` and its three regions (strucRgn/contRgn/updateRgn) must be caller-supplied
- * with pools attached (the region engine never mallocs). strucRgn := bounds,
- * contRgn := content, updateRgn := empty on entry. The previously-front window
+ * with pools attached (the region engine never mallocs). strucRgn := the WDEF
+ * structure (frame plus document shadow), contRgn := content, updateRgn :=
+ * empty on entry. The previously-front window
  * is deactivated (hilited=0, deactivation repaint seeded); `w` becomes active
  * (hilited=1) and its first full paint is SEEDED by the activation transition
  * (initech-rqz5 / DQ3): on return `w`'s updateRgn holds its visible region --
@@ -159,6 +164,22 @@ void WindowMgr_init(WindowMgr *wm, rgn_rect_t desktop_frame,
  * (covering exposes nothing). */
 void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content,
                int16_t wKind, int16_t wVariant, uint8_t goAway);
+
+/* CalcDocContentRect -- the single document-WDEF content derivation seam.
+ * The title boundary is frame.top+22 exactly (TITLEBAR_H already includes both
+ * frame rows); the right edge stops at the actual outer line of the 16px
+ * vertical scrollbar, after the four-pixel body rail. Ref: sys8/window-
+ * chrome.md Sec 2.1/Sec 4 and scrollbars.md Sec 1; beads initech-javs/l0mh. */
+rgn_rect_t CalcDocContentRect(rgn_rect_t frame);
+
+/* NewDocumentWindow -- CalcDocContentRect + NewWindow(documentProc). Production
+ * document callers use this WDEF seam instead of repeating chrome formulas. */
+void NewDocumentWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t frame,
+                       int16_t wKind, uint8_t goAway);
+
+/* WindowFrameRect -- recover the drawer/hit-test frame from strucRgn. A
+ * document strucRgn includes its shadow; the frame does not. */
+rgn_rect_t WindowFrameRect(const WindowPtr w);
 
 /* SetWTitle -- the ONE write seam for the kernel-owned inline title buffer.
  * Copies an ASCIZ title into WindowRecord.titleHandle, always terminates it,
@@ -261,7 +282,7 @@ void DragWindow(WindowMgr *wm, WindowPtr w, int16_t dh, int16_t dv);
  *   no window contains the point .............. inDesk      (whichWindow := NULL)
  *
  * Returns the part-code; *whichWindow receives the hit window (or NULL for
- * inDesk). The chrome sub-bands are derived from the struc/content rects using
+ * inDesk). The chrome sub-bands are derived from WindowFrameRect/content using
  * spec/chrome_metrics geometry (close/zoom box sizes, grow box size).
  * ===========================================================================*/
 flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,

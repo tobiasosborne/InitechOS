@@ -123,15 +123,15 @@ static void make_port(GrafPort *port, const bitmap_t *dst,
     port->grafProcs = (QDProcs *)0;
 }
 
-/* Draw one window's Platinum chrome clipped to (visRgn INTERSECT clipRgn). The
- * chrome geometry comes from the window's structure bounding box (global coords;
- * the offscreen IS the screen, so port-local == global). */
+/* Draw one window's Platinum chrome clipped to (visRgn INTERSECT clipRgn).
+ * WindowFrameRect decouples the drawer frame from the larger strucRgn that owns
+ * the shadow band (initech-9d0e). Global == port-local on this offscreen. */
 static void paint_window_chrome(const bitmap_t *dst, WindowPtr w,
                                 region_t *visRgn, region_t *clipRgn)
 {
     GrafPort port;
     const flair_skin_t *skin = flair_look_default_skin();
-    rgn_rect_t frame = region_get_bbox(w->strucRgn);
+    rgn_rect_t frame = WindowFrameRect(w);
     make_port(&port, dst, visRgn, clipRgn);
     /* w->hilited (spec/window_record.h; set by window.c reaffirm_active on every
      * BringToFront/SendBehind) drives the StandardWDEF active/inactive title-bar

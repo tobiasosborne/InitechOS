@@ -10051,8 +10051,9 @@ test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHR
 # chrome.c renders from -- that is the HER-02 by-construction trap; CLAUDE.md
 # Law 2). Route-2 Platinum re-key: ADR-0004-AMENDMENT-DEC-10 Sec 4 and the
 # sampled sys8 window-chrome/scrollbar specifications. Reuses the test-chrome
-# link set + host render skeleton. Fifteen look/geometry mutants plus the
-# Route-1 wrong-era mutant are mutation-proven.
+# link set + host render skeleton. Twenty chrome look/geometry mutants plus the
+# Route-1 wrong-era mutant are mutation-proven; WindowMgr separately proves the
+# live shadow clip and two CalcDoc content seams.
 # ---------------------------------------------------------------------------
 TEST_CHROME_FID     := $(BUILD)/test_chrome_fidelity
 TEST_CHROME_FID_SRC := harness/proptest/test_chrome_fidelity.c
@@ -10073,6 +10074,11 @@ TEST_CHROME_FID_MUT_RMP := $(BUILD)/test_chrome_fidelity_mutant_ramp
 TEST_CHROME_FID_MUT_NTC := $(BUILD)/test_chrome_fidelity_mutant_notch
 TEST_CHROME_FID_MUT_BDB := $(BUILD)/test_chrome_fidelity_mutant_bodybar
 TEST_CHROME_FID_MUT_SKIN := $(BUILD)/test_chrome_fidelity_mutant_wrongera
+TEST_CHROME_FID_MUT_SOF := $(BUILD)/test_chrome_fidelity_mutant_stripe_unshifted
+TEST_CHROME_FID_MUT_NDB := $(BUILD)/test_chrome_fidelity_mutant_notch_double
+TEST_CHROME_FID_MUT_DRB := $(BUILD)/test_chrome_fidelity_mutant_dark_ring_black
+TEST_CHROME_FID_MUT_CBC := $(BUILD)/test_chrome_fidelity_mutant_cbox_corner
+TEST_CHROME_FID_MUT_ZCT := $(BUILD)/test_chrome_fidelity_mutant_zoom_centered
 
 $(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
@@ -10168,6 +10174,26 @@ $(TEST_CHROME_FID_MUT_BDB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_BODYBAR $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
+$(TEST_CHROME_FID_MUT_SOF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_STRIPE_UNSHIFTED $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT_NDB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NOTCH_DOUBLE $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT_DRB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_DARK_RING_BLACK $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT_CBC): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_CBOX_CORNER $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT_ZCT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_ZOOM_CENTERED $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
 # FLAIR_MUT_SKIN_WRONG_ERA (beads initech-chd4, Rule 6): resolve the live
 # chrome policy pointer to the retained SYS7 row instead of the Platinum
 # default. The existing Platinum fidelity legs MUST go RED, proving that the
@@ -10191,8 +10217,8 @@ test-chrome-fidelity: $(TEST_CHROME_FID)
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN)
-	@printf '>>> test-chrome-fidelity-mutant: confirming all sixteen Platinum chrome mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN) $(TEST_CHROME_FID_MUT_SOF) $(TEST_CHROME_FID_MUT_NDB) $(TEST_CHROME_FID_MUT_DRB) $(TEST_CHROME_FID_MUT_CBC) $(TEST_CHROME_FID_MUT_ZCT)
+	@printf '>>> test-chrome-fidelity-mutant: confirming all twenty-one Platinum chrome mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
 		exit 1; \
@@ -10289,6 +10315,11 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 	else \
 		printf '>>> test-chrome-fidelity-mutant: green (FLAIR_MUT_SKIN_WRONG_ERA correctly RED -- retained SYS7 row values are caught)\n'; \
 	fi
+	@if $(TEST_CHROME_FID_MUT_SOF) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_STRIPE_UNSHIFTED PASSED -- the row-parity endpoint oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_STRIPE_UNSHIFTED correctly RED)\n'; fi
+	@if $(TEST_CHROME_FID_MUT_NDB) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_NOTCH_DOUBLE PASSED -- the shared separator oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_NOTCH_DOUBLE correctly RED)\n'; fi
+	@if $(TEST_CHROME_FID_MUT_DRB) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_DARK_RING_BLACK PASSED -- the sampled idx63 bevel oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_DARK_RING_BLACK correctly RED)\n'; fi
+	@if $(TEST_CHROME_FID_MUT_CBC) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_CBOX_CORNER PASSED -- the closed-ring corner oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_CBOX_CORNER correctly RED)\n'; fi
+	@if $(TEST_CHROME_FID_MUT_ZCT) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_ZOOM_CENTERED PASSED -- the nested-square glyph oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_ZOOM_CENTERED correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-blitter (beads initech-i50) -- FLAIR region-clipped blitter.
@@ -10450,6 +10481,9 @@ TEST_WINDOW_MUT_ZORDER    := $(BUILD)/test_window_mutant_zorder
 TEST_WINDOW_MUT_OVERPAINT := $(BUILD)/test_window_mutant_overpaint
 TEST_WINDOW_MUT_NO_DEACT_INVAL := $(BUILD)/test_window_mutant_no_deact_inval
 TEST_WINDOW_MUT_NO_ACTIVATE_INVAL := $(BUILD)/test_window_mutant_no_activate_inval
+TEST_WINDOW_MUT_SHADOW_CLIPPED := $(BUILD)/test_window_mutant_shadow_clipped
+TEST_WINDOW_MUT_CONTENT_TOP_STALE := $(BUILD)/test_window_mutant_content_top_stale
+TEST_WINDOW_MUT_CONTENT_OVER_SCROLL := $(BUILD)/test_window_mutant_content_over_scroll
 TEST_WINDOW_DEPS := os/flair/window.c os/flair/window.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h
 WINDOW_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
 WINDOW_LINK := os/flair/window.c $(REGION_ENGINE_C)
@@ -10464,6 +10498,12 @@ $(TEST_WINDOW_MUT_NO_DEACT_INVAL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BU
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_NO_DEACT_INVAL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_NO_ACTIVATE_INVAL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_SHADOW_CLIPPED): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_SHADOW_CLIPPED $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_CONTENT_TOP_STALE): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_CONTENT_TOP_STALE $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_CONTENT_OVER_SCROLL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_CONTENT_OVER_SCROLL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 
 test-window: $(TEST_WINDOW)
 	@printf ">>> test-window: visible region (strucRgn DIFF fronts) + DiffRgn damage (no over-repaint, D-5) + z-order + FindWindow\n"
@@ -10472,12 +10512,15 @@ test-window: $(TEST_WINDOW)
 		|| { printf '!!! test-window FAIL: window.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-window: green\n"
 
-test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TEST_WINDOW_MUT_NO_DEACT_INVAL) $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL)
-	@printf ">>> test-window-mutant: confirming all four mutants go RED (Rule 6)\n"
+test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TEST_WINDOW_MUT_NO_DEACT_INVAL) $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL) $(TEST_WINDOW_MUT_SHADOW_CLIPPED) $(TEST_WINDOW_MUT_CONTENT_TOP_STALE) $(TEST_WINDOW_MUT_CONTENT_OVER_SCROLL)
+	@printf ">>> test-window-mutant: confirming all seven mutants go RED (Rule 6)\n"
 	@if $(TEST_WINDOW_MUT_ZORDER) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZORDER PASSED -- the visible-region oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZORDER correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_OVERPAINT) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: OVERPAINT PASSED -- the no-over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (OVERPAINT correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_NO_DEACT_INVAL) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: NO_DEACT_INVAL PASSED -- the deactivation-repaint oracle (initech-v6t2) is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (NO_DEACT_INVAL correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: NO_ACTIVATE_INVAL PASSED -- the activation-repaint oracle (initech-rqz5) is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (NO_ACTIVATE_INVAL correctly RED)\n'; fi
+	@if $(TEST_WINDOW_MUT_SHADOW_CLIPPED) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: CHROME_FID_MUT_SHADOW_CLIPPED PASSED -- the live shadow-region oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (CHROME_FID_MUT_SHADOW_CLIPPED correctly RED -- frame-only strucRgn loses old-shadow damage)\n'; fi
+	@if $(TEST_WINDOW_MUT_CONTENT_TOP_STALE) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: CHROME_FID_MUT_CONTENT_TOP_STALE PASSED -- the CalcDoc top oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (CHROME_FID_MUT_CONTENT_TOP_STALE correctly RED)\n'; fi
+	@if $(TEST_WINDOW_MUT_CONTENT_OVER_SCROLL) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: CHROME_FID_MUT_CONTENT_OVER_SCROLL PASSED -- the CalcDoc scrollbar exclusion oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (CHROME_FID_MUT_CONTENT_OVER_SCROLL correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --

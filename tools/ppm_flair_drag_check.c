@@ -16,9 +16,9 @@
  *     white / CIDX_PLAT_STRIPE_DARK, light first and dark last with no doubled
  *     pair; and the content just below (y=172) is white. DEC-10 Sec 4 +
  *     sys8/window-chrome.md Sec 2.1/2.2. This
- *     column was BARE TEAL before the drag (x=560 is the OLD window's right edge,
- *     just outside its half-open [300,560) struct), so a window that did NOT move
- *     leaves teal here and LEG A goes RED.
+ *     column was the OLD window's one-pixel black shadow before the drag
+ *     (x=560 is the OLD frame's right edge). A window that did NOT move leaves
+ *     black rather than the shifted stripe here, so LEG A still goes RED.
  *
  *   LEG B -- THE VACATED AREA READS BARE TEAL (the D-5 damage law erased the old
  *     position; ADR-0006 E-D5 Tier-A).  Two points in the OLD title band that the
@@ -67,8 +67,8 @@
 #define STRIPE_OFF   4
 #define STRIPE_ROWS 12
 /* a CLEAN stripe column: right of the centered title text, left of the new
- * right frame (x=599), and == the OLD window's right edge (560) so it was bare
- * teal pre-drag -- the LEG-A differential anchor. */
+ * right frame (x=599), and == the OLD window's right-shadow column (560) --
+ * the LEG-A differential anchor. */
 #define PIN_X      560
 /* Exact Platinum stripe interval, half-open. */
 #define STRIPE_TOP (NEW_T + STRIPE_OFF)

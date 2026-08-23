@@ -251,18 +251,10 @@ void shell_build_scene(shell_scene_t *s,
         w->rec.updateRgn = w->updateRgn;
         w->rec.nextWindow = (WindowRecord *)0;
 
-        /* content = 1 px frame on sides/bottom, (frame + title bar) on top --
-         * the documentProc chrome bands (the test_drag make_rects convention,
-         * grounded in chrome_metrics.h). */
+        /* CalcDoc owns both content geometry and documentProc selection. */
         rgn_rect_t b = win_bounds[i];
-        rgn_rect_t c;
-        c.top    = (int16_t)(b.top + FLAIR_CHROME_FRAME + FLAIR_CHROME_TITLEBAR_H);
-        c.left   = (int16_t)(b.left + FLAIR_CHROME_FRAME);
-        c.bottom = (int16_t)(b.bottom - FLAIR_CHROME_FRAME);
-        c.right  = (int16_t)(b.right - FLAIR_CHROME_FRAME);
-
-        NewWindow(&s->wm, &w->rec, b, c,
-                  (int16_t)documentKind, (int16_t)documentProc, 1 /* goAway */);
+        NewDocumentWindow(&s->wm, &w->rec, b,
+                          (int16_t)documentKind, 1 /* goAway */);
 
         /* The ONE kernel-held title seam (D2-3 / future FLAIR_SETWTITLE). */
         SetWTitle(&s->wm, &w->rec, win_titles[i]);

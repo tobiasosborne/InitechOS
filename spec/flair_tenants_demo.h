@@ -124,14 +124,14 @@
 #define FLAIR_TEN_ACCENT_SIZE      12
 /* (2b) NOTES ACTIVE-ACCENT probe (the O-5 TIER-B probe; bead initech-4w15): a
  *      FLAIR_TEN_ACCENT_SIZE block NOTES paints at ITS content top-left when it
- *      becomes active. Derived from the documentProc chrome inset EXACTLY as
- *      os/apps/ref_tenant.c computes NOTES's content top-left (bounds.left+FRAME,
- *      bounds.top+FRAME+TITLEBAR_H) = (261,140). This block is UNDER HELLO before
+ *      becomes active. Derived from the documentProc chrome inset: TITLEBAR_H
+ *      already includes both frame rows, so top=120+22=142. This block is UNDER
+ *      HELLO before
  *      the switch (=> reads HELLO_FILL) and shows FLAIR_TEN_ACTIVE_ACCENT after
  *      NOTES is raised + activated. The skip-activate-pair mutant leaves it
  *      NOTES_FILL (no accent) -> RED. */
 #define FLAIR_TEN_NOTES_ACCENT_X   (FLAIR_TEN_NOTES_L + FLAIR_CHROME_FRAME)
-#define FLAIR_TEN_NOTES_ACCENT_Y   (FLAIR_TEN_NOTES_T + FLAIR_CHROME_FRAME + FLAIR_CHROME_TITLEBAR_H)
+#define FLAIR_TEN_NOTES_ACCENT_Y   (FLAIR_TEN_NOTES_T + FLAIR_CHROME_TITLEBAR_H)
 /* (3) NOTES sliver CLICK point: inside NOTES content, NOT under HELLO, so the
  *     O-5 trace can click the background tenant. x>=360 => right of HELLO's right
  *     edge AND y>=260 => below HELLO's bottom edge (doubly clear of HELLO). */

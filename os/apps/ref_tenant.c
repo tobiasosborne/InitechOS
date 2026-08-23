@@ -21,8 +21,8 @@
  *   - open(): allocate the private state + a WindowRecord + four region bundles
  *     (strucRgn / contRgn / updateRgn + a clip scratch, each rows[]/x_pool attached)
  *     from self->arena; compute the structure bounds for THIS tenant from
- *     spec/flair_tenants_demo.h and the content rect by the documentProc chrome inset
- *     (the shell.c convention: frame + Platinum title bar); NewWindow(lp->wm,
+ *     spec/flair_tenants_demo.h and the content rect through the Window Manager's
+ *     CalcDoc seam (title boundary + scrollbar exclusion); NewDocumentWindow(lp->wm,
  *     ...); SetWTitle(lp->wm, ..., HELLO/NOTES) through the kernel-held D2-3
  *     seam; set w->refCon = (int32_t)(uintptr_t)self (the Sec 3.1 binding /
  *     demux rule); stash
@@ -67,7 +67,7 @@
  *      value + region clip); os/flair/flair_look.h (flair_look_pixel_depth, the C-8
  *      seam); spec/chrome_metrics.h (FLAIR_CHROME_FRAME / FLAIR_CHROME_TITLEBAR_H);
  *      spec/region_algebra.h (region_op INTERSECT). CLAUDE.md Law 2, Law 3, Rule 2,
- *      Rule 11, Rule 12.
+ *      Rule 11, Rule 12; os/flair/window.h (CalcDocContentRect).
  *
  * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
  */
@@ -83,7 +83,6 @@
 #include "heap.h"                 /* flair_alloc, FLAIR_CLASS_* (-Ios/flair)       */
 #include "flair_look.h"           /* flair_look_pixel_depth, FLAIR_PART_* (the C-8 seam) */
 #include "event_model.h"          /* EventRecord, updateEvt/activateEvt/mouseDown   */
-#include "chrome_metrics.h"       /* FLAIR_CHROME_FRAME / FLAIR_CHROME_TITLEBAR_H   */
 #include "flair_tenants_demo.h"   /* the SHARED demo layout + canon indices (-Ispec) */
 
 /* ---------------------------------------------------------------------------
@@ -312,14 +311,9 @@ static int open_common(FlairApp *self, const FlairLaunchParams *lp,
     rec->updateRgn  = &ru->r;
     rec->nextWindow = (WindowRecord *)0;
 
-    /* structure bounds (demo l,t,r,b) + content via the documentProc chrome inset
-     * (the shell.c convention: 1px frame on sides/bottom, frame + title bar on top). */
+    /* Structure bounds are demo data; CalcDoc owns content/scroll geometry. */
     rgn_rect_t bounds = mk_rect(cfg->bnd_l, cfg->bnd_t, cfg->bnd_r, cfg->bnd_b);
-    rgn_rect_t content = mk_rect(
-        (int16_t)(bounds.left + FLAIR_CHROME_FRAME),
-        (int16_t)(bounds.top  + FLAIR_CHROME_FRAME + FLAIR_CHROME_TITLEBAR_H),
-        (int16_t)(bounds.right  - FLAIR_CHROME_FRAME),
-        (int16_t)(bounds.bottom - FLAIR_CHROME_FRAME));
+    rgn_rect_t content = CalcDocContentRect(bounds);
 
     p->cfg     = cfg;
     p->surface = lp->surface;
@@ -329,8 +323,8 @@ static int open_common(FlairApp *self, const FlairLaunchParams *lp,
     p->active  = 0;
     p->toggled = 0;
 
-    NewWindow(lp->wm, rec, bounds, content,
-              (int16_t)documentKind, (int16_t)documentProc, 1 /* goAway */);
+    NewDocumentWindow(lp->wm, rec, bounds,
+                      (int16_t)documentKind, 1 /* goAway */);
     SetWTitle(lp->wm, rec, cfg->title);
 
     /* the binding / demux rule (ADR-0013 Sec 3.1): FindWindow -> refCon -> FlairApp*. */

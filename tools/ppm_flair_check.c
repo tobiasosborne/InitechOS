@@ -695,20 +695,10 @@ int main(int argc, char **argv)
          * face, face, shadow, outer black. The adjacent content-inset pixel is
          * CIDX_PLAT_WELL. DEC-10 Sec 4 + sys8/window-chrome.md Sec 4.
          *
-         * LIVE-SHADOW NOTE (beads initech-54nw + follow-up initech-9d0e; Law 1
-         * honesty). The documentProc 1px drop shadow at offset (1,1) IS emitted by
-         * flair_draw_document_window and graded by test-chrome-fidelity (host,
-         * UNCLIPPED port). It does NOT appear on the booted desktop here because
-         * the live compositor clips each window's chrome to its strucRgn
-         * (desktop.c:223) and strucRgn == the window bounds -- it does NOT yet
-         * include the shadow band (Platinum still has the +1 shadow with a 2-px
-         * near-corner notch; sys8/window-chrome.md Sec 1). The drawer's frame rect is itself
-         * bbox(strucRgn) (desktop.c:117), so widening strucRgn to render the shadow
-         * live also shifts the frame -- the fix must DECOUPLE the drawer rect from
-         * the clip (the region-layer follow-up initech-7sd2). So x=W1_R is
-         * genuinely bare teal on the booted desktop today; this assertion stays
-         * TRUE to the current render (Law 2: do not assert a pixel the OS does not
-         * paint). */
+         * CalcDoc now includes the exact notched shadow L in strucRgn while the
+         * drawer receives WindowFrameRect, so the live clip owns x=W1_R and the
+         * next column remains desktop. Ref: sys8/window-chrome.md Sec 1;
+         * bead initech-9d0e. */
         assert_idx(inner_line - 1, body_row, CIDX_PLAT_WELL,
                    "(c) right content inset is Platinum well shadow");
         assert_idx(inner_line, body_row, CIDX_BLACK,
@@ -723,9 +713,10 @@ int main(int argc, char **argv)
                    "(c) right raised body bar ends with frame shadow");
         assert_idx(W1_R - 1, body_row, CIDX_BLACK,
                    "(c) right body outer line is black");
-        assert_idx(W1_R, body_row, CIDX_DESKTOP,
-                   "(c) pixel just right of the outer frame is bare teal "
-                   "(the drop shadow is clipped by strucRgn live -- initech-9d0e)");
+        assert_idx(W1_R, body_row, CIDX_BLACK,
+                   "(c) live drop shadow occupies the column just right of the frame");
+        assert_idx(W1_R + 1, body_row, CIDX_DESKTOP,
+                   "(c) pixel just right of the one-pixel shadow is bare teal");
     }
 
     /* ======================================================================

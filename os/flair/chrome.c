@@ -98,6 +98,14 @@ enum {
     PLAT_WIDGET_COLLAPSE
 };
 
+/* Sampled Platinum widget ink is #3F3F3F (idx63), not frame black.
+ * Ref: sys8/window-chrome.md Sec 3.2-3.3 (SAMPLED domain). */
+#if defined(CHROME_FID_MUT_DARK_RING_BLACK)
+#define PLAT_DARK_RING_PART FLAIR_PART_FRAME
+#else
+#define PLAT_DARK_RING_PART FLAIR_PART_PLAT_DARK_RING
+#endif
+
 /* Platinum 12x12 widget plus the one-pixel right/bottom highlight.
  * Ref: window-chrome.md Sec 3.1-3.3. The seven ramp roles are the sampled
  * diagonal sequence documented at Sec 3.2 and reuse existing policy parts. */
@@ -125,7 +133,7 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
         cfill(port, bx, y, 1, FLAIR_PART_PLAT_WIDGET_EDGE);
     }
     cframe(port, bx + 1, by + 1, bx + box, by + box,
-           FLAIR_PART_PLAT_DARK_RING);
+           PLAT_DARK_RING_PART);
 
     crect(port, bx + 2, by + 2, bx + 2 + interior, by + 2 + interior,
           FLAIR_PART_PLAT_FRAME_FACE);
@@ -155,25 +163,35 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
     }
 
     if (kind == PLAT_WIDGET_ZOOM) {
+#if defined(CHROME_FID_MUT_ZOOM_CENTERED)
+        cframe(port, bx + 4, by + 4, bx + 7, by + 7,
+               PLAT_DARK_RING_PART);
+#else
         for (int d = 0; d < FLAIR_CHROME_ZOOM_GLYPH_EDGE; d++) {
             cfill(port, bx + 2 + 5, by + 2 + d, 1,
-                  FLAIR_PART_PLAT_DARK_RING);
+                  PLAT_DARK_RING_PART);
             cfill(port, bx + 2 + d, by + 2 + 5, 1,
-                  FLAIR_PART_PLAT_DARK_RING);
+                  PLAT_DARK_RING_PART);
         }
+#endif
     } else if (kind == PLAT_WIDGET_COLLAPSE) {
         cfill(port, bx + 2,
               by + 2 + FLAIR_CHROME_COLLAPSE_GLYPH_ROW_0,
-              interior, FLAIR_PART_PLAT_DARK_RING);
+              interior, PLAT_DARK_RING_PART);
         cfill(port, bx + 2,
               by + 2 + FLAIR_CHROME_COLLAPSE_GLYPH_ROW_1,
-              interior, FLAIR_PART_PLAT_DARK_RING);
+              interior, PLAT_DARK_RING_PART);
     }
 
     for (int y = by + 1; y <= by + box; y++) {
         cfill(port, bx + box, y, 1, FLAIR_PART_CONTENT);
     }
     cfill(port, bx + 1, by + box, box, FLAIR_PART_CONTENT);
+#if defined(CHROME_FID_MUT_CBOX_CORNER)
+    /* Rule-6 restoration of the old sz-4 corner gap (bead initech-hber). */
+    cfill(port, bx + box - 1, by + box - 1, 1,
+          FLAIR_PART_PLAT_WIDGET_EDGE);
+#endif
 }
 #endif
 
@@ -299,15 +317,24 @@ static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
         cfill(port, left + 1, top + 1, w - 2, FLAIR_PART_CONTENT);
         crect(port, left + 1, top + 2, right - 1, top + 4,
               FLAIR_PART_PLAT_FRAME_FACE);
+        crect(port, left + 1, top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF,
+              right - 1,
+              top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF +
+                    FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS,
+              FLAIR_PART_PLAT_FRAME_FACE);
         for (int row = 0; row < FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS; row++) {
 #if defined(CHROME_FID_MUT_PHASE)
             int light = (row & 1) != 0;
 #else
             int light = (row & 1) == 0;
 #endif
-            cfill(port, left + 1,
+            int shift = row & 1;
+#if defined(CHROME_FID_MUT_STRIPE_UNSHIFTED)
+            shift = 0;
+#endif
+            cfill(port, title_safe_left + shift,
                   top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF + row,
-                  w - 2,
+                  title_safe_right - title_safe_left,
                   light ? FLAIR_PART_CONTENT : FLAIR_PART_PLAT_STRIPE_DARK);
         }
         crect(port, left + 1, top + 16, right - 1, top + 20,
@@ -683,8 +710,14 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
 #if defined(CHROME_MUTATE_SCROLLBAR_W)
     sb_left++;
 #endif
-    draw_vertical_scrollbar(port, skin, sb_left, shared_line + 1,
-                            ri - 5, grow_y, active);
+    {
+        int sb_top = shared_line;
+#if defined(CHROME_FID_MUT_NOTCH_DOUBLE)
+        sb_top++;
+#endif
+        draw_vertical_scrollbar(port, skin, sb_left, sb_top,
+                                ri - 5, grow_y, active);
+    }
     draw_horizontal_scrollbar(port, skin, left + 5, bi - 20,
                               grow_x, bi - 5, active);
     draw_grow_box(port, skin, grow_x, grow_y, active);

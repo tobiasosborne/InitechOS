@@ -41,8 +41,9 @@
  * flair_draw_document_window -- draw one Platinum document window's chrome.
  *
  * Draws into the GrafPort `port` (the current port), with the window occupying
- * the rectangle `frame` (in port-local coordinates: top,left,bottom,right). The
- * chrome is composed top-to-bottom:
+ * the rectangle `frame` (in port-local coordinates: top,left,bottom,right).
+ * The shadow is one pixel beyond frame.right/frame.bottom, so the caller's
+ * visible/clip region must include the CalcDoc shadow band. Chrome is composed:
  *
  *   - the exact 22-row Platinum title-band profile,
  *   - close, zoom, and rightmost collapse widgets with sampled anatomy,

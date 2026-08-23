@@ -94,6 +94,7 @@
 #include "region.h"           /* engine constructors (-Ios/flair/atkinson)       */
 #include "window_record.h"    /* WindowRecord, part-codes (-Ispec)               */
 #include "window.h"           /* the Window Manager under test (-Ios/flair)      */
+#include "chrome_metrics.h"   /* sampled document shadow notch                    */
 #include "test_assert.h"      /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)        */
 
 TEST_HARNESS();
@@ -196,7 +197,8 @@ static void rasterize_set(const region_t *r, uint8_t *grid /* GW*GH */)
 /* ===========================================================================
  * Build the OWNER grid for a window list (front-to-back; first writer wins).
  * owner = the window's index in `idx`.  Pixels no visible window covers are
- * OWNER_NONE.  Rasterized off the struc bbox (INDEPENDENT of any region op).
+ * OWNER_NONE. Rasterized from the exact strucRgn inversion rows so the
+ * document shadow notch is not inflated to its bounding rectangle.
  *
  * MUTANT INTERACT_MUT_VISIBLE_IGNORE_FRONT (Rule 6): SKIP the front-most window so
  * the EXPECTED visible set ignores occlusion.  The CORRECT ComputeVisible still
@@ -215,14 +217,10 @@ static void build_owner_grid(const WindowMgr *wm, win_store_t *const *idx, int n
         int wi = -1;
         for (int i = 0; i < n; i++) if (&idx[i]->rec == p) { wi = i; break; }
         if (wi < 0) continue;
-        rgn_rect_t s = region_get_bbox(p->strucRgn);
-        for (int y = s.top; y < s.bottom; y++) {
-            if (y < 0 || y >= GH) continue;
-            for (int x = s.left; x < s.right; x++) {
-                if (x < 0 || x >= GW) continue;
-                if (own[y * GW + x] == OWNER_NONE) own[y * GW + x] = (uint8_t)wi;
-            }
-        }
+        uint8_t sg[GW * GH];
+        rasterize_set(p->strucRgn, sg);
+        for (int j = 0; j < GW * GH; j++)
+            if (sg[j] && own[j] == OWNER_NONE) own[j] = (uint8_t)wi;
     }
 }
 
@@ -277,13 +275,28 @@ typedef struct iwin {
     WindowPtr  rec;          /* artifact record -- to cross-map FindWindow's hit  */
 } iwin_t;
 
+static int expected_structure_contains(const iwin_t *w, int16_t h, int16_t v)
+{
+    if (rect_contains(w->struc, h, v)) return 1;
+    if (w->variant == documentProc || w->variant == noGrowDocProc ||
+        w->variant == zoomDocProc || w->variant == zoomNoGrow) {
+        return (h == w->struc.right &&
+                v >= w->struc.top + FLAIR_CHROME_SHADOW_NOTCH &&
+                v <= w->struc.bottom) ||
+               (v == w->struc.bottom &&
+                h >= w->struc.left + FLAIR_CHROME_SHADOW_NOTCH &&
+                h <= w->struc.right);
+    }
+    return 0;
+}
+
 static flair_part_code_t expected_part_code(const iwin_t *w, int n,
                                             flair_point_t pt, int *which)
 {
     int16_t h = pt.h, v = pt.v;
     for (int i = 0; i < n; i++) {                 /* front-to-back               */
         if (!w[i].visible) continue;
-        if (!rect_contains(w[i].struc, h, v)) continue;
+        if (!expected_structure_contains(&w[i], h, v)) continue;
         if (which) *which = i;
 
         /* content first (the most common hit). */
@@ -460,7 +473,7 @@ static void leg2_drag_geometry(void)
         exp_s = rect_offset(exp_s, edh, edv);
         exp_c = rect_offset(exp_c, edh, edv);
 
-        rgn_rect_t got_s = region_get_bbox(W.rec.strucRgn);
+        rgn_rect_t got_s = WindowFrameRect(&W.rec);
         rgn_rect_t got_c = region_get_bbox(W.rec.contRgn);
         if (!rect_eq(got_s, exp_s)) struc_bad = 1;
         if (!rect_eq(got_c, exp_c)) cont_bad = 1;
@@ -471,9 +484,9 @@ static void leg2_drag_geometry(void)
           "LEG2: DragWindow translates contRgn by EXACTLY (dh,dv) over all deltas");
 
     /* a single explicit negative-delta anchor for clarity. */
-    rgn_rect_t before = region_get_bbox(W.rec.strucRgn);
+    rgn_rect_t before = WindowFrameRect(&W.rec);
     DragWindow(&M.wm, &W.rec, -6, -4);
-    rgn_rect_t after = region_get_bbox(W.rec.strucRgn);
+    rgn_rect_t after = WindowFrameRect(&W.rec);
 #ifdef INTERACT_MUT_DRAG_NOOP
     rgn_rect_t want = before;                 /* mutant: expect no move           */
 #else
@@ -550,7 +563,7 @@ static void leg3_visible_zorder(void)
     /* --- the OCCLUSION-CHANGING drag (the leg-2 occlusion requirement, shown on
      *     a 2-window scene): drag the BACK window UP by 10 so it clears F. --- */
     DragWindow(&M.wm, &W[0].rec, 0, -10);           /* B -> {0,10,20,30}           */
-    rgn_rect_t Bnew = region_get_bbox(W[0].rec.strucRgn);
+    rgn_rect_t Bnew = WindowFrameRect(&W[0].rec);
     CHECK(rect_eq(Bnew, rect_offset(Bs, 0, -10)),
           "LEG3: the back window moved up by exactly (0,-10)");
 

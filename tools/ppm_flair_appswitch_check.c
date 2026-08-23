@@ -558,6 +558,23 @@ int main(int argc, char **argv)
     assert_idx(&post, "POST", 500, FLAIR_TEN_NOTES_B - 1, CIDX_BLACK,
                "TIER-C: POST NOTES bottom frame edge (right) is CIDX_BLACK, not "
                "desktop teal (initech-jmc5/-qi8v stale desktop_update erasure)");
+
+    /* R0.3 CalcDoc teeth. TITLEBAR_H already includes both frame rows, so the
+     * first tenant row is top+22. The content right edge stops at the actual
+     * outer line of the 16px vertical scrollbar after the four-pixel body rail;
+     * updateEvt therefore cannot erase that line. Ref: sys8/window-chrome.md
+     * Sec 2.1/Sec 4; scrollbars.md Sec 1; beads initech-javs/l0mh. */
+    {
+        int content_top = FLAIR_TEN_NOTES_T + FLAIR_CHROME_TITLEBAR_H;
+        int sb_left = FLAIR_TEN_NOTES_R - FLAIR_CHROME_FRAME -
+                      FLAIR_CHROME_BODY_BAR - FLAIR_CHROME_SCROLLBAR_W;
+        assert_idx(&post, "POST", 370, content_top, FLAIR_TEN_NOTES_FILL,
+                   "R0.3: NOTES first content row is top+TITLEBAR_H (no stale +FRAME)");
+        assert_idx(&post, "POST", sb_left - 1, 300, FLAIR_TEN_NOTES_FILL,
+                   "R0.3: tenant content ends immediately before the scrollbar column");
+        assert_idx(&post, "POST", sb_left, 300, CIDX_BLACK,
+                   "R0.3: updateEvt preserves the vertical scrollbar outer line");
+    }
     if (!g_fail) {
         printf("    TIER-C: the raised window's (NOTES) own structure frame (right "
                "+ bottom edges, inside fd_win_bounds) is CIDX_BLACK post-switch, "

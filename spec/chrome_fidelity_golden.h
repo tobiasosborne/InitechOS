@@ -26,6 +26,11 @@
 #define FG_TITLE_BAND_PROFILE    "KHFFLDLDLDLDLDLDFFFFSK"
 #define FG_TITLE_STRIPE_TOP_OFF   4
 #define FG_TITLE_STRIPE_ROWS     12
+/* Equal-length sampled field: light [L+21,R-38], dark shifted +1 at both ends.
+ * Half-open consumer arithmetic uses RIGHT_OFF against frame.right. */
+#define FG_TITLE_STRIPE_LEFT_OFF 21
+#define FG_TITLE_STRIPE_RIGHT_OFF 38
+#define FG_TITLE_STRIPE_DARK_SHIFT 1
 #define FG_TITLE_FACE_ABOVE       2
 #define FG_TITLE_FACE_BELOW       4
 #define FG_FRAME_IDX              0
@@ -130,6 +135,9 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 #define FG_SB_ARROW_TILE              16
 #define FG_SB_SEPARATOR_ROWS           1
 #define FG_SB_THUMB_MIN               15
+/* The gutter outer-top line coincides with title row T+21; T+22 is trough. */
+#define FG_SB_TOP_OFF                 (FG_TITLE_BAND_ROWS - 1)
+#define FG_SB_AFTER_TOP_IDX           243
 
 #define FG_SB_DISABLED_TROUGH_IDX    243
 #define FG_SB_DISABLED_ARROW_IDX     165

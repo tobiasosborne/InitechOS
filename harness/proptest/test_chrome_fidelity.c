@@ -155,10 +155,14 @@ static uint32_t expected_title_idx(int x, int y, rgn_rect_t frame,
         if (row >= FG_TITLE_STRIPE_TOP_OFF &&
             row < FG_TITLE_STRIPE_TOP_OFF + FG_TITLE_STRIPE_ROWS) {
             int stripe_row = row - FG_TITLE_STRIPE_TOP_OFF;
-            int shift = (stripe_row & 1) ? FG_TITLE_DARK_GAP_SHIFT : 0;
+            int shift = (stripe_row & 1) ? FG_TITLE_STRIPE_DARK_SHIFT : 0;
+            int field_l = frame.left + FG_TITLE_STRIPE_LEFT_OFF + shift;
+            int field_r = frame.right - FG_TITLE_STRIPE_RIGHT_OFF + shift;
             int gap_l = tx + ink_left - FG_TITLE_GAP_PAD_LEFT + shift;
             int gap_r = tx + ink_right + FG_TITLE_GAP_PAD_RIGHT + shift;
-            if (x >= gap_l && x < gap_r) {
+            if (x < field_l || x >= field_r) {
+                base = FG_TITLE_FRAME_FACE_IDX;
+            } else if (x >= gap_l && x < gap_r) {
                 base = FG_TITLE_KNOCKOUT_IDX;
             }
         }
@@ -183,8 +187,8 @@ static uint32_t expected_title_idx(int x, int y, rgn_rect_t frame,
 static int title_bitmap_matches(const render_ctx_t *ctx, rgn_rect_t frame,
                                 const char *shown, int tx, int active)
 {
-    int x0 = frame.left + FG_TITLE_RUN_LEFT_OFF;
-    int x1 = frame.right - FG_TITLE_RUN_RIGHT_OFF;
+    int x0 = frame.left + FG_TITLE_STRIPE_LEFT_OFF - 1;
+    int x1 = frame.right - FG_TITLE_STRIPE_RIGHT_OFF + 2;
     for (int y = frame.top; y < frame.top + FG_TITLE_BAND_ROWS; y++) {
         for (int x = x0; x < x1; x++) {
             if (px(ctx, x, y) != expected_title_idx(x, y, frame,
@@ -260,7 +264,7 @@ int main(void)
 
     const int ri = WIN_RIGHT - 1;   /* inclusive structure right */
     const int bi = WIN_BOTTOM - 1;  /* inclusive structure bottom */
-    const int pin_x = WIN_LEFT + 20;
+    const int pin_x = WIN_LEFT + FG_TITLE_STRIPE_LEFT_OFF + 2;
     const int mid_x = (WIN_LEFT + WIN_RIGHT) / 2;
 
     /* TITLE BAND: exact 22-row class profile, including 2/4 face asymmetry.
@@ -276,6 +280,32 @@ int main(void)
           "leg BAND: title must match 22-row KHFF+(LDx6)+FFFF+SK Platinum profile; "
           "12 stripes start light/end dark and face rows are 2 above/4 below "
           "(window-chrome.md Sec 2.1/2.2)");
+
+    /* STRIPE EXTENTS: equal-length dark rows are shifted one pixel right,
+     * including both field endpoints. Ref: window-chrome.md Sec 2.2. */
+    const int stripe_l = WIN_LEFT + FG_TITLE_STRIPE_LEFT_OFF;
+    const int stripe_r = WIN_RIGHT - FG_TITLE_STRIPE_RIGHT_OFF;
+    int stripe_extent_ok =
+        px(&active, stripe_l - 1, WIN_TOP + FG_TITLE_STRIPE_TOP_OFF) ==
+            FG_TITLE_FRAME_FACE_IDX &&
+        px(&active, stripe_l, WIN_TOP + FG_TITLE_STRIPE_TOP_OFF) ==
+            FG_TITLE_STRIPE_LIGHT_IDX &&
+        px(&active, stripe_r - 1, WIN_TOP + FG_TITLE_STRIPE_TOP_OFF) ==
+            FG_TITLE_STRIPE_LIGHT_IDX &&
+        px(&active, stripe_r, WIN_TOP + FG_TITLE_STRIPE_TOP_OFF) ==
+            FG_TITLE_FRAME_FACE_IDX &&
+        px(&active, stripe_l, WIN_TOP + FG_TITLE_STRIPE_TOP_OFF + 1) ==
+            FG_TITLE_FRAME_FACE_IDX &&
+        px(&active, stripe_l + FG_TITLE_STRIPE_DARK_SHIFT,
+           WIN_TOP + FG_TITLE_STRIPE_TOP_OFF + 1) ==
+            FG_TITLE_STRIPE_DARK_IDX &&
+        px(&active, stripe_r, WIN_TOP + FG_TITLE_STRIPE_TOP_OFF + 1) ==
+            FG_TITLE_STRIPE_DARK_IDX &&
+        px(&active, stripe_r + 1, WIN_TOP + FG_TITLE_STRIPE_TOP_OFF + 1) ==
+            FG_TITLE_FRAME_FACE_IDX;
+    CHECK(stripe_extent_ok,
+          "leg STRIPE-OFFSET: dark stripe rows must shift +1 at both equal-length "
+          "field endpoints (window-chrome.md Sec 2.2)");
 
     /* TITLE: exact expected bitmap from the independent Chicago strike path.
      * The fixed 5-cell run is x=180..219; visible ink is x=181..218, so the
@@ -355,6 +385,18 @@ int main(void)
           "leg WIDGETS: active chrome must carry three 12x12+highlight widgets at "
           "L+4, R-32, R-16 with collapse rightmost (window-chrome.md Sec 3.1)");
 
+    int bevel_ring_ok = FG_BOX_RING_IDX == 63 &&
+        px(&active, close_x + FG_BOX_RENDER_SIZE - 1,
+           box_y + FG_BOX_RENDER_SIZE - 1) == FG_BOX_RING_IDX &&
+        px(&active, zoom_x + FG_BOX_RENDER_SIZE - 1,
+           box_y + FG_BOX_RENDER_SIZE - 1) == FG_BOX_RING_IDX &&
+        px(&active, collapse_x + FG_BOX_RENDER_SIZE - 1,
+           box_y + FG_BOX_RENDER_SIZE - 1) == FG_BOX_RING_IDX &&
+        FG_BOX_RING_IDX != FG_FRAME_IDX;
+    CHECK(bevel_ring_ok,
+          "leg WIDGET-RING: every dark ring closes at its bottom-right corner "
+          "in sampled idx63, distinct from black (window-chrome.md Sec 3.2)");
+
     int widget_ramp_ok = ramp_ok_at(&active, close_x, box_y);
     CHECK(widget_ramp_ok,
           "leg RAMP: close interior must be the seven-rung two-pixels-per-step "
@@ -394,7 +436,7 @@ int main(void)
      * in chrome_fidelity_golden.h. _SCROLL_FLAT bites the state classes. */
     const int sb_left = ri - 20;
     const int sb_right = ri - 5;
-    const int sb_top = WIN_TOP + FG_TITLE_BAND_ROWS;
+    const int sb_top = WIN_TOP + FG_SB_TOP_OFF;
     const int sb_mid_x = (sb_left + sb_right) / 2;
     const int sb_sep_y = sb_top + FG_SB_ARROW_TILE - 1;
     const int sb_track_y = 150;
@@ -409,12 +451,15 @@ int main(void)
                                  FG_SB_ENABLED_THUMB_SHADOW_IDX);
     int scrollbar_ok =
         px(&active, sb_left, sb_track_y) == FG_SB_ENABLED_FRAME_IDX &&
+        px(&active, sb_mid_x, sb_top) == FG_SB_ENABLED_FRAME_IDX &&
+        px(&active, sb_mid_x, sb_top + 1) == FG_SB_AFTER_TOP_IDX &&
         px(&active, sb_mid_x, sb_track_y) == FG_SB_DISABLED_TROUGH_IDX &&
         px(&active, sb_mid_x, sb_sep_y) == FG_SB_DISABLED_SEPARATOR_IDX &&
         sb_arrow_px >= 8 && sb_thumb_px == 0;
     CHECK(scrollbar_ok,
           "leg SCROLL-DISABLED: active no-range scene must use trough idx243, "
-          "arrow idx165, separator idx119, and no thumb (scrollbars.md Sec 3)");
+          "arrow idx165, separator idx119, no thumb, and one shared title/gutter "
+          "top line (scrollbars.md Sec 1/Sec 3; window-chrome.md Sec 2.1)");
 
     /* GROW BOX: 18x18 cell, face/highlight, three pitched grip lines.
      * Ref: window-chrome.md Sec 5. */
@@ -556,11 +601,13 @@ int main(void)
 #define LEG_STATUS(name, ok, why) \
     printf("  %-24s %s -- %s\n", name, (ok) ? "PASS" : "RED", why)
     LEG_STATUS("BAND", band_ok, "22-row profile / 12 light-first stripes / 2+4 face");
+    LEG_STATUS("STRIPE-OFFSET", stripe_extent_ok, "dark rows shift +1 at both endpoints");
     LEG_STATUS("TITLE", title_ok, "black centered ink over idx218 gap");
     LEG_STATUS("TITLE-TRUNC", trunc_ok, "whole cells plus one terminal period");
     LEG_STATUS("SHADOW-NOTCH", shadow_ok, "(+1,+1) black L with 2px notch");
     LEG_STATUS("BODYBAR", body_ok, "four-pixel raised body bar plus inset");
     LEG_STATUS("WIDGETS", widget_ok, "three 12+1 widgets at Platinum offsets");
+    LEG_STATUS("WIDGET-RING", bevel_ring_ok, "closed idx63 ring, never black");
     LEG_STATUS("RAMP", widget_ramp_ok, "seven-rung diagonal widget ramp");
     LEG_STATUS("COLLAPSE", collapse_ok, "rightmost collapse widget and two rows");
     LEG_STATUS("GLYPHS", glyph_ok, "close none; zoom right+bottom edges");

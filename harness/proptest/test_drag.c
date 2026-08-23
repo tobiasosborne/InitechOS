@@ -201,14 +201,11 @@ static void build_owner_grid(const WindowMgr *wm, win_store_t *const *idx, int n
         int wi = -1;
         for (int i = 0; i < n; i++) if (&idx[i]->rec == p) { wi = i; break; }
         if (wi < 0) continue;
-        rgn_rect_t s = region_get_bbox(p->strucRgn);
-        for (int y = s.top; y < s.bottom; y++) {
-            if (y < 0 || y >= SCRH) continue;
-            for (int x = s.left; x < s.right; x++) {
-                if (x < 0 || x >= SCRW) continue;
-                if (own[y * SCRW + x] == OWNER_NONE) own[y * SCRW + x] = (uint8_t)wi;
-            }
-        }
+        static uint8_t sg[SCRW * SCRH];
+        memset(sg, 0, sizeof sg);
+        rasterize_into(p->strucRgn, sg);
+        for (int j = 0; j < SCRW * SCRH; j++)
+            if (sg[j] && own[j] == OWNER_NONE) own[j] = (uint8_t)wi;
     }
 }
 
@@ -246,14 +243,11 @@ static void post_mouse(flair_raw_ring_t *ring, int8_t dx, int8_t dy, int left_do
 #define F_S_B 340
 #define F_S_R 480
 
-/* content = 1 px frame on the sides/bottom, TITLEBAR_H + frame on top. */
+/* Production document geometry comes from the ONE CalcDoc seam. */
 static void make_rects(int t, int l, int b, int r, rgn_rect_t *s, rgn_rect_t *c)
 {
     s->top = (int16_t)t; s->left = (int16_t)l; s->bottom = (int16_t)b; s->right = (int16_t)r;
-    c->top    = (int16_t)(t + FLAIR_CHROME_FRAME + FLAIR_CHROME_TITLEBAR_H);
-    c->left   = (int16_t)(l + FLAIR_CHROME_FRAME);
-    c->bottom = (int16_t)(b - FLAIR_CHROME_FRAME);
-    c->right  = (int16_t)(r - FLAIR_CHROME_FRAME);
+    *c = CalcDocContentRect(*s);
 }
 
 /* Build the 3-window scene into manager `m`, windows W[0..2] (A,B,F front). */
@@ -305,7 +299,7 @@ static void assert_chrome_geometry(render_ctx_t *ctx, rgn_rect_t f)
     const int fr = FLAIR_CHROME_FRAME;
     const int title_bot = f.top + FLAIR_CHROME_TITLEBAR_H;
     const int mid_x = (f.left + f.right) / 2;
-    const int pin_x = f.left + 20;
+    const int pin_x = f.left + FLAIR_CHROME_TITLE_RUN_LEFT_OFF + 2;
     char msg[160];
 
     /* Replace the old two-shade-only check with the strictly stronger complete
@@ -325,16 +319,20 @@ static void assert_chrome_geometry(render_ctx_t *ctx, rgn_rect_t f)
              "title-bar height EXACTLY %d", FLAIR_CHROME_TITLEBAR_H);
     CHECK(below == 1, msg);
 
-    /* Frame: exactly FRAME (1) px. The moved window drags down-right, so its RIGHT
-     * and BOTTOM edges end over BARE desktop -- probe there (behind-independent).
-     * Right frame column painted; pixel just OUTSIDE is the seafoam desktop. */
+    /* Frame + structure shadow: the frame remains one pixel, then the exact
+     * shadow band is black, then bare desktop. Ref: window-chrome.md Sec 1. */
     int content_top = title_bot;
     int content_bot = f.bottom - fr;
     int row = (content_top + content_bot) / 2;
     CHECK(idx_at(ctx, f.right - 1, row) != (int)FLAIR_DESKTOP_BG_INDEX,
           "(d) moved window: right frame column is painted");
-    CHECK(idx_at(ctx, f.right, row) == (int)FLAIR_DESKTOP_BG_INDEX,
-          "(d) moved window: pixel just right of the frame is bare seafoam (frame 1 px)");
+    CHECK(idx_at(ctx, f.right, row) == CIDX_BLACK,
+          "(d) moved window: x=frame.right is the live black shadow band");
+    CHECK(idx_at(ctx, f.right + 1, row) == (int)FLAIR_DESKTOP_BG_INDEX,
+          "(d) moved window: pixel after the shadow is bare seafoam");
+    CHECK(idx_at(ctx, mid_x, f.bottom) == CIDX_BLACK &&
+          idx_at(ctx, mid_x, f.bottom + 1) == (int)FLAIR_DESKTOP_BG_INDEX,
+          "(d) moved window: old/new bottom-shadow geometry is exactly one pixel");
     /* The 16-pixel band ends at the inner line inside the four-pixel rail.
      * Ref: DEC-10 Sec 4; sys8/scrollbars.md Sec 1 and
      * sys8/window-chrome.md Sec 4. */
@@ -447,7 +445,7 @@ int main(int argc, char **argv)
         post_mouse(&ring, STEP_DX[st], STEP_DY[st], 1);
         (void)WaitNextEvent(&ring, everyEvent, &ev, 0);
 
-        rgn_rect_t os = region_get_bbox(W[2].rec.strucRgn);
+        rgn_rect_t os = WindowFrameRect(&W[2].rec);
         int nl = os.left + STEP_DX[st];
         int nt = os.top  + STEP_DY[st];
         MoveWindow(&M.wm, &W[2].rec, (int16_t)nl, (int16_t)nt);
@@ -529,7 +527,7 @@ int main(int argc, char **argv)
      * offscreen, place the windows where they ended up, desktop_paint_all, and
      * compare the offscreens byte-for-byte.
      * ====================================================================== */
-    rgn_rect_t fF = region_get_bbox(W[2].rec.strucRgn);
+    rgn_rect_t fF = WindowFrameRect(&W[2].rec);
     {
         render_ctx_t ref;
         int rrc = render_ctx_init(&ref, &boot);

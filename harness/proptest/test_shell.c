@@ -417,15 +417,16 @@ int main(int argc, char **argv)
         CHECK(idx_at(&ctx, mid_x, title_bot) == 1,
               "(3) front window row below title bar is white body -- title height exact");
 
-        /* Frame: exactly 1 px. The right frame column is painted; the pixel just
-         * outside is the bare seafoam desktop (W1_R=560 < SCRW; right of modal). */
+        /* Frame: exactly 1 px, followed by the live one-pixel shadow band. */
         int content_top = title_bot;
         int content_bot = W1_B - fr;
         int row = (content_top + content_bot) / 2;
         CHECK(idx_at(&ctx, W1_R - 1, row) != (int)FLAIR_DESKTOP_BG_INDEX,
               "(3) front window right frame column is painted");
-        CHECK(idx_at(&ctx, W1_R, row) == (int)FLAIR_DESKTOP_BG_INDEX,
-              "(3) pixel just right of the frame is bare seafoam (frame 1 px)");
+        CHECK(idx_at(&ctx, W1_R, row) == CIDX_BLACK,
+              "(3) pixel just right of the frame is the black shadow band");
+        CHECK(idx_at(&ctx, W1_R + 1, row) == (int)FLAIR_DESKTOP_BG_INDEX,
+              "(3) pixel just right of the shadow is bare seafoam");
 
         /* The 16-pixel band ends at the inner line inside the raised rail.
          * Ref: DEC-10 Sec 4; sys8/scrollbars.md Sec 1 and

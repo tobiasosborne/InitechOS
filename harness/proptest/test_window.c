@@ -218,6 +218,46 @@ int main(void)
     rgn_rect_t FRAME = { 0, 0, GH, GW };
 
     /* ======================================================================
+     * R0.3 CalcDoc seam: a document's strucRgn is frame UNION the exact
+     * notched shadow L, while contRgn is derived once from sampled chrome
+     * metrics and stops at the vertical scrollbar. Moving the window must
+     * damage the OLD shadow band too. Ref: sys8/window-chrome.md Sec 1/2.1/4,
+     * scrollbars.md Sec 1; beads initech-9d0e/javs/l0mh.
+     * ====================================================================== */
+    {
+        static win_store_t W;
+        static mgr_store_t M;
+        rgn_rect_t frame = { 1, 1, 34, 47 };
+        rgn_rect_t want_content = { 23, 2, 33, 26 };
+        mgr_attach(&M, FRAME);
+        win_attach(&W);
+        NewDocumentWindow(&M.wm, &W.rec, frame, documentKind, 1);
+
+        rgn_rect_t got_frame = WindowFrameRect(&W.rec);
+        rgn_rect_t got_content = region_get_bbox(W.rec.contRgn);
+        CHECK(got_frame.top == frame.top && got_frame.left == frame.left &&
+              got_frame.bottom == frame.bottom && got_frame.right == frame.right,
+              "CalcDoc: drawer frame remains the caller's frame when strucRgn grows");
+        CHECK(got_content.top == want_content.top &&
+              got_content.left == want_content.left &&
+              got_content.bottom == want_content.bottom &&
+              got_content.right == want_content.right,
+              "CalcDoc: contRgn top=top+22 and right stops before body rail+16px scrollbar");
+
+        CHECK(!region_contains_point(W.rec.strucRgn, 47, 2) &&
+              region_contains_point(W.rec.strucRgn, 47, 3) &&
+              !region_contains_point(W.rec.strucRgn, 2, 34) &&
+              region_contains_point(W.rec.strucRgn, 3, 34),
+              "CalcDoc: strucRgn contains the +1 shadow L with a 2px near-corner notch");
+
+        WindowMgr_validate(&W.rec);
+        MoveWindow(&M.wm, &W.rec, 0, 0);
+        CHECK(region_contains_point(M.wm.desktop_update, 47, 10) &&
+              region_contains_point(M.wm.desktop_update, 10, 34),
+              "MoveWindow: exact exposure includes the OLD right and bottom shadow bands");
+    }
+
+    /* ======================================================================
      * R0.2/R0.4 directed seam oracle: the ONE kernel-held title setter and
      * the real-list serial identity used by live FLAIR markers.
      *
