@@ -148,8 +148,20 @@ typedef enum flair_part_code {
     inGrow     = 5,  /* point is in the window's grow box       (MTE Table 4-2) */
     inGoAway   = 6,  /* point is in the window's close (goAway) box             */
     inZoomIn   = 7,  /* point is in the zoom-in box             (MTE Table 4-2) */
-    inZoomOut  = 8   /* point is in the zoom-out box            (MTE Table 4-2) */
+    inZoomOut  = 8,  /* point is in the zoom-out box            (MTE Table 4-2) */
+    inCollapse = 9   /* FLAIR Platinum collapse box (sys8 Sec 3.1; tdnl.2)     */
 } flair_part_code_t;
+
+/* Per-window Platinum widget flags.  Appearance Manager windows can select
+ * close+collapse without zoom (the control-panel example), so rendering and
+ * hit-testing consume this record datum instead of inferring different gadget
+ * sets independently. Ref: sys8/window-chrome.md Sec 3.1; D3.a row 16;
+ * beads initech-tbef/ci4o/cjfr/tdnl.2. */
+#define FLAIR_WINDOW_WIDGET_CLOSE     0x01u
+#define FLAIR_WINDOW_WIDGET_ZOOM      0x02u
+#define FLAIR_WINDOW_WIDGET_COLLAPSE  0x04u
+#define FLAIR_WINDOW_WIDGET_GROW      0x08u
+#define FLAIR_WINDOW_WIDGET_ALL       0x0Fu
 
 /* ===========================================================================
  * 2. WINDOW-KIND CONSTANTS  (verbatim Inside Macintosh values)
@@ -425,6 +437,20 @@ struct WindowRecord {
      * A 32-bit opaque slot for application use; the Window Manager never reads
      * or modifies it. Set by NewWindow / SetWRefCon; read by GetWRefCon. */
     int32_t      refCon;
+
+    /* --- FLAIR Platinum state extensions (GUI remediation R1.2) ------------
+     * userState is the exact user-positioned frame restored by the second zoom
+     * click. collapseState is the exact expanded frame restored by the second
+     * windowshade click. widgetFlags is the single render/hit-test capability
+     * datum. These are FLAIR extensions after the verbatim IM record prefix.
+     * Ref: GUI-remediation-plan.md R1.1/R1.2; sys8 window-chrome.md Sec 3.1/7;
+     * bead initech-tdnl.2. */
+    rgn_rect_t   userState;
+    rgn_rect_t   collapseState;
+    uint8_t      widgetFlags;
+    uint8_t      zoomed;
+    uint8_t      collapsed;
+    uint8_t      userStateValid;
 };
 
 /* WindowPtr -- a pointer to a WindowRecord (verbatim QuickDraw name).
@@ -448,6 +474,8 @@ _Static_assert((int)inGrow      == 5, "inGrow=5 (MTE Table 4-2)");
 _Static_assert((int)inGoAway    == 6, "inGoAway=6 (MTE Table 4-2)");
 _Static_assert((int)inZoomIn    == 7, "inZoomIn=7 (MTE Table 4-2)");
 _Static_assert((int)inZoomOut   == 8, "inZoomOut=8 (MTE Table 4-2)");
+_Static_assert((int)inCollapse  == 9,
+               "inCollapse=9 (FLAIR Platinum extension; bead initech-tdnl.2)");
 
 /* Window-kind constants (IM-I p. I-270). */
 _Static_assert(dialogKind   == 2, "dialogKind=2 (IM-I p. I-270)");

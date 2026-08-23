@@ -7,6 +7,10 @@
 # relative-mouse specs for qemu_harness --mouse.  Cursor starts at the screen
 # centre (320,240); m<dx>:<dy> with y screen-DOWN-positive (the post-rgt8
 # producer convention); every component int8-safe (|c| <= 100 here).
+# PARK CONVENTION: every locked trace whose endpoint pixels are graded or whose
+# clip is operator evidence must end with the pointer outside all probe/window
+# rectangles. New R1 traces park at desktop (620,460); never strand the arrow on
+# the very chrome/content pixels the trace is meant to demonstrate.
 # Geometry: spec/flair_tenants_demo.h (HELLO struct 60,60..360,260 with go-away
 # box at ~(69..80, 64..75); NOTES struct 260,120..560,340, visible title
 # x >= 360).  Grader: tools/ppm_flair_solid_check.c (legs A/B/C/D/E/G/H).
@@ -88,3 +92,25 @@ FLAIR_SOLID_CLAMP_SPEC := m100:60,m40:0,l1,l0,m-10:-100,m0:-70,l1,m-100:-100,m-1
 # trace whose grader samples pixels must end with the pointer parked outside
 # all probe rects.
 FLAIR_SOLID_RAISE_SPEC := m100:-100,m30:-10,l1,m-60:60,l0,m100:100,m100:100,m30:70
+
+# R1.2/R1.3 interaction traces (beads initech-tdnl.2/tdnl.3). These are
+# additive locked-spec entries. Every trace ENDS PARKED at (620,460), outside
+# every operation grader probe and every post-operation window frame (the PARK
+# CONVENTION at this file's head). Widget coordinates use the independent
+# sampled sys8 rules: box top T+4, zoom R-32, collapse R-16; grow cell Sec 5.
+
+# zoom_toggle: HELLO zoom box (332,70), then the standard-state box (608,50).
+# Standard state is [4,636)x[40,476); the second click restores [60,360)x[60,260).
+FLAIR_ZOOM_TOGGLE_SPEC := m12:-100,m0:-70,l1,l0,m100:-20,m100:0,m76:0,l1,l0,m0:100,m0:100,m0:100,m0:100,m12:10
+
+# grow: press HELLO's sampled grow cell at (349,249), request 50x30 by moving
+# to (99,79), and prove the shared minimum clamp commits 96x64 at (60,60).
+FLAIR_GROW_SPEC := m29:9,l1,m-100:-100,m-100:-70,m-50:0,l0,m100:100,m100:100,m100:100,m100:81,m100:0,m21:0
+
+# collapse: click HELLO's rightmost collapse box at (348,70); the endpoint is
+# title-band-only [60,360)x[60,82) plus its sampled shadow, then park.
+FLAIR_COLLAPSE_SPEC := m28:-100,m0:-70,l1,l0,m100:100,m100:100,m72:100,m0:90
+
+# drag_outline: the existing solid drag endpoint remains (200,180); additive
+# parking exposes the full release-time move while leaving the pointer outside.
+FLAIR_DRAG_OUTLINE_SPEC := $(FLAIR_SOLID_DRAG_SPEC),m100:100,m100:100,m30:70

@@ -86,7 +86,7 @@ Published constants; FLAIR counterparts already implemented.
 | Corpus spec | FLAIR destination | STATUS | Notes |
 |-------------|-------------------|--------|-------|
 | `specs/toolbox/event-manager.md` | `spec/event_model.h` | EXISTS | EventRecord, what-codes nullEvent..osEvt, modifier bits, event masks, WaitNextEvent/GetNextEvent |
-| `specs/toolbox/window-manager.md` | `spec/window_record.h` | EXISTS | WindowRecord, FindWindow part-codes inDesk..inZoomOut 0..8, WDEF variant + message dispatch, S7 damage model |
+| `specs/toolbox/window-manager.md` | `spec/window_record.h` | EXISTS | WindowRecord, verbatim FindWindow part-codes inDesk..inZoomOut 0..8 plus FLAIR Platinum inCollapse=9, WDEF variant + message dispatch, S7 damage model |
 | `specs/toolbox/control-manager.md` | `spec/control_record.h` | EXISTS | ControlRecord, FindControl/TestControl part-codes, CDEF proc IDs 0/1/2/16, value/min/max/hilite/track |
 | `specs/toolbox/menu-manager.md` | `spec/menu_record.h` | EXISTS | MenuInfo, item attributes, enableFlags, mark/style/MDEF-message catalogs, MenuSelect/MenuKey result word |
 | `specs/toolbox/dialog-manager.md` | `spec/dialog_record.h` | EXISTS | DialogRecord, DITL item-type bytes, alerts (Stop/Note/Caution + 4-stage), ok/cancel=1/2, ModalDialog loop |

@@ -52,9 +52,15 @@
     "  Platinum values use the SAMPLED framebuffer domain only; nominal values",
     "  remain provenance. Ref: ../system7-decomp/specs/sys8/platinum-palette.md",
     "  Sec 1 (gamma table) and Sec 2 (sampled ramp). System-7 values remain",
-    "  compiled and visible under era-tagged keys (BC-10.10)."
+    "  compiled and visible under era-tagged keys (BC-10.10).",
+    "",
+    "schema_version 5 = R1 interaction policy additions (bead initech-tdnl.2).",
+    "  DELIBERATE ACT (Rule 8): sampled grow-cell placement plus deterministic",
+    "  zoom standard-state and grow min/max policy. The latter behavior is",
+    "  explicitly product policy because sys8/window-chrome.md Sec 8 records",
+    "  the capture gap; it is not represented as a measured Mac OS 8 value."
   ],
-  "schema_version": 4,
+  "schema_version": 5,
   "target_system": "Mac OS 8.1 System 8 Platinum base; System 7.0/7.1 and Win31 heritage entries retained",
   "source_fixture": "spec/assets/preview.webp",
   "source_dims": { "w": 1456, "h": 819 },
@@ -228,6 +234,31 @@
       "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 5",
       "corpus_golden": "s8_doc_window_active x=461..478 y=296..313",
       "note": "Platinum grow cell is 18x18 with three grip lines at four-pixel pitch."
+    },
+
+    "platinum_grow_box_placement": {
+      "right_offset_from_inclusive_frame": 19,
+      "bottom_offset_from_inclusive_frame": 19,
+      "unit": "px",
+      "era": "system8-platinum (Mac OS 8.0/8.1 Appearance; minted 8.1)",
+      "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 5",
+      "corpus_golden": "frame R=480/B=315; grow cell begins x=461/y=296 and is 18x18",
+      "note": "The hit rectangle is exactly the sampled drawn cell; no content/frame-gap derivation is permitted. Deliberate locked-spec entry under beads initech-cjfr/tdnl.2."
+    },
+
+    "window_interaction_policy": {
+      "zoom_margin_left": 4,
+      "zoom_margin_top": 40,
+      "zoom_margin_right": 4,
+      "zoom_margin_bottom": 4,
+      "minimum_width": 96,
+      "minimum_height": 64,
+      "maximum_width": 640,
+      "maximum_height": 480,
+      "unit": "px",
+      "era": "FLAIR R1 deterministic policy over the System 8 Platinum surface",
+      "source": "docs/plans/GUI-remediation-plan.md R1.2; ../system7-decomp/specs/sys8/window-chrome.md Sec 7 and Sec 8; bead initech-tdnl.2",
+      "note": "Two 20px menu bands account for the 40px top inset. Sec 8 leaves standard zoom and resize tracking uncaptured, so these are deliberately locked product-policy values, not claimed measurements. Collapse height is the independently sampled 22px title band from Sec 7."
     },
 
     "sys7_grow_box_size": {

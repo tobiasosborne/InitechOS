@@ -303,8 +303,9 @@ void FlairProcess_kill(FlairProcessList *list, WindowMgr *wm,
  *
  * Demuxes ONE cooked EventRecord to the owning tenant and performs activation,
  * called IDENTICALLY by the live kmain pump and the host O-1 oracle:
- *   - mouseDown: FindWindow -> part-code + WindowPtr. inDrag/inGoAway/inGrow stay
- *     shell-owned chrome verbs; the menu-bar band -> foreground app's MenuSelect.
+ *   - mouseDown: FindWindow -> part-code + WindowPtr. inDrag and every window
+ *     widget part-code stay shell-owned chrome verbs; the menu-bar band routes
+ *     to the foreground app's MenuSelect.
  *     inContent on a BACKGROUND owner triggers click-to-activate (SelectWindow +
  *     the activateEvt deactivate/activate pair) THEN delivers the mouseDown.
  *   - keyDown/autoKey: the FOREGROUND app only (active window == focus).

@@ -552,7 +552,8 @@ static void switch_foreground(FlairProcessList *list, WindowMgr *wm,
  *       mouseDown is NEVER delivered to the tenant (O-1 leg(e)); kmain observes
  *       the changed list head, completes repaint/menubar policy, then DragWindow.
  *       An already-foreground owner's inDrag is a pure no-op here (leg(d)).
- *     - inGoAway / inGrow remain shell-owned with no dispatcher action, and
+ *     - inGoAway / inGrow / inZoomIn / inZoomOut / inCollapse remain
+ *       shell-owned with no dispatcher action, and
  *       inDesk / the menu-bar band are shell/Menu-Manager surfaces.
  *   keyDown/autoKey: delivered to the FOREGROUND app (list->head) ONLY -- in
  *     System 7 the active (front) window IS keyboard focus, never the window
@@ -572,7 +573,7 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
         flair_part_code_t part = FindWindow(wm, ev->where, &w);
 
         if ((part != inContent && part != inDrag) || w == NULL) {
-            /* inGoAway/inGrow are shell-owned chrome verbs; inDesk and the
+            /* Window widgets are shell-owned chrome verbs; inDesk and the
              * menu-bar band are shell/Menu surfaces. No app routing here. */
             return;
         }

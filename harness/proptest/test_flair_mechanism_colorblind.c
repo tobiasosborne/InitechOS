@@ -68,7 +68,8 @@ static void draw_window(GrafPort *port)
     /* hilited=1: the active render (byte-identical to pre-fix); the C-8 seam is
      * exercised the same way regardless of hilited state (beads initech-a9iq). */
     flair_draw_document_window(port, flair_look_default_skin(),
-                               win_frame(), "untitled", 1);
+                               win_frame(), "untitled", 1,
+                               FLAIR_WINDOW_WIDGET_ALL);
 }
 
 int main(void)

@@ -16,6 +16,13 @@
  * compares the legacy consumer-facing geometry names with its native entries.
  * The independent fidelity expectations live in chrome_fidelity_golden.h and
  * are never derived from this file (CLAUDE.md Law 2 / HER-02).
+ *
+ * R1 interaction-policy additions are a DELIBERATE locked-spec act tracked by
+ * bead initech-tdnl.2.  The sampled widget/grow placement remains grounded in
+ * ../system7-decomp/specs/sys8/window-chrome.md Sec 3.1 and Sec 5; the zoom
+ * standard-state inset and resize limits are deterministic FLAIR policy for the
+ * behavior that the capture corpus leaves unresolved (Sec 8), not claimed
+ * measurements.  Collapse height remains the sampled Sec 7 title band.
  */
 #ifndef INITECH_SPEC_CHROME_METRICS_H
 #define INITECH_SPEC_CHROME_METRICS_H
@@ -106,8 +113,24 @@
 /* Grow cell and grip.
  * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 5. */
 #define FLAIR_CHROME_GROW                   18
+#define FLAIR_CHROME_GROW_RIGHT_OFF          19
+#define FLAIR_CHROME_GROW_BOTTOM_OFF         19
 #define FLAIR_CHROME_GROW_GRIP_LINES         3
 #define FLAIR_CHROME_GROW_GRIP_PITCH         4
+
+/* R1.2 deterministic Window Manager policy.  Two 20px menu bands occupy the
+ * desktop top; the standard-state frame otherwise keeps a four-pixel desktop
+ * margin.  Manual grow is bounded to the native 640x480 desktop and cannot
+ * shrink below a usable 96x64 frame.  Ref: GUI-remediation-plan.md R1.2;
+ * window-chrome.md Sec 7/8; bead initech-tdnl.2 (locked-spec act). */
+#define FLAIR_CHROME_ZOOM_MARGIN_LEFT          4
+#define FLAIR_CHROME_ZOOM_MARGIN_TOP          40
+#define FLAIR_CHROME_ZOOM_MARGIN_RIGHT         4
+#define FLAIR_CHROME_ZOOM_MARGIN_BOTTOM        4
+#define FLAIR_CHROME_WINDOW_MIN_W              96
+#define FLAIR_CHROME_WINDOW_MIN_H              64
+#define FLAIR_CHROME_WINDOW_MAX_W             640
+#define FLAIR_CHROME_WINDOW_MAX_H             480
 
 /* Retained non-Platinum variant metrics.
  * Ref: the retained System-7 sources recorded in chrome_metrics.json. */
@@ -274,6 +297,18 @@ _Static_assert(FLAIR_CHROME_TITLE_STRIPE_TOP_OFF ==
 _Static_assert(FLAIR_CHROME_WIDGET_BOX + FLAIR_CHROME_WIDGET_OUTER_HIGHLIGHT ==
                FLAIR_CHROME_WIDGET_FOOTPRINT,
                "Platinum widget footprint is 12+1=13 (window-chrome.md Sec 3.1)");
+_Static_assert(FLAIR_CHROME_GROW_RIGHT_OFF + 1 ==
+               FLAIR_CHROME_GROW + 2 * FLAIR_CHROME_FRAME,
+               "Platinum grow cell begins R-19 (window-chrome.md Sec 5)");
+_Static_assert(FLAIR_CHROME_GROW_BOTTOM_OFF == FLAIR_CHROME_GROW_RIGHT_OFF,
+               "Platinum grow cell uses the sampled square placement");
+_Static_assert(FLAIR_CHROME_WINDOW_MIN_W >= 2 * FLAIR_CHROME_GROW + 2 &&
+               FLAIR_CHROME_WINDOW_MIN_H >=
+                   FLAIR_CHROME_TITLEBAR_H + FLAIR_CHROME_GROW + 2,
+               "R1.2 minimum frame must contain all Platinum chrome");
+_Static_assert(FLAIR_CHROME_WINDOW_MAX_W >= FLAIR_CHROME_WINDOW_MIN_W &&
+               FLAIR_CHROME_WINDOW_MAX_H >= FLAIR_CHROME_WINDOW_MIN_H,
+               "R1.2 min/max frame policy must be ordered");
 _Static_assert(FLAIR_CHROME_SCROLL_INTERIOR + 2 * FLAIR_CHROME_FRAME ==
                FLAIR_CHROME_SCROLLBAR_W,
                "Platinum scrollbar is 14px interior plus two lines (scrollbars.md Sec 1)");

@@ -90,6 +90,25 @@ static int document_variant(int16_t variant)
            variant == zoomDocProc || variant == zoomNoGrow;
 }
 
+/* One capability datum feeds both the WDEF drawer and FindWindow. Platinum
+ * keeps collapse in its fixed R-16 slot even when zoom is absent (the sampled
+ * control-panel case). NewDocumentWindow selects zoomDocProc for the full
+ * document set; direct NewWindow callers retain the verbatim variant split.
+ * Ref: sys8/window-chrome.md Sec 3.1; D3.a row 16; beads tbef/tdnl.2. */
+static uint8_t widget_flags_for_variant(int16_t variant, uint8_t go_away)
+{
+    uint8_t flags = 0u;
+    if (go_away && document_variant(variant))
+        flags |= FLAIR_WINDOW_WIDGET_CLOSE;
+    if (variant == zoomDocProc || variant == zoomNoGrow)
+        flags |= FLAIR_WINDOW_WIDGET_ZOOM;
+    if (document_variant(variant))
+        flags |= FLAIR_WINDOW_WIDGET_COLLAPSE;
+    if (variant == documentProc || variant == zoomDocProc)
+        flags |= FLAIR_WINDOW_WIDGET_GROW;
+    return flags;
+}
+
 static region_t *structure_scratch(WindowMgr *wm, rgn_rect_t frame,
                                    int16_t variant)
 {
@@ -470,6 +489,12 @@ void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content
     w->goAwayFlag           = goAway;
     w->visible              = 1;
     w->spareFlag            = 0;
+    w->widgetFlags          = widget_flags_for_variant(wVariant, goAway);
+    w->zoomed               = 0;
+    w->collapsed            = 0;
+    w->userStateValid       = 0;
+    w->userState            = bounds;
+    w->collapseState        = bounds;
     w->titleHandle[0]       = '\0';   /* empty title until SetWTitle/caller sets it
                                        * (NewWindow leaves "" per IM-I; required now
                                        * that the chrome drawer renders the title) */
@@ -483,7 +508,7 @@ void NewDocumentWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t frame,
                        int16_t wKind, uint8_t goAway)
 {
     NewWindow(wm, w, frame, CalcDocContentRect(frame),
-              wKind, (int16_t)documentProc, goAway);
+              wKind, (int16_t)zoomDocProc, goAway);
 }
 
 void SetWTitle(WindowMgr *wm, WindowPtr w, const char *title)
@@ -642,6 +667,171 @@ void DragWindow(WindowMgr *wm, WindowPtr w, int16_t dh, int16_t dv)
     MoveWindow(wm, w, (int16_t)(s.left + dh), (int16_t)(s.top + dv));
 }
 
+#if defined(WINDOW_ENABLE_R1_OPS)
+/* Transactional document-frame change. The old visible footprint is captured
+ * before any region changes, reduced by the new structure, then partitioned
+ * through the existing D-5 exposure spine. Only after that partition is
+ * consumed do we seed the actor's exact new visible footprint. This is the
+ * SizeWindow-class counterpart to MoveWindow, with no intermediate geometry
+ * (and therefore no over-damage when position and size both change for zoom).
+ * Ref: window.h Sec 3; WL-0076; GUI-remediation-plan.md R1.2. */
+static void set_document_frame(WindowMgr *wm, WindowPtr w,
+                               rgn_rect_t next, int collapsed)
+{
+    region_t *exposed;
+    region_t *next_structure;
+
+    if (wm == NULL || w == NULL) WIN_PANIC("set_document_frame: NULL");
+    if (!list_contains(wm, w)) WIN_PANIC("set_document_frame: not in list");
+    if (!document_variant(w->windowDefProcVariant))
+        WIN_PANIC("set_document_frame: non-document variant");
+    if (next.right <= next.left || next.bottom <= next.top)
+        WIN_PANIC("set_document_frame: empty frame");
+
+    exposed = w->updateRgn;
+    visible_into(wm, w, exposed, 1);
+    next_structure = structure_scratch(wm, next, w->windowDefProcVariant);
+    region_op(wm->scratch_b, exposed, next_structure, RGN_OP_DIFF);
+    rgn_copy(exposed, wm->scratch_b);
+
+    rgn_copy(w->strucRgn,
+             structure_scratch(wm, next, w->windowDefProcVariant));
+    if (collapsed) {
+#ifndef WINDOW_MUTATE_COLLAPSE_LEAK
+        region_set_empty(w->contRgn);
+#else
+        /* Rule-6 mutant: body ownership leaks through the shade state. */
+#endif
+    } else {
+        region_set_rect(w->contRgn, CalcDocContentRect(next));
+    }
+
+    distribute_exposure(wm, w, exposed);
+    region_set_empty(w->updateRgn);
+    WindowMgr_invalidate(wm, w, region_get_bbox(w->strucRgn));
+}
+
+void ConstrainWindowSize(const WindowMgr *wm, const WindowPtr w,
+                         int16_t *width, int16_t *height)
+{
+    rgn_rect_t frame;
+    int32_t desktop_w;
+    int32_t desktop_h;
+    int32_t max_w;
+    int32_t max_h;
+    int32_t min_w;
+    int32_t min_h;
+    int32_t want_w;
+    int32_t want_h;
+
+    if (wm == NULL || w == NULL || width == NULL || height == NULL)
+        WIN_PANIC("ConstrainWindowSize: NULL");
+    frame = WindowFrameRect(w);
+    desktop_w = (int32_t)wm->desktop_frame.right - wm->desktop_frame.left;
+    desktop_h = (int32_t)wm->desktop_frame.bottom - wm->desktop_frame.top;
+    max_w = (int32_t)wm->desktop_frame.right - frame.left;
+    max_h = (int32_t)wm->desktop_frame.bottom - frame.top;
+    if (max_w > desktop_w) max_w = desktop_w;
+    if (max_h > desktop_h) max_h = desktop_h;
+    if (max_w > FLAIR_CHROME_WINDOW_MAX_W) max_w = FLAIR_CHROME_WINDOW_MAX_W;
+    if (max_h > FLAIR_CHROME_WINDOW_MAX_H) max_h = FLAIR_CHROME_WINDOW_MAX_H;
+    if (max_w < 1 || max_h < 1) WIN_PANIC("ConstrainWindowSize: origin off desktop");
+
+    min_w = FLAIR_CHROME_WINDOW_MIN_W;
+    min_h = FLAIR_CHROME_WINDOW_MIN_H;
+    if (min_w > max_w) min_w = max_w;
+    if (min_h > max_h) min_h = max_h;
+    want_w = *width;
+    want_h = *height;
+#ifndef WINDOW_MUTATE_GROW_NO_MIN
+    if (want_w < min_w) want_w = min_w;
+    if (want_h < min_h) want_h = min_h;
+#else
+    /* Rule-6 mutant: restore the unusable sub-chrome grow result. */
+#endif
+    if (want_w > max_w) want_w = max_w;
+    if (want_h > max_h) want_h = max_h;
+    *width = (int16_t)want_w;
+    *height = (int16_t)want_h;
+}
+
+void SizeWindow(WindowMgr *wm, WindowPtr w, int16_t width, int16_t height)
+{
+    rgn_rect_t frame;
+    if (wm == NULL || w == NULL) WIN_PANIC("SizeWindow: NULL");
+    if (w->collapsed) WIN_PANIC("SizeWindow: collapsed window");
+    ConstrainWindowSize(wm, w, &width, &height);
+    frame = WindowFrameRect(w);
+    frame.right = (int16_t)(frame.left + width);
+    frame.bottom = (int16_t)(frame.top + height);
+    set_document_frame(wm, w, frame, 0);
+    if (w->zoomed) {
+        w->zoomed = 0;
+        w->userStateValid = 0;
+    }
+}
+
+int ZoomWindow(WindowMgr *wm, WindowPtr w)
+{
+    rgn_rect_t target;
+    if (wm == NULL || w == NULL) WIN_PANIC("ZoomWindow: NULL");
+    if (w->collapsed) {
+        target = w->collapseState;
+        w->collapsed = 0;
+        set_document_frame(wm, w, target, 0);
+    }
+
+    if (!w->zoomed) {
+        w->userState = WindowFrameRect(w);
+        w->userStateValid = 1;
+        target.top = (int16_t)(wm->desktop_frame.top +
+                               FLAIR_CHROME_ZOOM_MARGIN_TOP);
+        target.left = (int16_t)(wm->desktop_frame.left +
+                                FLAIR_CHROME_ZOOM_MARGIN_LEFT);
+        target.bottom = (int16_t)(wm->desktop_frame.bottom -
+                                  FLAIR_CHROME_ZOOM_MARGIN_BOTTOM);
+        target.right = (int16_t)(wm->desktop_frame.right -
+                                 FLAIR_CHROME_ZOOM_MARGIN_RIGHT);
+        w->zoomed = 1;
+    } else {
+        if (!w->userStateValid) WIN_PANIC("ZoomWindow: missing userState");
+#ifndef WINDOW_MUTATE_ZOOM_NO_RESTORE
+        target = w->userState;
+#else
+        target.top = (int16_t)(wm->desktop_frame.top +
+                               FLAIR_CHROME_ZOOM_MARGIN_TOP);
+        target.left = (int16_t)(wm->desktop_frame.left +
+                                FLAIR_CHROME_ZOOM_MARGIN_LEFT);
+        target.bottom = (int16_t)(wm->desktop_frame.bottom -
+                                  FLAIR_CHROME_ZOOM_MARGIN_BOTTOM);
+        target.right = (int16_t)(wm->desktop_frame.right -
+                                 FLAIR_CHROME_ZOOM_MARGIN_RIGHT);
+#endif
+        w->zoomed = 0;
+    }
+    set_document_frame(wm, w, target, 0);
+    return w->zoomed != 0;
+}
+
+int CollapseWindow(WindowMgr *wm, WindowPtr w)
+{
+    rgn_rect_t target;
+    if (wm == NULL || w == NULL) WIN_PANIC("CollapseWindow: NULL");
+    if (!w->collapsed) {
+        w->collapseState = WindowFrameRect(w);
+        target = w->collapseState;
+        target.bottom = (int16_t)(target.top + FLAIR_CHROME_TITLEBAR_H);
+        w->collapsed = 1;
+        set_document_frame(wm, w, target, 1);
+    } else {
+        target = w->collapseState;
+        w->collapsed = 0;
+        set_document_frame(wm, w, target, 0);
+    }
+    return w->collapsed != 0;
+}
+#endif /* WINDOW_ENABLE_R1_OPS */
+
 /* ===========================================================================
  * INVALIDATE / VALIDATE.
  * ===========================================================================*/
@@ -718,32 +908,52 @@ flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
         if (region_contains_point(p->contRgn, h, v))
             return inContent;
 
-        /* chrome: derive the box bands from the struc/content bounding rects. */
+        /* Chrome zones consume the same sampled constants and record flags as
+         * chrome.c. Inactive windows draw no widgets, so their whole title is
+         * inDrag; the click activates before a gadget can act. */
         rgn_rect_t s = WindowFrameRect(p);
-        rgn_rect_t c = region_get_bbox(p->contRgn);
-        int16_t tb = (int16_t)(c.top - s.top);     /* title-bar band height */
-        if (tb < 1) tb = 1;
+        int16_t ri = (int16_t)(s.right - 1);
+        int16_t bi = (int16_t)(s.bottom - 1);
+        int16_t by = (int16_t)(s.top + FLAIR_CHROME_WIDGET_TOP_OFF);
+#if defined(WINDOW_MUTATE_ZONE_OFF)
+        int16_t zone_shift = 3;
+#else
+        int16_t zone_shift = 0;
+#endif
 
-        /* go-away (close) box: a tb-square at the top-left of the title bar. */
-        if (p->goAwayFlag) {
-            if (h >= s.left && h < (int16_t)(s.left + tb) &&
-                v >= s.top  && v < c.top)
+        if (p->hilited &&
+            (p->widgetFlags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u &&
+            p->goAwayFlag) {
+            int16_t bx = (int16_t)(s.left + FLAIR_CHROME_CLOSE_LEFT_OFF +
+                                   zone_shift);
+            if (h >= bx && h < (int16_t)(bx + FLAIR_CHROME_WIDGET_BOX) &&
+                v >= by && v < (int16_t)(by + FLAIR_CHROME_WIDGET_BOX))
                 return inGoAway;
         }
-        /* zoom box: a tb-square at the top-right of the title bar (zoom variants).*/
-        if (p->windowDefProcVariant == zoomDocProc ||
-            p->windowDefProcVariant == zoomNoGrow) {
-            if (h >= (int16_t)(s.right - tb) && h < s.right &&
-                v >= s.top && v < c.top)
-                return inZoomIn;
+        if (p->hilited &&
+            (p->widgetFlags & FLAIR_WINDOW_WIDGET_ZOOM) != 0u) {
+            int16_t bx = (int16_t)(ri - FLAIR_CHROME_ZOOM_RIGHT_OFF +
+                                   zone_shift);
+            if (h >= bx && h < (int16_t)(bx + FLAIR_CHROME_WIDGET_BOX) &&
+                v >= by && v < (int16_t)(by + FLAIR_CHROME_WIDGET_BOX))
+                return p->zoomed ? inZoomOut : inZoomIn;
         }
-        /* grow box: a square at the bottom-right corner (grow variants). */
-        if (p->windowDefProcVariant == documentProc ||
-            p->windowDefProcVariant == zoomDocProc) {
-            int16_t gb = (int16_t)(s.bottom - c.bottom);   /* bottom chrome band */
-            if (gb < 1) gb = 1;
-            if (h >= (int16_t)(s.right - gb) && h < s.right &&
-                v >= (int16_t)(s.bottom - gb) && v < s.bottom)
+        if (p->hilited &&
+            (p->widgetFlags & FLAIR_WINDOW_WIDGET_COLLAPSE) != 0u) {
+            int16_t bx = (int16_t)(ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF +
+                                   zone_shift);
+            if (h >= bx && h < (int16_t)(bx + FLAIR_CHROME_WIDGET_BOX) &&
+                v >= by && v < (int16_t)(by + FLAIR_CHROME_WIDGET_BOX))
+                return inCollapse;
+        }
+        if (p->hilited && !p->collapsed &&
+            (p->widgetFlags & FLAIR_WINDOW_WIDGET_GROW) != 0u) {
+            int16_t gx = (int16_t)(ri - FLAIR_CHROME_GROW_RIGHT_OFF +
+                                   zone_shift);
+            int16_t gy = (int16_t)(bi - FLAIR_CHROME_GROW_BOTTOM_OFF +
+                                   zone_shift);
+            if (h >= gx && h < (int16_t)(gx + FLAIR_CHROME_GROW) &&
+                v >= gy && v < (int16_t)(gy + FLAIR_CHROME_GROW))
                 return inGrow;
         }
         /* any other chrome pixel (title bar, frame) is the drag region. */

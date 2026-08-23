@@ -138,7 +138,7 @@ static void paint_window_chrome(const bitmap_t *dst, WindowPtr w,
      * split (beads initech-a9iq) -- already in scope here, just never consumed
      * before this fix. */
     flair_draw_document_window(&port, skin, frame,
-                               w->titleHandle, w->hilited);
+                               w->titleHandle, w->hilited, w->widgetFlags);
 }
 
 /* Recursive back-to-front walk: paint the window list from the BACK (tail) toward

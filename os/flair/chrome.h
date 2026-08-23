@@ -36,6 +36,7 @@
 #include "grafport.h"           /* GrafPort (-Ispec)                          */
 #include "region_algebra.h"     /* rgn_rect_t (-Ispec)                        */
 #include "flair_look.h"         /* opaque flair_skin_t policy datum            */
+#include "window_record.h"      /* FLAIR_WINDOW_WIDGET_* shared capability     */
 
 /* ---------------------------------------------------------------------------
  * flair_draw_document_window -- draw one Platinum document window's chrome.
@@ -73,11 +74,15 @@
  * striped band, widgets, disabled bars, and grow grip. Zero selects the full
  * Platinum inactive delta: flat face fill, inactive frames/ink/shadow, no
  * widgets, hollow bars, and a flat grow box. Ref: window-chrome.md Sec 6 and
- * scrollbars.md Sec 4.
+ * scrollbars.md Sec 4. `widget_flags` is the WindowRecord's single capability
+ * datum shared with FindWindow; inactive art still hides every widget. A frame
+ * exactly FLAIR_CHROME_TITLEBAR_H high draws the sampled Sec-7 windowshade
+ * (title band + widgets + shadow, no body/scrollbars/grow cell).
  * ------------------------------------------------------------------------- */
 void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
                                 rgn_rect_t frame,
-                                const char *title, int hilited);
+                                const char *title, int hilited,
+                                uint8_t widget_flags);
 
 /* ---------------------------------------------------------------------------
  * flair_draw_movable_dbox_chrome -- draw one Platinum movableDBoxProc (5)

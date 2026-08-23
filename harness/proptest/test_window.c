@@ -46,8 +46,10 @@
  *  4. z-order invariants: front/back ordering preserved across Select/Move;
  *     SelectWindow brings to front + activates exactly one window.
  *
- *  5. FindWindow returns the front-most window containing the point with the
- *     right part-code (inContent / inDrag / inGoAway / inDesk).
+ *  5. FindWindow's full Platinum title-band sweep is exactly the same 12x12
+ *     close/zoom/collapse geometry the drawer consumes, plus the sampled 18x18
+ *     grow cell. Zoom/grow/collapse transactions preserve exact old exposure,
+ *     exact new regions, and exact stored-state restoration (R1.1/R1.2).
  *
  * MUTANTS (Rule 6), each driven RED by the Makefile gate:
  *   WINDOW_MUTATE_ZORDER     -- visible region ignores windows in front.
@@ -55,6 +57,10 @@
  *   WINDOW_MUTATE_OVERPAINT  -- damage = the whole exposed set handed to every
  *                               window (not clipped to its structure, remainder
  *                               never shrunk). => property 2 goes RED.
+ *   WINDOW_MUTATE_ZONE_OFF          -- shift widget hit geometry by +3px.
+ *   WINDOW_MUTATE_ZOOM_NO_RESTORE   -- second zoom keeps standardState.
+ *   WINDOW_MUTATE_COLLAPSE_LEAK     -- collapsed contRgn remains non-empty.
+ *   WINDOW_MUTATE_GROW_NO_MIN       -- SizeWindow accepts a 1x1 frame.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -64,6 +70,7 @@
 #include "region_algebra.h"   /* the LOCKED spec (-Ispec)                        */
 #include "region.h"           /* engine constructors (-Ios/flair/atkinson)       */
 #include "window_record.h"    /* WindowRecord, part-codes (-Ispec)               */
+#include "chrome_metrics.h"   /* independent sampled widget/R1 policy geometry   */
 #include "window.h"           /* the Window Manager under test (-Ios/flair)      */
 #include "test_assert.h"      /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)        */
 
@@ -141,6 +148,48 @@ static void rasterize_set(const region_t *r, uint8_t *grid /* GW*GH */)
             }
         }
     }
+}
+
+static int rect_same(rgn_rect_t a, rgn_rect_t b)
+{
+    return a.top == b.top && a.left == b.left &&
+           a.bottom == b.bottom && a.right == b.right;
+}
+
+/* Directed R1 geometry transactions use a 200x160 desktop, independently of
+ * the small randomized owner-grid above. These helpers snapshot pixel sets
+ * before the operation and compare the exact old-loss/new-self contracts by
+ * point membership; they do not call a second Window Manager operation. */
+enum { OP_W = 200, OP_H = 160 };
+
+static void snapshot_op_region(const region_t *r, uint8_t *out)
+{
+    for (int y = 0; y < OP_H; y++) {
+        for (int x = 0; x < OP_W; x++) {
+            out[y * OP_W + x] =
+                (uint8_t)(region_contains_point(r, (int16_t)x, (int16_t)y) != 0);
+        }
+    }
+}
+
+static int geometry_damage_exact(const uint8_t *old_owned,
+                                 const WindowRecord *w,
+                                 const WindowMgr *wm)
+{
+    for (int y = 0; y < OP_H; y++) {
+        for (int x = 0; x < OP_W; x++) {
+            int j = y * OP_W + x;
+            int new_owned = region_contains_point(w->strucRgn,
+                                                   (int16_t)x, (int16_t)y);
+            int desk_dirty = region_contains_point(wm->desktop_update,
+                                                    (int16_t)x, (int16_t)y);
+            int self_dirty = region_contains_point(w->updateRgn,
+                                                    (int16_t)x, (int16_t)y);
+            if (desk_dirty != (old_owned[j] && !new_owned)) return 0;
+            if (self_dirty != new_owned) return 0;
+        }
+    }
+    return 1;
 }
 
 /* ===========================================================================
@@ -796,46 +845,184 @@ int main(void)
     }
 
     /* ======================================================================
-     * FindWindow: front-most window containing the point, correct part-code.
-     * Directed cases (deterministic geometry) + a randomized front-most check.
+     * R1.1 FindWindow: every pixel in the full Platinum title band is graded
+     * against independent 12x12 close/zoom/collapse rectangles. The one-pixel
+     * outer highlights and every gap/frame pixel remain inDrag. The 18x18 grow
+     * cell is likewise exact. Ref: sys8 window-chrome.md Sec 3.1/Sec 5;
+     * beads initech-tbef/ci4o/cjfr.
      * ====================================================================== */
     {
-        /* Directed: a single document window with a known title bar + close box. */
         static win_store_t A; static mgr_store_t M;
-        mgr_attach(&M, FRAME);
+        rgn_rect_t desk = { 0, 0, 120, 180 };
+        rgn_rect_t s = { 20, 15, 100, 165 };
+        rgn_rect_t c = CalcDocContentRect(s);
+        mgr_attach(&M, desk);
         win_attach(&A);
-        rgn_rect_t s = { 5, 6, 25, 30 };          /* struc */
-        rgn_rect_t c = { 8, 7, 24, 29 };          /* content: 3-px title, 1-px frame */
-        NewWindow(&M.wm, &A.rec, s, c, documentKind, documentProc, 1);
+        NewWindow(&M.wm, &A.rec, s, c, documentKind, zoomDocProc, 1);
 
         WindowPtr hit;
-        flair_point_t p_content = { 15, 18 };     /* v=15,h=18 inside content */
+        flair_point_t p_content = { 60, 50 };
         CHECK(FindWindow(&M.wm, p_content, &hit) == inContent && hit == &A.rec,
               "FindWindow: point in content -> inContent");
 
-        flair_point_t p_title = { 6, 18 };        /* v=6 in title band, h=18 mid */
-        CHECK(FindWindow(&M.wm, p_title, &hit) == inDrag && hit == &A.rec,
-              "FindWindow: point in title bar -> inDrag");
+        int title_bad = 0;
+        int ri = s.right - 1;
+        int box_y = s.top + FLAIR_CHROME_WIDGET_TOP_OFF;
+        int close_x = s.left + FLAIR_CHROME_CLOSE_LEFT_OFF;
+        int zoom_x = ri - FLAIR_CHROME_ZOOM_RIGHT_OFF;
+        int collapse_x = ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF;
+        for (int y = s.top; y < s.top + FLAIR_CHROME_TITLEBAR_H; y++) {
+            for (int x = s.left; x < s.right; x++) {
+                flair_part_code_t want = inDrag;
+                if (x >= close_x && x < close_x + FLAIR_CHROME_WIDGET_BOX &&
+                    y >= box_y && y < box_y + FLAIR_CHROME_WIDGET_BOX)
+                    want = inGoAway;
+                else if (x >= zoom_x && x < zoom_x + FLAIR_CHROME_WIDGET_BOX &&
+                         y >= box_y && y < box_y + FLAIR_CHROME_WIDGET_BOX)
+                    want = inZoomIn;
+                else if (x >= collapse_x &&
+                         x < collapse_x + FLAIR_CHROME_WIDGET_BOX &&
+                         y >= box_y && y < box_y + FLAIR_CHROME_WIDGET_BOX)
+                    want = inCollapse;
+                flair_point_t p = { (int16_t)y, (int16_t)x };
+                if (FindWindow(&M.wm, p, &hit) != want || hit != &A.rec) {
+                    title_bad = 1;
+                    break;
+                }
+            }
+            if (title_bad) break;
+        }
+        CHECK(!title_bad,
+              "FindWindow: full title band == exact drawn 12x12 close/zoom/collapse boxes only");
 
-        flair_point_t p_close = { 6, 7 };         /* v=6,h=7 top-left close box */
-        CHECK(FindWindow(&M.wm, p_close, &hit) == inGoAway && hit == &A.rec,
-              "FindWindow: point in close box -> inGoAway");
+        A.rec.zoomed = 1;
+        flair_point_t p_zoom = { (int16_t)box_y, (int16_t)zoom_x };
+        CHECK(FindWindow(&M.wm, p_zoom, &hit) == inZoomOut && hit == &A.rec,
+              "FindWindow: zoom widget reports inZoomOut while standard-state is active");
+        A.rec.zoomed = 0;
 
-        flair_point_t p_desk = { 1, 1 };          /* far from the window */
+        int grow_bad = 0;
+        int grow_x = ri - FLAIR_CHROME_GROW_RIGHT_OFF;
+        int grow_y = (s.bottom - 1) - FLAIR_CHROME_GROW_BOTTOM_OFF;
+        for (int y = grow_y; y < grow_y + FLAIR_CHROME_GROW; y++) {
+            for (int x = grow_x; x < grow_x + FLAIR_CHROME_GROW; x++) {
+                flair_point_t p = { (int16_t)y, (int16_t)x };
+                if (FindWindow(&M.wm, p, &hit) != inGrow || hit != &A.rec)
+                    grow_bad = 1;
+            }
+        }
+        CHECK(!grow_bad,
+              "FindWindow: every pixel of the sampled drawn 18x18 grow cell is inGrow");
+
+        flair_point_t p_desk = { 1, 1 };
         CHECK(FindWindow(&M.wm, p_desk, &hit) == inDesk && hit == NULL,
               "FindWindow: point on desktop -> inDesk, whichWindow=NULL");
 
         /* Front-most resolution: two overlapping windows; the front one wins. */
         static win_store_t B;
         win_attach(&B);
-        rgn_rect_t s2 = { 5, 6, 25, 30 };         /* same footprint as A */
-        rgn_rect_t c2 = { 8, 7, 24, 29 };
-        NewWindow(&M.wm, &B.rec, s2, c2, documentKind, documentProc, 1); /* B now front */
+        NewWindow(&M.wm, &B.rec, s, c, documentKind, zoomDocProc, 1);
         CHECK(FindWindow(&M.wm, p_content, &hit) == inContent && hit == &B.rec,
               "FindWindow: overlap -> front-most window wins");
         SelectWindow(&M.wm, &A.rec);              /* raise A */
         CHECK(FindWindow(&M.wm, p_content, &hit) == inContent && hit == &A.rec,
               "FindWindow: after SelectWindow, raised window wins the hit");
+    }
+
+    /* ======================================================================
+     * R1.2 zoom/grow/collapse transaction contracts. A one-window 200x160
+     * desktop makes underlying exposure equal desktop_update, while the actor's
+     * new visible footprint must equal updateRgn. Every comparison is exact.
+     * ====================================================================== */
+    {
+        static win_store_t W;
+        static mgr_store_t M;
+        static uint8_t old_owned[OP_W * OP_H];
+        rgn_rect_t desk = { 0, 0, OP_H, OP_W };
+        rgn_rect_t user = { 35, 80, 159, 199 };
+        rgn_rect_t standard = {
+            FLAIR_CHROME_ZOOM_MARGIN_TOP,
+            FLAIR_CHROME_ZOOM_MARGIN_LEFT,
+            OP_H - FLAIR_CHROME_ZOOM_MARGIN_BOTTOM,
+            OP_W - FLAIR_CHROME_ZOOM_MARGIN_RIGHT
+        };
+        mgr_attach(&M, desk);
+        win_attach(&W);
+        NewDocumentWindow(&M.wm, &W.rec, user, documentKind, 1);
+        WindowMgr_validate(&W.rec);
+        region_set_empty(M.wm.desktop_update);
+
+        snapshot_op_region(W.rec.strucRgn, old_owned);
+        CHECK(ZoomWindow(&M.wm, &W.rec) == 1 && W.rec.zoomed,
+              "ZoomWindow: first click enters deterministic standard-state");
+        CHECK(rect_same(WindowFrameRect(&W.rec), standard) &&
+              rect_same(region_get_bbox(W.rec.contRgn),
+                        CalcDocContentRect(standard)),
+              "ZoomWindow: standard frame and derived content are exact");
+        CHECK(geometry_damage_exact(old_owned, &W.rec, &M.wm),
+              "ZoomWindow in: old loss and new self footprint are exact damage");
+
+        WindowMgr_validate(&W.rec);
+        region_set_empty(M.wm.desktop_update);
+        snapshot_op_region(W.rec.strucRgn, old_owned);
+        CHECK(ZoomWindow(&M.wm, &W.rec) == 0 && !W.rec.zoomed,
+              "ZoomWindow: second click leaves standard-state");
+        CHECK(rect_same(WindowFrameRect(&W.rec), user) &&
+              rect_same(region_get_bbox(W.rec.contRgn), CalcDocContentRect(user)),
+              "ZoomWindow: second click restores userState exactly");
+        CHECK(geometry_damage_exact(old_owned, &W.rec, &M.wm),
+              "ZoomWindow out: old loss and restored self footprint are exact damage");
+
+        WindowMgr_validate(&W.rec);
+        region_set_empty(M.wm.desktop_update);
+        snapshot_op_region(W.rec.strucRgn, old_owned);
+        SizeWindow(&M.wm, &W.rec, 1, 1);
+        rgn_rect_t grown = { user.top, user.left,
+                             user.top + FLAIR_CHROME_WINDOW_MIN_H,
+                             user.left + FLAIR_CHROME_WINDOW_MIN_W };
+        CHECK(rect_same(WindowFrameRect(&W.rec), grown) &&
+              rect_same(region_get_bbox(W.rec.contRgn), CalcDocContentRect(grown)),
+              "SizeWindow: 1x1 request clamps to 96x64 and re-derives content");
+        CHECK(geometry_damage_exact(old_owned, &W.rec, &M.wm),
+              "SizeWindow: old loss and resized self footprint are exact damage");
+
+        WindowMgr_validate(&W.rec);
+        region_set_empty(M.wm.desktop_update);
+        snapshot_op_region(W.rec.strucRgn, old_owned);
+        SizeWindow(&M.wm, &W.rec, 300, 300);
+        rgn_rect_t maximum = { user.top, user.left, OP_H, OP_W };
+        CHECK(rect_same(WindowFrameRect(&W.rec), maximum) &&
+              rect_same(region_get_bbox(W.rec.contRgn),
+                        CalcDocContentRect(maximum)),
+              "SizeWindow: oversize request clamps to the available desktop maximum");
+        CHECK(geometry_damage_exact(old_owned, &W.rec, &M.wm),
+              "SizeWindow max: old loss and enlarged self footprint are exact damage");
+
+        rgn_rect_t expanded = WindowFrameRect(&W.rec);
+        WindowMgr_validate(&W.rec);
+        region_set_empty(M.wm.desktop_update);
+        snapshot_op_region(W.rec.strucRgn, old_owned);
+        CHECK(CollapseWindow(&M.wm, &W.rec) == 1 && W.rec.collapsed,
+              "CollapseWindow: first click enters windowshade state");
+        rgn_rect_t shade = expanded;
+        shade.bottom = (int16_t)(shade.top + FLAIR_CHROME_TITLEBAR_H);
+        CHECK(rect_same(WindowFrameRect(&W.rec), shade) &&
+              region_is_empty(W.rec.contRgn),
+              "CollapseWindow: structure is title-band-only and contRgn is empty");
+        CHECK(geometry_damage_exact(old_owned, &W.rec, &M.wm),
+              "CollapseWindow: removed body is exact underlying exposure");
+
+        WindowMgr_validate(&W.rec);
+        region_set_empty(M.wm.desktop_update);
+        snapshot_op_region(W.rec.strucRgn, old_owned);
+        CHECK(CollapseWindow(&M.wm, &W.rec) == 0 && !W.rec.collapsed,
+              "CollapseWindow: second click restores expanded state");
+        CHECK(rect_same(WindowFrameRect(&W.rec), expanded) &&
+              rect_same(region_get_bbox(W.rec.contRgn),
+                        CalcDocContentRect(expanded)),
+              "CollapseWindow: restore frame and content are exact");
+        CHECK(geometry_damage_exact(old_owned, &W.rec, &M.wm),
+              "CollapseWindow restore: expanded self footprint is exact damage");
     }
 
     /* ======================================================================

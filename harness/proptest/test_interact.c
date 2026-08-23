@@ -272,6 +272,7 @@ typedef struct iwin {
     int16_t    variant;
     uint8_t    goAway;
     uint8_t    visible;
+    uint8_t    hilited;
     WindowPtr  rec;          /* artifact record -- to cross-map FindWindow's hit  */
 } iwin_t;
 
@@ -302,31 +303,40 @@ static flair_part_code_t expected_part_code(const iwin_t *w, int n,
         /* content first (the most common hit). */
         if (rect_contains(w[i].cont, h, v)) return inContent;
 
-        rgn_rect_t s = w[i].struc, c = w[i].cont;
-        int16_t tb = (int16_t)(c.top - s.top);    /* title-bar band height       */
-        if (tb < 1) tb = 1;
-        /* the close/zoom box width; INTERACT_TB_BIAS is 0 by default and +1px
-         * under INTERACT_MUT_FINDWINDOW_OFFBYONE (the self-mutation). */
-        int16_t tb_eff = (int16_t)(tb + INTERACT_TB_BIAS);
+        rgn_rect_t s = w[i].struc;
+        int16_t ri = (int16_t)(s.right - 1);
+        int16_t bi = (int16_t)(s.bottom - 1);
+        int16_t by = (int16_t)(s.top + FLAIR_CHROME_WIDGET_TOP_OFF);
+        int16_t box = (int16_t)(FLAIR_CHROME_WIDGET_BOX + INTERACT_TB_BIAS);
 
-        /* go-away (close) box: a tb-square at the top-left of the title bar. */
-        if (w[i].goAway) {
-            if (h >= s.left && h < (int16_t)(s.left + tb_eff) &&
-                v >= s.top  && v < c.top)
+        if (w[i].hilited && w[i].goAway) {
+            int16_t bx = (int16_t)(s.left + FLAIR_CHROME_CLOSE_LEFT_OFF);
+            if (h >= bx && h < (int16_t)(bx + box) &&
+                v >= by && v < (int16_t)(by + box))
                 return inGoAway;
         }
-        /* zoom box: a tb-square at the top-right of the title bar (zoom variants).*/
-        if (w[i].variant == zoomDocProc || w[i].variant == zoomNoGrow) {
-            if (h >= (int16_t)(s.right - tb_eff) && h < s.right &&
-                v >= s.top && v < c.top)
+        if (w[i].hilited &&
+            (w[i].variant == zoomDocProc || w[i].variant == zoomNoGrow)) {
+            int16_t bx = (int16_t)(ri - FLAIR_CHROME_ZOOM_RIGHT_OFF);
+            if (h >= bx && h < (int16_t)(bx + box) &&
+                v >= by && v < (int16_t)(by + box))
                 return inZoomIn;
         }
-        /* grow box: a square at the bottom-right corner (grow variants). */
-        if (w[i].variant == documentProc || w[i].variant == zoomDocProc) {
-            int16_t gb = (int16_t)(s.bottom - c.bottom);
-            if (gb < 1) gb = 1;
-            if (h >= (int16_t)(s.right - gb) && h < s.right &&
-                v >= (int16_t)(s.bottom - gb) && v < s.bottom)
+        if (w[i].hilited &&
+            (w[i].variant == documentProc || w[i].variant == noGrowDocProc ||
+             w[i].variant == zoomDocProc || w[i].variant == zoomNoGrow)) {
+            int16_t bx = (int16_t)(ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF);
+            if (h >= bx && h < (int16_t)(bx + box) &&
+                v >= by && v < (int16_t)(by + box))
+                return inCollapse;
+        }
+        if (w[i].hilited &&
+            (w[i].variant == documentProc || w[i].variant == zoomDocProc)) {
+            int16_t gx = (int16_t)(ri - FLAIR_CHROME_GROW_RIGHT_OFF);
+            int16_t gy = (int16_t)(bi - FLAIR_CHROME_GROW_BOTTOM_OFF);
+            int16_t grow = (int16_t)(FLAIR_CHROME_GROW + INTERACT_TB_BIAS);
+            if (h >= gx && h < (int16_t)(gx + grow) &&
+                v >= gy && v < (int16_t)(gy + grow))
                 return inGrow;
         }
         return inDrag;                            /* any other chrome pixel      */
@@ -354,8 +364,8 @@ static void leg1_findwindow(void)
     mgr_attach(&M, FRAME);
 
     /* Two document windows; A created first (back), B created second (front). */
-    rgn_rect_t As = { 8,  6, 30, 34 }, Ac = { 11,  7, 29, 33 };
-    rgn_rect_t Bs = { 18, 24, 42, 56 }, Bc = { 21, 25, 41, 55 };
+    rgn_rect_t As = { 8,  6, 46, 34 }, Ac = { 30,  7, 45, 33 };
+    rgn_rect_t Bs = { 18, 24, 47, 56 }, Bc = { 40, 25, 46, 55 };
     win_attach(&W[0]);
     NewWindow(&M.wm, &W[0].rec, As, Ac, documentKind, documentProc, 1);   /* A */
     win_attach(&W[1]);
@@ -364,23 +374,23 @@ static void leg1_findwindow(void)
     /* INDEPENDENT scene mirror, FRONT-to-BACK (NewWindow pushes front, so the
      * front-most is the LAST created): [B, A]. */
     iwin_t scene[2] = {
-        { Bs, Bc, documentProc, 1, 1, &W[1].rec },   /* index 0 = B (front)       */
-        { As, Ac, documentProc, 1, 1, &W[0].rec },   /* index 1 = A (back)        */
+        { Bs, Bc, documentProc, 1, 1, 1, &W[1].rec }, /* index 0 = B (front)       */
+        { As, Ac, documentProc, 1, 1, 0, &W[0].rec }, /* index 1 = A (back)        */
     };
     enum { NSC = 2 };
 
     /* --- directed, hand-known anchors (independent: derived by hand from the
      *     geometry above, NOT from FindWindow). --- */
     WindowPtr hit;
-    flair_point_t p_content = { 30, 40 };   /* in B content [21,41)x[25,55)       */
+    flair_point_t p_content = { 40, 40 };   /* in B content [40,46)x[25,55)       */
     CHECK(FindWindow(&M.wm, p_content, &hit) == inContent && hit == &W[1].rec,
           "LEG1: point in B content -> inContent on B");
 
-    flair_point_t p_title = { 19, 40 };     /* B title band [18,21), clear of boxes*/
+    flair_point_t p_title = { 19, 52 };     /* B title band, clear of widgets       */
     CHECK(FindWindow(&M.wm, p_title, &hit) == inDrag && hit == &W[1].rec,
           "LEG1: point in B title bar -> inDrag on B");
 
-    flair_point_t p_close = { 19, 25 };     /* B close box [24,27)x[18,21)         */
+    flair_point_t p_close = { 23, 30 };     /* B close box [28,40)x[22,34)         */
     CHECK(FindWindow(&M.wm, p_close, &hit) == inGoAway && hit == &W[1].rec,
           "LEG1: point in B close box -> inGoAway on B");
 
@@ -388,10 +398,10 @@ static void leg1_findwindow(void)
     CHECK(FindWindow(&M.wm, p_desk, &hit) == inDesk && hit == NULL,
           "LEG1: bare-desktop point -> inDesk, whichWindow=NULL");
 
-    /* FRONT wins a shared overlap point: (v=25,h=28) is inside A's struc AND B's
+    /* FRONT wins a shared overlap point: (v=40,h=28) is inside A's struc AND B's
      * struc; B is front, so FindWindow must report B (and it is B content). */
-    flair_point_t p_overlap = { 25, 28 };
-    CHECK(rect_contains(As, 28, 25) && rect_contains(Bs, 28, 25),
+    flair_point_t p_overlap = { 40, 28 };
+    CHECK(rect_contains(As, 28, 40) && rect_contains(Bs, 28, 40),
           "LEG1: overlap probe is genuinely inside BOTH windows (meaningful)");
     CHECK(FindWindow(&M.wm, p_overlap, &hit) == inContent && hit == &W[1].rec,
           "LEG1: shared overlap point -> FRONT window (B) wins, not the back (A)");

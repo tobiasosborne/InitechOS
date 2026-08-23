@@ -50,13 +50,15 @@ static rgn_rect_t win_frame(void)
 static void draw_active(GrafPort *port)
 {
     flair_draw_document_window(port, flair_look_default_skin(),
-                               win_frame(), TEST_TITLE, 1);
+                               win_frame(), TEST_TITLE, 1,
+                               FLAIR_WINDOW_WIDGET_ALL);
 }
 
 static void draw_inactive(GrafPort *port)
 {
     flair_draw_document_window(port, flair_look_default_skin(),
-                               win_frame(), TEST_TITLE, 0);
+                               win_frame(), TEST_TITLE, 0,
+                               FLAIR_WINDOW_WIDGET_ALL);
 }
 
 static rgn_rect_t trunc_frame(void)
@@ -72,7 +74,16 @@ static rgn_rect_t trunc_frame(void)
 static void draw_truncated(GrafPort *port)
 {
     flair_draw_document_window(port, flair_look_default_skin(),
-                               trunc_frame(), FG_TITLE_TRUNC_SOURCE, 1);
+                               trunc_frame(), FG_TITLE_TRUNC_SOURCE, 1,
+                               FLAIR_WINDOW_WIDGET_ALL);
+}
+
+static void draw_close_collapse_only(GrafPort *port)
+{
+    flair_draw_document_window(port, flair_look_default_skin(),
+                               win_frame(), TEST_TITLE, 1,
+                               FLAIR_WINDOW_WIDGET_CLOSE |
+                               FLAIR_WINDOW_WIDGET_COLLAPSE);
 }
 
 static uint32_t px(const render_ctx_t *ctx, int x, int y)
@@ -250,6 +261,7 @@ int main(void)
     render_ctx_t active;
     render_ctx_t inactive;
     render_ctx_t trunc;
+    render_ctx_t flagged;
     memset(&boot, 0, sizeof boot);
     boot.lfb_bpp = 8u;
     boot.lfb_width = 640u;
@@ -415,6 +427,32 @@ int main(void)
     CHECK(collapse_ok,
           "leg COLLAPSE: the rightmost widget must exist and carry dark full-interior "
           "rows dy=3 and dy=5 (window-chrome.md Sec 3.3)");
+
+    /* D3.a row 16: flags, not a drawer-wide assumption, select widgets. The
+     * control-panel combination keeps close+collapse in their sampled slots
+     * while the zoom slot remains plain title band. */
+    int widget_flags_ok = 0;
+    int flagged_init = render_ctx_init(&flagged, &boot);
+    CHECK(flagged_init == 0, "flagged-widget 8bpp render context must initialize");
+    if (flagged_init == 0) {
+        render_run(&flagged, draw_close_collapse_only);
+        int zoom_ink = count_idx(&flagged, zoom_x, box_y,
+                                 zoom_x + FG_BOX_FOOTPRINT,
+                                 box_y + FG_BOX_FOOTPRINT, FG_BOX_RING_IDX) +
+                        count_idx(&flagged, zoom_x, box_y,
+                                  zoom_x + FG_BOX_FOOTPRINT,
+                                  box_y + FG_BOX_FOOTPRINT, FG_BOX_EDGE_IDX);
+        int close_ink = count_idx(&flagged, close_x, box_y,
+                                  close_x + FG_BOX_FOOTPRINT,
+                                  box_y + FG_BOX_FOOTPRINT, FG_BOX_RING_IDX);
+        int collapse_ink = count_idx(&flagged, collapse_x, box_y,
+                                     collapse_x + FG_BOX_FOOTPRINT,
+                                     box_y + FG_BOX_FOOTPRINT, FG_BOX_RING_IDX);
+        widget_flags_ok = zoom_ink == 0 && close_ink > 0 && collapse_ink > 0;
+        render_ctx_free(&flagged);
+    }
+    CHECK(widget_flags_ok,
+          "leg WIDGET-FLAGS: close+collapse/no-zoom keeps collapse at R-16 and leaves zoom slot plain");
 
     int zoom_glyph_ok = 1;
     for (int d = 0; d < FG_ZOOM_GLYPH_EDGE; d++) {
@@ -610,6 +648,7 @@ int main(void)
     LEG_STATUS("WIDGET-RING", bevel_ring_ok, "closed idx63 ring, never black");
     LEG_STATUS("RAMP", widget_ramp_ok, "seven-rung diagonal widget ramp");
     LEG_STATUS("COLLAPSE", collapse_ok, "rightmost collapse widget and two rows");
+    LEG_STATUS("WIDGET-FLAGS", widget_flags_ok, "close+collapse selected; zoom absent");
     LEG_STATUS("GLYPHS", glyph_ok, "close none; zoom right+bottom edges");
     LEG_STATUS("SCROLL-DISABLED", scrollbar_ok, "243/165/119 classes, no thumb");
     LEG_STATUS("GROW", grow_ok, "18x18, three pitched grip lines");

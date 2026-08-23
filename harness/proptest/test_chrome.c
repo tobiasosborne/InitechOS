@@ -72,7 +72,8 @@ static void draw_window(GrafPort *port)
      * scrollbar); the inactive appearance is graded separately by
      * test-chrome-fidelity (beads initech-a9iq). */
     flair_draw_document_window(port, flair_look_default_skin(),
-                               win_frame(), "", 1);
+                               win_frame(), "", 1,
+                               FLAIR_WINDOW_WIDGET_ALL);
 }
 
 /* Is pixel (x,y) CHROME (i.e. NOT the bare desktop background)? The skeleton

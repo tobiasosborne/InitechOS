@@ -172,8 +172,9 @@ void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content
  * chrome.md Sec 2.1/Sec 4 and scrollbars.md Sec 1; beads initech-javs/l0mh. */
 rgn_rect_t CalcDocContentRect(rgn_rect_t frame);
 
-/* NewDocumentWindow -- CalcDocContentRect + NewWindow(documentProc). Production
- * document callers use this WDEF seam instead of repeating chrome formulas. */
+/* NewDocumentWindow -- CalcDocContentRect + NewWindow(zoomDocProc). Production
+ * Platinum documents carry close/zoom/collapse/grow through one record flag set;
+ * callers use this WDEF seam instead of repeating chrome formulas. */
 void NewDocumentWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t frame,
                        int16_t wKind, uint8_t goAway);
 
@@ -264,6 +265,26 @@ void MoveWindow(WindowMgr *wm, WindowPtr w, int16_t newLeft, int16_t newTop);
  * window's current position; the interactive drag loop calls this each step. */
 void DragWindow(WindowMgr *wm, WindowPtr w, int16_t dh, int16_t dv);
 
+/* ConstrainWindowSize -- shared grow-track/commit policy. Width/height are
+ * clamped to the locked 96x64 minimum and the part of the native desktop still
+ * available from the window origin. The live outline and SizeWindow commit both
+ * call this seam, so feedback cannot disagree with the final frame. */
+void ConstrainWindowSize(const WindowMgr *wm, const WindowPtr w,
+                         int16_t *width, int16_t *height);
+
+/* SizeWindow -- resize at the current top-left, recompute document structure +
+ * content (including scrollbar/grow geometry), distribute exact old exposure,
+ * and seed the resized window's new visible footprint. */
+void SizeWindow(WindowMgr *wm, WindowPtr w, int16_t width, int16_t height);
+
+/* ZoomWindow -- toggle exact userState <-> deterministic standard state below
+ * the two menu bands. Returns nonzero in standard/zoomed state after the op. */
+int ZoomWindow(WindowMgr *wm, WindowPtr w);
+
+/* CollapseWindow -- toggle expanded frame <-> the exact 22px title band.
+ * contRgn is empty while collapsed. Returns nonzero when collapsed. */
+int CollapseWindow(WindowMgr *wm, WindowPtr w);
+
 /* ===========================================================================
  * 4. FINDWINDOW -- hit-testing (verbatim Inside Macintosh part-codes)
  * ---------------------------------------------------------------------------
@@ -276,7 +297,8 @@ void DragWindow(WindowMgr *wm, WindowPtr w, int16_t dh, int16_t dv);
  *   point in contRgn ......................... inContent
  *   point in title-bar band (struc above cont) inDrag
  *   point in the go-away (close) box .......... inGoAway   (if goAwayFlag)
- *   point in the zoom box ..................... inZoomIn    (if a zoom variant)
+ *   point in the zoom box ..................... inZoomIn/Out (if zoom flag)
+ *   point in the collapse box ................. inCollapse  (if collapse flag)
  *   point in the grow box (bottom-right) ...... inGrow      (if a grow variant)
  *   any other chrome pixel .................... inDrag      (frame is draggable)
  *   no window contains the point .............. inDesk      (whichWindow := NULL)

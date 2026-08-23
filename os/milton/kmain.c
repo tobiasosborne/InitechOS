@@ -60,6 +60,7 @@
                               * initech-44ab round 3; -Ios/flair/atkinson)    */
 #include "shell.h"           /* shell_scene_t, shell_build_scene/render       */
 #include "desktop.h"         /* desktop_paint_damage (FO-7 minimal repaint)   */
+#include "flair_look.h"      /* sampled gray outline through the policy seam */
 #include "menu_canon.h"      /* FLAIR_CANON_PHOTOSHOP_MENU_COUNT (-Ispec/assets)*/
 #include "palette.h"         /* flair_palette_rgb + INITECH_*_RGB (-Ispec/assets)*/
 #include "event.h"           /* flair_tick_advance/count (FO-4) + flair_raw_post/
@@ -1256,6 +1257,9 @@ static void flair_live_cursor_track(const EventRecord *ev)
  * Marker ABI (kept byte-for-byte apart from the numeric repair):
  *   FLAIR-DRAG win <id> (<old-left>,<old-top>)->(<new-left>,<new-top>)
  *   FLAIR-CLOSE win <id>
+ *   FLAIR-ZOOM win <id> in|out
+ *   FLAIR-GROW win <id> (<old-w>,<old-h>)->(<new-w>,<new-h>)
+ *   FLAIR-COLLAPSE win <id> 0|1
  *
  * The canonical shell store keeps its historical array IDs so locked
  * FLAIRLIVE traces do not re-key. Tenant windows are not in that store (the
@@ -1405,7 +1409,128 @@ static void flair_live_clamp_drag(const flair_live_ctx_t *ctx, WindowPtr w,
 }
 #endif
 
-/* FO-7 inDrag dispatch: track the live drag, then move + minimal-repaint + present.
+/* R1.2/R1.3 period outline tracker. There is no XOR blit in the FLAIR surface
+ * mechanism, so a one-pixel sampled-gray rectangle uses the R0.1 cursor
+ * precedent: save every touched offscreen pixel, draw feedback, then restore it
+ * exactly before the next trace/commit. Every feedback frame goes through
+ * flair_desktop_present, whose final-LFB seam shields the cursor. No WindowMgr
+ * damage is generated until release. Ref: GUI-remediation-plan.md R1.2/R1.3;
+ * sys8/window-chrome.md Sec 8 (capture gap recorded honestly); bead tdnl.2/3. */
+#define FLAIR_LIVE_OUTLINE_SAVE_MAX \
+    (2u * ((uint32_t)FLAIR_SCREEN_W + (uint32_t)FLAIR_SCREEN_H) + 4u)
+
+typedef struct flair_live_outline {
+    rgn_rect_t rect;
+    uint8_t saved[FLAIR_LIVE_OUTLINE_SAVE_MAX];
+    uint32_t saved_count;
+    int drawn;
+} flair_live_outline_t;
+
+static flair_live_outline_t g_flair_live_outline;
+
+static int flair_live_rect_same(rgn_rect_t a, rgn_rect_t b)
+{
+    return a.top == b.top && a.left == b.left &&
+           a.bottom == b.bottom && a.right == b.right;
+}
+
+static void flair_live_outline_pixel(flair_live_outline_t *outline,
+                                     bitmap_t *surface,
+                                     int x, int y, uint32_t ink,
+                                     int restore, uint32_t *index)
+{
+    uint32_t off;
+    if (x < 0 || y < 0 || x >= (int)surface->width ||
+        y >= (int)surface->height) return;
+    if (*index >= FLAIR_LIVE_OUTLINE_SAVE_MAX) {
+        serial_puts("PANIC flair-outline: save-under capacity exceeded\nHALTED\n");
+        for (;;) { __asm__ __volatile__("cli; hlt"); }
+    }
+    off = (uint32_t)y * surface->pitch +
+          (uint32_t)x * surface->bytes_per_pixel;
+    if (restore) {
+        surface_put_pixel(surface, off, outline->saved[*index]);
+    } else {
+        outline->saved[*index] = (uint8_t)surface_get_pixel(surface, off);
+        surface_put_pixel(surface, off, ink);
+    }
+    (*index)++;
+}
+
+static void flair_live_outline_walk(flair_live_outline_t *outline,
+                                    bitmap_t *surface, uint32_t ink,
+                                    int restore)
+{
+    rgn_rect_t r = outline->rect;
+    uint32_t index = 0u;
+    int x;
+    int y;
+
+    for (x = r.left; x < r.right; x++)
+        flair_live_outline_pixel(outline, surface, x, r.top, ink,
+                                 restore, &index);
+    if (r.bottom - r.top > 1) {
+        for (x = r.left; x < r.right; x++)
+            flair_live_outline_pixel(outline, surface, x, r.bottom - 1, ink,
+                                     restore, &index);
+    }
+    for (y = r.top + 1; y < r.bottom - 1; y++)
+        flair_live_outline_pixel(outline, surface, r.left, y, ink,
+                                 restore, &index);
+    if (r.right - r.left > 1) {
+        for (y = r.top + 1; y < r.bottom - 1; y++)
+            flair_live_outline_pixel(outline, surface, r.right - 1, y, ink,
+                                     restore, &index);
+    }
+    if (restore && index != outline->saved_count) {
+        serial_puts("PANIC flair-outline: save-under traversal drift\nHALTED\n");
+        for (;;) { __asm__ __volatile__("cli; hlt"); }
+    }
+    if (!restore) outline->saved_count = index;
+}
+
+static void flair_live_outline_draw(bitmap_t *surface, rgn_rect_t rect)
+{
+    uint32_t gray;
+    if (g_flair_live_outline.drawn) {
+        serial_puts("PANIC flair-outline: nested draw\nHALTED\n");
+        for (;;) { __asm__ __volatile__("cli; hlt"); }
+    }
+    if (surface->bpp != 8u || surface->bytes_per_pixel != 1u) {
+        serial_puts("PANIC flair-outline: feedback surface is not indexed-8\nHALTED\n");
+        for (;;) { __asm__ __volatile__("cli; hlt"); }
+    }
+    g_flair_live_outline.rect = rect;
+    gray = flair_look_pixel_depth(surface->bpp,
+                                  FLAIR_PART_PLAT_INACTIVE_FRAME);
+    flair_live_outline_walk(&g_flair_live_outline, surface, gray, 0);
+    g_flair_live_outline.drawn = 1;
+}
+
+static void flair_live_outline_restore(bitmap_t *surface)
+{
+    if (!g_flair_live_outline.drawn) return;
+    flair_live_outline_walk(&g_flair_live_outline, surface, 0u, 1);
+    g_flair_live_outline.drawn = 0;
+    g_flair_live_outline.saved_count = 0u;
+}
+
+static void flair_live_drag_delta(const flair_live_ctx_t *ctx, WindowPtr w,
+                                  flair_point_t where0, flair_point_t where,
+                                  int16_t *dh, int16_t *dv)
+{
+    *dh = (int16_t)(where.h - where0.h);
+    *dv = (int16_t)(where.v - where0.v);
+#ifndef FLAIR_LIVE_MUTATE_NO_DRAG_CLAMP
+    flair_live_clamp_drag(ctx, w, dh, dv);
+#else
+    (void)ctx;
+    (void)w;
+#endif
+}
+
+/* FO-7/R1.3 inDrag dispatch: track a period gray outline, then move ONCE on
+ * release + minimal-repaint + present.
  *
  * The net drag delta is the cursor displacement from button-down (where0) to
  * mouse-up: WaitNextEvent updates the global cursor on EVERY raw mouse move (a
@@ -1432,34 +1557,45 @@ static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
 #endif
     uint32_t guard = flair_tick_count() + FLAIR_LIVE_DRAG_TRACK_TICKS;
     rgn_rect_t before, after;
+    rgn_rect_t outline_base, outline_now;
     int16_t dh, dv;
     int wid;
+
+    before = region_get_bbox(w->strucRgn);
+    outline_base = WindowFrameRect(w);
+    outline_now = outline_base;
+    flair_live_outline_draw(&ctx->off, outline_now);
+    flair_desktop_present(bi, &ctx->off);
 
     for (;;) {
         int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &up, 3u);
         flair_live_cursor_track(&up);
         if (g) {
             flair_live_emit_evt(&up);
-            if (up.what == (uint16_t)mouseUp) { where1 = up.where; break; }
-        } else {
-            /* timeout: WaitNextEvent stamped `up.where` with the current cursor
-             * (it advanced as the move packets cooked); keep tracking it. */
-            where1 = up.where;
         }
+        /* WaitNextEvent stamps where on delivered events and null timeouts. */
+        where1 = up.where;
+        flair_live_drag_delta(ctx, w, where0, where1, &dh, &dv);
+        {
+            rgn_rect_t next = outline_base;
+            next.left = (int16_t)(next.left + dh);
+            next.right = (int16_t)(next.right + dh);
+            next.top = (int16_t)(next.top + dv);
+            next.bottom = (int16_t)(next.bottom + dv);
+            if (!flair_live_rect_same(next, outline_now)) {
+                flair_live_outline_restore(&ctx->off);
+                flair_live_outline_draw(&ctx->off, next);
+                outline_now = next;
+                flair_desktop_present(bi, &ctx->off);
+            }
+        }
+        if (g && up.what == (uint16_t)mouseUp) break;
         if (flair_tick_count() >= guard) { break; }
     }
 
-    dh = (int16_t)(where1.h - where0.h);
-    dv = (int16_t)(where1.v - where0.v);
+    flair_live_outline_restore(&ctx->off);
+    flair_live_drag_delta(ctx, w, where0, where1, &dh, &dv);
 
-#ifndef FLAIR_LIVE_MUTATE_NO_DRAG_CLAMP
-    flair_live_clamp_drag(ctx, w, &dh, &dv);
-#else
-    /* Rule-6 mutant: disable exactly the DQ6 pump-policy clamp, restoring the
-     * mouse-unrecoverable under-menu/off-screen drag. NEVER in a real build. */
-#endif
-
-    before = region_get_bbox(w->strucRgn);
 #ifndef FLAIR_LIVE_MUTATE_DRAG_NOOP
     if (dh != 0 || dv != 0) {
         DragWindow(ctx->wm, w, dh, dv);
@@ -1513,6 +1649,105 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puts("FLAIR-CLOSE win ");
     serial_puti((int32_t)wid);
     serial_putc('\n');
+}
+
+/* R1.2 zoom dispatch: the WindowMgr owns stored user/standard state and exact
+ * region damage; the pump owns only paint/route/present plus the serial ABI. */
+static void flair_live_do_zoom(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               WindowPtr w)
+{
+    int wid = flair_live_window_index(ctx, w);
+    int zoomed = ZoomWindow(ctx->wm, w);
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_live_content_phase(ctx);
+    flair_desktop_present(bi, &ctx->off);
+    serial_puts("FLAIR-ZOOM win ");
+    serial_puti((int32_t)wid);
+    serial_puts(zoomed ? " in\n" : " out\n");
+}
+
+/* R1.2 collapse/windowshade dispatch. CollapseWindow removes contRgn and
+ * distributes the exact body exposure; restore re-seeds the exact expanded
+ * structure/content footprint through the same update route. */
+static void flair_live_do_collapse(flair_live_ctx_t *ctx,
+                                   const boot_info_t *bi, WindowPtr w)
+{
+    int wid = flair_live_window_index(ctx, w);
+    int collapsed = CollapseWindow(ctx->wm, w);
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_live_content_phase(ctx);
+    flair_desktop_present(bi, &ctx->off);
+    serial_puts("FLAIR-COLLAPSE win ");
+    serial_puti((int32_t)wid);
+    serial_putc(' ');
+    serial_puti((int32_t)collapsed);
+    serial_putc('\n');
+}
+
+/* R1.2 inGrow: feedback is the same save-under gray outline as title drag.
+ * The frame's top-left remains fixed; each tracked proposal and the release
+ * commit call the ONE ConstrainWindowSize seam, so 96x64/desktop clamping
+ * cannot drift between what the user sees and what SizeWindow installs. */
+static void flair_live_do_grow(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               WindowPtr w, flair_point_t where0)
+{
+    EventRecord up;
+    flair_point_t where1 = where0;
+    rgn_rect_t before = WindowFrameRect(w);
+    rgn_rect_t outline_now = before;
+    int16_t old_w = (int16_t)(before.right - before.left);
+    int16_t old_h = (int16_t)(before.bottom - before.top);
+    int16_t width = old_w;
+    int16_t height = old_h;
+    uint32_t guard = flair_tick_count() + FLAIR_LIVE_DRAG_TRACK_TICKS;
+    int wid = flair_live_window_index(ctx, w);
+
+    flair_live_outline_draw(&ctx->off, outline_now);
+    flair_desktop_present(bi, &ctx->off);
+    for (;;) {
+        int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &up, 3u);
+        flair_live_cursor_track(&up);
+        if (g) flair_live_emit_evt(&up);
+        where1 = up.where;
+        width = (int16_t)(old_w + where1.h - where0.h);
+        height = (int16_t)(old_h + where1.v - where0.v);
+        ConstrainWindowSize(ctx->wm, w, &width, &height);
+        {
+            rgn_rect_t next = before;
+            next.right = (int16_t)(next.left + width);
+            next.bottom = (int16_t)(next.top + height);
+            if (!flair_live_rect_same(next, outline_now)) {
+                flair_live_outline_restore(&ctx->off);
+                flair_live_outline_draw(&ctx->off, next);
+                outline_now = next;
+                flair_desktop_present(bi, &ctx->off);
+            }
+        }
+        if (g && up.what == (uint16_t)mouseUp) break;
+        if (flair_tick_count() >= guard) break;
+    }
+
+    flair_live_outline_restore(&ctx->off);
+    width = (int16_t)(old_w + where1.h - where0.h);
+    height = (int16_t)(old_h + where1.v - where0.v);
+    ConstrainWindowSize(ctx->wm, w, &width, &height);
+    if (width != old_w || height != old_h)
+        SizeWindow(ctx->wm, w, width, height);
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_live_content_phase(ctx);
+    flair_desktop_present(bi, &ctx->off);
+
+    serial_puts("FLAIR-GROW win ");
+    serial_puti((int32_t)wid);
+    serial_puts(" (");
+    serial_puti((int32_t)old_w);
+    serial_putc(',');
+    serial_puti((int32_t)old_h);
+    serial_puts(")->(");
+    serial_puti((int32_t)width);
+    serial_putc(',');
+    serial_puti((int32_t)height);
+    serial_puts(")\n");
 }
 
 /* FO-8b dropped-pull-down colors (indexed-8 offscreen; OD-2). A BTNFACE-gray
@@ -2633,6 +2868,14 @@ void kernel_main(void)
                     flair_live_do_drag(&ctx, &b, chrome_w, ev.where);
                 } else if (chrome_pc == inGoAway && chrome_w != (WindowPtr)0) {
                     flair_live_do_close(&ctx, &b, chrome_w);
+                } else if ((chrome_pc == inZoomIn || chrome_pc == inZoomOut) &&
+                           chrome_w != (WindowPtr)0) {
+                    flair_live_do_zoom(&ctx, &b, chrome_w);
+                } else if (chrome_pc == inGrow && chrome_w != (WindowPtr)0) {
+                    flair_live_do_grow(&ctx, &b, chrome_w, ev.where);
+                } else if (chrome_pc == inCollapse &&
+                           chrome_w != (WindowPtr)0) {
+                    flair_live_do_collapse(&ctx, &b, chrome_w);
                 } else if (ev.where.v >= 0 &&
                            ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
                     flair_live_do_menu(&ctx, &b, &ctx.scene->bar_sys, ev.where);
@@ -2719,6 +2962,13 @@ void kernel_main(void)
                     flair_live_do_drag(&ctx, &b, w, ev.where);
                 } else if (pc == inGoAway && w != (WindowPtr)0) {
                     flair_live_do_close(&ctx, &b, w);
+                } else if ((pc == inZoomIn || pc == inZoomOut) &&
+                           w != (WindowPtr)0) {
+                    flair_live_do_zoom(&ctx, &b, w);
+                } else if (pc == inGrow && w != (WindowPtr)0) {
+                    flair_live_do_grow(&ctx, &b, w, ev.where);
+                } else if (pc == inCollapse && w != (WindowPtr)0) {
+                    flair_live_do_collapse(&ctx, &b, w);
                 } else if (ev.where.v >= 0 &&
                            ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
                     /* inMenuBar (ADR-0006 FO-8): the click is in the TOP System-7

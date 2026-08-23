@@ -623,7 +623,8 @@ static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
 
 void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
                                 rgn_rect_t frame,
-                                const char *title, int hilited)
+                                const char *title, int hilited,
+                                uint8_t widget_flags)
 {
     int left;
     int top;
@@ -643,6 +644,7 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
     int grow_x;
     int grow_y;
     int sb_left;
+    int collapsed;
 
     if (port == 0 || skin == (const flair_skin_t *)0) {
         return;
@@ -653,8 +655,10 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
     bottom = frame.bottom;
     w = right - left;
     h = bottom - top;
+    collapsed = h == FLAIR_CHROME_TITLEBAR_H;
     if (w < 2 * FLAIR_CHROME_GROW + 2 ||
-        h < FLAIR_CHROME_TITLEBAR_H + FLAIR_CHROME_GROW + 2) {
+        (!collapsed &&
+         h < FLAIR_CHROME_TITLEBAR_H + FLAIR_CHROME_GROW + 2)) {
         return;
     }
 
@@ -674,21 +678,22 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
     }
 #endif
 
+    if (!collapsed) {
 #if defined(CHROME_FID_MUT_BODYBAR)
-    content_left = left + 1;
-    content_right = right - 1;
-    content_bottom = bottom - 1;
+        content_left = left + 1;
+        content_right = right - 1;
+        content_bottom = bottom - 1;
 #else
-    content_left = left + 6;
-    content_right = right - 6;
-    content_bottom = bottom - 6;
+        content_left = left + 6;
+        content_right = right - 6;
+        content_bottom = bottom - 6;
 #endif
-    content_top = shared_line + 1;
-    crect(port, content_left, content_top, content_right, content_bottom,
-          FLAIR_PART_CONTENT);
+        content_top = shared_line + 1;
+        crect(port, content_left, content_top, content_right, content_bottom,
+              FLAIR_PART_CONTENT);
 
-    draw_body_structure(port, skin, left, shared_line, right, bottom,
-                        active, frame_part);
+        draw_body_structure(port, skin, left, shared_line, right, bottom,
+                            active, frame_part);
 
 #if defined(FLAIR_COLORBLIND_MUTANT)
     /* Named behavioral mutant: bypass the policy seam with a computed value.
@@ -702,25 +707,31 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
     }
 #endif
 
+        ri = right - 1;
+        bi = bottom - 1;
+        grow_x = ri - FLAIR_CHROME_GROW_RIGHT_OFF;
+        grow_y = bi - FLAIR_CHROME_GROW_BOTTOM_OFF;
+        sb_left = grow_x - FLAIR_CHROME_FRAME;
+#if defined(CHROME_MUTATE_SCROLLBAR_W)
+        sb_left++;
+#endif
+        {
+            int sb_top = shared_line;
+#if defined(CHROME_FID_MUT_NOTCH_DOUBLE)
+            sb_top++;
+#endif
+            draw_vertical_scrollbar(port, skin, sb_left, sb_top,
+                                    ri - 5, grow_y, active);
+        }
+        draw_horizontal_scrollbar(port, skin, left + 5,
+                                  grow_y - FLAIR_CHROME_FRAME,
+                                  grow_x, bi - 5, active);
+        if ((widget_flags & FLAIR_WINDOW_WIDGET_GROW) != 0u)
+            draw_grow_box(port, skin, grow_x, grow_y, active);
+    }
+
     ri = right - 1;
     bi = bottom - 1;
-    grow_x = ri - 19;
-    grow_y = bi - 19;
-    sb_left = ri - 20;
-#if defined(CHROME_MUTATE_SCROLLBAR_W)
-    sb_left++;
-#endif
-    {
-        int sb_top = shared_line;
-#if defined(CHROME_FID_MUT_NOTCH_DOUBLE)
-        sb_top++;
-#endif
-        draw_vertical_scrollbar(port, skin, sb_left, sb_top,
-                                ri - 5, grow_y, active);
-    }
-    draw_horizontal_scrollbar(port, skin, left + 5, bi - 20,
-                              grow_x, bi - 5, active);
-    draw_grow_box(port, skin, grow_x, grow_y, active);
 
     if (active
 #if defined(CHROME_FID_MUT_KEEP_GADGETS)
@@ -730,21 +741,26 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
         int by = top + FLAIR_CHROME_WIDGET_TOP_OFF;
 #if defined(CHROME_FID_MUT_BOX_GEOM)
         int old_box = FLAIR_CHROME_SYS7_WBOX_DELTA;
-        cframe(port, left + 4, by, left + 4 + old_box, by + old_box,
-               FLAIR_PART_FRAME);
-        cframe(port, ri - 20, by, ri - 20 + old_box, by + old_box,
-               FLAIR_PART_FRAME);
+        if ((widget_flags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u)
+            cframe(port, left + 4, by, left + 4 + old_box, by + old_box,
+                   FLAIR_PART_FRAME);
+        if ((widget_flags & FLAIR_WINDOW_WIDGET_ZOOM) != 0u)
+            cframe(port, ri - 20, by, ri - 20 + old_box, by + old_box,
+                   FLAIR_PART_FRAME);
 #else
-        draw_platinum_widget(port, skin,
-                             left + FLAIR_CHROME_CLOSE_LEFT_OFF,
-                             by, PLAT_WIDGET_CLOSE);
-        draw_platinum_widget(port, skin,
-                             ri - FLAIR_CHROME_ZOOM_RIGHT_OFF,
-                             by, PLAT_WIDGET_ZOOM);
+        if ((widget_flags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u)
+            draw_platinum_widget(port, skin,
+                                 left + FLAIR_CHROME_CLOSE_LEFT_OFF,
+                                 by, PLAT_WIDGET_CLOSE);
+        if ((widget_flags & FLAIR_WINDOW_WIDGET_ZOOM) != 0u)
+            draw_platinum_widget(port, skin,
+                                 ri - FLAIR_CHROME_ZOOM_RIGHT_OFF,
+                                 by, PLAT_WIDGET_ZOOM);
 #if !defined(CHROME_FID_MUT_COLLAPSE)
-        draw_platinum_widget(port, skin,
-                             ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
-                             by, PLAT_WIDGET_COLLAPSE);
+        if ((widget_flags & FLAIR_WINDOW_WIDGET_COLLAPSE) != 0u)
+            draw_platinum_widget(port, skin,
+                                 ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
+                                 by, PLAT_WIDGET_COLLAPSE);
 #endif
 #endif
     }

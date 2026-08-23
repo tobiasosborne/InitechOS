@@ -264,6 +264,10 @@ PPM_FLAIR_CHECK_BIN := $(BUILD)/ppm_flair_check
 # teal) against the INDEPENDENT canon, never the render. Built like ppm_flair_check.
 PPM_FLAIR_DRAG_CHECK_SRC := tools/ppm_flair_drag_check.c
 PPM_FLAIR_DRAG_CHECK_BIN := $(BUILD)/ppm_flair_drag_check
+# R1.2 zoom/grow/collapse endpoint grader (bead initech-tdnl.2). Pixel values
+# are independent-canon; endpoint geometry is locked trace arithmetic.
+PPM_FLAIR_WINDOW_OPS_CHECK_SRC := tools/ppm_flair_window_ops_check.c
+PPM_FLAIR_WINDOW_OPS_CHECK_BIN := $(BUILD)/ppm_flair_window_ops_check
 
 # FO-8b menu-oracle screendump grader (beads initech-5l5z FO-8b; ADR-0004 D-3 /
 # ADR-0006 FO-8): grades the held System-7 "File" pull-down at DROP time (black
@@ -492,6 +496,7 @@ KERNEL_HEAP_OBJ        := $(BUILD)/heap.o
 KERNEL_EVENT_OBJ       := $(BUILD)/event.o
 KERNEL_CURSOR_OBJ      := $(BUILD)/cursor.o
 KERNEL_WINDOW_OBJ      := $(BUILD)/window.o
+KERNEL_WINDOW_LIVE_OBJ := $(BUILD)/window_live.o
 KERNEL_BLITTER_OBJ     := $(BUILD)/blitter.o
 KERNEL_CHROME_OBJ      := $(BUILD)/chrome.o
 KERNEL_TEXT_OBJ        := $(BUILD)/text.o
@@ -7361,7 +7366,15 @@ $(KERNEL_CURSOR_OBJ): os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spe
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ispec/assets -c os/flair/cursor.c -o $@
 
 $(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(WINDOW_INC) -c os/flair/window.c -o $@
+
+# R1 geometry operations are linked only into interactive FLAIR images. The
+# base DOS/static kernels keep the smaller Window Manager object; otherwise
+# unused zoom/grow/collapse text consumes the fixed conventional-memory window.
+# Like rtc.o's established size profile, -Os is deterministic and keeps the
+# shared Manager inside PROGRAM_BASE without changing its C contract.
+$(KERNEL_WINDOW_LIVE_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -DWINDOW_ENABLE_R1_OPS $(WINDOW_INC) -c os/flair/window.c -o $@
 
 $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/region.h os/flair/surface.h spec/region_algebra.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(BLITTER_INC) -c os/flair/blitter.c -o $@
@@ -8562,7 +8575,7 @@ KERNEL_FLAIRLIVE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) $(KERN
                           $(KERNEL_KBD_OBJ) $(KERNEL_MOUSE_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                           $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                           $(KERNEL_ISR_OBJ) \
-                          $(KERNEL_FLAIR_OBJS)
+                          $(subst $(KERNEL_WINDOW_OBJ),$(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIR_OBJS))
 
 $(KERNEL_FLAIRLIVE_ELF): $(KERNEL_FLAIRLIVE_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_OBJS)
@@ -8677,9 +8690,9 @@ $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_
 # menu bars on a drag. Swaps ONLY window.o (the mutant obj) into the FLAIRLIVE obj
 # set (the normal main obj still wires + sets overlay_rgn). -----------------------
 $(KERNEL_WINDOW_MUT_OVERLAY_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DWINDOW_MUTATE_IGNORE_OVERLAY $(WINDOW_INC) -c os/flair/window.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -DWINDOW_ENABLE_R1_OPS -DWINDOW_MUTATE_IGNORE_OVERLAY $(WINDOW_INC) -c os/flair/window.c -o $@
 
-KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS := $(filter-out $(KERNEL_WINDOW_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_WINDOW_MUT_OVERLAY_OBJ)
+KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS := $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_WINDOW_MUT_OVERLAY_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_OVERLAY_ELF): $(KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS)
@@ -9050,10 +9063,10 @@ endef
 # template above documents).
 define flair-tenants-window-mutant-rules
 $(BUILD)/window_mut_$(2).o: os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(1) -Ispec -Ios/flair -Ios/flair/atkinson -Iseed -c os/flair/window.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -DWINDOW_ENABLE_R1_OPS -D$(1) -Ispec -Ios/flair -Ios/flair/atkinson -Iseed -c os/flair/window.c -o $$@
 
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_WINDOW_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_WINDOW_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -9411,6 +9424,9 @@ $(PPM_FLAIR_CHECK_BIN): $(PPM_FLAIR_CHECK_SRC) spec/assets/color_canon.h spec/as
 # Grades the post-drag frame against the INDEPENDENT canon (flair_canon_rgb +
 # chrome_metrics geometry), never the render. Built like ppm_flair_check.
 $(PPM_FLAIR_DRAG_CHECK_BIN): $(PPM_FLAIR_DRAG_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+$(PPM_FLAIR_WINDOW_OPS_CHECK_BIN): $(PPM_FLAIR_WINDOW_OPS_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
 
 # FO-8b menu-oracle screendump grader (beads initech-5l5z FO-8b; ADR-0006 FO-8).
@@ -10009,13 +10025,23 @@ pairs=[('FLAIR_CHROME_MENUBAR_H',nat['menubar_height']['value']), \
 ('FLAIR_CHROME_TITLE_SHADE_LIGHT',nat['titlebar_shade_indices']['wTitleBarLight']), \
 ('FLAIR_CHROME_TITLE_SHADE_DARK',nat['titlebar_shade_indices']['wTitleBarDark']), \
 ('FLAIR_CHROME_GROW',nat['grow_box_size']['value']), \
+('FLAIR_CHROME_GROW_RIGHT_OFF',nat['platinum_grow_box_placement']['right_offset_from_inclusive_frame']), \
+('FLAIR_CHROME_GROW_BOTTOM_OFF',nat['platinum_grow_box_placement']['bottom_offset_from_inclusive_frame']), \
+('FLAIR_CHROME_ZOOM_MARGIN_LEFT',nat['window_interaction_policy']['zoom_margin_left']), \
+('FLAIR_CHROME_ZOOM_MARGIN_TOP',nat['window_interaction_policy']['zoom_margin_top']), \
+('FLAIR_CHROME_ZOOM_MARGIN_RIGHT',nat['window_interaction_policy']['zoom_margin_right']), \
+('FLAIR_CHROME_ZOOM_MARGIN_BOTTOM',nat['window_interaction_policy']['zoom_margin_bottom']), \
+('FLAIR_CHROME_WINDOW_MIN_W',nat['window_interaction_policy']['minimum_width']), \
+('FLAIR_CHROME_WINDOW_MIN_H',nat['window_interaction_policy']['minimum_height']), \
+('FLAIR_CHROME_WINDOW_MAX_W',nat['window_interaction_policy']['maximum_width']), \
+('FLAIR_CHROME_WINDOW_MAX_H',nat['window_interaction_policy']['maximum_height']), \
 ('FLAIR_CHROME_SMALL_ICON',nat['small_icon_in_title']['value'])]; \
 bad=[]; \
 [ bad.append((n,(int(m.group(1)) if m else 'MISSING'),want)) for (n,want) in pairs for m in [re.search(r'#define\s+'+re.escape(n)+r'\s+(\d+)',hdr)] if (not m or int(m.group(1))!=want) ]; \
 assert not bad, 'chrome_metrics.h DRIFTED from chrome_metrics.json: %r'%bad; \
 print('    all %d chrome #defines == spec/chrome_metrics.json native values'%len(pairs))" \
 		|| { printf '!!! test-chrome FAIL: spec/chrome_metrics.h diverges from the LOCKED spec/chrome_metrics.json (Rule 8)\n'; exit 1; }
-	@printf '>>> test-chrome [2/3]: STRUCTURAL -- Platinum window chrome vs chrome_metrics v4 (8bpp + 32bpp)\n'
+	@printf '>>> test-chrome [2/3]: STRUCTURAL -- Platinum window chrome vs chrome_metrics v5 (8bpp + 32bpp)\n'
 	@$(TEST_CHROME) $(BUILD)/chrome_window.ppm
 	@printf '>>> test-chrome [3/3]: ARTIFACT FREESTANDING -- chrome.c compiles under kernel flags\n'
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $(BUILD)/chrome_freestanding.o \
@@ -10484,36 +10510,49 @@ TEST_WINDOW_MUT_NO_ACTIVATE_INVAL := $(BUILD)/test_window_mutant_no_activate_inv
 TEST_WINDOW_MUT_SHADOW_CLIPPED := $(BUILD)/test_window_mutant_shadow_clipped
 TEST_WINDOW_MUT_CONTENT_TOP_STALE := $(BUILD)/test_window_mutant_content_top_stale
 TEST_WINDOW_MUT_CONTENT_OVER_SCROLL := $(BUILD)/test_window_mutant_content_over_scroll
+TEST_WINDOW_MUT_ZONE_OFF := $(BUILD)/test_window_mutant_zone_off
+TEST_WINDOW_MUT_ZOOM_NO_RESTORE := $(BUILD)/test_window_mutant_zoom_no_restore
+TEST_WINDOW_MUT_COLLAPSE_LEAK := $(BUILD)/test_window_mutant_collapse_leak
+TEST_WINDOW_MUT_GROW_NO_MIN := $(BUILD)/test_window_mutant_grow_no_min
 TEST_WINDOW_DEPS := os/flair/window.c os/flair/window.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h
 WINDOW_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
 WINDOW_LINK := os/flair/window.c $(REGION_ENGINE_C)
+WINDOW_R1_CFLAGS := -DWINDOW_ENABLE_R1_OPS
 
 $(TEST_WINDOW): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_ZORDER): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_ZORDER $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_ZORDER $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_OVERPAINT): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_OVERPAINT $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_OVERPAINT $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_NO_DEACT_INVAL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_NO_DEACT_INVAL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_NO_DEACT_INVAL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_NO_ACTIVATE_INVAL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_NO_ACTIVATE_INVAL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_SHADOW_CLIPPED): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_SHADOW_CLIPPED $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DCHROME_FID_MUT_SHADOW_CLIPPED $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_CONTENT_TOP_STALE): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_CONTENT_TOP_STALE $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DCHROME_FID_MUT_CONTENT_TOP_STALE $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_CONTENT_OVER_SCROLL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_CONTENT_OVER_SCROLL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DCHROME_FID_MUT_CONTENT_OVER_SCROLL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_ZONE_OFF): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_ZONE_OFF $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_ZOOM_NO_RESTORE): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_ZOOM_NO_RESTORE $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_COLLAPSE_LEAK): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_COLLAPSE_LEAK $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_GROW_NO_MIN): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_GROW_NO_MIN $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 
 test-window: $(TEST_WINDOW)
 	@printf ">>> test-window: visible region (strucRgn DIFF fronts) + DiffRgn damage (no over-repaint, D-5) + z-order + FindWindow\n"
 	@$(TEST_WINDOW)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $(BUILD)/window_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $(BUILD)/window_freestanding.o \
 		|| { printf '!!! test-window FAIL: window.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-window: green\n"
 
-test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TEST_WINDOW_MUT_NO_DEACT_INVAL) $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL) $(TEST_WINDOW_MUT_SHADOW_CLIPPED) $(TEST_WINDOW_MUT_CONTENT_TOP_STALE) $(TEST_WINDOW_MUT_CONTENT_OVER_SCROLL)
-	@printf ">>> test-window-mutant: confirming all seven mutants go RED (Rule 6)\n"
+test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TEST_WINDOW_MUT_NO_DEACT_INVAL) $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL) $(TEST_WINDOW_MUT_SHADOW_CLIPPED) $(TEST_WINDOW_MUT_CONTENT_TOP_STALE) $(TEST_WINDOW_MUT_CONTENT_OVER_SCROLL) $(TEST_WINDOW_MUT_ZONE_OFF) $(TEST_WINDOW_MUT_ZOOM_NO_RESTORE) $(TEST_WINDOW_MUT_COLLAPSE_LEAK) $(TEST_WINDOW_MUT_GROW_NO_MIN)
+	@printf ">>> test-window-mutant: confirming all eleven mutants go RED (Rule 6)\n"
 	@if $(TEST_WINDOW_MUT_ZORDER) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZORDER PASSED -- the visible-region oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZORDER correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_OVERPAINT) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: OVERPAINT PASSED -- the no-over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (OVERPAINT correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_NO_DEACT_INVAL) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: NO_DEACT_INVAL PASSED -- the deactivation-repaint oracle (initech-v6t2) is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (NO_DEACT_INVAL correctly RED)\n'; fi
@@ -10521,6 +10560,10 @@ test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TES
 	@if $(TEST_WINDOW_MUT_SHADOW_CLIPPED) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: CHROME_FID_MUT_SHADOW_CLIPPED PASSED -- the live shadow-region oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (CHROME_FID_MUT_SHADOW_CLIPPED correctly RED -- frame-only strucRgn loses old-shadow damage)\n'; fi
 	@if $(TEST_WINDOW_MUT_CONTENT_TOP_STALE) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: CHROME_FID_MUT_CONTENT_TOP_STALE PASSED -- the CalcDoc top oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (CHROME_FID_MUT_CONTENT_TOP_STALE correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_CONTENT_OVER_SCROLL) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: CHROME_FID_MUT_CONTENT_OVER_SCROLL PASSED -- the CalcDoc scrollbar exclusion oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (CHROME_FID_MUT_CONTENT_OVER_SCROLL correctly RED)\n'; fi
+	@if $(TEST_WINDOW_MUT_ZONE_OFF) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZONE_OFF PASSED -- the full title-band hit-zone oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZONE_OFF correctly RED)\n'; fi
+	@if $(TEST_WINDOW_MUT_ZOOM_NO_RESTORE) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZOOM_NO_RESTORE PASSED -- the userState toggle oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZOOM_NO_RESTORE correctly RED)\n'; fi
+	@if $(TEST_WINDOW_MUT_COLLAPSE_LEAK) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: COLLAPSE_LEAK PASSED -- the empty collapsed contRgn oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (COLLAPSE_LEAK correctly RED)\n'; fi
+	@if $(TEST_WINDOW_MUT_GROW_NO_MIN) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: GROW_NO_MIN PASSED -- the 96x64 minimum-size oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (GROW_NO_MIN correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -16018,6 +16061,55 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	@printf '======================================================================\n'
 
 # ===========================================================================
+# PREPARED R1.2 emulator gates (bead initech-tdnl.2). The code lane parses and
+# builds these but deliberately does not run emulator legs; the orchestrator
+# executes them and records/re-keys evidence. Each dump is serial-marker-gated
+# and graded against tools/ppm_flair_window_ops_check.c.
+# ===========================================================================
+FLAIR_ZOOM_TOGGLE_NAME := flair_zoom_toggle
+FLAIR_GROW_NAME        := flair_grow
+FLAIR_COLLAPSE_NAME    := flair_collapse
+
+.PHONY: test-flair-zoom-toggle test-flair-grow test-flair-collapse test-flair-window-ops
+test-flair-zoom-toggle: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_WINDOW_OPS_CHECK_BIN)
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_ZOOM_TOGGLE_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_ZOOM_TOGGLE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-ZOOM win 0 out" --timeout-ms 20000 \
+		2> "$(BUILD)/$(FLAIR_ZOOM_TOGGLE_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_ZOOM_TOGGLE_NAME).report"; then printf '!!! test-flair-zoom-toggle FAIL: TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-ZOOM win 0 in$$' "$(BUILD)/$(FLAIR_ZOOM_TOGGLE_NAME).serial" \
+		|| { printf '!!! test-flair-zoom-toggle FAIL: zoom-in marker missing\n'; exit 1; }
+	@grep -q '^FLAIR-ZOOM win 0 out$$' "$(BUILD)/$(FLAIR_ZOOM_TOGGLE_NAME).serial" \
+		|| { printf '!!! test-flair-zoom-toggle FAIL: zoom-out marker missing\n'; exit 1; }
+	@$(PPM_FLAIR_WINDOW_OPS_CHECK_BIN) zoom_toggle "$(BUILD)/$(FLAIR_ZOOM_TOGGLE_NAME).ppm"
+	@printf '>>> test-flair-zoom-toggle: green -- in/out markers + restored user frame\n'
+
+test-flair-grow: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_WINDOW_OPS_CHECK_BIN)
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_GROW_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_GROW_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-GROW win 0" --timeout-ms 20000 \
+		2> "$(BUILD)/$(FLAIR_GROW_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_GROW_NAME).report"; then printf '!!! test-flair-grow FAIL: TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-GROW win 0 (300,200)->(96,64)$$' "$(BUILD)/$(FLAIR_GROW_NAME).serial" \
+		|| { printf '!!! test-flair-grow FAIL: exact grow marker missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_GROW_NAME).serial" || true; exit 1; }
+	@$(PPM_FLAIR_WINDOW_OPS_CHECK_BIN) grow "$(BUILD)/$(FLAIR_GROW_NAME).ppm"
+	@printf '>>> test-flair-grow: green -- outline release committed 96x64\n'
+
+test-flair-collapse: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_WINDOW_OPS_CHECK_BIN)
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_COLLAPSE_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_COLLAPSE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-COLLAPSE win 0 1" --timeout-ms 15000 \
+		2> "$(BUILD)/$(FLAIR_COLLAPSE_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_COLLAPSE_NAME).report"; then printf '!!! test-flair-collapse FAIL: TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-COLLAPSE win 0 1$$' "$(BUILD)/$(FLAIR_COLLAPSE_NAME).serial" \
+		|| { printf '!!! test-flair-collapse FAIL: collapse marker missing\n'; exit 1; }
+	@$(PPM_FLAIR_WINDOW_OPS_CHECK_BIN) collapse "$(BUILD)/$(FLAIR_COLLAPSE_NAME).ppm"
+	@printf '>>> test-flair-collapse: green -- title-band-only endpoint\n'
+
+test-flair-window-ops: test-flair-zoom-toggle test-flair-grow test-flair-collapse
+	@printf '>>> test-flair-window-ops: all three R1.2 emulator legs green\n'
+
+# ===========================================================================
 # record-flair (beads initech-l9cd): deterministic GUI-interaction VIDEO
 # capture. Replays a LOCKED input trace (Rule 8/11 -- the SAME specs the emu
 # gates use) against $(FLAIRTENANTS_IMG) in record mode (one PPM frame per
@@ -16049,7 +16141,15 @@ RECORD_SPEC_solid_menucancel = $(FLAIR_SOLID_MENUCANCEL_SPEC)
 # HELLO content -> NOTES title -> desktop corner; the clip shows the arrow
 # tracking with save-under-clean erase (no trail) across every surface class.
 RECORD_SPEC_cursor_cross = m-100:-100,m-60:-40,m100:50,m100:50,m60:-30,m100:100,m50:100,m70:40
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross
+RECORD_SPEC_zoom_toggle = $(FLAIR_ZOOM_TOGGLE_SPEC)
+RECORD_SPEC_grow        = $(FLAIR_GROW_SPEC)
+RECORD_SPEC_collapse    = $(FLAIR_COLLAPSE_SPEC)
+RECORD_SPEC_drag_outline = $(FLAIR_DRAG_OUTLINE_SPEC)
+RECORD_MARKER_zoom_toggle = FLAIR-ZOOM win 0 out
+RECORD_MARKER_grow        = FLAIR-GROW win 0 (300,200)->(96,64)
+RECORD_MARKER_collapse    = FLAIR-COLLAPSE win 0 1
+RECORD_MARKER_drag_outline = FLAIR-DRAG win 0 (260,120)->(200,180)
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -16072,6 +16172,10 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG)
 		--record --timeout-ms 45000 \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
 	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
+	@if [ -n "$(RECORD_MARKER_$(SCRIPT))" ]; then \
+		grep -Fqx '$(RECORD_MARKER_$(SCRIPT))' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).serial" \
+		|| { printf '!!! record-flair [%s]: required interaction marker missing: %s\n' "$(SCRIPT)" '$(RECORD_MARKER_$(SCRIPT))'; exit 1; }; \
+	fi
 	@n=$$(ls "$(RECORD_CLIPS_DIR)"/rec_$(SCRIPT)_frame_*.ppm 2>/dev/null | wc -l); \
 		if [ "$$n" -lt 3 ]; then printf '!!! record-flair: only %s frames captured (expected >= initial+events+final)\n' "$$n"; exit 1; fi; \
 		printf '>>> record-flair [%s]: %s frames captured\n' "$(SCRIPT)" "$$n"
@@ -21529,6 +21633,7 @@ TEST_EMU_GATES := \
 	test-flair-menu-crossdrag test-flair-menu-crossdrag-mutant \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
 	test-flair-solid test-flair-solid-mutant \
+	test-flair-zoom-toggle test-flair-grow test-flair-collapse \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant
 
 test-unit:
