@@ -54,6 +54,7 @@
  * cooperative WaitNextEvent time base (FO-4). */
 #include "heap.h"            /* flair_heap_t, flair_alloc (-Ios/flair)        */
 #include "surface.h"         /* bitmap_t, surface_put_pixel (-Ios/flair)      */
+#include "cursor.h"          /* final-LFB CursorMgr + ShieldCursor (R0.1)      */
 #include "region_algebra.h"  /* region_t, RGN_ROWS_CAP/RGN_X_POOL_CAP (-Ispec)*/
 #include "region.h"          /* rgn_ws_slot_t + region_engine_bind_ws (bead
                               * initech-44ab round 3; -Ios/flair/atkinson)    */
@@ -770,6 +771,16 @@ static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
     uint32_t W = off->width;
     uint32_t H = off->height;
 
+    /* R0.1 CursorMgr (initech-tdnl.1): this is the ONE final-surface seam.
+     * CursorMgr is bound to the LFB, while every painter above writes the
+     * cursor-free indexed offscreen. Shield BEFORE this present reads source
+     * pixels or writes the bound surface, then redraw after the last write.
+     * Nestability makes every boot/drag/menu/switch/restore present safe without
+     * duplicating a fragile hide/show protocol at each caller.
+     * Ref: this function's callers at the boot paint and live pump composite
+     * sites; Inside Macintosh Imaging With QuickDraw, ShieldCursor semantics. */
+    flair_cursor_shield();
+
     if (bi->lfb_bpp == 8u) {
         /* Indexed-8 LFB present (the period-authentic SVGA depth, ADR-0004
          * OD-2/AM-7: VBE 0x101 on a Cirrus/ET4000-class card). The LFB stores
@@ -801,6 +812,7 @@ static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
                 drow[x] = srow[x];
             }
         }
+        flair_cursor_unshield();
         return;
     }
 
@@ -823,6 +835,7 @@ static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
             surface_put_pixel(&lbm, boff, rgb);
         }
     }
+    flair_cursor_unshield();
 }
 
 /* FO-7 (beads initech-5l5z; ADR-0006 E-D4): the live-loop context the FLAIR
@@ -1033,6 +1046,14 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
                       1 /* show_modal -- the canon Office Space frame */);
 #endif
 
+    /* R0.1 final-surface bind. This precedes the first paint/present so the
+     * centralized flair_desktop_present ShieldCursor bracket is armed at every
+     * compositor site. CursorMgr remains logically hidden: DEC in cursor.h says
+     * the first draw waits for a real mouse packet, preserving boot-still dumps.
+     * Ref: kmain.c flair_desktop_present above (the final composited-pixel seam). */
+    flair_cursor_init((void *)(uintptr_t)bi->lfb_addr, bi->lfb_pitch,
+                      bi->lfb_width, bi->lfb_height, bi->lfb_bpp);
+
     /* --- Render the desktop in INDICES into the 8bpp offscreen (EXACTLY as the
      * host oracle does) --- */
     shell_render(scene, &off);
@@ -1086,6 +1107,15 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
  * Additive (ADR-0006 E-D3 / BC-2): the DOS g_kbd ASCII ring in kbd.c is
  * kept 100% intact; COMMAND.COM / test-shell / test-samir-boot are GREEN. */
 static flair_raw_ring_t g_flair_kbd_ring;
+
+/* R0.1 first-activity latch. kstart does not promise zeroed BSS, so the live
+ * arm explicitly resets this before installing the IRQ12 hook. The ISR only
+ * increments after a packet is accepted by the SPSC ring; CursorMgr work stays
+ * in task context (ADR-0004 D-4). */
+static volatile uint32_t g_flair_mouse_activity;
+static int g_flair_cursor_visible;
+static int g_flair_cursor_x;
+static int g_flair_cursor_y;
 
 /* flair_live_kbd_post -- kbd scancode hook installed by BOOT_FLAIR_LIVE.
  * Called from IRQ1 context (kbd_irq_handler, AFTER the DOS g_kbd ring post
@@ -1146,7 +1176,9 @@ static void flair_live_mouse_post(int dx, int dy, uint8_t buttons)
     raw.kind    = (uint32_t)FLAIR_RAW_MOUSE;     /* FLAIR_RAW_MOUSE=1 */
     raw.tick    = flair_tick_count();            /* PIT tick count at IRQ time */
     raw.payload = mouse_pack_raw_payload(dx, dy, buttons);  /* mouse_pack.h */
-    (void)flair_raw_post(&g_flair_kbd_ring, &raw);
+    if (flair_raw_post(&g_flair_kbd_ring, &raw)) {
+        g_flair_mouse_activity++;
+    }
 }
 
 /* ===========================================================================
@@ -1182,6 +1214,40 @@ static void flair_live_emit_evt(const EventRecord *ev)
     serial_puti((int32_t)ev->where.v);
     serial_puts(" msg=");
     serial_puthex32(ev->message & 0xFFFFu);   /* key: (vkey<<8)|ascii; mouse: 0 */
+    serial_putc('\n');
+}
+
+/* R0.1 task-context cursor tracking. EventRecord.where is the existing source
+ * of truth used by FindWindow; WaitNextEvent stamps it on delivered events AND
+ * nullEvent timeouts after cooking pure-motion packets (event.c). The IRQ latch
+ * gates the first show on real mouse activity, keeping no-input boot goldens
+ * byte-identical (DEC in cursor.h). Subsequent markers are emitted only when the
+ * cooked coordinate actually changes; button-only packets do not spam traces.
+ *
+ * Ref: os/flair/event.c cook_raw/WaitNextEvent where stamping; kmain.c
+ * FLAIR-LIVE-READY pumps below; Inside Macintosh Imaging With QuickDraw CURS
+ * hotspot semantics. Marker is emitted AFTER the final-LFB draw completes. */
+static void flair_live_cursor_track(const EventRecord *ev)
+{
+    int x;
+    int y;
+
+    if (g_flair_mouse_activity == 0u) return;
+    x = (int)ev->where.h;
+    y = (int)ev->where.v;
+    if (!g_flair_cursor_visible) {
+        flair_cursor_show(x, y);
+        g_flair_cursor_visible = 1;
+    } else {
+        if (x == g_flair_cursor_x && y == g_flair_cursor_y) return;
+        flair_cursor_move(x, y);
+    }
+    g_flair_cursor_x = x;
+    g_flair_cursor_y = y;
+    serial_puts("FLAIR-CURSOR x=");
+    serial_puti((int32_t)x);
+    serial_puts(" y=");
+    serial_puti((int32_t)y);
     serial_putc('\n');
 }
 
@@ -1361,6 +1427,7 @@ static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
 
     for (;;) {
         int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &up, 3u);
+        flair_live_cursor_track(&up);
         if (g) {
             flair_live_emit_evt(&up);
             if (up.what == (uint16_t)mouseUp) { where1 = up.where; break; }
@@ -1634,6 +1701,7 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
     for (;;) {
         EventRecord mev;
         int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &mev, 3u);
+        flair_live_cursor_track(&mev);
         if (got) {
             flair_live_emit_evt(&mev);
         }
@@ -1735,171 +1803,6 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
 {
     flair_live_do_menu_at(ctx, bi, bar, where0, 0u);
 }
-
-/* ===========================================================================
- * VISIBLE SOFTWARE MOUSE CURSOR -- a SAVE-UNDER, DIRTY-RECT arrow overlay on the
- * indexed-8 offscreen (beads initech-5l5z usability follow-on).
- *
- * Guarded behind -DFLAIR_LIVE_INTERACTIVE so the DEFAULT build/flair_live.img
- * (the gate image: test-flair-live/key/mouse/drag/menu + their mutants) is
- * BYTE-FOR-BEHAVIOR unchanged -- still bounded (250-tick FLAIR-LIVE-OK), still
- * NO cursor. The cursor + the unbounded pump exist ONLY in the interactive image.
- *
- * THE ARROW IS THE LOCKED FLAIR_CURSOR_ARROW (spec/assets/cursors.h), used
- * VERBATIM (NOT re-authored -- Law 1/Law 4; the hourglass is canon, the arrow is
- * the period-standard companion, ADR-0004 AM-4 / ADR-0006 BC-8). CURS format:
- * data[r]/mask[r] are uint16_t per row, MSB = col 0, 1 = ink; hotspot = tip =
- * (hot_row,hot_col) = (0,0). NOTE: the locked arrow has mask == data (a solid
- * silhouette, NO white dilation), so it composites as pure INK = CIDX_BLACK; the
- * (mask set & data clear) -> CIDX_WHITE branch is kept for generality but never
- * fires for this asset.
- *
- * The composite writes palette INDICES only (ADR-0004 OD-2): no raw LFB color
- * literals -- cursor_present_rect does the 8bpp index-copy / 24-32bpp direct-color
- * conversion (flair_palette_rgb + surface_put_pixel), exactly as the full
- * flair_desktop_present does, but bounded to the ~16x16 dirty rect (smooth blit).
- *
- * Ref: spec/assets/cursors.h (FLAIR_CURSOR_ARROW -- data/mask/hotspot);
- *      spec/assets/color_canon.h (CIDX_BLACK=0 / CIDX_WHITE=1); ADR-0004 OD-2
- *      (indexed-8 seam) / D-2 (the one surface module); ADR-0006. CLAUDE.md
- *      Law 1/2/3/4, Rule 2 (clip/fail-safe) / Rule 11 / Rule 12 (ASCII-clean).
- * ===========================================================================*/
-#ifdef FLAIR_LIVE_INTERACTIVE
-#include "cursors.h"   /* spec/assets/cursors.h (LOCKED arrow; -Ispec/assets)   */
-
-enum { CURSOR_DIM = 16 };               /* the CURS sprite is 16x16             */
-#define CURSOR_CIDX_INK    0u           /* CIDX_BLACK  (color_canon.h idx0)     */
-#define CURSOR_CIDX_PAPER  1u           /* CIDX_WHITE  (color_canon.h idx1)     */
-
-/* The save-under: the offscreen indices the sprite overwrote, restored on hide.
- * Keyed by the FULL 16x16 sprite grid (local row*DIM+col); only in-bounds cells
- * are touched on BOTH save and restore (recomputed identically from g_cur_ox/oy),
- * so the two stay symmetric even when the sprite is partly off-screen. */
-static uint8_t g_cur_save[CURSOR_DIM * CURSOR_DIM];
-static int     g_cur_shown = 0;    /* is the sprite currently composited?       */
-static int     g_cur_ox    = 0;    /* composite top-left x of the shown sprite  */
-static int     g_cur_oy    = 0;    /* composite top-left y of the shown sprite  */
-
-/* cursor_present_rect -- blit ONLY [rx,rx+rw) x [ry,ry+rh) of the indexed-8
- * offscreen to the live LFB, honoring lfb_bpp + lfb_pitch. Models
- * flair_desktop_present's two inner loops (8bpp index-copy; 24/32bpp
- * flair_palette_rgb -> surface_put_pixel) but bounded to the dirty rect. The DAC
- * is already programmed by the initial full present, and the cursor uses idx0/1
- * which are in the palette, so no DAC reprogram is needed here. */
-static void cursor_present_rect(const boot_info_t *bi, const bitmap_t *off,
-                                int rx, int ry, int rw, int rh)
-{
-    int x, y;
-    /* Clip the rect to the offscreen bounds (Rule 2; callers pass the sprite
-     * rect, which may straddle an edge). */
-    if (rx < 0) { rw += rx; rx = 0; }
-    if (ry < 0) { rh += ry; ry = 0; }
-    if (rx + rw > (int)off->width)  { rw = (int)off->width  - rx; }
-    if (ry + rh > (int)off->height) { rh = (int)off->height - ry; }
-    if (rw <= 0 || rh <= 0) { return; }
-
-    if (bi->lfb_bpp == 8u) {
-        volatile uint8_t *lfb = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
-        for (y = 0; y < rh; y++) {
-            const uint8_t *srow = (const uint8_t *)off->base
-                                + (uint32_t)(ry + y) * off->pitch;
-            volatile uint8_t *drow = lfb + (uint32_t)(ry + y) * bi->lfb_pitch;
-            for (x = 0; x < rw; x++) {
-                drow[rx + x] = srow[rx + x];
-            }
-        }
-        return;
-    }
-
-    bitmap_t lbm;
-    lbm.base            = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
-    lbm.pitch           = bi->lfb_pitch;
-    lbm.bpp             = bi->lfb_bpp;
-    lbm.bytes_per_pixel = bi->lfb_bpp / 8u;
-    lbm.width           = bi->lfb_width;
-    lbm.height          = bi->lfb_height;
-    for (y = 0; y < rh; y++) {
-        const uint8_t *srow = (const uint8_t *)off->base
-                            + (uint32_t)(ry + y) * off->pitch;
-        for (x = 0; x < rw; x++) {
-            uint32_t rgb  = flair_palette_rgb(srow[rx + x]) & 0x00FFFFFFu;
-            uint32_t boff = (uint32_t)(ry + y) * lbm.pitch
-                          + (uint32_t)(rx + x) * lbm.bytes_per_pixel;
-            surface_put_pixel(&lbm, boff, rgb);
-        }
-    }
-}
-
-/* cursor_show -- save the offscreen indices under the 16x16 arrow at hotspot
- * (cx,cy), composite the LOCKED FLAIR_CURSOR_ARROW as indices, then present just
- * that rect. No-op if already shown (the move protocol always hides first). */
-static void cursor_show(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                        int cx, int cy)
-{
-    const FLAIRCursor *cur = &FLAIR_CURSOR_ARROW;
-    bitmap_t *off  = &ctx->off;
-    int       W    = (int)off->width;
-    int       H    = (int)off->height;
-    uint8_t  *base = (uint8_t *)off->base;     /* explicit cast drops volatile  */
-    uint32_t  pitch = off->pitch;
-    int       ox   = cx - (int)cur->hot_col;   /* tip hotspot (0,0) -> ox = cx  */
-    int       oy   = cy - (int)cur->hot_row;
-    int       r, c;
-
-    if (g_cur_shown) { return; }
-
-    for (r = 0; r < CURSOR_DIM; r++) {
-        int      py   = oy + r;
-        uint16_t drow = cur->data[r];
-        uint16_t mrow = cur->mask[r];
-        for (c = 0; c < CURSOR_DIM; c++) {
-            int      px = ox + c;
-            uint16_t bit;
-            uint8_t *p;
-            if (px < 0 || px >= W || py < 0 || py >= H) { continue; }
-            p = base + (uint32_t)py * pitch + (uint32_t)px;
-            g_cur_save[r * CURSOR_DIM + c] = *p;          /* save under          */
-            bit = (uint16_t)(0x8000u >> c);               /* MSB = col 0         */
-            if (mrow & bit) {                             /* opaque sprite pixel */
-                *p = (uint8_t)((drow & bit) ? CURSOR_CIDX_INK
-                                            : CURSOR_CIDX_PAPER);
-            }
-        }
-    }
-    g_cur_ox = ox; g_cur_oy = oy; g_cur_shown = 1;
-    cursor_present_rect(bi, off, ox, oy, CURSOR_DIM, CURSOR_DIM);
-}
-
-/* cursor_hide -- restore the saved indices at the LAST shown position (g_cur_ox/
- * oy) + present that rect, erasing the sprite (revealing the desktop). No-op if
- * not shown. Uses the stored origin so hide is exact regardless of where the
- * tracked cursor has since advanced (movement = hide() then show(new)). */
-static void cursor_hide(flair_live_ctx_t *ctx, const boot_info_t *bi)
-{
-    bitmap_t *off   = &ctx->off;
-    int       W     = (int)off->width;
-    int       H     = (int)off->height;
-    uint8_t  *base  = (uint8_t *)off->base;
-    uint32_t  pitch = off->pitch;
-    int       ox    = g_cur_ox;
-    int       oy    = g_cur_oy;
-    int       r, c;
-
-    if (!g_cur_shown) { return; }
-
-    for (r = 0; r < CURSOR_DIM; r++) {
-        int py = oy + r;
-        for (c = 0; c < CURSOR_DIM; c++) {
-            int px = ox + c;
-            if (px < 0 || px >= W || py < 0 || py >= H) { continue; }
-            base[(uint32_t)py * pitch + (uint32_t)px] =
-                g_cur_save[r * CURSOR_DIM + c];           /* restore under       */
-        }
-    }
-    g_cur_shown = 0;
-    cursor_present_rect(bi, off, ox, oy, CURSOR_DIM, CURSOR_DIM);
-}
-#endif /* FLAIR_LIVE_INTERACTIVE */
 
 #ifdef FLAIR_LIVE_TENANTS
 /* ===========================================================================
@@ -2468,6 +2371,16 @@ void kernel_main(void)
      * producer can be running yet. Ref: event.h flair_event_init contract. */
     flair_event_init(&g_flair_kbd_ring);
 
+    /* R0.1 boot-still policy: arm tracking but do not show. Explicit stores are
+     * required because the flat-kernel entry does not promise zeroed BSS. The
+     * IRQ hook below flips g_flair_mouse_activity only for a real queued packet;
+     * flair_live_cursor_track then uses EventRecord.where, the FindWindow source
+     * of truth, for the first draw and every actual coordinate change. */
+    g_flair_mouse_activity = 0u;
+    g_flair_cursor_visible = 0;
+    g_flair_cursor_x = (int)(FLAIR_SCREEN_W / 2);
+    g_flair_cursor_y = (int)(FLAIR_SCREEN_H / 2);
+
     /* --- FO-4: install the PIT tick hook BEFORE sti (ADR-0006 E-D3a) --------- *
      * pit_set_tick_hook defaults NULL; only THIS kernel installs it, so every
      * other pit.o-linking kernel is byte-identical (Rule 11). The hook is
@@ -2626,9 +2539,6 @@ void kernel_main(void)
         }
 
 #ifdef FLAIR_LIVE_INTERACTIVE
-        int cur_show_h = (int)(FLAIR_SCREEN_W / 2);
-        int cur_show_v = (int)(FLAIR_SCREEN_H / 2);
-        cursor_show(&ctx, &b, cur_show_h, cur_show_v);
         for (;;) {
 #else
         while ((flair_tick_count() - start) < (uint32_t)FLAIR_TEN_TICK_BUDGET) {
@@ -2636,6 +2546,7 @@ void kernel_main(void)
             EventRecord ev;
             int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev,
                                     (uint32_t)FLAIR_TEN_WNE_SLICE);
+            flair_live_cursor_track(&ev);
 
             uint32_t now = flair_tick_count();
             if (now != last) {
@@ -2648,28 +2559,9 @@ void kernel_main(void)
                 }
             }
 
-#ifdef FLAIR_LIVE_INTERACTIVE
-            {
-                int cur_moved   = ((int)ev.where.h != cur_show_h ||
-                                   (int)ev.where.v != cur_show_v);
-                int do_dispatch = (got && ev.what == (uint16_t)mouseDown);
-                if (cur_moved || do_dispatch) {
-                    cursor_hide(&ctx, &b);
-                }
-                if (!got) {
-                    if (cur_moved) {
-                        cur_show_h = (int)ev.where.h;
-                        cur_show_v = (int)ev.where.v;
-                        cursor_show(&ctx, &b, cur_show_h, cur_show_v);
-                    }
-                    continue;   /* nullEvent: track the cursor, keep pumping */
-                }
-            }
-#else
             if (!got) {
                 continue;   /* timeout / nullEvent: keep ticking to the budget */
             }
-#endif
 
             /* Cooked-event marker (FO-5/6 reconciliation). */
             flair_live_emit_evt(&ev);
@@ -2761,12 +2653,6 @@ void kernel_main(void)
                 }
             }
 
-#ifdef FLAIR_LIVE_INTERACTIVE
-            /* Re-show the cursor on the freshly repainted desktop, on top. */
-            cur_show_h = (int)ev.where.h;
-            cur_show_v = (int)ev.where.v;
-            cursor_show(&ctx, &b, cur_show_h, cur_show_v);
-#endif
         }
     }
 #else
@@ -2782,19 +2668,6 @@ void kernel_main(void)
         uint32_t start = flair_tick_count();
         uint32_t last  = start;
         uint32_t seen  = 0u;
-#ifdef FLAIR_LIVE_INTERACTIVE
-        /* The currently-shown cursor hotspot. event.c inits the tracked cursor to
-         * the screen centre (FLAIR_SCREEN_W/2, FLAIR_SCREEN_H/2), so SHOW the arrow
-         * there once before the loop -- the cursor is visible before the first
-         * move. Reading the constants (not the ring) is deterministic and consumes
-         * no events. The pump reads the LIVE position each iteration from ev.where,
-         * which WaitNextEvent stamps from g_cursor on EVERY return (event.c: the
-         * nullEvent timeout path and cook_raw both stamp where), so no event.c
-         * accessor is needed. */
-        int cur_show_h = (int)(FLAIR_SCREEN_W / 2);
-        int cur_show_v = (int)(FLAIR_SCREEN_H / 2);
-        cursor_show(&ctx, &b, cur_show_h, cur_show_v);
-#endif
 
         /* INTERACTIVE: run until power-off (the operator drags windows + uses menus
          * with a visible cursor). DEFAULT (gate): bounded by FLAIR_LIVE_TICK_BUDGET
@@ -2807,6 +2680,7 @@ void kernel_main(void)
             EventRecord ev;
             int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev,
                                     (uint32_t)FLAIR_LIVE_WNE_SLICE);
+            flair_live_cursor_track(&ev);
 
             /* FO-4 tick announce (still the cooperative time base under the pump). */
             uint32_t now = flair_tick_count();
@@ -2820,49 +2694,6 @@ void kernel_main(void)
                 }
             }
 
-#ifdef FLAIR_LIVE_INTERACTIVE
-            /* SOFTWARE CURSOR (interactive build only). The LIVE cursor is ev.where
-             * (WaitNextEvent stamps it from g_cursor on every return). HIDE the
-             * sprite at the TOP of any reposition or dispatch so the save-under
-             * holds the REAL desktop before a handler repaints + presents, then
-             * SHOW it again at the bottom so it floats on top (the robust rule). A
-             * drag advances the cursor past ev.where; the next iteration's
-             * moved-test repositions it within one WNE slice. */
-            {
-                int cur_moved   = ((int)ev.where.h != cur_show_h ||
-                                   (int)ev.where.v != cur_show_v);
-                int do_dispatch = (got && ev.what == (uint16_t)mouseDown);
-                if (cur_moved || do_dispatch) {
-                    cursor_hide(&ctx, &b);
-                }
-                if (!got) {
-                    if (cur_moved) {
-                        cur_show_h = (int)ev.where.h;
-                        cur_show_v = (int)ev.where.v;
-                        cursor_show(&ctx, &b, cur_show_h, cur_show_v);
-                    }
-                    continue;   /* nullEvent: track the cursor, keep pumping */
-                }
-                flair_live_emit_evt(&ev);
-                if (ev.what == (uint16_t)mouseDown) {
-                    WindowPtr w = (WindowPtr)0;
-                    flair_part_code_t pc = FindWindow(ctx.wm, ev.where, &w);
-                    if (pc == inDrag && w != (WindowPtr)0) {
-                        flair_live_raise_drag_target(&ctx, w);
-                        flair_live_do_drag(&ctx, &b, w, ev.where);
-                    } else if (pc == inGoAway && w != (WindowPtr)0) {
-                        flair_live_do_close(&ctx, &b, w);
-                    } else if (ev.where.v >= 0 &&
-                               ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
-                        flair_live_do_menu(&ctx, &b, &ctx.scene->bar_sys, ev.where);
-                    }
-                }
-                /* Re-show on the freshly repainted desktop, on top. */
-                cur_show_h = (int)ev.where.h;
-                cur_show_v = (int)ev.where.v;
-                cursor_show(&ctx, &b, cur_show_h, cur_show_v);
-            }
-#else
             if (!got) {
                 continue;   /* timeout / nullEvent: keep ticking to the budget */
             }
@@ -2889,10 +2720,18 @@ void kernel_main(void)
                     flair_live_do_menu(&ctx, &b, &ctx.scene->bar_sys, ev.where);
                 }
             }
-#endif
         }
     }
 #endif /* FLAIR_LIVE_TENANTS (the App Contract pump) vs the FO-7/8 chrome pump */
+#ifndef FLAIR_LIVE_INTERACTIVE
+    /* The bounded image halts into a stable oracle frame. Remove the transient
+     * pointer before FLAIR-LIVE-OK so existing after-budget whole-frame restore
+     * gates (notably solidity leg D PRE==POST) remain byte-identical. Interactive
+     * images never reach this terminal path and keep the pointer visible.
+     * This complements cursor.h's first-activity DEC: no-input boot stills and
+     * terminal restore stills stay cursor-free; activity-marker dumps see it. */
+    flair_cursor_hide();
+#endif
     serial_puts("FLAIR-LIVE-OK\n");
     for (;;) {
         __asm__ __volatile__("cli; hlt");

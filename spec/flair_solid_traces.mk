@@ -78,4 +78,13 @@ FLAIR_SOLID_CLAMP_SPEC := m100:60,m40:0,l1,l0,m-10:-100,m0:-70,l1,m-100:-100,m-1
 # (260-60,120+60)=(200,180), in front and active. Grader leg H independently
 # locks the new geometry, active full-width title, and NOTES-over-HELLO overlap
 # result (bead initech-haaq; DQ5).
-FLAIR_SOLID_RAISE_SPEC := m100:-100,m30:-10,l1,m-60:60,l0
+# 2026-08-23 (beads initech-tdnl.1, R0.1 CursorMgr; DELIBERATE Rule-8 trace
+# edit): terminal PARK appended -- the pointer now EXISTS and the old trace
+# released at (390,190), inside the very title band the grader stripes-probes
+# (7/12 stripe rows read the arrow's white outline). Park to the desktop
+# bottom-right corner (620,460), outside every leg-H probe rect (NOTES
+# post-drag struct 200,180..500,400; title band; overlap). The leg's
+# assertions are unchanged -- strictly neutral. PARK CONVENTION: every locked
+# trace whose grader samples pixels must end with the pointer parked outside
+# all probe rects.
+FLAIR_SOLID_RAISE_SPEC := m100:-100,m30:-10,l1,m-60:60,l0,m100:100,m100:100,m30:70

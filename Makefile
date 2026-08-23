@@ -315,6 +315,11 @@ include spec/flair_appswitch_trace.mk
 PPM_FLAIR_SOLID_CHECK_SRC := tools/ppm_flair_solid_check.c
 PPM_FLAIR_SOLID_CHECK_BIN := $(BUILD)/ppm_flair_solid_check
 
+# R0.1 cursor screendump grader. Independent hard-coded CURS tip/outline probes;
+# deliberately does not include the artifact cursor tables (Law 2).
+PPM_FLAIR_CURSOR_CHECK_SRC := tools/ppm_flair_cursor_check.c
+PPM_FLAIR_CURSOR_CHECK_BIN := $(BUILD)/ppm_flair_cursor_check
+
 # The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
 # (leg B: O-5 activate NOTES then title-drag it (-60,+60)), FLAIR_SOLID_SWITCH_
@@ -485,6 +490,7 @@ KERNEL_SURFACE_OBJ := $(BUILD)/surface.o
 KERNEL_REGION_OBJ      := $(BUILD)/region.o
 KERNEL_HEAP_OBJ        := $(BUILD)/heap.o
 KERNEL_EVENT_OBJ       := $(BUILD)/event.o
+KERNEL_CURSOR_OBJ      := $(BUILD)/cursor.o
 KERNEL_WINDOW_OBJ      := $(BUILD)/window.o
 KERNEL_BLITTER_OBJ     := $(BUILD)/blitter.o
 KERNEL_CHROME_OBJ      := $(BUILD)/chrome.o
@@ -504,7 +510,7 @@ FLAIRLOOK_H := os/flair/flair_look.h
 # KERNEL_OBJS (demo kernel) + KERNEL_SHELL_OBJS (booting shell kernel) ONLY -- NOT
 # to the 16 diagnostic kernel lists (they get more padding from the KERNEL_SECTORS
 # bump but must not carry FLAIR). surface.o is NOT here (already linked above).
-KERNEL_FLAIR_OBJS := $(KERNEL_REGION_OBJ) $(KERNEL_HEAP_OBJ) $(KERNEL_EVENT_OBJ) \
+KERNEL_FLAIR_OBJS := $(KERNEL_REGION_OBJ) $(KERNEL_HEAP_OBJ) $(KERNEL_EVENT_OBJ) $(KERNEL_CURSOR_OBJ) \
                      $(KERNEL_WINDOW_OBJ) $(KERNEL_BLITTER_OBJ) $(KERNEL_CHROME_OBJ) \
                      $(KERNEL_TEXT_OBJ) $(KERNEL_MENU_OBJ) $(KERNEL_CONTROL_OBJ) \
                      $(KERNEL_DIALOG_OBJ) $(KERNEL_DESKTOP_OBJ) $(KERNEL_FLAIRLOOK_OBJ) $(KERNEL_FLAIR_SHELL_OBJ)
@@ -776,14 +782,10 @@ KERNEL_FLAIRLIVE_MUT_NOREHIT_BIN      := $(BUILD)/kernel_flairlive_mut_norehit.b
 FLAIRLIVE_MUT_NOREHIT_IMG             := $(BUILD)/flair_live_mut_norehit.img
 # INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on):
 # the SAME BOOT_FLAIR_LIVE kmain but compiled ALSO with -DFLAIR_LIVE_INTERACTIVE,
-# which (a) composites the LOCKED FLAIR_CURSOR_ARROW (a save-under, dirty-rect
-# overlay on the indexed-8 offscreen) so the mouse cursor is VISIBLE, and (b)
-# makes the WaitNextEvent pump UNBOUNDED (for(;;), runs until power-off) so the
-# operator can drag windows + use menus with a visible cursor. Its OWN main obj/
-# elf/bin/image so the DEFAULT $(FLAIRLIVE_IMG) (the gate image) is byte-for-
-# behavior unchanged -- the cursor + the unbounded loop are wholly inside
-# #ifdef FLAIR_LIVE_INTERACTIVE. NOT a gate image (cannot be screendumped
-# deterministically -- it never halts); driven by `make run-flair`.
+# which makes the WaitNextEvent pump UNBOUNDED (for(;;), until power-off).
+# R0.1 CursorMgr is now common to bounded and interactive live images and appears
+# only after first mouse activity; this variant differs only in pump lifetime.
+# NOT a gate image (it never halts); driven by `make run-flair`.
 KERNEL_FLAIRLIVE_INT_MAIN_OBJ := $(BUILD)/kmain_flairlive_int.o
 KERNEL_FLAIRLIVE_INT_ELF      := $(BUILD)/kernel_flairlive_int.elf
 KERNEL_FLAIRLIVE_INT_BIN      := $(BUILD)/kernel_flairlive_int.bin
@@ -7121,6 +7123,7 @@ endef
         test-flair-headers test-flair-headers-mutant \
         test-blitter test-blitter-mutant test-text test-text-mutant \
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
+        test-cursor test-cursor-mutant \
         test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -7353,6 +7356,9 @@ $(KERNEL_HEAP_OBJ): os/flair/heap.c os/flair/heap.h | $(BUILD)
 
 $(KERNEL_EVENT_OBJ): os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(EVENT_INC) -c os/flair/event.c -o $@
+
+$(KERNEL_CURSOR_OBJ): os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ispec/assets -c os/flair/cursor.c -o $@
 
 $(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $@
@@ -8757,11 +8763,9 @@ $(FLAIRLIVE_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_NO
 	@printf ">>> flair-live cross-menu no-rehit MUTANT image: %s (flair_live_do_menu freezes mi at the click -- the live drop never follows a cross-menu drag)\n" "$@"
 
 # --- INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on)
-# Same BOOT_FLAIR_LIVE kmain but ALSO -DFLAIR_LIVE_INTERACTIVE: a VISIBLE software
-# mouse cursor (the LOCKED FLAIR_CURSOR_ARROW save-under overlay) + an UNBOUNDED
-# pump (for(;;), runs until power-off). Adds the spec/assets/cursors.h prereq the
-# interactive arm includes. Mirrors the FLAIRLIVE main-obj rule; swaps ONLY the
-# main obj so the shared FLAIR/kernel object set is reused. ----------------------
+# Same BOOT_FLAIR_LIVE kmain but ALSO -DFLAIR_LIVE_INTERACTIVE: an UNBOUNDED
+# pump (for(;;), runs until power-off). R0.1 CursorMgr is shared by every live
+# image; this variant swaps only main to change loop lifetime. -------------------
 $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
@@ -8860,11 +8864,9 @@ $(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_BIN) | $(BUI
 flair-tenants: $(FLAIRTENANTS_IMG)
 
 # INTERACTIVE FLAIRTENANTS kernel/image (for `run-flair-tenants`): the SAME as the
-# bounded image but ALSO -DFLAIR_LIVE_INTERACTIVE -- a VISIBLE arrow cursor + an
-# unbounded pump so the operator can click HELLO's sliver and watch it raise +
-# activate live. Its OWN main obj/image (cursor + unbounded loop wholly inside
-# #ifdef FLAIR_LIVE_INTERACTIVE); not a gate image (never halts -- cannot be
-# screendumped deterministically).
+# bounded image but ALSO -DFLAIR_LIVE_INTERACTIVE for an unbounded pump. R0.1
+# CursorMgr is common to both images and appears after first mouse activity.
+# This is not a gate image (never halts -- cannot be screendumped deterministically).
 KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
 KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
@@ -8872,6 +8874,13 @@ FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
 $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+# R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
+# header as an explicit incremental-build prerequisite without repeating each
+# already-long variant recipe line above (Make merges prerequisite-only rules).
+$(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) \
+$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) \
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/cursor.h
 
 KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ)
 
@@ -9259,6 +9268,42 @@ test-flair-mouse: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
 	@printf 'VERDICT   : PASS -- mouse IRQ12 -> packet -> dual-PIC EOI -> WaitNextEvent cook -> FLAIR-EVT LIVE (FO-6/7)\n'
 	@printf '======================================================================\n'
 
+# --- R0.1 EMU SCAFFOLD: visible final-LFB CursorMgr -----------------------
+# Orchestrator-owned first-person leg. The single relative move takes the Event
+# Manager's (320,240) start to hotspot (400,280). Capture is marker-gated AFTER
+# CursorMgr draws; the independent C grader probes the black tip and white mask.
+FLAIR_CURSOR_NAME   := flair_cursor
+FLAIR_CURSOR_SERIAL := $(BUILD)/$(FLAIR_CURSOR_NAME).serial
+FLAIR_CURSOR_REPORT := $(BUILD)/$(FLAIR_CURSOR_NAME).report
+FLAIR_CURSOR_PPM    := $(BUILD)/$(FLAIR_CURSOR_NAME).ppm
+FLAIR_CURSOR_SPEC   := m80:40
+.PHONY: test-flair-cursor
+test-flair-cursor: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_CURSOR_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-cursor : R0.1 CursorMgr emu scaffold\n'
+	@printf '  Move center (320,240) -> hotspot (400,280); grade black tip + white outline.\n'
+	@printf '  beads initech-tdnl.1; PRD Sec 6.3; Law 2/4, Rules 6/11/12.\n'
+	@printf '======================================================================\n'
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name "$(FLAIR_CURSOR_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_CURSOR_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-CURSOR x=400 y=280" --timeout-ms 15000 \
+		2> "$(FLAIR_CURSOR_REPORT)" || true
+	@cat "$(FLAIR_CURSOR_REPORT)"
+	@if grep -q 'triple_fault=1' "$(FLAIR_CURSOR_REPORT)"; then \
+		printf '!!! test-flair-cursor FAIL: TRIPLE FAULT in CursorMgr boot\n'; exit 1; \
+	fi
+	@grep -q '^FLAIR-LIVE-READY$$' "$(FLAIR_CURSOR_SERIAL)" \
+		|| { printf '!!! test-flair-cursor FAIL: FLAIR-LIVE-READY missing\n'; exit 1; }
+	@grep -q '^FLAIR-CURSOR x=400 y=280$$' "$(FLAIR_CURSOR_SERIAL)" \
+		|| { printf '!!! test-flair-cursor FAIL: expected position marker missing\n'; grep '^FLAIR-CURSOR ' "$(FLAIR_CURSOR_SERIAL)" || true; exit 1; }
+	@if [ ! -s "$(FLAIR_CURSOR_PPM)" ]; then \
+		printf '!!! test-flair-cursor FAIL: marker-gated screendump missing\n'; exit 1; \
+	fi
+	@$(PPM_FLAIR_CURSOR_CHECK_BIN) "$(FLAIR_CURSOR_PPM)" \
+		|| { printf '!!! test-flair-cursor FAIL: arrow tip/outline pixels absent\n'; exit 1; }
+	@printf 'VERDICT   : PASS -- booted CursorMgr tracks the injected mouse position\n'
+	@printf '======================================================================\n'
+
 .PHONY: test-flair-mouse-mutant
 test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_MUT_EOI_IMG)
 	@printf '======================================================================\n'
@@ -9398,6 +9443,9 @@ $(PPM_FLAIR_APPSWITCH_CHECK_BIN): $(PPM_FLAIR_APPSWITCH_CHECK_SRC) spec/flair_te
 
 $(PPM_FLAIR_SOLID_CHECK_BIN): $(PPM_FLAIR_SOLID_CHECK_SRC) spec/flair_tenants_demo.h spec/assets/color_canon.h spec/chrome_metrics.h os/flair/menu.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec -Ispec/assets -Ios/flair -o $@ $<
+
+$(PPM_FLAIR_CURSOR_CHECK_BIN): $(PPM_FLAIR_CURSOR_CHECK_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
 # probes are value-BLIND (a teal->seafoam value perturbation leaves the period-2
@@ -10336,6 +10384,40 @@ test-palette-seafoam: $(TEST_PALETTE_SEAFOAM)
 test-palette-seafoam-mutant: $(TEST_PALETTE_SEAFOAM_MUT)
 	@printf ">>> test-palette-seafoam-mutant: confirming GRAY_DESKTOP mutant goes RED (Rule 6)\n"
 	@if $(TEST_PALETTE_SEAFOAM_MUT) >/dev/null 2>&1; then printf '!!! test-palette-seafoam-mutant FAIL: GRAY_DESKTOP PASSED -- the seafoam oracle is decoration\n'; exit 1; else printf '>>> test-palette-seafoam-mutant: green (GRAY_DESKTOP correctly RED -- the oracle bites)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-cursor (bead initech-tdnl.1; GUI remediation R0.1).
+# Independent CURS golden + deterministic edge/save-under properties.
+# ---------------------------------------------------------------------------
+TEST_CURSOR              := $(BUILD)/test_cursor
+TEST_CURSOR_MUT_NO_ERASE := $(BUILD)/test_cursor_mut_no_erase
+TEST_CURSOR_MUT_HOTSPOT  := $(BUILD)/test_cursor_mut_hotspot
+TEST_CURSOR_SRC          := harness/proptest/test_cursor.c
+TEST_CURSOR_DEPS         := $(TEST_CURSOR_SRC) os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h
+CURSOR_INC               := -Ios/flair -Ispec/assets -Iseed
+CURSOR_LINK              := os/flair/cursor.c
+
+$(TEST_CURSOR): $(TEST_CURSOR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CURSOR_INC) -o $@ $(TEST_CURSOR_SRC) $(CURSOR_LINK)
+
+$(TEST_CURSOR_MUT_NO_ERASE): $(TEST_CURSOR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCURSOR_MUT_NO_ERASE $(CURSOR_INC) -o $@ $(TEST_CURSOR_SRC) $(CURSOR_LINK)
+
+$(TEST_CURSOR_MUT_HOTSPOT): $(TEST_CURSOR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCURSOR_MUT_HOTSPOT $(CURSOR_INC) -o $@ $(TEST_CURSOR_SRC) $(CURSOR_LINK)
+
+.PHONY: test-cursor test-cursor-mutant
+test-cursor: $(TEST_CURSOR)
+	@printf ">>> test-cursor: 500 clipped save-under restores + hotspot/golden + shield nesting + move erase\n"
+	@$(TEST_CURSOR)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(CURSOR_INC) -c os/flair/cursor.c -o $(BUILD)/cursor_freestanding.o \
+		|| { printf '!!! test-cursor FAIL: cursor.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-cursor: green\n"
+
+test-cursor-mutant: $(TEST_CURSOR_MUT_NO_ERASE) $(TEST_CURSOR_MUT_HOTSPOT)
+	@printf ">>> test-cursor-mutant: confirming both CursorMgr mutants go RED (Rule 6)\n"
+	@if $(TEST_CURSOR_MUT_NO_ERASE) >/dev/null 2>&1; then printf '!!! test-cursor-mutant FAIL: CURSOR_MUT_NO_ERASE PASSED -- the trail oracle is decoration\n'; exit 1; else printf '>>> test-cursor-mutant: green (CURSOR_MUT_NO_ERASE correctly RED)\n'; fi
+	@if $(TEST_CURSOR_MUT_HOTSPOT) >/dev/null 2>&1; then printf '!!! test-cursor-mutant FAIL: CURSOR_MUT_HOTSPOT PASSED -- the independent position golden is decoration\n'; exit 1; else printf '>>> test-cursor-mutant: green (CURSOR_MUT_HOTSPOT correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-window (beads initech-9qf) -- FLAIR Window Manager.
@@ -15901,7 +15983,11 @@ RECORD_SPEC_solid_clamp  = $(FLAIR_SOLID_CLAMP_SPEC)
 RECORD_SPEC_solid_raise  = $(FLAIR_SOLID_RAISE_SPEC)
 RECORD_SPEC_solid_menu2  = $(FLAIR_SOLID_MENU2_SPEC)
 RECORD_SPEC_solid_menucancel = $(FLAIR_SOLID_MENUCANCEL_SPEC)
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel
+# cursor_cross (R0.1, beads initech-tdnl.1): the pointer sweeps desktop ->
+# HELLO content -> NOTES title -> desktop corner; the clip shows the arrow
+# tracking with save-under-clean erase (no trail) across every surface class.
+RECORD_SPEC_cursor_cross = m-100:-100,m-60:-40,m100:50,m100:50,m60:-30,m100:100,m50:100,m70:40
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -20285,6 +20371,7 @@ TEST_UNIT_GATES := \
 	test-clut test-clut-mutant \
 	test-blitter test-blitter-mutant test-text test-text-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
+	test-cursor test-cursor-mutant \
 	test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -21342,7 +21429,13 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 # batches; the M7 HOST differential (test-compiler, 17/17) IS in the unit
 # vector. A red gate cannot join the default vector (Law 2) -- both legs
 # REJOIN here the moment the MILTON bug lands. Do NOT delete them.
+# test-flair-cursor (bead initech-tdnl.1) JOINED 2026-08-23: the orchestrator
+# ran the QEMU leg first-person (black tip + white outline at the injected
+# (400,280), marker-gated), eyeballed the dump + the cursor_cross clip
+# (record-flair-repro byte-identical), and confirmed ppm_flair_cursor_check
+# green. Host mutants (NO_ERASE trail / HOTSPOT+3) carry the Rule-6 teeth.
 TEST_EMU_GATES := \
+	test-flair-cursor \
 	test-harness test-tracer-boot test-boot-bochs test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \

@@ -177,77 +177,85 @@ static const FLAIRCursor FLAIR_CURSOR_BUSY = {
  * FLAIR_CURSOR_ARROW -- standard northwest-pointing arrow (period-standard)
  * =========================================================================
  *
- * PROVENANCE: HAND-AUTHORED clean-room. Period-standard Mac System 7 arrow
- * cursor shape; NOT extracted from any ROM or frame. Authored 2026-06-19,
- * beads initech-zaqj.
+ * PROVENANCE: HAND-AUTHORED clean-room. Period-standard Mac arrow cursor
+ * shape; NOT extracted from any ROM or frame.
+ * v1 authored 2026-06-19 (beads initech-zaqj): solid silhouette, mask==data,
+ *    hotspot (0,0).
+ * v2 authored 2026-08-23 (beads initech-tdnl.25, DELIBERATE Rule-8 amendment,
+ *    GUI remediation R0.1): the period Mac arrow composites a 1px WHITE
+ *    OUTLINE around the black body (CURS mask = one-pixel dilation of data;
+ *    Ref: Inside Macintosh, Imaging With QuickDraw, 'CURS' compositing --
+ *    mask&~data pixels paint white). The body sits at +1,+1 so the dilation
+ *    fits the 16x16 grid; hotspot = tip ink pixel = (row 1, col 1). The
+ *    undilated v1 read as a flat silhouette on the desktop (operator
+ *    pixel-perfect ruling 2026-08-23). Supersedes v1 wholesale.
  *
- * Shape (16x16; '#' = ink, '.' = paper):
+ * Shape v2 (16x16; '#' = ink, 'o' = white outline (mask only), '.' = clear):
  *
  *   col:  0123456789012345
- *   row 0: #...............   tip (hotspot)
- *   row 1: ##..............
- *   row 2: ###.............
- *   row 3: ####............
- *   row 4: #####...........
- *   row 5: ######..........
- *   row 6: #######.........
- *   row 7: ########........
- *   row 8: #########.......
- *   row 9: ##########......   widest
- *   row10: ######..........   back-edge diagonal cuts in
- *   row11: ##.###..........
- *   row12: #...###.........
- *   row13: ....###.........   stem only
- *   row14: ....###.........
- *   row15: ................
+ *   row 0: ooo.............
+ *   row 1: o#oo............   tip (hotspot 1,1)
+ *   row 2: o##oo...........
+ *   row 3: o###oo..........
+ *   row 4: o####oo.........
+ *   row 5: o#####oo........
+ *   row 6: o######oo.......
+ *   row 7: o#######oo......
+ *   row 8: o########oo.....
+ *   row 9: o#########o.....   widest
+ *   row10: o#####ooooo.....   back-edge diagonal cuts in
+ *   row11: o##o##o.........
+ *   row12: o#oo##o.........
+ *   row13: oooo##o.........   stem only
+ *   row14: ...o##o.........
+ *   row15: ...oooo.........
  *
- * HotSpot = (0, 0) -- tip of the arrow.
- *
- * NOTE: This is a secondary (non-canon-gated) asset. The hourglass above
- * is the CANON deliverable gated by the canon oracle. The arrow is provided
- * as a period-standard companion cursor and is not separately oracle-gated.
+ * NOTE: This is a secondary (non-canon-gated) asset; the hourglass above is
+ * the CANON deliverable gated by the canon oracle. The arrow's drift tooth
+ * is harness/proptest/test_cursor.c, whose independent hard-coded golden
+ * tables must equal these bytes (a silent edit here goes RED there).
  */
 static const FLAIRCursor FLAIR_CURSOR_ARROW = {
     /* data[16] -- ink */
     {
-        /* row  0 */ 0x8000, /* #............... */
-        /* row  1 */ 0xC000, /* ##.............. */
-        /* row  2 */ 0xE000, /* ###............. */
-        /* row  3 */ 0xF000, /* ####............ */
-        /* row  4 */ 0xF800, /* #####........... */
-        /* row  5 */ 0xFC00, /* ######.......... */
-        /* row  6 */ 0xFE00, /* #######......... */
-        /* row  7 */ 0xFF00, /* ########........ */
-        /* row  8 */ 0xFF80, /* #########....... */
-        /* row  9 */ 0xFFC0, /* ##########...... */
-        /* row 10 */ 0xFC00, /* ######.......... */
-        /* row 11 */ 0xCC00, /* ##.###.......... */
-        /* row 12 */ 0x8E00, /* #...###......... */
-        /* row 13 */ 0x0E00, /* ....###......... */
-        /* row 14 */ 0x0E00, /* ....###......... */
+        /* row  0 */ 0x0000, /* ................ */
+        /* row  1 */ 0x4000, /* .#.............. */
+        /* row  2 */ 0x6000, /* .##............. */
+        /* row  3 */ 0x7000, /* .###............ */
+        /* row  4 */ 0x7800, /* .####........... */
+        /* row  5 */ 0x7C00, /* .#####.......... */
+        /* row  6 */ 0x7E00, /* .######......... */
+        /* row  7 */ 0x7F00, /* .#######........ */
+        /* row  8 */ 0x7F80, /* .########....... */
+        /* row  9 */ 0x7FC0, /* .#########...... */
+        /* row 10 */ 0x7C00, /* .#####.......... */
+        /* row 11 */ 0x6C00, /* .##.##.......... */
+        /* row 12 */ 0x4C00, /* .#..##.......... */
+        /* row 13 */ 0x0C00, /* ....##.......... */
+        /* row 14 */ 0x0C00, /* ....##.......... */
         /* row 15 */ 0x0000  /* ................ */
     },
-    /* mask[16] -- opaque region (identical to data; solid silhouette) */
+    /* mask[16] -- opaque region (1px dilation of data; mask&~data = white) */
     {
-        /* row  0 */ 0x8000,
-        /* row  1 */ 0xC000,
-        /* row  2 */ 0xE000,
-        /* row  3 */ 0xF000,
-        /* row  4 */ 0xF800,
-        /* row  5 */ 0xFC00,
-        /* row  6 */ 0xFE00,
-        /* row  7 */ 0xFF00,
-        /* row  8 */ 0xFF80,
-        /* row  9 */ 0xFFC0,
-        /* row 10 */ 0xFC00,
-        /* row 11 */ 0xCC00,
-        /* row 12 */ 0x8E00,
-        /* row 13 */ 0x0E00,
-        /* row 14 */ 0x0E00,
-        /* row 15 */ 0x0000
+        /* row  0 */ 0xE000,
+        /* row  1 */ 0xF000,
+        /* row  2 */ 0xF800,
+        /* row  3 */ 0xFC00,
+        /* row  4 */ 0xFE00,
+        /* row  5 */ 0xFF00,
+        /* row  6 */ 0xFF80,
+        /* row  7 */ 0xFFC0,
+        /* row  8 */ 0xFFE0,
+        /* row  9 */ 0xFFE0,
+        /* row 10 */ 0xFFE0,
+        /* row 11 */ 0xFE00,
+        /* row 12 */ 0xFE00,
+        /* row 13 */ 0xFE00,
+        /* row 14 */ 0x1E00,
+        /* row 15 */ 0x1E00
     },
-    /* hot_row */ 0,
-    /* hot_col */ 0
+    /* hot_row */ 1,
+    /* hot_col */ 1
 };
 
 
