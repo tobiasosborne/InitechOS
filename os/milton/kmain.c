@@ -67,6 +67,7 @@
                               * flair_event_init / flair_raw_ring_t (FO-5);
                               * WaitNextEvent / flair_event_set_yield (FO-7)  */
 #ifdef FLAIR_LIVE_TENANTS
+#include "desktop_db.h"       /* R3.1 per-volume DB/TRASH skeleton (-Ios/milton) */
 /* The FLAIR App Contract (ADR-0013; Wave-4 Step 4): the -DFLAIR_LIVE_TENANTS demo
  * boots HELLO+NOTES as co-resident tenants on the live desktop and routes every
  * event through the SOLE Layer-5 spine flair_app_dispatch / flair_route_updates.
@@ -2316,6 +2317,94 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
 #endif /* FLAIR_LIVE_TENANTS */
 #endif /* BOOT_FLAIR_LIVE */
 
+#if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
+/* Mount the flagship primary-slave volume BEFORE desktop construction. This
+ * ordering makes storage a desktop-init prerequisite (R3 F1-2/F1-3) and lets
+ * the Bochs 320x200 fail-loud leg prove MOUNT-OK before its later size guard.
+ * Static device/volume storage outlives the bounded pump and loader binding. */
+static void flair_tenant_mount_volume(void)
+{
+    static ata_ctx_t       ften_ata;
+    static blockdev_t      ften_fatdev;
+    static crit_blockdev_t ften_crit;
+    static fat12_volume_t  ften_vol;
+    static uint8_t         ften_secbuf[BLOCKDEV_SECTOR_SIZE];
+    uint8_t                ften_cluster[BLOCKDEV_SECTOR_SIZE];
+    uint8_t                ften_db_header[DESKTOP_DB_HEADER_SIZE];
+
+    /* The FLAIR pump and DOS CON input use separate keyboard rings. */
+    int21_set_conin(int21_conin_get_kbd, int21_conin_poll_kbd);
+    serial_puts("FLAIR-FAT-MOUNT-BEGIN\n");
+    ata_ctx_init_primary_slave(&ften_ata);
+    ata_blockdev_init(&ften_fatdev, &ften_ata);
+    crit_blockdev_init(&ften_crit, &ften_fatdev);
+    if (fat12_mount(&ften_vol, &ften_crit.dev, ften_secbuf) == FAT12_OK) {
+        int bind_rc;
+
+        serial_puts("FLAIR-FAT-MOUNT-OK\n");
+        bind_rc = fileio_fat_bind(&ften_vol);
+        if (bind_rc == FAT12_OK) {
+            uint32_t fat_len = 0u;
+            uint8_t *fat = (uint8_t *)fileio_fat_fat_buffer(&fat_len);
+            desktop_db_boot_state_t db_state = DESKTOP_DB_BOOT_OK;
+            desktop_db_reason_t db_reason = DESKTOP_DB_REASON_NONE;
+            desktop_trash_state_t trash_state = DESKTOP_TRASH_OK;
+            int db_rc;
+            int trash_rc;
+
+            db_rc = desktop_db_bootstrap(&ften_vol, fat, fat_len,
+                                          ften_secbuf, ften_cluster,
+                                          ften_db_header,
+                                          sizeof(ften_db_header),
+                                          &db_state, &db_reason);
+            if (db_state == DESKTOP_DB_BOOT_CREATE) {
+                serial_puts("DESKTOP-DB-CREATE\n");
+            } else if (db_state == DESKTOP_DB_BOOT_REGEN) {
+                serial_puts("DESKTOP-DB-REGEN reason=");
+                serial_putu((uint32_t)db_reason);
+                serial_putc('\n');
+            } else if (db_rc == FAT12_OK) {
+                serial_puts("DESKTOP-DB-OK\n");
+            }
+            if (db_rc != FAT12_OK) {
+                if (db_state == DESKTOP_DB_BOOT_CREATE ||
+                    db_state == DESKTOP_DB_BOOT_REGEN) {
+                    serial_puts("DESKTOP-DB-WRITE-FAIL rc=");
+                } else {
+                    serial_puts("DESKTOP-DB-READ-FAIL rc=");
+                }
+                serial_puti((int32_t)db_rc);
+                serial_putc('\n');
+            }
+
+            trash_rc = desktop_trash_ensure(&ften_vol, fat, fat_len,
+                                            ften_secbuf, ften_cluster,
+                                            &trash_state);
+            if (trash_rc == FAT12_OK) {
+                serial_puts(trash_state == DESKTOP_TRASH_CREATE
+                                ? "TRASH-CREATE\n" : "TRASH-OK\n");
+            } else {
+                serial_puts("TRASH-INIT-FAIL rc=");
+                serial_puti((int32_t)trash_rc);
+                serial_putc('\n');
+            }
+
+            loader_bind_fat_volume(&ften_vol, fat, fat_len);
+        } else {
+            serial_puts("FLAIR-FAT-BIND-FAIL rc=");
+            serial_puti((int32_t)bind_rc);
+            serial_putc('\n');
+        }
+
+        /* Boot preference writes never enter an interactive INT 24h prompt. */
+        crit_blockdev_set_hook(int21_run_critical_error);
+        int21_set_clock(int21_clock_get_rtc, int21_clock_set_rtc);
+    } else {
+        serial_puts("FLAIR-FAT-MOUNT-FAIL\n");
+    }
+}
+#endif
+
 void kernel_main(void)
 {
     /* Marker: C kernel entered. This is the acceptance signal for the handoff
@@ -2523,6 +2612,10 @@ void kernel_main(void)
     }
     serial_puts("FLAIR-HEAP-OK\n");
 
+#if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
+    flair_tenant_mount_volume();
+#endif
+
 #ifdef BOOT_FLAIR_SHELL
     /* THE LIVE FLAIR DESKTOP (beads initech-re30.3, LANE 1; THE milestone): build
      * the Office Space chimera desktop into an indexed-8 offscreen from the FLAIR
@@ -2708,56 +2801,8 @@ void kernel_main(void)
     flair_desktop_present(&b, &ctx.off);
     serial_puts("FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground\n");
 
-    /* (7) O-7: MOUNT the FAT volume + bind the loader so the SYSTEM HOTKEY can
-     * launch SAMIR (a TEXT tenant) off --disk2. The BOOT_FLAIR_LIVE arm HALTs in
-     * the pump and NEVER reaches the late-boot FAT mount far below, so a text-
-     * tenant launch needs the volume mounted + the file/loader backends bound
-     * HERE, before the pump. This is the minimal subset of the late-boot sequence
-     * SAMIR needs: ATA primary-slave -> fat12_mount -> fileio_fat_bind (file
-     * OPEN/READ/SEEK for USE/LIST) -> loader_bind_fat_volume (so
-     * load_program_from_fat finds SAMIR.COM) -> int21_set_clock (the .dbf date).
-     * FILES=20 is the g_files_limit default (sft.h), and sft_init already ran in
-     * sysinit_early, so no CONFIG.SYS apply is needed. The AH=48h arena is bound
-     * by the loader per-EXEC (ADR-0009 DEC-04), so SAMIR's heap is covered.
-     *
-     * Storage is `static`: the BOOT_FLAIR_LIVE arm never returns, and the file/
-     * loader backends cache &ften_vol for the lifetime of the pump. Fail-soft
-     * (Rule 2): a missing --disk2 leaves the loader unbound; the hotkey then
-     * reports FLAIR-TEXT-FAIL rather than hanging -- exactly how the late-boot
-     * mount degrades without a data disk. This whole block is FLAIR_LIVE_TENANTS-
-     * only, so non-tenant kernels are byte-identical (Rule 11). */
-    {
-        static ata_ctx_t       ften_ata;
-        static blockdev_t      ften_fatdev;
-        static crit_blockdev_t ften_crit;
-        static fat12_volume_t  ften_vol;
-        static uint8_t         ften_secbuf[BLOCKDEV_SECTOR_SIZE];
-        /* Bind the INT 21h CON INPUT seam to the live PS/2 keyboard (g_kbd) so
-         * SAMIR's dot-prompt REPL can READ keystrokes via INT 21h (the blocking
-         * get sleeps on hlt until IRQ1). The late-boot CONIN-LIVE bind is below
-         * the pump halt and never runs in this arm, so without this SAMIR's input
-         * seam is unbound and its REPL spins on empty input. The FLAIR pump reads
-         * the SEPARATE raw ring (g_flair_kbd_ring), so this does not disturb it. */
-        int21_set_conin(int21_conin_get_kbd, int21_conin_poll_kbd);
-        serial_puts("FLAIR-FAT-MOUNT-BEGIN\n");
-        ata_ctx_init_primary_slave(&ften_ata);
-        ata_blockdev_init(&ften_fatdev, &ften_ata);
-        crit_blockdev_init(&ften_crit, &ften_fatdev);
-        if (fat12_mount(&ften_vol, &ften_crit.dev, ften_secbuf) == FAT12_OK) {
-            crit_blockdev_set_hook(int21_run_critical_error);
-            (void)fileio_fat_bind(&ften_vol);
-            {
-                uint32_t fat_len = 0u;
-                const uint8_t *fat =
-                    (const uint8_t *)fileio_fat_fat_buffer(&fat_len);
-                loader_bind_fat_volume(&ften_vol, fat, fat_len);
-            }
-            int21_set_clock(int21_clock_get_rtc, int21_clock_set_rtc);
-            serial_puts("FLAIR-FAT-MOUNT-OK\n");
-        } else {
-            serial_puts("FLAIR-FAT-MOUNT-FAIL\n");
-        }
-    }
+    /* The primary-slave volume and loader were bound before desktop build, in
+     * flair_tenant_mount_volume(), so O-7 needs no late-pump mount seam here. */
 #endif
 
     /* --- FO-5: initialise the FLAIR raw ring BEFORE installing any hook ------- *

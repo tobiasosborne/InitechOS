@@ -345,10 +345,12 @@ make factory          # seed = genesis of Turbo Initech (Pascal), not the OS boo
 # current OS experience: the hardened FLAIR desktop (WL-0067 GUI fix arc)
 # hosting the App Contract's HELLO+NOTES co-resident tenants (ADR-0013),
 # graded by `make test-flair-appswitch` (+ -mutant, + -bochs):
-make image            # -> build/initech.img  (CC = i686-elf target / interim host gcc, CDR-0001)
+make image            # -> build/initech.img + build/flair_data.img (primary-slave FAT12 data volume)
+                      #    (CC = i686-elf target / interim host gcc, CDR-0001)
 
 # Dev-loop boot of build/initech.img in QEMU, headless, serial + gdb stub:
-make run              # QEMU -display none -s -serial stdio -d int,guest_errors,cpu_reset
+make run              # QEMU boots initech.img + flair_data.img as IDE primary slave
+                      # with -display none -s -serial stdio -d int,guest_errors,cpu_reset
                        # (omits -S — a bare -S halts the guest at reset with no
                        # serial output until a debugger attaches; add it by hand
                        # via `make run QEMU_EXTRA=-S` for step-from-boot debugging)

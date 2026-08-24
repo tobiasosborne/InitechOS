@@ -49,6 +49,7 @@
 
 typedef struct {
     const char *disk_path;     /* raw boot disk image (REQUIRED).            */
+    const char *data_disk_path;/* optional IDE primary-slave raw data image. */
     const char *bios_path;     /* system BIOS ROM; NULL => BOCHS_DEFAULT_BIOS */
     const char *vgabios_path;  /* VGA BIOS ROM; NULL => BOCHS_DEFAULT_VGABIOS */
 

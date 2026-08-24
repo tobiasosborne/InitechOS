@@ -295,6 +295,18 @@ int main(int argc, char **argv)
 		CHECK(fs >= 0, "FULLDIR present after re-MKDIR");
 
 		if (fs >= 0) {
+			int chmod_rc;
+			int rmdir_rc;
+
+			/* The two failures are semantically distinct even though DOS maps both
+			 * to access-denied at the INT 21h boundary. The Finder must be able to
+			 * distinguish a CHMOD-denied directory from a non-empty RMDIR refusal
+			 * (GUI remediation R3 design Sec 0.3; beads initech-tdnl.28). */
+			chmod_rc = fat12_set_attr(&art_vol, g_fat, fat_len, "FULLDIR", 0u,
+			                         DIR_ATTR_HIDDEN, g_sector);
+			CHECK(chmod_rc == FAT12_ERR_ACCESS,
+			      "fat12_set_attr on a directory -> FAT12_ERR_ACCESS");
+
 			/* Plant a real child file entry at slot[2] of FULLDIR's cluster (the
 			 * old 0x00 end sentinel) via a raw read-modify-write sector. */
 			uint32_t lba = BPB_CLUSTER_LBA(&art_vol.bpb, full_start);
@@ -314,9 +326,11 @@ int main(int argc, char **argv)
 
 			/* fat12_rmdir must now REFUSE FULLDIR: it is non-empty. The m4 mutant
 			 * (no empty-check) wrongly returns FAT12_OK -> this assertion RED. */
-			rc = fat12_rmdir(&art_vol, g_fat, fat_len, "FULLDIR", 0u, g_sector);
-			CHECK(rc == FAT12_ERR_NOT_EMPTY,
+			rmdir_rc = fat12_rmdir(&art_vol, g_fat, fat_len, "FULLDIR", 0u, g_sector);
+			CHECK(rmdir_rc == FAT12_ERR_NOT_EMPTY,
 			      "fat12_rmdir of a NON-EMPTY dir -> FAT12_ERR_NOT_EMPTY (m4 bites)");
+			CHECK(rmdir_rc != chmod_rc,
+			      "RMDIR non-empty and CHMOD denied return distinct FAT12 codes");
 		}
 	}
 

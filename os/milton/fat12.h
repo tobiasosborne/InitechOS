@@ -834,7 +834,7 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *                                  entry other than '.'/'..' (the backend maps
  *                                  it to 0x0005 ACCESS_DENIED -- DOS RMDIR of a
  *                                  non-empty directory). */
-#define FAT12_ERR_NOT_EMPTY (-15)
+#define FAT12_ERR_NOT_EMPTY (-16)
 
 /*
  * fat12_mkdir: create a new subdirectory `name83` whose PARENT is the directory

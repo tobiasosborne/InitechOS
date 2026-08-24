@@ -11,7 +11,7 @@
  * qemu_main.c.
  *
  * Usage:
- *   bochs_harness --disk IMG [--expect MARKER] [--bios ROM] [--vgabios ROM]
+ *   bochs_harness --disk IMG [--disk2 IMG] [--expect MARKER] [--bios ROM] [--vgabios ROM]
  *                 [--timeout-ms N] [--name LABEL] [--out DIR] [--serial-stdout]
  */
 #include "bochs.h"
@@ -24,6 +24,7 @@ static void usage(const char *argv0)
 {
     fprintf(stderr,
         "usage: %s --disk IMG [options]\n"
+        "  --disk2 IMG        attach a raw disk as IDE primary slave\n"
         "  --expect MARKER    assert MARKER present (line-exact) on serial\n"
         "  --bios ROM         system BIOS (default %s)\n"
         "  --vgabios ROM      VGA BIOS  (default %s)\n"
@@ -52,6 +53,7 @@ int main(int argc, char **argv)
         }                                                     \
     } while (0)
         if (strcmp(a, "--disk") == 0)            { NEED_ARG(); cfg.disk_path = argv[++i]; }
+        else if (strcmp(a, "--disk2") == 0)      { NEED_ARG(); cfg.data_disk_path = argv[++i]; }
         else if (strcmp(a, "--expect") == 0)     { NEED_ARG(); cfg.expect_marker = argv[++i]; }
         else if (strcmp(a, "--bios") == 0)       { NEED_ARG(); cfg.bios_path = argv[++i]; }
         else if (strcmp(a, "--vgabios") == 0)    { NEED_ARG(); cfg.vgabios_path = argv[++i]; }

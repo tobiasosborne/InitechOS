@@ -120,7 +120,8 @@ static long disk_cylinders(const char *disk_path)
 /* ---- bochsrc generation -------------------------------------------------- */
 
 static int write_bochsrc(const char *path, const BochsConfig *cfg,
-                         const char *serial_path, long cylinders)
+                         const char *serial_path, long cylinders,
+                         long data_cylinders)
 {
     const char *bios = cfg->bios_path    ? cfg->bios_path    : BOCHS_DEFAULT_BIOS;
     const char *vga  = cfg->vgabios_path ? cfg->vgabios_path : BOCHS_DEFAULT_VGABIOS;
@@ -137,12 +138,19 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
         "megs: 32\n"
         "vga: extension=vbe\n"
         "cpu: model=pentium, ips=50000000\n"
-        "ata0-master: type=disk, path=\"%s\", mode=flat, cylinders=%ld, heads=%d, spt=%d\n"
+        "ata0-master: type=disk, path=\"%s\", mode=flat, cylinders=%ld, heads=%d, spt=%d\n",
+        bios, vga, cfg->disk_path, cylinders, BOCHS_HEADS, BOCHS_SPT);
+    if (cfg->data_disk_path) {
+        fprintf(f,
+        "ata0-slave: type=disk, path=\"%s\", mode=flat, cylinders=%ld, heads=%d, spt=%d\n",
+        cfg->data_disk_path, data_cylinders, BOCHS_HEADS, BOCHS_SPT);
+    }
+    fprintf(f,
         "boot: disk\n"
         "com1: enabled=1, mode=file, dev=%s\n"
         "clock: sync=none\n"
         "display_library: rfb\n",
-        bios, vga, cfg->disk_path, cylinders, BOCHS_HEADS, BOCHS_SPT, serial_path);
+        serial_path);
     /* The RFB port is selected by the BX_RFB display via the 5900+display#
      * default; this build uses 5900. (Bochs 2.7 has no bochsrc knob for it.) */
     (void)port;
@@ -251,6 +259,15 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                 cfg->disk_path);
         return -1;
     }
+    long data_cyl = -1;
+    if (cfg->data_disk_path) {
+        data_cyl = disk_cylinders(cfg->data_disk_path);
+        if (data_cyl < 0) {
+            fprintf(stderr, "bochs_run: %s size is not a whole 2x32 geometry\n",
+                    cfg->data_disk_path);
+            return -1;
+        }
+    }
 
     char rc_path[BOCHS_PATH_MAX], fn[256];
     snprintf(fn, sizeof(fn), "%s.rc", name);
@@ -269,6 +286,9 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         char lock[BOCHS_PATH_MAX];
         if (snprintf(lock, sizeof(lock), "%s.lock", cfg->disk_path) < (int)sizeof(lock))
             remove(lock);
+        if (cfg->data_disk_path &&
+            snprintf(lock, sizeof(lock), "%s.lock", cfg->data_disk_path) < (int)sizeof(lock))
+            remove(lock);
     }
 
     /* rc file: auto-continue the debugger build. */
@@ -278,7 +298,8 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         fputs("c\n", f);
         fclose(f);
     }
-    if (write_bochsrc(out->bochsrc_path, cfg, out->serial_path, cyl) != 0) {
+    if (write_bochsrc(out->bochsrc_path, cfg, out->serial_path, cyl,
+                     data_cyl) != 0) {
         fprintf(stderr, "bochs_run: cannot write %s\n", out->bochsrc_path);
         return -1;
     }
@@ -362,6 +383,9 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     {
         char lock[BOCHS_PATH_MAX];
         if (snprintf(lock, sizeof(lock), "%s.lock", cfg->disk_path) < (int)sizeof(lock))
+            remove(lock);
+        if (cfg->data_disk_path &&
+            snprintf(lock, sizeof(lock), "%s.lock", cfg->data_disk_path) < (int)sizeof(lock))
             remove(lock);
     }
 
