@@ -7209,6 +7209,7 @@ endef
         test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
+        test-finder-cmd test-finder-cmd-mutant \
         test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
         test-dialog test-dialog-mutant \
         test-chrome test-chrome-mutant \
@@ -10857,6 +10858,56 @@ test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TES
 	@if $(TEST_WINDOW_MUT_ZOOM_NO_RESTORE) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZOOM_NO_RESTORE PASSED -- the userState toggle oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZOOM_NO_RESTORE correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_COLLAPSE_LEAK) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: COLLAPSE_LEAK PASSED -- the empty collapsed contRgn oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (COLLAPSE_LEAK correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_GROW_NO_MIN) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: GROW_NO_MIN PASSED -- the 96x64 minimum-size oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (GROW_NO_MIN correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-finder-cmd (beads initech-tdnl.27; docs/design/
+# GUI-remediation-R3-finder-design.md F4.4 + F5.2 slice tdnl.9a) -- the HOST
+# oracle for the R3 Finder COMMAND-TABLE SPINE (os/flair/finder_cmd.c): one
+# table, one `finder_dispatch`, mouse AND key paths converging on it, and
+# exactly one FINDER-CMD trace line per dispatch on the caller-supplied sink.
+# The expected trace is HAND-AUTHORED in test_finder_cmd.c (Law 2 / HER-02 --
+# never read back off the table); the result words are minted by menu.h's
+# LOCKED MenuResult() while finder_cmd.c unpacks with its own arithmetic, so
+# the packing is a real differential. Structural legs: no duplicate
+# (menu_id,item) pair, hand-authored per-id row budget (the two deliberate
+# aliases -- Clean Up in View+Special, the two Apple launch entries -- are
+# spelled out), FCMD_COUNT coverage, and the F4.2 command-key map.
+# Mutants (design F4.4 CMD_TABLE_BYPASS / CMD_SILENT_UNKNOWN /
+# PRED_STUCK_ENABLED) are -D knobs on the IMPLEMENTATION TU, never the golden.
+# ---------------------------------------------------------------------------
+TEST_FINDER_CMD     := $(BUILD)/test_finder_cmd
+TEST_FINDER_CMD_SRC := harness/proptest/test_finder_cmd.c
+TEST_FINDER_CMD_MUT_BYPASS := $(BUILD)/test_finder_cmd_mutant_table_bypass
+TEST_FINDER_CMD_MUT_SILENT := $(BUILD)/test_finder_cmd_mutant_silent_unknown
+TEST_FINDER_CMD_MUT_PRED   := $(BUILD)/test_finder_cmd_mutant_pred_stuck_enabled
+TEST_FINDER_CMD_DEPS := os/flair/finder_cmd.c os/flair/finder_cmd.h os/flair/menu.h
+# menu.h is header-only here (MenuResult/MenuResultID are static inline), so the
+# Menu Manager is NOT linked -- but its include chain (text.h -> chicago8x16.h,
+# blitter.h, surface.h, spec headers) still has to resolve: same paths as MENU_INC.
+FINDER_CMD_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
+FINDER_CMD_LINK := os/flair/finder_cmd.c
+
+$(TEST_FINDER_CMD): $(TEST_FINDER_CMD_SRC) $(TEST_FINDER_CMD_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_CMD_INC) -o $@ $(TEST_FINDER_CMD_SRC) $(FINDER_CMD_LINK)
+$(TEST_FINDER_CMD_MUT_BYPASS): $(TEST_FINDER_CMD_SRC) $(TEST_FINDER_CMD_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_CMD_MUT_TABLE_BYPASS $(FINDER_CMD_INC) -o $@ $(TEST_FINDER_CMD_SRC) $(FINDER_CMD_LINK)
+$(TEST_FINDER_CMD_MUT_SILENT): $(TEST_FINDER_CMD_SRC) $(TEST_FINDER_CMD_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_CMD_MUT_SILENT_UNKNOWN $(FINDER_CMD_INC) -o $@ $(TEST_FINDER_CMD_SRC) $(FINDER_CMD_LINK)
+$(TEST_FINDER_CMD_MUT_PRED): $(TEST_FINDER_CMD_SRC) $(TEST_FINDER_CMD_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_CMD_MUT_PRED_STUCK_ENABLED $(FINDER_CMD_INC) -o $@ $(TEST_FINDER_CMD_SRC) $(FINDER_CMD_LINK)
+
+test-finder-cmd: $(TEST_FINDER_CMD)
+	@printf ">>> test-finder-cmd: R3 Finder command-table spine -- hand-authored FINDER-CMD trace golden (mouse+key, enabled/disabled/unknown) + table structure (F4.4)\n"
+	@$(TEST_FINDER_CMD)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(FINDER_CMD_INC) -c os/flair/finder_cmd.c -o $(BUILD)/finder_cmd_freestanding.o \
+		|| { printf '!!! test-finder-cmd FAIL: finder_cmd.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-finder-cmd: green\n"
+
+test-finder-cmd-mutant: $(TEST_FINDER_CMD_MUT_BYPASS) $(TEST_FINDER_CMD_MUT_SILENT) $(TEST_FINDER_CMD_MUT_PRED)
+	@printf ">>> test-finder-cmd-mutant: confirming all three implementation mutants go RED (Rule 6)\n"
+	@if $(TEST_FINDER_CMD_MUT_BYPASS) >/dev/null 2>&1; then printf '!!! test-finder-cmd-mutant FAIL: TABLE_BYPASS PASSED -- the both-paths-converge trace golden is decoration\n'; exit 1; else printf '>>> test-finder-cmd-mutant: green (TABLE_BYPASS correctly RED -- the src=key FINDER-CMD lines vanish)\n'; fi
+	@if $(TEST_FINDER_CMD_MUT_SILENT) >/dev/null 2>&1; then printf '!!! test-finder-cmd-mutant FAIL: SILENT_UNKNOWN PASSED -- the fail-loud unknown-command oracle is decoration\n'; exit 1; else printf '>>> test-finder-cmd-mutant: green (SILENT_UNKNOWN correctly RED -- FINDER-CMD-UNKNOWN vanishes)\n'; fi
+	@if $(TEST_FINDER_CMD_MUT_PRED) >/dev/null 2>&1; then printf '!!! test-finder-cmd-mutant FAIL: PRED_STUCK_ENABLED PASSED -- the enablement-predicate oracle is decoration\n'; exit 1; else printf '>>> test-finder-cmd-mutant: green (PRED_STUCK_ENABLED correctly RED -- disabled commands run their handler)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -21063,6 +21114,7 @@ TEST_UNIT_GATES := \
 	test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
+	test-finder-cmd test-finder-cmd-mutant \
 	test-interact test-interact-mutant \
 	test-process test-process-mutant test-process-mutant-build \
 	test-process-teardown test-process-teardown-mutant \
