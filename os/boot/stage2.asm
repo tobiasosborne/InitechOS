@@ -19,14 +19,21 @@
 ; hand off to the C kernel, which owns the framebuffer fill (the canonical
 ; Initech teal desktop; the pre-FLAIR text console paints its own background).
 ;
-; Serial markers (PRD acceptance: "serial marks each boot stage"):
-;   S2   -- stage2 entered
-;   VBE  -- a suitable 640x480 LFB mode was found and set
-;   A20  -- A20 gate enabled
-;   GDT  -- flat GDT loaded
-;   PM   -- protected mode entered (printed from 32-bit code, raw COM1 write)
-;   LFB  -- about to fill the framebuffer (32-bit)
-;   OK   -- framebuffer filled; entering the live hlt-loop
+; Serial markers (PRD acceptance: "serial marks each boot stage"). The real
+; success order is MBR S1/JMP2, then stage2 S2/VBE/FONT/E820|E801|E88/KLOAD/
+; A20/GDT/PM/LFB/OK/KHI, then kernel KERNEL/KAT. Existing order is untouched;
+; KHI/KAT are append-only additions (kernel-runway-relocation.md K2/K3; tdnl.29).
+;   S2    -- stage2 entered
+;   VBE   -- a suitable 640x480 LFB mode was found and set
+;   FONT  -- VGA ROM font captured
+;   E820  -- representative successful extended-memory probe marker
+;   KLOAD -- real-mode kernel read into the low bounce completed
+;   A20   -- A20 gate enabled
+;   GDT   -- flat GDT loaded
+;   PM    -- protected mode entered (printed from 32-bit code, raw COM1 write)
+;   LFB   -- framebuffer parameters are ready for the C kernel
+;   OK    -- protected-mode handoff tail reached
+;   KHI   -- padded kernel window copied from the low bounce to 0x00500000
 ; Any failure path prints a loud marker (e.g. "ERR-VBE") and halts.
 
 bits 16
@@ -34,6 +41,14 @@ org 0x8000
 
 ; -- Constants --------------------------------------------------------------
 COM1            equ 0x3F8
+
+; Kernel high-runway constants. Ref: docs/design/kernel-runway-relocation.md
+; K1/K2; bead initech-tdnl.29. These duplicate spec/memory_map.h because NASM
+; cannot consume the C header. The real-mode load loop remains at the bounce;
+; only the protected-mode copy and final far jump use KERNEL_BASE.
+KERNEL_BASE        equ 0x00500000
+KERNEL_BOUNCE_BASE equ 0x00010000
+KERNEL_BOUNCE_CAP  equ 0x00030000
 
 ; Initech desktop teal: the LOCKED Initech Color Canon desktop background
 ; (color_canon.json idx2 CIDX_DESKTOP). TEAL_RGB = (0x8D, 0xDC, 0xDC) ->
@@ -62,9 +77,10 @@ E820_BUF        equ 0x7400
 
 ; -- Handoff contract (boot_info.h / docs/research/boot-to-text-ground-truth.md
 ;    Sec 2-3). All physical low-memory addresses; flat == physical.
-BOOT_INFO_ADDR  equ 0x0500      ; 28-byte boot_info struct (above the BDA)
-                                ; (was 24; +4 for ext_mem_kb -- boot_info.h /
-                                ;  ADR-0004 DEC-03; backward-compatible append)
+BOOT_INFO_ADDR  equ 0x0500      ; 32-byte boot_info struct (above the BDA)
+                                ; append-only: 24->28 ext_mem_kb, then 28->32
+                                ; kernel_base (kernel-runway-relocation.md K2;
+                                ; bead initech-tdnl.29; boot_info.h)
 FONT_STASH      equ 0x1000      ; 4096-byte VGA ROM 8x16 font copy
 
 ; -- Kernel load (INT 13h CHS). Image layout: MBR s0, stage2 s1..16, kernel
@@ -92,7 +108,9 @@ KERNEL_SECTORS    equ 352       ; 352 * 512 = 176 KiB kernel window (bumped 64->
                                 ; drop shadow + close/zoom box + scrollbar glyphs + title bevel)
                                 ; grew kernel_shell.bin to 163,960 bytes, 120 B past the 320 window;
                                 ; ends 0x3C000 < PROGRAM_BASE (0x40000); IMG geometry unchanged;
-                                ; MUST equal Makefile)
+                                ; MUST equal Makefile; <=384 sectors so the low
+                                ; bounce cannot cross PROGRAM_BASE, per design K2 /
+                                ; bead initech-tdnl.29)
 KERNEL_LBA        equ 17        ; first kernel sector (1+16)
 ; SPT / heads are QUERIED at runtime via INT 13h AH=08h (geometry varies by
 ; emulator + image size); see the kernel-load block below.
@@ -179,8 +197,10 @@ start:
     mov [ext_mem_kb], eax
 
     ; -- Build boot_info at BOOT_INFO_ADDR (0x500), real mode, DS=0 ---------
-    ; 28-byte struct, uint32 fields IN ORDER (boot_info.h / ground-truth Sec 2):
-    ;   lfb_addr, lfb_pitch, lfb_bpp, lfb_width, lfb_height, font_addr, ext_mem_kb.
+    ; 32-byte struct, uint32 fields IN ORDER (boot_info.h / ground-truth Sec 2):
+    ;   lfb_addr, lfb_pitch, lfb_bpp, lfb_width, lfb_height, font_addr,
+    ;   ext_mem_kb, kernel_base. The final field is an append-only placement
+    ;   contract (kernel-runway-relocation.md K2; bead initech-tdnl.29).
     ; lfb_addr/pitch/bpp were captured by vbe_setup. width/height use the
     ; WANT_W/WANT_H constants -- valid because vbe_setup matched the mode to
     ; them before proceeding (stage2.asm XResolution/YResolution checks).
@@ -200,12 +220,15 @@ start:
     mov dword [BOOT_INFO_ADDR + 20], FONT_STASH   ; font_addr
     mov eax, [ext_mem_kb]
     mov [BOOT_INFO_ADDR + 24], eax     ; ext_mem_kb (KiB above 1 MiB; DEC-03)
+    mov dword [BOOT_INFO_ADDR + 28], KERNEL_BASE ; kernel_base (append-only)
 
-    ; -- Load the flat C kernel into 0x10000 (real mode, INT 13h CHS) -------
+    ; -- Load the flat C kernel into the low bounce (real mode, INT 13h CHS) -
     ; Image layout: MBR s0, stage2 s1..16, kernel s17.. (Makefile). We read
     ; KERNEL_SECTORS sectors starting at LBA 17 into 0x1000:0x0000 (physical
-    ; 0x10000). Ref: ground-truth Sec 3.1-3.3 (link/load at 0x10000; INT 13h is
-    ; real-mode-only so it precedes the PM switch).
+    ; 0x10000). Ref: ground-truth Sec 3.1-3.3 plus the superseding
+    ; kernel-runway-relocation.md K2 / bead initech-tdnl.29: INT 13h is
+    ; real-mode-only, so this unchanged loop fills KERNEL_BOUNCE_BASE and the
+    ; protected-mode tail copies the padded window to KERNEL_BASE.
     ;
     ; The disk geometry that SeaBIOS/Bochs/86Box assign to a raw image is NOT
     ; fixed (a tiny image gets a tiny geometry; a 1.44M-shaped one gets 18/2).
@@ -236,7 +259,7 @@ start:
 
     mov word [kload_remaining], KERNEL_SECTORS
     mov word [kload_lba], 17           ; first kernel LBA
-    mov word [kload_seg], 0x1000       ; ES base for physical 0x10000
+    mov word [kload_seg], 0x1000       ; ES base for KERNEL_BOUNCE_BASE
 
 .kload_loop:
     mov ax, [kload_remaining]
@@ -717,13 +740,27 @@ pm_entry:
     mov esi, msg_ok32
     call serial_puts32
 
-    ; -- Far-jump into the flat C kernel at physical 0x00010000 ------------
-    ; Ref: ground-truth Sec 3 (kernel linked + loaded at 0x10000). CS is
+    ; Copy the entire deterministic padded disk window from the real-mode
+    ; bounce to the high kernel residence. A20 is already enabled and DS/ES are
+    ; flat DATA_SEL, so this is the single post-PE copy-up specified by
+    ; docs/design/kernel-runway-relocation.md K2 (bead initech-tdnl.29). The
+    ; load loop above is intentionally unchanged. Padding zeros are copied too,
+    ; which gives the objcopy-dropped NOBITS/BSS range deterministic zero bytes.
+    cld
+    mov esi, KERNEL_BOUNCE_BASE
+    mov edi, KERNEL_BASE
+    mov ecx, (KERNEL_SECTORS * 512) / 4
+    rep movsd
+    mov esi, msg_khi32
+    call serial_puts32
+
+    ; -- Far-jump into the flat C kernel at physical KERNEL_BASE ------------
+    ; Ref: kernel-runway-relocation.md K2 / bead initech-tdnl.29. CS is
     ; already CODE_SEL (0x08) from the PM far jump; an intra-segment jump to a
     ; far address is fine, but we use a far jump to be explicit about the
     ; selector. The kernel's kstart.asm _start sets its own ESP + calls
     ; kernel_main; it never returns.
-    jmp dword CODE_SEL:0x00010000
+    jmp dword CODE_SEL:KERNEL_BASE
 
 ; ---------------------------------------------------------------------------
 ; 32-bit serial helpers. The UART is already programmed (real-mode init); we
@@ -839,6 +876,7 @@ msg_err_vga:     db "ERR-VGA", 0x0A, 0
 msg_pm32:    db "PM", 0x0A, 0
 msg_lfb32:   db "LFB", 0x0A, 0
 msg_ok32:    db "OK", 0x0A, 0
+msg_khi32:   db "KHI", 0x0A, 0
 msg_font:        db "FONT", 0x0A, 0
 msg_err_font:    db "ERR-FONT", 0x0A, 0
 msg_kload:       db "KLOAD", 0x0A, 0

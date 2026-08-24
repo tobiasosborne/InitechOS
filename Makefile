@@ -178,6 +178,17 @@ STAGE2_SECTORS  := 16
 # 6-cyl image geometry is UNCHANGED (only stage2's INT 13h read count grows);
 # still a Rule-5 obligation -- re-ran make test-boot-bochs + test-flair-desktop-bochs.
 KERNEL_SECTORS  := 352
+# High-kernel bounce capacity (docs/design/kernel-runway-relocation.md K2;
+# bead initech-tdnl.29). stage2's unchanged real-mode loop starts at
+# KERNEL_BOUNCE_BASE and may consume at most KERNEL_BOUNCE_CAP bytes, ending
+# exactly at PROGRAM_BASE exclusive. This parse-time guard is deliberately
+# before the image-geometry checks so a KERNEL_SECTORS=385 mutant fails for the
+# load-bearing bounce-overlap reason, not a secondary IMG_SECTORS symptom.
+KERNEL_BOUNCE_CAP := $(shell grep -E '^\#define[[:space:]]+KERNEL_BOUNCE_CAP' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
+KERNEL_BOUNCE_MAX_SECTORS := $(shell printf '%d' $$(( $(KERNEL_BOUNCE_CAP) / 512 )))
+ifneq ($(shell test $(KERNEL_SECTORS) -le $(KERNEL_BOUNCE_MAX_SECTORS) && echo ok),ok)
+$(error KERNEL_SECTORS=$(KERNEL_SECTORS) exceeds the $(KERNEL_BOUNCE_MAX_SECTORS)-sector KERNEL_BOUNCE_CAP -- the real-mode load would overlap PROGRAM_BASE; extend the bounce policy before growing the disk window)
+endif
 # Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=160) = 177 sectors.
 # IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
 # harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
@@ -203,40 +214,42 @@ ifneq ($(shell test $(IMG_SECTORS) -ge $(IMG_MIN_SECTORS) && echo ok),ok)
 $(error IMG_SECTORS=$(IMG_SECTORS) sectors < required $(IMG_MIN_SECTORS) (MBR+stage2+KERNEL_SECTORS) -- raise to the next multiple of 64)
 endif
 
-# --- _kernel_end guard (beads initech-u0a) ----------------------------------
-# The KERNEL_SECTORS / .bin-size guards above only check the LOADED .bin (.text
-# + .data) against the disk window. They are BLIND to .bss: _kernel_end (end of
-# .bss) is NOT in the .bin, so a .bss growth can silently push _kernel_end up to
-# and past PROGRAM_BASE (0x40000) -- the flat address where loaded programs land
-# -- corrupting the program-load region at RUNTIME with no build-time warning.
-# (During 509.2 the shell kernel's _kernel_end reached 0x1FF60: 160 bytes from
-# collision, invisibly.) This guard extracts _kernel_end from each kernel ELF
-# via nm and FAILS THE BUILD (Rule 2: fail loud) if it is not safely below
-# PROGRAM_BASE - KERNEL_END_MARGIN.
-#
-# PROGRAM_BASE is parsed from spec/memory_map.h (the locked spec, Rule 8) so it
-# stays in sync; cite: spec/memory_map.h `#define PROGRAM_BASE 0x00040000u`.
+# --- kernel floor/end guard (beads initech-u0a + initech-tdnl.29) -----------
+# The KERNEL_SECTORS / .bin-size guards check only loaded PROGBITS. objcopy drops
+# NOBITS .bss, so the ELF symbols remain the authoritative placement facts. Per
+# docs/design/kernel-runway-relocation.md K2 (bead initech-tdnl.29), every kernel
+# must have its lowest defined symbol at/above KERNEL_BASE and _kernel_end below
+# the exclusive KERNEL_CEIL. This catches both a LOAD_LOW relapse and runway
+# exhaustion without coupling the kernel to the byte-identical program window.
+# Constants are parsed from the locked spec (Rule 8), never duplicated here.
 PROGRAM_BASE := $(shell grep -E '^\#define[[:space:]]+PROGRAM_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
-# Safety margin below PROGRAM_BASE (bytes). Small, deterministic; a kernel whose
-# .bss ends within this of PROGRAM_BASE is too close for comfort and fails.
-KERNEL_END_MARGIN := 256
+KERNEL_BASE := $(shell grep -E '^\#define[[:space:]]+KERNEL_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
+KERNEL_CEIL := $(shell grep -E '^\#define[[:space:]]+KERNEL_CEIL' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
 #
 # $(call kernel-end-guard,<ELF>,<variant-label>) -- run inside a .bin recipe,
 # after the .bin-size guard, so `make <image>` triggers it. Mirrors the
 # .bin-size guard's "!!!" failure / ">>>" confirmation style.
 define kernel-end-guard
 	@end=$$($(NM) $(1) | awk '$$3=="_kernel_end"{print "0x"$$1}'); \
+	lowest=$$($(NM) -n $(1) | awk '$$1 ~ /^[0-9A-Fa-f]+$$/ && $$2 ~ /^[TtRrDdBb]$$/ {print "0x"$$1; exit}'); \
 	if [ -z "$$end" ]; then \
 		printf '!!! kernel-end guard ($(2)): _kernel_end symbol not found in %s\n' "$(1)"; \
 		exit 1; \
 	fi; \
-	endv=$$(( end )); pb=$$(( $(PROGRAM_BASE) )); margin=$(KERNEL_END_MARGIN); \
-	limit=$$(( pb - margin )); \
-	if [ "$$endv" -ge "$$limit" ]; then \
-		printf '!!! kernel-end guard ($(2)): _kernel_end=0x%x reaches PROGRAM_BASE=0x%x (margin=%d, limit=0x%x) -- .bss overruns the program-load region; shrink kernel .bss or raise PROGRAM_BASE in spec/memory_map.h\n' "$$endv" "$$pb" "$$margin" "$$limit"; \
+	if [ -z "$$lowest" ]; then \
+		printf '!!! kernel-floor guard ($(2)): no defined symbol address found in %s\n' "$(1)"; \
 		exit 1; \
 	fi; \
-	printf '>>> kernel-end guard ($(2)): _kernel_end=0x%x < PROGRAM_BASE=0x%x (margin %d, limit 0x%x OK)\n' "$$endv" "$$pb" "$$margin" "$$limit"
+	endv=$$(( end )); lowv=$$(( lowest )); base=$$(( $(KERNEL_BASE) )); ceil=$$(( $(KERNEL_CEIL) )); \
+	if [ "$$lowv" -lt "$$base" ]; then \
+		printf '!!! kernel-floor guard ($(2)): lowest symbol=0x%x below KERNEL_BASE=0x%x -- LOAD_LOW relapse\n' "$$lowv" "$$base"; \
+		exit 1; \
+	fi; \
+	if [ "$$endv" -ge "$$ceil" ]; then \
+		printf '!!! kernel-end guard ($(2)): _kernel_end=0x%x reaches KERNEL_CEIL=0x%x -- shrink the kernel or extend the ratified runway; bump KERNEL_SECTORS too if loaded bytes grew\n' "$$endv" "$$ceil"; \
+		exit 1; \
+	fi; \
+	printf '>>> kernel placement guard ($(2)): lowest=0x%x >= KERNEL_BASE=0x%x; _kernel_end=0x%x < KERNEL_CEIL=0x%x OK\n' "$$lowv" "$$base" "$$endv" "$$ceil"
 endef
 
 # PPM seafoam checker (factory C tool, tools/).
@@ -337,8 +350,10 @@ include spec/flair_solid_traces.mk
 # ---------------------------------------------------------------------------
 # Flat C kernel (os/milton, beads initech-d00; ADR-0003 DEC-08)
 # ---------------------------------------------------------------------------
-# The InitechDOS kernel: a FLAT binary linked at 0x00010000, loaded by stage2
-# (INT 13h) and entered by a far jump. ARTIFACT code: freestanding C
+# The InitechDOS kernel: a FLAT binary linked at KERNEL_BASE=0x00500000. stage2
+# reads it through INT 13h into the low bounce, copies it high after PE, then
+# enters it by a far jump (docs/design/kernel-runway-relocation.md K2; bead
+# initech-tdnl.29). ARTIFACT code: freestanding C
 # (CDR-0001 interim toolchain: host gcc -m32 -ffreestanding -nostdlib) + a
 # 32-bit nasm entry stub. Reproducible: deterministic codegen, no timestamps,
 # raw binary via objcopy (CLAUDE.md Rule 11).
@@ -7382,9 +7397,10 @@ $(DEMO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) | $(BUILD)
 
 # --- Flat C kernel build (beads initech-d00) -------------------------------
 # Entry stub (nasm elf32) + freestanding C, linked to a FLAT binary at
-# 0x00010000 via kernel.ld, then objcopy'd to a raw image and padded to exactly
+# 0x00500000 via kernel.ld, then objcopy'd to a raw image and padded to exactly
 # KERNEL_SECTORS sectors so stage2's INT 13h read count is deterministic.
-# kstart.o is linked FIRST so _start lands at the link base (0x10000).
+# kstart.o is linked FIRST so _start lands at KERNEL_BASE. Ref: runway design
+# K2 / bead initech-tdnl.29.
 $(KERNEL_START_OBJ): $(KERNEL_START_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
@@ -7791,7 +7807,7 @@ $(KERNEL_FAULT_BIN): $(KERNEL_FAULT_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(fault): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(fault): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,fault)
 
 # The self-test fault disk image: identical layout to TRACER_IMG but with the
@@ -7828,7 +7844,7 @@ $(KERNEL_SPURIOUS_BIN): $(KERNEL_SPURIOUS_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(spurious): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(spurious): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,spurious)
 
 # The spurious-vector disk image: identical layout to TRACER_IMG but with the
@@ -7865,7 +7881,7 @@ $(KERNEL_ECHO_BIN): $(KERNEL_ECHO_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(echo): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(echo): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,echo)
 
 # The keyboard-echo disk image: identical layout to TRACER_IMG but with the echo
@@ -7904,7 +7920,7 @@ $(KERNEL_CONIN_BIN): $(KERNEL_CONIN_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(conin): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(conin): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,conin)
 
 # The CON-input self-test disk image: identical layout to TRACER_IMG but with
@@ -7943,7 +7959,7 @@ $(KERNEL_VECT_BIN): $(KERNEL_VECT_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(vect): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(vect): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,vect)
 
 # The vect self-test disk image: identical layout to CONIN_IMG but with the vect
@@ -7982,7 +7998,7 @@ $(KERNEL_ABSDISK_BIN): $(KERNEL_ABSDISK_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(absdisk): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(absdisk): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,absdisk)
 
 # The absdisk self-test disk image: identical layout to VECT_IMG but with the
@@ -8022,7 +8038,7 @@ $(KERNEL_MEMTEST_BIN): $(KERNEL_MEMTEST_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(memtest): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(memtest): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,memtest)
 
 $(MEMTEST_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_BIN) | $(BUILD)
@@ -8052,6 +8068,7 @@ $(KERNEL_MEMTEST_MUT_BIN): $(KERNEL_MEMTEST_MUT_ELF) | $(BUILD)
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(memtest-mutant): %s\n" "$@"
+	$(call kernel-end-guard,$<,memtest-mutant)
 
 $(MEMTEST_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_MUT_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -8087,7 +8104,7 @@ $(KERNEL_EXEC_BIN): $(KERNEL_EXEC_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(exec): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(exec): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,exec)
 
 # The EXEC self-test disk image: identical layout to TRACER_IMG but with the
@@ -8169,7 +8186,7 @@ $(KERNEL_MZEXEC_BIN): $(KERNEL_MZEXEC_ELF) | $(BUILD)
 		printf '!!! kernel_mzexec.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(mzexec): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(mzexec): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,mzexec)
 $(KERNEL_MZFOREIGN_BIN): $(KERNEL_MZFOREIGN_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8178,7 +8195,7 @@ $(KERNEL_MZFOREIGN_BIN): $(KERNEL_MZFOREIGN_ELF) | $(BUILD)
 		printf '!!! kernel_mzforeign.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(mzforeign): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(mzforeign): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,mzforeign)
 
 $(MZEXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MZEXEC_BIN) | $(BUILD)
@@ -8246,7 +8263,7 @@ $(KERNEL_WRITE_BIN): $(KERNEL_WRITE_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(write): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(write): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,write)
 
 $(WRITE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_WRITE_BIN) | $(BUILD)
@@ -8284,7 +8301,7 @@ $(KERNEL_MULTIOPEN_BIN): $(KERNEL_MULTIOPEN_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(multiopen): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(multiopen): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,multiopen)
 
 $(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) | $(BUILD)
@@ -8321,7 +8338,7 @@ $(KERNEL_DATETIME_BIN): $(KERNEL_DATETIME_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(datetime): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(datetime): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,datetime)
 
 $(DATETIME_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_DATETIME_BIN) | $(BUILD)
@@ -8367,7 +8384,7 @@ $(KERNEL_IRQSTORM_BIN): $(KERNEL_IRQSTORM_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(irqstorm): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(irqstorm): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,irqstorm)
 
 $(IRQSTORM_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_BIN) | $(BUILD)
@@ -8469,7 +8486,7 @@ $(KERNEL_EXITH_BIN): $(KERNEL_EXITH_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(exith): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(exith): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,exith)
 
 $(EXITH_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_BIN) | $(BUILD)
@@ -8510,7 +8527,7 @@ $(KERNEL_EXITH_MUT_BIN): $(KERNEL_EXITH_MUT_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(exith-mutant): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(exith-mutant): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,exith-mutant)
 
 $(EXITH_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_MUT_BIN) | $(BUILD)
@@ -8548,7 +8565,7 @@ $(KERNEL_SYSI_BIN): $(KERNEL_SYSI_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(sysi): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(sysi): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,sysi)
 
 $(SYSI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SYSI_BIN) | $(BUILD)
@@ -8593,7 +8610,7 @@ $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(shell): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(shell): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell)
 
 # --- LIVE FLAIR DESKTOP kernel (beads initech-re30.3, LANE 1; THE milestone) -
@@ -8627,7 +8644,7 @@ $(KERNEL_FLAIRSHELL_BIN): $(KERNEL_FLAIRSHELL_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(flairshell): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(flairshell): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairshell)
 
 # The live FLAIR desktop disk image: identical layout to TRACER_IMG but with the
@@ -8670,7 +8687,7 @@ $(KERNEL_FLAIRLIVE_BIN): $(KERNEL_FLAIRLIVE_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(flairlive): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(flairlive): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive)
 
 $(FLAIRLIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_BIN) | $(BUILD)
@@ -8731,7 +8748,8 @@ $(KERNEL_FLAIRLIVE_MUT_BIN): $(KERNEL_FLAIRLIVE_MUT_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(flairlive-mutant): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(flairlive-mutant): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-mutant)
 
 $(FLAIRLIVE_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -8758,6 +8776,7 @@ $(KERNEL_FLAIRLIVE_MUT_KBD_BIN): $(KERNEL_FLAIRLIVE_MUT_KBD_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(flairlive-mutant-nokbdhook): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-mutant-nokbdhook)
 
 $(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -8787,6 +8806,7 @@ $(KERNEL_FLAIRLIVE_MUT_DRAG_BIN): $(KERNEL_FLAIRLIVE_MUT_DRAG_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(flairlive-mutant-dragnoop): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-mutant-dragnoop)
 
 $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -8906,7 +8926,7 @@ $(KERNEL_FLAIRLIVE_INT_BIN): $(KERNEL_FLAIRLIVE_INT_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(flairlive-interactive): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(flairlive-interactive): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-interactive)
 
 $(FLAIRLIVE_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) | $(BUILD)
@@ -9009,7 +9029,7 @@ $(KERNEL_FLAIRTENANTS_BIN): $(KERNEL_FLAIRTENANTS_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(flairtenants): %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(flairtenants): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairtenants)
 
 $(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_BIN) | $(BUILD)
@@ -9376,6 +9396,7 @@ $(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN): $(KERNEL_FLAIRLIVE_MUT_MOUSE_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(flairlive-mut-nomousehook): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-mut-nomousehook)
 
 $(FLAIRLIVE_MUT_MOUSE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -9399,6 +9420,7 @@ $(KERNEL_FLAIRLIVE_MUT_EOI_BIN): $(KERNEL_FLAIRLIVE_MUT_EOI_ELF) | $(BUILD)
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(flairlive-mut-eoi): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-mut-eoi)
 
 $(FLAIRLIVE_MUT_EOI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_EOI_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -9559,6 +9581,7 @@ $(BUILD)/kernel_flairshell_mut_$(2).bin: $(BUILD)/kernel_flairshell_mut_$(2).elf
 	fi; \
 	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
 	printf ">>> kernel(flairshell-mut-$(2)): %s (flat binary, padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairshell-mut-$(2))
 
 $(BUILD)/flair_desktop_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairshell_mut_$(2).bin | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -9586,7 +9609,7 @@ $(KERNEL_BIN): $(KERNEL_ELF) | $(BUILD)
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel: %s (flat binary @0x10000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel: %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,main)
 
 $(PPM_CHECK_BIN): $(PPM_CHECK_SRC) | $(BUILD)
@@ -14715,7 +14738,9 @@ test-harness: $(HARNESS_BIN) $(SERIAL_HELLO_ELF) $(TRIPLE_FAULT_ELF)
 # whole chain worked. Three independent assertions (CLAUDE.md Law 2 -- the
 # oracle is the truth; Rule 2 -- fail loud):
 #   1. serial stage markers present (at least S1, PM, OK) -> the boot walked
-#      through MBR -> protected mode -> framebuffer fill.
+#      through MBR -> protected mode -> framebuffer fill. The appended KHI/KAT
+#      placement leg asserts the tdnl.29 copy-up and live high linker range
+#      (docs/design/kernel-runway-relocation.md K3; bead initech-tdnl.29).
 #   2. NO triple-fault in the QEMU -d cpu_reset log (the real->protected
 #      transition did not silently reboot -- the minefield callout).
 #   3. the QMP screendump of the LIVE guest shows the InitechDOS banner blitted
@@ -14747,7 +14772,7 @@ test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '        this gate is now STRICTLY STRONGER (banner + seafoam desktop). initech-bea\n'
 	@printf '======================================================================\n'
 	@printf 'Booting   : %s (raw disk, custom MBR -> stage2 -> 32-bit flat -> VESA LFB)\n' "$(TRACER_IMG)"
-	@printf 'Expecting : serial markers S1/S2/VBE/A20/GDT/PM/LFB/OK/KERNEL/BANNER + banner screendump\n'
+	@printf 'Expecting : serial S1/.../KLOAD/KHI/KERNEL/KAT/BI-OK/BANNER + high placement + screendump\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# Boot via the disk path with a live-guest screendump. The guest hlt-loops,
 	@# so it will time out -- that is expected; we do not gate on the exit code.
@@ -14774,7 +14799,7 @@ test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 		printf '!!! test-tracer-boot FAIL: no serial captured at %s\n' "$(TRACER_SERIAL)"; \
 		exit 1; \
 	fi
-	@for m in S1 S2 VBE FONT A20 GDT PM LFB OK KLOAD KERNEL INT21 BI-OK CONSOLE BANNER; do \
+	@for m in S1 S2 VBE FONT KLOAD A20 GDT PM LFB OK KHI KERNEL INT21 BI-OK CONSOLE BANNER; do \
 		if grep -q "^$$m$$" "$(TRACER_SERIAL)"; then \
 			printf '  %-6s : present\n' "$$m"; \
 		else \
@@ -14785,11 +14810,23 @@ test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 	@# the C kernel; BI-OK proves boot_info is readable in C (beads initech-d00);
 	@# CONSOLE proves the LFB text console initialized (initech-yqb); BANNER
 	@# proves the InitechDOS banner was rendered (initech-bea).
-	@for m in S1 PM OK FONT KERNEL INT21 BI-OK CONSOLE BANNER; do \
+	@for m in S1 PM OK FONT KLOAD KHI KERNEL INT21 BI-OK CONSOLE BANNER; do \
 		grep -q "^$$m$$" "$(TRACER_SERIAL)" \
 			|| { printf '!!! test-tracer-boot FAIL: required serial marker %s missing\n' "$$m"; exit 1; }; \
 	done
-	@# 3. Screendump check: banner blitted at its known origin AND the desktop is
+	@# 3. Kernel high-placement leg (runway design K3 / bead initech-tdnl.29).
+	@kat=$$(grep -m1 '^KAT 0x' "$(TRACER_SERIAL)" || true); \
+		range=$${kat#KAT }; start=$${range%%-*}; end=$${range#*-}; \
+		if [ "$$start" != "0x00500000" ]; then \
+			printf '!!! test-tracer-boot FAIL: KAT start=%s, expected 0x00500000\n' "$$start"; exit 1; \
+		fi; \
+		case "$$end" in 0x*) ;; *) printf '!!! test-tracer-boot FAIL: malformed KAT end in "%s"\n' "$$kat"; exit 1;; esac; \
+		endv=$$(( end )); \
+		if [ "$$endv" -ge $$(( 0x00600000 )) ]; then \
+			printf '!!! test-tracer-boot FAIL: KAT end=%s reaches KERNEL_CEIL=0x00600000\n' "$$end"; exit 1; \
+		fi; \
+		printf '>>> test-tracer-boot: KHI + KAT placement green (%s)\n' "$$range"
+	@# 4. Screendump check: banner blitted at its known origin AND the desktop is
 	@#    still seafoam below it (ppm_text_check -- STRICTLY STRONGER than the old
 	@#    pure-seafoam grid, which the banner now legitimately perturbs).
 	@if [ ! -s "$(TRACER_PPM)" ]; then \
@@ -14870,7 +14907,7 @@ test-boot-bochs: $(BOCHS_BIN) $(TRACER_IMG)
 		printf '!!! test-boot-bochs FAIL: no serial captured at %s\n' "$(BOCHS_BOOT_SERIAL)"; exit 1; \
 	fi
 	@printf 'Serial markers captured:\n'
-	@for m in S1 S2 VBE-ENOMODE VGA13 FONT A20 GDT PM LFB OK KLOAD KERNEL INT21 BI-OK CONSOLE BANNER; do \
+	@for m in S1 S2 VBE-ENOMODE VGA13 FONT KLOAD A20 GDT PM LFB OK KHI KERNEL INT21 BI-OK CONSOLE BANNER; do \
 		if grep -q "^$$m$$" "$(BOCHS_BOOT_SERIAL)"; then printf '  %-12s : present\n' "$$m"; \
 		else printf '  %-12s : MISSING\n' "$$m"; fi; \
 	done
@@ -14882,10 +14919,23 @@ test-boot-bochs: $(BOCHS_BIN) $(TRACER_IMG)
 	@# 3b. The SHARED kernel milestone set -- the differential vs QEMU: the kernel
 	@#     reached the same state on Bochs as on QEMU (test-tracer-boot asserts
 	@#     these on the QEMU leg).
-	@for m in S1 PM OK FONT KERNEL INT21 BI-OK CONSOLE BANNER; do \
+	@for m in S1 PM OK FONT KLOAD KHI KERNEL INT21 BI-OK CONSOLE BANNER; do \
 		grep -q "^$$m$$" "$(BOCHS_BOOT_SERIAL)" \
 			|| { printf '!!! test-boot-bochs FAIL: required kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
 	done
+	@# 3c. The same high-placement assertion under the strict-transition emulator
+	@#     (kernel-runway-relocation.md K3; bead initech-tdnl.29).
+	@kat=$$(grep -m1 '^KAT 0x' "$(BOCHS_BOOT_SERIAL)" || true); \
+		range=$${kat#KAT }; start=$${range%%-*}; end=$${range#*-}; \
+		if [ "$$start" != "0x00500000" ]; then \
+			printf '!!! test-boot-bochs FAIL: KAT start=%s, expected 0x00500000\n' "$$start"; exit 1; \
+		fi; \
+		case "$$end" in 0x*) ;; *) printf '!!! test-boot-bochs FAIL: malformed KAT end in "%s"\n' "$$kat"; exit 1;; esac; \
+		endv=$$(( end )); \
+		if [ "$$endv" -ge $$(( 0x00600000 )) ]; then \
+			printf '!!! test-boot-bochs FAIL: KAT end=%s reaches KERNEL_CEIL=0x00600000\n' "$$end"; exit 1; \
+		fi; \
+		printf '>>> test-boot-bochs: KHI + KAT placement green (%s)\n' "$$range"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- tracer booted under Bochs via the mode-0x13 fallback,\n'
 	@printf '            reached the same kernel milestones as QEMU, no triple-fault\n'
@@ -19900,6 +19950,29 @@ sys.exit(1 if absent else 0)"; \
 # ---------------------------------------------------------------------------
 # Reproducible-build gate (beads initech-1zk -- Rule 11 / PRD section 7)
 # ---------------------------------------------------------------------------
+# Program-window byte golden (docs/design/kernel-runway-relocation.md K2; bead
+# initech-tdnl.29). This tiny host check reads the LOCKED header as bytes and
+# compares the program-facing literals against the pre-relocation contract. It
+# deliberately does not derive expectations from the header: an accidental
+# PROGRAM_* shift must go RED even when all C clients compile consistently.
+.PHONY: test-program-window-golden
+test-program-window-golden: | $(BUILD)
+	@awk '$$1=="#define" && ($$2=="PROGRAM_BASE" || $$2=="PROGRAM_IMAGE" || $$2=="ENV_BLOCK" || \
+	       $$2=="PROGRAM_ALLOC_END" || $$2=="PROGRAM_STACK_TOP" || \
+	       $$2=="PROGRAM_STACK_BOT") { print $$2, $$3 }' \
+		spec/memory_map.h > $(BUILD)/program-window.got
+	@printf '%s\n' \
+		'PROGRAM_BASE 0x00040000u' \
+		'PROGRAM_IMAGE 0x00040100u' \
+		'ENV_BLOCK 0x0006F000u' \
+		'PROGRAM_ALLOC_END 0x00080000u' \
+		'PROGRAM_STACK_TOP 0x0007FFFCu' \
+		'PROGRAM_STACK_BOT 0x00070000u' \
+		> $(BUILD)/program-window.expected
+	@diff -u $(BUILD)/program-window.expected $(BUILD)/program-window.got \
+		|| { printf '!!! test-program-window-golden FAIL: locked PROGRAM_* literals moved\n'; exit 1; }
+	@printf '>>> test-program-window-golden: green -- program window literals byte-identical\n'
+
 # kernel.bin MUST be byte-identical across a clean rebuild: the two-stage
 # self-host certificate (K2 == K3) and DDC are meaningless if the C kernel
 # image itself is nondeterministic. Reproducibility was asserted in WL-0004 by
@@ -21016,7 +21089,7 @@ TEST_UNIT_GATES := \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-absdisk test-absdisk-mutant \
-	test-kernel-repro test-kernel-repro-mutant \
+	test-program-window-golden test-kernel-repro test-kernel-repro-mutant \
 	test-arena-disjoint test-arena-disjoint-mutant \
 	test-loader-big test-loader-big-mutant \
 	test-hardware-spec test-hardware-spec-mutant \

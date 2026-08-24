@@ -23,7 +23,7 @@
 #include <stdint.h>
 #include "io.h"
 #include "boot_info.h"
-#include "memory_map.h"  /* FLAIR_HEAP_* + flair_heap_ram_ok (ADR-0004 DEC-03) */
+#include "memory_map.h"  /* high kernel runway (tdnl.29) + FLAIR heap contract */
 #include "console.h"
 #include "idt.h"
 #include "pic.h"
@@ -262,6 +262,13 @@ static void serial_puti(int32_t v)
 
 /* extern entrypoint of the live IDT self-test handler (isr.asm, vector 0x80). */
 extern void isr_selftest(void);
+
+/* Linker placement sentinels. Ref: docs/design/kernel-runway-relocation.md K3;
+ * bead initech-tdnl.29. kernel.ld pins _kernel_start to KERNEL_BASE and places
+ * _kernel_end after .bss; their ADDRESSES are the live placement facts printed
+ * by KAT and checked before any subsystem initialization. */
+extern uint8_t _kernel_start[];
+extern uint8_t _kernel_end[];
 
 /* extern entrypoint of the INT 21h trap stub (isr.asm, vector 0x21). */
 extern void int21_entry(void);
@@ -680,8 +687,9 @@ static void run_baked(const char *tag, const uint8_t *image, uint32_t image_len)
  * harness/proptest/test_shell.c build_shell() EXACTLY (same 2 windows, the two
  * stacked menu bars, the modal FILE COPY box), with two and only two
  * differences: (a) every byte of scene storage comes from the FLAIR heap via
- * flair_alloc (NOT static/BSS -- the kernel window has only ~17 KiB of runway
- * under the B0 kernel.ld ASSERT, bead 5dr8), and (b) it renders to an indexed-8
+ * flair_alloc (NOT static/BSS -- originally forced by the exhausted low kernel
+ * window under bead 5dr8; lifetime/ownership still require the heap after the
+ * tdnl.29 high relocation), and (b) it renders to an indexed-8
  * OFFSCREEN then PRESENTS that to the live LFB (instead of malloc+PPM).
  *
  * THE INDEXED-8 SEAM (ADR-0004 OD-2): desktop.c/chrome.c/menu.c/dialog.c return
@@ -911,12 +919,14 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
     /* ATKINSON engine explicit init (bead initech-44ab rounds 2-3, committee
      * 2026-07-11; the flair_heap_init discipline). The engine's from_rects /
      * query-helper working set is HEAP-BACKED in the freestanding build (a
-     * static array busted kernel_shell's _kernel_end < PROGRAM_BASE window by
-     * 8340 B): allocate the two full-cap slots from the FLAIR heap (the
+     * static array historically busted the low PROGRAM_BASE window by 8340 B;
+     * tdnl.29 relocates the kernel but does not change heap ownership): allocate
+     * the two full-cap slots from the FLAIR heap (the
      * flair_desktop_alloc_region idiom -- FLAIR_CLASS_REGION, fail-loud OOM),
-     * BIND them, THEN clear the in-use guard. Order is load-bearing (kstart
-     * does NOT zero .bss): bind -> reset -> shell_build_scene (the first
-     * Toolbox region call); rgn_ws_acquire fail-louds if unbound (W1). */
+     * BIND them, THEN clear the in-use guard. Order remains load-bearing for
+     * explicit re-initialization even though tdnl.29 now guarantees zero BSS:
+     * bind -> reset -> shell_build_scene (the first Toolbox region call);
+     * rgn_ws_acquire fail-louds if unbound (W1). Ref: runway design K2. */
     rgn_ws_slot_t *rgn_ws_a =
         (rgn_ws_slot_t *)flair_alloc(&heap, FLAIR_CLASS_REGION,
                                      (uint32_t)sizeof(rgn_ws_slot_t));
@@ -1112,10 +1122,11 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
  * kept 100% intact; COMMAND.COM / test-shell / test-samir-boot are GREEN. */
 static flair_raw_ring_t g_flair_kbd_ring;
 
-/* R0.1 first-activity latch. kstart does not promise zeroed BSS, so the live
- * arm explicitly resets this before installing the IRQ12 hook. The ISR only
- * increments after a packet is accepted by the SPSC ring; CursorMgr work stays
- * in task context (ADR-0004 D-4). */
+/* R0.1 first-activity latch. The live arm explicitly resets this before
+ * installing the IRQ12 hook. That re-arm remains intentional and idempotent
+ * after tdnl.29's zero-BSS guarantee (runway design K2); the ISR only increments
+ * after a packet is accepted by the SPSC ring, and CursorMgr work stays in task
+ * context (ADR-0004 D-4). */
 static volatile uint32_t g_flair_mouse_activity;
 static int g_flair_cursor_visible;
 static int g_flair_cursor_x;
@@ -2425,6 +2436,41 @@ void kernel_main(void)
     b.lfb_height = bi->lfb_height;
     b.font_addr  = bi->font_addr;
     b.ext_mem_kb = bi->ext_mem_kb;   /* extended RAM probed by stage2 (DEC-03) */
+    b.kernel_base = bi->kernel_base; /* append-only placement field (tdnl.29) */
+
+    /* Fail-loud kernel placement guard (Rule 2). Ref:
+     * docs/design/kernel-runway-relocation.md K2/K3; bead initech-tdnl.29.
+     * KAT reports linker-derived addresses, not duplicated expectations. The
+     * boot_info value independently proves stage2 copied/jumped to the agreed
+     * base. Any mismatch halts before IDT, heap, loader, or framebuffer state is
+     * initialized, so a LOAD_LOW/stale-handoff relapse cannot limp onward. */
+    {
+        uint32_t kernel_start = (uint32_t)(uintptr_t)_kernel_start;
+        uint32_t kernel_end = (uint32_t)(uintptr_t)_kernel_end;
+
+        serial_puts("KAT 0x");
+        serial_puthex32(kernel_start);
+        serial_puts("-0x");
+        serial_puthex32(kernel_end);
+        serial_putc('\n');
+
+        if (b.kernel_base != (uint32_t)KERNEL_BASE ||
+            kernel_start != (uint32_t)KERNEL_BASE ||
+            kernel_end >= (uint32_t)KERNEL_CEIL) {
+            serial_puts("PANIC kernel-placement: boot/link/runway mismatch\n");
+            serial_puts("  boot_base=0x");
+            serial_puthex32(b.kernel_base);
+            serial_puts(" expected=0x");
+            serial_puthex32((uint32_t)KERNEL_BASE);
+            serial_puts(" ceil=0x");
+            serial_puthex32((uint32_t)KERNEL_CEIL);
+            serial_putc('\n');
+            serial_puts("HALTED\n");
+            for (;;) {
+                __asm__ __volatile__("cli; hlt");
+            }
+        }
+    }
 
     /* Sanity-check the handoff struct (Rule 2 -- fail loud, but stay live so
      * the screendump still captures). Emit BI-OK on success, or BI-BAD + the
@@ -2561,8 +2607,12 @@ void kernel_main(void)
     }
 
     /* ------------------------------------------------------------------ *
-     * FLAIR HEAP RAM-SUFFICIENCY GATE (beads initech-k8o5.5; ADR-0004
-     * DEC-03 / FO-G). The FLAIR Toolbox heap is a FIXED extended-memory
+     * KERNEL-RUNWAY + FLAIR RAM-SUFFICIENCY GATE. The FLAIR heap contract
+     * remains beads initech-k8o5.5 / ADR-0004 DEC-03 / FO-G. Bead
+     * initech-tdnl.29 and docs/design/kernel-runway-relocation.md K1/K4 add
+     * the adjacent kernel runway through KERNEL_CEIL, raising the whole-OS
+     * minimum to INITECH_MIN_EXT_KB while leaving the heap window unchanged.
+     * The FLAIR Toolbox heap is a FIXED extended-memory
      * window [FLAIR_HEAP_BASE, FLAIR_HEAP_BASE+FLAIR_HEAP_SIZE) (spec/
      * memory_map.h). stage2 probed installed RAM above 1 MiB into
      * boot_info_t.ext_mem_kb; if the machine does not have enough extended
@@ -2572,8 +2622,8 @@ void kernel_main(void)
      * The probe GATES boot; it NEVER alters the memory map (Rule 11 -- the
      * layout is identical every boot; the self-host fixpoint K2==K3 is
      * unaffected). The decision is the SAME pure function the host oracle
-     * tests (flair_heap_ram_ok, memory_map.h), so artifact and oracle agree
-     * by construction (Law 2). Real emulators (QEMU/Bochs default >= 128 MiB)
+     * tests (flair_heap_ram_ok, memory_map.h), and the higher whole-map bound is
+     * derived from KERNEL_CEIL. Real emulators (QEMU/Bochs default >= 128 MiB)
      * pass; the panic only fires on a genuinely under-provisioned machine.
      *
      * Reuse the fail-loud panic contract (panic.c): the grep-able "PANIC ..."
@@ -2582,18 +2632,24 @@ void kernel_main(void)
      * above), then a permanent cli;hlt. We do not have a CPU int_frame_t here
      * (this is a boot-policy panic, not a CPU exception), so we render the
      * PC LOAD LETTER line directly and dump the relevant values to serial. */
-    if (!flair_heap_ram_ok(b.ext_mem_kb)) {
+    if (b.ext_mem_kb < (uint32_t)INITECH_MIN_EXT_KB ||
+        !flair_heap_ram_ok(b.ext_mem_kb)) {
         /* Grep-able marker first (the oracle keys on "PANIC"). */
-        serial_puts("PANIC flair-heap: insufficient extended RAM\n");
+        serial_puts("PANIC kernel-runway: insufficient extended RAM\n");
         serial_puts("  ext_mem_kb=");
         serial_putu(b.ext_mem_kb);
         serial_puts(" required_kb=");
-        serial_putu((uint32_t)FLAIR_HEAP_REQUIRED_EXT_KB);
+        serial_putu((uint32_t)INITECH_MIN_EXT_KB);
         serial_putc('\n');
         serial_puts("  FLAIR_HEAP=[0x");
         serial_puthex32(FLAIR_HEAP_BASE);
         serial_puts(",0x");
         serial_puthex32(FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE);
+        serial_puts(")\n");
+        serial_puts("  KERNEL_RUNWAY=[0x");
+        serial_puthex32(KERNEL_BASE);
+        serial_puts(",0x");
+        serial_puthex32(KERNEL_CEIL);
         serial_puts(")\n");
         serial_puts("HALTED\n");
 
@@ -2601,7 +2657,7 @@ void kernel_main(void)
          * g_panic_con is bound iff the console came up; render through it. */
         if (g_int21_con) {
             console_puts(g_int21_con,
-                "\nPC LOAD LETTER  (not enough memory for FLAIR)\n");
+                "\nPC LOAD LETTER  (not enough memory for kernel/FLAIR)\n");
         }
 
         /* Terminal: never proceed into FLAIR/heap work on a machine that
@@ -2811,11 +2867,13 @@ void kernel_main(void)
      * producer can be running yet. Ref: event.h flair_event_init contract. */
     flair_event_init(&g_flair_kbd_ring);
 
-    /* R0.1 boot-still policy: arm tracking but do not show. Explicit stores are
-     * required because the flat-kernel entry does not promise zeroed BSS. The
-     * IRQ hook below flips g_flair_mouse_activity only for a real queued packet;
-     * flair_live_cursor_track then uses EventRecord.where, the FindWindow source
-     * of truth, for the first draw and every actual coordinate change. */
+    /* R0.1 boot-still policy: arm tracking but do not show. Keep these explicit,
+     * idempotent stores even though tdnl.29 now guarantees zero BSS: x/y are
+     * deliberately non-zero and the block is also the semantic re-arm point.
+     * The IRQ hook below flips g_flair_mouse_activity only for a real queued
+     * packet; flair_live_cursor_track then uses EventRecord.where, the
+     * FindWindow source of truth, for the first draw and every actual change.
+     * Ref: docs/design/kernel-runway-relocation.md K2; bead initech-tdnl.29. */
     g_flair_mouse_activity = 0u;
     g_flair_cursor_visible = 0;
     g_flair_cursor_x = (int)(FLAIR_SCREEN_W / 2);

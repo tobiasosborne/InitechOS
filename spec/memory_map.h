@@ -31,12 +31,22 @@
  * scheme -- any further kernel growth requires a high-half / extended-memory
  * relocation (filed as a follow-up). See docs/worklog for the ratification.
  *
+ * DELIBERATE-ACT NOTE (Rule 8) -- bead initech-tdnl.29, design:
+ * docs/design/kernel-runway-relocation.md K1/K2 (2026-08-24). The kernel now
+ * lives in the fixed high runway declared below; the vacated [0x10000,0x40000)
+ * low window is stage2's capacity-capped load bounce. The proposed stack window
+ * [0x4F0000,0x500000) was STOPPED during the required Step-0.3 real-tree audit:
+ * it overlaps the locked FLAIR heap [0x100000,0x500000). Until a design
+ * amendment assigns a disjoint high home, the existing conventional kernel
+ * stack remains byte-identical. EVERY PROGRAM_* literal remains unchanged.
+ *
  * Source / Law 1 citations (all local):
  *   docs/research/psp-loader-ground-truth.md Sec 1 (the confirmed memory map +
  *     the gap proof), Sec 3.2 (the concrete addresses + the worked alloc/env
  *     fake-paragraph values), Sec 8 (Open Items 1-2: PROGRAM_BASE +
  *     PROGRAM_STACK_TOP belong in a spec header).
- *   os/milton/kernel.ld:18 (kernel linked at 0x00010000; _kernel_end);
+ *   os/milton/kernel.ld (kernel linked at KERNEL_BASE; _kernel_start/end;
+ *     docs/design/kernel-runway-relocation.md K2; bead initech-tdnl.29);
  *   Makefile KERNEL_SECTORS=96 -> kernel end ~0x1fd20 (kernel .bss grew:
  *     cfg_fat_buf et al. filled the old 64 KiB window);
  *   os/milton/kstart.asm:25 (kernel ESP = 0x0009FFFC -- the kernel stack lives
@@ -101,13 +111,36 @@
 #ifndef INITECH_SPEC_MEMORY_MAP_H
 #define INITECH_SPEC_MEMORY_MAP_H
 
+/* ------------------------------------------------------------------------ *
+ * KERNEL HIGH-RUNWAY LAYOUT (Rule-8 deliberate act; bead initech-tdnl.29).
+ * Ref: docs/design/kernel-runway-relocation.md K1/K2. The kernel is linked,
+ * copied, and executed at KERNEL_BASE; KERNEL_CEIL is exclusive. stage2 still
+ * performs the unchanged real-mode disk read into the vacated conventional
+ * bounce, whose hard cap is exactly 384 sectors. ext_mem_kb counts KiB above
+ * the 1 MiB line, hence the derived 5120 KiB installed-extended-memory minimum.
+ * The adjacent FLAIR heap ends at KERNEL_BASE, exclusive; no PROGRAM_* constant
+ * moves. STACK EXCEPTION: the design's proposed [0x4F0000,0x500000) stack is
+ * inside that heap, so Step 0.3 stopped that sub-element (bead initech-tdnl.29).
+ * The constants below retain the existing safe conventional stack until the
+ * overlap receives a separately ratified, disjoint placement.
+ * ------------------------------------------------------------------------ */
+#define KERNEL_BASE         0x00500000u
+#define KERNEL_RUNWAY       0x00100000u
+#define KERNEL_CEIL         0x00600000u
+#define KERNEL_STACK_BOT    0x00090000u
+#define KERNEL_STACK_TOP    0x0009FFFCu
+#define KERNEL_BOUNCE_BASE  0x00010000u
+#define KERNEL_BOUNCE_CAP   0x00030000u
+#define INITECH_MIN_EXT_KB \
+    (((KERNEL_CEIL) - 0x00100000u) / 1024u)
+
 /* Flat linear address of the PSP (256 bytes). The program's "segment" base in
  * the .COM model. Ref Sec 1 / Sec 3.2. RAISED 0x20000 -> 0x30000 (beads
  * initech-5pe), then RAISED 0x30000 -> 0x38000 (beads initech-o0td), then RAISED
- * 0x38000 -> 0x40000 (beads initech-re30.2; LOCKED-spec change, Rule 8): the
- * whole conventional map shifted up +0x8000 a SECOND time to give the kernel a
- * 192 KiB window (0x10000..0x40000), +32 KiB of growth room over the prior
- * 160 KiB window -- the room the FLAIR Toolbox manager set needs at M3.0. */
+ * 0x38000 -> 0x40000 (beads initech-re30.2; LOCKED-spec change, Rule 8). Under
+ * initech-tdnl.29 this address is no longer the kernel ceiling: the byte-exact
+ * program window stays here while [KERNEL_BOUNCE_BASE, PROGRAM_BASE) becomes
+ * stage2's real-mode kernel bounce. Ref: kernel-runway-relocation.md K1/K2. */
 #define PROGRAM_BASE        0x00040000u
 
 /* Flat linear entry point of the loaded program image = PROGRAM_BASE + 0x100.
@@ -161,7 +194,8 @@
 #define PROGRAM_ALLOC_END   0x00080000u
 
 /* Initial program ESP: top of the 64 KiB program stack, 4-byte aligned, below
- * PROGRAM_ALLOC_END and far below the kernel stack (0x90000+). Ref Sec 3.2.
+ * PROGRAM_ALLOC_END and below the kernel stack (KERNEL_STACK_BOT+). Ref Sec 3.2
+ * and the tdnl.29 Step-0.3 stack-overlap exception above.
  * (Shifted 0x6FFFC -> 0x77FFC by beads initech-o0td, then 0x77FFC -> 0x7FFFC by
  * beads initech-re30.2; whole-map +0x8000 each.) */
 #define PROGRAM_STACK_TOP   0x0007FFFCu
@@ -312,14 +346,13 @@
  * collide with the program region (0x40100..PROGRAM_STACK_BOT) -- the copy reads
  * staging and writes the program region, so they must be disjoint.
  *
- * Placement: the 64 KiB gap between PROGRAM_ALLOC_END (0x80000, the program's
- * memory ceiling) and the kernel stack (0x90000+; os/milton/kstart.asm:25 ESP =
- * 0x0009FFFC -- the kernel stack moved up +0x8000 with the rest of the map under
- * beads initech-o0td, then a SECOND +0x8000 under beads initech-re30.2). This
- * region is unused by the program model (it is ABOVE the program's alloc ceiling)
- * and below the kernel stack, so it is disjoint from PROGRAM_IMAGE -- a clean,
- * kernel-owned staging home (NOT the kernel stack; Risk 2 /
- * fs-mount-sft-ground-truth.md). The old single open-file buffer that used to
+ * Placement: the 64 KiB gap above PROGRAM_ALLOC_END (0x80000, the program's
+ * memory ceiling) and immediately below KERNEL_STACK_BOT. The tdnl.29 Step-0.3
+ * audit stopped the proposed high stack because it overlapped the locked FLAIR
+ * heap, so the proven conventional staging/stack adjacency remains unchanged.
+ * This is disjoint from PROGRAM_IMAGE (Risk 2 / fs-mount-sft-ground-truth.md).
+ * The old single open-file
+ * buffer that used to
  * share this region is GONE: file OPEN/READ/WRITE are now positioned per-handle
  * over the cluster chain (no whole-file buffer; beads initech-0qh), so this
  * region is staging-only.
@@ -327,15 +360,10 @@
  * Disjoint-from-PROGRAM_IMAGE proof: LOAD_STAGING_BASE (0x80000) >=
  * PROGRAM_ALLOC_END (0x80000) > PROGRAM_STACK_BOT (0x70000) > PROGRAM_IMAGE
  * (0x40100); the staging window [0x80000,0x90000) never overlaps the program
- * region [0x40100,0x70000). Disjoint-from-kernel-stack proof: the staging top
- * (0x90000) == the kernel-stack bottom (0x90000) -- adjacent, so disjoint -- and
- * the kernel-stack top (kstart.asm ESP 0x9FFFC) is adjacent to (one dword below)
- * the 0xA0000 VGA/BIOS aperture, so the kernel stack [0x90000,0xA0000) stays
- * BELOW VGA: 0x9FFFC < 0xA0000. NOTE (initech-re30.2): this SECOND +0x8000 shift
- * spent the LAST of the conventional free gap -- the kernel stack now butts
- * directly against the 0xA0000 VGA aperture with no slack, so this is the maximum
- * raise possible under the conventional-memory scheme (further growth needs a
- * high-half / extended-memory relocation). SINGLE-USE LIMIT (documented): EXEC
+ * region [0x40100,0x70000). Disjoint-from-kernel-stack proof:
+ * LOAD_STAGING_BASE+LOAD_STAGING_MAX == KERNEL_STACK_BOT == 0x90000; the
+ * exclusive staging top and inclusive stack bottom are adjacent, not
+ * overlapping. SINGLE-USE LIMIT (documented): EXEC
  * runs from kernel/shell context and is single-level (loader g_load_active
  * guard), so one staging region suffices; concurrent EXEC is a follow-up bead.
  * The image-size cap is the smaller of LOAD_STAGING_MAX and PROGRAM_IMAGE_MAX
@@ -362,6 +390,11 @@
  *   FLAIR_HEAP_SIZE = 0x00400000   (4 MiB)
  *   window          = [0x00100000, 0x00500000)
  *   FLAIR_HEAP_MIN  = 0x00400000   (== FLAIR_HEAP_SIZE: required extended RAM)
+ *
+ * Bead initech-tdnl.29 leaves this window byte-identical and places the kernel
+ * at its exclusive end, KERNEL_BASE == FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE.
+ * The whole OS now requires INITECH_MIN_EXT_KB (5120), while this heap-only
+ * threshold intentionally remains 4096 KiB. Ref: kernel-runway-relocation.md K1.
  *
  * Law 1 source citations (all local):
  *
@@ -419,6 +452,17 @@
 #define FLAIR_HEAP_BASE     0x00100000u
 #define FLAIR_HEAP_SIZE     0x00400000u
 #define FLAIR_HEAP_MIN      0x00400000u
+
+/* Cross-window teeth added by the tdnl.29 Step-0.3 audit. The kernel image may
+ * begin exactly at the heap's exclusive end, but the kernel stack must be wholly
+ * outside the heap. This compile-time proof is what rejected the design's
+ * overlapping [0x4F0000,0x500000) proposal (kernel-runway-relocation.md K1;
+ * bead initech-tdnl.29). */
+_Static_assert(KERNEL_BASE == FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE,
+               "kernel base must remain adjacent to the FLAIR heap ceiling");
+_Static_assert(KERNEL_STACK_TOP + 4u <= FLAIR_HEAP_BASE ||
+               KERNEL_STACK_BOT >= FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE,
+               "kernel stack must not overlap the locked FLAIR heap");
 
 /* Required installed extended memory, in KiB, for the FLAIR heap window to be
  * fully backed by RAM (ADR-0004 DEC-03 / FO-G). Extended memory is reported by
