@@ -325,6 +325,15 @@ flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
  * windows in front of W ). If W is not visible, out := empty. */
 void ComputeVisible(const WindowMgr *wm, const WindowPtr w, region_t *out);
 
+/* WindowMgr_clip_update_to_visible -- BeginUpdate-fidelity delivery clip.
+ * Replaces W's pending updateRgn with updateRgn INTERSECT W's CURRENT visible
+ * region, then fails loud if any post-intersect pixel lies outside visibility.
+ * This is intentionally a delivery-time verb: a seed that was visible when
+ * queued can become covered after a later z-order operation. Uses only the
+ * manager's three scratch regions; no caller scratch or allocation is needed.
+ * Ref: ADR-0013 Sec 3.3 updateEvt contract; PRD Sec 6.2; bead initech-wlzp. */
+void WindowMgr_clip_update_to_visible(WindowMgr *wm, WindowPtr w);
+
 /* WindowMgr_invalidate -- accumulate `rect` (clipped to W's visible region) into
  * W's updateRgn. The shell / an app calls this to request a repaint of a sub-area
  * (e.g. the whole content on first show). Uses the manager scratch. */

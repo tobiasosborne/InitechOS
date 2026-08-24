@@ -39,6 +39,8 @@
  * -DWINDOW_MUTATE_OVERPAINT/-DWINDOW_MUTATE_ZORDER and the activation plus
  * CHROME_FID_MUT_* CalcDoc restorations to prove the oracle bites. The switches
  * are documented at their use sites; the default build defines none of them.
+ * UPDATE_NO_VISCLIP restores the pre-wlzp delivery contract and is graded by
+ * the Process Manager's three-window stale-seed stomp case.
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -79,6 +81,8 @@ static void rgn_accumulate(region_t *dst, const region_t *other,
     region_op(scratch, dst, other, op);
     rgn_copy(dst, scratch);
 }
+
+static int list_contains(const WindowMgr *wm, const WindowPtr w);
 
 /* The Platinum document structure is the frame UNION its exact notched shadow
  * L. The shadow is part of strucRgn so z-order, exposure, and move damage own
@@ -272,6 +276,57 @@ void ComputeVisible(const WindowMgr *wm, const WindowPtr w, region_t *out)
     if (out->rows == NULL || out->x_pool == NULL) WIN_PANIC("ComputeVisible: out unattached");
     if (!w->visible) { region_set_empty(out); return; }
     visible_into(wm, w, out, 0);
+}
+
+/* BeginUpdate fidelity at the delivery seam (bead initech-wlzp): pending damage
+ * is only a seed. A z-order operation may cover part of that seed before the
+ * event pump routes it, so the paint clip must be updateRgn INTERSECT the
+ * window's CURRENT visible region. Keeping this in window.c lets the operation
+ * use the manager's three scratch regions without adding a route scratch or
+ * allocating from a tenant arena.
+ *
+ * Scratch order (region_op outputs are always distinct from both inputs):
+ *   scratch_a := union of visible fronts
+ *   scratch_b := strucRgn DIFF scratch_a             (current visRgn)
+ *   scratch_c := updateRgn INTERSECT scratch_b       (delivery clip)
+ *   updateRgn := copy(scratch_c)
+ *   scratch_a := updateRgn DIFF scratch_b            (Rule-2 assertion)
+ *
+ * Ref: ADR-0013 Sec 3.3 (updateEvt to damaged owner); PRD Sec 6.2 (region
+ * algebra); docs/design/GUI-remediation-R3-finder-design.md F2.3 redraw
+ * discipline; CLAUDE.md Rule 2; bead initech-wlzp proper-fix note. */
+void WindowMgr_clip_update_to_visible(WindowMgr *wm, WindowPtr w)
+{
+    if (wm == NULL || w == NULL) WIN_PANIC("clip_update_visible: NULL");
+    if (!list_contains(wm, w)) WIN_PANIC("clip_update_visible: not in list");
+    if (w->updateRgn == NULL) WIN_PANIC("clip_update_visible: NULL updateRgn");
+
+#ifndef UPDATE_NO_VISCLIP
+    region_t *fronts = wm->scratch_a;
+    region_t *vis = wm->scratch_b;
+    region_t *clip = wm->scratch_c;
+
+    if (!w->visible) {
+        region_set_empty(w->updateRgn);
+        return;
+    }
+
+    fronts_union(wm, w, fronts);
+    region_op(vis, w->strucRgn, fronts, RGN_OP_DIFF);
+    region_op(clip, w->updateRgn, vis, RGN_OP_INTERSECT);
+    rgn_copy(w->updateRgn, clip);
+
+    /* Rule 2: delivery paint must be a subset of current visibility. This is a
+     * distinct set-difference check, not a bbox approximation. */
+    region_op(fronts, w->updateRgn, vis, RGN_OP_DIFF);
+    if (!region_is_empty(fronts))
+        WIN_PANIC("clip_update_visible: delivery clip escaped visRgn");
+#else
+    /* Named Rule-6 mutant: resurrect the pre-fix delivery path. The directed
+     * three-window stale-seed oracle must go RED via a BACK-over-FRONT stomp. */
+    (void)wm;
+    (void)w;
+#endif
 }
 
 /* ===========================================================================

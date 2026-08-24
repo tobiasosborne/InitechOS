@@ -1,15 +1,20 @@
 /*
  * ppm_flair_drag_check.c -- the FO-9 EMU drag oracle's screendump grader (HOST,
  * C-only). beads initech-5l5z FO-9 (ADR-0006 E-D5(B) Tier-A damage law + Tier-B
- * shifted-WDEF geometry). It grades the POST-DRAG screendump of the booted
- * BOOT_FLAIR_LIVE desktop after the locked trace dragged window 1 ("Saving
- * tables to disk") by (+40,+30): from struct origin (300,120) to (340,150).
+ * shifted geometry). The default legacy mode grades the historical document-
+ * window drag. The R1.4 `modal` mode grades the post-drag screendump after the
+ * FILE COPY movableDBoxProc moves by (+40,+30), from {L140,T200} to {L180,T230}.
+ *
+ * RULE-8 RE-KEY (initech-zn61, orchestrator rework): the old FO-9 trace clicked
+ * window 1 at (400,130) BEHIND a frontmost modal. That encoded the zn61 bug as
+ * a golden; correct modality now swallows it. The locked gate therefore proves
+ * the modal's own movableDBoxProc title/drag contract (initech-zvo6/-a90f).
  *
  * THE TWO DIFFERENTIALS (each independently catches the HER-14 drag-noop mutant,
  * the "static frame dressed as interactive" heresy; ADR-0006 M1 / BC-9):
  *
- *   LEG A -- CHROME AT THE NEW POSITION.  The window's Platinum title-bar chrome
- *     is now at the SHIFTED rect {T150 L340 B390 R600}.  We grade the chrome
+ *   LEG A -- CHROME AT THE NEW POSITION. In modal mode the FILE COPY title/frame
+ *     is at {T230 L180 B310 R540}. We grade the chrome
  *     GEOMETRY at the shifted coords (a WDEF-scan at the new position; ADR-0006
  *     E-D5 Tier-B): the new struct TOP-frame row (y=150) is black; the 22-row
  *     profile contains the 12-row stripe field y[154,166), strictly alternating
@@ -20,13 +25,12 @@
  *     (x=560 is the OLD frame's right edge). A window that did NOT move leaves
  *     black rather than the shifted stripe here, so LEG A still goes RED.
  *
- *   LEG B -- THE VACATED AREA READS BARE TEAL (the D-5 damage law erased the old
- *     position; ADR-0006 E-D5 Tier-A).  Two points in the OLD title band that the
- *     new window does NOT cover and no other window/modal re-occupies -- (450,130)
- *     and (520,130), both above the new window's top (y=150), right of window 0's
- *     right edge (x=360), above the modal (y=200) -- read EXACTLY canon idx2
- *     Initech teal (#8DDCDC).  A window that did NOT move leaves its OLD title
- *     chrome here (non-teal) and LEG B goes RED.
+ *   LEG B -- THE OLD TOP FRAME IS GONE. The old modal top row y=200,x[140,500)
+ *     must no longer be an all-black run. A modal drag-noop leaves it intact.
+ *
+ *   LEG C -- VACATED PIXELS RESTORE the document windows behind the modal:
+ *     independent points in window 0/window 1 content read white, not stale
+ *     modal black/E7 and not a teal fill hole.
  *
  *   LEG C -- a bare-desktop corner sanity anchor (the canon teal is really teal).
  *
@@ -39,7 +43,7 @@
  * load-bearing assertions are GEOMETRIC differentials (chrome at the
  * SHIFTED rect; teal at the VACATED rect) that flip under the drag-noop mutant.
  *
- * Usage: ppm_flair_drag_check <screendump.ppm>
+ * Usage: ppm_flair_drag_check [modal] <screendump.ppm>
  * Exit 0 = PASS; non-zero = a named FAIL (the assertion + sampled-vs-expected RGB).
  *
  * ASCII-clean (Rule 12). Deterministic (Rule 11): fixed probe coords from the
@@ -73,6 +77,17 @@
 /* Exact Platinum stripe interval, half-open. */
 #define STRIPE_TOP (NEW_T + STRIPE_OFF)
 #define STRIPE_BOT (STRIPE_TOP + STRIPE_ROWS)
+
+/* R1.4 modal-mode geometry, hardcoded from the locked input delta rather than
+ * dialog/chrome headers (Law 2 independence). */
+#define MODAL_OLD_L 140
+#define MODAL_OLD_T 200
+#define MODAL_OLD_R 500
+#define MODAL_NEW_L 180
+#define MODAL_NEW_T 230
+#define MODAL_NEW_R 540
+#define MODAL_NEW_B 310
+#define MODAL_PIN_X 500
 
 /* ---- PPM P6 reader (the ppm_flair_check invariant). ---------------------- */
 static unsigned char *g_buf;
@@ -134,7 +149,7 @@ static void assert_idx(int x, int y, int idx, const char *what)
 
 /* Exact DEC-10 Sec 4 Platinum title cross-section. Row roles and values are
  * independently hardcoded from sys8/window-chrome.md Sec 2.1/2.2. */
-static int assert_platinum_title_profile(int x)
+static int assert_platinum_title_profile(int x, int top, const char *leg)
 {
     static const int expected[TITLEBAR_H] = {
         CIDX_BLACK,
@@ -153,13 +168,13 @@ static int assert_platinum_title_profile(int x)
     };
     int bad = 0;
     for (int dy = 0; dy < TITLEBAR_H; dy++) {
-        if (!is_rgb(x, NEW_T + dy, IDX(expected[dy]))) {
-            const unsigned char *p = at(x, NEW_T + dy);
+        if (!is_rgb(x, top + dy, IDX(expected[dy]))) {
+            const unsigned char *p = at(x, top + dy);
             fprintf(stderr,
-                    "ppm_flair_drag_check: FAIL LEG A -- Platinum title row "
+                    "ppm_flair_drag_check: FAIL %s -- Platinum title row "
                     "T+%d at (%d,%d) sampled #%02X%02X%02X, expected idx %d "
                     "#%06X\n",
-                    dy, x, NEW_T + dy, p[0], p[1], p[2], expected[dy],
+                    leg, dy, x, top + dy, p[0], p[1], p[2], expected[dy],
                     IDX(expected[dy]));
             bad = 1;
         }
@@ -168,14 +183,67 @@ static int assert_platinum_title_profile(int x)
     return bad;
 }
 
+static int grade_modal(void)
+{
+    int black = 0;
+
+    printf("ppm_flair_drag_check: modal mode -- FILE COPY "
+           "(140,200)->(180,230), locked +40,+30 trace\n");
+
+    if (!assert_platinum_title_profile(MODAL_PIN_X, MODAL_NEW_T,
+                                       "MODAL LEG A")) {
+        printf("    MODAL LEG A: exact 22-row Platinum title profile at new rect\n");
+    }
+    assert_idx(MODAL_NEW_R - 1, 275, CIDX_BLACK,
+               "MODAL LEG A: new right frame is black");
+    /* The dialog content face is CIDX_PLAT_FACE (#E7E7E7) since the 81ft
+     * controls re-key (controls.md Sec 1; commit 1e8c87c) -- NOT the
+     * title-gap FRAME_FACE gray. Orchestrator fix 2026-08-24. */
+    assert_idx(MODAL_PIN_X, 275, CIDX_PLAT_FACE,
+               "MODAL LEG A: new dialog interior is E7 face");
+
+    for (int x = MODAL_OLD_L; x < MODAL_OLD_R; x++)
+        if (is_rgb(x, MODAL_OLD_T, IDX(CIDX_BLACK))) black++;
+    if (black == MODAL_OLD_R - MODAL_OLD_L) {
+        fprintf(stderr,
+                "ppm_flair_drag_check: FAIL MODAL LEG B -- old top frame "
+                "y=200,x[140,500) is still entirely black (drag-noop)\n");
+        g_fail = 1;
+    } else {
+        printf("    MODAL LEG B: old top frame is gone (%d/%d black, not all)\n",
+               black, MODAL_OLD_R - MODAL_OLD_L);
+    }
+
+    assert_idx(160, 210, CIDX_WHITE,
+               "MODAL LEG C: vacated upper-left restores window-0 content");
+    assert_idx(400, 210, CIDX_WHITE,
+               "MODAL LEG C: vacated upper-right restores window-1 content");
+    assert_idx(150, 250, CIDX_WHITE,
+               "MODAL LEG C: vacated left body restores window-0 content");
+    assert_idx(20, 460, CIDX_DESKTOP,
+               "MODAL LEG D: bare-desktop corner is idx2 teal");
+
+    if (g_fail) {
+        fprintf(stderr,
+                "ppm_flair_drag_check: FAIL -- movable modal did not move or "
+                "its vacated footprint was not restored\n");
+        return 1;
+    }
+    printf("ppm_flair_drag_check: PASS -- modal chrome at {T230 L180 B310 R540}, "
+           "old frame gone, vacated window content restored\n");
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s <screendump.ppm>\n", argv[0]);
+    int modal_mode = (argc == 3 && strcmp(argv[1], "modal") == 0);
+    const char *path = modal_mode ? argv[2] : (argc == 2 ? argv[1] : NULL);
+    if (path == NULL) {
+        fprintf(stderr, "usage: %s [modal] <screendump.ppm>\n", argv[0]);
         return 2;
     }
-    FILE *f = fopen(argv[1], "rb");
-    if (!f) { fprintf(stderr, "ppm_flair_drag_check: cannot open %s\n", argv[1]); return 2; }
+    FILE *f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "ppm_flair_drag_check: cannot open %s\n", path); return 2; }
     int c0 = fgetc(f), c1 = fgetc(f);
     if (c0 != 'P' || c1 != '6') { fprintf(stderr, "ppm_flair_drag_check: not a P6 PPM\n"); return 2; }
     long maxv;
@@ -193,11 +261,17 @@ int main(int argc, char **argv)
     }
     fclose(f);
 
+    if (modal_mode) {
+        int rc = grade_modal();
+        free(g_buf);
+        return rc;
+    }
+
     printf("ppm_flair_drag_check: grading the post-drag frame "
            "(W1 (300,120)->(340,150), the locked +40,+30 trace)\n");
 
     /* ---- LEG A: CHROME AT THE NEW POSITION (the WDEF-scan at shifted coords) -- */
-    if (!assert_platinum_title_profile(PIN_X)) {
+    if (!assert_platinum_title_profile(PIN_X, NEW_T, "LEG A")) {
         printf("    LEG A: Platinum chrome IS at the NEW position (x=%d): "
                "22-row profile + y[%d,%d) light-first strict stripe relation\n",
                PIN_X, STRIPE_TOP, STRIPE_BOT);

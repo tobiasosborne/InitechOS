@@ -158,10 +158,38 @@ static void tw_rgn_attach(tw_rgn_t *s)
     region_set_empty(&s->r);
 }
 
-/* The required (no-op) event entry-point. */
+static int g_close_key_hello = 0;
+static int g_close_key_notes = 0;
+static int g_close_hook_hello = 0;
+static int g_close_hook_notes = 0;
+static int g_close_activate_notes = 0;
+
+/* The required event entry-point; close-disposition counters are dormant in
+ * the leak/death legs and armed by the final owner-identity close leg. */
 static void tenant_event(FlairApp *self, const EventRecord *ev)
 {
-    (void)self; (void)ev;
+    static const char hello[] = "HELLO";
+    static const char notes[] = "NOTES";
+
+    if (ev->what == (uint16_t)activateEvt && self->name != NULL &&
+        strcmp(self->name, notes) == 0 &&
+        (ev->modifiers & FLAIR_EVT_MOD_ACTIVE_FLAG) != 0u) {
+        g_close_activate_notes++;
+        return;
+    }
+    if (ev->what != (uint16_t)keyDown) return;
+    if (self->name != NULL && strcmp(self->name, hello) == 0)
+        g_close_key_hello++;
+    if (self->name != NULL && strcmp(self->name, notes) == 0)
+        g_close_key_notes++;
+}
+
+static void tenant_close(FlairApp *self)
+{
+    if (self->name != NULL && strcmp(self->name, "HELLO") == 0)
+        g_close_hook_hello++;
+    if (self->name != NULL && strcmp(self->name, "NOTES") == 0)
+        g_close_hook_notes++;
 }
 
 /* open(): build ONE document window from the RECORDS arena + bind its refCon
@@ -206,7 +234,7 @@ static const FlairAppProcs g_tenant_procs = {
     tenant_open,    /* open  */
     tenant_event,   /* event (REQUIRED) */
     NULL,           /* idle  */
-    NULL            /* close */
+    tenant_close    /* close */
 };
 
 /* ===========================================================================
@@ -349,6 +377,107 @@ int main(void)
         if (avail_death[k] != avail_death_pre) death_stable = 0;
     CHECK(death_stable,
           "AC-2/BC-6: avail STABLE across N>=3 death (kill) cycles (free-list reuse; no leak)");
+
+    /* =======================================================================
+     * OWNER-IDENTITY CLOSE (ADR-0013 Sec 3.4; beads initech-8fhu).
+     * Launch NOTES then HELLO so HELLO is foreground. Closing HELLO through the
+     * dispatch verb must run close(), dispose its window, unlink it, promote +
+     * group-raise NOTES, and route the next key only to NOTES. Then prove an
+     * unowned shell-furniture window is merely hidden, and closing NOTES reaches
+     * the legitimate zero-tenant state without routing a later key anywhere.
+     * ======================================================================= */
+    {
+        static tw_win_t furniture;
+        rgn_rect_t notes_bounds = { 8, 8, 44, 68 };
+        rgn_rect_t hello_bounds = { 12, 20, 50, 82 };
+        const char *exit_name = NULL;
+        FlairApp *notes;
+        FlairApp *hello;
+        WindowPtr hello_window;
+        WindowPtr notes_window;
+        int did_terminate;
+
+        g_close_key_hello = 0;
+        g_close_key_notes = 0;
+        g_close_hook_hello = 0;
+        g_close_hook_notes = 0;
+        g_close_activate_notes = 0;
+
+        notes = FlairProcess_launch(&plist, &M.wm, NULL, &master,
+                                    &g_tenant_procs, "NOTES", notes_bounds,
+                                    (uint32_t)RECORDS_BUDGET, (uint32_t)BUDGET);
+        hello = FlairProcess_launch(&plist, &M.wm, NULL, &master,
+                                    &g_tenant_procs, "HELLO", hello_bounds,
+                                    (uint32_t)RECORDS_BUDGET, (uint32_t)BUDGET);
+        CHECK(notes != NULL && hello != NULL,
+              "close setup: NOTES + HELLO launch co-resident");
+        hello_window = hello != NULL ? hello->windows : NULL;
+        notes_window = notes != NULL ? notes->windows : NULL;
+        CHECK(plist.head == hello && M.wm.front == hello_window,
+              "close setup: HELLO is foreground/list head and front window");
+
+        did_terminate = FlairProcess_close_window(&plist, &M.wm, &master,
+                                                   hello_window, &exit_name);
+        CHECK(did_terminate == 1 && exit_name != NULL &&
+              strcmp(exit_name, "HELLO") == 0,
+              "close: tenant-owned HELLO takes terminate disposition");
+        CHECK(g_close_hook_hello == 1,
+              "close: HELLO clean close hook ran exactly once");
+        CHECK(plist.head == notes && notes->state == (uint8_t)FLAIR_APP_FG,
+              "close: HELLO unlinked and NOTES promoted to foreground head");
+        CHECK(M.wm.front == notes_window && notes_window->hilited,
+              "close: successor NOTES group raised and its front window hilited");
+        CHECK(g_close_activate_notes == 1,
+              "close: successor NOTES receives one active activateEvt on promotion");
+
+        {
+            EventRecord key;
+            memset(&key, 0, sizeof key);
+            key.what = (uint16_t)keyDown;
+            flair_app_dispatch(&plist, &M.wm, &key);
+        }
+        CHECK(g_close_key_hello == 0 && g_close_key_notes == 1,
+              "close: post-close key reaches NOTES and never the dead HELLO tenant");
+
+        /* Furniture is deliberately unowned (refCon=0): its close box retains
+         * HideWindow semantics and cannot perturb the tenant list. */
+        memset(&furniture.rec, 0, sizeof furniture.rec);
+        tw_rgn_attach(&furniture.struc);
+        tw_rgn_attach(&furniture.cont);
+        tw_rgn_attach(&furniture.upd);
+        furniture.rec.strucRgn = &furniture.struc.r;
+        furniture.rec.contRgn = &furniture.cont.r;
+        furniture.rec.updateRgn = &furniture.upd.r;
+        NewWindow(&M.wm, &furniture.rec, (rgn_rect_t){ 2, 2, 20, 30 },
+                  (rgn_rect_t){ 5, 3, 19, 29 },
+                  documentKind, documentProc, 1);
+        furniture.rec.refCon = 0;
+        exit_name = (const char *)1;
+        did_terminate = FlairProcess_close_window(&plist, &M.wm, &master,
+                                                   &furniture.rec, &exit_name);
+        CHECK(did_terminate == 0 && exit_name == NULL && !furniture.rec.visible,
+              "close: unowned shell furniture keeps HideWindow disposition");
+        CHECK(plist.head == notes,
+              "close: hiding shell furniture does not mutate the process list");
+
+        exit_name = NULL;
+        did_terminate = FlairProcess_close_window(&plist, &M.wm, &master,
+                                                   notes_window, &exit_name);
+        CHECK(did_terminate == 1 && exit_name != NULL &&
+              strcmp(exit_name, "NOTES") == 0 && g_close_hook_notes == 1,
+              "close: NOTES terminates cleanly after HELLO");
+        CHECK(plist.head == NULL,
+              "close: closing the final tenant leaves a valid empty process list");
+
+        {
+            EventRecord key;
+            memset(&key, 0, sizeof key);
+            key.what = (uint16_t)keyDown;
+            flair_app_dispatch(&plist, &M.wm, &key);
+        }
+        CHECK(g_close_key_hello == 0 && g_close_key_notes == 1,
+              "close: zero-tenant state swallows keys without a dead-tenant delivery");
+    }
 
     return TEST_SUMMARY("test-process-teardown");
 }

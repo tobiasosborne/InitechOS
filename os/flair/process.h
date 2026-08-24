@@ -299,6 +299,18 @@ void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
 void FlairProcess_kill(FlairProcessList *list, WindowMgr *wm,
                        flair_heap_t *master, FlairApp *app);
 
+/* FlairProcess_close_window -- close-box disposition by owner identity.
+ * A refCon owned by a resident tenant takes the ratified clean termination path
+ * (close hook, DisposeWindow sweep, unlink, successor/group promotion, split-
+ * arena frees). An unowned WindowRecord is shell furniture and keeps the legacy
+ * HideWindow disposition. Returns 1 when a tenant terminated, 0 for furniture;
+ * `terminated_name` receives the stable app-name pointer before the handle is
+ * freed (or NULL for furniture). Ref: ADR-0013 Sec 3.4; DEC-AC3-3 subset;
+ * GUI-remediation-R3-finder-design.md F2-3; bead initech-8fhu. */
+int FlairProcess_close_window(FlairProcessList *list, WindowMgr *wm,
+                              flair_heap_t *master, WindowPtr w,
+                              const char **terminated_name);
+
 /* flair_app_dispatch -- THE single Layer-5 dispatcher (ADR-0013 Sec 3.3, BC-2).
  *
  * Demuxes ONE cooked EventRecord to the owning tenant and performs activation,
@@ -324,7 +336,10 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
  * window's owning app, background apps included").
  *
  * Walks the WindowMgr z-order (wm->front .. nextWindow) and, for every VISIBLE
- * window whose updateRgn is NON-EMPTY, synthesizes ONE updateEvt EventRecord
+ * window whose updateRgn is NON-EMPTY, first replaces the pending seed with
+ * updateRgn INTERSECT the window's CURRENT visible region (BeginUpdate fidelity;
+ * a z-order change may have covered an older seed), then synthesizes ONE
+ * updateEvt EventRecord
  * (what=updateEvt; message = the affected window's identity, (uint32_t)(uintptr_t)w
  * per MTE Ch 2 -- exact on flat-32; where/when best-effort/zero, Rule 11),
  * recovers the owning FlairApp by the SAME refCon-match rule the dispatcher uses

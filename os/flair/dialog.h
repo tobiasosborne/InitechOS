@@ -354,6 +354,28 @@ void DrawDialog(DialogPtr dp);
  * -------------------------------------------------------------------------- */
 void ShowDialog(DialogPtr dp);
 
+/* True-modal dispatch classification (bead initech-zn61). This is a wrapper
+ * seam above FindWindow, not a geometry change: while `dp` is visible, clicks
+ * outside it are swallowed (the block callback replaces SysBeep), inside input
+ * is captured by the dialog, and a movableDBoxProc title hit remains draggable
+ * on the dialog itself. Keys are always captured by the modal. */
+typedef enum flair_modal_disposition {
+    FLAIR_MODAL_PASSTHROUGH = 0,
+    FLAIR_MODAL_CAPTURE     = 1,
+    FLAIR_MODAL_BLOCK       = 2,
+    FLAIR_MODAL_DRAG        = 3
+} flair_modal_disposition_t;
+
+typedef void (*dialog_modal_block_fn)(flair_point_t where, void *user);
+
+flair_modal_disposition_t DialogModalDispatch(
+    const DialogPtr dp, const EventRecord *ev,
+    dialog_modal_block_fn blockProc, void *blockUser);
+
+/* Move a standalone movable dialog by a global delta. Dialog/item/control
+ * geometry and all three regions stay in the same global coordinate space. */
+void MoveDialog(DialogPtr dp, int16_t dh, int16_t dv);
+
 /* --------------------------------------------------------------------------
  * ModalDialog -- cooperative modal event loop.
  *
@@ -382,6 +404,13 @@ void ShowDialog(DialogPtr dp);
  *    procedure for others."
  * -------------------------------------------------------------------------- */
 typedef int (*dialog_filter_fn)(DialogPtr dp, EventRecord *ev, uint16_t *itemHit);
+
+/* Handle exactly one already-cooked event for a modal dialog. Returns nonzero
+ * when the event dismissed the dialog and wrote itemHit. ModalDialog uses this
+ * same symbol, and the live shell pump calls it after DialogModalDispatch has
+ * captured an event, so keys never fall through to a window behind the modal. */
+int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
+                      dialog_filter_fn filterProc, uint16_t *itemHit);
 
 void ModalDialog(DialogPtr         dp,
                  flair_raw_ring_t *ring,

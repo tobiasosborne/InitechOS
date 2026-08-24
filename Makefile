@@ -734,6 +734,14 @@ KERNEL_FLAIRLIVE_MAIN_OBJ  := $(BUILD)/kmain_flairlive.o
 KERNEL_FLAIRLIVE_ELF       := $(BUILD)/kernel_flairlive.elf
 KERNEL_FLAIRLIVE_BIN       := $(BUILD)/kernel_flairlive.bin
 FLAIRLIVE_IMG              := $(BUILD)/flair_live.img
+# NO-MODAL live variant (initech-zn61, authorized 2026-08-24): identical live
+# kernel/object set and scene geometry, with only shell_build_scene(show_modal=0).
+# Period-correct modal builds block menus; the menu/crossdrag oracle families use
+# this preserving variant while modal behavior stays on FLAIRLIVE_IMG.
+KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ := $(BUILD)/kmain_flairlive_nomodal.o
+KERNEL_FLAIRLIVE_NOMODAL_ELF      := $(BUILD)/kernel_flairlive_nomodal.elf
+KERNEL_FLAIRLIVE_NOMODAL_BIN      := $(BUILD)/kernel_flairlive_nomodal.bin
+FLAIRLIVE_NOMODAL_IMG             := $(BUILD)/flair_live_nomodal.img
 # Rule-6 MUTANT (initech-5l5z FO-4 / ADR-0006 BC-9): the SAME BOOT_FLAIR_LIVE
 # kernel but compiled with -DFLAIR_LIVE_MUTATE_NO_HOOK so the tick hook is NEVER
 # installed -> the FLAIR tick base never advances -> "FLAIR-TICK" never appears
@@ -752,39 +760,35 @@ FLAIRLIVE_MUT_KBD_IMG             := $(BUILD)/flair_live_mut_kbd.img
 
 # FO-7/8 drag-noop MUTANT flair_live kernel/image (beads initech-5l5z; ADR-0006
 # M1/BC-9 -- the HER-14 static-frame mutant: -DFLAIR_LIVE_MUTATE_DRAG_NOOP makes
-# the pump's inDrag dispatch a NO-OP so the window does NOT move; test-flair-drag
-# then sees bare teal at the new pos + chrome still at the old -> RED).
+# both document and movable-modal commits NO-OP while preserving their proposed
+# markers. The modal pixel oracle sees the old frame and goes RED).
 KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_drag.o
 KERNEL_FLAIRLIVE_MUT_DRAG_ELF      := $(BUILD)/kernel_flairlive_mut_drag.elf
 KERNEL_FLAIRLIVE_MUT_DRAG_BIN      := $(BUILD)/kernel_flairlive_mut_drag.bin
 FLAIRLIVE_MUT_DRAG_IMG             := $(BUILD)/flair_live_mut_drag.img
-# OVERLAY-ignore MUTANT flair_live kernel/image (beads initech-pipa/-dc4v; Rule 6):
-# the SAME BOOT_FLAIR_LIVE kmain (overlay_rgn IS wired + set), but window.c is
-# compiled with -DWINDOW_MUTATE_IGNORE_OVERLAY so fronts_union IGNORES the set
-# overlay -- the pre-fix compositor (a dragged window seafoam-erases / overpaints
-# the modal + menu bars). test-flair-dc4v then sees the modal ERASED -> RED. Swaps
-# ONLY window.o (its own mutant obj) so the rest of the shared FLAIR set is reused.
-KERNEL_WINDOW_MUT_OVERLAY_OBJ      := $(BUILD)/window_mut_overlay.o
-KERNEL_FLAIRLIVE_MUT_OVERLAY_ELF   := $(BUILD)/kernel_flairlive_mut_overlay.elf
-KERNEL_FLAIRLIVE_MUT_OVERLAY_BIN   := $(BUILD)/kernel_flairlive_mut_overlay.bin
-FLAIRLIVE_MUT_OVERLAY_IMG          := $(BUILD)/flair_live_mut_overlay.img
+# Reverse modal-restoration mutant (R1.4 re-key, initech-zn61/-dc4v): the modal
+# moves and redraws at its new position, but its OLD footprint stays stale.
+KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_modal_restore.o
+KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_ELF      := $(BUILD)/kernel_flairlive_mut_modal_restore.elf
+KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN      := $(BUILD)/kernel_flairlive_mut_modal_restore.bin
+FLAIRLIVE_MUT_MODAL_RESTORE_IMG             := $(BUILD)/flair_live_mut_modal_restore.img
 # FO-8b menu-noop MUTANT (beads initech-5l5z; Rule 6; the HER-14 "menus do not
 # work" heresy): -DFLAIR_LIVE_MUTATE_MENU_NOOP makes the pump's inMenuBar dispatch
 # drop NO panel (FLAIR-MENU sel=0) -> ppm_flair_menu_check sees bare teal -> RED.
-KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_menu.o
-KERNEL_FLAIRLIVE_MUT_MENU_ELF      := $(BUILD)/kernel_flairlive_mut_menu.elf
-KERNEL_FLAIRLIVE_MUT_MENU_BIN      := $(BUILD)/kernel_flairlive_mut_menu.bin
-FLAIRLIVE_MUT_MENU_IMG             := $(BUILD)/flair_live_mut_menu.img
+KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_MAIN_OBJ := $(BUILD)/kmain_flairlive_nomodal_mut_menu.o
+KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_ELF      := $(BUILD)/kernel_flairlive_nomodal_mut_menu.elf
+KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN      := $(BUILD)/kernel_flairlive_nomodal_mut_menu.bin
+FLAIRLIVE_NOMODAL_MUT_MENU_IMG             := $(BUILD)/flair_live_nomodal_mut_menu.img
 # CROSS-MENU DRAG no-rehit MUTANT (beads initech-9op1; Rule 6): the SAME
 # BOOT_FLAIR_LIVE kmain but with -DKMAIN_MUT_MENU_NO_REHIT: flair_live_do_menu's
 # per-tick loop freezes `mi` at the click (the ORIGINAL initech-9op1 bug) --
 # MenuSelect's own final result is still correct, but the live drop never follows
 # a cross-menu drag -> ppm_flair_menu_crossdrag_check sees the stale "File" panel
 # (never erased) and no "Edit" panel (never dropped) -> RED.
-KERNEL_FLAIRLIVE_MUT_NOREHIT_MAIN_OBJ := $(BUILD)/kmain_flairlive_mut_norehit.o
-KERNEL_FLAIRLIVE_MUT_NOREHIT_ELF      := $(BUILD)/kernel_flairlive_mut_norehit.elf
-KERNEL_FLAIRLIVE_MUT_NOREHIT_BIN      := $(BUILD)/kernel_flairlive_mut_norehit.bin
-FLAIRLIVE_MUT_NOREHIT_IMG             := $(BUILD)/flair_live_mut_norehit.img
+KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_MAIN_OBJ := $(BUILD)/kmain_flairlive_nomodal_mut_norehit.o
+KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_ELF      := $(BUILD)/kernel_flairlive_nomodal_mut_norehit.elf
+KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN      := $(BUILD)/kernel_flairlive_nomodal_mut_norehit.bin
+FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG             := $(BUILD)/flair_live_nomodal_mut_norehit.img
 # INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on):
 # the SAME BOOT_FLAIR_LIVE kmain but compiled ALSO with -DFLAIR_LIVE_INTERACTIVE,
 # which makes the WaitNextEvent pump UNBOUNDED (for(;;), until power-off).
@@ -8606,6 +8610,36 @@ $(FLAIRLIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_BIN) | $(BUILD)
 	@dd if=$(KERNEL_FLAIRLIVE_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-live image: %s (FLAIR cooperative tick kernel @s17)\n" "$@"
 
+# --- NO-MODAL FLAIR live kernel/image (initech-zn61; authorized 2026-08-24). -
+# The clean live main object is a dependency proxy for the complete kmain/header
+# prereq vector. Recompile the SAME source with the one additive scene flag;
+# every linked object and every window/menu coordinate remains identical.
+$(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ): $(KERNEL_FLAIRLIVE_MAIN_OBJ) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_NO_MODAL -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+
+KERNEL_FLAIRLIVE_NOMODAL_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ)
+
+$(KERNEL_FLAIRLIVE_NOMODAL_ELF): $(KERNEL_FLAIRLIVE_NOMODAL_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_OBJS)
+
+$(KERNEL_FLAIRLIVE_NOMODAL_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_ELF) | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_nomodal.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-nomodal): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-nomodal)
+
+$(FLAIRLIVE_NOMODAL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_BIN) | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(KERNEL_FLAIRLIVE_NOMODAL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live NO-MODAL image: %s (same windows/bars/menus; show_modal=0)\n" "$@"
+
 # --- Rule-6 MUTANT FLAIR-live kernel (beads initech-5l5z FO-4; ADR-0006 BC-9) -
 # Same BOOT_FLAIR_LIVE kmain but with -DFLAIR_LIVE_MUTATE_NO_HOOK: the tick hook
 # is never installed, so flair_tick_advance never runs, so FLAIR-TICK never
@@ -8663,10 +8697,9 @@ $(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BI
 	@printf ">>> flair-live kbd-MUTANT image: %s (no kbd hook -- FLAIR-KEY never appears)\n" "$@"
 
 # --- FO-7/8 drag-noop MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6;
-# ADR-0006 M1/BC-9). -DFLAIR_LIVE_MUTATE_DRAG_NOOP: the pump's inDrag dispatch does
-# NOTHING (the window stays put) -> test-flair-drag's screendump sees bare teal at
-# the new pos + chrome still at the old -> RED. The direct HER-14 static-frame
-# mutant. Mirrors the FLAIRLIVE_MUT_KBD obj/elf/bin/img rules. -----------------
+# ADR-0006 M1/BC-9). -DFLAIR_LIVE_MUTATE_DRAG_NOOP suppresses both document and
+# movable-modal commits while preserving their proposed markers. The modal-mode
+# PPM oracle sees the old all-black FILE COPY frame -> RED. Direct HER-14 mutant.
 $(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/desktop.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_DRAG_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
@@ -8690,98 +8723,98 @@ $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_
 	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_FLAIRLIVE_MUT_DRAG_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
-	@printf ">>> flair-live drag-noop MUTANT image: %s (inDrag dispatch is a no-op -- the window never moves)\n" "$@"
+	@printf ">>> flair-live drag-noop MUTANT image: %s (document/modal commits no-op; markers still fire)\n" "$@"
 
-# --- OVERLAY-ignore MUTANT (beads initech-pipa/-dc4v; Rule 6). window.c built with
-# -DWINDOW_MUTATE_IGNORE_OVERLAY: fronts_union drops the wm->overlay_rgn fold, so a
-# SET overlay is ignored -> the pre-fix compositor erases/overpaints the modal +
-# menu bars on a drag. Swaps ONLY window.o (the mutant obj) into the FLAIRLIVE obj
-# set (the normal main obj still wires + sets overlay_rgn). -----------------------
-$(KERNEL_WINDOW_MUT_OVERLAY_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -DWINDOW_ENABLE_R1_OPS -DWINDOW_MUTATE_IGNORE_OVERLAY $(WINDOW_INC) -c os/flair/window.c -o $@
+# --- reverse modal-restoration MUTANT (R1.4 / initech-dc4v re-key). The modal
+# still moves, redraws, and emits FLAIR-MODAL-DRAG, but old_bounds is not
+# invalidated/restored. This is the mutation that intersects the new reverse
+# survival scene; the original IGNORE_OVERLAY mutant remains below and is
+# mutation-proven on the forward window-across-overlay HOST scene. -------------
+$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/desktop.h os/flair/dialog.h os/flair/shell.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_MODAL_NO_RESTORE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS := $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_WINDOW_MUT_OVERLAY_OBJ)
+KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ)
 
-$(KERNEL_FLAIRLIVE_MUT_OVERLAY_ELF): $(KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_OVERLAY_OBJS)
+$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_ELF): $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS)
 
-$(KERNEL_FLAIRLIVE_MUT_OVERLAY_BIN): $(KERNEL_FLAIRLIVE_MUT_OVERLAY_ELF) | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN): $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	if [ "$$sz" -gt "$$max" ]; then \
-		printf '!!! kernel_flairlive_mut_overlay.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		printf '!!! kernel_flairlive_mut_modal_restore.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(flairlive-mutant-ignore-overlay): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(flairlive-mutant-modal-restore): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-mutant-modal-restore)
 
-$(FLAIRLIVE_MUT_OVERLAY_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_OVERLAY_BIN) | $(BUILD)
+$(FLAIRLIVE_MUT_MODAL_RESTORE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
 	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_MUT_OVERLAY_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
-	@printf ">>> flair-live overlay-ignore MUTANT image: %s (fronts_union ignores wm->overlay_rgn -- modal/bars erased on drag)\n" "$@"
+	@dd if=$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live modal-restore MUTANT image: %s (old modal footprint left stale)\n" "$@"
 
-# --- FO-8b menu-noop MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6;
-# ADR-0006 FO-8). -DFLAIR_LIVE_MUTATE_MENU_NOOP: the pump's inMenuBar dispatch drops
-# NO panel and tracks/selects nothing (FLAIR-MENU sel=0) -> ppm_flair_menu_check
-# sees bare teal where the dropped panel would be -> RED. The HER-14 "menus do not
-# work" heresy mutant. Exact mirror of the FLAIRLIVE_MUT_DRAG obj/elf/bin/img rules
-# (the mut-obj prereqs add os/flair/menu.h os/flair/shell.h). -----------------
-$(KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/desktop.h os/flair/menu.h os/flair/shell.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_MENU_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+# --- FO-8b menu-noop MUTANT on the NO-MODAL live scene (initech-zn61). The
+# underlying menu geometry/trace is unchanged; only show_modal=0 lets the period-
+# correct menu dispatch occur. FLAIR_LIVE_MUTATE_MENU_NOOP then drops no panel. -
+$(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_MAIN_OBJ): $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ) os/flair/menu.h os/flair/shell.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_NO_MODAL -DFLAIR_LIVE_MUTATE_MENU_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_FLAIRLIVE_MUT_MENU_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MENU_MAIN_OBJ)
+KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ),$(KERNEL_FLAIRLIVE_NOMODAL_OBJS)) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_MAIN_OBJ)
 
-$(KERNEL_FLAIRLIVE_MUT_MENU_ELF): $(KERNEL_FLAIRLIVE_MUT_MENU_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_MENU_OBJS)
+$(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_ELF): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS)
 
-$(KERNEL_FLAIRLIVE_MUT_MENU_BIN): $(KERNEL_FLAIRLIVE_MUT_MENU_ELF) | $(BUILD)
+$(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	if [ "$$sz" -gt "$$max" ]; then \
-		printf '!!! kernel_flairlive_mut_menu.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		printf '!!! kernel_flairlive_nomodal_mut_menu.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(flairlive-mutant-menunoop): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(flairlive-nomodal-mutant-menunoop): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-nomodal-mutant-menunoop)
 
-$(FLAIRLIVE_MUT_MENU_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MENU_BIN) | $(BUILD)
+$(FLAIRLIVE_NOMODAL_MUT_MENU_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
 	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_MUT_MENU_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
-	@printf ">>> flair-live menu-noop MUTANT image: %s (inMenuBar dispatch drops no panel -- FLAIR-MENU sel=0)\n" "$@"
+	@dd if=$(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live NO-MODAL menu-noop MUTANT image: %s\n" "$@"
 
 # --- CROSS-MENU DRAG no-rehit MUTANT flair_live kernel/image (beads initech-9op1;
 # Rule 6). -DKMAIN_MUT_MENU_NO_REHIT freezes `mi` in flair_live_do_menu's per-tick
 # loop at the click -- MenuSelect's own result is unaffected, but the live drop
 # never follows a cross-menu drag -> ppm_flair_menu_crossdrag_check RED. Exact
-# mirror of the FLAIRLIVE_MUT_MENU obj/elf/bin/img rules. ---------------------
-$(KERNEL_FLAIRLIVE_MUT_NOREHIT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h os/flair/event.h os/flair/window.h os/flair/desktop.h os/flair/menu.h os/flair/shell.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DKMAIN_MUT_MENU_NO_REHIT -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+# mirror of the NO-MODAL menu mutant rules. ----------------------------------
+$(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_MAIN_OBJ): $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ) os/flair/menu.h os/flair/shell.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_NO_MODAL -DKMAIN_MUT_MENU_NO_REHIT -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_FLAIRLIVE_MUT_NOREHIT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_NOREHIT_MAIN_OBJ)
+KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ),$(KERNEL_FLAIRLIVE_NOMODAL_OBJS)) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_MAIN_OBJ)
 
-$(KERNEL_FLAIRLIVE_MUT_NOREHIT_ELF): $(KERNEL_FLAIRLIVE_MUT_NOREHIT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_NOREHIT_OBJS)
+$(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_ELF): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS)
 
-$(KERNEL_FLAIRLIVE_MUT_NOREHIT_BIN): $(KERNEL_FLAIRLIVE_MUT_NOREHIT_ELF) | $(BUILD)
+$(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	if [ "$$sz" -gt "$$max" ]; then \
-		printf '!!! kernel_flairlive_mut_norehit.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		printf '!!! kernel_flairlive_nomodal_mut_norehit.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
 		exit 1; \
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(flairlive-mutant-norehit): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	printf ">>> kernel(flairlive-nomodal-mutant-norehit): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-nomodal-mutant-norehit)
 
-$(FLAIRLIVE_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_NOREHIT_BIN) | $(BUILD)
+$(FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
 	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_MUT_NOREHIT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
-	@printf ">>> flair-live cross-menu no-rehit MUTANT image: %s (flair_live_do_menu freezes mi at the click -- the live drop never follows a cross-menu drag)\n" "$@"
+	@dd if=$(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-live NO-MODAL cross-menu no-rehit MUTANT image: %s\n" "$@"
 
 # --- INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on)
 # Same BOOT_FLAIR_LIVE kmain but ALSO -DFLAIR_LIVE_INTERACTIVE: an UNBOUNDED
@@ -9097,6 +9130,7 @@ endef
 
 $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_IGNORE_REFCON,ignore_refcon))
 $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_SKIP_ACTIVATE,skip_activate))
+$(eval $(call flair-tenants-proc-mutant-rules,CLOSE_HIDE_ONLY,close_hide_only))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_DROP_UPDATE,drop_update))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP,no_menubar_swap))
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_NOTES_BAR_SYS,notes_bar_sys))
@@ -9341,15 +9375,15 @@ test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_M
 	@printf '>>> mutant1 (NO_MOUSE_HOOK): RED as required -- no cooked mouseDown (the gate bites)\n'
 	@# Mutant 2: master-only EOI (-DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI) -> slave wedges
 	@# after the FIRST IRQ12, so the move packets never complete -> the cursor never
-	@# advances to 340,220 -> no cooked mouseDown at the advanced position.
+	@# advances to 340,260 -> no cooked mouseDown at the advanced position.
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_EOI_IMG)" --name flair_mouse_mut_eoi --out "$(BUILD)" \
 		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_mouse_mut_eoi.serial" \
 		|| { printf '!!! mutant2 did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
-	@if grep -q '^FLAIR-EVT what=1 where=340,220 ' "$(BUILD)/flair_mouse_mut_eoi.serial"; then \
-		printf '!!! test-flair-mouse-mutant FAIL: master-only-EOI mutant reached the ADVANCED cursor (FLAIR-EVT what=1 where=340,220) -- the no-wedge gate is decoration (the slave did NOT wedge)\n'; exit 1; \
+	@if grep -q '^FLAIR-EVT what=1 where=340,260 ' "$(BUILD)/flair_mouse_mut_eoi.serial"; then \
+		printf '!!! test-flair-mouse-mutant FAIL: master-only-EOI mutant reached the ADVANCED cursor (FLAIR-EVT what=1 where=340,260) -- the no-wedge gate is decoration (the slave did NOT wedge)\n'; exit 1; \
 	fi
-	@printf '>>> mutant2 (MASTER_ONLY_EOI): RED as required -- cursor never advanced to 340,220 (slave 8259A wedged after the first IRQ12)\n'
+	@printf '>>> mutant2 (MASTER_ONLY_EOI): RED as required -- cursor never advanced to 340,260 (slave 8259A wedged after the first IRQ12)\n'
 	@printf 'VERDICT   : PASS -- both FO-6 mutants BITE (Rule 6)\n'
 	@printf '======================================================================\n'
 
@@ -10698,6 +10732,7 @@ TEST_PROC_TEARDOWN_SRC := harness/proptest/test_process_teardown.c
 TEST_PROC_TEARDOWN_MUT := $(BUILD)/test_process_teardown_mutant_leakblock
 TEST_PROC_TEARDOWN_MUT_RECS := $(BUILD)/test_process_teardown_mutant_leakrecords
 TEST_PROC_TEARDOWN_MUT_UBD0 := $(BUILD)/test_process_teardown_mutant_ubd0
+TEST_PROC_TEARDOWN_MUT_CLOSE := $(BUILD)/test_process_teardown_mutant_close_hide_only
 TEST_PROC_TEARDOWN_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
                      os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
@@ -10710,6 +10745,8 @@ $(TEST_PROC_TEARDOWN_MUT_RECS): $(TEST_PROC_TEARDOWN_SRC) $(TEST_PROC_TEARDOWN_D
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEARDOWN_MUT_LEAK_RECORDS $(PROCESS_INC) -o $@ $(TEST_PROC_TEARDOWN_SRC) $(PROCESS_LINK)
 $(TEST_PROC_TEARDOWN_MUT_UBD0): $(TEST_PROC_TEARDOWN_SRC) $(TEST_PROC_TEARDOWN_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DUBD0_MUT_RECORDS_IN_DATA_ARENA $(PROCESS_INC) -o $@ $(TEST_PROC_TEARDOWN_SRC) $(PROCESS_LINK)
+$(TEST_PROC_TEARDOWN_MUT_CLOSE): $(TEST_PROC_TEARDOWN_SRC) $(TEST_PROC_TEARDOWN_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCLOSE_HIDE_ONLY $(PROCESS_INC) -o $@ $(TEST_PROC_TEARDOWN_SRC) $(PROCESS_LINK)
 
 test-process-teardown: $(TEST_PROC_TEARDOWN)
 	@printf ">>> test-process-teardown: ADR-0013 O-3 host teardown/leak oracle (bump+free-list avail: cycle-1 drop, cycles>=2 stable; ADR-0013 AC-2 split-arena death-survival sub-test)\n"
@@ -10722,11 +10759,12 @@ test-process-teardown: $(TEST_PROC_TEARDOWN)
 # of the records_arena, TEST-side) makes FlairProcess_kill read the 0xFF-scribbled
 # records on death -> z-order not cleared / SIGSEGV -> RED. Each bites a DISTINCT
 # invariant the split-arena ruling rests on (Rule 6).
-test-process-teardown-mutant: $(TEST_PROC_TEARDOWN_MUT) $(TEST_PROC_TEARDOWN_MUT_RECS) $(TEST_PROC_TEARDOWN_MUT_UBD0)
-	@printf ">>> test-process-teardown-mutant: confirming LEAK_BLOCK + LEAK_RECORDS + UBD0_RECORDS_IN_DATA_ARENA all go RED (Rule 6)\n"
+test-process-teardown-mutant: $(TEST_PROC_TEARDOWN_MUT) $(TEST_PROC_TEARDOWN_MUT_RECS) $(TEST_PROC_TEARDOWN_MUT_UBD0) $(TEST_PROC_TEARDOWN_MUT_CLOSE)
+	@printf ">>> test-process-teardown-mutant: confirming LEAK_BLOCK + LEAK_RECORDS + UBD0_RECORDS_IN_DATA_ARENA + CLOSE_HIDE_ONLY all go RED (Rule 6)\n"
 	@if $(TEST_PROC_TEARDOWN_MUT) >/dev/null 2>&1; then printf '!!! test-process-teardown-mutant FAIL: LEAK_BLOCK PASSED -- the data-leak oracle is decoration\n'; exit 1; else printf '>>> test-process-teardown-mutant: green (LEAK_BLOCK correctly RED -- data-block avail drifts down)\n'; fi
 	@if $(TEST_PROC_TEARDOWN_MUT_RECS) >/dev/null 2>&1; then printf '!!! test-process-teardown-mutant FAIL: LEAK_RECORDS PASSED -- the records-leak oracle is decoration\n'; exit 1; else printf '>>> test-process-teardown-mutant: green (LEAK_RECORDS correctly RED -- records-block avail drifts down)\n'; fi
 	@if $(TEST_PROC_TEARDOWN_MUT_UBD0) >/dev/null 2>&1; then printf '!!! test-process-teardown-mutant FAIL: UBD0_RECORDS_IN_DATA_ARENA PASSED -- AC-2 death-survival is decoration\n'; exit 1; else printf '>>> test-process-teardown-mutant: green (UBD0 records-in-data correctly RED -- kill reads the scribbled DATA arena)\n'; fi
+	@if $(TEST_PROC_TEARDOWN_MUT_CLOSE) >/dev/null 2>&1; then printf '!!! test-process-teardown-mutant FAIL: CLOSE_HIDE_ONLY PASSED -- terminate-on-close/key-routing oracle is decoration\n'; exit 1; else printf '>>> test-process-teardown-mutant: green (CLOSE_HIDE_ONLY correctly RED -- post-close key targets the hidden dead-designate tenant)\n'; fi
 
 # ---------------------------------------------------------------------------
 # STANDALONE gate (NOT yet in any aggregate): test-process-budget
@@ -11034,6 +11072,7 @@ TEST_PROC_UPDATE     := $(BUILD)/test_process_update
 TEST_PROC_UPDATE_SRC := harness/proptest/test_process_update.c
 TEST_PROC_UPDATE_MUT_OWNER := $(BUILD)/test_process_update_mutant_wrongowner
 TEST_PROC_UPDATE_MUT_VALID := $(BUILD)/test_process_update_mutant_skipvalidate
+TEST_PROC_UPDATE_MUT_VIS   := $(BUILD)/test_process_update_mutant_no_visclip
 TEST_PROC_UPDATE_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
                      os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
@@ -11044,16 +11083,19 @@ $(TEST_PROC_UPDATE_MUT_OWNER): $(TEST_PROC_UPDATE_SRC) $(TEST_PROC_UPDATE_DEPS) 
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DUPDATE_MUT_WRONG_OWNER $(PROCESS_INC) -o $@ $(TEST_PROC_UPDATE_SRC) $(PROCESS_LINK)
 $(TEST_PROC_UPDATE_MUT_VALID): $(TEST_PROC_UPDATE_SRC) $(TEST_PROC_UPDATE_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DUPDATE_MUT_SKIP_VALIDATE $(PROCESS_INC) -o $@ $(TEST_PROC_UPDATE_SRC) $(PROCESS_LINK)
+$(TEST_PROC_UPDATE_MUT_VIS): $(TEST_PROC_UPDATE_SRC) $(TEST_PROC_UPDATE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DUPDATE_NO_VISCLIP $(PROCESS_INC) -o $@ $(TEST_PROC_UPDATE_SRC) $(PROCESS_LINK)
 
 test-process-update: $(TEST_PROC_UPDATE)
 	@printf ">>> test-process-update: ADR-0013 updateEvt-spine host oracle (flair_route_updates: damage -> owning tenant, validate, unowned tolerated)\n"
 	@$(TEST_PROC_UPDATE)
 	@printf ">>> test-process-update: green\n"
 
-test-process-update-mutant: $(TEST_PROC_UPDATE_MUT_OWNER) $(TEST_PROC_UPDATE_MUT_VALID)
-	@printf ">>> test-process-update-mutant: confirming both self-mutants go RED (Rule 6)\n"
+test-process-update-mutant: $(TEST_PROC_UPDATE_MUT_OWNER) $(TEST_PROC_UPDATE_MUT_VALID) $(TEST_PROC_UPDATE_MUT_VIS)
+	@printf ">>> test-process-update-mutant: confirming WRONG_OWNER + SKIP_VALIDATE + UPDATE_NO_VISCLIP go RED (Rule 6)\n"
 	@if $(TEST_PROC_UPDATE_MUT_OWNER) >/dev/null 2>&1; then printf '!!! test-process-update-mutant FAIL: WRONG_OWNER PASSED -- the update-routing oracle is decoration\n'; exit 1; else printf '>>> test-process-update-mutant: green (WRONG_OWNER correctly RED)\n'; fi
 	@if $(TEST_PROC_UPDATE_MUT_VALID) >/dev/null 2>&1; then printf '!!! test-process-update-mutant FAIL: SKIP_VALIDATE PASSED -- the validate-clears oracle is decoration\n'; exit 1; else printf '>>> test-process-update-mutant: green (SKIP_VALIDATE correctly RED)\n'; fi
+	@if $(TEST_PROC_UPDATE_MUT_VIS) >/dev/null 2>&1; then printf '!!! test-process-update-mutant FAIL: UPDATE_NO_VISCLIP PASSED -- the stale-seed stomp oracle is decoration\n'; exit 1; else printf '>>> test-process-update-mutant: green (UPDATE_NO_VISCLIP correctly RED -- BACK stomped the FRONT overlap)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-event (beads initech-8b7) -- FLAIR Event Manager. ISR
@@ -11317,6 +11359,7 @@ SHELL_H        := os/flair/shell.h
 TEST_SHELL_MUT_ONEBAR  := $(BUILD)/test_shell_mutant_onemenubar
 TEST_SHELL_MUT_NOMODAL := $(BUILD)/test_shell_mutant_nomodal
 TEST_SHELL_MUT_BEHIND  := $(BUILD)/test_shell_mutant_modalbehind
+TEST_SHELL_MUT_OVERLAY := $(BUILD)/test_shell_mutant_ignoreoverlay
 SHELL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 SHELL_LINK := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c $(REGION_ENGINE_C) \
               os/flair/window.c os/flair/blitter.c $(CHROME_DRAWER_C) os/flair/menu.c \
@@ -11343,6 +11386,8 @@ $(TEST_SHELL_MUT_NOMODAL): $(SHELL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSHELL_MUTATE_NO_MODAL $(SHELL_INC) -o $@ $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_LINK)
 $(TEST_SHELL_MUT_BEHIND): $(SHELL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSHELL_MUTATE_MODAL_BEHIND $(SHELL_INC) -o $@ $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_LINK)
+$(TEST_SHELL_MUT_OVERLAY): $(SHELL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWINDOW_MUTATE_IGNORE_OVERLAY $(SHELL_INC) -o $@ $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_LINK)
 
 test-flair-shell: $(TEST_SHELL)
 	@printf ">>> test-flair-shell: M4 capstone -- composed desktop reproduces the Office Space frame (seafoam + 2 stacked menu bars + windows + modal FILE COPY on top)\n"
@@ -11351,11 +11396,12 @@ test-flair-shell: $(TEST_SHELL)
 		|| { printf '!!! test-flair-shell FAIL: shell.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-flair-shell: green (wrote $(BUILD)/desktop_scene.ppm)\n"
 
-test-flair-shell-mutant: $(TEST_SHELL_MUT_ONEBAR) $(TEST_SHELL_MUT_NOMODAL) $(TEST_SHELL_MUT_BEHIND)
-	@printf ">>> test-flair-shell-mutant: confirming all three mutants go RED (Rule 6)\n"
+test-flair-shell-mutant: $(TEST_SHELL_MUT_ONEBAR) $(TEST_SHELL_MUT_NOMODAL) $(TEST_SHELL_MUT_BEHIND) $(TEST_SHELL_MUT_OVERLAY)
+	@printf ">>> test-flair-shell-mutant: confirming all four mutants go RED (Rule 6)\n"
 	@if $(TEST_SHELL_MUT_ONEBAR)  >/dev/null 2>&1; then printf '!!! test-flair-shell-mutant FAIL: ONE_MENUBAR PASSED -- the two-bar oracle is decoration\n'; exit 1; else printf '>>> test-flair-shell-mutant: green (ONE_MENUBAR correctly RED)\n'; fi
 	@if $(TEST_SHELL_MUT_NOMODAL) >/dev/null 2>&1; then printf '!!! test-flair-shell-mutant FAIL: NO_MODAL PASSED -- the modal-present oracle is decoration\n'; exit 1; else printf '>>> test-flair-shell-mutant: green (NO_MODAL correctly RED)\n'; fi
 	@if $(TEST_SHELL_MUT_BEHIND)  >/dev/null 2>&1; then printf '!!! test-flair-shell-mutant FAIL: MODAL_BEHIND PASSED -- the z-order oracle is decoration\n'; exit 1; else printf '>>> test-flair-shell-mutant: green (MODAL_BEHIND correctly RED)\n'; fi
+	@if $(TEST_SHELL_MUT_OVERLAY) >/dev/null 2>&1; then printf '!!! test-flair-shell-mutant FAIL: IGNORE_OVERLAY PASSED -- the forward window-across-modal overlay proof is decoration\n'; exit 1; else printf '>>> test-flair-shell-mutant: green (IGNORE_OVERLAY correctly RED -- original pipa mechanism retained after dc4v reverse re-key)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-dialog (Dialog Manager: DialogRecord/item lists, ModalDialog,
@@ -11382,6 +11428,7 @@ TEST_DIALOG_MUT_FILECOPY := $(BUILD)/test_dialog_mutant_filecopy_msg
 TEST_DIALOG_MUT_TITLELESS := $(BUILD)/test_dialog_mutant_titleless_modal
 TEST_DIALOG_MUT_PROGZERO  := $(BUILD)/test_dialog_mutant_progress_zero
 TEST_DIALOG_MUT_NO_DEFAULT_RING := $(BUILD)/test_dialog_mutant_no_default_ring
+TEST_DIALOG_MUT_MODAL_PASS := $(BUILD)/test_dialog_mutant_modal_passthrough
 TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
                     os/flair/control.c os/flair/control.h \
                     os/flair/text.c os/flair/text.h \
@@ -11413,6 +11460,8 @@ $(TEST_DIALOG_MUT_PROGZERO): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_PROGRESS_ZERO=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
 $(TEST_DIALOG_MUT_NO_DEFAULT_RING): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_NO_DEFAULT_RING=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+$(TEST_DIALOG_MUT_MODAL_PASS): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMODAL_PASSTHROUGH $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
 
 test-dialog: $(TEST_DIALOG)
 	@printf ">>> test-dialog: FILE COPY E7/inset content + generic dBox + default ring/moat + canon layout + MODALDIALOG routing\n"
@@ -11422,8 +11471,8 @@ test-dialog: $(TEST_DIALOG)
 		|| { printf '!!! test-dialog FAIL: dialog.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-dialog: green\n"
 
-test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO) $(TEST_DIALOG_MUT_NO_DEFAULT_RING)
-	@printf ">>> test-dialog-mutant: confirming all six mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
+test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO) $(TEST_DIALOG_MUT_NO_DEFAULT_RING) $(TEST_DIALOG_MUT_MODAL_PASS)
+	@printf ">>> test-dialog-mutant: confirming all seven mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
 	@if $(TEST_DIALOG_MUT_BORDER) >/dev/null 2>&1; then \
 		printf '!!! test-dialog-mutant FAIL: BORDER mutant PASSED -- the border-width oracle is decoration\n'; exit 1; \
 	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_BORDER correctly RED)\n'; fi
@@ -11442,6 +11491,9 @@ test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_D
 	@if $(TEST_DIALOG_MUT_NO_DEFAULT_RING) >/dev/null 2>&1; then \
 		printf '!!! test-dialog-mutant FAIL: CTRL_MUT_NO_DEFAULT_RING PASSED -- Dialog Manager defaultItem is not proven to reach ring pixels\n'; exit 1; \
 	else printf '>>> test-dialog-mutant: green (CTRL_MUT_NO_DEFAULT_RING correctly RED -- ring + moat wiring caught)\n'; fi
+	@if $(TEST_DIALOG_MUT_MODAL_PASS) >/dev/null 2>&1; then \
+		printf '!!! test-dialog-mutant FAIL: MODAL_PASSTHROUGH PASSED -- dispatch-level true-modality oracle is decoration\n'; exit 1; \
+	else printf '>>> test-dialog-mutant: green (MODAL_PASSTHROUGH correctly RED -- outside click reached FindWindow)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
@@ -15140,16 +15192,16 @@ test-flair-key-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_KBD_IMG)
 
 # ===========================================================================
 # REAL gate: test-flair-drag (beads initech-5l5z FO-7/8/9; ADR-0006 E-D5/FO-9 --
-# THE headline behavioural oracle: the booted desktop is INTERACTIVE / draggable).
-# Boots $(FLAIRLIVE_IMG) (the WaitNextEvent pump), injects the LOCKED drag trace
-# (move onto window 1's title bar -> button down -> drag (+40,+30) -> button up),
-# and screendumps AFTER the FLAIR-DRAG marker. Asserts (Law 2, INDEPENDENT golden):
+# THE headline behavioural oracle: the booted desktop's MOVABLE MODAL is draggable).
+# RULE-8 RE-KEY (initech-zn61, orchestrator rework): the former trace clicked
+# window 1 BEHIND the frontmost FILE COPY modal, baking zn61 into the golden.
+# The strictly-stronger trace grabs the movableDBoxProc modal's own title, drags
+# (+40,+30), releases, then parks at (620,460). Screendump after the modal marker.
 #   1. no triple-fault;
-#   2. FLAIR-LIVE-READY (the pump armed) + FLAIR-DRAG (the inDrag dispatch ran);
-#   3. ppm_flair_drag_check: chrome at the SHIFTED rect {T150 L340 B390 R600}
-#      (a WDEF-scan at the new pos) + the vacated area reads bare canon teal
-#      (idx2 #8DDCDC -- the D-5 minimal-repaint damage law erased the old chrome).
-# The SCREENDUMP is the discriminator (the drag-noop mutant still emits FLAIR-DRAG
+#   2. FLAIR-LIVE-READY + FLAIR-MODAL-DRAG (140,200)->(180,230);
+#   3. ppm_flair_drag_check modal: exact title/frame anatomy at the new rect,
+#      old all-black top-frame run gone, and underlying window content restored.
+# The SCREENDUMP is the discriminator (the drag-noop mutant still emits the marker
 # but the pixels do not move -- see test-flair-drag-mutant). The guest cli;hlt
 # loops after the budget, so the harness times out by design (OK = the asserts).
 # ===========================================================================
@@ -15160,30 +15212,26 @@ FLAIR_DRAG_PPM     := $(BUILD)/$(FLAIR_DRAG_NAME).ppm
 # The LOCKED drag trace (ADR-0006 E-D6; Rule 11). QEMU rel->cursor is 1:1 with
 # x-positive=right and y-positive=DOWN (screen coords): the harness m-dy is
 # screen-down-positive; the producer flips PS/2 wire dy per the LOCKED
-# event_model.h Sec 5 contract. REBASELINED by initech-rgt8: the previous
-# trace (m80:110 ... m40:-30) was authored against the INVERTED producer
-# (its own comment said "rel +y -> cursor up") and baked the bug into the
-# golden. From the 320,240 center, "m80:-110" lands the cursor on window 1's
-# title bar (400,130); l1 = button down; "m40:30" drags (+40,+30 screen) to
-# 440,160; l0 = button up. Net drag delta = (+40,+30): window 1 struct
-# (300,120) -> (340,150) -- the EXPECTED result is unchanged; only the
-# injection coords now speak physical truth.
-FLAIR_DRAG_SPEC    := m80:-110,l1,m40:30,l0
+# event_model.h Sec 5 contract. Re-keyed for initech-zn61:
+# From (320,240), m0:-30 reaches modal title (320,210); drag (+40,+30) moves
+# modal {140,200,500,280}->{180,230,540,310}. The final three hops park at
+# (620,460), outside every modal/vacated-area probe (PARK convention).
+FLAIR_DRAG_SPEC    := m0:-30,l1,m40:30,l0,m100:100,m100:100,m60:20
 .PHONY: test-flair-drag
 test-flair-drag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_DRAG_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-drag : THE live draggable desktop (FO-9)\n'
-	@printf '  Inject the locked drag trace -> WaitNextEvent pump -> FindWindow inDrag\n'
-	@printf '  -> DragWindow + desktop_paint_damage + present. Chrome moves to the NEW\n'
-	@printf '  rect; the vacated area reads bare teal. beads initech-5l5z FO-7/8/9.\n'
+	@printf '  Inject the locked trace -> true-modal dispatch -> movableDBoxProc inDrag\n'
+	@printf '  -> MoveDialog + old-footprint damage restore + present. Modal anatomy moves\n'
+	@printf '  to the new rect and the windows below reappear. initech-zn61/zvo6/a90f.\n'
 	@printf '  ADR-0006 E-D5 (Tier-A damage law + Tier-B shifted geometry). Law 2/4.\n'
 	@printf '======================================================================\n'
 	@printf 'Booting   : %s (the WaitNextEvent pump)\n' "$(FLAIRLIVE_IMG)"
-	@printf 'Expecting : FLAIR-DRAG win 1 (300,120)->(340,150) + chrome@new + teal@old\n'
+	@printf 'Expecting : FLAIR-MODAL-DRAG (140,200)->(180,230) + modal@new + windows@old\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_DRAG_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_DRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-DRAG" --timeout-ms 15000 \
+		--screendump --screendump-after "FLAIR-MODAL-DRAG" --timeout-ms 15000 \
 		2> "$(FLAIR_DRAG_REPORT)" || true
 	@cat "$(FLAIR_DRAG_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -15194,57 +15242,54 @@ test-flair-drag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_DRAG_CHECK_BIN)
 	@grep -q '^FLAIR-LIVE-READY$$' "$(FLAIR_DRAG_SERIAL)" \
 		|| { printf '!!! test-flair-drag FAIL: FLAIR-LIVE-READY missing -- the pump never armed\n'; exit 1; }
 	@printf '>>> test-flair-drag [2/4]: FLAIR-LIVE-READY (the WaitNextEvent pump is armed)\n'
-	@grep -q '^FLAIR-DRAG win 1 (300,120)->(340,150)$$' "$(FLAIR_DRAG_SERIAL)" \
-		|| { printf '!!! test-flair-drag FAIL: FLAIR-DRAG win 1 (300,120)->(340,150) marker missing -- inDrag dispatch did not run / wrong delta\n'; grep '^FLAIR-' "$(FLAIR_DRAG_SERIAL)" || true; exit 1; }
-	@printf '>>> test-flair-drag [3/4]: FLAIR-DRAG win 1 (300,120)->(340,150) (the pump moved window 1)\n'
+	@grep -q '^FLAIR-MODAL-DRAG (140,200)->(180,230)$$' "$(FLAIR_DRAG_SERIAL)" \
+		|| { printf '!!! test-flair-drag FAIL: exact FLAIR-MODAL-DRAG marker missing -- modal inDrag did not run / wrong delta\n'; grep '^FLAIR-' "$(FLAIR_DRAG_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-drag [3/4]: FLAIR-MODAL-DRAG (140,200)->(180,230)\n'
 	@if [ ! -s "$(FLAIR_DRAG_PPM)" ]; then printf '!!! test-flair-drag FAIL: no screendump captured at %s\n' "$(FLAIR_DRAG_PPM)"; exit 1; fi
-	@$(PPM_FLAIR_DRAG_CHECK_BIN) "$(FLAIR_DRAG_PPM)" \
-		|| { printf '!!! test-flair-drag FAIL: the screendump does not show chrome at the NEW rect + bare teal at the OLD (the desktop is not actually interactive)\n'; exit 1; }
-	@printf '>>> test-flair-drag [4/4]: screendump == chrome at the SHIFTED rect + vacated area bare teal\n'
+	@$(PPM_FLAIR_DRAG_CHECK_BIN) modal "$(FLAIR_DRAG_PPM)" \
+		|| { printf '!!! test-flair-drag FAIL: moved-modal anatomy/vacated-window restoration oracle RED\n'; exit 1; }
+	@printf '>>> test-flair-drag [4/4]: modal at shifted rect + old frame gone + windows restored\n'
 	@printf 'VERDICT   : PASS -- the booted FLAIR desktop is LIVE and DRAGGABLE (Law 4)\n'
 	@printf '======================================================================\n'
 
 # REAL gate: test-flair-drag-mutant (Rule 6; ADR-0006 M1/BC-9 -- the HER-14
-# static-frame mutant). The drag-noop image's inDrag dispatch is a no-op, so the
-# window never moves. It STILL emits FLAIR-DRAG (the pump ran the dispatch), so the
-# SCREENDUMP is the discriminator: ppm_flair_drag_check MUST go RED (teal at the
-# new pos + chrome still at the old). If it passed, the gate would be decoration.
+# static-frame mutant). The existing knob now no-ops BOTH document and modal drag
+# commits. It still emits the exact proposed FLAIR-MODAL-DRAG marker, so pixels
+# remain the sole discriminator: modal mode MUST go RED (old frame still present).
 .PHONY: test-flair-drag-mutant
 test-flair-drag-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_DRAG_IMG) $(PPM_FLAIR_DRAG_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-drag-mutant : Rule 6 (the gate BITES)\n'
-	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_DRAG_NOOP (the inDrag dispatch is a no-op).\n'
-	@printf '  Expect: the window does NOT move -> ppm_flair_drag_check RED (teal@new,\n'
-	@printf '  chrome@old). The direct HER-14 "static frame dressed as interactive" mutant.\n'
+	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_DRAG_NOOP (document + modal commits no-op).\n'
+	@printf '  Expect: exact modal marker, but pixels unmoved -> modal grader RED.\n'
 	@printf '======================================================================\n'
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_DRAG_IMG)" --name flair_drag_mut --out "$(BUILD)" \
 		--mouse "$(FLAIR_DRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-DRAG" --timeout-ms 15000 >/dev/null 2>&1 || true
+		--screendump --screendump-after "FLAIR-MODAL-DRAG" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_drag_mut.serial" \
 		|| { printf '!!! test-flair-drag-mutant: mutant did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
+	@grep -q '^FLAIR-MODAL-DRAG (140,200)->(180,230)$$' "$(BUILD)/flair_drag_mut.serial" \
+		|| { printf '!!! test-flair-drag-mutant: exact proposed modal marker missing (not comparable)\n'; exit 1; }
 	@if [ ! -s "$(BUILD)/flair_drag_mut.ppm" ]; then printf '!!! test-flair-drag-mutant: no screendump captured (cannot judge the mutant)\n'; exit 1; fi
-	@if $(PPM_FLAIR_DRAG_CHECK_BIN) "$(BUILD)/flair_drag_mut.ppm" >/dev/null 2>&1; then \
+	@if $(PPM_FLAIR_DRAG_CHECK_BIN) modal "$(BUILD)/flair_drag_mut.ppm" >/dev/null 2>&1; then \
 		printf '!!! test-flair-drag-mutant FAIL: the drag-noop screendump PASSED ppm_flair_drag_check -- the gate is decoration (a static frame passed as interactive)\n'; exit 1; \
 	fi
-	@printf '>>> test-flair-drag-mutant: RED as required -- the no-op drag leaves teal at the new pos + chrome at the old; the gate BITES (Rule 6, HER-14)\n'
+	@printf '>>> test-flair-drag-mutant: RED as required -- exact marker fired but modal pixels stayed at old rect\n'
 	@printf '======================================================================\n'
 
 # ===========================================================================
 # REAL gate: test-flair-dc4v (beads initech-dc4v/-pipa; ADR-0005 region spine --
-# the compositor SURVIVAL oracle: dragging a window ACROSS the modal + menu bars
-# leaves them INTACT). Boots $(FLAIRLIVE_IMG) (show_modal=1 -- the ONLY scene with
-# the modal), injects the LOCKED dc4v trace (onto window 1's title bar -> button
-# down -> drag ~260 px LEFT in three <=int8 hops -> button up), and screendumps
-# AFTER the FLAIR-DRAG marker. Asserts (Law 2, INDEPENDENT canon golden):
+# the reverse compositor SURVIVAL oracle: drag the modal LEFT across window 1).
+# RULE-8 RE-KEY (initech-zn61, orchestrator rework): the former window-behind-
+# modal trace encoded zn61. The new trace grabs the modal title at (400,210),
+# drags -140 px to the desktop edge, releases, then parks at (620,460).
 #   1. no triple-fault;
-#   2. FLAIR-LIVE-READY (pump armed) + FLAIR-DRAG win 1 (300,120)->(40,120);
-#   3. ppm_flair_dc4v_check: the modal FILE COPY box SURVIVES (right border black,
-#      interior E7, right-half band >=80% E7/white/black + <=5% seafoam) and the
-#      Photoshop menu bar SURVIVES (menubar-white run) -- because the initech-pipa
-#      fold folds wm->overlay_rgn into fronts_union so the always-on-top layers are
-#      never overpainted (defect b) nor seafoam-erased (defect a).
-# The SCREENDUMP is the discriminator (the overlay-ignore mutant still emits
-# FLAIR-DRAG but the modal is erased -- see test-flair-dc4v-mutant). The guest
+#   2. FLAIR-LIVE-READY + FLAIR-MODAL-DRAG (140,200)->(0,200);
+#   3. ppm_flair_dc4v_check: modal intact at new rect, vacated window-1 content
+#      restored (no teal/stale-modal hole), and both menu bars intact.
+# The reverse NO_RESTORE mutant still emits the exact marker but leaves stale
+# old-modal pixels. Original IGNORE_OVERLAY mutation proof moved to the forward
+# host shell scene (WL-0076 mutation-repoint discipline).
 # cli;hlt loops after the budget, so the harness times out by design (OK = asserts).
 # ===========================================================================
 FLAIR_DC4V_NAME    := flair_dc4v
@@ -15252,29 +15297,24 @@ FLAIR_DC4V_SERIAL  := $(BUILD)/$(FLAIR_DC4V_NAME).serial
 FLAIR_DC4V_REPORT  := $(BUILD)/$(FLAIR_DC4V_NAME).report
 FLAIR_DC4V_PPM     := $(BUILD)/$(FLAIR_DC4V_NAME).ppm
 # The LOCKED dc4v drag trace (ADR-0006 E-D6; Rule 11). QEMU rel->cursor is 1:1 with
-# x-positive=right and y-INVERTED; deltas are int8 (a >127 delta sets the PS/2
-# overflow bits and is DROPPED), so the -260 x drag is SPLIT into three <=int8 hops.
-# From the 320,240 center: "m80:-110" (screen-up; rebaselined initech-rgt8,
-# the old m80:110 was authored against the inverted producer) lands on window 1's title bar
-# (400,130); l1 = button down @ (400,130); "m-87:0" x3 (= -261... exactly -260 via
-# -87,-87,-86) drags the cursor LEFT to (140,130); l0 = button up @ (140,130). Net
-# drag delta = (-260,0): window 1 struct (300,120) -> (40,120), sweeping the modal.
-FLAIR_DC4V_SPEC    := m80:-110,l1,m-87:0,m-87:0,m-86:0,l0
+# x-positive=right/y-positive=down, int8-safe. m80:-30 reaches modal title
+# (400,210); two -70 hops move the modal -140 to {L0,T200}. Four final hops park
+# at (620,460), outside every modal/vacated/menu probe.
+FLAIR_DC4V_SPEC    := m80:-30,l1,m-70:0,m-70:0,l0,m100:100,m100:100,m100:50,m60:0
 .PHONY: test-flair-dc4v
 test-flair-dc4v: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_DC4V_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-dc4v : modal + bars SURVIVE a drag across them\n'
-	@printf '  Inject the locked -260,0 drag trace -> WaitNextEvent pump -> inDrag ->\n'
-	@printf '  DragWindow + desktop_paint_damage. The pipa fold (wm->overlay_rgn in\n'
-	@printf '  fronts_union) keeps the always-on-top modal + menu bars intact.\n'
-	@printf '  beads initech-dc4v/-pipa. ADR-0005 region spine. Law 2/4.\n'
+	@printf '  Drag FILE COPY left across window 1: modal stays intact at new rect;\n'
+	@printf '  old footprint restores window content; menu bars remain intact.\n'
+	@printf '  initech-dc4v/-pipa/-zn61 reverse-survival re-key. Law 2/4.\n'
 	@printf '======================================================================\n'
 	@printf 'Booting   : %s (the WaitNextEvent pump, show_modal=1)\n' "$(FLAIRLIVE_IMG)"
-	@printf 'Expecting : FLAIR-DRAG win 1 (300,120)->(40,120) + modal/bars SURVIVE\n'
+	@printf 'Expecting : FLAIR-MODAL-DRAG (140,200)->(0,200) + window restore + bars intact\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_DC4V_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_DC4V_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-DRAG" --timeout-ms 15000 \
+		--screendump --screendump-after "FLAIR-MODAL-DRAG" --timeout-ms 15000 \
 		2> "$(FLAIR_DC4V_REPORT)" || true
 	@cat "$(FLAIR_DC4V_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -15285,46 +15325,47 @@ test-flair-dc4v: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_DC4V_CHECK_BIN)
 	@grep -q '^FLAIR-LIVE-READY$$' "$(FLAIR_DC4V_SERIAL)" \
 		|| { printf '!!! test-flair-dc4v FAIL: FLAIR-LIVE-READY missing -- the pump never armed\n'; exit 1; }
 	@printf '>>> test-flair-dc4v [2/4]: FLAIR-LIVE-READY (the WaitNextEvent pump is armed)\n'
-	@grep -q '^FLAIR-DRAG win 1 (300,120)->(40,120)$$' "$(FLAIR_DC4V_SERIAL)" \
-		|| { printf '!!! test-flair-dc4v FAIL: FLAIR-DRAG win 1 (300,120)->(40,120) marker missing -- inDrag dispatch did not run / wrong delta\n'; grep '^FLAIR-' "$(FLAIR_DC4V_SERIAL)" || true; exit 1; }
-	@printf '>>> test-flair-dc4v [3/4]: FLAIR-DRAG win 1 (300,120)->(40,120) (the pump swept window 1 across the modal)\n'
+	@grep -q '^FLAIR-MODAL-DRAG (140,200)->(0,200)$$' "$(FLAIR_DC4V_SERIAL)" \
+		|| { printf '!!! test-flair-dc4v FAIL: exact modal drag marker missing / wrong delta\n'; grep '^FLAIR-' "$(FLAIR_DC4V_SERIAL)" || true; exit 1; }
+	@printf '>>> test-flair-dc4v [3/4]: modal moved (140,200)->(0,200) across window 1\n'
 	@if [ ! -s "$(FLAIR_DC4V_PPM)" ]; then printf '!!! test-flair-dc4v FAIL: no screendump captured at %s\n' "$(FLAIR_DC4V_PPM)"; exit 1; fi
 	@$(PPM_FLAIR_DC4V_CHECK_BIN) "$(FLAIR_DC4V_PPM)" \
-		|| { printf '!!! test-flair-dc4v FAIL: the screendump shows the modal/bars ERASED by the drag (the always-on-top layers are not damage-occluded; initech-pipa)\n'; exit 1; }
-	@printf '>>> test-flair-dc4v [4/4]: screendump == modal + menu bars SURVIVED the drag across them\n'
-	@printf 'VERDICT   : PASS -- the live compositor keeps the always-on-top layers intact (initech-pipa; Law 4)\n'
+		|| { printf '!!! test-flair-dc4v FAIL: reverse modal/window/menu survival grader RED\n'; exit 1; }
+	@printf '>>> test-flair-dc4v [4/4]: modal intact + vacated window restored + bars intact\n'
+	@printf 'VERDICT   : PASS -- reverse modal survival and restoration contract holds\n'
 	@printf '======================================================================\n'
 
-# REAL gate: test-flair-dc4v-mutant (Rule 6; the pipa pre-fix compositor). The
-# overlay-ignore image's window.c drops the wm->overlay_rgn fold, so a dragged
-# window seafoam-erases / overpaints the modal + bars. It STILL emits FLAIR-DRAG
-# (the pump ran + moved the window), so the SCREENDUMP is the discriminator:
-# ppm_flair_dc4v_check MUST go RED (the modal band reads teal). If it passed, the
-# gate would be decoration (the fix would be untested).
+# REAL gate: test-flair-dc4v-mutant. MODAL_NO_RESTORE moves/draws the modal and
+# emits the exact marker but skips old-footprint restoration; LEG V must go RED.
 .PHONY: test-flair-dc4v-mutant
-test-flair-dc4v-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_OVERLAY_IMG) $(PPM_FLAIR_DC4V_CHECK_BIN)
+test-flair-dc4v-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MODAL_RESTORE_IMG) $(PPM_FLAIR_DC4V_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-dc4v-mutant : Rule 6 (the gate BITES)\n'
-	@printf '  Mutant: window.c -DWINDOW_MUTATE_IGNORE_OVERLAY (fronts_union ignores\n'
-	@printf '  wm->overlay_rgn). Expect: the drag ERASES the modal -> ppm_flair_dc4v_check\n'
-	@printf '  RED (the modal right-half band reads seafoam teal). The pipa pre-fix compositor.\n'
+	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_MODAL_NO_RESTORE. Modal moves/new rect draws,\n'
+	@printf '  but old footprint stays stale -> vacated window-content LEG V RED.\n'
 	@printf '======================================================================\n'
-	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_OVERLAY_IMG)" --name flair_dc4v_mut --out "$(BUILD)" \
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_MODAL_RESTORE_IMG)" --name flair_dc4v_mut --out "$(BUILD)" \
 		--mouse "$(FLAIR_DC4V_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-DRAG" --timeout-ms 15000 >/dev/null 2>&1 || true
+		--screendump --screendump-after "FLAIR-MODAL-DRAG" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_dc4v_mut.serial" \
 		|| { printf '!!! test-flair-dc4v-mutant: mutant did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
+	@grep -q '^FLAIR-MODAL-DRAG (140,200)->(0,200)$$' "$(BUILD)/flair_dc4v_mut.serial" \
+		|| { printf '!!! test-flair-dc4v-mutant: exact modal marker missing (not comparable)\n'; exit 1; }
 	@if [ ! -s "$(BUILD)/flair_dc4v_mut.ppm" ]; then printf '!!! test-flair-dc4v-mutant: no screendump captured (cannot judge the mutant)\n'; exit 1; fi
 	@if $(PPM_FLAIR_DC4V_CHECK_BIN) "$(BUILD)/flair_dc4v_mut.ppm" >/dev/null 2>&1; then \
-		printf '!!! test-flair-dc4v-mutant FAIL: the overlay-ignore screendump PASSED ppm_flair_dc4v_check -- the gate is decoration (the modal-survival fix is untested)\n'; exit 1; \
+		printf '!!! test-flair-dc4v-mutant FAIL: MODAL_NO_RESTORE passed reverse survival -- oracle decoration\n'; exit 1; \
 	fi
-	@printf '>>> test-flair-dc4v-mutant: RED as required -- the drag erased the modal (the fold is compiled out); the gate BITES (Rule 6, initech-pipa)\n'
+	@printf '>>> test-flair-dc4v-mutant: RED as required -- vacated window band retained stale modal pixels\n'
 	@printf '======================================================================\n'
 
 # ===========================================================================
 # REAL gate: test-flair-menu (beads initech-5l5z FO-8b; ADR-0004 D-3 / ADR-0006
 # FO-8 -- inMenuBar -> MenuSelect; THE "working menus" oracle, Law 4).
-# Boots $(FLAIRLIVE_IMG) (the WaitNextEvent pump), injects the LOCKED menu trace
+# Relocated 2026-08-24 to $(FLAIRLIVE_NOMODAL_IMG): initech-zn61 true modality
+# period-correctly blocks menu clicks while FILE COPY is up; the modal-scene menu
+# behavior is covered by test-flair-modal-block. Only show_modal becomes 0, so
+# windows, bars, canon menus, locked trace, and grader geometry are unchanged.
+# Boots the no-modal WaitNextEvent pump and injects the LOCKED menu trace
 # (move onto the first-band "File" title -> button down -> DROP -> track into the
 # panel's "Quit" row -> button up -> MenuSelect item 2), and screendumps AT the
 # FLAIR-MENU-DROP marker while the button is held and no item is hilited yet.
@@ -15353,7 +15394,7 @@ FLAIR_MENU_PPM     := $(BUILD)/$(FLAIR_MENU_NAME).ppm
 # MenuSelect chooses item 2 (Quit) = (128<<16|2) = 0x00800002.
 FLAIR_MENU_SPEC    := m-97:-77,m-97:-77,m-96:-76,l1,m15:35,l0
 .PHONY: test-flair-menu
-test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
+test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_NOMODAL_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-menu : THE live WORKING MENUS (FO-8b)\n'
 	@printf '  Inject the locked menu trace -> WaitNextEvent pump -> inMenuBar band\n'
@@ -15361,10 +15402,10 @@ test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
 	@printf '  "File" pull-down DROPS live; "Quit" (item 2) is chosen. beads initech-5l5z\n'
 	@printf '  FO-8b. ADR-0004 D-3 / ADR-0006 FO-8. Law 2/4.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s (the WaitNextEvent pump)\n' "$(FLAIRLIVE_IMG)"
+	@printf 'Booting   : %s (same flair_live scene, show_modal=0)\n' "$(FLAIRLIVE_NOMODAL_IMG)"
 	@printf 'Expecting : held DROP frame + FLAIR-MENU menu=128 item=2 (sel=0x00800002)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_MENU_NAME)" --out "$(BUILD)" \
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_NOMODAL_IMG)" --name "$(FLAIR_MENU_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-MENU-DROP" --timeout-ms 15000 \
 		2> "$(FLAIR_MENU_REPORT)" || true
@@ -15395,14 +15436,14 @@ test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
 # missing-dump assertion therefore goes RED before pixels can be graded. This is
 # the faithful failure axis after removing the persistent-panel oracle wart.
 .PHONY: test-flair-menu-mutant
-test-flair-menu-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MENU_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
+test-flair-menu-mutant: $(HARNESS_BIN) $(FLAIRLIVE_NOMODAL_MUT_MENU_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-menu-mutant : Rule 6 (the gate BITES)\n'
 	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_MENU_NOOP (the inMenuBar dispatch drops no panel).\n'
 	@printf '  Expect: no DROP marker -> no marker-gated dump -> the real gate fails loud.\n'
 	@printf '  The direct HER-14 "menus do not work" mutant.\n'
 	@printf '======================================================================\n'
-	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_MENU_IMG)" --name flair_menu_mut --out "$(BUILD)" \
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_NOMODAL_MUT_MENU_IMG)" --name flair_menu_mut --out "$(BUILD)" \
 		--mouse "$(FLAIR_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-MENU-DROP" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_menu_mut.serial" \
@@ -15415,8 +15456,11 @@ test-flair-menu-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MENU_IMG) $(PPM_FLAIR_MEN
 # ===========================================================================
 # REAL gate: test-flair-menu-crossdrag (beads initech-9op1; found during
 # initech-rl4v). Proves the LIVE per-tick drop follows a cross-menu drag, not
-# just MenuSelect's final result. Boots $(FLAIRLIVE_IMG) (the SAME image as
-# test-flair-menu -- no new kernel needed for the real leg), injects a locked
+# just MenuSelect's final result. Relocated 2026-08-24 to the SAME
+# $(FLAIRLIVE_NOMODAL_IMG) as test-flair-menu: initech-zn61 true modality blocks
+# menu clicks while FILE COPY is up, and test-flair-modal-block owns that modal-
+# scene behavior. Only show_modal changes; trace/menu/grader geometry does not.
+# Injects a locked
 # trace that clicks the System-7 "File" title, drags SIDEWAYS along the bar band
 # onto "Edit", and releases there (still in the bar band, never entering either
 # panel's item rows), then screendumps at the FLAIR-MENU-XDROP marker emitted
@@ -15449,7 +15493,7 @@ FLAIR_MENU_CROSSDRAG_PPM     := $(BUILD)/$(FLAIR_MENU_CROSSDRAG_NAME).ppm
 # initech-rl4v) is Edit, but the release is on the title (not a row) -> sel=0.
 FLAIR_MENU_CROSSDRAG_SPEC   := m-97:-77,m-97:-77,m-96:-76,l1,m59:0,l0
 .PHONY: test-flair-menu-crossdrag
-test-flair-menu-crossdrag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN)
+test-flair-menu-crossdrag: $(HARNESS_BIN) $(FLAIRLIVE_NOMODAL_IMG) $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-menu-crossdrag : cross-menu drag live redraw (initech-9op1)\n'
 	@printf '  Inject the locked cross-menu trace -> WaitNextEvent pump -> inMenuBar band\n'
@@ -15457,10 +15501,10 @@ test-flair-menu-crossdrag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CROS
 	@printf '  must follow the drag (File erased, Edit dropped), not just MenuSelect.\n'
 	@printf '  beads initech-9op1 (found during initech-rl4v). Law 2/4.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s (the WaitNextEvent pump)\n' "$(FLAIRLIVE_IMG)"
+	@printf 'Booting   : %s (same flair_live scene, show_modal=0)\n' "$(FLAIRLIVE_NOMODAL_IMG)"
 	@printf 'Expecting : DROP menu=128 -> XDROP menu=129 -> final sel=0 cancel\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_MENU_CROSSDRAG_NAME)" --out "$(BUILD)" \
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_NOMODAL_IMG)" --name "$(FLAIR_MENU_CROSSDRAG_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_MENU_CROSSDRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-MENU-XDROP" --timeout-ms 15000 \
 		2> "$(FLAIR_MENU_CROSSDRAG_REPORT)" || true
@@ -15494,14 +15538,14 @@ test-flair-menu-crossdrag: $(HARNESS_BIN) $(FLAIRLIVE_IMG) $(PPM_FLAIR_MENU_CROS
 # gate fails loud on the missing marker/dump; a capture cannot be forged from the
 # final closed frame after track-end restoration.
 .PHONY: test-flair-menu-crossdrag-mutant
-test-flair-menu-crossdrag-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_NOREHIT_IMG) $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN)
+test-flair-menu-crossdrag-mutant: $(HARNESS_BIN) $(FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG) $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-menu-crossdrag-mutant : Rule 6 (the gate BITES)\n'
 	@printf '  Mutant: -DKMAIN_MUT_MENU_NO_REHIT (flair_live_do_menu freezes mi at the click).\n'
 	@printf '  Expect: File never switches to Edit -> no XDROP marker/dump -> RED.\n'
 	@printf '  The direct initech-9op1 frozen-mi mutant.\n'
 	@printf '======================================================================\n'
-	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_NOREHIT_IMG)" --name flair_menu_crossdrag_mut --out "$(BUILD)" \
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG)" --name flair_menu_crossdrag_mut --out "$(BUILD)" \
 		--mouse "$(FLAIR_MENU_CROSSDRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-MENU-XDROP" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_menu_crossdrag_mut.serial" \
@@ -15823,6 +15867,8 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_A_NAME).report"; then printf '!!! test-flair-solid FAIL: leg A TRIPLE FAULT\n'; exit 1; fi
 	@grep -q '^FLAIR-CLOSE win 0$$' "$(BUILD)/$(FLAIR_SOLID_A_NAME).serial" \
 		|| { printf '!!! test-flair-solid FAIL: leg A exact FLAIR-CLOSE win 0 marker missing (tenant identity/dispatch failed)\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_A_NAME).serial" || true; exit 1; }
+	@grep -q '^FLAIR-TENANT-EXIT name=HELLO$$' "$(BUILD)/$(FLAIR_SOLID_A_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg A terminate-on-close marker missing (HELLO was hidden instead of terminated)\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_A_NAME).serial" || true; exit 1; }
 	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_A_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg A screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) A "$(BUILD)/$(FLAIR_SOLID_A_NAME).ppm" \
 		|| { printf '!!! test-flair-solid FAIL: leg A -- the close-exposed NOTES overlap is NOT repainted content (the white-hole family; initech-gofc)\n'; exit 1; }
@@ -15921,6 +15967,55 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN
 	@printf 'VERDICT   : PASS -- the live desktop honours the ONE repaint contract under\n'
 	@printf '            close/drag/switch/menu; DQ5 raises on title and DQ6 keeps titles reachable.\n'
 	@printf '======================================================================\n'
+
+# Focused R1.4 emulator leg (PREPARED, intentionally not in an aggregate here):
+# close foreground HELLO through the ratified terminate path, then prove NOTES is
+# active with intact content and its band-2 bar installed. The host Process suite
+# owns the post-close key-routing tooth; this booted leg owns pixels + serial.
+.PHONY: test-flair-close-terminate test-flair-close-terminate-mutant
+test-flair-close-terminate: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN)
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name flair_close_terminate_pre --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-LIVE-READY" --timeout-ms 15000 \
+		2> "$(BUILD)/flair_close_terminate_pre.report" || true
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name flair_close_terminate_post --out "$(BUILD)" \
+		--mouse "$(FLAIR_CLOSE_TERMINATE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-TENANT-EXIT name=HELLO" --timeout-ms 15000 \
+		2> "$(BUILD)/flair_close_terminate_post.report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_close_terminate_pre.report" "$(BUILD)/flair_close_terminate_post.report"; then printf '!!! test-flair-close-terminate FAIL: TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-TENANT-EXIT name=HELLO$$' "$(BUILD)/flair_close_terminate_post.serial" \
+		|| { printf '!!! test-flair-close-terminate FAIL: tenant-exit marker missing\n'; exit 1; }
+	@$(PPM_FLAIR_SOLID_CHECK_BIN) F "$(BUILD)/flair_close_terminate_pre.ppm" "$(BUILD)/flair_close_terminate_post.ppm"
+	@printf '>>> test-flair-close-terminate: green -- HELLO terminated, NOTES active/intact, band 2 swapped\n'
+
+test-flair-close-terminate-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN) $(BUILD)/flair_tenants_mut_close_hide_only.img
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --name flair_close_terminate_pre --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-LIVE-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_close_hide_only.img" --name flair_close_hide_only_post --out "$(BUILD)" \
+		--mouse "$(FLAIR_CLOSE_TERMINATE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@if grep -q '^FLAIR-TENANT-EXIT name=HELLO$$' "$(BUILD)/flair_close_hide_only_post.serial"; then printf '!!! CLOSE_HIDE_ONLY mutant unexpectedly emitted tenant exit\n'; exit 1; fi
+	@if $(PPM_FLAIR_SOLID_CHECK_BIN) F "$(BUILD)/flair_close_terminate_pre.ppm" "$(BUILD)/flair_close_hide_only_post.ppm" >/dev/null 2>&1; then printf '!!! CLOSE_HIDE_ONLY passed close-terminate pixels -- oracle decoration\n'; exit 1; fi
+	@printf '>>> test-flair-close-terminate-mutant: CLOSE_HIDE_ONLY correctly RED\n'
+
+# True-modality emulator leg (PREPARED, do not run in this lane). Both boots use
+# the FLAIR_DESKTOP live scene, the only interactive image with modal_up=1. The
+# terminal path hides the cursor, making PRE==POST an exact no-raise/no-drag proof.
+.PHONY: test-flair-modal-block
+test-flair-modal-block: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name flair_modal_block_pre --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 \
+		2> "$(BUILD)/flair_modal_block_pre.report" || true
+	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name flair_modal_block_post --out "$(BUILD)" \
+		--mouse "$(FLAIR_MODAL_BLOCK_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 \
+		2> "$(BUILD)/flair_modal_block_post.report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_modal_block_pre.report" "$(BUILD)/flair_modal_block_post.report"; then printf '!!! test-flair-modal-block FAIL: TRIPLE FAULT\n'; exit 1; fi
+	@grep -q '^FLAIR-MODAL-BLOCK where=100,100$$' "$(BUILD)/flair_modal_block_post.serial" \
+		|| { printf '!!! test-flair-modal-block FAIL: block marker missing\n'; exit 1; }
+	@if grep -q '^FLAIR-DRAG ' "$(BUILD)/flair_modal_block_post.serial"; then printf '!!! test-flair-modal-block FAIL: click behind modal dispatched a drag\n'; exit 1; fi
+	@cmp -s "$(BUILD)/flair_modal_block_pre.ppm" "$(BUILD)/flair_modal_block_post.ppm" \
+		|| { printf '!!! test-flair-modal-block FAIL: blocked click changed/raised the back-window scene\n'; exit 1; }
+	@printf '>>> test-flair-modal-block: green -- outside click swallowed before FindWindow; scene unchanged\n'
 
 # REAL gate: test-flair-solid-mutant (Rule 6; DQ9 -- per-leg mutants). The CLEAN
 # image is graded GREEN on all seven legs first (the baseline), then each mutant
@@ -16194,12 +16289,11 @@ test-flair-window-ops: test-flair-zoom-toggle test-flair-grow test-flair-collaps
 #          make record-flair-repro SCRIPT=solid_drag
 RECORD_CLIPS_DIR := $(BUILD)/clips
 RECORD_FPS       := 4
-# Script map: TENANTS-image traces only for now (the flagship desktop the
-# System 8 epic validates on). The flairlive-image traces (drag/menu/
-# crossdrag/dc4v) need a flairlive record variant -- follow-up initech-zwo8;
-# recording them against the tenants image would replay coordinates authored
-# for a DIFFERENT scene (a semantically-wrong clip that LOOKS fine -- the
-# exact false-evidence class Law 2 exists to kill).
+# Script map: tenant traces use the widened tenants record image. The additive
+# modal_block script is the one deliberate FLAIR_DESKTOP exception: it selects
+# the existing unbounded flair_live interactive image because that is the scene
+# with modal_up=1. Never replay coordinates against a different scene merely
+# because the resulting clip looks plausible (Law 2; bead initech-zn61).
 RECORD_SPEC_solid_close  = $(FLAIR_SOLID_CLOSE_SPEC)
 RECORD_SPEC_solid_drag   = $(FLAIR_SOLID_DRAG_SPEC)
 RECORD_SPEC_solid_switch = $(FLAIR_SOLID_SWITCH_SPEC)
@@ -16208,6 +16302,8 @@ RECORD_SPEC_solid_clamp  = $(FLAIR_SOLID_CLAMP_SPEC)
 RECORD_SPEC_solid_raise  = $(FLAIR_SOLID_RAISE_SPEC)
 RECORD_SPEC_solid_menu2  = $(FLAIR_SOLID_MENU2_SPEC)
 RECORD_SPEC_solid_menucancel = $(FLAIR_SOLID_MENUCANCEL_SPEC)
+RECORD_SPEC_close_terminate = $(FLAIR_CLOSE_TERMINATE_SPEC)
+RECORD_SPEC_modal_block = $(FLAIR_MODAL_BLOCK_SPEC)
 # cursor_cross (R0.1, beads initech-tdnl.1): the pointer sweeps desktop ->
 # HELLO content -> NOTES title -> desktop corner; the clip shows the arrow
 # tracking with save-under-clean erase (no trail) across every surface class.
@@ -16220,7 +16316,10 @@ RECORD_MARKER_zoom_toggle = FLAIR-ZOOM win 0 out
 RECORD_MARKER_grow        = FLAIR-GROW win 0 (300,200)->(96,64)
 RECORD_MARKER_collapse    = FLAIR-COLLAPSE win 0 1
 RECORD_MARKER_drag_outline = FLAIR-DRAG win 0 (260,120)->(200,180)
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline
+RECORD_MARKER_close_terminate = FLAIR-TENANT-EXIT name=HELLO
+RECORD_MARKER_modal_block = FLAIR-MODAL-BLOCK where=100,100
+RECORD_IMAGE_modal_block = $(FLAIRLIVE_INTERACTIVE_IMG)
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -16232,13 +16331,13 @@ $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000 -DFLAI
 FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 
 .PHONY: record-flair
-record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG)
+record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRLIVE_INTERACTIVE_IMG)
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
 	@command -v ffmpeg >/dev/null || { printf '!!! record-flair: ffmpeg not installed (the ONE extra dependency; sudo apt install ffmpeg)\n'; exit 2; }
 	@mkdir -p "$(RECORD_CLIPS_DIR)"
 	@printf '>>> record-flair [%s]: capturing per-event frames (trace: %s)\n' "$(SCRIPT)" "$(RECORD_SPEC_$(SCRIPT))"
-	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_RECORD_IMG)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
+	@$(HARNESS_BIN) --disk "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
 		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
 		--record --timeout-ms 45000 \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
@@ -21673,6 +21772,7 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 # green. Host mutants (NO_ERASE trail / HOTSPOT+3) carry the Rule-6 teeth.
 TEST_EMU_GATES := \
 	test-flair-cursor \
+	test-flair-close-terminate test-flair-close-terminate-mutant test-flair-modal-block \
 	test-harness test-tracer-boot test-boot-bochs test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \

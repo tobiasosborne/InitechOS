@@ -266,6 +266,23 @@ void shell_build_scene(shell_scene_t *s,
      * above. The bars span rows [0, SHELL_MENUBARS_H) full width. NULL overlay ==
      * disabled (the fold is a no-op; the M4 host gate). */
     s->overlay_rgn = overlay_rgn;
+    shell_sync_overlay(s);
+
+    s->_built = 1u;
+}
+
+/* Rebuild the always-on-top occluder from the scene's current geometry. The
+ * modal is a standalone shell layer (not a WindowMgr participant), so moving it
+ * must update this union before old-position exposure is distributed. */
+void shell_sync_overlay(shell_scene_t *s)
+{
+    region_t *overlay_rgn;
+
+    if (s == (shell_scene_t *)0) {
+        SHELL_PANIC("shell_sync_overlay: NULL scene");
+        return;
+    }
+    overlay_rgn = s->overlay_rgn;
     if (overlay_rgn != (region_t *)0) {
         if (overlay_rgn->rows == (rgn_row_t *)0 ||
             overlay_rgn->x_pool == (int16_t *)0) {
@@ -282,7 +299,12 @@ void shell_build_scene(shell_scene_t *s,
         nov++;
         /* The modal FILE COPY box (its dBoxProc bounds fill opaquely), iff up. */
         if (s->modal_up) {
-            ov[nov] = dlg_struc->bbox;   /* == the dialog strucRgn bbox           */
+            if (s->dlg == (DialogRecord *)0 ||
+                s->dlg->window.strucRgn == (region_t *)0) {
+                SHELL_PANIC("shell_sync_overlay: modal has no strucRgn");
+                return;
+            }
+            ov[nov] = s->dlg->window.strucRgn->bbox;
             nov++;
         }
         region_from_rects(overlay_rgn, ov, nov);
@@ -290,8 +312,6 @@ void shell_build_scene(shell_scene_t *s,
     } else {
         s->wm.overlay_rgn = (region_t *)0;
     }
-
-    s->_built = 1u;
 }
 
 /* ===========================================================================

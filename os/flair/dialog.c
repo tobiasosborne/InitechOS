@@ -33,6 +33,9 @@
  *                                 initial value to 0 (the old bug) instead of
  *                                 FLAIR_CANON_FILECOPY_PROGRESS; oracle must
  *                                 go RED (Law 4, beads initech-a90f).
+ *   MODAL_PASSTHROUGH          -- dispatch classification lets outside clicks
+ *                                 reach FindWindow behind the modal; oracle RED
+ *                                 (bead initech-zn61).
  *
  * DRAW MODEL:
  *   dBoxProc dialogs (the NewDialog default): a solid FLAIR_CHROME_DIALOG_
@@ -507,6 +510,105 @@ void ShowDialog(DialogPtr dp)
 }
 
 /* ===========================================================================
+ * TRUE-MODAL DISPATCH SEAM (bead initech-zn61).
+ *
+ * This classification lives ABOVE FindWindow. FindWindow must keep returning
+ * the true geometric hit for non-dispatch callers, while the event pump must
+ * never let a frontmost modal click/key reach a window behind it. Period dBox
+ * click-outside feedback was SysBeep; the kernel has no beep, so the caller's
+ * blockProc emits the required FLAIR-MODAL-BLOCK marker instead.
+ * ===========================================================================*/
+flair_modal_disposition_t DialogModalDispatch(
+    const DialogPtr dp, const EventRecord *ev,
+    dialog_modal_block_fn blockProc, void *blockUser)
+{
+    if (dp == (DialogPtr)0 || ev == (const EventRecord *)0 ||
+        !dp->window.visible)
+        return FLAIR_MODAL_PASSTHROUGH;
+
+#if defined(MODAL_PASSTHROUGH)
+    /* Named Rule-6 mutant: restore the pre-fix pump behavior. An outside click
+     * reaches FindWindow and raises/drags the document behind the modal. */
+    (void)blockProc;
+    (void)blockUser;
+    return FLAIR_MODAL_PASSTHROUGH;
+#else
+    if (ev->what == (uint16_t)mouseDown ||
+        ev->what == (uint16_t)mouseUp) {
+        if (!region_contains_point(dp->window.strucRgn,
+                                   ev->where.h, ev->where.v)) {
+            if (ev->what == (uint16_t)mouseDown && blockProc != 0)
+                blockProc(ev->where, blockUser);
+            return FLAIR_MODAL_BLOCK;
+        }
+
+        if (ev->what == (uint16_t)mouseDown &&
+            dp->window.windowDefProcVariant == (int16_t)movableDBoxProc) {
+            rgn_rect_t bounds = region_get_bbox(dp->window.strucRgn);
+            if (ev->where.v >= bounds.top &&
+                ev->where.v < (int16_t)(bounds.top +
+                                         FLAIR_CHROME_TITLEBAR_H))
+                return FLAIR_MODAL_DRAG;
+        }
+        return FLAIR_MODAL_CAPTURE;
+    }
+
+    /* keyDown/autoKey and every other cooked event stay on the modal side of
+     * the seam. In particular, no key can reach the active document behind it. */
+    return FLAIR_MODAL_CAPTURE;
+#endif
+}
+
+static rgn_rect_t dialog_offset_rect(rgn_rect_t r, int16_t dh, int16_t dv)
+{
+    int32_t left = (int32_t)r.left + dh;
+    int32_t right = (int32_t)r.right + dh;
+    int32_t top = (int32_t)r.top + dv;
+    int32_t bottom = (int32_t)r.bottom + dv;
+    if (left < INT16_MIN || left > INT16_MAX ||
+        right < INT16_MIN || right > INT16_MAX ||
+        top < INT16_MIN || top > INT16_MAX ||
+        bottom < INT16_MIN || bottom > INT16_MAX)
+        DIALOG_PANIC("MoveDialog: coordinate overflow");
+    r.left = (int16_t)left;
+    r.right = (int16_t)right;
+    r.top = (int16_t)top;
+    r.bottom = (int16_t)bottom;
+    return r;
+}
+
+void MoveDialog(DialogPtr dp, int16_t dh, int16_t dv)
+{
+    rgn_rect_t struc;
+    rgn_rect_t cont;
+    rgn_rect_t update;
+
+    if (dp == (DialogPtr)0) {
+        DIALOG_PANIC("MoveDialog: NULL DialogPtr");
+        return;
+    }
+    if (dh == 0 && dv == 0) return;
+
+    struc = dialog_offset_rect(region_get_bbox(dp->window.strucRgn), dh, dv);
+    cont = dialog_offset_rect(region_get_bbox(dp->window.contRgn), dh, dv);
+    region_set_rect(dp->window.strucRgn, struc);
+    region_set_rect(dp->window.contRgn, cont);
+    if (!region_is_empty(dp->window.updateRgn)) {
+        update = dialog_offset_rect(region_get_bbox(dp->window.updateRgn), dh, dv);
+        region_set_rect(dp->window.updateRgn, update);
+    }
+    dp->window.port.portRect = dialog_offset_rect(dp->window.port.portRect,
+                                                   dh, dv);
+
+    for (uint16_t i = 0; i < dp->itemCount; i++) {
+        dp->items[i].rect = dialog_offset_rect(dp->items[i].rect, dh, dv);
+        if (dp->items[i].ctrl != (ControlRecord *)0)
+            dp->items[i].ctrl->contrlRect = dialog_offset_rect(
+                dp->items[i].ctrl->contrlRect, dh, dv);
+    }
+}
+
+/* ===========================================================================
  * FindDialogItem
  *
  * Ref: IM-I Ch 6 "FindDItem" (p. I-419); MTE Ch 6 "FindDialogItem."
@@ -606,161 +708,103 @@ void SetDialogItemText(DialogPtr dp, uint16_t itemIndex, const char *text)
     }
 }
 
+/* Handle one event. Kept separate so the shell-owned live pump and the
+ * cooperative ModalDialog loop share exactly one modal behavior path. */
+int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
+                      dialog_filter_fn filterProc, uint16_t *itemHit)
+{
+    if (!dp || !ev || !itemHit) {
+        DIALOG_PANIC("DialogHandleEvent: NULL required argument");
+        return 0;
+    }
+
+    if (filterProc) {
+        uint16_t fitem = 0;
+        if (filterProc(dp, ev, &fitem)) {
+            *itemHit = fitem;
+            return 1;
+        }
+    }
+
+    switch (ev->what) {
+    case mouseDown: {
+        flair_point_t pt = ev->where;
+        pt.h -= dp->window.port.portRect.left;
+        pt.v -= dp->window.port.portRect.top;
+        uint16_t idx = FindDialogItem(dp, pt);
+        if (idx == 0) break;
+        DialogItem *item = &dp->items[idx - 1];
+#if defined(DIALOG_MUTATE_HIT_STATIC) && DIALOG_MUTATE_HIT_STATIC
+        if (item->enabled || item->type == statText) {
+#else
+        if (item->enabled && item->type != statText) {
+#endif
+            if (item->type == ctrlItem && item->ctrl) {
+                int16_t part = TrackControl(item->ctrl, &pt, 1);
+                if (part != 0) {
+                    *itemHit = idx;
+                    return 1;
+                }
+            } else {
+                *itemHit = idx;
+                return 1;
+            }
+        }
+        break;
+    }
+
+    case keyDown:
+    case autoKey: {
+        uint8_t ascii = (uint8_t)(ev->message & 0xFFu);
+        uint8_t vkey = (uint8_t)((ev->message >> 8u) & 0xFFu);
+        int is_return = (ascii == 0x0Du || ascii == 0x0Au ||
+                         ascii == 0x03u || vkey == 0x1Cu);
+        int is_escape = (ascii == 0x1Bu || vkey == 0x01u);
+        if (is_return && dp->defaultItem != 0) {
+            *itemHit = dp->defaultItem;
+            return 1;
+        }
+        if (is_escape && dp->cancelItem != 0) {
+            *itemHit = dp->cancelItem;
+            return 1;
+        }
+        break;
+    }
+
+    case updateEvt:
+        DrawDialog(dp);
+        break;
+
+    case nullEvent:
+    default:
+        break;
+    }
+    return 0;
+}
+
 /* ===========================================================================
  * ModalDialog -- cooperative modal event loop.
- *
- * Ref: IM-I Ch 6 "ModalDialog" (p. I-416); MTE Ch 6 p. 6-84 "ModalDialog";
- *      ADR-0004 D-4 (ISR enqueue-only; EventRecord synthesis in task context),
- *      D-6 (cooperative, non-preemptive WaitNextEvent).
- *
- * MUTATION (DIALOG_MUTATE_HIT_STATIC):
- *   When set, clicking a statText item is treated as hitting an enabled item
- *   and ModalDialog returns it. Oracle must go RED.
+ * Ref: IM-I Ch 6; ADR-0004 D-4/D-6. DialogHandleEvent is also the live pump's
+ * captured-event path, so nested and inverted shell-owned modal delivery agree.
  * ===========================================================================*/
-void ModalDialog(DialogPtr         dp,
-                 flair_raw_ring_t *ring,
-                 dialog_filter_fn  filterProc,
-                 uint32_t          sleepTicks,
-                 uint16_t         *itemHit)
+void ModalDialog(DialogPtr dp, flair_raw_ring_t *ring,
+                 dialog_filter_fn filterProc, uint32_t sleepTicks,
+                 uint16_t *itemHit)
 {
     if (!dp || !ring || !itemHit) {
         DIALOG_PANIC("ModalDialog: NULL required argument (Rule 2)");
         return;
     }
-
     *itemHit = 0;
 
-    /* Cooperative modal loop: drain events, handle actions, return on dismiss.
-     * Ref: ADR-0004 D-6 "a task holds the CPU until it calls back into
-     * WaitNextEvent"; D-4 "EventRecord synthesis happens in task context". */
     for (;;) {
         EventRecord ev;
-        int got = WaitNextEvent(ring, 0xFFFFu /* everyEvent */, &ev, sleepTicks);
-
+        int got = WaitNextEvent(ring, 0xFFFFu, &ev, sleepTicks);
         if (!got) {
-            /* Null event / timeout. On sleepTicks==0, return immediately
-             * (non-blocking; useful for deterministic oracle). */
-            if (sleepTicks == 0) {
-                return;
-            }
+            if (sleepTicks == 0) return;
             continue;
         }
-
-        /* filterProc (if any) gets first look. */
-        if (filterProc) {
-            uint16_t fitem = 0;
-            if (filterProc(dp, &ev, &fitem)) {
-                *itemHit = fitem;
-                return;
-            }
-        }
-
-        switch (ev.what) {
-        case mouseDown: {
-            /* Hit-test against dialog items.
-             * Ref: IM-I Ch 6 "ModalDialog handles mouseDown events by calling
-             * FindDItem to determine which item was clicked." */
-            flair_point_t pt;
-            pt.h = (int16_t)(ev.where.h);
-            pt.v = (int16_t)(ev.where.v);
-
-            /* Convert from global to dialog-local coords.
-             * (For the current release the dialog port origin equals the
-             * global origin; in a multi-window setup the Window Manager
-             * would offset. This is period-authentic for a single dialog.) */
-            pt.h -= dp->window.port.portRect.left;
-            pt.v -= dp->window.port.portRect.top;
-
-            uint16_t idx = FindDialogItem(dp, pt);
-            if (idx == 0) {
-                /* Click outside all items; ignore. */
-                break;
-            }
-
-            DialogItem *item = &dp->items[idx - 1];
-
-#if defined(DIALOG_MUTATE_HIT_STATIC) && DIALOG_MUTATE_HIT_STATIC
-            /* NAMED MUTANT: treat statText as enabled (oracle must RED). */
-            if (item->enabled || item->type == statText) {
-#else
-            /* Correct: statText items are NOT returned (IM-I Ch 6;
-             * "StatText items are never enabled"). */
-            if (item->enabled && item->type != statText) {
-#endif
-                if (item->type == ctrlItem && item->ctrl) {
-                    /* Track the control; return item on click confirmation.
-                     * Ref: MTE Ch 6 "For control items, ModalDialog calls
-                     * TrackControl to track the mouse."
-                     * Use dialog-LOCAL coords (same coordinate space as
-                     * item->ctrl->contrlRect, which is set from item->rect). */
-                    int16_t part = TrackControl(item->ctrl, &pt, 1);
-                    if (part != 0) {
-                        *itemHit = idx;
-                        return;
-                    }
-                } else {
-                    /* Non-control enabled item: return immediately. */
-                    *itemHit = idx;
-                    return;
-                }
-            }
-            break;
-        }
-
-        case keyDown:
-        case autoKey: {
-            /* Return / Enter -> default item.
-             * Escape -> cancel item.
-             * Ref: IM-I Ch 6 "ModalDialog" -- "Return or Enter confirms the
-             * default button; Escape activates the cancel button."
-             *
-             * FLAIR pump ASCII encoding (event.c sc_unshifted[]):
-             *   PS/2 SET-1 make 0x1C (Return) -> ASCII '\n' (0x0A).
-             *   PS/2 SET-1 make 0x01 (Escape)  -> ASCII 0x00 (no mapping);
-             *     check the virtual key code (bits 8..15 of message) instead.
-             *   Numpad Enter (0x1C via extended prefix) -> ASCII '\n' (0x0A).
-             *
-             * Direct ASCII values (for test_dialog.c which posts raw scancodes
-             * or uses the hosted flair_event_init path where the test injects
-             * the ASCII directly in the low byte of message):
-             *   0x0D (CR), 0x0A (LF/newline), 0x03 (ETX/numpad Enter).
-             *   0x1B (ESC): the hosted test path may post this as the ASCII
-             *   directly in the low byte (test_dialog synthesizes it).
-             *
-             * Ref: Inside Macintosh Vol I Ch 2 p. I-62 (Mac key codes for
-             *   Return=0x24 / Enter=0x4C / Escape=0x35); MTE Ch 2 "modifiers."
-             */
-            uint8_t ascii = (uint8_t)(ev.message & 0xFFu);
-            uint8_t vkey  = (uint8_t)((ev.message >> 8u) & 0xFFu);
-
-            /* Return / Enter: ASCII 0x0D, 0x0A, or 0x03; or vkey 0x1C. */
-            int is_return = (ascii == 0x0Du || ascii == 0x0Au || ascii == 0x03u ||
-                             vkey  == 0x1Cu);
-            if (is_return && dp->defaultItem != 0) {
-                *itemHit = dp->defaultItem;
-                return;
-            }
-            /* Escape: ASCII 0x1B, or vkey 0x01 (PS/2 SET-1 Escape make code). */
-            int is_escape = (ascii == 0x1Bu || vkey == 0x01u);
-            if (is_escape && dp->cancelItem != 0) {
-                *itemHit = dp->cancelItem;
-                return;
-            }
-            /* Tab -> advance editText field (M3/M4: no-op if no editText). */
-            break;
-        }
-
-        case updateEvt:
-            /* Redraw on update. Ref: IM-I Ch 6 "ModalDialog handles update
-             * events for the dialog by calling DrawDialog." */
-            DrawDialog(dp);
-            break;
-
-        case nullEvent:
-        default:
-            /* Ignore other event types. */
-            break;
-        }
+        if (DialogHandleEvent(dp, &ev, filterProc, itemHit)) return;
     }
 }
 

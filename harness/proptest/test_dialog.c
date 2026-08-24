@@ -604,6 +604,126 @@ static void test_modaldialog_click_stattext(void)
 }
 
 /* ===========================================================================
+ * TRUE MODALITY AT THE DISPATCH SEAM (bead initech-zn61).
+ *
+ * The synthetic outside click is deliberately inside the document window
+ * behind the modal. The wrapper calls FindWindow ONLY on PASSTHROUGH, so the
+ * counter is a direct dispatch-level tooth: correct modality emits one block
+ * callback and performs zero behind-window hit tests. MODAL_PASSTHROUGH makes
+ * the real FindWindow call happen and turns this leg RED.
+ * ===========================================================================*/
+static int g_modal_block_count;
+static flair_point_t g_modal_block_where;
+
+static void modal_block_probe(flair_point_t where, void *user)
+{
+    (void)user;
+    g_modal_block_count++;
+    g_modal_block_where = where;
+}
+
+static void test_true_modal_dispatch(void)
+{
+    static DialogRecord filecopy;
+    static DialogItem filecopy_items[2];
+    static ControlRecord filecopy_progress;
+    static rgn_store_t ds, dc, du;
+    static rgn_store_t desk, sa, sb, sc, ws, wc, wu;
+    static WindowRecord behind;
+    WindowMgr wm;
+    EventRecord ev;
+    WindowPtr hit = NULL;
+    int find_calls = 0;
+
+    rgn_store_init(&ds); rgn_store_init(&dc); rgn_store_init(&du);
+    DialogPtr modal = FileCopyDialog(&filecopy, filecopy_items,
+                                     &filecopy_progress,
+                                     &ds.r, &dc.r, &du.r);
+    CHECK(modal != NULL, "modal dispatch setup: FILE COPY dialog exists");
+    if (modal == NULL) return;
+
+    rgn_store_init(&desk); rgn_store_init(&sa);
+    rgn_store_init(&sb); rgn_store_init(&sc);
+    rgn_store_init(&ws); rgn_store_init(&wc); rgn_store_init(&wu);
+    WindowMgr_init(&wm, (rgn_rect_t){ 0, 0, 480, 640 },
+                   &desk.r, &sa.r, &sb.r, &sc.r);
+    memset(&behind, 0, sizeof behind);
+    behind.strucRgn = &ws.r;
+    behind.contRgn = &wc.r;
+    behind.updateRgn = &wu.r;
+    NewWindow(&wm, &behind,
+              (rgn_rect_t){ 60, 60, 360, 560 },
+              (rgn_rect_t){ 82, 61, 359, 559 },
+              documentKind, documentProc, 1);
+
+    memset(&ev, 0, sizeof ev);
+    ev.what = (uint16_t)mouseDown;
+    ev.where.h = 100;                 /* inside BEHIND, outside FILE COPY */
+    ev.where.v = 100;
+    g_modal_block_count = 0;
+    g_modal_block_where.h = 0;
+    g_modal_block_where.v = 0;
+
+    flair_modal_disposition_t disp = DialogModalDispatch(
+        modal, &ev, modal_block_probe, NULL);
+    if (disp == FLAIR_MODAL_PASSTHROUGH) {
+        find_calls++;
+        (void)FindWindow(&wm, ev.where, &hit);
+    }
+    CHECK(disp == FLAIR_MODAL_BLOCK,
+          "modal dispatch: click outside frontmost modal is swallowed");
+    CHECK(g_modal_block_count == 1 && g_modal_block_where.h == 100 &&
+          g_modal_block_where.v == 100,
+          "modal dispatch: outside click emits one block marker callback with exact x,y");
+    CHECK(find_calls == 0 && hit == NULL,
+          "modal dispatch: outside click performs NO FindWindow dispatch behind the modal");
+
+    ev.where.h = 200;
+    ev.where.v = 205;                 /* movableDBoxProc title band */
+    disp = DialogModalDispatch(modal, &ev, modal_block_probe, NULL);
+    CHECK(disp == FLAIR_MODAL_DRAG,
+          "modal dispatch: movable modal title keeps inDrag on the modal itself");
+
+    {
+        rgn_rect_t before = region_get_bbox(modal->window.strucRgn);
+        rgn_rect_t item_before = modal->items[0].rect;
+        rgn_rect_t ctrl_before = modal->items[1].ctrl->contrlRect;
+        MoveDialog(modal, 10, 15);
+        rgn_rect_t after = region_get_bbox(modal->window.strucRgn);
+        CHECK(after.left == before.left + 10 && after.top == before.top + 15 &&
+              after.right == before.right + 10 &&
+              after.bottom == before.bottom + 15,
+              "modal dispatch: movable modal drag offsets its own window geometry");
+        CHECK(modal->items[0].rect.left == item_before.left + 10 &&
+              modal->items[0].rect.top == item_before.top + 15 &&
+              modal->items[1].ctrl->contrlRect.left == ctrl_before.left + 10 &&
+              modal->items[1].ctrl->contrlRect.top == ctrl_before.top + 15,
+              "modal dispatch: movable modal keeps item/control geometry attached");
+    }
+
+    ev.where.h = 200;
+    ev.where.v = 240;                 /* modal body */
+    disp = DialogModalDispatch(modal, &ev, modal_block_probe, NULL);
+    CHECK(disp == FLAIR_MODAL_CAPTURE,
+          "modal dispatch: click inside modal body is captured, never passed behind");
+
+    /* Keys are captured and handled by the same one-event path ModalDialog uses. */
+    {
+        DialogPtr keyed = setup_modal_dialog(1, 0);
+        uint16_t item_hit = 0;
+        memset(&ev, 0, sizeof ev);
+        ev.what = (uint16_t)keyDown;
+        ev.message = (uint32_t)0x1Cu << 8;
+        disp = DialogModalDispatch(keyed, &ev, modal_block_probe, NULL);
+        CHECK(disp == FLAIR_MODAL_CAPTURE,
+              "modal dispatch: keyDown is captured by the modal only");
+        CHECK(DialogHandleEvent(keyed, &ev, NULL, &item_hit) == 1 &&
+              item_hit == 1,
+              "modal dispatch: captured Return routes to the modal default item");
+    }
+}
+
+/* ===========================================================================
  * PROPERTY 3 -- DRAW: render FILE COPY dialog and assert pixel values
  *
  * Draw the FILE COPY dialog into an 8bpp offscreen. Assert:
@@ -1065,6 +1185,7 @@ int main(int argc, char **argv)
     test_modaldialog_escape_key();
     test_modaldialog_click_disabled();
     test_modaldialog_click_stattext();
+    test_true_modal_dispatch();
     test_draw_filecopy();
     test_draw_border_sweep();
     test_draw_default_ring();

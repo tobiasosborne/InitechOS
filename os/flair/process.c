@@ -11,14 +11,10 @@
  *     open()) the O-1 host oracle uses to wire the two stub tenants over
  *     caller-built windows (stamp magic, bind the demux refCon, link/demote the
  *     foreground).
- *   - FlairProcess_launch / FlairProcess_terminate are the ARENA memory model
- *     (Wave 3a; ADR-0013 Sec 3.2/3.4/3.6): launch carves a HANDLE FlairApp + a
- *     GENERAL child block from the master heap (fail-loud budget, O-4), lays a
- *     child arena, calls procs->open(), SelectWindows + links the foreground;
- *     terminate runs close() + DisposeWindow(owned) + the one-shot child-block
- *     free + foreground promotion. CLEAN teardown only -- the corrupt-arena death
- *     path is deferred (bead initech-ubd0). Graded by O-3 (teardown/leak) +
- *     O-4 (launch budget).
+ *   - FlairProcess_launch / _terminate / _kill implement the AC-2 split-arena
+ *     memory model: HANDLE app + HANDLE records + GENERAL data, strict LIFO
+ *     teardown, clean-close vs crash distinction, and successor promotion.
+ *     Graded by O-3 (teardown/leak/death survival) + O-4 (launch budget).
  *   - flair_app_dispatch (Wave 2) routes + synthesizes the activateEvt pair;
  *     graded GREEN by O-1 (harness/proptest/test_process.c).
  *
@@ -330,6 +326,22 @@ static void teardown_common(FlairProcessList *list, WindowMgr *wm,
     if (was_fg && succ != (FlairApp *)0) {
         raise_group(wm, succ);
         succ->state = (uint8_t)FLAIR_APP_FG;
+
+        /* ADR-0013 Sec 3.4 step 5: promotion includes the successor's
+         * activateEvt, not only list/z-order state. The dying tenant is never
+         * re-entered; synthesize the one surviving half of the activation pair
+         * with deterministic zero where/when. This restores tenant-side focus
+         * state (caret/accent) before the close dispatch repaints/presents. */
+        if (succ->procs != (const FlairAppProcs *)0 &&
+            succ->procs->event !=
+                (void (*)(FlairApp *, const EventRecord *))0) {
+            EventRecord act;
+            proc_zero(&act, (uint32_t)sizeof act);
+            act.what = (uint16_t)activateEvt;
+            act.message = (uint32_t)(uintptr_t)succ->windows;
+            act.modifiers = FLAIR_EVT_MOD_ACTIVE_FLAG;
+            succ->procs->event(succ, &act);
+        }
     }
 
     /* (3) ONE-SHOT frees, LIFO: the DATA block (GENERAL) first ... */
@@ -640,12 +652,53 @@ static FlairApp *owner_of_window_tolerant(FlairProcessList *list, WindowPtr w)
 }
 
 /* --------------------------------------------------------------------------
+ * FlairProcess_close_window -- owner-identity close disposition (initech-8fhu).
+ *
+ * ADR-0013 Sec 3.4 is ratified: Quit/inGoAway on a tenant calls
+ * FlairProcess_terminate, never a bare hide/unlink. DEC-AC3-3 and Finder F2-3
+ * refine the already-required subset without adding the pending INT 0x81/disk
+ * machinery: refCon demux says whether the hit WindowRecord belongs to a
+ * resident tenant. Owned -> clean terminate; unowned -> shell-furniture hide.
+ * -------------------------------------------------------------------------- */
+int FlairProcess_close_window(FlairProcessList *list, WindowMgr *wm,
+                              flair_heap_t *master, WindowPtr w,
+                              const char **terminated_name)
+{
+    FlairApp *owner;
+
+    if (list == NULL || wm == NULL || master == NULL || w == NULL)
+        PROC_PANIC("close_window: NULL argument");
+    if (terminated_name != NULL) *terminated_name = (const char *)0;
+
+    owner = owner_of_window_tolerant(list, w);
+    if (owner == (FlairApp *)0) {
+        HideWindow(wm, w);                    /* shell furniture only */
+        return 0;
+    }
+
+#ifndef CLOSE_HIDE_ONLY
+    /* Capture the static/tenant-owned name pointer before terminate frees the
+     * FlairApp handle. The caller uses it only for the serial disposition line. */
+    if (terminated_name != NULL) *terminated_name = owner->name;
+    FlairProcess_terminate(list, wm, master, owner);
+    return 1;
+#else
+    /* Named Rule-6 mutant: resurrect the initech-8fhu defect. The tenant stays
+     * at list->head and the next key is delivered to this now-hidden app. */
+    HideWindow(wm, w);
+    return 0;
+#endif
+}
+
+/* --------------------------------------------------------------------------
  * flair_route_updates -- route pending window damage to owning tenants (Sec 3.3)
  * and VALIDATE every damaged window it walks: the pump's CONTENT phase.
  *
  * One forward pass over the z-order. For each VISIBLE window with a NON-EMPTY
- * updateRgn: recover the owner (tolerant), synthesize + deliver one updateEvt if
- * the owner can receive it, then validate (clear the damage) UNCONDITIONALLY.
+ * updateRgn: intersect the seed with the window's CURRENT visible region
+ * (BeginUpdate fidelity; bead initech-wlzp), recover the owner (tolerant),
+ * synthesize + deliver one updateEvt if the owner can receive it, then validate
+ * (clear the damage) UNCONDITIONALLY.
  *
  * VALIDATION CONTRACT (beads initech-gofc, absorbing initech-0zxp; epic
  * initech-av7s DQ1/DQ2, ratified 2026-07-31): under the pump order
@@ -677,6 +730,14 @@ void flair_route_updates(FlairProcessList *list, WindowMgr *wm)
         if (!w->visible) continue;                 /* hidden windows owe no update  */
         if (w->updateRgn == (region_t *)0) continue;
         if (region_is_empty(w->updateRgn)) continue;   /* no damage outstanding     */
+
+        /* A pending seed can outlive a z-order change. BeginUpdate installs
+         * updateRgn INTERSECT the CURRENT visRgn as the paint clip; without this
+         * delivery-time re-clip a background tenant can paint pixels a newly
+         * foreground window now owns (bead initech-wlzp). The Window Manager
+         * verb also Rule-2 asserts that the post-clip set is a visRgn subset. */
+        WindowMgr_clip_update_to_visible(wm, w);
+        if (region_is_empty(w->updateRgn)) continue;
 
         /* Recover the owning tenant by the binding rule -- TOLERANT: an unowned
          * (shell furniture) window gets no delivery, NOT a panic (the distinction

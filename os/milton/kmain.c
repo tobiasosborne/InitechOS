@@ -1038,11 +1038,13 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
                       dlg, dlg_items, dlg_progress,
                       dlg_struc, dlg_cont, dlg_upd,
                       overlay,   /* always-on-top occluder (bars + modal); initech-pipa */
-#ifdef FLAIR_LIVE_TENANTS
+#if defined(FLAIR_LIVE_TENANTS) || defined(FLAIR_LIVE_NO_MODAL)
                       0 /* FLAIR App Contract demo: NO modal -- the two canon doc
                          * windows are hidden by the tenant arm and the co-resident
-                         * tenants are launched on top (ADR-0013); reuses shell.c
-                         * byte-identically, only the show_modal flag differs. */);
+                         * tenants are launched on top (ADR-0013), OR the R1.4
+                         * no-modal live variant keeps the same windows/bars solely
+                         * so period-blocked menu gates can run without a modal.
+                         * Reuses shell.c byte-identically; only show_modal differs. */);
 #else
                       1 /* show_modal -- the canon Office Space frame */);
 #endif
@@ -1252,6 +1254,20 @@ static void flair_live_cursor_track(const EventRecord *ev)
     serial_putc('\n');
 }
 
+#ifndef FLAIR_LIVE_TENANTS
+/* Period dBoxProc click-outside feedback was SysBeep. InitechOS has no beep;
+ * DialogModalDispatch invokes this callback at the dispatch seam instead. */
+static void flair_live_modal_block_marker(flair_point_t where, void *user)
+{
+    (void)user;
+    serial_puts("FLAIR-MODAL-BLOCK where=");
+    serial_puti((int32_t)where.h);
+    serial_putc(',');
+    serial_puti((int32_t)where.v);
+    serial_putc('\n');
+}
+#endif
+
 /* Map a hit WindowPtr to the stable serial-marker ID for this scene.
  *
  * Marker ABI (kept byte-for-byte apart from the numeric repair):
@@ -1321,6 +1337,19 @@ static void flair_live_raise_drag_target(flair_live_ctx_t *ctx, WindowPtr w)
 #endif
 
 #ifdef FLAIR_LIVE_TENANTS
+/* Band-2 policy for both foreground changes and the legitimate zero-tenant
+ * state. The existing shell Photoshop bar is the furniture fallback already
+ * used by menu-panel restoration when list->head is NULL (below, in
+ * flair_live_restore_menu_panel). */
+static MenuBar *flair_live_tenant_bar(flair_live_ctx_t *ctx,
+                                      FlairProcessList *list)
+{
+    if (list != (FlairProcessList *)0 && list->head != (FlairApp *)0 &&
+        list->head->menubar != (MenuBar *)0)
+        return list->head->menubar;
+    return &ctx->scene->bar_photoshop;
+}
+
 /* The ONE post-activation path, factored from the existing O-5 content-click
  * block so DQ5 title activation reuses it bit-for-bit in behavior: chrome,
  * content/updateEvt routing, band-2 menubar swap, present, then the serial
@@ -1348,7 +1377,8 @@ static void flair_live_finish_tenant_switch(flair_live_ctx_t *ctx,
      * NEVER in a real build. */
 #endif
 #ifndef FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP
-    DrawMenuBar(barport, list->head->menubar, -1, (const region_t *)0);
+    DrawMenuBar(barport, flair_live_tenant_bar(ctx, list), -1,
+                (const region_t *)0);
 #else
     /* MUTANT FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP (Rule 6; the O-5 tenants
      * emu-mutant image ONLY): SKIP the foreground-tenant menubar swap.
@@ -1624,20 +1654,151 @@ static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puts(")\n");
 }
 
-/* FO-7 inGoAway dispatch (wired, not gated -- the drag gate does not exercise it;
- * a focused close gate is the thin FO-8b follow-on). HideWindow accrues the
- * exposure damage of everything the window covered exactly like DisposeWindow
- * (window.h Sec 2); desktop_paint_damage then repaints the exposed area + any
- * re-exposed window behind, and the present blits it. */
+#ifndef FLAIR_LIVE_TENANTS
+/* movableDBoxProc keeps inDrag on the MODAL ITSELF. The dialog is intentionally
+ * a standalone shell layer, so this tracker moves its global dialog/item/control
+ * geometry, rebuilds the overlay union, restores the old footprint through the
+ * normal damage spine, then draws the modal last at its new position. */
+static void flair_live_do_modal_drag(flair_live_ctx_t *ctx,
+                                     const boot_info_t *bi,
+                                     flair_point_t where0)
+{
+    DialogPtr dp = ctx->scene->dlg;
+    EventRecord up;
+    flair_point_t where1 = where0;
+    rgn_rect_t old_bounds;
+    rgn_rect_t next;
+    uint32_t guard;
+    int16_t dh;
+    int16_t dv;
+
+    if (dp == (DialogPtr)0) return;
+    old_bounds = region_get_bbox(dp->window.strucRgn);
+    guard = flair_tick_count() + FLAIR_LIVE_DRAG_TRACK_TICKS;
+
+    for (;;) {
+        int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &up, 3u);
+        flair_live_cursor_track(&up);
+        if (got) flair_live_emit_evt(&up);
+        where1 = up.where;
+        if (got && up.what == (uint16_t)mouseUp) break;
+        if (flair_tick_count() >= guard) break;
+    }
+
+    dh = (int16_t)(where1.h - where0.h);
+    dv = (int16_t)(where1.v - where0.v);
+    next = old_bounds;
+    next.left = (int16_t)(next.left + dh);
+    next.right = (int16_t)(next.right + dh);
+    next.top = (int16_t)(next.top + dv);
+    next.bottom = (int16_t)(next.bottom + dv);
+
+    if (next.left < ctx->wm->desktop_frame.left)
+        dh = (int16_t)(dh + ctx->wm->desktop_frame.left - next.left);
+    if (next.right > ctx->wm->desktop_frame.right)
+        dh = (int16_t)(dh - (next.right - ctx->wm->desktop_frame.right));
+    if (next.top < (int16_t)SHELL_MENUBARS_H)
+        dv = (int16_t)(dv + (int16_t)SHELL_MENUBARS_H - next.top);
+    if (next.bottom > ctx->wm->desktop_frame.bottom)
+        dv = (int16_t)(dv - (next.bottom - ctx->wm->desktop_frame.bottom));
+
+    /* Marker geometry is the clamped PROPOSAL, independent of whether the
+     * Rule-6 drag-noop mutant commits it. This keeps pixels, not serial, as the
+     * interaction discriminator (FO-9; re-key for initech-zn61). */
+    next = old_bounds;
+    next.left = (int16_t)(next.left + dh);
+    next.right = (int16_t)(next.right + dh);
+    next.top = (int16_t)(next.top + dv);
+    next.bottom = (int16_t)(next.bottom + dv);
+
+#ifndef FLAIR_LIVE_MUTATE_DRAG_NOOP
+    if (dh != 0 || dv != 0) {
+        MoveDialog(dp, dh, dv);
+        shell_sync_overlay(ctx->scene);
+#ifndef FLAIR_LIVE_MUTATE_MODAL_NO_RESTORE
+        WindowMgr_invalidate_desktop(ctx->wm, old_bounds);
+        desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+        flair_live_content_phase(ctx);
+#else
+        /* Reverse-survival mutant (Rule 6; re-keyed initech-dc4v after zn61):
+         * move/draw the modal but skip restoration of its OLD footprint. The
+         * vacated window-1 band retains stale dialog pixels and the host PPM
+         * oracle goes RED. The original WINDOW_MUTATE_IGNORE_OVERLAY proof has
+         * moved to the forward window-across-overlay host scene, where its
+         * mechanism still intersects (WL-0076 mutation-repoint discipline). */
+#endif
+
+        dp->window.port.portBits.bm = ctx->off;
+        dp->window.port.visRgn = (region_t *)0;
+        dp->window.port.clipRgn = (region_t *)0;
+        dp->window.port.portRect = region_get_bbox(dp->window.strucRgn);
+        DrawDialog(dp);
+        flair_desktop_present(bi, &ctx->off);
+    }
+#else
+    /* Existing FO-9/HER-14 mutant, extended to the movable-modal commit: the
+     * exact proposed marker still fires, but no geometry/pixel state changes. */
+    (void)bi;
+    (void)dh;
+    (void)dv;
+#endif
+
+    serial_puts("FLAIR-MODAL-DRAG (");
+    serial_puti((int32_t)old_bounds.left);
+    serial_putc(',');
+    serial_puti((int32_t)old_bounds.top);
+    serial_puts(")->(");
+    serial_puti((int32_t)next.left);
+    serial_putc(',');
+    serial_puti((int32_t)next.top);
+    serial_puts(")\n");
+}
+#endif
+
+/* FO-7/R1.4 inGoAway dispatch. Owner identity selects the lifecycle verb:
+ * tenant-owned -> FlairProcess_terminate (DisposeWindow sweep + promotion),
+ * shell furniture -> HideWindow. Both accrue exact exposure damage before the
+ * standard chrome -> content -> band-2 -> present cycle. */
 static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                                WindowPtr w)
+                                WindowPtr w, GrafPort *tenant_barport)
 {
     int wid = flair_live_window_index(ctx, w);
+#ifdef FLAIR_LIVE_TENANTS
+    const char *terminated_name = (const char *)0;
+    int terminated = 0;
+    if (ctx->plist != (FlairProcessList *)0 &&
+        ctx->master != (flair_heap_t *)0) {
+        /* ADR-0013 Sec 3.4 / F2-3 / DEC-AC3-3 subset: the refCon owner decides
+         * disposition. Tenant window -> full terminate; shell furniture -> hide. */
+        terminated = FlairProcess_close_window(ctx->plist, ctx->wm, ctx->master,
+                                                w, &terminated_name);
+    } else {
+        HideWindow(ctx->wm, w);
+    }
+#else
+    (void)tenant_barport;
     HideWindow(ctx->wm, w);
+#endif
     /* DQ2 pump order: chrome -> content -> present (see flair_live_content_phase). */
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
+#ifdef FLAIR_LIVE_TENANTS
+    /* Teardown promotion changes the foreground outside flair_app_dispatch, so
+     * refresh band 2 here. If the final tenant closed, use the existing shell
+     * fallback bar (the head==NULL path), never dereference a dead head. */
+    if (tenant_barport != (GrafPort *)0)
+        DrawMenuBar(tenant_barport,
+                    flair_live_tenant_bar(ctx, ctx->plist), -1,
+                    (const region_t *)0);
+#endif
     flair_desktop_present(bi, &ctx->off);
+#ifdef FLAIR_LIVE_TENANTS
+    if (terminated) {
+        serial_puts("FLAIR-TENANT-EXIT name=");
+        serial_puts(terminated_name != (const char *)0 ? terminated_name : "?");
+        serial_putc('\n');
+    }
+#endif
     serial_puts("FLAIR-CLOSE win ");
     serial_puti((int32_t)wid);
     serial_putc('\n');
@@ -2856,7 +3017,7 @@ void kernel_main(void)
                 if (chrome_pc == inDrag && chrome_w != (WindowPtr)0) {
                     flair_live_do_drag(&ctx, &b, chrome_w, ev.where);
                 } else if (chrome_pc == inGoAway && chrome_w != (WindowPtr)0) {
-                    flair_live_do_close(&ctx, &b, chrome_w);
+                    flair_live_do_close(&ctx, &b, chrome_w, &ten_barport);
                 } else if ((chrome_pc == inZoomIn || chrome_pc == inZoomOut) &&
                            chrome_w != (WindowPtr)0) {
                     flair_live_do_zoom(&ctx, &b, chrome_w);
@@ -2884,7 +3045,7 @@ void kernel_main(void)
 #if defined(KMAIN_MUT_MENU2_BAR_SYS)
                     MenuBar *menu2_bar = &ctx.scene->bar_sys;
 #else
-                    MenuBar *menu2_bar = ten_plist.head->menubar;
+                    MenuBar *menu2_bar = flair_live_tenant_bar(&ctx, &ten_plist);
 #endif
                     flair_live_do_menu_at(&ctx, &b, menu2_bar, ev.where,
                                           (uint32_t)SHELL_MENUBAR2_TOP);
@@ -2943,6 +3104,30 @@ void kernel_main(void)
             /* Cooked-event marker (FO-5/6 marker reconciliation). */
             flair_live_emit_evt(&ev);
 
+            /* True modality lives at the DISPATCH seam, above FindWindow. The
+             * standalone FILE COPY dialog is frontmost while modal_up: outside
+             * clicks emit the SysBeep-substitute marker and are swallowed;
+             * inside/key events go only to DialogHandleEvent; a movable title
+             * keeps inDrag on the modal itself. FindWindow remains a true
+             * geometric hit-test for every other caller (bead initech-zn61). */
+            if (ctx.scene->modal_up && ctx.scene->dlg != (DialogPtr)0) {
+                flair_modal_disposition_t md = DialogModalDispatch(
+                    ctx.scene->dlg, &ev, flair_live_modal_block_marker,
+                    (void *)0);
+                if (md != FLAIR_MODAL_PASSTHROUGH) {
+                    if (md == FLAIR_MODAL_DRAG &&
+                        ev.what == (uint16_t)mouseDown) {
+                        flair_live_do_modal_drag(&ctx, &b, ev.where);
+                    } else if (md == FLAIR_MODAL_CAPTURE) {
+                        uint16_t item_hit = 0;
+                        (void)DialogHandleEvent(ctx.scene->dlg, &ev,
+                                                (dialog_filter_fn)0,
+                                                &item_hit);
+                    }
+                    continue;       /* BLOCK/CAPTURE/DRAG never reach FindWindow */
+                }
+            }
+
             if (ev.what == (uint16_t)mouseDown) {
                 WindowPtr w = (WindowPtr)0;
                 flair_part_code_t pc = FindWindow(ctx.wm, ev.where, &w);
@@ -2950,7 +3135,7 @@ void kernel_main(void)
                     flair_live_raise_drag_target(&ctx, w);
                     flair_live_do_drag(&ctx, &b, w, ev.where);
                 } else if (pc == inGoAway && w != (WindowPtr)0) {
-                    flair_live_do_close(&ctx, &b, w);
+                    flair_live_do_close(&ctx, &b, w, (GrafPort *)0);
                 } else if ((pc == inZoomIn || pc == inZoomOut) &&
                            w != (WindowPtr)0) {
                     flair_live_do_zoom(&ctx, &b, w);

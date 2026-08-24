@@ -249,8 +249,82 @@ static int leg_A(const Img *im)
         for (int j = 0; j < 4; j++)
             bad |= probe_is(im, xs[i], ys[j], FLAIR_TEN_NOTES_FILL,
                             "leg A close-expose NOTES content");
+    bad |= probe_notes_active_title(im, FLAIR_TEN_NOTES_L,
+                                    FLAIR_TEN_NOTES_T,
+                                    FLAIR_TEN_NOTES_R,
+                                    "leg A close-promoted NOTES title");
+    bad |= probe_is(im,
+                    FLAIR_TEN_NOTES_ACCENT_X + FLAIR_TEN_ACCENT_SIZE / 2,
+                    FLAIR_TEN_NOTES_ACCENT_Y + FLAIR_TEN_ACCENT_SIZE / 2,
+                    FLAIR_TEN_ACTIVE_ACCENT,
+                    "leg A close-promoted NOTES active accent");
     if (!bad)
-        printf("solid A PASS: exposed overlap reads NOTES_FILL (owner repainted)\n");
+        printf("solid A PASS: HELLO terminated; NOTES content repainted and "
+               "promoted active\n");
+    return bad;
+}
+
+/* ================= leg F: close-terminate differential ================= */
+static int pixels_differ(const Img *a, const Img *b, int x, int y)
+{
+    int ar, ag, ab, br, bg, bb;
+    px(a, x, y, &ar, &ag, &ab);
+    px(b, x, y, &br, &bg, &bb);
+    return !near3(ar, ag, ab, br, bg, bb);
+}
+
+static int band_diff(const Img *a, const Img *b, int y0, int y1)
+{
+    int n = 0;
+    for (int y = y0; y < y1; y++)
+        for (int x = 24; x < 200; x++)
+            if (pixels_differ(a, b, x, y)) n++;
+    return n;
+}
+
+static int aligned_band_diff(const Img *im, int y0a, int y0b, int h)
+{
+    int n = 0;
+    for (int dy = 0; dy < h; dy++)
+        for (int x = 24; x < 200; x++) {
+            int ar, ag, ab, br, bg, bb;
+            px(im, x, y0a + dy, &ar, &ag, &ab);
+            px(im, x, y0b + dy, &br, &bg, &bb);
+            if (!near3(ar, ag, ab, br, bg, bb)) n++;
+        }
+    return n;
+}
+
+static int leg_F(const Img *pre, const Img *post)
+{
+    int bad = leg_A(post);
+    int bar1_y0 = 4;
+    int bar1_y1 = FLAIR_CHROME_MENUBAR_H - 4;
+    int bar2_y0 = FLAIR_CHROME_MENUBAR_H + 4;
+    int bar2_y1 = 2 * FLAIR_CHROME_MENUBAR_H - 4;
+    int bar1_changes = band_diff(pre, post, bar1_y0, bar1_y1);
+    int bar2_changes = band_diff(pre, post, bar2_y0, bar2_y1);
+    int post_distinct = aligned_band_diff(post, bar1_y0, bar2_y0,
+                                          bar1_y1 - bar1_y0);
+
+    if (bar1_changes != 0) {
+        fprintf(stderr, "FAIL leg F: shell-owned band 1 changed on close (%d px)\n",
+                bar1_changes);
+        bad = 1;
+    }
+    if (bar2_changes < 8) {
+        fprintf(stderr, "FAIL leg F: band 2 did not swap HELLO->NOTES (%d px)\n",
+                bar2_changes);
+        bad = 1;
+    }
+    if (post_distinct < 8) {
+        fprintf(stderr, "FAIL leg F: post-close NOTES band duplicates system bar (%d px)\n",
+                post_distinct);
+        bad = 1;
+    }
+    if (!bad)
+        printf("solid F PASS: terminate-on-close promoted active NOTES, kept "
+               "content intact, and swapped band 2 while band 1 stayed static\n");
     return bad;
 }
 
@@ -595,20 +669,21 @@ int main(int argc, char **argv)
     Img im;
     int rc;
     if (argc < 2 || strlen(argv[1]) != 1 ||
-        (argv[1][0] == 'D' ? argc != 4 : argc != 3)) {
+        ((argv[1][0] == 'D' || argv[1][0] == 'F')
+             ? argc != 4 : argc != 3)) {
         fprintf(stderr,
                 "usage: ppm_flair_solid_check <A|B|C|E|G|H> <dump.ppm>\n"
-                "       ppm_flair_solid_check D <pre.ppm> <post.ppm>\n");
+                "       ppm_flair_solid_check <D|F> <pre.ppm> <post.ppm>\n");
         return 2;
     }
-    if (argv[1][0] == 'D') {
+    if (argv[1][0] == 'D' || argv[1][0] == 'F') {
         Img post;
         if (read_ppm(argv[2], &im)) return 2;
         if (read_ppm(argv[3], &post)) {
             free(im.buf);
             return 2;
         }
-        rc = leg_D(&im, &post);
+        rc = argv[1][0] == 'D' ? leg_D(&im, &post) : leg_F(&im, &post);
         free(post.buf);
         free(im.buf);
         return rc;

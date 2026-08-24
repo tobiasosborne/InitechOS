@@ -2,29 +2,29 @@
  * ppm_flair_dc4v_check.c -- the initech-dc4v EMU survival oracle's screendump
  * grader (HOST, C-only). beads initech-dc4v (the RED half of the compositor fix
  * initech-pipa). It grades the POST-DRAG screendump of the booted BOOT_FLAIR_LIVE
- * desktop (show_modal=1 -- the ONLY scene with the modal) after the locked dc4v
- * trace dragged window 1 ("Saving tables to disk") ~260 px LEFT: from struct
- * origin (300,120) to (40,120). That drag's VACATED area sweeps the modal's right
- * half; the pre-fix compositor seafoam-ERASES the modal there (and the moved
- * window would overpaint the modal's left half) because the two menu bars + the
- * modal are painted ONCE by shell_render and are NOT WindowMgr damage-tracked
- * participants. The initech-pipa fold (wm->overlay_rgn into window.c fronts_union)
- * makes those layers occlude, so they SURVIVE from the initial shell_render.
+ * desktop (show_modal=1 -- the ONLY scene with the modal) after the locked R1.4
+ * trace dragged the FILE COPY modal 140 px LEFT, from {L140,T200} to {L0,T200},
+ * across window 1. The direction is now MODAL-over-window: the modal must remain
+ * intact at its new rect and the old right-half footprint must restore the
+ * document content below it.
  *
- * THE SURVIVAL DIFFERENTIAL (each independently flips under the pre-fix / mutant
- * -DWINDOW_MUTATE_IGNORE_OVERLAY compositor; the pipa erase case):
+ * RULE-8 RE-KEY (initech-zn61, orchestrator rework): the old trace dragged a
+ * document window from behind the frontmost modal, encoding zn61's input leak as
+ * a golden. Correct modality blocks that gesture. The original initech-pipa
+ * WINDOW_MUTATE_IGNORE_OVERLAY proof moves to test-flair-shell-mutant's forward
+ * window-across-overlay host scene, where the mechanism still intersects. This
+ * reverse emu scene is mutation-proven by FLAIR_LIVE_MUTATE_MODAL_NO_RESTORE.
  *
- *   LEG M -- THE MODAL SURVIVES.  The dragged window's OLD struct {300,120,560,360}
- *     overlapped the modal {140,200,500,280}; after the ~260 px LEFT drag the
- *     modal's right half is VACATED.  Post-fix it is untouched from shell_render:
- *       - the moveable-titled modal's right frame (499,240) reads canon idx0
- *         black (was the dBoxProc 7px border's (496,240) before initech-zvo6;
- *         the modal chrome is now the Platinum 22-row title band + a PLAIN 1px frame);
- *       - the modal interior (450,240) reads sampled idx231 E7 face;
- *       - the right-half band x[366,498] y[222,278] (below the 22px title band
- *         -- was y[206,278] under the old 7px-border layout) is >=80% canon
- *         E7/white/black (the modal box + text + progress bar) and <=5% teal.
- *     Pre-fix the whole band was seafoam-ERASED -> ~100% teal -> LEG M goes RED.
+ * THE REVERSE SURVIVAL DIFFERENTIAL:
+ *
+ *   LEG M -- THE MODAL SURVIVES AT ITS NEW RECT. Right frame (359,240) is black,
+ *     interior (330,240) is E7, and the clear body band x[226,358),y[222,247)
+ *     is >=80% E7/white/black and <=5% teal.
+ *
+ *   LEG V -- THE VACATED WINDOW CONTENT IS RESTORED. The old-modal-only band
+ *     x[366,498),y[222,278) lies inside window 1 content after the modal moves.
+ *     It must be >=90% white and <=5% teal. MODAL_NO_RESTORE leaves stale E7/
+ *     progress pixels there and goes RED.
  *
  *   LEG B -- THE PHOTOSHOP MENU BAR SURVIVES.  A run across the second (Photoshop)
  *     bar at y=30, x[70,350], is dominated by sampled Platinum face (idx231 ==
@@ -38,16 +38,14 @@
  * expected colors are the canon flair_canon_rgb(idx) values (spec/assets/
  * color_canon.h) -- the SAME independently-decomp-graded canon test-color-canon
  * vouches for -- NEVER the render source flair_palette_rgb, NEVER preview.webp.
- * The modal geometry (moveable-titled movableDBoxProc chrome, beads
- * initech-zvo6; bounds {140,200,500,280}) comes from os/flair/dialog.c
- * FILECOPY_* + sys8/window-chrome.md Sec 2.1 + the drag delta, NOT from the
- * artifact's render.
+ * Modal geometry is hardcoded from the locked old rect plus the trace delta,
+ * not read from dialog/chrome constants or the artifact render.
  *
  * Usage: ppm_flair_dc4v_check <screendump.ppm>
  * Exit 0 = PASS; non-zero = a named FAIL (the assertion + sampled-vs-expected RGB).
  *
  * ASCII-clean (Rule 12). Deterministic (Rule 11): fixed probe coords from the
- * locked (-260,0) delta and the test_shell.c W1/modal geometry.
+ * locked (-140,0) delta and the test_shell.c W1/modal geometry.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,29 +64,24 @@
 #define CIDX_TEAL      2   /* Initech teal #8DDCDC (desktop bg)  */
 #define CIDX_FACE      231 /* sampled Platinum dialog/menu face #E7E7E7 */
 
-/* ---- the post-drag modal geometry (dialog.c FILECOPY_* -- INDEPENDENT of the
- * render). Bounds {left=140, top=200, right=500, bottom=280}; movableDBoxProc frame 1px.
- * The ~260 px LEFT drag (W1 300->40) vacates the modal's right half; the fix keeps
- * it from being seafoam-erased. Probe the RIGHT half only (defect a, the empirically
- * -proven erase case): all coords are x in [360,500) y in [200,280). */
-#define MODAL_R        500
-#define MODAL_RB_X     499   /* right frame column (the PLAIN 1px frame; was
-                              * 496 -- inside the OLD 7px black band -- before
-                              * initech-zvo6's moveable-titled chrome)          */
+/* ---- post-drag modal geometry: old {140,200,500,280} + (-140,0) =>
+ * new {0,200,360,280}. Hardcoded independent golden. */
+#define MODAL_R        360
+#define MODAL_RB_X     359
 #define MODAL_MID_Y    240
-#define MODAL_INT_X    450   /* sampled E7 dialog-face interior                   */
+#define MODAL_INT_X    330
 
-/* the right-half survival band (entirely inside the modal AND inside the vacated
- * seafoam-erase zone x[360,560)y[120,360) of the pre-fix build). BAND_Y0 starts
- * BELOW the Platinum 22-row title band (content_top = DT+22 = 222). DEC-10
- * Sec 4 + sys8/window-chrome.md Sec 2.1/2.2 replace the old 19-row exclusion;
- * the new coordinate was measured against build/flair_dc4v.ppm before encoding.
- * This keeps the >=80% E7/white/black survival relation clear of the title
- * stripe and shadow rows. */
-#define BAND_X0        366
-#define BAND_X1        498
+/* Clear modal-body band below the title and above the progress item. */
+#define BAND_X0        226
+#define BAND_X1        358
 #define BAND_Y0        222
-#define BAND_Y1        278
+#define BAND_Y1        247
+
+/* Old-modal-only band now exposing window 1 content. */
+#define VAC_X0         366
+#define VAC_X1         498
+#define VAC_Y0         222
+#define VAC_Y1         278
 
 /* the Photoshop (second) bar run: y=30 is rows [20,40); x[70,350] crosses titles. */
 #define BAR_Y          30
@@ -178,19 +171,19 @@ int main(int argc, char **argv)
     }
     fclose(f);
 
-    printf("ppm_flair_dc4v_check: grading the post-drag frame "
-           "(W1 (300,120)->(40,120), the locked -260,0 dc4v trace; modal+bars SURVIVE?)\n");
+    printf("ppm_flair_dc4v_check: reverse mode -- FILE COPY modal "
+           "(140,200)->(0,200), locked -140,0 trace across window 1\n");
 
     /* ---- LEG A: bare-desktop anchor is canon teal (makes the teal checks mean
      * something). ---------------------------------------------------------- */
     assert_idx(20, 460, CIDX_TEAL,
                "LEG A: bare-desktop corner (20,460) is canon idx2 teal");
 
-    /* ---- LEG M: THE MODAL SURVIVES the drag across it. --------------------- */
+    /* ---- LEG M: THE MODAL SURVIVES AT ITS NEW POSITION. ------------------- */
     assert_idx(MODAL_RB_X, MODAL_MID_Y, CIDX_FRAME,
-               "LEG M: modal right frame (499,240) is canon idx0 black (not erased)");
+               "LEG M: moved modal right frame (359,240) is black");
     assert_idx(MODAL_INT_X, MODAL_MID_Y, CIDX_FACE,
-               "LEG M: modal interior (450,240) is sampled idx231 E7 (not erased)");
+               "LEG M: moved modal interior (330,240) is sampled E7");
     {
         long tot = 0, chrome = 0, teal = 0;
         for (int y = BAND_Y0; y < BAND_Y1; y++)
@@ -207,19 +200,46 @@ int main(int argc, char **argv)
         int teal_ok   = (teal * 100 <= tot * 5);
         if (!(chrome_ok && teal_ok)) {
             fprintf(stderr,
-                    "ppm_flair_dc4v_check: FAIL LEG M -- modal right-half band "
+                    "ppm_flair_dc4v_check: FAIL LEG M -- moved modal body band "
                     "x[%d,%d) y[%d,%d) NOT intact: E7/white/black=%ld/%ld (%.1f%%, "
                     "need >=80%%), teal=%ld/%ld (%.1f%%, need <=5%%): the drag "
-                    "ERASED the modal (pipa pre-fix compositor / IGNORE_OVERLAY)\n",
+                    "is not intact at the new position\n",
                     BAND_X0, BAND_X1, BAND_Y0, BAND_Y1,
                     chrome, tot, 100.0 * (double)chrome / (double)tot,
                     teal, tot, 100.0 * (double)teal / (double)tot);
             g_fail = 1;
         } else {
-            printf("    LEG M: the modal SURVIVED the drag "
+            printf("    LEG M: the modal is intact at the new position "
                    "(band x[%d,%d)y[%d,%d): %.1f%% E7/white/black, %.1f%% teal)\n",
                    BAND_X0, BAND_X1, BAND_Y0, BAND_Y1,
                    100.0 * (double)chrome / (double)tot,
+                   100.0 * (double)teal / (double)tot);
+        }
+    }
+
+    /* ---- LEG V: OLD FOOTPRINT RESTORES WINDOW-1 CONTENT. ------------------ */
+    {
+        long tot = 0, white = 0, teal = 0;
+        for (int y = VAC_Y0; y < VAC_Y1; y++)
+            for (int x = VAC_X0; x < VAC_X1; x++) {
+                tot++;
+                if (is_rgb(x, y, IDX(CIDX_WHITE))) white++;
+                if (is_rgb(x, y, IDX(CIDX_TEAL))) teal++;
+            }
+        if (!(white * 100 >= tot * 90 && teal * 100 <= tot * 5)) {
+            fprintf(stderr,
+                    "ppm_flair_dc4v_check: FAIL LEG V -- vacated window-1 band "
+                    "x[%d,%d)y[%d,%d) not restored: white=%ld/%ld (%.1f%%, "
+                    "need >=90%%), teal=%ld/%ld (%.1f%%, need <=5%%); stale "
+                    "modal pixels or a desktop-fill hole remain\n",
+                    VAC_X0, VAC_X1, VAC_Y0, VAC_Y1,
+                    white, tot, 100.0 * (double)white / (double)tot,
+                    teal, tot, 100.0 * (double)teal / (double)tot);
+            g_fail = 1;
+        } else {
+            printf("    LEG V: vacated window-1 band restored (%.1f%% white, "
+                   "%.1f%% teal)\n",
+                   100.0 * (double)white / (double)tot,
                    100.0 * (double)teal / (double)tot);
         }
     }
@@ -257,13 +277,11 @@ int main(int argc, char **argv)
 
     free(g_buf);
     if (g_fail) {
-        fprintf(stderr, "ppm_flair_dc4v_check: FAIL -- dragging a window across the "
-                "modal + bars ERASED/overpainted them (the non-WindowMgr always-on-"
-                "top layers are not damage-occluded; initech-pipa)\n");
+        fprintf(stderr, "ppm_flair_dc4v_check: FAIL -- moved modal/vacated "
+                "window/menu-bar reverse-survival contract broken\n");
         return 1;
     }
-    printf("ppm_flair_dc4v_check: PASS -- the modal FILE COPY box + the menu bars "
-           "SURVIVED a window dragged across them (initech-pipa: wm->overlay_rgn "
-           "folded into fronts_union; ADR-0005 region spine, Law 2/4)\n");
+    printf("ppm_flair_dc4v_check: PASS -- moved modal intact, vacated window "
+           "content restored, menu bars intact (reverse survival; Law 2/4)\n");
     return 0;
 }

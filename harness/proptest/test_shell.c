@@ -677,6 +677,63 @@ int main(int argc, char **argv)
     }
 
     /* ======================================================================
+     * 8. R1.4 REVERSE SURVIVAL (initech-zn61 orchestrator re-key): move the
+     * standalone FILE COPY modal 140 px LEFT across window 1, rebuild the
+     * overlay, restore its old footprint through the damage spine, then draw
+     * the modal last at the new rect. This is the HOST coordinate/probe proof
+     * behind the re-keyed ppm_flair_dc4v_check; the emulator leg stays unrun in
+     * this lane. Geometry is literal and independent of the PPM grader.
+     * ====================================================================== */
+    {
+        static shell_store_t S4;
+        build_shell(&S4, 1 /* show_modal */, 1 /* enable_overlay */);
+        render_ctx_t ctx4;
+        int rc4 = init_ctx(&ctx4);
+        CHECK(rc4 == 0, "(8) reverse-modal render context init");
+        if (rc4 == 0) {
+            rgn_rect_t old = region_get_bbox(S4.scene.dlg->window.strucRgn);
+            shell_render(&S4.scene, &ctx4.fb.bm);
+            MoveDialog(S4.scene.dlg, -140, 0);
+            shell_sync_overlay(&S4.scene);
+            WindowMgr_invalidate_desktop(&S4.scene.wm, old);
+            desktop_paint_damage(&S4.scene.wm, &ctx4.fb.bm, &S4.comp.r);
+            desktop_validate_all(&S4.scene.wm);
+
+            S4.scene.dlg->window.port.portBits.bm = ctx4.fb.bm;
+            S4.scene.dlg->window.port.visRgn = (region_t *)0;
+            S4.scene.dlg->window.port.clipRgn = (region_t *)0;
+            S4.scene.dlg->window.port.portRect =
+                region_get_bbox(S4.scene.dlg->window.strucRgn);
+            DrawDialog(S4.scene.dlg);
+
+            CHECK(region_get_bbox(S4.scene.dlg->window.strucRgn).left == 0 &&
+                  region_get_bbox(S4.scene.dlg->window.strucRgn).top == 200,
+                  "(8) modal committed to literal new origin (0,200)");
+            CHECK(idx_at(&ctx4, 359, 240) == CIDX_BLACK,
+                  "(8) moved modal right frame (359,240) is black");
+            CHECK(idx_at(&ctx4, 330, 240) == CIDX_PLAT_FACE,
+                  "(8) moved modal interior (330,240) is E7");
+
+            int white = 0, teal = 0, tot = 0;
+            for (int y = 222; y < 278; y++)
+                for (int x = 366; x < 498; x++) {
+                    tot++;
+                    if (idx_at(&ctx4, x, y) == CIDX_WHITE) white++;
+                    if (idx_at(&ctx4, x, y) ==
+                        (int)FLAIR_DESKTOP_BG_INDEX) teal++;
+                }
+            CHECK(white * 100 >= tot * 90,
+                  "(8) vacated old-modal band is >=90% restored window-white");
+            CHECK(teal * 100 <= tot * 5,
+                  "(8) vacated old-modal band is <=5% teal (no background hole)");
+            if (!(white * 100 >= tot * 90 && teal * 100 <= tot * 5))
+                fprintf(stderr, "    (8) vacated band white=%d/%d teal=%d/%d\n",
+                        white, tot, teal, tot);
+            render_ctx_free(&ctx4);
+        }
+    }
+
+    /* ======================================================================
      * WRITE the composed scene PPM for the orchestrator's visual audit (Law 4 --
      * "yes, that's it" against the Office Space frame).
      * ====================================================================== */

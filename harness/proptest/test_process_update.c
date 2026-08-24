@@ -16,7 +16,7 @@
  *   expected values. An oracle that asked the router what the router did would agree
  *   BY CONSTRUCTION and is forbidden (Law 2; HER-02).
  *
- * THE SCENE (four DISJOINT windows so each has a full visible region -- no occlusion
+ * THE BASE SCENE (four DISJOINT windows so each has a full visible region -- no occlusion
  *   to confound which window carries damage):
  *     - app A (foreground) owns TWO windows: WA0 (group front) + WA1;
  *     - app B (background) owns ONE window:  WB0;
@@ -44,6 +44,19 @@
  *                                forever (the pre-DQ1 skip)
  *     => log == [ (A,updateEvt,WA0), (B,updateEvt,WB0) ] exactly; WA0/WB0/WU
  *        updateRgn now EMPTY (validate ran); WA1 stayed empty.
+ *
+ * THE WLZP SCENE (bead initech-wlzp; WL-0076 proper-fix note): three fully
+ *   overlapping tenant windows are installed in three separate z-order operations.
+ *   BACK is invalidated while it is frontmost, MID is then installed + invalidated,
+ *   and FRONT is installed + invalidated last, with NO route/validate boundary
+ *   between those operations. BACK therefore carries a stale seed covering pixels
+ *   FRONT now owns. Each update handler paints a distinct byte through exactly
+ *   `contRgn INTERSECT updateRgn`, like a real tenant. Routing walks front-to-back:
+ *   FRONT paints first, then MID/BACK. The delivery contract must re-clip every
+ *   pending updateRgn to the window's CURRENT visible region before updateEvt, so
+ *   the final overlap pixel remains FRONT. Without that delivery-time visRgn clip,
+ *   BACK paints last through its stale seed and stomps FRONT -- the required
+ *   RED-first failure against the pre-fix artifact.
  *
  * MUTATION-PROVEN (Rule 6; self-mutation -- the test_interact / test_process
  *   convention; the mutants perturb the INDEPENDENT EXPECTED side, NOT the router):
@@ -86,7 +99,7 @@
 TEST_HARNESS();
 
 /* The tenant ids (the per-app datum the log records). */
-enum { A_ID = 1, B_ID = 2 };
+enum { A_ID = 1, B_ID = 2, BACK_ID = 3, MID_ID = 4, FRONT_ID = 5 };
 
 /* Scene frame: wide enough for FOUR disjoint windows side by side. */
 enum { GW = 160, GH = 48 };
@@ -171,6 +184,12 @@ static int upd_empty(const WindowPtr w)
 static FlairApp *g_appA = NULL;
 static FlairApp *g_appB = NULL;
 
+/* WLZP synthetic framebuffer. The event handler below paints it only while the
+ * directed stale-seed leg is armed. This is independent of the router: expected
+ * ownership is the hand-authored z-order at one literal overlap probe. */
+static uint8_t g_wlzp_pixels[GW * GH];
+static int g_wlzp_paint = 0;
+
 static int app_id_of(const FlairApp *a)
 {
     if (a == g_appA) return A_ID;
@@ -220,6 +239,20 @@ static void log_append(int app_id, const EventRecord *ev)
 static void stub_event(FlairApp *self, const EventRecord *ev)
 {
     log_append(app_id_of(self), ev);
+
+    if (g_wlzp_paint && ev->what == (uint16_t)updateEvt &&
+        self->windows != NULL) {
+        WindowPtr w = self->windows;
+        uint8_t ink = (uint8_t)self->refCon;
+        for (int16_t v = 0; v < GH; v++) {
+            for (int16_t h = 0; h < GW; h++) {
+                if (region_contains_point(w->contRgn, h, v) &&
+                    region_contains_point(w->updateRgn, h, v)) {
+                    g_wlzp_pixels[(uint32_t)v * GW + (uint32_t)h] = ink;
+                }
+            }
+        }
+    }
 }
 
 static int stub_open(FlairApp *self, const FlairLaunchParams *lp)
@@ -241,6 +274,81 @@ static int is_update_of(const log_entry_t *g, int app_id, const WindowPtr w)
     return g->app_id == app_id &&
            g->what == (uint16_t)updateEvt &&
            g->message == (uint32_t)(uintptr_t)w;
+}
+
+/* WLZP: a stale seed from a formerly-front window must be clipped to current
+ * visibility at updateEvt delivery. This is the three-window z-churn case the
+ * bead requires; the expected overlap owner is a literal, not ComputeVisible. */
+static void test_stale_seed_clipped_at_delivery(void)
+{
+    static win_store_t WBACK, WMID, WFRONT;
+    static mgr_store_t M;
+    static FlairApp app_back, app_mid, app_front;
+    static FlairProcessList plist;
+    rgn_rect_t frame = { 0, 0, GH, GW };
+    rgn_rect_t struc = { 6, 20, 38, 100 };
+    rgn_rect_t cont  = { 10, 24, 34, 96 };
+    const int16_t probe_h = 60;
+    const int16_t probe_v = 20;
+
+    mgr_attach(&M, frame);
+    FlairProcessList_init(&plist);
+    memset(g_wlzp_pixels, 0, sizeof g_wlzp_pixels);
+    g_log_n = 0;
+
+    /* BACK owns the whole overlap when seeded. Do not route before the two
+     * covering z-order changes: that missing cycle boundary is the live defect. */
+    win_attach(&WBACK);
+    NewWindow(&M.wm, &WBACK.rec, struc, cont,
+              documentKind, documentProc, 1);
+    WindowMgr_invalidate(&M.wm, &WBACK.rec, cont);
+
+    win_attach(&WMID);
+    NewWindow(&M.wm, &WMID.rec, struc, cont,
+              documentKind, documentProc, 1);
+    WindowMgr_invalidate(&M.wm, &WMID.rec, cont);
+
+    win_attach(&WFRONT);
+    NewWindow(&M.wm, &WFRONT.rec, struc, cont,
+              documentKind, documentProc, 1);
+    WindowMgr_invalidate(&M.wm, &WFRONT.rec, cont);
+
+    memset(&app_back, 0, sizeof app_back);
+    memset(&app_mid, 0, sizeof app_mid);
+    memset(&app_front, 0, sizeof app_front);
+    app_back.name = "BACK";
+    app_back.procs = &g_stub_procs;
+    app_back.windows = &WBACK.rec;
+    app_back.refCon = BACK_ID;
+    app_mid.name = "MID";
+    app_mid.procs = &g_stub_procs;
+    app_mid.windows = &WMID.rec;
+    app_mid.refCon = MID_ID;
+    app_front.name = "FRONT";
+    app_front.procs = &g_stub_procs;
+    app_front.windows = &WFRONT.rec;
+    app_front.refCon = FRONT_ID;
+
+    FlairProcess_register(&plist, &app_back);
+    FlairProcess_register(&plist, &app_mid);
+    FlairProcess_register(&plist, &app_front);
+
+    CHECK(M.wm.front == &WFRONT.rec && WFRONT.rec.nextWindow == &WMID.rec &&
+          WMID.rec.nextWindow == &WBACK.rec,
+          "wlzp scene: z-order is FRONT, MID, BACK after three WM operations");
+    CHECK(region_contains_point(WBACK.rec.updateRgn, probe_h, probe_v),
+          "wlzp scene: BACK retains a stale update seed at the future FRONT-owned probe");
+    CHECK(region_contains_point(WFRONT.rec.contRgn, probe_h, probe_v),
+          "wlzp scene: the literal probe is inside FRONT content");
+
+    g_wlzp_paint = 1;
+    flair_route_updates(&plist, &M.wm);
+    g_wlzp_paint = 0;
+
+    CHECK(g_wlzp_pixels[(uint32_t)probe_v * GW + (uint32_t)probe_h] ==
+              (uint8_t)FRONT_ID,
+          "wlzp: delivery clip is updateRgn INTERSECT CURRENT visRgn -- "
+          "a BACK stale seed cannot stomp the FRONT-owned overlap pixel");
 }
 
 /* ===========================================================================
@@ -382,6 +490,8 @@ int main(void)
     CHECK(upd_empty(&WU.rec) == exp_routed_empty,
           "route: the UNOWNED window WU was TOLERATED (no delivery, no panic) and VALIDATED -- "
           "the pump's chrome phase serviced it, so the route clears it (DQ1, initech-gofc)");
+
+    test_stale_seed_clipped_at_delivery();
 
     return TEST_SUMMARY("test-process-update");
 }

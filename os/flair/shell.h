@@ -249,6 +249,10 @@ void shell_build_scene(shell_scene_t *s,
                        region_t  *overlay_rgn,
                        int show_modal);
 
+/* Rebuild the existing bars[+modal] overlay union after standalone modal
+ * geometry changes. This updates only occlusion bookkeeping; it draws nothing. */
+void shell_sync_overlay(shell_scene_t *s);
+
 /* ===========================================================================
  * 4. shell_render -- composite the whole scene onto `dst`
  * ---------------------------------------------------------------------------

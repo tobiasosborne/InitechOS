@@ -22,6 +22,18 @@
 #   taken after the FLAIR-CLOSE marker.
 FLAIR_SOLID_CLOSE_SPEC := m-100:-100,m-100:-70,m-46:0,l1,l0
 
+# R1.4 close-terminate uses the same locked close-box coordinate as leg A, but
+# its gate waits for FLAIR-TENANT-EXIT name=HELLO and differentially grades the
+# band-2 HELLO->NOTES swap. Additive alias; the existing leg-A bytes are unchanged.
+FLAIR_CLOSE_TERMINATE_SPEC := $(FLAIR_SOLID_CLOSE_SPEC)
+
+# R1.4 true-modal block. The FLAIR_DESKTOP/live scene (not FLAIR_TENANTS) owns
+# the FILE COPY modal at x[140,500),y[200,280). Move from (320,240) to (100,100),
+# a point inside back window 0's title but outside the modal, then click. Correct
+# dispatch emits FLAIR-MODAL-BLOCK and swallows before FindWindow; the terminal
+# dump remains byte-identical to a no-input boot after the cursor is hidden.
+FLAIR_MODAL_BLOCK_SPEC := m-100:-100,m-100:-40,m-20:0,l1,l0
+
 # Leg B -- DRAG PRESERVES CONTENT.  First the O-5 activating click on NOTES's
 # sliver at (460,300) (same waypoint as the locked FLAIR_APPSWITCH_SPEC:
 # m100:60,m40:0,l1,l0), then grab NOTES's title bar at (450,130)
