@@ -49,7 +49,10 @@ TEST_HARNESS();
  * a PART, not a color) -- they sit below the cut-line too and must be equally
  * literal-free, so the scanner grades them as well (DEC-09 Sec 3.10: the span
  * engine "wherever it lives"). Menu decoration joined this set under bead
- * initech-sjvq. All nine must be color-literal-free.
+ * initech-sjvq. The Finder desktop-icon blitter joined it under bead
+ * initech-tdnl.9 (it names icon TONES -- FLAIR_PART_ICON_* -- and resolves them
+ * at the seam, so it is decoration below the cut like the rest). All ten must be
+ * color-literal-free.
  * ------------------------------------------------------------------------- */
 static const char *const MECH_FILES[] = {
     "os/flair/surface.c",   /* MECHANISM: the ONE pixel writer                */
@@ -60,7 +63,8 @@ static const char *const MECH_FILES[] = {
     "os/flair/chrome.c",    /* DECORATION: chrome look + cfill/crect/cframe    */
     "os/flair/control.c",   /* DECORATION: control look                       */
     "os/flair/dialog.c",    /* DECORATION: dialog look                        */
-    "os/flair/menu.c"       /* DECORATION: Platinum bar + pull-down look       */
+    "os/flair/menu.c",      /* DECORATION: Platinum bar + pull-down look       */
+    "os/flair/finder_icon.c"/* DECORATION: desktop-icon strike blit (tdnl.9)   */
 };
 enum { MECH_FILE_COUNT = (int)(sizeof MECH_FILES / sizeof MECH_FILES[0]) };
 

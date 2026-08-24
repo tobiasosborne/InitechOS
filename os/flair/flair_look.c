@@ -162,7 +162,18 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
       INITECH_CANON_BEVEL_SHADOW_RGB },
     /* SB_THUMB_GRIP */
     { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
-      INITECH_CANON_BEVEL_SHADOW_RGB }
+      INITECH_CANON_BEVEL_SHADOW_RGB },
+    /* Finder desktop-icon tones (bead initech-tdnl.9).  Classic desktop icons
+     * are a black outline over a white body with mid-gray detail; each tone is
+     * an EXISTING canon row, so this accretion adds three PART names and ZERO
+     * color rows.  ICON_SHADE reuses CIDX_CONTROL (#C0C0C0), the same canon
+     * gray FLAIR_PART_BTNFACE resolves to. */
+    /* ICON_INK */
+    { CIDX_BLACK, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_FACE */
+    { CIDX_WHITE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_SHADE */
+    { CIDX_CONTROL, 0u, FLAIR_NO_SKIN_SLOT, 0u }
 };
 
 _Static_assert(sizeof(flair_skin_t) < 255u,

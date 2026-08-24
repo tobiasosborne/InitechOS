@@ -7206,6 +7206,7 @@ endef
         test-blitter test-blitter-mutant test-text test-text-mutant \
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-cursor test-cursor-mutant \
+        test-desk-icons test-desk-icons-mutant \
         test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -10788,6 +10789,52 @@ test-cursor-mutant: $(TEST_CURSOR_MUT_NO_ERASE) $(TEST_CURSOR_MUT_HOTSPOT)
 	@printf ">>> test-cursor-mutant: confirming both CursorMgr mutants go RED (Rule 6)\n"
 	@if $(TEST_CURSOR_MUT_NO_ERASE) >/dev/null 2>&1; then printf '!!! test-cursor-mutant FAIL: CURSOR_MUT_NO_ERASE PASSED -- the trail oracle is decoration\n'; exit 1; else printf '>>> test-cursor-mutant: green (CURSOR_MUT_NO_ERASE correctly RED)\n'; fi
 	@if $(TEST_CURSOR_MUT_HOTSPOT) >/dev/null 2>&1; then printf '!!! test-cursor-mutant FAIL: CURSOR_MUT_HOTSPOT PASSED -- the independent position golden is decoration\n'; exit 1; else printf '>>> test-cursor-mutant: green (CURSOR_MUT_HOTSPOT correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-desk-icons (bead initech-tdnl.9; GUI remediation R3 Finder).
+# The hand-authored 32x32 VOLUME + TRASH strikes (spec/assets/desk_icons.h) and
+# the finder_icon blit/hit-test. Independent hand tables read off the ASCII maps
+# (per-row ink/shade/opaque + probe pixels) + hand-restated canon pixel values;
+# transparency, clipping, off-surface edges and mask hit-testing all graded.
+# Mutants MASK_IGNORED / ROW_OFF1 must bite.
+# ---------------------------------------------------------------------------
+TEST_DESK_ICONS               := $(BUILD)/test_desk_icons
+TEST_DESK_ICONS_MUT_MASK      := $(BUILD)/test_desk_icons_mutant_mask_ignored
+TEST_DESK_ICONS_MUT_ROW       := $(BUILD)/test_desk_icons_mutant_row_off1
+TEST_DESK_ICONS_SRC           := harness/proptest/test_desk_icons.c
+TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) \
+                                 os/flair/finder_icon.c os/flair/finder_icon.h \
+                                 spec/assets/desk_icons.h \
+                                 os/flair/surface.c os/flair/surface.h \
+                                 $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/flair_skins.h \
+                                 spec/assets/color_canon.h \
+                                 $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
+                                 spec/region_algebra.h spec/grafport.h
+DESK_ICONS_INC                := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iseed
+DESK_ICONS_LINK               := os/flair/finder_icon.c os/flair/surface.c \
+                                 $(REGION_ENGINE_C) $(FLAIRLOOK_C)
+
+$(TEST_DESK_ICONS): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DESK_ICONS_INC) -o $@ $(TEST_DESK_ICONS_SRC) $(DESK_ICONS_LINK)
+
+$(TEST_DESK_ICONS_MUT_MASK): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDESK_ICON_MUT_MASK_IGNORED $(DESK_ICONS_INC) -o $@ $(TEST_DESK_ICONS_SRC) $(DESK_ICONS_LINK)
+
+$(TEST_DESK_ICONS_MUT_ROW): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDESK_ICON_MUT_ROW_OFF1 $(DESK_ICONS_INC) -o $@ $(TEST_DESK_ICONS_SRC) $(DESK_ICONS_LINK)
+
+.PHONY: test-desk-icons test-desk-icons-mutant
+test-desk-icons: $(TEST_DESK_ICONS)
+	@printf ">>> test-desk-icons: VOLUME + TRASH strike invariants, per-row hand tables, probe tones (8bpp + 32bpp), transparency, clip, off-surface edges, mask hit-test\n"
+	@$(TEST_DESK_ICONS)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(DESK_ICONS_INC) -c os/flair/finder_icon.c -o $(BUILD)/finder_icon_freestanding.o \
+		|| { printf '!!! test-desk-icons FAIL: finder_icon.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-desk-icons: green\n"
+
+test-desk-icons-mutant: $(TEST_DESK_ICONS_MUT_MASK) $(TEST_DESK_ICONS_MUT_ROW)
+	@printf ">>> test-desk-icons-mutant: confirming both desktop-icon blit mutants go RED (Rule 6)\n"
+	@if $(TEST_DESK_ICONS_MUT_MASK) >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_MASK_IGNORED PASSED -- the transparency oracle is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_MASK_IGNORED correctly RED -- painted mask holes overwrite the sentinel)\n'; fi
+	@if $(TEST_DESK_ICONS_MUT_ROW) >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_ROW_OFF1 PASSED -- the independent row/probe tables are decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_ROW_OFF1 correctly RED -- shifted rows miss the hand table)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-window (beads initech-9qf) -- FLAIR Window Manager.
@@ -21111,6 +21158,7 @@ TEST_UNIT_GATES := \
 	test-blitter test-blitter-mutant test-text test-text-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
+	test-desk-icons test-desk-icons-mutant \
 	test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \

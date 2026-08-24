@@ -108,6 +108,17 @@ typedef enum {
     FLAIR_PART_SB_THUMB_FACE,         /* main thumb face                            */
     FLAIR_PART_SB_THUMB_SHADOW,       /* trailing edge                              */
     FLAIR_PART_SB_THUMB_GRIP,         /* four grip lines                            */
+    /* Finder desktop-icon tone roles append after all previously shipped PART
+     * ordinals (bead initech-tdnl.9).  The three tones of a FLAIRDeskIcon strike
+     * (spec/assets/desk_icons.h) are SEMANTIC roles so os/flair/finder_icon.c
+     * names a tone, never a color or an index (C-8).  All three collapse onto
+     * EXISTING canon rows -- black ink, white face, and the same C0C0C0 control
+     * gray the button face already uses -- so no color row is accreted, exactly
+     * as the Menu Manager and scrollbar-accent roles did before them (DEC-10
+     * Sec 6 OQ-2/OQ-3). */
+    FLAIR_PART_ICON_INK,              /* desktop-icon black outline                 */
+    FLAIR_PART_ICON_FACE,             /* desktop-icon white body                    */
+    FLAIR_PART_ICON_SHADE,            /* desktop-icon mid-gray detail               */
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 
