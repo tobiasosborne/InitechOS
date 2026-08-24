@@ -351,6 +351,21 @@ PPM_FLAIR_SOLID_CHECK_BIN := $(BUILD)/ppm_flair_solid_check
 PPM_FLAIR_CURSOR_CHECK_SRC := tools/ppm_flair_cursor_check.c
 PPM_FLAIR_CURSOR_CHECK_BIN := $(BUILD)/ppm_flair_cursor_check
 
+# R3.2 Finder DESKTOP MANAGER screendump grader (bead initech-tdnl.9). Probes are
+# HAND-READ off the spec/assets/desk_icons.h ASCII maps and the tone->role->canon
+# chain; it deliberately does NOT include desk_icons.h or finder_desktop.c (Law 2 --
+# an oracle that reads the render's own tables agrees by construction, HER-02).
+# argv = <default|selected|moved> dump.ppm.
+PPM_FLAIR_DESKICONS_CHECK_SRC := tools/ppm_flair_desktop_icons_check.c
+PPM_FLAIR_DESKICONS_CHECK_BIN := $(BUILD)/ppm_flair_desktop_icons_check
+
+# The LOCKED R3.2 desktop-icon traces (spec/flair_desktop_icons_traces.mk, Rule
+# 8/11): FLAIR_ICON_SELECT_SPEC, FLAIR_ICON_DESELECT_SPEC, FLAIR_RUBBER_BAND_SPEC,
+# FLAIR_ICON_DRAGDROP_SPEC and FLAIR_ICON_OPEN_SPEC. Pulled in here so both
+# test-flair-desktop-icons and the record-flair script map wire mechanically from
+# ONE source of truth.
+include spec/flair_desktop_icons_traces.mk
+
 # The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
 # (leg B: O-5 activate NOTES then title-drag it (-60,+60)), FLAIR_SOLID_SWITCH_
@@ -9351,6 +9366,55 @@ $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_MENU2_BAR_SYS,menu2_bar
 $(eval $(call flair-tenants-proc-mutant-rules,FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE,no_raise_on_title))
 $(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUTATE_NO_ACTIVATE_INVAL,no_activate_inval))
 
+# $(call flair-tenants-finderdesk-mutant-rules,<KNOB>,<tag>): an R3.2 Finder
+# DESKTOP MANAGER (finder_desktop.c) mutant. Swaps ONLY finder_desktop.o (clean
+# kmain main obj + process.o + ref_tenant.o + finder_icon.o reused), so the
+# mutation is isolated to the desktop model / trackers / underlay painter.
+# The knobs already exist and are already HOST-proven by test-finder-desktop-
+# mutant (build/test_finder_desktop_mutant_*); this template lifts the SAME
+# macros into a bootable image so the EMU gate is mutation-proven with the
+# identical spelling -- no second knob vocabulary (bead initech-tdnl.9).
+# Prereqs + include flags are spelled LITERALLY, mirroring KERNEL_FINDER_DESKTOP_
+# OBJ's own recipe: $(eval) expands a template's body ONCE, IMMEDIATELY, so a
+# reference to a variable defined later would silently bake in an EMPTY string
+# (the hazard the desktop/window templates above document at length).
+define flair-tenants-finderdesk-mutant-rules
+$(BUILD)/finder_desktop_mut_$(2).o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $$@
+
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o
+
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants DESKTOP-ICON MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+
+# The 2 R3.2 emu mutants that BITE test-flair-desktop-icons (bead initech-tdnl.9):
+#   FINDER_DESK_MUT_NO_UNDERLAY  -> finder_desk_install_underlay never installs
+#                    the WindowMgr desktop_underlay hook, so desktop.c fills bare
+#                    teal and NOTHING draws the icons ("forgot the seam" / second
+#                    compositor bug)      -> the DEFAULT leg's map probes go RED
+#   FINDER_DESK_MUT_DBLTICK_OFF  -> finder_click_classify's interval test never
+#                    succeeds, so every double-click degrades to two singles
+#                    -> FINDER-OPEN-VOLUME NYI never appears (marker-absent RED)
+$(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_NO_UNDERLAY,desk_no_underlay))
+$(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_DBLTICK_OFF,desk_dbltick_off))
+
 # OMISSION (Rule 6 / Law 2 honesty; 2026-07-31 Wave A, epic initech-av7s): the
 # DESKTOP_MUTATE_NO_PAINTALL_CLEAR emu mutant (stale wm->desktop_update surviving
 # a full composite; beads initech-jmc5/-qi8v) NO LONGER bites the booted O-5
@@ -9696,6 +9760,12 @@ $(PPM_FLAIR_SOLID_CHECK_BIN): $(PPM_FLAIR_SOLID_CHECK_SRC) spec/flair_tenants_de
 
 $(PPM_FLAIR_CURSOR_CHECK_BIN): $(PPM_FLAIR_CURSOR_CHECK_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
+
+# The R3.2 desktop-icon grader needs ONLY the independent canon (-Ispec/assets).
+# It must NOT gain -Ios/flair or -Ispec/assets/desk_icons.h consumers: its
+# expected tones are hand-read from the ASCII maps, never from the strike words.
+$(PPM_FLAIR_DESKICONS_CHECK_BIN): $(PPM_FLAIR_DESKICONS_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
 # probes are value-BLIND (a teal->seafoam value perturbation leaves the period-2
@@ -16265,6 +16335,335 @@ test-flair-appswitch-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
 endif
 
 # ===========================================================================
+# REAL gate: test-flair-desktop-icons (bead initech-tdnl.9 -- GUI remediation
+# R3.2 "DesktopMgr": THE booted Finder desktop-icon layer. Icons are drawn
+# through the WindowMgr desktop-underlay seam; click selects (inverting the
+# label band); a click on bare desktop clears the selection; a rubber band over
+# both cells selects both; a double-click announces the open; an icon drag
+# repositions the icon AND persists the new origin to \DESKTOP.DB, which the
+# NEXT boot reads back.)
+# ---------------------------------------------------------------------------
+# SEVEN deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG) against
+# ONE gate-local copy of $(FLAIR_DATA_IMG) (legs 1-6 write it; leg 7 REBOOTS it
+# to prove the position survived). The traces are LOCKED in
+# spec/flair_desktop_icons_traces.mk; the serial markers are the ones
+# os/flair/finder_desktop.h lines 54-66 document; the pixels are graded by
+# ppm_flair_desktop_icons_check, whose probes are HAND-READ off the
+# spec/assets/desk_icons.h ASCII maps (Law 2 -- never off a screendump of the
+# implementation, and never by linking the strike words).
+#
+#   1 PRE      no mouse; dump after FLAIR-TENANTS-READY   -> grader leg DEFAULT
+#   2 SELECT   FLAIR_ICON_SELECT_SPEC; dump after
+#              "FINDER-ICON-SELECT name=INITECH count=1"  -> grader leg SELECTED
+#   3 DESELECT FLAIR_ICON_DESELECT_SPEC; dump after
+#              "FINDER-ICON-DESELECT-ALL"                 -> grader leg DEFAULT
+#              (the un-invert repaint really restored the band)
+#   4 MARQUEE  FLAIR_RUBBER_BAND_SPEC                     -> "FINDER-MARQUEE n=2"
+#   5 OPEN     FLAIR_ICON_OPEN_SPEC (l1,l0,l1,l0)         -> "FINDER-OPEN-VOLUME NYI"
+#   6 DRAG     FLAIR_ICON_DRAGDROP_SPEC; dump after
+#              "DESKTOP-DB-SAVE n=2"                      -> grader leg MOVED
+#              + "FINDER-ICON-DRAG name=INITECH x=400 y=400"
+#   7 PERSIST  reboot the SAME (now written) data image, no mouse; dump after
+#              FLAIR-LIVE-OK                              -> grader leg MOVED
+#              + DESKTOP-DB-OK (never CREATE/REGEN) + an mtools mdir/mattrib
+#              sanity of the 56-byte (8 + 24*2) hidden \DESKTOP.DB
+#
+# DEVIATION FROM THE BRIEF, STATED: the brief folded select AND deselect into one
+# trace with one dump. The harness grabs its marker-gated frame at the END of
+# injection (harness/emu/qemu.c step 4), so a single trace that ends deselected
+# can only ever show the DESELECTED band -- the "selected" assertion would have
+# been vacuous. Splitting into legs 2 and 3 grades BOTH states, which is
+# strictly stronger. Shift-click is absent by harness limitation, not by choice;
+# spec/flair_desktop_icons_traces.mk records why and where it IS covered.
+#
+# Mutation-proven by test-flair-desktop-icons-mutant; Bochs boot leg is
+# test-flair-desktop-icons-bochs (Rule 5).
+FLAIR_DI_PRE_NAME     := flair_deskicons_pre
+FLAIR_DI_SEL_NAME     := flair_deskicons_sel
+FLAIR_DI_DESEL_NAME   := flair_deskicons_desel
+FLAIR_DI_BAND_NAME    := flair_deskicons_band
+FLAIR_DI_OPEN_NAME    := flair_deskicons_open
+FLAIR_DI_DRAG_NAME    := flair_deskicons_drag
+FLAIR_DI_PERS_NAME    := flair_deskicons_persist
+.PHONY: test-flair-desktop-icons
+test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
+			  $(PPM_FLAIR_DESKICONS_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-icons : THE booted DesktopMgr (R3.2)\n'
+	@printf '  volume + Trash icons on the desktop; select / deselect / marquee / open / drag+persist.\n'
+	@printf '  Ref: bead initech-tdnl.9; os/flair/finder_desktop.h; spec/flair_desktop_icons_traces.mk.\n'
+	@printf '  Grader probes are hand-read off spec/assets/desk_icons.h ASCII maps (Law 2).\n'
+	@printf '======================================================================\n'
+	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-flair-desktop-icons FAIL: mdir missing (mtools)\n'; exit 1; }
+	@command -v mattrib >/dev/null 2>&1 || { printf '!!! test-flair-desktop-icons FAIL: mattrib missing (mtools)\n'; exit 1; }
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@# ---- leg 1: PRE, the boot scene, no mouse. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_PRE_NAME)" --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 \
+		2> "$(BUILD)/$(FLAIR_DI_PRE_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_PRE_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the PRE boot\n'; exit 1; fi
+	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/$(FLAIR_DI_PRE_NAME).serial" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: FLAIR-FAT-MOUNT-OK missing in the PRE boot\n'; exit 1; }
+	@grep -q '^FINDER-DESKTOP-ICONS n=2$$' "$(BUILD)/$(FLAIR_DI_PRE_NAME).serial" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: the Finder shell tenant did not seed 2 desktop icons\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_PRE_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_DI_PRE_NAME).ppm" ]; then printf '!!! test-flair-desktop-icons FAIL: PRE screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_DESKICONS_CHECK_BIN) default "$(BUILD)/$(FLAIR_DI_PRE_NAME).ppm" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: the boot desktop does not carry both icon strikes\n'; exit 1; }
+	@printf '>>> test-flair-desktop-icons [1/7]: boot scene -- FINDER-DESKTOP-ICONS n=2 + grader leg DEFAULT\n'
+	@# ---- leg 2: click the volume icon -> SELECTED (label band inverted). ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_SEL_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_ICON_SELECT_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FINDER-ICON-SELECT name=INITECH count=1" \
+		--timeout-ms 15000 2> "$(BUILD)/$(FLAIR_DI_SEL_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_SEL_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the SELECT boot\n'; exit 1; fi
+	@grep -q '^FINDER-ICON-SELECT name=INITECH count=1$$' "$(BUILD)/$(FLAIR_DI_SEL_NAME).serial" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: the click on the volume sprite did not select it\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_SEL_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_DI_SEL_NAME).ppm" ]; then printf '!!! test-flair-desktop-icons FAIL: SELECT screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_DESKICONS_CHECK_BIN) selected "$(BUILD)/$(FLAIR_DI_SEL_NAME).ppm" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: the selected volume label band is not inverted\n'; exit 1; }
+	@printf '>>> test-flair-desktop-icons [2/7]: FINDER-ICON-SELECT name=INITECH count=1 + grader leg SELECTED\n'
+	@# ---- leg 3: then click bare desktop -> DESELECT + the band restored. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_DESEL_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_ICON_DESELECT_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FINDER-ICON-DESELECT-ALL" \
+		--timeout-ms 15000 2> "$(BUILD)/$(FLAIR_DI_DESEL_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_DESEL_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the DESELECT boot\n'; exit 1; fi
+	@grep -q '^FINDER-ICON-SELECT name=INITECH count=1$$' "$(BUILD)/$(FLAIR_DI_DESEL_NAME).serial" \
+		&& grep -qxF 'FINDER-ICON-DESELECT-ALL' "$(BUILD)/$(FLAIR_DI_DESEL_NAME).serial" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: select-then-bare-desktop-click did not clear the selection\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_DESEL_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_DI_DESEL_NAME).ppm" ]; then printf '!!! test-flair-desktop-icons FAIL: DESELECT screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_DESKICONS_CHECK_BIN) default "$(BUILD)/$(FLAIR_DI_DESEL_NAME).ppm" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: the deselect did not repaint the label band back\n'; exit 1; }
+	@printf '>>> test-flair-desktop-icons [3/7]: FINDER-ICON-DESELECT-ALL + grader leg DEFAULT (band restored)\n'
+	@# ---- leg 4: rubber band over BOTH icon cells. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_BAND_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_RUBBER_BAND_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--timeout-ms 15000 2> "$(BUILD)/$(FLAIR_DI_BAND_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_BAND_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the MARQUEE boot\n'; exit 1; fi
+	@grep -q '^FINDER-MARQUEE n=2$$' "$(BUILD)/$(FLAIR_DI_BAND_NAME).serial" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: the rubber band did not select BOTH icons\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_BAND_NAME).serial" || true; exit 1; }
+	@printf '>>> test-flair-desktop-icons [4/7]: FINDER-MARQUEE n=2 (the band swept both icon columns)\n'
+	@# ---- leg 5: double-click the volume icon. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_OPEN_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--timeout-ms 15000 2> "$(BUILD)/$(FLAIR_DI_OPEN_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the OPEN boot\n'; exit 1; fi
+	@grep -qxF 'FINDER-OPEN-VOLUME NYI' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: two rapid clicks did not synthesise a DOUBLE (measured delta was 8 ticks vs FINDER_DBLCLICK_TICKS=20 when this gate landed -- if the harness pacing has slowed, fix the harness or the trace, NEVER the constant)\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" || true; exit 1; }
+	@printf '>>> test-flair-desktop-icons [5/7]: FINDER-OPEN-VOLUME NYI (the double-click synthesiser fired)\n'
+	@# ---- leg 6: drag the volume icon to (400,400) and persist. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_DRAG_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_ICON_DRAGDROP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "DESKTOP-DB-SAVE n=2" \
+		--timeout-ms 20000 2> "$(BUILD)/$(FLAIR_DI_DRAG_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_DRAG_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the DRAG boot\n'; exit 1; fi
+	@grep -qxF 'FINDER-ICON-DRAG name=INITECH x=400 y=400' "$(BUILD)/$(FLAIR_DI_DRAG_NAME).serial" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: the icon drag did not commit the locked drop origin (400,400)\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_DRAG_NAME).serial" || true; exit 1; }
+	@grep -qxF 'DESKTOP-DB-SAVE n=2' "$(BUILD)/$(FLAIR_DI_DRAG_NAME).serial" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: the drop did not persist both records to DESKTOP.DB\n'; exit 1; }
+	@! grep -q '^DESKTOP-DB-WRITE-FAIL' "$(BUILD)/$(FLAIR_DI_DRAG_NAME).serial" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: DESKTOP-DB-WRITE-FAIL during the drop\n'; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_DI_DRAG_NAME).ppm" ]; then printf '!!! test-flair-desktop-icons FAIL: DRAG screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_DESKICONS_CHECK_BIN) moved "$(BUILD)/$(FLAIR_DI_DRAG_NAME).ppm" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: after the drop the icon is not at the new origin with its old cell restored\n'; exit 1; }
+	@printf '>>> test-flair-desktop-icons [6/7]: FINDER-ICON-DRAG x=400 y=400 + DESKTOP-DB-SAVE n=2 + grader leg MOVED\n'
+	@# ---- leg 7: PERSISTENCE. Reboot the SAME, now-written data volume. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-LIVE-OK --name "$(FLAIR_DI_PERS_NAME)" --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-LIVE-OK" \
+		--timeout-ms 15000 2> "$(BUILD)/$(FLAIR_DI_PERS_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_PERS_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the PERSIST boot\n'; exit 1; fi
+	@grep -qxF 'DESKTOP-DB-OK' "$(BUILD)/$(FLAIR_DI_PERS_NAME).serial" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: the reboot did not read back a valid DESKTOP.DB\n'; grep '^DESKTOP-DB' "$(BUILD)/$(FLAIR_DI_PERS_NAME).serial" || true; exit 1; }
+	@if grep -q '^DESKTOP-DB-CREATE' "$(BUILD)/$(FLAIR_DI_PERS_NAME).serial" || \
+	    grep -q '^DESKTOP-DB-REGEN' "$(BUILD)/$(FLAIR_DI_PERS_NAME).serial" || \
+	    grep -q '^DESKTOP-DB-POS-REGEN' "$(BUILD)/$(FLAIR_DI_PERS_NAME).serial" || \
+	    grep -q '^DESKTOP-DB-POS-SKIP' "$(BUILD)/$(FLAIR_DI_PERS_NAME).serial"; then \
+		printf '!!! test-flair-desktop-icons FAIL: the reboot re-created/regenerated DESKTOP.DB instead of reading the saved positions\n'; \
+		grep '^DESKTOP-DB' "$(BUILD)/$(FLAIR_DI_PERS_NAME).serial" || true; exit 1; \
+	fi
+	@if [ ! -s "$(BUILD)/$(FLAIR_DI_PERS_NAME).ppm" ]; then printf '!!! test-flair-desktop-icons FAIL: PERSIST screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_DESKICONS_CHECK_BIN) moved "$(BUILD)/$(FLAIR_DI_PERS_NAME).ppm" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: the dragged position did NOT survive the reboot\n'; exit 1; }
+	@# mtools sanity on the written volume: 8-byte header + 2 x 24-byte records,
+	@# still hidden. The BYTES are graded by the host codec oracle
+	@# (test-finder-desktop) against hand-authored expected records; this is the
+	@# on-disk shape/attribute check only (Rule 8 / the tdnl.8 mtools idiom).
+	@mdir -a -i $(FLAIR_GATE_DATA) :: > "$(BUILD)/$(FLAIR_DI_PERS_NAME).mdir"
+	@grep -Eq '^DESKTOP +DB +56 ' "$(BUILD)/$(FLAIR_DI_PERS_NAME).mdir" \
+		|| { printf '!!! test-flair-desktop-icons FAIL: mdir does not show a 56-byte DESKTOP.DB (8 + 24*2)\n'; cat "$(BUILD)/$(FLAIR_DI_PERS_NAME).mdir"; exit 1; }
+	@mattrib -i $(FLAIR_GATE_DATA) ::DESKTOP.DB 2>/dev/null | grep -Eq '^ +H ' \
+		|| { printf '!!! test-flair-desktop-icons FAIL: DESKTOP.DB lost its hidden attribute across the write\n'; exit 1; }
+	@printf '>>> test-flair-desktop-icons [7/7]: DESKTOP-DB-OK + grader leg MOVED after reboot + mdir 56-byte hidden DESKTOP.DB\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- the booted Finder draws, selects, marquees, opens, drags and\n'
+	@printf '            PERSISTS its desktop icons; the position survives a power cycle\n'
+	@printf '            (QEMU; Bochs boot leg = make test-flair-desktop-icons-bochs)\n'
+	@printf '======================================================================\n'
+
+# REAL gate: test-flair-desktop-icons-mutant (Rule 6 -- MUTATION-PROVE that the
+# R3.2 gate BITES). Two FLAIRTENANTS images, each rebuilt with ONE -D knob that
+# already exists in os/flair/finder_desktop.c and is already host-proven by
+# test-finder-desktop-mutant -- the SAME macro spelling, lifted into a bootable
+# image (no second knob vocabulary). The CLEAN image is graded GREEN first as
+# the baseline, so the only variable is the mutation.
+#   desk_no_underlay  (-DFINDER_DESK_MUT_NO_UNDERLAY): the WindowMgr
+#       desktop_underlay hook is never installed, so desktop.c fills bare teal
+#       and NOTHING draws the icons -> every DEFAULT-leg map probe reads
+#       DESKTOP teal -> ppm_flair_desktop_icons_check RED.
+#   desk_dbltick_off  (-DFINDER_DESK_MUT_DBLTICK_OFF): finder_click_classify's
+#       interval test never succeeds, so the double-click degrades into two
+#       singles -> "FINDER-OPEN-VOLUME NYI" is ABSENT (and two SELECT lines
+#       appear instead) -> the leg-5 marker assertion RED.
+.PHONY: test-flair-desktop-icons-mutant
+test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
+		$(PPM_FLAIR_DESKICONS_CHECK_BIN) \
+		$(BUILD)/flair_tenants_mut_desk_no_underlay.img \
+		$(BUILD)/flair_tenants_mut_desk_dbltick_off.img
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-icons-mutant : Rule 6 (the gate BITES)\n'
+	@printf '  2 FLAIRTENANTS finder_desktop.c mutants; each MUST drive its leg RED.\n'
+	@printf '======================================================================\n'
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@# ---- baseline: the CLEAN image must grade GREEN on both mutated legs. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_base --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@if [ ! -s "$(BUILD)/flair_deskicons_mut_base.ppm" ]; then printf '!!! test-flair-desktop-icons-mutant FAIL: clean baseline screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_DESKICONS_CHECK_BIN) default "$(BUILD)/flair_deskicons_mut_base.ppm" >/dev/null 2>&1 \
+		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: the CLEAN image did not grade GREEN on leg DEFAULT -- the baseline is broken (not a mutant)\n'; exit 1; }
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_base_open --out "$(BUILD)" \
+		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+	@grep -qxF 'FINDER-OPEN-VOLUME NYI' "$(BUILD)/flair_deskicons_mut_base_open.serial" \
+		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME NYI -- the baseline is broken\n'; exit 1; }
+	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on leg DEFAULT and opens on a double-click\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- mutant 1: NO_UNDERLAY -- the DEFAULT-leg grader MUST go RED. ----
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_desk_no_underlay.img" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_no_underlay --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 \
+		2> "$(BUILD)/flair_deskicons_mut_no_underlay.report" || true
+	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_deskicons_mut_no_underlay.serial" \
+		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: no_underlay mutant missing mount marker (not comparable)\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_deskicons_mut_no_underlay.report"; then printf '!!! test-flair-desktop-icons-mutant FAIL: no_underlay TRIPLE-FAULTED (cannot judge the oracle)\n'; exit 1; fi
+	@if [ ! -s "$(BUILD)/flair_deskicons_mut_no_underlay.ppm" ]; then printf '!!! test-flair-desktop-icons-mutant FAIL: no_underlay produced no screendump\n'; exit 1; fi
+	@if $(PPM_FLAIR_DESKICONS_CHECK_BIN) default "$(BUILD)/flair_deskicons_mut_no_underlay.ppm" > "$(BUILD)/flair_deskicons_mut_no_underlay.chk" 2>&1; then \
+		printf '!!! test-flair-desktop-icons-mutant FAIL: the DEFAULT-leg oracle is DECORATION -- NO_UNDERLAY PASSED it\n'; exit 1; \
+	else \
+		printf '>>> mutant desk_no_underlay correctly RED (the icons never reach the frame):\n'; \
+		grep -m2 'FAIL leg' "$(BUILD)/flair_deskicons_mut_no_underlay.chk" | sed 's/^/      /'; \
+	fi
+	@# ---- mutant 2: DBLTICK_OFF -- the OPEN marker MUST be absent. ----
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_desk_dbltick_off.img" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_dbltick_off --out "$(BUILD)" \
+		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 \
+		2> "$(BUILD)/flair_deskicons_mut_dbltick_off.report" || true
+	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_deskicons_mut_dbltick_off.serial" \
+		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: dbltick_off mutant missing mount marker (not comparable)\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_deskicons_mut_dbltick_off.report"; then printf '!!! test-flair-desktop-icons-mutant FAIL: dbltick_off TRIPLE-FAULTED (cannot judge the oracle)\n'; exit 1; fi
+	@grep -q '^FINDER-ICON-SELECT name=INITECH count=1$$' "$(BUILD)/flair_deskicons_mut_dbltick_off.serial" \
+		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: dbltick_off did not even deliver the clicks -- wrong failure axis\n'; exit 1; }
+	@if grep -qxF 'FINDER-OPEN-VOLUME NYI' "$(BUILD)/flair_deskicons_mut_dbltick_off.serial"; then \
+		printf '!!! test-flair-desktop-icons-mutant FAIL: the leg-5 marker tooth is DECORATION -- DBLTICK_OFF still opened the volume\n'; exit 1; \
+	else \
+		printf '>>> mutant desk_dbltick_off correctly RED: FINDER-OPEN-VOLUME NYI is ABSENT; the double degraded into %s single clicks\n' \
+			"$$(grep -c '^FINDER-ICON-SELECT ' "$(BUILD)/flair_deskicons_mut_dbltick_off.serial")"; \
+	fi
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- both R3.2 mutants drive their legs RED (the gate bites; Rule 6)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-desktop-icons-bochs (PRD Sec 8 / Rule 5 -- the BOCHS boot
+# leg of the R3.2 DesktopMgr image)
+# ---------------------------------------------------------------------------
+# TRUTHFUL CONSTRAINT (Law 1/Law 2, verbatim the test-flair-appswitch-bochs
+# situation -- it is the SAME $(FLAIRTENANTS_IMG)): Bochs 2.7's LGPL vgabios
+# ENOMODEs the 640x480 VBE mode and falls back to standard VGA 0x13
+# (320x200x8); flair_desktop_run then FAILS LOUD and HALTS BEFORE the tenants
+# (and therefore before the Finder shell tenant) are launched -- so
+# FINDER-DESKTOP-ICONS genuinely DOES NOT appear on Bochs, and there is no QMP
+# mouse injection either. What this leg proves is the real differential: the
+# SAME kernel -- now carrying finder_desktop.o + finder_icon.o and ~11 KiB
+# bigger -- still runs the boot chain, the FLAIR heap gate and the FAT mount
+# IDENTICALLY to QEMU, and the 640x480 guard still fires with no triple-fault.
+# The desktop-icon behaviour itself is graded on QEMU (test-flair-desktop-icons).
+FLAIR_DI_BOCHS_NAME   := flair_deskicons_bochs
+FLAIR_DI_BOCHS_REPORT := $(BUILD)/$(FLAIR_DI_BOCHS_NAME).report.txt
+FLAIR_DI_BOCHS_SERIAL := $(BUILD)/$(FLAIR_DI_BOCHS_NAME).serial
+.PHONY: test-flair-desktop-icons-bochs
+# See test-boot-bochs for why SKIP_BOCHS is a Make-level `ifeq`, not a
+# shell-level `if...exit 0` (a shell exit 0 mid-recipe does not skip later
+# recipe lines under Make).
+ifeq ($(SKIP_BOCHS),1)
+test-flair-desktop-icons-bochs:
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-icons-bochs : BOCHS leg (R3.2)\n'
+	@printf '======================================================================\n'
+	@printf '!!! test-flair-desktop-icons-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
+	@printf '======================================================================\n'
+else
+test-flair-desktop-icons-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-icons-bochs : BOCHS leg (R3.2)\n'
+	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). bead initech-tdnl.9.\n'
+	@printf '  Bochs 2.7: VBE ENOMODE -> mode-0x13 (320x200); the 640x480 desktop cannot\n'
+	@printf '  fit, so kmain FAILS LOUD after MOUNT-OK but BEFORE the Finder tenant; the\n'
+	@printf '  leg proves the DesktopMgr-carrying kernel keeps the shared boot/heap/mount\n'
+	@printf '  milestones + the guard, no fault. (Icons are graded on QEMU.)\n'
+	@printf '======================================================================\n'
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-desktop-icons-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
+	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRTENANTS_IMG)"
+	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
+	@printf '            guard (PANIC + HALTED), no triple-fault\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
+		--name "$(FLAIR_DI_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
+		2> "$(FLAIR_DI_BOCHS_REPORT)" || true
+	@cat "$(FLAIR_DI_BOCHS_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@grep -q 'rfb_unblocked=1' "$(FLAIR_DI_BOCHS_REPORT)" \
+		|| { printf '!!! test-flair-desktop-icons-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(FLAIR_DI_BOCHS_REPORT)"; then \
+		printf '!!! test-flair-desktop-icons-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
+	fi
+	@if [ ! -s "$(FLAIR_DI_BOCHS_SERIAL)" ]; then \
+		printf '!!! test-flair-desktop-icons-bochs FAIL: no serial captured at %s\n' "$(FLAIR_DI_BOCHS_SERIAL)"; exit 1; \
+	fi
+	@printf 'Serial markers captured:\n'
+	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
+		if grep -q "^$$m$$" "$(FLAIR_DI_BOCHS_SERIAL)"; then printf '  %-14s : present\n' "$$m"; \
+		else printf '  %-14s : MISSING\n' "$$m"; fi; \
+	done
+	@for m in VBE-ENOMODE VGA13; do \
+		grep -q "^$$m$$" "$(FLAIR_DI_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-desktop-icons-bochs FAIL: fallback marker %s missing\n' "$$m"; exit 1; }; \
+	done
+	@for m in S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK; do \
+		grep -q "^$$m$$" "$(FLAIR_DI_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-desktop-icons-bochs FAIL: shared kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
+	done
+	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_DI_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-desktop-icons-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback\n'; exit 1; }
+	@grep -q '^HALTED$$' "$(FLAIR_DI_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-desktop-icons-bochs FAIL: HALTED terminal marker missing\n'; exit 1; }
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- the DesktopMgr-carrying flairtenants kernel booted under Bochs\n'
+	@printf '            through the shared kernel + FLAIR-heap + FAT-mount milestones (== QEMU),\n'
+	@printf '            and the 640x480 fail-loud guard fired correctly under the 320x200\n'
+	@printf '            fallback (no triple-fault). The icon layer itself is QEMU-only.\n'
+	@printf '======================================================================\n'
+endif
+
+# ===========================================================================
 # REAL gate: test-flair-solid (epic initech-av7s; beads initech-gofc/-rqz5;
 # WL-0075 -- THE FLAIR live-desktop SOLIDITY oracle: the one repaint contract
 # (chrome phase -> content phase -> present) holds under close, drag and
@@ -16823,7 +17222,32 @@ RECORD_MARKER_drag_outline = FLAIR-DRAG win 0 (260,120)->(200,180)
 RECORD_MARKER_close_terminate = FLAIR-TENANT-EXIT name=HELLO
 RECORD_MARKER_modal_block = FLAIR-MODAL-BLOCK where=100,100
 RECORD_IMAGE_modal_block = $(FLAIRLIVE_INTERACTIVE_IMG)
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block
+# R3.2 DesktopMgr clips (bead initech-tdnl.9). All three replay LOCKED traces
+# from spec/flair_desktop_icons_traces.mk against the DEFAULT record image --
+# $(FLAIRTENANTS_RECORD_IMG), the widened-budget tenants variant -- because each
+# is 11-13 injected events and the per-frame --record settle would blow the
+# default FLAIR_TEN_TICK_BUDGET=250 pump window. No RECORD_IMAGE_* override is
+# needed: the widened image IS the default arm of the recipe's $(or ...).
+#   icon_select   replays FLAIR_ICON_DESELECT_SPEC -- the SUPERSET selection
+#                 gesture (click the volume, watch the label band invert, then
+#                 click bare desktop and watch it restore). Its marker is the
+#                 terminal DESELECT-ALL, so the clip is only accepted when the
+#                 whole select->clear round trip actually happened.
+#   rubber_band   the marquee that sweeps both icon columns -> n=2.
+#   icon_dragdrop the icon drag to (400,400) + the DESKTOP.DB commit; its marker
+#                 is the persistence line, the last thing the gesture emits.
+# record-flair copies a FRESH $(FLAIR_DATA_IMG) into the per-target
+# $(FLAIR_GATE_DATA) on every invocation, so the DESKTOP.DB write the dragdrop
+# script performs lands on that throwaway copy -- the pristine data volume is
+# never dirtied and two captures of the same script start from identical bytes
+# (which is what makes record-flair-repro meaningful here).
+RECORD_SPEC_icon_select   = $(FLAIR_ICON_DESELECT_SPEC)
+RECORD_SPEC_rubber_band   = $(FLAIR_RUBBER_BAND_SPEC)
+RECORD_SPEC_icon_dragdrop = $(FLAIR_ICON_DRAGDROP_SPEC)
+RECORD_MARKER_icon_select   = FINDER-ICON-DESELECT-ALL
+RECORD_MARKER_rubber_band   = FINDER-MARQUEE n=2
+RECORD_MARKER_icon_dragdrop = DESKTOP-DB-SAVE n=2
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -22348,6 +22772,7 @@ TEST_EMU_GATES := \
 	test-flair-menu test-flair-menu-mutant \
 	test-flair-menu-crossdrag test-flair-menu-crossdrag-mutant \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
+	test-flair-desktop-icons test-flair-desktop-icons-mutant test-flair-desktop-icons-bochs \
 	test-flair-solid test-flair-solid-mutant \
 	test-flair-zoom-toggle test-flair-grow test-flair-collapse \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant
