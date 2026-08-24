@@ -327,10 +327,13 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm);
  *   movableDBoxProc (5, the FILE COPY modal; beads initech-zvo6): a pinstripe
  *     title bar + a PLAIN 1-px frame via os/flair/chrome.h
  *     flair_draw_movable_dbox_chrome (NOT the 7-px border).
+ * Both variants carry the sampled Platinum E7 content face with a one-pixel
+ * white top/left and C0 bottom/right inset bevel (sys8/controls.md Sec 1).
  * Then draws each item in the item list:
  *   statText  -> text_draw (Chicago font, left-aligned within item rect).
  *   editText  -> text_draw (the current editBuf content) + cursor.
- *   ctrlItem  -> DrawControl(dp->window.port, item->ctrl).
+ *   ctrlItem  -> draw default ring/moat when selected by defaultItem, then
+ *                DrawControl(dp->window.port, item->ctrl).
  *   userItem  -> no-op (caller handles).
  *   iconItem  -> no-op (reserved).
  *

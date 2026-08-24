@@ -84,7 +84,8 @@
  *       zero-fill bug); AND it OCCLUDES the windows (z-order): a probe point
  *       on the modal's frame that ALSO lies over document window 0 reads the
  *       modal's BLACK frame, and a modal-interior probe over window 0 reads
- *       modal WHITE -- NOT window content. test_shell.c assertions (4) + (5).
+ *       modal sampled E7 face -- NOT window content. test_shell.c assertions
+ *       (4) + (5).
  *
  * The expected colors are the flair_canon_rgb(idx) values (color_canon.h,
  * -Ispec/assets), the now-INDEPENDENTLY-graded canon (NOT the render source); the
@@ -411,11 +412,11 @@ static int her02_demo(void)
      * chrome). */
     {
         int border_black = is_rgb(140, 240, IDX(0));   /* modal frame on top */
-        int interior_wht = is_rgb(160, 240, IDX(1));   /* modal interior on top */
-        if (!(border_black && interior_wht)) {
+        int interior_face = is_rgb(160, 240, IDX(CIDX_PLAT_FACE));
+        if (!(border_black && interior_face)) {
             fprintf(stderr, "ppm_flair_check[HER02-DEMO]: UNEXPECTED -- z-order "
                     "occlusion relation not green (border=%d interior=%d)\n",
-                    border_black, interior_wht);
+                    border_black, interior_face);
             demo_fail = 1;
         } else {
             printf("    [blind] z-order occlusion (modal over window 0): GREEN "
@@ -753,26 +754,34 @@ int main(int argc, char **argv)
                    CIDX_PLAT_FRAME_FACE,
                    "(d) modal active-title gap fill is Platinum frame face");
 
-        /* The frame is PLAIN 1-px, NOT the old 7px dBoxProc border: content
-         * just inside the left/right edges, at a row below the 22px title
-         * band, is white; the outermost columns are still black. */
+        /* The frame is PLAIN 1-px. The sampled content field is E7 with a
+         * white left inset and C0 right inset; the outer columns stay black. */
         assert_idx(DL + FRAME, cy, 1,
                    "(d) modal content just inside the LEFT frame is white "
                    "(1px frame, not 7px border; initech-zvo6)");
-        assert_idx(DR - FRAME - 1, cy, 1,
-                   "(d) modal content just inside the RIGHT frame is white (initech-zvo6)");
+        assert_idx(DR - FRAME - 1, cy, CIDX_PLAT_WELL,
+                   "(d) modal content just inside the RIGHT frame is sampled C0 shadow");
+        assert_idx(DL + FRAME + 1, cy, CIDX_PLAT_FACE,
+                   "(d) modal content body is sampled E7 face");
+        assert_idx((DL + DR) / 2, DT + TITLEBAR_H, CIDX_WHITE,
+                   "(d) modal content top inset leg is sampled white");
+        assert_idx((DL + DR) / 2, DB - 2, CIDX_PLAT_WELL,
+                   "(d) modal content bottom inset leg is sampled C0");
         assert_idx(DL, cy, 0, "(d) modal outer LEFT frame column is black");
         assert_idx(DR - 1, cy, 0, "(d) modal outer RIGHT frame column is black");
 
         /* The "Saving tables to disk..." static text is RENDERED as ink: the text
          * rect (left=154, top=225 -- below the 22px title band, was top=212
-         * under the old 7px-border layout) contains a non-white pixel. */
+         * under the old 7px-border layout) contains title-ink pixels. */
         {
             int tx0 = 154, ty0 = 225;
             int text_ink = 0;
             for (int x = tx0; x < tx0 + 300 && !text_ink; x++)
                 for (int y = ty0; y < ty0 + 16; y++)
-                    if (!is_rgb(x, y, IDX(1))) { text_ink = 1; break; }
+                    if (is_rgb(x, y, IDX(CIDX_TITLE_INK))) {
+                        text_ink = 1;
+                        break;
+                    }
             if (!text_ink) {
                 fprintf(stderr,
                         "ppm_flair_check: FAIL (d) 'Saving tables to disk...' text "
@@ -806,8 +815,8 @@ int main(int argc, char **argv)
         }
         assert_idx(140, 240, 0,
                    "(d) modal OCCLUDES the window behind it -- modal black frame on top (z-order)");
-        assert_idx(160, 240, 1,
-                   "(d) modal interior occludes the window behind it (modal white on top)");
+        assert_idx(160, 240, CIDX_PLAT_FACE,
+                   "(d) modal interior occludes the window behind it (modal E7 on top)");
     }
 
     free(g_buf);

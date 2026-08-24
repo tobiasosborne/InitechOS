@@ -285,7 +285,7 @@ PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN := $(BUILD)/ppm_flair_menu_crossdrag_check
 
 # dc4v survival-oracle screendump grader (beads initech-dc4v/-pipa; ADR-0005 region
 # spine): grades the post-drag frame after a window is dragged ACROSS the modal +
-# menu bars and asserts those always-on-top layers SURVIVED (modal box white/black,
+# menu bars and asserts those always-on-top layers SURVIVED (modal E7/white/black,
 # bars menubar-white, NO seafoam-erase) against the INDEPENDENT canon (flair_canon_
 # rgb + dialog.c FILECOPY_* geometry), never the render. Built like ppm_flair_drag_check.
 PPM_FLAIR_DC4V_CHECK_SRC := tools/ppm_flair_dc4v_check.c
@@ -11262,6 +11262,8 @@ TEST_CONTROL_MUT_THUMB := $(BUILD)/test_control_mutant_thumb
 TEST_CONTROL_MUT_CLAMP := $(BUILD)/test_control_mutant_clamp
 TEST_CONTROL_MUT_SB16 := $(BUILD)/test_control_mutant_sb_thumb_16
 TEST_CONTROL_MUT_SB_DISABLED := $(BUILD)/test_control_mutant_sb_disabled_enabled
+TEST_CONTROL_MUT_CHECK_FILL := $(BUILD)/test_control_mutant_check_fill
+TEST_CONTROL_MUT_BTN_FLAT := $(BUILD)/test_control_mutant_btn_flat
 TEST_CONTROL_DEPS := os/flair/control.c os/flair/control.h os/flair/blitter.c os/flair/text.c \
                      os/flair/surface.c $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) \
                      spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h \
@@ -11280,20 +11282,26 @@ $(TEST_CONTROL_MUT_SB16): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_THUMB_16 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
 $(TEST_CONTROL_MUT_SB_DISABLED): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_DISABLED_ENABLED_LOOK $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+$(TEST_CONTROL_MUT_CHECK_FILL): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_CHECK_FILL $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+$(TEST_CONTROL_MUT_BTN_FLAT): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_BTN_FLAT $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
 
 test-control: $(TEST_CONTROL)
-	@printf ">>> test-control: buttons + 16px Platinum scrollbar (15px thumb + disabled face + invertible position math) + FILE COPY progress bar + TestControl/TrackControl\n"
+	@printf ">>> test-control: sampled checked box + unpressed push button + 16px Platinum scrollbar + FILE COPY progress bar + TestControl/TrackControl\n"
 	@$(TEST_CONTROL)
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $(BUILD)/control_freestanding.o \
 		|| { printf '!!! test-control FAIL: control.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-control: green\n"
 
-test-control-mutant: $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP) $(TEST_CONTROL_MUT_SB16) $(TEST_CONTROL_MUT_SB_DISABLED)
-	@printf ">>> test-control-mutant: confirming all four mutants go RED (Rule 6)\n"
+test-control-mutant: $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP) $(TEST_CONTROL_MUT_SB16) $(TEST_CONTROL_MUT_SB_DISABLED) $(TEST_CONTROL_MUT_CHECK_FILL) $(TEST_CONTROL_MUT_BTN_FLAT)
+	@printf ">>> test-control-mutant: confirming all six mutants go RED (Rule 6)\n"
 	@if $(TEST_CONTROL_MUT_THUMB) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: THUMB_OFF PASSED -- the scrollbar-math oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (THUMB_OFF correctly RED)\n'; fi
 	@if $(TEST_CONTROL_MUT_CLAMP) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: NO_CLAMP PASSED -- the value-clamp oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (NO_CLAMP correctly RED)\n'; fi
 	@if $(TEST_CONTROL_MUT_SB16) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: SB_MUT_THUMB_16 PASSED -- the sampled 15px thumb oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (SB_MUT_THUMB_16 correctly RED -- the heritage 16px thumb is caught)\n'; fi
 	@if $(TEST_CONTROL_MUT_SB_DISABLED) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: SB_MUT_DISABLED_ENABLED_LOOK PASSED -- the disabled-face oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (SB_MUT_DISABLED_ENABLED_LOOK correctly RED -- enabled art in the disabled state is caught)\n'; fi
+	@if $(TEST_CONTROL_MUT_CHECK_FILL) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: CTRL_MUT_CHECK_FILL PASSED -- accent-fill checkbox relapse escaped the exact tile/X oracle\n'; exit 1; else printf '>>> test-control-mutant: green (CTRL_MUT_CHECK_FILL correctly RED -- accent-fill relapse caught)\n'; fi
+	@if $(TEST_CONTROL_MUT_BTN_FLAT) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: CTRL_MUT_BTN_FLAT PASSED -- flat button escaped the bevel/corner oracle\n'; exit 1; else printf '>>> test-control-mutant: green (CTRL_MUT_BTN_FLAT correctly RED -- bevel/corner relapse caught)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-shell (beads initech-k8o5.12 + initech-859) -- the M4 CAPSTONE:
@@ -11373,6 +11381,7 @@ TEST_DIALOG_MUT_STATIC  := $(BUILD)/test_dialog_mutant_hit_static
 TEST_DIALOG_MUT_FILECOPY := $(BUILD)/test_dialog_mutant_filecopy_msg
 TEST_DIALOG_MUT_TITLELESS := $(BUILD)/test_dialog_mutant_titleless_modal
 TEST_DIALOG_MUT_PROGZERO  := $(BUILD)/test_dialog_mutant_progress_zero
+TEST_DIALOG_MUT_NO_DEFAULT_RING := $(BUILD)/test_dialog_mutant_no_default_ring
 TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
                     os/flair/control.c os/flair/control.h \
                     os/flair/text.c os/flair/text.h \
@@ -11384,7 +11393,7 @@ TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
                     $(REGION_ENGINE_C) $(RENDER_SKEL_C) \
                     spec/chrome_metrics.h spec/grafport.h spec/event_model.h \
                     spec/window_record.h spec/region_algebra.h \
-                    spec/assets/palette.h spec/assets/chicago8x16.h
+                    spec/assets/palette.h spec/assets/chicago8x16.h $(CHROME_FID_GOLDEN_H)
 DIALOG_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 DIALOG_LINK := os/flair/dialog.c os/flair/control.c os/flair/text.c os/flair/event.c \
                os/flair/window.c os/flair/blitter.c os/flair/surface.c os/flair/chrome.c os/flair/heap.c \
@@ -11402,17 +11411,19 @@ $(TEST_DIALOG_MUT_TITLELESS): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_TITLELESS_MODAL=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
 $(TEST_DIALOG_MUT_PROGZERO): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_PROGRESS_ZERO=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+$(TEST_DIALOG_MUT_NO_DEFAULT_RING): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_NO_DEFAULT_RING=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
 
 test-dialog: $(TEST_DIALOG)
-	@printf ">>> test-dialog: LAYOUT (border=7px, item rects, FILE COPY canon byte-exact) + MODALDIALOG event routing + DRAW 8bpp (D-3; Law 4)\n"
+	@printf ">>> test-dialog: FILE COPY E7/inset content + generic dBox + default ring/moat + canon layout + MODALDIALOG routing\n"
 	@$(TEST_DIALOG)
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets \
 		-c os/flair/dialog.c -o $(BUILD)/dialog_freestanding.o \
 		|| { printf '!!! test-dialog FAIL: dialog.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-dialog: green\n"
 
-test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO)
-	@printf ">>> test-dialog-mutant: confirming all five mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
+test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO) $(TEST_DIALOG_MUT_NO_DEFAULT_RING)
+	@printf ">>> test-dialog-mutant: confirming all six mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
 	@if $(TEST_DIALOG_MUT_BORDER) >/dev/null 2>&1; then \
 		printf '!!! test-dialog-mutant FAIL: BORDER mutant PASSED -- the border-width oracle is decoration\n'; exit 1; \
 	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_BORDER correctly RED)\n'; fi
@@ -11428,6 +11439,9 @@ test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_D
 	@if $(TEST_DIALOG_MUT_PROGZERO) >/dev/null 2>&1; then \
 		printf '!!! test-dialog-mutant FAIL: PROGRESS_ZERO mutant PASSED -- the progress-bar-fill oracle is decoration (initech-a90f)\n'; exit 1; \
 	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_PROGRESS_ZERO correctly RED -- Law 4 oracle bites)\n'; fi
+	@if $(TEST_DIALOG_MUT_NO_DEFAULT_RING) >/dev/null 2>&1; then \
+		printf '!!! test-dialog-mutant FAIL: CTRL_MUT_NO_DEFAULT_RING PASSED -- Dialog Manager defaultItem is not proven to reach ring pixels\n'; exit 1; \
+	else printf '>>> test-dialog-mutant: green (CTRL_MUT_NO_DEFAULT_RING correctly RED -- ring + moat wiring caught)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
@@ -15225,7 +15239,7 @@ test-flair-drag-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_DRAG_IMG) $(PPM_FLAIR_DRA
 #   1. no triple-fault;
 #   2. FLAIR-LIVE-READY (pump armed) + FLAIR-DRAG win 1 (300,120)->(40,120);
 #   3. ppm_flair_dc4v_check: the modal FILE COPY box SURVIVES (right border black,
-#      interior white, right-half band >=80% white/black + <=5% seafoam) and the
+#      interior E7, right-half band >=80% E7/white/black + <=5% seafoam) and the
 #      Photoshop menu bar SURVIVES (menubar-white run) -- because the initech-pipa
 #      fold folds wm->overlay_rgn into fronts_union so the always-on-top layers are
 #      never overpainted (defect b) nor seafoam-erased (defect a).

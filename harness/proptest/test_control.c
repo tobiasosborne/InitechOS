@@ -41,10 +41,12 @@
  *     TrackControl releasing outside returns 0. Centered Chicago title x
  *     via text_measure / text_center_in.
  *
- *  5. DRAW: render a push button + a vertical scrollbar + a progress bar into
+ *  5. DRAW: render a checked checkbox + push button + vertical scrollbar +
+ *     progress bar into
  *     a host 8bpp offscreen via the render skeleton (the dual-compile path).
  *     Assert key pixels:
- *       - Button: the button frame (outer 1 px black border) is painted.
+ *       - Checked checkbox: the exact 12x12 sampled raised tile + shaded X.
+ *       - Button: sampled rounded-corner ramp, asymmetric bevel, and face.
  *       - Scrollbar: five-value recessed well; raised arrow tiles; black
  *         separators; a 15 px two-tone teal thumb with four grip lines and
  *         companions; and the distinct flat disabled face.
@@ -61,6 +63,10 @@
  *                                => thumb metric/anatomy leg goes RED.
  *   SB_MUT_DISABLED_ENABLED_LOOK -- disabled bar uses the enabled face.
  *                                => disabled-state leg goes RED.
+ *   CTRL_MUT_CHECK_FILL      -- checked box relapses to accent fill.
+ *                                => exact checked-box profile goes RED.
+ *   CTRL_MUT_BTN_FLAT        -- push button loses its Platinum bevel.
+ *                                => corner/bevel pixel legs go RED.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -104,6 +110,19 @@ static int render_one(render_ctx_t *ctx, uint32_t bpp)
 static uint32_t pidx(const render_ctx_t *ctx, uint32_t x, uint32_t y)
 {
     return render_pixel_index(ctx, x, y);
+}
+
+static uint32_t checked_profile_idx(char cell)
+{
+    switch (cell) {
+    case 'K': return FG_CTRL_FRAME_IDX;
+    case 'W': return FG_CTRL_HIGHLIGHT_IDX;
+    case 'a': return FG_CTRL_WIDGET_EDGE_IDX;
+    case 'e': return FG_CTRL_FACE_IDX;
+    case 'g': return FG_CTRL_DARK_SHADOW_IDX;
+    case 'c': return FG_CTRL_SHADOW_IDX;
+    default:  return 0xFFFFFFFFu;
+    }
 }
 
 static int count_rgb(const render_ctx_t *ctx,
@@ -520,6 +539,15 @@ static void draw_all_controls(GrafPort *port)
         DrawControl(port, &btn);
     }
 
+    /* Checked checkbox: exact 12x12 sampled art, no label. */
+    {
+        ControlRecord check;
+        rgn_rect_t r;
+        r.top = 50; r.left = 450; r.bottom = 62; r.right = 462;
+        control_init(&check, checkBox, r, 1, 0, 1, 1, "");
+        DrawControl(port, &check);
+    }
+
     /* Vertical scrollbar: [50,100) to [66,300) -- 16px wide, 200px tall.
      * Value=50 (midpoint). */
     {
@@ -555,10 +583,7 @@ static void test_draw_controls(void)
 
     /* --- BUTTON ASSERTIONS ---
      * Button rect: [300,50) to [400,70).
-     * Frame (1 px black border); corners cleared for rounded appearance.
-     * The corner pixels (300,50), (399,50), (300,69), (399,69) are cleared
-     * (set to CTRL_DESKTOP) for the round-ish corner effect. Probe non-corner
-     * frame pixels: top row at x=350 (center), left col at y=60 (midheight). */
+     * Ref: controls.md Sec 5.1, sampled Cancel/OK controls. */
     {
         /* Top frame pixel (non-corner, center of top edge). */
         snprintf(msg, sizeof msg,
@@ -580,22 +605,54 @@ static void test_draw_controls(void)
                  "button bottom frame center (x=350, y=69) must be CTRL_BLACK (0)");
         CHECK(pidx(&ctx, 350u, 69u) == 0u, msg);
 
-        /* Corner pixel (300,50) is cleared to desktop (rounded corner). */
-        snprintf(msg, sizeof msg,
-                 "button TL corner (x=300, y=50) must be CTRL_DESKTOP (%u) -- rounded",
-                 (unsigned)RENDER_DESKTOP_INDEX);
-        CHECK(pidx(&ctx, 300u, 50u) == (uint32_t)RENDER_DESKTOP_INDEX, msg);
-
-        /* Interior face: should be CTRL_WHITE (1) for unhilited button. */
-        snprintf(msg, sizeof msg,
-                 "button interior (x=350, y=60) must be CTRL_WHITE (1) when not hilited");
-        CHECK(pidx(&ctx, 350u, 60u) == 1u, msg);
+        CHECK(pidx(&ctx, 300u, 50u) == FG_CTRL_SHADOW_IDX &&
+              pidx(&ctx, 301u, 50u) == FG_CTRL_DARK_SHADOW_IDX &&
+              pidx(&ctx, 302u, 50u) == FG_CTRL_DARK_RING_IDX,
+              "button TL smoothing ramp must be sampled C0/96/3F, never desktop");
+        CHECK(pidx(&ctx, 302u, 51u) == FG_CTRL_CORNER_SMOOTH_IDX,
+              "button rounded corner must carry sampled CD smoothing pixel");
+        CHECK(pidx(&ctx, 320u, 51u) == FG_CTRL_FACE_IDX,
+              "button inset top row must be sampled E7 face");
+        CHECK(pidx(&ctx, 320u, 52u) == FG_CTRL_HIGHLIGHT_IDX &&
+              pidx(&ctx, 302u, 60u) == FG_CTRL_HIGHLIGHT_IDX,
+              "button must carry one sampled white highlight row/column");
+        CHECK(pidx(&ctx, 320u, 60u) == FG_CTRL_FACE_IDX,
+              "button interior face must be sampled E7");
+        CHECK(pidx(&ctx, 397u, 60u) == FG_CTRL_SHADOW_IDX &&
+              pidx(&ctx, 398u, 60u) == FG_CTRL_DARK_SHADOW_IDX &&
+              pidx(&ctx, 320u, 67u) == FG_CTRL_SHADOW_IDX &&
+              pidx(&ctx, 320u, 68u) == FG_CTRL_DARK_SHADOW_IDX,
+              "button bottom/right shadow must be sampled C0 then 96");
 
         /* Pixel just outside button (above) should be desktop. */
         snprintf(msg, sizeof msg,
                  "pixel above button (x=350, y=49) must be desktop index (%u)",
                  (unsigned)RENDER_DESKTOP_INDEX);
         CHECK(pidx(&ctx, 350u, 49u) == (uint32_t)RENDER_DESKTOP_INDEX, msg);
+    }
+
+
+    /* --- CHECKED CHECKBOX ASSERTIONS ---
+     * Exact transcription of s8_controls_dialog.png x=228..239,y=109..120;
+     * controls.md Sec 2. This proves both the raised tile and all X/shade
+     * legs, not merely a color count. */
+    {
+        const char *profile = FG_CHECKED_BOX_PROFILE;
+        int exact = 1;
+        for (int y = 0; y < FG_CHECKED_BOX_SIZE; y++) {
+            for (int x = 0; x < FG_CHECKED_BOX_SIZE; x++) {
+                uint32_t want = checked_profile_idx(
+                    profile[y * FG_CHECKED_BOX_SIZE + x]);
+                exact = exact &&
+                    pidx(&ctx, (uint32_t)(450 + x), (uint32_t)(50 + y)) == want;
+            }
+        }
+        CHECK(exact,
+              "checked checkbox must match exact sampled 12x12 raised tile + shaded X");
+        CHECK(pidx(&ctx, 454u, 53u) == FG_CTRL_FRAME_IDX &&
+              pidx(&ctx, 457u, 55u) == FG_CTRL_DARK_SHADOW_IDX &&
+              pidx(&ctx, 458u, 55u) == FG_CTRL_SHADOW_IDX,
+              "checked checkbox must retain black X plus 96/C0 lower-right shade legs");
     }
 
     /* --- SCROLLBAR ASSERTIONS ---

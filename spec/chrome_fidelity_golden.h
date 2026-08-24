@@ -164,6 +164,41 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 #define FG_SB_HOLLOW_NOTHING_ELSE      1
 
 /* -------------------------------------------------------------------------
+ * PLATINUM CHECKED CHECKBOX + PUSH BUTTON + DEFAULT RING.
+ * Ref: ../system7-decomp/specs/sys8/controls.md Sec 1, Sec 2, Sec 5.1,
+ * Sec 5.2. These are independent SAMPLED-framebuffer expectations; the
+ * renderer consumes PARTs and does not include this header.
+ */
+#define FG_CTRL_FACE_IDX              231
+#define FG_CTRL_HIGHLIGHT_IDX           1
+#define FG_CTRL_SHADOW_IDX            192
+#define FG_CTRL_DARK_SHADOW_IDX       150
+#define FG_CTRL_WIDGET_EDGE_IDX       165
+#define FG_CTRL_DARK_RING_IDX          63
+#define FG_CTRL_CORNER_SMOOTH_IDX     205
+#define FG_CTRL_FRAME_IDX               0
+
+#define FG_CHECKED_BOX_SIZE            12
+#define FG_CHECKED_BOX_PROFILE \
+    "KKKKKKKKKKKK" \
+    "KWWWWWWWWWeK" \
+    "KWeKeeeeKeaK" \
+    "KWeKKeeKKgaK" \
+    "KWeeKKKKgcaK" \
+    "KWeeeKKgceaK" \
+    "KWeeKKKKeeaK" \
+    "KWeKKgcKKeaK" \
+    "KWeKgceeKgaK" \
+    "KWeeceeeecaK" \
+    "KeaaaaaaaaaK" \
+    "KKKKKKKKKKKK"
+
+#define FG_PUSH_BUTTON_HEIGHT          20
+#define FG_PUSH_CORNER_RAMP_RUN         3
+#define FG_DEFAULT_RING_EXPAND          3
+#define FG_DEFAULT_RING_MOAT            2
+
+/* -------------------------------------------------------------------------
  * PLATINUM INACTIVE DELTA.
  * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 6 and
  * scrollbars.md Sec 4.  Explicit era change: System-7 inactive title fill was

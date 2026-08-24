@@ -3,10 +3,10 @@
  *
  * beads: initech-8h9 ("FLAIR Control Manager: buttons, scrollbars, progress bar").
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the
- * standalone push/check/radio faces below remain explicit System 7 heritage
- * renderings until their Appearance-era face is independently minted. Record
- * and part-code semantics are unchanged (DEC-10 OQ-9).
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The unpressed push
+ * button and checked checkbox are sampled Platinum renderings. Unchecked,
+ * pressed/tracking, and radio art remain explicit golden gaps with retained
+ * heritage output. Record and part-code semantics are unchanged (DEC-10 OQ-9).
  *
  * Ref: ADR-0004 D-3 ("Control Manager -- ControlRecord {value/min/max,
  *        contrlHilite, contrlRect}; part-codes inButton, inCheckBox,
@@ -261,6 +261,13 @@ int16_t GetControlValue(const ControlRecord *ctrl);
  * Ref: IM-I p. I-321 "DrawControls"; MTE Ch 5 "DrawControl."
  * -------------------------------------------------------------------------- */
 void DrawControl(GrafPort *port, ControlRecord *ctrl);
+
+/* DrawControlDefaultRing -- draw the sampled Platinum default-button ring and
+ * two-pixel moat at InsetRect(ctrl->contrlRect,-3,-3). Dialog Manager calls
+ * this only for the push-button ctrlItem named by DialogRecord.defaultItem,
+ * immediately before DrawControl overlays the button itself.
+ * Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.2 (SAMPLED). */
+void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl);
 
 /* --------------------------------------------------------------------------
  * TestControl -- hit-test a point against a control; return the part code.

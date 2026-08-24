@@ -39,10 +39,8 @@
  *  3. DRAW:
  *     Render the FILE COPY dialog into a host 8bpp offscreen via the render
  *     skeleton. Assert:
- *     (a) 7-px border frame: the outermost 7 rows/columns are DLG_BLACK (0).
- *         Specifically: pixel at (left, top+3) == 0 (left border interior);
- *         pixel at (left+3, top) == 0 (top border interior).
- *     (b) Content interior: pixel just inside the border is DLG_WHITE (1).
+ *     (a) FILE COPY's locked 22-row movable title + one-pixel outer frame.
+ *     (b) Sampled E7 content face with white TL / C0 BR inset legs.
  *     (c) Progress bar band: the ctrl_progress_fill_px region within the
  *         progress bar item rect matches the expected pixel value.
  *
@@ -54,6 +52,8 @@
  *   DIALOG_MUTATE_FILECOPY_MSG -- FileCopyDialog uses a wrong message string.
  *                                 => property 1c (byte-exact canon) goes RED
  *                                    (Law 4 REQUIRED).
+ *   CTRL_MUT_NO_DEFAULT_RING   -- defaultItem does not reach ring pixels.
+ *                                 => exact ring/moat legs go RED.
  *
  * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
  */
@@ -67,6 +67,7 @@
 #include "control.h"            /* ControlRecord, progressBar (-Ios/flair)     */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_DIALOG_BORDER (-Ispec)         */
 #include "color_canon.h"        /* named sampled Platinum canon indices         */
+#include "chrome_fidelity_golden.h" /* independent controls.md expectations    */
 #include "text.h"               /* text_measure, FONT_CHICAGO (-Ios/flair)     */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 
@@ -606,13 +607,11 @@ static void test_modaldialog_click_stattext(void)
  * PROPERTY 3 -- DRAW: render FILE COPY dialog and assert pixel values
  *
  * Draw the FILE COPY dialog into an 8bpp offscreen. Assert:
- *   (a) Border: pixels within the first 7 rows/columns from the dialog edge
- *       are DLG_BLACK (palette index 0).
- *   (b) Content interior: pixel just inside the border is DLG_WHITE (index 1).
+ *   (a) FILE COPY's exact movable title + plain one-pixel frame.
+ *   (b) Content E7 face plus white TL / C0 BR inset bevel.
  *   (c) Progress bar: the fill region and border are drawn correctly.
  *
- * MUTATION: DIALOG_MUTATE_BORDER draws 8-px border instead of 7; the check
- * for the 8th interior pixel being DLG_WHITE goes RED (it would be BLACK).
+ * DIALOG_MUTATE_BORDER remains graded by the generic dBox sweep below.
  * ===========================================================================*/
 static void draw_filecopy_dialog(GrafPort *port)
 {
@@ -655,7 +654,7 @@ static void draw_filecopy_dialog(GrafPort *port)
  * old titleless dBoxProc 7-px solid border. Dialog bounds: top=200, left=140,
  * right=500, bottom=280. Title band geometry (chrome_metrics.h):
  *   y=200..221       K,H,2 face,12 stripes,4 face,S,K
- *   y=222..          content                          -> DLG_WHITE (1)
+ *   content           sampled E7 face + white TL / C0 BR inset bevel
  * Re-key authority: ADR-0004-AMENDMENT-DEC-10 Sec 4; sampled rows:
  * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2.
  * MUTATION: DIALOG_MUTATE_TITLELESS_MODAL reverts to the OLD titleless
@@ -704,23 +703,29 @@ static void test_draw_filecopy(void)
 
     /* (e) The frame is PLAIN 1-px, NOT the old 7px dBoxProc border: the pixel
      * ONE column inside the left edge (x=141), at a CONTENT row (y=240, well
-     * below the 22px title band), is WHITE -- under the old 7px border this
+     * below the title band), is the white inset highlight -- under the old 7px border this
      * pixel (x=140+1) would still be solid BLACK (border spans x=140..146).
      * MUTATION: DIALOG_MUTATE_TITLELESS_MODAL reverts to the 7px border ->
      * this pixel goes BLACK -> RED. */
     snprintf(msg, sizeof msg,
              "content just inside the LEFT frame (x=141,y=240) must be "
-             "DLG_WHITE (1) -- proves a 1px frame, not the old 7px dBoxProc "
+             "sampled white highlight (1) -- proves a 1px frame and inset bevel "
              "border (initech-zvo6), got %u",
              (unsigned)pidx(&ctx, 141u, 240u));
     CHECK(pidx(&ctx, 141u, 240u) == 1u, msg);
 
-    /* Symmetric check on the right edge (x=498, one col inside x=499). */
+    /* The symmetric right inset is the sampled C0 shadow, not white. */
     snprintf(msg, sizeof msg,
              "content just inside the RIGHT frame (x=498,y=240) must be "
-             "DLG_WHITE (1), got %u",
+             "sampled C0 shadow (192), got %u",
              (unsigned)pidx(&ctx, 498u, 240u));
-    CHECK(pidx(&ctx, 498u, 240u) == 1u, msg);
+    CHECK(pidx(&ctx, 498u, 240u) == FG_CTRL_SHADOW_IDX, msg);
+
+    CHECK(pidx(&ctx, 142u, 240u) == FG_CTRL_FACE_IDX,
+          "FILE COPY content body must use sampled E7 face");
+    CHECK(pidx(&ctx, 300u, 222u) == FG_CTRL_HIGHLIGHT_IDX &&
+          pidx(&ctx, 300u, 278u) == FG_CTRL_SHADOW_IDX,
+          "FILE COPY content must carry sampled white top / C0 bottom inset legs");
 
     /* The outermost columns/rows themselves are still the frame ink (black). */
     snprintf(msg, sizeof msg,
@@ -824,9 +829,9 @@ static void test_draw_border_sweep(void)
         CHECK(pidx(&ctx, (uint32_t)x_probe, (uint32_t)row) == 0u, msg);
     }
 
-    /* The row immediately after the border must be WHITE. */
+    /* The row immediately after the border is the white inset highlight. */
     snprintf(msg, sizeof msg,
-             "first content row at (x=%d,y=%d) [= top+bw=%d] must be DLG_WHITE (1), got %u",
+             "first content row at (x=%d,y=%d) [= top+bw=%d] must be sampled white highlight (1), got %u",
              x_probe, top + bw, top + bw, (unsigned)pidx(&ctx, (uint32_t)x_probe, (uint32_t)(top + bw)));
     CHECK(pidx(&ctx, (uint32_t)x_probe, (uint32_t)(top + bw)) == 1u, msg);
 
@@ -839,16 +844,86 @@ static void test_draw_border_sweep(void)
         CHECK(pidx(&ctx, (uint32_t)col, (uint32_t)y_probe) == 0u, msg);
     }
 
-    /* First content column after the left border must be WHITE. */
+    /* First content column after the left border is the white inset highlight. */
     snprintf(msg, sizeof msg,
-             "first content col at (x=%d,y=%d) [= left+bw=%d] must be DLG_WHITE (1), got %u",
+             "first content col at (x=%d,y=%d) [= left+bw=%d] must be sampled white highlight (1), got %u",
              left + bw, y_probe, left + bw,
              (unsigned)pidx(&ctx, (uint32_t)(left + bw), (uint32_t)y_probe));
     CHECK(pidx(&ctx, (uint32_t)(left + bw), (uint32_t)y_probe) == 1u, msg);
 
+    CHECK(pidx(&ctx, (uint32_t)(left + bw + 1),
+               (uint32_t)(top + bw + 1)) == FG_CTRL_FACE_IDX,
+          "generic dialog content body must use sampled E7 face");
+    CHECK(pidx(&ctx, 492u, 240u) == FG_CTRL_SHADOW_IDX &&
+          pidx(&ctx, 200u, 272u) == FG_CTRL_SHADOW_IDX,
+          "generic dialog content must carry sampled C0 right/bottom inset legs");
+
     render_ctx_free(&ctx);
 
     (void)lcg(); /* ensure LCG is exercised so the seed isn't dead weight */
+}
+
+/* Default item wiring: DrawDialog expands the default push button by 3 px,
+ * paints the black rounded ring, and preserves the asymmetric two-pixel moat.
+ * Ref: controls.md Sec 5.2, s8_alert_modal.png x=432..496,y=155..180. */
+static void draw_default_button_dialog(GrafPort *port)
+{
+    static DialogRecord s_dr;
+    static DialogItem s_items[1];
+    static ControlRecord s_ctrl;
+    static rgn_store_t s_sruc, s_scont, s_supd;
+
+    rgn_store_init(&s_sruc);
+    rgn_store_init(&s_scont);
+    rgn_store_init(&s_supd);
+
+    rgn_rect_t bounds = { 200, 140, 300, 500 };
+    rgn_rect_t button = { 250, 260, 270, 319 }; /* sampled 59x20 class */
+    control_init(&s_ctrl, pushButton, button, 0, 0, 1, 1, "OK");
+    s_items[0].type = ctrlItem;
+    s_items[0].rect = button;
+    s_items[0].text = 0;
+    s_items[0].ctrl = &s_ctrl;
+    s_items[0].enabled = 1;
+    s_items[0]._pad[0] = s_items[0]._pad[1] = s_items[0]._pad[2] = 0;
+
+    DialogPtr dp = NewDialog(&s_dr, bounds, "", s_items, 1u, 1u, 0u, 0,
+                             &s_sruc.r, &s_scont.r, &s_supd.r);
+    if (!dp) {
+        return;
+    }
+    dp->window.port = *port;
+    dp->window.port.portRect = dp->window.strucRgn->bbox;
+    DrawDialog(dp);
+}
+
+static void test_draw_default_ring(void)
+{
+    render_ctx_t ctx;
+    int rc = render_one(&ctx, 8u);
+    CHECK(rc == 0, "render_ctx_init(8bpp) for default-button ring");
+    if (rc != 0) {
+        return;
+    }
+    render_run(&ctx, draw_default_button_dialog);
+
+    CHECK(pidx(&ctx, 290u, 247u) == FG_CTRL_FRAME_IDX &&
+          pidx(&ctx, 257u, 260u) == FG_CTRL_FRAME_IDX &&
+          pidx(&ctx, 290u, 272u) == FG_CTRL_FRAME_IDX &&
+          pidx(&ctx, 321u, 260u) == FG_CTRL_FRAME_IDX,
+          "default item must render black ring at InsetRect(button,-3,-3)");
+    CHECK(pidx(&ctx, 290u, 248u) == FG_CTRL_FACE_IDX &&
+          pidx(&ctx, 290u, 249u) == FG_CTRL_SHADOW_IDX &&
+          pidx(&ctx, 258u, 260u) == FG_CTRL_FACE_IDX &&
+          pidx(&ctx, 259u, 260u) == FG_CTRL_SHADOW_IDX,
+          "default ring top/left moat must carry sampled E7 then C0");
+    CHECK(pidx(&ctx, 290u, 270u) == FG_CTRL_SHADOW_IDX &&
+          pidx(&ctx, 290u, 271u) == FG_CTRL_DARK_SHADOW_IDX &&
+          pidx(&ctx, 319u, 260u) == FG_CTRL_SHADOW_IDX &&
+          pidx(&ctx, 320u, 260u) == FG_CTRL_DARK_SHADOW_IDX,
+          "default ring bottom/right moat must carry sampled C0 then 96");
+
+    render_ctx_free(&ctx);
 }
 
 /* ===========================================================================
@@ -992,6 +1067,7 @@ int main(int argc, char **argv)
     test_modaldialog_click_stattext();
     test_draw_filecopy();
     test_draw_border_sweep();
+    test_draw_default_ring();
     test_item_accessors();
     test_find_dialog_item();
 

@@ -5,10 +5,10 @@
  *        bar"). See control.h for the full contract, Law-3 separation, and
  *        verbatim Inside Macintosh source citations.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The scrollbar face
- * is the sampled Platinum CDEF-24 anatomy. TODO_GOLDEN: the standalone
- * push/check/radio routines remain explicit System 7 heritage faces in this
- * arc; no Platinum face is claimed for those controls here.
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The scrollbar,
+ * unpressed push button, and checked checkbox use sampled Platinum anatomy.
+ * The unchecked checkbox, pressed button, and radio remain explicitly tagged
+ * golden gaps; their retained heritage paths are not promoted as Platinum.
  *
  * Freestanding artifact code: draws push buttons, check boxes, radio buttons,
  * vertical scrollbars, and the FILE COPY progress bar into a GrafPort, writing
@@ -32,6 +32,9 @@
  *                                => clamping tests RED.
  *   SB_MUT_THUMB_16           -- heritage 16px thumb replaces sampled 15px.
  *   SB_MUT_DISABLED_ENABLED_LOOK -- disabled bar paints the enabled anatomy.
+ *   CTRL_MUT_CHECK_FILL -- checked checkbox relapses to the accent fill.
+ *   CTRL_MUT_BTN_FLAT -- unpressed push button loses its sampled bevel.
+ *   CTRL_MUT_NO_DEFAULT_RING -- Dialog Manager default ring is suppressed.
  *
  * Ref: control.h (the full API contract + Law 1 citations);
  *      spec/chrome_metrics.h (LOCKED native metrics);
@@ -67,6 +70,12 @@ enum {
     CTRL_TITLE_INK  = FLAIR_PART_TEXT,         /* title ink / dark frame        */
     CTRL_ACCENT     = FLAIR_PART_CAPTION_NAVY, /* accent (hilite fill)          */
     CTRL_CONTROL    = FLAIR_PART_BTNFACE,      /* retained control face          */
+    CTRL_PLAT_FACE  = FLAIR_PART_PLAT_FACE,    /* sampled E7 control face         */
+    CTRL_PLAT_SHADOW = FLAIR_PART_PLAT_WELL,   /* sampled C0 bevel/moat shadow    */
+    CTRL_PLAT_DARK_SHADOW = FLAIR_PART_PLAT_STRIPE_DARK, /* sampled 96 shadow */
+    CTRL_PLAT_WIDGET_EDGE = FLAIR_PART_PLAT_WIDGET_EDGE, /* sampled A5 edge   */
+    CTRL_PLAT_DARK_RING = FLAIR_PART_PLAT_DARK_RING, /* sampled 3F smoothing */
+    CTRL_PLAT_CORNER = FLAIR_PART_PLAT_TILE_SHADOW, /* sampled CD smoothing  */
     CTRL_SB_THUMB_HL = FLAIR_PART_SB_THUMB_HL,
     CTRL_SB_THUMB_FACE = FLAIR_PART_SB_THUMB_FACE,
     CTRL_SB_THUMB_SHADOW = FLAIR_PART_SB_THUMB_SHADOW,
@@ -356,14 +365,13 @@ int16_t ctrl_progress_fill_px(const ControlRecord *ctrl)
  * DRAW DISPATCH
  * ===========================================================================*/
 
-/* draw_push_button -- System-7-style push button.
+/* draw_push_button -- sampled Mac OS 8.1 Platinum unpressed push button.
  *
- * A rounded-ish rect (approximated as a 1 px framed rounded rect via a pair
- * of small corner fillets; period-authentic); Chicago label centered.
- * Hilite: when contrlHilite == inButton, invert the button interior (fill
- * with CTRL_ACCENT / dark; the label reads on the accent fill).
- *
- * Ref: Inside Macintosh Vol I Ch 5; System 7 push-button appearance. */
+ * The 20px class uses the exact asymmetric edge families measured on both
+ * s8_alert_modal buttons: E7 inset, white highlight, C0/96 shadow, and the
+ * C0/96/3F/CD rounded-corner ramp. Pressed art is a golden GAP, so the
+ * pre-existing accent-fill tracking branch is retained and not claimed as
+ * Platinum. Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1/Sec 8. */
 static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
 {
     int x0 = (int)ctrl->contrlRect.left;
@@ -377,21 +385,81 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
     }
 
     int hilited = (ctrl->contrlHilite == inButton);
+    int face_part = hilited ? CTRL_ACCENT : CTRL_PLAT_FACE;
 
-    /* Button face fill. */
-    int face_part = hilited ? CTRL_ACCENT : CTRL_WHITE;
-    crect_ctrl(port, x0, y0, x1, y1, face_part);
+    if (hilited) {
+        /* controls.md Sec 8: pressed/tracking is unresolved. Preserve the
+         * retained heritage state byte-for-byte; do not invent Platinum art. */
+        crect_ctrl(port, x0, y0, x1, y1, CTRL_ACCENT);
+        cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
+        cfill_ctrl(port, x0,     y0,     1, CTRL_DESKTOP);
+        cfill_ctrl(port, x1 - 1, y0,     1, CTRL_DESKTOP);
+        cfill_ctrl(port, x0,     y1 - 1, 1, CTRL_DESKTOP);
+        cfill_ctrl(port, x1 - 1, y1 - 1, 1, CTRL_DESKTOP);
+    } else {
+        crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
+#if defined(CTRL_MUT_BTN_FLAT) && CTRL_MUT_BTN_FLAT
+        /* NAMED MUTANT: remove the sampled bevel/corner anatomy. */
+        cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
+#else
+        /* Top and bottom rounded ramps: C0, 96, 3F, black run, 3F, 96, C0. */
+        cfill_ctrl(port, x0,     y0, 1, CTRL_PLAT_SHADOW);
+        cfill_ctrl(port, x0 + 1, y0, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x0 + 2, y0, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x0 + 3, y0, w - 6, CTRL_BLACK);
+        cfill_ctrl(port, x1 - 3, y0, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x1 - 2, y0, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x1 - 1, y0, 1, CTRL_PLAT_SHADOW);
+        cfill_ctrl(port, x0,     y1 - 1, 1, CTRL_PLAT_SHADOW);
+        cfill_ctrl(port, x0 + 1, y1 - 1, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x0 + 2, y1 - 1, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x0 + 3, y1 - 1, w - 6, CTRL_BLACK);
+        cfill_ctrl(port, x1 - 3, y1 - 1, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x1 - 2, y1 - 1, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x1 - 1, y1 - 1, 1, CTRL_PLAT_SHADOW);
 
-    /* 1 px black outer frame. */
-    cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
+        /* Corner-transition rows, transcribed from the two sampled buttons. */
+        cfill_ctrl(port, x0,     y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x0 + 1, y0 + 1, 1, CTRL_BLACK);
+        cfill_ctrl(port, x0 + 2, y0 + 1, 1, CTRL_PLAT_CORNER);
+        cfill_ctrl(port, x1 - 3, y0 + 1, 1, CTRL_PLAT_CORNER);
+        cfill_ctrl(port, x1 - 2, y0 + 1, 1, CTRL_BLACK);
+        cfill_ctrl(port, x1 - 1, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
 
-    /* Simple rounded corners: clear the 4 corner pixels of the frame to give
-     * a slight round-ish appearance (System-7 push button style). The
-     * surrounding desktop color shows through the cleared corners. */
-    cfill_ctrl(port, x0,     y0,     1, CTRL_DESKTOP);  /* TL */
-    cfill_ctrl(port, x1 - 1, y0,     1, CTRL_DESKTOP);  /* TR */
-    cfill_ctrl(port, x0,     y1 - 1, 1, CTRL_DESKTOP);  /* BL */
-    cfill_ctrl(port, x1 - 1, y1 - 1, 1, CTRL_DESKTOP);  /* BR */
+        cfill_ctrl(port, x0,     y0 + 2, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x0 + 1, y0 + 2, 1, CTRL_PLAT_CORNER);
+        cfill_ctrl(port, x0 + 2, y0 + 2, w - 5, CTRL_WHITE);
+        cfill_ctrl(port, x1 - 3, y0 + 2, 1, CTRL_PLAT_FACE);
+        cfill_ctrl(port, x1 - 2, y0 + 2, 1, CTRL_PLAT_CORNER);
+        cfill_ctrl(port, x1 - 1, y0 + 2, 1, CTRL_PLAT_DARK_RING);
+
+        /* Straight body: black frame, E7 inset, white light, C0/96 dark. */
+        for (int y = y0 + 3; y < y1 - 3; y++) {
+            cfill_ctrl(port, x0,     y, 1, CTRL_BLACK);
+            cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_FACE);
+            cfill_ctrl(port, x0 + 2, y, 1, CTRL_WHITE);
+            cfill_ctrl(port, x1 - 3, y, 1, CTRL_PLAT_SHADOW);
+            cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_DARK_SHADOW);
+            cfill_ctrl(port, x1 - 1, y, 1, CTRL_BLACK);
+        }
+        cfill_ctrl(port, x0 + 3, y0 + 3, 1, CTRL_WHITE);
+        cfill_ctrl(port, x1 - 4, y1 - 4, 1, CTRL_PLAT_SHADOW);
+
+        cfill_ctrl(port, x0,     y1 - 3, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x0 + 1, y1 - 3, 1, CTRL_PLAT_CORNER);
+        cfill_ctrl(port, x0 + 2, y1 - 3, 1, CTRL_PLAT_FACE);
+        cfill_ctrl(port, x0 + 3, y1 - 3, w - 6, CTRL_PLAT_SHADOW);
+        cfill_ctrl(port, x1 - 3, y1 - 3, 2, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x1 - 1, y1 - 3, 1, CTRL_PLAT_DARK_RING);
+
+        cfill_ctrl(port, x0,     y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x0 + 1, y1 - 2, 1, CTRL_BLACK);
+        cfill_ctrl(port, x0 + 2, y1 - 2, 1, CTRL_PLAT_CORNER);
+        cfill_ctrl(port, x0 + 3, y1 - 2, w - 6, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x1 - 2, y1 - 2, 1, CTRL_BLACK);
+        cfill_ctrl(port, x1 - 1, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
+#endif
+    }
 
     /* Chicago label, centered. */
     uint32_t fg = ctrl_px(port, hilited ? CTRL_WHITE : CTRL_BLACK);
@@ -409,11 +477,26 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
     }
 }
 
-/* draw_check_box -- System-7 check box.
+static int checked_box_part(char cell) __attribute__((unused));
+static int checked_box_part(char cell)
+{
+    switch (cell) {
+    case 'K': return CTRL_BLACK;
+    case 'W': return CTRL_WHITE;
+    case 'a': return CTRL_PLAT_WIDGET_EDGE;
+    case 'e': return CTRL_PLAT_FACE;
+    case 'g': return CTRL_PLAT_DARK_SHADOW;
+    case 'c': return CTRL_PLAT_SHADOW;
+    default:  return CTRL_BLACK;
+    }
+}
+
+/* draw_check_box -- exact sampled checked art, retained unchecked gap.
  *
- * 12 px square box at left, centered vertically in the rect. A black "X" or
- * solid fill indicates checked (contrlValue != 0). Title to the right of box.
- * Ref: IM-I Ch 5. */
+ * The checked branch is the 12x12 controls.md Sec 2 transcription: black
+ * outline, raised 10x10 E7 tile, and black X with 96/C0 shade. Every available
+ * capture is checked. The unchecked branch therefore remains the pre-existing
+ * heritage empty box and is not claimed as Platinum (Sec 2/Sec 8 GAP). */
 static void draw_check_box(GrafPort *port, const ControlRecord *ctrl)
 {
     int x0 = (int)ctrl->contrlRect.left;
@@ -422,22 +505,44 @@ static void draw_check_box(GrafPort *port, const ControlRecord *ctrl)
     int y1 = (int)ctrl->contrlRect.bottom;
     int h  = y1 - y0;
 
-    enum { BOX_SZ = 12 };   /* System-7 check box: 12 px square               */
+    enum { BOX_SZ = 12 };   /* controls.md Sec 2: sampled 12 px footprint     */
     int box_y = y0 + (h - BOX_SZ) / 2;
     if (box_y < y0) {
         box_y = y0;
     }
 
-    /* White fill + black frame. */
-    crect_ctrl(port,  x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_WHITE);
-    cframe_ctrl(port, x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_BLACK);
-
-    /* Check mark: fill interior with accent if checked. */
     if (ctrl->contrlValue != 0) {
-        /* A solid interior fill (simplified checkmark; period-authentic for
-         * 8-bpp with 12 px box). */
+#if defined(CTRL_MUT_CHECK_FILL) && CTRL_MUT_CHECK_FILL
+        /* NAMED MUTANT: relapse to the old solid accent-fill interior. */
+        crect_ctrl(port,  x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_WHITE);
+        cframe_ctrl(port, x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_BLACK);
         crect_ctrl(port, x0 + 2, box_y + 2, x0 + BOX_SZ - 2,
                    box_y + BOX_SZ - 2, CTRL_ACCENT);
+#else
+        static const char profile[BOX_SZ * BOX_SZ + 1] =
+            "KKKKKKKKKKKK"
+            "KWWWWWWWWWeK"
+            "KWeKeeeeKeaK"
+            "KWeKKeeKKgaK"
+            "KWeeKKKKgcaK"
+            "KWeeeKKgceaK"
+            "KWeeKKKKeeaK"
+            "KWeKKgcKKeaK"
+            "KWeKgceeKgaK"
+            "KWeeceeeecaK"
+            "KeaaaaaaaaaK"
+            "KKKKKKKKKKKK";
+        for (int y = 0; y < BOX_SZ; y++) {
+            for (int x = 0; x < BOX_SZ; x++) {
+                cfill_ctrl(port, x0 + x, box_y + y, 1,
+                           checked_box_part(profile[y * BOX_SZ + x]));
+            }
+        }
+#endif
+    } else {
+        /* Unchecked Platinum art is a golden GAP: preserve heritage output. */
+        crect_ctrl(port,  x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_WHITE);
+        cframe_ctrl(port, x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_BLACK);
     }
 
     /* Title to the right of the box. */
@@ -448,11 +553,7 @@ static void draw_check_box(GrafPort *port, const ControlRecord *ctrl)
             ly = y0;
         }
         uint32_t fg = ctrl_px(port, CTRL_BLACK);
-        /* bg: the caller's background -- we use CTRL_DESKTOP as a pass-through;
-         * the actual background is whatever was drawn behind the control. For
-         * the oracle's host-bitmap, CTRL_DESKTOP renders the background fill
-         * color, which is appropriate for a dialog background. */
-        uint32_t bg = ctrl_px(port, CTRL_DESKTOP);
+        uint32_t bg = ctrl_px(port, CTRL_PLAT_FACE);
         text_draw(&port->portBits.bm, x0 + BOX_SZ + 4, ly,
                   ctrl->contrlTitle, FONT_CHICAGO, fg, bg);
     }
@@ -698,6 +799,71 @@ static void draw_progress_bar(GrafPort *port, const ControlRecord *ctrl)
     if (filled > 0) {
         crect_ctrl(port, x0 + 1, y0 + 1, x0 + 1 + filled, y1 - 1, CTRL_ACCENT);
     }
+}
+
+/* DrawControlDefaultRing -- Dialog Manager defaultItem decoration.
+ *
+ * The ring bounds are InsetRect(button,-3,-3). The two-pixel moat is E7/C0
+ * on top/left and C0/96 on bottom/right. The button is drawn afterward and
+ * covers the moat's inner boundary. Ref: controls.md Sec 5.2. */
+void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
+{
+    if (port == 0 || ctrl == 0 || ctrl->contrlType != pushButton ||
+        !ctrl->contrlVis) {
+        return;
+    }
+#if defined(CTRL_MUT_NO_DEFAULT_RING) && CTRL_MUT_NO_DEFAULT_RING
+    /* NAMED MUTANT: defaultItem no longer reaches visible ring pixels. */
+    return;
+#else
+    int bx0 = (int)ctrl->contrlRect.left;
+    int by0 = (int)ctrl->contrlRect.top;
+    int bx1 = (int)ctrl->contrlRect.right;
+    int by1 = (int)ctrl->contrlRect.bottom;
+    int x0 = bx0 - 3;
+    int y0 = by0 - 3;
+    int x1 = bx1 + 3;
+    int y1 = by1 + 3;
+
+    if (bx1 <= bx0 || by1 <= by0) {
+        return;
+    }
+
+    /* Establish the sampled E7 field within the expanded bounds. */
+    crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
+
+    /* One-pixel rounded black ring with sampled 3F smoothing pixels. */
+    cfill_ctrl(port, x0 + 3, y0,     x1 - x0 - 6, CTRL_BLACK);
+    cfill_ctrl(port, x0 + 3, y1 - 1, x1 - x0 - 6, CTRL_BLACK);
+    for (int y = y0 + 3; y < y1 - 3; y++) {
+        cfill_ctrl(port, x0,     y, 1, CTRL_BLACK);
+        cfill_ctrl(port, x1 - 1, y, 1, CTRL_BLACK);
+    }
+    cfill_ctrl(port, x0 + 2, y0,     1, CTRL_PLAT_DARK_RING);
+    cfill_ctrl(port, x1 - 3, y0,     1, CTRL_PLAT_DARK_RING);
+    cfill_ctrl(port, x0 + 2, y1 - 1, 1, CTRL_PLAT_DARK_RING);
+    cfill_ctrl(port, x1 - 3, y1 - 1, 1, CTRL_PLAT_DARK_RING);
+    cfill_ctrl(port, x0 + 1, y0 + 1, 1, CTRL_BLACK);
+    cfill_ctrl(port, x1 - 2, y0 + 1, 1, CTRL_BLACK);
+    cfill_ctrl(port, x0 + 1, y1 - 2, 1, CTRL_BLACK);
+    cfill_ctrl(port, x1 - 2, y1 - 2, 1, CTRL_BLACK);
+    cfill_ctrl(port, x0,     y0 + 2, 1, CTRL_PLAT_DARK_RING);
+    cfill_ctrl(port, x1 - 1, y0 + 2, 1, CTRL_PLAT_DARK_RING);
+    cfill_ctrl(port, x0,     y1 - 3, 1, CTRL_PLAT_DARK_RING);
+    cfill_ctrl(port, x1 - 1, y1 - 3, 1, CTRL_PLAT_DARK_RING);
+
+    /* Straight moat legs; DrawControl overlays the central button next. */
+    cfill_ctrl(port, bx0, y0 + 1, bx1 - bx0, CTRL_PLAT_FACE);
+    cfill_ctrl(port, bx0, y0 + 2, bx1 - bx0, CTRL_PLAT_SHADOW);
+    for (int y = by0; y < by1; y++) {
+        cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_FACE);
+        cfill_ctrl(port, x0 + 2, y, 1, CTRL_PLAT_SHADOW);
+        cfill_ctrl(port, x1 - 3, y, 1, CTRL_PLAT_SHADOW);
+        cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_DARK_SHADOW);
+    }
+    cfill_ctrl(port, bx0, by1,     bx1 - bx0, CTRL_PLAT_SHADOW);
+    cfill_ctrl(port, bx0, by1 + 1, bx1 - bx0, CTRL_PLAT_DARK_SHADOW);
+#endif
 }
 
 /* ===========================================================================

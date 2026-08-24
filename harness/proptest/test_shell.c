@@ -470,9 +470,9 @@ int main(int argc, char **argv)
                   "(4) FILE COPY title matches exact 22-row Platinum profile");
         }
 
-        /* The frame is PLAIN 1-px: one column inside the left/right edges, at
-         * a CONTENT row (y=240, below the 22px title band), is WHITE -- under
-         * the OLD 7px dBoxProc border this would still be solid BLACK.
+        /* The frame is PLAIN 1-px. The sampled content field is E7 with a
+         * white left inset and C0 right inset; under the OLD 7px dBoxProc
+         * border both edge probes would still be solid BLACK.
          * SHELL_MUTATE_NO_MODAL / SHELL_MUTATE_MODAL_BEHIND do not affect this
          * (they are dialog-presence/z-order mutants, not chrome mutants); this
          * leg's own mutation coverage is DIALOG_MUTATE_TITLELESS_MODAL in
@@ -481,9 +481,14 @@ int main(int argc, char **argv)
               "(4) FILE COPY content just inside the LEFT frame (x=141,y=240) "
               "is white -- proves a 1px frame, not the old 7px border "
               "(initech-zvo6)");
-        CHECK(idx_at(&ctx, dr - fr - 1, 240) == 1,
+        CHECK(idx_at(&ctx, dr - fr - 1, 240) == CIDX_PLAT_WELL,
               "(4) FILE COPY content just inside the RIGHT frame (x=498,y=240) "
-              "is white (initech-zvo6)");
+              "is sampled C0 inset shadow");
+        CHECK(idx_at(&ctx, dl + fr + 1, 240) == CIDX_PLAT_FACE,
+              "(4) FILE COPY content body is sampled E7 face");
+        CHECK(idx_at(&ctx, 320, dt + FLAIR_CHROME_TITLEBAR_H) == CIDX_WHITE &&
+              idx_at(&ctx, 320, db - 2) == CIDX_PLAT_WELL,
+              "(4) FILE COPY content carries white top / C0 bottom inset legs");
         CHECK(idx_at(&ctx, dl, 240) == 0,
               "(4) FILE COPY outer LEFT frame column (x=140,y=240) is black");
         CHECK(idx_at(&ctx, dr - 1, 240) == 0,
@@ -513,15 +518,15 @@ int main(int argc, char **argv)
          * top=212 under the old 7px-border layout) has painted text ink
          * within the text band -- proves the modal's text is drawn, not just
          * stored. DrawDialog draws statText with DLG_TEXT_INK (index 4; the
-         * title-ink shade, dialog.c) on the white (idx 1) body, so "text ink"
-         * here is "a non-body pixel inside the text band". */
+         * title-ink shade, dialog.c) on the E7 body. Require the exact ink
+         * index so the new face cannot make this presence leg vacuous. */
         int tx0 = 154, ty0 = 225;
         int tw  = text_measure(FONT_CHICAGO, FLAIR_CANON_FILECOPY_MSG);
         int text_ink = 0;
         for (int x = tx0; x < tx0 + tw && !text_ink; x++)
             for (int y = ty0; y < ty0 + 16; y++) {
                 int v = idx_at(&ctx, x, y);
-                if (v != 1) { text_ink = 1; break; }   /* not the white body fill */
+                if (v == CIDX_TITLE_INK) { text_ink = 1; break; }
             }
         CHECK(text_ink,
               "(4) FILE COPY 'Saving tables to disk...' text is RENDERED as ink");
@@ -573,9 +578,8 @@ int main(int argc, char **argv)
         CHECK(idx_at(&ctx, 140, 240) == 0,
               "(5) the modal OCCLUDES the window behind it -- modal frame on top (z-order)");
 
-        /* A second probe inside the modal's WHITE interior, also over window 0:
-         * (160, 240). x in [141,499) interior; over window 0. Reads modal white. */
-        CHECK(idx_at(&ctx, 160, 240) == 1,
+        /* A second probe inside the modal's E7 interior, also over window 0. */
+        CHECK(idx_at(&ctx, 160, 240) == CIDX_PLAT_FACE,
               "(5) the modal interior occludes the window behind it (modal on top)");
     }
 
@@ -651,12 +655,12 @@ int main(int argc, char **argv)
              * non-tenant pump's content phase). */
             desktop_validate_all(&S3.scene.wm);
 
-            /* The modal SURVIVES: right frame still black, interior still white,
+            /* The modal SURVIVES: right frame still black, interior still E7,
              * and the vacated right-half band shows NO seafoam teal. */
             CHECK(idx_at(&ctx3, 499, 240) == 0,
                   "(7) post-drag: modal right frame (499,240) STILL black idx0 (not erased)");
-            CHECK(idx_at(&ctx3, 450, 240) == 1,
-                  "(7) post-drag: modal interior (450,240) STILL white idx1 (not erased)");
+            CHECK(idx_at(&ctx3, 450, 240) == CIDX_PLAT_FACE,
+                  "(7) post-drag: modal interior (450,240) STILL E7 idx231 (not erased)");
             int teal = 0, tot = 0;
             for (int y = 206; y < 278; y++)
                 for (int x = 366; x < 498; x++) {

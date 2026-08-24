@@ -41,7 +41,8 @@
  *   Platinum title band + a PLAIN 1-px frame (os/flair/chrome.h
  *   flair_draw_movable_dbox_chrome -- the SAME title-bar composer
  *   flair_draw_document_window uses; NOT a hand-rolled second chrome path).
- *   Inside either border, items are drawn in order: statText via text_draw
+ *   Inside either border, the sampled E7 content field carries a white TL /
+ *   C0 BR inset bevel. Items are drawn in order: statText via text_draw
  *   (Chicago), ctrlItem via DrawControl. All drawing flows through the
  *   dialog's GrafPort and is clipped to visRgn INTERSECT clipRgn (ADR-0004
  *   D-1/D-2 invariant).
@@ -94,7 +95,9 @@
  * ------------------------------------------------------------------------- */
 enum {
     DLG_BLACK     = FLAIR_PART_FRAME,    /* frame lines / borders               */
-    DLG_WHITE     = FLAIR_PART_CONTENT,  /* dialog content background           */
+    DLG_WHITE     = FLAIR_PART_CONTENT,  /* sampled white highlight             */
+    DLG_FACE      = FLAIR_PART_PLAT_FACE,/* sampled Platinum E7 content face     */
+    DLG_SHADOW    = FLAIR_PART_PLAT_WELL,/* sampled Platinum C0 inset shadow     */
     DLG_DESKTOP   = FLAIR_PART_DESKTOP,  /* desktop background                  */
     DLG_TEXT_INK  = FLAIR_PART_TEXT      /* text / static text foreground       */
 };
@@ -160,6 +163,32 @@ static void crect_dlg(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 {
     for (int y = y0; y < y1; y++) {
         cfill_dlg(port, x0, y, x1 - x0, part);
+    }
+}
+
+/* draw_dialog_content -- sampled Platinum content field.
+ *
+ * The body is E7 with a one-pixel inset bevel: white top/left, C0
+ * bottom/right. The surrounding dBox/movable frame supplies the black
+ * bounding line. Ref: ../system7-decomp/specs/sys8/controls.md Sec 1. */
+static void draw_dialog_content(GrafPort *port,
+                                int x0, int y0, int x1, int y1)
+{
+    if (x1 <= x0 || y1 <= y0) {
+        return;
+    }
+    crect_dlg(port, x0, y0, x1, y1, DLG_FACE);
+    cfill_dlg(port, x0, y0, x1 - x0, DLG_WHITE);
+    for (int y = y0; y < y1; y++) {
+        cfill_dlg(port, x0, y, 1, DLG_WHITE);
+    }
+    if (y1 - y0 > 1) {
+        cfill_dlg(port, x0 + 1, y1 - 1, x1 - x0 - 1, DLG_SHADOW);
+    }
+    if (x1 - x0 > 1) {
+        for (int y = y0 + 1; y < y1; y++) {
+            cfill_dlg(port, x1 - 1, y, 1, DLG_SHADOW);
+        }
     }
 }
 
@@ -381,10 +410,10 @@ void DrawDialog(DialogPtr dp)
          * frame) on top -- mirrors the dBoxProc division of labor below
          * (fill content, then draw the border). */
         int fr = FLAIR_CHROME_FRAME;                      /* 1 px            */
-        int content_top = top + FLAIR_CHROME_TITLEBAR_H;  /* 19 px band      */
+        int content_top = top + FLAIR_CHROME_TITLEBAR_H;  /* locked 22px band */
 
-        crect_dlg(port, left + fr, content_top, right - fr, bottom - fr,
-                  DLG_WHITE);
+        draw_dialog_content(port, left + fr, content_top,
+                            right - fr, bottom - fr);
         flair_draw_movable_dbox_chrome(port, flair_look_default_skin(),
                                        bounds, dp->window.titleHandle);
     } else {
@@ -393,8 +422,9 @@ void DrawDialog(DialogPtr dp)
          * Ref: WDEF dBoxBorderSize EQU 7; StandardWDEF.a; chrome_metrics.h. */
         int bw = DLG_BORDER_W;
 
-        /* Fill dialog background (inside the border frame). */
-        crect_dlg(port, left + bw, top + bw, right - bw, bottom - bw, DLG_WHITE);
+        /* Fill sampled Platinum content + its one-pixel inset bevel. */
+        draw_dialog_content(port, left + bw, top + bw,
+                            right - bw, bottom - bw);
 
         /* Draw the dBoxProc 7-px border frame (solid black bands).
          * Top band: [left, right) x [top, top+bw)
@@ -423,7 +453,7 @@ void DrawDialog(DialogPtr dp)
                           item->text,
                           FONT_CHICAGO,
                           dlg_px(port, DLG_TEXT_INK),
-                          dlg_px(port, DLG_WHITE));
+                          dlg_px(port, DLG_FACE));
             }
             break;
         }
@@ -439,7 +469,7 @@ void DrawDialog(DialogPtr dp)
                           txt,
                           FONT_CHICAGO,
                           dlg_px(port, DLG_TEXT_INK),
-                          dlg_px(port, DLG_WHITE));
+                          dlg_px(port, DLG_FACE));
             }
             break;
         }
@@ -447,6 +477,10 @@ void DrawDialog(DialogPtr dp)
             /* Control item: delegate to DrawControl.
              * Ref: IM-I Ch 6 "ctrlItem"; MTE Ch 6. */
             if (item->ctrl) {
+                if ((uint16_t)(i + 1) == dp->defaultItem &&
+                    item->ctrl->contrlType == pushButton) {
+                    DrawControlDefaultRing(port, item->ctrl);
+                }
                 DrawControl(port, item->ctrl);
             }
             break;

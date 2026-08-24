@@ -20,10 +20,10 @@
  *       - the moveable-titled modal's right frame (499,240) reads canon idx0
  *         black (was the dBoxProc 7px border's (496,240) before initech-zvo6;
  *         the modal chrome is now the Platinum 22-row title band + a PLAIN 1px frame);
- *       - the modal interior / progress bar (450,240) reads canon idx1 white;
+ *       - the modal interior (450,240) reads sampled idx231 E7 face;
  *       - the right-half band x[366,498] y[222,278] (below the 22px title band
  *         -- was y[206,278] under the old 7px-border layout) is >=80% canon
- *         white/black (the modal box + text + progress bar) and <=5% canon teal.
+ *         E7/white/black (the modal box + text + progress bar) and <=5% teal.
  *     Pre-fix the whole band was seafoam-ERASED -> ~100% teal -> LEG M goes RED.
  *
  *   LEG B -- THE PHOTOSHOP MENU BAR SURVIVES.  A run across the second (Photoshop)
@@ -64,7 +64,7 @@
 #define CIDX_FRAME     0   /* black frame / ink                 */
 #define CIDX_WHITE     1   /* window/content white              */
 #define CIDX_TEAL      2   /* Initech teal #8DDCDC (desktop bg)  */
-#define CIDX_MENU_FACE 231 /* sampled Platinum menu face #E7E7E7 */
+#define CIDX_FACE      231 /* sampled Platinum dialog/menu face #E7E7E7 */
 
 /* ---- the post-drag modal geometry (dialog.c FILECOPY_* -- INDEPENDENT of the
  * render). Bounds {left=140, top=200, right=500, bottom=280}; movableDBoxProc frame 1px.
@@ -76,15 +76,15 @@
                               * 496 -- inside the OLD 7px black band -- before
                               * initech-zvo6's moveable-titled chrome)          */
 #define MODAL_MID_Y    240
-#define MODAL_INT_X    450   /* interior / progress bar (white content)           */
+#define MODAL_INT_X    450   /* sampled E7 dialog-face interior                   */
 
 /* the right-half survival band (entirely inside the modal AND inside the vacated
  * seafoam-erase zone x[360,560)y[120,360) of the pre-fix build). BAND_Y0 starts
  * BELOW the Platinum 22-row title band (content_top = DT+22 = 222). DEC-10
  * Sec 4 + sys8/window-chrome.md Sec 2.1/2.2 replace the old 19-row exclusion;
  * the new coordinate was measured against build/flair_dc4v.ppm before encoding.
- * This keeps the >=80% white/black survival relation clear of legitimate face,
- * stripe, and shadow rows in the title band. */
+ * This keeps the >=80% E7/white/black survival relation clear of the title
+ * stripe and shadow rows. */
 #define BAND_X0        366
 #define BAND_X1        498
 #define BAND_Y0        222
@@ -189,14 +189,16 @@ int main(int argc, char **argv)
     /* ---- LEG M: THE MODAL SURVIVES the drag across it. --------------------- */
     assert_idx(MODAL_RB_X, MODAL_MID_Y, CIDX_FRAME,
                "LEG M: modal right frame (499,240) is canon idx0 black (not erased)");
-    assert_idx(MODAL_INT_X, MODAL_MID_Y, CIDX_WHITE,
-               "LEG M: modal interior (450,240) is canon idx1 white (not erased)");
+    assert_idx(MODAL_INT_X, MODAL_MID_Y, CIDX_FACE,
+               "LEG M: modal interior (450,240) is sampled idx231 E7 (not erased)");
     {
         long tot = 0, chrome = 0, teal = 0;
         for (int y = BAND_Y0; y < BAND_Y1; y++)
             for (int x = BAND_X0; x < BAND_X1; x++) {
                 tot++;
-                if (is_rgb(x, y, IDX(CIDX_WHITE)) || is_rgb(x, y, IDX(CIDX_FRAME)))
+                if (is_rgb(x, y, IDX(CIDX_FACE)) ||
+                    is_rgb(x, y, IDX(CIDX_WHITE)) ||
+                    is_rgb(x, y, IDX(CIDX_FRAME)))
                     chrome++;   /* modal box / text / progress-bar pixels        */
                 if (is_rgb(x, y, IDX(CIDX_TEAL)))
                     teal++;     /* seafoam-erased pixels (the pre-fix bug)        */
@@ -206,7 +208,7 @@ int main(int argc, char **argv)
         if (!(chrome_ok && teal_ok)) {
             fprintf(stderr,
                     "ppm_flair_dc4v_check: FAIL LEG M -- modal right-half band "
-                    "x[%d,%d) y[%d,%d) NOT intact: white/black=%ld/%ld (%.1f%%, "
+                    "x[%d,%d) y[%d,%d) NOT intact: E7/white/black=%ld/%ld (%.1f%%, "
                     "need >=80%%), teal=%ld/%ld (%.1f%%, need <=5%%): the drag "
                     "ERASED the modal (pipa pre-fix compositor / IGNORE_OVERLAY)\n",
                     BAND_X0, BAND_X1, BAND_Y0, BAND_Y1,
@@ -215,7 +217,7 @@ int main(int argc, char **argv)
             g_fail = 1;
         } else {
             printf("    LEG M: the modal SURVIVED the drag "
-                   "(band x[%d,%d)y[%d,%d): %.1f%% white/black, %.1f%% teal)\n",
+                   "(band x[%d,%d)y[%d,%d): %.1f%% E7/white/black, %.1f%% teal)\n",
                    BAND_X0, BAND_X1, BAND_Y0, BAND_Y1,
                    100.0 * (double)chrome / (double)tot,
                    100.0 * (double)teal / (double)tot);
@@ -227,7 +229,7 @@ int main(int argc, char **argv)
         long tot = 0, face = 0, teal = 0;
         for (int x = BAR_X0; x < BAR_X1; x++) {
             tot++;
-            if (is_rgb(x, BAR_Y, IDX(CIDX_MENU_FACE)))
+            if (is_rgb(x, BAR_Y, IDX(CIDX_FACE)))
                 face++;
             if (is_rgb(x, BAR_Y, IDX(CIDX_TEAL)))
                 teal++;
