@@ -19,18 +19,18 @@
  * THE COMPOSED FRAME (Law 4 -- "look like the frame"; the Office Space
  * "Saving tables to disk..." still, PRD Sec 1 / Appendix A):
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the
- * Platinum menu-bar face is not shipped in this arc; both bars below retain
- * their System 7 heritage face explicitly. Window chrome is Platinum.
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. Window and menu
+ * chrome are Platinum; the Apple remains monochrome and the system font remains
+ * Chicago pending the two D3-3 policy rulings (bead initech-sjvq).
  *
  *   - The SEAFOAM desktop background (INITECH_DESKTOP_BG_RGB, OD-4).
  *   - The "two stacked menu bars" chimera (gui-ground-truth.md Sec 4;
- *     chimera_element_map.json elements 7/8/9): the TOP retained System-7 menu bar
+ *     chimera_element_map.json elements 7/8/9): the TOP system menu bar
  *     (Apple glyph + File/Edit/View/Special) at rows [0,20), AND the
  *     Photoshop-EXACT bar (the FROZEN canon string menu_canon.h:
  *     "File Edit Image Layer Select View Window Help" -- element 9, the canon
- *     chimera tell, AM-4) stacked directly below at rows [20,40). Both are real
- *     retained Mac System-7-style bars (Chicago 12, 20 px; GetMBarHeight).
+ *     chimera tell, AM-4) stacked directly below at rows [20,40). Both use the
+ *     sampled Platinum profile (Chicago substitution, 20 px; GetMBarHeight).
  *   - One or two Mac OS 8 Platinum document windows (z-ordered, titled, with
  *     the DEC-10 title/body chrome and 16 px scrollbar) placed per the frame.
  *   - The modal FILE COPY DIALOG on top (the comedic centerpiece): the

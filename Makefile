@@ -7388,7 +7388,7 @@ $(KERNEL_TEXT_OBJ): os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/a
 # menu/control/dialog: their freestanding compile-checks use a LITERAL include
 # set (-Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets), NOT the *_INC used
 # for the hosted gate (which adds -Iharness/render -Iseed). Mirror the literal.
-$(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h spec/assets/geneva9.h | $(BUILD)
+$(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h spec/assets/geneva9.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
 
 $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
@@ -7681,8 +7681,12 @@ KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KE
                $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
-               $(KERNEL_ISR_OBJ) \
-               $(KERNEL_FLAIR_OBJS)
+               $(KERNEL_ISR_OBJ)
+# KERNEL_FLAIR_OBJS REMOVED from the default DOS kernel (2026-08-24, beads
+# initech-yrzo/-5dr8 runway + the sjvq bust): kmain.o (no BOOT_FLAIR_*)
+# references ZERO FLAIR symbols (nm-verified), so the Toolbox set was pure
+# dead weight against the PROGRAM_BASE 0x40000 window. FLAIR kernels keep
+# their own lists below. Link-verified clean without it.
 
 $(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_OBJS)
@@ -8497,8 +8501,12 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) $(KERNEL_BATCH_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
-                     $(KERNEL_ISR_OBJ) \
-                     $(KERNEL_FLAIR_OBJS)
+                     $(KERNEL_ISR_OBJ)
+# KERNEL_FLAIR_OBJS REMOVED from the COMMAND.COM shell kernel (2026-08-24,
+# beads initech-yrzo/-5dr8 + the sjvq-lane bust of the PROGRAM_BASE window):
+# kmain_shell.o references ZERO FLAIR symbols (nm-verified); dropping the dead
+# Toolbox set moves _kernel_end 0x3f9f8+ -> 0x31660, restoring ~60KiB of
+# conventional runway. The FLAIR desktop kernels keep their own lists below.
 
 $(KERNEL_SHELL_ELF): $(KERNEL_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SHELL_OBJS)
@@ -11156,9 +11164,9 @@ test-drag-mutant: $(TEST_DRAG_MUT_SKIP) $(TEST_DRAG_MUT_NOCLIP) $(TEST_DRAG_MUT_
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-menu (beads initech-n3e) -- FLAIR Menu Manager. Proportional
-# bar layout (D-7), the canon Photoshop bar (Law 4, menu_canon.h), deterministic
-# MenuSelect pull-down tracking + MenuKey, the rendered bar/panel pixels. Mutants
-# FIXED_WIDTH / SELECT_DISABLED bite (Rule 6).
+# bar layout (D-7), canon Photoshop bar (Law 4), deterministic MenuSelect/MenuKey,
+# and sampled Platinum bar/panel fidelity (sys8/menus.md; initech-sjvq). Nine
+# behavior/fidelity mutants bite (Rule 6).
 # ---------------------------------------------------------------------------
 TEST_MENU     := $(BUILD)/test_menu
 TEST_MENU_SRC := harness/proptest/test_menu.c
@@ -11166,16 +11174,23 @@ TEST_MENU_MUT_FW := $(BUILD)/test_menu_mutant_fixedwidth
 TEST_MENU_MUT_SD := $(BUILD)/test_menu_mutant_selectdisabled
 TEST_MENU_MUT_NR := $(BUILD)/test_menu_mutant_norehit
 TEST_MENU_MUT_AS := $(BUILD)/test_menu_mutant_applesquare
+TEST_MENU_MUT_BAR := $(BUILD)/test_menu_mutant_bar_flat
+TEST_MENU_MUT_BEVEL := $(BUILD)/test_menu_mutant_no_panel_bevel
+TEST_MENU_MUT_SEP := $(BUILD)/test_menu_mutant_sep_plain
+TEST_MENU_MUT_DISABLED := $(BUILD)/test_menu_mutant_disabled_normal_ink
+TEST_MENU_MUT_TITLE := $(BUILD)/test_menu_mutant_title_no_hilite
 TEST_MENU_DEPS := os/flair/menu.c os/flair/menu.h os/flair/text.c os/flair/text.h \
                   os/flair/blitter.c os/flair/blitter.h os/flair/surface.c os/flair/surface.h \
+                  os/flair/flair_look.c os/flair/flair_look.h spec/flair_skins.h \
                   os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                   $(RENDER_SKEL_C) $(RENDER_SKEL_H) \
                   spec/assets/menu_canon.h spec/chrome_metrics.h \
+                  spec/assets/color_canon.h \
                   spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h \
                   spec/assets/chicago8x16.h spec/assets/geneva9.h spec/assets/apple_glyph.h
 MENU_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 MENU_LINK := os/flair/menu.c os/flair/text.c os/flair/blitter.c os/flair/surface.c \
-             $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c
+             $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(FLAIRLOOK_C)
 
 $(TEST_MENU): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
@@ -11187,20 +11202,35 @@ $(TEST_MENU_MUT_NR): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_NO_REHIT=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
 $(TEST_MENU_MUT_AS): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_APPLE_SQUARE=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+$(TEST_MENU_MUT_BAR): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_BAR_FLAT=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+$(TEST_MENU_MUT_BEVEL): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_NO_PANEL_BEVEL=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+$(TEST_MENU_MUT_SEP): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_SEP_PLAIN=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+$(TEST_MENU_MUT_DISABLED): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_DISABLED_NORMAL_INK=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+$(TEST_MENU_MUT_TITLE): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_TITLE_NO_HILITE=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
 
 test-menu: $(TEST_MENU)
-	@printf ">>> test-menu: proportional bar layout + canon Photoshop bar (Law 4) + MenuSelect tracking + MenuKey + rendered panel + Apple glyph (initech-yx4v)\n"
+	@printf ">>> test-menu: behavior + sampled Platinum profile/corners/title/panel/separator/cmd/disabled fidelity + retained Apple strike\n"
 	@$(TEST_MENU) $(BUILD)/menu_window.ppm
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $(BUILD)/menu_freestanding.o \
 		|| { printf '!!! test-menu FAIL: menu.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-menu: green\n"
 
-test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR) $(TEST_MENU_MUT_AS)
-	@printf ">>> test-menu-mutant: confirming all four mutants go RED (Rule 6)\n"
+test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR) $(TEST_MENU_MUT_AS) $(TEST_MENU_MUT_BAR) $(TEST_MENU_MUT_BEVEL) $(TEST_MENU_MUT_SEP) $(TEST_MENU_MUT_DISABLED) $(TEST_MENU_MUT_TITLE)
+	@printf ">>> test-menu-mutant: confirming all nine behavior/fidelity mutants go RED (Rule 6)\n"
 	@if $(TEST_MENU_MUT_FW) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: FIXED_WIDTH PASSED -- the proportional-layout oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (FIXED_WIDTH correctly RED)\n'; fi
 	@if $(TEST_MENU_MUT_SD) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: SELECT_DISABLED PASSED -- the selectability oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (SELECT_DISABLED correctly RED)\n'; fi
 	@if $(TEST_MENU_MUT_NR) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: NO_REHIT PASSED -- the cross-menu-drag oracle is decoration (initech-rl4v)\n'; exit 1; else printf '>>> test-menu-mutant: green (NO_REHIT correctly RED, initech-rl4v)\n'; fi
 	@if $(TEST_MENU_MUT_AS) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: APPLE_SQUARE PASSED -- the Apple-glyph oracle is decoration (initech-yx4v)\n'; exit 1; else printf '>>> test-menu-mutant: green (APPLE_SQUARE correctly RED, initech-yx4v)\n'; fi
+	@if $(TEST_MENU_MUT_BAR) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_BAR_FLAT PASSED -- the sampled bar profile/corner oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_BAR_FLAT correctly RED for profile/corners)\n'; fi
+	@if $(TEST_MENU_MUT_BEVEL) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_NO_PANEL_BEVEL PASSED -- the panel white/B3 bevel oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_NO_PANEL_BEVEL correctly RED for panel bevel)\n'; fi
+	@if $(TEST_MENU_MUT_SEP) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_SEP_PLAIN PASSED -- the etched-separator oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_SEP_PLAIN correctly RED for etched separator)\n'; fi
+	@if $(TEST_MENU_MUT_DISABLED) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_DISABLED_NORMAL_INK PASSED -- the disabled A5 ink oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_DISABLED_NORMAL_INK correctly RED for disabled ink)\n'; fi
+	@if $(TEST_MENU_MUT_TITLE) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_TITLE_NO_HILITE PASSED -- the pulled-title accent oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_TITLE_NO_HILITE correctly RED for pulled-title state)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-control (beads initech-8h9) -- FLAIR Control Manager. Buttons,
@@ -11555,7 +11585,7 @@ TEST_MECH_POLICY_MUT  := $(BUILD)/test_mech_policy_mutant
 TEST_MECH_POLICY_SRC  := harness/proptest/test_mech_policy.c
 # Prereqs = the scanned mechanism + decoration sources (so a newly-introduced
 # literal re-runs the scan); the recipe only compiles the self-contained scanner.
-MECH_SCAN_SRCS := os/flair/surface.c os/flair/blitter.c os/flair/window.c os/flair/event.c $(DESKTOP_C) os/flair/chrome.c os/flair/control.c os/flair/dialog.c $(FLAIRLOOK_C)
+MECH_SCAN_SRCS := os/flair/surface.c os/flair/blitter.c os/flair/window.c os/flair/event.c $(DESKTOP_C) os/flair/chrome.c os/flair/control.c os/flair/dialog.c os/flair/menu.c $(FLAIRLOOK_C)
 
 $(TEST_MECH_POLICY): $(TEST_MECH_POLICY_SRC) $(MECH_SCAN_SRCS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $(TEST_MECH_POLICY_SRC)
@@ -15255,7 +15285,7 @@ test-flair-dc4v-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_OVERLAY_IMG) $(PPM_FLAIR_
 # REAL gate: test-flair-menu (beads initech-5l5z FO-8b; ADR-0004 D-3 / ADR-0006
 # FO-8 -- inMenuBar -> MenuSelect; THE "working menus" oracle, Law 4).
 # Boots $(FLAIRLIVE_IMG) (the WaitNextEvent pump), injects the LOCKED menu trace
-# (move onto the System-7 "File" title -> button down -> DROP -> track into the
+# (move onto the first-band "File" title -> button down -> DROP -> track into the
 # panel's "Quit" row -> button up -> MenuSelect item 2), and screendumps AT the
 # FLAIR-MENU-DROP marker while the button is held and no item is hilited yet.
 # The gesture then continues and its final selection marker is still required.
@@ -15263,8 +15293,8 @@ test-flair-dc4v-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_OVERLAY_IMG) $(PPM_FLAIR_
 #   1. no triple-fault;
 #   2. FLAIR-LIVE-READY (pump armed) + FLAIR-MENU-DROP (panel dropped) +
 #      FLAIR-MENU menu=128 item=2 (sel=0x00800002) (MenuSelect chose "Quit");
-#   3. ppm_flair_menu_check: the 1px black panel frame + BTNFACE-gray item rows,
-#      including an unhilited Quit row, where bare teal / menubar-white was.
+#   3. ppm_flair_menu_check: sampled Platinum bar + pulled-title accent + black/
+#      white/B3/3F panel anatomy + E7 item rows, including unhilited Quit.
 # The DROP-gated SCREENDUMP is the discriminator without bending the live track-
 # end behavior (bead initech-b3hl; Law 2). The menu-noop mutant emits no DROP,
 # so no dump is captured and the gate fails loud (test-flair-menu-mutant).
@@ -15277,7 +15307,7 @@ FLAIR_MENU_PPM     := $(BUILD)/$(FLAIR_MENU_NAME).ppm
 # x-positive=right and y-INVERTED (rel +y -> cursor up); deltas are int8 (a >127
 # delta sets the PS/2 overflow bits and is DROPPED), so the large move from the
 # 320,240 center to the menu bar is SPLIT into three <=int8 hops: "m-97:77" x3
-# lands the cursor on the System-7 "File" title (30,10); l1 = button down -> DROP;
+# lands the cursor on the first-band "File" title (30,10); l1 = button down -> DROP;
 # "m15:35" tracks down into the panel's "Quit" row (45,45) (dy signs
 # rebaselined by initech-rgt8 -- screen-down-positive now); l0 = button up ->
 # MenuSelect chooses item 2 (Quit) = (128<<16|2) = 0x00800002.
@@ -15713,7 +15743,8 @@ endif
 #     (beads initech-b3hl/-j0vt).
 #   E BAND-2 MENU  : with boot-foreground HELLO active, click its Photoshop File
 #     title in band 2 and select item 2; dump at FLAIR-MENU-DROP while held.
-#     The panel must begin below band 2 at y=40, and serial must identify the
+#     The panel top must share band-2 baseline y=39 (first item remains y=41),
+#     and serial must identify the
 #     active tenant's menuID 256 rather than bar_sys's menuID 128 (initech-t1rv).
 #   G DRAG-CLAMP   : O-5 activate NOTES, grab its title at (450,130), then drag
 #     to (5,5); dump after FLAIR-DRAG. The proposed struct (-185,-5) is clamped

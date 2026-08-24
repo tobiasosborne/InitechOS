@@ -86,6 +86,21 @@ typedef enum {
     FLAIR_PART_PLAT_TROUGH,         /* disabled/hollow scrollbar trough           */
     FLAIR_PART_PLAT_WELL,           /* enabled scrollbar page well                */
     FLAIR_PART_PLAT_TILE_SHADOW,    /* enabled arrow-tile shadow                  */
+    /* Platinum Menu Manager rows append only.  These names keep menu.c on the
+     * mechanism side of the DEC-09 C-8 cut: it names semantic menu roles, never
+     * palette indices or RGB values.  Ref: sys8/menus.md Sec 1.1-1.4, Sec 2.1
+     * and Sec 2.3; bead initech-sjvq. */
+    FLAIR_PART_MENU_BAR_HL,          /* bar row 0                                  */
+    FLAIR_PART_MENU_BAR_FACE,        /* bar rows 1..17                             */
+    FLAIR_PART_MENU_BAR_SHADOW,      /* bar row 18                                 */
+    FLAIR_PART_MENU_PANEL_FACE,      /* pull-down body                             */
+    FLAIR_PART_MENU_PANEL_HL,        /* inner top/left bevel                       */
+    FLAIR_PART_MENU_PANEL_SHADOW,    /* inner bottom/right bevel                   */
+    FLAIR_PART_MENU_DROP_SHADOW,     /* distinct dark-gray (+1,+1) shadow          */
+    FLAIR_PART_MENU_DISABLED_INK,    /* dimmed item + command-key ink              */
+    FLAIR_PART_MENU_TITLE_HILITE_HL, /* authored teal top row                      */
+    FLAIR_PART_MENU_TITLE_HILITE_FACE,/* authored teal face rows                  */
+    FLAIR_PART_MENU_TITLE_HILITE_SHADOW,/* authored teal bottom row               */
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 
@@ -99,6 +114,9 @@ typedef enum {
  *   reuses FLAIR_PART_BEVEL_LIGHT / FLAIR_PART_BEVEL_SHADOW as the two-tone
  *   Initech-teal pair (ADR-0004-AMENDMENT-DEC-10 Sec 3.2 / P4;
  *   scrollbars.md Sec 2.4 records the source accent).
+ * - The pulled menu title applies that same ratified two-tone teal pair to the
+ *   clut-208 accent structure.  No third accent row is authored or accreted
+ *   (DEC-10 Sec 6 OQ-2/OQ-3; sys8/menus.md Sec 1.4; bead initech-sjvq).
  */
 
 /* ---------------------------------------------------------------------------

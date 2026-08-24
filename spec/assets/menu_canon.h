@@ -83,8 +83,8 @@
  * The complete InitechPaint menu bar as a single space-delimited string.
  * This is the FROZEN canon string (ADR-0004 D-3 / AM-4; beads initech-zaqj).
  *
- * Used for: display in the retained Mac System-7-style menu bar for
- * InitechPaint (TODO_GOLDEN: Platinum menu face deferred this arc);
+ * Used for: display in the sampled Platinum menu face for InitechPaint
+ * (sys8/menus.md; bead initech-sjvq; Chicago substitution pending D3-3 row 9);
  * asserted byte-for-byte by the canon oracle (D-8, initech-k8o5.10).
  *
  * DO NOT MODIFY. DO NOT "CORRECT" TO A REAL PHOTOSHOP VERSION.

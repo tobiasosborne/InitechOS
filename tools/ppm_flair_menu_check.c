@@ -2,7 +2,7 @@
  * ppm_flair_menu_check.c -- the FO-8b EMU menu oracle's screendump grader (HOST,
  * C-only). beads initech-5l5z FO-8b (ADR-0004 D-3 / ADR-0006 FO-8 -- inMenuBar ->
  * MenuSelect). It grades the screendump of the booted BOOT_FLAIR_LIVE desktop
- * AT the FLAIR-MENU-DROP marker: the pump has drawn and presented the System-7
+ * AT the FLAIR-MENU-DROP marker: the pump has drawn and presented the Platinum
  * "File" pull-down while the button is held, before tracking has hilited an item.
  * The serial half of the gate independently follows the completed gesture and
  * requires MenuSelect item 2 ("Quit"). This mid-track capture keeps the oracle
@@ -13,25 +13,28 @@
  * heresy mutant FLAIR_LIVE_MUTATE_MENU_NOOP, which emits FLAIR-MENU sel=0 but
  * drops NO panel -- the desktop under the title stays bare):
  *
- *   LEG A -- THE 1px BLACK PANEL FRAME where BARE TEAL was.  The dropped "File"
- *     panel rect is {T20 L20 B54 R90} (MenuInfo_panel_rect, host-graded by
+ *   LEG A -- THE 1px BLACK PANEL FRAME where BARE TEAL was. The dropped "File"
+ *     panel rect is {T19 L20 B53 R112}, footprint {T19 L20 B54 R113}
+ *     (MenuInfo_panel_rect/footprint_rect, host-graded by
  *     test_menu).  Its frame is canon BLACK (idx0).  We sample the LEFT frame
- *     column (x=20), the RIGHT frame column (x=89) and the BOTTOM frame row
- *     (y=53) at y/x INSIDE the teal zone (y>=40, below BOTH 20px menu bars and
+ *     column (x=20), the RIGHT frame column (x=111), and the BOTTOM frame row
+ *     (y=52) at y/x INSIDE the teal zone (y>=40, below BOTH 20px menu bars and
  *     above the windows at y>=60) -- bare Initech teal (idx2 #8DDCDC) pre-drop.
  *     A menu that did NOT drop leaves teal here and LEG A goes RED.
  *
  *   LEG B -- THE UNHILITED SECOND-ROW BODY is painted. At DROP time no tracking
- *     point has hilited "Quit" yet, so its row y[37,53) remains BTNFACE gray.
- *     We sample the mark column (x=28) and right pad (x=84), clear of the glyphs.
+ *     point has hilited "Quit" yet, so its row y[37,53) remains E7 face.
+ *     We sample the mark column (x=28) and right pad (x=106), clear of glyphs.
  *     Both were bare teal pre-drop; a no-drop path leaves teal -> LEG B RED.
  *
- *   LEG C -- THE BTNFACE-GRAY PANEL BODY fill is present.  The un-hilited first
- *     row ("About", y[21,37)) shows the canon BTNFACE-gray body (idx6 #C0C0C0).
- *     We sample its RIGHT-pad (x=84, y=28) -- clear of the "About" glyphs and of
- *     the Photoshop bar's title text below it.  Pre-drop this pixel is the
- *     System-7 menu bar's canon WHITE (idx3 #FFFFFF); the dropped panel makes it
- *     gray.  A no-drop mutant leaves menubar white -> LEG C RED (white != gray).
+ *   LEG C -- THE E7 PANEL BODY fill is present. The un-hilited first row
+ *     ("About", y[21,37)) shows sampled #E7E7E7 (idx231). We sample its right
+ *     pad (x=106,y=28), clear of glyphs. A no-drop path leaves the underlying
+ *     band-2 pixels and therefore differs.
+ *
+ *   LEG E -- sampled Platinum fidelity on metal: title-free bar rows are
+ *     white/E7/B3/black, the pulled File block is teal with white title ink,
+ *     and the menu shadow is the distinct #3F3F3F row (not window black).
  *
  *   LEG D -- a bare-desktop corner sanity anchor (the canon teal is really teal).
  *
@@ -49,7 +52,7 @@
  * Exit 0 = PASS; non-zero = a named FAIL (the assertion + sampled-vs-expected RGB).
  *
  * ASCII-clean (Rule 12). Deterministic (Rule 11): fixed probe coords from the
- * locked trace's selection and the test_shell.c System-7 "File" menu geometry.
+ * locked trace's selection and the test_shell.c first-band "File" geometry.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,25 +67,30 @@
 /* ---- canon palette indices (spec/assets; the values are flair_canon_rgb) ---- */
 #define CIDX_FRAME     0   /* black frame / ink / hilite band   */
 #define CIDX_TEAL      2   /* Initech teal #8DDCDC (desktop bg)  */
-#define CIDX_MENUBAR   3   /* System-7 menu bar white #FFFFFF    */
-#define CIDX_BTNFACE   6   /* BTNFACE gray #C0C0C0 (panel body)  */
+#define CIDX_WHITE     1   /* sampled bar/panel highlight #FFFFFF */
+#define CIDX_FACE      231 /* sampled Platinum face #E7E7E7      */
+#define CIDX_B3        179 /* sampled profile/panel shadow         */
+#define CIDX_DROP      63  /* sampled menu-only shadow #3F3F3F    */
 
 /* ---- the dropped "File" pull-down geometry (os/flair/menu.h + the test_shell.c
- * System-7 bar; MenuInfo_panel_rect(bar_sys,0), test_menu-graded). --------------
- * Panel rect {T20 L20 B54 R90}.  Rows are FIXED (item heights, not text-width):
- *   About row y[21,37), Quit row y[37,53), bottom frame y[53,54).
- * Left frame x=20, right frame x=89 (R-1).  Item text starts at text_x=37. */
+ * first bar; MenuInfo_panel_rect(bar_sys,0), test_menu-graded). -----------------
+ * Panel rect {T19 L20 B53 R112}; shadow footprint ends R113/B54. Rows remain:
+ * About y[21,37), Quit y[37,53). Bottom frame y=52; shadow y=53.
+ * Width grows because Quit now renders the right-aligned "^Q" column.
+ * Ref: sys8/menus.md Sec 2.1-2.3; bead initech-sjvq. */
 #define PANEL_L      20    /* left frame column (MenuBar_title_x(File)=APPLE_W) */
-#define PANEL_R1     89    /* right frame column (panel.right-1)                */
-#define PANEL_BOTY   53    /* bottom frame row (panel.bottom-1)                 */
+#define PANEL_R1     111   /* right frame column (panel.right-1)                */
+#define PANEL_SH_X   112   /* one-pixel dark-gray right shadow                  */
+#define PANEL_BOTY   52    /* bottom frame row (panel.bottom-1)                 */
+#define PANEL_SH_Y   53    /* one-pixel dark-gray bottom shadow                 */
 /* a y inside the TEAL zone (below both 20px bars, above the y>=60 windows) that
  * lands in the selected "Quit" row [37,53): bare teal pre-drop. */
 #define QUIT_Y       46
-/* a y inside the un-hilited "About" row [21,37): System-7 menubar white pre-drop.*/
+/* a y inside the un-hilited "About" row [21,37). */
 #define ABOUT_Y      28
 /* clean x columns (mark column / right pad) clear of the item glyph cells. */
 #define MARK_X       28    /* mark column x[21,37): no glyph                    */
-#define RPAD_X       84    /* right pad x[77,89): clear of "About"/"Quit" glyphs */
+#define RPAD_X       106   /* right gutter, clear of text + caret-letter glyphs */
 
 /* ---- PPM P6 reader (the ppm_flair_check / ppm_flair_drag_check invariant). -- */
 static unsigned char *g_buf;
@@ -167,9 +175,9 @@ int main(int argc, char **argv)
     }
     fclose(f);
 
-    printf("ppm_flair_menu_check: grading the held System-7 'File' pull-down "
+    printf("ppm_flair_menu_check: grading the held Platinum 'File' pull-down "
            "at FLAIR-MENU-DROP (no item hilited yet; panel "
-           "{T20 L20 B54 R90})\n");
+           "{T19 L20 B53 R112}, shadow footprint {T19 L20 B54 R113})\n");
 
     /* ---- LEG A: THE 1px BLACK PANEL FRAME where bare teal was (teal->black) -- */
     assert_idx(PANEL_L, QUIT_Y, CIDX_FRAME,
@@ -177,38 +185,55 @@ int main(int argc, char **argv)
     assert_idx(PANEL_R1, QUIT_Y, CIDX_FRAME,
                "LEG A: panel RIGHT frame (x=89) in the teal zone is idx0 black");
     assert_idx(MARK_X, PANEL_BOTY, CIDX_FRAME,
-               "LEG A: panel BOTTOM frame (y=53) is idx0 black");
+               "LEG A: panel BOTTOM frame (y=52) is idx0 black");
     assert_idx(RPAD_X, PANEL_BOTY, CIDX_FRAME,
-               "LEG A: panel BOTTOM frame (y=53, right) is idx0 black");
+               "LEG A: panel BOTTOM frame (y=52, right) is idx0 black");
     if (!g_fail) {
         printf("    LEG A: the 1px black panel frame is present where bare teal "
                "was (the pull-down dropped below the menu bar)\n");
     }
 
-    /* ---- LEG B: THE UNHILITED 'Quit' BODY is painted (teal->gray) ----------- */
-    assert_idx(MARK_X, QUIT_Y, CIDX_BTNFACE,
-               "LEG B: held-panel 'Quit' row mark column is idx6 BTNFACE gray "
+    /* ---- LEG B: THE UNHILITED 'Quit' BODY is sampled E7 --------------------- */
+    assert_idx(MARK_X, QUIT_Y, CIDX_FACE,
+               "LEG B: held-panel 'Quit' row mark column is idx231 E7 face "
                "before tracking hilites an item");
-    assert_idx(RPAD_X, QUIT_Y, CIDX_BTNFACE,
-               "LEG B: held-panel 'Quit' row right pad is idx6 BTNFACE gray "
+    assert_idx(RPAD_X, QUIT_Y, CIDX_FACE,
+               "LEG B: held-panel 'Quit' row right pad is idx231 E7 face "
                "before tracking hilites an item");
     if (!g_fail) {
-        printf("    LEG B: the held panel's second-row body is BTNFACE gray "
+        printf("    LEG B: the held panel's second-row body is sampled E7 "
                "where bare teal was (no premature hilite at DROP)\n");
     }
 
-    /* ---- LEG C: THE BTNFACE-GRAY PANEL BODY fill (menubar-white -> gray) ----- */
-    assert_idx(RPAD_X, ABOUT_Y, CIDX_BTNFACE,
-               "LEG C: un-hilited 'About' row body is idx6 BTNFACE gray "
-               "(was System-7 menubar white pre-drop)");
+    /* ---- LEG C: THE E7 PANEL BODY fill --------------------------------------- */
+    assert_idx(RPAD_X, ABOUT_Y, CIDX_FACE,
+               "LEG C: un-hilited 'About' row body is sampled idx231 E7 face");
     if (!g_fail) {
-        printf("    LEG C: the BTNFACE-gray panel body fill is present where the "
-               "menu bar's white was (the panel really covers the bar)\n");
+        printf("    LEG C: the sampled E7 panel body fill is present (the panel "
+               "really covers the bar)\n");
     }
 
     /* ---- LEG D: a bare-desktop corner sanity anchor ------------------------- */
     assert_idx(20, 460, CIDX_TEAL,
                "LEG D: bare-desktop corner (20,460) is idx2 teal");
+
+    /* ---- LEG E: refreshed Platinum bar/title/shadow expectations ------------- */
+    assert_idx(300, 0, CIDX_WHITE,
+               "LEG E: title-free menu-bar row 0 is sampled white");
+    assert_idx(300, 5, CIDX_FACE,
+               "LEG E: title-free menu-bar face is sampled E7");
+    assert_idx(300, 18, CIDX_B3,
+               "LEG E: title-free menu-bar row 18 is sampled B3");
+    assert_idx(300, 19, CIDX_FRAME,
+               "LEG E: title-free menu-bar row 19 is black baseline");
+    assert_idx(18, 5, CIDX_TEAL,
+               "LEG E: pulled File title block is ratified teal while held");
+    assert_idx(28, 4, CIDX_WHITE,
+               "LEG E: pulled File title text is white");
+    assert_idx(PANEL_SH_X, QUIT_Y, CIDX_DROP,
+               "LEG E: panel right shadow is distinct sampled 3F");
+    assert_idx(RPAD_X, PANEL_SH_Y, CIDX_DROP,
+               "LEG E: panel bottom shadow is distinct sampled 3F");
 
     free(g_buf);
     if (g_fail) {
@@ -217,8 +242,8 @@ int main(int argc, char **argv)
                 "(Law 4: the menus do not actually work)\n");
         return 1;
     }
-    printf("ppm_flair_menu_check: PASS -- the System-7 'File' pull-down DROPPED "
-           "live while held (black frame + BTNFACE body, no premature hilite) over the "
+    printf("ppm_flair_menu_check: PASS -- the Platinum 'File' pull-down DROPPED "
+           "live while held (profile + teal title + bevel/shadow + E7 body) over the "
            "previously-teal desktop; the booted desktop has WORKING MENUS "
            "(FO-8b; ADR-0004 D-3 / ADR-0006 FO-8)\n");
     return 0;

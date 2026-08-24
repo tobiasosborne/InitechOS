@@ -371,9 +371,9 @@ static int leg_D(const Img *pre, const Img *post)
 
 /* ================= leg E: active tenant's band-2 menu ================= */
 /* Independent screen placement for the locked leg-E drop. The Menu Manager
- * assumes its bar begins at local y=0, so its panel begins at local
- * FLAIR_MENUBAR_H. Band 2 begins one shared menubar height down; therefore the
- * screen panel top is 2*FLAIR_CHROME_MENUBAR_H == 40. The x probes lie in the
+ * assumes its bar begins at local y=0, so its Platinum panel shares local
+ * baseline y=FLAIR_MENUBAR_H-1. Band 2 begins one shared menubar height down;
+ * therefore screen panel top is y=39. The x probes lie in the
  * overlap of both possible File panels: Photoshop begins at x=0 (no Apple
  * slot), while the incorrect bar_sys begins at x=FLAIR_MENU_APPLE_W == 20.
  * At the first item's glyph rows 0 and 1, Chicago cells are blank, so these
@@ -381,10 +381,10 @@ static int leg_D(const Img *pre, const Img *post)
  * Makefile's menu=256 tooth alone proves ROUTING (Law 2; initech-t1rv).
  * Shared chrome/menu constants are used wherever they exist (Rule 11). */
 #define SOLID_E_BAND2_TOP       FLAIR_CHROME_MENUBAR_H
-#define SOLID_E_PANEL_TOP       (SOLID_E_BAND2_TOP + FLAIR_MENUBAR_H)
-#define SOLID_E_FIRST_ROW_TOP   (SOLID_E_PANEL_TOP + FLAIR_MENU_PANEL_FRAME)
+#define SOLID_E_PANEL_TOP       (SOLID_E_BAND2_TOP + FLAIR_MENUBAR_H - 1)
+#define SOLID_E_FIRST_ROW_TOP   (SOLID_E_PANEL_TOP + FLAIR_MENU_PANEL_INSET)
 #define SOLID_E_COMMON_X0       (FLAIR_MENU_APPLE_W + \
-                                  FLAIR_MENU_PANEL_FRAME + 4)
+                                  FLAIR_MENU_PANEL_INSET + 3)
 #define SOLID_E_COMMON_X1       (2 * FLAIR_MENU_APPLE_W + \
                                   FLAIR_MENU_TITLE_PAD)
 
@@ -392,22 +392,22 @@ static int leg_E(const Img *im)
 {
     int bad = 0;
 
-    /* The top frame overwrites teal at y=40. This x is inside both the clean
+    /* The top frame shares band-2 baseline y=39. This x is inside both the clean
      * Photoshop panel and the bar_sys mutant's shifted panel. */
     bad |= probe_is(im, SOLID_E_COMMON_X0, SOLID_E_PANEL_TOP,
                     CIDX_BLACK, "leg E band-2 menu black top frame");
 
-    /* Two independent BTNFACE body probes immediately below the frame. Before
+    /* Two independent sampled-E7 body probes at first-item top. Before
      * the drop these screen points are teal; after either possible File panel
      * drops they are gray. Glyph rows 0/1 are blank in the Chicago fixture. */
     bad |= probe_is(im, SOLID_E_COMMON_X0, SOLID_E_FIRST_ROW_TOP,
-                    CIDX_CONTROL, "leg E band-2 menu BTNFACE body row 0");
+                    CIDX_PLAT_FACE, "leg E band-2 menu sampled E7 body row 0");
     bad |= probe_is(im, SOLID_E_COMMON_X1, SOLID_E_FIRST_ROW_TOP + 1,
-                    CIDX_CONTROL, "leg E band-2 menu BTNFACE body row 1");
+                    CIDX_PLAT_FACE, "leg E band-2 menu sampled E7 body row 1");
 
     if (!bad)
-        printf("solid E PASS: band-2 File panel begins at y=40 "
-               "(black frame + BTNFACE body)\n");
+        printf("solid E PASS: band-2 File panel shares baseline y=39 "
+               "(black frame + sampled E7 body)\n");
     return bad;
 }
 

@@ -1321,12 +1321,6 @@ static void flair_live_raise_drag_target(flair_live_ctx_t *ctx, WindowPtr w)
 #endif
 
 #ifdef FLAIR_LIVE_TENANTS
-/* The foreground tenant menu uses the indexed-8 shell bar convention. Kept at
- * file scope because the ONE factored switch-finisher below owns every switch,
- * including DQ5 title activation and the existing O-5 content-click path. */
-#define FLAIR_TEN_MENU_FG_IDX  0u
-#define FLAIR_TEN_MENU_BG_IDX  3u
-
 /* The ONE post-activation path, factored from the existing O-5 content-click
  * block so DQ5 title activation reuses it bit-for-bit in behavior: chrome,
  * content/updateEvt routing, band-2 menubar swap, present, then the serial
@@ -1354,9 +1348,7 @@ static void flair_live_finish_tenant_switch(flair_live_ctx_t *ctx,
      * NEVER in a real build. */
 #endif
 #ifndef FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP
-    DrawMenuBar(barport, list->head->menubar,
-                (uint32_t)FLAIR_TEN_MENU_FG_IDX,
-                (uint32_t)FLAIR_TEN_MENU_BG_IDX, (const region_t *)0);
+    DrawMenuBar(barport, list->head->menubar, -1, (const region_t *)0);
 #else
     /* MUTANT FLAIR_LIVE_MUTATE_NO_MENUBAR_SWAP (Rule 6; the O-5 tenants
      * emu-mutant image ONLY): SKIP the foreground-tenant menubar swap.
@@ -1750,20 +1742,6 @@ static void flair_live_do_grow(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puts(")\n");
 }
 
-/* FO-8b dropped-pull-down colors (indexed-8 offscreen; OD-2). A BTNFACE-gray
- * body + a black 1px frame/text and an inverted (black) hilite band (the
- * GDI-facade pull-down body, the FO-D2-8/rmsr chimera). idx6 = canon BTNFACE
- * gray #C0C0C0 (CIDX_CONTROL), idx0 = canon black (spec/assets/color_canon.h):
- * the SAME indices the controls (idx6) and frame ink (idx0) use, so the present
- * path (flair_palette_rgb) and the INDEPENDENT ppm canon (flair_canon_rgb)
- * agree on VALUE while the load-bearing differential stays STRUCTURAL (a panel
- * where bare teal / menubar-white was). BTNFACE gray (not idx1 white) is chosen
- * so the body-fill leg BITES the menu-noop mutant: the System-7 menu bar is
- * canon WHITE (idx3), so a white panel body would be invisible against it; gray
- * is distinct from teal, white AND black. */
-#define FLAIR_MENU_PANEL_BG_IDX   6u   /* BTNFACE gray body (CIDX_CONTROL)    */
-#define FLAIR_MENU_PANEL_FG_IDX   0u   /* black frame/text/hilite (CIDX_BLACK)*/
-
 /* Bounded cursor-point capture while the menu button is held (Rule 11): the
  * drop+track is a sub-second gesture, so a small cap is ample and never grows
  * unbounded; the most-recent (release) point is always kept in the last slot. */
@@ -1842,7 +1820,7 @@ static void flair_live_erase_menu_panel(flair_live_ctx_t *ctx,
                                         const MenuBar *bar, int mi,
                                         uint32_t y_top)
 {
-    rgn_rect_t panel = MenuInfo_panel_rect(bar, mi);
+    rgn_rect_t panel = MenuInfo_panel_footprint_rect(bar, mi);
     panel.top = (int16_t)(panel.top + (int16_t)y_top);
     panel.bottom = (int16_t)(panel.bottom + (int16_t)y_top);
 
@@ -1858,6 +1836,18 @@ static void flair_live_erase_menu_panel(flair_live_ctx_t *ctx,
     WindowMgr_invalidate_desktop(ctx->wm, panel);
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
+
+    /* The pulled-title accent is temporary menu-layer ink, just like the panel.
+     * Repaint the owning bar idle on every switch/end restore. This is required
+     * for both y_top=0 and the offset band-2 path; leaving the title teal would
+     * violate menucancel leg D's whole-frame PRE==POST contract. */
+    {
+        bitmap_t owner_view;
+        GrafPort owner_port;
+        make_offset_view(&owner_view, &ctx->off, y_top);
+        flair_live_init_menu_port(&owner_port, &owner_view);
+        DrawMenuBar(&owner_port, bar, -1, (const region_t *)0);
+    }
 
     /* A band-1 panel spans screen y>=20 and therefore temporarily covers the
      * persistent second menu bar at y[20,40). That bar is an overlay outside
@@ -1888,7 +1878,7 @@ static void flair_live_erase_menu_panel(flair_live_ctx_t *ctx,
             clip.bottom = (int16_t)FLAIR_MENUBAR_H;
         clip.right = panel.right;
         region_set_rect(ctx->comp, clip);
-        DrawMenuBar(&bar_port, under_bar, 0u, 3u, ctx->comp);
+        DrawMenuBar(&bar_port, under_bar, -1, ctx->comp);
         region_set_empty(ctx->comp);
     }
 #endif
@@ -1925,10 +1915,9 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
     GrafPort port;
     flair_live_init_menu_port(&port, &panel_view);
 
-    /* DROP: draw the dropped panel (no hilite yet) + present -- the menu is down. */
-    flair_draw_menu_panel(&port, bar, mi, -1,
-                          FLAIR_MENU_PANEL_FG_IDX, FLAIR_MENU_PANEL_BG_IDX,
-                          (const region_t *)0);
+    /* DROP: pulled-title accent + panel (no item hilite yet), then present. */
+    HiliteMenu(&port, bar, mi, (const region_t *)0);
+    flair_draw_menu_panel(&port, bar, mi, -1, (const region_t *)0);
     flair_desktop_present(bi, &ctx->off);
     serial_puts("FLAIR-MENU-DROP menu=");
     serial_puti((int32_t)menuID);
@@ -1989,8 +1978,8 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
                  * then draw and present the NEW held panel (b3hl/j0vt). */
                 flair_live_erase_menu_panel(ctx, bar, last_mi, y_top);
             }
+            HiliteMenu(&port, bar, mi, (const region_t *)0);
             flair_draw_menu_panel(&port, bar, mi, hi,
-                                  FLAIR_MENU_PANEL_FG_IDX, FLAIR_MENU_PANEL_BG_IDX,
                                   (const region_t *)0);
             flair_desktop_present(bi, &ctx->off);
             if (mi != last_mi) {

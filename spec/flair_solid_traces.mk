@@ -56,9 +56,11 @@ FLAIR_SOLID_MENUCANCEL_SPEC := m-100:-100,m-100:-100,m-90:-10,l1,m30:0,l0
 # File at (30,30): delta (-290,-210), split into int8-safe packets
 # (-100,-100),(-100,-100),(-90,-10). Press, then move (+15,+35) to (45,65).
 # In band-2-local coordinates (subtract SHELL_MENUBAR2_TOP=20), release is
-# (45,45): the panel starts at local y=20, its 1px frame ends at y=21, item 1 is
-# [21,37), and item 2 is [37,53), so y=45 selects Photoshop File item 2. Every
-# packet component has |c| <= 100. The trace stays inside ONE menu; leg D owns
+# (45,45): the Platinum panel shares local bar baseline y=19, its inner bevel is
+# y=20, item 1 is [21,37), and item 2 is [37,53), so y=45 still selects
+# Photoshop File item 2. This is a geometry citation refresh only; the locked
+# motion bytes remain unchanged (sys8/menus.md Sec 2.1/2.2; initech-sjvq).
+# Every packet component has |c| <= 100. The trace stays inside ONE menu; leg D owns
 # the cross-title and track-end restore contract for beads initech-b3hl/-j0vt.
 FLAIR_SOLID_MENU2_SPEC := m-100:-100,m-100:-100,m-90:-10,l1,m15:35,l0
 

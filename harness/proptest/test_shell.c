@@ -326,17 +326,16 @@ int main(int argc, char **argv)
         CHECK(FLAIR_MENUBAR_H == 20 && FLAIR_CHROME_MENUBAR_H == 20,
               "(2) menu bar height is the locked 20 px (GetMBarHeight)");
 
-        /* Bar 1 (System-7), rows [0,20). The bar fill is menubar gray (idx 3);
-         * the baseline at y=19 is ink (idx 0). Probe a non-title x (far right,
-         * past the System-7 titles) for the bar fill. */
-        CHECK(idx_at(&ctx, 600, 5) == 3,
-              "(2) System-7 bar (rows [0,20)) is painted bar fill (menubar gray)");
+        /* Bar 1, rows [0,20): sampled Platinum E7 face with black baseline.
+         * Ref: sys8/menus.md Sec 1.1; bead initech-sjvq row 30. */
+        CHECK(idx_at(&ctx, 600, 5) == 231,
+              "(2) bar 1 rows 1..17 use sampled Platinum E7 face");
         CHECK(idx_at(&ctx, 300, FLAIR_MENUBAR_H - 1) == 0,
               "(2) System-7 bar baseline (y=19) is painted ink");
 
-        /* Bar 2 (Photoshop), rows [20,40). Same fill + baseline, at +20. */
-        CHECK(idx_at(&ctx, 600, FLAIR_MENUBAR_H + 5) == 3,
-              "(2) Photoshop bar (rows [20,40)) is painted bar fill (menubar gray)");
+        /* Bar 2 (Photoshop), rows [20,40). Same Platinum profile, at +20. */
+        CHECK(idx_at(&ctx, 600, FLAIR_MENUBAR_H + 5) == 231,
+              "(2) Photoshop bar rows 1..17 use sampled Platinum E7 face");
         CHECK(idx_at(&ctx, 300, 2 * FLAIR_MENUBAR_H - 1) == 0,
               "(2) Photoshop bar baseline (y=39) is painted ink");
 
@@ -381,7 +380,7 @@ int main(int argc, char **argv)
         for (int x = ps_text_x0; x < ps_text_x0 + ps_text_w && !ink_found; x++)
             for (int y = SHELL_MENUBAR2_TOP + FLAIR_MENU_TITLE_VPAD;
                  y < SHELL_MENUBAR2_TOP + FLAIR_MENU_TITLE_VPAD + 16; y++)
-                if (idx_at(&ctx, x, y) == 0) { ink_found = 1; break; }
+                if (idx_at(&ctx, x, y) == 4) { ink_found = 1; break; }
         CHECK(ink_found,
               "(2) Photoshop bar 'File' title ink is RENDERED in the second band");
     }

@@ -27,8 +27,8 @@
  *     Pre-fix the whole band was seafoam-ERASED -> ~100% teal -> LEG M goes RED.
  *
  *   LEG B -- THE PHOTOSHOP MENU BAR SURVIVES.  A run across the second (Photoshop)
- *     bar at y=30, x[70,350], is dominated by the canon menu-bar white (idx3 ==
- *     #FFFFFF) with black title ink, and shows essentially NO teal -- the bars are
+ *     bar at y=30, x[70,350], is dominated by sampled Platinum face (idx231 ==
+ *     #E7E7E7) with black title ink, and shows essentially NO teal -- the bars are
  *     an always-on-top layer the compositor must never let a window/erase touch.
  *
  *   LEG A -- a bare-desktop corner sanity anchor (20,460) reads canon idx2 teal
@@ -64,7 +64,7 @@
 #define CIDX_FRAME     0   /* black frame / ink                 */
 #define CIDX_WHITE     1   /* window/content white              */
 #define CIDX_TEAL      2   /* Initech teal #8DDCDC (desktop bg)  */
-#define CIDX_MENUBAR   3   /* menu-bar white #FFFFFF             */
+#define CIDX_MENU_FACE 231 /* sampled Platinum menu face #E7E7E7 */
 
 /* ---- the post-drag modal geometry (dialog.c FILECOPY_* -- INDEPENDENT of the
  * render). Bounds {left=140, top=200, right=500, bottom=280}; movableDBoxProc frame 1px.
@@ -224,31 +224,31 @@ int main(int argc, char **argv)
 
     /* ---- LEG B: THE PHOTOSHOP MENU BAR SURVIVES (never overpainted/erased). - */
     {
-        long tot = 0, white = 0, teal = 0;
+        long tot = 0, face = 0, teal = 0;
         for (int x = BAR_X0; x < BAR_X1; x++) {
             tot++;
-            if (is_rgb(x, BAR_Y, IDX(CIDX_MENUBAR)))  /* == idx1 white #FFFFFF   */
-                white++;
+            if (is_rgb(x, BAR_Y, IDX(CIDX_MENU_FACE)))
+                face++;
             if (is_rgb(x, BAR_Y, IDX(CIDX_TEAL)))
                 teal++;
         }
-        int white_ok = (white * 100 >= tot * 40);  /* white bg dominates the run */
+        int face_ok = (face * 100 >= tot * 40);  /* E7 face dominates the run */
         int teal_ok  = (teal * 100 <= tot * 5);
-        if (!(white_ok && teal_ok)) {
+        if (!(face_ok && teal_ok)) {
             fprintf(stderr,
                     "ppm_flair_dc4v_check: FAIL LEG B -- Photoshop bar run y=%d "
-                    "x[%d,%d) NOT intact: menubar-white=%ld/%ld (%.1f%%, need "
+                    "x[%d,%d) NOT intact: menu-E7=%ld/%ld (%.1f%%, need "
                     ">=40%%), teal=%ld/%ld (%.1f%%, need <=5%%): the bar was "
                     "overpainted/erased (pipa)\n",
                     BAR_Y, BAR_X0, BAR_X1,
-                    white, tot, 100.0 * (double)white / (double)tot,
+                    face, tot, 100.0 * (double)face / (double)tot,
                     teal, tot, 100.0 * (double)teal / (double)tot);
             g_fail = 1;
         } else {
             printf("    LEG B: the Photoshop menu bar SURVIVED "
-                   "(run y=%d x[%d,%d): %.1f%% menubar-white, %.1f%% teal)\n",
+                   "(run y=%d x[%d,%d): %.1f%% menu-E7, %.1f%% teal)\n",
                    BAR_Y, BAR_X0, BAR_X1,
-                   100.0 * (double)white / (double)tot,
+                   100.0 * (double)face / (double)tot,
                    100.0 * (double)teal / (double)tot);
         }
     }

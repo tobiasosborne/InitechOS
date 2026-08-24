@@ -264,7 +264,8 @@
  *   - A result of 0x00000000 is the canonical "nothing chosen" sentinel.
  *   - MenuKey only matches ENABLED, non-divider items; a disabled menu yields 0.
  *
- * After handling the result the app calls HiliteMenu(0) to un-highlight.
+ * Classic API: after handling the result the app calls HiliteMenu(0). FLAIR's
+ * explicit-GrafPort adaptation redraws idle with HiliteMenu(port,bar,-1,clip).
  * era=system7.0-7.1 (result word unchanged from System 6 through 7.x).
  * ===========================================================================*/
 

@@ -7,10 +7,9 @@
  *        the proportional-text bar layout, the click-to-drop pull-down tracking,
  *        and MenuSelect / MenuKey returning the (menuID<<16 | item) packing.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: this
- * module's menu-bar face remains the explicit System 7 heritage rendering in
- * this arc; the Platinum face has not shipped. MenuInfo semantics and the
- * frozen Photoshop bar remain invariant.
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The bar and panel
+ * decoration use the sampled Platinum anatomy in sys8/menus.md; MenuInfo
+ * semantics and the frozen Photoshop bar remain invariant (bead initech-sjvq).
  *
  * Ref:   ADR-0004 D-3 ("Menu Manager -- MenuInfo (menu ID, title, items with
  *          mark/style/cmd-char); the menu bar including the Photoshop-exact bar
@@ -78,6 +77,11 @@
  * hit/draw width of a title is text_measure(title) + 2*FLAIR_MENU_TITLE_PAD. */
 #define FLAIR_MENU_TITLE_PAD     7
 
+/* A pulled title extends 10px beyond each side of its idle ink run. This is
+ * distinct from the retained 7px title-slot layout pad above: opening a menu
+ * must not move any subsequent title. Ref: sys8/menus.md Sec 1.4. */
+#define FLAIR_MENU_TITLE_HILITE_PAD  10
+
 /* The Apple-menu glyph slot at the far left of the bar. The bar begins with a
  * fixed-width slot for the Apple logo (the classic System-7 apple menu); the
  * first real title (File) starts at FLAIR_MENU_APPLE_W. The slot is a square the
@@ -97,11 +101,18 @@
  * widest item + the left + right pad. A divider row is FLAIR_MENU_DIV_H tall and
  * never selectable.
  * ===========================================================================*/
-#define FLAIR_MENU_ITEM_H        16   /* per-item row height (Chicago cell)    */
-#define FLAIR_MENU_ITEM_LPAD     16   /* left inset (mark/check column)         */
-#define FLAIR_MENU_ITEM_RPAD     12   /* right inset (cmd-key column gap)       */
-#define FLAIR_MENU_DIV_H          8   /* divider row height (a separating line) */
-#define FLAIR_MENU_PANEL_FRAME    1   /* 1px panel frame (Mac drop-shadow box)  */
+#define FLAIR_MENU_ITEM_H        16   /* sys8/menus.md Sec 2.2                  */
+#define FLAIR_MENU_ITEM_LPAD     20   /* panel-left -> item text, Sec 2.2       */
+#define FLAIR_MENU_ITEM_RPAD     12   /* no-command trailing pad                */
+/* Additive-superseding locked metric: 8 -> 6 for the Platinum base era.
+ * Ref: sys8/menus.md Sec 2.2; bead initech-sjvq (D3.b row 41). */
+#define FLAIR_MENU_DIV_H          6
+#define FLAIR_MENU_PANEL_FRAME    1   /* outer black frame, Sec 2.1             */
+#define FLAIR_MENU_PANEL_INSET    2   /* first item / interior begins at +2     */
+#define FLAIR_MENU_DROP_SHADOW    1   /* dark-gray right/bottom footprint       */
+#define FLAIR_MENU_CMD_GAP        8   /* item ink -> caret-letter run           */
+#define FLAIR_MENU_CMD_CHARS      2   /* period-plausible "^X" substitution     */
+#define FLAIR_MENU_CMD_RPAD      16   /* command cell right edge -> panel right */
 
 /* ===========================================================================
  * 3. MENU ITEM + MENU + MENU BAR RECORDS  (verbatim Inside Macintosh)
@@ -204,13 +215,19 @@ int MenuBar_hit(const MenuBar *bar, int x);
  * in `bar`: it drops directly below that title (left edge aligned with the title
  * slot left), is as wide as the widest item (+ left + right pad), and as tall as
  * the sum of the item rows (FLAIR_MENU_ITEM_H per normal item, FLAIR_MENU_DIV_H
- * per divider) plus the 1px frame. The panel TOP is at FLAIR_MENUBAR_H (just
- * below the bar).
+ * per divider) plus its two-row top anatomy. The panel TOP shares the menu-bar
+ * baseline at FLAIR_MENUBAR_H-1, matching sys8/menus.md Sec 2.1. The returned
+ * rect excludes the one-pixel drop shadow.
  * ===========================================================================*/
 
 /* Compute the pull-down panel rect for menu index `mi`. Returns an empty rect
  * (all zero) if mi is out of range. */
 rgn_rect_t MenuInfo_panel_rect(const MenuBar *bar, int mi);
+
+/* The complete temporary-ink footprint: panel rect plus its one-pixel right and
+ * bottom drop shadow. Compositor restore code must invalidate this rect, never
+ * only MenuInfo_panel_rect. Ref: sys8/menus.md Sec 2.1; bead initech-sjvq. */
+rgn_rect_t MenuInfo_panel_footprint_rect(const MenuBar *bar, int mi);
 
 /*
  * MenuInfo_item_at -- which item row in the dropped panel of menu `mi` is at
@@ -229,28 +246,28 @@ int MenuInfo_item_selectable(const MenuBar *bar, int mi, int it);
 /* ===========================================================================
  * 7. DRAWING  (through a GrafPort, clipped; ADR-0004 D-1/D-2)
  * ---------------------------------------------------------------------------
- * DrawMenuBar paints the whole 20px bar across the top of the port's bitmap via
- * text_draw (Chicago) + blitter_fill_rect_clipped; the Apple slot is drawn as a
- * filled glyph cell. flair_draw_menu_panel paints a dropped panel and HILITEs
- * the item under the cursor (an inverted band). Both clip to the port's effective
- * region (visRgn INTERSECT clipRgn); a NULL clip means the whole bitmap.
+ * DrawMenuBar paints the sampled Platinum 20px bar across the top of the port's
+ * bitmap. `hilited_menu` is a 0-based menu index, or -1 for the idle bar; this
+ * state changes only title fill/text ink, never title layout.
+ * flair_draw_menu_panel paints a dropped panel and HILITEs the item under the
+ * cursor (the retained classic inverted band). Both clip to the supplied
+ * effective region; a NULL clip means the whole bitmap. All colors resolve via
+ * flair_look PARTs; callers no longer pass palette policy through mechanism APIs.
  * ===========================================================================*/
 
 /* DrawMenuBar -- render the menu bar into `port`'s bitmap (top FLAIR_MENUBAR_H
- * rows). Uses text_draw(FONT_CHICAGO). clip is the effective clip (NULL = none).
- * fg/bg are packed 0x00RRGGBB (surface.h). */
+ * rows). Uses text_draw(FONT_CHICAGO). clip is the effective clip (NULL = none). */
 void DrawMenuBar(GrafPort *port, const MenuBar *bar,
-                 uint32_t fg, uint32_t bg, const region_t *clip);
+                 int hilited_menu, const region_t *clip);
 
 /*
  * flair_draw_menu_panel -- render the dropped panel of menu `mi`, hiliting item
  * `hilite_item` (0-based; -1 == none). Disabled/divider rows are never hilited
  * (a hilite request for a non-selectable row draws no hilite band). clip as
- * above. fg/bg are packed colors.
+ * above.
  */
 void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
-                           int hilite_item,
-                           uint32_t fg, uint32_t bg, const region_t *clip);
+                           int hilite_item, const region_t *clip);
 
 /* ===========================================================================
  * 8. TRACKING  (MenuSelect / MenuKey -- the verbatim Inside Macintosh API)
@@ -318,16 +335,17 @@ uint32_t MenuKey(const MenuBar *bar, char ch);
 /* ===========================================================================
  * 9. HILITE  (Inside Macintosh "HiliteMenu")
  * ---------------------------------------------------------------------------
- * HiliteMenu inverts a menu TITLE in the bar (the classic "the chosen menu's
- * title stays inverted while its pull-down is down"). It records the hilited
- * menu index in the MenuBar-companion state the caller passes; FLAIR exposes it
- * as a pure geometry helper (the title slot rect to invert) so the drawer and
- * the oracle agree on what gets inverted.
+ * Platinum fills the pulled title with the ratified teal substitution and draws
+ * white title text. The state remains explicit: there is no hidden global bar.
  * ===========================================================================*/
 
-/* HiliteMenu -- return the bar title slot rect for menu index `mi` (the rect the
- * drawer inverts to show the menu is active). Returns empty rect if out of
- * range or mi < 0 (mi < 0 == "no menu hilited"). */
-rgn_rect_t HiliteMenu(const MenuBar *bar, int mi);
+/* Return the pulled-title block: 10px to either side of the idle title ink and
+ * rows [0,19), leaving the black baseline untouched. */
+rgn_rect_t MenuBar_hilite_rect(const MenuBar *bar, int mi);
+
+/* HiliteMenu -- redraw the bar with menu index `mi` pulled down. mi < 0 redraws
+ * the idle bar. Ref: Inside Macintosh Vol I "Menu Manager"; sys8/menus.md 1.4. */
+void HiliteMenu(GrafPort *port, const MenuBar *bar, int mi,
+                const region_t *clip);
 
 #endif /* INITECH_OS_FLAIR_MENU_H */

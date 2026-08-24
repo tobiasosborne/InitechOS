@@ -48,7 +48,8 @@ TEST_HARNESS();
  * DECORATION (they keep geometry + the cfill/crect/cframe span engine but name
  * a PART, not a color) -- they sit below the cut-line too and must be equally
  * literal-free, so the scanner grades them as well (DEC-09 Sec 3.10: the span
- * engine "wherever it lives").  All eight must be color-literal-free.
+ * engine "wherever it lives"). Menu decoration joined this set under bead
+ * initech-sjvq. All nine must be color-literal-free.
  * ------------------------------------------------------------------------- */
 static const char *const MECH_FILES[] = {
     "os/flair/surface.c",   /* MECHANISM: the ONE pixel writer                */
@@ -58,7 +59,8 @@ static const char *const MECH_FILES[] = {
     "os/flair/desktop.c",   /* MECHANISM: compositor / repaint geometry       */
     "os/flair/chrome.c",    /* DECORATION: chrome look + cfill/crect/cframe    */
     "os/flair/control.c",   /* DECORATION: control look                       */
-    "os/flair/dialog.c"     /* DECORATION: dialog look                        */
+    "os/flair/dialog.c",    /* DECORATION: dialog look                        */
+    "os/flair/menu.c"       /* DECORATION: Platinum bar + pull-down look       */
 };
 enum { MECH_FILE_COUNT = (int)(sizeof MECH_FILES / sizeof MECH_FILES[0]) };
 

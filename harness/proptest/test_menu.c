@@ -4,13 +4,15 @@
  *        Photoshop-exact"). The mechanical oracle for the Menu Manager (ADR-0004
  *        D-3): the proportional bar layout, the canon InitechPaint menu bar
  *        (Law 4), the deterministic MenuSelect pull-down tracking, MenuKey, and
- *        the rendered bar/panel pixel layout.
+ *        the sampled Platinum bar/panel pixel layout. Bead initech-sjvq extends
+ *        the same suite with independent sys8/menus.md fidelity legs.
  *
  * Ref:   ADR-0004 D-3 (MenuInfo + the Photoshop-exact bar + MenuSelect ->
  *          (menuID<<16|item)); D-7 (proportional text -- sum of advances); D-1/D-2
  *          (draw through a GrafPort clipped by a region). spec/assets/menu_canon.h
  *          (the FROZEN canon string -- asserted byte-exact). spec/chrome_metrics.h
- *          (FLAIR_CHROME_MENUBAR_H = 20). os/flair/menu.h (the unit under test).
+ *          (FLAIR_CHROME_MENUBAR_H = 20). sys8/menus.md Sec 1-2 (SAMPLED
+ *          values). os/flair/menu.h (the unit under test).
  *          harness/render/render.h (the host render skeleton -- the dual-compile
  *          path that runs the SAME freestanding menu.c on a host offscreen).
  *          harness/proptest/test_window.c + test_chrome.c (the harness idiom +
@@ -33,12 +35,12 @@
  *     -> 0; a disabled item / a divider -> not selectable (0); MenuKey(cmd) -> the
  *     right packing. Deterministic across runs (Rule 11).
  *
- *  4. DRAW.  Render the bar + an open menu into a host offscreen via the render
- *     skeleton and assert: the bar background occupies rows [0,20); the title
- *     text pixels land inside the title slot; the dropped panel's COMPLETE
- *     painted extent below the bar equals MenuInfo_panel_rect exactly; the
- *     hilited item band is painted where the layout says. The exact-extent tooth
- *     locks the geometry helper used by live damage restoration to the drawer.
+ *  4. DRAW/FIDELITY. Render the bar + an open menu and assert the sampled
+ *     white/E7/B3/black profile, exact corner transcription, teal pulled title,
+ *     black/white/B3/3F panel anatomy, shadow footprint, 6px A5/white separator,
+ *     +20 item text origin, caret-letter command column, A5 disabled ink, and
+ *     retained classic tracking invert. The footprint tooth locks live restore
+ *     geometry to every temporary panel pixel.
  *
  *  5. APPLE GLYPH (initech-yx4v).  The Apple slot renders the hand-authored
  *     apple_glyph.h strike, NOT a solid filled square: rendered ink count in
@@ -58,6 +60,11 @@
  *   MENU_MUT_APPLE_SQUARE       -- the Apple slot reverts to a solid filled
  *                                  square (the ORIGINAL initech-yx4v bug) =>
  *                                  property 5 (Apple glyph) RED.
+ *   MENU_MUT_BAR_FLAT           -- sampled profile/corners -> property 4 RED.
+ *   MENU_MUT_NO_PANEL_BEVEL     -- white/B3 inner bevel -> property 4 RED.
+ *   MENU_MUT_SEP_PLAIN          -- etched A5/white groove -> property 4 RED.
+ *   MENU_MUT_DISABLED_NORMAL_INK -- disabled A5 ink -> property 4 RED.
+ *   MENU_MUT_TITLE_NO_HILITE    -- pulled teal/white title -> property 4 RED.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -150,15 +157,28 @@ static int rnd(int lo, int hi)
  * ===========================================================================*/
 #define OPEN_MI       1   /* 'Edit' */
 #define HILITE_IT     2   /* item index 2 (0-based) -> "Close" */
+
+/* Independent sampled-domain menu goldens. These values are transcribed from
+ * ../system7-decomp/specs/sys8/menus.md Sec 1.1/1.2/2.1/2.3, never derived from
+ * flair_look or menu.c. Teal is the DEC-10 OQ-2 authored substitution. */
+enum {
+    MG_BLACK = 0,
+    MG_WHITE = 1,
+    MG_TEAL = 2,
+    MG_TEXT_BLACK = 4,
+    MG_DARK_3F = 63,
+    MG_GRAY_77 = 119,
+    MG_GRAY_A5 = 165,
+    MG_GRAY_B3 = 179,
+    MG_GRAY_C0 = 192,
+    MG_FACE_E7 = 231
+};
+#define MG_TEAL_LIGHT_RGB   0x8DDCDCu
+#define MG_TEAL_SHADOW_RGB  0x4E9BA3u
 static void draw_bar_and_panel(GrafPort *port)
 {
-    uint32_t fg = 0u;                          /* black ink (idx 0)            */
-    uint32_t bg = 0x00FFFFFFu;                 /* white (idx 1 via palette)    */
-    /* Use indices directly for the 8bpp pass; the skeleton's palette maps 0->black
-     * and 1->white. We pass the index in the low byte (surface 8bpp). */
-    DrawMenuBar(port, &g_bar, 0u, 1u, NULL);
-    flair_draw_menu_panel(port, &g_bar, OPEN_MI, HILITE_IT, 0u, 1u, NULL);
-    (void)fg; (void)bg;
+    DrawMenuBar(port, &g_bar, OPEN_MI, NULL);
+    flair_draw_menu_panel(port, &g_bar, OPEN_MI, HILITE_IT, NULL);
 }
 
 int main(int argc, char **argv)
@@ -256,7 +276,7 @@ int main(int argc, char **argv)
      * ====================================================================== */
     {
         /* Click 'Edit' (menu index 1), move down to item index 2 ("Close"),
-         * release there. The bar y is within [0,20); the item rows start at 20. */
+         * release there. The bar y is within [0,20); item rows start at panel+2. */
         int mi = 1;                         /* 'Edit' */
         int tx = indep_title_x(&g_bar, mi) +
                  indep_title_w(g_bar.menus[mi].title) / 2;
@@ -266,7 +286,7 @@ int main(int argc, char **argv)
          * the title slot left; pick an x well inside the panel body. */
         rgn_rect_t panel = MenuInfo_panel_rect(&g_bar, mi);
         int px = (panel.left + panel.right) / 2;
-        int row2_top = FLAIR_MENUBAR_H + FLAIR_MENU_PANEL_FRAME +
+        int row2_top = panel.top + FLAIR_MENU_PANEL_INSET +
                        2 * FLAIR_MENU_ITEM_H;    /* items 0,1 above; item 2 next */
         int row2_y = row2_top + FLAIR_MENU_ITEM_H / 2;
 
@@ -303,7 +323,7 @@ int main(int argc, char **argv)
 
         /* DISABLED item / DIVIDER not selectable. Item index 4 is a divider,
          * item index 5 is disabled. Releasing on either -> 0. */
-        int row4_top = FLAIR_MENUBAR_H + FLAIR_MENU_PANEL_FRAME +
+        int row4_top = panel.top + FLAIR_MENU_PANEL_INSET +
                        4 * FLAIR_MENU_ITEM_H;            /* after items 0..3     */
         flair_point_t on_div[1] = { { (int16_t)(row4_top + FLAIR_MENU_DIV_H / 2),
                                       (int16_t)px } };
@@ -361,7 +381,7 @@ int main(int argc, char **argv)
         CHECK(panel1.left > panel0.left,
               "fixture: panel1 starts strictly right of panel0 (distinguishing x exists)");
 
-        int row2_top = FLAIR_MENUBAR_H + FLAIR_MENU_PANEL_FRAME +
+        int row2_top = panel1.top + FLAIR_MENU_PANEL_INSET +
                        2 * FLAIR_MENU_ITEM_H;             /* item index 2 row  */
         int row2_y    = row2_top + FLAIR_MENU_ITEM_H / 2;
         int panel1_px = (panel1.left + panel1.right) / 2;
@@ -449,33 +469,85 @@ int main(int argc, char **argv)
         if (rc == 0) {
             render_run(&ctx, draw_bar_and_panel);
 
-            /* (a) The bar background fills rows [0,20): the row just below the
-             * bar baseline is NOT bar ink at a non-title x left of any panel. */
-            uint32_t bar_bg = render_pixel_index(&ctx, 300u, 5u);
-            CHECK(bar_bg == 1u, "bar background row (y=5) is the bar fill (idx 1)");
+            /* (a) Exact bar profile at a title-free column: white row 0, E7
+             * rows 1..17, B3 row 18, black row 19. sys8/menus.md Sec 1.1. */
+            CHECK(render_pixel_index(&ctx, 500u, 0u) == MG_WHITE,
+                  "MENU FIDELITY bar row 0 is sampled white");
+            CHECK(render_pixel_index(&ctx, 500u, 1u) == MG_FACE_E7 &&
+                  render_pixel_index(&ctx, 500u, 9u) == MG_FACE_E7 &&
+                  render_pixel_index(&ctx, 500u, 17u) == MG_FACE_E7,
+                  "MENU FIDELITY bar rows 1..17 are sampled E7 face");
+            CHECK(render_pixel_index(&ctx, 500u, 18u) == MG_GRAY_B3,
+                  "MENU FIDELITY bar row 18 is sampled B3 shadow");
+            CHECK(render_pixel_index(&ctx, 500u, 19u) == MG_BLACK,
+                  "MENU FIDELITY bar row 19 is black baseline");
 
-            /* The 1px baseline at y=19 is ink (idx 0). */
-            CHECK(render_pixel_index(&ctx, 300u, (uint32_t)(FLAIR_MENUBAR_H - 1))
-                  == 0u, "menu-bar baseline (y=19) is painted ink");
+            /* Exact left-corner transcription plus one mirrored probe.
+             * sys8/menus.md Sec 1.2, grid x=0..14 y=0..8. */
+            CHECK(render_pixel_index(&ctx, 0u, 0u) == MG_BLACK &&
+                  render_pixel_index(&ctx, 5u, 0u) == MG_GRAY_77 &&
+                  render_pixel_index(&ctx, 6u, 0u) == MG_GRAY_C0 &&
+                  render_pixel_index(&ctx, 7u, 0u) == MG_FACE_E7 &&
+                  render_pixel_index(&ctx, 8u, 0u) == MG_WHITE,
+                  "MENU FIDELITY rounded top-left row 0 is KKKKKsceW");
+            CHECK(render_pixel_index(&ctx, 0u, 4u) == MG_BLACK &&
+                  render_pixel_index(&ctx, 1u, 4u) == MG_GRAY_C0 &&
+                  render_pixel_index(&ctx, 2u, 4u) == MG_WHITE &&
+                  render_pixel_index(&ctx, 3u, 4u) == MG_FACE_E7,
+                  "MENU FIDELITY rounded top-left row 4 is KcWe");
+            CHECK(render_pixel_index(&ctx, 639u, 0u) == MG_BLACK &&
+                  render_pixel_index(&ctx, 634u, 0u) == MG_GRAY_77,
+                  "MENU FIDELITY top-right corner mirrors the sampled left");
 
-            /* (b) Title text ink lands inside the 'File' slot (menu 0). There is
-             * SOME ink in the slot interior at a title row. */
+            /* (b) Idle title ink lands in the File slot. FLAIR_PART_TEXT is the
+             * distinct black-valued canon slot 4 at indexed depth. */
             int s0x = indep_title_x(&g_bar, 0) + FLAIR_MENU_TITLE_PAD;
             int s0w = text_measure(FONT_CHICAGO, "File");
             int ink_in_slot = 0;
             for (int x = s0x; x < s0x + s0w; x++)
                 for (int y = FLAIR_MENU_TITLE_VPAD;
                      y < FLAIR_MENU_TITLE_VPAD + 16; y++)
-                    if (render_pixel_index(&ctx, (uint32_t)x, (uint32_t)y) == 0u)
+                    if (render_pixel_index(&ctx, (uint32_t)x, (uint32_t)y) ==
+                        MG_TEXT_BLACK)
                         ink_in_slot = 1;
             CHECK(ink_in_slot, "title text ink lands inside the 'File' title slot");
 
-            /* (c) The dropped panel rect matches the layout: the panel frame is
-             * painted at its computed left/top, and the desktop just OUTSIDE the
-             * panel left edge is bare. */
+            /* The pulled Edit block is 10px either side of the idle ink run,
+             * accent-filled through row 18, white text, baseline unchanged. */
+            {
+                int tx = indep_title_x(&g_bar, OPEN_MI);
+                int tw = text_measure(FONT_CHICAGO, g_bar.menus[OPEN_MI].title);
+                int want_l = tx + FLAIR_MENU_TITLE_PAD - 10;
+                int want_r = tx + FLAIR_MENU_TITLE_PAD + tw + 10;
+                rgn_rect_t hr = MenuBar_hilite_rect(&g_bar, OPEN_MI);
+                CHECK(hr.left == want_l && hr.right == want_r &&
+                      hr.top == 0 && hr.bottom == 19,
+                      "MENU FIDELITY pulled title block has 10px ink-side pads");
+                CHECK(render_pixel_index(&ctx, (uint32_t)(hr.left + 1), 0u) ==
+                      MG_TEAL &&
+                      render_pixel_index(&ctx, (uint32_t)(hr.left + 1), 8u) ==
+                      MG_TEAL &&
+                      render_pixel_index(&ctx, (uint32_t)(hr.left + 1), 18u) ==
+                      MG_TEAL,
+                      "MENU FIDELITY indexed pulled-title rows use existing teal slot");
+                CHECK(render_pixel_index(&ctx, (uint32_t)(tx +
+                      FLAIR_MENU_TITLE_PAD + 1), 4u) == MG_WHITE,
+                      "MENU FIDELITY pulled title text is white");
+                CHECK(render_pixel_index(&ctx, (uint32_t)(hr.left + 1), 19u) ==
+                      MG_BLACK,
+                      "MENU FIDELITY pulled title leaves black baseline unchanged");
+            }
+
+            /* (c) Panel proper + temporary-ink footprint. */
             rgn_rect_t panel = MenuInfo_panel_rect(&g_bar, OPEN_MI);
+            rgn_rect_t footprint = MenuInfo_panel_footprint_rect(&g_bar, OPEN_MI);
             CHECK(panel.right > panel.left && panel.bottom > panel.top,
                   "open menu panel rect is non-empty");
+            CHECK(panel.top == FLAIR_MENUBAR_H - 1 &&
+                  footprint.left == panel.left && footprint.top == panel.top &&
+                  footprint.right == panel.right + 1 &&
+                  footprint.bottom == panel.bottom + 1,
+                  "MENU FIDELITY panel shares baseline and footprint adds +1 shadow");
 
             /* The panel is the ONLY drawing below the menu bar in this host
              * scene. Scan every pixel there and independently recover the
@@ -504,14 +576,15 @@ int main(int argc, char **argv)
                 }
                 CHECK(found,
                       "drawn panel has a non-empty painted extent below the bar");
-                CHECK(found && min_x == panel.left && min_y == panel.top &&
-                      max_x + 1 == panel.right && max_y + 1 == panel.bottom,
-                      "drawn panel painted extent == MenuInfo_panel_rect exactly "
+                CHECK(found && min_x == footprint.left &&
+                      min_y == FLAIR_MENUBAR_H &&
+                      max_x + 1 == footprint.right &&
+                      max_y + 1 == footprint.bottom,
+                      "drawn extent below bar == panel shadow footprint "
                       "(restore geometry cannot drift)");
             }
-            /* panel top-left frame corner is ink. */
             CHECK(render_pixel_index(&ctx, (uint32_t)panel.left,
-                                     (uint32_t)panel.top) == 0u,
+                                     (uint32_t)panel.top) == MG_BLACK,
                   "panel top-left frame corner is painted ink");
             /* pixel just LEFT of the panel (below the bar) is the bare desktop. */
             if (panel.left - 1 >= 0) {
@@ -521,25 +594,81 @@ int main(int argc, char **argv)
                       "pixel just left of the panel is the bare desktop (no bleed)");
             }
 
-            /* (d) The hilited item band (item index 2) is painted ink across the
-             * panel interior at that row (the inverted band fills fg). */
-            int row2_top = FLAIR_MENUBAR_H + FLAIR_MENU_PANEL_FRAME +
+            /* Exact frame / inner bevel / distinct drop shadow. */
+            CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 3),
+                      (uint32_t)(panel.top + 1)) == MG_WHITE &&
+                  render_pixel_index(&ctx, (uint32_t)(panel.left + 1),
+                      (uint32_t)(panel.top + 4)) == MG_WHITE,
+                  "MENU FIDELITY panel inner top/left highlight is white");
+            CHECK(render_pixel_index(&ctx, (uint32_t)(panel.right - 2),
+                      (uint32_t)(panel.top + 4)) == MG_GRAY_B3 &&
+                  render_pixel_index(&ctx, (uint32_t)(panel.left + 3),
+                      (uint32_t)(panel.bottom - 2)) == MG_GRAY_B3,
+                  "MENU FIDELITY panel inner bottom/right shadow is B3");
+            CHECK(render_pixel_index(&ctx, (uint32_t)panel.right,
+                      (uint32_t)(panel.top + 4)) == MG_DARK_3F &&
+                  render_pixel_index(&ctx, (uint32_t)(panel.left + 3),
+                      (uint32_t)panel.bottom) == MG_DARK_3F,
+                  "MENU FIDELITY panel drop shadow is distinct sampled 3F");
+
+            /* (d) Classic item inversion stays bounded to the tracked row. */
+            int row2_top = panel.top + FLAIR_MENU_PANEL_INSET +
                            HILITE_IT * FLAIR_MENU_ITEM_H;
             int band_y = row2_top + FLAIR_MENU_ITEM_H / 2;
-            int interior_x = panel.left + FLAIR_MENU_PANEL_FRAME + 1;
+            int interior_x = panel.left + FLAIR_MENU_PANEL_INSET + 1;
             CHECK(render_pixel_index(&ctx, (uint32_t)interior_x,
-                                     (uint32_t)band_y) == 0u,
+                                     (uint32_t)band_y) == MG_BLACK,
                   "hilited item band is painted (inverted fg) at the item row");
 
-            /* A NON-hilited item row interior is the panel body (idx 1), NOT the
+            /* A NON-hilited item row interior is the E7 panel face, NOT the
              * inverted band -- proves the hilite is bounded to one row. */
-            int row0_y = FLAIR_MENUBAR_H + FLAIR_MENU_PANEL_FRAME +
+            int row0_top = panel.top + FLAIR_MENU_PANEL_INSET;
+            int row0_y = row0_top +
                          FLAIR_MENU_ITEM_H / 2;
-            /* sample a body pixel in the right gutter of row 0 (clear of text). */
-            int body_x = panel.right - FLAIR_MENU_PANEL_FRAME - 2;
+            int body_x = panel.right - FLAIR_MENU_PANEL_INSET - 2;
             CHECK(render_pixel_index(&ctx, (uint32_t)body_x,
-                                     (uint32_t)row0_y) == 1u,
-                  "a non-hilited item row is the panel body (idx 1), not inverted");
+                                     (uint32_t)row0_y) == MG_FACE_E7,
+                  "a non-hilited item row is E7 panel face, not inverted");
+
+            /* Text begins at panel+20. The N strike's first ink is cell x+1 on
+             * glyph row 2, providing an exact rendered left-edge tooth. */
+            CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 20),
+                      (uint32_t)(row0_top + 4)) == MG_FACE_E7 &&
+                  render_pixel_index(&ctx, (uint32_t)(panel.left + 21),
+                      (uint32_t)(row0_top + 4)) == MG_TEXT_BLACK,
+                  "MENU FIDELITY item text cell begins at panel left +20");
+
+            /* Command-key substitution: '^N', right-aligned 16px from the panel
+             * right. Caret row 2 has ink at cell columns 3/4. */
+            {
+                int cmd_x = panel.right - 16 - 2 * CHICAGO_CELL_W;
+                CHECK(render_pixel_index(&ctx, (uint32_t)(cmd_x + 3),
+                          (uint32_t)(row0_top + 4)) == MG_TEXT_BLACK,
+                      "MENU FIDELITY command column renders caret-letter at right");
+            }
+
+            /* Separator is 6px high with full-span A5/white rows +1/+2. */
+            {
+                int sep_top = panel.top + FLAIR_MENU_PANEL_INSET +
+                              4 * FLAIR_MENU_ITEM_H;
+                CHECK(FLAIR_MENU_DIV_H == 6,
+                      "MENU FIDELITY separator metric is locked 6px");
+                CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 2),
+                          (uint32_t)(sep_top + 1)) == MG_GRAY_A5 &&
+                      render_pixel_index(&ctx, (uint32_t)(panel.right - 3),
+                          (uint32_t)(sep_top + 1)) == MG_GRAY_A5 &&
+                      render_pixel_index(&ctx, (uint32_t)(panel.left + 2),
+                          (uint32_t)(sep_top + 2)) == MG_WHITE &&
+                      render_pixel_index(&ctx, (uint32_t)(panel.right - 3),
+                          (uint32_t)(sep_top + 2)) == MG_WHITE,
+                      "MENU FIDELITY etched separator is A5 then white full-span");
+
+                /* Disabled Revert: R row 2, first ink at text cell x+1. */
+                int dis_top = sep_top + FLAIR_MENU_DIV_H;
+                CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 21),
+                          (uint32_t)(dis_top + 4)) == MG_GRAY_A5,
+                      "MENU FIDELITY disabled item ink is sampled A5");
+            }
 
             /* ==================================================================
              * PROPERTY 5: APPLE GLYPH -- the Apple slot renders the hand-
@@ -594,7 +723,7 @@ int main(int argc, char **argv)
                       "pre-bite body column is ink (apple_glyph.h row 4)");
                 CHECK(render_pixel_index(&ctx,
                           (uint32_t)(ax0 + APPLE_GLYPH_BITE_COL),
-                          (uint32_t)(ay0 + APPLE_GLYPH_BITE_ROW)) == 1u,
+                          (uint32_t)(ay0 + APPLE_GLYPH_BITE_ROW)) != MG_BLACK,
                       "the SAME column recedes to background at the bite notch "
                       "row -- the apple has a bite, not a solid square");
 
@@ -607,7 +736,7 @@ int main(int argc, char **argv)
                       "leaf-tip pixel (row 0) is ink -- the leaf sits above the "
                       "body");
                 CHECK(render_pixel_index(&ctx, (uint32_t)ax0, (uint32_t)ay0)
-                      == 1u,
+                      != MG_BLACK,
                       "the slot's top-left corner is background -- NOT a solid "
                       "filled square (initech-yx4v)");
 
@@ -634,6 +763,34 @@ int main(int argc, char **argv)
                 if (render_write_ppm(&ctx, argv[1]) == 0)
                     printf("    wrote rendered menu PPM to %s\n", argv[1]);
             }
+            render_ctx_free(&ctx);
+        }
+    }
+
+    /* Direct-color accent fidelity: indexed mode deliberately uses the retained
+     * idx2 teal fallback for both authored teal rows; 32bpp proves the two canon
+     * rows themselves reach pixels without a new palette row (DEC-10 OQ-2/OQ-3). */
+    {
+        render_boot_info_t boot;
+        memset(&boot, 0, sizeof boot);
+        boot.lfb_addr = 0xE0000000u;
+        boot.lfb_bpp = 32u;
+        boot.lfb_width = 640u;
+        boot.lfb_height = 480u;
+        render_ctx_t ctx;
+        int rc = render_ctx_init(&ctx, &boot);
+        CHECK(rc == 0, "render_ctx_init(32bpp) succeeds for menu accent fidelity");
+        if (rc == 0) {
+            render_run(&ctx, draw_bar_and_panel);
+            rgn_rect_t hr = MenuBar_hilite_rect(&g_bar, OPEN_MI);
+            CHECK((render_pixel_rgb(&ctx, (uint32_t)(hr.left + 1), 0u) &
+                   0x00FFFFFFu) == MG_TEAL_LIGHT_RGB,
+                  "MENU FIDELITY pulled-title top is authored teal light");
+            CHECK((render_pixel_rgb(&ctx, (uint32_t)(hr.left + 1), 8u) &
+                   0x00FFFFFFu) == MG_TEAL_SHADOW_RGB &&
+                  (render_pixel_rgb(&ctx, (uint32_t)(hr.left + 1), 18u) &
+                   0x00FFFFFFu) == MG_TEAL_SHADOW_RGB,
+                  "MENU FIDELITY pulled-title face/shadow use authored teal shadow");
             render_ctx_free(&ctx);
         }
     }

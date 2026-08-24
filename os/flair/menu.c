@@ -6,9 +6,9 @@
  *        initech-yx4v ("Apple menu slot rendered as a solid black filled
  *        square, not an apple glyph") -- fixed by spec/assets/apple_glyph.h.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the
- * drawing path here still renders the retained System 7 menu-bar face; the
- * Platinum menu face is deferred, while the canon strings remain unchanged.
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The drawing path uses
+ * the sampled Platinum menu anatomy from sys8/menus.md; the canon strings and
+ * Menu Manager behavior remain unchanged (bead initech-sjvq).
  *
  * Ref:   ADR-0004 D-3 (MenuInfo + the Photoshop-exact bar + MenuSelect ->
  *          (menuID<<16|item)); D-1/D-2 (draw THROUGH a GrafPort clipped by an
@@ -48,6 +48,11 @@
  *                                 blit -- the ORIGINAL initech-yx4v bug. =>
  *                                 the APPLE GLYPH property oracle goes RED
  *                                 (ink ratio, bite notch, leaf-above-body).
+ *   MENU_MUT_BAR_FLAT          -- erase the sampled 3-D profile + round corners.
+ *   MENU_MUT_NO_PANEL_BEVEL    -- omit the panel's white/B3 inner bevel.
+ *   MENU_MUT_SEP_PLAIN         -- collapse the etched separator to one plain row.
+ *   MENU_MUT_DISABLED_NORMAL_INK -- render disabled items as normal black ink.
+ *   MENU_MUT_TITLE_NO_HILITE   -- ignore the explicit pulled-title state.
  *
  * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
  */
@@ -55,6 +60,7 @@
 #include "menu.h"
 #include "apple_glyph.h"        /* APPLE_GLYPH_ROWS -- hand-authored strike
                                  * (-Ispec/assets); initech-yx4v            */
+#include "flair_look.h"         /* PART->pixel policy seam (DEC-09 C-8)          */
 
 /* The fixed-width fallback used ONLY by the MENU_MUTATE_FIXED_WIDTH mutant.
  * Chosen distinct from any proportional title width so the mutant misplaces the
@@ -128,22 +134,27 @@ static int item_row_h(const MenuItem *it)
  * Under MENU_MUTATE_FIXED_WIDTH the panel uses a fixed width too (so the
  * item-row layout shifts), keeping the mutant self-consistent.
  * -------------------------------------------------------------------------- */
-static int menu_body_text_w(const MenuInfo *m)
+static int menu_panel_w(const MenuInfo *m)
 {
-#if defined(MENU_MUTATE_FIXED_WIDTH) && MENU_MUTATE_FIXED_WIDTH
-    (void)m;
-    return FLAIR_MENU_MUTANT_FIXED_W;
-#else
-    int widest = 0;
+    int widest = FLAIR_MENU_ITEM_LPAD + FLAIR_MENU_ITEM_RPAD;
     for (int k = 0; k < (int)m->n_items; k++) {
         if (m->items[k].is_divider)
             continue;
+#if defined(MENU_MUTATE_FIXED_WIDTH) && MENU_MUTATE_FIXED_WIDTH
+        int w = FLAIR_MENU_MUTANT_FIXED_W;
+#else
         int w = text_measure(FONT_CHICAGO, m->items[k].text);
-        if (w > widest)
-            widest = w;
+#endif
+        int needed = FLAIR_MENU_ITEM_LPAD + w + FLAIR_MENU_ITEM_RPAD;
+        if (m->items[k].cmdChar != 0) {
+            needed = FLAIR_MENU_ITEM_LPAD + w + FLAIR_MENU_CMD_GAP +
+                     FLAIR_MENU_CMD_CHARS * CHICAGO_CELL_W +
+                     FLAIR_MENU_CMD_RPAD;
+        }
+        if (needed > widest)
+            widest = needed;
     }
     return widest;
-#endif
 }
 
 /* --------------------------------------------------------------------------
@@ -160,28 +171,37 @@ rgn_rect_t MenuInfo_panel_rect(const MenuBar *bar, int mi)
     if (left < 0)
         return r;
 
-    int body_w = menu_body_text_w(m);
-    int width  = FLAIR_MENU_ITEM_LPAD + body_w + FLAIR_MENU_ITEM_RPAD
-                 + 2 * FLAIR_MENU_PANEL_FRAME;
+    int width  = menu_panel_w(m);
 
-    int height = 2 * FLAIR_MENU_PANEL_FRAME;
+    int height = FLAIR_MENU_PANEL_INSET;
     for (int k = 0; k < (int)m->n_items; k++)
         height += item_row_h(&m->items[k]);
 
     r.left   = (int16_t)left;
-    r.top    = (int16_t)FLAIR_MENUBAR_H;             /* just below the bar     */
+    r.top    = (int16_t)(FLAIR_MENUBAR_H - FLAIR_MENU_PANEL_FRAME);
     r.right  = (int16_t)(left + width);
-    r.bottom = (int16_t)(FLAIR_MENUBAR_H + height);
+    r.bottom = (int16_t)(r.top + height);
+    return r;
+}
+
+rgn_rect_t MenuInfo_panel_footprint_rect(const MenuBar *bar, int mi)
+{
+    rgn_rect_t r = MenuInfo_panel_rect(bar, mi);
+    if (r.right > r.left && r.bottom > r.top) {
+        r.right = (int16_t)(r.right + FLAIR_MENU_DROP_SHADOW);
+        r.bottom = (int16_t)(r.bottom + FLAIR_MENU_DROP_SHADOW);
+    }
     return r;
 }
 
 /* --------------------------------------------------------------------------
  * Internal: the screen y of the TOP of item index `it`'s row in the panel.
- * (panel top + frame + sum of earlier item row heights)
+ * (panel top + two-row top anatomy + sum of earlier item row heights)
  * -------------------------------------------------------------------------- */
 static int item_row_top(const MenuInfo *m, int it)
 {
-    int y = FLAIR_MENUBAR_H + FLAIR_MENU_PANEL_FRAME;
+    int y = FLAIR_MENUBAR_H - FLAIR_MENU_PANEL_FRAME +
+            FLAIR_MENU_PANEL_INSET;
     for (int k = 0; k < it; k++)
         y += item_row_h(&m->items[k]);
     return y;
@@ -203,7 +223,7 @@ int MenuInfo_item_at(const MenuBar *bar, int mi, int x, int y)
         return -1;
 
     const MenuInfo *m = &bar->menus[mi];
-    int row_top = FLAIR_MENUBAR_H + FLAIR_MENU_PANEL_FRAME;
+    int row_top = panel.top + FLAIR_MENU_PANEL_INSET;
     for (int k = 0; k < (int)m->n_items; k++) {
         int h = item_row_h(&m->items[k]);
         if (y >= row_top && y < row_top + h) {
@@ -240,21 +260,25 @@ int MenuInfo_item_selectable(const MenuBar *bar, int mi, int it)
 }
 
 /* --------------------------------------------------------------------------
- * HiliteMenu -- the bar title slot rect to invert (mi < 0 == nothing hilited).
+ * Pulled-title geometry. The 10px accent block pad is measured from the idle
+ * INK run, not from the retained 7px layout slot; opening a menu never shifts
+ * the titles after it. Ref: sys8/menus.md Sec 1.4; bead initech-sjvq.
  * -------------------------------------------------------------------------- */
-rgn_rect_t HiliteMenu(const MenuBar *bar, int mi)
+rgn_rect_t MenuBar_hilite_rect(const MenuBar *bar, int mi)
 {
     rgn_rect_t r = { 0, 0, 0, 0 };
     if (!bar || mi < 0 || mi >= (int)bar->n_menus)
         return r;
     int left = MenuBar_title_x(bar, mi);
-    int w    = MenuBar_title_w(bar, mi);
-    if (left < 0 || w <= 0)
+    int tw = text_measure(FONT_CHICAGO, bar->menus[mi].title);
+    if (left < 0 || tw <= 0)
         return r;
     r.top    = 0;
-    r.left   = (int16_t)left;
-    r.bottom = (int16_t)FLAIR_MENUBAR_H;
-    r.right  = (int16_t)(left + w);
+    r.left   = (int16_t)(left + FLAIR_MENU_TITLE_PAD -
+                         FLAIR_MENU_TITLE_HILITE_PAD);
+    r.bottom = (int16_t)(FLAIR_MENUBAR_H - 1);
+    r.right  = (int16_t)(left + FLAIR_MENU_TITLE_PAD + tw +
+                         FLAIR_MENU_TITLE_HILITE_PAD);
     return r;
 }
 
@@ -376,93 +400,164 @@ uint32_t MenuSelect(const MenuBar *bar, flair_point_t startPt,
     return flair_menu_track(bar, startPt, pts, n_pts, NULL);
 }
 
+#if !defined(MENU_MUT_BAR_FLAT) || !MENU_MUT_BAR_FLAT
+/* One-pixel corner transcription from sys8/menus.md Sec 1.2. Entries not in a
+ * row's prefix retain the sampled vertical bar profile. The right corner is the
+ * exact mirror. Values are PART names, never palette indices (DEC-09 C-8). */
+static const uint8_t menu_corner_n[9] = { 8u, 8u, 5u, 4u, 3u, 2u, 2u, 2u, 1u };
+static const uint8_t menu_corner_part[9][8] = {
+    { FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_FRAME,
+      FLAIR_PART_FRAME, FLAIR_PART_PLAT_INACTIVE_FRAME, FLAIR_PART_PLAT_WELL,
+      FLAIR_PART_MENU_BAR_FACE },
+    { FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_FRAME,
+      FLAIR_PART_PLAT_INACTIVE_FRAME, FLAIR_PART_PLAT_WELL,
+      FLAIR_PART_MENU_BAR_HL, FLAIR_PART_MENU_BAR_HL, FLAIR_PART_MENU_BAR_HL },
+    { FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_PLAT_INACTIVE_FRAME,
+      FLAIR_PART_MENU_BAR_FACE, FLAIR_PART_MENU_BAR_HL },
+    { FLAIR_PART_FRAME, FLAIR_PART_PLAT_INACTIVE_FRAME,
+      FLAIR_PART_MENU_BAR_FACE, FLAIR_PART_MENU_BAR_HL },
+    { FLAIR_PART_FRAME, FLAIR_PART_PLAT_WELL, FLAIR_PART_MENU_BAR_HL },
+    { FLAIR_PART_PLAT_INACTIVE_FRAME, FLAIR_PART_MENU_BAR_HL },
+    { FLAIR_PART_PLAT_WELL, FLAIR_PART_MENU_BAR_HL },
+    { FLAIR_PART_MENU_BAR_FACE, FLAIR_PART_MENU_BAR_HL },
+    { FLAIR_PART_MENU_BAR_HL }
+};
+
+static void draw_menu_bar_corners(GrafPort *port, const region_t *clip)
+{
+    const bitmap_t *bm = &port->portBits.bm;
+    for (int y = 0; y < 9; y++) {
+        for (int x = 0; x < (int)menu_corner_n[y]; x++) {
+            uint32_t pxv = flair_look_pixel(port, menu_corner_part[y][x]);
+            rgn_rect_t lpx = { (int16_t)y, (int16_t)x,
+                               (int16_t)(y + 1), (int16_t)(x + 1) };
+            blitter_fill_rect_clipped(bm, lpx, pxv, clip);
+            if ((uint32_t)x < bm->width) {
+                int rx = (int)bm->width - 1 - x;
+                rgn_rect_t rpx = { (int16_t)y, (int16_t)rx,
+                                   (int16_t)(y + 1), (int16_t)(rx + 1) };
+                blitter_fill_rect_clipped(bm, rpx, pxv, clip);
+            }
+        }
+    }
+}
+#endif
+
 /* --------------------------------------------------------------------------
- * DrawMenuBar -- paint the 20px bar across the top of the port's bitmap.
- *
- * Fills the bar background (clipped), draws the Apple glyph slot (a MASKED
- * blit of the hand-authored apple-with-bite silhouette, spec/assets/
- * apple_glyph.h: ink pixels painted in `fg`, background pixels of the slot
- * left UNTOUCHED so the bar fill shows through -- initech-yx4v; this replaced
- * a solid filled square), then each title via text_draw(FONT_CHICAGO) at its
- * proportional x. Bounds/clip are delegated to blitter_fill_rect_clipped and
- * text_draw->surface_blit (Rule 2).
+ * DrawMenuBar -- sampled Platinum 20px profile + explicit pulled-title state.
+ * Ref: sys8/menus.md Sec 1.1-1.4; DEC-10 Sec 6 OQ-2/OQ-3; initech-sjvq.
  * -------------------------------------------------------------------------- */
 void DrawMenuBar(GrafPort *port, const MenuBar *bar,
-                 uint32_t fg, uint32_t bg, const region_t *clip)
+                 int hilited_menu, const region_t *clip)
 {
     if (!port || !bar)
         return;
     const bitmap_t *bm = &port->portBits.bm;
+    uint32_t ink = flair_look_pixel(port, FLAIR_PART_FRAME);
+    uint32_t text_ink = flair_look_pixel(port, FLAIR_PART_TEXT);
+    uint32_t white = flair_look_pixel(port, FLAIR_PART_CONTENT);
+    uint32_t bar_hl = flair_look_pixel(port, FLAIR_PART_MENU_BAR_HL);
+    uint32_t bar_face = flair_look_pixel(port, FLAIR_PART_MENU_BAR_FACE);
+    uint32_t bar_shadow = flair_look_pixel(port, FLAIR_PART_MENU_BAR_SHADOW);
 
-    /* Bar background: full width, FLAIR_MENUBAR_H tall. */
-    rgn_rect_t barrect;
-    barrect.top = 0; barrect.left = 0;
-    barrect.bottom = (int16_t)FLAIR_MENUBAR_H;
-    barrect.right = (int16_t)bm->width;
-    blitter_fill_rect_clipped(bm, barrect, bg, clip);
+#if defined(MENU_MUT_BAR_FLAT) && MENU_MUT_BAR_FLAT
+    /* NAMED MUTANT: the old flat face, with neither sampled profile nor round. */
+    (void)bar_hl;
+    (void)bar_shadow;
+    rgn_rect_t flat = { 0, 0, (int16_t)(FLAIR_MENUBAR_H - 1),
+                        (int16_t)bm->width };
+    blitter_fill_rect_clipped(bm, flat, bar_face, clip);
+#else
+    rgn_rect_t top = { 0, 0, 1, (int16_t)bm->width };
+    rgn_rect_t face = { 1, 0, (int16_t)(FLAIR_MENUBAR_H - 2),
+                        (int16_t)bm->width };
+    rgn_rect_t shadow = { (int16_t)(FLAIR_MENUBAR_H - 2), 0,
+                          (int16_t)(FLAIR_MENUBAR_H - 1),
+                          (int16_t)bm->width };
+    blitter_fill_rect_clipped(bm, top, bar_hl, clip);
+    blitter_fill_rect_clipped(bm, face, bar_face, clip);
+    blitter_fill_rect_clipped(bm, shadow, bar_shadow, clip);
+#endif
 
-    /* A 1px baseline under the bar (the classic Mac menu-bar bottom line). */
-    rgn_rect_t baseline;
-    baseline.top = (int16_t)(FLAIR_MENUBAR_H - 1);
-    baseline.left = 0;
-    baseline.bottom = (int16_t)FLAIR_MENUBAR_H;
-    baseline.right = (int16_t)bm->width;
-    blitter_fill_rect_clipped(bm, baseline, fg, clip);
+    rgn_rect_t baseline = { (int16_t)(FLAIR_MENUBAR_H - 1), 0,
+                            (int16_t)FLAIR_MENUBAR_H,
+                            (int16_t)bm->width };
+    blitter_fill_rect_clipped(bm, baseline, ink, clip);
 
-    /* Apple-menu glyph slot at the far left: a masked blit of the hand-authored
-     * apple-with-bite glyph (spec/assets/apple_glyph.h), ink-on-bar. The slot
-     * rect is EXACTLY APPLE_GLYPH_W x APPLE_GLYPH_H (16x15) -- the glyph fills
-     * the whole slot envelope, so no separate centering offset is needed. */
+#if !defined(MENU_MUT_BAR_FLAT) || !MENU_MUT_BAR_FLAT
+    draw_menu_bar_corners(port, clip);
+#endif
+
+    /* Apple stays the locked monochrome authored strike pending D3-3 row 32. */
     if (bar->has_apple) {
         rgn_rect_t apple;
-        apple.top = (int16_t)(FLAIR_MENU_TITLE_VPAD);
-        apple.left = (int16_t)(FLAIR_MENU_TITLE_VPAD);
+        apple.top = (int16_t)FLAIR_MENU_TITLE_VPAD;
+        apple.left = (int16_t)FLAIR_MENU_TITLE_VPAD;
         apple.bottom = (int16_t)(FLAIR_MENUBAR_H - FLAIR_MENU_TITLE_VPAD - 1);
         apple.right = (int16_t)(FLAIR_MENU_APPLE_W - FLAIR_MENU_TITLE_VPAD);
 
 #if defined(MENU_MUT_APPLE_SQUARE) && MENU_MUT_APPLE_SQUARE
-        /* NAMED MUTANT (Rule 6): the ORIGINAL initech-yx4v bug -- a solid
-         * filled square instead of the apple glyph. The APPLE GLYPH property
-         * oracle in test_menu.c (ink ratio, bite notch, leaf-above-body) MUST
-         * go RED under this build. */
-        blitter_fill_rect_clipped(bm, apple, fg, clip);
+        blitter_fill_rect_clipped(bm, apple, ink, clip);
 #else
         for (int gy = 0; gy < APPLE_GLYPH_H; gy++) {
             uint16_t bits = APPLE_GLYPH_ROWS[gy];
             for (int gx = 0; gx < APPLE_GLYPH_W; gx++) {
                 if (bits & (uint16_t)(0x8000u >> gx)) {
-                    rgn_rect_t px;
-                    px.top    = (int16_t)(apple.top + gy);
-                    px.left   = (int16_t)(apple.left + gx);
-                    px.bottom = (int16_t)(px.top + 1);
-                    px.right  = (int16_t)(px.left + 1);
-                    blitter_fill_rect_clipped(bm, px, fg, clip);
+                    rgn_rect_t px = { (int16_t)(apple.top + gy),
+                                      (int16_t)(apple.left + gx),
+                                      (int16_t)(apple.top + gy + 1),
+                                      (int16_t)(apple.left + gx + 1) };
+                    blitter_fill_rect_clipped(bm, px, ink, clip);
                 }
             }
         }
 #endif
     }
 
-    /* Each title at its proportional x (text_draw clips internally). */
+#if defined(MENU_MUT_TITLE_NO_HILITE) && MENU_MUT_TITLE_NO_HILITE
+    hilited_menu = -1;
+#endif
+    if (hilited_menu >= 0 && hilited_menu < (int)bar->n_menus) {
+        rgn_rect_t hr = MenuBar_hilite_rect(bar, hilited_menu);
+        uint32_t htop = flair_look_pixel(port, FLAIR_PART_MENU_TITLE_HILITE_HL);
+        uint32_t hface = flair_look_pixel(port, FLAIR_PART_MENU_TITLE_HILITE_FACE);
+        uint32_t hshadow = flair_look_pixel(port,
+                                            FLAIR_PART_MENU_TITLE_HILITE_SHADOW);
+        rgn_rect_t r0 = { 0, hr.left, 1, hr.right };
+        rgn_rect_t rf = { 1, hr.left, (int16_t)(FLAIR_MENUBAR_H - 2), hr.right };
+        rgn_rect_t rs = { (int16_t)(FLAIR_MENUBAR_H - 2), hr.left,
+                          (int16_t)(FLAIR_MENUBAR_H - 1), hr.right };
+        blitter_fill_rect_clipped(bm, r0, htop, clip);
+        blitter_fill_rect_clipped(bm, rf, hface, clip);
+        blitter_fill_rect_clipped(bm, rs, hshadow, clip);
+    }
+
     for (int k = 0; k < (int)bar->n_menus; k++) {
         int x = MenuBar_title_x(bar, k);
         if (x < 0)
             continue;
+        uint32_t title_fg = (k == hilited_menu) ? white : text_ink;
+        uint32_t title_bg = (k == hilited_menu)
+                            ? flair_look_pixel(port,
+                                  FLAIR_PART_MENU_TITLE_HILITE_FACE)
+                            : bar_face;
         text_draw(bm, x + FLAIR_MENU_TITLE_PAD, FLAIR_MENU_TITLE_VPAD,
-                  bar->menus[k].title, FONT_CHICAGO, fg, bg);
+                  bar->menus[k].title, FONT_CHICAGO, title_fg, title_bg);
     }
 }
 
+void HiliteMenu(GrafPort *port, const MenuBar *bar, int mi,
+                const region_t *clip)
+{
+    DrawMenuBar(port, bar, mi, clip);
+}
+
 /* --------------------------------------------------------------------------
- * flair_draw_menu_panel -- paint a dropped panel and hilite one item.
- *
- * Fills the panel (clipped), frames it (1px), draws each item's text, and -- if
- * hilite_item is a selectable row -- inverts (paints fg) that item's band with
- * the text redrawn in bg over it. A non-selectable hilite request draws no band.
+ * flair_draw_menu_panel -- sampled black/bevel/drop frame + item anatomy.
+ * Tracking keeps the unresolved classic invert (D3.b row 47) unchanged.
  * -------------------------------------------------------------------------- */
 void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
-                           int hilite_item,
-                           uint32_t fg, uint32_t bg, const region_t *clip)
+                           int hilite_item, const region_t *clip)
 {
     if (!port || !bar || mi < 0 || mi >= (int)bar->n_menus)
         return;
@@ -471,64 +566,146 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
     if (panel.right <= panel.left || panel.bottom <= panel.top)
         return;
 
-    /* Panel body (bg fill). */
-    blitter_fill_rect_clipped(bm, panel, bg, clip);
+    uint32_t frame = flair_look_pixel(port, FLAIR_PART_FRAME);
+    uint32_t text_ink = flair_look_pixel(port, FLAIR_PART_TEXT);
+    uint32_t face = flair_look_pixel(port, FLAIR_PART_MENU_PANEL_FACE);
+    uint32_t bevel_hl = flair_look_pixel(port, FLAIR_PART_MENU_PANEL_HL);
+    uint32_t bevel_shadow = flair_look_pixel(port, FLAIR_PART_MENU_PANEL_SHADOW);
+    uint32_t drop = flair_look_pixel(port, FLAIR_PART_MENU_DROP_SHADOW);
+    uint32_t disabled = flair_look_pixel(port, FLAIR_PART_MENU_DISABLED_INK);
+#if defined(MENU_MUT_NO_PANEL_BEVEL) && MENU_MUT_NO_PANEL_BEVEL
+    (void)bevel_shadow;
+#endif
 
-    /* 1px frame: top, bottom, left, right lines in fg. */
-    rgn_rect_t fr_top = { panel.top, panel.left,
-                          (int16_t)(panel.top + FLAIR_MENU_PANEL_FRAME),
-                          panel.right };
-    rgn_rect_t fr_bot = { (int16_t)(panel.bottom - FLAIR_MENU_PANEL_FRAME),
-                          panel.left, panel.bottom, panel.right };
-    rgn_rect_t fr_lft = { panel.top, panel.left, panel.bottom,
-                          (int16_t)(panel.left + FLAIR_MENU_PANEL_FRAME) };
-    rgn_rect_t fr_rgt = { panel.top,
-                          (int16_t)(panel.right - FLAIR_MENU_PANEL_FRAME),
-                          panel.bottom, panel.right };
-    blitter_fill_rect_clipped(bm, fr_top, fg, clip);
-    blitter_fill_rect_clipped(bm, fr_bot, fg, clip);
-    blitter_fill_rect_clipped(bm, fr_lft, fg, clip);
-    blitter_fill_rect_clipped(bm, fr_rgt, fg, clip);
+    /* The menu shadow is sampled #3F3F3F, deliberately distinct from the black
+     * window shadow. It extends exactly one pixel right and bottom. */
+    rgn_rect_t drop_r = { (int16_t)(panel.top + FLAIR_MENU_DROP_SHADOW),
+                          panel.right,
+                          (int16_t)(panel.bottom + FLAIR_MENU_DROP_SHADOW),
+                          (int16_t)(panel.right + FLAIR_MENU_DROP_SHADOW) };
+    rgn_rect_t drop_b = { panel.bottom,
+                          (int16_t)(panel.left + FLAIR_MENU_DROP_SHADOW),
+                          (int16_t)(panel.bottom + FLAIR_MENU_DROP_SHADOW),
+                          (int16_t)(panel.right + FLAIR_MENU_DROP_SHADOW) };
+    blitter_fill_rect_clipped(bm, drop_r, drop, clip);
+    blitter_fill_rect_clipped(bm, drop_b, drop, clip);
+    blitter_fill_rect_clipped(bm, panel, face, clip);
 
     const MenuInfo *m = &bar->menus[mi];
     int draw_hi = (hilite_item >= 0 &&
                    MenuInfo_item_selectable(bar, mi, hilite_item))
                   ? hilite_item : -1;
+    int text_x = panel.left + FLAIR_MENU_ITEM_LPAD;
 
-    int text_x = panel.left + FLAIR_MENU_PANEL_FRAME + FLAIR_MENU_ITEM_LPAD;
     for (int k = 0; k < (int)m->n_items; k++) {
         const MenuItem *it = &m->items[k];
         int row_top = item_row_top(m, k);
         int h = item_row_h(it);
 
         if (it->is_divider) {
-            /* A divider is a single horizontal rule centered in its short row. */
-            rgn_rect_t rule = { (int16_t)(row_top + h / 2),
-                                (int16_t)(panel.left + FLAIR_MENU_PANEL_FRAME),
-                                (int16_t)(row_top + h / 2 + 1),
-                                (int16_t)(panel.right - FLAIR_MENU_PANEL_FRAME) };
-            blitter_fill_rect_clipped(bm, rule, fg, clip);
+#if defined(MENU_MUT_SEP_PLAIN) && MENU_MUT_SEP_PLAIN
+            rgn_rect_t plain = { (int16_t)(row_top + h / 2),
+                                 (int16_t)(panel.left + FLAIR_MENU_PANEL_INSET),
+                                 (int16_t)(row_top + h / 2 + 1),
+                                 (int16_t)(panel.right - FLAIR_MENU_PANEL_INSET) };
+            blitter_fill_rect_clipped(bm, plain, disabled, clip);
+#else
+            rgn_rect_t dark = { (int16_t)(row_top + 1),
+                                (int16_t)(panel.left + FLAIR_MENU_PANEL_INSET),
+                                (int16_t)(row_top + 2),
+                                (int16_t)(panel.right - FLAIR_MENU_PANEL_INSET) };
+            rgn_rect_t light = { (int16_t)(row_top + 2),
+                                 (int16_t)(panel.left + FLAIR_MENU_PANEL_INSET),
+                                 (int16_t)(row_top + 3),
+                                 (int16_t)(panel.right - FLAIR_MENU_PANEL_INSET) };
+            blitter_fill_rect_clipped(bm, dark, disabled, clip);
+            blitter_fill_rect_clipped(bm, light, bevel_hl, clip);
+#endif
             continue;
         }
 
-        uint32_t row_fg = fg, row_bg = bg;
+        uint32_t row_fg = text_ink;
+        uint32_t row_bg = face;
+        bitmap_t row_bm = *bm;
+        if ((uint32_t)(row_top + h) < row_bm.height)
+            row_bm.height = (uint32_t)(row_top + h);
+#if defined(MENU_MUT_DISABLED_NORMAL_INK) && MENU_MUT_DISABLED_NORMAL_INK
+        (void)disabled;
+#else
+        if (!it->enabled)
+            row_fg = disabled;
+#endif
         if (k == draw_hi) {
-            /* Hilite band: invert (fill fg, text in bg). */
             rgn_rect_t band = { (int16_t)row_top,
-                                (int16_t)(panel.left + FLAIR_MENU_PANEL_FRAME),
+                                (int16_t)(panel.left + FLAIR_MENU_PANEL_INSET),
                                 (int16_t)(row_top + h),
-                                (int16_t)(panel.right - FLAIR_MENU_PANEL_FRAME) };
-            blitter_fill_rect_clipped(bm, band, fg, clip);
-            row_fg = bg; row_bg = fg;
+                                (int16_t)(panel.right - FLAIR_MENU_PANEL_INSET) };
+            blitter_fill_rect_clipped(bm, band, frame, clip);
+            row_fg = face;
+            row_bg = frame;
         }
 
-        /* Item text (Chicago). The mark column is the LPAD gap; if marked, draw
-         * the mark char just inside the frame. */
         if (it->mark) {
-            char marks[2]; marks[0] = it->mark; marks[1] = 0;
-            text_draw(bm, panel.left + FLAIR_MENU_PANEL_FRAME + 2,
-                      row_top, marks, FONT_CHICAGO, row_fg, row_bg);
+            char marks[2];
+            marks[0] = it->mark;
+            marks[1] = 0;
+            text_draw(&row_bm, panel.left + FLAIR_MENU_PANEL_INSET + 2,
+                      row_top + 2, marks, FONT_CHICAGO, row_fg, row_bg);
         }
-        text_draw(bm, text_x, row_top, it->text, FONT_CHICAGO, row_fg, row_bg);
+        text_draw(&row_bm, text_x, row_top + 2, it->text,
+                  FONT_CHICAGO, row_fg, row_bg);
+
+        if (it->cmdChar) {
+            /* The source strike has no cloverleaf. Render the period-plausible
+             * caret-letter form required by initech-sjvq; do not author a glyph
+             * in this lane. The two-cell run is right-aligned like x=199..216 in
+             * the sampled 198px File panel (sys8/menus.md Sec 2.2/2.3). */
+            char cmd[3];
+            cmd[0] = '^';
+            cmd[1] = cmd_fold(it->cmdChar);
+            cmd[2] = 0;
+            int cmd_x = panel.right - FLAIR_MENU_CMD_RPAD -
+                        text_measure(FONT_CHICAGO, cmd);
+            text_draw(&row_bm, cmd_x, row_top + 2, cmd,
+                      FONT_CHICAGO, row_fg, row_bg);
+        }
     }
+
+    /* Last: sampled inner bevel and outer black frame cover the last item's
+     * final two rows, exactly as the captured panel anatomy does. */
+#if !defined(MENU_MUT_NO_PANEL_BEVEL) || !MENU_MUT_NO_PANEL_BEVEL
+    rgn_rect_t hi_top = { (int16_t)(panel.top + 1),
+                          (int16_t)(panel.left + 1),
+                          (int16_t)(panel.top + 2),
+                          (int16_t)(panel.right - 1) };
+    rgn_rect_t hi_left = { (int16_t)(panel.top + 1),
+                           (int16_t)(panel.left + 1),
+                           (int16_t)(panel.bottom - 1),
+                           (int16_t)(panel.left + 2) };
+    rgn_rect_t sh_bottom = { (int16_t)(panel.bottom - 2),
+                             (int16_t)(panel.left + 2),
+                             (int16_t)(panel.bottom - 1),
+                             (int16_t)(panel.right - 1) };
+    rgn_rect_t sh_right = { (int16_t)(panel.top + 2),
+                            (int16_t)(panel.right - 2),
+                            (int16_t)(panel.bottom - 1),
+                            (int16_t)(panel.right - 1) };
+    blitter_fill_rect_clipped(bm, hi_top, bevel_hl, clip);
+    blitter_fill_rect_clipped(bm, hi_left, bevel_hl, clip);
+    blitter_fill_rect_clipped(bm, sh_bottom, bevel_shadow, clip);
+    blitter_fill_rect_clipped(bm, sh_right, bevel_shadow, clip);
+#endif
+
+    rgn_rect_t fr_top = { panel.top, panel.left,
+                          (int16_t)(panel.top + 1), panel.right };
+    rgn_rect_t fr_bot = { (int16_t)(panel.bottom - 1), panel.left,
+                          panel.bottom, panel.right };
+    rgn_rect_t fr_lft = { panel.top, panel.left, panel.bottom,
+                          (int16_t)(panel.left + 1) };
+    rgn_rect_t fr_rgt = { panel.top, (int16_t)(panel.right - 1),
+                          panel.bottom, panel.right };
+    blitter_fill_rect_clipped(bm, fr_top, frame, clip);
+    blitter_fill_rect_clipped(bm, fr_bot, frame, clip);
+    blitter_fill_rect_clipped(bm, fr_lft, frame, clip);
+    blitter_fill_rect_clipped(bm, fr_rgt, frame, clip);
 }

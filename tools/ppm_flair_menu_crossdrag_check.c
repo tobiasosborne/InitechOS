@@ -22,22 +22,21 @@
  * which freezes `mi` in the live loop -- see test-flair-menu-crossdrag-mutant):
  *
  *   LEG A -- "FILE" PANEL ERASED.  A column UNIQUE to File's panel footprint
- *     (File panel {T20 L20 B54 R90}; Edit's panel starts at L66 -- x=20..65 is
+ *     (File panel {T19 L20 B53 R112}; Edit starts at L66 -- x=20..65 is
  *     File-only) sampled in the teal zone (y=46, below BOTH 20px menu bars) must
  *     be bare Initech teal again -- the panel that WAS there (a black frame post-
  *     drop) is gone. Under the mutant, File's panel is never erased, so this
  *     stays the black frame -> LEG A RED.
  *
  *   LEG B -- "EDIT" PANEL DROPPED (frame).  A column UNIQUE to Edit's panel
- *     footprint (Edit panel {T20 L66 B54 R136}; File's panel ends at R90 -- the
- *     right frame column x=135 is Edit-only) sampled in the teal zone (y=46) must
+ *     footprint (Edit panel {T19 L66 B53 R158}; the right frame column x=157 is
+ *     Edit-only) sampled in the teal zone (y=46) must
  *     be the canon BLACK frame. Under the mutant, Edit's panel is never drawn, so
  *     this stays bare teal -> LEG B RED.
  *
- *   LEG C -- "EDIT" PANEL BODY (BTNFACE gray).  The un-hilited "About" row
- *     (y[21,37)) of Edit's panel, sampled at its right-pad (x=130, Edit-only,
- *     clear of the "About" glyphs) must be the canon BTNFACE gray. Pre-drop (and
- *     under the mutant) this is the shared menu-bar white -> LEG C RED.
+ *   LEG C -- "EDIT" PANEL BODY (sampled E7). The un-hilited "About" row
+ *     (y[21,37)) of Edit's panel, sampled at its right gutter (x=152, Edit-only,
+ *     clear of glyphs) must be sampled #E7E7E7.
  *
  *   LEG D -- a bare-desktop corner sanity anchor (the canon teal is really teal).
  *
@@ -68,28 +67,28 @@
 /* ---- canon palette indices (spec/assets; the values are flair_canon_rgb) ---- */
 #define CIDX_FRAME     0   /* black frame / ink / hilite band   */
 #define CIDX_TEAL      2   /* Initech teal #8DDCDC (desktop bg)  */
-#define CIDX_BTNFACE   6   /* BTNFACE gray #C0C0C0 (panel body)  */
+#define CIDX_FACE      231 /* sampled Platinum face #E7E7E7      */
 
 /* ---- the kmain.c System-7 bar geometry (4 titles File/Edit/View/Special, each
  * with 2 items "About"/"Quit"; os/flair/menu.h + MenuInfo_panel_rect, host-graded
  * by a throwaway geometry dump against the SAME sys-menu bar construction kmain.c
  * builds -- FLAIR_MENU_APPLE_W=20, title slot widths from FONT_CHICAGO's
- * text_measure). File panel = MenuInfo_panel_rect(bar_sys,0) = {T20 L20 B54 R90}.
- * Edit panel = MenuInfo_panel_rect(bar_sys,1) = {T20 L66 B54 R136} (Edit's title
+ * text_measure). File panel = {T19 L20 B53 R112}; Edit panel =
+ * {T19 L66 B53 R158}. The right edge expands for the rendered "^Q" command
+ * column (sys8/menus.md Sec 2.2/2.3; bead initech-sjvq). Edit's title
  * starts exactly at File's slot width, 46px, after the L20 Apple slot). Row
  * geometry (fixed item heights, not text-width) mirrors ppm_flair_menu_check.c:
- *   About row y[21,37), Quit row y[37,53), bottom frame y[53,54).
+ *   About row y[21,37), Quit row y[37,53), bottom frame y=52, shadow y=53.
  * ---------------------------------------------------------------------------- */
 #define FILE_PANEL_L      20    /* File panel left frame column                 */
 #define FILE_UNIQUE_X     30    /* a column in File's footprint, NOT Edit's      */
 #define EDIT_PANEL_L      66    /* Edit panel left frame column                 */
-#define EDIT_PANEL_R1     135   /* Edit panel right frame column (right-1)      */
-#define EDIT_RPAD_X       130   /* Edit "About" row right-pad, clear of glyphs   */
+#define EDIT_PANEL_R1     157   /* Edit panel right frame column (right-1)      */
+#define EDIT_RPAD_X       152   /* Edit right gutter, clear of glyphs            */
 /* a y inside the TEAL zone (below both 20px bars, above the y>=60 windows) --
  * inside BOTH panels' "Quit" row [37,53). */
 #define QUIT_Y            46
-/* a y inside the un-hilited "About" row [21,37) (shared menu-bar white pre-drop
- * / when no panel covers it). */
+/* a y inside the un-hilited "About" row [21,37). */
 #define ABOUT_Y           28
 
 /* ---- PPM P6 reader (the ppm_flair_check family invariant). ------------------ */
@@ -186,8 +185,8 @@ int main(int argc, char **argv)
 
     printf("ppm_flair_menu_crossdrag_check: grading the cross-menu XDROP "
            "(click File, drag along the bar into Edit while held) -- File's "
-           "panel {T20 L20 B54 R90} must be ERASED and "
-           "Edit's panel {T20 L66 B54 R136} must be DROPPED (initech-9op1)\n");
+           "panel {T19 L20 B53 R112} must be ERASED and "
+           "Edit's panel {T19 L66 B53 R158} must be DROPPED (initech-9op1)\n");
 
     /* ---- LEG A: "File" panel ERASED (black frame -> teal again) ------------ */
     assert_idx(FILE_PANEL_L, QUIT_Y, CIDX_TEAL,
@@ -205,19 +204,19 @@ int main(int argc, char **argv)
     assert_idx(EDIT_PANEL_L, QUIT_Y, CIDX_FRAME,
                "LEG B: Edit's panel LEFT frame column (x=66) is idx0 black");
     assert_idx(EDIT_PANEL_R1, QUIT_Y, CIDX_FRAME,
-               "LEG B: Edit's panel RIGHT frame column (x=135, Edit-only) is "
+               "LEG B: Edit's panel RIGHT frame column (x=157, Edit-only) is "
                "idx0 black");
     if (!g_fail) {
         printf("    LEG B: the 'Edit' panel's black frame is present where bare "
                "teal (and no stale File panel) was\n");
     }
 
-    /* ---- LEG C: "Edit" panel BODY (BTNFACE gray) ---------------------------- */
-    assert_idx(EDIT_RPAD_X, ABOUT_Y, CIDX_BTNFACE,
-               "LEG C: Edit's un-hilited 'About' row body (x=130, Edit-only) is "
-               "idx6 BTNFACE gray");
+    /* ---- LEG C: "Edit" panel BODY (sampled E7) ------------------------------- */
+    assert_idx(EDIT_RPAD_X, ABOUT_Y, CIDX_FACE,
+               "LEG C: Edit's un-hilited 'About' row body (x=152, Edit-only) is "
+               "sampled idx231 E7");
     if (!g_fail) {
-        printf("    LEG C: the 'Edit' panel's BTNFACE-gray body fill is present "
+        printf("    LEG C: the 'Edit' panel's sampled E7 body fill is present "
                "(the panel really dropped, not just a frame)\n");
     }
 

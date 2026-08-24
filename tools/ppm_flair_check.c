@@ -55,9 +55,9 @@
  *       windows + the modal + the two menu bars) read INITECH_CANON_DESKTOP_RGB
  *       (flair_canon_rgb index 2 = Initech teal #8DDCDC). test_shell.c assert (1).
  *
- *   (b) TWO MENU BARS -- band [0,20) is the System-7 bar, band [20,40) is the
- *       Photoshop bar. Both bands paint the menubar fill (idx 3) at a far-
- *       right non-title x AND a black (idx 0) baseline; both carry TITLE INK
+ *   (b) TWO MENU BARS -- band [0,20) is the system bar, band [20,40) is the
+ *       Photoshop bar. Both bands paint the sampled Platinum white/E7/B3/black
+ *       profile at a far-right non-title x; both carry TITLE INK
  *       (idx 0) glyphs. THE CHIMERA TELL: the System-7 band has Apple-menu-slot
  *       ink at x in [0,20) well above APPLE_INK_MIN (the hand-authored
  *       apple-with-bite glyph, spec/assets/apple_glyph.h -- initech-yx4v; NOT a
@@ -529,9 +529,9 @@ int main(int argc, char **argv)
 #endif
 
     printf("ppm_flair_check: %ldx%ld P6, tol +/-%d -- expected indices: "
-           "desktop=#%06X menubar=#%06X white=#%06X ink=#%06X "
+           "desktop=#%06X menu-face=#%06X white=#%06X ink=#%06X "
            "Platinum stripe L=#%06X D=#%06X\n",
-           w, h, TOL, IDX(CIDX_DESKTOP), IDX(CIDX_MENUBAR),
+           w, h, TOL, IDX(CIDX_DESKTOP), IDX(CIDX_PLAT_FACE),
            IDX(CIDX_WHITE), IDX(CIDX_BLACK), IDX(CIDX_WHITE),
            IDX(CIDX_PLAT_STRIPE_DARK));
 
@@ -553,11 +553,18 @@ int main(int argc, char **argv)
     /* ======================================================================
      * (b) TWO MENU BARS + the chimera tell. test_shell.c assertion (2).
      * ====================================================================== */
-    /* Both bands: a far-right non-title x reads the menubar-gray fill (idx 3),
-     * and the band baseline (bottom row) reads black ink (idx 0). */
-    assert_idx(600, 5,              3, "(b) System-7 bar fill (rows [0,20)) is menubar gray");
-    assert_idx(300, MENUBAR_H - 1,  0, "(b) System-7 bar baseline (y=19) is black ink");
-    assert_idx(600, MENUBAR_H + 5,  3, "(b) Photoshop bar fill (rows [20,40)) is menubar gray");
+    /* Both bands: sampled Platinum profile. Ref: sys8/menus.md Sec 1.1;
+     * strictly-stronger re-key under bead initech-sjvq row 30. */
+    assert_idx(600, 0, CIDX_WHITE, "(b) bar 1 row 0 is sampled white");
+    assert_idx(600, 5, CIDX_PLAT_FACE, "(b) bar 1 face rows are sampled E7");
+    assert_idx(600, MENUBAR_H - 2, CIDX_PLAT_FRAME_SHADOW,
+               "(b) bar 1 row 18 is sampled B3 shadow");
+    assert_idx(300, MENUBAR_H - 1,  0, "(b) bar 1 baseline (y=19) is black ink");
+    assert_idx(600, MENUBAR_H, CIDX_WHITE, "(b) Photoshop bar row 0 is sampled white");
+    assert_idx(600, MENUBAR_H + 5, CIDX_PLAT_FACE,
+               "(b) Photoshop bar face rows are sampled E7");
+    assert_idx(600, 2 * MENUBAR_H - 2, CIDX_PLAT_FRAME_SHADOW,
+               "(b) Photoshop bar row 18 is sampled B3 shadow");
     assert_idx(300, 2 * MENUBAR_H - 1, 0, "(b) Photoshop bar baseline (y=39) is black ink");
 
     /* THE CHIMERA TELL #1: the System-7 band has a dense Apple slot at x[0,20)

@@ -19,9 +19,9 @@
  *   2. the TWO STACKED MENU BARS        (DrawMenuBar; above the windows)
  *   3. the modal FILE COPY DIALOG       (DrawDialog; LAST -- occludes the rest)
  *
- * ERA AXIS: window chrome is the Mac OS 8 Platinum (DEC-10) BASE.
- * TODO_GOLDEN: the two menu bars retain their System 7 heritage face in this
- * arc; the Platinum menu-bar face is not claimed shipped.
+ * ERA AXIS: window and menu chrome use the Mac OS 8 Platinum (DEC-10) BASE.
+ * Both stacked bars share menu.c's Platinum face; the second bar retains the
+ * locked no-Apple Photoshop title layout (bead initech-sjvq).
  *
  * THE SECOND-BAR OFFSET-BITMAP TRICK (ADR-0004 D-2 -- still the ONE surface
  * module): DrawMenuBar (os/flair/menu.c) hardcodes the bar at rows [0, 20) of
@@ -79,39 +79,6 @@
 #else
 #  define SHELL_PANIC(msg)  do { for (;;) { } } while (0)
 #endif
-
-/* ---------------------------------------------------------------------------
- * Menu-bar colors as indexed-8 palette indices (the test_menu.c convention: for
- * the 8bpp pass DrawMenuBar's fg/bg are the low-byte palette indices). idx 0 ==
- * black ink (the title text + baseline + the Apple glyph square), idx 3 ==
- * the menubar gray fill (render_palette_rgb / chrome.c CIDX_MENUBAR). On a 32bpp
- * destination the surface module writes the low bits as the packed color; the
- * shell uses the canonical packed values so both depths read consistently.
- *
- * For 8bpp these are the bare palette indices; for >8bpp the surface module
- * packs the low 24 bits, so we OR in the canonical menubar-gray RGB for the bg.
- * ------------------------------------------------------------------------- */
-#define SHELL_MENU_INK_IDX     0u   /* black title text / baseline / apple slot */
-#define SHELL_MENU_BG_IDX      3u   /* menubar gray (chrome.c CIDX_MENUBAR)     */
-#define SHELL_MENUBAR_BG_RGB   0x67696Cu /* INITECH_MENUBAR_BG_RGB (palette.h)  */
-
-/* Resolve the menu-bar fg/bg for this destination depth (one conversion site,
- * mirroring desktop.c desktop_px). 8bpp: the palette indices directly. >8bpp:
- * black ink (0) and the packed menubar-gray RGB. */
-static uint32_t shell_menu_fg(const bitmap_t *dst)
-{
-    if (dst->bpp == 8u) {
-        return SHELL_MENU_INK_IDX;
-    }
-    return 0x000000u;   /* black ink (packed) */
-}
-static uint32_t shell_menu_bg(const bitmap_t *dst)
-{
-    if (dst->bpp == 8u) {
-        return SHELL_MENU_BG_IDX;
-    }
-    return SHELL_MENUBAR_BG_RGB;
-}
 
 /* ---------------------------------------------------------------------------
  * Build a GrafPort over `dst` (whole-bitmap port; the menu bar draws at the top
@@ -260,7 +227,7 @@ void shell_build_scene(shell_scene_t *s,
         SetWTitle(&s->wm, &w->rec, win_titles[i]);
     }
 
-    /* --- The TOP retained System-7 menu bar (Apple glyph + caller menus). */
+    /* --- The TOP Platinum system menu bar (Apple glyph + caller menus). */
     s->bar_sys.menus     = sys_menus;
     s->bar_sys.n_menus   = (uint16_t)((n_sys_menus < 0) ? 0 : n_sys_menus);
     s->bar_sys.has_apple = 1;   /* retained bar carries the Apple-menu slot */
@@ -371,13 +338,10 @@ void shell_render(shell_scene_t *s, const bitmap_t *dst)
      * draws into an OFFSET sub-bitmap view starting at row MENUBAR_H, so it lands
      * at rows [MENUBAR_H, 2*MENUBAR_H) of the real offscreen. */
     {
-        uint32_t fg = shell_menu_fg(dst);
-        uint32_t bg = shell_menu_bg(dst);
-
         /* Bar 1: retained System-7 bar at rows [0, MENUBAR_H). */
         GrafPort p1;
         make_bar_port(&p1, dst);
-        DrawMenuBar(&p1, &s->bar_sys, fg, bg, (const region_t *)0);
+        DrawMenuBar(&p1, &s->bar_sys, -1, (const region_t *)0);
 
 #if !defined(SHELL_MUTATE_ONE_MENUBAR)
         /* Bar 2: the Photoshop-EXACT canon bar at rows [MENUBAR_H, 2*MENUBAR_H),
@@ -387,7 +351,7 @@ void shell_render(shell_scene_t *s, const bitmap_t *dst)
         make_offset_view(&view2, dst, (uint32_t)SHELL_MENUBAR2_TOP);
         GrafPort p2;
         make_bar_port(&p2, &view2);
-        DrawMenuBar(&p2, &s->bar_photoshop, fg, bg, (const region_t *)0);
+        DrawMenuBar(&p2, &s->bar_photoshop, -1, (const region_t *)0);
 #endif
     }
 

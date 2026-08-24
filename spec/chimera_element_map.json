@@ -22,8 +22,9 @@
     "  chimera-intentional -- deliberate anachronism / impossible combination;",
     "                        FROZEN by canon oracle; do NOT 'correct'",
     "DEC-10 Sec 4 re-tags BASE elements only; Win31 and intentional rows stand.",
-    "TODO_GOLDEN: elements 7/8 still render the retained System 7 menu-bar face;",
-    "  the Platinum menu face is deferred and is not claimed shipped here."
+    "Rule 8 deliberate act (2026-08-24, bead initech-sjvq): element 7 now ships",
+    "  the sampled Platinum face from sys8/menus.md. Element 8 remains the",
+    "  documented monochrome Apple substitution pending D3-3 policy ruling."
   ],
   "schema_version": 2,
   "schema_version_note": "v2 (2026-06-21, beads initech-v94x.1): P0-a Law-3 fix -- win31_accent_colors.highlight changed from #dfdfdf (Win95 COLOR_3DLIGHT, forbidden) to #ffffff (Win 3.1 COLOR_BTNHIGHLIGHT). Rule 8 deliberate act. Ref: ../win31-decomp/specs/chrome/cross-version-guardrails.md Sec 2.2 + ../win31-decomp/specs/chrome/button-bevel.md Sec 1.",
@@ -103,21 +104,21 @@
       "id": 7,
       "element": "Menu bar",
       "origin": "mac-system8-platinum",
-      "rendering": "TODO_GOLDEN: the Platinum menu-bar face is deferred this arc. The shipped retained-heritage face is a solid fill, Chicago 12 pt, 20 px tall (GetMBarHeight, Roman script). The specific fill color at indexed-8 depth is governed by spec/assets/palette.json (menubar_bg) pending FO-3 reconciliation (beads initech-ch81).",
-      "source": "GetMBarHeight -- FIRST-HAND VERIFIED 2026-06-19 from https://developer.apple.com/library/archive/documentation/mac/Toolbox/Toolbox-128.html"
+      "rendering": "Sampled Mac OS 8.1 Platinum 20px profile: white row 0, #E7E7E7 rows 1..17, #B3B3B3 row 18, black baseline row 19, with the sampled rounded top-corner ramp. Chicago remains the documented font substitution pending D3-3 row 9. Both stacked bars use this face; title layout and the no-Apple Photoshop gate remain invariant.",
+      "source": "../system7-decomp/specs/sys8/menus.md Sec 1.1-1.3 (SAMPLED domain); ADR-0004-AMENDMENT-DEC-10 OQ-3; bead initech-sjvq"
     },
     {
       "id": 8,
       "element": "Apple-menu glyph (left of bar)",
       "origin": "mac-system8-platinum",
-      "rendering": "TODO_GOLDEN: the Platinum menu-bar face is deferred this arc. In the shipped retained-heritage bar, the Apple logo (solid apple silhouette) is rendered in Chicago 12 as a special glyph character (0x14 in Mac Roman encoding). It is the leftmost item in the menu bar. The clean-room glyph is hand-authored in spec/assets/chicago8x16.h.",
-      "source": "docs/research/gui-ground-truth.md Sec 4.2; ADR-0004 D-3. Chicago 12 Apple glyph: Mac Roman 0x14, hand-authored in spec/assets/chicago8x16.h (CLAUDE.md hallucination-risk: glyphs are hand-authored, not pixel-extracted from the frame)."
+      "rendering": "The Platinum bar currently retains the monochrome hand-authored apple-with-bite strike in spec/assets/apple_glyph.h. The sampled Mac OS 8.1 rainbow Apple is policy-gated by D3-3 row 32 and is not implemented by bead initech-sjvq.",
+      "source": "../system7-decomp/specs/sys8/menus.md Sec 1.3; docs/design/GUI-remediation-D1-D2-D3-design.md D3-3; spec/assets/apple_glyph.h"
     },
     {
       "id": 9,
       "element": "Photoshop menu items",
       "origin": "chimera-intentional",
-      "rendering": "Mac-located top menu bar (System 7 style, Chicago 12), but the item set is the Photoshop-style string: see frozen constant owned by beads initech-zaqj and ADR-0004 D-3. Rendered in the Mac menu bar, not a Windows caption.",
+      "rendering": "Mac-located Platinum menu bar (Chicago substitution pending D3-3 row 9), but the item set is the Photoshop-style string: see frozen constant owned by beads initech-zaqj and ADR-0004 D-3. Rendered in the Mac menu bar, not a Windows caption.",
       "frozen_string_owner": "beads initech-zaqj (ADR-0004 D-3 / AM-4 / Sec 5.2 FO-E)",
       "frozen_string_note": "The exact menu string 'File Edit Image Layer Select View Window Help' is FROZEN locked-data owned exclusively by beads initech-zaqj and ADR-0004 D-3. It is NOT duplicated here to prevent independent drift. The canon oracle (ADR-0004 D-8) gates those frozen bytes. Do NOT 'correct' it to match any real Photoshop version.",
       "why_chimera": "This menu set is historically impossible as a single Photoshop version: Photoshop 3.0 for Mac (Sept 1994, first with Layer menu) had 'Mode' where the frame shows 'View'; 'View' arrived in a later point release. The impossible combination IS the canon -- it reproduces the Office Space prop verbatim. Ref: gui-ground-truth.md Sec 4.3; ADR-0004 D-3; CLAUDE.md Law 4.",

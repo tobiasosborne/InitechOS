@@ -14,8 +14,8 @@
  * ARB-3 invariant: this resolver owns ZERO 0xRRGGBB hand-typed literal and
  * ZERO index->RGB switch.  The color VALUES all live in color_canon.h (the
  * canon authority); the only thing this TU owns is the PART->index/slot map
- * (pure data). The two derived bevel rows have no canon INDEX (flair_canon_rgb only
- * spans idx 0..8 + a gray ramp), so the map carries their canon-authored RGB
+ * (pure data). The authored teal-shadow row has no exact canon INDEX
+ * (flair_canon_rgb only spans idx 0..8 + a gray ramp), so the map carries its RGB
  * BY REFERENCE to the canon module's own named derived-row macros
  * (INITECH_CANON_BEVEL_*_RGB) -- the canon authority's constants, not a
  * hand-typed color and not a switch.
@@ -49,15 +49,16 @@
 /* ---------------------------------------------------------------------------
  * The PART->index crosswalk (PURE DATA; ARB-3).  One row per FLAIR_PART, in
  * enum order.  `idx` is the canon index for the 9 indexed parts; `derived` is
- * 1 only for the two bevel rows (which have no canon index) and then
- * `derived_rgb` carries the canon module's own named derived-row constant.
+ * 1 only for an authored derived row and then `derived_rgb` carries the canon
+ * module's own named derived-row constant. `idx` remains the sanctioned 8bpp
+ * fallback slot for those rows (the skin registry uses the same convention).
  *
  * NO 0xRRGGBB literal appears here: indexed rows resolve through
- * flair_canon_rgb(idx); the two derived rows reference the canon authority's
+ * flair_canon_rgb(idx); authored derived rows reference the canon authority's
  * INITECH_CANON_BEVEL_*_RGB macros (color_canon.h derived_rows; ARB-5).
  * ------------------------------------------------------------------------- */
 typedef struct {
-    uint8_t  idx;          /* canon index (valid when derived == 0)            */
+    uint8_t  idx;          /* canon index, or sanctioned 8bpp derived fallback */
     uint8_t  derived;      /* 1 -> use derived_rgb; 0 -> flair_canon_rgb(idx)  */
     uint8_t  skin_offset;  /* flair_skin_slot_t offset; 0xFF keeps base row    */
     uint32_t derived_rgb;  /* canon-authored 0x00RRGGBB (canon macro; ARB-5)   */
@@ -85,9 +86,9 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
                                      FLAIR_NO_SKIN_SLOT, 0u },
     /* FLAIR_PART_PIN_DARK     */ { CIDX_PIN_DARK, 0u,
                                      FLAIR_NO_SKIN_SLOT, 0u },
-    /* FLAIR_PART_BEVEL_LIGHT  */ { 0u, 1u, FLAIR_NO_SKIN_SLOT,
+    /* FLAIR_PART_BEVEL_LIGHT  */ { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
                                      INITECH_CANON_BEVEL_LIGHT_RGB },
-    /* FLAIR_PART_BEVEL_SHADOW */ { 0u, 1u, FLAIR_NO_SKIN_SLOT,
+    /* FLAIR_PART_BEVEL_SHADOW */ { CIDX_TITLE_INK, 1u, FLAIR_NO_SKIN_SLOT,
                                      INITECH_CANON_BEVEL_SHADOW_RGB },
     /* FLAIR_PART_HILITE_FRAME */ { CIDX_HILITE_FRAME, 0u,
                                      FLAIR_NO_SKIN_SLOT, 0u },
@@ -116,7 +117,36 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* WELL: scrollbars.md Sec 2.3; window-chrome.md Sec 4 and Sec 5. */
     { CIDX_PLAT_WELL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
     /* TILE_SHADOW: scrollbars.md Sec 2.2. */
-    { CIDX_PLAT_TILE_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u }
+    { CIDX_PLAT_TILE_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* Platinum Menu Manager roles.  Neutral values reuse the already-minted
+     * sampled gray rows; title accent values reuse the ratified derived teal
+     * pair.  Ref: sys8/menus.md Sec 1.1-1.4, Sec 2.1, Sec 2.3; DEC-10 Sec 6
+     * OQ-2/OQ-3; bead initech-sjvq. */
+    /* MENU_BAR_HL */
+    { CIDX_WHITE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* MENU_BAR_FACE */
+    { CIDX_PLAT_FACE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* MENU_BAR_SHADOW */
+    { CIDX_PLAT_FRAME_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* MENU_PANEL_FACE */
+    { CIDX_PLAT_FACE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* MENU_PANEL_HL */
+    { CIDX_WHITE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* MENU_PANEL_SHADOW */
+    { CIDX_PLAT_FRAME_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* MENU_DROP_SHADOW */
+    { CIDX_PLAT_DARK_RING, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* MENU_DISABLED_INK */
+    { CIDX_PLAT_WIDGET_EDGE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* MENU_TITLE_HILITE_HL */
+    { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
+      INITECH_CANON_BEVEL_LIGHT_RGB },
+    /* MENU_TITLE_HILITE_FACE */
+    { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
+      INITECH_CANON_BEVEL_SHADOW_RGB },
+    /* MENU_TITLE_HILITE_SHADOW */
+    { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
+      INITECH_CANON_BEVEL_SHADOW_RGB }
 };
 
 _Static_assert(sizeof(flair_skin_t) < 255u,
@@ -162,7 +192,7 @@ static const flair_skin_slot_t *skin_slot_for_part(const flair_skin_t *skin,
 /* ---------------------------------------------------------------------------
  * resolve_rgb -- PART -> canonical 0x00RRGGBB through the ONE color authority.
  * The single index->color resolution: indexed parts via flair_canon_rgb;
- * the two derived bevel rows via the canon module's own constant.  No literal,
+ * authored derived rows via the canon module's own constant. No literal,
  * no switch (data-driven lookup).
  * ------------------------------------------------------------------------- */
 static uint32_t resolve_rgb(int part)
@@ -182,10 +212,8 @@ static uint32_t resolve_rgb(int part)
 
 /* ---------------------------------------------------------------------------
  * flair_look_pixel_depth -- the resolution CORE (bitmap-only seam).
- * 8bpp -> the palette index byte; else -> packed 0x00RRGGBB.  For the two
- * derived bevel rows there is no index, so the 8bpp path nearest-maps the
- * derived RGB to a device-CLUT index (the canonical 8bpp quantize); this path
- * is currently unexercised by decoration (no bevel draw ships), but is total.
+ * 8bpp -> the palette index byte; else -> packed 0x00RRGGBB. Authored derived
+ * rows carry the registry-sanctioned indexed fallback alongside their exact RGB.
  * ------------------------------------------------------------------------- */
 uint32_t flair_look_pixel_depth(uint32_t bpp, int part)
 {
@@ -193,24 +221,16 @@ uint32_t flair_look_pixel_depth(uint32_t bpp, int part)
         (part >= 0 && part < (int)FLAIR_PART__COUNT) ? &flair_part_map[part] : 0;
 
     if (bpp == 8u) {
-        /* 8bpp destination writes the palette index low byte (OD-2). The 9
-         * indexed parts ARE canon indices; the derived bevel rows have none, so
-         * fall back to their light/shadow index neighbour where exact (bevel
-         * light == idx2 teal) and CIDX_TITLE_INK otherwise.  The 8bpp bevel
-         * path IS now exercised: the close/zoom box gadget (chrome.c cbox,
-         * beads initech-ts3t) draws BEVEL_LIGHT (-> idx2 teal) + BEVEL_SHADOW
-         * (-> idx4) for its 3-D double bevel; the title bevel (initech-92li)
-         * will too. */
+        /* 8bpp writes the row's role-specific fallback index (OD-2). Existing
+         * BEVEL_SHADOW preserves its old black-valued CIDX_TITLE_INK fallback.
+         * The pulled menu title uses existing idx2 teal because the exact
+         * darkened-teal derived RGB has no indexed slot and DEC-10 OQ-3 forbids
+         * accreting one. Direct-color output preserves #4E9BA3 exactly. The
+         * pulled-title host oracle grades both depths (bead initech-sjvq). */
         if (row == 0) {
             return (uint32_t)CIDX_BLACK;
         }
-        if (!row->derived) {
-            return (uint32_t)row->idx;
-        }
-        /* derived: bevel_light renders identically to idx2 teal (same value). */
-        return (part == FLAIR_PART_BEVEL_LIGHT)
-                   ? (uint32_t)CIDX_DESKTOP
-                   : (uint32_t)CIDX_TITLE_INK;
+        return (uint32_t)row->idx;
     }
 
     return surface_pack_rgb(bpp, 0, 0, 0) | resolve_rgb(part);
