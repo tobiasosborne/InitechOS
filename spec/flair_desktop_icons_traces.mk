@@ -36,10 +36,10 @@
 # advances + 2*FINDER_LABEL_PAD_X, centered on the sprite, clamped into bounds --
 # evaluated over the LOCKED spec/assets/geneva9.h strike: "INITECH" measures 41
 # px -> band 47 wide -> (577..624); "Trash" measures 28 px -> band 34 wide ->
-# (583..617). NOTE for a later reader: finder_desktop.h's header comment quotes
-# the Trash label as (583,438)..(627,451); 627 is a stale right edge -- the width
-# is 34, not 44. The traces below depend only on the SPRITE columns [584,616),
-# which lie inside every one of these bands, so the nit is inert here.)
+# (583..617). NOTE: an earlier lane REPORT (not the shipped header -- checked)
+# quoted the Trash label with a stale right edge of 627; the width is 34, not
+# 44. The traces below depend only on the SPRITE columns [584,616), which lie
+# inside every one of these bands, so the nit was inert either way.)
 # Derived cell (hit + damage) rects, sprite UNION label bbox:
 #   VOLUME cell (577,48)..(624,95)     TRASH cell (583,404)..(617,451)
 #
