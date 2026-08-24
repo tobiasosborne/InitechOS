@@ -177,7 +177,33 @@ STAGE2_SECTORS  := 16
 # PROGRAM_BASE 0x40000). IMG_MIN = 1+16+352 = 369 <= IMG_SECTORS=384, so the
 # 6-cyl image geometry is UNCHANGED (only stage2's INT 13h read count grows);
 # still a Rule-5 obligation -- re-ran make test-boot-bochs + test-flair-desktop-bochs.
-KERNEL_SECTORS  := 352
+# BUMPED 352 -> 384 for bead initech-uzjc (R3.2 aftermath / R3.3+R3.5 runway).
+# 384 is NOT an arbitrary round number: it is the RATIFIED CEILING of the disk
+# window. docs/design/kernel-runway-relocation.md K2 fixes the real-mode load at
+# KERNEL_BOUNCE_BASE=0x10000 and caps it at KERNEL_BOUNCE_CAP=0x30000 so the
+# bounce ends EXACTLY at PROGRAM_BASE=0x40000 exclusive; 0x30000 / 512 = 384
+# sectors, and the design doc states it outright ("At 384 the disk window equals
+# the bounce; further image growth is the routine KERNEL_SECTORS/IMG_SECTORS bump
+# *plus* a bounce-policy decision"). PROGRAM_BASE cannot rise further either --
+# spec/memory_map.h records 0x40000 as "the MAXIMUM PROGRAM_BASE raise possible
+# under the conventional-memory layout". So this bump SPENDS THE LAST 32 SECTORS
+# (16 KiB) of headroom the ratified boot policy has to give, and is deliberately
+# taken in one step rather than in two 16-sector nibbles: every KERNEL_SECTORS
+# change rewrites EVERY image's on-disk bytes and stage2's INT 13h read count,
+# which is a Rule-5 tri-emulator obligation each time. A LARGER window (e.g. the
+# 512 sectors that would be the naive "double it") is NOT available without
+# redesigning the real-mode load (staged copy-up / unreal mode) -- that is a
+# separate, ratified decision, and the parse-time bounce guard below fails it
+# loud rather than letting it boot-corrupt the program window.
+# Window: 384*512 = 196,608 B (192 KiB). Loaded sizes at the bump (measured):
+# kernel_flairtenants.bin 150,021 (headroom 30,203 -> 46,587), kernel_flairshell
+# 129,770, kernel_shell 108,587. IMG_MIN = 1+16+384 = 401 > IMG_SECTORS=384, so
+# the image geometry DOES move this time: 384 -> 448 (7 cyl; see IMG_SECTORS).
+# MUST equal the stage2.asm KERNEL_SECTORS equate (stage2.asm now also carries a
+# nasm-time %error guard against the bounce cap, so the pair fails loud on both
+# sides). Rule-5 obligation discharged: test-boot-bochs + test-flair-desktop-bochs
+# + test-flair-appswitch-bochs + test-flair-desktop-icons-bochs re-run green.
+KERNEL_SECTORS  := 384
 # Optimisation level for the objects linked ONLY into the FLAIRTENANTS kernels
 # (kmain_flairtenants*.o, process.o, ref_tenant.o, desktop_db.o, finder_icon.o,
 # finder_desktop.o). Bead initech-tdnl.9: the R3.2 DesktopMgr added ~11 KiB to a
@@ -217,7 +243,12 @@ endif
 # FLAIR Manager link) the raw image is 1+16+320 = 337 sectors > 256, so IMG_SECTORS
 # grows to 384 (6 cyl, a multiple of 64; 384 >= 337). BOOT-GEOMETRY change =
 # tri-emulator obligation (Rule 5): re-run `make test-boot-bochs`.
-IMG_SECTORS     := 384
+# At KERNEL_SECTORS=384 (initech-uzjc, the bounce-cap ceiling bump) the raw image
+# is 1+16+384 = 401 sectors > 384, so IMG_SECTORS grows to 448 (7 cyl, a multiple
+# of 64; 448 >= 401 = 229,376 B). Since KERNEL_SECTORS is now AT its ratified
+# ceiling, 448 is the terminal image geometry under the current boot policy.
+# BOOT-GEOMETRY change = tri-emulator obligation (Rule 5): re-ran the Bochs legs.
+IMG_SECTORS     := 448
 # Build-time geometry + capacity guard (Rule 2 fail-loud): prevents the QEMU-green /
 # Bochs-broken IMG_SECTORS regression from recurring.
 IMG_MIN_SECTORS := $(shell expr 1 + $(STAGE2_SECTORS) + $(KERNEL_SECTORS))
@@ -7392,8 +7423,17 @@ factory: $(SMOKE_BIN) $(SEED_BIN) $(HARNESS_BIN) $(BOCHS_BIN) $(HARNESS_FIXTURES
 $(MBR_BIN): $(MBR_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
 
-$(STAGE2_BIN): $(STAGE2_ASM) | $(BUILD)
-	$(NASM) -f bin $< -o $@
+# stage2 duplicates KERNEL_SECTORS as a NASM equate (nasm cannot read the
+# Makefile, and the real-mode INT 13h read count must be a link-time constant).
+# For eight bumps that pairing was PROSE ("MUST equal the stage2.asm equate") --
+# exactly the kind of hand-kept invariant Rule 8 says to mechanise. Bead
+# initech-uzjc turns it into a fail-loud assembly-time gate: we hand nasm the
+# Makefile's value and stage2.asm %error's if it is missing OR unequal. The
+# Makefile is a prerequisite so editing KERNEL_SECTORS actually re-assembles
+# stage2 and re-runs the check (without it the stale stage2.bin would keep the
+# old read count and silently truncate or over-read the kernel window).
+$(STAGE2_BIN): $(STAGE2_ASM) Makefile | $(BUILD)
+	$(NASM) -f bin -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
 
 # Assemble the raw disk image deterministically:
 #   sector 0       : MBR (512 bytes)

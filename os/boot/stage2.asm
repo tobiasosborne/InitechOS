@@ -87,7 +87,7 @@ FONT_STASH      equ 0x1000      ; 4096-byte VGA ROM 8x16 font copy
 ;    s17.. (Makefile). KERNEL_SECTORS is generous + deterministic (the Makefile
 ;    pads the kernel binary to exactly this many sectors). CHS geometry matches
 ;    what SeaBIOS presents for the raw image (the MBR already reads track 0).
-KERNEL_SECTORS    equ 352       ; 352 * 512 = 176 KiB kernel window (bumped 64->80
+KERNEL_SECTORS    equ 384       ; 384 * 512 = 192 KiB kernel window (bumped 64->80
                                 ; for 509.11, 80->96 for 509.2 SYSINIT, 96->112
                                 ; for 509.6 -- mcb.o now links into every kernel;
                                 ; 112->128 for u6wa -- MKDIR/RMDIR (AH=39h/3Ah);
@@ -108,9 +108,45 @@ KERNEL_SECTORS    equ 352       ; 352 * 512 = 176 KiB kernel window (bumped 64->
                                 ; drop shadow + close/zoom box + scrollbar glyphs + title bevel)
                                 ; grew kernel_shell.bin to 163,960 bytes, 120 B past the 320 window;
                                 ; ends 0x3C000 < PROGRAM_BASE (0x40000); IMG geometry unchanged;
+                                ; 352->384 for uzjc -- R3.3/R3.5 runway; 384 is the RATIFIED
+                                ; CEILING, not a round number: the real-mode load fills
+                                ; [KERNEL_BOUNCE_BASE, KERNEL_BOUNCE_BASE+KERNEL_BOUNCE_CAP)
+                                ; = [0x10000, 0x40000) and 0x30000/512 = 384, so the window
+                                ; now ends EXACTLY at PROGRAM_BASE exclusive (design K2:
+                                ; "at 384 the disk window equals the bounce"). Growing past
+                                ; this needs a bounce-policy redesign, not an equate edit;
+                                ; the %if below fails that loud at assembly time.
+                                ; IMG_SECTORS moves 384->448 (7 cyl) to fit 1+16+384=401.
                                 ; MUST equal Makefile; <=384 sectors so the low
                                 ; bounce cannot cross PROGRAM_BASE, per design K2 /
                                 ; bead initech-tdnl.29)
+
+; Assembly-time bounce-capacity guard (CLAUDE.md Rule 2 fail-loud; bead
+; initech-uzjc). The Makefile carries the same invariant as a parse-time
+; $(error), but the two KERNEL_SECTORS values are hand-kept equal, so the
+; stage2 side must refuse an over-cap equate on its own -- otherwise a
+; stage2-only edit would silently make the real-mode load overrun
+; PROGRAM_BASE and shred the program window before the kernel ever runs.
+; This also makes KERNEL_BOUNCE_CAP load-bearing rather than decorative.
+%if (KERNEL_SECTORS * 512) > KERNEL_BOUNCE_CAP
+  %error "KERNEL_SECTORS exceeds KERNEL_BOUNCE_CAP: the real-mode kernel load would overrun PROGRAM_BASE (0x40000). Extend the bounce policy (docs/design/kernel-runway-relocation.md K2) before growing the disk window."
+%endif
+
+; Assembly-time MAKEFILE-PARITY gate (Rule 8 -- mechanise the hand-kept
+; invariant; bead initech-uzjc). The Makefile pads each kernel .bin to exactly
+; ITS KERNEL_SECTORS and stage2 reads exactly THIS one; if they drift, the boot
+; either truncates the kernel (loses code, fails in some later, unrelated-looking
+; way) or over-reads past the padded window. Through eight bumps this was kept
+; equal by a comment. The Makefile now passes its value as MK_KERNEL_SECTORS
+; (see the $(STAGE2_BIN) rule) and we refuse to assemble on absence or drift --
+; absence is an error too, so a build path that forgets the -D cannot silently
+; skip the check (Law 2: a gate that can be skipped is not a gate).
+%ifndef MK_KERNEL_SECTORS
+  %error "MK_KERNEL_SECTORS not defined: stage2 must be assembled by the Makefile rule so its KERNEL_SECTORS equate can be checked against the Makefile's KERNEL_SECTORS."
+%elif MK_KERNEL_SECTORS != KERNEL_SECTORS
+  %error "KERNEL_SECTORS MISMATCH: the Makefile's KERNEL_SECTORS (MK_KERNEL_SECTORS) differs from this stage2.asm equate. Bump BOTH -- the Makefile pads the kernel .bin to its value and stage2's INT 13h loop reads this one."
+%endif
+
 KERNEL_LBA        equ 17        ; first kernel sector (1+16)
 ; SPT / heads are QUERIED at runtime via INT 13h AH=08h (geometry varies by
 ; emulator + image size); see the kernel-load block below.
