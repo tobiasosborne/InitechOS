@@ -184,6 +184,15 @@ void desktop_paint_all(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
      * NULL clip == no additional clip (blitter draws the whole rect). */
     blitter_fill_rect_clipped(dst, wm->desktop_frame, desktop_px(dst), (const region_t *)0);
 
+    /* 1b. THE DESKTOP UNDERLAY (beads initech-tdnl.9; design F2.3 seam 1 /
+     * F2-4): immediately after the base fill, with THIS site's clip (NULL ==
+     * the whole desktop frame). desktop.c stays MECHANISM -- it names no color
+     * and knows no icon; the Finder's painter does. NULL hook == every
+     * non-Finder build is byte-identical (window.h). */
+    if (wm->desktop_underlay != NULL) {
+        wm->desktop_underlay(wm->desktop_underlay_user, dst, (const region_t *)0);
+    }
+
     /* 2. Paint every visible window BACK-to-FRONT, each clipped to its visible
      * region (the chrome drawer clips to visRgn INTERSECT clipRgn; we pass
      * visible(W) as both, so the effective clip is exactly visible(W)). */
@@ -239,6 +248,16 @@ void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
         blitter_fill_rect_clipped(dst, dbb, bg, wm->desktop_update);
     }
 #endif
+
+    /* 1b. THE DESKTOP UNDERLAY (beads initech-tdnl.9; design F2.3 seam 1 /
+     * F2-4): immediately after the base fill, clipped to EXACTLY the desktop
+     * damage this call just serviced -- so an icon partially covered by a
+     * window edge is clipped to pixels no window owns and can never paint over
+     * chrome. An empty desktop_update means no bare-desktop pixel changed, so
+     * there is nothing for the underlay to redraw either. */
+    if (wm->desktop_underlay != NULL && !region_is_empty(wm->desktop_update)) {
+        wm->desktop_underlay(wm->desktop_underlay_user, dst, wm->desktop_update);
+    }
 
     /* 2. Redraw each VISIBLE window with a NON-EMPTY updateRgn, clipped to
      * visible(W) INTERSECT updateRgn (ONLY the damaged part of that window). */

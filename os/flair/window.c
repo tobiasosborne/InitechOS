@@ -519,6 +519,12 @@ void WindowMgr_init(WindowMgr *wm, rgn_rect_t desktop_frame,
                                   * it (initech-pipa). MUST be zeroed: fronts_union
                                   * dereferences it only when non-NULL -- an
                                   * uninitialized pointer is UB (Rule 2). */
+    /* No desktop underlay until a caller installs one (beads initech-tdnl.9;
+     * window.h WindowMgr.desktop_underlay). MUST be zeroed for the same reason
+     * as overlay_rgn: desktop.c calls it only when non-NULL, and a NULL hook is
+     * what keeps every non-Finder build byte-identical. */
+    wm->desktop_underlay      = NULL;
+    wm->desktop_underlay_user = NULL;
     region_set_empty(desktop_update);
     region_set_empty(scratch_a);
     region_set_empty(scratch_b);

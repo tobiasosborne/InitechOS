@@ -78,6 +78,13 @@
                                   * flair_app_dispatch, flair_route_updates (-Ios/flair)*/
 #include "ref_tenant.h"          /* hello_procs / notes_procs (-Ios/apps)            */
 #include "flair_tenants_demo.h"  /* FLAIR_TEN_* demo layout + budget (-Ispec)        */
+#include "finder_desktop.h"      /* R3.2 DesktopMgr: the Finder shell tenant, the
+                                  * pure gesture trackers, the desktop-icon
+                                  * underlay + the DESKTOP.DB record codec
+                                  * (bead initech-tdnl.9; -Ios/flair)               */
+#include "finder_cmd.h"          /* FinderCtx -- selection_count is fed from the
+                                  * DesktopMgr so tdnl.12's menu enablement reads
+                                  * live state the moment it is wired (-Ios/flair)  */
 
 /* NOTES owns a static-lifetime SimpleText-flavored menu fixture. Ref: bead
  * initech-7tjp; spec/flair_tenants_demo.h (titles/items/ID range); PRD Sec 1.1 /
@@ -2329,6 +2336,112 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
 #endif /* BOOT_FLAIR_LIVE */
 
 #if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
+/* ===========================================================================
+ * R3.2 DESKTOP MANAGER live glue (bead initech-tdnl.9; design
+ * docs/design/GUI-remediation-R3-finder-design.md F1/F2).
+ *
+ * kmain stays the thin source/sink adapter (BC-1): every gesture DECISION is
+ * made by the pure trackers in os/flair/finder_desktop.c, which the host oracle
+ * (harness/proptest/test_finder_desktop.c) grades without an emulator. What
+ * lives HERE is exactly the three things that cannot live in Layer 3/5:
+ *   (a) the serial markers (os/flair files never call serial_puts),
+ *   (b) the FAT commit of \DESKTOP.DB (os/flair may not include os/milton), and
+ *   (c) the save-under feedback loop, which needs the live offscreen + present.
+ * ===========================================================================*/
+
+/* The Finder tenant's DATA-arena budget. The RECORDS arena (which holds the
+ * finder_desk_t + the fixed icon array, design F1.1) uses the App Contract's
+ * FLAIR_TENANT_RECORDS_DEFAULT; the DATA arena is unused this slice but must be
+ * non-zero (FlairProcess_launch carves all three blocks or none, BC-5). */
+#define FLAIR_FINDER_BUDGET  (4u * 1024u)
+
+static finder_desk_t        *g_finder_desk;    /* the Finder tenant's model    */
+static finder_click_track_t  g_finder_click;   /* the double-click synthesiser */
+static int                   g_finder_db_dirty;/* positions changed since save */
+
+/* The tdnl.12 command context. Only `selection_count` is meaningful this slice
+ * (the menu bar and finder_dispatch arrive with tdnl.12); it is kept live here
+ * so the enablement predicates read real state the moment they are wired. */
+static FinderCtx             g_finder_ctx;
+
+/* The mounted volume handles, captured at mount time so a drop can rewrite
+ * \DESKTOP.DB without re-walking the bring-up. NULL volume == no persistence
+ * (the desktop still works with in-memory positions; design F1.3). */
+static const fat12_volume_t *g_finder_vol;
+static void                 *g_finder_fat;
+static uint32_t              g_finder_fat_len;
+static void                 *g_finder_secbuf;
+static uint8_t               g_finder_clusbuf[BLOCKDEV_SECTOR_SIZE];
+static char                  g_finder_vol_label[12];
+static uint8_t               g_finder_db_buf[FINDER_DB_MAX_BYTES];
+
+static int finder_abs(int v) { return v < 0 ? -v : v; }
+
+/* Commit the icon positions when (and only when) something actually moved. A
+ * boot with no drag writes NOTHING, so every existing gate's disk image and
+ * serial stream are unchanged. Design F1.3: a write failure is the one loud
+ * case, and the session continues with in-memory positions. */
+static void finder_desk_persist(void)
+{
+    uint32_t len;
+    int rc;
+
+    if (!g_finder_db_dirty || g_finder_desk == (finder_desk_t *)0) return;
+    g_finder_db_dirty = 0;
+    if (g_finder_vol == (const fat12_volume_t *)0) {
+        serial_puts("DESKTOP-DB-WRITE-FAIL rc=0 no-volume\n");
+        return;
+    }
+    len = finder_desk_db_encode(g_finder_desk, g_finder_db_buf,
+                                (uint32_t)sizeof g_finder_db_buf);
+    if (len == 0u) {
+        /* The buffer is sized from the SAME fixed cap the record array is, so a
+         * zero here is a programming error, not a disk condition (Rule 2). */
+        serial_puts("PANIC finder-desktop: DESKTOP.DB encode overflow\nHALTED\n");
+        for (;;) { __asm__ __volatile__("cli; hlt"); }
+    }
+    rc = desktop_db_write(g_finder_vol, g_finder_fat, g_finder_fat_len,
+                          g_finder_secbuf, g_finder_clusbuf,
+                          g_finder_db_buf, len);
+    if (rc == FAT12_OK) {
+        serial_puts("DESKTOP-DB-SAVE n=");
+        serial_putu((uint32_t)g_finder_desk->n);
+        serial_putc('\n');
+    } else {
+        serial_puts("DESKTOP-DB-WRITE-FAIL rc=");
+        serial_puti((int32_t)rc);
+        serial_putc('\n');
+    }
+}
+
+/* Restore saved icon positions at Finder open. An absent / unreadable / corrupt
+ * DB is NOT fatal: the defaults stand and the reason goes to serial (F1.3
+ * "regenerate-default, loudly"). The 8-byte header the tdnl.8 bootstrap writes
+ * on a fresh volume parses as zero records, which is the silent normal path. */
+static void finder_desk_load_positions(void)
+{
+    uint32_t len = 0u;
+    int rc;
+
+    if (g_finder_desk == (finder_desk_t *)0 ||
+        g_finder_vol == (const fat12_volume_t *)0) return;
+
+    rc = desktop_db_read(g_finder_vol, g_finder_fat, g_finder_fat_len,
+                         g_finder_secbuf, g_finder_clusbuf,
+                         g_finder_db_buf, (uint32_t)sizeof g_finder_db_buf,
+                         &len);
+    if (rc != FAT12_OK) {
+        serial_puts("DESKTOP-DB-POS-SKIP rc=");
+        serial_puti((int32_t)rc);
+        serial_putc('\n');
+        return;
+    }
+    if (finder_desk_db_apply(g_finder_desk, g_finder_db_buf, len) !=
+        FINDER_DB_OK) {
+        serial_puts("DESKTOP-DB-POS-REGEN\n");
+    }
+}
+
 /* Mount the flagship primary-slave volume BEFORE desktop construction. This
  * ordering makes storage a desktop-init prerequisite (R3 F1-2/F1-3) and lets
  * the Bochs 320x200 fail-loud leg prove MOUNT-OK before its later size guard.
@@ -2401,6 +2514,22 @@ static void flair_tenant_mount_volume(void)
             }
 
             loader_bind_fat_volume(&ften_vol, fat, fat_len);
+
+            /* R3.2 (bead initech-tdnl.9): capture the volume handles the
+             * Finder's DESKTOP.DB commit needs, and read the volume's LABEL off
+             * the disk itself for the volume icon (design F1.1) rather than
+             * hard-coding the image build's -v string. An unlabelled volume
+             * leaves the label empty, which renders as a bare band. */
+            g_finder_vol     = &ften_vol;
+            g_finder_fat     = fat;
+            g_finder_fat_len = fat_len;
+            g_finder_secbuf  = ften_secbuf;
+            if (desktop_db_volume_label(&ften_vol, ften_secbuf,
+                                        g_finder_vol_label,
+                                        (uint32_t)sizeof g_finder_vol_label) !=
+                FAT12_OK) {
+                g_finder_vol_label[0] = '\0';
+            }
         } else {
             serial_puts("FLAIR-FAT-BIND-FAIL rc=");
             serial_puti((int32_t)bind_rc);
@@ -2413,6 +2542,184 @@ static void flair_tenant_mount_volume(void)
     } else {
         serial_puts("FLAIR-FAT-MOUNT-FAIL\n");
     }
+}
+
+/* ---------------------------------------------------------------------------
+ * R3.2 desktop gestures: the inDesk arm of the live pump.
+ *
+ * Damage goes through the ONE entry point (design F2-4 seam 2):
+ * WindowMgr_invalidate_desktop per changed cell, then the standard DQ2 cycle
+ * (chrome -> content -> present). Icons are painted by the underlay inside
+ * desktop_paint_damage, clipped to exactly the desktop-owned damage.
+ * ------------------------------------------------------------------------- */
+static void finder_desk_sync_ctx(void)
+{
+    g_finder_ctx.selection_count =
+        (g_finder_desk != (finder_desk_t *)0)
+            ? finder_desk_selection_count(g_finder_desk) : 0u;
+}
+
+static void finder_desk_invalidate_all(flair_live_ctx_t *ctx)
+{
+    if (g_finder_desk == (finder_desk_t *)0) return;
+    for (int i = 0; i < (int)g_finder_desk->n; i++) {
+        WindowMgr_invalidate_desktop(ctx->wm,
+                                     finder_desk_cell_rect(g_finder_desk, i));
+    }
+}
+
+static void finder_desk_repaint(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_live_content_phase(ctx);
+    flair_desktop_present(bi, &ctx->off);
+}
+
+/* One desktop mouseDown, tracked to mouseUp (the flair_live_do_drag idiom:
+ * re-enter WaitNextEvent until release, bounded by a tick guard, Rule 11).
+ *
+ * Feedback is the R0.1 save-under outline -- there is no XOR blit in FLAIR
+ * (design F2-5) -- and it is drawn ONLY once the gesture passes the drag slop,
+ * so a plain click never touches a single pixel of the frame.
+ *
+ * The gesture CLASSIFICATION is entirely the pure trackers':
+ *   click on bare desktop   -> deselect all            FINDER-ICON-DESELECT-ALL
+ *   drag  on bare desktop   -> rubber band             FINDER-MARQUEE
+ *   click on an icon        -> select / shift-extend   FINDER-ICON-SELECT
+ *   double-click on an icon -> open (NYI this slice)   FINDER-OPEN-{VOLUME,TRASH}
+ *   drag  on an icon        -> reposition + persist    FINDER-ICON-DRAG
+ *   drag  on a fixed icon   -> refuse                  FINDER-ICON-DRAG-REVERT
+ */
+static void flair_live_do_desk(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               const EventRecord *ev)
+{
+    finder_desk_t *fd = g_finder_desk;
+    EventRecord    up;
+    flair_point_t  where0;
+    flair_point_t  where1;
+    uint32_t       guard;
+    rgn_rect_t     outline_now;
+    int            outline_live = 0;
+    int            moved = 0;
+    int            idx;
+    int16_t        dh = 0, dv = 0;
+
+    if (fd == (finder_desk_t *)0) return;
+
+    where0 = ev->where;
+    where1 = where0;
+    idx    = finder_desk_hit(fd, where0.h, where0.v);
+    guard  = flair_tick_count() + FLAIR_LIVE_DRAG_TRACK_TICKS;
+    outline_now.top = 0; outline_now.left = 0;
+    outline_now.bottom = 0; outline_now.right = 0;
+
+    for (;;) {
+        int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &up, 3u);
+        rgn_rect_t next;
+
+        flair_live_cursor_track(&up);
+        if (g) flair_live_emit_evt(&up);
+        where1 = up.where;
+        dh = (int16_t)(where1.h - where0.h);
+        dv = (int16_t)(where1.v - where0.v);
+
+        if (!moved &&
+            (finder_abs((int)dh) > FINDER_DRAG_SLOP ||
+             finder_abs((int)dv) > FINDER_DRAG_SLOP)) {
+            moved = 1;
+        }
+
+        if (moved) {
+            next = (idx >= 0)
+                 ? finder_desk_drag_outline(fd, idx, dh, dv)
+                 : finder_band_rect(where0.h, where0.v, where1.h, where1.v);
+            if (!outline_live || !flair_live_rect_same(next, outline_now)) {
+                if (outline_live) flair_live_outline_restore(&ctx->off);
+                flair_live_outline_draw(&ctx->off, next);
+                outline_now  = next;
+                outline_live = 1;
+                flair_desktop_present(bi, &ctx->off);
+            }
+        }
+
+        if (g && up.what == (uint16_t)mouseUp) break;
+        if (flair_tick_count() >= guard) break;
+    }
+
+    if (outline_live) {
+        flair_live_outline_restore(&ctx->off);
+        flair_desktop_present(bi, &ctx->off);
+    }
+
+    if (!moved && idx < 0) {
+        /* A click on bare desktop clears the selection. */
+        uint16_t before = finder_desk_selection_count(fd);
+        (void)finder_click_classify(&g_finder_click, -1, where0.h, where0.v,
+                                    ev->when);
+        finder_desk_deselect_all(fd);
+        if (before != 0u) {
+            finder_desk_invalidate_all(ctx);
+            finder_desk_repaint(ctx, bi);
+        }
+        serial_puts("FINDER-ICON-DESELECT-ALL\n");
+    } else if (!moved) {
+        /* A click on an icon: select (shift EXTENDS), or open on a double. */
+        finder_click_kind_t k =
+            finder_click_classify(&g_finder_click, (int16_t)idx,
+                                  where0.h, where0.v, ev->when);
+        if (k == FINDER_CLICK_DOUBLE) {
+            /* The preceding single already selected it; opening is the tdnl.10
+             * disk-window slice, so this slice announces the intent (Rule 2:
+             * loud on serial, never a silent no-op). */
+            serial_puts(fd->icons[idx].kind == (uint8_t)FINDER_ICON_TRASH
+                            ? "FINDER-OPEN-TRASH NYI\n"
+                            : "FINDER-OPEN-VOLUME NYI\n");
+        } else {
+            if ((ev->modifiers & (uint16_t)FLAIR_EVT_MOD_SHIFT_KEY) != 0u) {
+                finder_desk_select_extend(fd, idx);
+            } else {
+                finder_desk_select_only(fd, idx);
+            }
+            finder_desk_invalidate_all(ctx);
+            finder_desk_repaint(ctx, bi);
+            serial_puts("FINDER-ICON-SELECT name=");
+            serial_puts(fd->icons[idx].name);
+            serial_puts(" count=");
+            serial_putu((uint32_t)finder_desk_selection_count(fd));
+            serial_putc('\n');
+        }
+    } else if (idx < 0) {
+        /* A rubber band over bare desktop. */
+        uint16_t n = finder_desk_marquee_select(
+            fd, finder_band_rect(where0.h, where0.v, where1.h, where1.v));
+        finder_desk_invalidate_all(ctx);
+        finder_desk_repaint(ctx, bi);
+        serial_puts("FINDER-MARQUEE n=");
+        serial_putu((uint32_t)n);
+        serial_putc('\n');
+    } else {
+        /* An icon drag. */
+        rgn_rect_t old_cell, new_cell;
+        finder_drop_t drop = finder_desk_drag_commit(fd, idx, dh, dv,
+                                                     &old_cell, &new_cell);
+        if (drop == FINDER_DROP_MOVED) {
+            finder_desk_invalidate(ctx->wm, old_cell, new_cell);
+            finder_desk_repaint(ctx, bi);
+            serial_puts("FINDER-ICON-DRAG name=");
+            serial_puts(fd->icons[idx].name);
+            serial_puts(" x=");
+            serial_puti((int32_t)fd->icons[idx].x);
+            serial_puts(" y=");
+            serial_puti((int32_t)fd->icons[idx].y);
+            serial_putc('\n');
+            g_finder_db_dirty = 1;
+            finder_desk_persist();
+        } else if (drop == FINDER_DROP_REVERT) {
+            serial_puts("FINDER-ICON-DRAG-REVERT\n");
+        }
+    }
+
+    finder_desk_sync_ctx();
 }
 #endif
 
@@ -2730,8 +3037,9 @@ void kernel_main(void)
      * reach them; all behind FLAIR_LIVE_TENANTS so the non-tenant arms compile
      * byte-identically. */
     FlairProcessList ten_plist;
-    FlairApp        *ten_hello = (FlairApp *)0;
-    FlairApp        *ten_notes = (FlairApp *)0;
+    FlairApp        *ten_hello  = (FlairApp *)0;
+    FlairApp        *ten_notes  = (FlairApp *)0;
+    FlairApp        *ten_finder = (FlairApp *)0;   /* R3.2 shell tenant (tdnl.9) */
 #endif
     flair_desktop_run(&b, &ctx);
     serial_puts("FLAIR-DESKTOP\n");
@@ -2766,6 +3074,64 @@ void kernel_main(void)
      * master FLAIR heap and runs its open() into ctx.wm / ctx.off (ADR-0013 Sec 3.2);
      * the LAST launch becomes list->head == the foreground (process.c). */
     FlairProcessList_init(&ten_plist);
+
+    /* (1b) THE FINDER SHELL TENANT, LAUNCHED FIRST (bead initech-tdnl.9; design
+     * F2-1: "an always-resident, compiled-in App Contract tenant ... registered
+     * FIRST, before any guest tenant"). It owns the desktop surface only -- no
+     * window, no menubar THIS SLICE -- so:
+     *   - FlairProcess_launch's step (e) SelectWindow is skipped (windows NULL),
+     *   - the two guests launch AFTER it and HELLO still ends as list->head, so
+     *     the boot foreground and every locked band-2 gate are unchanged, and
+     *   - flair_app_dispatch routes nothing here (an inDesk hit returns before
+     *     the owner demux), so the desktop gestures are driven by the pump's
+     *     inDesk arm against the pure trackers.
+     * The Finder bar at rest (design F2-2 step 3) arrives deliberately at
+     * tdnl.12 with its own fresh operator-signed clip; installing one here would
+     * re-key every band-2 gate as a side effect.
+     *
+     * `bounds` is the USABLE desktop -- everything below BOTH menu bars -- and
+     * it is what finder_desk_open seeds the default icon placement from. */
+    {
+        rgn_rect_t db;
+        db.top    = (int16_t)(SHELL_MENUBAR2_TOP + FLAIR_MENUBAR_H);
+        db.left   = 0;
+        db.bottom = (int16_t)FLAIR_SCREEN_H;
+        db.right  = (int16_t)FLAIR_SCREEN_W;
+        ten_finder = FlairProcess_launch(&ten_plist, ctx.wm, &ctx.off, ctx.master,
+                                         &finder_desk_procs, "FINDER", db,
+                                         (uint32_t)FLAIR_TENANT_RECORDS_DEFAULT,
+                                         (uint32_t)FLAIR_FINDER_BUDGET);
+        if (ten_finder == (FlairApp *)0) {
+            serial_puts("PANIC flair-tenants: FINDER launch returned NULL "
+                        "(budget/heap exhausted)\nHALTED\n");
+            for (;;) { __asm__ __volatile__("cli; hlt"); }
+        }
+        g_finder_desk = finder_desk_of(ten_finder);
+        if (g_finder_desk == (finder_desk_t *)0) {
+            serial_puts("PANIC flair-tenants: FINDER has no desktop model\n"
+                        "HALTED\n");
+            for (;;) { __asm__ __volatile__("cli; hlt"); }
+        }
+        finder_click_reset(&g_finder_click);
+        /* The volume icon's label is the MOUNTED VOLUME'S label, read off the
+         * disk in flair_tenant_mount_volume (which ran before desktop build). */
+        {
+            int vidx = finder_desk_find_kind(g_finder_desk, FINDER_ICON_VOLUME);
+            if (vidx >= 0)
+                finder_desk_set_name(g_finder_desk, vidx, g_finder_vol_label);
+        }
+        /* Restore any saved positions BEFORE the underlay goes in, so the first
+         * composite already shows the user's arrangement (design F1.3). */
+        finder_desk_load_positions();
+        /* Design F2-4 seam 1: from here on, desktop.c draws the icon layer at
+         * BOTH of its background-fill sites, clipped to desktop-owned pixels. */
+        finder_desk_install_underlay(g_finder_desk, ctx.wm);
+        finder_desk_sync_ctx();
+        serial_puts("FINDER-DESKTOP-ICONS n=");
+        serial_putu((uint32_t)g_finder_desk->n);
+        serial_putc('\n');
+    }
+
     {
         rgn_rect_t hb, nb;   /* QuickDraw field order: top,left,bottom,right */
         hb.top = (int16_t)FLAIR_TEN_HELLO_T; hb.left   = (int16_t)FLAIR_TEN_HELLO_L;
@@ -3156,6 +3522,19 @@ void kernel_main(void)
                     /* NAMED MUTANT (Rule 6; initech-t1rv): restore the original
                      * y<FLAIR_MENUBAR_H-only test, leaving band 2 dead. */
 #endif
+                }
+
+                /* R3.2 DESKTOP GESTURES (bead initech-tdnl.9). A separate `if`
+                 * rather than another arm of the chain above so it survives the
+                 * KMAIN_MUT_MENU2_DEAD mutant (which compiles the band-2 arm
+                 * out) unchanged. FindWindow returns inDesk for the menu-bar
+                 * bands too -- they are an overlay, not windows -- so the y
+                 * guard keeps a bar click on the menu path where it belongs.
+                 * Before this slice inDesk fell through as a total no-op. */
+                if (chrome_pc == inDesk &&
+                    ev.where.v >= (int16_t)(SHELL_MENUBAR2_TOP +
+                                            FLAIR_MENUBAR_H)) {
+                    flair_live_do_desk(&ctx, &b, &ev);
                 }
             }
 

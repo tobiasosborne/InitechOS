@@ -158,6 +158,142 @@ int desktop_db_bootstrap(const fat12_volume_t *vol, void *fat,
 	return FAT12_OK;
 }
 
+/* ---------------------------------------------------------------------------
+ * PER-ICON RECORD I/O (beads initech-tdnl.9; design F1.3). See desktop_db.h for
+ * the layering rule: the 24-byte record codec is os/flair/finder_desktop.c's,
+ * the FAT read/write is here.
+ * ------------------------------------------------------------------------- */
+
+int desktop_db_read(const fat12_volume_t *vol, const void *fat,
+                    uint32_t fat_len, void *sector_buf, void *cluster_buf,
+                    void *out, uint32_t cap, uint32_t *out_len)
+{
+	dir_entry_t entry;
+	uint32_t got = 0u;
+	int rc;
+
+	if (vol == 0 || sector_buf == 0 || cluster_buf == 0 || out == 0 ||
+	    out_len == 0) {
+		return FAT12_ERR_NULL;
+	}
+	*out_len = 0u;
+
+	rc = fat12_find(vol, sector_buf, DESKTOP_DB_NAME, &entry);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if ((entry.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+		return FAT12_ERR_ACCESS;
+	}
+	if (entry.file_size > cap) {
+		return FAT12_ERR_BUFFER;
+	}
+	rc = fat12_read_file(vol, fat, fat_len, &entry, out, cap, cluster_buf,
+	                     &got);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	*out_len = got;
+	return FAT12_OK;
+}
+
+int desktop_db_write(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                     void *sector_buf, void *cluster_buf,
+                     const void *data, uint32_t len)
+{
+	dir_entry_t entry;
+	uint32_t slot = 0u;
+	int rc;
+
+	if (vol == 0 || sector_buf == 0 || cluster_buf == 0 || data == 0) {
+		return FAT12_ERR_NULL;
+	}
+	/* Refuse to commit a blob that the next boot would have to REGEN. */
+	if (len > DESKTOP_DB_MAX_BYTES ||
+	    desktop_db_validate(data, len, 0) != DESKTOP_DB_VALID) {
+		return FAT12_ERR_BUFFER;
+	}
+	rc = fat12_create(vol, fat, fat_len, DESKTOP_DB_NAME, DIR_ATTR_HIDDEN,
+	                  0u, sector_buf, cluster_buf, &entry, &slot);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	return fat12_write_file(vol, fat, fat_len, slot, data, len, sector_buf,
+	                        cluster_buf);
+}
+
+/* fat12_read_root_dir visitor: capture the first volume-label entry's raw 11
+ * name bytes. Returns non-zero to STOP the enumeration once found (the fat12.h
+ * callback contract); the entry is valid only for the call's duration, so the
+ * bytes are copied out here. */
+typedef struct desktop_db_label_ctx {
+	char    name[12];
+	uint8_t found;
+} desktop_db_label_ctx_t;
+
+static int desktop_db_label_cb(const dir_entry_t *e, void *user)
+{
+	desktop_db_label_ctx_t *ctx = (desktop_db_label_ctx_t *)user;
+	uint32_t i;
+
+	if (e == 0 || ctx == 0) {
+		return 0;
+	}
+	if ((e->attribute & DIR_ATTR_VOLLABEL) == 0u ||
+	    (e->attribute & DIR_ATTR_DIRECTORY) != 0u) {
+		return 0;
+	}
+	for (i = 0u; i < 8u; i++) {
+		ctx->name[i] = (char)e->filename[i];
+	}
+	for (i = 0u; i < 3u; i++) {
+		ctx->name[8u + i] = (char)e->extension[i];
+	}
+	ctx->name[11] = '\0';
+	/* Trailing-space trim: the 11 bytes are space padded on disk. */
+	for (i = 11u; i > 0u; i--) {
+		if (ctx->name[i - 1u] != ' ') {
+			break;
+		}
+		ctx->name[i - 1u] = '\0';
+	}
+	ctx->found = 1u;
+	return 1;   /* stop */
+}
+
+int desktop_db_volume_label(const fat12_volume_t *vol, void *sector_buf,
+                            char *out, uint32_t out_len)
+{
+	desktop_db_label_ctx_t ctx;
+	uint32_t i;
+	int rc;
+
+	if (vol == 0 || sector_buf == 0 || out == 0) {
+		return FAT12_ERR_NULL;
+	}
+	if (out_len < 12u) {
+		return FAT12_ERR_BUFFER;
+	}
+	for (i = 0u; i < 12u; i++) {
+		ctx.name[i] = '\0';
+	}
+	ctx.found = 0u;
+
+	rc = fat12_read_root_dir(vol, sector_buf, desktop_db_label_cb, &ctx);
+	/* The callback's non-zero early stop is propagated verbatim; only a real
+	 * error code (negative) is a failure. */
+	if (rc != FAT12_OK && rc != 1) {
+		return rc;
+	}
+	if (!ctx.found) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	for (i = 0u; i < 12u; i++) {
+		out[i] = ctx.name[i];
+	}
+	return FAT12_OK;
+}
+
 int desktop_trash_ensure(const fat12_volume_t *vol, void *fat,
 	                     uint32_t fat_len, void *sector_buf,
 	                     void *cluster_buf,

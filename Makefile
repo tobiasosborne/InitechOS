@@ -178,6 +178,20 @@ STAGE2_SECTORS  := 16
 # 6-cyl image geometry is UNCHANGED (only stage2's INT 13h read count grows);
 # still a Rule-5 obligation -- re-ran make test-boot-bochs + test-flair-desktop-bochs.
 KERNEL_SECTORS  := 352
+# Optimisation level for the objects linked ONLY into the FLAIRTENANTS kernels
+# (kmain_flairtenants*.o, process.o, ref_tenant.o, desktop_db.o, finder_icon.o,
+# finder_desktop.o). Bead initech-tdnl.9: the R3.2 DesktopMgr added ~11 KiB to a
+# tenants kernel that had ~7.5 KiB of the 352-sector (180,224 B) window left, so
+# the tenants-only objects are built optimised instead of growing the shared boot
+# geometry -- a KERNEL_SECTORS bump would change EVERY image's on-disk bytes and
+# stage2's INT 13h read count (a Rule-5 tri-emulator obligation) for a problem
+# that only one kernel has. -O1 rather than -Os on kmain: -Os trips a GCC
+# array-bounds FALSE POSITIVE on the fixed-address boot_info_t read
+# (bi->kernel_base, "source object is likely at address zero") and -Werror makes
+# that fatal; -O1 compiles clean and saves ~5 KiB. EVERY other kernel image
+# (BOOT_FLAIR_SHELL, plain BOOT_FLAIR_LIVE, the shell/diagnostic kernels) keeps
+# its previous flags and is byte-identical.
+KERNEL_TENANTS_OPT := -O1
 # High-kernel bounce capacity (docs/design/kernel-runway-relocation.md K2;
 # bead initech-tdnl.29). stage2's unchanged real-mode loop starts at
 # KERNEL_BOUNCE_BASE and may consume at most KERNEL_BOUNCE_CAP bytes, ending
@@ -7211,6 +7225,7 @@ endef
         test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
         test-finder-cmd test-finder-cmd-mutant \
+        test-finder-desktop test-finder-desktop-mutant \
         test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
         test-dialog test-dialog-mutant \
         test-chrome test-chrome-mutant \
@@ -7582,7 +7597,7 @@ $(KERNEL_FILEIO_OBJ): $(KERNEL_DIR)/fileio_fat.c $(KERNEL_DIR)/fileio_fat.h \
 # flagship family; the DOS and older FLAIR images stay byte-identical.
 $(KERNEL_DESKTOP_DB_OBJ): $(KERNEL_DESKTOP_DB_C) $(KERNEL_DIR)/desktop_db.h \
 				  $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_DESKTOP_DB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_DESKTOP_DB_C) -o $@
 
 KERNEL_DESKTOP_DB_MUT_SKIP_OBJ := $(BUILD)/desktop_db_mut_write_skip.o
 $(KERNEL_DESKTOP_DB_MUT_SKIP_OBJ): $(KERNEL_DESKTOP_DB_C) $(KERNEL_DIR)/desktop_db.h \
@@ -8964,13 +8979,26 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 # The App Contract dispatcher object (THE ARTIFACT; freestanding kernel build).
 KERNEL_PROCESS_OBJ := $(BUILD)/process.o
 $(KERNEL_PROCESS_OBJ): os/flair/process.c os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $@
 
 # The two reference tenants object (THE ARTIFACT; freestanding kernel build). Needs
 # -Ios/apps for ref_tenant.h and -Ispec for the shared demo contract.
 KERNEL_REF_TENANT_OBJ := $(BUILD)/ref_tenant.o
 $(KERNEL_REF_TENANT_OBJ): os/apps/ref_tenant.c os/apps/ref_tenant.h os/flair/process.h os/flair/window.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/flair_look.h spec/window_record.h spec/region_algebra.h spec/event_model.h spec/chrome_metrics.h spec/flair_tenants_demo.h spec/assets/color_canon.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/apps -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/apps/ref_tenant.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/apps -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/apps/ref_tenant.c -o $@
+
+# The R3.2 Finder DESKTOP MANAGER objects (THE ARTIFACT; freestanding kernel
+# build; bead initech-tdnl.9). finder_icon.o is the LOCKED 32x32 strike blitter
+# (landed with the strikes, never linked until now); finder_desktop.o is the
+# desktop model + pure trackers + the desktop-underlay painter. Both are linked
+# ONLY into the FLAIRTENANTS kernels, so every other image stays byte-identical.
+KERNEL_FINDER_ICON_OBJ := $(BUILD)/finder_icon.o
+$(KERNEL_FINDER_ICON_OBJ): os/flair/finder_icon.c os/flair/finder_icon.h os/flair/flair_look.h os/flair/surface.h spec/assets/desk_icons.h spec/region_algebra.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_icon.c -o $@
+
+KERNEL_FINDER_DESKTOP_OBJ := $(BUILD)/finder_desktop.o
+$(KERNEL_FINDER_DESKTOP_OBJ): os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
 
 # Bounded (gate) FLAIRTENANTS kernel: -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS. Adds
 # -Ios/apps for ref_tenant.h + the process/ref_tenant/demo prereqs the arm includes.
@@ -9014,11 +9042,11 @@ $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
-KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ)
+KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ)
 
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_OBJS)
@@ -9083,7 +9111,7 @@ KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
 $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
 # header as an explicit incremental-build prerequisite without repeating each
@@ -9092,7 +9120,7 @@ $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) \
 $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) \
 $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/cursor.h
 
-KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ)
+KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ)
 
 $(KERNEL_FLAIRTENANTS_INT_ELF): $(KERNEL_FLAIRTENANTS_INT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_INT_OBJS)
@@ -9172,8 +9200,8 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o
@@ -10955,6 +10983,69 @@ test-finder-cmd-mutant: $(TEST_FINDER_CMD_MUT_BYPASS) $(TEST_FINDER_CMD_MUT_SILE
 	@if $(TEST_FINDER_CMD_MUT_BYPASS) >/dev/null 2>&1; then printf '!!! test-finder-cmd-mutant FAIL: TABLE_BYPASS PASSED -- the both-paths-converge trace golden is decoration\n'; exit 1; else printf '>>> test-finder-cmd-mutant: green (TABLE_BYPASS correctly RED -- the src=key FINDER-CMD lines vanish)\n'; fi
 	@if $(TEST_FINDER_CMD_MUT_SILENT) >/dev/null 2>&1; then printf '!!! test-finder-cmd-mutant FAIL: SILENT_UNKNOWN PASSED -- the fail-loud unknown-command oracle is decoration\n'; exit 1; else printf '>>> test-finder-cmd-mutant: green (SILENT_UNKNOWN correctly RED -- FINDER-CMD-UNKNOWN vanishes)\n'; fi
 	@if $(TEST_FINDER_CMD_MUT_PRED) >/dev/null 2>&1; then printf '!!! test-finder-cmd-mutant FAIL: PRED_STUCK_ENABLED PASSED -- the enablement-predicate oracle is decoration\n'; exit 1; else printf '>>> test-finder-cmd-mutant: green (PRED_STUCK_ENABLED correctly RED -- disabled commands run their handler)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-finder-desktop (beads initech-tdnl.9; docs/design/
+# GUI-remediation-R3-finder-design.md F1.1/F1.2/F1.3 + F2.2/F2.3/F2-4/F2-5) --
+# the HOST oracle for the R3.2 Finder DESKTOP MANAGER (os/flair/finder_desktop.c).
+#
+# Two halves, both graded against HAND-AUTHORED expectations (Law 2 / HER-02):
+#   (1) the PURE trackers -- default icon placement (the emu no-go set locked in
+#       source so a relocation goes RED here, not three hours later in QEMU),
+#       label geometry, sprite-UNION-label hit testing with topmost-wins,
+#       selection / shift-extend / click-away, marquee selected sets over a
+#       hand-authored layout including both half-open edge cases, double-click
+#       synthesis streams (20 ticks + 4 px slop), drag commit/clamp/revert, and
+#       the DESKTOP.DB 24-byte record codec against a 56-byte hand-written image;
+#   (2) the COMPOSED DESKTOP -- a real WindowMgr + window on a host bitmap,
+#       rendered TWICE (underlay installed vs not) so the difference set itself
+#       is the assertion: zero differing pixels inside the window's structure
+#       region, every differing pixel inside the icon's cell rect, and the two
+#       runs of the same scene byte-identical (Rule 11).
+#
+# Mutants (-D on the IMPLEMENTATION TU, never the golden): DBLTICK_OFF,
+# MARQUEE_OFFBYONE, NO_UNDERLAY.
+# ---------------------------------------------------------------------------
+TEST_FINDER_DESK              := $(BUILD)/test_finder_desktop
+TEST_FINDER_DESK_SRC          := harness/proptest/test_finder_desktop.c
+TEST_FINDER_DESK_MUT_DBL      := $(BUILD)/test_finder_desktop_mutant_dbltick_off
+TEST_FINDER_DESK_MUT_BAND     := $(BUILD)/test_finder_desktop_mutant_marquee_offbyone
+TEST_FINDER_DESK_MUT_UNDERLAY := $(BUILD)/test_finder_desktop_mutant_no_underlay
+FINDER_DESK_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
+FINDER_DESK_LINK := os/flair/finder_desktop.c os/flair/finder_icon.c \
+                    os/flair/window.c os/flair/desktop.c os/flair/blitter.c \
+                    os/flair/surface.c os/flair/heap.c \
+                    $(CHROME_DRAWER_C) $(REGION_ENGINE_C) $(FLAIRLOOK_C)
+FINDER_DESK_DEPS := $(TEST_FINDER_DESK_SRC) os/flair/finder_desktop.h \
+                    os/flair/finder_icon.h os/flair/window.h os/flair/desktop.h \
+                    os/flair/process.h os/flair/text.h os/flair/blitter.h \
+                    os/flair/surface.h os/flair/heap.h $(CHROME_DRAWER_H) \
+                    $(FLAIRLOOK_H) $(REGION_ENGINE_H) \
+                    spec/assets/desk_icons.h spec/assets/geneva9.h \
+                    spec/region_algebra.h spec/window_record.h spec/grafport.h \
+                    spec/imaging.h spec/chrome_metrics.h
+
+$(TEST_FINDER_DESK): $(FINDER_DESK_DEPS) $(FINDER_DESK_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_DESK_INC) -o $@ $(TEST_FINDER_DESK_SRC) $(FINDER_DESK_LINK)
+$(TEST_FINDER_DESK_MUT_DBL): $(FINDER_DESK_DEPS) $(FINDER_DESK_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_DESK_MUT_DBLTICK_OFF $(FINDER_DESK_INC) -o $@ $(TEST_FINDER_DESK_SRC) $(FINDER_DESK_LINK)
+$(TEST_FINDER_DESK_MUT_BAND): $(FINDER_DESK_DEPS) $(FINDER_DESK_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_DESK_MUT_MARQUEE_OFFBYONE $(FINDER_DESK_INC) -o $@ $(TEST_FINDER_DESK_SRC) $(FINDER_DESK_LINK)
+$(TEST_FINDER_DESK_MUT_UNDERLAY): $(FINDER_DESK_DEPS) $(FINDER_DESK_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_DESK_MUT_NO_UNDERLAY $(FINDER_DESK_INC) -o $@ $(TEST_FINDER_DESK_SRC) $(FINDER_DESK_LINK)
+
+test-finder-desktop: $(TEST_FINDER_DESK)
+	@printf ">>> test-finder-desktop: R3.2 DesktopMgr -- default placement, label geometry, hit/selection/marquee/double-click/drag trackers, hand-authored DESKTOP.DB bytes, and the composed-desktop underlay seam\n"
+	@$(TEST_FINDER_DESK)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(FINDER_DESK_INC) -c os/flair/finder_desktop.c -o $(BUILD)/finder_desktop_freestanding.o \
+		|| { printf '!!! test-finder-desktop FAIL: finder_desktop.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-finder-desktop: green\n"
+
+test-finder-desktop-mutant: $(TEST_FINDER_DESK_MUT_DBL) $(TEST_FINDER_DESK_MUT_BAND) $(TEST_FINDER_DESK_MUT_UNDERLAY)
+	@printf ">>> test-finder-desktop-mutant: confirming all three DesktopMgr mutants go RED (Rule 6)\n"
+	@if $(TEST_FINDER_DESK_MUT_DBL) >/dev/null 2>&1; then printf '!!! test-finder-desktop-mutant FAIL: DBLTICK_OFF PASSED -- the double-click synthesis oracle is decoration\n'; exit 1; else printf '>>> test-finder-desktop-mutant: green (DBLTICK_OFF correctly RED -- every double degrades to two singles)\n'; fi
+	@if $(TEST_FINDER_DESK_MUT_BAND) >/dev/null 2>&1; then printf '!!! test-finder-desktop-mutant FAIL: MARQUEE_OFFBYONE PASSED -- the hand-authored marquee selected sets are decoration\n'; exit 1; else printf '>>> test-finder-desktop-mutant: green (MARQUEE_OFFBYONE correctly RED -- the band loses its own edge pixel)\n'; fi
+	@if $(TEST_FINDER_DESK_MUT_UNDERLAY) >/dev/null 2>&1; then printf '!!! test-finder-desktop-mutant FAIL: NO_UNDERLAY PASSED -- the composed-desktop render leg is decoration\n'; exit 1; else printf '>>> test-finder-desktop-mutant: green (NO_UNDERLAY correctly RED -- the icons never reach the frame)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -21163,6 +21254,7 @@ TEST_UNIT_GATES := \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
 	test-finder-cmd test-finder-cmd-mutant \
+	test-finder-desktop test-finder-desktop-mutant \
 	test-interact test-interact-mutant \
 	test-process test-process-mutant test-process-mutant-build \
 	test-process-teardown test-process-teardown-mutant \

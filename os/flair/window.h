@@ -119,6 +119,31 @@ typedef struct WindowMgr {
      * survival oracle (initech-dc4v, flair_live_mut_overlay.img) goes RED. NEVER
      * define in a real build. */
     region_t   *overlay_rgn;    /* always-on-top occluder (bars + modal); may be NULL */
+
+    /* THE DESKTOP UNDERLAY (beads initech-tdnl.9; design
+     * docs/design/GUI-remediation-R3-finder-design.md F2.3 seam 1 / F2-4). An
+     * OPTIONAL caller-supplied callback invoked by os/flair/desktop.c
+     * IMMEDIATELY AFTER its base desktop-background fill, at BOTH fill sites
+     * (desktop_paint_all with a NULL clip, desktop_paint_damage with
+     * wm->desktop_update), receiving THAT site's clip. It exists so the Finder
+     * can draw the desktop icon layer without desktop.c learning what an icon
+     * is: desktop.c stays C-8 MECHANISM (it still names no color and knows no
+     * sprite; it just gained one indirection, exactly as overlay_rgn was added
+     * as an occluder hook above).
+     *
+     * CORRECTNESS: icons drawn here are UNDER windows BY CONSTRUCTION, because
+     * the clip only ever contains pixels no window owns (the damage model
+     * assigns exposed pixels to frontmost-window updateRgns or desktop_update,
+     * and ComputeVisible excludes fronts). The DRAG_MUTATE_NO_CLIP mutant class
+     * already proves that clip is load-bearing; the underlay inherits it.
+     *
+     * NULL == no underlay (every host harness, the static BOOT_FLAIR_SHELL
+     * scene, the plain BOOT_FLAIR_LIVE arm): the call is then skipped and those
+     * builds are byte-identical. WindowMgr_init zeroes both fields; the manager
+     * owns no storage (Law 3) and `user` is passed back untouched. */
+    void      (*desktop_underlay)(void *user, const bitmap_t *dst,
+                                  const region_t *clip);
+    void       *desktop_underlay_user;
 } WindowMgr;
 
 /* ===========================================================================
