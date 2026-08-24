@@ -124,20 +124,22 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
  * Geometry: scrollbars.md Sec 1. ENABLED: Sec 2. DISABLED: Sec 3.
  * HOLLOW: Sec 4. State summary: Sec 5.
  *
- * Scene choice: flair_draw_document_window has no content-range input and the
- * active skeleton window requests no thumb, matching the DISABLED Finder
- * capture s8_doc_window_active (Sec 3). The hilited=0 skeleton window matches
- * HOLLOW s8_doc_window_inactive (Sec 4). ENABLED constants remain locked for
- * the later stateful control leg but are not guessed into this scene.
+ * Scene choice: the active window gutter uses the ENABLED well/tile anatomy
+ * but deliberately has no thumb: Window Manager has no scroll-position model
+ * until R1.5 / initech-tdnl.4.  This composition is an explicit product-state
+ * substitution; each rendered element is still independently sampled from the
+ * Sec 2 enabled capture.  The hilited=0 gutter remains the exact HOLLOW Sec 4
+ * state.  Stateful enabled/disabled thumbs are graded in test-control.
  */
 #define FG_SB_BAND                    16
 #define FG_SB_INTERIOR                14
 #define FG_SB_ARROW_TILE              16
 #define FG_SB_SEPARATOR_ROWS           1
 #define FG_SB_THUMB_MIN               15
-/* The gutter outer-top line coincides with title row T+21; T+22 is trough. */
+/* The gutter outer-top line coincides with title row T+21; T+22 is the
+ * enabled arrow tile's white highlight row. */
 #define FG_SB_TOP_OFF                 (FG_TITLE_BAND_ROWS - 1)
-#define FG_SB_AFTER_TOP_IDX           243
+#define FG_SB_AFTER_TOP_IDX             1
 
 #define FG_SB_DISABLED_TROUGH_IDX    243
 #define FG_SB_DISABLED_ARROW_IDX     165
@@ -152,8 +154,10 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 #define FG_SB_ENABLED_WELL_IDX       192
 #define FG_SB_ENABLED_WELL_SHADOW0_IDX 150
 #define FG_SB_ENABLED_WELL_SHADOW1_IDX 165
-#define FG_SB_ENABLED_THUMB_LIGHT_IDX  2
-#define FG_SB_ENABLED_THUMB_SHADOW_IDX 4
+#define FG_SB_ENABLED_WELL_HILITE0_IDX 205
+#define FG_SB_ENABLED_WELL_HILITE1_IDX 218
+#define FG_SB_ENABLED_NO_THUMB          1
+#define FG_SB_ENABLED_THUMB_TEAL_IDX    2
 
 #define FG_SB_HOLLOW_TROUGH_IDX      243
 #define FG_SB_HOLLOW_FRAME_IDX       119

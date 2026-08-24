@@ -56,7 +56,7 @@
  *   checkBox      (1) -- check box; box + check mark; contrlValue 0/1.
  *   radioButton   (2) -- radio button; circle + dot; contrlValue 0/1.
  *   scrollBar     (3) -- vertical, FLAIR_CHROME_SCROLLBAR_W (16) px wide;
- *                        up/down arrow buttons + track + proportional thumb.
+ *                        Platinum arrows/well + fixed 15 px accent thumb.
  *   progressBar   (4) -- determinate fill bar (the FILE COPY bar, PRD Sec 6.5).
  *                        contrlValue/contrlMax -> filled fraction.
  *
@@ -68,10 +68,12 @@
  *     track_bot    = contrlRect.bottom - SB_ARROW
  *     track_h      = track_bot - track_top
  *   where SB_ARROW = FLAIR_CHROME_SCROLLBAR_W (16 px -- square buttons).
- *   The thumb size (proportional) and position:
- *     thumb_h      = max(SB_THUMB_MIN, track_h * visible_range / value_range)
- *   For the simple (non-proportional) scrollbar (visible_range == 1):
- *     thumb_h      = SB_THUMB_MIN  (the minimum thumb, 16 px)
+ *   The current thumb size is the sampled fixed minimum:
+ *     thumb_h      = SB_THUMB_MIN  (15 px)
+ *   HONEST DEFERRAL: proportional sizing requires a visible/content range,
+ *   which ControlRecord and Window Manager do not yet carry. It stays OUT
+ *   until R1.5 / initech-tdnl.4 supplies that content model. Position remains
+ *   value/min/max driven and invertible.
  *   The thumb top position within the track:
  *     range        = contrlMax - contrlMin
  *     if (range == 0): thumb_y = track_top
@@ -204,10 +206,15 @@ typedef struct ControlRecord {
  * ---------------------------------------------------------------------------
  * Ref: FLAIR_CHROME_SCROLLBAR_W = 16 (spec/chrome_metrics.h; WDEF scrollBarSize
  *   EQU 16; StandardWDEF.a). Arrow buttons are square: SB_ARROW x SB_ARROW.
- *   Minimum thumb height (period-authentic System-7 thumb floor): 16 px.
+ *   Minimum thumb height is the sampled Platinum 15 px anatomy.
+ *   Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 1/Sec 2.4.
  * ===========================================================================*/
 #define SB_ARROW      FLAIR_CHROME_SCROLLBAR_W  /* 16 px; square arrow buttons  */
-#define SB_THUMB_MIN  16                         /* minimum thumb height (px)    */
+#if defined(SB_MUT_THUMB_16)
+#define SB_THUMB_MIN  16  /* named Rule-6 relapse to the System-7 thumb floor   */
+#else
+#define SB_THUMB_MIN  FLAIR_CHROME_SCROLL_THUMB_MIN
+#endif
 
 /* ===========================================================================
  * 5. CONTROL MANAGER API (verbatim Inside Macintosh routine names; MTE Ch 5)
@@ -310,7 +317,7 @@ int16_t TrackControl(ControlRecord *ctrl, const flair_point_t *pts, uint32_t n_p
  * coordinates, i.e. relative to the top of the port, matching contrlRect).
  *
  * Ref: Inside Macintosh IV "Calculating Scroll Bar Thumb Position" (the
- *   proportional thumb derivation); CLAUDE.md Law 1 (cited in header).
+ *   value-to-position derivation); CLAUDE.md Law 1 (cited in header).
  * -------------------------------------------------------------------------- */
 int16_t ctrl_thumb_y(const ControlRecord *ctrl);
 
@@ -319,7 +326,7 @@ int16_t ctrl_thumb_y(const ControlRecord *ctrl);
  *
  * Given a thumb top pixel `thumb_y` (absolute, port-local), returns the
  * contrlValue that would produce that thumb position. Used by TrackControl
- * during thumb drag to set contrlValue proportionally.
+ * during thumb drag to set contrlValue from the proportional position.
  *
  * Result is clamped to [contrlMin, contrlMax].
  * -------------------------------------------------------------------------- */

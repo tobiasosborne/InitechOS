@@ -302,9 +302,10 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
             CHECK(left_of_sb == CIDX_WHITE, msg);
 
             snprintf(msg, sizeof msg,
-                     "[%s] disabled Platinum track interior must be trough idx %d",
-                     bpp_tag, CIDX_PLAT_TROUGH);
-            CHECK(shade_index(ctx, sb_left + 1, row) == CIDX_PLAT_TROUGH,
+                     "[%s] enabled Platinum well outer shadow must be idx %d",
+                     bpp_tag, CIDX_PLAT_STRIPE_DARK);
+            CHECK(shade_index(ctx, sb_left + 1, row) ==
+                      CIDX_PLAT_STRIPE_DARK,
                   msg);
         }
 

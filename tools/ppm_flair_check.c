@@ -648,8 +648,8 @@ int main(int argc, char **argv)
         const int inner_line = W1_R - FRAME - BODY_BAR_ROWS - FRAME;
         /* x=530 is right of the modal (x<500), left of the vertical gutter
          * (x>=539), and inside the Platinum content area. The former x=540
-         * probe became the disabled scrollbar trough after the 4-px body bar
-         * moved the gutter inward. Measured first in build/flair_desktop.ppm. */
+         * probe became the active scrollbar well after the 4-px body bar moved
+         * the gutter inward. Measured first in build/flair_desktop.ppm. */
         const int body_x = W1_R - 30;
 
         if (!platinum_title_profile(pin_x, W1_T, "(c) front-window")) {
@@ -699,15 +699,17 @@ int main(int argc, char **argv)
                    "(c) front window body fill is window white");
 
         /* Platinum right body edge, inside -> outside: inner black, white,
-         * face, face, shadow, outer black. The adjacent content-inset pixel is
-         * CIDX_PLAT_WELL. DEC-10 Sec 4 + sys8/window-chrome.md Sec 4.
+         * face, face, shadow, outer black. The active 16px gutter replaces the
+         * adjacent content-inset pixel: its five-value cross-section ends in
+         * sampled #DADADA at the inner separator. DEC-10 Sec 4;
+         * sys8/window-chrome.md Sec 4; sys8/scrollbars.md Sec 2.3.
          *
          * CalcDoc now includes the exact notched shadow L in strucRgn while the
          * drawer receives WindowFrameRect, so the live clip owns x=W1_R and the
          * next column remains desktop. Ref: sys8/window-chrome.md Sec 1;
          * bead initech-9d0e. */
-        assert_idx(inner_line - 1, body_row, CIDX_PLAT_WELL,
-                   "(c) right content inset is Platinum well shadow");
+        assert_idx(inner_line - 1, body_row, CIDX_PLAT_FRAME_FACE,
+                   "(c) enabled scrollbar well meets separator with sampled DA highlight");
         assert_idx(inner_line, body_row, CIDX_BLACK,
                    "(c) right body inner line is black");
         assert_idx(inner_line + 1, body_row, CIDX_WHITE,

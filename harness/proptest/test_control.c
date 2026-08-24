@@ -7,6 +7,8 @@
  *          scrollbars, the FILE COPY progress bar."); MTE Ch 5 "The Control
  *          Manager"; spec/chrome_metrics.h (FLAIR_CHROME_SCROLLBAR_W=16).
  *        os/flair/control.{c,h} (the unit under test; the artifact freestanding C).
+ *        ../system7-decomp/specs/sys8/scrollbars.md Sec 1-5 (sampled
+ *          Platinum face, thumb anatomy, and disabled state).
  *        harness/render/render.{c,h} (host render skeleton, the dual-compile path
  *          that runs the SAME freestanding draw code on a host offscreen).
  *        harness/proptest/test_chrome.c + test_window.c (the harness idiom this
@@ -21,7 +23,9 @@
  *     is correct AND INVERTIBLE: for a sampled set of values the forward pass
  *     (value -> thumb_y) followed by the inverse (thumb_y -> value) roundtrips
  *     to the original value (modulo integer rounding to the nearest step).
- *     The 16 px scrollbar width and arrow-button geometry are verified.
+ *     The 16 px scrollbar width, 15 px fixed thumb, and arrow-button geometry
+ *     are verified. Proportional sizing stays deferred until R1.5 supplies a
+ *     visible/content range; position remains value/min/max driven.
  *     TestControl returns the right part code per region:
  *       up-arrow / page-up / thumb / page-down / down-arrow.
  *
@@ -41,10 +45,9 @@
  *     a host 8bpp offscreen via the render skeleton (the dual-compile path).
  *     Assert key pixels:
  *       - Button: the button frame (outer 1 px black border) is painted.
- *       - Scrollbar: the thumb band (SB_THUMB_MIN rows of CTRL_CONTROL or
- *         CTRL_ACCENT) is present at the y coordinate ctrl_thumb_y predicts;
- *         the track above and below the thumb is CTRL_CONTROL.
- *         The left divider column (CTRL_BLACK == 0) is present.
+ *       - Scrollbar: five-value recessed well; raised arrow tiles; black
+ *         separators; a 15 px two-tone teal thumb with four grip lines and
+ *         companions; and the distinct flat disabled face.
  *       - Progress bar: the filled band (CTRL_ACCENT) occupies exactly
  *         ctrl_progress_fill_px pixels of the inner width; the remaining
  *         inner area is CTRL_WHITE.
@@ -54,6 +57,10 @@
  *                                => property 1 (scrollbar math) goes RED.
  *   CONTROL_MUTATE_NO_CLAMP   -- SetControlValue does not clamp.
  *                                => property 2 (clamping) goes RED.
+ *   SB_MUT_THUMB_16           -- restores the heritage 16 px thumb.
+ *                                => thumb metric/anatomy leg goes RED.
+ *   SB_MUT_DISABLED_ENABLED_LOOK -- disabled bar uses the enabled face.
+ *                                => disabled-state leg goes RED.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -63,6 +70,7 @@
 #include "render.h"             /* host render skeleton (-Iharness/render)     */
 #include "control.h"            /* the Control Manager under test (-Ios/flair) */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_SCROLLBAR_W (-Ispec)           */
+#include "chrome_fidelity_golden.h" /* independent sampled scrollbar rows       */
 #include "text.h"               /* text_measure / text_center_in (-Ios/flair)  */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 
@@ -96,6 +104,20 @@ static int render_one(render_ctx_t *ctx, uint32_t bpp)
 static uint32_t pidx(const render_ctx_t *ctx, uint32_t x, uint32_t y)
 {
     return render_pixel_index(ctx, x, y);
+}
+
+static int count_rgb(const render_ctx_t *ctx,
+                     int x0, int y0, int x1, int y1, uint32_t want)
+{
+    int n = 0;
+    for (int y = y0; y < y1; y++) {
+        for (int x = x0; x < x1; x++) {
+            if (render_pixel_rgb(ctx, (uint32_t)x, (uint32_t)y) == want) {
+                n++;
+            }
+        }
+    }
+    return n;
 }
 
 /* ===========================================================================
@@ -135,6 +157,8 @@ static void test_scrollbar_math(void)
              "SB_ARROW (%d) must equal FLAIR_CHROME_SCROLLBAR_W (%d)",
              SB_ARROW, FLAIR_CHROME_SCROLLBAR_W);
     CHECK(SB_ARROW == FLAIR_CHROME_SCROLLBAR_W, msg);
+    CHECK(SB_THUMB_MIN == FG_SB_THUMB_MIN,
+          "Control Manager thumb floor must be sampled 15 px, not heritage 16 px");
 
     /* Track height sanity. */
     CHECK(track_h > thumb_h, "track_h must be larger than thumb_h for a 200px bar");
@@ -578,8 +602,8 @@ static void test_draw_controls(void)
      * Scrollbar rect: top=100, left=50, bottom=300, right=66 (16px wide).
      * Arrow button height: SB_ARROW=16.
      * Track: y in [116, 284).
-     * Value=50, range=[0,100], track_h=168, thumb_h=16.
-     * thumb_y = track_top + 50*(168-16)/100 = 116 + 76 = 192.
+     * Value=50, range=[0,100], track_h=168, thumb_h=15.
+     * thumb_y = track_top + 50*(168-15)/100 = 116 + 76 = 192.
      *
      * Left gutter divider (CTRL_BLACK=0) at x=50, y in [100,300). */
     {
@@ -588,39 +612,42 @@ static void test_draw_controls(void)
                  "scrollbar left divider (x=50, y=150) must be CTRL_BLACK (0)");
         CHECK(pidx(&ctx, 50u, 150u) == 0u, msg);
 
-        /* Track above thumb (CTRL_CONTROL=6): at track_top + some offset above thumb. */
+        /* Five-value well above thumb: center ten columns are sampled C0. */
         /* track_top=116, thumb_y=192. Pick y=154 (in track, above thumb). */
         snprintf(msg, sizeof msg,
-                 "scrollbar track above thumb (x=60, y=154) must be CTRL_CONTROL (6)");
-        CHECK(pidx(&ctx, 60u, 154u) == 6u, msg);
+                 "scrollbar well above thumb (x=60, y=154) must be sampled idx192");
+        CHECK(pidx(&ctx, 60u, 154u) == FG_SB_ENABLED_WELL_IDX, msg);
 
-        /* Thumb band (CTRL_CONTROL=6 face, unless hilited; unhilited here).
-         * thumb_y=192, thumb extends [192,208). Check middle of thumb. */
+        /* Indexed-8 fallback: the whole authored accent pair uses canon teal
+         * idx2; direct-color anatomy is checked separately below. */
         int thumb_mid_y = 192 + SB_THUMB_MIN / 2;
         snprintf(msg, sizeof msg,
-                 "scrollbar thumb face (x=60, y=%d) must be CTRL_CONTROL (6)",
+                 "scrollbar thumb face (x=60, y=%d) must be authored teal idx2",
                  thumb_mid_y);
-        CHECK(pidx(&ctx, 60u, (uint32_t)thumb_mid_y) == 6u, msg);
+        CHECK(pidx(&ctx, 60u, (uint32_t)thumb_mid_y) ==
+                  FG_SB_ENABLED_THUMB_TEAL_IDX, msg);
 
-        /* Track below thumb: at y=220 (thumb_bot=208, track_bot=284). */
+        /* Track below thumb: y=220 is in the C0 center of the well. */
         snprintf(msg, sizeof msg,
-                 "scrollbar track below thumb (x=60, y=220) must be CTRL_CONTROL (6)");
-        CHECK(pidx(&ctx, 60u, 220u) == 6u, msg);
+                 "scrollbar well below thumb (x=60, y=220) must be sampled idx192");
+        CHECK(pidx(&ctx, 60u, 220u) == FG_SB_ENABLED_WELL_IDX, msg);
 
-        /* Up-arrow button face (CTRL_CONTROL=6): y in [100,116). */
+        /* Raised tile face away from the centered triangle. */
         snprintf(msg, sizeof msg,
-                 "scrollbar up-arrow face (x=60, y=108) must be CTRL_CONTROL (6)");
-        CHECK(pidx(&ctx, 60u, 108u) == 6u, msg);
+                 "scrollbar up-arrow tile face (x=62, y=103) must be idx231");
+        CHECK(pidx(&ctx, 62u, 103u) == FG_SB_ENABLED_TILE_FACE_IDX, msg);
 
-        /* Down-arrow button face: y in [284,300). */
+        /* Down-arrow tile face. */
         snprintf(msg, sizeof msg,
-                 "scrollbar down-arrow face (x=60, y=292) must be CTRL_CONTROL (6)");
-        CHECK(pidx(&ctx, 60u, 292u) == 6u, msg);
+                 "scrollbar down-arrow tile face (x=62, y=287) must be idx231");
+        CHECK(pidx(&ctx, 62u, 287u) == FG_SB_ENABLED_TILE_FACE_IDX, msg);
 
-        /* Thumb top frame (CTRL_BLACK=0 at thumb top edge). */
+        /* The 15px thumb is bounded by separate black separator lines. */
         snprintf(msg, sizeof msg,
-                 "scrollbar thumb top frame (x=51, y=192) must be CTRL_BLACK (0)");
-        CHECK(pidx(&ctx, 51u, 192u) == 0u, msg);
+                 "scrollbar thumb leading separator (x=51, y=191) must be black");
+        CHECK(pidx(&ctx, 51u, 191u) == FG_SB_ENABLED_FRAME_IDX, msg);
+        CHECK(pidx(&ctx, 51u, 207u) == FG_SB_ENABLED_FRAME_IDX,
+              "scrollbar thumb trailing separator must follow exactly 15 thumb rows");
 
         /* Pixel to the left of the scrollbar should be desktop background. */
         snprintf(msg, sizeof msg,
@@ -697,7 +724,7 @@ static void test_scrollbar_draw_vs_math(void)
 
     /* Scrollbar: top=50, left=100, bottom=250, right=116 (16px wide).
      * Value=0: thumb should be at track_top = 50 + 16 = 66.
-     * Verify: pixel at x=108, y=66 (thumb face, CTRL_CONTROL=6).
+     * Verify: pixel at x=108, y=66 (thumb face, authored teal).
      *         pixel at x=100, y=150 (left divider, CTRL_BLACK=0). */
     char msg[200];
 
@@ -705,16 +732,98 @@ static void test_scrollbar_draw_vs_math(void)
              "scrollbar left divider (x=100, y=150) must be CTRL_BLACK (0)");
     CHECK(pidx(&ctx, 100u, 150u) == 0u, msg);
 
-    /* At value=0, thumb_y=66. Thumb interior at x=108, y=66+8=74. */
+    /* At value=0, thumb_y=66. Thumb interior at x=108, y=66+7=73. */
     snprintf(msg, sizeof msg,
-             "scrollbar thumb at value=0 (x=108, y=74) must be CTRL_CONTROL (6)");
-    CHECK(pidx(&ctx, 108u, 74u) == 6u, msg);
+             "scrollbar thumb at value=0 (x=108, y=73) must be teal idx2");
+    CHECK(pidx(&ctx, 108u, 73u) == FG_SB_ENABLED_THUMB_TEAL_IDX, msg);
 
     /* Track above thumb at value=0: there is NO track above (thumb is at top).
-     * Track below thumb: y=66+16=82 should be CTRL_CONTROL=6. */
+     * y=81 is the trailing separator; y=82 resumes the recessed well. */
+    CHECK(pidx(&ctx, 108u, 81u) == FG_SB_ENABLED_FRAME_IDX,
+          "value=0 thumb trailing separator follows exactly 15 rows");
     snprintf(msg, sizeof msg,
-             "scrollbar track below thumb at value=0 (x=108, y=82) must be CTRL_CONTROL (6)");
-    CHECK(pidx(&ctx, 108u, 82u) == 6u, msg);
+             "scrollbar well below thumb at value=0 (x=108, y=82) must be idx150 near inset");
+    CHECK(pidx(&ctx, 108u, 82u) == FG_SB_ENABLED_WELL_SHADOW0_IDX, msg);
+
+    render_ctx_free(&ctx);
+}
+
+/* Platinum thumb is a 15x14 clut-208 structure under the ratified two-row teal
+ * substitution. Direct color preserves both existing authored canon rows;
+ * indexed-8 honestly collapses them onto teal idx2 (DEC-10 OQ-2/OQ-3). */
+static void test_scrollbar_thumb_anatomy(void)
+{
+    render_ctx_t ctx;
+    int rc = render_one(&ctx, 32u);
+    CHECK(rc == 0, "render_ctx_init(32bpp) for Platinum thumb anatomy");
+    if (rc != 0) {
+        return;
+    }
+    render_run(&ctx, draw_all_controls);
+
+    const uint32_t teal_light = 0x8DDCDCu;
+    const uint32_t teal_shadow = 0x4E9BA3u;
+    const uint32_t trough = 0xF3F3F3u;
+    const int ty = 192;
+
+    CHECK(render_pixel_rgb(&ctx, 51u, (uint32_t)ty) == trough &&
+          render_pixel_rgb(&ctx, 52u, (uint32_t)ty) == teal_light &&
+          render_pixel_rgb(&ctx, 51u, (uint32_t)(ty + 1)) == teal_light &&
+          render_pixel_rgb(&ctx, 64u, (uint32_t)(ty + 1)) == teal_shadow &&
+          render_pixel_rgb(&ctx, 51u, (uint32_t)(ty + 14)) == teal_light &&
+          render_pixel_rgb(&ctx, 52u, (uint32_t)(ty + 14)) == teal_shadow,
+          "Platinum thumb must carry F3 cap plus teal highlight/face/shadow anatomy");
+
+    CHECK(count_rgb(&ctx, 55, ty + 3, 62, ty + 11, teal_shadow) == 28,
+          "Platinum thumb must carry four seven-pixel dark grip lines");
+    CHECK(render_pixel_rgb(&ctx, 54u, (uint32_t)(ty + 3)) == trough &&
+          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 3)) == teal_light &&
+          render_pixel_rgb(&ctx, 54u, (uint32_t)(ty + 5)) == trough &&
+          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 5)) == teal_light &&
+          render_pixel_rgb(&ctx, 54u, (uint32_t)(ty + 7)) == trough &&
+          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 7)) == teal_light &&
+          render_pixel_rgb(&ctx, 54u, (uint32_t)(ty + 9)) == trough &&
+          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 9)) == teal_light,
+          "Platinum thumb must carry four F3-capped companion highlight lines");
+    CHECK(render_pixel_rgb(&ctx, 51u, (uint32_t)(ty - 1)) == 0u &&
+          render_pixel_rgb(&ctx, 51u, (uint32_t)(ty + FG_SB_THUMB_MIN)) == 0u,
+          "15px Platinum thumb must have black bounds outside its anatomy");
+
+    render_ctx_free(&ctx);
+}
+
+static void draw_disabled_sb(GrafPort *port)
+{
+    ControlRecord sb;
+    rgn_rect_t r;
+    r.top = 50; r.left = 100; r.bottom = 250; r.right = 116;
+    control_init(&sb, scrollBar, r, 50, 0, 100, 1, "");
+    sb.contrlHilite = 255;
+    DrawControl(port, &sb);
+}
+
+static void test_scrollbar_disabled_face(void)
+{
+    render_ctx_t ctx;
+    int rc = render_one(&ctx, 8u);
+    CHECK(rc == 0, "render_ctx_init(8bpp) for disabled scrollbar face");
+    if (rc != 0) {
+        return;
+    }
+    render_run(&ctx, draw_disabled_sb);
+
+    CHECK(pidx(&ctx, 100u, 150u) == FG_SB_ENABLED_FRAME_IDX &&
+          pidx(&ctx, 115u, 150u) == FG_SB_ENABLED_FRAME_IDX,
+          "disabled active scrollbar keeps black bounding lines");
+    CHECK(pidx(&ctx, 108u, 150u) == FG_SB_DISABLED_TROUGH_IDX,
+          "disabled scrollbar interior must be flat sampled F3 trough");
+    CHECK(pidx(&ctx, 108u, 65u) == FG_SB_DISABLED_SEPARATOR_IDX &&
+          pidx(&ctx, 108u, 234u) == FG_SB_DISABLED_SEPARATOR_IDX,
+          "disabled arrow-box separators must be sampled idx119 gray");
+    CHECK(pidx(&ctx, 107u, 56u) == FG_SB_DISABLED_ARROW_IDX,
+          "disabled arrow glyph must be sampled idx165 with the 8x4 shape");
+    CHECK(count_rgb(&ctx, 101, 66, 115, 234, 0x8DDCDCu) == 0,
+          "disabled scrollbar must have no accent thumb");
 
     render_ctx_free(&ctx);
 }
@@ -791,6 +900,8 @@ int main(int argc, char **argv)
     test_button_hittest_and_track();
     test_draw_controls();
     test_scrollbar_draw_vs_math();
+    test_scrollbar_thumb_anatomy();
+    test_scrollbar_disabled_face();
     test_thumb_drag();
 
     return TEST_SUMMARY("test-control");

@@ -10085,9 +10085,9 @@ test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHR
 # chrome.c renders from -- that is the HER-02 by-construction trap; CLAUDE.md
 # Law 2). Route-2 Platinum re-key: ADR-0004-AMENDMENT-DEC-10 Sec 4 and the
 # sampled sys8 window-chrome/scrollbar specifications. Reuses the test-chrome
-# link set + host render skeleton. Twenty chrome look/geometry mutants plus the
-# Route-1 wrong-era mutant are mutation-proven; WindowMgr separately proves the
-# live shadow clip and two CalcDoc content seams.
+# link set + host render skeleton. Twenty-three chrome look/geometry mutants
+# plus the Route-1 wrong-era mutant are mutation-proven; WindowMgr separately
+# proves the live shadow clip and two CalcDoc content seams.
 # ---------------------------------------------------------------------------
 TEST_CHROME_FID     := $(BUILD)/test_chrome_fidelity
 TEST_CHROME_FID_SRC := harness/proptest/test_chrome_fidelity.c
@@ -10113,6 +10113,9 @@ TEST_CHROME_FID_MUT_NDB := $(BUILD)/test_chrome_fidelity_mutant_notch_double
 TEST_CHROME_FID_MUT_DRB := $(BUILD)/test_chrome_fidelity_mutant_dark_ring_black
 TEST_CHROME_FID_MUT_CBC := $(BUILD)/test_chrome_fidelity_mutant_cbox_corner
 TEST_CHROME_FID_MUT_ZCT := $(BUILD)/test_chrome_fidelity_mutant_zoom_centered
+TEST_CHROME_FID_MUT_SFW := $(BUILD)/test_chrome_fidelity_mutant_sb_flat_well
+TEST_CHROME_FID_MUT_STF := $(BUILD)/test_chrome_fidelity_mutant_sb_tile_flat
+TEST_CHROME_FID_MUT_SSG := $(BUILD)/test_chrome_fidelity_mutant_sb_sep_gray
 
 $(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
@@ -10228,6 +10231,18 @@ $(TEST_CHROME_FID_MUT_ZCT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_ZOOM_CENTERED $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
+$(TEST_CHROME_FID_MUT_SFW): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_FLAT_WELL $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT_STF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_TILE_FLAT $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+$(TEST_CHROME_FID_MUT_SSG): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_SEP_GRAY $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
 # FLAIR_MUT_SKIN_WRONG_ERA (beads initech-chd4, Rule 6): resolve the live
 # chrome policy pointer to the retained SYS7 row instead of the Platinum
 # default. The existing Platinum fidelity legs MUST go RED, proving that the
@@ -10251,8 +10266,8 @@ test-chrome-fidelity: $(TEST_CHROME_FID)
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN) $(TEST_CHROME_FID_MUT_SOF) $(TEST_CHROME_FID_MUT_NDB) $(TEST_CHROME_FID_MUT_DRB) $(TEST_CHROME_FID_MUT_CBC) $(TEST_CHROME_FID_MUT_ZCT)
-	@printf '>>> test-chrome-fidelity-mutant: confirming all twenty-one Platinum chrome mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN) $(TEST_CHROME_FID_MUT_SOF) $(TEST_CHROME_FID_MUT_NDB) $(TEST_CHROME_FID_MUT_DRB) $(TEST_CHROME_FID_MUT_CBC) $(TEST_CHROME_FID_MUT_ZCT) $(TEST_CHROME_FID_MUT_SFW) $(TEST_CHROME_FID_MUT_STF) $(TEST_CHROME_FID_MUT_SSG)
+	@printf '>>> test-chrome-fidelity-mutant: confirming all twenty-four Platinum chrome mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
 		exit 1; \
@@ -10354,6 +10369,9 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 	@if $(TEST_CHROME_FID_MUT_DRB) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_DARK_RING_BLACK PASSED -- the sampled idx63 bevel oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_DARK_RING_BLACK correctly RED)\n'; fi
 	@if $(TEST_CHROME_FID_MUT_CBC) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_CBOX_CORNER PASSED -- the closed-ring corner oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_CBOX_CORNER correctly RED)\n'; fi
 	@if $(TEST_CHROME_FID_MUT_ZCT) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_ZOOM_CENTERED PASSED -- the nested-square glyph oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_ZOOM_CENTERED correctly RED)\n'; fi
+	@if $(TEST_CHROME_FID_MUT_SFW) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: SB_MUT_FLAT_WELL PASSED -- the five-value well oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (SB_MUT_FLAT_WELL correctly RED -- the flat C0 page well is caught)\n'; fi
+	@if $(TEST_CHROME_FID_MUT_STF) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: SB_MUT_TILE_FLAT PASSED -- the arrow-tile bevel oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (SB_MUT_TILE_FLAT correctly RED -- the flat E7 arrow tile is caught)\n'; fi
+	@if $(TEST_CHROME_FID_MUT_SSG) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: SB_MUT_SEP_GRAY PASSED -- the active separator oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (SB_MUT_SEP_GRAY correctly RED -- inactive-gray active separators are caught)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-blitter (beads initech-i50) -- FLAIR region-clipped blitter.
@@ -11234,18 +11252,20 @@ test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR) $(
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-control (beads initech-8h9) -- FLAIR Control Manager. Buttons,
-# checkbox/radio, the 16px scrollbar (proportional thumb, invertible value<->Y),
-# and the FILE COPY progress bar. TestControl/TrackControl part-codes + tracking.
-# Mutants THUMB_OFF / NO_CLAMP bite (Rule 6).
+# checkbox/radio, the 16px Platinum scrollbar (fixed 15px thumb, invertible
+# value<->Y position), and the FILE COPY progress bar. TestControl/TrackControl
+# part-codes + tracking. Four named mutants bite (Rule 6).
 # ---------------------------------------------------------------------------
 TEST_CONTROL     := $(BUILD)/test_control
 TEST_CONTROL_SRC := harness/proptest/test_control.c
 TEST_CONTROL_MUT_THUMB := $(BUILD)/test_control_mutant_thumb
 TEST_CONTROL_MUT_CLAMP := $(BUILD)/test_control_mutant_clamp
+TEST_CONTROL_MUT_SB16 := $(BUILD)/test_control_mutant_sb_thumb_16
+TEST_CONTROL_MUT_SB_DISABLED := $(BUILD)/test_control_mutant_sb_disabled_enabled
 TEST_CONTROL_DEPS := os/flair/control.c os/flair/control.h os/flair/blitter.c os/flair/text.c \
                      os/flair/surface.c $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) \
                      spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h \
-                     spec/assets/palette.h spec/assets/chicago8x16.h
+                     spec/assets/palette.h spec/assets/chicago8x16.h $(CHROME_FID_GOLDEN_H)
 CONTROL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 CONTROL_LINK := os/flair/control.c os/flair/blitter.c os/flair/text.c os/flair/surface.c \
                 $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) $(FLAIRLOOK_C)
@@ -11256,18 +11276,24 @@ $(TEST_CONTROL_MUT_THUMB): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONTROL_MUTATE_THUMB_OFF=1 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
 $(TEST_CONTROL_MUT_CLAMP): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONTROL_MUTATE_NO_CLAMP=1 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+$(TEST_CONTROL_MUT_SB16): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_THUMB_16 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+$(TEST_CONTROL_MUT_SB_DISABLED): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_DISABLED_ENABLED_LOOK $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
 
 test-control: $(TEST_CONTROL)
-	@printf ">>> test-control: buttons + 16px scrollbar (invertible thumb math) + FILE COPY progress bar + TestControl/TrackControl\n"
+	@printf ">>> test-control: buttons + 16px Platinum scrollbar (15px thumb + disabled face + invertible position math) + FILE COPY progress bar + TestControl/TrackControl\n"
 	@$(TEST_CONTROL)
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $(BUILD)/control_freestanding.o \
 		|| { printf '!!! test-control FAIL: control.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-control: green\n"
 
-test-control-mutant: $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP)
-	@printf ">>> test-control-mutant: confirming both mutants go RED (Rule 6)\n"
+test-control-mutant: $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP) $(TEST_CONTROL_MUT_SB16) $(TEST_CONTROL_MUT_SB_DISABLED)
+	@printf ">>> test-control-mutant: confirming all four mutants go RED (Rule 6)\n"
 	@if $(TEST_CONTROL_MUT_THUMB) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: THUMB_OFF PASSED -- the scrollbar-math oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (THUMB_OFF correctly RED)\n'; fi
 	@if $(TEST_CONTROL_MUT_CLAMP) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: NO_CLAMP PASSED -- the value-clamp oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (NO_CLAMP correctly RED)\n'; fi
+	@if $(TEST_CONTROL_MUT_SB16) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: SB_MUT_THUMB_16 PASSED -- the sampled 15px thumb oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (SB_MUT_THUMB_16 correctly RED -- the heritage 16px thumb is caught)\n'; fi
+	@if $(TEST_CONTROL_MUT_SB_DISABLED) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: SB_MUT_DISABLED_ENABLED_LOOK PASSED -- the disabled-face oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (SB_MUT_DISABLED_ENABLED_LOOK correctly RED -- enabled art in the disabled state is caught)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-shell (beads initech-k8o5.12 + initech-859) -- the M4 CAPSTONE:

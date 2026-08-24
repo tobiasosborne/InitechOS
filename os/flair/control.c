@@ -5,9 +5,10 @@
  *        bar"). See control.h for the full contract, Law-3 separation, and
  *        verbatim Inside Macintosh source citations.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the
- * standalone push/check/radio routines remain explicit System 7 heritage
- * faces in this arc; no Platinum control face is claimed shipped here.
+ * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The scrollbar face
+ * is the sampled Platinum CDEF-24 anatomy. TODO_GOLDEN: the standalone
+ * push/check/radio routines remain explicit System 7 heritage faces in this
+ * arc; no Platinum face is claimed for those controls here.
  *
  * Freestanding artifact code: draws push buttons, check boxes, radio buttons,
  * vertical scrollbars, and the FILE COPY progress bar into a GrafPort, writing
@@ -29,6 +30,8 @@
  *                                => scrollbar thumb y and value<->thumb tests RED.
  *   CONTROL_MUTATE_NO_CLAMP   -- SetControlValue does NOT clamp to [min,max];
  *                                => clamping tests RED.
+ *   SB_MUT_THUMB_16           -- heritage 16px thumb replaces sampled 15px.
+ *   SB_MUT_DISABLED_ENABLED_LOOK -- disabled bar paints the enabled anatomy.
  *
  * Ref: control.h (the full API contract + Law 1 citations);
  *      spec/chrome_metrics.h (LOCKED native metrics);
@@ -63,7 +66,11 @@ enum {
     CTRL_DESKTOP    = FLAIR_PART_DESKTOP,      /* desktop background            */
     CTRL_TITLE_INK  = FLAIR_PART_TEXT,         /* title ink / dark frame        */
     CTRL_ACCENT     = FLAIR_PART_CAPTION_NAVY, /* accent (hilite fill)          */
-    CTRL_CONTROL    = FLAIR_PART_BTNFACE       /* scrollbar track / button face */
+    CTRL_CONTROL    = FLAIR_PART_BTNFACE,      /* retained control face          */
+    CTRL_SB_THUMB_HL = FLAIR_PART_SB_THUMB_HL,
+    CTRL_SB_THUMB_FACE = FLAIR_PART_SB_THUMB_FACE,
+    CTRL_SB_THUMB_SHADOW = FLAIR_PART_SB_THUMB_SHADOW,
+    CTRL_SB_THUMB_GRIP = FLAIR_PART_SB_THUMB_GRIP
 };
 
 /* ===========================================================================
@@ -235,7 +242,8 @@ int16_t GetControlValue(const ControlRecord *ctrl)
  *   track_bot = contrlRect.bottom - SB_ARROW
  *   track_h   = track_bot - track_top
  *
- * Thumb height: SB_THUMB_MIN (16 px -- non-proportional for scrollBar type).
+ * Thumb height: SB_THUMB_MIN (15 px -- fixed until R1.5 supplies a content
+ * range for proportional sizing; initech-tdnl.4).
  *
  * Thumb top y (forward, value -> pixel):
  *   range = contrlMax - contrlMin
@@ -498,85 +506,166 @@ static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
     }
 }
 
-/* draw_scrollbar -- vertical scrollbar.
+/* Exact 8x4 Platinum arrow glyphs: widths 2/4/6/8. */
+static void draw_ctrl_up_triangle(GrafPort *port, int cx, int top, int part)
+{
+    for (int row = 0; row < 4; row++) {
+        int width = 2 + 2 * row;
+        cfill_ctrl(port, cx - width / 2, top + row, width, part);
+    }
+}
+
+static void draw_ctrl_down_triangle(GrafPort *port, int cx, int top, int part)
+{
+    for (int row = 0; row < 4; row++) {
+        int width = 8 - 2 * row;
+        cfill_ctrl(port, cx - width / 2, top + row, width, part);
+    }
+}
+
+static void draw_ctrl_scroll_tile(GrafPort *port,
+                                  int x0, int y0, int x1, int y1)
+{
+    crect_ctrl(port, x0, y0, x1, y1, FLAIR_PART_PLAT_FACE);
+#if !defined(SB_MUT_TILE_FLAT)
+    cfill_ctrl(port, x0, y0, x1 - x0 - 1, FLAIR_PART_CONTENT);
+    for (int y = y0; y < y1; y++) {
+        cfill_ctrl(port, x0, y, 1, FLAIR_PART_CONTENT);
+    }
+    cfill_ctrl(port, x0 + 1, y1 - 1, x1 - x0 - 1,
+               FLAIR_PART_PLAT_TILE_SHADOW);
+    for (int y = y0; y < y1; y++) {
+        cfill_ctrl(port, x1 - 1, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
+    }
+#endif
+}
+
+static void draw_ctrl_scroll_well(GrafPort *port,
+                                  int x0, int y0, int x1, int y1)
+{
+    if (x1 <= x0 || y1 <= y0) {
+        return;
+    }
+#if defined(SB_MUT_FLAT_WELL)
+    crect_ctrl(port, x0, y0, x1, y1, FLAIR_PART_PLAT_WELL);
+#else
+    for (int y = y0; y < y1; y++) {
+        cfill_ctrl(port, x0, y, 1, FLAIR_PART_PLAT_STRIPE_DARK);
+        cfill_ctrl(port, x0 + 1, y, 1, FLAIR_PART_PLAT_WIDGET_EDGE);
+        cfill_ctrl(port, x0 + 2, y, FLAIR_CHROME_SCROLL_WELL_FILL_ROWS,
+                   FLAIR_PART_PLAT_WELL);
+        cfill_ctrl(port, x1 - 2, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
+        cfill_ctrl(port, x1 - 1, y, 1, FLAIR_PART_PLAT_FRAME_FACE);
+    }
+    cfill_ctrl(port, x0, y0, x1 - x0, FLAIR_PART_PLAT_STRIPE_DARK);
+    if (y0 + 1 < y1) {
+        cfill_ctrl(port, x0, y0 + 1, x1 - x0,
+                   FLAIR_PART_PLAT_WIDGET_EDGE);
+    }
+#endif
+}
+
+/* Transpose of the sampled horizontal 15x14 thumb matrix.  The clut-208
+ * lavender entries retain their semantic anatomy while DEC-10 OQ-2/OQ-3 maps
+ * them onto the existing two-row Initech-teal canon. */
+static void draw_ctrl_scroll_thumb(GrafPort *port,
+                                   int x0, int x1, int ty, int thumb_h)
+{
+    crect_ctrl(port, x0, ty, x1, ty + thumb_h, CTRL_SB_THUMB_FACE);
+
+    /* Leading/top and left highlight, trailing/bottom and right shadow. */
+    cfill_ctrl(port, x0, ty, 1, FLAIR_PART_PLAT_TROUGH);
+    cfill_ctrl(port, x0 + 1, ty, x1 - x0 - 2, CTRL_SB_THUMB_HL);
+    for (int y = ty + 1; y < ty + thumb_h - 1; y++) {
+        cfill_ctrl(port, x0, y, 1, CTRL_SB_THUMB_HL);
+        cfill_ctrl(port, x1 - 1, y, 1, CTRL_SB_THUMB_SHADOW);
+    }
+    cfill_ctrl(port, x0 + 1, ty + thumb_h - 1, x1 - x0 - 1,
+               CTRL_SB_THUMB_SHADOW);
+
+    /* Four dark seven-pixel grip lines, with six-pixel highlight companions
+     * one axis pixel earlier and an F3 cap at cross offset 3. */
+    for (int line = 0; line < 4; line++) {
+        int companion_y = ty + 3 + 2 * line;
+        int grip_y = companion_y + 1;
+        cfill_ctrl(port, x0 + 3, companion_y, 1,
+                   FLAIR_PART_PLAT_TROUGH);
+        cfill_ctrl(port, x0 + 4, companion_y, 6, CTRL_SB_THUMB_HL);
+        cfill_ctrl(port, x0 + 4, grip_y, 7, CTRL_SB_THUMB_GRIP);
+    }
+}
+
+/* draw_scrollbar -- vertical Mac OS 8.1 Platinum scrollbar.
  *
- * Layout (port-local, from contrlRect):
- *   left   = contrlRect.left
- *   right  = contrlRect.right    (width = FLAIR_CHROME_SCROLLBAR_W = 16)
- *   top    = contrlRect.top
- *   bottom = contrlRect.bottom
- *
- * Elements (top to bottom):
- *   [top,     top+SB_ARROW) -- up-arrow button (framed square, SB_ARROW wide)
- *   [top+SB_ARROW, bottom-SB_ARROW) -- track region (light gray)
- *     within track: proportional thumb (1 px framed, SB_THUMB_MIN min height)
- *   [bottom-SB_ARROW, bottom) -- down-arrow button
- *
- * Left edge: 1 px black divider (the left gutter line, matching chrome.c).
- *
- * Ref: FLAIR_CHROME_SCROLLBAR_W (spec/chrome_metrics.h); control.h math. */
+ * Enabled: black frame/separators, raised arrow tiles, recessed five-value
+ * well, and a fixed 15px accent thumb positioned by value/min/max.
+ * Disabled (contrlHilite==255): flat F3 interior, gray separators/arrows, no
+ * thumb. Proportional sizing is honestly deferred to R1.5 / initech-tdnl.4.
+ * Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 1-5 (SAMPLED). */
 static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
 {
-    int x0  = (int)ctrl->contrlRect.left;
-    int y0  = (int)ctrl->contrlRect.top;
-    int x1  = (int)ctrl->contrlRect.right;
-    int y1  = (int)ctrl->contrlRect.bottom;
-    int h   = y1 - y0;
+    int x0 = (int)ctrl->contrlRect.left;
+    int y0 = (int)ctrl->contrlRect.top;
+    int x1 = (int)ctrl->contrlRect.right;
+    int y1 = (int)ctrl->contrlRect.bottom;
+    int h = y1 - y0;
     int btn = SB_ARROW;
+    int disabled = ctrl->contrlHilite == 255;
+#if defined(SB_MUT_DISABLED_ENABLED_LOOK)
+    disabled = 0;
+#endif
 
-    if (h < 2 * btn + SB_THUMB_MIN + 2) {
-        return;   /* too small to draw                                           */
+    if (x1 - x0 != FLAIR_CHROME_SCROLLBAR_W ||
+        h < 2 * btn + SB_THUMB_MIN + 2) {
+        return;
     }
 
-    /* Left edge gutter divider (1 px black, matching chrome.c's sb divider). */
-    for (int y = y0; y < y1; y++) {
-        cfill_ctrl(port, x0, y, 1, CTRL_BLACK);
+    int top_sep = y0 + btn - 1;
+    int bottom_sep = y1 - btn;
+    int track_top = top_sep + 1;
+    int track_bot = bottom_sep;
+    int cx = x0 + FLAIR_CHROME_SCROLLBAR_W / 2;
+
+    crect_ctrl(port, x0 + 1, y0 + 1, x1 - 1, y1 - 1,
+               FLAIR_PART_PLAT_TROUGH);
+    cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
+
+    if (disabled) {
+        cfill_ctrl(port, x0 + 1, top_sep, x1 - x0 - 2,
+                   FLAIR_PART_PLAT_INACTIVE_FRAME);
+        cfill_ctrl(port, x0 + 1, bottom_sep, x1 - x0 - 2,
+                   FLAIR_PART_PLAT_INACTIVE_FRAME);
+        draw_ctrl_up_triangle(port, cx, y0 + 6,
+                              FLAIR_PART_PLAT_WIDGET_EDGE);
+        draw_ctrl_down_triangle(port, cx, y1 - 10,
+                                FLAIR_PART_PLAT_WIDGET_EDGE);
+        return;
     }
 
-    /* Track fill (light gray). */
-    int track_top = y0 + btn;
-    int track_bot = y1 - btn;
-    crect_ctrl(port, x0 + 1, track_top, x1, track_bot, CTRL_CONTROL);
+    int thumb_h = SB_THUMB_MIN;
+    int ty = (int)ctrl_thumb_y(ctrl);
+    int leading_sep = ty - 1;
+    int trailing_sep = ty + thumb_h;
+    int sep_part = FLAIR_PART_FRAME;
+#if defined(SB_MUT_SEP_GRAY)
+    sep_part = FLAIR_PART_PLAT_INACTIVE_FRAME;
+#endif
 
-    /* Thumb (proportional; centered in track). */
-    int thumb_h  = SB_THUMB_MIN;
-    int16_t ty   = ctrl_thumb_y(ctrl);   /* port-local absolute y               */
+    draw_ctrl_scroll_well(port, x0 + 1, track_top,
+                          x1 - 1, leading_sep);
+    draw_ctrl_scroll_well(port, x0 + 1, trailing_sep + 1,
+                          x1 - 1, track_bot);
+    draw_ctrl_scroll_thumb(port, x0 + 1, x1 - 1, ty, thumb_h);
+    draw_ctrl_scroll_tile(port, x0 + 1, y0 + 1, x1 - 1, top_sep);
+    draw_ctrl_scroll_tile(port, x0 + 1, bottom_sep + 1,
+                          x1 - 1, y1 - 1);
 
-    /* Thumb is SB_THUMB_MIN px tall, full scrollbar width (minus left divider).
-     * Frame it black; interior light gray (or accent if tracking). */
-    int thumb_hilite = (ctrl->contrlHilite == inThumb);
-    int thumb_face = thumb_hilite ? CTRL_ACCENT : CTRL_CONTROL;
-    crect_ctrl(port,  x0 + 1, (int)ty, x1, (int)ty + thumb_h, thumb_face);
-    cframe_ctrl(port, x0 + 1, (int)ty, x1, (int)ty + thumb_h, CTRL_BLACK);
-
-    /* Up-arrow button (top): framed box with a small up-triangle indicator.
-     * Hilite: fill face with accent when contrlHilite == inUpButton. */
-    int up_hilite = (ctrl->contrlHilite == inUpButton);
-    int up_face = up_hilite ? CTRL_ACCENT : CTRL_CONTROL;
-    crect_ctrl(port,  x0 + 1, y0, x1, y0 + btn, up_face);
-    cframe_ctrl(port, x0 + 1, y0, x1, y0 + btn, CTRL_BLACK);
-    /* Arrow indicator: a small upward-pointing triangle drawn in the center.
-     * Approximated by 3 rows decreasing in width from bottom to top. */
-    {
-        int cx = (x0 + 1 + x1) / 2;
-        int ay = y0 + 4;
-        cfill_ctrl(port, cx,     ay,     1, CTRL_BLACK); /* tip */
-        cfill_ctrl(port, cx - 1, ay + 1, 3, CTRL_BLACK);
-        cfill_ctrl(port, cx - 2, ay + 2, 5, CTRL_BLACK);
-    }
-
-    /* Down-arrow button (bottom): framed box with down-triangle indicator. */
-    int dn_hilite = (ctrl->contrlHilite == inDownButton);
-    int dn_face = dn_hilite ? CTRL_ACCENT : CTRL_CONTROL;
-    crect_ctrl(port,  x0 + 1, y1 - btn, x1, y1, dn_face);
-    cframe_ctrl(port, x0 + 1, y1 - btn, x1, y1, CTRL_BLACK);
-    {
-        int cx = (x0 + 1 + x1) / 2;
-        int ay = y1 - btn + 4;
-        cfill_ctrl(port, cx - 2, ay,     5, CTRL_BLACK); /* top of down arrow  */
-        cfill_ctrl(port, cx - 1, ay + 1, 3, CTRL_BLACK);
-        cfill_ctrl(port, cx,     ay + 2, 1, CTRL_BLACK); /* tip                */
-    }
+    cfill_ctrl(port, x0 + 1, top_sep, x1 - x0 - 2, sep_part);
+    cfill_ctrl(port, x0 + 1, bottom_sep, x1 - x0 - 2, sep_part);
+    cfill_ctrl(port, x0 + 1, leading_sep, x1 - x0 - 2, sep_part);
+    cfill_ctrl(port, x0 + 1, trailing_sep, x1 - x0 - 2, sep_part);
+    draw_ctrl_up_triangle(port, cx, y0 + 6, FLAIR_PART_FRAME);
+    draw_ctrl_down_triangle(port, cx, y1 - 10, FLAIR_PART_FRAME);
 }
 
 /* draw_progress_bar -- FILE COPY determinate progress bar.

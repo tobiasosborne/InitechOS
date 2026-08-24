@@ -367,7 +367,10 @@ int main(void)
     for (int k = 0; k < (int)(sizeof left_body / sizeof left_body[0]); k++) {
         body_ok = body_ok && px(&active, WIN_LEFT + k, body_y) == left_body[k];
     }
-    body_ok = body_ok && px(&active, ri - 6, body_y) == FG_CONTENT_INSET_SHADOW_IDX;
+    /* At the right side the 16px gutter replaces the content-inset column;
+     * its sampled DA far highlight meets the same inner black body line. */
+    body_ok = body_ok && px(&active, ri - 6, body_y) ==
+                              FG_SB_ENABLED_WELL_HILITE1_IDX;
     body_ok = body_ok && px(&active, ri - 5, body_y) == FG_BODY_INNER_LINE_IDX;
     for (int k = 0; k < FG_BODY_BAR_ROWS; k++) {
         body_ok = body_ok && px(&active, ri - 4 + k, body_y) == FG_BODY_BAR_IDX[k];
@@ -378,10 +381,12 @@ int main(void)
         body_ok = body_ok && px(&active, mid_x, bi - 4 + k) == FG_BODY_BAR_IDX[k];
     }
     body_ok = body_ok && px(&active, mid_x, bi) == FG_FRAME_IDX;
-    body_ok = body_ok && px(&active, mid_x, bi - 6) == FG_CONTENT_INSET_SHADOW_IDX;
+    body_ok = body_ok && px(&active, mid_x, bi - 6) ==
+                              FG_SB_ENABLED_WELL_HILITE1_IDX;
     CHECK(body_ok,
           "leg BODYBAR: body must have the four-pixel raised white/218/218/179 bar "
-          "between outer and inner black lines plus the one-pixel content inset; "
+          "between outer and inner black lines plus the one-pixel content inset "
+          "(or the enabled gutter's DA far highlight at the right seam); "
           "a System-7 single-line body is wrong (window-chrome.md Sec 4)");
 
     /* WIDGETS: measured inclusive-R offsets. Ref: window-chrome.md Sec 3.1. */
@@ -469,40 +474,121 @@ int main(void)
           "leg GLYPHS: close has no glyph; zoom has only the six-pixel right and "
           "bottom edges in dark-ring ink (window-chrome.md Sec 3.3)");
 
-    /* ACTIVE skeleton state choice is DISABLED: flat trough, dim arrows and
-     * separators, no thumb. Ref: scrollbars.md Sec 3 and source capture named
-     * in chrome_fidelity_golden.h. _SCROLL_FLAT bites the state classes. */
+    /* ACTIVE skeleton state choice: ENABLED well/tile anatomy, black arrows
+     * and separators, but no thumb until Window Manager receives the R1.5
+     * scroll-position model.  Each visible element is sampled from
+     * scrollbars.md Sec 2; the explicit thumbless composition is recorded in
+     * chrome_fidelity_golden.h. */
     const int sb_left = ri - 20;
     const int sb_right = ri - 5;
     const int sb_top = WIN_TOP + FG_SB_TOP_OFF;
     const int sb_mid_x = (sb_left + sb_right) / 2;
     const int sb_sep_y = sb_top + FG_SB_ARROW_TILE - 1;
+    const int sb_bottom_sep_y = (bi - 19) - FG_SB_ARROW_TILE;
+    const int sb_well_top = sb_sep_y + 1;
     const int sb_track_y = 150;
+    const int grow_x = ri - 19;
+    const int grow_y = bi - 19;
+    const int hsb_left = WIN_LEFT + 5;
+    const int hsb_top = grow_y - 1;
+    const int hsb_right = grow_x;
+    const int hsb_bottom = bi - 5;
+    const int hsb_left_sep = hsb_left + FG_SB_ARROW_TILE - 1;
+    const int hsb_right_sep = hsb_right - FG_SB_ARROW_TILE;
+    const int hsb_mid_y = hsb_top + FG_SB_BAND / 2;
+    const int hsb_track_x = 150;
     int sb_arrow_px = count_idx(&active, sb_left + 1, sb_top + 1,
                                  sb_right, sb_sep_y,
-                                 FG_SB_DISABLED_ARROW_IDX);
-    int sb_thumb_px = count_idx(&active, sb_left, sb_top,
-                                 sb_right + 1, bi - 19,
-                                 FG_SB_ENABLED_THUMB_LIGHT_IDX) +
-                      count_idx(&active, sb_left, sb_top,
-                                 sb_right + 1, bi - 19,
-                                 FG_SB_ENABLED_THUMB_SHADOW_IDX);
-    int scrollbar_ok =
+                                 FG_SB_ENABLED_GLYPH_IDX);
+    int sb_thumb_px = count_idx(&active, sb_left + 1, sb_well_top,
+                                 sb_right, sb_bottom_sep_y,
+                                 FG_SB_ENABLED_THUMB_TEAL_IDX);
+    int sb_well_ok =
         px(&active, sb_left, sb_track_y) == FG_SB_ENABLED_FRAME_IDX &&
         px(&active, sb_mid_x, sb_top) == FG_SB_ENABLED_FRAME_IDX &&
+        px(&active, sb_left + 1, sb_track_y) ==
+            FG_SB_ENABLED_WELL_SHADOW0_IDX &&
+        px(&active, sb_left + 2, sb_track_y) ==
+            FG_SB_ENABLED_WELL_SHADOW1_IDX &&
+        px(&active, sb_left + 3, sb_track_y) == FG_SB_ENABLED_WELL_IDX &&
+        px(&active, sb_right - 2, sb_track_y) ==
+            FG_SB_ENABLED_WELL_HILITE0_IDX &&
+        px(&active, sb_right - 1, sb_track_y) ==
+            FG_SB_ENABLED_WELL_HILITE1_IDX &&
+        px(&active, sb_mid_x, sb_well_top) ==
+            FG_SB_ENABLED_WELL_SHADOW0_IDX &&
+        px(&active, sb_mid_x, sb_well_top + 1) ==
+            FG_SB_ENABLED_WELL_SHADOW1_IDX &&
+        px(&active, sb_mid_x, sb_bottom_sep_y - 1) ==
+            FG_SB_ENABLED_WELL_IDX &&
+        px(&active, hsb_track_x, hsb_top + 1) ==
+            FG_SB_ENABLED_WELL_SHADOW0_IDX &&
+        px(&active, hsb_track_x, hsb_top + 2) ==
+            FG_SB_ENABLED_WELL_SHADOW1_IDX &&
+        px(&active, hsb_track_x, hsb_top + 3) ==
+            FG_SB_ENABLED_WELL_IDX &&
+        px(&active, hsb_track_x, hsb_bottom - 2) ==
+            FG_SB_ENABLED_WELL_HILITE0_IDX &&
+        px(&active, hsb_track_x, hsb_bottom - 1) ==
+            FG_SB_ENABLED_WELL_HILITE1_IDX &&
+        px(&active, hsb_left_sep + 1, hsb_mid_y) ==
+            FG_SB_ENABLED_WELL_SHADOW0_IDX &&
+        px(&active, hsb_left_sep + 2, hsb_mid_y) ==
+            FG_SB_ENABLED_WELL_SHADOW1_IDX &&
+        px(&active, hsb_right_sep - 1, hsb_mid_y) ==
+            FG_SB_ENABLED_WELL_IDX;
+    CHECK(sb_well_ok,
+          "leg SCROLL-WELL: active gutter page must have the sampled "
+          "150/165/192x10/205/218 cross-section, two-pixel dark near inset, "
+          "and unstroked far end (scrollbars.md Sec 2.3)");
+
+    int sb_tile_ok =
         px(&active, sb_mid_x, sb_top + 1) == FG_SB_AFTER_TOP_IDX &&
-        px(&active, sb_mid_x, sb_track_y) == FG_SB_DISABLED_TROUGH_IDX &&
-        px(&active, sb_mid_x, sb_sep_y) == FG_SB_DISABLED_SEPARATOR_IDX &&
-        sb_arrow_px >= 8 && sb_thumb_px == 0;
-    CHECK(scrollbar_ok,
-          "leg SCROLL-DISABLED: active no-range scene must use trough idx243, "
-          "arrow idx165, separator idx119, no thumb, and one shared title/gutter "
-          "top line (scrollbars.md Sec 1/Sec 3; window-chrome.md Sec 2.1)");
+        px(&active, sb_left + 1, sb_top + 8) ==
+            FG_SB_ENABLED_TILE_HI_IDX &&
+        px(&active, sb_mid_x, sb_top + 2) ==
+            FG_SB_ENABLED_TILE_FACE_IDX &&
+        px(&active, sb_right - 1, sb_top + 8) ==
+            FG_SB_ENABLED_TILE_SHADOW_IDX &&
+        px(&active, sb_mid_x, sb_sep_y - 1) ==
+            FG_SB_ENABLED_TILE_SHADOW_IDX &&
+        sb_arrow_px == 20 &&
+        px(&active, hsb_left + 8, hsb_top + 1) ==
+            FG_SB_ENABLED_TILE_HI_IDX &&
+        px(&active, hsb_left + 1, hsb_mid_y) ==
+            FG_SB_ENABLED_TILE_HI_IDX &&
+        px(&active, hsb_left + 3, hsb_top + 3) ==
+            FG_SB_ENABLED_TILE_FACE_IDX &&
+        px(&active, hsb_left_sep - 1, hsb_top + 3) ==
+            FG_SB_ENABLED_TILE_SHADOW_IDX &&
+        px(&active, hsb_left + 8, hsb_bottom - 1) ==
+            FG_SB_ENABLED_TILE_SHADOW_IDX &&
+        count_idx(&active, hsb_left + 1, hsb_top + 1,
+                  hsb_left_sep, hsb_bottom,
+                  FG_SB_ENABLED_GLYPH_IDX) == 20;
+    CHECK(sb_tile_ok,
+          "leg SCROLL-TILE: active arrow boxes must be raised white/E7/CD "
+          "tiles with solid black 8x4 triangles (scrollbars.md Sec 2.2)");
+
+    int sb_separator_ok =
+        px(&active, sb_mid_x, sb_sep_y) == FG_SB_ENABLED_FRAME_IDX &&
+        px(&active, sb_mid_x, sb_bottom_sep_y) == FG_SB_ENABLED_FRAME_IDX &&
+        px(&active, hsb_left_sep, hsb_mid_y) == FG_SB_ENABLED_FRAME_IDX &&
+        px(&active, hsb_right_sep, hsb_mid_y) == FG_SB_ENABLED_FRAME_IDX;
+    CHECK(sb_separator_ok,
+          "leg SCROLL-SEPARATOR: both active arrow-box separators must be "
+          "black, never inactive gray (scrollbars.md Sec 2.1)");
+
+    int sb_no_thumb_ok = FG_SB_ENABLED_NO_THUMB && sb_thumb_px == 0 &&
+        count_idx(&active, hsb_left_sep + 1, hsb_top + 1,
+                  hsb_right_sep, hsb_bottom,
+                  FG_SB_ENABLED_THUMB_TEAL_IDX) == 0;
+    CHECK(sb_no_thumb_ok,
+          "leg SCROLL-NO-THUMB: window gutters remain honestly thumbless until "
+          "R1.5 supplies a scroll-position model (initech-tdnl.4)");
 
     /* GROW BOX: 18x18 cell, face/highlight, three pitched grip lines.
      * Ref: window-chrome.md Sec 5. */
-    const int grow_x = ri - 19;
-    const int grow_y = bi - 19;
     int grow_ok = strlen(FG_GROW_PROFILE) ==
                   FG_GROW_PROFILE_ROWS * FG_GROW_PROFILE_COLS &&
                   FG_GROW_GRIP_LINES == 3 && FG_GROW_GRIP_PITCH == 4;
@@ -650,7 +736,10 @@ int main(void)
     LEG_STATUS("COLLAPSE", collapse_ok, "rightmost collapse widget and two rows");
     LEG_STATUS("WIDGET-FLAGS", widget_flags_ok, "close+collapse selected; zoom absent");
     LEG_STATUS("GLYPHS", glyph_ok, "close none; zoom right+bottom edges");
-    LEG_STATUS("SCROLL-DISABLED", scrollbar_ok, "243/165/119 classes, no thumb");
+    LEG_STATUS("SCROLL-WELL", sb_well_ok, "five-value section + 2px near inset");
+    LEG_STATUS("SCROLL-TILE", sb_tile_ok, "white/E7/CD raised arrow tiles");
+    LEG_STATUS("SCROLL-SEPARATOR", sb_separator_ok, "active separators black");
+    LEG_STATUS("SCROLL-NO-THUMB", sb_no_thumb_ok, "deferred window scroll model");
     LEG_STATUS("GROW", grow_ok, "18x18, three pitched grip lines");
     LEG_STATUS("INACTIVE-TITLE", inactive_title_ok, "flat idx231, not Sys7 white");
     LEG_STATUS("INACTIVE-FRAME", inactive_frame_ok, "all lines/shadow idx119");
