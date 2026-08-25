@@ -147,6 +147,16 @@
 #       That is a REAL gap in R3.3's raise story (a background window's title
 #       click should raise it) and it belongs to the core lane / tdnl.12, not
 #       to a trace that papers over it.
+#       [SUPERSEDED 2026-08-25, bug initech-tpzf / bead initech-tdnl.12: THE GAP
+#       IS FIXED. os/flair/process.c :: flair_app_dispatch now runs
+#       SelectWindow(w) whenever the clicked window is not wm->front -- title
+#       AND content, same-tenant AND cross-tenant -- so route (b) really would
+#       work now (host-graded by test_process.c leg (f), mutant
+#       PROC_MUT_NO_SAMETENANT_RAISE). The trace below is NOT rewritten to use
+#       it: it is a locked trace with locked expectations (Rule 8), the drag it
+#       performs is load-bearing for the FLAIR-DRAG assertion, and re-keying a
+#       green trace to exercise a different verb buys nothing. Recorded so the
+#       "rejected because broken" note is not read later as "still broken".]
 # So the trace MOVES window 1 out of the way with the drag verb that already
 # works, and then opens APPS again from window 0 -- the honest gesture a user
 # would make, and the one that exercises the singleton field itself.
@@ -268,6 +278,8 @@ FLAIR_WINDOW_DRAG_PERSIST_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:2,m-
 #     FINDER-OPEN-VOLUME win=0 n=4
 #     FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0
 #     FINDER-NEW-FOLDER name=NEWFOLD parent=0
+# and, from the Cmd-I that PRECEDES the Cmd-N (bead initech-tdnl.12), NO line
+# mentioning GET_INFO anywhere in the capture -- see step B1.
 # and the mtools differential on the gate-local data image must then show
 #     NEWFOLD      <DIR>
 # in the root -- a real directory, not a claim on serial (Law 2).
@@ -283,6 +295,26 @@ FLAIR_WINDOW_DRAG_PERSIST_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:2,m-
 #
 # --- waypoint arithmetic -------------------------------------------------
 # A. the volume double-click, byte-for-byte trace 1 step A.
+# B1. "kctrl-i" -- THE NEGATIVE MenuKey LEG (bead initech-tdnl.12). Nothing is
+#    selected at this point (the double-click in step A opened the volume; it
+#    selected no icon INSIDE the new window), so File > Get Info's enable byte
+#    is 0 and menu.h's MenuKey -- which returns the FIRST *ENABLED* non-divider
+#    match -- hands out NOTHING. kmain's chord arm therefore returns "not
+#    consumed" and no FINDER-CMD line is emitted at all.
+#
+#    THIS IS THE PROOF THAT THE KEYBOARD PATH REALLY MOVED TO MenuKey. tdnl.10
+#    resolved a chord by scanning the COMMAND TABLE (finder_cmd_key_lookup),
+#    which has no notion of an enable byte: it would have found the Get Info row
+#    regardless and finder_dispatch would have printed
+#        FINDER-CMD id=5 name=GET_INFO src=key sel=0
+#        FINDER-CMD-DISABLED name=GET_INFO
+#    So "no GET_INFO line at all" is a state ONLY the new path can produce, and
+#    the assertion is a real differential rather than a tautology. The POSITIVE
+#    half (Cmd-I WITH a selection, which must dispatch) rides
+#    FLAIR_FINDER_MENU_SPEC step H.
+#
+#    NO PARK IS NEEDED BEFORE THE CHORD and no pixel moves, so the newfolder
+#    screendump this trace also feeds is unaffected.
 # B. "kctrl-n" -- ONE QMP send-key carrying the qcode array [ctrl, n] (see the
 #    banner). The chord reaches os/flair/event.c as Ctrl-make + n-make, so the
 #    keyDown for 'n' carries FLAIR_EVT_MOD_CONTROL_KEY; kmain's
@@ -295,4 +327,158 @@ FLAIR_WINDOW_DRAG_PERSIST_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:2,m-
 #      sum(dx) = +20 ; sum(dy) = +396
 #      split: m20:99, m0:99, m0:99, m0:99
 #             -> (620,163),(620,262),(620,361),(620,460)
-FLAIR_NEW_FOLDER_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-n,m20:99,m0:99,m0:99,m0:99
+FLAIR_NEW_FOLDER_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-i,kctrl-n,m20:99,m0:99,m0:99,m0:99
+
+# ===========================================================================
+# 4. FLAIR_FINDER_MENU_SPEC -- THE REAL FINDER MENU BAR, DRIVEN BY THE MOUSE
+#    (bead initech-tdnl.12 / GUI remediation R3.5 stage 1)
+# ===========================================================================
+# THE CLEAN UP UNLOCK. The banner above ("CLEAN UP HAS NO EMU LEG, AND HERE IS
+# WHY") recorded that FCMD_CLEANUP carries cmd_char == 0 and that the Finder's
+# menu bar "does not exist until bead initech-tdnl.12", so no injectable input
+# could reach finder_win_cleanup on the booted system. The bar exists now
+# (os/flair/finder_menu.c) and the Finder really takes the foreground when it
+# opens a disk window, so band 2 IS the Finder's bar and the MOUSE path reaches
+# Clean Up. That paragraph is superseded for Clean Up specifically; everything
+# else it says about cmd_char == 0 still holds.
+#
+# Serial chain this trace must produce, in order:
+#     FINDER-OPEN-VOLUME win=0 n=4
+#     FLAIR-DISPATCH app=FINDER
+#     FINDER-WIN-DRAG win=0 name=README.TXT x=189 y=166
+#     FLAIR-MENU-DROP menu=515
+#     FLAIR-MENU menu=515 item=1 (sel=0x02030001)
+#     FINDER-CMD id=9 name=CLEANUP src=mouse sel=0
+#     FINDER-CLEANUP win=0 moved=1
+#     FINDER-WIN-SELECT win=0 name=README.TXT count=1
+#     FINDER-CMD id=5 name=GET_INFO src=key sel=1
+#
+# WHY THE ICON IS DRAGGED FIRST (the load-bearing choice, stated). A freshly
+# populated window is ALREADY clean -- finder_win_populate snaps every icon
+# row-major from the top-left (os/flair/finder_windows.c) -- so Clean Up on it
+# would report moved=0, which is indistinguishable from a Clean Up that ran and
+# did nothing. Dragging README.TXT off its cell first makes moved=1 the ONLY
+# honest outcome, so the leg proves the command really executed rather than
+# merely dispatched.
+#
+# THE TWO Cmd-I CHORDS ARE THE MenuKey PROOF (F4.2 + F4.4). tdnl.10's keyboard
+# path scanned the COMMAND TABLE, which knows nothing about enable bytes: Cmd-I
+# with nothing selected found the Get Info row every time. tdnl.12 replaced that
+# with menu.h's MenuKey over the LIVE bar, which returns the FIRST *ENABLED*
+# match -- so the chord is a no-op while Get Info is grayed. This trace fires
+# Cmd-I only AFTER selecting an icon, and gets the dispatch; the NEGATIVE half
+# (Cmd-I with an empty selection producing NO GET_INFO line at all) rides
+# FLAIR_NEW_FOLDER_SPEC below, where the selection is empty by construction.
+#
+# --- waypoint arithmetic -------------------------------------------------
+# A. the volume double-click, byte-for-byte trace 1 step A -> (600,64).
+#    The window opens AND the Finder is promoted to the foreground tenant, so
+#    band 2 swaps from HELLO's Photoshop bar to the Finder's own bar.
+# B. (600,64) -> the README.TXT sprite CENTRE (55,102) = (39+16, 86+16):
+#      sum(dx) = -545 ; sum(dy) = +38
+#      split: m-100:8, m-100:8, m-100:8, m-100:7, m-100:7, m-45:0
+#             -> (500,72),(400,80),(300,88),(200,95),(100,102),(55,102)
+# C. drag README.TXT by (+150,+80) and release:
+#      l1 ; m100:80, m50:0 -> (155,182),(205,182) ; l0
+#    new origin = (39,86)+(150,80) = (189,166). NOT clamped: fd_clamp_origin
+#    holds the origin inside (bounds.right - FINDER_ICON_DIM(32)) = 359-32 = 327
+#    and (bounds.bottom - FINDER_CELL_H(47)) = 279-47 = 232, and 189 <= 327,
+#    166 <= 232. A drag does NOT select (finder_desk_drag_commit is reached
+#    through the `moved` branch of flair_live_do_surface, which never calls
+#    finder_desk_select_only), which is why the CLEANUP line below reads sel=0.
+# D. (205,182) -> the SPECIAL title in BAND 2 at (190,30):
+#      sum(dx) = -15 ; sum(dy) = -152 ; split: m-15:-76, m0:-76
+#             -> (190,106),(190,30)
+#    Special's title slot is x[158,228) -- hand-derived in
+#    harness/proptest/test_finder_menu.c leg B from os/flair/menu.h Sec 5:
+#    first title at FLAIR_MENU_APPLE_W(20), slot = 8*len + 2*FLAIR_MENU_TITLE_PAD
+#    (Chicago is a fixed 8px cell), so File[20,66) Edit[66,112) View[112,158)
+#    Special[158,228) Help[228,274). Band 2 is rows [SHELL_MENUBAR2_TOP(20),40).
+#    (190,30) is the slot's middle, well clear of both neighbours. y=30 is
+#    ABOVE window 0's frame top (60), so FindWindow returns inDesk and the
+#    band-2 arm takes the click.
+# E. pull down and release on SPECIAL item 1 (Clean Up):
+#      l1 ; m0:18 -> (190,48) ; l0
+#    The panel drops with its top at the bar baseline: item rows begin at
+#    FLAIR_MENUBAR_H(20) - FLAIR_MENU_PANEL_FRAME(1) + FLAIR_MENU_PANEL_INSET(2)
+#    = 21 in band-local coordinates, i.e. screen y 41, and each row is
+#    FLAIR_MENU_ITEM_H(16) tall -- so item 1 (Clean Up) owns screen y [41,57)
+#    and y=48 is its middle. The panel is x[158,278): menu_panel_w takes the
+#    widest item, "Empty Trash" (11 Chicago cells = 88) + FLAIR_MENU_ITEM_LPAD
+#    (20) + FLAIR_MENU_ITEM_RPAD (12) = 120, and no Special item carries a
+#    command key. x=190 is inside it.
+#    -> MenuSelect returns MenuResult(515,1) = 0x02030001, kmain hands it to
+#    finder_dispatch(..., "mouse") and the shell's exec hook runs Clean Up.
+# F. (190,48) -> back to README.TXT's RESTORED cell centre (55,102):
+#      sum(dx) = -135 ; sum(dy) = +54 ; split: m-100:40, m-35:14
+#             -> (90,88),(55,102)
+#    It is back at (39,86) because Clean Up just snapped it there -- so this
+#    waypoint only exists if the command really ran.
+# G. l1,l0 selects it: the window's click tracker has not classified a click
+#    since finder_click_reset at open (the drag in C took the `moved` branch,
+#    which never calls finder_click_classify), so this is an unambiguous SINGLE.
+# H. "kctrl-i" -- ONE QMP send-key carrying [ctrl, i]. Get Info's enable byte
+#    was just recomputed to 1 by finder_menu_refresh_enables (selection_count
+#    == 1), so MenuKey hands out MenuResult(512,6) and the command dispatches.
+# I. PARK: (55,102) -> (620,460): sum(dx) = +565 ; sum(dy) = +358
+#      split: m100:72, m100:72, m100:72, m100:71, m100:71, m65:0
+#             -> (155,174),(255,246),(355,318),(455,389),(555,460),(620,460)
+#      (100*5 + 65 = 565 ; 72*3 + 71 + 71 + 0 = 358)
+# Graded on SERIAL only.
+FLAIR_FINDER_MENU_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:80,m50:0,l0,m-15:-76,m0:-76,l1,m0:18,l0,m-100:40,m-35:14,l1,l0,kctrl-i,m100:72,m100:72,m100:72,m100:71,m100:71,m65:0
+
+# ===========================================================================
+# 5. FLAIR_FINDER_MENU_CANCEL_SPEC -- the band-2 CANCEL restores the frame
+#    EXACTLY (bead initech-tdnl.12; the solid-leg-D pattern)
+# ===========================================================================
+# Open the volume (so band 2 is the Finder's bar), pull the FILE menu down over
+# the disk window and the desktop, drag off the panel entirely and release on
+# bare desktop -- a CANCEL, MenuSelect returns 0, nothing dispatches -- then
+# park. The resulting frame must be BYTE-IDENTICAL to the frame of a boot that
+# only opened the volume and parked ($(FLAIR_DW_ROOT_NAME).ppm, leg 1). That is
+# the whole-frame version of the "PRE == POST after a cancel" property
+# test-flair-solid leg D applies to the single-bar pump: a pull-down is
+# TEMPORARY INK and every pixel it covered has to come back, including the ones
+# it covered ON A WINDOW.
+#
+# Serial chain this trace must produce, in order:
+#     FINDER-OPEN-VOLUME win=0 n=4
+#     FLAIR-DISPATCH app=FINDER
+#     FLAIR-MENU-DROP menu=512
+#     FLAIR-MENU menu=512 item=0 (sel=0x00000000)
+# and NO FINDER-CMD line at all (sel == 0 is IM's "nothing chosen", which
+# finder_dispatch returns from before tracing -- os/flair/finder_cmd.c).
+#
+# WHY THE FILE MENU. It is the TALLEST menu in the F4.2 resource -- 14 items,
+# 12 normal rows (FLAIR_MENU_ITEM_H 16) + 2 dividers (FLAIR_MENU_DIV_H 6) =
+# 204, plus FLAIR_MENU_PANEL_INSET 2 = 206 -- so its panel spans screen
+# y[39,245) and x[20,176) (menu_panel_w: "Close Window" is 12 Chicago cells =
+# 96, and it carries a command key, so 20 + 96 + FLAIR_MENU_CMD_GAP(8) +
+# 2*8 + FLAIR_MENU_CMD_RPAD(16) = 156). That rectangle covers the disk window's
+# title bar, its go-away box, part of its icon row AND bare desktop, so a
+# restore that is right for the desktop but wrong over the window cannot pass.
+#
+# --- waypoint arithmetic -------------------------------------------------
+# A. the volume double-click, byte-for-byte trace 1 step A -> (600,64).
+# B. (600,64) -> the FILE title in band 2 at (40,30):
+#      sum(dx) = -560 ; sum(dy) = -34
+#      split: m-100:-7, m-100:-7, m-100:-7, m-100:-7, m-100:-6, m-60:0
+#             -> (500,57),(400,50),(300,43),(200,36),(100,30),(40,30)
+#    File's slot is x[20,66) (see trace 4 step D for the derivation); (40,30) is
+#    inside it and inside band 2's rows [20,40).
+# C. pull down, drag CLEAR of the panel, release on bare desktop at (400,400):
+#      l1 ; m90:93, m90:93, m90:92, m90:92 -> (130,123),(220,216),(310,308),
+#      (400,400) ; l0
+#      (90*4 = 360 = 400-40 ; 93+93+92+92 = 370 = 400-30)
+#    (400,400) clearance: outside the File panel x[20,176) y[39,245); outside
+#    the disk window (20,60)..(380,280) (x 400 > 380 AND y 400 > 280); outside
+#    the VOLUME cell (577,48)-(624,95) and the TRASH cell (583,404)-(617,451)
+#    (x 400 < 577); outside the cursor PARK rect (620,460)-(636,476).
+#    MenuInfo_item_at returns -1 for a point outside the panel, so MenuSelect
+#    returns 0 -- the cancel.
+#    The mouseUp is consumed INSIDE the menu track loop, and the pump's inDesk
+#    arm tests the ORIGINAL mouseDown (y=30 < 40), so the desktop gesture
+#    handler never runs and the selection state is untouched.
+# D. PARK: (400,400) -> (620,460): sum(dx) = +220 ; sum(dy) = +60
+#      split: m100:30, m100:30, m20:0 -> (500,430),(600,460),(620,460)
+FLAIR_FINDER_MENU_CANCEL_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:-7,m-100:-7,m-100:-7,m-100:-7,m-100:-6,m-60:0,l1,m90:93,m90:93,m90:92,m90:92,l0,m100:30,m100:30,m20:0

@@ -239,6 +239,182 @@ static EventRecord mk_event(uint16_t what, int16_t v, int16_t h, uint16_t mods)
 }
 
 /* ===========================================================================
+ * leg (f) -- THE RAISE (bug initech-tpzf): the CLICKED window comes forward.
+ * ---------------------------------------------------------------------------
+ * Inside Macintosh, Macintosh Toolbox Essentials, Event Manager: a mouseDown
+ * anywhere in a window that is not the active one activates it first
+ * (SelectWindow) and only then is the click acted on. Legs (a)-(e) all use
+ * SINGLE-window tenants, where "raise the owner's group" and "raise the
+ * clicked window" happen to coincide -- so they could never see the gap.
+ *
+ * THE GAP, MEASURED ON THE REAL GUEST and recorded in
+ * spec/flair_disk_windows_traces.mk lines 141-149: two Finder disk windows
+ * belong to the SAME tenant, so a click on the background one had no tenant to
+ * switch, `owner == old_fg`, and NOTHING raised it -- the click dispatched but
+ * the window stayed buried. Same shape one level up: a cross-tenant click on a
+ * multi-window tenant raises the GROUP but leaves the clicked member inside it.
+ *
+ * THE SCENE (its own manager and windows, so legs (a)-(e) stay byte-stable):
+ * tenant P owns TWO windows P1 (front) and P2 (behind), tenant Q owns one.
+ * All three DISJOINT in x, so the hit-test is unambiguous.
+ *
+ * SELF-MUTATION (Rule 6; the convention this file already uses -- the mutant
+ * perturbs the GOLDEN, not the dispatcher):
+ *   PROC_MUT_NO_SAMETENANT_RAISE -- the golden EXPECTS the pre-fix behaviour
+ *     (the clicked window stays buried; the group head never moves). The fixed
+ *     dispatcher raises it, so f1/f2/f3 go RED. Restore the bug in
+ *     os/flair/process.c and the ordinary (non-mutant) golden goes RED instead
+ *     -- the same discriminating assertion, from either side.
+ *
+ * WL-0076 ACTIVATION CONTRACT: a same-tenant raise is NOT an app switch, so it
+ * must emit NO activateEvt pair (both windows belong to the same tenant, which
+ * never stopped being foreground). Asserted explicitly below; the cross-tenant
+ * leg still emits exactly one deactivate THEN one activate, unchanged.
+ * ===========================================================================*/
+enum { P_ID = 3, Q_ID = 4 };
+enum { GW2 = 160, GH2 = 64 };
+
+static FlairApp *g_appP = NULL;
+static FlairApp *g_appQ = NULL;
+
+static void pq_event(FlairApp *self, const EventRecord *ev)
+{
+    log_append(self == g_appP ? P_ID : (self == g_appQ ? Q_ID : -1), ev);
+}
+
+static const FlairAppProcs g_pq_procs = { stub_open, pq_event, NULL, NULL };
+
+static void leg_same_tenant_raise(void)
+{
+    rgn_rect_t FRAME2 = { 0, 0, GH2, GW2 };
+    static win_store_t WP1, WP2, WQ;
+    static mgr_store_t M2;
+    static FlairApp    appP, appQ;
+    static FlairProcessList plist2;
+
+    /* Hand-authored geometry (top,left,bottom,right), pairwise disjoint in x. */
+    rgn_rect_t P1s = { 8,   6, 30,  44 }, P1c = { 11,   7, 29,  43 };
+    rgn_rect_t P2s = { 8,  56, 30,  94 }, P2c = { 11,  57, 29,  93 };
+    rgn_rect_t Qs  = { 8, 106, 30, 144 }, Qc  = { 11, 107, 29, 143 };
+    int before;
+
+    /* The pre-fix expectation, switched on by the self-mutation. */
+#ifdef PROC_MUT_NO_SAMETENANT_RAISE
+    const int raises = 0;
+#else
+    const int raises = 1;
+#endif
+
+    mgr_attach(&M2, FRAME2);
+
+    /* z-order back-to-front: Q created first (deepest), then P2, then P1. */
+    win_attach(&WQ);
+    NewWindow(&M2.wm, &WQ.rec,  Qs,  Qc, documentKind, documentProc, 1);
+    win_attach(&WP2);
+    NewWindow(&M2.wm, &WP2.rec, P2s, P2c, documentKind, documentProc, 1);
+    win_attach(&WP1);
+    NewWindow(&M2.wm, &WP1.rec, P1s, P1c, documentKind, documentProc, 1);
+
+    memset(&appP, 0, sizeof appP);
+    memset(&appQ, 0, sizeof appQ);
+    appP.name = "P"; appP.procs = &g_pq_procs; appP.windows = &WP1.rec;
+    appQ.name = "Q"; appQ.procs = &g_pq_procs; appQ.windows = &WQ.rec;
+    g_appP = &appP; g_appQ = &appQ;
+
+    FlairProcessList_init(&plist2);
+    FlairProcess_register(&plist2, &appQ);
+    FlairProcess_register(&plist2, &appP);   /* P registered last => foreground */
+
+    /* FlairProcess_register binds only the app's HEAD window's refCon; P's
+     * SECOND window has to be bound the same way (the Sec 3.1 demux key), which
+     * is exactly what the Finder does for every disk window it opens
+     * (os/flair/finder_windows.c: "w->rec.refCon = (int32_t)(uintptr_t)sh->app"). */
+    WP2.rec.refCon = (int32_t)(uintptr_t)&appP;
+
+    /* Scene meaningfulness, by INDEPENDENT rect arithmetic (not FindWindow). */
+    CHECK(rect_contains(P2c, 70, 20) && !rect_contains(P1s, 70, 20) &&
+          !rect_contains(Qs, 70, 20),
+          "leg(f) scene: the P2-content probe (v20,h70) is unambiguously P2's");
+    CHECK(rect_contains(P1s, 20, 9) && !rect_contains(P1c, 20, 9),
+          "leg(f) scene: the P1 title probe lies in structure but outside content");
+    CHECK(plist2.head == &appP && M2.wm.front == &WP1.rec,
+          "leg(f) scene: P is foreground and P1 -- not P2 -- is the front window");
+
+    /* --- f1: SAME tenant, content click on the buried window P2 ----------- */
+    before = g_log_n;
+    {
+        EventRecord ev = mk_event(mouseDown, /*v*/20, /*h*/70, 0);
+        flair_app_dispatch(&plist2, &M2.wm, &ev);
+    }
+    CHECK(g_log_n == before + 1,
+          "leg(f1): a same-tenant content click delivers EXACTLY the mouseDown");
+    CHECK(g_log_n >= before + 1 &&
+          entry_match(&g_log[before], P_ID, mouseDown, -1, 20, 70),
+          "leg(f1): ... to its owner P");
+    {
+        int activates = 0;
+        for (int i = before; i < g_log_n; i++)
+            if (g_log[i].what == activateEvt) activates++;
+        CHECK(activates == 0,
+              "leg(f1): a same-tenant raise is NOT an app switch -- ZERO "
+              "activateEvt records (the WL-0076 activation contract)");
+    }
+    CHECK(M2.wm.front == (raises ? &WP2.rec : &WP1.rec),
+          "leg(f1): the CLICKED window comes to the front of the z-order "
+          "even though its tenant was already foreground (bug initech-tpzf)");
+    CHECK(appP.windows == (raises ? &WP2.rec : &WP1.rec),
+          "leg(f1): ... and the tenant's group head follows it (no stale head)");
+    CHECK(plist2.head == &appP,
+          "leg(f1): the foreground tenant is unchanged -- P was already it");
+
+    /* --- f2: SAME tenant, TITLE click on the now-buried window P1 --------- */
+    before = g_log_n;
+    {
+        EventRecord ev = mk_event(mouseDown, /*v*/9, /*h*/20, 0);
+        flair_app_dispatch(&plist2, &M2.wm, &ev);
+    }
+    CHECK(g_log_n == before,
+          "leg(f2): a title mouseDown is NEVER delivered to the tenant (O-1 leg(e))");
+    CHECK(M2.wm.front == (raises ? &WP1.rec : &WP2.rec),
+          "leg(f2): a TITLE click raises the clicked window too -- the exact "
+          "gesture spec/flair_disk_windows_traces.mk measured as broken");
+
+    /* --- f3: CROSS tenant, click a window that is not its group's front --- */
+    /* First make Q the foreground by clicking its content (the ordinary path). */
+    before = g_log_n;
+    {
+        EventRecord ev = mk_event(mouseDown, /*v*/20, /*h*/120, 0);
+        flair_app_dispatch(&plist2, &M2.wm, &ev);
+    }
+    CHECK(plist2.head == &appQ && M2.wm.front == &WQ.rec,
+          "leg(f3) setup: Q is foreground with its single window at the front");
+
+    /* P's group is now behind Q, with P1 ahead of P2 inside it (f2 raised P1).
+     * Clicking P2 must switch to P *and* leave P2 -- the clicked member, not the
+     * group's own front P1 -- frontmost. */
+    before = g_log_n;
+    {
+        EventRecord ev = mk_event(mouseDown, /*v*/20, /*h*/70, 0);
+        flair_app_dispatch(&plist2, &M2.wm, &ev);
+    }
+    CHECK(g_log_n == before + 3,
+          "leg(f3): a cross-tenant click still emits the pair THEN the click");
+    CHECK(g_log_n >= before + 2 &&
+          entry_match(&g_log[before], Q_ID, activateEvt, 0, 0, 0) &&
+          entry_match(&g_log[before + 1], P_ID, activateEvt, 1, 0, 0),
+          "leg(f3): EXACTLY one deactivate to Q THEN one activate to P "
+          "(the WL-0076 contract is untouched by the raise)");
+    CHECK(g_log_n >= before + 3 &&
+          entry_match(&g_log[before + 2], P_ID, mouseDown, -1, 20, 70),
+          "leg(f3): THEN the mouseDown reaches P");
+    CHECK(plist2.head == &appP,
+          "leg(f3): P is promoted to the foreground");
+    CHECK(M2.wm.front == (raises ? &WP2.rec : &WP1.rec),
+          "leg(f3): the clicked member -- not the group's old front -- ends "
+          "frontmost after a whole-group raise");
+}
+
+/* ===========================================================================
  * MAIN -- the O-1 routing/dispatch oracle.
  * ===========================================================================*/
 int main(void)
@@ -383,6 +559,8 @@ int main(void)
         CHECK(plist.head == &appA && M.wm.front == &WA.rec,
               "leg(e): background-title switch promotes A and raises its window once");
     }
+
+    leg_same_tenant_raise();
 
     return TEST_SUMMARY("test-process");
 }

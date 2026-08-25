@@ -142,6 +142,66 @@ enum { SCRW = 640, SCRH = 480 };
 #define MOVED_T  180
 
 /* ---------------------------------------------------------------------------
+ * THE FINDER MENU BAR IN BAND 2 (the `finderbar` leg; bead initech-tdnl.12).
+ *
+ * The two stacked bars occupy rows [0,20) (band 1, the SHELL-OWNED static
+ * System-7 bar -- initech-4w15: never repainted by live code) and [20,40)
+ * (band 2, the FOREGROUND TENANT's bar). Opening the volume promotes the
+ * Finder, so band 2 must become the FINDER's bar.
+ *
+ * THE TITLE COLUMNS ARE HAND-DERIVED, not read off the resource (Law 2). The
+ * arithmetic is os/flair/menu.h Sec 5 over the F4.2 titles, and it is asserted
+ * INDEPENDENTLY by harness/proptest/test_finder_menu.c leg B, so a menu.h
+ * padding change goes red on the host gate before it reaches QEMU:
+ *
+ *   first title x = FLAIR_MENU_APPLE_W                    = 20   (has_apple)
+ *   slot width    = 8*len + 2*FLAIR_MENU_TITLE_PAD        = 8*len + 14
+ *     (Chicago is a FIXED 8px cell -- spec/assets/chicago8x16.h CHICAGO_CELL_W)
+ *   File    len 4 -> w 46 -> slot [ 20, 66)  ink run [ 27,  59)
+ *   Edit    len 4 -> w 46 -> slot [ 66,112)  ink run [ 73, 105)
+ *   View    len 4 -> w 46 -> slot [112,158)  ink run [119, 151)
+ *   Special len 7 -> w 70 -> slot [158,228)  ink run [165, 221)
+ *   Help    len 4 -> w 46 -> slot [228,274)  ink run [235, 267)
+ *
+ * ROWS [22,38), NOT [20,40): the bar's own bottom rule is a FULL-WIDTH black
+ * line at row 39 (menu.c draws it at FLAIR_MENUBAR_H-1 of the band), so a
+ * probe that included it would find "ink" at every x and prove nothing.
+ *
+ * THE LEG IS A TWO-SIDED DIFFERENTIAL -- it must reject BOTH neighbours:
+ *   * NOT the Photoshop bar (HELLO's, the boot band-2 content): its titles
+ *     "File Edit Image Layer Select View Window Help" run out to x ~ 436, so
+ *     the Finder bar is pinned by ZERO ink from x=274 to the right edge.
+ *   * NOT the System-7 shell bar (band 1's, "Apple File Edit View Special"):
+ *     it has no Help title, so the Finder bar is pinned by INK in the Help run
+ *     while band 1 has NONE in the same columns -- which simultaneously
+ *     re-asserts the initech-4w15 static-bar rule.
+ * ------------------------------------------------------------------------- */
+#define BAR1_Y0        2      /* band 1 text rows, clear of its own rules      */
+#define BAR1_Y1       18
+#define BAR2_Y0       22      /* band 2 text rows, clear of the row-39 rule    */
+#define BAR2_Y1       38
+#define FBAR_INK_END 274      /* first column past the last Finder title slot  */
+/* ... and where the "no ink out here" sweep STOPS. The Platinum bar draws its
+ * own ROUNDED RIGHT CORNER (os/flair/menu.c; sampled anatomy sys8/menus.md Sec
+ * 1.1) which puts a handful of ink pixels in the last two columns of EVERY
+ * bar, Finder or not -- grading them would be grading bar furniture, not the
+ * bar's identity. Stopping at 624 costs the leg nothing: the Photoshop bar it
+ * has to reject ends its Help title around x=436, deep inside the sweep. */
+#define FBAR_INK_STOP 624
+
+typedef struct BarTitle { const char *name; int x0, x1; } BarTitle;
+
+/* The five ink runs, hand-derived above. */
+static const BarTitle FBAR_TITLES[] = {
+    { "File",     27,  59 },
+    { "Edit",     73, 105 },
+    { "View",    119, 151 },
+    { "Special", 165, 221 },
+    { "Help",    235, 267 }
+};
+#define FBAR_TITLE_N ((int)(sizeof FBAR_TITLES / sizeof FBAR_TITLES[0]))
+
+/* ---------------------------------------------------------------------------
  * Tone codes -- the ASCII-map legend, carried through by hand.
  * ------------------------------------------------------------------------- */
 enum {
@@ -501,6 +561,68 @@ static void check_chrome(int L, int T)
  * PARK rect (620,460)-(636,476).  See the clearance argument in
  * spec/flair_disk_windows_traces.mk trace 2 step C. */
 typedef struct { int x; int y; const char *why; } Point;
+/* ---------------------------------------------------------------------------
+ * The `finderbar` leg: band 2 carries the FINDER's menu bar.
+ * ------------------------------------------------------------------------- */
+static void check_finder_bar(void)
+{
+    long past, help2, help1;
+    int i;
+
+    for (i = 0; i < FBAR_TITLE_N; i++) {
+        long ink = count_black(FBAR_TITLES[i].x0, BAR2_Y0,
+                               FBAR_TITLES[i].x1, BAR2_Y1);
+        printf("    band-2 title %-8s ink run x[%d,%d) y[%d,%d): %ld ink px\n",
+               FBAR_TITLES[i].name, FBAR_TITLES[i].x0, FBAR_TITLES[i].x1,
+               BAR2_Y0, BAR2_Y1, ink);
+        if (ink <= 0) {
+            fprintf(stderr,
+                    "ppm_flair_disk_windows_check: FAIL leg %s -- band 2 has "
+                    "NO title ink in the hand-derived \"%s\" run x[%d,%d) "
+                    "y[%d,%d). Band 2 is not the Finder's menu bar: either the "
+                    "Finder was never promoted to the foreground tenant (look "
+                    "for FLAIR-DISPATCH app=FINDER on the serial) or its "
+                    "FlairApp.menubar is not finder_menu_bar().\n",
+                    g_leg, FBAR_TITLES[i].name, FBAR_TITLES[i].x0,
+                    FBAR_TITLES[i].x1, BAR2_Y0, BAR2_Y1);
+            g_fail = 1;
+        }
+    }
+
+    /* NOT the Photoshop bar: its titles run out to ~436. */
+    past = count_black(FBAR_INK_END, BAR2_Y0, FBAR_INK_STOP, BAR2_Y1);
+    printf("    band-2 past the last Finder title x[%d,%d) y[%d,%d): %ld ink "
+           "px (the Photoshop bar would carry hundreds)\n",
+           FBAR_INK_END, FBAR_INK_STOP, BAR2_Y0, BAR2_Y1, past);
+    if (past != 0) {
+        fprintf(stderr,
+                "ppm_flair_disk_windows_check: FAIL leg %s -- band 2 carries "
+                "%ld ink pixels PAST x=%d, where the Finder bar has no titles. "
+                "That is the Photoshop bar (File Edit Image Layer Select View "
+                "Window Help, running to x~436) -- the band-2 swap to the "
+                "Finder's bar did not happen.\n",
+                g_leg, past, FBAR_INK_END);
+        g_fail = 1;
+    }
+
+    /* NOT the System-7 shell bar, and band 1 is still itself: the Help title
+     * exists in band 2 and does NOT exist in band 1's same columns. */
+    help2 = count_black(FBAR_TITLES[4].x0, BAR2_Y0, FBAR_TITLES[4].x1, BAR2_Y1);
+    help1 = count_black(FBAR_TITLES[4].x0, BAR1_Y0, FBAR_TITLES[4].x1, BAR1_Y1);
+    printf("    HELP-DISCRIMINATOR x[%d,%d): band 2 = %ld ink px, band 1 = "
+           "%ld ink px\n", FBAR_TITLES[4].x0, FBAR_TITLES[4].x1, help2, help1);
+    if (help2 <= 0 || help1 != 0) {
+        fprintf(stderr,
+                "ppm_flair_disk_windows_check: FAIL leg %s -- the Help title "
+                "discriminator failed (band2=%ld band1=%ld). Band 2 must carry "
+                "the Finder's rightmost Help title and band 1 -- the "
+                "SHELL-OWNED static System-7 bar, which has no Help and must "
+                "NEVER be repainted by live code (bead initech-4w15) -- must "
+                "not.\n", g_leg, help2, help1);
+        g_fail = 1;
+    }
+}
+
 static const Point CONTROL_TEAL[] = {
     { 450, 440, "below every window (root bottom 280, moved bottom 400, NOTES "
                 "bottom 340) and left of both desktop icon cells" },
@@ -547,22 +669,24 @@ int main(int argc, char **argv)
     char magic[3] = {0, 0, 0};
     long maxv = 0;
     size_t want, got;
-    int leg_root, leg_moved, leg_newfolder;
+    int leg_root, leg_moved, leg_newfolder, leg_finderbar;
     int L, T, n_icons, i;
 
     if (argc != 3) {
         fprintf(stderr,
-                "usage: %s <rootwin|movedwin|newfolder> <dump.ppm>\n", argv[0]);
+                "usage: %s <rootwin|movedwin|newfolder|finderbar> "
+                "<dump.ppm>\n", argv[0]);
         return 2;
     }
     g_leg         = argv[1];
     leg_root      = (strcmp(g_leg, "rootwin")   == 0);
     leg_moved     = (strcmp(g_leg, "movedwin")  == 0);
     leg_newfolder = (strcmp(g_leg, "newfolder") == 0);
-    if (!leg_root && !leg_moved && !leg_newfolder) {
+    leg_finderbar = (strcmp(g_leg, "finderbar") == 0);
+    if (!leg_root && !leg_moved && !leg_newfolder && !leg_finderbar) {
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: unknown leg '%s' "
-                "(want rootwin|movedwin|newfolder)\n", g_leg);
+                "(want rootwin|movedwin|newfolder|finderbar)\n", g_leg);
         return 2;
     }
 
@@ -608,6 +732,29 @@ int main(int argc, char **argv)
                 "bytes)\n", got, want);
         free(g_buf);
         return 2;
+    }
+
+    /* The finderbar leg grades ONLY the two menu bands -- it deliberately
+     * shares the rootwin dump rather than costing a sixth boot, and the window
+     * itself is already graded by the rootwin leg on the same pixels. */
+    if (leg_finderbar) {
+        printf("ppm_flair_disk_windows_check: leg %s on %s\n"
+               "    band 1 (System-7 shell bar) rows [%d,%d); "
+               "band 2 (foreground tenant's bar) rows [%d,%d)\n",
+               g_leg, argv[2], BAR1_Y0, BAR1_Y1, BAR2_Y0, BAR2_Y1);
+        check_finder_bar();
+        free(g_buf);
+        if (g_fail) {
+            fprintf(stderr,
+                    "ppm_flair_disk_windows_check: leg %s FAILED\n", g_leg);
+            return 1;
+        }
+        printf("ppm_flair_disk_windows_check: leg %s PASS (%d hand-derived "
+               "Finder title runs inked, 0 ink past x=%d so it is NOT the "
+               "Photoshop bar, and the Help discriminator says it is NOT the "
+               "System-7 shell bar either)\n",
+               g_leg, FBAR_TITLE_N, FBAR_INK_END);
+        return 0;
     }
 
     L       = leg_moved ? MOVED_L : ROOT_L;

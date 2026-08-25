@@ -192,29 +192,23 @@ uint8_t finder_pred_front_is_diskwin(const FinderCtx *fx);
 const finder_cmd_t *finder_cmd_lookup(int16_t menu_id, uint16_t item_1based);
 
 /*
- * finder_cmd_key_lookup -- the COMMAND-KEY -> table row map (bead initech-tdnl.10).
+ * THE COMMAND-KEY PATH IS MenuKey'S, NOT THIS TABLE'S (bead initech-tdnl.12).
  *
- * `ch` is the Cmd-equivalent character as the MenuItem carries it (upper-case
- * in the F4.2 resource: 'N', 'O', 'W', ...); the match is case-INSENSITIVE for
- * ASCII letters, because a PC keyboard's Ctrl-chord cooks to whatever case the
- * Shift state produced and the period Mac never distinguished Cmd-n from Cmd-N.
- * The FIRST row with a matching cmd_char wins (the table has no duplicate
- * cmd_chars; a duplicate would be a table bug, and taking the first is the same
- * rule menu.c :: MenuKey applies). Returns NULL when nothing matches.
+ * tdnl.10 shipped a `finder_cmd_key_lookup(char)` here as a stated placeholder:
+ * "tdnl.12 lands the real Finder menu bar, at which point MenuKey() over that
+ * bar replaces this helper -- MenuKey additionally honours the live
+ * MenuItem.enabled bytes and the divider rule. Until the bar exists there is no
+ * MenuBar to scan." The bar now exists (os/flair/finder_menu.c), so the helper
+ * is GONE rather than left as dead code with two ways to resolve a chord.
  *
- * THIS IS A LOOKUP, NOT A SECOND DISPATCH PATH. The caller turns the row into a
- * result word with finder_cmd_result() and calls finder_dispatch(..., "key"),
- * so the keyboard converges on the SAME spine as the mouse (F4-4) and the trace
- * line is the ordinary FINDER-CMD ... src=key.
- *
- * TEMPORARY, AND SAY SO: tdnl.12 lands the real Finder menu bar, at which point
- * MenuKey() over that bar replaces this helper -- MenuKey additionally honours
- * the live MenuItem.enabled bytes and the divider rule. Until the bar exists
- * there is no MenuBar to scan, and inventing a hidden one early would re-key
- * every band-2 gate. The predicate is still enforced: finder_dispatch evaluates
- * it after the lookup, exactly as on the mouse path.
+ * The live path is: os/milton/kmain.c refreshes the Finder bar's enable bytes,
+ * calls menu.h's MenuKey(finder_menu_bar(), ch) -- which returns the FIRST
+ * ENABLED, non-divider item's result word, or 0 -- and hands that word to
+ * finder_dispatch(..., "key"). STRICTLY STRONGER than the old lookup: a grayed
+ * command is never handed out at all, where the table lookup found the row
+ * regardless and relied on finder_dispatch to report FINDER-CMD-DISABLED.
+ * Graded by harness/proptest/test_finder_menu.c leg D.
  */
-const finder_cmd_t *finder_cmd_key_lookup(char ch);
 
 /*
  * finder_cmd_result -- pack a table row back into the IM result word

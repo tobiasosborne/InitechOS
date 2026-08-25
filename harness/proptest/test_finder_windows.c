@@ -796,16 +796,17 @@ static void leg_new_folder(void)
  * L11 -- THE COMMAND SPINE, END TO END  (design F4.4; the exec hook + the
  *        keyboard lookup that the live Ctrl chord rides)
  * ---------------------------------------------------------------------------
- * The live path is: kmain decodes the modifier -> finder_cmd_key_lookup(ch) ->
- * finder_cmd_result(row) -> finder_dispatch(ctx, result, "key") -> the shell's
- * exec hook -> a finder_cmd_outcome_t that kmain reads back and reports.
+ * The live path is: kmain decodes the modifier -> MenuKey over the real Finder
+ * bar (bead initech-tdnl.12; it was finder_cmd_key_lookup in tdnl.10) ->
+ * finder_dispatch(ctx, result, "key") -> the shell's exec hook -> a
+ * finder_cmd_outcome_t that kmain reads back and reports.
  *
- * EVERYTHING EXCEPT THE MODIFIER DECODE IS GRADED HERE. The decode itself lives
- * in kmain (not host-buildable) and cannot be driven from the emulator either:
- * the QMP rail sends one qcode at a time (harness/emu/qemu.c :: qmp_send_key)
- * and has no way to HOLD Ctrl across a keypress -- the same limitation
- * spec/flair_desktop_icons_traces.mk already records for shift-click. Stated,
- * not silently skipped (Law 1).
+ * EVERYTHING FROM THE RESULT WORD ONWARD IS GRADED HERE. The chord->row map
+ * moved to harness/proptest/test_finder_menu.c leg D when the bar landed, and
+ * the modifier decode lives in kmain (not host-buildable) -- but it IS driven
+ * end to end from the emulator now: harness/emu/qemu.c gained QMP send-key
+ * CHORD tokens (spec/flair_disk_windows_traces.mk), so the Ctrl-N leg of
+ * test-flair-disk-windows exercises the real PS/2 path.
  * ===========================================================================*/
 static void leg_cmd_spine(void)
 {
@@ -815,19 +816,25 @@ static void leg_cmd_spine(void)
     const finder_cmd_outcome_t *o;
     int slot = -1;
 
-    /* The keyboard lookup: case-insensitive, and it finds the SAME rows the
-     * mouse path finds by (menu,item). */
-    c = finder_cmd_key_lookup('N');
-    CHECK(c != NULL && c->id == FCMD_NEW_FOLDER, "L11 Cmd-N is New Folder");
-    CHECK(finder_cmd_key_lookup('n') == c, "L11 ... case-insensitively");
-    CHECK(finder_cmd_key_lookup('W') != NULL &&
-          finder_cmd_key_lookup('W')->id == FCMD_CLOSE_WINDOW,
-          "L11 Cmd-W is Close Window");
-    CHECK(finder_cmd_key_lookup('O')->id == FCMD_OPEN, "L11 Cmd-O is Open");
-    CHECK(finder_cmd_key_lookup('Q') == NULL,
-          "L11 an unbound chord finds NOTHING (kmain then routes it onward)");
-    CHECK(finder_cmd_key_lookup(0) == NULL,
-          "L11 a zero cmd_char never matches the rows that carry none");
+    /* The row Cmd-N resolves to. THE CHORD->ROW MAP ITSELF MOVED (bead
+     * initech-tdnl.12): kmain no longer scans this table for a command key, it
+     * runs menu.h's MenuKey over the real Finder bar, which additionally
+     * honours the live enable bytes and the divider rule. That map is graded by
+     * harness/proptest/test_finder_menu.c leg D -- strictly stronger than the
+     * table scan it replaced. What THIS leg still owns is everything after the
+     * lookup: the result word, the shell hook, the outcome. So the row is
+     * addressed the way the MOUSE path addresses it, by (menu,item) from F4.2 --
+     * File menu 512, item 1 == New Folder. */
+    c = finder_cmd_lookup(512, 1);
+    CHECK(c != NULL && c->id == FCMD_NEW_FOLDER, "L11 File>New Folder is 512/1");
+    CHECK(finder_cmd_lookup(512, 4) != NULL &&
+          finder_cmd_lookup(512, 4)->id == FCMD_CLOSE_WINDOW,
+          "L11 File>Close Window is 512/4");
+    CHECK(finder_cmd_lookup(512, 2)->id == FCMD_OPEN, "L11 File>Open is 512/2");
+    CHECK(finder_cmd_lookup(512, 3) == NULL,
+          "L11 an inert V1 row (Print) has NO command row -- dispatch says so");
+    CHECK(finder_cmd_lookup(512, 0) == NULL,
+          "L11 item 0 is not an IM item number (items are 1-based)");
     CHECK(finder_cmd_result(c) ==
           (((uint32_t)(uint16_t)c->menu_id << 16) | c->item_1based),
           "L11 the row packs back into the IM result word");
@@ -885,7 +892,7 @@ static void leg_cmd_spine(void)
         finder_shell_bind_ctx(&d.sh, &dctx);
         finder_shell_sync_ctx(&d.sh);
         CHECK(dctx.front_is_diskwin == 0u, "L11 with no window front the predicate is FALSE");
-        finder_dispatch(&dctx, finder_cmd_result(finder_cmd_key_lookup('W')), "key");
+        finder_dispatch(&dctx, finder_cmd_result(finder_cmd_lookup(512, 4)), "key");
         CHECK(finder_shell_take_outcome(&d.sh) == NULL,
               "L11 a predicate-disabled command never reaches the shell hook");
     }

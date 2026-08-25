@@ -89,6 +89,9 @@
                                   * open/close/New Folder/Clean Up verbs, and the
                                   * finder_fs_t binding THIS file wires to fat12
                                   * (bead initech-tdnl.10; -Ios/flair)              */
+#include "finder_menu.h"         /* R3.5 THE FINDER MENU BAR: the F4.2 resource +
+                                  * finder_menu_refresh_enables (the graying
+                                  * recompute) (bead initech-tdnl.12; -Ios/flair) */
 
 /* THE LAYERING DRIFT TOOTH (bead initech-tdnl.10). os/flair/finder_windows.h
  * restates the two FAT attribute bits the Finder reads rather than including
@@ -1373,6 +1376,15 @@ static void flair_live_raise_drag_target(flair_live_ctx_t *ctx, WindowPtr w)
 #endif
 
 #ifdef FLAIR_LIVE_TENANTS
+/* THE FINDER BAR'S GRAYING HOOK (bead initech-tdnl.12, design F4.4: "Recomputed
+ * into the static MenuItem.enabled bytes before every DrawMenuBar/track").
+ * Forward-declared here because the Finder's live state (g_finder_shell /
+ * g_finder_ctx) is declared with the rest of the R3 shell wiring further down,
+ * while flair_live_tenant_bar -- the ONE place the live band-2 bar is resolved,
+ * and therefore the one place the refresh belongs -- sits up here. A no-op for
+ * every bar that is not the Finder's. */
+static void flair_live_refresh_finder_bar(MenuBar *bar);
+
 /* Band-2 policy for both foreground changes and the legitimate zero-tenant
  * state. The existing shell Photoshop bar is the furniture fallback already
  * used by menu-panel restoration when list->head is NULL (below, in
@@ -1380,10 +1392,12 @@ static void flair_live_raise_drag_target(flair_live_ctx_t *ctx, WindowPtr w)
 static MenuBar *flair_live_tenant_bar(flair_live_ctx_t *ctx,
                                       FlairProcessList *list)
 {
+    MenuBar *bar = &ctx->scene->bar_photoshop;
     if (list != (FlairProcessList *)0 && list->head != (FlairApp *)0 &&
         list->head->menubar != (MenuBar *)0)
-        return list->head->menubar;
-    return &ctx->scene->bar_photoshop;
+        bar = list->head->menubar;
+    flair_live_refresh_finder_bar(bar);
+    return bar;
 }
 
 /* The ONE post-activation path, factored from the existing O-5 content-click
@@ -2082,9 +2096,15 @@ static void flair_live_erase_menu_panel(flair_live_ctx_t *ctx,
 }
 #endif
 
-static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                                  MenuBar *bar, flair_point_t where0,
-                                  uint32_t y_top)
+/* Returns the IM result word (menuID<<16 | item, menu.h Sec 4) the track ended
+ * on, or 0 for "nothing chosen" -- so a caller that OWNS the bar can dispatch
+ * the selection. Bead initech-tdnl.12: the Finder's band-2 arm feeds it to
+ * finder_dispatch(..., "mouse"), converging with the keyboard path on the ONE
+ * spine (F4-4). Every other caller ignores it and keeps its existing
+ * serial-marker-only behaviour, byte for byte. */
+static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                      MenuBar *bar, flair_point_t where0,
+                                      uint32_t y_top)
 {
     int mi = MenuBar_hit(bar, (int)where0.h);
     int16_t menuID = (mi >= 0) ? bar->menus[mi].menuID : (int16_t)0;
@@ -2101,7 +2121,7 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
         /* In the bar but not on a title (Apple slot / past the last title): no
          * menu drops. Emit the marker with sel=0 so the gate can tell. */
         serial_puts("FLAIR-MENU menu=0 item=0 (sel=0x00000000)\n");
-        return;
+        return 0u;
     }
 
     /* A GrafPort over the y-offset offscreen view. make_offset_view reduces the
@@ -2216,6 +2236,7 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puts(" (sel=0x");
     serial_puthex32(sel);
     serial_puts(")\n");
+    return sel;
 #else
     /* HER-14 MENU-NOOP mutant: no drop, no track, no select -- only the marker
      * with sel=0. With no DROP marker the harness captures no PPM, so the real
@@ -2224,6 +2245,7 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puti((int32_t)menuID);
     serial_puts(" item=0 (sel=0x00000000)\n");
     (void)ctx; (void)bi; (void)y_top;
+    return 0u;
 #endif
 }
 
@@ -2232,7 +2254,7 @@ static void flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
 static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                MenuBar *bar, flair_point_t where0)
 {
-    flair_live_do_menu_at(ctx, bi, bar, where0, 0u);
+    (void)flair_live_do_menu_at(ctx, bi, bar, where0, 0u);
 }
 
 #ifdef FLAIR_LIVE_TENANTS
@@ -2388,10 +2410,27 @@ static finder_desk_t        *g_finder_desk;    /* == &g_finder_shell->desk     *
 static finder_click_track_t  g_finder_click;   /* the double-click synthesiser */
 static int                   g_finder_db_dirty;/* positions changed since save */
 
-/* The tdnl.12 command context. Only `selection_count` is meaningful this slice
- * (the menu bar and finder_dispatch arrive with tdnl.12); it is kept live here
- * so the enablement predicates read real state the moment they are wired. */
+/* The Finder's command context -- the state the F4.4 enablement predicates read
+ * and the sink finder_dispatch traces on. R3.5 (tdnl.12) is what finally uses
+ * all of it: the menu bar's enable bytes are recomputed from it before every
+ * DrawMenuBar/track, and both the mouse and the keyboard path dispatch through
+ * it. */
 static FinderCtx             g_finder_ctx;
+
+/* THE PUMP HANDLES THE FINDER NEEDS (bead initech-tdnl.12).
+ *
+ * The tenant list, the Finder's FlairApp and the band-2 GrafPort are locals of
+ * kernel_main (the FLAIR_LIVE_TENANTS launch block builds them). The Finder's
+ * OWN verbs -- opening a disk window from a desktop double-click, or from a
+ * Cmd-O -- have to make the Finder the FOREGROUND tenant, which needs all
+ * three; and unlike every other foreground change those verbs are not driven by
+ * a mouseDown flair_app_dispatch ever sees (a desktop click is inDesk: the
+ * dispatcher returns before the owner demux). So the launch block publishes the
+ * three handles here rather than threading them through five call sites.
+ * NULL until the launch block runs, and every user checks. */
+static FlairProcessList     *g_ten_plist;
+static FlairApp             *g_ten_finder;
+static GrafPort             *g_ten_barport;
 
 /* The mounted volume handles, captured at mount time so a drop can rewrite
  * \DESKTOP.DB without re-walking the bring-up. NULL volume == no persistence
@@ -2733,6 +2772,32 @@ static void finder_desk_sync_ctx(void)
     g_finder_ctx.selection_count =
         (g_finder_desk != (finder_desk_t *)0)
             ? finder_desk_selection_count(g_finder_desk) : 0u;
+}
+
+/* THE GRAYING RECOMPUTE (bead initech-tdnl.12; design F4.4: "Recomputed into
+ * the static MenuItem.enabled bytes before every DrawMenuBar/track -- the menu
+ * resource stays static data; only the enable bits mutate").
+ *
+ * Forward-declared next to flair_live_tenant_bar, which is the ONE place the
+ * live band-2 bar is resolved: every DrawMenuBar of band 2 and every band-2
+ * track goes through it, so hanging the refresh there means there is exactly
+ * one place the Finder's bar can go stale -- and it cannot. A no-op for any
+ * other tenant's bar, so HELLO's Photoshop bar and NOTES's fixture are
+ * untouched. */
+static void flair_live_refresh_finder_bar(MenuBar *bar)
+{
+    if (bar != finder_menu_bar()) return;
+    finder_desk_sync_ctx();
+    finder_menu_refresh_enables(&g_finder_ctx);
+}
+
+/* Is the Finder the FOREGROUND tenant right now? The one place the question is
+ * asked, so the keyboard arm and the promotion below cannot drift apart. */
+static int flair_live_finder_is_foreground(void)
+{
+    return g_ten_plist != (FlairProcessList *)0 &&
+           g_ten_finder != (FlairApp *)0 &&
+           g_ten_plist->head == g_ten_finder;
 }
 
 /* ---------------------------------------------------------------------------
@@ -3214,24 +3279,90 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
     }
 }
 
-/* THE Cmd-KEY ARM (design F4.4's keyboard path, bead initech-tdnl.10).
+/* THE FINDER TAKES THE FOREGROUND WHEN ONE OF ITS WINDOWS IS FRONTMOST
+ * (bead initech-tdnl.12; design F2-1 / F4.1).
  *
- * WHY IT IS INTERCEPTED HERE rather than delivered through flair_app_dispatch:
- * process.c routes keyDown to the FOREGROUND TENANT (list->head), and opening a
- * disk window raises the WINDOW without promoting the Finder in the process
- * list -- promotion would swap band 2 to a Finder menu bar that does not exist
- * until tdnl.12, re-keying every locked band-2 gate as a side effect. So this
- * slice uses the honest intermediate rule: a Ctrl chord goes to the Finder when
- * a FINDER-OWNED WINDOW IS FRONTMOST in the z-order. tdnl.12 lands the Finder
- * bar, the process-list promotion and MenuKey() over that bar together, and
- * this arm becomes the ordinary foreground delivery it is standing in for.
+ * MultiFinder's invariant is that the tenant owning the frontmost window IS the
+ * foreground tenant -- that is what makes band 2 the active app's menu bar.
+ * flair_app_dispatch maintains it for every CLICK-driven foreground change, but
+ * the Finder has one route to the front that no click can reach the dispatcher
+ * on: a DOUBLE-CLICK ON THE DESKTOP opens a disk window (FindWindow says inDesk,
+ * so the dispatcher returns before the owner demux) and NewDocumentWindow puts
+ * that window at the head of the z-order. Without this the machine sat in a
+ * state it has no business being in -- a Finder window frontmost while HELLO
+ * was still the foreground tenant and band 2 still read Photoshop.
  *
- * Returns 1 when the chord was consumed (the pump must not route it onward).
+ * So: after every gesture, if the frontmost VISIBLE window is Finder-owned and
+ * the Finder is not already the head, run the SAME four-step switch every other
+ * activation runs (process.c :: FlairProcess_activate -> switch_foreground) and
+ * then the SAME post-switch policy every other switch runs
+ * (flair_live_finish_tenant_switch: repaint, route updates, swap band 2,
+ * present, announce FLAIR-DISPATCH app=FINDER). NO routing logic is
+ * re-implemented here (ADR-0013 BC-2) -- both halves are existing spines.
+ *
+ * THE STAGE FENCE HOLDS BY CONSTRUCTION: the Finder owns NO window at boot
+ * (finder_shell_open leaves self->windows NULL), so the frontmost window is
+ * HELLO's, this is a no-op, and the resting chimera -- band 1 System-7, band 2
+ * Photoshop -- is byte-identical. The deliberate band-2-at-rest re-key is a
+ * separate lane with its own operator clip.
+ *
+ * There is deliberately NO demotion when the last disk window closes: period
+ * MultiFinder leaves the Finder foreground with no windows open, and inventing
+ * a demotion rule here would be policy nobody asked for. */
+static void flair_live_finder_foreground(flair_live_ctx_t *ctx,
+                                         const boot_info_t *bi,
+                                         const EventRecord *ev)
+{
+    FlairApp *prev;
+    WindowPtr w;
+
+    if (g_finder_shell == (finder_shell_t *)0) return;
+    if (g_ten_plist == (FlairProcessList *)0 ||
+        g_ten_finder == (FlairApp *)0 || ctx->wm == (WindowMgr *)0) return;
+    if (g_ten_plist->head == g_ten_finder) return;   /* already foreground     */
+
+    /* The frontmost VISIBLE window. Invisible records are skipped for the same
+     * reason finder_win_front_slot skips them: the two hidden canon frame doc
+     * windows are still in the z-order (HideWindow, not DisposeWindow). */
+    for (w = ctx->wm->front; w != (WindowPtr)0; w = w->nextWindow)
+        if (w->visible) break;
+    if (w == (WindowPtr)0) return;
+    if (finder_win_slot_of(g_finder_shell, w) < 0) return;
+
+    prev = g_ten_plist->head;
+    if (!FlairProcess_activate(g_ten_plist, ctx->wm, ev, g_ten_finder)) return;
+    flair_live_finish_tenant_switch(ctx, bi, g_ten_plist, prev, g_ten_barport);
+}
+
+/* THE Cmd-KEY ARM (design F4.4's keyboard path; bead initech-tdnl.10, re-keyed
+ * to the real Menu Manager by tdnl.12).
+ *
+ * WHY IT IS STILL INTERCEPTED HERE rather than delivered through
+ * flair_app_dispatch: the dispatcher routes keyDown to the foreground tenant's
+ * event() proc, and the Finder's proc cannot do what a Finder command needs --
+ * the outcome REPORT and the damage/present cycle are live-pump concerns that
+ * live in this file beside flair_live_do_drag (finder_windows.c says so at its
+ * keyDown case). The GATE, though, is now the real one: the chord is a Finder
+ * command exactly when THE FINDER IS THE FOREGROUND TENANT, which is the rule
+ * process.c applies to every other tenant's keystrokes.
+ *
+ * AND THE LOOKUP IS NOW REAL MenuKey OVER THE REAL BAR (tdnl.12). The tdnl.10
+ * placeholder finder_cmd_key_lookup scanned the COMMAND TABLE, which knows
+ * nothing about enable bytes or dividers: Cmd-I with nothing selected found the
+ * Get Info row and let finder_dispatch report FINDER-CMD-DISABLED. menu.h's
+ * MenuKey scans the LIVE bar for the FIRST ENABLED, non-divider item with that
+ * cmdChar, so a grayed command is not handed out at all -- strictly stronger,
+ * and the same code path the mouse takes. The enable bytes are refreshed from
+ * live state immediately before the scan (F4.4).
+ *
+ * Returns 1 when the chord was consumed (the pump must not route it onward). An
+ * unbound or grayed chord returns 0 and falls through to the ordinary
+ * foreground delivery, where the Finder's event() ignores it.
  */
 static int flair_live_finder_key(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                  const EventRecord *ev)
 {
-    const finder_cmd_t *c;
+    uint32_t sel;
     char ch;
 
     if (g_finder_shell == (finder_shell_t *)0) return 0;
@@ -3246,20 +3377,52 @@ static int flair_live_finder_key(flair_live_ctx_t *ctx, const boot_info_t *bi,
      * dead code. */
     if ((ev->modifiers & (uint16_t)(FLAIR_EVT_MOD_CONTROL_KEY |
                                     FLAIR_EVT_MOD_CMD_KEY)) == 0u) return 0;
-    if (finder_win_front_slot(g_finder_shell) < 0) return 0;
+    if (!flair_live_finder_is_foreground()) return 0;
 
     ch = (char)(ev->message & 0xFFu);          /* event.c cooks (vkey<<8)|ascii */
-    c  = finder_cmd_key_lookup(ch);
-    if (c == (const finder_cmd_t *)0) return 0;
+    /* Recompute the graying, THEN scan (F4.4: before every DrawMenuBar/track).
+     * MenuKey's case-insensitive letter match is what makes a PC Ctrl chord --
+     * which cooks to whatever case the Shift state produced -- reach the
+     * upper-case cmdChar the F4.2 resource carries. */
+    flair_live_refresh_finder_bar(finder_menu_bar());
+    sel = MenuKey(finder_menu_bar(), ch);
+    if (sel == 0u) return 0;   /* unbound OR grayed: not a Finder command now  */
 
     /* The ONE spine (F4-4): the keyboard converges on finder_dispatch exactly
-     * as the mouse will, the predicate is evaluated there, and the trace line
+     * as the mouse does, the predicate is evaluated there, and the trace line
      * is the ordinary FINDER-CMD ... src=key. */
     finder_shell_sync_ctx(g_finder_shell);
-    finder_dispatch(&g_finder_ctx, finder_cmd_result(c), "key");
+    finder_dispatch(&g_finder_ctx, sel, "key");
     finder_report_outcome(ctx, bi);
     finder_desk_sync_ctx();
     return 1;
+}
+
+/* The MOUSE half of F4-4's "both input paths converge". The band-2 arm hands
+ * the finished MenuSelect result here; if the bar that was tracked is the
+ * FINDER's, the selection goes through the SAME finder_dispatch the chord path
+ * uses, with src=mouse. Any other tenant's bar keeps its existing
+ * serial-marker-only behaviour, byte for byte (the bar-identity guard is the
+ * whole test).
+ *
+ * __attribute__((unused)): its ONLY call site is the band-2 arm of the pump,
+ * which the KMAIN_MUT_MENU2_DEAD mutant (bead initech-t1rv) compiles out
+ * entirely -- so that mutant build would otherwise trip -Werror=unused-function
+ * on a function the REAL build uses. Same treatment flair_ten_notes_bar already
+ * carries above, and for the same reason. */
+__attribute__((unused))
+static void flair_live_finder_menu_result(flair_live_ctx_t *ctx,
+                                          const boot_info_t *bi,
+                                          const MenuBar *bar, uint32_t sel)
+{
+    if (g_finder_shell == (finder_shell_t *)0) return;
+    if (bar != finder_menu_bar()) return;
+    if (sel == 0u) return;                     /* IM "nothing chosen"          */
+
+    finder_shell_sync_ctx(g_finder_shell);
+    finder_dispatch(&g_finder_ctx, sel, "mouse");
+    finder_report_outcome(ctx, bi);
+    finder_desk_sync_ctx();
 }
 #endif
 
@@ -3676,6 +3839,22 @@ void kernel_main(void)
         g_finder_ctx.trace_user = (void *)0;
         finder_shell_bind_ctx(g_finder_shell, &g_finder_ctx);
         finder_desk_sync_ctx();
+        /* R3.5 (bead initech-tdnl.12, design F4.1/F4-2): the Finder's OWN menu
+         * bar becomes its FlairApp.menubar, exactly like HELLO's Photoshop bar
+         * and NOTES's fixture below -- so band 2 swaps to it through the SAME
+         * flair_live_tenant_bar path every tenant uses, with no new draw seam.
+         *
+         * THE STAGE FENCE: this does NOT change the boot frame. The Finder is
+         * launched FIRST and owns no window, so HELLO still ends as
+         * ten_plist.head and shell_render's fixed band-2 composition
+         * (bar_photoshop) still equals the foreground tenant's menu at rest.
+         * The bar becomes visible only when the Finder is legitimately promoted
+         * (flair_live_finder_foreground). The deliberate band-2-at-rest re-key
+         * -- the Finder as BOOT foreground -- is a separate lane with its own
+         * operator clip (design F2.1 migration step 3). */
+        ten_finder->menubar = finder_menu_bar();
+        g_ten_plist  = &ten_plist;
+        g_ten_finder = ten_finder;
         serial_puts("FINDER-DESKTOP-ICONS n=");
         serial_putu((uint32_t)g_finder_desk->n);
         serial_putc('\n');
@@ -3950,6 +4129,10 @@ void kernel_main(void)
             ten_barport.pnVis = 0;
             ten_barport.grafProcs = (QDProcs *)0;
         }
+        /* Publish the band-2 port for the Finder's self-promotion path (bead
+         * initech-tdnl.12): it runs the SAME flair_live_finish_tenant_switch
+         * every click-driven switch runs, and that needs this port. */
+        g_ten_barport = &ten_barport;
 
 #ifdef FLAIR_LIVE_INTERACTIVE
         for (;;) {
@@ -4086,8 +4269,15 @@ void kernel_main(void)
 #else
                     MenuBar *menu2_bar = flair_live_tenant_bar(&ctx, &ten_plist);
 #endif
-                    flair_live_do_menu_at(&ctx, &b, menu2_bar, ev.where,
-                                          (uint32_t)SHELL_MENUBAR2_TOP);
+                    /* R3.5 (bead initech-tdnl.12): the tracked selection is
+                     * returned so the FINDER's bar can dispatch it through the
+                     * one command spine (src=mouse). Every other bar ignores
+                     * the word exactly as before. */
+                    uint32_t menu2_sel =
+                        flair_live_do_menu_at(&ctx, &b, menu2_bar, ev.where,
+                                              (uint32_t)SHELL_MENUBAR2_TOP);
+                    flair_live_finder_menu_result(&ctx, &b, menu2_bar,
+                                                  menu2_sel);
 #else
                     /* NAMED MUTANT (Rule 6; initech-t1rv): restore the original
                      * y<FLAIR_MENUBAR_H-only test, leaving band 2 dead. */
@@ -4121,6 +4311,16 @@ void kernel_main(void)
                     if (fslot >= 0)
                         flair_live_do_finder_content(&ctx, &b, &ev, fslot);
                 }
+
+                /* R3.5 (bead initech-tdnl.12): a gesture may have put a Finder
+                 * window at the front -- a desktop double-click opening the
+                 * volume, or (via the initech-tpzf raise in flair_app_dispatch)
+                 * a click on a buried disk window. Re-assert the MultiFinder
+                 * invariant that the owner of the frontmost window is the
+                 * foreground tenant, so band 2 becomes the Finder's bar. A
+                 * no-op whenever the front window is not the Finder's, which is
+                 * every state the boot frame is in. */
+                flair_live_finder_foreground(&ctx, &b, &ev);
             }
 
         }

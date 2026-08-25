@@ -7284,6 +7284,7 @@ endef
         test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
         test-finder-cmd test-finder-cmd-mutant \
+        test-finder-menu test-finder-menu-mutant \
         test-finder-desktop test-finder-desktop-mutant \
         test-finder-windows test-finder-windows-mutant \
         test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
@@ -9091,6 +9092,15 @@ KERNEL_FINDER_CMD_OBJ := $(BUILD)/finder_cmd.o
 $(KERNEL_FINDER_CMD_OBJ): os/flair/finder_cmd.c os/flair/finder_cmd.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -c os/flair/finder_cmd.c -o $@
 
+# The R3.5 FINDER MENU BAR resource object (bead initech-tdnl.12): the F4.2
+# layout as static MenuBar/MenuInfo/MenuItem data plus the enable-byte refresh.
+# Needs the Menu Manager's include chain (menu.h -> text.h -> chicago8x16.h,
+# blitter/surface/spec) exactly as menu.o does. Linked ONLY into the
+# FLAIRTENANTS kernels, so every other image stays byte-identical.
+KERNEL_FINDER_MENU_OBJ := $(BUILD)/finder_menu.o
+$(KERNEL_FINDER_MENU_OBJ): os/flair/finder_menu.c os/flair/finder_menu.h os/flair/finder_cmd.h os/flair/menu.h os/flair/text.h os/flair/blitter.h os/flair/surface.h spec/chrome_metrics.h spec/grafport.h spec/region_algebra.h spec/assets/chicago8x16.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_menu.c -o $@
+
 # Bounded (gate) FLAIRTENANTS kernel: -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS. Adds
 # -Ios/apps for ref_tenant.h + the process/ref_tenant/demo prereqs the arm includes.
 KERNEL_FLAIRTENANTS_MAIN_OBJ := $(BUILD)/kmain_flairtenants.o
@@ -9133,11 +9143,11 @@ $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
-KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_CMD_OBJ)
+KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ)
 
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_OBJS)
@@ -9291,7 +9301,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -9545,6 +9555,53 @@ endef
 # spec/flair_disk_windows_traces.mk. It is host-proven instead.
 $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_VOLLABEL_SHOWN,win_vollabel_shown))
 $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_SINGLETON_DUP,win_singleton_dup))
+
+# $(call flair-tenants-findermenu-mutant-rules,<KNOB>,<tag>): an R3.5 FINDER
+# MENU BAR (finder_menu.c) mutant, bead initech-tdnl.12. Swaps ONLY
+# finder_menu.o -- the F4.2 resource arrays and the enable-byte refresh --
+# leaving every other object clean, so the mutation is isolated to the menu
+# RESOURCE. Same knob spellings as the host gate (test-finder-menu-mutant), no
+# second vocabulary. Prereqs + include flags are spelled LITERALLY, mirroring
+# KERNEL_FINDER_MENU_OBJ's own recipe.
+define flair-tenants-findermenu-mutant-rules
+$(BUILD)/finder_menu_mut_$(2).o: os/flair/finder_menu.c os/flair/finder_menu.h os/flair/finder_cmd.h os/flair/menu.h os/flair/text.h os/flair/blitter.h os/flair/surface.h spec/chrome_metrics.h spec/grafport.h spec/region_algebra.h spec/assets/chicago8x16.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_menu.c -o $$@
+
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o
+
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants FINDER-MENU MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+
+# The R3.5 emu mutant that BITES test-flair-disk-windows leg 7 (bead
+# initech-tdnl.12):
+#   FINDER_MENU_MUT_DEAD_ITEM -> Special > Clean Up ships with its enable byte
+#                    stuck at 0, so menu.c's MenuInfo_item_selectable refuses it
+#                    and MenuSelect returns 0. The pull-down still DROPS
+#                    (FLAIR-MENU-DROP menu=515 is unchanged) and the item still
+#                    DRAWS -- only the dispatch is gone, so
+#                    "FINDER-CMD id=9 name=CLEANUP src=mouse sel=0" and
+#                    "FINDER-CLEANUP win=0 moved=1" both vanish. A menu item
+#                    that looks right and does nothing is precisely the defect
+#                    an eyeball cannot catch, which is why this is the named
+#                    mutant for the slice.
+$(eval $(call flair-tenants-findermenu-mutant-rules,FINDER_MENU_MUT_DEAD_ITEM,menu_dead_item))
 
 # OMISSION (Rule 6 / Law 2 honesty; 2026-07-31 Wave A, epic initech-av7s): the
 # DESKTOP_MUTATE_NO_PAINTALL_CLEAR emu mutant (stale wm->desktop_update surviving
@@ -11192,6 +11249,7 @@ test-finder-cmd-mutant: $(TEST_FINDER_CMD_MUT_BYPASS) $(TEST_FINDER_CMD_MUT_SILE
 	@if $(TEST_FINDER_CMD_MUT_SILENT) >/dev/null 2>&1; then printf '!!! test-finder-cmd-mutant FAIL: SILENT_UNKNOWN PASSED -- the fail-loud unknown-command oracle is decoration\n'; exit 1; else printf '>>> test-finder-cmd-mutant: green (SILENT_UNKNOWN correctly RED -- FINDER-CMD-UNKNOWN vanishes)\n'; fi
 	@if $(TEST_FINDER_CMD_MUT_PRED) >/dev/null 2>&1; then printf '!!! test-finder-cmd-mutant FAIL: PRED_STUCK_ENABLED PASSED -- the enablement-predicate oracle is decoration\n'; exit 1; else printf '>>> test-finder-cmd-mutant: green (PRED_STUCK_ENABLED correctly RED -- disabled commands run their handler)\n'; fi
 
+
 # ---------------------------------------------------------------------------
 # REAL gate: test-finder-desktop (beads initech-tdnl.9; docs/design/
 # GUI-remediation-R3-finder-design.md F1.1/F1.2/F1.3 + F2.2/F2.3/F2-4/F2-5) --
@@ -11378,6 +11436,7 @@ TEST_PROCESS_SRC := harness/proptest/test_process.c
 TEST_PROCESS_MUT_REFCON   := $(BUILD)/test_process_mutant_ignorerefcon
 TEST_PROCESS_MUT_ACTIVATE := $(BUILD)/test_process_mutant_skipactivate
 TEST_PROCESS_MUT_KEY      := $(BUILD)/test_process_mutant_keyundercursor
+TEST_PROCESS_MUT_RAISE    := $(BUILD)/test_process_mutant_nosametenantraise
 TEST_PROCESS_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
                      os/flair/heap.c os/flair/heap.h os/flair/event.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
@@ -11392,6 +11451,8 @@ $(TEST_PROCESS_MUT_ACTIVATE): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUT_SKIP_ACTIVATE_PAIR $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
 $(TEST_PROCESS_MUT_KEY): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUT_KEY_TO_UNDER_CURSOR $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
+$(TEST_PROCESS_MUT_RAISE): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUT_NO_SAMETENANT_RAISE $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
 
 test-process: $(TEST_PROCESS)
 	@printf ">>> test-process: ADR-0013 O-1 host routing/dispatch oracle (refCon demux + click-to-activate + activateEvt pair)\n"
@@ -11400,17 +11461,18 @@ test-process: $(TEST_PROCESS)
 
 # Compile-only check for the three self-mutants (Wave 1: they need only BUILD;
 # they go run-RED once the Wave-2 dispatcher exists -- Rule 6).
-test-process-mutant-build: $(TEST_PROCESS_MUT_REFCON) $(TEST_PROCESS_MUT_ACTIVATE) $(TEST_PROCESS_MUT_KEY)
+test-process-mutant-build: $(TEST_PROCESS_MUT_REFCON) $(TEST_PROCESS_MUT_ACTIVATE) $(TEST_PROCESS_MUT_KEY) $(TEST_PROCESS_MUT_RAISE)
 	@printf ">>> test-process-mutant-build: all three self-mutants COMPILE (IGNORE_REFCON / SKIP_ACTIVATE_PAIR / KEY_TO_UNDER_CURSOR)\n"
 
 # Wave-2 mutant gate (the real Rule-6 bite, once flair_app_dispatch is implemented):
 # each mutant must go RED against the CORRECT dispatcher. (Today the STUB dispatcher
 # makes every build RED, so this gate is forward-looking -- use after Wave 2.)
-test-process-mutant: $(TEST_PROCESS_MUT_REFCON) $(TEST_PROCESS_MUT_ACTIVATE) $(TEST_PROCESS_MUT_KEY)
-	@printf ">>> test-process-mutant: confirming all three self-mutants go RED (Rule 6; Wave-2 gate)\n"
+test-process-mutant: $(TEST_PROCESS_MUT_REFCON) $(TEST_PROCESS_MUT_ACTIVATE) $(TEST_PROCESS_MUT_KEY) $(TEST_PROCESS_MUT_RAISE)
+	@printf ">>> test-process-mutant: confirming all four self-mutants go RED (Rule 6; Wave-2 gate)\n"
 	@if $(TEST_PROCESS_MUT_REFCON) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: IGNORE_REFCON PASSED -- the routing oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (IGNORE_REFCON correctly RED)\n'; fi
 	@if $(TEST_PROCESS_MUT_ACTIVATE) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: SKIP_ACTIVATE_PAIR PASSED -- the activate-pair oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (SKIP_ACTIVATE_PAIR correctly RED)\n'; fi
 	@if $(TEST_PROCESS_MUT_KEY) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: KEY_TO_UNDER_CURSOR PASSED -- the key-routing oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (KEY_TO_UNDER_CURSOR correctly RED)\n'; fi
+	@if $(TEST_PROCESS_MUT_RAISE) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: NO_SAMETENANT_RAISE PASSED -- the leg(f) raise oracle is decoration (bug initech-tpzf)\n'; exit 1; else printf '>>> test-process-mutant: green (NO_SAMETENANT_RAISE correctly RED -- the clicked window really does come forward)\n'; fi
 
 # ---------------------------------------------------------------------------
 # STANDALONE gate (NOT yet in any aggregate): test-process-teardown
@@ -11990,6 +12052,68 @@ test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR) $(
 	@if $(TEST_MENU_MUT_SEP) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_SEP_PLAIN PASSED -- the etched-separator oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_SEP_PLAIN correctly RED for etched separator)\n'; fi
 	@if $(TEST_MENU_MUT_DISABLED) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_DISABLED_NORMAL_INK PASSED -- the disabled A5 ink oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_DISABLED_NORMAL_INK correctly RED for disabled ink)\n'; fi
 	@if $(TEST_MENU_MUT_TITLE) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_TITLE_NO_HILITE PASSED -- the pulled-title accent oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_TITLE_NO_HILITE correctly RED for pulled-title state)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-finder-menu (bead initech-tdnl.12, GUI remediation R3.5 stage
+# 1; docs/design/GUI-remediation-R3-finder-design.md F4.1-F4.4) -- the HOST
+# oracle for THE FINDER MENU BAR RESOURCE (os/flair/finder_menu.c).
+#
+# Grades the exact arrays the live band-2 bar is drawn from, through the LOCKED
+# Menu Manager (menu.c :: MenuKey / MenuInfo_item_selectable / MenuBar_title_x)
+# and against the LOCKED command table (finder_cmd.c). Everything expected is
+# HAND-TYPED from F4.2 in test_finder_menu.c -- the menu order, ids, per-item
+# text, command keys, divider positions, rest-state enable bytes, the per-state
+# enable vectors, and the bar's title columns (Law 2 / HER-02).
+#
+# THREE independent transcriptions of F4.2 exist (the resource, the command
+# table, this oracle) and leg E walks them against each other, so an inserted
+# row or a renumbered table entry is RED rather than quietly wrong.
+#
+# The title-column leg (B) is the SOURCE of the hand-derived columns the booted
+# band-2 probe uses (tools/ppm_flair_disk_windows_check.c leg finderbar), so a
+# menu.h padding change goes red HERE first.
+#
+# Mutants: FINDER_MENU_MUT_ENABLE_STUCK (refresh never grays -> the truth table
+# and the disabled-cmdChar rows go RED) and FINDER_MENU_MUT_CMDCHAR_DUP (File >
+# Open steals Cmd-N -> the hand-authored cmdChar column, Cmd-O routing and the
+# no-duplicate-among-enabled structural leg go RED). -D knobs on the
+# IMPLEMENTATION TU, never on the golden.
+# ---------------------------------------------------------------------------
+TEST_FINDER_MENU     := $(BUILD)/test_finder_menu
+TEST_FINDER_MENU_SRC := harness/proptest/test_finder_menu.c
+TEST_FINDER_MENU_MUT_STUCK := $(BUILD)/test_finder_menu_mutant_enable_stuck
+TEST_FINDER_MENU_MUT_DUP   := $(BUILD)/test_finder_menu_mutant_cmdchar_dup
+TEST_FINDER_MENU_MUT_DEAD  := $(BUILD)/test_finder_menu_mutant_dead_item
+TEST_FINDER_MENU_DEPS := os/flair/finder_menu.c os/flair/finder_menu.h \
+                         os/flair/finder_cmd.c os/flair/finder_cmd.h \
+                         $(TEST_MENU_DEPS)
+# The Menu Manager IS linked here (unlike test-finder-cmd, which uses menu.h
+# header-only): MenuKey / MenuBar_title_x / MenuInfo_item_selectable are the
+# real routing this resource must satisfy.
+FINDER_MENU_INC  := $(MENU_INC)
+FINDER_MENU_LINK := os/flair/finder_menu.c os/flair/finder_cmd.c $(MENU_LINK)
+
+$(TEST_FINDER_MENU): $(TEST_FINDER_MENU_SRC) $(TEST_FINDER_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_MENU_INC) -o $@ $(TEST_FINDER_MENU_SRC) $(FINDER_MENU_LINK)
+$(TEST_FINDER_MENU_MUT_STUCK): $(TEST_FINDER_MENU_SRC) $(TEST_FINDER_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_MENU_MUT_ENABLE_STUCK $(FINDER_MENU_INC) -o $@ $(TEST_FINDER_MENU_SRC) $(FINDER_MENU_LINK)
+$(TEST_FINDER_MENU_MUT_DUP): $(TEST_FINDER_MENU_SRC) $(TEST_FINDER_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_MENU_MUT_CMDCHAR_DUP $(FINDER_MENU_INC) -o $@ $(TEST_FINDER_MENU_SRC) $(FINDER_MENU_LINK)
+$(TEST_FINDER_MENU_MUT_DEAD): $(TEST_FINDER_MENU_SRC) $(TEST_FINDER_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_MENU_MUT_DEAD_ITEM $(FINDER_MENU_INC) -o $@ $(TEST_FINDER_MENU_SRC) $(FINDER_MENU_LINK)
+
+test-finder-menu: $(TEST_FINDER_MENU)
+	@printf ">>> test-finder-menu: R3.5 Finder menu-bar resource -- hand-authored F4.2 structure + title columns + the graying truth table + MenuKey routing (F4.2/F4.4)\n"
+	@$(TEST_FINDER_MENU)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(FINDER_MENU_INC) -c os/flair/finder_menu.c -o $(BUILD)/finder_menu_freestanding.o \
+		|| { printf '!!! test-finder-menu FAIL: finder_menu.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-finder-menu: green\n"
+
+test-finder-menu-mutant: $(TEST_FINDER_MENU_MUT_STUCK) $(TEST_FINDER_MENU_MUT_DUP) $(TEST_FINDER_MENU_MUT_DEAD)
+	@printf ">>> test-finder-menu-mutant: confirming all three resource mutants go RED (Rule 6)\n"
+	@if $(TEST_FINDER_MENU_MUT_STUCK) >/dev/null 2>&1; then printf '!!! test-finder-menu-mutant FAIL: ENABLE_STUCK PASSED -- the graying truth table is decoration\n'; exit 1; else printf '>>> test-finder-menu-mutant: green (ENABLE_STUCK correctly RED -- the bar never grays)\n'; fi
+	@if $(TEST_FINDER_MENU_MUT_DUP) >/dev/null 2>&1; then printf '!!! test-finder-menu-mutant FAIL: CMDCHAR_DUP PASSED -- the command-key structure oracle is decoration\n'; exit 1; else printf '>>> test-finder-menu-mutant: green (CMDCHAR_DUP correctly RED -- a duplicate Cmd-N hides a command)\n'; fi
+	@if $(TEST_FINDER_MENU_MUT_DEAD) >/dev/null 2>&1; then printf '!!! test-finder-menu-mutant FAIL: DEAD_ITEM PASSED -- the rest-state enable oracle is decoration\n'; exit 1; else printf '>>> test-finder-menu-mutant: green (DEAD_ITEM correctly RED -- a functional item shipped unselectable; the SAME knob is the emu mutant of test-flair-disk-windows-mutant)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-control (beads initech-8h9) -- FLAIR Control Manager. Buttons,
@@ -16904,11 +17028,20 @@ endif
 # A NEW gate, not an extension of test-flair-desktop-icons, so the R3.2 gate
 # stays byte-stable (it was only ever re-keyed by the core lane's marker change).
 #
-# FIVE deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG) against
-# TWO gate-local copies of $(FLAIR_DATA_IMG). Two copies, not one, because leg 5
-# CREATES A DIRECTORY: legs 1-4 must see the pristine four-entry root, so the
-# new-folder leg gets its own throwaway image. The pristine $(FLAIR_DATA_IMG) is
-# never written by any leg (the tdnl.9 gate-local-copy idiom).
+# SEVEN deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG)
+# against FOUR gate-local copies of $(FLAIR_DATA_IMG). Four copies, not one,
+# because three legs WRITE: legs 1-2 and 4-5 must see the pristine four-entry
+# root, so the new-folder leg (copy B), the Finder-menu leg (copy C) and the
+# menu-cancel leg (copy D) each get their own throwaway image. The pristine
+# $(FLAIR_DATA_IMG) is never written by any leg (the tdnl.9 gate-local-copy
+# idiom).
+#
+# R3.5 ADDITIONS (bead initech-tdnl.12 -- THE FINDER MENU BAR): legs 2, 7 and 8,
+# plus the negative Cmd-I in leg 6. Opening a disk window now promotes the
+# Finder to the FOREGROUND TENANT, so band 2 becomes the Finder's own menu bar
+# and both input paths -- MenuSelect by mouse and MenuKey by Ctrl chord -- reach
+# finder_dispatch. Clean Up's emu leg, recorded as unreachable in
+# spec/flair_disk_windows_traces.mk when tdnl.10 landed, is UNLOCKED here.
 #
 #   1 ROOTWIN   FLAIR_ICON_OPEN_SPEC (the LOCKED R3.2 trace, reused verbatim --
 #               it is already the "double-click the volume" gesture and
@@ -16942,6 +17075,14 @@ endif
 #               -> grader leg MOVEDWIN: the same window, same chrome, same four
 #                  icons, but at the SAVED origin (120,180) -- and the cascaded
 #                  default rect is bare desktop again.
+#   2 FINDERBAR the SAME dump as leg 1, re-graded: the serial must carry
+#               FLAIR-DISPATCH app=FINDER (the volume open promoted the always-
+#               resident Finder), and grader leg FINDERBAR must find the F4.2
+#               titles File/Edit/View/Special/Help at the HAND-DERIVED band-2
+#               columns -- with ZERO ink past x=274 (so it is NOT HELLO's
+#               Photoshop bar) and a Help title band 1 does not have (so it is
+#               NOT the System-7 shell bar either, which also re-asserts the
+#               initech-4w15 static-bar rule). No extra boot.
 #   5 NEWFOLD   FLAIR_NEW_FOLDER_SPEC on copy B; dump after
 #               "FINDER-NEW-FOLDER name=NEWFOLD parent=0"
 #                  FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0
@@ -16962,22 +17103,48 @@ endif
 # the whole Layer-1 -> Layer-3 chord path end to end, and mtools -- not our own
 # FAT code -- says the directory is really there.
 #
-# CLEAN UP HAS NO LEG HERE, LOUDLY. FCMD_CLEANUP carries cmd_char == 0 (the
-# period Finder gave it no Command key) and the Finder MENU BAR does not exist
-# until bead initech-tdnl.12, so there is NO input this harness can inject that
-# reaches finder_win_cleanup on the booted system. It is host-covered by
-# harness/proptest/test_finder_windows.c and mutation-proven there by
-# FINDER_WIN_MUT_CLEANUP_UNSORTED. See spec/flair_disk_windows_traces.mk.
+#   7 FINDERMENU FLAIR_FINDER_MENU_SPEC on copy C; serial only:
+#                  FINDER-WIN-DRAG win=0 name=README.TXT x=189 y=166
+#                  FLAIR-MENU-DROP menu=515
+#                  FLAIR-MENU menu=515 item=1 (sel=0x02030001)
+#                  FINDER-CMD id=9 name=CLEANUP src=mouse sel=0
+#                  FINDER-CLEANUP win=0 moved=1
+#                  FINDER-WIN-SELECT win=0 name=README.TXT count=1
+#                  FINDER-CMD id=5 name=GET_INFO src=key sel=1
+#               The icon is dragged off its cell FIRST so moved=1 is the only
+#               honest outcome -- on a freshly populated window Clean Up would
+#               report moved=0, indistinguishable from never running.
+#   8 MENUCANCEL FLAIR_FINDER_MENU_CANCEL_SPEC on copy D; dump after the cancel:
+#                  FLAIR-MENU menu=512 item=0 (sel=0x00000000) and NO FINDER-CMD
+#               -> the WHOLE 640x480 frame must be BYTE-IDENTICAL (cmp) to leg
+#                  1's dump. The File panel covers the disk window's title bar,
+#                  its go-away box, its icon row AND bare desktop, so a restore
+#                  that is right for the desktop but wrong over the window
+#                  cannot pass. This is test-flair-solid leg D's property
+#                  applied to band 2.
+#
+# CLEAN UP'S EMU LEG IS UNLOCKED (superseding the tdnl.10 note). FCMD_CLEANUP
+# still carries cmd_char == 0 -- the period Finder gave it no Command key -- so
+# no CHORD reaches it. What changed is the MOUSE route: the Finder menu bar
+# exists (os/flair/finder_menu.c) and really occupies band 2 when a disk window
+# is front, so leg 7 selects Special > Clean Up with the pointer. The host
+# coverage (test-finder-windows, FINDER_WIN_MUT_CLEANUP_UNSORTED) stays.
 #
 # Mutation-proven by test-flair-disk-windows-mutant; Bochs boot leg is
 # test-flair-disk-windows-bochs (Rule 5).
 FLAIR_DW_DATA_A       = $(BUILD)/$@_data_a.img
 FLAIR_DW_DATA_B       = $(BUILD)/$@_data_b.img
+FLAIR_DW_DATA_C       = $(BUILD)/$@_data_c.img
+FLAIR_DW_DATA_D       = $(BUILD)/$@_data_d.img
 FLAIR_DW_ROOT_NAME    := flair_diskwin_rootwin
 FLAIR_DW_NAV_NAME     := flair_diskwin_nav
 FLAIR_DW_PERSW_NAME   := flair_diskwin_persist_write
 FLAIR_DW_PERSR_NAME   := flair_diskwin_persist_reboot
 FLAIR_DW_NEWF_NAME    := flair_diskwin_newfolder
+# The finderbar leg deliberately RE-GRADES leg 1's dump (no extra boot).
+FLAIR_DW_FBAR_NAME    := flair_diskwin_rootwin
+FLAIR_DW_MENU_NAME    := flair_diskwin_findermenu
+FLAIR_DW_CANCEL_NAME  := flair_diskwin_menucancel
 .PHONY: test-flair-disk-windows
 test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 			 $(PPM_FLAIR_DISKWIN_CHECK_BIN)
@@ -16992,6 +17159,8 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@command -v mdir >/dev/null 2>&1 || { printf '!!! test-flair-disk-windows FAIL: mdir missing (mtools)\n'; exit 1; }
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_A)
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_B)
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_C)
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_D)
 	@# ---- leg 1: open the volume; PIXEL-grade the opened root window. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_ROOT_NAME)" --out "$(BUILD)" \
@@ -17006,7 +17175,16 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@if [ ! -s "$(BUILD)/$(FLAIR_DW_ROOT_NAME).ppm" ]; then printf '!!! test-flair-disk-windows FAIL: ROOTWIN screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/$(FLAIR_DW_ROOT_NAME).ppm" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the opened root window does not carry the derived chrome + the four grid icons\n'; exit 1; }
-	@printf '>>> test-flair-disk-windows [1/5]: FINDER-OPEN-VOLUME win=0 n=4 + grader leg ROOTWIN\n'
+	@printf '>>> test-flair-disk-windows [1/8]: FINDER-OPEN-VOLUME win=0 n=4 + grader leg ROOTWIN\n'
+	@# ---- leg 1b (bead initech-tdnl.12): the SAME dump, graded for BAND 2. ----
+	@# Opening a disk window makes the Finder the FOREGROUND TENANT, so band 2
+	@# must have swapped from HELLO's Photoshop bar to the Finder's own bar.
+	@# No sixth boot: the rootwin dump already shows it.
+	@grep -qxF 'FLAIR-DISPATCH app=FINDER' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: opening the root disk window did NOT promote the Finder to the foreground tenant -- no FLAIR-DISPATCH app=FINDER. Band 2 would still be showing the previous tenant menu bar (bead initech-tdnl.12; flair_live_finder_foreground)\n'; grep -E '^FLAIR-DISPATCH|^FINDER-' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" || true; exit 1; }
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) finderbar "$(BUILD)/$(FLAIR_DW_FBAR_NAME).ppm" \
+		|| { printf '!!! test-flair-disk-windows FAIL: band 2 is not the FINDER menu bar (F4.2 File/Edit/View/Special/Help at the hand-derived columns)\n'; exit 1; }
+	@printf '>>> test-flair-disk-windows [2/8]: FLAIR-DISPATCH app=FINDER + grader leg FINDERBAR (band 2 IS the Finder bar)\n'
 	@# ---- leg 2: navigate into APPS, then prove the SPATIAL SINGLETON. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_NAV_NAME)" --out "$(BUILD)" \
@@ -17026,7 +17204,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		grep '^FINDER-OPEN-FOLDER ' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" || true; exit 1; fi
 	@! grep -q '^FINDER-WIN-FULL' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the window table filled -- windows are being duplicated\n'; exit 1; }
-	@printf '>>> test-flair-disk-windows [2/5]: OPEN-FOLDER singleton=0 -> drag -> OPEN-FOLDER singleton=1 (the SAME slot raised)\n'
+	@printf '>>> test-flair-disk-windows [3/8]: OPEN-FOLDER singleton=0 -> drag -> OPEN-FOLDER singleton=1 (the SAME slot raised)\n'
 	@# ---- leg 3: drag the root window, close it, and save the view record. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_PERSW_NAME)" --out "$(BUILD)" \
@@ -17043,7 +17221,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-disk-windows FAIL: the close did not commit 3 records (2 desktop icons + 1 kind=4 view) to DESKTOP.DB\n'; grep '^DESKTOP-DB' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" || true; exit 1; }
 	@! grep -q '^DESKTOP-DB-WRITE-FAIL' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: DESKTOP-DB-WRITE-FAIL during the view save\n'; exit 1; }
-	@printf '>>> test-flair-disk-windows [3/5]: FLAIR-DRAG (20,60)->(120,180) + FINDER-CLOSE-WINDOW win=0 + DESKTOP-DB-SAVE n=3\n'
+	@printf '>>> test-flair-disk-windows [4/8]: FLAIR-DRAG (20,60)->(120,180) + FINDER-CLOSE-WINDOW win=0 + DESKTOP-DB-SAVE n=3\n'
 	@# ---- leg 4: REBOOT the same, now-written volume; the window comes back. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_PERSR_NAME)" --out "$(BUILD)" \
@@ -17067,7 +17245,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@if [ ! -s "$(BUILD)/$(FLAIR_DW_PERSR_NAME).ppm" ]; then printf '!!! test-flair-disk-windows FAIL: PERSIST-REBOOT screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin "$(BUILD)/$(FLAIR_DW_PERSR_NAME).ppm" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the window did NOT reopen at the saved origin (120,180) -- or the cascaded default rect is still covered\n'; exit 1; }
-	@printf '>>> test-flair-disk-windows [4/5]: DESKTOP-DB-VIEWS n=1 + grader leg MOVEDWIN (the window remembered where you left it)\n'
+	@printf '>>> test-flair-disk-windows [5/8]: DESKTOP-DB-VIEWS n=1 + grader leg MOVEDWIN (the window remembered where you left it)\n'
 	@# ---- leg 5: Ctrl-N makes a REAL directory; mtools is the judge. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_B)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_NEWF_NAME)" --out "$(BUILD)" \
@@ -17089,7 +17267,62 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@mdir -a -i $(FLAIR_DATA_IMG) :: > "$(BUILD)/$(FLAIR_DW_NEWF_NAME).pristine.mdir"
 	@! grep -Eq '^NEWFOLD ' "$(BUILD)/$(FLAIR_DW_NEWF_NAME).pristine.mdir" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the PRISTINE $(FLAIR_DATA_IMG) was dirtied -- the gate must only ever write its own copy\n'; exit 1; }
-	@printf '>>> test-flair-disk-windows [5/5]: Ctrl-N -> FINDER-NEW-FOLDER NEWFOLD + grader leg NEWFOLDER + mdir sees a REAL <DIR>\n'
+	@# The NEGATIVE MenuKey leg (bead initech-tdnl.12): the Cmd-I that PRECEDES
+	@# the Cmd-N fires with an EMPTY selection, so File > Get Info is grayed and
+	@# menu.h's MenuKey hands out nothing at all. The tdnl.10 table scan would
+	@# have dispatched it and printed FINDER-CMD-DISABLED -- so the ABSENCE of
+	@# any GET_INFO line is what proves the keyboard path really moved to the
+	@# live menu resource. See spec/flair_disk_windows_traces.mk step B1.
+	@! grep -q 'GET_INFO' "$(BUILD)/$(FLAIR_DW_NEWF_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: Cmd-I with NOTHING selected reached the command spine. MenuKey must refuse a GRAYED item outright (os/flair/menu.c: the FIRST ENABLED non-divider match) -- a FINDER-CMD-DISABLED line here means the chord is still being resolved off the command table, not off the live bar\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_NEWF_NAME).serial" || true; exit 1; }
+	@printf '>>> test-flair-disk-windows [6/8]: Ctrl-I (grayed, refused by MenuKey) then Ctrl-N -> FINDER-NEW-FOLDER NEWFOLD + grader leg NEWFOLDER + mdir sees a REAL <DIR>\n'
+	@# ---- leg 7 (bead initech-tdnl.12): the FINDER MENU BAR, BY MOUSE. ----
+	@# Drag an icon off its cell, then Special > Clean Up from the real band-2
+	@# bar. moved=1 is the whole point: on a freshly populated window Clean Up
+	@# would report moved=0, which cannot be told from a command that never ran.
+	@# Then select the snapped-back icon and Cmd-I -- the POSITIVE half of the
+	@# MenuKey enable-byte proof whose negative half is leg 6.
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_C)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_MENU_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_MENU_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the FINDER-MENU boot\n'; exit 1; fi
+	@grep -qxF 'FINDER-WIN-DRAG win=0 name=README.TXT x=189 y=166' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the setup drag did not move README.TXT off its grid cell to the derived (189,166)\n'; grep -E '^FINDER-|^FLAIR-MENU' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FLAIR-MENU-DROP menu=515' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: clicking the Special title at the hand-derived band-2 column (190,30) dropped no menu -- menu id 515 expected (F4-1)\n'; grep -E '^FLAIR-MENU' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FLAIR-MENU menu=515 item=1 (sel=0x02030001)' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the release at (190,48) did not select Special item 1 (Clean Up)\n'; grep -E '^FLAIR-MENU' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-CMD id=9 name=CLEANUP src=mouse sel=0' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the MOUSE selection never reached the ONE command spine with src=mouse (F4-4: both input paths converge on finder_dispatch)\n'; grep -E '^FINDER-CMD|^FLAIR-MENU' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-CLEANUP win=0 moved=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: Clean Up dispatched but did not SNAP the dragged icon back (moved=1 expected -- exactly one icon was off-grid)\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-WIN-SELECT win=0 name=README.TXT count=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: README.TXT was not at its restored cell (39,86) after Clean Up -- the click at its centre (55,102) selected nothing\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-CMD id=5 name=GET_INFO src=key sel=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: Cmd-I WITH a selection did not dispatch. The enable byte for File > Get Info must be recomputed to 1 before MenuKey scans (design F4.4)\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+	@printf '>>> test-flair-disk-windows [7/8]: Special > Clean Up BY MOUSE (FINDER-CMD src=mouse + moved=1) + Cmd-I with a selection (src=key)\n'
+	@# ---- leg 8 (bead initech-tdnl.12): the band-2 CANCEL restores the frame. ----
+	@# Pull the FILE menu down over the disk window and the desktop, drag off the
+	@# panel and release on bare desktop. Nothing dispatches, and the WHOLE frame
+	@# must come back byte-for-byte identical to the boot that only opened the
+	@# volume (leg 1's dump) -- the solid-leg-D property applied to band 2.
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_D)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_CANCEL_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_FINDER_MENU_CANCEL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FLAIR-MENU menu=512 item=0 (sel=0x00000000)" \
+		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_CANCEL_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_CANCEL_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the MENU-CANCEL boot\n'; exit 1; fi
+	@grep -qxF 'FLAIR-MENU-DROP menu=512' "$(BUILD)/$(FLAIR_DW_CANCEL_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: clicking the File title at (40,30) dropped no menu -- menu id 512 expected\n'; grep -E '^FLAIR-MENU' "$(BUILD)/$(FLAIR_DW_CANCEL_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FLAIR-MENU menu=512 item=0 (sel=0x00000000)' "$(BUILD)/$(FLAIR_DW_CANCEL_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: releasing on bare desktop at (400,400) did not CANCEL the pull-down\n'; grep -E '^FLAIR-MENU' "$(BUILD)/$(FLAIR_DW_CANCEL_NAME).serial" || true; exit 1; }
+	@! grep -q '^FINDER-CMD' "$(BUILD)/$(FLAIR_DW_CANCEL_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: a CANCELLED pull-down dispatched a command. IM result word 0 is "nothing chosen" and finder_dispatch must return before tracing\n'; grep -E '^FINDER-CMD' "$(BUILD)/$(FLAIR_DW_CANCEL_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_DW_CANCEL_NAME).ppm" ]; then printf '!!! test-flair-disk-windows FAIL: MENU-CANCEL screendump missing\n'; exit 1; fi
+	@cmp -s "$(BUILD)/$(FLAIR_DW_ROOT_NAME).ppm" "$(BUILD)/$(FLAIR_DW_CANCEL_NAME).ppm" \
+		|| { printf '!!! test-flair-disk-windows FAIL: PRE != POST. The File pull-down left ink behind: every pixel its panel x[20,176) y[39,245) covered -- disk-window title bar, go-away box, icon row AND bare desktop -- must be restored byte-for-byte by the track-end erase (see os/milton/kmain.c flair_live_erase_menu_panel; mutant KMAIN_MUT_MENU_NO_RESTORE)\n'; exit 1; }
+	@printf '>>> test-flair-disk-windows [8/8]: band-2 CANCEL -- no dispatch, and the whole frame is BYTE-IDENTICAL to the pre-menu frame\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- the booted Finder opens the REAL volume in a REAL window,\n'
 	@printf '            navigates folders as spatial singletons, remembers a window origin\n'
@@ -17113,10 +17346,12 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 .PHONY: test-flair-disk-windows-mutant
 test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		$(BUILD)/flair_tenants_mut_win_vollabel_shown.img \
-		$(BUILD)/flair_tenants_mut_win_singleton_dup.img
+		$(BUILD)/flair_tenants_mut_win_singleton_dup.img \
+		$(BUILD)/flair_tenants_mut_menu_dead_item.img
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-disk-windows-mutant : Rule 6 (the gate BITES)\n'
-	@printf '  2 FLAIRTENANTS finder_windows.c mutants; each MUST drive its leg RED.\n'
+	@printf '  2 FLAIRTENANTS finder_windows.c mutants + 1 finder_menu.c mutant;\n'
+	@printf '  each MUST drive its leg RED.\n'
 	@printf '======================================================================\n'
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_A)
 	@# ---- baseline: the CLEAN image must be GREEN on BOTH mutated legs. ----
@@ -17162,8 +17397,39 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=2 singleton=0' "$(BUILD)/flair_diskwin_mut_singleton.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: singleton mutant did not build the EXPECTED second window in slot 2 -- wrong failure axis\n'; grep '^FINDER-OPEN-FOLDER' "$(BUILD)/flair_diskwin_mut_singleton.serial" || true; exit 1; }
 	@printf '>>> mutant win_singleton_dup correctly RED: re-opening APPS built a SECOND window -- FINDER-OPEN-FOLDER name=APPS win=2 singleton=0 (expected win=1 singleton=1)\n'
+	@# ---- mutant 3 (bead initech-tdnl.12): DEAD_ITEM -- Special > Clean Up ----
+	@# ships with its enable byte stuck at 0. The bar still draws, the pull-down
+	@# still DROPS, and the item is still there -- but MenuSelect cannot return a
+	@# disabled row, so the whole command evaporates. Baseline first: the CLEAN
+	@# image dispatches it.
+	@cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_diskwin_mut_menu_base_data.img
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(BUILD)/flair_diskwin_mut_menu_base_data.img" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_menu --out "$(BUILD)" \
+		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 >/dev/null 2>&1 || true
+	@grep -qxF 'FINDER-CMD id=9 name=CLEANUP src=mouse sel=0' "$(BUILD)/flair_diskwin_mut_base_menu.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not dispatch Special > Clean Up by mouse -- the baseline is broken (not a mutant)\n'; grep -E '^FINDER-|^FLAIR-MENU' "$(BUILD)/flair_diskwin_mut_base_menu.serial" || true; exit 1; }
+	@printf '>>> baseline: the clean FLAIRTENANTS image dispatches Special > Clean Up from the real band-2 bar\n'
+	@cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_diskwin_mut_menu_dead_data.img
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_menu_dead_item.img" --disk2 "$(BUILD)/flair_diskwin_mut_menu_dead_data.img" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_dead_item --out "$(BUILD)" \
+		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 \
+		2> "$(BUILD)/flair_diskwin_mut_dead_item.report" || true
+	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_diskwin_mut_dead_item.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: dead-item mutant missing mount marker (not comparable)\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_diskwin_mut_dead_item.report"; then printf '!!! test-flair-disk-windows-mutant FAIL: dead-item TRIPLE-FAULTED (cannot judge the oracle)\n'; exit 1; fi
+	@grep -qxF 'FLAIR-MENU-DROP menu=515' "$(BUILD)/flair_diskwin_mut_dead_item.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the dead-item mutant did not even DROP the Special menu -- wrong failure axis (the bar itself is broken, not the item)\n'; grep -E '^FLAIR-MENU' "$(BUILD)/flair_diskwin_mut_dead_item.serial" || true; exit 1; }
+	@if grep -q '^FINDER-CMD id=9 ' "$(BUILD)/flair_diskwin_mut_dead_item.serial"; then \
+		printf '!!! test-flair-disk-windows-mutant FAIL: the leg-7 dispatch tooth is DECORATION -- DEAD_ITEM still dispatched Clean Up\n'; exit 1; \
+	fi
+	@if grep -q '^FINDER-CLEANUP ' "$(BUILD)/flair_diskwin_mut_dead_item.serial"; then \
+		printf '!!! test-flair-disk-windows-mutant FAIL: DEAD_ITEM still ran Clean Up -- the enable byte is not gating selection\n'; exit 1; \
+	fi
+	@grep -qxF 'FLAIR-MENU menu=515 item=0 (sel=0x00000000)' "$(BUILD)/flair_diskwin_mut_dead_item.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: dead-item mutant did not produce the EXPECTED sel=0 (a disabled row is never selectable, menu.c MenuInfo_item_selectable) -- wrong failure axis\n'; grep -E '^FLAIR-MENU' "$(BUILD)/flair_diskwin_mut_dead_item.serial" || true; exit 1; }
+	@printf '>>> mutant menu_dead_item correctly RED: the Special menu still DROPPED but Clean Up was unselectable -- FLAIR-MENU menu=515 item=0 and no FINDER-CMD id=9 (a menu item that draws and does nothing)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- both R3.3 mutants drive their legs RED (the gate bites; Rule 6)\n'
+	@printf 'VERDICT   : PASS -- all three mutants drive their legs RED (the gate bites; Rule 6)\n'
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
@@ -22340,6 +22606,7 @@ TEST_UNIT_GATES := \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
 	test-finder-cmd test-finder-cmd-mutant \
+	test-finder-menu test-finder-menu-mutant \
 	test-finder-desktop test-finder-desktop-mutant \
 	test-finder-windows test-finder-windows-mutant \
 	test-interact test-interact-mutant \

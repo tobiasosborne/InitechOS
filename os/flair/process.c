@@ -540,6 +540,27 @@ static void switch_foreground(FlairProcessList *list, WindowMgr *wm,
 }
 
 /* --------------------------------------------------------------------------
+ * FlairProcess_activate -- the foreground switch for a NON-mouseDown cause.
+ *
+ * Bead initech-tdnl.12. See process.h for the contract and the rationale: the
+ * always-resident Finder promotes itself when it opens a disk window from a
+ * DESKTOP double-click, which flair_app_dispatch never sees (inDesk returns
+ * before the owner demux). One sequence, two entry points -- never two
+ * sequences. Ref: ADR-0013 Sec 3.3/3.5; design F2-1 (the resident shell tenant).
+ * -------------------------------------------------------------------------- */
+int FlairProcess_activate(FlairProcessList *list, WindowMgr *wm,
+                          const EventRecord *ev, FlairApp *app)
+{
+    FlairApp *old_fg;
+
+    if (list == NULL || wm == NULL || ev == NULL || app == NULL) return 0;
+    old_fg = list->head;
+    if (app == old_fg) return 0;          /* already the foreground: no-op     */
+    switch_foreground(list, wm, ev, app, old_fg);
+    return 1;
+}
+
+/* --------------------------------------------------------------------------
  * flair_app_dispatch -- the single Layer-5 dispatcher (ADR-0013 Sec 3.3, BC-2).
  *
  * Demuxes ONE cooked EventRecord to the owning tenant and performs activation,
@@ -603,6 +624,71 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
                 switch_foreground(list, wm, ev, owner, old_fg);
 #endif
         }
+
+        /* --- THE CLICKED WINDOW ITSELF COMES FORWARD (bug initech-tpzf) -----
+         * Inside Macintosh, Macintosh Toolbox Essentials, Event Manager: a
+         * mouseDown in ANY part of a window that is not the active (front) one
+         * makes it active first -- SelectWindow(theWindow) -- and only then is
+         * the click acted on. Title bar AND content, period behaviour.
+         *
+         * switch_foreground above covers only the CROSS-TENANT half, and even
+         * there it raises the owner's GROUP (raise_group, Sec 3.5) preserving
+         * the group's internal order, which lands the group's OLD front window
+         * frontmost -- not necessarily the one that was clicked. Two gaps fell
+         * out of that, and this is the ONE line that closes both:
+         *   (1) SAME TENANT, non-front window: `owner == old_fg`, so nothing
+         *       ran at all. Measured on the real guest and recorded in
+         *       spec/flair_disk_windows_traces.mk lines 141-149: a title click
+         *       on a background Finder disk window dispatched (FLAIR-DRAG
+         *       fired) but the window never came forward, and the next
+         *       double-click still went to the window on top. That trace file
+         *       calls it "a REAL gap in R3.3's raise story ... it belongs to
+         *       the core lane / tdnl.12" -- this is that fix.
+         *   (2) CROSS TENANT, non-group-front window: the group arrives at the
+         *       front run but the clicked member is still buried inside it.
+         *
+         * WHY HERE AND NOT IN kmain: ADR-0013 BC-2 -- flair_app_dispatch is the
+         * SOLE Layer-5 routing spine and kmain re-implements no routing logic.
+         * Which window is active after a click is routing/activation policy,
+         * not a chrome verb; putting it in kmain's inDrag arm would give the
+         * content arm a second, subtly-different copy (the very duplication
+         * switch_foreground's banner exists to prevent) and would leave the
+         * host O-1 oracle unable to see it at all.
+         *
+         * Already-front is a no-op by the guard, so every single-window tenant
+         * scene -- every existing band-2 / appswitch / drag gate -- executes
+         * byte-identically: after switch_foreground a single-window owner's
+         * window IS wm->front.
+         *
+         * SelectWindow reaffirms the activation hilite and seeds the raised
+         * window's repaint (window.c reaffirm_active 0->1, bead initech-rqz5),
+         * so the newly-front window repaints through the ordinary damage cycle.
+         * app->windows is the group head (process.h Sec "windows"), and the
+         * clicked window is now that head, so it is re-pointed in the same
+         * breath -- a stale head after a raise is the 8fhu class of bug. */
+#ifndef FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE
+        if (w != wm->front) {
+            SelectWindow(wm, w);
+            owner->windows = w;
+        }
+#else
+        /* MUTANT FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE (Rule 6; the DQ5 bead
+         * initech-haaq emu-mutant image ONLY) -- SCOPE EXTENDED BY initech-tpzf,
+         * and here is why, because it is exactly the way a mutant quietly stops
+         * being a mutant. The knob models the pre-DQ5 bug "a title mouseDown on
+         * a NON-FRONT window does nothing". Before tpzf that was one behaviour
+         * (the tenant switch above) and suppressing it was enough. tpzf added a
+         * SECOND half -- the window raise -- and the raise alone is enough to
+         * carry the gesture: MEASURED, test-flair-solid leg H went GREEN under
+         * this mutant, i.e. the leg-H oracle had become decoration. So the knob
+         * suppresses BOTH halves for a title click, which is what its name says
+         * and what the original bug did. The CONTENT click keeps both halves in
+         * the same build (leg(c) stays live). NEVER in a real build. */
+        if (part != inDrag && w != wm->front) {
+            SelectWindow(wm, w);
+            owner->windows = w;
+        }
+#endif
 
         /* Title chrome is shell-owned: activation may have happened above, but
          * the mouseDown NEVER crosses into tenant content. kmain still performs

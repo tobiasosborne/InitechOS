@@ -331,6 +331,26 @@ int FlairProcess_close_window(FlairProcessList *list, WindowMgr *wm,
 void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
                         const EventRecord *ev);
 
+/* FlairProcess_activate -- promote `app` to the foreground through THE ONE
+ * switch sequence (bead initech-tdnl.12).
+ *
+ * WHY IT EXISTS. flair_app_dispatch reaches the four ordered activation steps
+ * only from a mouseDown that FindWindow resolves to an owned window. The always-
+ * resident Finder shell (design F2-1) changes the foreground by a route the
+ * dispatcher never sees: a DOUBLE-CLICK ON THE DESKTOP opens a disk window, and
+ * a desktop click is inDesk -- the dispatcher returns before the owner demux.
+ * Rather than let the shell re-implement raise/deactivate/activate/promote (a
+ * second, subtly-different activation path is exactly what switch_foreground's
+ * banner exists to prevent), it calls THIS, which runs the identical sequence.
+ *
+ * `ev` supplies the modifiers/when stamp for the synthesized activateEvt pair,
+ * exactly as the mouseDown-driven path does. Returns 1 when a switch really
+ * happened (the caller then runs its post-switch repaint / band-2 menubar /
+ * present / announce policy), 0 when `app` was already the foreground head or
+ * an argument was NULL. */
+int FlairProcess_activate(FlairProcessList *list, WindowMgr *wm,
+                          const EventRecord *ev, FlairApp *app);
+
 /* flair_route_updates -- the updateEvt SPINE: route pending window DAMAGE to each
  * damaged window's owning tenant (ADR-0013 Sec 3.3 -- "updateEvt: each damaged
  * window's owning app, background apps included").
