@@ -419,22 +419,112 @@ static const char *token_to_qcode(const char *tok)
         strcmp(tok, "\\") == 0) {
         return "backslash";
     }
+    /* MODIFIERS (beads initech-tdnl.10, R3.3 emu wiring). These exist ONLY as
+     * members of a chord token (see qmp_send_key_chord): a bare "ctrl" would
+     * press-and-release Control with nothing else, which no gate wants. The
+     * QMP QKeyCode names are "ctrl" / "shift" / "alt" / "meta_l".
+     * Ref: QMP send-key + qapi/ui.json (QKeyCode ctrl, shift, alt, meta_l). */
+    if (strcmp(tok, "ctrl") == 0 || strcmp(tok, "control") == 0) {
+        return "ctrl";
+    }
+    if (strcmp(tok, "shift") == 0) {
+        return "shift";
+    }
+    if (strcmp(tok, "alt") == 0 || strcmp(tok, "option") == 0) {
+        return "alt";
+    }
+    if (strcmp(tok, "meta") == 0 || strcmp(tok, "cmd") == 0) {
+        return "meta_l";
+    }
     return NULL;
 }
 
 /*
- * Send one QMP `send-key` event for a single qcode (press+release of one key).
+ * Send one QMP `send-key` event for a CHORD: a '-'-separated token such as
+ * "ctrl-n" (or a bare "n", which is the 1-member case).
+ *
+ * WHY THIS WORKS AND A "MODIFIER HOLD" DOES NOT (beads initech-tdnl.10; this
+ * supersedes the "no modifier tokens" note in spec/flair_desktop_icons_traces.mk
+ * lines 60-71 for KEY chords only -- shift-CLICK is still out of reach):
+ * QMP `send-key` takes an ARRAY of keys that are pressed TOGETHER and then
+ * released, so [ctrl, n] emits the real PS/2 SET-1 sequence
+ *     0x1D (Ctrl make) 0x31 (n make) ... breaks
+ * and os/flair/event.c's scancode cooker sets FLAIR_EVT_MOD_CONTROL_KEY on the
+ * Ctrl make, so the keyDown for 'n' carries the modifier bit that
+ * os/milton/kmain.c :: flair_live_finder_key tests. No held state has to
+ * survive between two separate QMP commands -- the whole chord IS one command.
+ * A shift-CLICK would need the modifier held ACROSS an input-send-event mouse
+ * button, which send-key cannot express; that omission stands.
+ *
  * Format: {"execute":"send-key","arguments":{"keys":[{"type":"qcode",
- * "data":"<qcode>"}]}}. Returns 0 on a successful write.
+ * "data":"<qcode>"}, ...]}}. Returns 0 on a successful write, -1 on a bad
+ * member token or an oversized command.
  */
-static int qmp_send_key(int fd, const char *qcode)
+#define QMP_CHORD_MAX 4
+
+static int qmp_send_key_chord(int fd, const char *tok)
 {
-    char cmd[160];
-    int n = snprintf(cmd, sizeof(cmd),
-                     "{\"execute\":\"send-key\",\"arguments\":{\"keys\":"
-                     "[{\"type\":\"qcode\",\"data\":\"%s\"}]}}\n", qcode);
-    if (n < 0 || (size_t)n >= sizeof(cmd)) {
-        return -1;
+    char parts[QMP_CHORD_MAX][24];
+    /* COPIED, never aliased: token_to_qcode returns a PER-CALL STATIC buffer for
+     * single-character tokens, so holding two of its return pointers at once
+     * ("ctrl-n" is fine, but a hypothetical "a-b" would not be) would make both
+     * members read the last one. Copy on resolve. */
+    char qcodes[QMP_CHORD_MAX][24];
+    char cmd[320];
+    size_t used;
+    int n_parts = 0;
+    const char *p = tok;
+    int i;
+
+    /* Split on '-'. A leading/trailing '-' or an empty member is a bad token. */
+    for (;;) {
+        const char *dash = strchr(p, '-');
+        size_t len = dash ? (size_t)(dash - p) : strlen(p);
+        if (len == 0 || len >= sizeof(parts[0])) {
+            return -1;
+        }
+        if (n_parts >= QMP_CHORD_MAX) {
+            return -1;
+        }
+        memcpy(parts[n_parts], p, len);
+        parts[n_parts][len] = '\0';
+        n_parts++;
+        if (!dash) {
+            break;
+        }
+        p = dash + 1;
+    }
+    for (i = 0; i < n_parts; i++) {
+        const char *qc = token_to_qcode(parts[i]);
+        if (!qc || strlen(qc) >= sizeof(qcodes[0])) {
+            return -1;
+        }
+        memcpy(qcodes[i], qc, strlen(qc) + 1u);
+    }
+
+    used = 0;
+    {
+        int w = snprintf(cmd, sizeof(cmd),
+                         "{\"execute\":\"send-key\",\"arguments\":{\"keys\":[");
+        if (w < 0 || (size_t)w >= sizeof(cmd)) {
+            return -1;
+        }
+        used = (size_t)w;
+    }
+    for (i = 0; i < n_parts; i++) {
+        int w = snprintf(cmd + used, sizeof(cmd) - used,
+                         "%s{\"type\":\"qcode\",\"data\":\"%s\"}",
+                         (i == 0) ? "" : ",", qcodes[i]);
+        if (w < 0 || (size_t)w >= sizeof(cmd) - used) {
+            return -1;
+        }
+        used += (size_t)w;
+    }
+    {
+        int w = snprintf(cmd + used, sizeof(cmd) - used, "]}}\n");
+        if (w < 0 || (size_t)w >= sizeof(cmd) - used) {
+            return -1;
+        }
     }
     return qmp_send(fd, cmd);
 }
@@ -450,7 +540,12 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
 {
     int sent = 0;
     int unknown = 0;
-    char buf[256];
+    /* 1024, not 256 (beads initech-tdnl.10): the R3.3 disk-window traces are
+     * 30+ tokens of "m<dx>:<dy>" and blew the old cap, which TRUNCATES -- i.e.
+     * silently replays a PREFIX of a locked trace and grades the wrong scene.
+     * The cap still exists and still shouts; it is simply above every trace the
+     * repo locks. */
+    char buf[1024];
     /* Copy so we can tokenize in place. Oversized specs are truncated loudly. */
     size_t L = strlen(keys_spec);
     if (L >= sizeof(buf)) {
@@ -475,14 +570,15 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
         if (tok[0] == '\0') {
             continue;
         }
-        const char *qc = token_to_qcode(tok);
-        if (!qc) {
+        /* Chord-aware since beads initech-tdnl.10: "n" and "ctrl-n" both go
+         * through the same array-of-qcodes send-key. */
+        if (qmp_send_key_chord(fd, tok) != 0) {
             fprintf(stderr, "[harness] --keys: unknown token '%s' (skipped)\n",
                     tok);
             unknown++;
             continue;
         }
-        if (qmp_send_key(fd, qc) == 0) {
+        {
             sent++;
             /* Drain any QMP reply + give the guest a beat to take the IRQ1
              * before the next key (keeps the injection deterministic). */
@@ -549,7 +645,17 @@ static int qmp_mouse_button(int fd, const char *button, int down)
  *   "m<dx>:<dy>"  relative move by signed (dx,dy), e.g. "m20:0", "m0:-12";
  *   "l1"/"l0"     left   button down/up;
  *   "r1"/"r0"     right  button down/up;
- *   "M1"/"M0"     middle button down/up.
+ *   "M1"/"M0"     middle button down/up;
+ *   "k<chord>"    ONE keystroke or modifier chord, e.g. "kctrl-n", "kret"
+ *                 (beads initech-tdnl.10).
+ *
+ * WHY THE KEY TOKEN LIVES IN THE *MOUSE* GRAMMAR. The two injectors run in a
+ * fixed order -- ALL of --keys, then ALL of --mouse (see the caller) -- so a
+ * chord that must arrive AFTER a click ("open the disk window, THEN Ctrl-N")
+ * is unreachable with two separate specs. Rather than invent a third
+ * interleave flag and a new ordering rule, the ONE ordered stream that already
+ * exists gains a key token: a trace is a sequence of input events, and this is
+ * one. --keys keeps its exact meaning for every gate that uses it.
  * Unknown tokens are skipped with a stderr note (Law 2: loud). Returns the
  * number of events sent. The gate injects >=2 so the dual-PIC-EOI no-wedge
  * property is assertable (a second distinct FLAIR-MOUSE line proves the slave
@@ -560,7 +666,7 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
 {
     int sent = 0;
     int left_down = 0;
-    char buf[256];
+    char buf[1024];   /* see qmp_inject_keys: 256 truncated the R3.3 traces */
     size_t L = strlen(mouse_spec);
     if (L >= sizeof(buf)) {
         fprintf(stderr, "[harness] --mouse spec too long (max %zu); truncating\n",
@@ -597,6 +703,11 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
                     ok = 1;
                     is_move = 1;
                 }
+            }
+        } else if (tok[0] == 'k' && tok[1] != '\0') {
+            /* "k<chord>" -- one keystroke/chord, in stream order. */
+            if (qmp_send_key_chord(fd, tok + 1) == 0) {
+                ok = 1;
             }
         } else if ((tok[0] == 'l' || tok[0] == 'r' || tok[0] == 'M') &&
                    (tok[1] == '0' || tok[1] == '1') && tok[2] == '\0') {

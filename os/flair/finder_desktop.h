@@ -141,8 +141,24 @@
 
 /* Interaction constants (design F2-5). FINDER_DBLCLICK_TICKS is PROVISIONAL at
  * 20 ticks (1/3 s on the 100 Hz PIT), *golden-resolves* against a period Mouse
- * control-panel capture, and becomes the R4.5 Mouse panel's slider variable. */
+ * control-panel capture, and becomes the R4.5 Mouse panel's slider variable.
+ *
+ * -D-OVERRIDABLE, and ONLY for the demo RECORD image (beads initech-tdnl.10),
+ * exactly as os/milton/kmain.c's FLAIR_TEN_TICK_BUDGET and
+ * FLAIR_LIVE_DRAG_TRACK_TICKS are: record-flair dumps one PPM per injected
+ * event, which stretches the gap between the two clicks of a double past 20
+ * ticks, so a replay of a LOCKED trace would degrade every double-click into
+ * two singles and the clip would show a gesture that never happened. The
+ * $(BUILD)/flair_tenants_mut_recorddbl.img variant widens it; the DEFAULT build
+ * is byte-identical at 20 and every gate still grades that one.
+ *
+ * THIS IS NOT THE "RAISE THE CONSTANT TO GO GREEN" MOVE the traces file warns
+ * against (spec/flair_desktop_icons_traces.mk trace 5): no oracle grades the
+ * record image, and if a GATE ever needs the interval widened the fix is still
+ * the harness or the trace, never this number. */
+#ifndef FINDER_DBLCLICK_TICKS
 #define FINDER_DBLCLICK_TICKS      20u
+#endif
 #define FINDER_DBLCLICK_SLOP        4   /* max |dh|,|dv| between the two clicks */
 #define FINDER_DRAG_SLOP            3   /* movement below this is still a click */
 

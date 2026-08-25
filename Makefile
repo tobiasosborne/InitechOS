@@ -397,6 +397,19 @@ PPM_FLAIR_DESKICONS_CHECK_BIN := $(BUILD)/ppm_flair_desktop_icons_check
 # ONE source of truth.
 include spec/flair_desktop_icons_traces.mk
 
+# The R3.3 disk-window grader. Same discipline as the R3.2 one above: ONLY the
+# independent canon (-Ispec/assets), never -Ios/flair and never a consumer of
+# spec/assets/finder_icons.h -- its expected tones are hand-read from that
+# file's ASCII maps and its geometry from finder_windows.h's stated arithmetic.
+# argv = <rootwin|movedwin|newfolder> dump.ppm.
+PPM_FLAIR_DISKWIN_CHECK_SRC := tools/ppm_flair_disk_windows_check.c
+PPM_FLAIR_DISKWIN_CHECK_BIN := $(BUILD)/ppm_flair_disk_windows_check
+
+# The LOCKED R3.3 disk-window traces (spec/flair_disk_windows_traces.mk, Rule
+# 8/11): FLAIR_FOLDER_NAV_SPEC, FLAIR_WINDOW_DRAG_PERSIST_SPEC and
+# FLAIR_NEW_FOLDER_SPEC. Sibling of the R3.2 file above, never an edit to it.
+include spec/flair_disk_windows_traces.mk
+
 # The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
 # (leg B: O-5 activate NOTES then title-drag it (-60,+60)), FLAIR_SOLID_SWITCH_
@@ -9478,6 +9491,61 @@ endef
 $(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_NO_UNDERLAY,desk_no_underlay))
 $(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_DBLTICK_OFF,desk_dbltick_off))
 
+# $(call flair-tenants-finderwin-mutant-rules,<KNOB>,<tag>): an R3.3 Finder
+# DISK WINDOW (finder_windows.c) mutant, bead initech-tdnl.10. Swaps ONLY
+# finder_windows.o -- the window table, the enumeration filter and the spatial
+# singleton -- leaving the clean kmain / process / desktop objects in place, so
+# the mutation is isolated to the module under test. The knobs already exist in
+# os/flair/finder_windows.c (its "MUTANT KNOBS" banner) and are host-proven by
+# test-finder-windows-mutant; this template lifts the SAME macro spellings into
+# a bootable image so the EMU gate is mutation-proven with no second knob
+# vocabulary. Prereqs + include flags are spelled LITERALLY, mirroring
+# KERNEL_FINDER_WINDOWS_OBJ's own recipe (the $(eval)-expands-once hazard the
+# templates above document at length).
+define flair-tenants-finderwin-mutant-rules
+$(BUILD)/finder_windows_mut_$(2).o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $$@
+
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o
+
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants DISK-WINDOW MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+
+# The 2 R3.3 emu mutants that BITE test-flair-disk-windows (bead initech-tdnl.10).
+# These are the two most LOAD-BEARING of the module's three knobs -- the ones
+# whose failure would be invisible to a human looking at the frame:
+#   FINDER_WIN_MUT_VOLLABEL_SHOWN -> finder_win_skip_entry never skips the FAT
+#                    volume-label entry, so the volume NAME leaks into the
+#                    listing as a fifth document icon -> the open marker says
+#                    "FINDER-OPEN-VOLUME win=0 n=5", never n=4 (design F1.1)
+#   FINDER_WIN_MUT_SINGLETON_DUP -> finder_win_find always MISSES, so re-opening
+#                    an already-open folder builds a SECOND window instead of
+#                    raising the first -> the nav chain's closing line becomes
+#                    "FINDER-OPEN-FOLDER name=APPS win=2 singleton=0" (design
+#                    F5.2's named SPATIAL_DUP mutant)
+# The third knob (FINDER_WIN_MUT_CLEANUP_UNSORTED) has NO emu image here because
+# Clean Up has no injectable input on today's system -- see the CLEAN UP note in
+# spec/flair_disk_windows_traces.mk. It is host-proven instead.
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_VOLLABEL_SHOWN,win_vollabel_shown))
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_SINGLETON_DUP,win_singleton_dup))
+
 # OMISSION (Rule 6 / Law 2 honesty; 2026-07-31 Wave A, epic initech-av7s): the
 # DESKTOP_MUTATE_NO_PAINTALL_CLEAR emu mutant (stale wm->desktop_update surviving
 # a full composite; beads initech-jmc5/-qi8v) NO LONGER bites the booted O-5
@@ -9828,6 +9896,13 @@ $(PPM_FLAIR_CURSOR_CHECK_BIN): $(PPM_FLAIR_CURSOR_CHECK_SRC) | $(BUILD)
 # It must NOT gain -Ios/flair or -Ispec/assets/desk_icons.h consumers: its
 # expected tones are hand-read from the ASCII maps, never from the strike words.
 $(PPM_FLAIR_DESKICONS_CHECK_BIN): $(PPM_FLAIR_DESKICONS_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+# The R3.3 disk-window grader, same rule and the same prohibition (bead
+# initech-tdnl.10): the independent canon ONLY. It must not gain -Ios/flair,
+# and it must never include spec/assets/finder_icons.h -- the strikes it grades
+# are hand-read off that file's ASCII maps (Law 2 / HER-02).
+$(PPM_FLAIR_DISKWIN_CHECK_BIN): $(PPM_FLAIR_DISKWIN_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
@@ -16819,6 +16894,358 @@ test-flair-desktop-icons-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IM
 endif
 
 # ===========================================================================
+# REAL gate: test-flair-disk-windows (bead initech-tdnl.10 -- GUI remediation
+# R3.3 "disk windows": double-click the volume and a REAL window enumerates the
+# REAL FAT12 root; double-click a folder inside it and that folder's window
+# opens as a SPATIAL SINGLETON; drag the window and close it and the origin is
+# remembered ACROSS A POWER CYCLE; Ctrl-N creates a REAL directory that mtools
+# can see.)
+# ---------------------------------------------------------------------------
+# A NEW gate, not an extension of test-flair-desktop-icons, so the R3.2 gate
+# stays byte-stable (it was only ever re-keyed by the core lane's marker change).
+#
+# FIVE deterministic boots of the SAME reproducible $(FLAIRTENANTS_IMG) against
+# TWO gate-local copies of $(FLAIR_DATA_IMG). Two copies, not one, because leg 5
+# CREATES A DIRECTORY: legs 1-4 must see the pristine four-entry root, so the
+# new-folder leg gets its own throwaway image. The pristine $(FLAIR_DATA_IMG) is
+# never written by any leg (the tdnl.9 gate-local-copy idiom).
+#
+#   1 ROOTWIN   FLAIR_ICON_OPEN_SPEC (the LOCKED R3.2 trace, reused verbatim --
+#               it is already the "double-click the volume" gesture and
+#               duplicating it here would be two sources of truth); dump after
+#               "FINDER-OPEN-VOLUME win=0 n=4"
+#               -> grader leg ROOTWIN: the window chrome at the cascaded default
+#                  frame (20,60)..(380,280) -- frame rules, the title bar's
+#                  bottom rule, the go-away box's dark ring, and the CENTRED
+#                  "Drive A Files" title run -- plus the four root entries on the
+#                  hand-computed grid cells (39,86)/(107,86)/(175,86)/(243,86)
+#                  with DOC / FOLDER / DOC / FOLDER strikes and their label bands.
+#               *** THIS is the pixel leg test-flair-desktop-icons leg 5
+#                   deliberately deferred to this lane.
+#   2 NAV       FLAIR_FOLDER_NAV_SPEC; serial only. The full chain, in order:
+#                  FINDER-OPEN-VOLUME win=0 n=4
+#                  FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+#                  FLAIR-DRAG win 0 (40,80)->(250,250)
+#                  FINDER-OPEN-FOLDER name=APPS win=1 singleton=1
+#               The last two lines are the point: the SECOND open of APPS RAISES
+#               the existing window (same slot, singleton=1) instead of building
+#               a second one. The drag in the middle is what makes the icon
+#               reachable again -- see the trace file for the two cheaper routes
+#               that were tried and rejected as vacuous.
+#   3 PERSIST-W FLAIR_WINDOW_DRAG_PERSIST_SPEC on copy A; serial only:
+#                  FLAIR-DRAG win 0 (20,60)->(120,180)
+#                  FINDER-CLOSE-WINDOW win=0
+#                  DESKTOP-DB-SAVE n=3      (2 desktop icons + 1 kind=4 view)
+#   4 PERSIST-R REBOOT copy A, replay FLAIR_ICON_OPEN_SPEC; dump after
+#               "FINDER-OPEN-VOLUME win=0 n=4"
+#                  DESKTOP-DB-OK + DESKTOP-DB-VIEWS n=1 (never CREATE/REGEN)
+#               -> grader leg MOVEDWIN: the same window, same chrome, same four
+#                  icons, but at the SAVED origin (120,180) -- and the cascaded
+#                  default rect is bare desktop again.
+#   5 NEWFOLD   FLAIR_NEW_FOLDER_SPEC on copy B; dump after
+#               "FINDER-NEW-FOLDER name=NEWFOLD parent=0"
+#                  FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0
+#                  FINDER-NEW-FOLDER name=NEWFOLD parent=0
+#               -> grader leg NEWFOLDER: a FIFTH icon, the FOLDER strike, on the
+#                  grid's second row at (39,138)
+#               -> mtools differential: mdir shows NEWFOLD as a <DIR> in the
+#                  root of copy B, and $(FLAIR_DATA_IMG) itself still does not.
+#
+# THE CTRL CHORD IS REAL (and this is the headline of the emu-wiring lane).
+# spec/flair_desktop_icons_traces.mk recorded that the harness had "NO modifier
+# tokens". For KEY CHORDS that is now fixed rather than worked around: QMP
+# `send-key` takes an ARRAY of keys pressed together, so [ctrl, n] is ONE
+# command that produces the real PS/2 Ctrl-make + n-make, and os/flair/event.c
+# cooks FLAIR_EVT_MOD_CONTROL_KEY off it. harness/emu/qemu.c gained chord tokens
+# plus a "k<chord>" token in the MOUSE grammar (the two injectors run keys-then-
+# mouse, so a chord that must follow a click had no other route). Leg 5 drives
+# the whole Layer-1 -> Layer-3 chord path end to end, and mtools -- not our own
+# FAT code -- says the directory is really there.
+#
+# CLEAN UP HAS NO LEG HERE, LOUDLY. FCMD_CLEANUP carries cmd_char == 0 (the
+# period Finder gave it no Command key) and the Finder MENU BAR does not exist
+# until bead initech-tdnl.12, so there is NO input this harness can inject that
+# reaches finder_win_cleanup on the booted system. It is host-covered by
+# harness/proptest/test_finder_windows.c and mutation-proven there by
+# FINDER_WIN_MUT_CLEANUP_UNSORTED. See spec/flair_disk_windows_traces.mk.
+#
+# Mutation-proven by test-flair-disk-windows-mutant; Bochs boot leg is
+# test-flair-disk-windows-bochs (Rule 5).
+FLAIR_DW_DATA_A       = $(BUILD)/$@_data_a.img
+FLAIR_DW_DATA_B       = $(BUILD)/$@_data_b.img
+FLAIR_DW_ROOT_NAME    := flair_diskwin_rootwin
+FLAIR_DW_NAV_NAME     := flair_diskwin_nav
+FLAIR_DW_PERSW_NAME   := flair_diskwin_persist_write
+FLAIR_DW_PERSR_NAME   := flair_diskwin_persist_reboot
+FLAIR_DW_NEWF_NAME    := flair_diskwin_newfolder
+.PHONY: test-flair-disk-windows
+test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
+			 $(PPM_FLAIR_DISKWIN_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-disk-windows : THE booted DISK WINDOWS (R3.3)\n'
+	@printf '  open the volume; navigate a folder; the spatial singleton; the remembered\n'
+	@printf '  window origin across a power cycle; Ctrl-N makes a REAL FAT12 directory.\n'
+	@printf '  Ref: bead initech-tdnl.10; os/flair/finder_windows.h;\n'
+	@printf '       spec/flair_disk_windows_traces.mk (the locked traces + the arithmetic).\n'
+	@printf '  Grader probes are hand-read off spec/assets/finder_icons.h ASCII maps (Law 2).\n'
+	@printf '======================================================================\n'
+	@command -v mdir >/dev/null 2>&1 || { printf '!!! test-flair-disk-windows FAIL: mdir missing (mtools)\n'; exit 1; }
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_A)
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_B)
+	@# ---- leg 1: open the volume; PIXEL-grade the opened root window. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_ROOT_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
+		--timeout-ms 20000 2> "$(BUILD)/$(FLAIR_DW_ROOT_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the ROOTWIN boot\n'; exit 1; fi
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the double-click did not open the root disk window with the expected 4-icon listing\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" || true; exit 1; }
+	@! grep -q '^FINDER-WIN-ICONS-FULL' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the per-window icon cap bit on a 4-entry root\n'; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_DW_ROOT_NAME).ppm" ]; then printf '!!! test-flair-disk-windows FAIL: ROOTWIN screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/$(FLAIR_DW_ROOT_NAME).ppm" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the opened root window does not carry the derived chrome + the four grid icons\n'; exit 1; }
+	@printf '>>> test-flair-disk-windows [1/5]: FINDER-OPEN-VOLUME win=0 n=4 + grader leg ROOTWIN\n'
+	@# ---- leg 2: navigate into APPS, then prove the SPATIAL SINGLETON. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_NAV_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_FOLDER_NAV_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_NAV_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_NAV_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the NAV boot\n'; exit 1; fi
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: NAV leg never opened the root window\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the double-click on the APPS folder icon at the derived cell (107,86)+(16,16) did not open a NEW folder window in slot 1\n'; grep -E '^FINDER-|^FLAIR-DRAG' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FLAIR-DRAG win 0 (40,80)->(250,250)' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the folder window did not move by the locked delta (+210,+170) from its cascaded frame (40,80)\n'; grep -E '^FINDER-|^FLAIR-DRAG' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=1' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: re-opening APPS did NOT raise the existing window -- the spatial singleton is broken\n'; grep -E '^FINDER-|^FLAIR-DRAG' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" || true; exit 1; }
+	@if [ "$$(grep -c '^FINDER-OPEN-FOLDER ' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial")" != "2" ]; then \
+		printf '!!! test-flair-disk-windows FAIL: expected exactly 2 FINDER-OPEN-FOLDER lines, got %s\n' "$$(grep -c '^FINDER-OPEN-FOLDER ' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial")"; \
+		grep '^FINDER-OPEN-FOLDER ' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" || true; exit 1; fi
+	@! grep -q '^FINDER-WIN-FULL' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the window table filled -- windows are being duplicated\n'; exit 1; }
+	@printf '>>> test-flair-disk-windows [2/5]: OPEN-FOLDER singleton=0 -> drag -> OPEN-FOLDER singleton=1 (the SAME slot raised)\n'
+	@# ---- leg 3: drag the root window, close it, and save the view record. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_PERSW_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_WINDOW_DRAG_PERSIST_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_PERSW_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the PERSIST-WRITE boot\n'; exit 1; fi
+	@grep -qxF 'FLAIR-DRAG win 0 (20,60)->(120,180)' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the root window did not move by the locked delta (+100,+120) from its default frame (20,60)\n'; grep -E '^FINDER-|^FLAIR-DRAG|^DESKTOP-DB' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-CLOSE-WINDOW win=0' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the click on the moved go-away box (130,190) did not close the Finder-owned window\n'; grep -E '^FINDER-|^FLAIR-' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" || true; exit 1; }
+	@! grep -q '^FLAIR-TENANT-EXIT name=FINDER' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: closing a disk window TERMINATED the always-resident Finder (design F2-3, the anti-8fhu rule)\n'; exit 1; }
+	@grep -qxF 'DESKTOP-DB-SAVE n=3' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the close did not commit 3 records (2 desktop icons + 1 kind=4 view) to DESKTOP.DB\n'; grep '^DESKTOP-DB' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" || true; exit 1; }
+	@! grep -q '^DESKTOP-DB-WRITE-FAIL' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: DESKTOP-DB-WRITE-FAIL during the view save\n'; exit 1; }
+	@printf '>>> test-flair-disk-windows [3/5]: FLAIR-DRAG (20,60)->(120,180) + FINDER-CLOSE-WINDOW win=0 + DESKTOP-DB-SAVE n=3\n'
+	@# ---- leg 4: REBOOT the same, now-written volume; the window comes back. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_PERSR_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
+		--timeout-ms 20000 2> "$(BUILD)/$(FLAIR_DW_PERSR_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the PERSIST-REBOOT boot\n'; exit 1; fi
+	@grep -qxF 'DESKTOP-DB-OK' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the reboot did not read back a valid DESKTOP.DB\n'; grep '^DESKTOP-DB' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || true; exit 1; }
+	@if grep -q '^DESKTOP-DB-CREATE' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || \
+	    grep -q '^DESKTOP-DB-REGEN' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || \
+	    grep -q '^DESKTOP-DB-POS-REGEN' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || \
+	    grep -q '^DESKTOP-DB-POS-SKIP' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial"; then \
+		printf '!!! test-flair-disk-windows FAIL: the reboot re-created/regenerated DESKTOP.DB instead of reading the saved view\n'; \
+		grep '^DESKTOP-DB' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || true; exit 1; \
+	fi
+	@grep -qxF 'DESKTOP-DB-VIEWS n=1' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the reboot did not take back exactly ONE kind=4 view record\n'; grep '^DESKTOP-DB' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the reboot could not re-open the root window\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_DW_PERSR_NAME).ppm" ]; then printf '!!! test-flair-disk-windows FAIL: PERSIST-REBOOT screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin "$(BUILD)/$(FLAIR_DW_PERSR_NAME).ppm" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the window did NOT reopen at the saved origin (120,180) -- or the cascaded default rect is still covered\n'; exit 1; }
+	@printf '>>> test-flair-disk-windows [4/5]: DESKTOP-DB-VIEWS n=1 + grader leg MOVEDWIN (the window remembered where you left it)\n'
+	@# ---- leg 5: Ctrl-N makes a REAL directory; mtools is the judge. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_B)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_NEWF_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_NEW_FOLDER_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--screendump --screendump-after "FINDER-NEW-FOLDER name=NEWFOLD parent=0" \
+		--timeout-ms 20000 2> "$(BUILD)/$(FLAIR_DW_NEWF_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_NEWF_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the NEWFOLDER boot\n'; exit 1; fi
+	@grep -qxF 'FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0' "$(BUILD)/$(FLAIR_DW_NEWF_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the Ctrl-N chord never reached the ONE command spine. Two axes: (a) no FINDER-CMD line at all = the chord was not decoded (check that harness qmp_send_key_chord emitted [ctrl,n] and that os/flair/event.c still cooks FLAIR_EVT_MOD_CONTROL_KEY off PS/2 make 0x1D); (b) a FINDER-CMD-DISABLED line = the predicate refused\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_NEWF_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-NEW-FOLDER name=NEWFOLD parent=0' "$(BUILD)/$(FLAIR_DW_NEWF_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: New Folder did not create the locked first ladder name NEWFOLD in the root\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_NEWF_NAME).serial" || true; exit 1; }
+	@if [ ! -s "$(BUILD)/$(FLAIR_DW_NEWF_NAME).ppm" ]; then printf '!!! test-flair-disk-windows FAIL: NEWFOLDER screendump missing\n'; exit 1; fi
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) newfolder "$(BUILD)/$(FLAIR_DW_NEWF_NAME).ppm" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the new directory did not appear as a FOLDER icon at the derived second-row cell (39,138)\n'; exit 1; }
+	@# The mtools DIFFERENTIAL: an INDEPENDENT reader, never our own FAT code.
+	@mdir -a -i $(FLAIR_DW_DATA_B) :: > "$(BUILD)/$(FLAIR_DW_NEWF_NAME).mdir"
+	@grep -Eq '^NEWFOLD +<DIR>' "$(BUILD)/$(FLAIR_DW_NEWF_NAME).mdir" \
+		|| { printf '!!! test-flair-disk-windows FAIL: mdir does not see a NEWFOLD directory in the root -- the serial line claimed a directory that is not on the disk\n'; cat "$(BUILD)/$(FLAIR_DW_NEWF_NAME).mdir"; exit 1; }
+	@mdir -a -i $(FLAIR_DATA_IMG) :: > "$(BUILD)/$(FLAIR_DW_NEWF_NAME).pristine.mdir"
+	@! grep -Eq '^NEWFOLD ' "$(BUILD)/$(FLAIR_DW_NEWF_NAME).pristine.mdir" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the PRISTINE $(FLAIR_DATA_IMG) was dirtied -- the gate must only ever write its own copy\n'; exit 1; }
+	@printf '>>> test-flair-disk-windows [5/5]: Ctrl-N -> FINDER-NEW-FOLDER NEWFOLD + grader leg NEWFOLDER + mdir sees a REAL <DIR>\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- the booted Finder opens the REAL volume in a REAL window,\n'
+	@printf '            navigates folders as spatial singletons, remembers a window origin\n'
+	@printf '            across a power cycle, and creates a REAL FAT12 directory from a\n'
+	@printf '            Ctrl-N chord (QEMU; Bochs boot leg = make test-flair-disk-windows-bochs)\n'
+	@printf '======================================================================\n'
+
+# REAL gate: test-flair-disk-windows-mutant (Rule 6 -- MUTATION-PROVE that the
+# R3.3 gate BITES). Two FLAIRTENANTS images, each rebuilt with ONE -D knob that
+# already exists in os/flair/finder_windows.c -- the SAME macro spelling, lifted
+# into a bootable image (no second knob vocabulary). The CLEAN image is graded
+# GREEN first on BOTH mutated legs, so the only variable is the mutation.
+#   win_vollabel_shown (-DFINDER_WIN_MUT_VOLLABEL_SHOWN): the FAT volume-label
+#       entry is no longer skipped, so the volume NAME becomes a fifth icon ->
+#       the open marker must read "FINDER-OPEN-VOLUME win=0 n=5" and n=4 must be
+#       ABSENT. Asserted as an EXACT divergence, both directions.
+#   win_singleton_dup  (-DFINDER_WIN_MUT_SINGLETON_DUP): finder_win_find always
+#       misses, so the second open of APPS builds a SECOND window ->
+#       "FINDER-OPEN-FOLDER name=APPS win=2 singleton=0" and the
+#       "... win=1 singleton=1" line must be ABSENT. Again both directions.
+.PHONY: test-flair-disk-windows-mutant
+test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
+		$(BUILD)/flair_tenants_mut_win_vollabel_shown.img \
+		$(BUILD)/flair_tenants_mut_win_singleton_dup.img
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-disk-windows-mutant : Rule 6 (the gate BITES)\n'
+	@printf '  2 FLAIRTENANTS finder_windows.c mutants; each MUST drive its leg RED.\n'
+	@printf '======================================================================\n'
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_A)
+	@# ---- baseline: the CLEAN image must be GREEN on BOTH mutated legs. ----
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_open --out "$(BUILD)" \
+		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 >/dev/null 2>&1 || true
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_diskwin_mut_base_open.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=4 -- the baseline is broken (not a mutant)\n'; exit 1; }
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_nav --out "$(BUILD)" \
+		--mouse "$(FLAIR_FOLDER_NAV_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 >/dev/null 2>&1 || true
+	@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=1' "$(BUILD)/flair_diskwin_mut_base_nav.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not raise the existing APPS window -- the baseline is broken\n'; grep '^FINDER-OPEN-FOLDER' "$(BUILD)/flair_diskwin_mut_base_nav.serial" || true; exit 1; }
+	@printf '>>> baseline: the clean FLAIRTENANTS image enumerates 4 icons and raises the singleton\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@# ---- mutant 1: VOLLABEL_SHOWN -- the enumerated count MUST become 5. ----
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_vollabel_shown.img" --disk2 "$(FLAIR_DW_DATA_A)" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_vollabel --out "$(BUILD)" \
+		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
+		2> "$(BUILD)/flair_diskwin_mut_vollabel.report" || true
+	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_diskwin_mut_vollabel.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: vollabel mutant missing mount marker (not comparable)\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_diskwin_mut_vollabel.report"; then printf '!!! test-flair-disk-windows-mutant FAIL: vollabel TRIPLE-FAULTED (cannot judge the oracle)\n'; exit 1; fi
+	@if grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_diskwin_mut_vollabel.serial"; then \
+		printf '!!! test-flair-disk-windows-mutant FAIL: the leg-1 count tooth is DECORATION -- VOLLABEL_SHOWN still reported n=4\n'; exit 1; \
+	fi
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=5' "$(BUILD)/flair_diskwin_mut_vollabel.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: vollabel mutant did not report the EXPECTED n=5 -- wrong failure axis, the mutant is not doing what it claims\n'; grep '^FINDER-' "$(BUILD)/flair_diskwin_mut_vollabel.serial" || true; exit 1; }
+	@printf '>>> mutant win_vollabel_shown correctly RED: the volume LABEL leaked into the listing -- FINDER-OPEN-VOLUME win=0 n=5 (expected n=4)\n'
+	@# ---- mutant 2: SINGLETON_DUP -- the second open MUST build a 2nd window. ----
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_singleton_dup.img" --disk2 "$(FLAIR_DW_DATA_A)" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_singleton --out "$(BUILD)" \
+		--mouse "$(FLAIR_FOLDER_NAV_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 \
+		2> "$(BUILD)/flair_diskwin_mut_singleton.report" || true
+	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_diskwin_mut_singleton.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: singleton mutant missing mount marker (not comparable)\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(BUILD)/flair_diskwin_mut_singleton.report"; then printf '!!! test-flair-disk-windows-mutant FAIL: singleton TRIPLE-FAULTED (cannot judge the oracle)\n'; exit 1; fi
+	@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' "$(BUILD)/flair_diskwin_mut_singleton.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: singleton mutant did not even open APPS the FIRST time -- wrong failure axis\n'; grep '^FINDER-' "$(BUILD)/flair_diskwin_mut_singleton.serial" || true; exit 1; }
+	@if grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=1' "$(BUILD)/flair_diskwin_mut_singleton.serial"; then \
+		printf '!!! test-flair-disk-windows-mutant FAIL: the leg-2 singleton tooth is DECORATION -- SINGLETON_DUP still raised the existing window\n'; exit 1; \
+	fi
+	@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=2 singleton=0' "$(BUILD)/flair_diskwin_mut_singleton.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: singleton mutant did not build the EXPECTED second window in slot 2 -- wrong failure axis\n'; grep '^FINDER-OPEN-FOLDER' "$(BUILD)/flair_diskwin_mut_singleton.serial" || true; exit 1; }
+	@printf '>>> mutant win_singleton_dup correctly RED: re-opening APPS built a SECOND window -- FINDER-OPEN-FOLDER name=APPS win=2 singleton=0 (expected win=1 singleton=1)\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- both R3.3 mutants drive their legs RED (the gate bites; Rule 6)\n'
+	@printf '======================================================================\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-disk-windows-bochs (PRD Sec 8 / Rule 5 -- the BOCHS boot
+# leg of the R3.3 disk-window image)
+# ---------------------------------------------------------------------------
+# TRUTHFUL CONSTRAINT (Law 1/Law 2), verbatim the test-flair-desktop-icons-bochs
+# situation -- it is the SAME $(FLAIRTENANTS_IMG): Bochs 2.7's LGPL vgabios
+# ENOMODEs the 640x480 VBE mode and falls back to standard VGA 0x13, so
+# flair_desktop_run FAILS LOUD and HALTS BEFORE the tenants; there is no disk
+# window, no Finder, and no QMP mouse/key injection under Bochs. What this leg
+# proves is the real differential: the SAME kernel -- now carrying
+# finder_windows.o + finder_cmd.o as well -- still runs the boot chain, the
+# FLAIR heap gate and the FAT mount IDENTICALLY to QEMU, and the 640x480 guard
+# still fires with no triple-fault. The window behaviour is graded on QEMU
+# (test-flair-disk-windows). SERIAL MILESTONES ONLY, and it says so.
+FLAIR_DW_BOCHS_NAME   := flair_diskwin_bochs
+FLAIR_DW_BOCHS_REPORT := $(BUILD)/$(FLAIR_DW_BOCHS_NAME).report.txt
+FLAIR_DW_BOCHS_SERIAL := $(BUILD)/$(FLAIR_DW_BOCHS_NAME).serial
+.PHONY: test-flair-disk-windows-bochs
+ifeq ($(SKIP_BOCHS),1)
+test-flair-disk-windows-bochs:
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-disk-windows-bochs : BOCHS leg (R3.3)\n'
+	@printf '======================================================================\n'
+	@printf '!!! test-flair-disk-windows-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
+	@printf '======================================================================\n'
+else
+test-flair-disk-windows-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-disk-windows-bochs : BOCHS leg (R3.3)\n'
+	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). bead initech-tdnl.10.\n'
+	@printf '  SERIAL MILESTONES ONLY: Bochs VBE-ENOMODEs 640x480, so kmain FAILS LOUD\n'
+	@printf '  after MOUNT-OK and BEFORE the Finder tenant -- no disk window can exist.\n'
+	@printf '  The leg proves the disk-window-carrying kernel keeps the shared\n'
+	@printf '  boot/heap/mount milestones + the guard, with no fault.\n'
+	@printf '======================================================================\n'
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-disk-windows-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
+	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRTENANTS_IMG)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
+		--name "$(FLAIR_DW_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
+		2> "$(FLAIR_DW_BOCHS_REPORT)" || true
+	@cat "$(FLAIR_DW_BOCHS_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@grep -q 'rfb_unblocked=1' "$(FLAIR_DW_BOCHS_REPORT)" \
+		|| { printf '!!! test-flair-disk-windows-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(FLAIR_DW_BOCHS_REPORT)"; then \
+		printf '!!! test-flair-disk-windows-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
+	fi
+	@if [ ! -s "$(FLAIR_DW_BOCHS_SERIAL)" ]; then \
+		printf '!!! test-flair-disk-windows-bochs FAIL: no serial captured at %s\n' "$(FLAIR_DW_BOCHS_SERIAL)"; exit 1; \
+	fi
+	@printf 'Serial markers captured:\n'
+	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
+		if grep -q "^$$m$$" "$(FLAIR_DW_BOCHS_SERIAL)"; then printf '  %-18s : present\n' "$$m"; \
+		else printf '  %-18s : MISSING\n' "$$m"; fi; \
+	done
+	@for m in VBE-ENOMODE VGA13; do \
+		grep -q "^$$m$$" "$(FLAIR_DW_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-disk-windows-bochs FAIL: fallback marker %s missing\n' "$$m"; exit 1; }; \
+	done
+	@for m in S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK; do \
+		grep -q "^$$m$$" "$(FLAIR_DW_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-disk-windows-bochs FAIL: shared kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
+	done
+	@! grep -q '^FINDER-OPEN-VOLUME ' "$(FLAIR_DW_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-disk-windows-bochs FAIL: a disk window opened under Bochs, which cannot happen after the 640x480 guard halts -- the halt is not halting\n'; exit 1; }
+	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_DW_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-disk-windows-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback\n'; exit 1; }
+	@grep -q '^HALTED$$' "$(FLAIR_DW_BOCHS_SERIAL)" \
+		|| { printf '!!! test-flair-disk-windows-bochs FAIL: HALTED terminal marker missing\n'; exit 1; }
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@printf 'VERDICT   : PASS -- the disk-window-carrying flairtenants kernel booted under Bochs\n'
+	@printf '            through the shared kernel + FLAIR-heap + FAT-mount milestones (== QEMU),\n'
+	@printf '            and the 640x480 fail-loud guard fired correctly under the 320x200\n'
+	@printf '            fallback (no triple-fault). The disk windows themselves are QEMU-only.\n'
+	@printf '======================================================================\n'
+endif
+
+# ===========================================================================
 # REAL gate: test-flair-solid (epic initech-av7s; beads initech-gofc/-rqz5;
 # WL-0075 -- THE FLAIR live-desktop SOLIDITY oracle: the one repaint contract
 # (chrome phase -> content phase -> present) holds under close, drag and
@@ -17402,7 +17829,40 @@ RECORD_SPEC_icon_dragdrop = $(FLAIR_ICON_DRAGDROP_SPEC)
 RECORD_MARKER_icon_select   = FINDER-ICON-DESELECT-ALL
 RECORD_MARKER_rubber_band   = FINDER-MARQUEE n=2
 RECORD_MARKER_icon_dragdrop = DESKTOP-DB-SAVE n=2
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop
+# R3.3 DISK-WINDOW clips (bead initech-tdnl.10). All three replay LOCKED traces
+# from spec/flair_disk_windows_traces.mk against the DEFAULT record image --
+# $(FLAIRTENANTS_RECORD_IMG), the widened-budget tenants variant -- for exactly
+# the reason the R3.2 clips do: folder_nav alone is 36 injected events and the
+# per-frame --record settle would blow the default FLAIR_TEN_TICK_BUDGET=250
+# pump window (and, for the two traces that DRAG a window, the default
+# FLAIR_LIVE_DRAG_TRACK_TICKS=150 guard as well -- the record image widens both).
+#   folder_nav           the flagship clip of this slice: the volume opens into
+#                        a real window, a folder inside it opens into a second
+#                        window, that window is dragged clear, and re-opening the
+#                        folder RAISES the window that already exists instead of
+#                        making another. Its marker is the terminal singleton=1
+#                        line, so the clip is only accepted when the whole
+#                        spatial round trip actually happened.
+#   window_drag_persist  a window is dragged to (120,180) and closed. (The clip
+#                        cannot show the REBOOT half -- record-flair is one boot
+#                        -- so the marker is the DESKTOP.DB commit, which is the
+#                        last thing the gesture emits and the fact the reboot
+#                        leg of test-flair-disk-windows depends on.)
+#   new_folder           Ctrl-N: the chord goes in through the "k<chord>" token
+#                        of the mouse stream and a REAL directory appears as a
+#                        fifth icon on the grid's second row.
+# record-flair copies a FRESH $(FLAIR_DATA_IMG) into the per-target
+# $(FLAIR_GATE_DATA) on every invocation, so the DESKTOP.DB write and the mkdir
+# these scripts perform land on that throwaway copy -- the pristine data volume
+# is never dirtied and two captures of the same script start from identical
+# bytes (which is what makes record-flair-repro meaningful here).
+RECORD_SPEC_folder_nav          = $(FLAIR_FOLDER_NAV_SPEC)
+RECORD_SPEC_window_drag_persist = $(FLAIR_WINDOW_DRAG_PERSIST_SPEC)
+RECORD_SPEC_new_folder          = $(FLAIR_NEW_FOLDER_SPEC)
+RECORD_MARKER_folder_nav          = FINDER-OPEN-FOLDER name=APPS win=1 singleton=1
+RECORD_MARKER_window_drag_persist = DESKTOP-DB-SAVE n=3
+RECORD_MARKER_new_folder          = FINDER-NEW-FOLDER name=NEWFOLD parent=0
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -17413,8 +17873,55 @@ RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp soli
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000 -DFLAIR_LIVE_DRAG_TRACK_TICKS=3000,record))
 FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 
+# The DOUBLE-CLICK record image (bead initech-tdnl.10). A SECOND record variant
+# rather than a change to the one above, so every clip already captured against
+# $(FLAIRTENANTS_RECORD_IMG) keeps its exact image and its repro sha.
+#
+# WHY IT EXISTS. record-flair dumps one PPM frame per injected event; MEASURED,
+# that puts ~2 frames' worth of settle+screendump (well over 20 PIT ticks, even
+# at --record-settle-ms 20) between the two mouseDowns of a double-click, so a
+# replay of a LOCKED double-click trace degrades into two single clicks and NO
+# window ever opens. Every R3.3 clip begins by double-clicking the volume, so
+# without this variant they would all be clips of a gesture that did not happen
+# (Law 2: a demo that shows something the trace did not do is worse than no
+# demo). This image therefore widens THREE demo bounds together -- the pump
+# budget, the drag guard and the double-click interval -- and mutates nothing an
+# oracle grades. The DEFAULT $(FLAIRTENANTS_IMG) keeps 250 / 150 / 20.
+#
+# It swaps TWO objects (kmain + finder_desktop), which no existing template
+# does, so it gets its own explicit rules rather than a $(call) that would have
+# to grow a second knob argument.
+$(BUILD)/finder_desktop_recorddbl.o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_DBLCLICK_TICKS=3000u -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
+
+$(BUILD)/kernel_flairtenants_recorddbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o
+
+$(BUILD)/kernel_flairtenants_recorddbl.bin: $(BUILD)/kernel_flairtenants_recorddbl.elf | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairtenants_recorddbl.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-recorddbl): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairtenants-recorddbl)
+
+$(BUILD)/flair_tenants_recorddbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_recorddbl.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants DOUBLE-CLICK RECORD image (widened pump + drag + dblclick bounds): %s\n" "$@"
+
+FLAIRTENANTS_RECORDDBL_IMG := $(BUILD)/flair_tenants_recorddbl.img
+RECORD_IMAGE_folder_nav          = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_window_drag_persist = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_new_folder          = $(FLAIRTENANTS_RECORDDBL_IMG)
+
 .PHONY: record-flair
-record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG)
+record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG)
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
 	@command -v ffmpeg >/dev/null || { printf '!!! record-flair: ffmpeg not installed (the ONE extra dependency; sudo apt install ffmpeg)\n'; exit 2; }
@@ -22929,6 +23436,7 @@ TEST_EMU_GATES := \
 	test-flair-menu-crossdrag test-flair-menu-crossdrag-mutant \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
 	test-flair-desktop-icons test-flair-desktop-icons-mutant test-flair-desktop-icons-bochs \
+	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
 	test-flair-solid test-flair-solid-mutant \
 	test-flair-zoom-toggle test-flair-grow test-flair-collapse \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant
