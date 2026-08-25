@@ -46,6 +46,19 @@ enum {
 	                            /* attr re-types it (initech-b53d): access denied */
 };
 
+/* ---- ERROR-NUMBER LEDGER (keep this in sync -- Rule 2) ----
+ * Codes -16 and below are #defined in their own feature sections further down
+ * (they arrived with those features), so this ledger is the ONE place that shows
+ * the whole numbering at a glance:
+ *   -16  FAT12_ERR_NOT_EMPTY  (RMDIR of a non-empty directory; subdir section)
+ *   -17  FAT12_ERR_SAME_DIR   (MOVE whose src dir == dst dir; move section)
+ *   -18  FAT12_ERR_CYCLE      (MOVE of a directory into its own subtree)
+ * WHY the ledger exists: FAT12_ERR_NOT_EMPTY originally ALIASED
+ * FAT12_ERR_ACCESS at -15, so a caller switching on the code could not tell
+ * "CHMOD access denied" from "RMDIR non-empty" (found by the R3 Finder design
+ * audit, docs/design/GUI-remediation-R3-finder-design.md Sec 0.3; renumbered to
+ * -16 in beads initech-tdnl.8). Never reuse a number; add here first. */
+
 /* Deterministic dir-entry timestamp (CLAUDE.md Rule 11): the artifact has NO
  * clock and reproducible builds forbid a host timestamp. The FAT date/time
  * fields are implementation-specific on write (docs/research/fat12-ground-truth.md
@@ -802,6 +815,160 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *old83, const char *new83, uint16_t dir_start,
                  void *sector_buf);
+
+/* ======================================================================== *
+ * FAT12 same-volume CROSS-DIRECTORY MOVE -- the dir-entry transplant
+ * (beads initech-tdnl.26; the R3 Finder's load-bearing MILTON dependency)
+ *
+ * A same-volume move is a DIRECTORY-ENTRY TRANSPLANT, not a copy: the 32-byte
+ * dir_entry_t is copied from its slot in the source directory into a free slot
+ * in the DESTINATION directory, the source slot is marked deleted
+ * (filename[0] = 0xE5), and NO FAT entry and NO data cluster is touched (so a
+ * both-FAT sync is unnecessary on the no-grow path -- the FAT is provably
+ * byte-unchanged; the directory sectors write through the same dirent write-back
+ * primitive WRITE uses, fat12_write_dirent_in_dir).
+ *
+ * Ref (Law 1): docs/design/GUI-remediation-R3-finder-design.md F3.1 ("The move
+ *   primitive (design for the dependency bead)") + F1.4 (Trash staging is a
+ *   cross-directory move; the start_cluster-preserved assertion is THE oracle) +
+ *   Sec 0.4 (fat12_rename is same-dir only; this is the gap); the constraints are
+ *   carried VERBATIM from fat12_rename's contract; docs/research/
+ *   fat12-ground-truth.md Sec 4 (dir entry / '.'/'..'); spec/dos_structs.h.
+ *
+ * INT-21h FENCE (deliberate, stated so nobody wires it by accident): the DOS
+ * dispatcher still REJECTS a cross-directory AH=56h RENAME with 0x0011
+ * NOT_SAME_DEVICE BEFORE the backend (os/milton/fileio_fat.c :: do_rename; the
+ * deferral bead is initech-ycb3). This slice does NOT change that -- the FLAIR
+ * Finder consumes fat12_move_dirent DIRECTLY through the binding seam (beads
+ * initech-tdnl.11). Relaxing the 0x0011 guard is ycb3's call, not this bead's.
+ * ======================================================================== */
+
+/* MOVE-specific failure codes (see the ERROR-NUMBER LEDGER at the top).
+ *   FAT12_ERR_SAME_DIR -> src_dir_start == dst_dir_start. A same-directory
+ *     "move" is a RENAME's job (fat12_rename): rejected here rather than
+ *     silently delegated, so a caller that computed the wrong destination
+ *     finds out (Rule 2 fail loud) instead of getting a plausible no-op.
+ *   FAT12_ERR_CYCLE    -> moving a DIRECTORY into its own subtree (including
+ *     into itself), which would orphan the whole subtree from the root. */
+#define FAT12_ERR_SAME_DIR (-17)
+#define FAT12_ERR_CYCLE    (-18)
+
+/*
+ * fat12_move_dirent: transplant the 8.3 entry `src_name83` from the directory at
+ * first data cluster `src_dir_start` into the directory at `dst_dir_start`
+ * (0 == the fixed root on EITHER side), optionally RENAMING it to `dst_name83`
+ * in the same operation (NULL or "" keeps the source name -- the drag-with-
+ * inline-edit and Trash-collision-suffix cases compose transplant + name-field
+ * rewrite in ONE call, per F3.1).
+ *
+ * Steps (the ordering is the atomicity discipline; Rule 2/Rule 3):
+ *   1. src_dir_start == dst_dir_start -> FAT12_ERR_SAME_DIR (checked FIRST, so a
+ *      caller that computed the wrong destination hears about THAT rather than
+ *      about a name that happens not to exist).
+ *   2. parse both names; scan the SOURCE directory -- no match ->
+ *      FAT12_ERR_NOT_FOUND; a VOLUME-LABEL or a '.'/'..' dot-entry match ->
+ *      FAT12_ERR_ACCESS (never transplant the volume label or a dot entry).
+ *   3. DIRECTORY source: walk the DESTINATION's parent chain upward (its '..'
+ *      entries) to the root; if the moved directory's own cluster appears --
+ *      or IS the destination -- the move would build a cycle ->
+ *      FAT12_ERR_CYCLE. COST: one 512-byte dirent read per ancestor level
+ *      (depth-bounded, anti-hang capped at the volume's cluster count).
+ *   4. scan the DESTINATION for the (possibly renamed) name: present ->
+ *      FAT12_ERR_EXISTS (carried verbatim from fat12_rename -- "a rename never
+ *      clobbers"; the Finder maps it to the period "name already in use"
+ *      alert). A FULL destination SUBDIR is GROWN by one cluster through the
+ *      existing fat12_grow_dir machinery; the FIXED root cannot grow ->
+ *      FAT12_ERR_DIR_FULL.
+ *   5. DIRECTORY source: patch the moved directory's OWN '..' entry (slot 1 of
+ *      its first cluster) so its start_cluster is the NEW parent
+ *      (`dst_dir_start` VERBATIM -- the fixed root is encoded 0, the EMPIRICAL
+ *      mtools rule fat12_mkdir writes). Without this the moved folder's ".."
+ *      still points at the old parent and DOS/mtools walk out of the tree
+ *      wrongly. The OLD value is remembered for rollback.
+ *   6. write the (name-patched) 32-byte entry into the destination free slot;
+ *   7. mark the SOURCE slot deleted (0xE5) -- the LAST failable step.
+ * Rollback: a failure at 5/6/7 undoes every committed step in reverse -- the
+ * destination slot is re-marked deleted, the '..' patch is restored to the old
+ * parent, and a destination GROW is undone with its exact inverse
+ * (fat12_shrink_dir_tail), exactly the discipline fat12_mkdir demonstrates. A
+ * failed move therefore leaks NOTHING and leaves the source entry intact.
+ *
+ * PRESERVED BIT-FOR-BIT (the load-bearing contract, Rule 11): start_cluster
+ * (0x1A), file_size (0x1C), attribute (0x0B), mtime (0x16) and mdate (0x18)
+ * are copied VERBATIM; only the 11-byte name field changes, and only when
+ * `dst_name83` asks for it. On the no-grow path the FAT (both copies) is
+ * byte-UNCHANGED and the file's data clusters are never read or written; on the
+ * grow path the ONLY FAT mutation is the destination directory's own one-cluster
+ * extension (the moved file's chain is still untouched). Bytes outside the two
+ * touched dirent slots (plus a legitimate grow's zero-filled new cluster, plus a
+ * moved directory's '..' slot) are not modified.
+ *
+ * `fat`/`fat_len` is the whole-FAT buffer (READ for the subdir chain walks; only
+ * MUTATED when the destination grows). `sector_buf` (>= sectors_per_cluster*512)
+ * is scratch for the scans + the dirent RMWs; `cluster_buf` (>= sectors_per_
+ * cluster*512, DISTINCT from sector_buf) is the destination-grow zero-fill
+ * scratch -- only touched when a FULL SUBDIR destination must grow (NULL is fine
+ * for a root destination or a non-full subdir; a full subdir destination with a
+ * NULL cluster_buf -> FAT12_ERR_NULL, the fat12_mkdir convention).
+ *
+ * Fail loud (Rule 2): NULL vol/name/sector_buf -> FAT12_ERR_NULL; no write
+ * backend -> FAT12_ERR_WRITE; a malformed 8.3 name -> FAT12_ERR_NOT_FOUND (the
+ * source-not-found contract fat12_rename uses); a corrupt chain ->
+ * FAT12_ERR_CHAIN. Returns FAT12_OK on success.
+ */
+int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                      const char *src_name83, uint16_t src_dir_start,
+                      const char *dst_name83, uint16_t dst_dir_start,
+                      void *sector_buf, void *cluster_buf);
+
+/* The deterministic collision-suffix counter bound: 001..999 (a 3-digit field).
+ * A base whose 999 suffixed forms are ALL taken -> FAT12_ERR_EXISTS. */
+#define FAT12_SUFFIX_MAX 999u
+
+/*
+ * fat12_trash_suffix_name: the F1.4 deterministic collision helper. Given an 8.3
+ * name and a destination directory, produce the name the entry should take THERE:
+ *   - if `name83` is free in `dir_start`, return its canonical 8.3 form
+ *     (upper-cased, space padding trimmed -- exactly what fat12_format_83 would
+ *     render for the entry we are about to write, so the result is deterministic
+ *     regardless of the caller's casing);
+ *   - otherwise keep the EXTENSION and rebuild the base as
+ *     trunc5(base) || "%03u", lowest FREE counter first (001, then 002, ...):
+ *     REPORT.DBF taken -> REPOR001.DBF, that taken too -> REPOR002.DBF.
+ *
+ * THE RULE vs THE EXAMPLE (honesty note, Law 1): the design text states the rule
+ * as "base truncated to 5 chars + %03u" and then illustrates it as
+ * "REPORT.DBF taken -> REP001.DBF", which is trunc3, not trunc5 -- the two
+ * disagree (docs/design/GUI-remediation-R3-finder-design.md F1.4). We implement
+ * the RULE (trunc5 + %03u): it fills the 8-character base field exactly, is 8.3-
+ * legal, and keeps five characters of the original name visible instead of three.
+ * The prose example is inconsistent with its own stated scheme and is NOT the
+ * contract. Lowest-free-first matches the allocator's deterministic philosophy
+ * (the WRITE path allocates lowest-free-first).
+ *
+ * A base shorter than 5 characters is used whole (AB.TXT -> AB001.TXT). The
+ * extension is copied verbatim from the parsed source name (absent extension
+ * stays absent). PURE lookup + format: it reads directory sectors through
+ * fat12_find_slot_in and writes NOTHING -- no allocation, no dirent write, no FAT
+ * mutation; the caller feeds the result to fat12_move_dirent's `dst_name83`.
+ *
+ * COST: one directory scan per candidate, so a fully-colliding base costs up to
+ * 999 scans. That is the price of "lowest free counter" determinism and is
+ * bounded (never unbounded, never allocating); in practice the Trash collides
+ * once or twice. A caller that stages thousands of same-named items will feel
+ * it -- deliberately, rather than getting a nondeterministic name.
+ *
+ * `out_name83` must hold at least FAT12_NAME83_MAX (13) bytes. `fat`/`fat_len`
+ * decode a subdir destination's chain (NULL/0 is fine for the fixed root);
+ * `sector_buf` (>= sectors_per_cluster*512) is scratch. Fail loud (Rule 2): NULL
+ * -> FAT12_ERR_NULL; a malformed name -> FAT12_ERR_NOT_FOUND; all 999 counters
+ * taken -> FAT12_ERR_EXISTS; read/chain errors propagated. Returns FAT12_OK with
+ * *out_name83 NUL-terminated.
+ */
+int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
+                            uint32_t fat_len, uint16_t dir_start,
+                            void *sector_buf, const char *name83,
+                            char *out_name83);
 
 /* ======================================================================== *
  * FAT12 subdirectory CREATE / REMOVE -- WRITE side (beads initech-u6wa,

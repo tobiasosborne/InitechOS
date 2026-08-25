@@ -1353,6 +1353,40 @@ FAT12_RENAME_GOLDEN_IMG := $(BUILD)/fat12_rename_golden.img
 FAT12_RENAME_SUBDIR_ART_IMG    := $(BUILD)/fat12_rename_subdir_art.img
 FAT12_RENAME_SUBDIR_GOLDEN_IMG := $(BUILD)/fat12_rename_subdir_golden.img
 
+# The FAT12 cross-directory MOVE oracle binary (host test; beads initech-tdnl.26
+# -- fat12_move_dirent, the 32-byte dir-entry transplant the R3 Finder's
+# drag-move / drag-to-Trash / Put Away all rest on, plus the F1.4 collision-suffix
+# helper) + its five mutation builds (Rule 6: ONE perturbed seam each):
+#   RELINKS  -- the transplant zeroes start_cluster (the chain-equality legs bite);
+#   LOSES    -- the destination write is skipped while the source is still deleted
+#               (the entry vanishes -- the classic half-move);
+#   NODOTDOT -- a moved DIRECTORY keeps its OLD '..' (the '..' fixup bites);
+#   NOROLL   -- the destination-grow rollback is skipped on a failed transplant
+#               (the appended cluster leaks -- the fault-injection leg bites);
+#   NOSUFFIX -- the collision helper hands back a name that is already taken.
+#   FREES    -- the move ALSO frees the file's chain (the F1.4 TRASH_NO_STAGE
+#               defect shape: a 'move' that really deletes + recreates), which is
+#               what proves the FAT-unchanged / free-space NEGATIVE assertions.
+TEST_FAT12_MOVE               := $(BUILD)/test_fat12_move
+TEST_FAT12_MOVE_MUT_RELINKS   := $(BUILD)/test_fat12_move_mut_relinks
+TEST_FAT12_MOVE_MUT_LOSES     := $(BUILD)/test_fat12_move_mut_loses
+TEST_FAT12_MOVE_MUT_NODOTDOT  := $(BUILD)/test_fat12_move_mut_nodotdot
+TEST_FAT12_MOVE_MUT_NOROLL    := $(BUILD)/test_fat12_move_mut_noroll
+TEST_FAT12_MOVE_MUT_NOSUFFIX  := $(BUILD)/test_fat12_move_mut_nosuffix
+TEST_FAT12_MOVE_MUT_FREES     := $(BUILD)/test_fat12_move_mut_frees
+
+# The MOVE images (build intermediates, NOT committed; Rule 11; beads
+# initech-tdnl.26). Both are re-minted by the gate recipe each run (the driver
+# mutates them in place):
+#   MOVE_DIFF   -- the scripted-move image the HOST verifies with mtools
+#                  (mdir/mtype) afterwards: \SRC, \DST, \TRASH + the files the
+#                  six differential legs move between them.
+#   MOVE_STRUCT -- the structural image: degenerate rejections, the suffix
+#                  ladder, the destination GROW + its fault-injected rollback,
+#                  and finally a deliberately FULL fixed root.
+FAT12_MOVE_DIFF_IMG   := $(BUILD)/fat12_move_diff.img
+FAT12_MOVE_STRUCT_IMG := $(BUILD)/fat12_move_struct.img
+
 # SUBDIR file WRITE oracle (beads initech-zs24): the test_fileio_subdir harness
 # (real int21+fileio_fat+fat12 backend) in --write mode drives CREATE/WRITE/
 # LSEEK-WRITE/UNLINK of '\SUB\NEW.TXT' over a READ-WRITE per-run COPY of the
@@ -3343,6 +3377,192 @@ test-gnrc-mutant: $(TEST_FAT12_RENAME_MUT_NODEST) $(TEST_FAT12_RENAME_MUT_CHAIN)
 	else \
 		printf '>>> test-gnrc-mutant: green (ignore-dir_start mutant correctly RED -- the subdir dir_start path bites)\n'; \
 	fi
+
+
+# ======================================================================
+# FAT12 cross-directory MOVE -- beads initech-tdnl.26 (R3 Finder dependency)
+# ======================================================================
+
+# Canned recipe: mint BOTH move images from scratch. Both are consumed (mutated
+# in place) by the driver, so every gate invocation re-mints them; the epoch is
+# pinned exactly as the flair_data volume pins it so mtools stamps nothing
+# host-specific (Rule 11).
+#   DIFF   -- \SRC, \DST, \TRASH + the files the six differential legs move.
+#             \TRASH already holds REPORT.DBF so the F1.4 suffix ladder collides.
+#   STRUCT -- a volume label, SUBA/SUBB/SUBC (the grow + rollback triplet, kept
+#             structurally identical so the fault ordinals self-calibrate),
+#             HOLDER (the suffix ladder) and PARENT/CHILD (the cycle guard).
+define MINT_FAT12_MOVE_IMAGES
+@dd if=/dev/zero of=$(FAT12_MOVE_DIFF_IMG) bs=512 count=2880 status=none
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $(FAT12_MOVE_DIFF_IMG) -f 1440 ::
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $(FAT12_MOVE_DIFF_IMG) ::SRC
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $(FAT12_MOVE_DIFF_IMG) ::DST
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $(FAT12_MOVE_DIFF_IMG) ::TRASH
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $(FAT12_MOVE_DIFF_IMG) ::SRC/MOVEDIR
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::MOVEME.TXT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::SRC/CROSS.TXT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/second.txt ::SRC/SUBFILE.TXT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::SRC/REPORT.DBF
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/second.txt ::TRASH/REPORT.DBF
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::SRC/MOVEDIR/INSIDE.TXT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::COLL.TXT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::DST/COLL.TXT
+@dd if=/dev/zero of=$(FAT12_MOVE_STRUCT_IMG) bs=512 count=2880 status=none
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $(FAT12_MOVE_STRUCT_IMG) -f 1440 ::
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mlabel -i $(FAT12_MOVE_STRUCT_IMG) ::INITECH
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $(FAT12_MOVE_STRUCT_IMG) ::SUBA
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $(FAT12_MOVE_STRUCT_IMG) ::SUBB
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $(FAT12_MOVE_STRUCT_IMG) ::SUBC
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $(FAT12_MOVE_STRUCT_IMG) ::HOLDER
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $(FAT12_MOVE_STRUCT_IMG) ::PARENT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $(FAT12_MOVE_STRUCT_IMG) ::PARENT/CHILD
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_STRUCT_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::FILEA.TXT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_STRUCT_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::KEEPA.TXT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_STRUCT_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::LONGBASE.DAT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_STRUCT_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::GROWA.TXT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_STRUCT_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::GROWB.TXT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_STRUCT_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::GROWC.TXT
+@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_STRUCT_IMG) $(FAT12_FIXTURE_DIR)/second.txt ::HOLDER/KEEP.TXT
+endef
+
+# Build the MOVE oracle + its five mutants (beads initech-tdnl.26): the test +
+# the REAL artifact fat12.c + the host blockdev backend (the test_fat12_rename.c
+# include pattern). Each mutant defines ONE perturbed seam (Rule 6).
+$(TEST_FAT12_MOVE): $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_MOVE_MUT_RELINKS): $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MOVE_RELINKS_CHAIN -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_MOVE_MUT_LOSES): $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MOVE_LOSES_ENTRY -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_MOVE_MUT_NODOTDOT): $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MOVE_NO_DOTDOT_FIX -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_MOVE_MUT_NOROLL): $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MOVE_NO_GROW_ROLLBACK -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_MOVE_MUT_NOSUFFIX): $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_SUFFIX_NO_COLLIDE_CHECK -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+$(TEST_FAT12_MOVE_MUT_FREES): $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_MOVE_FREES_CHAIN -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_move.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
+# REAL gate: test-fat-move (beads initech-tdnl.26 -- the FAT12 cross-directory
+# dir-entry transplant + the F1.4 Trash collision suffix). Two halves:
+#   (1) the HOST DRIVER runs the scripted move set through the REAL fat12.c and
+#       asserts, per leg, that start_cluster/size/attr/timestamps, BOTH on-disk
+#       FAT copies and the file's raw data clusters are byte-unchanged;
+#   (2) mtools then reads the resulting image from the HOST and must agree with
+#       HAND-AUTHORED expectations (HER-02: the expectation is written here, not
+#       computed from the writer): entries absent at the source, present at the
+#       destination (suffixed where the F1.4 ladder said so), file CONTENT
+#       identical through mtype|cmp, the moved folder still traversable AND its
+#       '..' resolving to the NEW parent, and the volume's free space UNCHANGED
+#       (a move that copied data would spend clusters).
+.PHONY: test-fat-move
+test-fat-move: $(TEST_FAT12_MOVE) $(FAT12_REF_PY)
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-fat-move FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v mmd     >/dev/null 2>&1 || { printf '!!! test-fat-move FAIL: mtools `mmd` not found.\n'; exit 1; }
+	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-fat-move FAIL: mtools `mcopy` not found.\n'; exit 1; }
+	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-fat-move FAIL: mtools `mdir` not found.\n'; exit 1; }
+	@command -v mtype   >/dev/null 2>&1 || { printf '!!! test-fat-move FAIL: mtools `mtype` not found.\n'; exit 1; }
+	@command -v mlabel  >/dev/null 2>&1 || { printf '!!! test-fat-move FAIL: mtools `mlabel` not found.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-fat-move FAIL: python3 not found (the INDEPENDENT reference reader).\n'; exit 1; }
+	@printf ">>> test-fat-move: cross-directory dir-entry transplant + Trash suffix (beads initech-tdnl.26)\n"
+	$(MINT_FAT12_MOVE_IMAGES)
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) :: | grep 'bytes free' > $(BUILD)/fat12_move_free_before.txt
+	@$(TEST_FAT12_MOVE) "$(FAT12_MOVE_DIFF_IMG)" "$(FAT12_MOVE_STRUCT_IMG)"
+	@printf '>>> test-fat-move [host]: transplant legs green -- chain/size/attr/timestamps, both FAT copies and the data clusters proven unchanged\n'
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) :: | grep -q '^MOVEME' \
+		&& { printf '!!! test-fat-move FAIL [mtools]: MOVEME.TXT is STILL in the root -- the source slot was not released\n'; exit 1; } || true
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) :: | grep -q '^SUBFILE' \
+		|| { printf '!!! test-fat-move FAIL [mtools]: SUBFILE.TXT is missing from the root -- the subdir->root move did not land\n'; exit 1; }
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) ::DST | grep -q '^MOVEME' \
+		|| { printf '!!! test-fat-move FAIL [mtools]: DST lacks MOVEME.TXT -- the root->subdir move did not land\n'; exit 1; }
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) ::DST | grep -q '^CROSS' \
+		|| { printf '!!! test-fat-move FAIL [mtools]: DST lacks CROSS.TXT -- the subdir->subdir move did not land\n'; exit 1; }
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) ::DST | grep -q '^MOVEDIR .*<DIR>' \
+		|| { printf '!!! test-fat-move FAIL [mtools]: DST lacks the MOVEDIR <DIR> entry -- the directory move did not land\n'; exit 1; }
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) ::SRC | grep -qE '^(CROSS|SUBFILE|REPORT|MOVEDIR)' \
+		&& { printf '!!! test-fat-move FAIL [mtools]: SRC still lists a moved entry -- the source slots were not released\n'; exit 1; } || true
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) ::TRASH | grep -q '^REPORT   DBF' \
+		|| { printf '!!! test-fat-move FAIL [mtools]: the ORIGINAL TRASH/REPORT.DBF vanished -- staging clobbered it\n'; exit 1; }
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) ::TRASH | grep -q '^REPOR001 DBF' \
+		|| { printf '!!! test-fat-move FAIL [mtools]: TRASH lacks the suffixed REPOR001.DBF -- the F1.4 collision ladder did not land\n'; exit 1; }
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) ::DST/MOVEDIR | grep -q '^INSIDE' \
+		|| { printf '!!! test-fat-move FAIL [mtools]: the moved folder is not traversable at its new home (INSIDE.TXT unreachable)\n'; exit 1; }
+	@# The '..' fixup needs an INDEPENDENT reader, not mdir: mtools resolves
+	@# '..' TEXTUALLY from the path string, so `mdir ::DST/MOVEDIR/..` prints
+	@# DST's contents even when the on-disk '..' still names the OLD parent
+	@# (verified against the NO_DOTDOT mutant image -- that grep would have been
+	@# decoration, Rule 6). python3 reads the '..' bytes straight out of slot 1
+	@# of the folder's first cluster and we compare against the NEW parent's own
+	@# start cluster, both from first principles.
+	@dd_have=$$(python3 $(FAT12_REF_PY) $(FAT12_MOVE_DIFF_IMG) --dotdot 'DST\MOVEDIR') || \
+		{ printf "!!! test-fat-move FAIL [python]: cannot read the moved folder's '..' entry\n"; exit 1; }; \
+	dd_want=$$(python3 $(FAT12_REF_PY) $(FAT12_MOVE_DIFF_IMG) --dirstart 'DST') || \
+		{ printf '!!! test-fat-move FAIL [python]: cannot read DST start cluster\n'; exit 1; }; \
+	if [ "$$dd_have" != "$$dd_want" ]; then \
+		printf "!!! test-fat-move FAIL [python]: the moved folder's '..' says cluster %s but its new parent DST is cluster %s -- the '..' fixup is wrong\n" "$$dd_have" "$$dd_want"; exit 1; \
+	fi
+	@python3 $(FAT12_REF_PY) $(FAT12_MOVE_DIFF_IMG) --list-path 'DST\MOVEDIR' | grep -q '^INSIDE.TXT ' \
+		|| { printf '!!! test-fat-move FAIL [python]: the independent reader cannot enumerate the moved folder at its new home\n'; exit 1; }
+	@mtype -i $(FAT12_MOVE_DIFF_IMG) ::DST/MOVEME.TXT | cmp -s - $(FAT12_FIXTURE_DIR)/chain.txt \
+		|| { printf '!!! test-fat-move FAIL [mtools]: the moved file CONTENT differs from the seed body -- a move must not touch data\n'; exit 1; }
+	@mtype -i $(FAT12_MOVE_DIFF_IMG) ::TRASH/REPOR001.DBF | cmp -s - $(FAT12_FIXTURE_DIR)/hello.txt \
+		|| { printf '!!! test-fat-move FAIL [mtools]: the STAGED item content differs -- the rename-while-move touched data\n'; exit 1; }
+	@mtype -i $(FAT12_MOVE_DIFF_IMG) ::TRASH/REPORT.DBF | cmp -s - $(FAT12_FIXTURE_DIR)/second.txt \
+		|| { printf '!!! test-fat-move FAIL [mtools]: the ORIGINAL trashed item content changed -- the suffix ladder aliased it\n'; exit 1; }
+	@mdir -i $(FAT12_MOVE_DIFF_IMG) :: | grep 'bytes free' > $(BUILD)/fat12_move_free_after.txt
+	@cmp -s $(BUILD)/fat12_move_free_before.txt $(BUILD)/fat12_move_free_after.txt \
+		|| { printf '!!! test-fat-move FAIL [mtools]: the free-space count CHANGED -- a same-volume move must spend no cluster\n'; exit 1; }
+	@printf '>>> test-fat-move [mtools]: entries transplanted, content identical, folder traversable, free space unchanged\n'
+	@printf ">>> test-fat-move: green\n"
+
+# Mutation gate (Rule 6): six fat12_move_dirent / suffix-helper mutants, each
+# with exactly ONE perturbed seam, each of which MUST turn the oracle RED -- and
+# RED with a real TEST_SUMMARY (a crashed harness is not a mutation proof).
+.PHONY: test-fat-move-mutant
+test-fat-move-mutant: $(TEST_FAT12_MOVE_MUT_RELINKS) $(TEST_FAT12_MOVE_MUT_LOSES) \
+                      $(TEST_FAT12_MOVE_MUT_NODOTDOT) $(TEST_FAT12_MOVE_MUT_NOROLL) \
+                      $(TEST_FAT12_MOVE_MUT_NOSUFFIX) $(TEST_FAT12_MOVE_MUT_FREES)
+	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-fat-move-mutant FAIL: mtools `mformat` not found.\n'; exit 1; }
+	@printf ">>> test-fat-move-mutant: confirming all SIX MOVE mutants go RED for the RIGHT reason (Rule 6; beads initech-tdnl.26)\n"
+	@set -e; for m in \
+		"$(TEST_FAT12_MOVE_MUT_RELINKS):relinks-chain:preserved bit-for-bit" \
+		"$(TEST_FAT12_MOVE_MUT_LOSES):loses-entry:PRESENT in the destination" \
+		"$(TEST_FAT12_MOVE_MUT_NODOTDOT):no-dotdot-fix:now names DST" \
+		"$(TEST_FAT12_MOVE_MUT_NOROLL):no-grow-rollback:back to ONE cluster" \
+		"$(TEST_FAT12_MOVE_MUT_NOSUFFIX):no-collide-check:REPOR001.DBF" \
+		"$(TEST_FAT12_MOVE_MUT_FREES):frees-chain:on-disk FAT copies byte-unchanged" ; do \
+		bin=$${m%%:*}; rest=$${m#*:}; name=$${rest%%:*}; want=$${rest#*:}; \
+		$(MAKE) --no-print-directory fat12-move-images-quiet; \
+		out=$$($$bin "$(FAT12_MOVE_DIFF_IMG)" "$(FAT12_MOVE_STRUCT_IMG)" 2>&1) && rcx=0 || rcx=1; \
+		printf '%s' "$$out" | grep -q 'checks, [0-9]* failures' \
+			|| { printf '!!! test-fat-move-mutant FAIL: %s produced no TEST_SUMMARY -- harness dead, RED is meaningless\n' "$$name"; exit 1; }; \
+		if [ $$rcx -eq 0 ]; then \
+			printf '!!! test-fat-move-mutant FAIL: %s mutant PASSED -- that oracle leg is decoration\n' "$$name"; exit 1; \
+		fi; \
+		printf '%s' "$$out" | grep -q "$$want" \
+			|| { printf '!!! test-fat-move-mutant FAIL: %s RED but its target assertion (%s) never ran -- wrong reason\n' "$$name" "$$want"; exit 1; }; \
+		printf '>>> test-fat-move-mutant: green (%s correctly RED -- its rule bites)\n' "$$name"; \
+	done
+	@printf '>>> test-fat-move-mutant: green (ALL SIX MOVE mutants ran + RED for the right reason)\n'
+
+# Internal helper: re-mint the two move images between mutant runs (each mutant
+# consumes them). Quiet so the mutant gate's own reporting stays readable.
+.PHONY: fat12-move-images-quiet
+fat12-move-images-quiet:
+	$(MINT_FAT12_MOVE_IMAGES)
 
 # Build the FAT12 NESTED MKDIR/RMDIR differential oracle + its five mutants
 # (beads initech-m0bp): the test + the REAL artifact fat12.c + the host blockdev
@@ -22576,7 +22796,7 @@ test-samir-canon-salami-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DOTRUNC
 TEST_UNIT_GATES := \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
 	test-fat12-mkdir test-desktop-db test-desktop-db-mutant test-m0bp test-m0bp-rollback test-fat-fault-rollback \
-	test-fat12-subdir test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc \
+	test-fat12-subdir test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc test-fat-move \
 	test-fat-partial test-fat-write test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
@@ -22631,7 +22851,7 @@ TEST_UNIT_GATES := \
 	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-redir-parse-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
-	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant \
+	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant test-fat-move-mutant \
 	test-fat-corrupt-fuzz-mutant test-config-fuzz-mutant test-cmdline-fuzz-mutant \
 	test-rtc-mutant \
 	test-absdisk test-absdisk-mutant \

@@ -322,7 +322,9 @@ def main(argv):
     if len(argv) < 3:
         sys.stderr.write(
             "usage: %s <image> --list\n"
-            "       %s <image> --cat NAME.EXT\n" % (argv[0], argv[0]))
+            "       %s <image> --cat NAME.EXT\n"
+            "       %s <image> --dirstart PATH | --dotdot PATH\n"
+            % (argv[0], argv[0], argv[0]))
         return 2
 
     img  = argv[1]
@@ -503,6 +505,53 @@ def main(argv):
         mtime = struct.unpack_from("<H", ent, 0x16)[0]   # 16h: mod time
         mdate = struct.unpack_from("<H", ent, 0x18)[0]   # 18h: mod date
         sys.stdout.write("%d %d\n" % (mtime, mdate))
+        return 0
+
+    if mode == "--dirstart":
+        # --dirstart PATH : print the FIRST DATA CLUSTER of the directory at a
+        # backslash-separated PATH ("\\" or "" is the root, which prints 0 -- the
+        # canonical "root is encoded as 0" rule). Resolved from first principles.
+        if len(argv) != 4:
+            sys.stderr.write("fat12_ref: --dirstart needs a PATH\n")
+            return 2
+        try:
+            is_root, start_cluster = fs.resolve_dir(argv[3])
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: --dirstart bad path '%s': %s\n"
+                             % (argv[3], exc))
+            return 1
+        sys.stdout.write("%d\n" % (0 if is_root else start_cluster))
+        return 0
+
+    if mode == "--dotdot":
+        # --dotdot PATH : print the start_cluster stored in the '..' entry of the
+        # SUBDIRECTORY at a backslash-separated PATH -- read straight out of slot
+        # 1 of its first cluster (offset 32 of the cluster, field 0x1A). The
+        # INDEPENDENT reference for the cross-directory MOVE's '..' fixup (beads
+        # initech-tdnl.26): mtools resolves '..' TEXTUALLY from the path string,
+        # so `mdir ::A/B/..` can NEVER catch a stale on-disk '..' -- only reading
+        # the bytes can. No code is shared with the C writer. A path that is the
+        # root, or whose slot 1 is not '..', is a hard error (exit 1).
+        if len(argv) != 4:
+            sys.stderr.write("fat12_ref: --dotdot needs a PATH\n")
+            return 2
+        try:
+            is_root, start_cluster = fs.resolve_dir(argv[3])
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: --dotdot bad path '%s': %s\n"
+                             % (argv[3], exc))
+            return 1
+        if is_root:
+            sys.stderr.write("fat12_ref: --dotdot: the root has no '..' entry\n")
+            return 1
+        lba = fs.first_data_sector + (start_cluster - 2) * fs.spc
+        off = lba * fs.bps + 32                      # slot 1 == the '..' entry
+        ent = fs.data[off:off + 32]
+        if len(ent) < 32 or ent[0:3] != b"..\x20":
+            sys.stderr.write("fat12_ref: --dotdot: slot 1 of '%s' is not '..'\n"
+                             % argv[3])
+            return 1
+        sys.stdout.write("%d\n" % struct.unpack_from("<H", ent, 0x1A)[0])
         return 0
 
     sys.stderr.write("fat12_ref: unknown mode '%s'\n" % mode)

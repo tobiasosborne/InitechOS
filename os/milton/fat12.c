@@ -3196,6 +3196,501 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 }
 
 /* ======================================================================== *
+ * FAT12 same-volume CROSS-DIRECTORY MOVE -- the dir-entry transplant
+ * (beads initech-tdnl.26)
+ *
+ * Ref (Law 1): docs/design/GUI-remediation-R3-finder-design.md F3.1 (the move
+ *   primitive's design) + F1.4 (Trash staging + the collision suffix); the
+ *   constraints are carried VERBATIM from fat12_rename (dest-exists never
+ *   clobbers; start_cluster/size/attr/timestamps preserved bit-for-bit; the FAT
+ *   is not touched); the dest-grow + rollback discipline is fat12_mkdir's, reused
+ *   through fat12_grow_dir / fat12_shrink_dir_tail. See fat12.h for the full
+ *   contract + the INT-21h fence (cross-dir AH=56h stays rejected 0x0011;
+ *   beads initech-ycb3).
+ * ======================================================================== */
+
+/* Render a parsed 11-byte 8.3 field as a NUL-terminated "NAME.EXT" string, by
+ * routing through the SAME formatter the read side uses (fat12_format_83), so a
+ * name this module produces reads back identically. `out` >= FAT12_NAME83_MAX. */
+static int fat12_name11_to_str(const uint8_t n11[11], char *out)
+{
+	dir_entry_t tmp;
+	uint32_t    k;
+
+	for (k = 0u; k < sizeof(tmp); k++) {
+		((uint8_t *)&tmp)[k] = 0u;
+	}
+	for (k = 0u; k < 8u; k++) {
+		tmp.filename[k] = n11[k];
+	}
+	for (k = 0u; k < 3u; k++) {
+		tmp.extension[k] = n11[8u + k];
+	}
+	return fat12_format_83(&tmp, out);
+}
+
+/* Non-zero iff `e`'s 8.3 name is a DOT entry ('.' or '..'). Those two are the
+ * directory's own structural entries: they are never transplanted (a move that
+ * relocated '..' would detach a subtree; Rule 2 fail loud).
+ *
+ * HONESTY NOTE (Law 1): this guard is the SECOND line of defense and is not
+ * reachable through the public API today -- parse_name83 already refuses "." and
+ * ".." (a lone '.' leaves the name field empty; a second '.' is malformed), so a
+ * caller asking to move a dot entry gets FAT12_ERR_NOT_FOUND before the scan even
+ * runs (the oracle asserts exactly that). The guard stays because the scan
+ * matches RAW 11-byte fields: if parse_name83 ever gains a way to spell a dot
+ * name, this is what stops it reaching the transplant. */
+static int fat12_is_dot_entry(const dir_entry_t *e)
+{
+	if (e->filename[0] != 0x2Eu) {
+		return 0;
+	}
+	if (e->filename[1] == 0x20u) {
+		return 1;                                   /* '.'  */
+	}
+	return (e->filename[1] == 0x2Eu && e->filename[2] == 0x20u) ? 1 : 0;
+}
+
+/* Read the '..' entry of the directory whose first data cluster is `dir_cluster`
+ * (slot 1 of its first cluster -- the canonical layout fat12_mkdir writes) into
+ * *out. Fails FAT12_ERR_CHAIN if the slot does not actually hold '..' (a
+ * corrupt/foreign directory: never patch bytes we cannot identify, Rule 2). */
+static int fat12_read_dotdot(const fat12_volume_t *vol, const void *fat,
+                             uint32_t fat_len, uint16_t dir_cluster,
+                             dir_entry_t *out, void *sector_buf)
+{
+	int rc;
+
+	if (dir_cluster < FAT12_FIRST_DATA_CLUSTER) {
+		return FAT12_ERR_CLUSTER;
+	}
+	rc = fat12_read_dirent_in_dir(vol, fat, fat_len, 0, dir_cluster, 1u, out,
+	                              sector_buf);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (out->filename[0] != 0x2Eu || out->filename[1] != 0x2Eu ||
+	    out->filename[2] != 0x20u) {
+		return FAT12_ERR_CHAIN;   /* slot 1 is not '..' -- corrupt directory */
+	}
+	return FAT12_OK;
+}
+
+/* Patch ONLY the start_cluster (0x1A) of `dir_cluster`'s '..' entry to
+ * `new_parent` and write the 32-byte slot back through the same primitive WRITE
+ * uses. Everything else in the entry (name/attr/size/mtime/mdate) is preserved
+ * verbatim -- the fat12_set_dirent_time read-modify-write idiom. */
+static int fat12_set_dotdot(const fat12_volume_t *vol, const void *fat,
+                            uint32_t fat_len, uint16_t dir_cluster,
+                            uint16_t new_parent, void *sector_buf)
+{
+	dir_entry_t dd;
+	int         rc = fat12_read_dotdot(vol, fat, fat_len, dir_cluster, &dd,
+	                                   sector_buf);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	dd.start_cluster = new_parent;
+	return fat12_write_dirent_in_dir(vol, fat, fat_len, 0, dir_cluster, 1u,
+	                                 &dd, sector_buf);
+}
+
+/* CYCLE GUARD: would moving the directory at `moved_cluster` into the directory
+ * at `dst_dir_start` place it inside its own subtree? Walk the DESTINATION's
+ * ancestor chain upward via each level's '..' entry until the root (start
+ * cluster 0); a level equal to `moved_cluster` -- the destination itself
+ * included -- means the move would orphan the whole subtree from the root.
+ * COST: one 512-byte dirent read per ancestor level (directory depth), which is
+ * the cheapest correct answer: FAT stores no parent pointer anywhere else. The
+ * walk is anti-hang bounded by the volume's cluster count (Rule 2), so a
+ * corrupt '..' ring errors instead of looping. Returns FAT12_OK when the move is
+ * safe, FAT12_ERR_CYCLE when it is not, or a read/chain error. */
+static int fat12_move_cycle_check(const fat12_volume_t *vol, const void *fat,
+                                  uint32_t fat_len, uint16_t moved_cluster,
+                                  uint16_t dst_dir_start, void *sector_buf)
+{
+	uint16_t cur   = dst_dir_start;
+	uint32_t steps = 0u;
+	uint32_t max   = vol->total_clusters + 2u;
+
+	while (cur != 0u) {                     /* 0 == the fixed root: done */
+		dir_entry_t dd;
+		int         rc;
+
+		if (cur == moved_cluster) {
+			return FAT12_ERR_CYCLE;
+		}
+		rc = fat12_read_dotdot(vol, fat, fat_len, cur, &dd, sector_buf);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		cur = dd.start_cluster;
+		if (++steps > max) {
+			return FAT12_ERR_CHAIN;   /* cyclic '..' ring -- corrupt */
+		}
+	}
+	return FAT12_OK;
+}
+
+int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                      const char *src_name83, uint16_t src_dir_start,
+                      const char *dst_name83, uint16_t dst_dir_start,
+                      void *sector_buf, void *cluster_buf)
+{
+	uint8_t     src11[11];
+	uint8_t     dst11[11];
+	uint32_t    free_slot   = 0u;
+	int         have_free   = 0;
+	uint32_t    match_slot  = 0u;
+	dir_entry_t match;
+	dir_entry_t moved;
+	int         found       = 0;
+	int         rc;
+	uint32_t    k;
+	int         src_is_root = (src_dir_start == 0u);
+	int         dst_is_root = (dst_dir_start == 0u);
+	int         is_dir      = 0;
+	int         dotdot_set  = 0;
+	int         dst_grew    = 0;
+	uint16_t    dst_newc    = 0u;
+	uint16_t    moved_start = 0u;
+
+	if (vol == NULL || src_name83 == NULL || sector_buf == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	if (vol->dev == NULL || vol->dev->write_sectors == NULL ||
+	    vol->dev->read_sectors == NULL) {
+		return FAT12_ERR_WRITE;
+	}
+
+	/* Parse the source name; the destination name defaults to the source's (a
+	 * plain move keeps the name -- F3.1's "transplant"; a non-empty dst_name83
+	 * composes the rename into the SAME operation). A malformed name on either
+	 * side is the source-not-found contract fat12_rename established. */
+	rc = parse_name83(src_name83, src11);
+	if (rc != FAT12_OK) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	if (dst_name83 != NULL && dst_name83[0] != '\0') {
+		rc = parse_name83(dst_name83, dst11);
+		if (rc != FAT12_OK) {
+			return FAT12_ERR_NOT_FOUND;
+		}
+	} else {
+		for (k = 0u; k < 11u; k++) {
+			dst11[k] = src11[k];
+		}
+	}
+
+	/* ---- 1. a same-directory "move" is a RENAME's job ----------------- *
+	 * Reject rather than delegate, and reject FIRST: a caller that computed the
+	 * wrong destination hears about THAT, not about a name that happens not to
+	 * exist there (Rule 2 -- the loud answer is the useful one). */
+	if (src_dir_start == dst_dir_start) {
+		return FAT12_ERR_SAME_DIR;
+	}
+
+	/* ---- 2. locate the SOURCE entry ---------------------------------- */
+	rc = fat12_scan_dir(vol, fat, fat_len, src_is_root, src_dir_start,
+	                    sector_buf, src11, &free_slot, &have_free, &match_slot,
+	                    &match, &found);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (!found) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+	/* The volume label is not a file and the dot entries are the directory's own
+	 * structure: neither is ever transplanted (Rule 2 fail loud). Directories
+	 * ARE movable -- their '..' is fixed up in step 5. */
+	if ((match.attribute & DIR_ATTR_VOLLABEL) != 0u ||
+	    fat12_is_dot_entry(&match)) {
+		return FAT12_ERR_ACCESS;
+	}
+	is_dir      = ((match.attribute & DIR_ATTR_DIRECTORY) != 0u);
+	moved_start = match.start_cluster;
+
+	/* ---- 3. a directory may not move into its own subtree ------------- */
+	if (is_dir) {
+		if (moved_start < FAT12_FIRST_DATA_CLUSTER) {
+			return FAT12_ERR_CHAIN;   /* a directory always owns a cluster */
+		}
+		rc = fat12_move_cycle_check(vol, fat, fat_len, moved_start,
+		                            dst_dir_start, sector_buf);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+	}
+
+	/* ---- 4. the DESTINATION name must be absent; find/claim its slot -- */
+	{
+		uint32_t    dmatch_slot = 0u;
+		dir_entry_t dmatch;
+		int         dfound      = 0;
+
+		free_slot = 0u;
+		have_free = 0;
+		rc = fat12_scan_dir(vol, fat, fat_len, dst_is_root, dst_dir_start,
+		                    sector_buf, dst11, &free_slot, &have_free,
+		                    &dmatch_slot, &dmatch, &dfound);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		if (dfound) {
+			return FAT12_ERR_EXISTS;   /* a move never clobbers (fat12_rename) */
+		}
+	}
+	if (!have_free) {
+		/* The destination is FULL at *free_slot. The fixed ROOT cannot grow; a
+		 * SUBDIR destination grows by one cluster so free_slot (the index just
+		 * past the last cluster, set by fat12_scan_dir) becomes valid. REUSE
+		 * free_slot verbatim -- do NOT recompute it (fat12_mkdir's rule). */
+		if (dst_is_root) {
+			return FAT12_ERR_DIR_FULL;
+		}
+		if (cluster_buf == NULL || fat == NULL) {
+			return FAT12_ERR_NULL;
+		}
+		rc = fat12_grow_dir(vol, fat, fat_len, dst_dir_start, cluster_buf,
+		                    &dst_newc);
+		if (rc != FAT12_OK) {
+			return rc;   /* NO_SPACE / write error -- grow already rolled back */
+		}
+		dst_grew = 1;
+	}
+
+	/* ---- 5. a moved DIRECTORY's '..' must name its NEW parent --------- *
+	 * '..' stores the PARENT's first data cluster (the fixed root encoded as 0 --
+	 * the EMPIRICAL mtools rule fat12_mkdir writes). Moving D from A to B changes
+	 * D's parent, so D's own '..' MUST be repointed at B or every '..' walk out
+	 * of D (DOS CHDIR, fat12_resolve_path's '..' pop, mtools) leaves the tree at
+	 * the wrong place. One 32-byte read-modify-write of slot 1 of D's first
+	 * cluster; the old parent is remembered so a later failure restores it. */
+	if (is_dir) {
+#ifndef FAT12_MUTATE_MOVE_NO_DOTDOT_FIX
+		rc = fat12_set_dotdot(vol, fat, fat_len, moved_start, dst_dir_start,
+		                      sector_buf);
+		if (rc != FAT12_OK) {
+			if (dst_grew) {
+				fat12_shrink_dir_tail(vol, fat, fat_len, dst_dir_start,
+				                      dst_newc);
+			}
+			return rc;
+		}
+		dotdot_set = 1;
+#else
+		/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the '..' fixup, so
+		 * a moved directory keeps pointing at its OLD parent -- the folder is
+		 * reachable at its new home but walks out of the tree wrongly. The
+		 * directory-move leg's '..' assertion (and the mtools '..' traversal) goes
+		 * RED. NEVER define in a real build. */
+		(void)dotdot_set;
+#endif
+	}
+
+	/* ---- 6. write the transplanted entry into the destination slot ---- *
+	 * The 32-byte entry is copied VERBATIM and only the 11-byte name field is
+	 * (optionally) rewritten: start_cluster / file_size / attribute / mtime /
+	 * mdate carry over bit-for-bit and NO FAT entry and NO data cluster is
+	 * touched (Rule 11 -- a move is metadata-only). */
+	moved = match;
+	for (k = 0u; k < 8u; k++) {
+		moved.filename[k] = dst11[k];
+	}
+	for (k = 0u; k < 3u; k++) {
+		moved.extension[k] = dst11[8u + k];
+	}
+#ifdef FAT12_MUTATE_MOVE_RELINKS_CHAIN
+	/* MUTANT (Rule 6; make test-fat-move-mutant only): RELINK the entry -- zero
+	 * the start_cluster as the transplant writes it, so the moved file loses its
+	 * data chain head. The 'start_cluster equal before/after' + content
+	 * assertions go RED, proving a move never touches the chain. NEVER define in
+	 * a real build. */
+	moved.start_cluster = 0u;
+#endif
+#ifndef FAT12_MUTATE_MOVE_LOSES_ENTRY
+	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, dst_is_root, dst_dir_start,
+	                               free_slot, &moved, sector_buf);
+#else
+	/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the destination
+	 * write while still deleting the source below -- the entry VANISHES (the
+	 * classic half-move). Every "present at the destination" assertion (and the
+	 * mtools mdir differential) goes RED. NEVER define in a real build. */
+	rc = FAT12_OK;
+#endif
+	if (rc != FAT12_OK) {
+		/* Nothing of the entry landed. Undo the '..' patch and the grow. */
+		if (dotdot_set) {
+			(void)fat12_set_dotdot(vol, fat, fat_len, moved_start,
+			                       src_dir_start, sector_buf);
+		}
+#ifndef FAT12_MUTATE_MOVE_NO_GROW_ROLLBACK
+		if (dst_grew) {
+			fat12_shrink_dir_tail(vol, fat, fat_len, dst_dir_start, dst_newc);
+		}
+#else
+		/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the destination-
+		 * grow rollback on the failed transplant. The cluster the grow appended
+		 * to the destination directory LEAKS while the move reports failure --
+		 * exactly the atomicity defect the fault-injection leg pins, so its
+		 * chain-length / free-count assertion goes RED. NEVER in a real build. */
+		(void)dst_grew;
+#endif
+		return rc;
+	}
+
+	/* ---- 7. mark the SOURCE slot deleted -- the LAST failable step ---- */
+	match.filename[0] = DIR_NAME_DELETED;
+	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, src_is_root, src_dir_start,
+	                               match_slot, &match, sector_buf);
+	if (rc != FAT12_OK) {
+		/* The destination entry IS on disk but the source could not be released:
+		 * the entry would exist TWICE, two directories pointing at one chain --
+		 * far worse than a failed move. Undo in reverse: delete the destination
+		 * entry we just wrote, restore '..', shrink the grow (best-effort; the
+		 * caller's original error is what we report). Rule 2/Rule 3. */
+		dir_entry_t undo = moved;
+		undo.filename[0] = DIR_NAME_DELETED;
+		(void)fat12_write_dirent_in_dir(vol, fat, fat_len, dst_is_root,
+		                                dst_dir_start, free_slot, &undo,
+		                                sector_buf);
+		if (dotdot_set) {
+			(void)fat12_set_dotdot(vol, fat, fat_len, moved_start,
+			                       src_dir_start, sector_buf);
+		}
+#ifndef FAT12_MUTATE_MOVE_NO_GROW_ROLLBACK
+		if (dst_grew) {
+			fat12_shrink_dir_tail(vol, fat, fat_len, dst_dir_start, dst_newc);
+		}
+#endif
+		return rc;
+	}
+#ifdef FAT12_MUTATE_MOVE_FREES_CHAIN
+	/* MUTANT (Rule 6; make test-fat-move-mutant only) -- the F1.4
+	 * "TRASH_NO_STAGE" defect shape: after transplanting the entry, ALSO free the
+	 * file's cluster chain, i.e. behave like unlink-then-create instead of a
+	 * metadata-only move. The transplanted entry then points at freed clusters:
+	 * the "BOTH on-disk FAT copies byte-unchanged" assertion, the data-cluster
+	 * comparison and the volume's free-space count all go RED. This is what
+	 * proves those NEGATIVE assertions are load-bearing and not decoration.
+	 * NEVER define in a real build. */
+	(void)fat12_free_chain(vol, fat, fat_len, moved_start);
+	(void)fat12_flush_fats(vol, fat, fat_len);
+#endif
+	return FAT12_OK;
+}
+
+int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
+                            uint32_t fat_len, uint16_t dir_start,
+                            void *sector_buf, const char *name83,
+                            char *out_name83)
+{
+	uint8_t     base11[11];
+	uint8_t     try11[11];
+	char        cand[FAT12_NAME83_MAX];
+	dir_entry_t probe;
+	uint32_t    probe_slot = 0u;
+	uint32_t    base_len   = 0u;
+	uint32_t    n;
+	uint32_t    k;
+	int         rc;
+
+	if (vol == NULL || sector_buf == NULL || name83 == NULL ||
+	    out_name83 == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	rc = parse_name83(name83, base11);
+	if (rc != FAT12_OK) {
+		return FAT12_ERR_NOT_FOUND;
+	}
+
+	/* The canonical rendering of the requested name (upper-cased, padding
+	 * trimmed) -- what the entry would read as on disk. */
+	rc = fat12_name11_to_str(base11, cand);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+
+#ifndef FAT12_MUTATE_SUFFIX_NO_COLLIDE_CHECK
+	rc = fat12_find_slot_in(vol, fat, fat_len, dir_start, sector_buf, cand,
+	                        &probe, &probe_slot);
+	if (rc == FAT12_ERR_NOT_FOUND) {
+		for (k = 0u; k < FAT12_NAME83_MAX; k++) {
+			out_name83[k] = cand[k];
+			if (cand[k] == '\0') {
+				break;
+			}
+		}
+		return FAT12_OK;   /* the name is free: use it verbatim */
+	}
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+#else
+	/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the collision probe
+	 * and hand back the base name unconditionally, so a staged item collides with
+	 * the entry already in the destination (the move then refuses EXISTS, or --
+	 * worse for a caller that ignores it -- the Trash silently swallows the drag).
+	 * The suffix-ladder leg goes RED. NEVER define in a real build. */
+	(void)probe; (void)probe_slot;
+	for (k = 0u; k < FAT12_NAME83_MAX; k++) {
+		out_name83[k] = cand[k];
+		if (cand[k] == '\0') {
+			break;
+		}
+	}
+	return FAT12_OK;
+#endif
+
+	/* Colliding: keep the extension, rebuild the base as trunc5(base) || %03u,
+	 * lowest FREE counter first. (F1.4 states this RULE; its "REPORT.DBF ->
+	 * REP001.DBF" illustration is trunc3 and contradicts the rule -- see the
+	 * fat12.h note. The rule wins: it is 8.3-legal and keeps 5 characters.) */
+	for (base_len = 0u; base_len < 8u; base_len++) {
+		if (base11[base_len] == 0x20u) {
+			break;
+		}
+	}
+	if (base_len > 5u) {
+		base_len = 5u;
+	}
+
+	for (n = 1u; n <= FAT12_SUFFIX_MAX; n++) {
+		for (k = 0u; k < 11u; k++) {
+			try11[k] = 0x20u;
+		}
+		for (k = 0u; k < base_len; k++) {
+			try11[k] = base11[k];
+		}
+		try11[base_len + 0u] = (uint8_t)('0' + (n / 100u) % 10u);
+		try11[base_len + 1u] = (uint8_t)('0' + (n / 10u) % 10u);
+		try11[base_len + 2u] = (uint8_t)('0' + n % 10u);
+		for (k = 0u; k < 3u; k++) {
+			try11[8u + k] = base11[8u + k];
+		}
+		rc = fat12_name11_to_str(try11, cand);
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+		rc = fat12_find_slot_in(vol, fat, fat_len, dir_start, sector_buf, cand,
+		                        &probe, &probe_slot);
+		if (rc == FAT12_ERR_NOT_FOUND) {
+			for (k = 0u; k < FAT12_NAME83_MAX; k++) {
+				out_name83[k] = cand[k];
+				if (cand[k] == '\0') {
+					break;
+				}
+			}
+			return FAT12_OK;
+		}
+		if (rc != FAT12_OK) {
+			return rc;
+		}
+	}
+	return FAT12_ERR_EXISTS;   /* all 999 counters taken in this directory */
+}
+
+/* ======================================================================== *
  * FAT12 subdirectory CREATE / REMOVE -- WRITE side (beads initech-u6wa)
  *
  * Ref (Law 1): the EMPIRICAL mtools 4.0.43 '.'/'..' layout (mmd-minted, triple-
