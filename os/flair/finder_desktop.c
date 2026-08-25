@@ -18,7 +18,8 @@
 #include "finder_desktop.h"
 
 #include "finder_icon.h"        /* finder_icon_draw (clipped, mask-honouring)  */
-#include "desk_icons.h"         /* the LOCKED 32x32 strikes                    */
+#include "desk_icons.h"         /* the LOCKED 32x32 desktop strikes            */
+#include "finder_icons.h"       /* the LOCKED 32x32 disk-window strikes (R3.3) */
 #include "flair_look.h"         /* flair_look_pixel_depth -- the ONE seam      */
 #include "blitter.h"            /* blitter_fill_rect_clipped (label band)      */
 #include "geneva9.h"            /* geneva9_glyph / geneva9_advance_w           */
@@ -91,13 +92,26 @@ static int fd_valid(const finder_desk_t *fd, int idx)
            idx >= 0 && idx < (int)fd->n;
 }
 
-/* The LOCKED strike for a record kind. desk_icons.h declares the two strikes as
- * file-static const data, so each including TU owns its own copy -- never
- * compare these pointers across translation units. */
+/* The LOCKED strike for a record kind. desk_icons.h / finder_icons.h declare
+ * the strikes as file-static const data, so each including TU owns its own copy
+ * -- never compare these pointers across translation units.
+ *
+ * WHY THE MAP LIVES HERE AND COVERS BOTH SURFACES (bead initech-tdnl.10):
+ * finder_desk_paint is the ONE icon painter -- a disk window's content is drawn
+ * by calling it with the WINDOW's finder_desk_t (whose bounds are the content
+ * rect) instead of the desktop's. That reuse is the whole reason the R3.2
+ * trackers work unchanged inside a window (design F2-5: the trackers are pure
+ * functions of numbers, and a surface is just a different `bounds`). One
+ * painter therefore needs one kind->strike map, and this is it. Unknown kinds
+ * return NULL and finder_desk_paint SKIPS them -- fail-safe, never a garbage
+ * blit (Rule 2). */
 static const FLAIRDeskIcon *fd_strike(uint8_t kind)
 {
     if (kind == (uint8_t)FINDER_ICON_VOLUME) return &FLAIR_DESK_ICON_VOLUME;
     if (kind == (uint8_t)FINDER_ICON_TRASH)  return &FLAIR_DESK_ICON_TRASH;
+    if (kind == (uint8_t)FINDER_ICON_FOLDER) return &FLAIR_FINDER_ICON_FOLDER;
+    if (kind == (uint8_t)FINDER_ICON_FILE)   return &FLAIR_FINDER_ICON_DOC;
+    if (kind == (uint8_t)FINDER_ICON_APP)    return &FLAIR_FINDER_ICON_APP;
     return (const FLAIRDeskIcon *)0;
 }
 
@@ -139,6 +153,7 @@ int finder_desk_add(finder_desk_t *fd, finder_icon_kind_t kind,
     ic->reserved  = 0u;
     ic->x         = x;
     ic->y         = y;
+    ic->dir_start = 0u;     /* R3.3: set by finder_desk_set_cluster if needed  */
     fd_copy_name(ic->name, name);
     fd->n = (uint16_t)(fd->n + 1u);
     return idx;
@@ -166,6 +181,12 @@ void finder_desk_set_name(finder_desk_t *fd, int idx, const char *name)
 {
     if (!fd_valid(fd, idx)) return;
     fd_copy_name(fd->icons[idx].name, name);
+}
+
+void finder_desk_set_cluster(finder_desk_t *fd, int idx, uint16_t cluster)
+{
+    if (!fd_valid(fd, idx)) return;
+    fd->icons[idx].dir_start = cluster;
 }
 
 int finder_desk_find_kind(const finder_desk_t *fd, finder_icon_kind_t kind)
@@ -499,24 +520,58 @@ finder_db_status_t finder_desk_db_validate(const uint8_t *buf, uint32_t len)
     if (fd_get_le16(buf + 4) != (uint16_t)FINDER_DB_VERSION)
         return FINDER_DB_ERR_VER;
     n = fd_get_le16(buf + 6);
-    if ((uint32_t)n > (uint32_t)FINDER_DESK_MAX_ICONS)
+    if ((uint32_t)n > FINDER_DB_MAX_RECORDS)
         return FINDER_DB_ERR_COUNT;
     if (FINDER_DB_HEADER_SIZE + (uint32_t)n * FINDER_DB_RECORD_SIZE != len)
         return FINDER_DB_ERR_LEN;
     return FINDER_DB_OK;
 }
 
-uint32_t finder_desk_db_encode(const finder_desk_t *fd, uint8_t *buf,
-                               uint32_t cap)
+/* One 24-byte record, positionally assembled. `name` may be NULL (the field is
+ * then all zero). Every byte of the record is written -- there is no padding
+ * ambiguity and no reliance on the caller's buffer being pre-zeroed. */
+static void fd_put_record(uint8_t *r, uint8_t kind, uint16_t dir_start,
+                          const char *name, uint16_t x, uint16_t y,
+                          uint16_t view_bits)
 {
+    uint32_t k;
+
+    for (k = 0u; k < FINDER_DB_RECORD_SIZE; k++) r[k] = 0u;
+    r[0] = kind;                        /* +0  kind                            */
+    r[1] = 0u;                          /* +1  flags                           */
+    fd_put_le16(r + 2, dir_start);      /* +2  dir_start (0 == root)           */
+    if (name != (const char *)0) {
+        for (k = 0u; k < 13u; k++) {    /* +4  name83[13]                      */
+            char c = name[k];
+            r[4 + k] = (uint8_t)c;
+            if (c == '\0') break;       /* the rest is already zero            */
+        }
+    }
+    fd_put_le16(r + 17, x);             /* +17 grid_x (pixels; see the header) */
+    fd_put_le16(r + 19, y);             /* +19 grid_y                          */
+    fd_put_le16(r + 21, view_bits);     /* +21 view_bits                       */
+    r[23] = 0u;                         /* +23 pad                             */
+}
+
+uint32_t finder_desk_db_encode_all(const finder_desk_t *fd,
+                                   const finder_view_rec_t *views,
+                                   uint16_t n_views,
+                                   uint8_t *buf, uint32_t cap)
+{
+    uint32_t total;
     uint32_t need;
     uint32_t off;
 
     if (fd == (const finder_desk_t *)0 || fd->icons == (finder_desk_icon_t *)0 ||
         buf == (uint8_t *)0)
         return 0u;
+    if (n_views != 0u && views == (const finder_view_rec_t *)0)
+        return 0u;
 
-    need = FINDER_DB_HEADER_SIZE + (uint32_t)fd->n * FINDER_DB_RECORD_SIZE;
+    total = (uint32_t)fd->n + (uint32_t)n_views;
+    if (total > FINDER_DB_MAX_RECORDS) return 0u;   /* caller fails loud       */
+
+    need = FINDER_DB_HEADER_SIZE + total * FINDER_DB_RECORD_SIZE;
     if (cap < need) return 0u;
 
     buf[0] = (uint8_t)'I';
@@ -524,36 +579,72 @@ uint32_t finder_desk_db_encode(const finder_desk_t *fd, uint8_t *buf,
     buf[2] = (uint8_t)'B';
     buf[3] = (uint8_t)'1';
     fd_put_le16(buf + 4, (uint16_t)FINDER_DB_VERSION);
-    fd_put_le16(buf + 6, fd->n);
+    fd_put_le16(buf + 6, (uint16_t)total);
 
+    /* Icons first, in record order (which IS z order), then the view records --
+     * the ONE deterministic ordering (Rule 11). */
     off = FINDER_DB_HEADER_SIZE;
     for (int i = 0; i < (int)fd->n; i++) {
         const finder_desk_icon_t *ic = &fd->icons[i];
-        uint8_t *r = buf + off;
         int16_t px = ic->x;
         int16_t py = ic->y;
-        uint32_t k;
 
         /* Origins are clamped >= 0 so the unsigned position fields are exact. */
         if (px < 0) px = 0;
         if (py < 0) py = 0;
 
-        for (k = 0u; k < FINDER_DB_RECORD_SIZE; k++) r[k] = 0u;
-        r[0] = ic->kind;                    /* +0  kind (1=volume, 2=trash)    */
-        r[1] = 0u;                          /* +1  flags                       */
-        fd_put_le16(r + 2, 0u);             /* +2  dir_start (root)            */
-        for (k = 0u; k < 13u; k++) {        /* +4  name83[13]                  */
-            char c = ic->name[k];
-            r[4 + k] = (uint8_t)c;
-            if (c == '\0') break;           /* the rest is already zero        */
-        }
-        fd_put_le16(r + 17, (uint16_t)px);  /* +17 grid_x (pixels; see header) */
-        fd_put_le16(r + 19, (uint16_t)py);  /* +19 grid_y                      */
-        fd_put_le16(r + 21, 0u);            /* +21 view_bits                   */
-        r[23] = 0u;                         /* +23 pad                         */
+        fd_put_record(buf + off, ic->kind, 0u, ic->name,
+                      (uint16_t)px, (uint16_t)py, 0u);
+        off += FINDER_DB_RECORD_SIZE;
+    }
+    for (uint16_t v = 0u; v < n_views; v++) {
+        fd_put_record(buf + off, (uint8_t)FINDER_DB_KIND_VIEW,
+                      views[v].dir_start, views[v].name83,
+                      views[v].x, views[v].y, views[v].view_bits);
         off += FINDER_DB_RECORD_SIZE;
     }
     return need;
+}
+
+uint32_t finder_desk_db_encode(const finder_desk_t *fd, uint8_t *buf,
+                               uint32_t cap)
+{
+    /* The R3.2 entry point: desktop icons only. Byte-identical to what it wrote
+     * before the view records existed -- the hand-authored 56-byte golden in
+     * harness/proptest/test_finder_desktop.c still holds it to that. */
+    return finder_desk_db_encode_all(fd, (const finder_view_rec_t *)0, 0u,
+                                     buf, cap);
+}
+
+int finder_desk_db_find_view(const uint8_t *buf, uint32_t len,
+                             uint16_t dir_start, finder_view_rec_t *out)
+{
+    finder_db_status_t st;
+    uint16_t n;
+    uint32_t off;
+
+    st = finder_desk_db_validate(buf, len);
+    if (st != FINDER_DB_OK) return (int)st;      /* negative == corrupt image  */
+    if (out == (finder_view_rec_t *)0) return 0;
+
+    n   = fd_get_le16(buf + 6);
+    off = FINDER_DB_HEADER_SIZE;
+    for (uint16_t i = 0u; i < n; i++) {
+        const uint8_t *r = buf + off;
+        if (r[0] == (uint8_t)FINDER_DB_KIND_VIEW &&
+            fd_get_le16(r + 2) == dir_start) {
+            uint32_t k;
+            out->dir_start = dir_start;
+            for (k = 0u; k < 13u; k++) out->name83[k] = (char)r[4 + k];
+            out->name83[13] = '\0';   /* FINDER_DESK_NAME_MAX-1; always closed */
+            out->x         = fd_get_le16(r + 17);
+            out->y         = fd_get_le16(r + 19);
+            out->view_bits = fd_get_le16(r + 21);
+            return 1;
+        }
+        off += FINDER_DB_RECORD_SIZE;
+    }
+    return 0;
 }
 
 finder_db_status_t finder_desk_db_apply(finder_desk_t *fd, const uint8_t *buf,
@@ -719,59 +810,21 @@ void finder_desk_invalidate(WindowMgr *wm, rgn_rect_t old_rect,
 }
 
 /* ===========================================================================
- * 11. THE SHELL TENANT
+ * 11. THE DESKTOP HALF OF THE SHELL TENANT
+ * ---------------------------------------------------------------------------
+ * R3.2's finder_desk_procs / finder_desk_of moved to os/flair/finder_windows.c
+ * with bead initech-tdnl.10 (see the header's Sec 11). What remains is the
+ * model build the tenant's open() calls -- the SAME two calls, in the SAME
+ * order, so the seeded icons and therefore the boot frame are unchanged.
  * ===========================================================================*/
 
-static int finder_desk_open(FlairApp *self, const FlairLaunchParams *lp)
+int finder_desk_tenant_build(finder_desk_t *fd, finder_desk_icon_t *storage,
+                             uint16_t cap, const FlairLaunchParams *lp)
 {
-    finder_desk_t *fd;
-    finder_desk_icon_t *storage;
+    if (fd == (finder_desk_t *)0 || storage == (finder_desk_icon_t *)0 ||
+        lp == (const FlairLaunchParams *)0 || cap == 0u)
+        return -1;
 
-    if (self == (FlairApp *)0 || lp == (const FlairLaunchParams *)0) return 1;
-
-    /* Design F1.1: the icon record array lives in FLAIR_CLASS_HANDLE storage --
-     * the tenant's RECORDS arena (AC-2), the same class the App Contract uses
-     * for manager records. */
-    fd = (finder_desk_t *)flair_alloc(&self->records_arena, FLAIR_CLASS_HANDLE,
-                                      (uint32_t)sizeof(finder_desk_t));
-    storage = (finder_desk_icon_t *)
-        flair_alloc(&self->records_arena, FLAIR_CLASS_HANDLE,
-                    (uint32_t)(sizeof(finder_desk_icon_t) *
-                               FINDER_DESK_MAX_ICONS));
-    if (fd == (finder_desk_t *)0 || storage == (finder_desk_icon_t *)0) {
-        return 1;               /* launch fail -- the shell reclaims (Rule 2)  */
-    }
-
-    finder_desk_init(fd, storage, (uint16_t)FINDER_DESK_MAX_ICONS, lp->bounds);
-    if (finder_desk_seed_defaults(fd) != 0) return 1;
-
-    self->userData = (void *)fd;
-    /* No window: this slice's Finder owns the desktop surface only (header
-     * Sec 11). self->windows stays NULL, so FlairProcess_launch skips its
-     * SelectWindow and flair_app_dispatch routes nothing here. */
-    return 0;
-}
-
-static void finder_desk_event(FlairApp *self, const EventRecord *ev)
-{
-    /* The Finder owns no window this slice, so the Layer-5 dispatcher never
-     * routes an event here (an inDesk hit returns before the owner demux). The
-     * desktop gestures are driven by the live pump against the pure trackers
-     * above; the disk-window event handling arrives with tdnl.10. */
-    (void)self;
-    (void)ev;
-}
-
-const FlairAppProcs finder_desk_procs = {
-    finder_desk_open,
-    finder_desk_event,
-    (void (*)(FlairApp *))0,        /* idle  -- nothing to do                  */
-    (void (*)(FlairApp *))0         /* close -- always resident (design F2-1)  */
-};
-
-finder_desk_t *finder_desk_of(FlairApp *app)
-{
-    if (app == (FlairApp *)0) return (finder_desk_t *)0;
-    if (app->magic != (uint32_t)FLAIR_APP_MAGIC) return (finder_desk_t *)0;
-    return (finder_desk_t *)app->userData;
+    finder_desk_init(fd, storage, cap, lp->bounds);
+    return finder_desk_seed_defaults(fd);
 }

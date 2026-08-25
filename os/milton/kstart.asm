@@ -25,7 +25,38 @@ KERNEL_RUNWAY     equ 0x00100000
 KERNEL_CEIL       equ 0x00600000
 KERNEL_STACK_BOT  equ 0x00090000
 KERNEL_STACK_TOP  equ 0x0009FFFC
-KERNEL_SECTORS    equ 352
+
+; ---------------------------------------------------------------------------
+; KERNEL_SECTORS -- the padded disk window, and THE THIRD COPY OF IT.
+;
+; This value is load-bearing in a way that is easy to miss: the stosd below
+; starts zeroing at KERNEL_BASE + KERNEL_SECTORS*512, so a value SMALLER than
+; the Makefile's does not merely under-zero the runway -- it ZEROES THE TOP OF
+; THE KERNEL'S OWN LOADED IMAGE, in place, before kernel_main runs.
+;
+; That is exactly what happened. Bead initech-uzjc bumped KERNEL_SECTORS
+; 352 -> 384 and mechanised the Makefile <-> stage2.asm pairing (stage2 gets
+; -DMK_KERNEL_SECTORS and %errors on a mismatch) -- but THIS third copy was
+; missed and stayed at 352. The bug was LATENT only because the kernel image
+; was still smaller than 352 sectors: the wiped range 0x52C000.. held nothing
+; but padding. Bead initech-tdnl.10 grew the image past that line and the
+; kernel started erasing its own .rodata tail (the symptom: serial_puthex32
+; printing NULs because its digit table read as zero, and the second banner
+; line printing garbage) with no fault and no marker -- the quietly-wrong
+; failure Rule 2 exists to make impossible.
+;
+; ROOT-CAUSE FIX (Rule 3, and the uzjc mechanisation finished): the Makefile
+; passes its KERNEL_SECTORS as MK_KERNEL_SECTORS and this file %errors if the
+; two disagree -- the SAME guard stage2.asm carries, now on all three copies,
+; so the constant can never drift silently again.
+; ---------------------------------------------------------------------------
+KERNEL_SECTORS    equ 384
+
+%ifndef MK_KERNEL_SECTORS
+  %error "MK_KERNEL_SECTORS not defined: kstart.asm must be assembled by the Makefile rule so its KERNEL_SECTORS equate can be checked against the Makefile's KERNEL_SECTORS."
+%elif MK_KERNEL_SECTORS != KERNEL_SECTORS
+  %error "KERNEL_SECTORS MISMATCH: the Makefile's KERNEL_SECTORS (MK_KERNEL_SECTORS) differs from this kstart.asm equate. Bump BOTH -- the Makefile pads the kernel .bin to its value and THIS file starts the runway zeroing just past it; a stale value here erases the top of the loaded kernel."
+%endif
 
 global _start
 extern kernel_main

@@ -120,6 +120,23 @@ typedef struct FinderCtx {
     /* --- the trace sink (caller-supplied; see banner) --------------------- */
     void   (*trace)(void *user, const char *line);
     void    *trace_user;
+
+    /* --- the SHELL EXECUTION HOOK (bead initech-tdnl.10) ------------------
+     * The table's own handlers are the honest FINDER-NYI stubs of tdnl.9a; the
+     * real behaviour lives in the Finder shell (os/flair/finder_windows.c),
+     * which this header cannot name without inverting the layering (finder_cmd
+     * is pure logic: one table, one dispatch, no rendering, no FAT, no windows).
+     *
+     * So the shell binds `exec` + its `shell` cookie at boot and finder_dispatch
+     * calls THAT instead of the row's stub handler. The spine is unchanged --
+     * one lookup, one predicate evaluation, one FINDER-CMD trace line, emitted
+     * BEFORE the hook runs -- so the trace golden and all three tdnl.9a mutants
+     * are untouched, and there is still exactly ONE place a Finder command can
+     * execute. A NULL `exec` means "run the table's handler", which is what the
+     * host oracle (test_finder_cmd.c) does.
+     * ------------------------------------------------------------------- */
+    void   (*exec)(void *shell, finder_cmd_id id);
+    void    *shell;
 } FinderCtx;
 
 /* ===========================================================================
@@ -173,6 +190,38 @@ uint8_t finder_pred_front_is_diskwin(const FinderCtx *fx);
  * Returns NULL when no row matches (the caller's cue to fail loud).
  */
 const finder_cmd_t *finder_cmd_lookup(int16_t menu_id, uint16_t item_1based);
+
+/*
+ * finder_cmd_key_lookup -- the COMMAND-KEY -> table row map (bead initech-tdnl.10).
+ *
+ * `ch` is the Cmd-equivalent character as the MenuItem carries it (upper-case
+ * in the F4.2 resource: 'N', 'O', 'W', ...); the match is case-INSENSITIVE for
+ * ASCII letters, because a PC keyboard's Ctrl-chord cooks to whatever case the
+ * Shift state produced and the period Mac never distinguished Cmd-n from Cmd-N.
+ * The FIRST row with a matching cmd_char wins (the table has no duplicate
+ * cmd_chars; a duplicate would be a table bug, and taking the first is the same
+ * rule menu.c :: MenuKey applies). Returns NULL when nothing matches.
+ *
+ * THIS IS A LOOKUP, NOT A SECOND DISPATCH PATH. The caller turns the row into a
+ * result word with finder_cmd_result() and calls finder_dispatch(..., "key"),
+ * so the keyboard converges on the SAME spine as the mouse (F4-4) and the trace
+ * line is the ordinary FINDER-CMD ... src=key.
+ *
+ * TEMPORARY, AND SAY SO: tdnl.12 lands the real Finder menu bar, at which point
+ * MenuKey() over that bar replaces this helper -- MenuKey additionally honours
+ * the live MenuItem.enabled bytes and the divider rule. Until the bar exists
+ * there is no MenuBar to scan, and inventing a hidden one early would re-key
+ * every band-2 gate. The predicate is still enforced: finder_dispatch evaluates
+ * it after the lookup, exactly as on the mouse path.
+ */
+const finder_cmd_t *finder_cmd_key_lookup(char ch);
+
+/*
+ * finder_cmd_result -- pack a table row back into the IM result word
+ * ((uint16_t)menu_id << 16 | item_1based; menu.h Sec 4). Returns 0 for NULL,
+ * which finder_dispatch reads as "nothing chosen" and ignores.
+ */
+uint32_t finder_cmd_result(const finder_cmd_t *c);
 
 /*
  * finder_cmd_enabled -- evaluate a row's predicate against fx (NULL == ALWAYS).

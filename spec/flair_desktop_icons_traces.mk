@@ -171,7 +171,8 @@ FLAIR_RUBBER_BAND_SPEC := m100:-98,m100:-98,m50:0,l1,m62:83,m0:82,m0:82,m0:82,m0
 FLAIR_ICON_DRAGDROP_SPEC := m100:-88,m100:-88,m80:0,l1,m-92:88,m-92:88,m0:88,m0:88,l0,m100:44,m100:0,m4:0
 
 # ===========================================================================
-# 5. FLAIR_ICON_OPEN_SPEC -- double-click the volume; expects FINDER-OPEN-VOLUME NYI.
+# 5. FLAIR_ICON_OPEN_SPEC -- double-click the volume; expects
+#    "FINDER-OPEN-VOLUME win=0 n=4" (RE-KEYED at bead initech-tdnl.10).
 # ===========================================================================
 # Same approach route to (600,64), then FOUR button tokens back-to-back:
 # l1,l0,l1,l0. qmp_inject_mouse drains only 40 ms between tokens, so the second
@@ -183,6 +184,19 @@ FLAIR_ICON_DRAGDROP_SPEC := m100:-88,m100:-88,m80:0,l1,m-92:88,m-92:88,m0:88,m0:
 # raising FINDER_DBLCLICK_TICKS (that constant golden-resolves against a period
 # Mouse control panel, finder_desktop.h Sec 7).
 # Click 1 selects (FINDER-ICON-SELECT name=INITECH count=1); click 2 classifies
-# DOUBLE and emits "FINDER-OPEN-VOLUME NYI".
+# DOUBLE and -- since bead initech-tdnl.10 (R3.3 disk windows) -- really OPENS
+# the root disk window over the mounted volume, emitting
+# "FINDER-OPEN-VOLUME win=0 n=4". The R3.2 line this replaces was
+# "FINDER-OPEN-VOLUME NYI"; the re-key is strictly stronger (it additionally
+# pins the window slot and the enumerated icon count). The count is the flagship
+# volume's root AFTER first boot: README.TXT, APPS, DESKTOP.DB and TRASH -- the
+# volume LABEL is skipped by the Finder (design F1.1) while hidden entries are
+# not (the stated scope note in os/flair/finder_windows.h).
+#
+# THE TRACE ITSELF IS UNCHANGED. The waypoints, the button tokens and the park
+# are byte-for-byte what R3.2 locked; only what the guest DOES at the end of
+# them grew. Note also that this trace now leaves a WINDOW OPEN when the boot
+# ends -- it never closes it, so no kind=4 view record is written and
+# \DESKTOP.DB stays the 56 bytes leg 7 asserts.
 # Then PARK: (600,64) -> (620,460), the same split as trace 1.
 FLAIR_ICON_OPEN_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m20:99,m0:99,m0:99,m0:99

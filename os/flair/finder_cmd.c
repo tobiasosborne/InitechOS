@@ -265,6 +265,32 @@ const finder_cmd_t *finder_cmd_lookup(int16_t menu_id, uint16_t item_1based)
     return 0;
 }
 
+/* ASCII case fold, libc-free (Law 3). Only A-Z/a-z are folded; every other byte
+ * compares verbatim, so a future non-letter cmd_char is unaffected. */
+static char fcmd_upper(char c)
+{
+    return (c >= 'a' && c <= 'z') ? (char)(c - 'a' + 'A') : c;
+}
+
+const finder_cmd_t *finder_cmd_key_lookup(char ch)
+{
+    uint16_t i;
+    char want = fcmd_upper(ch);
+    if (want == '\0') return 0;       /* 0 == "no command key" (MenuItem)      */
+    for (i = 0; i < FINDER_COMMANDS_N; i++) {
+        if (FINDER_COMMANDS[i].cmd_char != '\0' &&
+            fcmd_upper(FINDER_COMMANDS[i].cmd_char) == want)
+            return &FINDER_COMMANDS[i];
+    }
+    return 0;
+}
+
+uint32_t finder_cmd_result(const finder_cmd_t *c)
+{
+    if (c == 0) return 0u;
+    return ((uint32_t)(uint16_t)c->menu_id << 16) | (uint32_t)c->item_1based;
+}
+
 uint8_t finder_cmd_enabled(const finder_cmd_t *c, const FinderCtx *fx)
 {
     if (c == 0) return 0u;
@@ -341,6 +367,14 @@ void finder_dispatch(FinderCtx *fx, uint32_t menu_result, const char *src)
         return;                        /* the handler is NOT called (F4.4)    */
     }
 
+    /* The shell's execution hook wins when bound (bead initech-tdnl.10); the
+     * table's stub handler is the fallback. Either way the FINDER-CMD line
+     * above has ALREADY been emitted, so the trace records the dispatch
+     * regardless of who executes it. */
+    if (fx->exec != 0) {
+        fx->exec(fx->shell, c->id);
+        return;
+    }
     if (c->handler != 0)
         c->handler(fx, c);
 }

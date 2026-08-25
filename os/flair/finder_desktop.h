@@ -61,9 +61,14 @@
  *   FINDER-MARQUEE n=<selected>          a rubber-band completed
  *   FINDER-ICON-DRAG name=<name> x=<gx> y=<gy>   drop committed (new origin)
  *   FINDER-ICON-DRAG-REVERT              drop refused (undraggable icon)
- *   FINDER-OPEN-VOLUME NYI               double-click on the volume icon
  *   FINDER-OPEN-TRASH NYI                double-click on the Trash icon
  *   DESKTOP-DB-SAVE n=<records>          positions committed to \DESKTOP.DB
+ *
+ * R3.3 RE-KEY (bead initech-tdnl.10): the volume double-click no longer says
+ * "FINDER-OPEN-VOLUME NYI" -- it OPENS the root disk window and says
+ *   FINDER-OPEN-VOLUME win=<slot> n=<icons>
+ * See os/flair/finder_windows.h for that marker and the rest of the disk-window
+ * set. The Trash double-click stays NYI until the tdnl.11 file-ops slice.
  *
  * Ref: docs/design/GUI-remediation-R3-finder-design.md F1.1 (icon records +
  *        fixed caps), F1.2 (32x32 sprites, labels centered beneath, hit test =
@@ -158,10 +163,26 @@
  * reserves dir_start, so adding them is not a format change.
  * ===========================================================================*/
 
+/* The icon kinds. VOLUME/TRASH are the R3.2 DESKTOP icons; FOLDER/FILE/APP are
+ * the R3.3 DISK-WINDOW icons (design F1.1: DIR_ATTR_DIRECTORY => folder, an 8.3
+ * name ending ".EXE" => app, everything else => document).
+ *
+ * VALUE RULE (bead initech-tdnl.10): the two DESKTOP kinds coincide with their
+ * DESKTOP.DB record kinds by R3.2's design (1 = volume-pos, 2 = trash-pos), and
+ * finder_desk_db_encode writes `ic->kind` straight into the record's kind byte.
+ * The three WINDOW kinds are therefore placed DELIBERATELY ABOVE the whole
+ * record-kind range (1..5, design F1.3) so an icon kind can never be mistaken
+ * for a record kind and a window icon can never encode as a plausible-but-wrong
+ * DB record. Window icons are never encoded at all -- a disk window persists a
+ * kind=4 VIEW record, not per-item positions -- and this numbering makes that a
+ * fact of the data, not a fact of the control flow (Rule 2). */
 typedef enum finder_icon_kind {
     FINDER_ICON_NONE   = 0,
     FINDER_ICON_VOLUME = 1,   /* == DESKTOP.DB record kind 1 (volume-pos)      */
-    FINDER_ICON_TRASH  = 2    /* == DESKTOP.DB record kind 2 (trash-pos)       */
+    FINDER_ICON_TRASH  = 2,   /* == DESKTOP.DB record kind 2 (trash-pos)       */
+    FINDER_ICON_FOLDER = 16,  /* disk window: a subdirectory (F1.1)            */
+    FINDER_ICON_FILE   = 17,  /* disk window: a document (F1.1)                */
+    FINDER_ICON_APP    = 18   /* disk window: an ".EXE" application (F1.1)     */
 } finder_icon_kind_t;
 
 typedef struct finder_desk_icon {
@@ -172,6 +193,16 @@ typedef struct finder_desk_icon {
     int16_t  x;             /* sprite top-left, desktop (== global) coords     */
     int16_t  y;
     char     name[FINDER_DESK_NAME_MAX];   /* NUL-terminated label text        */
+    /* R3.3 (bead initech-tdnl.10). F1.1's original sketch carried dir_start /
+     * slot / origin_dir; R3.2 shipped none of them because a desktop-only slice
+     * could not have populated them honestly (Law 1). THIS is the field the
+     * disk-window slice can: for a FOLDER icon it is that folder's OWN first
+     * data cluster -- the key its window is opened under and the key its kind=4
+     * view record is stored under (design F3.3 "Keyed by dir_start"). It is 0
+     * for every other kind, and the DESKTOP.DB codec does not read it (a
+     * desktop record's dir_start field is the CONTAINING directory, always the
+     * root, always 0). */
+    uint16_t dir_start;
 } finder_desk_icon_t;
 
 typedef struct finder_desk {
@@ -203,6 +234,11 @@ int finder_desk_seed_defaults(finder_desk_t *fd);
 
 /* Replace icon `idx`'s label text. No-op on a bad index. */
 void finder_desk_set_name(finder_desk_t *fd, int idx, const char *name);
+
+/* Set icon `idx`'s dir_start (R3.3: a FOLDER icon's own first cluster; see the
+ * field comment). No-op on a bad index. Separate from finder_desk_add so the
+ * R3.2 call sites keep their exact signature. */
+void finder_desk_set_cluster(finder_desk_t *fd, int idx, uint16_t cluster);
 
 /* Find the first icon of `kind`, or -1. */
 int finder_desk_find_kind(const finder_desk_t *fd, finder_icon_kind_t kind);
@@ -343,8 +379,28 @@ finder_drop_t finder_desk_drag_commit(finder_desk_t *fd, int idx,
 #define FINDER_DB_HEADER_SIZE   8u
 #define FINDER_DB_RECORD_SIZE   24u
 #define FINDER_DB_VERSION       1u
+
+/* Record-count capacity. R3.2 shipped desktop icon records only, so the cap WAS
+ * FINDER_DESK_MAX_ICONS. R3.3 (bead initech-tdnl.10) adds the kind=4 per-folder
+ * VIEW records (design F1.3 / F3.3), so the image can now hold both classes and
+ * the cap is their sum. This is a capacity EXTENSION of an already-locked
+ * layout, not a format change: the magic, the version, the 8-byte header and
+ * the 24-byte record shape are untouched, and a count beyond the cap is still
+ * FINDER_DB_ERR_COUNT (fail loud, Rule 2). */
+/* The five record kinds of the LOCKED layout (design F1.3), named so the codec
+ * never spells a bare literal. R3.2 wrote 1/2; R3.3 adds 4. 3 and 5 belong to
+ * the tdnl.11 file-ops slice and are still only reserved values. */
+#define FINDER_DB_KIND_VOLUME   1u   /* volume-pos   (desktop icon)            */
+#define FINDER_DB_KIND_TRASH    2u   /* trash-pos    (desktop icon)            */
+#define FINDER_DB_KIND_ITEM     3u   /* item-pos     (reserved, tdnl.11)       */
+#define FINDER_DB_KIND_VIEW     4u   /* folder-view  (per-folder window state) */
+#define FINDER_DB_KIND_ORIGIN   5u   /* trash-origin (reserved, F1.5)          */
+
+#define FINDER_DB_MAX_VIEWS     8u
+#define FINDER_DB_MAX_RECORDS   ((uint32_t)FINDER_DESK_MAX_ICONS + \
+                                 FINDER_DB_MAX_VIEWS)
 #define FINDER_DB_MAX_BYTES     (FINDER_DB_HEADER_SIZE + \
-                                 (uint32_t)FINDER_DESK_MAX_ICONS * \
+                                 FINDER_DB_MAX_RECORDS * \
                                  FINDER_DB_RECORD_SIZE)
 
 typedef enum finder_db_status {
@@ -372,6 +428,53 @@ uint32_t finder_desk_db_encode(const finder_desk_t *fd, uint8_t *buf,
 finder_db_status_t finder_desk_db_apply(finder_desk_t *fd, const uint8_t *buf,
                                         uint32_t len);
 
+/* ---------------------------------------------------------------------------
+ * kind=4 -- THE PER-FOLDER VIEW RECORD (design F1.3 record kind 4 "folder-view",
+ * F3.3 "per-folder DB records (kind=4): grid origin, view bits ... Keyed by
+ * dir_start. Loaded at window open; saved on close/move").
+ *
+ * DEVIATION, STATED (bead initech-tdnl.10): F3.3 asks the record to carry grid
+ * ORIGIN, view bits AND scroll offsets, and the brief additionally asks for the
+ * window SIZE. The LOCKED 24-byte record (F1.3) has exactly two uint16 position
+ * fields and one uint16 view_bits -- there is no field for a size and no field
+ * for a scroll offset. So this slice persists:
+ *      grid_x, grid_y  <- the window FRAME's top-left corner, in pixels
+ *      view_bits       <- bit0 = list view (always 0 this slice; the List/
+ *                         scrollbar wiring is deferred), bits 1..15 reserved 0
+ * and the window SIZE stays the deterministic default the open path derives.
+ * Widening the record is a deliberate Rule 8 act with its own issue -- silently
+ * bumping the format to make one feature fit is exactly what Rule 8 forbids.
+ * The reserved view_bits are written and read back verbatim, so the field is
+ * already load-bearing for the slice that does add list view.
+ * ---------------------------------------------------------------------------*/
+typedef struct finder_view_rec {
+    uint16_t dir_start;                  /* the folder's first cluster (0=root) */
+    char     name83[FINDER_DESK_NAME_MAX];/* the folder's 8.3 name ("" for root)*/
+    uint16_t x;                          /* window FRAME left                   */
+    uint16_t y;                          /* window FRAME top                    */
+    uint16_t view_bits;                  /* bit0 = list view; others reserved 0 */
+} finder_view_rec_t;
+
+/* Serialise the desktop icons (kind 1/2, exactly as finder_desk_db_encode) and
+ * then `n_views` kind=4 view records, into ONE image. Record ORDER is icons
+ * first, views second, each in array order -- deterministic (Rule 11), so the
+ * same session state always produces the same bytes. Returns the byte count
+ * written, or 0 when `cap` is too small or the record count exceeds
+ * FINDER_DB_MAX_RECORDS (the caller fails loud). `views` may be NULL iff
+ * n_views == 0, in which case the output is byte-identical to
+ * finder_desk_db_encode -- the R3.2 golden still holds. */
+uint32_t finder_desk_db_encode_all(const finder_desk_t *fd,
+                                   const finder_view_rec_t *views,
+                                   uint16_t n_views,
+                                   uint8_t *buf, uint32_t cap);
+
+/* Look up the kind=4 record for `dir_start` in a DB image. Returns 1 and fills
+ * *out when found, 0 when absent, and a NEGATIVE finder_db_status_t when the
+ * image does not validate (the caller then regenerates defaults loudly). The
+ * FIRST matching record wins (the encoder never writes duplicates). */
+int finder_desk_db_find_view(const uint8_t *buf, uint32_t len,
+                             uint16_t dir_start, finder_view_rec_t *out);
+
 /* ===========================================================================
  * 10. PAINTING + THE UNDERLAY SEAM  (design F2-4)
  * ===========================================================================*/
@@ -394,21 +497,27 @@ void finder_desk_invalidate(WindowMgr *wm, rgn_rect_t old_rect,
                             rgn_rect_t new_rect);
 
 /* ===========================================================================
- * 11. THE SHELL TENANT  (design F2-1: the Finder is an always-resident,
- *     compiled-in App Contract tenant, launched FIRST)
+ * 11. THE DESKTOP HALF OF THE SHELL TENANT  (design F2-1: the Finder is an
+ *     always-resident, compiled-in App Contract tenant, launched FIRST)
  * ---------------------------------------------------------------------------
- * open() carves a finder_desk_t + its icon array from the tenant's RECORDS
- * arena (FLAIR_CLASS_HANDLE -- design F1.1), seeds the two default icons from
- * lp->bounds (the usable desktop rect), stores the finder_desk_t in
- * self->userData, and returns 0. It creates NO window: this slice's Finder owns
- * the desktop surface only, so FindWindow/flair_app_dispatch see a tenant with
- * an empty window group and route nothing to it -- which is exactly why the
- * boot foreground (HELLO) and every locked band-2 gate are unchanged. The disk
- * windows arrive at tdnl.10 and the Finder menu bar at tdnl.12.
+ * R3.2 shipped the whole tenant here (finder_desk_procs / finder_desk_of).
+ * R3.3 (bead initech-tdnl.10) MOVED the FlairAppProcs vtable to
+ * os/flair/finder_windows.c, because the tenant now owns disk windows as well
+ * as the desktop and its event() must paint updateEvts -- and a tenant whose
+ * event() is a no-op cannot do that. What stays HERE is the desktop MODEL
+ * build, called by that vtable's open():
+ *
+ *   finder_desk_tenant_build(fd, storage, cap, lp) ==
+ *       finder_desk_init(fd, storage, cap, lp->bounds) + seed_defaults(fd)
+ *
+ * i.e. exactly the two calls R3.2's open() made, in the same order, producing
+ * the same two icons at the same coordinates -- so the boot frame is unchanged
+ * by the move (the load-bearing invariant of this slice). The CALLER supplies
+ * the storage, as always (Law 3).
+ *
+ * Returns 0 on success, -1 when the storage is unusable or the array is full.
  * ===========================================================================*/
-extern const FlairAppProcs finder_desk_procs;
-
-/* Recover the desktop model from a launched Finder tenant (NULL-safe). */
-finder_desk_t *finder_desk_of(FlairApp *app);
+int finder_desk_tenant_build(finder_desk_t *fd, finder_desk_icon_t *storage,
+                             uint16_t cap, const FlairLaunchParams *lp);
 
 #endif /* INITECH_OS_FLAIR_FINDER_DESKTOP_H */

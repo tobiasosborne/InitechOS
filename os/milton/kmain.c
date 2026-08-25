@@ -85,6 +85,23 @@
 #include "finder_cmd.h"          /* FinderCtx -- selection_count is fed from the
                                   * DesktopMgr so tdnl.12's menu enablement reads
                                   * live state the moment it is wired (-Ios/flair)  */
+#include "finder_windows.h"      /* R3.3 disk windows: the Finder shell tenant, the
+                                  * open/close/New Folder/Clean Up verbs, and the
+                                  * finder_fs_t binding THIS file wires to fat12
+                                  * (bead initech-tdnl.10; -Ios/flair)              */
+
+/* THE LAYERING DRIFT TOOTH (bead initech-tdnl.10). os/flair/finder_windows.h
+ * restates the two FAT attribute bits the Finder reads rather than including
+ * spec/dos_structs.h, precisely so the Toolbox names no DOS on-disk structure.
+ * This TU is the ONE place both headers are legitimately in scope, so this is
+ * where the restatement is PROVEN equal -- a renumbering on either side is a
+ * compile error here, never a silently wrong icon (Law 1 / Rule 2). */
+_Static_assert(FINDER_ATTR_VOLLABEL == DIR_ATTR_VOLLABEL,
+               "finder_windows.h FINDER_ATTR_VOLLABEL must equal "
+               "spec/dos_structs.h DIR_ATTR_VOLLABEL");
+_Static_assert(FINDER_ATTR_DIRECTORY == DIR_ATTR_DIRECTORY,
+               "finder_windows.h FINDER_ATTR_DIRECTORY must equal "
+               "spec/dos_structs.h DIR_ATTR_DIRECTORY");
 
 /* NOTES owns a static-lifetime SimpleText-flavored menu fixture. Ref: bead
  * initech-7tjp; spec/flair_tenants_demo.h (titles/items/ID range); PRD Sec 1.1 /
@@ -2355,7 +2372,19 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
  * non-zero (FlairProcess_launch carves all three blocks or none, BC-5). */
 #define FLAIR_FINDER_BUDGET  (4u * 1024u)
 
-static finder_desk_t        *g_finder_desk;    /* the Finder tenant's model    */
+/* The Finder's RECORDS-arena budget (bead initech-tdnl.10). R3.2 passed the
+ * generic FLAIR_TENANT_RECORDS_DEFAULT (16 KiB) because the tenant held only a
+ * finder_desk_t plus 16 icon records. R3.3's finder_shell_t additionally holds
+ * FINDER_WIN_MAX complete windows -- each a WindowRecord, four full region
+ * bundles and a 64-entry icon array -- carved ONCE at launch so a mid-session
+ * window open can never fail on a heap condition (Rule 2). That is ~5 KiB per
+ * slot. 64 KiB out of the 4 MiB master heap (spec/memory_map.h FLAIR_HEAP_SIZE)
+ * is a rounding error, and an over-tight budget would be a LAUNCH failure with
+ * a loud panic, never a half-built Finder. */
+#define FLAIR_FINDER_RECORDS_BUDGET  (64u * 1024u)
+
+static finder_shell_t       *g_finder_shell;   /* the Finder tenant's state    */
+static finder_desk_t        *g_finder_desk;    /* == &g_finder_shell->desk     */
 static finder_click_track_t  g_finder_click;   /* the double-click synthesiser */
 static int                   g_finder_db_dirty;/* positions changed since save */
 
@@ -2371,11 +2400,122 @@ static const fat12_volume_t *g_finder_vol;
 static void                 *g_finder_fat;
 static uint32_t              g_finder_fat_len;
 static void                 *g_finder_secbuf;
-static uint8_t               g_finder_clusbuf[BLOCKDEV_SECTOR_SIZE];
 static char                  g_finder_vol_label[12];
 static uint8_t               g_finder_db_buf[FINDER_DB_MAX_BYTES];
 
+/* Directory scratch for the R3.3 Finder binding (bead initech-tdnl.10).
+ * fat12_read_dir needs sectors_per_cluster*512 bytes to walk a SUBDIR (>= 512
+ * for the fixed root), and fat12_mkdir needs a SECOND, DISTINCT cluster-sized
+ * buffer for the parent-grow zero-fill. The flagship data volume is 1 sector
+ * per cluster, but a volume with a bigger cluster must be REFUSED, not silently
+ * scribbled past the end of a 512-byte buffer -- so both buffers are
+ * FINDER_FS_MAX_SPC sectors and the binding checks the geometry before every
+ * call (Rule 2). */
+#define FINDER_FS_MAX_SPC   8u
+static uint8_t g_finder_dirbuf[FINDER_FS_MAX_SPC * BLOCKDEV_SECTOR_SIZE];
+static uint8_t g_finder_clusbuf[FINDER_FS_MAX_SPC * BLOCKDEV_SECTOR_SIZE];
+
 static int finder_abs(int v) { return v < 0 ? -v : v; }
+
+/* THE COMMAND-TRACE SINK (os/flair/finder_cmd.h banner: the sink is
+ * caller-supplied precisely because os/flair files never call serial_puts --
+ * the artifact binds serial here, the host oracle binds a capture buffer).
+ * Without this binding finder_dispatch would route commands perfectly and say
+ * NOTHING on the wire, which is the silent-success failure mode Rule 2 exists
+ * to forbid. Every dispatched Finder command therefore lands on serial as
+ *     FINDER-CMD id=<n> name=<NAME> src=mouse|key sel=<n>
+ * exactly as design F4.4 specifies. */
+static void finder_trace_serial(void *user, const char *line)
+{
+    (void)user;
+    if (line == (const char *)0) return;
+    serial_puts(line);
+    serial_putc('\n');
+}
+
+/* ---------------------------------------------------------------------------
+ * THE finder_fs_t BINDING (bead initech-tdnl.10). This is the ONLY place FAT
+ * and the Finder meet: os/flair/finder_windows.c consumes function pointers and
+ * never names a fat12 symbol; this file owns the volume handles and the
+ * translation. It is the os/flair/stdfile.h FlairSFEnumProc pattern and the
+ * R3.2 DESKTOP.DB split (bytes in os/flair, I/O here) applied a third time.
+ * ------------------------------------------------------------------------- */
+
+typedef struct finder_fat_enum {
+    finder_enum_cb cb;
+    void          *user;
+} finder_fat_enum_t;
+
+/* The fat12 callback. THE ENTRY IS VALID ONLY DURING THIS CALL (fat12.h ::
+ * fat12_dirent_cb), so the formatted name is built into a stack buffer whose
+ * lifetime is exactly this call and handed on as such; finder_windows.c copies
+ * everything it keeps before returning. */
+static int finder_fat_dirent_cb(const dir_entry_t *e, void *user)
+{
+    finder_fat_enum_t *fe = (finder_fat_enum_t *)user;
+    finder_dirent_t d;
+    char name[FAT12_NAME83_MAX];
+
+    if (e == (const dir_entry_t *)0 || fe == (finder_fat_enum_t *)0) return 0;
+    if (fat12_format_83(e, name) != FAT12_OK) return 0;   /* skip, never guess */
+
+    d.name83        = name;
+    d.attribute     = e->attribute;
+    d.size          = e->file_size;
+    d.start_cluster = e->start_cluster;
+    return fe->cb(&d, fe->user);
+}
+
+static int finder_fat_geometry_ok(void)
+{
+    return g_finder_vol != (const fat12_volume_t *)0 &&
+           g_finder_vol->bpb.sectors_per_cluster >= 1u &&
+           (uint32_t)g_finder_vol->bpb.sectors_per_cluster <= FINDER_FS_MAX_SPC;
+}
+
+static int finder_fat_enumerate(void *fs_user, uint16_t dir_start,
+                                finder_enum_cb cb, void *cb_user)
+{
+    fat12_dir_t dir;
+    finder_fat_enum_t fe;
+    int rc;
+
+    (void)fs_user;
+    if (!finder_fat_geometry_ok() || cb == (finder_enum_cb)0) return -1;
+
+    /* start_cluster == 0 ALWAYS means the fixed root (fat12.h :: fat12_dir_t). */
+    dir.is_root       = (dir_start == 0u) ? 1 : 0;
+    dir.start_cluster = dir_start;
+    fe.cb   = cb;
+    fe.user = cb_user;
+
+    rc = fat12_read_dir(g_finder_vol, &dir, g_finder_dirbuf,
+                        g_finder_fat, g_finder_fat_len,
+                        finder_fat_dirent_cb, &fe);
+    return (rc < 0) ? -1 : 0;
+}
+
+static int finder_fat_mkdir(void *fs_user, const char *name83,
+                            uint16_t parent_dir_start)
+{
+    int rc;
+
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MKDIR;
+
+    rc = fat12_mkdir(g_finder_vol, g_finder_fat, g_finder_fat_len,
+                     name83, parent_dir_start,
+                     g_finder_dirbuf, g_finder_clusbuf);
+    if (rc == FAT12_OK)             return (int)FINDER_WIN_OK;
+    if (rc == FAT12_ERR_DIR_FULL)   return (int)FINDER_WIN_ERR_DIRFULL;
+    return (int)FINDER_WIN_ERR_MKDIR;
+}
+
+static const finder_fs_t g_finder_fs_binding = {
+    finder_fat_enumerate,
+    finder_fat_mkdir,
+    (void *)0
+};
 
 /* Commit the icon positions when (and only when) something actually moved. A
  * boot with no drag writes NOTHING, so every existing gate's disk image and
@@ -2392,8 +2532,18 @@ static void finder_desk_persist(void)
         serial_puts("DESKTOP-DB-WRITE-FAIL rc=0 no-volume\n");
         return;
     }
-    len = finder_desk_db_encode(g_finder_desk, g_finder_db_buf,
-                                (uint32_t)sizeof g_finder_db_buf);
+    /* Desktop icon records THEN the kind=4 per-folder view records (design
+     * F1.3 / F3.3). With no window ever opened the view set is empty and the
+     * image is byte-identical to R3.2's -- which is exactly why the locked
+     * 56-byte on-disk assertion of test-flair-desktop-icons leg 7 still holds. */
+    len = finder_desk_db_encode_all(g_finder_desk,
+                                    (g_finder_shell != (finder_shell_t *)0)
+                                        ? g_finder_shell->views
+                                        : (const finder_view_rec_t *)0,
+                                    (g_finder_shell != (finder_shell_t *)0)
+                                        ? g_finder_shell->n_views : 0u,
+                                    g_finder_db_buf,
+                                    (uint32_t)sizeof g_finder_db_buf);
     if (len == 0u) {
         /* The buffer is sized from the SAME fixed cap the record array is, so a
          * zero here is a programming error, not a disk condition (Rule 2). */
@@ -2405,7 +2555,8 @@ static void finder_desk_persist(void)
                           g_finder_db_buf, len);
     if (rc == FAT12_OK) {
         serial_puts("DESKTOP-DB-SAVE n=");
-        serial_putu((uint32_t)g_finder_desk->n);
+        serial_putu((uint32_t)((len - FINDER_DB_HEADER_SIZE) /
+                               FINDER_DB_RECORD_SIZE));
         serial_putc('\n');
     } else {
         serial_puts("DESKTOP-DB-WRITE-FAIL rc=");
@@ -2439,6 +2590,20 @@ static void finder_desk_load_positions(void)
     if (finder_desk_db_apply(g_finder_desk, g_finder_db_buf, len) !=
         FINDER_DB_OK) {
         serial_puts("DESKTOP-DB-POS-REGEN\n");
+        return;
+    }
+    /* R3.3: the same image also carries the kind=4 per-folder view records, so
+     * a disk window opened later reappears where the user last left it (design
+     * F3.3 "Loaded at window open"). A corrupt image contributes none and every
+     * window falls back to its cascaded default -- the F1.3 posture. */
+    if (g_finder_shell != (finder_shell_t *)0) {
+        uint16_t views = finder_shell_load_views(g_finder_shell,
+                                                 g_finder_db_buf, len);
+        if (views != 0u) {
+            serial_puts("DESKTOP-DB-VIEWS n=");
+            serial_putu((uint32_t)views);
+            serial_putc('\n');
+        }
     }
 }
 
@@ -2552,20 +2717,90 @@ static void flair_tenant_mount_volume(void)
  * (chrome -> content -> present). Icons are painted by the underlay inside
  * desktop_paint_damage, clipped to exactly the desktop-owned damage.
  * ------------------------------------------------------------------------- */
+/* Recompute the FinderCtx predicate state. With a shell present this delegates
+ * to finder_shell_sync_ctx so there is exactly ONE definition of what
+ * "selection_count" means (the FRONT disk window's selection when one is open,
+ * the desktop's otherwise) and of front_is_diskwin -- two callers computing it
+ * two ways is how a predicate quietly starts lying (design F4.4: the menu
+ * enablement bits are recomputed from live state before every dispatch). The
+ * shell-less fallback is the R3.2 behaviour, unchanged. */
 static void finder_desk_sync_ctx(void)
 {
+    if (g_finder_shell != (finder_shell_t *)0) {
+        finder_shell_sync_ctx(g_finder_shell);
+        return;
+    }
     g_finder_ctx.selection_count =
         (g_finder_desk != (finder_desk_t *)0)
             ? finder_desk_selection_count(g_finder_desk) : 0u;
 }
 
-static void finder_desk_invalidate_all(flair_live_ctx_t *ctx)
+/* ---------------------------------------------------------------------------
+ * R3.3 (bead initech-tdnl.10): ONE gesture handler, TWO surfaces.
+ *
+ * A finder_surface_t names WHICH icon model a mouseDown is aimed at -- the
+ * desktop, or the content area of one open disk window. Everything else about
+ * the gesture is identical, because design F2-5 made the trackers pure
+ * functions of numbers and a disk window's finder_desk_t is just one whose
+ * `bounds` are its content rect. So there is ONE tracked-gesture routine, not
+ * two copies that drift apart (the alternative was a 120-line duplicate of
+ * flair_live_do_desk, which is exactly the sort of thing Rule 3 calls a latent
+ * bug). What the surface changes is only:
+ *   - where damage goes: WindowMgr_invalidate_desktop for the desktop,
+ *     WindowMgr_invalidate(window) for a window (design F2-4 seam 2 vs the
+ *     ordinary owned-window update path);
+ *   - which serial markers are emitted (the locked R3.2 FINDER-ICON-* set for
+ *     the desktop, the FINDER-WIN-* set for a window -- finder_windows.h);
+ *   - what a DOUBLE-CLICK opens.
+ * ------------------------------------------------------------------------- */
+typedef struct finder_surface {
+    finder_desk_t        *fd;      /* the icon model this gesture works on     */
+    finder_click_track_t *click;   /* that surface's double-click synthesiser  */
+    int                   slot;    /* window slot, or -1 for THE DESKTOP       */
+} finder_surface_t;
+
+static void finder_surface_desktop(finder_surface_t *s)
 {
-    if (g_finder_desk == (finder_desk_t *)0) return;
-    for (int i = 0; i < (int)g_finder_desk->n; i++) {
-        WindowMgr_invalidate_desktop(ctx->wm,
-                                     finder_desk_cell_rect(g_finder_desk, i));
+    s->fd    = g_finder_desk;
+    s->click = &g_finder_click;
+    s->slot  = -1;
+}
+
+static int finder_surface_window(finder_surface_t *s, int slot)
+{
+    if (g_finder_shell == (finder_shell_t *)0 ||
+        slot < 0 || slot >= FINDER_WIN_MAX ||
+        !g_finder_shell->windows[slot].open)
+        return 0;
+    s->fd    = &g_finder_shell->windows[slot].view;
+    s->click = &g_finder_shell->windows[slot].click;
+    s->slot  = slot;
+    return 1;
+}
+
+/* Damage every icon cell of a surface through ITS one damage entry point. */
+static void finder_surface_invalidate_all(const finder_surface_t *s,
+                                          flair_live_ctx_t *ctx)
+{
+    if (s->fd == (finder_desk_t *)0) return;
+    if (s->slot < 0) {
+        for (int i = 0; i < (int)s->fd->n; i++)
+            WindowMgr_invalidate_desktop(ctx->wm,
+                                         finder_desk_cell_rect(s->fd, i));
+        return;
     }
+    finder_win_invalidate_all(g_finder_shell, s->slot);
+}
+
+static void finder_surface_invalidate(const finder_surface_t *s,
+                                      flair_live_ctx_t *ctx,
+                                      rgn_rect_t old_rect, rgn_rect_t new_rect)
+{
+    if (s->slot < 0) {
+        finder_desk_invalidate(ctx->wm, old_rect, new_rect);
+        return;
+    }
+    finder_win_invalidate(g_finder_shell, s->slot, old_rect, new_rect);
 }
 
 static void finder_desk_repaint(flair_live_ctx_t *ctx, const boot_info_t *bi)
@@ -2575,25 +2810,131 @@ static void finder_desk_repaint(flair_live_ctx_t *ctx, const boot_info_t *bi)
     flair_desktop_present(bi, &ctx->off);
 }
 
-/* One desktop mouseDown, tracked to mouseUp (the flair_live_do_drag idiom:
- * re-enter WaitNextEvent until release, bounded by a tick guard, Rule 11).
+/* ---------------------------------------------------------------------------
+ * Opening a disk window, and the two serial reports that go with it. The verbs
+ * themselves live in os/flair/finder_windows.c; what is HERE is what cannot be
+ * there: the markers, and the DQ2 repaint cycle that needs the live offscreen.
+ * ------------------------------------------------------------------------- */
+static void finder_report_open_fail(finder_win_status_t st)
+{
+    if (st == FINDER_WIN_ERR_FULL) {
+        serial_puts("FINDER-WIN-FULL\n");
+    } else {
+        serial_puts("FINDER-WIN-OPEN-FAIL rc=");
+        serial_puti((int32_t)st);
+        serial_putc('\n');
+    }
+}
+
+/* Report the per-window icon cap when it bit (design F1.1: fail loud; a window
+ * that silently showed 64 of 224 entries would be a lie). */
+static void finder_report_dropped(int slot)
+{
+    uint16_t dropped;
+    if (g_finder_shell == (finder_shell_t *)0 || slot < 0) return;
+    dropped = g_finder_shell->windows[slot].dropped;
+    if (dropped == 0u) return;
+    serial_puts("FINDER-WIN-ICONS-FULL win=");
+    serial_puti((int32_t)slot);
+    serial_puts(" dropped=");
+    serial_putu((uint32_t)dropped);
+    serial_putc('\n');
+}
+
+static void finder_open_volume(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    int slot = -1;
+    int singleton = 0;
+    finder_win_status_t st;
+
+    if (g_finder_shell == (finder_shell_t *)0) return;
+    st = finder_win_open(g_finder_shell, 0u /* root */, "", 1u,
+                         &slot, &singleton);
+    if (st != FINDER_WIN_OK) { finder_report_open_fail(st); return; }
+
+    finder_desk_repaint(ctx, bi);
+    /* THE R3.2 RE-KEY (finder_windows.h): this line REPLACES the old
+     * "FINDER-OPEN-VOLUME NYI". The window really opened and the volume really
+     * enumerated, so the marker carries both facts. */
+    serial_puts("FINDER-OPEN-VOLUME win=");
+    serial_puti((int32_t)slot);
+    serial_puts(" n=");
+    serial_putu((uint32_t)g_finder_shell->windows[slot].view.n);
+    serial_putc('\n');
+    finder_report_dropped(slot);
+}
+
+static void finder_open_folder(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               uint16_t dir_start, const char *name83)
+{
+    int slot = -1;
+    int singleton = 0;
+    finder_win_status_t st;
+
+    if (g_finder_shell == (finder_shell_t *)0) return;
+    st = finder_win_open(g_finder_shell, dir_start, name83, 0u,
+                         &slot, &singleton);
+    if (st != FINDER_WIN_OK) { finder_report_open_fail(st); return; }
+
+    finder_desk_repaint(ctx, bi);
+    serial_puts("FINDER-OPEN-FOLDER name=");
+    serial_puts(name83);
+    serial_puts(" win=");
+    serial_puti((int32_t)slot);
+    serial_puts(" singleton=");
+    serial_puti((int32_t)singleton);
+    serial_putc('\n');
+    if (!singleton) finder_report_dropped(slot);
+}
+
+/* A double-click on an icon of `s`. The DESKTOP opens the volume (the Trash is
+ * the tdnl.11 file-ops slice); a WINDOW opens a folder, and says so out loud
+ * for a document or an application because launching is tdnl.14 -- a silent
+ * no-op would be indistinguishable from a broken double-click (Rule 2). */
+static void finder_surface_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                const finder_surface_t *s, int idx)
+{
+    const finder_desk_icon_t *ic = &s->fd->icons[idx];
+
+    if (s->slot < 0) {
+        if (ic->kind == (uint8_t)FINDER_ICON_TRASH) {
+            serial_puts("FINDER-OPEN-TRASH NYI\n");
+            return;
+        }
+        finder_open_volume(ctx, bi);
+        return;
+    }
+    if (ic->kind == (uint8_t)FINDER_ICON_FOLDER) {
+        finder_open_folder(ctx, bi, ic->dir_start, ic->name);
+        return;
+    }
+    serial_puts("FINDER-OPEN-ITEM NYI name=");
+    serial_puts(ic->name);
+    serial_putc('\n');
+}
+
+/* One mouseDown on a Finder surface, tracked to mouseUp (the flair_live_do_drag
+ * idiom: re-enter WaitNextEvent until release, bounded by a tick guard,
+ * Rule 11).
  *
  * Feedback is the R0.1 save-under outline -- there is no XOR blit in FLAIR
  * (design F2-5) -- and it is drawn ONLY once the gesture passes the drag slop,
  * so a plain click never touches a single pixel of the frame.
  *
  * The gesture CLASSIFICATION is entirely the pure trackers':
- *   click on bare desktop   -> deselect all            FINDER-ICON-DESELECT-ALL
- *   drag  on bare desktop   -> rubber band             FINDER-MARQUEE
- *   click on an icon        -> select / shift-extend   FINDER-ICON-SELECT
- *   double-click on an icon -> open (NYI this slice)   FINDER-OPEN-{VOLUME,TRASH}
- *   drag  on an icon        -> reposition + persist    FINDER-ICON-DRAG
+ *   click on bare surface   -> deselect all            *-DESELECT-ALL
+ *   drag  on bare surface   -> rubber band             *-MARQUEE
+ *   click on an icon        -> select / shift-extend   *-SELECT
+ *   double-click on an icon -> open                    FINDER-OPEN-*
+ *   drag  on an icon        -> reposition (+ persist)  *-DRAG
  *   drag  on a fixed icon   -> refuse                  FINDER-ICON-DRAG-REVERT
+ * where * is FINDER-ICON on the desktop and FINDER-WIN in a disk window.
  */
-static void flair_live_do_desk(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                               const EventRecord *ev)
+static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                  const EventRecord *ev,
+                                  const finder_surface_t *s)
 {
-    finder_desk_t *fd = g_finder_desk;
+    finder_desk_t *fd = s->fd;
     EventRecord    up;
     flair_point_t  where0;
     flair_point_t  where1;
@@ -2652,74 +2993,273 @@ static void flair_live_do_desk(flair_live_ctx_t *ctx, const boot_info_t *bi,
     }
 
     if (!moved && idx < 0) {
-        /* A click on bare desktop clears the selection. */
+        /* A click on bare surface clears the selection. */
         uint16_t before = finder_desk_selection_count(fd);
-        (void)finder_click_classify(&g_finder_click, -1, where0.h, where0.v,
-                                    ev->when);
+        (void)finder_click_classify(s->click, -1, where0.h, where0.v, ev->when);
         finder_desk_deselect_all(fd);
         if (before != 0u) {
-            finder_desk_invalidate_all(ctx);
+            finder_surface_invalidate_all(s, ctx);
             finder_desk_repaint(ctx, bi);
         }
-        serial_puts("FINDER-ICON-DESELECT-ALL\n");
+        if (s->slot < 0) {
+            serial_puts("FINDER-ICON-DESELECT-ALL\n");
+        } else {
+            serial_puts("FINDER-WIN-DESELECT-ALL win=");
+            serial_puti((int32_t)s->slot);
+            serial_putc('\n');
+        }
     } else if (!moved) {
         /* A click on an icon: select (shift EXTENDS), or open on a double. */
         finder_click_kind_t k =
-            finder_click_classify(&g_finder_click, (int16_t)idx,
+            finder_click_classify(s->click, (int16_t)idx,
                                   where0.h, where0.v, ev->when);
         if (k == FINDER_CLICK_DOUBLE) {
-            /* The preceding single already selected it; opening is the tdnl.10
-             * disk-window slice, so this slice announces the intent (Rule 2:
-             * loud on serial, never a silent no-op). */
-            serial_puts(fd->icons[idx].kind == (uint8_t)FINDER_ICON_TRASH
-                            ? "FINDER-OPEN-TRASH NYI\n"
-                            : "FINDER-OPEN-VOLUME NYI\n");
+            /* The preceding single already selected it. */
+            finder_surface_open(ctx, bi, s, idx);
         } else {
             if ((ev->modifiers & (uint16_t)FLAIR_EVT_MOD_SHIFT_KEY) != 0u) {
                 finder_desk_select_extend(fd, idx);
             } else {
                 finder_desk_select_only(fd, idx);
             }
-            finder_desk_invalidate_all(ctx);
+            finder_surface_invalidate_all(s, ctx);
             finder_desk_repaint(ctx, bi);
-            serial_puts("FINDER-ICON-SELECT name=");
-            serial_puts(fd->icons[idx].name);
-            serial_puts(" count=");
-            serial_putu((uint32_t)finder_desk_selection_count(fd));
-            serial_putc('\n');
+            if (s->slot < 0) {
+                serial_puts("FINDER-ICON-SELECT name=");
+                serial_puts(fd->icons[idx].name);
+                serial_puts(" count=");
+                serial_putu((uint32_t)finder_desk_selection_count(fd));
+                serial_putc('\n');
+            } else {
+                serial_puts("FINDER-WIN-SELECT win=");
+                serial_puti((int32_t)s->slot);
+                serial_puts(" name=");
+                serial_puts(fd->icons[idx].name);
+                serial_puts(" count=");
+                serial_putu((uint32_t)finder_desk_selection_count(fd));
+                serial_putc('\n');
+            }
         }
     } else if (idx < 0) {
-        /* A rubber band over bare desktop. */
+        /* A rubber band over bare surface. */
         uint16_t n = finder_desk_marquee_select(
             fd, finder_band_rect(where0.h, where0.v, where1.h, where1.v));
-        finder_desk_invalidate_all(ctx);
+        finder_surface_invalidate_all(s, ctx);
         finder_desk_repaint(ctx, bi);
-        serial_puts("FINDER-MARQUEE n=");
-        serial_putu((uint32_t)n);
-        serial_putc('\n');
+        if (s->slot < 0) {
+            serial_puts("FINDER-MARQUEE n=");
+            serial_putu((uint32_t)n);
+            serial_putc('\n');
+        } else {
+            serial_puts("FINDER-WIN-MARQUEE win=");
+            serial_puti((int32_t)s->slot);
+            serial_puts(" n=");
+            serial_putu((uint32_t)n);
+            serial_putc('\n');
+        }
     } else {
         /* An icon drag. */
         rgn_rect_t old_cell, new_cell;
         finder_drop_t drop = finder_desk_drag_commit(fd, idx, dh, dv,
                                                      &old_cell, &new_cell);
         if (drop == FINDER_DROP_MOVED) {
-            finder_desk_invalidate(ctx->wm, old_cell, new_cell);
+            finder_surface_invalidate(s, ctx, old_cell, new_cell);
             finder_desk_repaint(ctx, bi);
-            serial_puts("FINDER-ICON-DRAG name=");
-            serial_puts(fd->icons[idx].name);
-            serial_puts(" x=");
-            serial_puti((int32_t)fd->icons[idx].x);
-            serial_puts(" y=");
-            serial_puti((int32_t)fd->icons[idx].y);
-            serial_putc('\n');
-            g_finder_db_dirty = 1;
-            finder_desk_persist();
+            if (s->slot < 0) {
+                serial_puts("FINDER-ICON-DRAG name=");
+                serial_puts(fd->icons[idx].name);
+                serial_puts(" x=");
+                serial_puti((int32_t)fd->icons[idx].x);
+                serial_puts(" y=");
+                serial_puti((int32_t)fd->icons[idx].y);
+                serial_putc('\n');
+                /* Only DESKTOP positions live in \DESKTOP.DB this slice: the
+                 * locked 24-byte layout has a kind=3 "item-pos" record for
+                 * per-item positions inside a folder, but it belongs to the
+                 * tdnl.11 file-ops slice (design F1.3). A window's icons are
+                 * laid out from the grid on every open, which is deterministic
+                 * and honest -- pretending otherwise would need a record class
+                 * this slice does not write. */
+                g_finder_db_dirty = 1;
+                finder_desk_persist();
+            } else {
+                serial_puts("FINDER-WIN-DRAG win=");
+                serial_puti((int32_t)s->slot);
+                serial_puts(" name=");
+                serial_puts(fd->icons[idx].name);
+                serial_puts(" x=");
+                serial_puti((int32_t)fd->icons[idx].x);
+                serial_puts(" y=");
+                serial_puti((int32_t)fd->icons[idx].y);
+                serial_putc('\n');
+            }
         } else if (drop == FINDER_DROP_REVERT) {
             serial_puts("FINDER-ICON-DRAG-REVERT\n");
         }
     }
 
     finder_desk_sync_ctx();
+}
+
+static void flair_live_do_desk(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               const EventRecord *ev)
+{
+    finder_surface_t s;
+    finder_surface_desktop(&s);
+    flair_live_do_surface(ctx, bi, ev, &s);
+}
+
+static void flair_live_do_finder_content(flair_live_ctx_t *ctx,
+                                         const boot_info_t *bi,
+                                         const EventRecord *ev, int slot)
+{
+    finder_surface_t s;
+    if (!finder_surface_window(&s, slot)) return;
+    flair_live_do_surface(ctx, bi, ev, &s);
+}
+
+/* The go-away box on a FINDER-owned window (design F2-3, the anti-8fhu
+ * refinement): DisposeWindow ONLY, view state saved, the Finder lives on. The
+ * generic flair_live_do_close would have run FlairProcess_close_window, which
+ * for a tenant's LAST window terminates the tenant -- and terminating the
+ * always-resident shell is precisely the bug F2-3 exists to prevent. */
+static void flair_live_do_finder_close(flair_live_ctx_t *ctx,
+                                       const boot_info_t *bi, int slot)
+{
+    if (g_finder_shell == (finder_shell_t *)0) return;
+    if (finder_win_close(g_finder_shell, slot) != FINDER_WIN_OK) return;
+
+    finder_desk_repaint(ctx, bi);
+    serial_puts("FINDER-CLOSE-WINDOW win=");
+    serial_puti((int32_t)slot);
+    serial_putc('\n');
+
+    /* The saved view state is a DESKTOP.DB change like any icon move. */
+    g_finder_db_dirty = 1;
+    finder_desk_persist();
+}
+
+/* Report + service whatever the command spine's shell hook just did. ONE
+ * command, ONE outcome, ONE report (finder_windows.h finder_cmd_outcome_t). */
+static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    const finder_cmd_outcome_t *o;
+
+    if (g_finder_shell == (finder_shell_t *)0) return;
+    o = finder_shell_take_outcome(g_finder_shell);
+    if (o == (const finder_cmd_outcome_t *)0) return;
+
+    switch (o->id) {
+    case FCMD_NEW_FOLDER:
+        if (o->status == FINDER_WIN_OK) {
+            finder_win_invalidate_all(g_finder_shell, o->slot);
+            finder_desk_repaint(ctx, bi);
+            serial_puts("FINDER-NEW-FOLDER name=");
+            serial_puts(o->name83);
+            serial_puts(" parent=");
+            serial_putu((uint32_t)o->parent);
+            serial_putc('\n');
+            finder_report_dropped(o->slot);
+        } else if (o->status == FINDER_WIN_ERR_DIRFULL) {
+            /* The fixed root cannot grow (design F3.1). The period ALERT is the
+             * tdnl.11 slice; until then this is loud on serial and NEVER
+             * silent (Rule 2). */
+            serial_puts("FINDER-DIR-FULL parent=");
+            serial_putu((uint32_t)o->parent);
+            serial_putc('\n');
+        } else {
+            serial_puts("FINDER-NEW-FOLDER-FAIL rc=");
+            serial_puti((int32_t)o->status);
+            serial_putc('\n');
+        }
+        return;
+
+    case FCMD_CLEANUP:
+        if (o->status != FINDER_WIN_OK) return;
+        if (o->moved != 0) {
+            finder_win_invalidate_all(g_finder_shell, o->slot);
+            finder_desk_repaint(ctx, bi);
+        }
+        serial_puts("FINDER-CLEANUP win=");
+        serial_puti((int32_t)o->slot);
+        serial_puts(" moved=");
+        serial_puti((int32_t)o->moved);
+        serial_putc('\n');
+        return;
+
+    case FCMD_CLOSE_WINDOW:
+        if (o->status != FINDER_WIN_OK) return;
+        finder_desk_repaint(ctx, bi);
+        serial_puts("FINDER-CLOSE-WINDOW win=");
+        serial_puti((int32_t)o->slot);
+        serial_putc('\n');
+        g_finder_db_dirty = 1;
+        finder_desk_persist();
+        return;
+
+    case FCMD_OPEN:
+        if (o->status != FINDER_WIN_OK) return;
+        finder_desk_repaint(ctx, bi);
+        serial_puts("FINDER-OPEN-FOLDER name=");
+        serial_puts(o->name83);
+        serial_puts(" win=");
+        serial_puti((int32_t)o->slot);
+        serial_puts(" singleton=");
+        serial_puti((int32_t)o->singleton);
+        serial_putc('\n');
+        return;
+
+    default:
+        return;
+    }
+}
+
+/* THE Cmd-KEY ARM (design F4.4's keyboard path, bead initech-tdnl.10).
+ *
+ * WHY IT IS INTERCEPTED HERE rather than delivered through flair_app_dispatch:
+ * process.c routes keyDown to the FOREGROUND TENANT (list->head), and opening a
+ * disk window raises the WINDOW without promoting the Finder in the process
+ * list -- promotion would swap band 2 to a Finder menu bar that does not exist
+ * until tdnl.12, re-keying every locked band-2 gate as a side effect. So this
+ * slice uses the honest intermediate rule: a Ctrl chord goes to the Finder when
+ * a FINDER-OWNED WINDOW IS FRONTMOST in the z-order. tdnl.12 lands the Finder
+ * bar, the process-list promotion and MenuKey() over that bar together, and
+ * this arm becomes the ordinary foreground delivery it is standing in for.
+ *
+ * Returns 1 when the chord was consumed (the pump must not route it onward).
+ */
+static int flair_live_finder_key(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                 const EventRecord *ev)
+{
+    const finder_cmd_t *c;
+    char ch;
+
+    if (g_finder_shell == (finder_shell_t *)0) return 0;
+    if (ev->what != (uint16_t)keyDown) return 0;
+    /* PC Ctrl IS Cmd (GUI-remediation-plan R1.6, cited by design F4.4's
+     * keyboard-path bullet). os/flair/event.c cooks a PS/2 Ctrl press into
+     * FLAIR_EVT_MOD_CONTROL_KEY -- it never sets FLAIR_EVT_MOD_CMD_KEY, because
+     * a PC keyboard has no Command key to report. Both are accepted here so
+     * that a future real Cmd source (an ADB-style mapping, or the R4.5 panel)
+     * needs no edit, and so that reading only the Mac-named bit -- which on
+     * this hardware is never set -- cannot silently make the whole chord path
+     * dead code. */
+    if ((ev->modifiers & (uint16_t)(FLAIR_EVT_MOD_CONTROL_KEY |
+                                    FLAIR_EVT_MOD_CMD_KEY)) == 0u) return 0;
+    if (finder_win_front_slot(g_finder_shell) < 0) return 0;
+
+    ch = (char)(ev->message & 0xFFu);          /* event.c cooks (vkey<<8)|ascii */
+    c  = finder_cmd_key_lookup(ch);
+    if (c == (const finder_cmd_t *)0) return 0;
+
+    /* The ONE spine (F4-4): the keyboard converges on finder_dispatch exactly
+     * as the mouse will, the predicate is evaluated there, and the trace line
+     * is the ordinary FINDER-CMD ... src=key. */
+    finder_shell_sync_ctx(g_finder_shell);
+    finder_dispatch(&g_finder_ctx, finder_cmd_result(c), "key");
+    finder_report_outcome(ctx, bi);
+    finder_desk_sync_ctx();
+    return 1;
 }
 #endif
 
@@ -3098,15 +3638,16 @@ void kernel_main(void)
         db.bottom = (int16_t)FLAIR_SCREEN_H;
         db.right  = (int16_t)FLAIR_SCREEN_W;
         ten_finder = FlairProcess_launch(&ten_plist, ctx.wm, &ctx.off, ctx.master,
-                                         &finder_desk_procs, "FINDER", db,
-                                         (uint32_t)FLAIR_TENANT_RECORDS_DEFAULT,
+                                         &finder_shell_procs, "FINDER", db,
+                                         (uint32_t)FLAIR_FINDER_RECORDS_BUDGET,
                                          (uint32_t)FLAIR_FINDER_BUDGET);
         if (ten_finder == (FlairApp *)0) {
             serial_puts("PANIC flair-tenants: FINDER launch returned NULL "
                         "(budget/heap exhausted)\nHALTED\n");
             for (;;) { __asm__ __volatile__("cli; hlt"); }
         }
-        g_finder_desk = finder_desk_of(ten_finder);
+        g_finder_shell = finder_shell_of(ten_finder);
+        g_finder_desk  = finder_shell_desk(g_finder_shell);
         if (g_finder_desk == (finder_desk_t *)0) {
             serial_puts("PANIC flair-tenants: FINDER has no desktop model\n"
                         "HALTED\n");
@@ -3126,6 +3667,14 @@ void kernel_main(void)
         /* Design F2-4 seam 1: from here on, desktop.c draws the icon layer at
          * BOTH of its background-fill sites, clipped to desktop-owned pixels. */
         finder_desk_install_underlay(g_finder_desk, ctx.wm);
+        /* R3.3 (bead initech-tdnl.10): give the shell its FAT binding and its
+         * command context. The binding is the ONE place the Finder can reach
+         * the volume; the context makes the Ctrl-chord path dispatch through
+         * the single command spine with this shell as its execution hook. */
+        finder_shell_bind_fs(g_finder_shell, &g_finder_fs_binding);
+        g_finder_ctx.trace      = finder_trace_serial;
+        g_finder_ctx.trace_user = (void *)0;
+        finder_shell_bind_ctx(g_finder_shell, &g_finder_ctx);
         finder_desk_sync_ctx();
         serial_puts("FINDER-DESKTOP-ICONS n=");
         serial_putu((uint32_t)g_finder_desk->n);
@@ -3443,6 +3992,17 @@ void kernel_main(void)
                 continue;
             }
 
+            /* R3.3 (bead initech-tdnl.10): a Ctrl chord with a FINDER window
+             * frontmost is a Finder command -- New Folder, Clean Up, Close
+             * Window, Open. Intercepted BEFORE the Layer-5 dispatch for the
+             * same reason the SAMIR hotkey above is: keyboard focus follows the
+             * foreground TENANT (process.c), and this slice deliberately does
+             * not promote the Finder to foreground (that swaps band 2 to a menu
+             * bar tdnl.12 has not built yet). See flair_live_finder_key. */
+            if (flair_live_finder_key(&ctx, &b, &ev)) {
+                continue;
+            }
+
             /* Resolve the physical chrome target against the original z-order.
              * flair_app_dispatch independently demuxes the same ORIGINAL event;
              * this cached hit is only for the shell verb after switch finishing. */
@@ -3486,7 +4046,17 @@ void kernel_main(void)
                 if (chrome_pc == inDrag && chrome_w != (WindowPtr)0) {
                     flair_live_do_drag(&ctx, &b, chrome_w, ev.where);
                 } else if (chrome_pc == inGoAway && chrome_w != (WindowPtr)0) {
-                    flair_live_do_close(&ctx, &b, chrome_w, &ten_barport);
+                    /* R3.3 / design F2-3: disposition is by OWNER IDENTITY. A
+                     * FINDER-owned disk window is shell furniture -- close it
+                     * with DisposeWindow and keep the always-resident Finder
+                     * alive; the generic path would have run the tenant
+                     * terminate that F2-3 exists to prevent. */
+                    int fslot = (g_finder_shell != (finder_shell_t *)0)
+                        ? finder_win_slot_of(g_finder_shell, chrome_w) : -1;
+                    if (fslot >= 0)
+                        flair_live_do_finder_close(&ctx, &b, fslot);
+                    else
+                        flair_live_do_close(&ctx, &b, chrome_w, &ten_barport);
                 } else if ((chrome_pc == inZoomIn || chrome_pc == inZoomOut) &&
                            chrome_w != (WindowPtr)0) {
                     flair_live_do_zoom(&ctx, &b, chrome_w);
@@ -3535,6 +4105,21 @@ void kernel_main(void)
                     ev.where.v >= (int16_t)(SHELL_MENUBAR2_TOP +
                                             FLAIR_MENUBAR_H)) {
                     flair_live_do_desk(&ctx, &b, &ev);
+                }
+
+                /* R3.3 DISK-WINDOW CONTENT GESTURES (bead initech-tdnl.10).
+                 * Same shape as the inDesk arm above and for the same reason:
+                 * a content click may start a marquee or an icon drag, both of
+                 * which must be tracked to mouseUp through WaitNextEvent -- a
+                 * live-pump concern. flair_app_dispatch has already delivered
+                 * the click to the Finder (whose event() deliberately ignores
+                 * mouseDown, finder_windows.c) and has already run the
+                 * click-to-activate raise, so by here the window is front. */
+                if (chrome_pc == inContent && chrome_w != (WindowPtr)0 &&
+                    g_finder_shell != (finder_shell_t *)0) {
+                    int fslot = finder_win_slot_of(g_finder_shell, chrome_w);
+                    if (fslot >= 0)
+                        flair_live_do_finder_content(&ctx, &b, &ev, fslot);
                 }
             }
 

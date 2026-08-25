@@ -57,7 +57,8 @@
 #include "region_algebra.h"   /* the LOCKED region contract (-Ispec)           */
 #include "region.h"           /* region_from_rects (-Ios/flair/atkinson)       */
 #include "surface.h"          /* bitmap_t + surface_get_pixel (-Ios/flair)     */
-#include "desk_icons.h"       /* the LOCKED strikes (-Ispec/assets)            */
+#include "desk_icons.h"
+#include "finder_icons.h"    /* the R3.3 FOLDER / DOC / APP strikes (-Ispec/assets) */       /* the LOCKED strikes (-Ispec/assets)            */
 #include "finder_icon.h"      /* the blitter under test (-Ios/flair)           */
 #include "test_assert.h"      /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)      */
 
@@ -266,6 +267,194 @@ static const probe_t TRASH_PROBES[] = {
     { 29, 15, DESK_TONE_INK   }   /* basket base                              */
 };
 enum { TRASH_PROBE_N = (int)(sizeof TRASH_PROBES / sizeof TRASH_PROBES[0]) };
+
+
+/* ===========================================================================
+ * R3.3 DISK-WINDOW STRIKES (bead initech-tdnl.10; spec/assets/finder_icons.h)
+ * ---------------------------------------------------------------------------
+ * The same discipline as the two R3.2 strikes above, applied to the three the
+ * disk windows draw: FOLDER, DOCUMENT and APPLICATION.
+ *
+ * THE TABLES BELOW ARE READ OFF THE ASCII PIXEL MAPS IN
+ * spec/assets/finder_icons.h -- the map is the AUTHORED artifact and the source
+ * of truth; the packed words are its transcription (that header's PROVENANCE
+ * block says so, and says the map wins if the two disagree). Each row's map
+ * line is reproduced in the comment beside its counts, so the table is
+ * auditable by eye against the header without leaving this file.
+ *
+ * THIS IS A REAL DIFFERENTIAL, not a tautology (Law 2 / HER-02): these counts
+ * come from the MAP, the blitter under test consumes the WORDS, and the two are
+ * different representations. A word edited without the map to justify it -- or
+ * a transcription slip in the first place -- makes the drawn row counts diverge
+ * from the counted map row and this goes RED.
+ *
+ * The blitter itself is shared with the R3.2 strikes, so the MASK_IGNORED /
+ * ROW_OFF1 mutants that already prove it bites cover these three for free; what
+ * the per-strike tables and probes add is coverage of the DATA.
+ * ===========================================================================*/
+static const rowcount_t FOLDER_ROWS[DESK_ICON_DIM] = {
+    {  0,  0,  0 },   /* row  0  ................................ */
+    {  0,  0,  0 },   /* row  1  ................................ */
+    {  0,  0,  0 },   /* row  2  ................................ */
+    { 10,  0, 10 },   /* row  3  ...##########................... */
+    {  2,  0, 10 },   /* row  4  ...#wwwwwwww#................... */
+    { 19,  0, 27 },   /* row  5  ...#wwwwwwww##################.. */
+    {  2,  0, 27 },   /* row  6  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    { 27,  0, 27 },   /* row  7  ...###########################.. */
+    {  2,  0, 27 },   /* row  8  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row  9  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 10  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 11  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 12  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 13  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 14  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 15  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 16  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 17  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 18  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 19  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 20  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 21  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 22  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 23  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2,  0, 27 },   /* row 24  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
+    {  2, 25, 27 },   /* row 25  ...#ggggggggggggggggggggggggg#.. */
+    {  2, 25, 27 },   /* row 26  ...#ggggggggggggggggggggggggg#.. */
+    { 27,  0, 27 },   /* row 27  ...###########################.. */
+    {  0,  0,  0 },   /* row 28  ................................ */
+    {  0,  0,  0 },   /* row 29  ................................ */
+    {  0,  0,  0 },   /* row 30  ................................ */
+    {  0,  0,  0 },   /* row 31  ................................ */
+};
+
+static const rowcount_t DOC_ROWS[DESK_ICON_DIM] = {
+    {  0,  0,  0 },   /* row  0  ................................ */
+    {  0,  0,  0 },   /* row  1  ................................ */
+    { 15,  0, 15 },   /* row  2  ......###############........... */
+    {  3,  0, 16 },   /* row  3  ......#wwwwwwwwwwwww##.......... */
+    {  3,  1, 17 },   /* row  4  ......#wwwwwwwwwwwww#g#......... */
+    {  3,  2, 18 },   /* row  5  ......#wwwwwwwwwwwww#gg#........ */
+    {  3,  3, 19 },   /* row  6  ......#wwwwwwwwwwwww#ggg#....... */
+    {  7,  0, 20 },   /* row  7  ......#wwwwwwwwwwwww######...... */
+    {  2,  0, 20 },   /* row  8  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2,  0, 20 },   /* row  9  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2,  0, 20 },   /* row 10  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2,  0, 20 },   /* row 11  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2, 14, 20 },   /* row 12  ......#wwggggggggggggggww#...... */
+    {  2,  0, 20 },   /* row 13  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2,  0, 20 },   /* row 14  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2, 14, 20 },   /* row 15  ......#wwggggggggggggggww#...... */
+    {  2,  0, 20 },   /* row 16  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2,  0, 20 },   /* row 17  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2, 14, 20 },   /* row 18  ......#wwggggggggggggggww#...... */
+    {  2,  0, 20 },   /* row 19  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2,  0, 20 },   /* row 20  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2, 14, 20 },   /* row 21  ......#wwggggggggggggggww#...... */
+    {  2,  0, 20 },   /* row 22  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2,  0, 20 },   /* row 23  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2, 14, 20 },   /* row 24  ......#wwggggggggggggggww#...... */
+    {  2,  0, 20 },   /* row 25  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2,  0, 20 },   /* row 26  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2,  0, 20 },   /* row 27  ......#wwwwwwwwwwwwwwwwww#...... */
+    {  2,  0, 20 },   /* row 28  ......#wwwwwwwwwwwwwwwwww#...... */
+    { 20,  0, 20 },   /* row 29  ......####################...... */
+    {  0,  0,  0 },   /* row 30  ................................ */
+    {  0,  0,  0 },   /* row 31  ................................ */
+};
+
+static const rowcount_t APP_ROWS[DESK_ICON_DIM] = {
+    {  0,  0,  0 },   /* row  0  ................................ */
+    {  0,  0,  0 },   /* row  1  ................................ */
+    {  2,  0,  2 },   /* row  2  ...............##............... */
+    {  2,  0,  4 },   /* row  3  ..............#ww#.............. */
+    {  2,  0,  6 },   /* row  4  .............#wwww#............. */
+    {  2,  0,  8 },   /* row  5  ............#wwwwww#............ */
+    {  2,  0, 10 },   /* row  6  ...........#wwwwwwww#........... */
+    {  2,  0, 12 },   /* row  7  ..........#wwwwwwwwww#.......... */
+    {  2,  0, 14 },   /* row  8  .........#wwwwwwwwwwww#......... */
+    {  2,  0, 16 },   /* row  9  ........#wwwwwwwwwwwwww#........ */
+    {  2,  0, 18 },   /* row 10  .......#wwwwwwwwwwwwwwww#....... */
+    {  4,  0, 20 },   /* row 11  ......#wwwwwwww##wwwwwwww#...... */
+    {  6,  0, 22 },   /* row 12  .....#wwwwwwww####wwwwwwww#..... */
+    {  8,  0, 24 },   /* row 13  ....#wwwwwwww######wwwwwwww#.... */
+    { 10,  0, 26 },   /* row 14  ...#wwwwwwww########wwwwwwww#... */
+    { 12,  0, 28 },   /* row 15  ..#wwwwwwww##########wwwwwwww#.. */
+    { 14,  0, 30 },   /* row 16  .#wwwwwwww############wwwwwwww#. */
+    { 12,  0, 28 },   /* row 17  ..#wwwwwwww##########wwwwwwww#.. */
+    { 10,  0, 26 },   /* row 18  ...#wwwwwwww########wwwwwwww#... */
+    {  8,  0, 24 },   /* row 19  ....#wwwwwwww######wwwwwwww#.... */
+    {  6,  0, 22 },   /* row 20  .....#wwwwwwww####wwwwwwww#..... */
+    {  4,  0, 20 },   /* row 21  ......#wwwwwwww##wwwwwwww#...... */
+    {  2,  0, 18 },   /* row 22  .......#wwwwwwwwwwwwwwww#....... */
+    {  2,  0, 16 },   /* row 23  ........#wwwwwwwwwwwwww#........ */
+    {  2,  0, 14 },   /* row 24  .........#wwwwwwwwwwww#......... */
+    {  2,  0, 12 },   /* row 25  ..........#wwwwwwwwww#.......... */
+    {  2,  0, 10 },   /* row 26  ...........#wwwwwwww#........... */
+    {  2,  0,  8 },   /* row 27  ............#wwwwww#............ */
+    {  2,  0,  6 },   /* row 28  .............#wwww#............. */
+    {  2,  0,  4 },   /* row 29  ..............#ww#.............. */
+    {  2,  0,  2 },   /* row 30  ...............##............... */
+    {  0,  0,  0 },   /* row 31  ................................ */
+};
+
+/* Hand-picked probe pixels, read off the finder_icons.h maps (row, col, tone). */
+static const probe_t FOLDER_PROBES[] = {
+    {  0,  0, DESK_TONE_CLEAR },  /* the cell corners are transparent          */
+    { 31, 31, DESK_TONE_CLEAR },
+    {  3,  3, DESK_TONE_INK   },  /* the tab's top-left corner                 */
+    {  3, 12, DESK_TONE_INK   },  /* ... and its top-right                     */
+    {  3, 13, DESK_TONE_CLEAR },  /* the body has not started at this row      */
+    {  4,  4, DESK_TONE_FACE  },  /* inside the tab                            */
+    {  5, 29, DESK_TONE_INK   },  /* the body's top-right corner               */
+    {  6,  4, DESK_TONE_FACE  },  /* inside the body                           */
+    {  6, 29, DESK_TONE_INK   },  /* the body's right edge                     */
+    {  7, 15, DESK_TONE_INK   },  /* the front-flap edge line                  */
+    { 24, 10, DESK_TONE_FACE  },  /* just above the shaded flap                */
+    { 25, 10, DESK_TONE_SHADE },  /* the shaded front flap                     */
+    { 27, 15, DESK_TONE_INK   },  /* the bottom edge                           */
+    { 28, 15, DESK_TONE_CLEAR }   /* ... and nothing below it                  */
+};
+enum { FOLDER_PROBE_N = (int)(sizeof FOLDER_PROBES / sizeof FOLDER_PROBES[0]) };
+
+static const probe_t DOC_PROBES[] = {
+    {  0,  0, DESK_TONE_CLEAR },
+    {  2,  6, DESK_TONE_INK   },  /* the page's top-left corner                */
+    {  2, 20, DESK_TONE_INK   },  /* the top edge stops where the fold starts  */
+    {  2, 21, DESK_TONE_CLEAR },  /* ... and the dog-ear corner is CUT AWAY    */
+    {  3, 21, DESK_TONE_INK   },  /* the fold's outer diagonal, row by row     */
+    {  4, 21, DESK_TONE_SHADE },  /* the folded-back triangle                  */
+    {  4, 22, DESK_TONE_INK   },
+    {  5, 22, DESK_TONE_SHADE },
+    {  7, 25, DESK_TONE_INK   },  /* the fold's bottom edge reaches the margin */
+    {  8,  7, DESK_TONE_FACE  },  /* paper                                     */
+    {  8, 25, DESK_TONE_INK   },  /* the page's right edge, below the fold     */
+    { 12,  8, DESK_TONE_FACE  },  /* the margin left of a ruled line           */
+    { 12,  9, DESK_TONE_SHADE },  /* ... the ruled line itself                 */
+    { 12, 23, DESK_TONE_FACE  },  /* ... and the margin right of it            */
+    { 29, 15, DESK_TONE_INK   },  /* the bottom edge                           */
+    { 30, 15, DESK_TONE_CLEAR }
+};
+enum { DOC_PROBE_N = (int)(sizeof DOC_PROBES / sizeof DOC_PROBES[0]) };
+
+static const probe_t APP_PROBES[] = {
+    {  0,  0, DESK_TONE_CLEAR },
+    {  2, 14, DESK_TONE_CLEAR },  /* the apex is exactly two pixels wide       */
+    {  2, 15, DESK_TONE_INK   },
+    {  2, 16, DESK_TONE_INK   },
+    {  3, 14, DESK_TONE_INK   },  /* the outline widens one column per row     */
+    {  3, 15, DESK_TONE_FACE  },
+    { 11, 14, DESK_TONE_FACE  },  /* just left of the centre diamond's tip     */
+    { 11, 15, DESK_TONE_INK   },  /* ... the tip itself                        */
+    { 16,  1, DESK_TONE_INK   },  /* the waist: outline, body, centre, body,   */
+    { 16,  2, DESK_TONE_FACE  },  /* outline -- five samples across one row    */
+    { 16,  9, DESK_TONE_FACE  },
+    { 16, 10, DESK_TONE_INK   },
+    { 16, 30, DESK_TONE_INK   },
+    { 16, 31, DESK_TONE_CLEAR },
+    { 30, 15, DESK_TONE_INK   },  /* the bottom apex                           */
+    { 31, 15, DESK_TONE_CLEAR }
+};
+enum { APP_PROBE_N = (int)(sizeof APP_PROBES / sizeof APP_PROBES[0]) };
 
 static uint32_t want8(desk_tone_t t)
 {
@@ -555,6 +744,34 @@ int main(void)
     check_hit(&FLAIR_DESK_ICON_TRASH, TRASH_PROBES, TRASH_PROBE_N);
 
     check_failsoft(&FLAIR_DESK_ICON_VOLUME);
+
+    /* ---- the R3.3 disk-window strikes (bead initech-tdnl.10) ------------- */
+    check_invariants(&FLAIR_FINDER_ICON_FOLDER, "FOLDER");
+    check_invariants(&FLAIR_FINDER_ICON_DOC,    "DOC");
+    check_invariants(&FLAIR_FINDER_ICON_APP,    "APP");
+
+    check_blit8(&FLAIR_FINDER_ICON_FOLDER, FOLDER_ROWS, FOLDER_PROBES, FOLDER_PROBE_N, 0, 0);
+    check_blit8(&FLAIR_FINDER_ICON_FOLDER, FOLDER_ROWS, FOLDER_PROBES, FOLDER_PROBE_N, 9, 13);
+    check_blit8(&FLAIR_FINDER_ICON_DOC, DOC_ROWS, DOC_PROBES, DOC_PROBE_N, 0, 0);
+    check_blit8(&FLAIR_FINDER_ICON_DOC, DOC_ROWS, DOC_PROBES, DOC_PROBE_N, 21, 4);
+    check_blit8(&FLAIR_FINDER_ICON_APP, APP_ROWS, APP_PROBES, APP_PROBE_N, 0, 0);
+    check_blit8(&FLAIR_FINDER_ICON_APP, APP_ROWS, APP_PROBES, APP_PROBE_N, 6, 19);
+
+    check_blit32(&FLAIR_FINDER_ICON_FOLDER, FOLDER_PROBES, FOLDER_PROBE_N);
+    check_blit32(&FLAIR_FINDER_ICON_DOC,    DOC_PROBES,    DOC_PROBE_N);
+    check_blit32(&FLAIR_FINDER_ICON_APP,    APP_PROBES,    APP_PROBE_N);
+
+    check_clip(&FLAIR_FINDER_ICON_FOLDER);
+    check_clip(&FLAIR_FINDER_ICON_DOC);
+    check_clip(&FLAIR_FINDER_ICON_APP);
+
+    check_edges(&FLAIR_FINDER_ICON_FOLDER);
+    check_edges(&FLAIR_FINDER_ICON_DOC);
+    check_edges(&FLAIR_FINDER_ICON_APP);
+
+    check_hit(&FLAIR_FINDER_ICON_FOLDER, FOLDER_PROBES, FOLDER_PROBE_N);
+    check_hit(&FLAIR_FINDER_ICON_DOC,    DOC_PROBES,    DOC_PROBE_N);
+    check_hit(&FLAIR_FINDER_ICON_APP,    APP_PROBES,    APP_PROBE_N);
 
     return TEST_SUMMARY("test-desk-icons");
 }
