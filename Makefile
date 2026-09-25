@@ -297,6 +297,116 @@ define kernel-end-guard
 	printf '>>> kernel placement guard ($(2)): lowest=0x%x >= KERNEL_BASE=0x%x; _kernel_end=0x%x < KERNEL_CEIL=0x%x OK\n' "$$lowv" "$$base" "$$endv" "$$ceil"
 endef
 
+# --- mutant-aware kernel HEADROOM gate (bead initech-8z9j) -------------------
+# The .bin-size guard in each kernel recipe fails only at the hard wall (loaded
+# PROGBITS > KERNEL_SECTORS*512) and reports nothing before it; the only
+# headroom figure anyone quoted was the FLAGSHIP's (kernel_flairtenants.bin).
+# But the BINDING kernel is whichever is LARGEST -- measured 2026-08-25 it was
+# a Rule-6 MUTANT variant (kernel_flairtenants_mut_no_raise_on_title, 194,884 B
+# = 1,724 B headroom) ~670 B larger than the flagship (194,212 B = 2,396 B), so
+# a flagship-only figure OVERSTATES the room a feature slice has: the slice
+# would link, then its own mutant gate would bust the window. This gate:
+#   1. ENUMERATES every $(BUILD)/kernel*.bin target from make's own database
+#      (`make -qp`), so every eval'd mutant template instantiation is covered
+#      with no hand-kept list to drift (the hand-kept INT kernel list below had
+#      ALREADY drifted into a link failure -- this gate found it);
+#   2. builds all of them, measures each one's LOADED bytes (objcopy -O binary
+#      of the ELF = exactly what stage2 reads, before zero-padding);
+#   3. reports the flagship AND the largest (named), and FAILS LOUD when the
+#      largest kernel's headroom is below KERNEL_HEADROOM_FLOOR.
+# KERNEL_HEADROOM_FLOOR = 4096 B (8 sectors). KERNEL_SECTORS=384 is AT the
+# ratified bounce ceiling (docs/design/kernel-runway-relocation.md K2), so the
+# window cannot grow; measured feature slices have landed at ~4.9 KiB (chrome
+# fidelity, 163,960-159,000) to ~11 KiB (R3.2 DesktopMgr, tdnl.9), and the
+# per-slice mutant kernels ride ~0.7 KiB above their gate kernel. Below 4 KiB
+# no measured slice fits, so the build must say so AT THE GATE (a size-policy
+# decision) instead of a lane discovering it mid-slice as a window bust.
+# Changing the floor is a deliberate act with an issue (Rule 8 spirit).
+KERNEL_HEADROOM_FLOOR := 4096
+
+# Shell fragment: set $$bins to the sorted list of every kernel*.bin target.
+# Command-line overrides (the *_DECOMP roots) reach the sub-make via MAKEFLAGS.
+define kernel-headroom-enum
+bins=$$($(MAKE) --no-print-directory -qp -f $(firstword $(MAKEFILE_LIST)) kernel-headroom-probe 2>/dev/null \
+	| sed -n 's|^\($(BUILD)/kernel[^ :%]*\.bin\):.*|\1|p' | LC_ALL=C sort -u); \
+[ -n "$$bins" ] || { printf '!!! kernel-headroom: enumerated ZERO kernel*.bin targets from the make database\n'; exit 1; }
+endef
+
+# Shell fragment: measure every ELF in $$elfs; report flagship + largest; exit 1
+# below the floor. $(1) = gate label for the messages.
+define kernel-headroom-measure
+win=$$(( $(KERNEL_SECTORS) * 512 )); floor=$(KERNEL_HEADROOM_FLOOR); \
+tmp=$(BUILD)/.kernel_headroom_$(1).tmp; n=0; max=-1; maxe=; flag=; \
+for e in $$elfs; do \
+	[ -f "$$e" ] || { printf '!!! $(1): kernel ELF %s does not exist\n' "$$e"; exit 1; }; \
+	$(OBJCOPY) -O binary "$$e" "$$tmp" || exit 1; \
+	sz=$$(wc -c < "$$tmp"); n=$$((n + 1)); \
+	if [ "$$e" = "$(KERNEL_FLAIRTENANTS_ELF)" ]; then flag=$$sz; fi; \
+	if [ "$$sz" -gt "$$max" ]; then max=$$sz; maxe=$$e; fi; \
+done; rm -f "$$tmp"; \
+[ -n "$$flag" ] || { printf '!!! $(1): flagship %s not among the %s measured kernels\n' "$(KERNEL_FLAIRTENANTS_ELF)" "$$n"; exit 1; }; \
+printf '>>> $(1): %s kernels measured; window %s B (%s sectors); floor %s B\n' "$$n" "$$win" "$(KERNEL_SECTORS)" "$$floor"; \
+printf '    flagship %-52s %6s B loaded, headroom %6s B\n' "$(notdir $(KERNEL_FLAIRTENANTS_ELF))" "$$flag" "$$(( win - flag ))"; \
+printf '    LARGEST  %-52s %6s B loaded, headroom %6s B (binding)\n' "$$(basename $$maxe)" "$$max" "$$(( win - max ))"; \
+if [ "$$(( win - max ))" -lt "$$floor" ]; then \
+	printf '!!! $(1) FAIL: largest kernel %s leaves %s B < KERNEL_HEADROOM_FLOOR %s B -- a size-policy decision is due (bead initech-8z9j) before any slice grows the kernel\n' "$$(basename $$maxe)" "$$(( win - max ))" "$$floor"; \
+	exit 1; \
+fi
+endef
+
+.PHONY: kernel-headroom-probe test-kernel-headroom test-kernel-headroom-mutant
+kernel-headroom-probe: ;
+
+test-kernel-headroom:
+	@$(kernel-headroom-enum); \
+	$(MAKE) --no-print-directory $$bins > $(BUILD)/.kernel_headroom_build.log 2>&1 || { \
+		cat $(BUILD)/.kernel_headroom_build.log; printf '!!! test-kernel-headroom: a kernel failed to build\n'; exit 1; }; \
+	elfs=$$(for b in $$bins; do printf '%s ' "$${b%.bin}.elf"; done); \
+	$(call kernel-headroom-measure,test-kernel-headroom)
+	@printf '>>> test-kernel-headroom: green\n'
+
+# Rule 6: the gate must bite on a NON-flagship kernel (that is the whole point).
+# A pad kernel = the flagship objects + one .data blob sized so its headroom is
+# EXACTLY floor-1 (must go RED, naming the pad kernel as LARGEST while the
+# flagship line stays unchanged), then EXACTLY floor (must stay GREEN -- the
+# floor is inclusive). .data is the last PROGBITS output section (kernel.ld:
+# .bss after it is NOBITS and not in the .bin) and the pad object is linked
+# last with align=1, so the pad adds exactly N loaded bytes; each leg re-measures
+# and asserts the exact headroom, so a layout surprise fails loud, not silently.
+KHR_MUT_ASM := $(BUILD)/khr_mut_pad.asm
+KHR_MUT_OBJ := $(BUILD)/khr_mut_pad.o
+KHR_MUT_ELF := $(BUILD)/khr_mut_pad.elf
+test-kernel-headroom-mutant:
+	@$(MAKE) --no-print-directory test-kernel-headroom >/dev/null || { printf '!!! test-kernel-headroom-mutant: the real gate is not green -- nothing to mutate\n'; exit 1; }
+	@$(kernel-headroom-enum); \
+	elfs0=$$(for b in $$bins; do printf '%s ' "$${b%.bin}.elf"; done); \
+	win=$$(( $(KERNEL_SECTORS) * 512 )); \
+	$(OBJCOPY) -O binary $(KERNEL_FLAIRTENANTS_ELF) $(BUILD)/.khr_flag.tmp; \
+	flag=$$(wc -c < $(BUILD)/.khr_flag.tmp); rm -f $(BUILD)/.khr_flag.tmp; \
+	for want in $$(( $(KERNEL_HEADROOM_FLOOR) - 1 )) $(KERNEL_HEADROOM_FLOOR); do \
+		pad=$$(( win - flag - want )); \
+		[ "$$pad" -gt 0 ] || { printf '!!! test-kernel-headroom-mutant: flagship already within the floor (pad=%s)\n' "$$pad"; exit 1; }; \
+		printf 'section .data align=1\ntimes %d db 0x5A\n' "$$pad" > $(KHR_MUT_ASM); \
+		$(NASM) -f elf32 $(KHR_MUT_ASM) -o $(KHR_MUT_OBJ) || exit 1; \
+		$(LD) -m elf_i386 -T $(KERNEL_LD) -o $(KHR_MUT_ELF) $(KERNEL_FLAIRTENANTS_OBJS) $(KHR_MUT_OBJ) 2>/dev/null || exit 1; \
+		$(OBJCOPY) -O binary $(KHR_MUT_ELF) $(BUILD)/.khr_mut.tmp; \
+		got=$$(( win - $$(wc -c < $(BUILD)/.khr_mut.tmp) )); rm -f $(BUILD)/.khr_mut.tmp; \
+		[ "$$got" -eq "$$want" ] || { printf '!!! test-kernel-headroom-mutant: pad kernel headroom %s != intended %s (layout assumption broke)\n' "$$got" "$$want"; exit 1; }; \
+		out=$$( elfs="$$elfs0 $(KHR_MUT_ELF)"; $(call kernel-headroom-measure,khr-mutant) ); rc=$$?; \
+		printf '%s\n' "$$out" | sed 's/^/    | /'; \
+		if [ "$$want" -lt "$(KERNEL_HEADROOM_FLOOR)" ]; then \
+			[ "$$rc" -ne 0 ] || { printf '!!! test-kernel-headroom-mutant FAIL: a kernel at floor-1 (%s B) PASSED -- the gate is decoration\n' "$$want"; exit 1; }; \
+			printf '%s\n' "$$out" | grep -q 'LARGEST  khr_mut_pad.elf' || { printf '!!! test-kernel-headroom-mutant FAIL: RED, but not for the pad kernel\n'; exit 1; }; \
+			printf '%s\n' "$$out" | grep -q 'khr-mutant FAIL: largest kernel khr_mut_pad.elf' || { printf '!!! test-kernel-headroom-mutant FAIL: RED for the wrong reason\n'; exit 1; }; \
+			printf '    floor-1 (%s B, non-flagship kernel): RED for the named reason -- bites\n' "$$want"; \
+		else \
+			[ "$$rc" -eq 0 ] || { printf '!!! test-kernel-headroom-mutant FAIL: a kernel at exactly the floor (%s B) went RED -- off-by-one\n' "$$want"; exit 1; }; \
+			printf '    floor   (%s B): GREEN -- the floor is inclusive\n' "$$want"; \
+		fi; \
+	done
+	@rm -f $(KHR_MUT_ASM) $(KHR_MUT_OBJ) $(KHR_MUT_ELF)
+	@printf '>>> test-kernel-headroom-mutant: green (floor-1 pad kernel RED, floor pad kernel GREEN)\n'
+
 # PPM seafoam checker (factory C tool, tools/).
 PPM_CHECK_SRC   := tools/ppm_seafoam_check.c
 PPM_CHECK_BIN   := $(BUILD)/ppm_seafoam_check
@@ -439,6 +549,41 @@ KERNEL_CC     ?= gcc
 # never contain >386 instructions. Same pin on SAMIR_COM_PROFILE below.
 KERNEL_CFLAGS := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic \
                  -fno-pie -std=c11 -Wall -Wextra -Werror
+# KERNEL SIZE POLICY -- per-object optimisation levels (bead initech-8z9j).
+# KERNEL_CFLAGS carries NO -O level (gcc default -O0); KERNEL_SECTORS=384 is AT
+# the ratified K2 bounce ceiling, so the window cannot grow. Instead the largest
+# SHARED objects are built -Os, each chosen BY MEASUREMENT, never blanket:
+# gcc -O1 GROWS fat12.o (25,546 -> 26,685 B) and -O2 grows it too, while -Os
+# shrinks every candidate. kmain.c is NOT here: it stays at KERNEL_TENANTS_OPT
+# (-O1) because -Os trips the boot_info array-bounds false positive under
+# -Werror (see KERNEL_TENANTS_OPT). -march=i386 in KERNEL_CFLAGS still applies
+# (no cmov: the WL-0087 Bochs catch) -- an -O level changes scheduling and
+# inlining, never the ISA. Every level below compiles clean under -Werror.
+# The SAME variable is threaded into every recipe that compiles the source for
+# the kernel (the int21 -D mutant objects, the test-* freestanding compile
+# checks), so a mutant differs from the real object ONLY by its knob.
+# Measured 2026-09-25 (host gcc, CDR-0001; object = `size` text+data of the .o;
+# kernel = loaded bytes of the LARGEST kernel, applied cumulatively in this
+# order; the largest stayed kernel_flairtenants_mut_no_raise_on_title throughout):
+#   object      -O0     -O1     -Os     -O2   | largest kernel after -Os
+#   int21.o   30,935  20,911  16,269  19,416  | 194,884 -> 183,332 (-11,552)
+#   fat12.o   25,546  26,685  17,228  25,945  | 183,332 -> 175,236  (-8,096)
+#   control.o 12,889  10,557   8,097  12,020  | 175,236 -> 170,788  (-4,448)
+#   chrome.o  11,304  10,931   7,086  10,740  | 170,788 -> 166,980  (-3,808)
+#   dialog.o   9,339   7,486   5,861   7,726  | 166,980 -> 163,620  (-3,360)
+#   menu.o     9,651   9,396   6,732   8,741  | 163,620 -> 160,900  (-2,720)
+#   region.o   8,145   6,822   5,670   7,493  | 160,900 -> 158,436  (-2,464)
+# Net: largest kernel 194,884 -> 158,436 B (headroom 1,724 -> 38,172 B of the
+# 196,608 B window); flagship kernel_flairtenants 194,212 -> 157,732 B (2,396 ->
+# 38,876 B). Guarded by test-kernel-headroom (mutant-aware, floor 4,096 B).
+# Boot frame (mbr.bin/stage2.bin) and KERNEL_SECTORS are untouched.
+KERNEL_INT21_OPT   := -Os
+KERNEL_FAT12_OPT   := -Os
+FLAIR_CONTROL_OPT  := -Os
+FLAIR_CHROME_OPT   := -Os
+FLAIR_DIALOG_OPT   := -Os
+FLAIR_MENU_OPT     := -Os
+FLAIR_REGION_OPT   := -Os
 KERNEL_LD     := $(KERNEL_DIR)/kernel.ld
 KERNEL_START_ASM := $(KERNEL_DIR)/kstart.asm
 KERNEL_MAIN_C    := $(KERNEL_DIR)/kmain.c
@@ -7748,7 +7893,7 @@ $(KERNEL_SURFACE_OBJ): $(KERNEL_SURFACE_C) os/flair/surface.h | $(BUILD)
 # in the .elf (the window-size question is real). Reproducible: deterministic
 # source ordering, no timestamps (Rule 11).
 $(KERNEL_REGION_OBJ): os/flair/atkinson/region.c os/flair/atkinson/region.h spec/region_algebra.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(REGION_INC) -c $(REGION_ENGINE_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_REGION_OPT) $(REGION_INC) -c $(REGION_ENGINE_C) -o $@
 
 $(KERNEL_HEAP_OBJ): os/flair/heap.c os/flair/heap.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_HEAP_INC) -c $(FLAIR_HEAP_C) -o $@
@@ -7774,7 +7919,7 @@ $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/r
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(BLITTER_INC) -c os/flair/blitter.c -o $@
 
 $(KERNEL_CHROME_OBJ): os/flair/chrome.c os/flair/chrome.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $@
 
 $(KERNEL_TEXT_OBJ): os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/assets/chicago8x16.h os/flair/surface.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TEXT_INC) -c os/flair/text.c -o $@
@@ -7783,13 +7928,13 @@ $(KERNEL_TEXT_OBJ): os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/a
 # set (-Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets), NOT the *_INC used
 # for the hosted gate (which adds -Iharness/render -Iseed). Mirror the literal.
 $(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h spec/assets/geneva9.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
 
 $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 
 $(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
 
 $(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(DRAG_INC) -c $(DESKTOP_C) -o $@
@@ -7823,7 +7968,7 @@ $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(
 $(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
                      $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h \
                      $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
 # DOS character-device chain (beads initech-509.7 / 6zd9): the SAME devices.c the
 # host oracle (test_devices.c / test_devwire.c) exercises; freestanding here.
@@ -7881,7 +8026,7 @@ $(KERNEL_ATA_OBJ): $(KERNEL_ATA_C) $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/blockdev.h 
 # (test-fat12-*) exercise; freestanding here, hosted there. -Ispec for the
 # LOCKED bpb_t / dir_entry_t (dos_structs.h).
 $(KERNEL_FAT12_OBJ): $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_FAT12_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_FAT12_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_FAT12_C) -o $@
 
 # FAT12-backed INT 21h file backend (beads initech-509.5 read-side): binds the
 # int21 file vtable to the mounted volume. Kernel-only (pulls fat12.c + the
@@ -8366,7 +8511,7 @@ $(MEMTEST_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_BIN) | $(BUILD)
 
 # Mutant kernel: int21.o built with -DINT21_MUTATE_ALLOC_NO_SEGBASE (Rule 6).
 $(KERNEL_MEMTEST_MUT_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DINT21_MUTATE_ALLOC_NO_SEGBASE -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -DINT21_MUTATE_ALLOC_NO_SEGBASE -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
 KERNEL_MEMTEST_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -8720,7 +8865,7 @@ $(KERNEL_PIT_MUT_SCRIBBLE_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR
 
 KERNEL_INT21_SEAM_OBJ := $(BUILD)/int21_seam.o
 $(KERNEL_INT21_SEAM_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/irq.h spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DINT21_IRQTEST_SEAM -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -DINT21_IRQTEST_SEAM -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
 $(KERNEL_IRQSTORM_MUTA_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
@@ -9443,7 +9588,12 @@ $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) \
 $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) \
 $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/cursor.h
 
-KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ)
+# Derived FROM the gate list (initech-8z9j): the interactive kernel is the bounded
+# FLAIRTENANTS kernel with ONLY its main object swapped. The old hand-copied list
+# drifted when R3.3/R3.4 added finder_windows/finder_cmd/finder_menu to the gate
+# kernel and stopped LINKING (undefined finder_win_*/finder_shell_*/finder_menu_*),
+# found when the mutant-aware headroom gate below enumerated every kernel*.bin.
+KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ)
 
 $(KERNEL_FLAIRTENANTS_INT_ELF): $(KERNEL_FLAIRTENANTS_INT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_INT_OBJS)
@@ -10836,7 +10986,7 @@ print('    all %d chrome #defines == spec/chrome_metrics.json native values'%len
 	@printf '>>> test-chrome [2/3]: STRUCTURAL -- Platinum window chrome vs chrome_metrics v5 (8bpp + 32bpp)\n'
 	@$(TEST_CHROME) $(BUILD)/chrome_window.ppm
 	@printf '>>> test-chrome [3/3]: ARTIFACT FREESTANDING -- chrome.c compiles under kernel flags\n'
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $(BUILD)/chrome_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $(BUILD)/chrome_freestanding.o \
 		|| { printf '!!! test-chrome FAIL: chrome.c does NOT compile freestanding (Law 3 dual-compile)\n'; exit 1; }
 	@printf '    chrome.c compiles freestanding (-ffreestanding -nostdlib); wrote $(BUILD)/chrome_window.ppm\n'
 	@printf '>>> test-chrome: green\n'
@@ -12259,7 +12409,7 @@ $(TEST_MENU_MUT_TITLE): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 test-menu: $(TEST_MENU)
 	@printf ">>> test-menu: behavior + sampled Platinum profile/corners/title/panel/separator/cmd/disabled fidelity + retained Apple strike\n"
 	@$(TEST_MENU) $(BUILD)/menu_window.ppm
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $(BUILD)/menu_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $(BUILD)/menu_freestanding.o \
 		|| { printf '!!! test-menu FAIL: menu.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-menu: green\n"
 
@@ -12377,7 +12527,7 @@ $(TEST_CONTROL_MUT_BTN_FLAT): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD
 test-control: $(TEST_CONTROL)
 	@printf ">>> test-control: sampled checked box + unpressed push button + 16px Platinum scrollbar + FILE COPY progress bar + TestControl/TrackControl\n"
 	@$(TEST_CONTROL)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $(BUILD)/control_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $(BUILD)/control_freestanding.o \
 		|| { printf '!!! test-control FAIL: control.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-control: green\n"
 
@@ -12511,7 +12661,7 @@ $(TEST_DIALOG_MUT_MODAL_PASS): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
 test-dialog: $(TEST_DIALOG)
 	@printf ">>> test-dialog: FILE COPY E7/inset content + generic dBox + default ring/moat + canon layout + MODALDIALOG routing\n"
 	@$(TEST_DIALOG)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets \
 		-c os/flair/dialog.c -o $(BUILD)/dialog_freestanding.o \
 		|| { printf '!!! test-dialog FAIL: dialog.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-dialog: green\n"
@@ -20901,7 +21051,7 @@ ZS24EXEC_TRACER_REJECT_IMG := $(BUILD)/tracer_boot_mut_zs24reject.img
 $(ZS24EXEC_INT21_MUT_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
                            $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h \
                            $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DINT21_MUTATE_EXEC_ROOTREJECT \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -DINT21_MUTATE_EXEC_ROOTREJECT \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
 ZS24EXEC_SHELL_REJECT_OBJS := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SHELL_OBJS)) $(ZS24EXEC_INT21_MUT_OBJ)
@@ -23004,7 +23154,8 @@ TEST_UNIT_GATES := \
 	test-samir-repl test-samir-repl-mutant test-samir-query \
 	test-use-rw test-use-rw-mutant \
 	test-dbase-roundtrip test-dbase-roundtrip-mutant \
-	test-dbase-diff test-dbase-diff-mutant test-dbase-diff-mutants
+	test-dbase-diff test-dbase-diff-mutant test-dbase-diff-mutants \
+	test-kernel-headroom test-kernel-headroom-mutant
 
 # Class 3 (in-emulator QEMU keystones): slow, boot in QEMU.
 # ---------------------------------------------------------------------------
