@@ -14377,7 +14377,7 @@ TPS_LEX_SEED_BARE_ELF         := $(TPS_LEX_BUILD_DIR)/tps_seed_bare.elf
 TPS_LEX_SEED_DOS_ELF          := $(TPS_LEX_BUILD_DIR)/tps_seed_dos.elf
 TPS_LEX_COM                   := $(TPS_LEX_BUILD_DIR)/TPS.COM
 TPS_LEX_IMG                   := $(BUILD)/tps_lex.img
-TPS_LEX_OS_KEYS               := t,p,s,ret
+TPS_LEX_OS_KEYS               := t,p,s,ret,e,x,i,t,ret
 TPS_PARSE_RICH                := $(TPS_LEX_FIXTURE_DIR)/parse_rich.pas
 TPS_PARSE_RICH_GOLDEN         := $(TPS_LEX_FIXTURE_DIR)/parse_rich.golden
 TPS_PARSE_ERROR_CASES         := parse_missing_semi parse_unbalanced_end parse_bad_factor parse_misplaced_var parse_case_unsupported
@@ -14389,7 +14389,7 @@ TPS_PARSE_MUT_ELSE_SRC        := $(TPS_LEX_BUILD_DIR)/tps_mut_else.pas
 TPS_PARSE_MUT_PREC_BIN        := $(TPS_LEX_BUILD_DIR)/tps_mut_precedence
 TPS_PARSE_MUT_ELSE_BIN        := $(TPS_LEX_BUILD_DIR)/tps_mut_else
 TPS_PARSE_IMG                 := $(BUILD)/tps_parse.img
-TPS_PARSE_OS_KEYS             := t,p,s,ret
+TPS_PARSE_OS_KEYS             := t,p,s,ret,e,x,i,t,ret
 TPS_TYPE_RICH                 := $(TPS_LEX_FIXTURE_DIR)/type_rich.pas
 TPS_TYPE_RICH_GOLDEN          := $(TPS_LEX_FIXTURE_DIR)/type_rich.golden
 TPS_TYPE_ERROR_CASES          := type_bad_duplicate type_bad_unknown type_bad_assignment type_bad_varparam type_bad_string_bound type_bad_file
@@ -14401,7 +14401,7 @@ TPS_TYPE_MUT_ASSIGN_SRC       := $(TPS_LEX_BUILD_DIR)/tps_mut_type_assign.pas
 TPS_TYPE_MUT_DUP_BIN          := $(TPS_LEX_BUILD_DIR)/tps_mut_type_dupok
 TPS_TYPE_MUT_ASSIGN_BIN       := $(TPS_LEX_BUILD_DIR)/tps_mut_type_assign
 TPS_TYPE_IMG                  := $(BUILD)/tps_type.img
-TPS_TYPE_OS_KEYS              := t,p,s,ret
+TPS_TYPE_OS_KEYS              := t,p,s,ret,e,x,i,t,ret
 TPS_GEN_TINY                  := $(TPS_LEX_FIXTURE_DIR)/gen_tiny.pas
 TPS_GEN_TINY_GOLDEN           := $(TPS_LEX_FIXTURE_DIR)/gen_tiny.golden
 TPS_GEN_FPC_TINY_ASM          := $(TPS_LEX_BUILD_DIR)/gen_tiny_tps.s
@@ -14659,6 +14659,7 @@ test-tps-lex-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_LEX_IMG) $(TPS_LEX_FPC_BASIC
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_LEX_IMG)" \
 		--name tps_lex_os --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_LEX_OS_KEYS)" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
 		2> "$(TPS_LEX_BUILD_DIR)/os.report" || true
 	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/os.report"; then \
 		printf '!!! test-tps-lex-os FAIL: TPS.COM triple-faulted\n'; exit 1; fi
@@ -14837,6 +14838,7 @@ test-tps-parse-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_PARSE_IMG) $(TPS_PARSE_FPC
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_PARSE_IMG)" \
 		--name tps_parse_os --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_PARSE_OS_KEYS)" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
 		2> "$(TPS_LEX_BUILD_DIR)/parse_os.report" || true
 	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/parse_os.report"; then \
 		printf '!!! test-tps-parse-os FAIL: TPS.COM triple-faulted\n'; exit 1; fi
@@ -14998,6 +15000,7 @@ test-tps-type-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_TYPE_IMG) $(TPS_TYPE_FPC_FU
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_TYPE_IMG)" \
 		--name tps_type_os --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_TYPE_OS_KEYS)" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
 		2> "$(TPS_LEX_BUILD_DIR)/type_os.report" || true
 	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/type_os.report"; then \
 		printf '!!! test-tps-type-os FAIL: TPS.COM triple-faulted\n'; exit 1; fi
