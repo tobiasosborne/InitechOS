@@ -26,6 +26,20 @@ CC      ?= cc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror
 BUILD   ?= build
 
+# Rule 11 hygiene (found 2026-09-25 by test-kernel-repro after the initech-8z9j
+# per-object -Os change): objects did not depend on the Makefile, so a FLAGS
+# change left stale objects behind and the first half of the repro gate
+# disagreed with the clean rebuild (34,530 differing bytes -- stale, not
+# nondeterministic). Every target now carries the Makefile stamp as an extra
+# prerequisite (GNU make >= 4.3 .EXTRA_PREREQS; it is NOT in $^ / $<, so no
+# recipe sees it). The stamp and $(BUILD) itself opt out to break the cycle.
+MAKEFILE_STAMP := $(BUILD)/.makefile.stamp
+$(MAKEFILE_STAMP): $(firstword $(MAKEFILE_LIST))
+	@mkdir -p $(dir $@) && touch $@
+$(MAKEFILE_STAMP): .EXTRA_PREREQS =
+$(BUILD): .EXTRA_PREREQS =
+.EXTRA_PREREQS := $(MAKEFILE_STAMP)
+
 # Generated diagnostic-message header (beads initech-509.1; ADR-0003 Appendix C /
 # DEC-13): deterministic codegen turns the locked spec/dos_messages.json into a C
 # header command.c includes (single source of truth). Defined here (early) so the
