@@ -7766,6 +7766,8 @@ help:
 	@printf '  test-harness   QEMU oracle harness self-test: serial marker caught on good fixture, triple-fault caught on bad. REAL.\n'
 	@printf '  test-harness-quit-after  6gkm: typed-ahead exit + --quit-after SHELL-EXIT lets a 34-EXEC AUTOEXEC finish before the harness quits. EMULATOR.\n'
 	@printf '  test-harness-quit-after-mutant  Rule-6: HARNESS_MUTATE_NO_QUIT_WAIT (pre-fix quit-after-inputs) truncates that batch RED. EMULATOR.\n'
+	@printf '  test-harness-bare-keys  qed1: the harness REFUSES bare --keys/--mouse (no --quit-after/--screendump-after/--record/--legacy-quit); --legacy-quit is a real opt-out. EMULATOR.\n'
+	@printf '  test-harness-bare-keys-mutant  Rule-6: HARNESS_MUTATE_NO_BARE_KEYS_CHECK accepts the SAME bare invocation the real harness refuses. EMULATOR.\n'
 	@printf '  test-tracer-boot   Real MBR->stage2->32-bit/flat->VESA LFB boot: assert serial stage markers + no triple-fault + banner rendered on the seafoam desktop (ppm_text_check). REAL.\n'
 	@printf '  test-boot      InitechDOS banner boot gate: serial markers + banner literal vs spec/dos_banner.txt (byte-exact) + screendump banner-text check + no triple-fault. REAL. (QEMU only; tri-emulator pending initech-x0i.)\n'
 	@printf '  test-console   Host blit oracle for the LFB 8x16 text console: MSB-left glyph blit (bpp 32/24) + cursor/wrap/scroll. REAL.\n'
@@ -10117,8 +10119,11 @@ test-flair-mouse: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
 	@printf '  (slave 0xA0 THEN master 0x20). cursor advance + 2 cooked events = no wedge.\n'
 	@printf '  beads initech-5l5z FO-6/7; ADR-0006 E-D3b/BC-3. Law 2, Rule 2/5/6/11.\n'
 	@printf '======================================================================\n'
+	@# initech-qed1: quit-after the LAST cooked marker this gate requires
+	@# (mouseUp) -- the dual-PIC-EOI cook chain is IRQ-driven, not instant.
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" --name "$(FLAIR_MOUSE_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 \
+		--quit-after "FLAIR-EVT what=2 " \
 		2> "$(FLAIR_MOUSE_REPORT)" || true
 	@cat "$(FLAIR_MOUSE_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -10194,8 +10199,11 @@ test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_M
 	@printf 'InitechOS (STAPLER) -- make test-flair-mouse-mutant : Rule 6 (the gate BITES)\n'
 	@printf '======================================================================\n'
 	@# Mutant 1: no mouse hook (-DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK) -> no cooked mouse event.
+	@# initech-qed1: --legacy-quit -- this leg asserts ABSENCE (no hook means the
+	@# cooked event can never appear); no marker exists to wait on for an event
+	@# that must not occur, and a longer wait cannot manufacture it.
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_MOUSE_IMG)" --name flair_mouse_mut_nohook --out "$(BUILD)" \
-		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 --legacy-quit >/dev/null 2>&1 || true
 	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_mouse_mut_nohook.serial" \
 		|| { printf '!!! mutant1 did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
 	@if grep -q '^FLAIR-EVT what=1 ' "$(BUILD)/flair_mouse_mut_nohook.serial"; then \
@@ -10205,8 +10213,10 @@ test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_M
 	@# Mutant 2: master-only EOI (-DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI) -> slave wedges
 	@# after the FIRST IRQ12, so the move packets never complete -> the cursor never
 	@# advances to 340,260 -> no cooked mouseDown at the advanced position.
+	@# initech-qed1: --legacy-quit -- same absence-check reasoning as mutant 1
+	@# (the slave-wedge means the cursor never reaches the advanced position).
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_EOI_IMG)" --name flair_mouse_mut_eoi --out "$(BUILD)" \
-		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+		--mouse "$(FLAIR_MOUSE_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 --legacy-quit >/dev/null 2>&1 || true
 	@grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/flair_mouse_mut_eoi.serial" \
 		|| { printf '!!! mutant2 did not reach FLAIR-LIVE-READY (not comparable)\n'; exit 1; }
 	@if grep -q '^FLAIR-EVT what=1 where=340,260 ' "$(BUILD)/flair_mouse_mut_eoi.serial"; then \
@@ -14261,7 +14271,7 @@ SEED_FILEIO_MUT_WRONG_COM := $(BUILD)/FILEIO_MUT_WRONG.COM
 SEED_FILEIO_IMG           := $(BUILD)/seed_fileio.img
 SEED_FILEIO_MUT_SHORT_IMG := $(BUILD)/seed_fileio_mut_short.img
 SEED_FILEIO_MUT_WRONG_IMG := $(BUILD)/seed_fileio_mut_wrong.img
-SEED_FILEIO_OS_KEYS := f,i,l,e,i,o,ret
+SEED_FILEIO_OS_KEYS := f,i,l,e,i,o,ret,e,x,i,t,ret
 
 $(SEED_DOS_RT_OBJ): $(SEED_DOS_RT_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
@@ -14307,6 +14317,7 @@ test-seed-fileio-os: $(HARNESS_BIN) $(TRACER_IMG) $(SEED_FILEIO_IMG)
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SEED_FILEIO_IMG)" \
 		--name seed_fileio_os --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "$(SEED_FILEIO_OS_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(BUILD)/seed_fileio_os.report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/seed_fileio_os.report"; then \
 		printf '!!! test-seed-fileio-os FAIL: TRIPLE FAULT running FILEIO.COM\n'; exit 1; fi
@@ -14331,6 +14342,7 @@ test-seed-fileio-os-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SEED_FILEIO_MUT_SHORT
 		$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$$img" \
 			--name "seed_fileio_os_mut_$$tag" --out "$(BUILD)" --timeout-ms 30000 \
 			--keys "$(SEED_FILEIO_OS_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 			2> "$(BUILD)/seed_fileio_os_mut_$$tag.report" || true; \
 		if grep -q 'triple_fault=1' "$(BUILD)/seed_fileio_os_mut_$$tag.report"; then \
 			printf '!!! test-seed-fileio-os-mutant FAIL: %s TRIPLE-FAULTED (crash, not wrong values)\n' "$$tag"; rc=1; continue; fi; \
@@ -14443,6 +14455,20 @@ TPS_COMPILER_REPORT           := $(TPS_LEX_BUILD_DIR)/$(TPS_COMPILER_NAME).repor
 # widened so a slow boot never injects before SHELL-READY. A SHELL-EXIT that
 # never arrives => quit_after_found=0, and the leg's own marker checks go RED.
 TPS_OS_COMPLETION             := --keys-after-ms 60000 --quit-after "SHELL-EXIT"
+# SHELL COMPLETION GATING (bead initech-qed1, extending 6gkm to every OTHER
+# BOOT_SHELL gate that types "exit" -- test-shell, the redir/pipe/filter AUTOEXEC
+# gates, samir, ut6d, zs24-exec, copy-selfcopy, readerr-winh, seed-fileio-os,
+# etc. kmain.c prints SHELL-DONE unconditionally right after command_repl()
+# returns, for ANY BOOT_SHELL image (os/milton/kmain.c ~L5189) -- the same
+# honest, already-printed marker test-shell itself already asserted on. Many of
+# these gates type-ahead a bare "exit" at SHELL-READY while an AUTOEXEC.BAT (or
+# a long xBase/SAMIR session) does the actual work BEFORE the queued exit is
+# dequeued -- structurally the IDENTICAL shape to the M7 corpus rail 6gkm fixed
+# (kmain prints SHELL-READY before command_repl runs AUTOEXEC.BAT), so the
+# legacy ~400ms-after-last-key quit truncates them exactly the same way under
+# host load. --quit-after "SHELL-DONE" waits for the WHOLE session (batch +
+# exit) to actually finish before the harness quits.
+SHELL_OS_COMPLETION           := --quit-after "SHELL-DONE"
 TPS_GEN_MUT_OFF_SRC           := $(TPS_LEX_BUILD_DIR)/tps_mut_gen_offbyone.pas
 TPS_GEN_MUT_LABEL_SRC         := $(TPS_LEX_BUILD_DIR)/tps_mut_gen_labels.pas
 TPS_GEN_MUT_VAR_SRC           := $(TPS_LEX_BUILD_DIR)/tps_mut_gen_varparam.pas
@@ -15448,6 +15474,15 @@ HARNESS_MUT_NOQUIT_BIN := $(BUILD)/qemu_harness_mut_noquit
 $(HARNESS_MUT_NOQUIT_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
 	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_QUIT_WAIT -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
 
+# bead initech-qed1: a SECOND, independent harness mutant that disables the
+# bare-injection safety check itself (qemu_main.c, right after arg parsing),
+# proving THAT check bites (Rule 6) rather than just the --quit-after wait it
+# guards. HARNESS_MUT_NOQUIT_BIN above proves the wait; this proves the gate.
+HARNESS_MUT_NOCHECK_BIN := $(BUILD)/qemu_harness_mut_nocheck
+
+$(HARNESS_MUT_NOCHECK_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_BARE_KEYS_CHECK -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
+
 $(HARNESS_QA_IMG): $(TPS_COMPILER_IMG) $(TPS_COMPILER_BATCH) | $(BUILD)
 	@cat $(TPS_COMPILER_BATCH) $(TPS_COMPILER_BATCH) > $(HARNESS_QA_BAT)
 	@test "$$(grep -c '\.COM$$' $(HARNESS_QA_BAT))" -eq $(HARNESS_QA_EXECS) \
@@ -15501,6 +15536,59 @@ test-harness-quit-after-mutant: $(HARNESS_MUT_NOQUIT_BIN) $(TRACER_IMG) $(HARNES
 			printf '!!! test-harness-quit-after-mutant FAIL: the no-wait mutant still completed %s/%s EXECs + SHELL-EXIT -- the gate is decoration\n' "$$n" "$(HARNESS_QA_EXECS)"; exit 1; \
 		fi; \
 		printf '>>> test-harness-quit-after-mutant: green (no-wait mutant truncated the batch at %s/%s EXECs, no SHELL-EXIT -- the completion wait is load-bearing)\n' "$$n" "$(HARNESS_QA_EXECS)"
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-harness-bare-keys (+ -mutant)  (bead initech-qed1)
+# ---------------------------------------------------------------------------
+# THE fail-loud proof for the qed1 sweep itself: qemu_main.c now REFUSES (exit
+# 2, before qemu is ever launched) a --keys/--mouse invocation that names
+# neither --quit-after nor a post-input screendump budget (--screendump-after
+# / --record) nor an explicit --legacy-quit opt-out -- Law 2, a gate that can
+# go RED because the HOST was busy is not an oracle. Three legs:
+#   1. bare: --keys with none of the above -> the REAL harness must refuse.
+#   2. --legacy-quit added to the SAME bare invocation -> must proceed (the
+#      documented opt-out actually works, so no gate we hardened this way is
+#      accidentally still refused).
+#   3. the SAME bare invocation on a build with the check compiled OUT
+#      (HARNESS_MUT_NOCHECK_BIN, Rule 6) -> must proceed where the real
+#      harness refuses, proving the check -- not luck -- is what bites.
+.PHONY: test-harness-bare-keys
+test-harness-bare-keys: $(HARNESS_BIN) $(TRACER_IMG)
+	@printf '>>> test-harness-bare-keys: bare --keys (no --quit-after/--screendump-after/--record/--legacy-quit) must be REFUSED\n'
+	@rm -f "$(BUILD)/harness_bare_keys.stderr" "$(BUILD)/harness_bare_keys_ok.stderr"
+	@if $(HARNESS_BIN) --disk "$(TRACER_IMG)" \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		--name harness_bare_keys_probe --out "$(BUILD)" --timeout-ms 5000 \
+		>/dev/null 2>"$(BUILD)/harness_bare_keys.stderr"; then \
+		printf '!!! test-harness-bare-keys FAIL: the harness ACCEPTED a bare --keys invocation -- the initech-qed1 safety check is not wired\n'; exit 1; \
+	fi
+	@grep -q 'initech-qed1' "$(BUILD)/harness_bare_keys.stderr" \
+		|| { printf '!!! test-harness-bare-keys FAIL: the harness refused for the WRONG reason (no initech-qed1 diagnostic on stderr):\n'; cat "$(BUILD)/harness_bare_keys.stderr"; exit 1; }
+	@printf '>>> test-harness-bare-keys [1/2]: the real harness refused the bare invocation, citing initech-qed1\n'
+	@# leg 2: the SAME bare invocation + --legacy-quit must proceed (the opt-out works).
+	@if ! $(HARNESS_BIN) --disk "$(TRACER_IMG)" \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" --legacy-quit \
+		--name harness_bare_keys_optout --out "$(BUILD)" --timeout-ms 15000 \
+		>/dev/null 2>"$(BUILD)/harness_bare_keys_ok.stderr"; then \
+		printf '!!! test-harness-bare-keys FAIL: --legacy-quit did NOT let the invocation proceed\n'; cat "$(BUILD)/harness_bare_keys_ok.stderr"; exit 1; \
+	fi
+	@if grep -q 'initech-qed1' "$(BUILD)/harness_bare_keys_ok.stderr"; then \
+		printf '!!! test-harness-bare-keys FAIL: --legacy-quit was passed but the safety check still fired\n'; exit 1; \
+	fi
+	@printf '>>> test-harness-bare-keys [2/2]: --legacy-quit is an honest opt-out (the invocation proceeded, no refusal)\n'
+	@printf 'VERDICT   : PASS -- the initech-qed1 bare-injection safety check refuses by default and --legacy-quit is a real opt-out\n'
+
+.PHONY: test-harness-bare-keys-mutant
+test-harness-bare-keys-mutant: $(HARNESS_MUT_NOCHECK_BIN) $(TRACER_IMG)
+	@printf '>>> test-harness-bare-keys-mutant: HARNESS_MUTATE_NO_BARE_KEYS_CHECK must ACCEPT the bare invocation (Rule 6)\n'
+	@rm -f "$(BUILD)/harness_bare_keys_mut.stderr"
+	@if ! $(HARNESS_MUT_NOCHECK_BIN) --disk "$(TRACER_IMG)" \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		--name harness_bare_keys_mut --out "$(BUILD)" --timeout-ms 15000 \
+		>/dev/null 2>"$(BUILD)/harness_bare_keys_mut.stderr"; then \
+		printf '!!! test-harness-bare-keys-mutant FAIL: the mutant STILL refused the bare invocation -- the check-disable mutant is not effective, so test-harness-bare-keys proves nothing\n'; cat "$(BUILD)/harness_bare_keys_mut.stderr"; exit 1; \
+	fi
+	@printf '>>> test-harness-bare-keys-mutant: green (the check-disabled build accepted the SAME bare invocation the real harness refuses -- the gate bites)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-seed-fpc-diff (beads initech-63ce; ADR-0007 DEC-07 Rung 2)
@@ -16489,8 +16577,12 @@ test-flair-key: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
 	@printf 'Booting   : %s (FO-5 kbd raw post -> FO-7 WaitNextEvent cook)\n' "$(FLAIRLIVE_IMG)"
 	@printf 'Expecting : cooked FLAIR-EVT what=3 where=320,240 msg=00001E61 (keyDown a)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@# initech-qed1: quit-after the exact cooked marker this gate asserts on --
+	@# the IRQ1->FLAIR-ring->WaitNextEvent cook is fast but not instant, and the
+	@# legacy ~400ms-after-key quit can outrun it under host load.
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_IMG)" \
 		--keys "a" --keys-after "FLAIR-LIVE-READY" \
+		--quit-after "FLAIR-EVT what=3 where=320,240 msg=00001E61" \
 		--name "$(FLAIR_KEY_NAME)" --out "$(BUILD)" --timeout-ms 15000 \
 		2> "$(FLAIR_KEY_REPORT)" || true
 	@cat "$(FLAIR_KEY_REPORT)"
@@ -16519,8 +16611,12 @@ test-flair-key-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_KBD_IMG)
 	@printf '  Mutant: -DFLAIR_LIVE_MUTATE_NO_KBD_HOOK (kbd_set_scancode_hook NEVER called).\n'
 	@printf '  Expect: cooked keyDown a (FLAIR-EVT msg=00001E61) NEVER appears -> test-flair-key would go RED.\n'
 	@printf '======================================================================\n'
+	@# initech-qed1: --legacy-quit -- this leg asserts ABSENCE (the cooked keyDown
+	@# NEVER appears because the hook was never installed); there is no marker to
+	@# name for an event that must not occur, and waiting longer cannot
+	@# manufacture output that will never come, so the legacy quit is honest here.
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_MUT_KBD_IMG)" \
-		--keys "a" --keys-after "FLAIR-LIVE-READY" \
+		--keys "a" --keys-after "FLAIR-LIVE-READY" --legacy-quit \
 		--name "$(FLAIR_KEY_MUT_NAME)" --out "$(BUILD)" --timeout-ms 15000 \
 		2> "$(FLAIR_KEY_MUT_REPORT)" || true
 	@cat "$(FLAIR_KEY_MUT_REPORT)"
@@ -17287,6 +17383,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_BAND_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_RUBBER_BAND_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--quit-after "FINDER-MARQUEE n=2" \
 		--timeout-ms 15000 2> "$(BUILD)/$(FLAIR_DI_BAND_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_BAND_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the MARQUEE boot\n'; exit 1; fi
 	@grep -q '^FINDER-MARQUEE n=2$$' "$(BUILD)/$(FLAIR_DI_BAND_NAME).serial" \
@@ -17296,6 +17393,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_OPEN_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=4" \
 		--timeout-ms 15000 2> "$(BUILD)/$(FLAIR_DI_OPEN_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the OPEN boot\n'; exit 1; fi
 	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" \
@@ -17390,7 +17488,8 @@ test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA
 		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: the CLEAN image did not grade GREEN on leg DEFAULT -- the baseline is broken (not a mutant)\n'; exit 1; }
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_base_open --out "$(BUILD)" \
-		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 \
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=4" >/dev/null 2>&1 || true
 	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_deskicons_mut_base_open.serial" \
 		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=4 -- the baseline is broken\n'; exit 1; }
 	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on leg DEFAULT and opens on a double-click\n'
@@ -17411,9 +17510,14 @@ test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA
 		grep -m2 'FAIL leg' "$(BUILD)/flair_deskicons_mut_no_underlay.chk" | sed 's/^/      /'; \
 	fi
 	@# ---- mutant 2: DBLTICK_OFF -- the OPEN marker MUST be absent. ----
+	@# initech-qed1: --legacy-quit -- the dispatch (or its absence) comes from the
+	@# FINAL click of the same already-injected mouse burst that produces the
+	@# EARLIER FINDER-ICON-SELECT marker; quitting right after SELECT would not
+	@# reliably give the broken double-click threshold time to conclusively NOT
+	@# fire, so no honest quit-after marker exists for this absence-final leg.
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_desk_dbltick_off.img" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_dbltick_off --out "$(BUILD)" \
-		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 \
+		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 --legacy-quit \
 		2> "$(BUILD)/flair_deskicons_mut_dbltick_off.report" || true
 	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_deskicons_mut_dbltick_off.serial" \
 		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: dbltick_off mutant missing mount marker (not comparable)\n'; exit 1; }
@@ -17685,6 +17789,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_NAV_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_FOLDER_NAV_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--quit-after "FINDER-OPEN-FOLDER name=APPS win=1 singleton=1" \
 		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_NAV_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_NAV_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the NAV boot\n'; exit 1; fi
 	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
@@ -17705,6 +17810,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_PERSW_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_WINDOW_DRAG_PERSIST_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--quit-after "DESKTOP-DB-SAVE n=3" \
 		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_PERSW_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the PERSIST-WRITE boot\n'; exit 1; fi
 	@grep -qxF 'FLAIR-DRAG win 0 (20,60)->(120,180)' "$(BUILD)/$(FLAIR_DW_PERSW_NAME).serial" \
@@ -17781,6 +17887,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_C)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_MENU_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--quit-after "FINDER-CMD id=5 name=GET_INFO src=key sel=1" \
 		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_MENU_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the FINDER-MENU boot\n'; exit 1; fi
 	@grep -qxF 'FINDER-WIN-DRAG win=0 name=README.TXT x=189 y=166' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
@@ -17853,12 +17960,14 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@# ---- baseline: the CLEAN image must be GREEN on BOTH mutated legs. ----
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_open --out "$(BUILD)" \
-		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 >/dev/null 2>&1 || true
+		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=4" >/dev/null 2>&1 || true
 	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_diskwin_mut_base_open.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=4 -- the baseline is broken (not a mutant)\n'; exit 1; }
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_nav --out "$(BUILD)" \
-		--mouse "$(FLAIR_FOLDER_NAV_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 >/dev/null 2>&1 || true
+		--mouse "$(FLAIR_FOLDER_NAV_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 \
+		--quit-after "FINDER-OPEN-FOLDER name=APPS win=1 singleton=1" >/dev/null 2>&1 || true
 	@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=1' "$(BUILD)/flair_diskwin_mut_base_nav.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not raise the existing APPS window -- the baseline is broken\n'; grep '^FINDER-OPEN-FOLDER' "$(BUILD)/flair_diskwin_mut_base_nav.serial" || true; exit 1; }
 	@printf '>>> baseline: the clean FLAIRTENANTS image enumerates 4 icons and raises the singleton\n'
@@ -17867,6 +17976,7 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_vollabel_shown.img" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_vollabel --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=5" \
 		2> "$(BUILD)/flair_diskwin_mut_vollabel.report" || true
 	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_diskwin_mut_vollabel.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: vollabel mutant missing mount marker (not comparable)\n'; exit 1; }
@@ -17881,6 +17991,7 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_singleton_dup.img" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_singleton --out "$(BUILD)" \
 		--mouse "$(FLAIR_FOLDER_NAV_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 \
+		--quit-after "FINDER-OPEN-FOLDER name=APPS win=2 singleton=0" \
 		2> "$(BUILD)/flair_diskwin_mut_singleton.report" || true
 	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_diskwin_mut_singleton.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: singleton mutant missing mount marker (not comparable)\n'; exit 1; }
@@ -17901,14 +18012,19 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_diskwin_mut_menu_base_data.img
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(BUILD)/flair_diskwin_mut_menu_base_data.img" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_menu --out "$(BUILD)" \
-		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 >/dev/null 2>&1 || true
+		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 \
+		--quit-after "FINDER-CMD id=9 name=CLEANUP src=mouse sel=0" >/dev/null 2>&1 || true
 	@grep -qxF 'FINDER-CMD id=9 name=CLEANUP src=mouse sel=0' "$(BUILD)/flair_diskwin_mut_base_menu.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not dispatch Special > Clean Up by mouse -- the baseline is broken (not a mutant)\n'; grep -E '^FINDER-|^FLAIR-MENU' "$(BUILD)/flair_diskwin_mut_base_menu.serial" || true; exit 1; }
 	@printf '>>> baseline: the clean FLAIRTENANTS image dispatches Special > Clean Up from the real band-2 bar\n'
 	@cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_diskwin_mut_menu_dead_data.img
+	@# initech-qed1: --legacy-quit -- the dispatch-or-not comes from the FINAL
+	@# click of this same already-injected burst, downstream of the earlier
+	@# guaranteed FLAIR-MENU-DROP marker; no honest quit-after marker exists
+	@# for an absence-final leg like this one (see the dbltick_off leg above).
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_menu_dead_item.img" --disk2 "$(BUILD)/flair_diskwin_mut_menu_dead_data.img" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_dead_item --out "$(BUILD)" \
-		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 \
+		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 --legacy-quit \
 		2> "$(BUILD)/flair_diskwin_mut_dead_item.report" || true
 	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_diskwin_mut_dead_item.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: dead-item mutant missing mount marker (not comparable)\n'; exit 1; }
@@ -19855,6 +19971,7 @@ test-int21-irqstorm: $(HARNESS_BIN) $(IRQSTORM_IMG) $(FAT_IRQSTORM_IMG)
 	@$(HARNESS_BIN) --disk "$(IRQSTORM_IMG)" --disk2 "$(FAT_IRQSTORM_IMG)" \
 		--name "$(IRQSTORM_NAME)" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(IRQSTORM_KEYS)" --keys-after "IRQSTORM-READY" \
+		--quit-after "IRQSTORM-EXIT rc=0" \
 		2> "$(IRQSTORM_REPORT)" || true
 	@cat "$(IRQSTORM_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -19931,9 +20048,12 @@ test-int21-irqstorm-mutant: $(HARNESS_BIN) $(IRQSTORM_MUTA_IMG) $(IRQSTORM_MUTB_
 	@printf 'InitechOS (STAPLER) -- make test-int21-irqstorm-mutant : prove the storm oracle BITES (Rule 6)\n'
 	@printf '======================================================================\n'
 	@# ---- MUTANT A: scribble a DOS global from the PIT ISR -> enum goes WRONG. ----
+	@# MUTANT A still runs to completion (a data bug, not a crash) -- quit-after
+	@# the SAME clean-finish marker as the base gate.
 	@$(HARNESS_BIN) --disk "$(IRQSTORM_MUTA_IMG)" --disk2 "$(FAT_IRQSTORM_IMG)" \
 		--name "irqstorm_muta" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(IRQSTORM_KEYS)" --keys-after "IRQSTORM-READY" \
+		--quit-after "IRQSTORM-EXIT rc=0" \
 		2> "$(BUILD)/irqstorm_muta.report" || true
 	@tr -d '\r' < "$(BUILD)/irqstorm_muta.serial" 2>/dev/null | sed -n '/^STORM-DIR-BEGIN$$/,/^STORM-DIR-END$$/p' > "$(BUILD)/irqstorm_muta.dir" 2>/dev/null || true
 	@cnt=$$(grep -cE 'ALPHA\.TXT|BRAVO\.TXT|CHARLIE\.TXT|DELTA\.TXT|STORM\.DAT' "$(BUILD)/irqstorm_muta.dir" 2>/dev/null || echo 0); \
@@ -19943,9 +20063,12 @@ test-int21-irqstorm-mutant: $(HARNESS_BIN) $(IRQSTORM_MUTA_IMG) $(IRQSTORM_MUTB_
 	fi
 	@printf '>>> test-int21-irqstorm-mutant: MUTANT A correctly RED (PIT scribble corrupted the enumeration: %s/5 names)\n' "$$(grep -cE 'ALPHA\.TXT|BRAVO\.TXT|CHARLIE\.TXT|DELTA\.TXT|STORM\.DAT' "$(BUILD)/irqstorm_muta.dir" 2>/dev/null || echo 0)"
 	@# ---- MUTANT B: issue int 0x21 from the PIT ISR -> the guard PANICS. ----
+	@# MUTANT B PANICS instead of ever reaching IRQSTORM-EXIT -- the panic
+	@# marker itself IS this leg's completion signal.
 	@$(HARNESS_BIN) --disk "$(IRQSTORM_MUTB_IMG)" --disk2 "$(FAT_IRQSTORM_IMG)" \
 		--name "irqstorm_mutb" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(IRQSTORM_KEYS)" --keys-after "IRQSTORM-READY" \
+		--quit-after "INT21-REENTRY-PANIC" \
 		2> "$(BUILD)/irqstorm_mutb.report" || true
 	@grep -q 'INT21-REENTRY-PANIC' "$(BUILD)/irqstorm_mutb.serial" 2>/dev/null \
 		|| { printf '!!! test-int21-irqstorm-mutant FAIL: MUTANT B did NOT trip the reentrancy guard -- the int-0x21-from-IRQ went undetected (the guard is decoration). Serial tail:\n'; tail -20 "$(BUILD)/irqstorm_mutb.serial" 2>/dev/null; exit 1; }
@@ -20238,6 +20361,7 @@ test-shell: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CHECK_BIN)
 		--name "$(SHELL_NAME)" --out "$(BUILD)" --timeout-ms 12000 \
 		--keys "d,i,r,ret,t,y,p,e,spc,h,e,l,l,o,dot,t,x,t,ret,g,r,e,e,t,ret,b,a,d,c,m,d,ret,e,x,i,t,ret" \
 		--keys-after "SHELL-READY" \
+		--quit-after "SHELL-DONE" \
 		2> "$(SHELL_REPORT)" || true
 	@cat "$(SHELL_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -20442,6 +20566,7 @@ test-copy-selfcopy: $(HARNESS_BIN) $(TRACER_IMG)
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(OJXN_IMG)" \
 		--name "$(OJXN_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(OJXN_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(OJXN_REPORT)" || true
 	@cat "$(OJXN_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -20482,6 +20607,7 @@ test-copy-selfcopy-mutant: $(HARNESS_BIN) $(OJXN_MUT_TRACER_IMG)
 	@$(HARNESS_BIN) --disk "$(OJXN_MUT_TRACER_IMG)" --disk2 "$(OJXN_IMG)" \
 		--name "$(OJXN_MUT_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(OJXN_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(OJXN_MUT_REPORT)" || true
 	@if grep -q 'triple_fault=1' "$(OJXN_MUT_REPORT)"; then \
 		printf '!!! test-copy-selfcopy-mutant FAIL: mutant TRIPLE FAULT -- cannot attribute the loss\n'; exit 1; \
@@ -20616,6 +20742,7 @@ test-readerr-winh: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG)
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--name "$(WINH_NAME)" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(WINH_REPORT)" || true
 	@cat "$(WINH_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -20669,9 +20796,15 @@ test-readerr-winh: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG)
 # BITES the exact regression this fix eliminates.
 test-readerr-winh-mutant: $(HARNESS_BIN) $(WINH_MUT_TRACER_IMG) $(FAT_EXEC_IMG)
 	@printf '>>> test-readerr-winh-mutant: confirming the no-CF-check mutant HANGS on a PRN read (Rule 6)\n'
+	@# initech-qed1: --legacy-quit -- this leg's WHOLE POINT is that the mutant
+	@# HANGS forever (never reaches SHELL-EXIT/SHELL-DONE, by design). No
+	@# completion marker can be named for a guest that intentionally never
+	@# finishes; the wall-clock --timeout-ms is the correct, honest backstop
+	@# here (a host-load delay cannot manufacture a hang that isn't real, so
+	@# there is no false-RED exposure from the legacy quit on this leg).
 	@$(HARNESS_BIN) --disk "$(WINH_MUT_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--name "$(WINH_MUT_NAME)" --out "$(BUILD)" --timeout-ms 5000 \
-		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" \
+		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" --legacy-quit \
 		2> "$(WINH_MUT_REPORT)" || true
 	@if grep -q 'triple_fault=1' "$(WINH_MUT_REPORT)"; then \
 		printf '!!! test-readerr-winh-mutant FAIL: mutant TRIPLE FAULT -- cannot attribute the hang\n'; exit 1; \
@@ -20836,6 +20969,7 @@ test-ut6d: $(HARNESS_BIN) $(TRACER_IMG) $(FAT12_FIXTURE_DIR)/hello.txt
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(UT6D_IMG)" \
 		--name "$(UT6D_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(UT6D_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(UT6D_REPORT)" || true
 	@cat "$(UT6D_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -20909,6 +21043,7 @@ test-ut6d-mutant: $(HARNESS_BIN) $(UT6D_TRACER_MUT_IMG) $(UT6D_TRACER_RDNOOP_IMG
 	@$(HARNESS_BIN) --disk "$(UT6D_TRACER_MUT_IMG)" --disk2 "$(UT6D_MUT_IMG)" \
 		--name "$(UT6D_MUT_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(UT6D_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(UT6D_MUT_REPORT)" || true
 	@# Hard-FAIL on a missing/empty serial -- a dead boot must not pass for absence.
 	@if [ ! -s "$(UT6D_MUT_SERIAL)" ]; then \
@@ -20933,6 +21068,7 @@ test-ut6d-mutant: $(HARNESS_BIN) $(UT6D_TRACER_MUT_IMG) $(UT6D_TRACER_RDNOOP_IMG
 	@$(HARNESS_BIN) --disk "$(UT6D_TRACER_RDNOOP_IMG)" --disk2 "$(UT6D_RDNOOP_IMG)" \
 		--name "$(UT6D_RDNOOP_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(UT6D_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(UT6D_RDNOOP_REPORT)" || true
 	@if [ ! -s "$(UT6D_RDNOOP_SERIAL)" ]; then \
 		printf '!!! test-ut6d-mutant FAIL (leg B): no serial captured at %s -- mutant boot is dead, RED is meaningless\n' "$(UT6D_RDNOOP_SERIAL)"; exit 1; \
@@ -21026,6 +21162,7 @@ test-zs24-exec: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(FAT12_FIXTURE_D
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(ZS24EXEC_IMG)" \
 		--name "$(ZS24EXEC_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(ZS24EXEC_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(ZS24EXEC_REPORT)" || true
 	@cat "$(ZS24EXEC_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -21167,6 +21304,7 @@ test-zs24-exec-mutant: $(HARNESS_BIN) $(ZS24EXEC_TRACER_REJECT_IMG) $(ZS24EXEC_T
 	@$(HARNESS_BIN) --disk "$(ZS24EXEC_TRACER_REJECT_IMG)" --disk2 "$(ZS24EXEC_REJECT_IMG)" \
 		--name "$(ZS24EXEC_REJECT_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(ZS24EXEC_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(ZS24EXEC_REJECT_REPORT)" || true
 	@if [ ! -s "$(ZS24EXEC_REJECT_SERIAL)" ]; then \
 		printf '!!! test-zs24-exec-mutant FAIL (leg A): no serial captured at %s -- mutant boot is dead, RED is meaningless\n' "$(ZS24EXEC_REJECT_SERIAL)"; exit 1; \
@@ -21198,6 +21336,7 @@ test-zs24-exec-mutant: $(HARNESS_BIN) $(ZS24EXEC_TRACER_REJECT_IMG) $(ZS24EXEC_T
 	@$(HARNESS_BIN) --disk "$(ZS24EXEC_TRACER_ROOTONLY_IMG)" --disk2 "$(ZS24EXEC_ROOTONLY_IMG)" \
 		--name "$(ZS24EXEC_ROOTONLY_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(ZS24EXEC_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(ZS24EXEC_ROOTONLY_REPORT)" || true
 	@if [ ! -s "$(ZS24EXEC_ROOTONLY_SERIAL)" ]; then \
 		printf '!!! test-zs24-exec-mutant FAIL (leg B): no serial captured at %s -- mutant boot is dead, RED is meaningless\n' "$(ZS24EXEC_ROOTONLY_SERIAL)"; exit 1; \
@@ -21394,6 +21533,7 @@ test-kbd: $(HARNESS_BIN) $(KBD_ECHO_IMG)
 	@$(HARNESS_BIN) --disk "$(KBD_ECHO_IMG)" \
 		--name "$(KBD_NAME)" --out "$(BUILD)" --timeout-ms 9000 \
 		--keys "d,i,r" --keys-after "KBD-ECHO-READY" \
+		--quit-after "KBD-ECHO-END" \
 		2> "$(KBD_REPORT)" || true
 	@cat "$(KBD_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -21449,6 +21589,7 @@ test-conin: $(HARNESS_BIN) $(CONIN_IMG)
 	@$(HARNESS_BIN) --disk "$(CONIN_IMG)" \
 		--name "$(CONIN_NAME)" --out "$(BUILD)" --timeout-ms 9000 \
 		--keys "d,i,r,ret" --keys-after "CONIN-PROG-READY" \
+		--quit-after "CONIN-LINE=dir" \
 		2> "$(CONIN_REPORT)" || true
 	@cat "$(CONIN_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -21512,6 +21653,7 @@ test-vect: $(HARNESS_BIN) $(VECT_IMG)
 	@$(HARNESS_BIN) --disk "$(VECT_IMG)" \
 		--name "$(VECT_NAME)" --out "$(BUILD)" --timeout-ms 9000 \
 		--keys "a" --keys-after "VECT-PROG-READY" \
+		--quit-after "V24POST=" \
 		2> "$(VECT_REPORT)" || true
 	@cat "$(VECT_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -22318,6 +22460,7 @@ test-samir-boot: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
 		--name "$(SAMIRBOOT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(SAMIRBOOT_REPORT)" || true
 	@cat "$(SAMIRBOOT_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -22377,6 +22520,7 @@ test-samir-boot-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_LIST_MUT_IMG)
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_LIST_MUT_IMG)" \
 		--name "$(SAMIRBOOT_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(SAMIRBOOT_MUT_REPORT)" || true
 	@# The mutant must NOT triple-fault (it is a DATA bug, not a crash) ...
 	@if grep -q 'triple_fault=1' "$(SAMIRBOOT_MUT_REPORT)"; then \
@@ -22516,6 +22660,7 @@ test-samir-write: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(CLIENTS_DBF) $(PPM
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_WRITE_IMG)" \
 		--name "$(SAMIRWR_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRWR_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(SAMIRWR_REPORT)" || true
 	@cat "$(SAMIRWR_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -22603,6 +22748,7 @@ test-samir-write-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DROPWRITE) $(C
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_WRITE_MUT_IMG)" \
 		--name "$(SAMIRWR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRWR_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(SAMIRWR_MUT_REPORT)" || true
 	@# The mutant must NOT triple-fault (it is a data-not-persisted bug, not a crash).
 	@if grep -q 'triple_fault=1' "$(SAMIRWR_MUT_REPORT)"; then \
@@ -22768,6 +22914,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CY2K_IMG)" \
 		--name "$(CY2K_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(CY2K_REPORT)" || true
 	@cat "$(CY2K_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -22843,6 +22990,7 @@ test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DOTRUNC) $
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CY2K_MUT_IMG)" \
 		--name "$(CY2K_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(CY2K_MUT_REPORT)" || true
 	@# The mutant must NOT triple-fault (it is a wrong-data bug, not a crash).
 	@if grep -q 'triple_fault=1' "$(CY2K_MUT_REPORT)"; then \
@@ -22978,6 +23126,7 @@ test-samir-canon-salami: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CSAL_IMG)" \
 		--name "$(CSAL_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(CSAL_REPORT)" || true
 	@cat "$(CSAL_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -23046,6 +23195,7 @@ test-samir-canon-salami-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DOTRUNC
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CSAL_MUT_IMG)" \
 		--name "$(CSAL_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_KEYS)" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(CSAL_MUT_REPORT)" || true
 	@# The mutant must NOT triple-fault (it is a wrong-data bug, not a crash).
 	@if grep -q 'triple_fault=1' "$(CSAL_MUT_REPORT)"; then \
@@ -23240,6 +23390,7 @@ test-autoexec: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(AUTOEXEC_BAT) $(
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(AUTOEXEC_IMG)" \
 		--name "$(AUTOEXEC_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(AUTOEXEC_REPORT)" || true
 	@cat "$(AUTOEXEC_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -23310,6 +23461,7 @@ test-autoexec-mutant: $(HARNESS_BIN) $(AUTOEXEC_TRACER_MUT_IMG) $(GREET_PROG_BIN
 	@$(HARNESS_BIN) --disk "$(AUTOEXEC_TRACER_MUT_IMG)" --disk2 "$(AUTOEXEC_MUT_IMG)" \
 		--name "$(AUTOEXEC_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(AUTOEXEC_MUT_REPORT)" || true
 	@if [ ! -s "$(AUTOEXEC_MUT_SERIAL)" ]; then \
 		printf '!!! test-autoexec-mutant FAIL: no serial from the mutant boot\n'; exit 1; \
@@ -23371,6 +23523,7 @@ test-hsct-redir: $(HARNESS_BIN) $(TRACER_IMG) $(HSCT_REDIR_BAT)
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(HSCT_REDIR_IMG)" \
 		--name "$(HSCT_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(HSCT_REDIR_REPORT)" || true
 	@cat "$(HSCT_REDIR_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -23450,6 +23603,7 @@ test-hsct-redir-mutant: $(HARNESS_BIN) $(HSCT_REDIR_TRACER_MUT_IMG) $(HSCT_REDIR
 	@$(HARNESS_BIN) --disk "$(HSCT_REDIR_TRACER_MUT_IMG)" --disk2 "$(HSCT_REDIR_MUT_IMG)" \
 		--name "$(HSCT_REDIR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(HSCT_REDIR_MUT_REPORT)" || true
 	@if [ ! -s "$(HSCT_REDIR_MUT_SERIAL)" ]; then \
 		printf '!!! test-hsct-redir-mutant FAIL: no serial from the mutant boot\n'; exit 1; \
@@ -23518,6 +23672,7 @@ test-bsy9-redir: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(BSY9_REDIR_BAT
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(BSY9_REDIR_IMG)" \
 		--name "$(BSY9_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(BSY9_REDIR_REPORT)" || true
 	@cat "$(BSY9_REDIR_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -23591,6 +23746,7 @@ test-bsy9-redir-mutant: $(HARNESS_BIN) $(BSY9_REDIR_TRACER_MUT_IMG) $(GREET_PROG
 	@$(HARNESS_BIN) --disk "$(BSY9_REDIR_TRACER_MUT_IMG)" --disk2 "$(BSY9_REDIR_MUT_IMG)" \
 		--name "$(BSY9_REDIR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(BSY9_REDIR_MUT_REPORT)" || true
 	@if [ ! -s "$(BSY9_REDIR_MUT_SERIAL)" ]; then \
 		printf '!!! test-bsy9-redir-mutant FAIL: no serial from the mutant boot\n'; exit 1; \
@@ -23661,6 +23817,7 @@ test-bsy7-redir: $(HARNESS_BIN) $(TRACER_IMG) $(GOBBLE_PROG_BIN) $(BSY7_REDIR_BA
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(BSY7_REDIR_IMG)" \
 		--name "$(BSY7_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(BSY7_REDIR_REPORT)" || true
 	@cat "$(BSY7_REDIR_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -23743,6 +23900,7 @@ test-bsy7-redir-mutant: $(HARNESS_BIN) $(BSY7_REDIR_TRACER_MUT_IMG) $(GOBBLE_PRO
 	@$(HARNESS_BIN) --disk "$(BSY7_REDIR_TRACER_MUT_IMG)" --disk2 "$(BSY7_REDIR_MUT_IMG)" \
 		--name "$(BSY7_REDIR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(BSY7_REDIR_MUT_REPORT)" || true
 	@if [ ! -s "$(BSY7_REDIR_MUT_SERIAL)" ]; then \
 		printf '!!! test-bsy7-redir-mutant FAIL: no serial from the mutant boot\n'; exit 1; \
@@ -23813,6 +23971,7 @@ test-bsy8-pipe: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(GOBBLE_PROG_BIN
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(BSY8_PIPE_IMG)" \
 		--name "$(BSY8_PIPE_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(BSY8_PIPE_REPORT)" || true
 	@cat "$(BSY8_PIPE_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -23895,6 +24054,7 @@ test-bsy8-pipe-mutant: $(HARNESS_BIN) $(BSY8_PIPE_TRACER_MUT_IMG) $(GREET_PROG_B
 	@$(HARNESS_BIN) --disk "$(BSY8_PIPE_TRACER_MUT_IMG)" --disk2 "$(BSY8_PIPE_MUT_IMG)" \
 		--name "$(BSY8_PIPE_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(BSY8_PIPE_MUT_REPORT)" || true
 	@if [ ! -s "$(BSY8_PIPE_MUT_SERIAL)" ]; then \
 		printf '!!! test-bsy8-pipe-mutant FAIL: no serial from the mutant boot\n'; exit 1; \
@@ -23958,6 +24118,7 @@ test-sort-filter: $(HARNESS_BIN) $(TRACER_IMG) $(SORT_PROG_BIN) $(SORT_BAT) $(SO
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SORT_IMG)" \
 		--name "$(SORT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(SORT_REPORT)" || true
 	@cat "$(SORT_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -23990,6 +24151,7 @@ test-sort-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SORT_PROG_MUT_BIN) $(SOR
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SORT_MUT_IMG)" \
 		--name "$(SORT_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(SORT_MUT_REPORT)" || true
 	@if [ ! -s "$(SORT_MUT_SERIAL)" ]; then printf '!!! test-sort-filter-mutant FAIL: no serial from the mutant boot\n'; exit 1; fi
 	@sed -n '/^SHELL-READY$$/,$$p' "$(SORT_MUT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(SORT_MUT_FNAME).repl"
@@ -24038,6 +24200,7 @@ test-find-filter: $(HARNESS_BIN) $(TRACER_IMG) $(FIND_PROG_BIN) $(FIND_BAT) $(FI
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FIND_IMG)" \
 		--name "$(FIND_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(FIND_REPORT)" || true
 	@cat "$(FIND_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -24070,6 +24233,7 @@ test-find-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(FIND_PROG_MUT_BIN) $(FIN
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FIND_MUT_IMG)" \
 		--name "$(FIND_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(FIND_MUT_REPORT)" || true
 	@if [ ! -s "$(FIND_MUT_SERIAL)" ]; then printf '!!! test-find-filter-mutant FAIL: no serial from the mutant boot\n'; exit 1; fi
 	@sed -n '/^SHELL-READY$$/,$$p' "$(FIND_MUT_SERIAL)" | tr -d '\r' > "$(BUILD)/$(FIND_MUT_FNAME).repl"
@@ -24125,6 +24289,7 @@ test-more-filter: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_BIN) $(MORE_BAT) $(MO
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(MORE_IMG)" \
 		--name "$(MORE_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(MORE_REPORT)" || true
 	@cat "$(MORE_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -24153,6 +24318,7 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(MORE_MUT_IMG)" \
 		--name "$(MORE_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(SHELL_OS_COMPLETION) \
 		2> "$(MORE_MUT_REPORT)" || true
 	@if [ ! -s "$(MORE_MUT_SERIAL)" ]; then printf '!!! test-more-filter-mutant FAIL: no serial from the mutant boot\n'; exit 1; fi
 	@mtype -i "$(MORE_MUT_IMG)" ::MOUT.TXT 2>/dev/null | tr -d '\r' > "$(BUILD)/$(MORE_MUT_FNAME).got" || true
@@ -24189,6 +24355,7 @@ TEST_EMU_GATES := \
 		test-tps-gen-os test-tps-gen-os-mutant \
 		test-compiler-os test-compiler-os-mutant \
 		test-harness-quit-after test-harness-quit-after-mutant \
+		test-harness-bare-keys test-harness-bare-keys-mutant \
 	test-samir-write test-samir-write-mutant \
 	test-samir-canon-y2k test-samir-canon-y2k-mutant \
 	test-samir-canon-salami test-samir-canon-salami-mutant \

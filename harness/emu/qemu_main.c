@@ -45,6 +45,10 @@ static void usage(const char *argv0)
         "                     quitting qemu (the guest's work-complete marker;\n"
         "                     budget = timeout-1000, ends early if qemu exits;\n"
         "                     unseen => quit_after_found=0, OK=0)\n"
+        "  --legacy-quit      initech-qed1: explicit opt-out of the bare-\n"
+        "                     injection safety check below. Reserved for a\n"
+        "                     genuinely fire-and-forget leg (documented in the\n"
+        "                     Makefile comment right above the invocation).\n"
         "  --mouse SPEC       inject relative-mouse events via QMP input-send-\n"
         "                     event after boot; SPEC is comma-separated tokens:\n"
         "                     \"m<dx>:<dy>\" move, \"l1\"/\"l0\" left btn down/up,\n"
@@ -119,6 +123,8 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--quit-after") == 0) {
             NEED_ARG();
             cfg.quit_after = argv[++i];
+        } else if (strcmp(a, "--legacy-quit") == 0) {
+            cfg.legacy_quit = true;
         } else if (strcmp(a, "--mouse") == 0) {
             NEED_ARG();
             cfg.mouse_spec = argv[++i];
@@ -165,6 +171,48 @@ int main(int argc, char **argv)
         fprintf(stderr, "%s: need --kernel or --disk\n", argv[0]);
         usage(argv[0]);
         return 2;
+    }
+
+    /* initech-qed1: a gate that injects --keys/--mouse and asserts on guest
+     * output must not rely on the legacy "QMP quit ~400 ms after the last
+     * injected key" path (qemu.c qmp_session step 5) to have given the guest
+     * enough time to print. Under host load the guest may not have printed
+     * yet when the harness quits, and the gate goes RED for no reason but
+     * host business -- CLAUDE.md Law 2: a gate that can go RED because the
+     * HOST was busy is not an oracle. Require the caller to name a completion
+     * marker (--quit-after), a post-input screendump budget (--screendump-
+     * after, which the harness waits on before grabbing the frame the gate
+     * actually grades) or --record (per-event frames, settled + grabbed
+     * before the legacy quit), or to explicitly opt out via --legacy-quit
+     * (reserved for a genuinely fire-and-forget leg, e.g. an absence-only
+     * assertion or a guest that intentionally hangs -- see the Makefile
+     * comment at the call site). Rule 6 proof: HARNESS_MUTATE_NO_BARE_KEYS_CHECK
+     * disables this block so make test-harness-bare-keys-mutant can show a
+     * deliberately-bare invocation passing where the real harness refuses. */
+    {
+        bool has_injection = (cfg.keys_spec && cfg.keys_spec[0] != '\0') ||
+                             (cfg.mouse_spec && cfg.mouse_spec[0] != '\0');
+        bool has_completion = (cfg.quit_after && cfg.quit_after[0] != '\0') ||
+                              (cfg.screendump_after && cfg.screendump_after[0] != '\0') ||
+                              cfg.record_frames;
+#ifndef HARNESS_MUTATE_NO_BARE_KEYS_CHECK
+        if (has_injection && !has_completion && !cfg.legacy_quit) {
+            fprintf(stderr,
+                "%s: --keys/--mouse given without --quit-after, a post-input\n"
+                "  screendump budget (--screendump-after / --record), or an\n"
+                "  explicit --legacy-quit opt-out.\n"
+                "  The harness quits ~400 ms after the last injected key/mouse\n"
+                "  event; a gate that can go RED because the HOST was busy is\n"
+                "  not an oracle (CLAUDE.md Law 2; bead initech-qed1). Name the\n"
+                "  guest's completion marker, or pass --legacy-quit with a\n"
+                "  Makefile comment explaining why this leg is genuinely\n"
+                "  fire-and-forget.\n", argv[0]);
+            return 2;
+        }
+#else
+        (void)has_injection;
+        (void)has_completion;
+#endif
     }
 
     QemuResult res;

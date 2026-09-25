@@ -104,6 +104,19 @@ typedef struct {
      * Requires --keys/--mouse or --screendump (it lives in the QMP session). */
     const char *quit_after;    /* serial marker to wait for, or NULL.        */
 
+    /* Explicit opt-out of the initech-qed1 bare-injection safety check (see
+     * qemu_main.c). A gate that passes --keys/--mouse with NEITHER
+     * --quit-after NOR a post-input screendump budget (--screendump-after or
+     * --record) can go RED purely because the host was busy and the legacy
+     * ~400 ms post-injection quit fired before the guest printed (Law 2: a
+     * gate that can go RED because the HOST was busy is not an oracle). The
+     * CLI wrapper (qemu_main.c) refuses that combination UNLESS this flag is
+     * set -- reserved for a leg that is genuinely fire-and-forget (e.g. an
+     * absence-only assertion, where waiting longer cannot manufacture output
+     * that will never come, or a guest that intentionally hangs forever).
+     * The Makefile recipe must carry a comment saying which case it is. */
+    bool legacy_quit;
+
     /* QMP RELATIVE MOUSE injection (beads initech-5l5z FO-6 / FO-8). When
      * mouse_spec is non-NULL, the harness -- after the guest boots -- sends QMP
      * `input-send-event` events over the same QMP socket so a moving / clicking
