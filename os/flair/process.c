@@ -266,6 +266,70 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
 }
 
 /* --------------------------------------------------------------------------
+ * FlairProcess_admit -- WINDOWLESS registration of a tenant whose code is
+ * already running (the disk-launched tenant, bead initech-tdnl.14; ADR-0013
+ * Amendment AC-3 draft DEC-AC3-3 / DEC-AC3-4 in docs/design/GUI-remediation-
+ * ADR-reconciliation.md Part B).
+ *
+ * The carve is FlairProcess_launch's steps (a)-(c) verbatim -- handle, RECORDS
+ * (HANDLE class), DATA (GENERAL class), all-or-nothing with the reverse-order
+ * reclaim (BC-5) -- and the stamp is the same. What differs is exactly what
+ * DEC-AC3-4 rules:
+ *   - NO open(): the tenant's entry already ran (procs->open may be NULL);
+ *   - NO SelectWindow and NO foreground affirmation: the tenant owns no window
+ *     yet, so it is linked directly BEHIND the current head as FLAIR_APP_BG
+ *     (the head, and every band-2 gate keyed on it, is undisturbed). An empty
+ *     list is the one exception: the sole app is the head (FG) by definition.
+ * Foreground affirmation happens later, through FlairProcess_activate -- THE
+ * one switch sequence -- when the tenant's first window exists.
+ * Returns the admitted app, or NULL (nothing installed) on a bad argument or a
+ * failed carve. Teardown is FlairProcess_terminate / _kill, unchanged.
+ * -------------------------------------------------------------------------- */
+FlairApp *FlairProcess_admit(FlairProcessList *list, flair_heap_t *master,
+                             const FlairAppProcs *procs, const char *name,
+                             uint32_t records_budget, uint32_t budget)
+{
+    FlairApp *app;
+    void *records_block;
+    void *block;
+
+    if (list == NULL || master == NULL || procs == NULL ||
+        procs->event == NULL || records_budget == 0u || budget == 0u)
+        return NULL;
+
+    app           = (FlairApp *)flair_alloc(master, FLAIR_CLASS_HANDLE,
+                                            (uint32_t)sizeof(FlairApp));
+    records_block = flair_alloc(master, FLAIR_CLASS_HANDLE, records_budget);
+    block         = flair_alloc(master, FLAIR_CLASS_GENERAL, budget);
+    if (app == NULL || records_block == NULL || block == NULL) {
+        if (block         != NULL) flair_free(master, FLAIR_CLASS_GENERAL, block);
+        if (records_block != NULL) flair_free(master, FLAIR_CLASS_HANDLE,  records_block);
+        if (app           != NULL) flair_free(master, FLAIR_CLASS_HANDLE,  app);
+        return NULL;
+    }
+
+    proc_zero(app, (uint32_t)sizeof(FlairApp));
+    flair_heap_init(&app->records_arena, records_block, records_budget);
+    flair_heap_init(&app->arena, block, budget);
+    app->magic         = FLAIR_APP_MAGIC;
+    app->name          = name;
+    app->procs         = procs;
+    app->block         = block;
+    app->records_block = records_block;
+
+    if (list->head == NULL) {
+        app->state   = (uint8_t)FLAIR_APP_FG;
+        app->nextApp = NULL;
+        list->head   = app;
+    } else {
+        app->state            = (uint8_t)FLAIR_APP_BG;
+        app->nextApp          = list->head->nextApp;
+        list->head->nextApp   = app;
+    }
+    return app;
+}
+
+/* --------------------------------------------------------------------------
  * teardown_common -- the SHARED teardown body for FlairProcess_terminate (clean)
  * and FlairProcess_kill (death). Performs {DisposeWindow-loop + unlink +
  * promote-next + the three one-shot frees}. It does NOT call procs->close(): the

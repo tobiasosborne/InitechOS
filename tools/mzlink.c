@@ -53,6 +53,16 @@
  *                  panics 'PANIC foreign-mz' and never runs it (DEC-08a.5).
  *     --minalloc   e_minalloc paragraphs (default 0).
  *     --entry      entry offset within the module -> e_ip (e_cs stays 0; default 0).
+ *     --reloc-diff OTHER.bin DELTA
+ *                  DERIVE the reloc sites (bead initech-tdnl.14, the disk-tenant
+ *                  fixture): OTHER.bin is the SAME source assembled at org DELTA
+ *                  instead of org 0. Every differing byte must open a dword whose
+ *                  value moved by exactly DELTA -- that dword is an absolute
+ *                  reference (a reloc site); any other difference dies (Rule 2).
+ *                  DELTA must change every dword's LOW byte (e.g. 0x01010110) so
+ *                  the first differing byte is always the site's first byte.
+ *                  Replaces a hand-kept offset list that would silently rot the
+ *                  moment the fixture source changes.
  *
  * Strictly ASCII (Rule 12). Deterministic (Rule 11): no time(), no getenv(),
  * no argv paths leaked into the output bytes.
@@ -124,6 +134,8 @@ int main(int argc, char **argv)
     int      foreign     = 0;
     uint32_t minalloc    = 0;
     uint32_t entry_off   = 0;
+    const char *diff_path = NULL;
+    uint32_t diff_delta  = 0;
 
     /* ---- Parse argv (Rule 2: fail loud on anything unexpected). ---- */
     for (int i = 1; i < argc; i++) {
@@ -141,6 +153,12 @@ int main(int argc, char **argv)
         } else if (strcmp(argv[i], "--minalloc") == 0) {
             if (++i >= argc) die("--minalloc needs an argument");
             minalloc = (uint32_t)strtoul(argv[i], NULL, 0);
+        } else if (strcmp(argv[i], "--reloc-diff") == 0) {
+            if (i + 2 >= argc) die("--reloc-diff needs OTHER.bin DELTA");
+            diff_path  = argv[++i];
+            diff_delta = (uint32_t)strtoul(argv[++i], NULL, 0);
+            if ((diff_delta & 0xFFu) == 0u)
+                die("--reloc-diff DELTA must change the low byte (e.g. 0x01010110)");
         } else if (strcmp(argv[i], "--entry") == 0) {
             if (++i >= argc) die("--entry needs an argument");
             entry_off = (uint32_t)strtoul(argv[i], NULL, 0);
@@ -173,6 +191,34 @@ int main(int argc, char **argv)
     if (module == NULL) die("out of memory");
     if (fread(module, 1, mod_len, fin) != mod_len) die("short read");
     fclose(fin);
+
+    /* --reloc-diff: derive the reloc sites from a second assembly at org DELTA. */
+    if (diff_path != NULL) {
+        FILE *fo = fopen(diff_path, "rb");
+        if (fo == NULL) die("--reloc-diff: cannot open OTHER.bin");
+        uint8_t *other = (uint8_t *)malloc(mod_len + 1u);
+        if (other == NULL) die("out of memory");
+        size_t got = fread(other, 1, mod_len + 1u, fo);
+        fclose(fo);
+        if (got != mod_len) die("--reloc-diff: OTHER.bin length differs from the module");
+        reloc_count = 0;
+        for (uint32_t i = 0; i < mod_len; ) {
+            if (module[i] == other[i]) { i++; continue; }
+            if (i + 4u > mod_len) die("--reloc-diff: a difference runs past the module");
+            uint32_t a = (uint32_t)module[i] | ((uint32_t)module[i + 1] << 8) |
+                         ((uint32_t)module[i + 2] << 16) | ((uint32_t)module[i + 3] << 24);
+            uint32_t b = (uint32_t)other[i] | ((uint32_t)other[i + 1] << 8) |
+                         ((uint32_t)other[i + 2] << 16) | ((uint32_t)other[i + 3] << 24);
+            if ((uint32_t)(b - a) != diff_delta)
+                die("--reloc-diff: a difference that is not an absolute dword (position-dependent code the loader cannot fix)");
+            if (reloc_count >= MAX_RELOCS) die("--reloc-diff: too many reloc sites");
+            reloc_off[reloc_count++] = i;
+            i += 4u;
+        }
+        free(other);
+        fprintf(stderr, "mzlink: --reloc-diff derived %u reloc site(s)\n",
+                (unsigned)reloc_count);
+    }
 
     /* If --no-reloc, drop any reloc table entirely (the mutation variant). */
     if (no_reloc) {

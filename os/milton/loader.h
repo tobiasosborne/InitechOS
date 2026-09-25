@@ -58,10 +58,13 @@ typedef enum loader_status {
                               * the KERNEL call site PANICS fail-loud rather than
                               * relocate-and-misexecute 16-bit code in flat mode.
                               * NEVER run -- a flat CPU cannot decode 16-bit. */
-    LOADER_ERR_BAD_FORMAT    /* a tagged MZ that is otherwise malformed: a bad
+    LOADER_ERR_BAD_FORMAT,   /* a tagged MZ that is otherwise malformed: a bad
                               * header (truncated, header > image), an OOB reloc,
                               * or a load module too big for PROGRAM_IMAGE_MAX.
                               * Fail loud (Rule 2) -- do NOT run garbage. */
+    /* Disk-launched FLAIR tenant load (bead initech-tdnl.14; DEC-AC3-1): the
+     * caller's heap carve for the code block failed (BC-5 fail-loud budget). */
+    LOADER_ERR_NOMEM
 } loader_status_t;
 
 /* loader_plan_t -- the fully-computed, deterministic load layout. loader_prepare
@@ -306,5 +309,64 @@ void loader_bind_fat_volume(const struct fat12_volume *vol,
 loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
                                       const char *cmd_tail, uint32_t cmd_tail_len,
                                       uint32_t env_block, uint8_t *out_rc);
+
+/* ------------------------------------------------------------------------ *
+ * DISK-LAUNCHED FLAIR TENANTS -- the DEC-08a PARAMETERIZED-BASE extension
+ * (bead initech-tdnl.14; docs/design/GUI-remediation-ADR-reconciliation.md
+ * Part B DEC-AC3-1, Part A.1/A.4, Part C item 3).
+ *
+ * DEC-08a.1/.2 pin the EXEC path to PROGRAM_BASE/PROGRAM_IMAGE; that path is
+ * UNCHANGED (loader_prepare_mz still passes PROGRAM_IMAGE). DEC-AC3-1 EXTENDS
+ * it -- not reinterprets it -- to an explicit (psp_addr, load_base) pair so a
+ * GUI tenant can live in a block carved from the master FLAIR heap and leave
+ * PROGRAM_BASE free for class-2 text-tenant EXEC (ADR-0013 Sec 3.2).
+ *
+ * Block layout (spec/toolbox_gate.h Sec 8):
+ *     block + 0                     : the PSP (psp_build at an EXPLICIT address)
+ *     block + TBX_TENANT_PSP_BYTES  : the load module (== load_base), then BSS
+ * The whole MZ FILE is read to load_base first; the module is relocated IN ITS
+ * FILE POSITION against load_base (the loader_prepare_mz order, so a header-
+ * resident reloc table is never clobbered), then moved down over the header.
+ * ------------------------------------------------------------------------ */
+typedef struct tenant_plan {
+    uint32_t     psp_addr;    /* flat linear block base == where the PSP sits  */
+    uint32_t     load_base;   /* psp_addr + TBX_TENANT_PSP_BYTES               */
+    uint32_t     module_len;  /* the relocated load module's byte count        */
+    uint32_t     entry;       /* load_base + (e_cs*16 + e_ip)                  */
+    uint32_t     block_len;   /* the carved block's byte count                 */
+    psp_params_t params;      /* exactly what psp_build was handed             */
+} tenant_plan_t;
+
+/* loader_prepare_tenant -- PURE and HOST-TESTABLE. `block` is caller memory of
+ * `block_len` bytes whose FLAT LINEAR address is `block_linear` (on the kernel
+ * the two are the same number; the host oracle passes a fake linear base so the
+ * relocation arithmetic is checked against an address the host never maps).
+ * The MZ file (`file_len` bytes) must already sit at block + TBX_TENANT_PSP_BYTES.
+ * On LOADER_OK: the module is relocated against block_linear + PSP bytes, moved
+ * down, its BSS tail zeroed, and the PSP built at `block` (env inherit-empty per
+ * DEC-AC3-1 -- ENV_BLOCK, the reconciliation S4 note). Returns
+ * LOADER_ERR_FOREIGN_MZ for an untagged MZ (the KERNEL caller panics, DEC-08a.5
+ * verbatim), LOADER_ERR_BAD_FORMAT for a non-MZ image (V1 tenants are InitechMZ
+ * only, D1-1) or any malformed / non-fitting MZ (incl. an e_minalloc the block
+ * cannot hold). Never runs anything. */
+loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
+                                      uint32_t file_len, uint32_t block_linear,
+                                      tenant_plan_t *out);
+
+/* The heap carve the kernel tenant host supplies (the loader stays heap-
+ * agnostic: it never includes the FLAIR heap). Returns NULL on exhaustion. */
+typedef void *(*loader_carve_fn)(uint32_t len, void *user);
+
+/* loader_load_tenant -- KERNEL: locate `name83` in the directory whose first
+ * cluster is `dir_start` (0 == root), carve TBX_TENANT_PSP_BYTES +
+ * roundup16(file size) through `carve`, read the file to the load base, and run
+ * loader_prepare_tenant against the block's real address. *out_block receives
+ * the carved block whenever a carve happened (EVEN on a later failure -- the
+ * caller owns the free, which keeps the loader out of the heap). A foreign MZ
+ * PANICS (DEC-08a.5). The single-level EXEC guard (g_load_active) is
+ * deliberately NOT taken: a tenant is not an EXEC and never uses PROGRAM_BASE. */
+loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
+                                   loader_carve_fn carve, void *user,
+                                   void **out_block, tenant_plan_t *out);
 
 #endif /* INITECH_LOADER_H */

@@ -376,6 +376,10 @@ static const mock_entry_t ROOT_ENTS[] = {
     { "SETUP.EXE",  0x20u, 999u, 13u },
 };
 static const mock_entry_t APPS_ENTS[] = {
+    /* A real FAT subdirectory starts with "." and ".." (bead initech-tdnl.14:
+     * the mock without them let the Finder list them on the guest). */
+    { ".",          0x10u,   0u,  7u },
+    { "..",         0x10u,   0u,  0u },
     { "CALC.EXE",   0x20u, 200u, 21u },
     { "SUB",        0x10u,   0u, 23u },
 };
@@ -474,6 +478,13 @@ static void leg_singleton(void)
           "L6 a folder window opens");
     CHECK(a == 0 && b == 1 && sa == 0 && sb == 0,
           "L6 two DIFFERENT directories take two different slots");
+    /* tdnl.14: a subdirectory lists its CONTENTS -- "." and ".." are skipped,
+     * so the first icon is the first real entry. */
+    CHECK(s.sh.windows[1].view.n == 2u &&
+          strcmp(s.sh.windows[1].view.icons[0].name, "CALC.EXE") == 0 &&
+          s.sh.windows[1].view.icons[0].kind == (uint8_t)FINDER_ICON_APP &&
+          strcmp(s.sh.windows[1].view.icons[1].name, "SUB") == 0,
+          "L6 a folder window skips the \".\" and \"..\" entries");
 
     /* THE SINGLETON PROPERTY (design F3.3): reopening brings the EXISTING
      * window forward -- same slot, singleton=1, no third slot consumed. */

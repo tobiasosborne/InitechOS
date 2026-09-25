@@ -25,6 +25,7 @@
 #include "int21.h"        /* int21_set_exit / int21_exit_fn (the repointed hook) */
 #include "fat12.h"        /* FAT-sourced load (beads initech-saw): find + read file */
 #include "psp.h"          /* psp_save_vectors / psp_load_vectors (beads 509.8)    */
+#include "toolbox_gate.h" /* TBX_TENANT_PSP_BYTES -- the tenant block layout (tdnl.14) */
 /* InitechMZ parse + flat relocs (beads dtw.1; ADR-0003 DEC-08a). Pulled in via
  * the same-TU INCLUDE (not a separate object) so loader.c carries the mz_* code
  * directly: nothing in the tree links a standalone mz.o (the only other consumer,
@@ -387,6 +388,129 @@ loader_status_t loader_decide_env(uint32_t env_block, loader_env_decision_t *out
 }
 
 /* ------------------------------------------------------------------------ *
+ * loader_prepare_tenant -- the DEC-08a PARAMETERIZED-BASE extension for disk-
+ * launched FLAIR tenants (bead initech-tdnl.14; reconciliation Part B
+ * DEC-AC3-1 + Part A.1/A.4 + Part C item 3). PURE: no I/O, no absolute-address
+ * writes outside the caller's block, host-testable (test_tenant_load.c).
+ *
+ * Same five DEC-08a steps as loader_prepare_mz, with the two hardcoded
+ * placements replaced by the explicit pair (block_linear, block_linear +
+ * TBX_TENANT_PSP_BYTES) -- the EXEC path above is not touched:
+ *   1. parse (foreign -> LOADER_ERR_FOREIGN_MZ; the kernel panics, DEC-08a.5);
+ *   2. bound the module against the BLOCK (not PROGRAM_IMAGE_MAX);
+ *   3. relocate IN FILE POSITION against load_base (mz_apply_relocs already
+ *      takes load_base as a free parameter -- zero new reloc arithmetic);
+ *   4. move the module down over the header to load_base;
+ *   5. entry = load_base + entry_off, bounded inside the module;
+ * plus the two tenant-specific facts: the e_minalloc BSS must fit the block
+ * (refused, never overrun) and is ZEROED (a carved heap block is not); and the
+ * PSP is built at `block` with params derived only from the caller's numbers
+ * -- psp_build writes no address-derived field, which the host fixture proves
+ * by building the same params at two addresses and comparing bytes.
+ * ------------------------------------------------------------------------ */
+loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
+                                      uint32_t file_len, uint32_t block_linear,
+                                      tenant_plan_t *out)
+{
+    mz_image_t img;
+    int ps;
+    uint8_t *file_at;
+    uint32_t room;
+    uint32_t bss;
+
+    if (out == 0) {
+        return LOADER_ERR_NULL_OUT;
+    }
+    if (block == 0 || block_len <= (uint32_t)TBX_TENANT_PSP_BYTES ||
+        file_len == 0u ||
+        file_len > block_len - (uint32_t)TBX_TENANT_PSP_BYTES) {
+        return LOADER_ERR_BAD_FORMAT;
+    }
+    file_at = block + TBX_TENANT_PSP_BYTES;
+    room    = block_len - (uint32_t)TBX_TENANT_PSP_BYTES;
+
+    /* V1 disk GUI tenants are InitechMZ ONLY (D1-1): a flat .COM is position-
+     * dependent and cannot be placed at a heap-chosen base. */
+    if (!mz_is_mz(file_at, file_len)) {
+        return LOADER_ERR_BAD_FORMAT;
+    }
+
+    /* 1. Parse (DEC-08a.1/.5). */
+    ps = mz_parse_header(file_at, file_len, &img);
+    if (ps == MZ_ERR_FOREIGN) {
+        return LOADER_ERR_FOREIGN_MZ;
+    }
+    if (ps != MZ_OK) {
+        return LOADER_ERR_BAD_FORMAT;
+    }
+
+    /* 2. Bound the module against the BLOCK. */
+    if (img.load_module_len == 0u || img.load_module_len > room ||
+        img.load_module_off + img.load_module_len < img.load_module_off ||
+        img.load_module_off + img.load_module_len > file_len) {
+        return LOADER_ERR_BAD_FORMAT;
+    }
+    bss = (uint32_t)img.min_alloc_paras * 16u;
+    if (bss > room - img.load_module_len) {
+        return LOADER_ERR_BAD_FORMAT;   /* e_minalloc does not fit: refuse */
+    }
+    if (img.entry_off >= img.load_module_len) {
+        return LOADER_ERR_BAD_FORMAT;   /* never JMP past the module (Rule 2) */
+    }
+
+    /* 3. Relocate in file position against the PARAMETERIZED load base. */
+#ifdef LOADER_MUTATE_TENANT_PROGRAM_IMAGE_BASE
+    /* MUTANT (Rule 6; test-tenant-load-mutant only): relocate against the
+     * EXEC path's PROGRAM_IMAGE instead of the block -- the exact "reinterpret
+     * DEC-08a instead of extending it" bug. The relocated-dword assertions of
+     * test_tenant_load.c MUST go RED. NEVER define in a real build. */
+    if (img.reloc_count > 0u) {
+        if (mz_apply_relocs(file_at + img.load_module_off, img.load_module_len,
+                            (uint32_t)PROGRAM_IMAGE,
+                            file_at + img.reloc_table_off,
+                            img.reloc_count) != MZ_OK) {
+            return LOADER_ERR_BAD_FORMAT;
+        }
+    }
+#else
+    if (img.reloc_count > 0u) {
+        if (mz_apply_relocs(file_at + img.load_module_off, img.load_module_len,
+                            block_linear + (uint32_t)TBX_TENANT_PSP_BYTES,
+                            file_at + img.reloc_table_off,
+                            img.reloc_count) != MZ_OK) {
+            return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud */
+        }
+    }
+#endif
+
+    /* 4. Move the module down over the header to the load base. */
+    if (img.load_module_off != 0u) {
+        loader_move_down(file_at, file_at + img.load_module_off,
+                         img.load_module_len);
+    }
+    /* Zero everything past the module inside the block: the e_minalloc BSS and
+     * the dropped header/reloc-table bytes (a heap block is not zeroed). */
+    for (uint32_t i = img.load_module_len; i < room; i++) {
+        file_at[i] = 0u;
+    }
+
+    /* 5. The plan + the PSP at the EXPLICIT address. */
+    out->psp_addr   = block_linear;
+    out->load_base  = block_linear + (uint32_t)TBX_TENANT_PSP_BYTES;
+    out->module_len = img.load_module_len;
+    out->entry      = out->load_base + img.entry_off;
+    out->block_len  = block_len;
+    out->params.alloc_end_linear  = block_linear + block_len;
+    out->params.env_linear        = ENV_BLOCK;   /* inherit-empty (S4 note) */
+    out->params.parent_psp_linear = 0u;          /* the kernel is the parent */
+    out->params.cmd_tail          = 0;
+    out->params.cmd_tail_len      = 0u;
+    out->params.parent_jft        = 0;           /* the CON standard handles */
+    (void)psp_build((psp_t *)(void *)block, &out->params);
+    return LOADER_OK;
+}
+
+/* ------------------------------------------------------------------------ *
  * Kernel-only: image copy + PSP build + control transfer + return-to-loader.
  *
  * Compiled into the kernel (freestanding). In a HOSTED build (__STDC_HOSTED__)
@@ -440,6 +564,17 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
 {
     (void)name83; (void)dir_start; (void)cmd_tail; (void)cmd_tail_len;
     (void)env_block; (void)out_rc;
+    return LOADER_ERR_NO_VOLUME;
+}
+
+/* Hosted stub (bead initech-tdnl.14): the FAT read + carve are kernel-only; the
+ * host oracle drives the pure loader_prepare_tenant directly. */
+loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
+                                   loader_carve_fn carve, void *user,
+                                   void **out_block, tenant_plan_t *out)
+{
+    (void)name83; (void)dir_start; (void)carve; (void)user; (void)out;
+    if (out_block) *out_block = 0;
     return LOADER_ERR_NO_VOLUME;
 }
 
@@ -1158,6 +1293,77 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
         *out_rc = rcv;
     }
     return LOADER_OK;
+}
+
+/* ------------------------------------------------------------------------ *
+ * loader_load_tenant -- the disk-tenant sibling of load_program_from_fat (bead
+ * initech-tdnl.14; DEC-AC3-1). Locate + carve + read + loader_prepare_tenant.
+ * It does NOT run anything and does NOT take g_load_active: a GUI tenant is not
+ * an EXEC, never touches PROGRAM_BASE, and must be able to coexist with a
+ * later class-2 text-tenant EXEC (ADR-0013 Sec 3.2). The carve goes through the
+ * caller's callback so this object never learns about the FLAIR heap.
+ * ------------------------------------------------------------------------ */
+loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
+                                   loader_carve_fn carve, void *user,
+                                   void **out_block, tenant_plan_t *out)
+{
+    dir_entry_t de;
+    int rc;
+    uint32_t block_len;
+    uint32_t got = 0u;
+    uint8_t *block;
+    loader_status_t st;
+
+    if (out_block == 0 || out == 0 || carve == 0 || name83 == 0) {
+        return LOADER_ERR_NULL_OUT;
+    }
+    *out_block = 0;
+    if (g_load_vol == 0) {
+        return LOADER_ERR_NO_VOLUME;
+    }
+    if (dir_start == 0u) {
+        rc = fat12_find(g_load_vol, g_load_sector, name83, &de);
+    } else {
+        uint32_t slot = 0u;
+        rc = fat12_find_slot_in(g_load_vol, g_load_fat, g_load_fat_len,
+                                dir_start, g_load_sector, name83, &de, &slot);
+    }
+    if (rc == FAT12_ERR_NOT_FOUND) {
+        return LOADER_ERR_NOT_FOUND;
+    }
+    if (rc != FAT12_OK) {
+        return LOADER_ERR_READ;
+    }
+    if ((de.attribute & DIR_ATTR_DIRECTORY) != 0u) {
+        return LOADER_ERR_NOT_FOUND;   /* a folder is not a runnable tenant */
+    }
+    if (de.file_size == 0u || de.file_size > (uint32_t)TBX_TENANT_IMAGE_MAX) {
+        return LOADER_ERR_TOO_BIG;
+    }
+
+    /* Constant for a given file (the O-3 avail-stable invariant needs the code
+     * block to be the same size every launch, so its GENERAL free-list slot is
+     * reused exactly -- DEC-AC3-1's carve/free discipline). */
+    block_len = (uint32_t)TBX_TENANT_PSP_BYTES + ((de.file_size + 15u) & ~15u);
+    block = (uint8_t *)carve(block_len, user);
+    if (block == 0) {
+        return LOADER_ERR_NOMEM;
+    }
+    *out_block = block;
+
+    rc = fat12_read_file(g_load_vol, g_load_fat, g_load_fat_len, &de,
+                         block + TBX_TENANT_PSP_BYTES,
+                         block_len - (uint32_t)TBX_TENANT_PSP_BYTES,
+                         g_load_cluster, &got);
+    if (rc != FAT12_OK) {
+        return LOADER_ERR_READ;
+    }
+    st = loader_prepare_tenant(block, block_len, got,
+                               (uint32_t)(uintptr_t)block, out);
+    if (st == LOADER_ERR_FOREIGN_MZ) {
+        loader_panic_foreign_mz(name83);   /* DEC-08a.5 verbatim -- noreturn */
+    }
+    return st;
 }
 
 #endif /* freestanding vs hosted */

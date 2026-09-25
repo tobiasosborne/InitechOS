@@ -142,4 +142,10 @@ void isr_dispatch_c(int_frame_t *frame);
  * void* so idt.h need not include console.h; panic.c casts to console_t*. */
 void panic_set_console(void *con);
 
+/* Install the CPU-exception triage hook (panic.c; bead initech-tdnl.14). The
+ * hook runs before the fail-loud dump; it returns for any fault it does not
+ * own (the halt then proceeds unchanged) and never returns for one it does
+ * (a disk tenant's own fault, routed to FlairProcess_kill). NULL = none. */
+void panic_set_fault_hook(void (*hook)(uint32_t vector, uint32_t eip));
+
 #endif /* INITECH_IDT_H */

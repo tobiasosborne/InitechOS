@@ -213,4 +213,17 @@ static inline int text_center_in(int rect_w, const char *str, text_font_t font)
  * -------------------------------------------------------------------------- */
 text_font_t text_font_from_txfont(int txfont);
 
+/*
+ * text_chicago_cell -- the 16-byte Chicago cell for ASCII code c (the blank
+ * cell outside the authored range), as an OUT-OF-LINE function in text.c.
+ *
+ * WHY (bead initech-tdnl.14, kernel size policy initech-8z9j): the strike
+ * table in spec/assets/chicago8x16.h is `static const`, so every TU that calls
+ * the inline chicago8x16_glyph carries its own 1,456-byte copy. A TU that only
+ * needs cells for its own CLIPPED glyph walk (tbxgate.c's TEXTDRAW, a
+ * kernel-only TU) calls this instead and links against text.o's single copy.
+ * chrome.c keeps the inline accessor: its host oracles link it without text.c.
+ */
+const unsigned char *text_chicago_cell(int c);
+
 #endif /* INITECH_OS_FLAIR_TEXT_H */

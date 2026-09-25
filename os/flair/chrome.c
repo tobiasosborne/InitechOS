@@ -60,6 +60,37 @@ static void chrome_cfill(GrafPort *port, const flair_skin_t *skin,
     }
 }
 
+/* The title run, CLIPPED like every other chrome primitive (bead
+ * initech-tdnl.14). text_draw -> surface_blit has no region clip, so a WDEF
+ * repaint of a PARTLY COVERED window's title bar used to stamp the whole
+ * Chicago cell run -- ink AND background -- over the window in front of it.
+ * Found on the real guest: a disk tenant's exit exposed part of NOTES' title
+ * bar, and NOTES' "NOTES" run overdrew the APPS window's frame + scrollbar
+ * (the test-flair-app-launch RESTORE leg's byte-compare caught it). Same
+ * pixels as text_draw wherever they are visible (ink on set bits, bg on clear
+ * bits, 8x16 cells, CHICAGO_CELL_W advance); nothing where they are not. */
+__attribute__((unused)) /* the TITLE_BLANK/NO_TITLE mutants compile out the call */
+static void chrome_ctext(GrafPort *port, int x, int y, const char *s,
+                         uint32_t fg, uint32_t bg)
+{
+    const bitmap_t *bm = &port->portBits.bm;
+    for (; s != 0 && *s != '\0'; s++, x += CHICAGO_CELL_W) {
+        const unsigned char *g = chicago8x16_glyph((int)(unsigned char)*s);
+        for (int r = 0; r < CHICAGO_CELL_H; r++) {
+            int py = y + r;
+            if (py < 0 || py >= (int)bm->height) continue;
+            for (int c = 0; c < CHICAGO_CELL_W; c++) {
+                int px = x + c;
+                if (px < 0 || px >= (int)bm->width) continue;
+                if (!clip_in(port, px, py)) continue;
+                surface_put_pixel(bm, (uint32_t)py * bm->pitch +
+                                      (uint32_t)px * bm->bytes_per_pixel,
+                                  (g[r] & (0x80u >> c)) ? fg : bg);
+            }
+        }
+    }
+}
+
 static void chrome_crect(GrafPort *port, const flair_skin_t *skin,
                          int x0, int y0, int x1, int y1, int part)
 {
@@ -384,13 +415,12 @@ static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
                               : FLAIR_PART_PLAT_INACTIVE_TEXT;
 #endif
 #if !defined(CHROME_FID_MUT_TITLE_BLANK) && !defined(CHROME_FID_MUT_NO_TITLE)
-            text_draw(&port->portBits.bm, layout.x, ty, layout.text,
-                      FONT_CHICAGO,
-                      flair_look_pixel_for_skin(port, skin, ink_part),
-                      flair_look_pixel_for_skin(
-                          port, skin,
-                          active ? FLAIR_PART_PLAT_FRAME_FACE
-                                 : FLAIR_PART_PLAT_FACE));
+            chrome_ctext(port, layout.x, ty, layout.text,
+                         flair_look_pixel_for_skin(port, skin, ink_part),
+                         flair_look_pixel_for_skin(
+                             port, skin,
+                             active ? FLAIR_PART_PLAT_FRAME_FACE
+                                    : FLAIR_PART_PLAT_FACE));
 #else
             (void)ty;
             (void)ink_part;

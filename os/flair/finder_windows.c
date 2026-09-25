@@ -324,6 +324,22 @@ static int fw_enum_cb(const finder_dirent_t *e, void *user)
 
     if (e == (const finder_dirent_t *)0 || ec == (fw_enum_ctx_t *)0) return 0;
     if (finder_win_skip_entry(e->attribute)) return 0;
+    /* A SUBDIRECTORY's "." and ".." entries are FAT bookkeeping, not items: the
+     * Finder never shows them (a period Finder window lists a folder's
+     * CONTENTS). Found by bead initech-tdnl.14 on the real guest: the first
+     * icon of the APPS window was ".", and double-clicking it "opened" APPS
+     * again -- R3.3's host mock carried no dot entries, so it never bit. The
+     * root directory has none, so every root listing is unchanged. */
+#ifndef FINDER_WIN_MUT_DOTS_SHOWN
+    if (e->name83 != (const char *)0 && e->name83[0] == '.' &&
+        (e->name83[1] == '\0' ||
+         (e->name83[1] == '.' && e->name83[2] == '\0')))
+        return 0;
+#else
+    /* MUTANT FINDER_WIN_MUT_DOTS_SHOWN (Rule 6; test-finder-windows-mutant):
+     * the pre-tdnl.14 listing -- "." and ".." appear as folder icons, so L6's
+     * subdirectory listing goes RED. NEVER in a real build. */
+#endif
 
     if (ec->w->view.n >= (uint16_t)FINDER_WIN_ICONS_MAX) {
         /* The cap bit. Keep counting so the caller can report HOW MANY entries

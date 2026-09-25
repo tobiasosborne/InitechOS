@@ -265,6 +265,17 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
                              const char *name, rgn_rect_t bounds,
                              uint32_t records_budget, uint32_t budget);
 
+/* FlairProcess_admit -- WINDOWLESS registration (bead initech-tdnl.14;
+ * DEC-AC3-3/DEC-AC3-4). Carves the AC-2 trio exactly as FlairProcess_launch
+ * steps (a)-(c) do (all-or-nothing, reverse reclaim, BC-5), stamps magic/name/
+ * procs, calls NO open(), and links the app BEHIND the current head as
+ * FLAIR_APP_BG -- no SelectWindow, no foreground affirmation, the head is
+ * undisturbed (an empty list makes it the head). The first window's
+ * affirmation goes through FlairProcess_activate. NULL = nothing installed. */
+FlairApp *FlairProcess_admit(FlairProcessList *list, flair_heap_t *master,
+                             const FlairAppProcs *procs, const char *name,
+                             uint32_t records_budget, uint32_t budget);
+
 /* FlairProcess_terminate -- CLEAN teardown (ADR-0013 Sec 3.4), for tenants brought
  * up by FlairProcess_launch (app->block / app->records_block carved from `master`).
  *

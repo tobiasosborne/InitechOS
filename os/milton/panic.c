@@ -42,6 +42,20 @@
  * the console is up (panic_set_console); NULL before that -> serial-only. */
 static console_t *g_panic_con = 0;
 
+/* The CPU-exception triage hook (bead initech-tdnl.14; reconciliation Part C
+ * item 7). NULL in every kernel except the FLAIRTENANTS ones, which install the
+ * disk-tenant host's triage: a fault whose EIP lies inside the resident disk
+ * tenant's image while tenant code runs is routed to FlairProcess_kill (the
+ * hook never returns for it). For EVERY other fault the hook returns and the
+ * halt below runs exactly as before -- fail-loud is preserved for all
+ * non-tenant faults. */
+static void (*g_fault_hook)(uint32_t vector, uint32_t eip) = 0;
+
+void panic_set_fault_hook(void (*hook)(uint32_t vector, uint32_t eip))
+{
+    g_fault_hook = hook;
+}
+
 void panic_set_console(void *con)
 {
     g_panic_con = (console_t *)con;
@@ -129,6 +143,12 @@ void isr_dispatch_c(int_frame_t *frame)
         pserial_hex(frame->eip, 8);
         pserial_puts(" -- resuming\n");
         return;                 /* clean iret via isr_common; do NOT halt */
+    }
+
+    /* Tenant crash triage (tdnl.14): returns unless the fault is a disk
+     * tenant's own, in which case it unwinds and never comes back here. */
+    if (g_fault_hook != 0) {
+        g_fault_hook(frame->vector, frame->eip);
     }
 
     /* Grep-able one-liner first (the oracle keys on "PANIC vec=NN err=MM"). */

@@ -55,6 +55,11 @@
  * callers outside this module should use this function rather than a bare
  * cast to keep the mapping centralised and auditable.
  */
+const unsigned char *text_chicago_cell(int c)
+{
+    return chicago8x16_glyph(c);
+}
+
 text_font_t text_font_from_txfont(int txfont)
 {
     if (txfont == (int)FONT_GENEVA9)

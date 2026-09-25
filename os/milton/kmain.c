@@ -92,6 +92,21 @@
 #include "finder_menu.h"         /* R3.5 THE FINDER MENU BAR: the F4.2 resource +
                                   * finder_menu_refresh_enables (the graying
                                   * recompute) (bead initech-tdnl.12; -Ios/flair) */
+#include "tbxgate.h"             /* R3.7 the Initech Toolbox Gate + the one-slot
+                                  * disk-tenant host (bead initech-tdnl.14)      */
+#include "toolbox_gate.h"        /* the LOCKED gate ABI (-Ispec; tdnl.14)        */
+
+/* The INT 81h entry stub (os/milton/tbx_gate.asm). */
+extern void tbx_gate_entry(void);
+
+/* The gate dispatcher reads AX and the cdecl args off the uniform int_frame_t
+ * by the LOCKED offsets in spec/toolbox_gate.h Sec 2 (Part C item 14). This is
+ * the one TU where both the frame type and the spec are in scope, so the
+ * restatement is PROVEN equal here: a frame re-layout turns the build red. */
+_Static_assert(sizeof(int_frame_t) == TBX_GATE_FRAME_BYTES,
+               "toolbox_gate.h TBX_GATE_FRAME_BYTES must equal sizeof(int_frame_t)");
+_Static_assert(__builtin_offsetof(int_frame_t, eax) == 28,
+               "tbxgate.c reads the saved EAX at frame+28");
 
 /* THE LAYERING DRIFT TOOTH (bead initech-tdnl.10). os/flair/finder_windows.h
  * restates the two FAT attribute bits the Finder reads rather than including
@@ -1820,8 +1835,22 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
         ctx->master != (flair_heap_t *)0) {
         /* ADR-0013 Sec 3.4 / F2-3 / DEC-AC3-3 subset: the refCon owner decides
          * disposition. Tenant window -> full terminate; shell furniture -> hide. */
+#ifdef KMAIN_MUT_TENANT_CLOSE_HIDE
+        /* NAMED MUTANT (Rule 6; bead initech-tdnl.14 CLOSE_STALE_FOCUS): the
+         * initech-8fhu shape restored for the DISK tenant -- its close box only
+         * hides the window, the tenant stays the process-list head, and the
+         * next keystroke is delivered to it (TENANT-EVT what=3 after the close).
+         * NEVER in a real build. */
+        if (tbx_owns_window(w)) {
+            HideWindow(ctx->wm, w);
+        } else
+#endif
         terminated = FlairProcess_close_window(ctx->plist, ctx->wm, ctx->master,
                                                 w, &terminated_name);
+        /* A disk tenant's close box ran FlairProcess_terminate (the anti-8fhu
+         * rule, DEC-AC3-3); free its code block LAST and report, before the
+         * repaint below (tdnl.14). A no-op for every other window. */
+        (void)tbx_reap();
     } else {
         HideWindow(ctx->wm, w);
     }
@@ -2432,6 +2461,61 @@ static FlairProcessList     *g_ten_plist;
 static FlairApp             *g_ten_finder;
 static GrafPort             *g_ten_barport;
 
+/* R3.7 DISK-TENANT PUMP HOOKS (bead initech-tdnl.14; reconciliation DEC-AC3-3/
+ * DEC-AC3-4). The gate module owns the slot and the verbs; what lives HERE is
+ * what cannot live there -- the live offscreen, the band-2 port, the present --
+ * exactly the split the Finder uses (finder_windows.h "THE COMMAND OUTCOME").
+ *
+ * flair_live_tenant_service runs whenever tenant code has just RETURNED to the
+ * kernel (after the entry, and at the end of every pump iteration), never with
+ * tenant code on the stack:
+ *   (1) DEC-AC3-4 affirmation: a tenant whose first NEWWINDOW asked to become
+ *       foreground is promoted through THE one switch sequence
+ *       (FlairProcess_activate) plus the standard post-switch policy (chrome,
+ *       updateEvt route, band-2 swap, present, FLAIR-DISPATCH app=<name>);
+ *   (2) teardown between pump iterations (ADR-0013 Sec 3.4): when tbx_reap tore
+ *       a tenant down (EXIT, crash, or a close box's terminate) the survivor
+ *       was promoted by process.c; run the DQ2 cycle and refresh band 2 from
+ *       the NEW head (the shell fallback bar when the list is empty -- never a
+ *       dead head's menubar). */
+static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    FlairApp *app = tbx_take_affirm();
+
+    if (app != (FlairApp *)0 && g_ten_plist != (FlairProcessList *)0) {
+        EventRecord ev0;
+        FlairApp *prev = g_ten_plist->head;
+        /* The activate pair's where/when/modifiers are copied from this record
+         * (process.c mk_activate); a zeroed record keeps them deterministic. */
+        ev0.what = (uint16_t)nullEvent;
+        ev0.message = 0u;
+        ev0.when = 0u;
+        ev0.where.h = 0;
+        ev0.where.v = 0;
+        ev0.modifiers = 0u;
+        if (FlairProcess_activate(g_ten_plist, ctx->wm, &ev0, app))
+            flair_live_finish_tenant_switch(ctx, bi, g_ten_plist, prev,
+                                            g_ten_barport);
+    }
+    if (!tbx_reap()) return;
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_live_content_phase(ctx);
+    if (g_ten_barport != (GrafPort *)0)
+        DrawMenuBar(g_ten_barport, flair_live_tenant_bar(ctx, ctx->plist), -1,
+                    (const region_t *)0);
+    flair_desktop_present(bi, &ctx->off);
+}
+
+/* flair_live_launch_app: the Finder's "open an application" verb. The entry
+ * runs to its RETURN inside tbx_launch; then the service step affirms (or
+ * reaps a tenant that exited, crashed or never registered inside its entry). */
+static void flair_live_launch_app(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                  const char *name83, uint16_t dir_start)
+{
+    (void)tbx_launch(name83, dir_start);
+    flair_live_tenant_service(ctx, bi);
+}
+
 /* The mounted volume handles, captured at mount time so a drop can rewrite
  * \DESKTOP.DB without re-walking the bring-up. NULL volume == no persistence
  * (the desktop still works with in-memory positions; design F1.3). */
@@ -2973,6 +3057,13 @@ static void finder_surface_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
         finder_open_folder(ctx, bi, ic->dir_start, ic->name);
         return;
     }
+    /* R3.7 (bead initech-tdnl.14): an APPLICATION launches from the directory
+     * its window shows. A document still says NYI out loud (Rule 2). */
+    if (ic->kind == (uint8_t)FINDER_ICON_APP) {
+        flair_live_launch_app(ctx, bi, ic->name,
+                              g_finder_shell->windows[s->slot].dir_start);
+        return;
+    }
     serial_puts("FINDER-OPEN-ITEM NYI name=");
     serial_puts(ic->name);
     serial_putc('\n');
@@ -3426,6 +3517,101 @@ static void flair_live_finder_menu_result(flair_live_ctx_t *ctx,
 }
 #endif
 
+#if defined(FLAIR_LIVE_TENANTS) && defined(TBX_HEADLESS_SMOKE)
+/* ===========================================================================
+ * THE HEADLESS TENANT SMOKE (bead initech-tdnl.14; Rule 5 tri-emulator leg).
+ *
+ * WHY IT EXISTS. Every FLAIRTENANTS Bochs leg halts at the 640x480 guard
+ * (Bochs 2.7's vgabios ENOMODEs the VBE mode -> 320x200 fallback) BEFORE any
+ * tenant launches, and Bochs has no QMP mouse. So the positive app-launch
+ * trace cannot be replayed under Bochs. What CAN be -- and what is the actual
+ * emulator-ism risk of this bead -- is the CPU path: the INT 81h trap gate,
+ * the InitechMZ parameterized relocation into a heap block, the cdecl
+ * tbx_tenant_call trampoline, the arg reads off the trapped stack, the
+ * push-callback delivery and the teardown. This kernel variant (the SAME
+ * objects; ONLY this kmain arm differs, built -DTBX_HEADLESS_SMOKE) runs that
+ * path with NO desktop: an offscreen WindowMgr over the master heap, the real
+ * mounted volume, the real loader, the real gate, a SYNTHESIZED mouseDown
+ * routed through the real flair_app_dispatch. The gate greps the TENANT-*
+ * lines from QEMU and from Bochs and requires them BYTE-IDENTICAL.
+ * Never linked into a shipped image.
+ * ===========================================================================*/
+static void tbx_headless_smoke(void)
+{
+    static flair_heap_t      heap;
+    static WindowMgr         wm;
+    static FlairProcessList  plist;
+    static bitmap_t          off;
+    rgn_rect_t               frame;
+    dir_entry_t              apps;
+    tbx_host_t               th;
+    EventRecord              ev;
+    FlairApp                *app;
+
+    flair_heap_init(&heap, (void *)(uintptr_t)FLAIR_HEAP_BASE, FLAIR_HEAP_SIZE);
+    {
+        rgn_ws_slot_t *a = (rgn_ws_slot_t *)flair_alloc(&heap, FLAIR_CLASS_REGION,
+                                                        (uint32_t)sizeof(rgn_ws_slot_t));
+        rgn_ws_slot_t *b2 = (rgn_ws_slot_t *)flair_alloc(&heap, FLAIR_CLASS_REGION,
+                                                         (uint32_t)sizeof(rgn_ws_slot_t));
+        if (!a || !b2) { flair_desktop_oom("smoke region working set"); }
+        region_engine_bind_ws(a, b2);
+        region_engine_reset();
+    }
+    frame.top = 0; frame.left = 0;
+    frame.bottom = (int16_t)FLAIR_SCREEN_H; frame.right = (int16_t)FLAIR_SCREEN_W;
+    WindowMgr_init(&wm, frame,
+                   flair_desktop_alloc_region(&heap, "smoke.desktop_update"),
+                   flair_desktop_alloc_region(&heap, "smoke.scratch_a"),
+                   flair_desktop_alloc_region(&heap, "smoke.scratch_b"),
+                   flair_desktop_alloc_region(&heap, "smoke.scratch_c"));
+    off.width = (uint32_t)FLAIR_SCREEN_W;
+    off.height = (uint32_t)FLAIR_SCREEN_H;
+    off.bpp = 8u;
+    off.bytes_per_pixel = 1u;
+    off.pitch = (uint32_t)FLAIR_SCREEN_W;
+    off.base = (volatile uint8_t *)flair_alloc(&heap, FLAIR_CLASS_BITMAP,
+                                               off.pitch * off.height);
+    if (off.base == (volatile uint8_t *)0) { flair_desktop_oom("smoke offscreen"); }
+    FlairProcessList_init(&plist);
+
+    th.list = &plist; th.wm = &wm; th.master = &heap; th.surface = &off;
+    th.puts = serial_puts;
+    tbx_bind(&th);
+    idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
+                 (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);
+    panic_set_fault_hook(tbx_fault_triage);
+    serial_puts("TBX-SMOKE-BEGIN\n");
+
+    if (g_finder_vol == (const fat12_volume_t *)0 ||
+        fat12_find(g_finder_vol, g_finder_secbuf, "APPS", &apps) != FAT12_OK) {
+        serial_puts("TBX-SMOKE-FAIL no APPS folder on the data volume\nHALTED\n");
+        return;
+    }
+    (void)tbx_launch("TENANTFX.EXE", apps.start_cluster);
+
+    /* DEC-AC3-4: the sole app is already the head, so affirmation is the
+     * no-op FlairProcess_activate reports; route its first updateEvt. */
+    app = tbx_take_affirm();
+    if (app != (FlairApp *)0 && app->windows != (WindowPtr)0) {
+        WindowMgr_invalidate(&wm, app->windows,
+                             region_get_bbox(app->windows->contRgn));
+        flair_route_updates(&plist, &wm);
+        /* One synthesized mouseDown in the content, through THE spine. */
+        ev.what = (uint16_t)mouseDown;
+        ev.message = 0u;
+        ev.when = 0u;
+        ev.modifiers = 0u;
+        ev.where.h = 140;   /* inside the content (101,182)..(379,339) */
+        ev.where.v = 210;
+        flair_app_dispatch(&plist, &wm, &ev);
+    }
+    (void)tbx_reap();
+    serial_puts(plist.head == (FlairApp *)0 ? "TBX-SMOKE-OK list-empty\n"
+                                            : "TBX-SMOKE-OK list-NOT-empty\n");
+}
+#endif
+
 void kernel_main(void)
 {
     /* Marker: C kernel entered. This is the acceptance signal for the handoff
@@ -3681,6 +3867,13 @@ void kernel_main(void)
 #if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
     flair_tenant_mount_volume();
 #endif
+#if defined(FLAIR_LIVE_TENANTS) && defined(TBX_HEADLESS_SMOKE)
+    /* The headless tenant smoke (tdnl.14 Rule-5 leg): runs BEFORE the 640x480
+     * guard so Bochs reaches it, then halts. Never in a shipped image. */
+    tbx_headless_smoke();
+    serial_puts("HALTED\n");
+    for (;;) { __asm__ __volatile__("cli; hlt"); }
+#endif
 
 #ifdef BOOT_FLAIR_SHELL
     /* THE LIVE FLAIR DESKTOP (beads initech-re30.3, LANE 1; THE milestone): build
@@ -3885,6 +4078,26 @@ void kernel_main(void)
     /* ARM the DQ2 content phase: from here on the drag/close dispatches route
      * tenant-owed content damage instead of validating it away (initech-gofc). */
     ctx.plist = &ten_plist;
+
+    /* R3.7 (bead initech-tdnl.14): bind the disk-tenant host to the live list /
+     * WindowMgr / master heap / offscreen, install the Initech Toolbox Gate at
+     * INT 81h with the LOCKED attributes (spec/toolbox_gate.h Sec 1: trap gate
+     * 0x8F, DPL0, selector 0x08 -- the DEC-04a.1 discipline), and route CPU
+     * exceptions through the tenant crash triage (non-tenant faults still halt).
+     * Before sti, like every other gate this pump installs. */
+    {
+        tbx_host_t th;
+        th.list    = &ten_plist;
+        th.wm      = ctx.wm;
+        th.master  = ctx.master;
+        th.surface = &ctx.off;
+        th.puts    = serial_puts;
+        tbx_bind(&th);
+        idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
+                     (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);
+        panic_set_fault_hook(tbx_fault_triage);
+        serial_puts("TBX-GATE-READY vec=0x81\n");
+    }
 
     /* (3) Each tenant's OWN menu is its menubar; the live app-switch loop swaps the
      * FOREGROUND tenant's menu into the SECOND (Photoshop-chimera) band (ref beads
@@ -4323,6 +4536,12 @@ void kernel_main(void)
                 flair_live_finder_foreground(&ctx, &b, &ev);
             }
 
+            /* R3.7 (bead initech-tdnl.14): a disk tenant that EXITed or crashed
+             * inside this event's delivery is torn down HERE, between pump
+             * iterations (ADR-0013 Sec 3.4), never inside the dispatch; one
+             * that opened its first window inside a handler is affirmed here
+             * (DEC-AC3-4). */
+            flair_live_tenant_service(&ctx, &b);
         }
     }
 #else

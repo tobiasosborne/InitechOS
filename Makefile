@@ -534,6 +534,12 @@ PPM_FLAIR_DISKWIN_CHECK_BIN := $(BUILD)/ppm_flair_disk_windows_check
 # FLAIR_NEW_FOLDER_SPEC. Sibling of the R3.2 file above, never an edit to it.
 include spec/flair_disk_windows_traces.mk
 
+# The LOCKED R3.7 app-launch traces (spec/flair_app_launch_traces.mk, Rule
+# 8/11; bead initech-tdnl.14): FLAIR_APP_LAUNCH_SPEC (+ _SHOW/_PRE/_DOUBLE/
+# _CYCLE/_CLOSE). One source of truth for test-flair-app-launch AND the
+# record-flair app_launch clip.
+include spec/flair_app_launch_traces.mk
+
 # The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
 # (leg B: O-5 activate NOTES then title-drag it (-60,+60)), FLAIR_SOLID_SWITCH_
@@ -6718,6 +6724,49 @@ test-mzload-mutant: $(TEST_MZLOAD_MUT)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-tenant-load (bead initech-tdnl.14 -- the DEC-08a
+# PARAMETERIZED-BASE extension disk-launched FLAIR tenants ride; DEC-AC3-1)
+# ---------------------------------------------------------------------------
+# Host fixture the reconciliation (Part C item 3, BLOCKING) requires before a
+# single tenant loads: loader_prepare_tenant relocates an InitechMZ against an
+# ARBITRARY block base (a fake linear base far from PROGRAM_IMAGE), builds the
+# PSP at the block head, zeroes the BSS, refuses foreign/.COM/over-minalloc/OOB
+# images, and leaves the EXEC path's PROGRAM_IMAGE relocation untouched; plus
+# psp_build proven ADDRESS-INDEPENDENT (the Part A.4 VERIFY residual).
+# Mutation (Rule 6): LOADER_MUTATE_TENANT_PROGRAM_IMAGE_BASE -> RED.
+TEST_TENANT_LOAD      := $(BUILD)/test_tenant_load
+TEST_TENANT_LOAD_MUT  := $(BUILD)/test_tenant_load_mutant_progimage
+TEST_TENANT_LOAD_SRC  := $(MILTON_DIR)/test_tenant_load.c
+TEST_TENANT_LOAD_DEPS := $(TEST_TENANT_LOAD_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) \
+                         $(MILTON_DIR)/loader.h $(MILTON_DIR)/mz.h $(MILTON_DIR)/mz.c \
+                         $(MILTON_DIR)/psp.h spec/memory_map.h spec/dos_structs.h \
+                         spec/toolbox_gate.h
+
+$(TEST_TENANT_LOAD): $(TEST_TENANT_LOAD_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_TENANT_LOAD_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+
+$(TEST_TENANT_LOAD_MUT): $(TEST_TENANT_LOAD_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUTATE_TENANT_PROGRAM_IMAGE_BASE \
+		-Ispec -I$(MILTON_DIR) -Iseed \
+		-o $@ $(TEST_TENANT_LOAD_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+
+.PHONY: test-tenant-load test-tenant-load-mutant
+test-tenant-load: $(TEST_TENANT_LOAD)
+	@printf ">>> test-tenant-load: parameterized-base reloc + PSP@block + BSS zero + refusals + psp_build address-independence + EXEC path untouched\n"
+	@$(TEST_TENANT_LOAD)
+	@printf ">>> test-tenant-load: green\n"
+
+test-tenant-load-mutant: $(TEST_TENANT_LOAD_MUT)
+	@printf ">>> test-tenant-load-mutant: the PROGRAM_IMAGE-base mutant must go RED (Rule 6)\n"
+	@if $(TEST_TENANT_LOAD_MUT) > $(BUILD)/test_tenant_load_mutant.log 2>&1; then \
+		printf '!!! test-tenant-load-mutant FAIL: the mutant PASSED -- the fixture is decoration\n'; exit 1; \
+	fi
+	@grep -q 'T1 every site relocated to link + block base' $(BUILD)/test_tenant_load_mutant.log \
+		|| { printf '!!! test-tenant-load-mutant FAIL: RED, but not for the relocation-base reason\n'; cat $(BUILD)/test_tenant_load_mutant.log; exit 1; }
+	@printf ">>> test-tenant-load-mutant: green (RED for the named reason: relocated against PROGRAM_IMAGE, not the block)\n"
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-batch (beads initech-xw1 -- COMMAND.COM .BAT parser/expander)
 # ---------------------------------------------------------------------------
 # Host unit oracle for the pure batch-language logic (batch.c / batch.h):
@@ -7689,7 +7738,7 @@ endef
         test-multiopen \
         test-int21-irqstorm test-int21-irqstorm-mutant \
         test-fat-write-partial test-fat-write-partial-mutant \
-        test-command test-command-mutant test-env test-env-mutant test-batch test-batch-mutant test-mz test-mz-mutant test-mzload test-mzload-mutant test-shell \
+        test-command test-command-mutant test-env test-env-mutant test-batch test-batch-mutant test-mz test-mz-mutant test-mzload test-mzload-mutant test-tenant-load test-tenant-load-mutant test-shell \
         test-ut6d test-ut6d-mutant \
         test-copy-selfcopy test-copy-selfcopy-mutant \
         test-readerr-winh test-readerr-winh-mutant \
@@ -9437,6 +9486,22 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 # in any other KERNEL_*_OBJS.
 # ---------------------------------------------------------------------------
 # The App Contract dispatcher object (THE ARTIFACT; freestanding kernel build).
+# R3.7 THE INITECH TOOLBOX GATE (bead initech-tdnl.14): the INT 81h dispatcher +
+# the one-slot disk-tenant host (os/flair/tbxgate.c; reaches MILTON's
+# loader_load_tenant, hence -Ios/milton) and its asm entry/call/abort
+# trampolines (os/milton/tbx_gate.asm). Linked ONLY into the FLAIRTENANTS
+# kernels, so every other image stays byte-identical.
+# -Os by MEASUREMENT (the initech-8z9j size policy): tbxgate.o text is
+# 9,266 B at -O1, 7,606 B at -Os, 11,285 B at -O2.
+TBXGATE_OPT            := -Os
+KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
+KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
+TBXGATE_DEPS := os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago8x16.h
+$(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
+$(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
+	$(NASM) -f elf32 $< -o $@
+
 KERNEL_PROCESS_OBJ := $(BUILD)/process.o
 $(KERNEL_PROCESS_OBJ): os/flair/process.c os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $@
@@ -9500,17 +9565,56 @@ DESKTOP_DB_GOLDEN            := $(BUILD)/desktop_db_empty.golden
 # between unrelated gates while still preserving state across legs of one gate.
 FLAIR_GATE_DATA              = $(BUILD)/$@_data.img
 
+# R3.7 THE DISK-SHIPPED FIXTURE TENANT (bead initech-tdnl.14): TENANTFX.EXE, a
+# hand-assembled InitechMZ that registers through INT 81h, opens one window,
+# draws one text run and exits on its first mouseDown (D1.7). Assembled TWICE
+# (org 0 = the payload, org 0x01010110 = the probe: 16-aligned so nasm pads
+# nothing, low byte non-zero so every site's FIRST byte differs) so mzlink --reloc-diff
+# DERIVES every absolute dword instead of trusting a hand-kept offset list.
+# $(call tenantfx-exe-rules,<tag>,<extra nasm -D flags>) -> $(BUILD)/tenantfx<tag>.exe
+# The shipped image uses tag "" and NO knob; the knobbed variants (NO_REGISTER,
+# CRASH_ON_CLICK) exist only on their own gate-local data volumes.
+TENANTFX_ASM   := os/apps/tenantfx.asm
+TENANTFX_PROBE := 0x01010110
+define tenantfx-exe-rules
+$(BUILD)/tenantfx$(1).o0.bin: $(TENANTFX_ASM) | $(BUILD)
+	$(NASM) -f bin -DORG=0 $(2) $$< -o $$@
+$(BUILD)/tenantfx$(1).o1.bin: $(TENANTFX_ASM) | $(BUILD)
+	$(NASM) -f bin -DORG=$(TENANTFX_PROBE) $(2) $$< -o $$@
+$(BUILD)/tenantfx$(1).exe: $(BUILD)/tenantfx$(1).o0.bin $(BUILD)/tenantfx$(1).o1.bin $(MZLINK_BIN) | $(BUILD)
+	$(MZLINK_BIN) $(BUILD)/tenantfx$(1).o0.bin $$@ --reloc-diff $(BUILD)/tenantfx$(1).o1.bin $(TENANTFX_PROBE) --entry 0
+endef
+$(eval $(call tenantfx-exe-rules,,))
+$(eval $(call tenantfx-exe-rules,_noreg,-DNO_REGISTER))
+$(eval $(call tenantfx-exe-rules,_crash,-DCRASH_ON_CLICK))
+TENANTFX_EXE := $(BUILD)/tenantfx.exe
+
 # Deterministic flagship FAT12 volume (Rule 11): mtools authors the filesystem,
 # fixed SOURCE_DATE_EPOCH/TZ pin every FAT timestamp, and -N pins the serial.
-# Contents are intentionally small: README.TXT plus the APPS placeholder.
-$(FLAIR_DATA_IMG): $(FLAIR_DATA_README) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $@ -f 1440 \
+# Contents are intentionally small: README.TXT plus the APPS folder, which since
+# R3.7 (tdnl.14) holds the one disk-launched app, APPS\TENANTFX.EXE. It lives
+# INSIDE APPS, never at the root, so the locked root listing (n=4) of every R3.2/
+# R3.3 gate is untouched.
+# $(call flair-data-rules,<image>,<TENANTFX exe to ship>)
+define flair-data-rules
+$(1): $(FLAIR_DATA_README) $(2) | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ \
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
 		$(FLAIR_DATA_README) ::README.TXT
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::APPS
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS)\n" "$@"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $$@ ::APPS
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
+		$(2) ::APPS/TENANTFX.EXE
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s)\n" "$$@" "$(2)"
+endef
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE)))
+# Gate-local VARIANT volumes (tdnl.14 legs): the SAME recipe shipping a knobbed
+# fixture under the SAME name, so the SAME locked trace drives it.
+FLAIR_DATA_TFX_NOREG_IMG := $(BUILD)/flair_data_tfx_noreg.img
+FLAIR_DATA_TFX_CRASH_IMG := $(BUILD)/flair_data_tfx_crash.img
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_NOREG_IMG),$(BUILD)/tenantfx_noreg.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_CRASH_IMG),$(BUILD)/tenantfx_crash.exe))
 
 # DB_MAGIC_FLIP volume mutant: corruption is authored independently at image
 # build time; the REAL kernel must announce REGEN and rewrite the golden header.
@@ -9530,7 +9634,10 @@ $(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KE
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
-KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ)
+KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ)
+
+# R3.7 (tdnl.14): every FLAIRTENANTS kmain variant includes the gate headers.
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h
 
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_OBJS)
@@ -9683,6 +9790,34 @@ $(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_fl
 	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+
+# $(call flair-tenants-tbx-mutant-rules,<KNOB>,<tag>): a Toolbox-Gate mutant
+# (bead initech-tdnl.14) -- swaps ONLY tbxgate.o.
+define flair-tenants-tbx-mutant-rules
+$(BUILD)/tbxgate_mut_$(2).o: $(TBXGATE_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $$@
+
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o
+
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants R3.7 TOOLBOX-GATE MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
 # $(call flair-tenants-kmain-mutant-rules,<KNOB>,<tag>): a pump (kmain.c) mutant. The
@@ -11772,7 +11907,15 @@ test-finder-windows: $(TEST_FINDER_WIN)
 		|| { printf '!!! test-finder-windows FAIL: finder_windows.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-finder-windows: green\n"
 
-test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_MUT_VOLLABEL) $(TEST_FINDER_WIN_MUT_CLEANUP)
+# tdnl.14: the dot-entry skip's mutant (a subdirectory lists "." and "..").
+TEST_FINDER_WIN_MUT_DOTS := $(BUILD)/test_finder_windows_mutant_dots_shown
+$(TEST_FINDER_WIN_MUT_DOTS): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_DOTS_SHOWN $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
+
+test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_MUT_VOLLABEL) $(TEST_FINDER_WIN_MUT_CLEANUP) $(TEST_FINDER_WIN_MUT_DOTS)
+	@if $(TEST_FINDER_WIN_MUT_DOTS) > $(BUILD)/test_finder_windows_mutant_dots.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: DOTS_SHOWN PASSED -- the dot-entry skip oracle is decoration\n'; exit 1; fi
+	@grep -q 'skips the "." and ".." entries' $(BUILD)/test_finder_windows_mutant_dots.log || { printf '!!! test-finder-windows-mutant FAIL: DOTS_SHOWN went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_dots.log; exit 1; }
+	@printf '>>> test-finder-windows-mutant: green (DOTS_SHOWN correctly RED -- a subdirectory lists "." and "..")\n'
 	@printf ">>> test-finder-windows-mutant: confirming all three disk-window mutants go RED (Rule 6)\n"
 	@if $(TEST_FINDER_WIN_MUT_SINGLETON) >/dev/null 2>&1; then printf '!!! test-finder-windows-mutant FAIL: SINGLETON_DUP PASSED -- the spatial-singleton oracle is decoration\n'; exit 1; else printf '>>> test-finder-windows-mutant: green (SINGLETON_DUP correctly RED -- reopening a folder builds a second window)\n'; fi
 	@if $(TEST_FINDER_WIN_MUT_VOLLABEL) >/dev/null 2>&1; then printf '!!! test-finder-windows-mutant FAIL: VOLLABEL_SHOWN PASSED -- the volume-label skip oracle is decoration\n'; exit 1; else printf '>>> test-finder-windows-mutant: green (VOLLABEL_SHOWN correctly RED -- the volume name leaks into the listing)\n'; fi
@@ -18638,6 +18781,179 @@ test-flair-collapse: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_
 test-flair-window-ops: test-flair-zoom-toggle test-flair-grow test-flair-collapse
 	@printf '>>> test-flair-window-ops: all three R1.2 emulator legs green\n'
 
+
+# ===========================================================================
+# R3.7 APP LAUNCH FROM DISK (bead initech-tdnl.14; GUI-remediation plan R3.7;
+# reconciliation Part B DEC-AC3-1..4). THE load-bearing mechanism: double-
+# click an application in a Finder disk window -> MILTON loads an InitechMZ
+# flat-32 .EXE from the FAT12 data volume into a block carved from the master
+# FLAIR heap -> it REGISTERs through the Initech Toolbox Gate (INT 81h) -> its
+# window appears, receives push-callback events, exits cleanly.
+# ---------------------------------------------------------------------------
+# test-flair-app-launch (QEMU, SIX boots of $(FLAIRTENANTS_IMG) + two knobbed
+# fixture volumes):
+#   1 LAUNCH   FLAIR_APP_LAUNCH_SPEC -> the TENANT-* + FLAIR-DISPATCH lines are
+#              BYTE-IDENTICAL to the locked $(FLAIR_APPL_GOLDEN) (load, the
+#              per-call gate trace with decoded args, register, activate/update
+#              delivery, the switch, the mouseDown, EXIT, the reap).
+#   2 SHOW     FLAIR_APP_LAUNCH_SHOW_SPEC -> ppm_flair_app_launch_check show:
+#              the window at the tenant's own bounds, front, content white,
+#              EXACTLY the two text runs (ink counted off the locked strike).
+#   3 RESTORE  leg 1's post-budget dump is BYTE-IDENTICAL to the dump of
+#              FLAIR_APP_LAUNCH_PRE_SPEC (same gestures, the icon SELECTED but
+#              never launched): the exit leaves no pixel of the tenant behind
+#              and restores the Finder's foreground + band-2 bar exactly.
+#   4 DOUBLE   FLAIR_APP_LAUNCH_DOUBLE_SPEC -> one TENANT-REGISTER ok, one
+#              TENANT-SLOT-BUSY, one clean exit (the V1 one-slot model).
+#   5 CYCLE    FLAIR_APP_LAUNCH_CYCLE_SPEC -> two clean exits whose two
+#              TENANT-HEAPAVAIL values are EQUAL (O-3: cycle >= 2 is avail-
+#              stable -- the code block and the AC-2 trio reuse their free-list
+#              slots because the carve/free order is strict reverse).
+#   6 CLOSE    FLAIR_APP_LAUNCH_CLOSE_SPEC -> the close box TERMINATES the
+#              tenant (TENANT-EXIT via=close, FLAIR-TENANT-EXIT name=TENANTFX),
+#              the following keystroke is delivered (FLAIR-EVT what=3) but
+#              NEVER to the tenant (no TENANT-EVT between FLAIR-CLOSE and the
+#              relaunch), and the relaunch double-click LOADs + REGISTERs again
+#              (the slot really was freed) -- the anti-initech-8fhu rule.
+#   7 NOREG    the NO_REGISTER fixture variant: TENANT-UNREGISTERED, nothing
+#              installed, no event ever delivered, desktop intact to the end.
+#   8 CRASH    the CRASH_ON_CLICK fixture variant: the #UD inside the image is
+#              triaged (TENANT-CRASH vec=6 -> FlairProcess_kill), no PANIC, the
+#              desktop survives to FLAIR-LIVE-OK (reconciliation Part C item 7).
+# Mutation-proven by test-flair-app-launch-mutant; the CPU-path differential
+# vs Bochs is test-flair-app-launch-bochs (Rule 5).
+# ===========================================================================
+FLAIR_APPL_GOLDEN        := spec/flair_app_launch_trace.golden
+PPM_FLAIR_APPL_CHECK_BIN := $(BUILD)/ppm_flair_app_launch_check
+$(PPM_FLAIR_APPL_CHECK_BIN): tools/ppm_flair_app_launch_check.c spec/assets/color_canon.h spec/assets/chicago8x16.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+# The mutant kernels: two gate-module knobs + one pump knob.
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_NO_SLOT_GUARD,tbx_no_slot_guard))
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_EXIT_LEAK,tbx_exit_leak))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_TENANT_CLOSE_HIDE,tenant_close_hide))
+# The HEADLESS smoke kernel for the Bochs differential (NOT a mutant: the
+# template's naming; it swaps only the kmain arm, -DTBX_HEADLESS_SMOKE).
+$(eval $(call flair-tenants-kmain-mutant-rules,TBX_HEADLESS_SMOKE,tbx_smoke))
+
+# $(call appl-boot,<name>,<kernel img>,<data img>,<trace VARIABLE NAME>,<extra>)
+# (the trace is passed by NAME: its commas would split a $(call) argument)
+# One QEMU boot, tolerant (the leg's own check decides); a triple fault is
+# always fatal.
+define appl-boot
+	cp -f $(3) $(BUILD)/$(1)_data.img
+	@$(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --out "$(BUILD)" \
+		--mouse "$($(4))" --keys-after "FLAIR-LIVE-READY" --quit-after FLAIR-LIVE-OK \
+		--timeout-ms 30000 $(5) 2> "$(BUILD)/$(1).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(1).report"; then printf '!!! %s: TRIPLE FAULT\n' "$(1)"; exit 1; fi
+endef
+
+# The leg checks, as shell conditions over one serial file ($(1)); each exits 0
+# iff the leg's property holds. Shared VERBATIM by the clean gate (must hold)
+# and the mutant gate (must NOT hold) -- one definition, two polarities.
+APPL_ALIVE = grep -qx 'FLAIR-LIVE-OK' $(1) && ! grep -q '^PANIC' $(1)
+APPL_TRACE = grep -E '^(TENANT-|FLAIR-DISPATCH app=)' $(1) > $(1).trace && grep -v '^\#' $(FLAIR_APPL_GOLDEN) > $(1).golden && cmp -s $(1).trace $(1).golden
+APPL_DOUBLE = [ "$$(grep -c '^TENANT-REGISTER ok app=TENANTFX$$' $(1))" = 1 ] && [ "$$(grep -c '^TENANT-SLOT-BUSY name=TENANTFX.EXE$$' $(1))" = 1 ] && [ "$$(grep -c '^TENANT-EXIT rc=0 via=exit$$' $(1))" = 1 ]
+APPL_CYCLE = [ "$$(grep -c '^TENANT-EXIT rc=0 via=exit$$' $(1))" = 2 ] && [ "$$(grep -c '^TENANT-HEAPAVAIL n=' $(1))" = 2 ] && [ "$$(grep '^TENANT-HEAPAVAIL n=' $(1) | sort -u | wc -l)" = 1 ]
+APPL_CLOSE = grep -qx 'TENANT-EXIT rc=0 via=close' $(1) && grep -qx 'FLAIR-TENANT-EXIT name=TENANTFX' $(1) && awk 'BEGIN{f=0;k=0;b=0} /^FLAIR-CLOSE win/{f=1} f==1&&/^TENANT-LOAD/{f=2} f==1&&/^FLAIR-EVT what=3 /{k=1} f==1&&/^TENANT-EVT/{b=1} END{exit !(f==2&&k&&!b)}' $(1) && [ "$$(grep -c '^TENANT-REGISTER ok app=TENANTFX$$' $(1))" = 2 ] && ! grep -q '^TENANT-SLOT-BUSY' $(1)
+APPL_NOREG = grep -q '^TENANT-UNREGISTERED name=TENANTFX.EXE$$' $(1) && ! grep -q '^TENANT-REGISTER' $(1) && ! grep -q '^TENANT-EVT' $(1)
+APPL_CRASH = grep -q '^TENANT-CRASH vec=6 ' $(1) && grep -qx 'TENANT-EXIT rc=-1 via=crash' $(1)
+
+.PHONY: test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs
+test-flair-app-launch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FLAIR_DATA_TFX_NOREG_IMG) $(FLAIR_DATA_TFX_CRASH_IMG) $(PPM_FLAIR_APPL_CHECK_BIN) $(FLAIR_APPL_GOLDEN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-app-launch : R3.7 app launch from disk\n'
+	@printf '  bead initech-tdnl.14; reconciliation DEC-AC3-1..4; D1.7 oracle set\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_appl_launch,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_launch.serial) || { printf '!!! test-flair-app-launch [1/8] FAIL: the desktop did not survive the launch trace\n'; grep -E '^(PANIC|TENANT-|HALTED)' $(BUILD)/flair_appl_launch.serial; exit 1; }
+	@$(call APPL_TRACE,$(BUILD)/flair_appl_launch.serial) || { printf '!!! test-flair-app-launch [1/8] FAIL: the launch trace differs from the locked golden %s\n' '$(FLAIR_APPL_GOLDEN)'; diff -u $(BUILD)/flair_appl_launch.serial.golden $(BUILD)/flair_appl_launch.serial.trace; exit 1; }
+	@printf '>>> test-flair-app-launch [1/8] LAUNCH: %s trace lines byte-identical to the locked golden\n' "$$(wc -l < $(BUILD)/flair_appl_launch.serial.trace)"
+	$(call appl-boot,flair_appl_show,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_SHOW_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_show.serial) || { printf '!!! test-flair-app-launch [2/8] FAIL: the desktop did not survive\n'; exit 1; }
+	@grep -qx 'FLAIR-DISPATCH app=TENANTFX' $(BUILD)/flair_appl_show.serial || { printf '!!! test-flair-app-launch [2/8] FAIL: the tenant never became foreground\n'; exit 1; }
+	@$(PPM_FLAIR_APPL_CHECK_BIN) show $(BUILD)/flair_appl_show.ppm || { printf '!!! test-flair-app-launch [2/8] FAIL: the resident tenant window is not what the tenant drew\n'; exit 1; }
+	@printf '>>> test-flair-app-launch [2/8] SHOW: the window appears at the tenant bounds, front, with exactly its two text runs\n'
+	$(call appl-boot,flair_appl_pre,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_PRE_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_pre.serial) || { printf '!!! test-flair-app-launch [3/8] FAIL: the baseline boot did not survive\n'; exit 1; }
+	@if grep -q '^TENANT-' $(BUILD)/flair_appl_pre.serial; then printf '!!! test-flair-app-launch [3/8] FAIL: the baseline (single click) LAUNCHED something\n'; exit 1; fi
+	@cmp -s $(BUILD)/flair_appl_pre.ppm $(BUILD)/flair_appl_launch.ppm || { printf '!!! test-flair-app-launch [3/8] FAIL: the post-exit frame differs from the never-launched baseline (a tenant pixel, a stale foreground or a wrong band-2 bar survived the exit)\n'; cmp -l $(BUILD)/flair_appl_pre.ppm $(BUILD)/flair_appl_launch.ppm | wc -l; exit 1; }
+	@printf '>>> test-flair-app-launch [3/8] RESTORE: the post-exit frame is byte-identical to the never-launched baseline\n'
+	$(call appl-boot,flair_appl_double,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_DOUBLE_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_double.serial) && $(call APPL_DOUBLE,$(BUILD)/flair_appl_double.serial) || { printf '!!! test-flair-app-launch [4/8] FAIL: DOUBLE_LAUNCH -- want exactly one REGISTER, one SLOT-BUSY, one clean exit\n'; grep -E '^(TENANT-(REGISTER|SLOT|EXIT|LOAD)|PANIC)' $(BUILD)/flair_appl_double.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [4/8] DOUBLE: second launch refused TENANT-SLOT-BUSY; the resident tenant undisturbed and still exits cleanly\n'
+	$(call appl-boot,flair_appl_cycle,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_CYCLE_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_cycle.serial) && $(call APPL_CYCLE,$(BUILD)/flair_appl_cycle.serial) || { printf '!!! test-flair-app-launch [5/8] FAIL: EXIT_LEAK -- two cycles must exit cleanly with EQUAL heap avail\n'; grep -E '^(TENANT-(EXIT|HEAPAVAIL|LOAD)|PANIC)' $(BUILD)/flair_appl_cycle.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [5/8] CYCLE: two launch/exit cycles, %s both times (avail-stable)\n' "$$(grep -m1 '^TENANT-HEAPAVAIL' $(BUILD)/flair_appl_cycle.serial)"
+	$(call appl-boot,flair_appl_close,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_CLOSE_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_close.serial) && $(call APPL_CLOSE,$(BUILD)/flair_appl_close.serial) || { printf '!!! test-flair-app-launch [6/8] FAIL: CLOSE_STALE_FOCUS -- the close box must terminate the tenant and the next key must not reach it\n'; grep -E '^(TENANT-|FLAIR-CLOSE|FLAIR-TENANT-EXIT|FLAIR-EVT what=3|PANIC)' $(BUILD)/flair_appl_close.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [6/8] CLOSE: the close box terminated the tenant; the next keystroke never reached it\n'
+	$(call appl-boot,flair_appl_noreg,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_TFX_NOREG_IMG),FLAIR_APP_LAUNCH_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_noreg.serial) && $(call APPL_NOREG,$(BUILD)/flair_appl_noreg.serial) || { printf '!!! test-flair-app-launch [7/8] FAIL: an unregistered tenant must install nothing and leave the desktop intact\n'; grep -E '^(TENANT-|PANIC)' $(BUILD)/flair_appl_noreg.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [7/8] NOREG: entry returned unregistered -> nothing installed, no event delivered, desktop intact (no watchdog, BC-4)\n'
+	$(call appl-boot,flair_appl_crash,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_TFX_CRASH_IMG),FLAIR_APP_LAUNCH_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_crash.serial) && $(call APPL_CRASH,$(BUILD)/flair_appl_crash.serial) || { printf '!!! test-flair-app-launch [8/8] FAIL: a fault inside the tenant image must be killed, not panic the desktop\n'; grep -E '^(TENANT-|PANIC|HALTED)' $(BUILD)/flair_appl_crash.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [8/8] CRASH: %s -> FlairProcess_kill; desktop survived\n' "$$(grep -m1 '^TENANT-CRASH' $(BUILD)/flair_appl_crash.serial)"
+	@printf '>>> test-flair-app-launch: green\n'
+
+# Rule 6: each named D1.7 mutant goes RED for ITS reason. The clean baseline of
+# every leg is test-flair-app-launch itself (a prerequisite, so it runs first).
+# The clean gate is a PREREQUISITE (not a recursive make): in the default
+# vector it then runs once, and a red baseline stops the mutants before they run.
+test-flair-app-launch-mutant: test-flair-app-launch $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FLAIR_DATA_TFX_NOREG_IMG) $(FLAIR_APPL_GOLDEN) $(BUILD)/flair_tenants_mut_tbx_no_slot_guard.img $(BUILD)/flair_tenants_mut_tbx_exit_leak.img $(BUILD)/flair_tenants_mut_tenant_close_hide.img
+	$(call appl-boot,flair_applmut_noreg,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_TFX_NOREG_IMG),FLAIR_APP_LAUNCH_SPEC,)
+	@if $(call APPL_TRACE,$(BUILD)/flair_applmut_noreg.serial); then printf '!!! test-flair-app-launch-mutant FAIL: NO_REGISTER matched the golden -- the trace oracle is decoration\n'; exit 1; fi
+	@if grep -q '^TENANT-REGISTER ok' $(BUILD)/flair_applmut_noreg.serial; then printf '!!! test-flair-app-launch-mutant FAIL: NO_REGISTER went RED for the wrong reason (a REGISTER happened)\n'; exit 1; fi
+	@$(call APPL_ALIVE,$(BUILD)/flair_applmut_noreg.serial) || { printf '!!! test-flair-app-launch-mutant FAIL: NO_REGISTER took the desktop down (it must just never appear)\n'; exit 1; }
+	@printf '>>> test-flair-app-launch-mutant: NO_REGISTER RED for the named reason -- no TENANT-REGISTER, the golden trace diverges, desktop intact\n'
+	$(call appl-boot,flair_applmut_double,$(BUILD)/flair_tenants_mut_tbx_no_slot_guard.img,$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_DOUBLE_SPEC,)
+	@if $(call APPL_DOUBLE,$(BUILD)/flair_applmut_double.serial); then printf '!!! test-flair-app-launch-mutant FAIL: DOUBLE_LAUNCH (TBX_MUT_NO_SLOT_GUARD) PASSED the one-slot leg\n'; exit 1; fi
+	@[ "$$(grep -c '^TENANT-REGISTER ok app=TENANTFX$$' $(BUILD)/flair_applmut_double.serial)" -ge 2 ] && ! grep -q '^TENANT-SLOT-BUSY' $(BUILD)/flair_applmut_double.serial || { printf '!!! test-flair-app-launch-mutant FAIL: DOUBLE_LAUNCH went RED for the wrong reason\n'; grep -E '^(TENANT-(REGISTER|SLOT|LOAD)|PANIC)' $(BUILD)/flair_applmut_double.serial; exit 1; }
+	@printf '>>> test-flair-app-launch-mutant: DOUBLE_LAUNCH RED for the named reason -- a second REGISTER installed over the resident tenant, no TENANT-SLOT-BUSY\n'
+	$(call appl-boot,flair_applmut_leak,$(BUILD)/flair_tenants_mut_tbx_exit_leak.img,$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_CYCLE_SPEC,)
+	@if $(call APPL_CYCLE,$(BUILD)/flair_applmut_leak.serial); then printf '!!! test-flair-app-launch-mutant FAIL: EXIT_LEAK PASSED the avail-stable leg\n'; exit 1; fi
+	@a1=$$(grep '^TENANT-HEAPAVAIL n=' $(BUILD)/flair_applmut_leak.serial | sed -n '1s/.*n=//p'); a2=$$(grep '^TENANT-HEAPAVAIL n=' $(BUILD)/flair_applmut_leak.serial | sed -n '2s/.*n=//p'); \
+		[ -n "$$a1" ] && [ -n "$$a2" ] && [ "$$a2" -lt "$$a1" ] || { printf '!!! test-flair-app-launch-mutant FAIL: EXIT_LEAK went RED for the wrong reason (avail did not drift DOWN: %s -> %s)\n' "$$a1" "$$a2"; exit 1; }; \
+		printf '>>> test-flair-app-launch-mutant: EXIT_LEAK RED for the named reason -- TENANT-HEAPAVAIL drifted %s -> %s (the code block leaks each cycle)\n' "$$a1" "$$a2"
+	$(call appl-boot,flair_applmut_close,$(BUILD)/flair_tenants_mut_tenant_close_hide.img,$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_CLOSE_SPEC,)
+	@if $(call APPL_CLOSE,$(BUILD)/flair_applmut_close.serial); then printf '!!! test-flair-app-launch-mutant FAIL: CLOSE_STALE_FOCUS PASSED the anti-8fhu leg\n'; exit 1; fi
+	@! grep -q '^TENANT-EXIT' $(BUILD)/flair_applmut_close.serial && grep -qx 'TENANT-SLOT-BUSY name=TENANTFX.EXE' $(BUILD)/flair_applmut_close.serial || { printf '!!! test-flair-app-launch-mutant FAIL: CLOSE_STALE_FOCUS went RED for the wrong reason (want: no teardown, and the relaunch refused by the zombie)\n'; grep -E '^(TENANT-|FLAIR-CLOSE|PANIC)' $(BUILD)/flair_applmut_close.serial; exit 1; }
+	@printf '>>> test-flair-app-launch-mutant: CLOSE_STALE_FOCUS RED for the named reason -- the hide-only close left the tenant resident (no TENANT-EXIT) and the relaunch hit TENANT-SLOT-BUSY on the windowless zombie\n'
+	@printf '>>> test-flair-app-launch-mutant: green (all four D1.7 mutants RED for their named reasons)\n'
+
+# Rule 5: the CPU path (INT 81h gate, parameterized relocation, tenant call
+# trampoline, push-callback delivery, teardown) on QEMU vs Bochs, via the
+# HEADLESS smoke kernel (the only FLAIRTENANTS arm Bochs can reach: its
+# vgabios cannot set 640x480). The TENANT-* lines must be byte-identical.
+FLAIR_APPL_SMOKE_IMG := $(BUILD)/flair_tenants_mut_tbx_smoke.img
+ifeq ($(SKIP_BOCHS),1)
+test-flair-app-launch-bochs:
+	@printf '!!! test-flair-app-launch-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass.\n'
+else
+test-flair-app-launch-bochs: $(BOCHS_BIN) $(HARNESS_BIN) $(FLAIR_APPL_SMOKE_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-app-launch-bochs : Rule 5 CPU-path differential\n'
+	@printf '======================================================================\n'
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-app-launch-bochs FAIL: bochs not found (a skipped oracle is worse than a red one; SKIP_BOCHS=1 to opt out loudly)\n'; exit 1; }
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_appl_smoke_qemu_data.img
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_appl_smoke_bochs_data.img
+	@$(HARNESS_BIN) --disk "$(FLAIR_APPL_SMOKE_IMG)" --disk2 "$(BUILD)/flair_appl_smoke_qemu_data.img" --expect HALTED \
+		--name flair_appl_smoke_qemu --out "$(BUILD)" --timeout-ms 20000 2> $(BUILD)/flair_appl_smoke_qemu.report || true
+	@$(BOCHS_BIN) --disk "$(FLAIR_APPL_SMOKE_IMG)" --disk2 "$(BUILD)/flair_appl_smoke_bochs_data.img" --expect HALTED \
+		--name flair_appl_smoke_bochs --out "$(BUILD)" --timeout-ms 60000 2> $(BUILD)/flair_appl_smoke_bochs.report || true
+	@if grep -q 'triple_fault=1' $(BUILD)/flair_appl_smoke_qemu.report $(BUILD)/flair_appl_smoke_bochs.report; then printf '!!! test-flair-app-launch-bochs FAIL: TRIPLE FAULT\n'; exit 1; fi
+	@for e in qemu bochs; do \
+		f=$(BUILD)/flair_appl_smoke_$$e.serial; \
+		grep -qx 'TBX-SMOKE-OK list-empty' $$f || { printf '!!! test-flair-app-launch-bochs FAIL: %s did not complete the smoke with an empty process list\n' $$e; grep -E '^(TBX-|TENANT-|PANIC|HALTED)' $$f; exit 1; }; \
+		if grep -q '^PANIC' $$f; then printf '!!! test-flair-app-launch-bochs FAIL: %s PANIC\n' $$e; exit 1; fi; \
+		grep -E '^TENANT-' $$f > $$f.trace; \
+	done
+	@grep -qx 'TENANT-EXIT rc=0 via=exit' $(BUILD)/flair_appl_smoke_qemu.serial.trace || { printf '!!! test-flair-app-launch-bochs FAIL: the QEMU reference smoke did not exit cleanly\n'; exit 1; }
+	@cmp -s $(BUILD)/flair_appl_smoke_qemu.serial.trace $(BUILD)/flair_appl_smoke_bochs.serial.trace || { printf '!!! test-flair-app-launch-bochs FAIL: QEMU and Bochs disagree on the tenant CPU path (stop condition: investigate, do not pin to QEMU)\n'; diff -u $(BUILD)/flair_appl_smoke_qemu.serial.trace $(BUILD)/flair_appl_smoke_bochs.serial.trace; exit 1; }
+	@printf '>>> test-flair-app-launch-bochs: %s TENANT-* lines byte-identical on QEMU and Bochs (load, gate, register, update, mouseDown, exit)\n' "$$(wc -l < $(BUILD)/flair_appl_smoke_qemu.serial.trace)"
+	@printf '>>> test-flair-app-launch-bochs: green\n'
+endif
+
 # ===========================================================================
 # record-flair (beads initech-l9cd): deterministic GUI-interaction VIDEO
 # capture. Replays a LOCKED input trace (Rule 8/11 -- the SAME specs the emu
@@ -18740,7 +19056,20 @@ RECORD_SPEC_new_folder          = $(FLAIR_NEW_FOLDER_SPEC)
 RECORD_MARKER_folder_nav          = FINDER-OPEN-FOLDER name=APPS win=1 singleton=1
 RECORD_MARKER_window_drag_persist = DESKTOP-DB-SAVE n=3
 RECORD_MARKER_new_folder          = FINDER-NEW-FOLDER name=NEWFOLD parent=0
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder
+# R3.7 APP LAUNCH clip (bead initech-tdnl.14; CLAUDE.md Rule 14): replays the
+# LOCKED FLAIR_APP_LAUNCH_SPEC -- open the volume, open APPS, double-click
+# TENANTFX.EXE, the disk tenant's window appears, one click inside, it exits and
+# the Finder comes back. The DOUBLE-CLICK record image (below) for the same
+# reason the R3.3 clips use it: three double-clicks.
+RECORD_SPEC_app_launch   = $(FLAIR_APP_LAUNCH_SPEC)
+RECORD_MARKER_app_launch = TENANT-EXIT rc=0 via=exit
+# Per-script paint-settle override (tdnl.14): MEASURED, the default 120 ms raced
+# the Finder's selection-hilite and window-open paints on a loaded host (frames
+# 14/16/19 differed between two captures -- the repro check doing its job).
+# Only scripts that set RECORD_SETTLE_<script> change; every other clip keeps
+# the harness default and its existing repro sha.
+RECORD_SETTLE_app_launch = 400
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -18797,6 +19126,7 @@ FLAIRTENANTS_RECORDDBL_IMG := $(BUILD)/flair_tenants_recorddbl.img
 RECORD_IMAGE_folder_nav          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_window_drag_persist = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_new_folder          = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_app_launch          = $(FLAIRTENANTS_RECORDDBL_IMG)
 
 .PHONY: record-flair
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG)
@@ -18808,7 +19138,7 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 	@printf '>>> record-flair [%s]: capturing per-event frames (trace: %s)\n' "$(SCRIPT)" "$(RECORD_SPEC_$(SCRIPT))"
 	@$(HARNESS_BIN) --disk "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" --disk2 "$(FLAIR_GATE_DATA)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
 		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
-		--record --timeout-ms 45000 \
+		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --timeout-ms 45000 \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
 	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
 	@case "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" in \
@@ -24378,6 +24708,7 @@ TEST_EMU_GATES := \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
 	test-flair-desktop-icons test-flair-desktop-icons-mutant test-flair-desktop-icons-bochs \
 	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
+	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-solid test-flair-solid-mutant \
 	test-flair-zoom-toggle test-flair-grow test-flair-collapse \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant

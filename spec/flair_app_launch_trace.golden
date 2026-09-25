@@ -1,0 +1,48 @@
+# spec/flair_app_launch_trace.golden -- the LOCKED R3.7 launch trace (bead
+# initech-tdnl.14; D1.7 "serial launch trace (positive) ... locked as a golden
+# byte sequence"). Rule 8: locked spec-data; edit only as a deliberate act.
+#
+# What test-flair-app-launch leg 1 compares: every serial line of the
+# FLAIR_APP_LAUNCH_SPEC boot matching ^(TENANT-|FLAIR-DISPATCH app=), in order,
+# against the non-# lines below. Each line is HAND-CHECKED against its source:
+#   FLAIR-DISPATCH app=FINDER   the volume double-click promotes the Finder
+#                               (R3.5, unchanged by this bead);
+#   TENANT-LOAD len=320         the fixture's load module = nasm's org-0 output
+#                               of os/apps/tenantfx.asm (320 bytes); base = the
+#                               master-heap block + TBX_TENANT_PSP_BYTES (256),
+#                               deterministic in boot allocation order (Rule 11)
+#                               -- a heap-layout change upstream moves it, and
+#                               that is a real change this line must surface;
+#   TENANT-REGISTER ok ...      printed inside the REGISTER verb, so it precedes
+#                               that call's own TENANT-GATE line;
+#   rec=+0x00d4                 the FlairTenantRec's offset in the module
+#                               (xxd build/tenantfx.o0.bin: 'FLTP' at 0xd4);
+#   the gate args               tenantfx.asm's literal pushes (WIN_* bounds,
+#                               goAway 1, the title, content-local text origins
+#                               (16,16)/(16,40), colour tokens BLACK=1/WHITE=0);
+#   EVT what=8 then what=6      affirmation (activateEvt) then the first
+#                               updateEvt (ADR-0013 Sec 3.3 order), the repaint
+#                               repeating the entry's three draw calls;
+#   FLAIR-DISPATCH app=TENANTFX the post-affirmation switch announce;
+#   EVT what=1 -> ax=0x0070     the content click delivered, EXIT(0);
+#   TENANT-EXIT / HEAPAVAIL     the reap between pump iterations.
+# Mutation-proven: NO_REGISTER (test-flair-app-launch-mutant) diverges here.
+FLAIR-DISPATCH app=FINDER
+TENANT-LOAD name=TENANTFX.EXE len=320 base=0x0019e710
+TENANT-REGISTER ok app=TENANTFX
+TENANT-GATE ax=0x0001 rec=+0x00d4 -> 0
+TENANT-GATE ax=0x0020 l=100 t=160 r=400 b=340 goaway=1 -> 1
+TENANT-GATE ax=0x0022 win=1 s="TenantFix" -> 0
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=400 b=400 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=16 s="Loaded from disk" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=40 s="Click here to quit" fg=1 bg=0 -> 0
+TENANT-EVT what=8
+TENANT-EVT what=6
+TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=400 b=400 c=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=16 s="Loaded from disk" fg=1 bg=0 -> 0
+TENANT-GATE ax=0x0030 win=1 x=16 y=40 s="Click here to quit" fg=1 bg=0 -> 0
+FLAIR-DISPATCH app=TENANTFX
+TENANT-EVT what=1
+TENANT-GATE ax=0x0070 rc=0 -> 0
+TENANT-EXIT rc=0 via=exit
+TENANT-HEAPAVAIL n=3524240
