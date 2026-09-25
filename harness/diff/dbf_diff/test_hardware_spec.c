@@ -9,7 +9,7 @@
  *   1. spec/hardware.json: file exists, is ASCII-clean (Rule 12), contains
  *      the required top-level keys (cpu, fpu, memory, video, toolchain_reproducibility,
  *      provenance).
- *   2. cpu.value == "386+" (ADR-0001; PRD Sec 5).
+ *   2. cpu.value == "486+ (386 desirable, non-blocking)" (ADR-0001 DEC-02; PRD Sec 5).
  *   3. fpu.value == "optional" (ADR-0009 DEC-07: NOT "required"; most period PCs
  *      lacked an 8087; software FP is the authentic stance).
  *   4. fpu.init_by_kernel == false (ADR-0009 DEC-01: InitechDOS does NOT init the FPU,
@@ -184,24 +184,30 @@ static void test_required_keys(const char *path)
 }
 
 /* -----------------------------------------------------------------------
- * Test 3: cpu.value == "386+"
- * ADR-0009 DEC-07; ADR-0001 (386+, 32-bit flat); PRD Sec 5.
+ * Test 3: cpu.value == "486+ (386 desirable, non-blocking)"
+ * ADR-0009 DEC-07; ADR-0001 (DEC-01 386+ origin -> DEC-02 486-class, 32-bit flat); PRD Sec 5.
  *
  * MUTATION GATE: with -DHARDWARE_SPEC_MUTANT we assert the WRONG value
- * ("486") to prove the gate goes RED.
+ * (the superseded "386+") to prove the gate goes RED.
+ *
+ * Rule-8 deliberate spec change, 2026-09-25/26: ADR-0001 DEC-02 (operator
+ * ratification, bead initech-qw0t, supersedes initech-fgs1) raised the
+ * authentic hardware target to 486-class with 386 desirable/non-blocking.
+ * The locked value moved from "386+" to the exact string below; the old
+ * value is now the mutant.
  * ----------------------------------------------------------------------- */
 static void test_cpu_value(const char *path)
 {
     int r;
 
 #ifndef HARDWARE_SPEC_MUTANT
-    /* Correct expectation: cpu value is "386+" */
-    r = file_contains_substr(path, "\"386+\"", -1);
-    CHECK(r == 1, "hardware.json: cpu.value == \"386+\" (ADR-0001; PRD Sec 5)");
+    /* Correct expectation: cpu value is the ADR-0001 DEC-02 string */
+    r = file_contains_substr(path, "\"486+ (386 desirable, non-blocking)\"", -1);
+    CHECK(r == 1, "hardware.json: cpu.value == \"486+ (386 desirable, non-blocking)\" (ADR-0001 DEC-02; PRD Sec 5)");
 #else
-    /* MUTANT: assert "486" instead -- this MUST fail (gate goes RED) */
-    r = file_contains_substr(path, "\"486\"", -1);
-    CHECK(r == 1, "MUTANT: hardware.json: cpu.value == \"486\" (should FAIL)");
+    /* MUTANT: assert the superseded "386+" -- this MUST fail (gate goes RED) */
+    r = file_contains_substr(path, "\"386+\"", -1);
+    CHECK(r == 1, "MUTANT: hardware.json: cpu.value == \"386+\" (should FAIL)");
 #endif
 }
 
