@@ -161,6 +161,35 @@ typedef struct {
      * Format is QEMU's: an ISO timestamp like "2026-06-09T12:34:56" (UTC; QEMU's
      * default clock=host means the base is taken as the guest's wall clock). */
     const char *rtc_base;      /* "-rtc base=<this>", or NULL for host time.  */
+
+    /* Deterministic virtual time (beads initech-lmkp). `-rtc base=...,clock=vm`
+     * ties the emulated MC146818 RTC to QEMU's vm_clock, but by DEFAULT the
+     * vm_clock still advances with host WALL-CLOCK time while the vCPU is
+     * running (TCG has no notion of "guest instructions retired" unless told
+     * to count them) -- so under host CPU contention the guest takes longer
+     * in REAL time to reach the same boot point, the vm_clock has advanced
+     * further, and a pinned-second assertion (test-datetime's exact SEC=56)
+     * goes red non-deterministically (observed 2026-09-26, cert-03). When
+     * true, the harness additionally passes `-icount shift=N,sleep=on` with a
+     * FIXED (non-"auto") shift: this makes vm_clock a pure function of
+     * INSTRUCTIONS RETIRED (2^N ns per instruction) instead of wall-clock
+     * time, and `sleep=on` makes a halted (HLT) vCPU jump the virtual clock
+     * straight to the next timer deadline instead of accruing real elapsed
+     * time while parked -- so the reading at any fixed point in the boot
+     * instruction stream is identical regardless of host load. (shift=auto is
+     * explicitly NOT used here: per `man qemu-system-i386` it "automatically
+     * adjusts to keep virtual time within a few seconds of real time", which
+     * reintroduces exactly the host-load coupling this flag exists to
+     * remove.) Requires an accelerator that supports icount -- KVM does not,
+     * so the harness also forces `-accel tcg` when this is set (this harness
+     * never requests KVM by default, so today that is a no-op safety net, not
+     * a behavior change). Opt-in per gate: only test-datetime passes this;
+     * every other gate's timing/bytes are untouched (Rule 11 scoped, not a
+     * blanket policy change). Does NOT loosen the exact-second assertion --
+     * it removes the source of nondeterminism the assertion was tripping
+     * over (CLAUDE.md Law 2 stop-condition: strengthen, never relax, an
+     * oracle). */
+    bool rtc_deterministic;
 } QemuConfig;
 
 /* Default wall-clock timeout if config->timeout_ms <= 0. */

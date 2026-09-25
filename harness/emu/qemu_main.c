@@ -66,6 +66,11 @@ static void usage(const char *argv0)
         "  --rtc-base ISO     pin the guest RTC to a fixed instant via\n"
         "                     `-rtc base=ISO` (e.g. 2026-06-09T12:34:56) so the\n"
         "                     clock oracle is deterministic\n"
+        "  --rtc-deterministic\n"
+        "                     tie the pinned RTC to instructions-retired\n"
+        "                     (`-icount shift=4,sleep=on -accel tcg`) instead\n"
+        "                     of host wall-clock time, so an exact-second\n"
+        "                     assertion holds under host load (initech-lmkp)\n"
         "  --gdb              add -s -S (gdb stub on :1234, halted)\n"
         "  --timeout-ms N     wall-clock kill deadline (default %d)\n"
         "  --name LABEL       output filename label (default \"qemu\")\n"
@@ -130,6 +135,8 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--rtc-base") == 0) {
             NEED_ARG();
             cfg.rtc_base = argv[++i];
+        } else if (strcmp(a, "--rtc-deterministic") == 0) {
+            cfg.rtc_deterministic = true;
         } else if (strcmp(a, "--gdb") == 0) {
             cfg.enable_gdb = true;
         } else if (strcmp(a, "--timeout-ms") == 0) {

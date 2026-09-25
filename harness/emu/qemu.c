@@ -1102,6 +1102,8 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
  * buffers that outlive the exec. The exact command line emitted is:
  *
  *   qemu-system-i386 -display none -no-reboot
+ *     [-rtc base=<rtc_base>,clock=vm]        (if rtc_base)
+ *     [-icount shift=4,sleep=on -accel tcg]  (if rtc_deterministic)
  *     -device isa-debug-exit,iobase=0xF4,iosize=0x04
  *     -serial file:<serial>
  *     -d int,guest_errors,cpu_reset -D <log>
@@ -1151,6 +1153,27 @@ static int build_argv(const QemuConfig *cfg, char **argv,
         snprintf(rtcbuf, sizeof(rtcbuf), "base=%s,clock=vm", cfg->rtc_base);
         PUSH("-rtc");
         PUSH(rtcbuf);
+    }
+
+    /* Deterministic virtual time (beads initech-lmkp; see qemu.h). Fixed
+     * (non-auto) icount shift so vm_clock -- and therefore the `clock=vm`
+     * RTC above -- is a pure function of instructions retired, not host
+     * wall-clock speed; sleep=on makes a halted vCPU jump straight to the
+     * next timer deadline instead of accruing real elapsed time while
+     * parked. shift=4 (16 ns of virtual time per instruction) leaves ~5
+     * orders of magnitude of headroom between a realistic few-hundred-
+     * thousand-instruction boot path and the 1-second granularity the
+     * pinned-second assertion needs, without making a HLT-free busy-wait
+     * path (e.g. ata_delay_400ns's four port reads) burn an unreasonable
+     * number of real host instructions to advance virtual time. -accel tcg
+     * is forced alongside it because icount is incompatible with KVM (this
+     * harness never requests KVM by default, so today that is a no-op
+     * safety net, not a behavior change). */
+    if (cfg->rtc_deterministic) {
+        PUSH("-icount");
+        PUSH("shift=4,sleep=on");
+        PUSH("-accel");
+        PUSH("tcg");
     }
 
     /* isa-debug-exit: lets a guest request a clean QEMU exit by writing to

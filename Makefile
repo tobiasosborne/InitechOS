@@ -19737,6 +19737,19 @@ test-multiopen: $(HARNESS_BIN) $(MULTIOPEN_IMG) $(FAT_MULTIOPEN_IMG)
 # The pinned instant 2026-06-09T12:34:56 matches the host test_rtc + test_int21
 # clock mock, so the same date threads through both oracles. TRI-EMULATOR: QEMU
 # only -- Bochs/86Box deferred (beads initech-x0i).
+#
+# LOAD-SENSITIVITY FIX (beads initech-lmkp): `-rtc base=...,clock=vm` alone
+# still ties the emulated RTC to QEMU's vm_clock, which by default advances
+# with host WALL-CLOCK time -- under host CPU contention the guest takes
+# longer in real time to reach the AH=2Ch call, the RTC has ticked past
+# SEC=56, and this gate goes RED for a reason that has nothing to do with the
+# kernel/RTC code under test (observed 2026-09-26, cert-03: timed_out=1 under
+# load, passes alone in ~8s). Fix is `--rtc-deterministic` below, NOT a
+# tolerance/range on the assertion (CLAUDE.md Law 2 stop-condition forbids
+# weakening the oracle) -- see qemu.h's rtc_deterministic field for the full
+# mechanism (fixed-shift -icount ties vm_clock to instructions retired, not
+# host wall-clock speed). Opt-in to THIS gate only; no other gate's
+# timing/bytes change.
 DATETIME_NAME    := datetime_boot
 DATETIME_SERIAL  := $(BUILD)/$(DATETIME_NAME).serial
 DATETIME_REPORT  := $(BUILD)/$(DATETIME_NAME).report
@@ -19753,7 +19766,7 @@ test-datetime: $(HARNESS_BIN) $(DATETIME_IMG) $(FAT_MULTIOPEN_IMG)
 	@printf 'Expecting : DT-YEAR=2026 MON=6 DAY=9 DOW=2(Tue) HOUR=12 MIN=34 SEC=56 + FREE>0 + PSP>0 + rc=0\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(HARNESS_BIN) --disk "$(DATETIME_IMG)" --disk2 "$(FAT_MULTIOPEN_IMG)" \
-		--rtc-base "$(DATETIME_RTC_BASE)" \
+		--rtc-base "$(DATETIME_RTC_BASE)" --rtc-deterministic \
 		--name "$(DATETIME_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(DATETIME_REPORT)" || true
 	@cat "$(DATETIME_REPORT)"
