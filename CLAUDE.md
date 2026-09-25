@@ -204,6 +204,15 @@ Numbered, non-negotiable. Re-read after compaction.
     after any context compression. The agent that re-reads catches drift;
     the agent that doesn't ships it.
 
+14. **Window-system features are accepted on emu video, not on host
+    oracles alone (operator directive 2026-09-25).** Every FLAIR / desktop /
+    app-window feature must be DRIVEN in the emulator by a locked injected
+    trace and RECORDED as a short clip via the `record-flair` machinery
+    (`build/clips/<script>.{gif,mp4}`, repro-proven, the R3.2/R3.3 pattern)
+    before the bead closes. The host oracle + pixel gate stays mandatory;
+    the clip is the Law-4 acceptance artifact the operator eyeballs. A
+    window feature with no clip is not done.
+
 ---
 
 ## TDD shapes — both valid
