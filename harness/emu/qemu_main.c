@@ -40,6 +40,11 @@ static void usage(const char *argv0)
         "  --keys-after MARK  wait for MARK on serial before injecting --keys\n"
         "                     (else a fixed startup delay is used); ALSO gates\n"
         "                     --mouse injection (same trigger)\n"
+        "  --keys-after-ms N  budget for the --keys-after wait (default 4000)\n"
+        "  --quit-after MARK  after all input, wait for MARK on serial before\n"
+        "                     quitting qemu (the guest's work-complete marker;\n"
+        "                     budget = timeout-1000, ends early if qemu exits;\n"
+        "                     unseen => quit_after_found=0, OK=0)\n"
         "  --mouse SPEC       inject relative-mouse events via QMP input-send-\n"
         "                     event after boot; SPEC is comma-separated tokens:\n"
         "                     \"m<dx>:<dy>\" move, \"l1\"/\"l0\" left btn down/up,\n"
@@ -103,6 +108,12 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--keys-after") == 0) {
             NEED_ARG();
             cfg.keys_after = argv[++i];
+        } else if (strcmp(a, "--keys-after-ms") == 0) {
+            NEED_ARG();
+            cfg.keys_after_ms = atoi(argv[++i]);
+        } else if (strcmp(a, "--quit-after") == 0) {
+            NEED_ARG();
+            cfg.quit_after = argv[++i];
         } else if (strcmp(a, "--mouse") == 0) {
             NEED_ARG();
             cfg.mouse_spec = argv[++i];
@@ -170,6 +181,7 @@ int main(int argc, char **argv)
         "[harness] triple_fault=%d cpu_reset=%d guest_errors=%d\n"
         "[harness] keys_sent=%d mouse_events_sent=%d screendump_taken=%d path=%s\n"
         "[harness] frames_taken=%d\n"
+        "[harness] quit_after_found=%d (quit_after=%s)\n"
         "[harness] OK=%d\n",
         res.launched, res.timed_out, res.exit_code, res.term_signal,
         res.serial_len, res.marker_found,
@@ -178,6 +190,8 @@ int main(int argc, char **argv)
         res.keys_sent, res.mouse_events_sent, res.screendump_taken,
         res.screendump_taken ? res.screendump_path : "(none)",
         res.frames_taken,
+        res.quit_marker_found,
+        cfg.quit_after ? cfg.quit_after : "(none)",
         res.ok);
 
     int rc = res.ok ? 0 : 1;

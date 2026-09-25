@@ -776,6 +776,79 @@ static int wait_for_serial_marker(const char *serial_path, const char *marker,
     }
 }
 
+/* Return 1 if the QMP peer (qemu) has closed the socket, else 0. Drains any
+ * pending bytes without blocking (fd is non-blocking). A closed peer means
+ * qemu EXITED -- e.g. `-no-reboot` turned a triple fault into an exit. */
+static int qmp_peer_closed(int fd)
+{
+    char scratch[512];
+    for (;;) {
+        ssize_t r = read(fd, scratch, sizeof(scratch));
+        if (r > 0) {
+            continue;          /* discard QMP events; keep draining */
+        }
+        if (r == 0) {
+            return 1;          /* EOF: qemu is gone */
+        }
+        if (errno == EINTR) {
+            continue;
+        }
+        return 0;              /* EAGAIN / EWOULDBLOCK: alive, nothing queued */
+    }
+}
+
+/*
+ * The COMPLETION wait (beads initech-6gkm, --quit-after). Wait until `marker`
+ * appears on the growing serial capture, or budget_ms elapses, or qemu exits.
+ * Returns 1 if seen, 0 otherwise.
+ *
+ * WHY THIS EXISTS (the 6gkm root cause, first-person): qmp_session's step 5
+ * sends QMP `quit` ~400 ms after the LAST injected input. Every --keys gate
+ * therefore silently assumed the guest finishes its work inside that window.
+ * The M7 corpus rail violated it: kmain prints SHELL-READY BEFORE
+ * command_repl runs AUTOEXEC.BAT, so the harness injected `exit` at
+ * SHELL-READY and quit qemu while the 17-program batch was still running --
+ * the "batch stalls / programs silently skip, varies run-to-run" symptom was
+ * the harness truncating a healthy guest (the same boot with no keys runs all
+ * 17 programs byte-exact). A completion-gated gate names the marker the guest
+ * prints when its work is DONE (e.g. SHELL-EXIT after a typed-ahead `exit`),
+ * and the harness quits only after seeing it. The budget is tied to the
+ * wall-clock timeout; a dead qemu (peer closed) ends the wait at once so a
+ * crashing mutant never burns the budget. A marker that never appears leaves
+ * quit_marker_found=0 and OK=0 -- fail loud, never a truncated false-green.
+ */
+static int wait_for_serial_marker_live(int fd, const char *serial_path,
+                                       const char *marker, int budget_ms)
+{
+    long long deadline = mono_ms() + budget_ms;
+    for (;;) {
+        size_t len = 0;
+        char *txt = read_file(serial_path, &len);
+        if (txt) {
+            int hit = strstr(txt, marker) != NULL;
+            free(txt);
+            if (hit) {
+                return 1;
+            }
+        }
+        if (qmp_peer_closed(fd)) {
+            /* qemu exited; one last look (the marker may have landed just
+             * before the exit), then give up without waiting out the budget. */
+            txt = read_file(serial_path, &len);
+            if (txt) {
+                int hit = strstr(txt, marker) != NULL;
+                free(txt);
+                return hit;
+            }
+            return 0;
+        }
+        if (mono_ms() >= deadline) {
+            return 0;
+        }
+        sleep_ms(25);
+    }
+}
+
 /*
  * Connect to the QMP unix socket, do the capabilities handshake, request a
  * screendump to ppm_path, then quit. Retries the connect briefly because
@@ -797,7 +870,9 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
                        const char *screendump_after, int screendump_budget_ms,
                        const char *serial_path, int *keys_sent, int *mouse_sent,
                        const char *record_dir, const char *record_name,
-                       int record_settle_ms, int *frames_taken)
+                       int record_settle_ms, int *frames_taken,
+                       int keys_after_ms, const char *quit_after,
+                       int quit_budget_ms, int *quit_seen)
 {
     if (keys_sent) {
         *keys_sent = 0;
@@ -807,6 +882,9 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
     }
     if (frames_taken) {
         *frames_taken = 0;
+    }
+    if (quit_seen) {
+        *quit_seen = 0;
     }
     int fd = -1;
     long long deadline = mono_ms() + 3000;
@@ -889,7 +967,12 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
         }
         if (want_keys || want_mouse) {
             if (keys_after && keys_after[0] != '\0') {
-                if (!wait_for_serial_marker(serial_path, keys_after, 4000)) {
+                /* Legacy 4000 ms budget unless the gate sized it
+                 * (--keys-after-ms, initech-6gkm): a long boot on a loaded host
+                 * must not inject before the guest is ready. */
+                int ka_budget = keys_after_ms > 0 ? keys_after_ms : 4000;
+                if (!wait_for_serial_marker(serial_path, keys_after,
+                                            ka_budget)) {
                     fprintf(stderr,
                             "[harness] --keys-after marker '%s' not seen before "
                             "inject deadline; injecting anyway\n", keys_after);
@@ -972,6 +1055,33 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
                 return -1;
             }
             qmp_drain(fd, 200);
+        }
+    }
+
+    /* 4b. completion wait (beads initech-6gkm): a gate that names --quit-after
+     * does not let the harness quit until the guest says its work is done --
+     * see wait_for_serial_marker_live for the truncation class this closes. */
+    if (quit_after && quit_after[0] != '\0') {
+        int seen = 1;
+#ifndef HARNESS_MUTATE_NO_QUIT_WAIT
+        seen = wait_for_serial_marker_live(fd, serial_path, quit_after,
+                                           quit_budget_ms);
+#else
+        /* MUTANT (Rule 6; make test-harness-quit-after-mutant only): restore
+         * the 6gkm bug -- quit right after the inputs, never waiting for the
+         * guest's completion marker, and CLAIM it was seen. The corpus rail's
+         * own marker/SHELL-EXIT assertions must then go RED. NEVER in a real
+         * build. */
+        (void)wait_for_serial_marker_live;
+        (void)quit_budget_ms;
+#endif
+        if (!seen) {
+            fprintf(stderr,
+                    "[harness] --quit-after marker '%s' not seen before "
+                    "deadline (or qemu exited first)\n", quit_after);
+        }
+        if (quit_seen) {
+            *quit_seen = seen;
         }
     }
 
@@ -1241,6 +1351,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         int sent = 0;
         int msent = 0;
         int frames = 0;
+        int qseen = 0;
         if (qmp_session(sock_path, ppm,
                         want_keys ? cfg->keys_spec : NULL,
                         (want_keys || want_mouse) ? cfg->keys_after : NULL,
@@ -1251,7 +1362,10 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
                         out->serial_path, &sent, &msent,
                         cfg->record_frames ? dir : NULL,
                         cfg->record_frames ? name : NULL,
-                        cfg->record_settle_ms, &frames) == 0) {
+                        cfg->record_settle_ms, &frames,
+                        cfg->keys_after_ms, cfg->quit_after, sd_budget,
+                        &qseen) == 0) {
+            out->quit_marker_found = qseen != 0;
             out->keys_sent = sent;
             out->mouse_events_sent = msent;
             out->frames_taken = frames;
@@ -1358,7 +1472,9 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
     /* Overall verdict. */
     out->ok = out->launched && !out->timed_out && !out->triple_fault &&
               out->guest_errors == 0 &&
-              (cfg->expect_marker == NULL || out->marker_found);
+              (cfg->expect_marker == NULL || out->marker_found) &&
+              (cfg->quit_after == NULL || cfg->quit_after[0] == '\0' ||
+               out->quit_marker_found);
 
     return 0;
 }

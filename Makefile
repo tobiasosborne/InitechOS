@@ -7605,6 +7605,8 @@ help:
 	@printf '  test-seed-repro  Reproducible-build gate: the FULL seed corpus, compiled twice (initechc->nasm->ld) into separate scratch dirs, is byte-identical (.s+.o+.elf sha256). REAL. bead initech-3yv, ADR-0007 FO-5/DEC-06.\n'
 	@printf '  test-seed-repro-mutant  Rule-6 proof: -DSEED_MUT_NONDET (getpid()-seeded dead .rodata symbol -- GENUINE nondeterminism) makes test-seed-repro correctly RED, while leaving bool.pas single-run behavior untouched. REAL. bead initech-3yv, ADR-0007 FO-5.\n'
 	@printf '  test-harness   QEMU oracle harness self-test: serial marker caught on good fixture, triple-fault caught on bad. REAL.\n'
+	@printf '  test-harness-quit-after  6gkm: typed-ahead exit + --quit-after SHELL-EXIT lets a 34-EXEC AUTOEXEC finish before the harness quits. EMULATOR.\n'
+	@printf '  test-harness-quit-after-mutant  Rule-6: HARNESS_MUTATE_NO_QUIT_WAIT (pre-fix quit-after-inputs) truncates that batch RED. EMULATOR.\n'
 	@printf '  test-tracer-boot   Real MBR->stage2->32-bit/flat->VESA LFB boot: assert serial stage markers + no triple-fault + banner rendered on the seafoam desktop (ppm_text_check). REAL.\n'
 	@printf '  test-boot      InitechDOS banner boot gate: serial markers + banner literal vs spec/dos_banner.txt (byte-exact) + screendump banner-text check + no triple-fault. REAL. (QEMU only; tri-emulator pending initech-x0i.)\n'
 	@printf '  test-console   Host blit oracle for the LFB 8x16 text console: MSB-left glyph blit (bpp 32/24) + cursor/wrap/scroll. REAL.\n'
@@ -14268,6 +14270,15 @@ TPS_COMPILER_IMG              := $(BUILD)/tps_compiler.img
 TPS_COMPILER_NAME             := tps_compiler_os
 TPS_COMPILER_SERIAL           := $(BUILD)/$(TPS_COMPILER_NAME).serial
 TPS_COMPILER_REPORT           := $(TPS_LEX_BUILD_DIR)/$(TPS_COMPILER_NAME).report
+# COMPLETION GATING (bead initech-6gkm). The harness QUITS qemu ~400 ms after
+# the last injected key unless told to wait; every M7 on-OS leg runs guest work
+# (a multi-pass TPS compile, a 17-program AUTOEXEC batch) that can outlast that
+# window under host load and was silently TRUNCATED. Each leg types `exit`
+# ahead and the harness waits for SHELL-EXIT (printed only when the shell gets
+# back to the prompt after the work) before quitting; the keys-after budget is
+# widened so a slow boot never injects before SHELL-READY. A SHELL-EXIT that
+# never arrives => quit_after_found=0, and the leg's own marker checks go RED.
+TPS_OS_COMPLETION             := --keys-after-ms 60000 --quit-after "SHELL-EXIT"
 TPS_GEN_MUT_OFF_SRC           := $(TPS_LEX_BUILD_DIR)/tps_mut_gen_offbyone.pas
 TPS_GEN_MUT_LABEL_SRC         := $(TPS_LEX_BUILD_DIR)/tps_mut_gen_labels.pas
 TPS_GEN_MUT_VAR_SRC           := $(TPS_LEX_BUILD_DIR)/tps_mut_gen_varparam.pas
@@ -15064,7 +15075,8 @@ test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(TRACER_IMG) $(TPS_GEN_IMG) $(
 	@printf '>>> test-tps-gen-os: TPS.COM generates TPSOUT.S on InitechDOS\n'
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
 		--name tps_gen_compile --out "$(BUILD)" --timeout-ms 120000 \
-		--keys "$(TPS_GEN_OS_KEYS)" --keys-after "SHELL-READY" \
+		--keys "$(TPS_GEN_OS_KEYS),e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
 		2> "$(TPS_LEX_BUILD_DIR)/gen_os_compile.report" || true
 	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/gen_os_compile.report"; then \
 		printf '!!! test-tps-gen-os FAIL: TPS.COM triple-faulted while generating\n'; exit 1; fi
@@ -15087,7 +15099,8 @@ test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(TRACER_IMG) $(TPS_GEN_IMG) $(
 	@printf '>>> test-tps-gen-os: execute TPS-generated TINY.COM on the same OS\n'
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
 		--name tps_gen_execute --out "$(BUILD)" --timeout-ms 30000 \
-		--keys "t,i,n,y,ret" --keys-after "SHELL-READY" \
+		--keys "t,i,n,y,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
 		2> "$(TPS_LEX_BUILD_DIR)/gen_os_execute.report" || true
 	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/gen_os_execute.report"; then \
 		printf '!!! test-tps-gen-os FAIL: TPS-generated program triple-faulted\n'; exit 1; fi
@@ -15098,7 +15111,8 @@ test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(TRACER_IMG) $(TPS_GEN_IMG) $(
 	@printf '>>> test-tps-gen-os: execute seed-compiled fixture for three-way behavioral agreement\n'
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
 		--name tps_gen_seed_execute --out "$(BUILD)" --timeout-ms 30000 \
-		--keys "s,t,i,n,y,ret" --keys-after "SHELL-READY" \
+		--keys "s,t,i,n,y,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
 		2> "$(TPS_LEX_BUILD_DIR)/gen_os_seed_execute.report" || true
 	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/gen_os_seed_execute.report"; then \
 		printf '!!! test-tps-gen-os FAIL: seed fixture triple-faulted\n'; exit 1; fi
@@ -15120,7 +15134,8 @@ test-tps-gen-os-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_GEN_MUT_IMG)
 	@printf '>>> test-tps-gen-os-mutant: OFFBYONE must execute to a WRONG TINY value, without crash\n'
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_MUT_IMG)" \
 		--name tps_gen_mut_execute --out "$(BUILD)" --timeout-ms 30000 \
-		--keys "m,t,i,n,y,ret" --keys-after "SHELL-READY" \
+		--keys "m,t,i,n,y,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
 		2> "$(TPS_LEX_BUILD_DIR)/gen_os_mut_execute.report" || true
 	@if grep -q 'triple_fault=1' "$(TPS_LEX_BUILD_DIR)/gen_os_mut_execute.report"; then \
 		printf '!!! test-tps-gen-os-mutant FAIL: OFFBYONE crashed instead of returning wrong values\n'; exit 1; fi
@@ -15155,16 +15170,20 @@ test-compiler-os: test-compiler $(TPS_COMPILER_IMG) test-tps-gen-os $(HARNESS_BI
 	@printf '>>> test-compiler-os: one bounded InitechDOS boot executes all %s TPS-generated corpus programs\n' \
 		"$(words $(TPS_COMPILER_CORPUS))"
 	@rm -f "$(TPS_COMPILER_SERIAL)" "$(TPS_COMPILER_REPORT)"
-	@# CEILING NOTE (orchestrator, first-person 2026-08-18): 120000 ms truncated
-	@# the 17-program AUTOEXEC rail mid-batch under host load (serial ended at
-	@# fixture ~9-12, VARYING run-to-run -- the l9cd observer-effect class, caught
-	@# by the singular-marker checks below, never by eyeballing). SHELL-READY only
-	@# prints AFTER the batch completes, so the marker already gates correctness;
-	@# this ceiling only bounds a hung guest. Sized for 17 sequential .COM loads
-	@# on a loaded host with margin.
+	@# COMPLETION NOTE (bead initech-6gkm, supersedes the 2026-08-18 ceiling
+	@# note): kmain prints SHELL-READY BEFORE command_repl runs AUTOEXEC.BAT, so
+	@# `exit` is TYPED AHEAD at SHELL-READY and sits in the kbd ring while the
+	@# 17-program batch runs (authentic DOS type-ahead; no corpus program reads
+	@# the keyboard). The old rail let the harness QUIT qemu ~400 ms after that
+	@# injection -- mid-batch, varying with host load: the "batch stalls /
+	@# programs silently skip" symptom was that truncation, never a MILTON bug.
+	@# $$(TPS_OS_COMPLETION) makes the harness wait for SHELL-EXIT (printed only
+	@# after the whole batch ran and the typed-ahead exit reached the prompt);
+	@# the ceiling only bounds a hung guest.
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_COMPILER_IMG)" \
-		--name "$(TPS_COMPILER_NAME)" --out "$(BUILD)" --timeout-ms 420000 \
+		--name "$(TPS_COMPILER_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
 		2> "$(TPS_COMPILER_REPORT)" || true
 	@if grep -q 'triple_fault=1' "$(TPS_COMPILER_REPORT)"; then \
 		printf '!!! test-compiler-os FAIL: corpus boot triple-faulted\n'; exit 1; fi
@@ -15213,7 +15232,8 @@ test-compiler-os-mutant: test-tps-gen-mutant $(TPS_GEN_MUT_VAR_IMG) test-tps-gen
 	@rm -f "$(TPS_GEN_MUT_VAR_SERIAL)" "$(TPS_GEN_MUT_VAR_REPORT)"
 	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_MUT_VAR_IMG)" \
 		--name "$(TPS_GEN_MUT_VAR_NAME)" --out "$(BUILD)" --timeout-ms 30000 \
-		--keys "m,v,a,r,p,a,r,ret" --keys-after "SHELL-READY" \
+		--keys "m,v,a,r,p,a,r,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
 		2> "$(TPS_GEN_MUT_VAR_REPORT)" || true
 	@if grep -q 'triple_fault=1' "$(TPS_GEN_MUT_VAR_REPORT)"; then \
 		printf '!!! test-compiler-os-mutant FAIL: VARPARAM crashed instead of returning wrong semantics\n'; exit 1; fi
@@ -15225,6 +15245,95 @@ test-compiler-os-mutant: test-tps-gen-mutant $(TPS_GEN_MUT_VAR_IMG) test-tps-gen
 	@grep -qF 'SWAPA=3 SWAPB=8 ALIASG=40 ALIASG2=40' $(TPS_LEX_BUILD_DIR)/gen_mut_var.normalized \
 		|| { printf '!!! TPS_GEN_MUT_VARPARAM failed for the wrong semantic reason\n'; exit 1; }
 	@printf '>>> test-compiler-os-mutant: green (OFFBYONE + VARPARAM both make registered corpus execution RED)\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-harness-quit-after (+ -mutant)  (bead initech-6gkm)
+# ---------------------------------------------------------------------------
+# THE 6gkm ROOT CAUSE, pinned. The M7 corpus rail "stalled / silently skipped
+# programs, position- and load-dependent" because the QEMU harness sends QMP
+# `quit` ~400 ms after the LAST injected key (harness/emu/qemu.c qmp_session
+# step 5), and kmain prints SHELL-READY BEFORE command_repl runs AUTOEXEC.BAT
+# (os/milton/kmain.c SHELL-READY; os/milton/command.c command_repl) -- so a
+# gate that typed `exit` at SHELL-READY killed qemu mid-batch. First-person:
+# the SAME corpus boot with no keys runs all 17 programs byte-exact vs FPC, and
+# the MILTON batch path (whole-file read, per-line dispatch, EXEC via AH=4Bh)
+# is not implicated. The fix is harness-side: --quit-after MARK (wait for the
+# guest's work-complete marker, budget tied to the wall-clock timeout, early
+# out if qemu exits) + --keys-after-ms (size the ready wait for a slow boot).
+#
+# Workload: the corpus image with an AUTOEXEC that runs the registered corpus
+# batch TWICE (34 EXECs, 102 lines, 2,952 bytes -- far past the "line ~24 /
+# byte ~800" band the bead reported, under the 4 KiB BATCH_FILE_MAX). `exit` is
+# typed ahead at SHELL-READY (authentic DOS type-ahead into the kbd ring).
+#   positive leg: the real harness waits for SHELL-EXIT -> all 34 END markers
+#                 present + SHELL-EXIT + quit_after_found=1.
+#   mutant leg:   HARNESS_MUTATE_NO_QUIT_WAIT (the pre-fix quit-after-inputs
+#                 behaviour, CLAIMING quit_after_found=1) -> the batch is cut
+#                 short: SHELL-EXIT absent and < 34 END markers. The gate trusts
+#                 the SERIAL, never the harness's self-report (Law 2).
+HARNESS_QA_BAT      := $(BUILD)/harness_quit_after.bat
+HARNESS_QA_IMG      := $(BUILD)/harness_quit_after.img
+HARNESS_QA_NAME     := harness_quit_after
+HARNESS_QA_MUT_NAME := harness_quit_after_mut
+HARNESS_QA_EXECS    := 34
+HARNESS_MUT_NOQUIT_BIN := $(BUILD)/qemu_harness_mut_noquit
+
+$(HARNESS_MUT_NOQUIT_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_QUIT_WAIT -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
+
+$(HARNESS_QA_IMG): $(TPS_COMPILER_IMG) $(TPS_COMPILER_BATCH) | $(BUILD)
+	@cat $(TPS_COMPILER_BATCH) $(TPS_COMPILER_BATCH) > $(HARNESS_QA_BAT)
+	@test "$$(grep -c '\.COM$$' $(HARNESS_QA_BAT))" -eq $(HARNESS_QA_EXECS) \
+		|| { printf '!!! harness quit-after image FAIL: batch is not %s EXEC lines\n' "$(HARNESS_QA_EXECS)"; exit 1; }
+	@test "$$(wc -c < $(HARNESS_QA_BAT))" -lt 4096 \
+		|| { printf '!!! harness quit-after image FAIL: batch exceeds BATCH_FILE_MAX (4096)\n'; exit 1; }
+	@cp -f $(TPS_COMPILER_IMG) $@
+	@mdel -i $@ ::AUTOEXEC.BAT
+	@mcopy -i $@ $(HARNESS_QA_BAT) ::AUTOEXEC.BAT
+
+.PHONY: test-harness-quit-after
+test-harness-quit-after: $(HARNESS_BIN) $(TRACER_IMG) $(HARNESS_QA_IMG)
+	@printf '>>> test-harness-quit-after: typed-ahead exit + --quit-after SHELL-EXIT must let a %s-EXEC batch finish\n' "$(HARNESS_QA_EXECS)"
+	@rm -f "$(BUILD)/$(HARNESS_QA_NAME).serial"
+	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(HARNESS_QA_IMG)" \
+		--name "$(HARNESS_QA_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
+		2> "$(BUILD)/$(HARNESS_QA_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(HARNESS_QA_NAME).report"; then \
+		printf '!!! test-harness-quit-after FAIL: boot triple-faulted\n'; exit 1; fi
+	@grep -q 'quit_after_found=1' "$(BUILD)/$(HARNESS_QA_NAME).report" \
+		|| { printf '!!! test-harness-quit-after FAIL: harness did not see SHELL-EXIT before quitting\n'; exit 1; }
+	@tr -d '\r' < "$(BUILD)/$(HARNESS_QA_NAME).serial" > "$(BUILD)/$(HARNESS_QA_NAME).normalized"
+	@n=$$(grep -c '^TPS-CORPUS-END ' "$(BUILD)/$(HARNESS_QA_NAME).normalized"); \
+		test "$$n" -eq $(HARNESS_QA_EXECS) \
+		|| { printf '!!! test-harness-quit-after FAIL: %s/%s batch programs completed\n' "$$n" "$(HARNESS_QA_EXECS)"; exit 1; }
+	@grep -q '^SHELL-EXIT$$' "$(BUILD)/$(HARNESS_QA_NAME).normalized" \
+		|| { printf '!!! test-harness-quit-after FAIL: SHELL-EXIT missing from serial\n'; exit 1; }
+	@printf '>>> test-harness-quit-after: green (%s/%s EXECs completed, typed-ahead exit reached the prompt, harness quit only after SHELL-EXIT)\n' "$(HARNESS_QA_EXECS)" "$(HARNESS_QA_EXECS)"
+
+.PHONY: test-harness-quit-after-mutant
+test-harness-quit-after-mutant: $(HARNESS_MUT_NOQUIT_BIN) $(TRACER_IMG) $(HARNESS_QA_IMG)
+	@printf '>>> test-harness-quit-after-mutant: HARNESS_MUTATE_NO_QUIT_WAIT must truncate the batch (Rule 6)\n'
+	@rm -f "$(BUILD)/$(HARNESS_QA_MUT_NAME).serial"
+	@$(HARNESS_MUT_NOQUIT_BIN) --disk "$(TRACER_IMG)" --disk2 "$(HARNESS_QA_IMG)" \
+		--name "$(HARNESS_QA_MUT_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
+		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
+		$(TPS_OS_COMPLETION) \
+		2> "$(BUILD)/$(HARNESS_QA_MUT_NAME).report" || true
+	@test -s "$(BUILD)/$(HARNESS_QA_MUT_NAME).serial" \
+		|| { printf '!!! test-harness-quit-after-mutant FAIL: no serial from the mutant boot\n'; exit 1; }
+	@grep -q 'SHELL-READY' "$(BUILD)/$(HARNESS_QA_MUT_NAME).serial" \
+		|| { printf '!!! test-harness-quit-after-mutant FAIL: mutant boot never reached SHELL-READY (wrong reason)\n'; exit 1; }
+	@grep -q 'quit_after_found=1' "$(BUILD)/$(HARNESS_QA_MUT_NAME).report" \
+		|| { printf '!!! test-harness-quit-after-mutant FAIL: mutant did not claim completion (wrong reason)\n'; exit 1; }
+	@tr -d '\r' < "$(BUILD)/$(HARNESS_QA_MUT_NAME).serial" > "$(BUILD)/$(HARNESS_QA_MUT_NAME).normalized"
+	@n=$$(grep -c '^TPS-CORPUS-END ' "$(BUILD)/$(HARNESS_QA_MUT_NAME).normalized"); \
+		if grep -q '^SHELL-EXIT$$' "$(BUILD)/$(HARNESS_QA_MUT_NAME).normalized" \
+		   || test "$$n" -ge $(HARNESS_QA_EXECS); then \
+			printf '!!! test-harness-quit-after-mutant FAIL: the no-wait mutant still completed %s/%s EXECs + SHELL-EXIT -- the gate is decoration\n' "$$n" "$(HARNESS_QA_EXECS)"; exit 1; \
+		fi; \
+		printf '>>> test-harness-quit-after-mutant: green (no-wait mutant truncated the batch at %s/%s EXECs, no SHELL-EXIT -- the completion wait is load-bearing)\n' "$$n" "$(HARNESS_QA_EXECS)"
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-seed-fpc-diff (beads initech-63ce; ADR-0007 DEC-07 Rung 2)
@@ -23871,18 +23980,12 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 	fi
 	@printf '>>> test-more-filter-mutant: green (lossy-passthrough mutant correctly RED -- round-trip != input, the full byte forward is load-bearing)\n'
 
-# OMISSION (orchestrator first-person, 2026-08-18; beads initech-6m52 + the
-# MILTON batch bug bead filed at B9.5 landing): test-compiler-os and
-# test-compiler-os-mutant are WIRED but deliberately OUT of this vector. The
-# B9.5 17-program one-boot AUTOEXEC rail exposed a LATENT MILTON batch/EXEC
-# interaction bug -- programs silently skip or the batch stalls, position- and
-# content-dependent (string_shared runs at the prompt, bare-metal, and in
-# short batches but NOT as batch entry 1 of the corpus rail; records fail at
-# position ~8 in the original order yet pass when reordered first). Every
-# fixture's TPS-generated code is execution-proven correct outside long
-# batches; the M7 HOST differential (test-compiler, 17/17) IS in the unit
-# vector. A red gate cannot join the default vector (Law 2) -- both legs
-# REJOIN here the moment the MILTON bug lands. Do NOT delete them.
+# test-compiler-os + test-compiler-os-mutant (and their prerequisites
+# test-tps-gen-os + -mutant) REJOINED 2026-09-25 (bead initech-6gkm): the
+# B9.5 "MILTON batch/EXEC stall" was the QEMU harness quitting ~400 ms after the
+# injected `exit` (typed at SHELL-READY, which kmain prints BEFORE AUTOEXEC
+# runs) -- a truncation, not a MILTON bug. The legs now type `exit` ahead and
+# gate on --quit-after SHELL-EXIT; test-harness-quit-after(+mutant) pin it.
 # test-flair-cursor (bead initech-tdnl.1) JOINED 2026-08-23: the orchestrator
 # ran the QEMU leg first-person (black tip + white outline at the injected
 # (400,280), marker-gated), eyeballed the dump + the cursor_cross clip
@@ -23902,6 +24005,9 @@ TEST_EMU_GATES := \
 	test-samir-boot test-samir-boot-mutant \
 		test-seed-fileio-os test-seed-fileio-os-mutant \
 		test-tps-lex-os test-tps-parse-os test-tps-type-os \
+		test-tps-gen-os test-tps-gen-os-mutant \
+		test-compiler-os test-compiler-os-mutant \
+		test-harness-quit-after test-harness-quit-after-mutant \
 	test-samir-write test-samir-write-mutant \
 	test-samir-canon-y2k test-samir-canon-y2k-mutant \
 	test-samir-canon-salami test-samir-canon-salami-mutant \
