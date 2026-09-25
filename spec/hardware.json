@@ -18,9 +18,10 @@
   "status": "ratified -- ADR-0009 DEC-07 (2026-06-19)",
 
   "cpu": {
-    "value": "386+",
-    "note": "i386/i486; boot in real mode, switch to 32-bit protected, flat segmentation. No 8088/286 real-mode support -- dropped by decree (CLAUDE.md hallucination-risk callout). All code runs in a single flat 32-bit protected-mode segment; no segment:offset arithmetic in the kernel or apps.",
-    "ref": ["PRD Sec 5", "ADR-0001 (386+, 32-bit flat; cited by CLAUDE.md and PRD Sec 5)"]
+    "value": "486+ (386 desirable, non-blocking)",
+    "note": "486-class hardware is the authentic target for the final build (ADR-0001 DEC-02, 2026-09-25); 386 functionality remains desirable but is no longer required. Boot in real mode, switch to 32-bit protected, flat segmentation. No 8088/286 real-mode support -- dropped by decree (CLAUDE.md hallucination-risk callout). All code runs in a single flat 32-bit protected-mode segment; no segment:offset arithmetic in the kernel or apps. The 486-class floor is a HARDWARE TARGET only: -march=i386 STAYS PINNED for codegen (cmov is P6-era, not 486; the WL-0087 Bochs model=pentium catch), and the KERNEL_SECTORS=384 real-mode bounce ceiling is bootloader design, not a CPU-generation constant (ADR-0001 DEC-03).",
+    "ratified": "ADR-0001 DEC-02 (2026-09-25, operator T. Osborne) -- 486-class floor greenlit; bead initech-qw0t (supersedes initech-fgs1)",
+    "ref": ["PRD Sec 5", "ADR-0001 (486-class authentic target, 386 desirable, 32-bit flat; DEC-01 historical + DEC-02 486 floor; cited by CLAUDE.md and PRD Sec 5)"]
   },
 
   "fpu": {

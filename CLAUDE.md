@@ -10,7 +10,7 @@ faster than you think; that's why they're numbered.
 ## What this is
 
 **InitechOS is a bootable, period-plausible operating system for emulated
-386+ PCs** -- a DOS-3.3 personality (`MILTON`) fused with a Mac OS 8 Platinum
+486-class PCs (386 desirable, non-blocking; ADR-0001 DEC-02)** -- a DOS-3.3 personality (`MILTON`) fused with a Mac OS 8 Platinum
 (DEC-10) Toolbox (`FLAIR`), with System 7 retained as a heritage era, and the
 exact chimera in the *Office Space* "Saving tables
 to disk…" frame. It really boots, the windows really work, it ships a
@@ -21,7 +21,7 @@ the OS.
 
 The full product spec is **`InitechOS-PRD.md`** — read it. This file is
 *how we build it*; the PRD is *what we build*. The ratified architecture
-is in `docs/adr/` — ADR-0001 (386+, 32-bit flat), ADR-0002 (toolchain,
+is in `docs/adr/` — ADR-0001 (486-class, 386 desirable, 32-bit flat), ADR-0002 (toolchain,
 implementation language, executable format), ADR-0003 (InitechDOS base
 OS), and CDR-0001 (interim toolchain deviation).
 
