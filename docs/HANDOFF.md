@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-09-26, session close (**WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
+**Last Reconciled:** 2026-09-26 evening, session close (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -202,6 +202,29 @@ desktop. (Under Bochs: `make test-boot-bochs` — same boot via the mode-0x13
 fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
+
+> **CURRENT STATE (2026-09-26 evening, WL-0092 -- THE CANONICAL-APP GOLDENS LAND.
+> Supersedes the WL-0091 block below for "what to do next"; everything else in it stands.)**
+>
+> Operator ratified the media in-session; both P0 Law-1 gates are CLOSED:
+> `initech-qh83` -> `../lotus123-decomp` (`dc75536`), `initech-rv9y` ->
+> `../wordperfect51-decomp` (`8dcaf25`). Real Lotus 1-2-3 R2.2 and real
+> WordPerfect 5.1 (03-09-92) now RUN under the DOSBox-X mint harness
+> (`tools/mint_drive.sh`: Xvfb + xdotool + screenshots); 6 minted .WK1 + 38
+> shipped sheets decoded by `wk1_ref.py` (1071 formulas, zero failures); 5
+> minted .WP5 with Reveal Codes shots decoded by `wp5_ref.py` (zero trailer
+> errors). Numeric goldens for `initech-yjlo` exist now (@ROUND away from zero,
+> @MOD dividend sign, 1E99 ceiling, i16 INTEGER boundary). No artifact code
+> changed; certificate unchanged from WL-0091 (ALL GREEN 355 host + 116 emu at 8f884a7).
+>
+> **NEXT (in order):** the new P1 "distill specs/" bead for both corpora (the
+> bridge to I123 P1 `initech-9u8w` / IWORD P1 `initech-l4tj`) -> then the
+> WL-0091 queue unchanged: initech-cnpm (SETMBAR) -> 34dh -> 6k12 -> p6st ->
+> zj6w -> yjlo. **Open in the corpora:** INIT.EXE replay (P2; 86Box closes it),
+> WK1 opcode 0x18 / record 0x2E, WP5 prefix packets (P2).
+> **Operator queue:** ADR-0009 numeric ruling; tdnl.12 stage-2 chimera;
+> InitechWord dictionary placement + Font Manager sequencing. Media: DONE.
+
 
 > **CURRENT STATE (2026-09-26, WL-0091 -- NORTH STAR RESTATED; APP LAUNCH FROM DISK; HARNESS
 > HARDENED. Supersedes every CURRENT STATE block below for "what to do next".)**
