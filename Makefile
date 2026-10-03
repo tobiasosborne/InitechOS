@@ -533,6 +533,8 @@ PPM_FLAIR_DISKWIN_CHECK_BIN := $(BUILD)/ppm_flair_disk_windows_check
 # 8/11): FLAIR_FOLDER_NAV_SPEC, FLAIR_WINDOW_DRAG_PERSIST_SPEC and
 # FLAIR_NEW_FOLDER_SPEC. Sibling of the R3.2 file above, never an edit to it.
 include spec/flair_disk_windows_traces.mk
+# R3.4a (bead initech-34dh): the LOCKED drag-move / drag-to-Trash traces.
+include spec/flair_file_ops_traces.mk
 
 # The LOCKED R3.7 app-launch traces (spec/flair_app_launch_traces.mk, Rule
 # 8/11; bead initech-tdnl.14): FLAIR_APP_LAUNCH_SPEC (+ _SHOW/_PRE/_DOUBLE/
@@ -9533,6 +9535,15 @@ KERNEL_FINDER_WINDOWS_OBJ := $(BUILD)/finder_windows.o
 $(KERNEL_FINDER_WINDOWS_OBJ): os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $@
 
+# The R3.4a Finder FILE-OPERATIONS object (THE ARTIFACT; bead initech-34dh):
+# drop-target resolution, the drop-target highlight, the move/Trash refusal
+# ladder and Trash staging with kind=5 origins. Linked ONLY into the
+# FLAIRTENANTS kernels, at the tenants-only optimisation level.
+FINDER_OPS_KDEPS := os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/surface.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
+KERNEL_FINDER_OPS_OBJ := $(BUILD)/finder_ops.o
+$(KERNEL_FINDER_OPS_OBJ): $(FINDER_OPS_KDEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $@
+
 # The R3 Finder COMMAND-TABLE SPINE object (bead initech-tdnl.27 / slice
 # tdnl.9a): one table, one finder_dispatch. R3.3 links it for real -- the
 # Ctrl-chord path and the shell's exec hook both ride it.
@@ -9633,11 +9644,11 @@ $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
-KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ)
+KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_OPS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ)
 
 # R3.7 (tdnl.14): every FLAIRTENANTS kmain variant includes the gate headers.
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h
@@ -9827,7 +9838,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -10026,6 +10037,39 @@ endef
 #                    -> no FINDER-OPEN-VOLUME line ever appears (marker-absent RED)
 $(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_NO_UNDERLAY,desk_no_underlay))
 $(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_DBLTICK_OFF,desk_dbltick_off))
+# bead initech-34dh: no drop-target highlight (bites test-flair-file-ops leg 2).
+$(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_NO_HILITE,desk_no_hilite))
+
+# $(call flair-tenants-finderops-mutant-rules,<KNOB>,<tag>): an R3.4a Finder
+# FILE-OPS (finder_ops.c) mutant, bead initech-34dh. Swaps ONLY finder_ops.o;
+# the knobs are the SAME spellings test-finder-ops-mutant proves on the host.
+# Prereqs + flags spelled LITERALLY (the $(eval)-expands-once hazard above).
+define flair-tenants-finderops-mutant-rules
+$(BUILD)/finder_ops_mut_$(2).o: os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/window.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $$@
+
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o
+
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants FILE-OPS MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+$(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_TRASH_NO_STAGE,ops_trash_no_stage))
 
 # $(call flair-tenants-finderwin-mutant-rules,<KNOB>,<tag>): an R3.3 Finder
 # DISK WINDOW (finder_windows.c) mutant, bead initech-tdnl.10. Swaps ONLY
@@ -11923,6 +11967,50 @@ test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_M
 	@if $(TEST_FINDER_WIN_MUT_SINGLETON) >/dev/null 2>&1; then printf '!!! test-finder-windows-mutant FAIL: SINGLETON_DUP PASSED -- the spatial-singleton oracle is decoration\n'; exit 1; else printf '>>> test-finder-windows-mutant: green (SINGLETON_DUP correctly RED -- reopening a folder builds a second window)\n'; fi
 	@if $(TEST_FINDER_WIN_MUT_VOLLABEL) >/dev/null 2>&1; then printf '!!! test-finder-windows-mutant FAIL: VOLLABEL_SHOWN PASSED -- the volume-label skip oracle is decoration\n'; exit 1; else printf '>>> test-finder-windows-mutant: green (VOLLABEL_SHOWN correctly RED -- the volume name leaks into the listing)\n'; fi
 	@if $(TEST_FINDER_WIN_MUT_CLEANUP) >/dev/null 2>&1; then printf '!!! test-finder-windows-mutant FAIL: CLEANUP_UNSORTED PASSED -- the row-major Clean Up oracle is decoration\n'; exit 1; else printf '>>> test-finder-windows-mutant: green (CLEANUP_UNSORTED correctly RED -- the snap order mirrors)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-finder-ops (bead initech-34dh; GUI remediation R3.4 reslice
+# 1/3; docs/design/GUI-remediation-R3-finder-design.md F1.4/F1.5/F2.2) -- the
+# HOST oracle for os/flair/finder_ops.c: drop-target resolution (incl. the
+# window-relative re-hit after a window move), the highlighted drop-target
+# pixels, move into a folder / between windows, the refusal ladder
+# (samedir/cycle/exists/err, nothing changes), Trash STAGING + the collision
+# suffix + kind=5 origins, the kind=5 codec against a hand-authored 80-byte
+# image, and un-trashing dropping the origin. Hand-authored expectations over a
+# mutable MOCK volume that deliberately has NO cycle check (Law 2).
+# Mutants: TRASH_NO_STAGE (design F1.4), NO_CYCLE, NO_ORIGIN (finder_ops.c)
+# and NO_HILITE (finder_desktop.c).
+# ---------------------------------------------------------------------------
+TEST_FINDER_OPS      := $(BUILD)/test_finder_ops
+TEST_FINDER_OPS_SRC  := harness/proptest/test_finder_ops.c
+FINDER_OPS_LINK      := os/flair/finder_ops.c $(FINDER_WIN_LINK)
+FINDER_OPS_DEPS      := $(TEST_FINDER_OPS_SRC) os/flair/finder_ops.h $(FINDER_WIN_DEPS)
+FINDER_OPS_MUTANTS   := TRASH_NO_STAGE NO_CYCLE NO_ORIGIN
+$(TEST_FINDER_OPS): $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+$(BUILD)/test_finder_ops_mutant_%: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_OPS_MUT_$* $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+$(BUILD)/test_finder_ops_mutant_hilite: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_DESK_MUT_NO_HILITE $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+
+.PHONY: test-finder-ops test-finder-ops-mutant
+test-finder-ops: $(TEST_FINDER_OPS)
+	@printf ">>> test-finder-ops: R3.4a drag-move + drag-to-Trash -- targets, highlight pixels, moves, the refusal ladder, Trash staging + suffix, kind=5 origins\n"
+	@$(TEST_FINDER_OPS)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(FINDER_WIN_INC) -c os/flair/finder_ops.c -o $(BUILD)/finder_ops_freestanding.o \
+		|| { printf '!!! test-finder-ops FAIL: finder_ops.c does NOT compile freestanding (Law 3)\n'; exit 1; }
+	@printf ">>> test-finder-ops: green\n"
+
+# Each mutant must go RED for its NAMED reason (the CHECK text is grepped).
+test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite
+	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; \
+		bin=$(BUILD)/test_finder_ops_mutant_$$m; \
+		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-ops-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-finder-ops-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-finder-ops-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
+	done
+	@printf '>>> test-finder-ops-mutant: green (all four mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -18270,6 +18358,204 @@ test-flair-disk-windows-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG
 endif
 
 # ===========================================================================
+# REAL gate: test-flair-file-ops (bead initech-34dh; GUI remediation plan R3.4,
+# reslice 1/3 of initech-tdnl.11) -- THE booted Finder DRAG-MOVE and
+# DRAG-TO-TRASH staging, graded DIFFERENTIALLY by mtools on the SAME image
+# (the FAT rail: the guest's own FAT code never grades itself).
+# ---------------------------------------------------------------------------
+# Locked traces + their arithmetic: spec/flair_file_ops_traces.mk. Every leg
+# boots $(FLAIRTENANTS_IMG) with a FRESH gate-local copy of $(FLAIR_DATA_IMG);
+# no window is ever dragged (the operator's 2026-10-03 audit: a moved disk
+# window's icon layer does not follow it yet -- a separate lane).
+#   1 INTO     README.TXT dropped on the APPS folder icon:
+#                FINDER-DROP-HILITE name=APPS, FINDER-MOVE name=README.TXT
+#                from=0 to=3 ; mtools: ::/APPS/README.TXT exists and its bytes
+#                == the fixture; ::/README.TXT is gone.
+#   2 HOVER    the MID-DRAG frame (button held over APPS), dumped after
+#                FINDER-DROP-HILITE name=APPS and graded by
+#                tools/ppm_flair_drop_target_check (APPS highlighted, name
+#                inverted, nothing else lit, the gray outline present).
+#   3 BETWEEN  TENANTFX.EXE dragged out of the APPS window into the root
+#                window: FINDER-MOVE name=TENANTFX.EXE from=3 to=0 ; mtools:
+#                ::/TENANTFX.EXE bytes == $(TENANTFX_EXE), absent from ::/APPS.
+#   4 REFUSE   README.TXT onto the volume icon (SAMEDIR) and the TRASH folder
+#                onto the Trash (CYCLE): two FINDER-MOVE-REFUSED lines, no
+#                FINDER-MOVE / FINDER-TRASH; mtools: the root unchanged, ::/TRASH
+#                empty, \DESKTOP.DB still the 8-byte header (nothing committed).
+#   5 TRASH    three drags to the Trash, the third colliding: the exact ordered
+#                chain FINDER-TRASH / FINDER-NEW-FOLDER / TRASH-RENAME /
+#                DESKTOP-DB-SAVE ; mtools: ::/TRASH holds README.TXT (bytes ==
+#                the fixture -- TRANSPLANTED, not deleted), NEWFOLD and
+#                NEWFO001; the root holds none of them; \DESKTOP.DB is 128 bytes
+#                ending in the three HAND-AUTHORED kind=5 origin records.
+# Mutation-proven by test-flair-file-ops-mutant (TRASH_NO_STAGE, NO_HILITE).
+# Rule 5: test-flair-file-ops-bochs. Rule 14 clips: make record-flair
+# SCRIPT=drag_move | trash_drag (+ record-flair-repro).
+# ===========================================================================
+fo_comma := ,
+PPM_FLAIR_DROP_CHECK_SRC := tools/ppm_flair_drop_target_check.c
+PPM_FLAIR_DROP_CHECK_BIN := $(BUILD)/ppm_flair_drop_target_check
+$(PPM_FLAIR_DROP_CHECK_BIN): $(PPM_FLAIR_DROP_CHECK_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+
+FLAIR_FO_INTO_NAME    := flair_fileops_into
+FLAIR_FO_HOVER_NAME   := flair_fileops_hover
+FLAIR_FO_BETWEEN_NAME := flair_fileops_between
+FLAIR_FO_REFUSE_NAME  := flair_fileops_refuse
+FLAIR_FO_TRASH_NAME   := flair_fileops_trash
+FLAIR_FO_TRASH_CHAIN  := $(BUILD)/flair_fileops_trash.chain
+FLAIR_FO_ORIGINS_GOLD := $(BUILD)/flair_fileops_origins.golden
+
+# $(call fo-boot,<image>,<name>,<data img>,<spec>,<quit marker>,<dump 0|1>)
+define fo-boot
+cp -f $(FLAIR_DATA_IMG) $(3)
+$(HARNESS_BIN) --disk "$(1)" --disk2 "$(3)" --expect FLAIR-FAT-MOUNT-OK \
+	--name "$(2)" --out "$(BUILD)" --mouse "$(4)" --keys-after "FLAIR-LIVE-READY" \
+	--quit-after "$(5)" $(if $(filter 1,$(6)),--screendump --screendump-after "$(5)") \
+	--timeout-ms 40000 2> "$(BUILD)/$(2).report" || true
+@if grep -q 'triple_fault=1' "$(BUILD)/$(2).report"; then printf '!!! %s FAIL: TRIPLE FAULT in boot %s\n' "$@" "$(2)"; exit 1; fi
+endef
+
+# $(call fo-has,<serial name>,<exact line>,<why>)
+define fo-has
+@grep -qxF '$(2)' "$(BUILD)/$(1).serial" \
+	|| { printf '!!! %s FAIL: %s -- missing serial line: %s\n' "$@" '$(3)' '$(2)'; grep -E '^(FINDER|TRASH|DESKTOP-DB)' "$(BUILD)/$(1).serial" || true; exit 1; }
+endef
+
+# mtools assertions for the TRASH leg, shared VERBATIM by the real gate and its
+# TRASH_NO_STAGE mutant leg (so the mutant is graded by the identical oracle).
+# $(call fo-trash-mtools,<data img>)
+define fo-trash-mtools
+mdir -i "$(1)" ::/TRASH > "$(1).trash.lst" 2>&1 || true; \
+mdir -a -i "$(1)" :: > "$(1).root.lst" 2>&1 || true; \
+grep -q '^README   TXT ' "$(1).trash.lst" || { printf 'FO-TRASH: README.TXT is NOT in ::/TRASH (staged = transplanted, never deleted)\n'; exit 1; }; \
+mtype -i "$(1)" ::/TRASH/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf 'FO-TRASH: ::/TRASH/README.TXT bytes differ from the fixture\n'; exit 1; }; \
+grep -q '^NEWFOLD .*<DIR>' "$(1).trash.lst" || { printf 'FO-TRASH: NEWFOLD <DIR> missing from ::/TRASH\n'; exit 1; }; \
+grep -q '^NEWFO001 .*<DIR>' "$(1).trash.lst" || { printf 'FO-TRASH: NEWFO001 <DIR> (the suffixed collision) missing from ::/TRASH\n'; exit 1; }; \
+! grep -qE '^(README   TXT|NEWFOLD |NEWFO001 )' "$(1).root.lst" || { printf 'FO-TRASH: a staged item is STILL in the root\n'; exit 1; }
+endef
+
+.PHONY: test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs
+test-flair-file-ops: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(TENANTFX_EXE) $(PPM_FLAIR_DROP_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-file-ops : Finder DRAG-MOVE + DRAG-TO-TRASH (R3.4a)\n'
+	@printf '  Ref: bead initech-34dh; os/flair/finder_ops.h; spec/flair_file_ops_traces.mk.\n'
+	@printf '  File effects graded by mtools on the SAME image (the FAT rail, Law 2).\n'
+	@printf '======================================================================\n'
+	@command -v mdir >/dev/null 2>&1 && command -v mtype >/dev/null 2>&1 || { printf '!!! test-flair-file-ops FAIL: mtools (mdir/mtype/mcopy) missing\n'; exit 1; }
+	@# ---- leg 1: INTO a folder icon ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_INTO_NAME),$(BUILD)/$(FLAIR_FO_INTO_NAME)_data.img,$(FLAIR_FILEOPS_INTO_SPEC),FINDER-MOVE name=README.TXT from=0 to=3,0)
+	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-OPEN-VOLUME win=0 n=4,the volume double-click did not open the root window)
+	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-DROP-HILITE name=APPS,the APPS folder was not lit as the drop target)
+	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-MOVE name=README.TXT from=0 to=3,the drop on APPS did not move README.TXT into APPS (cluster 3))
+	@mdir -i $(BUILD)/$(FLAIR_FO_INTO_NAME)_data.img ::/APPS | grep -q '^README   TXT ' || { printf '!!! test-flair-file-ops FAIL: mtools does not see README.TXT in ::/APPS\n'; exit 1; }
+	@mtype -i $(BUILD)/$(FLAIR_FO_INTO_NAME)_data.img ::/APPS/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf '!!! test-flair-file-ops FAIL: ::/APPS/README.TXT bytes differ from the fixture\n'; exit 1; }
+	@! mdir -i $(BUILD)/$(FLAIR_FO_INTO_NAME)_data.img :: | grep -q '^README   TXT ' || { printf '!!! test-flair-file-ops FAIL: README.TXT is STILL in the root after the move\n'; exit 1; }
+	@printf '>>> test-flair-file-ops [1/5]: INTO -- FINDER-MOVE README.TXT 0->3; mtools sees it in ::/APPS (bytes intact), not in ::/\n'
+	@# ---- leg 2: the MID-DRAG frame ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_HOVER_NAME),$(BUILD)/$(FLAIR_FO_HOVER_NAME)_data.img,$(FLAIR_FILEOPS_HOVER_SPEC),FINDER-DROP-HILITE name=APPS,1)
+	@[ -s "$(BUILD)/$(FLAIR_FO_HOVER_NAME).ppm" ] || { printf '!!! test-flair-file-ops FAIL: HOVER screendump missing\n'; exit 1; }
+	@$(PPM_FLAIR_DROP_CHECK_BIN) "$(BUILD)/$(FLAIR_FO_HOVER_NAME).ppm" || { printf '!!! test-flair-file-ops FAIL: the mid-drag frame does not show the highlighted target + gray outline\n'; exit 1; }
+	@printf '>>> test-flair-file-ops [2/5]: HOVER -- APPS drawn highlighted under the dragged outline (pixel-graded)\n'
+	@# ---- leg 3: BETWEEN windows ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_BETWEEN_NAME),$(BUILD)/$(FLAIR_FO_BETWEEN_NAME)_data.img,$(FLAIR_FILEOPS_BETWEEN_SPEC),FLAIR-DRAG win 0 (20$(fo_comma)60)->(20$(fo_comma)60),0)
+	$(call fo-has,$(FLAIR_FO_BETWEEN_NAME),FINDER-OPEN-FOLDER name=APPS win=1 singleton=0,APPS did not open as window 1)
+	$(call fo-has,$(FLAIR_FO_BETWEEN_NAME),FINDER-MOVE name=TENANTFX.EXE from=3 to=0,TENANTFX.EXE was not moved from the APPS window into the root window)
+	@mcopy -n -i $(BUILD)/$(FLAIR_FO_BETWEEN_NAME)_data.img ::/TENANTFX.EXE - 2>/dev/null | cmp -s - $(TENANTFX_EXE) || { printf '!!! test-flair-file-ops FAIL: mtools does not read ::/TENANTFX.EXE back byte-identical to the shipped build\n'; exit 1; }
+	@! mdir -i $(BUILD)/$(FLAIR_FO_BETWEEN_NAME)_data.img ::/APPS | grep -q '^TENANTFX EXE' || { printf '!!! test-flair-file-ops FAIL: TENANTFX.EXE is STILL in ::/APPS\n'; exit 1; }
+	@printf '>>> test-flair-file-ops [3/5]: BETWEEN -- FINDER-MOVE TENANTFX.EXE 3->0; mtools reads it from ::/ byte-identical, gone from ::/APPS\n'
+	@# ---- leg 4: two REFUSED drops ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_REFUSE_NAME),$(BUILD)/$(FLAIR_FO_REFUSE_NAME)_data.img,$(FLAIR_FILEOPS_REFUSE_SPEC),FINDER-MOVE-REFUSED reason=cycle name=TRASH,0)
+	$(call fo-has,$(FLAIR_FO_REFUSE_NAME),FINDER-DROP-HILITE name=INITECH,the volume icon was not lit under the dragged README.TXT)
+	$(call fo-has,$(FLAIR_FO_REFUSE_NAME),FINDER-MOVE-REFUSED reason=samedir name=README.TXT,README.TXT onto its own volume was not refused SAMEDIR)
+	$(call fo-has,$(FLAIR_FO_REFUSE_NAME),FINDER-DROP-HILITE name=Trash,the Trash was not lit under the dragged TRASH folder)
+	$(call fo-has,$(FLAIR_FO_REFUSE_NAME),FINDER-MOVE-REFUSED reason=cycle name=TRASH,the TRASH folder into the Trash was not refused CYCLE)
+	@! grep -qE '^(FINDER-MOVE |FINDER-TRASH |DESKTOP-DB-SAVE)' "$(BUILD)/$(FLAIR_FO_REFUSE_NAME).serial" || { printf '!!! test-flair-file-ops FAIL: a refused drop still committed something\n'; grep -E '^(FINDER|DESKTOP)' "$(BUILD)/$(FLAIR_FO_REFUSE_NAME).serial"; exit 1; }
+	@mdir -a -i $(BUILD)/$(FLAIR_FO_REFUSE_NAME)_data.img :: > $(BUILD)/$(FLAIR_FO_REFUSE_NAME).root.lst; \
+	for n in '^README   TXT ' '^APPS .*<DIR>' '^DESKTOP  DB ' '^TRASH .*<DIR>'; do grep -qE "$$n" $(BUILD)/$(FLAIR_FO_REFUSE_NAME).root.lst || { printf '!!! test-flair-file-ops FAIL: after the refusals the root lost %s\n' "$$n"; cat $(BUILD)/$(FLAIR_FO_REFUSE_NAME).root.lst; exit 1; }; done
+	@[ "$$(mdir -i $(BUILD)/$(FLAIR_FO_REFUSE_NAME)_data.img ::/TRASH | grep -cvE '^( Volume|Directory|\.  |\.\. |$$| +[0-9])')" = 0 ] || { printf '!!! test-flair-file-ops FAIL: ::/TRASH is not empty after two refused drops\n'; mdir -i $(BUILD)/$(FLAIR_FO_REFUSE_NAME)_data.img ::/TRASH; exit 1; }
+	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_FO_REFUSE_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 8 ] || { printf '!!! test-flair-file-ops FAIL: DESKTOP.DB changed on a refused drop\n'; exit 1; }
+	@printf '>>> test-flair-file-ops [4/5]: REFUSE -- reason=samedir + reason=cycle, nothing committed (mtools: root intact, ::/TRASH empty, DB untouched)\n'
+	@# ---- leg 5: three drags to the TRASH ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_TRASH_NAME),$(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img,$(FLAIR_FILEOPS_TRASH_SPEC),DESKTOP-DB-SAVE n=5,0)
+	@printf '%s\n' 'FINDER-TRASH name=README.TXT origin=0' 'DESKTOP-DB-SAVE n=3' \
+		'FINDER-NEW-FOLDER name=NEWFOLD parent=0' 'FINDER-TRASH name=NEWFOLD origin=0' 'DESKTOP-DB-SAVE n=4' \
+		'FINDER-NEW-FOLDER name=NEWFOLD parent=0' 'TRASH-RENAME from=NEWFOLD to=NEWFO001' \
+		'FINDER-TRASH name=NEWFO001 origin=0' 'DESKTOP-DB-SAVE n=5' > $(FLAIR_FO_TRASH_CHAIN).want
+	@grep -E '^(FINDER-TRASH|FINDER-MOVE|TRASH-RENAME|FINDER-NEW-FOLDER|DESKTOP-DB-SAVE)' "$(BUILD)/$(FLAIR_FO_TRASH_NAME).serial" > $(FLAIR_FO_TRASH_CHAIN).got || true
+	@cmp -s $(FLAIR_FO_TRASH_CHAIN).want $(FLAIR_FO_TRASH_CHAIN).got || { printf '!!! test-flair-file-ops FAIL: the TRASH serial chain differs from the locked one\n'; diff $(FLAIR_FO_TRASH_CHAIN).want $(FLAIR_FO_TRASH_CHAIN).got; exit 1; }
+	@( $(call fo-trash-mtools,$(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img) ) || { printf '!!! test-flair-file-ops FAIL: the mtools differential of the Trash leg (above)\n'; exit 1; }
+	@{ for r in 0:README.TXT 0:NEWFOLD 1:NEWFO001; do f=$${r%%:*}; n=$${r#*:}; printf "\\005\\00$$f\\000\\000"; printf '%s' "$$n"; head -c $$((20 - $${#n})) /dev/zero; done; } > $(FLAIR_FO_ORIGINS_GOLD)
+	@mcopy -n -i $(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img ::/DESKTOP.DB $(BUILD)/$(FLAIR_FO_TRASH_NAME).db
+	@[ "$$(wc -c < $(BUILD)/$(FLAIR_FO_TRASH_NAME).db)" = 128 ] || { printf '!!! test-flair-file-ops FAIL: DESKTOP.DB is not 8 + 5*24 = 128 bytes\n'; exit 1; }
+	@tail -c 72 $(BUILD)/$(FLAIR_FO_TRASH_NAME).db | cmp -s - $(FLAIR_FO_ORIGINS_GOLD) || { printf '!!! test-flair-file-ops FAIL: the kind=5 origin records differ from the hand-authored three\n'; od -A d -t x1 $(BUILD)/$(FLAIR_FO_TRASH_NAME).db | tail -6; exit 1; }
+	@printf '>>> test-flair-file-ops [5/5]: TRASH -- 3 stagings, TRASH-RENAME NEWFOLD->NEWFO001; mtools: all three in ::/TRASH (README bytes intact), none in ::/; 3 kind=5 origins on disk\n'
+	@printf '>>> test-flair-file-ops: green\n'
+
+# Rule 6: the emu oracle must bite. Two kernels, each swapping ONE object:
+#   FINDER_OPS_MUT_TRASH_NO_STAGE (finder_ops.o): the Trash DELETES instead of
+#     staging -> the SAME fo-trash-mtools differential must go RED.
+#   FINDER_DESK_MUT_NO_HILITE (finder_desktop.o): no destination feedback ->
+#     the SAME mid-drag grader must go RED.
+# NO_CYCLE is deliberately host-only: on the real volume fat12_move_dirent's own
+# '..' walk ALSO refuses the cycle (defence in depth), so the emu leg cannot and
+# should not go red; test-finder-ops-mutant proves the Finder's own rung.
+test-flair-file-ops-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DROP_CHECK_BIN) $(BUILD)/flair_tenants_mut_ops_trash_no_stage.img $(BUILD)/flair_tenants_mut_desk_no_hilite.img
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_ops_trash_no_stage.img,flair_fileops_mut_nostage,$(BUILD)/flair_fileops_mut_nostage_data.img,$(FLAIR_FILEOPS_TRASH_SPEC),FINDER-TRASH name=README.TXT origin=0,0)
+	@grep -qxF 'FINDER-TRASH name=README.TXT origin=0' $(BUILD)/flair_fileops_mut_nostage.serial || { printf '!!! test-flair-file-ops-mutant FAIL: TRASH_NO_STAGE boot never reached the drop\n'; exit 1; }
+	@out=$$( $(call fo-trash-mtools,$(BUILD)/flair_fileops_mut_nostage_data.img) ); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-flair-file-ops-mutant FAIL: TRASH_NO_STAGE PASSED the mtools differential -- decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -q 'README.TXT is NOT in ::/TRASH' || { printf '!!! test-flair-file-ops-mutant FAIL: TRASH_NO_STAGE went RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
+	printf '>>> test-flair-file-ops-mutant: TRASH_NO_STAGE correctly RED (%s)\n' "$$out"
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_desk_no_hilite.img,flair_fileops_mut_nohilite,$(BUILD)/flair_fileops_mut_nohilite_data.img,$(FLAIR_FILEOPS_HOVER_SPEC),FINDER-DROP-HILITE name=APPS,1)
+	@if $(PPM_FLAIR_DROP_CHECK_BIN) $(BUILD)/flair_fileops_mut_nohilite.ppm > $(BUILD)/flair_fileops_mut_nohilite.grade 2>&1; then printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE PASSED the mid-drag grader -- decoration\n'; exit 1; fi
+	@grep -q 'HIGHLIGHTED #777777' $(BUILD)/flair_fileops_mut_nohilite.grade || { printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE went RED for the wrong reason\n'; cat $(BUILD)/flair_fileops_mut_nohilite.grade; exit 1; }
+	@printf '>>> test-flair-file-ops-mutant: NO_HILITE correctly RED (the target body is not darkened)\n'
+	@printf '>>> test-flair-file-ops-mutant: green (both emu mutants RED for the named reason)\n'
+
+
+# ---------------------------------------------------------------------------
+# test-flair-file-ops-bochs (PRD Sec 8 / Rule 5). TRUTHFUL CONSTRAINT, verbatim
+# test-flair-disk-windows-bochs: Bochs 2.7's LGPL vgabios ENOMODEs the 640x480
+# VBE mode, so the FLAIR desktop FAILS LOUD and HALTS before the Finder tenant
+# -- there is no window, no Finder and no mouse injection under Bochs. What
+# this leg proves is the real differential for THIS slice: the SAME kernel, now
+# carrying finder_ops.o and the extended fat12 binding, still runs the shared
+# boot chain, the FLAIR heap gate and the FAT mount (incl. DESKTOP.DB + \TRASH
+# bootstrap) identically to QEMU, and the 640x480 guard still fires with no
+# triple-fault. The drags themselves are QEMU-graded (test-flair-file-ops).
+# ---------------------------------------------------------------------------
+FLAIR_FO_BOCHS_NAME   := flair_fileops_bochs
+FLAIR_FO_BOCHS_REPORT := $(BUILD)/$(FLAIR_FO_BOCHS_NAME).report.txt
+FLAIR_FO_BOCHS_SERIAL := $(BUILD)/$(FLAIR_FO_BOCHS_NAME).serial
+ifeq ($(SKIP_BOCHS),1)
+test-flair-file-ops-bochs:
+	@printf '!!! test-flair-file-ops-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. A LOUD opt-out, not a pass.\n'
+else
+test-flair-file-ops-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-file-ops-bochs : BOCHS leg (R3.4a, bead initech-34dh)\n'
+	@printf '  SERIAL MILESTONES ONLY (see the comment above this target).\n'
+	@printf '======================================================================\n'
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-file-ops-bochs FAIL: bochs not found (a required base tool). Set SKIP_BOCHS=1 to opt out LOUDLY.\n'; exit 1; }
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
+		--name "$(FLAIR_FO_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
+		2> "$(FLAIR_FO_BOCHS_REPORT)" || true
+	@cat "$(FLAIR_FO_BOCHS_REPORT)"
+	@grep -q 'rfb_unblocked=1' "$(FLAIR_FO_BOCHS_REPORT)" || { printf '!!! test-flair-file-ops-bochs FAIL: RFB unblock failed -- Bochs did not run the guest (another Bochs on RFB 5900? re-run alone)\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(FLAIR_FO_BOCHS_REPORT)"; then printf '!!! test-flair-file-ops-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; fi
+	@[ -s "$(FLAIR_FO_BOCHS_SERIAL)" ] || { printf '!!! test-flair-file-ops-bochs FAIL: no serial captured\n'; exit 1; }
+	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK DESKTOP-DB-CREATE TRASH-CREATE HALTED; do \
+		grep -q "^$$m$$" "$(FLAIR_FO_BOCHS_SERIAL)" || { printf '!!! test-flair-file-ops-bochs FAIL: marker %s missing under Bochs\n' "$$m"; exit 1; }; \
+		printf '  %-18s : present\n' "$$m"; \
+	done
+	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_FO_BOCHS_SERIAL)" || { printf '!!! test-flair-file-ops-bochs FAIL: the 640x480 guard did not fire under the 320x200 fallback\n'; exit 1; }
+	@! grep -qE '^(FINDER-MOVE|FINDER-TRASH|FINDER-OPEN-VOLUME)' "$(FLAIR_FO_BOCHS_SERIAL)" || { printf '!!! test-flair-file-ops-bochs FAIL: a Finder operation ran after the halt -- the halt is not halting\n'; exit 1; }
+	@printf 'VERDICT   : PASS -- the file-ops kernel boots under Bochs through the shared + mount + DB/TRASH bootstrap milestones (== QEMU); the guard fires; no fault.\n'
+endif
+
+# ===========================================================================
 # REAL gate: test-flair-solid (epic initech-av7s; beads initech-gofc/-rqz5;
 # WL-0075 -- THE FLAIR live-desktop SOLIDITY oracle: the one repaint contract
 # (chrome phase -> content phase -> present) holds under close, drag and
@@ -19128,8 +19414,29 @@ RECORD_MARKER_app_menubar = FLAIR-MENU menu=131 item=0 (sel=0x00000000)
 # Only scripts that set RECORD_SETTLE_<script> change; every other clip keeps
 # the harness default and its existing repro sha.
 RECORD_SETTLE_app_launch = 400
+# R3.4a (bead initech-34dh; CLAUDE.md Rule 14): the drag-move and the
+# drag-to-Trash clips, replaying the LOCKED spec/flair_file_ops_traces.mk traces
+# on the DOUBLE-CLICK record image (each opens the volume by double-click).
+#   drag_move    README.TXT dragged onto the APPS folder: the gray outline
+#                follows the pointer, APPS lights up (darkened body, inverted
+#                name) while the outline is over it, and on release README.TXT
+#                leaves the window (it is now inside APPS).
+#   trash_drag   README.TXT, then two successive NEWFOLDs, dragged onto the
+#                Trash, which lights up each time; the third collides and is
+#                staged as NEWFO001 (TRASH-RENAME on serial).
+#   drag_refused README.TXT dropped on its own volume (SAMEDIR) and the TRASH
+#                folder dropped on the Trash (CYCLE): both outlines zoom back.
+RECORD_SPEC_drag_move      = $(FLAIR_FILEOPS_INTO_SPEC)
+RECORD_SPEC_trash_drag     = $(FLAIR_FILEOPS_TRASH_SPEC)
+RECORD_SPEC_drag_refused   = $(FLAIR_FILEOPS_REFUSE_SPEC)
+RECORD_MARKER_drag_move    = FINDER-MOVE name=README.TXT from=0 to=3
+RECORD_MARKER_trash_drag   = DESKTOP-DB-SAVE n=5
+RECORD_MARKER_drag_refused = FINDER-MOVE-REFUSED reason=cycle name=TRASH
+RECORD_SETTLE_drag_move    = 400
+RECORD_SETTLE_trash_drag   = 150
+RECORD_SETTLE_drag_refused = 400
 RECORD_SETTLE_app_menubar = 400
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -19188,6 +19495,9 @@ RECORD_IMAGE_window_drag_persist = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_new_folder          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_launch          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_menubar         = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_drag_move           = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_trash_drag          = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_drag_refused        = $(FLAIRTENANTS_RECORDDBL_IMG)
 
 .PHONY: record-flair
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG)

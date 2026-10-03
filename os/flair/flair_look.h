@@ -119,6 +119,15 @@ typedef enum {
     FLAIR_PART_ICON_INK,              /* desktop-icon black outline                 */
     FLAIR_PART_ICON_FACE,             /* desktop-icon white body                    */
     FLAIR_PART_ICON_SHADE,            /* desktop-icon mid-gray detail               */
+    /* Finder icon HIGHLIGHTED-state tones (bead initech-34dh): the drop-target
+     * look while an icon is dragged over a folder / the volume / the Trash.
+     * Inside Macintosh VI p. 2-19..2-20: "The selection mechanism for color
+     * icons lowers the brightness of colors to indicate selection ... On a
+     * color monitor, a black-and-white icon turns gray when selected."  The
+     * white body and the gray detail each resolve to an EXISTING darker canon
+     * gray row; the black ink stays ICON_INK.  Zero color rows accreted. */
+    FLAIR_PART_ICON_HILITE_FACE,      /* highlighted body (white, darkened)         */
+    FLAIR_PART_ICON_HILITE_SHADE,     /* highlighted detail (gray, darkened)        */
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 

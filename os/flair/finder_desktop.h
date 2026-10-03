@@ -205,7 +205,13 @@ typedef struct finder_desk_icon {
     uint8_t  kind;          /* finder_icon_kind_t                              */
     uint8_t  selected;      /* 0/1                                             */
     uint8_t  draggable;     /* 0 == fixed position (the Trash, design F1.1)    */
-    uint8_t  reserved;      /* keeps the record 4-byte aligned; always 0        */
+    /* R3.4a (bead initech-34dh): 1 while this icon is the DROP TARGET under a
+     * dragged icon (a folder, the volume or the Trash). Was `reserved` (always
+     * 0); the record size and alignment are unchanged and the DB codec has
+     * never read the byte. The painter draws a hilited icon in its HIGHLIGHTED
+     * state: the sprite darkened and the label inverted -- see
+     * finder_desk_paint. Transient: set and cleared only inside one drag. */
+    uint8_t  hilite;
     int16_t  x;             /* sprite top-left, desktop (== global) coords     */
     int16_t  y;
     char     name[FINDER_DESK_NAME_MAX];   /* NUL-terminated label text        */
@@ -360,6 +366,12 @@ finder_drop_t finder_desk_drag_commit(finder_desk_t *fd, int idx,
                                       int16_t dh, int16_t dv,
                                       rgn_rect_t *out_old, rgn_rect_t *out_new);
 
+/* Clamp a proposed sprite origin so the WHOLE cell stays inside fd->bounds --
+ * the exact clamp a drop commits with, exported (bead initech-34dh) so an icon
+ * MOVED INTO another window lands where it was dropped, held inside that
+ * window's content exactly as a same-window drop would be. No-op on NULL. */
+void finder_desk_clamp(const finder_desk_t *fd, int16_t *x, int16_t *y);
+
 /* ===========================================================================
  * 9. THE DESKTOP.DB RECORD CODEC  (design F1.3 -- LOCKED layout, Rule 8)
  * ---------------------------------------------------------------------------
@@ -405,16 +417,25 @@ finder_drop_t finder_desk_drag_commit(finder_desk_t *fd, int idx,
  * FINDER_DB_ERR_COUNT (fail loud, Rule 2). */
 /* The five record kinds of the LOCKED layout (design F1.3), named so the codec
  * never spells a bare literal. R3.2 wrote 1/2; R3.3 adds 4. 3 and 5 belong to
- * the tdnl.11 file-ops slice and are still only reserved values. */
+ * the tdnl.11 file-ops slice: 5 is written since bead initech-34dh (kind=5
+ * trash-origin below); 3 is still only a reserved value. */
 #define FINDER_DB_KIND_VOLUME   1u   /* volume-pos   (desktop icon)            */
 #define FINDER_DB_KIND_TRASH    2u   /* trash-pos    (desktop icon)            */
 #define FINDER_DB_KIND_ITEM     3u   /* item-pos     (reserved, tdnl.11)       */
 #define FINDER_DB_KIND_VIEW     4u   /* folder-view  (per-folder window state) */
-#define FINDER_DB_KIND_ORIGIN   5u   /* trash-origin (reserved, F1.5)          */
+#define FINDER_DB_KIND_ORIGIN   5u   /* trash-origin (written by R3.4a, F1.5)  */
 
 #define FINDER_DB_MAX_VIEWS     8u
+/* R3.4a (bead initech-34dh): the kind=5 trash-origin records (design F1.5).
+ * A second capacity EXTENSION of the same locked layout, exactly the tdnl.10
+ * precedent above: magic, version, header and record shape are untouched; the
+ * record-count cap grows by this many, and a count beyond it is still
+ * FINDER_DB_ERR_COUNT. 16 staged-and-remembered items; a 17th Trash drop still
+ * STAGES the file (the move is the user's intent) but its origin is reported
+ * lost on serial (FINDER-TRASH-ORIGIN-FULL) -- never silently dropped. */
+#define FINDER_DB_MAX_ORIGINS   16u
 #define FINDER_DB_MAX_RECORDS   ((uint32_t)FINDER_DESK_MAX_ICONS + \
-                                 FINDER_DB_MAX_VIEWS)
+                                 FINDER_DB_MAX_VIEWS + FINDER_DB_MAX_ORIGINS)
 #define FINDER_DB_MAX_BYTES     (FINDER_DB_HEADER_SIZE + \
                                  FINDER_DB_MAX_RECORDS * \
                                  FINDER_DB_RECORD_SIZE)
@@ -490,6 +511,51 @@ uint32_t finder_desk_db_encode_all(const finder_desk_t *fd,
  * FIRST matching record wins (the encoder never writes duplicates). */
 int finder_desk_db_find_view(const uint8_t *buf, uint32_t len,
                              uint16_t dir_start, finder_view_rec_t *out);
+
+/* ---------------------------------------------------------------------------
+ * kind=5 -- THE TRASH-ORIGIN RECORD (design F1.5: "The DB record kind=5
+ * (trash-origin) stores the origin dir_start at drag-to-Trash time -- one
+ * field, cheap now, and it means Put Away later needs no schema migration").
+ * Bead initech-34dh writes it; Put Away (grayed, F4.2) will read it.
+ *
+ * FIELD MAPPING onto the LOCKED 24-byte record, stated:
+ *      dir_start <- the ORIGIN directory's first cluster (0 == root) -- the
+ *                   one field F1.5 names
+ *      name83    <- the item's name AS STAGED IN \TRASH (after any collision
+ *                   suffix), i.e. the key Put Away must look the entry up by
+ *      flags     <- bit0 = 1 when staging had to rename the item
+ *                   (TRASH-RENAME); bits 1..7 reserved 0
+ *      grid_x/grid_y/view_bits <- 0
+ * DEVIATION, STATED: when bit0 is set the item's ORIGINAL 8.3 name is not in
+ * the record -- the locked record has one 13-byte name field and the Trash
+ * name is the lookup key. The original name is on serial (TRASH-RENAME
+ * from=), and widening the record is a Rule 8 act for the Put Away bead, not a
+ * silent format change here.
+ * ---------------------------------------------------------------------------*/
+#define FINDER_ORIGIN_FLAG_RENAMED  0x01u
+
+typedef struct finder_origin_rec {
+    uint16_t dir_start;                    /* origin directory (0 == root)     */
+    uint8_t  flags;                        /* FINDER_ORIGIN_FLAG_*             */
+    char     name83[FINDER_DESK_NAME_MAX]; /* the name as staged in \TRASH     */
+} finder_origin_rec_t;
+
+/* encode_all plus `n_origins` kind=5 records, appended AFTER the view records
+ * (icons, views, origins -- the one deterministic order, Rule 11). With
+ * n_origins == 0 the output is byte-identical to finder_desk_db_encode_all, so
+ * every R3.2/R3.3 golden still holds. 0 on a short buffer / over-cap count. */
+uint32_t finder_desk_db_encode_full(const finder_desk_t *fd,
+                                    const finder_view_rec_t *views,
+                                    uint16_t n_views,
+                                    const finder_origin_rec_t *origins,
+                                    uint16_t n_origins,
+                                    uint8_t *buf, uint32_t cap);
+
+/* Decode every kind=5 record of a DB image into out[0..cap), in record order.
+ * Returns the number taken (records past `cap` are dropped, first-wins), or a
+ * NEGATIVE finder_db_status_t when the image does not validate. */
+int finder_desk_db_get_origins(const uint8_t *buf, uint32_t len,
+                               finder_origin_rec_t *out, uint16_t cap);
 
 /* ===========================================================================
  * 10. PAINTING + THE UNDERLAY SEAM  (design F2-4)

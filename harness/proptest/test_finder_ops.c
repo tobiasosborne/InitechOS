@@ -1,0 +1,600 @@
+/*
+ * test_finder_ops.c -- the R3.4a Finder FILE-OPERATIONS oracle (THE ORACLE).
+ *
+ * beads: initech-34dh (drag-move + drag-to-Trash staging; reslice 1/3 of
+ *        initech-tdnl.11).
+ *
+ * Ref: os/flair/finder_ops.h (the contract under test: the drop-target table,
+ *        the refusal ladder and its ORDER, Trash staging, kind=5 origins),
+ *      os/flair/finder_icon.h :: finder_icon_draw_hilite (the highlighted
+ *        drop-target look; IM VI p. 2-19..2-20),
+ *      os/flair/finder_desktop.h (the kind=5 field mapping),
+ *      docs/design/GUI-remediation-R3-finder-design.md F1.4 / F1.5 / F2.2,
+ *      harness/proptest/test_finder_windows.c (the scene + mock-binding
+ *        pattern this file follows).
+ *      CLAUDE.md Law 2 (every expectation HAND-AUTHORED; HER-02), Rule 1,
+ *        Rule 6 (mutation-proven), Rule 12.
+ *
+ * THE MOCK VOLUME. A tiny mutable directory model stands in for the FAT
+ * backend: enumerate walks it, move transplants an entry between two of its
+ * directories (refusing a taken name with ERR_EXISTS, exactly the contract
+ * finder_windows.h states), unlink deletes, trash_name returns the name when
+ * free and otherwise the HAND-WRITTEN rule trunc5 + "001" (the only collision
+ * these legs create). It deliberately does NOT detect cycles: the Finder's own
+ * folder-into-itself rung is what O5 grades, so the NO_CYCLE mutant has
+ * nothing to hide behind. The REAL backend's cycle walk, suffix ladder and
+ * start_cluster preservation are graded by test-fat12-move (tdnl.26) and by
+ * the emulator gate's mtools differential.
+ *
+ * THE SCENE (hand-derived from finder_windows.h Sec 2/3 + CalcDocContentRect):
+ *   slot 0 = APPS   frame (20,60)..(380,280)  content (21,82)..(359,279)
+ *   slot 1 = ROOT   frame (40,80)..(400,300)  content (41,102)..(379,299)
+ *   ROOT icons row-major: README.TXT (59,106)  APPS (127,106)
+ *                         DESKTOP.DB (195,106) TRASH (263,106)
+ *   APPS icons:           TENANTFX.EXE (39,86)
+ *   ROOT is in FRONT; APPS shows only its left strip x [21,40).
+ *   desktop: volume sprite (584,8), Trash sprite (584,404) (seed_defaults on
+ *   the (0,0)..(640,480) bounds: margin_r 24, margin_t 8, trash_bottom 76).
+ *
+ * LEGS
+ *   O1 resolve: every row of the drop-target table, incl. "the dragged
+ *      folder itself is NOT a folder target" and a WINDOW-RELATIVE re-hit after
+ *      the root window is moved.
+ *   O2 hilite: track on/off/same + the painted pixels of the highlighted
+ *      folder strike (face -> #777777 idx 119, shade -> #3F3F3F idx 63, ink
+ *      stays black 0) against the plain strike (face 1, shade 6).
+ *   O3 move into a folder icon; the other icons do NOT re-flow.
+ *   O4 move between windows; lands where dropped, relative to the content.
+ *   O5 the refusal ladder: samedir, cycle, exists, err -- and NOTHING changes.
+ *   O6 Trash staging: transplanted (not deleted), origin recorded; a name
+ *      collision suffixes (NEWFO001) and sets the renamed flag.
+ *   O7 the kind=5 codec against a hand-authored 80-byte image + reload.
+ *   O8 moving an item back OUT of \TRASH drops its origin record.
+ *
+ * MUTANTS: FINDER_OPS_MUT_TRASH_NO_STAGE (O6), FINDER_OPS_MUT_NO_CYCLE (O5),
+ *          FINDER_OPS_MUT_NO_ORIGIN (O6/O7), FINDER_DESK_MUT_NO_HILITE (O2).
+ */
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "region_algebra.h"
+#include "region.h"
+#include "surface.h"
+#include "window.h"
+#include "finder_desktop.h"
+#include "finder_windows.h"
+#include "finder_ops.h"
+#include "test_assert.h"
+
+TEST_HARNESS();
+
+static rgn_rect_t mk_rect(int16_t t, int16_t l, int16_t b, int16_t r)
+{
+    rgn_rect_t x; x.top = t; x.left = l; x.bottom = b; x.right = r; return x;
+}
+
+enum { ST_ROWS = 64, ST_POOL = 512 };
+typedef struct rgn_store {
+    region_t  r;
+    rgn_row_t rows[ST_ROWS];
+    int16_t   pool[ST_POOL];
+} rgn_store_t;
+
+static void store_attach(rgn_store_t *s)
+{
+    s->r.rows = s->rows; s->r.cap_rows = ST_ROWS;
+    s->r.x_pool = s->pool; s->r.x_pool_cap = ST_POOL;
+    region_set_empty(&s->r);
+}
+
+/* ---------------------------------------------------------------------------
+ * The mutable mock volume.
+ * ------------------------------------------------------------------------- */
+enum { MV_DIRS = 4, MV_ENTS = 16 };
+enum { CL_ROOT = 0, CL_APPS = 2, CL_TRASH = 3, CL_NEWFOLD = 9 };
+
+typedef struct mv_ent { char name[14]; uint8_t attr; uint16_t cluster; } mv_ent_t;
+typedef struct mv_dir { uint16_t cl; int n; mv_ent_t e[MV_ENTS]; } mv_dir_t;
+
+typedef struct mock {
+    mv_dir_t d[MV_DIRS];
+    char     scratch[FINDER_DESK_NAME_MAX];
+    int      move_calls, unlink_calls;
+    int      force_move_rc;      /* != 0 -> move() returns this, changes nothing */
+    int      no_trash;           /* 1 -> trash_dir() reports none               */
+} mock_t;
+
+static mv_dir_t *mv_dir(mock_t *m, uint16_t cl)
+{
+    for (int i = 0; i < MV_DIRS; i++) if (m->d[i].cl == cl) return &m->d[i];
+    return NULL;
+}
+static int mv_find(const mv_dir_t *d, const char *n)
+{
+    for (int i = 0; i < d->n; i++) if (strcmp(d->e[i].name, n) == 0) return i;
+    return -1;
+}
+static void mv_add(mv_dir_t *d, const char *n, uint8_t attr, uint16_t cl)
+{
+    memset(&d->e[d->n], 0, sizeof d->e[d->n]);
+    strncpy(d->e[d->n].name, n, 13); d->e[d->n].attr = attr;
+    d->e[d->n].cluster = cl; d->n++;
+}
+static void mv_del(mv_dir_t *d, int i)
+{
+    for (int k = i; k + 1 < d->n; k++) d->e[k] = d->e[k + 1];
+    d->n--;
+}
+static int mv_has(mock_t *m, uint16_t cl, const char *n)
+{
+    mv_dir_t *d = mv_dir(m, cl);
+    return d != NULL && mv_find(d, n) >= 0;
+}
+
+static int m_enum(void *u, uint16_t cl, finder_enum_cb cb, void *cu)
+{
+    mock_t *m = (mock_t *)u;
+    mv_dir_t *d = mv_dir(m, cl);
+    if (d == NULL) return 0;
+    for (int i = 0; i < d->n; i++) {
+        finder_dirent_t e; int rc;
+        memset(m->scratch, 0, sizeof m->scratch);
+        strncpy(m->scratch, d->e[i].name, sizeof m->scratch - 1);
+        e.name83 = m->scratch; e.attribute = d->e[i].attr; e.size = 0u;
+        e.start_cluster = d->e[i].cluster;
+        rc = cb(&e, cu);
+        memset(m->scratch, 'Z', sizeof m->scratch - 1);
+        if (rc != 0) return rc;
+    }
+    return 0;
+}
+static int m_mkdir(void *u, const char *n, uint16_t p) { (void)u; (void)n; (void)p; return 0; }
+static int m_move(void *u, const char *src, uint16_t sd, const char *dst, uint16_t dd)
+{
+    mock_t *m = (mock_t *)u;
+    mv_dir_t *s = mv_dir(m, sd), *d = mv_dir(m, dd);
+    const char *nn = (dst != NULL && dst[0] != '\0') ? dst : src;
+    int i;
+    m->move_calls++;
+    if (m->force_move_rc != 0) return m->force_move_rc;
+    if (s == NULL || d == NULL) return (int)FINDER_WIN_ERR_MOVE;
+    if (sd == dd) return (int)FINDER_WIN_ERR_SAMEDIR;
+    i = mv_find(s, src);
+    if (i < 0) return (int)FINDER_WIN_ERR_MOVE;
+    if (mv_find(d, nn) >= 0) return (int)FINDER_WIN_ERR_EXISTS;
+    mv_add(d, nn, s->e[i].attr, s->e[i].cluster);
+    mv_del(s, i);
+    return 0;
+}
+static int m_trash_name(void *u, const char *n, uint16_t dir, char *out)
+{
+    mock_t *m = (mock_t *)u;
+    if (!mv_has(m, dir, n)) { strcpy(out, n); return 0; }
+    /* the only collision these legs create is an extension-less name */
+    memset(out, 0, FINDER_DESK_NAME_MAX);
+    strncpy(out, n, 5); strcat(out, "001");
+    return 0;
+}
+static int m_trash_dir(void *u) { return ((mock_t *)u)->no_trash ? -1 : CL_TRASH; }
+static int m_unlink(void *u, const char *n, uint16_t dir)
+{
+    mock_t *m = (mock_t *)u;
+    mv_dir_t *d = mv_dir(m, dir);
+    int i;
+    m->unlink_calls++;
+    if (d == NULL || (i = mv_find(d, n)) < 0) return (int)FINDER_WIN_ERR_MOVE;
+    mv_del(d, i);
+    return 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * The scene.
+ * ------------------------------------------------------------------------- */
+enum { SCRW = 640, SCRH = 480 };
+typedef struct scene {
+    WindowMgr      wm;
+    rgn_store_t    desk, sa, sb, sc;
+    finder_shell_t sh;
+    mock_t         mock;
+    finder_fs_t    fs;
+    uint8_t        px[SCRW * SCRH];
+    bitmap_t       bm;
+} scene_t;
+
+static scene_t S;   /* large; static storage */
+
+static void scene_init(scene_t *s)
+{
+    rgn_rect_t frame = mk_rect(0, 0, SCRH, SCRW);
+    int slot = -1, single = 0;
+
+    memset(s, 0, sizeof *s);
+    store_attach(&s->desk); store_attach(&s->sa);
+    store_attach(&s->sb);   store_attach(&s->sc);
+    WindowMgr_init(&s->wm, frame, &s->desk.r, &s->sa.r, &s->sb.r, &s->sc.r);
+    s->sh.wm = &s->wm;
+    finder_desk_init(&s->sh.desk, s->sh.desk_icons,
+                     (uint16_t)FINDER_DESK_MAX_ICONS, frame);
+    finder_desk_seed_defaults(&s->sh.desk);
+
+    s->mock.d[0].cl = CL_ROOT;  s->mock.d[1].cl = CL_APPS;
+    s->mock.d[2].cl = CL_TRASH; s->mock.d[3].cl = CL_NEWFOLD;
+    mv_add(&s->mock.d[0], "README.TXT", 0x20u, 5);
+    mv_add(&s->mock.d[0], "APPS",       0x10u, CL_APPS);
+    mv_add(&s->mock.d[0], "DESKTOP.DB", 0x22u, 6);
+    mv_add(&s->mock.d[0], "TRASH",      0x10u, CL_TRASH);
+    mv_add(&s->mock.d[1], "TENANTFX.EXE", 0x20u, 7);
+
+    s->fs.enumerate  = m_enum;
+    s->fs.mkdir      = m_mkdir;
+    s->fs.move       = m_move;
+    s->fs.trash_name = m_trash_name;
+    s->fs.trash_dir  = m_trash_dir;
+    s->fs.unlink     = m_unlink;
+    s->fs.user       = &s->mock;
+    finder_shell_bind_fs(&s->sh, &s->fs);
+
+    s->bm.base = s->px; s->bm.pitch = SCRW; s->bm.width = SCRW;
+    s->bm.height = SCRH; s->bm.bpp = 8u; s->bm.bytes_per_pixel = 1u;
+
+    (void)finder_win_open(&s->sh, CL_APPS, "APPS", 0u, &slot, &single);  /* 0 */
+    (void)finder_win_open(&s->sh, CL_ROOT, "", 1u, &slot, &single);      /* 1 */
+}
+
+static int idx_of(const finder_desk_t *fd, const char *n)
+{
+    for (int i = 0; i < (int)fd->n; i++) if (strcmp(fd->icons[i].name, n) == 0) return i;
+    return -1;
+}
+
+#define ROOT 1
+#define APPW 0
+
+/* ===========================================================================
+ * O1 -- TARGET RESOLUTION
+ * ===========================================================================*/
+static void leg_resolve(void)
+{
+    finder_tgt_t t;
+    int readme, apps;
+
+    scene_init(&S);
+    readme = idx_of(&S.sh.windows[ROOT].view, "README.TXT");
+    apps   = idx_of(&S.sh.windows[ROOT].view, "APPS");
+    CHECK(readme == 0 && apps == 1, "O1 scene: the root window lists README.TXT then APPS");
+    CHECK(S.sh.windows[ROOT].view.icons[1].x == 127 && S.sh.windows[ROOT].view.icons[1].y == 106,
+          "O1 scene: APPS sits at the hand-derived cell (127,106)");
+
+    t = finder_ops_resolve(&S.sh, ROOT, readme, 143, 122);
+    CHECK(t.kind == FINDER_TGT_FOLDER && t.slot == ROOT && t.idx == 1 && t.dir == CL_APPS,
+          "O1 over the APPS folder icon -> FOLDER (into APPS)");
+    t = finder_ops_resolve(&S.sh, ROOT, apps, 143, 122);
+    CHECK(t.kind == FINDER_TGT_REPOSITION,
+          "O1 a folder dragged over ITSELF is a reposition, never a folder target");
+    t = finder_ops_resolve(&S.sh, ROOT, readme, 300, 250);
+    CHECK(t.kind == FINDER_TGT_REPOSITION && t.slot == ROOT,
+          "O1 bare content of the icon's OWN window -> REPOSITION");
+    t = finder_ops_resolve(&S.sh, ROOT, readme, 30, 200);
+    CHECK(t.kind == FINDER_TGT_WINDOW && t.slot == APPW && t.dir == CL_APPS,
+          "O1 the visible strip of ANOTHER disk window -> WINDOW (into its dir)");
+    t = finder_ops_resolve(&S.sh, ROOT, readme, 600, 420);
+    CHECK(t.kind == FINDER_TGT_TRASH && t.slot == -1 && t.idx == 1,
+          "O1 over the desktop Trash icon -> TRASH");
+    t = finder_ops_resolve(&S.sh, ROOT, readme, 600, 24);
+    CHECK(t.kind == FINDER_TGT_VOLUME && t.dir == 0u,
+          "O1 over the volume icon -> VOLUME (the root)");
+    t = finder_ops_resolve(&S.sh, ROOT, readme, 500, 360);
+    CHECK(t.kind == FINDER_TGT_NONE, "O1 bare desktop -> NONE");
+    t = finder_ops_resolve(&S.sh, ROOT, readme, 200, 90);
+    CHECK(t.kind == FINDER_TGT_NONE, "O1 a window TITLE BAR -> NONE");
+
+    /* WINDOW-RELATIVE: move the root window by (+100,+60). The APPS icon is
+     * now on screen at (227,166)+(16,16); the hit must follow the window. */
+    MoveWindow(&S.wm, &S.sh.windows[ROOT].rec, 140, 140);
+    t = finder_ops_resolve(&S.sh, ROOT, readme, 243, 182);
+    CHECK(t.kind == FINDER_TGT_FOLDER && t.idx == 1,
+          "O1 after a window move the folder target follows the WINDOW (relative hit)");
+}
+
+/* ===========================================================================
+ * O2 -- THE HIGHLIGHTED DROP TARGET
+ * ===========================================================================*/
+static uint8_t pix(int x, int y) { return S.px[y * SCRW + x]; }
+
+static void leg_hilite(void)
+{
+    finder_tgt_t cur, nx;
+    finder_window_t *rw;
+
+    scene_init(&S);
+    rw = &S.sh.windows[ROOT];
+    memset(&cur, 0, sizeof cur); cur.idx = -1; cur.slot = -1;
+
+    nx = finder_ops_resolve(&S.sh, ROOT, 0, 143, 122);
+    CHECK(finder_ops_track_hilite(&S.sh, &cur, &nx) == 1, "O2 entering a folder target changes the highlight");
+    CHECK(rw->view.icons[1].hilite == 1, "O2 the APPS folder is now highlighted");
+    CHECK(finder_ops_track_hilite(&S.sh, &cur, &nx) == 0, "O2 staying on it changes nothing");
+
+    memset(S.px, 0xEE, sizeof S.px);
+    finder_win_paint(rw, &S.bm, NULL);
+    /* APPS sprite at (127,106). Folder map (spec/assets/finder_icons.h):
+     * row 10 col 10 'w', row 25 col 10 'g', row 7 col 10 '#'. */
+    CHECK(pix(137, 116) == 119, "O2 highlighted FACE pixel is #777777 (ramp idx 119)");
+    CHECK(pix(137, 131) == 63,  "O2 highlighted SHADE pixel is #3F3F3F (ramp idx 63)");
+    CHECK(pix(137, 113) == 0,   "O2 the INK outline stays black");
+    /* README.TXT (59,106) is NOT a target: its face stays white (idx 1). The
+     * document strike's body: row 10 col 12 is white (finder_icons.h DOC). */
+    CHECK(pix(59 + 12, 106 + 10) == 1, "O2 a non-target icon keeps its white face");
+
+    nx = finder_ops_resolve(&S.sh, ROOT, 0, 300, 250);
+    CHECK(finder_ops_track_hilite(&S.sh, &cur, &nx) == 1, "O2 leaving the folder changes the highlight");
+    CHECK(rw->view.icons[1].hilite == 0, "O2 ... and clears it");
+    memset(S.px, 0xEE, sizeof S.px);
+    finder_win_paint(rw, &S.bm, NULL);
+    CHECK(pix(137, 116) == 1 && pix(137, 131) == 6,
+          "O2 the un-highlighted folder is white face / #C0C0C0 shade again");
+
+    nx = finder_ops_resolve(&S.sh, ROOT, 0, 600, 420);
+    (void)finder_ops_track_hilite(&S.sh, &cur, &nx);
+    CHECK(S.sh.desk.icons[1].hilite == 1, "O2 the desktop Trash highlights too");
+}
+
+/* ===========================================================================
+ * O3 -- MOVE INTO A FOLDER ICON
+ * ===========================================================================*/
+static void leg_into_folder(void)
+{
+    finder_tgt_t t;
+    finder_move_result_t r;
+    finder_window_t *rw;
+    finder_win_status_t st;
+
+    scene_init(&S);
+    rw = &S.sh.windows[ROOT];
+    t  = finder_ops_resolve(&S.sh, ROOT, 0, 143, 122);
+    st = finder_ops_drop(&S.sh, ROOT, 0, &t, 127, 106, &r);
+    CHECK(st == FINDER_WIN_OK && r.status == FINDER_WIN_OK && r.op == FINDER_OP_MOVE,
+          "O3 README.TXT dropped on APPS commits a MOVE");
+    CHECK(r.from_dir == 0u && r.to_dir == CL_APPS && strcmp(r.name, "README.TXT") == 0,
+          "O3 the result names the item, from=0 and to=APPS");
+    CHECK(mv_has(&S.mock, CL_APPS, "README.TXT") && !mv_has(&S.mock, CL_ROOT, "README.TXT"),
+          "O3 the VOLUME now has README.TXT in APPS and not in the root");
+    CHECK(rw->view.n == 3 && idx_of(&rw->view, "README.TXT") < 0,
+          "O3 the root window lost exactly that icon");
+    CHECK(rw->view.icons[0].x == 127 && rw->view.icons[0].y == 106,
+          "O3 the remaining icons do NOT re-flow (APPS stays at (127,106))");
+    CHECK(r.dst_slot == APPW && idx_of(&S.sh.windows[APPW].view, "README.TXT") == 1,
+          "O3 the open APPS window shows the arrival");
+    CHECK(S.sh.windows[APPW].view.icons[1].x == 107 && S.sh.windows[APPW].view.icons[1].y == 86,
+          "O3 ... in the next free grid cell (39+68, 86)");
+    CHECK(S.sh.n_origins == 0u && r.db_dirty == 0u, "O3 a plain move records no origin");
+}
+
+/* ===========================================================================
+ * O4 -- MOVE BETWEEN WINDOWS
+ * ===========================================================================*/
+static void leg_between(void)
+{
+    finder_tgt_t t;
+    finder_move_result_t r;
+    finder_window_t *aw, *rw;
+    int k;
+
+    scene_init(&S);
+    aw = &S.sh.windows[APPW]; rw = &S.sh.windows[ROOT];
+    /* drag TENANTFX.EXE out of the APPS window into the ROOT window body */
+    t = finder_ops_resolve(&S.sh, APPW, 0, 300, 250);
+    CHECK(t.kind == FINDER_TGT_WINDOW && t.slot == ROOT && t.dir == 0u,
+          "O4 the root window body is a WINDOW target for an APPS icon");
+    CHECK(finder_ops_drop(&S.sh, APPW, 0, &t, 284, 234, &r) == FINDER_WIN_OK,
+          "O4 the drop commits");
+    CHECK(mv_has(&S.mock, CL_ROOT, "TENANTFX.EXE") && !mv_has(&S.mock, CL_APPS, "TENANTFX.EXE"),
+          "O4 the volume moved TENANTFX.EXE from APPS to the root");
+    CHECK(aw->view.n == 0u, "O4 the APPS window is empty");
+    k = idx_of(&rw->view, "TENANTFX.EXE");
+    CHECK(k == 4 && rw->view.icons[k].kind == FINDER_ICON_APP,
+          "O4 the root window gained it as an APPLICATION icon");
+    CHECK(rw->view.icons[k].x == 284 && rw->view.icons[k].y == 234,
+          "O4 ... exactly where it was dropped (content-relative, no clamp)");
+}
+
+/* ===========================================================================
+ * O5 -- THE REFUSAL LADDER (and nothing changes)
+ * ===========================================================================*/
+static void refused(const finder_tgt_t *t, int slot, int idx,
+                    finder_win_status_t want, const char *reason, const char *why)
+{
+    finder_move_result_t r;
+    uint16_t n0 = S.sh.windows[slot].view.n;
+    int moves0 = S.mock.move_calls;
+    int nroot = S.mock.d[0].n, napps = S.mock.d[1].n, ntr = S.mock.d[2].n;
+    finder_win_status_t st = finder_ops_drop(&S.sh, slot, idx, t, 0, 0, &r);
+
+    CHECK(st == want && r.status == want, why);
+    CHECK(strcmp(finder_ops_reason(st), reason) == 0, "O5 the reason string is the locked spelling");
+    CHECK(S.sh.windows[slot].view.n == n0, "O5 a refusal leaves the window model untouched");
+    CHECK(S.mock.d[0].n == nroot && S.mock.d[1].n == napps && S.mock.d[2].n == ntr,
+          "O5 a refusal leaves the volume untouched");
+    (void)moves0;
+}
+
+static void leg_ladder(void)
+{
+    finder_tgt_t t;
+
+    scene_init(&S);
+    t = finder_ops_resolve(&S.sh, ROOT, 0, 600, 24);          /* volume = root */
+    refused(&t, ROOT, 0, FINDER_WIN_ERR_SAMEDIR, "samedir",
+            "O5 a root item onto the volume icon is refused SAMEDIR");
+    CHECK(S.mock.move_calls == 0, "O5 samedir is decided by the Finder, before the backend");
+
+    /* cycle: the APPS folder dropped into the APPS window body */
+    t = finder_ops_resolve(&S.sh, ROOT, 1, 30, 200);
+    CHECK(t.kind == FINDER_TGT_WINDOW && t.dir == CL_APPS, "O5 (setup) the APPS window is the target");
+    refused(&t, ROOT, 1, FINDER_WIN_ERR_CYCLE, "cycle",
+            "O5 a folder dropped into ITSELF is refused CYCLE");
+    CHECK(S.mock.move_calls == 0, "O5 the folder-into-itself rung never reaches the backend");
+
+    /* exists: a README.TXT already waits in APPS */
+    mv_add(&S.mock.d[1], "README.TXT", 0x20u, 8);
+    t = finder_ops_resolve(&S.sh, ROOT, 0, 143, 122);
+    refused(&t, ROOT, 0, FINDER_WIN_ERR_EXISTS, "exists",
+            "O5 a taken name at the destination is refused EXISTS");
+    mv_del(&S.mock.d[1], 1);
+
+    /* err: the backend fails for any other reason */
+    S.mock.force_move_rc = (int)FINDER_WIN_ERR_MOVE;
+    refused(&t, ROOT, 0, FINDER_WIN_ERR_MOVE, "err", "O5 any other backend refusal is ERR");
+    S.mock.force_move_rc = 0;
+
+    /* err: a volume with no \TRASH refuses the Trash drop loudly */
+    S.mock.no_trash = 1;
+    t = finder_ops_resolve(&S.sh, ROOT, 0, 600, 420);
+    refused(&t, ROOT, 0, FINDER_WIN_ERR_MOVE, "err", "O5 no \\TRASH -> the Trash drop is ERR, never a guess");
+    S.mock.no_trash = 0;
+}
+
+/* ===========================================================================
+ * O6 -- TRASH STAGING
+ * ===========================================================================*/
+static void leg_trash(void)
+{
+    finder_tgt_t t;
+    finder_move_result_t r;
+
+    scene_init(&S);
+    t = finder_ops_resolve(&S.sh, ROOT, 0, 600, 420);
+    CHECK(finder_ops_drop(&S.sh, ROOT, 0, &t, 0, 0, &r) == FINDER_WIN_OK && r.op == FINDER_OP_TRASH,
+          "O6 README.TXT dropped on the Trash is STAGED");
+    CHECK(mv_has(&S.mock, CL_TRASH, "README.TXT"),
+          "O6 the volume holds README.TXT inside \\TRASH (transplanted, NOT deleted)");
+    CHECK(!mv_has(&S.mock, CL_ROOT, "README.TXT"), "O6 ... and no longer in the root");
+    CHECK(S.mock.unlink_calls == 0, "O6 staging never deletes");
+    CHECK(r.renamed == 0u && strcmp(r.as, "README.TXT") == 0, "O6 no collision -> no rename");
+    CHECK(S.sh.n_origins == 1u && S.sh.origins[0].dir_start == 0u &&
+          strcmp(S.sh.origins[0].name83, "README.TXT") == 0 && S.sh.origins[0].flags == 0u &&
+          r.db_dirty == 1u,
+          "O6 a kind=5 origin {dir 0, README.TXT, flags 0} is recorded");
+
+    /* collision: a NEWFOLD is already in the Trash; trash another one */
+    mv_add(&S.mock.d[2], "NEWFOLD", 0x10u, 10);
+    mv_add(&S.mock.d[0], "NEWFOLD", 0x10u, CL_NEWFOLD);
+    (void)finder_win_populate(&S.sh, ROOT);
+    {
+        int k = idx_of(&S.sh.windows[ROOT].view, "NEWFOLD");
+        CHECK(k >= 0, "O6 (setup) the second NEWFOLD is listed");
+        CHECK(finder_ops_drop(&S.sh, ROOT, k, &t, 0, 0, &r) == FINDER_WIN_OK,
+              "O6 a colliding folder still stages");
+    }
+    CHECK(r.renamed == 1u && strcmp(r.as, "NEWFO001") == 0,
+          "O6 the collision is suffixed trunc5+001 -> NEWFO001 (TRASH-RENAME)");
+    CHECK(mv_has(&S.mock, CL_TRASH, "NEWFO001") && mv_has(&S.mock, CL_TRASH, "NEWFOLD"),
+          "O6 the Trash now holds BOTH folders");
+    CHECK(S.sh.n_origins == 2u && strcmp(S.sh.origins[1].name83, "NEWFO001") == 0 &&
+          S.sh.origins[1].flags == FINDER_ORIGIN_FLAG_RENAMED,
+          "O6 the second origin carries the staged name and the renamed flag");
+
+    /* The root window's own TRASH folder icon IS \TRASH: dropping on it stages
+     * exactly like the desktop Trash (origin recorded), never a plain move. */
+    {
+        int k = idx_of(&S.sh.windows[ROOT].view, "DESKTOP.DB");
+        int tk = idx_of(&S.sh.windows[ROOT].view, "TRASH");
+        rgn_rect_t sp = finder_desk_sprite_rect(&S.sh.windows[ROOT].view, tk);
+        t = finder_ops_resolve(&S.sh, ROOT, k, (int16_t)(sp.left + 16), (int16_t)(sp.top + 16));
+        CHECK(t.kind == FINDER_TGT_FOLDER && t.dir == CL_TRASH, "O6 (setup) the TRASH folder icon is a folder target");
+        CHECK(finder_ops_drop(&S.sh, ROOT, k, &t, 0, 0, &r) == FINDER_WIN_OK &&
+              r.op == FINDER_OP_TRASH && S.sh.n_origins == 3u,
+              "O6 a drop on the TRASH folder icon is Trash STAGING (origin recorded)");
+    }
+}
+
+/* ===========================================================================
+ * O7 -- THE kind=5 CODEC
+ * ===========================================================================*/
+static const uint8_t DB7[] = {
+    'I','D','B','1', 0x01,0x00, 0x03,0x00,
+    /* volume-pos (584,8) */
+    0x01,0x00, 0x00,0x00, 'V','O','L',0,0,0,0,0,0,0,0,0,0, 0x48,0x02, 0x08,0x00, 0x00,0x00, 0x00,
+    /* trash-pos (584,404) */
+    0x02,0x00, 0x00,0x00, 'T','r','a','s','h',0,0,0,0,0,0,0,0, 0x48,0x02, 0x94,0x01, 0x00,0x00, 0x00,
+    /* trash-origin: flags 1, origin dir 2, name NEWFO001 */
+    0x05,0x01, 0x02,0x00, 'N','E','W','F','O','0','0','1',0,0,0,0,0, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,
+};
+
+static void leg_codec(void)
+{
+    uint8_t buf[FINDER_DB_MAX_BYTES];
+    finder_origin_rec_t o, back[4];
+    finder_desk_t fd; finder_desk_icon_t ic[4];
+    uint32_t n;
+
+    finder_desk_init(&fd, ic, 4, mk_rect(0, 0, 480, 640));
+    finder_desk_seed_defaults(&fd);
+    finder_desk_set_name(&fd, 0, "VOL");
+    memset(&o, 0, sizeof o);
+    o.dir_start = 2; o.flags = FINDER_ORIGIN_FLAG_RENAMED; strcpy(o.name83, "NEWFO001");
+    memset(buf, 0xCC, sizeof buf);
+    n = finder_desk_db_encode_full(&fd, NULL, 0, &o, 1, buf, sizeof buf);
+    CHECK(n == sizeof DB7 && memcmp(buf, DB7, sizeof DB7) == 0,
+          "O7 encode_full == the hand-authored 80-byte image (icons, then kind=5)");
+    CHECK(finder_desk_db_get_origins(DB7, sizeof DB7, back, 4) == 1 &&
+          back[0].dir_start == 2 && back[0].flags == 1 && strcmp(back[0].name83, "NEWFO001") == 0,
+          "O7 the kind=5 record decodes back");
+    scene_init(&S);
+    CHECK(finder_shell_load_origins(&S.sh, DB7, sizeof DB7) == 1 && S.sh.n_origins == 1,
+          "O7 the shell reloads its origin set at boot");
+    CHECK(finder_desk_db_encode_full(&fd, NULL, 0, &o, 1, buf, 79u) == 0u,
+          "O7 a short buffer is refused (fail loud)");
+
+    /* a staged item reaches the encoder (end-to-end: drop -> origins -> bytes) */
+    scene_init(&S);
+    {
+        finder_tgt_t t = finder_ops_resolve(&S.sh, ROOT, 0, 600, 420);
+        finder_move_result_t r;
+        (void)finder_ops_drop(&S.sh, ROOT, 0, &t, 0, 0, &r);
+    }
+    n = finder_desk_db_encode_full(&S.sh.desk, NULL, 0, S.sh.origins, S.sh.n_origins,
+                                   buf, sizeof buf);
+    CHECK(n == 80u && buf[56] == 0x05 && buf[57] == 0x00 && buf[58] == 0x00 &&
+          memcmp(buf + 60, "README.TXT", 11) == 0,
+          "O7 the staged README.TXT serialises as kind=5 {flags 0, dir 0, README.TXT}");
+}
+
+/* ===========================================================================
+ * O8 -- OUT OF THE TRASH AGAIN
+ * ===========================================================================*/
+static void leg_untrash(void)
+{
+    finder_tgt_t t;
+    finder_move_result_t r;
+    int slot = -1, single = 0, k;
+
+    scene_init(&S);
+    t = finder_ops_resolve(&S.sh, ROOT, 0, 600, 420);
+    (void)finder_ops_drop(&S.sh, ROOT, 0, &t, 0, 0, &r);
+    CHECK(S.sh.n_origins == 1u, "O8 (setup) one staged item");
+    (void)finder_win_close(&S.sh, APPW);
+    CHECK(finder_win_open(&S.sh, CL_TRASH, "TRASH", 0u, &slot, &single) == FINDER_WIN_OK,
+          "O8 (setup) open the TRASH window");
+    k = idx_of(&S.sh.windows[slot].view, "README.TXT");
+    CHECK(k >= 0, "O8 (setup) the Trash window lists README.TXT");
+    t.kind = FINDER_TGT_VOLUME; t.slot = -1; t.idx = 0; t.dir = 0u;
+    CHECK(finder_ops_drop(&S.sh, slot, k, &t, 0, 0, &r) == FINDER_WIN_OK && r.op == FINDER_OP_MOVE,
+          "O8 dragging it onto the volume is a plain move back to the root");
+    CHECK(mv_has(&S.mock, CL_ROOT, "README.TXT") && S.sh.n_origins == 0u && r.db_dirty == 1u,
+          "O8 ... and its origin record is dropped");
+}
+
+int main(void)
+{
+    leg_resolve();
+    leg_hilite();
+    leg_into_folder();
+    leg_between();
+    leg_ladder();
+    leg_trash();
+    leg_codec();
+    leg_untrash();
+    return TEST_SUMMARY("test_finder_ops");
+}

@@ -89,6 +89,9 @@
                                   * open/close/New Folder/Clean Up verbs, and the
                                   * finder_fs_t binding THIS file wires to fat12
                                   * (bead initech-tdnl.10; -Ios/flair)              */
+#include "finder_ops.h"          /* R3.4a drag-move + drag-to-Trash: drop
+                                  * targets, the highlight, the refusal ladder,
+                                  * Trash staging (bead initech-34dh)            */
 #include "finder_menu.h"         /* R3.5 THE FINDER MENU BAR: the F4.2 resource +
                                   * finder_menu_refresh_enables (the graying
                                   * recompute) (bead initech-tdnl.12; -Ios/flair) */
@@ -2634,9 +2637,141 @@ static int finder_fat_mkdir(void *fs_user, const char *name83,
     return (int)FINDER_WIN_ERR_MKDIR;
 }
 
+/* ---- R3.4a (bead initech-34dh): the FILE-OPERATION half of the binding ----
+ * Every entry is a thin pass-through to the fat12 primitive of the same job,
+ * with the backend's FAT12_ERR_* codes mapped into finder_win_status_t HERE so
+ * os/flair never spells one (the mkdir rule above). The fat12 primitives carry
+ * their own mtools differentials (tdnl.26 for move + the suffix helper; the
+ * WRITE-path / subdir gates for unlink, rmdir, create and the positioned I/O).
+ * Ref: os/flair/finder_windows.h :: finder_fs_t; os/milton/fat12.h. */
+static int finder_fat_map(int rc)
+{
+    if (rc == FAT12_OK)            return (int)FINDER_WIN_OK;
+    if (rc == FAT12_ERR_SAME_DIR)  return (int)FINDER_WIN_ERR_SAMEDIR;
+    if (rc == FAT12_ERR_CYCLE)     return (int)FINDER_WIN_ERR_CYCLE;
+    if (rc == FAT12_ERR_EXISTS)    return (int)FINDER_WIN_ERR_EXISTS;
+    if (rc == FAT12_ERR_NOT_EMPTY) return (int)FINDER_WIN_ERR_NOTEMPTY;
+    return (int)FINDER_WIN_ERR_MOVE;
+}
+
+static int finder_fat_move(void *fs_user, const char *src_name83,
+                           uint16_t src_dir, const char *dst_name83,
+                           uint16_t dst_dir)
+{
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
+    return finder_fat_map(fat12_move_dirent(g_finder_vol, g_finder_fat,
+                                            g_finder_fat_len, src_name83,
+                                            src_dir, dst_name83, dst_dir,
+                                            g_finder_dirbuf,
+                                            g_finder_clusbuf));
+}
+
+static int finder_fat_trash_name(void *fs_user, const char *name83,
+                                 uint16_t dir, char *out)
+{
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
+    return finder_fat_map(fat12_trash_suffix_name(g_finder_vol, g_finder_fat,
+                                                  g_finder_fat_len, dir,
+                                                  g_finder_dirbuf, name83,
+                                                  out));
+}
+
+/* \TRASH is created at volume init (desktop_trash_ensure, design F1.4), so it
+ * is found by NAME in the root on demand -- never cached, so a volume whose
+ * \TRASH vanished reports that instead of a stale cluster. */
+static int finder_fat_trash_dir(void *fs_user)
+{
+    dir_entry_t e;
+    uint32_t slot = 0u;
+
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return -1;
+    if (fat12_find_slot_in(g_finder_vol, g_finder_fat, g_finder_fat_len, 0u,
+                           g_finder_dirbuf, DESKTOP_TRASH_NAME, &e, &slot) !=
+        FAT12_OK)
+        return -1;
+    if ((e.attribute & DIR_ATTR_DIRECTORY) == 0u || e.start_cluster < 2u)
+        return -1;
+    return (int)e.start_cluster;
+}
+
+static int finder_fat_unlink(void *fs_user, const char *name83, uint16_t dir)
+{
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
+    return finder_fat_map(fat12_unlink(g_finder_vol, g_finder_fat,
+                                       g_finder_fat_len, name83, dir,
+                                       g_finder_dirbuf));
+}
+
+static int finder_fat_rmdir(void *fs_user, const char *name83, uint16_t dir)
+{
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
+    return finder_fat_map(fat12_rmdir(g_finder_vol, g_finder_fat,
+                                      g_finder_fat_len, name83, dir,
+                                      g_finder_dirbuf));
+}
+
+static int finder_fat_create(void *fs_user, const char *name83, uint16_t dir,
+                             uint32_t *out_slot)
+{
+    dir_entry_t e;
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
+    return finder_fat_map(fat12_create(g_finder_vol, g_finder_fat,
+                                       g_finder_fat_len, name83,
+                                       (uint8_t)DIR_ATTR_ARCHIVE, dir,
+                                       g_finder_dirbuf, g_finder_clusbuf, &e,
+                                       out_slot));
+}
+
+static int finder_fat_read_partial(void *fs_user, const char *name83,
+                                   uint16_t dir, uint32_t offset,
+                                   uint32_t len, uint8_t *out,
+                                   uint32_t *out_read)
+{
+    dir_entry_t e;
+    uint32_t slot = 0u;
+    int rc;
+
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
+    rc = fat12_find_slot_in(g_finder_vol, g_finder_fat, g_finder_fat_len, dir,
+                            g_finder_dirbuf, name83, &e, &slot);
+    if (rc != FAT12_OK) return finder_fat_map(rc);
+    return finder_fat_map(fat12_read_partial(g_finder_vol, g_finder_fat,
+                                             g_finder_fat_len, &e, offset,
+                                             len, out, g_finder_clusbuf,
+                                             out_read));
+}
+
+static int finder_fat_write_partial(void *fs_user, uint16_t dir, uint32_t slot,
+                                    uint32_t offset, const uint8_t *data,
+                                    uint32_t len, uint32_t *out_written)
+{
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
+    return finder_fat_map(fat12_write_partial(g_finder_vol, g_finder_fat,
+                                              g_finder_fat_len, dir, slot,
+                                              offset, data, len,
+                                              g_finder_dirbuf,
+                                              g_finder_clusbuf, out_written));
+}
+
 static const finder_fs_t g_finder_fs_binding = {
     finder_fat_enumerate,
     finder_fat_mkdir,
+    finder_fat_move,
+    finder_fat_trash_name,
+    finder_fat_trash_dir,
+    finder_fat_unlink,
+    finder_fat_rmdir,
+    finder_fat_create,
+    finder_fat_read_partial,
+    finder_fat_write_partial,
     (void *)0
 };
 
@@ -2659,14 +2794,22 @@ static void finder_desk_persist(void)
      * F1.3 / F3.3). With no window ever opened the view set is empty and the
      * image is byte-identical to R3.2's -- which is exactly why the locked
      * 56-byte on-disk assertion of test-flair-desktop-icons leg 7 still holds. */
-    len = finder_desk_db_encode_all(g_finder_desk,
-                                    (g_finder_shell != (finder_shell_t *)0)
-                                        ? g_finder_shell->views
-                                        : (const finder_view_rec_t *)0,
-                                    (g_finder_shell != (finder_shell_t *)0)
-                                        ? g_finder_shell->n_views : 0u,
-                                    g_finder_db_buf,
-                                    (uint32_t)sizeof g_finder_db_buf);
+    /* ... THEN the kind=5 trash-origin records (bead initech-34dh, design
+     * F1.5). With nothing ever trashed the set is empty and the bytes are
+     * exactly the R3.3 image. */
+    len = finder_desk_db_encode_full(g_finder_desk,
+                                     (g_finder_shell != (finder_shell_t *)0)
+                                         ? g_finder_shell->views
+                                         : (const finder_view_rec_t *)0,
+                                     (g_finder_shell != (finder_shell_t *)0)
+                                         ? g_finder_shell->n_views : 0u,
+                                     (g_finder_shell != (finder_shell_t *)0)
+                                         ? g_finder_shell->origins
+                                         : (const finder_origin_rec_t *)0,
+                                     (g_finder_shell != (finder_shell_t *)0)
+                                         ? g_finder_shell->n_origins : 0u,
+                                     g_finder_db_buf,
+                                     (uint32_t)sizeof g_finder_db_buf);
     if (len == 0u) {
         /* The buffer is sized from the SAME fixed cap the record array is, so a
          * zero here is a programming error, not a disk condition (Rule 2). */
@@ -2722,9 +2865,19 @@ static void finder_desk_load_positions(void)
     if (g_finder_shell != (finder_shell_t *)0) {
         uint16_t views = finder_shell_load_views(g_finder_shell,
                                                  g_finder_db_buf, len);
+        uint16_t origins;
         if (views != 0u) {
             serial_puts("DESKTOP-DB-VIEWS n=");
             serial_putu((uint32_t)views);
+            serial_putc('\n');
+        }
+        /* bead initech-34dh: the kind=5 trash origins come back too, or the
+         * next whole-file rewrite would silently forget them (F1.5). */
+        origins = finder_shell_load_origins(g_finder_shell, g_finder_db_buf,
+                                            len);
+        if (origins != 0u) {
+            serial_puts("DESKTOP-DB-ORIGINS n=");
+            serial_putu((uint32_t)origins);
             serial_putc('\n');
         }
     }
@@ -3069,6 +3222,131 @@ static void finder_surface_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_putc('\n');
 }
 
+/* ---------------------------------------------------------------------------
+ * R3.4a (bead initech-34dh): THE ZOOM BACK. A refused drop, or a drop on no
+ * target, sends the gray outline back to the icon's own cell as a short series
+ * of outlines -- Apple patent US5754178A (filed 1993-03-03) on the System 7
+ * Finder: "the abort may be indicated by series of 'zooming rectangles' ...
+ * generated by the subroutine ZoomRects()" which "head back towards the
+ * original folder". FINDER_ZOOM_STEPS rects, linearly interpolated from the
+ * drop outline to the home cell, each drawn through the SAME save-under
+ * outline the drag used (no XOR blit exists, design F2-5), presented, held for
+ * one PIT tick and restored -- so the frame after the animation is
+ * byte-identical to the frame before it (nothing is damaged, nothing moved).
+ * The tick hold paces it for a human; every pixel is a pure function of the
+ * two rects (Rule 11). */
+#define FINDER_ZOOM_STEPS 8
+
+static int16_t finder_lerp16(int16_t a, int16_t b, int k)
+{
+    return (int16_t)((int)a + (((int)b - (int)a) * k) / FINDER_ZOOM_STEPS);
+}
+
+static void finder_zoom_back(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                             rgn_rect_t from, rgn_rect_t home)
+{
+    for (int k = 1; k <= FINDER_ZOOM_STEPS; k++) {
+        rgn_rect_t r;
+        uint32_t t0;
+
+        r.left   = finder_lerp16(from.left, home.left, k);
+        r.top    = finder_lerp16(from.top, home.top, k);
+        r.right  = finder_lerp16(from.right, home.right, k);
+        r.bottom = finder_lerp16(from.bottom, home.bottom, k);
+        flair_live_outline_draw(&ctx->off, r);
+        flair_desktop_present(bi, &ctx->off);
+        t0 = flair_tick_count();
+        while (flair_tick_count() == t0) { __asm__ __volatile__("pause"); }
+        flair_live_outline_restore(&ctx->off);
+    }
+    flair_desktop_present(bi, &ctx->off);
+}
+
+/* R3.4a: a window icon dropped on something OTHER than its own window body.
+ * `hl` is the drop-target highlight the drag left lit (cleared here first, so
+ * the icon arrays may shift safely), `out_rect` the last drag outline.
+ * Returns 1 when it handled the drop (anything but a REPOSITION). */
+static int finder_surface_drop(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               const finder_surface_t *s, int idx,
+                               int16_t dh, int16_t dv, flair_point_t where,
+                               finder_tgt_t *hl, rgn_rect_t out_rect)
+{
+    finder_tgt_t t, none;
+    finder_move_result_t r;
+    int dirty;
+
+    t = finder_ops_resolve(g_finder_shell, s->slot, idx, where.h, where.v);
+    none.kind = (uint8_t)FINDER_TGT_NONE; none.slot = -1; none.idx = -1;
+    none.dir = 0u;
+    dirty = finder_ops_track_hilite(g_finder_shell, hl, &none);
+    if (t.kind == (uint8_t)FINDER_TGT_REPOSITION) {
+        if (dirty) finder_desk_repaint(ctx, bi);
+        return 0;
+    }
+
+    if (t.kind == (uint8_t)FINDER_TGT_NONE) {
+        if (dirty) finder_desk_repaint(ctx, bi);
+        finder_zoom_back(ctx, bi, out_rect,
+                         finder_desk_cell_rect(s->fd, idx));
+        serial_puts("FINDER-WIN-DRAG-REVERT win=");
+        serial_puti((int32_t)s->slot);
+        serial_puts(" name=");
+        serial_puts(s->fd->icons[idx].name);
+        serial_putc('\n');
+        return 1;
+    }
+
+    if (finder_ops_drop(g_finder_shell, s->slot, idx, &t,
+                        (int16_t)(s->fd->icons[idx].x + dh),
+                        (int16_t)(s->fd->icons[idx].y + dv), &r) !=
+        FINDER_WIN_OK) {
+        if (dirty) finder_desk_repaint(ctx, bi);
+        finder_zoom_back(ctx, bi, out_rect,
+                         finder_desk_cell_rect(s->fd, idx));
+        serial_puts("FINDER-MOVE-REFUSED reason=");
+        serial_puts(finder_ops_reason(r.status));
+        serial_puts(" name=");
+        serial_puts(r.name);
+        serial_putc('\n');
+        return 1;
+    }
+
+    finder_desk_repaint(ctx, bi);
+    if (r.op == (uint8_t)FINDER_OP_TRASH) {
+        if (r.renamed) {
+            serial_puts("TRASH-RENAME from=");
+            serial_puts(r.name);
+            serial_puts(" to=");
+            serial_puts(r.as);
+            serial_putc('\n');
+        }
+        serial_puts("FINDER-TRASH name=");
+        serial_puts(r.as);
+        serial_puts(" origin=");
+        serial_putu((uint32_t)r.from_dir);
+        serial_putc('\n');
+        if (r.origin_lost) {
+            serial_puts("FINDER-TRASH-ORIGIN-FULL name=");
+            serial_puts(r.as);
+            serial_putc('\n');
+        }
+    } else {
+        serial_puts("FINDER-MOVE name=");
+        serial_puts(r.name);
+        serial_puts(" from=");
+        serial_putu((uint32_t)r.from_dir);
+        serial_puts(" to=");
+        serial_putu((uint32_t)r.to_dir);
+        serial_putc('\n');
+    }
+    if (r.dst_slot >= 0) finder_report_dropped((int)r.dst_slot);
+    if (r.db_dirty) {
+        g_finder_db_dirty = 1;
+        finder_desk_persist();
+    }
+    return 1;
+}
+
 /* One mouseDown on a Finder surface, tracked to mouseUp (the flair_live_do_drag
  * idiom: re-enter WaitNextEvent until release, bounded by a tick guard,
  * Rule 11).
@@ -3100,8 +3378,10 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
     int            moved = 0;
     int            idx;
     int16_t        dh = 0, dv = 0;
+    finder_tgt_t   hl;          /* R3.4a: the lit drop target (none yet)       */
 
     if (fd == (finder_desk_t *)0) return;
+    hl.kind = (uint8_t)FINDER_TGT_NONE; hl.slot = -1; hl.idx = -1; hl.dir = 0u;
 
     where0 = ev->where;
     where1 = where0;
@@ -3126,10 +3406,56 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
             moved = 1;
         }
 
+        if (moved && idx >= 0 && s->slot >= 0 &&
+            g_finder_shell != (finder_shell_t *)0) {
+            /* R3.4a (bead initech-34dh): DESTINATION FEEDBACK. The target
+             * under the pointer (a folder, the volume, the Trash) is drawn in
+             * its highlighted state while the outline is over it (finder_ops.h
+             * "WHAT A USER SEES" 2). A change repaints through the ordinary
+             * damage cycle with the outline lifted first, so the save-under
+             * never captures a stale highlight. */
+            finder_tgt_t nt = finder_ops_resolve(g_finder_shell, s->slot, idx,
+                                                 where1.h, where1.v);
+            if (finder_ops_track_hilite(g_finder_shell, &hl, &nt)) {
+                if (outline_live) {
+                    flair_live_outline_restore(&ctx->off);
+                    outline_live = 0;
+                }
+                finder_desk_repaint(ctx, bi);
+                /* The emu gate's proof that destination feedback fired on the
+                 * real pump: one line per target LIT (never per frame). */
+                if (finder_ops_tgt_hilites(&hl)) {
+                    const finder_desk_t *tfd = (hl.slot < 0)
+                        ? &g_finder_shell->desk
+                        : &g_finder_shell->windows[(int)hl.slot].view;
+                    serial_puts("FINDER-DROP-HILITE name=");
+                    serial_puts(tfd->icons[(int)hl.idx].name);
+                    serial_putc('\n');
+                }
+            }
+        }
+
         if (moved) {
             next = (idx >= 0)
                  ? finder_desk_drag_outline(fd, idx, dh, dv)
                  : finder_band_rect(where0.h, where0.v, where1.h, where1.v);
+            if (idx >= 0 && s->slot >= 0) {
+                /* R3.4a (bead initech-34dh): a WINDOW icon's outline follows
+                 * the pointer ANYWHERE on screen -- out of its window, over
+                 * another window, onto the Trash -- because DragGrayRgn's
+                 * limit is the screen, not the source window (MTE p. 4-97;
+                 * docs/research/finder-drag-feedback-ground-truth.md Sec 1).
+                 * The R3.3 outline was clamped into the source window's
+                 * content, which pinned it at the window edge while the
+                 * pointer travelled to the Trash. A same-window drop is still
+                 * clamped at COMMIT (finder_desk_drag_commit), and the outline
+                 * walk skips off-raster pixels, so no screen clamp is needed. */
+                next = finder_desk_cell_rect(fd, idx);
+                next.left   = (int16_t)(next.left + dh);
+                next.right  = (int16_t)(next.right + dh);
+                next.top    = (int16_t)(next.top + dv);
+                next.bottom = (int16_t)(next.bottom + dv);
+            }
             if (!outline_live || !flair_live_rect_same(next, outline_now)) {
                 if (outline_live) flair_live_outline_restore(&ctx->off);
                 flair_live_outline_draw(&ctx->off, next);
@@ -3213,6 +3539,12 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
             serial_putu((uint32_t)n);
             serial_putc('\n');
         }
+    } else if (s->slot >= 0 && g_finder_shell != (finder_shell_t *)0 &&
+               finder_surface_drop(ctx, bi, s, idx, dh, dv, where1, &hl,
+                                   outline_now)) {
+        /* R3.4a: a window icon dropped on a folder / another window / the
+         * volume / the Trash, or on no target at all -- finder_surface_drop
+         * did the move (or refused it and zoomed back) and said so. */
     } else {
         /* An icon drag. */
         rgn_rect_t old_cell, new_cell;
