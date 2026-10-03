@@ -1,0 +1,142 @@
+970: KERNEL_SHELL_ELF      := $(BUILD)/kernel_shell.elf
+971: KERNEL_SHELL_BIN      := $(BUILD)/kernel_shell.bin
+972: # LIVE FLAIR DESKTOP kernel/image (beads initech-re30.3, LANE 1; THE milestone):
+973: # the SAME kernel sources but with -DBOOT_FLAIR_SHELL so the boot, after
+974: # FLAIR-HEAP-OK, builds the Office Space chimera desktop into an indexed-8
+975: # offscreen (from the FLAIR heap), renders it via shell_render EXACTLY as the host
+976: # oracle does, PRESENTS it to the live LFB, emits the FLAIR-DESKTOP serial marker,
+977: # and HALTS (a stable screen for the QEMU screendump). Links KERNEL_FLAIR_OBJS
+978: # (the Manager set + the desktop shell) -- the FIRST call site for the library
+979: # linked at re30.2. Separate image so the normal boot (A:\>) is byte-unchanged.
+980: KERNEL_FLAIRSHELL_MAIN_OBJ := $(BUILD)/kmain_flairshell.o
+981: KERNEL_FLAIRSHELL_ELF      := $(BUILD)/kernel_flairshell.elf
+982: KERNEL_FLAIRSHELL_BIN      := $(BUILD)/kernel_flairshell.bin
+983: FLAIRSHELL_IMG             := $(BUILD)/flair_desktop.img
+984: # LIVE FLAIR COOPERATIVE EVENT LOOP kernel/image (beads initech-5l5z FO-4;
+985: # ADR-0006 E-D3a/E-D4/FO-4; landing-sequence Step 2). The SAME kernel sources
+986: # but with -DBOOT_FLAIR_LIVE: after presenting the SAME chimera desktop, it
+987: # installs the PIT tick hook (pit_set_tick_hook(flair_tick_advance)), enables
+988: # IRQ0 (unmasked by sysinit_enable_irqs), and runs a BOUNDED wake loop emitting
+989: # "FLAIR-TICK n=<count>" until >=4 distinct ticks, then "FLAIR-LIVE-OK" + cli;hlt.
+990: # This PROVES the PIT IRQ -> hook -> flair_tick_advance wiring fires on metal.
+991: # Separate image (the third FLAIR demo kernel) so the default boot and every
+992: # existing emu gate stay byte-stable (ADR-0006 FO-GAP-A; Rule 11). Links the
+993: # SAME object set as FLAIRSHELL (event.o, which provides flair_tick_advance /
+994: # flair_tick_count, is already in KERNEL_FLAIR_OBJS).
+995: KERNEL_FLAIRLIVE_MAIN_OBJ  := $(BUILD)/kmain_flairlive.o
+996: KERNEL_FLAIRLIVE_ELF       := $(BUILD)/kernel_flairlive.elf
+997: KERNEL_FLAIRLIVE_BIN       := $(BUILD)/kernel_flairlive.bin
+998: FLAIRLIVE_IMG              := $(BUILD)/flair_live.img
+999: # NO-MODAL live variant (initech-zn61, authorized 2026-08-24): identical live
+1000: # kernel/object set and scene geometry, with only shell_build_scene(show_modal=0).
+1001: # Period-correct modal builds block menus; the menu/crossdrag oracle families use
+1002: # this preserving variant while modal behavior stays on FLAIRLIVE_IMG.
+1003: KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ := $(BUILD)/kmain_flairlive_nomodal.o
+1004: KERNEL_FLAIRLIVE_NOMODAL_ELF      := $(BUILD)/kernel_flairlive_nomodal.elf
+1005: KERNEL_FLAIRLIVE_NOMODAL_BIN      := $(BUILD)/kernel_flairlive_nomodal.bin
+1006: FLAIRLIVE_NOMODAL_IMG             := $(BUILD)/flair_live_nomodal.img
+1053: FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG             := $(BUILD)/flair_live_nomodal_mut_norehit.img
+1054: # INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on):
+1055: # the SAME BOOT_FLAIR_LIVE kmain but compiled ALSO with -DFLAIR_LIVE_INTERACTIVE,
+1056: # which makes the WaitNextEvent pump UNBOUNDED (for(;;), until power-off).
+1057: # R0.1 CursorMgr is now common to bounded and interactive live images and appears
+1058: # only after first mouse activity; this variant differs only in pump lifetime.
+1059: # NOT a gate image (it never halts); driven by `make run-flair`.
+1060: KERNEL_FLAIRLIVE_INT_MAIN_OBJ := $(BUILD)/kmain_flairlive_int.o
+1061: KERNEL_FLAIRLIVE_INT_ELF      := $(BUILD)/kernel_flairlive_int.elf
+1062: KERNEL_FLAIRLIVE_INT_BIN      := $(BUILD)/kernel_flairlive_int.bin
+1063: FLAIRLIVE_INTERACTIVE_IMG     := $(BUILD)/flair_live_interactive.img
+9530: 	$(call kernel-end-guard,$<,flairlive-interactive)
+9531: 
+9532: $(FLAIRLIVE_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) | $(BUILD)
+9533: 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+9534: 	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+9535: 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+9536: 	@dd if=$(KERNEL_FLAIRLIVE_INT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+9537: 	@printf ">>> flair-live INTERACTIVE image: %s (visible arrow cursor + unbounded pump)\n" "$@"
+9538: 
+9539: # Windowed GUI run so the operator can DRAG windows + use menus with a VISIBLE
+9540: # cursor (Law 4's live, draggable arrangement). Serial -> stdio narrates the pump.
+9541: .PHONY: run-flair
+9542: run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
+9543: 	qemu-system-i386 -drive format=raw,file=$(FLAIRLIVE_INTERACTIVE_IMG) -serial stdio
+9544: 
+9545: # ===========================================================================
+9546: # FLAIR APP CONTRACT, BOOTED -- the FLAIRTENANTS image (ADR-0013; Wave-4 Step 4;
+9547: # beads initech-4e35). The SAME BOOT_FLAIR_LIVE kmain but ALSO -DFLAIR_LIVE_TENANTS:
+9548: # the pump arm hides the two canon frame doc windows, launches HELLO+NOTES as
+9549: # co-resident tenants (FlairProcess_launch), and routes every event through the
+9550: # SOLE Layer-5 spine flair_app_dispatch / flair_route_updates. It links the
+9758: $(KERNEL_FLAIRTENANTS_DB_SKIP_ELF): $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS) $(KERNEL_LD) | $(BUILD)
+9759: 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS)
+9760: 
+9761: $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN): $(KERNEL_FLAIRTENANTS_DB_SKIP_ELF) | $(BUILD)
+9762: 	$(OBJCOPY) -O binary $< $@
+9763: 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+9764: 	if [ "$$sz" -gt "$$max" ]; then \
+9765: 		printf '!!! kernel_flairtenants_db_write_skip.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+9766: 		exit 1; \
+9767: 	fi; \
+9768: 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
+9769: 	$(call kernel-end-guard,$<,flairtenants-db-write-skip)
+9770: 
+9771: $(FLAIRTENANTS_DB_SKIP_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN) | $(BUILD)
+9772: 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+9773: 	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+9774: 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+9775: 	@dd if=$(KERNEL_FLAIRTENANTS_DB_SKIP_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+9776: 	@printf ">>> flair-tenants DB_WRITE_SKIP mutant image: %s\n" "$@"
+9777: 
+9778: .PHONY: flair-tenants
+9779: flair-tenants: $(FLAIRTENANTS_IMG)
+9780: 
+9781: # INTERACTIVE FLAIRTENANTS kernel/image (for `run-flair-tenants`): the SAME as the
+9782: # bounded image but ALSO -DFLAIR_LIVE_INTERACTIVE for an unbounded pump. R0.1
+9783: # CursorMgr is common to both images and appears after first mouse activity.
+9784: # This is not a gate image (never halts -- cannot be screendumped deterministically).
+9785: KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
+9786: KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
+9787: KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
+9788: FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
+9789: 
+9790: $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
+9791: 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+9792: 
+9793: # R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
+9794: # header as an explicit incremental-build prerequisite without repeating each
+9795: # already-long variant recipe line above (Make merges prerequisite-only rules).
+9796: $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) \
+9797: $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) \
+9798: $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/cursor.h
+9799: 
+9800: # Derived FROM the gate list (initech-8z9j): the interactive kernel is the bounded
+9801: # FLAIRTENANTS kernel with ONLY its main object swapped. The old hand-copied list
+9802: # drifted when R3.3/R3.4 added finder_windows/finder_cmd/finder_menu to the gate
+9803: # kernel and stopped LINKING (undefined finder_win_*/finder_shell_*/finder_menu_*),
+9804: # found when the mutant-aware headroom gate below enumerated every kernel*.bin.
+9805: KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ)
+9806: 
+9807: $(KERNEL_FLAIRTENANTS_INT_ELF): $(KERNEL_FLAIRTENANTS_INT_OBJS) $(KERNEL_LD) | $(BUILD)
+9808: 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_INT_OBJS)
+9809: 
+9810: $(KERNEL_FLAIRTENANTS_INT_BIN): $(KERNEL_FLAIRTENANTS_INT_ELF) | $(BUILD)
+9811: 	$(OBJCOPY) -O binary $< $@
+9812: 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+9813: 	if [ "$$sz" -gt "$$max" ]; then \
+9814: 		printf '!!! kernel_flairtenants_int.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+9815: 		exit 1; \
+9816: 	fi; \
+9817: 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+9818: 	printf ">>> kernel(flairtenants-interactive): %s (visible cursor + unbounded pump, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+9819: 	$(call kernel-end-guard,$<,flairtenants-interactive)
+9820: 
+9821: $(FLAIRTENANTS_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) | $(BUILD)
+9822: 	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+9823: 	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+9824: 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+9825: 	@dd if=$(KERNEL_FLAIRTENANTS_INT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+9826: 	@printf ">>> flair-tenants INTERACTIVE image: %s (visible cursor + unbounded pump)\n" "$@"
+9827: 
+9828: # Windowed GUI run of the co-resident tenants (mirrors run-flair): click HELLO's
+9829: # visible sliver to raise + activate it over NOTES, live, with a visible cursor.
+9830: .PHONY: run-flair-tenants

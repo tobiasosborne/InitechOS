@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-03T21:45:56.993221+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 51,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/images/slow-gestures-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/evidence/slow-gestures-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/images/slow-gestures-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/slow-gestures-boot.img": {
+      "bytes": 229376,
+      "sha256": "507f78cdf2beae89a8e9176d18d75ec415ee8f053841c3c117c23bcbb15711c3"
+    },
+    "images/slow-gestures-data.img": {
+      "bytes": 1474560,
+      "sha256": "84390fdb93bfe532d7e927a0bd83d918ec6f00c71c7bf5c368d56e09e2f4c4e4"
+    }
+  },
+  "stopped_utc": "2026-10-03T21:49:02.689699+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/slow-gestures-boot.img": {
+      "bytes": 229376,
+      "sha256": "507f78cdf2beae89a8e9176d18d75ec415ee8f053841c3c117c23bcbb15711c3"
+    },
+    "images/slow-gestures-data.img": {
+      "bytes": 1474560,
+      "sha256": "e4c19d08b91f2affd7d4165aac79b5313ddd6b0ecb3a70eb0880ff9ea3f79781"
+    }
+  }
+}

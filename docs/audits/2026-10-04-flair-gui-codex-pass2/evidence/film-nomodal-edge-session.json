@@ -1,0 +1,35 @@
+{
+  "started_utc": "2026-10-03T22:01:30.450979+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 82,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/images/film-nomodal-edge-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/evidence/film-nomodal-edge-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown"
+  ],
+  "images_before": {
+    "images/film-nomodal-edge-boot.img": {
+      "bytes": 229376,
+      "sha256": "eb3144eac3631dc51fc3859b168fdbc50e9563a83f9585c69a1c85f5bd511c2b"
+    }
+  },
+  "stopped_utc": "2026-10-03T22:01:31.358226+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/film-nomodal-edge-boot.img": {
+      "bytes": 229376,
+      "sha256": "eb3144eac3631dc51fc3859b168fdbc50e9563a83f9585c69a1c85f5bd511c2b"
+    }
+  }
+}

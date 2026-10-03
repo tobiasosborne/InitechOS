@@ -1,0 +1,28 @@
+{
+  "session_count": 18,
+  "start_utc": "2026-10-03T21:37:27.756973+00:00",
+  "stop_utc": "2026-10-03T22:04:37.806506+00:00",
+  "longest_session_seconds": 672.36725,
+  "screenshots": 79,
+  "all_qemu_exit_codes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "driver_exit_code": 0
+}

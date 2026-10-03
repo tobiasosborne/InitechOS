@@ -1,0 +1,23 @@
+{
+  "report_ascii": true,
+  "finding_ids": [
+    "G01",
+    "G02",
+    "G03",
+    "G04",
+    "G05",
+    "G06",
+    "G07",
+    "G08",
+    "G09",
+    "G10",
+    "G11"
+  ],
+  "checked_links": 92,
+  "cited_screenshots": 52,
+  "all_links_exist": true,
+  "all_cited_screenshots_640x480": true,
+  "report_sha256": "400e38d8153f264619e8504bc68ee4af9ec42f6f556c0335ce74a8d1e1a150cc",
+  "driver_stopped": true,
+  "qemu_sessions_stopped": 18
+}

@@ -1,0 +1,35 @@
+{
+  "started_utc": "2026-10-03T21:38:08.187868+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 13,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/images/film-modal-block-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/evidence/film-modal-block-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown"
+  ],
+  "images_before": {
+    "images/film-modal-block-boot.img": {
+      "bytes": 229376,
+      "sha256": "1b1fb3b077e48c6b7b62f318419b321506810baa45ae83b405c8656932a1c8f1"
+    }
+  },
+  "stopped_utc": "2026-10-03T21:38:21.431321+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/film-modal-block-boot.img": {
+      "bytes": 229376,
+      "sha256": "1b1fb3b077e48c6b7b62f318419b321506810baa45ae83b405c8656932a1c8f1"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "started_utc": "2026-10-03T21:37:27.756973+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 3,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/images/film-static-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/evidence/film-static-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown"
+  ],
+  "images_before": {
+    "images/film-static-boot.img": {
+      "bytes": 229376,
+      "sha256": "1f902940e59b22d352ffeb1daab37ebe4d8c07fc31cbe6d4b2066459980acd50"
+    }
+  },
+  "stopped_utc": "2026-10-03T21:37:55.350975+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/film-static-boot.img": {
+      "bytes": 229376,
+      "sha256": "1f902940e59b22d352ffeb1daab37ebe4d8c07fc31cbe6d4b2066459980acd50"
+    }
+  }
+}

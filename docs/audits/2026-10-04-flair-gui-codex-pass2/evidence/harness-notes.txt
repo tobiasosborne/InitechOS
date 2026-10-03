@@ -1,0 +1,18 @@
+Only QMP and QEMU guest-framebuffer dumps were used; no host display operations.
+The >4096-character 120-cycle JSON macro was rejected by Python JSON parsing
+because of the PTY canonical line limit. It did not invoke any driver action.
+It was replaced with four separate 30-cycle JSON lines.
+Early screenshots taken immediately after button changes could show a transient
+frame. Findings cite later stable or deliberately held frames, paired with logs.
+Shot 07 was too early to show the File popup. Shot 08/12 showed transient popup
+frames; use 11 for the enabled item and 13/14 plus the serial trace for no effect.
+Shots 18-20 followed clicks at obsolete APPS coordinates and did not exercise
+TenantFix close. The actual close cancellation test is shots 21-23.
+Shots 24-27 followed earlier Ctrl use. G11 later proved that explicit release
+was not clearing guest modifier state, including with longer settling intervals.
+The keyboard-selection finding was rechecked on a cold boot, before any modifier
+use, and cites shots 75-77 instead. Post-fuzz shot 68's plain N creating a folder
+is G11 evidence, not successful modifier reset.
+Shot 35 followed a menu that had already timed out. Arrange by Name was actually
+selected on the later reopen in shot 36 (menu 514 item 12, command id 10).
+These rejected, mistargeted, or transient steps are excluded as findings.

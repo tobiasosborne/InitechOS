@@ -1,0 +1,1075 @@
+crash-recovery-serial.log:71: FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+crash-recovery-serial.log:80: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+crash-recovery-serial.log:101: TENANT-CRASH vec=6 eip=+0x00d5
+crash-recovery-serial.log:102: TENANT-EXIT rc=-1 via=crash
+crash-recovery-serial.log:103: TENANT-HEAPAVAIL n=3523968
+crash-recovery-serial.log:106: FINDER-CMD id=2 name=NEW_FOLDER src=key sel=1
+crash-recovery-serial.log:107: FINDER-NEW-FOLDER name=NEWFOLD parent=3
+ctrl-only-serial.log:62: FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0
+ctrl-only-serial.log:63: FINDER-NEW-FOLDER name=NEWFOLD parent=0
+film-modal-block-serial.log:44: FLAIR-MODAL-BLOCK where=41,10
+film-modal-bottom-serial.log:50: FLAIR-MODAL-DRAG (140,200)->(280,400)
+film-modal-edge-serial.log:49: FLAIR-MODAL-DRAG (140,200)->(0,40)
+film-nomodal-edge-serial.log:50: FLAIR-DRAG win 1 (300,120)->(-150,40)
+full-disk-serial.log:34: DESKTOP-DB-WRITE-FAIL rc=-11
+full-disk-serial.log:35: TRASH-INIT-FAIL rc=-11
+full-disk-serial.log:64: FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0
+full-disk-serial.log:65: FINDER-NEW-FOLDER-FAIL rc=-5
+full-disk-serial.log:76: FLAIR-MENU menu=514 item=0 (sel=0x00000000)
+keyboard-clean-serial.log:96: FINDER-CMD id=3 name=OPEN src=key sel=1
+keyboard-clean-serial.log:97: FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+launch-refusal-serial.log:70: FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+launch-refusal-serial.log:79: TENANT-LOAD name=TENANTFX.EXE len=516 base=0x0019e710
+launch-refusal-serial.log:82: TENANT-UNREGISTERED name=TENANTFX.EXE
+launch-refusal-serial.log:90: TENANT-LOAD name=TENANTFX.EXE len=516 base=0x0019e710
+launch-refusal-serial.log:93: TENANT-UNREGISTERED name=TENANTFX.EXE
+many-files-serial.log:59: FINDER-WIN-ICONS-FULL win=0 dropped=5
+many-files-serial.log:68: FLAIR-MENU menu=514 item=0 (sel=0x00000000)
+many-files-serial.log:73: FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=0
+many-files-serial.log:74: FINDER-CLOSE-WINDOW win=0
+many-files-serial.log:91: FINDER-WIN-ICONS-FULL win=0 dropped=5
+many-files-serial.log:102: FLAIR-MENU menu=514 item=12 (sel=0x0202000C)
+many-files-serial.log:103: FINDER-CMD id=10 name=ARRANGE_BY_NAME src=mouse sel=0
+modifier-repro-serial.log:63: FINDER-CMD id=8 name=SELECT_ALL src=key sel=0
+modifier-repro-serial.log:68: FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0
+modifier-repro-serial.log:69: FINDER-NEW-FOLDER name=NEWFOLD parent=0
+modifier-repro-serial.log:72: FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=0
+modifier-repro-serial.log:73: FINDER-CLOSE-WINDOW win=0
+slow-gestures-serial.log:53: FLAIR-DRAG win 0 (60,60)->(110,120)
+slow-gestures-serial.log:78: FLAIR-MENU menu=512 item=1 (sel=0x02000001)
+slow-gestures-serial.log:79: FINDER-CMD id=2 name=NEW_FOLDER src=mouse sel=0
+slow-gestures-serial.log:80: FINDER-NEW-FOLDER name=NEWFOLD parent=0
+slow-gestures-serial.log:90: FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+slow-gestures-serial.log:99: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+slow-gestures-serial.log:125: FLAIR-DRAG win 0 (20,60)->(20,60)
+slow-gestures-serial.log:135: TENANT-EXIT rc=0 via=exit
+slow-gestures-serial.log:136: TENANT-HEAPAVAIL n=3523968
+slow-gestures-serial.log:148: FINDER-OPEN-FOLDER name=APPS win=1 singleton=1
+slow-gestures-serial.log:156: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+slow-gestures-serial.log:184: FLAIR-DRAG win 0 (100,160)->(300,280)
+slow-gestures-serial.log:197: FLAIR-DRAG win 0 (20,60)->(20,60)
+slow-gestures-serial.log:209: TENANT-EXIT rc=0 via=exit
+slow-gestures-serial.log:210: TENANT-HEAPAVAIL n=3523968
+slow-gestures-serial.log:222: FINDER-OPEN-FOLDER name=APPS win=1 singleton=1
+slow-gestures-serial.log:230: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:71: FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+soak-serial.log:80: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:100: TENANT-EXIT rc=0 via=close
+soak-serial.log:101: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:102: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:113: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:133: TENANT-EXIT rc=0 via=close
+soak-serial.log:134: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:135: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:147: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:167: TENANT-EXIT rc=0 via=close
+soak-serial.log:168: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:169: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:181: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:201: TENANT-EXIT rc=0 via=close
+soak-serial.log:202: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:203: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:214: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:234: TENANT-EXIT rc=0 via=close
+soak-serial.log:235: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:236: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:248: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:268: TENANT-EXIT rc=0 via=close
+soak-serial.log:269: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:270: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:281: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:301: TENANT-EXIT rc=0 via=close
+soak-serial.log:302: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:303: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:314: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:334: TENANT-EXIT rc=0 via=close
+soak-serial.log:335: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:336: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:347: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:367: TENANT-EXIT rc=0 via=close
+soak-serial.log:368: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:369: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:380: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:400: TENANT-EXIT rc=0 via=close
+soak-serial.log:401: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:402: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:413: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:432: TENANT-EXIT rc=0 via=close
+soak-serial.log:433: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:434: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:446: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:465: TENANT-EXIT rc=0 via=close
+soak-serial.log:466: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:467: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:479: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:499: TENANT-EXIT rc=0 via=close
+soak-serial.log:500: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:501: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:513: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:533: TENANT-EXIT rc=0 via=close
+soak-serial.log:534: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:535: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:546: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:566: TENANT-EXIT rc=0 via=close
+soak-serial.log:567: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:568: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:580: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:600: TENANT-EXIT rc=0 via=close
+soak-serial.log:601: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:602: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:613: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:633: TENANT-EXIT rc=0 via=close
+soak-serial.log:634: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:635: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:647: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:667: TENANT-EXIT rc=0 via=close
+soak-serial.log:668: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:669: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:680: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:699: TENANT-EXIT rc=0 via=close
+soak-serial.log:700: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:701: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:712: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:732: TENANT-EXIT rc=0 via=close
+soak-serial.log:733: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:734: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:745: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:765: TENANT-EXIT rc=0 via=close
+soak-serial.log:766: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:767: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:778: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:798: TENANT-EXIT rc=0 via=close
+soak-serial.log:799: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:800: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:812: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:832: TENANT-EXIT rc=0 via=close
+soak-serial.log:833: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:834: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:846: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:865: TENANT-EXIT rc=0 via=close
+soak-serial.log:866: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:867: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:879: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:899: TENANT-EXIT rc=0 via=close
+soak-serial.log:900: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:901: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:911: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:931: TENANT-EXIT rc=0 via=close
+soak-serial.log:932: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:933: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:945: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:965: TENANT-EXIT rc=0 via=close
+soak-serial.log:966: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:967: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:979: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:999: TENANT-EXIT rc=0 via=close
+soak-serial.log:1000: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1001: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1012: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1032: TENANT-EXIT rc=0 via=close
+soak-serial.log:1033: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1034: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1045: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1065: TENANT-EXIT rc=0 via=close
+soak-serial.log:1066: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1067: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1077: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1097: TENANT-EXIT rc=0 via=close
+soak-serial.log:1098: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1099: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1111: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1130: TENANT-EXIT rc=0 via=close
+soak-serial.log:1131: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1132: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1144: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1164: TENANT-EXIT rc=0 via=close
+soak-serial.log:1165: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1166: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1178: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1198: TENANT-EXIT rc=0 via=close
+soak-serial.log:1199: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1200: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1211: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1231: TENANT-EXIT rc=0 via=close
+soak-serial.log:1232: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1233: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1245: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1265: TENANT-EXIT rc=0 via=close
+soak-serial.log:1266: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1267: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1278: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1298: TENANT-EXIT rc=0 via=close
+soak-serial.log:1299: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1300: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1312: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1332: TENANT-EXIT rc=0 via=close
+soak-serial.log:1333: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1334: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1345: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1365: TENANT-EXIT rc=0 via=close
+soak-serial.log:1366: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1367: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1378: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1398: TENANT-EXIT rc=0 via=close
+soak-serial.log:1399: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1400: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1411: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1431: TENANT-EXIT rc=0 via=close
+soak-serial.log:1432: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1433: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1444: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1464: TENANT-EXIT rc=0 via=close
+soak-serial.log:1465: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1466: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1477: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1497: TENANT-EXIT rc=0 via=close
+soak-serial.log:1498: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1499: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1510: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1530: TENANT-EXIT rc=0 via=close
+soak-serial.log:1531: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1532: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1543: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1563: TENANT-EXIT rc=0 via=close
+soak-serial.log:1564: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1565: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1577: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1597: TENANT-EXIT rc=0 via=close
+soak-serial.log:1598: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1599: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1610: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1630: TENANT-EXIT rc=0 via=close
+soak-serial.log:1631: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1632: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1644: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1663: TENANT-EXIT rc=0 via=close
+soak-serial.log:1664: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1665: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1676: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1696: TENANT-EXIT rc=0 via=close
+soak-serial.log:1697: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1698: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1709: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1729: TENANT-EXIT rc=0 via=close
+soak-serial.log:1730: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1731: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1741: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1761: TENANT-EXIT rc=0 via=close
+soak-serial.log:1762: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1763: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1774: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1794: TENANT-EXIT rc=0 via=close
+soak-serial.log:1795: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1796: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1807: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1827: TENANT-EXIT rc=0 via=close
+soak-serial.log:1828: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1829: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1841: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1861: TENANT-EXIT rc=0 via=close
+soak-serial.log:1862: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1863: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1875: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1895: TENANT-EXIT rc=0 via=close
+soak-serial.log:1896: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1897: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1907: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1927: TENANT-EXIT rc=0 via=close
+soak-serial.log:1928: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1929: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1940: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1960: TENANT-EXIT rc=0 via=close
+soak-serial.log:1961: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1962: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:1973: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:1993: TENANT-EXIT rc=0 via=close
+soak-serial.log:1994: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:1995: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2007: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2027: TENANT-EXIT rc=0 via=close
+soak-serial.log:2028: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2029: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2041: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2060: TENANT-EXIT rc=0 via=close
+soak-serial.log:2061: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2062: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2073: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2093: TENANT-EXIT rc=0 via=close
+soak-serial.log:2094: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2095: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2106: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2126: TENANT-EXIT rc=0 via=close
+soak-serial.log:2127: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2128: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2140: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2160: TENANT-EXIT rc=0 via=close
+soak-serial.log:2161: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2162: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2173: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2193: TENANT-EXIT rc=0 via=close
+soak-serial.log:2194: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2195: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2207: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2226: TENANT-EXIT rc=0 via=close
+soak-serial.log:2227: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2228: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2240: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2260: TENANT-EXIT rc=0 via=close
+soak-serial.log:2261: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2262: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2274: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2294: TENANT-EXIT rc=0 via=close
+soak-serial.log:2295: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2296: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2308: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2328: TENANT-EXIT rc=0 via=close
+soak-serial.log:2329: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2330: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2342: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2362: TENANT-EXIT rc=0 via=close
+soak-serial.log:2363: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2364: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2376: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2396: TENANT-EXIT rc=0 via=close
+soak-serial.log:2397: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2398: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2410: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2430: TENANT-EXIT rc=0 via=close
+soak-serial.log:2431: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2432: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2443: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2463: TENANT-EXIT rc=0 via=close
+soak-serial.log:2464: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2465: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2477: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2497: TENANT-EXIT rc=0 via=close
+soak-serial.log:2498: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2499: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2510: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2530: TENANT-EXIT rc=0 via=close
+soak-serial.log:2531: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2532: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2544: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2564: TENANT-EXIT rc=0 via=close
+soak-serial.log:2565: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2566: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2578: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2598: TENANT-EXIT rc=0 via=close
+soak-serial.log:2599: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2600: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2611: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2631: TENANT-EXIT rc=0 via=close
+soak-serial.log:2632: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2633: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2645: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2664: TENANT-EXIT rc=0 via=close
+soak-serial.log:2665: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2666: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2677: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2697: TENANT-EXIT rc=0 via=close
+soak-serial.log:2698: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2699: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2711: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2731: TENANT-EXIT rc=0 via=close
+soak-serial.log:2732: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2733: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2745: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2764: TENANT-EXIT rc=0 via=close
+soak-serial.log:2765: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2766: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2778: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2798: TENANT-EXIT rc=0 via=close
+soak-serial.log:2799: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2800: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2812: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2832: TENANT-EXIT rc=0 via=close
+soak-serial.log:2833: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2834: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2846: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2865: TENANT-EXIT rc=0 via=close
+soak-serial.log:2866: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2867: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2879: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2899: TENANT-EXIT rc=0 via=close
+soak-serial.log:2900: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2901: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2913: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2933: TENANT-EXIT rc=0 via=close
+soak-serial.log:2934: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2935: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2947: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2967: TENANT-EXIT rc=0 via=close
+soak-serial.log:2968: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:2969: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:2980: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:2999: TENANT-EXIT rc=0 via=close
+soak-serial.log:3000: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3001: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3013: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3032: TENANT-EXIT rc=0 via=close
+soak-serial.log:3033: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3034: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3045: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3065: TENANT-EXIT rc=0 via=close
+soak-serial.log:3066: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3067: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3078: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3098: TENANT-EXIT rc=0 via=close
+soak-serial.log:3099: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3100: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3111: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3131: TENANT-EXIT rc=0 via=close
+soak-serial.log:3132: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3133: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3145: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3165: TENANT-EXIT rc=0 via=close
+soak-serial.log:3166: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3167: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3178: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3198: TENANT-EXIT rc=0 via=close
+soak-serial.log:3199: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3200: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3212: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3231: TENANT-EXIT rc=0 via=close
+soak-serial.log:3232: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3233: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3245: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3265: TENANT-EXIT rc=0 via=close
+soak-serial.log:3266: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3267: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3278: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3298: TENANT-EXIT rc=0 via=close
+soak-serial.log:3299: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3300: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3312: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3332: TENANT-EXIT rc=0 via=close
+soak-serial.log:3333: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3334: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3346: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3366: TENANT-EXIT rc=0 via=close
+soak-serial.log:3367: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3368: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3380: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3400: TENANT-EXIT rc=0 via=close
+soak-serial.log:3401: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3402: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3414: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3434: TENANT-EXIT rc=0 via=close
+soak-serial.log:3435: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3436: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3447: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3466: TENANT-EXIT rc=0 via=close
+soak-serial.log:3467: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3468: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3480: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3500: TENANT-EXIT rc=0 via=close
+soak-serial.log:3501: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3502: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3513: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3533: TENANT-EXIT rc=0 via=close
+soak-serial.log:3534: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3535: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3547: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3567: TENANT-EXIT rc=0 via=close
+soak-serial.log:3568: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3569: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3580: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3600: TENANT-EXIT rc=0 via=close
+soak-serial.log:3601: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3602: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3613: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3633: TENANT-EXIT rc=0 via=close
+soak-serial.log:3634: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3635: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3646: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3665: TENANT-EXIT rc=0 via=close
+soak-serial.log:3666: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3667: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3679: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3699: TENANT-EXIT rc=0 via=close
+soak-serial.log:3700: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3701: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3712: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3732: TENANT-EXIT rc=0 via=close
+soak-serial.log:3733: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3734: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3745: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3765: TENANT-EXIT rc=0 via=close
+soak-serial.log:3766: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3767: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3779: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3798: TENANT-EXIT rc=0 via=close
+soak-serial.log:3799: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3800: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3811: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3830: TENANT-EXIT rc=0 via=close
+soak-serial.log:3831: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3832: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3843: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3863: TENANT-EXIT rc=0 via=close
+soak-serial.log:3864: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3865: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3876: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3896: TENANT-EXIT rc=0 via=close
+soak-serial.log:3897: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3898: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3910: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3930: TENANT-EXIT rc=0 via=close
+soak-serial.log:3931: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3932: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3943: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3963: TENANT-EXIT rc=0 via=close
+soak-serial.log:3964: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3965: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:3976: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:3996: TENANT-EXIT rc=0 via=close
+soak-serial.log:3997: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:3998: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4010: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4030: TENANT-EXIT rc=0 via=close
+soak-serial.log:4031: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4032: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4044: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4063: TENANT-EXIT rc=0 via=close
+soak-serial.log:4064: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4065: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4077: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4097: TENANT-EXIT rc=0 via=close
+soak-serial.log:4098: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4099: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4111: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4131: TENANT-EXIT rc=0 via=close
+soak-serial.log:4132: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4133: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4144: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4164: TENANT-EXIT rc=0 via=close
+soak-serial.log:4165: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4166: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4177: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4196: TENANT-EXIT rc=0 via=close
+soak-serial.log:4197: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4198: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4209: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4229: TENANT-EXIT rc=0 via=close
+soak-serial.log:4230: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4231: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4243: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4262: TENANT-EXIT rc=0 via=close
+soak-serial.log:4263: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4264: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4275: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4294: TENANT-EXIT rc=0 via=close
+soak-serial.log:4295: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4296: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4307: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4327: TENANT-EXIT rc=0 via=close
+soak-serial.log:4328: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4329: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4341: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4361: TENANT-EXIT rc=0 via=close
+soak-serial.log:4362: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4363: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4375: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4395: TENANT-EXIT rc=0 via=close
+soak-serial.log:4396: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4397: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4408: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4427: TENANT-EXIT rc=0 via=close
+soak-serial.log:4428: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4429: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4440: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4460: TENANT-EXIT rc=0 via=close
+soak-serial.log:4461: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4462: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4473: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4493: TENANT-EXIT rc=0 via=close
+soak-serial.log:4494: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4495: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4507: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4526: TENANT-EXIT rc=0 via=close
+soak-serial.log:4527: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4528: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4539: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4558: TENANT-EXIT rc=0 via=close
+soak-serial.log:4559: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4560: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4571: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4591: TENANT-EXIT rc=0 via=close
+soak-serial.log:4592: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4593: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4605: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4625: TENANT-EXIT rc=0 via=close
+soak-serial.log:4626: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4627: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4639: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4659: TENANT-EXIT rc=0 via=close
+soak-serial.log:4660: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4661: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4672: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4692: TENANT-EXIT rc=0 via=close
+soak-serial.log:4693: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4694: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4706: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4725: TENANT-EXIT rc=0 via=close
+soak-serial.log:4726: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4727: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4739: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4759: TENANT-EXIT rc=0 via=close
+soak-serial.log:4760: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4761: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4773: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4793: TENANT-EXIT rc=0 via=close
+soak-serial.log:4794: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4795: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4806: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4826: TENANT-EXIT rc=0 via=close
+soak-serial.log:4827: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4828: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4839: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4858: TENANT-EXIT rc=0 via=close
+soak-serial.log:4859: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4860: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4872: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4892: TENANT-EXIT rc=0 via=close
+soak-serial.log:4893: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4894: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4906: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4926: TENANT-EXIT rc=0 via=close
+soak-serial.log:4927: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4928: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4938: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4957: TENANT-EXIT rc=0 via=close
+soak-serial.log:4958: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4959: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:4971: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:4991: TENANT-EXIT rc=0 via=close
+soak-serial.log:4992: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:4993: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5005: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5025: TENANT-EXIT rc=0 via=close
+soak-serial.log:5026: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5027: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5039: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5059: TENANT-EXIT rc=0 via=close
+soak-serial.log:5060: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5061: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5073: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5092: TENANT-EXIT rc=0 via=close
+soak-serial.log:5093: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5094: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5106: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5126: TENANT-EXIT rc=0 via=close
+soak-serial.log:5127: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5128: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5139: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5159: TENANT-EXIT rc=0 via=close
+soak-serial.log:5160: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5161: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5173: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5192: TENANT-EXIT rc=0 via=close
+soak-serial.log:5193: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5194: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5206: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5225: TENANT-EXIT rc=0 via=close
+soak-serial.log:5226: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5227: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5239: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5259: TENANT-EXIT rc=0 via=close
+soak-serial.log:5260: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5261: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5272: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5292: TENANT-EXIT rc=0 via=close
+soak-serial.log:5293: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5294: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5306: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5326: TENANT-EXIT rc=0 via=close
+soak-serial.log:5327: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5328: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5340: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5359: TENANT-EXIT rc=0 via=close
+soak-serial.log:5360: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5361: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5372: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5392: TENANT-EXIT rc=0 via=close
+soak-serial.log:5393: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5394: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5406: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5426: TENANT-EXIT rc=0 via=close
+soak-serial.log:5427: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5428: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5439: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5458: TENANT-EXIT rc=0 via=close
+soak-serial.log:5459: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5460: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5472: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5492: TENANT-EXIT rc=0 via=close
+soak-serial.log:5493: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5494: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5506: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5526: TENANT-EXIT rc=0 via=close
+soak-serial.log:5527: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5528: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5539: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5559: TENANT-EXIT rc=0 via=close
+soak-serial.log:5560: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5561: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5573: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5593: TENANT-EXIT rc=0 via=close
+soak-serial.log:5594: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5595: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5607: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5626: TENANT-EXIT rc=0 via=close
+soak-serial.log:5627: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5628: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5640: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5660: TENANT-EXIT rc=0 via=close
+soak-serial.log:5661: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5662: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5672: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5692: TENANT-EXIT rc=0 via=close
+soak-serial.log:5693: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5694: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5705: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5724: TENANT-EXIT rc=0 via=close
+soak-serial.log:5725: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5726: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5737: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5757: TENANT-EXIT rc=0 via=close
+soak-serial.log:5758: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5759: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5771: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5791: TENANT-EXIT rc=0 via=close
+soak-serial.log:5792: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5793: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5805: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5825: TENANT-EXIT rc=0 via=close
+soak-serial.log:5826: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5827: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5838: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5858: TENANT-EXIT rc=0 via=close
+soak-serial.log:5859: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5860: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5871: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5891: TENANT-EXIT rc=0 via=close
+soak-serial.log:5892: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5893: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5904: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5924: TENANT-EXIT rc=0 via=close
+soak-serial.log:5925: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5926: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5937: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5956: TENANT-EXIT rc=0 via=close
+soak-serial.log:5957: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5958: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:5970: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:5990: TENANT-EXIT rc=0 via=close
+soak-serial.log:5991: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:5992: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6004: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6024: TENANT-EXIT rc=0 via=close
+soak-serial.log:6025: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6026: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6038: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6058: TENANT-EXIT rc=0 via=close
+soak-serial.log:6059: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6060: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6072: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6092: TENANT-EXIT rc=0 via=close
+soak-serial.log:6093: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6094: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6104: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6124: TENANT-EXIT rc=0 via=close
+soak-serial.log:6125: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6126: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6138: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6158: TENANT-EXIT rc=0 via=close
+soak-serial.log:6159: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6160: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6172: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6192: TENANT-EXIT rc=0 via=close
+soak-serial.log:6193: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6194: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6206: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6226: TENANT-EXIT rc=0 via=close
+soak-serial.log:6227: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6228: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6240: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6260: TENANT-EXIT rc=0 via=close
+soak-serial.log:6261: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6262: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6272: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6292: TENANT-EXIT rc=0 via=close
+soak-serial.log:6293: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6294: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6305: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6325: TENANT-EXIT rc=0 via=close
+soak-serial.log:6326: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6327: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6338: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6358: TENANT-EXIT rc=0 via=close
+soak-serial.log:6359: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6360: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6372: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6392: TENANT-EXIT rc=0 via=close
+soak-serial.log:6393: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6394: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6404: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6424: TENANT-EXIT rc=0 via=close
+soak-serial.log:6425: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6426: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6438: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6457: TENANT-EXIT rc=0 via=close
+soak-serial.log:6458: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6459: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6471: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6491: TENANT-EXIT rc=0 via=close
+soak-serial.log:6492: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6493: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6503: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6522: TENANT-EXIT rc=0 via=close
+soak-serial.log:6523: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6524: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6536: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6556: TENANT-EXIT rc=0 via=close
+soak-serial.log:6557: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6558: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6570: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6590: TENANT-EXIT rc=0 via=close
+soak-serial.log:6591: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6592: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6603: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6622: TENANT-EXIT rc=0 via=close
+soak-serial.log:6623: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6624: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6635: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6654: TENANT-EXIT rc=0 via=close
+soak-serial.log:6655: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6656: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6668: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6688: TENANT-EXIT rc=0 via=close
+soak-serial.log:6689: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6690: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6700: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6720: TENANT-EXIT rc=0 via=close
+soak-serial.log:6721: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6722: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6733: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6753: TENANT-EXIT rc=0 via=close
+soak-serial.log:6754: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6755: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6767: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6787: TENANT-EXIT rc=0 via=close
+soak-serial.log:6788: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6789: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6801: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6820: TENANT-EXIT rc=0 via=close
+soak-serial.log:6821: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6822: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6833: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6853: TENANT-EXIT rc=0 via=close
+soak-serial.log:6854: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6855: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6867: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6887: TENANT-EXIT rc=0 via=close
+soak-serial.log:6888: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6889: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6901: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6921: TENANT-EXIT rc=0 via=close
+soak-serial.log:6922: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6923: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6935: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6955: TENANT-EXIT rc=0 via=close
+soak-serial.log:6956: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6957: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:6969: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:6989: TENANT-EXIT rc=0 via=close
+soak-serial.log:6990: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:6991: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7003: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7023: TENANT-EXIT rc=0 via=close
+soak-serial.log:7024: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7025: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7036: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7056: TENANT-EXIT rc=0 via=close
+soak-serial.log:7057: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7058: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7070: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7090: TENANT-EXIT rc=0 via=close
+soak-serial.log:7091: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7092: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7104: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7123: TENANT-EXIT rc=0 via=close
+soak-serial.log:7124: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7125: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7137: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7157: TENANT-EXIT rc=0 via=close
+soak-serial.log:7158: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7159: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7169: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7189: TENANT-EXIT rc=0 via=close
+soak-serial.log:7190: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7191: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7201: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7220: TENANT-EXIT rc=0 via=close
+soak-serial.log:7221: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7222: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7234: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7254: TENANT-EXIT rc=0 via=close
+soak-serial.log:7255: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7256: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7268: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7288: TENANT-EXIT rc=0 via=close
+soak-serial.log:7289: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7290: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7301: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7321: TENANT-EXIT rc=0 via=close
+soak-serial.log:7322: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7323: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7335: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7355: TENANT-EXIT rc=0 via=close
+soak-serial.log:7356: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7357: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7369: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7389: TENANT-EXIT rc=0 via=close
+soak-serial.log:7390: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7391: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7403: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7422: TENANT-EXIT rc=0 via=close
+soak-serial.log:7423: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7424: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7436: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7456: TENANT-EXIT rc=0 via=close
+soak-serial.log:7457: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7458: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7470: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7490: TENANT-EXIT rc=0 via=close
+soak-serial.log:7491: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7492: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7503: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7523: TENANT-EXIT rc=0 via=close
+soak-serial.log:7524: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7525: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7537: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7557: TENANT-EXIT rc=0 via=close
+soak-serial.log:7558: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7559: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7570: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7590: TENANT-EXIT rc=0 via=close
+soak-serial.log:7591: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7592: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7604: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7624: TENANT-EXIT rc=0 via=close
+soak-serial.log:7625: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7626: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7637: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7657: TENANT-EXIT rc=0 via=close
+soak-serial.log:7658: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7659: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7670: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7689: TENANT-EXIT rc=0 via=close
+soak-serial.log:7690: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7691: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7703: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7723: TENANT-EXIT rc=0 via=close
+soak-serial.log:7724: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7725: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7736: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7756: TENANT-EXIT rc=0 via=close
+soak-serial.log:7757: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7758: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7770: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7790: TENANT-EXIT rc=0 via=close
+soak-serial.log:7791: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7792: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7803: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7823: TENANT-EXIT rc=0 via=close
+soak-serial.log:7824: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7825: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7836: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7855: TENANT-EXIT rc=0 via=close
+soak-serial.log:7856: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7857: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7868: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7888: TENANT-EXIT rc=0 via=close
+soak-serial.log:7889: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7890: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7901: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7920: TENANT-EXIT rc=0 via=close
+soak-serial.log:7921: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7922: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7933: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7953: TENANT-EXIT rc=0 via=close
+soak-serial.log:7954: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7955: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7966: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:7986: TENANT-EXIT rc=0 via=close
+soak-serial.log:7987: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:7988: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:7999: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:8019: TENANT-EXIT rc=0 via=close
+soak-serial.log:8020: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:8021: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:8032: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+soak-serial.log:8052: TENANT-EXIT rc=0 via=close
+soak-serial.log:8053: TENANT-HEAPAVAIL n=3523968
+soak-serial.log:8054: FLAIR-TENANT-EXIT name=TENANTFX
+soak-serial.log:8058: FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=1
+soak-serial.log:8059: FINDER-CLOSE-WINDOW win=1
+soak-serial.log:8080: FLAIR-MENU menu=514 item=12 (sel=0x0202000C)
+soak-serial.log:8081: FINDER-CMD id=10 name=ARRANGE_BY_NAME src=mouse sel=1
+soak-serial.log:8091: FLAIR-DRAG win 0 (20,60)->(21,46)
+soak-serial.log:8094: FLAIR-MENU menu=0 item=0 (sel=0x00000000)
+soak-serial.log:8099: FLAIR-MENU menu=0 item=0 (sel=0x00000000)
+soak-serial.log:8106: FLAIR-DRAG win 0 (21,46)->(-8,63)
+soak-serial.log:8111: FLAIR-DRAG win 0 (-8,63)->(-38,69)
+soak-serial.log:8118: FLAIR-MENU menu=129 item=0 (sel=0x00000000)
+soak-serial.log:8125: FLAIR-MENU menu=128 item=0 (sel=0x00000000)
+soak-serial.log:8132: FLAIR-MENU menu=129 item=0 (sel=0x00000000)
+soak-serial.log:8138: FLAIR-MENU menu=131 item=0 (sel=0x00000000)
+soak-serial.log:8147: FLAIR-DRAG win 0 (-38,69)->(-38,69)
+soak-serial.log:8191: FLAIR-DRAG win 0 (60,60)->(47,77)
+soak-serial.log:8196: FLAIR-DRAG win 0 (47,77)->(69,59)
+soak-serial.log:8415: FINDER-CMD id=2 name=NEW_FOLDER src=key sel=1
+soak-serial.log:8416: FINDER-NEW-FOLDER name=NEWFOLD parent=0
+soak-serial.log:8419: FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0
+soak-serial.log:8420: FINDER-NEW-FOLDER name=NEWFOL02 parent=0
+tenants-main-serial.log:72: FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+tenants-main-serial.log:81: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+tenants-main-serial.log:103: FLAIR-MENU menu=129 item=1 (sel=0x00810001)
+tenants-main-serial.log:116: FLAIR-MENU menu=129 item=1 (sel=0x00810001)
+tenants-main-serial.log:124: FLAIR-MENU menu=131 item=1 (sel=0x00830001)
+tenants-main-serial.log:137: FLAIR-DRAG win 0 (100,160)->(-150,40)
+tenants-main-serial.log:149: FLAIR-DRAG win 0 (-150,40)->(339,458)
+tenants-main-serial.log:159: TENANT-EXIT rc=0 via=close
+tenants-main-serial.log:160: TENANT-HEAPAVAIL n=3523968
+tenants-main-serial.log:161: FLAIR-TENANT-EXIT name=TENANTFX
+tenants-main-serial.log:175: FLAIR-DRAG win 0 (40,80)->(190,390)
+tenants-main-serial.log:177: FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=1
+tenants-main-serial.log:178: FINDER-CLOSE-WINDOW win=1
+tenants-main-serial.log:194: FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=1
+tenants-main-serial.log:195: FINDER-CLOSE-WINDOW win=0
+tenants-main-serial.log:222: FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+tenants-main-serial.log:252: TENANT-LOAD name=TENANTFX.EXE len=536 base=0x0019e710
+tenants-main-serial.log:274: TENANT-EXIT rc=0 via=close
+tenants-main-serial.log:275: TENANT-HEAPAVAIL n=3523968
+tenants-main-serial.log:276: FLAIR-TENANT-EXIT name=TENANTFX
+tenants-main-serial.log:282: FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=1
+tenants-main-serial.log:283: FINDER-CLOSE-WINDOW win=1
+tenants-main-serial.log:288: FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=0
+tenants-main-serial.log:289: FINDER-CLOSE-WINDOW win=0
+tenants-main-serial.log:329: FINDER-CMD id=8 name=SELECT_ALL src=key sel=0
+tenants-main-serial.log:352: FINDER-CMD id=8 name=SELECT_ALL src=key sel=0
+tenants-main-serial.log:372: FINDER-CMD id=3 name=OPEN src=key sel=1
+tenants-main-serial.log:373: FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
+window-limit-serial.log:71: FINDER-OPEN-FOLDER name=A win=1 singleton=0
+window-limit-serial.log:77: FLAIR-DRAG win 0 (20,60)->(20,60)
+window-limit-serial.log:87: FINDER-OPEN-FOLDER name=B win=2 singleton=0
+window-limit-serial.log:93: FLAIR-DRAG win 0 (20,60)->(20,60)
+window-limit-serial.log:103: FINDER-OPEN-FOLDER name=C win=3 singleton=0
+window-limit-serial.log:110: FLAIR-DRAG win 0 (20,60)->(20,60)
+window-limit-serial.log:119: FINDER-WIN-FULL
+window-limit-serial.log:129: FINDER-OPEN-FOLDER name=A win=1 singleton=1
+window-limit-serial.log:131: FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=0
+window-limit-serial.log:132: FINDER-CLOSE-WINDOW win=1
+window-limit-serial.log:142: FLAIR-DRAG win 0 (20,60)->(20,60)
+window-limit-serial.log:152: FINDER-OPEN-FOLDER name=D win=1 singleton=0

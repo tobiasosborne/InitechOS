@@ -1,0 +1,476 @@
+[
+  {
+    "path": "shots/01-film-static.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "c862d7a5f061cf351058cc476c7e7203f7209a7443c6fe703dfb64b79ddcbd79"
+  },
+  {
+    "path": "shots/02-modal-top-left.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "a8c665c5ba3903f9a77443b4401617eeb63a09db3d36b854be22c43e8a233a61"
+  },
+  {
+    "path": "shots/03-modal-blocks-menu.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "078b394cf66c661377dedb516c4147031130e655f633bd40df2debdda4166d11"
+  },
+  {
+    "path": "shots/04-modal-bottom-right.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "5a2111a05382b356f46b4fc37f1dd96c0432ff4e5a91233fa7799d498e87e6e1"
+  },
+  {
+    "path": "shots/05-new-tenants-boot.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "d90b3f7069a4d520074137a2f172f7894d28f2a2a48c1053012327b0a572fa58"
+  },
+  {
+    "path": "shots/06-disk-app-own-bar.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "0a41319d3cee61efb6fc7c855382fbe4e490c313301dcb8fc32e79766acddd2f"
+  },
+  {
+    "path": "shots/07-disk-app-file-menu.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "2ffd9f4821dc90d17ad8b3e3f33b20ff2818e153659b446e644fffc2c0128877"
+  },
+  {
+    "path": "shots/08-app-quit-result.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "88ddc269c3d968567b2390ddcb3390a8c2c696bddfe5e5258a3a0dbbaa1278d6"
+  },
+  {
+    "path": "shots/09-app-ctrl-q-result.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "d1b5e9d4be40092c350855848e3df0e431202c343cbd0601d8bf6b389be8247a"
+  },
+  {
+    "path": "shots/10-quit-still-resident.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "d1b5e9d4be40092c350855848e3df0e431202c343cbd0601d8bf6b389be8247a"
+  },
+  {
+    "path": "shots/11-own-file-held.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "54146a092398e32e47410940b03db8f2aa2ca338f5cfd6cbd71ce583ee3875f8"
+  },
+  {
+    "path": "shots/12-own-quit-no-effect.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "d1b5e9d4be40092c350855848e3df0e431202c343cbd0601d8bf6b389be8247a"
+  },
+  {
+    "path": "shots/13-own-about-no-effect.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "0da63c60612925a270367794b266cdd8588d190f2b2654231bcb9ee110896593"
+  },
+  {
+    "path": "shots/14-tenant-edge-top-left.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "39f31207f24d842b4e09d9f2f4954fd5ebdceb0ef8877311b1d3bb64a3a211cb"
+  },
+  {
+    "path": "shots/15-tenant-edge-bottom-right.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "a8a637999102c6e72ace6d54eabc916f6116b7f2b47dc6a513e78c3a83d20062"
+  },
+  {
+    "path": "shots/16-inactive-root-edge-activation.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "3b862fb8cd5c1574eeacfe4d0f483665a05eac937d14216ff2e54212f8d4b65c"
+  },
+  {
+    "path": "shots/17-app-ctrl-w-result.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "0fdccf27d891f925f9d44b5d03ec9838c9217b9a61579ac0a0a230b89df96488"
+  },
+  {
+    "path": "shots/18-app-reopened.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "8bec0111554d011b9b65349533846bc24aaaf53dac740971d77eba2080a6def0"
+  },
+  {
+    "path": "shots/19-close-while-still-held.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "1d37ffc2de9b3a42294813a63a52956f77a4efe0f83fca3b3e646627b2f30fbf"
+  },
+  {
+    "path": "shots/20-close-drag-out-cannot-cancel.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "13c2b268ca39e48d251fbd9c598cb966bbf042db80406868dce351d821e4c4b6"
+  },
+  {
+    "path": "shots/21-tenant-before-close-cancel.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "2e07eb225c262897d5bcece9d5ed6cd894d3824dc1a75b95a494c0b4b4827db1"
+  },
+  {
+    "path": "shots/22-close-while-held-real.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "5a9d45016a8a890e53df52926d0ffd7b2f91eeb6cf5105c5fa3d40fcb8c17ad5"
+  },
+  {
+    "path": "shots/23-close-cancel-failed-real.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "9ba529535adaffe6be2968e3bc00392a67243c99b1ebdcb2b3fd025204f16af6"
+  },
+  {
+    "path": "shots/24-keyboard-selection-result.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "e47f043e3e420d4fae349acbc1d2d740d825e6924a4bd5956a1f4011a8ddf427"
+  },
+  {
+    "path": "shots/25-keyboard-selection-clean-modifiers.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "e47f043e3e420d4fae349acbc1d2d740d825e6924a4bd5956a1f4011a8ddf427"
+  },
+  {
+    "path": "shots/26-arrow-does-not-move-selection.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "34ae6004c9c458378744437f9e85da49ed3f2b75d18416487ff2371bfe4e4acc"
+  },
+  {
+    "path": "shots/27-mouse-selected-keyboard-open-works.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "c29f53ff3c3e51963a0250ab22fbabc87a429c73fc31c6e776941222f407a760"
+  },
+  {
+    "path": "shots/28-folders-root.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "22853b05265d7a2a0fb449b12df2cbec62c6e7129e7dd358bab8458fc6ff7d41"
+  },
+  {
+    "path": "shots/29-four-folder-windows.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "ca7f9545900bc0bed26f978a0bd4862a440525a8a359373200c2bb7d03b8eb22"
+  },
+  {
+    "path": "shots/30-fifth-folder-refused.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "3221c6b81aba438ed5e676ff34b62b58349361b76f14ad5ee8ac5851348399a0"
+  },
+  {
+    "path": "shots/31-singleton-at-capacity.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "08fac5a2173a983ef0c47f7f3a9004b34a4e1aea61ec8309cc9c5b6cc59b3881"
+  },
+  {
+    "path": "shots/32-retry-after-freeing-slot.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "530ebc465b7e14c591a8f31b8760df0f50711a3e6517cfdda4e6948e5e9efd2b"
+  },
+  {
+    "path": "shots/33-many-files-open.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "a070bf8566f469cc8bf743727fe92a89f6fd4e179d7de3a6bbe0325a748149e7"
+  },
+  {
+    "path": "shots/34-many-files-view-menu.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "b1232cd489d09d43395724919f870bd70be031ba6bcb8b3a152a8aec367ae3d8"
+  },
+  {
+    "path": "shots/35-sorted-sentinel-missing.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "b0489b037ce6bf60d9ebfb866ec6dfa3357f3b35211a86061662353f2b78f8ab"
+  },
+  {
+    "path": "shots/36-sentinel-missing-after-reopen.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "b0489b037ce6bf60d9ebfb866ec6dfa3357f3b35211a86061662353f2b78f8ab"
+  },
+  {
+    "path": "shots/37-full-disk-boot.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "d90b3f7069a4d520074137a2f172f7894d28f2a2a48c1053012327b0a572fa58"
+  },
+  {
+    "path": "shots/38-full-disk-new-folder-failure.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "2a0c05fc0731a6078bd29d4c767698f43743dc83b6e9eb35383f512381577809"
+  },
+  {
+    "path": "shots/39-menu-held-initial.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "c016f77274785ced543ec8a4b3c131dd06ee0f0b2125508659c87798b0818c50"
+  },
+  {
+    "path": "shots/40-menu-expired-while-held.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "b20dba92562ba2c685032c6bb370a1db86e829be0914d0badddeb00600c50ce6"
+  },
+  {
+    "path": "shots/41-expired-menu-release.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "3ed6adba793be85e5a1b522346e18a5e1c3993afa1deae0fb0e411ceeddc9f16"
+  },
+  {
+    "path": "shots/42-drag-held-before-timeout.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "154d1c34c5f4e05116a172bf2e58a01a68a4140444d93600341ba0161cf3db9c"
+  },
+  {
+    "path": "shots/43-drag-committed-before-release.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "0824557b1c208afa844920a600cc4d7dfc51e3370af7ad15f952e99f85830e48"
+  },
+  {
+    "path": "shots/44-slow-drag-final.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "a652ff17829a5b2396d02a349ab7dc523b451cd8f7f89a612978d18fd4e57786"
+  },
+  {
+    "path": "shots/45-new-folder-item-held.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "e09518d9b82779ec74cb715ad67b30807be54297e9482aeac1d6b88b579ad1f9"
+  },
+  {
+    "path": "shots/46-new-folder-executed-before-release.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "df1f862437a21254c7512d0d78da8d898d267e3f238a287584f433621627ea40"
+  },
+  {
+    "path": "shots/47-inactive-tenant-before-click.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "50e8154e8365d47f104924d7faba6a09db2b205a78a47f3e38e558e0a8f2e677"
+  },
+  {
+    "path": "shots/48-inactive-content-activation-exits.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "967f792bf7a4b998cd85359abf55fb46666d56aefae7f331bc3aa93042bac9cb"
+  },
+  {
+    "path": "shots/49-inactive-tenant-visible.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "cfa0d48fd185c02bdc1fdca4a4b187ff146434e65e97057e635a0c7d57371716"
+  },
+  {
+    "path": "shots/50-first-activation-click-exits.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "62bad0999e693d79529c89eac8c802e92ce5c66a5fbf40d31e89094b9b689b7e"
+  },
+  {
+    "path": "shots/51-minimum-tenant-size.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "ce670a64706d5a0553a1e015913513d84f3ab9df7377b9af90ad9eab6f7c8a29"
+  },
+  {
+    "path": "shots/52-crash-fixture-before.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "0a41319d3cee61efb6fc7c855382fbe4e490c313301dcb8fc32e79766acddd2f"
+  },
+  {
+    "path": "shots/53-crash-fixture-after.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "8eb2860251eb4c33aae09d182afb842679d6533a9af8b88763fe0346bb37187a"
+  },
+  {
+    "path": "shots/54-post-crash-finder-responsive.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "e27a0fea96eec6d1638eac46f85fc4474614212536c5b595367b5f5bba82588c"
+  },
+  {
+    "path": "shots/55-refused-app-no-alert.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "355d594decce002edfc220252b8bd93f611e697e4b59bdc6fcb2cf252e08ab0a"
+  },
+  {
+    "path": "shots/56-refused-app-retry-no-alert.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "355d594decce002edfc220252b8bd93f611e697e4b59bdc6fcb2cf252e08ab0a"
+  },
+  {
+    "path": "shots/57-soak-start.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "bd895c73683dee4d913d5a70e1e897eb62ba104905e54d16d3aaf0663120e9c4"
+  },
+  {
+    "path": "shots/58-soak-30-cycles.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "2dcc18f86e8e59cdd2c787b535fefa4277c5dc81c40d6cd2cc44909b5fe5cf62"
+  },
+  {
+    "path": "shots/59-soak-60-cycles.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "2dcc18f86e8e59cdd2c787b535fefa4277c5dc81c40d6cd2cc44909b5fe5cf62"
+  },
+  {
+    "path": "shots/60-soak-90-cycles.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "2dcc18f86e8e59cdd2c787b535fefa4277c5dc81c40d6cd2cc44909b5fe5cf62"
+  },
+  {
+    "path": "shots/61-soak-120-cycles.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "2dcc18f86e8e59cdd2c787b535fefa4277c5dc81c40d6cd2cc44909b5fe5cf62"
+  },
+  {
+    "path": "shots/62-soak-240-cycles.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "2dcc18f86e8e59cdd2c787b535fefa4277c5dc81c40d6cd2cc44909b5fe5cf62"
+  },
+  {
+    "path": "shots/63-before-arrange-manual-position.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "3aafa507775083c2e6b7ffc034bf220bae4f45e2fbce2962385d5e4b71795242"
+  },
+  {
+    "path": "shots/64-enabled-arrange-held.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "704f2d04950468992b6c3fe6105ff1f38ee1866982f2c10b8cd15a2de4b86afa"
+  },
+  {
+    "path": "shots/65-arrange-leaves-order-and-position.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "fe58a78c065590b12e8f11a773a00b81cb97a1f3e144e71498563ba63e1aaab3"
+  },
+  {
+    "path": "shots/66-after-rapid-pointer-input.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "8db063f7019451b9db1c13e151bfc156b38ca73c0f600e785dd8b2d842a2bbdf"
+  },
+  {
+    "path": "shots/67-after-rapid-modified-keys.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "8db063f7019451b9db1c13e151bfc156b38ca73c0f600e785dd8b2d842a2bbdf"
+  },
+  {
+    "path": "shots/68-post-fuzz-unmodified-n.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "decc330a3cd57329ced7ff65a2df7614e8e0d4d84367a87ed60e80e1370f0fde"
+  },
+  {
+    "path": "shots/69-post-fuzz-new-folder-works.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "465f14cee9e852cc9f499e0a3b5438cc7e5cc546f1ff296c024a9e2cd71ecb8b"
+  },
+  {
+    "path": "shots/70-film-nomodal-edge.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "675abe731579372ec5cc5356a464ea740414e352819cd760cd0606a03d02e184"
+  },
+  {
+    "path": "shots/71-film-nomodal-zoom.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "a05749a7b5e85331eb236cc79632c5c1a7bcb852c5922c022f5dad44a81b4729"
+  },
+  {
+    "path": "shots/72-plain-n-fresh.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "1a88363ddfa4c2fedab41294340a8092dc1c3d352f0eadd19fd2f62f84d5f4d8"
+  },
+  {
+    "path": "shots/73-plain-n-after-modifier-release.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "7341b8f1471b615c8e7a14e714a17d5fdfaf06419ea3c8c2c5d482eac0971859"
+  },
+  {
+    "path": "shots/74-plain-w-closes-window.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "0ce5660a095913940f97eb6b22683bab23798e378b4689e4f8f72b12ca447680"
+  },
+  {
+    "path": "shots/75-clean-keyboard-cannot-select.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "e47f043e3e420d4fae349acbc1d2d740d825e6924a4bd5956a1f4011a8ddf427"
+  },
+  {
+    "path": "shots/76-clean-arrow-selection-unchanged.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "34ae6004c9c458378744437f9e85da49ed3f2b75d18416487ff2371bfe4e4acc"
+  },
+  {
+    "path": "shots/77-clean-keyboard-open-after-mouse-select.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "bd895c73683dee4d913d5a70e1e897eb62ba104905e54d16d3aaf0663120e9c4"
+  },
+  {
+    "path": "shots/78-ctrl-only-release-plain-n.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "7341b8f1471b615c8e7a14e714a17d5fdfaf06419ea3c8c2c5d482eac0971859"
+  },
+  {
+    "path": "shots/79-shift-only-release-two-selected.png",
+    "width": 640,
+    "height": 480,
+    "sha256": "e85c3685b8866cbd98131ddb7f93297543d69d08680712dc6cdd49ee658bca59"
+  }
+]

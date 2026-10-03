@@ -1,0 +1,12 @@
+{
+  "loads": 240,
+  "close_exits": 240,
+  "heap_count": 240,
+  "heap_values": [
+    "3523968"
+  ],
+  "bases": [
+    "0x0019e710"
+  ],
+  "panic_count": 0
+}

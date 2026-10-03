@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-03T21:50:18.038858+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 70,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/images/soak-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/evidence/soak-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit2/images/soak-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/soak-boot.img": {
+      "bytes": 229376,
+      "sha256": "507f78cdf2beae89a8e9176d18d75ec415ee8f053841c3c117c23bcbb15711c3"
+    },
+    "images/soak-data.img": {
+      "bytes": 1474560,
+      "sha256": "84390fdb93bfe532d7e927a0bd83d918ec6f00c71c7bf5c368d56e09e2f4c4e4"
+    }
+  },
+  "stopped_utc": "2026-10-03T22:01:30.406108+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/soak-boot.img": {
+      "bytes": 229376,
+      "sha256": "507f78cdf2beae89a8e9176d18d75ec415ee8f053841c3c117c23bcbb15711c3"
+    },
+    "images/soak-data.img": {
+      "bytes": 1474560,
+      "sha256": "ed4c8204778598603e4d87e0e5f22ebf9b251eb286c17f35be1891852acba77f"
+    }
+  }
+}
