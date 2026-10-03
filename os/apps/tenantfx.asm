@@ -26,9 +26,20 @@
 ; here is position-dependent except through those dwords, which is exactly what
 ; lets the kernel load it at any heap address.
 ;
+; SETMBAR (bead initech-cnpm; spec/toolbox_gate.h Sec 9): right after REGISTER
+; and BEFORE its window, the entry hands the kernel `mbar`, its own MenuBar
+; resource (Apple slot + File / Edit / Fixture), a MenuBar/MenuInfo/MenuItem
+; graph whose every pointer is a reloc site. Band 2 shows it from the
+; affirmation on, and shows the Finder's bar again after the exit.
+;
 ; Build knobs (fixture VARIANTS for the mutant/crash legs, NEVER the shipped
-; image): -DNO_REGISTER (the entry skips REGISTER -- the D1.7 NO_REGISTER mutant)
-; and -DCRASH_ON_CLICK (a mouseDown executes UD2 -- the crash-triage leg).
+; image): -DNO_REGISTER (the entry skips REGISTER -- the D1.7 NO_REGISTER mutant),
+; -DCRASH_ON_CLICK (a mouseDown executes UD2 -- the crash-triage leg) and
+; -DBAD_MBAR (the SETMBAR refusal leg: two resources that lie about where they
+; live -- `bad_nested`, in the image but its menus array is NOT, and $$-8, a
+; MenuBar record in the PSP below imageBase -- each refused TENANT-SETMBAR-BAD,
+; then the valid `mbar` offered AFTER the window, refused TBX_ERR_BUSY; the
+; tenant runs with no bar of its own, so band 2 keeps the shell fallback).
 ; ASCII-clean (Rule 12); nasm -f bin is reproducible (Rule 11).
 
 bits 32
@@ -44,6 +55,7 @@ org ORG
 %define TBX_TEXTDRAW   0x0030
 %define TBX_FILLRECT   0x0031
 %define TBX_EXIT       0x0070
+%define TBX_SETMBAR    0x0050
 %define COLOR_WHITE    0
 %define COLOR_BLACK    1
 %define EVT_MOUSEDOWN  1
@@ -74,6 +86,21 @@ entry:
     test eax, eax
     jnz  .out                  ; refused -> just return (the kernel reaps)
 %endif
+%ifndef BAD_MBAR
+    push dword mbar            ; our own bar, before the window (DEC-AC3-4:
+    mov  eax, TBX_SETMBAR      ; it takes effect at the affirmation)
+    int  TBX_GATE
+    add  esp, 4
+%else
+    push dword bad_nested      ; refused: menus-outside-image
+    mov  eax, TBX_SETMBAR
+    int  TBX_GATE
+    add  esp, 4
+    push dword $$ - 8          ; refused: bar-outside-image (the PSP tail)
+    mov  eax, TBX_SETMBAR
+    int  TBX_GATE
+    add  esp, 4
+%endif
     push dword 1               ; goAway
     push dword WIN_B
     push dword WIN_R
@@ -85,6 +112,12 @@ entry:
     cmp  eax, 0
     jle  .out
     mov  [hwin], eax
+%ifdef BAD_MBAR
+    push dword mbar            ; refused: TBX_ERR_BUSY (after the first window)
+    mov  eax, TBX_SETMBAR
+    int  TBX_GATE
+    add  esp, 4
+%endif
     push dword title
     push dword [hwin]
     mov  eax, TBX_SETWTITLE
@@ -160,6 +193,61 @@ rec:
     dd image_end - $$          ; imageLen       (a length: NOT relocated)
     dd evbuf                   ; evBufPtr       (reloc site)
     dd event_proc              ; eventProc      (reloc site)
+
+; ---------------------------------------------------------------------------
+; THE MenuBar RESOURCE (spec/toolbox_gate.h Sec 9 = os/flair/menu.h Sec 3)
+; ---------------------------------------------------------------------------
+%macro MITEM 3              ; text, cmdChar, enabled
+    dd %1
+    db 0, %2, 0, %3, 0      ; mark, cmdChar, style, enabled, is_divider
+    db 0, 0, 0              ; pad (MenuItem is 12 bytes)
+%endmacro
+%macro MDIV 0
+    dd s_dash
+    db 0, 0, 0, 0, 1
+    db 0, 0, 0
+%endmacro
+%macro MINFO 4              ; menuID, title, items, n_items
+    dw %1, 0                ; menuID, pad
+    dd %2                   ; title
+    dd %3                   ; items
+    dw %4, 0                ; n_items, menuWidth (a kernel cache: author 0)
+%endmacro
+align 4
+mbar:
+    dd mbar_menus           ; menus     (reloc site)
+    dw 3                    ; n_menus
+    db 1, 0                 ; has_apple, pad
+mbar_menus:
+    MINFO 129, t_file, items_file, 1
+    MINFO 130, t_edit, items_edit, 5
+    MINFO 131, t_fixture, items_fixture, 1
+items_file:
+    MITEM s_quit, 'Q', 1
+items_edit:
+    MITEM s_undo, 'Z', 0
+    MDIV
+    MITEM s_cut, 'X', 0
+    MITEM s_copy, 'C', 0
+    MITEM s_paste, 'V', 0
+items_fixture:
+    MITEM s_about, 0, 1
+%ifdef BAD_MBAR
+bad_nested:                 ; in the image -- but its menus array is not
+    dd $$ - 16              ; menus -> the PSP (reloc site)
+    dw 1
+    db 1, 0
+%endif
+t_file:    db "File", 0
+t_edit:    db "Edit", 0
+t_fixture: db "Fixture", 0
+s_quit:    db "Quit", 0
+s_undo:    db "Undo", 0
+s_dash:    db "-", 0
+s_cut:     db "Cut", 0
+s_copy:    db "Copy", 0
+s_paste:   db "Paste", 0
+s_about:   db "About TenantFix", 0
 
 appname: db "TENANTFX", 0
 title:   db "TenantFix", 0

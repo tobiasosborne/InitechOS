@@ -108,3 +108,21 @@ FLAIR_APP_LAUNCH_SHOW_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100
 #    FLAIR-LIVE-OK, when the pointer is hidden, so the park point is moot.)
 # ===========================================================================
 FLAIR_APP_LAUNCH_PRE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,m110:113,m110:113,m110:112,m110:0,m105:0
+
+# ===========================================================================
+# 7. FLAIR_APP_MENUBAR_SPEC -- THE TENANT'S OWN BAR IS LIVE (bead initech-cnpm,
+#    SETMBAR; spec/toolbox_gate.h Sec 9). A, B, C (launch), then a click on the
+#    tenant's "Fixture" title in BAND 2 -> the Menu Manager drops the panel
+#    read straight out of the tenant image (FLAIR-MENU-DROP menu=131, the
+#    menuID tenantfx.asm authors), the release on the title selects nothing
+#    (FLAIR-MENU menu=131 item=0), then D (click inside the content -> clean
+#    exit). Serial-only in the gate (no park: the leg takes no screendump);
+#    also the app_menubar record-flair clip (Rule 14).
+#    GEOMETRY (derived, never measured off a render): band 2 = rows [20,40);
+#    the tenant bar has the Apple slot, so (menu.h Sec 5, Chicago fixed 8 px,
+#    pad 7) File [20,66), Edit [66,112), Fixture (7 chars, 8*7+14 = 70)
+#    [112,182); its centre (147,30). From the icon (75,122): m72:-92. Back to
+#    the content (140,210): m-7:90,m0:90 (each component int8-safe).
+#    30 tokens: inside the flagship pump's budget (see BUDGET NOTE above).
+# ===========================================================================
+FLAIR_APP_MENUBAR_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m72:-92,l1,l0,m-7:90,m0:90,l1,l0

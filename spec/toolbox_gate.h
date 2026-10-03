@@ -8,6 +8,10 @@
  *       FlairTenantRec layout and the flat FlairEvent buffer are fixed HERE and
  *       nowhere else. Changing any value is a deliberate act with an issue +
  *       worklog note, never a silent edit to make a test pass.
+ * bead: initech-cnpm (SETMBAR, a disk tenant's own menu bar). The deliberate
+ *       Rule-8 act of THAT bead: TBX_SETMBAR 0x0050 promoted from reserved to
+ *       implemented (Sec 3), its arity, and Sec 9 (the MenuBar resource layout
+ *       + validation limits). No other value in this file moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -25,7 +29,15 @@
  *      docs/design/GUI-remediation-D1-D2-D3-design.md D1.2 (gate), D2.1 (the
  *        trap inventory numbering this map follows), D2-2 (the flat FlairEvent);
  *      ADR-0003-AMENDMENT-DEC-04a DEC-04a.1 (software-int gate discipline) and
- *        DEC-04a.2 (0x28-0x37 reserved for hardware IRQs -- why not 0x2F).
+ *        DEC-04a.2 (0x28-0x37 reserved for hardware IRQs -- why not 0x2F);
+ *      SETMBAR (initech-cnpm): D1-D2-D3-design D2.1 row 12 ("0x0050
+ *        FLAIR_SETMBAR(barPtr) -> app->menubar = ptr + the
+ *        flair_live_finish_tenant_switch redraw; barPtr points into the
+ *        tenant's relocated image -- MZ fixups make tenant-resident MenuBar/
+ *        MenuItem graphs directly consumable") and D1.5 "Menu-band ownership
+ *        after death"; reconciliation DEC-AC3-4 ("SETMBAR before the first
+ *        window is legal and takes effect at affirmation"); os/flair/menu.h
+ *        Sec 3 (the verbatim Inside Macintosh MenuBar/MenuInfo/MenuItem).
  *
  * Freestanding: <stdint.h> only; consumed by the kernel (os/flair/tbxgate.c),
  * the hand-assembled fixture tenant (its constants are mirrored in the .asm and
@@ -73,9 +85,9 @@
  * drafted against, so V1 keeps them verbatim rather than silently renumbering
  * an inventory another bead (tdnl.21) consumes.
  *
- * V1 (this bead) implements exactly the rows marked V1. Every other code --
- * including the reserved rows -- returns TBX_ERR_BADCODE (the demux is total,
- * never a silent no-op, Rule 2).
+ * V1 (tdnl.14) implements exactly the rows marked V1; initech-cnpm adds the
+ * row marked V2. Every other code -- including the reserved rows -- returns
+ * TBX_ERR_BADCODE (the demux is total, never a silent no-op, Rule 2).
  * ------------------------------------------------------------------------- */
 #define TBX_REGISTER      0x0001u  /* V1  (recPtr) -> 0 | err                   */
 #define TBX_KEEPRESIDENT  0x0002u  /* DISSOLVED by DEC-AC3-3 (registration makes
@@ -90,9 +102,10 @@
 #define TBX_TEXTDRAW      0x0030u  /* V1  (win, x, y, strPtr, fg, bg) -> 0|err */
 #define TBX_FILLRECT      0x0031u  /* V1  (win, l, t, r, b, color) -> 0 | err  */
 #define TBX_FRAMERECT     0x0032u  /* reserved (V2)                            */
-#define TBX_SETMBAR       0x0050u  /* reserved (V2): until then a disk tenant
-                                    * has no menubar and band 2 shows the shell
-                                    * fallback bar (kmain flair_live_tenant_bar)*/
+#define TBX_SETMBAR       0x0050u  /* V2  (barPtr) -> 0 | err  (Sec 9). A
+                                    * tenant that never calls it has no menubar
+                                    * and band 2 shows the shell fallback bar
+                                    * (kmain flair_live_tenant_bar)            */
 #define TBX_EXIT          0x0070u  /* V1  (rc) -> 0 ; teardown runs when the
                                     * tenant next RETURNS to the kernel         */
 
@@ -104,6 +117,7 @@
 #define TBX_ARGC_TEXTDRAW   6u
 #define TBX_ARGC_FILLRECT   6u
 #define TBX_ARGC_EXIT       1u
+#define TBX_ARGC_SETMBAR    1u
 #define TBX_ARGC_MAX        6u
 
 /* ---------------------------------------------------------------------------
@@ -196,5 +210,64 @@
 #define TBX_TENANT_RECORDS_BUDGET (16u * 1024u)   /* == FLAIR_TENANT_RECORDS_DEFAULT */
 #define TBX_TENANT_DATA_BUDGET    (4u * 1024u)    /* V1: kernel-side only      */
 #define TBX_TENANT_MAX_WINDOWS    1u              /* V1 window cap per tenant  */
+
+/* ---------------------------------------------------------------------------
+ * 9. THE MenuBar RESOURCE (TBX_SETMBAR; bead initech-cnpm; D2.1 row 12)
+ *
+ * The resource IS the FLAIR Menu Manager's own record graph (os/flair/menu.h
+ * Sec 3, verbatim Inside Macintosh MenuBar / MenuInfo / MenuItem), emitted as
+ * DATA inside the tenant image. Every pointer field is an absolute dword the
+ * InitechMZ relocation table covers (exactly like the FlairTenantRec, Sec 5),
+ * so after the loader's flat relocation the graph is directly consumable by
+ * the kernel: SETMBAR copies NOTHING, it validates the graph and installs the
+ * pointer as the app's menubar (FlairApp.menubar). The layout below is the
+ * i386 SysV layout of those C records; os/flair/tbxgate.c _Static_asserts
+ * every offset and size against menu.h, so the two can never drift.
+ *
+ *   MenuBar  (TBX_MBAR_BYTES)   menus @0 (MenuInfo *), n_menus @4 (u16),
+ *                               has_apple @6 (u8), pad @7
+ *   MenuInfo (TBX_MINFO_BYTES)  menuID @0 (i16), pad @2, title @4 (ASCIZ *),
+ *                               items @8 (MenuItem *), n_items @12 (u16),
+ *                               menuWidth @14 (i16, a cache: author 0)
+ *   MenuItem (TBX_MITEM_BYTES)  text @0 (ASCIZ *), mark @4, cmdChar @5,
+ *                               style @6, enabled @7, is_divider @8, pad @9..11
+ *
+ * VALIDATION (fail loud: refused with TBX_ERR_BADARG AND a serial
+ * TENANT-SETMBAR-BAD why=<reason> line -- a resource that lies about where it
+ * lives must never reach band 2, Rule 2). The WHOLE graph must lie in
+ * [imageBase, imageBase+imageLen): the MenuBar record, the menus array, every
+ * title string (incl. its NUL), every items array and every item text string.
+ * Also: n_menus <= TBX_MBAR_MAX_MENUS; n_items <= TBX_MBAR_MAX_ITEMS; menuID
+ * >= 1 (IM: a 0 high word means "nothing chosen"); titles 1..STR_MAX-1 chars,
+ * item texts 0..STR_MAX-1; and the laid-out titles fit the screen (the menu.h
+ * Sec 5 run: Apple slot + sum(8*len + 14) <= FLAIR_SCREEN_W). n_menus == 0 is
+ * legal (an empty bar, IM ClearMenuBar).
+ *
+ * SEMANTICS (V2). SetMenuBar, not DrawMenuBar: SETMBAR installs the bar; band
+ * 2 shows it the next time the tenant is drawn as foreground -- its
+ * affirmation at the first NEWWINDOW (DEC-AC3-4), or any later switch back to
+ * it -- through flair_live_finish_tenant_switch, the ONE swap path. Accepted
+ * only BEFORE the tenant's first NEWWINDOW (later -> TBX_ERR_BUSY): with no
+ * DrawMenuBar trap yet, a later swap would leave band 2 showing a bar the
+ * pull-down no longer matches. On EXIT / close / crash the app leaves the
+ * process list and band 2 is redrawn from the NEW head (never the corpse's
+ * bar); the graph dies with the image (D1.5). The resource must stay
+ * unmodified while the tenant is registered: the kernel reads it in place on
+ * every band-2 redraw and pull-down (ADR-0013: no inter-app protection).
+ * ------------------------------------------------------------------------- */
+#define TBX_MBAR_BYTES        8u
+#define TBX_MBAR_MENUS_OFF    0u
+#define TBX_MBAR_COUNT_OFF    4u
+#define TBX_MBAR_APPLE_OFF    6u
+#define TBX_MINFO_BYTES       16u
+#define TBX_MINFO_ID_OFF      0u
+#define TBX_MINFO_TITLE_OFF   4u
+#define TBX_MINFO_ITEMS_OFF   8u
+#define TBX_MINFO_COUNT_OFF   12u
+#define TBX_MITEM_BYTES       12u
+#define TBX_MITEM_TEXT_OFF    0u
+#define TBX_MBAR_MAX_MENUS    8u
+#define TBX_MBAR_MAX_ITEMS    16u
+#define TBX_MBAR_STR_MAX      32u    /* incl. the NUL                          */
 
 #endif /* INITECH_SPEC_TOOLBOX_GATE_H */

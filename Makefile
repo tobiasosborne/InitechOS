@@ -9496,7 +9496,7 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 TBXGATE_OPT            := -Os
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
-TBXGATE_DEPS := os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago8x16.h
+TBXGATE_DEPS := os/flair/menu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago8x16.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
@@ -9587,6 +9587,7 @@ endef
 $(eval $(call tenantfx-exe-rules,,))
 $(eval $(call tenantfx-exe-rules,_noreg,-DNO_REGISTER))
 $(eval $(call tenantfx-exe-rules,_crash,-DCRASH_ON_CLICK))
+$(eval $(call tenantfx-exe-rules,_badmbar,-DBAD_MBAR))
 TENANTFX_EXE := $(BUILD)/tenantfx.exe
 
 # Deterministic flagship FAT12 volume (Rule 11): mtools authors the filesystem,
@@ -9615,6 +9616,8 @@ FLAIR_DATA_TFX_NOREG_IMG := $(BUILD)/flair_data_tfx_noreg.img
 FLAIR_DATA_TFX_CRASH_IMG := $(BUILD)/flair_data_tfx_crash.img
 $(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_NOREG_IMG),$(BUILD)/tenantfx_noreg.exe))
 $(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_CRASH_IMG),$(BUILD)/tenantfx_crash.exe))
+FLAIR_DATA_TFX_BADMBAR_IMG := $(BUILD)/flair_data_tfx_badmbar.img
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_BADMBAR_IMG),$(BUILD)/tenantfx_badmbar.exe))
 
 # DB_MAGIC_FLIP volume mutant: corruption is authored independently at image
 # build time; the REAL kernel must announce REGEN and rewrite the golden header.
@@ -18790,7 +18793,7 @@ test-flair-window-ops: test-flair-zoom-toggle test-flair-grow test-flair-collaps
 # FLAIR heap -> it REGISTERs through the Initech Toolbox Gate (INT 81h) -> its
 # window appears, receives push-callback events, exits cleanly.
 # ---------------------------------------------------------------------------
-# test-flair-app-launch (QEMU, SIX boots of $(FLAIRTENANTS_IMG) + two knobbed
+# test-flair-app-launch (QEMU, SEVEN boots of $(FLAIRTENANTS_IMG) + three knobbed
 # fixture volumes):
 #   1 LAUNCH   FLAIR_APP_LAUNCH_SPEC -> the TENANT-* + FLAIR-DISPATCH lines are
 #              BYTE-IDENTICAL to the locked $(FLAIR_APPL_GOLDEN) (load, the
@@ -18798,11 +18801,16 @@ test-flair-window-ops: test-flair-zoom-toggle test-flair-grow test-flair-collaps
 #              delivery, the switch, the mouseDown, EXIT, the reap).
 #   2 SHOW     FLAIR_APP_LAUNCH_SHOW_SPEC -> ppm_flair_app_launch_check show:
 #              the window at the tenant's own bounds, front, content white,
-#              EXACTLY the two text runs (ink counted off the locked strike).
+#              EXACTLY the two text runs (ink counted off the locked strike);
+#              + bar-tenant (initech-cnpm): band 2 is EXACTLY the tenant's OWN
+#              bar, the one its SETMBAR handed in (full-pixel differential,
+#              expected tones derived from menus.md + menu.h Sec 5 + the strike).
 #   3 RESTORE  leg 1's post-budget dump is BYTE-IDENTICAL to the dump of
 #              FLAIR_APP_LAUNCH_PRE_SPEC (same gestures, the icon SELECTED but
 #              never launched): the exit leaves no pixel of the tenant behind
-#              and restores the Finder's foreground + band-2 bar exactly.
+#              and restores the Finder's foreground + band-2 bar exactly;
+#              + bar-finder (initech-cnpm): band 2 is EXACTLY the Finder's bar
+#              again, graded from the same independent derivation.
 #   4 DOUBLE   FLAIR_APP_LAUNCH_DOUBLE_SPEC -> one TENANT-REGISTER ok, one
 #              TENANT-SLOT-BUSY, one clean exit (the V1 one-slot model).
 #   5 CYCLE    FLAIR_APP_LAUNCH_CYCLE_SPEC -> two clean exits whose two
@@ -18820,6 +18828,16 @@ test-flair-window-ops: test-flair-zoom-toggle test-flair-grow test-flair-collaps
 #   8 CRASH    the CRASH_ON_CLICK fixture variant: the #UD inside the image is
 #              triaged (TENANT-CRASH vec=6 -> FlairProcess_kill), no PANIC, the
 #              desktop survives to FLAIR-LIVE-OK (reconciliation Part C item 7).
+#   9 BADMBAR  the BAD_MBAR fixture variant (initech-cnpm, spec/toolbox_gate.h
+#              Sec 9): a MenuBar whose menus array lies outside the image and a
+#              MenuBar record in the PSP below imageBase are each REFUSED loudly
+#              (TENANT-SETMBAR-BAD why=..., -3), a valid bar offered after the
+#              window is refused BUSY (-4); the tenant still comes up foreground
+#              and band 2 is EXACTLY the shell fallback (bar-photoshop).
+#  10 MENU     FLAIR_APP_MENUBAR_SPEC (initech-cnpm): a click on the tenant's
+#              "Fixture" title in band 2 drops ITS menu (menuID 131, read out
+#              of the tenant image), the release selects nothing, and the
+#              tenant still exits cleanly afterwards.
 # Mutation-proven by test-flair-app-launch-mutant; the CPU-path differential
 # vs Bochs is test-flair-app-launch-bochs (Rule 5).
 # ===========================================================================
@@ -18831,6 +18849,9 @@ $(PPM_FLAIR_APPL_CHECK_BIN): tools/ppm_flair_app_launch_check.c spec/assets/colo
 # The mutant kernels: two gate-module knobs + one pump knob.
 $(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_NO_SLOT_GUARD,tbx_no_slot_guard))
 $(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_EXIT_LEAK,tbx_exit_leak))
+# initech-cnpm (SETMBAR): the swap is skipped / the image-range checks are gone.
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_MBAR_NOT_SWAPPED,tbx_mbar_not_swapped))
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_MBAR_NO_BOUNDS,tbx_mbar_no_bounds))
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_TENANT_CLOSE_HIDE,tenant_close_hide))
 # The HEADLESS smoke kernel for the Bochs differential (NOT a mutant: the
 # template's naming; it swaps only the kmain arm, -DTBX_HEADLESS_SMOKE).
@@ -18858,49 +18879,68 @@ APPL_CYCLE = [ "$$(grep -c '^TENANT-EXIT rc=0 via=exit$$' $(1))" = 2 ] && [ "$$(
 APPL_CLOSE = grep -qx 'TENANT-EXIT rc=0 via=close' $(1) && grep -qx 'FLAIR-TENANT-EXIT name=TENANTFX' $(1) && awk 'BEGIN{f=0;k=0;b=0} /^FLAIR-CLOSE win/{f=1} f==1&&/^TENANT-LOAD/{f=2} f==1&&/^FLAIR-EVT what=3 /{k=1} f==1&&/^TENANT-EVT/{b=1} END{exit !(f==2&&k&&!b)}' $(1) && [ "$$(grep -c '^TENANT-REGISTER ok app=TENANTFX$$' $(1))" = 2 ] && ! grep -q '^TENANT-SLOT-BUSY' $(1)
 APPL_NOREG = grep -q '^TENANT-UNREGISTERED name=TENANTFX.EXE$$' $(1) && ! grep -q '^TENANT-REGISTER' $(1) && ! grep -q '^TENANT-EVT' $(1)
 APPL_CRASH = grep -q '^TENANT-CRASH vec=6 ' $(1) && grep -qx 'TENANT-EXIT rc=-1 via=crash' $(1)
+APPL_MENU = grep -qx 'FLAIR-MENU-DROP menu=131' $(1) && grep -qx 'FLAIR-MENU menu=131 item=0 (sel=0x00000000)' $(1) && awk '/^FLAIR-DISPATCH app=TENANTFX$$/{a=1} a&&/^FLAIR-MENU-DROP menu=131$$/{b=1} b&&/^TENANT-EXIT rc=0 via=exit$$/{c=1} END{exit !c}' $(1)
+# BADMBAR (initech-cnpm): the SETMBAR lines of the BAD_MBAR fixture, in order,
+# hand-derived from `nasm -l os/apps/tenantfx.asm -DBAD_MBAR`: bad_nested at
+# +0x01a4 (its menus -> the PSP), the PSP-tail record $$-8 (printed +0xfff8),
+# and the valid mbar at +0x0118 offered after NEWWINDOW. Each refusal's BAD line
+# is printed inside the verb, so it precedes that call's TENANT-GATE line.
+APPL_BADMBAR = grep -E '^(TENANT-SETMBAR-BAD|TENANT-GATE ax=0x0050 )' $(1) > $(1).mbar && printf 'TENANT-SETMBAR-BAD why=menus-outside-image\nTENANT-GATE ax=0x0050 bar=+0x01a4 -> -3\nTENANT-SETMBAR-BAD why=bar-outside-image\nTENANT-GATE ax=0x0050 bar=+0xfff8 -> -3\nTENANT-GATE ax=0x0050 bar=+0x0118 -> -4\n' | cmp -s - $(1).mbar && grep -qx 'FLAIR-DISPATCH app=TENANTFX' $(1)
 
 .PHONY: test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs
-test-flair-app-launch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FLAIR_DATA_TFX_NOREG_IMG) $(FLAIR_DATA_TFX_CRASH_IMG) $(PPM_FLAIR_APPL_CHECK_BIN) $(FLAIR_APPL_GOLDEN)
+test-flair-app-launch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FLAIR_DATA_TFX_NOREG_IMG) $(FLAIR_DATA_TFX_CRASH_IMG) $(FLAIR_DATA_TFX_BADMBAR_IMG) $(PPM_FLAIR_APPL_CHECK_BIN) $(FLAIR_APPL_GOLDEN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-app-launch : R3.7 app launch from disk\n'
 	@printf '  bead initech-tdnl.14; reconciliation DEC-AC3-1..4; D1.7 oracle set\n'
 	@printf '======================================================================\n'
 	$(call appl-boot,flair_appl_launch,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
-	@$(call APPL_ALIVE,$(BUILD)/flair_appl_launch.serial) || { printf '!!! test-flair-app-launch [1/8] FAIL: the desktop did not survive the launch trace\n'; grep -E '^(PANIC|TENANT-|HALTED)' $(BUILD)/flair_appl_launch.serial; exit 1; }
-	@$(call APPL_TRACE,$(BUILD)/flair_appl_launch.serial) || { printf '!!! test-flair-app-launch [1/8] FAIL: the launch trace differs from the locked golden %s\n' '$(FLAIR_APPL_GOLDEN)'; diff -u $(BUILD)/flair_appl_launch.serial.golden $(BUILD)/flair_appl_launch.serial.trace; exit 1; }
-	@printf '>>> test-flair-app-launch [1/8] LAUNCH: %s trace lines byte-identical to the locked golden\n' "$$(wc -l < $(BUILD)/flair_appl_launch.serial.trace)"
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_launch.serial) || { printf '!!! test-flair-app-launch [1/10] FAIL: the desktop did not survive the launch trace\n'; grep -E '^(PANIC|TENANT-|HALTED)' $(BUILD)/flair_appl_launch.serial; exit 1; }
+	@$(call APPL_TRACE,$(BUILD)/flair_appl_launch.serial) || { printf '!!! test-flair-app-launch [1/10] FAIL: the launch trace differs from the locked golden %s\n' '$(FLAIR_APPL_GOLDEN)'; diff -u $(BUILD)/flair_appl_launch.serial.golden $(BUILD)/flair_appl_launch.serial.trace; exit 1; }
+	@printf '>>> test-flair-app-launch [1/10] LAUNCH: %s trace lines byte-identical to the locked golden\n' "$$(wc -l < $(BUILD)/flair_appl_launch.serial.trace)"
 	$(call appl-boot,flair_appl_show,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_SHOW_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
-	@$(call APPL_ALIVE,$(BUILD)/flair_appl_show.serial) || { printf '!!! test-flair-app-launch [2/8] FAIL: the desktop did not survive\n'; exit 1; }
-	@grep -qx 'FLAIR-DISPATCH app=TENANTFX' $(BUILD)/flair_appl_show.serial || { printf '!!! test-flair-app-launch [2/8] FAIL: the tenant never became foreground\n'; exit 1; }
-	@$(PPM_FLAIR_APPL_CHECK_BIN) show $(BUILD)/flair_appl_show.ppm || { printf '!!! test-flair-app-launch [2/8] FAIL: the resident tenant window is not what the tenant drew\n'; exit 1; }
-	@printf '>>> test-flair-app-launch [2/8] SHOW: the window appears at the tenant bounds, front, with exactly its two text runs\n'
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_show.serial) || { printf '!!! test-flair-app-launch [2/10] FAIL: the desktop did not survive\n'; exit 1; }
+	@grep -qx 'FLAIR-DISPATCH app=TENANTFX' $(BUILD)/flair_appl_show.serial || { printf '!!! test-flair-app-launch [2/10] FAIL: the tenant never became foreground\n'; exit 1; }
+	@$(PPM_FLAIR_APPL_CHECK_BIN) show $(BUILD)/flair_appl_show.ppm || { printf '!!! test-flair-app-launch [2/10] FAIL: the resident tenant window is not what the tenant drew\n'; exit 1; }
+	@$(PPM_FLAIR_APPL_CHECK_BIN) bar-tenant $(BUILD)/flair_appl_show.ppm || { printf '!!! test-flair-app-launch [2/10] FAIL: band 2 is not the OWN menu bar of the foreground tenant (SETMBAR, initech-cnpm)\n'; exit 1; }
+	@printf '>>> test-flair-app-launch [2/10] SHOW: the window appears at the tenant bounds, front, with exactly its two text runs; band 2 is exactly its own bar\n'
 	$(call appl-boot,flair_appl_pre,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_PRE_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
-	@$(call APPL_ALIVE,$(BUILD)/flair_appl_pre.serial) || { printf '!!! test-flair-app-launch [3/8] FAIL: the baseline boot did not survive\n'; exit 1; }
-	@if grep -q '^TENANT-' $(BUILD)/flair_appl_pre.serial; then printf '!!! test-flair-app-launch [3/8] FAIL: the baseline (single click) LAUNCHED something\n'; exit 1; fi
-	@cmp -s $(BUILD)/flair_appl_pre.ppm $(BUILD)/flair_appl_launch.ppm || { printf '!!! test-flair-app-launch [3/8] FAIL: the post-exit frame differs from the never-launched baseline (a tenant pixel, a stale foreground or a wrong band-2 bar survived the exit)\n'; cmp -l $(BUILD)/flair_appl_pre.ppm $(BUILD)/flair_appl_launch.ppm | wc -l; exit 1; }
-	@printf '>>> test-flair-app-launch [3/8] RESTORE: the post-exit frame is byte-identical to the never-launched baseline\n'
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_pre.serial) || { printf '!!! test-flair-app-launch [3/10] FAIL: the baseline boot did not survive\n'; exit 1; }
+	@if grep -q '^TENANT-' $(BUILD)/flair_appl_pre.serial; then printf '!!! test-flair-app-launch [3/10] FAIL: the baseline (single click) LAUNCHED something\n'; exit 1; fi
+	@cmp -s $(BUILD)/flair_appl_pre.ppm $(BUILD)/flair_appl_launch.ppm || { printf '!!! test-flair-app-launch [3/10] FAIL: the post-exit frame differs from the never-launched baseline (a tenant pixel, a stale foreground or a wrong band-2 bar survived the exit)\n'; cmp -l $(BUILD)/flair_appl_pre.ppm $(BUILD)/flair_appl_launch.ppm | wc -l; exit 1; }
+	@$(PPM_FLAIR_APPL_CHECK_BIN) bar-finder $(BUILD)/flair_appl_launch.ppm || { printf '!!! test-flair-app-launch [3/10] FAIL: after the exit band 2 is not the Finder bar (the previous foreground bar was not restored)\n'; exit 1; }
+	@printf '>>> test-flair-app-launch [3/10] RESTORE: the post-exit frame is byte-identical to the never-launched baseline; band 2 is exactly the Finder bar again\n'
 	$(call appl-boot,flair_appl_double,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_DOUBLE_SPEC,)
-	@$(call APPL_ALIVE,$(BUILD)/flair_appl_double.serial) && $(call APPL_DOUBLE,$(BUILD)/flair_appl_double.serial) || { printf '!!! test-flair-app-launch [4/8] FAIL: DOUBLE_LAUNCH -- want exactly one REGISTER, one SLOT-BUSY, one clean exit\n'; grep -E '^(TENANT-(REGISTER|SLOT|EXIT|LOAD)|PANIC)' $(BUILD)/flair_appl_double.serial; exit 1; }
-	@printf '>>> test-flair-app-launch [4/8] DOUBLE: second launch refused TENANT-SLOT-BUSY; the resident tenant undisturbed and still exits cleanly\n'
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_double.serial) && $(call APPL_DOUBLE,$(BUILD)/flair_appl_double.serial) || { printf '!!! test-flair-app-launch [4/10] FAIL: DOUBLE_LAUNCH -- want exactly one REGISTER, one SLOT-BUSY, one clean exit\n'; grep -E '^(TENANT-(REGISTER|SLOT|EXIT|LOAD)|PANIC)' $(BUILD)/flair_appl_double.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [4/10] DOUBLE: second launch refused TENANT-SLOT-BUSY; the resident tenant undisturbed and still exits cleanly\n'
 	$(call appl-boot,flair_appl_cycle,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_CYCLE_SPEC,)
-	@$(call APPL_ALIVE,$(BUILD)/flair_appl_cycle.serial) && $(call APPL_CYCLE,$(BUILD)/flair_appl_cycle.serial) || { printf '!!! test-flair-app-launch [5/8] FAIL: EXIT_LEAK -- two cycles must exit cleanly with EQUAL heap avail\n'; grep -E '^(TENANT-(EXIT|HEAPAVAIL|LOAD)|PANIC)' $(BUILD)/flair_appl_cycle.serial; exit 1; }
-	@printf '>>> test-flair-app-launch [5/8] CYCLE: two launch/exit cycles, %s both times (avail-stable)\n' "$$(grep -m1 '^TENANT-HEAPAVAIL' $(BUILD)/flair_appl_cycle.serial)"
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_cycle.serial) && $(call APPL_CYCLE,$(BUILD)/flair_appl_cycle.serial) || { printf '!!! test-flair-app-launch [5/10] FAIL: EXIT_LEAK -- two cycles must exit cleanly with EQUAL heap avail\n'; grep -E '^(TENANT-(EXIT|HEAPAVAIL|LOAD)|PANIC)' $(BUILD)/flair_appl_cycle.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [5/10] CYCLE: two launch/exit cycles, %s both times (avail-stable)\n' "$$(grep -m1 '^TENANT-HEAPAVAIL' $(BUILD)/flair_appl_cycle.serial)"
 	$(call appl-boot,flair_appl_close,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_CLOSE_SPEC,)
-	@$(call APPL_ALIVE,$(BUILD)/flair_appl_close.serial) && $(call APPL_CLOSE,$(BUILD)/flair_appl_close.serial) || { printf '!!! test-flair-app-launch [6/8] FAIL: CLOSE_STALE_FOCUS -- the close box must terminate the tenant and the next key must not reach it\n'; grep -E '^(TENANT-|FLAIR-CLOSE|FLAIR-TENANT-EXIT|FLAIR-EVT what=3|PANIC)' $(BUILD)/flair_appl_close.serial; exit 1; }
-	@printf '>>> test-flair-app-launch [6/8] CLOSE: the close box terminated the tenant; the next keystroke never reached it\n'
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_close.serial) && $(call APPL_CLOSE,$(BUILD)/flair_appl_close.serial) || { printf '!!! test-flair-app-launch [6/10] FAIL: CLOSE_STALE_FOCUS -- the close box must terminate the tenant and the next key must not reach it\n'; grep -E '^(TENANT-|FLAIR-CLOSE|FLAIR-TENANT-EXIT|FLAIR-EVT what=3|PANIC)' $(BUILD)/flair_appl_close.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [6/10] CLOSE: the close box terminated the tenant; the next keystroke never reached it\n'
 	$(call appl-boot,flair_appl_noreg,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_TFX_NOREG_IMG),FLAIR_APP_LAUNCH_SPEC,)
-	@$(call APPL_ALIVE,$(BUILD)/flair_appl_noreg.serial) && $(call APPL_NOREG,$(BUILD)/flair_appl_noreg.serial) || { printf '!!! test-flair-app-launch [7/8] FAIL: an unregistered tenant must install nothing and leave the desktop intact\n'; grep -E '^(TENANT-|PANIC)' $(BUILD)/flair_appl_noreg.serial; exit 1; }
-	@printf '>>> test-flair-app-launch [7/8] NOREG: entry returned unregistered -> nothing installed, no event delivered, desktop intact (no watchdog, BC-4)\n'
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_noreg.serial) && $(call APPL_NOREG,$(BUILD)/flair_appl_noreg.serial) || { printf '!!! test-flair-app-launch [7/10] FAIL: an unregistered tenant must install nothing and leave the desktop intact\n'; grep -E '^(TENANT-|PANIC)' $(BUILD)/flair_appl_noreg.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [7/10] NOREG: entry returned unregistered -> nothing installed, no event delivered, desktop intact (no watchdog, BC-4)\n'
 	$(call appl-boot,flair_appl_crash,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_TFX_CRASH_IMG),FLAIR_APP_LAUNCH_SPEC,)
-	@$(call APPL_ALIVE,$(BUILD)/flair_appl_crash.serial) && $(call APPL_CRASH,$(BUILD)/flair_appl_crash.serial) || { printf '!!! test-flair-app-launch [8/8] FAIL: a fault inside the tenant image must be killed, not panic the desktop\n'; grep -E '^(TENANT-|PANIC|HALTED)' $(BUILD)/flair_appl_crash.serial; exit 1; }
-	@printf '>>> test-flair-app-launch [8/8] CRASH: %s -> FlairProcess_kill; desktop survived\n' "$$(grep -m1 '^TENANT-CRASH' $(BUILD)/flair_appl_crash.serial)"
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_crash.serial) && $(call APPL_CRASH,$(BUILD)/flair_appl_crash.serial) || { printf '!!! test-flair-app-launch [8/10] FAIL: a fault inside the tenant image must be killed, not panic the desktop\n'; grep -E '^(TENANT-|PANIC|HALTED)' $(BUILD)/flair_appl_crash.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [8/10] CRASH: %s -> FlairProcess_kill; desktop survived\n' "$$(grep -m1 '^TENANT-CRASH' $(BUILD)/flair_appl_crash.serial)"
+	$(call appl-boot,flair_appl_badmbar,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_TFX_BADMBAR_IMG),FLAIR_APP_LAUNCH_SHOW_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_badmbar.serial) && $(call APPL_BADMBAR,$(BUILD)/flair_appl_badmbar.serial) || { printf '!!! test-flair-app-launch [9/10] FAIL: BADMBAR -- an out-of-image MenuBar must be refused loudly, a post-window SETMBAR refused BUSY, the tenant still foreground\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_appl_badmbar.serial; exit 1; }
+	@$(PPM_FLAIR_APPL_CHECK_BIN) bar-photoshop $(BUILD)/flair_appl_badmbar.ppm || { printf '!!! test-flair-app-launch [9/10] FAIL: BADMBAR -- band 2 is not the shell fallback bar (a refused MenuBar reached band 2)\n'; exit 1; }
+	@printf '>>> test-flair-app-launch [9/10] BADMBAR: both out-of-image MenuBars refused TENANT-SETMBAR-BAD, the post-window one BUSY; band 2 is exactly the shell fallback\n'
+	$(call appl-boot,flair_appl_menu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_MENUBAR_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_menu.serial) && $(call APPL_MENU,$(BUILD)/flair_appl_menu.serial) || { printf '!!! test-flair-app-launch [10/10] FAIL: MENU -- a band-2 click must drop the TENANT menu 131 (its own resource), select nothing on release, and the tenant must still exit cleanly\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|FLAIR-MENU|PANIC)' $(BUILD)/flair_appl_menu.serial; exit 1; }
+	@printf '>>> test-flair-app-launch [10/10] MENU: band 2 dropped the tenant menu 131 from its own resource; release selected nothing; clean exit after\n'
 	@printf '>>> test-flair-app-launch: green\n'
 
 # Rule 6: each named D1.7 mutant goes RED for ITS reason. The clean baseline of
 # every leg is test-flair-app-launch itself (a prerequisite, so it runs first).
+# initech-cnpm adds two: MBAR_NOT_SWAPPED (the band-2 leg 2 grader must go RED
+# while SETMBAR still reports success) and MBAR_NO_BOUNDS (the BADMBAR leg must
+# go RED because the out-of-image MenuBar is ACCEPTED).
 # The clean gate is a PREREQUISITE (not a recursive make): in the default
 # vector it then runs once, and a red baseline stops the mutants before they run.
-test-flair-app-launch-mutant: test-flair-app-launch $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FLAIR_DATA_TFX_NOREG_IMG) $(FLAIR_APPL_GOLDEN) $(BUILD)/flair_tenants_mut_tbx_no_slot_guard.img $(BUILD)/flair_tenants_mut_tbx_exit_leak.img $(BUILD)/flair_tenants_mut_tenant_close_hide.img
+test-flair-app-launch-mutant: test-flair-app-launch $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FLAIR_DATA_TFX_NOREG_IMG) $(FLAIR_DATA_TFX_BADMBAR_IMG) $(FLAIR_APPL_GOLDEN) $(BUILD)/flair_tenants_mut_tbx_no_slot_guard.img $(BUILD)/flair_tenants_mut_tbx_exit_leak.img $(BUILD)/flair_tenants_mut_tenant_close_hide.img $(BUILD)/flair_tenants_mut_tbx_mbar_not_swapped.img $(BUILD)/flair_tenants_mut_tbx_mbar_no_bounds.img
 	$(call appl-boot,flair_applmut_noreg,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_TFX_NOREG_IMG),FLAIR_APP_LAUNCH_SPEC,)
 	@if $(call APPL_TRACE,$(BUILD)/flair_applmut_noreg.serial); then printf '!!! test-flair-app-launch-mutant FAIL: NO_REGISTER matched the golden -- the trace oracle is decoration\n'; exit 1; fi
 	@if grep -q '^TENANT-REGISTER ok' $(BUILD)/flair_applmut_noreg.serial; then printf '!!! test-flair-app-launch-mutant FAIL: NO_REGISTER went RED for the wrong reason (a REGISTER happened)\n'; exit 1; fi
@@ -18919,7 +18959,20 @@ test-flair-app-launch-mutant: test-flair-app-launch $(HARNESS_BIN) $(FLAIRTENANT
 	@if $(call APPL_CLOSE,$(BUILD)/flair_applmut_close.serial); then printf '!!! test-flair-app-launch-mutant FAIL: CLOSE_STALE_FOCUS PASSED the anti-8fhu leg\n'; exit 1; fi
 	@! grep -q '^TENANT-EXIT' $(BUILD)/flair_applmut_close.serial && grep -qx 'TENANT-SLOT-BUSY name=TENANTFX.EXE' $(BUILD)/flair_applmut_close.serial || { printf '!!! test-flair-app-launch-mutant FAIL: CLOSE_STALE_FOCUS went RED for the wrong reason (want: no teardown, and the relaunch refused by the zombie)\n'; grep -E '^(TENANT-|FLAIR-CLOSE|PANIC)' $(BUILD)/flair_applmut_close.serial; exit 1; }
 	@printf '>>> test-flair-app-launch-mutant: CLOSE_STALE_FOCUS RED for the named reason -- the hide-only close left the tenant resident (no TENANT-EXIT) and the relaunch hit TENANT-SLOT-BUSY on the windowless zombie\n'
-	@printf '>>> test-flair-app-launch-mutant: green (all four D1.7 mutants RED for their named reasons)\n'
+	$(call appl-boot,flair_applmut_mbarswap,$(BUILD)/flair_tenants_mut_tbx_mbar_not_swapped.img,$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_SHOW_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@if $(PPM_FLAIR_APPL_CHECK_BIN) bar-tenant $(BUILD)/flair_applmut_mbarswap.ppm >/dev/null 2>&1; then printf '!!! test-flair-app-launch-mutant FAIL: MBAR_NOT_SWAPPED PASSED the band-2 leg -- the bar oracle is decoration\n'; exit 1; fi
+	@$(call APPL_ALIVE,$(BUILD)/flair_applmut_mbarswap.serial) && grep -qx 'TENANT-GATE ax=0x0050 bar=+0x00fc -> 0' $(BUILD)/flair_applmut_mbarswap.serial && grep -qx 'FLAIR-DISPATCH app=TENANTFX' $(BUILD)/flair_applmut_mbarswap.serial && $(PPM_FLAIR_APPL_CHECK_BIN) bar-photoshop $(BUILD)/flair_applmut_mbarswap.ppm >/dev/null || { printf '!!! test-flair-app-launch-mutant FAIL: MBAR_NOT_SWAPPED went RED for the wrong reason (want: SETMBAR reported 0, the tenant foreground, band 2 still the shell fallback)\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_applmut_mbarswap.serial; exit 1; }
+	@printf '>>> test-flair-app-launch-mutant: MBAR_NOT_SWAPPED RED for the named reason -- SETMBAR said 0 and the tenant is foreground, but band 2 is still the shell fallback bar\n'
+	$(call appl-boot,flair_applmut_mbarmenu,$(BUILD)/flair_tenants_mut_tbx_mbar_not_swapped.img,$(FLAIR_DATA_IMG),FLAIR_APP_MENUBAR_SPEC,)
+	@if $(call APPL_MENU,$(BUILD)/flair_applmut_mbarmenu.serial); then printf '!!! test-flair-app-launch-mutant FAIL: MBAR_NOT_SWAPPED PASSED the MENU leg -- the menu oracle is decoration\n'; exit 1; fi
+	@grep -qx 'FLAIR-DISPATCH app=TENANTFX' $(BUILD)/flair_applmut_mbarmenu.serial && grep -q '^FLAIR-MENU-DROP menu=' $(BUILD)/flair_applmut_mbarmenu.serial && ! grep -q '^FLAIR-MENU-DROP menu=131$$' $(BUILD)/flair_applmut_mbarmenu.serial || { printf '!!! test-flair-app-launch-mutant FAIL: MBAR_NOT_SWAPPED went RED on the MENU leg for the wrong reason (want: the band-2 click dropped a menu, but NOT the tenant menu 131)\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|FLAIR-MENU|PANIC)' $(BUILD)/flair_applmut_mbarmenu.serial; exit 1; }
+	@printf '>>> test-flair-app-launch-mutant: MBAR_NOT_SWAPPED RED on the MENU leg too -- the band-2 click dropped %s, not the tenant menu 131\n' "$$(grep -m1 '^FLAIR-MENU-DROP' $(BUILD)/flair_applmut_mbarmenu.serial)"
+	$(call appl-boot,flair_applmut_mbarbounds,$(BUILD)/flair_tenants_mut_tbx_mbar_no_bounds.img,$(FLAIR_DATA_TFX_BADMBAR_IMG),FLAIR_APP_LAUNCH_SHOW_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@if $(call APPL_BADMBAR,$(BUILD)/flair_applmut_mbarbounds.serial); then printf '!!! test-flair-app-launch-mutant FAIL: MBAR_NO_BOUNDS PASSED the BADMBAR leg\n'; exit 1; fi
+	@grep -qx 'TENANT-GATE ax=0x0050 bar=+0xfff8 -> 0' $(BUILD)/flair_applmut_mbarbounds.serial && ! grep -q '^TENANT-SETMBAR-BAD why=bar-outside-image' $(BUILD)/flair_applmut_mbarbounds.serial || { printf '!!! test-flair-app-launch-mutant FAIL: MBAR_NO_BOUNDS went RED for the wrong reason (want: the PSP-resident MenuBar ACCEPTED, no bar-outside-image refusal)\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_applmut_mbarbounds.serial; exit 1; }
+	@if $(PPM_FLAIR_APPL_CHECK_BIN) bar-photoshop $(BUILD)/flair_applmut_mbarbounds.ppm >/dev/null 2>&1; then b2='band 2 still the fallback'; else b2='and the out-of-image bar REACHED band 2'; fi; \
+		printf '>>> test-flair-app-launch-mutant: MBAR_NO_BOUNDS RED for the named reason -- the MenuBar in the PSP below imageBase was accepted (-> 0, no TENANT-SETMBAR-BAD), %s\n' "$$b2"
+	@printf '>>> test-flair-app-launch-mutant: green (all six mutants RED for their named reasons)\n'
 
 # Rule 5: the CPU path (INT 81h gate, parameterized relocation, tenant call
 # trampoline, push-callback delivery, teardown) on QEMU vs Bochs, via the
@@ -19063,13 +19116,20 @@ RECORD_MARKER_new_folder          = FINDER-NEW-FOLDER name=NEWFOLD parent=0
 # reason the R3.3 clips use it: three double-clicks.
 RECORD_SPEC_app_launch   = $(FLAIR_APP_LAUNCH_SPEC)
 RECORD_MARKER_app_launch = TENANT-EXIT rc=0 via=exit
+# initech-cnpm (SETMBAR) clip: the disk tenant's OWN menu bar in band 2 is live
+# -- launch, drop its "Fixture" menu (read out of the tenant image), release,
+# click inside, clean exit, the Finder's bar comes back. Replays the LOCKED
+# FLAIR_APP_MENUBAR_SPEC; its marker is the completed menu round trip.
+RECORD_SPEC_app_menubar   = $(FLAIR_APP_MENUBAR_SPEC)
+RECORD_MARKER_app_menubar = FLAIR-MENU menu=131 item=0 (sel=0x00000000)
 # Per-script paint-settle override (tdnl.14): MEASURED, the default 120 ms raced
 # the Finder's selection-hilite and window-open paints on a loaded host (frames
 # 14/16/19 differed between two captures -- the repro check doing its job).
 # Only scripts that set RECORD_SETTLE_<script> change; every other clip keeps
 # the harness default and its existing repro sha.
 RECORD_SETTLE_app_launch = 400
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch
+RECORD_SETTLE_app_menubar = 400
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -19127,6 +19187,7 @@ RECORD_IMAGE_folder_nav          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_window_drag_persist = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_new_folder          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_launch          = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_app_menubar         = $(FLAIRTENANTS_RECORDDBL_IMG)
 
 .PHONY: record-flair
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG)

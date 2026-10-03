@@ -21,10 +21,21 @@
  *   - a fault inside the tenant image is triaged to FlairProcess_kill; every
  *     other fault still halts fail-loud (Part C item 7).
  *
+ * SETMBAR (bead initech-cnpm; spec/toolbox_gate.h Sec 9; D2.1 row 12): the
+ * tenant's MenuBar graph lives in its relocated image; v_setmbar validates the
+ * WHOLE graph against [imageBase, imageBase+imageLen) and installs the pointer
+ * as FlairApp.menubar. Band 2 itself is never drawn here: the pump's ONE swap
+ * path (kmain flair_live_finish_tenant_switch -> flair_live_tenant_bar) shows
+ * it at affirmation, and teardown's head change restores the survivor's bar.
+ *
  * Mutation knobs (Rule 6; each defined ONLY by its mutant image, NEVER in a
  * real build):
  *   TBX_MUT_NO_SLOT_GUARD  the one-slot check always says "free" (DOUBLE_LAUNCH)
  *   TBX_MUT_EXIT_LEAK      the code block is never freed on exit (EXIT_LEAK)
+ *   TBX_MUT_MBAR_NOT_SWAPPED  SETMBAR validates + returns 0 but never installs
+ *                          the bar (MBAR_NOT_SWAPPED: band 2 keeps the fallback)
+ *   TBX_MUT_MBAR_NO_BOUNDS SETMBAR's image-range checks compiled out
+ *                          (MBAR_NO_BOUNDS: an out-of-image bar is accepted)
  *
  * Freestanding (Law 3): no libc. ASCII-clean (Rule 12). Deterministic (Rule 11):
  * every serial number is a pure function of the boot's allocation order.
@@ -46,6 +57,22 @@
 #include "chicago8x16.h"     /* CHICAGO_CELL_W/H only -- the cells come from   */
 #include "text.h"            /* text_chicago_cell (text.o's ONE strike copy)   */
 #include "loader.h"          /* loader_load_tenant (-Ios/milton)               */
+#include "menu.h"            /* MenuBar/MenuInfo/MenuItem + the Sec 5 layout   */
+
+/* spec/toolbox_gate.h Sec 9 IS menu.h Sec 3's i386 layout: pin every offset
+ * the validator reads, so the locked ABI and the Menu Manager never drift. */
+_Static_assert(sizeof(MenuBar) == TBX_MBAR_BYTES, "MenuBar size (spec Sec 9)");
+_Static_assert(offsetof(MenuBar, menus) == TBX_MBAR_MENUS_OFF, "MenuBar.menus");
+_Static_assert(offsetof(MenuBar, n_menus) == TBX_MBAR_COUNT_OFF, "MenuBar.n_menus");
+_Static_assert(offsetof(MenuBar, has_apple) == TBX_MBAR_APPLE_OFF, "MenuBar.has_apple");
+_Static_assert(sizeof(MenuInfo) == TBX_MINFO_BYTES, "MenuInfo size (spec Sec 9)");
+_Static_assert(offsetof(MenuInfo, menuID) == TBX_MINFO_ID_OFF, "MenuInfo.menuID");
+_Static_assert(offsetof(MenuInfo, title) == TBX_MINFO_TITLE_OFF, "MenuInfo.title");
+_Static_assert(offsetof(MenuInfo, items) == TBX_MINFO_ITEMS_OFF, "MenuInfo.items");
+_Static_assert(offsetof(MenuInfo, n_items) == TBX_MINFO_COUNT_OFF, "MenuInfo.n_items");
+_Static_assert(sizeof(MenuItem) == TBX_MITEM_BYTES, "MenuItem size (spec Sec 9)");
+_Static_assert(offsetof(MenuItem, text) == TBX_MITEM_TEXT_OFF, "MenuItem.text");
+_Static_assert(CHICAGO_CELL_W == 8, "the Sec 9 width rule assumes the fixed 8-px Chicago cell");
 
 /* The two asm trampolines (os/milton/tbx_gate.asm). */
 extern int  tbx_tenant_call(uint32_t fn, uint32_t psp);
@@ -177,6 +204,11 @@ static int32_t image_str(uint32_t addr, uint32_t max)
 static uint32_t rd32(uint32_t addr)
 {
     return *(const volatile uint32_t *)(uintptr_t)addr;
+}
+
+static uint32_t rd16(uint32_t addr)
+{
+    return *(const volatile uint16_t *)(uintptr_t)addr;
 }
 
 /* ===========================================================================
@@ -495,6 +527,80 @@ static int32_t v_fillrect(const uint32_t *a)
     return TBX_OK;
 }
 
+/* SETMBAR (spec Sec 9; bead initech-cnpm). The image-range half of the
+ * validation goes through MB_IN so the MBAR_NO_BOUNDS mutant can compile
+ * exactly that half out and nothing else. */
+#ifndef TBX_MUT_MBAR_NO_BOUNDS
+#define MB_IN(a, n) in_image((a), (n))
+#else
+/* MUTANT TBX_MUT_MBAR_NO_BOUNDS (Rule 6; test-flair-app-launch-mutant): every
+ * image-range check of SETMBAR is true, so a bar outside the image is
+ * installed. NEVER in a real build. */
+#define MB_IN(a, n) ((void)(a), (void)(n), 1)
+#endif
+
+/* An ASCIZ string of at most TBX_MBAR_STR_MAX-1 chars wholly in the image:
+ * its length, or -1. */
+static int32_t mb_str(uint32_t a)
+{
+    for (uint32_t i = 0; i < TBX_MBAR_STR_MAX; i++) {
+        if (!MB_IN(a + i, 1u)) return -1;
+        if (*(const volatile uint8_t *)(uintptr_t)(a + i) == 0u)
+            return (int32_t)i;
+    }
+    return -1;
+}
+
+static int32_t mbar_bad(const char *why)
+{
+    tputs("TENANT-SETMBAR-BAD why=");
+    tputs(why);
+    tputs("\n");
+    return TBX_ERR_BADARG;
+}
+
+static int32_t v_setmbar(uint32_t bar)
+{
+    uint32_t menus, n, x;
+
+    if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
+    if (g_slot.win != (WindowRecord *)0) return TBX_ERR_BUSY;  /* Sec 9 V2 */
+    if (!MB_IN(bar, TBX_MBAR_BYTES)) return mbar_bad("bar-outside-image");
+    menus = rd32(bar + TBX_MBAR_MENUS_OFF);
+    n     = rd16(bar + TBX_MBAR_COUNT_OFF);
+    if (n > TBX_MBAR_MAX_MENUS) return mbar_bad("too-many-menus");
+    if (n != 0u && !MB_IN(menus, n * TBX_MINFO_BYTES))
+        return mbar_bad("menus-outside-image");
+    /* menu.h Sec 5: the Apple slot, then 8*len + 2*PAD per title. */
+    x = (*(const volatile uint8_t *)(uintptr_t)(bar + TBX_MBAR_APPLE_OFF) != 0u)
+            ? (uint32_t)FLAIR_MENU_APPLE_W : 0u;
+    for (uint32_t k = 0; k < n; k++) {
+        uint32_t m     = menus + k * TBX_MINFO_BYTES;
+        uint32_t items = rd32(m + TBX_MINFO_ITEMS_OFF);
+        uint32_t ni    = rd16(m + TBX_MINFO_COUNT_OFF);
+        int32_t  tl    = mb_str(rd32(m + TBX_MINFO_TITLE_OFF));
+        if ((int16_t)rd16(m + TBX_MINFO_ID_OFF) < 1) return mbar_bad("menu-id");
+        if (tl < 1) return mbar_bad("title");
+        x += (uint32_t)tl * CHICAGO_CELL_W + 2u * (uint32_t)FLAIR_MENU_TITLE_PAD;
+        if (ni > TBX_MBAR_MAX_ITEMS) return mbar_bad("too-many-items");
+        if (ni != 0u && !MB_IN(items, ni * TBX_MITEM_BYTES))
+            return mbar_bad("items-outside-image");
+        for (uint32_t i = 0; i < ni; i++)
+            if (mb_str(rd32(items + i * TBX_MITEM_BYTES + TBX_MITEM_TEXT_OFF)) < 0)
+                return mbar_bad("item-text");
+    }
+    if (x > (uint32_t)FLAIR_SCREEN_W) return mbar_bad("too-wide");
+#ifndef TBX_MUT_MBAR_NOT_SWAPPED
+    g_slot.app->menubar = (MenuBar *)(uintptr_t)bar;
+#else
+    /* MUTANT TBX_MUT_MBAR_NOT_SWAPPED (Rule 6; test-flair-app-launch-mutant):
+     * the bar validates and the call reports success, but it is never
+     * installed -- band 2 keeps the shell fallback bar while the tenant is
+     * foreground. NEVER in a real build. */
+#endif
+    return TBX_OK;
+}
+
 static int32_t v_exit(uint32_t rc)
 {
     if (g_slot.app == (FlairApp *)0) return TBX_ERR_NOTREG;
@@ -539,6 +645,7 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_TEXTDRAW:  argc = TBX_ARGC_TEXTDRAW;  break;
     case TBX_FILLRECT:  argc = TBX_ARGC_FILLRECT;  break;
     case TBX_EXIT:      argc = TBX_ARGC_EXIT;      break;
+    case TBX_SETMBAR:   argc = TBX_ARGC_SETMBAR;   break;
     default:            argc = 0u;                 break;
     }
     for (uint32_t i = 0; i < argc; i++)
@@ -555,6 +662,7 @@ void tbx_gate_dispatch(uint8_t *frame)
         case TBX_TEXTDRAW:  rc = v_textdraw(a);    break;
         case TBX_FILLRECT:  rc = v_fillrect(a);    break;
         case TBX_EXIT:      rc = v_exit(a[0]);     break;
+        case TBX_SETMBAR:   rc = v_setmbar(a[0]);  break;
         default:            rc = TBX_ERR_BADCODE;  break;
         }
     }
@@ -584,6 +692,10 @@ void tbx_gate_dispatch(uint8_t *frame)
         break;
     case TBX_EXIT:
         trace_int(" rc=", a[0]);
+        break;
+    case TBX_SETMBAR:
+        tputs(" bar=+0x");
+        tputx(a[0] - g_slot.plan.load_base, 4);
         break;
     default:
         break;

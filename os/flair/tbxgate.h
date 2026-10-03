@@ -26,6 +26,9 @@
  *   TENANT-SLOT-BUSY name=<8.3>
  *   TENANT-GATE ax=0x<code> <decoded args> -> <rc>
  *   TENANT-REGISTER ok app=<name>      | TENANT-REGISTER-BAD why=<reason>
+ *   TENANT-SETMBAR-BAD why=<reason>    (SETMBAR refused: the MenuBar graph is
+ *                                       not wholly in the image or breaks a
+ *                                       spec Sec 9 limit; bead initech-cnpm)
  *   TENANT-UNREGISTERED name=<8.3>     (entry returned without REGISTER)
  *   TENANT-EVT what=<n>                (one per push-callback delivery)
  *   TENANT-CRASH vec=<n> eip=+0x<image offset>
