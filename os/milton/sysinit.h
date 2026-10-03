@@ -43,8 +43,9 @@
 typedef void (*sysinit_serial_fn)(const char *s);
 
 /* PHASE 1 -- interrupt + syscall foundation (kmain.c original lines 431-467, IN
- * ORDER): pic_remap_and_mask -> "PIC" -> idt_init -> "IDT" -> bind int21 sink +
- * exit hook -> sft_init -> build the kernel PSP into *kernel_psp -> int21_set_psp
+ * ORDER): pic_remap_and_mask -> "PIC" -> idt_init -> "IDT" -> x87 bring-up
+ * ("FPU-INIT present cw=037F" | "FPU-INIT absent ..."; beads initech-zj6w,
+ * os/milton/fpu.h) -> bind int21 sink + exit hook -> sft_init -> build the kernel PSP into *kernel_psp -> int21_set_psp
  * -> install the 0x21 + 0x20 trap gates -> "INT21". `sink` and `exit_hook` are the
  * kernel's CON glue; `kernel_psp` is the kernel-context PSP (BSS, outlives the
  * call). `serial` emits the markers. NO `sti` here (IF stays 0 this phase). */
