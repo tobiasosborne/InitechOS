@@ -19535,8 +19535,9 @@ RECORD_MARKER_icon_dragdrop = DESKTOP-DB-SAVE n=2
 # $(FLAIRTENANTS_RECORD_IMG), the widened-budget tenants variant -- for exactly
 # the reason the R3.2 clips do: folder_nav alone is 36 injected events and the
 # per-frame --record settle would blow the default FLAIR_TEN_TICK_BUDGET=250
-# pump window (and, for the two traces that DRAG a window, the default
-# FLAIR_LIVE_DRAG_TRACK_TICKS=150 guard as well -- the record image widens both).
+# pump window. (The two traces that DRAG a window also used to need the
+# per-gesture FLAIR_LIVE_DRAG_TRACK_TICKS=150 guard widened; since bead
+# initech-tdnl.59 a gesture is tracked until mouseUp within the image's life.)
 #   folder_nav           the flagship clip of this slice: the volume opens into
 #                        a real window, a folder inside it opens into a second
 #                        window, that window is dragged clear, and re-opening the
@@ -19608,10 +19609,11 @@ RECORD_SETTLE_app_menubar = 400
 # acceptance clip -- titled windows (HELLO, NOTES) under band 2's Photoshop bar
 # and TWO held gestures, each a cancel (nothing dispatched): (1) Image dropped
 # and dragged across Layer and Select, released on the Select title; (2) Window
-# dropped, its first item hilited, released below the panel. The live track
-# loop is bounded to ~1.5 s per gesture (kmain.c guard 150 ticks) and every
-# recorded frame costs a settle + grab, so each gesture holds only three events
-# (MEASURED: a six-event gesture ran out of guard before its hilite). The paint
+# dropped, its first item hilited, released below the panel. When recorded the
+# live track loop was bounded to ~1.5 s per gesture (kmain.c guard 150 ticks;
+# removed by bead initech-tdnl.59 -- a gesture now tracks until mouseUp) and
+# every recorded frame costs a settle + grab, so each gesture holds only three
+# events (MEASURED then: a six-event gesture ran out of guard). The paint
 # settle is 200 ms because a cross-title switch (erase + DQ2 restore + new
 # panel + present) raced the 120 ms default (MEASURED: one frame differed
 # between two captures). Waypoints (screen, y down; band-2 slots derived from
@@ -19638,7 +19640,16 @@ RECORD_SPEC_modifier_release   = $(FLAIR_MODREL_SPEC)
 RECORD_MARKER_modifier_release = FINDER-NEW-FOLDER name=NEWFOLD parent=0
 RECORD_IMAGE_modifier_release  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_modifier_release = 400
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release
+# held_menu (bead initech-tdnl.59, audit G01; Rule 14): README.TXT dragged with
+# a 3 s hold mid-drag, then onto APPS (it moves in); the Finder's File menu
+# held open 3 s on New Folder -- it stays dropped and nothing executes -- then
+# Close Window chosen on release. Replays FLAIR_HELD_MENU_SPEC on the
+# DOUBLE-CLICK record image (it opens the volume).
+RECORD_SPEC_held_menu   = $(FLAIR_HELD_MENU_SPEC)
+RECORD_MARKER_held_menu = FINDER-CLOSE-WINDOW win=0
+RECORD_IMAGE_held_menu  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_SETTLE_held_menu = 400
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -19646,7 +19657,7 @@ RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp soli
 # Reuses the kmain-variant template; "mut_" in the artifact name is the
 # template's naming -- this knob widens a demo bound, it mutates NO behavior
 # the oracles grade (the default image stays byte-identical, budget 250).
-$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000 -DFLAIR_LIVE_DRAG_TRACK_TICKS=3000,record))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000,record))
 FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 
 # The DOUBLE-CLICK record image (bead initech-tdnl.10). A SECOND record variant
@@ -24452,6 +24463,78 @@ test-flair-modifier-release-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_se
 	@printf '>>> test-flair-modifier-release-mutant: RED as required -- %s\n' "$$(grep -m1 '^FINDER-CMD ' "$(BUILD)/flair_modrel_mut.serial" || echo 'no FINDER-CMD')"
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-flair-held-gestures (bead initech-tdnl.59; audit G01).
+# Two boots of the HOLD image (the bounded tenants kernel with ONLY its pump
+# life widened, -DFLAIR_TEN_TICK_BUDGET=1500, ~15 s: a 3 s hold cannot fit the
+# default 250-tick demo; it mutates no behaviour the oracle grades -- the same
+# knob the record image turns), each with a fresh data copy:
+#   HELD-DRAG  FLAIR_HELD_DRAG_SPEC: HELLO's title dragged in two legs with a
+#              3 s hold between, then its grow box the same way. Asserts the
+#              committed geometry covers BOTH legs:
+#                FLAIR-DRAG win <n> (60,60)->(190,170)
+#                FLAIR-GROW win <n> (300,200)->(180,120)
+#   HELD-MENU  FLAIR_HELD_MENU_SPEC: README.TXT dragged with a 3 s hold, then
+#              onto APPS (FINDER-MOVE name=README.TXT from=0 to=3); then the
+#              Finder's File menu held 3 s on New Folder, moved to Close
+#              Window and released: FINDER-CMD id=4 name=CLOSE_WINDOW
+#              src=mouse, NO New Folder, and the menu's mouseUp is cooked
+#              BEFORE its FLAIR-MENU result line (the track ended on the
+#              release, not on a timer).
+#   Neither boot may print FLAIR-TRACK-EXPIRED (no gesture overran the image).
+# Mutation-proven by test-flair-held-gestures-mutant: the same two boots on
+# the hold image built -DKMAIN_MUT_TRACK_TIMEOUT (the pre-fix 150-tick guard
+# that commits) must each fail.
+# ---------------------------------------------------------------------------
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1500,hold))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1500 -DKMAIN_MUT_TRACK_TIMEOUT,hold_timeout))
+FLAIRTENANTS_HOLD_IMG := $(BUILD)/flair_tenants_mut_hold.img
+FLAIRTENANTS_HOLD_MUT_IMG := $(BUILD)/flair_tenants_mut_hold_timeout.img
+held-drag-check = ! grep -q '^FLAIR-TRACK-EXPIRED' $(1) \
+	&& grep -Eq '^FLAIR-DRAG win [0-9]+ \(60,60\)->\(190,170\)$$' $(1) \
+	&& grep -Eq '^FLAIR-GROW win [0-9]+ \(300,200\)->\(180,120\)$$' $(1)
+held-menu-check = ! grep -q '^FLAIR-TRACK-EXPIRED' $(1) \
+	&& grep -qxF 'FINDER-MOVE name=README.TXT from=0 to=3' $(1) \
+	&& grep -Eq '^FINDER-CMD id=4 name=CLOSE_WINDOW src=mouse ' $(1) \
+	&& ! grep -q '^FINDER-CMD id=2 ' $(1) \
+	&& awk '/^FLAIR-MENU-DROP /{d=1;u=0} d&&/^FLAIR-EVT what=2 /{u=1} d&&/^FLAIR-MENU menu=/{ok=u; d=0} END{exit !ok}' $(1)
+# $(call held-boot,<image>,<name>,<trace var NAME>,<quit marker>)
+define held-boot
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(2)_data.img
+	@$(HARNESS_BIN) --disk "$(1)" --disk2 "$(BUILD)/$(2)_data.img" --expect FLAIR-FAT-MOUNT-OK \
+		--name "$(2)" --out "$(BUILD)" --mouse "$($(3))" --keys-after "FLAIR-LIVE-READY" \
+		--quit-after "$(4)" --timeout-ms 40000 2> "$(BUILD)/$(2).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(2).report"; then printf '!!! %s: TRIPLE FAULT\n' "$(2)"; exit 1; fi
+endef
+
+.PHONY: test-flair-held-gestures test-flair-held-gestures-mutant
+test-flair-held-gestures: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-held-gestures : gestures track until mouseUp (G01)\n'
+	@printf '  bead initech-tdnl.59; traces FLAIR_HELD_DRAG_SPEC / FLAIR_HELD_MENU_SPEC\n'
+	@printf '======================================================================\n'
+	$(call held-boot,$(FLAIRTENANTS_HOLD_IMG),flair_held_drag,FLAIR_HELD_DRAG_SPEC,FLAIR-GROW win)
+	@$(call held-drag-check,"$(BUILD)/flair_held_drag.serial") || { printf '!!! test-flair-held-gestures FAIL: HELD-DRAG -- a 3 s hold cut the drag/grow short (want (60,60)->(190,170) and (300,200)->(180,120), no FLAIR-TRACK-EXPIRED)\n'; grep -E '^FLAIR-(DRAG|GROW|TRACK|EVT what=[12])' "$(BUILD)/flair_held_drag.serial"; exit 1; }
+	@printf '>>> test-flair-held-gestures [1/2]: HELD-DRAG -- %s ; %s\n' "$$(grep -m1 '^FLAIR-DRAG' $(BUILD)/flair_held_drag.serial)" "$$(grep -m1 '^FLAIR-GROW' $(BUILD)/flair_held_drag.serial)"
+	$(call held-boot,$(FLAIRTENANTS_HOLD_IMG),flair_held_menu,FLAIR_HELD_MENU_SPEC,FINDER-CLOSE-WINDOW win=0)
+	@$(call held-menu-check,"$(BUILD)/flair_held_menu.serial") || { printf '!!! test-flair-held-gestures FAIL: HELD-MENU -- a 3 s hold executed the hovered item or ended the drag/menu before release\n'; grep -E '^(FINDER-|FLAIR-MENU|FLAIR-TRACK|FLAIR-EVT what=[12])' "$(BUILD)/flair_held_menu.serial"; exit 1; }
+	@printf '>>> test-flair-held-gestures [2/2]: HELD-MENU -- icon drag reached APPS; the held File menu chose Close Window on release, never New Folder\n'
+	@printf '>>> test-flair-held-gestures: green\n'
+
+test-flair-held-gestures-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_MUT_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-held-gestures-mutant : Rule 6\n'
+	@printf '  Mutant: -DKMAIN_MUT_TRACK_TIMEOUT (the pre-tdnl.59 150-tick guard that commits)\n'
+	@printf '======================================================================\n'
+	$(call held-boot,$(FLAIRTENANTS_HOLD_MUT_IMG),flair_held_drag_mut,FLAIR_HELD_DRAG_SPEC,FLAIR-GROW win)
+	@grep -q '^FLAIR-DRAG win' "$(BUILD)/flair_held_drag_mut.serial" || { printf '!!! test-flair-held-gestures-mutant: HELD-DRAG mutant made no drag (not comparable)\n'; exit 1; }
+	@if $(call held-drag-check,"$(BUILD)/flair_held_drag_mut.serial"); then printf '!!! test-flair-held-gestures-mutant FAIL: HELD-DRAG passed on the timeout mutant -- decoration\n'; exit 1; fi
+	@printf '>>> test-flair-held-gestures-mutant [1/2]: RED as required -- %s\n' "$$(grep -m1 '^FLAIR-DRAG' $(BUILD)/flair_held_drag_mut.serial)"
+	$(call held-boot,$(FLAIRTENANTS_HOLD_MUT_IMG),flair_held_menu_mut,FLAIR_HELD_MENU_SPEC,FLAIR-LIVE-OK)
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_held_menu_mut.serial" || { printf '!!! test-flair-held-gestures-mutant: HELD-MENU mutant never opened the root (not comparable)\n'; exit 1; }
+	@if $(call held-menu-check,"$(BUILD)/flair_held_menu_mut.serial"); then printf '!!! test-flair-held-gestures-mutant FAIL: HELD-MENU passed on the timeout mutant -- decoration\n'; exit 1; fi
+	@printf '>>> test-flair-held-gestures-mutant [2/2]: RED as required -- %s\n' "$$(grep -E -m1 '^FINDER-(CMD|MOVE|WIN-DRAG)' $(BUILD)/flair_held_menu_mut.serial || echo 'no command')"
+
+# ---------------------------------------------------------------------------
 # Aggregate green gate vector (beads initech-4mc)
 # ---------------------------------------------------------------------------
 # The single command that asserts "InitechDOS is rock solid". Runs the entire
@@ -25615,6 +25698,7 @@ TEST_EMU_GATES := \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-modifier-release test-flair-modifier-release-mutant \
+	test-flair-held-gestures test-flair-held-gestures-mutant \
 	test-flair-solid test-flair-solid-mutant \
 	test-flair-zoom-toggle test-flair-grow test-flair-collapse \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant

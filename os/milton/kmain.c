@@ -1619,6 +1619,62 @@ static void flair_live_drag_delta(const flair_live_ctx_t *ctx, WindowPtr w,
 #endif
 }
 
+/* GESTURE TRACKING BOUND (bead initech-tdnl.59; audit G01, REPORT.md: "Menus
+ * and window drags expire while the mouse button is still down").
+ *
+ * Every tracking loop below (window drag, modal drag, grow, menu, Finder
+ * icon drag / rubber band, and the close/zoom/collapse box trackers) runs
+ * until the mouseUp, like the Toolbox it imitates: MenuSelect, DragWindow,
+ * GrowWindow and TrackGoAway all return only "when the mouse button is
+ * released" (system7-decomp specs/toolbox/window-manager.md Sec 5;
+ * audit evidence/references/window-manager.md). Each loop used to stop at a
+ * fixed 150-tick (~1.5 s) guard and then COMMIT what it had: a held menu
+ * selected the hovered item, a slow drag dropped the window halfway.
+ *
+ * Why there was a guard at all: the gate and record images are BOUNDED
+ * (FLAIR_TEN_TICK_BUDGET / FLAIR_LIVE_TICK_BUDGET, then FLAIR-LIVE-OK and a
+ * halt for a stable screendump, Rule 11), and a tracking loop that never sees
+ * a mouseUp would hold such an image open past its life. That safety stays,
+ * scoped to where it belongs:
+ *   - FLAIR_LIVE_INTERACTIVE (the operator's desktop): NO bound. A lost
+ *     release cannot wedge it either -- the button state rides in every PS/2
+ *     packet, so the next packet after a dropped one still cooks the mouseUp.
+ *   - bounded images: the gesture may run until the image's own life ends
+ *     (or 150 ticks after it began, whichever is later, so a gesture begun
+ *     just before the end still completes as it always did); past that it
+ *     is CANCELLED -- never committed -- and FLAIR-TRACK-EXPIRED goes to
+ *     serial so a gate that overran its image fails loud.
+ * KMAIN_MUT_TRACK_TIMEOUT (Rule 6; test-flair-held-gestures-mutant) restores
+ * the old rule: stop 150 ticks after the press and commit. NEVER define in a
+ * real build. */
+#if !defined(FLAIR_LIVE_INTERACTIVE) && !defined(KMAIN_MUT_TRACK_TIMEOUT)
+static uint32_t g_flair_live_life_end;   /* tick at which the bounded pump ends */
+#define FLAIR_LIVE_ARM_LIFE(t) (g_flair_live_life_end = (uint32_t)(t))
+#else
+#define FLAIR_LIVE_ARM_LIFE(t) ((void)(t))
+#endif
+
+/* Returns nonzero when the loop must stop without a mouseUp; *cancel then
+ * says whether the gesture is abandoned (1) or committed as tracked (0). */
+static int flair_live_track_cut(uint32_t t0, int *cancel)
+{
+#if defined(KMAIN_MUT_TRACK_TIMEOUT)
+    *cancel = 0;
+    return (flair_tick_count() - t0) >= 150u;
+#elif defined(FLAIR_LIVE_INTERACTIVE)
+    (void)t0;
+    *cancel = 0;
+    return 0;
+#else
+    uint32_t now = flair_tick_count();
+    if ((int32_t)(now - g_flair_live_life_end) < 0 || (now - t0) < 150u)
+        return 0;
+    *cancel = 1;
+    serial_puts("FLAIR-TRACK-EXPIRED\n");
+    return 1;
+#endif
+}
+
 /* FO-7/R1.3 inDrag dispatch: track a period gray outline, then move ONCE on
  * release + minimal-repaint + present.
  *
@@ -1626,7 +1682,7 @@ static void flair_live_drag_delta(const flair_live_ctx_t *ctx, WindowPtr w,
  * mouse-up: WaitNextEvent updates the global cursor on EVERY raw mouse move (a
  * pure move cooks to nullEvent so it is NOT delivered, but the cursor still
  * advances) and DELIVERS the mouseUp with `where` == the final cursor. So we
- * re-enter WaitNextEvent until mouseUp (bounded by a tick guard, Rule 11) and sum
+ * re-enter WaitNextEvent until mouseUp (flair_live_track_cut, tdnl.59) and sum
  * the net (dh,dv). Then DragWindow translates the window + accrues the D-5 damage
  * (the vacated desktop into desktop_update, any re-exposed window behind into its
  * updateRgn); WindowMgr_invalidate seeds the moved window's OWN repaint (MoveWindow
@@ -1638,14 +1694,8 @@ static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
 {
     EventRecord up;
     flair_point_t where1 = where0;
-/* Bounded drag wait: -D-overridable like the tick budgets (initech-l9cd) --
- * record-mode per-frame dumps stretch a modal drag past 1.5 s, completing the
- * drag EARLY (3 of 5 moves: the clamp clip's first honest catch). Default 150
- * stays byte-identical; the RECORD image widens it with the live budget. */
-#ifndef FLAIR_LIVE_DRAG_TRACK_TICKS
-#define FLAIR_LIVE_DRAG_TRACK_TICKS 150u              /* ~1.5 s @100 Hz */
-#endif
-    uint32_t guard = flair_tick_count() + FLAIR_LIVE_DRAG_TRACK_TICKS;
+    uint32_t t0 = flair_tick_count();   /* tracking bound: flair_live_track_cut */
+    int cancel = 0;
     rgn_rect_t before, after;
     rgn_rect_t outline_base, outline_now;
     int16_t dh, dv;
@@ -1680,11 +1730,12 @@ static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
             }
         }
         if (g && up.what == (uint16_t)mouseUp) break;
-        if (flair_tick_count() >= guard) { break; }
+        if (flair_live_track_cut(t0, &cancel)) break;
     }
 
     flair_live_outline_restore(&ctx->off);
     flair_live_drag_delta(ctx, w, where0, where1, &dh, &dv);
+    if (cancel) { dh = 0; dv = 0; }   /* expired bounded gesture: no move */
 
 #ifndef FLAIR_LIVE_MUTATE_DRAG_NOOP
     if (dh != 0 || dv != 0) {
@@ -1736,13 +1787,13 @@ static void flair_live_do_modal_drag(flair_live_ctx_t *ctx,
     flair_point_t where1 = where0;
     rgn_rect_t old_bounds;
     rgn_rect_t next;
-    uint32_t guard;
+    uint32_t t0 = flair_tick_count();
+    int cancel = 0;
     int16_t dh;
     int16_t dv;
 
     if (dp == (DialogPtr)0) return;
     old_bounds = region_get_bbox(dp->window.strucRgn);
-    guard = flair_tick_count() + FLAIR_LIVE_DRAG_TRACK_TICKS;
 
     for (;;) {
         int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &up, 3u);
@@ -1750,9 +1801,10 @@ static void flair_live_do_modal_drag(flair_live_ctx_t *ctx,
         if (got) flair_live_emit_evt(&up);
         where1 = up.where;
         if (got && up.what == (uint16_t)mouseUp) break;
-        if (flair_tick_count() >= guard) break;
+        if (flair_live_track_cut(t0, &cancel)) break;
     }
 
+    if (cancel) where1 = where0;   /* expired bounded gesture: no move */
     dh = (int16_t)(where1.h - where0.h);
     dv = (int16_t)(where1.v - where0.v);
     next = old_bounds;
@@ -1934,7 +1986,8 @@ static void flair_live_do_grow(flair_live_ctx_t *ctx, const boot_info_t *bi,
     int16_t old_h = (int16_t)(before.bottom - before.top);
     int16_t width = old_w;
     int16_t height = old_h;
-    uint32_t guard = flair_tick_count() + FLAIR_LIVE_DRAG_TRACK_TICKS;
+    uint32_t t0 = flair_tick_count();
+    int cancel = 0;
     int wid = flair_live_window_index(ctx, w);
 
     flair_live_outline_draw(&ctx->off, outline_now);
@@ -1959,10 +2012,11 @@ static void flair_live_do_grow(flair_live_ctx_t *ctx, const boot_info_t *bi,
             }
         }
         if (g && up.what == (uint16_t)mouseUp) break;
-        if (flair_tick_count() >= guard) break;
+        if (flair_live_track_cut(t0, &cancel)) break;
     }
 
     flair_live_outline_restore(&ctx->off);
+    if (cancel) where1 = where0;   /* expired bounded gesture: no resize */
     width = (int16_t)(old_w + where1.h - where0.h);
     height = (int16_t)(old_h + where1.v - where0.v);
     ConstrainWindowSize(ctx->wm, w, &width, &height);
@@ -2175,12 +2229,13 @@ static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *
     /* TRACK: collect the cursor points (deduped, bounded) until mouseUp, re-hiliting
      * the item under the cursor as it moves. A pure move cooks to nullEvent (got=0)
      * but WaitNextEvent still stamps `where` with the advanced cursor (the drag
-     * idiom). Bounded by a tick guard (Rule 11) in case mouseUp never arrives. */
+     * idiom), until mouseUp (flair_live_track_cut, bead initech-tdnl.59). */
     flair_point_t pts[FLAIR_MENU_TRACK_MAX];
     int n = 0;
     int last_mi = mi;   /* the menu whose panel is CURRENTLY on screen (the drop) */
     int last_hi = -1;
-    uint32_t guard = flair_tick_count() + 150u;   /* ~1.5 s bound */
+    uint32_t t0 = flair_tick_count();
+    int cancel = 0;
     for (;;) {
         EventRecord mev;
         int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &mev, 3u);
@@ -2242,7 +2297,7 @@ static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *
         if (got && mev.what == (uint16_t)mouseUp) {
             break;
         }
-        if (flair_tick_count() >= guard) {
+        if (flair_live_track_cut(t0, &cancel)) {
             break;
         }
     }
@@ -2250,7 +2305,8 @@ static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *
     /* SELECT: the IM (menuID<<16|item) result from the tracked sequence (the
      * release is pts[n-1]). The live loop already drew the release-point hilite;
      * close that current panel for both selection and cancel through DQ2. */
-    uint32_t sel = MenuSelect(bar, menu_where0, pts, n);
+    /* An expired bounded gesture selects nothing (flair_live_track_cut). */
+    uint32_t sel = cancel ? 0u : MenuSelect(bar, menu_where0, pts, n);
     int sel_item = (int)MenuResultItem(sel);
 #ifndef KMAIN_MUT_MENU_NO_RESTORE
     flair_live_erase_menu_panel(ctx, bar, last_mi, y_top);
@@ -3348,8 +3404,8 @@ static int finder_surface_drop(flair_live_ctx_t *ctx, const boot_info_t *bi,
 }
 
 /* One mouseDown on a Finder surface, tracked to mouseUp (the flair_live_do_drag
- * idiom: re-enter WaitNextEvent until release, bounded by a tick guard,
- * Rule 11).
+ * idiom: re-enter WaitNextEvent until release; flair_live_track_cut,
+ * bead initech-tdnl.59).
  *
  * Feedback is the R0.1 save-under outline -- there is no XOR blit in FLAIR
  * (design F2-5) -- and it is drawn ONLY once the gesture passes the drag slop,
@@ -3372,7 +3428,8 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
     EventRecord    up;
     flair_point_t  where0;
     flair_point_t  where1;
-    uint32_t       guard;
+    uint32_t       t0;
+    int            cancel = 0;
     rgn_rect_t     outline_now;
     int            outline_live = 0;
     int            moved = 0;
@@ -3386,7 +3443,7 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
     where0 = ev->where;
     where1 = where0;
     idx    = finder_desk_hit(fd, where0.h, where0.v);
-    guard  = flair_tick_count() + FLAIR_LIVE_DRAG_TRACK_TICKS;
+    t0     = flair_tick_count();
     outline_now.top = 0; outline_now.left = 0;
     outline_now.bottom = 0; outline_now.right = 0;
 
@@ -3466,12 +3523,24 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
         }
 
         if (g && up.what == (uint16_t)mouseUp) break;
-        if (flair_tick_count() >= guard) break;
+        if (flair_live_track_cut(t0, &cancel)) break;
     }
 
     if (outline_live) {
         flair_live_outline_restore(&ctx->off);
         flair_desktop_present(bi, &ctx->off);
+    }
+    if (cancel) {
+        /* An expired bounded gesture is abandoned: unlight any drop target
+         * and change nothing else (flair_live_track_cut). */
+        if (g_finder_shell != (finder_shell_t *)0) {
+            finder_tgt_t none;
+            none.kind = (uint8_t)FINDER_TGT_NONE; none.slot = -1;
+            none.idx = -1; none.dir = 0u;
+            if (finder_ops_track_hilite(g_finder_shell, &hl, &none))
+                finder_desk_repaint(ctx, bi);
+        }
+        return;
     }
 
     if (!moved && idx < 0) {
@@ -4640,6 +4709,7 @@ void kernel_main(void)
         uint32_t start = flair_tick_count();
         uint32_t last  = start;
         uint32_t seen  = 0u;
+        FLAIR_LIVE_ARM_LIFE(start + (uint32_t)FLAIR_TEN_TICK_BUDGET);
 
         /* Ref: bead initech-4w15. The TOP System-7 shell bar (bar_sys, rows
          * [0, FLAIR_MENUBAR_H)) is SHELL-OWNED and STATIC -- shell_render draws
@@ -4889,6 +4959,7 @@ void kernel_main(void)
         uint32_t start = flair_tick_count();
         uint32_t last  = start;
         uint32_t seen  = 0u;
+        FLAIR_LIVE_ARM_LIFE(start + (uint32_t)FLAIR_LIVE_TICK_BUDGET);
 
         /* INTERACTIVE: run until power-off (the operator drags windows + uses menus
          * with a visible cursor). DEFAULT (gate): bounded by FLAIR_LIVE_TICK_BUDGET

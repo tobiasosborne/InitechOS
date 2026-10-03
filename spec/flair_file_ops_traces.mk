@@ -130,8 +130,10 @@ FLAIR_FILEOPS_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,
 #    (APPS highlighted, the other icons not, the gray outline on screen).
 # ===========================================================================
 # Trace 1 steps A-B, then l1 ; m34:0 ; m34:0 -> (123,102), and NO release:
-# the dump is taken while the drag loop is live (FLAIR_LIVE_DRAG_TRACK_TICKS
-# then ends it; that later drop is not graded by this leg). No park: the
+# the dump is taken while the drag loop is live (since bead initech-tdnl.59
+# the bounded image's life end then CANCELS the held drag -- FLAIR-TRACK-
+# EXPIRED, nothing dropped; before, a 150-tick guard committed it; neither is
+# graded by this leg). No park: the
 # pointer IS the subject of this frame, and the grader's probes avoid its
 # 16x16 footprint at (123,102)..(139,118).
 #   outline: README's cell translated by (+68,0); its top edge is row y=86

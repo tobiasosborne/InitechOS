@@ -802,7 +802,7 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
              * emitted in response to a move while that button remains held.
              * Wait at precisely those event boundaries so the screenshot is
              * taken before the next token can change/close the panel. The
-             * bounded wait is below the live menu tracker's 1.5 s guard. */
+             * bounded wait is a harness budget only (tdnl.59: the live tracker holds to mouseUp). */
             if (capture_is_menu_drop(cap) && is_left_down) {
                 capture_wait_after_event(cap, 750);
             } else if (capture_is_menu_xdrop(cap) && is_move && left_down) {
