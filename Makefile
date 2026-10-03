@@ -24380,6 +24380,7 @@ TEST_UNIT_GATES := \
 	test-dialog-record test-dialog-record-mutant test-drawing-ops test-drawing-ops-mutant \
 	test-clut test-clut-mutant \
 	test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant test-chicago-art test-chicago-art-mutant \
+	test-finder-ops test-finder-ops-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \
@@ -25503,6 +25504,7 @@ TEST_EMU_GATES := \
 	test-flair-desktop-icons test-flair-desktop-icons-mutant test-flair-desktop-icons-bochs \
 	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
+	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-solid test-flair-solid-mutant \
 	test-flair-zoom-toggle test-flair-grow test-flair-collapse \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant
