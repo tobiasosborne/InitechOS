@@ -165,10 +165,18 @@ static inline int chicago12_index(int c)
     return c - CHICAGO_FIRST;
 }
 
-/* The pen advance of byte c (the owTable aw). */
+/* The pen advance of byte c (the owTable aw): THE one advance accessor
+ * every Chicago consumer reaches (text.h, window.c titleWidth).
+ * CHICAGO_MUT_ONE_ADVANCE=<code> (Rule 6; the font mutants) widens ONE
+ * glyph by 1 px in measure AND draw; NEVER in a real build. */
 static inline int chicago12_advance(int c)
 {
-    return (int)chicago12_aw[chicago12_index(c)];
+    int aw = (int)chicago12_aw[chicago12_index(c)];
+#if defined(CHICAGO_MUT_ONE_ADVANCE)
+    if (c == (CHICAGO_MUT_ONE_ADVANCE))
+        aw += 1;
+#endif
+    return aw;
 }
 
 #endif /* INITECH_CHICAGO12_H */

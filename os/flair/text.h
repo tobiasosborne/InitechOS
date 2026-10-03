@@ -96,7 +96,8 @@ typedef enum text_font {
  *
  * chicago_advance(c) -- the pen advance (NFNT owTable aw); the opaque cell
  *   width. CHICAGO_MUT_ONE_ADVANCE=<code> (Rule 6; the font mutants of
- *   test-chicago-metrics / test-chrome-fidelity / the re-keyed layout gates)
+ *   test-chicago-metrics / test-chrome-fidelity / the re-keyed layout gates,
+ *   hooked in chicago12.h's chicago12_advance so window.c is covered too)
  *   widens ONE glyph by 1 px in measure AND draw; NEVER in a real build.
  * chicago_bearing(c) -- the left bearing (owTable lb): image column 0 sits at
  *   pen + lb.
@@ -105,12 +106,7 @@ typedef enum text_font {
  * -------------------------------------------------------------------------- */
 static inline int chicago_advance(int c)
 {
-    int aw = chicago12_advance(c);
-#if defined(CHICAGO_MUT_ONE_ADVANCE)
-    if (c == (CHICAGO_MUT_ONE_ADVANCE))
-        aw += 1;
-#endif
-    return aw;
+    return chicago12_advance(c);   /* the mutant hook lives there */
 }
 
 static inline int chicago_bearing(int c)

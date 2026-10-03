@@ -19288,23 +19288,22 @@ RECORD_SETTLE_app_launch = 400
 RECORD_SETTLE_app_menubar = 400
 # chicago_menus (bead initech-tdnl.33, Rule 14): the proportional Chicago 12
 # acceptance clip -- titled windows (HELLO, NOTES) under band 2's Photoshop bar,
-# a held pull-down dragged across EVERY title so each panel's items drop in
-# turn, an item hilite, then a release back on a title (a cancel: nothing is
-# dispatched). Waypoints (screen, y down; proportional slots derived from the
-# REAL NFNT 5478 advances, no Apple slot in band 2: File[0,37) Edit[37,76)
-# Image[76,132) Layer[132,183) Select[183,237) View[237,283) Window[283,349)
-# Help[349,391), y in [20,40)):
+# a held pull-down dragged across four titles so each panel drops in turn, an
+# item hilite, then a release back on a title (a cancel: nothing dispatched).
+# The live track loop is bounded to ~1.5 s (kmain.c guard 150 ticks), so the
+# held gesture is kept to six events at the default paint settle. Waypoints
+# (screen, y down; band-2 slots derived from the REAL NFNT 5478 advances, no
+# Apple slot: File[0,37) Edit[37,76) Image[76,132) Layer[132,183)
+# Select[183,237) View[237,283) Window[283,349) Help[349,391), y in [20,40)):
 #   (320,240) -m-100:-100,m-100:-100,m-20:-10-> (100,30) Image ; l1 (DROP 258)
-#   m50:0 x4 -> (150,30) Layer, (200,30) Select, (250,30) View, (300,30) Window
-#   m60:0 -> (360,30) Help ; m-60:0 -> (300,30) Window
-#   m0:60 -> (300,90): Window panel item row (hilite) ; m0:-60 -> (300,30)
-#   l0 on the Window title -> MenuSelect cancel, sel=0 (the logged menu= is the
+#   m50:0 x3 -> (150,30) Layer, (200,30) Select, (250,30) View (XDROP 259..261)
+#   m0:20 -> (250,50): View item 1 row [41,57) hilited ; m0:-20 -> (250,30)
+#   l0 on the View title -> MenuSelect cancel, sel=0 (the logged menu= is the
 #   originally clicked Image, 258 -- the kmain log quirk)
-#   PARK (300,30) -> (620,460): m100:100 x3 -> (600,330), m20:100 -> (620,430),
+#   PARK (250,30) -> (620,460): m100:100 x3 -> (550,330), m70:100 -> (620,430),
 #   m0:30 -> (620,460).
-RECORD_SPEC_chicago_menus   = m-100:-100,m-100:-100,m-20:-10,l1,m50:0,m50:0,m50:0,m50:0,m60:0,m-60:0,m0:60,m0:-60,l0,m100:100,m100:100,m100:100,m20:100,m0:30
+RECORD_SPEC_chicago_menus   = m-100:-100,m-100:-100,m-20:-10,l1,m50:0,m50:0,m50:0,m0:20,m0:-20,l0,m100:100,m100:100,m100:100,m70:100,m0:30
 RECORD_MARKER_chicago_menus = FLAIR-MENU menu=258 item=0 (sel=0x00000000)
-RECORD_SETTLE_chicago_menus = 400
 RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar chicago_menus
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
