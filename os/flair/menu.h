@@ -89,7 +89,10 @@
 #define FLAIR_MENU_APPLE_W       FLAIR_MENUBAR_H
 
 /* Vertical inset of the title baseline cell inside the 20px bar so Chicago text
- * (CHICAGO_CELL_H = 16) is vertically centered: (20 - 16) / 2 = 2. */
+ * (CHICAGO_CELL_H = 16) is vertically centered: (20 - 16) / 2 = 2. With the
+ * NFNT 5478 ascent of 12 the baseline lands on bar row 14 and the 9-row caps on
+ * rows 5..13 -- the rows real System 7 uses (goldens/captures/s7_menu_file.png:
+ * "Edit" ink rows 5..13; initech-tdnl.33). */
 #define FLAIR_MENU_TITLE_VPAD    ((FLAIR_MENUBAR_H - 16) / 2)
 
 /* ===========================================================================
@@ -104,6 +107,10 @@
 #define FLAIR_MENU_ITEM_H        16   /* sys8/menus.md Sec 2.2                  */
 #define FLAIR_MENU_ITEM_LPAD     20   /* panel-left -> item text, Sec 2.2       */
 #define FLAIR_MENU_ITEM_RPAD     12   /* no-command trailing pad                */
+/* Item text CAP TOP inside the item rect (sys8/menus.md Sec 2.2: "text top
+ * inside an item rect +2", text top 23 = rect top 21 + 2). The Chicago cell is
+ * placed CHICAGO_CAP_TOP rows above it (menu.c; bead initech-tdnl.33). */
+#define FLAIR_MENU_ITEM_TEXT_TOP  2
 /* Additive-superseding locked metric: 8 -> 6 for the Platinum base era.
  * Ref: sys8/menus.md Sec 2.2; bead initech-sjvq (D3.b row 41). */
 #define FLAIR_MENU_DIV_H          6
@@ -111,6 +118,8 @@
 #define FLAIR_MENU_PANEL_INSET    2   /* first item / interior begins at +2     */
 #define FLAIR_MENU_DROP_SHADOW    1   /* dark-gray right/bottom footprint       */
 #define FLAIR_MENU_CMD_GAP        8   /* item ink -> caret-letter run           */
+/* The command column is the period-plausible "^X" substitution (2 chars),
+ * measured proportionally per item (menu.c cmd_run_w; initech-tdnl.33). */
 #define FLAIR_MENU_CMD_CHARS      2   /* period-plausible "^X" substitution     */
 #define FLAIR_MENU_CMD_RPAD      16   /* command cell right edge -> panel right */
 

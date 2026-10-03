@@ -14,22 +14,22 @@
  * drops NO panel -- the desktop under the title stays bare):
  *
  *   LEG A -- THE 1px BLACK PANEL FRAME where BARE TEAL was. The dropped "File"
- *     panel rect is {T19 L20 B53 R112}, footprint {T19 L20 B54 R113}
+ *     panel rect is {T19 L20 B53 R106}, footprint {T19 L20 B54 R107}
  *     (MenuInfo_panel_rect/footprint_rect, host-graded by
  *     test_menu).  Its frame is canon BLACK (idx0).  We sample the LEFT frame
- *     column (x=20), the RIGHT frame column (x=111), and the BOTTOM frame row
+ *     column (x=20), the RIGHT frame column (x=105), and the BOTTOM frame row
  *     (y=52) at y/x INSIDE the teal zone (y>=40, below BOTH 20px menu bars and
  *     above the windows at y>=60) -- bare Initech teal (idx2 #8DDCDC) pre-drop.
  *     A menu that did NOT drop leaves teal here and LEG A goes RED.
  *
  *   LEG B -- THE UNHILITED SECOND-ROW BODY is painted. At DROP time no tracking
  *     point has hilited "Quit" yet, so its row y[37,53) remains E7 face.
- *     We sample the mark column (x=28) and right pad (x=106), clear of glyphs.
+ *     We sample the mark column (x=28) and right pad (x=100), clear of glyphs.
  *     Both were bare teal pre-drop; a no-drop path leaves teal -> LEG B RED.
  *
  *   LEG C -- THE E7 PANEL BODY fill is present. The un-hilited first row
  *     ("About", y[21,37)) shows sampled #E7E7E7 (idx231). We sample its right
- *     pad (x=106,y=28), clear of glyphs. A no-drop path leaves the underlying
+ *     pad (x=100,y=28), clear of glyphs. A no-drop path leaves the underlying
  *     band-2 pixels and therefore differs.
  *
  *   LEG E -- sampled Platinum fidelity on metal: title-free bar rows are
@@ -74,13 +74,19 @@
 
 /* ---- the dropped "File" pull-down geometry (os/flair/menu.h + the test_shell.c
  * first bar; MenuInfo_panel_rect(bar_sys,0), test_menu-graded). -----------------
- * Panel rect {T19 L20 B53 R112}; shadow footprint ends R113/B54. Rows remain:
+ * Panel rect {T19 L20 B53 R106}; shadow footprint ends R107/B54. Rows remain:
  * About y[21,37), Quit y[37,53). Bottom frame y=52; shadow y=53.
- * Width grows because Quit now renders the right-aligned "^Q" column.
+ * Width (menu.c menu_panel_w) re-derived for PROPORTIONAL Chicago 12 from the
+ * REAL NFNT 5478 advances (../system7-decomp specs/fonts/chicago.md; bead
+ * initech-tdnl.33), never from the artifact:
+ *   About A8 b8 o8 u8 t6 = 38 -> LPAD 20 + 38 + RPAD 12                   = 70
+ *   Quit  Q8 u8 i4 t6    = 26 -> 20 + 26 + CMD_GAP 8 + "^Q" 8+8 + RPAD 16 = 86
+ * so the panel is 86 wide: R = 20 + 86 = 106 (was 112 with the fixed 8-px
+ * cell). The "^Q" run sits at 106-16-16 = 74..89, so x=100 is clear gutter.
  * Ref: sys8/menus.md Sec 2.1-2.3; bead initech-sjvq. */
 #define PANEL_L      20    /* left frame column (MenuBar_title_x(File)=APPLE_W) */
-#define PANEL_R1     111   /* right frame column (panel.right-1)                */
-#define PANEL_SH_X   112   /* one-pixel dark-gray right shadow                  */
+#define PANEL_R1     105   /* right frame column (panel.right-1)                */
+#define PANEL_SH_X   106   /* one-pixel dark-gray right shadow                  */
 #define PANEL_BOTY   52    /* bottom frame row (panel.bottom-1)                 */
 #define PANEL_SH_Y   53    /* one-pixel dark-gray bottom shadow                 */
 /* a y inside the TEAL zone (below both 20px bars, above the y>=60 windows) that
@@ -90,7 +96,7 @@
 #define ABOUT_Y      28
 /* clean x columns (mark column / right pad) clear of the item glyph cells. */
 #define MARK_X       28    /* mark column x[21,37): no glyph                    */
-#define RPAD_X       106   /* right gutter, clear of text + caret-letter glyphs */
+#define RPAD_X       100   /* right gutter, clear of text + caret-letter glyphs */
 
 /* ---- PPM P6 reader (the ppm_flair_check / ppm_flair_drag_check invariant). -- */
 static unsigned char *g_buf;
@@ -177,13 +183,13 @@ int main(int argc, char **argv)
 
     printf("ppm_flair_menu_check: grading the held Platinum 'File' pull-down "
            "at FLAIR-MENU-DROP (no item hilited yet; panel "
-           "{T19 L20 B53 R112}, shadow footprint {T19 L20 B54 R113})\n");
+           "{T19 L20 B53 R106}, shadow footprint {T19 L20 B54 R107})\n");
 
     /* ---- LEG A: THE 1px BLACK PANEL FRAME where bare teal was (teal->black) -- */
     assert_idx(PANEL_L, QUIT_Y, CIDX_FRAME,
                "LEG A: panel LEFT frame (x=20) in the teal zone is idx0 black");
     assert_idx(PANEL_R1, QUIT_Y, CIDX_FRAME,
-               "LEG A: panel RIGHT frame (x=89) in the teal zone is idx0 black");
+               "LEG A: panel RIGHT frame (x=105) in the teal zone is idx0 black");
     assert_idx(MARK_X, PANEL_BOTY, CIDX_FRAME,
                "LEG A: panel BOTTOM frame (y=52) is idx0 black");
     assert_idx(RPAD_X, PANEL_BOTY, CIDX_FRAME,
@@ -228,8 +234,15 @@ int main(int argc, char **argv)
                "LEG E: title-free menu-bar row 19 is black baseline");
     assert_idx(18, 5, CIDX_TEAL,
                "LEG E: pulled File title block is ratified teal while held");
-    assert_idx(28, 4, CIDX_WHITE,
+    /* 'F' (NFNT 5478 lb 1) at title cell x = 20 + PAD 7 = 27 -> ink x=28;
+     * its cap top is bar row 5 (VPAD 2 + Chicago 12 cap row 3), the row real
+     * System 7 uses (goldens/captures/s7_menu_file.png "Edit" ink rows 5..13;
+     * bead initech-tdnl.33 -- was row 4 with the 8x16 v0 strike). The row
+     * above stays the teal block. */
+    assert_idx(28, 5, CIDX_WHITE,
                "LEG E: pulled File title text is white");
+    assert_idx(28, 4, CIDX_TEAL,
+               "LEG E: pulled File title cap top is row 5, row 4 is the block");
     assert_idx(PANEL_SH_X, QUIT_Y, CIDX_DROP,
                "LEG E: panel right shadow is distinct sampled 3F");
     assert_idx(RPAD_X, PANEL_SH_Y, CIDX_DROP,

@@ -6,7 +6,7 @@
  *      files / oracles are mutation-proven); PRD Sec 6.4 (font resources).
  *      os/flair/text.h (text_measure, text_draw, text_center_in).
  *      spec/assets/geneva9.h (GENEVA9_ADVANCE[], per-glyph advance widths).
- *      spec/assets/chicago8x16.h (CHICAGO_CELL_W, fixed-cell advance).
+ *      spec/assets/chicago12.h (Chicago 12; NFNT 5478 advances, initech-tdnl.33).
  *      os/flair/surface.h (bitmap_t, surface_blit declaration).
  *      CLAUDE.md Rule 6 (mutation-proven: TEXT_MUTATE_FIXED_PITCH must
  *      drive proportional checks RED), Rule 12 (ASCII-clean), Rule 11
@@ -52,7 +52,7 @@
 #include <string.h>
 #include <stdint.h>
 
-/* Pull in the text API (includes surface.h, chicago8x16.h, geneva9.h). */
+/* Pull in the text API (includes surface.h, chicago12.h, geneva9.h). */
 #include "text.h"
 
 /* ===========================
@@ -184,12 +184,18 @@ static void test_proportional_measure(void)
     CHECK(text_measure(FONT_GENEVA9, (const char *)0) == 0,
           "PROPORTIONAL: text_measure(FONT_GENEVA9, NULL) == 0");
 
-    /* Also check Chicago (fixed cell): all advances == CHICAGO_CELL_W.
-     * Chicago text_measure("Hi") == 2 * CHICAGO_CELL_W. */
+    /* Chicago 12 is PROPORTIONAL too (bead initech-tdnl.33). Expected values
+     * are the REAL NFNT 5478 advances as tabulated in ../system7-decomp
+     * specs/fonts/chicago.md "Advance-width table" (M 12, i 4, H 8) -- typed
+     * here from the spec, NOT read from the artifact's table (Law 2). The full
+     * per-glyph grading against the NFNT bytes is test-chicago-metrics. */
     {
-        int chi = text_measure(FONT_CHICAGO, "Hi");
-        CHECK(chi == 2 * (int)CHICAGO_CELL_W,
-              "CHICAGO: text_measure(\"Hi\") == 2 * CHICAGO_CELL_W");
+        CHECK(text_measure(FONT_CHICAGO, "Mi") == 12 + 4,
+              "CHICAGO: text_measure(\"Mi\") == M(12) + i(4) = 16 (chicago.md)");
+        CHECK(text_measure(FONT_CHICAGO, "Hi") == 8 + 4,
+              "CHICAGO: text_measure(\"Hi\") == H(8) + i(4) = 12 (chicago.md)");
+        CHECK(text_measure(FONT_CHICAGO, "i") < text_measure(FONT_CHICAGO, "M"),
+              "CHICAGO: 'i' narrower than 'M' (no fixed pitch, ADR-0004 D-7)");
     }
 
     /* Additional spot checks on Geneva proportionality:
@@ -365,13 +371,14 @@ static void test_centering(void)
               "CENTER: integer-division truncation: (sw+3-sw)/2 == 1");
     }
 
-    /* 3h. Chicago centering: text_center_in(20, "X", CHICAGO) = (20-8)/2 = 6.
-     * CHICAGO_CELL_W = 8. */
+    /* 3h. Chicago centering: X advance 8 (chicago.md, NFNT 5478), so
+     * text_center_in(20, "X", CHICAGO) = (20-8)/2 = 6; 'i' advance 4, so
+     * text_center_in(20, "i", CHICAGO) = (20-4)/2 = 8. */
     {
-        int chi_x = text_center_in(20, "X", FONT_CHICAGO);
-        int expected = (20 - (int)CHICAGO_CELL_W) / 2;
-        CHECK(chi_x == expected,
+        CHECK(text_center_in(20, "X", FONT_CHICAGO) == (20 - 8) / 2,
               "CENTER: text_center_in(20, \"X\", CHICAGO) == (20-8)/2 = 6");
+        CHECK(text_center_in(20, "i", FONT_CHICAGO) == (20 - 4) / 2,
+              "CENTER: text_center_in(20, \"i\", CHICAGO) == (20-4)/2 = 8");
     }
 }
 

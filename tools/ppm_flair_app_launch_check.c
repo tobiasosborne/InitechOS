@@ -11,8 +11,10 @@
  *     TEXTDRAW (16,16) and (16,40) content-local -> global (117,198), (117,222);
  *   - COLOURS from the independent canon (spec/assets/color_canon.h
  *     flair_canon_rgb, ADR-0010 -- never the renderer's palette);
- *   - INK COUNTS from the LOCKED Chicago strike (spec/assets/chicago8x16.h) --
- *     the asset is spec-data, not the renderer's code: what is graded is that
+ *   - INK COUNTS from the LOCKED Chicago 12 strike's ART (spec/assets/
+ *     chicago12.h rows) placed with the REAL NFNT 5478 advances/bearings
+ *     (spec/chicago12_nfnt_golden.h; bead initech-tdnl.33) -- spec-data, not
+ *     the renderer's code or its metric tables: what is graded is that
  *     the gate put EXACTLY those glyphs, in black on white, at EXACTLY the
  *     content-local origin the tenant asked for (a 1-px shift, a clip error, a
  *     wrong colour token or a dropped call all change the count or the tones).
@@ -29,12 +31,14 @@
  * grade_bar), never read off the renderer. ASCII-clean (Rule 12). Host libc is
  * fine in the factory (Law 3).
  */
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "color_canon.h"   /* flair_canon_rgb + CIDX_* (-Ispec/assets) */
-#include "chicago8x16.h"   /* the LOCKED strike (-Ispec/assets)        */
+#include "chicago12.h"     /* the LOCKED strike ART (-Ispec/assets)     */
+#include "chicago12_nfnt_golden.h" /* REAL advances/bearings (-Ispec)  */
 
 #define TOL 2
 
@@ -85,16 +89,43 @@ static void expect(int x, int y, int idx, const char *what)
     }
 }
 
-/* Popcount of the locked strike over `s` -- the ink a correct TEXTDRAW puts
- * down (8x16 cells, CHICAGO_CELL_W advance). */
+/* Golden pen run width of `s`: the sum of the REAL NFNT 5478 advances. */
+static int golden_w(const char *s)
+{
+    int w = 0;
+    for (; *s; s++) w += nfnt5478_aw((int)(unsigned char)*s);
+    return w;
+}
+
+/* Is there ink at run column x, cell row r, for the string s drawn with its
+ * pen at 0? The glyph covering x by its GOLDEN advance, its locked ART row at
+ * the GOLDEN left bearing (MSB = image column 0). */
+static int golden_ink(const char *s, int x, int r)
+{
+    int pen = 0;
+    for (; *s; s++) {
+        int c = (int)(unsigned char)*s;
+        int aw = nfnt5478_aw(c);
+        if (x >= pen && x < pen + aw) {
+            int col = x - pen - nfnt5478_lb(c);
+            if (col < 0 || col > 15 || r < 0 || r >= CHICAGO_CELL_H) return 0;
+            return (chicago12_rows[chicago12_index(c)][r] & (0x8000u >> col)) != 0u;
+        }
+        pen += aw;
+    }
+    return 0;
+}
+
+/* Popcount of the locked strike ART over `s` -- the ink a correct TEXTDRAW
+ * puts down. */
 static long strike_ink(const char *s)
 {
     long n = 0;
     for (; *s; s++) {
-        const unsigned char *g = chicago8x16_glyph((int)(unsigned char)*s);
+        const uint16_t *g = chicago12_rows[chicago12_index((int)(unsigned char)*s)];
         for (int r = 0; r < CHICAGO_CELL_H; r++)
-            for (int c = 0; c < 8; c++)
-                if (g[r] & (0x80u >> c)) n++;
+            for (int c = 0; c < 16; c++)
+                if (g[r] & (0x8000u >> c)) n++;
     }
     return n;
 }
@@ -103,20 +134,23 @@ static long strike_ink(const char *s)
 static void text_band(const char *label, const char *s, int x0, int y0)
 {
     long black = 0, white = 0, other = 0;
-    long want = strike_ink(s);
-    int x1 = x0 + (int)strlen(s) * CHICAGO_CELL_W;
+    long want = strike_ink(s), misplaced = 0;
+    int x1 = x0 + golden_w(s);
     for (int y = y0; y < y0 + CHICAGO_CELL_H; y++)
         for (int x = x0; x < x1; x++) {
-            if (is_idx(x, y, CIDX_BLACK)) black++;
+            int is_black = is_idx(x, y, CIDX_BLACK);
+            if (is_black) black++;
             else if (is_idx(x, y, CIDX_WHITE)) white++;
             else other++;
+            /* Every pixel is exactly where the golden run puts ink, or not. */
+            if (is_black != golden_ink(s, x - x0, y - y0)) misplaced++;
         }
-    if (black != want || other != 0) {
+    if (black != want || other != 0 || misplaced != 0) {
         fprintf(stderr, "ppm_flair_app_launch_check: FAIL -- %s \"%s\" band "
                 "(%d,%d)-(%d,%d): black=%ld (want %ld from the locked strike), "
-                "white=%ld, other=%ld (want 0)\n",
+                "white=%ld, other=%ld (want 0), misplaced=%ld (want 0)\n",
                 label, s, x0, y0, x1, y0 + CHICAGO_CELL_H, black, want, white,
-                other);
+                other, misplaced);
         g_fail = 1;
     } else {
         printf("  %-6s PASS -- \"%s\": %ld ink px exactly, black-on-white\n",
@@ -161,13 +195,15 @@ static void solid(const char *label, int x0, int y0, int x1, int y1, int idx)
  *   3. THE TITLE LAYOUT, os/flair/menu.h Sec 5 re-derived by hand (the same
  *      arithmetic tools/ppm_flair_disk_windows_check.c carries for the
  *      Finder): first slot at x = 20 (FLAIR_MENU_APPLE_W) when the bar has
- *      the Apple slot, else 0; each slot is 8*len + 2*7 wide (Chicago is a
- *      FIXED 8-px cell, spec/assets/chicago8x16.h; pad 7 each side); the
- *      title's ink cell starts at slot + 7, row band-top + 2 (the 16-px cell
- *      centred in the 20-px bar: (20-16)/2).
- *   4. THE GLYPHS, the LOCKED Chicago strike (spec/assets/chicago8x16.h --
- *      spec-data, the same asset the "show" leg counts ink from): a set bit is
- *      black title ink, a clear bit is the face.
+ *      the Apple slot, else 0; each slot is StringWidth + 2*7 wide, with
+ *      StringWidth the sum of the REAL NFNT 5478 advances (Chicago 12 is
+ *      PROPORTIONAL -- spec/chicago12_nfnt_golden.h, bead initech-tdnl.33;
+ *      pad 7 each side); the title's cell run starts at slot + 7, row
+ *      band-top + 2 (the 16-px cell centred in the 20-px bar: (20-16)/2).
+ *   4. THE GLYPHS, the LOCKED Chicago 12 strike ART (spec/assets/chicago12.h
+ *      rows -- spec-data, the same asset the "show" leg counts ink from),
+ *      each placed at its GOLDEN left bearing: a set bit is black title ink,
+ *      a clear bit is the face.
  * And the TITLE WORDS are hand-carried per bar below, each from its own
  * statement of record -- never from the bar structure the kernel drew.
  *
@@ -224,16 +260,12 @@ static int bar_expected(const BarSpec *b, int x, int y)
     if (r == BAR_H - 2) return CIDX_PLAT_FRAME_SHADOW;   /* #B3B3B3       */
     if (r == BAR_H - 1) return CIDX_BLACK;      /* baseline hairline      */
     for (int k = 0; k < b->n; k++) {
-        int len = (int)strlen(b->titles[k]);
+        int tw = golden_w(b->titles[k]);
         int tx = slot + BAR_PAD;
         int gr = r - BAR_VPAD;
-        if (x >= tx && x < tx + len * CHICAGO_CELL_W &&
-            gr >= 0 && gr < CHICAGO_CELL_H) {
-            const unsigned char *g =
-                chicago8x16_glyph((int)(unsigned char)b->titles[k][(x - tx) / 8]);
-            if (g[gr] & (0x80u >> ((x - tx) % 8))) return CIDX_BLACK;
-        }
-        slot += len * CHICAGO_CELL_W + 2 * BAR_PAD;
+        if (x >= tx && x < tx + tw && golden_ink(b->titles[k], x - tx, gr))
+            return CIDX_BLACK;
+        slot += tw + 2 * BAR_PAD;
     }
     return CIDX_PLAT_FACE;                      /* #E7E7E7 face           */
 }

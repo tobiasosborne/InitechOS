@@ -54,8 +54,14 @@
 #define FLAIR_CHROME_TITLE_GAP_PAD_LEFT        6
 #define FLAIR_CHROME_TITLE_GAP_PAD_RIGHT       5
 #define FLAIR_CHROME_TITLE_DARK_GAP_SHIFT      1
-#define FLAIR_CHROME_TITLE_TEXT_TOP_OFF        4
-#define FLAIR_CHROME_TITLE_CELL_W               8
+/* TEXT_TOP_OFF is the Chicago CELL top below the frame top. The SAMPLED
+ * quantity is the title ink top, T+6 (window-chrome.md Sec 2.3 "ascender
+ * T+6"); the Chicago 12 strike's caps start CHICAGO_CAP_TOP = 3 rows into the
+ * cell (spec/assets/chicago12.art), so the cell sits at T+6-3 = T+3. (It was 4
+ * with the retired 8x16 v0 strike, whose caps began on cell row 2.) The title
+ * run is the proportional Chicago 12 width; there is no title cell width any
+ * more (FLAIR_CHROME_TITLE_CELL_W retired, bead initech-tdnl.33). */
+#define FLAIR_CHROME_TITLE_TEXT_TOP_OFF        3
 #define FLAIR_CHROME_TITLE_RUN_LEFT_OFF       21
 #define FLAIR_CHROME_TITLE_RUN_RIGHT_OFF      38
 #define FLAIR_CHROME_TITLE_TRUNC_MARKER       '.'

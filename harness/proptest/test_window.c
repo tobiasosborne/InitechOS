@@ -343,7 +343,9 @@ int main(void)
         WindowMgr_validate(&W[2].rec);
         SetWTitle(&M.wm, &W[2].rec, "HELLO");
         CHECK(strcmp(W[2].rec.titleHandle, "HELLO") == 0 &&
-              W[2].rec.titleWidth == 5 * 8 &&
+              /* IM-I titleWidth in Chicago 12: NFNT 5478 advances
+               * H8+E7+L7+L7+O8 = 37 (chicago.md; bead initech-tdnl.33). */
+              W[2].rec.titleWidth == 8 + 7 + 7 + 7 + 8 &&
               !region_is_empty(W[2].rec.updateRgn),
               "SetWTitle: one kernel-held setter copies, measures Chicago, and invalidates");
 

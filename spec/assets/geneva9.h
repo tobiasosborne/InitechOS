@@ -45,6 +45,7 @@
 #define INITECH_GENEVA9_H
 
 #include <stddef.h>
+#include "font_linkage.h" /* FONT_TABLE: one kernel copy (initech-tdnl.33) */
 
 #define GENEVA9_CELL_H   11   /* rows per glyph (0-based rows 0..10)          */
 #define GENEVA9_FIRST    0x20 /* first authored code point (space)             */
@@ -59,7 +60,8 @@
  * The advance includes left bearing, glyph body width, and right bearing.
  * 'i'=4, 'W'=9; most caps are 7-8 px; most lower-case are 5-7 px.
  */
-static const unsigned char geneva9_advance[GENEVA9_COUNT] = {
+#if FONT_TABLE_EMIT
+FONT_TABLE unsigned char geneva9_advance[GENEVA9_COUNT] = {
 /* 0x20 ' '  */ 4,
 /* 0x21 '!'  */ 4,
 /* 0x22 '"'  */ 5,
@@ -156,6 +158,9 @@ static const unsigned char geneva9_advance[GENEVA9_COUNT] = {
 /* 0x7D '}'  */ 4,
 /* 0x7E '~'  */ 6,
 };
+#else
+FONT_TABLE unsigned char geneva9_advance[GENEVA9_COUNT];
+#endif
 
 /*
  * geneva9[][GENEVA9_CELL_H] -- glyph bitmaps, one byte per row (MSB = col 0).
@@ -166,7 +171,8 @@ static const unsigned char geneva9_advance[GENEVA9_COUNT] = {
  *   col 01234567 -- column labels (bit positions in each byte)
  *   rows 0..10 of ASCII art: '#'=ink '.'=background
  */
-static const unsigned char geneva9[GENEVA9_COUNT][GENEVA9_CELL_H] = {
+#if FONT_TABLE_EMIT
+FONT_TABLE unsigned char geneva9[GENEVA9_COUNT][GENEVA9_CELL_H] = {
 
 /* 0x20 ' ' space  adv=4
    col 01234567
@@ -1594,6 +1600,9 @@ static const unsigned char geneva9[GENEVA9_COUNT][GENEVA9_CELL_H] = {
 {0x00,0x00,0x00,0x40,0xD0,0xB0,0x20,0x00,0x00,0x00,0x00},
 
 }; /* end geneva9[][] */
+#else
+FONT_TABLE unsigned char geneva9[GENEVA9_COUNT][GENEVA9_CELL_H];
+#endif
 
 /*
  * geneva9_glyph -- return pointer to the GENEVA9_CELL_H-byte glyph bitmap

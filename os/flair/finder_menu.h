@@ -120,8 +120,8 @@
 
 /*
  * The MARK character for the checked view mode (F4.2 View row 1, "by Icons
- * (mark char)"). The hand-authored Chicago strike spans 0x20..0x7A
- * (spec/assets/chicago8x16.h CHICAGO_FIRST/CHICAGO_LAST) and carries NO
+ * (mark char)"). The hand-authored Chicago strike spans ASCII only
+ * (spec/assets/chicago12.h CHICAGO_FIRST/CHICAGO_LAST, 0x20..0x7E) and carries NO
  * check-mark glyph -- the period MacRoman check is 0x12, outside it. Rather
  * than invent a strike here (CLAUDE.md: "Glyphs are hand-authored, not
  * pixel-extracted" -- authoring one is a deliberate act, not a side effect of

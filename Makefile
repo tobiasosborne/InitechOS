@@ -1117,13 +1117,14 @@ FAT_SYSI_BIG_IMG       := $(BUILD)/fat_sysi_big.img
 # MEASURE it, we never embed it). The frame webp is the reference fixture;
 # the PPM derives from the film so it stays in build/ (NOT committed). The
 # committed artifacts are palette.json (sampled values), palette.h (generated
-# from it), chrome_metrics.json, and the hand-authored chicago8x16.h.
+# from it), chrome_metrics.json, and the hand-authored Chicago 12 strike
+# (spec/assets/chicago12.art -> chicago12.h, bead initech-tdnl.33).
 ASSET_DIR        := spec/assets
 PREVIEW_WEBP     := $(ASSET_DIR)/preview.webp
 PREVIEW_PPM      := $(BUILD)/preview.ppm
 PALETTE_JSON     := $(ASSET_DIR)/palette.json
 PALETTE_H        := $(ASSET_DIR)/palette.h
-CHICAGO_H        := $(ASSET_DIR)/chicago8x16.h
+CHICAGO_H        := $(ASSET_DIR)/chicago12.h
 
 PALETTE_TOOL_SRC := tools/palette_extract.c
 PALETTE_TOOL_BIN := $(BUILD)/palette_extract
@@ -7706,7 +7707,7 @@ endef
         test-skin-teal test-skin-teal-mutant test-skin-teal-mutant-plat test-skin-era-frozen test-skin-era-frozen-mutant test-skin-era-frozen-mutant-baserow check-win95isms check-win95isms-mutant \
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
-        test-blitter test-blitter-mutant test-text test-text-mutant \
+        test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant test-chicago-art test-chicago-art-mutant \
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-cursor test-cursor-mutant \
         test-desk-icons test-desk-icons-mutant \
@@ -7985,22 +7986,27 @@ $(KERNEL_WINDOW_LIVE_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson
 $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/region.h os/flair/surface.h spec/region_algebra.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(BLITTER_INC) -c os/flair/blitter.c -o $@
 
-$(KERNEL_CHROME_OBJ): os/flair/chrome.c os/flair/chrome.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
+# The font strike headers + the one-copy linkage rule (bead initech-tdnl.33):
+# every kernel TU that draws text must rebuild when a strike changes, else a
+# stale object keeps a stale (or a second) copy of the tables.
+FLAIR_FONT_HDRS := os/flair/text.h spec/assets/font_linkage.h spec/assets/chicago12.h spec/assets/geneva9.h
+
+$(KERNEL_CHROME_OBJ): os/flair/chrome.c os/flair/chrome.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $@
 
-$(KERNEL_TEXT_OBJ): os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/assets/chicago8x16.h os/flair/surface.h | $(BUILD)
+$(KERNEL_TEXT_OBJ): os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TEXT_INC) -c os/flair/text.c -o $@
 
 # menu/control/dialog: their freestanding compile-checks use a LITERAL include
 # set (-Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets), NOT the *_INC used
 # for the hosted gate (which adds -Iharness/render -Iseed). Mirror the literal.
-$(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h spec/assets/geneva9.h | $(BUILD)
+$(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/assets/geneva9.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
 
-$(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
+$(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 
-$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago8x16.h | $(BUILD)
+$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
 
 $(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
@@ -8010,7 +8016,7 @@ $(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h o
 $(KERNEL_FLAIRLOOK_OBJ): $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/flair_skins.h spec/assets/color_canon.h os/flair/surface.h spec/grafport.h spec/imaging.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(FLAIRLOOK_C) -o $@
 
-$(KERNEL_FLAIR_SHELL_OBJ): os/flair/shell.c os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_FLAIR_SHELL_OBJ): os/flair/shell.c os/flair/shell.h $(FLAIR_FONT_HDRS) os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(SHELL_INC) -c $(SHELL_C) -o $@
 
 # Text console (beads initech-yqb): the SAME console.c the host blit oracle
@@ -9570,7 +9576,7 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 TBXGATE_OPT            := -Os
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
-TBXGATE_DEPS := os/flair/menu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago8x16.h
+TBXGATE_DEPS := os/flair/menu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
@@ -9625,11 +9631,11 @@ $(KERNEL_FINDER_CMD_OBJ): os/flair/finder_cmd.c os/flair/finder_cmd.h | $(BUILD)
 
 # The R3.5 FINDER MENU BAR resource object (bead initech-tdnl.12): the F4.2
 # layout as static MenuBar/MenuInfo/MenuItem data plus the enable-byte refresh.
-# Needs the Menu Manager's include chain (menu.h -> text.h -> chicago8x16.h,
+# Needs the Menu Manager's include chain (menu.h -> text.h -> chicago12.h,
 # blitter/surface/spec) exactly as menu.o does. Linked ONLY into the
 # FLAIRTENANTS kernels, so every other image stays byte-identical.
 KERNEL_FINDER_MENU_OBJ := $(BUILD)/finder_menu.o
-$(KERNEL_FINDER_MENU_OBJ): os/flair/finder_menu.c os/flair/finder_menu.h os/flair/finder_cmd.h os/flair/menu.h os/flair/text.h os/flair/blitter.h os/flair/surface.h spec/chrome_metrics.h spec/grafport.h spec/region_algebra.h spec/assets/chicago8x16.h | $(BUILD)
+$(KERNEL_FINDER_MENU_OBJ): os/flair/finder_menu.c os/flair/finder_menu.h os/flair/finder_cmd.h os/flair/menu.h os/flair/text.h os/flair/blitter.h os/flair/surface.h spec/chrome_metrics.h spec/grafport.h spec/region_algebra.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_menu.c -o $@
 
 # Bounded (gate) FLAIRTENANTS kernel: -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS. Adds
@@ -10206,7 +10212,7 @@ $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_SINGLETON_DUP,
 # second vocabulary. Prereqs + include flags are spelled LITERALLY, mirroring
 # KERNEL_FINDER_MENU_OBJ's own recipe.
 define flair-tenants-findermenu-mutant-rules
-$(BUILD)/finder_menu_mut_$(2).o: os/flair/finder_menu.c os/flair/finder_menu.h os/flair/finder_cmd.h os/flair/menu.h os/flair/text.h os/flair/blitter.h os/flair/surface.h spec/chrome_metrics.h spec/grafport.h spec/region_algebra.h spec/assets/chicago8x16.h | $(BUILD)
+$(BUILD)/finder_menu_mut_$(2).o: os/flair/finder_menu.c os/flair/finder_menu.h os/flair/finder_cmd.h os/flair/menu.h os/flair/text.h os/flair/blitter.h os/flair/surface.h spec/chrome_metrics.h spec/grafport.h spec/region_algebra.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_menu.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -11189,7 +11195,7 @@ TEST_CHROME_SRC  := harness/proptest/test_chrome.c
 CHROME_DEPS      := $(CHROME_DRAWER_C) $(CHROME_DRAWER_H) $(RENDER_SKEL_C) \
                     $(RENDER_SKEL_H) $(SPEC_CHROME_METRICS_H) \
                     os/flair/surface.c os/flair/surface.h \
-                    os/flair/text.h spec/assets/chicago8x16.h \
+                    os/flair/text.h spec/assets/chicago12.h \
                     os/flair/heap.c os/flair/heap.h \
                     $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                     spec/grafport.h spec/imaging.h spec/region_algebra.h \
@@ -11233,7 +11239,6 @@ pairs=[('FLAIR_CHROME_MENUBAR_H',nat['menubar_height']['value']), \
 ('FLAIR_CHROME_TITLE_GAP_PAD_RIGHT',nat['platinum_title_text_layout']['gap_padding_right']), \
 ('FLAIR_CHROME_TITLE_DARK_GAP_SHIFT',nat['platinum_title_text_layout']['dark_gap_shift']), \
 ('FLAIR_CHROME_TITLE_TEXT_TOP_OFF',nat['platinum_title_text_layout']['text_top_offset']), \
-('FLAIR_CHROME_TITLE_CELL_W',nat['platinum_title_text_layout']['chicago_cell_width']), \
 ('FLAIR_CHROME_TITLE_RUN_LEFT_OFF',nat['platinum_title_text_layout']['run_left_offset']), \
 ('FLAIR_CHROME_TITLE_RUN_RIGHT_OFF',nat['platinum_title_text_layout']['run_right_offset']), \
 ('FLAIR_CHROME_SCROLLBAR_W',nat['scrollbar_width']['value']), \
@@ -11303,7 +11308,7 @@ test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHR
 # ---------------------------------------------------------------------------
 TEST_CHROME_FID     := $(BUILD)/test_chrome_fidelity
 TEST_CHROME_FID_SRC := harness/proptest/test_chrome_fidelity.c
-CHROME_FID_GOLDEN_H := spec/chrome_fidelity_golden.h
+CHROME_FID_GOLDEN_H := spec/chrome_fidelity_golden.h spec/chicago12_nfnt_golden.h
 TEST_CHROME_FID_MUT     := $(BUILD)/test_chrome_fidelity_mutant_phase
 TEST_CHROME_FID_MUT_TTL := $(BUILD)/test_chrome_fidelity_mutant_notitle
 TEST_CHROME_FID_MUT_CTR := $(BUILD)/test_chrome_fidelity_mutant_centeroff
@@ -11454,6 +11459,13 @@ $(TEST_CHROME_FID_MUT_STF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 $(TEST_CHROME_FID_MUT_SSG): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_SEP_GRAY $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+# Font mutant (bead initech-tdnl.33): 'T' (code 84) one px wider in the
+# artifact's Chicago 12 advance. The title run is graded with the NFNT 5478
+# golden advances, so the re-keyed TITLE/INACTIVE legs must go RED.
+TEST_CHROME_FID_MUT_FONT := $(BUILD)/test_chrome_fidelity_mutant_font_advance
+$(TEST_CHROME_FID_MUT_FONT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(FLAIR_FONT_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHICAGO_MUT_ONE_ADVANCE=84 $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
 # FLAIR_MUT_SKIN_WRONG_ERA (beads initech-chd4, Rule 6): resolve the live
 # chrome policy pointer to the retained SYS7 row instead of the Platinum
@@ -11478,7 +11490,7 @@ test-chrome-fidelity: $(TEST_CHROME_FID)
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN) $(TEST_CHROME_FID_MUT_SOF) $(TEST_CHROME_FID_MUT_NDB) $(TEST_CHROME_FID_MUT_DRB) $(TEST_CHROME_FID_MUT_CBC) $(TEST_CHROME_FID_MUT_ZCT) $(TEST_CHROME_FID_MUT_SFW) $(TEST_CHROME_FID_MUT_STF) $(TEST_CHROME_FID_MUT_SSG)
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN) $(TEST_CHROME_FID_MUT_SOF) $(TEST_CHROME_FID_MUT_NDB) $(TEST_CHROME_FID_MUT_DRB) $(TEST_CHROME_FID_MUT_CBC) $(TEST_CHROME_FID_MUT_ZCT) $(TEST_CHROME_FID_MUT_SFW) $(TEST_CHROME_FID_MUT_STF) $(TEST_CHROME_FID_MUT_SSG) $(TEST_CHROME_FID_MUT_FONT)
 	@printf '>>> test-chrome-fidelity-mutant: confirming all twenty-four Platinum chrome mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
@@ -11584,6 +11596,9 @@ test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $
 	@if $(TEST_CHROME_FID_MUT_SFW) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: SB_MUT_FLAT_WELL PASSED -- the five-value well oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (SB_MUT_FLAT_WELL correctly RED -- the flat C0 page well is caught)\n'; fi
 	@if $(TEST_CHROME_FID_MUT_STF) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: SB_MUT_TILE_FLAT PASSED -- the arrow-tile bevel oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (SB_MUT_TILE_FLAT correctly RED -- the flat E7 arrow tile is caught)\n'; fi
 	@if $(TEST_CHROME_FID_MUT_SSG) >/dev/null 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: SB_MUT_SEP_GRAY PASSED -- the active separator oracle is decoration\n'; exit 1; else printf '>>> test-chrome-fidelity-mutant: green (SB_MUT_SEP_GRAY correctly RED -- inactive-gray active separators are caught)\n'; fi
+	@out=$$($(TEST_CHROME_FID_MUT_FONT) 2>&1); if [ $$? -eq 0 ]; then printf '!!! test-chrome-fidelity-mutant FAIL: CHICAGO_MUT_ONE_ADVANCE(T) PASSED -- the title glyph run is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -q 'leg TITLE:' || { printf '!!! test-chrome-fidelity-mutant FAIL: font mutant RED, but not on the TITLE leg\n'; exit 1; }; \
+	printf '>>> test-chrome-fidelity-mutant: green (CHICAGO_MUT_ONE_ADVANCE(T) correctly RED on the TITLE leg -- the run is graded against the NFNT advances)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-blitter (beads initech-i50) -- FLAIR region-clipped blitter.
@@ -11620,6 +11635,68 @@ test-blitter-mutant: $(TEST_BLITTER_MUT_IGNORE) $(TEST_BLITTER_MUT_OFF1)
 	@if $(TEST_BLITTER_MUT_OFF1) >/dev/null 2>&1; then printf '!!! test-blitter-mutant FAIL: OFF_BY_ONE PASSED -- the clip-edge oracle is decoration\n'; exit 1; else printf '>>> test-blitter-mutant: green (OFF_BY_ONE correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-chicago-metrics (bead initech-tdnl.33) -- the INDEPENDENT
+# Chicago 12 metrics oracle. Grades text_measure / text_draw against the REAL
+# System 7.0.1 Chicago 12 owTable + FontRec header, parsed at run time from
+# $(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin (gitignored Apple resource;
+# LOUD-SKIP if absent). Never against the artifact's own table (Law 2 / HER-02).
+# Ref: ADR-0004 D-7; ../system7-decomp/specs/fonts/chicago.md "Verification
+# recipe"; specs/fonts/font-manager.md Sec 1-3, Sec 7.
+# Mutant (Rule 6): CHICAGO_MUT_ONE_ADVANCE=105 perturbs ONE advance ('i' +1) in the
+# artifact; the oracle must go RED, and the mutant binary REQUIRES the golden so
+# an absent corpus can never fake the bite.
+# ---------------------------------------------------------------------------
+# The strike source -> header transcription (bead initech-tdnl.33). The .art
+# is the locked hand-authored source (Rule 8); chicago12.h is GENERATED.
+#   make gen-chicago12      -- regenerate spec/assets/chicago12.h from the .art
+#   make test-chicago-art   -- the committed header == a fresh transcription
+#   make test-chicago-art-mutant -- (a) one flipped ink pixel makes the sync
+#     check RED; (b) art whose leftmost ink disagrees with its NFNT lb is
+#     REFUSED by the transcriber (fail loud).
+FONT_ART2H_BIN := $(BUILD)/font_art2h
+CHICAGO_ART    := spec/assets/chicago12.art
+$(FONT_ART2H_BIN): tools/font_art2h.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+.PHONY: gen-chicago12 test-chicago-art test-chicago-art-mutant
+gen-chicago12: $(FONT_ART2H_BIN) $(CHICAGO_ART)
+	$(FONT_ART2H_BIN) $(CHICAGO_ART) > $(BUILD)/chicago12.gen.h
+	cp $(BUILD)/chicago12.gen.h $(CHICAGO_H)
+test-chicago-art: $(FONT_ART2H_BIN) $(CHICAGO_ART) $(CHICAGO_H)
+	@$(FONT_ART2H_BIN) $(CHICAGO_ART) > $(BUILD)/chicago12.regen.h
+	@cmp -s $(BUILD)/chicago12.regen.h $(CHICAGO_H) \
+		|| { printf '!!! test-chicago-art FAIL: $(CHICAGO_H) is not the transcription of $(CHICAGO_ART) (run make gen-chicago12)\n'; exit 1; }
+	@printf '>>> test-chicago-art: green -- $(CHICAGO_H) == transcribe($(CHICAGO_ART))\n'
+test-chicago-art-mutant: $(FONT_ART2H_BIN) $(CHICAGO_ART) $(CHICAGO_H)
+	@awk 'BEGIN{g=0} /^glyph 0x41 /{g=1;n=0;print;next} g==1{n++; if(n==6){sub(/#/,".")} if(n==16)g=0} {print}' $(CHICAGO_ART) > $(BUILD)/chicago12.mut1.art
+	@cmp -s $(BUILD)/chicago12.mut1.art $(CHICAGO_ART) && { printf '!!! test-chicago-art-mutant FAIL: the pixel flip did not apply\n'; exit 1; } || true
+	@$(FONT_ART2H_BIN) $(BUILD)/chicago12.mut1.art > $(BUILD)/chicago12.mut1.h
+	@if cmp -s $(BUILD)/chicago12.mut1.h $(CHICAGO_H); then printf '!!! test-chicago-art-mutant FAIL: a flipped pixel left the header unchanged -- the sync check is decoration\n'; exit 1; fi
+	@printf '>>> test-chicago-art-mutant: (a) green -- one flipped pixel in A makes the header differ\n'
+	@sed '/^glyph 0x41 /s/lb 1/lb 2/' $(CHICAGO_ART) > $(BUILD)/chicago12.mut2.art
+	@if $(FONT_ART2H_BIN) $(BUILD)/chicago12.mut2.art > /dev/null 2> $(BUILD)/chicago12.mut2.err; then printf '!!! test-chicago-art-mutant FAIL: art disagreeing with its lb was ACCEPTED\n'; exit 1; fi
+	@grep -q 'leftmost ink column != lb' $(BUILD)/chicago12.mut2.err || { cat $(BUILD)/chicago12.mut2.err; printf '!!! test-chicago-art-mutant FAIL: refused for the wrong reason\n'; exit 1; }
+	@printf '>>> test-chicago-art-mutant: (b) green -- art whose ink disagrees with the NFNT lb is refused\n'
+
+TEST_CHIMET     := $(BUILD)/test_chicago_metrics
+TEST_CHIMET_MUT := $(BUILD)/test_chicago_metrics_mutant
+TEST_CHIMET_SRC := harness/proptest/test_chicago_metrics.c
+TEST_CHIMET_DEPS := os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h spec/chicago12_nfnt_golden.h
+CHIMET_DEF := -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\"
+$(TEST_CHIMET): $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -o $@ $(TEST_CHIMET_SRC) os/flair/text.c os/flair/surface.c
+$(TEST_CHIMET_MUT): $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -DCHICAGO_METRICS_REQUIRE_GOLDEN -DCHICAGO_MUT_ONE_ADVANCE=105 -o $@ $(TEST_CHIMET_SRC) os/flair/text.c os/flair/surface.c
+.PHONY: test-chicago-metrics test-chicago-metrics-mutant
+test-chicago-metrics: $(TEST_CHIMET)
+	@$(TEST_CHIMET)
+test-chicago-metrics-mutant: $(TEST_CHIMET_MUT)
+	@out=$$($(TEST_CHIMET_MUT) 2>&1); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-chicago-metrics-mutant FAIL: ONE_ADVANCE mutant PASSED -- the metrics oracle is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -q "advance 'i' (0x69): text_measure 5, NFNT aw 4" \
+		|| { printf '%s\n' "$$out" | tail -5; printf '!!! test-chicago-metrics-mutant FAIL: RED, but not for the perturbed advance\n'; exit 1; }; \
+	printf '>>> test-chicago-metrics-mutant: green (ONE_ADVANCE correctly RED on the perturbed glyph -- the oracle bites)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-text (beads initech-kg5) -- proportional FLAIR text rendering.
 # Chicago + Geneva 9 strikes; text_measure = SUM of per-glyph advances (NO fixed
 # pitch, D-7). Mutant TEXT_MUTATE_FIXED_PITCH bites (Rule 6).
@@ -11627,7 +11704,7 @@ test-blitter-mutant: $(TEST_BLITTER_MUT_IGNORE) $(TEST_BLITTER_MUT_OFF1)
 TEST_TEXT     := $(BUILD)/test_text
 TEST_TEXT_MUT := $(BUILD)/test_text_mutant
 TEST_TEXT_SRC := harness/proptest/test_text.c
-TEST_TEXT_DEPS := os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/assets/chicago8x16.h os/flair/surface.h
+TEST_TEXT_DEPS := os/flair/text.c os/flair/text.h spec/assets/geneva9.h spec/assets/chicago12.h os/flair/surface.h
 TEXT_INC := -Ios/flair -Ispec/assets -Ispec -Iseed
 
 $(TEST_TEXT): $(TEST_TEXT_SRC) $(TEST_TEXT_DEPS) | $(BUILD)
@@ -11872,7 +11949,7 @@ TEST_FINDER_CMD_MUT_SILENT := $(BUILD)/test_finder_cmd_mutant_silent_unknown
 TEST_FINDER_CMD_MUT_PRED   := $(BUILD)/test_finder_cmd_mutant_pred_stuck_enabled
 TEST_FINDER_CMD_DEPS := os/flair/finder_cmd.c os/flair/finder_cmd.h os/flair/menu.h
 # menu.h is header-only here (MenuResult/MenuResultID are static inline), so the
-# Menu Manager is NOT linked -- but its include chain (text.h -> chicago8x16.h,
+# Menu Manager is NOT linked -- but its include chain (text.h -> chicago12.h,
 # blitter.h, surface.h, spec headers) still has to resolve: same paths as MENU_INC.
 FINDER_CMD_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 FINDER_CMD_LINK := os/flair/finder_cmd.c
@@ -12710,7 +12787,7 @@ TEST_MENU_DEPS := os/flair/menu.c os/flair/menu.h os/flair/text.c os/flair/text.
                   spec/assets/menu_canon.h spec/chrome_metrics.h \
                   spec/assets/color_canon.h \
                   spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h \
-                  spec/assets/chicago8x16.h spec/assets/geneva9.h spec/assets/apple_glyph.h
+                  spec/assets/chicago12.h spec/assets/geneva9.h spec/assets/apple_glyph.h
 MENU_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 MENU_LINK := os/flair/menu.c os/flair/text.c os/flair/blitter.c os/flair/surface.c \
              $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(FLAIRLOOK_C)
@@ -12834,7 +12911,7 @@ TEST_CONTROL_MUT_BTN_FLAT := $(BUILD)/test_control_mutant_btn_flat
 TEST_CONTROL_DEPS := os/flair/control.c os/flair/control.h os/flair/blitter.c os/flair/text.c \
                      os/flair/surface.c $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) \
                      spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h \
-                     spec/assets/palette.h spec/assets/chicago8x16.h $(CHROME_FID_GOLDEN_H)
+                     spec/assets/palette.h spec/assets/chicago12.h $(CHROME_FID_GOLDEN_H)
 CONTROL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 CONTROL_LINK := os/flair/control.c os/flair/blitter.c os/flair/text.c os/flair/surface.c \
                 $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) $(FLAIRLOOK_C)
@@ -12965,7 +13042,7 @@ TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
                     $(REGION_ENGINE_C) $(RENDER_SKEL_C) \
                     spec/chrome_metrics.h spec/grafport.h spec/event_model.h \
                     spec/window_record.h spec/region_algebra.h \
-                    spec/assets/palette.h spec/assets/chicago8x16.h $(CHROME_FID_GOLDEN_H)
+                    spec/assets/palette.h spec/assets/chicago12.h $(CHROME_FID_GOLDEN_H)
 DIALOG_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 DIALOG_LINK := os/flair/dialog.c os/flair/control.c os/flair/text.c os/flair/event.c \
                os/flair/window.c os/flair/blitter.c os/flair/surface.c os/flair/chrome.c os/flair/heap.c \
@@ -17153,9 +17230,15 @@ test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_NOMODAL_IMG) $(PPM_FLAIR_MENU_CHECK_
 	@printf 'Booting   : %s (same flair_live scene, show_modal=0)\n' "$(FLAIRLIVE_NOMODAL_IMG)"
 	@printf 'Expecting : held DROP frame + FLAIR-MENU menu=128 item=2 (sel=0x00800002)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@# --quit-after the asserted final marker (bead initech-tdnl.33; the
+	@# initech-qed1 rule): the DROP-gated dump alone left the FLAIR-MENU line to
+	@# the legacy ~400 ms post-input quit, a host-timing race the slightly
+	@# heavier proportional glyph walk lost deterministically on a loaded host.
+	@# The assertion is unchanged; only the harness now waits for its marker.
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_NOMODAL_IMG)" --name "$(FLAIR_MENU_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-MENU-DROP" --timeout-ms 15000 \
+		--screendump --screendump-after "FLAIR-MENU-DROP" \
+		--quit-after "FLAIR-MENU menu=" --timeout-ms 15000 \
 		2> "$(FLAIR_MENU_REPORT)" || true
 	@cat "$(FLAIR_MENU_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -17234,8 +17317,10 @@ FLAIR_MENU_CROSSDRAG_PPM     := $(BUILD)/$(FLAIR_MENU_CROSSDRAG_NAME).ppm
 # EXACT first four tokens (the three <=int8 hops + l1) so the click still lands on
 # (30,10) inside "File" (menu 0) and the SAME "FLAIR-MENU-DROP menu=128" fires.
 # Then "m59:0" moves +59 h / +0 v -- PURELY SIDEWAYS, staying at v=10 (inside the
-# bar band [0,20)) -- from x=30 to x=89, landing mid-"Edit" title (menu 1;
-# MenuBar_title_x(bar_sys,1)=66, width 46, mid=89): still in the bar band, so
+# bar band [0,20)) -- from x=30 to x=89, landing on the "Edit" title (menu 1;
+# proportional Chicago 12, bead initech-tdnl.33: MenuBar_title_x(bar_sys,1)=57,
+# width 25+14=39, slot [57,96) -- File is [20,57), so x=30 is still File; was
+# 66/46 with the fixed 8-px cell; the trace bytes did not need to move): still in the bar band, so
 # MenuInfo_item_at returns -1 (no item row) at every tracked point. "l0" releases
 # there: MenuSelect's own final tracked menu (re-derived from where0/pts, menu.c
 # initech-rl4v) is Edit, but the release is on the title (not a row) -> sel=0.
@@ -19201,8 +19286,8 @@ test-flair-window-ops: test-flair-zoom-toggle test-flair-grow test-flair-collaps
 # ===========================================================================
 FLAIR_APPL_GOLDEN        := spec/flair_app_launch_trace.golden
 PPM_FLAIR_APPL_CHECK_BIN := $(BUILD)/ppm_flair_app_launch_check
-$(PPM_FLAIR_APPL_CHECK_BIN): tools/ppm_flair_app_launch_check.c spec/assets/color_canon.h spec/assets/chicago8x16.h | $(BUILD)
-	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+$(PPM_FLAIR_APPL_CHECK_BIN): tools/ppm_flair_app_launch_check.c spec/assets/color_canon.h spec/assets/chicago12.h spec/assets/font_linkage.h spec/chicago12_nfnt_golden.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -Ispec -o $@ $<
 
 # The mutant kernels: two gate-module knobs + one pump knob.
 $(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_NO_SLOT_GUARD,tbx_no_slot_guard))
@@ -19508,7 +19593,31 @@ RECORD_SETTLE_drag_move    = 400
 RECORD_SETTLE_trash_drag   = 150
 RECORD_SETTLE_drag_refused = 400
 RECORD_SETTLE_app_menubar = 400
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused
+# chicago_menus (bead initech-tdnl.33, Rule 14): the proportional Chicago 12
+# acceptance clip -- titled windows (HELLO, NOTES) under band 2's Photoshop bar
+# and TWO held gestures, each a cancel (nothing dispatched): (1) Image dropped
+# and dragged across Layer and Select, released on the Select title; (2) Window
+# dropped, its first item hilited, released below the panel. The live track
+# loop is bounded to ~1.5 s per gesture (kmain.c guard 150 ticks) and every
+# recorded frame costs a settle + grab, so each gesture holds only three events
+# (MEASURED: a six-event gesture ran out of guard before its hilite). The paint
+# settle is 200 ms because a cross-title switch (erase + DQ2 restore + new
+# panel + present) raced the 120 ms default (MEASURED: one frame differed
+# between two captures). Waypoints (screen, y down; band-2 slots derived from
+# the REAL NFNT 5478 advances, no Apple slot: File[0,37) Edit[37,76)
+# Image[76,132) Layer[132,183) Select[183,237) View[237,283) Window[283,349)
+# Help[349,391), y in [20,40); menuIDs 256+index, shell.c):
+#   (320,240) -m-100:-100,m-100:-100,m-20:-10-> (100,30) Image ; l1 (DROP 258)
+#   m50:0 x2 -> (150,30) Layer, (200,30) Select (XDROP 259, 260) ; l0 on the
+#     title -> cancel (logged menu=258, the originally clicked menu)
+#   m100:0 -> (300,30) Window ; l1 (DROP 262) ; m0:20 -> (300,50): Window
+#     item 1 row [41,57) hilited ; m0:30 -> (300,80), below the 2-item panel
+#     (rows [41,73)) ; l0 -> cancel, FLAIR-MENU menu=262 item=0 (the marker)
+#   PARK (300,80) -> (620,460): m100:100 x3 -> (600,380), m20:80 -> (620,460).
+RECORD_SPEC_chicago_menus   = m-100:-100,m-100:-100,m-20:-10,l1,m50:0,m50:0,l0,m100:0,l1,m0:20,m0:30,l0,m100:100,m100:100,m100:100,m20:80
+RECORD_MARKER_chicago_menus = FLAIR-MENU menu=262 item=0 (sel=0x00000000)
+RECORD_SETTLE_chicago_menus = 200
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -22763,7 +22872,7 @@ test-kbd-bochs: $(KBD_ECHO_IMG)
 #   (a) PALETTE HONESTY: re-sample the frame PPM at every (x,y) recorded in
 #       palette.json and assert each named color still matches within the
 #       JSON tolerance. Corrupt a recorded RGB -> this goes red.
-#   (b) STRIKE WELL-FORMEDNESS: the generated chicago8x16.h has the expected
+#   (b) STRIKE WELL-FORMEDNESS: the generated chicago12.h has the expected
 #       glyph count, a blank space cell, out-of-range -> blank, and the full
 #       REQUIRED coverage (A-Z a-z 0-9 space . , : - ' ( )) inked.
 # The palette-honesty half (a) re-samples the frame PPM, which derives from the
@@ -24267,7 +24376,7 @@ TEST_UNIT_GATES := \
 	test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \
 	test-dialog-record test-dialog-record-mutant test-drawing-ops test-drawing-ops-mutant \
 	test-clut test-clut-mutant \
-	test-blitter test-blitter-mutant test-text test-text-mutant \
+	test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant test-chicago-art test-chicago-art-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \

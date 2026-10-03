@@ -48,6 +48,9 @@
 #include "region_algebra.h"   /* the LOCKED region contract (-Ispec)             */
 #include "window.h"           /* the Window Manager API (-Ios/flair)             */
 #include "chrome_metrics.h"    /* SetWTitle title-band invalidation height         */
+#include "../../spec/assets/chicago12.h" /* titleWidth = sum of Chicago 12 advances
+                                              * (relative: window.c builds without
+                                              * -Ispec/assets; initech-tdnl.33)     */
 
 /* ---------------------------------------------------------------------------
  * Fail-loud (dual fail-loud, mirroring the region engine: panic in-kernel /
@@ -587,7 +590,13 @@ void SetWTitle(WindowMgr *wm, WindowPtr w, const char *title)
         n++;
     }
     w->titleHandle[n] = '\0';
-    w->titleWidth = (int16_t)(n * FLAIR_CHROME_TITLE_CELL_W);
+    /* IM-I titleWidth: the title's pixel width in the system font -- the
+     * sum of the Chicago 12 advances (ADR-0004 D-7; bead initech-tdnl.33;
+     * was n * the retired fixed 8-px cell). */
+    w->titleWidth = 0;
+    for (int k = 0; k < n; k++)
+        w->titleWidth = (int16_t)(w->titleWidth +
+                        chicago12_advance((int)(unsigned char)title[k]));
 
     if (wm == NULL || !w->visible) return;
     title_band = WindowFrameRect(w);

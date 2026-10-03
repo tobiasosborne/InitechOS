@@ -68,26 +68,30 @@ static void chrome_cfill(GrafPort *port, const flair_skin_t *skin,
  * bar, and NOTES' "NOTES" run overdrew the APPS window's frame + scrollbar
  * (the test-flair-app-launch RESTORE leg's byte-compare caught it). Same
  * pixels as text_draw wherever they are visible (ink on set bits, bg on clear
- * bits, 8x16 cells, CHICAGO_CELL_W advance); nothing where they are not. */
+ * bits, the opaque chicago_advance-wide cell; bead initech-tdnl.33); nothing
+ * where they are not. */
 __attribute__((unused)) /* the TITLE_BLANK/NO_TITLE mutants compile out the call */
 static void chrome_ctext(GrafPort *port, int x, int y, const char *s,
                          uint32_t fg, uint32_t bg)
 {
     const bitmap_t *bm = &port->portBits.bm;
-    for (; s != 0 && *s != '\0'; s++, x += CHICAGO_CELL_W) {
-        const unsigned char *g = chicago8x16_glyph((int)(unsigned char)*s);
+    for (; s != 0 && *s != '\0'; s++) {
+        int ch = (int)(unsigned char)*s;
+        int aw = chicago_advance(ch);
         for (int r = 0; r < CHICAGO_CELL_H; r++) {
             int py = y + r;
+            unsigned int bits = chicago_cell_bits(ch, r);
             if (py < 0 || py >= (int)bm->height) continue;
-            for (int c = 0; c < CHICAGO_CELL_W; c++) {
+            for (int c = 0; c < aw; c++) {
                 int px = x + c;
                 if (px < 0 || px >= (int)bm->width) continue;
                 if (!clip_in(port, px, py)) continue;
                 surface_put_pixel(bm, (uint32_t)py * bm->pitch +
                                       (uint32_t)px * bm->bytes_per_pixel,
-                                  (g[r] & (0x80u >> c)) ? fg : bg);
+                                  (bits & (0x8000u >> c)) ? fg : bg);
             }
         }
+        x += aw;
     }
 }
 
@@ -239,17 +243,21 @@ static void chicago_ink_bounds(const char *text, int width,
 {
     int lo = width;
     int hi = -1;
+    int pen = 0;
     for (int i = 0; text[i] != '\0'; i++) {
-        const unsigned char *glyph = chicago8x16_glyph((unsigned char)text[i]);
+        int ch = (int)(unsigned char)text[i];
+        int aw = chicago_advance(ch);
         for (int row = 0; row < CHICAGO_CELL_H; row++) {
-            for (int col = 0; col < CHICAGO_CELL_W; col++) {
-                if ((glyph[row] & (unsigned char)(0x80u >> col)) != 0u) {
-                    int x = i * CHICAGO_CELL_W + col;
+            unsigned int bits = chicago_cell_bits(ch, row);
+            for (int col = 0; col < aw; col++) {
+                if ((bits & (0x8000u >> col)) != 0u) {
+                    int x = pen + col;
                     if (x < lo) lo = x;
                     if (x > hi) hi = x;
                 }
             }
         }
+        pen += aw;
     }
     if (hi < lo) {
         lo = 0;
@@ -263,7 +271,8 @@ static void chicago_ink_bounds(const char *text, int width,
  * on the WHOLE title bar (window-chrome.md Sec 2.3: "centred in the bar").
  * The widget-side limits come from the measured stripe extents between the
  * close and zoom clusters (Sec 2.2 / Sec 3.1).  Overlong titles are truncated
- * at a whole-cell boundary and the final visible cell becomes one period.  This
+ * at a whole-character boundary and the final visible character becomes one
+ * period (widths are the proportional Chicago 12 advances, initech-tdnl.33).  This
  * is the recorded R0.2 simplification for System's condensation/truncation: no
  * synthetic ellipsis glyph and no font condensation. */
 static int title_layout_make(title_layout_t *out, const char *title,

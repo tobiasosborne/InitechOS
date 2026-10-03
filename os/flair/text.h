@@ -6,7 +6,8 @@
  *      of per-glyph advances; no fixed-pitch assumption");
  *      PRD Sec 6.4 (font resources); PRD Sec 6.3 (Toolbox layer).
  *      docs/research/gui-ground-truth.md Sec 3.5 (Chicago 12 and Geneva 9).
- *      spec/assets/chicago8x16.h (Chicago strike, fixed-cell v0).
+ *      spec/assets/chicago12.h (Chicago 12 strike: REAL NFNT 5478 advances +
+ *        left bearings, hand-authored art; bead initech-tdnl.33).
  *      spec/assets/geneva9.h (Geneva 9 strike, proportional v0 -- this module).
  *      os/flair/surface.h (bitmap_t; surface_blit -- the ONE glyph-blit primitive).
  *      spec/grafport.h (GrafPort: txFont, txFace, txSize, txMode).
@@ -44,9 +45,17 @@
  *     If the string is wider than rect_w, returns 0 (left-justified fallback).
  *
  * FONT SELECTION:
- *   text_font_t selects Chicago 8x16 (FONT_CHICAGO) or Geneva 9
+ *   text_font_t selects Chicago 12 (FONT_CHICAGO) or Geneva 9
  *   (FONT_GENEVA9). Both are backed by hand-authored clean-room strikes
- *   (spec/assets/chicago8x16.h and spec/assets/geneva9.h respectively).
+ *   (spec/assets/chicago12.h and spec/assets/geneva9.h respectively).
+ *
+ * CHICAGO CELL MODEL (bead initech-tdnl.33; NFNT owTable semantics, font-
+ *   manager.md Sec 1.1): glyph c owns the OPAQUE cell [pen, pen + aw(c)) x
+ *   CHICAGO_CELL_H rows; its ink image starts at pen + lb(c). aw and lb are the
+ *   real System 7.0.1 Chicago 12 values. The baseline is row CHICAGO_ASCENT
+ *   (12): caps/ascenders on rows 3..11, descenders on rows 12..14, row 15 is
+ *   the leading row. chicago_cell_bits(c, r) is the row in CELL coordinates
+ *   (MSB = cell column 0) for the clipped glyph walkers in chrome.c/tbxgate.c.
  *
  *   txFont in GrafPort (spec/grafport.h) maps to:
  *     0 (systemFont) -> Chicago  (ADR-0004 D-7 "Chicago (system/dialog)")
@@ -66,8 +75,8 @@
 #include "surface.h"      /* bitmap_t, surface_blit (found via -Ios/flair) */
 
 /* Pull in Chicago and Geneva strikes (header-only static data).
- * Ref: spec/assets/chicago8x16.h, spec/assets/geneva9.h (found via -Ispec/assets). */
-#include "chicago8x16.h"  /* chicago8x16_glyph(), CHICAGO_CELL_W, CHICAGO_CELL_H */
+ * Ref: spec/assets/chicago12.h, spec/assets/geneva9.h (found via -Ispec/assets). */
+#include "chicago12.h"    /* chicago12_aw/_lb/_rows, CHICAGO_CELL_H/_ASCENT    */
 #include "geneva9.h"      /* geneva9_glyph(), geneva9_advance_w(), GENEVA9_CELL_H */
 
 /* --------------------------------------------------------------------------
@@ -78,9 +87,38 @@
  *   1 (applFont)   -> FONT_GENEVA9
  * -------------------------------------------------------------------------- */
 typedef enum text_font {
-    FONT_CHICAGO  = 0,  /* Chicago 8x16 (fixed cell v0); system/dialog font  */
+    FONT_CHICAGO  = 0,  /* Chicago 12 (proportional, NFNT 5478 metrics)     */
     FONT_GENEVA9  = 1   /* Geneva 9 (proportional cell v0); small UI font     */
 } text_font_t;
+
+/* --------------------------------------------------------------------------
+ * Chicago 12 per-glyph accessors (bead initech-tdnl.33).
+ *
+ * chicago_advance(c) -- the pen advance (NFNT owTable aw); the opaque cell
+ *   width. CHICAGO_MUT_ONE_ADVANCE=<code> (Rule 6; the font mutants of
+ *   test-chicago-metrics / test-chrome-fidelity / the re-keyed layout gates,
+ *   hooked in chicago12.h's chicago12_advance so window.c is covered too)
+ *   widens ONE glyph by 1 px in measure AND draw; NEVER in a real build.
+ * chicago_bearing(c) -- the left bearing (owTable lb): image column 0 sits at
+ *   pen + lb.
+ * chicago_cell_bits(c, r) -- row r of the glyph in CELL coordinates: bit
+ *   (0x8000 >> col) set = ink at pen + col, for col in [0, aw).
+ * -------------------------------------------------------------------------- */
+static inline int chicago_advance(int c)
+{
+    return chicago12_advance(c);   /* the mutant hook lives there */
+}
+
+static inline int chicago_bearing(int c)
+{
+    return (int)chicago12_lb[chicago12_index(c)];
+}
+
+static inline unsigned int chicago_cell_bits(int c, int r)
+{
+    int g = chicago12_index(c);
+    return (unsigned int)chicago12_rows[g][r] >> chicago12_lb[g];
+}
 
 /* --------------------------------------------------------------------------
  * text_cell_height -- return the cell height for a given font (pixels).
@@ -100,7 +138,7 @@ static inline int text_cell_height(text_font_t font)
  * ADR-0004 D-7: "text width = sum of per-glyph advances; no fixed-pitch
  * assumption." Returns 0 for NULL or empty str.
  *
- * For Chicago (fixed-cell v0): advance is CHICAGO_CELL_W for every glyph.
+ * For Chicago 12: advance is per-glyph chicago_advance (NFNT 5478 aw).
  * For Geneva 9 (proportional): advance is per-glyph from geneva9_advance[].
  *
  * TEXT_MUTATE_FIXED_PITCH (mutation oracle -- Rule 6):
@@ -123,7 +161,7 @@ static inline int text_measure(text_font_t font, const char *str)
         width += 6;
 #else
         if (font == FONT_CHICAGO) {
-            width += (int)CHICAGO_CELL_W;
+            width += chicago_advance(c);
         } else {
             width += (int)geneva9_advance_w(c);
         }
@@ -154,31 +192,44 @@ static inline void text_draw(const bitmap_t *bm,
         return;
     while (*str) {
         int c = (unsigned char)*str;
-        const unsigned char *glyph;
-        unsigned int cell_w, cell_h, adv;
+        unsigned int adv;
 
         if (font == FONT_CHICAGO) {
-            glyph  = chicago8x16_glyph(c);
-            cell_w = (unsigned int)CHICAGO_CELL_W;
-            cell_h = (unsigned int)CHICAGO_CELL_H;
-            adv    = (unsigned int)CHICAGO_CELL_W;
+            /* The opaque aw-wide cell, as at most two 8-column halves through
+             * surface_blit (the ONE glyph-blit primitive, ADR-0004 D-2). */
+            /* A cell starting above row 0 is TOP-CLIPPED (its first -y rows
+             * dropped), so a caller can place a sampled cap row inside a
+             * sub-bitmap view (menu.c item rows). */
+            unsigned char lo[CHICAGO_CELL_H], hi[CHICAGO_CELL_H];
+            unsigned int aw = (unsigned int)chicago_advance(c);
+            int g = chicago12_index(c);
+            const uint16_t *rows = chicago12_rows[g];
+            unsigned int lb = chicago12_lb[g];
+            int r0 = (y < 0) ? -y : 0;
+            for (int r = 0; r < CHICAGO_CELL_H; r++) {
+                unsigned int bits = (unsigned int)rows[r] >> lb;
+                lo[r] = (unsigned char)(bits >> 8);
+                hi[r] = (unsigned char)(bits & 0xFFu);
+            }
+            if (r0 < CHICAGO_CELL_H) {
+                uint32_t rows = (uint32_t)(CHICAGO_CELL_H - r0);
+                surface_blit(bm, (uint32_t)x, (uint32_t)(y + r0), lo + r0,
+                             aw < 8u ? aw : 8u, rows, fg, bg);
+                if (aw > 8u)
+                    surface_blit(bm, (uint32_t)(x + 8), (uint32_t)(y + r0),
+                                 hi + r0, aw - 8u, rows, fg, bg);
+            }
+            adv = aw;
         } else {
-            glyph  = geneva9_glyph(c);
             /* Geneva bitmaps are packed 8 columns wide; render as 8px cell. */
-            cell_w = 8u;
-            cell_h = (unsigned int)GENEVA9_CELL_H;
-            adv    = geneva9_advance_w(c);
+            surface_blit(bm, (uint32_t)x, (uint32_t)y, geneva9_glyph(c),
+                         8u, (unsigned int)GENEVA9_CELL_H, fg, bg);
+            adv = geneva9_advance_w(c);
         }
 
 #if defined(TEXT_MUTATE_FIXED_PITCH) && TEXT_MUTATE_FIXED_PITCH
         adv = 6u; /* named mutant: fixed advance */
 #endif
-
-        surface_blit(bm,
-                     (uint32_t)x, (uint32_t)y,
-                     glyph,
-                     cell_w, cell_h,
-                     fg, bg);
 
         x += (int)adv;
         ++str;
@@ -213,17 +264,5 @@ static inline int text_center_in(int rect_w, const char *str, text_font_t font)
  * -------------------------------------------------------------------------- */
 text_font_t text_font_from_txfont(int txfont);
 
-/*
- * text_chicago_cell -- the 16-byte Chicago cell for ASCII code c (the blank
- * cell outside the authored range), as an OUT-OF-LINE function in text.c.
- *
- * WHY (bead initech-tdnl.14, kernel size policy initech-8z9j): the strike
- * table in spec/assets/chicago8x16.h is `static const`, so every TU that calls
- * the inline chicago8x16_glyph carries its own 1,456-byte copy. A TU that only
- * needs cells for its own CLIPPED glyph walk (tbxgate.c's TEXTDRAW, a
- * kernel-only TU) calls this instead and links against text.o's single copy.
- * chrome.c keeps the inline accessor: its host oracles link it without text.c.
- */
-const unsigned char *text_chicago_cell(int c);
 
 #endif /* INITECH_OS_FLAIR_TEXT_H */

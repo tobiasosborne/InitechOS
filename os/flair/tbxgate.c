@@ -54,8 +54,8 @@
 #include "chrome_metrics.h"
 #include "event.h"           /* FLAIR_SCREEN_W / FLAIR_SCREEN_H               */
 #include "toolbox_gate.h"
-#include "chicago8x16.h"     /* CHICAGO_CELL_W/H only -- the cells come from   */
-#include "text.h"            /* text_chicago_cell (text.o's ONE strike copy)   */
+#include "text.h"            /* chicago_advance / chicago_cell_bits (Chicago 12;
+                              * the tables are text.o's ONE copy)           */
 #include "loader.h"          /* loader_load_tenant (-Ios/milton)               */
 #include "menu.h"            /* MenuBar/MenuInfo/MenuItem + the Sec 5 layout   */
 
@@ -72,7 +72,6 @@ _Static_assert(offsetof(MenuInfo, items) == TBX_MINFO_ITEMS_OFF, "MenuInfo.items
 _Static_assert(offsetof(MenuInfo, n_items) == TBX_MINFO_COUNT_OFF, "MenuInfo.n_items");
 _Static_assert(sizeof(MenuItem) == TBX_MITEM_BYTES, "MenuItem size (spec Sec 9)");
 _Static_assert(offsetof(MenuItem, text) == TBX_MITEM_TEXT_OFF, "MenuItem.text");
-_Static_assert(CHICAGO_CELL_W == 8, "the Sec 9 width rule assumes the fixed 8-px Chicago cell");
 
 /* The two asm trampolines (os/milton/tbx_gate.asm). */
 extern int  tbx_tenant_call(uint32_t fn, uint32_t psp);
@@ -344,20 +343,25 @@ static void draw_text(int32_t gx, int32_t gy, const char *s, uint32_t fg,
     int32_t len = 0;
     rgn_rect_t box;
 
-    while (s[len] != '\0') len++;
+    /* spec/toolbox_gate.h Sec 7: the run is the proportional Chicago 12
+     * string (the sum of the NFNT 5478 advances, bead initech-tdnl.33); the
+     * box behind it is that wide and one CHICAGO_CELL_H line tall. */
+    int32_t run_w = 0;
+    while (s[len] != '\0') run_w += chicago_advance((int)(unsigned char)s[len++]);
     box.left = (int16_t)gx; box.top = (int16_t)gy;
-    box.right = (int16_t)(gx + len * CHICAGO_CELL_W);
+    box.right = (int16_t)(gx + run_w);
     box.bottom = (int16_t)(gy + CHICAGO_CELL_H);
     blitter_fill_rect_clipped(dst, box, bg, clip);
-    for (int32_t k = 0; k < len; k++) {
-        const unsigned char *g = text_chicago_cell((int)(unsigned char)s[k]);
-        int32_t x0 = gx + k * CHICAGO_CELL_W;
+    for (int32_t k = 0, x0 = gx; k < len; k++) {
+        int ch = (int)(unsigned char)s[k];
+        int aw = chicago_advance(ch);
         for (int r = 0; r < CHICAGO_CELL_H; r++) {
             int32_t py = gy + r;
+            unsigned int bits = chicago_cell_bits(ch, r);
             if (py < 0 || py >= (int32_t)dst->height) continue;
-            for (int c = 0; c < CHICAGO_CELL_W; c++) {
+            for (int c = 0; c < aw; c++) {
                 int32_t px = x0 + c;
-                if ((g[r] & (0x80u >> c)) == 0u) continue;
+                if ((bits & (0x8000u >> c)) == 0u) continue;
                 if (px < 0 || px >= (int32_t)dst->width) continue;
                 if (!region_contains_point(clip, (int16_t)px, (int16_t)py))
                     continue;
@@ -365,6 +369,7 @@ static void draw_text(int32_t gx, int32_t gy, const char *s, uint32_t fg,
                                        (uint32_t)px * dst->bytes_per_pixel, fg);
             }
         }
+        x0 += aw;
     }
 }
 
@@ -571,7 +576,9 @@ static int32_t v_setmbar(uint32_t bar)
     if (n > TBX_MBAR_MAX_MENUS) return mbar_bad("too-many-menus");
     if (n != 0u && !MB_IN(menus, n * TBX_MINFO_BYTES))
         return mbar_bad("menus-outside-image");
-    /* menu.h Sec 5: the Apple slot, then 8*len + 2*PAD per title. */
+    /* menu.h Sec 5: the Apple slot, then text_measure(title) + 2*PAD per
+     * title -- the proportional Chicago 12 width (spec/toolbox_gate.h Sec 9;
+     * bead initech-tdnl.33), summed from the validated in-image bytes. */
     x = (*(const volatile uint8_t *)(uintptr_t)(bar + TBX_MBAR_APPLE_OFF) != 0u)
             ? (uint32_t)FLAIR_MENU_APPLE_W : 0u;
     for (uint32_t k = 0; k < n; k++) {
@@ -581,7 +588,13 @@ static int32_t v_setmbar(uint32_t bar)
         int32_t  tl    = mb_str(rd32(m + TBX_MINFO_TITLE_OFF));
         if ((int16_t)rd16(m + TBX_MINFO_ID_OFF) < 1) return mbar_bad("menu-id");
         if (tl < 1) return mbar_bad("title");
-        x += (uint32_t)tl * CHICAGO_CELL_W + 2u * (uint32_t)FLAIR_MENU_TITLE_PAD;
+        {
+            uint32_t ta = rd32(m + TBX_MINFO_TITLE_OFF);
+            for (int32_t i = 0; i < tl; i++)
+                x += (uint32_t)chicago_advance(
+                         (int)*(const volatile uint8_t *)(uintptr_t)(ta + (uint32_t)i));
+        }
+        x += 2u * (uint32_t)FLAIR_MENU_TITLE_PAD;
         if (ni > TBX_MBAR_MAX_ITEMS) return mbar_bad("too-many-items");
         if (ni != 0u && !MB_IN(items, ni * TBX_MITEM_BYTES))
             return mbar_bad("items-outside-image");

@@ -48,12 +48,29 @@
 #define FG_TITLE_GAP_PAD_LEFT       6
 #define FG_TITLE_GAP_PAD_RIGHT      5
 #define FG_TITLE_DARK_GAP_SHIFT     1
-#define FG_TITLE_TEXT_TOP_OFF       4
+/* The SAMPLED title ink top: T+6 (window-chrome.md Sec 2.3, "ascender T+6").
+ * The oracle places the Chicago cell at INK_TOP - CHICAGO_CAP_TOP (the locked
+ * strike's first cap row). Bead initech-tdnl.33: was FG_TITLE_TEXT_TOP_OFF 4,
+ * a CELL offset that only matched the sample for the retired 8x16 strike. */
+#define FG_TITLE_INK_TOP_OFF        6
 #define FG_TITLE_RUN_LEFT_OFF      21
 #define FG_TITLE_RUN_RIGHT_OFF     38
 #define FG_TITLE_FIXED_TEXT       "TITLE"
 #define FG_TITLE_TRUNC_SOURCE     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-#define FG_TITLE_TRUNC_EXPECTED   "ABCDEFG."
+/* Re-derived for the PROPORTIONAL run (bead initech-tdnl.33) from the NFNT
+ * 5478 advances below: the 150-px frame's safe run is [421,512); "ABCDEFGH."
+ * is 8+8+8+8+7+7+8+8+4 = 66 px, centered at 400 + (150-66)/2 = 442, ink
+ * [443,507) (A lb 1; '.' lb 1, 2 ink columns), gap [437,512) fits; one more
+ * letter ("ABCDEFGHI.", 72 px at 439, gap [434,515)) does not. */
+#define FG_TITLE_TRUNC_EXPECTED   "ABCDEFGH."
+#define FG_TITLE_TRUNC_X          442
+
+/* TITLE GLYPH RUN METRICS (bead initech-tdnl.33): the oracle places each
+ * glyph of the expected title run with the REAL NFNT 5478 advances and
+ * bearings from spec/chicago12_nfnt_golden.h (proven equal to the Apple
+ * resource by test-chicago-metrics leg G), never with the artifact's
+ * chicago12_aw/_lb; only the glyph ART comes from spec/assets/chicago12.h. */
+#include "chicago12_nfnt_golden.h"
 
 /* -------------------------------------------------------------------------
  * PLATINUM WIDGETS.

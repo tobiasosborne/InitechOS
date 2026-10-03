@@ -102,7 +102,6 @@ enum { SCRW = 640, SCRH = 480 };
 #define CLOSE_LEFT_OFF     4   /* FLAIR_CHROME_CLOSE_LEFT_OFF                  */
 #define WIDGET_TOP_OFF     4   /* FLAIR_CHROME_WIDGET_TOP_OFF                  */
 #define WIDGET_BOX        12   /* FLAIR_CHROME_WIDGET_BOX                      */
-#define TITLE_CELL_W       8   /* FLAIR_CHROME_TITLE_CELL_W                    */
 
 /* content rect, relative to the window frame origin (L,T):
  *   left = L + 1, top = T + 22, right = L + 339, bottom = T + 219            */
@@ -129,11 +128,14 @@ enum { SCRW = 640, SCRH = 480 };
 #define BAND_INSET_R    30
 
 /* the root window's title, "Drive A Files" (FINDER_WIN_ROOT_TITLE), 13 chars.
- * SetWTitle sets titleWidth = n * FLAIR_CHROME_TITLE_CELL_W and the WDEF
- * centres that run in the frame:  x0 = L + (WIN_W - n*8) / 2 = L + 128.      */
+ * The WDEF centres the PROPORTIONAL Chicago 12 run in the frame (bead
+ * initech-tdnl.33). Its width from the REAL NFNT 5478 advances
+ * (../system7-decomp specs/fonts/chicago.md table, not the artifact):
+ *   D8 r6 i4 v8 e8 sp4 A8 sp4 F7 i4 l4 e8 s7 = 80
+ *   x0 = L + (WIN_W - 80) / 2 = L + 140.   (was 13 x 8 = 104 at L + 128)     */
 #define TITLE_CHARS     13
-#define TITLE_RUN_W     (TITLE_CHARS * TITLE_CELL_W)                  /* 104 */
-#define TITLE_RUN_DX    ((WIN_W - TITLE_RUN_W) / 2)                   /* 128 */
+#define TITLE_RUN_W     80
+#define TITLE_RUN_DX    ((WIN_W - TITLE_RUN_W) / 2)                   /* 140 */
 
 /* the two frames these legs see */
 #define ROOT_L    20
@@ -155,13 +157,15 @@ enum { SCRW = 640, SCRH = 480 };
  * padding change goes red on the host gate before it reaches QEMU:
  *
  *   first title x = FLAIR_MENU_APPLE_W                    = 20   (has_apple)
- *   slot width    = 8*len + 2*FLAIR_MENU_TITLE_PAD        = 8*len + 14
- *     (Chicago is a FIXED 8px cell -- spec/assets/chicago8x16.h CHICAGO_CELL_W)
- *   File    len 4 -> w 46 -> slot [ 20, 66)  ink run [ 27,  59)
- *   Edit    len 4 -> w 46 -> slot [ 66,112)  ink run [ 73, 105)
- *   View    len 4 -> w 46 -> slot [112,158)  ink run [119, 151)
- *   Special len 7 -> w 70 -> slot [158,228)  ink run [165, 221)
- *   Help    len 4 -> w 46 -> slot [228,274)  ink run [235, 267)
+ *   slot width    = StringWidth(title) + 2*FLAIR_MENU_TITLE_PAD (= +14)
+ *     (Chicago 12 is PROPORTIONAL -- bead initech-tdnl.33; StringWidth is the
+ *      sum of the REAL NFNT 5478 advances, ../system7-decomp specs/fonts/
+ *      chicago.md; the ink run is the slot's text cell run [x+7, x+7+w))
+ *   File    F7 i4 l4 e8          = 23 -> slot [ 20, 57)  ink run [ 27,  50)
+ *   Edit    E7 d8 i4 t6          = 25 -> slot [ 57, 96)  ink run [ 64,  89)
+ *   View    V8 i4 e8 w12         = 32 -> slot [ 96,142)  ink run [103, 135)
+ *   Special S7 p8 e8 c7 i4 a8 l4 = 46 -> slot [142,202)  ink run [149, 195)
+ *   Help    H8 e8 l4 p8          = 28 -> slot [202,244)  ink run [209, 237)
  *
  * ROWS [22,38), NOT [20,40): the bar's own bottom rule is a FULL-WIDTH black
  * line at row 39 (menu.c draws it at FLAIR_MENUBAR_H-1 of the band), so a
@@ -169,8 +173,8 @@ enum { SCRW = 640, SCRH = 480 };
  *
  * THE LEG IS A TWO-SIDED DIFFERENTIAL -- it must reject BOTH neighbours:
  *   * NOT the Photoshop bar (HELLO's, the boot band-2 content): its titles
- *     "File Edit Image Layer Select View Window Help" run out to x ~ 436, so
- *     the Finder bar is pinned by ZERO ink from x=274 to the right edge.
+ *     "File Edit Image Layer Select View Window Help" run out to x ~ 384, so
+ *     the Finder bar is pinned by ZERO ink from x=244 to the right edge.
  *   * NOT the System-7 shell bar (band 1's, "Apple File Edit View Special"):
  *     it has no Help title, so the Finder bar is pinned by INK in the Help run
  *     while band 1 has NONE in the same columns -- which simultaneously
@@ -180,24 +184,24 @@ enum { SCRW = 640, SCRH = 480 };
 #define BAR1_Y1       18
 #define BAR2_Y0       22      /* band 2 text rows, clear of the row-39 rule    */
 #define BAR2_Y1       38
-#define FBAR_INK_END 274      /* first column past the last Finder title slot  */
+#define FBAR_INK_END 244      /* first column past the last Finder title slot  */
 /* ... and where the "no ink out here" sweep STOPS. The Platinum bar draws its
  * own ROUNDED RIGHT CORNER (os/flair/menu.c; sampled anatomy sys8/menus.md Sec
  * 1.1) which puts a handful of ink pixels in the last two columns of EVERY
  * bar, Finder or not -- grading them would be grading bar furniture, not the
  * bar's identity. Stopping at 624 costs the leg nothing: the Photoshop bar it
- * has to reject ends its Help title around x=436, deep inside the sweep. */
+ * has to reject ends its Help title around x=384, deep inside the sweep. */
 #define FBAR_INK_STOP 624
 
 typedef struct BarTitle { const char *name; int x0, x1; } BarTitle;
 
 /* The five ink runs, hand-derived above. */
 static const BarTitle FBAR_TITLES[] = {
-    { "File",     27,  59 },
-    { "Edit",     73, 105 },
-    { "View",    119, 151 },
-    { "Special", 165, 221 },
-    { "Help",    235, 267 }
+    { "File",     27,  50 },
+    { "Edit",     64,  89 },
+    { "View",    103, 135 },
+    { "Special", 149, 195 },
+    { "Help",    209, 237 }
 };
 #define FBAR_TITLE_N ((int)(sizeof FBAR_TITLES / sizeof FBAR_TITLES[0]))
 
@@ -487,7 +491,7 @@ static long count_black(int x0, int y0, int x1, int y1)
 static void check_chrome(int L, int T)
 {
     char what[256];
-    long ink_run, ink_gap;
+    long ink_run, ink_gap, ink_flank;
     int trow0 = T + 2, trow1 = T + TITLEBAR_H - 1;   /* title-bar interior */
 
     snprintf(what, sizeof what, "window frame top-left corner (L,T)");
@@ -531,14 +535,29 @@ static void check_chrome(int L, int T)
     ink_run = count_black(L + TITLE_RUN_DX, trow0,
                           L + TITLE_RUN_DX + TITLE_RUN_W, trow1);
     ink_gap = count_black(L + 40, trow0, L + 120, trow1);
+    /* The run's 20-px FLANKS must be ink-free too (bead initech-tdnl.33):
+     * this is what pins the PROPORTIONAL width -- the retired fixed-cell run
+     * ([L+128, L+232)) inks both flanks and goes RED here. */
+    ink_flank = count_black(L + TITLE_RUN_DX - 20, trow0, L + TITLE_RUN_DX, trow1) +
+                count_black(L + TITLE_RUN_DX + TITLE_RUN_W, trow0,
+                            L + TITLE_RUN_DX + TITLE_RUN_W + 20, trow1);
+    if (ink_flank != 0) {
+        fprintf(stderr,
+                "ppm_flair_disk_windows_check: FAIL leg %s -- %ld title ink "
+                "pixels in the 20-px flanks of the centred run [L+%d, L+%d): "
+                "the title is wider than the %d-px Chicago 12 run\n",
+                g_leg, ink_flank, TITLE_RUN_DX, TITLE_RUN_DX + TITLE_RUN_W,
+                TITLE_RUN_W);
+        g_fail = 1;
+    }
     if (ink_run == 0) {
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: FAIL leg %s -- no title ink in "
                 "the CENTRED run [L+%d, L+%d) x [T+2, T+%d): the window has no "
-                "title (expected \"Drive A Files\", %d chars x %d px = %d, "
+                "title (expected \"Drive A Files\", %d chars, %d px of Chicago 12, "
                 "centred in the %d-px frame)\n",
                 g_leg, TITLE_RUN_DX, TITLE_RUN_DX + TITLE_RUN_W, TITLEBAR_H - 1,
-                TITLE_CHARS, TITLE_CELL_W, TITLE_RUN_W, WIN_W);
+                TITLE_CHARS, TITLE_RUN_W, WIN_W);
         g_fail = 1;
     }
     if (ink_gap != 0) {
@@ -589,7 +608,7 @@ static void check_finder_bar(void)
         }
     }
 
-    /* NOT the Photoshop bar: its titles run out to ~436. */
+    /* NOT the Photoshop bar: its titles run out to ~384 (proportional Chicago 12). */
     past = count_black(FBAR_INK_END, BAR2_Y0, FBAR_INK_STOP, BAR2_Y1);
     printf("    band-2 past the last Finder title x[%d,%d) y[%d,%d): %ld ink "
            "px (the Photoshop bar would carry hundreds)\n",
@@ -599,7 +618,7 @@ static void check_finder_bar(void)
                 "ppm_flair_disk_windows_check: FAIL leg %s -- band 2 carries "
                 "%ld ink pixels PAST x=%d, where the Finder bar has no titles. "
                 "That is the Photoshop bar (File Edit Image Layer Select View "
-                "Window Help, running to x~436) -- the band-2 swap to the "
+                "Window Help, running to x~384) -- the band-2 swap to the "
                 "Finder's bar did not happen.\n",
                 g_leg, past, FBAR_INK_END);
         g_fail = 1;
