@@ -12,8 +12,12 @@
  *   2. cpu.value == "486+ (386 desirable, non-blocking)" (ADR-0001 DEC-02; PRD Sec 5).
  *   3. fpu.value == "optional" (ADR-0009 DEC-07: NOT "required"; most period PCs
  *      lacked an 8087; software FP is the authentic stance).
- *   4. fpu.init_by_kernel == false (ADR-0009 DEC-01: InitechDOS does NOT init the FPU,
- *      exactly as DOS 3.3 did not). Tested as the literal string "false".
+ *   4. fpu.init_by_kernel == true (Rule-8 change 2026-10-03, beads initech-zj6w /
+ *      initech-yjlo: the kernel brings up the x87; was false per ADR-0009
+ *      DEC-01/DEC-07). Tested as the literal JSON true. 4b: fpu.boot_control_word
+ *      == spec/fpu_contract.h X87_BOOT_CONTROL_WORD (== 0x037F), os_boots_without_fpu,
+ *      required_by ["Initech 123"], SAMIR soft-float recorded; isolated mutant
+ *      -DHARDWARE_SPEC_MUTANT_FPU.
  *   5. memory window references PROGRAM_BASE (0x00040000) and PROGRAM_ALLOC_END
  *      (0x00080000) by value, matching spec/memory_map.h exactly (raised +0x8000
  *      from 0x30000/0x70000 by beads initech-o0td, then ANOTHER +0x8000 to
@@ -54,6 +58,7 @@
 
 #include "test_assert.h"
 #include "memory_map.h"   /* PROGRAM_BASE, PROGRAM_ALLOC_END -- compare, not duplicate */
+#include "fpu_contract.h" /* X87_BOOT_CONTROL_WORD -- compare, not duplicate (initech-zj6w) */
 
 TEST_HARNESS();
 
@@ -240,11 +245,16 @@ static void test_fpu_value(const char *path)
 }
 
 /* -----------------------------------------------------------------------
- * Test 5: fpu.init_by_kernel == false (literal JSON false, not "false").
- * ADR-0009 DEC-01: InitechDOS does NOT initialize the FPU. DOS 3.3 never
- * touched the coprocessor; dBASE did software math.
+ * Test 5: fpu.init_by_kernel == true (literal JSON true, not "true").
  *
- * MUTATION GATE: with -DHARDWARE_SPEC_MUTANT we assert "true" instead,
+ * Rule-8 deliberate spec change, 2026-10-03 (beads initech-zj6w /
+ * initech-yjlo; operator ruling: hardware x87 for Initech 123, SAMIR stays
+ * soft-float): the kernel now brings the x87 up in the boot path
+ * (os/milton/sysinit.c sysinit_fpu_init). The locked value moved from false
+ * (ADR-0009 DEC-01/DEC-07, "DOS never inits the FPU") to true; the old value
+ * is now the mutant -- the same pattern as the cpu row's 386+ -> 486+ move.
+ *
+ * MUTATION GATE: with -DHARDWARE_SPEC_MUTANT we assert the superseded false,
  * proving the gate goes RED.
  * ----------------------------------------------------------------------- */
 static void test_fpu_init_by_kernel(const char *path)
@@ -252,23 +262,72 @@ static void test_fpu_init_by_kernel(const char *path)
     int r;
 
 #ifndef HARDWARE_SPEC_MUTANT
-    /* Correct: init_by_kernel is JSON false */
-    r = file_contains_substr(path, "\"init_by_kernel\": false", -1);
-    if (r != 1) {
-        /* also accept no-space variant */
-        r = file_contains_substr(path, "\"init_by_kernel\":false", -1);
-    }
-    CHECK(r == 1,
-          "hardware.json: fpu.init_by_kernel == false (ADR-0009 DEC-01: DOS never inits FPU)");
-#else
-    /* MUTANT: assert init_by_kernel is true -- this MUST fail (gate goes RED) */
+    /* Correct: init_by_kernel is JSON true */
     r = file_contains_substr(path, "\"init_by_kernel\": true", -1);
     if (r != 1) {
+        /* also accept no-space variant */
         r = file_contains_substr(path, "\"init_by_kernel\":true", -1);
     }
     CHECK(r == 1,
-          "MUTANT: hardware.json: fpu.init_by_kernel == true (should FAIL)");
+          "hardware.json: fpu.init_by_kernel == true (beads initech-zj6w: kernel x87 bring-up)");
+#else
+    /* MUTANT: assert the superseded false -- this MUST fail (gate goes RED) */
+    r = file_contains_substr(path, "\"init_by_kernel\": false", -1);
+    if (r != 1) {
+        r = file_contains_substr(path, "\"init_by_kernel\":false", -1);
+    }
+    CHECK(r == 1,
+          "MUTANT: hardware.json: fpu.init_by_kernel == false (should FAIL)");
 #endif
+}
+
+/* -----------------------------------------------------------------------
+ * Test 5b: the x87 ruling rows (beads initech-zj6w / initech-yjlo).
+ *   - fpu.boot_control_word is the value of X87_BOOT_CONTROL_WORD in
+ *     spec/fpu_contract.h, rendered "0x%04X" -- the cross-file tie (the kernel
+ *     loads the header; the emulator gate test-fpu reads the JSON).
+ *   - X87_BOOT_CONTROL_WORD == 0x037F, Intel's FINIT value (SDM Vol 1 8.1.5;
+ *     regression guard -- the kernel must not pick a precision).
+ *   - os_boots_without_fpu == true (ADR-0001: 386 desirable, non-blocking).
+ *   - required_by names "Initech 123" (the ruling).
+ *   - SAMIR stays soft-float: ADR-0009 DEC-01 cited in the fpu block.
+ *
+ * MUTATION GATE: -DHARDWARE_SPEC_MUTANT_FPU (isolated: ONLY this arm flips)
+ * or -DHARDWARE_SPEC_MUTANT asserts the 53-bit-precision word 0x027F --
+ * absent from the JSON, so the gate goes RED.
+ * ----------------------------------------------------------------------- */
+static void test_fpu_ruling(const char *path)
+{
+    char want[48];
+    int  r;
+
+    CHECK(X87_BOOT_CONTROL_WORD == 0x037Fu,
+          "spec/fpu_contract.h: X87_BOOT_CONTROL_WORD == 0x037F (FINIT value; regression guard)");
+
+#if defined(HARDWARE_SPEC_MUTANT) || defined(HARDWARE_SPEC_MUTANT_FPU)
+    snprintf(want, sizeof(want), "\"boot_control_word\": \"0x%04X\"", 0x027Fu);
+    r = file_contains_substr(path, want, -1);
+    CHECK(r == 1,
+          "MUTANT: hardware.json: fpu.boot_control_word == 0x027F (should FAIL)");
+#else
+    snprintf(want, sizeof(want), "\"boot_control_word\": \"0x%04X\"",
+             (unsigned)X87_BOOT_CONTROL_WORD);
+    r = file_contains_substr(path, want, -1);
+    CHECK(r == 1,
+          "hardware.json: fpu.boot_control_word == X87_BOOT_CONTROL_WORD (spec/fpu_contract.h)");
+#endif
+
+    r = file_contains_substr(path, "\"os_boots_without_fpu\": true", -1);
+    CHECK(r == 1, "hardware.json: fpu.os_boots_without_fpu == true (ADR-0001: 386/486SX boot)");
+
+    r = file_contains_substr(path, "\"required_by\": [\"Initech 123\"]", -1);
+    CHECK(r == 1, "hardware.json: fpu.required_by == [\"Initech 123\"] (ruling 2026-10-03)");
+
+    r = file_contains_substr(path, "\"samir_numeric\": \"soft-float (ADR-0009 DEC-01, unchanged)\"", -1);
+    CHECK(r == 1, "hardware.json: fpu.samir_numeric records SAMIR soft-float (ADR-0009 DEC-01)");
+
+    r = file_contains_substr(path, "initech-zj6w", -1);
+    CHECK(r == 1, "hardware.json: beads initech-zj6w cited (Rule-8 deliberate-act anchor)");
 }
 
 /* -----------------------------------------------------------------------
@@ -490,6 +549,7 @@ int main(int argc, char **argv)
     test_cpu_value(path);
     test_fpu_value(path);
     test_fpu_init_by_kernel(path);
+    test_fpu_ruling(path);
     test_memory_window(path);
     test_libgcc_provenance(path);
     test_adr_citation(path);

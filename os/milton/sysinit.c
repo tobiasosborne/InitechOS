@@ -23,6 +23,8 @@
 #include "int21.h"        /* int21_set_mcb_arena (the AH=48/49/4A seam; 509.6) */
 #include "devices.h"      /* devices_init / devices_head (the char-device chain; 6zd9) */
 #include "memory_map.h"   /* PROGRAM_BASE / PROGRAM_ALLOC_END (the arena region) */
+#include "fpu.h"          /* x87 probe verdict + CR0 arithmetic (beads initech-zj6w) */
+#include "fpu_contract.h" /* X87_BOOT_CONTROL_WORD, locked spec-data (initech-zj6w) */
 
 /* ANSI.SYS install flag (beads initech-6zd9 records it; beads initech-p96i, the
  * ANSI escape interpreter, consumes it). A CONFIG.SYS `DEVICE=ANSI.SYS` line sets
@@ -126,6 +128,120 @@ static void sysinit_put_uint(sysinit_serial_fn serial, uint32_t v)
 }
 
 /* ======================================================================== *
+ * x87 FPU bring-up (beads initech-zj6w). Runs inside PHASE 1, right after the
+ * IDT is live, so a fault in the probe itself lands in the fail-loud panic
+ * instead of triple-faulting. Pure decisions + CR0 arithmetic: fpu.h (graded on
+ * the host by test_fpu.c). Contract + Intel citations: fpu.h header comment;
+ * the control word: spec/fpu_contract.h (X87_BOOT_CONTROL_WORD) mirrored by
+ * spec/hardware.json "fpu".boot_control_word (test-hardware-spec).
+ *
+ * Measured motivation (the RED run, beads initech-zj6w): the stage2 handoff
+ * leaves CR0.EM=MP=NE=0 on both emulators, so x87 code ran WITHOUT a #NM --
+ * but the coprocessor was in its post-RESET state on Bochs (CW 0040H, every
+ * exception unmasked, tags non-empty) and the same x87 sequence that gives 63
+ * on QEMU gave 0 on Bochs, the stack-fault routed to the masked IRQ13 (NE=0).
+ * A silently-wrong number and an emulator disagreement: exactly what FNINIT +
+ * a pinned control word + NE=1 remove.
+ * ======================================================================== */
+static uint32_t sysinit_read_cr0(void)
+{
+    uint32_t v;
+    __asm__ __volatile__("movl %%cr0, %0" : "=r"(v));
+    return v;
+}
+
+static void sysinit_write_cr0(uint32_t v)
+{
+    __asm__ __volatile__("movl %0, %%cr0" : : "r"(v) : "memory");
+}
+
+/* "XXXX" upper-case hex of a 16-bit word into out[5] (NUL-terminated). */
+static void sysinit_hex16(uint16_t v, char out[5])
+{
+    static const char H[] = "0123456789ABCDEF";
+    out[0] = H[(v >> 12) & 0xFu];
+    out[1] = H[(v >> 8) & 0xFu];
+    out[2] = H[(v >> 4) & 0xFu];
+    out[3] = H[v & 0xFu];
+    out[4] = '\0';
+}
+
+static void sysinit_fpu_init(sysinit_serial_fn serial)
+{
+    char hx[5];
+
+#ifdef FPU_MUTATE_SKIP_INIT
+    /* MUTANT (make test-fpu-mutant only; NEVER in a real build): skip every
+     * hardware step but still CLAIM success, so the emulator gate has to catch
+     * the missing init from the hardware state it reads back, not from the
+     * boot log's self-report. */
+    sysinit_hex16((uint16_t)X87_BOOT_CONTROL_WORD, hx);
+    serial("FPU-INIT present cw=");
+    serial(hx);
+    serial("\n");
+    return;
+#endif
+
+    /* 1. Probe in the FPU-present configuration: EM=0 (x87 opcodes go to the
+     *    coprocessor), TS=0, MP=1, NE=1. */
+    sysinit_write_cr0(fpu_cr0_present(sysinit_read_cr0()));
+
+    /* 2. FNINIT, then store SW and CW over a sentinel (an absent coprocessor
+     *    stores nothing). No-wait forms: nothing may block on a missing FPU. */
+    volatile uint16_t sw = (uint16_t)FPU_PROBE_SENTINEL;
+    volatile uint16_t cw = (uint16_t)FPU_PROBE_SENTINEL;
+    __asm__ __volatile__("fninit\n\t"
+                         "fnstsw %0\n\t"
+                         "fnstcw %1\n\t"
+                         : "=m"(sw), "=m"(cw) : : "memory");
+
+    int present = fpu_probe_present(sw, cw);
+#ifdef FPU_FORCE_ABSENT
+    /* FAULT INJECTION (make test-fpu-absent only; NEVER in a real build):
+     * neither QEMU TCG nor Bochs can remove the x87 unit, so force the probe
+     * verdict to drive the absent branch on an emulator that has one. */
+    present = 0;
+#endif
+
+    if (!present) {
+        /* 3a. No coprocessor (386SX/486SX class): the OS still boots. EM=1 so
+         *     the first x87 instruction traps #NM -> panic.c, loudly, there. */
+        sysinit_write_cr0(fpu_cr0_absent(sysinit_read_cr0()));
+        serial("FPU-INIT absent -- CR0.EM=1 MP=0; no x87 coprocessor, the first x87 instruction will trap #NM\n");
+        return;
+    }
+
+    /* 3b. Present: load the locked boot control word and read it back. */
+    volatile uint16_t want = (uint16_t)X87_BOOT_CONTROL_WORD;
+#ifdef FPU_MUTATE_BOOT_CW
+    /* MUTANT (make test-fpu-mutant only; NEVER in a real build): load the
+     * 53-bit-precision word an application might choose (PC=10B) instead of
+     * the spec constant. The emulator gate compares against
+     * spec/hardware.json and must go RED. */
+    want = (uint16_t)0x027Fu;
+#endif
+    volatile uint16_t got = (uint16_t)FPU_PROBE_SENTINEL;
+    __asm__ __volatile__("fldcw %1\n\t"
+                         "fnstcw %0\n\t"
+                         : "=m"(got) : "m"(want) : "memory");
+
+    sysinit_hex16(got, hx);
+    if (got != want) {
+        /* Rule 2: a coprocessor that will not hold its control word is not a
+         * deterministic machine -- refuse to continue. */
+        serial("PANIC fpu-init: x87 control word readback mismatch cw=");
+        serial(hx);
+        serial("\nHALTED\n");
+        for (;;) {
+            __asm__ __volatile__("cli; hlt");
+        }
+    }
+    serial("FPU-INIT present cw=");
+    serial(hx);
+    serial("\n");
+}
+
+/* ======================================================================== *
  * PHASE 1 -- interrupt + syscall foundation (kmain.c original 431-467).
  * ======================================================================== */
 void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
@@ -138,6 +254,11 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
     serial("PIC\n");
     idt_init();
     serial("IDT\n");
+
+    /* x87 bring-up (beads initech-zj6w): AFTER the IDT (a probe fault panics
+     * loudly), BEFORE anything that could run x87 code. Common to every kernel:
+     * every kernel_main variant enters through this phase. */
+    sysinit_fpu_init(serial);
 
     /* Bind the CON sink + terminate hook BEFORE any `int 0x21` fires. */
     int21_set_sink(sink);

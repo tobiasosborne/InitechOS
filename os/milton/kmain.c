@@ -4699,6 +4699,101 @@ void kernel_main(void)
     serial_puts("SPURIOUS-IRQ15-RESUMED\n");
 #endif
 
+#if defined(BOOT_FPU_TEST) || defined(BOOT_FPU_MF)
+    /* SELF-TEST BUILD ONLY (beads initech-zj6w; make test-fpu / test-fpu-bochs /
+     * test-fpu-mf). The NORMAL image never defines these macros.
+     *
+     * Report what the boot-path x87 bring-up (sysinit_early -> fpu_init, fpu.h)
+     * left in CR0, then run a FREESTANDING x87 sequence through inline asm only
+     * (no C double -- the compiler must not choose the instructions under test)
+     * and print the integer results, the status word and the control word.
+     *
+     * Expected values are fixed by arithmetic, independent of the code under
+     * test (stated in the Makefile gate): sqrt(1764) = 42 exactly, 42*3 = 126,
+     * 126/2 = 63; 1/8 = 0.125 (a dyadic rational, exact in any x87 precision),
+     * 0.125*1000 = 125. Every step is exact, so no exception flag may be raised
+     * and the register stack must be balanced (TOP=0) at the end.
+     *
+     * Ref: Intel SDM Vol 3A Sec 2.5 (CR0.MP bit 1 / EM bit 2 / TS bit 3 / NE
+     * bit 5); Vol 1 Sec 8.1.3 (status word: exception flags bits 0-5, ES bit 7,
+     * TOP bits 11-13); Vol 2A FILD/FSQRT/FIMUL/FIDIV/FISTP/FNSTSW/FNSTCW. Not
+     * backed by a local copy of the SDM (see fpu.h). */
+    serial_puts("FPU-TEST-ARMED\n");
+    {
+        uint32_t cr0;
+        __asm__ __volatile__("movl %%cr0, %0" : "=r"(cr0));
+        serial_puts("FPU-CR0 mp=");
+        serial_putu((cr0 >> 1) & 1u);
+        serial_puts(" em=");
+        serial_putu((cr0 >> 2) & 1u);
+        serial_puts(" ts=");
+        serial_putu((cr0 >> 3) & 1u);
+        serial_puts(" ne=");
+        serial_putu((cr0 >> 5) & 1u);
+        serial_putc('\n');
+
+        volatile int32_t  in_1764 = 1764, in_3 = 3, in_2 = 2;
+        volatile int32_t  in_1 = 1, in_8 = 8, in_1000 = 1000;
+        volatile int32_t  out_a = -1, out_b = -1;
+        volatile uint16_t sw = 0x5A5Au, cw = 0x5A5Au;
+        __asm__ __volatile__(
+            "fildl  %[i1764]\n\t"
+            "fsqrt\n\t"
+            "fimull %[i3]\n\t"
+            "fidivl %[i2]\n\t"
+            "fistpl %[oa]\n\t"
+            "fildl  %[i1]\n\t"
+            "fidivl %[i8]\n\t"
+            "fimull %[i1000]\n\t"
+            "fistpl %[ob]\n\t"
+            "fnstsw %[sw]\n\t"
+            "fnstcw %[cw]\n\t"
+            : [oa] "=m"(out_a), [ob] "=m"(out_b), [sw] "=m"(sw), [cw] "=m"(cw)
+            : [i1764] "m"(in_1764), [i3] "m"(in_3), [i2] "m"(in_2),
+              [i1] "m"(in_1), [i8] "m"(in_8), [i1000] "m"(in_1000)
+            : "memory");
+        serial_puts("FPU-RESULT a=");
+        serial_putu((uint32_t)out_a);
+        serial_puts(" b=");
+        serial_putu((uint32_t)out_b);
+        serial_putc('\n');
+        serial_puts("FPU-SW=");
+        serial_puthex32((uint32_t)sw);
+        serial_putc('\n');
+        serial_puts("FPU-CW=");
+        serial_puthex32((uint32_t)cw);
+        serial_putc('\n');
+        serial_puts("FPU-TEST-DONE\n");
+    }
+#ifdef BOOT_FPU_MF
+    /* #MF leg: with CR0.NE=1 an UNMASKED x87 exception must be delivered as
+     * vector 16 (#MF) at the next waiting x87 instruction and stay a fail-loud
+     * panic (Intel SDM Vol 3A Sec 2.5 NE; Vol 1 Sec 8.7 "native mode" vs the
+     * PC-style FERR#/IRQ13 path taken when NE=0). Unmask ZE (control word bit
+     * 2) only, divide 1 by 0, then FWAIT: expect "PANIC vec=10". With NE=0 the
+     * error would instead be signalled on FERR# -> IRQ13, which this kernel
+     * leaves masked at the 8259 -- the fault would vanish silently. */
+    serial_puts("FPU-MF-ARMED\n");
+    {
+        volatile uint16_t cw_ze = (uint16_t)(0x037Fu & ~0x0004u);
+        volatile int32_t  one = 1, zero = 0;
+        __asm__ __volatile__(
+            "fldcw  %[cw]\n\t"
+            "fildl  %[one]\n\t"
+            "fidivl %[zero]\n\t"
+            "fwait\n\t"
+            :
+            : [cw] "m"(cw_ze), [one] "m"(one), [zero] "m"(zero)
+            : "memory");
+    }
+    serial_puts("FPU-MF-NOT-RAISED\n");
+#endif
+    serial_puts("HALTED\n");
+    for (;;) {
+        __asm__ __volatile__("cli; hlt");
+    }
+#endif
+
     /* MOUNT A REAL FILESYSTEM (beads initech-saw) FIRST, so the file-handle
      * INT 21h functions (3Dh OPEN / 3Fh READ / 4Eh/4Fh FINDFIRST/NEXT) have a
      * bound volume BEFORE the TYPE/DIR programs run. Attach the FAT12 data disk
