@@ -201,6 +201,9 @@ WordPerfect never ran that way on any period desktop either.
 
 ## 6. Ground truth + oracles (Law 1 / Law 2)
 
+Distilled spec files now exist in the corpus: `../wordperfect51-decomp/specs/` (`file-formats`;
+bead initech-mbn1, closed).
+
 **(a) `.WP5` codec ground truth.** Mirror ADR-0008 DEC-05/DEC-06 and INITECH-123-plan Sec 5(a) exactly:
 an INDEPENDENT Python reader/writer (`wp5_ref.py`, the `dbf_ref.py`/`wk1_ref.py` pattern), NOT sharing
 offset constants with the C engine's own `spec/word/wp5_format.h` (the "independence barrier" lesson).
@@ -401,6 +404,12 @@ by ADR-0012's Platform-Services epic for the App-Contract launch surface, same a
   (b) a SEPARATE companion volume (second floppy, or the existing FAT16 HDD format) mounted on demand;
   (c) accept the full dictionary and grow `flair_data.img` (its own FAT12/boot-cost ripple). **Ruling 2**
   -- the operator must pick before P5 locks spell-check scope.
+  **RULED 2026-10-03 (operator): start with the reduced starter word list (a), target a
+  separate companion volume (b) for the full-scale dictionary; do NOT grow `flair_data.img`
+  (c rejected).** Measured from the installed WordPerfect 5.1 tree
+  (`/home/tobias/Projects/wordperfect51-decomp/mint/work/WP51`): `WP{WP}US.LEX` 363,165 bytes,
+  `WP{WP}US.THS` 358,472 bytes, `WP{WP}US.HYC` 9,676 bytes; total 731,313 bytes against the
+  1,474,560-byte data volume (about 50 percent of one floppy before any app data).
 
 - **Font Manager absence blocks true Face B WYSIWYG (Sec 8 Ruling 3).** `docs/plans/FLAIR-
   implementation-plan.md:96` still lists "Font Manager + proportional Chicago + txFace styles" as
@@ -409,6 +418,8 @@ by ADR-0012's Platform-Services epic for the App-Contract launch surface, same a
   Manager lands. **Ruling 3:** ship Face B early with a labeled fixed-font placeholder (explicit
   ERA-SHORTFALL), or gate P5 entirely on the Font Manager -- the same sequencing dependency
   INITECH-123-plan Sec 5(c) flags for its own numeric-mechanism ruling.
+  **RULED 2026-10-03 (operator): Face B is gated on the Font Manager; no fixed-font
+  placeholder.** Face A and phases P1-P4 proceed without it.
 
 - **Printing without a Print Manager.** `initech-o5vm` is BLOCKED until the GrafPort verb layer lands
   (`re30` P3-pre; `grafProcs` NULL today, `docs/HANDOFF.md:426`, `docs/worklog/WL-0065-...md`). P4's

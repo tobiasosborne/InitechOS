@@ -240,6 +240,14 @@ falling back to its own software emulator otherwise -- so BOTH paths are period-
 SAMIR's DOS-8088 target where the FPU was rare). This plan does not pre-decide; Sec 8 Ruling 2 flags it
 for the operator, and Phase P2 is the first phase that needs the answer.
 
+> **RULED 2026-10-03 (operator, in session, on the PM's recommendation): hardware x87 for
+> Initech 123.** SAMIR stays soft-float (ADR-0009 DEC-01 unchanged); the OS still boots
+> without a coprocessor, Initech 123 requires one (486DX on-die, or 387/487). Recorded in
+> `docs/adr/ADR-0009-AMENDMENT-DEC-01a-Kernel-X87-Init-For-Initech-123.md` (bead initech-yjlo;
+> kernel init landed under initech-zj6w). The options above are kept for the record. Still
+> open and settled in P2 (bead initech-94ah): which control word (precision) Initech 123
+> loads, by differential against the real 1-2-3 goldens.
+
 **(d) Mutants per phase (Rule 6).** Every `test-i123-*` gate below ships with a `-mutant` sibling
 exactly as `test-dbf-*`/`test-ndx-*` do (flip a `.WK1` record-ID constant, flip an `@function`
 dispatch-table cell, flip the RPN operator-precedence table, corrupt a recalc dependency edge) and must
@@ -396,6 +404,7 @@ ADR-0012's Platform-Services epic for the App-Contract launch surface).**
   operator to decide the numeric mechanism explicitly rather than defaulting to the SAMIR precedent by
   inertia; ADR-0001 DEC-04 already names this as an open amendment, not a new question this plan
   invents.
+  **Resolved 2026-10-03: hardware x87 (ADR-0009 Amendment DEC-01a).**
 
 - **TPS/no-pointers subset is irrelevant here.** Initech 123 is a bundled app (ADR-0002); it is **C**,
   compiled by the factory cross-toolchain like every other artifact app, never Pascal/TPS. The TPS
@@ -425,6 +434,9 @@ plan); `docs/design/GUI-remediation-D1-D2-D3-design.md` Part D1 (disk-launched I
 sizing used in Sec 9); `spec/assets/chicago8x16.h` (the fixed-cell font reused for Face A's monospace
 grid); `Makefile` (`DBASE3_DECOMP ?= ../dbase3-decomp` loud-skip idiom, mirrored as
 `LOTUS123_DECOMP ?= ../lotus123-decomp`).
+
+Distilled spec files now exist in the corpus: `../lotus123-decomp/specs/` (`file-formats`,
+`formulas`, `functions`; bead initech-mbn1, closed). The distilled formula count is 1090.
 
 Sister-corpus pattern (not yet created for Lotus; cited as the template): `../dbase3-decomp/README.md`,
 `../dbase3-decomp/GAPS.md`, `../dbase3-decomp/SOURCES.md` (the acquisition-and-licensing discipline

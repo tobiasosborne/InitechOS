@@ -20,6 +20,7 @@
 | Classification | Internal Use Only |
 | Document Owner | Office of Enterprise Architecture |
 | Related Documents | `docs/adr/ADR-0008-SAMIR-InitechBase-Architecture.md` (this is its integration-layer companion; ADR-0009 settles the §2.F numeric mechanism ADR-0008 DEC-07 deliberately deferred to Phase 8); `docs/plans/SAMIR-implementation-plan.md` §2.F/§5-Phase 8/§7; ADR-0003 DEC-08 (flat `.COM` now / MZ `.EXE` deferred); ADR-0001 (386+, 32-bit flat); PRD §5/§6.6 |
+| Amendments | `docs/adr/ADR-0009-AMENDMENT-DEC-01a-Kernel-X87-Init-For-Initech-123.md` (2026-10-03: hardware x87 for Initech 123; kernel x87 init supersedes DEC-07 `init_by_kernel: false`; SAMIR soft-float unchanged) |
 | Related Issues | beads `initech-ax9` (Phase-8 epic) + `ax9.1`/`ax9.2`; `initech-nh0m` (hardware.json), `initech-zj6w` (kernel x87 -- DEFERRED by this ADR), `initech-dtw` (MZ/overlay end-state) |
 
 ### Approval & Sign-Off Matrix (ADR-by-committee, 2026-06-19)
