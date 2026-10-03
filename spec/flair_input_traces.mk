@@ -73,3 +73,24 @@ FLAIR_HELD_DRAG_SPEC := m-100:-100,m-20:-70,l1,m50:60,w3000,m80:50,l0,m100:100,m
 #   park                          m100:100 x3,m100:63,m100:0,m43:0 -> (620,460)
 FLAIR_HELD_MENU_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m34:0,w3000,m34:0,l0,m-81:-74,l1,m35:22,w3000,m0:47,l0,m100:100,m100:100,m100:100,m100:63,m100:0,m43:0
 
+# ===========================================================================
+# 3. FLAIR_BOX_CANCEL_SPEC -- G02, the title-bar boxes act on RELEASE INSIDE
+#    (bead initech-tdnl.60; TrackGoAway / TrackBox: "returns TRUE if the
+#    mouse button is released inside the box", system7-decomp
+#    specs/toolbox/window-manager.md Sec 5). HELLO's widgets, sampled sys8
+#    rules (flair_solid_traces.mk): close (74,70), zoom (332,70), collapse
+#    (348,70); HELLO struct (60,60)..(360,260).
+# ===========================================================================
+#   close: press, drag OUT, release   m-100:-100,m-100:-70,m-46:0 -> (74,70) ;
+#                                     l1 ; m100:100 -> (174,170) ; l0
+#        (audit: TENANT-EXIT on the press -- must be cancelled, in=0)
+#   zoom: press, drag out, release    m100:-100,m58:0 -> (332,70) ; l1 ;
+#                                     m0:60 -> (332,130) ; l0   (in=0)
+#   collapse: same                    m16:-60 -> (348,70) ; l1 ;
+#                                     m-50:50 -> (298,120) ; l0 (in=0)
+#   close: press, out, BACK IN, release
+#                                     m-100:-50,m-100:0,m-24:0 -> (74,70) ;
+#                                     l1 ; m60:60 ; m-60:-60 ; l0 (in=1:
+#                                     FLAIR-CLOSE + FLAIR-TENANT-EXIT HELLO)
+#   park                              m100:100 x3,m100:90,m100:0,m46:0 -> (620,460)
+FLAIR_BOX_CANCEL_SPEC := m-100:-100,m-100:-70,m-46:0,l1,m100:100,l0,m100:-100,m58:0,l1,m0:60,l0,m16:-60,l1,m-50:50,l0,m-100:-50,m-100:0,m-24:0,l1,m60:60,m-60:-60,l0,m100:100,m100:100,m100:100,m100:90,m100:0,m46:0

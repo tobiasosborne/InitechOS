@@ -143,13 +143,28 @@ enum {
 
 /* Platinum 12x12 widget plus the one-pixel right/bottom highlight.
  * Ref: window-chrome.md Sec 3.1-3.3. The seven ramp roles are the sampled
- * diagonal sequence documented at Sec 3.2 and reuse existing policy parts. */
+ * diagonal sequence documented at Sec 3.2 and reuse existing policy parts.
+ *
+ * `pressed` (bead initech-tdnl.60, TrackGoAway/TrackBox feedback) draws the
+ * box held down. Platinum pressed widget art is a documented GOLDEN GAP
+ * (sys8/window-chrome.md Sec 8: "No golden shows a close/zoom/collapse box
+ * under the mouse button"), so this is AUTHORED after the one local pressed
+ * golden, System 7's idle->pressed delta (chrome/close-zoom-box.md "PRESSED
+ * state": the outline goes solid black, the face goes to the darker hilite
+ * tone, the box does not move): the dark ring becomes frame black and the
+ * face ramp shifts two rungs darker. [golden-resolves: a mouse-down capture
+ * of each Platinum widget.] */
 #if !defined(CHROME_FID_MUT_BOX_GEOM)
 static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
-                                 int bx, int by, int kind)
+                                 int bx, int by, int kind, int pressed)
 {
     const int box = FLAIR_CHROME_WIDGET_BOX;
     const int interior = FLAIR_CHROME_WIDGET_INTERIOR;
+#if defined(CHROME_MUT_PRESSED_IDLE)
+    /* MUTANT (Rule 6; test-chrome-mutant, initech-tdnl.60): no press
+     * feedback -- the held box looks idle. NEVER in a real build. */
+    pressed = 0;
+#endif
 #if !defined(CHROME_FID_MUT_RAMP)
     static const int ramp_part[FLAIR_CHROME_WIDGET_RAMP_RUNGS] = {
         FLAIR_PART_PLAT_FRAME_SHADOW,
@@ -168,7 +183,7 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
         cfill(port, bx, y, 1, FLAIR_PART_PLAT_WIDGET_EDGE);
     }
     cframe(port, bx + 1, by + 1, bx + box, by + box,
-           PLAT_DARK_RING_PART);
+           pressed ? FLAIR_PART_FRAME : PLAT_DARK_RING_PART);
 
     crect(port, bx + 2, by + 2, bx + 2 + interior, by + 2 + interior,
           FLAIR_PART_PLAT_FRAME_FACE);
@@ -191,6 +206,7 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
 #else
             int rung = (dx + dy - 2) /
                        FLAIR_CHROME_WIDGET_RAMP_PX_PER_STEP;
+            if (pressed) rung = (rung >= 2) ? rung - 2 : 0;
             int part = ramp_part[rung];
 #endif
             cfill(port, bx + 2 + dx, by + 2 + dy, 1, part);
@@ -749,6 +765,27 @@ static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
 #endif
 }
 
+void flair_draw_window_widget(GrafPort *port, const flair_skin_t *skin,
+                              rgn_rect_t frame, int part, int pressed)
+{
+#if !defined(CHROME_FID_MUT_BOX_GEOM)
+    int by = frame.top + FLAIR_CHROME_WIDGET_TOP_OFF;
+    int ri = frame.right - 1;
+    if (port == 0 || skin == (const flair_skin_t *)0) return;
+    if (part == (int)inGoAway)
+        draw_platinum_widget(port, skin, frame.left + FLAIR_CHROME_CLOSE_LEFT_OFF,
+                             by, PLAT_WIDGET_CLOSE, pressed);
+    else if (part == (int)inZoomIn || part == (int)inZoomOut)
+        draw_platinum_widget(port, skin, ri - FLAIR_CHROME_ZOOM_RIGHT_OFF,
+                             by, PLAT_WIDGET_ZOOM, pressed);
+    else if (part == (int)inCollapse)
+        draw_platinum_widget(port, skin, ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
+                             by, PLAT_WIDGET_COLLAPSE, pressed);
+#else
+    (void)port; (void)skin; (void)frame; (void)part; (void)pressed;
+#endif
+}
+
 void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
                                 rgn_rect_t frame,
                                 const char *title, int hilited,
@@ -879,16 +916,16 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
         if ((widget_flags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u)
             draw_platinum_widget(port, skin,
                                  left + FLAIR_CHROME_CLOSE_LEFT_OFF,
-                                 by, PLAT_WIDGET_CLOSE);
+                                 by, PLAT_WIDGET_CLOSE, 0);
         if ((widget_flags & FLAIR_WINDOW_WIDGET_ZOOM) != 0u)
             draw_platinum_widget(port, skin,
                                  ri - FLAIR_CHROME_ZOOM_RIGHT_OFF,
-                                 by, PLAT_WIDGET_ZOOM);
+                                 by, PLAT_WIDGET_ZOOM, 0);
 #if !defined(CHROME_FID_MUT_COLLAPSE)
         if ((widget_flags & FLAIR_WINDOW_WIDGET_COLLAPSE) != 0u)
             draw_platinum_widget(port, skin,
                                  ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
-                                 by, PLAT_WIDGET_COLLAPSE);
+                                 by, PLAT_WIDGET_COLLAPSE, 0);
 #endif
 #endif
     }

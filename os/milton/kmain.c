@@ -61,6 +61,7 @@
 #include "shell.h"           /* shell_scene_t, shell_build_scene/render       */
 #include "desktop.h"         /* desktop_paint_damage (FO-7 minimal repaint)   */
 #include "flair_look.h"      /* sampled gray outline through the policy seam */
+#include "chrome.h"          /* flair_draw_window_widget (TrackBox, tdnl.60)  */
 #include "menu_canon.h"      /* FLAIR_CANON_PHOTOSHOP_MENU_COUNT (-Ispec/assets)*/
 #include "palette.h"         /* flair_palette_rgb + INITECH_*_RGB (-Ispec/assets)*/
 #include "event.h"           /* flair_tick_advance/count (FO-4) + flair_raw_post/
@@ -1874,6 +1875,92 @@ static void flair_live_do_modal_drag(flair_live_ctx_t *ctx,
     serial_puts(")\n");
 }
 #endif
+
+/* TrackGoAway / TrackBox (bead initech-tdnl.60; audit G02, REPORT.md: "The
+ * Close box terminates on mouse-down and cannot be cancelled").
+ *
+ * A press on the close, zoom or collapse box is TRACKED, never acted on:
+ * the box is drawn pressed while the pointer is inside it and idle while it
+ * is outside, and the verb runs only if the button is RELEASED INSIDE. Ref:
+ * system7-decomp specs/toolbox/window-manager.md Sec 5 "TrackGoAway -- track
+ * the close box highlight; TRUE if released inside" (TrackBox is the same
+ * contract for the zoom box, IM-IV / MTE Ch 4); audit
+ * evidence/references/window-manager.md. "Inside" is FindWindow's own
+ * part-code for the SAME window, so the tracked hit rect cannot drift from the
+ * one that started the gesture. The release ends the track like every other
+ * loop (flair_live_track_cut, tdnl.59). One serial line reports the outcome:
+ *   FLAIR-TRACKBOX win <id> part <partcode> in=<1 commit | 0 cancelled>
+ * KMAIN_MUT_GOAWAY_ON_PRESS (Rule 6; test-flair-box-track-mutant) restores the
+ * pre-fix behaviour -- act on the mouseDown. NEVER define in a real build. */
+static int flair_live_box_hit(const flair_live_ctx_t *ctx, WindowPtr w,
+                              flair_part_code_t pc, flair_point_t pt)
+{
+    WindowPtr hw = (WindowPtr)0;
+    flair_part_code_t at = FindWindow(ctx->wm, pt, &hw);
+    if (at == inZoomOut) at = inZoomIn;
+    if (pc == inZoomOut) pc = inZoomIn;
+    return hw == w && at == pc;
+}
+
+static int flair_live_track_box(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                WindowPtr w, flair_part_code_t pc)
+{
+#if defined(KMAIN_MUT_GOAWAY_ON_PRESS)
+    (void)ctx; (void)bi; (void)w; (void)pc;
+    (void)flair_live_box_hit;
+    return 1;
+#else
+    GrafPort port;
+    rgn_rect_t whole = { 0, 0, (int16_t)ctx->off.height,
+                         (int16_t)ctx->off.width };
+    rgn_rect_t frame = WindowFrameRect(w);
+    EventRecord up;
+    uint32_t t0 = flair_tick_count();
+    int cancel = 0, inside = 1, drawn = 0;
+
+    /* Draw only where W is visible: the widget is redrawn in place over the
+     * composed offscreen (chrome.h: it touches nothing outside its cell). */
+    ComputeVisible(ctx->wm, w, ctx->comp);
+    port.portBits.bm = ctx->off;
+    port.portBits.bounds = whole;
+    port.portRect = whole;
+    port.visRgn = ctx->comp;
+    port.clipRgn = (region_t *)0;
+    port.pnLoc.v = 0; port.pnLoc.h = 0;
+    port.pnSize.v = 1; port.pnSize.h = 1;
+    port.pnVis = 0;
+    port.grafProcs = (QDProcs *)0;
+
+    for (;;) {
+        int g;
+        if (inside != drawn) {
+            flair_draw_window_widget(&port, flair_look_default_skin(), frame,
+                                     (int)pc, inside);
+            flair_desktop_present(bi, &ctx->off);
+            drawn = inside;
+        }
+        g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &up, 3u);
+        flair_live_cursor_track(&up);
+        if (g) flair_live_emit_evt(&up);
+        inside = flair_live_box_hit(ctx, w, pc, up.where);
+        if (g && up.what == (uint16_t)mouseUp) break;
+        if (flair_live_track_cut(t0, &cancel)) break;
+    }
+    if (drawn) {
+        flair_draw_window_widget(&port, flair_look_default_skin(), frame,
+                                 (int)pc, 0);
+        flair_desktop_present(bi, &ctx->off);
+    }
+    region_set_empty(ctx->comp);
+    if (cancel) inside = 0;
+    serial_puts("FLAIR-TRACKBOX win ");
+    serial_puti((int32_t)flair_live_window_index(ctx, w));
+    serial_puts(" part ");
+    serial_puti((int32_t)pc);
+    serial_puts(inside ? " in=1\n" : " in=0\n");
+    return inside;
+#endif
+}
 
 /* FO-7/R1.4 inGoAway dispatch. Owner identity selects the lifecycle verb:
  * tenant-owned -> FlairProcess_terminate (DisposeWindow sweep + promotion),
@@ -4844,6 +4931,11 @@ void kernel_main(void)
                 if (chrome_pc == inDrag && chrome_w != (WindowPtr)0) {
                     flair_live_do_drag(&ctx, &b, chrome_w, ev.where);
                 } else if (chrome_pc == inGoAway && chrome_w != (WindowPtr)0) {
+                    /* tdnl.60: TrackGoAway first -- act only on a release
+                     * inside the box (flair_live_track_box). */
+                    if (!flair_live_track_box(&ctx, &b, chrome_w, chrome_pc)) {
+                        /* cancelled: nothing closes */
+                    } else {
                     /* R3.3 / design F2-3: disposition is by OWNER IDENTITY. A
                      * FINDER-owned disk window is shell furniture -- close it
                      * with DisposeWindow and keep the always-resident Finder
@@ -4855,14 +4947,17 @@ void kernel_main(void)
                         flair_live_do_finder_close(&ctx, &b, fslot);
                     else
                         flair_live_do_close(&ctx, &b, chrome_w, &ten_barport);
+                    }
                 } else if ((chrome_pc == inZoomIn || chrome_pc == inZoomOut) &&
                            chrome_w != (WindowPtr)0) {
-                    flair_live_do_zoom(&ctx, &b, chrome_w);
+                    if (flair_live_track_box(&ctx, &b, chrome_w, chrome_pc))
+                        flair_live_do_zoom(&ctx, &b, chrome_w);
                 } else if (chrome_pc == inGrow && chrome_w != (WindowPtr)0) {
                     flair_live_do_grow(&ctx, &b, chrome_w, ev.where);
                 } else if (chrome_pc == inCollapse &&
                            chrome_w != (WindowPtr)0) {
-                    flair_live_do_collapse(&ctx, &b, chrome_w);
+                    if (flair_live_track_box(&ctx, &b, chrome_w, chrome_pc))
+                        flair_live_do_collapse(&ctx, &b, chrome_w);
                 } else if (ev.where.v >= 0 &&
                            ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
                     flair_live_do_menu(&ctx, &b, &ctx.scene->bar_sys, ev.where);
@@ -5024,14 +5119,18 @@ void kernel_main(void)
                     flair_live_raise_drag_target(&ctx, w);
                     flair_live_do_drag(&ctx, &b, w, ev.where);
                 } else if (pc == inGoAway && w != (WindowPtr)0) {
-                    flair_live_do_close(&ctx, &b, w, (GrafPort *)0);
+                    /* tdnl.60: act only on a release inside the box. */
+                    if (flair_live_track_box(&ctx, &b, w, pc))
+                        flair_live_do_close(&ctx, &b, w, (GrafPort *)0);
                 } else if ((pc == inZoomIn || pc == inZoomOut) &&
                            w != (WindowPtr)0) {
-                    flair_live_do_zoom(&ctx, &b, w);
+                    if (flair_live_track_box(&ctx, &b, w, pc))
+                        flair_live_do_zoom(&ctx, &b, w);
                 } else if (pc == inGrow && w != (WindowPtr)0) {
                     flair_live_do_grow(&ctx, &b, w, ev.where);
                 } else if (pc == inCollapse && w != (WindowPtr)0) {
-                    flair_live_do_collapse(&ctx, &b, w);
+                    if (flair_live_track_box(&ctx, &b, w, pc))
+                        flair_live_do_collapse(&ctx, &b, w);
                 } else if (ev.where.v >= 0 &&
                            ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
                     /* inMenuBar (ADR-0006 FO-8): the click is in the TOP System-7

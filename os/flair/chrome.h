@@ -85,6 +85,20 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
                                 uint8_t widget_flags);
 
 /* ---------------------------------------------------------------------------
+ * flair_draw_window_widget -- redraw ONE title-bar widget of an ACTIVE
+ * document window whose frame is `frame`: `part` is inGoAway, inZoomIn /
+ * inZoomOut or inCollapse (spec/window_record.h part codes); any other part
+ * draws nothing. pressed=0 is exactly the idle art flair_draw_document_window
+ * draws there; pressed=1 is the held-down art (authored -- Platinum pressed
+ * art is a golden gap; see chrome.c draw_platinum_widget). Pixels outside the
+ * widget's 13x13 cell are never touched, so the live TrackGoAway/TrackBox
+ * loop (os/milton/kmain.c, bead initech-tdnl.60) can toggle it in place over
+ * the composed frame, clipped by the port's visRgn like every chrome draw.
+ * ------------------------------------------------------------------------- */
+void flair_draw_window_widget(GrafPort *port, const flair_skin_t *skin,
+                              rgn_rect_t frame, int part, int pressed);
+
+/* ---------------------------------------------------------------------------
  * flair_draw_movable_dbox_chrome -- draw one Platinum movableDBoxProc (5)
  * window's chrome: a moveable TITLED modal dialog box (beads initech-zvo6).
  *

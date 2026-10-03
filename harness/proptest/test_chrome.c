@@ -365,6 +365,65 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
     }
 }
 
+/* PRESSED WIDGETS (bead initech-tdnl.60; audit G02 -- TrackGoAway/TrackBox
+ * feedback). For each of close / zoom / collapse on the active window drawn
+ * above: the pressed art (1) CHANGES pixels, (2) changes NONE outside the
+ * widget's 13x13 cell (12-px box + the 1-px right/bottom highlight; cell
+ * origin hand-derived from the sampled sys8 offsets in spec/chrome_metrics.h:
+ * close at left+4, zoom at right-1-32, collapse at right-1-16, all at
+ * top+4), and (3) the idle redraw restores the composed frame BYTE-FOR-BYTE
+ * -- so the live loop may toggle it in place with no repaint. */
+static int g_widget_part;
+static int g_widget_pressed;
+static void draw_one_widget(GrafPort *port)
+{
+    flair_draw_window_widget(port, flair_look_default_skin(), win_frame(),
+                             g_widget_part, g_widget_pressed);
+}
+
+static void assert_pressed_widgets(render_ctx_t *ctx, const char *tag)
+{
+    static const struct { int part; int x; const char *name; } W[3] = {
+        { (int)inGoAway,   WIN_LEFT + 4,        "close"    },
+        { (int)inZoomIn,   WIN_RIGHT - 1 - 32,  "zoom"     },
+        { (int)inCollapse, WIN_RIGHT - 1 - 16,  "collapse" },
+    };
+    const bitmap_t *bm = &ctx->fb.bm;
+    size_t n = (size_t)bm->pitch * bm->height;
+    uint8_t *idle = (uint8_t *)malloc(n);
+    CHECK(idle != NULL, "pressed: snapshot allocation");
+    if (idle == NULL) return;
+    memcpy(idle, (const void *)bm->base, n);
+    for (int k = 0; k < 3; k++) {
+        int x0 = W[k].x, y0 = WIN_TOP + 4;
+        uint32_t inside = 0u, outside = 0u;
+        char msg[160];
+        g_widget_part = W[k].part;
+        g_widget_pressed = 1;
+        render_run(ctx, draw_one_widget);
+        for (uint32_t y = 0; y < bm->height; y++) {
+            for (uint32_t b = 0; b < bm->pitch; b++) {
+                size_t off = (size_t)y * bm->pitch + b;
+                if (bm->base[off] == idle[off]) continue;
+                int x = (int)(b / bm->bytes_per_pixel);
+                if (x >= x0 && x <= x0 + 12 && (int)y >= y0 && (int)y <= y0 + 12)
+                    inside++;
+                else
+                    outside++;
+            }
+        }
+        snprintf(msg, sizeof msg, "pressed %s (%s): the held-down art differs from idle", W[k].name, tag);
+        CHECK(inside > 0u, msg);
+        snprintf(msg, sizeof msg, "pressed %s (%s): no pixel outside the 13x13 widget cell changes", W[k].name, tag);
+        CHECK(outside == 0u, msg);
+        g_widget_pressed = 0;
+        render_run(ctx, draw_one_widget);
+        snprintf(msg, sizeof msg, "pressed %s (%s): the idle redraw restores the frame byte-for-byte", W[k].name, tag);
+        CHECK(memcmp((const void *)bm->base, idle, n) == 0, msg);
+    }
+    free(idle);
+}
+
 /* Render one window at the given bpp via the skeleton (AM-1: geometry is a
  * runtime parameter -- a fake boot_info, never a hardcoded aperture). */
 static int render_one(render_ctx_t *ctx, uint32_t bpp)
@@ -391,6 +450,7 @@ int main(int argc, char **argv)
     CHECK(rc8 == 0, "render_ctx_init(8bpp) must succeed (AM-1 geometry param)");
     if (rc8 == 0) {
         assert_chrome(&c8, "8bpp", 1);
+        assert_pressed_widgets(&c8, "8bpp");
     }
 
     /* --- 32bpp (direct XRGB8888) pass ------------------------------------- */
@@ -399,6 +459,7 @@ int main(int argc, char **argv)
     CHECK(rc32 == 0, "render_ctx_init(32bpp) must succeed (AM-1 geometry param)");
     if (rc32 == 0) {
         assert_chrome(&c32, "32bpp", 0);
+        assert_pressed_widgets(&c32, "32bpp");
     }
 
     /* --- AM-1 proof: the skeleton honors a DIFFERENT runtime geometry ------ */

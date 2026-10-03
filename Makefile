@@ -11212,6 +11212,7 @@ CHROME_INC       := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson \
 TEST_CHROME_MUT_TITLE := $(BUILD)/test_chrome_mutant_titlebar
 TEST_CHROME_MUT_FRAME := $(BUILD)/test_chrome_mutant_noframe
 TEST_CHROME_MUT_SBW   := $(BUILD)/test_chrome_mutant_scrollbar
+TEST_CHROME_MUT_PRESSED := $(BUILD)/test_chrome_mutant_pressed_idle
 
 $(TEST_CHROME): $(TEST_CHROME_SRC) $(CHROME_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
@@ -11227,6 +11228,11 @@ $(TEST_CHROME_MUT_FRAME): $(TEST_CHROME_SRC) $(CHROME_DEPS) | $(BUILD)
 
 $(TEST_CHROME_MUT_SBW): $(TEST_CHROME_SRC) $(CHROME_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_MUTATE_SCROLLBAR_W $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
+# initech-tdnl.60: the pressed widget draws the idle art (no press feedback).
+$(TEST_CHROME_MUT_PRESSED): $(TEST_CHROME_SRC) $(CHROME_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_MUT_PRESSED_IDLE $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
 test-chrome: $(TEST_CHROME) $(SPEC_CHROME_METRICS) $(SPEC_CHROME_METRICS_H)
@@ -11276,8 +11282,14 @@ print('    all %d chrome #defines == spec/chrome_metrics.json native values'%len
 	@printf '    chrome.c compiles freestanding (-ffreestanding -nostdlib); wrote $(BUILD)/chrome_window.ppm\n'
 	@printf '>>> test-chrome: green\n'
 
-test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHROME_MUT_SBW)
-	@printf '>>> test-chrome-mutant: confirming all three mutants go RED (Rule 6; FO-2/AM-3)\n'
+test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHROME_MUT_SBW) $(TEST_CHROME_MUT_PRESSED)
+	@printf '>>> test-chrome-mutant: confirming all four mutants go RED (Rule 6; FO-2/AM-3)\n'
+	@if $(TEST_CHROME_MUT_PRESSED) >/dev/null 2>&1; then \
+		printf '!!! test-chrome-mutant FAIL: PRESSED_IDLE mutant PASSED -- the pressed-widget oracle (initech-tdnl.60) is decoration\n'; \
+		exit 1; \
+	else \
+		printf '>>> test-chrome-mutant: green (CHROME_MUT_PRESSED_IDLE correctly RED -- no press feedback is caught)\n'; \
+	fi
 	@if $(TEST_CHROME_MUT_TITLE) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-mutant FAIL: TITLEBAR_H mutant PASSED -- the title-bar-height oracle is decoration\n'; \
 		exit 1; \
@@ -19649,7 +19661,15 @@ RECORD_SPEC_held_menu   = $(FLAIR_HELD_MENU_SPEC)
 RECORD_MARKER_held_menu = FINDER-CLOSE-WINDOW win=0
 RECORD_IMAGE_held_menu  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_held_menu = 400
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu
+# box_cancel (bead initech-tdnl.60, audit G02; Rule 14): HELLO's close box
+# pressed (drawn held down), dragged out (it pops back up), released -- the
+# window stays; the same for zoom and collapse; then the close box pressed,
+# dragged out and BACK IN, released inside -- HELLO closes. FLAIR_BOX_CANCEL_SPEC
+# on the default record image (no double-click).
+RECORD_SPEC_box_cancel   = $(FLAIR_BOX_CANCEL_SPEC)
+RECORD_MARKER_box_cancel = FLAIR-TENANT-EXIT name=HELLO
+RECORD_SETTLE_box_cancel = 200
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -24535,6 +24555,56 @@ test-flair-held-gestures-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_MUT_IMG) $(F
 	@printf '>>> test-flair-held-gestures-mutant [2/2]: RED as required -- %s\n' "$$(grep -E -m1 '^FINDER-(CMD|MOVE|WIN-DRAG)' $(BUILD)/flair_held_menu_mut.serial || echo 'no command')"
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-flair-box-track (bead initech-tdnl.60; audit G02).
+# Boots the bounded $(FLAIRTENANTS_IMG) and replays FLAIR_BOX_CANCEL_SPEC on
+# HELLO: press its close box, drag OUT, release; the same for its zoom and
+# collapse boxes; then press the close box, drag out AND BACK IN, release.
+# Asserts (the TrackGoAway/TrackBox contract, system7-decomp
+# specs/toolbox/window-manager.md Sec 5 -- "TRUE if released inside"):
+#   1. no triple fault; FLAIR-LIVE-READY;
+#   2. the three drag-out releases are cancelled: three
+#        FLAIR-TRACKBOX win <n> part <6|7|8|9> in=0
+#      and NO FLAIR-ZOOM / FLAIR-COLLAPSE line at all;
+#   3. the fourth press commits on release: exactly one
+#        FLAIR-TRACKBOX ... part 6 in=1, then FLAIR-CLOSE + FLAIR-TENANT-EXIT
+#      name=HELLO, and exactly one FLAIR-CLOSE line -- after the fourth
+#      mouseUp, never on a mouseDown (audit: TENANT-EXIT before the mouseUp).
+# The pressed/idle box art is host-graded by test-chrome (pressed widgets)
+# and shown in the Rule-14 clip (record-flair SCRIPT=box_cancel).
+# Mutation-proven by test-flair-box-track-mutant (-DKMAIN_MUT_GOAWAY_ON_PRESS:
+# the pre-fix act-on-mouseDown).
+# ---------------------------------------------------------------------------
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_GOAWAY_ON_PRESS,goaway_on_press))
+box-track-check = grep -qx 'FLAIR-LIVE-READY' $(1) \
+	&& [ "$$(grep -Ec '^FLAIR-TRACKBOX win [0-9]+ part [6789] in=0$$' $(1))" = 3 ] \
+	&& [ "$$(grep -Ec '^FLAIR-TRACKBOX win [0-9]+ part 6 in=1$$' $(1))" = 1 ] \
+	&& ! grep -Eq '^FLAIR-(ZOOM|COLLAPSE) ' $(1) \
+	&& [ "$$(grep -c '^FLAIR-CLOSE win ' $(1))" = 1 ] \
+	&& grep -qx 'FLAIR-TENANT-EXIT name=HELLO' $(1) \
+	&& awk '/^FLAIR-EVT what=2 /{u++} /^FLAIR-CLOSE win /{ok=(u==4)} END{exit !ok}' $(1)
+
+.PHONY: test-flair-box-track test-flair-box-track-mutant
+test-flair-box-track: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-box-track : close/zoom/collapse act on release inside (G02)\n'
+	@printf '  bead initech-tdnl.60; trace FLAIR_BOX_CANCEL_SPEC (spec/flair_input_traces.mk)\n'
+	@printf '======================================================================\n'
+	$(call held-boot,$(FLAIRTENANTS_IMG),flair_box_track,FLAIR_BOX_CANCEL_SPEC,FLAIR-TENANT-EXIT name=HELLO)
+	@$(call box-track-check,"$(BUILD)/flair_box_track.serial") || { printf '!!! test-flair-box-track FAIL: a box acted on the press or a drag-out did not cancel (want 3x in=0, then in=1 + exactly one FLAIR-CLOSE after the 4th mouseUp; no ZOOM/COLLAPSE)\n'; grep -E '^(FLAIR-(TRACKBOX|CLOSE|ZOOM|COLLAPSE|TENANT-EXIT|EVT what=[12])|TENANT-EXIT)' "$(BUILD)/flair_box_track.serial"; exit 1; }
+	@printf '>>> test-flair-box-track: three press-drag-out releases cancelled (close, zoom, collapse); press-out-back-in-release closed HELLO\n'
+	@printf '>>> test-flair-box-track: green\n'
+
+test-flair-box-track-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_goaway_on_press.img $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-box-track-mutant : Rule 6\n'
+	@printf '  Mutant: -DKMAIN_MUT_GOAWAY_ON_PRESS (the box acts on mouseDown)\n'
+	@printf '======================================================================\n'
+	$(call held-boot,$(BUILD)/flair_tenants_mut_goaway_on_press.img,flair_box_track_mut,FLAIR_BOX_CANCEL_SPEC,FLAIR-LIVE-OK)
+	@grep -qx 'FLAIR-LIVE-READY' "$(BUILD)/flair_box_track_mut.serial" || { printf '!!! test-flair-box-track-mutant: mutant never armed (not comparable)\n'; exit 1; }
+	@if $(call box-track-check,"$(BUILD)/flair_box_track_mut.serial"); then printf '!!! test-flair-box-track-mutant FAIL: act-on-press PASSED -- the gate is decoration\n'; exit 1; fi
+	@printf '>>> test-flair-box-track-mutant: RED as required -- %s\n' "$$(grep -m1 -E '^FLAIR-(CLOSE|ZOOM|COLLAPSE) ' $(BUILD)/flair_box_track_mut.serial || echo 'no verb')"
+
+# ---------------------------------------------------------------------------
 # Aggregate green gate vector (beads initech-4mc)
 # ---------------------------------------------------------------------------
 # The single command that asserts "InitechDOS is rock solid". Runs the entire
@@ -25699,6 +25769,7 @@ TEST_EMU_GATES := \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-modifier-release test-flair-modifier-release-mutant \
 	test-flair-held-gestures test-flair-held-gestures-mutant \
+	test-flair-box-track test-flair-box-track-mutant \
 	test-flair-solid test-flair-solid-mutant \
 	test-flair-zoom-toggle test-flair-grow test-flair-collapse \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant
