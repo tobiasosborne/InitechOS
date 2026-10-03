@@ -704,6 +704,192 @@ static void test_random_determinism(void)
 }
 
 /* ===========================================================================
+ * GROUP I -- THE REAL PRODUCER'S ENCODING: raw PS/2 SET-1 bytes
+ * (bead initech-tdnl.58; audit G11, docs/audits/2026-10-04-flair-gui-codex-
+ * pass2/REPORT.md -- "Ctrl and Shift remain active after key release").
+ * ---------------------------------------------------------------------------
+ * The ONE producer on metal, kmain.c flair_live_kbd_post, posts the byte read
+ * from port 0x60 VERBATIM as the payload: the 8042 hands the system scancode
+ * SET 1, in which a BREAK is the make code with bit 7 set (0x9D = Ctrl up,
+ * 0xAA = LShift up) and the right-hand keys arrive behind an 0xE0 prefix
+ * byte. Groups A/E above post breaks in the spec/event_model.h bit-8 form,
+ * which no producer emits -- so they agreed with the cooker by construction
+ * while every real release went unrecognised (Law 2, HER-02 shape). This group
+ * posts exactly what the wire carries.
+ *
+ * The expected values are read off the IBM reference, NOT off event.c:
+ *   IBM PC AT Technical Reference (1984) keyboard appendix, scan code set 1:
+ *   LShift 2A/AA, RShift 36/B6, LCtrl 1D/9D, LAlt 38/B8, CapsLock 3A/BA,
+ *   'a' 1E/9E, 'n' 31/B1; enhanced (101-key) extended keys E0 xx: RCtrl
+ *   E0 1D / E0 9D, RAlt E0 38 / E0 B8, Up arrow E0 48 / E0 C8; the
+ *   keyboard's own "fake shift" E0 2A / E0 AA brackets the grey cursor keys
+ *   (OSDev "PS/2 Keyboard" scan code set 1 table). 0xFA is the controller
+ *   ACK, not a key. Pause is E1 1D 45 E1 9D C5 (no break of its own).
+ * The audit's replay (Ctrl press, Ctrl release, plain n -> New Folder) is
+ * case I1 byte-for-byte: ctrl-only-serial.log shows "msg=00009D00" -- the
+ * Ctrl break cooked as a keyDown with ASCII 0 -- and then New Folder.
+ * ===========================================================================*/
+#ifndef EVENT_MUTATE_DROP_SYNTH
+static void kb(flair_raw_ring_t *ring, uint32_t byte)
+{
+    post1(ring, FLAIR_RAW_KEYBOARD, 300u, byte);
+}
+
+/* Drain every pending raw event; return the LAST non-null event delivered (or
+ * a nullEvent record) and the count of non-null events in *n. */
+static EventRecord drain_all(flair_raw_ring_t *ring, int *n)
+{
+    EventRecord ev, last;
+    int c = 0;
+    last.what = (uint16_t)nullEvent; last.message = 0u; last.modifiers = 0u;
+    last.when = 0u; last.where.h = 0; last.where.v = 0;
+    for (int i = 0; i < 64; i++) {
+        uint32_t before = ring->tail;
+        int rc = drain1(ring, everyEvent, &ev);
+        if (rc) { last = ev; c++; }
+        if (ring->tail == before) break;      /* ring empty */
+    }
+    if (n) *n = c;
+    return last;
+}
+#endif
+
+static void test_set1_producer_encoding(void)
+{
+#ifndef EVENT_MUTATE_DROP_SYNTH
+    flair_raw_ring_t ring;
+    EventRecord ev;
+    int n;
+
+    /* I1: Ctrl press, Ctrl release, plain 'n' (the audit's minimal replay). */
+    fresh_ring(&ring);
+    kb(&ring, 0x1Du); kb(&ring, 0x9Du);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 0, "I1: Ctrl make+break deliver NO key event (0x9D is not a keyDown)");
+    kb(&ring, 0x31u);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && ev.what == keyDown && (ev.message & 0xFFu) == 'n',
+          "I1: plain n after Ctrl release -> keyDown 'n'");
+    CHECK((ev.modifiers & FLAIR_EVT_MOD_CONTROL_KEY) == 0u,
+          "I1: Ctrl RELEASED (0x9D) -> controlKey clear on the next key (G11)");
+
+    /* I1b: while Ctrl is held the bit IS set (the chord still works). */
+    fresh_ring(&ring);
+    kb(&ring, 0x1Du); kb(&ring, 0x31u);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && (ev.modifiers & FLAIR_EVT_MOD_CONTROL_KEY) != 0u,
+          "I1b: Ctrl held + n -> controlKey set");
+
+    /* I2: LShift press/release, then 'a' -> lower case, shift clear. */
+    fresh_ring(&ring);
+    kb(&ring, 0x2Au); kb(&ring, 0xAAu); kb(&ring, 0x1Eu);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && (ev.message & 0xFFu) == 'a',
+          "I2: a after LShift release is lower case");
+    CHECK((ev.modifiers & FLAIR_EVT_MOD_SHIFT_KEY) == 0u,
+          "I2: LShift RELEASED (0xAA) -> shiftKey clear");
+
+    /* I3: LAlt press/release -> optionKey clear. */
+    fresh_ring(&ring);
+    kb(&ring, 0x38u); kb(&ring, 0xB8u); kb(&ring, 0x1Eu);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && (ev.modifiers & FLAIR_EVT_MOD_OPTION_KEY) == 0u,
+          "I3: LAlt RELEASED (0xB8) -> optionKey clear");
+
+    /* I4: RIGHT Ctrl / RIGHT Alt arrive E0-prefixed; both set while held and
+     * clear on their own E0-prefixed break. */
+    fresh_ring(&ring);
+    kb(&ring, 0xE0u); kb(&ring, 0x1Du); kb(&ring, 0x31u);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && (ev.modifiers & FLAIR_EVT_MOD_CONTROL_KEY) != 0u,
+          "I4: RCtrl (E0 1D) held -> controlKey set");
+    kb(&ring, 0xE0u); kb(&ring, 0x9Du); kb(&ring, 0x31u);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && (ev.modifiers & FLAIR_EVT_MOD_CONTROL_KEY) == 0u,
+          "I4: RCtrl released (E0 9D) -> controlKey clear");
+    kb(&ring, 0xE0u); kb(&ring, 0x38u); kb(&ring, 0x1Eu);
+    ev = drain_all(&ring, &n);
+    CHECK((ev.modifiers & FLAIR_EVT_MOD_OPTION_KEY) != 0u,
+          "I4: RAlt (E0 38) held -> optionKey set");
+    kb(&ring, 0xE0u); kb(&ring, 0xB8u); kb(&ring, 0x1Eu);
+    ev = drain_all(&ring, &n);
+    CHECK((ev.modifiers & FLAIR_EVT_MOD_OPTION_KEY) == 0u,
+          "I4: RAlt released (E0 B8) -> optionKey clear");
+
+    /* I5: BOTH Shifts held; releasing ONE keeps Shift down. */
+    fresh_ring(&ring);
+    kb(&ring, 0x2Au); kb(&ring, 0x36u); kb(&ring, 0xB6u); kb(&ring, 0x1Eu);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && (ev.message & 0xFFu) == 'A' &&
+          (ev.modifiers & FLAIR_EVT_MOD_SHIFT_KEY) != 0u,
+          "I5: LShift still held after RShift release -> 'A', shiftKey set");
+    kb(&ring, 0xAAu); kb(&ring, 0x1Eu);
+    ev = drain_all(&ring, &n);
+    CHECK((ev.message & 0xFFu) == 'a' &&
+          (ev.modifiers & FLAIR_EVT_MOD_SHIFT_KEY) == 0u,
+          "I5: both Shifts released -> 'a', shiftKey clear");
+
+    /* I6: a plain key's SET-1 break is a keyUp carrying the same character and
+     * virtual key code as its make -- never a second keyDown. */
+    fresh_ring(&ring);
+    kb(&ring, 0x1Eu);
+    ev = drain_all(&ring, &n);
+    kb(&ring, 0x9Eu);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && ev.what == keyUp, "I6: 0x9E (a break) -> keyUp");
+    CHECK((ev.message & 0xFFu) == 'a' && ((ev.message >> 8) & 0xFFu) == 0x1Eu,
+          "I6: keyUp message = (vkey 0x1E << 8) | 'a'");
+
+    /* I7: the keyboard's FAKE shifts around a grey arrow never touch Shift;
+     * an E0 key is not its keypad twin (Up is not '8'). */
+    fresh_ring(&ring);
+    kb(&ring, 0xE0u); kb(&ring, 0x2Au); kb(&ring, 0xE0u); kb(&ring, 0x48u);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && ev.what == keyDown && (ev.message & 0xFFu) == 0u,
+          "I7: E0 48 (Up) -> keyDown with ASCII 0, not keypad '8'");
+    CHECK((ev.modifiers & FLAIR_EVT_MOD_SHIFT_KEY) == 0u,
+          "I7: fake shift make (E0 2A) does not set shiftKey");
+    kb(&ring, 0xE0u); kb(&ring, 0xC8u); kb(&ring, 0xE0u); kb(&ring, 0xAAu);
+    kb(&ring, 0x2Au);                                  /* real LShift down */
+    kb(&ring, 0xE0u); kb(&ring, 0xAAu);                /* fake shift up    */
+    kb(&ring, 0x1Eu);
+    ev = drain_all(&ring, &n);
+    CHECK((ev.message & 0xFFu) == 'A' &&
+          (ev.modifiers & FLAIR_EVT_MOD_SHIFT_KEY) != 0u,
+          "I7: fake shift break (E0 AA) does not release a REAL held Shift");
+    kb(&ring, 0xAAu);
+
+    /* I8: Caps Lock toggles once per PHYSICAL press: the typematic repeat of
+     * a held Caps make must not re-toggle, and its break changes nothing. */
+    fresh_ring(&ring);
+    kb(&ring, 0x3Au); kb(&ring, 0x3Au); kb(&ring, 0x3Au); kb(&ring, 0xBAu);
+    kb(&ring, 0x1Eu);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && (ev.message & 0xFFu) == 'A' &&
+          (ev.modifiers & FLAIR_EVT_MOD_ALPHA_LOCK) != 0u,
+          "I8: Caps make x3 (typematic) + break -> Caps ON once -> 'A'");
+    kb(&ring, 0x3Au); kb(&ring, 0xBAu); kb(&ring, 0x1Eu);
+    ev = drain_all(&ring, &n);
+    CHECK((ev.message & 0xFFu) == 'a' &&
+          (ev.modifiers & FLAIR_EVT_MOD_ALPHA_LOCK) == 0u,
+          "I8: a second physical Caps press -> Caps OFF -> 'a'");
+
+    /* I9: controller bytes and the Pause sequence are not keys. */
+    fresh_ring(&ring);
+    kb(&ring, 0xFAu);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 0, "I9: 0xFA (8042 ACK) delivers no key event");
+    kb(&ring, 0xE1u); kb(&ring, 0x1Du); kb(&ring, 0x45u);
+    kb(&ring, 0xE1u); kb(&ring, 0x9Du); kb(&ring, 0xC5u);
+    kb(&ring, 0x31u);
+    ev = drain_all(&ring, &n);
+    CHECK(n == 1 && (ev.message & 0xFFu) == 'n' &&
+          (ev.modifiers & FLAIR_EVT_MOD_CONTROL_KEY) == 0u,
+          "I9: Pause (E1 1D 45 E1 9D C5) is swallowed; its 1D is not Ctrl");
+#endif
+}
+
+/* ===========================================================================
  * GROUP H -- NAMED MUTANT PROBE (Rule 6: mutation-proven oracle discipline)
  * ---------------------------------------------------------------------------
  * The mutant probes (EVENT_MUTATE_DROP_SYNTH, EVENT_MUTATE_STALE_WHERE) are
@@ -767,6 +953,7 @@ int main(void)
     test_modifier_reflection();
     test_spsc_ring();
     test_random_determinism();
+    test_set1_producer_encoding();
     test_named_mutant_gate();
 
     return TEST_SUMMARY("test_event");

@@ -551,6 +551,8 @@ include spec/flair_app_launch_traces.mk
 # the DQ6 clamp), and FLAIR_SOLID_RAISE_SPEC (leg H: direct background-title
 # press, then drag).
 include spec/flair_solid_traces.mk
+# The LOCKED input-handling traces (G11/G01/G02; beads initech-tdnl.58/.59/.60).
+include spec/flair_input_traces.mk
 
 # ---------------------------------------------------------------------------
 # Flat C kernel (os/milton, beads initech-d00; ADR-0003 DEC-08)
@@ -12650,6 +12652,7 @@ TEST_EVENT     := $(BUILD)/test_event
 TEST_EVENT_SRC := harness/proptest/test_event.c
 TEST_EVENT_MUT_DROP  := $(BUILD)/test_event_mutant_drop
 TEST_EVENT_MUT_WHERE := $(BUILD)/test_event_mutant_where
+TEST_EVENT_MUT_SET1  := $(BUILD)/test_event_mutant_set1
 TEST_EVENT_DEPS := os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h
 EVENT_INC := -Ios/flair -Ispec -Iseed
 
@@ -12659,6 +12662,9 @@ $(TEST_EVENT_MUT_DROP): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_DROP_SYNTH $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 $(TEST_EVENT_MUT_WHERE): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_STALE_WHERE $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+# initech-tdnl.58 (audit G11): the pre-fix SET-1 decoder (break bit ignored).
+$(TEST_EVENT_MUT_SET1): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_SET1_BREAK_BLIND $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 
 test-event: $(TEST_EVENT)
 	@printf ">>> test-event: ISR-enqueue SPSC ring + WaitNextEvent deterministic replay (raw trace -> EventRecord sequence, D-4/D-8)\n"
@@ -12667,10 +12673,11 @@ test-event: $(TEST_EVENT)
 		|| { printf '!!! test-event FAIL: event.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-event: green\n"
 
-test-event-mutant: $(TEST_EVENT_MUT_DROP) $(TEST_EVENT_MUT_WHERE)
-	@printf ">>> test-event-mutant: confirming both mutants go RED (Rule 6)\n"
+test-event-mutant: $(TEST_EVENT_MUT_DROP) $(TEST_EVENT_MUT_WHERE) $(TEST_EVENT_MUT_SET1)
+	@printf ">>> test-event-mutant: confirming all three mutants go RED (Rule 6)\n"
 	@if $(TEST_EVENT_MUT_DROP) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: DROP_SYNTH PASSED -- the synthesis oracle is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (DROP_SYNTH correctly RED)\n'; fi
 	@if $(TEST_EVENT_MUT_WHERE) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: STALE_WHERE PASSED -- the cursor-tracking oracle is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (STALE_WHERE correctly RED)\n'; fi
+	@if $(TEST_EVENT_MUT_SET1) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: SET1_BREAK_BLIND PASSED -- the modifier-release oracle (G11, initech-tdnl.58) is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (SET1_BREAK_BLIND correctly RED -- released modifiers latch)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-mouse-producer (beads initech-8f5p; blocks initech-rgt8) --
@@ -17010,8 +17017,9 @@ test-flair-key-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_KBD_IMG)
 	@grep -q '^FLAIR-HOOK-SET$$' "$(FLAIR_KEY_MUT_SERIAL)" \
 		|| { printf '!!! test-flair-key-mutant FAIL: mutant did not reach FLAIR-HOOK-SET (not the same boot path)\n'; exit 1; }
 	@# Match the SPECIFIC cooked 'a' keyDown (msg=00001E61), NOT a bare ^FLAIR-EVT:
-	@# a harmless boot-time phantom keyDown (the mouse 0xFA ACK via IRQ1, msg=0000FA00)
-	@# is always present, so the gate keys on the injected key's message.
+	@# the gate keys on the injected key's message. (The boot-time 0xFA ACK via
+	@# IRQ1 used to cook into a phantom keyDown msg=0000FA00; since initech-tdnl.58
+	@# event.c treats controller bytes as non-keys, but the specific match stays.)
 	@if grep -q '^FLAIR-EVT what=3 .*msg=00001E61' "$(FLAIR_KEY_MUT_SERIAL)" 2>/dev/null; then \
 		printf '!!! test-flair-key-mutant FAIL: cooked keyDown a appeared despite no kbd hook -- the gate is decoration\n'; exit 1; \
 	fi
@@ -19620,7 +19628,17 @@ RECORD_SETTLE_app_menubar = 400
 RECORD_SPEC_chicago_menus   = m-100:-100,m-100:-100,m-20:-10,l1,m50:0,m50:0,l0,m100:0,l1,m0:20,m0:30,l0,m100:100,m100:100,m100:100,m20:80
 RECORD_MARKER_chicago_menus = FLAIR-MENU menu=262 item=0 (sel=0x00000000)
 RECORD_SETTLE_chicago_menus = 200
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus
+# modifier_release (bead initech-tdnl.58, audit G11; Rule 14): the root window
+# opens; Ctrl is pressed and released and a plain n typed (no folder appears);
+# right Ctrl pressed and released and a plain w typed (the window stays open);
+# Shift pressed and released, then README.TXT and APPS clicked in turn (the
+# selection MOVES -- one icon lit, not two); finally the real Ctrl-N chord makes
+# the one NEWFOLD. DOUBLE-CLICK record image (it opens the volume).
+RECORD_SPEC_modifier_release   = $(FLAIR_MODREL_SPEC)
+RECORD_MARKER_modifier_release = FINDER-NEW-FOLDER name=NEWFOLD parent=0
+RECORD_IMAGE_modifier_release  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_SETTLE_modifier_release = 400
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -24342,6 +24360,97 @@ test-samir-canon-salami-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DOTRUNC
 	@sed 's/^/    /' "$(BUILD)/$(CSAL_MUT_NAME).samir"
 	@printf '>>> test-samir-canon-salami-mutant: green (the DO-file half-read mutant correctly RED -- the canon posting body is absent; no crash)\n'
 
+# ===========================================================================
+# INPUT-HANDLING GATES (second FLAIR desktop audit, 2026-10-04: G11 / G01 /
+# G02; beads initech-tdnl.58 / .59 / .60). Locked traces:
+# spec/flair_input_traces.mk. Ref: docs/audits/2026-10-04-flair-gui-codex-
+# pass2/REPORT.md (replay steps + serial evidence).
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-modifier-release (bead initech-tdnl.58; audit G11).
+# Boots the bounded $(FLAIRTENANTS_IMG) with a fresh data copy and replays
+# FLAIR_MODREL_SPEC: open the root window; press-and-release LEFT Ctrl then a
+# plain n; press-and-release RIGHT Ctrl (E0 1D / E0 9D) then a plain w;
+# press-and-release Shift then click README.TXT and APPS; finally the REAL
+# Ctrl-N chord. Asserts (Law 2, the audit's own observable outcomes):
+#   1. no triple fault; the root window opened (FINDER-OPEN-VOLUME win=0 n=4);
+#   2. the ONLY Finder command is the final chord:
+#        FINDER-CMD id=2 name=NEW_FOLDER src=key sel=1   (exactly one FINDER-CMD)
+#      -- the plain n after a Ctrl release made no folder, the plain w after a
+#      RIGHT-Ctrl release closed nothing (no FINDER-CLOSE-WINDOW);
+#   3. the APPS click after the Shift release REPLACED the selection:
+#        FINDER-WIN-SELECT win=0 name=APPS count=1   (audit: count=2);
+#   4. no release byte was cooked into a keyDown (no FLAIR-EVT what=3 line
+#      whose virtual key has bit 7 set, e.g. the audit's msg=00009D00).
+# Mutation-proven by test-flair-modifier-release-mutant: the SAME trace on a
+# kernel whose event.o is built -DEVENT_MUTATE_SET1_BREAK_BLIND (the pre-fix
+# decoder) must fail at least assertion 2.
+# ---------------------------------------------------------------------------
+FLAIR_MODREL_NAME := flair_modrel
+FLAIR_MODREL_DATA  = $(BUILD)/$@_data.img
+# $(call modrel-check,<serial>): exits 0 iff the G11 properties hold.
+modrel-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' $(1) \
+	&& [ "$$(grep -c '^FINDER-CMD ' $(1))" = 1 ] \
+	&& grep -qxF 'FINDER-CMD id=2 name=NEW_FOLDER src=key sel=1' $(1) \
+	&& ! grep -q '^FINDER-CLOSE-WINDOW' $(1) \
+	&& grep -qxF 'FINDER-WIN-SELECT win=0 name=APPS count=1' $(1) \
+	&& ! grep -Eq '^FLAIR-EVT what=3 .*msg=0000[89A-F][0-9A-F]' $(1)
+
+# The pre-fix decoder as a kernel: the bounded tenants kernel with ONLY event.o
+# swapped for one built -DEVENT_MUTATE_SET1_BREAK_BLIND.
+$(BUILD)/event_mut_set1.o: os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DEVENT_MUTATE_SET1_BREAK_BLIND -Ios/flair -Ispec -Iseed -c os/flair/event.c -o $@
+$(BUILD)/kernel_flairtenants_mut_set1.elf: $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o
+$(BUILD)/kernel_flairtenants_mut_set1.bin: $(BUILD)/kernel_flairtenants_mut_set1.elf | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_mut_set1.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
+	$(call kernel-end-guard,$<,flairtenants-mut-set1)
+$(BUILD)/flair_tenants_mut_set1.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_set1.bin | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_set1.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants SET1_BREAK_BLIND mutant image: %s\n" "$@"
+
+.PHONY: test-flair-modifier-release test-flair-modifier-release-mutant
+test-flair-modifier-release: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-modifier-release : released modifiers stay released (G11)\n'
+	@printf '  bead initech-tdnl.58; trace FLAIR_MODREL_SPEC (spec/flair_input_traces.mk)\n'
+	@printf '======================================================================\n'
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_MODREL_DATA)
+	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_MODREL_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_MODREL_NAME)" --out "$(BUILD)" \
+		--mouse "$(FLAIR_MODREL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--quit-after "FINDER-NEW-FOLDER name=NEWFOLD" \
+		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_MODREL_NAME).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_MODREL_NAME).report"; then printf '!!! test-flair-modifier-release FAIL: TRIPLE FAULT\n'; exit 1; fi
+	@$(call modrel-check,"$(BUILD)/$(FLAIR_MODREL_NAME).serial") || { \
+		printf '!!! test-flair-modifier-release FAIL: a released modifier still acted (G11). Want: root open; exactly ONE FINDER-CMD (the final Ctrl-N, sel=1); no FINDER-CLOSE-WINDOW; APPS click count=1; no release byte cooked as keyDown\n'; \
+		grep -E '^(FINDER-|FLAIR-EVT what=[34])' "$(BUILD)/$(FLAIR_MODREL_NAME).serial"; exit 1; }
+	@printf '>>> test-flair-modifier-release: plain n / w after Ctrl / RCtrl release did nothing; Shift release ended extension (count=1); the Ctrl-N chord still dispatched\n'
+	@printf '>>> test-flair-modifier-release: green\n'
+
+test-flair-modifier-release-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_set1.img $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-modifier-release-mutant : Rule 6\n'
+	@printf '  Mutant: event.o -DEVENT_MUTATE_SET1_BREAK_BLIND (the pre-tdnl.58 decoder)\n'
+	@printf '======================================================================\n'
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_MODREL_DATA)
+	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_set1.img" --disk2 "$(FLAIR_MODREL_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name flair_modrel_mut --out "$(BUILD)" \
+		--mouse "$(FLAIR_MODREL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
+		--quit-after FLAIR-LIVE-OK --timeout-ms 30000 2> "$(BUILD)/flair_modrel_mut.report" || true
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_modrel_mut.serial" \
+		|| { printf '!!! test-flair-modifier-release-mutant: the mutant never opened the root window (not comparable)\n'; exit 1; }
+	@if $(call modrel-check,"$(BUILD)/flair_modrel_mut.serial"); then \
+		printf '!!! test-flair-modifier-release-mutant FAIL: the pre-fix decoder PASSED -- the gate is decoration\n'; exit 1; fi
+	@printf '>>> test-flair-modifier-release-mutant: RED as required -- %s\n' "$$(grep -m1 '^FINDER-CMD ' "$(BUILD)/flair_modrel_mut.serial" || echo 'no FINDER-CMD')"
+
 # ---------------------------------------------------------------------------
 # Aggregate green gate vector (beads initech-4mc)
 # ---------------------------------------------------------------------------
@@ -25505,6 +25614,7 @@ TEST_EMU_GATES := \
 	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
+	test-flair-modifier-release test-flair-modifier-release-mutant \
 	test-flair-solid test-flair-solid-mutant \
 	test-flair-zoom-toggle test-flair-grow test-flair-collapse \
 	test-flair-samir-suspend test-flair-samir-suspend-mutant

@@ -85,6 +85,16 @@ static int16_t g_cursor_v;   /* vertical   (y) */
 /* Current modifier-key state maintained across raw keyboard events. */
 static uint16_t g_modifiers;
 
+/* SET-1 decoder state (bead initech-tdnl.58; see cook_raw's KEYBOARD arm).
+ * g_kbd_held: one bit per PHYSICAL modifier key (KH_*), so releasing one of
+ *   two held Shifts leaves Shift down and Caps Lock's typematic repeat is
+ *   seen as "still held". The modifier word is derived from it.
+ * g_kbd_ext:  1 after an 0xE0 prefix byte; applies to the next byte only.
+ * g_kbd_skip: bytes still to swallow after an 0xE1 (Pause) prefix. */
+static uint8_t g_kbd_held;
+static uint8_t g_kbd_ext;
+static uint8_t g_kbd_skip;
+
 /* The cooperative yield hook (see event.h Sec 3). */
 static flair_event_yield_fn g_yield_fn;
 
@@ -140,6 +150,9 @@ void flair_event_init(flair_raw_ring_t *ring)
     g_cursor_h   = (int16_t)(FLAIR_SCREEN_W / 2);
     g_cursor_v   = (int16_t)(FLAIR_SCREEN_H / 2);
     g_modifiers  = FLAIR_EVT_MOD_BTN_STATE; /* button UP at init (MTE 2-6: 1=UP) */
+    g_kbd_held   = 0u;
+    g_kbd_ext    = 0u;
+    g_kbd_skip   = 0u;
     g_yield_fn   = (flair_event_yield_fn)0;
 }
 
@@ -256,12 +269,41 @@ static const uint8_t sc_shifted[128] = {
 /*78*/ 0,    0,    0,    0,    0,    0,    0,    0
 };
 
-/* PS/2 SET-1 make codes for the modifier keys (IBM PC AT Table B-3). */
+/* PS/2 SET-1 make codes for the modifier keys (IBM PC AT Table B-3). A BREAK
+ * is the same code with bit 7 set; the right-hand Ctrl/Alt of the enhanced
+ * keyboard are the same codes behind an 0xE0 prefix byte. */
 #define SC_LSHIFT  0x2Au
 #define SC_RSHIFT  0x36u
-#define SC_CTRL    0x1Du   /* left Ctrl */
-#define SC_ALT     0x38u   /* left Alt (Option) */
+#define SC_CTRL    0x1Du   /* left Ctrl; E0 1D = right Ctrl */
+#define SC_ALT     0x38u   /* left Alt (Option); E0 38 = right Alt */
 #define SC_CAPS    0x3Au
+#define SC_BREAK   0x80u   /* SET-1 break flag (make | 0x80)          */
+#define SC_PFX_E0  0xE0u   /* enhanced-key prefix: next byte only     */
+#define SC_PFX_E1  0xE1u   /* Pause prefix: E1 1D 45 / E1 9D C5       */
+
+/* One bit per physical modifier key (g_kbd_held). */
+#define KH_LSHIFT  0x01u
+#define KH_RSHIFT  0x02u
+#define KH_LCTRL   0x04u
+#define KH_RCTRL   0x08u
+#define KH_LALT    0x10u
+#define KH_RALT    0x20u
+#define KH_CAPS    0x40u   /* Caps Lock key physically down (not the lock) */
+
+/* Which physical modifier a (make, extended) pair names, or 0. The keyboard's
+ * own "fake shifts" (E0 2A / E0 AA, E0 36 / E0 B6), which bracket the grey
+ * cursor keys, name no key and return 0 (OSDev "PS/2 Keyboard" set 1). */
+static uint8_t kbd_modifier_bit(uint8_t make, int ext)
+{
+    switch (make) {
+    case SC_LSHIFT: return ext ? 0u : (uint8_t)KH_LSHIFT;
+    case SC_RSHIFT: return ext ? 0u : (uint8_t)KH_RSHIFT;
+    case SC_CTRL:   return ext ? (uint8_t)KH_RCTRL : (uint8_t)KH_LCTRL;
+    case SC_ALT:    return ext ? (uint8_t)KH_RALT  : (uint8_t)KH_LALT;
+    case SC_CAPS:   return ext ? 0u : (uint8_t)KH_CAPS;
+    default:        return 0u;
+    }
+}
 
 /* ===========================================================================
  * 6. RING CONSUMER: DRAIN ONE RAW EVENT + COOK INTO EventRecord
@@ -339,45 +381,86 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
      * KEYBOARD raw event
      * ------------------------------------------------------------------
      * Payload layout (spec/event_model.h Sec 5 KEYBOARD):
-     *   bits 0..7  = raw PS/2 SET-1 make/break scancode byte.
-     *   bit  8     = key-break flag (1 = key released; set by ISR after
-     *                consuming the 0xF0 break prefix from the PS/2 stream).
+     *   bits 0..7  = raw PS/2 SET-1 scancode byte, exactly as read from
+     *                port 0x60 (kmain.c flair_live_kbd_post posts it
+     *                verbatim): a BREAK is make|0x80, enhanced keys are
+     *                preceded by a separate 0xE0 byte, Pause by 0xE1.
+     *   bit  8     = key-break flag in the spec/event_model.h form (a
+     *                producer that pre-decodes may set it on a make code).
      *   bits 9..31 = reserved/zero.
+     * Both break encodings are honoured.
+     *
+     * BUG FIXED HERE (bead initech-tdnl.58; audit G11): this arm used to
+     * take the break flag from bit 8 ONLY and compare the WHOLE byte with
+     * the make codes. The real producer never sets bit 8, so a Ctrl release
+     * (0x9D) matched nothing: Control stayed latched forever and the 0x9D
+     * itself was cooked as a keyDown with ASCII 0. Plain N then dispatched
+     * New Folder, plain W closed a window, Shift-click kept extending.
+     * Ref: IBM PC AT Technical Reference (1984) keyboard appendix (scan
+     * code set 1: break = make + 0x80); OSDev "PS/2 Keyboard" set 1 table
+     * (E0-prefixed right Ctrl/Alt, fake shifts, E1 Pause, FA ACK).
      * ------------------------------------------------------------------ */
     case FLAIR_RAW_KEYBOARD: {
-        uint8_t  sc        = (uint8_t)(raw->payload & 0xFFu);
+        uint8_t  byte      = (uint8_t)(raw->payload & 0xFFu);
         int      is_break  = (int)((raw->payload >> 8u) & 1u);
+        uint8_t  sc        = byte;
+        int      ext       = 0;
+        uint8_t  mbit;
         uint8_t  ascii     = 0u;
-        uint16_t vkey      = (uint16_t)sc;
+        uint16_t vkey;
 
-        /* Modifier-key tracking: update g_modifiers on press/release. */
-        if (sc == SC_LSHIFT || sc == SC_RSHIFT) {
-            if (is_break) g_modifiers &= (uint16_t)~FLAIR_EVT_MOD_SHIFT_KEY;
-            else          g_modifiers |= FLAIR_EVT_MOD_SHIFT_KEY;
-            /* Shift press/release itself is NOT a separate keyDown/keyUp
-             * in Inside Macintosh -- it updates the modifier state that is
-             * stamped onto the NEXT event. */
-            ev->modifiers = g_modifiers;
-            /* Return nullEvent for standalone modifier. */
+        if (g_kbd_skip != 0u) {          /* inside E1 1D 45 / E1 9D C5 */
+            g_kbd_skip--;
             break;
         }
-        if (sc == SC_CTRL) {
-            if (is_break) g_modifiers &= (uint16_t)~FLAIR_EVT_MOD_CONTROL_KEY;
-            else          g_modifiers |= FLAIR_EVT_MOD_CONTROL_KEY;
-            ev->modifiers = g_modifiers;
+        if (byte == SC_PFX_E0) { g_kbd_ext = 1u; break; }
+        if (byte == SC_PFX_E1) { g_kbd_skip = 2u; g_kbd_ext = 0u; break; }
+        /* 8042/keyboard responses, never keys: 00/FF overrun, EE echo,
+         * FA ACK, FC/FD self-test failure, FE resend. (0xAA, the BAT pass
+         * code, is also the LShift break; treating it as one is harmless.) */
+        if (byte == 0x00u || byte == 0xEEu || byte >= 0xFAu) {
+            g_kbd_ext = 0u;
             break;
         }
-        if (sc == SC_ALT) {
-            if (is_break) g_modifiers &= (uint16_t)~FLAIR_EVT_MOD_OPTION_KEY;
-            else          g_modifiers |= FLAIR_EVT_MOD_OPTION_KEY;
-            ev->modifiers = g_modifiers;
-            break;
+        ext = (int)g_kbd_ext;
+        g_kbd_ext = 0u;
+#ifndef EVENT_MUTATE_SET1_BREAK_BLIND
+        if (byte & SC_BREAK) {
+            is_break = 1;
+            sc = (uint8_t)(byte & (uint8_t)~SC_BREAK);
         }
-        if (sc == SC_CAPS) {
-            if (!is_break) {
-                /* Toggle Caps Lock on key-press (period-authentic). */
-                g_modifiers ^= FLAIR_EVT_MOD_ALPHA_LOCK;
+#else
+        /* MUTANT (Rule 6; test-event-mutant): the pre-tdnl.58 decoder -- the
+         * SET-1 break bit is ignored, so 0x9D is not "Ctrl up". Group I of
+         * test_event.c must go RED. NEVER define in a real build. */
+        (void)ext;
+#endif
+        vkey = (uint16_t)sc;
+
+        /* Modifier-key tracking: a modifier press/release is NOT a keyDown/
+         * keyUp in Inside Macintosh -- it updates the modifier state stamped
+         * onto the NEXT event, so it cooks to nullEvent. A fake shift (mbit
+         * 0 for E0 2A) is swallowed the same way without touching state. */
+        mbit = kbd_modifier_bit(sc, ext);
+        if (mbit != 0u || (ext && (sc == SC_LSHIFT || sc == SC_RSHIFT))) {
+            if (mbit == (uint8_t)KH_CAPS) {
+                /* Caps Lock latches once per PHYSICAL press: a held key's
+                 * typematic repeat re-sends the make (IBM PC AT Tech Ref,
+                 * typematic), which must not re-toggle. */
+                if (!is_break && !(g_kbd_held & KH_CAPS))
+                    g_modifiers ^= FLAIR_EVT_MOD_ALPHA_LOCK;
             }
+            if (is_break) g_kbd_held &= (uint8_t)~mbit;
+            else          g_kbd_held |= mbit;
+            g_modifiers &= (uint16_t)~(FLAIR_EVT_MOD_SHIFT_KEY |
+                                       FLAIR_EVT_MOD_CONTROL_KEY |
+                                       FLAIR_EVT_MOD_OPTION_KEY);
+            if (g_kbd_held & (KH_LSHIFT | KH_RSHIFT))
+                g_modifiers |= FLAIR_EVT_MOD_SHIFT_KEY;
+            if (g_kbd_held & (KH_LCTRL | KH_RCTRL))
+                g_modifiers |= FLAIR_EVT_MOD_CONTROL_KEY;
+            if (g_kbd_held & (KH_LALT | KH_RALT))
+                g_modifiers |= FLAIR_EVT_MOD_OPTION_KEY;
             ev->modifiers = g_modifiers;
             break;
         }
@@ -388,8 +471,10 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
         (void)ascii; (void)vkey; (void)is_break;
         break;
 #else
-        /* Cook ASCII from the scancode table. */
-        if (sc < 128u) {
+        /* Cook ASCII from the scancode table. An E0 key is NOT its keypad
+         * twin (E0 48 is Up, not '8'); only keypad Enter (E0 1C) and keypad
+         * '/' (E0 35) carry a character. */
+        if (sc < 128u && (!ext || sc == 0x1Cu || sc == 0x35u)) {
             int shifted = (g_modifiers & FLAIR_EVT_MOD_SHIFT_KEY) ? 1 : 0;
             /* Caps Lock: for alpha keys, invert the shifted state. */
             if ((g_modifiers & FLAIR_EVT_MOD_ALPHA_LOCK) &&

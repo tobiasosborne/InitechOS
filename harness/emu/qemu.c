@@ -436,7 +436,43 @@ static const char *token_to_qcode(const char *tok)
     if (strcmp(tok, "meta") == 0 || strcmp(tok, "cmd") == 0) {
         return "meta_l";
     }
+    /* RIGHT-hand modifiers (bead initech-tdnl.58): QEMU sends them E0-
+     * prefixed (E0 1D / E0 38) through the 8042, the path that latched in
+     * audit G11. Ref: qapi/ui.json QKeyCode ctrl_r, alt_r, shift_r. */
+    if (strcmp(tok, "ctrl_r") == 0) {
+        return "ctrl_r";
+    }
+    if (strcmp(tok, "shift_r") == 0) {
+        return "shift_r";
+    }
+    if (strcmp(tok, "alt_r") == 0) {
+        return "alt_r";
+    }
     return NULL;
+}
+
+/*
+ * Send ONE explicit key transition (bead initech-tdnl.58): QMP
+ * `input-send-event` with an InputKeyEvent, so a modifier can be PRESSED in
+ * one event and RELEASED in a later one -- exactly the audit G11 replay
+ * ("keyheld ctrl true", "keyheld ctrl false", then a plain key), which
+ * `send-key` (press-all-then-release-all in one command) cannot express.
+ * Format: {"execute":"input-send-event","arguments":{"events":[{"type":"key",
+ * "data":{"down":<bool>,"key":{"type":"qcode","data":"<qcode>"}}}]}}.
+ * Ref: QMP input-send-event + qapi/ui.json (InputKeyEvent, KeyValue qcode).
+ */
+static int qmp_key_transition(int fd, const char *qcode, int down)
+{
+    char cmd[256];
+    int n = snprintf(cmd, sizeof(cmd),
+                     "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":["
+                     "{\"type\":\"key\",\"data\":{\"down\":%s,\"key\":"
+                     "{\"type\":\"qcode\",\"data\":\"%s\"}}}]}}\n",
+                     down ? "true" : "false", qcode);
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        return -1;
+    }
+    return qmp_send(fd, cmd);
 }
 
 /*
@@ -648,6 +684,15 @@ static int qmp_mouse_button(int fd, const char *button, int down)
  *   "M1"/"M0"     middle button down/up;
  *   "k<chord>"    ONE keystroke or modifier chord, e.g. "kctrl-n", "kret"
  *                 (beads initech-tdnl.10).
+ *   "K<key>:<0|1>" ONE explicit key transition, e.g. "Kctrl:1" (press and
+ *                 HOLD Control) ... "Kctrl:0" (release it), the audit-G11
+ *                 replay shape (bead initech-tdnl.58).
+ *   "w<ms>"       HOLD: wait <ms> wall-clock milliseconds before the next
+ *                 token with every button/key state unchanged -- a user
+ *                 resting on a menu item or mid-drag (bead initech-tdnl.59).
+ *                 The guest PIT runs in real time, so a hold of N ms spans
+ *                 ~N/10 guest ticks; gates that rely on it also assert a
+ *                 guest-side ordering marker, never the wall clock alone.
  *
  * WHY THE KEY TOKEN LIVES IN THE *MOUSE* GRAMMAR. The two injectors run in a
  * fixed order -- ALL of --keys, then ALL of --mouse (see the caller) -- so a
@@ -707,6 +752,32 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
         } else if (tok[0] == 'k' && tok[1] != '\0') {
             /* "k<chord>" -- one keystroke/chord, in stream order. */
             if (qmp_send_key_chord(fd, tok + 1) == 0) {
+                ok = 1;
+            }
+        } else if (tok[0] == 'K' && tok[1] != '\0') {
+            /* "K<key>:<0|1>" -- one explicit key transition. */
+            char name[24];
+            const char *colon = strchr(tok + 1, ':');
+            size_t nl = colon ? (size_t)(colon - (tok + 1)) : 0u;
+            if (colon && nl > 0u && nl < sizeof(name) &&
+                (colon[1] == '0' || colon[1] == '1') && colon[2] == '\0') {
+                const char *qc;
+                memcpy(name, tok + 1, nl);
+                name[nl] = '\0';
+                qc = token_to_qcode(name);
+                if (qc && qmp_key_transition(fd, qc, colon[1] == '1') == 0) {
+                    ok = 1;
+                }
+            }
+        } else if (tok[0] == 'w' && tok[1] >= '0' && tok[1] <= '9') {
+            /* "w<ms>" -- hold every input state for <ms> milliseconds. */
+            int ms = atoi(tok + 1);
+            if (ms > 0 && ms <= 30000) {
+                long long until = mono_ms() + ms;
+                while (mono_ms() < until) {
+                    qmp_drain(fd, 20);
+                    capture_if_seen(cap);
+                }
                 ok = 1;
             }
         } else if ((tok[0] == 'l' || tok[0] == 'r' || tok[0] == 'M') &&
