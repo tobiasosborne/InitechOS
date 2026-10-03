@@ -237,31 +237,33 @@ static void leg_structure(void)
  * B -- BAR LAYOUT: the hand-derived title columns the emu probe uses
  * ---------------------------------------------------------------------------
  * menu.h Sec 5: the first title starts at FLAIR_MENU_APPLE_W (has_apple), and
- * each title slot is text_measure + 2*FLAIR_MENU_TITLE_PAD.
- * spec/assets/chicago8x16.h is a FIXED 8px cell, so text_measure is 8*len --
- * pinned below so a move to a proportional strike is RED here first.
+ * each title slot is text_measure + 2*FLAIR_MENU_TITLE_PAD. Chicago 12 is
+ * PROPORTIONAL (bead initech-tdnl.33): text_measure is the sum of the REAL
+ * System 7.0.1 NFNT 5478 advances, typed here from ../system7-decomp
+ * specs/fonts/chicago.md "Advance-width table" (NOT read from the artifact's
+ * table -- Law 2):
  *
- *   APPLE_W = 20, PAD = 7, cell = 8
- *   File    len 4 -> w 4*8 + 14 = 46 -> x  20 .. 66
- *   Edit    len 4 -> w 46           -> x  66 .. 112
- *   View    len 4 -> w 46           -> x 112 .. 158
- *   Special len 7 -> w 7*8 + 14 = 70-> x 158 .. 228
- *   Help    len 4 -> w 46           -> x 228 .. 274
+ *   APPLE_W = 20, PAD = 7
+ *   File    F7+i4+l4+e8           = 23 -> w 23 + 14 = 37 -> x  20 .. 57
+ *   Edit    E7+d8+i4+t6           = 25 -> w 39            -> x  57 .. 96
+ *   View    V8+i4+e8+w12          = 32 -> w 46            -> x  96 .. 142
+ *   Special S7+p8+e8+c7+i4+a8+l4  = 46 -> w 60            -> x 142 .. 202
+ *   Help    H8+e8+l4+p8           = 28 -> w 42            -> x 202 .. 244
  * ===========================================================================*/
 typedef struct want_slot { int x, w; } want_slot_t;
 
 static const want_slot_t WANT_SLOTS[] = {
-    {  20, 46 },   /* File    */
-    {  66, 46 },   /* Edit    */
-    { 112, 46 },   /* View    */
-    { 158, 70 },   /* Special */
-    { 228, 46 }    /* Help    */
+    {  20, 37 },   /* File    */
+    {  57, 39 },   /* Edit    */
+    {  96, 46 },   /* View    */
+    { 142, 60 },   /* Special */
+    { 202, 42 }    /* Help    */
 };
 
 /* The first column PAST the last Finder title. The booted band-2 probe uses
  * this to tell the Finder bar from the Photoshop bar, whose titles ("File Edit
  * Image Layer Select View Window Help") run far past it. */
-#define FINDER_BAR_INK_END   274
+#define FINDER_BAR_INK_END   244
 
 static void leg_layout(void)
 {
@@ -270,9 +272,10 @@ static void leg_layout(void)
 
     CHECK(FLAIR_MENU_APPLE_W == 20, "B the Apple slot is 20px (menu.h Sec 5)");
     CHECK(FLAIR_MENU_TITLE_PAD == 7, "B the title side pad is 7px (menu.h Sec 5)");
-    CHECK(text_measure(FONT_CHICAGO, "File") == 32,
-          "B Chicago is a fixed 8px cell -- the arithmetic below assumes it");
-    CHECK(text_measure(FONT_CHICAGO, "Special") == 56, "B ... for 7 glyphs too");
+    CHECK(text_measure(FONT_CHICAGO, "File") == 23,
+          "B StringWidth(File) is the NFNT 5478 sum 23 -- the arithmetic below "
+          "assumes it (chicago.md recipe step 3)");
+    CHECK(text_measure(FONT_CHICAGO, "Special") == 46, "B ... and Special = 46");
 
     for (i = 0; i < WN(WANT_SLOTS); i++) {
         CHECK(MenuBar_title_x(bar, i) == WANT_SLOTS[i].x,
@@ -285,7 +288,7 @@ static void leg_layout(void)
     }
     CHECK(MenuBar_title_x(bar, WN(WANT_SLOTS) - 1) +
           MenuBar_title_w(bar, WN(WANT_SLOTS) - 1) == FINDER_BAR_INK_END,
-          "B the Finder bar's title run ends at x=274 -- the discriminator the "
+          "B the Finder bar's title run ends at x=244 -- the discriminator the "
           "booted probe uses against the Photoshop bar");
     CHECK(MenuBar_hit(bar, FLAIR_MENU_APPLE_W - 1) < 0,
           "B the Apple GLYPH SLOT is not a titled menu (menu.h Sec 5) -- which "

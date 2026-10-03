@@ -5,7 +5,7 @@
  *      dialog) and Geneva 9 (cell), hand-authored strikes; text width = sum
  *      of per-glyph advances; no fixed-pitch assumption");
  *      PRD Sec 6.4 (font resources); PRD Sec 6.3 (Toolbox layer).
- *      spec/assets/chicago8x16.h (Chicago strike, fixed-cell v0).
+ *      spec/assets/chicago12.h (Chicago 12 strike, NFNT 5478 metrics).
  *      spec/assets/geneva9.h (Geneva 9 strike, proportional v0).
  *      os/flair/surface.h (surface_blit -- the ONE glyph-blit primitive).
  *      os/flair/text.h (API declarations -- all implementations are inline
@@ -32,8 +32,8 @@
  * static inline functions in text.h. This translation unit (#include "text.h")
  * causes the compiler to instantiate those functions and catches any compile
  * error under both freestanding and hosted modes. It also provides a stable
- * object file for the kernel link that carries the font data (chicago8x16.h
- * and geneva9.h tables are static, so they live in this TU's data section).
+ * object file for the kernel link that carries the font data: chicago12.h and
+ * geneva9.h are DEFINED here (FONT_TABLES_DEFINE) and only declared elsewhere.
  *
  * ASCII-clean (Rule 12). No nondeterminism (Rule 11).
  */
@@ -60,11 +60,6 @@
  * callers outside this module should use this function rather than a bare
  * cast to keep the mapping centralised and auditable.
  */
-const unsigned char *text_chicago_cell(int c)
-{
-    return chicago8x16_glyph(c);
-}
-
 text_font_t text_font_from_txfont(int txfont)
 {
     if (txfont == (int)FONT_GENEVA9)

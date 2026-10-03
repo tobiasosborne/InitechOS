@@ -48,12 +48,51 @@
 #define FG_TITLE_GAP_PAD_LEFT       6
 #define FG_TITLE_GAP_PAD_RIGHT      5
 #define FG_TITLE_DARK_GAP_SHIFT     1
-#define FG_TITLE_TEXT_TOP_OFF       4
+/* The SAMPLED title ink top: T+6 (window-chrome.md Sec 2.3, "ascender T+6").
+ * The oracle places the Chicago cell at INK_TOP - CHICAGO_CAP_TOP (the locked
+ * strike's first cap row). Bead initech-tdnl.33: was FG_TITLE_TEXT_TOP_OFF 4,
+ * a CELL offset that only matched the sample for the retired 8x16 strike. */
+#define FG_TITLE_INK_TOP_OFF        6
 #define FG_TITLE_RUN_LEFT_OFF      21
 #define FG_TITLE_RUN_RIGHT_OFF     38
 #define FG_TITLE_FIXED_TEXT       "TITLE"
 #define FG_TITLE_TRUNC_SOURCE     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-#define FG_TITLE_TRUNC_EXPECTED   "ABCDEFG."
+/* Re-derived for the PROPORTIONAL run (bead initech-tdnl.33) from the NFNT
+ * 5478 advances below: the 150-px frame's safe run is [421,512); "ABCDEFGH."
+ * is 8+8+8+8+7+7+8+8+4 = 66 px, centered at 400 + (150-66)/2 = 442, ink
+ * [443,507) (A lb 1; '.' lb 1, 2 ink columns), gap [437,512) fits; one more
+ * letter ("ABCDEFGHI.", 72 px at 439, gap [434,515)) does not. */
+#define FG_TITLE_TRUNC_EXPECTED   "ABCDEFGH."
+#define FG_TITLE_TRUNC_X          442
+
+/* -------------------------------------------------------------------------
+ * TITLE GLYPH RUN METRICS (bead initech-tdnl.33).
+ * The REAL System 7.0.1 Chicago 12 owTable, codes 0x20..0x7E: advance (aw,
+ * low byte) and left bearing (lb, high byte). Transcribed mechanically from
+ * ../system7-decomp/goldens/resources/NFNT_5478.bin bytes 2612+2*c (identical
+ * to specs/fonts/chicago.md "Advance-width table"). The oracle places each
+ * glyph of the expected title run with THESE numbers, never with the
+ * artifact's chicago12_aw/_lb (Law 2 / HER-02); only the glyph ART (the locked
+ * hand-authored strike's ink rows) comes from spec/assets/chicago12.h.
+ */
+#define FG_CHICAGO12_FIRST 0x20
+#define FG_CHICAGO12_LAST  0x7E
+static const unsigned char __attribute__((unused)) FG_CHICAGO12_AW[FG_CHICAGO12_LAST - FG_CHICAGO12_FIRST + 1] = {
+    4, 6, 7, 10, 7, 11, 10, 3, 5, 5, 7, 7, 4, 7, 4, 7,
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4, 4, 6, 8, 6, 8,
+    11, 8, 8, 8, 8, 7, 7, 8, 8, 6, 7, 9, 7, 12, 9, 8,
+    8, 8, 8, 7, 6, 8, 8, 12, 8, 8, 8, 5, 7, 5, 8, 8,
+    6, 8, 8, 7, 8, 8, 6, 8, 8, 4, 6, 8, 4, 12, 8, 8,
+    8, 8, 6, 7, 6, 8, 8, 12, 8, 8, 8, 5, 5, 5, 8
+};
+static const unsigned char __attribute__((unused)) FG_CHICAGO12_LB[FG_CHICAGO12_LAST - FG_CHICAGO12_FIRST + 1] = {
+    4, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1
+};
 
 /* -------------------------------------------------------------------------
  * PLATINUM WIDGETS.

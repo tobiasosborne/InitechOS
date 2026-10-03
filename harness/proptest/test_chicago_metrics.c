@@ -32,6 +32,8 @@
  *   E  VERTICAL metrics: text_cell_height == ascent + descent + leading; flat-
  *      bottomed glyphs end on the baseline row (ascent - 1); descenders reach
  *      the last descent row (ascent + descent - 1); no ink in the leading row.
+ *   F  MISSING glyph: every code the real strike leaves undefined (owTable
+ *      0xFFFF) measures the NFNT missing-glyph advance.
  *
  * Absent corpus: LOUD-SKIP, exit 0 (the test-clut pattern) -- EXCEPT when built
  * with -DCHICAGO_METRICS_REQUIRE_GOLDEN (the mutant target), where an absent
@@ -281,6 +283,26 @@ int main(void)
                   "E descender '%c' ends on row %d, NFNT descent ends on row %d",
                   *p, e.ib - PEN_Y, g_ascent + g_descent - 1);
         }
+    }
+
+    /* --- F: codes the REAL strike leaves undefined (owTable 0xFFFF) take the
+     * missing-glyph advance, owTable[lastChar - firstChar + 1].aw (font-
+     * manager.md Sec 5). FLAIR covers only 0x20..0x7E, so this is graded only
+     * where the real font itself has no glyph. --- */
+    {
+        long me = g_ow_off + 2L * (g_last - g_first + 1);
+        int miss_aw = (int)g_nfnt[me + 1], nmiss = 0;
+        for (int c = 1; c <= 0xFF; c++) {
+            int lb, aw;
+            char s[2] = { (char)c, 0 };
+            if (c >= 0x20 && c <= 0x7E) continue;
+            if (nfnt_ow(c, &lb, &aw)) continue;
+            nmiss++;
+            CHECK(text_measure(FONT_CHICAGO, s) == miss_aw,
+                  "F undefined code 0x%02X: text_measure %d, NFNT missing-glyph "
+                  "aw %d", c, text_measure(FONT_CHICAGO, s), miss_aw);
+        }
+        CHECK(nmiss > 0, "F the NFNT has no undefined codes to grade");
     }
 
     printf("  %d checks, %d failures\n", g_checks, g_fails);

@@ -34,7 +34,7 @@
 
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__
 #  define FONT_TABLE_EMIT 1
-#  define FONT_TABLE      static const
+#  define FONT_TABLE      static const __attribute__((unused))
 #elif defined(FONT_TABLES_DEFINE)
 #  define FONT_TABLE_EMIT 1
 #  define FONT_TABLE      const

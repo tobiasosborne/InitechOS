@@ -183,7 +183,12 @@
  * 7. DRAWING TOKENS (C-8 discipline: tenants name ROLES, never RGB/indices)
  *
  * TEXTDRAW/FILLRECT coordinates are CONTENT-LOCAL (origin = the window's
- * content top-left); TEXTDRAW's y is the top of the Chicago 8x16 cell. Every
+ * content top-left); TEXTDRAW's y is the top of the Chicago 12 line cell
+ * (CHICAGO_CELL_H = 16 rows; baseline 12 rows below y). The run is
+ * PROPORTIONAL: glyph k starts at x + the sum of the Chicago 12 advances of
+ * glyphs 0..k-1 (the real System 7.0.1 NFNT 5478 owTable widths), and the bg
+ * box behind it is exactly that sum wide (bead initech-tdnl.33; was the fixed
+ * 8-px cell). Every
  * draw is clipped to (the window's VISIBLE region INTERSECT its content), and
  * additionally to its updateRgn while an updateEvt is being delivered.
  * ------------------------------------------------------------------------- */
@@ -240,7 +245,9 @@
  * Also: n_menus <= TBX_MBAR_MAX_MENUS; n_items <= TBX_MBAR_MAX_ITEMS; menuID
  * >= 1 (IM: a 0 high word means "nothing chosen"); titles 1..STR_MAX-1 chars,
  * item texts 0..STR_MAX-1; and the laid-out titles fit the screen (the menu.h
- * Sec 5 run: Apple slot + sum(8*len + 14) <= FLAIR_SCREEN_W). n_menus == 0 is
+ * Sec 5 run: Apple slot + sum(StringWidth(title) + 14) <= FLAIR_SCREEN_W,
+ * StringWidth = the proportional Chicago 12 width, the sum of the NFNT 5478
+ * advances; bead initech-tdnl.33 -- was 8*len + 14). n_menus == 0 is
  * legal (an empty bar, IM ClearMenuBar).
  *
  * SEMANTICS (V2). SetMenuBar, not DrawMenuBar: SETMBAR installs the bar; band

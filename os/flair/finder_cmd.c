@@ -44,7 +44,7 @@
  * with MenuResultID()/MenuResultItem() as the static-inline accessors. This
  * spine re-derives the two shifts locally INSTEAD of including menu.h, for two
  * reasons: (a) menu.h drags the whole Menu Manager render surface (text.h ->
- * chicago8x16.h, blitter.h, surface.h, grafport.h) into a file that draws
+ * chicago12.h, blitter.h, surface.h, grafport.h) into a file that draws
  * nothing; (b) it makes the host oracle a REAL differential -- test_finder_cmd.c
  * builds every result word with menu.h's MenuResult() and this file takes it
  * apart with its own arithmetic, so a divergence between the two is RED rather

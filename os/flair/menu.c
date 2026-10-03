@@ -129,6 +129,20 @@ static int item_row_h(const MenuItem *it)
     return it->is_divider ? FLAIR_MENU_DIV_H : FLAIR_MENU_ITEM_H;
 }
 
+static char cmd_fold(char c);
+
+/* The proportional width of an item's "^X" command run (the caret-letter
+ * substitution drawn by flair_draw_menu_panel), measured in Chicago 12 like
+ * every other menu string (bead initech-tdnl.33; was 2 fixed 8-px cells). */
+static int cmd_run_w(char cmdChar)
+{
+    char cmd[3];
+    cmd[0] = '^';
+    cmd[1] = cmd_fold(cmdChar);
+    cmd[2] = 0;
+    return text_measure(FONT_CHICAGO, cmd);
+}
+
 /* --------------------------------------------------------------------------
  * The widest item text in a menu (proportional), for the panel width.
  * Under MENU_MUTATE_FIXED_WIDTH the panel uses a fixed width too (so the
@@ -148,7 +162,7 @@ static int menu_panel_w(const MenuInfo *m)
         int needed = FLAIR_MENU_ITEM_LPAD + w + FLAIR_MENU_ITEM_RPAD;
         if (m->items[k].cmdChar != 0) {
             needed = FLAIR_MENU_ITEM_LPAD + w + FLAIR_MENU_CMD_GAP +
-                     FLAIR_MENU_CMD_CHARS * CHICAGO_CELL_W +
+                     cmd_run_w(m->items[k].cmdChar) +
                      FLAIR_MENU_CMD_RPAD;
         }
         if (needed > widest)
@@ -626,9 +640,23 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
 
         uint32_t row_fg = text_ink;
         uint32_t row_bg = face;
+        /* The item row as a VIEW [row_top, row_top + h) of the destination:
+         * item text is clipped to its own row on BOTH edges. The sampled cap
+         * top is FLAIR_MENU_ITEM_TEXT_TOP below the row top (sys8/menus.md Sec
+         * 2.2: text top 23 = rect top 21 + 2), so the Chicago cell starts
+         * CHICAGO_CAP_TOP rows above that -- one row above the row itself,
+         * which the view's top clip drops (that row of the cell is blank
+         * ascent). Bead initech-tdnl.33. */
         bitmap_t row_bm = *bm;
-        if ((uint32_t)(row_top + h) < row_bm.height)
-            row_bm.height = (uint32_t)(row_top + h);
+        const int text_y = FLAIR_MENU_ITEM_TEXT_TOP - CHICAGO_CAP_TOP;
+        if (row_top >= 0 && (uint32_t)row_top < bm->height) {
+            row_bm.base = bm->base + (uint32_t)row_top * bm->pitch;
+            row_bm.height = bm->height - (uint32_t)row_top;
+            if (row_bm.height > (uint32_t)h)
+                row_bm.height = (uint32_t)h;
+        } else {
+            row_bm.height = 0;
+        }
 #if defined(MENU_MUT_DISABLED_NORMAL_INK) && MENU_MUT_DISABLED_NORMAL_INK
         (void)disabled;
 #else
@@ -650,23 +678,24 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
             marks[0] = it->mark;
             marks[1] = 0;
             text_draw(&row_bm, panel.left + FLAIR_MENU_PANEL_INSET + 2,
-                      row_top + 2, marks, FONT_CHICAGO, row_fg, row_bg);
+                      text_y, marks, FONT_CHICAGO, row_fg, row_bg);
         }
-        text_draw(&row_bm, text_x, row_top + 2, it->text,
+        text_draw(&row_bm, text_x, text_y, it->text,
                   FONT_CHICAGO, row_fg, row_bg);
 
         if (it->cmdChar) {
             /* The source strike has no cloverleaf. Render the period-plausible
              * caret-letter form required by initech-sjvq; do not author a glyph
-             * in this lane. The two-cell run is right-aligned like x=199..216 in
-             * the sampled 198px File panel (sys8/menus.md Sec 2.2/2.3). */
+             * in this lane. The run is right-aligned FLAIR_MENU_CMD_RPAD from the
+             * panel edge like x=199..216 in the sampled 198px File panel
+             * (sys8/menus.md Sec 2.2/2.3), at its proportional width. */
             char cmd[3];
             cmd[0] = '^';
             cmd[1] = cmd_fold(it->cmdChar);
             cmd[2] = 0;
             int cmd_x = panel.right - FLAIR_MENU_CMD_RPAD -
-                        text_measure(FONT_CHICAGO, cmd);
-            text_draw(&row_bm, cmd_x, row_top + 2, cmd,
+                        cmd_run_w(it->cmdChar);
+            text_draw(&row_bm, cmd_x, text_y, cmd,
                       FONT_CHICAGO, row_fg, row_bg);
         }
     }

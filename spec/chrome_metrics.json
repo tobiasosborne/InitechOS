@@ -165,14 +165,13 @@
       "gap_padding_left": 6,
       "gap_padding_right": 5,
       "dark_gap_shift": 1,
-      "text_top_offset": 4,
-      "chicago_cell_width": 8,
+      "text_top_offset": 3,
       "run_left_offset": 21,
       "run_right_offset": 38,
       "truncation_marker": ".",
       "era": "system8-platinum geometry with the PRD Sec 6.4 Chicago strike substitution",
       "source": "../system7-decomp/specs/sys8/window-chrome.md Sec 2.2, Sec 2.3, Sec 3.1; PRD Sec 6.4",
-      "note": "Sampled title gap is 6px left/5px right and shifts +1 on dark stripe rows. The safe run spans the measured stripe field between the close and zoom clusters. Text stays centered on the whole title bar. Plain whole-character truncation ends in one period; no Charcoal condensation is attempted in this release."
+      "note": "Sampled title gap is 6px left/5px right and shifts +1 on dark stripe rows. The safe run spans the measured stripe field between the close and zoom clusters. Text stays centered on the whole title bar. Plain whole-character truncation ends in one period; no Charcoal condensation is attempted in this release. text_top_offset is the Chicago CELL top: sampled ink top T+6 (window-chrome.md Sec 2.3) minus the Chicago 12 strike's cap-top row 3 (spec/assets/chicago12.art) = 3; it was 4 with the retired 8x16 v0 strike (caps on cell row 2). The title run is proportional (real NFNT 5478 advances); chicago_cell_width (8) is retired. Bead initech-tdnl.33."
     },
 
     "sys7_titlebar_profile": {

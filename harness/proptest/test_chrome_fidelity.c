@@ -19,7 +19,7 @@
 #include "chrome.h"
 #include "flair_look.h"
 #include "chrome_fidelity_golden.h"
-#include "chicago8x16.h"
+#include "chicago12.h"     /* glyph ART only + CHICAGO_CAP_TOP; metrics come from the golden */
 #include "test_assert.h"
 
 TEST_HARNESS();
@@ -118,21 +118,55 @@ static uint32_t title_class_idx(char c)
     }
 }
 
+/* Golden Chicago 12 metrics for byte c (NFNT 5478, chrome_fidelity_golden.h);
+ * the oracle's title strings are printable ASCII. */
+static int fg_aw(int c)
+{
+    return FG_CHICAGO12_AW[c - FG_CHICAGO12_FIRST];
+}
+
+static int fg_lb(int c)
+{
+    return FG_CHICAGO12_LB[c - FG_CHICAGO12_FIRST];
+}
+
+static int fg_run_w(const char *text)
+{
+    int w = 0;
+    for (; *text; text++) w += fg_aw((unsigned char)*text);
+    return w;
+}
+
+/* Ink at run column x, cell row `row`: the glyph whose GOLDEN advance covers
+ * x, its locked ART row placed at the glyph's GOLDEN left bearing. */
+static int golden_run_ink(const char *text, int x, int row)
+{
+    int pen = 0;
+    for (int i = 0; text[i] != '\0'; i++) {
+        int c = (unsigned char)text[i];
+        int aw = fg_aw(c);
+        if (x >= pen && x < pen + aw) {
+            int col = x - pen - fg_lb(c);
+            if (col < 0 || col > 15) return 0;
+            return (chicago12_rows[chicago12_index(c)][row] &
+                    (0x8000u >> col)) != 0u;
+        }
+        pen += aw;
+    }
+    return 0;
+}
+
 static void golden_chicago_ink_bounds(const char *text,
                                       int *ink_left, int *ink_right)
 {
-    int width = (int)strlen(text) * CHICAGO_CELL_W;
+    int width = fg_run_w(text);
     int lo = width;
     int hi = -1;
-    for (int i = 0; text[i] != '\0'; i++) {
-        const unsigned char *glyph = chicago8x16_glyph((unsigned char)text[i]);
+    for (int x = 0; x < width; x++) {
         for (int row = 0; row < CHICAGO_CELL_H; row++) {
-            for (int col = 0; col < CHICAGO_CELL_W; col++) {
-                if ((glyph[row] & (unsigned char)(0x80u >> col)) != 0u) {
-                    int x = i * CHICAGO_CELL_W + col;
-                    if (x < lo) lo = x;
-                    if (x > hi) hi = x;
-                }
+            if (golden_run_ink(text, x, row)) {
+                if (x < lo) lo = x;
+                if (x > hi) hi = x;
             }
         }
     }
@@ -154,9 +188,9 @@ static uint32_t expected_title_idx(int x, int y, rgn_rect_t frame,
 {
     int row = y - frame.top;
     uint32_t base;
-    int text_row = row - FG_TITLE_TEXT_TOP_OFF;
+    int text_row = row - (FG_TITLE_INK_TOP_OFF - CHICAGO_CAP_TOP);
     int text_x = x - tx;
-    int text_len = (int)strlen(shown);
+    int text_w = fg_run_w(shown);
     int ink_left;
     int ink_right;
     golden_chicago_ink_bounds(shown, &ink_left, &ink_right);
@@ -183,11 +217,8 @@ static uint32_t expected_title_idx(int x, int y, rgn_rect_t frame,
     }
 
     if (text_row >= 0 && text_row < CHICAGO_CELL_H && text_x >= 0 &&
-        text_x < text_len * CHICAGO_CELL_W) {
-        int ci = text_x / CHICAGO_CELL_W;
-        int col = text_x % CHICAGO_CELL_W;
-        const unsigned char *glyph = chicago8x16_glyph((unsigned char)shown[ci]);
-        if ((glyph[text_row] & (unsigned char)(0x80u >> col)) != 0u) {
+        text_x < text_w) {
+        if (golden_run_ink(shown, text_x, text_row)) {
             return active ? FG_TITLE_INK_IDX : FG_INACTIVE_TEXT_IDX;
         }
         return active ? FG_TITLE_KNOCKOUT_IDX : FG_INACTIVE_TITLE_FILL_IDX;
@@ -320,23 +351,26 @@ int main(void)
           "field endpoints (window-chrome.md Sec 2.2)");
 
     /* TITLE: exact expected bitmap from the independent Chicago strike path.
-     * The fixed 5-cell run is x=180..219; visible ink is x=181..218, so the
-     * sampled 6/5 gap is x=175..223 on light rows and +1 on dark rows.
+     * The proportional run "TITLE" is T6+I6+T6+L7+E7 = 32 px (NFNT 5478,
+     * golden table), centered at x=40+(320-32)/2 = 184, run x=184..215;
+     * visible ink is x=184..214 (T lb 0; E lb 1 + 5 ink columns at pen 209),
+     * so the sampled 6/5 gap is x=178..219 on light rows and +1 on dark rows.
+     * (Was the fixed 5-cell run x=180..219; bead initech-tdnl.33.)
      * TITLE_BLANK and CENTER_OFF both RED.
      * Ref: window-chrome.md Sec 2.2/2.3. */
     const int title_tx = WIN_LEFT +
-        ((WIN_RIGHT - WIN_LEFT) - (int)strlen(TEST_TITLE) * CHICAGO_CELL_W) / 2;
+        ((WIN_RIGHT - WIN_LEFT) - fg_run_w(TEST_TITLE)) / 2;
     int title_ink = count_idx(&active, mid_x - 40, WIN_TOP + 4,
                               mid_x + 40, WIN_TOP + 21,
                               FG_TITLE_INK_IDX);
     int title_gap = count_idx(&active, mid_x - 40, WIN_TOP + 4,
                               mid_x + 40, WIN_TOP + 21,
                               FG_TITLE_KNOCKOUT_IDX);
-    int title_ok = title_tx == 180 && title_ink >= 8 && title_gap >= 24 &&
+    int title_ok = title_tx == 184 && title_ink >= 8 && title_gap >= 24 &&
                    title_bitmap_matches(&active, win_frame(), TEST_TITLE,
                                         title_tx, 1);
     CHECK(title_ok,
-          "leg TITLE: fixed Chicago strike bitmap must occupy centered x=180..219 "
+          "leg TITLE: Chicago 12 title run must occupy centered x=184..215 "
           "with black ink and the sampled idx218 6/5 gap (+1 on dark rows) "
           "(window-chrome.md Sec 2.2/2.3)");
 
@@ -655,8 +689,9 @@ int main(void)
           "(window-chrome.md Sec 6)");
 
     /* TRUNCATION: the 150px frame has a sampled safe title run [421,512).
-     * Only eight Chicago cells fit once the 6/5 gap is included, so the fixed
-     * source becomes "ABCDEFG." at centered x=443.  This records the R0.2
+     * With the proportional NFNT 5478 advances only "ABCDEFGH." (66 px) fits
+     * once the 6/5 gap is included, centered at x=442 (derivation in
+     * chrome_fidelity_golden.h; bead initech-tdnl.33).  This records the R0.2
      * simplification: whole-character truncation plus one period, no font
      * condensation. */
     rc = render_ctx_init(&trunc, &boot);
@@ -665,14 +700,14 @@ int main(void)
     if (rc == 0) {
         int trunc_tx = TRUNC_LEFT +
             ((TRUNC_RIGHT - TRUNC_LEFT) -
-             (int)strlen(FG_TITLE_TRUNC_EXPECTED) * CHICAGO_CELL_W) / 2;
+             fg_run_w(FG_TITLE_TRUNC_EXPECTED)) / 2;
         render_run(&trunc, draw_truncated);
-        trunc_ok = trunc_tx == 443 &&
+        trunc_ok = trunc_tx == FG_TITLE_TRUNC_X &&
                    title_bitmap_matches(&trunc, trunc_frame(),
                                         FG_TITLE_TRUNC_EXPECTED, trunc_tx, 1);
     }
     CHECK(trunc_ok,
-          "leg TITLE-TRUNC: overlong title must become centered 'ABCDEFG.' "
+          "leg TITLE-TRUNC: overlong title must become centered 'ABCDEFGH.' "
           "inside the measured widget-safe run (plain truncation simplification)");
 
     /* No inactive widgets. _KEEP_GADGETS bites this retained relation.

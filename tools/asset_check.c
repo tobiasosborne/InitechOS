@@ -14,21 +14,25 @@
  *      still matches its recorded RGB within the JSON's tolerance. This is
  *      what keeps the committed palette HONEST against the fixture: corrupt
  *      a recorded RGB and the gate goes red.
- *  (b) STRIKE WELL-FORMEDNESS: include the generated chicago8x16.h and
- *      assert the table is well-formed: exact glyph count for the declared
- *      range, no row byte out of [0,255] (compile-time guaranteed), the
- *      REQUIRED coverage (A-Z a-z 0-9 space . , : - ' ( )) is all non-blank
- *      ink, and the space cell is blank. A malformed/short table fails.
+ *  (b) STRIKE WELL-FORMEDNESS: include the generated chicago12.h (bead
+ *      initech-tdnl.33) and assert the table is well-formed: exact glyph
+ *      count for the declared range plus the missing-glyph slot, every
+ *      advance in 1..16, the REQUIRED coverage (A-Z a-z 0-9 space . , : - '
+ *      ( )) is all non-blank ink, the space cell is blank, out-of-range codes
+ *      map to the (inked) missing-glyph box, and no ink in the leading row. A
+ *      malformed/short table fails. (Metric VALUES are graded against the
+ *      real NFNT by test-chicago-metrics, not here.)
  *
  * Usage: asset_check <palette.json> <frame.ppm>
  * ASCII-only source (Rule 12). No timestamps emitted (Rule 11).
  */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "../spec/assets/chicago8x16.h"
+#include "../spec/assets/chicago12.h"
 
 /* ---- PPM (P6) loader (same logic as palette_extract) -------------------- */
 
@@ -233,38 +237,57 @@ static int check_palette(const char *jsonpath, const char *ppmpath)
 
 /* ---- check (b): Chicago strike well-formedness -------------------------- */
 
-static int cell_is_blank(const unsigned char *cell)
+static int cell_is_blank(const uint16_t *cell)
 {
     for (int r = 0; r < CHICAGO_CELL_H; r++) if (cell[r]) return 0;
     return 1;
+}
+
+static const uint16_t *cell_of(int c)
+{
+    return chicago12_rows[chicago12_index(c)];
 }
 
 static int check_strike(void)
 {
     int fail = 0;
 
-    /* Glyph count matches the declared contiguous range. */
-    size_t got = sizeof(chicago8x16) / sizeof(chicago8x16[0]);
-    if (got != (size_t)CHICAGO_COUNT) {
-        fprintf(stderr, "    [strike] FAIL -- glyph count %zu != declared %d\n",
-                got, CHICAGO_COUNT);
+    /* Glyph count matches the declared contiguous range + the missing slot. */
+    size_t got = sizeof(chicago12_rows) / sizeof(chicago12_rows[0]);
+    if (got != (size_t)CHICAGO_COUNT + 1 ||
+        sizeof(chicago12_aw) != (size_t)CHICAGO_COUNT + 1 ||
+        sizeof(chicago12_lb) != (size_t)CHICAGO_COUNT + 1) {
+        fprintf(stderr, "    [strike] FAIL -- table sizes %zu/%zu/%zu != declared %d + missing\n",
+                got, sizeof(chicago12_aw), sizeof(chicago12_lb), CHICAGO_COUNT);
         fail++;
     }
-    /* Each glyph row is exactly CHICAGO_CELL_H bytes (compile-time array). */
-    if (sizeof(chicago8x16[0]) != (size_t)CHICAGO_CELL_H) {
-        fprintf(stderr, "    [strike] FAIL -- cell height %zu != %d\n",
-                sizeof(chicago8x16[0]), CHICAGO_CELL_H);
+    /* Each glyph is exactly CHICAGO_CELL_H rows (compile-time array). */
+    if (sizeof(chicago12_rows[0]) / sizeof(chicago12_rows[0][0]) != (size_t)CHICAGO_CELL_H) {
+        fprintf(stderr, "    [strike] FAIL -- cell height != %d\n", CHICAGO_CELL_H);
         fail++;
+    }
+    for (int g = 0; g <= CHICAGO_COUNT; g++) {
+        if (chicago12_aw[g] < 1 || chicago12_aw[g] > 16) {
+            fprintf(stderr, "    [strike] FAIL -- glyph %d advance %d outside 1..16\n",
+                    g, chicago12_aw[g]);
+            fail++;
+        }
+        if (chicago12_rows[g][CHICAGO_CELL_H - 1] != 0) {
+            fprintf(stderr, "    [strike] FAIL -- glyph %d inks the leading row\n", g);
+            fail++;
+        }
     }
     /* Space cell (0x20) must be blank. */
-    if (!cell_is_blank(chicago8x16_glyph(' '))) {
+    if (!cell_is_blank(cell_of(' '))) {
         fprintf(stderr, "    [strike] FAIL -- space cell is not blank\n");
         fail++;
     }
-    /* Out-of-range codes return the blank space cell. */
-    if (!cell_is_blank(chicago8x16_glyph(0x10)) ||
-        !cell_is_blank(chicago8x16_glyph(0x7F))) {
-        fprintf(stderr, "    [strike] FAIL -- out-of-range code did not map to blank cell\n");
+    /* Out-of-range codes map to the missing-glyph box (font-manager.md Sec 5),
+     * which is inked. */
+    if (cell_of(0x10) != chicago12_rows[CHICAGO_MISSING] ||
+        cell_of(0x7F) != chicago12_rows[CHICAGO_MISSING] ||
+        cell_is_blank(chicago12_rows[CHICAGO_MISSING])) {
+        fprintf(stderr, "    [strike] FAIL -- out-of-range code did not map to the inked missing-glyph box\n");
         fail++;
     }
     /* REQUIRED coverage must all be NON-blank ink. */
@@ -275,7 +298,7 @@ static int check_strike(void)
         ".,:-'()";
     int missing = 0;
     for (const char *c = required; *c; c++) {
-        if (cell_is_blank(chicago8x16_glyph((unsigned char)*c))) {
+        if (cell_is_blank(cell_of((unsigned char)*c))) {
             fprintf(stderr, "    [strike] FAIL -- required glyph '%c' (0x%02X) is blank\n",
                     *c, (unsigned char)*c);
             missing++;
@@ -284,9 +307,9 @@ static int check_strike(void)
     if (missing) fail++;
 
     if (fail) return 1;
-    printf("    [strike] PASS -- %dx%d cell, %d glyphs (0x%02X..0x%02X), "
-           "required A-Z a-z 0-9 space . , : - ' ( ) all inked\n",
-           CHICAGO_CELL_W, CHICAGO_CELL_H, CHICAGO_COUNT, CHICAGO_FIRST, CHICAGO_LAST);
+    printf("    [strike] PASS -- Chicago 12, %d-row cell, %d glyphs (0x%02X..0x%02X) + "
+           "missing box, required A-Z a-z 0-9 space . , : - ' ( ) all inked\n",
+           CHICAGO_CELL_H, CHICAGO_COUNT, CHICAGO_FIRST, CHICAGO_LAST);
     return 0;
 }
 

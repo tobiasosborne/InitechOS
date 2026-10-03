@@ -530,9 +530,15 @@ int main(int argc, char **argv)
                       render_pixel_index(&ctx, (uint32_t)(hr.left + 1), 18u) ==
                       MG_TEAL,
                       "MENU FIDELITY indexed pulled-title rows use existing teal slot");
+                /* 'E' (NFNT 5478 lb 1) cap top: bar row 5 -- the row real
+                 * System 7 puts it on (goldens/captures/s7_menu_file.png:
+                 * "Edit" ink rows 5..13; = VPAD 2 + Chicago cap-top row 3).
+                 * Bead initech-tdnl.33. */
                 CHECK(render_pixel_index(&ctx, (uint32_t)(tx +
-                      FLAIR_MENU_TITLE_PAD + 1), 4u) == MG_WHITE,
-                      "MENU FIDELITY pulled title text is white");
+                      FLAIR_MENU_TITLE_PAD + 1), 5u) == MG_WHITE &&
+                      render_pixel_index(&ctx, (uint32_t)(tx +
+                      FLAIR_MENU_TITLE_PAD + 1), 4u) == MG_TEAL,
+                      "MENU FIDELITY pulled title text is white, cap top row 5");
                 CHECK(render_pixel_index(&ctx, (uint32_t)(hr.left + 1), 19u) ==
                       MG_BLACK,
                       "MENU FIDELITY pulled title leaves black baseline unchanged");
@@ -630,20 +636,32 @@ int main(int argc, char **argv)
                                      (uint32_t)row0_y) == MG_FACE_E7,
                   "a non-hilited item row is E7 panel face, not inverted");
 
-            /* Text begins at panel+20. The N strike's first ink is cell x+1 on
-             * glyph row 2, providing an exact rendered left-edge tooth. */
+            /* Text begins at panel+20. The cap top sits 2 rows into the item
+             * rect (sys8/menus.md Sec 2.2: text top 23 = rect top 21 + 2), and
+             * 'N' carries the NFNT 5478 left bearing lb = 1 (chicago.md), so
+             * its first ink is cell x+1 on row row_top+2: an exact rendered
+             * left-edge AND cap-top tooth (bead initech-tdnl.33). The row
+             * above the cap top is clear. */
             CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 20),
-                      (uint32_t)(row0_top + 4)) == MG_FACE_E7 &&
+                      (uint32_t)(row0_top + 2)) == MG_FACE_E7 &&
                   render_pixel_index(&ctx, (uint32_t)(panel.left + 21),
-                      (uint32_t)(row0_top + 4)) == MG_TEXT_BLACK,
-                  "MENU FIDELITY item text cell begins at panel left +20");
+                      (uint32_t)(row0_top + 2)) == MG_TEXT_BLACK &&
+                  render_pixel_index(&ctx, (uint32_t)(panel.left + 21),
+                      (uint32_t)(row0_top + 1)) == MG_FACE_E7,
+                  "MENU FIDELITY item text cell begins at panel left +20, cap "
+                  "top at row +2");
 
             /* Command-key substitution: '^N', right-aligned 16px from the panel
-             * right. Caret row 2 has ink at cell columns 3/4. */
+             * right at its PROPORTIONAL width: NFNT 5478 advances '^' 8 + 'N' 9
+             * = 17 (chicago.md "Advance-width table"; typed from the spec, not
+             * read from the artifact). The caret's apex is its cap-top row
+             * (row_top+2) at '^' lb 2 + apex column 2 = cell column 4. */
             {
-                int cmd_x = panel.right - 16 - 2 * CHICAGO_CELL_W;
-                CHECK(render_pixel_index(&ctx, (uint32_t)(cmd_x + 3),
-                          (uint32_t)(row0_top + 4)) == MG_TEXT_BLACK,
+                int cmd_x = panel.right - 16 - (8 + 9);
+                CHECK(render_pixel_index(&ctx, (uint32_t)(cmd_x + 4),
+                          (uint32_t)(row0_top + 2)) == MG_TEXT_BLACK &&
+                      render_pixel_index(&ctx, (uint32_t)(cmd_x + 3),
+                          (uint32_t)(row0_top + 2)) == MG_FACE_E7,
                       "MENU FIDELITY command column renders caret-letter at right");
             }
 
@@ -663,10 +681,11 @@ int main(int argc, char **argv)
                           (uint32_t)(sep_top + 2)) == MG_WHITE,
                       "MENU FIDELITY etched separator is A5 then white full-span");
 
-                /* Disabled Revert: R row 2, first ink at text cell x+1. */
+                /* Disabled Revert: R cap-top row (rect +2), first ink at text
+                 * cell x+1 (NFNT 5478 'R' lb 1). */
                 int dis_top = sep_top + FLAIR_MENU_DIV_H;
                 CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 21),
-                          (uint32_t)(dis_top + 4)) == MG_GRAY_A5,
+                          (uint32_t)(dis_top + 2)) == MG_GRAY_A5,
                       "MENU FIDELITY disabled item ink is sampled A5");
             }
 
