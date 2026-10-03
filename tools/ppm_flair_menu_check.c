@@ -189,7 +189,7 @@ int main(int argc, char **argv)
     assert_idx(PANEL_L, QUIT_Y, CIDX_FRAME,
                "LEG A: panel LEFT frame (x=20) in the teal zone is idx0 black");
     assert_idx(PANEL_R1, QUIT_Y, CIDX_FRAME,
-               "LEG A: panel RIGHT frame (x=89) in the teal zone is idx0 black");
+               "LEG A: panel RIGHT frame (x=105) in the teal zone is idx0 black");
     assert_idx(MARK_X, PANEL_BOTY, CIDX_FRAME,
                "LEG A: panel BOTTOM frame (y=52) is idx0 black");
     assert_idx(RPAD_X, PANEL_BOTY, CIDX_FRAME,

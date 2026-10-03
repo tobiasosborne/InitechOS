@@ -491,7 +491,7 @@ static long count_black(int x0, int y0, int x1, int y1)
 static void check_chrome(int L, int T)
 {
     char what[256];
-    long ink_run, ink_gap;
+    long ink_run, ink_gap, ink_flank;
     int trow0 = T + 2, trow1 = T + TITLEBAR_H - 1;   /* title-bar interior */
 
     snprintf(what, sizeof what, "window frame top-left corner (L,T)");
@@ -535,6 +535,21 @@ static void check_chrome(int L, int T)
     ink_run = count_black(L + TITLE_RUN_DX, trow0,
                           L + TITLE_RUN_DX + TITLE_RUN_W, trow1);
     ink_gap = count_black(L + 40, trow0, L + 120, trow1);
+    /* The run's 20-px FLANKS must be ink-free too (bead initech-tdnl.33):
+     * this is what pins the PROPORTIONAL width -- the retired fixed-cell run
+     * ([L+128, L+232)) inks both flanks and goes RED here. */
+    ink_flank = count_black(L + TITLE_RUN_DX - 20, trow0, L + TITLE_RUN_DX, trow1) +
+                count_black(L + TITLE_RUN_DX + TITLE_RUN_W, trow0,
+                            L + TITLE_RUN_DX + TITLE_RUN_W + 20, trow1);
+    if (ink_flank != 0) {
+        fprintf(stderr,
+                "ppm_flair_disk_windows_check: FAIL leg %s -- %ld title ink "
+                "pixels in the 20-px flanks of the centred run [L+%d, L+%d): "
+                "the title is wider than the %d-px Chicago 12 run\n",
+                g_leg, ink_flank, TITLE_RUN_DX, TITLE_RUN_DX + TITLE_RUN_W,
+                TITLE_RUN_W);
+        g_fail = 1;
+    }
     if (ink_run == 0) {
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: FAIL leg %s -- no title ink in "
