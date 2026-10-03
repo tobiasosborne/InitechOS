@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-09-26 evening, session close (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
+**Last Reconciled:** 2026-10-04, session close (**WL-0093: TWO HANDS-ON DESKTOP AUDITS (29 findings, four open P0s in the window system), PROPORTIONAL CHICAGO, DRAG-MOVE, SETMBAR, KERNEL X87 -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-09-26 evening (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -202,6 +202,61 @@ desktop. (Under Bochs: `make test-boot-bochs` — same boot via the mode-0x13
 fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
+
+> **CURRENT STATE (2026-10-04, WL-0093 -- THE DESKTOP WAS DRIVEN BY A STRANGER AND FOUND WANTING.
+> Supersedes every CURRENT STATE block below for "what to do next".)**
+>
+> **Operator, 2026-10-03:** still unhappy with the window system. The bar: it must look really
+> awesome for the 90s and have every feature a user of the time expected. Computer use is the
+> validation method: Codex (gpt-6.1-sol xhigh) boots the image and drives it freely over QMP.
+> Orchestration rules now: stay UNDER PACE on Claude and Codex per `/usr/bin/quota`, coordinate
+> with any peer session, Opus = coding, Sonnet = busywork, NO Fable subagents, 2-3 agents max
+> (`bd memories operator-directives-2026-10-03`).
+>
+> **Rulings recorded (operator, on PM recommendation):** x87 for Initech 123, SAMIR stays
+> soft-float (ADR-0009 Amendment DEC-01a); tdnl.12 stage 2 = KEEP HELLO boot-foreground, band 2
+> at rest stays the Photoshop bar, DISTINCT-CHIMERA NOT re-keyed; InitechWord dictionary = reduced
+> list first, companion volume as the target (real WP 5.1 speller+thesaurus+hyphenation =
+> 731,313 B, half the data volume); Face B gated on the Font Manager.
+>
+> **Landed (all on main):** corpus `specs/` for Lotus + WordPerfect (mbn1; the Lotus formula
+> count is 1090, not 1071); SETMBAR 1d654c2 (cnpm); kernel x87 d365f77 (zj6w); drag-move +
+> drag-to-Trash staging d96333b (34dh); proportional Chicago 12 with the real NFNT 5478 metrics,
+> font tables linked once (tdnl.33 slice 1). Certificate: ALL GREEN 361 host + 123 emu at
+> f30e300 (first-person, 2026-10-04 00:56); the five 34dh gates were orphaned from that vector,
+> run green individually, then wired in -- the vector is now 363 host + 126 emu and has not
+> been run as one vector at that size. Binding kernel headroom 29,016 B.
+>
+> **The audits:** `docs/audits/2026-10-03-flair-gui-codex/` (F01-F18) and
+> `docs/audits/2026-10-04-flair-gui-codex-pass2/` (G01-G11); each has REPORT.md, TRIAGE.md
+> (bead mapping, root causes, corrections), screenshots, serial evidence and a replay driver.
+> Beads carry label `gui-audit-2026-10` under epic initech-tdnl.
+>
+> **NEXT (in order) -- fix before any new feature:**
+> 1. The four window-system P0s: `initech-tdnl.34` (Finder window contents are stored in
+>    absolute screen coordinates; also covers two stale-cell sites in the new drag code),
+>    `tdnl.35` (scroll bars are drawn chrome only; FindWindow returns inDrag), `tdnl.58`
+>    (Ctrl/Shift latched after release), `tdnl.59` (track loops bounded to 150 ticks in kmain.c:
+>    menus and drags time out while the button is held).
+> 2. The P1s: enabled no-ops with one shared cause in finder_cmd.c (`tdnl.36/.37/.38/.50/.67`),
+>    TrackGoAway (`tdnl.60`), menu delivery to disk apps (`tdnl.31`), the 64-entry cap
+>    (`tdnl.61`), disk-full feedback (`tdnl.62`), Trash open / Empty Trash / Duplicate / Get
+>    Info / rename (`tdnl.39`, `6k12`, `p6st`).
+> 3. Re-record the clips on main (`make record-flair`; they were recorded in lane worktrees
+>    before the merges) and run a third Codex pass. Neither pass reached the pie chart /
+>    `570-` scene (`flair_live_interactive.img` was not built), real Open/Save dialogs, or a
+>    real application.
+> 4. Look: Charcoal strike + cloverleaf, menu-bar left-edge layout, window frame weight
+>    (`tdnl.51`), widget shading (`tdnl.52`), icon art (`tdnl.53`), font slice 2.
+> 5. Then the WL-0092 queue: I123 P1 (`9u8w`) and IWORD P1 (`l4tj`) can cite the corpus specs.
+>
+> **Frictions to know:** `codex exec -s danger-full-access` is refused by the permission
+> classifier even with an operator greenlight; `-s workspace-write` from a scratch dir with
+> copied images works. Two concurrent Bochs runs collide on RFB port 5900 (`initech-d9tt`).
+> `bd dolt push` prints its remote-setup help (no Dolt remote configured): bead changes are
+> local only. A gate that LOUD-SKIPs on a missing corpus counts as green -- the
+> chicago-metrics skip on main was caught only by its mutant.
+
 
 > **CURRENT STATE (2026-09-26 evening, WL-0092 -- THE CANONICAL-APP GOLDENS LAND.
 > Supersedes the WL-0091 block below for "what to do next"; everything else in it stands.)**
