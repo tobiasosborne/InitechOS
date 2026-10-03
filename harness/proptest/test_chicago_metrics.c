@@ -30,8 +30,9 @@
  *      desktop actually shows (menu titles, items, window titles, tenant text),
  *      and text_draw's painted run for s spans exactly that many columns.
  *   E  VERTICAL metrics: text_cell_height == ascent + descent + leading; flat-
- *      bottomed glyphs end on the baseline row (ascent - 1); descenders reach
- *      the last descent row (ascent + descent - 1); no ink in the leading row.
+ *      bottomed glyphs end on the baseline row (ascent - 1); the strike's
+ *      lowest ink row is exactly the last descent row (ascent + descent - 1,
+ *      descent being the NFNT MAX descent); no ink in the leading row.
  *   F  MISSING glyph: every code the real strike leaves undefined (owTable
  *      0xFFFF) measures the NFNT missing-glyph advance.
  *   G  the factory's typed golden spec/chicago12_nfnt_golden.h equals the
@@ -278,14 +279,19 @@ int main(void)
                   "E '%c' sits on row %d, the NFNT baseline is row %d "
                   "(ascent - 1)", *p, e.ib - PEN_Y, g_ascent - 1);
         }
-        const char *desc = "gjpqy";
-        for (const char *p = desc; *p; p++) {
-            char s[2] = { *p, 0 };
+        /* NFNT descent is the strike's MAXIMUM descent (font-manager.md Sec
+         * 7.1): the lowest ink row over all printable glyphs must be exactly
+         * ascent + descent - 1 -- some glyph uses the full descent, none goes
+         * below it. (Individual descenders may be shorter: real p/q.) */
+        int lowest = -1, lowc = 0;
+        for (int c = 0x21; c <= 0x7E; c++) {
+            char s[2] = { (char)c, 0 };
             extent_t e = draw_one(s);
-            CHECK(e.any_ink && e.ib - PEN_Y == g_ascent + g_descent - 1,
-                  "E descender '%c' ends on row %d, NFNT descent ends on row %d",
-                  *p, e.ib - PEN_Y, g_ascent + g_descent - 1);
+            if (e.any_ink && e.ib - PEN_Y > lowest) { lowest = e.ib - PEN_Y; lowc = c; }
         }
+        CHECK(lowest == g_ascent + g_descent - 1,
+              "E the lowest ink row over 0x21..0x7E is %d ('%c'), NFNT max "
+              "descent ends on row %d", lowest, lowc, g_ascent + g_descent - 1);
     }
 
     /* --- F: codes the REAL strike leaves undefined (owTable 0xFFFF) take the
