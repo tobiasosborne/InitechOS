@@ -26,11 +26,21 @@
 
   "fpu": {
     "value": "optional",
-    "init_by_kernel": false,
-    "note": "A 387 coprocessor is OPTIONAL; most period PC/XT/AT business machines lacked an 8087/287/387. DOS 3.3 did nothing with the FPU (no FNINIT, no CR0.EM/MP, no #NM handler). dBASE III+ 1.1 used compiler-runtime software emulation -- the runtime auto-detected the 8087 and fell back to a software IEEE-80387 emulator when absent. InitechDOS does NOT initialize the FPU (init_by_kernel=false, binding ADR-0009 DEC-01). The SAMIR engine ships compiled -msoft-float -mno-80387 so no x87 instructions are emitted; double arithmetic runs through libgcc soft-float helpers (__adddf3/__muldf3/__divdf3 etc.), which is exactly what a period dBASE clone would do. The kernel x87 init path (CR0.EM=0/MP=1/NE=1 + FNINIT + pinned control word) is DEFERRED to a post-M6 bead (initech-zj6w) for FLAIR/Turbo-Initech hardware-FP use.",
+    "init_by_kernel": true,
+    "boot_control_word": "0x037F",
+    "os_boots_without_fpu": true,
+    "required_by": ["Initech 123"],
+    "samir_numeric": "soft-float (ADR-0009 DEC-01, unchanged)",
+    "amendment": "Rule-8 deliberate change, beads initech-zj6w / initech-yjlo, operator ruling 2026-10-03: hardware x87 for Initech 123; SAMIR stays soft-float. init_by_kernel moved false -> true and boot_control_word / os_boots_without_fpu / required_by were added. The OS itself still boots and runs WITHOUT a coprocessor (value stays optional); Initech 123 needs one (486DX on-die x87, or a 387/487). ADR-0009 DEC-07 still describes the superseded init_by_kernel=false row -- its amendment is bead initech-yjlo.",
+    "kernel_init": "Boot path (os/milton/sysinit.c sysinit_fpu_init, inside sysinit_early right after the IDT is live; common to every kernel). Probe: CR0.EM=0 MP=1 NE=1 TS=0, FNINIT, FNSTSW + FNSTCW over a 5A5Ah sentinel; present iff SW low byte == 0 and (CW AND 103Fh) == 003Fh (os/milton/fpu.h). PRESENT: keep EM=0 MP=1 NE=1 TS=0, FLDCW boot_control_word (spec/fpu_contract.h X87_BOOT_CONTROL_WORD), read it back (mismatch panics); serial 'FPU-INIT present cw=037F'. NE=1 so an unmasked x87 fault arrives as #MF (vector 16) -> fail-loud panic. Cooperative single task: no lazy FPU context switch, TS stays 0. ABSENT: EM=1 MP=0 TS=0, boot CONTINUES, serial 'FPU-INIT absent ...'; the first x87 instruction traps #NM (vector 7) -> fail-loud panic there.",
+    "control_word_note": "0x037F is the FNINIT value (all exceptions masked, PC=64-bit significand, RC=nearest). The kernel does NOT pick 53-bit precision: precision control is application policy (Initech 123 sets its own with FLDCW). The kernel must still load it: measured pre-init, Bochs hands over the post-RESET word 0x0040 (exceptions unmasked) while QEMU hands over 0x037F, and the same x87 sequence gave 0 on Bochs vs 63 on QEMU.",
+    "note": "Most period PC/XT/AT business machines lacked an 8087/287/387, and DOS 3.3 did nothing with the FPU. dBASE III+ 1.1 used compiler-runtime software emulation. The SAMIR engine still ships compiled -msoft-float -mno-80387 so no x87 instructions are emitted; double arithmetic runs through libgcc soft-float helpers (__adddf3/__muldf3/__divdf3 etc.), exactly what a period dBASE clone would do -- SAMIR therefore runs identically with or without a coprocessor. The kernel x87 bring-up is a Law-3 period deviation (DOS never touched the FPU) accepted by the 2026-10-03 ruling so that Initech 123 has deterministic hardware x87 state.",
     "ref": [
-      "ADR-0009 DEC-01 (soft-float primary; kernel x87 deferred)",
-      "PRD Sec 5 (hardware contract; 386+ target)",
+      "beads initech-zj6w (kernel x87 bring-up) / initech-yjlo (operator ruling 2026-10-03)",
+      "ADR-0001 DEC-02 (486-class target, 386 desirable/non-blocking) + DEC-04 (kernel x87 init unlocked)",
+      "ADR-0009 DEC-01 (SAMIR soft-float, unchanged; kernel x87 named the correct 386+387/486 end-state)",
+      "PRD Sec 5 (hardware contract)",
+      "Intel SDM Vol 3A Sec 2.5 (CR0 MP/EM/TS/NE), Sec 9.2 (x87 init, EM/MP settings), Table 9-1 (post-RESET CW 0040h); Vol 1 Sec 8.1.5 (FINIT CW 037Fh) -- NOT backed by a local copy",
       "Period grounding: DOS 3.3 PRM -- no FPU init in DOS 3.3; dBASE III+ 1.1 compiler runtime FP emulation"
     ]
   },
@@ -125,7 +135,7 @@
   "provenance": {
     "_comment": "Per-row source ledger (Law 1). Every row in this file cites a LOCAL source.",
     "cpu":                    "PRD Sec 5 table row 'CPU'; CLAUDE.md hallucination-risk callout (386+ only; no 8088/286)",
-    "fpu":                    "ADR-0009 DEC-01 (soft-float primary, init_by_kernel=false); ADR-0009 Sec 1 period grounding (dBASE III+ software FP, DOS 3.3 uninvolved); DOS 3.3 PRM (no FPU init in single-tasking DOS); PRD Sec 5 (386+ hardware target)",
+    "fpu":                    "beads initech-zj6w / initech-yjlo (operator ruling 2026-10-03: x87 for Initech 123, kernel init, init_by_kernel=true, boot_control_word); spec/fpu_contract.h (X87_BOOT_CONTROL_WORD); os/milton/fpu.h (probe + CR0 arithmetic); ADR-0001 DEC-04; ADR-0009 DEC-01 (SAMIR soft-float, unchanged); ADR-0009 Sec 1 period grounding (dBASE III+ software FP, DOS 3.3 uninvolved); DOS 3.3 PRM (no FPU init in single-tasking DOS); PRD Sec 5; Intel SDM Vol 3A 2.5/9.2/Table 9-1, Vol 1 8.1.5 (not local)",
     "memory_program_window":  "spec/memory_map.h (PROGRAM_BASE/PROGRAM_ALLOC_END + full layout commentary); ADR-0009 DEC-03 (Milton build profile, FLOW_MAX_REGISTRY=1); ADR-0009 DEC-04 (arena disjointness invariant); PRD Sec 5 table row 'Memory'",
     "memory_flair_heap":      "ADR-0004 DEC-03 / FO-5 / FO-G (RATIFIED 2026-06-19; dedicated extended-memory FLAIR heap 0x100000..0x500000, 4 MiB, FIXED window, INT 15h probe + fail-loud-below-min); spec/memory_map.h (FLAIR_HEAP_BASE/SIZE/MIN + flair_heap_ram_ok); os/milton/boot_info.h (ext_mem_kb); os/boot/stage2.asm (mem_probe); ADR-0001 (32-bit flat, extended memory directly addressable)",
     "video":                  "PRD Sec 5 table rows 'Display' + 'Text'; ADR-0004 (FLAIR LFB surface)",

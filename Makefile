@@ -8067,7 +8067,7 @@ $(KERNEL_CONFIG_SYS_OBJ): $(KERNEL_CONFIG_SYS_C) $(KERNEL_DIR)/config_sys.h | $(
 # SYSINIT named bring-up phases (beads initech-509.2): the ordered init contract +
 # the CONFIG.SYS apply (FILES= cap). Kernel-only (it touches pic/idt/pit/kbd + the
 # FAT volume); no host oracle (the parser half is tested via config_sys.c).
-$(KERNEL_SYSINIT_OBJ): $(KERNEL_SYSINIT_C) $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/config_sys.h \
+$(KERNEL_SYSINIT_OBJ): $(KERNEL_SYSINIT_C) $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/fpu.h spec/fpu_contract.h $(KERNEL_DIR)/config_sys.h \
                        $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/int21.h \
                        $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pit.h \
                        $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
@@ -8344,6 +8344,78 @@ $(PANIC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FAULT_BIN) | $(BUILD)
 	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
 	@dd if=$(KERNEL_FAULT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> panic image: %s (self-test #DE fault kernel @s17)\n" "$@"
+
+# --- x87 FPU bring-up self-test kernels (beads initech-zj6w; make test-fpu) ---
+# The SAME kernel object set as the fault kernel (so every common boot-path
+# object, including the REAL sysinit.o that runs fpu_init, is the shipped one),
+# with kmain.c compiled -DBOOT_FPU_TEST (report CR0 + run a freestanding x87
+# sequence after the banner, then halt) or -DBOOT_FPU_MF (additionally raise an
+# unmasked #Z and FWAIT -> must be #MF). The mutant / forced-absent kernels swap
+# ONLY sysinit.o for a one-knob variant (os/milton/sysinit.c):
+#   FPU_MUTATE_SKIP_INIT  fpu_init returns at once (no CR0 write, no FNINIT/FLDCW)
+#   FPU_MUTATE_BOOT_CW    fpu_init loads 0x027F (53-bit PC) instead of the spec CW
+#   FPU_FORCE_ABSENT      the probe result is forced to "no x87" -> the absent
+#                         branch runs on an emulator that HAS an FPU (fault
+#                         injection; neither QEMU TCG nor Bochs can remove one)
+#   + FPU_MUTATE_ABSENT_KEEPS_EM_CLEAR (fpu.h) on top of FPU_FORCE_ABSENT: the
+#                         absent branch forgets EM=1 (test-fpu-absent-mutant)
+# kernel_fpu_mf_mut_skip pairs the #MF probe with the skip-init sysinit.o
+# (NE stays 0 -> no #MF; test-fpu-mf-mutant).
+# Ref: PRD Sec 5; ADR-0001 DEC-02/DEC-04; spec/hardware.json "fpu";
+# spec/fpu_contract.h; CLAUDE.md Rule 5/6.
+KERNEL_FPU_BASE_OBJS := $(filter-out $(KERNEL_FAULT_MAIN_OBJ),$(KERNEL_FAULT_OBJS))
+KERNEL_FPU_KMAIN_DEPS := $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h
+KERNEL_FPU_SYSINIT_DEPS := $(KERNEL_SYSINIT_C) $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/fpu.h spec/fpu_contract.h \
+                           $(KERNEL_DIR)/config_sys.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/int21.h \
+                           $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h \
+                           $(KERNEL_DIR)/fat12.h spec/dos_structs.h
+
+$(BUILD)/kmain_fpu_test.o: $(KERNEL_FPU_KMAIN_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FPU_TEST -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+$(BUILD)/kmain_fpu_mf.o: $(KERNEL_FPU_KMAIN_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FPU_MF -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+$(BUILD)/sysinit_fpu_mut_skip.o: $(KERNEL_FPU_SYSINIT_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DFPU_MUTATE_SKIP_INIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
+$(BUILD)/sysinit_fpu_mut_cw.o: $(KERNEL_FPU_SYSINIT_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DFPU_MUTATE_BOOT_CW -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
+$(BUILD)/sysinit_fpu_absent.o: $(KERNEL_FPU_SYSINIT_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DFPU_FORCE_ABSENT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
+$(BUILD)/sysinit_fpu_absent_mut_em.o: $(KERNEL_FPU_SYSINIT_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DFPU_FORCE_ABSENT -DFPU_MUTATE_ABSENT_KEEPS_EM_CLEAR -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
+
+# $(call fpu-kernel-rules,<tag>,<kmain obj>,<sysinit obj>): link
+# kernel_fpu_<tag>.{elf,bin} + fpu_<tag>.img from the fault-kernel object set
+# with kmain + sysinit swapped. Same pad / size / placement guards as every
+# other kernel; the .bin is enumerated by test-kernel-headroom automatically.
+define fpu-kernel-rules
+$(BUILD)/kernel_fpu_$(1).elf: $(filter-out $(KERNEL_SYSINIT_OBJ),$(KERNEL_FPU_BASE_OBJS)) $(2) $(3) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_SYSINIT_OBJ),$(KERNEL_FPU_BASE_OBJS)) $(2) $(3)
+
+$(BUILD)/kernel_fpu_$(1).bin: $(BUILD)/kernel_fpu_$(1).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_fpu_$(1).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(fpu-$(1)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,fpu-$(1))
+
+$(BUILD)/fpu_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_fpu_$(1).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_fpu_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> fpu self-test image ($(1)): %s\n" "$$@"
+endef
+$(eval $(call fpu-kernel-rules,test,$(BUILD)/kmain_fpu_test.o,$(KERNEL_SYSINIT_OBJ)))
+$(eval $(call fpu-kernel-rules,mf,$(BUILD)/kmain_fpu_mf.o,$(KERNEL_SYSINIT_OBJ)))
+$(eval $(call fpu-kernel-rules,mut_skip,$(BUILD)/kmain_fpu_test.o,$(BUILD)/sysinit_fpu_mut_skip.o))
+$(eval $(call fpu-kernel-rules,mut_cw,$(BUILD)/kmain_fpu_test.o,$(BUILD)/sysinit_fpu_mut_cw.o))
+$(eval $(call fpu-kernel-rules,absent,$(BUILD)/kmain_fpu_test.o,$(BUILD)/sysinit_fpu_absent.o))
+$(eval $(call fpu-kernel-rules,absent_mut_em,$(BUILD)/kmain_fpu_test.o,$(BUILD)/sysinit_fpu_absent_mut_em.o))
+$(eval $(call fpu-kernel-rules,mf_mut_skip,$(BUILD)/kmain_fpu_mf.o,$(BUILD)/sysinit_fpu_mut_skip.o))
 
 # --- Spurious-vector kernel (bcg.6; make test-spurious) --------------------
 # Same sources, but kmain.c compiled with -DBOOT_SPURIOUS so the boot fires a
@@ -21753,6 +21825,206 @@ test-panic: $(HARNESS_BIN) $(PANIC_IMG)
 	@printf '======================================================================\n'
 
 # ---------------------------------------------------------------------------
+# REAL gates: test-fpu (+ -bochs, -mutant), test-fpu-absent (+ -mutant),
+#             test-fpu-mf (+ -mutant)  -- beads initech-zj6w
+# ---------------------------------------------------------------------------
+# The x87 bring-up in the COMMON boot path (sysinit_early -> sysinit_fpu_init;
+# os/milton/fpu.h) leaves the coprocessor in a deterministic state. Boot the
+# fpu self-test kernel (kmain.c -DBOOT_FPU_TEST, see the block there) and grade
+# its serial with fpu-gate-check. EVERY expected value below is fixed
+# INDEPENDENTLY of the code under test:
+#   [cr0]    "FPU-CR0 mp=1 em=0 ts=0 ne=1" -- the Intel-recommended CR0 for a
+#            486-class CPU with an x87 (SDM Vol 3A Sec 9.2: EM=0 MP=1; NE=1 for
+#            native #MF; TS=0, no lazy switching in a cooperative single task);
+#   [result] "FPU-RESULT a=63 b=125" -- by hand: sqrt(1764)=42, 42*3=126,
+#            126/2=63; 1/8=0.125 (dyadic, exact), 0.125*1000=125;
+#   [sw]     status word AND 38BFH == 0 -- every step above is exact, so no
+#            exception flag (bits 0-5) nor ES (bit 7) may be set, and the stack
+#            is balanced (TOP, bits 11-13, == 0);
+#   [cw]     FNSTCW readback == spec/hardware.json fpu.boot_control_word, read
+#            HERE from the JSON (the kernel reads spec/fpu_contract.h; the two
+#            are tied by test-hardware-spec, and 037FH is Intel's FINIT value);
+#   [init]   the boot-path self-report "FPU-INIT present cw=<spec>";
+#   plus no PANIC and no triple fault.
+# RED (measured before the init existed, base 0194733): QEMU ran the sequence
+# with CR0 mp=0 em=0 ts=0 ne=0 ([cr0] RED; values right by luck of SeaBIOS/
+# QEMU reset state); Bochs gave a=0, SW 88C1H (stack fault), CW 0040H -- the
+# post-RESET x87 state -- ([cr0] [result] [sw] [cw] RED). Neither emulator
+# raised #NM: the handoff leaves EM=0. The QEMU harness passes no -cpu, so the
+# guest is qemu-system-i386's default CPU model (qemu32); Bochs runs
+# cpu model=pentium (harness/emu/bochs.c). Both have an x87.
+# Ref: PRD Sec 5; ADR-0001 DEC-02/DEC-04; CLAUDE.md Law 2, Rule 5, Rule 6.
+FPU_GATE_IMG          := $(BUILD)/fpu_test.img
+FPU_MF_IMG            := $(BUILD)/fpu_mf.img
+FPU_ABSENT_IMG        := $(BUILD)/fpu_absent.img
+
+# $(call fpu-gate-check,<serial>,<harness report>,<label>): one shell command;
+# prints one tagged "!!! <label> FAIL [tag]: ..." line per failed check and
+# exits non-zero if any failed. The tags let the mutant gates assert they went
+# RED for the RIGHT reason.
+define fpu-gate-check
+s="$(1).norm"; fail=0; \
+exp=$$(sed -n 's/^ *"boot_control_word": *"0x\([0-9A-F][0-9A-F][0-9A-F][0-9A-F]\)".*/\1/p' spec/hardware.json); \
+[ "$$(printf '%s\n' "$$exp" | grep -c .)" -eq 1 ] || { printf '!!! $(3) FAIL [spec]: spec/hardware.json fpu.boot_control_word missing or ambiguous (got "%s")\n' "$$exp"; exit 1; }; \
+[ -s "$(1)" ] || { printf '!!! $(3) FAIL [serial]: no serial captured at %s\n' "$(1)"; exit 1; }; \
+tr -d '\r' < "$(1)" > "$$s"; \
+if grep -q 'triple_fault=1' "$(2)"; then printf '!!! $(3) FAIL [triple]: TRIPLE FAULT\n'; fail=1; fi; \
+grep -qx 'FPU-TEST-ARMED' "$$s" || { printf '!!! $(3) FAIL [armed]: never reached the x87 self-test (FPU-TEST-ARMED missing)\n'; fail=1; }; \
+if grep -q '^PANIC' "$$s"; then printf '!!! $(3) FAIL [panic]: kernel panicked: %s\n' "$$(grep -m1 '^PANIC' "$$s")"; fail=1; fi; \
+grep -qx "FPU-INIT present cw=$$exp" "$$s" || { printf '!!! $(3) FAIL [init]: boot-path marker "FPU-INIT present cw=%s" missing (got "%s")\n' "$$exp" "$$(grep -m1 '^FPU-INIT' "$$s")"; fail=1; }; \
+grep -qx 'FPU-CR0 mp=1 em=0 ts=0 ne=1' "$$s" || { printf '!!! $(3) FAIL [cr0]: CR0 is not MP=1 EM=0 TS=0 NE=1 (got "%s")\n' "$$(grep -m1 '^FPU-CR0' "$$s")"; fail=1; }; \
+grep -qx 'FPU-RESULT a=63 b=125' "$$s" || { printf '!!! $(3) FAIL [result]: expected "FPU-RESULT a=63 b=125" (got "%s")\n' "$$(grep -m1 '^FPU-RESULT' "$$s")"; fail=1; }; \
+sw=$$(sed -n 's/^FPU-SW=\([0-9A-F]\{8\}\)$$/\1/p' "$$s"); \
+if [ -z "$$sw" ] || [ $$(( 0x$$sw & 0x38BF )) -ne 0 ]; then printf '!!! $(3) FAIL [sw]: status word has exception/ES/TOP bits set (FPU-SW=%s, mask 38BF)\n' "$$sw"; fail=1; fi; \
+grep -qx "FPU-CW=0000$$exp" "$$s" || { printf '!!! $(3) FAIL [cw]: FNSTCW readback != spec %s (got "%s")\n' "$$exp" "$$(grep -m1 '^FPU-CW' "$$s")"; fail=1; }; \
+grep -qx 'FPU-TEST-DONE' "$$s" || { printf '!!! $(3) FAIL [done]: FPU-TEST-DONE missing\n'; fail=1; }; \
+[ "$$fail" -eq 0 ]
+endef
+
+# $(call fpu-qemu-run,<img>,<name>): boot <img> under the QEMU oracle; the guest
+# halts after the self-test, so the timeout is expected (verdict = serial).
+define fpu-qemu-run
+$(HARNESS_BIN) --disk "$(1)" --name "$(2)" --out "$(BUILD)" --timeout-ms 6000 2> "$(BUILD)/$(2).report" || true
+endef
+
+.PHONY: test-fpu test-fpu-mutant test-fpu-bochs test-fpu-absent test-fpu-absent-mutant test-fpu-mf test-fpu-mf-mutant
+test-fpu: $(HARNESS_BIN) $(FPU_GATE_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fpu : x87 bring-up in the boot path (QEMU)\n'
+	@printf '  Ref: beads initech-zj6w; PRD Sec 5; ADR-0001 DEC-04; spec/hardware.json fpu\n'
+	@printf '======================================================================\n'
+	@$(call fpu-qemu-run,$(FPU_GATE_IMG),fpu_test)
+	@cat "$(BUILD)/fpu_test.report"
+	@grep -E '^(FPU|PANIC)' "$(BUILD)/fpu_test.serial" | tr -d '\r' | sed 's/^/    serial| /' || true
+	@$(call fpu-gate-check,$(BUILD)/fpu_test.serial,$(BUILD)/fpu_test.report,test-fpu)
+	@printf 'VERDICT   : PASS -- CR0 MP=1 EM=0 TS=0 NE=1, x87 63/125 exact, SW clean, CW == spec (QEMU)\n'
+	@printf '======================================================================\n'
+
+# Rule 6: two mutant kernels, each must go RED for its OWN reason.
+#   skip -- FPU_MUTATE_SKIP_INIT: no CR0 write / FNINIT / FLDCW, but the boot
+#           log still CLAIMS "FPU-INIT present" -> RED must come from [cr0]
+#           (hardware state), not from the self-report.
+#   cw   -- FPU_MUTATE_BOOT_CW: loads 0x027F -> RED on [cw] while [cr0] and
+#           [result] stay green (the CW arm bites in isolation).
+test-fpu-mutant: $(HARNESS_BIN) $(BUILD)/fpu_mut_skip.img $(BUILD)/fpu_mut_cw.img
+	@$(call fpu-qemu-run,$(BUILD)/fpu_mut_skip.img,fpu_mut_skip)
+	@out=$$( $(call fpu-gate-check,$(BUILD)/fpu_mut_skip.serial,$(BUILD)/fpu_mut_skip.report,skip-mutant) ); rc=$$?; \
+	printf '%s\n' "$$out" | sed 's/^/    | /'; \
+	[ "$$rc" -ne 0 ] || { printf '!!! test-fpu-mutant FAIL: skip-init mutant PASSED -- the gate is decoration\n'; exit 1; }; \
+	printf '%s\n' "$$out" | grep -q 'FAIL \[cr0\]' || { printf '!!! test-fpu-mutant FAIL: skip-init mutant RED, but not on [cr0] (wrong reason)\n'; exit 1; }; \
+	if printf '%s\n' "$$out" | grep -q 'FAIL \[\(armed\|init\|triple\|serial\|spec\)\]'; then printf '!!! test-fpu-mutant FAIL: skip-init mutant RED for a harness/boot reason, not the hardware state\n'; exit 1; fi; \
+	printf '>>> test-fpu-mutant [1/2]: skip-init mutant RED on [cr0] (self-report ignored) -- bites\n'
+	@$(call fpu-qemu-run,$(BUILD)/fpu_mut_cw.img,fpu_mut_cw)
+	@out=$$( $(call fpu-gate-check,$(BUILD)/fpu_mut_cw.serial,$(BUILD)/fpu_mut_cw.report,cw-mutant) ); rc=$$?; \
+	printf '%s\n' "$$out" | sed 's/^/    | /'; \
+	[ "$$rc" -ne 0 ] || { printf '!!! test-fpu-mutant FAIL: control-word mutant PASSED -- the [cw] arm is decoration\n'; exit 1; }; \
+	printf '%s\n' "$$out" | grep -q 'FAIL \[cw\]' || { printf '!!! test-fpu-mutant FAIL: control-word mutant RED, but not on [cw]\n'; exit 1; }; \
+	if printf '%s\n' "$$out" | grep -q 'FAIL \[\(cr0\|result\|armed\|triple\)\]'; then printf '!!! test-fpu-mutant FAIL: control-word mutant also broke [cr0]/[result]/boot -- not an isolated CW bite\n'; exit 1; fi; \
+	printf '>>> test-fpu-mutant [2/2]: control-word mutant RED on [cw] in isolation -- bites\n'
+	@printf '>>> test-fpu-mutant: green (both mutants RED for the right reason)\n'
+
+# Rule 5: the Bochs leg (cpu model=pentium; stage2 takes the mode-0x13
+# fallback, irrelevant here). Bochs is the emulator that models the post-RESET
+# x87 state (CW 0040H) -- the leg that went RED on a wrong NUMBER pre-init.
+ifeq ($(SKIP_BOCHS),1)
+test-fpu-bochs:
+	@printf '!!! test-fpu-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg of the x87 gate (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass.\n'
+else
+test-fpu-bochs: $(BOCHS_BIN) $(FPU_GATE_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fpu-bochs : x87 bring-up, BOCHS leg (Rule 5)\n'
+	@printf '======================================================================\n'
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-fpu-bochs FAIL: bochs not found (required base tool; SKIP_BOCHS=1 to opt out loudly)\n'; exit 1; }
+	@$(BOCHS_BIN) --disk "$(FPU_GATE_IMG)" --expect FPU-TEST-DONE \
+		--name fpu_test_bochs --out "$(BUILD)" --timeout-ms 45000 \
+		2> "$(BUILD)/fpu_test_bochs.report" || true
+	@cat "$(BUILD)/fpu_test_bochs.report"
+	@grep -q 'rfb_unblocked=1' "$(BUILD)/fpu_test_bochs.report" \
+		|| { printf '!!! test-fpu-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
+	@grep -E '^(FPU|PANIC)' "$(BUILD)/fpu_test_bochs.serial" | tr -d '\r' | sed 's/^/    serial| /' || true
+	@$(call fpu-gate-check,$(BUILD)/fpu_test_bochs.serial,$(BUILD)/fpu_test_bochs.report,test-fpu-bochs)
+	@printf 'VERDICT   : PASS -- same x87 state + results under Bochs as under QEMU\n'
+	@printf '======================================================================\n'
+endif
+
+# FPU-ABSENT path (386SX/486SX class; ADR-0001 "386 desirable, non-blocking").
+# Neither QEMU TCG nor Bochs can remove the x87 unit (QEMU's -cpu ...,-fpu only
+# clears the CPUID bit; TCG still executes x87), so FPU_FORCE_ABSENT injects the
+# "no coprocessor" probe verdict and the gate proves what follows on a real
+# emulator: the OS boots past SYSINIT, the banner prints, the absent branch
+# says so on serial, CR0 is EM=1 MP=0 TS=0, and the first x87 instruction
+# traps #NM (vector 7) into the fail-loud panic -- never a silent number.
+# The probe VERDICT itself (sw/cw -> absent) is graded on the host
+# (test-fpu-probe). Expected CR0: SDM Vol 3A Sec 9.2 (no FPU: EM=1 MP=0).
+define fpu-absent-check
+s="$(1).norm"; fail=0; \
+[ -s "$(1)" ] || { printf '!!! $(3) FAIL [serial]: no serial captured at %s\n' "$(1)"; exit 1; }; \
+tr -d '\r' < "$(1)" > "$$s"; \
+if grep -q 'triple_fault=1' "$(2)"; then printf '!!! $(3) FAIL [triple]: TRIPLE FAULT\n'; fail=1; fi; \
+grep -qx 'FPU-INIT absent -- CR0.EM=1 MP=0; no x87 coprocessor, the first x87 instruction will trap #NM' "$$s" || { printf '!!! $(3) FAIL [init]: absent-branch marker missing (got "%s")\n' "$$(grep -m1 '^FPU-INIT' "$$s")"; fail=1; }; \
+grep -qx 'BANNER' "$$s" || { printf '!!! $(3) FAIL [boot]: the OS did not boot to the banner without an FPU\n'; fail=1; }; \
+grep -qx 'FPU-TEST-ARMED' "$$s" || { printf '!!! $(3) FAIL [armed]: never reached the x87 probe instruction\n'; fail=1; }; \
+grep -qx 'FPU-CR0 mp=0 em=1 ts=0 ne=1' "$$s" || { printf '!!! $(3) FAIL [cr0]: CR0 is not MP=0 EM=1 TS=0 (got "%s")\n' "$$(grep -m1 '^FPU-CR0' "$$s")"; fail=1; }; \
+grep -q '^PANIC vec=07 ' "$$s" || { printf '!!! $(3) FAIL [nm]: the first x87 instruction did not trap #NM (no "PANIC vec=07")\n'; fail=1; }; \
+if grep -q '^FPU-RESULT' "$$s"; then printf '!!! $(3) FAIL [ran]: x87 code RAN on a machine declared FPU-less: %s\n' "$$(grep -m1 '^FPU-RESULT' "$$s")"; fail=1; fi; \
+[ "$$fail" -eq 0 ]
+endef
+
+test-fpu-absent: $(HARNESS_BIN) $(FPU_ABSENT_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fpu-absent : no-FPU boot + #NM on first x87 op\n'
+	@printf '  (probe verdict FORCED absent -- fault injection; see the Makefile comment)\n'
+	@printf '======================================================================\n'
+	@$(call fpu-qemu-run,$(FPU_ABSENT_IMG),fpu_absent)
+	@cat "$(BUILD)/fpu_absent.report"
+	@grep -E '^(FPU|PANIC|BANNER$$)' "$(BUILD)/fpu_absent.serial" | tr -d '\r' | sed 's/^/    serial| /' || true
+	@$(call fpu-absent-check,$(BUILD)/fpu_absent.serial,$(BUILD)/fpu_absent.report,test-fpu-absent)
+	@printf 'VERDICT   : PASS -- booted without an FPU; EM=1; first x87 op -> #NM panic\n'
+	@printf '======================================================================\n'
+
+test-fpu-absent-mutant: $(HARNESS_BIN) $(BUILD)/fpu_absent_mut_em.img
+	@$(call fpu-qemu-run,$(BUILD)/fpu_absent_mut_em.img,fpu_absent_mut_em)
+	@out=$$( $(call fpu-absent-check,$(BUILD)/fpu_absent_mut_em.serial,$(BUILD)/fpu_absent_mut_em.report,absent-mutant) ); rc=$$?; \
+	printf '%s\n' "$$out" | sed 's/^/    | /'; \
+	[ "$$rc" -ne 0 ] || { printf '!!! test-fpu-absent-mutant FAIL: EM-clear mutant PASSED -- the gate is decoration\n'; exit 1; }; \
+	printf '%s\n' "$$out" | grep -q 'FAIL \[nm\]' || { printf '!!! test-fpu-absent-mutant FAIL: RED, but not on [nm]\n'; exit 1; }; \
+	printf '>>> test-fpu-absent-mutant: green (absent branch without EM=1 -> no #NM -> RED on [nm])\n'
+
+# #MF leg: with NE=1 an UNMASKED x87 fault must arrive as vector 16 (#MF) and
+# panic loudly. kmain -DBOOT_FPU_MF unmasks ZE (CW bit 2), divides 1/0 and
+# FWAITs. Mutant: the skip-init sysinit.o leaves NE=0, the error goes to FERR#
+# -> IRQ13 (masked at the 8259) and vanishes -> "FPU-MF-NOT-RAISED", RED.
+define fpu-mf-check
+s="$(1).norm"; fail=0; \
+[ -s "$(1)" ] || { printf '!!! $(3) FAIL [serial]: no serial captured at %s\n' "$(1)"; exit 1; }; \
+tr -d '\r' < "$(1)" > "$$s"; \
+if grep -q 'triple_fault=1' "$(2)"; then printf '!!! $(3) FAIL [triple]: TRIPLE FAULT\n'; fail=1; fi; \
+grep -qx 'FPU-MF-ARMED' "$$s" || { printf '!!! $(3) FAIL [armed]: never reached the unmasked divide-by-zero\n'; fail=1; }; \
+grep -q '^PANIC vec=10 ' "$$s" || { printf '!!! $(3) FAIL [mf]: unmasked x87 #Z was not delivered as #MF (no "PANIC vec=10")\n'; fail=1; }; \
+if grep -qx 'FPU-MF-NOT-RAISED' "$$s"; then printf '!!! $(3) FAIL [silent]: the unmasked x87 fault vanished (FPU-MF-NOT-RAISED)\n'; fail=1; fi; \
+[ "$$fail" -eq 0 ]
+endef
+
+test-fpu-mf: $(HARNESS_BIN) $(FPU_MF_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-fpu-mf : unmasked x87 fault -> #MF panic (NE=1)\n'
+	@printf '======================================================================\n'
+	@$(call fpu-qemu-run,$(FPU_MF_IMG),fpu_mf)
+	@cat "$(BUILD)/fpu_mf.report"
+	@grep -E '^(FPU|PANIC)' "$(BUILD)/fpu_mf.serial" | tr -d '\r' | sed 's/^/    serial| /' || true
+	@$(call fpu-mf-check,$(BUILD)/fpu_mf.serial,$(BUILD)/fpu_mf.report,test-fpu-mf)
+	@printf 'VERDICT   : PASS -- unmasked #Z delivered as #MF (vector 16), fail-loud panic\n'
+	@printf '======================================================================\n'
+
+test-fpu-mf-mutant: $(HARNESS_BIN) $(BUILD)/fpu_mf_mut_skip.img
+	@$(call fpu-qemu-run,$(BUILD)/fpu_mf_mut_skip.img,fpu_mf_mut_skip)
+	@out=$$( $(call fpu-mf-check,$(BUILD)/fpu_mf_mut_skip.serial,$(BUILD)/fpu_mf_mut_skip.report,mf-mutant) ); rc=$$?; \
+	printf '%s\n' "$$out" | sed 's/^/    | /'; \
+	[ "$$rc" -ne 0 ] || { printf '!!! test-fpu-mf-mutant FAIL: NE=0 mutant PASSED -- the gate is decoration\n'; exit 1; }; \
+	printf '%s\n' "$$out" | grep -q 'FAIL \[mf\]' || { printf '!!! test-fpu-mf-mutant FAIL: RED, but not on [mf]\n'; exit 1; }; \
+	printf '>>> test-fpu-mf-mutant: green (NE=0 -> no #MF -> RED on [mf])\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-spurious (bcg.6 -- a stray/unhandled vector RESUMES, no wedge)
 # ---------------------------------------------------------------------------
 # The dual of test-panic: a CPU exception must HALT (test-panic), but a spurious/
@@ -22583,20 +22855,57 @@ test-loader-big-mutant: $(TEST_LOADER_BIG_MUT)
 	else printf '>>> test-loader-big-mutant: green (re-imposed-cap mutant correctly RED)\n'; fi
 
 # --- test-hardware-spec (bead nh0m; ADR-0009 DEC-07): spec/hardware.json
-#     contract -- fpu=optional/init_by_kernel=false, cpu=386+, mem window. ---
-TEST_HWSPEC      := $(BUILD)/test_hardware_spec
-TEST_HWSPEC_MUT  := $(BUILD)/test_hardware_spec_mut
-$(TEST_HWSPEC): $(DBF_DIFF_DIR)/test_hardware_spec.c spec/hardware.json spec/memory_map.h | $(BUILD)
+#     contract -- fpu=optional/init_by_kernel=true (zj6w) + boot_control_word,
+#     cpu=486+, mem window. ---
+TEST_HWSPEC         := $(BUILD)/test_hardware_spec
+TEST_HWSPEC_MUT     := $(BUILD)/test_hardware_spec_mut
+TEST_HWSPEC_MUT_FPU := $(BUILD)/test_hardware_spec_mut_fpu
+$(TEST_HWSPEC): $(DBF_DIFF_DIR)/test_hardware_spec.c spec/hardware.json spec/memory_map.h spec/fpu_contract.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -Ispec -o $@ $(DBF_DIFF_DIR)/test_hardware_spec.c
-$(TEST_HWSPEC_MUT): $(DBF_DIFF_DIR)/test_hardware_spec.c spec/memory_map.h | $(BUILD)
+$(TEST_HWSPEC_MUT): $(DBF_DIFF_DIR)/test_hardware_spec.c spec/memory_map.h spec/fpu_contract.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DHARDWARE_SPEC_MUTANT -Iseed -Ispec -o $@ $(DBF_DIFF_DIR)/test_hardware_spec.c
+$(TEST_HWSPEC_MUT_FPU): $(DBF_DIFF_DIR)/test_hardware_spec.c spec/memory_map.h spec/fpu_contract.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DHARDWARE_SPEC_MUTANT_FPU -Iseed -Ispec -o $@ $(DBF_DIFF_DIR)/test_hardware_spec.c
 .PHONY: test-hardware-spec test-hardware-spec-mutant
 test-hardware-spec: $(TEST_HWSPEC)
 	@printf '>>> test-hardware-spec: spec/hardware.json contract (DEC-07)\n'
 	@$(TEST_HWSPEC) spec/hardware.json
-test-hardware-spec-mutant: $(TEST_HWSPEC_MUT)
+# Two mutants: the historical all-arms flip, and (initech-zj6w) the ISOLATED
+# fpu.boot_control_word arm -- it must go RED on exactly that CHECK.
+test-hardware-spec-mutant: $(TEST_HWSPEC_MUT) $(TEST_HWSPEC_MUT_FPU)
 	@if $(TEST_HWSPEC_MUT) spec/hardware.json >/dev/null 2>&1; then printf '!!! test-hardware-spec-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; \
-	else printf '>>> test-hardware-spec-mutant: green (mutant correctly RED)\n'; fi
+	else printf '>>> test-hardware-spec-mutant: all-arms mutant correctly RED\n'; fi
+	@out=$$($(TEST_HWSPEC_MUT_FPU) spec/hardware.json 2>&1); rc=$$?; \
+	[ "$$rc" -ne 0 ] || { printf '!!! test-hardware-spec-mutant FAIL: fpu boot_control_word mutant PASSED -- the arm is decoration\n'; exit 1; }; \
+	n=$$(printf '%s\n' "$$out" | grep -c '  FAIL '); \
+	printf '%s\n' "$$out" | grep -q 'FAIL .*fpu.boot_control_word == 0x027F' && [ "$$n" -eq 1 ] \
+		|| { printf '!!! test-hardware-spec-mutant FAIL: fpu mutant RED for the wrong reason (%s failures):\n%s\n' "$$n" "$$out"; exit 1; }; \
+	printf '>>> test-hardware-spec-mutant: green (fpu boot_control_word mutant RED on exactly that arm)\n'
+
+# --- test-fpu-probe (bead initech-zj6w): the PURE x87 bring-up decisions the
+#     kernel's sysinit_fpu_init uses (os/milton/fpu.h) -- probe verdict from the
+#     FNSTSW/FNSTCW words (incl. the FPU-ABSENT readings no emulator can
+#     produce) + the present/absent CR0 arithmetic. Two -D mutants, each RED. ---
+TEST_FPU_PROBE       := $(BUILD)/test_fpu_probe
+TEST_FPU_PROBE_MUT1  := $(BUILD)/test_fpu_probe_mut_sw_only
+TEST_FPU_PROBE_MUT2  := $(BUILD)/test_fpu_probe_mut_absent_em
+TEST_FPU_PROBE_DEPS  := $(MILTON_DIR)/test_fpu.c $(MILTON_DIR)/fpu.h spec/fpu_contract.h
+$(TEST_FPU_PROBE): $(TEST_FPU_PROBE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -Ispec -I$(MILTON_DIR) -o $@ $(MILTON_DIR)/test_fpu.c
+$(TEST_FPU_PROBE_MUT1): $(TEST_FPU_PROBE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFPU_MUTATE_PROBE_SW_ONLY -Iseed -Ispec -I$(MILTON_DIR) -o $@ $(MILTON_DIR)/test_fpu.c
+$(TEST_FPU_PROBE_MUT2): $(TEST_FPU_PROBE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFPU_MUTATE_ABSENT_KEEPS_EM_CLEAR -Iseed -Ispec -I$(MILTON_DIR) -o $@ $(MILTON_DIR)/test_fpu.c
+.PHONY: test-fpu-probe test-fpu-probe-mutant
+test-fpu-probe: $(TEST_FPU_PROBE)
+	@printf '>>> test-fpu-probe: x87 probe verdict + CR0 arithmetic (os/milton/fpu.h; beads initech-zj6w)\n'
+	@$(TEST_FPU_PROBE)
+test-fpu-probe-mutant: $(TEST_FPU_PROBE_MUT1) $(TEST_FPU_PROBE_MUT2)
+	@for m in $(TEST_FPU_PROBE_MUT1) $(TEST_FPU_PROBE_MUT2); do \
+		if $$m >/dev/null 2>&1; then printf '!!! test-fpu-probe-mutant FAIL: %s PASSED -- oracle is decoration\n' "$$m"; exit 1; fi; \
+		printf '    %s: RED (correct)\n' "$$(basename $$m)"; \
+	done
+	@printf '>>> test-fpu-probe-mutant: green (both mutants correctly RED)\n'
 
 # --- test-flair-heap-ram (bead k8o5.5; ADR-0004 DEC-03 / FO-G): the PURE
 #     RAM-sufficiency decision flair_heap_ram_ok() the kernel boot gate calls --
@@ -23628,6 +23937,7 @@ TEST_UNIT_GATES := \
 	test-arena-disjoint test-arena-disjoint-mutant \
 	test-loader-big test-loader-big-mutant \
 	test-hardware-spec test-hardware-spec-mutant \
+	test-fpu-probe test-fpu-probe-mutant \
 	test-flair-heap-ram test-flair-heap-ram-mutant \
 	test-samir-softfp test-samir-softfp-mutant test-samir-softfp-implmutant \
 	test-samir \
@@ -24678,6 +24988,7 @@ TEST_EMU_GATES := \
 	test-copy-selfcopy test-copy-selfcopy-mutant \
 	test-readerr-winh test-readerr-winh-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
+	test-fpu test-fpu-mutant test-fpu-bochs test-fpu-absent test-fpu-absent-mutant test-fpu-mf test-fpu-mf-mutant \
 	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm test-int21-irqstorm-mutant \
 	test-samir-boot test-samir-boot-mutant \
 		test-seed-fileio-os test-seed-fileio-os-mutant \
