@@ -11681,7 +11681,10 @@ TEST_CHIMET     := $(BUILD)/test_chicago_metrics
 TEST_CHIMET_MUT := $(BUILD)/test_chicago_metrics_mutant
 TEST_CHIMET_SRC := harness/proptest/test_chicago_metrics.c
 TEST_CHIMET_DEPS := os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h spec/chicago12_nfnt_golden.h
-CHIMET_DEF := -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\"
+# Deferred (=), not immediate: SYSTEM7_DECOMP gets its ../ default further down
+# the file, so := here baked in an EMPTY root on main (the gate LOUD-SKIPped and
+# only its golden-requiring mutant caught it, cert 2026-10-04; initech-tdnl.33).
+CHIMET_DEF = -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\"
 $(TEST_CHIMET): $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -o $@ $(TEST_CHIMET_SRC) os/flair/text.c os/flair/surface.c
 $(TEST_CHIMET_MUT): $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS) | $(BUILD)
