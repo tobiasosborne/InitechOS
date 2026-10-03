@@ -7704,7 +7704,7 @@ endef
         test-skin-teal test-skin-teal-mutant test-skin-teal-mutant-plat test-skin-era-frozen test-skin-era-frozen-mutant test-skin-era-frozen-mutant-baserow check-win95isms check-win95isms-mutant \
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
-        test-blitter test-blitter-mutant test-text test-text-mutant \
+        test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant \
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-cursor test-cursor-mutant \
         test-desk-icons test-desk-icons-mutant \
@@ -11579,6 +11579,37 @@ test-blitter-mutant: $(TEST_BLITTER_MUT_IGNORE) $(TEST_BLITTER_MUT_OFF1)
 	@printf ">>> test-blitter-mutant: confirming both mutants go RED (Rule 6)\n"
 	@if $(TEST_BLITTER_MUT_IGNORE) >/dev/null 2>&1; then printf '!!! test-blitter-mutant FAIL: IGNORE_CLIP PASSED -- the clip oracle is decoration\n'; exit 1; else printf '>>> test-blitter-mutant: green (IGNORE_CLIP correctly RED)\n'; fi
 	@if $(TEST_BLITTER_MUT_OFF1) >/dev/null 2>&1; then printf '!!! test-blitter-mutant FAIL: OFF_BY_ONE PASSED -- the clip-edge oracle is decoration\n'; exit 1; else printf '>>> test-blitter-mutant: green (OFF_BY_ONE correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-chicago-metrics (bead initech-tdnl.33) -- the INDEPENDENT
+# Chicago 12 metrics oracle. Grades text_measure / text_draw against the REAL
+# System 7.0.1 Chicago 12 owTable + FontRec header, parsed at run time from
+# $(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin (gitignored Apple resource;
+# LOUD-SKIP if absent). Never against the artifact's own table (Law 2 / HER-02).
+# Ref: ADR-0004 D-7; ../system7-decomp/specs/fonts/chicago.md "Verification
+# recipe"; specs/fonts/font-manager.md Sec 1-3, Sec 7.
+# Mutant (Rule 6): CHICAGO_MUT_ONE_ADVANCE perturbs ONE advance ('i' +1) in the
+# artifact; the oracle must go RED, and the mutant binary REQUIRES the golden so
+# an absent corpus can never fake the bite.
+# ---------------------------------------------------------------------------
+TEST_CHIMET     := $(BUILD)/test_chicago_metrics
+TEST_CHIMET_MUT := $(BUILD)/test_chicago_metrics_mutant
+TEST_CHIMET_SRC := harness/proptest/test_chicago_metrics.c
+TEST_CHIMET_DEPS := os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h
+CHIMET_DEF := -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\"
+$(TEST_CHIMET): $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -o $@ $(TEST_CHIMET_SRC) os/flair/text.c os/flair/surface.c
+$(TEST_CHIMET_MUT): $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -DCHICAGO_METRICS_REQUIRE_GOLDEN -DCHICAGO_MUT_ONE_ADVANCE=1 -o $@ $(TEST_CHIMET_SRC) os/flair/text.c os/flair/surface.c
+.PHONY: test-chicago-metrics test-chicago-metrics-mutant
+test-chicago-metrics: $(TEST_CHIMET)
+	@$(TEST_CHIMET)
+test-chicago-metrics-mutant: $(TEST_CHIMET_MUT)
+	@out=$$($(TEST_CHIMET_MUT) 2>&1); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-chicago-metrics-mutant FAIL: ONE_ADVANCE mutant PASSED -- the metrics oracle is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -q "advance 'i' (0x69): text_measure 5, NFNT aw 4" \
+		|| { printf '%s\n' "$$out" | tail -5; printf '!!! test-chicago-metrics-mutant FAIL: RED, but not for the perturbed advance\n'; exit 1; }; \
+	printf '>>> test-chicago-metrics-mutant: green (ONE_ADVANCE correctly RED on the perturbed glyph -- the oracle bites)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-text (beads initech-kg5) -- proportional FLAIR text rendering.
@@ -23962,7 +23993,7 @@ TEST_UNIT_GATES := \
 	test-control-record test-control-record-mutant test-menu-record test-menu-record-mutant \
 	test-dialog-record test-dialog-record-mutant test-drawing-ops test-drawing-ops-mutant \
 	test-clut test-clut-mutant \
-	test-blitter test-blitter-mutant test-text test-text-mutant \
+	test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \
