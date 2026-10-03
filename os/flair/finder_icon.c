@@ -56,15 +56,37 @@ static desk_tone_t icon_tone(const FLAIRDeskIcon *icon, int r, int c)
 
 /* Tone -> the SEMANTIC role the policy seam resolves. No color is named here
  * and no palette index is named here (C-8). */
-static int icon_tone_part(desk_tone_t tone)
+static int icon_tone_part(desk_tone_t tone, int hilite)
 {
     if (tone == DESK_TONE_INK)   return (int)FLAIR_PART_ICON_INK;
-    if (tone == DESK_TONE_SHADE) return (int)FLAIR_PART_ICON_SHADE;
-    return (int)FLAIR_PART_ICON_FACE;
+    /* bead initech-34dh: the HIGHLIGHTED state (a drop target under a dragged
+     * icon) darkens the body and the detail; the black ink is unchanged
+     * (IM VI p. 2-19..2-20; finder_icon.h). */
+    if (tone == DESK_TONE_SHADE)
+        return hilite ? (int)FLAIR_PART_ICON_HILITE_SHADE
+                      : (int)FLAIR_PART_ICON_SHADE;
+    return hilite ? (int)FLAIR_PART_ICON_HILITE_FACE : (int)FLAIR_PART_ICON_FACE;
 }
+
+static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
+                      const FLAIRDeskIcon *icon, const region_t *clip,
+                      int hilite);
 
 void finder_icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
                       const FLAIRDeskIcon *icon, const region_t *clip)
+{
+    icon_draw(dst, x, y, icon, clip, 0);
+}
+
+void finder_icon_draw_hilite(const bitmap_t *dst, int16_t x, int16_t y,
+                             const FLAIRDeskIcon *icon, const region_t *clip)
+{
+    icon_draw(dst, x, y, icon, clip, 1);
+}
+
+static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
+                      const FLAIRDeskIcon *icon, const region_t *clip,
+                      int hilite)
 {
     uint32_t tone_px[4];
     int r;
@@ -83,11 +105,11 @@ void finder_icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
      * values double as the index (CLEAR=0 is never drawn). */
     tone_px[DESK_TONE_CLEAR] = 0u;
     tone_px[DESK_TONE_INK]   = flair_look_pixel_depth(dst->bpp,
-                                                      icon_tone_part(DESK_TONE_INK));
+                                                      icon_tone_part(DESK_TONE_INK, hilite));
     tone_px[DESK_TONE_FACE]  = flair_look_pixel_depth(dst->bpp,
-                                                      icon_tone_part(DESK_TONE_FACE));
+                                                      icon_tone_part(DESK_TONE_FACE, hilite));
     tone_px[DESK_TONE_SHADE] = flair_look_pixel_depth(dst->bpp,
-                                                      icon_tone_part(DESK_TONE_SHADE));
+                                                      icon_tone_part(DESK_TONE_SHADE, hilite));
 
     for (r = 0; r < DESK_ICON_DIM; r++) {
         int py = (int)y + r;

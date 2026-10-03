@@ -295,6 +295,68 @@ typedef struct finder_fs {
      * never spells a FAT12_ERR_* value. */
     int (*mkdir)(void *fs_user, const char *name83, uint16_t parent_dir_start);
 
+    /* ---- R3.4a (bead initech-34dh): the FILE-OPERATION half of the seam ----
+     * Every entry below follows the mkdir rule: the BINDING maps its backend's
+     * codes into finder_win_status_t, so os/flair never spells a FAT12_ERR_*.
+     * Each may be NULL in a binding that does not offer it; the consumer then
+     * refuses with FINDER_WIN_ERR_NULL rather than pretending (Rule 2).
+     *
+     * CONSUMED THIS SLICE: move, trash_name, trash_dir (drag-move and
+     * drag-to-Trash staging, os/flair/finder_ops.c). WIRED BUT NOT YET
+     * CONSUMED: unlink + rmdir (Empty Trash's recursive purge, bead
+     * initech-6k12) and create + read_partial + write_partial (Duplicate's
+     * chunked copy, bead initech-p6st; design F3.1 "chunked, not read_file-
+     * whole"). They ship now because bead initech-34dh's scope names the whole
+     * binding, so the two later slices are pure Finder logic over a seam that
+     * already exists -- the kernel half of each is a thin pass-through to the
+     * fat12 primitive of the same name, graded by that primitive's own
+     * mtools differential. */
+
+    /* Transplant `src_name83` from directory `src_dir` into `dst_dir`,
+     * renaming it to `dst_name83` in the same step (NULL or "" keeps the name)
+     * -- fat12_move_dirent. Returns FINDER_WIN_OK, or ERR_SAMEDIR / ERR_CYCLE /
+     * ERR_EXISTS for the three named refusals, or ERR_MOVE for any other
+     * backend failure (dir full, chain, device). */
+    int (*move)(void *fs_user, const char *src_name83, uint16_t src_dir,
+                const char *dst_name83, uint16_t dst_dir);
+
+    /* The name `name83` must take inside `dir` so it collides with nothing
+     * there (fat12_trash_suffix_name: itself when free, else trunc5 + "%03u",
+     * lowest free counter). Writes a NUL-terminated 8.3 name into `out`
+     * (FINDER_DESK_NAME_MAX bytes). FINDER_WIN_OK or ERR_MOVE. */
+    int (*trash_name)(void *fs_user, const char *name83, uint16_t dir,
+                      char *out);
+
+    /* The first data cluster of the volume's \TRASH directory (design F1.4:
+     * created at volume init, so it always exists), or a NEGATIVE value when
+     * the volume has none -- the Finder then refuses every Trash drop loudly
+     * instead of guessing a cluster. */
+    int (*trash_dir)(void *fs_user);
+
+    /* Delete the regular file `name83` from `dir` (fat12_unlink). */
+    int (*unlink)(void *fs_user, const char *name83, uint16_t dir);
+
+    /* Remove the EMPTY subdirectory `name83` from `dir` (fat12_rmdir);
+     * ERR_NOTEMPTY when it still holds entries. */
+    int (*rmdir)(void *fs_user, const char *name83, uint16_t dir);
+
+    /* Create/truncate the regular file `name83` in `dir` (fat12_create);
+     * *out_slot receives its dirent slot for write_partial. */
+    int (*create)(void *fs_user, const char *name83, uint16_t dir,
+                  uint32_t *out_slot);
+
+    /* Positioned read of up to `len` bytes of `name83` in `dir` from `offset`
+     * (fat12_read_partial); *out_read receives the count (0 == EOF). */
+    int (*read_partial)(void *fs_user, const char *name83, uint16_t dir,
+                        uint32_t offset, uint32_t len, uint8_t *out,
+                        uint32_t *out_read);
+
+    /* Positioned write of `len` bytes into the file at dirent `slot` of `dir`
+     * (fat12_write_partial); *out_written receives the committed count. */
+    int (*write_partial)(void *fs_user, uint16_t dir, uint32_t slot,
+                         uint32_t offset, const uint8_t *data, uint32_t len,
+                         uint32_t *out_written);
+
     void *user;                /* the binding's opaque cookie                  */
 } finder_fs_t;
 
@@ -316,7 +378,15 @@ typedef enum finder_win_status {
     FINDER_WIN_ERR_ENUM      = -3,  /* the binding's enumerate() failed        */
     FINDER_WIN_ERR_DIRFULL   = -4,  /* mkdir: the parent directory is full     */
     FINDER_WIN_ERR_MKDIR     = -5,  /* mkdir: any other backend refusal        */
-    FINDER_WIN_ERR_NAMES     = -6   /* the NEWFOLD.. ladder is exhausted       */
+    FINDER_WIN_ERR_NAMES     = -6,  /* the NEWFOLD.. ladder is exhausted       */
+    /* R3.4a (bead initech-34dh): the move/Trash refusal ladder. The three
+     * named refusals are the reasons FINDER-MOVE-REFUSED prints
+     * (samedir|cycle|exists); every other failure is ERR_MOVE ("err"). */
+    FINDER_WIN_ERR_SAMEDIR   = -7,  /* move: destination == source directory   */
+    FINDER_WIN_ERR_CYCLE     = -8,  /* move: a folder into its own subtree     */
+    FINDER_WIN_ERR_EXISTS    = -9,  /* move: the name is taken at the dest     */
+    FINDER_WIN_ERR_MOVE      = -10, /* move/trash/unlink/...: any other refusal */
+    FINDER_WIN_ERR_NOTEMPTY  = -11  /* rmdir: the directory still has entries  */
 } finder_win_status_t;
 
 /* ===========================================================================
@@ -387,6 +457,11 @@ typedef struct finder_shell {
     FinderCtx           *ctx;      /* the command context (kmain owns it)      */
     uint8_t              have_fs;  /* 1 once a binding is installed            */
     finder_cmd_outcome_t last;     /* the most recent command's outcome        */
+    /* R3.4a (bead initech-34dh): the kind=5 trash-origin set (design F1.5),
+     * serialised into \DESKTOP.DB after the views (finder_desk_db_encode_full)
+     * and owned by os/flair/finder_ops.c. */
+    finder_origin_rec_t  origins[FINDER_DB_MAX_ORIGINS];
+    uint16_t             n_origins;
 } finder_shell_t;
 
 /* ===========================================================================

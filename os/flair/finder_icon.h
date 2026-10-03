@@ -72,6 +72,22 @@ void finder_icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
                       const FLAIRDeskIcon *icon, const region_t *clip);
 
 /* --------------------------------------------------------------------------
+ * finder_icon_draw_hilite -- the same blit in the icon's HIGHLIGHTED state
+ * (bead initech-34dh): the drop-target look while another icon is dragged over
+ * a folder, the volume or the Trash. Identical mask / bounds / clip rules; only
+ * the tone -> PART map differs: INK stays FLAIR_PART_ICON_INK, FACE becomes
+ * FLAIR_PART_ICON_HILITE_FACE and SHADE becomes FLAIR_PART_ICON_HILITE_SHADE.
+ * Ref: Inside Macintosh VI p. 2-19..2-20 ("The selection mechanism for color
+ *   icons lowers the brightness of colors to indicate selection ... On a color
+ *   monitor, a black-and-white icon turns gray when selected"); Apple patent
+ *   US5754178A (filed 1993-03-03), describing the System 7 Finder: "When the
+ *   'folder' icon 140 is pointed to by pointer 110, it becomes shown in its
+ *   highlighted state" (docs/research/finder-drag-feedback-ground-truth.md).
+ * -------------------------------------------------------------------------- */
+void finder_icon_draw_hilite(const bitmap_t *dst, int16_t x, int16_t y,
+                             const FLAIRDeskIcon *icon, const region_t *clip);
+
+/* --------------------------------------------------------------------------
  * finder_icon_hit -- does the point (x,y) land on an OPAQUE pixel of `icon`
  * drawn with its top-left at (icon_x, icon_y)?
  *

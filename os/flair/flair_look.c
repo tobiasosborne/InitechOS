@@ -173,7 +173,16 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* ICON_FACE */
     { CIDX_WHITE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
     /* ICON_SHADE */
-    { CIDX_CONTROL, 0u, FLAIR_NO_SKIN_SLOT, 0u }
+    { CIDX_CONTROL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* Highlighted-icon tones (bead initech-34dh; IM VI p. 2-19..2-20 "lowers
+     * the brightness ... a black-and-white icon turns gray when selected").
+     * Halving the brightness of white (#FFFFFF) and of the #C0C0C0 detail
+     * lands nearest the two EXISTING ramp rows #777777 and #3F3F3F, so this
+     * adds two PART names and ZERO color rows (DEC-10 Sec 6 OQ-3). */
+    /* ICON_HILITE_FACE */
+    { CIDX_HILITE_FRAME, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_HILITE_SHADE */
+    { CIDX_PLAT_DARK_RING, 0u, FLAIR_NO_SKIN_SLOT, 0u }
 };
 
 _Static_assert(sizeof(flair_skin_t) < 255u,

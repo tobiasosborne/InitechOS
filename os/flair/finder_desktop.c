@@ -150,7 +150,7 @@ int finder_desk_add(finder_desk_t *fd, finder_icon_kind_t kind,
     ic->kind      = (uint8_t)kind;
     ic->selected  = 0u;
     ic->draggable = draggable ? 1u : 0u;
-    ic->reserved  = 0u;
+    ic->hilite    = 0u;
     ic->x         = x;
     ic->y         = y;
     ic->dir_start = 0u;     /* R3.3: set by finder_desk_set_cluster if needed  */
@@ -439,6 +439,13 @@ static void fd_clamp_origin(const finder_desk_t *fd, int16_t *x, int16_t *y)
     *y = (int16_t)ny;
 }
 
+void finder_desk_clamp(const finder_desk_t *fd, int16_t *x, int16_t *y)
+{
+    if (fd == (const finder_desk_t *)0 || x == (int16_t *)0 ||
+        y == (int16_t *)0) return;
+    fd_clamp_origin(fd, x, y);
+}
+
 rgn_rect_t finder_desk_drag_outline(const finder_desk_t *fd, int idx,
                                     int16_t dh, int16_t dv)
 {
@@ -553,10 +560,12 @@ static void fd_put_record(uint8_t *r, uint8_t kind, uint16_t dir_start,
     r[23] = 0u;                         /* +23 pad                             */
 }
 
-uint32_t finder_desk_db_encode_all(const finder_desk_t *fd,
-                                   const finder_view_rec_t *views,
-                                   uint16_t n_views,
-                                   uint8_t *buf, uint32_t cap)
+uint32_t finder_desk_db_encode_full(const finder_desk_t *fd,
+                                    const finder_view_rec_t *views,
+                                    uint16_t n_views,
+                                    const finder_origin_rec_t *origins,
+                                    uint16_t n_origins,
+                                    uint8_t *buf, uint32_t cap)
 {
     uint32_t total;
     uint32_t need;
@@ -567,8 +576,10 @@ uint32_t finder_desk_db_encode_all(const finder_desk_t *fd,
         return 0u;
     if (n_views != 0u && views == (const finder_view_rec_t *)0)
         return 0u;
+    if (n_origins != 0u && origins == (const finder_origin_rec_t *)0)
+        return 0u;
 
-    total = (uint32_t)fd->n + (uint32_t)n_views;
+    total = (uint32_t)fd->n + (uint32_t)n_views + (uint32_t)n_origins;
     if (total > FINDER_DB_MAX_RECORDS) return 0u;   /* caller fails loud       */
 
     need = FINDER_DB_HEADER_SIZE + total * FINDER_DB_RECORD_SIZE;
@@ -603,7 +614,53 @@ uint32_t finder_desk_db_encode_all(const finder_desk_t *fd,
                       views[v].x, views[v].y, views[v].view_bits);
         off += FINDER_DB_RECORD_SIZE;
     }
+    /* R3.4a (bead initech-34dh): the kind=5 trash-origin records LAST (the
+     * header's field mapping: origin dir in dir_start, the staged name in
+     * name83, the renamed bit in flags, positions zero). */
+    for (uint16_t o = 0u; o < n_origins; o++) {
+        fd_put_record(buf + off, (uint8_t)FINDER_DB_KIND_ORIGIN,
+                      origins[o].dir_start, origins[o].name83, 0u, 0u, 0u);
+        buf[off + 1] = (uint8_t)(origins[o].flags & FINDER_ORIGIN_FLAG_RENAMED);
+        off += FINDER_DB_RECORD_SIZE;
+    }
     return need;
+}
+
+uint32_t finder_desk_db_encode_all(const finder_desk_t *fd,
+                                   const finder_view_rec_t *views,
+                                   uint16_t n_views,
+                                   uint8_t *buf, uint32_t cap)
+{
+    return finder_desk_db_encode_full(fd, views, n_views,
+                                      (const finder_origin_rec_t *)0, 0u,
+                                      buf, cap);
+}
+
+int finder_desk_db_get_origins(const uint8_t *buf, uint32_t len,
+                               finder_origin_rec_t *out, uint16_t cap)
+{
+    finder_db_status_t st;
+    uint16_t n;
+    uint32_t off;
+    int took = 0;
+
+    st = finder_desk_db_validate(buf, len);
+    if (st != FINDER_DB_OK) return (int)st;      /* negative == corrupt image  */
+    if (out == (finder_origin_rec_t *)0) return 0;
+
+    n   = fd_get_le16(buf + 6);
+    off = FINDER_DB_HEADER_SIZE;
+    for (uint16_t i = 0u; i < n; i++, off += FINDER_DB_RECORD_SIZE) {
+        const uint8_t *r = buf + off;
+        if (r[0] != (uint8_t)FINDER_DB_KIND_ORIGIN) continue;
+        if (took >= (int)cap) break;              /* first-wins, deterministic  */
+        out[took].dir_start = fd_get_le16(r + 2);
+        out[took].flags     = (uint8_t)(r[1] & FINDER_ORIGIN_FLAG_RENAMED);
+        for (uint32_t k = 0u; k < 13u; k++) out[took].name83[k] = (char)r[4 + k];
+        out[took].name83[13] = '\0';
+        took++;
+    }
+    return took;
 }
 
 uint32_t finder_desk_db_encode(const finder_desk_t *fd, uint8_t *buf,
@@ -755,15 +812,28 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
         if (have_bb && !finder_rect_intersects(cell, clip_bb)) continue;
         if (strike == (const FLAIRDeskIcon *)0) continue;
 
-        /* The sprite (mask-honouring + clipped; os/flair/finder_icon.c). */
+        /* The sprite (mask-honouring + clipped; os/flair/finder_icon.c). A
+         * DROP TARGET (bead initech-34dh) draws in its HIGHLIGHTED state --
+         * darkened body, same mask -- per finder_icon_draw_hilite's refs. */
+#if defined(FINDER_DESK_MUT_NO_HILITE)
+        /* MUTANT (Rule 6): the drop-target highlight is never drawn, so a
+         * dragged icon over a folder / the Trash shows NO destination
+         * feedback and the hand-authored hilite pixels go RED. */
         finder_icon_draw(dst, ic->x, ic->y, strike, clip);
+#else
+        if (ic->hilite)
+            finder_icon_draw_hilite(dst, ic->x, ic->y, strike, clip);
+        else
+            finder_icon_draw(dst, ic->x, ic->y, strike, clip);
+#endif
 
         /* The label band. Selection INVERTS it (design F1.1: "selected icons
          * draw with the label inverted -- black label band, white text"); the
          * two tones are the SAME semantic roles, swapped, so no new PART and no
-         * color literal is introduced. */
-        band_px = ic->selected ? ink_px  : face_px;
-        text_px = ic->selected ? face_px : ink_px;
+         * color literal is introduced. A drop target's label inverts too: the
+         * highlighted state of the patent's FIG. 1c is the selected look. */
+        band_px = (ic->selected || ic->hilite) ? ink_px  : face_px;
+        text_px = (ic->selected || ic->hilite) ? face_px : ink_px;
 
         lab = finder_desk_label_rect(fd, i);
         blitter_fill_rect_clipped(dst, lab, band_px, clip);
