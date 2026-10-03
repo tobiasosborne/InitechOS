@@ -40,6 +40,7 @@
 #define INITECH_CHICAGO8X16_H
 
 #include <stddef.h>
+#include "font_linkage.h" /* FONT_TABLE: one kernel copy (initech-tdnl.33) */
 
 #define CHICAGO_CELL_W 8
 #define CHICAGO_CELL_H 16
@@ -56,7 +57,8 @@
  * Each glyph is 16 bytes (rows top->bottom). Edit with the bit picture in
  * mind: 0x80=col0 ... 0x01=col7. Drawn at ~7px wide to keep a right bearing.
  */
-static const unsigned char chicago8x16[CHICAGO_COUNT][CHICAGO_CELL_H] = {
+#if FONT_TABLE_EMIT
+FONT_TABLE unsigned char chicago8x16[CHICAGO_COUNT][CHICAGO_CELL_H] = {
 /* 0x20 ' ' space */ {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 /* 0x21 '!' */ {0,0,0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x00,0x18,0x18,0,0,0,0},
 /* 0x22 '"' */ {0,0,0x6C,0x6C,0x6C,0x48,0,0,0,0,0,0,0,0,0,0},
@@ -149,6 +151,9 @@ static const unsigned char chicago8x16[CHICAGO_COUNT][CHICAGO_CELL_H] = {
 /* 0x79 'y' */ {0,0,0,0,0x66,0x66,0x66,0x66,0x3E,0x06,0x66,0x3C,0,0,0,0},
 /* 0x7A 'z' */ {0,0,0,0,0x7E,0x0C,0x18,0x30,0x60,0x7E,0,0,0,0,0,0},
 };
+#else
+FONT_TABLE unsigned char chicago8x16[CHICAGO_COUNT][CHICAGO_CELL_H];
+#endif
 
 /* Return the 16-byte cell for ASCII code c, or the blank (space) cell for
  * any code outside the authored range. */

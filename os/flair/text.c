@@ -38,6 +38,11 @@
  * ASCII-clean (Rule 12). No nondeterminism (Rule 11).
  */
 
+/* THE one definition site of the font tables in a kernel image (bead
+ * initech-tdnl.33 ruling 3; spec/assets/font_linkage.h): every other kernel TU
+ * sees an extern declaration and links against this TU's single copy. */
+#define FONT_TABLES_DEFINE 1
+
 /* Pull in the full text API (inline implementations + strike tables). */
 #include "text.h"
 
