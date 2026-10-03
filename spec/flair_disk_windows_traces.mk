@@ -389,11 +389,13 @@ FLAIR_NEW_FOLDER_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-i,kctrl-n,m20
 # D. (205,182) -> the SPECIAL title in BAND 2 at (190,30):
 #      sum(dx) = -15 ; sum(dy) = -152 ; split: m-15:-76, m0:-76
 #             -> (190,106),(190,30)
-#    Special's title slot is x[158,228) -- hand-derived in
+#    Special's title slot is x[142,202) -- hand-derived in
 #    harness/proptest/test_finder_menu.c leg B from os/flair/menu.h Sec 5:
-#    first title at FLAIR_MENU_APPLE_W(20), slot = 8*len + 2*FLAIR_MENU_TITLE_PAD
-#    (Chicago is a fixed 8px cell), so File[20,66) Edit[66,112) View[112,158)
-#    Special[158,228) Help[228,274). Band 2 is rows [SHELL_MENUBAR2_TOP(20),40).
+#    first title at FLAIR_MENU_APPLE_W(20), slot = StringWidth + 2*FLAIR_MENU_TITLE_PAD
+#    with PROPORTIONAL Chicago 12 (the REAL NFNT 5478 advances, bead
+#    initech-tdnl.33), so File[20,57) Edit[57,96) View[96,142) Special[142,202)
+#    Help[202,244). (Was Special[158,228) with the fixed 8-px cell; the click
+#    column did not need to move.) Band 2 is rows [SHELL_MENUBAR2_TOP(20),40).
 #    (190,30) is the slot's middle, well clear of both neighbours. y=30 is
 #    ABOVE window 0's frame top (60), so FindWindow returns inDesk and the
 #    band-2 arm takes the click.
@@ -407,6 +409,9 @@ FLAIR_NEW_FOLDER_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-i,kctrl-n,m20
 #    widest item, "Empty Trash" (11 Chicago cells = 88) + FLAIR_MENU_ITEM_LPAD
 #    (20) + FLAIR_MENU_ITEM_RPAD (12) = 120, and no Special item carries a
 #    command key. x=190 is inside it.
+#    (Proportional Chicago 12, bead initech-tdnl.33: "Empty Trash" =
+#    E7 m12 p8 t6 y8 sp4 T6 r6 a8 s7 h8 = 80, so the panel is x[142,254); was
+#    11 cells = 88 -> x[158,278). x=190 is inside both.)
 #    -> MenuSelect returns MenuResult(515,1) = 0x02030001, kmain hands it to
 #    finder_dispatch(..., "mouse") and the shell's exec hook runs Clean Up.
 # F. (190,48) -> back to README.TXT's RESTORED cell centre (55,102):
@@ -452,9 +457,11 @@ FLAIR_FINDER_MENU_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-
 # WHY THE FILE MENU. It is the TALLEST menu in the F4.2 resource -- 14 items,
 # 12 normal rows (FLAIR_MENU_ITEM_H 16) + 2 dividers (FLAIR_MENU_DIV_H 6) =
 # 204, plus FLAIR_MENU_PANEL_INSET 2 = 206 -- so its panel spans screen
-# y[39,245) and x[20,176) (menu_panel_w: "Close Window" is 12 Chicago cells =
-# 96, and it carries a command key, so 20 + 96 + FLAIR_MENU_CMD_GAP(8) +
-# 2*8 + FLAIR_MENU_CMD_RPAD(16) = 156). That rectangle covers the disk window's
+# y[39,245) and x[20,175) (menu_panel_w, PROPORTIONAL Chicago 12 with the REAL
+# NFNT 5478 advances, bead initech-tdnl.33: "Close Window" = C8 l4 o8 s7 e8 sp4
+# W12 i4 n8 d8 o8 w12 = 91, and it carries a command key "^W" = 8+12 = 20, so
+# 20 + 91 + FLAIR_MENU_CMD_GAP(8) + 20 + FLAIR_MENU_CMD_RPAD(16) = 155; was
+# 12 fixed cells -> 156). That rectangle covers the disk window's
 # title bar, its go-away box, part of its icon row AND bare desktop, so a
 # restore that is right for the desktop but wrong over the window cannot pass.
 #
@@ -464,13 +471,13 @@ FLAIR_FINDER_MENU_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-
 #      sum(dx) = -560 ; sum(dy) = -34
 #      split: m-100:-7, m-100:-7, m-100:-7, m-100:-7, m-100:-6, m-60:0
 #             -> (500,57),(400,50),(300,43),(200,36),(100,30),(40,30)
-#    File's slot is x[20,66) (see trace 4 step D for the derivation); (40,30) is
+#    File's slot is x[20,57) (see trace 4 step D for the derivation); (40,30) is
 #    inside it and inside band 2's rows [20,40).
 # C. pull down, drag CLEAR of the panel, release on bare desktop at (400,400):
 #      l1 ; m90:93, m90:93, m90:92, m90:92 -> (130,123),(220,216),(310,308),
 #      (400,400) ; l0
 #      (90*4 = 360 = 400-40 ; 93+93+92+92 = 370 = 400-30)
-#    (400,400) clearance: outside the File panel x[20,176) y[39,245); outside
+#    (400,400) clearance: outside the File panel x[20,175) y[39,245); outside
 #    the disk window (20,60)..(380,280) (x 400 > 380 AND y 400 > 280); outside
 #    the VOLUME cell (577,48)-(624,95) and the TRASH cell (583,404)-(617,451)
 #    (x 400 < 577); outside the cursor PARK rect (620,460)-(636,476).

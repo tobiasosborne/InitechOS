@@ -70,21 +70,27 @@
 #define CIDX_FACE      231 /* sampled Platinum face #E7E7E7      */
 
 /* ---- the kmain.c System-7 bar geometry (4 titles File/Edit/View/Special, each
- * with 2 items "About"/"Quit"; os/flair/menu.h + MenuInfo_panel_rect, host-graded
- * by a throwaway geometry dump against the SAME sys-menu bar construction kmain.c
- * builds -- FLAIR_MENU_APPLE_W=20, title slot widths from FONT_CHICAGO's
- * text_measure). File panel = {T19 L20 B53 R112}; Edit panel =
- * {T19 L66 B53 R158}. The right edge expands for the rendered "^Q" command
- * column (sys8/menus.md Sec 2.2/2.3; bead initech-sjvq). Edit's title
- * starts exactly at File's slot width, 46px, after the L20 Apple slot). Row
- * geometry (fixed item heights, not text-width) mirrors ppm_flair_menu_check.c:
+ * with 2 items "About" / "Quit" (cmd 'Q'); os/flair/menu.h + MenuInfo_panel_rect).
+ * Re-derived for PROPORTIONAL Chicago 12 (bead initech-tdnl.33) from the REAL
+ * NFNT 5478 advances (../system7-decomp specs/fonts/chicago.md table), NOT from
+ * the artifact:
+ *   title slots (APPLE_W 20, PAD 7): File F7+i4+l4+e8 = 23 -> [20,57);
+ *     Edit E7+d8+i4+t6 = 25 -> [57,96).
+ *   panel width = max over items (menu.c menu_panel_w):
+ *     About  A8+b8+o8+u8+t6 = 38 -> LPAD 20 + 38 + RPAD 12            = 70
+ *     Quit   Q8+u8+i4+t6    = 26 -> 20 + 26 + CMD_GAP 8 + "^Q" (8+8) + CMD_RPAD 16 = 86
+ *   so File panel = {T19 L20 B53 R106}; Edit panel = {T19 L57 B53 R143}.
+ *   The "^Q" run is right-aligned at 143-16-16 = 111..126, so x=137 (right
+ *   frame 142 - 5) is clear-of-glyph gutter.
+ * (Was File {L20 R112}, Edit {L66 R158} with the fixed 8-px cell.) Row geometry
+ * (fixed item heights, not text-width) mirrors ppm_flair_menu_check.c:
  *   About row y[21,37), Quit row y[37,53), bottom frame y=52, shadow y=53.
  * ---------------------------------------------------------------------------- */
 #define FILE_PANEL_L      20    /* File panel left frame column                 */
 #define FILE_UNIQUE_X     30    /* a column in File's footprint, NOT Edit's      */
-#define EDIT_PANEL_L      66    /* Edit panel left frame column                 */
-#define EDIT_PANEL_R1     157   /* Edit panel right frame column (right-1)      */
-#define EDIT_RPAD_X       152   /* Edit right gutter, clear of glyphs            */
+#define EDIT_PANEL_L      57    /* Edit panel left frame column                 */
+#define EDIT_PANEL_R1     142   /* Edit panel right frame column (right-1)      */
+#define EDIT_RPAD_X       137   /* Edit right gutter, clear of glyphs            */
 /* a y inside the TEAL zone (below both 20px bars, above the y>=60 windows) --
  * inside BOTH panels' "Quit" row [37,53). */
 #define QUIT_Y            46

@@ -53,8 +53,11 @@ FLAIR_SOLID_SWITCH_SPEC := m70:30,m70:30,l1,l0
 # foreground from boot, so band 2 owns its Photoshop bar. Reuse leg E's exact
 # int8-safe route from (320,240) to File at (30,30): (-100,-100),(-100,-100),
 # (-90,-10). Press to drop File (menuID 256), then move (+30,0) within band 2
-# to (60,30). Photoshop has no Apple slot; File is x[0,46), so x=60 is inside
-# the DIFFERENT Edit title x[46,92) (menuID 257). This forces the cross-title
+# to (60,30). Photoshop has no Apple slot; File is x[0,37), so x=60 is inside
+# the DIFFERENT Edit title x[37,76) (menuID 257; PROPORTIONAL Chicago 12, the
+# REAL NFNT 5478 advances File 23 / Edit 25 + 2*7 pad, bead initech-tdnl.33;
+# was File x[0,46), Edit x[46,92) with the fixed 8-px cell -- the bytes did not
+# need to move). This forces the cross-title
 # old-panel erase while the button remains held. Release
 # there, still in the bar (band-2-local y=10), so no item row is under the
 # release and MenuSelect returns sel=0 (cancel). The solid gate captures a

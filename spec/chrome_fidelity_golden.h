@@ -65,34 +65,12 @@
 #define FG_TITLE_TRUNC_EXPECTED   "ABCDEFGH."
 #define FG_TITLE_TRUNC_X          442
 
-/* -------------------------------------------------------------------------
- * TITLE GLYPH RUN METRICS (bead initech-tdnl.33).
- * The REAL System 7.0.1 Chicago 12 owTable, codes 0x20..0x7E: advance (aw,
- * low byte) and left bearing (lb, high byte). Transcribed mechanically from
- * ../system7-decomp/goldens/resources/NFNT_5478.bin bytes 2612+2*c (identical
- * to specs/fonts/chicago.md "Advance-width table"). The oracle places each
- * glyph of the expected title run with THESE numbers, never with the
- * artifact's chicago12_aw/_lb (Law 2 / HER-02); only the glyph ART (the locked
- * hand-authored strike's ink rows) comes from spec/assets/chicago12.h.
- */
-#define FG_CHICAGO12_FIRST 0x20
-#define FG_CHICAGO12_LAST  0x7E
-static const unsigned char __attribute__((unused)) FG_CHICAGO12_AW[FG_CHICAGO12_LAST - FG_CHICAGO12_FIRST + 1] = {
-    4, 6, 7, 10, 7, 11, 10, 3, 5, 5, 7, 7, 4, 7, 4, 7,
-    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4, 4, 6, 8, 6, 8,
-    11, 8, 8, 8, 8, 7, 7, 8, 8, 6, 7, 9, 7, 12, 9, 8,
-    8, 8, 8, 7, 6, 8, 8, 12, 8, 8, 8, 5, 7, 5, 8, 8,
-    6, 8, 8, 7, 8, 8, 6, 8, 8, 4, 6, 8, 4, 12, 8, 8,
-    8, 8, 6, 7, 6, 8, 8, 12, 8, 8, 8, 5, 5, 5, 8
-};
-static const unsigned char __attribute__((unused)) FG_CHICAGO12_LB[FG_CHICAGO12_LAST - FG_CHICAGO12_FIRST + 1] = {
-    4, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1
-};
+/* TITLE GLYPH RUN METRICS (bead initech-tdnl.33): the oracle places each
+ * glyph of the expected title run with the REAL NFNT 5478 advances and
+ * bearings from spec/chicago12_nfnt_golden.h (proven equal to the Apple
+ * resource by test-chicago-metrics leg G), never with the artifact's
+ * chicago12_aw/_lb; only the glyph ART comes from spec/assets/chicago12.h. */
+#include "chicago12_nfnt_golden.h"
 
 /* -------------------------------------------------------------------------
  * PLATINUM WIDGETS.

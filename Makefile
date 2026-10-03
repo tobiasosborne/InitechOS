@@ -11264,7 +11264,7 @@ test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHR
 # ---------------------------------------------------------------------------
 TEST_CHROME_FID     := $(BUILD)/test_chrome_fidelity
 TEST_CHROME_FID_SRC := harness/proptest/test_chrome_fidelity.c
-CHROME_FID_GOLDEN_H := spec/chrome_fidelity_golden.h
+CHROME_FID_GOLDEN_H := spec/chrome_fidelity_golden.h spec/chicago12_nfnt_golden.h
 TEST_CHROME_FID_MUT     := $(BUILD)/test_chrome_fidelity_mutant_phase
 TEST_CHROME_FID_MUT_TTL := $(BUILD)/test_chrome_fidelity_mutant_notitle
 TEST_CHROME_FID_MUT_CTR := $(BUILD)/test_chrome_fidelity_mutant_centeroff
@@ -11636,7 +11636,7 @@ test-chicago-art-mutant: $(FONT_ART2H_BIN) $(CHICAGO_ART) $(CHICAGO_H)
 TEST_CHIMET     := $(BUILD)/test_chicago_metrics
 TEST_CHIMET_MUT := $(BUILD)/test_chicago_metrics_mutant
 TEST_CHIMET_SRC := harness/proptest/test_chicago_metrics.c
-TEST_CHIMET_DEPS := os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h
+TEST_CHIMET_DEPS := os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h spec/chicago12_nfnt_golden.h
 CHIMET_DEF := -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\"
 $(TEST_CHIMET): $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -o $@ $(TEST_CHIMET_SRC) os/flair/text.c os/flair/surface.c
@@ -17142,9 +17142,15 @@ test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_NOMODAL_IMG) $(PPM_FLAIR_MENU_CHECK_
 	@printf 'Booting   : %s (same flair_live scene, show_modal=0)\n' "$(FLAIRLIVE_NOMODAL_IMG)"
 	@printf 'Expecting : held DROP frame + FLAIR-MENU menu=128 item=2 (sel=0x00800002)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@# --quit-after the asserted final marker (bead initech-tdnl.33; the
+	@# initech-qed1 rule): the DROP-gated dump alone left the FLAIR-MENU line to
+	@# the legacy ~400 ms post-input quit, a host-timing race the slightly
+	@# heavier proportional glyph walk lost deterministically on a loaded host.
+	@# The assertion is unchanged; only the harness now waits for its marker.
 	@$(HARNESS_BIN) --disk "$(FLAIRLIVE_NOMODAL_IMG)" --name "$(FLAIR_MENU_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-MENU-DROP" --timeout-ms 15000 \
+		--screendump --screendump-after "FLAIR-MENU-DROP" \
+		--quit-after "FLAIR-MENU menu=" --timeout-ms 15000 \
 		2> "$(FLAIR_MENU_REPORT)" || true
 	@cat "$(FLAIR_MENU_REPORT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -17223,8 +17229,10 @@ FLAIR_MENU_CROSSDRAG_PPM     := $(BUILD)/$(FLAIR_MENU_CROSSDRAG_NAME).ppm
 # EXACT first four tokens (the three <=int8 hops + l1) so the click still lands on
 # (30,10) inside "File" (menu 0) and the SAME "FLAIR-MENU-DROP menu=128" fires.
 # Then "m59:0" moves +59 h / +0 v -- PURELY SIDEWAYS, staying at v=10 (inside the
-# bar band [0,20)) -- from x=30 to x=89, landing mid-"Edit" title (menu 1;
-# MenuBar_title_x(bar_sys,1)=66, width 46, mid=89): still in the bar band, so
+# bar band [0,20)) -- from x=30 to x=89, landing on the "Edit" title (menu 1;
+# proportional Chicago 12, bead initech-tdnl.33: MenuBar_title_x(bar_sys,1)=57,
+# width 25+14=39, slot [57,96) -- File is [20,57), so x=30 is still File; was
+# 66/46 with the fixed 8-px cell; the trace bytes did not need to move): still in the bar band, so
 # MenuInfo_item_at returns -1 (no item row) at every tracked point. "l0" releases
 # there: MenuSelect's own final tracked menu (re-derived from where0/pts, menu.c
 # initech-rl4v) is Edit, but the release is on the title (not a row) -> sel=0.
@@ -18992,8 +19000,8 @@ test-flair-window-ops: test-flair-zoom-toggle test-flair-grow test-flair-collaps
 # ===========================================================================
 FLAIR_APPL_GOLDEN        := spec/flair_app_launch_trace.golden
 PPM_FLAIR_APPL_CHECK_BIN := $(BUILD)/ppm_flair_app_launch_check
-$(PPM_FLAIR_APPL_CHECK_BIN): tools/ppm_flair_app_launch_check.c spec/assets/color_canon.h spec/assets/chicago12.h | $(BUILD)
-	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+$(PPM_FLAIR_APPL_CHECK_BIN): tools/ppm_flair_app_launch_check.c spec/assets/color_canon.h spec/assets/chicago12.h spec/assets/font_linkage.h spec/chicago12_nfnt_golden.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -Ispec -o $@ $<
 
 # The mutant kernels: two gate-module knobs + one pump knob.
 $(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_NO_SLOT_GUARD,tbx_no_slot_guard))
@@ -19278,7 +19286,26 @@ RECORD_MARKER_app_menubar = FLAIR-MENU menu=131 item=0 (sel=0x00000000)
 # the harness default and its existing repro sha.
 RECORD_SETTLE_app_launch = 400
 RECORD_SETTLE_app_menubar = 400
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar
+# chicago_menus (bead initech-tdnl.33, Rule 14): the proportional Chicago 12
+# acceptance clip -- titled windows (HELLO, NOTES) under band 2's Photoshop bar,
+# a held pull-down dragged across EVERY title so each panel's items drop in
+# turn, an item hilite, then a release back on a title (a cancel: nothing is
+# dispatched). Waypoints (screen, y down; proportional slots derived from the
+# REAL NFNT 5478 advances, no Apple slot in band 2: File[0,37) Edit[37,76)
+# Image[76,132) Layer[132,183) Select[183,237) View[237,283) Window[283,349)
+# Help[349,391), y in [20,40)):
+#   (320,240) -m-100:-100,m-100:-100,m-20:-10-> (100,30) Image ; l1 (DROP 258)
+#   m50:0 x4 -> (150,30) Layer, (200,30) Select, (250,30) View, (300,30) Window
+#   m60:0 -> (360,30) Help ; m-60:0 -> (300,30) Window
+#   m0:60 -> (300,90): Window panel item row (hilite) ; m0:-60 -> (300,30)
+#   l0 on the Window title -> MenuSelect cancel, sel=0 (the logged menu= is the
+#   originally clicked Image, 258 -- the kmain log quirk)
+#   PARK (300,30) -> (620,460): m100:100 x3 -> (600,330), m20:100 -> (620,430),
+#   m0:30 -> (620,460).
+RECORD_SPEC_chicago_menus   = m-100:-100,m-100:-100,m-20:-10,l1,m50:0,m50:0,m50:0,m50:0,m60:0,m-60:0,m0:60,m0:-60,l0,m100:100,m100:100,m100:100,m20:100,m0:30
+RECORD_MARKER_chicago_menus = FLAIR-MENU menu=258 item=0 (sel=0x00000000)
+RECORD_SETTLE_chicago_menus = 400
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar chicago_menus
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the

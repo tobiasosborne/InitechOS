@@ -206,9 +206,12 @@ static inline void text_draw(const bitmap_t *bm,
              * sub-bitmap view (menu.c item rows). */
             unsigned char lo[CHICAGO_CELL_H], hi[CHICAGO_CELL_H];
             unsigned int aw = (unsigned int)chicago_advance(c);
+            int g = chicago12_index(c);
+            const uint16_t *rows = chicago12_rows[g];
+            unsigned int lb = chicago12_lb[g];
             int r0 = (y < 0) ? -y : 0;
             for (int r = 0; r < CHICAGO_CELL_H; r++) {
-                unsigned int bits = chicago_cell_bits(c, r);
+                unsigned int bits = (unsigned int)rows[r] >> lb;
                 lo[r] = (unsigned char)(bits >> 8);
                 hi[r] = (unsigned char)(bits & 0xFFu);
             }

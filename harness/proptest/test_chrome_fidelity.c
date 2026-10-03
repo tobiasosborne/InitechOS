@@ -118,16 +118,16 @@ static uint32_t title_class_idx(char c)
     }
 }
 
-/* Golden Chicago 12 metrics for byte c (NFNT 5478, chrome_fidelity_golden.h);
+/* Golden Chicago 12 metrics for byte c (NFNT 5478, chicago12_nfnt_golden.h);
  * the oracle's title strings are printable ASCII. */
 static int fg_aw(int c)
 {
-    return FG_CHICAGO12_AW[c - FG_CHICAGO12_FIRST];
+    return nfnt5478_aw(c);
 }
 
 static int fg_lb(int c)
 {
-    return FG_CHICAGO12_LB[c - FG_CHICAGO12_FIRST];
+    return nfnt5478_lb(c);
 }
 
 static int fg_run_w(const char *text)

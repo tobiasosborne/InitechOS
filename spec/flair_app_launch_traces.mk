@@ -119,9 +119,13 @@ FLAIR_APP_LAUNCH_PRE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:
 #    exit). Serial-only in the gate (no park: the leg takes no screendump);
 #    also the app_menubar record-flair clip (Rule 14).
 #    GEOMETRY (derived, never measured off a render): band 2 = rows [20,40);
-#    the tenant bar has the Apple slot, so (menu.h Sec 5, Chicago fixed 8 px,
-#    pad 7) File [20,66), Edit [66,112), Fixture (7 chars, 8*7+14 = 70)
-#    [112,182); its centre (147,30). From the icon (75,122): m72:-92. Back to
+#    the tenant bar has the Apple slot, so (menu.h Sec 5, pad 7, PROPORTIONAL
+#    Chicago 12 -- the REAL NFNT 5478 advances, bead initech-tdnl.33):
+#    File F7 i4 l4 e8 = 23 -> [20,57), Edit E7 d8 i4 t6 = 25 -> [57,96),
+#    Fixture F7 i4 x8 t6 u8 r6 e8 = 47 -> 47+14 = 61 -> [96,157); the click
+#    point (147,30) is inside it (was the fixed-cell slot [112,182), whose
+#    centre it was; the trace bytes did not need to move). From the icon
+#    (75,122): m72:-92. Back to
 #    the content (140,210): m-7:90,m0:90 (each component int8-safe).
 #    30 tokens: inside the flagship pump's budget (see BUDGET NOTE above).
 # ===========================================================================

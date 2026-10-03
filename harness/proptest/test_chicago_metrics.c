@@ -34,6 +34,8 @@
  *      the last descent row (ascent + descent - 1); no ink in the leading row.
  *   F  MISSING glyph: every code the real strike leaves undefined (owTable
  *      0xFFFF) measures the NFNT missing-glyph advance.
+ *   G  the factory's typed golden spec/chicago12_nfnt_golden.h equals the
+ *      resource entry by entry (it feeds the emulator screendump graders).
  *
  * Absent corpus: LOUD-SKIP, exit 0 (the test-clut pattern) -- EXCEPT when built
  * with -DCHICAGO_METRICS_REQUIRE_GOLDEN (the mutant target), where an absent
@@ -48,6 +50,7 @@
 #include <string.h>
 
 #include "text.h"
+#include "chicago12_nfnt_golden.h" /* leg G: the factory's typed copy */
 
 #ifndef SYSTEM7_DECOMP
 #define SYSTEM7_DECOMP "../system7-decomp"
@@ -303,6 +306,18 @@ int main(void)
                   "aw %d", c, text_measure(FONT_CHICAGO, s), miss_aw);
         }
         CHECK(nmiss > 0, "F the NFNT has no undefined codes to grade");
+    }
+
+    /* --- G: the factory's typed NFNT golden (spec/chicago12_nfnt_golden.h,
+     * used by the emulator screendump graders and the chrome fidelity oracle
+     * that cannot read the Apple resource) equals the resource, entry by
+     * entry -- so those oracles grade against the real metrics. --- */
+    for (int c = NFNT5478_FIRST; c <= NFNT5478_LAST; c++) {
+        int lb, aw;
+        if (!nfnt_ow(c, &lb, &aw)) continue;
+        CHECK(nfnt5478_aw(c) == aw && nfnt5478_lb(c) == lb,
+              "G golden header 0x%02X: aw %d lb %d, NFNT aw %d lb %d", c,
+              nfnt5478_aw(c), nfnt5478_lb(c), aw, lb);
     }
 
     printf("  %d checks, %d failures\n", g_checks, g_fails);
