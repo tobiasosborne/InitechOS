@@ -1,0 +1,29 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/
+
+README   TXT       114 1980-01-01   0:00 
+APPS         <DIR>     1980-01-01   0:00 
+DESKTOP  DB        104 1980-00-00   0:00 
+TRASH        <DIR>     1980-00-00   0:00 
+NEWFOLD      <DIR>     1980-00-00   0:00 
+NEWFOL02     <DIR>     1980-00-00   0:00 
+NEWFOL03     <DIR>     1980-00-00   0:00 
+NEWFOL04     <DIR>     1980-00-00   0:00 
+NEWFOL05     <DIR>     1980-00-00   0:00 
+NEWFOL06     <DIR>     1980-00-00   0:00 
+NEWFOL07     <DIR>     1980-00-00   0:00 
+NEWFOL08     <DIR>     1980-00-00   0:00 
+NEWFOL09     <DIR>     1980-00-00   0:00 
+NEWFOL10     <DIR>     1980-00-00   0:00 
+NEWFOL11     <DIR>     1980-00-00   0:00 
+NEWFOL12     <DIR>     1980-00-00   0:00 
+NEWFOL13     <DIR>     1980-00-00   0:00 
+NEWFOL14     <DIR>     1980-00-00   0:00 
+NEWFOL15     <DIR>     1980-00-00   0:00 
+NEWFOL16     <DIR>     1980-00-00   0:00 
+NEWFOL17     <DIR>     1980-00-00   0:00 
+NEWFOL18     <DIR>     1980-00-00   0:00 
+       22 files                 218 bytes
+                          1 445 376 bytes free
+

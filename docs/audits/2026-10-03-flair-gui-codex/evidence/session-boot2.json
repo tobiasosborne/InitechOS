@@ -1,0 +1,37 @@
+{
+  "started_utc": "2026-10-03T21:03:00.658287+00:00",
+  "qemu_pid_in_namespace": 9,
+  "driver_pid_in_namespace": 2,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=boot.img",
+    "-drive",
+    "file=data.img,format=raw,if=ide,index=1",
+    "-serial",
+    "file:evidence/serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio"
+  ],
+  "images_before": {
+    "boot.img": {
+      "bytes": 229376,
+      "sha256": "656788838a0b9f717b1dcdf163238d692f5ba454a712eb2faec4d219f83f74dc"
+    },
+    "data.img": {
+      "bytes": 1474560,
+      "sha256": "006bc0d9152d4cbf6ef2d6535f0154a51c08117066b433d3bb5d7ab5e8417b0c"
+    }
+  },
+  "finished_utc": "2026-10-03T21:04:18.263856+00:00",
+  "after_hashes": {
+    "boot.img": "656788838a0b9f717b1dcdf163238d692f5ba454a712eb2faec4d219f83f74dc",
+    "data.img": "006bc0d9152d4cbf6ef2d6535f0154a51c08117066b433d3bb5d7ab5e8417b0c"
+  }
+}
