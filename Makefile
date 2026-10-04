@@ -13049,6 +13049,57 @@ test-tbx-menu-mutant: $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_KEY_PLAIN $(BUI
 	@printf '>>> test-tbx-menu-mutant: green (both mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-i123-wk1-roundtrip (bead initech-9u8w, I123 P1; plan
+# docs/plans/INITECH-123-plan.md Sec 5a/Sec 6 P1) -- the Initech 123 worksheet
+# model + .WK1 codec + cell display, graded against the REAL Lotus 1-2-3 R2.2
+# (the sister corpus ../lotus123-decomp: 38 shipped sample sheets + 6 sheets
+# minted by driving 123.EXE, with screenshots) and against the corpus'
+# INDEPENDENT reader tools/wk1_ref.py (through harness/diff/wk1_diff/
+# wk1_canon.py, which parses no bytes itself). Parts: A every golden rewrites
+# byte-identically and lists as wk1_ref reads it; B sheets built by typing
+# (value parser + INTEGER/NUMBER rule) are byte-identical to MINT01/04/05;
+# C a synthetic IV8192 sheet round-trips losslessly through wk1_ref and back;
+# D rows of MINT01/02/03/05 render exactly as the screenshots show; E
+# malformed files are refused fail-loud. The corpus is required: absent, the
+# gate FAILS (a skipped oracle is worse than a red one). Two mutants, each RED
+# for its named reason.
+# ---------------------------------------------------------------------------
+LOTUS123_DECOMP   ?= ../lotus123-decomp
+I123_CORE_SRC     := os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c
+I123_CORE_HDR     := os/i123/core/i123.h spec/i123/wk1_format.h
+I123_CORE_INC     := -Ios/i123/core -Ispec
+I123_WK1_DIR      := harness/diff/wk1_diff
+I123_WK1_CANON    := $(I123_WK1_DIR)/wk1_canon.py
+TEST_I123_WK1     := $(BUILD)/test_i123_wk1_roundtrip
+I123_WK1_DEPS     := $(I123_WK1_DIR)/test_i123_wk1_roundtrip.c $(I123_CORE_SRC) $(I123_CORE_HDR) seed/test_assert.h
+$(TEST_I123_WK1): $(I123_WK1_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed $(I123_CORE_INC) -o $@ $(I123_WK1_DIR)/test_i123_wk1_roundtrip.c $(I123_CORE_SRC)
+$(BUILD)/test_i123_wk1_mutant_%: $(I123_WK1_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Iseed $(I123_CORE_INC) -o $@ $(I123_WK1_DIR)/test_i123_wk1_roundtrip.c $(I123_CORE_SRC)
+define need_lotus_goldens
+	@test -f "$(LOTUS123_DECOMP)/tools/wk1_ref.py" && test -d "$(LOTUS123_DECOMP)/goldens/minted" || { printf '!!! $(1) FAIL: the Lotus 1-2-3 corpus was not found at $(LOTUS123_DECOMP) -- set LOTUS123_DECOMP=<path>. A skipped oracle is worse than a red one.\n'; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! $(1) FAIL: python3 not found (it runs the INDEPENDENT reader wk1_ref.py)\n'; exit 1; }
+endef
+
+.PHONY: test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant
+test-i123-wk1-roundtrip: $(TEST_I123_WK1) $(I123_WK1_CANON)
+	$(call need_lotus_goldens,test-i123-wk1-roundtrip)
+	@printf ">>> test-i123-wk1-roundtrip: the 1-2-3 R2.2 .WK1 codec vs 44 real goldens, wk1_ref.py and the minted screenshots (initech-9u8w)\n"
+	@$(TEST_I123_WK1) $(LOTUS123_DECOMP) $(BUILD) $(I123_WK1_CANON)
+	@printf ">>> test-i123-wk1-roundtrip: green\n"
+
+test-i123-wk1-roundtrip-mutant: $(BUILD)/test_i123_wk1_mutant_I123_MUT_LABEL_OPCODE $(BUILD)/test_i123_wk1_mutant_I123_MUT_GENERAL_ROUNDS $(I123_WK1_CANON)
+	$(call need_lotus_goldens,test-i123-wk1-roundtrip-mutant)
+	@for pair in 'I123_MUT_LABEL_OPCODE:RED-REASON golden-rewrite' 'I123_MUT_GENERAL_ROUNDS:RED-REASON display'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_i123_wk1_mutant_$$m; \
+		if $$bin $(LOTUS123_DECOMP) $(BUILD) $(I123_WK1_CANON) > $$bin.log 2>&1; then printf '!!! test-i123-wk1-roundtrip-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -q 'checks,' $$bin.log || { printf '!!! test-i123-wk1-roundtrip-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
+		grep -qF "$$why" $$bin.log || { printf '!!! test-i123-wk1-roundtrip-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-i123-wk1-roundtrip-mutant: %s correctly RED (%s: %s)\n' "$$m" "$$why" "$$(grep -F "$$why" $$bin.log)"; \
+	done
+	@printf '>>> test-i123-wk1-roundtrip-mutant: green (both mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-finder-menu (bead initech-tdnl.12, GUI remediation R3.5 stage
 # 1; docs/design/GUI-remediation-R3-finder-design.md F4.1-F4.4) -- the HOST
 # oracle for THE FINDER MENU BAR RESOURCE (os/flair/finder_menu.c).
@@ -25668,6 +25719,7 @@ TEST_UNIT_GATES := \
 	test-finder-ops test-finder-ops-mutant \
 	test-menu-handlers test-menu-handlers-mutant \
 	test-tbx-menu test-tbx-menu-mutant \
+	test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant \
 	test-makefile-vars \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
