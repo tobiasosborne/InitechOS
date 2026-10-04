@@ -12923,6 +12923,7 @@ TEST_MENU_MUT_BEVEL := $(BUILD)/test_menu_mutant_no_panel_bevel
 TEST_MENU_MUT_SEP := $(BUILD)/test_menu_mutant_sep_plain
 TEST_MENU_MUT_DISABLED := $(BUILD)/test_menu_mutant_disabled_normal_ink
 TEST_MENU_MUT_TITLE := $(BUILD)/test_menu_mutant_title_no_hilite
+TEST_MENU_MUT_TC := $(BUILD)/test_menu_mutant_track_cap
 TEST_MENU_DEPS := os/flair/menu.c os/flair/menu.h os/flair/text.c os/flair/text.h \
                   os/flair/blitter.c os/flair/blitter.h os/flair/surface.c os/flair/surface.h \
                   os/flair/flair_look.c os/flair/flair_look.h spec/flair_skins.h \
@@ -12956,6 +12957,8 @@ $(TEST_MENU_MUT_DISABLED): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_DISABLED_NORMAL_INK=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
 $(TEST_MENU_MUT_TITLE): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_TITLE_NO_HILITE=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
+$(TEST_MENU_MUT_TC): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMENU_MUT_TRACK_CAP=1 $(MENU_INC) -o $@ $(TEST_MENU_SRC) $(MENU_LINK)
 
 test-menu: $(TEST_MENU)
 	@printf ">>> test-menu: behavior + sampled Platinum profile/corners/title/panel/separator/cmd/disabled fidelity + retained Apple strike\n"
@@ -12964,8 +12967,8 @@ test-menu: $(TEST_MENU)
 		|| { printf '!!! test-menu FAIL: menu.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-menu: green\n"
 
-test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR) $(TEST_MENU_MUT_AS) $(TEST_MENU_MUT_BAR) $(TEST_MENU_MUT_BEVEL) $(TEST_MENU_MUT_SEP) $(TEST_MENU_MUT_DISABLED) $(TEST_MENU_MUT_TITLE)
-	@printf ">>> test-menu-mutant: confirming all nine behavior/fidelity mutants go RED (Rule 6)\n"
+test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR) $(TEST_MENU_MUT_AS) $(TEST_MENU_MUT_BAR) $(TEST_MENU_MUT_BEVEL) $(TEST_MENU_MUT_SEP) $(TEST_MENU_MUT_DISABLED) $(TEST_MENU_MUT_TITLE) $(TEST_MENU_MUT_TC)
+	@printf ">>> test-menu-mutant: confirming all ten behavior/fidelity mutants go RED (Rule 6)\n"
 	@if $(TEST_MENU_MUT_FW) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: FIXED_WIDTH PASSED -- the proportional-layout oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (FIXED_WIDTH correctly RED)\n'; fi
 	@if $(TEST_MENU_MUT_SD) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: SELECT_DISABLED PASSED -- the selectability oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (SELECT_DISABLED correctly RED)\n'; fi
 	@if $(TEST_MENU_MUT_NR) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: NO_REHIT PASSED -- the cross-menu-drag oracle is decoration (initech-rl4v)\n'; exit 1; else printf '>>> test-menu-mutant: green (NO_REHIT correctly RED, initech-rl4v)\n'; fi
@@ -12975,6 +12978,7 @@ test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR) $(
 	@if $(TEST_MENU_MUT_SEP) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_SEP_PLAIN PASSED -- the etched-separator oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_SEP_PLAIN correctly RED for etched separator)\n'; fi
 	@if $(TEST_MENU_MUT_DISABLED) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_DISABLED_NORMAL_INK PASSED -- the disabled A5 ink oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_DISABLED_NORMAL_INK correctly RED for disabled ink)\n'; fi
 	@if $(TEST_MENU_MUT_TITLE) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_TITLE_NO_HILITE PASSED -- the pulled-title accent oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_TITLE_NO_HILITE correctly RED for pulled-title state)\n'; fi
+	@if $(TEST_MENU_MUT_TC) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_TRACK_CAP PASSED -- the long-gesture oracle is decoration (tdnl.71)\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_TRACK_CAP correctly RED, tdnl.71)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-finder-menu (bead initech-tdnl.12, GUI remediation R3.5 stage
@@ -20244,7 +20248,15 @@ RECORD_MARKER_scroll_thumb = FLAIR-SCROLL win 0 v part=129 value=69 max=138
 RECORD_IMAGE_scroll_thumb  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_DATA_scroll_thumb   = $(FLAIR_SCROLL_DATA_IMG)
 RECORD_SETTLE_scroll_thumb = 300
-RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk
+# menu_long (bead initech-tdnl.71, audit pass 3 H01; Rule 14): the volume
+# opens; File is held on New Folder while the pointer jitters 80 times (more
+# samples than the pre-fix pump's 64-point history), then slides to View and
+# its first item and releases -- by Icons runs (FINDER-CMD id=14), not New
+# Folder. FLAIR_MENU_LONG_SPEC on the LONG double-click record image (below).
+RECORD_SPEC_menu_long   = $(FLAIR_MENU_LONG_SPEC)
+RECORD_MARKER_menu_long = FINDER-CMD id=14 name=VIEW_ICONS src=mouse sel=0
+RECORD_SETTLE_menu_long = 150
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -20298,6 +20310,29 @@ $(BUILD)/flair_tenants_recorddbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_f
 	@printf ">>> flair-tenants DOUBLE-CLICK RECORD image (widened pump + drag + dblclick bounds): %s\n" "$@"
 
 FLAIRTENANTS_RECORDDBL_IMG := $(BUILD)/flair_tenants_recorddbl.img
+
+# The LONG double-click record image (bead initech-tdnl.71): the double-click
+# record image with the pump life doubled (-DFLAIR_TEN_TICK_BUDGET=6000, ~60 s).
+# MEASURED: the 96-event menu_long trace spends ~0.4 s per recorded frame and
+# outlived the 3000-tick life (FLAIR-TRACK-EXPIRED mid-gesture). It widens a
+# demo bound only; nothing an oracle grades changes.
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=6000,recordlong))
+$(BUILD)/kernel_flairtenants_recordlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o
+$(BUILD)/kernel_flairtenants_recordlongdbl.bin: $(BUILD)/kernel_flairtenants_recordlongdbl.elf | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_recordlongdbl.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
+	$(call kernel-end-guard,$<,flairtenants-recordlongdbl)
+$(BUILD)/flair_tenants_recordlongdbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recordlongdbl.bin | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_recordlongdbl.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants LONG DOUBLE-CLICK RECORD image: %s\n" "$@"
+FLAIRTENANTS_RECORDLONGDBL_IMG := $(BUILD)/flair_tenants_recordlongdbl.img
+RECORD_IMAGE_menu_long = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_IMAGE_folder_nav          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_window_drag_persist = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_new_folder          = $(FLAIRTENANTS_RECORDDBL_IMG)
@@ -20308,7 +20343,7 @@ RECORD_IMAGE_trash_drag          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_drag_refused        = $(FLAIRTENANTS_RECORDDBL_IMG)
 
 .PHONY: record-flair
-record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
+record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
 	@command -v ffmpeg >/dev/null || { printf '!!! record-flair: ffmpeg not installed (the ONE extra dependency; sudo apt install ffmpeg)\n'; exit 2; }
@@ -25130,6 +25165,69 @@ test-flair-held-gestures-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_MUT_IMG) $(F
 	@printf '>>> test-flair-held-gestures-mutant [2/2]: RED as required -- %s\n' "$$(grep -E -m1 '^FINDER-(CMD|MOVE|WIN-DRAG)' $(BUILD)/flair_held_menu_mut.serial || echo 'no command')"
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-flair-menu-long (bead initech-tdnl.71; audit pass 3 H01).
+# One boot of the HOLD image replays FLAIR_MENU_LONG_SPEC (spec/
+# flair_input_traces.mk): File held, 80 jitter moves on New Folder, then View >
+# by Icons, released. Asserts:
+#   1. the gesture really was long: >= 70 FLAIR-CURSOR samples between the
+#      File DROP and the View XDROP (the pre-fix pump kept 64 points), and
+#      no FLAIR-TRACK-EXPIRED;
+#   2. the release dispatched the VISIBLE menu's highlighted item:
+#      FLAIR-MENU-XDROP menu=514, FLAIR-MENU menu=512 item=1 (sel=0x02020001)
+#      (menu= is the clicked title, the marker ABI), FINDER-CMD id=14
+#      name=VIEW_ICONS src=mouse, and NO FINDER-CMD id=2 / FINDER-NEW-FOLDER.
+# Red-first: on the pre-fix kernel (eedba78) the same boot logged sel=
+# 0x02000001 and FINDER-NEW-FOLDER (the reviewer's result, reproduced).
+# Mutation-proven by test-flair-menu-long-mutant: the HOLD kernel with ONLY
+# menu.o rebuilt -DMENU_MUT_TRACK_CAP=1 (the 64-point history restored in the
+# fold, menu.c MenuTrack_step) must fail assertion 2. (Its panel stays on
+# File too: drawing and dispatch share the one fold, which is the fix.)
+# ---------------------------------------------------------------------------
+FLAIR_MENU_LONG_NAME := flair_menu_long
+menu-long-check = ! grep -q '^FLAIR-TRACK-EXPIRED' $(1) \
+	&& [ "$$(awk '/^FLAIR-MENU-DROP menu=512$$/{c=0;d=1} d&&/^FLAIR-CURSOR /{c++} /^FLAIR-MENU-XDROP menu=514$$/{if(d)n=c;d=0} END{print n+0}' $(1))" -ge 70 ] \
+	&& grep -qxF 'FLAIR-MENU menu=512 item=1 (sel=0x02020001)' $(1) \
+	&& grep -Eq '^FINDER-CMD id=14 name=VIEW_ICONS src=mouse ' $(1) \
+	&& ! grep -Eq '^(FINDER-CMD id=2 |FINDER-NEW-FOLDER)' $(1)
+$(BUILD)/menu_mut_trackcap.o: os/flair/menu.c os/flair/menu.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) -DMENU_MUT_TRACK_CAP=1 -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
+$(BUILD)/kernel_flairtenants_mut_trackcap.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o
+$(BUILD)/kernel_flairtenants_mut_trackcap.bin: $(BUILD)/kernel_flairtenants_mut_trackcap.elf | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_mut_trackcap.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
+	$(call kernel-end-guard,$<,flairtenants-mut-trackcap)
+$(BUILD)/flair_tenants_mut_trackcap.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_trackcap.bin | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_trackcap.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants MENU_MUT_TRACK_CAP mutant image: %s\n" "$@"
+
+.PHONY: test-flair-menu-long test-flair-menu-long-mutant
+test-flair-menu-long: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-menu-long : a long held menu gesture runs the visible item (H01)\n'
+	@printf '  bead initech-tdnl.71; trace FLAIR_MENU_LONG_SPEC (spec/flair_input_traces.mk)\n'
+	@printf '======================================================================\n'
+	$(call held-boot,$(FLAIRTENANTS_HOLD_IMG),$(FLAIR_MENU_LONG_NAME),FLAIR_MENU_LONG_SPEC,FINDER-CMD id=)
+	@$(call menu-long-check,"$(BUILD)/$(FLAIR_MENU_LONG_NAME).serial") || { printf '!!! test-flair-menu-long FAIL: want >= 70 cursor samples before the View switch, then FLAIR-MENU ... (sel=0x02020001) + FINDER-CMD id=14 VIEW_ICONS and no New Folder\n'; grep -E '^(FINDER-|FLAIR-MENU|FLAIR-TRACK)' "$(BUILD)/$(FLAIR_MENU_LONG_NAME).serial"; exit 1; }
+	@printf '>>> test-flair-menu-long: %s cursor samples held on File; %s ; %s\n' "$$(awk '/^FLAIR-MENU-DROP menu=512$$/{c=0;d=1} d&&/^FLAIR-CURSOR /{c++} /^FLAIR-MENU-XDROP menu=514$$/{if(d)n=c;d=0} END{print n+0}' $(BUILD)/$(FLAIR_MENU_LONG_NAME).serial)" "$$(grep -m1 '^FLAIR-MENU menu=' $(BUILD)/$(FLAIR_MENU_LONG_NAME).serial)" "$$(grep -m1 '^FINDER-CMD ' $(BUILD)/$(FLAIR_MENU_LONG_NAME).serial)"
+	@printf '>>> test-flair-menu-long: green\n'
+
+test-flair-menu-long-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_trackcap.img $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-menu-long-mutant : Rule 6\n'
+	@printf '  Mutant: menu.o -DMENU_MUT_TRACK_CAP=1 (the pre-tdnl.71 64-point history)\n'
+	@printf '======================================================================\n'
+	$(call held-boot,$(BUILD)/flair_tenants_mut_trackcap.img,flair_menu_long_mut,FLAIR_MENU_LONG_SPEC,FINDER-CMD id=)
+	@grep -qxF 'FLAIR-MENU-DROP menu=512' "$(BUILD)/flair_menu_long_mut.serial" && grep -q '^FLAIR-MENU menu=512 ' "$(BUILD)/flair_menu_long_mut.serial" || { printf '!!! test-flair-menu-long-mutant: the mutant never dropped File and released (not comparable)\n'; exit 1; }
+	@if $(call menu-long-check,"$(BUILD)/flair_menu_long_mut.serial"); then printf '!!! test-flair-menu-long-mutant FAIL: the 64-point history PASSED -- the gate is decoration\n'; exit 1; fi
+	@printf '>>> test-flair-menu-long-mutant: RED as required -- %s ; %s\n' "$$(grep -m1 '^FLAIR-MENU menu=' $(BUILD)/flair_menu_long_mut.serial)" "$$(grep -m1 '^FINDER-CMD ' $(BUILD)/flair_menu_long_mut.serial || echo 'no command')"
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-flair-box-track (bead initech-tdnl.60; audit G02).
 # Boots the bounded $(FLAIRTENANTS_IMG) and replays FLAIR_BOX_CANCEL_SPEC on
 # HELLO: press its close box, drag OUT, release; the same for its zoom and
@@ -26348,6 +26446,7 @@ TEST_EMU_GATES := \
 	test-flair-finder-cmds test-flair-finder-cmds-mutant \
 	test-flair-modifier-release test-flair-modifier-release-mutant \
 	test-flair-held-gestures test-flair-held-gestures-mutant \
+	test-flair-menu-long test-flair-menu-long-mutant \
 	test-flair-box-track test-flair-box-track-mutant \
 	test-flair-solid test-flair-solid-mutant \
 	test-flair-zoom-toggle test-flair-grow test-flair-collapse \

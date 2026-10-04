@@ -2283,10 +2283,6 @@ static void flair_live_do_grow(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puts(")\n");
 }
 
-/* Bounded cursor-point capture while the menu button is held (Rule 11): the
- * drop+track is a sub-second gesture, so a small cap is ample and never grows
- * unbounded; the most-recent (release) point is always kept in the last slot. */
-#define FLAIR_MENU_TRACK_MAX      64
 
 /* FO-8b inMenuBar dispatch (beads initech-5l5z; ADR-0004 D-3 / ADR-0006 FO-8 --
  * inMenuBar -> MenuSelect): the LIVE pull-down. On a mouseDown in the System-7
@@ -2327,9 +2323,10 @@ static void flair_live_do_grow(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * re-hit rule HERE, per tick: a tracked point still in the bar band may switch
  * `mi` to a different title. On a title SWITCH, the old panel is erased through
  * the same damage/content spine used at track end, then the new menu's panel is
- * dropped + item-hilited exactly as before. The final MenuSelect call is
- * UNCHANGED -- it already re-derives its own tracked menu from (where0, pts)
- * independently, so its result was never wrong; only the live/final DRAW lagged.
+ * dropped + item-hilited exactly as before. Since tdnl.71 the drawn menu and
+ * the dispatched result are ONE state: menu.c's MenuTrack fold, stepped per
+ * sample with no point history (a 64-point buffer here once overflowed on a
+ * long gesture and dispatched the first-dropped menu -- audit pass 3 H01).
  *
  * KMAIN_MUT_MENU_NO_REHIT (Rule 6; initech-9op1): freezes `mi` at the click in
  * THIS loop -- the ORIGINAL bug this issue tracks. Never re-hit, so the on-screen
@@ -2447,6 +2444,13 @@ static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *
     flair_point_t menu_where0 = where0;
     menu_where0.v = (int16_t)(menu_where0.v - (int16_t)y_top);
 
+    /* The track is menu.c's streaming fold (MenuTrack, bead initech-tdnl.71):
+     * every cursor sample is stepped into it and NO point history is kept, so
+     * a gesture of any length resolves exactly like a short one, and the panel
+     * drawn below and the result dispatched both come from st.mi. */
+    MenuTrackState st;
+    MenuTrack_begin(bar, menu_where0, &st);
+    mi = st.mi;
     if (mi < 0) {
         /* In the bar but not on a title (Apple slot / past the last title): no
          * menu drops. Emit the marker with sel=0 so the gate can tell. */
@@ -2470,12 +2474,10 @@ static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *
     serial_puti((int32_t)menuID);
     serial_putc('\n');
 
-    /* TRACK: collect the cursor points (deduped, bounded) until mouseUp, re-hiliting
+    /* TRACK: step every cursor sample into the fold until mouseUp, re-hiliting
      * the item under the cursor as it moves. A pure move cooks to nullEvent (got=0)
      * but WaitNextEvent still stamps `where` with the advanced cursor (the drag
      * idiom), until mouseUp (flair_live_track_cut, bead initech-tdnl.59). */
-    flair_point_t pts[FLAIR_MENU_TRACK_MAX];
-    int n = 0;
     int last_mi = mi;   /* the menu whose panel is CURRENTLY on screen (the drop) */
     int last_hi = -1;
     uint32_t t0 = flair_tick_count();
@@ -2489,34 +2491,16 @@ static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *
         }
         flair_point_t menu_where = mev.where;
         menu_where.v = (int16_t)(menu_where.v - (int16_t)y_top);
-        /* Append the cursor point, dedup consecutive identical; when full, keep
-         * the most recent in the last slot so the RELEASE point is always pts[n-1]
-         * for MenuSelect (deterministic selection, Rule 11). */
-        if (n == 0 || pts[n - 1].h != menu_where.h ||
-            pts[n - 1].v != menu_where.v) {
-            if (n < FLAIR_MENU_TRACK_MAX) {
-                pts[n++] = menu_where;
-            } else {
-                pts[FLAIR_MENU_TRACK_MAX - 1] = menu_where;
-            }
-        }
-        /* initech-9op1: re-hit the bar per tick, mirroring flair_menu_track's
-         * bar-band re-hit rule (menu.c, initech-rl4v) -- a tracked point still in
-         * the bar band [0, FLAIR_MENUBAR_H) may be over a DIFFERENT title, which
-         * switches the LIVE tracked menu. Without this the live drop/hilite is
-         * frozen on the originally-clicked menu for the whole drag. */
+        /* initech-9op1 / tdnl.71: the fold re-hits the bar for a point still
+         * in the bar band [0, FLAIR_MENUBAR_H) (menu.c, initech-rl4v), which
+         * may switch the tracked menu; the LIVE panel follows st.mi. */
+        MenuTrack_step(bar, &st, menu_where);
 #if !defined(KMAIN_MUT_MENU_NO_REHIT)
-        if (menu_where.v >= 0 && menu_where.v < (int)FLAIR_MENUBAR_H) {
-            int nb = MenuBar_hit(bar, (int)menu_where.h);
-            if (nb >= 0) {
-                mi = nb;
-            }
-        }
+        mi = st.mi;
 #else
-        /* NAMED MUTANT (Rule 6; initech-9op1): freeze mi at the click -- the
-         * ORIGINAL bug. Never re-hit, so a cross-menu drag can never switch the
-         * LIVE tracked panel (MenuSelect's own result is unaffected -- it
-         * re-derives its tracked menu independently from where0/pts). */
+        /* NAMED MUTANT (Rule 6; initech-9op1): freeze the DRAWN mi at the
+         * click -- the ORIGINAL bug. The live panel never follows a cross-menu
+         * drag (the fold's own result, st, is unaffected). */
 #endif
         int hi = MenuInfo_item_at(bar, mi, (int)menu_where.h,
                                   (int)menu_where.v);
@@ -2546,11 +2530,11 @@ static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *
         }
     }
 
-    /* SELECT: the IM (menuID<<16|item) result from the tracked sequence (the
-     * release is pts[n-1]). The live loop already drew the release-point hilite;
+    /* SELECT: the IM (menuID<<16|item) result of the fold (the release is its
+     * last step). The live loop already drew the release-point hilite;
      * close that current panel for both selection and cancel through DQ2. */
     /* An expired bounded gesture selects nothing (flair_live_track_cut). */
-    uint32_t sel = cancel ? 0u : MenuSelect(bar, menu_where0, pts, n);
+    uint32_t sel = cancel ? 0u : MenuTrack_result(bar, &st);
     int sel_item = (int)MenuResultItem(sel);
 #ifndef KMAIN_MUT_MENU_NO_RESTORE
     flair_live_erase_menu_panel(ctx, bar, last_mi, y_top);

@@ -427,6 +427,63 @@ int main(int argc, char **argv)
             CHECK(hi == 2,
                   "cross-menu drag: out_hi is the item index in the FINAL menu's panel");
         }
+
+        /* PROPERTY 3d: A LONG GESTURE (bead initech-tdnl.71; audit pass 3 H01:
+         * File held, ~80 jitter moves, then View > by Icons highlighted, yet
+         * File > New Folder ran). The live pump steps MenuTrack once per
+         * cursor sample and keeps no history, so the property is: however
+         * many points precede the title switch, the streamed fold's result is
+         * the item under the release in the menu dropped LAST -- the same as
+         * the short gesture (ii) -- and the streamed state equals
+         * flair_menu_track over the same prefix at EVERY step (one spine).
+         * 1000 jitter points between two rows of panel0 precede the switch,
+         * far past the pre-fix pump's 64-point buffer. */
+        {
+            enum { LONG_JIT = 1000, LONG_N = LONG_JIT + 4 };
+            static flair_point_t lp[LONG_N];
+            int row0_y = panel0.top + FLAIR_MENU_PANEL_INSET +
+                         FLAIR_MENU_ITEM_H / 2;            /* menu0 item 0 */
+            int px0 = (panel0.left + panel0.right) / 2;
+            int n = 0, prefix_bad = -1, vis_bad = -1;
+            MenuTrackState st;
+
+            lp[n].v = (int16_t)row0_y; lp[n].h = (int16_t)px0; n++;
+            for (int j = 0; j < LONG_JIT; j++) {
+                lp[n].v = (int16_t)row0_y;
+                lp[n].h = (int16_t)(px0 + ((j & 1) ? 0 : 4));
+                n++;
+            }
+            lp[n].v = (int16_t)(FLAIR_MENUBAR_H / 2); lp[n].h = (int16_t)t1x; n++;
+            lp[n].v = (int16_t)(row2_top + 1); lp[n].h = (int16_t)panel1_px; n++;
+            lp[n].v = (int16_t)row2_y;         lp[n].h = (int16_t)panel1_px; n++;
+
+            MenuTrack_begin(&g_bar, click0, &st);
+            CHECK(st.mi == mi0 && st.hi == -1 && st.n == 0,
+                  "MenuTrack_begin drops the clicked title, nothing hilited");
+            for (int p = 0; p < n; p++) {
+                int hi = -99;
+                uint32_t want_r;
+                MenuTrack_step(&g_bar, &st, lp[p]);
+                want_r = flair_menu_track(&g_bar, click0, lp, p + 1, &hi);
+                if (prefix_bad < 0 &&
+                    (MenuTrack_result(&g_bar, &st) != want_r || st.hi != hi))
+                    prefix_bad = p;
+                /* the menu that must be VISIBLE: menu0 until the title switch */
+                if (vis_bad < 0 && st.mi != ((p < LONG_JIT + 1) ? mi0 : mi1))
+                    vis_bad = p;
+            }
+            CHECK(prefix_bad < 0,
+                  "streamed MenuTrack == flair_menu_track over every prefix (one spine, tdnl.71)");
+            CHECK(vis_bad < 0,
+                  "long gesture: the tracked menu is File through 1001 jitter points, then Edit (tdnl.71)");
+            CHECK(st.n == n, "MenuTrack counted every stepped point");
+            CHECK(MenuTrack_result(&g_bar, &st) ==
+                      MenuResult(g_bar.menus[mi1].menuID, 3) && st.hi == 2,
+                  "long gesture: release on Edit item 3 dispatches Edit item 3, not File's (H01, tdnl.71)");
+            CHECK(flair_menu_track(&g_bar, click0, lp, n, NULL) ==
+                      MenuResult(g_bar.menus[mi1].menuID, 3),
+                  "long gesture: MenuSelect over the full 1004-point history agrees");
+        }
     }
 
     /* ======================================================================

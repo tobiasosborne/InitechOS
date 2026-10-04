@@ -350,62 +350,83 @@ uint32_t MenuKey(const MenuBar *bar, char ch)
  * The hilited item follows the cursor (MenuInfo_item_at) against the
  * currently-tracked menu. On release, return the selection IFF the released
  * item (in the FINAL tracked menu) is selectable, else 0.
+ *
+ * STREAMING FORM (bead initech-tdnl.71; audit pass 3 H01). The track is a
+ * FOLD: its whole state is the menu currently dropped (mi) and the item under
+ * the latest point (hi). MenuTrack_begin / _step / _result are that fold one
+ * point at a time, and flair_menu_track is begin + step-per-point + result --
+ * one spine. A live tracker (kmain's pull-down) steps every cursor sample
+ * and keeps NO point history, so no gesture is ever too long: the pre-fix
+ * pump buffered 64 points for MenuSelect and, once full, kept only the newest
+ * in the last slot -- after ~80 jitter moves the title switch was overwritten
+ * and the release resolved against the FIRST-dropped menu (View > by Icons
+ * highlighted, File > New Folder run). The pump also draws from this state,
+ * so the visible menu and the dispatched one cannot disagree.
+ * MENU_MUT_TRACK_CAP (Rule 6) restores that fault: past the 63rd point the bar
+ * is no longer re-hit. NEVER define in a real build.
  * -------------------------------------------------------------------------- */
+void MenuTrack_begin(const MenuBar *bar, flair_point_t startPt,
+                     MenuTrackState *st)
+{
+    st->mi = -1;
+    st->hi = -1;
+    st->n = 0;
+    /* startPt is screen coords (v,h). The bar is rows [0, FLAIR_MENUBAR_H). */
+    if (bar && startPt.v >= 0 && startPt.v < (int)FLAIR_MENUBAR_H)
+        st->mi = MenuBar_hit(bar, (int)startPt.h);
+}
+
+void MenuTrack_step(const MenuBar *bar, MenuTrackState *st, flair_point_t pt)
+{
+    if (st->mi < 0)
+        return;                         /* no menu dropped: nothing tracks    */
+    /* Each point may switch the open menu (if it is in the bar band and over a
+     * DIFFERENT title) and always updates the hilited item against whichever
+     * menu is currently tracked. */
+#if defined(MENU_MUT_NO_REHIT) && MENU_MUT_NO_REHIT
+    /* NAMED MUTANT (Rule 6): freeze mi at the click -- the ORIGINAL
+     * initech-rl4v bug. Never re-hit the bar, so a cross-menu drag can
+     * never switch the tracked menu. */
+#else
+    if (pt.v >= 0 && pt.v < (int)FLAIR_MENUBAR_H
+#if defined(MENU_MUT_TRACK_CAP) && MENU_MUT_TRACK_CAP
+        && st->n < 63                   /* the pre-tdnl.71 64-slot history    */
+#endif
+        ) {
+        int nb = MenuBar_hit(bar, (int)pt.h);
+        if (nb >= 0)
+            st->mi = nb;                /* a different title -> switch open menu */
+    }
+#endif
+    st->hi = MenuInfo_item_at(bar, st->mi, (int)pt.h, (int)pt.v);
+    st->n++;
+}
+
+uint32_t MenuTrack_result(const MenuBar *bar, const MenuTrackState *st)
+{
+    /* The selection is the item under the RELEASE point (the latest step),
+     * evaluated against the FINAL tracked menu. With no step the release is
+     * the click itself (on the title, not on any item) -> nothing chosen. */
+    if (!bar || st->mi < 0 || st->n <= 0 || st->hi < 0)
+        return 0;                       /* released outside any item row       */
+    if (!MenuInfo_item_selectable(bar, st->mi, st->hi))
+        return 0;                       /* disabled / divider: not selectable  */
+    return MenuResult(bar->menus[st->mi].menuID,
+                      (uint16_t)(st->hi + 1));                 /* 1-based  */
+}
+
 uint32_t flair_menu_track(const MenuBar *bar,
                           flair_point_t startPt,
                           const flair_point_t *pts, int n_pts,
                           int *out_hi)
 {
+    MenuTrackState st;
+    MenuTrack_begin(bar, startPt, &st);
+    for (int p = 0; p < n_pts; p++)
+        MenuTrack_step(bar, &st, pts[p]);
     if (out_hi)
-        *out_hi = -1;
-    if (!bar)
-        return 0;
-
-    /* startPt is screen coords (v,h). The bar is rows [0, FLAIR_MENUBAR_H). */
-    if (startPt.v < 0 || startPt.v >= (int)FLAIR_MENUBAR_H)
-        return 0;
-    int mi = MenuBar_hit(bar, (int)startPt.h);
-    if (mi < 0)
-        return 0;                       /* clicked outside any title          */
-
-    int hi = -1;
-
-    /* Track the cursor: each point may switch the open menu (if it is in the
-     * bar band and over a DIFFERENT title) and always updates the hilited
-     * item against whichever menu is currently tracked. */
-    for (int p = 0; p < n_pts; p++) {
-#if defined(MENU_MUT_NO_REHIT) && MENU_MUT_NO_REHIT
-        /* NAMED MUTANT (Rule 6): freeze mi at the click -- the ORIGINAL
-         * initech-rl4v bug. Never re-hit the bar, so a cross-menu drag can
-         * never switch the tracked menu. */
-#else
-        if (pts[p].v >= 0 && pts[p].v < (int)FLAIR_MENUBAR_H) {
-            int nb = MenuBar_hit(bar, (int)pts[p].h);
-            if (nb >= 0)
-                mi = nb;                /* a different title -> switch open menu */
-        }
-#endif
-        hi = MenuInfo_item_at(bar, mi, (int)pts[p].h, (int)pts[p].v);
-    }
-
-    if (out_hi)
-        *out_hi = hi;                   /* the FINAL tracked menu's item        */
-
-    /* The selection is the item under the RELEASE point (the last pts entry),
-     * evaluated against the FINAL tracked menu (mi, after any re-hits above).
-     * If there were no tracking points, the release is the click itself (still
-     * on the title, not on any item) -> nothing chosen. */
-    if (n_pts <= 0)
-        return 0;
-
-    int rel = MenuInfo_item_at(bar, mi, (int)pts[n_pts - 1].h,
-                               (int)pts[n_pts - 1].v);
-    if (rel < 0)
-        return 0;                       /* released outside any item row       */
-    if (!MenuInfo_item_selectable(bar, mi, rel))
-        return 0;                       /* disabled / divider: not selectable  */
-
-    return MenuResult(bar->menus[mi].menuID, (uint16_t)(rel + 1)); /* 1-based  */
+        *out_hi = st.hi;                /* the FINAL tracked menu's item        */
+    return MenuTrack_result(bar, &st);
 }
 
 uint32_t MenuSelect(const MenuBar *bar, flair_point_t startPt,

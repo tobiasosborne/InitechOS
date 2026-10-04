@@ -94,3 +94,30 @@ FLAIR_HELD_MENU_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 #                                     FLAIR-CLOSE + FLAIR-TENANT-EXIT HELLO)
 #   park                              m100:100 x3,m100:90,m100:0,m46:0 -> (620,460)
 FLAIR_BOX_CANCEL_SPEC := m-100:-100,m-100:-70,m-46:0,l1,m100:100,l0,m100:-100,m58:0,l1,m0:60,l0,m16:-60,l1,m-50:50,l0,m-100:-50,m-100:0,m-24:0,l1,m60:60,m-60:-60,l0,m100:100,m100:100,m100:100,m100:90,m100:0,m46:0
+
+# ===========================================================================
+# 4. FLAIR_MENU_LONG_SPEC -- H01, a LONG held menu gesture dispatches the item
+#    highlighted in the menu visible at release (bead initech-tdnl.71;
+#    docs/audits/2026-10-04-flair-gui-codex-pass3/REPORT.md H01, the
+#    reviewer's replay_menu.py transcribed). Band 2 = the Finder bar: File
+#    title (42,28), View title (119,28) (menu 514; the reviewer's short control
+#    logged FLAIR-MENU-XDROP menu=514 there); item 1 of either panel is the row
+#    [41,57). Runs on the HOLD image: the 80 moves take ~3.2 s of harness time
+#    (40 ms QMP drain per token), past the default 250-tick demo.
+# ===========================================================================
+#   open the root window          m100:-88,m100:-88,m80:0,l1,l0,l1,l0 (600,64)
+#   to the File title             m-100:-36,m-100:0 x4,m-58:0 -> (42,28) ; l1
+#                                 (FLAIR-MENU-DROP menu=512)
+#   onto New Folder               m18:22 -> (60,50) ; w300
+#   jitter 40 times               (m4:0,m-4:0) x40: 80 distinct points
+#                                 alternating (64,50)/(60,50) -- more than the
+#                                 pre-fix pump's 64-slot point history, which
+#                                 then kept only the newest point in its last
+#                                 slot and so overwrote the title switch below
+#   up to the View title          m59:-22 -> (119,28) ; w400
+#                                 (FLAIR-MENU-XDROP menu=514)
+#   down to View > by Icons       m16:22 -> (135,50) ; w500 ; l0
+#        -> FLAIR-MENU menu=512 item=1 (sel=0x02020001) and
+#           FINDER-CMD id=14 name=VIEW_ICONS src=mouse; pre-fix the release
+#           ran File > New Folder (sel=0x02000001, FINDER-NEW-FOLDER).
+FLAIR_MENU_LONG_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:-36,m-100:0,m-100:0,m-100:0,m-100:0,m-58:0,l1,m18:22,w300,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m4:0,m-4:0,m59:-22,w400,m16:22,w500,l0

@@ -325,6 +325,28 @@ uint32_t flair_menu_track(const MenuBar *bar,
                           int *out_hi);
 
 /*
+ * MenuTrack -- the STREAMING form of flair_menu_track (bead initech-tdnl.71).
+ * The track is a fold whose whole state is the dropped menu and the item under
+ * the latest point, so a live tracker steps each cursor sample and keeps no
+ * history: begin at the click, step every point (the last is the release),
+ * then result. flair_menu_track == begin + step per point + result, exactly.
+ *   mi -- bar index of the menu currently dropped (-1: no title was clicked)
+ *   hi -- 0-based item under the latest point in menu mi (-1: none)
+ *   n  -- points stepped so far
+ */
+typedef struct MenuTrackState {
+    int mi;
+    int hi;
+    int n;
+} MenuTrackState;
+
+void     MenuTrack_begin(const MenuBar *bar, flair_point_t startPt,
+                         MenuTrackState *st);
+void     MenuTrack_step(const MenuBar *bar, MenuTrackState *st,
+                        flair_point_t pt);
+uint32_t MenuTrack_result(const MenuBar *bar, const MenuTrackState *st);
+
+/*
  * MenuSelect -- Inside Macintosh "MenuSelect(startPt)": the classic entry point.
  * In FLAIR it takes the click point plus the tracked cursor sequence (see
  * flair_menu_track). Returns the IM result word, or 0 if nothing was chosen.
