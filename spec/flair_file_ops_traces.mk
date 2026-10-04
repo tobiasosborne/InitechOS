@@ -171,8 +171,11 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 
 # 6b. FLAIR_SVC_DAMAGED_SPEC on $(FLAIR_DAMAGED_DATA_IMG), the volume as the
 #     reviewer left it (H03): mtools-built, root NEWFOLD (slot 1), APPS (slot
-#     2), TRASH (slot 3, the NEW empty one); APPS holds TENANTFX.EXE and the
-#     STRANDED old TRASH with README.TXT inside. Boot adds DESKTOP.DB (slot 4).
+#     2), TRASH (slot 3, the NEW empty one); APPS holds its three programs
+#     (TENANTFX.EXE, CTENANT.EXE, 123.EXE -- the latter two since initech-9u8w /
+#     initech-w96l, which moved the stranded folder from cell 1 to cell 3 and
+#     re-keyed this trace) and the STRANDED old TRASH with README.TXT inside.
+#     Boot adds DESKTOP.DB (slot 4).
 #     So the root window shows NEWFOLD (cell 0, centre (55,102)) and APPS
 #     (cell 1, centre (123,102)): FINDER-OPEN-VOLUME win=0 n=2.
 #   A ; B -> NEWFOLD (55,102) ; GO -> the Trash (600,422) ; l0
@@ -180,11 +183,12 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 #   (600,422) -> APPS (123,102): sum (-477,-320): m-100:-64 x4, m-77:-64 ;
 #        l1,l0,l1,l0 -> FINDER-OPEN-FOLDER name=APPS win=1 singleton=0; the
 #        APPS window (40,80)..(400,300), content (41,102): TENANTFX.EXE cell 0
-#        centre (75,122), the stranded TRASH cell 1 centre (143,122)
-#   -> (143,122): m20:20 ; l1,l0,l1,l0 -> FINDER-OPEN-FOLDER name=TRASH win=2
-#        singleton=0: the stranded folder is an ORDINARY visible folder
-#   PARK (143,122) -> (620,460): sum (+477,+338): m100:68 x4, m77:66.
-FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m20:20,l1,l0,l1,l0,m100:68,m100:68,m100:68,m100:68,m77:66
+#        centre (75,122), CTENANT.EXE cell 1, 123.EXE cell 2, the stranded
+#        TRASH cell 3 centre (279,122) (cell pitch 68)
+#   -> (279,122): m100:20, m56:0 ; l1,l0,l1,l0 -> FINDER-OPEN-FOLDER name=TRASH
+#        win=2 singleton=0: the stranded folder is an ORDINARY visible folder
+#   PARK (279,122) -> (620,460): sum (+341,+338): m68:68 x4, m69:66.
+FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m100:20,m56:0,l1,l0,l1,l0,m68:68,m68:68,m68:68,m68:68,m69:66
 
 # 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
 #     real kernel shows no TRASH icon to press): the audit's H03 move, the

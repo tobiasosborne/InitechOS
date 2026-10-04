@@ -2801,6 +2801,10 @@ static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *
                     (const region_t *)0);
         flair_desktop_present(bi, &ctx->off);
     }
+    /* (1c) bead initech-8zii: what the tenant drew for a plain mouseDown or
+     * keyDown (outside an updateEvt) is in the offscreen; show it now that the
+     * tenant has returned. */
+    if (tbx_take_drew()) flair_desktop_present(bi, &ctx->off);
     if (!tbx_reap()) return;
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
@@ -4557,6 +4561,7 @@ static void tbx_headless_smoke(void)
 
     th.list = &plist; th.wm = &wm; th.master = &heap; th.surface = &off;
     th.puts = serial_puts;
+    th.cellfont = (const uint8_t *)(uintptr_t)FONT_STASH_ADDR;   /* initech-w96l */
     tbx_bind(&th);
     idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
                  (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);
@@ -4568,6 +4573,50 @@ static void tbx_headless_smoke(void)
         serial_puts("TBX-SMOKE-FAIL no APPS folder on the data volume\nHALTED\n");
         return;
     }
+#ifdef TBX_SMOKE_I123
+    /* INITECH 123 ON THE CPU PATH (beads initech-9u8w / initech-w96l; the Rule-5
+     * leg of test-flair-i123): launch APPS\123.EXE -- a compiled C tenant with
+     * an e_minalloc BSS -- route its first updateEvt (the whole Face A paint),
+     * type "123" Right "1.5" Right "-7" Right "1.23456789012345" Enter (its
+     * value parser and General display run on the x87), then Ctrl-Q by the
+     * KEY route. PS/2 set-1 make codes, cooked (vkey << 8) | ascii as event.c
+     * does; the arrows carry ascii 0. */
+    {
+        static const uint16_t i123_keys[] = {
+            0x0231, 0x0332, 0x0433, 0x4D00,                 /* 1 2 3 Right  */
+            0x0231, 0x342E, 0x0635, 0x4D00,                 /* 1 . 5 Right  */
+            0x0C2D, 0x0837, 0x4D00,                         /* - 7 Right    */
+            0x0231, 0x342E, 0x0332, 0x0433, 0x0534, 0x0635, 0x0736, 0x0837,
+            0x0938, 0x0A39, 0x0B30, 0x0231, 0x0332, 0x0433, 0x0534, 0x0635,
+            0x1C0D                                          /* 1.23456789012345 Enter */
+        };
+        (void)tbx_launch("123.EXE", apps.start_cluster);
+        app = tbx_take_affirm();
+        if (app != (FlairApp *)0 && app->windows != (WindowPtr)0) {
+            WindowMgr_invalidate(&wm, app->windows,
+                                 region_get_bbox(app->windows->contRgn));
+            flair_route_updates(&plist, &wm);
+            for (uint32_t k = 0; k < sizeof i123_keys / sizeof i123_keys[0]; k++) {
+                ev.what = (uint16_t)keyDown;
+                ev.message = (uint32_t)i123_keys[k];
+                ev.when = 0u;
+                ev.modifiers = 0u;
+                ev.where.h = 0;
+                ev.where.v = 0;
+                flair_app_dispatch(&plist, &wm, &ev);
+            }
+            ev.message = (0x10u << 8) | (uint32_t)'q';
+            ev.modifiers = (uint16_t)FLAIR_EVT_MOD_CONTROL_KEY;
+            if (!tbx_menu_key(&ev)) serial_puts("TBX-SMOKE-FAIL ctrl-q not a menu command\n");
+        } else {
+            serial_puts("TBX-SMOKE-FAIL 123.EXE did not open its window\n");
+        }
+        (void)tbx_reap();
+        serial_puts(plist.head == (FlairApp *)0 ? "TBX-SMOKE-OK list-empty\n"
+                                                : "TBX-SMOKE-OK list-NOT-empty\n");
+        return;
+    }
+#endif
     (void)tbx_launch("TENANTFX.EXE", apps.start_cluster);
 
     /* DEC-AC3-4: the sole app is already the head, so affirmation is the
@@ -5102,6 +5151,7 @@ void kernel_main(void)
         th.master  = ctx.master;
         th.surface = &ctx.off;
         th.puts    = serial_puts;
+        th.cellfont = (const uint8_t *)(uintptr_t)b.font_addr;   /* initech-w96l */
         tbx_bind(&th);
         idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
                      (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);

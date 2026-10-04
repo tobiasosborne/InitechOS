@@ -1345,6 +1345,27 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
      * block to be the same size every launch, so its GENERAL free-list slot is
      * reused exactly -- DEC-AC3-1's carve/free discipline). */
     block_len = (uint32_t)TBX_TENANT_PSP_BYTES + ((de.file_size + 15u) & ~15u);
+    {
+        /* spec/toolbox_gate.h Sec 8 (bead initech-w96l): the BSS a compiled
+         * tenant declares as e_minalloc (MZ header word @0x0A, paragraphs) is
+         * carved WITH the image -- read from the header before the carve,
+         * bounded, never partial. A non-MZ file carves nothing extra and is
+         * refused by loader_prepare_tenant as before. */
+        uint8_t hdr[0x0C];
+        uint32_t got_hdr = 0u, bss;
+        rc = fat12_read_partial(g_load_vol, g_load_fat, g_load_fat_len, &de, 0u,
+                                (uint32_t)sizeof hdr, hdr, g_load_cluster, &got_hdr);
+        if (rc != FAT12_OK) {
+            return LOADER_ERR_READ;
+        }
+        if (got_hdr == (uint32_t)sizeof hdr && hdr[0] == 'M' && hdr[1] == 'Z') {
+            bss = ((uint32_t)hdr[0x0A] | ((uint32_t)hdr[0x0B] << 8)) * 16u;
+            if (bss > (uint32_t)TBX_TENANT_BSS_MAX) {
+                return LOADER_ERR_TOO_BIG;
+            }
+            block_len += bss;
+        }
+    }
     block = (uint8_t *)carve(block_len, user);
     if (block == 0) {
         return LOADER_ERR_NOMEM;

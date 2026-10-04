@@ -59,6 +59,9 @@ typedef struct tbx_host {
     flair_heap_t     *master;
     const bitmap_t   *surface;
     void            (*puts)(const char *s);
+    const uint8_t    *cellfont;  /* the VGA ROM 8x16 strike (boot_info.font_addr;
+                                  * spec Sec 7a); NULL -> DRAWCELLS draws the
+                                  * cell backgrounds only (bead initech-w96l) */
 } tbx_host_t;
 
 void tbx_bind(const tbx_host_t *host);
@@ -105,6 +108,14 @@ int tbx_menu_choice(const struct MenuBar *bar, uint32_t sel,
                     const EventRecord *src, const char *how);
 int tbx_menu_key(const EventRecord *ev);
 int tbx_take_mbar_redraw(void);
+
+/* THE TENANT DREW (bead initech-8zii). 1 (once) when a TEXTDRAW / FILLRECT /
+ * DRAWCELLS reached the offscreen since the last take. The pump's tenant
+ * service presents then, so what a tenant draws for a plain mouseDown or
+ * keyDown -- outside any updateEvt -- reaches the screen when the tenant
+ * returns, exactly as DRAWMENUBAR's band-2 redraw does (the pump owns the
+ * present; tenant code is never on the stack while it runs). */
+int tbx_take_drew(void);
 
 /* 1 when `w` is the resident disk tenant's window (for the pump's policy
  * decisions; ownership itself is always the refCon demux in process.c). */

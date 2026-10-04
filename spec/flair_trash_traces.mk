@@ -92,8 +92,9 @@ FLAIR_EMPTY_CANCEL_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m
 
 # 3c. FLAIR_EMPTY_OK_SPEC -- stage README.TXT AND the APPS folder, open the
 #     Trash window (FINDER-OPEN-TRASH win=1 n=2), choose Empty Trash, CLICK OK:
-#     FINDER-TRASH-ALERT n=3 ; FINDER-TRASH-EMPTIED purged=3 refused=0 (the
-#     file, the folder's file, then the folder -- depth-first) ;
+#     FINDER-TRASH-ALERT n=5 ; FINDER-TRASH-EMPTIED purged=5 refused=0 (the
+#     file, the folder's three programs, then the folder -- depth-first; n was
+#     3 while APPS held only TENANTFX.EXE, before initech-9u8w) ;
 #     DESK-TRASH-ICON empty ; DESKTOP-DB-SAVE n=2 (both origins dropped).
 #     mtools: ::/TRASH empty; README.TXT / APPS / TENANTFX.EXE nowhere;
 #     fsck.fat finds no lost clusters (the chains were FREED, not leaked).
