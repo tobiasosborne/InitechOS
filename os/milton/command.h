@@ -173,10 +173,10 @@ int cmd_has_wildcard(const char *name);
 
 /* Return 1 iff operands `a` and `b` PROVABLY name the same file, judged from the
  * operand text alone (single-drive A:; no AH=60h TRUENAME exposed to the shell).
- * Drives COPY's real-DOS-3.3 "File cannot be copied onto itself" guard: it never
- * false-POSITIVES (refusing a valid copy), covering identical / case / bare-name
- * 8.3 / ".\\"-prefixed / default-drive-prefixed / identical-subdir-path forms; a
- * relative-vs-absolute miss is a documented residual. PURE. Ref: initech-ojxn. */
+ * Legacy pure oracle + DEL's repeated-DTA-leaf progress check. Covers only
+ * text-level forms, including case, bare 8.3 and a leading ".\\". COPY uses
+ * int21_same_file on resolved OPEN handles instead (initech-vj28); this helper
+ * must not authorize destructive CREAT. Ref: MS-DOS 3.3 Reference p. 50. */
 int cmd_same_file(const char *a, const char *b);
 
 /* Build the DOS "Current date is Day MM-DD-YYYY" line into out (>= 32 bytes).

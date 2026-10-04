@@ -30,10 +30,45 @@ mmd -i "$img" ::FILLED ::EMPTY ::DELTEST ::SUB ::SUB/DEEP
 mcopy -i "$img" "$out/root.txt" ::FILLED/SAVE.TXT
 mcopy -i "$img" "$out/sub.txt" ::DELTEST/KEEP.TXT
 mcopy -i "$img" "$out/self.bin" ::SUB/SELF.BIN
-touch "$out/zero"
+: > "$out/zero"
 mcopy -i "$img" "$out/zero" ::ZERO1
 mcopy -i "$img" "$out/zero" ::ZERO2
 case "$mode" in
+k15n)
+    cp -f "$img" "$out/before.img"
+    cat > "$out/commands.txt" <<'CMDS'
+del *.*
+n
+del *.*
+x
+del *.*
+
+erase a:\deltest\*.*
+n
+del *.*
+yes
+exit
+CMDS
+    ;;
+k15y)
+    i=0
+    while [ "$i" -lt 20 ]; do
+        leaf=$(printf 'Z%02d.TXT' "$i")
+        mcopy -i "$img" "$out/sub.txt" "::DELTEST/$leaf"
+        i=$((i + 1))
+    done
+    mcopy -i "$img" "$out/root.txt" ::EMPTY/KEEP.TXT
+    mmd -i "$img" ::EMPTY/CHILD
+    cat > "$out/commands.txt" <<'CMDS'
+del deltest\*.*
+y
+cd empty
+del *.*
+y
+dir
+exit
+CMDS
+    ;;
 audit|failure)
     i=0
     while [ "$i" -lt 20 ]; do
@@ -156,6 +191,17 @@ absent() {
     if mdir -i "$img" "::$1" > "$out/mdir.txt" 2>&1; then fail "$1 still present"; fi
 }
 case "$mode" in
+k15n)
+    cmp -s "$img" "$out/before.img" || fail 'non-Y response changed disk'
+    [ "$(grep -cF 'Are you sure (Y/N)?' "$out/repl.txt")" = 5 ] || fail 'confirmation prompt missing'
+    ;;
+k15y)
+    bytes KEEP.TXT "$out/root.txt"
+    absent 'DELTEST/*.TXT'
+    absent EMPTY/KEEP.TXT
+    mdir -i "$img" ::EMPTY/CHILD > "$out/child.txt" 2>&1 || fail 'child directory deleted'
+    [ "$(grep -cF 'Are you sure (Y/N)?' "$out/repl.txt")" = 2 ] || fail 'confirmation prompt missing'
+    ;;
 audit)
     bytes SELF.BIN "$out/self.bin"
     bytes FILLED/SAVE.TXT "$out/root.txt"

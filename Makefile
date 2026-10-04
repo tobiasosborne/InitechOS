@@ -8178,7 +8178,7 @@ $(KERNEL_IRQ_OBJ): $(KERNEL_IRQ_C) $(KERNEL_DIR)/irq.h $(KERNEL_DIR)/io.h | $(BU
 # freestanding here with -DCOMMAND_KERNEL_REPL so the int 0x21 REPL is compiled
 # IN (the host build leaves it out). -Ispec for find_data.h + dos_structs.h.
 # -I$(BUILD) for the generated dos_messages.h (beads initech-509.1).
-$(KERNEL_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/env.h \
+$(KERNEL_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/env.h $(KERNEL_DIR)/int21.h \
                        $(KERNEL_DIR)/batch.h \
                        spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
@@ -25919,7 +25919,7 @@ $(BUILD)/kernel_shell_mut_safety_$(1).elf: $(filter-out $(KERNEL_COMMAND_OBJ),$(
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_safety_$(1).o
 $(BUILD)/kernel_shell_mut_safety_$(1).bin: $(BUILD)/kernel_shell_mut_safety_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
-	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
+	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
 	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$((max - sz))" conv=notrunc status=none
 $(BUILD)/tracer_mut_safety_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_mut_safety_$(1).bin
 	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
@@ -25932,8 +25932,15 @@ $(eval $(call dos-safety-shell-mutant,k03,CMD_MUTATE_DEL_LOSE_PARENT))
 $(eval $(call dos-safety-shell-mutant,k04,CMD_MUTATE_DEL_CAP16))
 $(eval $(call dos-safety-shell-mutant,denied,CMD_TEST_DEL_DENIED))
 $(eval $(call dos-safety-shell-mutant,silent,CMD_TEST_DEL_DENIED -DCMD_MUTATE_DEL_SILENT_ERROR))
+$(eval $(call dos-safety-shell-mutant,k15,CMD_MUTATE_DEL_NO_CONFIRM))
+$(eval $(call dos-safety-shell-mutant,yesall,CMD_MUTATE_DEL_YES_ALWAYS))
+$(eval $(call dos-safety-shell-mutant,refusey,CMD_MUTATE_DEL_REFUSE_Y))
 
-.PHONY: test-dos-safety-k01 test-dos-safety-k01-mutant test-dos-safety-identity test-dos-safety-identity-mutant
+.PHONY: test-dos-safety-k01 test-dos-safety-k01-mutant test-dos-safety-identity test-dos-safety-identity-mutant \
+        test-dos-safety-k02 test-dos-safety-k02-mutant test-dos-safety-create test-dos-safety-create-mutant \
+        test-dos-safety-k03 test-dos-safety-k03-mutant test-dos-safety-k04 test-dos-safety-k04-mutant \
+        test-dos-safety-audit test-dos-safety-audit-mutant test-dos-safety-del-failure test-dos-safety-del-failure-mutant \
+        test-dos-safety-k15 test-dos-safety-k15-mutant
 test-dos-safety-identity: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST)
 	@sh harness/diff/fat_diff/dos_safety.sh identity unused
 test-dos-safety-identity-mutant: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST_MUT)
@@ -25959,6 +25966,18 @@ test-dos-safety-del-failure-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD
 	printf 'VERDICT: PASS -- test-dos-safety-del-failure-mutant (silent failed unlink: diagnostic missing, RED)\n'
 test-dos-safety-audit: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
 	@sh harness/diff/fat_diff/dos_safety.sh audit $(TRACER_IMG)
+test-dos-safety-k15: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k15n $(TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k15y $(TRACER_IMG)
+test-dos-safety-k15-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_k15.img $(BUILD)/tracer_mut_safety_yesall.img $(BUILD)/tracer_mut_safety_refusey.img
+	@for item in 'k15:k15n:non-Y response changed disk' 'yesall:k15n:non-Y response changed disk' 'refusey:k15y:DELTEST/*.TXT still present'; do \
+	    tag=$${item%%:*}; rest=$${item#*:}; mode=$${rest%%:*}; why=$${rest#*:}; log=$(BUILD)/dos_safety_$$tag.log; \
+	    sh harness/diff/fat_diff/dos_safety.sh "$$mode" $(BUILD)/tracer_mut_safety_$$tag.img _$$tag > "$$log" 2>&1; rc=$$?; \
+	    [ $$rc -ne 0 ] && grep -qF "FAIL $$mode: $$why" "$$log" \
+	    || { cat "$$log"; exit 1; }; \
+	    printf '>>> test-dos-safety-k15-mutant: %s RED -- %s\n' "$$tag" "$$why"; \
+	done
+	@printf 'VERDICT: PASS -- test-dos-safety-k15-mutant (no prompt / non-Y accepted / Y refused each RED)\n'
 test-dos-safety-audit-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRACER_IMG) $(BUILD)/tracer_mut_safety_k02.img $(BUILD)/tracer_mut_safety_k03.img
 	@for item in 'k01:$(OJXN_MUT_TRACER_IMG):SELF.BIN bytes changed' \
 	    'k02:$(BUILD)/tracer_mut_safety_k02.img:FILLED/README.TXT missing' \
@@ -27125,6 +27144,7 @@ TEST_EMU_GATES := \
 	test-dos-safety-k02 test-dos-safety-k02-mutant \
 	test-dos-safety-k03 test-dos-safety-k03-mutant test-dos-safety-k04 test-dos-safety-k04-mutant \
 	test-dos-safety-audit test-dos-safety-audit-mutant test-dos-safety-del-failure test-dos-safety-del-failure-mutant \
+	test-dos-safety-k15 test-dos-safety-k15-mutant \
 	test-readerr-winh test-readerr-winh-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-fpu test-fpu-mutant test-fpu-bochs test-fpu-absent test-fpu-absent-mutant test-fpu-mf test-fpu-mf-mutant \

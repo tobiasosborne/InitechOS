@@ -1675,8 +1675,9 @@ static void dos_setdta(void *dta)
         : "cc", "memory");
 }
 
-/* AH=4Eh FINDFIRST: EDX -> ASCIIZ file spec, ECX = attribute mask. Returns 1 on
- * a hit (CF clear), 0 on no-match (CF set). */
+/* AH=4Eh FINDFIRST: return 0 on a hit, otherwise the DOS error code. DEL needs
+ * to distinguish exhaustion from a failed search; legacy callers use the bool
+ * wrapper below. */
 static uint16_t dos_findfirst_result(const char *spec, uint16_t attr)
 {
     uint32_t ax = 0x4E00u;
@@ -2789,6 +2790,34 @@ static void builtin_del(const char *arg)
     }
     cmd_upcase_str(name);                       /* DOS upcases 8.3 names */
 
+    int prefix = 0;
+    for (int i = 0; name[i]; i++)
+        if (name[i] == '\\' || name[i] == ':') prefix = i + 1;
+#ifndef CMD_MUTATE_DEL_NO_CONFIRM
+    const char *pattern = name + prefix;
+    if (pattern[0] == '*' && pattern[1] == '.' &&
+        pattern[2] == '*' && pattern[3] == '\0') {
+        /* Ref: MS-DOS 3.3 User's Reference pp. 13, 56 (qualified *.* + exact
+         * prompt); IBM DOS 3.10 Reference p. 7-78 (y/n then Enter).
+         * Audit K15 / initech-jzhh: ask BEFORE enumeration or any mutation.
+         * Only a single Y (case-insensitive) grants deletion; everything else
+         * returns without touching the disk. MSG-DOS-0012 is already locked. */
+        uint8_t answer[CMD_LINE_MAX + 2];
+        answer[0] = CMD_LINE_MAX;
+        answer[1] = 0u;
+        dos_print(MSG_DOS_0012 " $");
+        dos_getline(answer);
+        int yes = answer[1] == 1u && cmd_upcase_char((char)answer[2]) == 'Y';
+#ifdef CMD_MUTATE_DEL_YES_ALWAYS
+        yes = 1; /* Rule 6: non-Y refusal must bite on disk preservation. */
+#endif
+#ifdef CMD_MUTATE_DEL_REFUSE_Y
+        yes = 0; /* Rule 6: approved deletion must actually take place. */
+#endif
+        if (!yes) return;
+    }
+#endif
+
     if (!cmd_has_wildcard(name)) {
         /* Plain name: a single UNLINK. Not-found -> "File not found". */
         if (dos_unlink(name) != 0u) {
@@ -2803,9 +2832,6 @@ static void builtin_del(const char *arg)
         char previous[13];
         char path[CMD_LINE_MAX];
         int deleted = 0;
-        int prefix = 0;
-        for (int i = 0; name[i]; i++)
-            if (name[i] == '\\' || name[i] == ':') prefix = i + 1;
 
         dos_setdta(&g_shell_dta);
         for (;;) {
