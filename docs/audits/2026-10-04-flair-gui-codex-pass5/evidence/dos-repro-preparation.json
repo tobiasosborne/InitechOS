@@ -1,0 +1,41 @@
+{
+  "steps": [
+    {
+      "argv": [
+        "mcopy",
+        "-i",
+        "images/dos-repro-data.img",
+        "fixtures/SELF.BIN",
+        "::/SELF.BIN"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "mmd",
+        "-i",
+        "images/dos-repro-data.img",
+        "::/FILLED"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "mcopy",
+        "-i",
+        "images/dos-repro-data.img",
+        "fixtures/ROOTKEEP.TXT",
+        "::/FILLED/SAVE.TXT"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "payload_bytes": 8192,
+  "payload_sha256": "dc404a613fedaeb54034514bc6505f56b933caa5250299ba7d094377a51caa46"
+}

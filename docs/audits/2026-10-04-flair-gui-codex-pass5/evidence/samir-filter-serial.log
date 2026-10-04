@@ -1,0 +1,80 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x005324C4
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DESKTOP-DB-CREATE
+TRASH-CREATE
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. use clients
+15  Not a dBASE database.
+. use clients.dbf
+. list for bal > 1000
+       1 PESTON     HONOLULU     1234.50
+       3 LUMBERGH   DALLAS       7777.77
+. set filter to bal > 1000
+. ? filter()
+31  Invalid function name.
+. go top
+. list
+       1 PESTON     HONOLULU     1234.50
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+. go 2
+. ? bal > 1000
+
+.F.. set filter to
+. set deleted on
+7  File already exists.
+. go top
+. delete
+. list
+       1 PESTON     HONOLULU     1234.50
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+. recall
+. display structure
+1  Internal error.
+. quit
+FLAIR-TEXT-EXIT rc=0
+FLAIR-RESUME
+FLAIR-TICK n=1307
+FLAIR-EVT what=4 where=320,240 msg=00001C0A
+FLAIR-TICK n=1310
+FLAIR-TICK n=1313
+FLAIR-TICK n=1316

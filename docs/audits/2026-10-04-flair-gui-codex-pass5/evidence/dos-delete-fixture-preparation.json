@@ -1,0 +1,277 @@
+[
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "images/dos-data.img",
+      "::/DELTEST"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/ROOTKEEP.TXT",
+      "::/KEEP.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/KEEP.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z00.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z01.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z02.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z03.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z04.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z05.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z06.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z07.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z08.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z09.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z10.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z11.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z12.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z13.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z14.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z15.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z16.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z17.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z18.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SUBKEEP.TXT",
+      "::/DELTEST/Z19.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

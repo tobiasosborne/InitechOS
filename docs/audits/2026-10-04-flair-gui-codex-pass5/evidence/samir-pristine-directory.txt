@@ -1,0 +1,9 @@
+ Volume in drive : has no label
+ Volume Serial Number is 2B4B-1C3C
+Directory for ::/
+
+SAMIR    COM     80928 2026-10-04  22:56 
+CLIENTS  DBF       223 2026-10-04  22:56 
+        2 files              81 151 bytes
+                          1 375 744 bytes free
+

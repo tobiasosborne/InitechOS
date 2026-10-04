@@ -1,0 +1,32 @@
+{
+  "records": [
+    {
+      "record": 1,
+      "deleted": false,
+      "name": "PESTON",
+      "city": "BERLIN",
+      "bal": "9999.99"
+    },
+    {
+      "record": 2,
+      "deleted": false,
+      "name": "WADDAMS",
+      "city": "AUSTIN",
+      "bal": "-42.00"
+    },
+    {
+      "record": 3,
+      "deleted": false,
+      "name": "LUMBERGH",
+      "city": "DALLAS",
+      "bal": "7777.77"
+    },
+    {
+      "record": 4,
+      "deleted": false,
+      "name": "AUDIT",
+      "city": "BONN",
+      "bal": "42.50"
+    }
+  ]
+}

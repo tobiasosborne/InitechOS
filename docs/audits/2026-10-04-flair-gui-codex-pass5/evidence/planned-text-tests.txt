@@ -1,0 +1,3 @@
+Planned SAMIR: USE/LIST, navigation/filter/search, expressions, aggregates/structure, BROWSE/EDIT/CREATE/ASSIST/HELP, APPEND BLANK/REPLACE/DELETE/RECALL/PACK, CLOSE/reopen, disk PRG, bad input, QUIT, compare desktop, repeat.
+Planned DOS: DIR paths/patterns/switches, TYPE, nested MD/CD/RD, simple COPY/REN/DEL, alias COPY, wildcard COPY/REN/DEL and batch FOR, batch IF/CALL/GOTO/SHIFT, > >> < pipes, PATH programs, env, line editing, bad input, date/time.
+Plans are not claims of executed coverage. Actions/logs supply actual coverage.

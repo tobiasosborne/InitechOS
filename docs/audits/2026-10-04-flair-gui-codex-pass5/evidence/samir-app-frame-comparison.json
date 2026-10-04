@@ -1,0 +1,6 @@
+{
+  "pre": "shots/174-disk-app-before-suspend.png",
+  "post": "shots/178-disk-app-after-suspend.png",
+  "identical": true,
+  "difference_bbox": null
+}

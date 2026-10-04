@@ -1,0 +1,147 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x0051D300
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          114
+CHECK.BAT          138
+CHILD.BAT           26
+SAMIR.COM        80928
+CLIENTS.DBF          223
+FLOW.BAT          160
+KEEP.TXT           15
+SELF.BIN         8192
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z accepted(deferred)
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>copy self.bin .\self.bin
+File cannot be copied onto itself
+        0 file(s) copied
+A:\>dir
+
+ Directory of A:\
+
+README.TXT           114
+APPS               <DIR>
+CHECK.BAT            138
+CHILD.BAT             26
+SAMIR.COM          80928
+CLIENTS.DBF          223
+FLOW.BAT             160
+DELTEST            <DIR>
+KEEP.TXT              15
+SELF.BIN            8192
+FILLED             <DIR>
+
+11 file(s)
+A:\>copy self.bin a:\self.bin
+Bad command or file name
+A:\>dir
+
+ Directory of A:\
+
+README.TXT           114
+APPS               <DIR>
+CHECK.BAT            138
+CHILD.BAT             26
+SAMIR.COM          80928
+CLIENTS.DBF          223
+FLOW.BAT             160
+DELTEST            <DIR>
+KEEP.TXT              15
+SELF.BIN             512
+FILLED             <DIR>
+
+11 file(s)
+A:\>type filled\save.txt
+ROOT-SENTINEL
+
+A:\>copy readme.txt filled
+        1 file(s) copied
+A:\>cd filled
+Invalid directory
+A:\>type filled
+InitechOS flagship data volume.
+Desktop state is stored in DESKTOP.DB.
+Applications belong in the APPS directory.
+
+A:\>type keep.txt
+ROOT-SENTINEL
+
+A:\>type deltest\keep.txt
+SUB-SENTINEL
+
+A:\>del deltest\*.txt
+A:\>type keep.txt
+File not found
+A:\>type deltest\keep.txt
+SUB-SENTINEL
+
+A:\>cd deltest
+A:\DELTEST>del z*.txt
+A:\DELTEST>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+KEEP.TXT              14
+Z16.TXT               14
+Z17.TXT               14
+Z18.TXT               14
+Z19.TXT               14
+
+7 file(s)
+A:\DELTEST>del *.*
+A:\DELTEST>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+
+2 file(s)
+A:\DELTEST>

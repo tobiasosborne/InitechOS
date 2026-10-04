@@ -1,0 +1,208 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x005324C4
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DESKTOP-DB-CREATE
+TRASH-CREATE
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-CURSOR x=160 y=120
+FLAIR-TICK n=4
+FLAIR-CURSOR x=0 y=0
+FLAIR-TICK n=7
+FLAIR-TICK n=10
+FLAIR-TICK n=13
+FLAIR-CURSOR x=75 y=8
+FLAIR-CURSOR x=225 y=24
+FLAIR-CURSOR x=450 y=48
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-DISPATCH app=FINDER
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name= count=1
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-OPEN-VOLUME win=0 n=4
+FLAIR-CURSOR x=440 y=0
+FLAIR-CURSOR x=200 y=0
+FLAIR-CURSOR x=40 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=60 y=23
+FLAIR-CURSOR x=180 y=70
+FLAIR-EVT what=1 where=180,70 msg=00000000
+FLAIR-CURSOR x=250 y=110
+FLAIR-EVT what=2 where=250,110 msg=00000000
+FLAIR-DRAG win 0 (20,60)->(90,100)
+FLAIR-EVT what=3 where=250,110 msg=0000316E
+FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0
+FINDER-NEW-FOLDER name=NEWFOLD parent=0
+FLAIR-EVT what=4 where=250,110 msg=0000316E
+FLAIR-EVT what=3 where=250,110 msg=0000316E
+FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0
+FINDER-NEW-FOLDER name=NEWFOL02 parent=0
+FLAIR-EVT what=4 where=250,110 msg=0000316E
+FLAIR-CURSOR x=170 y=50
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=100 y=210
+FLAIR-EVT what=1 where=100,210 msg=00000000
+FLAIR-EVT what=2 where=100,210 msg=00000000
+FINDER-WIN-DESELECT-ALL win=0
+FLAIR-CURSOR x=20 y=150
+FLAIR-CURSOR x=0 y=30
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=143 y=44
+FLAIR-CURSOR x=358 y=109
+FLAIR-CURSOR x=430 y=131
+FLAIR-EVT what=1 where=430,131 msg=00000000
+FLAIR-SCROLL-IGNORED win 0 v
+FLAIR-EVT what=2 where=430,131 msg=00000000
+FLAIR-CURSOR x=190 y=0
+FLAIR-CURSOR x=30 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=75 y=42
+FLAIR-CURSOR x=225 y=125
+FLAIR-CURSOR x=375 y=208
+FLAIR-CURSOR x=450 y=250
+FLAIR-EVT what=1 where=450,250 msg=00000000
+FLAIR-EVT what=2 where=450,250 msg=00000000
+FLAIR-DRAG win 0 (90,100)->(90,100)
+FLAIR-CURSOR x=370 y=190
+FLAIR-CURSOR x=210 y=70
+FLAIR-CURSOR x=50 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=71 y=54
+FLAIR-CURSOR x=214 y=163
+FLAIR-CURSOR x=357 y=271
+FLAIR-CURSOR x=500 y=380
+FLAIR-EVT what=3 where=500,380 msg=00002B5C
+FLAIR-SUSPEND
+. use clients.dbf
+. set filter to bal > 1000
+. list
+       1 PESTON     HONOLULU     1234.50
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+. set filter to
+. sum bal
+16  *** Unrecognized command verb.
+. count
+16  *** Unrecognized command verb.
+. display structure
+1  Internal error.
+. browse
+16  *** Unrecognized command verb.
+. edit
+16  *** Unrecognized command verb.
+. append
+7  File already exists.
+. create audit
+16  *** Unrecognized command verb.
+. assist
+16  *** Unrecognized command verb.
+. help
+16  *** Unrecognized command verb.
+. go top
+. replace bal with 9999.99
+. replace city with "BERLIN"
+. append blank
+. replace name with "AUDIT", city with "BONN", bal with 42.50
+. list
+       1 PESTON     BERLIN       9999.99
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+       4 AUDIT      BONN         42.50
+. close
+. use clients.dbf
+. list
+       1 PESTON     BERLIN       9999.99
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+       4 AUDIT      BONN         42.50
+. go bottom
+. delete
+. set deleted on
+7  File already exists.
+. list
+       1 PESTON     BERLIN       9999.99
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+       4 AUDIT      BONN         42.50
+. set deleted off
+7  File already exists.
+. go bottom
+. recall
+. list
+       1 PESTON     BERLIN       9999.99
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+       4 AUDIT      BONN         42.50
+. copy to backup
+16  *** Unrecognized command verb.
+. do update
+16  *** Unrecognized command verb.
+. nonsense command
+16  *** Unrecognized command verb.
+. ? 1 / 0
+39  Numeric overflow (data was lost).
+. quit
+FLAIR-TEXT-EXIT rc=0
+FLAIR-RESUME
+FLAIR-CURSOR x=420 y=320
+FLAIR-CURSOR x=260 y=200
+FLAIR-CURSOR x=100 y=80
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=75 y=8
+FLAIR-CURSOR x=225 y=24
+FLAIR-CURSOR x=450 y=48
+FLAIR-CURSOR x=600 y=64
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-ICON-SELECT name= count=1
+FLAIR-EVT what=1 where=600,64 msg=00000000
+FLAIR-EVT what=2 where=600,64 msg=00000000
+FINDER-OPEN-VOLUME win=0 n=6
+FLAIR-CURSOR x=440 y=0
+FLAIR-CURSOR x=280 y=0
+FLAIR-CURSOR x=120 y=0
+FLAIR-CURSOR x=0 y=0
+FLAIR-CURSOR x=215 y=66
+FLAIR-CURSOR x=358 y=109
+FLAIR-CURSOR x=430 y=131
+FLAIR-EVT what=1 where=430,131 msg=00000000
+FLAIR-SCROLL-IGNORED win 0 v
+FLAIR-EVT what=2 where=430,131 msg=00000000
+FLAIR-EVT what=3 where=430,131 msg=00000F09
+FLAIR-EVT what=4 where=430,131 msg=00000F09

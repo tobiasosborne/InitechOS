@@ -1,0 +1,182 @@
+[
+  [
+    "type",
+    "use clients.dbf"
+  ],
+  [
+    "type",
+    "list"
+  ],
+  [
+    "type",
+    "? reccount(), recno(), eof()"
+  ],
+  [
+    "type",
+    "go top"
+  ],
+  [
+    "type",
+    "display"
+  ],
+  [
+    "type",
+    "skip"
+  ],
+  [
+    "type",
+    "display"
+  ],
+  [
+    "type",
+    "locate for name = \"WADDAMS\""
+  ],
+  [
+    "type",
+    "? found(), recno()"
+  ],
+  [
+    "type",
+    "continue"
+  ],
+  [
+    "type",
+    "? found(), eof()"
+  ],
+  [
+    "type",
+    "set filter to bal > 1000"
+  ],
+  [
+    "type",
+    "list"
+  ],
+  [
+    "type",
+    "set filter to"
+  ],
+  [
+    "type",
+    "sum bal"
+  ],
+  [
+    "type",
+    "count"
+  ],
+  [
+    "type",
+    "display structure"
+  ],
+  [
+    "type",
+    "browse"
+  ],
+  [
+    "type",
+    "edit"
+  ],
+  [
+    "type",
+    "append"
+  ],
+  [
+    "type",
+    "create audit"
+  ],
+  [
+    "type",
+    "assist"
+  ],
+  [
+    "type",
+    "help"
+  ],
+  [
+    "type",
+    "go top"
+  ],
+  [
+    "type",
+    "replace bal with 9999.99"
+  ],
+  [
+    "type",
+    "replace city with \"BERLIN\""
+  ],
+  [
+    "type",
+    "append blank"
+  ],
+  [
+    "type",
+    "replace name with \"AUDIT\", city with \"BONN\", bal with 42.50"
+  ],
+  [
+    "type",
+    "list"
+  ],
+  [
+    "type",
+    "close"
+  ],
+  [
+    "type",
+    "use clients.dbf"
+  ],
+  [
+    "type",
+    "list"
+  ],
+  [
+    "type",
+    "go bottom"
+  ],
+  [
+    "type",
+    "delete"
+  ],
+  [
+    "type",
+    "set deleted on"
+  ],
+  [
+    "type",
+    "list"
+  ],
+  [
+    "type",
+    "set deleted off"
+  ],
+  [
+    "type",
+    "go bottom"
+  ],
+  [
+    "type",
+    "recall"
+  ],
+  [
+    "type",
+    "list"
+  ],
+  [
+    "type",
+    "copy to backup"
+  ],
+  [
+    "type",
+    "do update"
+  ],
+  [
+    "type",
+    "nonsense command"
+  ],
+  [
+    "type",
+    "? 1 / 0"
+  ],
+  [
+    "type",
+    "quit"
+  ]
+]

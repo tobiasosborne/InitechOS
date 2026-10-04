@@ -1,0 +1,26 @@
+[
+  {
+    "file": "shots/98-mixed-block-12.png",
+    "identical_to": "shots/98-mixed-block-12.png",
+    "identical": true,
+    "difference_bbox": null
+  },
+  {
+    "file": "shots/98-mixed-block-3.png",
+    "identical_to": "shots/98-mixed-block-12.png",
+    "identical": true,
+    "difference_bbox": null
+  },
+  {
+    "file": "shots/98-mixed-block-6.png",
+    "identical_to": "shots/98-mixed-block-12.png",
+    "identical": true,
+    "difference_bbox": null
+  },
+  {
+    "file": "shots/98-mixed-block-9.png",
+    "identical_to": "shots/98-mixed-block-12.png",
+    "identical": true,
+    "difference_bbox": null
+  }
+]

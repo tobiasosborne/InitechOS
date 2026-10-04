@@ -1,0 +1,18 @@
+{
+  "ONEOUT-extracted.txt": {
+    "text": ". . ",
+    "hex": "2e202e20"
+  },
+  "DBOUT-extracted.txt": {
+    "text": ". 36  Unrecognized phrase/keyword in command.\n. ",
+    "hex": "2e2033362020556e7265636f676e697a6564207068726173652f6b6579776f726420696e20636f6d6d616e642e0a2e20"
+  },
+  "INPUT-extracted.txt": {
+    "text": "use clients.dbf\nlist\nquit\n",
+    "hex": "75736520636c69656e74732e6462660d0a6c6973740d0a717569740d0a"
+  },
+  "AGAIN-extracted.txt": {
+    "text": ". 36  Unrecognized phrase/keyword in command.\n. ",
+    "hex": "2e2033362020556e7265636f676e697a6564207068726173652f6b6579776f726420696e20636f6d6d616e642e0a2e20"
+  }
+}

@@ -1,0 +1,9 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/
+
+APPS         <DIR>     1980-01-01   0:00 
+TRASH        <DIR>     1980-00-00   0:00 
+        2 files                   0 bytes
+                          1 445 376 bytes free
+

@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "mcopy",
+    "-i",
+    "images/samir-data.img",
+    "fixtures/UPDATE.PRG",
+    "::/UPDATE.PRG"
+  ],
+  "rc": 0,
+  "stdout": "",
+  "stderr": ""
+}

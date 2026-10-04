@@ -1,0 +1,25 @@
+{
+  "fields": [
+    {
+      "name": "NAME",
+      "type": "C",
+      "length": 10,
+      "decimals": 0
+    },
+    {
+      "name": "CITY",
+      "type": "C",
+      "length": 12,
+      "decimals": 0
+    },
+    {
+      "name": "BAL",
+      "type": "N",
+      "length": 8,
+      "decimals": 2
+    }
+  ],
+  "header": 129,
+  "record_len": 31,
+  "records": 3
+}

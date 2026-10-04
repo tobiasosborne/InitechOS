@@ -1,0 +1,22 @@
+{
+  "images/pristine-data.img": {
+    "bytes": 1474560,
+    "sha256": "84390fdb93bfe532d7e927a0bd83d918ec6f00c71c7bf5c368d56e09e2f4c4e4"
+  },
+  "images/pristine-samir.img": {
+    "bytes": 1474560,
+    "sha256": "6744b68f2a3cc7349778d7ad2aa4beaa662441e752124e4cd4bfaada18dca0b0"
+  },
+  "images/pristine-dos.img": {
+    "bytes": 229376,
+    "sha256": "e4684585c88d9c3cac3faf55ed56b2d1e0e11dd2b395d7a6c24d345d61263200"
+  },
+  "images/pristine-boot.img": {
+    "bytes": 229376,
+    "sha256": "f3412f052d85c94379f64ffeedb1744bca0e5d43301c4ba0f51852b64ccfdb54"
+  },
+  "images/pristine-bounded.img": {
+    "bytes": 229376,
+    "sha256": "6aaa7158dcc77a3f4d8ca13bad361e0ab8d6cddc7bd19a076a3aa8dd008d0a1f"
+  }
+}

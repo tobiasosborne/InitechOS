@@ -1,0 +1,14 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/DELTEST
+
+.            <DIR>     2026-10-04  23:14 
+..           <DIR>     2026-10-04  23:14 
+KEEP     TXT        14 2026-10-04  23:14 
+Z16      TXT        14 2026-10-04  23:14 
+Z17      TXT        14 2026-10-04  23:14 
+Z18      TXT        14 2026-10-04  23:14 
+Z19      TXT        14 2026-10-04  23:14 
+        7 files                  70 bytes
+                          1 364 480 bytes free
+

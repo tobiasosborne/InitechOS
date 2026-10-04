@@ -1,0 +1,38 @@
+[
+  {
+    "argv": [
+      "mdir",
+      "-i",
+      "images/dos-data.img",
+      "::/"
+    ],
+    "rc": 0,
+    "stdout": " Volume in drive : is INITECH    \n Volume Serial Number is 494E-4954\nDirectory for ::/\n\nREADME   TXT       114 1980-01-01   0:00 \nAPPS         <DIR>     1980-01-01   0:00 \nCHECK    BAT       138 2026-10-04  23:04 \nCHILD    BAT        26 2026-10-04  23:04 \nSAMIR    COM     80928 2026-10-04  23:04 \nCLIENTS  DBF       223 2026-10-04  23:04 \nFLOW     BAT       160 2026-10-04  23:12 \n        7 files              81 589 bytes\n                          1 372 160 bytes free\n\n",
+    "stderr": "",
+    "sha256": "7f1633a2bb1492e8d163589ce290e724422aea8416531a6127d9e88748449ddd"
+  },
+  {
+    "argv": [
+      "mdir",
+      "-i",
+      "images/samir-data.img",
+      "::/"
+    ],
+    "rc": 0,
+    "stdout": " Volume in drive : has no label\n Volume Serial Number is 2B4B-1C3C\nDirectory for ::/\n\nSAMIR    COM     80928 2026-10-04  22:56 \nCLIENTS  DBF       223 2026-10-04  22:56 \nUPDATE   PRG        67 2026-10-04  23:12 \n        3 files              81 218 bytes\n                          1 375 232 bytes free\n\n",
+    "stderr": "",
+    "sha256": "147afd98e4df215ff1091d0cee8c2a8765b14b30fe571d8d4704e645b977ee74"
+  },
+  {
+    "argv": [
+      "mdir",
+      "-i",
+      "images/services-data.img",
+      "::/"
+    ],
+    "rc": 0,
+    "stdout": " Volume in drive : is INITECH    \n Volume Serial Number is 494E-4954\nDirectory for ::/\n\nREADME   TXT       114 1980-01-01   0:00 \nAPPS         <DIR>     1980-01-01   0:00 \n        2 files                 114 bytes\n                          1 454 080 bytes free\n\n",
+    "stderr": "",
+    "sha256": "b0df0e4c9f38683eb5df6bf10409c139c5e324de30304b040df36759727edbe6"
+  }
+]

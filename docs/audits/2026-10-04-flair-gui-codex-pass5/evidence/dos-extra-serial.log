@@ -1,0 +1,135 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x0051D300
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          114
+CHECK.BAT          138
+CHILD.BAT           26
+SAMIR.COM        80928
+CLIENTS.DBF          223
+FLOW.BAT          160
+KEEP.TXT           15
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z accepted(deferred)
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>echo use clients.dbf > input.txt
+A:\>echo list >> input.txt
+A:\>echo quit >> input.txt
+A:\>samir < input.txt > dbout.txt
+A:\>type dbout.txt
+. 36  Unrecognized phrase/keyword in command.
+. 
+A:\>echo first | echo second
+second
+A:\>samir
+. use clients.dbf
+. list
+       1 PESTON     HONOLULU     1234.50
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+. quit
+A:\>set path=apps
+A:\>set
+COMSPEC=A:\COMMAND.COM
+PROMPT=$P$G
+PATH=apps
+A:\>date
+Current date is Sun 10-04-2026
+A:\>time
+Current time is 21:27:49.00
+A:\>date 13-99-1991
+Invalid date
+Current date is Sun 10-04-2026
+A:\>time 25:61
+Invalid time
+Current time is 21:27:51.00
+A:\>md
+Required parameter missing
+A:\>rd
+Required parameter missing
+A:\>copy
+Required parameter missing
+A:\>ren
+Required parameter missing
+A:\>cd absent
+Invalid directory
+A:\>badcommand
+Bad command or file name
+A:\>type missing.txt
+File not found
+A:\>echo bad >
+Required parameter missing
+A:\>type input.txt
+use clients.dbf
+list
+quit
+
+A:\>echo use clients.dbf > one.txt
+A:\>samir < one.txt > oneout.txt
+A:\>type oneout.txt
+. . 
+A:\>samir < input.txt > again.txt
+A:\>type again.txt
+. 36  Unrecognized phrase/keyword in command.
+. 
+A:\>type prn
+Bad command or file name
+A:\>break
+BREAK is on
+A:\>echo ac d
+ad
+A:\>doskey
+Bad command or file name
+A:\>help
+Bad command or file name
+A:\>vol
+Bad command or file name
+A:\>path
+Bad command or file name
+A:\>c:
+Bad command or file name
+A:\>

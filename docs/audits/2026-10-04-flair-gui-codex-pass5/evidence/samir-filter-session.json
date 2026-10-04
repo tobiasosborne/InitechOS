@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-04T21:23:02.004591+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 15,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/pass5/images/samir-filter-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/pass5/evidence/samir-filter-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/pass5/images/samir-filter-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/samir-filter-boot.img": {
+      "bytes": 229376,
+      "sha256": "f3412f052d85c94379f64ffeedb1744bca0e5d43301c4ba0f51852b64ccfdb54"
+    },
+    "images/samir-filter-data.img": {
+      "bytes": 1474560,
+      "sha256": "6744b68f2a3cc7349778d7ad2aa4beaa662441e752124e4cd4bfaada18dca0b0"
+    }
+  },
+  "stopped_utc": "2026-10-04T21:23:16.068738+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/samir-filter-boot.img": {
+      "bytes": 229376,
+      "sha256": "f3412f052d85c94379f64ffeedb1744bca0e5d43301c4ba0f51852b64ccfdb54"
+    },
+    "images/samir-filter-data.img": {
+      "bytes": 1474560,
+      "sha256": "f52aaa6827f17365a7152e410933304dd0c520f8549bc6e1dc51a86598976d2f"
+    }
+  }
+}

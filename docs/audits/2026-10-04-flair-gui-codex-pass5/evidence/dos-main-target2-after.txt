@@ -1,0 +1,8 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/
+
+TARGET2            114 1980-00-00   0:00 
+        1 file                  114 bytes
+                          1 364 480 bytes free
+

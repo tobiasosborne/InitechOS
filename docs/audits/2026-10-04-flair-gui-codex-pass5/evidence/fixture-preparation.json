@@ -1,0 +1,109 @@
+[
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "images/services-data.img",
+      "::/APPS/TRASH"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/services-data.img",
+      "fixtures/service.txt",
+      "::/APPS/DESKTOP.DB"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/services-data.img",
+      "fixtures/service.txt",
+      "::/APPS/TRASH/SECRET.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/CHECK.BAT",
+      "::/CHECK.BAT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/CHILD.BAT",
+      "::/CHILD.BAT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/pristine-samir.img",
+      "::/SAMIR.COM",
+      "fixtures/SAMIR.COM"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/pristine-samir.img",
+      "::/CLIENTS.DBF",
+      "fixtures/CLIENTS.DBF"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/SAMIR.COM",
+      "::/SAMIR.COM"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/dos-data.img",
+      "fixtures/CLIENTS.DBF",
+      "::/CLIENTS.DBF"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "duration_seconds": 949.054855,
+  "duration_minutes": 15.817580916666666,
+  "loads": 20,
+  "exits": 20,
+  "heap_values": [
+    "3523968"
+  ],
+  "new_folders": 17,
+  "opened_folders": 27,
+  "scroll_operations": 9,
+  "new_panics": false,
+  "actions": 2758
+}

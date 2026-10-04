@@ -1,0 +1,37 @@
+[
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "images/samir-data.img",
+      "::/APPS"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/pristine-data.img",
+      "::/APPS/TENANTFX.EXE",
+      "fixtures/TENANTFX.EXE"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-i",
+      "images/samir-data.img",
+      "fixtures/TENANTFX.EXE",
+      "::/APPS/TENANTFX.EXE"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]
