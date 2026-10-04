@@ -488,13 +488,16 @@ static void test_modaldialog_click_ok(void)
 
     /* Post a mouseDown inside item 1's rect.
      * Ref: event.c flair_event_init -- cursor starts at SCREEN CENTER (320, 240).
-     * portRect = bounds = {top=100, left=100, ...}.
-     * ModalDialog: local.h = global.h - portRect.left; local.v = global.v - portRect.top.
-     * r1 (local): left=120, right=220, top=120, bottom=150.
-     * To hit local (200, 135): global (300, 235).
-     * post_mousedown posts delta from center (320,240) -> (-20, -5); small int8_t.
+     * RE-KEYED (bead initech-6k12, stated): item rects are GLOBAL -- the
+     * space DrawDialog paints them in, FileCopyDialog builds them in and
+     * MoveDialog moves them in -- and the click is hit-tested there (the old
+     * "local = global - portRect" subtraction made a click on a DRAWN button
+     * miss it). r1 = [120,220) x [120,150) on screen, inside the dialog
+     * bounds (100,100)..(500,300). Click its middle, global (200, 135).
+     * post_mousedown posts delta from center (320,240) -> (-120, -105).
+     * Mutant DIALOG_MUTATE_LOCAL_HIT (the old subtraction) goes RED here.
      */
-    post_mousedown(&g_ring, 300, 235);
+    post_mousedown(&g_ring, 200, 135);
 
     uint16_t itemHit = 0;
     ModalDialog(dp, &g_ring, 0, 0, &itemHit);
@@ -556,10 +559,10 @@ static void test_modaldialog_click_disabled(void)
     CHECK(dp != 0, "setup_modal_dialog must succeed");
     if (!dp) { return; }
 
-    /* Click in item 3 (disabled button) at local (170, 215) ->
-     * global (100+170, 100+215) = (270, 315).
-     * Cursor starts at screen center (320, 240); delta = (-50, 75). */
-    post_mousedown(&g_ring, 270, 315);
+    /* Click in item 3 (disabled button), r3 = [120,220) x [200,230) global
+     * (re-keyed, bead initech-6k12: items are hit-tested where drawn) ->
+     * (170, 215). Cursor starts at screen center (320, 240). */
+    post_mousedown(&g_ring, 170, 215);
 
     uint16_t itemHit = 99; /* start with non-zero to prove it's cleared */
     ModalDialog(dp, &g_ring, 0, 0, &itemHit);
@@ -584,10 +587,10 @@ static void test_modaldialog_click_stattext(void)
     CHECK(dp != 0, "setup_modal_dialog must succeed");
     if (!dp) { return; }
 
-    /* Click in item 2 (statText) at local (200, 177) -> global (300, 277).
-     * r2: top=170, left=120, bottom=185, right=400 (local).
-     * Global: h=100+200=300, v=100+177=277. */
-    post_mousedown(&g_ring, 300, 277);
+    /* Click in item 2 (statText), r2 = [120,400) x [170,185) global
+     * (re-keyed, bead initech-6k12: items are hit-tested where drawn) ->
+     * (200, 177). */
+    post_mousedown(&g_ring, 200, 177);
 
     uint16_t itemHit = 0;
     ModalDialog(dp, &g_ring, 0, 0, &itemHit);

@@ -160,7 +160,8 @@ MenuInfo *finder_menu_apple(void);
  * bits mutate."
  *
  * It touches ONLY the items this resource declares predicate-driven (Open --
- * SELECTION_OPENABLE, bead initech-tdnl.38 -- and Close Window).
+ * SELECTION_OPENABLE, bead initech-tdnl.38 -- Close Window, and Empty Trash --
+ * TRASH_NONEMPTY, bead initech-6k12).
  * Every other byte is authored once in finder_menu.c and left alone:
  *   - the permanently-inert V1 decoration stays 0 (Print, Make Alias, Put
  *     Away, Find, Page Setup, Sharing, Eject, the Edit scrap rows, the eight
@@ -168,7 +169,7 @@ MenuInfo *finder_menu_apple(void);
  *     Computer),
  *   - the commands the shell does NOT implement yet stay 0 (bead
  *     initech-tdnl.36's rule "implemented or drawn disabled"): Get Info,
- *     Duplicate, Empty Trash, Restart, Shut Down -- each rejoins the predicate
+ *     Duplicate, Restart, Shut Down -- each rejoins the predicate
  *     map (or turns 1) when its own bead lands,
  *   - the always-live commands stay 1 (New Folder, Select All, by Icons,
  *     Clean Up in both menus, Arrange (by Name)).

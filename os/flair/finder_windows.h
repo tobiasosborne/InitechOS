@@ -489,6 +489,14 @@ typedef struct finder_shell {
      * and owned by os/flair/finder_ops.c. */
     finder_origin_rec_t  origins[FINDER_DB_MAX_ORIGINS];
     uint16_t             n_origins;
+    /* bead initech-6k12: what \TRASH holds, counted at EVERY depth by
+     * finder_shell_recount_trash (Sec 12) -- the Empty Trash predicate, the
+     * alert's "contains N items, which use NK" and the FULL icon all read
+     * these. trash_icon_dirty is set when the FULLNESS flips, so the pump can
+     * damage the desktop Trash cell exactly once. */
+    uint16_t             trash_items;
+    uint32_t             trash_bytes;
+    uint8_t              trash_icon_dirty;
 } finder_shell_t;
 
 /* ===========================================================================
@@ -818,5 +826,84 @@ const finder_view_rec_t *finder_shell_find_view(const finder_shell_t *sh,
  * Returns 1 when the set changed (commit needed). Called on close and after a
  * window move. */
 int finder_shell_save_view(finder_shell_t *sh, int slot);
+
+/* ===========================================================================
+ * 12. EMPTY TRASH  (bead initech-6k12, reslice 2/3 of initech-tdnl.11; audit
+ *     F04 "Special > Empty Trash disabled")
+ * ---------------------------------------------------------------------------
+ * WHAT A USER SEES. While \TRASH holds anything the desktop Trash draws FULL
+ * (desk_icons.h FLAIR_DESK_ICON_TRASH_FULL) and Special > Empty Trash is
+ * enabled (TRASH_NONEMPTY, finder_cmd.h). Choosing it puts up the CAUTION
+ * ALERT -- the Mac OS 8 Finder's own wording, from the corpus capture
+ * ../system7-decomp/goldens/captures/s8_alert_modal.png ("The Wastebasket
+ * contains 3 items, which use 16K of disk space. Are you sure you want to
+ * remove these items permanently?" -- the British localisation; this desktop
+ * names the icon "Trash", so "Trash" is substituted, which is the US
+ * Finder's name for the same object) with Cancel and OK, OK the default.
+ * Cancel (or Escape) changes nothing. OK (or Return) PURGES: every item of
+ * \TRASH is deleted, files unlinked and folders emptied DEPTH-FIRST and then
+ * removed; the kind=5 origin records of the purged items go; an open Trash
+ * window empties; the icon goes back to EMPTY.
+ *
+ * THE CONFIRM IS NOT OPTIONAL, BY CONSTRUCTION. The command's execution hook
+ * (fw_do_empty_trash) only COUNTS and reports; the purge is a separate call,
+ * finder_shell_empty_trash, that only the kernel's alert makes, after OK.
+ * MUTANT (Rule 6): FINDER_WIN_MUT_EMPTY_NO_CONFIRM purges inside the hook --
+ * test-finder-ops O14 ("dispatch alone deletes nothing") and the Cancel leg
+ * of test-flair-empty-trash-mutant (mtools: the items are gone) go RED.
+ *
+ * COUNTS. items = every entry under \TRASH at every depth (files and folders;
+ * "." / ".." and volume labels are not items); bytes = the sum of their FAT
+ * byte sizes, shown as K rounded UP (a STATED deviation: the period Finder
+ * reported allocation-block usage; the binding exposes byte sizes, not the
+ * cluster size). The purge reports purged = entries deleted and refused =
+ * entries that would not go -- including a folder whose contents could not
+ * all go (it then cannot be removed either). On a clean purge purged == the
+ * items count the alert showed.
+ *
+ * DEPTH. The walk is iterative with a fixed stack of FINDER_TRASH_DEPTH levels
+ * (\TRASH itself is level 0). A folder nested deeper is REFUSED (counted in
+ * refused=), never silently skipped (Rule 2).
+ *
+ * SERIAL (emitted by os/milton/kmain.c):
+ *   DESK-TRASH-ICON full|empty            the Trash's fullness flipped (once)
+ *   FINDER-TRASH-ALERT n=<items> k=<K>    the confirm alert is up
+ *   FINDER-TRASH-EMPTY-CANCEL             Cancel / Escape: nothing purged
+ *   FINDER-TRASH-EMPTIED purged=<n> refused=<n>   OK: the purge ran
+ *
+ * PURGE PROTECTION, STATED (the bead's "documented no-op"): the period Finder
+ * refused to delete an item that was in use. Here a launched disk tenant's
+ * image is loaded whole into its arenas by tbx_launch, so unlinking its file
+ * does not disturb the running process -- and os/flair/tbxgate.h exposes no
+ * identity of the launched file to test against. No refusal is made; a
+ * follow-up bead owns "item in use" once the gate exposes the identity.
+ * ===========================================================================*/
+#define FINDER_TRASH_DEPTH      8
+#define FINDER_ALERT_LINES      4     /* message lines the alert can carry     */
+#define FINDER_ALERT_LINE_MAX  64     /* bytes per line incl. the NUL          */
+/* The message column's width in Chicago 12 pixels: the corpus alert's text
+ * starts at x 211 and its widest line ends at x 490 (s8_alert_modal.png,
+ * measured), inside a 285-px column (211 + 285 = 496, clear of the 7-px
+ * dBoxProc border of a frame ending at x 506). */
+#define FINDER_ALERT_TEXT_W   285
+
+/* Recount \TRASH into trash_items / trash_bytes and the desktop's trash_full;
+ * sets trash_icon_dirty and returns 1 when the FULLNESS flipped, else 0. A
+ * volume with no \TRASH counts as empty. */
+int finder_shell_recount_trash(finder_shell_t *sh);
+
+/* THE PURGE (only after the alert's OK). Returns FINDER_WIN_OK (inspect the
+ * counts), FINDER_WIN_ERR_NULL with no binding, or FINDER_WIN_ERR_NOTRASH.
+ * *out_db_dirty (may be NULL) is 1 when origin records were dropped. */
+finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
+                                             uint16_t *out_purged,
+                                             uint16_t *out_refused,
+                                             uint8_t *out_db_dirty);
+
+/* The alert's message for `items` / `bytes`, word-wrapped greedily into lines
+ * no wider than FINDER_ALERT_TEXT_W Chicago 12 pixels. Returns the line count
+ * (1..FINDER_ALERT_LINES). Pure. */
+int finder_trash_alert_text(uint16_t items, uint32_t bytes,
+                            char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
 
 #endif /* INITECH_OS_FLAIR_FINDER_WINDOWS_H */

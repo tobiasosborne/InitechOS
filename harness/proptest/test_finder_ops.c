@@ -101,7 +101,7 @@ static void store_attach(rgn_store_t *s)
 enum { MV_DIRS = 4, MV_ENTS = 26 };   /* 26: leg O11 root, 24 shown + 2 hidden */
 enum { CL_ROOT = 0, CL_APPS = 2, CL_TRASH = 3, CL_NEWFOLD = 9 };
 
-typedef struct mv_ent { char name[14]; uint8_t attr; uint16_t cluster; } mv_ent_t;
+typedef struct mv_ent { char name[14]; uint8_t attr; uint16_t cluster; uint32_t size; } mv_ent_t;
 typedef struct mv_dir { uint16_t cl; int n; mv_ent_t e[MV_ENTS]; } mv_dir_t;
 
 typedef struct mock {
@@ -110,6 +110,8 @@ typedef struct mock {
     int      move_calls, unlink_calls;
     int      force_move_rc;      /* != 0 -> move() returns this, changes nothing */
     int      no_trash;           /* 1 -> trash_dir() reports none               */
+    const char *refuse;          /* unlink of this name fails (O14)             */
+    char     log[256];           /* O14: the purge ops, in order                */
 } mock_t;
 
 static mv_dir_t *mv_dir(mock_t *m, uint16_t cl)
@@ -148,7 +150,7 @@ static int m_enum(void *u, uint16_t cl, finder_enum_cb cb, void *cu)
         finder_dirent_t e; int rc;
         memset(m->scratch, 0, sizeof m->scratch);
         strncpy(m->scratch, d->e[i].name, sizeof m->scratch - 1);
-        e.name83 = m->scratch; e.attribute = d->e[i].attr; e.size = 0u;
+        e.name83 = m->scratch; e.attribute = d->e[i].attr; e.size = d->e[i].size;
         e.start_cluster = d->e[i].cluster;
         rc = cb(&e, cu);
         memset(m->scratch, 'Z', sizeof m->scratch - 1);
@@ -171,6 +173,7 @@ static int m_move(void *u, const char *src, uint16_t sd, const char *dst, uint16
     if (i < 0) return (int)FINDER_WIN_ERR_MOVE;
     if (mv_find(d, nn) >= 0) return (int)FINDER_WIN_ERR_EXISTS;
     mv_add(d, nn, s->e[i].attr, s->e[i].cluster);
+    d->e[d->n - 1].size = s->e[i].size;      /* a move keeps the bytes      */
     mv_del(s, i);
     return 0;
 }
@@ -191,6 +194,24 @@ static int m_unlink(void *u, const char *n, uint16_t dir)
     int i;
     m->unlink_calls++;
     if (d == NULL || (i = mv_find(d, n)) < 0) return (int)FINDER_WIN_ERR_MOVE;
+    if (m->refuse != NULL && strcmp(n, m->refuse) == 0) return (int)FINDER_WIN_ERR_MOVE;
+    snprintf(m->log + strlen(m->log), sizeof m->log - strlen(m->log),
+             "U:%s@%u ", n, (unsigned)dir);
+    mv_del(d, i);
+    return 0;
+}
+/* O14: remove an EMPTY subdirectory; a non-empty one is refused NOTEMPTY,
+ * exactly the finder_fs_t rmdir contract. */
+static int m_rmdir(void *u, const char *n, uint16_t dir)
+{
+    mock_t *m = (mock_t *)u;
+    mv_dir_t *d = mv_dir(m, dir), *sub;
+    int i;
+    if (d == NULL || (i = mv_find(d, n)) < 0) return (int)FINDER_WIN_ERR_MOVE;
+    sub = mv_dir(m, d->e[i].cluster);
+    if (sub != NULL && sub->n != 0) return (int)FINDER_WIN_ERR_NOTEMPTY;
+    snprintf(m->log + strlen(m->log), sizeof m->log - strlen(m->log),
+             "R:%s@%u ", n, (unsigned)dir);
     mv_del(d, i);
     return 0;
 }
@@ -239,6 +260,7 @@ static void scene_init(scene_t *s)
     s->fs.trash_name = m_trash_name;
     s->fs.trash_dir  = m_trash_dir;
     s->fs.unlink     = m_unlink;
+    s->fs.rmdir      = m_rmdir;
     s->fs.user       = &s->mock;
     finder_shell_bind_fs(&s->sh, &s->fs);
 
@@ -746,6 +768,127 @@ static void leg_trash_window(void)
 }
 
 /* ===========================================================================
+ * O14 -- EMPTY TRASH (bead initech-6k12). Hand-authored throughout:
+ *   - the count is every item at every depth: README.TXT (114 B), the APPS
+ *     folder, and APPS\TENANTFX.EXE (684 B) = 3 items, 798 B;
+ *   - Special > Empty Trash (menu 515 item 2) through the ONE spine reports 3
+ *     and deletes NOTHING -- the purge is the alert's OK, not the dispatch;
+ *   - the alert's words, wrapped by hand at 285 px from the corpus Chicago 12
+ *     advances (../system7-decomp specs/fonts/chicago.md):
+ *       "The Trash contains 3 items, which use 1K"   269 px
+ *       "of disk space. Are you sure you want to"    262 px
+ *       "remove these items permanently?"            228 px
+ *   - the purge is DEPTH-FIRST: unlink README.TXT in \TRASH (3), descend into
+ *     APPS (2), unlink TENANTFX.EXE, back up, remove APPS from \TRASH;
+ *   - an item that will not go is refused, and so is the folder holding it.
+ * MUTANT: FINDER_WIN_MUT_EMPTY_NO_CONFIRM (the purge at dispatch) goes RED.
+ * ===========================================================================*/
+static void leg_empty_trash(void)
+{
+    FinderCtx fx;
+    const finder_cmd_outcome_t *o;
+    finder_tgt_t t;
+    finder_move_result_t r;
+    uint16_t purged = 9u, refused = 9u;
+    uint8_t dirty = 0u;
+    int slot = -1, k;
+    char lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
+
+    scene_init(&S);
+    S.mock.d[0].e[0].size = 114u;            /* README.TXT                   */
+    S.mock.d[1].e[0].size = 684u;            /* APPS\TENANTFX.EXE            */
+    memset(&fx, 0, sizeof fx);
+    finder_shell_bind_ctx(&S.sh, &fx);
+    CHECK(finder_shell_recount_trash(&S.sh) == 0 && S.sh.trash_items == 0u &&
+          S.sh.desk.trash_full == 0u && fx.trash_nonempty == 0u,
+          "O14 an empty Trash: no items, the EMPTY icon, Empty Trash dark");
+
+    t = finder_ops_resolve(&S.sh, ROOT, 0, 600, 420);
+    CHECK(finder_ops_drop(&S.sh, ROOT, 0, &t, 0, 0, &r) == FINDER_WIN_OK &&
+          S.sh.trash_items == 1u && S.sh.desk.trash_full == 1u &&
+          S.sh.trash_icon_dirty == 1u,
+          "O14 the first staged item turns the Trash FULL (icon flagged for the pump)");
+    /* The painter draws the FULL strike: its lid row 2 runs ink from col 10
+     * (desk_icons.h FULL map), where the EMPTY strike's row 2 is clear (only
+     * the handle, cols 13..18). Trash sprite at (584,404): pixel (594,406). */
+    memset(S.px, 0xEE, sizeof S.px);
+    finder_desk_paint(&S.sh.desk, &S.bm, NULL);
+    CHECK(pix(594, 406) == 0, "O14 the desktop Trash is PAINTED full (lid ink at row 2 col 10)");
+    S.sh.trash_icon_dirty = 0u;
+    k = idx_of(&S.sh.windows[ROOT].view, "APPS");
+    t = finder_ops_resolve(&S.sh, ROOT, k, 600, 420);
+    CHECK(finder_ops_drop(&S.sh, ROOT, k, &t, 0, 0, &r) == FINDER_WIN_OK &&
+          S.sh.trash_items == 3u && S.sh.trash_bytes == 798u &&
+          S.sh.trash_icon_dirty == 0u,
+          "O14 the Trash counts 3 items at every depth, 798 bytes; still FULL, no flip");
+    finder_shell_sync_ctx(&S.sh);
+    CHECK(fx.trash_nonempty == 1u, "O14 TRASH_NONEMPTY follows the count");
+
+    finder_dispatch(&fx, ((uint32_t)515u << 16) | 2u, "mouse");
+    o = finder_shell_take_outcome(&S.sh);
+    CHECK(o != NULL && o->id == FCMD_EMPTY_TRASH && o->status == FINDER_WIN_OK &&
+          o->moved == 3, "O14 Special > Empty Trash reaches the shell and reports 3 items");
+    CHECK(S.mock.unlink_calls == 0 && mv_has(&S.mock, CL_TRASH, "README.TXT") &&
+          mv_has(&S.mock, CL_TRASH, "APPS") && mv_has(&S.mock, CL_APPS, "TENANTFX.EXE"),
+          "O14 dispatch alone deletes nothing -- the purge waits for the alert's OK");
+
+    CHECK(finder_trash_alert_text(3u, 798u, lines) == 3 &&
+          strcmp(lines[0], "The Trash contains 3 items, which use 1K") == 0 &&
+          strcmp(lines[1], "of disk space. Are you sure you want to") == 0 &&
+          strcmp(lines[2], "remove these items permanently?") == 0 && lines[3][0] == '\0',
+          "O14 the alert's words, wrapped at 285 px of Chicago 12 (hand-derived)");
+    CHECK(finder_trash_alert_text(1u, 114u, lines) == 3 &&
+          strcmp(lines[0], "The Trash contains 1 item, which uses 1K") == 0 &&
+          strcmp(lines[1], "of disk space. Are you sure you want to") == 0 &&
+          strcmp(lines[2], "remove this item permanently?") == 0,
+          "O14 the singular agreement (1 item, which uses ... this item)");
+
+    CHECK(finder_win_open_trash(&S.sh, &slot, NULL) == FINDER_WIN_OK &&
+          S.sh.windows[slot].view.n == 2u,
+          "O14 (setup) the Trash window lists README.TXT and APPS");
+    S.mock.log[0] = '\0';
+    CHECK(finder_shell_empty_trash(&S.sh, &purged, &refused, &dirty) == FINDER_WIN_OK &&
+          purged == 3u && refused == 0u && dirty == 1u,
+          "O14 OK purges 3, refuses 0, and drops the origin records (DB dirty)");
+    CHECK(strcmp(S.mock.log, "U:README.TXT@3 U:TENANTFX.EXE@2 R:APPS@3 ") == 0,
+          "O14 the purge is DEPTH-FIRST: README.TXT, then APPS's file, then APPS");
+    CHECK(S.mock.d[2].n == 0 && S.mock.d[1].n == 0 && S.sh.n_origins == 0u,
+          "O14 \\TRASH is empty, the folder's contents are gone, no origin is left");
+    CHECK(S.sh.windows[slot].view.n == 0u && S.sh.trash_items == 0u &&
+          S.sh.desk.trash_full == 0u && S.sh.trash_icon_dirty == 1u,
+          "O14 the open Trash window empties and the icon flips back to EMPTY");
+    finder_shell_sync_ctx(&S.sh);
+    CHECK(fx.trash_nonempty == 0u, "O14 Empty Trash goes dark again");
+    memset(S.px, 0xEE, sizeof S.px);
+    finder_desk_paint(&S.sh.desk, &S.bm, NULL);
+    CHECK(pix(594, 406) == 0xEE && pix(597, 406) == 0,
+          "O14 ... and is PAINTED empty again (row 2: only the handle, cols 13..18)");
+
+    /* An item that will not go. */
+    scene_init(&S);
+    mv_add(&S.mock.d[0], "NEWFOLD", 0x10u, CL_NEWFOLD);
+    mv_add(&S.mock.d[3], "STUCK.TXT", 0x20u, 11);
+    (void)finder_win_populate(&S.sh, ROOT);
+    k = idx_of(&S.sh.windows[ROOT].view, "NEWFOLD");
+    t = finder_ops_resolve(&S.sh, ROOT, k, 600, 420);
+    (void)finder_ops_drop(&S.sh, ROOT, k, &t, 0, 0, &r);
+    k = idx_of(&S.sh.windows[ROOT].view, "README.TXT");
+    (void)finder_ops_drop(&S.sh, ROOT, k, &t, 0, 0, &r);
+    CHECK(S.sh.trash_items == 3u && S.sh.n_origins == 2u,
+          "O14 (setup) NEWFOLD (holding STUCK.TXT) and README.TXT staged");
+    S.mock.refuse = "STUCK.TXT";
+    CHECK(finder_shell_empty_trash(&S.sh, &purged, &refused, &dirty) == FINDER_WIN_OK &&
+          purged == 1u && refused == 2u,
+          "O14 a file that will not go is REFUSED, and so is its folder (purged=1 refused=2)");
+    CHECK(mv_has(&S.mock, CL_TRASH, "NEWFOLD") && mv_has(&S.mock, CL_NEWFOLD, "STUCK.TXT") &&
+          !mv_has(&S.mock, CL_TRASH, "README.TXT") && S.sh.n_origins == 1u &&
+          strcmp(S.sh.origins[0].name83, "NEWFOLD") == 0 &&
+          S.sh.trash_items == 2u && S.sh.desk.trash_full == 1u,
+          "O14 the refused folder keeps its origin record and the Trash stays FULL");
+    S.mock.refuse = NULL;
+}
+
+/* ===========================================================================
  * O9 -- THE ICONS FOLLOW THE WINDOW (bead initech-tdnl.34; audit F01)
  *
  * Every expectation is HAND-DERIVED from the window's NEW content origin plus
@@ -1012,5 +1155,6 @@ int main(void)
     leg_codec();
     leg_untrash();
     leg_trash_window();
+    leg_empty_trash();
     return TEST_SUMMARY("test_finder_ops");
 }

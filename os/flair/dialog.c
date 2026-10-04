@@ -728,9 +728,21 @@ int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
 
     switch (ev->what) {
     case mouseDown: {
+        /* ONE COORDINATE SPACE (bead initech-6k12). A FLAIR dialog's items
+         * live where they are DRAWN: DrawDialog paints each item at its
+         * rect, FileCopyDialog builds its rects as bounds + offset, and
+         * MoveDialog moves the rects with the window -- all GLOBAL. This hit
+         * test used to subtract portRect first, so a click on a drawn button
+         * missed it (no live dialog had an enabled control until the Empty
+         * Trash alert, which is how it was found). The click is hit-tested in
+         * the same global space the item was drawn in.
+         * MUTANT DIALOG_MUTATE_LOCAL_HIT restores the subtraction:
+         * test-dialog's click legs go RED. */
         flair_point_t pt = ev->where;
+#if defined(DIALOG_MUTATE_LOCAL_HIT) && DIALOG_MUTATE_LOCAL_HIT
         pt.h -= dp->window.port.portRect.left;
         pt.v -= dp->window.port.portRect.top;
+#endif
         uint16_t idx = FindDialogItem(dp, pt);
         if (idx == 0) break;
         DialogItem *item = &dp->items[idx - 1];

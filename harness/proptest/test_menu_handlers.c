@@ -24,8 +24,9 @@
  *      dispatched with the hook bound, prints FINDER-NYI (never silence).
  *   H4 the positive list: the commands the bar CAN light are exactly the ones
  *      hand-typed here (New Folder, Open, Close Window, Select All, by Icons,
- *      Clean Up, Arrange) -- so a command that loses its implementation is
- *      caught too, not only one that gains a fake enable.
+ *      Clean Up, Arrange, and -- since bead initech-6k12 -- Empty Trash) -- so
+ *      a command that loses its implementation is caught too, not only one
+ *      that gains a fake enable.
  *
  * Expectations are HAND-TYPED (Law 2): the exception list, the positive list,
  * the FINDER-NYI line. The walk reads the live resource (that is what is under
@@ -69,7 +70,8 @@ static FinderCtx mk(uint16_t sel, uint8_t open, uint8_t front, uint8_t trash)
 /* H4's hand-typed positive list: the commands the Finder bar may light. */
 static const finder_cmd_id CAN_LIGHT[] = {
     FCMD_NEW_FOLDER, FCMD_OPEN, FCMD_CLOSE_WINDOW, FCMD_SELECT_ALL,
-    FCMD_VIEW_ICONS, FCMD_CLEANUP, FCMD_ARRANGE_BY_NAME
+    FCMD_VIEW_ICONS, FCMD_CLEANUP, FCMD_ARRANGE_BY_NAME,
+    FCMD_EMPTY_TRASH          /* bead initech-6k12: implemented, lit iff full */
 };
 #define N_CAN_LIGHT ((int)(sizeof CAN_LIGHT / sizeof CAN_LIGHT[0]))
 
@@ -135,6 +137,15 @@ static void leg_finder_bar(void)
         finder_menu_refresh_enables(&doc);
         CHECK(bar->menus[FINDER_MENU_IX_FILE].items[1].enabled == 0u,
               "H1 File > Open is disabled when only a DOCUMENT is selected (F07)");
+        /* bead initech-6k12 (audit F04): Empty Trash moved from the
+         * drawn-disabled list to a REAL handler -- lit exactly while the
+         * Trash holds something, dark on an empty Trash. */
+        CHECK(bar->menus[FINDER_MENU_IX_SPECIAL].items[1].enabled == 0u,
+              "H1 Special > Empty Trash is disabled while the Trash is empty");
+        finder_menu_refresh_enables(&live);
+        CHECK(bar->menus[FINDER_MENU_IX_SPECIAL].items[1].enabled == 1u &&
+              finder_shell_implements(FCMD_EMPTY_TRASH),
+              "H1 Special > Empty Trash is lit with a full Trash, and the shell implements it");
     }
 }
 

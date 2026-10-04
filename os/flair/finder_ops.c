@@ -421,6 +421,9 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     } else if (td >= 0 && out->from_dir == (uint16_t)td) {
         fo_origin_drop(sh, ic.name, out);
     }
+    /* \TRASH may have gained or lost an item: the FULL icon and the Empty
+     * Trash predicate follow (bead initech-6k12). */
+    (void)finder_shell_recount_trash(sh);
 
     out->status = FINDER_WIN_OK;
     return FINDER_WIN_OK;

@@ -9622,7 +9622,7 @@ $(KERNEL_FINDER_DESKTOP_OBJ): os/flair/finder_desktop.c os/flair/finder_desktop.
 # seam (kmain wires it to fat12), the New Folder name ladder and the row-major
 # Clean Up. Linked ONLY into the FLAIRTENANTS kernels.
 KERNEL_FINDER_WINDOWS_OBJ := $(BUILD)/finder_windows.o
-$(KERNEL_FINDER_WINDOWS_OBJ): os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+$(KERNEL_FINDER_WINDOWS_OBJ): os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $@
 
 # The R3.4a Finder FILE-OPERATIONS object (THE ARTIFACT; bead initech-34dh):
@@ -10176,7 +10176,7 @@ $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_TRASH_NO_STAGE
 # KERNEL_FINDER_WINDOWS_OBJ's own recipe (the $(eval)-expands-once hazard the
 # templates above document at length).
 define flair-tenants-finderwin-mutant-rules
-$(BUILD)/finder_windows_mut_$(2).o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+$(BUILD)/finder_windows_mut_$(2).o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -11870,6 +11870,8 @@ test-cursor-mutant: $(TEST_CURSOR_MUT_NO_ERASE) $(TEST_CURSOR_MUT_HOTSPOT)
 TEST_DESK_ICONS               := $(BUILD)/test_desk_icons
 TEST_DESK_ICONS_MUT_MASK      := $(BUILD)/test_desk_icons_mutant_mask_ignored
 TEST_DESK_ICONS_MUT_ROW       := $(BUILD)/test_desk_icons_mutant_row_off1
+# bead initech-6k12: the FULL Trash strike's row 5 dropped from the packed words.
+TEST_DESK_ICONS_MUT_FULLROW   := $(BUILD)/test_desk_icons_mutant_full_row
 TEST_DESK_ICONS_SRC           := harness/proptest/test_desk_icons.c
 TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) \
                                  os/flair/finder_icon.c os/flair/finder_icon.h \
@@ -11892,6 +11894,9 @@ $(TEST_DESK_ICONS_MUT_MASK): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
 $(TEST_DESK_ICONS_MUT_ROW): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDESK_ICON_MUT_ROW_OFF1 $(DESK_ICONS_INC) -o $@ $(TEST_DESK_ICONS_SRC) $(DESK_ICONS_LINK)
 
+$(TEST_DESK_ICONS_MUT_FULLROW): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDESK_ICONS_MUT_FULL_ROW $(DESK_ICONS_INC) -o $@ $(TEST_DESK_ICONS_SRC) $(DESK_ICONS_LINK)
+
 .PHONY: test-desk-icons test-desk-icons-mutant
 test-desk-icons: $(TEST_DESK_ICONS)
 	@printf ">>> test-desk-icons: VOLUME + TRASH strike invariants, per-row hand tables, probe tones (8bpp + 32bpp), transparency, clip, off-surface edges, mask hit-test\n"
@@ -11900,8 +11905,11 @@ test-desk-icons: $(TEST_DESK_ICONS)
 		|| { printf '!!! test-desk-icons FAIL: finder_icon.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-desk-icons: green\n"
 
-test-desk-icons-mutant: $(TEST_DESK_ICONS_MUT_MASK) $(TEST_DESK_ICONS_MUT_ROW)
-	@printf ">>> test-desk-icons-mutant: confirming both desktop-icon blit mutants go RED (Rule 6)\n"
+test-desk-icons-mutant: $(TEST_DESK_ICONS_MUT_MASK) $(TEST_DESK_ICONS_MUT_ROW) $(TEST_DESK_ICONS_MUT_FULLROW)
+	@printf ">>> test-desk-icons-mutant: confirming the desktop-icon mutants go RED (Rule 6)\n"
+	@$(TEST_DESK_ICONS_MUT_FULLROW) > $(TEST_DESK_ICONS_MUT_FULLROW).log 2>&1; \
+	if grep -q 'row 5: got ink=0 shade=0 opaque=0, want ink=13 shade=0 opaque=14' $(TEST_DESK_ICONS_MUT_FULLROW).log && ! $(TEST_DESK_ICONS_MUT_FULLROW) >/dev/null 2>&1; then printf '>>> test-desk-icons-mutant: green (DESK_ICONS_MUT_FULL_ROW correctly RED -- the FULL strike lost its paper-tops row)\n'; \
+	else printf '!!! test-desk-icons-mutant FAIL: DESK_ICONS_MUT_FULL_ROW did not go RED on the FULL strike table\n'; cat $(TEST_DESK_ICONS_MUT_FULLROW).log; exit 1; fi
 	@if $(TEST_DESK_ICONS_MUT_MASK) >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_MASK_IGNORED PASSED -- the transparency oracle is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_MASK_IGNORED correctly RED -- painted mask holes overwrite the sentinel)\n'; fi
 	@if $(TEST_DESK_ICONS_MUT_ROW) >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_ROW_OFF1 PASSED -- the independent row/probe tables are decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_ROW_OFF1 correctly RED -- shifted rows miss the hand table)\n'; fi
 
@@ -12310,6 +12318,9 @@ $(BUILD)/test_finder_ops_mutant_abs: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(B
 # tdnl.39: the Trash window opened over the ROOT instead of \TRASH.
 $(BUILD)/test_finder_ops_mutant_trashroot: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_TRASH_ROOT $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+# 6k12: Empty Trash purges at DISPATCH, with no confirm.
+$(BUILD)/test_finder_ops_mutant_noconfirm: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_EMPTY_NO_CONFIRM $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
 
 .PHONY: test-finder-ops test-finder-ops-mutant
 test-finder-ops: $(TEST_FINDER_OPS)
@@ -12320,15 +12331,15 @@ test-finder-ops: $(TEST_FINDER_OPS)
 	@printf ">>> test-finder-ops: green\n"
 
 # Each mutant must go RED for its NAMED reason (the CHECK text is grepped).
-test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs $(BUILD)/test_finder_ops_mutant_arrange $(BUILD)/test_finder_ops_mutant_scrollpaint $(BUILD)/test_finder_ops_mutant_trashroot
-	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_SERVICE_GUARD:O12 the root TRASH dropped on APPS is refused SERVICE' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran' 'scrollpaint:O11 hit: a click on F18 where it is DRAWN' 'trashroot:O13 the Trash window lists exactly the staged README.TXT' 'COUNT_CELL:O13 the root window shows it in the lowest FREE cell'; do \
+test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs $(BUILD)/test_finder_ops_mutant_arrange $(BUILD)/test_finder_ops_mutant_scrollpaint $(BUILD)/test_finder_ops_mutant_trashroot $(BUILD)/test_finder_ops_mutant_noconfirm
+	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_SERVICE_GUARD:O12 the root TRASH dropped on APPS is refused SERVICE' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran' 'scrollpaint:O11 hit: a click on F18 where it is DRAWN' 'trashroot:O13 the Trash window lists exactly the staged README.TXT' 'COUNT_CELL:O13 the root window shows it in the lowest FREE cell' 'noconfirm:O14 dispatch alone deletes nothing'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; \
 		bin=$(BUILD)/test_finder_ops_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-ops-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-finder-ops-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-finder-ops-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
-	@printf '>>> test-finder-ops-mutant: green (all ten mutants RED for the named reason)\n'
+	@printf '>>> test-finder-ops-mutant: green (all eleven mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -13217,6 +13228,9 @@ TEST_DIALOG_MUT_TITLELESS := $(BUILD)/test_dialog_mutant_titleless_modal
 TEST_DIALOG_MUT_PROGZERO  := $(BUILD)/test_dialog_mutant_progress_zero
 TEST_DIALOG_MUT_NO_DEFAULT_RING := $(BUILD)/test_dialog_mutant_no_default_ring
 TEST_DIALOG_MUT_MODAL_PASS := $(BUILD)/test_dialog_mutant_modal_passthrough
+# bead initech-6k12: the click hit-tested in portRect-LOCAL space again (the
+# pre-fix subtraction) -- a click on a DRAWN button misses it.
+TEST_DIALOG_MUT_LOCAL_HIT := $(BUILD)/test_dialog_mutant_local_hit
 TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
                     os/flair/control.c os/flair/control.h \
                     os/flair/text.c os/flair/text.h \
@@ -13250,6 +13264,8 @@ $(TEST_DIALOG_MUT_NO_DEFAULT_RING): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(B
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_NO_DEFAULT_RING=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
 $(TEST_DIALOG_MUT_MODAL_PASS): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMODAL_PASSTHROUGH $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+$(TEST_DIALOG_MUT_LOCAL_HIT): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_LOCAL_HIT=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
 
 test-dialog: $(TEST_DIALOG)
 	@printf ">>> test-dialog: FILE COPY E7/inset content + generic dBox + default ring/moat + canon layout + MODALDIALOG routing\n"
@@ -13259,8 +13275,11 @@ test-dialog: $(TEST_DIALOG)
 		|| { printf '!!! test-dialog FAIL: dialog.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-dialog: green\n"
 
-test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO) $(TEST_DIALOG_MUT_NO_DEFAULT_RING) $(TEST_DIALOG_MUT_MODAL_PASS)
-	@printf ">>> test-dialog-mutant: confirming all seven mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
+test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO) $(TEST_DIALOG_MUT_NO_DEFAULT_RING) $(TEST_DIALOG_MUT_MODAL_PASS) $(TEST_DIALOG_MUT_LOCAL_HIT)
+	@printf ">>> test-dialog-mutant: confirming all eight mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
+	@$(TEST_DIALOG_MUT_LOCAL_HIT) > $(TEST_DIALOG_MUT_LOCAL_HIT).log 2>&1; \
+	if grep -q 'FAIL.*mouseDown in enabled ctrlItem' $(TEST_DIALOG_MUT_LOCAL_HIT).log; then printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_LOCAL_HIT correctly RED -- the click on the drawn OK button misses)\n'; \
+	else printf '!!! test-dialog-mutant FAIL: LOCAL_HIT mutant did not go RED on the click leg\n'; cat $(TEST_DIALOG_MUT_LOCAL_HIT).log; exit 1; fi
 	@if $(TEST_DIALOG_MUT_BORDER) >/dev/null 2>&1; then \
 		printf '!!! test-dialog-mutant FAIL: BORDER mutant PASSED -- the border-width oracle is decoration\n'; exit 1; \
 	else printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_BORDER correctly RED)\n'; fi
@@ -19145,6 +19164,113 @@ test-flair-trash-window-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG
 endif
 
 # ===========================================================================
+# REAL gate: test-flair-empty-trash (bead initech-6k12; audit F04 "Special >
+# Empty Trash disabled") -- the Trash FILLS (the FULL icon), Special > Empty
+# Trash is enabled, a confirm alert comes up, Cancel changes nothing, OK
+# purges RECURSIVELY and the icon goes back to EMPTY; an open Trash window
+# empties. Locked traces + arithmetic: spec/flair_trash_traces.mk section 3.
+# Three boots of $(FLAIRTENANTS_IMG), each on a FRESH copy of $(FLAIR_DATA_IMG):
+#   1 ALERT   README.TXT staged, Empty Trash chosen, the alert LEFT UP:
+#               FINDER-TRASH-ALERT n=1 k=<K1> with K1 = ceil(README bytes per
+#               mtools / 1024); the dump graded by tools/ppm_flair_trash_check
+#               leg alert (frame at the corpus geometry, three message lines,
+#               OK ringed, Cancel not, the desktop Trash FULL); mtools: nothing
+#               purged while the alert is up.
+#   2 CANCEL  the same, then Escape: FINDER-TRASH-EMPTY-CANCEL, no
+#               FINDER-TRASH-EMPTIED; mtools: ::/TRASH/README.TXT byte-identical,
+#               \DESKTOP.DB still 80 bytes (the origin kept).
+#   3 OK      README.TXT AND the APPS folder staged, the Trash window open, OK
+#               clicked: the exact ordered chain (n=3 = README + APPS + the
+#               entries mtools lists in the pristine ::/APPS; K from their
+#               mtools byte sizes) ending FINDER-TRASH-EMPTIED purged=3
+#               refused=0 ; DESK-TRASH-ICON empty ; DESKTOP-DB-SAVE n=2;
+#               mtools: ::/TRASH empty and the root holds only DESKTOP.DB +
+#               TRASH; fsck.fat -n clean with exactly 2 clusters in use (the
+#               purged chains were FREED); DB 56 bytes; the dump graded by
+#               ppm_flair_trash_check leg emptied (alert gone, Trash EMPTY) and
+#               ppm_flair_disk_windows_check leg trashempty (the open Trash
+#               window, cells 0-3 bare).
+# Mutation-proven by test-flair-empty-trash-mutant (FINDER_WIN_MUT_EMPTY_NO_
+# CONFIRM: the purge at dispatch -- the CANCEL leg's mtools check goes RED).
+# Rule 5: the Bochs leg for this kernel is test-flair-trash-window-bochs (the
+# SAME image; Bochs halts at the 640x480 guard before the Finder, so a second
+# identical boot would add nothing). Rule 14 clip: record-flair
+# SCRIPT=empty_trash.
+# ===========================================================================
+PPM_FLAIR_TRASH_CHECK_SRC := tools/ppm_flair_trash_check.c
+PPM_FLAIR_TRASH_CHECK_BIN := $(BUILD)/ppm_flair_trash_check
+$(PPM_FLAIR_TRASH_CHECK_BIN): $(PPM_FLAIR_TRASH_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+FLAIR_ET_ALERT_NAME  := flair_empty_alert
+FLAIR_ET_CANCEL_NAME := flair_empty_cancel
+FLAIR_ET_OK_NAME     := flair_empty_ok
+FLAIR_ET_CHAIN       := $(BUILD)/flair_empty_ok.chain
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_EMPTY_NO_CONFIRM,win_empty_noconfirm))
+
+# $(call et-cancel-mtools,<data img>): exits 0 iff the Cancel left \TRASH alone.
+define et-cancel-mtools
+mtype -i "$(1)" ::/TRASH/README.TXT 2>/dev/null | cmp -s - $(FLAIR_DATA_README) || { printf 'ET-CANCEL: README.TXT is gone from ::/TRASH after Cancel -- purged without confirmation\n'; exit 1; }; \
+[ "$$(mcopy -n -i "$(1)" ::/DESKTOP.DB - | wc -c)" = 80 ] || { printf 'ET-CANCEL: DESKTOP.DB is not 80 bytes (the origin record was dropped)\n'; exit 1; }
+endef
+
+.PHONY: test-flair-empty-trash test-flair-empty-trash-mutant
+test-flair-empty-trash: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-empty-trash : Special > Empty Trash (bead initech-6k12)\n'
+	@printf '  Ref: os/flair/finder_windows.h Sec 12; spec/flair_trash_traces.mk Sec 3.\n'
+	@printf '  File effects graded by mtools + fsck.fat on the SAME image (Law 2).\n'
+	@printf '======================================================================\n'
+	@command -v mdir >/dev/null 2>&1 && command -v fsck.fat >/dev/null 2>&1 || { printf '!!! test-flair-empty-trash FAIL: mtools / fsck.fat (dosfstools) missing\n'; exit 1; }
+	@# ---- leg 1: the ALERT, left up ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_ET_ALERT_NAME),$(BUILD)/$(FLAIR_ET_ALERT_NAME)_data.img,$(FLAIR_EMPTY_ALERT_SPEC),FINDER-TRASH-ALERT n=,1)
+	$(call fo-has,$(FLAIR_ET_ALERT_NAME),DESK-TRASH-ICON full,staging README.TXT did not turn the Trash FULL)
+	$(call fo-has,$(FLAIR_ET_ALERT_NAME),FINDER-CMD id=11 name=EMPTY_TRASH src=mouse sel=0,Special > Empty Trash was not chosen (still disabled with a full Trash?))
+	@k=$$(( ( $$(wc -c < $(FLAIR_DATA_README)) + 1023 ) / 1024 )); grep -qxF "FINDER-TRASH-ALERT n=1 k=$$k" "$(BUILD)/$(FLAIR_ET_ALERT_NAME).serial" || { printf '!!! test-flair-empty-trash FAIL: want FINDER-TRASH-ALERT n=1 k=%s\n' "$$k"; grep -E '^(FINDER|DESK)' "$(BUILD)/$(FLAIR_ET_ALERT_NAME).serial"; exit 1; }
+	@! grep -q '^FINDER-TRASH-EMPTIED' "$(BUILD)/$(FLAIR_ET_ALERT_NAME).serial" && mdir -i $(BUILD)/$(FLAIR_ET_ALERT_NAME)_data.img ::/TRASH | grep -q '^README   TXT ' || { printf '!!! test-flair-empty-trash FAIL: something was purged while the alert was still up\n'; exit 1; }
+	@[ -s "$(BUILD)/$(FLAIR_ET_ALERT_NAME).ppm" ] || { printf '!!! test-flair-empty-trash FAIL: ALERT screendump missing\n'; exit 1; }
+	@$(PPM_FLAIR_TRASH_CHECK_BIN) alert "$(BUILD)/$(FLAIR_ET_ALERT_NAME).ppm" || { printf '!!! test-flair-empty-trash FAIL: the alert / the FULL Trash is not drawn as graded\n'; exit 1; }
+	@printf '>>> test-flair-empty-trash [1/3]: ALERT -- Empty Trash lit by a full Trash, the confirm alert up (pixel-graded), nothing purged yet\n'
+	@# ---- leg 2: CANCEL (Escape) ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_ET_CANCEL_NAME),$(BUILD)/$(FLAIR_ET_CANCEL_NAME)_data.img,$(FLAIR_EMPTY_CANCEL_SPEC),FINDER-TRASH-EMPTY-CANCEL,0)
+	$(call fo-has,$(FLAIR_ET_CANCEL_NAME),FINDER-TRASH-EMPTY-CANCEL,Escape did not cancel the alert)
+	@! grep -q '^FINDER-TRASH-EMPTIED' "$(BUILD)/$(FLAIR_ET_CANCEL_NAME).serial" || { printf '!!! test-flair-empty-trash FAIL: FINDER-TRASH-EMPTIED after a Cancel\n'; exit 1; }
+	@( $(call et-cancel-mtools,$(BUILD)/$(FLAIR_ET_CANCEL_NAME)_data.img) ) || { printf '!!! test-flair-empty-trash FAIL: the mtools differential of the CANCEL leg (above)\n'; exit 1; }
+	@printf '>>> test-flair-empty-trash [2/3]: CANCEL -- Escape dismissed the alert; mtools: README.TXT still in ::/TRASH byte-identical, DB 80 B\n'
+	@# ---- leg 3: OK -- the recursive purge ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_ET_OK_NAME),$(BUILD)/$(FLAIR_ET_OK_NAME)_data.img,$(FLAIR_EMPTY_OK_SPEC),FINDER-TRASH-EMPTIED,1)
+	@a=$$(mcopy -n -i $(FLAIR_DATA_IMG) ::/README.TXT - | wc -c); b=0; \
+	for f in $$(mdir -b -i $(FLAIR_DATA_IMG) ::/APPS); do b=$$(( b + $$(mcopy -n -i $(FLAIR_DATA_IMG) "$$f" - | wc -c) )); done; \
+	n=$$(( 2 + $$(mdir -b -i $(FLAIR_DATA_IMG) ::/APPS | wc -l) )); k=$$(( (a + b + 1023) / 1024 )); \
+	printf '%s\n' 'DESK-TRASH-ICON full' 'FINDER-TRASH name=README.TXT origin=0' 'DESKTOP-DB-SAVE n=3' \
+		'FINDER-TRASH name=APPS origin=0' 'DESKTOP-DB-SAVE n=4' 'FINDER-OPEN-TRASH win=1 n=2 singleton=0' \
+		'FINDER-CMD id=11 name=EMPTY_TRASH src=mouse sel=0' "FINDER-TRASH-ALERT n=$$n k=$$k" 'DESK-TRASH-ICON empty' \
+		"FINDER-TRASH-EMPTIED purged=$$n refused=0" 'DESKTOP-DB-SAVE n=2' > $(FLAIR_ET_CHAIN).want; \
+	grep -E '^(FINDER-TRASH|FINDER-OPEN-TRASH|FINDER-CMD|DESK-TRASH-ICON|DESKTOP-DB-SAVE)' "$(BUILD)/$(FLAIR_ET_OK_NAME).serial" > $(FLAIR_ET_CHAIN).got || true; \
+	cmp -s $(FLAIR_ET_CHAIN).want $(FLAIR_ET_CHAIN).got || { printf '!!! test-flair-empty-trash FAIL: the OK serial chain differs from the locked one (n=%s k=%s from mtools)\n' "$$n" "$$k"; diff $(FLAIR_ET_CHAIN).want $(FLAIR_ET_CHAIN).got; exit 1; }
+	@[ "$$($(call tw-trash-entries,$(BUILD)/$(FLAIR_ET_OK_NAME)_data.img))" = 0 ] || { printf '!!! test-flair-empty-trash FAIL: ::/TRASH is not empty after OK\n'; mdir -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::/TRASH; exit 1; }
+	@[ "$$(mdir -a -b -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img :: | sort | tr '\n' ' ')" = '::/DESKTOP.DB ::/TRASH/ ' ] || { printf '!!! test-flair-empty-trash FAIL: the root holds more than DESKTOP.DB + TRASH after the purge\n'; mdir -a -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::; exit 1; }
+	@out=$$(fsck.fat -n $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img 2>&1); rc=$$?; printf '    fsck.fat: %s\n' "$$(printf '%s' "$$out" | tail -1)"; \
+	[ $$rc -eq 0 ] && printf '%s' "$$out" | tail -1 | grep -q ' 2/[0-9]* clusters$$' || { printf '!!! test-flair-empty-trash FAIL: fsck.fat is not clean with exactly 2 clusters in use (a purged chain leaked)\n%s\n' "$$out"; exit 1; }
+	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 56 ] || { printf '!!! test-flair-empty-trash FAIL: DESKTOP.DB is not 56 bytes (the origins were not dropped)\n'; exit 1; }
+	@[ -s "$(BUILD)/$(FLAIR_ET_OK_NAME).ppm" ] || { printf '!!! test-flair-empty-trash FAIL: OK screendump missing\n'; exit 1; }
+	@$(PPM_FLAIR_TRASH_CHECK_BIN) emptied "$(BUILD)/$(FLAIR_ET_OK_NAME).ppm" || { printf '!!! test-flair-empty-trash FAIL: the alert is not gone / the Trash is not EMPTY again\n'; exit 1; }
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) trashempty "$(BUILD)/$(FLAIR_ET_OK_NAME).ppm" || { printf '!!! test-flair-empty-trash FAIL: the open Trash window did not empty\n'; exit 1; }
+	@printf '>>> test-flair-empty-trash [3/3]: OK -- purged=3 depth-first; mtools: ::/TRASH empty, root = DESKTOP.DB + TRASH; fsck.fat clean, 2 clusters used; Trash window + icon EMPTY (pixel-graded)\n'
+	@printf '>>> test-flair-empty-trash: green\n'
+
+# Rule 6: FINDER_WIN_MUT_EMPTY_NO_CONFIRM (finder_windows.o) purges at the
+# DISPATCH -- before the alert. The CANCEL leg, graded by the SAME
+# et-cancel-mtools differential, must go RED for exactly that reason.
+test-flair-empty-trash-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_empty_noconfirm.img $(FLAIR_DATA_IMG)
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_win_empty_noconfirm.img,flair_empty_mut_noconfirm,$(BUILD)/flair_empty_mut_noconfirm_data.img,$(FLAIR_EMPTY_CANCEL_SPEC),FINDER-TRASH-EMPTY-CANCEL,0)
+	@grep -qxF 'FINDER-TRASH-EMPTY-CANCEL' $(BUILD)/flair_empty_mut_noconfirm.serial || { printf '!!! test-flair-empty-trash-mutant: the mutant never reached the Cancel (not comparable)\n'; grep -E '^(FINDER|DESK)' $(BUILD)/flair_empty_mut_noconfirm.serial; exit 1; }
+	@out=$$( $(call et-cancel-mtools,$(BUILD)/flair_empty_mut_noconfirm_data.img) ); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-flair-empty-trash-mutant FAIL: EMPTY_NO_CONFIRM PASSED the Cancel differential -- decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -q 'purged without confirmation' || { printf '!!! test-flair-empty-trash-mutant FAIL: RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
+	printf '>>> test-flair-empty-trash-mutant: EMPTY_NO_CONFIRM correctly RED (%s)\n' "$$out"
+
+# ===========================================================================
 # REAL gate: test-flair-scroll (bead initech-tdnl.35; audit F02, P0) -- THE
 # SCROLL BARS WORK and a click on them never moves the window.
 # ---------------------------------------------------------------------------
@@ -20556,7 +20682,17 @@ RECORD_SPEC_trash_window   = $(FLAIR_TRASHWIN_PUTBACK_SPEC)
 RECORD_MARKER_trash_window = DESKTOP-DB-SAVE n=2
 RECORD_IMAGE_trash_window  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_trash_window = 300
-RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window
+# empty_trash (bead initech-6k12, audit F04; Rule 14 -- the bead's acceptance
+# clip "stage file, open Trash, Empty Trash with confirm"): README.TXT and the
+# APPS folder are dragged to the Trash (the icon goes FULL), the Trash window
+# opens listing both, Special > Empty Trash brings up the confirm alert, OK is
+# clicked: the window empties and the icon goes back to EMPTY.
+# FLAIR_EMPTY_OK_SPEC on the LONG double-click record image (60 events).
+RECORD_SPEC_empty_trash   = $(FLAIR_EMPTY_OK_SPEC)
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=3 refused=0
+RECORD_IMAGE_empty_trash  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_SETTLE_empty_trash = 300
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -26751,6 +26887,7 @@ TEST_EMU_GATES := \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
+	test-flair-empty-trash test-flair-empty-trash-mutant \
 	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \
 	test-flair-fg-close test-flair-fg-close-mutant \
 	test-flair-finder-cmds test-flair-finder-cmds-mutant \

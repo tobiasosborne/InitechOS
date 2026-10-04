@@ -2910,7 +2910,11 @@ static int finder_fat_enumerate(void *fs_user, uint16_t dir_start,
     rc = fat12_read_dir(g_finder_vol, &dir, g_finder_dirbuf,
                         g_finder_fat, g_finder_fat_len,
                         finder_fat_dirent_cb, &fe);
-    return (rc < 0) ? -1 : 0;
+    /* finder_fs_t contract: the callback's non-zero value on an EARLY STOP
+     * is propagated (fat12_read_dir propagates it verbatim). This used to
+     * flatten it to 0, which no consumer noticed until the Trash walk (bead
+     * initech-6k12) stopped at the item it wanted and read "not found". */
+    return (rc < 0) ? -1 : rc;
 }
 
 static int finder_fat_mkdir(void *fs_user, const char *name83,
@@ -3414,6 +3418,18 @@ static void finder_desk_repaint(flair_live_ctx_t *ctx, const boot_info_t *bi)
      * inactive in THIS chrome phase (process.h FlairProcess_sync_active). */
     if (g_ten_plist != (FlairProcessList *)0)
         (void)FlairProcess_sync_active(g_ten_plist, ctx->wm);
+    /* bead initech-6k12: the Trash's FULLNESS flipped (a drop, a New Folder
+     * in the Trash window, the purge -- finder_shell_recount_trash): damage
+     * its desktop cell once, so the FULL / EMPTY strike swaps in this cycle. */
+    if (g_finder_shell != (finder_shell_t *)0 && g_finder_shell->trash_icon_dirty) {
+        int t = finder_desk_find_kind(g_finder_desk, FINDER_ICON_TRASH);
+        g_finder_shell->trash_icon_dirty = 0u;
+        if (t >= 0)
+            WindowMgr_invalidate_desktop(ctx->wm,
+                                         finder_desk_cell_rect(g_finder_desk, t));
+        serial_puts(g_finder_desk->trash_full ? "DESK-TRASH-ICON full\n"
+                                              : "DESK-TRASH-ICON empty\n");
+    }
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
     flair_desktop_present(bi, &ctx->off);
@@ -3971,6 +3987,135 @@ static void flair_live_do_finder_close(flair_live_ctx_t *ctx,
     finder_desk_persist();
 }
 
+/* ---------------------------------------------------------------------------
+ * bead initech-6k12: THE EMPTY TRASH CONFIRM. A caution alert in the Dialog
+ * Manager's standing conventions -- a dBoxProc DialogRecord drawn ABOVE the
+ * composition into the offscreen and presented (the FILE COPY modal's live
+ * path, flair_live_do_modal_drag), true modality at the dispatch seam
+ * (DialogModalDispatch: outside clicks swallowed), items through
+ * DialogHandleEvent (OK = default = Return, Cancel = Escape), and on dismissal
+ * its footprint handed back to the WindowMgr (WindowMgr_invalidate_desktop +
+ * the DQ2 cycle, as a dropped menu panel is). The frame art is the existing
+ * dBoxProc (the Platinum alert frame is bead initech-81ft's).
+ *
+ * GEOMETRY, measured off the corpus capture ../system7-decomp/goldens/
+ * captures/s8_alert_modal.png (specs/sys8/INDEX-sys8.md "caution alert
+ * x=133..506 y=87..190"; "Cancel x=363..421, OK x=435..493"): frame
+ * (133,87)..(507,191); message pen x 211, line cells from y 97 every 16 px
+ * (cap tops 100/116/132); buttons y 158..178, Cancel x 363..422, OK x
+ * 435..494. The caution ICON of the capture is not drawn (no strike exists
+ * yet -- stated, a follow-up). The words: finder_trash_alert_text.
+ * Returns 1 on OK, 0 on Cancel (or when a bounded image's life ends). */
+#define FTA_L  133
+#define FTA_T   87
+#define FTA_R  507
+#define FTA_B  191
+#define FTA_TEXT_X   211
+#define FTA_TEXT_Y    97
+
+static rgn_rect_t fta_rect(int l, int t, int r, int b)
+{
+    rgn_rect_t x;
+    x.left = (int16_t)l; x.top = (int16_t)t; x.right = (int16_t)r; x.bottom = (int16_t)b;
+    return x;
+}
+
+static void fta_rgn(finder_win_rgn_t *s)
+{
+    s->r.rows       = s->rows;
+    s->r.cap_rows   = FINDER_WIN_RGN_ROWS;
+    s->r.x_pool     = s->pool;
+    s->r.x_pool_cap = FINDER_WIN_RGN_POOL;
+    region_set_empty(&s->r);
+}
+
+static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                uint16_t items)
+{
+    static DialogRecord     dr;
+    static DialogItem       it[2 + FINDER_ALERT_LINES];
+    static ControlRecord    ok_c, cancel_c;
+    static finder_win_rgn_t rs, rc, ru;
+    static char             lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
+    uint16_t hit = 0u;
+    uint32_t t0;
+    int cancel = 0, n, k;
+
+    n = finder_trash_alert_text(items, g_finder_shell->trash_bytes, lines);
+    control_init(&ok_c, pushButton, fta_rect(435, 158, 494, 178), 0, 0, 1, 1, "OK");
+    control_init(&cancel_c, pushButton, fta_rect(363, 158, 422, 178), 0, 0, 1, 1,
+                 "Cancel");
+    for (k = 0; k < 2 + n; k++) {
+        it[k].type = (k < 2) ? ctrlItem : statText;
+        it[k].ctrl = (k == 0) ? &ok_c : (k == 1 ? &cancel_c : (ControlRecord *)0);
+        it[k].rect = (k < 2) ? it[k].ctrl->contrlRect
+                             : fta_rect(FTA_TEXT_X, FTA_TEXT_Y + 16 * (k - 2),
+                                        FTA_TEXT_X + FINDER_ALERT_TEXT_W,
+                                        FTA_TEXT_Y + 16 * (k - 1));
+        it[k].text = (k < 2) ? (const char *)0 : lines[k - 2];
+        it[k].enabled = (uint8_t)((k < 2) ? 1 : 0);
+        it[k]._pad[0] = it[k]._pad[1] = it[k]._pad[2] = 0u;
+    }
+    fta_rgn(&rs); fta_rgn(&rc); fta_rgn(&ru);
+    (void)NewDialog(&dr, fta_rect(FTA_L, FTA_T, FTA_R, FTA_B), "", it,
+                    (uint16_t)(2 + n), 1u /* OK */, 2u /* Cancel */,
+                    (WindowMgr *)0, &rs.r, &rc.r, &ru.r);
+    dr.window.port.portBits.bm = ctx->off;
+    dr.window.port.visRgn  = (region_t *)0;
+    dr.window.port.clipRgn = (region_t *)0;
+    dr.window.port.portRect = region_get_bbox(dr.window.strucRgn);
+    DrawDialog(&dr);
+    flair_desktop_present(bi, &ctx->off);
+    serial_puts("FINDER-TRASH-ALERT n=");
+    serial_putu((uint32_t)items);
+    serial_puts(" k=");
+    serial_putu((g_finder_shell->trash_bytes + 1023u) / 1024u);
+    serial_putc('\n');
+
+    t0 = flair_tick_count();
+    for (;;) {
+        EventRecord ev;
+        int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev, 3u);
+        flair_live_cursor_track(&ev);
+        if (g) {
+            flair_live_emit_evt(&ev);
+            if (DialogModalDispatch(&dr, &ev, (dialog_modal_block_fn)0,
+                                    (void *)0) == FLAIR_MODAL_CAPTURE &&
+                DialogHandleEvent(&dr, &ev, (dialog_filter_fn)0, &hit))
+                break;
+        }
+        if (flair_live_track_cut(t0, &cancel)) { hit = 2u; break; }
+    }
+    DisposeDialog(&dr, (WindowMgr *)0);
+    WindowMgr_invalidate_desktop(ctx->wm, fta_rect(FTA_L, FTA_T, FTA_R, FTA_B));
+    finder_desk_repaint(ctx, bi);
+    return hit == 1u;
+}
+
+/* Special > Empty Trash, after the shell counted (bead initech-6k12). */
+static void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               uint16_t items)
+{
+    uint16_t purged = 0u, refused = 0u;
+    uint8_t  dirty = 0u;
+
+    if (!finder_trash_confirm(ctx, bi, items)) {
+        serial_puts("FINDER-TRASH-EMPTY-CANCEL\n");
+        return;
+    }
+    (void)finder_shell_empty_trash(g_finder_shell, &purged, &refused, &dirty);
+    finder_desk_repaint(ctx, bi);
+    serial_puts("FINDER-TRASH-EMPTIED purged=");
+    serial_putu((uint32_t)purged);
+    serial_puts(" refused=");
+    serial_putu((uint32_t)refused);
+    serial_putc('\n');
+    if (dirty) {
+        g_finder_db_dirty = 1;
+        finder_desk_persist();
+    }
+}
+
 /* Report + service whatever the command spine's shell hook just did. ONE
  * command, ONE outcome, ONE report (finder_windows.h finder_cmd_outcome_t). */
 static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
@@ -4069,6 +4214,12 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         serial_puts("FINDER-VIEW win=");
         serial_puti((int32_t)o->slot);
         serial_puts(" mode=icons\n");
+        return;
+
+    case FCMD_EMPTY_TRASH:
+        /* bead initech-6k12: the shell counted; confirm, then purge. */
+        if (o->status != FINDER_WIN_OK) return;
+        finder_empty_trash(ctx, bi, (uint16_t)o->moved);
         return;
 
     case FCMD_OPEN:
@@ -4812,6 +4963,12 @@ void kernel_main(void)
          * the volume; the context makes the Ctrl-chord path dispatch through
          * the single command spine with this shell as its execution hook. */
         finder_shell_bind_fs(g_finder_shell, &g_finder_fs_binding);
+        /* bead initech-6k12: a Trash left full by the last session boots FULL
+         * (icon + Empty Trash); an empty one changes nothing on the wire. */
+        if (finder_shell_recount_trash(g_finder_shell)) {
+            g_finder_shell->trash_icon_dirty = 0u;   /* not yet painted at all */
+            serial_puts("DESK-TRASH-ICON full\n");
+        }
         g_finder_ctx.trace      = finder_trace_serial;
         g_finder_ctx.trace_user = (void *)0;
         finder_shell_bind_ctx(g_finder_shell, &g_finder_ctx);

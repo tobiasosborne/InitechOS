@@ -26,6 +26,8 @@
  *              desktop Trash after README.TXT was staged: slot 1's cascaded
  *              frame (40,80)..(400,300), titled "Trash", README.TXT's DOC
  *              strike in cell 0 and cells 1-3 bare.
+ *   trashempty (bead initech-6k12) the SAME window after Special > Empty
+ *              Trash's OK: the window still open, cells 0-3 all bare.
  *
  * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- this is the whole
  * point).  Every probe below is HAND-AUTHORED from INDEPENDENT sources:
@@ -916,7 +918,7 @@ int main(int argc, char **argv)
     long maxv = 0;
     size_t want, got;
     int leg_root, leg_moved, leg_newfolder, leg_finderbar, leg_zoomed;
-    int leg_arranged, leg_allsel, leg_trash;
+    int leg_arranged, leg_allsel, leg_trash, leg_trashempty;
     const RosterEntry *roster = ROSTER;
     int L, T, n_icons, i;
 
@@ -935,6 +937,8 @@ int main(int argc, char **argv)
     leg_arranged  = (strcmp(g_leg, "arranged")  == 0);
     leg_allsel    = (strcmp(g_leg, "allsel")    == 0);
     leg_trash     = (strcmp(g_leg, "trashwin")  == 0);
+    /* bead initech-6k12: the SAME Trash window after Empty Trash's OK. */
+    leg_trashempty = (strcmp(g_leg, "trashempty") == 0);
     int scroll_value = -2;   /* tdnl.35 scroll legs */
     if (strcmp(g_leg, "scrollarrow") == 0) scroll_value = 48;
     if (strcmp(g_leg, "scrollpage")  == 0) scroll_value = 138;
@@ -942,11 +946,12 @@ int main(int argc, char **argv)
     if (strcmp(g_leg, "scrollfit")   == 0) scroll_value = -1;
     if (!leg_root && !leg_moved && !leg_newfolder && !leg_finderbar &&
         !leg_zoomed && !leg_arranged && !leg_allsel && !leg_trash &&
+        !leg_trashempty &&
         scroll_value == -2) {
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: unknown leg '%s' "
                 "(want rootwin|movedwin|newfolder|finderbar|zoomedwin|"
-                "arranged|allsel|trashwin|scroll*)\n",
+                "arranged|allsel|trashwin|trashempty|scroll*)\n",
                 g_leg);
         return 2;
     }
@@ -1031,13 +1036,13 @@ int main(int argc, char **argv)
     if (leg_arranged) roster = ROSTER_BY_NAME;
     if (leg_allsel) g_want_inverted = 1;
     n_icons = leg_newfolder ? 3 : 2;
-    if (leg_trash) {
+    if (leg_trash || leg_trashempty) {
         /* bead initech-tdnl.39: the TRASH window (slot 1, front) after
          * README.TXT was staged -- one DOC icon in cell 0, cells 1-3 bare,
          * the "Trash" title (spec/flair_trash_traces.mk). */
         L = TRASH_L; T = TRASH_T;
         roster = ROSTER;              /* README.TXT, a DOC: its entry 0 */
-        n_icons = 1;
+        n_icons = leg_trashempty ? 0 : 1;   /* emptied: every cell bare */
         g_title = "Trash";
         g_title_chars = TRASH_TITLE_CHARS;
         g_title_w = TRASH_TITLE_W;

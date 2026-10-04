@@ -327,11 +327,14 @@ typedef struct want_state {
 
 /* RE-KEY (beads initech-tdnl.36/.38, stated): Open is lit by a selected FOLDER
  * (SELECTION_OPENABLE), not by any selection -- a document selection used to
- * light Open and then do nothing (audit F07). Get Info, Duplicate and Empty
- * Trash have no implementation in the shell, so NO state lights them (audit
- * F03); they are graded dark in every row below, which is strictly more than
- * the old table asserted. The `front` column now also drives the window-
- * arrangement rows (by Icons, both Clean Ups, Arrange), checked below. */
+ * light Open and then do nothing (audit F07). Get Info and Duplicate have no
+ * implementation in the shell, so NO state lights them (audit F03); they are
+ * graded dark in every row below, which is strictly more than the old table
+ * asserted. The `front` column now also drives the window-arrangement rows
+ * (by Icons, both Clean Ups, Arrange), checked below.
+ * RE-KEY (bead initech-6k12, stated): Empty Trash is IMPLEMENTED now, so it
+ * is graded LIT exactly in the rows with tr=1 and dark in every tr=0 row --
+ * the F4.4 TRASH_NONEMPTY truth table this table carried before tdnl.36. */
 static const want_state_t WANT_STATES[] = {
     /* sel tr fr    Open Close Info Dupl Trash              openable */
     {  0,  0, 0,     0,   0,    0,   0,   0, "C boot: nothing selected, desktop front, Trash empty", 0 },
@@ -339,8 +342,8 @@ static const want_state_t WANT_STATES[] = {
     {  0,  0, 1,     0,   1,    0,   0,   0, "C a disk window front, nothing selected", 0 },
     {  3,  0, 1,     0,   1,    0,   0,   0, "C a disk window front WITH a DOCUMENT selection: Open stays dark", 0 },
     {  3,  0, 1,     1,   1,    0,   0,   0, "C a disk window front WITH a FOLDER selected: Open lights", 1 },
-    {  0,  1, 0,     0,   0,    0,   0,   0, "C Trash non-empty no longer lights an unimplemented Empty Trash", 0 },
-    {  2,  1, 1,     1,   1,    0,   0,   0, "C everything live: still no Get Info / Duplicate / Empty Trash", 1 }
+    {  0,  1, 0,     0,   0,    0,   0,   1, "C Trash non-empty lights the IMPLEMENTED Empty Trash (6k12)", 0 },
+    {  2,  1, 1,     1,   1,    0,   0,   1, "C everything live: Empty Trash lit; still no Get Info / Duplicate", 1 }
 };
 
 /* The rows refresh must NEVER touch, with their authored bytes. */
@@ -358,7 +361,6 @@ static const want_fixed_t WANT_FIXED[] = {
     { FINDER_MENU_IX_VIEW,     4, 0, "by Kind" },
     { FINDER_MENU_IX_FILE,     5, 0, "Get Info" },
     { FINDER_MENU_IX_FILE,     6, 0, "Duplicate" },
-    { FINDER_MENU_IX_SPECIAL,  1, 0, "Empty Trash" },
     { FINDER_MENU_IX_SPECIAL,  3, 0, "Erase Disk" },
     { FINDER_MENU_IX_SPECIAL,  5, 0, "Restart" },
     { FINDER_MENU_IX_SPECIAL,  6, 0, "Shut Down" },
