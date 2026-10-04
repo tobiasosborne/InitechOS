@@ -94,6 +94,12 @@
  *                                    TRASH_NO_STAGE).
  *   FINDER_OPS_MUT_NO_CYCLE       -- the folder-into-itself rung is gone.
  *   FINDER_OPS_MUT_NO_ORIGIN      -- staging records no kind=5 origin.
+ *   FINDER_OPS_MUT_COUNT_CELL     -- an item dropped on a folder / the volume
+ *                                    / the Trash whose window is open lands in
+ *                                    cell n (the icon COUNT) instead of the
+ *                                    lowest FREE cell, i.e. on top of an icon
+ *                                    when the window has a gap (bead
+ *                                    initech-tdnl.39, the put-back fix).
  *
  * Ref: docs/design/GUI-remediation-R3-finder-design.md F1.4 (Trash on FAT,
  *        the suffix rule, TRASH-RENAME, TRASH_NO_STAGE), F1.5 (kind=5),

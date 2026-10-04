@@ -61,7 +61,10 @@
  *   FINDER-MARQUEE n=<selected>          a rubber-band completed
  *   FINDER-ICON-DRAG name=<name> x=<gx> y=<gy>   drop committed (new origin)
  *   FINDER-ICON-DRAG-REVERT              drop refused (undraggable icon)
- *   FINDER-OPEN-TRASH NYI                double-click on the Trash icon
+ *   FINDER-OPEN-TRASH win=<slot> n=<icons> singleton=<0|1>
+ *                                        double-click on the Trash icon (was
+ *                                        "NYI" until bead initech-tdnl.39 --
+ *                                        see os/flair/finder_windows.h)
  *   DESKTOP-DB-SAVE n=<records>          positions committed to \DESKTOP.DB
  *
  * R3.3 RE-KEY (bead initech-tdnl.10): the volume double-click no longer says
@@ -232,6 +235,11 @@ typedef struct finder_desk {
     uint16_t            n;       /* live count                                 */
     uint16_t            cap;     /* capacity of icons[]                        */
     rgn_rect_t          bounds;  /* the usable desktop rect (below both bars)  */
+    /* bead initech-6k12: 1 while \TRASH holds at least one item, so the
+     * painter draws the Trash icon's FULL strike (desk_icons.h
+     * FLAIR_DESK_ICON_TRASH_FULL). Written only by finder_shell_recount_trash
+     * (os/flair/finder_windows.c); 0 for a window's model (no Trash icon). */
+    uint8_t             trash_full;
 } finder_desk_t;
 
 /* ===========================================================================

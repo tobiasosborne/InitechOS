@@ -105,10 +105,13 @@ static int fd_valid(const finder_desk_t *fd, int idx)
  * painter therefore needs one kind->strike map, and this is it. Unknown kinds
  * return NULL and finder_desk_paint SKIPS them -- fail-safe, never a garbage
  * blit (Rule 2). */
-static const FLAIRDeskIcon *fd_strike(uint8_t kind)
+static const FLAIRDeskIcon *fd_strike(uint8_t kind, uint8_t trash_full)
 {
     if (kind == (uint8_t)FINDER_ICON_VOLUME) return &FLAIR_DESK_ICON_VOLUME;
-    if (kind == (uint8_t)FINDER_ICON_TRASH)  return &FLAIR_DESK_ICON_TRASH;
+    /* bead initech-6k12: the Trash draws FULL while \TRASH holds anything
+     * (finder_desk_t.trash_full, kept by finder_shell_recount_trash). */
+    if (kind == (uint8_t)FINDER_ICON_TRASH)
+        return trash_full ? &FLAIR_DESK_ICON_TRASH_FULL : &FLAIR_DESK_ICON_TRASH;
     if (kind == (uint8_t)FINDER_ICON_FOLDER) return &FLAIR_FINDER_ICON_FOLDER;
     if (kind == (uint8_t)FINDER_ICON_FILE)   return &FLAIR_FINDER_ICON_DOC;
     if (kind == (uint8_t)FINDER_ICON_APP)    return &FLAIR_FINDER_ICON_APP;
@@ -131,6 +134,7 @@ void finder_desk_init(finder_desk_t *fd, finder_desk_icon_t *storage,
     fd->n      = 0u;
     fd->cap    = cap;
     fd->bounds = usable;
+    fd->trash_full = 0u;
 }
 
 int finder_desk_add(finder_desk_t *fd, finder_icon_kind_t kind,
@@ -803,7 +807,7 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
 
     for (int i = 0; i < (int)fd->n; i++) {
         const finder_desk_icon_t *ic = &fd->icons[i];
-        const FLAIRDeskIcon *strike = fd_strike(ic->kind);
+        const FLAIRDeskIcon *strike = fd_strike(ic->kind, fd->trash_full);
         rgn_rect_t cell = finder_desk_cell_rect(fd, i);
         rgn_rect_t lab;
         uint32_t band_px;

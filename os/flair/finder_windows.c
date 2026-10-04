@@ -28,6 +28,11 @@
  *   FINDER_WIN_MUT_CLEANUP_UNSORTED -- Clean Up assigns grid cells in REVERSE
  *                                      record order, so the snap is no longer
  *                                      row-major (F3.3).
+ *   FINDER_WIN_MUT_TRASH_ROOT       -- the Trash window opens over the ROOT
+ *                                      directory instead of \TRASH (bead
+ *                                      initech-tdnl.39).
+ *   FINDER_WIN_MUT_EMPTY_NO_CONFIRM -- Empty Trash purges at dispatch, with
+ *                                      no confirm (bead initech-6k12).
  */
 #include "finder_windows.h"
 
@@ -36,6 +41,7 @@
 #include "heap.h"               /* flair_alloc / FLAIR_CLASS_HANDLE            */
 #include "event_model.h"        /* EventRecord, updateEvt / keyDown            */
 #include "window_record.h"      /* documentKind                                */
+#include "chicago12.h"          /* chicago12_advance -- the alert's word wrap  */
 
 /* NO PANIC MACRO HERE, DELIBERATELY. Every failure this file can meet is a
  * CONDITION, not a programming error: the window table is full, the binding
@@ -590,6 +596,7 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t dir_start,
 
     w->open      = 1u;
     w->is_root   = is_root ? 1u : 0u;
+    w->is_trash  = 0u;       /* finder_win_open_trash sets it after the build */
     w->dir_start = dir_start;
     fw_copy83(w->name83, is_root ? "" : name83);
     finder_click_reset(&w->click);
@@ -623,6 +630,39 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t dir_start,
     }
 
     if (out_slot != (int *)0) *out_slot = slot;
+    return FINDER_WIN_OK;
+}
+
+/* THE TRASH WINDOW (bead initech-tdnl.39; finder_windows.h Sec 10). */
+finder_win_status_t finder_win_open_trash(finder_shell_t *sh, int *out_slot,
+                                          int *out_singleton)
+{
+    finder_win_status_t st;
+    int td, slot = -1, single = 0;
+
+    if (out_slot != (int *)0) *out_slot = -1;
+    if (out_singleton != (int *)0) *out_singleton = 0;
+    if (sh == (finder_shell_t *)0 || !sh->have_fs ||
+        sh->fs.trash_dir == (int (*)(void *))0)
+        return FINDER_WIN_ERR_NULL;
+    td = sh->fs.trash_dir(sh->fs.user);
+    if (td < 0) return FINDER_WIN_ERR_NOTRASH;          /* fail loud, Rule 2 */
+#if defined(FINDER_WIN_MUT_TRASH_ROOT)
+    /* MUTANT (Rule 6): the wrong cluster -- the window lists the volume ROOT,
+     * not the staged items. NEVER in a real build. */
+    td = 0;
+#endif
+    st = finder_win_open(sh, (uint16_t)td, FINDER_SVC_TRASH_NAME, 0u,
+                         &slot, &single);
+    if (st != FINDER_WIN_OK) return st;
+    if (!single) {
+        /* A fresh window: title it by the icon it opened from. A raised one
+         * already carries both. */
+        sh->windows[slot].is_trash = 1u;
+        SetWTitle(sh->wm, &sh->windows[slot].rec, FINDER_WIN_TRASH_TITLE);
+    }
+    if (out_slot != (int *)0) *out_slot = slot;
+    if (out_singleton != (int *)0) *out_singleton = single;
     return FINDER_WIN_OK;
 }
 
@@ -683,6 +723,8 @@ finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
 
     if (out_name83 != (char *)0) fw_copy83(out_name83, name);
 
+    /* A folder made in the Trash window fills the Trash (bead initech-6k12). */
+    (void)finder_shell_recount_trash(sh);
     /* Show it. The re-populate is a full re-enumeration, so the new folder
      * lands wherever the directory order puts it -- which is the truth of the
      * volume, not a guess (design F3-3). */
@@ -902,6 +944,239 @@ int finder_shell_save_view(finder_shell_t *sh, int slot)
 }
 
 /* ===========================================================================
+ * 12. EMPTY TRASH  (bead initech-6k12; finder_windows.h Sec 12)
+ * ===========================================================================*/
+
+/* The n-th ITEM (0-based) of directory `dir`: dot entries and volume labels
+ * are not items. Copied out DURING the callback (the lifetime rule). */
+typedef struct fw_item {
+    int      want, seen;
+    char     name[FINDER_DESK_NAME_MAX];
+    uint8_t  attr;
+    uint32_t size;
+    uint16_t cl;
+} fw_item_t;
+
+static int fw_item_cb(const finder_dirent_t *e, void *u)
+{
+    fw_item_t *it = (fw_item_t *)u;
+    if (e->name83 == (const char *)0 || finder_win_skip_entry(e->attribute) ||
+        e->name83[0] == '.')
+        return 0;
+    if (it->seen++ != it->want) return 0;
+    fw_copy83(it->name, e->name83);
+    it->attr = e->attribute;
+    it->size = e->size;
+    it->cl   = e->start_cluster;
+    return 1;                                     /* stop: found            */
+}
+
+/* 1 found, 0 no such item, -1 the backend failed. */
+static int fw_item(finder_shell_t *sh, uint16_t dir, int n, fw_item_t *it)
+{
+    int rc;
+    it->want = n;
+    it->seen = 0;
+    rc = sh->fs.enumerate(sh->fs.user, dir, fw_item_cb, it);
+    return (rc < 0) ? -1 : (rc != 0 ? 1 : 0);
+}
+
+static int fw_trash_ok(const finder_shell_t *sh)
+{
+    return sh != (const finder_shell_t *)0 && sh->have_fs &&
+           sh->fs.enumerate != (int (*)(void *, uint16_t, finder_enum_cb, void *))0 &&
+           sh->fs.trash_dir != (int (*)(void *))0;
+}
+
+int finder_shell_recount_trash(finder_shell_t *sh)
+{
+    struct { uint16_t dir, next; } st[FINDER_TRASH_DEPTH];
+    uint16_t items = 0u;
+    uint32_t bytes = 0u;
+    uint8_t  was, now;
+    int d = 0, td;
+    fw_item_t it;
+
+    if (sh == (finder_shell_t *)0) return 0;
+    td = fw_trash_ok(sh) ? sh->fs.trash_dir(sh->fs.user) : -1;
+    if (td >= 0) {
+        st[0].dir  = (uint16_t)td;
+        st[0].next = 0u;
+        while (d >= 0) {
+            if (fw_item(sh, st[d].dir, (int)st[d].next, &it) <= 0) { d--; continue; }
+            st[d].next = (uint16_t)(st[d].next + 1u);
+            items = (uint16_t)(items + 1u);
+            bytes += it.size;
+            if ((it.attr & (uint8_t)FINDER_ATTR_DIRECTORY) != 0u &&
+                d + 1 < FINDER_TRASH_DEPTH) {
+                d++;
+                st[d].dir  = it.cl;
+                st[d].next = 0u;
+            }
+        }
+    }
+    was = sh->desk.trash_full;
+    now = (items != 0u) ? 1u : 0u;
+    sh->trash_items    = items;
+    sh->trash_bytes    = bytes;
+    sh->desk.trash_full = now;
+    if (now == was) return 0;
+    sh->trash_icon_dirty = 1u;
+    return 1;
+}
+
+/* 1 when `name83` is an item of `dir` (case-insensitive 8.3). */
+static int fw_has_item(finder_shell_t *sh, uint16_t dir, const char *name83)
+{
+    fw_item_t it;
+    for (int n = 0; fw_item(sh, dir, n, &it) > 0; n++)
+        if (fw_ieq(it.name, name83)) return 1;
+    return 0;
+}
+
+finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
+                                             uint16_t *out_purged,
+                                             uint16_t *out_refused,
+                                             uint8_t *out_db_dirty)
+{
+    struct {
+        uint16_t dir, skip;
+        char     name[FINDER_DESK_NAME_MAX];   /* this folder's name in its parent */
+    } st[FINDER_TRASH_DEPTH];
+    uint16_t purged = 0u, refused = 0u, kept = 0u;
+    int d = 0, td, rc;
+    fw_item_t it;
+
+    if (out_purged != (uint16_t *)0)   *out_purged = 0u;
+    if (out_refused != (uint16_t *)0)  *out_refused = 0u;
+    if (out_db_dirty != (uint8_t *)0)  *out_db_dirty = 0u;
+    if (!fw_trash_ok(sh) ||
+        sh->fs.unlink == (int (*)(void *, const char *, uint16_t))0 ||
+        sh->fs.rmdir == (int (*)(void *, const char *, uint16_t))0)
+        return FINDER_WIN_ERR_NULL;
+    td = sh->fs.trash_dir(sh->fs.user);
+    if (td < 0) return FINDER_WIN_ERR_NOTRASH;
+
+    /* DEPTH-FIRST. Each level remembers how many leading items it had to
+     * REFUSE (`skip`), so the walk always takes the first item it has not
+     * given up on: delete it, or descend into it; an emptied level is
+     * removed from its parent on the way back up. Every step deletes an
+     * entry, refuses one (skip grows), descends or ascends, so it ends. */
+    st[0].dir  = (uint16_t)td;
+    st[0].skip = 0u;
+    for (;;) {
+        rc = fw_item(sh, st[d].dir, (int)st[d].skip, &it);
+        if (rc <= 0) {
+            if (d == 0) break;
+            /* The level is as empty as it will get: remove the folder. */
+            rc = sh->fs.rmdir(sh->fs.user, st[d].name, st[d - 1].dir);
+            d--;
+            if (rc == (int)FINDER_WIN_OK) {
+                purged = (uint16_t)(purged + 1u);
+            } else {
+                refused = (uint16_t)(refused + 1u);
+                st[d].skip = (uint16_t)(st[d].skip + 1u);
+            }
+            continue;
+        }
+        if ((it.attr & (uint8_t)FINDER_ATTR_DIRECTORY) != 0u) {
+            if (d + 1 >= FINDER_TRASH_DEPTH) {          /* too deep: refuse loud */
+                refused = (uint16_t)(refused + 1u);
+                st[d].skip = (uint16_t)(st[d].skip + 1u);
+                continue;
+            }
+            d++;
+            st[d].dir  = it.cl;
+            st[d].skip = 0u;
+            fw_copy83(st[d].name, it.name);
+            continue;
+        }
+        if (sh->fs.unlink(sh->fs.user, it.name, st[d].dir) == (int)FINDER_WIN_OK) {
+            purged = (uint16_t)(purged + 1u);
+        } else {
+            refused = (uint16_t)(refused + 1u);
+            st[d].skip = (uint16_t)(st[d].skip + 1u);
+        }
+    }
+
+    /* The kind=5 origins of purged items are stale; a refused item keeps its
+     * own (it is still in \TRASH and can still be put back). */
+    for (uint16_t i = 0u; i < sh->n_origins; i++)
+        if (fw_has_item(sh, (uint16_t)td, sh->origins[i].name83))
+            sh->origins[kept++] = sh->origins[i];
+    if (kept != sh->n_origins && out_db_dirty != (uint8_t *)0) *out_db_dirty = 1u;
+    sh->n_origins = kept;
+
+    /* An open Trash window shows what is left. */
+    {
+        int slot = finder_win_find(sh, (uint16_t)td);
+        if (slot >= 0 && finder_win_populate(sh, slot) == FINDER_WIN_OK)
+            finder_win_invalidate_all(sh, slot);
+    }
+    (void)finder_shell_recount_trash(sh);
+    if (out_purged != (uint16_t *)0)  *out_purged = purged;
+    if (out_refused != (uint16_t *)0) *out_refused = refused;
+    return FINDER_WIN_OK;
+}
+
+/* libc-free decimal (Law 3); returns the digit count written. */
+static int fw_utoa(char *dst, uint32_t v)
+{
+    char tmp[10];
+    int n = 0, k = 0;
+    do { tmp[n++] = (char)('0' + (v % 10u)); v /= 10u; } while (v != 0u);
+    while (n > 0) dst[k++] = tmp[--n];
+    return k;
+}
+
+static int fw_cat(char *dst, int at, const char *s)
+{
+    while (*s != '\0' && at < 200) dst[at++] = *s++;
+    return at;
+}
+
+int finder_trash_alert_text(uint16_t items, uint32_t bytes,
+                            char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    char msg[208];
+    int  n = 0, line = 0, i = 0;
+    int  one = (items == 1u);
+
+    /* The corpus wording (Sec 12), "Trash" for "Wastebasket"; the SINGULAR
+     * agreement ("1 item, which uses ... this item") is authored, no local
+     * reference shows it. */
+    n = fw_cat(msg, n, "The Trash contains ");
+    n += fw_utoa(msg + n, items);
+    n = fw_cat(msg, n, one ? " item, which uses " : " items, which use ");
+    n += fw_utoa(msg + n, (bytes + 1023u) / 1024u);
+    n = fw_cat(msg, n, one ? "K of disk space. Are you sure you want to remove "
+                             "this item permanently?"
+                           : "K of disk space. Are you sure you want to remove "
+                             "these items permanently?");
+    msg[n] = '\0';
+
+    for (int l = 0; l < FINDER_ALERT_LINES; l++) out[l][0] = '\0';
+    /* GREEDY WORD WRAP on Chicago 12 advances: a word joins the line when
+     * the line plus a space plus the word still fits FINDER_ALERT_TEXT_W. */
+    while (msg[i] != '\0' && line < FINDER_ALERT_LINES) {
+        int j = i, ww = 0, len = 0, lw = 0;
+        char *o = out[line];
+        while (o[len] != '\0') { lw += chicago12_advance((unsigned char)o[len]); len++; }
+        while (msg[j] != '\0' && msg[j] != ' ') ww += chicago12_advance((unsigned char)msg[j++]);
+        if (len != 0 && lw + chicago12_advance(' ') + ww > FINDER_ALERT_TEXT_W) {
+            line++;                               /* the word opens a new line */
+            continue;
+        }
+        if (len != 0) o[len++] = ' ';
+        while (i < j && len < FINDER_ALERT_LINE_MAX - 1) o[len++] = msg[i++];
+        o[len] = '\0';
+        i = j;
+        while (msg[i] == ' ') i++;
+    }
+    return (line < FINDER_ALERT_LINES) ? line + 1 : FINDER_ALERT_LINES;
+}
+
+/* ===========================================================================
  * THE COMMAND EXECUTION HOOK  (finder_cmd.h FinderCtx.exec)
  * ===========================================================================*/
 
@@ -1053,6 +1328,25 @@ static void fw_do_view_icons(finder_shell_t *sh, finder_cmd_id id, int slot)
     fw_outcome(sh, id, FINDER_WIN_OK, slot);
 }
 
+/* Special > Empty Trash (bead initech-6k12): COUNT and report -- the kernel
+ * puts up the confirm alert and calls finder_shell_empty_trash only on OK
+ * (finder_windows.h Sec 12, "THE CONFIRM IS NOT OPTIONAL"). `moved` carries
+ * the item count the alert states. */
+static void fw_do_empty_trash(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    (void)slot;
+    (void)finder_shell_recount_trash(sh);
+    fw_outcome(sh, id, (sh->trash_items != 0u) ? FINDER_WIN_OK
+                                                : FINDER_WIN_ERR_NULL, -1);
+    sh->last.moved = (int16_t)sh->trash_items;
+#if defined(FINDER_WIN_MUT_EMPTY_NO_CONFIRM)
+    /* MUTANT (Rule 6): the purge runs at DISPATCH, before any confirm.
+     * NEVER in a real build. */
+    (void)finder_shell_empty_trash(sh, (uint16_t *)0, (uint16_t *)0,
+                                   (uint8_t *)0);
+#endif
+}
+
 static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
     { FCMD_NEW_FOLDER,      fw_do_new_folder },
     { FCMD_CLEANUP,         fw_do_cleanup    },
@@ -1060,7 +1354,8 @@ static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
     { FCMD_OPEN,            fw_do_open       },
     { FCMD_SELECT_ALL,      fw_do_select_all },
     { FCMD_ARRANGE_BY_NAME, fw_do_arrange    },
-    { FCMD_VIEW_ICONS,      fw_do_view_icons }
+    { FCMD_VIEW_ICONS,      fw_do_view_icons },
+    { FCMD_EMPTY_TRASH,     fw_do_empty_trash }
 };
 #define FW_EXEC_N ((int)(sizeof FW_EXEC_TABLE / sizeof FW_EXEC_TABLE[0]))
 
@@ -1108,6 +1403,9 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
                     : finder_desk_selection_count(&sh->desk);
     /* SELECTION_OPENABLE (bead initech-tdnl.38): Open acts on a selected
      * FOLDER of the front disk window -- the only thing fw_do_open opens. */
+    /* TRASH_NONEMPTY (bead initech-6k12): the cached count, kept current by
+     * every path that changes \TRASH (drops, New Folder, the purge). */
+    sh->ctx->trash_nonempty = (uint8_t)((sh->trash_items != 0u) ? 1 : 0);
     sh->ctx->selection_openable = 0u;
     if (slot >= 0) {
         const finder_desk_t *v = &sh->windows[slot].view;

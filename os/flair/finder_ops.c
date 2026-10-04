@@ -209,6 +209,33 @@ static void fo_remove_icon(finder_window_t *w, int idx)
     finder_click_reset(&w->click);       /* stored indices shifted             */
 }
 
+/* "The next free row-major grid cell" (finder_ops.h): the LOWEST cell whose
+ * sprite origin no icon of `dw` occupies. Found by bead initech-tdnl.39's put
+ * back: the cell used to be indexed by the icon COUNT, which lands ON an icon
+ * whenever an earlier item left the window -- a period window does not
+ * re-flow (fo_remove_icon) -- so README.TXT put back from the Trash into a
+ * root window still showing APPS in cell 1 was drawn on top of APPS. At most
+ * n+1 cells are tried, so the walk always ends. */
+static void fo_free_cell(finder_window_t *dw, int16_t *x, int16_t *y)
+{
+    rgn_rect_t doc = finder_win_doc_rect(dw);
+    for (int c = 0;; c++) {
+        int i = 0;
+#if defined(FINDER_OPS_MUT_COUNT_CELL)
+        /* MUTANT (Rule 6): the pre-fix count-indexed cell. */
+        c = (int)dw->view.n;
+#endif
+        finder_win_grid_origin(doc, c, x, y);
+        while (i < (int)dw->view.n &&
+               (dw->view.icons[i].x != *x || dw->view.icons[i].y != *y))
+            i++;
+#if defined(FINDER_OPS_MUT_COUNT_CELL)
+        i = (int)dw->view.n;
+#endif
+        if (i == (int)dw->view.n) return;
+    }
+}
+
 static void fo_origin_add(finder_shell_t *sh, finder_move_result_t *out)
 {
 #if defined(FINDER_OPS_MUT_NO_ORIGIN)
@@ -376,8 +403,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
             /* The grid is in DOCUMENT coordinates (finder_windows.h Sec
              * 10c): the cell may lie below the visible rows of a scrolled
              * window, which the scroll bar then reaches -- so no clamp. */
-            finder_win_grid_origin(finder_win_doc_rect(dw), (int)dw->view.n,
-                                   &x, &y);
+            fo_free_cell(dw, &x, &y);
         }
         nidx = finder_desk_add(&dw->view, (finder_icon_kind_t)ic.kind,
                                out->as, x, y, 1u);
@@ -395,6 +421,9 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     } else if (td >= 0 && out->from_dir == (uint16_t)td) {
         fo_origin_drop(sh, ic.name, out);
     }
+    /* \TRASH may have gained or lost an item: the FULL icon and the Empty
+     * Trash predicate follow (bead initech-6k12). */
+    (void)finder_shell_recount_trash(sh);
 
     out->status = FINDER_WIN_OK;
     return FINDER_WIN_OK;

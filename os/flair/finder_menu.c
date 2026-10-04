@@ -50,7 +50,6 @@
  * execute is authored 0 and carries no predicate, so no context can light it;
  * it rejoins the predicate map when its bead lands. Today that is:
  *   File > Get Info, Duplicate   (initech-p6st / initech-tdnl.16)
- *   Special > Empty Trash        (initech-6k12)
  *   Special > Restart, Shut Down (initech-tdnl.37: no kernel reset/halt
  *                                 primitive exists yet -- see finder_menu.h)
  * and File > Open is lit only by a selected FOLDER (initech-tdnl.38).
@@ -202,7 +201,7 @@ static MenuItem finder_special_items[] = {
      * real build. */
     FM_ITEM("Clean Up",     0, 0),
 #endif
-    FM_ITEM("Empty Trash",  0, 0),                /* grayed: no impl (6k12)    */
+    FM_ITEM("Empty Trash",  0, FM_PRED_REST),     /* TRASH_NONEMPTY (6k12)     */
     FM_DIV,
     FM_ITEM("Erase Disk",   0, 0),
     FM_DIV,
@@ -273,6 +272,10 @@ static const fm_pred_row_t FINDER_MENU_PREDS[] = {
 #if !defined(FINDER_MENU_MUT_DEAD_ITEM)
     , { FINDER_MENU_IX_SPECIAL, 0u, finder_pred_front_is_diskwin } /* CleanUp  */
 #endif
+    /* bead initech-6k12: Empty Trash is IMPLEMENTED (the shell counts, the
+     * kernel confirms, finder_shell_empty_trash purges) and lit exactly while
+     * \TRASH holds something (F4.2 Special row 2). */
+    , { FINDER_MENU_IX_SPECIAL, 1u, finder_pred_trash_nonempty   } /* Empty #2 */
 #if defined(FINDER_MENU_MUT_STUB_ENABLED)
     /* MUTANT (Rule 6; bead initech-tdnl.36): the pre-fix Get Info row -- lit
      * by any selection though nothing implements it. NEVER in a real build. */

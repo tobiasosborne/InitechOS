@@ -226,8 +226,69 @@ static const rowcount_t TRASH_ROWS[DESK_ICON_DIM] = {
     {  0,  0,  0 },   /* row 31 */
 };
 
+/* TRASH_FULL -- the full basket (bead initech-6k12). Rows 7..31 are the empty
+ * basket's map rows verbatim (so the table repeats TRASH_ROWS there); rows
+ * 0..6 verified by hand off the FULL map:
+ *   row  0 (handle top)   : ink cols 15..20                      =  6; opaque 6.
+ *   row  3 (lid face)     : ink cols 10 and 27 = 2; gray 11..26 = 16; opaque 18.
+ *   row  5 (paper tops)   : ink 8,9,10,12,14,16,17,18,20,21,23,24,25 = 13;
+ *                           white col 13 = 1; opaque 14.
+ *   row  6 (paper bodies) : ink 7,11,12,15,19,20,22,26 = 8; white 8,9,10,13,
+ *                           14,16,17,18,21,23,24,25 = 12; opaque cols 7..26 = 20. */
+static const rowcount_t TRASH_FULL_ROWS[DESK_ICON_DIM] = {
+    {  6,  0,  6 },   /* row  0 */
+    {  2,  0,  2 },   /* row  1 */
+    { 18,  0, 18 },   /* row  2 */
+    {  2, 16, 18 },   /* row  3 */
+    { 18,  0, 18 },   /* row  4 */
+    { 13,  0, 14 },   /* row  5 */
+    {  8,  0, 20 },   /* row  6 */
+    { 14,  0, 14 },   /* row  7  (= the empty basket's rim) */
+    {  2,  0, 14 },   /* row  8 */
+    {  2,  3, 14 },   /* row  9 */
+    {  2,  3, 14 },   /* row 10 */
+    {  2,  3, 14 },   /* row 11 */
+    {  2,  3, 14 },   /* row 12 */
+    {  2,  3, 14 },   /* row 13 */
+    {  2,  3, 14 },   /* row 14 */
+    {  2,  3, 12 },   /* row 15 */
+    {  2,  3, 12 },   /* row 16 */
+    {  2,  3, 12 },   /* row 17 */
+    {  2,  3, 12 },   /* row 18 */
+    {  2,  3, 12 },   /* row 19 */
+    {  2,  3, 12 },   /* row 20 */
+    {  2,  3, 12 },   /* row 21 */
+    {  2,  3, 10 },   /* row 22 */
+    {  2,  3, 10 },   /* row 23 */
+    {  2,  3, 10 },   /* row 24 */
+    {  2,  3, 10 },   /* row 25 */
+    {  2,  3, 10 },   /* row 26 */
+    {  2,  3, 10 },   /* row 27 */
+    {  2,  0, 10 },   /* row 28 */
+    { 10,  0, 10 },   /* row 29 */
+    {  0,  0,  0 },   /* row 30 */
+    {  0,  0,  0 },   /* row 31 */
+};
+
 /* Hand-picked probe pixels, read off the same maps. (row, col, expected tone) */
 typedef struct { int r, c; desk_tone_t tone; } probe_t;
+
+static const probe_t TRASH_FULL_PROBES[] = {
+    {  0, 15, DESK_TONE_INK   },  /* the lifted lid's handle                  */
+    {  1, 17, DESK_TONE_CLEAR },  /* ... hollow                               */
+    {  2, 10, DESK_TONE_INK   },  /* lid slab, pushed ajar to the right       */
+    {  2,  7, DESK_TONE_CLEAR },  /* where the EMPTY strike's lid row 4 began */
+    {  3, 12, DESK_TONE_SHADE },  /* lid face                                 */
+    {  3, 27, DESK_TONE_INK   },  /* the lid overhangs the basket's right side */
+    {  5, 13, DESK_TONE_FACE  },  /* a paper corner poking up                 */
+    {  5, 11, DESK_TONE_CLEAR },  /* ... between crumpled balls               */
+    {  6,  7, DESK_TONE_INK   },  /* the bulge is WIDER than the rim (9..22)  */
+    {  6,  8, DESK_TONE_FACE  },
+    {  7,  9, DESK_TONE_INK   },  /* the rim, where the empty strike has it   */
+    {  9, 13, DESK_TONE_SHADE },  /* first ridge, as the empty basket         */
+    { 29, 15, DESK_TONE_INK   }   /* basket base                              */
+};
+enum { TRASH_FULL_PROBE_N = (int)(sizeof TRASH_FULL_PROBES / sizeof TRASH_FULL_PROBES[0]) };
 
 static const probe_t VOL_PROBES[] = {
     {  0,  0, DESK_TONE_CLEAR },  /* every corner of the cell is transparent  */
@@ -744,6 +805,19 @@ int main(void)
     check_hit(&FLAIR_DESK_ICON_TRASH, TRASH_PROBES, TRASH_PROBE_N);
 
     check_failsoft(&FLAIR_DESK_ICON_VOLUME);
+
+    /* ---- the FULL Trash (bead initech-6k12) ------------------------------
+     * Mutant DESK_ICONS_MUT_FULL_ROW (row 5 dropped from the packed words)
+     * goes RED on the row-5 table entry and the row-5 probes. */
+    check_invariants(&FLAIR_DESK_ICON_TRASH_FULL, "TRASH_FULL");
+    check_blit8(&FLAIR_DESK_ICON_TRASH_FULL, TRASH_FULL_ROWS, TRASH_FULL_PROBES,
+                TRASH_FULL_PROBE_N, 0, 0);
+    check_blit8(&FLAIR_DESK_ICON_TRASH_FULL, TRASH_FULL_ROWS, TRASH_FULL_PROBES,
+                TRASH_FULL_PROBE_N, 17, 9);
+    check_blit32(&FLAIR_DESK_ICON_TRASH_FULL, TRASH_FULL_PROBES, TRASH_FULL_PROBE_N);
+    check_clip(&FLAIR_DESK_ICON_TRASH_FULL);
+    check_edges(&FLAIR_DESK_ICON_TRASH_FULL);
+    check_hit(&FLAIR_DESK_ICON_TRASH_FULL, TRASH_FULL_PROBES, TRASH_FULL_PROBE_N);
 
     /* ---- the R3.3 disk-window strikes (bead initech-tdnl.10) ------------- */
     check_invariants(&FLAIR_FINDER_ICON_FOLDER, "FOLDER");
