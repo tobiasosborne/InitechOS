@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-10-04 04:45, session close (**WL-0093: THREE HANDS-ON DESKTOP AUDITS (36 findings; all four window-system P0s fixed and certified, cert 367 host + 140 emu at 40581c5), PROPORTIONAL CHICAGO, DRAG-MOVE, SETMBAR, KERNEL X87 -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-09-26 evening (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
+**Last Reconciled:** 2026-10-04 06:40, session close (**WL-0093: FOUR HANDS-ON DESKTOP AUDITS (41 findings; all four window-system P0s fixed and certified, cert 367 host + 144 emu at 37334ee), PROPORTIONAL CHICAGO, DRAG-MOVE, SETMBAR, KERNEL X87 -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-09-26 evening (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -231,6 +231,22 @@ fallback, asserted on serial.)
 > `docs/audits/2026-10-04-flair-gui-codex-pass2/` (G01-G11); each has REPORT.md, TRIAGE.md
 > (bead mapping, root causes, corrections), screenshots, serial evidence and a replay driver.
 > Beads carry label `gui-audit-2026-10` under epic initech-tdnl.
+>
+> **UPDATE 2026-10-04 06:40 (FINAL for this session).** Certificate: ALL GREEN 367 host + 144 emu
+> at 37334ee (first-person, `make clean && make test`, 06:39). Since 04:45: a FOURTH Codex pass on
+> the 40581c5 images (`docs/audits/2026-10-04-flair-gui-codex-pass4/`) found the P0 fixes HOLD
+> (icons follow the window, foreground rule, modifiers / gestures / box tracking), scroll bars
+> PARTLY, and filed J01-J05 (`tdnl.82`-`.86`: stale scroll-bar art after resize, labels clamped
+> into the viewport, Open handles one of two selected folders, no-motion thumb click, invisible
+> scroll parts at minimum size). Then `tdnl.71` (menu tracker kept a 64-slot pointer history;
+> now streaming, no history) and `tdnl.56/.73/.75` (TRASH and DESKTOP.DB hidden at the single
+> enumeration point and refused by identity; the volume root now shows TWO icons, not four)
+> landed in a2f5032 / 37334ee. Binding kernel headroom 17,976 B.
+> So in the NEXT list below: item (2) is DONE; strike `tdnl.71` and `tdnl.73` from item (3) and
+> add `tdnl.82`-`.86`. Item (1), re-recording the clips on main for the operator's eyeball
+> (`tdnl.81`), is still the first thing owed. Nobody independent has driven 37334ee.
+> **Quota at close:** Claude weekly 62%, 2.4 points under pace (below the session's 3-point stop
+> line; the last lane cost about 1.4). Codex weekly 5%.
 >
 > **UPDATE 2026-10-04 04:45 (session close) -- ALL FOUR AUDIT P0s ARE FIXED AND CERTIFIED.**
 > Certificate: ALL GREEN 367 host + 140 emu at 40581c5 (first-person, `make clean && make test`,

@@ -103,4 +103,7 @@ First full vector on the combined tree (450f28f) went RED one minute in: `test-c
 - **Final certificate:** ALL GREEN 367 host + 140 emu at 40581c5 (2026-10-04 04:41).
 - **Not done:** clips not re-recorded on main (tdnl.81); tdnl.61 dropped from the scroll lane
   for quota; no stranger has driven the 40581c5 images.
-
+- **04:45 to 06:40:** fourth Codex pass (docs/audits/2026-10-04-flair-gui-codex-pass4; the P0
+  fixes hold; J01-J05 filed as tdnl.82-.86); then tdnl.71 (menu tracker history overflow) and
+  tdnl.56/.73/.75 (Finder bookkeeping hidden and protected), a2f5032 / 37334ee.
+  **Closing certificate: ALL GREEN 367 host + 144 emu at 37334ee (2026-10-04 06:39).**
