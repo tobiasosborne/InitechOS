@@ -41,6 +41,9 @@
  *                          FLAIR-MENU serial line and nothing else)
  *   TBX_MUT_DRAWMBAR_NOOP  DRAWMENUBAR reports success but never asks for the
  *                          band-2 redraw (band 2 keeps the old bar)
+ *   TBX_MUT_DRAW_NOT_PRESENTED  tbx_take_drew never reports a draw (the
+ *                          pre-initech-8zii pump: a tenant's keyDown /
+ *                          mouseDown drawing is not presented)
  *   (+ the two tbxmenu.h knobs, TBX_MUT_MENU_KEY_PLAIN / _ANY_BAR, which a
  *    -D on this TU reaches through the header)
  *
@@ -126,6 +129,7 @@ typedef struct tbx_slot {
     uint8_t       crashed;      /* fault triaged inside the image             */
     uint8_t       torn_down;    /* terminate/kill already ran (close hook)    */
     uint8_t       mbar_redraw;  /* DRAWMENUBAR asked for a band-2 redraw      */
+    uint8_t       drew;         /* a draw verb reached the offscreen (8zii)   */
     int32_t       exit_rc;
     char          file[16];     /* the 8.3 file name (markers)                */
 } tbx_slot_t;
@@ -517,6 +521,59 @@ static int32_t v_textdraw(const uint32_t *a)
     draw_text((int32_t)c.left + (int32_t)a[1], (int32_t)c.top + (int32_t)a[2],
               (const char *)(uintptr_t)a[3], color_px(a[4]), color_px(a[5]),
               draw_clip());
+    g_slot.drew = 1u;
+    return TBX_OK;
+}
+
+/* DRAWCELLS (spec Sec 7a; bead initech-w96l): the run in the fixed 8x16 cell
+ * font -- every cell opaque: its box in bg, then the strike's set bits in fg
+ * (MSB = leftmost, os/milton/console.h's glyph format), through the same clip
+ * as TEXTDRAW. */
+static int32_t v_drawcells(const uint32_t *a)
+{
+    const bitmap_t *dst = g_host.surface;
+    const region_t *clip;
+    const char *s;
+    rgn_rect_t c, box;
+    int32_t gx, gy, len;
+    uint32_t fg, bg;
+
+    if (!check_win(a[0])) return TBX_ERR_BADARG;
+    len = image_str(a[3], TBX_CELLS_MAX_RUN + 1u);
+    if (len < 0) return TBX_ERR_BADARG;
+    if (a[4] >= TBX_COLOR_COUNT || a[5] >= TBX_COLOR_COUNT) return TBX_ERR_BADARG;
+    if (dst == (const bitmap_t *)0) return TBX_OK;
+    s  = (const char *)(uintptr_t)a[3];
+    c  = region_get_bbox(g_slot.win->contRgn);
+    gx = (int32_t)c.left + (int32_t)a[1];
+    gy = (int32_t)c.top + (int32_t)a[2];
+    fg = color_px(a[4]);
+    bg = color_px(a[5]);
+    clip = draw_clip();
+    box.left = (int16_t)gx; box.top = (int16_t)gy;
+    box.right = (int16_t)(gx + len * (int32_t)TBX_CELL_W);
+    box.bottom = (int16_t)(gy + (int32_t)TBX_CELL_H);
+    blitter_fill_rect_clipped(dst, box, bg, clip);
+    if (g_host.cellfont != (const uint8_t *)0) {
+        for (int32_t k = 0; k < len; k++) {
+            const uint8_t *gl = g_host.cellfont +
+                                (uint32_t)(uint8_t)s[k] * TBX_CELL_H;
+            for (int32_t r = 0; r < (int32_t)TBX_CELL_H; r++) {
+                int32_t py = gy + r;
+                if (gl[r] == 0u || py < 0 || py >= (int32_t)dst->height) continue;
+                for (int32_t b = 0; b < (int32_t)TBX_CELL_W; b++) {
+                    int32_t px = gx + k * (int32_t)TBX_CELL_W + b;
+                    if ((gl[r] & (0x80u >> b)) == 0u) continue;
+                    if (px < 0 || px >= (int32_t)dst->width) continue;
+                    if (!region_contains_point(clip, (int16_t)px, (int16_t)py))
+                        continue;
+                    surface_put_pixel(dst, (uint32_t)py * dst->pitch +
+                                           (uint32_t)px * dst->bytes_per_pixel, fg);
+                }
+            }
+        }
+    }
+    g_slot.drew = 1u;
     return TBX_OK;
 }
 
@@ -539,6 +596,7 @@ static int32_t v_fillrect(const uint32_t *a)
     r.bottom = (int16_t)((int32_t)c.top + (int32_t)a[4] < c.bottom
                          ? (int32_t)c.top + (int32_t)a[4] : c.bottom);
     blitter_fill_rect_clipped(g_host.surface, r, color_px(a[5]), draw_clip());
+    g_slot.drew = 1u;
     return TBX_OK;
 }
 
@@ -689,6 +747,7 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_EXIT:      argc = TBX_ARGC_EXIT;      break;
     case TBX_SETMBAR:   argc = TBX_ARGC_SETMBAR;   break;
     case TBX_DRAWMENUBAR: argc = TBX_ARGC_DRAWMENUBAR; break;
+    case TBX_DRAWCELLS: argc = TBX_ARGC_DRAWCELLS; break;
     default:            argc = 0u;                 break;
     }
     for (uint32_t i = 0; i < argc; i++)
@@ -707,6 +766,7 @@ void tbx_gate_dispatch(uint8_t *frame)
         case TBX_EXIT:      rc = v_exit(a[0]);     break;
         case TBX_SETMBAR:   rc = v_setmbar(a[0]);  break;
         case TBX_DRAWMENUBAR: rc = v_drawmenubar(); break;
+        case TBX_DRAWCELLS: rc = v_drawcells(a);   break;
         default:            rc = TBX_ERR_BADCODE;  break;
         }
     }
@@ -727,6 +787,7 @@ void tbx_gate_dispatch(uint8_t *frame)
         trace_int(" win=", a[0]); trace_str(" s=", a[1]);
         break;
     case TBX_TEXTDRAW:
+    case TBX_DRAWCELLS:
         trace_int(" win=", a[0]); trace_int(" x=", a[1]); trace_int(" y=", a[2]);
         trace_str(" s=", a[3]); trace_int(" fg=", a[4]); trace_int(" bg=", a[5]);
         break;
@@ -844,6 +905,20 @@ int tbx_take_mbar_redraw(void)
 {
     int r = (int)g_slot.mbar_redraw;
     g_slot.mbar_redraw = 0u;
+    return r;
+}
+
+int tbx_take_drew(void)
+{
+    int r = (int)g_slot.drew;
+    g_slot.drew = 0u;
+#ifdef TBX_MUT_DRAW_NOT_PRESENTED
+    /* MUTANT TBX_MUT_DRAW_NOT_PRESENTED (Rule 6; test-flair-ctenant-mutant):
+     * the pre-initech-8zii behaviour -- a tenant's drawing for a plain
+     * keyDown / mouseDown sits in the offscreen until something else
+     * presents. NEVER in a real build. */
+    r = 0;
+#endif
     return r;
 }
 

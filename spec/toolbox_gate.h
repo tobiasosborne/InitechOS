@@ -18,6 +18,11 @@
  *       (Sec 3, Sec 9), TBX_EVT_MENU added (Sec 6a), and Sec 9's "SETMBAR only
  *       before the first window" rule lifted -- the rule existed only because
  *       there was no DrawMenuBar trap (Sec 9 said so). No other value moved.
+ * bead: initech-w96l (a C application is a disk tenant; Initech 123 rides on
+ *       it). The deliberate Rule-8 act of THAT bead: TBX_DRAWCELLS 0x0033
+ *       added (Sec 3, Sec 7a -- the fixed 8x16 cell text a worksheet needs),
+ *       and Sec 8's carve now honours the image's e_minalloc (the BSS of a
+ *       compiled tenant), bounded by TBX_TENANT_BSS_MAX. No other value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -92,7 +97,8 @@
  * an inventory another bead (tdnl.21) consumes.
  *
  * V1 (tdnl.14) implements exactly the rows marked V1; initech-cnpm adds the
- * row marked V2; initech-tdnl.31 adds the row marked V3. Every other code --
+ * row marked V2; initech-tdnl.31 adds the row marked V3; initech-w96l the row
+ * marked V4. Every other code --
  * including the reserved and DISSOLVED rows -- returns TBX_ERR_BADCODE (the
  * demux is total, never a silent no-op, Rule 2).
  * ------------------------------------------------------------------------- */
@@ -109,6 +115,8 @@
 #define TBX_TEXTDRAW      0x0030u  /* V1  (win, x, y, strPtr, fg, bg) -> 0|err */
 #define TBX_FILLRECT      0x0031u  /* V1  (win, l, t, r, b, color) -> 0 | err  */
 #define TBX_FRAMERECT     0x0032u  /* reserved (V2)                            */
+#define TBX_DRAWCELLS     0x0033u  /* V4  (win, x, y, strPtr, fg, bg) -> 0|err
+                                    * (Sec 7a; bead initech-w96l)              */
 #define TBX_SETMBAR       0x0050u  /* V2  (barPtr) -> 0 | err  (Sec 9). A
                                     * tenant that never calls it has no menubar
                                     * and band 2 shows the shell fallback bar
@@ -134,6 +142,7 @@
 #define TBX_ARGC_EXIT       1u
 #define TBX_ARGC_SETMBAR    1u
 #define TBX_ARGC_DRAWMENUBAR 0u
+#define TBX_ARGC_DRAWCELLS  6u
 #define TBX_ARGC_MAX        6u
 
 /* ---------------------------------------------------------------------------
@@ -264,17 +273,44 @@
 #define TBX_COLOR_COUNT  4u
 
 /* ---------------------------------------------------------------------------
+ * 7a. FIXED-CELL TEXT (TBX_DRAWCELLS; bead initech-w96l)
+ *
+ * A worksheet is a grid of character cells (the real 1-2-3 R2.2 screen:
+ * 80 x 25 cells, ../lotus123-decomp/goldens/minted/MINT01.shots), which the
+ * proportional Chicago run of TEXTDRAW cannot lay out. DRAWCELLS draws the
+ * run in the FIXED 8x16 cell font InitechOS already owns: the VGA ROM 8x16
+ * strike stage2 captures before protected mode (boot_info.font_addr; PRD
+ * Sec 5 "80x25 rendered by blitting the VGA 8x16 ROM font"; the strike the
+ * MILTON console blits, os/milton/console.h). Glyph k occupies the cell
+ * [x + 8k, x + 8k + 8) x [y, y + 16) CONTENT-LOCAL; every cell is opaque
+ * (bg, then the set bits in fg; MSB = leftmost pixel); at most
+ * TBX_CELLS_MAX_RUN glyphs; the same clip as TEXTDRAW (visible INTERSECT
+ * content [INTERSECT update]) and the same colour tokens (Sec 7). Bytes are
+ * glyph indices, 0x20..0xFF drawn as the ROM draws them (code page 437).
+ * ------------------------------------------------------------------------- */
+#define TBX_CELL_W          8u
+#define TBX_CELL_H          16u
+#define TBX_CELLS_MAX_RUN   80u
+
+/* ---------------------------------------------------------------------------
  * 8. THE V1 MEMORY MODEL (DEC-AC3-1; D1-3)
  *
  * ONE resident disk tenant (a kernel slot; a second launch fails loud with
  * TENANT-SLOT-BUSY and changes nothing). The code block is carved from the
  * master FLAIR heap (FLAIR_CLASS_GENERAL) as
  *     [ PSP (TBX_TENANT_PSP_BYTES) | load module | e_minalloc BSS ]
- * sized TBX_TENANT_PSP_BYTES + roundup16(file size); the MZ header the module
- * is moved down over supplies the BSS slack, and an e_minalloc that does not
- * fit is refused (TENANT-LOAD-FAIL), never overrun. Then the AC-2 trio
+ * sized TBX_TENANT_PSP_BYTES + roundup16(file size) + e_minalloc * 16 (bead
+ * initech-w96l: the BSS of a compiled C tenant -- the DOS EXEC meaning of
+ * e_minalloc, "paragraphs needed beyond the image"; V1 counted only the MZ
+ * header's slack, enough for a hand-assembled fixture and nothing else). The
+ * loader reads e_minalloc from the file's header before it carves, refuses
+ * more than TBX_TENANT_BSS_MAX (TENANT-LOAD-FAIL, never a partial carve),
+ * and zeroes the BSS; still a constant for a given file, so the O-3
+ * avail-stable reuse of the GENERAL slot holds. The BSS is NOT part of the
+ * image the Sec 5 validation checks pointers against. Then the AC-2 trio
  * (handle / records / data) at registration.
  * ------------------------------------------------------------------------- */
+#define TBX_TENANT_BSS_MAX        (512u * 1024u)  /* of the 4 MiB master heap */
 #define TBX_TENANT_PSP_BYTES      256u            /* the PSP at the block head */
 #define TBX_TENANT_IMAGE_MAX      (64u * 1024u)   /* V1 file-size cap          */
 #define TBX_TENANT_RECORDS_BUDGET (16u * 1024u)   /* == FLAIR_TENANT_RECORDS_DEFAULT */

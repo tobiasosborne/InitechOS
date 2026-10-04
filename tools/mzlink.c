@@ -75,7 +75,11 @@
 
 #define MZ_INITECH_TAG   0x4943u   /* mz.h: 'I','C' LE -- the flat-32 sentinel */
 #define HDR_SIZE         0x20u     /* e_cparhdr = 2 paragraphs (canonical fixture) */
-#define MAX_RELOCS       64u
+/* 64 was enough for hand-assembled fixtures; a COMPILED C tenant (bead
+ * initech-w96l: os/apps/tbx, Initech 123) references every global through an
+ * absolute dword, hundreds of sites. e_crlc is a u16, so 65535 is the format's
+ * own ceiling; the loader's file cap (TBX_TENANT_IMAGE_MAX) bounds it first. */
+#define MAX_RELOCS       16384u
 
 /* Fail loud (Rule 2): print to stderr and exit non-zero. */
 static void die(const char *msg)
@@ -128,7 +132,7 @@ int main(int argc, char **argv)
 {
     const char *in_path  = NULL;
     const char *out_path = NULL;
-    uint32_t reloc_off[MAX_RELOCS];
+    static uint32_t reloc_off[MAX_RELOCS];
     uint32_t reloc_count = 0;
     int      no_reloc    = 0;
     int      foreign     = 0;

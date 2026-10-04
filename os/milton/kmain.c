@@ -2801,6 +2801,10 @@ static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *
                     (const region_t *)0);
         flair_desktop_present(bi, &ctx->off);
     }
+    /* (1c) bead initech-8zii: what the tenant drew for a plain mouseDown or
+     * keyDown (outside an updateEvt) is in the offscreen; show it now that the
+     * tenant has returned. */
+    if (tbx_take_drew()) flair_desktop_present(bi, &ctx->off);
     if (!tbx_reap()) return;
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
@@ -4382,6 +4386,7 @@ static void tbx_headless_smoke(void)
 
     th.list = &plist; th.wm = &wm; th.master = &heap; th.surface = &off;
     th.puts = serial_puts;
+    th.cellfont = (const uint8_t *)(uintptr_t)FONT_STASH_ADDR;   /* initech-w96l */
     tbx_bind(&th);
     idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
                  (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);
@@ -4921,6 +4926,7 @@ void kernel_main(void)
         th.master  = ctx.master;
         th.surface = &ctx.off;
         th.puts    = serial_puts;
+        th.cellfont = (const uint8_t *)(uintptr_t)b.font_addr;   /* initech-w96l */
         tbx_bind(&th);
         idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
                      (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);

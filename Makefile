@@ -549,6 +549,8 @@ include spec/flair_finder_cmds_traces.mk
 # _CYCLE/_CLOSE). One source of truth for test-flair-app-launch AND the
 # record-flair app_launch clip.
 include spec/flair_app_launch_traces.mk
+# The LOCKED C-tenant trace (bead initech-w96l / initech-8zii): FLAIR_CTENANT_SPEC.
+include spec/flair_ctenant_traces.mk
 
 # The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
@@ -9689,6 +9691,54 @@ $(eval $(call tenantfx-exe-rules,_crash,-DCRASH_ON_CLICK))
 $(eval $(call tenantfx-exe-rules,_badmbar,-DBAD_MBAR))
 TENANTFX_EXE := $(BUILD)/tenantfx.exe
 
+# A DISK APPLICATION WRITTEN IN C (bead initech-w96l; I123 P1b). The general
+# path every C application after the hand-assembled fixture takes (Initech 123
+# first, InitechWord next): compile with the kernel's own freestanding flags
+# (-march=i386: no cmov, the WL-0087 Bochs rule; x87 code for doubles, ADR-0009
+# Amendment DEC-01a), link with os/apps/tbx/tenant.ld TWICE -- at base 0 (the
+# payload) and at the probe base -- and let mzlink --reloc-diff DERIVE every
+# absolute dword (the tenantfx-exe-rules discipline: no hand-kept reloc list).
+# The probe 0x01010140 is 64-aligned (so no section alignment up to 64 can
+# shift the layout between the two links -- if one ever did, mzlink dies loud)
+# and its low byte is non-zero (mzlink's first-byte rule). tbx_entry must sit
+# at module byte 0 (DEC-08a.2) and the .bss becomes e_minalloc, carved and
+# zeroed by the loader (spec/toolbox_gate.h Sec 8). The .EXE must fit the V1
+# file cap TBX_TENANT_IMAGE_MAX (64 KiB). Reproducible (Rule 11): no paths,
+# dates or host state reach the bytes.
+# $(call tenant-exe-rules,<name>,<C sources>,<extra cflags>,<extra deps>)
+#   -> $(BUILD)/tenant/<name>.exe
+TBX_RT_SRC    := os/apps/tbx/tbx_rt.c
+TBX_HDRS      := os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h
+TENANT_LD     := os/apps/tbx/tenant.ld
+TENANT_PROBE  := 0x01010140
+TENANT_CFLAGS := $(KERNEL_CFLAGS) -Os -fno-tree-loop-distribute-patterns \
+                 -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-common \
+                 -Ispec -Ios/apps/tbx
+define tenant-exe-rules
+$(BUILD)/tenant/$(1).o0.elf: $(2) $(TBX_RT_SRC) $(TBX_HDRS) $(TENANT_LD) $(4) | $(BUILD)
+	@mkdir -p $(BUILD)/tenant/$(1)
+	@set -e; objs=; for s in $(2) $(TBX_RT_SRC); do \
+		o=$(BUILD)/tenant/$(1)/$$$$(basename $$$$s .c).o; \
+		$(KERNEL_CC) $(TENANT_CFLAGS) $(3) -c $$$$s -o $$$$o; objs="$$$$objs $$$$o"; \
+	done; \
+	$(LD) -m elf_i386 --no-warn-rwx-segments -T $(TENANT_LD) --defsym=TBX_BASE=0 -o $$@ $$$$objs; \
+	$(LD) -m elf_i386 --no-warn-rwx-segments -T $(TENANT_LD) --defsym=TBX_BASE=$(TENANT_PROBE) -o $(BUILD)/tenant/$(1).o1.elf $$$$objs
+$(BUILD)/tenant/$(1).exe: $(BUILD)/tenant/$(1).o0.elf $(MZLINK_BIN) | $(BUILD)
+	$(OBJCOPY) -O binary $(BUILD)/tenant/$(1).o0.elf $(BUILD)/tenant/$(1).o0.bin
+	$(OBJCOPY) -O binary $(BUILD)/tenant/$(1).o1.elf $(BUILD)/tenant/$(1).o1.bin
+	@ent=$$$$(nm $(BUILD)/tenant/$(1).o0.elf | awk '$$$$3=="tbx_entry"{print $$$$1}'); \
+	[ "$$$$ent" = 00000000 ] || { printf '!!! $(1).exe: tbx_entry is at %s, not module byte 0 (DEC-08a.2)\n' "$$$$ent"; exit 1; }
+	@bss=$$$$(nm $(BUILD)/tenant/$(1).o0.elf | awk '$$$$3=="__bss_len"{print $$$$1}'); \
+	paras=$$$$(( (0x$$$$bss + 15) / 16 )); \
+	$(MZLINK_BIN) $(BUILD)/tenant/$(1).o0.bin $$@ --reloc-diff $(BUILD)/tenant/$(1).o1.bin $(TENANT_PROBE) --entry 0 --minalloc $$$$paras
+	@sz=$$$$(wc -c < $$@); [ "$$$$sz" -le 65536 ] || { printf '!!! $(1).exe is %s bytes: over the V1 tenant file cap TBX_TENANT_IMAGE_MAX (64 KiB)\n' "$$$$sz"; exit 1; }
+endef
+
+# CTENANT.EXE -- the smallest C tenant (os/apps/ctenant/ctenant.c): proves the
+# C path above end to end, and is the fixture of test-flair-ctenant (initech-8zii).
+$(eval $(call tenant-exe-rules,ctenant,os/apps/ctenant/ctenant.c,,))
+CTENANT_EXE := $(BUILD)/tenant/ctenant.exe
+
 # Deterministic flagship FAT12 volume (Rule 11): mtools authors the filesystem,
 # fixed SOURCE_DATE_EPOCH/TZ pin every FAT timestamp, and -N pins the serial.
 # Contents are intentionally small: README.TXT plus the APPS folder, which since
@@ -9697,8 +9747,11 @@ TENANTFX_EXE := $(BUILD)/tenantfx.exe
 # tdnl.56 hid DESKTOP.DB and TRASH; n=4 on disk) of every R3.2/
 # R3.3 gate is untouched.
 # $(call flair-data-rules,<image>,<TENANTFX exe to ship>)
+# APPS also holds, IN THIS ORDER after TENANTFX.EXE (the Finder lays a folder
+# out in directory order, so TENANTFX keeps grid cell 0 and every locked trace
+# that reaches it): CTENANT.EXE (cell 1; bead initech-w96l).
 define flair-data-rules
-$(1): $(FLAIR_DATA_README) $(2) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -9707,7 +9760,9 @@ $(1): $(FLAIR_DATA_README) $(2) | $(BUILD)
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $$@ ::APPS
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
 		$(2) ::APPS/TENANTFX.EXE
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s)\n" "$$@" "$(2)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
+		$(CTENANT_EXE) ::APPS/CTENANT.EXE
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE)\n" "$$@" "$(2)"
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE)))
 # Gate-local VARIANT volumes (tdnl.14 legs): the SAME recipe shipping a knobbed
@@ -20352,6 +20407,58 @@ test-flair-tenant-menu-bochs: $(BOCHS_BIN) $(HARNESS_BIN) $(FLAIR_APPL_SMOKE_IMG
 endif
 
 # ===========================================================================
+# REAL gate: test-flair-ctenant (bead initech-w96l -- a disk application
+# written in C; bead initech-8zii -- what a tenant draws for a plain keyDown /
+# mouseDown reaches the screen). QEMU, one boot of $(FLAIRTENANTS_IMG) + the
+# shipped data volume, trace LOCKED in spec/flair_ctenant_traces.mk:
+# double-click APPS\CTENANT.EXE (os/apps/ctenant/ctenant.c, built by the
+# generic tenant-exe-rules C path), type "q", click in its content, park.
+#   1 C PATH   CTENANT.EXE LOADs and REGISTERs through the C binding (its
+#              record, event buffer and MenuBar all link-synthesized and
+#              relocated by mzlink --reloc-diff), opens its window, becomes
+#              foreground, and its keyDown / mouseDown draws are exactly the
+#              TENANT-GATE lines its source issues (TEXTDRAW + DRAWCELLS).
+#   2 PRESENT  the post-budget dump (taken after FLAIR-LIVE-OK, when nothing
+#              else presents) SHOWS those draws: ink in the TEXTDRAW "Key q"
+#              box, the navy DRAWCELLS cells of "Key q" and of "Click" -- the
+#              initech-8zii fix (tbx_take_drew -> the tenant service presents).
+# Mutation: TBX_MUT_DRAW_NOT_PRESENTED (the pre-8zii pump) -> the serial still
+# shows the draws but the "Click" cells are NOT on the screen.
+# ===========================================================================
+PPM_REGION_COUNT_BIN := $(BUILD)/ppm_region_count
+$(PPM_REGION_COUNT_BIN): tools/ppm_region_count.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_DRAW_NOT_PRESENTED,tbx_draw_not_presented))
+
+# region "<L> <T> <R> <B>" of dump $(1) vs the content's own white at (440,300):
+# prints the not-white pixel count.
+CTEN_NE = $(PPM_REGION_COUNT_BIN) $(1) $(2) 440 300 | sed -n 's/^ne=\([0-9]*\) .*/\1/p'
+CTEN_SERIAL = grep -qx 'TENANT-REGISTER ok app=CTENANT' $(1) && grep -qx 'FLAIR-DISPATCH app=CTENANT' $(1) && grep -qx 'TENANT-GATE ax=0x0030 win=1 x=8 y=40 s="Key q" fg=1 bg=0 -> 0' $(1) && grep -qx 'TENANT-GATE ax=0x0033 win=1 x=8 y=64 s="Key q" fg=0 bg=3 -> 0' $(1) && grep -qx 'TENANT-GATE ax=0x0033 win=1 x=8 y=96 s="Click" fg=0 bg=3 -> 0' $(1)
+
+.PHONY: test-flair-ctenant test-flair-ctenant-mutant
+test-flair-ctenant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-ctenant : a C application from disk; its key/click draws reach the screen\n'
+	@printf '  beads initech-w96l (the C tenant path) + initech-8zii (present after a plain mouseDown/keyDown)\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_ctenant,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_CTENANT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_ctenant.serial) || { printf '!!! test-flair-ctenant [1/2] FAIL: the desktop did not survive\n'; grep -E '^(PANIC|TENANT-|HALTED)' $(BUILD)/flair_ctenant.serial; exit 1; }
+	@$(call CTEN_SERIAL,$(BUILD)/flair_ctenant.serial) || { printf '!!! test-flair-ctenant [1/2] FAIL: CTENANT.EXE did not load, register, come forward and draw exactly its keyDown/mouseDown runs\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_ctenant.serial; exit 1; }
+	@printf '>>> test-flair-ctenant [1/2] C PATH: %s; the keyDown/mouseDown draws are the TENANT-GATE lines ctenant.c issues\n' "$$(grep -m1 '^TENANT-LOAD name=CTENANT' $(BUILD)/flair_ctenant.serial)"
+	@k=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,189 232 229 248)); c=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,189 256 229 272)); m=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,189 288 229 304)); \
+		[ -n "$$k" ] && [ "$$k" -ge 15 ] && [ "$$c" -ge 400 ] && [ "$$m" -ge 400 ] || { printf '!!! test-flair-ctenant [2/2] FAIL: PRESENT -- the key/click draws are not on the screen (ink: TEXTDRAW %s, cells %s, click %s; want >=15, >=400, >=400)\n' "$$k" "$$c" "$$m"; exit 1; }; \
+		printf '>>> test-flair-ctenant [2/2] PRESENT: on screen after the budget -- TEXTDRAW "Key q" %s ink px, DRAWCELLS "Key q" %s px, "Click" %s px\n' "$$k" "$$c" "$$m"
+	@printf '>>> test-flair-ctenant: green\n'
+
+test-flair-ctenant-mutant: test-flair-ctenant $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_tbx_draw_not_presented.img $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN)
+	$(call appl-boot,flair_ctenant_mut,$(BUILD)/flair_tenants_mut_tbx_draw_not_presented.img,$(FLAIR_DATA_IMG),FLAIR_CTENANT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_ctenant_mut.serial) && $(call CTEN_SERIAL,$(BUILD)/flair_ctenant_mut.serial) || { printf '!!! test-flair-ctenant-mutant FAIL: DRAW_NOT_PRESENTED went RED for the wrong reason (want: the tenant ran and drew exactly as in the clean leg)\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_ctenant_mut.serial; exit 1; }
+	@m=$$($(call CTEN_NE,$(BUILD)/flair_ctenant_mut.ppm,189 288 229 304)); k=$$($(call CTEN_NE,$(BUILD)/flair_ctenant_mut.ppm,189 256 229 272)); \
+		if [ "$$m" -ge 400 ]; then printf '!!! test-flair-ctenant-mutant FAIL: DRAW_NOT_PRESENTED PASSED -- the "Click" cells reached the screen anyway (%s px): the PRESENT leg is decoration\n' "$$m"; exit 1; fi; \
+		printf '>>> test-flair-ctenant-mutant: DRAW_NOT_PRESENTED correctly RED -- drawn (TENANT-GATE lines present) but not presented: "Click" %s px, "Key q" cells %s px on screen\n' "$$m" "$$k"
+	@printf '>>> test-flair-ctenant-mutant: green\n'
+
+# ===========================================================================
 # record-flair (beads initech-l9cd): deterministic GUI-interaction VIDEO
 # capture. Replays a LOCKED input trace (Rule 8/11 -- the SAME specs the emu
 # gates use) against $(FLAIRTENANTS_IMG) in record mode (one PPM frame per
@@ -26845,6 +26952,7 @@ TEST_EMU_GATES := \
 	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
+	test-flair-ctenant test-flair-ctenant-mutant \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \
