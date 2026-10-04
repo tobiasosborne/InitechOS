@@ -1,0 +1,11 @@
+{
+  "report_ascii": true,
+  "report_bytes": 27659,
+  "relative_links": 121,
+  "missing_links": [],
+  "session_overlaps": [],
+  "all_qemu_exit_zero": true,
+  "qemu_processes_remaining": [],
+  "evidence_corrections": "See report Scope, identity, replay and exclusions.",
+  "sha256": "73decab54c5b1d759e8e6116d45f3e0cfe06befcb31f2f5475b82fef66754586"
+}

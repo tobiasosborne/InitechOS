@@ -1,0 +1,97 @@
+{
+  "sessions": [
+    {
+      "session": "claims",
+      "start": "2026-10-04T00:11:59.120168+00:00",
+      "end": "2026-10-04T00:20:22.184074+00:00",
+      "seconds": 503.06,
+      "qemu_pid": 3,
+      "exit_code": 0
+    },
+    {
+      "session": "collision",
+      "start": "2026-10-04T00:29:28.036790+00:00",
+      "end": "2026-10-04T00:29:41.566271+00:00",
+      "seconds": 13.53,
+      "qemu_pid": 39,
+      "exit_code": 0
+    },
+    {
+      "session": "edges",
+      "start": "2026-10-04T00:20:22.232861+00:00",
+      "end": "2026-10-04T00:22:24.675076+00:00",
+      "seconds": 122.44,
+      "qemu_pid": 16,
+      "exit_code": 0
+    },
+    {
+      "session": "film-static",
+      "start": "2026-10-04T00:29:41.632526+00:00",
+      "end": "2026-10-04T00:29:42.047413+00:00",
+      "seconds": 0.41,
+      "qemu_pid": 44,
+      "exit_code": 0
+    },
+    {
+      "session": "final-holds",
+      "start": "2026-10-04T00:31:34.793631+00:00",
+      "end": "2026-10-04T00:32:38.349406+00:00",
+      "seconds": 63.56,
+      "qemu_pid": 49,
+      "exit_code": 0
+    },
+    {
+      "session": "menu-repro",
+      "start": "2026-10-04T00:26:22.124559+00:00",
+      "end": "2026-10-04T00:26:35.518574+00:00",
+      "seconds": 13.39,
+      "qemu_pid": 4,
+      "exit_code": 0
+    },
+    {
+      "session": "metadata",
+      "start": "2026-10-04T00:27:54.092706+00:00",
+      "end": "2026-10-04T00:28:13.230506+00:00",
+      "seconds": 19.14,
+      "qemu_pid": 34,
+      "exit_code": 0
+    },
+    {
+      "session": "paint-clip",
+      "start": "2026-10-04T00:34:53.650303+00:00",
+      "end": "2026-10-04T00:35:01.776609+00:00",
+      "seconds": 8.13,
+      "qemu_pid": 56,
+      "exit_code": 0
+    },
+    {
+      "session": "trash-reboot",
+      "start": "2026-10-04T00:25:09.091847+00:00",
+      "end": "2026-10-04T00:25:34.042470+00:00",
+      "seconds": 24.95,
+      "qemu_pid": 28,
+      "exit_code": 0
+    },
+    {
+      "session": "trash-service",
+      "start": "2026-10-04T00:24:06.466516+00:00",
+      "end": "2026-10-04T00:24:19.754060+00:00",
+      "seconds": 13.29,
+      "qemu_pid": 23,
+      "exit_code": 0
+    },
+    {
+      "session": "wide-labels",
+      "start": "2026-10-04T00:35:01.820003+00:00",
+      "end": "2026-10-04T00:35:04.367600+00:00",
+      "seconds": 2.55,
+      "qemu_pid": 61,
+      "exit_code": 0
+    }
+  ],
+  "session_count": 11,
+  "guest_screenshot_count": 109,
+  "reference_screenshot_count": 5,
+  "qemu_processes_remaining": [],
+  "panic_or_track_expiry_lines": []
+}

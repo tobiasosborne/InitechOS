@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-04T00:25:09.091847+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 28,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit3/images/trash-reboot-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit3/evidence/trash-reboot-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit3/images/trash-reboot-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/trash-reboot-boot.img": {
+      "bytes": 229376,
+      "sha256": "68ab384de718e2948195a9eebdffeefd9956df97ba71842ea23295e65b6e2b61"
+    },
+    "images/trash-reboot-data.img": {
+      "bytes": 1474560,
+      "sha256": "bb70c0481e51789821aff9d8de09c6b2055b46c3f54d85fb05b0b115067f8d12"
+    }
+  },
+  "stopped_utc": "2026-10-04T00:25:34.042470+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/trash-reboot-boot.img": {
+      "bytes": 229376,
+      "sha256": "68ab384de718e2948195a9eebdffeefd9956df97ba71842ea23295e65b6e2b61"
+    },
+    "images/trash-reboot-data.img": {
+      "bytes": 1474560,
+      "sha256": "a574657312e33361e0e2115248726f9a9f0f412f3687c1abb3ca8e01c9ef3859"
+    }
+  }
+}

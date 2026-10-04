@@ -1,0 +1,914 @@
+[
+  {
+    "file": "shots/01-boot.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "5c37db100fd14af324b09141ff7653b5ee1b4d3fee52585460c5dee300c4e194"
+  },
+  {
+    "file": "shots/02-root.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "d4795e465f1a1c60c7a93abc459c77b9d65e73777d2f361a1d1281fb8ea21c53"
+  },
+  {
+    "file": "shots/03-plain-n-after-ctrl.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "d4795e465f1a1c60c7a93abc459c77b9d65e73777d2f361a1d1281fb8ea21c53"
+  },
+  {
+    "file": "shots/04-after-shift-release.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "88871e7d18f94698f472bfa56ac2c50e2f8525dcc6370c72550c89f8958e1721"
+  },
+  {
+    "file": "shots/05-menu-held-5sec.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f8d38f935a3197dc6ccc238aa3aeebb6b851b61e42f14318cbaca5d30d359497"
+  },
+  {
+    "file": "shots/06-menu-held-15sec.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f8d38f935a3197dc6ccc238aa3aeebb6b851b61e42f14318cbaca5d30d359497"
+  },
+  {
+    "file": "shots/07-menu-cancel.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "3c1a9a8c4d8313a0cbc08479fadb852872f419ea8c06b3248e35c0513a115e71"
+  },
+  {
+    "file": "shots/08-menu-released-create.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f8d38f935a3197dc6ccc238aa3aeebb6b851b61e42f14318cbaca5d30d359497"
+  },
+  {
+    "file": "shots/09-window-held-5sec.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f7b94f7db21e173141e5f315e526176fc82badb6231fcfde36d38bf07f32a075"
+  },
+  {
+    "file": "shots/10-window-held-15sec.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f7b94f7db21e173141e5f315e526176fc82badb6231fcfde36d38bf07f32a075"
+  },
+  {
+    "file": "shots/100-final-grow-release.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "d85f0c1f8742c58191163a6eb6450b01acc231a379b665fccc1b16f9bf5550cc"
+  },
+  {
+    "file": "shots/101-release-during-drag-modifiers-clear.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "75451c12c45db6832e72c100647100a82b435a805f528fdeb047ad3726feb892"
+  },
+  {
+    "file": "shots/102-menu-held-16sec.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "60c6330c909a0cee2b3e6b2cced52fd7957b4d98ffa117e01218e79b2e692f80"
+  },
+  {
+    "file": "shots/103-menu-held-32sec.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "60c6330c909a0cee2b3e6b2cced52fd7957b4d98ffa117e01218e79b2e692f80"
+  },
+  {
+    "file": "shots/104-menu-released-after-32sec.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "7c68fd810391202feda6242f64618b7ff8ea2eacf6888df380d6ea8f550f0957"
+  },
+  {
+    "file": "shots/105-app-before-zoom-paint.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "a8bdb80eff6459857342a894b42077b0d20fe5b1d67c3048639cec32a426aa67"
+  },
+  {
+    "file": "shots/106-app-zoom-horizontal-gutter-overpaint.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "9af5cb0c59102a30a72c10a0a2143989b8630c5f7444d81826d7eef60dd3763f"
+  },
+  {
+    "file": "shots/107-app-second-zoom-gutter-overpaint.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "9af5cb0c59102a30a72c10a0a2143989b8630c5f7444d81826d7eef60dd3763f"
+  },
+  {
+    "file": "shots/108-wide-names-default-grid.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "d5123059f5192b1819d3dacd263b4fc5aab548f5cf502f057950911ccfc24396"
+  },
+  {
+    "file": "shots/109-wide-name-selected.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "2c3bfb5ae859029ffda006227a257454e13cd3c55d2dafd313cf3f4c3c992cfd"
+  },
+  {
+    "file": "shots/11-window-release.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "314a1484988e6938a3c1c3e4b2f071c9a0d4dcb54c2ddc3163e6c484d80aa402"
+  },
+  {
+    "file": "shots/12-grow-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "375d4ba07ebbf4984283d35d624d1737095ee49c29562cf37770295ab8a0e03e"
+  },
+  {
+    "file": "shots/13-grow-release.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "3601f4aa7fff42f5b4e2b3d7eaa5ce79af210a9ecc9358665540d7437a8f88be"
+  },
+  {
+    "file": "shots/14-icon-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "b7404a128b692edbb674c5f32e9398c2646a9dc2de21512ab4b228556537b47e"
+  },
+  {
+    "file": "shots/15-icon-release.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "e70f0165aca5881fa3a052ed1a5584714911df9eb83f6e6469b74b1827b2abc3"
+  },
+  {
+    "file": "shots/16-icon-settled.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "a2607ecb8376f4d98a4b0854e31707099205640892fb332a473b7719b23eee9e"
+  },
+  {
+    "file": "shots/17-real-grow-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "e24660161c2036b762c6eed8ebdcc1a4f31dd61d539a42ac62af07787dd211e5"
+  },
+  {
+    "file": "shots/18-real-grow-release.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f186fd52dd1615fc8452e1317d2e9dbde2618a35f4548c440b30aa7cb147139c"
+  },
+  {
+    "file": "shots/19-disk-app-bar.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "b56b6601c3f45a661019c3fea4bde3c99c7840f79468082c862c056f1f4e17d4"
+  },
+  {
+    "file": "shots/20-close-pressed.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "4b08a1932217089864184e71217c210446bf37734d79d082132b66aa3fbd3bf3"
+  },
+  {
+    "file": "shots/21-close-outside-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "5fd2c474fc513eb7fc83e7cf781775f0872e0aed1deba1338efe19cb7a961f86"
+  },
+  {
+    "file": "shots/22-close-cancel.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "5fd2c474fc513eb7fc83e7cf781775f0872e0aed1deba1338efe19cb7a961f86"
+  },
+  {
+    "file": "shots/23-zoom-pressed.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f87bde1509b95fdb7f241921f75f2052bbcc25c262140765ca9232c792b70d4c"
+  },
+  {
+    "file": "shots/24-zoom-outside.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f93ec331676cea30abb9f9ae579bd83fe90fa7537ed68411f2ac40df9adce30b"
+  },
+  {
+    "file": "shots/25-zoom-cancel.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f93ec331676cea30abb9f9ae579bd83fe90fa7537ed68411f2ac40df9adce30b"
+  },
+  {
+    "file": "shots/26-collapse-pressed.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "2f2b09df15a394bc2e02db2c9113ed035907b042a750d1b3a0b38069e9f27493"
+  },
+  {
+    "file": "shots/27-collapse-cancel.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "7e3367f2904c9af0c25a868112fc4432ec1eebb94d6c0f7c3e33d2bed5f3a782"
+  },
+  {
+    "file": "shots/28-collapse-commit.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f586e5ec1d05836160940744251d7c4f403b98c4d79f533db60017f540f78f18"
+  },
+  {
+    "file": "shots/29-tenant-grow-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "1807c1597d0a9b93de10da42e05a63fc3ae597a8a97e9d90bc599345d69eafc0"
+  },
+  {
+    "file": "shots/30-tenant-grow-release.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "28578b6dafa9c893d7066bc50ddfef6af002ea80efae99decfec9f2d863cfcc2"
+  },
+  {
+    "file": "shots/31-close-reentered.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f68f74e97c2d022d128de8702d2a6e30ad593db705c341776337f2d1a4fea703"
+  },
+  {
+    "file": "shots/32-close-commit.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "8914bf3f8423a513ff1f9921f18bb1a87b17695c703e157694adeb7122ac1fea"
+  },
+  {
+    "file": "shots/33-zoom-commit.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "fdf422b720fddc0bee877c382924640fb5ea57bafa278480b42471112384c261"
+  },
+  {
+    "file": "shots/34-zoom-restored.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "778bab44062e3e0676eec8a35af5f0adfb4ffc3979ccc5c817dd1429ce46a0ea"
+  },
+  {
+    "file": "shots/35-folder-drop-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "9428704d1cc376061ca8c82da2ce0b0dfad018a2935a0e90753136d26a062c29"
+  },
+  {
+    "file": "shots/36-folder-unhighlight.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "04eed02300abbc61e5e7b0ac9d901185043b7863405a85671ddbb05e129558c2"
+  },
+  {
+    "file": "shots/37-folder-drop-commit.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "2efa6bcc872283a93169829abb86b8a90ee3bf0416655c0a6c9dbd76481e581d"
+  },
+  {
+    "file": "shots/38-apps-after-folder-drop.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "6de64675b5cac01a95ef7dfa1ba6d6a29cb43ca00183d2767155ffd59eb0524d"
+  },
+  {
+    "file": "shots/39-two-windows-ready.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "9ada283745d167d208a67b6a0ddbc40ee90319ffca6639279be3a343a31d8b4f"
+  },
+  {
+    "file": "shots/40-between-windows-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "3523e7fc330a6ff0b6570829cf7f46c6e09638da49407e8d088a3e14f774033c"
+  },
+  {
+    "file": "shots/41-between-windows-release.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "74414287799cbc2a82072cf065ff19768fa00a9ef5d22c4f0d0d3e5604da6b67"
+  },
+  {
+    "file": "shots/42-trash-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "e03c37cc19fc2c351db3dd7110b204bb547bec03011b52065760443391085a4d"
+  },
+  {
+    "file": "shots/43-trash-left.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "7f1ebf3af37d623c8d3bad6c8241e57e054ea7e29cf1901885bf0628b6e7e727"
+  },
+  {
+    "file": "shots/44-trash-release.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "d2e76f480a03a527f8e975b303f246f9f9b3e814ad329987b738bd466d6bc668"
+  },
+  {
+    "file": "shots/45-menu-overflow-visible-view.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "df57507fd9241901f51f4386f11c2cf9295d6cbf735a4379b82a620a23b8e85d"
+  },
+  {
+    "file": "shots/46-menu-overflow-result.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "d50ad66f8a6cb999ba5de6d7b7212b72c54f9d350ce7dd79b2759456978b151f"
+  },
+  {
+    "file": "shots/47-dual-modifiers.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "fb970b809d2ce45b117a58ae14b5c382eb7d094e11a627bd1983397f73a4face"
+  },
+  {
+    "file": "shots/48-post-soak-modifiers.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "bae6b5e121fdff67ef4c728711b2661108428e46d007ed577baa6e7594cd1a1c"
+  },
+  {
+    "file": "shots/49-soak-settled.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "bae6b5e121fdff67ef4c728711b2661108428e46d007ed577baa6e7594cd1a1c"
+  },
+  {
+    "file": "shots/50-edge-root.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "3391449823dfaa920ce80c17a7768e28aa9709ac247bb9376592c483c9d03a3b"
+  },
+  {
+    "file": "shots/51-b-window.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "eae4ffe22042a8bbf342c5f0f92dddcff55681a499e2d274991bff2ec045ee1c"
+  },
+  {
+    "file": "shots/52-duplicate-drop-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "914300b0be0f0095a9b2d11491d35d04a647dbbe1addfca2b04401fb428ad946"
+  },
+  {
+    "file": "shots/53-duplicate-refused.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "ffb97d2a90eeb464fbe08fd7e04b3a0f3ce5f12133c9a993fa5be709b4dea53b"
+  },
+  {
+    "file": "shots/54-duplicate-folder-highlight.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f2cbccd578a10eda36e68329597284bf92562e62e821e9a64312e6c6bd0544ec"
+  },
+  {
+    "file": "shots/55-duplicate-folder-refused.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "5d0477e601238e7f922609e30c6957e828dc3ca97a048fccdabfe798c77c8806"
+  },
+  {
+    "file": "shots/56-a-window.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "3946baef60ed59f83ace458553b0e8f5a94356c056d496e2dd4c4920b8d2337b"
+  },
+  {
+    "file": "shots/57-cycle-child-highlight.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "ed9c488d291d3c75603aeaea7656935ad761e42719901167bfcccab3c8ddf136"
+  },
+  {
+    "file": "shots/58-cycle-refused.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f63c33920a149a8624f10b5ea5154c18501ddb04d03b10e4d3512a2f3425f8f7"
+  },
+  {
+    "file": "shots/59-folder-moved-while-open.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "aa6fc078e751e1d5193eab719297108a080f87750788a6e3b469fa38fe75366b"
+  },
+  {
+    "file": "shots/60-open-moved-folder-create.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "45c704a914b1e32b43e993c96fab665c1df44d61546812e47426b8184be76c42"
+  },
+  {
+    "file": "shots/61-moved-folder-reopened.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "5124ba09a93ccf8f3b3b9e49b70cfd8efb08bad62f59019cf025f56d0b7bedcb"
+  },
+  {
+    "file": "shots/62-three-files-staged-trash-empty-art.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "d558e56410709a169ec5ef87e547022758052b2ab44b0a2fdadcca99b5073c22"
+  },
+  {
+    "file": "shots/63-trash-folder-target-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "d0efbdf2815050acdf3d496f1c9d7ee42ce3a17d411b35ac6d47b155ee871515"
+  },
+  {
+    "file": "shots/64-trash-service-folder-moved.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "76efcadd0a154996c2512ef9e34331b4d67827122b6caafae0be10642f03638e"
+  },
+  {
+    "file": "shots/65-apps-contains-trash.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "8df5709c4de2efccfabec9c673e11f0bffbea56c5aabde4ecef90faa714e01f4"
+  },
+  {
+    "file": "shots/66-trash-service-initial.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "d4795e465f1a1c60c7a93abc459c77b9d65e73777d2f361a1d1281fb8ea21c53"
+  },
+  {
+    "file": "shots/67-trash-service-readme-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "a883463a9dd04a7e80ef3a08ba0c7dd515f31c62a9dbd70d044adc5c9719bb1b"
+  },
+  {
+    "file": "shots/68-trash-service-readme-staged.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "33a0165202f62b651cbb89780f77c0239d4dbf7b84516cb245943812ba48b666"
+  },
+  {
+    "file": "shots/69-trash-directory-drop-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "b7ece88f2363eac2f2b466b2db9c7a8b2fe693538fcef2a98d11010a8206df2d"
+  },
+  {
+    "file": "shots/70-trash-directory-moved.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "4a41367c1021daf655f72e051f7398a6ab0008cba1998d5ce712a70e13293805"
+  },
+  {
+    "file": "shots/71-new-folder-after-service-move.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "3d745fb69113f992cf8862bbae2483697234ca793a3ff9b58ff6d4e251ddcf7c"
+  },
+  {
+    "file": "shots/72-second-item-staged-relocated-trash.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "55541c58cfa58ddbca7bf048c1023d5981f6276a964093d987025333760874fc"
+  },
+  {
+    "file": "shots/73-relocated-trash-in-apps.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "55d4062ab1747daef079001833e22e45ee2d8c45fcd5fd20c48b7a2b3b400793"
+  },
+  {
+    "file": "shots/74-reboot-new-root-trash.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "19d69ceb976d23c24466c8e47052d5e8b03ad066cc439839ae2466d65c274974"
+  },
+  {
+    "file": "shots/75-reboot-root-trash-open.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "d84b453f819d75e6db2a050baced1404ba68f8de1e6046d7f3a31dcd3e50cc66"
+  },
+  {
+    "file": "shots/76-reboot-relocated-trash-has-readme.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "10d16437c96535fb96a2b1dedd3647a4abf634bafd905793f435f0e55d175ff6"
+  },
+  {
+    "file": "shots/77-reboot-new-trash-staging-works.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "4f1c18b74f0a8608f463d3d4fce32b9e874aeb8211352775148ffed66b5384a7"
+  },
+  {
+    "file": "shots/78-short-cross-menu-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "2dd20dc2132cffc94b57f79b6832fd40dea6bb144aabba1dce412bfaea0f32d1"
+  },
+  {
+    "file": "shots/79-short-cross-menu-result.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f7e6f5bb8cf28c8d87fa4e6f5509b4c9f7f39ea8d0e884e8f6d376f16f093712"
+  },
+  {
+    "file": "shots/80-long-cross-menu-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "2dd20dc2132cffc94b57f79b6832fd40dea6bb144aabba1dce412bfaea0f32d1"
+  },
+  {
+    "file": "shots/81-long-cross-menu-wrong-command.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "ab80ba32e4346f6043939e104ec5cd911a0d7e1be7c19e8abb7754a2cfdf4bba"
+  },
+  {
+    "file": "shots/82-trash-empty-clean-pointer.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "b62c61e0304c777a1d7abcc3d19e496bb692a2f46e011033c008915531f57153"
+  },
+  {
+    "file": "shots/83-desktop-db-trashed-absent-from-view.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f263339ea5de2f5b7d1a179d2eaa458001351ca9501ab50fdd137edadf6bae5c"
+  },
+  {
+    "file": "shots/84-desktop-db-reappears-after-reopen.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "b62c61e0304c777a1d7abcc3d19e496bb692a2f46e011033c008915531f57153"
+  },
+  {
+    "file": "shots/85-old-desktop-db-in-trash-folder.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "11038c46bc78f192bf7ecdfe50ccb5f7c422417f65cc381f2725a72e4f36c9e3"
+  },
+  {
+    "file": "shots/86-late-app-own-menu.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "a8bdb80eff6459857342a894b42077b0d20fe5b1d67c3048639cec32a426aa67"
+  },
+  {
+    "file": "shots/87-switch-notes-menu.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "b977f51be6f3e46127cbde15cf8d9938b779cd4610f9528faf5511311b44e23f"
+  },
+  {
+    "file": "shots/88-app-menu-restored.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "a80c4db0692a9a2b9757e5859c82d80082c6d7407fd9a8ad66714b01de3729f4"
+  },
+  {
+    "file": "shots/89-close-one-pixel-outside.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "747099cc98b1360fd339654e746ead7b6dd53bb58989852e01c9a61552f0f19c"
+  },
+  {
+    "file": "shots/90-close-edge-cancel.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "747099cc98b1360fd339654e746ead7b6dd53bb58989852e01c9a61552f0f19c"
+  },
+  {
+    "file": "shots/91-mixed-buttons-zoom-cancel.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "dd1bddbae0fe726d04f24d720d7fcb6c1f133df9da3119fd0788ac95d7bb913b"
+  },
+  {
+    "file": "shots/92-first-collision-name-trash-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "73819002d0893c07dffc7158073d2a1ee52aaec494843b0f0b3839271c6fc6fd"
+  },
+  {
+    "file": "shots/93-second-collision-name-trash-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "4ba8388e140a0774631389fcc9d74a69e84aac1a226f8ccfe5430c3f2a849dcb"
+  },
+  {
+    "file": "shots/94-trash-collision-result.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "6a5a32840519792c1d84e5d93bdf9582e6660b6bda858f4005f6bcdadc4f6609"
+  },
+  {
+    "file": "shots/95-film-static-font-check.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "5652eba14011670fa89705da079cd0748ff7de739f73e2798346953945dae08f"
+  },
+  {
+    "file": "shots/96-final-window-held-8sec.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "dd428409d5995391a760b685f18bcdc492b40286c144e4cbbab405ff68dd158c"
+  },
+  {
+    "file": "shots/97-final-window-held-16sec.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "3ca76f315e0eff25a38dd50ab552aea0b36c4923eeadad215ec47542bb8fc988"
+  },
+  {
+    "file": "shots/98-final-window-release.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "38c2e22fd11f87d4c7014983a780ddf346cdca36d2da74ffecd8c6531dc338b1"
+  },
+  {
+    "file": "shots/99-final-grow-held.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "97f39b2a65d523c24769aa41debc38625d3758629d2aa076a65a2b799b6c0142"
+  },
+  {
+    "file": "shots/ref-s7_doc_window.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "2a4ab1176052d9528d0140cefb4ca119bb785a5b444e81d58e6d80354731ca65"
+  },
+  {
+    "file": "shots/ref-s7_menu_edit.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f90b30932c6f7804a263957bd36469b28c5caef5c80e141ea6683f9e929fe6da"
+  },
+  {
+    "file": "shots/ref-s8_controls_dialog.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "f22118d06d99eec9ba780a5562eb2a7b93bbf9ab07d10e7a9e50cf6338c91deb"
+  },
+  {
+    "file": "shots/ref-s8_doc_window_active.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "82366a7dd4cfcb8c69c43c7923dc36239692add7b6c14b80bad6e7d07c17aee9"
+  },
+  {
+    "file": "shots/ref-s8_menu_dropped.png",
+    "dimensions": [
+      640,
+      480
+    ],
+    "sha256": "93e952bedb13d6cec139104194455c13840ac5383eb6a200c05f00bf9ed4d027"
+  }
+]

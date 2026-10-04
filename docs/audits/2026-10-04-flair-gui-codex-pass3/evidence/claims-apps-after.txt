@@ -1,0 +1,10 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/APPS
+
+.            <DIR>     1980-01-01   0:00 
+..           <DIR>     1980-01-01   0:00 
+TENANTFX EXE       684 1980-01-01   0:00 
+        3 files                 684 bytes
+                          1 453 056 bytes free
+

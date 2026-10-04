@@ -1,0 +1,31 @@
+{
+  "actions": [
+    {
+      "cmd": [
+        "mcopy",
+        "-o",
+        "-i",
+        "/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit3/images/wide-data.img",
+        "/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit3/evidence/payload.txt",
+        "::WWWWWWWW.WWW"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "cmd": [
+        "mcopy",
+        "-o",
+        "-i",
+        "/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit3/images/wide-data.img",
+        "/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit3/evidence/payload.txt",
+        "::MMMMMMMM.MMM"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "sha256": "56e24fd18e03c3d1769db9191c3106b63d4dd83ec59af0ebbcd67c277a39c03c"
+}

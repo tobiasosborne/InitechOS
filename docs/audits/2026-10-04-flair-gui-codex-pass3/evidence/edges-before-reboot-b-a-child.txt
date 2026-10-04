@@ -1,0 +1,10 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/B/A/CHILD
+
+.            <DIR>     2026-10-04   2:13 
+..           <DIR>     2026-10-04   2:13 
+DEEP     TXT        28 2026-10-04   2:13 
+        3 files                  28 bytes
+                          1 450 496 bytes free
+

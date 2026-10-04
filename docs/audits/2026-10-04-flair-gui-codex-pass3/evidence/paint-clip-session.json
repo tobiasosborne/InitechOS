@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-04T00:34:53.650303+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 56,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit3/images/paint-clip-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit3/evidence/paint-clip-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/15ee1981-3810-4c5e-a66c-09209d7d83c1/scratchpad/gui-audit3/images/paint-clip-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/paint-clip-boot.img": {
+      "bytes": 229376,
+      "sha256": "68ab384de718e2948195a9eebdffeefd9956df97ba71842ea23295e65b6e2b61"
+    },
+    "images/paint-clip-data.img": {
+      "bytes": 1474560,
+      "sha256": "84390fdb93bfe532d7e927a0bd83d918ec6f00c71c7bf5c368d56e09e2f4c4e4"
+    }
+  },
+  "stopped_utc": "2026-10-04T00:35:01.776609+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/paint-clip-boot.img": {
+      "bytes": 229376,
+      "sha256": "68ab384de718e2948195a9eebdffeefd9956df97ba71842ea23295e65b6e2b61"
+    },
+    "images/paint-clip-data.img": {
+      "bytes": 1474560,
+      "sha256": "7c5a8203a75f64e512afb96a15b739b83e93984c4b5d39397dbaf7f17fbadf02"
+    }
+  }
+}

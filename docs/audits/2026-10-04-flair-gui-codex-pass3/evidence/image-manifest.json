@@ -1,0 +1,14 @@
+{
+  "utc": "2026-10-04T00:12:19.780791+00:00",
+  "claimed_commit": "52ede68",
+  "source_images": {
+    "/home/tobias/Projects/initech-os/build/flair_tenants_interactive.img": {
+      "bytes": 229376,
+      "sha256": "68ab384de718e2948195a9eebdffeefd9956df97ba71842ea23295e65b6e2b61"
+    },
+    "/home/tobias/Projects/initech-os/build/flair_data.img": {
+      "bytes": 1474560,
+      "sha256": "84390fdb93bfe532d7e927a0bd83d918ec6f00c71c7bf5c368d56e09e2f4c4e4"
+    }
+  }
+}
