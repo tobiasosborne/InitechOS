@@ -475,6 +475,43 @@ static int leg_K(const Img *im)
     return bad;
 }
 
+/* ================= leg L: NO window active (windowless foreground) =======
+ * Bead initech-tdnl.40 (audit F06, the rule re-keyed to Macintosh Toolbox
+ * Essentials p.2-4 / p.4-16 / p.2-60). The Finder is the foreground app but
+ * owns no window (its last disk window closed, or a desktop click brought it
+ * forward), so the application windows on screen all belong to BACKGROUND
+ * apps and are drawn inactive: HELLO's title (in front) and NOTES's title
+ * (behind) are both flat inactive CIDX_PLAT_FACE at the SAME clear columns leg
+ * K probes (HELLO x=100/140/320 -- clear of its centred title text, proven by
+ * leg K's stripe probes there; NOTES x=400/480/520, right of HELLO). The band-2
+ * half (the bar is the Finder's) is graded by ppm_flair_app_launch_check
+ * bar-finder on the SAME dump. Leg K and leg L are mutually exclusive on the
+ * HELLO columns (stripes vs flat), which test-flair-fg-close cross-checks. */
+static int leg_L(const Img *im)
+{
+    static const int hx[3] = { FLAIR_TEN_HELLO_L + 40,      /* 100 */
+                               FLAIR_TEN_HELLO_L + 80,      /* 140 */
+                               FLAIR_TEN_HELLO_R - 40 };    /* 320 */
+    static const int nx[3] = { FLAIR_TEN_HELLO_R + 40,      /* 400 */
+                               FLAIR_TEN_HELLO_R + 120,     /* 480 */
+                               FLAIR_TEN_NOTES_R - 40 };    /* 520 */
+    int bad = 0;
+    for (int i = 0; i < 3; i++)
+        for (int y = FLAIR_TEN_HELLO_T + 1;
+             y < FLAIR_TEN_HELLO_T + FLAIR_CHROME_TITLEBAR_H - 1; y++)
+            bad |= probe_is(im, hx[i], y, CIDX_PLAT_FACE,
+                            "leg L HELLO flat inactive Platinum title fill");
+    for (int i = 0; i < 3; i++)
+        for (int y = FLAIR_TEN_NOTES_T + 1;
+             y < FLAIR_TEN_NOTES_T + FLAIR_CHROME_TITLEBAR_H - 1; y++)
+            bad |= probe_is(im, nx[i], y, CIDX_PLAT_FACE,
+                            "leg L NOTES flat inactive Platinum title fill");
+    if (!bad)
+        printf("solid L PASS: no window is active (HELLO x=100/140/320 and "
+               "NOTES x=400/480/520 flat inactive titles)\n");
+    return bad;
+}
+
 /* ================= leg E: active tenant's band-2 menu ================= */
 /* Independent screen placement for the locked leg-E drop. The Menu Manager
  * assumes its bar begins at local y=0, so its Platinum panel shares local
@@ -704,7 +741,7 @@ int main(int argc, char **argv)
         ((argv[1][0] == 'D' || argv[1][0] == 'F')
              ? argc != 4 : argc != 3)) {
         fprintf(stderr,
-                "usage: ppm_flair_solid_check <A|B|C|E|G|H|K> <dump.ppm>\n"
+                "usage: ppm_flair_solid_check <A|B|C|E|G|H|K|L> <dump.ppm>\n"
                 "       ppm_flair_solid_check <D|F> <pre.ppm> <post.ppm>\n");
         return 2;
     }
@@ -729,6 +766,7 @@ int main(int argc, char **argv)
     case 'G': rc = leg_G(&im); break;
     case 'H': rc = leg_H(&im); break;
     case 'K': rc = leg_K(&im); break;
+    case 'L': rc = leg_L(&im); break;
     default:
         fprintf(stderr, "solid_check: unknown leg '%s'\n", argv[1]);
         rc = 2;

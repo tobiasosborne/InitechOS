@@ -415,27 +415,55 @@ static void leg_same_tenant_raise(void)
 }
 
 /* ===========================================================================
- * leg(g) -- THE FOREGROUND FOLLOWS THE FRONT WINDOW AFTER A CLOSE
+ * leg(g) -- THE FOREGROUND APP KEEPS THE FOREGROUND WHEN ITS LAST WINDOW
+ * CLOSES, AND ONLY ITS OWN FRONT WINDOW IS EVER DRAWN ACTIVE
  * (bead initech-tdnl.40; audit 2026-10-03 F06).
  *
- * MultiFinder's invariant: the tenant owning the frontmost VISIBLE window is
- * the foreground tenant. The audit found it broken after the Finder's last
- * disk window closed -- the Finder stayed the head (its bar in band 2) while
- * the next window, another tenant's, was drawn active. FlairProcess_front_owner
- * is the ONE policy question the pump now asks after every close; this leg
- * grades its answers by hand-authored scene facts:
- *   g1  P (two windows, front) is foreground; Q's window is behind.
- *       front_owner == P (agreement -- nothing to do).
+ * THE REFERENCE (Macintosh Toolbox Essentials, local copy
+ * ../system7-decomp/refs/MacintoshToolboxEssentials.pdf):
+ *   p.2-4  "The active application (or foreground process) is the one currently
+ *          interacting with the user. The foreground process displays its menu
+ *          bar, and its windows are in front of the windows of all other
+ *          applications."
+ *   p.4-16  "One way the user can switch applications is by clicking in a window
+ *          that belongs to a background process."
+ *   p.2-60 "Upon receiving a suspend event, your application should deactivate
+ *          the front window" -- a background application's windows are drawn
+ *          INACTIVE.
+ * Nothing there switches applications because a window CLOSED. So when the
+ * foreground app's last window closes it stays the foreground app (its bar
+ * stays up), and the window DisposeWindow re-hilites -- another app's -- must
+ * be drawn inactive. F06's disagreement (the Finder's bar over an active NOTES)
+ * is resolved from THAT side, never by demoting the foreground app.
+ *
+ * FlairProcess_sync_active is the policy (process.h); the scene facts below
+ * are hand-authored, never read back out of process.c (Law 2):
+ *   g1  P (two windows, front) is foreground; Q's window is behind. P1 is the
+ *       one hilited window; sync_active is a no-op (nothing to correct).
  *   g2  dispose BOTH of P's windows (P stays resident with no window, exactly
- *       the always-resident Finder): front_owner == Q, the owner of the window
- *       DisposeWindow just re-hilited -- NOT the stale head P.
- *   g3  FlairProcess_activate(Q) then makes the list agree (head == Q).
- *   g4  hide Q's window too: no visible window remains -> NULL ("keep the
- *       current foreground": the period Finder stays active with nothing open).
- * MUTANT PROC_MUT_FRONT_OWNER_HEAD (the pre-fix "never demote" policy: the
- * current head is always the answer) goes RED on g2.
+ *       the always-resident Finder). DisposeWindow re-hilites Q's window; after
+ *       sync_active: P is STILL the foreground head, NO window is hilited, and
+ *       no activateEvt was delivered to anyone (no application switch).
+ *   g3  a second sync_active is a no-op (idempotent) and Q stays inactive.
+ *   g4  a content click on Q's window is the switch: deactivate P, activate Q,
+ *       then the mouseDown to Q; Q becomes the head and its window is hilited.
+ *   g5  the DESKTOP-CLICK path: FlairProcess_activate(P) while P owns no window
+ *       makes P the head again and leaves Q's window front but INACTIVE (the
+ *       activation itself runs the agreement); the pair is deactivate Q,
+ *       activate P.
+ * MUTANT PROC_MUT_FRONT_STAYS_ACTIVE (os/flair/process.c: sync_active does
+ * nothing -- the F06 picture, another app's window drawn active under the
+ * foreground app's bar) goes RED on g2.
  * ===========================================================================*/
-static void leg_front_owner(void)
+static int count_hilited(const WindowMgr *wm)
+{
+    int n = 0;
+    for (WindowPtr w = wm->front; w != NULL; w = w->nextWindow)
+        if (w->visible && w->hilited) n++;
+    return n;
+}
+
+static void leg_front_stays(void)
 {
     rgn_rect_t FRAME2 = { 0, 0, GH2, GW2 };
     static win_store_t WP1, WP2, WQ;
@@ -445,6 +473,8 @@ static void leg_front_owner(void)
     rgn_rect_t P1s = { 8,   6, 30,  44 }, P1c = { 11,   7, 29,  43 };
     rgn_rect_t P2s = { 8,  56, 30,  94 }, P2c = { 11,  57, 29,  93 };
     rgn_rect_t Qs  = { 8, 106, 30, 144 }, Qc  = { 11, 107, 29, 143 };
+
+    g_log_n = 0;   /* a fresh scene; the earlier legs' log is fully graded */
 
     mgr_attach(&M3, FRAME2);
     win_attach(&WQ);
@@ -464,27 +494,69 @@ static void leg_front_owner(void)
     FlairProcess_register(&plist3, &appP);
     WP2.rec.refCon = (int32_t)(uintptr_t)&appP;
 
-    CHECK(plist3.head == &appP && FlairProcess_front_owner(&plist3, &M3.wm) == &appP,
-          "leg(g1): P foreground with its window front -> front_owner is P (agreement)");
+    /* --- g1: agreement at rest ------------------------------------------- */
+    CHECK(plist3.head == &appP && M3.wm.front == &WP1.rec &&
+          WP1.rec.hilited == 1 && count_hilited(&M3.wm) == 1,
+          "leg(g1) scene: P foreground, its window P1 front and the one active window");
+    CHECK(FlairProcess_sync_active(&plist3, &M3.wm) == 0 &&
+          WP1.rec.hilited == 1 && count_hilited(&M3.wm) == 1,
+          "leg(g1): sync_active is a no-op when the active window is the foreground app's");
 
+    /* --- g2: the foreground app's LAST window closes ---------------------- */
     DisposeWindow(&M3.wm, &WP1.rec);
     DisposeWindow(&M3.wm, &WP2.rec);
     appP.windows = NULL;
-    CHECK(M3.wm.front == &WQ.rec && plist3.head == &appP,
-          "leg(g2) scene: P's windows are gone, Q's is front, P is still the head");
-    CHECK(FlairProcess_front_owner(&plist3, &M3.wm) == &appQ,
-          "leg(g2): after the close the front window's OWNER Q is the answer, not the stale head P");
-
+    CHECK(M3.wm.front == &WQ.rec && plist3.head == &appP && WQ.rec.hilited == 1,
+          "leg(g2) scene: P's windows are gone, DisposeWindow re-hilited Q's window, P is the head");
     {
-        EventRecord ev = mk_event(nullEvent, 0, 0, 0);
-        CHECK(FlairProcess_activate(&plist3, &M3.wm, &ev, &appQ) == 1 &&
-              plist3.head == &appQ,
-              "leg(g3): activating the front owner makes the foreground agree");
+        int before = g_log_n;
+        int changed = FlairProcess_sync_active(&plist3, &M3.wm);
+        CHECK(plist3.head == &appP,
+              "leg(g2): P KEEPS the foreground after its last window closes (MTE p.2-4/4-16)");
+        CHECK(changed == 1 && WQ.rec.hilited == 0 && count_hilited(&M3.wm) == 0,
+              "leg(g2): after the close NO window is active -- Q's window, a background "
+              "app's, is drawn inactive (MTE p.2-60)");
+        CHECK(g_log_n == before,
+              "leg(g2): no activateEvt is delivered -- a close is not an application switch");
     }
 
-    HideWindow(&M3.wm, &WQ.rec);
-    CHECK(FlairProcess_front_owner(&plist3, &M3.wm) == NULL,
-          "leg(g4): no visible window -> NULL (keep the current foreground)");
+    /* --- g3: idempotent --------------------------------------------------- */
+    CHECK(FlairProcess_sync_active(&plist3, &M3.wm) == 0 && WQ.rec.hilited == 0 &&
+          plist3.head == &appP,
+          "leg(g3): a second sync_active changes nothing");
+
+    /* --- g4: clicking Q's window IS the switch ---------------------------- */
+    {
+        int before = g_log_n;
+        EventRecord ev = mk_event(mouseDown, /*v*/20, /*h*/120, 0);
+        CHECK(rect_contains(Qc, 120, 20) && !rect_contains(P1s, 120, 20) &&
+              !rect_contains(P2s, 120, 20),
+              "leg(g4) scene: the probe (v20,h120) is Q's content");
+        flair_app_dispatch(&plist3, &M3.wm, &ev);
+        CHECK(g_log_n == before + 3 &&
+              entry_match(&g_log[before], P_ID, activateEvt, 0, 0, 0) &&
+              entry_match(&g_log[before + 1], Q_ID, activateEvt, 1, 0, 0) &&
+              entry_match(&g_log[before + 2], Q_ID, mouseDown, -1, 20, 120),
+              "leg(g4): a click in Q's window: deactivate P, activate Q, then the mouseDown to Q");
+        CHECK(plist3.head == &appQ && WQ.rec.hilited == 1 && count_hilited(&M3.wm) == 1,
+              "leg(g4): Q is the foreground and its window the one active window");
+    }
+
+    /* --- g5: the desktop click brings the windowless P back --------------- */
+    {
+        int before = g_log_n;
+        EventRecord ev = mk_event(mouseDown, /*v*/50, /*h*/150, 0);
+        CHECK(FlairProcess_activate(&plist3, &M3.wm, &ev, &appP) == 1 &&
+              plist3.head == &appP,
+              "leg(g5): activating the windowless P makes it the foreground");
+        CHECK(M3.wm.front == &WQ.rec && WQ.rec.hilited == 0 &&
+              count_hilited(&M3.wm) == 0,
+              "leg(g5): Q's window stays in front but is drawn INACTIVE -- P has no window");
+        CHECK(g_log_n == before + 2 &&
+              entry_match(&g_log[before], Q_ID, activateEvt, 0, 0, 0) &&
+              entry_match(&g_log[before + 1], P_ID, activateEvt, 1, 0, 0),
+              "leg(g5): EXACTLY one deactivate to Q THEN one activate to P");
+    }
 }
 
 /* ===========================================================================
@@ -634,7 +706,7 @@ int main(void)
     }
 
     leg_same_tenant_raise();
-    leg_front_owner();
+    leg_front_stays();
 
     return TEST_SUMMARY("test-process");
 }

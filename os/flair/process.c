@@ -407,6 +407,11 @@ static void teardown_common(FlairProcessList *list, WindowMgr *wm,
             succ->procs->event(succ, &act);
         }
     }
+    /* Active chrome agrees with the foreground after the teardown (tdnl.40):
+     * DisposeWindow re-hilited the frontmost survivor whoever owns it; when the
+     * head owns no window, that survivor is a background app's and is drawn
+     * inactive. A no-op when raise_group(succ) put succ's window in front. */
+    (void)FlairProcess_sync_active(list, wm);
 
     /* (3) ONE-SHOT frees, LIFO: the DATA block (GENERAL) first ... */
 #ifndef TEARDOWN_MUT_LEAK_BLOCK
@@ -601,6 +606,11 @@ static void switch_foreground(FlairProcessList *list, WindowMgr *wm,
     (void)mk_activate;   /* keep referenced (else -Werror=unused-function) */
 #endif
     promote_to_front(list, owner, old_fg);          /* (4) relink process list*/
+    /* (5) active chrome agrees with the NEW foreground (tdnl.40): when `owner`
+     * owns no window (the Finder brought forward by a desktop click), the old
+     * foreground's front window stays in front but is drawn inactive. A no-op
+     * whenever (1) raised a window of `owner`. */
+    (void)FlairProcess_sync_active(list, wm);
 }
 
 /* --------------------------------------------------------------------------
@@ -624,33 +634,38 @@ int FlairProcess_activate(FlairProcessList *list, WindowMgr *wm,
     return 1;
 }
 
-/* --------------------------------------------------------------------------
- * FlairProcess_front_owner -- see process.h (bead initech-tdnl.40). Skips
- * invisible records (the hidden canon frame windows stay in the z-order), then
- * answers with the tolerant owner match: unowned furniture -> NULL.
- * -------------------------------------------------------------------------- */
 static FlairApp *owner_of_window_tolerant(FlairProcessList *list, WindowPtr w);
 
-FlairApp *FlairProcess_front_owner(FlairProcessList *list, WindowMgr *wm)
+/* --------------------------------------------------------------------------
+ * FlairProcess_sync_active -- see process.h (bead initech-tdnl.40). Only the
+ * foreground app's front window is drawn active; a background app's window that
+ * reaffirm_active hilited (because it is frontmost after a close, or because the
+ * new foreground app owns no window) is deactivated here. Invisible records are
+ * skipped (the hidden canon frame windows stay in the z-order); unowned shell
+ * furniture keeps the Window Manager's hilite (tolerant owner match -> NULL).
+ * -------------------------------------------------------------------------- */
+int FlairProcess_sync_active(FlairProcessList *list, WindowMgr *wm)
 {
-    if (list == NULL || wm == NULL) return NULL;
-#if defined(PROC_MUT_FRONT_OWNER_HEAD) || defined(FLAIR_LIVE_MUTATE_IGNORE_REFCON)
-    /* MUTANT (Rule 6; test-process leg(g)): the pre-tdnl.40 policy -- the
-     * current head is always "right", so nothing is ever demoted after a close.
-     * ALSO the reach of FLAIR_LIVE_MUTATE_IGNORE_REFCON (owner_of_window
-     * above): that mutant breaks THE refCon binding rule, and this is the
-     * second place the rule is applied to answer "who owns the front window".
-     * Without it the pump's foreground sync (tdnl.40) would recover the owner
-     * by the intact rule and silently repair the mutant's mis-route, and
-     * test-flair-appswitch-mutant could no longer see it (re-key, stated).
-     * NEVER in a real build. */
-    return list->head;
-#else
     WindowPtr w;
+    FlairApp *owner;
+
+    if (list == NULL || wm == NULL) return 0;
     for (w = wm->front; w != NULL; w = w->nextWindow)
         if (w->visible) break;
-    if (w == NULL) return NULL;
-    return owner_of_window_tolerant(list, w);
+    if (w == NULL || !w->hilited) return 0;
+    owner = owner_of_window_tolerant(list, w);
+    if (owner == NULL || owner == list->head) return 0;
+#ifdef PROC_MUT_FRONT_STAYS_ACTIVE
+    /* MUTANT (Rule 6; test-process leg(g), and test-flair-fg-close-mutant's
+     * kmain twin): the F06 picture -- a background app's window stays drawn
+     * ACTIVE under the foreground app's bar. NEVER in a real build. */
+    return 0;
+#else
+    w->hilited = 0;
+    /* The 1->0 deactivation repaint, seeded exactly as window.c reaffirm_active
+     * seeds it (the strucRgn bbox, SECTed to the visible region inside). */
+    WindowMgr_invalidate(wm, w, region_get_bbox(w->strucRgn));
+    return 1;
 #endif
 }
 
