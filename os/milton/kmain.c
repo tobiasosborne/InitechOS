@@ -3262,6 +3262,12 @@ static void finder_surface_invalidate(const finder_surface_t *s,
 
 static void finder_desk_repaint(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
+    /* tdnl.40: a Finder verb that closed the Finder's last window (go-away,
+     * File > Close Window, Ctrl-W) leaves the Finder foreground with no window;
+     * the window DisposeWindow re-hilited is a background app's and is drawn
+     * inactive in THIS chrome phase (process.h FlairProcess_sync_active). */
+    if (g_ten_plist != (FlairProcessList *)0)
+        (void)FlairProcess_sync_active(g_ten_plist, ctx->wm);
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
     flair_desktop_present(bi, &ctx->off);
@@ -3912,60 +3918,122 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
     }
 }
 
-/* THE FOREGROUND FOLLOWS THE FRONT WINDOW (bead initech-tdnl.12 promotion,
- * made symmetric by bead initech-tdnl.40; design F2-1 / F4.1; audit
- * 2026-10-03 F06).
+/* THE FOREGROUND APP AND THE ACTIVE WINDOW (bead initech-tdnl.12 promotion;
+ * bead initech-tdnl.40 rule; design F2-1 / F4.1; audit 2026-10-03 F06).
  *
- * MultiFinder's invariant is that the tenant owning the frontmost window IS the
- * foreground tenant -- that is what makes band 2 the active app's menu bar.
- * flair_app_dispatch maintains it for every CLICK-driven foreground change, but
- * two routes change the front window without a click the dispatcher sees:
- *   - a DOUBLE-CLICK ON THE DESKTOP opens a disk window (inDesk returns before
- *     the owner demux) and NewDocumentWindow puts it at the head of the
- *     z-order -- the Finder must be PROMOTED (tdnl.12);
- *   - a Finder window CLOSES (go-away box, File > Close Window, Ctrl-W) and
- *     DisposeWindow re-hilites the next window, another tenant's -- the Finder
- *     must be DEMOTED (tdnl.40). Before this, nothing demoted it: the audit saw
- *     NOTES drawn active under the Finder's bar, and a band-2 press dropped the
- *     Finder's Special menu over it.
- * So, after every gesture and every consumed Finder chord: ask
- * FlairProcess_front_owner (process.c -- the owner of the frontmost VISIBLE
- * window, graded by test-process leg(g)) and, when it is not the head, run the
- * SAME four-step switch every other activation runs (FlairProcess_activate ->
- * switch_foreground) and the SAME post-switch policy
- * (flair_live_finish_tenant_switch: repaint, route updates, swap band 2,
- * present, announce FLAIR-DISPATCH app=<owner>). NO routing logic is
- * re-implemented here (ADR-0013 BC-2).
+ * THE RULE (Macintosh Toolbox Essentials, ../system7-decomp/refs/
+ * MacintoshToolboxEssentials.pdf): p.2-4 "The foreground process displays its
+ * menu bar, and its windows are in front of the windows of all other
+ * applications"; p.4-16 "One way the user can switch applications is by
+ * clicking in a window that belongs to a background process"; p.2-60 a
+ * suspended (background) application deactivates its front window. The
+ * foreground changes ONLY when the user activates another application (a click
+ * in its window -- flair_app_dispatch; a click on the desktop -- the Finder's,
+ * flair_live_desk_activate; a launch; the foreground app quitting -- process.c
+ * teardown promotes the next). A window CLOSING is not a switch: when the
+ * Finder's last disk window closes the Finder stays foreground with its bar,
+ * and NO window is active (F06 is resolved from that side -- the window
+ * DisposeWindow re-hilited is a background app's and is drawn inactive).
  *
- * NULL ("no visible window", or unowned shell furniture in front) keeps the
- * current foreground: period MultiFinder leaves the Finder active with no
- * windows open.
+ * So, after every gesture and every consumed Finder chord:
+ *   (1) PROMOTION (tdnl.12, kept as the p.2-4 invariant): a FINDER window
+ *       frontmost while the Finder is not the head makes the Finder the
+ *       foreground through FlairProcess_activate + the standard post-switch
+ *       policy. (With the desktop click activating the Finder first, this is a
+ *       no-op on every route the pump has today.)
+ *   (2) AGREEMENT: FlairProcess_sync_active (process.c, graded by test-process
+ *       leg(g)) deactivates a background app's window the Window Manager
+ *       hilited; if it did, run the chrome -> content -> present cycle.
+ * NO routing logic is re-implemented here (ADR-0013 BC-2).
  *
  * THE STAGE FENCE HOLDS BY CONSTRUCTION: at boot the frontmost window is
  * HELLO's and HELLO is the head (operator ruling 2026-10-03: band 2 at rest is
- * HELLO's Photoshop bar), so this is a no-op and the resting chimera -- band 1
- * System-7, band 2 Photoshop -- is byte-identical (DISTINCT-CHIMERA untouched).
+ * HELLO's Photoshop bar), so both steps are no-ops and the resting chimera --
+ * band 1 System-7, band 2 Photoshop -- is byte-identical (DISTINCT-CHIMERA
+ * untouched).
  *
- * KMAIN_MUT_NO_FG_SYNC (Rule 6; test-flair-fg-close-mutant) restores the
- * pre-tdnl.40 promote-only rule. NEVER in a real build. */
+ * KMAIN_MUT_FG_FOLLOWS_FRONT (Rule 6; test-flair-fg-close-mutant) restores the
+ * WRONG rule of commit 47f6202: the owner of the frontmost visible window
+ * always takes the foreground, so a close or a desktop click hands it straight
+ * back to an application the user never clicked. NEVER in a real build. */
 static void flair_live_sync_foreground(flair_live_ctx_t *ctx,
                                        const boot_info_t *bi,
                                        const EventRecord *ev)
 {
     FlairApp *prev;
-    FlairApp *want;
+    FlairApp *want = (FlairApp *)0;
+    WindowPtr w;
 
     if (g_ten_plist == (FlairProcessList *)0 || ctx->wm == (WindowMgr *)0)
         return;
-    want = FlairProcess_front_owner(g_ten_plist, ctx->wm);
-    if (want == (FlairApp *)0 || want == g_ten_plist->head) return;
-#if defined(KMAIN_MUT_NO_FG_SYNC)
-    if (want != g_ten_finder) return;            /* promote-only (pre-fix)   */
+    /* The frontmost VISIBLE window: the two hidden canon frame doc windows are
+     * still in the z-order (HideWindow, not DisposeWindow). */
+    for (w = ctx->wm->front; w != (WindowPtr)0; w = w->nextWindow)
+        if (w->visible) break;
+#if defined(KMAIN_MUT_FG_FOLLOWS_FRONT)
+    if (w != (WindowPtr)0) {
+        FlairApp *a;
+        for (a = g_ten_plist->head; a != (FlairApp *)0; a = a->nextApp)
+            if (a->magic == FLAIR_APP_MAGIC &&
+                (int32_t)(uintptr_t)a == w->refCon) { want = a; break; }
+    }
+#else
+    if (w != (WindowPtr)0 && g_finder_shell != (finder_shell_t *)0 &&
+        finder_win_slot_of(g_finder_shell, w) >= 0)
+        want = g_ten_finder;
 #endif
 
+    if (want != (FlairApp *)0 && want != g_ten_plist->head) {
+        prev = g_ten_plist->head;
+        if (FlairProcess_activate(g_ten_plist, ctx->wm, ev, want)) {
+            flair_live_finish_tenant_switch(ctx, bi, g_ten_plist, prev,
+                                            g_ten_barport);
+            return;
+        }
+    }
+    if (FlairProcess_sync_active(g_ten_plist, ctx->wm)) {
+        desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+        flair_live_content_phase(ctx);
+        flair_desktop_present(bi, &ctx->off);
+    }
+}
+
+/* A CLICK ON THE DESKTOP ACTIVATES THE FINDER (bead initech-tdnl.40).
+ *
+ * The desktop and its icons are the Finder's (IM VI p.9-3, Finder Interface:
+ * "The Finder is an application that manages the user's desktop interface. It
+ * displays icons ..."), and FindWindow reports inDesk for a point "not in the
+ * menu bar ... or any window of your application" (MTE p.2-36). A mouseDown
+ * there is the user clicking in the Finder's world, which -- like a click in a
+ * background application's window (MTE p.4-16) -- brings the Finder to the
+ * foreground: its bar into band 2, its windows (if any) to the front, the old
+ * foreground's window deactivated (switch_foreground's agreement step). The
+ * gesture itself (select / drag / marquee / open) then runs as before, so a
+ * single click both activates the Finder and selects the icon. A no-op when
+ * the Finder is already the foreground. The SAME FlairProcess_activate +
+ * flair_live_finish_tenant_switch pair every non-mouseDown activation uses
+ * (ADR-0013 BC-2: no second activation path).
+ *
+ * KMAIN_MUT_NO_DESK_ACTIVATE (Rule 6; test-flair-fg-close-mutant) leaves the
+ * desktop click inert for the foreground. NEVER in a real build. */
+static void flair_live_desk_activate(flair_live_ctx_t *ctx,
+                                     const boot_info_t *bi,
+                                     const EventRecord *ev)
+{
+    FlairApp *prev;
+
+    if (g_ten_plist == (FlairProcessList *)0 ||
+        g_ten_finder == (FlairApp *)0 || ctx->wm == (WindowMgr *)0) return;
+    if (g_ten_plist->head == g_ten_finder) return;
+#if defined(KMAIN_MUT_NO_DESK_ACTIVATE)
+    (void)bi; (void)ev; (void)prev;
+    return;
+#else
     prev = g_ten_plist->head;
-    if (!FlairProcess_activate(g_ten_plist, ctx->wm, ev, want)) return;
-    flair_live_finish_tenant_switch(ctx, bi, g_ten_plist, prev, g_ten_barport);
+    if (FlairProcess_activate(g_ten_plist, ctx->wm, ev, g_ten_finder))
+        flair_live_finish_tenant_switch(ctx, bi, g_ten_plist, prev,
+                                        g_ten_barport);
+#endif
 }
 
 /* THE Cmd-KEY ARM (design F4.4's keyboard path; bead initech-tdnl.10, re-keyed
@@ -5062,6 +5130,7 @@ void kernel_main(void)
                 if (chrome_pc == inDesk &&
                     ev.where.v >= (int16_t)(SHELL_MENUBAR2_TOP +
                                             FLAIR_MENUBAR_H)) {
+                    flair_live_desk_activate(&ctx, &b, &ev);   /* tdnl.40 */
                     flair_live_do_desk(&ctx, &b, &ev);
                 }
 

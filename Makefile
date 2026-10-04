@@ -12300,10 +12300,11 @@ $(TEST_PROCESS_MUT_KEY): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUT_KEY_TO_UNDER_CURSOR $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
 $(TEST_PROCESS_MUT_RAISE): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUT_NO_SAMETENANT_RAISE $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
-# tdnl.40: the pre-fix "never demote" foreground policy (leg(g)).
-TEST_PROCESS_MUT_FRONT := $(BUILD)/test_process_mutant_frontownerhead
+# tdnl.40: FlairProcess_sync_active does nothing -- a background app's window
+# stays drawn ACTIVE under the foreground app's bar (the F06 picture; leg(g)).
+TEST_PROCESS_MUT_FRONT := $(BUILD)/test_process_mutant_frontstaysactive
 $(TEST_PROCESS_MUT_FRONT): $(TEST_PROCESS_SRC) $(TEST_PROCESS_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUT_FRONT_OWNER_HEAD $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUT_FRONT_STAYS_ACTIVE $(PROCESS_INC) -o $@ $(TEST_PROCESS_SRC) $(PROCESS_LINK)
 
 test-process: $(TEST_PROCESS)
 	@printf ">>> test-process: ADR-0013 O-1 host routing/dispatch oracle (refCon demux + click-to-activate + activateEvt pair)\n"
@@ -12320,9 +12321,9 @@ test-process-mutant-build: $(TEST_PROCESS_MUT_REFCON) $(TEST_PROCESS_MUT_ACTIVAT
 # makes every build RED, so this gate is forward-looking -- use after Wave 2.)
 test-process-mutant: $(TEST_PROCESS_MUT_REFCON) $(TEST_PROCESS_MUT_ACTIVATE) $(TEST_PROCESS_MUT_KEY) $(TEST_PROCESS_MUT_RAISE) $(TEST_PROCESS_MUT_FRONT)
 	@printf ">>> test-process-mutant: confirming all five self-mutants go RED (Rule 6; Wave-2 gate)\n"
-	@$(TEST_PROCESS_MUT_FRONT) > $(TEST_PROCESS_MUT_FRONT).log 2>&1 && { printf '!!! test-process-mutant FAIL: FRONT_OWNER_HEAD PASSED -- the leg(g) foreground-follows-front oracle is decoration\n'; exit 1; } || true
-	@grep -q 'FAIL.*leg(g2): after the close' $(TEST_PROCESS_MUT_FRONT).log || { printf '!!! test-process-mutant FAIL: FRONT_OWNER_HEAD went RED for the wrong reason\n'; cat $(TEST_PROCESS_MUT_FRONT).log; exit 1; }
-	@printf '>>> test-process-mutant: green (FRONT_OWNER_HEAD correctly RED -- the stale head would stay foreground after a close)\n'
+	@$(TEST_PROCESS_MUT_FRONT) > $(TEST_PROCESS_MUT_FRONT).log 2>&1 && { printf '!!! test-process-mutant FAIL: FRONT_STAYS_ACTIVE PASSED -- the leg(g) active-window oracle is decoration\n'; exit 1; } || true
+	@grep -q 'FAIL.*leg(g2): after the close NO window is active' $(TEST_PROCESS_MUT_FRONT).log || { printf '!!! test-process-mutant FAIL: FRONT_STAYS_ACTIVE went RED for the wrong reason\n'; cat $(TEST_PROCESS_MUT_FRONT).log; exit 1; }
+	@printf '>>> test-process-mutant: green (FRONT_STAYS_ACTIVE correctly RED -- a background window would stay active under the foreground bar)\n'
 	@if $(TEST_PROCESS_MUT_REFCON) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: IGNORE_REFCON PASSED -- the routing oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (IGNORE_REFCON correctly RED)\n'; fi
 	@if $(TEST_PROCESS_MUT_ACTIVATE) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: SKIP_ACTIVATE_PAIR PASSED -- the activate-pair oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (SKIP_ACTIVATE_PAIR correctly RED)\n'; fi
 	@if $(TEST_PROCESS_MUT_KEY) >/dev/null 2>&1; then printf '!!! test-process-mutant FAIL: KEY_TO_UNDER_CURSOR PASSED -- the key-routing oracle is decoration\n'; exit 1; else printf '>>> test-process-mutant: green (KEY_TO_UNDER_CURSOR correctly RED)\n'; fi
@@ -18886,40 +18887,114 @@ test-flair-finder-follow-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DI
 	@printf '>>> test-flair-finder-follow-mutant: green\n'
 
 # ===========================================================================
-# REAL gate: test-flair-fg-close (bead initech-tdnl.40; audit F06, P1) -- after
-# a window closes, the FOREGROUND tenant, the band-2 bar and the ACTIVE window
-# agree. One boot of $(FLAIRTENANTS_IMG), FLAIR_FG_CLOSE_SPEC
-# (spec/flair_fg_close_traces.mk): open the volume (the Finder takes the
-# foreground), Ctrl-W, then press band 2's first title.
-#   serial: FINDER-CLOSE-WINDOW win=0 ; FLAIR-DISPATCH app=HELLO after it ; the
-#           band-2 press drops menu 256 (HELLO's Photoshop File), never 512.
-#   pixels: band 2 == the Photoshop bar (ppm_flair_app_launch_check
-#           bar-photoshop, a full-pixel differential derived in the grader);
-#           HELLO's title active, NOTES's inactive (ppm_flair_solid_check K).
-# Host half: test-process leg(g) (FlairProcess_front_owner). Mutant:
-# test-flair-fg-close-mutant (KMAIN_MUT_NO_FG_SYNC -- the pre-fix pump that
-# never demotes) must go RED on the dispatch + menu-owner assertions.
+# REAL gate: test-flair-fg-close (bead initech-tdnl.40; audit F06, P1) -- the
+# FOREGROUND app, the band-2 bar and the ACTIVE window agree, under the
+# Macintosh rule (Macintosh Toolbox Essentials p.2-4 / p.4-16 / p.2-60; quoted
+# in spec/flair_fg_close_traces.mk): the foreground changes only when the user
+# activates another application; closing the Finder's last window leaves the
+# Finder foreground with its bar and NO window active; a desktop click makes
+# the Finder the foreground; a click in HELLO's window makes HELLO the
+# foreground again. Four boots of $(FLAIRTENANTS_IMG), the LOCKED traces of
+# spec/flair_fg_close_traces.mk:
+#   close        (TRACE 1) open volume, Ctrl-W, press band 2's first title:
+#                serial  no FLAIR-DISPATCH after FINDER-CLOSE-WINDOW win=0, and
+#                        the press drops the Finder's File (512);
+#                pixels  bar-finder; leg L (no window active).
+#   close_click  (TRACE 2) the same, then a click in HELLO's content:
+#                serial  the first FLAIR-DISPATCH after the close is app=HELLO
+#                        and it follows the 512 drop;
+#                pixels  bar-photoshop; leg K (HELLO active, NOTES inactive).
+#   desk         (TRACE 3) only app windows on screen: click the volume icon,
+#                press band 2's first title:
+#                serial  FLAIR-DISPATCH app=FINDER, then the 512 drop, then NO
+#                        further FLAIR-DISPATCH;
+#                pixels  bar-finder; leg L (HELLO deactivated).
+#   desk_click   (TRACE 4) the same, then a click in HELLO's content:
+#                serial  the first FLAIR-DISPATCH after app=FINDER is app=HELLO
+#                        and it follows the 512 drop;
+#                pixels  bar-photoshop; leg K.
+# GRADER DISCRIMINATION (Rule 6, no extra boot): leg K must be RED on the close
+# dump and leg L RED on the close_click dump; bar-photoshop RED on the close
+# dump and bar-finder RED on the close_click dump -- so each pixel leg is proven
+# to tell the two states apart on real frames.
+# Host half: test-process leg(g) (FlairProcess_sync_active; mutant
+# PROC_MUT_FRONT_STAYS_ACTIVE). Mutants: test-flair-fg-close-mutant
+# (KMAIN_MUT_FG_FOLLOWS_FRONT -- commit 47f6202's wrong rule -- RED on close and
+# desk; KMAIN_MUT_NO_DESK_ACTIVATE RED on desk).
 # The DISTINCT-CHIMERA boot check is untouched: nothing here runs at boot.
-# Rule 14 clip: make record-flair SCRIPT=fg_close.
+# Rule 14 clips: make record-flair SCRIPT=fg_close / SCRIPT=fg_desk.
 # ---------------------------------------------------------------------------
 FLAIR_FGC_NAME := flair_fg_close
-# $(call fgc-serial-check,<serial file>) -- shared VERBATIM by gate + mutant.
-define fgc-serial-check
+# Shared VERBATIM by gate + mutant: $(call fgc-<leg>-check,<serial file>).
+define fgc-close-check
 grep -qxF 'FINDER-CLOSE-WINDOW win=0' $(1) || { printf 'FGC: the Ctrl-W did not close the root window\n'; exit 1; }; \
-sed -n '/^FINDER-CLOSE-WINDOW win=0$$/,$$p' $(1) | grep -qxF 'FLAIR-DISPATCH app=HELLO' || { printf 'FGC: no FLAIR-DISPATCH app=HELLO after the close -- the Finder kept the foreground\n'; exit 1; }; \
-sed -n '/^FINDER-CLOSE-WINDOW win=0$$/,$$p' $(1) | grep -q '^FLAIR-MENU-DROP menu=256' || { printf 'FGC: the band-2 press did not drop the Photoshop File menu (256) of the ACTIVE app: %s\n' "$$(grep '^FLAIR-MENU-DROP' $(1) | tail -1)"; exit 1; }
+if sed -n '/^FINDER-CLOSE-WINDOW win=0$$/,$$p' $(1) | grep -q '^FLAIR-DISPATCH app='; then printf 'FGC: the Finder lost the foreground on the close: %s\n' "$$(sed -n '/^FINDER-CLOSE-WINDOW win=0$$/,$$p' $(1) | grep '^FLAIR-DISPATCH app=' | head -1)"; exit 1; fi; \
+sed -n '/^FINDER-CLOSE-WINDOW win=0$$/,$$p' $(1) | grep -q '^FLAIR-MENU-DROP menu=512' || { printf 'FGC: the band-2 press did not drop the Finder File menu (512): %s\n' "$$(grep '^FLAIR-MENU-DROP' $(1) | tail -1)"; exit 1; }
+endef
+define fgc-close-click-check
+grep -qxF 'FINDER-CLOSE-WINDOW win=0' $(1) || { printf 'FGC: the Ctrl-W did not close the root window\n'; exit 1; }; \
+first=$$(sed -n '/^FINDER-CLOSE-WINDOW win=0$$/,$$p' $(1) | grep '^FLAIR-DISPATCH app=' | head -1); \
+[ "$$first" = 'FLAIR-DISPATCH app=HELLO' ] || { printf 'FGC: the first foreground change after the close is not the HELLO click: %s\n' "$$first"; exit 1; }; \
+sed -n '/^FINDER-CLOSE-WINDOW win=0$$/,/^FLAIR-DISPATCH app=HELLO$$/p' $(1) | grep -q '^FLAIR-MENU-DROP menu=512' || { printf 'FGC: the Finder bar was not live between the close and the HELLO click (no 512 drop)\n'; exit 1; }
+endef
+define fgc-desk-check
+grep -qxF 'FLAIR-DISPATCH app=FINDER' $(1) || { printf 'FGD: the desktop click did not activate the Finder (no FLAIR-DISPATCH app=FINDER)\n'; exit 1; }; \
+if sed -n '/^FLAIR-DISPATCH app=FINDER$$/,$$p' $(1) | sed 1d | grep -q '^FLAIR-DISPATCH app='; then printf 'FGD: the Finder did not keep the foreground after the desktop click: %s\n' "$$(sed -n '/^FLAIR-DISPATCH app=FINDER$$/,$$p' $(1) | sed 1d | grep '^FLAIR-DISPATCH app=' | head -1)"; exit 1; fi; \
+sed -n '/^FLAIR-DISPATCH app=FINDER$$/,$$p' $(1) | grep -q '^FLAIR-MENU-DROP menu=512' || { printf 'FGD: the band-2 press did not drop the Finder File menu (512): %s\n' "$$(grep '^FLAIR-MENU-DROP' $(1) | tail -1)"; exit 1; }
+endef
+define fgc-desk-click-check
+grep -qxF 'FLAIR-DISPATCH app=FINDER' $(1) || { printf 'FGD: the desktop click did not activate the Finder (no FLAIR-DISPATCH app=FINDER)\n'; exit 1; }; \
+first=$$(sed -n '/^FLAIR-DISPATCH app=FINDER$$/,$$p' $(1) | sed 1d | grep '^FLAIR-DISPATCH app=' | head -1); \
+[ "$$first" = 'FLAIR-DISPATCH app=HELLO' ] || { printf 'FGD: the first foreground change after the desktop click is not the HELLO click: %s\n' "$$first"; exit 1; }; \
+sed -n '/^FLAIR-DISPATCH app=FINDER$$/,/^FLAIR-DISPATCH app=HELLO$$/p' $(1) | grep -q '^FLAIR-MENU-DROP menu=512' || { printf 'FGD: the Finder bar was not live between the desktop click and the HELLO click (no 512 drop)\n'; exit 1; }
+endef
+# $(call fgc-px,<dump>,<bar leg>,<solid leg>,<what>) -- the pixel half.
+define fgc-px
+@[ -s "$(1)" ] || { printf '!!! test-flair-fg-close FAIL: %s screendump missing\n' '$(4)'; exit 1; }
+@$(PPM_FLAIR_APPL_CHECK_BIN) $(2) "$(1)" || { printf '!!! test-flair-fg-close FAIL: %s -- band 2 is not %s\n' '$(4)' '$(2)'; exit 1; }
+@$(PPM_FLAIR_SOLID_CHECK_BIN) $(3) "$(1)" || { printf '!!! test-flair-fg-close FAIL: %s -- solid leg %s\n' '$(4)' '$(3)'; exit 1; }
 endef
 .PHONY: test-flair-fg-close test-flair-fg-close-mutant
-test-flair-fg-close: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_APPL_CHECK_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN)
+# NOTE: PPM_FLAIR_APPL_CHECK_BIN is defined further down this Makefile, so a
+# prerequisite reference here would expand EMPTY (rule prerequisites expand
+# immediately) and the grader would never be built -- name the path instead.
+test-flair-fg-close: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_app_launch_check $(PPM_FLAIR_SOLID_CHECK_BIN)
 	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-fg-close : foreground, band 2 and active window agree after a close (tdnl.40)\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-fg-close : foreground, band 2 and active window agree (tdnl.40)\n'
 	@printf '======================================================================\n'
 	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FGC_NAME),$(BUILD)/$(FLAIR_FGC_NAME)_data.img,$(FLAIR_FG_CLOSE_SPEC),FLAIR-MENU menu=,1)
-	@( $(call fgc-serial-check,$(BUILD)/$(FLAIR_FGC_NAME).serial) ) || { printf '!!! test-flair-fg-close FAIL: serial (above)\n'; grep -E '^(FINDER-|FLAIR-DISPATCH|FLAIR-MENU)' $(BUILD)/$(FLAIR_FGC_NAME).serial; exit 1; }
-	@[ -s "$(BUILD)/$(FLAIR_FGC_NAME).ppm" ] || { printf '!!! test-flair-fg-close FAIL: screendump missing\n'; exit 1; }
-	@$(PPM_FLAIR_APPL_CHECK_BIN) bar-photoshop "$(BUILD)/$(FLAIR_FGC_NAME).ppm" || { printf '!!! test-flair-fg-close FAIL: band 2 is not the Photoshop bar of the foreground HELLO\n'; exit 1; }
-	@$(PPM_FLAIR_SOLID_CHECK_BIN) K "$(BUILD)/$(FLAIR_FGC_NAME).ppm" || { printf '!!! test-flair-fg-close FAIL: HELLO is not drawn as the active window\n'; exit 1; }
-	@printf '>>> test-flair-fg-close: green (close -> FLAIR-DISPATCH app=HELLO; band 2 == Photoshop bar; band-2 press drops 256; HELLO active)\n'
+	@( $(call fgc-close-check,$(BUILD)/$(FLAIR_FGC_NAME).serial) ) || { printf '!!! test-flair-fg-close FAIL: close serial (above)\n'; grep -E '^(FINDER-|FLAIR-DISPATCH|FLAIR-MENU)' $(BUILD)/$(FLAIR_FGC_NAME).serial; exit 1; }
+	$(call fgc-px,$(BUILD)/$(FLAIR_FGC_NAME).ppm,bar-finder,L,close)
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FGC_NAME)_click,$(BUILD)/$(FLAIR_FGC_NAME)_click_data.img,$(FLAIR_FG_CLOSE_CLICK_SPEC),FLAIR-DISPATCH app=HELLO,1)
+	@( $(call fgc-close-click-check,$(BUILD)/$(FLAIR_FGC_NAME)_click.serial) ) || { printf '!!! test-flair-fg-close FAIL: close_click serial (above)\n'; grep -E '^(FINDER-|FLAIR-DISPATCH|FLAIR-MENU)' $(BUILD)/$(FLAIR_FGC_NAME)_click.serial; exit 1; }
+	$(call fgc-px,$(BUILD)/$(FLAIR_FGC_NAME)_click.ppm,bar-photoshop,K,close_click)
+	$(call fo-boot,$(FLAIRTENANTS_IMG),flair_fg_desk,$(BUILD)/flair_fg_desk_data.img,$(FLAIR_FG_DESK_SPEC),FLAIR-MENU menu=,1)
+	@( $(call fgc-desk-check,$(BUILD)/flair_fg_desk.serial) ) || { printf '!!! test-flair-fg-close FAIL: desk serial (above)\n'; grep -E '^(FINDER-|FLAIR-DISPATCH|FLAIR-MENU)' $(BUILD)/flair_fg_desk.serial; exit 1; }
+	$(call fgc-px,$(BUILD)/flair_fg_desk.ppm,bar-finder,L,desk)
+	$(call fo-boot,$(FLAIRTENANTS_IMG),flair_fg_desk_click,$(BUILD)/flair_fg_desk_click_data.img,$(FLAIR_FG_DESK_CLICK_SPEC),FLAIR-DISPATCH app=HELLO,1)
+	@( $(call fgc-desk-click-check,$(BUILD)/flair_fg_desk_click.serial) ) || { printf '!!! test-flair-fg-close FAIL: desk_click serial (above)\n'; grep -E '^(FINDER-|FLAIR-DISPATCH|FLAIR-MENU)' $(BUILD)/flair_fg_desk_click.serial; exit 1; }
+	$(call fgc-px,$(BUILD)/flair_fg_desk_click.ppm,bar-photoshop,K,desk_click)
+	@if $(PPM_FLAIR_SOLID_CHECK_BIN) K "$(BUILD)/$(FLAIR_FGC_NAME).ppm" >/dev/null 2>&1; then printf '!!! test-flair-fg-close FAIL: leg K passed on the no-active-window frame -- decoration\n'; exit 1; fi
+	@if $(PPM_FLAIR_SOLID_CHECK_BIN) L "$(BUILD)/$(FLAIR_FGC_NAME)_click.ppm" >/dev/null 2>&1; then printf '!!! test-flair-fg-close FAIL: leg L passed on the HELLO-active frame -- decoration\n'; exit 1; fi
+	@if $(PPM_FLAIR_APPL_CHECK_BIN) bar-photoshop "$(BUILD)/$(FLAIR_FGC_NAME).ppm" >/dev/null 2>&1; then printf '!!! test-flair-fg-close FAIL: bar-photoshop passed on the Finder-bar frame -- decoration\n'; exit 1; fi
+	@if $(PPM_FLAIR_APPL_CHECK_BIN) bar-finder "$(BUILD)/$(FLAIR_FGC_NAME)_click.ppm" >/dev/null 2>&1; then printf '!!! test-flair-fg-close FAIL: bar-finder passed on the Photoshop-bar frame -- decoration\n'; exit 1; fi
+	@printf '>>> test-flair-fg-close: green (close keeps the Finder foreground, no window active; desktop click activates the Finder; a HELLO click brings HELLO back; graders discriminate)\n'
+
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_FG_FOLLOWS_FRONT,fg_follows_front))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_NO_DESK_ACTIVATE,no_desk_activate))
+# $(call fgc-mut,<image tag>,<boot name>,<spec>,<check>,<expected reason>,<label>)
+define fgc-mut
+$(call fo-boot,$(BUILD)/flair_tenants_mut_$(1).img,$(2),$(BUILD)/$(2)_data.img,$(3),FLAIR-MENU menu=,0)
+@out=$$( $(call $(4),$(BUILD)/$(2).serial) ); rc=$$?; \
+if [ $$rc -eq 0 ]; then printf '!!! test-flair-fg-close-mutant FAIL: %s PASSED -- decoration\n' '$(6)'; exit 1; fi; \
+printf '%s\n' "$$out" | grep -q '$(5)' || { printf '!!! test-flair-fg-close-mutant FAIL: %s RED for the wrong reason: %s\n' '$(6)' "$$out"; exit 1; }; \
+printf '>>> test-flair-fg-close-mutant: %s correctly RED (%s)\n' '$(6)' "$$out"
+endef
+test-flair-fg-close-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_fg_follows_front.img $(BUILD)/flair_tenants_mut_no_desk_activate.img
+	$(call fgc-mut,fg_follows_front,flair_fg_close_mut,$(FLAIR_FG_CLOSE_SPEC),fgc-close-check,the Finder lost the foreground on the close,FG_FOLLOWS_FRONT/close)
+	$(call fgc-mut,fg_follows_front,flair_fg_desk_mut,$(FLAIR_FG_DESK_SPEC),fgc-desk-check,the Finder did not keep the foreground after the desktop click,FG_FOLLOWS_FRONT/desk)
+	$(call fgc-mut,no_desk_activate,flair_fg_desk_mut2,$(FLAIR_FG_DESK_SPEC),fgc-desk-check,the desktop click did not activate the Finder,NO_DESK_ACTIVATE/desk)
+
 
 # ===========================================================================
 # REAL gate: test-flair-finder-cmds (beads initech-tdnl.36/.37/.38/.50/.67;
@@ -18978,16 +19053,6 @@ test-flair-finder-cmds-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_t
 	if [ $$rc -eq 0 ]; then printf '!!! test-flair-finder-cmds-mutant FAIL: STUB_ENABLED PASSED -- decoration\n'; exit 1; fi; \
 	printf '%s\n' "$$out" | grep -q 'want 3 x menu=512 item=0' || { printf '!!! test-flair-finder-cmds-mutant FAIL: RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
 	printf '>>> test-flair-finder-cmds-mutant: STUB_ENABLED correctly RED (%s)\n' "$$out"
-
-$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_NO_FG_SYNC,no_fg_sync))
-test-flair-fg-close-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_no_fg_sync.img
-	$(call fo-boot,$(BUILD)/flair_tenants_mut_no_fg_sync.img,flair_fg_close_mut,$(BUILD)/flair_fg_close_mut_data.img,$(FLAIR_FG_CLOSE_SPEC),FLAIR-MENU menu=,0)
-	@grep -qxF 'FINDER-CLOSE-WINDOW win=0' $(BUILD)/flair_fg_close_mut.serial || { printf '!!! test-flair-fg-close-mutant FAIL: the mutant boot never closed the window (not comparable)\n'; exit 1; }
-	@out=$$( $(call fgc-serial-check,$(BUILD)/flair_fg_close_mut.serial) ); rc=$$?; \
-	if [ $$rc -eq 0 ]; then printf '!!! test-flair-fg-close-mutant FAIL: NO_FG_SYNC PASSED -- decoration\n'; exit 1; fi; \
-	printf '%s\n' "$$out" | grep -q 'the Finder kept the foreground' || { printf '!!! test-flair-fg-close-mutant FAIL: RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
-	printf '>>> test-flair-fg-close-mutant: NO_FG_SYNC correctly RED (%s)\n' "$$out"
-
 
 # ===========================================================================
 # REAL gate: test-flair-solid (epic initech-av7s; beads initech-gofc/-rqz5;
@@ -19934,14 +19999,24 @@ RECORD_SPEC_finder_follow   = $(FLAIR_FOLLOW_MOVE_SPEC)
 RECORD_MARKER_finder_follow = FINDER-MOVE name=README.TXT from=0 to=3
 RECORD_IMAGE_finder_follow  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_finder_follow = 200
-# fg_close (bead initech-tdnl.40, audit F06; Rule 14): the volume opens (band 2
-# becomes the Finder bar), Ctrl-W closes it -- band 2 returns to HELLO's
-# Photoshop bar with HELLO active -- and a press on band 2's first title drops
-# HELLO's File menu, not the Finder's. DOUBLE-CLICK record image.
-RECORD_SPEC_fg_close   = $(FLAIR_FG_CLOSE_SPEC)
-RECORD_MARKER_fg_close = FLAIR-MENU menu=256 item=0 (sel=0x00000000)
+# fg_close (bead initech-tdnl.40, audit F06; Rule 14; re-keyed to the
+# Macintosh rule): the volume opens (band 2 becomes the Finder bar), Ctrl-W
+# closes it -- the Finder STAYS foreground with its bar and NO window is drawn
+# active -- a press on band 2's first title drops the Finder's File (512), and a
+# click in HELLO's window brings HELLO back (Photoshop bar, HELLO active).
+# DOUBLE-CLICK record image.
+RECORD_SPEC_fg_close   = $(FLAIR_FG_CLOSE_CLICK_SPEC)
+RECORD_MARKER_fg_close = FLAIR-DISPATCH app=HELLO
 RECORD_IMAGE_fg_close  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_fg_close = 300
+# fg_desk (bead initech-tdnl.40; Rule 14): with only HELLO and NOTES on screen,
+# a click on the volume icon makes the Finder the foreground (its bar, HELLO
+# deactivated), its File menu drops from band 2, and a click in HELLO's window
+# makes HELLO the foreground again.
+RECORD_SPEC_fg_desk   = $(FLAIR_FG_DESK_CLICK_SPEC)
+RECORD_MARKER_fg_desk = FLAIR-DISPATCH app=HELLO
+RECORD_IMAGE_fg_desk  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_SETTLE_fg_desk = 300
 # select_all + arrange (beads initech-tdnl.36 / .67; audit F03/F05/F07/F15/G10;
 # Rule 14): select_all replays FLAIR_CMDS_FAKES_SPEC -- Get Info, Duplicate,
 # Open (on a document), Restart, Shut Down and band-1 About are pulled down and
@@ -19958,7 +20033,7 @@ RECORD_SPEC_arrange      = $(FLAIR_CMDS_ARRANGE_SPEC)
 RECORD_MARKER_arrange    = FINDER-ARRANGE win=0 moved=3
 RECORD_IMAGE_arrange     = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_arrange    = 300
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close fg_desk select_all arrange
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the

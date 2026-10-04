@@ -353,6 +353,10 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
  * Rather than let the shell re-implement raise/deactivate/activate/promote (a
  * second, subtly-different activation path is exactly what switch_foreground's
  * banner exists to prevent), it calls THIS, which runs the identical sequence.
+ * Since bead initech-tdnl.40 the pump also calls it for ANY desktop mouseDown
+ * (the desktop is the Finder's; kmain flair_live_desk_activate), where the
+ * Finder may own no window at all -- the sequence's agreement step
+ * (FlairProcess_sync_active) then leaves no window active.
  *
  * `ev` supplies the modifiers/when stamp for the synthesized activateEvt pair,
  * exactly as the mouseDown-driven path does. Returns 1 when a switch really
@@ -362,20 +366,31 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
 int FlairProcess_activate(FlairProcessList *list, WindowMgr *wm,
                           const EventRecord *ev, FlairApp *app);
 
-/* FlairProcess_front_owner -- WHO SHOULD BE FOREGROUND NOW (bead
- * initech-tdnl.40; audit 2026-10-03 F06).
+/* FlairProcess_sync_active -- ONLY THE FOREGROUND APP'S FRONT WINDOW IS DRAWN
+ * ACTIVE (bead initech-tdnl.40; audit 2026-10-03 F06).
  *
- * MultiFinder's invariant: the tenant owning the frontmost VISIBLE window is
- * the foreground tenant (that is what makes band 2 the active window's
- * application's menu bar). Returns the resident owner of the frontmost visible
- * window (the SAME refCon + magic match the dispatcher uses), or NULL when no
- * window is visible or the front one is unowned shell furniture -- NULL means
- * "keep the current foreground" (the always-resident Finder stays active with
- * nothing open, the period behaviour). Pure: reads the z-order and the list.
- * The pump asks it after every close and gesture and, when the answer differs
- * from list->head, runs FlairProcess_activate on it -- so a closed window can
- * never leave its tenant's bar up over another tenant's active window. */
-FlairApp *FlairProcess_front_owner(FlairProcessList *list, WindowMgr *wm);
+ * The application model (Macintosh Toolbox Essentials p.2-4: "The foreground
+ * process displays its menu bar, and its windows are in front of the windows
+ * of all other applications"; p.4-16: the user switches applications "by
+ * clicking in a window that belongs to a background process"; p.2-60: on a
+ * suspend the application "should deactivate the front window"): the
+ * foreground changes only when the user ACTIVATES another application -- a
+ * click in its window, a launch, the foreground app quitting. A window CLOSING
+ * is not a switch, so the foreground app can legitimately own no window at all
+ * (the always-resident Finder after its last disk window closes, or after a
+ * desktop click brings it forward). In that state no window is active.
+ *
+ * The Window Manager alone cannot know this: reaffirm_active (window.c) hilites
+ * the frontmost visible window after every Select/Dispose/Hide/Show, whoever
+ * owns it. This is the one process-level correction: when the frontmost visible
+ * window is owned by a resident app that is NOT list->head, clear its hilite
+ * and seed its deactivation repaint (the same strucRgn-bbox seed window.c uses
+ * for a 1->0 transition). Unowned shell furniture is left as the Window Manager
+ * drew it. Returns 1 when it deactivated a window (the caller owes a chrome
+ * phase + present), 0 otherwise. Never changes the foreground and delivers no
+ * event. Called at the end of every foreground switch (switch_foreground) and
+ * teardown promotion here, and by the pump after every Finder verb and gesture. */
+int FlairProcess_sync_active(FlairProcessList *list, WindowMgr *wm);
 
 /* flair_route_updates -- the updateEvt SPINE: route pending window DAMAGE to each
  * damaged window's owning tenant (ADR-0013 Sec 3.3 -- "updateEvt: each damaged
