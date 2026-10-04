@@ -232,6 +232,15 @@ fallback, asserted on serial.)
 > (bead mapping, root causes, corrections), screenshots, serial evidence and a replay driver.
 > Beads carry label `gui-audit-2026-10` under epic initech-tdnl.
 >
+> **UPDATE 2026-10-04 02:10 (same session):** the input-handling fixes landed and are certified --
+> `tdnl.58` (released modifiers no longer latch; the event decoder never recognised set-1 break
+> codes), `tdnl.59` (every tracking loop runs until mouse-up; bounded images cancel loudly with
+> FLAIR-TRACK-EXPIRED instead of committing), `tdnl.60` (close/zoom/collapse boxes track and act
+> on release inside; pressed art is authored, no Platinum golden exists). Commits 7d9c950,
+> 7981c99, 52ede68. Certificate: ALL GREEN 363 host + 132 emu at 52ede68 (first-person,
+> `make clean && make test`, 2026-10-04 02:09). Binding headroom 27,096 B. The two remaining
+> P0s are `tdnl.34` and `tdnl.35`; items 1-2 below are otherwise unchanged.
+>
 > **NEXT (in order) -- fix before any new feature:**
 > 1. The four window-system P0s: `initech-tdnl.34` (Finder window contents are stored in
 >    absolute screen coordinates; also covers two stale-cell sites in the new drag code),
