@@ -105,6 +105,17 @@ int32_t tbx_set_mbar(const tbx_menubar_t *bar);
 int32_t tbx_draw_menubar(void);
 int32_t tbx_exit(int32_t rc);
 
+/* Files: spec Sec 10 (initech-tdnl.91). Buffers must be static module/BSS
+ * storage; automatic buffers are on the shared kernel stack and are refused.
+ * Paths resolve from the data root; errors are TBX_ERR_* / TBX_ERR_DOS(code). */
+int32_t tbx_file_create(const char *path);
+int32_t tbx_file_open(const char *path, uint32_t mode);
+int32_t tbx_file_read(int32_t handle, void *buffer, uint32_t count);
+int32_t tbx_file_write(int32_t handle, const void *buffer, uint32_t count);
+int32_t tbx_file_seek(int32_t handle, int32_t delta, uint32_t origin);
+int32_t tbx_file_close(int32_t handle);
+int32_t tbx_file_delete(const char *path);
+
 /* The raw trap: AX = code, `argc` dwords pushed cdecl (args[0] lowest). */
 int32_t tbx_trap(uint32_t code, uint32_t argc, const uint32_t *args);
 

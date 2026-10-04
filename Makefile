@@ -9593,7 +9593,7 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 TBXGATE_OPT            := -Os
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
-TBXGATE_DEPS := os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h
+TBXGATE_DEPS := os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
@@ -26375,6 +26375,7 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
 
 TEST_UNIT_GATES := \
+	test-tbx-file test-tbx-file-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
 	test-dos-safety-create test-dos-safety-create-mutant \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
@@ -27537,6 +27538,7 @@ TEST_EMU_GATES := \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
 	test-flair-ctenant test-flair-ctenant-mutant \
+	test-flair-files test-flair-files-mutant test-flair-files-reap test-flair-files-reap-mutant \
 	test-flair-i123 test-flair-i123-mutant test-flair-i123-bochs \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-service test-flair-finder-service-mutant \
@@ -27606,3 +27608,63 @@ ddc:
 clean:
 	@printf ">>> clean: removing build artifacts under %s/ (keeping README.md)\n" "$(BUILD)"
 	@find $(BUILD) -mindepth 1 ! -name 'README.md' -exec rm -rf {} + 2>/dev/null || true
+
+# initech-tdnl.91: host file validation/ownership; real DOS, mock storage.
+TBX_FILE_DEPS := harness/proptest/test_tbx_file.c os/flair/tbxfile.h spec/toolbox_gate.h $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS)
+$(BUILD)/test_tbx_file: $(TBX_FILE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -Ios/flair -Ios/milton -Ispec -Ibuild -o $@ harness/proptest/test_tbx_file.c $(TEST_FILEIO_DEPS)
+$(BUILD)/test_tbx_file_mutant_%: $(TBX_FILE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Iseed -Ios/flair -Ios/milton -Ispec -Ibuild -o $@ harness/proptest/test_tbx_file.c $(TEST_FILEIO_DEPS)
+.PHONY: test-tbx-file test-tbx-file-mutant
+test-tbx-file: $(BUILD)/test_tbx_file
+	@$(BUILD)/test_tbx_file
+	@printf '>>> test-tbx-file: green\n'
+test-tbx-file-mutant: $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_BOUNDS $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_OWNER $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_LEAK
+	@for pair in TBX_MUT_FILE_BOUNDS:F2 TBX_MUT_FILE_OWNER:F3 TBX_MUT_FILE_LEAK:F4; do \
+	 m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_tbx_file_mutant_$$m; \
+	 if $$bin > $$bin.log 2>&1; then printf '!!! test-tbx-file-mutant: %s survived\n' $$m; exit 1; fi; \
+	 grep -q "FAIL.*$$why" $$bin.log || { cat $$bin.log; exit 1; }; \
+	 printf '>>> test-tbx-file-mutant: %s correctly RED (%s)\n' $$m $$why; done
+	@printf '>>> test-tbx-file-mutant: green\n'
+
+# initech-tdnl.91: booted C file tenant + independent stopped-disk judgement.
+include spec/flair_file_traces.mk
+$(eval $(call tenant-exe-rules,fileten,os/apps/ctenant/files.c,,))
+FLAIR_FILE_DATA := $(BUILD)/flair_file_data.img
+$(FLAIR_FILE_DATA): $(FLAIR_DATA_IMG) $(BUILD)/tenant/fileten.exe
+	cp -f $(FLAIR_DATA_IMG) $@
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/fileten.exe ::APPS/CTENANT.EXE
+	@printf 'Gate file bytes\r\n' > $(BUILD)/filekeep.golden
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/filekeep.golden ::KEEP.DAT
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_FILE_WRITE_NOOP,file_write))
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_FILE_LEAK,file_leak))
+FILE_ROUND_OK = $(call APPL_ALIVE,$(1)) && grep -q 's="FILE ROUNDTRIP OK".* -> 0$$' $(1)
+FILE_REAP_OK = $(call APPL_ALIVE,$(1)) && [ "$$(grep -c 's="FILE OPEN FIFTEEN OK".* -> 0$$' $(1))" = 2 ] && [ "$$(grep -c '^TENANT-FILES reclaimed=15 live=0$$' $(1))" = 2 ]
+.PHONY: test-flair-files test-flair-files-mutant test-flair-files-reap test-flair-files-reap-mutant
+test-flair-files: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_FILE_DATA)
+	$(call appl-boot,flair_files,$(FLAIRTENANTS_IMG),$(FLAIR_FILE_DATA),FLAIR_FILE_ROUND,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call FILE_ROUND_OK,$(BUILD)/flair_files.serial) || { printf '!!! test-flair-files FAIL: tenant file roundtrip\n'; grep 'FILE .*FAILED' $(BUILD)/flair_files.serial; exit 1; }
+	mcopy -i $(BUILD)/flair_files_data.img ::KEEP.DAT $(BUILD)/filekeep.actual
+	@cmp $(BUILD)/filekeep.golden $(BUILD)/filekeep.actual
+	@if mdir -i $(BUILD)/flair_files_data.img ::DELE.DAT > /dev/null 2>&1; then printf '!!! test-flair-files FAIL: deleted file exists\n'; exit 1; fi
+	fsck.fat -n $(BUILD)/flair_files_data.img
+	@printf '>>> test-flair-files: green (tenant reread + mtools bytes/delete + fsck.fat)\n'
+test-flair-files-mutant: test-flair-files $(BUILD)/flair_tenants_mut_file_write.img
+	$(call appl-boot,flair_files_mut,$(BUILD)/flair_tenants_mut_file_write.img,$(FLAIR_FILE_DATA),FLAIR_FILE_ROUND,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_files_mut.serial) && grep -q 's="FILE READ FAILED"' $(BUILD)/flair_files_mut.serial
+	mcopy -o -i $(BUILD)/flair_files_mut_data.img ::KEEP.DAT $(BUILD)/filekeep.mutant
+	@if cmp -s $(BUILD)/filekeep.golden $(BUILD)/filekeep.mutant; then printf '!!! test-flair-files-mutant FAIL: disk bytes survived mutant\n'; exit 1; fi
+	@printf '>>> test-flair-files-mutant: green (WRITE_NOOP correctly RED: reread and mtools bytes)\n'
+test-flair-files-reap: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_FILE_DATA)
+	$(call appl-boot,flair_files_quit,$(FLAIRTENANTS_IMG),$(FLAIR_FILE_DATA),FLAIR_FILE_QUIT,)
+	$(call appl-boot,flair_files_close,$(FLAIRTENANTS_IMG),$(FLAIR_FILE_DATA),FLAIR_FILE_CLOSE,)
+	$(call appl-boot,flair_files_crash,$(FLAIRTENANTS_IMG),$(FLAIR_FILE_DATA),FLAIR_FILE_CRASH,)
+	@for leg in quit close crash; do $(call FILE_REAP_OK,$(BUILD)/flair_files_$$leg.serial) || { printf '!!! test-flair-files-reap FAIL: %s\n' $$leg; exit 1; }; fsck.fat -n $(BUILD)/flair_files_$${leg}_data.img || exit 1; done
+	@grep -qx 'TENANT-EXIT rc=0 via=exit' $(BUILD)/flair_files_quit.serial
+	@grep -qx 'TENANT-EXIT rc=0 via=close' $(BUILD)/flair_files_close.serial
+	@grep -qx 'TENANT-EXIT rc=-1 via=crash' $(BUILD)/flair_files_crash.serial
+	@printf '>>> test-flair-files-reap: green (twice fifteen opens: quit, close, crash with damaged PSP)\n'
+test-flair-files-reap-mutant: test-flair-files-reap $(BUILD)/flair_tenants_mut_file_leak.img
+	$(call appl-boot,flair_files_leak,$(BUILD)/flair_tenants_mut_file_leak.img,$(FLAIR_FILE_DATA),FLAIR_FILE_QUIT,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_files_leak.serial) && grep -q 's="FILE OPEN LIMIT FAILED"' $(BUILD)/flair_files_leak.serial && grep -q '^TENANT-GATE ax=0x0081.* -> -260$$' $(BUILD)/flair_files_leak.serial
+	@printf '>>> test-flair-files-reap-mutant: green (FILE_LEAK correctly RED: second launch exhausts SFT)\n'

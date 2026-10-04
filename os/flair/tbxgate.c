@@ -75,6 +75,7 @@
 #include "loader.h"          /* loader_load_tenant (-Ios/milton)               */
 #include "menu.h"            /* MenuBar/MenuInfo/MenuItem + the Sec 5 layout   */
 #include "tbxmenu.h"         /* the menu route + the flat FlairEvent copy      */
+#include "tbxfile.h"         /* DOS adapter; spec Sec 10, initech-tdnl.91     */
 
 /* spec/toolbox_gate.h Sec 9 IS menu.h Sec 3's i386 layout: pin every offset
  * the validator reads, so the locked ABI and the Menu Manager never drift. */
@@ -117,6 +118,7 @@ typedef struct tbx_srgn {
 typedef struct tbx_slot {
     uint8_t      *block;        /* the carved code block (NULL == slot free)  */
     tenant_plan_t plan;         /* psp / load base / module / entry           */
+    psp_t         files;       /* KERNEL-owned JFT; never the image PSP       */
     FlairApp     *app;          /* non-NULL once REGISTERed                   */
     uint32_t      evbuf;        /* validated flat FlairEvent address          */
     uint32_t      eventproc;    /* validated flat eventProc address           */
@@ -734,7 +736,7 @@ void tbx_gate_dispatch(uint8_t *frame)
 {
     volatile uint32_t *eax_slot = (volatile uint32_t *)(void *)(frame + 28);
     uint32_t ax = *eax_slot & 0xFFFFu;
-    uint32_t a[TBX_ARGC_MAX];
+    uint32_t a[TBX_ARGC_MAX] = { 0 };
     uint32_t argc = 0u;
     int32_t rc;
 
@@ -748,6 +750,13 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_SETMBAR:   argc = TBX_ARGC_SETMBAR;   break;
     case TBX_DRAWMENUBAR: argc = TBX_ARGC_DRAWMENUBAR; break;
     case TBX_DRAWCELLS: argc = TBX_ARGC_DRAWCELLS; break;
+    case TBX_FILE_CREATE: argc = TBX_ARGC_FILE_CREATE; break;
+    case TBX_FILE_OPEN: argc = TBX_ARGC_FILE_OPEN; break;
+    case TBX_FILE_READ: argc = TBX_ARGC_FILE_READ; break;
+    case TBX_FILE_WRITE: argc = TBX_ARGC_FILE_WRITE; break;
+    case TBX_FILE_SEEK: argc = TBX_ARGC_FILE_SEEK; break;
+    case TBX_FILE_CLOSE: argc = TBX_ARGC_FILE_CLOSE; break;
+    case TBX_FILE_DELETE: argc = TBX_ARGC_FILE_DELETE; break;
     default:            argc = 0u;                 break;
     }
     for (uint32_t i = 0; i < argc; i++)
@@ -767,6 +776,14 @@ void tbx_gate_dispatch(uint8_t *frame)
         case TBX_SETMBAR:   rc = v_setmbar(a[0]);  break;
         case TBX_DRAWMENUBAR: rc = v_drawmenubar(); break;
         case TBX_DRAWCELLS: rc = v_drawcells(a);   break;
+        case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_READ:
+        case TBX_FILE_WRITE: case TBX_FILE_SEEK: case TBX_FILE_CLOSE:
+        case TBX_FILE_DELETE:
+            rc = g_slot.app == 0 || g_slot.exit_req || g_slot.crashed || g_slot.torn_down
+                ? TBX_ERR_NOTREG
+                : tbxf_call(&g_slot.files, g_slot.plan.load_base,
+                    g_slot.plan.block_len - TBX_TENANT_PSP_BYTES, ax, a);
+            break;
         default:            rc = TBX_ERR_BADCODE;  break;
         }
     }
@@ -802,6 +819,19 @@ void tbx_gate_dispatch(uint8_t *frame)
         tputs(" bar=+0x");
         tputx(a[0] - g_slot.plan.load_base, 4);
         break;
+    case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_DELETE:
+        tputs(" path=");
+        if (g_slot.block != 0 && tbxf_path(g_slot.plan.load_base,
+                      g_slot.plan.block_len - TBX_TENANT_PSP_BYTES, a[0])) {
+            tputs("\""); tputs((const char *)(uintptr_t)a[0]); tputs("\"");
+        } else tputs("?");
+        if (ax == TBX_FILE_OPEN) trace_int(" mode=", a[1]);
+        break;
+    case TBX_FILE_READ: case TBX_FILE_WRITE:
+        trace_int(" h=", a[0]); trace_int(" n=", a[2]); break;
+    case TBX_FILE_SEEK:
+        trace_int(" h=", a[0]); trace_int(" delta=", a[1]); trace_int(" origin=", a[2]); break;
+    case TBX_FILE_CLOSE: trace_int(" h=", a[0]); break;
     default:
         break;
     }
@@ -831,6 +861,14 @@ static void slot_clear(void)
 /* Free the code block LAST (DEC-AC3-1 strict reverse) and report. */
 static void finish(const char *via, int32_t rc)
 {
+    /* ADR-0013 Sec 3.4/AC-2: shared death cleanup, never tenant memory.
+     * kill skips close(); writes already commit per call (int21.h WRITE_AT). */
+    uint32_t n = tbxf_live(&g_slot.files);
+    tbxf_reap(&g_slot.files);
+    if (n != 0) {
+        tputs("TENANT-FILES reclaimed="); tputu(n);
+        tputs(" live="); tputu(tbxf_live(&g_slot.files)); tputs("\n");
+    }
 #ifndef TBX_MUT_EXIT_LEAK
     flair_free(g_host.master, FLAIR_CLASS_GENERAL, g_slot.block);
 #else
@@ -877,6 +915,7 @@ int tbx_launch(const char *name83, uint16_t dir_start)
         return (st == LOADER_ERR_NOMEM) ? TBX_ERR_NOMEM : TBX_ERR_BADARG;
     }
     g_slot.block = (uint8_t *)blk;
+    tbxf_init(&g_slot.files);
     for (i = 0; i < 15 && name83[i] != '\0'; i++) g_slot.file[i] = name83[i];
     g_slot.file[i] = '\0';
 

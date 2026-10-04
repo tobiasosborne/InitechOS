@@ -23,6 +23,8 @@
  *       added (Sec 3, Sec 7a -- the fixed 8x16 cell text a worksheet needs),
  *       and Sec 8's carve now honours the image's e_minalloc (the BSS of a
  *       compiled tenant), bounded by TBX_TENANT_BSS_MAX. No other value moved.
+ * bead: initech-tdnl.91. Deliberate Rule-8 addition: seven file codes 0x0080
+ *       through 0x0086, their arities and Sec 10 policies; no old value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -98,7 +100,7 @@
  *
  * V1 (tdnl.14) implements exactly the rows marked V1; initech-cnpm adds the
  * row marked V2; initech-tdnl.31 adds the row marked V3; initech-w96l the row
- * marked V4. Every other code --
+ * marked V4; initech-tdnl.91 adds the Sec 10 file codes. Every other code --
  * including the reserved and DISSOLVED rows -- returns TBX_ERR_BADCODE (the
  * demux is total, never a silent no-op, Rule 2).
  * ------------------------------------------------------------------------- */
@@ -131,6 +133,49 @@
                                     * from the installed bar (IM DrawMenuBar)  */
 #define TBX_EXIT          0x0070u  /* V1  (rc) -> 0 ; teardown runs when the
                                     * tenant next RETURNS to the kernel         */
+
+/* Deliberate locked ABI extension, initech-tdnl.91. Sec 10 below. */
+#define TBX_FILE_CREATE   0x0080u  /* (path) -> handle | err */
+#define TBX_FILE_OPEN     0x0081u  /* (path, mode) -> handle | err */
+#define TBX_FILE_READ     0x0082u  /* (handle, buffer, count) -> bytes | err */
+#define TBX_FILE_WRITE    0x0083u  /* (handle, buffer, count) -> bytes | err */
+#define TBX_FILE_SEEK     0x0084u  /* (handle, signed delta, origin) -> pos | err */
+#define TBX_FILE_CLOSE    0x0085u  /* (handle) -> 0 | err */
+#define TBX_FILE_DELETE   0x0086u  /* (path) -> 0 | err */
+#define TBX_ARGC_FILE_CREATE 1u
+#define TBX_ARGC_FILE_OPEN   2u
+#define TBX_ARGC_FILE_READ   3u
+#define TBX_ARGC_FILE_WRITE  3u
+#define TBX_ARGC_FILE_SEEK   3u
+#define TBX_ARGC_FILE_CLOSE  1u
+#define TBX_ARGC_FILE_DELETE 1u
+#define TBX_FILE_PATH_MAX 128u
+#define TBX_FILE_READ_ONLY  0u
+#define TBX_FILE_WRITE_ONLY 1u
+#define TBX_FILE_READ_WRITE 2u
+#define TBX_FILE_FROM_START 0u
+#define TBX_FILE_FROM_HERE  1u
+#define TBX_FILE_FROM_END   2u
+#define TBX_ERR_DOS(code) (-(256 + (int32_t)(code)))
+
+/* Sec 10. FILES (authored, no local reference for the gate ABI).
+ * Ref: PRD Sec 4/6.1; ADR-0013 Sec 3.4/AC-2; docs/design/toolbox-file-verbs.md.
+ * Paths resolve from the mounted data-volume root, never the launch directory.
+ * DOS 8.3 paths/subdirectories are served by the existing DOS layer; OPEN of a
+ * character device is refused. CREATE refuses DOS device basenames before
+ * touching disk, and truncates an existing regular file.
+ * Only FILE handles owned by the kernel shadow JFT are exposed; standard handles
+ * and closed/foreign handles are BADARG. Ownership never trusts the image PSP.
+ * Every finish (exit/close/crash) reclaims the JFT before freeing the image.
+ * File paths/buffers may live in module OR BSS, excluding PSP. Whole spans are
+ * checked before access, using subtraction bounds; zero count touches nothing.
+ * Paths require NUL within PATH_MAX bytes. Read/write count <= INT32_MAX;
+ * zero WRITE retains DOS's truncate-at-current-position meaning.
+ * SEEK signed delta + origin requires final 0..INT32_MAX (BADARG otherwise).
+ * BADARG covers validation/access-mode failures; DOS errors are ERR_DOS(code).
+ * Writes commit synchronously through DOS/FAT; CLOSE returns 0 on success.
+ * Existing image-only drawing/registration/menu pointer rules are unchanged.
+ */
 
 /* Argument arity per V1 code (the dispatcher reads exactly this many dwords;
  * the per-call TENANT-GATE trace prints exactly this many). */
