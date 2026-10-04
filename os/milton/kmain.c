@@ -3211,13 +3211,22 @@ static void finder_surface_desktop(finder_surface_t *s)
     s->slot  = -1;
 }
 
+/* The window's icon model is taken through finder_win_view, which RE-BASES it
+ * onto the window's current content rect first (bead initech-tdnl.34, audit
+ * F01): a window dragged, zoomed, grown or expanded since its icons were laid
+ * out must be hit-tested, selected, rubber-banded, dragged (the outline's
+ * start cell) and zoomed back to (the refused-drop destination) where it is
+ * NOW. One gesture reads one coordinate system. */
 static int finder_surface_window(finder_surface_t *s, int slot)
 {
+    finder_desk_t *fd;
     if (g_finder_shell == (finder_shell_t *)0 ||
         slot < 0 || slot >= FINDER_WIN_MAX ||
         !g_finder_shell->windows[slot].open)
         return 0;
-    s->fd    = &g_finder_shell->windows[slot].view;
+    fd = finder_win_view(g_finder_shell, slot);
+    if (fd == (finder_desk_t *)0) return 0;
+    s->fd    = fd;
     s->click = &g_finder_shell->windows[slot].click;
     s->slot  = slot;
     return 1;
@@ -3571,7 +3580,7 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
                 if (finder_ops_tgt_hilites(&hl)) {
                     const finder_desk_t *tfd = (hl.slot < 0)
                         ? &g_finder_shell->desk
-                        : &g_finder_shell->windows[(int)hl.slot].view;
+                        : finder_win_view(g_finder_shell, (int)hl.slot);
                     serial_puts("FINDER-DROP-HILITE name=");
                     serial_puts(tfd->icons[(int)hl.idx].name);
                     serial_putc('\n');

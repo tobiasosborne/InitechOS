@@ -586,8 +586,133 @@ static void leg_untrash(void)
           "O8 ... and its origin record is dropped");
 }
 
+/* ===========================================================================
+ * O9 -- THE ICONS FOLLOW THE WINDOW (bead initech-tdnl.34; audit F01)
+ *
+ * Every expectation is HAND-DERIVED from the window's NEW content origin plus
+ * the grid (finder_windows.h Sec 2: inset 18/4, pitch 68x52) -- never read
+ * back out of the model under test. CalcDocContentRect(frame) = (left+1,
+ * top+22) .. (right-21, bottom-1) (spec/chrome_metrics.h: frame 1, title 22,
+ * body bar 4, scroll bar 16).
+ *   ROOT moved to (140,140): content (141,162)..(479,359)
+ *     README.TXT sprite (141+18, 162+4)      = (159,166)
+ *     APPS       sprite (141+18+68, 162+4)   = (227,166)
+ *   zoomed (window.c ZoomWindow over the 640x480 desktop, margins 4/40/4/4):
+ *     frame (4,40)..(636,476), content (5,62)..(615,475)
+ *     APPS sprite (5+18+68, 62+4) = (91,66)
+ * Every consumer of the stored cells is graded: paint, hit-test, the rubber
+ * band, the cell rect (the drag outline's start + the zoom-back destination),
+ * the clamp + drag commit, Clean Up, New-Folder re-populate, grow, zoom,
+ * restore, collapse and expand.
+ * MUTANT: FINDER_WIN_MUT_ABS_COORDS (the pre-fix absolute model) goes RED.
+ * ===========================================================================*/
+static void leg_follow(void)
+{
+    finder_window_t *rw;
+    finder_desk_t *v;
+    rgn_rect_t cell;
+    int16_t x, y;
+    rgn_rect_t oc, nc;
+
+    scene_init(&S);
+    rw = &S.sh.windows[ROOT];
+    MoveWindow(&S.wm, &rw->rec, 140, 140);
+
+    /* paint: the icons are drawn inside the NEW content, not at the old cells */
+    memset(S.px, 0xEE, sizeof S.px);
+    finder_win_paint(rw, &S.bm, NULL);
+    CHECK(pix(227 + 10, 166 + 7) == 0 && pix(227 + 10, 166 + 10) == 1,
+          "O9 paint: APPS is drawn at the moved cell (227,166) (ink row 7, face row 10)");
+    CHECK(pix(127 + 10, 106 + 7) == 0xEE && pix(127 + 10, 106 + 10) == 0xEE,
+          "O9 paint: nothing is drawn at APPS's OLD cell (127,106) outside the moved content");
+
+    /* hit-test + selection through THE accessor every gesture uses */
+    v = finder_win_view(&S.sh, ROOT);
+    CHECK(v != NULL && finder_desk_hit(v, 243, 182) == 1,
+          "O9 hit: a click on the moved APPS centre (243,182) hits APPS");
+    CHECK(finder_desk_hit(v, 143, 122) == -1,
+          "O9 hit: the OLD APPS centre (143,122) is not an icon any more");
+    CHECK(finder_desk_marquee_select(v, finder_band_rect(220, 160, 265, 200)) == 1 &&
+          v->icons[1].selected == 1 && v->icons[0].selected == 0,
+          "O9 rubber band: a band around the moved APPS cell selects exactly APPS");
+    finder_desk_deselect_all(v);
+
+    /* the cell rect: the drag outline's start and the zoom-back destination */
+    cell = finder_desk_cell_rect(v, 1);
+    CHECK(cell.top == 166 && cell.left <= 227 && cell.right >= 227 + 32 &&
+          cell.bottom == 166 + 47,
+          "O9 cell rect (outline start / zoom-back home) is the moved cell, top 166, bottom 213");
+
+    /* the clamp + a same-window drag commit hold the icon in the NEW content */
+    x = 0; y = 0;
+    finder_desk_clamp(v, &x, &y);
+    CHECK(x == 141 && y == 162, "O9 clamp: the content's top-left is the moved (141,162)");
+    CHECK(finder_desk_drag_commit(v, 0, 1000, 1000, &oc, &nc) == FINDER_DROP_MOVED &&
+          v->icons[0].x == 479 - 32 && v->icons[0].y == 359 - 47,
+          "O9 drag commit clamps into the moved content: README.TXT at (447,312)");
+
+    /* Clean Up snaps onto the grid of the CURRENT content */
+    CHECK(finder_win_cleanup(&S.sh, ROOT) == 1 &&
+          rw->view.icons[0].x == 159 && rw->view.icons[0].y == 166 &&
+          rw->view.icons[1].x == 227 && rw->view.icons[1].y == 166,
+          "O9 Clean Up re-grids onto the moved content: README (159,166), APPS (227,166), moved=1");
+
+    /* grow: the origin stays, the clamp follows the new size */
+    SizeWindow(&S.wm, &rw->rec, 200, 150);   /* frame (140,140)..(340,290) */
+    v = finder_win_view(&S.sh, ROOT);
+    x = 1000; y = 1000;
+    finder_desk_clamp(v, &x, &y);
+    CHECK(v->icons[1].x == 227 && v->icons[1].y == 166 && x == 319 - 32 && y == 289 - 47,
+          "O9 grow: icons keep their place; the clamp is the GROWN content (319,289)");
+    SizeWindow(&S.wm, &rw->rec, 360, 220);   /* back to the default size */
+
+    /* zoom, then restore */
+    (void)ZoomWindow(&S.wm, &rw->rec);
+    v = finder_win_view(&S.sh, ROOT);
+    CHECK(finder_desk_hit(v, 91 + 16, 66 + 16) == 1 && v->icons[1].x == 91 && v->icons[1].y == 66,
+          "O9 zoom: APPS follows the zoomed content to (91,66)");
+    memset(S.px, 0xEE, sizeof S.px);
+    finder_win_paint(rw, &S.bm, NULL);
+    CHECK(pix(91 + 10, 66 + 7) == 0, "O9 zoom: APPS is PAINTED at (91,66)");
+    (void)ZoomWindow(&S.wm, &rw->rec);
+    v = finder_win_view(&S.sh, ROOT);
+    CHECK(finder_desk_hit(v, 243, 182) == 1 && v->icons[1].x == 227,
+          "O9 restore: APPS is back at (227,166)");
+
+    /* collapse leaves the model alone; expand re-bases nothing it need not */
+    (void)CollapseWindow(&S.wm, &rw->rec);
+    v = finder_win_view(&S.sh, ROOT);
+    CHECK(v->bounds.left == 141 && v->bounds.top == 162 && v->bounds.right == 479 &&
+          v->bounds.bottom == 359 && v->icons[1].x == 227,
+          "O9 collapse: an EMPTY content region does not collapse the model's bounds");
+    (void)CollapseWindow(&S.wm, &rw->rec);
+    v = finder_win_view(&S.sh, ROOT);
+    CHECK(finder_desk_hit(v, 243, 182) == 1, "O9 expand: APPS is hit where it is drawn");
+
+    /* New Folder (re-populate) lays the grid over the moved content */
+    MoveWindow(&S.wm, &rw->rec, 40, 80);
+    CHECK(finder_win_populate(&S.sh, ROOT) == FINDER_WIN_OK &&
+          rw->view.icons[1].x == 127 && rw->view.icons[1].y == 106,
+          "O9 re-populate after moving back to (40,80): APPS on the original grid (127,106)");
+    MoveWindow(&S.wm, &rw->rec, 140, 140);
+    CHECK(finder_win_populate(&S.sh, ROOT) == FINDER_WIN_OK &&
+          rw->view.icons[1].x == 227 && rw->view.icons[1].y == 166,
+          "O9 re-populate in the moved window: APPS on the moved grid (227,166)");
+
+    /* a drop INTO a folder of the moved window (the emu gate's last leg) */
+    {
+        finder_tgt_t t = finder_ops_resolve(&S.sh, ROOT, 0, 243, 182);
+        finder_move_result_t r;
+        CHECK(t.kind == FINDER_TGT_FOLDER && t.idx == 1 &&
+              finder_ops_drop(&S.sh, ROOT, 0, &t, 227, 166, &r) == FINDER_WIN_OK &&
+              mv_has(&S.mock, CL_APPS, "README.TXT"),
+              "O9 README.TXT dropped on the moved APPS moves into APPS");
+    }
+}
+
 int main(void)
 {
+    leg_follow();
     leg_resolve();
     leg_hilite();
     leg_into_folder();

@@ -14,6 +14,11 @@
  *   movedwin   the SAME window after a title-bar drag to (120,180), CLOSE, and
  *              a REBOOT: it must reappear at the SAVED origin, and the default
  *              rect must be bare desktop again.
+ *   zoomedwin  (bead initech-tdnl.34) the root window ZOOMED to its standard
+ *              state (4,40)..(636,476): the four icons on the grid of the
+ *              ZOOMED content. `movedwin` is also reused, unchanged, by
+ *              test-flair-finder-follow for a window DRAGGED (not reopened) to
+ *              (120,180) -- the same frame, so the same expected pixels.
  *   newfolder  the default-frame window after Ctrl-N: a FIFTH icon (the real
  *              \NEWFOLD directory) on the grid's second row.
  *
@@ -93,8 +98,17 @@ enum { SCRW = 640, SCRH = 480 };
  * spec/flair_disk_windows_traces.mk ("THE ROOT WINDOW'S GEOMETRY, DERIVED"),
  * from os/flair/finder_windows.h Sec 2/3 + CalcDocContentRect + chrome_metrics.
  * ------------------------------------------------------------------------- */
-#define WIN_W            360   /* FINDER_WIN_DEFAULT_W                         */
-#define WIN_H            220   /* FINDER_WIN_DEFAULT_H                         */
+#define DEF_WIN_W        360   /* FINDER_WIN_DEFAULT_W                         */
+#define DEF_WIN_H        220   /* FINDER_WIN_DEFAULT_H                         */
+/* The graded frame's size. Every leg but `zoomedwin` grades the DEFAULT size;
+ * `zoomedwin` (bead initech-tdnl.34) grades the ZOOMED standard state, whose
+ * size is set in main() from the hand-carried zoom margins below. Every
+ * width-dependent quantity (content width, grid columns, the centred title
+ * run) is therefore evaluated from these at run time. */
+static int g_win_w = DEF_WIN_W;
+static int g_win_h = DEF_WIN_H;
+#define WIN_W            g_win_w
+#define WIN_H            g_win_h
 #define TITLEBAR_H        22   /* FLAIR_CHROME_TITLEBAR_H                      */
 #define CHROME_FRAME       1   /* FLAIR_CHROME_FRAME                           */
 #define BODY_BAR           4   /* FLAIR_CHROME_BODY_BAR                        */
@@ -142,6 +156,22 @@ enum { SCRW = 640, SCRH = 480 };
 #define ROOT_T    60
 #define MOVED_L  120
 #define MOVED_T  180
+
+/* THE ZOOMED STANDARD STATE (`zoomedwin` leg; bead initech-tdnl.34), hand-
+ * carried from os/flair/window.c :: ZoomWindow over the 640x480 desktop frame
+ * (0,0)..(640,480) and spec/chrome_metrics.h FLAIR_CHROME_ZOOM_MARGIN_LEFT 4 /
+ * TOP 40 / RIGHT 4 / BOTTOM 4:
+ *     frame (4,40)..(636,476), 632 x 436
+ *     content (5,62)..(615,475)   (CalcDocContentRect, as above)
+ *     grid cols = (610 - 18) / 68 = 8, so the four root icons stay in row 0:
+ *     sprites (23,66) (91,66) (159,66) (227,66).
+ * NOT derived from where the window was before the zoom: a model that kept the
+ * icons where they were drawn at open (the F01 bug) puts them at (39,86)...,
+ * which is inside this content rect and therefore reads as WRONG, not blank. */
+#define ZOOM_L      4
+#define ZOOM_T     40
+#define ZOOM_W    632
+#define ZOOM_H    436
 
 /* ---------------------------------------------------------------------------
  * THE FINDER MENU BAR IN BAND 2 (the `finderbar` leg; bead initech-tdnl.12).
@@ -688,12 +718,12 @@ int main(int argc, char **argv)
     char magic[3] = {0, 0, 0};
     long maxv = 0;
     size_t want, got;
-    int leg_root, leg_moved, leg_newfolder, leg_finderbar;
+    int leg_root, leg_moved, leg_newfolder, leg_finderbar, leg_zoomed;
     int L, T, n_icons, i;
 
     if (argc != 3) {
         fprintf(stderr,
-                "usage: %s <rootwin|movedwin|newfolder|finderbar> "
+                "usage: %s <rootwin|movedwin|newfolder|finderbar|zoomedwin> "
                 "<dump.ppm>\n", argv[0]);
         return 2;
     }
@@ -702,10 +732,13 @@ int main(int argc, char **argv)
     leg_moved     = (strcmp(g_leg, "movedwin")  == 0);
     leg_newfolder = (strcmp(g_leg, "newfolder") == 0);
     leg_finderbar = (strcmp(g_leg, "finderbar") == 0);
-    if (!leg_root && !leg_moved && !leg_newfolder && !leg_finderbar) {
+    leg_zoomed    = (strcmp(g_leg, "zoomedwin") == 0);
+    if (!leg_root && !leg_moved && !leg_newfolder && !leg_finderbar &&
+        !leg_zoomed) {
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: unknown leg '%s' "
-                "(want rootwin|movedwin|newfolder|finderbar)\n", g_leg);
+                "(want rootwin|movedwin|newfolder|finderbar|zoomedwin)\n",
+                g_leg);
         return 2;
     }
 
@@ -778,6 +811,9 @@ int main(int argc, char **argv)
 
     L       = leg_moved ? MOVED_L : ROOT_L;
     T       = leg_moved ? MOVED_T : ROOT_T;
+    if (leg_zoomed) {
+        L = ZOOM_L; T = ZOOM_T; g_win_w = ZOOM_W; g_win_h = ZOOM_H;
+    }
     n_icons = leg_newfolder ? 5 : 4;
 
     printf("ppm_flair_disk_windows_check: leg %s on %s\n"
@@ -803,7 +839,9 @@ int main(int argc, char **argv)
     if (leg_moved) {
         check_vacated();
     }
-    check_control_teal();
+    /* The zoomed window covers both bare-teal control points (it spans the
+     * whole desktop below the bars), so they are not desktop on that leg. */
+    if (!leg_zoomed) check_control_teal();
 
     free(g_buf);
     if (g_fail) {
@@ -815,7 +853,7 @@ int main(int argc, char **argv)
            "(%d icon strikes graded off the finder_icons.h ASCII maps, "
            "%d label-band relations, 11 chrome assertions, %d bare-teal "
            "controls%s)\n",
-           g_leg, n_icons, n_icons, CONTROL_TEAL_N,
+           g_leg, n_icons, n_icons, leg_zoomed ? 0 : CONTROL_TEAL_N,
            leg_moved ? ", 2 vacated-default-rect probes" : "");
     return 0;
 }

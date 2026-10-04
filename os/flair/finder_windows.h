@@ -410,7 +410,9 @@ typedef struct finder_window {
     WindowRecord         rec;         /* the window itself                     */
     finder_win_rgn_t     rs, rc, ru;  /* struc / cont / update                 */
     finder_win_rgn_t     rk;          /* the updateEvt paint-clip scratch      */
-    finder_desk_t        view;        /* the icon model; bounds == content rect*/
+    finder_desk_t        view;        /* the icon model; bounds caches the
+                                       * content rect -- read it ONLY through
+                                       * finder_win_view (Sec 10b, tdnl.34)    */
     finder_desk_icon_t   icons[FINDER_WIN_ICONS_MAX];
     finder_click_track_t click;       /* this surface's double-click tracker   */
 } finder_window_t;
@@ -615,9 +617,61 @@ void finder_win_invalidate(finder_shell_t *sh, int slot,
                            rgn_rect_t old_rect, rgn_rect_t new_rect);
 
 /* Paint a window's content: the content fill, then the icons, both clipped.
+ * Re-bases the icon model first (finder_win_sync_geometry), so a window that
+ * moved since its last paint draws its icons where its content now is.
  * Deterministic (Rule 11). Exposed so the oracle can render without a pump. */
-void finder_win_paint(const finder_window_t *w, const bitmap_t *dst,
+void finder_win_paint(finder_window_t *w, const bitmap_t *dst,
                       const region_t *clip);
+
+/* ===========================================================================
+ * 10b. THE GEOMETRY RE-BASE  (bead initech-tdnl.34; audit F01)
+ * ---------------------------------------------------------------------------
+ * A window's icon model lives in GLOBAL coordinates (the banner above: the
+ * trackers are pure functions of a finder_desk_t whose bounds are the content
+ * rect). The Window Manager moves and resizes the WindowRecord -- DragWindow,
+ * ZoomWindow, SizeWindow, CollapseWindow (os/flair/window.c) -- and knows
+ * nothing about icons. Before this bead nothing told the model, so after a
+ * drag the window painted its NEW content rect with the icons at their OLD
+ * screen coordinates (audit F01: "APPS became blank after the drag").
+ *
+ * The rule now: the model's `bounds` is a CACHE of the content rect, and the
+ * ONE place it is refreshed is finder_win_sync_geometry. It compares
+ * view.bounds with the live contRgn bbox and, when the content ORIGIN moved,
+ * translates every icon by the same delta; it then adopts the live rect (so a
+ * grow or a zoom also re-sizes the clamp and the grid). Icons keep their
+ * offset from the content's top-left corner across every geometry change --
+ * window content is drawn in the port's LOCAL coordinates and converted to
+ * global only at port boundaries (../system7-decomp
+ * specs/quickdraw/coordinate-system.md, "Each GrafPort carries its OWN local
+ * coordinate system"), and the audit's expectation is exactly that "moving,
+ * zooming, or resizing a window must keep its contents attached to its
+ * content area" (docs/audits/2026-10-03-flair-gui-codex/REPORT.md F01).
+ *
+ * A COLLAPSED window (windowshade: empty contRgn) is left untouched -- there is
+ * no content rect to adopt, and adopting an empty one would collapse the clamp
+ * onto a point and wreck every icon on expand. The re-base happens on the
+ * next sync after expand.
+ *
+ * Every consumer of a window's icon coordinates obtains the model through
+ * finder_win_view (or is one of the functions in this file that syncs first:
+ * paint, populate, cleanup), so paint, hit-testing, selection, the rubber
+ * band, Clean Up, the icon-drag clamp, the drag outline's start cell and the
+ * zoom-back destination all read ONE coordinate system.
+ *
+ * MUTANT (Rule 6): FINDER_WIN_MUT_ABS_COORDS compiles the re-base out -- the
+ * pre-fix absolute behaviour -- and test-finder-ops leg O9 plus the
+ * test-flair-finder-follow emu gate must go RED.
+ * ===========================================================================*/
+
+/* Re-base `w`'s icon model onto its window's current content rect. Returns 1
+ * when anything changed (icons translated or bounds re-sized), else 0. A NULL,
+ * closed or collapsed window is a no-op. */
+int finder_win_sync_geometry(finder_window_t *w);
+
+/* The icon model of open window `slot`, re-based first; NULL when the slot is
+ * not open. THE accessor for every out-of-file consumer (kmain's gesture
+ * surface, finder_ops.c's targeting and drop). */
+finder_desk_t *finder_win_view(finder_shell_t *sh, int slot);
 
 /* ===========================================================================
  * 11. THE kind=4 VIEW RECORDS  (design F1.3 / F3.3; the codec is in

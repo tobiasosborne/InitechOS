@@ -525,7 +525,7 @@ include spec/flair_desktop_icons_traces.mk
 # independent canon (-Ispec/assets), never -Ios/flair and never a consumer of
 # spec/assets/finder_icons.h -- its expected tones are hand-read from that
 # file's ASCII maps and its geometry from finder_windows.h's stated arithmetic.
-# argv = <rootwin|movedwin|newfolder> dump.ppm.
+# argv = <rootwin|movedwin|newfolder|finderbar|zoomedwin> dump.ppm.
 PPM_FLAIR_DISKWIN_CHECK_SRC := tools/ppm_flair_disk_windows_check.c
 PPM_FLAIR_DISKWIN_CHECK_BIN := $(BUILD)/ppm_flair_disk_windows_check
 
@@ -535,6 +535,8 @@ PPM_FLAIR_DISKWIN_CHECK_BIN := $(BUILD)/ppm_flair_disk_windows_check
 include spec/flair_disk_windows_traces.mk
 # R3.4a (bead initech-34dh): the LOCKED drag-move / drag-to-Trash traces.
 include spec/flair_file_ops_traces.mk
+# tdnl.34 (audit F01): the LOCKED "contents follow the window" traces.
+include spec/flair_finder_follow_traces.mk
 
 # The LOCKED R3.7 app-launch traces (spec/flair_app_launch_traces.mk, Rule
 # 8/11; bead initech-tdnl.14): FLAIR_APP_LAUNCH_SPEC (+ _SHOW/_PRE/_DOUBLE/
@@ -12152,12 +12154,19 @@ TEST_FINDER_OPS_SRC  := harness/proptest/test_finder_ops.c
 FINDER_OPS_LINK      := os/flair/finder_ops.c $(FINDER_WIN_LINK)
 FINDER_OPS_DEPS      := $(TEST_FINDER_OPS_SRC) os/flair/finder_ops.h $(FINDER_WIN_DEPS)
 FINDER_OPS_MUTANTS   := TRASH_NO_STAGE NO_CYCLE NO_ORIGIN
+# -DWINDOW_ENABLE_R1_OPS (bead initech-tdnl.34): leg O9 drives ZoomWindow /
+# SizeWindow / CollapseWindow -- the SAME window.c verbs the kernel links
+# (window.o is built with it) -- so the re-base is graded against every
+# geometry change the live pump can make.
 $(TEST_FINDER_OPS): $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
 $(BUILD)/test_finder_ops_mutant_%: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_OPS_MUT_$* $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_OPS_MUT_$* $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
 $(BUILD)/test_finder_ops_mutant_hilite: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_DESK_MUT_NO_HILITE $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_DESK_MUT_NO_HILITE $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+# tdnl.34: the pre-fix ABSOLUTE icon model (finder_win_sync_geometry compiled out).
+$(BUILD)/test_finder_ops_mutant_abs: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_ABS_COORDS $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
 
 .PHONY: test-finder-ops test-finder-ops-mutant
 test-finder-ops: $(TEST_FINDER_OPS)
@@ -12168,15 +12177,15 @@ test-finder-ops: $(TEST_FINDER_OPS)
 	@printf ">>> test-finder-ops: green\n"
 
 # Each mutant must go RED for its NAMED reason (the CHECK text is grepped).
-test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite
-	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel'; do \
+test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs
+	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; \
 		bin=$(BUILD)/test_finder_ops_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-ops-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-finder-ops-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-finder-ops-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
-	@printf '>>> test-finder-ops-mutant: green (all four mutants RED for the named reason)\n'
+	@printf '>>> test-finder-ops-mutant: green (all five mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -18736,6 +18745,90 @@ test-flair-file-ops-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
 endif
 
 # ===========================================================================
+# REAL gate: test-flair-finder-follow (bead initech-tdnl.34; audit F01, P0) --
+# A FINDER WINDOW'S ICONS FOLLOW THE WINDOW through drag, collapse/expand,
+# zoom and restore, and stay clickable and draggable where they are drawn.
+# ---------------------------------------------------------------------------
+# Four boots of the SAME reproducible $(FLAIRTENANTS_IMG), each replaying a
+# PREFIX of the audit gesture (spec/flair_finder_follow_traces.mk):
+#   [1] DRAG     the root window dragged to (120,180); dump; grader leg
+#                `movedwin` -- the four icons at the grid of the NEW content
+#                origin (hand-derived in the grader, never read from the
+#                artifact), the old default rect vacated.
+#   [2] ZOOM     ... collapse, expand, zoom; dump; grader leg `zoomedwin`.
+#   [3] RESTORE  ... zoom back; dump; grader leg `movedwin` again.
+#   [4] MOVE     ... click APPS at its NEW centre (FINDER-WIN-SELECT name=APPS),
+#                drag README.TXT onto it (FINDER-MOVE 0->3); mtools reads
+#                ::/APPS/README.TXT back byte-identical to the fixture.
+# Host half: test-finder-ops leg O9 (every consumer of the stored cells).
+# Mutant: test-flair-finder-follow-mutant (FINDER_WIN_MUT_ABS_COORDS, the
+# pre-fix absolute model) must go RED on leg [1]'s pixels for the named reason.
+# Rule 5: QEMU only, stated -- Bochs 2.7 halts at the 640x480 guard before any
+# tenant (test-flair-file-ops-bochs's constraint, verbatim); the Bochs boot of
+# this same kernel is test-flair-desktop-bochs / test-flair-app-launch-bochs.
+# Rule 14 clip: make record-flair SCRIPT=finder_follow (+ record-flair-repro).
+# ---------------------------------------------------------------------------
+FLAIR_FF_DRAG_NAME    := flair_follow_drag
+FLAIR_FF_ZOOM_NAME    := flair_follow_zoom
+FLAIR_FF_RESTORE_NAME := flair_follow_restore
+FLAIR_FF_MOVE_NAME    := flair_follow_move
+
+.PHONY: test-flair-finder-follow test-flair-finder-follow-mutant
+test-flair-finder-follow: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-finder-follow : Finder window contents FOLLOW the window (tdnl.34)\n'
+	@printf '  Ref: audit 2026-10-03 F01; os/flair/finder_windows.h Sec 10b; spec/flair_finder_follow_traces.mk.\n'
+	@printf '======================================================================\n'
+	@command -v mdir >/dev/null 2>&1 && command -v mtype >/dev/null 2>&1 || { printf '!!! test-flair-finder-follow FAIL: mtools (mdir/mtype) missing\n'; exit 1; }
+	@# ---- [1] DRAG ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FF_DRAG_NAME),$(BUILD)/$(FLAIR_FF_DRAG_NAME)_data.img,$(FLAIR_FOLLOW_DRAG_SPEC),FLAIR-DRAG win 0 (20$(fo_comma)60)->(120$(fo_comma)180),1)
+	$(call fo-has,$(FLAIR_FF_DRAG_NAME),FINDER-OPEN-VOLUME win=0 n=4,the volume double-click did not open the root window)
+	$(call fo-has,$(FLAIR_FF_DRAG_NAME),FLAIR-DRAG win 0 (20$(fo_comma)60)->(120$(fo_comma)180),the root window did not move by the locked (+100$(fo_comma)+120))
+	@[ -s "$(BUILD)/$(FLAIR_FF_DRAG_NAME).ppm" ] || { printf '!!! test-flair-finder-follow FAIL: DRAG screendump missing\n'; exit 1; }
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin "$(BUILD)/$(FLAIR_FF_DRAG_NAME).ppm" \
+		|| { printf '!!! test-flair-finder-follow FAIL: after the DRAG the icons are not on the grid of the moved content (audit F01)\n'; exit 1; }
+	@printf '>>> test-flair-finder-follow [1/4]: DRAG (20,60)->(120,180) -- four icons graded at the moved grid (leg movedwin)\n'
+	@# ---- [2] collapse, expand, ZOOM ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FF_ZOOM_NAME),$(BUILD)/$(FLAIR_FF_ZOOM_NAME)_data.img,$(FLAIR_FOLLOW_ZOOM_SPEC),FLAIR-ZOOM win 0 in,1)
+	$(call fo-has,$(FLAIR_FF_ZOOM_NAME),FLAIR-COLLAPSE win 0 1,the collapse box of the moved window did not collapse it)
+	$(call fo-has,$(FLAIR_FF_ZOOM_NAME),FLAIR-COLLAPSE win 0 0,the second collapse-box click did not expand it)
+	$(call fo-has,$(FLAIR_FF_ZOOM_NAME),FLAIR-ZOOM win 0 in,the zoom box of the moved window did not zoom it)
+	@[ -s "$(BUILD)/$(FLAIR_FF_ZOOM_NAME).ppm" ] || { printf '!!! test-flair-finder-follow FAIL: ZOOM screendump missing\n'; exit 1; }
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) zoomedwin "$(BUILD)/$(FLAIR_FF_ZOOM_NAME).ppm" \
+		|| { printf '!!! test-flair-finder-follow FAIL: after collapse/expand/ZOOM the icons are not on the grid of the zoomed content\n'; exit 1; }
+	@printf '>>> test-flair-finder-follow [2/4]: COLLAPSE 1/0 + ZOOM in -- four icons graded at the zoomed grid (leg zoomedwin)\n'
+	@# ---- [3] RESTORE ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FF_RESTORE_NAME),$(BUILD)/$(FLAIR_FF_RESTORE_NAME)_data.img,$(FLAIR_FOLLOW_RESTORE_SPEC),FLAIR-ZOOM win 0 out,1)
+	$(call fo-has,$(FLAIR_FF_RESTORE_NAME),FLAIR-ZOOM win 0 out,the zoom box of the ZOOMED window did not restore it)
+	@[ -s "$(BUILD)/$(FLAIR_FF_RESTORE_NAME).ppm" ] || { printf '!!! test-flair-finder-follow FAIL: RESTORE screendump missing\n'; exit 1; }
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin "$(BUILD)/$(FLAIR_FF_RESTORE_NAME).ppm" \
+		|| { printf '!!! test-flair-finder-follow FAIL: after RESTORE the icons are not back on the moved grid\n'; exit 1; }
+	@printf '>>> test-flair-finder-follow [3/4]: ZOOM out -- the restored window graded again (leg movedwin)\n'
+	@# ---- [4] SELECT where drawn + MOVE into a folder of the moved window ----
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FF_MOVE_NAME),$(BUILD)/$(FLAIR_FF_MOVE_NAME)_data.img,$(FLAIR_FOLLOW_MOVE_SPEC),FINDER-MOVE name=README.TXT from=0 to=3,0)
+	$(call fo-has,$(FLAIR_FF_MOVE_NAME),FINDER-WIN-SELECT win=0 name=APPS count=1,a click on APPS at its NEW centre (223$(fo_comma)222) did not select it)
+	$(call fo-has,$(FLAIR_FF_MOVE_NAME),FINDER-DROP-HILITE name=APPS,APPS was not lit under README.TXT dragged in the moved window)
+	$(call fo-has,$(FLAIR_FF_MOVE_NAME),FINDER-MOVE name=README.TXT from=0 to=3,README.TXT dropped on the moved APPS did not move into APPS)
+	@mdir -i $(BUILD)/$(FLAIR_FF_MOVE_NAME)_data.img ::/APPS | grep -q '^README   TXT ' || { printf '!!! test-flair-finder-follow FAIL: mtools does not see README.TXT in ::/APPS\n'; exit 1; }
+	@mtype -i $(BUILD)/$(FLAIR_FF_MOVE_NAME)_data.img ::/APPS/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf '!!! test-flair-finder-follow FAIL: ::/APPS/README.TXT bytes differ from the fixture\n'; exit 1; }
+	@! mdir -i $(BUILD)/$(FLAIR_FF_MOVE_NAME)_data.img :: | grep -q '^README   TXT ' || { printf '!!! test-flair-finder-follow FAIL: README.TXT is STILL in the root\n'; exit 1; }
+	@printf '>>> test-flair-finder-follow [4/4]: SELECT APPS where drawn + FINDER-MOVE README.TXT 0->3; mtools sees it in ::/APPS (bytes intact)\n'
+	@printf '>>> test-flair-finder-follow: green\n'
+
+# Rule 6: the pre-fix ABSOLUTE icon model (finder_windows.o only, the SAME
+# knob test-finder-ops-mutant uses) must fail leg [1]'s pixel grade -- the
+# moved window's first grid cell is not README.TXT's strike.
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_ABS_COORDS,win_abs_coords))
+test-flair-finder-follow-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN) $(BUILD)/flair_tenants_mut_win_abs_coords.img
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_win_abs_coords.img,flair_follow_mut_abs,$(BUILD)/flair_follow_mut_abs_data.img,$(FLAIR_FOLLOW_DRAG_SPEC),FLAIR-DRAG win 0 (20$(fo_comma)60)->(120$(fo_comma)180),1)
+	@grep -qxF 'FLAIR-DRAG win 0 (20,60)->(120,180)' $(BUILD)/flair_follow_mut_abs.serial || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS boot never reached the drag\n'; exit 1; }
+	@if $(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin $(BUILD)/flair_follow_mut_abs.ppm > $(BUILD)/flair_follow_mut_abs.grade 2>&1; then printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS PASSED the moved-window grader -- decoration\n'; exit 1; fi
+	@grep -q 'README.TXT DOC sprite @(139,206)' $(BUILD)/flair_follow_mut_abs.grade || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS went RED for the wrong reason\n'; cat $(BUILD)/flair_follow_mut_abs.grade; exit 1; }
+	@printf '>>> test-flair-finder-follow-mutant: ABS_COORDS correctly RED (README.TXT is not drawn at the moved cell (139,206))\n'
+	@printf '>>> test-flair-finder-follow-mutant: green\n'
+
+
+# ===========================================================================
 # REAL gate: test-flair-solid (epic initech-av7s; beads initech-gofc/-rqz5;
 # WL-0075 -- THE FLAIR live-desktop SOLIDITY oracle: the one repaint contract
 # (chrome phase -> content phase -> present) holds under close, drag and
@@ -19669,7 +19762,18 @@ RECORD_SETTLE_held_menu = 400
 RECORD_SPEC_box_cancel   = $(FLAIR_BOX_CANCEL_SPEC)
 RECORD_MARKER_box_cancel = FLAIR-TENANT-EXIT name=HELLO
 RECORD_SETTLE_box_cancel = 200
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel
+# finder_follow (bead initech-tdnl.34, audit F01; Rule 14): the root window is
+# dragged, collapsed, expanded, zoomed and restored -- its icons stay in its
+# content throughout -- then APPS is clicked where it is drawn (it selects) and
+# README.TXT is dragged onto it (it moves in). FLAIR_FOLLOW_MOVE_SPEC on the
+# DOUBLE-CLICK record image (it opens the volume). Settle 200 ms, not 400: at
+# 400 the 46-event trace outlives the record image's 3000-tick pump life and
+# the final icon drag is cut (FLAIR-TRACK-EXPIRED) -- measured, not guessed.
+RECORD_SPEC_finder_follow   = $(FLAIR_FOLLOW_MOVE_SPEC)
+RECORD_MARKER_finder_follow = FINDER-MOVE name=README.TXT from=0 to=3
+RECORD_IMAGE_finder_follow  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_SETTLE_finder_follow = 200
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -25767,6 +25871,7 @@ TEST_EMU_GATES := \
 	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
+	test-flair-finder-follow test-flair-finder-follow-mutant \
 	test-flair-modifier-release test-flair-modifier-release-mutant \
 	test-flair-held-gestures test-flair-held-gestures-mutant \
 	test-flair-box-track test-flair-box-track-mutant \

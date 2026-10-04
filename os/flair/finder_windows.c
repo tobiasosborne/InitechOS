@@ -359,7 +359,57 @@ static int fw_enum_cb(const finder_dirent_t *e, void *user)
     return 0;
 }
 
-/* Snap icon `i` to its row-major grid cell. Returns 1 when it moved. */
+/* ===========================================================================
+ * 10b. THE GEOMETRY RE-BASE (bead initech-tdnl.34; finder_windows.h Sec 10b)
+ * ===========================================================================*/
+
+int finder_win_sync_geometry(finder_window_t *w)
+{
+    if (w == (finder_window_t *)0 || !w->open ||
+        w->rec.contRgn == (region_t *)0)
+        return 0;
+#if defined(FINDER_WIN_MUT_ABS_COORDS)
+    /* MUTANT (Rule 6; audit F01): the pre-tdnl.34 behaviour -- the model keeps
+     * the ABSOLUTE coordinates it was laid out in at open, whatever the Window
+     * Manager does to the window afterwards. test-finder-ops leg O9 and the
+     * test-flair-finder-follow emu gate go RED. NEVER in a real build. */
+    return 0;
+#else
+    rgn_rect_t c;
+    int dx, dy;
+
+    /* Collapsed (windowshade): no content rect exists. Keep the last real one
+     * so the expand re-bases against it (finder_windows.h Sec 10b). */
+    if (region_is_empty(w->rec.contRgn)) return 0;
+
+    c  = region_get_bbox(w->rec.contRgn);
+    dx = (int)c.left - (int)w->view.bounds.left;
+    dy = (int)c.top  - (int)w->view.bounds.top;
+    if (dx == 0 && dy == 0 &&
+        c.right == w->view.bounds.right && c.bottom == w->view.bounds.bottom)
+        return 0;
+
+    if (dx != 0 || dy != 0) {
+        for (int i = 0; i < (int)w->view.n; i++) {
+            w->view.icons[i].x = (int16_t)((int)w->view.icons[i].x + dx);
+            w->view.icons[i].y = (int16_t)((int)w->view.icons[i].y + dy);
+        }
+    }
+    w->view.bounds = c;
+    return 1;
+#endif
+}
+
+finder_desk_t *finder_win_view(finder_shell_t *sh, int slot)
+{
+    if (!fw_slot_ok(sh, slot)) return (finder_desk_t *)0;
+    (void)finder_win_sync_geometry(&sh->windows[slot]);
+    return &sh->windows[slot].view;
+}
+
+/* Snap icon `i` to its row-major grid cell. Returns 1 when it moved. The
+ * caller has re-based the model (populate / cleanup sync first), so the grid
+ * is laid over the window's CURRENT content rect. */
 static int fw_snap(finder_window_t *w, int i, int cell)
 {
     int16_t gx = 0, gy = 0;
@@ -381,6 +431,9 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
         return FINDER_WIN_ERR_NULL;
 
     w = &sh->windows[slot];
+    /* Lay the grid over where the content IS now, not where it was at open
+     * (bead initech-tdnl.34: a New Folder in a moved window). */
+    (void)finder_win_sync_geometry(w);
     w->view.n  = 0u;             /* rebuild from scratch; the array is reused  */
     w->dropped = 0u;
 
@@ -566,6 +619,7 @@ int finder_win_cleanup(finder_shell_t *sh, int slot)
 
     if (!fw_slot_ok(sh, slot)) return 0;
     w = &sh->windows[slot];
+    (void)finder_win_sync_geometry(w);   /* snap onto the CURRENT grid (tdnl.34) */
     n = (int)w->view.n;
 
 #if defined(FINDER_WIN_MUT_CLEANUP_UNSORTED)
@@ -605,13 +659,18 @@ void finder_win_invalidate(finder_shell_t *sh, int slot,
         WindowMgr_invalidate(sh->wm, wp, new_rect);
 }
 
-void finder_win_paint(const finder_window_t *w, const bitmap_t *dst,
+void finder_win_paint(finder_window_t *w, const bitmap_t *dst,
                       const region_t *clip)
 {
     rgn_rect_t content;
 
-    if (w == (const finder_window_t *)0 || !w->open) return;
+    if (w == (finder_window_t *)0 || !w->open) return;
     if (dst == (const bitmap_t *)0 || dst->base == (volatile uint8_t *)0) return;
+
+    /* The icons follow the window (bead initech-tdnl.34, audit F01): re-base
+     * the model onto the content rect being filled below, so the fill and the
+     * icons are always the SAME rectangle. */
+    (void)finder_win_sync_geometry(w);
 
     /* The content body. C-8: the tone is a semantic ROLE resolved at the ONE
      * policy seam; this TU owns no color literal. FLAIR_PART_CONTENT is the
