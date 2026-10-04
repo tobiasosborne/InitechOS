@@ -3867,58 +3867,59 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
     }
 }
 
-/* THE FINDER TAKES THE FOREGROUND WHEN ONE OF ITS WINDOWS IS FRONTMOST
- * (bead initech-tdnl.12; design F2-1 / F4.1).
+/* THE FOREGROUND FOLLOWS THE FRONT WINDOW (bead initech-tdnl.12 promotion,
+ * made symmetric by bead initech-tdnl.40; design F2-1 / F4.1; audit
+ * 2026-10-03 F06).
  *
  * MultiFinder's invariant is that the tenant owning the frontmost window IS the
  * foreground tenant -- that is what makes band 2 the active app's menu bar.
  * flair_app_dispatch maintains it for every CLICK-driven foreground change, but
- * the Finder has one route to the front that no click can reach the dispatcher
- * on: a DOUBLE-CLICK ON THE DESKTOP opens a disk window (FindWindow says inDesk,
- * so the dispatcher returns before the owner demux) and NewDocumentWindow puts
- * that window at the head of the z-order. Without this the machine sat in a
- * state it has no business being in -- a Finder window frontmost while HELLO
- * was still the foreground tenant and band 2 still read Photoshop.
- *
- * So: after every gesture, if the frontmost VISIBLE window is Finder-owned and
- * the Finder is not already the head, run the SAME four-step switch every other
- * activation runs (process.c :: FlairProcess_activate -> switch_foreground) and
- * then the SAME post-switch policy every other switch runs
+ * two routes change the front window without a click the dispatcher sees:
+ *   - a DOUBLE-CLICK ON THE DESKTOP opens a disk window (inDesk returns before
+ *     the owner demux) and NewDocumentWindow puts it at the head of the
+ *     z-order -- the Finder must be PROMOTED (tdnl.12);
+ *   - a Finder window CLOSES (go-away box, File > Close Window, Ctrl-W) and
+ *     DisposeWindow re-hilites the next window, another tenant's -- the Finder
+ *     must be DEMOTED (tdnl.40). Before this, nothing demoted it: the audit saw
+ *     NOTES drawn active under the Finder's bar, and a band-2 press dropped the
+ *     Finder's Special menu over it.
+ * So, after every gesture and every consumed Finder chord: ask
+ * FlairProcess_front_owner (process.c -- the owner of the frontmost VISIBLE
+ * window, graded by test-process leg(g)) and, when it is not the head, run the
+ * SAME four-step switch every other activation runs (FlairProcess_activate ->
+ * switch_foreground) and the SAME post-switch policy
  * (flair_live_finish_tenant_switch: repaint, route updates, swap band 2,
- * present, announce FLAIR-DISPATCH app=FINDER). NO routing logic is
- * re-implemented here (ADR-0013 BC-2) -- both halves are existing spines.
+ * present, announce FLAIR-DISPATCH app=<owner>). NO routing logic is
+ * re-implemented here (ADR-0013 BC-2).
  *
- * THE STAGE FENCE HOLDS BY CONSTRUCTION: the Finder owns NO window at boot
- * (finder_shell_open leaves self->windows NULL), so the frontmost window is
- * HELLO's, this is a no-op, and the resting chimera -- band 1 System-7, band 2
- * Photoshop -- is byte-identical. The deliberate band-2-at-rest re-key is a
- * separate lane with its own operator clip.
+ * NULL ("no visible window", or unowned shell furniture in front) keeps the
+ * current foreground: period MultiFinder leaves the Finder active with no
+ * windows open.
  *
- * There is deliberately NO demotion when the last disk window closes: period
- * MultiFinder leaves the Finder foreground with no windows open, and inventing
- * a demotion rule here would be policy nobody asked for. */
-static void flair_live_finder_foreground(flair_live_ctx_t *ctx,
-                                         const boot_info_t *bi,
-                                         const EventRecord *ev)
+ * THE STAGE FENCE HOLDS BY CONSTRUCTION: at boot the frontmost window is
+ * HELLO's and HELLO is the head (operator ruling 2026-10-03: band 2 at rest is
+ * HELLO's Photoshop bar), so this is a no-op and the resting chimera -- band 1
+ * System-7, band 2 Photoshop -- is byte-identical (DISTINCT-CHIMERA untouched).
+ *
+ * KMAIN_MUT_NO_FG_SYNC (Rule 6; test-flair-fg-close-mutant) restores the
+ * pre-tdnl.40 promote-only rule. NEVER in a real build. */
+static void flair_live_sync_foreground(flair_live_ctx_t *ctx,
+                                       const boot_info_t *bi,
+                                       const EventRecord *ev)
 {
     FlairApp *prev;
-    WindowPtr w;
+    FlairApp *want;
 
-    if (g_finder_shell == (finder_shell_t *)0) return;
-    if (g_ten_plist == (FlairProcessList *)0 ||
-        g_ten_finder == (FlairApp *)0 || ctx->wm == (WindowMgr *)0) return;
-    if (g_ten_plist->head == g_ten_finder) return;   /* already foreground     */
-
-    /* The frontmost VISIBLE window. Invisible records are skipped for the same
-     * reason finder_win_front_slot skips them: the two hidden canon frame doc
-     * windows are still in the z-order (HideWindow, not DisposeWindow). */
-    for (w = ctx->wm->front; w != (WindowPtr)0; w = w->nextWindow)
-        if (w->visible) break;
-    if (w == (WindowPtr)0) return;
-    if (finder_win_slot_of(g_finder_shell, w) < 0) return;
+    if (g_ten_plist == (FlairProcessList *)0 || ctx->wm == (WindowMgr *)0)
+        return;
+    want = FlairProcess_front_owner(g_ten_plist, ctx->wm);
+    if (want == (FlairApp *)0 || want == g_ten_plist->head) return;
+#if defined(KMAIN_MUT_NO_FG_SYNC)
+    if (want != g_ten_finder) return;            /* promote-only (pre-fix)   */
+#endif
 
     prev = g_ten_plist->head;
-    if (!FlairProcess_activate(g_ten_plist, ctx->wm, ev, g_ten_finder)) return;
+    if (!FlairProcess_activate(g_ten_plist, ctx->wm, ev, want)) return;
     flair_live_finish_tenant_switch(ctx, bi, g_ten_plist, prev, g_ten_barport);
 }
 
@@ -3983,6 +3984,9 @@ static int flair_live_finder_key(flair_live_ctx_t *ctx, const boot_info_t *bi,
     finder_dispatch(&g_finder_ctx, sel, "key");
     finder_report_outcome(ctx, bi);
     finder_desk_sync_ctx();
+    /* A chord can close the front window (Ctrl-W): re-assert the foreground
+     * invariant exactly as the mouse path does after every gesture (tdnl.40). */
+    flair_live_sync_foreground(ctx, bi, ev);
     return 1;
 }
 
@@ -4539,7 +4543,7 @@ void kernel_main(void)
          * ten_plist.head and shell_render's fixed band-2 composition
          * (bar_photoshop) still equals the foreground tenant's menu at rest.
          * The bar becomes visible only when the Finder is legitimately promoted
-         * (flair_live_finder_foreground). The deliberate band-2-at-rest re-key
+         * (flair_live_sync_foreground). The deliberate band-2-at-rest re-key
          * -- the Finder as BOOT foreground -- is a separate lane with its own
          * operator clip (design F2.1 migration step 3). */
         ten_finder->menubar = finder_menu_bar();
@@ -5036,10 +5040,12 @@ void kernel_main(void)
                  * volume, or (via the initech-tpzf raise in flair_app_dispatch)
                  * a click on a buried disk window. Re-assert the MultiFinder
                  * invariant that the owner of the frontmost window is the
-                 * foreground tenant, so band 2 becomes the Finder's bar. A
-                 * no-op whenever the front window is not the Finder's, which is
-                 * every state the boot frame is in. */
-                flair_live_finder_foreground(&ctx, &b, &ev);
+                 * foreground tenant, so band 2 becomes the Finder's bar -- and
+                 * (bead initech-tdnl.40) the converse after a Finder window
+                 * CLOSED under a gesture: the new front window's owner takes
+                 * the foreground back. A no-op whenever owner == head, which
+                 * is every state the boot frame is in. */
+                flair_live_sync_foreground(&ctx, &b, &ev);
             }
 
             /* R3.7 (bead initech-tdnl.14): a disk tenant that EXITed or crashed

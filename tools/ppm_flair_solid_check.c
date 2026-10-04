@@ -443,6 +443,38 @@ static int leg_D(const Img *pre, const Img *post)
     return 0;
 }
 
+/* ================= leg K: active window after a Finder close ============
+ * Bead initech-tdnl.40 (audit F06). After the Finder's last disk window
+ * closes, HELLO -- the boot front window, which DisposeWindow re-hilites -- is
+ * the ACTIVE window again: its title band carries the exact Platinum stripe
+ * relation (DEC-10 Sec 4 + sys8/window-chrome.md Sec 2.2) at three clear
+ * columns, and NOTES (behind) is flat inactive CIDX_PLAT_FACE at three columns
+ * of its title that HELLO does not cover (x > FLAIR_TEN_HELLO_R). The band-2
+ * half of the agreement (the bar is HELLO's) is graded by
+ * ppm_flair_app_launch_check bar-photoshop on the SAME dump. */
+static int leg_K(const Img *im)
+{
+    static const int hx[3] = { FLAIR_TEN_HELLO_L + 40,      /* 100 */
+                               FLAIR_TEN_HELLO_L + 80,      /* 140 */
+                               FLAIR_TEN_HELLO_R - 40 };    /* 320 */
+    static const int nx[3] = { FLAIR_TEN_HELLO_R + 40,      /* 400 */
+                               FLAIR_TEN_HELLO_R + 120,     /* 480 */
+                               FLAIR_TEN_NOTES_R - 40 };    /* 520 */
+    int bad = 0;
+    for (int i = 0; i < 3; i++)
+        bad |= probe_platinum_stripe_col(im, hx[i], FLAIR_TEN_HELLO_T,
+                                         "leg K HELLO active title");
+    for (int i = 0; i < 3; i++)
+        for (int y = FLAIR_TEN_NOTES_T + 1;
+             y < FLAIR_TEN_NOTES_T + FLAIR_CHROME_TITLEBAR_H - 1; y++)
+            bad |= probe_is(im, nx[i], y, CIDX_PLAT_FACE,
+                            "leg K NOTES flat inactive Platinum title fill");
+    if (!bad)
+        printf("solid K PASS: after the Finder close HELLO is the ACTIVE window "
+               "(stripes at x=100/140/320) and NOTES is inactive\n");
+    return bad;
+}
+
 /* ================= leg E: active tenant's band-2 menu ================= */
 /* Independent screen placement for the locked leg-E drop. The Menu Manager
  * assumes its bar begins at local y=0, so its Platinum panel shares local
@@ -672,7 +704,7 @@ int main(int argc, char **argv)
         ((argv[1][0] == 'D' || argv[1][0] == 'F')
              ? argc != 4 : argc != 3)) {
         fprintf(stderr,
-                "usage: ppm_flair_solid_check <A|B|C|E|G|H> <dump.ppm>\n"
+                "usage: ppm_flair_solid_check <A|B|C|E|G|H|K> <dump.ppm>\n"
                 "       ppm_flair_solid_check <D|F> <pre.ppm> <post.ppm>\n");
         return 2;
     }
@@ -696,6 +728,7 @@ int main(int argc, char **argv)
     case 'E': rc = leg_E(&im); break;
     case 'G': rc = leg_G(&im); break;
     case 'H': rc = leg_H(&im); break;
+    case 'K': rc = leg_K(&im); break;
     default:
         fprintf(stderr, "solid_check: unknown leg '%s'\n", argv[1]);
         rc = 2;
