@@ -36,6 +36,19 @@
  *                          the bar (MBAR_NOT_SWAPPED: band 2 keeps the fallback)
  *   TBX_MUT_MBAR_NO_BOUNDS SETMBAR's image-range checks compiled out
  *                          (MBAR_NO_BOUNDS: an out-of-image bar is accepted)
+ *   TBX_MUT_MENU_NOT_DELIVERED  a menu choice in the tenant's own bar is
+ *                          never pushed (the pre-tdnl.31 behaviour: a
+ *                          FLAIR-MENU serial line and nothing else)
+ *   TBX_MUT_DRAWMBAR_NOOP  DRAWMENUBAR reports success but never asks for the
+ *                          band-2 redraw (band 2 keeps the old bar)
+ *   (+ the two tbxmenu.h knobs, TBX_MUT_MENU_KEY_PLAIN / _ANY_BAR, which a
+ *    -D on this TU reaches through the header)
+ *
+ * MENU CHOICES (bead initech-tdnl.31; spec/toolbox_gate.h Sec 6a): the SHELL
+ * runs MenuSelect / MenuKey over the tenant's own bar and tbx_menu_choice
+ * PUSHES the result word as a TBX_EVT_MENU event through the same kernel-owned
+ * vtable every other event uses. DRAWMENUBAR only raises a flag; the pump
+ * redraws band 2 when the tenant has returned (tbx_take_mbar_redraw).
  *
  * Freestanding (Law 3): no libc. ASCII-clean (Rule 12). Deterministic (Rule 11):
  * every serial number is a pure function of the boot's allocation order.
@@ -58,6 +71,7 @@
                               * the tables are text.o's ONE copy)           */
 #include "loader.h"          /* loader_load_tenant (-Ios/milton)               */
 #include "menu.h"            /* MenuBar/MenuInfo/MenuItem + the Sec 5 layout   */
+#include "tbxmenu.h"         /* the menu route + the flat FlairEvent copy      */
 
 /* spec/toolbox_gate.h Sec 9 IS menu.h Sec 3's i386 layout: pin every offset
  * the validator reads, so the locked ABI and the Menu Manager never drift. */
@@ -111,6 +125,7 @@ typedef struct tbx_slot {
     uint8_t       exit_req;     /* TBX_EXIT seen                              */
     uint8_t       crashed;      /* fault triaged inside the image             */
     uint8_t       torn_down;    /* terminate/kill already ran (close hook)    */
+    uint8_t       mbar_redraw;  /* DRAWMENUBAR asked for a band-2 redraw      */
     int32_t       exit_rc;
     char          file[16];     /* the 8.3 file name (markers)                */
 } tbx_slot_t;
@@ -275,12 +290,7 @@ static void disk_tenant_event(FlairApp *self, const EventRecord *ev)
     tputs("\n");
 
     eb = (volatile int32_t *)(uintptr_t)g_slot.evbuf;
-    eb[FLAIR_EVBUF_WHAT_OFF / 4u]   = (int32_t)ev->what;
-    eb[FLAIR_EVBUF_MSG_OFF / 4u]    = (int32_t)ev->message;
-    eb[FLAIR_EVBUF_MODS_OFF / 4u]   = (int32_t)ev->modifiers;
-    eb[FLAIR_EVBUF_WHEN_OFF / 4u]   = (int32_t)ev->when;
-    eb[FLAIR_EVBUF_WHEREH_OFF / 4u] = (int32_t)ev->where.h;
-    eb[FLAIR_EVBUF_WHEREV_OFF / 4u] = (int32_t)ev->where.v;
+    tbx_evbuf_fill(eb, ev);
 
     g_slot.in_update = (ev->what == (uint16_t)updateEvt) ? 1u : 0u;
     run_tenant(g_slot.eventproc);
@@ -568,8 +578,10 @@ static int32_t v_setmbar(uint32_t bar)
 {
     uint32_t menus, n, x;
 
+    /* Sec 9 V3 (initech-tdnl.31): legal before AND after the first window --
+     * the V2 "before NEWWINDOW only" rule existed only for want of
+     * DRAWMENUBAR. */
     if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
-    if (g_slot.win != (WindowRecord *)0) return TBX_ERR_BUSY;  /* Sec 9 V2 */
     if (!MB_IN(bar, TBX_MBAR_BYTES)) return mbar_bad("bar-outside-image");
     menus = rd32(bar + TBX_MBAR_MENUS_OFF);
     n     = rd16(bar + TBX_MBAR_COUNT_OFF);
@@ -610,6 +622,23 @@ static int32_t v_setmbar(uint32_t bar)
      * the bar validates and the call reports success, but it is never
      * installed -- band 2 keeps the shell fallback bar while the tenant is
      * foreground. NEVER in a real build. */
+#endif
+    return TBX_OK;
+}
+
+/* DRAWMENUBAR (spec Sec 3 / Sec 9 V3; bead initech-tdnl.31). Band 2 belongs
+ * to the pump (its offset port, its present), so the verb only asks; the
+ * pump's tenant service redraws from the foreground app's installed bar once
+ * the tenant has RETURNED (tbx_take_mbar_redraw). */
+static int32_t v_drawmenubar(void)
+{
+    if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
+#ifndef TBX_MUT_DRAWMBAR_NOOP
+    g_slot.mbar_redraw = 1u;
+#else
+    /* MUTANT TBX_MUT_DRAWMBAR_NOOP (Rule 6; test-flair-tenant-menu-mutant):
+     * the call reports success but band 2 is never redrawn, so it keeps the
+     * bar the tenant just replaced. NEVER in a real build. */
 #endif
     return TBX_OK;
 }
@@ -659,6 +688,7 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_FILLRECT:  argc = TBX_ARGC_FILLRECT;  break;
     case TBX_EXIT:      argc = TBX_ARGC_EXIT;      break;
     case TBX_SETMBAR:   argc = TBX_ARGC_SETMBAR;   break;
+    case TBX_DRAWMENUBAR: argc = TBX_ARGC_DRAWMENUBAR; break;
     default:            argc = 0u;                 break;
     }
     for (uint32_t i = 0; i < argc; i++)
@@ -676,6 +706,7 @@ void tbx_gate_dispatch(uint8_t *frame)
         case TBX_FILLRECT:  rc = v_fillrect(a);    break;
         case TBX_EXIT:      rc = v_exit(a[0]);     break;
         case TBX_SETMBAR:   rc = v_setmbar(a[0]);  break;
+        case TBX_DRAWMENUBAR: rc = v_drawmenubar(); break;
         default:            rc = TBX_ERR_BADCODE;  break;
         }
     }
@@ -807,6 +838,56 @@ FlairApp *tbx_take_affirm(void)
         return (FlairApp *)0;
     g_slot.affirm = 0u;
     return g_slot.app;
+}
+
+int tbx_take_mbar_redraw(void)
+{
+    int r = (int)g_slot.mbar_redraw;
+    g_slot.mbar_redraw = 0u;
+    return r;
+}
+
+int tbx_menu_choice(const MenuBar *bar, uint32_t sel, const EventRecord *src,
+                    const char *how)
+{
+    FlairApp *app = g_slot.app;
+    EventRecord mev;
+
+    if (app == (FlairApp *)0 || g_slot.exit_req || g_slot.crashed ||
+        g_slot.torn_down)
+        return 0;
+    if (!tbx_menu_event(app->menubar, bar, sel, src, &mev)) return 0;
+#ifdef TBX_MUT_MENU_NOT_DELIVERED
+    /* MUTANT TBX_MUT_MENU_NOT_DELIVERED (Rule 6; test-flair-tenant-menu-
+     * mutant): the pre-tdnl.31 behaviour -- the choice is logged by the
+     * shell's FLAIR-MENU line and the tenant never hears it. NEVER in a real
+     * build. */
+    return 0;
+#endif
+    tputs("TENANT-MENU menu=");
+    tputi((int32_t)MenuResultID(sel));
+    tputs(" item=");
+    tputu((uint32_t)MenuResultItem(sel));
+    tputs(" src=");
+    tputs(how);
+    tputs("\n");
+    disk_tenant_event(app, &mev);
+    return 1;
+}
+
+int tbx_menu_key(const EventRecord *ev)
+{
+    FlairApp *app = g_slot.app;
+    uint32_t sel;
+
+    /* The chord is the tenant's only while it is the FOREGROUND app (its bar
+     * is the one in band 2; keyboard focus follows the foreground, process.c). */
+    if (app == (FlairApp *)0 || g_host.list == (FlairProcessList *)0 ||
+        g_host.list->head != app)
+        return 0;
+    sel = tbx_menu_key_sel(app->menubar, ev);
+    if (sel == 0u) return 0;
+    return tbx_menu_choice(app->menubar, sel, ev, "key");
 }
 
 int tbx_owns_window(const WindowRecord *w)

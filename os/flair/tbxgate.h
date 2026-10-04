@@ -31,6 +31,11 @@
  *                                       spec Sec 9 limit; bead initech-cnpm)
  *   TENANT-UNREGISTERED name=<8.3>     (entry returned without REGISTER)
  *   TENANT-EVT what=<n>                (one per push-callback delivery)
+ *   TENANT-MENU menu=<id> item=<n> src=<mouse|key>
+ *                                      (a menu choice in the tenant's OWN bar,
+ *                                       pushed as TBX_EVT_MENU; it precedes
+ *                                       that delivery's TENANT-EVT what=81;
+ *                                       bead initech-tdnl.31)
  *   TENANT-CRASH vec=<n> eip=+0x<image offset>
  *   TENANT-EXIT rc=<n> via=<exit|close|crash>
  *   TENANT-HEAPAVAIL n=<master flair_heap_avail after the code-block free>
@@ -78,6 +83,28 @@ FlairApp *tbx_take_affirm(void);
  * of a tenant whose entry returned WITHOUT registering. Returns 1 when the
  * desktop needs the damage/content/band-2/present cycle, else 0. */
 int tbx_reap(void);
+
+/* MENU CHOICES (bead initech-tdnl.31; spec/toolbox_gate.h Sec 6a).
+ *
+ * tbx_menu_choice: the MOUSE route. `bar` is the bar the shell's MenuSelect
+ * tracked, `sel` its result word, `src` the band-2 mouseDown, `how` the
+ * TENANT-MENU src= tag. When `bar` IS the resident tenant's installed bar and
+ * something was chosen, emits TENANT-MENU and pushes the TBX_EVT_MENU event
+ * through the tenant's eventProc (the tenant may EXIT inside it: the caller
+ * runs its tenant service afterwards). Returns 1 when delivered, else 0 (and
+ * nothing happened).
+ *
+ * tbx_menu_key: the KEY route. When the resident tenant is the FOREGROUND app
+ * and `ev` is a Ctrl/Cmd keyDown that MenuKey resolves over its bar, delivers
+ * exactly as above with src=key and returns 1 (the caller must NOT route the
+ * keyDown onward); otherwise returns 0 and the key goes the ordinary way.
+ *
+ * tbx_take_mbar_redraw: 1 (once) when the tenant called DRAWMENUBAR since the
+ * last take; the caller redraws band 2 from the foreground app's bar. */
+int tbx_menu_choice(const struct MenuBar *bar, uint32_t sel,
+                    const EventRecord *src, const char *how);
+int tbx_menu_key(const EventRecord *ev);
+int tbx_take_mbar_redraw(void);
 
 /* 1 when `w` is the resident disk tenant's window (for the pump's policy
  * decisions; ownership itself is always the refCon demux in process.c). */

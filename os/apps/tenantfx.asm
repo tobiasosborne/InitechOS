@@ -32,14 +32,28 @@
 ; graph whose every pointer is a reloc site. Band 2 shows it from the
 ; affirmation on, and shows the Finder's bar again after the exit.
 ;
+; MENU CHOICES (bead initech-tdnl.31; spec/toolbox_gate.h Sec 6a): the kernel
+; PUSHES a choice made in this tenant's own bar -- by the mouse in band 2 or
+; by its command key (Ctrl-Q) -- as one TBX_EVT_MENU event whose Message is
+; the MenuSelect/MenuKey word (menuID << 16) | item. event_proc2 is the
+; DoMenuCommand (MTE Listing 3-24): File > Quit EXITs; Fixture > About draws
+; an About line in the window and replaces the bar AFTER the window exists
+; (SETMBAR mbar2, which adds an "Info" menu) followed by DRAWMENUBAR, exactly
+; as a Mac application follows SetMenuBar with DrawMenuBar (MTE p. 3-41).
+; All of it is APPENDED after hwin, so every earlier offset (rec, mbar,
+; bad_nested, evbuf, hwin) is unchanged; only rec's eventProc dword now names
+; event_proc2, which falls through to the V1 event_proc for everything else.
+;
 ; Build knobs (fixture VARIANTS for the mutant/crash legs, NEVER the shipped
 ; image): -DNO_REGISTER (the entry skips REGISTER -- the D1.7 NO_REGISTER mutant),
 ; -DCRASH_ON_CLICK (a mouseDown executes UD2 -- the crash-triage leg) and
 ; -DBAD_MBAR (the SETMBAR refusal leg: two resources that lie about where they
 ; live -- `bad_nested`, in the image but its menus array is NOT, and $$-8, a
 ; MenuBar record in the PSP below imageBase -- each refused TENANT-SETMBAR-BAD,
-; then the valid `mbar` offered AFTER the window, refused TBX_ERR_BUSY; the
-; tenant runs with no bar of its own, so band 2 keeps the shell fallback).
+; then `bad_nested` offered again AFTER the window -- refused the same way,
+; because SETMBAR after the first window is legal since initech-tdnl.31 but
+; still validated; the tenant runs with no bar of its own, so band 2 keeps the
+; shell fallback).
 ; ASCII-clean (Rule 12); nasm -f bin is reproducible (Rule 11).
 
 bits 32
@@ -56,6 +70,10 @@ org ORG
 %define TBX_FILLRECT   0x0031
 %define TBX_EXIT       0x0070
 %define TBX_SETMBAR    0x0050
+%define TBX_DRAWMENUBAR 0x0052
+%define EVT_MENU       0x0051  ; TBX_EVT_MENU (spec Sec 6a)
+%define MENU_QUIT      (129 << 16) | 1   ; File > Quit
+%define MENU_ABOUT     (131 << 16) | 1   ; Fixture > About TenantFix
 %define COLOR_WHITE    0
 %define COLOR_BLACK    1
 %define EVT_MOUSEDOWN  1
@@ -113,8 +131,8 @@ entry:
     jle  .out
     mov  [hwin], eax
 %ifdef BAD_MBAR
-    push dword mbar            ; refused: TBX_ERR_BUSY (after the first window)
-    mov  eax, TBX_SETMBAR
+    push dword bad_nested      ; refused again after the first window: SETMBAR
+    mov  eax, TBX_SETMBAR      ; is legal there since tdnl.31, still validated
     int  TBX_GATE
     add  esp, 4
 %endif
@@ -192,7 +210,7 @@ rec:
     dd $$                      ; imageBase      (reloc site: == the load base)
     dd image_end - $$          ; imageLen       (a length: NOT relocated)
     dd evbuf                   ; evBufPtr       (reloc site)
-    dd event_proc              ; eventProc      (reloc site)
+    dd event_proc2             ; eventProc      (reloc site; tdnl.31)
 
 ; ---------------------------------------------------------------------------
 ; THE MenuBar RESOURCE (spec/toolbox_gate.h Sec 9 = os/flair/menu.h Sec 3)
@@ -257,4 +275,74 @@ line2:   db "Click here to quit", 0
 align 4
 evbuf:   times 6 dd 0          ; the flat FlairEvent (24 bytes)
 hwin:    dd 0                  ; the window token NEWWINDOW returned
+
+; ===========================================================================
+; MENU CHOICES (bead initech-tdnl.31) -- appended; see the banner.
+; ===========================================================================
+event_proc2:
+    mov  eax, [evbuf]          ; What
+    cmp  eax, EVT_MENU
+    je   .menu
+    cmp  eax, EVT_UPDATE
+    jne  event_proc            ; every other event: the V1 handler, unchanged
+    call paint
+    cmp  dword [about_shown], 0
+    je   .done
+    call paint_about
+.done:
+    ret
+.menu:                         ; DoMenuCommand(Message)
+    mov  eax, [evbuf + 4]      ; Message (FLAIR_EVBUF_MSG_OFF = 4)
+    cmp  eax, MENU_QUIT
+    je   .quit
+    cmp  eax, MENU_ABOUT
+    je   .about
+    ret
+.quit:
+    push dword 0               ; rc
+    mov  eax, TBX_EXIT
+    int  TBX_GATE
+    add  esp, 4
+    ret
+.about:
+    mov  dword [about_shown], 1
+    call paint_about
+    push dword mbar2           ; SetMenuBar ... after the window exists
+    mov  eax, TBX_SETMBAR
+    int  TBX_GATE
+    add  esp, 4
+    mov  eax, TBX_DRAWMENUBAR  ; ... then DrawMenuBar
+    int  TBX_GATE
+    ret
+
+paint_about:
+    push dword COLOR_WHITE     ; bg
+    push dword COLOR_BLACK     ; fg
+    push dword line3
+    push dword 64              ; y (content-local)
+    push dword 16              ; x
+    push dword [hwin]
+    mov  eax, TBX_TEXTDRAW
+    int  TBX_GATE
+    add  esp, 24
+    ret
+
+align 4
+mbar2:                      ; the bar About installs: mbar + an "Info" menu
+    dd mbar2_menus
+    dw 4
+    db 1, 0
+mbar2_menus:
+    MINFO 129, t_file, items_file, 1
+    MINFO 130, t_edit, items_edit, 5
+    MINFO 131, t_fixture, items_fixture, 1
+    MINFO 132, t_info, items_info, 1
+items_info:
+    MITEM s_version, 0, 0
+t_info:    db "Info", 0
+s_version: db "TenantFix 1.0", 0
+line3:     db "TenantFix 1.0, a disk app", 0
+
+align 4
+about_shown: dd 0
 image_end:

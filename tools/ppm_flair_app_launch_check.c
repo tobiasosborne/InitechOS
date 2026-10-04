@@ -28,6 +28,15 @@
  *                    when the tenant launched);
  *   "bar-photoshop"  band 2 is EXACTLY the shell fallback bar (a tenant whose
  *                    SETMBAR was REFUSED has no bar of its own).
+ * And the two legs of bead initech-tdnl.31 (a disk tenant hears its own menu
+ * choices; dump taken after FLAIR_TMENU_ABOUT_SPEC):
+ *   "about"          the tenant ANSWERED Fixture > About: its two V1 runs plus
+ *                    the About run "TenantFix 1.0, a disk app" (tenantfx.asm
+ *                    paint_about: TEXTDRAW (16,64) black on white -> global
+ *                    (117,246)), exact ink, and nothing else in the content;
+ *   "bar-tenant2"    band 2 is EXACTLY the bar About installed AFTER the
+ *                    window (SETMBAR mbar2 + DRAWMENUBAR): File Edit Fixture
+ *                    Info.
  * Each band-2 leg is a FULL-PIXEL differential over band 2's rows [20,40) and
  * columns [20,624) -- every pixel's expected tone is derived HERE (see
  * grade_bar), never read off the renderer. ASCII-clean (Rule 12). Host libc is
@@ -248,7 +257,12 @@ static const char *const PHOTOSHOP_TITLES[] = {
     "File", "Edit", "Image", "Layer", "Select", "View", "Window", "Help"
 };
 
+/* TENANTFX's SECOND bar -- os/apps/tenantfx.asm `mbar2`, the one its About
+ * command installs after its window exists (bead initech-tdnl.31): `mbar`
+ * plus an "Info" menu. Transcribed by hand. */
+static const char *const TENANT2_TITLES[] = { "File", "Edit", "Fixture", "Info" };
 static const BarSpec BAR_TENANT = { "TENANTFX", TENANT_TITLES, 3, 1 };
+static const BarSpec BAR_TENANT2 = { "TENANTFX-2", TENANT2_TITLES, 4, 1 };
 static const BarSpec BAR_FINDER = { "FINDER", FINDER_TITLES, 5, 1 };
 static const BarSpec BAR_PHOTOSHOP = { "PHOTOSHOP", PHOTOSHOP_TITLES, 8, 0 };
 
@@ -313,12 +327,15 @@ int main(int argc, char **argv)
     const BarSpec *bar = NULL;
 
     if (argc == 3 && strcmp(argv[1], "bar-tenant") == 0) bar = &BAR_TENANT;
+    else if (argc == 3 && strcmp(argv[1], "bar-tenant2") == 0)
+        bar = &BAR_TENANT2;
     else if (argc == 3 && strcmp(argv[1], "bar-finder") == 0) bar = &BAR_FINDER;
     else if (argc == 3 && strcmp(argv[1], "bar-photoshop") == 0)
         bar = &BAR_PHOTOSHOP;
-    if (argc != 3 || (bar == NULL && strcmp(argv[1], "show") != 0)) {
-        fprintf(stderr, "usage: %s show|bar-tenant|bar-finder|bar-photoshop "
-                "dump.ppm\n", argv[0]);
+    if (argc != 3 || (bar == NULL && strcmp(argv[1], "show") != 0 &&
+                      strcmp(argv[1], "about") != 0)) {
+        fprintf(stderr, "usage: %s show|about|bar-tenant|bar-tenant2|"
+                "bar-finder|bar-photoshop dump.ppm\n", argv[0]);
         return 2;
     }
     f = fopen(argv[2], "rb");
@@ -341,6 +358,24 @@ int main(int argc, char **argv)
         printf(">>> ppm_flair_app_launch_check [%s]: %s\n", argv[1], argv[2]);
         grade_bar(bar);
         printf(">>> ppm_flair_app_launch_check [%s]: %s\n", argv[1],
+               g_fail ? "RED" : "green");
+        return g_fail ? 1 : 0;
+    }
+
+    if (strcmp(argv[1], "about") == 0) {
+        /* initech-tdnl.31: the tenant heard Fixture > About and drew its
+         * answer -- the third run at content-local (16,64) -> (117,246). */
+        printf(">>> ppm_flair_app_launch_check [about]: %s\n", argv[2]);
+        expect(100, 160, CIDX_BLACK, "tenant frame top-left corner");
+        expect(399, 160, CIDX_BLACK, "tenant frame top-right corner");
+        text_band("LINE1", "Loaded from disk", 117, 198);
+        text_band("LINE2", "Click here to quit", 117, 222);
+        text_band("ABOUT", "TenantFix 1.0, a disk app", 117, 246);
+        solid("GAP", 101, 214, 379, 222, CIDX_WHITE);
+        solid("GAP2", 101, 238, 379, 246, CIDX_WHITE);
+        solid("BELOW", 101, 262, 379, 319, CIDX_WHITE);
+        solid("LEFT", 101, 182, 117, 262, CIDX_WHITE);
+        printf(">>> ppm_flair_app_launch_check [about]: %s\n",
                g_fail ? "RED" : "green");
         return g_fail ? 1 : 0;
     }

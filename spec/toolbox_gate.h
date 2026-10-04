@@ -12,6 +12,12 @@
  *       Rule-8 act of THAT bead: TBX_SETMBAR 0x0050 promoted from reserved to
  *       implemented (Sec 3), its arity, and Sec 9 (the MenuBar resource layout
  *       + validation limits). No other value in this file moved.
+ * bead: initech-tdnl.31 (a disk tenant HEARS its own menu choices). The
+ *       deliberate Rule-8 act of THAT bead: TBX_MENUSELECT 0x0051 DISSOLVED
+ *       (Sec 3; the choice is DELIVERED, Sec 6a), TBX_DRAWMENUBAR 0x0052 added
+ *       (Sec 3, Sec 9), TBX_EVT_MENU added (Sec 6a), and Sec 9's "SETMBAR only
+ *       before the first window" rule lifted -- the rule existed only because
+ *       there was no DrawMenuBar trap (Sec 9 said so). No other value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -86,8 +92,9 @@
  * an inventory another bead (tdnl.21) consumes.
  *
  * V1 (tdnl.14) implements exactly the rows marked V1; initech-cnpm adds the
- * row marked V2. Every other code -- including the reserved rows -- returns
- * TBX_ERR_BADCODE (the demux is total, never a silent no-op, Rule 2).
+ * row marked V2; initech-tdnl.31 adds the row marked V3. Every other code --
+ * including the reserved and DISSOLVED rows -- returns TBX_ERR_BADCODE (the
+ * demux is total, never a silent no-op, Rule 2).
  * ------------------------------------------------------------------------- */
 #define TBX_REGISTER      0x0001u  /* V1  (recPtr) -> 0 | err                   */
 #define TBX_KEEPRESIDENT  0x0002u  /* DISSOLVED by DEC-AC3-3 (registration makes
@@ -106,6 +113,14 @@
                                     * tenant that never calls it has no menubar
                                     * and band 2 shows the shell fallback bar
                                     * (kmain flair_live_tenant_bar)            */
+#define TBX_MENUSELECT    0x0051u  /* DISSOLVED by initech-tdnl.31 (D2.1 row 13
+                                    * drafted it as a tenant-called tracker for
+                                    * the struck park/resume model). The chosen
+                                    * (menuID<<16|item) is DELIVERED instead as
+                                    * a TBX_EVT_MENU event (Sec 6a) -- BADCODE
+                                    * forever, never reused                    */
+#define TBX_DRAWMENUBAR   0x0052u  /* V3  () -> 0 | err  (Sec 9): redraw band 2
+                                    * from the installed bar (IM DrawMenuBar)  */
 #define TBX_EXIT          0x0070u  /* V1  (rc) -> 0 ; teardown runs when the
                                     * tenant next RETURNS to the kernel         */
 
@@ -118,6 +133,7 @@
 #define TBX_ARGC_FILLRECT   6u
 #define TBX_ARGC_EXIT       1u
 #define TBX_ARGC_SETMBAR    1u
+#define TBX_ARGC_DRAWMENUBAR 0u
 #define TBX_ARGC_MAX        6u
 
 /* ---------------------------------------------------------------------------
@@ -178,6 +194,55 @@
 #define FLAIR_EVBUF_WHEREH_OFF 16u   /* GLOBAL coordinates, as the Mac delivers */
 #define FLAIR_EVBUF_WHEREV_OFF 20u
 #define FLAIR_EVBUF_BYTES      24u
+
+/* ---------------------------------------------------------------------------
+ * 6a. THE MENU EVENT (bead initech-tdnl.31): how a tenant HEARS a menu choice
+ *
+ * THE APPLICATION'S SIDE, Inside Macintosh: Macintosh Toolbox Essentials
+ * (local: ../system7-decomp/refs/MacintoshToolboxEssentials.pdf): a mouseDown
+ * that FindWindow puts inMenuBar goes DoMenuCommand(MenuSelect(where))
+ * (Listing 3-18, p. 3-72); a Command-key keyDown goes
+ * DoMenuCommand(MenuKey(key)) (Listing 2-6, p. 2-44); "In either case, the
+ * application passes the function result returned by MenuSelect or MenuKey as
+ * a parameter to the DoMenuCommand procedure" (p. 3-78, Listing 3-24), which
+ * splits it HiWord = menuID, LoWord = item. ONE handler, ONE value, two routes.
+ *
+ * UNDER THE APP CONTRACT a tenant has no event loop and never runs a modal
+ * loop: the menu band goes to the foreground app's bar -> MenuSelect run by
+ * the SHELL (ADR-0013 Sec 3.3), modal tracking loops stay shell-owned helpers
+ * and a tenant never calls WaitNextEvent (Sec 3.4), and the kernel PUSHES
+ * every event into evBufPtr and calls eventProc (DEC-AC3-3). A tenant-called
+ * MENUSELECT trap (D2.1 row 13) cannot be served under that model: the
+ * shell's panel restore routes updateEvts to every damaged window's owner
+ * (kmain flair_live_erase_menu_panel -> flair_live_content_phase ->
+ * flair_route_updates), and the owner under the panel would be the very
+ * tenant parked inside the trap -- tbxgate.c run_tenant refuses that
+ * re-entry (Rule 2 panic). So the SHELL runs MenuSelect (band-2 click) and
+ * MenuKey (a Ctrl/Cmd chord while the tenant is foreground) over the
+ * tenant's OWN bar, exactly as it already does for the in-kernel Finder
+ * (kmain flair_live_finder_key / _menu_result), and PUSHES the result word:
+ *
+ *   What      = TBX_EVT_MENU
+ *   Message   = (menuID << 16) | item   -- the MenuSelect/MenuKey LONGINT,
+ *               verbatim (menu.h Sec 4); never 0 (nothing chosen delivers
+ *               nothing, as DoMenuCommand(0) would do nothing)
+ *   Modifiers, When, WhereH, WhereV = those of the triggering mouseDown /
+ *               keyDown (provenance only; DoMenuCommand reads Message)
+ *
+ * so the tenant's eventProc IS its DoMenuCommand(Message), reached by the
+ * mouse and the key with the IDENTICAL What/Message. A choice made in any
+ * OTHER app's bar is never delivered (bar identity). A Ctrl/Cmd chord that
+ * MenuKey does not resolve (unbound, or its item disabled) is delivered as the
+ * plain keyDown it was. The un-hilite (IM HiliteMenu(0)) is the shell's: the
+ * panel restore already redraws the bar idle before the event is pushed.
+ *
+ * THE VALUE is authored (Inside Macintosh defines no menu event; there is no
+ * local reference for a number): 0x0051 -- the AX code of the D2.1 row-13
+ * MENUSELECT trap this delivery replaces, so a TENANT-EVT what=81 line names
+ * its provenance -- chosen OUTSIDE every Event Manager code (0..15, MTE Table
+ * 2-1, and kHighLevelEvent = 23) so it can never alias a real event.
+ * ------------------------------------------------------------------------- */
+#define TBX_EVT_MENU   0x0051u
 
 /* ---------------------------------------------------------------------------
  * 7. DRAWING TOKENS (C-8 discipline: tenants name ROLES, never RGB/indices)
@@ -250,13 +315,23 @@
  * advances; bead initech-tdnl.33 -- was 8*len + 14). n_menus == 0 is
  * legal (an empty bar, IM ClearMenuBar).
  *
- * SEMANTICS (V2). SetMenuBar, not DrawMenuBar: SETMBAR installs the bar; band
- * 2 shows it the next time the tenant is drawn as foreground -- its
+ * SEMANTICS (V2, V3). SetMenuBar, not DrawMenuBar: SETMBAR installs the bar;
+ * band 2 shows it the next time the tenant is drawn as foreground -- its
  * affirmation at the first NEWWINDOW (DEC-AC3-4), or any later switch back to
- * it -- through flair_live_finish_tenant_switch, the ONE swap path. Accepted
- * only BEFORE the tenant's first NEWWINDOW (later -> TBX_ERR_BUSY): with no
- * DrawMenuBar trap yet, a later swap would leave band 2 showing a bar the
- * pull-down no longer matches. On EXIT / close / crash the app leaves the
+ * it -- through flair_live_finish_tenant_switch, the ONE swap path -- or when
+ * the tenant calls TBX_DRAWMENUBAR. V2 accepted SETMBAR only before the first
+ * NEWWINDOW because, with no DrawMenuBar trap, a later swap would have left
+ * band 2 showing a bar the pull-down no longer matched. V3 (initech-tdnl.31)
+ * adds that trap and lifts the restriction: SETMBAR is legal whenever the
+ * tenant is registered (same validation, same refusals), and the tenant
+ * follows it with DRAWMENUBAR exactly as a Mac application follows SetMenuBar
+ * with DrawMenuBar (MTE p. 3-41, "use the SetMenuBar procedure to set the
+ * current menu list ... and use the DrawMenuBar procedure to update the menu
+ * bar"; Listing 3-5). DRAWMENUBAR takes no arguments; the kernel redraws band
+ * 2 from the foreground app's installed bar when the tenant RETURNS (tenant
+ * code is never on the stack while the pump draws; the effect is visible
+ * before the next event, the same instant a Mac DrawMenuBar's ink would be).
+ * On EXIT / close / crash the app leaves the
  * process list and band 2 is redrawn from the NEW head (never the corpse's
  * bar); the graph dies with the image (D1.5). The resource must stay
  * unmodified while the tenant is registered: the kernel reads it in place on

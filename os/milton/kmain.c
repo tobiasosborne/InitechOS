@@ -2792,6 +2792,15 @@ static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *
             flair_live_finish_tenant_switch(ctx, bi, g_ten_plist, prev,
                                             g_ten_barport);
     }
+    /* (1b) TBX_DRAWMENUBAR (bead initech-tdnl.31; spec/toolbox_gate.h Sec 9
+     * V3): the tenant replaced its bar and asked for band 2 to show it. The
+     * bar drawn is the foreground's, resolved by the ONE resolver. */
+    if (tbx_take_mbar_redraw() && g_ten_barport != (GrafPort *)0 &&
+        g_ten_plist != (FlairProcessList *)0) {
+        DrawMenuBar(g_ten_barport, flair_live_tenant_bar(ctx, g_ten_plist), -1,
+                    (const region_t *)0);
+        flair_desktop_present(bi, &ctx->off);
+    }
     if (!tbx_reap()) return;
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
@@ -2809,6 +2818,42 @@ static void flair_live_launch_app(flair_live_ctx_t *ctx, const boot_info_t *bi,
 {
     (void)tbx_launch(name83, dir_start);
     flair_live_tenant_service(ctx, bi);
+}
+
+/* A DISK TENANT HEARS ITS OWN MENU CHOICES (bead initech-tdnl.31; spec/
+ * toolbox_gate.h Sec 6a). The Finder's two routes above, for the resident
+ * disk tenant: the band-2 MenuSelect result (mouse) and a Ctrl chord MenuKey
+ * resolves over its bar while it is foreground (key) both become the ONE
+ * TBX_EVT_MENU push (tbxgate.c tbx_menu_choice). The tenant has drawn into the
+ * offscreen (or EXITed, or asked for DRAWMENUBAR) by the time it returns, so
+ * the service step and a present follow every delivery. Returns 1 when the
+ * tenant heard the choice.
+ *
+ * __attribute__((unused)) on the mouse half for the same reason as
+ * flair_live_finder_menu_result: KMAIN_MUT_MENU2_DEAD compiles its one call
+ * site out. */
+static void flair_live_tenant_heard(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    flair_live_tenant_service(ctx, bi);
+    flair_desktop_present(bi, &ctx->off);
+}
+
+__attribute__((unused))
+static void flair_live_tenant_menu_result(flair_live_ctx_t *ctx,
+                                          const boot_info_t *bi,
+                                          const MenuBar *bar, uint32_t sel,
+                                          const EventRecord *ev)
+{
+    if (tbx_menu_choice(bar, sel, ev, "mouse"))
+        flair_live_tenant_heard(ctx, bi);
+}
+
+static int flair_live_tenant_key(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                 const EventRecord *ev)
+{
+    if (!tbx_menu_key(ev)) return 0;
+    flair_live_tenant_heard(ctx, bi);
+    return 1;
 }
 
 /* The mounted volume handles, captured at mount time so a drop can rewrite
@@ -4367,6 +4412,30 @@ static void tbx_headless_smoke(void)
         flair_app_dispatch(&plist, &wm, &ev);
     }
     (void)tbx_reap();
+
+    /* initech-tdnl.31: the MENU route on the CPU path. Relaunch; push
+     * Fixture > About (menuID 131 item 1, tenantfx.asm) by the MOUSE route --
+     * the tenant draws its About line, SETMBARs its second bar AFTER its
+     * window and calls DRAWMENUBAR -- then File > Quit by the KEY route: a
+     * synthesized Ctrl-Q keyDown (PS/2 set-1 make 0x10, cooked (vkey<<8)|
+     * ascii by event.c) resolved by MenuKey over the NEW bar. */
+    (void)tbx_launch("TENANTFX.EXE", apps.start_cluster);
+    app = tbx_take_affirm();
+    if (app != (FlairApp *)0 && app->windows != (WindowPtr)0) {
+        ev.what = (uint16_t)mouseDown;
+        ev.message = 0u;
+        ev.when = 0u;
+        ev.modifiers = 0u;
+        ev.where.h = 147;   /* the Fixture title in band 2 */
+        ev.where.v = 30;
+        (void)tbx_menu_choice(app->menubar, MenuResult(131, 1u), &ev, "mouse");
+        if (tbx_take_mbar_redraw()) serial_puts("TBX-SMOKE-MBAR-REDRAW\n");
+        ev.what = (uint16_t)keyDown;
+        ev.message = (0x10u << 8) | (uint32_t)'q';
+        ev.modifiers = (uint16_t)FLAIR_EVT_MOD_CONTROL_KEY;
+        if (!tbx_menu_key(&ev)) serial_puts("TBX-SMOKE-FAIL ctrl-q not a menu command\n");
+    }
+    (void)tbx_reap();
     serial_puts(plist.head == (FlairApp *)0 ? "TBX-SMOKE-OK list-empty\n"
                                             : "TBX-SMOKE-OK list-NOT-empty\n");
 }
@@ -5159,6 +5228,11 @@ void kernel_main(void)
             if (flair_live_finder_key(&ctx, &b, &ev)) {
                 continue;
             }
+            /* initech-tdnl.31: the same for the resident DISK tenant's own
+             * bar (its File > Quit ^Q goes the route the mouse takes). */
+            if (flair_live_tenant_key(&ctx, &b, &ev)) {
+                continue;
+            }
 
             /* Resolve the physical chrome target against the original z-order.
              * flair_app_dispatch independently demuxes the same ORIGINAL event;
@@ -5265,6 +5339,8 @@ void kernel_main(void)
                                               (uint32_t)SHELL_MENUBAR2_TOP);
                     flair_live_finder_menu_result(&ctx, &b, menu2_bar,
                                                   menu2_sel);
+                    flair_live_tenant_menu_result(&ctx, &b, menu2_bar,
+                                                  menu2_sel, &ev);
 #else
                     /* NAMED MUTANT (Rule 6; initech-t1rv): restore the original
                      * y<FLAIR_MENUBAR_H-only test, leaving band 2 dead. */
