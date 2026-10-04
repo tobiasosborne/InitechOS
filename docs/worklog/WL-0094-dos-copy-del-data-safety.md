@@ -61,3 +61,28 @@ Commit restriction: root .git is read-only (index.lock rejected). Per-finding
 commits are preserved on lane-dos-dataloss in build/dosfix-commit-store, a local
 bare metadata copy with read-only access to the original objects. Original
 checkout HEAD is not advanced. A portable bundle is produced at handoff.
+
+## K03/K04 - initech-8uad / initech-p4h7
+
+The common wildcard DEL traversal lost the parent when substituting DTA leaves,
+and discarded matches after a 16-name roster. DEL now substitutes the matched
+leaf under the original parent path and restarts FINDFIRST after each successful
+UNLINK. No fixed roster/cursor survives directory mutation. A repeated first
+leaf detects no progress. A failed delete/search prints the locked Access denied
+message and enumerates remaining full paths without further mutation.
+
+Reference: Microsoft MS-DOS 3.3 User's Reference pp. 13 (qualified DEL) and 56
+(DEL/ERASE selects specified files, wildcard operations). CLAUDE.md Rule 2
+requires the explicit failure/remainder report; its exact layout has no manual
+transcript here and is a project safety policy, not a claimed DOS golden.
+
+Oracle first: K03 boot RED, root KEEP.TXT missing; K04 boot RED, D017/Z*.TXT still
+present. Green: complete paths including drive/absolute/nested CWD/dot/parent;
+0/1/16/17/20/129 file directories drained, each KEEP.TXT intact, mtools plus
+fsck.fat on stopped images. Parent-loss and cap16 mutants independently RED on
+the wrong deletion and seventeenth remainder. The combined audit gate replays
+K01/K02/K03 in ONE boot; all three mutants independently fail its disk assertions.
+An injected unlink refusal leaves the entire disk unchanged and reports the
+first through last of 21 remaining paths. A silent-error mutant fails the
+failure diagnostic assertion. The refusal is factory-injected, not real-device
+write-protection evidence. No existing tests or locked messages changed.

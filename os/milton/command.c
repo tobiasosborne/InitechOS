@@ -1677,16 +1677,22 @@ static void dos_setdta(void *dta)
 
 /* AH=4Eh FINDFIRST: EDX -> ASCIIZ file spec, ECX = attribute mask. Returns 1 on
  * a hit (CF clear), 0 on no-match (CF set). */
-static int dos_findfirst(const char *spec, uint16_t attr)
+static uint16_t dos_findfirst_result(const char *spec, uint16_t attr)
 {
+    uint32_t ax = 0x4E00u;
     uint32_t carry = 0;
     __asm__ __volatile__(
         "int $0x21\n\t"
-        "sbb %0, %0"
-        : "=r"(carry)
-        : "a"(0x4E00u), "c"((uint32_t)attr), "d"((uint32_t)(uintptr_t)spec)
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "c"((uint32_t)attr), "d"((uint32_t)(uintptr_t)spec)
         : "cc", "memory");
-    return carry == 0u;
+    return carry == 0u ? 0u : (uint16_t)ax;
+}
+
+static int dos_findfirst(const char *spec, uint16_t attr)
+{
+    return dos_findfirst_result(spec, attr) == 0u;
 }
 
 /* AH=4Fh FINDNEXT: continue the active search. Returns 1 on a hit, 0 when done. */
@@ -2738,16 +2744,41 @@ static void builtin_copy(const char *arg)
     dos_print("        1 file(s) copied\r\n$");
 }
 
-/* DEL / ERASE <name> (beads initech-hpls, Tranche F).
- *   plain name    -> UNLINK (41h).
- *   wildcard name -> FINDFIRST/NEXT (4Eh/4Fh) collecting matches, then UNLINK
- *                    each (the DTA name is the formatted 8.3 leaf). We COLLECT
- *                    the matches first, then delete -- deleting under an active
- *                    FINDNEXT cursor would mutate the directory mid-walk.
- * No arg -> "Required parameter missing" (MSG-DOS-0011). A plain name that does
- * not exist -> "File not found" (MSG-DOS-0003). DOS prompts "Are you sure (Y/N)?"
- * only for the bare "DEL *.*" form; that prompt is DEFERRED (the wildcard delete
- * itself runs). Ref: DOS 3.3 DEL/ERASE; spec/int21h_register.json 41h/4Eh/4Fh. */
+/* Preserve the operand's parent (including drive/CWD/dots) when substituting
+ * the DTA's matched leaf. Both components are bounded: 63 + 12 < 128 bytes.
+ * Ref: MS-DOS 3.3 User's Reference pp. 13, 56; audit K03 / initech-8uad. */
+static void del_path(char out[CMD_LINE_MAX], const char *spec, int prefix,
+                     const char *leaf)
+{
+    int i;
+    for (i = 0; i < prefix; i++) out[i] = spec[i];
+    for (i = 0; i < 12 && leaf[i]; i++) out[prefix + i] = leaf[i];
+    out[prefix + i] = '\0';
+}
+
+/* Failed/unchanged deletion: enumerate the remaining names WITHOUT mutation.
+ * The failure and every remaining target are visible; never retry forever.
+ * Ref: CLAUDE.md Rule 2; MS-DOS 3.3 User's Reference p. 56 (specified files). */
+static void del_remaining(const char *spec, int prefix)
+{
+    char path[CMD_LINE_MAX];
+    dos_print(MSG_DOS_0009 "\r\n$");
+    if (dos_findfirst(spec, 0u)) {
+        do {
+            del_path(path, spec, prefix, g_shell_dta.fname);
+            dos_puts_raw(path);
+            dos_print("\r\n$");
+        } while (dos_findnext());
+    } else {
+        dos_puts_raw(spec);
+        dos_print("\r\n$");
+    }
+}
+
+/* DEL / ERASE: restart FINDFIRST after each successful UNLINK. No roster cap
+ * and no surviving-entry index held across mutation (fileio_fat enumerates
+ * live entries, so FINDNEXT after unlink could skip the next survivor).
+ * Ref: MS-DOS 3.3 User's Reference pp. 13, 56; K03/K04, 8uad/p4h7. */
 static void builtin_del(const char *arg)
 {
     char name[CMD_TOKEN_MAX];
@@ -2766,32 +2797,56 @@ static void builtin_del(const char *arg)
         return;
     }
 
-    /* Wildcard: collect the matching 8.3 names into a fixed roster, then delete.
-     * (Collect-then-delete: UNLINK mutates the directory the search walks, so we
-     * must not delete while a FINDNEXT cursor is live over the same dir.) */
+    /* One matched leaf at a time. Repeated first leaf detects a backend that
+     * reports success without removing anything, rather than looping forever. */
     {
-        char roster[16][13];                    /* up to 16 names per DEL pass */
-        int  count = 0;
+        char previous[13];
+        char path[CMD_LINE_MAX];
+        int deleted = 0;
+        int prefix = 0;
+        for (int i = 0; name[i]; i++)
+            if (name[i] == '\\' || name[i] == ':') prefix = i + 1;
 
         dos_setdta(&g_shell_dta);
-        if (!dos_findfirst(name, 0u)) {
-            /* No match for the pattern -> "File not found" (DOS DEL *.foo). */
-            dos_print(MSG_DOS_0003 "\r\n$");
-            return;
-        }
-        do {
-            if (count < 16) {
-                int i;
-                for (i = 0; i < 12 && g_shell_dta.fname[i] != '\0'; i++) {
-                    roster[count][i] = g_shell_dta.fname[i];
+        for (;;) {
+            uint16_t result = dos_findfirst_result(name, 0u);
+            if (result != 0u) {
+                if (result == INT21_ERR_FILE_NOT_FOUND || result == INT21_ERR_NO_MORE_FILES) {
+                    if (!deleted) dos_print(MSG_DOS_0003 "\r\n$");
+                } else {
+                    del_remaining(name, prefix);
                 }
-                roster[count][i] = '\0';
-                count++;
+                return;
             }
-        } while (dos_findnext());
-
-        for (int j = 0; j < count; j++) {
-            (void)dos_unlink(roster[j]);        /* best-effort per match (DOS) */
+            if (deleted && cmd_same_file(previous, g_shell_dta.fname)) {
+                del_remaining(name, prefix);
+                return;
+            }
+            int i;
+            for (i = 0; i < 12 && g_shell_dta.fname[i]; i++)
+                previous[i] = g_shell_dta.fname[i];
+            previous[i] = '\0';
+#ifdef CMD_MUTATE_DEL_LOSE_PARENT
+            del_path(path, name, 0, previous); /* Rule 6: original wrong target. */
+#else
+            del_path(path, name, prefix, previous);
+#endif
+            uint16_t error;
+#ifdef CMD_TEST_DEL_DENIED
+            error = INT21_ERR_ACCESS_DENIED; /* factory-injected write refusal */
+#else
+            error = dos_unlink(path);
+#endif
+            if (error != 0u) {
+#ifndef CMD_MUTATE_DEL_SILENT_ERROR
+                del_remaining(name, prefix);
+#endif
+                return;
+            }
+            deleted++;
+#ifdef CMD_MUTATE_DEL_CAP16
+            if (deleted == 16) return; /* Rule 6: original silent remainder. */
+#endif
         }
     }
 }

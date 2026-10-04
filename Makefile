@@ -25928,6 +25928,10 @@ $(BUILD)/tracer_mut_safety_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_sh
 	@dd if=$(BUILD)/kernel_shell_mut_safety_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
 endef
 $(eval $(call dos-safety-shell-mutant,k02,CMD_MUTATE_COPY_DIR_RAW))
+$(eval $(call dos-safety-shell-mutant,k03,CMD_MUTATE_DEL_LOSE_PARENT))
+$(eval $(call dos-safety-shell-mutant,k04,CMD_MUTATE_DEL_CAP16))
+$(eval $(call dos-safety-shell-mutant,denied,CMD_TEST_DEL_DENIED))
+$(eval $(call dos-safety-shell-mutant,silent,CMD_TEST_DEL_DENIED -DCMD_MUTATE_DEL_SILENT_ERROR))
 
 .PHONY: test-dos-safety-k01 test-dos-safety-k01-mutant test-dos-safety-identity test-dos-safety-identity-mutant
 test-dos-safety-identity: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST)
@@ -25942,6 +25946,41 @@ test-dos-safety-k01: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
 
 test-dos-safety-k02: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
 	@sh harness/diff/fat_diff/dos_safety.sh k02 $(TRACER_IMG)
+test-dos-safety-k03: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k03 $(TRACER_IMG)
+test-dos-safety-k04: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k04 $(TRACER_IMG)
+test-dos-safety-del-failure: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_denied.img
+	@sh harness/diff/fat_diff/dos_safety.sh failure $(BUILD)/tracer_mut_safety_denied.img
+test-dos-safety-del-failure-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_silent.img
+	@sh harness/diff/fat_diff/dos_safety.sh failure $(BUILD)/tracer_mut_safety_silent.img _mutant > $(BUILD)/dos_safety_failure_mutant.log 2>&1; rc=$$?; \
+	[ $$rc -ne 0 ] && grep -q 'FAIL failure: deletion failure diagnostic missing' $(BUILD)/dos_safety_failure_mutant.log \
+	|| { cat $(BUILD)/dos_safety_failure_mutant.log; exit 1; }; \
+	printf 'VERDICT: PASS -- test-dos-safety-del-failure-mutant (silent failed unlink: diagnostic missing, RED)\n'
+test-dos-safety-audit: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh audit $(TRACER_IMG)
+test-dos-safety-audit-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRACER_IMG) $(BUILD)/tracer_mut_safety_k02.img $(BUILD)/tracer_mut_safety_k03.img
+	@for item in 'k01:$(OJXN_MUT_TRACER_IMG):SELF.BIN bytes changed' \
+	    'k02:$(BUILD)/tracer_mut_safety_k02.img:FILLED/README.TXT missing' \
+	    'k03:$(BUILD)/tracer_mut_safety_k03.img:KEEP.TXT missing'; do \
+	    tag=$${item%%:*}; rest=$${item#*:}; image=$${rest%%:*}; why=$${rest#*:}; \
+	    log=$(BUILD)/dos_safety_audit_$$tag.log; \
+	    sh harness/diff/fat_diff/dos_safety.sh audit "$$image" _$$tag > "$$log" 2>&1; rc=$$?; \
+	    [ $$rc -ne 0 ] && grep -qF "FAIL audit: $$why" "$$log" \
+	    || { cat "$$log"; exit 1; }; \
+	    printf '>>> test-dos-safety-audit-mutant: %s RED -- %s\n' "$$tag" "$$why"; \
+	done
+	@printf 'VERDICT: PASS -- test-dos-safety-audit-mutant (K01/K02/K03 regressions each RED on stopped disk)\n'
+test-dos-safety-k03-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_k03.img
+	@sh harness/diff/fat_diff/dos_safety.sh k03 $(BUILD)/tracer_mut_safety_k03.img _mutant > $(BUILD)/dos_safety_k03_mutant.log 2>&1; rc=$$?; \
+	[ $$rc -ne 0 ] && grep -q 'FAIL k03: KEEP.TXT missing' $(BUILD)/dos_safety_k03_mutant.log \
+	|| { cat $(BUILD)/dos_safety_k03_mutant.log; exit 1; }; \
+	printf 'VERDICT: PASS -- test-dos-safety-k03-mutant (parent lost: root KEEP.TXT missing, RED)\n'
+test-dos-safety-k04-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_k04.img
+	@sh harness/diff/fat_diff/dos_safety.sh k04 $(BUILD)/tracer_mut_safety_k04.img _mutant > $(BUILD)/dos_safety_k04_mutant.log 2>&1; rc=$$?; \
+	[ $$rc -ne 0 ] && grep -q 'FAIL k04: D017/Z\*.TXT still present' $(BUILD)/dos_safety_k04_mutant.log \
+	|| { cat $(BUILD)/dos_safety_k04_mutant.log; exit 1; }; \
+	printf 'VERDICT: PASS -- test-dos-safety-k04-mutant (sixteen cap restored: seventeenth match remains, RED)\n'
 test-dos-safety-create: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST)
 	@sh harness/diff/fat_diff/dos_safety.sh create unused
 test-dos-safety-create-mutant: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_CREATE_MUT)
@@ -27084,6 +27123,8 @@ TEST_EMU_GATES := \
 	test-copy-selfcopy test-copy-selfcopy-mutant \
 	test-dos-safety-k01 test-dos-safety-k01-mutant \
 	test-dos-safety-k02 test-dos-safety-k02-mutant \
+	test-dos-safety-k03 test-dos-safety-k03-mutant test-dos-safety-k04 test-dos-safety-k04-mutant \
+	test-dos-safety-audit test-dos-safety-audit-mutant test-dos-safety-del-failure test-dos-safety-del-failure-mutant \
 	test-readerr-winh test-readerr-winh-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-fpu test-fpu-mutant test-fpu-bochs test-fpu-absent test-fpu-absent-mutant test-fpu-mf test-fpu-mf-mutant \

@@ -34,6 +34,67 @@ touch "$out/zero"
 mcopy -i "$img" "$out/zero" ::ZERO1
 mcopy -i "$img" "$out/zero" ::ZERO2
 case "$mode" in
+audit|failure)
+    i=0
+    while [ "$i" -lt 20 ]; do
+        leaf=$(printf 'Z%02d.TXT' "$i")
+        mcopy -i "$img" "$out/sub.txt" "::DELTEST/$leaf"
+        i=$((i + 1))
+    done
+    if [ "$mode" = audit ]; then
+        cat > "$out/commands.txt" <<'CMDS'
+copy self.bin .\self.bin
+dir
+copy self.bin a:\self.bin
+dir
+type filled\save.txt
+copy readme.txt filled
+cd filled
+type save.txt
+cd ..
+type keep.txt
+type deltest\keep.txt
+del deltest\*.txt
+type keep.txt
+type deltest\keep.txt
+exit
+CMDS
+    else
+        cp -f "$img" "$out/before.img"
+        printf 'del deltest\\*.txt\nexit\n' > "$out/commands.txt"
+    fi
+    ;;
+k03)
+    mcopy -i "$img" "$out/sub.txt" ::SUB/KEEP.TXT
+    mcopy -i "$img" "$out/sub.txt" ::SUB/DEEP/KEEP.TXT
+    cat > "$out/commands.txt" <<'CMDS'
+type keep.txt
+type deltest\keep.txt
+del deltest\*.txt
+type keep.txt
+type deltest\keep.txt
+del a:\sub\deep\*.txt
+cd sub
+del .\deep\..\*.txt
+exit
+CMDS
+    ;;
+k04)
+    : > "$out/commands.txt"
+    for count in 0 1 16 17 20 129; do
+        dir=$(printf 'D%03d' "$count")
+        mmd -i "$img" "::$dir"
+        mcopy -i "$img" "$out/root.txt" "::$dir/KEEP.TXT"
+        i=0
+        while [ "$i" -lt "$count" ]; do
+            leaf=$(printf 'Z%03d.TXT' "$i")
+            mcopy -i "$img" "$out/sub.txt" "::$dir/$leaf"
+            i=$((i + 1))
+        done
+        printf 'cd %s\ndel z*.txt\ndir\ncd ..\n' "$dir" >> "$out/commands.txt"
+    done
+    printf 'exit\n' >> "$out/commands.txt"
+    ;;
 identity|create)
     cp -f "$img" "$out/before.img"
     "${DOS_SAFETY_HOST:-build/test_dos_safety}" "$img" "$mode" || fail 'host safety check'
@@ -91,7 +152,38 @@ bytes() {
     mcopy -i "$img" "::$1" - > "$out/extracted" 2> "$out/mcopy.log" || fail "$1 missing"
     cmp -s "$out/extracted" "$2" || fail "$1 bytes changed"
 }
+absent() {
+    if mdir -i "$img" "::$1" > "$out/mdir.txt" 2>&1; then fail "$1 still present"; fi
+}
 case "$mode" in
+audit)
+    bytes SELF.BIN "$out/self.bin"
+    bytes FILLED/SAVE.TXT "$out/root.txt"
+    bytes FILLED/README.TXT "$out/readme.txt"
+    bytes KEEP.TXT "$out/root.txt"
+    absent 'DELTEST/*.TXT'
+    [ "$(grep -c 'File cannot be copied onto itself' "$out/repl.txt")" = 2 ] || fail 'self refusal missing'
+    ;;
+failure)
+    cmp -s "$img" "$out/before.img" || fail 'failed unlink changed disk'
+    grep -q 'Access denied' "$out/repl.txt" || fail 'deletion failure diagnostic missing'
+    grep -qF 'DELTEST\KEEP.TXT' "$out/repl.txt" || fail 'first remainder undisclosed'
+    grep -qF 'DELTEST\Z19.TXT' "$out/repl.txt" || fail 'last remainder undisclosed'
+    ;;
+k03)
+    bytes KEEP.TXT "$out/root.txt"
+    absent DELTEST/KEEP.TXT
+    absent SUB/KEEP.TXT
+    absent SUB/DEEP/KEEP.TXT
+    bytes SUB/SELF.BIN "$out/self.bin"
+    ;;
+k04)
+    for count in 0 1 16 17 20 129; do
+        dir=$(printf 'D%03d' "$count")
+        bytes "$dir/KEEP.TXT" "$out/root.txt"
+        absent "$dir/Z*.TXT"
+    done
+    ;;
 k01)
     bytes SELF.BIN "$out/self.bin"
     bytes BIG.BIN "$out/big.bin"
