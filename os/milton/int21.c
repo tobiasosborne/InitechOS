@@ -2125,6 +2125,32 @@ static uint16_t dev_route_rw(device_header_t *dev, int is_write,
  * may be open concurrently (each its own SFT slot). Errors: AX=0x0002 (not
  * found), 0x0003 (path), 0x0004 (no free SFT/JFT slot). Ref: brief Sec 4.1;
  * DOS 3.3 PRM AH=3Dh; RBIL INT 21/AH=3Dh (device-name precedence). */
+int int21_same_file(uint16_t first, uint16_t second)
+{
+    sft_entry_t *a = first <= 0xFFu
+        ? sft_from_handle(g_cur_psp, (uint8_t)first) : 0;
+    sft_entry_t *b = second <= 0xFFu
+        ? sft_from_handle(g_cur_psp, (uint8_t)second) : 0;
+    if (a == 0 || b == 0 || a->kind != b->kind) return 0;
+#ifdef INT21_MUTATE_SAMEFILE_FALSE
+    return 0; /* Rule 6: alias identity oracle must reject this false negative. */
+#endif
+    /* There is one mounted volume. OPEN has already resolved drive/CWD/dots.
+     * Cluster alone is insufficient (all empty files have cluster zero).
+     * Ref: MS-DOS 3.3 User's Reference p. 50, COPY self refusal; initech-vj28. */
+    if (a->kind == SFT_KIND_FILE)
+        return a->dir_start == b->dir_start && a->root_slot == b->root_slot;
+    return a->kind == SFT_KIND_DEVICE && a->device == b->device;
+}
+
+int int21_directory_exists(const char *path)
+{
+    uint16_t dir;
+    return path != 0 && !path_overlength(path) && g_file != 0 &&
+        g_file->resolve_dir != 0 &&
+        g_file->resolve_dir(path, g_cwd_start_cluster, &dir, 0, 0u) == 0u;
+}
+
 static void do_open(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;

@@ -2451,6 +2451,14 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	}
 
 	if (found) {
+		/* Never retype a directory or volume label through file CREAT.
+		 * Ref: MS-DOS 3.3 User's Reference p. 12 (directory/file namespace);
+		 * IBM DOS 3.30 Technical Reference pp. 6-122/6-123 (file CREAT).
+		 * Audit K02 / initech-wdzq: reject BEFORE freeing/flushing the chain. */
+#ifndef FAT12_MUTATE_CREATE_NONREGULAR
+		if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u)
+			return FAT12_ERR_ACCESS;
+#endif
 		/* TRUNCATE: free the existing chain and reset the entry to size 0. */
 		slot = match_slot;
 		if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {
